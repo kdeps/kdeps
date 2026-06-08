@@ -174,18 +174,20 @@ func extractAPIMeta(w stdhttp.ResponseWriter, metaRaw interface{}) map[string]an
 	return meta
 }
 
-func applyMetaHeaders(w stdhttp.ResponseWriter, headersRaw interface{}) {
-	headers, okHeaders := headersRaw.(map[string]interface{})
-	if okHeaders {
-		for hKey, hValue := range headers {
-			if strValue, okStr := hValue.(string); okStr {
-				w.Header().Set(hKey, strValue)
-			}
+func setInterfaceStringHeaders(w stdhttp.ResponseWriter, headers map[string]interface{}) {
+	for hKey, hValue := range headers {
+		if strValue, okStr := hValue.(string); okStr {
+			w.Header().Set(hKey, strValue)
 		}
+	}
+}
+
+func applyMetaHeaders(w stdhttp.ResponseWriter, headersRaw interface{}) {
+	if headers, ok := headersRaw.(map[string]interface{}); ok {
+		setInterfaceStringHeaders(w, headers)
 		return
 	}
-
-	if headersStr, okHeadersStr := headersRaw.(map[string]string); okHeadersStr {
+	if headersStr, ok := headersRaw.(map[string]string); ok {
 		setStringResponseHeaders(w, headersStr)
 	}
 }

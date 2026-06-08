@@ -140,7 +140,7 @@ func (h *UploadHandler) processFileHeaders(
 		file, err := h.processFileHeader(fileHeader, fieldName)
 		if err != nil {
 			if fieldName == uploadFieldFile && len(files) == 1 {
-				return nil, fmt.Errorf("failed to process file: %w", err)
+				return nil, prefixedWrapError("failed to process file", err)
 			}
 			return nil, fmt.Errorf(
 				"failed to process file %s%s: %w",

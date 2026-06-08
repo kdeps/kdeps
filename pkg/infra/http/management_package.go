@@ -151,7 +151,7 @@ func readNextPackageEntry(tr *tar.Reader) (*tar.Header, error) {
 		return nil, io.EOF
 	}
 	if err != nil {
-		return nil, fmt.Errorf("failed to read archive entry: %w", err)
+		return nil, prefixedWrapError("failed to read archive entry", err)
 	}
 	return hdr, nil
 }
@@ -177,7 +177,7 @@ func extractKdepsPackage(data []byte, destDir string) error {
 	kdeps_debug.Log("enter: extractKdepsPackage")
 	baseDirAbs, baseErr := filepathAbs(destDir)
 	if baseErr != nil {
-		return fmt.Errorf("failed to resolve destination directory: %w", baseErr)
+		return prefixedWrapError("failed to resolve destination directory", baseErr)
 	}
 
 	tr, closer, err := openPackageTarReader(data)

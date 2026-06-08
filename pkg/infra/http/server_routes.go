@@ -34,12 +34,16 @@ func (s *Server) SetupRoutes() {
 	// Management API endpoints (always available for remote workflow management)
 	s.SetupManagementRoutes()
 
-	// Setup routes from workflow configuration
-	if s.Workflow != nil && s.Workflow.Settings.APIServer != nil {
-		for _, route := range s.Workflow.Settings.APIServer.Routes {
-			for _, method := range route.Methods {
-				s.registerAPIServerRoute(route.Path, method)
-			}
+	s.registerWorkflowAPIRoutes()
+}
+
+func (s *Server) registerWorkflowAPIRoutes() {
+	if s.Workflow == nil || s.Workflow.Settings.APIServer == nil {
+		return
+	}
+	for _, route := range s.Workflow.Settings.APIServer.Routes {
+		for _, method := range route.Methods {
+			s.registerAPIServerRoute(route.Path, method)
 		}
 	}
 }
