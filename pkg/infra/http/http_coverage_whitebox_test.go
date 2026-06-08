@@ -23,6 +23,7 @@ import (
 	"net/http/httptest"
 	"net/url"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -737,4 +738,38 @@ func TestRelayWebSocketMessages_WriteError(t *testing.T) {
 	case <-time.After(2 * time.Second):
 		t.Fatal("expected write error")
 	}
+}
+
+func TestWorkflowMetadataHelpers_NilWorkflow(t *testing.T) {
+	assert.Empty(t, workflowMetadataName(nil))
+	assert.Empty(t, workflowMetadataVersion(nil))
+	assert.Nil(t, workflowNameVersionMap(nil))
+}
+
+func TestErrorDetailString_Nil(t *testing.T) {
+	assert.Empty(t, errorDetailString(nil))
+}
+
+func TestLogReloadedWorkflow_NilWorkflow(t *testing.T) {
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
+	require.NotPanics(t, func() {
+		logReloadedWorkflow(&Server{logger: logger, Workflow: nil})
+	})
+}
+
+func TestLogReloadedWorkflow_WithDetail(t *testing.T) {
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
+	require.NotPanics(t, func() {
+		logReloadedWorkflow(&Server{
+			logger: logger,
+			Workflow: &domain.Workflow{
+				Metadata: domain.WorkflowMetadata{Name: "wf", Version: "1.0"},
+			},
+		})
+	})
+}
+
+func TestKillProcessIfRunning_NotRunning(t *testing.T) {
+	assert.NoError(t, killProcessIfRunning(nil))
+	assert.NoError(t, killProcessIfRunning(&exec.Cmd{}))
 }
