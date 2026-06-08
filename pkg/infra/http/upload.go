@@ -19,7 +19,6 @@
 package http
 
 import (
-	"fmt"
 	"io"
 	"mime/multipart"
 	stdhttp "net/http"
@@ -28,11 +27,8 @@ import (
 )
 
 const (
-	// MaxUploadSize is the maximum file size (10MB by default).
 	MaxUploadSize = 10 * 1024 * 1024
-
-	// MaxMemory is the maximum memory for parsing multipart form (32MB).
-	MaxMemory = 32 << 20
+	MaxMemory     = 32 << 20
 
 	uploadFieldFile  = "file"
 	uploadFieldFiles = "files"
@@ -49,13 +45,11 @@ var (
 	readMultipartFile = io.ReadAll
 )
 
-// UploadHandler handles file uploads.
 type UploadHandler struct {
 	store       domain.FileStore
 	maxFileSize int64
 }
 
-// NewUploadHandler creates a new upload handler.
 func NewUploadHandler(store domain.FileStore, maxFileSize int64) *UploadHandler {
 	debugEnter("NewUploadHandler")
 	if maxFileSize == 0 {
@@ -68,15 +62,14 @@ func NewUploadHandler(store domain.FileStore, maxFileSize int64) *UploadHandler 
 	}
 }
 
-// HandleUpload processes file uploads from multipart form.
 func (h *UploadHandler) HandleUpload(r *stdhttp.Request) ([]*domain.UploadedFile, error) {
 	debugEnter("HandleUpload")
 	if err := r.ParseMultipartForm(MaxMemory); err != nil {
-		return nil, prefixedWrapError(uploadParseFormFailedPrefix(), err)
+		return nil, uploadParseFormFailed(err)
 	}
 
 	form := r.MultipartForm
-	if form == nil || form.File == nil {
+	if isEmptyMultipartForm(form) {
 		return emptyUploadFiles(), nil
 	}
 
@@ -97,35 +90,17 @@ func (h *UploadHandler) HandleUpload(r *stdhttp.Request) ([]*domain.UploadedFile
 	return emptyUploadFiles(), nil
 }
 
-func emptyUploadFiles() []*domain.UploadedFile {
-	return []*domain.UploadedFile{}
-}
-
-func uploadPreferredFieldNames() []string {
-	return []string{uploadFieldArray, uploadFieldFiles, uploadFieldFile}
-}
-
-func isStandardUploadField(fieldName string) bool {
-	return fieldName == uploadFieldFile ||
-		fieldName == uploadFieldArray ||
-		fieldName == uploadFieldFiles
-}
-
-func processNamedUploadFileError(filename, fieldSuffix string, err error) error {
-	return fmt.Errorf("failed to process file %s%s: %w", filename, fieldSuffix, err)
-}
-
 func (h *UploadHandler) collectPreferredUploadFiles(
 	formFiles map[string][]*multipart.FileHeader,
 ) ([]*domain.UploadedFile, error) {
 	for _, fieldName := range uploadPreferredFieldNames() {
 		files, ok := formFiles[fieldName]
-		if !ok || len(files) == 0 {
+		if !ok || isEmptyFileList(files) {
 			continue
 		}
 
 		if fieldName == uploadFieldFile {
-			return h.processFileHeaders(fieldName, files[:1])
+			return h.processFileHeaders(fieldName, singleFileSlice(files))
 		}
 		return h.processFileHeaders(fieldName, files)
 	}
@@ -137,7 +112,7 @@ func (h *UploadHandler) collectAllUploadFiles(
 ) ([]*domain.UploadedFile, error) {
 	var uploadedFiles []*domain.UploadedFile
 	for fieldName, files := range formFiles {
-		if len(files) == 0 {
+		if isEmptyFileList(files) {
 			continue
 		}
 		uploaded, err := h.processFileHeaders(fieldName, files)
@@ -157,8 +132,8 @@ func (h *UploadHandler) processFileHeaders(
 	for _, fileHeader := range files {
 		file, err := h.processFileHeader(fileHeader, fieldName)
 		if err != nil {
-			if fieldName == uploadFieldFile && len(files) == 1 {
-				return nil, prefixedWrapError(uploadProcessFileFailedPrefix(), err)
+			if isSingleStandardUpload(fieldName, len(files)) {
+				return nil, uploadProcessFileFailed(err)
 			}
 			return nil, processNamedUploadFileError(
 				fileHeader.Filename,
@@ -171,37 +146,6 @@ func (h *UploadHandler) processFileHeaders(
 	return uploadedFiles, nil
 }
 
-func readBoundedUploadContent(src io.Reader, maxSize int64) ([]byte, int64, error) {
-	content, err := readMultipartFile(io.LimitReader(src, maxSize+1))
-	if err != nil {
-		return nil, 0, err
-	}
-	return content, int64(len(content)), nil
-}
-
-func isExplicitUploadContentType(contentType string) bool {
-	return contentType != "" && contentType != octetStreamContentType
-}
-
-func resolveUploadContentType(content []byte, headerContentType string) string {
-	contentType := stdhttp.DetectContentType(content)
-	if isExplicitUploadContentType(headerContentType) {
-		return headerContentType
-	}
-	return contentType
-}
-
-func uploadFieldSuffix(fieldName string) string {
-	if isStandardUploadField(fieldName) {
-		return ""
-	}
-	return fmt.Sprintf(" from field %s", fieldName)
-}
-
-func fileTooLargeMessage(size, maxSize int64) string {
-	return fmt.Sprintf("File too large: %d bytes (max: %d)", size, maxSize)
-}
-
 func (h *UploadHandler) uploadTooLargeError(filename string, size int64) *domain.AppError {
 	return domain.NewAppError(
 		domain.ErrCodeRequestTooLarge,
@@ -211,21 +155,18 @@ func (h *UploadHandler) uploadTooLargeError(filename string, size int64) *domain
 		WithDetails("maxSize", h.maxFileSize)
 }
 
-// processFileHeader processes a single file header.
 func (h *UploadHandler) processFileHeader(
 	fileHeader *multipart.FileHeader,
 	fieldName string,
 ) (*domain.UploadedFile, error) {
 	debugEnter("processFileHeader")
-	// Check file size
 	if isUploadFileTooLarge(fileHeader.Size, h.maxFileSize) {
 		return nil, h.uploadTooLargeError(fileHeader.Filename, fileHeader.Size)
 	}
 
-	// Open uploaded file
 	src, err := openMultipartFile(fileHeader)
 	if err != nil {
-		return nil, prefixedWrapError(uploadOpenFileFailedPrefix(), err)
+		return nil, uploadOpenFileFailed(err)
 	}
 	defer func() {
 		_ = src.Close()
@@ -233,18 +174,17 @@ func (h *UploadHandler) processFileHeader(
 
 	content, contentSize, err := readBoundedUploadContent(src, h.maxFileSize)
 	if err != nil {
-		return nil, prefixedWrapError(uploadReadContentFailedPrefix(), err)
+		return nil, uploadReadContentFailed(err)
 	}
-	if contentSize > h.maxFileSize {
+	if exceedsMaxSize(contentSize, h.maxFileSize) {
 		return nil, h.uploadTooLargeError(fileHeader.Filename, contentSize)
 	}
 
 	contentType := resolveUploadContentType(content, multipartFileContentType(fileHeader))
 
-	// Store file
 	file, err := h.store.Store(fileHeader.Filename, content, contentType)
 	if err != nil {
-		return nil, prefixedWrapError(uploadStoreFileFailedPrefix(), err)
+		return nil, uploadStoreFileFailed(err)
 	}
 
 	file.FieldName = fieldName

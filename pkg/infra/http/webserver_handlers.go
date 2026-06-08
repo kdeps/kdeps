@@ -19,12 +19,9 @@
 package http
 
 import (
-	"net"
 	stdhttp "net/http"
 	"net/http/httputil"
 	"net/url"
-	"os"
-	"strconv"
 
 	"github.com/kdeps/kdeps/v2/pkg/domain"
 )
@@ -37,18 +34,15 @@ func (s *WebServer) HandleStaticRequest(
 	debugEnter("HandleStaticRequest")
 	fullPath := appRouteWorkDir(s, route)
 
-	// Check if directory exists
-	if _, err := os.Stat(fullPath); isNotExistErr(err) {
-		s.respondStaticPathNotFound(w, fullPath)
+	if !pathExists(fullPath) {
+		s.logAndRespondNotFound(w, fullPath)
 		return
 	}
 
-	// Strip the route prefix and serve files
 	fileServer := stdhttp.StripPrefix(route.Path, stdhttp.FileServer(stdhttp.Dir(fullPath)))
 	fileServer.ServeHTTP(w, r)
 }
 
-// HandleAppRequest handles reverse proxying to apps.
 func (s *WebServer) HandleAppRequest(
 	w stdhttp.ResponseWriter,
 	r *stdhttp.Request,
@@ -57,17 +51,16 @@ func (s *WebServer) HandleAppRequest(
 	debugEnter("HandleAppRequest")
 	appPort, ok := requireAppRoutePort(route)
 	if !ok {
-		s.respondMissingAppPort(w)
+		s.logAndRespondMissingPort(w)
 		return
 	}
 
 	targetURL, err := localAppProxyTarget(appPort)
 	if err != nil {
-		s.respondInvalidAppProxyTarget(w, appPort, err)
+		s.logAndRespondInvalidProxyURL(w, appPort, err)
 		return
 	}
 
-	// Check for WebSocket upgrade
 	if isWebSocketUpgradeRequest(r) {
 		s.HandleWebSocketProxy(w, r, targetURL, route)
 		return
@@ -86,8 +79,8 @@ func newAppReverseProxy(
 		Rewrite: func(pr *httputil.ProxyRequest) {
 			pr.SetURL(targetURL)
 			pr.Out.URL.Path = buildProxiedPath(route.Path, requestPath(r))
-			pr.Out.URL.RawQuery = r.URL.RawQuery
-			pr.Out.Host = targetURL.Host
+			copyQueryString(pr.Out.URL, r.URL)
+			setProxyHost(pr.Out.URL, targetURL)
 			forwardProxyRequestHeaders(pr.Out.Header, r.Header)
 			logProxyRequest(s.logger, pr.Out.URL.String())
 		},
@@ -95,71 +88,11 @@ func newAppReverseProxy(
 			ResponseHeaderTimeout: appProxyResponseTimeout(),
 		},
 		ErrorHandler: func(w stdhttp.ResponseWriter, req *stdhttp.Request, err error) {
-			s.respondProxyRequestFailed(w, req, err)
+			s.logAndRespondProxyError(w, req, err)
 		},
 	}
-}
-
-func (s *WebServer) respondStaticPathNotFound(w stdhttp.ResponseWriter, fullPath string) {
-	s.logBackgroundError(publicPathMissingLogMessage(), "path", fullPath)
-	respondWebServerNotFound(w)
-}
-
-func (s *WebServer) respondProxyRequestFailed(
-	w stdhttp.ResponseWriter,
-	req *stdhttp.Request,
-	err error,
-) {
-	s.logBackgroundError(
-		proxyRequestFailedLogMessage(),
-		"url",
-		req.URL.String(),
-		"error",
-		err,
-	)
-	respondBadGateway(w, proxyReachAppFailedMessage())
-}
-
-func (s *WebServer) respondInvalidAppProxyTarget(
-	w stdhttp.ResponseWriter,
-	appPort int,
-	err error,
-) {
-	s.logBackgroundError(
-		invalidProxyURLLogMessage(),
-		"host",
-		localAppProxyHost,
-		"port",
-		appPort,
-		"error",
-		err,
-	)
-	respondWebServerInternalError(w)
-}
-
-func (s *WebServer) respondMissingAppPort(w stdhttp.ResponseWriter) {
-	s.logBackgroundError(missingAppPortLogMessage())
-	respondWebServerInternalError(w)
-}
-
-func requireAppRoutePort(route *domain.WebRoute) (int, bool) {
-	if route.AppPort == 0 {
-		return 0, false
-	}
-	return route.AppPort, true
 }
 
 func localAppProxyTarget(port int) (*url.URL, error) {
 	return httpURLFromHostPort(localAppProxyHost, port)
 }
-
-func httpURLFromHostPort(host string, port int) (*url.URL, error) {
-	hostPort := net.JoinHostPort(host, strconv.Itoa(port))
-	return parseProxyURL(httpSchemeURL(hostPort))
-}
-
-func forwardProxyRequestHeaders(dst, src stdhttp.Header) {
-	copyStringHeaderValues(dst, src)
-}
-
-// HandleWebSocketProxy handles WebSocket proxying.

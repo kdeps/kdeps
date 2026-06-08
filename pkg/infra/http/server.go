@@ -22,8 +22,6 @@ import (
 	"context"
 	"log/slog"
 	stdhttp "net/http"
-	"os"
-	"path/filepath"
 	"sync"
 	"time"
 
@@ -178,16 +176,12 @@ func (s *Server) Start(addr string, devMode bool) error {
 }
 
 func newUploadInfrastructure() (domain.FileStore, *UploadHandler, error) {
-	uploadDir := filepath.Join(os.TempDir(), defaultUploadSubdir)
+	uploadDir := defaultUploadDir()
 	fileStore, err := NewTemporaryFileStore(uploadDir)
 	if err != nil {
 		return nil, nil, uploadInfrastructureCreateFailed(err)
 	}
 	return fileStore, NewUploadHandler(fileStore, int64(MaxUploadSize)), nil
-}
-
-func hasTLSCertificates(certFile, keyFile string) bool {
-	return certFile != "" && keyFile != ""
 }
 
 func (s *Server) logStartingHTTPS(addr, certFile string) {
@@ -208,7 +202,7 @@ func (s *Server) listenAndServe(addr, certFile, keyFile string) error {
 }
 
 func (s *Server) enableHotReloadIfDev(devMode bool) {
-	if !devMode || s.Watcher == nil {
+	if !shouldEnableHotReload(devMode, s.Watcher) {
 		return
 	}
 	if err := s.SetupHotReload(); err != nil {

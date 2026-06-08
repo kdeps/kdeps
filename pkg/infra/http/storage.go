@@ -22,7 +22,6 @@ package http
 import (
 	"crypto/sha256"
 	"encoding/hex"
-	"fmt"
 	"os"
 	"path/filepath"
 	"sync"
@@ -34,7 +33,6 @@ import (
 //nolint:gochecknoglobals // overridden in tests for fast cleanup ticks
 var cleanupLoopInterval = 5 * time.Minute
 
-// TemporaryFileStore implements FileStore for temporary uploads.
 type TemporaryFileStore struct {
 	baseDir string
 	files   map[string]*domain.UploadedFile
@@ -60,10 +58,6 @@ func newUploadedFileRecord(
 		UploadedAt:  time.Now(),
 		Metadata:    newUploadMetadataMap(),
 	}
-}
-
-func fileNotFoundError(id string) error {
-	return fmt.Errorf("file not found: %s", id)
 }
 
 func lookupStoredFile(
@@ -100,16 +94,15 @@ func removeStoredFileEntry(files map[string]*domain.UploadedFile, id string) {
 
 func removeUploadedFile(file *domain.UploadedFile) error {
 	if err := os.Remove(file.Path); err != nil && !isNotExistErr(err) {
-		return prefixedWrapError(storageDeleteFileFailedPrefix(), err)
+		return storageDeleteFileFailed(err)
 	}
 	return nil
 }
 
-// NewTemporaryFileStore creates a new temporary file store.
 func NewTemporaryFileStore(baseDir string) (*TemporaryFileStore, error) {
 	debugEnter("NewTemporaryFileStore")
-	if err := os.MkdirAll(baseDir, 0750); err != nil {
-		return nil, prefixedWrapError(storageCreateUploadDirFailedPrefix(), err)
+	if err := mkdirSecureOS(baseDir); err != nil {
+		return nil, storageCreateUploadDirFailed(err)
 	}
 
 	store := &TemporaryFileStore{
@@ -124,7 +117,6 @@ func NewTemporaryFileStore(baseDir string) (*TemporaryFileStore, error) {
 	return store, nil
 }
 
-// Store saves an uploaded file.
 func (s *TemporaryFileStore) Store(
 	filename string,
 	content []byte,
@@ -132,14 +124,14 @@ func (s *TemporaryFileStore) Store(
 ) (*domain.UploadedFile, error) {
 	debugEnter("Store")
 	id := generateUploadID(content)
-	safeFilename := filepath.Base(filename)
-	filePath := storedUploadPath(s.baseDir, id, safeFilename)
+	basename := safeFilename(filename)
+	filePath := storedUploadPath(s.baseDir, id, basename)
 
-	if err := os.WriteFile(filePath, content, 0600); err != nil {
-		return nil, prefixedWrapError(storageWriteFileFailedPrefix(), err)
+	if err := writeSecureOSFile(filePath, content); err != nil {
+		return nil, storageWriteFileFailed(err)
 	}
 
-	file := newUploadedFileRecord(id, safeFilename, contentType, filePath, int64(len(content)))
+	file := newUploadedFileRecord(id, basename, contentType, filePath, int64(len(content)))
 
 	s.mu.Lock()
 	s.files[id] = file
@@ -148,7 +140,6 @@ func (s *TemporaryFileStore) Store(
 	return file, nil
 }
 
-// Get retrieves file metadata by ID.
 func (s *TemporaryFileStore) Get(id string) (*domain.UploadedFile, error) {
 	debugEnter("Get")
 	s.mu.RLock()
@@ -157,7 +148,6 @@ func (s *TemporaryFileStore) Get(id string) (*domain.UploadedFile, error) {
 	return lookupStoredFile(s.files, id)
 }
 
-// GetPath returns the filesystem path for a file ID.
 func (s *TemporaryFileStore) GetPath(id string) (string, error) {
 	debugEnter("GetPath")
 	file, err := s.Get(id)
@@ -167,7 +157,6 @@ func (s *TemporaryFileStore) GetPath(id string) (string, error) {
 	return file.Path, nil
 }
 
-// Delete removes a file.
 func (s *TemporaryFileStore) Delete(id string) error {
 	debugEnter("Delete")
 	s.mu.Lock()
@@ -186,7 +175,6 @@ func (s *TemporaryFileStore) Delete(id string) error {
 	return nil
 }
 
-// Cleanup removes files older than TTL.
 func (s *TemporaryFileStore) Cleanup(ttl time.Duration) error {
 	debugEnter("Cleanup")
 	s.mu.Lock()
@@ -199,7 +187,6 @@ func (s *TemporaryFileStore) Cleanup(ttl time.Duration) error {
 	return nil
 }
 
-// Close stops the file store and cleanup background tasks.
 func (s *TemporaryFileStore) Close() error {
 	debugEnter("Close")
 	s.mu.Lock()
@@ -219,7 +206,6 @@ func (s *TemporaryFileStore) Close() error {
 	return nil
 }
 
-// cleanupLoop runs periodic cleanup.
 func (s *TemporaryFileStore) cleanupLoop(ttl time.Duration) {
 	debugEnter("cleanupLoop")
 	ticker := time.NewTicker(cleanupLoopInterval)
@@ -228,7 +214,7 @@ func (s *TemporaryFileStore) cleanupLoop(ttl time.Duration) {
 	for {
 		select {
 		case <-ticker.C:
-			_ = s.Cleanup(ttl) // Ignore errors in background cleanup
+			_ = s.Cleanup(ttl)
 		case <-s.stopCh:
 			return
 		}

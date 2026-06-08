@@ -19,12 +19,8 @@
 package http
 
 import (
-	"context"
 	"encoding/json"
 	stdhttp "net/http"
-	"strings"
-
-	"github.com/google/uuid"
 
 	"github.com/kdeps/kdeps/v2/pkg/domain"
 )
@@ -41,7 +37,7 @@ func (s *Server) ParseRequest(
 
 	trustedProxies := trustedProxiesForWorkflow(s.Workflow)
 	clientIP := extractClientIP(r, trustedProxies)
-	requestID := uuid.New().String()
+	requestID := newRequestID()
 
 	files := uploadedFilesToFileUploads(uploadedFiles)
 
@@ -85,13 +81,6 @@ func parseRequestBody(r *stdhttp.Request) map[string]interface{} {
 	return body
 }
 
-func uploadRequestError(err error) *domain.AppError {
-	return domain.NewAppError(
-		domain.ErrCodeBadRequest,
-		prefixedErrorMessage(uploadFailedPrefix(), err),
-	)
-}
-
 func uploadedFilesToFileUploads(uploadedFiles []*domain.UploadedFile) []FileUpload {
 	files := make([]FileUpload, 0, len(uploadedFiles))
 	for _, file := range uploadedFiles {
@@ -106,10 +95,6 @@ func uploadedFilesToFileUploads(uploadedFiles []*domain.UploadedFile) []FileUplo
 	return files
 }
 
-func isFormURLEncodedContentType(contentType string) bool {
-	return strings.HasPrefix(contentType, "application/x-www-form-urlencoded")
-}
-
 func (s *Server) processRequestUploads(
 	w stdhttp.ResponseWriter,
 	r *stdhttp.Request,
@@ -120,7 +105,7 @@ func (s *Server) processRequestUploads(
 
 	files, err := s.uploadHandler.HandleUpload(r)
 	if err != nil {
-		s.respondWithRequestError(w, r, uploadRequestError(err))
+		s.respondWithRequestError(w, r, uploadRequestAppError(err))
 		return nil, false
 	}
 
@@ -137,8 +122,7 @@ func (s *Server) applySessionFromRequestContext(
 	if !shouldUpdateSessionContext(r, reqCtx.SessionID) {
 		return r
 	}
-	ctx := context.WithValue(r.Context(), SessionIDKey, reqCtx.SessionID)
-	return r.WithContext(ctx)
+	return r.WithContext(withSessionIDContext(r.Context(), reqCtx.SessionID))
 }
 
 func (s *Server) cleanupUploadedFiles(uploadedFiles []*domain.UploadedFile) {

@@ -19,7 +19,6 @@
 package http
 
 import (
-	"fmt"
 	"io"
 	stdhttp "net/http"
 	"time"
@@ -28,14 +27,6 @@ import (
 
 	"github.com/kdeps/kdeps/v2/pkg/domain"
 )
-
-func requestBodyTooLargeMessage(maxBytes int64) string {
-	return fmt.Sprintf("request body exceeds limit of %d bytes", maxBytes)
-}
-
-func uploadBodyTooLargeMessage(contentLength, maxFileSize int64) string {
-	return fmt.Sprintf("Request body too large: %d bytes (max: %d)", contentLength, maxFileSize)
-}
 
 func respondRequestEntityTooLarge(w stdhttp.ResponseWriter, r *stdhttp.Request, message string) {
 	respondMiddlewareError(w, r, domain.ErrCodeRequestTooLarge, message)
@@ -86,7 +77,6 @@ func (s *ipLimiterStore) cleanup() {
 	}
 }
 
-// cleanupOnce performs a single cleanup cycle — testable directly.
 func (s *ipLimiterStore) cleanupOnce() {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -97,8 +87,6 @@ func (s *ipLimiterStore) cleanupOnce() {
 	}
 }
 
-// RateLimitMiddleware enforces per-IP request rate limiting.
-// requestsPerMinute is the sustained rate; burst is the allowed burst above that rate.
 func RateLimitMiddleware(
 	requestsPerMinute, burst int,
 	trustedProxies []string,
@@ -116,8 +104,6 @@ func RateLimitMiddleware(
 	}
 }
 
-// BodyLimitMiddleware caps the size of incoming request bodies (excludes multipart,
-// which is handled by UploadMiddleware). Returns 413 when the limit is exceeded.
 func BodyLimitMiddleware(maxBytes int64) func(stdhttp.HandlerFunc) stdhttp.HandlerFunc {
 	debugEnter("BodyLimitMiddleware")
 	return func(next stdhttp.HandlerFunc) stdhttp.HandlerFunc {
@@ -127,7 +113,7 @@ func BodyLimitMiddleware(maxBytes int64) func(stdhttp.HandlerFunc) stdhttp.Handl
 				return
 			}
 
-			r.Body = stdhttp.MaxBytesReader(w, r.Body, maxBytes)
+			r.Body = wrapMaxBytesReader(w, r.Body, maxBytes)
 			next(w, r)
 
 			if _, readErr := io.ReadAll(r.Body); readErr != nil {
@@ -137,9 +123,6 @@ func BodyLimitMiddleware(maxBytes int64) func(stdhttp.HandlerFunc) stdhttp.Handl
 	}
 }
 
-// ConcurrentLimitMiddleware caps the number of simultaneous in-flight requests.
-// When the limit is reached the server responds with 503 Service Unavailable
-// instead of queuing requests indefinitely.
 func ConcurrentLimitMiddleware(limit int) func(stdhttp.HandlerFunc) stdhttp.HandlerFunc {
 	debugEnter("ConcurrentLimitMiddleware")
 	sem := make(chan struct{}, limit)
@@ -161,7 +144,6 @@ func ConcurrentLimitMiddleware(limit int) func(stdhttp.HandlerFunc) stdhttp.Hand
 	}
 }
 
-// UploadMiddleware validates upload requests for size limits.
 func UploadMiddleware(maxFileSize int64) func(stdhttp.HandlerFunc) stdhttp.HandlerFunc {
 	debugEnter("UploadMiddleware")
 	return func(next stdhttp.HandlerFunc) stdhttp.HandlerFunc {
@@ -171,12 +153,12 @@ func UploadMiddleware(maxFileSize int64) func(stdhttp.HandlerFunc) stdhttp.Handl
 				return
 			}
 
-			if r.ContentLength > maxFileSize {
+			if exceedsMaxSize(r.ContentLength, maxFileSize) {
 				respondUploadBodyTooLarge(w, r, r.ContentLength, maxFileSize)
 				return
 			}
 
-			r.Body = stdhttp.MaxBytesReader(w, r.Body, maxFileSize)
+			r.Body = wrapMaxBytesReader(w, r.Body, maxFileSize)
 			next(w, r)
 		}
 	}

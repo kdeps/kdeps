@@ -21,17 +21,9 @@ package http
 import (
 	"context"
 	stdhttp "net/http"
-	"time"
 
 	"github.com/kdeps/kdeps/v2/pkg/domain"
 )
-
-func responseMetaFields(requestID string) map[string]any {
-	return map[string]any{
-		"requestID": requestID,
-		"timestamp": time.Now(),
-	}
-}
 
 func enrichResponseMeta(r *stdhttp.Request, meta map[string]any) map[string]any {
 	meta = ensureMetaMap(meta)
@@ -83,28 +75,19 @@ func RespondWithValidationErrors(
 // GetRequestID gets the request ID from context.
 func GetRequestID(ctx context.Context) string {
 	debugEnter("GetRequestID")
-	if requestID, ok := ctx.Value(RequestIDKey).(string); ok {
-		return requestID
-	}
-	return ""
+	return contextStringValue(ctx, RequestIDKey)
 }
 
 // GetDebugMode gets the debug mode flag from context.
 func GetDebugMode(ctx context.Context) bool {
 	debugEnter("GetDebugMode")
-	if debugMode, ok := ctx.Value(DebugModeKey).(bool); ok {
-		return debugMode
-	}
-	return false
+	return contextBoolValue(ctx, DebugModeKey)
 }
 
 // GetSessionID gets the session ID from context.
 func GetSessionID(ctx context.Context) string {
 	debugEnter("GetSessionID")
-	if sessionID, ok := ctx.Value(SessionIDKey).(string); ok {
-		return sessionID
-	}
-	return ""
+	return contextStringValue(ctx, SessionIDKey)
 }
 
 // isSecureRequest reports whether the request arrived over HTTPS.

@@ -23,7 +23,6 @@ import (
 	"log/slog"
 	stdhttp "net/http"
 	"net/url"
-	"strings"
 
 	"github.com/gorilla/websocket"
 
@@ -43,7 +42,7 @@ func (s *WebServer) HandleWebSocketProxy(
 
 	targetConn, resp, err := dialTargetWebSocketHook(targetWSURL, r.Header)
 	if err != nil {
-		s.respondWebSocketConnectFailed(w, targetWSURL.String(), err)
+		s.logAndRespondWSConnectFailed(w, targetWSURL.String(), err)
 		return
 	}
 	defer func() {
@@ -55,14 +54,14 @@ func (s *WebServer) HandleWebSocketProxy(
 			_ = resp.Body.Close()
 		}()
 		if !isWebSocketHandshakeOK(resp) {
-			s.respondWebSocketHandshakeFailed(w, resp.StatusCode)
+			s.logAndRespondWSHandshakeFailed(w, resp.StatusCode)
 			return
 		}
 	}
 
 	clientConn, err := upgradeClientWebSocket(w, r)
 	if err != nil {
-		s.logBackgroundError(webSocketUpgradeFailedLogMessage(), "error", err)
+		s.logBackgroundError(webSocketUpgradeFailedLogMessage(), logKeyError, err)
 		return
 	}
 	defer func() {
@@ -70,38 +69,6 @@ func (s *WebServer) HandleWebSocketProxy(
 	}()
 
 	s.proxyWebSocketConnections(clientConn, targetConn)
-}
-
-func (s *WebServer) respondWebSocketConnectFailed(
-	w stdhttp.ResponseWriter,
-	targetURL string,
-	err error,
-) {
-	s.logBackgroundError(
-		webSocketConnectFailedLogMessage(),
-		"url",
-		targetURL,
-		"error",
-		err,
-	)
-	respondBadGateway(w, proxyWebSocketConnectFailedMessage())
-}
-
-func (s *WebServer) respondWebSocketHandshakeFailed(w stdhttp.ResponseWriter, statusCode int) {
-	s.logBackgroundError(webSocketHandshakeFailedLogMessage(), "statusCode", statusCode)
-	respondBadGateway(w, proxyWebSocketHandshakeFailedMessage())
-}
-
-func isWebSocketHandshakeOK(resp *stdhttp.Response) bool {
-	return resp.StatusCode == stdhttp.StatusSwitchingProtocols
-}
-
-func buildProxiedPath(routePath, requestPath string) string {
-	trimmedPath := strings.TrimPrefix(requestPath, routePath)
-	if routePath == "/" && !strings.HasPrefix(trimmedPath, "/") {
-		return "/" + trimmedPath
-	}
-	return trimmedPath
 }
 
 func buildWebSocketTargetURL(
@@ -112,7 +79,7 @@ func buildWebSocketTargetURL(
 	targetWSURL := *targetURL
 	targetWSURL.Scheme = webSocketSchemeValue
 	targetWSURL.Path = buildProxiedPath(route.Path, requestPath(r))
-	targetWSURL.RawQuery = r.URL.RawQuery
+	copyQueryString(&targetWSURL, r.URL)
 	return targetWSURL
 }
 
@@ -190,5 +157,3 @@ func relayWebSocketMessages(
 		}
 	}
 }
-
-// StartAppCommand starts the app command.

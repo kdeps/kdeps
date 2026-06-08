@@ -21,12 +21,10 @@ package http
 import (
 	"context"
 	"errors"
-	"fmt"
 	"log/slog"
 	stdhttp "net/http"
 	"net/url"
 	"os/exec"
-	"strings"
 
 	"github.com/gorilla/websocket"
 
@@ -130,7 +128,7 @@ func (s *WebServer) RegisterRoutesOn(ctx context.Context, router *Router) {
 		handler := s.CreateWebHandler(ctx, &route)
 
 		// Register route with wildcard for serving all paths under it
-		registerWebRouteMethods(router, wildcardWebRoutePath(route.Path), handler)
+		registerWebRouteMethods(router, wildcardRoutePath(route.Path), handler)
 
 		s.logWebRouteConfigured(route)
 	}
@@ -186,22 +184,11 @@ func (s *WebServer) logWebRouteConfigured(route domain.WebRoute) {
 	)
 }
 
-func wildcardWebRoutePath(routePath string) string {
-	if !strings.HasSuffix(routePath, "/") {
-		routePath += "/"
-	}
-	return routePath + "*"
-}
-
 func webServerListenAddr(settings domain.WorkflowSettings) string {
 	return listenAddrFromHostPort(
 		effectiveBindHostFromEnv(settings.GetHostIP()),
 		settings.GetPortNum(),
 	)
-}
-
-func listenAddrFromHostPort(host string, port int) string {
-	return fmt.Sprintf("%s:%d", host, port)
 }
 
 func stopWebServerCommands(

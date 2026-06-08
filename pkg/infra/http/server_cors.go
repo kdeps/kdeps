@@ -50,7 +50,7 @@ func (s *Server) CorsMiddleware(next stdhttp.HandlerFunc) stdhttp.HandlerFunc {
 func (s *Server) setCorsOrigin(w stdhttp.ResponseWriter, r *stdhttp.Request, cors *domain.CORS) {
 	debugEnter("setCorsOrigin")
 	origin := requestOrigin(r)
-	if origin == "" {
+	if !hasOriginHeader(origin) {
 		return
 	}
 

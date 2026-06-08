@@ -54,27 +54,17 @@ func clearResourcesDir(dir string) {
 	}
 
 	for _, entry := range entries {
-		if entry.IsDir() {
+		name := entry.Name()
+		if skipResourceDirEntry(name, entry.IsDir()) {
 			continue
 		}
-
-		name := entry.Name()
-		if isYAMLResourceFile(name) {
-			_ = os.Remove(filepath.Join(dir, name))
-		}
+		removeFileSilent(filepath.Join(dir, name))
 	}
 }
 
 // getManagementWorkflowPath returns the workflow path to use for management operations.
 // It prefers the configured path, falls back to /app/workflow.yaml (Docker default),
 // then falls back to workflow.yaml (local default).
-func (s *Server) lockedWorkflowPath() string {
-	s.mu.RLock()
-	path := s.workflowPath
-	s.mu.RUnlock()
-	return path
-}
-
 func dockerDefaultWorkflowPath() string {
 	if p := findWorkflowFileHook("/app"); p != "" {
 		return p
@@ -83,7 +73,7 @@ func dockerDefaultWorkflowPath() string {
 }
 
 func managementWorkflowPathFallback() string {
-	if _, err := osStat(dockerAppRoot); err == nil {
+	if isDockerAppRoot() {
 		return dockerDefaultWorkflowPath()
 	}
 	return defaultWorkflowFile
@@ -114,7 +104,7 @@ func workflowFileCandidates(dir string) []string {
 func findWorkflowFile(dir string) string {
 	debugEnter("findWorkflowFile")
 	for _, p := range workflowFileCandidates(dir) {
-		if _, err := os.Stat(p); err == nil {
+		if fileExists(p) {
 			return p
 		}
 	}
