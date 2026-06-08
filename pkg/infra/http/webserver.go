@@ -25,11 +25,8 @@ import (
 	"log/slog"
 	stdhttp "net/http"
 	"net/url"
-	"os"
 	"os/exec"
 	"strings"
-
-	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
 
 	"github.com/gorilla/websocket"
 
@@ -67,7 +64,7 @@ type WebServer struct {
 
 // NewWebServer creates a new web server.
 func NewWebServer(workflow *domain.Workflow, logger *slog.Logger) (*WebServer, error) {
-	kdeps_debug.Log("enter: NewWebServer")
+	debugEnter("NewWebServer")
 	return &WebServer{
 		Workflow:    workflow,
 		logger:      logger,
@@ -79,13 +76,13 @@ func NewWebServer(workflow *domain.Workflow, logger *slog.Logger) (*WebServer, e
 
 // SetWorkflowDir sets the workflow directory for resolving relative paths.
 func (s *WebServer) SetWorkflowDir(workflowPath string) {
-	kdeps_debug.Log("enter: SetWorkflowDir")
+	debugEnter("SetWorkflowDir")
 	s.WorkflowDir = workflowDirFromPath(workflowPath)
 }
 
 // Start starts the web server.
 func (s *WebServer) Start(ctx context.Context) error {
-	kdeps_debug.Log("enter: Start")
+	debugEnter("Start")
 	if !webServerConfigured(s.Workflow) {
 		return errors.New("webServer configuration is required")
 	}
@@ -108,26 +105,22 @@ func (s *WebServer) Start(ctx context.Context) error {
 
 // Shutdown gracefully shuts down the web server and stops any running commands.
 func (s *WebServer) Shutdown(ctx context.Context) error {
-	kdeps_debug.Log("enter: Shutdown")
+	debugEnter("Shutdown")
 	stopWebServerCommands(ctx, s.logger, s.Commands)
 
 	// Shutdown HTTP server
-	if s.httpServer == nil {
-		return nil
-	}
-	s.logger.InfoContext(ctx, "shutting down web server")
-	return s.httpServer.Shutdown(ctx)
+	return shutdownHTTPServerIfRunning(ctx, s.httpServer, s.logger, "web")
 }
 
 // SetupWebRoutes sets up web server routes.
 func (s *WebServer) SetupWebRoutes(ctx context.Context) {
-	kdeps_debug.Log("enter: SetupWebRoutes")
+	debugEnter("SetupWebRoutes")
 	s.RegisterRoutesOn(ctx, s.Router)
 }
 
 // RegisterRoutesOn registers web server routes on an external router.
 func (s *WebServer) RegisterRoutesOn(ctx context.Context, router *Router) {
-	kdeps_debug.Log("enter: RegisterRoutesOn")
+	debugEnter("RegisterRoutesOn")
 	config := s.Workflow.Settings.WebServer
 	if !webServerConfigured(s.Workflow) {
 		return
@@ -148,7 +141,7 @@ func (s *WebServer) CreateWebHandler(
 	ctx context.Context,
 	route *domain.WebRoute,
 ) stdhttp.HandlerFunc {
-	kdeps_debug.Log("enter: CreateWebHandler")
+	debugEnter("CreateWebHandler")
 	// Start app command if needed
 	if route.ServerType == serverTypeApp && route.Command != "" {
 		go s.StartAppCommand(ctx, route)
@@ -200,16 +193,9 @@ func wildcardWebRoutePath(routePath string) string {
 	return routePath + "*"
 }
 
-func effectiveBindHost(defaultHost string) string {
-	if override := os.Getenv("KDEPS_BIND_HOST"); override != "" {
-		return override
-	}
-	return defaultHost
-}
-
 func webServerListenAddr(settings domain.WorkflowSettings) string {
 	return listenAddrFromHostPort(
-		effectiveBindHost(settings.GetHostIP()),
+		effectiveBindHostFromEnv(settings.GetHostIP()),
 		settings.GetPortNum(),
 	)
 }
@@ -224,7 +210,7 @@ func stopWebServerCommands(
 	commands map[string]*exec.Cmd,
 ) {
 	for name, cmd := range commands {
-		if cmd == nil || cmd.Process == nil {
+		if !isProcessRunning(cmd) {
 			continue
 		}
 		logger.InfoContext(ctx, "stopping app command", "name", name)

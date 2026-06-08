@@ -23,7 +23,6 @@ import (
 	"os"
 	"os/exec"
 
-	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
 	"github.com/kdeps/kdeps/v2/pkg/domain"
 )
 
@@ -32,14 +31,14 @@ func appRouteWorkDir(s *WebServer, route *domain.WebRoute) string {
 }
 
 func killProcessIfRunning(cmd *exec.Cmd) error {
-	if cmd == nil || cmd.Process == nil {
+	if !isProcessRunning(cmd) {
 		return nil
 	}
 	return cmd.Process.Kill()
 }
 
 func (s *WebServer) StartAppCommand(ctx context.Context, route *domain.WebRoute) {
-	kdeps_debug.Log("enter: StartAppCommand")
+	debugEnter("StartAppCommand")
 	if route.Command == "" {
 		return
 	}
@@ -100,7 +99,7 @@ func logAppCommandExit(s *WebServer, command string, err error) {
 
 // Stop stops the web server and cleans up running commands.
 func (s *WebServer) Stop() {
-	kdeps_debug.Log("enter: Stop")
+	debugEnter("Stop")
 	s.logBackgroundInfo("stopping web server and cleaning up commands")
 	for path, cmd := range s.Commands {
 		if cmd.Process != nil {

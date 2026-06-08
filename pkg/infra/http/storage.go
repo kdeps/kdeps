@@ -28,8 +28,6 @@ import (
 	"sync"
 	"time"
 
-	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
-
 	"github.com/kdeps/kdeps/v2/pkg/domain"
 )
 
@@ -60,7 +58,7 @@ func newUploadedFileRecord(
 		Size:        size,
 		Path:        filePath,
 		UploadedAt:  time.Now(),
-		Metadata:    make(map[string]string),
+		Metadata:    newUploadMetadataMap(),
 	}
 }
 
@@ -68,7 +66,10 @@ func fileNotFoundError(id string) error {
 	return fmt.Errorf("file not found: %s", id)
 }
 
-func lookupStoredFile(files map[string]*domain.UploadedFile, id string) (*domain.UploadedFile, error) {
+func lookupStoredFile(
+	files map[string]*domain.UploadedFile,
+	id string,
+) (*domain.UploadedFile, error) {
 	file, exists := files[id]
 	if !exists {
 		return nil, fileNotFoundError(id)
@@ -98,7 +99,7 @@ func removeStoredFileEntry(files map[string]*domain.UploadedFile, id string) {
 }
 
 func removeUploadedFile(file *domain.UploadedFile) error {
-	if err := os.Remove(file.Path); err != nil && !os.IsNotExist(err) {
+	if err := os.Remove(file.Path); err != nil && !isNotExistErr(err) {
 		return prefixedWrapError(storageDeleteFileFailedPrefix(), err)
 	}
 	return nil
@@ -106,7 +107,7 @@ func removeUploadedFile(file *domain.UploadedFile) error {
 
 // NewTemporaryFileStore creates a new temporary file store.
 func NewTemporaryFileStore(baseDir string) (*TemporaryFileStore, error) {
-	kdeps_debug.Log("enter: NewTemporaryFileStore")
+	debugEnter("NewTemporaryFileStore")
 	if err := os.MkdirAll(baseDir, 0750); err != nil {
 		return nil, prefixedWrapError(storageCreateUploadDirFailedPrefix(), err)
 	}
@@ -129,7 +130,7 @@ func (s *TemporaryFileStore) Store(
 	content []byte,
 	contentType string,
 ) (*domain.UploadedFile, error) {
-	kdeps_debug.Log("enter: Store")
+	debugEnter("Store")
 	id := generateUploadID(content)
 	safeFilename := filepath.Base(filename)
 	filePath := storedUploadPath(s.baseDir, id, safeFilename)
@@ -149,7 +150,7 @@ func (s *TemporaryFileStore) Store(
 
 // Get retrieves file metadata by ID.
 func (s *TemporaryFileStore) Get(id string) (*domain.UploadedFile, error) {
-	kdeps_debug.Log("enter: Get")
+	debugEnter("Get")
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
@@ -158,7 +159,7 @@ func (s *TemporaryFileStore) Get(id string) (*domain.UploadedFile, error) {
 
 // GetPath returns the filesystem path for a file ID.
 func (s *TemporaryFileStore) GetPath(id string) (string, error) {
-	kdeps_debug.Log("enter: GetPath")
+	debugEnter("GetPath")
 	file, err := s.Get(id)
 	if err != nil {
 		return "", err
@@ -168,7 +169,7 @@ func (s *TemporaryFileStore) GetPath(id string) (string, error) {
 
 // Delete removes a file.
 func (s *TemporaryFileStore) Delete(id string) error {
-	kdeps_debug.Log("enter: Delete")
+	debugEnter("Delete")
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -187,7 +188,7 @@ func (s *TemporaryFileStore) Delete(id string) error {
 
 // Cleanup removes files older than TTL.
 func (s *TemporaryFileStore) Cleanup(ttl time.Duration) error {
-	kdeps_debug.Log("enter: Cleanup")
+	debugEnter("Cleanup")
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -200,7 +201,7 @@ func (s *TemporaryFileStore) Cleanup(ttl time.Duration) error {
 
 // Close stops the file store and cleanup background tasks.
 func (s *TemporaryFileStore) Close() error {
-	kdeps_debug.Log("enter: Close")
+	debugEnter("Close")
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -220,7 +221,7 @@ func (s *TemporaryFileStore) Close() error {
 
 // cleanupLoop runs periodic cleanup.
 func (s *TemporaryFileStore) cleanupLoop(ttl time.Duration) {
-	kdeps_debug.Log("enter: cleanupLoop")
+	debugEnter("cleanupLoop")
 	ticker := time.NewTicker(cleanupLoopInterval)
 	defer ticker.Stop()
 

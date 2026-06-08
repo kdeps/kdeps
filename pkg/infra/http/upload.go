@@ -24,8 +24,6 @@ import (
 	"mime/multipart"
 	stdhttp "net/http"
 
-	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
-
 	"github.com/kdeps/kdeps/v2/pkg/domain"
 )
 
@@ -59,7 +57,7 @@ type UploadHandler struct {
 
 // NewUploadHandler creates a new upload handler.
 func NewUploadHandler(store domain.FileStore, maxFileSize int64) *UploadHandler {
-	kdeps_debug.Log("enter: NewUploadHandler")
+	debugEnter("NewUploadHandler")
 	if maxFileSize == 0 {
 		maxFileSize = MaxUploadSize
 	}
@@ -72,7 +70,7 @@ func NewUploadHandler(store domain.FileStore, maxFileSize int64) *UploadHandler 
 
 // HandleUpload processes file uploads from multipart form.
 func (h *UploadHandler) HandleUpload(r *stdhttp.Request) ([]*domain.UploadedFile, error) {
-	kdeps_debug.Log("enter: HandleUpload")
+	debugEnter("HandleUpload")
 	if err := r.ParseMultipartForm(MaxMemory); err != nil {
 		return nil, prefixedWrapError(uploadParseFormFailedPrefix(), err)
 	}
@@ -218,9 +216,9 @@ func (h *UploadHandler) processFileHeader(
 	fileHeader *multipart.FileHeader,
 	fieldName string,
 ) (*domain.UploadedFile, error) {
-	kdeps_debug.Log("enter: processFileHeader")
+	debugEnter("processFileHeader")
 	// Check file size
-	if fileHeader.Size > h.maxFileSize {
+	if isUploadFileTooLarge(fileHeader.Size, h.maxFileSize) {
 		return nil, h.uploadTooLargeError(fileHeader.Filename, fileHeader.Size)
 	}
 
@@ -241,7 +239,7 @@ func (h *UploadHandler) processFileHeader(
 		return nil, h.uploadTooLargeError(fileHeader.Filename, contentSize)
 	}
 
-	contentType := resolveUploadContentType(content, fileHeader.Header.Get("Content-Type"))
+	contentType := resolveUploadContentType(content, multipartFileContentType(fileHeader))
 
 	// Store file
 	file, err := h.store.Store(fileHeader.Filename, content, contentType)

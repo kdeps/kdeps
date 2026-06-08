@@ -26,7 +26,6 @@ import (
 
 	"golang.org/x/time/rate"
 
-	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
 	"github.com/kdeps/kdeps/v2/pkg/domain"
 )
 
@@ -104,7 +103,7 @@ func RateLimitMiddleware(
 	requestsPerMinute, burst int,
 	trustedProxies []string,
 ) func(stdhttp.HandlerFunc) stdhttp.HandlerFunc {
-	kdeps_debug.Log("enter: RateLimitMiddleware")
+	debugEnter("RateLimitMiddleware")
 	store := newIPLimiterStore(requestsPerMinute, burst)
 	return func(next stdhttp.HandlerFunc) stdhttp.HandlerFunc {
 		return func(w stdhttp.ResponseWriter, r *stdhttp.Request) {
@@ -120,10 +119,10 @@ func RateLimitMiddleware(
 // BodyLimitMiddleware caps the size of incoming request bodies (excludes multipart,
 // which is handled by UploadMiddleware). Returns 413 when the limit is exceeded.
 func BodyLimitMiddleware(maxBytes int64) func(stdhttp.HandlerFunc) stdhttp.HandlerFunc {
-	kdeps_debug.Log("enter: BodyLimitMiddleware")
+	debugEnter("BodyLimitMiddleware")
 	return func(next stdhttp.HandlerFunc) stdhttp.HandlerFunc {
 		return func(w stdhttp.ResponseWriter, r *stdhttp.Request) {
-			if isMultipartUpload(r) {
+			if shouldSkipBodyLimit(r) {
 				next(w, r)
 				return
 			}
@@ -142,7 +141,7 @@ func BodyLimitMiddleware(maxBytes int64) func(stdhttp.HandlerFunc) stdhttp.Handl
 // When the limit is reached the server responds with 503 Service Unavailable
 // instead of queuing requests indefinitely.
 func ConcurrentLimitMiddleware(limit int) func(stdhttp.HandlerFunc) stdhttp.HandlerFunc {
-	kdeps_debug.Log("enter: ConcurrentLimitMiddleware")
+	debugEnter("ConcurrentLimitMiddleware")
 	sem := make(chan struct{}, limit)
 	return func(next stdhttp.HandlerFunc) stdhttp.HandlerFunc {
 		return func(w stdhttp.ResponseWriter, r *stdhttp.Request) {
@@ -151,7 +150,12 @@ func ConcurrentLimitMiddleware(limit int) func(stdhttp.HandlerFunc) stdhttp.Hand
 				defer func() { <-sem }()
 				next(w, r)
 			default:
-				respondMiddlewareError(w, r, domain.ErrCodeServiceUnavail, serverAtCapacityMessage())
+				respondMiddlewareError(
+					w,
+					r,
+					domain.ErrCodeServiceUnavail,
+					serverAtCapacityMessage(),
+				)
 			}
 		}
 	}
@@ -159,7 +163,7 @@ func ConcurrentLimitMiddleware(limit int) func(stdhttp.HandlerFunc) stdhttp.Hand
 
 // UploadMiddleware validates upload requests for size limits.
 func UploadMiddleware(maxFileSize int64) func(stdhttp.HandlerFunc) stdhttp.HandlerFunc {
-	kdeps_debug.Log("enter: UploadMiddleware")
+	debugEnter("UploadMiddleware")
 	return func(next stdhttp.HandlerFunc) stdhttp.HandlerFunc {
 		return func(w stdhttp.ResponseWriter, r *stdhttp.Request) {
 			if !isMultipartContentType(requestContentType(r)) {

@@ -21,13 +21,12 @@ package http
 import (
 	stdhttp "net/http"
 
-	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
 	"github.com/kdeps/kdeps/v2/pkg/domain"
 )
 
 // SetupRoutes sets up all API routes.
 func (s *Server) SetupRoutes() {
-	kdeps_debug.Log("enter: SetupRoutes")
+	debugEnter("SetupRoutes")
 	// Health check endpoint
 	s.Router.GET("/health", s.HandleHealth)
 
@@ -66,13 +65,13 @@ func (s *Server) registerAPIServerRoute(path, method string) {
 
 // HandleHealth handles health check requests.
 func (s *Server) HandleHealth(w stdhttp.ResponseWriter, _ *stdhttp.Request) {
-	kdeps_debug.Log("enter: HandleHealth")
+	debugEnter("HandleHealth")
 	writeWorkflowStatusJSON(w, s.lockedWorkflow(), healthCheckPayload)
 }
 
 // HandleRequest handles API requests.
 func (s *Server) HandleRequest(w stdhttp.ResponseWriter, r *stdhttp.Request) {
-	kdeps_debug.Log("enter: HandleRequest")
+	debugEnter("HandleRequest")
 
 	uploadedFiles, ok := s.processRequestUploads(w, r)
 	if !ok {

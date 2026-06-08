@@ -21,12 +21,11 @@ package http
 import (
 	stdhttp "net/http"
 
-	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
 	"github.com/kdeps/kdeps/v2/pkg/domain"
 )
 
 func (s *Server) CorsMiddleware(next stdhttp.HandlerFunc) stdhttp.HandlerFunc {
-	kdeps_debug.Log("enter: CorsMiddleware")
+	debugEnter("CorsMiddleware")
 	return func(w stdhttp.ResponseWriter, r *stdhttp.Request) {
 		cors := s.Workflow.Settings.GetCORSConfig()
 
@@ -49,7 +48,7 @@ func (s *Server) CorsMiddleware(next stdhttp.HandlerFunc) stdhttp.HandlerFunc {
 
 // setCorsOrigin sets the CORS origin header.
 func (s *Server) setCorsOrigin(w stdhttp.ResponseWriter, r *stdhttp.Request, cors *domain.CORS) {
-	kdeps_debug.Log("enter: setCorsOrigin")
+	debugEnter("setCorsOrigin")
 	origin := requestOrigin(r)
 	if origin == "" {
 		return
@@ -60,8 +59,7 @@ func (s *Server) setCorsOrigin(w stdhttp.ResponseWriter, r *stdhttp.Request, cor
 	// If AllowOrigins is "*", we can just return the origin if we want to support credentials,
 	// or return "*" if not.
 	if corsOriginAllowed(cors, origin) {
-		w.Header().Set("Access-Control-Allow-Origin", origin)
-		w.Header().Add("Vary", "Origin")
+		setCorsAllowedOrigin(w, origin)
 	}
 }
 
@@ -80,14 +78,14 @@ func corsOriginAllowed(cors *domain.CORS, origin string) bool {
 
 // setCorsMethods sets the CORS methods header.
 func (s *Server) setCorsMethods(w stdhttp.ResponseWriter, cors *domain.CORS) {
-	kdeps_debug.Log("enter: setCorsMethods")
-	w.Header().Set("Access-Control-Allow-Methods", corsAllowedMethods(cors))
+	debugEnter("setCorsMethods")
+	setCorsAllowMethods(w, corsAllowedMethods(cors))
 }
 
 // setCorsHeaders sets the CORS headers header.
 func (s *Server) setCorsHeaders(w stdhttp.ResponseWriter, cors *domain.CORS) {
-	kdeps_debug.Log("enter: setCorsHeaders")
-	w.Header().Set("Access-Control-Allow-Headers", corsAllowedHeaders(cors))
+	debugEnter("setCorsHeaders")
+	setCorsAllowHeaders(w, corsAllowedHeaders(cors))
 }
 
 const (

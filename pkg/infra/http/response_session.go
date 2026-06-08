@@ -24,7 +24,6 @@ import (
 	stdhttp "net/http"
 	"runtime/debug"
 
-	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
 	"github.com/kdeps/kdeps/v2/pkg/domain"
 )
 
@@ -53,7 +52,7 @@ func isSecureRequest(r *stdhttp.Request) bool {
 
 // SetSessionCookie sets a secure HTTP cookie for the session ID.
 func SetSessionCookie(w stdhttp.ResponseWriter, r *stdhttp.Request, sessionID string) {
-	kdeps_debug.Log("enter: SetSessionCookie")
+	debugEnter("SetSessionCookie")
 	cookie := newSessionCookie(sessionID, isSecureRequest(r))
 
 	stdhttp.SetCookie(w, cookie)
@@ -100,7 +99,7 @@ func appErrorFromPanic(panicErr error, errorMsg string, debugMode bool) *domain.
 
 // RecoverPanic recovers from panics and converts them to errors.
 func RecoverPanic(w stdhttp.ResponseWriter, r *stdhttp.Request, debugMode bool) {
-	kdeps_debug.Log("enter: RecoverPanic")
+	debugEnter("RecoverPanic")
 	recovered := recover()
 	if recovered == nil {
 		return

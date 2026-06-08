@@ -22,8 +22,6 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-
-	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
 )
 
 func isYAMLResourceFile(name string) bool {
@@ -49,7 +47,7 @@ func clearWorkflowResources(workflowPath string) {
 }
 
 func clearResourcesDir(dir string) {
-	kdeps_debug.Log("enter: clearResourcesDir")
+	debugEnter("clearResourcesDir")
 	entries, err := os.ReadDir(dir)
 	if err != nil {
 		return // directory does not exist — nothing to clear
@@ -85,14 +83,14 @@ func dockerDefaultWorkflowPath() string {
 }
 
 func managementWorkflowPathFallback() string {
-	if _, err := osStat("/app"); err == nil {
+	if _, err := osStat(dockerAppRoot); err == nil {
 		return dockerDefaultWorkflowPath()
 	}
 	return defaultWorkflowFile
 }
 
 func (s *Server) getManagementWorkflowPath() string {
-	kdeps_debug.Log("enter: getManagementWorkflowPath")
+	debugEnter("getManagementWorkflowPath")
 	if path := s.lockedWorkflowPath(); path != "" {
 		return path
 	}
@@ -114,7 +112,7 @@ func workflowFileCandidates(dir string) []string {
 }
 
 func findWorkflowFile(dir string) string {
-	kdeps_debug.Log("enter: findWorkflowFile")
+	debugEnter("findWorkflowFile")
 	for _, p := range workflowFileCandidates(dir) {
 		if _, err := os.Stat(p); err == nil {
 			return p

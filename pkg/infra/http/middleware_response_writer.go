@@ -24,7 +24,6 @@ import (
 	stdhttp "net/http"
 	"strings"
 
-	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
 	"github.com/kdeps/kdeps/v2/pkg/domain"
 )
 
@@ -37,7 +36,7 @@ type ResponseWriterWrapper struct {
 }
 
 func (w *ResponseWriterWrapper) WriteHeader(code int) {
-	kdeps_debug.Log("enter: WriteHeader")
+	debugEnter("WriteHeader")
 	w.headersWritten = true
 	w.ResponseWriter.WriteHeader(code)
 }
@@ -109,26 +108,6 @@ func respondMiddlewareError(
 	RespondWithError(w, r, domain.NewAppError(code, message), requestDebugMode(r))
 }
 
-// browserRenderedContentType reports whether ct is a content type that
-// browsers render as markup and therefore requires HTML escaping
-// to prevent reflected XSS.
-func browserRenderedContentType(ct string) bool {
-	ct = contentTypeBase(ct)
-	if ct == "" {
-		return true
-	}
-
-	switch ct {
-	case "text/html",
-		"application/xhtml+xml",
-		"application/xml",
-		"text/xml",
-		"image/svg+xml":
-		return true
-	}
-	return false
-}
-
 func (w *ResponseWriterWrapper) markHeadersWritten() {
 	if !w.headersWritten {
 		w.headersWritten = true
@@ -144,7 +123,7 @@ func (w *ResponseWriterWrapper) resolvedContentType(body []byte) string {
 }
 
 func (w *ResponseWriterWrapper) Write(b []byte) (int, error) {
-	kdeps_debug.Log("enter: Write")
+	debugEnter("Write")
 	w.markHeadersWritten()
 
 	// Perform contextual output encoding for browser-rendered content types
@@ -155,21 +134,21 @@ func (w *ResponseWriterWrapper) Write(b []byte) (int, error) {
 		return w.ResponseWriter.Write(b)
 	}
 
-	if strings.TrimSpace(w.ResponseWriter.Header().Get("Content-Type")) == "" {
-		w.ResponseWriter.Header().Set("Content-Type", "text/html; charset=utf-8")
+	if strings.TrimSpace(responseContentType(w.ResponseWriter)) == "" {
+		setDefaultHTMLCharsetContentType(w.ResponseWriter)
 	}
 	return w.ResponseWriter.Write([]byte(html.EscapeString(string(b))))
 }
 
 // HeadersWritten returns whether headers have been written.
 func (w *ResponseWriterWrapper) HeadersWritten() bool {
-	kdeps_debug.Log("enter: HeadersWritten")
+	debugEnter("HeadersWritten")
 	return w.headersWritten
 }
 
 // Flush implements Flusher interface - forwards to underlying writer if it supports it.
 func (w *ResponseWriterWrapper) Flush() {
-	kdeps_debug.Log("enter: Flush")
+	debugEnter("Flush")
 	if w.flusher == nil {
 		// Check and cache Flusher on first call
 		if flusher, ok := w.ResponseWriter.(stdhttp.Flusher); ok {

@@ -35,27 +35,27 @@ func requestDebugMode(r *stdhttp.Request) bool {
 }
 
 func requestOrigin(r *stdhttp.Request) string {
-	return r.Header.Get("Origin")
+	return r.Header.Get(headerOrigin)
 }
 
 func forwardedForHeader(r *stdhttp.Request) string {
-	return r.Header.Get("X-Forwarded-For")
+	return r.Header.Get(headerForwardedFor)
 }
 
 func realIPHeader(r *stdhttp.Request) string {
-	return r.Header.Get("X-Real-IP")
+	return r.Header.Get(headerRealIP)
 }
 
 func forwardedProtoHeader(r *stdhttp.Request) string {
-	return r.Header.Get("X-Forwarded-Proto")
+	return r.Header.Get(headerForwardedProto)
 }
 
 func authorizationHeader(r *stdhttp.Request) string {
-	return r.Header.Get("Authorization")
+	return r.Header.Get(headerAuthorization)
 }
 
 func apiKeyHeader(r *stdhttp.Request) string {
-	return r.Header.Get("X-Api-Key")
+	return r.Header.Get(headerAPIKey)
 }
 
 func isMultipartUpload(r *stdhttp.Request) bool {
@@ -67,7 +67,7 @@ func isTLSEnabled(r *stdhttp.Request) bool {
 }
 
 func setResponseContentType(w stdhttp.ResponseWriter, contentType string) {
-	w.Header().Set("Content-Type", contentType)
+	setResponseHeader(w, headerContentType, contentType)
 }
 
 func writeOKJSON(w stdhttp.ResponseWriter, payload any) {
@@ -79,11 +79,7 @@ func writeBadRequestJSON(w stdhttp.ResponseWriter, payload any) {
 }
 
 func setRateLimitRetryAfter(w stdhttp.ResponseWriter) {
-	w.Header().Set("Retry-After", rateLimitRetryAfterSeconds)
-}
-
-func setCorsAllowCredentials(w stdhttp.ResponseWriter) {
-	w.Header().Set("Access-Control-Allow-Credentials", "true")
+	setRateLimitRetryAfterHeader(w, rateLimitRetryAfterSeconds)
 }
 
 func joinCORSList(items []string, defaultValue string) string {

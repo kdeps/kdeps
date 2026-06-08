@@ -24,10 +24,8 @@ import (
 	"fmt"
 	stdhttp "net/http"
 	"runtime/debug"
-	"strings"
 	"time"
 
-	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
 	"github.com/kdeps/kdeps/v2/pkg/domain"
 )
 
@@ -45,7 +43,11 @@ func errorDetailString(err error) string {
 	return err.Error()
 }
 
-func appendDebugAppErrorDetails(appErr *domain.AppError, debugMode bool, err error) *domain.AppError {
+func appendDebugAppErrorDetails(
+	appErr *domain.AppError,
+	debugMode bool,
+	err error,
+) *domain.AppError {
 	if !debugMode {
 		return appErr
 	}
@@ -74,7 +76,7 @@ func requestMetaFromRequest(r *stdhttp.Request) *MetaData {
 	return &MetaData{
 		RequestID: GetRequestID(r.Context()),
 		Timestamp: time.Now(),
-		Path:      r.URL.Path,
+		Path:      requestPath(r),
 		Method:    r.Method,
 	}
 }
@@ -95,7 +97,7 @@ func marshalFailureError(err error, label string) *domain.AppError {
 
 func setStringResponseHeaders(w stdhttp.ResponseWriter, headers map[string]string) {
 	for key, value := range headers {
-		w.Header().Set(key, value)
+		setResponseHeader(w, key, value)
 	}
 }
 
@@ -116,16 +118,16 @@ func respondBadGateway(w stdhttp.ResponseWriter, message string) {
 }
 
 func respondMethodNotAllowed(w stdhttp.ResponseWriter, allowed []string) {
-	w.Header().Set("Allow", strings.Join(allowed, ", "))
+	setAllowHeader(w, allowed)
 	respondPlainHTTPError(w, methodNotAllowedMessage(), stdhttp.StatusMethodNotAllowed)
 }
 
 func writePreflightOK(w stdhttp.ResponseWriter) {
-	w.WriteHeader(stdhttp.StatusOK)
+	writeStatusOK(w)
 }
 
 func setJSONContentType(w stdhttp.ResponseWriter) {
-	w.Header().Set("Content-Type", "application/json")
+	setResponseContentType(w, defaultJSONMediaType)
 }
 
 // writeJSONResponse writes a JSON payload with the given status code.
@@ -139,28 +141,25 @@ func writeJSONResponse(w stdhttp.ResponseWriter, statusCode int, payload any) {
 func validationErrorsToDetails(validationErrors []*domain.ValidationError) []map[string]any {
 	details := make([]map[string]any, len(validationErrors))
 	for i, err := range validationErrors {
-		details[i] = map[string]any{
-			"field":   err.Field,
-			"type":    err.Type,
-			"message": err.Message,
-		}
-		if err.Value != nil {
-			details[i]["value"] = err.Value
-		}
+		details[i] = validationErrorDetailMap(err)
 	}
 	return details
 }
 
 // RespondWithError sends an error response.
 func RespondWithError(w stdhttp.ResponseWriter, r *stdhttp.Request, err error, debugMode bool) {
-	kdeps_debug.Log("enter: RespondWithError")
+	debugEnter("RespondWithError")
 	appErr := normalizeToAppError(err, debugMode)
 	applySessionCookieIfPresent(w, r)
 
 	writeJSONResponse(w, appErr.StatusCode, buildErrorResponse(appErr, r, debugMode))
 }
 
-func buildErrorResponse(appErr *domain.AppError, r *stdhttp.Request, debugMode bool) *ErrorResponse {
+func buildErrorResponse(
+	appErr *domain.AppError,
+	r *stdhttp.Request,
+	debugMode bool,
+) *ErrorResponse {
 	response := &ErrorResponse{
 		Success: false,
 		Error: &ErrorDetail{

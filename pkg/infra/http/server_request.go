@@ -26,7 +26,6 @@ import (
 
 	"github.com/google/uuid"
 
-	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
 	"github.com/kdeps/kdeps/v2/pkg/domain"
 )
 
@@ -34,7 +33,7 @@ func (s *Server) ParseRequest(
 	r *stdhttp.Request,
 	uploadedFiles []*domain.UploadedFile,
 ) *RequestContext {
-	kdeps_debug.Log("enter: ParseRequest")
+	debugEnter("ParseRequest")
 	query := firstValuesFromMultiMap(r.URL.Query())
 	headers := firstValuesFromMultiMap(r.Header)
 
@@ -48,7 +47,7 @@ func (s *Server) ParseRequest(
 
 	return &RequestContext{
 		Method:    r.Method,
-		Path:      r.URL.Path,
+		Path:      requestPath(r),
 		Headers:   headers,
 		Query:     query,
 		Body:      body,
@@ -67,7 +66,7 @@ func trustedProxiesForWorkflow(workflow *domain.Workflow) []string {
 }
 
 func requestContentType(r *stdhttp.Request) string {
-	return r.Header.Get("Content-Type")
+	return requestContentTypeHeader(r)
 }
 
 func parseRequestBody(r *stdhttp.Request) map[string]interface{} {
@@ -77,7 +76,7 @@ func parseRequestBody(r *stdhttp.Request) map[string]interface{} {
 	var body map[string]interface{}
 	if r.Body != nil && !isFormData {
 		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
-			body = make(map[string]interface{})
+			body = emptyRequestBodyMap()
 		}
 	}
 	if isFormData || isMultipartContentType(contentType) {
@@ -115,7 +114,7 @@ func (s *Server) processRequestUploads(
 	w stdhttp.ResponseWriter,
 	r *stdhttp.Request,
 ) ([]*domain.UploadedFile, bool) {
-	if !isMultipartUpload(r) {
+	if !shouldSkipBodyLimit(r) {
 		return nil, true
 	}
 
@@ -135,7 +134,7 @@ func (s *Server) applySessionFromRequestContext(
 	if reqCtx.SessionID == "" {
 		return r
 	}
-	if GetSessionID(r.Context()) == reqCtx.SessionID {
+	if !shouldUpdateSessionContext(r, reqCtx.SessionID) {
 		return r
 	}
 	ctx := context.WithValue(r.Context(), SessionIDKey, reqCtx.SessionID)
@@ -145,25 +144,13 @@ func (s *Server) applySessionFromRequestContext(
 func (s *Server) cleanupUploadedFiles(uploadedFiles []*domain.UploadedFile) {
 	for _, file := range uploadedFiles {
 		if delErr := s.fileStore.Delete(file.ID); delErr != nil {
-			s.logger.Warn("failed to cleanup uploaded file", "file", file.ID, "error", delErr)
+			logUploadCleanupFailure(s.logger, file.ID, delErr)
 		}
 	}
 }
 
-func (s *Server) logWorkflowExecutionError(r *stdhttp.Request, err error) {
-	s.logger.Error(
-		"workflow execution failed",
-		"error",
-		err,
-		"path",
-		requestPath(r),
-		"method",
-		r.Method,
-	)
-}
-
 func (s *Server) respondWorkflowError(w stdhttp.ResponseWriter, r *stdhttp.Request, err error) {
-	s.logWorkflowExecutionError(r, err)
+	s.logWorkflowExecutionFailure(r, err)
 	s.respondWithRequestError(w, r, err)
 }
 
@@ -178,14 +165,14 @@ func firstValuesFromMultiMap(values map[string][]string) map[string]string {
 }
 
 func parseFormData(r *stdhttp.Request, body map[string]interface{}) map[string]interface{} {
-	kdeps_debug.Log("enter: parseFormData")
+	debugEnter("parseFormData")
 	// ParseForm handles both application/x-www-form-urlencoded and multipart/form-data
 	if err := r.ParseForm(); err != nil {
 		return body
 	}
 
 	if body == nil {
-		body = make(map[string]interface{})
+		body = emptyRequestBodyMap()
 	}
 
 	// Use PostForm instead of Form - PostForm only contains POST form values
