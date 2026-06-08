@@ -68,6 +68,14 @@ var (
 	maxPackageTotalUncompressedLimit = int64(maxPackageTotalUncompressed)
 )
 
+func managementDisabledMessage() string {
+	return "management API disabled: set " + managementAuthEnvVar + " to enable"
+}
+
+func managementUnauthorizedMessage() string {
+	return "unauthorized"
+}
+
 func managementAuthToken() (string, bool) {
 	token := strings.TrimSpace(os.Getenv(managementAuthEnvVar))
 	return token, token != ""
@@ -90,15 +98,11 @@ func requireManagementAuth(next stdhttp.HandlerFunc) stdhttp.HandlerFunc {
 	return func(w stdhttp.ResponseWriter, r *stdhttp.Request) {
 		token, ok := managementAuthToken()
 		if !ok {
-			respondPlainHTTPError(
-				w,
-				"management API disabled: set "+managementAuthEnvVar+" to enable",
-				stdhttp.StatusServiceUnavailable,
-			)
+			respondPlainHTTPError(w, managementDisabledMessage(), stdhttp.StatusServiceUnavailable)
 			return
 		}
 		if !managementAuthMatches(r, token) {
-			respondPlainHTTPError(w, "unauthorized", stdhttp.StatusUnauthorized)
+			respondPlainHTTPError(w, managementUnauthorizedMessage(), stdhttp.StatusUnauthorized)
 			return
 		}
 

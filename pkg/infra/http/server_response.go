@@ -243,10 +243,7 @@ func (s *Server) writeRawAPIResponse(
 		"content_type",
 		respContentType,
 	)
-	if _, writeErr := writeRawOKBytes(w, rawBytes); writeErr != nil {
-		s.logResponseWriteError("failed to write raw API response", writeErr, r.URL.Path)
-	}
-	flushResponse(w, r.URL.Path, s.logger)
+	s.writeRawSuccessResponseBytes(w, r, rawBytes, "failed to write raw API response")
 }
 
 func marshalAPIRawPayload(data interface{}, respContentType string) ([]byte, string, error) {
@@ -281,12 +278,9 @@ func (s *Server) writeJSONAPIResponse(
 
 	s.logger.Debug("writing API response", "path", r.URL.Path, "size", len(responseBytes))
 
-	if writeErr := writeOKResponseBytes(w, responseBytes); writeErr != nil {
-		s.logResponseWriteError("failed to write API response", writeErr, r.URL.Path)
+	if !s.writeSuccessResponseBytes(w, r, responseBytes, "failed to write API response", true) {
 		return
 	}
-
-	flushResponse(w, r.URL.Path, s.logger)
 	s.logger.Debug(
 		"API response written and flushed successfully",
 		"path",
@@ -329,7 +323,35 @@ func (s *Server) respondRegularResult(w stdhttp.ResponseWriter, r *stdhttp.Reque
 		return
 	}
 
-	if writeErr := writeOKResponseBytes(w, regularBytes); writeErr != nil {
-		s.logResponseWriteError("failed to write regular resource result", writeErr, r.URL.Path)
+	s.writeSuccessResponseBytes(w, r, regularBytes, "failed to write regular resource result", false)
+}
+
+func (s *Server) writeRawSuccessResponseBytes(
+	w stdhttp.ResponseWriter,
+	r *stdhttp.Request,
+	payload []byte,
+	writeErrLabel string,
+) {
+	if _, writeErr := writeRawOKBytes(w, payload); writeErr != nil {
+		s.logResponseWriteError(writeErrLabel, writeErr, r.URL.Path)
+		return
 	}
+	flushResponse(w, r.URL.Path, s.logger)
+}
+
+func (s *Server) writeSuccessResponseBytes(
+	w stdhttp.ResponseWriter,
+	r *stdhttp.Request,
+	payload []byte,
+	writeErrLabel string,
+	flush bool,
+) bool {
+	if writeErr := writeOKResponseBytes(w, payload); writeErr != nil {
+		s.logResponseWriteError(writeErrLabel, writeErr, r.URL.Path)
+		return false
+	}
+	if flush {
+		flushResponse(w, r.URL.Path, s.logger)
+	}
+	return true
 }

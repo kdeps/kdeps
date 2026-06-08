@@ -166,9 +166,17 @@ func (s *WebServer) dispatchWebRoute(
 	case serverTypeApp:
 		s.HandleAppRequest(w, r, route)
 	default:
-		s.logger.ErrorContext(r.Context(), "unsupported server type", "type", route.ServerType)
-		respondPlainHTTPError(w, "Unsupported server type", stdhttp.StatusInternalServerError)
+		s.respondUnsupportedServerType(w, r, route.ServerType)
 	}
+}
+
+func (s *WebServer) respondUnsupportedServerType(
+	w stdhttp.ResponseWriter,
+	r *stdhttp.Request,
+	serverType string,
+) {
+	s.logger.ErrorContext(r.Context(), "unsupported server type", "type", serverType)
+	respondPlainHTTPError(w, "Unsupported server type", stdhttp.StatusInternalServerError)
 }
 
 func (s *WebServer) logWebRouteConfigured(route domain.WebRoute) {
@@ -188,12 +196,18 @@ func wildcardWebRoutePath(routePath string) string {
 	return routePath + "*"
 }
 
-func webServerListenAddr(settings domain.WorkflowSettings) string {
-	hostIP := settings.GetHostIP()
+func effectiveBindHost(defaultHost string) string {
 	if override := os.Getenv("KDEPS_BIND_HOST"); override != "" {
-		hostIP = override
+		return override
 	}
-	return listenAddrFromHostPort(hostIP, settings.GetPortNum())
+	return defaultHost
+}
+
+func webServerListenAddr(settings domain.WorkflowSettings) string {
+	return listenAddrFromHostPort(
+		effectiveBindHost(settings.GetHostIP()),
+		settings.GetPortNum(),
+	)
 }
 
 func listenAddrFromHostPort(host string, port int) string {
@@ -218,6 +232,14 @@ func registerWebRouteMethods(router *Router, path string, handler stdhttp.Handle
 	for _, method := range supportedHTTPMethods() {
 		registerRouterMethod(router, method, path, handler)
 	}
+}
+
+func (s *WebServer) logBackgroundError(msg string, attrs ...any) {
+	s.logger.ErrorContext(context.Background(), msg, attrs...)
+}
+
+func (s *WebServer) logBackgroundInfo(msg string, attrs ...any) {
+	s.logger.InfoContext(context.Background(), msg, attrs...)
 }
 
 // HandleStaticRequest handles static file serving.

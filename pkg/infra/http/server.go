@@ -188,8 +188,12 @@ func newUploadInfrastructure() (domain.FileStore, *UploadHandler, error) {
 	return fileStore, NewUploadHandler(fileStore, int64(MaxUploadSize)), nil
 }
 
+func hasTLSCertificates(certFile, keyFile string) bool {
+	return certFile != "" && keyFile != ""
+}
+
 func (s *Server) listenAndServe(addr, certFile, keyFile string) error {
-	if certFile != "" && keyFile != "" {
+	if hasTLSCertificates(certFile, keyFile) {
 		s.logger.Info("starting HTTPS server", "addr", addr, "cert", certFile)
 		return s.httpServer.ListenAndServeTLS(certFile, keyFile)
 	}

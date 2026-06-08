@@ -52,7 +52,7 @@ func (s *WebServer) HandleWebSocketProxy(
 			"error",
 			err,
 		)
-		webSocketBadGateway(w, "Failed to connect to WebSocket")
+		respondBadGateway(w, "Failed to connect to WebSocket")
 		return
 	}
 	defer func() {
@@ -69,7 +69,7 @@ func (s *WebServer) HandleWebSocketProxy(
 				"statusCode",
 				resp.StatusCode,
 			)
-			webSocketBadGateway(w, "WebSocket handshake failed")
+			respondBadGateway(w, "WebSocket handshake failed")
 			return
 		}
 	}
@@ -88,10 +88,6 @@ func (s *WebServer) HandleWebSocketProxy(
 	}()
 
 	s.proxyWebSocketConnections(clientConn, targetConn)
-}
-
-func webSocketBadGateway(w stdhttp.ResponseWriter, message string) {
-	respondPlainHTTPError(w, message, stdhttp.StatusBadGateway)
 }
 
 func isWebSocketHandshakeOK(resp *stdhttp.Response) bool {
