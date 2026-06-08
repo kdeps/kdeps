@@ -30,6 +30,15 @@ import (
 	"github.com/kdeps/kdeps/v2/pkg/domain"
 )
 
+func respondRateLimitExceeded(w stdhttp.ResponseWriter, r *stdhttp.Request) {
+	w.Header().Set("Retry-After", "60")
+	respondMiddlewareError(
+		w, r,
+		domain.ErrCodeRateLimited,
+		"rate limit exceeded — retry after 60 seconds",
+	)
+}
+
 func newIPLimiterStore(requestsPerMinute, burst int) *ipLimiterStore {
 	s := &ipLimiterStore{
 		limiters: make(map[string]*ipLimiter),
@@ -80,12 +89,7 @@ func RateLimitMiddleware(
 	return func(next stdhttp.HandlerFunc) stdhttp.HandlerFunc {
 		return func(w stdhttp.ResponseWriter, r *stdhttp.Request) {
 			if !store.get(extractClientIP(r, trustedProxies)).Allow() {
-				w.Header().Set("Retry-After", "60")
-				respondMiddlewareError(
-					w, r,
-					domain.ErrCodeRateLimited,
-					"rate limit exceeded — retry after 60 seconds",
-				)
+				respondRateLimitExceeded(w, r)
 				return
 			}
 			next(w, r)

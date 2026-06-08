@@ -27,6 +27,15 @@ import (
 	"github.com/kdeps/kdeps/v2/pkg/domain"
 )
 
+func enrichResponseMeta(r *stdhttp.Request, meta map[string]any) map[string]any {
+	if meta == nil {
+		meta = make(map[string]any)
+	}
+	meta["requestID"] = GetRequestID(r.Context())
+	meta["timestamp"] = time.Now()
+	return meta
+}
+
 func RespondWithSuccess(
 	w stdhttp.ResponseWriter,
 	r *stdhttp.Request,
@@ -34,12 +43,7 @@ func RespondWithSuccess(
 	meta map[string]any,
 ) {
 	kdeps_debug.Log("enter: RespondWithSuccess")
-	if meta == nil {
-		meta = make(map[string]any)
-	}
-
-	meta["requestID"] = GetRequestID(r.Context())
-	meta["timestamp"] = time.Now()
+	meta = enrichResponseMeta(r, meta)
 	applySessionCookieIfPresent(w, r)
 
 	response := &SuccessResponse{
