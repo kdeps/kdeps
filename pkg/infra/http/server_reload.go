@@ -140,18 +140,21 @@ func (s *Server) reloadWorkflow() error {
 	return nil
 }
 
+func reloadWorkflowLogAttrs(detail map[string]interface{}) []any {
+	return []any{
+		"name", detail["name"],
+		"version", detail["version"],
+		"resources", detail["resources"],
+	}
+}
+
 func logReloadedWorkflow(s *Server) {
 	detail := managementWorkflowStatusDetail(s.Workflow)
 	if detail == nil {
 		s.logger.Info("workflow reloaded")
 		return
 	}
-	s.logger.Info(
-		"workflow reloaded",
-		"name", detail["name"],
-		"version", detail["version"],
-		"resources", detail["resources"],
-	)
+	s.logger.Info("workflow reloaded", reloadWorkflowLogAttrs(detail)...)
 }
 
 func (s *Server) ensureWorkflowParser() error {

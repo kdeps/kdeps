@@ -55,7 +55,7 @@ func packageEntryLabel(hdr *tar.Header) string {
 func openPackageTarReader(data []byte) (*tar.Reader, io.Closer, error) {
 	gzr, err := gzip.NewReader(bytes.NewReader(data))
 	if err != nil {
-		return nil, nil, fmt.Errorf("invalid package: not a valid gzip archive: %w", err)
+		return nil, nil, prefixedWrapError("invalid package: not a valid gzip archive", err)
 	}
 	return tar.NewReader(gzr), gzr, nil
 }
@@ -113,19 +113,28 @@ func packageExtractError(label string, err error) error {
 	return prefixedWrapError("failed to extract "+label, err)
 }
 
+func packageDirectoryCreateError(label string, err error) error {
+	return fmt.Errorf("failed to create directory %s: %w", label, err)
+}
+
+func packageParentDirectoryCreateError(label string, err error) error {
+	return fmt.Errorf("failed to create parent directory for %s: %w", label, err)
+}
+
+func packageEntryCountExceededError() error {
+	return fmt.Errorf("package exceeds maximum entry count of %d", maxPackageEntryCountLimit)
+}
+
 func ensurePackageEntryDir(hdr *tar.Header, absTargetPath string) error {
+	label := packageEntryLabel(hdr)
 	if hdr.FileInfo().IsDir() {
 		if mkdirErr := AppFS.MkdirAll(absTargetPath, 0750); mkdirErr != nil {
-			return fmt.Errorf("failed to create directory %s: %w", packageEntryLabel(hdr), mkdirErr)
+			return packageDirectoryCreateError(label, mkdirErr)
 		}
 		return nil
 	}
 	if mkdirErr := AppFS.MkdirAll(filepath.Dir(absTargetPath), 0750); mkdirErr != nil {
-		return fmt.Errorf(
-			"failed to create parent directory for %s: %w",
-			packageEntryLabel(hdr),
-			mkdirErr,
-		)
+		return packageParentDirectoryCreateError(label, mkdirErr)
 	}
 	return nil
 }
@@ -164,7 +173,7 @@ func extractKdepsPackageEntry(
 	totalExtracted *int64,
 ) error {
 	if entryCount > maxPackageEntryCountLimit {
-		return fmt.Errorf("package exceeds maximum entry count of %d", maxPackageEntryCountLimit)
+		return packageEntryCountExceededError()
 	}
 	absTargetPath, pathErr := resolvePackageEntryPath(baseDirAbs, hdr.Name)
 	if pathErr != nil {

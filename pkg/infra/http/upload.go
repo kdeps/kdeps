@@ -39,6 +39,8 @@ const (
 	uploadFieldFile  = "file"
 	uploadFieldFiles = "files"
 	uploadFieldArray = "file[]"
+
+	octetStreamContentType = "application/octet-stream"
 )
 
 //nolint:gochecknoglobals // test-replaceable
@@ -72,12 +74,12 @@ func NewUploadHandler(store domain.FileStore, maxFileSize int64) *UploadHandler 
 func (h *UploadHandler) HandleUpload(r *stdhttp.Request) ([]*domain.UploadedFile, error) {
 	kdeps_debug.Log("enter: HandleUpload")
 	if err := r.ParseMultipartForm(MaxMemory); err != nil {
-		return nil, fmt.Errorf("failed to parse multipart form: %w", err)
+		return nil, prefixedWrapError("failed to parse multipart form", err)
 	}
 
 	form := r.MultipartForm
 	if form == nil || form.File == nil {
-		return []*domain.UploadedFile{}, nil
+		return emptyUploadFiles(), nil
 	}
 
 	if files, err := h.collectPreferredUploadFiles(form.File); err != nil {
@@ -94,13 +96,31 @@ func (h *UploadHandler) HandleUpload(r *stdhttp.Request) ([]*domain.UploadedFile
 		return files, nil
 	}
 
-	return []*domain.UploadedFile{}, nil
+	return emptyUploadFiles(), nil
+}
+
+func emptyUploadFiles() []*domain.UploadedFile {
+	return []*domain.UploadedFile{}
+}
+
+func uploadPreferredFieldNames() []string {
+	return []string{uploadFieldArray, uploadFieldFiles, uploadFieldFile}
+}
+
+func isStandardUploadField(fieldName string) bool {
+	return fieldName == uploadFieldFile ||
+		fieldName == uploadFieldArray ||
+		fieldName == uploadFieldFiles
+}
+
+func processNamedUploadFileError(filename, fieldSuffix string, err error) error {
+	return fmt.Errorf("failed to process file %s%s: %w", filename, fieldSuffix, err)
 }
 
 func (h *UploadHandler) collectPreferredUploadFiles(
 	formFiles map[string][]*multipart.FileHeader,
 ) ([]*domain.UploadedFile, error) {
-	for _, fieldName := range []string{uploadFieldArray, uploadFieldFiles, uploadFieldFile} {
+	for _, fieldName := range uploadPreferredFieldNames() {
 		files, ok := formFiles[fieldName]
 		if !ok || len(files) == 0 {
 			continue
@@ -142,8 +162,7 @@ func (h *UploadHandler) processFileHeaders(
 			if fieldName == uploadFieldFile && len(files) == 1 {
 				return nil, prefixedWrapError("failed to process file", err)
 			}
-			return nil, fmt.Errorf(
-				"failed to process file %s%s: %w",
+			return nil, processNamedUploadFileError(
 				fileHeader.Filename,
 				uploadFieldSuffix(fieldName),
 				err,
@@ -162,16 +181,20 @@ func readBoundedUploadContent(src io.Reader, maxSize int64) ([]byte, int64, erro
 	return content, int64(len(content)), nil
 }
 
+func isExplicitUploadContentType(contentType string) bool {
+	return contentType != "" && contentType != octetStreamContentType
+}
+
 func resolveUploadContentType(content []byte, headerContentType string) string {
 	contentType := stdhttp.DetectContentType(content)
-	if headerContentType != "" && headerContentType != "application/octet-stream" {
+	if isExplicitUploadContentType(headerContentType) {
 		return headerContentType
 	}
 	return contentType
 }
 
 func uploadFieldSuffix(fieldName string) string {
-	if fieldName == uploadFieldFile || fieldName == uploadFieldArray || fieldName == uploadFieldFiles {
+	if isStandardUploadField(fieldName) {
 		return ""
 	}
 	return fmt.Sprintf(" from field %s", fieldName)

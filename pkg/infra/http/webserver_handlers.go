@@ -20,7 +20,6 @@
 package http
 
 import (
-	"context"
 	"fmt"
 	"net"
 	stdhttp "net/http"
@@ -120,7 +119,7 @@ func newAppReverseProxy(
 				"error",
 				err,
 			)
-			respondPlainHTTPError(w, "Failed to reach app", stdhttp.StatusBadGateway)
+			respondBadGateway(w, "Failed to reach app")
 		},
 	}
 }
@@ -139,14 +138,6 @@ func localAppProxyTarget(port int) (*url.URL, error) {
 func httpURLFromHostPort(host string, port int) (*url.URL, error) {
 	hostPort := net.JoinHostPort(host, strconv.Itoa(port))
 	return parseProxyURL(fmt.Sprintf("http://%s", hostPort))
-}
-
-func (s *WebServer) logBackgroundError(msg string, attrs ...any) {
-	s.logger.ErrorContext(context.Background(), msg, attrs...)
-}
-
-func (s *WebServer) logBackgroundInfo(msg string, attrs ...any) {
-	s.logger.InfoContext(context.Background(), msg, attrs...)
 }
 
 func forwardProxyRequestHeaders(dst, src stdhttp.Header) {

@@ -110,6 +110,10 @@ func respondWebServerInternalError(w stdhttp.ResponseWriter) {
 	respondPlainHTTPError(w, "Internal Server Error", stdhttp.StatusInternalServerError)
 }
 
+func respondBadGateway(w stdhttp.ResponseWriter, message string) {
+	respondPlainHTTPError(w, message, stdhttp.StatusBadGateway)
+}
+
 func writePreflightOK(w stdhttp.ResponseWriter) {
 	w.WriteHeader(stdhttp.StatusOK)
 }
