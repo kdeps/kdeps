@@ -213,7 +213,7 @@ func (s *Server) enableHotReloadIfDev(devMode bool) {
 func (s *Server) setupCoreMiddleware() {
 	s.Router.Use(SecurityHeadersMiddleware(true))
 	if s.Workflow != nil {
-		s.Router.Use(TrustedProxiesMiddleware(trustedProxiesFromSettings(s.Workflow.Settings)))
+		registerTrustedProxiesMiddleware(s.Router, s.Workflow.Settings)
 	}
 	s.Router.Use(RequestIDMiddleware())
 	s.Router.Use(DebugModeMiddleware())

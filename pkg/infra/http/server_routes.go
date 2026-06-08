@@ -67,7 +67,7 @@ func (s *Server) registerAPIServerRoute(path, method string) {
 // HandleHealth handles health check requests.
 func (s *Server) HandleHealth(w stdhttp.ResponseWriter, _ *stdhttp.Request) {
 	kdeps_debug.Log("enter: HandleHealth")
-	writeJSONResponse(w, stdhttp.StatusOK, healthCheckPayload(s.lockedWorkflow()))
+	writeWorkflowStatusJSON(w, s.lockedWorkflow(), healthCheckPayload)
 }
 
 // HandleRequest handles API requests.

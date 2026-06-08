@@ -48,7 +48,7 @@ func (s *Server) SetupManagementRoutes() {
 // GET /_kdeps/status.
 func (s *Server) HandleManagementStatus(w stdhttp.ResponseWriter, _ *stdhttp.Request) {
 	kdeps_debug.Log("enter: HandleManagementStatus")
-	writeJSONResponse(w, stdhttp.StatusOK, managementOKStatus(s.lockedWorkflow()))
+	writeWorkflowStatusJSON(w, s.lockedWorkflow(), managementOKStatus)
 }
 
 // HandleManagementUpdateWorkflow accepts a new workflow YAML in the request body,

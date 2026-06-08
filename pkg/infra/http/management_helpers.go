@@ -39,6 +39,14 @@ func managementStatusOK() map[string]interface{} {
 	return map[string]interface{}{"status": "ok"}
 }
 
+func writeWorkflowStatusJSON(
+	w stdhttp.ResponseWriter,
+	workflow *domain.Workflow,
+	build func(*domain.Workflow) map[string]interface{},
+) {
+	writeJSONResponse(w, stdhttp.StatusOK, build(workflow))
+}
+
 func managementOKStatus(workflow *domain.Workflow) map[string]interface{} {
 	status := managementStatusOK()
 	if detail := managementWorkflowStatusDetail(workflow); detail != nil {

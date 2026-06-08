@@ -144,8 +144,7 @@ func (r *Router) dispatch(w stdhttp.ResponseWriter, req *stdhttp.Request) {
 	}
 
 	if allowed := r.allowedMethods(req.URL.Path); len(allowed) > 0 {
-		w.Header().Set("Allow", strings.Join(allowed, ", "))
-		respondPlainHTTPError(w, "Method Not Allowed", stdhttp.StatusMethodNotAllowed)
+		respondMethodNotAllowed(w, allowed)
 		return
 	}
 

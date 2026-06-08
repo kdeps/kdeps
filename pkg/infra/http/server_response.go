@@ -32,12 +32,6 @@ func isJSONAPIContentType(contentType string) bool {
 	return strings.HasPrefix(contentType, "application/json")
 }
 
-func mergeRequestMetaInto(meta map[string]any, r *stdhttp.Request) {
-	for key, value := range responseMetaFields(GetRequestID(r.Context())) {
-		meta[key] = value
-	}
-}
-
 func writeRawOKBytes(w stdhttp.ResponseWriter, payload []byte) (int, error) {
 	w.WriteHeader(stdhttp.StatusOK)
 	return w.Write(payload)
@@ -267,7 +261,7 @@ func (s *Server) writeJSONAPIResponse(
 	data interface{},
 	meta map[string]any,
 ) {
-	mergeRequestMetaInto(meta, r)
+	meta = enrichResponseMeta(r, meta)
 	data = parseJSONStringPayload(data)
 
 	responseBytes, marshalErr := marshalSuccessPayload(data, meta)

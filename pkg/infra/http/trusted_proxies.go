@@ -29,6 +29,10 @@ import (
 
 // trustedProxiesFromSettings merges apiServer and webServer entries because
 // combined-mode routes share one router and security middleware chain.
+func registerTrustedProxiesMiddleware(router *Router, settings domain.WorkflowSettings) {
+	router.Use(TrustedProxiesMiddleware(trustedProxiesFromSettings(settings)))
+}
+
 func trustedProxiesFromSettings(settings domain.WorkflowSettings) []string {
 	var proxies []string
 	if settings.APIServer != nil {

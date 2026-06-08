@@ -40,10 +40,7 @@ func (s *Server) ParseRequest(
 
 	body := parseRequestBody(r)
 
-	var trustedProxies []string
-	if s.Workflow != nil {
-		trustedProxies = trustedProxiesFromSettings(s.Workflow.Settings)
-	}
+	trustedProxies := trustedProxiesForWorkflow(s.Workflow)
 	clientIP := extractClientIP(r, trustedProxies)
 	requestID := uuid.New().String()
 
@@ -60,6 +57,13 @@ func (s *Server) ParseRequest(
 		ID:        requestID,
 		SessionID: "",
 	}
+}
+
+func trustedProxiesForWorkflow(workflow *domain.Workflow) []string {
+	if workflow == nil {
+		return nil
+	}
+	return trustedProxiesFromSettings(workflow.Settings)
 }
 
 func requestContentType(r *stdhttp.Request) string {
