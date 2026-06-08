@@ -28,8 +28,6 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-
-	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
 )
 
 func isExtractedPathUnderBase(baseDirAbs, targetPath string) bool {
@@ -55,7 +53,7 @@ func packageEntryLabel(hdr *tar.Header) string {
 func openPackageTarReader(data []byte) (*tar.Reader, io.Closer, error) {
 	gzr, err := gzip.NewReader(bytes.NewReader(data))
 	if err != nil {
-		return nil, nil, prefixedWrapError("invalid package: not a valid gzip archive", err)
+		return nil, nil, packageInvalidGzipError(err)
 	}
 	return tar.NewReader(gzr), gzr, nil
 }
@@ -67,7 +65,7 @@ func resolvePackageEntryPath(absDestDir, entryName string) (string, error) {
 	}
 	absTargetPath, err := filepathAbs(filepath.Join(absDestDir, relPath))
 	if err != nil {
-		return "", prefixedWrapError("failed to resolve target path "+relPath, err)
+		return "", packageResolveTargetPathFailed(relPath, err)
 	}
 	relToBase, relErr := filepath.Rel(absDestDir, absTargetPath)
 	if packagePathEscapesBase(relToBase, relErr) {
@@ -110,7 +108,7 @@ func invalidExtractedTargetError(targetPath string) error {
 }
 
 func packageExtractError(label string, err error) error {
-	return prefixedWrapError("failed to extract "+label, err)
+	return packageExtractFailed(label, err)
 }
 
 func packageDirectoryCreateError(label string, err error) error {
@@ -160,7 +158,7 @@ func readNextPackageEntry(tr *tar.Reader) (*tar.Header, error) {
 		return nil, io.EOF
 	}
 	if err != nil {
-		return nil, prefixedWrapError("failed to read archive entry", err)
+		return nil, packageReadEntryFailed(err)
 	}
 	return hdr, nil
 }
@@ -183,10 +181,10 @@ func extractKdepsPackageEntry(
 }
 
 func extractKdepsPackage(data []byte, destDir string) error {
-	kdeps_debug.Log("enter: extractKdepsPackage")
+	debugEnter("extractKdepsPackage")
 	baseDirAbs, baseErr := filepathAbs(destDir)
 	if baseErr != nil {
-		return prefixedWrapError("failed to resolve destination directory", baseErr)
+		return packageResolveDestDirFailed(baseErr)
 	}
 
 	tr, closer, err := openPackageTarReader(data)
@@ -218,7 +216,7 @@ func extractKdepsPackage(data []byte, destDir string) error {
 // baseDirAbs is the resolved destination root; the prefix is re-checked here
 // so that static-analysis tools can see the guard in this call frame.
 func writeExtractedFile(baseDirAbs, targetPath string, r io.Reader, totalExtracted *int64) error {
-	kdeps_debug.Log("enter: writeExtractedFile")
+	debugEnter("writeExtractedFile")
 	if !isExtractedPathUnderBase(baseDirAbs, targetPath) {
 		return invalidExtractedTargetError(targetPath)
 	}

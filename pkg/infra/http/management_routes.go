@@ -20,8 +20,6 @@ package http
 
 import (
 	stdhttp "net/http"
-
-	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
 )
 
 // SetupManagementRoutes registers the internal management API routes that allow
@@ -31,11 +29,16 @@ func (s *Server) registerManagementRoute(
 	method, path string,
 	handler stdhttp.HandlerFunc,
 ) {
-	registerRouterMethod(s.Router, method, managementPathPrefix+path, requireManagementAuth(handler))
+	registerRouterMethod(
+		s.Router,
+		method,
+		managementPathPrefix+path,
+		requireManagementAuth(handler),
+	)
 }
 
 func (s *Server) SetupManagementRoutes() {
-	kdeps_debug.Log("enter: SetupManagementRoutes")
+	debugEnter("SetupManagementRoutes")
 	s.registerManagementRoute("GET", "/status", s.HandleManagementStatus)
 	s.registerManagementRoute("GET", "/openapi", s.HandleManagementOpenAPI)
 	s.registerManagementRoute("GET", "/schema", s.HandleManagementSchema)
@@ -47,7 +50,7 @@ func (s *Server) SetupManagementRoutes() {
 // HandleManagementStatus returns the current workflow status.
 // GET /_kdeps/status.
 func (s *Server) HandleManagementStatus(w stdhttp.ResponseWriter, _ *stdhttp.Request) {
-	kdeps_debug.Log("enter: HandleManagementStatus")
+	debugEnter("HandleManagementStatus")
 	writeWorkflowStatusJSON(w, s.lockedWorkflow(), managementOKStatus)
 }
 
@@ -55,8 +58,13 @@ func (s *Server) HandleManagementStatus(w stdhttp.ResponseWriter, _ *stdhttp.Req
 // writes it to disk, and reloads the workflow.
 // PUT /_kdeps/workflow.
 func (s *Server) HandleManagementUpdateWorkflow(w stdhttp.ResponseWriter, r *stdhttp.Request) {
-	kdeps_debug.Log("enter: HandleManagementUpdateWorkflow")
-	body, workflowPath, ok := s.prepareManagementDestination(w, r, maxWorkflowBodySize, "workflow YAML")
+	debugEnter("HandleManagementUpdateWorkflow")
+	body, workflowPath, ok := s.prepareManagementDestination(
+		w,
+		r,
+		maxWorkflowBodySize,
+		"workflow YAML",
+	)
 	if !ok {
 		return
 	}
@@ -79,7 +87,7 @@ func (s *Server) HandleManagementUpdateWorkflow(w stdhttp.ResponseWriter, r *std
 // HandleManagementReload triggers a workflow reload from disk.
 // POST /_kdeps/reload.
 func (s *Server) HandleManagementReload(w stdhttp.ResponseWriter, _ *stdhttp.Request) {
-	kdeps_debug.Log("enter: HandleManagementReload")
+	debugEnter("HandleManagementReload")
 	s.finishManagementReload(
 		w,
 		stdhttp.StatusInternalServerError,
@@ -92,7 +100,7 @@ func (s *Server) HandleManagementReload(w stdhttp.ResponseWriter, _ *stdhttp.Req
 // extracts it to the workflow directory, and reloads the workflow.
 // PUT /_kdeps/package.
 func (s *Server) HandleManagementUpdatePackage(w stdhttp.ResponseWriter, r *stdhttp.Request) {
-	kdeps_debug.Log("enter: HandleManagementUpdatePackage")
+	debugEnter("HandleManagementUpdatePackage")
 	body, workflowPath, ok := s.prepareManagementDestination(w, r, maxPackageBodySize, "package")
 	if !ok {
 		return

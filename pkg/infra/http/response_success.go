@@ -23,7 +23,6 @@ import (
 	stdhttp "net/http"
 	"time"
 
-	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
 	"github.com/kdeps/kdeps/v2/pkg/domain"
 )
 
@@ -35,9 +34,7 @@ func responseMetaFields(requestID string) map[string]any {
 }
 
 func enrichResponseMeta(r *stdhttp.Request, meta map[string]any) map[string]any {
-	if meta == nil {
-		meta = make(map[string]any)
-	}
+	meta = ensureMetaMap(meta)
 	for key, value := range responseMetaFields(GetRequestID(r.Context())) {
 		meta[key] = value
 	}
@@ -50,7 +47,7 @@ func RespondWithSuccess(
 	data any,
 	meta map[string]any,
 ) {
-	kdeps_debug.Log("enter: RespondWithSuccess")
+	debugEnter("RespondWithSuccess")
 	meta = enrichResponseMeta(r, meta)
 	applySessionCookieIfPresent(w, r)
 
@@ -69,15 +66,13 @@ func RespondWithValidationErrors(
 	r *stdhttp.Request,
 	validationErrors []*domain.ValidationError,
 ) {
-	kdeps_debug.Log("enter: RespondWithValidationErrors")
+	debugEnter("RespondWithValidationErrors")
 	response := &ErrorResponse{
 		Success: false,
 		Error: &ErrorDetail{
 			Code:    domain.ErrCodeValidation,
 			Message: validationFailedMessage(),
-			Details: map[string]any{
-				"errors": validationErrorsToDetails(validationErrors),
-			},
+			Details: validationErrorDetailsMap(validationErrors),
 		},
 		Meta: requestMetaFromRequest(r),
 	}
@@ -87,7 +82,7 @@ func RespondWithValidationErrors(
 
 // GetRequestID gets the request ID from context.
 func GetRequestID(ctx context.Context) string {
-	kdeps_debug.Log("enter: GetRequestID")
+	debugEnter("GetRequestID")
 	if requestID, ok := ctx.Value(RequestIDKey).(string); ok {
 		return requestID
 	}
@@ -96,7 +91,7 @@ func GetRequestID(ctx context.Context) string {
 
 // GetDebugMode gets the debug mode flag from context.
 func GetDebugMode(ctx context.Context) bool {
-	kdeps_debug.Log("enter: GetDebugMode")
+	debugEnter("GetDebugMode")
 	if debugMode, ok := ctx.Value(DebugModeKey).(bool); ok {
 		return debugMode
 	}
@@ -105,7 +100,7 @@ func GetDebugMode(ctx context.Context) bool {
 
 // GetSessionID gets the session ID from context.
 func GetSessionID(ctx context.Context) string {
-	kdeps_debug.Log("enter: GetSessionID")
+	debugEnter("GetSessionID")
 	if sessionID, ok := ctx.Value(SessionIDKey).(string); ok {
 		return sessionID
 	}

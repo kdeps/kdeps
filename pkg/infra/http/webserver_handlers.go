@@ -19,7 +19,6 @@
 package http
 
 import (
-	"fmt"
 	"net"
 	stdhttp "net/http"
 	"net/http/httputil"
@@ -27,9 +26,6 @@ import (
 	"os"
 	"strconv"
 
-	"github.com/gorilla/websocket"
-
-	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
 	"github.com/kdeps/kdeps/v2/pkg/domain"
 )
 
@@ -38,11 +34,11 @@ func (s *WebServer) HandleStaticRequest(
 	r *stdhttp.Request,
 	route *domain.WebRoute,
 ) {
-	kdeps_debug.Log("enter: HandleStaticRequest")
+	debugEnter("HandleStaticRequest")
 	fullPath := appRouteWorkDir(s, route)
 
 	// Check if directory exists
-	if _, err := os.Stat(fullPath); os.IsNotExist(err) {
+	if _, err := os.Stat(fullPath); isNotExistErr(err) {
 		s.respondStaticPathNotFound(w, fullPath)
 		return
 	}
@@ -58,7 +54,7 @@ func (s *WebServer) HandleAppRequest(
 	r *stdhttp.Request,
 	route *domain.WebRoute,
 ) {
-	kdeps_debug.Log("enter: HandleAppRequest")
+	debugEnter("HandleAppRequest")
 	appPort, ok := requireAppRoutePort(route)
 	if !ok {
 		s.respondMissingAppPort(w)
@@ -72,7 +68,7 @@ func (s *WebServer) HandleAppRequest(
 	}
 
 	// Check for WebSocket upgrade
-	if websocket.IsWebSocketUpgrade(r) {
+	if isWebSocketUpgradeRequest(r) {
 		s.HandleWebSocketProxy(w, r, targetURL, route)
 		return
 	}
@@ -89,11 +85,11 @@ func newAppReverseProxy(
 	return &httputil.ReverseProxy{
 		Rewrite: func(pr *httputil.ProxyRequest) {
 			pr.SetURL(targetURL)
-			pr.Out.URL.Path = buildProxiedPath(route.Path, r.URL.Path)
+			pr.Out.URL.Path = buildProxiedPath(route.Path, requestPath(r))
 			pr.Out.URL.RawQuery = r.URL.RawQuery
 			pr.Out.Host = targetURL.Host
 			forwardProxyRequestHeaders(pr.Out.Header, r.Header)
-			s.logger.Debug("proxying request", "url", pr.Out.URL.String())
+			logProxyRequest(s.logger, pr.Out.URL.String())
 		},
 		Transport: &stdhttp.Transport{
 			ResponseHeaderTimeout: appProxyResponseTimeout(),
@@ -159,7 +155,7 @@ func localAppProxyTarget(port int) (*url.URL, error) {
 
 func httpURLFromHostPort(host string, port int) (*url.URL, error) {
 	hostPort := net.JoinHostPort(host, strconv.Itoa(port))
-	return parseProxyURL(fmt.Sprintf("http://%s", hostPort))
+	return parseProxyURL(httpSchemeURL(hostPort))
 }
 
 func forwardProxyRequestHeaders(dst, src stdhttp.Header) {

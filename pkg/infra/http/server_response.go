@@ -20,7 +20,6 @@ package http
 
 import (
 	"encoding/json"
-	"fmt"
 	"log/slog"
 	stdhttp "net/http"
 	"strings"
@@ -33,7 +32,7 @@ func isJSONAPIContentType(contentType string) bool {
 }
 
 func writeRawOKBytes(w stdhttp.ResponseWriter, payload []byte) (int, error) {
-	w.WriteHeader(stdhttp.StatusOK)
+	writeStatusOK(w)
 	return w.Write(payload)
 }
 
@@ -43,23 +42,23 @@ func (s *Server) respondMarshalError(
 	err error,
 	label string,
 ) {
-	s.logger.Error("failed to marshal "+label, "error", err, "path", requestPath(r))
+	s.logMarshalFailure(r, label, err)
 	s.respondWithRequestError(w, r, marshalFailureError(err, label))
 }
 
 func (s *Server) logResponseWriteError(label string, writeErr error, path string) {
-	s.logger.Error(label, "error", writeErr, "path", path)
+	s.logResponseWriteFailure(path, label, writeErr)
 }
 
 func writeOKResponseBytes(w stdhttp.ResponseWriter, payload []byte) error {
 	setJSONContentType(w)
-	w.WriteHeader(stdhttp.StatusOK)
+	writeStatusOK(w)
 	_, err := w.Write(payload)
 	return err
 }
 
 func defaultAPIResponseContentType(w stdhttp.ResponseWriter) string {
-	contentType := w.Header().Get("Content-Type")
+	contentType := responseContentType(w)
 	if contentType != "" {
 		return contentType
 	}
@@ -88,7 +87,7 @@ func parseAPIResultMap(result interface{}) (map[string]interface{}, bool) {
 	if !ok {
 		return nil, false
 	}
-	if _, hasSuccess := resultMap["success"]; !hasSuccess {
+	if !isAPIResultMap(resultMap) {
 		return nil, false
 	}
 	return resultMap, true
@@ -103,11 +102,7 @@ func apiResultSuccess(resultMap map[string]interface{}) bool {
 }
 
 func marshalSuccessPayload(data interface{}, meta map[string]interface{}) ([]byte, error) {
-	return json.Marshal(map[string]interface{}{
-		"success": true,
-		"data":    data,
-		"meta":    meta,
-	})
+	return json.Marshal(successResponseMap(data, meta))
 }
 
 func (s *Server) tryRespondAPIResult(
@@ -122,29 +117,23 @@ func (s *Server) tryRespondAPIResult(
 
 	success := apiResultSuccess(resultMap)
 
-	s.logger.Debug(
-		"detected API response resource result",
-		"path",
-		requestPath(r),
-		"success",
-		success,
-	)
+	s.logAPIResultDetected(r, success)
 
-	meta := extractAPIMeta(w, resultMap["_meta"])
-	data := resultMap["data"]
+	meta := extractAPIMeta(w, resultMap[jsonFieldAPIMeta])
+	data := resultMap[jsonFieldData]
 
 	if success {
 		s.writeAPISuccessResponse(w, r, data, meta)
 		return true
 	}
 
-	s.logger.Debug("API response indicated failure", "path", requestPath(r))
+	s.logAPIResultFailure(r)
 	s.respondWithRequestError(w, r, apiResourceFailureError())
 	return true
 }
 
 func extractAPIMeta(w stdhttp.ResponseWriter, metaRaw interface{}) map[string]any {
-	meta := make(map[string]any)
+	meta := newAPIMetaMap()
 	if metaRaw == nil {
 		return meta
 	}
@@ -192,13 +181,7 @@ func (s *Server) writeAPISuccessResponse(
 	data interface{},
 	meta map[string]any,
 ) {
-	s.logger.Debug(
-		"sending API response",
-		"path",
-		requestPath(r),
-		"data_type",
-		fmt.Sprintf("%T", data),
-	)
+	s.logSendingAPIResponse(r, data)
 
 	applySessionCookieIfPresent(w, r)
 
@@ -228,15 +211,7 @@ func (s *Server) writeRawAPIResponse(
 		respContentType = contentType
 	}
 
-	s.logger.Debug(
-		"writing raw API response",
-		"path",
-		requestPath(r),
-		"size",
-		len(rawBytes),
-		"content_type",
-		respContentType,
-	)
+	s.logWritingRawAPIResponse(r, len(rawBytes), respContentType)
 	s.writeRawSuccessResponseBytes(w, r, rawBytes, "failed to write raw API response")
 }
 
@@ -270,18 +245,12 @@ func (s *Server) writeJSONAPIResponse(
 		return
 	}
 
-	s.logger.Debug("writing API response", "path", requestPath(r), "size", len(responseBytes))
+	s.logWritingAPIResponse(r, len(responseBytes))
 
 	if !s.writeSuccessResponseBytes(w, r, responseBytes, "failed to write API response", true) {
 		return
 	}
-	s.logger.Debug(
-		"API response written and flushed successfully",
-		"path",
-		requestPath(r),
-		"bytes_written",
-		len(responseBytes),
-	)
+	s.logAPIResponseWritten(r, len(responseBytes))
 }
 
 func parseJSONStringPayload(data interface{}) interface{} {
@@ -300,15 +269,19 @@ func parseJSONStringPayload(data interface{}) interface{} {
 func flushResponse(w stdhttp.ResponseWriter, path string, logger *slog.Logger) {
 	flusher, canFlush := w.(stdhttp.Flusher)
 	if !canFlush {
-		logger.Debug("response writer does not support flushing", "path", path)
+		logFlushUnsupported(logger, path)
 		return
 	}
 	flusher.Flush()
-	logger.Debug("response flushed", "path", path)
+	logResponseFlushed(logger, path)
 }
 
-func (s *Server) respondRegularResult(w stdhttp.ResponseWriter, r *stdhttp.Request, result interface{}) {
-	s.logger.Debug("sending regular resource result", "path", requestPath(r))
+func (s *Server) respondRegularResult(
+	w stdhttp.ResponseWriter,
+	r *stdhttp.Request,
+	result interface{},
+) {
+	s.logRegularResult(r)
 
 	result = parseJSONStringPayload(result)
 	regularBytes, marshalErr := marshalSuccessPayload(result, requestResponseMeta(r))
@@ -317,7 +290,13 @@ func (s *Server) respondRegularResult(w stdhttp.ResponseWriter, r *stdhttp.Reque
 		return
 	}
 
-	s.writeSuccessResponseBytes(w, r, regularBytes, "failed to write regular resource result", false)
+	s.writeSuccessResponseBytes(
+		w,
+		r,
+		regularBytes,
+		"failed to write regular resource result",
+		false,
+	)
 }
 
 func (s *Server) writeRawSuccessResponseBytes(

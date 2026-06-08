@@ -25,8 +25,6 @@ import (
 	"strings"
 
 	"github.com/spf13/afero"
-
-	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
 )
 
 const (
@@ -82,7 +80,7 @@ func managementAuthToken() (string, bool) {
 }
 
 func managementAuthMatches(r *stdhttp.Request, expected string) bool {
-	provided, ok := bearerTokenFromAuthHeader(r.Header.Get("Authorization"))
+	provided, ok := bearerTokenFromAuthHeader(authorizationHeader(r))
 	if !ok {
 		return false
 	}
@@ -94,14 +92,14 @@ func managementAuthMatches(r *stdhttp.Request, expected string) bool {
 // variable named by managementAuthEnvVar.  If no token is configured, the
 // endpoint returns 503 Service Unavailable to prevent accidental open access.
 func requireManagementAuth(next stdhttp.HandlerFunc) stdhttp.HandlerFunc {
-	kdeps_debug.Log("enter: requireManagementAuth")
+	debugEnter("requireManagementAuth")
 	return func(w stdhttp.ResponseWriter, r *stdhttp.Request) {
-		token, ok := managementAuthToken()
-		if !ok {
+		if !isManagementEnabled() {
 			respondManagementDisabled(w)
 			return
 		}
-		if !managementAuthMatches(r, token) {
+		token, _ := managementAuthToken()
+		if !isManagementAuthorized(r, token) {
 			respondManagementUnauthorized(w)
 			return
 		}

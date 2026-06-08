@@ -22,7 +22,6 @@ import (
 	"errors"
 	"log/slog"
 
-	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
 	"github.com/kdeps/kdeps/v2/pkg/parser/expression"
 	"github.com/kdeps/kdeps/v2/pkg/parser/yaml"
 	"github.com/kdeps/kdeps/v2/pkg/templates"
@@ -30,7 +29,7 @@ import (
 )
 
 func (s *Server) SetupHotReload() error {
-	kdeps_debug.Log("enter: SetupHotReload")
+	debugEnter("SetupHotReload")
 	if s.Watcher == nil {
 		return errors.New("no file watcher configured")
 	}
@@ -45,14 +44,14 @@ func (s *Server) SetupHotReload() error {
 
 	reloadOnChange := s.hotReloadCallback()
 
-	workflowChanged := reloadOnChange("workflow file changed, reloading...")
+	workflowChanged := reloadOnChange(hotReloadWorkflowChangeMessage())
 	if watchErr := s.Watcher.Watch(absWorkflowPath, workflowChanged); watchErr != nil {
-		return prefixedWrapError("failed to watch workflow file", watchErr)
+		return hotReloadWatchWorkflowFailed(watchErr)
 	}
 
 	// Watch resources directory (relative to workflow file)
 	resourcesPath := workflowResourcesDir(absWorkflowPath)
-	resourcesChanged := reloadOnChange("resources changed, reloading...")
+	resourcesChanged := reloadOnChange(hotReloadResourcesChangeMessage())
 	s.watchOptionalResourcesDir(resourcesPath, resourcesChanged)
 
 	return nil
@@ -68,13 +67,7 @@ func resolveDefaultWorkflowPath() string {
 func absWorkflowPathOrRelative(workflowPath string, logger *slog.Logger) string {
 	absPath, err := filepathAbs(workflowPath)
 	if err != nil {
-		logger.Warn(
-			"failed to resolve absolute workflow path, using relative",
-			"path",
-			workflowPath,
-			"error",
-			err,
-		)
+		logWorkflowPathResolveWarning(logger, workflowPath, err)
 		return workflowPath
 	}
 	return absPath
@@ -112,19 +105,13 @@ func (s *Server) hotReloadCallback() func(string) func() {
 
 func (s *Server) watchOptionalResourcesDir(path string, onChange func()) {
 	if watchErr := s.Watcher.Watch(path, onChange); watchErr != nil {
-		s.logger.Debug(
-			"failed to watch resources directory (may not exist)",
-			"path",
-			path,
-			"error",
-			watchErr,
-		)
+		logOptionalWatchFailure(s.logger, path, watchErr)
 	}
 }
 
 // reloadWorkflow reloads the workflow from disk.
 func (s *Server) reloadWorkflow() error {
-	kdeps_debug.Log("enter: reloadWorkflow")
+	debugEnter("reloadWorkflow")
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -133,12 +120,12 @@ func (s *Server) reloadWorkflow() error {
 	}
 
 	if prepErr := templates.PreprocessJ2Files(workflowDirFromPath(s.workflowPath)); prepErr != nil {
-		return prefixedWrapError("failed to preprocess .j2 files", prepErr)
+		return hotReloadPreprocessFailed(prepErr)
 	}
 
 	newWorkflow, err := s.parser.ParseWorkflow(s.workflowPath)
 	if err != nil {
-		return prefixedWrapError("failed to parse workflow", err)
+		return hotReloadParseFailed(err)
 	}
 
 	s.Workflow = newWorkflow
@@ -188,7 +175,7 @@ func (s *Server) ensureReloadReady() error {
 
 	absPath, absErr := filepathAbs(resolveDefaultWorkflowPath())
 	if absErr != nil {
-		return prefixedWrapError("failed to resolve workflow path", absErr)
+		return hotReloadResolvePathFailed(absErr)
 	}
 	s.workflowPath = absPath
 	return nil
@@ -203,7 +190,7 @@ var (
 func newWorkflowParser() (*yaml.Parser, error) {
 	schemaValidator, schemaErr := schemaValidatorFactory()
 	if schemaErr != nil {
-		return nil, prefixedWrapError("failed to create schema validator", schemaErr)
+		return nil, workflowParserSchemaValidatorFailed(schemaErr)
 	}
 	return yaml.NewParser(schemaValidator, expression.NewParser()), nil
 }

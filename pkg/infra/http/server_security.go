@@ -24,16 +24,13 @@ import (
 	"os"
 	"strings"
 
-	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
 	"github.com/kdeps/kdeps/v2/pkg/domain"
 )
 
 func requireAPIAuthToken(raw string) (string, error) {
 	token := strings.TrimSpace(raw)
 	if token == "" {
-		return "", errors.New(
-			"apiServer requires KDEPS_API_AUTH_TOKEN or api_auth_token in ~/.kdeps/config.yaml",
-		)
+		return "", errors.New(apiAuthTokenRequiredError())
 	}
 	return token, nil
 }
@@ -104,15 +101,13 @@ func applyLimitMiddleware(router *Router, cfg limitMiddlewareConfig, trustedProx
 }
 
 func warnInvalidTrustedProxies(logger *slog.Logger, trustedProxies []string) {
-	if invalid := invalidTrustedProxyEntries(trustedProxies); len(invalid) > 0 && logger != nil {
-		logger.Warn("ignored invalid trustedProxies entries", "entries", invalid)
-	}
+	logInvalidTrustedProxies(logger, invalidTrustedProxyEntries(trustedProxies))
 }
 
 // applySecurityMiddleware wires auth, rate-limit, and body-limit middleware
 // from the workflow's APIServer config.
 func (s *Server) applySecurityMiddleware() error {
-	kdeps_debug.Log("enter: applySecurityMiddleware")
+	debugEnter("applySecurityMiddleware")
 	if !apiServerConfigured(s.Workflow) {
 		return nil
 	}
@@ -128,7 +123,7 @@ func (s *Server) applySecurityMiddleware() error {
 
 // applyWebSecurityMiddleware wires rate-limit and body-limit middleware for webServer-only mode.
 func (s *WebServer) applyWebSecurityMiddleware() {
-	kdeps_debug.Log("enter: applyWebSecurityMiddleware")
+	debugEnter("applyWebSecurityMiddleware")
 	if !webServerConfigured(s.Workflow) {
 		return
 	}

@@ -60,8 +60,8 @@ func managementWorkflowStatusDetail(workflow *domain.Workflow) map[string]interf
 		return nil
 	}
 	return map[string]interface{}{
-		"name":           workflow.Metadata.Name,
-		"version":        workflow.Metadata.Version,
+		"name":           workflowMetadataName(workflow),
+		"version":        workflowMetadataVersion(workflow),
 		"description":    workflow.Metadata.Description,
 		"targetActionId": workflow.Metadata.TargetActionID,
 		"resources":      len(workflow.Resources),
@@ -73,8 +73,8 @@ func workflowNameVersion(workflow *domain.Workflow) map[string]interface{} {
 		return nil
 	}
 	return map[string]interface{}{
-		"name":    workflow.Metadata.Name,
-		"version": workflow.Metadata.Version,
+		"name":    workflowMetadataName(workflow),
+		"version": workflowMetadataVersion(workflow),
 	}
 }
 
@@ -107,7 +107,10 @@ func readLimitedManagementBody(
 		return nil, stdhttp.StatusBadRequest, managementEmptyBodyMessage()
 	}
 	if len(limitedBody) > maxSize {
-		return nil, stdhttp.StatusRequestEntityTooLarge, managementBodyTooLargeMessage(label, maxSize)
+		return nil, stdhttp.StatusRequestEntityTooLarge, managementBodyTooLargeMessage(
+			label,
+			maxSize,
+		)
 	}
 	return limitedBody, 0, ""
 }
@@ -125,7 +128,7 @@ func writeManagementWorkflowFile(workflowPath string, body []byte) error {
 
 func ensureManagementDir(workflowPath string) error {
 	if mkdirErr := AppFS.MkdirAll(workflowDirFromPath(workflowPath), 0750); mkdirErr != nil {
-		return prefixedWrapError("failed to create workflow directory", mkdirErr)
+		return managementMkdirWorkflowDirFailed(mkdirErr)
 	}
 	return nil
 }
@@ -148,9 +151,13 @@ func managementSuccessPayload(message string, workflow *domain.Workflow) map[str
 }
 
 func (s *Server) writeManagementSuccess(w stdhttp.ResponseWriter, message string) {
-	writeWorkflowStatusJSON(w, s.lockedWorkflow(), func(workflow *domain.Workflow) map[string]interface{} {
-		return managementSuccessPayload(message, workflow)
-	})
+	writeWorkflowStatusJSON(
+		w,
+		s.lockedWorkflow(),
+		func(workflow *domain.Workflow) map[string]interface{} {
+			return managementSuccessPayload(message, workflow)
+		},
+	)
 }
 
 func (s *Server) reloadWorkflowOrError(statusCode int, messagePrefix string) (int, string) {

@@ -22,18 +22,16 @@ import (
 	"context"
 	stdhttp "net/http"
 
-	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
-
 	"github.com/google/uuid"
 )
 
 // RequestIDMiddleware adds a unique request ID to each request.
 func RequestIDMiddleware() func(stdhttp.HandlerFunc) stdhttp.HandlerFunc {
-	kdeps_debug.Log("enter: RequestIDMiddleware")
+	debugEnter("RequestIDMiddleware")
 	return func(next stdhttp.HandlerFunc) stdhttp.HandlerFunc {
 		return func(w stdhttp.ResponseWriter, r *stdhttp.Request) {
 			// Check if request ID already exists in header
-			requestID := r.Header.Get("X-Request-ID")
+			requestID := requestIDHeader(r)
 			if requestID == "" {
 				requestID = uuid.New().String()
 			}
@@ -43,7 +41,7 @@ func RequestIDMiddleware() func(stdhttp.HandlerFunc) stdhttp.HandlerFunc {
 			r = r.WithContext(ctx)
 
 			// Add to response header
-			w.Header().Set("X-Request-ID", requestID)
+			setRequestIDResponseHeader(w, requestID)
 
 			next(w, r)
 		}
@@ -52,7 +50,7 @@ func RequestIDMiddleware() func(stdhttp.HandlerFunc) stdhttp.HandlerFunc {
 
 // SessionMiddleware reads session cookie and stores it in context.
 func SessionMiddleware() func(stdhttp.HandlerFunc) stdhttp.HandlerFunc {
-	kdeps_debug.Log("enter: SessionMiddleware")
+	debugEnter("SessionMiddleware")
 	return func(next stdhttp.HandlerFunc) stdhttp.HandlerFunc {
 		return func(w stdhttp.ResponseWriter, r *stdhttp.Request) {
 			// Try to read session ID from cookie

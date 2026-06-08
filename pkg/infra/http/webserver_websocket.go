@@ -27,7 +27,6 @@ import (
 
 	"github.com/gorilla/websocket"
 
-	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
 	"github.com/kdeps/kdeps/v2/pkg/domain"
 )
 
@@ -37,10 +36,10 @@ func (s *WebServer) HandleWebSocketProxy(
 	targetURL *url.URL,
 	route *domain.WebRoute,
 ) {
-	kdeps_debug.Log("enter: HandleWebSocketProxy")
+	debugEnter("HandleWebSocketProxy")
 
 	targetWSURL := buildWebSocketTargetURL(targetURL, route, r)
-	s.logger.Debug("proxying WebSocket connection", "url", targetWSURL.String())
+	logWebSocketProxyDial(s.logger, targetWSURL.String())
 
 	targetConn, resp, err := dialTargetWebSocketHook(targetWSURL, r.Header)
 	if err != nil {
@@ -111,20 +110,10 @@ func buildWebSocketTargetURL(
 	r *stdhttp.Request,
 ) url.URL {
 	targetWSURL := *targetURL
-	targetWSURL.Scheme = "ws"
-	targetWSURL.Path = buildProxiedPath(route.Path, r.URL.Path)
+	targetWSURL.Scheme = webSocketSchemeValue
+	targetWSURL.Path = buildProxiedPath(route.Path, requestPath(r))
 	targetWSURL.RawQuery = r.URL.RawQuery
 	return targetWSURL
-}
-
-func isWebSocketHopByHopHeader(key string) bool {
-	switch strings.ToLower(key) {
-	case "upgrade", "connection", "sec-websocket-key", "sec-websocket-version",
-		"sec-websocket-protocol", "sec-websocket-extensions":
-		return true
-	default:
-		return false
-	}
 }
 
 func filterWebSocketHeaders(header stdhttp.Header) stdhttp.Header {
@@ -166,7 +155,7 @@ func (s *WebServer) proxyWebSocketConnections(clientConn, targetConn *websocket.
 	go relayWebSocketMessages(targetConn, clientConn, "target", "client", s.logger, errChan)
 	go relayWebSocketMessages(clientConn, targetConn, "client", "target", s.logger, errChan)
 	<-errChan
-	s.logger.Debug("WebSocket proxy connection closed")
+	logWebSocketProxyClosed(s.logger)
 }
 
 func relayWebSocketMessages(
@@ -188,14 +177,14 @@ func relayWebSocketMessages(
 				websocket.CloseGoingAway,
 				websocket.CloseAbnormalClosure,
 			) {
-				logger.Debug(srcLabel+" WebSocket closed unexpectedly", "error", readErr)
+				logWebSocketUnexpectedClose(logger, srcLabel, readErr)
 			}
 			errChan <- readErr
 			return
 		}
 
 		if writeErr := writeWebSocketMessageHook(dst, messageType, message); writeErr != nil {
-			logger.Debug(dstLabel+" WebSocket write error", "error", writeErr)
+			logWebSocketWriteError(logger, dstLabel, writeErr)
 			errChan <- writeErr
 			return
 		}

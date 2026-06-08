@@ -21,19 +21,16 @@ package http
 import (
 	"context"
 	stdhttp "net/http"
-	"os"
 	"strings"
 	"sync"
 	"time"
 
 	"golang.org/x/time/rate"
-
-	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
 )
 
 // ErrorHandlerMiddleware handles panics and errors.
 func ErrorHandlerMiddleware(debugMode bool) func(stdhttp.HandlerFunc) stdhttp.HandlerFunc {
-	kdeps_debug.Log("enter: ErrorHandlerMiddleware")
+	debugEnter("ErrorHandlerMiddleware")
 	return func(next stdhttp.HandlerFunc) stdhttp.HandlerFunc {
 		return func(w stdhttp.ResponseWriter, r *stdhttp.Request) {
 			// Wrap response writer to track if headers were written
@@ -56,14 +53,14 @@ func ErrorHandlerMiddleware(debugMode bool) func(stdhttp.HandlerFunc) stdhttp.Ha
 
 // DebugModeMiddleware determines and sets debug mode from environment.
 func DebugModeMiddleware() func(stdhttp.HandlerFunc) stdhttp.HandlerFunc {
-	kdeps_debug.Log("enter: DebugModeMiddleware")
+	debugEnter("DebugModeMiddleware")
 	return ErrorHandlerMiddleware(debugModeFromEnv())
 }
 
 // TrustedProxiesMiddleware stores trusted proxy entries in the request context
 // so forwarded headers (X-Forwarded-Proto, X-Forwarded-For) are honored only from trusted peers.
 func TrustedProxiesMiddleware(trusted []string) func(stdhttp.HandlerFunc) stdhttp.HandlerFunc {
-	kdeps_debug.Log("enter: TrustedProxiesMiddleware")
+	debugEnter("TrustedProxiesMiddleware")
 	return func(next stdhttp.HandlerFunc) stdhttp.HandlerFunc {
 		return func(w stdhttp.ResponseWriter, r *stdhttp.Request) {
 			ctx := context.WithValue(r.Context(), TrustedProxiesKey, trusted)
@@ -77,7 +74,7 @@ const strictContentSecurityPolicy = "default-src 'none'; frame-ancestors 'none';
 // SecurityHeadersMiddleware sets defensive HTTP security headers on every response.
 // When includeCSP is true, adds a strict Content-Security-Policy for JSON API responses.
 func SecurityHeadersMiddleware(includeCSP bool) func(stdhttp.HandlerFunc) stdhttp.HandlerFunc {
-	kdeps_debug.Log("enter: SecurityHeadersMiddleware")
+	debugEnter("SecurityHeadersMiddleware")
 	return func(next stdhttp.HandlerFunc) stdhttp.HandlerFunc {
 		return func(w stdhttp.ResponseWriter, r *stdhttp.Request) {
 			setSecurityResponseHeaders(w, includeCSP, isTLSEnabled(r))
@@ -88,15 +85,11 @@ func SecurityHeadersMiddleware(includeCSP bool) func(stdhttp.HandlerFunc) stdhtt
 
 // LoggingMiddleware logs request information (basic implementation).
 func LoggingMiddleware(next stdhttp.HandlerFunc) stdhttp.HandlerFunc {
-	kdeps_debug.Log("enter: LoggingMiddleware")
+	debugEnter("LoggingMiddleware")
 	return func(w stdhttp.ResponseWriter, r *stdhttp.Request) {
 		// For now, just pass through. Can be enhanced with structured logging later.
 		next(w, r)
 	}
-}
-
-func debugModeFromEnv() bool {
-	return os.Getenv("DEBUG") == "true" || os.Getenv("DEBUG") == "1"
 }
 
 func authRequiredMessage() string {
@@ -104,30 +97,30 @@ func authRequiredMessage() string {
 }
 
 func setSecurityResponseHeaders(w stdhttp.ResponseWriter, includeCSP, isTLS bool) {
-	w.Header().Set("X-Content-Type-Options", "nosniff")
-	w.Header().Set("X-Frame-Options", "DENY")
-	w.Header().Set("Referrer-Policy", "strict-origin-when-cross-origin")
-	w.Header().Set("Permissions-Policy", "camera=(), microphone=(), geolocation=()")
+	setXContentTypeOptions(w)
+	setXFrameOptionsDeny(w)
+	setReferrerPolicy(w)
+	setPermissionsPolicy(w)
 	if includeCSP {
-		w.Header().Set("Content-Security-Policy", strictContentSecurityPolicy)
+		setContentSecurityPolicy(w, strictContentSecurityPolicy)
 	}
 	if isTLS {
-		w.Header().Set("Strict-Transport-Security", "max-age=31536000; includeSubDomains")
+		setStrictTransportSecurity(w)
 	}
 }
 
 func isPublicAPIPath(path string) bool {
-	return path == "/health" || strings.HasPrefix(path, managementPathPrefix)
+	return path == healthCheckPathValue || strings.HasPrefix(path, managementPathPrefix)
 }
 
 // AuthMiddleware enforces bearer-token / API-key authentication when a token is configured.
 // /health and /_kdeps/* are exempt (/health is public; management routes use KDEPS_MANAGEMENT_TOKEN).
 // Clients supply the API token via "Authorization: Bearer <token>" or "X-API-Key: <token>".
 func AuthMiddleware(token string) func(stdhttp.HandlerFunc) stdhttp.HandlerFunc {
-	kdeps_debug.Log("enter: AuthMiddleware")
+	debugEnter("AuthMiddleware")
 	return func(next stdhttp.HandlerFunc) stdhttp.HandlerFunc {
 		return func(w stdhttp.ResponseWriter, r *stdhttp.Request) {
-			if token == "" || isPublicAPIPath(r.URL.Path) {
+			if shouldBypassAuth(token, requestPath(r)) {
 				next(w, r)
 				return
 			}

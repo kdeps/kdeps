@@ -27,8 +27,6 @@ import (
 	"sync"
 	"time"
 
-	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
-
 	"github.com/kdeps/kdeps/v2/pkg/domain"
 	"github.com/kdeps/kdeps/v2/pkg/infra/fs"
 	"github.com/kdeps/kdeps/v2/pkg/parser/yaml"
@@ -107,7 +105,7 @@ type FileWatcher interface {
 
 // NewFileWatcher creates a new file watcher.
 func NewFileWatcher() (FileWatcher, error) {
-	kdeps_debug.Log("enter: NewFileWatcher")
+	debugEnter("NewFileWatcher")
 	return fs.NewWatcherWithLogger(nil)
 }
 
@@ -117,7 +115,7 @@ func NewServer(
 	executor WorkflowExecutor,
 	logger *slog.Logger,
 ) (*Server, error) {
-	kdeps_debug.Log("enter: NewServer")
+	debugEnter("NewServer")
 	fileStore, uploadHandler, err := newUploadInfrastructure()
 	if err != nil {
 		return nil, err
@@ -135,25 +133,25 @@ func NewServer(
 
 // SetWorkflowPath sets the workflow path for hot reload.
 func (s *Server) SetWorkflowPath(path string) {
-	kdeps_debug.Log("enter: SetWorkflowPath")
+	debugEnter("SetWorkflowPath")
 	s.workflowPath = path
 }
 
 // SetParser sets the YAML parser for hot reload.
 func (s *Server) SetParser(parser *yaml.Parser) {
-	kdeps_debug.Log("enter: SetParser")
+	debugEnter("SetParser")
 	s.parser = parser
 }
 
 // SetWatcher sets the file watcher for hot reload.
 func (s *Server) SetWatcher(watcher FileWatcher) {
-	kdeps_debug.Log("enter: SetWatcher")
+	debugEnter("SetWatcher")
 	s.Watcher = watcher
 }
 
 // Start starts the HTTP server.
 func (s *Server) Start(addr string, devMode bool) error {
-	kdeps_debug.Log("enter: Start")
+	debugEnter("Start")
 	s.setupCoreMiddleware()
 
 	// Apply security middleware from apiServer config when present.
@@ -180,10 +178,10 @@ func (s *Server) Start(addr string, devMode bool) error {
 }
 
 func newUploadInfrastructure() (domain.FileStore, *UploadHandler, error) {
-	uploadDir := filepath.Join(os.TempDir(), "kdeps-uploads")
+	uploadDir := filepath.Join(os.TempDir(), defaultUploadSubdir)
 	fileStore, err := NewTemporaryFileStore(uploadDir)
 	if err != nil {
-		return nil, nil, prefixedWrapError("failed to create file store", err)
+		return nil, nil, uploadInfrastructureCreateFailed(err)
 	}
 	return fileStore, NewUploadHandler(fileStore, int64(MaxUploadSize)), nil
 }
@@ -214,13 +212,13 @@ func (s *Server) enableHotReloadIfDev(devMode bool) {
 		return
 	}
 	if err := s.SetupHotReload(); err != nil {
-		s.logger.Warn("failed to setup hot reload", "error", err)
+		logHotReloadSetupWarning(s.logger, err)
 	}
 }
 
 func (s *Server) setupCoreMiddleware() {
 	s.Router.Use(SecurityHeadersMiddleware(true))
-	if s.Workflow != nil {
+	if serverHasWorkflow(s) {
 		registerTrustedProxiesMiddleware(s.Router, s.Workflow.Settings)
 	}
 	s.Router.Use(RequestIDMiddleware())
@@ -247,10 +245,6 @@ func newDefaultHTTPServer(addr string, handler stdhttp.Handler) *stdhttp.Server 
 
 // Shutdown gracefully shuts down the HTTP server.
 func (s *Server) Shutdown(ctx context.Context) error {
-	kdeps_debug.Log("enter: Shutdown")
-	if s.httpServer == nil {
-		return nil
-	}
-	s.logger.InfoContext(ctx, "shutting down HTTP server")
-	return s.httpServer.Shutdown(ctx)
+	debugEnter("Shutdown")
+	return shutdownHTTPServerIfRunning(ctx, s.httpServer, s.logger, "HTTP")
 }

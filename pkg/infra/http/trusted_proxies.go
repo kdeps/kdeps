@@ -123,7 +123,7 @@ func invalidTrustedProxyEntries(trusted []string) []string {
 }
 
 func isTrustedPeer(peerIP string, trusted []string) bool {
-	if len(trusted) == 0 {
+	if !hasTrustedProxies(trusted) {
 		return false
 	}
 	parsed := net.ParseIP(peerIP)
