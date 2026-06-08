@@ -64,8 +64,7 @@ func (s *WebServer) HandleAppRequest(
 	kdeps_debug.Log("enter: HandleAppRequest")
 	appPort, ok := requireAppRoutePort(route)
 	if !ok {
-		s.logBackgroundError("app port is required for app server type")
-		respondWebServerInternalError(w)
+		s.respondMissingAppPort(w)
 		return
 	}
 
@@ -122,6 +121,11 @@ func newAppReverseProxy(
 			respondBadGateway(w, "Failed to reach app")
 		},
 	}
+}
+
+func (s *WebServer) respondMissingAppPort(w stdhttp.ResponseWriter) {
+	s.logBackgroundError("app port is required for app server type")
+	respondWebServerInternalError(w)
 }
 
 func requireAppRoutePort(route *domain.WebRoute) (int, bool) {

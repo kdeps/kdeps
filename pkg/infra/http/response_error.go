@@ -24,6 +24,7 @@ import (
 	"fmt"
 	stdhttp "net/http"
 	"runtime/debug"
+	"strings"
 	"time"
 
 	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
@@ -112,6 +113,11 @@ func respondWebServerInternalError(w stdhttp.ResponseWriter) {
 
 func respondBadGateway(w stdhttp.ResponseWriter, message string) {
 	respondPlainHTTPError(w, message, stdhttp.StatusBadGateway)
+}
+
+func respondMethodNotAllowed(w stdhttp.ResponseWriter, allowed []string) {
+	w.Header().Set("Allow", strings.Join(allowed, ", "))
+	respondPlainHTTPError(w, "Method Not Allowed", stdhttp.StatusMethodNotAllowed)
 }
 
 func writePreflightOK(w stdhttp.ResponseWriter) {

@@ -51,6 +51,10 @@ const (
 	serverTypeStatic = "static"
 )
 
+func unsupportedServerTypeMessage() string {
+	return "Unsupported server type"
+}
+
 // WebServer is the HTTP web server for serving static files and proxying apps.
 type WebServer struct {
 	Workflow    *domain.Workflow
@@ -87,7 +91,7 @@ func (s *WebServer) Start(ctx context.Context) error {
 	}
 
 	s.Router.Use(SecurityHeadersMiddleware(false))
-	s.Router.Use(TrustedProxiesMiddleware(trustedProxiesFromSettings(s.Workflow.Settings)))
+	registerTrustedProxiesMiddleware(s.Router, s.Workflow.Settings)
 	s.applyWebSecurityMiddleware()
 
 	// Setup routes
@@ -176,7 +180,7 @@ func (s *WebServer) respondUnsupportedServerType(
 	serverType string,
 ) {
 	s.logger.ErrorContext(r.Context(), "unsupported server type", "type", serverType)
-	respondPlainHTTPError(w, "Unsupported server type", stdhttp.StatusInternalServerError)
+	respondPlainHTTPError(w, unsupportedServerTypeMessage(), stdhttp.StatusInternalServerError)
 }
 
 func (s *WebServer) logWebRouteConfigured(route domain.WebRoute) {

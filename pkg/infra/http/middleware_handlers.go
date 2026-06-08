@@ -100,6 +100,10 @@ func debugModeFromEnv() bool {
 	return os.Getenv("DEBUG") == "true" || os.Getenv("DEBUG") == "1"
 }
 
+func authRequiredMessage() string {
+	return "authentication required"
+}
+
 func setSecurityResponseHeaders(w stdhttp.ResponseWriter, includeCSP, isTLS bool) {
 	w.Header().Set("X-Content-Type-Options", "nosniff")
 	w.Header().Set("X-Frame-Options", "DENY")
@@ -129,11 +133,7 @@ func AuthMiddleware(token string) func(stdhttp.HandlerFunc) stdhttp.HandlerFunc 
 				return
 			}
 			if !constantTimeEqual(extractAuthToken(r), token) {
-				respondMiddlewareError(
-					w, r,
-					domain.ErrCodeUnauthorized,
-					"authentication required",
-				)
+				respondMiddlewareError(w, r, domain.ErrCodeUnauthorized, authRequiredMessage())
 				return
 			}
 			next(w, r)
