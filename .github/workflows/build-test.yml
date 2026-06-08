@@ -29,6 +29,7 @@ jobs:
           scan-ref: .
           severity: CRITICAL,HIGH
           exit-code: 1
+          trivyignores: .trivyignore
           skip-dirs: docs/v2/node_modules,kdeps-io,kdeps-io.bak,private,.git
           skip-files: coverage.out,coverage-integration.out
 
@@ -36,6 +37,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
       - uses: actions/setup-go@v6
         with:
           go-version-file: go.mod
@@ -50,6 +53,7 @@ jobs:
           image-ref: kdeps-ci-scan:local
           severity: CRITICAL,HIGH
           exit-code: 1
+          trivyignores: .trivyignore
 
   lint:
     runs-on: ubuntu-latest
