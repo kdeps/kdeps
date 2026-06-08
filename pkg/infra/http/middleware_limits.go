@@ -21,9 +21,6 @@ package http
 import (
 	"io"
 	stdhttp "net/http"
-	"time"
-
-	"golang.org/x/time/rate"
 
 	"github.com/kdeps/kdeps/v2/pkg/domain"
 )
@@ -47,44 +44,6 @@ func respondUploadBodyTooLarge(
 func respondRateLimitExceeded(w stdhttp.ResponseWriter, r *stdhttp.Request) {
 	setRateLimitRetryAfter(w)
 	respondMiddlewareError(w, r, domain.ErrCodeRateLimited, rateLimitExceededMessage())
-}
-
-func newIPLimiterStore(requestsPerMinute, burst int) *ipLimiterStore {
-	s := &ipLimiterStore{
-		limiters: make(map[string]*ipLimiter),
-		rps:      rate.Limit(float64(requestsPerMinute) / secondsPerMinute),
-		burst:    burst,
-	}
-	go s.cleanup()
-	return s
-}
-
-func (s *ipLimiterStore) get(ip string) *rate.Limiter {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	l, ok := s.limiters[ip]
-	if !ok {
-		l = &ipLimiter{limiter: rate.NewLimiter(s.rps, s.burst)}
-		s.limiters[ip] = l
-	}
-	l.lastSeen = time.Now()
-	return l.limiter
-}
-
-func (s *ipLimiterStore) cleanup() {
-	for range time.Tick(limiterCleanupInterval) { //nolint:nolintlint // infinite ticker; goroutine exits with process
-		s.cleanupOnce()
-	}
-}
-
-func (s *ipLimiterStore) cleanupOnce() {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	for ip, l := range s.limiters {
-		if time.Since(l.lastSeen) > limiterIdleExpiry {
-			delete(s.limiters, ip)
-		}
-	}
 }
 
 func RateLimitMiddleware(

@@ -20,23 +20,33 @@ package http
 
 import (
 	stdhttp "net/http"
+	"strings"
 )
 
-// TrustedProxiesMiddleware stores trusted proxy entries in the request context
-// so forwarded headers (X-Forwarded-Proto, X-Forwarded-For) are honored only from trusted peers.
-func TrustedProxiesMiddleware(trusted []string) func(stdhttp.HandlerFunc) stdhttp.HandlerFunc {
-	debugEnter("TrustedProxiesMiddleware")
-	return func(next stdhttp.HandlerFunc) stdhttp.HandlerFunc {
-		return func(w stdhttp.ResponseWriter, r *stdhttp.Request) {
-			next(w, r.WithContext(withTrustedProxies(r.Context(), trusted)))
-		}
-	}
+func authRequiredMessage() string {
+	return "authentication required"
 }
 
-// LoggingMiddleware logs request information (basic implementation).
-func LoggingMiddleware(next stdhttp.HandlerFunc) stdhttp.HandlerFunc {
-	debugEnter("LoggingMiddleware")
-	return func(w stdhttp.ResponseWriter, r *stdhttp.Request) {
-		next(w, r)
+func isPublicAPIPath(path string) bool {
+	return path == healthCheckPathValue || strings.HasPrefix(path, managementPathPrefix)
+}
+
+// AuthMiddleware enforces bearer-token / API-key authentication when a token is configured.
+// /health and /_kdeps/* are exempt (/health is public; management routes use KDEPS_MANAGEMENT_TOKEN).
+// Clients supply the API token via "Authorization: Bearer <token>" or "X-API-Key: <token>".
+func AuthMiddleware(token string) func(stdhttp.HandlerFunc) stdhttp.HandlerFunc {
+	debugEnter("AuthMiddleware")
+	return func(next stdhttp.HandlerFunc) stdhttp.HandlerFunc {
+		return func(w stdhttp.ResponseWriter, r *stdhttp.Request) {
+			if shouldBypassAuth(token, requestPath(r)) {
+				next(w, r)
+				return
+			}
+			if !authTokenMatches(r, token) {
+				respondUnauthorized(w, r)
+				return
+			}
+			next(w, r)
+		}
 	}
 }

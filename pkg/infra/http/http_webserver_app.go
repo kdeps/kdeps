@@ -19,24 +19,36 @@
 package http
 
 import (
-	stdhttp "net/http"
+	"context"
+	"os"
+	"os/exec"
+
+	"github.com/kdeps/kdeps/v2/pkg/domain"
 )
 
-// TrustedProxiesMiddleware stores trusted proxy entries in the request context
-// so forwarded headers (X-Forwarded-Proto, X-Forwarded-For) are honored only from trusted peers.
-func TrustedProxiesMiddleware(trusted []string) func(stdhttp.HandlerFunc) stdhttp.HandlerFunc {
-	debugEnter("TrustedProxiesMiddleware")
-	return func(next stdhttp.HandlerFunc) stdhttp.HandlerFunc {
-		return func(w stdhttp.ResponseWriter, r *stdhttp.Request) {
-			next(w, r.WithContext(withTrustedProxies(r.Context(), trusted)))
-		}
-	}
+func appRouteWorkDir(s *WebServer, route *domain.WebRoute) string {
+	return resolveWebRoutePublicPath(s.WorkflowDir, route.PublicPath)
 }
 
-// LoggingMiddleware logs request information (basic implementation).
-func LoggingMiddleware(next stdhttp.HandlerFunc) stdhttp.HandlerFunc {
-	debugEnter("LoggingMiddleware")
-	return func(w stdhttp.ResponseWriter, r *stdhttp.Request) {
-		next(w, r)
+func killProcessIfRunning(cmd *exec.Cmd) error {
+	if !isProcessRunning(cmd) {
+		return nil
 	}
+	return cmd.Process.Kill()
+}
+
+func newAppShellCommand(ctx context.Context, workDir, command string) *exec.Cmd {
+	cmd := execCommandContext(ctx, "sh", "-c", command)
+	cmd.Dir = workDir
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	return cmd
+}
+
+func logAppCommandExit(s *WebServer, command string, err error) {
+	if err != nil {
+		s.logBackgroundError("app command exited with error", "command", command, "error", err)
+		return
+	}
+	s.logBackgroundInfo("app command exited", "command", command)
 }

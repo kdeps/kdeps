@@ -24,35 +24,6 @@ import (
 	"github.com/kdeps/kdeps/v2/pkg/domain"
 )
 
-func managementReadBodyError(err error) string {
-	return prefixedErrorMessage("failed to read request body", err)
-}
-
-func readLimitedManagementBody(
-	r *stdhttp.Request,
-	maxSize int,
-	label string,
-) ([]byte, int, string) {
-	limitedBody, err := readLimitedBytesInt(r.Body, maxSize)
-	if err != nil {
-		return nil, stdhttp.StatusBadRequest, managementReadBodyError(err)
-	}
-	if isEmptyBody(limitedBody) {
-		return nil, stdhttp.StatusBadRequest, managementEmptyBodyMessage()
-	}
-	if exceedsMaxSizeInt(len(limitedBody), maxSize) {
-		return nil, stdhttp.StatusRequestEntityTooLarge, labelExceedsMaxMessage(label, maxSize)
-	}
-	return limitedBody, 0, ""
-}
-
-func ensureManagementDir(workflowPath string) error {
-	if mkdirErr := mkdirSecureAfero(workflowDirFromPath(workflowPath)); mkdirErr != nil {
-		return managementMkdirWorkflowDirFailed(mkdirErr)
-	}
-	return nil
-}
-
 func (s *Server) writeManagementSuccess(w stdhttp.ResponseWriter, message string) {
 	writeWorkflowStatusJSON(
 		w,

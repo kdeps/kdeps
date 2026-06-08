@@ -27,8 +27,6 @@ import (
 	"github.com/kdeps/kdeps/v2/pkg/domain"
 )
 
-// trustedProxiesFromSettings merges apiServer and webServer entries because
-// combined-mode routes share one router and security middleware chain.
 func registerTrustedProxiesMiddleware(router *Router, settings domain.WorkflowSettings) {
 	router.Use(TrustedProxiesMiddleware(trustedProxiesFromSettings(settings)))
 }
@@ -111,8 +109,7 @@ func parseTrustedProxyEntry(entry string) (net.IP, *net.IPNet, bool) {
 func invalidTrustedProxyEntries(trusted []string) []string {
 	var invalid []string
 	for _, entry := range trusted {
-		trimmed := strings.TrimSpace(entry)
-		if trimmed == "" {
+		if strings.TrimSpace(entry) == "" {
 			continue
 		}
 		if _, _, ok := parseTrustedProxyEntry(entry); !ok {
@@ -150,8 +147,6 @@ func trustedProxiesFromContext(ctx context.Context) []string {
 	return proxies
 }
 
-// extractClientIP returns the client IP for rate limiting and request context.
-// Forwarded headers are honored only when the direct peer matches trustedProxies.
 func extractClientIP(r *stdhttp.Request, trusted []string) string {
 	peer := peerIPFromRequest(r)
 	if !isTrustedPeer(peer, trusted) {

@@ -19,24 +19,21 @@
 package http
 
 import (
-	stdhttp "net/http"
+	"context"
+	"log/slog"
+	"os/exec"
 )
 
-// TrustedProxiesMiddleware stores trusted proxy entries in the request context
-// so forwarded headers (X-Forwarded-Proto, X-Forwarded-For) are honored only from trusted peers.
-func TrustedProxiesMiddleware(trusted []string) func(stdhttp.HandlerFunc) stdhttp.HandlerFunc {
-	debugEnter("TrustedProxiesMiddleware")
-	return func(next stdhttp.HandlerFunc) stdhttp.HandlerFunc {
-		return func(w stdhttp.ResponseWriter, r *stdhttp.Request) {
-			next(w, r.WithContext(withTrustedProxies(r.Context(), trusted)))
+func stopWebServerCommands(
+	ctx context.Context,
+	logger *slog.Logger,
+	commands map[string]*exec.Cmd,
+) {
+	for name, cmd := range commands {
+		if !isProcessRunning(cmd) {
+			continue
 		}
-	}
-}
-
-// LoggingMiddleware logs request information (basic implementation).
-func LoggingMiddleware(next stdhttp.HandlerFunc) stdhttp.HandlerFunc {
-	debugEnter("LoggingMiddleware")
-	return func(w stdhttp.ResponseWriter, r *stdhttp.Request) {
-		next(w, r)
+		logger.InfoContext(ctx, "stopping app command", "name", name)
+		_ = killProcessIfRunning(cmd)
 	}
 }

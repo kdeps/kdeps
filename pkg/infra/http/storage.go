@@ -133,19 +133,28 @@ func (s *TemporaryFileStore) Store(
 
 	file := newUploadedFileRecord(id, basename, contentType, filePath, int64(len(content)))
 
-	s.mu.Lock()
-	s.files[id] = file
-	s.mu.Unlock()
+	if err := s.withWriteLock(func() error {
+		s.files[id] = file
+		return nil
+	}); err != nil {
+		return nil, err
+	}
 
 	return file, nil
 }
 
 func (s *TemporaryFileStore) Get(id string) (*domain.UploadedFile, error) {
 	debugEnter("Get")
-	s.mu.RLock()
-	defer s.mu.RUnlock()
-
-	return lookupStoredFile(s.files, id)
+	var file *domain.UploadedFile
+	var err error
+	lockErr := s.withReadLock(func() error {
+		file, err = lookupStoredFile(s.files, id)
+		return err
+	})
+	if lockErr != nil {
+		return nil, lockErr
+	}
+	return file, nil
 }
 
 func (s *TemporaryFileStore) GetPath(id string) (string, error) {
@@ -159,51 +168,47 @@ func (s *TemporaryFileStore) GetPath(id string) (string, error) {
 
 func (s *TemporaryFileStore) Delete(id string) error {
 	debugEnter("Delete")
-	s.mu.Lock()
-	defer s.mu.Unlock()
+	return s.withWriteLock(func() error {
+		file, err := lookupStoredFile(s.files, id)
+		if err != nil {
+			return err
+		}
 
-	file, err := lookupStoredFile(s.files, id)
-	if err != nil {
-		return err
-	}
+		if removeErr := removeUploadedFile(file); removeErr != nil {
+			return removeErr
+		}
 
-	if removeErr := removeUploadedFile(file); removeErr != nil {
-		return removeErr
-	}
-
-	delete(s.files, id)
-	return nil
+		delete(s.files, id)
+		return nil
+	})
 }
 
 func (s *TemporaryFileStore) Cleanup(ttl time.Duration) error {
 	debugEnter("Cleanup")
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
-	for _, id := range expiredFileIDs(s.files, time.Now().Add(-ttl)) {
-		removeStoredFileEntry(s.files, id)
-	}
-
-	return nil
+	return s.withWriteLock(func() error {
+		for _, id := range expiredFileIDs(s.files, time.Now().Add(-ttl)) {
+			removeStoredFileEntry(s.files, id)
+		}
+		return nil
+	})
 }
 
 func (s *TemporaryFileStore) Close() error {
 	debugEnter("Close")
-	s.mu.Lock()
-	defer s.mu.Unlock()
+	return s.withWriteLock(func() error {
+		if s.stopped {
+			return nil
+		}
 
-	if s.stopped {
+		close(s.stopCh)
+		s.stopped = true
+
+		for id := range s.files {
+			removeStoredFileEntry(s.files, id)
+		}
+
 		return nil
-	}
-
-	close(s.stopCh)
-	s.stopped = true
-
-	for id := range s.files {
-		removeStoredFileEntry(s.files, id)
-	}
-
-	return nil
+	})
 }
 
 func (s *TemporaryFileStore) cleanupLoop(ttl time.Duration) {
