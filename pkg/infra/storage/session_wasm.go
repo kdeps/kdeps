@@ -77,14 +77,6 @@ func isEntryExpired(entry sessionEntry, nowMillis int64) bool {
 	return entry.expiresAt > 0 && nowMillis > entry.expiresAt
 }
 
-func decodeStoredValue(raw string) (interface{}, bool) {
-	var value interface{}
-	if err := json.Unmarshal([]byte(raw), &value); err != nil {
-		return raw, true
-	}
-	return value, true
-}
-
 // Get retrieves a value from session storage.
 func (s *SessionStorage) Get(key string) (interface{}, bool) {
 	kdeps_debug.Log("enter: Get")
@@ -107,7 +99,7 @@ func (s *SessionStorage) Get(key string) (interface{}, bool) {
 		_ = s.Touch(key)
 	}
 
-	return decodeStoredValue(entry.value)
+	return decodeStoredValue(entry.value), true
 }
 
 // Set stores a value in session storage.
@@ -209,8 +201,7 @@ func (s *SessionStorage) GetAll() (map[string]interface{}, error) {
 		if isEntryExpired(entry, now) {
 			continue
 		}
-		value, _ := decodeStoredValue(entry.value)
-		result[key] = value
+		result[key] = decodeStoredValue(entry.value)
 	}
 
 	return result, nil
