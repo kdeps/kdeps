@@ -60,16 +60,7 @@ func (s *Server) ParseRequest(
 	clientIP := extractClientIP(r, trustedProxies)
 	requestID := uuid.New().String()
 
-	files := make([]FileUpload, 0, len(uploadedFiles))
-	for _, file := range uploadedFiles {
-		files = append(files, FileUpload{
-			Name:      file.Filename,
-			FieldName: file.FieldName,
-			Path:      file.Path,
-			MimeType:  file.ContentType,
-			Size:      file.Size,
-		})
-	}
+	files := uploadedFilesToFileUploads(uploadedFiles)
 
 	return &RequestContext{
 		Method:    r.Method,
@@ -82,6 +73,20 @@ func (s *Server) ParseRequest(
 		ID:        requestID,
 		SessionID: "",
 	}
+}
+
+func uploadedFilesToFileUploads(uploadedFiles []*domain.UploadedFile) []FileUpload {
+	files := make([]FileUpload, 0, len(uploadedFiles))
+	for _, file := range uploadedFiles {
+		files = append(files, FileUpload{
+			Name:      file.Filename,
+			FieldName: file.FieldName,
+			Path:      file.Path,
+			MimeType:  file.ContentType,
+			Size:      file.Size,
+		})
+	}
+	return files
 }
 
 func isFormURLEncodedContentType(contentType string) bool {

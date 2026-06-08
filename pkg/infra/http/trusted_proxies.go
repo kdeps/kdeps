@@ -40,6 +40,25 @@ func trustedProxiesFromSettings(settings domain.WorkflowSettings) []string {
 	return proxies
 }
 
+func parseTrustedHeaderIP(raw string) string {
+	trimmed := strings.TrimSpace(raw)
+	if trimmed == "" {
+		return ""
+	}
+	if parsed := net.ParseIP(trimmed); parsed != nil {
+		return parsed.String()
+	}
+	return ""
+}
+
+func parseForwardedClientIP(forwarded string) string {
+	if forwarded == "" {
+		return ""
+	}
+	parts := strings.SplitN(forwarded, ",", maxForwardedParts)
+	return parseTrustedHeaderIP(parts[0])
+}
+
 func peerIPFromAddr(addr string) string {
 	host, _, err := net.SplitHostPort(addr)
 	if err != nil {
@@ -120,16 +139,11 @@ func extractClientIP(r *stdhttp.Request, trusted []string) string {
 	if !isTrustedPeer(peer, trusted) {
 		return peer
 	}
-	if forwarded := r.Header.Get("X-Forwarded-For"); forwarded != "" {
-		parts := strings.SplitN(forwarded, ",", maxForwardedParts)
-		if parsed := net.ParseIP(strings.TrimSpace(parts[0])); parsed != nil {
-			return parsed.String()
-		}
+	if clientIP := parseForwardedClientIP(r.Header.Get("X-Forwarded-For")); clientIP != "" {
+		return clientIP
 	}
-	if realIP := strings.TrimSpace(r.Header.Get("X-Real-IP")); realIP != "" {
-		if parsed := net.ParseIP(realIP); parsed != nil {
-			return parsed.String()
-		}
+	if clientIP := parseTrustedHeaderIP(r.Header.Get("X-Real-IP")); clientIP != "" {
+		return clientIP
 	}
 	return peer
 }

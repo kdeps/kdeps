@@ -50,6 +50,16 @@ func generateUploadID(content []byte) string {
 	return hex.EncodeToString(hash[:])[:16]
 }
 
+func expiredFileIDs(files map[string]*domain.UploadedFile, cutoff time.Time) []string {
+	var ids []string
+	for id, file := range files {
+		if file.UploadedAt.Before(cutoff) {
+			ids = append(ids, id)
+		}
+	}
+	return ids
+}
+
 func removeStoredFileEntry(files map[string]*domain.UploadedFile, id string) {
 	file := files[id]
 	_ = os.Remove(file.Path)
@@ -163,16 +173,7 @@ func (s *TemporaryFileStore) Cleanup(ttl time.Duration) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	cutoff := time.Now().Add(-ttl)
-	var toDelete []string
-
-	for id, file := range s.files {
-		if file.UploadedAt.Before(cutoff) {
-			toDelete = append(toDelete, id)
-		}
-	}
-
-	for _, id := range toDelete {
+	for _, id := range expiredFileIDs(s.files, time.Now().Add(-ttl)) {
 		removeStoredFileEntry(s.files, id)
 	}
 

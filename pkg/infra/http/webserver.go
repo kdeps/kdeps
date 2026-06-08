@@ -94,13 +94,7 @@ func (s *WebServer) Start(ctx context.Context) error {
 	// Setup routes
 	s.SetupWebRoutes(ctx)
 
-	// Configure address (KDEPS_BIND_HOST overrides for VM/container deployments)
-	hostIP := s.Workflow.Settings.GetHostIP()
-	if override := os.Getenv("KDEPS_BIND_HOST"); override != "" {
-		hostIP = override
-	}
-	portNum := s.Workflow.Settings.GetPortNum()
-	addr := fmt.Sprintf("%s:%d", hostIP, portNum)
+	addr := webServerListenAddr(s.Workflow.Settings)
 
 	s.logger.InfoContext(context.Background(), "starting web server", "addr", addr)
 
@@ -112,13 +106,7 @@ func (s *WebServer) Start(ctx context.Context) error {
 // Shutdown gracefully shuts down the web server and stops any running commands.
 func (s *WebServer) Shutdown(ctx context.Context) error {
 	kdeps_debug.Log("enter: Shutdown")
-	// Stop all running app commands
-	for name, cmd := range s.Commands {
-		if cmd != nil && cmd.Process != nil {
-			s.logger.InfoContext(ctx, "stopping app command", "name", name)
-			_ = killProcessIfRunning(cmd)
-		}
-	}
+	stopWebServerCommands(ctx, s.logger, s.Commands)
 
 	// Shutdown HTTP server
 	if s.httpServer == nil {
@@ -198,13 +186,32 @@ func (s *WebServer) dispatchWebRoute(
 	}
 }
 
+func webServerListenAddr(settings domain.WorkflowSettings) string {
+	hostIP := settings.GetHostIP()
+	if override := os.Getenv("KDEPS_BIND_HOST"); override != "" {
+		hostIP = override
+	}
+	return fmt.Sprintf("%s:%d", hostIP, settings.GetPortNum())
+}
+
+func stopWebServerCommands(
+	ctx context.Context,
+	logger *slog.Logger,
+	commands map[string]*exec.Cmd,
+) {
+	for name, cmd := range commands {
+		if cmd == nil || cmd.Process == nil {
+			continue
+		}
+		logger.InfoContext(ctx, "stopping app command", "name", name)
+		_ = killProcessIfRunning(cmd)
+	}
+}
+
 func registerWebRouteMethods(router *Router, path string, handler stdhttp.HandlerFunc) {
-	router.GET(path, handler)
-	router.POST(path, handler)
-	router.PUT(path, handler)
-	router.DELETE(path, handler)
-	router.PATCH(path, handler)
-	router.OPTIONS(path, handler)
+	for _, method := range []string{"GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"} {
+		registerRouterMethod(router, method, path, handler)
+	}
 }
 
 // HandleStaticRequest handles static file serving.

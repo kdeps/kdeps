@@ -36,6 +36,16 @@ func (s *Server) lockedWorkflow() *domain.Workflow {
 	return workflow
 }
 
+func managementOKStatus(workflow *domain.Workflow) map[string]interface{} {
+	status := map[string]interface{}{
+		"status": "ok",
+	}
+	if detail := managementWorkflowStatusDetail(workflow); detail != nil {
+		status["workflow"] = detail
+	}
+	return status
+}
+
 func managementWorkflowStatusDetail(workflow *domain.Workflow) map[string]interface{} {
 	if workflow == nil {
 		return nil
@@ -124,6 +134,14 @@ func (s *Server) reloadWorkflowOrError(statusCode int, messagePrefix string) (in
 		return statusCode, fmt.Sprintf("%s: %v", messagePrefix, err)
 	}
 	return 0, ""
+}
+
+func (s *Server) respondManagementExtractError(
+	w stdhttp.ResponseWriter,
+	extractErr error,
+) {
+	s.respondManagementError(w, stdhttp.StatusUnprocessableEntity,
+		fmt.Sprintf("failed to extract package: %v", extractErr))
 }
 
 func (s *Server) prepareManagementDestination(

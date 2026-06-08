@@ -21,6 +21,7 @@ package http
 import (
 	"errors"
 	"fmt"
+	"log/slog"
 	stdhttp "net/http"
 	"path/filepath"
 
@@ -39,18 +40,7 @@ func (s *Server) SetupHotReload() error {
 
 	watchWorkflowPath := s.hotReloadWorkflowPath()
 
-	// Ensure workflow path is absolute for watching
-	absWorkflowPath, err := filepathAbs(watchWorkflowPath)
-	if err != nil {
-		s.logger.Warn(
-			"failed to resolve absolute workflow path, using relative",
-			"path",
-			watchWorkflowPath,
-			"error",
-			err,
-		)
-		absWorkflowPath = watchWorkflowPath
-	}
+	absWorkflowPath := absWorkflowPathOrRelative(watchWorkflowPath, s.logger)
 
 	if parserErr := s.ensureWorkflowParser(); parserErr != nil {
 		return parserErr
@@ -79,6 +69,21 @@ func (s *Server) SetupHotReload() error {
 	}
 
 	return nil
+}
+
+func absWorkflowPathOrRelative(workflowPath string, logger *slog.Logger) string {
+	absPath, err := filepathAbs(workflowPath)
+	if err != nil {
+		logger.Warn(
+			"failed to resolve absolute workflow path, using relative",
+			"path",
+			workflowPath,
+			"error",
+			err,
+		)
+		return workflowPath
+	}
+	return absPath
 }
 
 func (s *Server) hotReloadWorkflowPath() string {

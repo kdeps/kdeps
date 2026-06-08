@@ -33,16 +33,7 @@ func (s *Server) registerManagementRoute(
 	method, path string,
 	handler stdhttp.HandlerFunc,
 ) {
-	wrapped := requireManagementAuth(handler)
-	fullPath := managementPathPrefix + path
-	switch method {
-	case "GET":
-		s.Router.GET(fullPath, wrapped)
-	case "PUT":
-		s.Router.PUT(fullPath, wrapped)
-	case "POST":
-		s.Router.POST(fullPath, wrapped)
-	}
+	registerRouterMethod(s.Router, method, managementPathPrefix+path, requireManagementAuth(handler))
 }
 
 func (s *Server) SetupManagementRoutes() {
@@ -59,14 +50,7 @@ func (s *Server) SetupManagementRoutes() {
 // GET /_kdeps/status.
 func (s *Server) HandleManagementStatus(w stdhttp.ResponseWriter, _ *stdhttp.Request) {
 	kdeps_debug.Log("enter: HandleManagementStatus")
-	status := map[string]interface{}{
-		"status": "ok",
-	}
-	if detail := managementWorkflowStatusDetail(s.lockedWorkflow()); detail != nil {
-		status["workflow"] = detail
-	}
-
-	writeJSONResponse(w, stdhttp.StatusOK, status)
+	writeJSONResponse(w, stdhttp.StatusOK, managementOKStatus(s.lockedWorkflow()))
 }
 
 // HandleManagementUpdateWorkflow accepts a new workflow YAML in the request body,
@@ -120,8 +104,7 @@ func (s *Server) HandleManagementUpdatePackage(w stdhttp.ResponseWriter, r *stdh
 	destDir := filepath.Dir(workflowPath)
 
 	if extractErr := extractKdepsPackage(body, destDir); extractErr != nil {
-		s.respondManagementError(w, stdhttp.StatusUnprocessableEntity,
-			fmt.Sprintf("failed to extract package: %v", extractErr))
+		s.respondManagementExtractError(w, extractErr)
 		return
 	}
 

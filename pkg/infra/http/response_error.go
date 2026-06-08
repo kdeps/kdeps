@@ -70,6 +70,19 @@ func applySessionCookieIfPresent(w stdhttp.ResponseWriter, r *stdhttp.Request) {
 	}
 }
 
+func marshalFailureError(err error, label string) *domain.AppError {
+	return domain.NewAppError(
+		domain.ErrCodeInternal,
+		fmt.Sprintf("failed to marshal %s: %v", label, err),
+	)
+}
+
+func setStringResponseHeaders(w stdhttp.ResponseWriter, headers map[string]string) {
+	for key, value := range headers {
+		w.Header().Set(key, value)
+	}
+}
+
 // writeJSONResponse writes a JSON payload with the given status code.
 func writeJSONResponse(w stdhttp.ResponseWriter, statusCode int, payload any) {
 	w.Header().Set("Content-Type", "application/json")
