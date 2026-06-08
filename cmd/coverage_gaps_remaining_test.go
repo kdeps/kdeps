@@ -24,6 +24,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"log/slog"
 	"net"
 	"net/http"
@@ -87,11 +88,8 @@ func TestSetupDockerBuilderImpl_BuilderError(t *testing.T) {
 func TestBuildImageInternal_AbsPathError(t *testing.T) {
 	orig := filepathAbsFunc
 	t.Cleanup(func() { filepathAbsFunc = orig })
-	filepathAbsFunc = func(path string) (string, error) {
-		if strings.Contains(path, "pkgdir") {
-			return "", errors.New("abs fail")
-		}
-		return filepath.Abs(path)
+	filepathAbsFunc = func(string) (string, error) {
+		return "", errors.New("abs fail")
 	}
 	tmp := t.TempDir()
 	require.NoError(
@@ -1534,4 +1532,58 @@ func TestFindAvailablePort_FirstTry(t *testing.T) {
 	got, err := FindAvailablePort("127.0.0.1", port)
 	require.NoError(t, err)
 	assert.Equal(t, port, got)
+}
+
+func TestExtractRegularFile_HeaderOversized(t *testing.T) {
+	err := extractRegularFile(
+		filepath.Join(t.TempDir(), "f.txt"),
+		&tar.Header{Name: "f.txt", Size: maxExtractFileSize + 1},
+		tar.NewReader(bytes.NewReader([]byte("x"))),
+	)
+	require.Error(t, err)
+}
+
+func TestExtractRegularFile_Success(t *testing.T) {
+	target := filepath.Join(t.TempDir(), "f.txt")
+	err := extractRegularFile(
+		target,
+		&tar.Header{Name: "f.txt", Size: 1},
+		tar.NewReader(bytes.NewReader([]byte("x"))),
+	)
+	require.NoError(t, err)
+}
+
+func TestExtractFile_CopyAtLimit(t *testing.T) {
+	orig := extractFileIOCopyFunc
+	t.Cleanup(func() { extractFileIOCopyFunc = orig })
+	extractFileIOCopyFunc = func(_ io.Writer, _ io.Reader) (int64, error) {
+		return maxExtractFileSize, nil
+	}
+	target := filepath.Join(t.TempDir(), "f.txt")
+	err := extractFile(target, bytes.NewReader([]byte("x")))
+	require.Error(t, err)
+}
+
+func TestWriteKomponentRegularFile_HeaderOversized(t *testing.T) {
+	err := writeKomponentRegularFile(
+		filepath.Join(t.TempDir(), "f.txt"),
+		&tar.Header{Name: "f.txt", Size: maxExtractFileSize + 1},
+		tar.NewReader(bytes.NewReader(nil)),
+	)
+	require.Error(t, err)
+}
+
+func TestWriteKomponentRegularFile_CopyAtLimit(t *testing.T) {
+	orig := komponentIOCopyFunc
+	t.Cleanup(func() { komponentIOCopyFunc = orig })
+	komponentIOCopyFunc = func(_ io.Writer, _ io.Reader) (int64, error) {
+		return maxExtractFileSize, nil
+	}
+	target := filepath.Join(t.TempDir(), "f.txt")
+	err := writeKomponentRegularFile(
+		target,
+		&tar.Header{Name: "f.txt", Size: 1},
+		tar.NewReader(bytes.NewReader([]byte("x"))),
+	)
+	require.Error(t, err)
 }
