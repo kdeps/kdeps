@@ -46,11 +46,17 @@ func (s *Server) writeManagementWorkflowSpec(
 	writeJSONResponse(w, stdhttp.StatusOK, generate(s.lockedWorkflow()))
 }
 
+func generateWorkflowOpenAPI(workflow *domain.Workflow) any {
+	return schema.GenerateOpenAPI(workflow)
+}
+
+func generateWorkflowJSONSchema(workflow *domain.Workflow) any {
+	return schema.GenerateJSONSchema(workflow)
+}
+
 func (s *Server) HandleManagementOpenAPI(w stdhttp.ResponseWriter, _ *stdhttp.Request) {
 	kdeps_debug.Log("enter: HandleManagementOpenAPI")
-	s.writeManagementWorkflowSpec(w, func(workflow *domain.Workflow) any {
-		return schema.GenerateOpenAPI(workflow)
-	})
+	s.writeManagementWorkflowSpec(w, generateWorkflowOpenAPI)
 }
 
 // HandleManagementSchema returns a JSON Schema (draft 2020-12) document that
@@ -58,7 +64,5 @@ func (s *Server) HandleManagementOpenAPI(w stdhttp.ResponseWriter, _ *stdhttp.Re
 // GET /_kdeps/schema.
 func (s *Server) HandleManagementSchema(w stdhttp.ResponseWriter, _ *stdhttp.Request) {
 	kdeps_debug.Log("enter: HandleManagementSchema")
-	s.writeManagementWorkflowSpec(w, func(workflow *domain.Workflow) any {
-		return schema.GenerateJSONSchema(workflow)
-	})
+	s.writeManagementWorkflowSpec(w, generateWorkflowJSONSchema)
 }

@@ -20,7 +20,6 @@ package http
 
 import (
 	"errors"
-	"fmt"
 	"log/slog"
 
 	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
@@ -48,7 +47,7 @@ func (s *Server) SetupHotReload() error {
 
 	workflowChanged := reloadOnChange("workflow file changed, reloading...")
 	if watchErr := s.Watcher.Watch(absWorkflowPath, workflowChanged); watchErr != nil {
-		return fmt.Errorf("failed to watch workflow file: %w", watchErr)
+		return prefixedWrapError("failed to watch workflow file", watchErr)
 	}
 
 	// Watch resources directory (relative to workflow file)
