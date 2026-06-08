@@ -87,13 +87,21 @@ func (s *Server) hotReloadWorkflowPath() string {
 	return defaultWorkflowFile
 }
 
+func (s *Server) logHotReloadFailure(err error) {
+	s.logger.Error("failed to reload workflow", "error", err)
+}
+
+func (s *Server) logHotReloadSuccess() {
+	s.logger.Info("workflow reloaded successfully")
+}
+
 func (s *Server) runHotReload(changeMsg string) {
 	s.logger.Info(changeMsg)
 	if reloadErr := s.reloadWorkflow(); reloadErr != nil {
-		s.logger.Error("failed to reload workflow", "error", reloadErr)
+		s.logHotReloadFailure(reloadErr)
 		return
 	}
-	s.logger.Info("workflow reloaded successfully")
+	s.logHotReloadSuccess()
 }
 
 func (s *Server) hotReloadCallback() func(string) func() {

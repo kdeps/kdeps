@@ -77,10 +77,10 @@ func bearerTokenFromAuthHeader(authHeader string) (string, bool) {
 
 // extractAuthToken reads bearer or API-key credentials from the request.
 func extractAuthToken(r *stdhttp.Request) string {
-	if token, ok := bearerTokenFromAuthHeader(r.Header.Get("Authorization")); ok {
+	if token, ok := bearerTokenFromAuthHeader(authorizationHeader(r)); ok {
 		return token
 	}
-	if apiKey := r.Header.Get("X-Api-Key"); apiKey != "" {
+	if apiKey := apiKeyHeader(r); apiKey != "" {
 		return apiKey
 	}
 	return ""
@@ -106,7 +106,7 @@ func respondMiddlewareError(
 	code domain.AppErrorCode,
 	message string,
 ) {
-	RespondWithError(w, r, domain.NewAppError(code, message), GetDebugMode(r.Context()))
+	RespondWithError(w, r, domain.NewAppError(code, message), requestDebugMode(r))
 }
 
 // browserRenderedContentType reports whether ct is a content type that

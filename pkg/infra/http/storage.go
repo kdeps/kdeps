@@ -99,7 +99,7 @@ func removeStoredFileEntry(files map[string]*domain.UploadedFile, id string) {
 
 func removeUploadedFile(file *domain.UploadedFile) error {
 	if err := os.Remove(file.Path); err != nil && !os.IsNotExist(err) {
-		return prefixedWrapError("failed to delete file", err)
+		return prefixedWrapError(storageDeleteFileFailedPrefix(), err)
 	}
 	return nil
 }
@@ -108,7 +108,7 @@ func removeUploadedFile(file *domain.UploadedFile) error {
 func NewTemporaryFileStore(baseDir string) (*TemporaryFileStore, error) {
 	kdeps_debug.Log("enter: NewTemporaryFileStore")
 	if err := os.MkdirAll(baseDir, 0750); err != nil {
-		return nil, prefixedWrapError("failed to create upload directory", err)
+		return nil, prefixedWrapError(storageCreateUploadDirFailedPrefix(), err)
 	}
 
 	store := &TemporaryFileStore{
@@ -135,7 +135,7 @@ func (s *TemporaryFileStore) Store(
 	filePath := storedUploadPath(s.baseDir, id, safeFilename)
 
 	if err := os.WriteFile(filePath, content, 0600); err != nil {
-		return nil, prefixedWrapError("failed to write file", err)
+		return nil, prefixedWrapError(storageWriteFileFailedPrefix(), err)
 	}
 
 	file := newUploadedFileRecord(id, safeFilename, contentType, filePath, int64(len(content)))

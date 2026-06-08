@@ -86,7 +86,7 @@ func (s *WebServer) SetWorkflowDir(workflowPath string) {
 // Start starts the web server.
 func (s *WebServer) Start(ctx context.Context) error {
 	kdeps_debug.Log("enter: Start")
-	if s.Workflow.Settings.WebServer == nil {
+	if !webServerConfigured(s.Workflow) {
 		return errors.New("webServer configuration is required")
 	}
 
@@ -129,7 +129,7 @@ func (s *WebServer) SetupWebRoutes(ctx context.Context) {
 func (s *WebServer) RegisterRoutesOn(ctx context.Context, router *Router) {
 	kdeps_debug.Log("enter: RegisterRoutesOn")
 	config := s.Workflow.Settings.WebServer
-	if config == nil {
+	if !webServerConfigured(s.Workflow) {
 		return
 	}
 

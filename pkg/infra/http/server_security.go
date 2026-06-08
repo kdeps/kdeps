@@ -113,7 +113,7 @@ func warnInvalidTrustedProxies(logger *slog.Logger, trustedProxies []string) {
 // from the workflow's APIServer config.
 func (s *Server) applySecurityMiddleware() error {
 	kdeps_debug.Log("enter: applySecurityMiddleware")
-	if s.Workflow == nil || s.Workflow.Settings.APIServer == nil {
+	if !apiServerConfigured(s.Workflow) {
 		return nil
 	}
 	api := s.Workflow.Settings.APIServer
@@ -129,7 +129,7 @@ func (s *Server) applySecurityMiddleware() error {
 // applyWebSecurityMiddleware wires rate-limit and body-limit middleware for webServer-only mode.
 func (s *WebServer) applyWebSecurityMiddleware() {
 	kdeps_debug.Log("enter: applyWebSecurityMiddleware")
-	if s.Workflow == nil || s.Workflow.Settings.WebServer == nil {
+	if !webServerConfigured(s.Workflow) {
 		return
 	}
 	web := s.Workflow.Settings.WebServer

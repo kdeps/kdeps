@@ -29,7 +29,6 @@ import (
 	"golang.org/x/time/rate"
 
 	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
-	"github.com/kdeps/kdeps/v2/pkg/domain"
 )
 
 // ErrorHandlerMiddleware handles panics and errors.
@@ -81,7 +80,7 @@ func SecurityHeadersMiddleware(includeCSP bool) func(stdhttp.HandlerFunc) stdhtt
 	kdeps_debug.Log("enter: SecurityHeadersMiddleware")
 	return func(next stdhttp.HandlerFunc) stdhttp.HandlerFunc {
 		return func(w stdhttp.ResponseWriter, r *stdhttp.Request) {
-			setSecurityResponseHeaders(w, includeCSP, r.TLS != nil)
+			setSecurityResponseHeaders(w, includeCSP, isTLSEnabled(r))
 			next(w, r)
 		}
 	}
@@ -133,7 +132,7 @@ func AuthMiddleware(token string) func(stdhttp.HandlerFunc) stdhttp.HandlerFunc 
 				return
 			}
 			if !constantTimeEqual(extractAuthToken(r), token) {
-				respondMiddlewareError(w, r, domain.ErrCodeUnauthorized, authRequiredMessage())
+				respondUnauthorized(w, r)
 				return
 			}
 			next(w, r)

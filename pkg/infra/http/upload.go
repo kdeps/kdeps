@@ -74,7 +74,7 @@ func NewUploadHandler(store domain.FileStore, maxFileSize int64) *UploadHandler 
 func (h *UploadHandler) HandleUpload(r *stdhttp.Request) ([]*domain.UploadedFile, error) {
 	kdeps_debug.Log("enter: HandleUpload")
 	if err := r.ParseMultipartForm(MaxMemory); err != nil {
-		return nil, prefixedWrapError("failed to parse multipart form", err)
+		return nil, prefixedWrapError(uploadParseFormFailedPrefix(), err)
 	}
 
 	form := r.MultipartForm
@@ -160,7 +160,7 @@ func (h *UploadHandler) processFileHeaders(
 		file, err := h.processFileHeader(fileHeader, fieldName)
 		if err != nil {
 			if fieldName == uploadFieldFile && len(files) == 1 {
-				return nil, prefixedWrapError("failed to process file", err)
+				return nil, prefixedWrapError(uploadProcessFileFailedPrefix(), err)
 			}
 			return nil, processNamedUploadFileError(
 				fileHeader.Filename,
@@ -227,7 +227,7 @@ func (h *UploadHandler) processFileHeader(
 	// Open uploaded file
 	src, err := openMultipartFile(fileHeader)
 	if err != nil {
-		return nil, prefixedWrapError("failed to open uploaded file", err)
+		return nil, prefixedWrapError(uploadOpenFileFailedPrefix(), err)
 	}
 	defer func() {
 		_ = src.Close()
@@ -235,7 +235,7 @@ func (h *UploadHandler) processFileHeader(
 
 	content, contentSize, err := readBoundedUploadContent(src, h.maxFileSize)
 	if err != nil {
-		return nil, prefixedWrapError("failed to read file content", err)
+		return nil, prefixedWrapError(uploadReadContentFailedPrefix(), err)
 	}
 	if contentSize > h.maxFileSize {
 		return nil, h.uploadTooLargeError(fileHeader.Filename, contentSize)
@@ -246,7 +246,7 @@ func (h *UploadHandler) processFileHeader(
 	// Store file
 	file, err := h.store.Store(fileHeader.Filename, content, contentType)
 	if err != nil {
-		return nil, prefixedWrapError("failed to store file", err)
+		return nil, prefixedWrapError(uploadStoreFileFailedPrefix(), err)
 	}
 
 	file.FieldName = fieldName

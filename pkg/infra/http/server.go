@@ -192,12 +192,20 @@ func hasTLSCertificates(certFile, keyFile string) bool {
 	return certFile != "" && keyFile != ""
 }
 
+func (s *Server) logStartingHTTPS(addr, certFile string) {
+	s.logger.Info("starting HTTPS server", "addr", addr, "cert", certFile)
+}
+
+func (s *Server) logStartingHTTP(addr string) {
+	s.logger.Info("starting HTTP server", "addr", addr)
+}
+
 func (s *Server) listenAndServe(addr, certFile, keyFile string) error {
 	if hasTLSCertificates(certFile, keyFile) {
-		s.logger.Info("starting HTTPS server", "addr", addr, "cert", certFile)
+		s.logStartingHTTPS(addr, certFile)
 		return s.httpServer.ListenAndServeTLS(certFile, keyFile)
 	}
-	s.logger.Info("starting HTTP server", "addr", addr)
+	s.logStartingHTTP(addr)
 	return s.httpServer.ListenAndServe()
 }
 

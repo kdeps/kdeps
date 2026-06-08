@@ -20,7 +20,6 @@ package http
 
 import (
 	stdhttp "net/http"
-	"strings"
 
 	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
 	"github.com/kdeps/kdeps/v2/pkg/domain"
@@ -36,7 +35,7 @@ func (s *Server) CorsMiddleware(next stdhttp.HandlerFunc) stdhttp.HandlerFunc {
 		s.setCorsHeaders(w, cors)
 
 		if cors.AllowCredentials {
-			w.Header().Set("Access-Control-Allow-Credentials", "true")
+			setCorsAllowCredentials(w)
 		}
 
 		if isCorsPreflight(r.Method) {
@@ -51,7 +50,7 @@ func (s *Server) CorsMiddleware(next stdhttp.HandlerFunc) stdhttp.HandlerFunc {
 // setCorsOrigin sets the CORS origin header.
 func (s *Server) setCorsOrigin(w stdhttp.ResponseWriter, r *stdhttp.Request, cors *domain.CORS) {
 	kdeps_debug.Log("enter: setCorsOrigin")
-	origin := r.Header.Get("Origin")
+	origin := requestOrigin(r)
 	if origin == "" {
 		return
 	}
@@ -97,17 +96,11 @@ const (
 )
 
 func corsAllowedMethods(cors *domain.CORS) string {
-	if len(cors.AllowMethods) > 0 {
-		return strings.Join(cors.AllowMethods, ", ")
-	}
-	return defaultCORSAllowMethods
+	return joinCORSList(cors.AllowMethods, defaultCORSAllowMethods)
 }
 
 func corsAllowedHeaders(cors *domain.CORS) string {
-	if len(cors.AllowHeaders) > 0 {
-		return strings.Join(cors.AllowHeaders, ", ")
-	}
-	return defaultCORSAllowHeaders
+	return joinCORSList(cors.AllowHeaders, defaultCORSAllowHeaders)
 }
 
 // SetupHotReload sets up file watching for hot reload.

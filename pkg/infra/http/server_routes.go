@@ -38,7 +38,7 @@ func (s *Server) SetupRoutes() {
 }
 
 func (s *Server) registerWorkflowAPIRoutes() {
-	if s.Workflow == nil || s.Workflow.Settings.APIServer == nil {
+	if !apiServerConfigured(s.Workflow) {
 		return
 	}
 	for _, route := range s.Workflow.Settings.APIServer.Routes {

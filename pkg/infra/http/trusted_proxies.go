@@ -35,13 +35,27 @@ func registerTrustedProxiesMiddleware(router *Router, settings domain.WorkflowSe
 
 func trustedProxiesFromSettings(settings domain.WorkflowSettings) []string {
 	var proxies []string
-	if settings.APIServer != nil {
-		proxies = append(proxies, settings.APIServer.TrustedProxies...)
-	}
-	if settings.WebServer != nil {
-		proxies = append(proxies, settings.WebServer.TrustedProxies...)
-	}
+	proxies = appendTrustedProxies(proxies, trustedProxiesFromAPIServer(settings))
+	proxies = appendTrustedProxies(proxies, trustedProxiesFromWebServer(settings))
 	return proxies
+}
+
+func trustedProxiesFromAPIServer(settings domain.WorkflowSettings) []string {
+	if settings.APIServer == nil {
+		return nil
+	}
+	return settings.APIServer.TrustedProxies
+}
+
+func trustedProxiesFromWebServer(settings domain.WorkflowSettings) []string {
+	if settings.WebServer == nil {
+		return nil
+	}
+	return settings.WebServer.TrustedProxies
+}
+
+func appendTrustedProxies(dst, src []string) []string {
+	return append(dst, src...)
 }
 
 func parseTrustedHeaderIP(raw string) string {
@@ -143,10 +157,10 @@ func extractClientIP(r *stdhttp.Request, trusted []string) string {
 	if !isTrustedPeer(peer, trusted) {
 		return peer
 	}
-	if clientIP := parseForwardedClientIP(r.Header.Get("X-Forwarded-For")); clientIP != "" {
+	if clientIP := parseForwardedClientIP(forwardedForHeader(r)); clientIP != "" {
 		return clientIP
 	}
-	if clientIP := parseTrustedHeaderIP(r.Header.Get("X-Real-IP")); clientIP != "" {
+	if clientIP := parseTrustedHeaderIP(realIPHeader(r)); clientIP != "" {
 		return clientIP
 	}
 	return peer

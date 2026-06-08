@@ -33,6 +33,10 @@ func (s *Server) respondManagementError(w stdhttp.ResponseWriter, statusCode int
 		s.logger.Error("management API error", "status", statusCode, "message", message)
 	}
 
+	writeManagementErrorJSON(w, statusCode, message)
+}
+
+func writeManagementErrorJSON(w stdhttp.ResponseWriter, statusCode int, message string) {
 	writeJSONResponse(w, statusCode, managementErrorPayload(message))
 }
 
@@ -43,7 +47,7 @@ func (s *Server) writeManagementWorkflowSpec(
 	w stdhttp.ResponseWriter,
 	generate func(*domain.Workflow) any,
 ) {
-	writeJSONResponse(w, stdhttp.StatusOK, generate(s.lockedWorkflow()))
+	writeOKJSON(w, generate(s.lockedWorkflow()))
 }
 
 func generateWorkflowOpenAPI(workflow *domain.Workflow) any {

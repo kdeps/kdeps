@@ -89,7 +89,7 @@ func parseRequestBody(r *stdhttp.Request) map[string]interface{} {
 func uploadRequestError(err error) *domain.AppError {
 	return domain.NewAppError(
 		domain.ErrCodeBadRequest,
-		prefixedErrorMessage("File upload failed", err),
+		prefixedErrorMessage(uploadFailedPrefix(), err),
 	)
 }
 
@@ -111,21 +111,17 @@ func isFormURLEncodedContentType(contentType string) bool {
 	return strings.HasPrefix(contentType, "application/x-www-form-urlencoded")
 }
 
-func isMultipartRequest(r *stdhttp.Request) bool {
-	return isMultipartContentType(requestContentType(r))
-}
-
 func (s *Server) processRequestUploads(
 	w stdhttp.ResponseWriter,
 	r *stdhttp.Request,
 ) ([]*domain.UploadedFile, bool) {
-	if !isMultipartRequest(r) {
+	if !isMultipartUpload(r) {
 		return nil, true
 	}
 
 	files, err := s.uploadHandler.HandleUpload(r)
 	if err != nil {
-		RespondWithError(w, r, uploadRequestError(err), GetDebugMode(r.Context()))
+		s.respondWithRequestError(w, r, uploadRequestError(err))
 		return nil, false
 	}
 
@@ -160,7 +156,7 @@ func (s *Server) logWorkflowExecutionError(r *stdhttp.Request, err error) {
 		"error",
 		err,
 		"path",
-		r.URL.Path,
+		requestPath(r),
 		"method",
 		r.Method,
 	)
@@ -168,7 +164,7 @@ func (s *Server) logWorkflowExecutionError(r *stdhttp.Request, err error) {
 
 func (s *Server) respondWorkflowError(w stdhttp.ResponseWriter, r *stdhttp.Request, err error) {
 	s.logWorkflowExecutionError(r, err)
-	RespondWithError(w, r, err, GetDebugMode(r.Context()))
+	s.respondWithRequestError(w, r, err)
 }
 
 func firstValuesFromMultiMap(values map[string][]string) map[string]string {

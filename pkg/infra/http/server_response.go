@@ -43,8 +43,8 @@ func (s *Server) respondMarshalError(
 	err error,
 	label string,
 ) {
-	s.logger.Error("failed to marshal "+label, "error", err, "path", r.URL.Path)
-	RespondWithError(w, r, marshalFailureError(err, label), GetDebugMode(r.Context()))
+	s.logger.Error("failed to marshal "+label, "error", err, "path", requestPath(r))
+	s.respondWithRequestError(w, r, marshalFailureError(err, label))
 }
 
 func (s *Server) logResponseWriteError(label string, writeErr error, path string) {
@@ -64,11 +64,11 @@ func defaultAPIResponseContentType(w stdhttp.ResponseWriter) string {
 		return contentType
 	}
 	setJSONContentType(w)
-	return "application/json"
+	return defaultJSONMediaType
 }
 
 func apiResourceFailureError() *domain.AppError {
-	return domain.NewAppError(domain.ErrCodeResourceFailed, "API response indicated failure")
+	return domain.NewAppError(domain.ErrCodeResourceFailed, apiResourceFailureMessage())
 }
 
 func anyMapToInterfaceMap(src map[string]any) map[string]interface{} {
@@ -125,7 +125,7 @@ func (s *Server) tryRespondAPIResult(
 	s.logger.Debug(
 		"detected API response resource result",
 		"path",
-		r.URL.Path,
+		requestPath(r),
 		"success",
 		success,
 	)
@@ -138,8 +138,8 @@ func (s *Server) tryRespondAPIResult(
 		return true
 	}
 
-	s.logger.Debug("API response indicated failure", "path", r.URL.Path)
-	RespondWithError(w, r, apiResourceFailureError(), GetDebugMode(r.Context()))
+	s.logger.Debug("API response indicated failure", "path", requestPath(r))
+	s.respondWithRequestError(w, r, apiResourceFailureError())
 	return true
 }
 
@@ -152,7 +152,7 @@ func extractAPIMeta(w stdhttp.ResponseWriter, metaRaw interface{}) map[string]an
 	metaMap, okMeta := metaRaw.(map[string]interface{})
 	if okMeta {
 		for key, value := range metaMap {
-			if key == "headers" {
+			if key == metaHeadersKey {
 				applyMetaHeaders(w, value)
 				continue
 			}
@@ -195,7 +195,7 @@ func (s *Server) writeAPISuccessResponse(
 	s.logger.Debug(
 		"sending API response",
 		"path",
-		r.URL.Path,
+		requestPath(r),
 		"data_type",
 		fmt.Sprintf("%T", data),
 	)
@@ -220,18 +220,18 @@ func (s *Server) writeRawAPIResponse(
 ) {
 	rawBytes, contentType, marshalErr := marshalAPIRawPayload(data, respContentType)
 	if marshalErr != nil {
-		s.respondMarshalError(w, r, marshalErr, "API response")
+		s.respondMarshalError(w, r, marshalErr, apiResponseMarshalLabel)
 		return
 	}
 	if contentType != respContentType {
-		w.Header().Set("Content-Type", contentType)
+		setResponseContentType(w, contentType)
 		respContentType = contentType
 	}
 
 	s.logger.Debug(
 		"writing raw API response",
 		"path",
-		r.URL.Path,
+		requestPath(r),
 		"size",
 		len(rawBytes),
 		"content_type",
@@ -251,7 +251,7 @@ func marshalAPIRawPayload(data interface{}, respContentType string) ([]byte, str
 		if marshalErr != nil {
 			return nil, respContentType, marshalErr
 		}
-		return rawBytes, "application/json; charset=utf-8", nil
+		return rawBytes, jsonCharsetMediaType, nil
 	}
 }
 
@@ -266,11 +266,11 @@ func (s *Server) writeJSONAPIResponse(
 
 	responseBytes, marshalErr := marshalSuccessPayload(data, meta)
 	if marshalErr != nil {
-		s.respondMarshalError(w, r, marshalErr, "API response")
+		s.respondMarshalError(w, r, marshalErr, apiResponseMarshalLabel)
 		return
 	}
 
-	s.logger.Debug("writing API response", "path", r.URL.Path, "size", len(responseBytes))
+	s.logger.Debug("writing API response", "path", requestPath(r), "size", len(responseBytes))
 
 	if !s.writeSuccessResponseBytes(w, r, responseBytes, "failed to write API response", true) {
 		return
@@ -278,7 +278,7 @@ func (s *Server) writeJSONAPIResponse(
 	s.logger.Debug(
 		"API response written and flushed successfully",
 		"path",
-		r.URL.Path,
+		requestPath(r),
 		"bytes_written",
 		len(responseBytes),
 	)
@@ -308,12 +308,12 @@ func flushResponse(w stdhttp.ResponseWriter, path string, logger *slog.Logger) {
 }
 
 func (s *Server) respondRegularResult(w stdhttp.ResponseWriter, r *stdhttp.Request, result interface{}) {
-	s.logger.Debug("sending regular resource result", "path", r.URL.Path)
+	s.logger.Debug("sending regular resource result", "path", requestPath(r))
 
 	result = parseJSONStringPayload(result)
 	regularBytes, marshalErr := marshalSuccessPayload(result, requestResponseMeta(r))
 	if marshalErr != nil {
-		s.respondMarshalError(w, r, marshalErr, "response")
+		s.respondMarshalError(w, r, marshalErr, responseMarshalLabel)
 		return
 	}
 
@@ -327,10 +327,10 @@ func (s *Server) writeRawSuccessResponseBytes(
 	writeErrLabel string,
 ) {
 	if _, writeErr := writeRawOKBytes(w, payload); writeErr != nil {
-		s.logResponseWriteError(writeErrLabel, writeErr, r.URL.Path)
+		s.logResponseWriteError(writeErrLabel, writeErr, requestPath(r))
 		return
 	}
-	flushResponse(w, r.URL.Path, s.logger)
+	flushResponse(w, requestPath(r), s.logger)
 }
 
 func (s *Server) writeSuccessResponseBytes(
@@ -341,11 +341,11 @@ func (s *Server) writeSuccessResponseBytes(
 	flush bool,
 ) bool {
 	if writeErr := writeOKResponseBytes(w, payload); writeErr != nil {
-		s.logResponseWriteError(writeErrLabel, writeErr, r.URL.Path)
+		s.logResponseWriteError(writeErrLabel, writeErr, requestPath(r))
 		return false
 	}
 	if flush {
-		flushResponse(w, r.URL.Path, s.logger)
+		flushResponse(w, requestPath(r), s.logger)
 	}
 	return true
 }
