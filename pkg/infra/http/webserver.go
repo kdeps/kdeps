@@ -134,11 +134,7 @@ func (s *WebServer) RegisterRoutesOn(ctx context.Context, router *Router) {
 		handler := s.CreateWebHandler(ctx, &route)
 
 		// Register route with wildcard for serving all paths under it
-		path := route.Path
-		if !strings.HasSuffix(path, "/") {
-			path += "/"
-		}
-		registerWebRouteMethods(router, path+"*", handler)
+		registerWebRouteMethods(router, wildcardWebRoutePath(route.Path), handler)
 
 		s.logger.InfoContext(
 			context.Background(),
@@ -184,6 +180,13 @@ func (s *WebServer) dispatchWebRoute(
 		s.logger.ErrorContext(r.Context(), "unsupported server type", "type", route.ServerType)
 		stdhttp.Error(w, "Unsupported server type", stdhttp.StatusInternalServerError)
 	}
+}
+
+func wildcardWebRoutePath(routePath string) string {
+	if !strings.HasSuffix(routePath, "/") {
+		routePath += "/"
+	}
+	return routePath + "*"
 }
 
 func webServerListenAddr(settings domain.WorkflowSettings) string {

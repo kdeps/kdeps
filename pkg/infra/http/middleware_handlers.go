@@ -58,8 +58,7 @@ func ErrorHandlerMiddleware(debugMode bool) func(stdhttp.HandlerFunc) stdhttp.Ha
 // DebugModeMiddleware determines and sets debug mode from environment.
 func DebugModeMiddleware() func(stdhttp.HandlerFunc) stdhttp.HandlerFunc {
 	kdeps_debug.Log("enter: DebugModeMiddleware")
-	debugMode := os.Getenv("DEBUG") == "true" || os.Getenv("DEBUG") == "1"
-	return ErrorHandlerMiddleware(debugMode)
+	return ErrorHandlerMiddleware(debugModeFromEnv())
 }
 
 // TrustedProxiesMiddleware stores trusted proxy entries in the request context
@@ -82,16 +81,7 @@ func SecurityHeadersMiddleware(includeCSP bool) func(stdhttp.HandlerFunc) stdhtt
 	kdeps_debug.Log("enter: SecurityHeadersMiddleware")
 	return func(next stdhttp.HandlerFunc) stdhttp.HandlerFunc {
 		return func(w stdhttp.ResponseWriter, r *stdhttp.Request) {
-			w.Header().Set("X-Content-Type-Options", "nosniff")
-			w.Header().Set("X-Frame-Options", "DENY")
-			w.Header().Set("Referrer-Policy", "strict-origin-when-cross-origin")
-			w.Header().Set("Permissions-Policy", "camera=(), microphone=(), geolocation=()")
-			if includeCSP {
-				w.Header().Set("Content-Security-Policy", strictContentSecurityPolicy)
-			}
-			if r.TLS != nil {
-				w.Header().Set("Strict-Transport-Security", "max-age=31536000; includeSubDomains")
-			}
+			setSecurityResponseHeaders(w, includeCSP, r.TLS != nil)
 			next(w, r)
 		}
 	}
@@ -103,6 +93,23 @@ func LoggingMiddleware(next stdhttp.HandlerFunc) stdhttp.HandlerFunc {
 	return func(w stdhttp.ResponseWriter, r *stdhttp.Request) {
 		// For now, just pass through. Can be enhanced with structured logging later.
 		next(w, r)
+	}
+}
+
+func debugModeFromEnv() bool {
+	return os.Getenv("DEBUG") == "true" || os.Getenv("DEBUG") == "1"
+}
+
+func setSecurityResponseHeaders(w stdhttp.ResponseWriter, includeCSP, isTLS bool) {
+	w.Header().Set("X-Content-Type-Options", "nosniff")
+	w.Header().Set("X-Frame-Options", "DENY")
+	w.Header().Set("Referrer-Policy", "strict-origin-when-cross-origin")
+	w.Header().Set("Permissions-Policy", "camera=(), microphone=(), geolocation=()")
+	if includeCSP {
+		w.Header().Set("Content-Security-Policy", strictContentSecurityPolicy)
+	}
+	if isTLS {
+		w.Header().Set("Strict-Transport-Security", "max-age=31536000; includeSubDomains")
 	}
 }
 

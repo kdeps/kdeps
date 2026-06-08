@@ -136,6 +136,14 @@ func (s *Server) reloadWorkflowOrError(statusCode int, messagePrefix string) (in
 	return 0, ""
 }
 
+func (s *Server) respondManagementWriteError(
+	w stdhttp.ResponseWriter,
+	writeErr error,
+) {
+	s.respondManagementError(w, stdhttp.StatusInternalServerError,
+		fmt.Sprintf("failed to write workflow file: %v", writeErr))
+}
+
 func (s *Server) respondManagementExtractError(
 	w stdhttp.ResponseWriter,
 	extractErr error,

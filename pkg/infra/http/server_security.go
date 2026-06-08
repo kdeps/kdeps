@@ -44,6 +44,22 @@ type limitMiddlewareConfig struct {
 	maxConcurrent int
 }
 
+func apiServerLimitConfig(api *domain.APIServerConfig) limitMiddlewareConfig {
+	return limitMiddlewareConfig{
+		rateLimit:     api.RateLimit,
+		maxBodyBytes:  api.MaxBodyBytes,
+		maxConcurrent: api.MaxConcurrent,
+	}
+}
+
+func webServerLimitConfig(web *domain.WebServerConfig) limitMiddlewareConfig {
+	return limitMiddlewareConfig{
+		rateLimit:     web.RateLimit,
+		maxBodyBytes:  web.MaxBodyBytes,
+		maxConcurrent: web.MaxConcurrent,
+	}
+}
+
 func effectiveMaxBodyBytes(maxBody int64) int64 {
 	if maxBody <= 0 {
 		return MaxUploadSize
@@ -86,11 +102,7 @@ func (s *Server) applySecurityMiddleware() error {
 		return err
 	}
 	s.Router.Use(AuthMiddleware(token))
-	applyLimitMiddleware(s.Router, limitMiddlewareConfig{
-		rateLimit:     api.RateLimit,
-		maxBodyBytes:  api.MaxBodyBytes,
-		maxConcurrent: api.MaxConcurrent,
-	}, trustedProxies)
+	applyLimitMiddleware(s.Router, apiServerLimitConfig(api), trustedProxies)
 	return nil
 }
 
@@ -103,10 +115,6 @@ func (s *WebServer) applyWebSecurityMiddleware() {
 	web := s.Workflow.Settings.WebServer
 	trustedProxies := trustedProxiesFromSettings(s.Workflow.Settings)
 	warnInvalidTrustedProxies(s.logger, trustedProxies)
-	applyLimitMiddleware(s.Router, limitMiddlewareConfig{
-		rateLimit:     web.RateLimit,
-		maxBodyBytes:  web.MaxBodyBytes,
-		maxConcurrent: web.MaxConcurrent,
-	}, trustedProxies)
+	applyLimitMiddleware(s.Router, webServerLimitConfig(web), trustedProxies)
 	s.Router.Use(UploadMiddleware(effectiveMaxBodyBytes(web.MaxBodyBytes)))
 }

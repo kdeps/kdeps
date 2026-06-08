@@ -19,7 +19,6 @@
 package http
 
 import (
-	"fmt"
 	stdhttp "net/http"
 	"path/filepath"
 
@@ -64,8 +63,7 @@ func (s *Server) HandleManagementUpdateWorkflow(w stdhttp.ResponseWriter, r *std
 	}
 
 	if writeErr := writeManagementWorkflowFile(workflowPath, body); writeErr != nil {
-		s.respondManagementError(w, stdhttp.StatusInternalServerError,
-			fmt.Sprintf("failed to write workflow file: %v", writeErr))
+		s.respondManagementWriteError(w, writeErr)
 		return
 	}
 
