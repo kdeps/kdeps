@@ -71,12 +71,10 @@ func (s *TemporaryFileStore) Store(
 
 	file := newUploadedFileRecord(id, basename, contentType, filePath, int64(len(content)))
 
-	if err := s.withWriteLock(func() error {
+	_ = s.withWriteLock(func() error {
 		s.files[id] = file
 		return nil
-	}); err != nil {
-		return nil, err
-	}
+	})
 
 	return file, nil
 }
