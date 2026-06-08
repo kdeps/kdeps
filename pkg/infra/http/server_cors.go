@@ -91,18 +91,23 @@ func (s *Server) setCorsHeaders(w stdhttp.ResponseWriter, cors *domain.CORS) {
 	w.Header().Set("Access-Control-Allow-Headers", corsAllowedHeaders(cors))
 }
 
+const (
+	defaultCORSAllowMethods = "GET, POST, PUT, DELETE, PATCH, OPTIONS"
+	defaultCORSAllowHeaders = "Content-Type, Authorization"
+)
+
 func corsAllowedMethods(cors *domain.CORS) string {
 	if len(cors.AllowMethods) > 0 {
 		return strings.Join(cors.AllowMethods, ", ")
 	}
-	return "GET, POST, PUT, DELETE, PATCH, OPTIONS"
+	return defaultCORSAllowMethods
 }
 
 func corsAllowedHeaders(cors *domain.CORS) string {
 	if len(cors.AllowHeaders) > 0 {
 		return strings.Join(cors.AllowHeaders, ", ")
 	}
-	return "Content-Type, Authorization"
+	return defaultCORSAllowHeaders
 }
 
 // SetupHotReload sets up file watching for hot reload.

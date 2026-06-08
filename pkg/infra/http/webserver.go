@@ -27,7 +27,6 @@ import (
 	"net/url"
 	"os"
 	"os/exec"
-	"path/filepath"
 	"strings"
 
 	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
@@ -77,7 +76,7 @@ func NewWebServer(workflow *domain.Workflow, logger *slog.Logger) (*WebServer, e
 // SetWorkflowDir sets the workflow directory for resolving relative paths.
 func (s *WebServer) SetWorkflowDir(workflowPath string) {
 	kdeps_debug.Log("enter: SetWorkflowDir")
-	s.WorkflowDir = filepath.Dir(workflowPath)
+	s.WorkflowDir = workflowDirFromPath(workflowPath)
 }
 
 // Start starts the web server.
@@ -194,7 +193,11 @@ func webServerListenAddr(settings domain.WorkflowSettings) string {
 	if override := os.Getenv("KDEPS_BIND_HOST"); override != "" {
 		hostIP = override
 	}
-	return fmt.Sprintf("%s:%d", hostIP, settings.GetPortNum())
+	return listenAddrFromHostPort(hostIP, settings.GetPortNum())
+}
+
+func listenAddrFromHostPort(host string, port int) string {
+	return fmt.Sprintf("%s:%d", host, port)
 }
 
 func stopWebServerCommands(

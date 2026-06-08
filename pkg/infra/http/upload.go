@@ -177,10 +177,14 @@ func uploadFieldSuffix(fieldName string) string {
 	return fmt.Sprintf(" from field %s", fieldName)
 }
 
+func fileTooLargeMessage(size, maxSize int64) string {
+	return fmt.Sprintf("File too large: %d bytes (max: %d)", size, maxSize)
+}
+
 func (h *UploadHandler) uploadTooLargeError(filename string, size int64) *domain.AppError {
 	return domain.NewAppError(
 		domain.ErrCodeRequestTooLarge,
-		fmt.Sprintf("File too large: %d bytes (max: %d)", size, h.maxFileSize),
+		fileTooLargeMessage(size, h.maxFileSize),
 	).WithDetails("filename", filename).
 		WithDetails("size", size).
 		WithDetails("maxSize", h.maxFileSize)
@@ -200,7 +204,7 @@ func (h *UploadHandler) processFileHeader(
 	// Open uploaded file
 	src, err := openMultipartFile(fileHeader)
 	if err != nil {
-		return nil, fmt.Errorf("failed to open uploaded file: %w", err)
+		return nil, prefixedWrapError("failed to open uploaded file", err)
 	}
 	defer func() {
 		_ = src.Close()
@@ -208,7 +212,7 @@ func (h *UploadHandler) processFileHeader(
 
 	content, contentSize, err := readBoundedUploadContent(src, h.maxFileSize)
 	if err != nil {
-		return nil, fmt.Errorf("failed to read file content: %w", err)
+		return nil, prefixedWrapError("failed to read file content", err)
 	}
 	if contentSize > h.maxFileSize {
 		return nil, h.uploadTooLargeError(fileHeader.Filename, contentSize)
@@ -219,7 +223,7 @@ func (h *UploadHandler) processFileHeader(
 	// Store file
 	file, err := h.store.Store(fileHeader.Filename, content, contentType)
 	if err != nil {
-		return nil, fmt.Errorf("failed to store file: %w", err)
+		return nil, prefixedWrapError("failed to store file", err)
 	}
 
 	file.FieldName = fieldName

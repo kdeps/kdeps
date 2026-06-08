@@ -67,7 +67,7 @@ func resolvePackageEntryPath(absDestDir, entryName string) (string, error) {
 	}
 	absTargetPath, err := filepathAbs(filepath.Join(absDestDir, relPath))
 	if err != nil {
-		return "", fmt.Errorf("failed to resolve target path %s: %w", relPath, err)
+		return "", prefixedWrapError("failed to resolve target path "+relPath, err)
 	}
 	relToBase, relErr := filepath.Rel(absDestDir, absTargetPath)
 	if packagePathEscapesBase(relToBase, relErr) {
@@ -96,7 +96,7 @@ func extractPackageEntry(
 		return nil
 	}
 	if writeErr := writeExtractedFile(baseDirAbs, absTargetPath, tr, totalExtracted); writeErr != nil {
-		return fmt.Errorf("failed to extract %s: %w", packageEntryLabel(hdr), writeErr)
+		return packageExtractError(packageEntryLabel(hdr), writeErr)
 	}
 	return nil
 }
@@ -107,6 +107,10 @@ func invalidPackagePathError(entryName string) error {
 
 func invalidExtractedTargetError(targetPath string) error {
 	return fmt.Errorf("invalid target path: %s", filepath.Base(targetPath))
+}
+
+func packageExtractError(label string, err error) error {
+	return prefixedWrapError("failed to extract "+label, err)
 }
 
 func ensurePackageEntryDir(hdr *tar.Header, absTargetPath string) error {

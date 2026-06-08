@@ -62,8 +62,12 @@ func (s *Server) ParseRequest(
 	}
 }
 
+func requestContentType(r *stdhttp.Request) string {
+	return r.Header.Get("Content-Type")
+}
+
 func parseRequestBody(r *stdhttp.Request) map[string]interface{} {
-	contentType := r.Header.Get("Content-Type")
+	contentType := requestContentType(r)
 	isFormData := isFormURLEncodedContentType(contentType)
 
 	var body map[string]interface{}
@@ -104,7 +108,7 @@ func isFormURLEncodedContentType(contentType string) bool {
 }
 
 func isMultipartRequest(r *stdhttp.Request) bool {
-	return isMultipartContentType(r.Header.Get("Content-Type"))
+	return isMultipartContentType(requestContentType(r))
 }
 
 func (s *Server) processRequestUploads(
@@ -146,7 +150,7 @@ func (s *Server) cleanupUploadedFiles(uploadedFiles []*domain.UploadedFile) {
 	}
 }
 
-func (s *Server) respondWorkflowError(w stdhttp.ResponseWriter, r *stdhttp.Request, err error) {
+func (s *Server) logWorkflowExecutionError(r *stdhttp.Request, err error) {
 	s.logger.Error(
 		"workflow execution failed",
 		"error",
@@ -156,6 +160,10 @@ func (s *Server) respondWorkflowError(w stdhttp.ResponseWriter, r *stdhttp.Reque
 		"method",
 		r.Method,
 	)
+}
+
+func (s *Server) respondWorkflowError(w stdhttp.ResponseWriter, r *stdhttp.Request, err error) {
+	s.logWorkflowExecutionError(r, err)
 	RespondWithError(w, r, err, GetDebugMode(r.Context()))
 }
 
