@@ -58,13 +58,16 @@ func clearResourcesDir(dir string) {
 // getManagementWorkflowPath returns the workflow path to use for management operations.
 // It prefers the configured path, falls back to /app/workflow.yaml (Docker default),
 // then falls back to workflow.yaml (local default).
-func (s *Server) getManagementWorkflowPath() string {
-	kdeps_debug.Log("enter: getManagementWorkflowPath")
+func (s *Server) lockedWorkflowPath() string {
 	s.mu.RLock()
 	path := s.workflowPath
 	s.mu.RUnlock()
+	return path
+}
 
-	if path != "" {
+func (s *Server) getManagementWorkflowPath() string {
+	kdeps_debug.Log("enter: getManagementWorkflowPath")
+	if path := s.lockedWorkflowPath(); path != "" {
 		return path
 	}
 

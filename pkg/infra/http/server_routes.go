@@ -37,31 +37,36 @@ func (s *Server) SetupRoutes() {
 	if s.Workflow != nil && s.Workflow.Settings.APIServer != nil {
 		for _, route := range s.Workflow.Settings.APIServer.Routes {
 			for _, method := range route.Methods {
-				switch method {
-				case "GET":
-					s.Router.GET(route.Path, s.HandleRequest)
-				case "POST":
-					s.Router.POST(route.Path, s.HandleRequest)
-				case "PUT":
-					s.Router.PUT(route.Path, s.HandleRequest)
-				case "DELETE":
-					s.Router.DELETE(route.Path, s.HandleRequest)
-				case "PATCH":
-					s.Router.PATCH(route.Path, s.HandleRequest)
-				}
+				s.registerAPIServerRoute(route.Path, method)
 			}
 		}
+	}
+}
+
+func (s *Server) registerAPIServerRoute(path, method string) {
+	switch method {
+	case "GET":
+		s.Router.GET(path, s.HandleRequest)
+	case "POST":
+		s.Router.POST(path, s.HandleRequest)
+	case "PUT":
+		s.Router.PUT(path, s.HandleRequest)
+	case "DELETE":
+		s.Router.DELETE(path, s.HandleRequest)
+	case "PATCH":
+		s.Router.PATCH(path, s.HandleRequest)
 	}
 }
 
 // HandleHealth handles health check requests.
 func (s *Server) HandleHealth(w stdhttp.ResponseWriter, _ *stdhttp.Request) {
 	kdeps_debug.Log("enter: HandleHealth")
+	workflow := s.lockedWorkflow()
 	writeJSONResponse(w, stdhttp.StatusOK, map[string]interface{}{
 		"status": "ok",
 		"workflow": map[string]interface{}{
-			"name":    s.Workflow.Metadata.Name,
-			"version": s.Workflow.Metadata.Version,
+			"name":    workflow.Metadata.Name,
+			"version": workflow.Metadata.Version,
 		},
 	})
 }
