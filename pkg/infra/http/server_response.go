@@ -54,6 +54,10 @@ func (s *Server) respondMarshalError(
 	RespondWithError(w, r, marshalFailureError(err, label), GetDebugMode(r.Context()))
 }
 
+func (s *Server) logResponseWriteError(label string, writeErr error, path string) {
+	s.logger.Error(label, "error", writeErr, "path", path)
+}
+
 func writeOKResponseBytes(w stdhttp.ResponseWriter, payload []byte) error {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(stdhttp.StatusOK)
@@ -234,7 +238,7 @@ func (s *Server) writeRawAPIResponse(
 		respContentType,
 	)
 	if _, writeErr := writeRawOKBytes(w, rawBytes); writeErr != nil {
-		s.logger.Error("failed to write raw API response", "error", writeErr, "path", r.URL.Path)
+		s.logResponseWriteError("failed to write raw API response", writeErr, r.URL.Path)
 	}
 	flushResponse(w, r.URL.Path, s.logger)
 }
@@ -272,7 +276,7 @@ func (s *Server) writeJSONAPIResponse(
 	s.logger.Debug("writing API response", "path", r.URL.Path, "size", len(responseBytes))
 
 	if writeErr := writeOKResponseBytes(w, responseBytes); writeErr != nil {
-		s.logger.Error("failed to write API response", "error", writeErr, "path", r.URL.Path)
+		s.logResponseWriteError("failed to write API response", writeErr, r.URL.Path)
 		return
 	}
 
@@ -320,12 +324,6 @@ func (s *Server) respondRegularResult(w stdhttp.ResponseWriter, r *stdhttp.Reque
 	}
 
 	if writeErr := writeOKResponseBytes(w, regularBytes); writeErr != nil {
-		s.logger.Error(
-			"failed to write regular resource result",
-			"error",
-			writeErr,
-			"path",
-			r.URL.Path,
-		)
+		s.logResponseWriteError("failed to write regular resource result", writeErr, r.URL.Path)
 	}
 }

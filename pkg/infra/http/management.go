@@ -90,7 +90,7 @@ func requireManagementAuth(next stdhttp.HandlerFunc) stdhttp.HandlerFunc {
 	return func(w stdhttp.ResponseWriter, r *stdhttp.Request) {
 		token, ok := managementAuthToken()
 		if !ok {
-			stdhttp.Error(
+			respondPlainHTTPError(
 				w,
 				"management API disabled: set "+managementAuthEnvVar+" to enable",
 				stdhttp.StatusServiceUnavailable,
@@ -98,7 +98,7 @@ func requireManagementAuth(next stdhttp.HandlerFunc) stdhttp.HandlerFunc {
 			return
 		}
 		if !managementAuthMatches(r, token) {
-			stdhttp.Error(w, "unauthorized", stdhttp.StatusUnauthorized)
+			respondPlainHTTPError(w, "unauthorized", stdhttp.StatusUnauthorized)
 			return
 		}
 

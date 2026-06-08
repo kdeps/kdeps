@@ -141,7 +141,7 @@ func (r *Router) dispatch(w stdhttp.ResponseWriter, req *stdhttp.Request) {
 
 	if allowed := r.allowedMethods(req.URL.Path); len(allowed) > 0 {
 		w.Header().Set("Allow", strings.Join(allowed, ", "))
-		stdhttp.Error(w, "Method Not Allowed", stdhttp.StatusMethodNotAllowed)
+		respondPlainHTTPError(w, "Method Not Allowed", stdhttp.StatusMethodNotAllowed)
 		return
 	}
 
@@ -216,6 +216,14 @@ func (r *Router) MatchPattern(pattern, path string) bool {
 	}
 
 	return true
+}
+
+func copyRouterMiddleware(
+	middleware []func(stdhttp.HandlerFunc) stdhttp.HandlerFunc,
+) []func(stdhttp.HandlerFunc) stdhttp.HandlerFunc {
+	copied := make([]func(stdhttp.HandlerFunc) stdhttp.HandlerFunc, len(middleware))
+	copy(copied, middleware)
+	return copied
 }
 
 // ApplyMiddleware applies all middleware to a handler.

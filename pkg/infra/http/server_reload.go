@@ -22,7 +22,6 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
-	stdhttp "net/http"
 	"path/filepath"
 
 	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
@@ -143,14 +142,16 @@ func (s *Server) reloadWorkflow() error {
 }
 
 func logReloadedWorkflow(s *Server) {
+	detail := managementWorkflowStatusDetail(s.Workflow)
+	if detail == nil {
+		s.logger.Info("workflow reloaded")
+		return
+	}
 	s.logger.Info(
 		"workflow reloaded",
-		"name",
-		s.Workflow.Metadata.Name,
-		"version",
-		s.Workflow.Metadata.Version,
-		"resources",
-		len(s.Workflow.Resources),
+		"name", detail["name"],
+		"version", detail["version"],
+		"resources", detail["resources"],
 	)
 }
 
@@ -198,8 +199,7 @@ func newWorkflowParser() (*yaml.Parser, error) {
 }
 
 func (s *Server) rebuildRouterPreservingMiddleware() {
-	oldMiddleware := make([]func(stdhttp.HandlerFunc) stdhttp.HandlerFunc, len(s.Router.Middleware))
-	copy(oldMiddleware, s.Router.Middleware)
+	oldMiddleware := copyRouterMiddleware(s.Router.Middleware)
 	s.Router = NewRouter()
 	s.Router.Middleware = oldMiddleware
 	s.SetupRoutes()

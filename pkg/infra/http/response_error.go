@@ -83,6 +83,10 @@ func setStringResponseHeaders(w stdhttp.ResponseWriter, headers map[string]strin
 	}
 }
 
+func respondPlainHTTPError(w stdhttp.ResponseWriter, message string, statusCode int) {
+	stdhttp.Error(w, message, statusCode)
+}
+
 // writeJSONResponse writes a JSON payload with the given status code.
 func writeJSONResponse(w stdhttp.ResponseWriter, statusCode int, payload any) {
 	w.Header().Set("Content-Type", "application/json")
