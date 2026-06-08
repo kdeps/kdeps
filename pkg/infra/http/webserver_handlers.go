@@ -70,16 +70,7 @@ func (s *WebServer) HandleAppRequest(
 
 	targetURL, err := localAppProxyTarget(appPort)
 	if err != nil {
-		s.logBackgroundError(
-			"invalid proxy URL",
-			"host",
-			"127.0.0.1",
-			"port",
-			appPort,
-			"error",
-			err,
-		)
-		respondWebServerInternalError(w)
+		s.respondInvalidAppProxyTarget(w, appPort, err)
 		return
 	}
 
@@ -121,6 +112,23 @@ func newAppReverseProxy(
 			respondBadGateway(w, "Failed to reach app")
 		},
 	}
+}
+
+func (s *WebServer) respondInvalidAppProxyTarget(
+	w stdhttp.ResponseWriter,
+	appPort int,
+	err error,
+) {
+	s.logBackgroundError(
+		"invalid proxy URL",
+		"host",
+		"127.0.0.1",
+		"port",
+		appPort,
+		"error",
+		err,
+	)
+	respondWebServerInternalError(w)
 }
 
 func (s *WebServer) respondMissingAppPort(w stdhttp.ResponseWriter) {

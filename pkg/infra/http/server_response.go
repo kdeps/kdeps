@@ -80,7 +80,7 @@ func anyMapToInterfaceMap(src map[string]any) map[string]interface{} {
 }
 
 func requestResponseMeta(r *stdhttp.Request) map[string]interface{} {
-	return anyMapToInterfaceMap(responseMetaFields(GetRequestID(r.Context())))
+	return anyMapToInterfaceMap(enrichResponseMeta(r, nil))
 }
 
 func parseAPIResultMap(result interface{}) (map[string]interface{}, bool) {

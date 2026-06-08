@@ -148,7 +148,9 @@ func managementSuccessPayload(message string, workflow *domain.Workflow) map[str
 }
 
 func (s *Server) writeManagementSuccess(w stdhttp.ResponseWriter, message string) {
-	writeJSONResponse(w, stdhttp.StatusOK, managementSuccessPayload(message, s.lockedWorkflow()))
+	writeWorkflowStatusJSON(w, s.lockedWorkflow(), func(workflow *domain.Workflow) map[string]interface{} {
+		return managementSuccessPayload(message, workflow)
+	})
 }
 
 func (s *Server) reloadWorkflowOrError(statusCode int, messagePrefix string) (int, string) {
