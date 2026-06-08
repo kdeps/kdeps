@@ -38,10 +38,6 @@ func (w *ResponseWriterWrapper) WriteHeader(code int) {
 	w.ResponseWriter.WriteHeader(code)
 }
 
-func clientIPFromAddr(addr string) string {
-	return peerIPFromAddr(addr)
-}
-
 func copyStringHeaderValues(dst, src stdhttp.Header) {
 	for key, values := range src {
 		for _, value := range values {

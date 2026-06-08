@@ -23,41 +23,19 @@ import (
 	"errors"
 	"log/slog"
 	stdhttp "net/http"
-	"net/url"
 	"os/exec"
-
-	"github.com/gorilla/websocket"
 
 	"github.com/kdeps/kdeps/v2/pkg/domain"
 )
-
-//nolint:gochecknoglobals // test-replaceable
-var (
-	execCommandContext        = exec.CommandContext
-	parseProxyURL             = url.Parse
-	dialTargetWebSocketHook   = dialTargetWebSocket
-	writeWebSocketMessageHook = func(c *websocket.Conn, messageType int, data []byte) error {
-		return c.WriteMessage(messageType, data)
-	}
-)
-
-const (
-	serverTypeApp    = "app"
-	serverTypeStatic = "static"
-)
-
-func unsupportedServerTypeMessage() string {
-	return "Unsupported server type"
-}
 
 // WebServer is the HTTP web server for serving static files and proxying apps.
 type WebServer struct {
 	Workflow    *domain.Workflow
 	logger      *slog.Logger
 	Router      *Router
-	Commands    map[string]*exec.Cmd // Track running commands
-	WorkflowDir string               // Directory containing workflow.yaml
-	httpServer  *stdhttp.Server      // HTTP server for graceful shutdown
+	Commands    map[string]*exec.Cmd
+	WorkflowDir string
+	httpServer  *stdhttp.Server
 }
 
 // NewWebServer creates a new web server.
@@ -68,7 +46,7 @@ func NewWebServer(workflow *domain.Workflow, logger *slog.Logger) (*WebServer, e
 		logger:      logger,
 		Router:      NewRouter(),
 		Commands:    make(map[string]*exec.Cmd),
-		WorkflowDir: ".", // Default to current directory
+		WorkflowDir: ".",
 	}, nil
 }
 
@@ -89,7 +67,6 @@ func (s *WebServer) Start(ctx context.Context) error {
 	registerTrustedProxiesMiddleware(s.Router, s.Workflow.Settings)
 	s.applyWebSecurityMiddleware()
 
-	// Setup routes
 	s.SetupWebRoutes(ctx)
 
 	addr := webServerListenAddr(s.Workflow.Settings)
@@ -106,7 +83,6 @@ func (s *WebServer) Shutdown(ctx context.Context) error {
 	debugEnter("Shutdown")
 	stopWebServerCommands(ctx, s.logger, s.Commands)
 
-	// Shutdown HTTP server
 	return shutdownHTTPServerIfRunning(ctx, s.httpServer, s.logger, "web")
 }
 
@@ -127,7 +103,6 @@ func (s *WebServer) RegisterRoutesOn(ctx context.Context, router *Router) {
 	for _, route := range config.Routes {
 		handler := s.CreateWebHandler(ctx, &route)
 
-		// Register route with wildcard for serving all paths under it
 		registerWebRouteMethods(router, wildcardRoutePath(route.Path), handler)
 
 		s.logWebRouteConfigured(route)
@@ -140,7 +115,6 @@ func (s *WebServer) CreateWebHandler(
 	route *domain.WebRoute,
 ) stdhttp.HandlerFunc {
 	debugEnter("CreateWebHandler")
-	// Start app command if needed
 	if route.ServerType == serverTypeApp && route.Command != "" {
 		go s.StartAppCommand(ctx, route)
 	}
@@ -148,61 +122,6 @@ func (s *WebServer) CreateWebHandler(
 	return func(w stdhttp.ResponseWriter, r *stdhttp.Request) {
 		s.dispatchWebRoute(w, r, route)
 	}
-}
-
-func (s *WebServer) dispatchWebRoute(
-	w stdhttp.ResponseWriter,
-	r *stdhttp.Request,
-	route *domain.WebRoute,
-) {
-	switch route.ServerType {
-	case serverTypeStatic:
-		s.HandleStaticRequest(w, r, route)
-	case serverTypeApp:
-		s.HandleAppRequest(w, r, route)
-	default:
-		s.respondUnsupportedServerType(w, r, route.ServerType)
-	}
-}
-
-func (s *WebServer) respondUnsupportedServerType(
-	w stdhttp.ResponseWriter,
-	r *stdhttp.Request,
-	serverType string,
-) {
-	s.logger.ErrorContext(r.Context(), "unsupported server type", "type", serverType)
-	respondPlainHTTPError(w, unsupportedServerTypeMessage(), stdhttp.StatusInternalServerError)
-}
-
-func (s *WebServer) logWebRouteConfigured(route domain.WebRoute) {
-	s.logBackgroundInfo(
-		"web server route configured",
-		"path",
-		route.Path,
-		"type",
-		route.ServerType,
-	)
-}
-
-func webServerListenAddr(settings domain.WorkflowSettings) string {
-	return listenAddrFromHostPort(
-		effectiveBindHostFromEnv(settings.GetHostIP()),
-		settings.GetPortNum(),
-	)
-}
-
-func registerWebRouteMethods(router *Router, path string, handler stdhttp.HandlerFunc) {
-	for _, method := range supportedHTTPMethods() {
-		registerRouterMethod(router, method, path, handler)
-	}
-}
-
-func (s *WebServer) logBackgroundError(msg string, attrs ...any) {
-	s.logger.ErrorContext(context.Background(), msg, attrs...)
-}
-
-func (s *WebServer) logBackgroundInfo(msg string, attrs ...any) {
-	s.logger.InfoContext(context.Background(), msg, attrs...)
 }
 
 // HandleStaticRequest handles static file serving.

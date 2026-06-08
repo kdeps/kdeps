@@ -22,9 +22,11 @@ import (
 	stdhttp "net/http"
 	"strings"
 	"time"
-
-	"github.com/kdeps/kdeps/v2/pkg/domain"
 )
+
+func clientIPFromAddr(addr string) string {
+	return peerIPFromAddr(addr)
+}
 
 func requestPath(r *stdhttp.Request) string {
 	return r.URL.Path
@@ -95,28 +97,4 @@ func appProxyResponseTimeout() time.Duration {
 
 func webSocketHandshakeTimeout() time.Duration {
 	return appProxyResponseTimeout()
-}
-
-func apiServerConfigured(workflow *domain.Workflow) bool {
-	return workflow != nil && workflow.Settings.APIServer != nil
-}
-
-func webServerConfigured(workflow *domain.Workflow) bool {
-	return workflow != nil && workflow.Settings.WebServer != nil
-}
-
-func (s *Server) respondWithRequestError(w stdhttp.ResponseWriter, r *stdhttp.Request, err error) {
-	RespondWithError(w, r, err, requestDebugMode(r))
-}
-
-func respondManagementDisabled(w stdhttp.ResponseWriter) {
-	respondPlainHTTPError(w, managementDisabledMessage(), stdhttp.StatusServiceUnavailable)
-}
-
-func respondManagementUnauthorized(w stdhttp.ResponseWriter) {
-	respondPlainHTTPError(w, managementUnauthorizedMessage(), stdhttp.StatusUnauthorized)
-}
-
-func respondUnauthorized(w stdhttp.ResponseWriter, r *stdhttp.Request) {
-	respondMiddlewareError(w, r, domain.ErrCodeUnauthorized, authRequiredMessage())
 }
