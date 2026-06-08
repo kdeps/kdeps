@@ -96,7 +96,7 @@ func (s *WebServer) Start(ctx context.Context) error {
 
 	addr := webServerListenAddr(s.Workflow.Settings)
 
-	s.logger.InfoContext(context.Background(), "starting web server", "addr", addr)
+	s.logBackgroundInfo("starting web server", "addr", addr)
 
 	s.httpServer = newDefaultHTTPServer(addr, s.Router)
 
@@ -136,7 +136,7 @@ func (s *WebServer) RegisterRoutesOn(ctx context.Context, router *Router) {
 		// Register route with wildcard for serving all paths under it
 		registerWebRouteMethods(router, wildcardWebRoutePath(route.Path), handler)
 
-		logWebRouteConfigured(s.logger, route)
+		s.logWebRouteConfigured(route)
 	}
 }
 
@@ -172,9 +172,8 @@ func (s *WebServer) dispatchWebRoute(
 	}
 }
 
-func logWebRouteConfigured(logger *slog.Logger, route domain.WebRoute) {
-	logger.InfoContext(
-		context.Background(),
+func (s *WebServer) logWebRouteConfigured(route domain.WebRoute) {
+	s.logBackgroundInfo(
 		"web server route configured",
 		"path",
 		route.Path,

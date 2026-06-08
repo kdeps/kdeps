@@ -150,11 +150,7 @@ func (s *WebServer) logBackgroundInfo(msg string, attrs ...any) {
 }
 
 func forwardProxyRequestHeaders(dst, src stdhttp.Header) {
-	for key, values := range src {
-		for _, value := range values {
-			dst.Add(key, value)
-		}
-	}
+	copyStringHeaderValues(dst, src)
 }
 
 // HandleWebSocketProxy handles WebSocket proxying.

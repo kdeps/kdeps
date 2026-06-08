@@ -105,6 +105,10 @@ func invalidPackagePathError(entryName string) error {
 	return fmt.Errorf("invalid path in package: %s", entryName)
 }
 
+func invalidExtractedTargetError(targetPath string) error {
+	return fmt.Errorf("invalid target path: %s", filepath.Base(targetPath))
+}
+
 func ensurePackageEntryDir(hdr *tar.Header, absTargetPath string) error {
 	if hdr.FileInfo().IsDir() {
 		if mkdirErr := AppFS.MkdirAll(absTargetPath, 0750); mkdirErr != nil {
@@ -203,7 +207,7 @@ func extractKdepsPackage(data []byte, destDir string) error {
 func writeExtractedFile(baseDirAbs, targetPath string, r io.Reader, totalExtracted *int64) error {
 	kdeps_debug.Log("enter: writeExtractedFile")
 	if !isExtractedPathUnderBase(baseDirAbs, targetPath) {
-		return fmt.Errorf("invalid target path: %s", filepath.Base(targetPath))
+		return invalidExtractedTargetError(targetPath)
 	}
 	f, err := os.OpenFile(
 		targetPath,

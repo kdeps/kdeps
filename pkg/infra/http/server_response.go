@@ -77,13 +77,16 @@ func apiResourceFailureError() *domain.AppError {
 	return domain.NewAppError(domain.ErrCodeResourceFailed, "API response indicated failure")
 }
 
-func requestResponseMeta(r *stdhttp.Request) map[string]interface{} {
-	meta := responseMetaFields(GetRequestID(r.Context()))
-	result := make(map[string]interface{}, len(meta))
-	for key, value := range meta {
-		result[key] = value
+func anyMapToInterfaceMap(src map[string]any) map[string]interface{} {
+	dst := make(map[string]interface{}, len(src))
+	for key, value := range src {
+		dst[key] = value
 	}
-	return result
+	return dst
+}
+
+func requestResponseMeta(r *stdhttp.Request) map[string]interface{} {
+	return anyMapToInterfaceMap(responseMetaFields(GetRequestID(r.Context())))
 }
 
 func parseAPIResultMap(result interface{}) (map[string]interface{}, bool) {

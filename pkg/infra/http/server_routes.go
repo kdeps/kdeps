@@ -45,10 +45,9 @@ func (s *Server) SetupRoutes() {
 }
 
 func healthCheckPayload(workflow *domain.Workflow) map[string]interface{} {
-	return map[string]interface{}{
-		"status":   "ok",
-		"workflow": workflowNameVersion(workflow),
-	}
+	payload := managementStatusOK()
+	payload["workflow"] = workflowNameVersion(workflow)
+	return payload
 }
 
 func applyInboundSessionID(r *stdhttp.Request, reqCtx *RequestContext) {
