@@ -19,7 +19,6 @@
 package http
 
 import (
-	"encoding/json"
 	"fmt"
 	stdhttp "net/http"
 	"path/filepath"
@@ -58,9 +57,6 @@ func (s *Server) HandleManagementStatus(w stdhttp.ResponseWriter, _ *stdhttp.Req
 	workflow := s.Workflow
 	s.mu.RUnlock()
 
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(stdhttp.StatusOK)
-
 	status := map[string]interface{}{
 		"status": "ok",
 	}
@@ -75,7 +71,7 @@ func (s *Server) HandleManagementStatus(w stdhttp.ResponseWriter, _ *stdhttp.Req
 		}
 	}
 
-	_ = json.NewEncoder(w).Encode(status)
+	writeManagementJSON(w, stdhttp.StatusOK, status)
 }
 
 // HandleManagementUpdateWorkflow accepts a new workflow YAML in the request body,
