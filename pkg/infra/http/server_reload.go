@@ -127,6 +127,12 @@ func (s *Server) reloadWorkflow() error {
 
 	s.Workflow = newWorkflow
 	s.rebuildRouterPreservingMiddleware()
+	logReloadedWorkflow(s)
+
+	return nil
+}
+
+func logReloadedWorkflow(s *Server) {
 	s.logger.Info(
 		"workflow reloaded",
 		"name",
@@ -136,8 +142,6 @@ func (s *Server) reloadWorkflow() error {
 		"resources",
 		len(s.Workflow.Resources),
 	)
-
-	return nil
 }
 
 func (s *Server) ensureWorkflowParser() error {

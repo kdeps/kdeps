@@ -22,6 +22,7 @@ import (
 	stdhttp "net/http"
 
 	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
+	"github.com/kdeps/kdeps/v2/pkg/domain"
 	"github.com/kdeps/kdeps/v2/pkg/schema"
 )
 
@@ -38,11 +39,18 @@ func (s *Server) respondManagementError(w stdhttp.ResponseWriter, statusCode int
 // HandleManagementOpenAPI returns an OpenAPI 3.0 specification generated from
 // the currently loaded workflow.
 // GET /_kdeps/openapi.
+func (s *Server) writeManagementWorkflowSpec(
+	w stdhttp.ResponseWriter,
+	generate func(*domain.Workflow) any,
+) {
+	writeJSONResponse(w, stdhttp.StatusOK, generate(s.lockedWorkflow()))
+}
+
 func (s *Server) HandleManagementOpenAPI(w stdhttp.ResponseWriter, _ *stdhttp.Request) {
 	kdeps_debug.Log("enter: HandleManagementOpenAPI")
-	spec := schema.GenerateOpenAPI(s.lockedWorkflow())
-
-	writeJSONResponse(w, stdhttp.StatusOK, spec)
+	s.writeManagementWorkflowSpec(w, func(workflow *domain.Workflow) any {
+		return schema.GenerateOpenAPI(workflow)
+	})
 }
 
 // HandleManagementSchema returns a JSON Schema (draft 2020-12) document that
@@ -50,7 +58,7 @@ func (s *Server) HandleManagementOpenAPI(w stdhttp.ResponseWriter, _ *stdhttp.Re
 // GET /_kdeps/schema.
 func (s *Server) HandleManagementSchema(w stdhttp.ResponseWriter, _ *stdhttp.Request) {
 	kdeps_debug.Log("enter: HandleManagementSchema")
-	s2 := schema.GenerateJSONSchema(s.lockedWorkflow())
-
-	writeJSONResponse(w, stdhttp.StatusOK, s2)
+	s.writeManagementWorkflowSpec(w, func(workflow *domain.Workflow) any {
+		return schema.GenerateJSONSchema(workflow)
+	})
 }

@@ -136,14 +136,7 @@ func (s *WebServer) RegisterRoutesOn(ctx context.Context, router *Router) {
 		// Register route with wildcard for serving all paths under it
 		registerWebRouteMethods(router, wildcardWebRoutePath(route.Path), handler)
 
-		s.logger.InfoContext(
-			context.Background(),
-			"web server route configured",
-			"path",
-			route.Path,
-			"type",
-			route.ServerType,
-		)
+		logWebRouteConfigured(s.logger, route)
 	}
 }
 
@@ -180,6 +173,17 @@ func (s *WebServer) dispatchWebRoute(
 		s.logger.ErrorContext(r.Context(), "unsupported server type", "type", route.ServerType)
 		stdhttp.Error(w, "Unsupported server type", stdhttp.StatusInternalServerError)
 	}
+}
+
+func logWebRouteConfigured(logger *slog.Logger, route domain.WebRoute) {
+	logger.InfoContext(
+		context.Background(),
+		"web server route configured",
+		"path",
+		route.Path,
+		"type",
+		route.ServerType,
+	)
 }
 
 func wildcardWebRoutePath(routePath string) string {

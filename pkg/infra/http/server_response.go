@@ -29,6 +29,13 @@ import (
 	"github.com/kdeps/kdeps/v2/pkg/domain"
 )
 
+func writeOKResponseBytes(w stdhttp.ResponseWriter, payload []byte) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(stdhttp.StatusOK)
+	_, err := w.Write(payload)
+	return err
+}
+
 func defaultAPIResponseContentType(w stdhttp.ResponseWriter) string {
 	contentType := w.Header().Get("Content-Type")
 	if contentType != "" {
@@ -242,10 +249,9 @@ func (s *Server) writeJSONAPIResponse(
 		return
 	}
 
-	w.WriteHeader(stdhttp.StatusOK)
 	s.logger.Debug("writing API response", "path", r.URL.Path, "size", len(responseBytes))
 
-	if _, writeErr := w.Write(responseBytes); writeErr != nil {
+	if writeErr := writeOKResponseBytes(w, responseBytes); writeErr != nil {
 		s.logger.Error("failed to write API response", "error", writeErr, "path", r.URL.Path)
 		return
 	}
@@ -300,9 +306,7 @@ func (s *Server) respondRegularResult(w stdhttp.ResponseWriter, r *stdhttp.Reque
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(stdhttp.StatusOK)
-	if _, writeErr := w.Write(regularBytes); writeErr != nil {
+	if writeErr := writeOKResponseBytes(w, regularBytes); writeErr != nil {
 		s.logger.Error(
 			"failed to write regular resource result",
 			"error",

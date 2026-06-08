@@ -39,19 +39,7 @@ func (s *Server) ParseRequest(
 	query := firstValuesFromMultiMap(r.URL.Query())
 	headers := firstValuesFromMultiMap(r.Header)
 
-	var body map[string]interface{}
-	contentType := r.Header.Get("Content-Type")
-	isFormData := isFormURLEncodedContentType(contentType)
-
-	if r.Body != nil && !isFormData {
-		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
-			body = make(map[string]interface{})
-		}
-	}
-
-	if isFormData || isMultipartContentType(contentType) {
-		body = parseFormData(r, body)
-	}
+	body := parseRequestBody(r)
 
 	var trustedProxies []string
 	if s.Workflow != nil {
@@ -73,6 +61,29 @@ func (s *Server) ParseRequest(
 		ID:        requestID,
 		SessionID: "",
 	}
+}
+
+func parseRequestBody(r *stdhttp.Request) map[string]interface{} {
+	contentType := r.Header.Get("Content-Type")
+	isFormData := isFormURLEncodedContentType(contentType)
+
+	var body map[string]interface{}
+	if r.Body != nil && !isFormData {
+		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+			body = make(map[string]interface{})
+		}
+	}
+	if isFormData || isMultipartContentType(contentType) {
+		body = parseFormData(r, body)
+	}
+	return body
+}
+
+func uploadRequestError(err error) *domain.AppError {
+	return domain.NewAppError(
+		domain.ErrCodeBadRequest,
+		fmt.Sprintf("File upload failed: %v", err),
+	)
 }
 
 func uploadedFilesToFileUploads(uploadedFiles []*domain.UploadedFile) []FileUpload {
@@ -107,10 +118,7 @@ func (s *Server) processRequestUploads(
 
 	files, err := s.uploadHandler.HandleUpload(r)
 	if err != nil {
-		RespondWithError(w, r, domain.NewAppError(
-			domain.ErrCodeBadRequest,
-			fmt.Sprintf("File upload failed: %v", err),
-		), GetDebugMode(r.Context()))
+		RespondWithError(w, r, uploadRequestError(err), GetDebugMode(r.Context()))
 		return nil, false
 	}
 

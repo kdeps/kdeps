@@ -54,7 +54,7 @@ func (s *WebServer) HandleWebSocketProxy(
 			"error",
 			err,
 		)
-		stdhttp.Error(w, "Failed to connect to WebSocket", stdhttp.StatusBadGateway)
+		webSocketBadGateway(w, "Failed to connect to WebSocket")
 		return
 	}
 	defer func() {
@@ -65,14 +65,14 @@ func (s *WebServer) HandleWebSocketProxy(
 		defer func() {
 			_ = resp.Body.Close()
 		}()
-		if resp.StatusCode != stdhttp.StatusSwitchingProtocols {
+		if !isWebSocketHandshakeOK(resp) {
 			s.logger.ErrorContext(
 				context.Background(),
 				"WebSocket handshake failed",
 				"statusCode",
 				resp.StatusCode,
 			)
-			stdhttp.Error(w, "WebSocket handshake failed", stdhttp.StatusBadGateway)
+			webSocketBadGateway(w, "WebSocket handshake failed")
 			return
 		}
 	}
@@ -92,6 +92,14 @@ func (s *WebServer) HandleWebSocketProxy(
 	}()
 
 	s.proxyWebSocketConnections(clientConn, targetConn)
+}
+
+func webSocketBadGateway(w stdhttp.ResponseWriter, message string) {
+	stdhttp.Error(w, message, stdhttp.StatusBadGateway)
+}
+
+func isWebSocketHandshakeOK(resp *stdhttp.Response) bool {
+	return resp.StatusCode == stdhttp.StatusSwitchingProtocols
 }
 
 func buildProxiedPath(routePath, requestPath string) string {

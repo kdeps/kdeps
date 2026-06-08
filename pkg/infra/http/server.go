@@ -177,12 +177,7 @@ func (s *Server) Start(addr string, devMode bool) error {
 	// Setup CORS (defaults to enabled)
 	s.Router.Use(s.CorsMiddleware)
 
-	// Setup hot reload in dev mode
-	if devMode && s.Watcher != nil {
-		if err := s.SetupHotReload(); err != nil {
-			s.logger.Warn("failed to setup hot reload", "error", err)
-		}
-	}
+	s.enableHotReloadIfDev(devMode)
 
 	certFile, keyFile := workflowTLSCertificates(s.Workflow)
 
@@ -195,6 +190,15 @@ func (s *Server) Start(addr string, devMode bool) error {
 
 	s.logger.Info("starting HTTP server", "addr", addr)
 	return s.httpServer.ListenAndServe()
+}
+
+func (s *Server) enableHotReloadIfDev(devMode bool) {
+	if !devMode || s.Watcher == nil {
+		return
+	}
+	if err := s.SetupHotReload(); err != nil {
+		s.logger.Warn("failed to setup hot reload", "error", err)
+	}
 }
 
 func (s *Server) setupCoreMiddleware() {

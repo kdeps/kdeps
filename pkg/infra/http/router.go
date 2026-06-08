@@ -46,40 +46,39 @@ func (r *Router) Use(middleware func(stdhttp.HandlerFunc) stdhttp.HandlerFunc) {
 	r.Middleware = append(r.Middleware, middleware)
 }
 
+func (r *Router) registerHTTPVerb(method, path string, handler stdhttp.HandlerFunc) {
+	kdeps_debug.Log("enter: " + method)
+	r.register(method, path, handler)
+}
+
 // GET registers a GET route.
 func (r *Router) GET(path string, handler stdhttp.HandlerFunc) {
-	kdeps_debug.Log("enter: GET")
-	r.register("GET", path, handler)
+	r.registerHTTPVerb("GET", path, handler)
 }
 
 // POST registers a POST route.
 func (r *Router) POST(path string, handler stdhttp.HandlerFunc) {
-	kdeps_debug.Log("enter: POST")
-	r.register("POST", path, handler)
+	r.registerHTTPVerb("POST", path, handler)
 }
 
 // PUT registers a PUT route.
 func (r *Router) PUT(path string, handler stdhttp.HandlerFunc) {
-	kdeps_debug.Log("enter: PUT")
-	r.register("PUT", path, handler)
+	r.registerHTTPVerb("PUT", path, handler)
 }
 
 // DELETE registers a DELETE route.
 func (r *Router) DELETE(path string, handler stdhttp.HandlerFunc) {
-	kdeps_debug.Log("enter: DELETE")
-	r.register("DELETE", path, handler)
+	r.registerHTTPVerb("DELETE", path, handler)
 }
 
 // PATCH registers a PATCH route.
 func (r *Router) PATCH(path string, handler stdhttp.HandlerFunc) {
-	kdeps_debug.Log("enter: PATCH")
-	r.register("PATCH", path, handler)
+	r.registerHTTPVerb("PATCH", path, handler)
 }
 
 // OPTIONS registers an OPTIONS route.
 func (r *Router) OPTIONS(path string, handler stdhttp.HandlerFunc) {
-	kdeps_debug.Log("enter: OPTIONS")
-	r.register("OPTIONS", path, handler)
+	r.registerHTTPVerb("OPTIONS", path, handler)
 }
 
 func registerRouterMethod(router *Router, method, path string, handler stdhttp.HandlerFunc) {

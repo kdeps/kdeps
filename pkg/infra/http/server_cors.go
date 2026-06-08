@@ -39,8 +39,7 @@ func (s *Server) CorsMiddleware(next stdhttp.HandlerFunc) stdhttp.HandlerFunc {
 			w.Header().Set("Access-Control-Allow-Credentials", "true")
 		}
 
-		// Handle preflight
-		if r.Method == stdhttp.MethodOptions {
+		if isCorsPreflight(r.Method) {
 			w.WriteHeader(stdhttp.StatusOK)
 			return
 		}
@@ -65,6 +64,10 @@ func (s *Server) setCorsOrigin(w stdhttp.ResponseWriter, r *stdhttp.Request, cor
 		w.Header().Set("Access-Control-Allow-Origin", origin)
 		w.Header().Add("Vary", "Origin")
 	}
+}
+
+func isCorsPreflight(method string) bool {
+	return method == stdhttp.MethodOptions
 }
 
 func corsOriginAllowed(cors *domain.CORS, origin string) bool {

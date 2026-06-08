@@ -154,6 +154,14 @@ func (h *UploadHandler) processFileHeaders(
 	return uploadedFiles, nil
 }
 
+func readBoundedUploadContent(src io.Reader, maxSize int64) ([]byte, int64, error) {
+	content, err := readMultipartFile(io.LimitReader(src, maxSize+1))
+	if err != nil {
+		return nil, 0, err
+	}
+	return content, int64(len(content)), nil
+}
+
 func resolveUploadContentType(content []byte, headerContentType string) string {
 	contentType := stdhttp.DetectContentType(content)
 	if headerContentType != "" && headerContentType != "application/octet-stream" {
@@ -198,14 +206,12 @@ func (h *UploadHandler) processFileHeader(
 		_ = src.Close()
 	}()
 
-	// Read file content (cap even when Content-Length is missing or wrong)
-	limited := io.LimitReader(src, h.maxFileSize+1)
-	content, err := readMultipartFile(limited)
+	content, contentSize, err := readBoundedUploadContent(src, h.maxFileSize)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read file content: %w", err)
 	}
-	if int64(len(content)) > h.maxFileSize {
-		return nil, h.uploadTooLargeError(fileHeader.Filename, int64(len(content)))
+	if contentSize > h.maxFileSize {
+		return nil, h.uploadTooLargeError(fileHeader.Filename, contentSize)
 	}
 
 	contentType := resolveUploadContentType(content, fileHeader.Header.Get("Content-Type"))

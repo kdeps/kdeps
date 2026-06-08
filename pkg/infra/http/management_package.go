@@ -104,6 +104,32 @@ func extractPackageEntry(
 	return nil
 }
 
+func packageFileSizeExceededError(targetPath string) error {
+	return fmt.Errorf(
+		"file %s exceeds maximum allowed size of %d bytes",
+		filepath.Base(targetPath),
+		maxPackageFileSizeLimit,
+	)
+}
+
+func packageTotalSizeExceededError() error {
+	return fmt.Errorf(
+		"package exceeds maximum total uncompressed size of %d bytes",
+		maxPackageTotalUncompressedLimit,
+	)
+}
+
+func readNextPackageEntry(tr *tar.Reader) (*tar.Header, error) {
+	hdr, err := tr.Next()
+	if errors.Is(err, io.EOF) {
+		return nil, io.EOF
+	}
+	if err != nil {
+		return nil, fmt.Errorf("failed to read archive entry: %w", err)
+	}
+	return hdr, nil
+}
+
 func extractKdepsPackageEntry(
 	hdr *tar.Header,
 	baseDirAbs string,
@@ -136,12 +162,12 @@ func extractKdepsPackage(data []byte, destDir string) error {
 	var entryCount int
 	var totalExtracted int64
 	for {
-		hdr, nextErr := tr.Next()
+		hdr, nextErr := readNextPackageEntry(tr)
 		if errors.Is(nextErr, io.EOF) {
 			break
 		}
 		if nextErr != nil {
-			return fmt.Errorf("failed to read archive entry: %w", nextErr)
+			return nextErr
 		}
 		entryCount++
 		if entryErr := extractKdepsPackageEntry(hdr, baseDirAbs, tr, entryCount, &totalExtracted); entryErr != nil {
@@ -175,18 +201,11 @@ func writeExtractedFile(baseDirAbs, targetPath string, r io.Reader, totalExtract
 		return abortExtractedWrite(f, copyErr)
 	}
 	if n > maxPackageFileSizeLimit {
-		return abortExtractedWrite(f, fmt.Errorf(
-			"file %s exceeds maximum allowed size of %d bytes",
-			filepath.Base(targetPath),
-			maxPackageFileSizeLimit,
-		))
+		return abortExtractedWrite(f, packageFileSizeExceededError(targetPath))
 	}
 	*totalExtracted += n
 	if *totalExtracted > maxPackageTotalUncompressedLimit {
-		return abortExtractedWrite(f, fmt.Errorf(
-			"package exceeds maximum total uncompressed size of %d bytes",
-			maxPackageTotalUncompressedLimit,
-		))
+		return abortExtractedWrite(f, packageTotalSizeExceededError())
 	}
 
 	if closeErr := closeExtractedFile(f); closeErr != nil {

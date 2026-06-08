@@ -22,6 +22,7 @@ import (
 	stdhttp "net/http"
 
 	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
+	"github.com/kdeps/kdeps/v2/pkg/domain"
 )
 
 // SetupRoutes sets up all API routes.
@@ -43,6 +44,22 @@ func (s *Server) SetupRoutes() {
 	}
 }
 
+func healthCheckPayload(workflow *domain.Workflow) map[string]interface{} {
+	return map[string]interface{}{
+		"status": "ok",
+		"workflow": map[string]interface{}{
+			"name":    workflow.Metadata.Name,
+			"version": workflow.Metadata.Version,
+		},
+	}
+}
+
+func applyInboundSessionID(r *stdhttp.Request, reqCtx *RequestContext) {
+	if sessionID := GetSessionID(r.Context()); sessionID != "" {
+		reqCtx.SessionID = sessionID
+	}
+}
+
 func (s *Server) registerAPIServerRoute(path, method string) {
 	registerRouterMethod(s.Router, method, path, s.HandleRequest)
 }
@@ -50,14 +67,7 @@ func (s *Server) registerAPIServerRoute(path, method string) {
 // HandleHealth handles health check requests.
 func (s *Server) HandleHealth(w stdhttp.ResponseWriter, _ *stdhttp.Request) {
 	kdeps_debug.Log("enter: HandleHealth")
-	workflow := s.lockedWorkflow()
-	writeJSONResponse(w, stdhttp.StatusOK, map[string]interface{}{
-		"status": "ok",
-		"workflow": map[string]interface{}{
-			"name":    workflow.Metadata.Name,
-			"version": workflow.Metadata.Version,
-		},
-	})
+	writeJSONResponse(w, stdhttp.StatusOK, healthCheckPayload(s.lockedWorkflow()))
 }
 
 // HandleRequest handles API requests.
@@ -70,9 +80,7 @@ func (s *Server) HandleRequest(w stdhttp.ResponseWriter, r *stdhttp.Request) {
 	}
 
 	reqCtx := s.ParseRequest(r, uploadedFiles)
-	if sessionID := GetSessionID(r.Context()); sessionID != "" {
-		reqCtx.SessionID = sessionID
-	}
+	applyInboundSessionID(r, reqCtx)
 
 	result, err := s.Executor.Execute(s.Workflow, reqCtx)
 	r = s.applySessionFromRequestContext(r, reqCtx)
