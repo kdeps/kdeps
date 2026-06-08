@@ -66,10 +66,19 @@ func constantTimeEqual(a, b string) bool {
 	return subtle.ConstantTimeCompare([]byte(a), []byte(b)) == 1
 }
 
+const bearerAuthPrefix = "Bearer "
+
+func bearerTokenFromAuthHeader(authHeader string) (string, bool) {
+	if !strings.HasPrefix(authHeader, bearerAuthPrefix) {
+		return "", false
+	}
+	return strings.TrimSpace(authHeader[len(bearerAuthPrefix):]), true
+}
+
 // extractAuthToken reads bearer or API-key credentials from the request.
 func extractAuthToken(r *stdhttp.Request) string {
-	if authHeader := r.Header.Get("Authorization"); strings.HasPrefix(authHeader, "Bearer ") {
-		return strings.TrimSpace(strings.TrimPrefix(authHeader, "Bearer "))
+	if token, ok := bearerTokenFromAuthHeader(r.Header.Get("Authorization")); ok {
+		return token
 	}
 	if apiKey := r.Header.Get("X-Api-Key"); apiKey != "" {
 		return apiKey

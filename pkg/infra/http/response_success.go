@@ -20,7 +20,6 @@ package http
 
 import (
 	"context"
-	"encoding/json"
 	stdhttp "net/http"
 	"time"
 
@@ -49,14 +48,7 @@ func RespondWithSuccess(
 		Meta:    meta,
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(stdhttp.StatusOK)
-	if err := json.NewEncoder(w).Encode(response); err != nil {
-		// Log encoding errors - this shouldn't happen but helps debug
-		// Note: We can't use logger here as this is a package-level function
-		// The error will be visible in server logs if logging is set up
-		_ = err // Ignore encoding errors to avoid panics
-	}
+	writeJSONResponse(w, stdhttp.StatusOK, response)
 }
 
 // RespondWithValidationErrors sends validation errors.

@@ -32,7 +32,7 @@ func (s *Server) respondManagementError(w stdhttp.ResponseWriter, statusCode int
 		s.logger.Error("management API error", "status", statusCode, "message", message)
 	}
 
-	writeManagementJSON(w, statusCode, map[string]interface{}{
+	writeJSONResponse(w, statusCode, map[string]interface{}{
 		"status":  "error",
 		"message": message,
 	})
@@ -49,7 +49,7 @@ func (s *Server) HandleManagementOpenAPI(w stdhttp.ResponseWriter, _ *stdhttp.Re
 
 	spec := schema.GenerateOpenAPI(workflow)
 
-	writeManagementJSON(w, stdhttp.StatusOK, spec)
+	writeJSONResponse(w, stdhttp.StatusOK, spec)
 }
 
 // HandleManagementSchema returns a JSON Schema (draft 2020-12) document that
@@ -63,5 +63,5 @@ func (s *Server) HandleManagementSchema(w stdhttp.ResponseWriter, _ *stdhttp.Req
 
 	s2 := schema.GenerateJSONSchema(workflow)
 
-	writeManagementJSON(w, stdhttp.StatusOK, s2)
+	writeJSONResponse(w, stdhttp.StatusOK, s2)
 }

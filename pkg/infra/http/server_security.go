@@ -44,6 +44,13 @@ type limitMiddlewareConfig struct {
 	maxConcurrent int
 }
 
+func effectiveMaxBodyBytes(maxBody int64) int64 {
+	if maxBody <= 0 {
+		return MaxUploadSize
+	}
+	return maxBody
+}
+
 func applyLimitMiddleware(router *Router, cfg limitMiddlewareConfig, trustedProxies []string) {
 	if cfg.rateLimit != nil && cfg.rateLimit.RequestsPerMinute > 0 {
 		burst := cfg.rateLimit.Burst
@@ -52,11 +59,7 @@ func applyLimitMiddleware(router *Router, cfg limitMiddlewareConfig, trustedProx
 		}
 		router.Use(RateLimitMiddleware(cfg.rateLimit.RequestsPerMinute, burst, trustedProxies))
 	}
-	maxBody := cfg.maxBodyBytes
-	if maxBody <= 0 {
-		maxBody = MaxUploadSize
-	}
-	router.Use(BodyLimitMiddleware(maxBody))
+	router.Use(BodyLimitMiddleware(effectiveMaxBodyBytes(cfg.maxBodyBytes)))
 	if cfg.maxConcurrent > 0 {
 		router.Use(ConcurrentLimitMiddleware(cfg.maxConcurrent))
 	}
@@ -105,9 +108,5 @@ func (s *WebServer) applyWebSecurityMiddleware() {
 		maxBodyBytes:  web.MaxBodyBytes,
 		maxConcurrent: web.MaxConcurrent,
 	}, trustedProxies)
-	maxBody := web.MaxBodyBytes
-	if maxBody <= 0 {
-		maxBody = MaxUploadSize
-	}
-	s.Router.Use(UploadMiddleware(maxBody))
+	s.Router.Use(UploadMiddleware(effectiveMaxBodyBytes(web.MaxBodyBytes)))
 }
