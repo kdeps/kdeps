@@ -23,10 +23,6 @@ import (
 	"strings"
 )
 
-func supportedHTTPMethods() []string {
-	return []string{"GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"}
-}
-
 // Router is a simple HTTP router.
 type Router struct {
 	Routes     map[string]map[string]stdhttp.HandlerFunc
@@ -104,9 +100,7 @@ func registerRouterMethod(router *Router, method, path string, handler stdhttp.H
 // register registers a route.
 func (r *Router) register(method, path string, handler stdhttp.HandlerFunc) {
 	debugEnter("register")
-	if r.Routes[method] == nil {
-		r.Routes[method] = make(map[string]stdhttp.HandlerFunc)
-	}
+	r.Routes[method] = ensureMethodRoutes(r.Routes, method)
 	r.Routes[method][path] = handler
 }
 
@@ -118,7 +112,7 @@ func (r *Router) findHandler(method, path string) stdhttp.HandlerFunc {
 	if !ok {
 		return nil
 	}
-	if handler, found := methodRoutes[path]; found {
+	if handler, found := exactRouteHandler(methodRoutes, path); found {
 		return handler
 	}
 	return r.findPatternHandler(methodRoutes, path)
@@ -128,15 +122,7 @@ func (r *Router) findPatternHandler(
 	methodRoutes map[string]stdhttp.HandlerFunc,
 	path string,
 ) stdhttp.HandlerFunc {
-	var bestPattern string
-	var bestHandler stdhttp.HandlerFunc
-	for pattern, h := range methodRoutes {
-		if r.MatchPattern(pattern, path) && len(pattern) > len(bestPattern) {
-			bestPattern = pattern
-			bestHandler = h
-		}
-	}
-	return bestHandler
+	return longestMatchingPattern(methodRoutes, path, r.MatchPattern)
 }
 
 func (r *Router) dispatch(w stdhttp.ResponseWriter, req *stdhttp.Request) {
@@ -150,7 +136,7 @@ func (r *Router) dispatch(w stdhttp.ResponseWriter, req *stdhttp.Request) {
 		return
 	}
 
-	stdhttp.NotFound(w, req)
+	respondRouterNotFound(w, req)
 }
 
 // ServeHTTP implements stdhttp.Handler.
@@ -164,15 +150,7 @@ func (r *Router) pathRegisteredForMethod(method, path string) bool {
 	if !ok {
 		return false
 	}
-	if _, found := routes[path]; found {
-		return true
-	}
-	for pattern := range routes {
-		if r.MatchPattern(pattern, path) {
-			return true
-		}
-	}
-	return false
+	return pathRegisteredInRoutes(routes, path, r.MatchPattern)
 }
 
 // allowedMethods returns all HTTP methods registered for the given path.
@@ -188,24 +166,15 @@ func (r *Router) allowedMethods(path string) []string {
 	return allowed
 }
 
-func patternPartMatches(patternPart, pathPart string) bool {
-	if strings.HasPrefix(patternPart, ":") {
-		return true
-	}
-	if patternPart == "*" {
-		return true
-	}
-	return patternPart == pathPart
-}
-
 // MatchPattern matches a route pattern against a path.
 func (r *Router) MatchPattern(pattern, path string) bool {
 	debugEnter("MatchPattern")
 	patternParts := strings.Split(pattern, "/")
 	pathParts := strings.Split(path, "/")
 
-	if len(patternParts) > 0 && patternParts[len(patternParts)-1] == "*" {
-		patternParts = patternParts[:len(patternParts)-1]
+	var hasTrailingWildcard bool
+	patternParts, hasTrailingWildcard = stripTrailingWildcard(patternParts)
+	if hasTrailingWildcard {
 		if len(pathParts) < len(patternParts) {
 			return false
 		}
@@ -214,28 +183,11 @@ func (r *Router) MatchPattern(pattern, path string) bool {
 		return false
 	}
 
-	for i, part := range patternParts {
-		if !patternPartMatches(part, pathParts[i]) {
-			return false
-		}
-	}
-
-	return true
-}
-
-func copyRouterMiddleware(
-	middleware []func(stdhttp.HandlerFunc) stdhttp.HandlerFunc,
-) []func(stdhttp.HandlerFunc) stdhttp.HandlerFunc {
-	copied := make([]func(stdhttp.HandlerFunc) stdhttp.HandlerFunc, len(middleware))
-	copy(copied, middleware)
-	return copied
+	return pathPartsMatch(patternParts, pathParts)
 }
 
 // ApplyMiddleware applies all middleware to a handler.
 func (r *Router) ApplyMiddleware(handler stdhttp.HandlerFunc) stdhttp.HandlerFunc {
 	debugEnter("ApplyMiddleware")
-	for i := len(r.Middleware) - 1; i >= 0; i-- {
-		handler = r.Middleware[i](handler)
-	}
-	return handler
+	return chainMiddleware(r.Middleware, handler)
 }

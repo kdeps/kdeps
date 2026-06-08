@@ -191,20 +191,6 @@ func webServerListenAddr(settings domain.WorkflowSettings) string {
 	)
 }
 
-func stopWebServerCommands(
-	ctx context.Context,
-	logger *slog.Logger,
-	commands map[string]*exec.Cmd,
-) {
-	for name, cmd := range commands {
-		if !isProcessRunning(cmd) {
-			continue
-		}
-		logger.InfoContext(ctx, "stopping app command", "name", name)
-		_ = killProcessIfRunning(cmd)
-	}
-}
-
 func registerWebRouteMethods(router *Router, path string, handler stdhttp.HandlerFunc) {
 	for _, method := range supportedHTTPMethods() {
 		registerRouterMethod(router, method, path, handler)

@@ -22,21 +22,26 @@ import (
 	stdhttp "net/http"
 )
 
-// TrustedProxiesMiddleware stores trusted proxy entries in the request context
-// so forwarded headers (X-Forwarded-Proto, X-Forwarded-For) are honored only from trusted peers.
-func TrustedProxiesMiddleware(trusted []string) func(stdhttp.HandlerFunc) stdhttp.HandlerFunc {
-	debugEnter("TrustedProxiesMiddleware")
+// ErrorHandlerMiddleware handles panics and errors.
+func ErrorHandlerMiddleware(debugMode bool) func(stdhttp.HandlerFunc) stdhttp.HandlerFunc {
+	debugEnter("ErrorHandlerMiddleware")
 	return func(next stdhttp.HandlerFunc) stdhttp.HandlerFunc {
 		return func(w stdhttp.ResponseWriter, r *stdhttp.Request) {
-			next(w, r.WithContext(withTrustedProxies(r.Context(), trusted)))
+			wrapped := &ResponseWriterWrapper{
+				ResponseWriter: w,
+			}
+
+			r = r.WithContext(withDebugMode(r.Context(), debugMode))
+
+			defer RecoverPanic(wrapped, r, debugMode)
+
+			next(wrapped, r)
 		}
 	}
 }
 
-// LoggingMiddleware logs request information (basic implementation).
-func LoggingMiddleware(next stdhttp.HandlerFunc) stdhttp.HandlerFunc {
-	debugEnter("LoggingMiddleware")
-	return func(w stdhttp.ResponseWriter, r *stdhttp.Request) {
-		next(w, r)
-	}
+// DebugModeMiddleware determines and sets debug mode from environment.
+func DebugModeMiddleware() func(stdhttp.HandlerFunc) stdhttp.HandlerFunc {
+	debugEnter("DebugModeMiddleware")
+	return ErrorHandlerMiddleware(debugModeFromEnv())
 }

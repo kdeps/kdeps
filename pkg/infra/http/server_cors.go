@@ -54,26 +54,9 @@ func (s *Server) setCorsOrigin(w stdhttp.ResponseWriter, r *stdhttp.Request, cor
 		return
 	}
 
-	// Smart auto-configuration: if WebServer is enabled, allow its host.
-	// Most common case: frontend on localhost:5173, backend on localhost:16395.
-	// If AllowOrigins is "*", we can just return the origin if we want to support credentials,
-	// or return "*" if not.
 	if corsOriginAllowed(cors, origin) {
 		setCorsAllowedOrigin(w, origin)
 	}
-}
-
-func isCorsPreflight(method string) bool {
-	return method == stdhttp.MethodOptions
-}
-
-func corsOriginAllowed(cors *domain.CORS, origin string) bool {
-	for _, allowedOrigin := range cors.AllowOrigins {
-		if allowedOrigin == "*" || allowedOrigin == origin {
-			return true
-		}
-	}
-	return false
 }
 
 // setCorsMethods sets the CORS methods header.
@@ -87,18 +70,3 @@ func (s *Server) setCorsHeaders(w stdhttp.ResponseWriter, cors *domain.CORS) {
 	debugEnter("setCorsHeaders")
 	setCorsAllowHeaders(w, corsAllowedHeaders(cors))
 }
-
-const (
-	defaultCORSAllowMethods = "GET, POST, PUT, DELETE, PATCH, OPTIONS"
-	defaultCORSAllowHeaders = "Content-Type, Authorization"
-)
-
-func corsAllowedMethods(cors *domain.CORS) string {
-	return joinCORSList(cors.AllowMethods, defaultCORSAllowMethods)
-}
-
-func corsAllowedHeaders(cors *domain.CORS) string {
-	return joinCORSList(cors.AllowHeaders, defaultCORSAllowHeaders)
-}
-
-// SetupHotReload sets up file watching for hot reload.

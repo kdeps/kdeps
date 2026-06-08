@@ -20,22 +20,9 @@ package http
 
 import (
 	"context"
-	"os"
-	"os/exec"
 
 	"github.com/kdeps/kdeps/v2/pkg/domain"
 )
-
-func appRouteWorkDir(s *WebServer, route *domain.WebRoute) string {
-	return resolveWebRoutePublicPath(s.WorkflowDir, route.PublicPath)
-}
-
-func killProcessIfRunning(cmd *exec.Cmd) error {
-	if !isProcessRunning(cmd) {
-		return nil
-	}
-	return cmd.Process.Kill()
-}
 
 func (s *WebServer) StartAppCommand(ctx context.Context, route *domain.WebRoute) {
 	debugEnter("StartAppCommand")
@@ -55,10 +42,8 @@ func (s *WebServer) StartAppCommand(ctx context.Context, route *domain.WebRoute)
 
 	cmd := newAppShellCommand(ctx, workDir, route.Command)
 
-	// Store command for cleanup
 	s.Commands[route.Path] = cmd
 
-	// Start command
 	if err := cmd.Start(); err != nil {
 		s.logBackgroundError(
 			"failed to start app command",
@@ -79,22 +64,6 @@ func (s *WebServer) StartAppCommand(ctx context.Context, route *domain.WebRoute)
 	)
 
 	logAppCommandExit(s, route.Command, cmd.Wait())
-}
-
-func newAppShellCommand(ctx context.Context, workDir, command string) *exec.Cmd {
-	cmd := execCommandContext(ctx, "sh", "-c", command)
-	cmd.Dir = workDir
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-	return cmd
-}
-
-func logAppCommandExit(s *WebServer, command string, err error) {
-	if err != nil {
-		s.logBackgroundError("app command exited with error", "command", command, "error", err)
-		return
-	}
-	s.logBackgroundInfo("app command exited", "command", command)
 }
 
 // Stop stops the web server and cleans up running commands.

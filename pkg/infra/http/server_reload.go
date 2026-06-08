@@ -19,9 +19,6 @@
 package http
 
 import (
-	"errors"
-	"log/slog"
-
 	"github.com/kdeps/kdeps/v2/pkg/parser/expression"
 	"github.com/kdeps/kdeps/v2/pkg/parser/yaml"
 	"github.com/kdeps/kdeps/v2/pkg/templates"
@@ -30,8 +27,8 @@ import (
 
 func (s *Server) SetupHotReload() error {
 	debugEnter("SetupHotReload")
-	if s.Watcher == nil {
-		return errors.New("no file watcher configured")
+	if err := requireWatcher(s.Watcher); err != nil {
+		return err
 	}
 
 	watchWorkflowPath := s.hotReloadWorkflowPath()
@@ -57,50 +54,11 @@ func (s *Server) SetupHotReload() error {
 	return nil
 }
 
-func resolveDefaultWorkflowPath() string {
-	if p := findWorkflowFile("."); p != "" {
-		return p
-	}
-	return defaultWorkflowFile
-}
-
-func absWorkflowPathOrRelative(workflowPath string, logger *slog.Logger) string {
-	absPath, err := filepathAbs(workflowPath)
-	if err != nil {
-		logWorkflowPathResolveWarning(logger, workflowPath, err)
-		return workflowPath
-	}
-	return absPath
-}
-
 func (s *Server) hotReloadWorkflowPath() string {
 	if path := s.lockedWorkflowPath(); path != "" {
 		return path
 	}
 	return defaultWorkflowFile
-}
-
-func (s *Server) logHotReloadFailure(err error) {
-	s.logger.Error("failed to reload workflow", "error", err)
-}
-
-func (s *Server) logHotReloadSuccess() {
-	s.logger.Info("workflow reloaded successfully")
-}
-
-func (s *Server) runHotReload(changeMsg string) {
-	s.logger.Info(changeMsg)
-	if reloadErr := s.reloadWorkflow(); reloadErr != nil {
-		s.logHotReloadFailure(reloadErr)
-		return
-	}
-	s.logHotReloadSuccess()
-}
-
-func (s *Server) hotReloadCallback() func(string) func() {
-	return func(changeMsg string) func() {
-		return func() { s.runHotReload(changeMsg) }
-	}
 }
 
 func (s *Server) watchOptionalResourcesDir(path string, onChange func()) {
@@ -133,23 +91,6 @@ func (s *Server) reloadWorkflow() error {
 	logReloadedWorkflow(s)
 
 	return nil
-}
-
-func reloadWorkflowLogAttrs(detail map[string]interface{}) []any {
-	return []any{
-		"name", detail["name"],
-		"version", detail["version"],
-		"resources", detail["resources"],
-	}
-}
-
-func logReloadedWorkflow(s *Server) {
-	detail := workflowStatusDetailMap(s.Workflow)
-	if detail == nil {
-		s.logger.Info("workflow reloaded")
-		return
-	}
-	s.logger.Info("workflow reloaded", reloadWorkflowLogAttrs(detail)...)
 }
 
 func (s *Server) ensureWorkflowParser() error {
@@ -193,11 +134,4 @@ func newWorkflowParser() (*yaml.Parser, error) {
 		return nil, workflowParserSchemaValidatorFailed(schemaErr)
 	}
 	return yaml.NewParser(schemaValidator, expression.NewParser()), nil
-}
-
-func (s *Server) rebuildRouterPreservingMiddleware() {
-	oldMiddleware := copyRouterMiddleware(s.Router.Middleware)
-	s.Router = NewRouter()
-	s.Router.Middleware = oldMiddleware
-	s.SetupRoutes()
 }

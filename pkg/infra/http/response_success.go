@@ -89,5 +89,3 @@ func GetSessionID(ctx context.Context) string {
 	debugEnter("GetSessionID")
 	return contextStringValue(ctx, SessionIDKey)
 }
-
-// isSecureRequest reports whether the request arrived over HTTPS.

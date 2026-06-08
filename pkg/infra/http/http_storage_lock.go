@@ -18,25 +18,14 @@
 
 package http
 
-import (
-	stdhttp "net/http"
-)
-
-// TrustedProxiesMiddleware stores trusted proxy entries in the request context
-// so forwarded headers (X-Forwarded-Proto, X-Forwarded-For) are honored only from trusted peers.
-func TrustedProxiesMiddleware(trusted []string) func(stdhttp.HandlerFunc) stdhttp.HandlerFunc {
-	debugEnter("TrustedProxiesMiddleware")
-	return func(next stdhttp.HandlerFunc) stdhttp.HandlerFunc {
-		return func(w stdhttp.ResponseWriter, r *stdhttp.Request) {
-			next(w, r.WithContext(withTrustedProxies(r.Context(), trusted)))
-		}
-	}
+func (s *TemporaryFileStore) withReadLock(fn func() error) error {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	return fn()
 }
 
-// LoggingMiddleware logs request information (basic implementation).
-func LoggingMiddleware(next stdhttp.HandlerFunc) stdhttp.HandlerFunc {
-	debugEnter("LoggingMiddleware")
-	return func(w stdhttp.ResponseWriter, r *stdhttp.Request) {
-		next(w, r)
-	}
+func (s *TemporaryFileStore) withWriteLock(fn func() error) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return fn()
 }

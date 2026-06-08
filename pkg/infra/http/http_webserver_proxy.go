@@ -20,49 +20,36 @@ package http
 
 import (
 	stdhttp "net/http"
+	"net/http/httputil"
 	"net/url"
 
 	"github.com/kdeps/kdeps/v2/pkg/domain"
 )
 
-func (s *WebServer) HandleWebSocketProxy(
-	w stdhttp.ResponseWriter,
-	r *stdhttp.Request,
+func newAppReverseProxy(
+	s *WebServer,
 	targetURL *url.URL,
 	route *domain.WebRoute,
-) {
-	debugEnter("HandleWebSocketProxy")
-
-	targetWSURL := buildWebSocketTargetURL(targetURL, route, r)
-	logWebSocketProxyDial(s.logger, targetWSURL.String())
-
-	targetConn, resp, err := dialTargetWebSocketHook(targetWSURL, r.Header)
-	if err != nil {
-		s.logAndRespondWSConnectFailed(w, targetWSURL.String(), err)
-		return
+	r *stdhttp.Request,
+) *httputil.ReverseProxy {
+	return &httputil.ReverseProxy{
+		Rewrite: func(pr *httputil.ProxyRequest) {
+			pr.SetURL(targetURL)
+			pr.Out.URL.Path = buildProxiedPath(route.Path, requestPath(r))
+			copyQueryString(pr.Out.URL, r.URL)
+			setProxyHost(pr.Out.URL, targetURL)
+			forwardProxyRequestHeaders(pr.Out.Header, r.Header)
+			logProxyRequest(s.logger, pr.Out.URL.String())
+		},
+		Transport: &stdhttp.Transport{
+			ResponseHeaderTimeout: appProxyResponseTimeout(),
+		},
+		ErrorHandler: func(w stdhttp.ResponseWriter, req *stdhttp.Request, err error) {
+			s.logAndRespondProxyError(w, req, err)
+		},
 	}
-	defer func() {
-		_ = targetConn.Close()
-	}()
+}
 
-	if resp != nil {
-		defer func() {
-			_ = resp.Body.Close()
-		}()
-		if !isWebSocketHandshakeOK(resp) {
-			s.logAndRespondWSHandshakeFailed(w, resp.StatusCode)
-			return
-		}
-	}
-
-	clientConn, err := upgradeClientWebSocket(w, r)
-	if err != nil {
-		s.logBackgroundError(webSocketUpgradeFailedLogMessage(), logKeyError, err)
-		return
-	}
-	defer func() {
-		_ = clientConn.Close()
-	}()
-
-	s.proxyWebSocketConnections(clientConn, targetConn)
+func localAppProxyTarget(port int) (*url.URL, error) {
+	return httpURLFromHostPort(localAppProxyHost, port)
 }

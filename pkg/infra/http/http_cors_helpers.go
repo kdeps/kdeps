@@ -20,23 +20,32 @@ package http
 
 import (
 	stdhttp "net/http"
+
+	"github.com/kdeps/kdeps/v2/pkg/domain"
 )
 
-// TrustedProxiesMiddleware stores trusted proxy entries in the request context
-// so forwarded headers (X-Forwarded-Proto, X-Forwarded-For) are honored only from trusted peers.
-func TrustedProxiesMiddleware(trusted []string) func(stdhttp.HandlerFunc) stdhttp.HandlerFunc {
-	debugEnter("TrustedProxiesMiddleware")
-	return func(next stdhttp.HandlerFunc) stdhttp.HandlerFunc {
-		return func(w stdhttp.ResponseWriter, r *stdhttp.Request) {
-			next(w, r.WithContext(withTrustedProxies(r.Context(), trusted)))
-		}
-	}
+const (
+	defaultCORSAllowMethods = "GET, POST, PUT, DELETE, PATCH, OPTIONS"
+	defaultCORSAllowHeaders = "Content-Type, Authorization"
+)
+
+func isCorsPreflight(method string) bool {
+	return method == stdhttp.MethodOptions
 }
 
-// LoggingMiddleware logs request information (basic implementation).
-func LoggingMiddleware(next stdhttp.HandlerFunc) stdhttp.HandlerFunc {
-	debugEnter("LoggingMiddleware")
-	return func(w stdhttp.ResponseWriter, r *stdhttp.Request) {
-		next(w, r)
+func corsOriginAllowed(cors *domain.CORS, origin string) bool {
+	for _, allowedOrigin := range cors.AllowOrigins {
+		if allowedOrigin == "*" || allowedOrigin == origin {
+			return true
+		}
 	}
+	return false
+}
+
+func corsAllowedMethods(cors *domain.CORS) string {
+	return joinCORSList(cors.AllowMethods, defaultCORSAllowMethods)
+}
+
+func corsAllowedHeaders(cors *domain.CORS) string {
+	return joinCORSList(cors.AllowHeaders, defaultCORSAllowHeaders)
 }

@@ -19,7 +19,6 @@
 package http
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
 	stdhttp "net/http"
@@ -92,42 +91,6 @@ func setStringResponseHeaders(w stdhttp.ResponseWriter, headers map[string]strin
 	for key, value := range headers {
 		setResponseHeader(w, key, value)
 	}
-}
-
-func respondPlainHTTPError(w stdhttp.ResponseWriter, message string, statusCode int) {
-	stdhttp.Error(w, message, statusCode)
-}
-
-func respondWebServerNotFound(w stdhttp.ResponseWriter) {
-	respondPlainHTTPError(w, notFoundMessage(), stdhttp.StatusNotFound)
-}
-
-func respondWebServerInternalError(w stdhttp.ResponseWriter) {
-	respondPlainHTTPError(w, internalServerErrorMessage(), stdhttp.StatusInternalServerError)
-}
-
-func respondBadGateway(w stdhttp.ResponseWriter, message string) {
-	respondPlainHTTPError(w, message, stdhttp.StatusBadGateway)
-}
-
-func respondMethodNotAllowed(w stdhttp.ResponseWriter, allowed []string) {
-	setAllowHeader(w, allowed)
-	respondPlainHTTPError(w, methodNotAllowedMessage(), stdhttp.StatusMethodNotAllowed)
-}
-
-func writePreflightOK(w stdhttp.ResponseWriter) {
-	writeStatusOK(w)
-}
-
-func setJSONContentType(w stdhttp.ResponseWriter) {
-	setResponseContentType(w, defaultJSONMediaType)
-}
-
-// writeJSONResponse writes a JSON payload with the given status code.
-func writeJSONResponse(w stdhttp.ResponseWriter, statusCode int, payload any) {
-	setJSONContentType(w)
-	w.WriteHeader(statusCode)
-	_ = json.NewEncoder(w).Encode(payload)
 }
 
 // validationErrorsToDetails converts validation errors to response details.

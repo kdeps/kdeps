@@ -18,91 +18,6 @@
 
 package http
 
-import (
-	"errors"
-	"log/slog"
-	"os"
-
-	"github.com/kdeps/kdeps/v2/pkg/domain"
-)
-
-func requireAPIAuthToken(raw string) (string, error) {
-	token := trimAuthToken(raw)
-	if token == "" {
-		return "", errors.New(apiAuthTokenRequiredError())
-	}
-	return token, nil
-}
-
-type limitMiddlewareConfig struct {
-	rateLimit     *domain.RateLimitConfig
-	maxBodyBytes  int64
-	maxConcurrent int
-}
-
-func newLimitMiddlewareConfig(
-	rateLimit *domain.RateLimitConfig,
-	maxBodyBytes int64,
-	maxConcurrent int,
-) limitMiddlewareConfig {
-	return limitMiddlewareConfig{
-		rateLimit:     rateLimit,
-		maxBodyBytes:  maxBodyBytes,
-		maxConcurrent: maxConcurrent,
-	}
-}
-
-func apiServerLimitConfig(api *domain.APIServerConfig) limitMiddlewareConfig {
-	return newLimitMiddlewareConfig(api.RateLimit, api.MaxBodyBytes, api.MaxConcurrent)
-}
-
-func webServerLimitConfig(web *domain.WebServerConfig) limitMiddlewareConfig {
-	return newLimitMiddlewareConfig(web.RateLimit, web.MaxBodyBytes, web.MaxConcurrent)
-}
-
-func effectiveMaxBodyBytes(maxBody int64) int64 {
-	if maxBody <= 0 {
-		return MaxUploadSize
-	}
-	return maxBody
-}
-
-func rateLimitBurst(rateLimit *domain.RateLimitConfig) int {
-	if rateLimit.Burst > 0 {
-		return rateLimit.Burst
-	}
-	return rateLimit.RequestsPerMinute
-}
-
-func configureTrustedProxyLimits(
-	router *Router,
-	settings domain.WorkflowSettings,
-	cfg limitMiddlewareConfig,
-	logger *slog.Logger,
-) {
-	trustedProxies := trustedProxiesFromSettings(settings)
-	warnInvalidTrustedProxies(logger, trustedProxies)
-	applyLimitMiddleware(router, cfg, trustedProxies)
-}
-
-func applyLimitMiddleware(router *Router, cfg limitMiddlewareConfig, trustedProxies []string) {
-	if cfg.rateLimit != nil && cfg.rateLimit.RequestsPerMinute > 0 {
-		router.Use(RateLimitMiddleware(
-			cfg.rateLimit.RequestsPerMinute,
-			rateLimitBurst(cfg.rateLimit),
-			trustedProxies,
-		))
-	}
-	router.Use(BodyLimitMiddleware(effectiveMaxBodyBytes(cfg.maxBodyBytes)))
-	if cfg.maxConcurrent > 0 {
-		router.Use(ConcurrentLimitMiddleware(cfg.maxConcurrent))
-	}
-}
-
-func warnInvalidTrustedProxies(logger *slog.Logger, trustedProxies []string) {
-	logInvalidTrustedProxies(logger, invalidTrustedProxyEntries(trustedProxies))
-}
-
 // applySecurityMiddleware wires auth, rate-limit, and body-limit middleware
 // from the workflow's APIServer config.
 func (s *Server) applySecurityMiddleware() error {
@@ -111,7 +26,7 @@ func (s *Server) applySecurityMiddleware() error {
 		return nil
 	}
 	api := s.Workflow.Settings.APIServer
-	token, err := requireAPIAuthToken(os.Getenv("KDEPS_API_AUTH_TOKEN"))
+	token, err := apiAuthTokenFromEnv()
 	if err != nil {
 		return err
 	}

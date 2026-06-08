@@ -20,8 +20,6 @@ package http
 
 import (
 	stdhttp "net/http"
-	"net/http/httputil"
-	"net/url"
 
 	"github.com/kdeps/kdeps/v2/pkg/domain"
 )
@@ -67,32 +65,4 @@ func (s *WebServer) HandleAppRequest(
 	}
 
 	newAppReverseProxy(s, targetURL, route, r).ServeHTTP(w, r)
-}
-
-func newAppReverseProxy(
-	s *WebServer,
-	targetURL *url.URL,
-	route *domain.WebRoute,
-	r *stdhttp.Request,
-) *httputil.ReverseProxy {
-	return &httputil.ReverseProxy{
-		Rewrite: func(pr *httputil.ProxyRequest) {
-			pr.SetURL(targetURL)
-			pr.Out.URL.Path = buildProxiedPath(route.Path, requestPath(r))
-			copyQueryString(pr.Out.URL, r.URL)
-			setProxyHost(pr.Out.URL, targetURL)
-			forwardProxyRequestHeaders(pr.Out.Header, r.Header)
-			logProxyRequest(s.logger, pr.Out.URL.String())
-		},
-		Transport: &stdhttp.Transport{
-			ResponseHeaderTimeout: appProxyResponseTimeout(),
-		},
-		ErrorHandler: func(w stdhttp.ResponseWriter, req *stdhttp.Request, err error) {
-			s.logAndRespondProxyError(w, req, err)
-		},
-	}
-}
-
-func localAppProxyTarget(port int) (*url.URL, error) {
-	return httpURLFromHostPort(localAppProxyHost, port)
 }

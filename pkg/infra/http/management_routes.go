@@ -32,7 +32,7 @@ func (s *Server) registerManagementRoute(
 	registerRouterMethod(
 		s.Router,
 		method,
-		managementPathPrefix+path,
+		managementPath(path),
 		requireManagementAuth(handler),
 	)
 }

@@ -19,7 +19,6 @@
 package http
 
 import (
-	"encoding/json"
 	stdhttp "net/http"
 
 	"github.com/kdeps/kdeps/v2/pkg/domain"
@@ -52,47 +51,6 @@ func (s *Server) ParseRequest(
 		ID:        requestID,
 		SessionID: "",
 	}
-}
-
-func trustedProxiesForWorkflow(workflow *domain.Workflow) []string {
-	if workflow == nil {
-		return nil
-	}
-	return trustedProxiesFromSettings(workflow.Settings)
-}
-
-func requestContentType(r *stdhttp.Request) string {
-	return requestContentTypeHeader(r)
-}
-
-func parseRequestBody(r *stdhttp.Request) map[string]interface{} {
-	contentType := requestContentType(r)
-	isFormData := isFormURLEncodedContentType(contentType)
-
-	var body map[string]interface{}
-	if r.Body != nil && !isFormData {
-		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
-			body = emptyRequestBodyMap()
-		}
-	}
-	if isFormData || isMultipartContentType(contentType) {
-		body = parseFormData(r, body)
-	}
-	return body
-}
-
-func uploadedFilesToFileUploads(uploadedFiles []*domain.UploadedFile) []FileUpload {
-	files := make([]FileUpload, 0, len(uploadedFiles))
-	for _, file := range uploadedFiles {
-		files = append(files, FileUpload{
-			Name:      file.Filename,
-			FieldName: file.FieldName,
-			Path:      file.Path,
-			MimeType:  file.ContentType,
-			Size:      file.Size,
-		})
-	}
-	return files
 }
 
 func (s *Server) processRequestUploads(
@@ -136,34 +94,4 @@ func (s *Server) cleanupUploadedFiles(uploadedFiles []*domain.UploadedFile) {
 func (s *Server) respondWorkflowError(w stdhttp.ResponseWriter, r *stdhttp.Request, err error) {
 	s.logWorkflowExecutionFailure(r, err)
 	s.respondWithRequestError(w, r, err)
-}
-
-func firstValuesFromMultiMap(values map[string][]string) map[string]string {
-	result := make(map[string]string, len(values))
-	for key, vals := range values {
-		if len(vals) > 0 {
-			result[key] = vals[0]
-		}
-	}
-	return result
-}
-
-func parseFormData(r *stdhttp.Request, body map[string]interface{}) map[string]interface{} {
-	debugEnter("parseFormData")
-	// ParseForm handles both application/x-www-form-urlencoded and multipart/form-data
-	if err := r.ParseForm(); err != nil {
-		return body
-	}
-
-	if body == nil {
-		body = emptyRequestBodyMap()
-	}
-
-	// Use PostForm instead of Form - PostForm only contains POST form values
-	// Form includes both form values and query params (which we already parsed separately)
-	for key, value := range firstValuesFromMultiMap(r.PostForm) {
-		body[key] = value
-	}
-
-	return body
 }
