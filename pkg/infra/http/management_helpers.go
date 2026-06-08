@@ -35,10 +35,12 @@ func (s *Server) lockedWorkflow() *domain.Workflow {
 	return workflow
 }
 
+func managementStatusOK() map[string]interface{} {
+	return map[string]interface{}{"status": "ok"}
+}
+
 func managementOKStatus(workflow *domain.Workflow) map[string]interface{} {
-	status := map[string]interface{}{
-		"status": "ok",
-	}
+	status := managementStatusOK()
 	if detail := managementWorkflowStatusDetail(workflow); detail != nil {
 		status["workflow"] = detail
 	}

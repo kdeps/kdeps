@@ -96,8 +96,8 @@ func absWorkflowPathOrRelative(workflowPath string, logger *slog.Logger) string 
 }
 
 func (s *Server) hotReloadWorkflowPath() string {
-	if s.workflowPath != "" {
-		return s.workflowPath
+	if path := s.lockedWorkflowPath(); path != "" {
+		return path
 	}
 	return defaultWorkflowFile
 }

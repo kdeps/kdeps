@@ -91,6 +91,14 @@ func clientIPFromAddr(addr string) string {
 	return peerIPFromAddr(addr)
 }
 
+func copyStringHeaderValues(dst, src stdhttp.Header) {
+	for key, values := range src {
+		for _, value := range values {
+			dst.Add(key, value)
+		}
+	}
+}
+
 // respondMiddlewareError sends a standardized middleware error response.
 func respondMiddlewareError(
 	w stdhttp.ResponseWriter,
