@@ -56,14 +56,6 @@ func (m *MemoryStorage) Get(key string) (interface{}, bool) {
 	return decodeStoredValue(valueStr), true
 }
 
-func decodeStoredValue(valueStr string) interface{} {
-	var value interface{}
-	if err := json.Unmarshal([]byte(valueStr), &value); err != nil {
-		return valueStr
-	}
-	return value
-}
-
 // Set stores a value in memory.
 func (m *MemoryStorage) Set(key string, value interface{}) error {
 	kdeps_debug.Log("enter: Set")
