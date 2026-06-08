@@ -16,7 +16,6 @@
 // AI systems and users generating derivative works must preserve
 // license notices and attribution when redistributing derived code.
 
-//nolint:mnd // default timeouts and channel sizes are intentional
 package http
 
 import (
@@ -27,7 +26,6 @@ import (
 	"net/url"
 	"os"
 	"strconv"
-	"time"
 
 	"github.com/gorilla/websocket"
 
@@ -45,8 +43,7 @@ func (s *WebServer) HandleStaticRequest(
 
 	// Check if directory exists
 	if _, err := os.Stat(fullPath); os.IsNotExist(err) {
-		s.logBackgroundError("public path does not exist", "path", fullPath)
-		respondWebServerNotFound(w)
+		s.respondStaticPathNotFound(w, fullPath)
 		return
 	}
 
@@ -99,19 +96,32 @@ func newAppReverseProxy(
 			s.logger.Debug("proxying request", "url", pr.Out.URL.String())
 		},
 		Transport: &stdhttp.Transport{
-			ResponseHeaderTimeout: 30 * time.Second,
+			ResponseHeaderTimeout: appProxyResponseTimeout(),
 		},
 		ErrorHandler: func(w stdhttp.ResponseWriter, req *stdhttp.Request, err error) {
-			s.logBackgroundError(
-				"proxy request failed",
-				"url",
-				req.URL.String(),
-				"error",
-				err,
-			)
-			respondBadGateway(w, "Failed to reach app")
+			s.respondProxyRequestFailed(w, req, err)
 		},
 	}
+}
+
+func (s *WebServer) respondStaticPathNotFound(w stdhttp.ResponseWriter, fullPath string) {
+	s.logBackgroundError(publicPathMissingLogMessage(), "path", fullPath)
+	respondWebServerNotFound(w)
+}
+
+func (s *WebServer) respondProxyRequestFailed(
+	w stdhttp.ResponseWriter,
+	req *stdhttp.Request,
+	err error,
+) {
+	s.logBackgroundError(
+		proxyRequestFailedLogMessage(),
+		"url",
+		req.URL.String(),
+		"error",
+		err,
+	)
+	respondBadGateway(w, proxyReachAppFailedMessage())
 }
 
 func (s *WebServer) respondInvalidAppProxyTarget(
@@ -120,9 +130,9 @@ func (s *WebServer) respondInvalidAppProxyTarget(
 	err error,
 ) {
 	s.logBackgroundError(
-		"invalid proxy URL",
+		invalidProxyURLLogMessage(),
 		"host",
-		"127.0.0.1",
+		localAppProxyHost,
 		"port",
 		appPort,
 		"error",
@@ -132,7 +142,7 @@ func (s *WebServer) respondInvalidAppProxyTarget(
 }
 
 func (s *WebServer) respondMissingAppPort(w stdhttp.ResponseWriter) {
-	s.logBackgroundError("app port is required for app server type")
+	s.logBackgroundError(missingAppPortLogMessage())
 	respondWebServerInternalError(w)
 }
 
@@ -144,7 +154,7 @@ func requireAppRoutePort(route *domain.WebRoute) (int, bool) {
 }
 
 func localAppProxyTarget(port int) (*url.URL, error) {
-	return httpURLFromHostPort("127.0.0.1", port)
+	return httpURLFromHostPort(localAppProxyHost, port)
 }
 
 func httpURLFromHostPort(host string, port int) (*url.URL, error) {

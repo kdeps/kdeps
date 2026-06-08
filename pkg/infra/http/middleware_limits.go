@@ -55,12 +55,8 @@ func respondUploadBodyTooLarge(
 }
 
 func respondRateLimitExceeded(w stdhttp.ResponseWriter, r *stdhttp.Request) {
-	w.Header().Set("Retry-After", "60")
-	respondMiddlewareError(
-		w, r,
-		domain.ErrCodeRateLimited,
-		"rate limit exceeded — retry after 60 seconds",
-	)
+	setRateLimitRetryAfter(w)
+	respondMiddlewareError(w, r, domain.ErrCodeRateLimited, rateLimitExceededMessage())
 }
 
 func newIPLimiterStore(requestsPerMinute, burst int) *ipLimiterStore {
@@ -127,7 +123,7 @@ func BodyLimitMiddleware(maxBytes int64) func(stdhttp.HandlerFunc) stdhttp.Handl
 	kdeps_debug.Log("enter: BodyLimitMiddleware")
 	return func(next stdhttp.HandlerFunc) stdhttp.HandlerFunc {
 		return func(w stdhttp.ResponseWriter, r *stdhttp.Request) {
-			if isMultipartContentType(requestContentType(r)) {
+			if isMultipartUpload(r) {
 				next(w, r)
 				return
 			}
@@ -155,11 +151,7 @@ func ConcurrentLimitMiddleware(limit int) func(stdhttp.HandlerFunc) stdhttp.Hand
 				defer func() { <-sem }()
 				next(w, r)
 			default:
-				respondMiddlewareError(
-					w, r,
-					domain.ErrCodeServiceUnavail,
-					"server is at capacity - retry shortly",
-				)
+				respondMiddlewareError(w, r, domain.ErrCodeServiceUnavail, serverAtCapacityMessage())
 			}
 		}
 	}

@@ -71,8 +71,8 @@ func (s *Server) HandleManagementUpdateWorkflow(w stdhttp.ResponseWriter, r *std
 		w,
 		workflowPath,
 		stdhttp.StatusUnprocessableEntity,
-		"workflow written but failed to reload",
-		"workflow updated and reloaded",
+		managementWorkflowReloadFailedPrefix(),
+		managementWorkflowUpdatedMessage(),
 	)
 }
 
@@ -83,8 +83,8 @@ func (s *Server) HandleManagementReload(w stdhttp.ResponseWriter, _ *stdhttp.Req
 	s.finishManagementReload(
 		w,
 		stdhttp.StatusInternalServerError,
-		"failed to reload workflow",
-		"workflow reloaded",
+		managementReloadWorkflowFailedPrefix(),
+		managementWorkflowReloadMessage(),
 	)
 }
 
@@ -109,7 +109,7 @@ func (s *Server) HandleManagementUpdatePackage(w stdhttp.ResponseWriter, r *stdh
 		w,
 		workflowPath,
 		stdhttp.StatusUnprocessableEntity,
-		"package extracted but failed to reload",
-		"package extracted and workflow reloaded",
+		managementPackageReloadFailedPrefix(),
+		managementPackageUpdatedMessage(),
 	)
 }

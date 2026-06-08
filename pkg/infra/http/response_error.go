@@ -104,11 +104,11 @@ func respondPlainHTTPError(w stdhttp.ResponseWriter, message string, statusCode 
 }
 
 func respondWebServerNotFound(w stdhttp.ResponseWriter) {
-	respondPlainHTTPError(w, "Not Found", stdhttp.StatusNotFound)
+	respondPlainHTTPError(w, notFoundMessage(), stdhttp.StatusNotFound)
 }
 
 func respondWebServerInternalError(w stdhttp.ResponseWriter) {
-	respondPlainHTTPError(w, "Internal Server Error", stdhttp.StatusInternalServerError)
+	respondPlainHTTPError(w, internalServerErrorMessage(), stdhttp.StatusInternalServerError)
 }
 
 func respondBadGateway(w stdhttp.ResponseWriter, message string) {
@@ -117,7 +117,7 @@ func respondBadGateway(w stdhttp.ResponseWriter, message string) {
 
 func respondMethodNotAllowed(w stdhttp.ResponseWriter, allowed []string) {
 	w.Header().Set("Allow", strings.Join(allowed, ", "))
-	respondPlainHTTPError(w, "Method Not Allowed", stdhttp.StatusMethodNotAllowed)
+	respondPlainHTTPError(w, methodNotAllowedMessage(), stdhttp.StatusMethodNotAllowed)
 }
 
 func writePreflightOK(w stdhttp.ResponseWriter) {
@@ -157,6 +157,10 @@ func RespondWithError(w stdhttp.ResponseWriter, r *stdhttp.Request, err error, d
 	appErr := normalizeToAppError(err, debugMode)
 	applySessionCookieIfPresent(w, r)
 
+	writeJSONResponse(w, appErr.StatusCode, buildErrorResponse(appErr, r, debugMode))
+}
+
+func buildErrorResponse(appErr *domain.AppError, r *stdhttp.Request, debugMode bool) *ErrorResponse {
 	response := &ErrorResponse{
 		Success: false,
 		Error: &ErrorDetail{
@@ -167,12 +171,10 @@ func RespondWithError(w stdhttp.ResponseWriter, r *stdhttp.Request, err error, d
 		},
 		Meta: requestMetaFromRequest(r),
 	}
-
 	if debugMode && appErr.Stack != "" {
 		response.Error.Stack = appErr.Stack
 	}
-
-	writeJSONResponse(w, appErr.StatusCode, response)
+	return response
 }
 
 // RespondWithSuccess sends a success response.

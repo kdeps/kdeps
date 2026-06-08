@@ -36,7 +36,7 @@ func (s *Server) lockedWorkflow() *domain.Workflow {
 }
 
 func managementStatusOK() map[string]interface{} {
-	return map[string]interface{}{"status": "ok"}
+	return map[string]interface{}{"status": statusOKValue}
 }
 
 func writeWorkflowStatusJSON(
@@ -104,7 +104,7 @@ func readLimitedManagementBody(
 		return nil, stdhttp.StatusBadRequest, managementReadBodyError(err)
 	}
 	if len(limitedBody) == 0 {
-		return nil, stdhttp.StatusBadRequest, "request body is empty"
+		return nil, stdhttp.StatusBadRequest, managementEmptyBodyMessage()
 	}
 	if len(limitedBody) > maxSize {
 		return nil, stdhttp.StatusRequestEntityTooLarge, managementBodyTooLargeMessage(label, maxSize)
@@ -114,7 +114,7 @@ func readLimitedManagementBody(
 
 func managementErrorPayload(message string) map[string]interface{} {
 	return map[string]interface{}{
-		"status":  "error",
+		"status":  statusErrorValue,
 		"message": message,
 	}
 }
@@ -176,7 +176,7 @@ func (s *Server) respondManagementWriteError(
 	s.respondManagementPrefixedError(
 		w,
 		stdhttp.StatusInternalServerError,
-		"failed to write workflow file",
+		managementWorkflowWriteFailedPrefix(),
 		writeErr,
 	)
 }
@@ -188,7 +188,7 @@ func (s *Server) respondManagementExtractError(
 	s.respondManagementPrefixedError(
 		w,
 		stdhttp.StatusUnprocessableEntity,
-		"failed to extract package",
+		managementPackageExtractFailedPrefix(),
 		extractErr,
 	)
 }

@@ -48,7 +48,7 @@ func isSecureRequest(r *stdhttp.Request) bool {
 	if !isTrustedPeer(peerIPFromRequest(r), trusted) {
 		return false
 	}
-	return r.Header.Get("X-Forwarded-Proto") == "https"
+	return forwardedProtoHeader(r) == "https"
 }
 
 // SetSessionCookie sets a secure HTTP cookie for the session ID.

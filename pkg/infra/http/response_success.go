@@ -60,7 +60,7 @@ func RespondWithSuccess(
 		Meta:    meta,
 	}
 
-	writeJSONResponse(w, stdhttp.StatusOK, response)
+	writeOKJSON(w, response)
 }
 
 // RespondWithValidationErrors sends validation errors.
@@ -74,7 +74,7 @@ func RespondWithValidationErrors(
 		Success: false,
 		Error: &ErrorDetail{
 			Code:    domain.ErrCodeValidation,
-			Message: "Validation failed",
+			Message: validationFailedMessage(),
 			Details: map[string]any{
 				"errors": validationErrorsToDetails(validationErrors),
 			},
@@ -82,7 +82,7 @@ func RespondWithValidationErrors(
 		Meta: requestMetaFromRequest(r),
 	}
 
-	writeJSONResponse(w, stdhttp.StatusBadRequest, response)
+	writeBadRequestJSON(w, response)
 }
 
 // GetRequestID gets the request ID from context.

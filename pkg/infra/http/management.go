@@ -98,11 +98,11 @@ func requireManagementAuth(next stdhttp.HandlerFunc) stdhttp.HandlerFunc {
 	return func(w stdhttp.ResponseWriter, r *stdhttp.Request) {
 		token, ok := managementAuthToken()
 		if !ok {
-			respondPlainHTTPError(w, managementDisabledMessage(), stdhttp.StatusServiceUnavailable)
+			respondManagementDisabled(w)
 			return
 		}
 		if !managementAuthMatches(r, token) {
-			respondPlainHTTPError(w, managementUnauthorizedMessage(), stdhttp.StatusUnauthorized)
+			respondManagementUnauthorized(w)
 			return
 		}
 

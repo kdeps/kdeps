@@ -24,7 +24,6 @@ import (
 	stdhttp "net/http"
 	"net/url"
 	"strings"
-	"time"
 
 	"github.com/gorilla/websocket"
 
@@ -45,14 +44,7 @@ func (s *WebServer) HandleWebSocketProxy(
 
 	targetConn, resp, err := dialTargetWebSocketHook(targetWSURL, r.Header)
 	if err != nil {
-		s.logBackgroundError(
-			"failed to connect to target WebSocket",
-			"url",
-			targetWSURL.String(),
-			"error",
-			err,
-		)
-		respondBadGateway(w, "Failed to connect to WebSocket")
+		s.respondWebSocketConnectFailed(w, targetWSURL.String(), err)
 		return
 	}
 	defer func() {
@@ -64,23 +56,14 @@ func (s *WebServer) HandleWebSocketProxy(
 			_ = resp.Body.Close()
 		}()
 		if !isWebSocketHandshakeOK(resp) {
-			s.logBackgroundError(
-				"WebSocket handshake failed",
-				"statusCode",
-				resp.StatusCode,
-			)
-			respondBadGateway(w, "WebSocket handshake failed")
+			s.respondWebSocketHandshakeFailed(w, resp.StatusCode)
 			return
 		}
 	}
 
 	clientConn, err := upgradeClientWebSocket(w, r)
 	if err != nil {
-		s.logBackgroundError(
-			"failed to upgrade client connection to WebSocket",
-			"error",
-			err,
-		)
+		s.logBackgroundError(webSocketUpgradeFailedLogMessage(), "error", err)
 		return
 	}
 	defer func() {
@@ -88,6 +71,26 @@ func (s *WebServer) HandleWebSocketProxy(
 	}()
 
 	s.proxyWebSocketConnections(clientConn, targetConn)
+}
+
+func (s *WebServer) respondWebSocketConnectFailed(
+	w stdhttp.ResponseWriter,
+	targetURL string,
+	err error,
+) {
+	s.logBackgroundError(
+		webSocketConnectFailedLogMessage(),
+		"url",
+		targetURL,
+		"error",
+		err,
+	)
+	respondBadGateway(w, proxyWebSocketConnectFailedMessage())
+}
+
+func (s *WebServer) respondWebSocketHandshakeFailed(w stdhttp.ResponseWriter, statusCode int) {
+	s.logBackgroundError(webSocketHandshakeFailedLogMessage(), "statusCode", statusCode)
+	respondBadGateway(w, proxyWebSocketHandshakeFailedMessage())
 }
 
 func isWebSocketHandshakeOK(resp *stdhttp.Response) bool {
@@ -141,7 +144,7 @@ func dialTargetWebSocket(
 ) (*websocket.Conn, *stdhttp.Response, error) {
 	dialer := websocket.Dialer{
 		Proxy:            stdhttp.ProxyFromEnvironment,
-		HandshakeTimeout: 30 * time.Second,
+		HandshakeTimeout: webSocketHandshakeTimeout(),
 	}
 	return dialer.Dial(targetWSURL.String(), filterWebSocketHeaders(requestHeader))
 }
