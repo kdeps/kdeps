@@ -63,7 +63,7 @@ func openPackageTarReader(data []byte) (*tar.Reader, io.Closer, error) {
 func resolvePackageEntryPath(absDestDir, entryName string) (string, error) {
 	relPath := filepath.Clean(entryName)
 	if relPath == "." || filepath.IsAbs(relPath) {
-		return "", fmt.Errorf("invalid path in package: %s", entryName)
+		return "", invalidPackagePathError(entryName)
 	}
 	absTargetPath, err := filepathAbs(filepath.Join(absDestDir, relPath))
 	if err != nil {
@@ -71,7 +71,7 @@ func resolvePackageEntryPath(absDestDir, entryName string) (string, error) {
 	}
 	relToBase, relErr := filepath.Rel(absDestDir, absTargetPath)
 	if packagePathEscapesBase(relToBase, relErr) {
-		return "", fmt.Errorf("invalid path in package: %s", entryName)
+		return "", invalidPackagePathError(entryName)
 	}
 	return absTargetPath, nil
 }
@@ -87,8 +87,25 @@ func extractPackageEntry(
 	totalExtracted *int64,
 ) error {
 	if !isExtractedPathUnderBase(baseDirAbs, absTargetPath) {
-		return fmt.Errorf("invalid path in package: %s", packageEntryLabel(hdr))
+		return invalidPackagePathError(packageEntryLabel(hdr))
 	}
+	if err := ensurePackageEntryDir(hdr, absTargetPath); err != nil {
+		return err
+	}
+	if hdr.FileInfo().IsDir() {
+		return nil
+	}
+	if writeErr := writeExtractedFile(baseDirAbs, absTargetPath, tr, totalExtracted); writeErr != nil {
+		return fmt.Errorf("failed to extract %s: %w", packageEntryLabel(hdr), writeErr)
+	}
+	return nil
+}
+
+func invalidPackagePathError(entryName string) error {
+	return fmt.Errorf("invalid path in package: %s", entryName)
+}
+
+func ensurePackageEntryDir(hdr *tar.Header, absTargetPath string) error {
 	if hdr.FileInfo().IsDir() {
 		if mkdirErr := AppFS.MkdirAll(absTargetPath, 0750); mkdirErr != nil {
 			return fmt.Errorf("failed to create directory %s: %w", packageEntryLabel(hdr), mkdirErr)
@@ -96,10 +113,11 @@ func extractPackageEntry(
 		return nil
 	}
 	if mkdirErr := AppFS.MkdirAll(filepath.Dir(absTargetPath), 0750); mkdirErr != nil {
-		return fmt.Errorf("failed to create parent directory for %s: %w", packageEntryLabel(hdr), mkdirErr)
-	}
-	if writeErr := writeExtractedFile(baseDirAbs, absTargetPath, tr, totalExtracted); writeErr != nil {
-		return fmt.Errorf("failed to extract %s: %w", packageEntryLabel(hdr), writeErr)
+		return fmt.Errorf(
+			"failed to create parent directory for %s: %w",
+			packageEntryLabel(hdr),
+			mkdirErr,
+		)
 	}
 	return nil
 }

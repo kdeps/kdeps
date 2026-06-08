@@ -119,16 +119,10 @@ func NewServer(
 	logger *slog.Logger,
 ) (*Server, error) {
 	kdeps_debug.Log("enter: NewServer")
-	// Initialize file store for uploads
-	uploadDir := filepath.Join(os.TempDir(), "kdeps-uploads")
-	fileStore, err := NewTemporaryFileStore(uploadDir)
+	fileStore, uploadHandler, err := newUploadInfrastructure()
 	if err != nil {
-		return nil, fmt.Errorf("failed to create file store: %w", err)
+		return nil, err
 	}
-
-	// Initialize upload handler
-	maxFileSize := int64(MaxUploadSize) // 10MB default
-	uploadHandler := NewUploadHandler(fileStore, maxFileSize)
 
 	return &Server{
 		Workflow:      workflow,
@@ -183,11 +177,23 @@ func (s *Server) Start(addr string, devMode bool) error {
 
 	s.httpServer = newDefaultHTTPServer(addr, s.Router)
 
+	return s.listenAndServe(addr, certFile, keyFile)
+}
+
+func newUploadInfrastructure() (domain.FileStore, *UploadHandler, error) {
+	uploadDir := filepath.Join(os.TempDir(), "kdeps-uploads")
+	fileStore, err := NewTemporaryFileStore(uploadDir)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to create file store: %w", err)
+	}
+	return fileStore, NewUploadHandler(fileStore, int64(MaxUploadSize)), nil
+}
+
+func (s *Server) listenAndServe(addr, certFile, keyFile string) error {
 	if certFile != "" && keyFile != "" {
 		s.logger.Info("starting HTTPS server", "addr", addr, "cert", certFile)
 		return s.httpServer.ListenAndServeTLS(certFile, keyFile)
 	}
-
 	s.logger.Info("starting HTTP server", "addr", addr)
 	return s.httpServer.ListenAndServe()
 }

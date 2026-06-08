@@ -51,11 +51,7 @@ func (s *WebServer) StartAppCommand(ctx context.Context, route *domain.WebRoute)
 		workDir,
 	)
 
-	// Create command
-	cmd := execCommandContext(ctx, "sh", "-c", route.Command)
-	cmd.Dir = workDir
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
+	cmd := newAppShellCommand(ctx, workDir, route.Command)
 
 	// Store command for cleanup
 	s.Commands[route.Path] = cmd
@@ -82,19 +78,33 @@ func (s *WebServer) StartAppCommand(ctx context.Context, route *domain.WebRoute)
 		cmd.Process.Pid,
 	)
 
-	// Wait for command to complete
-	if err := cmd.Wait(); err != nil {
-		s.logger.ErrorContext(
+	logAppCommandExit(s.logger, route.Command, cmd.Wait())
+}
+
+func newAppShellCommand(ctx context.Context, workDir, command string) *exec.Cmd {
+	cmd := execCommandContext(ctx, "sh", "-c", command)
+	cmd.Dir = workDir
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	return cmd
+}
+
+func logAppCommandExit(logger interface {
+	ErrorContext(context.Context, string, ...any)
+	InfoContext(context.Context, string, ...any)
+}, command string, err error) {
+	if err != nil {
+		logger.ErrorContext(
 			context.Background(),
 			"app command exited with error",
 			"command",
-			route.Command,
+			command,
 			"error",
 			err,
 		)
-	} else {
-		s.logger.InfoContext(context.Background(), "app command exited", "command", route.Command)
+		return
 	}
+	logger.InfoContext(context.Background(), "app command exited", "command", command)
 }
 
 // Stop stops the web server and cleans up running commands.

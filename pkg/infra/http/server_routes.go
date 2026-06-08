@@ -82,6 +82,15 @@ func (s *Server) HandleRequest(w stdhttp.ResponseWriter, r *stdhttp.Request) {
 	reqCtx := s.ParseRequest(r, uploadedFiles)
 	applyInboundSessionID(r, reqCtx)
 
+	s.executeAndRespond(w, r, reqCtx, uploadedFiles)
+}
+
+func (s *Server) executeAndRespond(
+	w stdhttp.ResponseWriter,
+	r *stdhttp.Request,
+	reqCtx *RequestContext,
+	uploadedFiles []*domain.UploadedFile,
+) {
 	result, err := s.Executor.Execute(s.Workflow, reqCtx)
 	r = s.applySessionFromRequestContext(r, reqCtx)
 	defer s.cleanupUploadedFiles(uploadedFiles)

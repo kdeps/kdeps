@@ -29,6 +29,31 @@ import (
 	"github.com/kdeps/kdeps/v2/pkg/domain"
 )
 
+func isJSONAPIContentType(contentType string) bool {
+	return strings.HasPrefix(contentType, "application/json")
+}
+
+func mergeRequestMetaInto(meta map[string]any, r *stdhttp.Request) {
+	for key, value := range requestResponseMeta(r) {
+		meta[key] = value
+	}
+}
+
+func writeRawOKBytes(w stdhttp.ResponseWriter, payload []byte) (int, error) {
+	w.WriteHeader(stdhttp.StatusOK)
+	return w.Write(payload)
+}
+
+func (s *Server) respondMarshalError(
+	w stdhttp.ResponseWriter,
+	r *stdhttp.Request,
+	err error,
+	label string,
+) {
+	s.logger.Error("failed to marshal "+label, "error", err, "path", r.URL.Path)
+	RespondWithError(w, r, marshalFailureError(err, label), GetDebugMode(r.Context()))
+}
+
 func writeOKResponseBytes(w stdhttp.ResponseWriter, payload []byte) error {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(stdhttp.StatusOK)
@@ -175,7 +200,7 @@ func (s *Server) writeAPISuccessResponse(
 
 	respContentType := defaultAPIResponseContentType(w)
 
-	if !strings.HasPrefix(respContentType, "application/json") {
+	if !isJSONAPIContentType(respContentType) {
 		s.writeRawAPIResponse(w, r, data, respContentType)
 		return
 	}
@@ -191,8 +216,7 @@ func (s *Server) writeRawAPIResponse(
 ) {
 	rawBytes, contentType, marshalErr := marshalAPIRawPayload(data, respContentType)
 	if marshalErr != nil {
-		s.logger.Error("failed to marshal API response", "error", marshalErr, "path", r.URL.Path)
-		RespondWithError(w, r, marshalFailureError(marshalErr, "API response"), GetDebugMode(r.Context()))
+		s.respondMarshalError(w, r, marshalErr, "API response")
 		return
 	}
 	if contentType != respContentType {
@@ -200,7 +224,6 @@ func (s *Server) writeRawAPIResponse(
 		respContentType = contentType
 	}
 
-	w.WriteHeader(stdhttp.StatusOK)
 	s.logger.Debug(
 		"writing raw API response",
 		"path",
@@ -210,7 +233,7 @@ func (s *Server) writeRawAPIResponse(
 		"content_type",
 		respContentType,
 	)
-	if _, writeErr := w.Write(rawBytes); writeErr != nil {
+	if _, writeErr := writeRawOKBytes(w, rawBytes); writeErr != nil {
 		s.logger.Error("failed to write raw API response", "error", writeErr, "path", r.URL.Path)
 	}
 	flushResponse(w, r.URL.Path, s.logger)
@@ -237,15 +260,12 @@ func (s *Server) writeJSONAPIResponse(
 	data interface{},
 	meta map[string]any,
 ) {
-	for key, value := range requestResponseMeta(r) {
-		meta[key] = value
-	}
+	mergeRequestMetaInto(meta, r)
 	data = parseJSONStringPayload(data)
 
 	responseBytes, marshalErr := marshalSuccessPayload(data, meta)
 	if marshalErr != nil {
-		s.logger.Error("failed to marshal API response", "error", marshalErr, "path", r.URL.Path)
-		RespondWithError(w, r, marshalFailureError(marshalErr, "API response"), GetDebugMode(r.Context()))
+		s.respondMarshalError(w, r, marshalErr, "API response")
 		return
 	}
 
@@ -295,14 +315,7 @@ func (s *Server) respondRegularResult(w stdhttp.ResponseWriter, r *stdhttp.Reque
 	result = parseJSONStringPayload(result)
 	regularBytes, marshalErr := marshalSuccessPayload(result, requestResponseMeta(r))
 	if marshalErr != nil {
-		s.logger.Error(
-			"failed to marshal regular resource result",
-			"error",
-			marshalErr,
-			"path",
-			r.URL.Path,
-		)
-		RespondWithError(w, r, marshalFailureError(marshalErr, "response"), GetDebugMode(r.Context()))
+		s.respondMarshalError(w, r, marshalErr, "response")
 		return
 	}
 

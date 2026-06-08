@@ -54,8 +54,7 @@ func (s *Server) SetupHotReload() error {
 	}
 
 	// Watch resources directory (relative to workflow file)
-	workflowDir := filepath.Dir(absWorkflowPath)
-	resourcesPath := filepath.Join(workflowDir, "resources")
+	resourcesPath := workflowResourcesPath(absWorkflowPath)
 	resourcesChanged := reloadOnChange("resources changed, reloading...")
 	if watchErr := s.Watcher.Watch(resourcesPath, resourcesChanged); watchErr != nil {
 		// Resources directory might not exist, which is OK
@@ -69,6 +68,17 @@ func (s *Server) SetupHotReload() error {
 	}
 
 	return nil
+}
+
+func resolveDefaultWorkflowPath() string {
+	if p := findWorkflowFile("."); p != "" {
+		return p
+	}
+	return defaultWorkflowFile
+}
+
+func workflowResourcesPath(absWorkflowPath string) string {
+	return filepath.Join(filepath.Dir(absWorkflowPath), "resources")
 }
 
 func absWorkflowPathOrRelative(workflowPath string, logger *slog.Logger) string {
@@ -165,12 +175,7 @@ func (s *Server) ensureReloadReady() error {
 		return nil
 	}
 
-	workflowPath := defaultWorkflowFile
-	if p := findWorkflowFile("."); p != "" {
-		workflowPath = p
-	}
-
-	absPath, absErr := filepathAbs(workflowPath)
+	absPath, absErr := filepathAbs(resolveDefaultWorkflowPath())
 	if absErr != nil {
 		return fmt.Errorf("failed to resolve workflow path: %w", absErr)
 	}
