@@ -11,9 +11,11 @@ package http
 import (
 	"archive/tar"
 	"bytes"
+	"compress/gzip"
 	"context"
 	"crypto/tls"
 	"errors"
+	"fmt"
 	"io"
 	"log/slog"
 	"mime/multipart"
@@ -34,6 +36,12 @@ import (
 	"github.com/kdeps/kdeps/v2/pkg/parser/yaml"
 	"github.com/kdeps/kdeps/v2/pkg/validator"
 )
+
+type nopMultipartFile struct {
+	*strings.Reader
+}
+
+func (nopMultipartFile) Close() error { return nil }
 
 func TestClientIPFromAddr_NoPort(t *testing.T) {
 	assert.Equal(t, "192.168.1.1", clientIPFromAddr("192.168.1.1"))
@@ -112,11 +120,79 @@ func TestExtractKdepsPackage_AbsDestError(t *testing.T) {
 	assert.Contains(t, err.Error(), "failed to resolve destination directory")
 }
 
+func TestExtractKdepsPackage_InvalidGzip(t *testing.T) {
+	tmpDir := t.TempDir()
+	err := extractKdepsPackage([]byte("not-a-gzip-archive"), tmpDir)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "not a valid gzip archive")
+}
+
+func TestExtractKdepsPackage_MaxEntryCount(t *testing.T) {
+	orig := maxPackageEntryCountLimit
+	maxPackageEntryCountLimit = 2
+	t.Cleanup(func() { maxPackageEntryCountLimit = orig })
+
+	var buf bytes.Buffer
+	gzw := gzip.NewWriter(&buf)
+	tw := tar.NewWriter(gzw)
+	for i := range 3 {
+		name := fmt.Sprintf("file%d.txt", i)
+		content := "x"
+		require.NoError(t, tw.WriteHeader(&tar.Header{Name: name, Mode: 0600, Size: int64(len(content))}))
+		_, err := tw.Write([]byte(content))
+		require.NoError(t, err)
+	}
+	require.NoError(t, tw.Close())
+	require.NoError(t, gzw.Close())
+
+	tmpDir := t.TempDir()
+	err := extractKdepsPackage(buf.Bytes(), tmpDir)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "maximum entry count")
+}
+
 func TestWriteExtractedFile_PrefixGuard(t *testing.T) {
 	var total int64
 	err := writeExtractedFile("/tmp/base", "/other/file.txt", bytes.NewReader([]byte("x")), &total)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "invalid target path")
+}
+
+func TestWriteExtractedFile_FileSizeLimit(t *testing.T) {
+	orig := maxPackageFileSizeLimit
+	maxPackageFileSizeLimit = 4
+	t.Cleanup(func() { maxPackageFileSizeLimit = orig })
+
+	tmpDir := t.TempDir()
+	baseAbs, err := filepath.Abs(tmpDir)
+	require.NoError(t, err)
+	target := filepath.Join(tmpDir, "large.bin")
+
+	var total int64
+	err = writeExtractedFile(baseAbs, target, bytes.NewReader(bytes.Repeat([]byte("x"), 8)), &total)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "exceeds maximum allowed size")
+}
+
+func TestWriteExtractedFile_TotalSizeLimit(t *testing.T) {
+	origFile := maxPackageFileSizeLimit
+	origTotal := maxPackageTotalUncompressedLimit
+	maxPackageFileSizeLimit = 16
+	maxPackageTotalUncompressedLimit = 6
+	t.Cleanup(func() {
+		maxPackageFileSizeLimit = origFile
+		maxPackageTotalUncompressedLimit = origTotal
+	})
+
+	tmpDir := t.TempDir()
+	baseAbs, err := filepath.Abs(tmpDir)
+	require.NoError(t, err)
+	target := filepath.Join(tmpDir, "part.bin")
+
+	var total int64
+	err = writeExtractedFile(baseAbs, target, bytes.NewReader([]byte("1234567")), &total)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "maximum total uncompressed size")
 }
 
 func TestWriteExtractedFile_CloseError(t *testing.T) {
@@ -386,6 +462,45 @@ func TestUploadHandler_CollectAllUploadFiles_SkipEmptyField(t *testing.T) {
 	})
 	require.NoError(t, err)
 	assert.Empty(t, files)
+}
+
+func TestUploadHandler_ProcessFileHeader_HeaderSizeLimit(t *testing.T) {
+	tmpDir := t.TempDir()
+	store, err := NewTemporaryFileStore(tmpDir)
+	require.NoError(t, err)
+	handler := NewUploadHandler(store, 10)
+
+	_, err = handler.processFileHeader(&multipart.FileHeader{Filename: "big.txt", Size: 20}, "file")
+	require.Error(t, err)
+	var appErr *domain.AppError
+	require.ErrorAs(t, err, &appErr)
+	assert.Equal(t, domain.ErrCodeRequestTooLarge, appErr.Code)
+}
+
+func TestUploadHandler_ProcessFileHeader_ContentSizeAfterRead(t *testing.T) {
+	origOpen := openMultipartFile
+	origRead := readMultipartFile
+	t.Cleanup(func() {
+		openMultipartFile = origOpen
+		readMultipartFile = origRead
+	})
+	openMultipartFile = func(*multipart.FileHeader) (multipart.File, error) {
+		return nopMultipartFile{strings.NewReader("small")}, nil
+	}
+	readMultipartFile = func(io.Reader) ([]byte, error) {
+		return bytes.Repeat([]byte("x"), 20), nil
+	}
+
+	tmpDir := t.TempDir()
+	store, err := NewTemporaryFileStore(tmpDir)
+	require.NoError(t, err)
+	handler := NewUploadHandler(store, 10)
+
+	_, err = handler.processFileHeader(&multipart.FileHeader{Filename: "big.txt", Size: 5}, "file")
+	require.Error(t, err)
+	var appErr *domain.AppError
+	require.ErrorAs(t, err, &appErr)
+	assert.Equal(t, domain.ErrCodeRequestTooLarge, appErr.Code)
 }
 
 func TestUploadHandler_ProcessFileHeader_OpenError(t *testing.T) {

@@ -1073,6 +1073,40 @@ func TestBuildImageInternal_KdepsArchiveCleanup(t *testing.T) {
 	require.NoError(t, buildImageInternal(cmd, []string{kdeps}, &BuildFlags{}))
 }
 
+func TestBuildImageInternal_WithPrepackagedBinaries(t *testing.T) {
+	origResolve := resolveBaseBinary
+	t.Cleanup(func() { resolveBaseBinary = origResolve })
+
+	tmp := t.TempDir()
+	require.NoError(t, os.WriteFile(filepath.Join(tmp, "workflow.yaml"), []byte(minimalWorkflowYAML()), 0644))
+	require.NoError(t, os.MkdirAll(filepath.Join(tmp, "resources"), 0755))
+	require.NoError(t, os.WriteFile(
+		filepath.Join(tmp, "resources", "act.yaml"),
+		[]byte("actionId: act\nname: Act\napiResponse:\n  success: true\n"),
+		0644,
+	))
+
+	baseBin := filepath.Join(tmp, "base-kdeps")
+	require.NoError(t, os.WriteFile(baseBin, []byte("bin"), 0755))
+	resolveBaseBinary = func(_ context.Context, _ string, _ archTarget, _ string) (string, bool, error) {
+		return baseBin, false, nil
+	}
+
+	newBuildDockerClient(t, func(_ *http.Request) (*http.Response, error) {
+		return jsonHTTPResponse(http.StatusOK, []byte(`{}`)), nil
+	})
+	origBuild := dockerBuildImageFunc
+	t.Cleanup(func() { dockerBuildImageFunc = origBuild })
+	dockerBuildImageFunc = func(b *docker.Builder, _ *domain.Workflow, _ string, _ bool) (string, error) {
+		assert.NotEmpty(t, b.PrepackagedBinaries)
+		return "img:1", nil
+	}
+
+	cmd := &cobra.Command{}
+	cmd.SetContext(context.Background())
+	require.NoError(t, buildImageInternal(cmd, []string{tmp}, &BuildFlags{}))
+}
+
 func TestCollectWebServerFiles_RelAndReadErrors(t *testing.T) {
 	tmp := t.TempDir()
 	dataDir := filepath.Join(tmp, "data", "sub")
