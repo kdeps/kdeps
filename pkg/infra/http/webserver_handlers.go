@@ -42,7 +42,7 @@ func (s *WebServer) HandleStaticRequest(
 	route *domain.WebRoute,
 ) {
 	kdeps_debug.Log("enter: HandleStaticRequest")
-	fullPath := resolveWebRoutePublicPath(s.WorkflowDir, route.PublicPath)
+	fullPath := appRouteWorkDir(s, route)
 
 	// Check if directory exists
 	if _, err := os.Stat(fullPath); os.IsNotExist(err) {

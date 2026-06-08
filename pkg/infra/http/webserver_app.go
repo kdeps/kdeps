@@ -27,6 +27,10 @@ import (
 	"github.com/kdeps/kdeps/v2/pkg/domain"
 )
 
+func appRouteWorkDir(s *WebServer, route *domain.WebRoute) string {
+	return resolveWebRoutePublicPath(s.WorkflowDir, route.PublicPath)
+}
+
 func killProcessIfRunning(cmd *exec.Cmd) error {
 	if cmd == nil || cmd.Process == nil {
 		return nil
@@ -40,7 +44,7 @@ func (s *WebServer) StartAppCommand(ctx context.Context, route *domain.WebRoute)
 		return
 	}
 
-	workDir := resolveWebRoutePublicPath(s.WorkflowDir, route.PublicPath)
+	workDir := appRouteWorkDir(s, route)
 
 	s.logger.InfoContext(
 		context.Background(),
