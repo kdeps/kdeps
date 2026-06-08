@@ -105,8 +105,8 @@ func extractKdepsPackage(data []byte, destDir string) error {
 			return fmt.Errorf("failed to read archive entry: %w", nextErr)
 		}
 		entryCount++
-		if entryCount > maxPackageEntryCount {
-			return fmt.Errorf("package exceeds maximum entry count of %d", maxPackageEntryCount)
+		if entryCount > maxPackageEntryCountLimit {
+			return fmt.Errorf("package exceeds maximum entry count of %d", maxPackageEntryCountLimit)
 		}
 		absTargetPath, pathErr := resolvePackageEntryPath(baseDirAbs, hdr.Name)
 		if pathErr != nil {
@@ -138,25 +138,25 @@ func writeExtractedFile(baseDirAbs, targetPath string, r io.Reader, totalExtract
 		return err
 	}
 
-	n, copyErr := io.Copy(f, io.LimitReader(r, maxPackageFileSize+1))
+	n, copyErr := io.Copy(f, io.LimitReader(r, maxPackageFileSizeLimit+1))
 	if copyErr != nil {
 		_ = f.Close()
 		return copyErr
 	}
-	if n > maxPackageFileSize {
+	if n > maxPackageFileSizeLimit {
 		_ = f.Close()
 		return fmt.Errorf(
 			"file %s exceeds maximum allowed size of %d bytes",
 			filepath.Base(targetPath),
-			maxPackageFileSize,
+			maxPackageFileSizeLimit,
 		)
 	}
 	*totalExtracted += n
-	if *totalExtracted > maxPackageTotalUncompressed {
+	if *totalExtracted > maxPackageTotalUncompressedLimit {
 		_ = f.Close()
 		return fmt.Errorf(
 			"package exceeds maximum total uncompressed size of %d bytes",
-			maxPackageTotalUncompressed,
+			maxPackageTotalUncompressedLimit,
 		)
 	}
 
