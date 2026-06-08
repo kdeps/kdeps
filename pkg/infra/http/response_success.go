@@ -27,12 +27,20 @@ import (
 	"github.com/kdeps/kdeps/v2/pkg/domain"
 )
 
+func responseMetaFields(requestID string) map[string]any {
+	return map[string]any{
+		"requestID": requestID,
+		"timestamp": time.Now(),
+	}
+}
+
 func enrichResponseMeta(r *stdhttp.Request, meta map[string]any) map[string]any {
 	if meta == nil {
 		meta = make(map[string]any)
 	}
-	meta["requestID"] = GetRequestID(r.Context())
-	meta["timestamp"] = time.Now()
+	for key, value := range responseMetaFields(GetRequestID(r.Context())) {
+		meta[key] = value
+	}
 	return meta
 }
 

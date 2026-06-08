@@ -24,7 +24,6 @@ import (
 	"log/slog"
 	stdhttp "net/http"
 	"strings"
-	"time"
 
 	"github.com/kdeps/kdeps/v2/pkg/domain"
 )
@@ -79,10 +78,12 @@ func apiResourceFailureError() *domain.AppError {
 }
 
 func requestResponseMeta(r *stdhttp.Request) map[string]interface{} {
-	return map[string]interface{}{
-		"requestID": GetRequestID(r.Context()),
-		"timestamp": time.Now(),
+	meta := responseMetaFields(GetRequestID(r.Context()))
+	result := make(map[string]interface{}, len(meta))
+	for key, value := range meta {
+		result[key] = value
 	}
+	return result
 }
 
 func parseAPIResultMap(result interface{}) (map[string]interface{}, bool) {

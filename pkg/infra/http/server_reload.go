@@ -77,7 +77,7 @@ func resolveDefaultWorkflowPath() string {
 }
 
 func workflowResourcesPath(absWorkflowPath string) string {
-	return filepath.Join(filepath.Dir(absWorkflowPath), "resources")
+	return workflowResourcesDir(absWorkflowPath)
 }
 
 func absWorkflowPathOrRelative(workflowPath string, logger *slog.Logger) string {

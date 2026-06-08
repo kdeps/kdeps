@@ -148,20 +148,37 @@ func (s *Server) reloadWorkflowOrError(statusCode int, messagePrefix string) (in
 	return 0, ""
 }
 
+func (s *Server) respondManagementPrefixedError(
+	w stdhttp.ResponseWriter,
+	statusCode int,
+	prefix string,
+	err error,
+) {
+	s.respondManagementError(w, statusCode, prefixedErrorMessage(prefix, err))
+}
+
 func (s *Server) respondManagementWriteError(
 	w stdhttp.ResponseWriter,
 	writeErr error,
 ) {
-	s.respondManagementError(w, stdhttp.StatusInternalServerError,
-		prefixedErrorMessage("failed to write workflow file", writeErr))
+	s.respondManagementPrefixedError(
+		w,
+		stdhttp.StatusInternalServerError,
+		"failed to write workflow file",
+		writeErr,
+	)
 }
 
 func (s *Server) respondManagementExtractError(
 	w stdhttp.ResponseWriter,
 	extractErr error,
 ) {
-	s.respondManagementError(w, stdhttp.StatusUnprocessableEntity,
-		prefixedErrorMessage("failed to extract package", extractErr))
+	s.respondManagementPrefixedError(
+		w,
+		stdhttp.StatusUnprocessableEntity,
+		"failed to extract package",
+		extractErr,
+	)
 }
 
 func (s *Server) prepareManagementDestination(

@@ -40,8 +40,12 @@ func workflowPackageDestDir(workflowPath string) string {
 	return filepath.Dir(workflowPath)
 }
 
+func workflowResourcesDir(workflowPath string) string {
+	return filepath.Join(filepath.Dir(workflowPath), "resources")
+}
+
 func clearWorkflowResources(workflowPath string) {
-	clearResourcesDir(filepath.Join(filepath.Dir(workflowPath), "resources"))
+	clearResourcesDir(workflowResourcesDir(workflowPath))
 }
 
 func clearResourcesDir(dir string) {
@@ -73,21 +77,26 @@ func (s *Server) lockedWorkflowPath() string {
 	return path
 }
 
+func dockerDefaultWorkflowPath() string {
+	if p := findWorkflowFileHook("/app"); p != "" {
+		return p
+	}
+	return "/app/workflow.yaml"
+}
+
+func managementWorkflowPathFallback() string {
+	if _, err := osStat("/app"); err == nil {
+		return dockerDefaultWorkflowPath()
+	}
+	return defaultWorkflowFile
+}
+
 func (s *Server) getManagementWorkflowPath() string {
 	kdeps_debug.Log("enter: getManagementWorkflowPath")
 	if path := s.lockedWorkflowPath(); path != "" {
 		return path
 	}
-
-	// Prefer /app/workflow.yaml (or /app/workflow.yaml.j2) when running inside Docker
-	if _, err := osStat("/app"); err == nil {
-		if p := findWorkflowFileHook("/app"); p != "" {
-			return p
-		}
-		return "/app/workflow.yaml"
-	}
-
-	return defaultWorkflowFile
+	return managementWorkflowPathFallback()
 }
 
 // findWorkflowFile returns the path to the workflow file inside dir.
