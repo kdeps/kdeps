@@ -71,7 +71,7 @@ func (s *Server) HandleManagementStatus(w stdhttp.ResponseWriter, _ *stdhttp.Req
 		}
 	}
 
-	writeManagementJSON(w, stdhttp.StatusOK, status)
+	writeJSONResponse(w, stdhttp.StatusOK, status)
 }
 
 // HandleManagementUpdateWorkflow accepts a new workflow YAML in the request body,
@@ -100,9 +100,11 @@ func (s *Server) HandleManagementUpdateWorkflow(w stdhttp.ResponseWriter, r *std
 	clearResourcesDir(filepath.Join(filepath.Dir(workflowPath), "resources"))
 	s.ensureManagementWorkflowPath(workflowPath)
 
-	if reloadErr := s.reloadWorkflow(); reloadErr != nil {
-		s.respondManagementError(w, stdhttp.StatusUnprocessableEntity,
-			fmt.Sprintf("workflow written but failed to reload: %v", reloadErr))
+	if reloadStatus, reloadErrMsg := s.reloadWorkflowOrError(
+		stdhttp.StatusUnprocessableEntity,
+		"workflow written but failed to reload",
+	); reloadErrMsg != "" {
+		s.respondManagementError(w, reloadStatus, reloadErrMsg)
 		return
 	}
 
@@ -113,9 +115,11 @@ func (s *Server) HandleManagementUpdateWorkflow(w stdhttp.ResponseWriter, r *std
 // POST /_kdeps/reload.
 func (s *Server) HandleManagementReload(w stdhttp.ResponseWriter, _ *stdhttp.Request) {
 	kdeps_debug.Log("enter: HandleManagementReload")
-	if reloadErr := s.reloadWorkflow(); reloadErr != nil {
-		s.respondManagementError(w, stdhttp.StatusInternalServerError,
-			fmt.Sprintf("failed to reload workflow: %v", reloadErr))
+	if reloadStatus, reloadErrMsg := s.reloadWorkflowOrError(
+		stdhttp.StatusInternalServerError,
+		"failed to reload workflow",
+	); reloadErrMsg != "" {
+		s.respondManagementError(w, reloadStatus, reloadErrMsg)
 		return
 	}
 
@@ -148,9 +152,11 @@ func (s *Server) HandleManagementUpdatePackage(w stdhttp.ResponseWriter, r *stdh
 
 	s.ensureManagementWorkflowPath(workflowPath)
 
-	if reloadErr := s.reloadWorkflow(); reloadErr != nil {
-		s.respondManagementError(w, stdhttp.StatusUnprocessableEntity,
-			fmt.Sprintf("package extracted but failed to reload: %v", reloadErr))
+	if reloadStatus, reloadErrMsg := s.reloadWorkflowOrError(
+		stdhttp.StatusUnprocessableEntity,
+		"package extracted but failed to reload",
+	); reloadErrMsg != "" {
+		s.respondManagementError(w, reloadStatus, reloadErrMsg)
 		return
 	}
 

@@ -19,7 +19,6 @@
 package http
 
 import (
-	"encoding/json"
 	stdhttp "net/http"
 
 	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
@@ -58,9 +57,7 @@ func (s *Server) SetupRoutes() {
 // HandleHealth handles health check requests.
 func (s *Server) HandleHealth(w stdhttp.ResponseWriter, _ *stdhttp.Request) {
 	kdeps_debug.Log("enter: HandleHealth")
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(stdhttp.StatusOK)
-	_ = json.NewEncoder(w).Encode(map[string]interface{}{
+	writeJSONResponse(w, stdhttp.StatusOK, map[string]interface{}{
 		"status": "ok",
 		"workflow": map[string]interface{}{
 			"name":    s.Workflow.Metadata.Name,

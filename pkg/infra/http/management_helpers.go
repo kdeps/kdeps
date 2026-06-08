@@ -19,7 +19,6 @@
 package http
 
 import (
-	"encoding/json"
 	"fmt"
 	"io"
 	stdhttp "net/http"
@@ -27,12 +26,6 @@ import (
 
 	"github.com/kdeps/kdeps/v2/pkg/domain"
 )
-
-func writeManagementJSON(w stdhttp.ResponseWriter, statusCode int, payload any) {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(statusCode)
-	_ = json.NewEncoder(w).Encode(payload)
-}
 
 func managementWorkflowInfo(workflow *domain.Workflow) map[string]interface{} {
 	if workflow == nil {
@@ -91,5 +84,12 @@ func (s *Server) writeManagementSuccess(w stdhttp.ResponseWriter, message string
 		response["workflow"] = info
 	}
 
-	writeManagementJSON(w, stdhttp.StatusOK, response)
+	writeJSONResponse(w, stdhttp.StatusOK, response)
+}
+
+func (s *Server) reloadWorkflowOrError(statusCode int, messagePrefix string) (int, string) {
+	if err := s.reloadWorkflow(); err != nil {
+		return statusCode, fmt.Sprintf("%s: %v", messagePrefix, err)
+	}
+	return 0, ""
 }

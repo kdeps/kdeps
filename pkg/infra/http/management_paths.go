@@ -26,6 +26,10 @@ import (
 	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
 )
 
+func isYAMLResourceFile(name string) bool {
+	return strings.HasSuffix(name, ".yaml") || strings.HasSuffix(name, ".yml")
+}
+
 // clearResourcesDir removes YAML resource definition files from dir.
 // It is called after writing a pushed workflow so that on restart (or the next
 // reload) the parser reads only the inline resources from workflow.yaml and does
@@ -45,7 +49,7 @@ func clearResourcesDir(dir string) {
 		}
 
 		name := entry.Name()
-		if strings.HasSuffix(name, ".yaml") || strings.HasSuffix(name, ".yml") {
+		if isYAMLResourceFile(name) {
 			_ = os.Remove(filepath.Join(dir, name))
 		}
 	}

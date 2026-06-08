@@ -85,14 +85,11 @@ func requireManagementAuth(next stdhttp.HandlerFunc) stdhttp.HandlerFunc {
 			return
 		}
 
-		const bearerPrefix = "Bearer "
-		authHeader := r.Header.Get("Authorization")
-		if !strings.HasPrefix(authHeader, bearerPrefix) {
+		provided, ok := bearerTokenFromAuthHeader(r.Header.Get("Authorization"))
+		if !ok {
 			stdhttp.Error(w, "unauthorized", stdhttp.StatusUnauthorized)
 			return
 		}
-
-		provided := strings.TrimSpace(authHeader[len(bearerPrefix):])
 		if !constantTimeEqual(provided, token) {
 			stdhttp.Error(w, "unauthorized", stdhttp.StatusUnauthorized)
 			return
