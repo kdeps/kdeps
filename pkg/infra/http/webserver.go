@@ -88,6 +88,8 @@ func (s *WebServer) Start(ctx context.Context) error {
 	}
 
 	s.Router.Use(SecurityHeadersMiddleware(false))
+	s.Router.Use(TrustedProxiesMiddleware(trustedProxiesFromSettings(s.Workflow.Settings)))
+	s.applyWebSecurityMiddleware()
 
 	// Setup routes
 	s.SetupWebRoutes(ctx)

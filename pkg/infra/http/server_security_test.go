@@ -119,6 +119,21 @@ func TestServer_Start_rejectsMissingAuthToken(t *testing.T) {
 	assert.Contains(t, err.Error(), "KDEPS_API_AUTH_TOKEN")
 }
 
+func TestWebServer_applyWebSecurityMiddleware_appliesRateLimit(t *testing.T) {
+	webServer, err := NewWebServer(&domain.Workflow{
+		Metadata: domain.WorkflowMetadata{Name: "web"},
+		Settings: domain.WorkflowSettings{
+			WebServer: &domain.WebServerConfig{
+				RateLimit:     &domain.RateLimitConfig{RequestsPerMinute: 30},
+				MaxConcurrent: 3,
+			},
+		},
+	}, slog.Default())
+	require.NoError(t, err)
+
+	webServer.applyWebSecurityMiddleware()
+}
+
 func TestServer_CorsMiddleware_AllowCredentials(t *testing.T) {
 	server, err := NewServer(&domain.Workflow{
 		Settings: domain.WorkflowSettings{

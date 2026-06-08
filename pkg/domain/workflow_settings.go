@@ -179,10 +179,13 @@ type CORS struct {
 
 // WebServerConfig contains web server configuration.
 type WebServerConfig struct {
-	HostIP         string     `yaml:"hostIp,omitempty"`
-	PortNum        int        `yaml:"portNum,omitempty"`
-	TrustedProxies []string   `yaml:"trustedProxies,omitempty"`
-	Routes         []WebRoute `yaml:"routes"`
+	HostIP         string           `yaml:"hostIp,omitempty"`
+	PortNum        int              `yaml:"portNum,omitempty"`
+	TrustedProxies []string         `yaml:"trustedProxies,omitempty"`
+	RateLimit      *RateLimitConfig `yaml:"rateLimit,omitempty"`
+	MaxBodyBytes   int64            `yaml:"maxBodyBytes,omitempty"`
+	MaxConcurrent  int              `yaml:"maxConcurrent,omitempty"`
+	Routes         []WebRoute       `yaml:"routes"`
 }
 
 // WebRoute represents a web server route.

@@ -33,7 +33,22 @@ G -> H
 
 ### webServer-only (no apiServer)
 
-If you run with only `webServer` and no `apiServer`, there is no bearer auth, rate limiting, or body size middleware. Anyone who can reach the bind address can read static files and use app proxies. For production, terminate TLS and auth at an ingress or reverse proxy, or always pair `webServer` with `apiServer` on the same port.
+If you run with only `webServer` and no `apiServer`, there is no bearer auth. Anyone who can reach the bind address can read static files and use app proxies unless you add ingress auth. Optional `rateLimit`, `maxBodyBytes`, and `maxConcurrent` under `webServer` still apply:
+
+```yaml
+# workflow.yaml
+settings:
+  webServer:
+    rateLimit:
+      requestsPerMinute: 120
+      burst: 20
+    maxBodyBytes: 1048576
+    maxConcurrent: 50
+    routes:
+      - path: "/"
+        serverType: "static"
+        publicPath: "./public"
+```
 
 ## Basic Configuration
 

@@ -57,6 +57,13 @@ spec:
         - name: {{ $key }}
           value: "{{ $value }}"
         {{- end }}
+        {{- range $key := .SecretEnv }}
+        - name: {{ $key }}
+          valueFrom:
+            secretKeyRef:
+              name: {{ $.Name }}-env
+              key: {{ $key }}
+        {{- end }}
         {{- if .Resources }}
         resources:
           limits:

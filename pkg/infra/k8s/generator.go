@@ -48,6 +48,7 @@ type ManifestData struct {
 	BackendPort   int
 	HasAPIServer  bool
 	Env           map[string]string
+	SecretEnv     []string
 	Resources     *domain.Resources
 }
 
@@ -67,8 +68,8 @@ func NewGenerator(imageName string) *Generator {
 func (g *Generator) GenerateManifests(workflow *domain.Workflow) (string, error) {
 	kdeps_debug.Log("enter: GenerateManifests")
 
-	if secretErr := deployenv.ValidateBuildTimeEnv(workflow.Settings.AgentSettings.Env); secretErr != nil {
-		return "", secretErr
+	if k8sEnvErr := deployenv.ValidateK8sEnv(workflow.Settings.AgentSettings.Env); k8sEnvErr != nil {
+		return "", k8sEnvErr
 	}
 
 	data := g.buildTemplateData(workflow)
@@ -89,13 +90,15 @@ func (g *Generator) GenerateManifests(workflow *domain.Workflow) (string, error)
 func (g *Generator) buildTemplateData(workflow *domain.Workflow) *ManifestData {
 	kdeps_debug.Log("enter: buildTemplateData")
 
+	plainEnv, secretEnv := deployenv.PartitionK8sEnv(workflow.Settings.AgentSettings.Env)
 	data := &ManifestData{
 		Name:         workflow.Metadata.Name,
 		Version:      workflow.Metadata.Version,
 		Image:        g.ImageName,
 		Replicas:     resolveReplicas(workflow),
 		HasAPIServer: workflow.Settings.APIServer != nil,
-		Env:          workflow.Settings.AgentSettings.Env,
+		Env:          plainEnv,
+		SecretEnv:    secretEnv,
 		Resources:    workflow.Settings.AgentSettings.Resources,
 	}
 

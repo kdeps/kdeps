@@ -205,6 +205,23 @@ kdeps export k8s examples/chatbot --output k8s.yaml
 kubectl apply -f k8s.yaml
 ```
 
+Secret-like keys in `agentSettings.env` (for example `OPENAI_API_KEY`) are not baked into the manifest. Export emits `secretKeyRef` entries against `{metadata.name}-env` instead:
+
+```yaml
+# deploy/env-secret.yaml
+apiVersion: v1
+kind: Secret
+metadata:
+  name: chatbot-env
+type: Opaque
+stringData:
+  OPENAI_API_KEY: "sk-..."
+```
+
+```bash
+kubectl apply -f deploy/env-secret.yaml
+```
+
 Pod `securityContext` defaults include `runAsNonRoot: true` and `capabilities.drop: ["ALL"]`.
 
 ## Typical Workflow

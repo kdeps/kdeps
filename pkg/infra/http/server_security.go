@@ -20,10 +20,12 @@ package http
 
 import (
 	"errors"
+	"log/slog"
 	"os"
 	"strings"
 
 	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
+	"github.com/kdeps/kdeps/v2/pkg/domain"
 )
 
 func requireAPIAuthToken(raw string) (string, error) {
@@ -36,6 +38,36 @@ func requireAPIAuthToken(raw string) (string, error) {
 	return token, nil
 }
 
+type limitMiddlewareConfig struct {
+	rateLimit     *domain.RateLimitConfig
+	maxBodyBytes  int64
+	maxConcurrent int
+}
+
+func applyLimitMiddleware(router *Router, cfg limitMiddlewareConfig, trustedProxies []string) {
+	if cfg.rateLimit != nil && cfg.rateLimit.RequestsPerMinute > 0 {
+		burst := cfg.rateLimit.Burst
+		if burst <= 0 {
+			burst = cfg.rateLimit.RequestsPerMinute
+		}
+		router.Use(RateLimitMiddleware(cfg.rateLimit.RequestsPerMinute, burst, trustedProxies))
+	}
+	maxBody := cfg.maxBodyBytes
+	if maxBody <= 0 {
+		maxBody = MaxUploadSize
+	}
+	router.Use(BodyLimitMiddleware(maxBody))
+	if cfg.maxConcurrent > 0 {
+		router.Use(ConcurrentLimitMiddleware(cfg.maxConcurrent))
+	}
+}
+
+func warnInvalidTrustedProxies(logger *slog.Logger, trustedProxies []string) {
+	if invalid := invalidTrustedProxyEntries(trustedProxies); len(invalid) > 0 && logger != nil {
+		logger.Warn("ignored invalid trustedProxies entries", "entries", invalid)
+	}
+}
+
 // applySecurityMiddleware wires auth, rate-limit, and body-limit middleware
 // from the workflow's APIServer config.
 func (s *Server) applySecurityMiddleware() error {
@@ -45,28 +77,37 @@ func (s *Server) applySecurityMiddleware() error {
 	}
 	api := s.Workflow.Settings.APIServer
 	trustedProxies := trustedProxiesFromSettings(s.Workflow.Settings)
-	if invalid := invalidTrustedProxyEntries(trustedProxies); len(invalid) > 0 && s.logger != nil {
-		s.logger.Warn("ignored invalid trustedProxies entries", "entries", invalid)
-	}
+	warnInvalidTrustedProxies(s.logger, trustedProxies)
 	token, err := requireAPIAuthToken(os.Getenv("KDEPS_API_AUTH_TOKEN"))
 	if err != nil {
 		return err
 	}
 	s.Router.Use(AuthMiddleware(token))
-	if api.RateLimit != nil && api.RateLimit.RequestsPerMinute > 0 {
-		burst := api.RateLimit.Burst
-		if burst <= 0 {
-			burst = api.RateLimit.RequestsPerMinute
-		}
-		s.Router.Use(RateLimitMiddleware(api.RateLimit.RequestsPerMinute, burst, trustedProxies))
+	applyLimitMiddleware(s.Router, limitMiddlewareConfig{
+		rateLimit:     api.RateLimit,
+		maxBodyBytes:  api.MaxBodyBytes,
+		maxConcurrent: api.MaxConcurrent,
+	}, trustedProxies)
+	return nil
+}
+
+// applyWebSecurityMiddleware wires rate-limit and body-limit middleware for webServer-only mode.
+func (s *WebServer) applyWebSecurityMiddleware() {
+	kdeps_debug.Log("enter: applyWebSecurityMiddleware")
+	if s.Workflow == nil || s.Workflow.Settings.WebServer == nil {
+		return
 	}
-	maxBody := api.MaxBodyBytes
+	web := s.Workflow.Settings.WebServer
+	trustedProxies := trustedProxiesFromSettings(s.Workflow.Settings)
+	warnInvalidTrustedProxies(s.logger, trustedProxies)
+	applyLimitMiddleware(s.Router, limitMiddlewareConfig{
+		rateLimit:     web.RateLimit,
+		maxBodyBytes:  web.MaxBodyBytes,
+		maxConcurrent: web.MaxConcurrent,
+	}, trustedProxies)
+	maxBody := web.MaxBodyBytes
 	if maxBody <= 0 {
 		maxBody = MaxUploadSize
 	}
-	s.Router.Use(BodyLimitMiddleware(maxBody))
-	if api.MaxConcurrent > 0 {
-		s.Router.Use(ConcurrentLimitMiddleware(api.MaxConcurrent))
-	}
-	return nil
+	s.Router.Use(UploadMiddleware(maxBody))
 }
