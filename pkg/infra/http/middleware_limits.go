@@ -127,7 +127,7 @@ func BodyLimitMiddleware(maxBytes int64) func(stdhttp.HandlerFunc) stdhttp.Handl
 	kdeps_debug.Log("enter: BodyLimitMiddleware")
 	return func(next stdhttp.HandlerFunc) stdhttp.HandlerFunc {
 		return func(w stdhttp.ResponseWriter, r *stdhttp.Request) {
-			if isMultipartContentType(r.Header.Get("Content-Type")) {
+			if isMultipartContentType(requestContentType(r)) {
 				next(w, r)
 				return
 			}
@@ -135,8 +135,7 @@ func BodyLimitMiddleware(maxBytes int64) func(stdhttp.HandlerFunc) stdhttp.Handl
 			r.Body = stdhttp.MaxBytesReader(w, r.Body, maxBytes)
 			next(w, r)
 
-			// Surface MaxBytesReader errors after the handler reads the body.
-			if _, err := io.ReadAll(r.Body); err != nil {
+			if _, readErr := io.ReadAll(r.Body); readErr != nil {
 				respondRequestBodyTooLarge(w, r, maxBytes)
 			}
 		}
@@ -171,7 +170,7 @@ func UploadMiddleware(maxFileSize int64) func(stdhttp.HandlerFunc) stdhttp.Handl
 	kdeps_debug.Log("enter: UploadMiddleware")
 	return func(next stdhttp.HandlerFunc) stdhttp.HandlerFunc {
 		return func(w stdhttp.ResponseWriter, r *stdhttp.Request) {
-			if !isMultipartContentType(r.Header.Get("Content-Type")) {
+			if !isMultipartContentType(requestContentType(r)) {
 				next(w, r)
 				return
 			}

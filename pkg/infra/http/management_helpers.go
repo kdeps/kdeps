@@ -74,6 +74,10 @@ func prefixedErrorMessage(prefix string, err error) string {
 	return fmt.Sprintf("%s: %v", prefix, err)
 }
 
+func prefixedWrapError(prefix string, err error) error {
+	return fmt.Errorf("%s: %w", prefix, err)
+}
+
 func managementReadBodyError(err error) string {
 	return prefixedErrorMessage("failed to read request body", err)
 }
@@ -113,7 +117,7 @@ func writeManagementWorkflowFile(workflowPath string, body []byte) error {
 
 func ensureManagementDir(workflowPath string) error {
 	if mkdirErr := AppFS.MkdirAll(workflowDirFromPath(workflowPath), 0750); mkdirErr != nil {
-		return fmt.Errorf("failed to create workflow directory: %w", mkdirErr)
+		return prefixedWrapError("failed to create workflow directory", mkdirErr)
 	}
 	return nil
 }
@@ -127,10 +131,8 @@ func (s *Server) ensureManagementWorkflowPath(workflowPath string) {
 }
 
 func managementSuccessPayload(message string, workflow *domain.Workflow) map[string]interface{} {
-	response := map[string]interface{}{
-		"status":  "ok",
-		"message": message,
-	}
+	response := managementStatusOK()
+	response["message"] = message
 	if info := workflowNameVersion(workflow); info != nil {
 		response["workflow"] = info
 	}

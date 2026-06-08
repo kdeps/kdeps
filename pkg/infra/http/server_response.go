@@ -168,7 +168,7 @@ func extractAPIMeta(w stdhttp.ResponseWriter, metaRaw interface{}) map[string]an
 	}
 
 	if metaHeaders, okMetaHeaders := metaRaw.(map[string]string); okMetaHeaders {
-		setStringResponseHeaders(w, metaHeaders)
+		applyMetaHeaders(w, metaHeaders)
 	}
 
 	return meta

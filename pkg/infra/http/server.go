@@ -20,7 +20,6 @@ package http
 
 import (
 	"context"
-	"fmt"
 	"log/slog"
 	stdhttp "net/http"
 	"os"
@@ -184,7 +183,7 @@ func newUploadInfrastructure() (domain.FileStore, *UploadHandler, error) {
 	uploadDir := filepath.Join(os.TempDir(), "kdeps-uploads")
 	fileStore, err := NewTemporaryFileStore(uploadDir)
 	if err != nil {
-		return nil, nil, fmt.Errorf("failed to create file store: %w", err)
+		return nil, nil, prefixedWrapError("failed to create file store", err)
 	}
 	return fileStore, NewUploadHandler(fileStore, int64(MaxUploadSize)), nil
 }
