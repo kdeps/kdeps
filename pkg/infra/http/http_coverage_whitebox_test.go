@@ -135,11 +135,11 @@ func TestExtractKdepsPackage_MaxEntryCount(t *testing.T) {
 	var buf bytes.Buffer
 	gzw := gzip.NewWriter(&buf)
 	tw := tar.NewWriter(gzw)
+	const entryContent = "x"
 	for i := range 3 {
 		name := fmt.Sprintf("file%d.txt", i)
-		content := "x"
-		require.NoError(t, tw.WriteHeader(&tar.Header{Name: name, Mode: 0600, Size: int64(len(content))}))
-		_, err := tw.Write([]byte(content))
+		require.NoError(t, tw.WriteHeader(&tar.Header{Name: name, Mode: 0600, Size: int64(len(entryContent))}))
+		_, err := tw.Write([]byte(entryContent))
 		require.NoError(t, err)
 	}
 	require.NoError(t, tw.Close())
