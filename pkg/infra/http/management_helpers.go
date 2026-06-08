@@ -115,9 +115,7 @@ func (s *Server) ensureManagementWorkflowPath(workflowPath string) {
 	s.mu.Unlock()
 }
 
-func (s *Server) writeManagementSuccess(w stdhttp.ResponseWriter, message string) {
-	workflow := s.lockedWorkflow()
-
+func managementSuccessPayload(message string, workflow *domain.Workflow) map[string]interface{} {
 	response := map[string]interface{}{
 		"status":  "ok",
 		"message": message,
@@ -125,8 +123,11 @@ func (s *Server) writeManagementSuccess(w stdhttp.ResponseWriter, message string
 	if info := managementWorkflowInfo(workflow); info != nil {
 		response["workflow"] = info
 	}
+	return response
+}
 
-	writeJSONResponse(w, stdhttp.StatusOK, response)
+func (s *Server) writeManagementSuccess(w stdhttp.ResponseWriter, message string) {
+	writeJSONResponse(w, stdhttp.StatusOK, managementSuccessPayload(message, s.lockedWorkflow()))
 }
 
 func (s *Server) reloadWorkflowOrError(statusCode int, messagePrefix string) (int, string) {
@@ -184,15 +185,6 @@ func (s *Server) finishManagementReload(
 		return
 	}
 	s.writeManagementSuccess(w, successMsg)
-}
-
-func (s *Server) completeManagementReload(
-	w stdhttp.ResponseWriter,
-	reloadStatusCode int,
-	reloadMsgPrefix string,
-	successMsg string,
-) {
-	s.finishManagementReload(w, reloadStatusCode, reloadMsgPrefix, successMsg)
 }
 
 func (s *Server) completeManagementUpdate(

@@ -36,6 +36,14 @@ func isYAMLResourceFile(name string) bool {
 // not load stale duplicate definitions from the resources/ directory.
 // Errors are silently ignored because the absence of the directory (or
 // individual file-remove failures) is not fatal.
+func workflowPackageDestDir(workflowPath string) string {
+	return filepath.Dir(workflowPath)
+}
+
+func clearWorkflowResources(workflowPath string) {
+	clearResourcesDir(filepath.Join(filepath.Dir(workflowPath), "resources"))
+}
+
 func clearResourcesDir(dir string) {
 	kdeps_debug.Log("enter: clearResourcesDir")
 	entries, err := os.ReadDir(dir)

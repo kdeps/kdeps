@@ -20,7 +20,6 @@ package http
 
 import (
 	stdhttp "net/http"
-	"path/filepath"
 
 	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
 )
@@ -67,7 +66,7 @@ func (s *Server) HandleManagementUpdateWorkflow(w stdhttp.ResponseWriter, r *std
 		return
 	}
 
-	clearResourcesDir(filepath.Join(filepath.Dir(workflowPath), "resources"))
+	clearWorkflowResources(workflowPath)
 	s.completeManagementUpdate(
 		w,
 		workflowPath,
@@ -81,7 +80,7 @@ func (s *Server) HandleManagementUpdateWorkflow(w stdhttp.ResponseWriter, r *std
 // POST /_kdeps/reload.
 func (s *Server) HandleManagementReload(w stdhttp.ResponseWriter, _ *stdhttp.Request) {
 	kdeps_debug.Log("enter: HandleManagementReload")
-	s.completeManagementReload(
+	s.finishManagementReload(
 		w,
 		stdhttp.StatusInternalServerError,
 		"failed to reload workflow",
@@ -99,7 +98,7 @@ func (s *Server) HandleManagementUpdatePackage(w stdhttp.ResponseWriter, r *stdh
 		return
 	}
 
-	destDir := filepath.Dir(workflowPath)
+	destDir := workflowPackageDestDir(workflowPath)
 
 	if extractErr := extractKdepsPackage(body, destDir); extractErr != nil {
 		s.respondManagementExtractError(w, extractErr)

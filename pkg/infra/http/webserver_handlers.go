@@ -63,13 +63,14 @@ func (s *WebServer) HandleAppRequest(
 	route *domain.WebRoute,
 ) {
 	kdeps_debug.Log("enter: HandleAppRequest")
-	if route.AppPort == 0 {
+	appPort, ok := requireAppRoutePort(route)
+	if !ok {
 		s.logger.ErrorContext(context.Background(), "app port is required for app server type")
 		stdhttp.Error(w, "Internal Server Error", stdhttp.StatusInternalServerError)
 		return
 	}
 
-	targetURL, err := localAppProxyTarget(route.AppPort)
+	targetURL, err := localAppProxyTarget(appPort)
 	if err != nil {
 		s.logger.ErrorContext(
 			context.Background(),
@@ -77,7 +78,7 @@ func (s *WebServer) HandleAppRequest(
 			"host",
 			"127.0.0.1",
 			"port",
-			route.AppPort,
+			appPort,
 			"error",
 			err,
 		)
@@ -124,6 +125,13 @@ func newAppReverseProxy(
 			stdhttp.Error(w, "Failed to reach app", stdhttp.StatusBadGateway)
 		},
 	}
+}
+
+func requireAppRoutePort(route *domain.WebRoute) (int, bool) {
+	if route.AppPort == 0 {
+		return 0, false
+	}
+	return route.AppPort, true
 }
 
 func localAppProxyTarget(port int) (*url.URL, error) {

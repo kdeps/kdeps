@@ -30,6 +30,26 @@ import (
 	"github.com/kdeps/kdeps/v2/pkg/domain"
 )
 
+func respondRequestBodyTooLarge(w stdhttp.ResponseWriter, r *stdhttp.Request, maxBytes int64) {
+	respondMiddlewareError(
+		w, r,
+		domain.ErrCodeRequestTooLarge,
+		fmt.Sprintf("request body exceeds limit of %d bytes", maxBytes),
+	)
+}
+
+func respondUploadBodyTooLarge(
+	w stdhttp.ResponseWriter,
+	r *stdhttp.Request,
+	contentLength, maxFileSize int64,
+) {
+	respondMiddlewareError(
+		w, r,
+		domain.ErrCodeRequestTooLarge,
+		fmt.Sprintf("Request body too large: %d bytes (max: %d)", contentLength, maxFileSize),
+	)
+}
+
 func respondRateLimitExceeded(w stdhttp.ResponseWriter, r *stdhttp.Request) {
 	w.Header().Set("Retry-After", "60")
 	respondMiddlewareError(
@@ -113,11 +133,7 @@ func BodyLimitMiddleware(maxBytes int64) func(stdhttp.HandlerFunc) stdhttp.Handl
 
 			// Surface MaxBytesReader errors after the handler reads the body.
 			if _, err := io.ReadAll(r.Body); err != nil {
-				respondMiddlewareError(
-					w, r,
-					domain.ErrCodeRequestTooLarge,
-					fmt.Sprintf("request body exceeds limit of %d bytes", maxBytes),
-				)
+				respondRequestBodyTooLarge(w, r, maxBytes)
 			}
 		}
 	}
@@ -157,15 +173,7 @@ func UploadMiddleware(maxFileSize int64) func(stdhttp.HandlerFunc) stdhttp.Handl
 			}
 
 			if r.ContentLength > maxFileSize {
-				respondMiddlewareError(
-					w, r,
-					domain.ErrCodeRequestTooLarge,
-					fmt.Sprintf(
-						"Request body too large: %d bytes (max: %d)",
-						r.ContentLength,
-						maxFileSize,
-					),
-				)
+				respondUploadBodyTooLarge(w, r, r.ContentLength, maxFileSize)
 				return
 			}
 
