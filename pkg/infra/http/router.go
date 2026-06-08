@@ -20,7 +20,6 @@ package http
 
 import (
 	stdhttp "net/http"
-	"strings"
 )
 
 // Router is a simple HTTP router.
@@ -79,24 +78,6 @@ func (r *Router) OPTIONS(path string, handler stdhttp.HandlerFunc) {
 	r.registerHTTPVerb("OPTIONS", path, handler)
 }
 
-type routerMethodRegistrar func(*Router, string, stdhttp.HandlerFunc)
-
-//nolint:gochecknoglobals // method name to registrar dispatch table
-var routerMethodRegistrars = map[string]routerMethodRegistrar{
-	"GET":     (*Router).GET,
-	"POST":    (*Router).POST,
-	"PUT":     (*Router).PUT,
-	"DELETE":  (*Router).DELETE,
-	"PATCH":   (*Router).PATCH,
-	"OPTIONS": (*Router).OPTIONS,
-}
-
-func registerRouterMethod(router *Router, method, path string, handler stdhttp.HandlerFunc) {
-	if register, ok := routerMethodRegistrars[method]; ok {
-		register(router, path, handler)
-	}
-}
-
 // register registers a route.
 func (r *Router) register(method, path string, handler stdhttp.HandlerFunc) {
 	debugEnter("register")
@@ -104,39 +85,8 @@ func (r *Router) register(method, path string, handler stdhttp.HandlerFunc) {
 	r.Routes[method][path] = handler
 }
 
-// findHandler returns the best matching handler for the given method and path.
-// It tries an exact match first, then falls back to longest-matching pattern.
-func (r *Router) findHandler(method, path string) stdhttp.HandlerFunc {
-	debugEnter("findHandler")
-	methodRoutes, ok := r.Routes[method]
-	if !ok {
-		return nil
-	}
-	if handler, found := exactRouteHandler(methodRoutes, path); found {
-		return handler
-	}
-	return r.findPatternHandler(methodRoutes, path)
-}
-
-func (r *Router) findPatternHandler(
-	methodRoutes map[string]stdhttp.HandlerFunc,
-	path string,
-) stdhttp.HandlerFunc {
-	return longestMatchingPattern(methodRoutes, path, r.MatchPattern)
-}
-
 func (r *Router) dispatch(w stdhttp.ResponseWriter, req *stdhttp.Request) {
-	if handler := r.findHandler(req.Method, requestPath(req)); handler != nil {
-		handler(w, req)
-		return
-	}
-
-	if allowed := r.allowedMethods(requestPath(req)); len(allowed) > 0 {
-		respondMethodNotAllowed(w, allowed)
-		return
-	}
-
-	respondRouterNotFound(w, req)
+	dispatchRouter(r, w, req)
 }
 
 // ServeHTTP implements stdhttp.Handler.
@@ -145,45 +95,10 @@ func (r *Router) ServeHTTP(w stdhttp.ResponseWriter, req *stdhttp.Request) {
 	r.ApplyMiddleware(r.dispatch)(w, req)
 }
 
-func (r *Router) pathRegisteredForMethod(method, path string) bool {
-	routes, ok := r.Routes[method]
-	if !ok {
-		return false
-	}
-	return pathRegisteredInRoutes(routes, path, r.MatchPattern)
-}
-
-// allowedMethods returns all HTTP methods registered for the given path.
-// Used to populate the Allow header on 405 responses.
-func (r *Router) allowedMethods(path string) []string {
-	debugEnter("allowedMethods")
-	var allowed []string
-	for method := range r.Routes {
-		if r.pathRegisteredForMethod(method, path) {
-			allowed = append(allowed, method)
-		}
-	}
-	return allowed
-}
-
 // MatchPattern matches a route pattern against a path.
 func (r *Router) MatchPattern(pattern, path string) bool {
 	debugEnter("MatchPattern")
-	patternParts := strings.Split(pattern, "/")
-	pathParts := strings.Split(path, "/")
-
-	var hasTrailingWildcard bool
-	patternParts, hasTrailingWildcard = stripTrailingWildcard(patternParts)
-	if hasTrailingWildcard {
-		if len(pathParts) < len(patternParts) {
-			return false
-		}
-		pathParts = pathParts[:len(patternParts)]
-	} else if len(patternParts) != len(pathParts) {
-		return false
-	}
-
-	return pathPartsMatch(patternParts, pathParts)
+	return matchRouterPattern(pattern, path)
 }
 
 // ApplyMiddleware applies all middleware to a handler.

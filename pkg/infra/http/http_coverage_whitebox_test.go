@@ -257,7 +257,7 @@ func TestPathRegisteredForMethod_UnknownMethod(t *testing.T) {
 	router := NewRouter()
 	router.GET("/api/test", func(stdhttp.ResponseWriter, *stdhttp.Request) {})
 
-	assert.False(t, router.pathRegisteredForMethod(stdhttp.MethodPost, "/api/test"))
+	assert.False(t, routerPathRegisteredForMethod(router, stdhttp.MethodPost, "/api/test"))
 }
 
 func TestRespondWithSuccess_EncodeError(t *testing.T) {

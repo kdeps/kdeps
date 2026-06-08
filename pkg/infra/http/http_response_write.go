@@ -28,11 +28,11 @@ func respondPlainHTTPError(w stdhttp.ResponseWriter, message string, statusCode 
 }
 
 func respondWebServerNotFound(w stdhttp.ResponseWriter) {
-	respondPlainHTTPError(w, notFoundMessage(), stdhttp.StatusNotFound)
+	respondPlainHTTPError(w, notFoundMessage, stdhttp.StatusNotFound)
 }
 
 func respondWebServerInternalError(w stdhttp.ResponseWriter) {
-	respondPlainHTTPError(w, internalServerErrorMessage(), stdhttp.StatusInternalServerError)
+	respondPlainHTTPError(w, internalServerErrorMessage, stdhttp.StatusInternalServerError)
 }
 
 func respondBadGateway(w stdhttp.ResponseWriter, message string) {
@@ -41,7 +41,7 @@ func respondBadGateway(w stdhttp.ResponseWriter, message string) {
 
 func respondMethodNotAllowed(w stdhttp.ResponseWriter, allowed []string) {
 	setAllowHeader(w, allowed)
-	respondPlainHTTPError(w, methodNotAllowedMessage(), stdhttp.StatusMethodNotAllowed)
+	respondPlainHTTPError(w, methodNotAllowedMessage, stdhttp.StatusMethodNotAllowed)
 }
 
 func writePreflightOK(w stdhttp.ResponseWriter) {

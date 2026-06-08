@@ -23,10 +23,6 @@ import (
 	"strings"
 )
 
-func authRequiredMessage() string {
-	return "authentication required"
-}
-
 func isPublicAPIPath(path string) bool {
 	return path == healthCheckPathValue || strings.HasPrefix(path, managementPathPrefix)
 }

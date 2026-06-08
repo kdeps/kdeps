@@ -38,41 +38,41 @@ func marshalFailureErrorMessage(label string, err error) string {
 }
 
 func uploadParseFormFailed(err error) error {
-	return prefixedWrapError(uploadParseFormFailedPrefix(), err)
+	return prefixedWrapError(uploadParseFormFailedPrefix, err)
 }
 
 func uploadOpenFileFailed(err error) error {
-	return prefixedWrapError(uploadOpenFileFailedPrefix(), err)
+	return prefixedWrapError(uploadOpenFileFailedPrefix, err)
 }
 
 func uploadReadContentFailed(err error) error {
-	return prefixedWrapError(uploadReadContentFailedPrefix(), err)
+	return prefixedWrapError(uploadReadContentFailedPrefix, err)
 }
 
 func uploadStoreFileFailed(err error) error {
-	return prefixedWrapError(uploadStoreFileFailedPrefix(), err)
+	return prefixedWrapError(uploadStoreFileFailedPrefix, err)
 }
 
 func uploadProcessFileFailed(err error) error {
-	return prefixedWrapError(uploadProcessFileFailedPrefix(), err)
+	return prefixedWrapError(uploadProcessFileFailedPrefix, err)
 }
 
 func storageDeleteFileFailed(err error) error {
-	return prefixedWrapError(storageDeleteFileFailedPrefix(), err)
+	return prefixedWrapError(storageDeleteFileFailedPrefix, err)
 }
 
 func storageCreateUploadDirFailed(err error) error {
-	return prefixedWrapError(storageCreateUploadDirFailedPrefix(), err)
+	return prefixedWrapError(storageCreateUploadDirFailedPrefix, err)
 }
 
 func storageWriteFileFailed(err error) error {
-	return prefixedWrapError(storageWriteFileFailedPrefix(), err)
+	return prefixedWrapError(storageWriteFileFailedPrefix, err)
 }
 
 func uploadRequestAppError(err error) *domain.AppError {
 	return domain.NewAppError(
 		domain.ErrCodeBadRequest,
-		prefixedErrorMessage(uploadFailedPrefix(), err),
+		prefixedErrorMessage(uploadFailedPrefix, err),
 	)
 }
 

@@ -57,7 +57,7 @@ func (s *Server) respondManagementWriteError(
 	s.respondManagementPrefixedError(
 		w,
 		stdhttp.StatusInternalServerError,
-		managementWorkflowWriteFailedPrefix(),
+		managementWorkflowWriteFailedPrefix,
 		writeErr,
 	)
 }
@@ -69,7 +69,7 @@ func (s *Server) respondManagementExtractError(
 	s.respondManagementPrefixedError(
 		w,
 		stdhttp.StatusUnprocessableEntity,
-		managementPackageExtractFailedPrefix(),
+		managementPackageExtractFailedPrefix,
 		extractErr,
 	)
 }

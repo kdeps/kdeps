@@ -28,144 +28,46 @@ const (
 	rateLimitRetryAfterSeconds = "60"
 	defaultJSONMediaType       = "application/json"
 	jsonCharsetMediaType       = "application/json; charset=utf-8"
+
+	notFoundMessage                      = "Not Found"
+	internalServerErrorMessage           = "Internal Server Error"
+	methodNotAllowedMessage              = "Method Not Allowed"
+	managementEmptyBodyMessage           = "request body is empty"
+	managementWorkflowReloadFailedPrefix = "workflow written but failed to reload"
+	managementPackageReloadFailedPrefix  = "package extracted but failed to reload"
+	managementWorkflowUpdatedMessage     = "workflow updated and reloaded"
+	managementPackageUpdatedMessage      = "package extracted and workflow reloaded"
+	managementWorkflowReloadMessage      = "workflow reloaded"
+	managementWorkflowWriteFailedPrefix  = "failed to write workflow file"
+	managementPackageExtractFailedPrefix = "failed to extract package"
+	managementReloadWorkflowFailedPrefix = "failed to reload workflow"
+	managementUnauthorizedMessage        = "unauthorized"
+	managementDisabledMessage            = "management API disabled: set " + managementAuthEnvVar + " to enable"
+	proxyReachAppFailedMessage           = "Failed to reach app"
+	proxyWebSocketConnectFailedMessage   = "Failed to connect to WebSocket"
+	proxyWebSocketHandshakeFailedMessage = "WebSocket handshake failed"
+	rateLimitExceededMessage             = "rate limit exceeded — retry after 60 seconds"
+	serverAtCapacityMessage              = "server is at capacity - retry shortly"
+	validationFailedMessage              = "Validation failed"
+	apiResourceFailureMessage            = "API response indicated failure"
+	authRequiredMessage                  = "authentication required"
+	uploadFailedPrefix                   = "File upload failed"
+	uploadParseFormFailedPrefix          = "failed to parse multipart form"
+	uploadOpenFileFailedPrefix           = "failed to open uploaded file"
+	uploadReadContentFailedPrefix        = "failed to read file content"
+	uploadStoreFileFailedPrefix          = "failed to store file"
+	uploadProcessFileFailedPrefix        = "failed to process file"
+	publicPathMissingLogMessage          = "public path does not exist"
+	missingAppPortLogMessage             = "app port is required for app server type"
+	invalidProxyURLLogMessage            = "invalid proxy URL"
+	proxyRequestFailedLogMessage         = "proxy request failed"
+	webSocketConnectFailedLogMessage     = "failed to connect to target WebSocket"
+	webSocketHandshakeFailedLogMessage   = "WebSocket handshake failed"
+	webSocketUpgradeFailedLogMessage     = "failed to upgrade client connection to WebSocket"
+	storageDeleteFileFailedPrefix        = "failed to delete file"
+	storageCreateUploadDirFailedPrefix   = "failed to create upload directory"
+	storageWriteFileFailedPrefix         = "failed to write file"
+	hotReloadWorkflowChangeMessage       = "workflow file changed, reloading..."
+	hotReloadResourcesChangeMessage      = "resources changed, reloading..."
+	unsupportedServerTypeMessage         = "Unsupported server type"
 )
-
-func notFoundMessage() string {
-	return "Not Found"
-}
-
-func internalServerErrorMessage() string {
-	return "Internal Server Error"
-}
-
-func methodNotAllowedMessage() string {
-	return "Method Not Allowed"
-}
-
-func managementEmptyBodyMessage() string {
-	return "request body is empty"
-}
-
-func managementWorkflowReloadFailedPrefix() string {
-	return "workflow written but failed to reload"
-}
-
-func managementPackageReloadFailedPrefix() string {
-	return "package extracted but failed to reload"
-}
-
-func managementWorkflowUpdatedMessage() string {
-	return "workflow updated and reloaded"
-}
-
-func managementPackageUpdatedMessage() string {
-	return "package extracted and workflow reloaded"
-}
-
-func managementWorkflowReloadMessage() string {
-	return "workflow reloaded"
-}
-
-func managementWorkflowWriteFailedPrefix() string {
-	return "failed to write workflow file"
-}
-
-func managementPackageExtractFailedPrefix() string {
-	return "failed to extract package"
-}
-
-func managementReloadWorkflowFailedPrefix() string {
-	return "failed to reload workflow"
-}
-
-func proxyReachAppFailedMessage() string {
-	return "Failed to reach app"
-}
-
-func proxyWebSocketConnectFailedMessage() string {
-	return "Failed to connect to WebSocket"
-}
-
-func proxyWebSocketHandshakeFailedMessage() string {
-	return "WebSocket handshake failed"
-}
-
-func rateLimitExceededMessage() string {
-	return "rate limit exceeded — retry after 60 seconds"
-}
-
-func serverAtCapacityMessage() string {
-	return "server is at capacity - retry shortly"
-}
-
-func validationFailedMessage() string {
-	return "Validation failed"
-}
-
-func apiResourceFailureMessage() string {
-	return "API response indicated failure"
-}
-
-func uploadFailedPrefix() string {
-	return "File upload failed"
-}
-
-func uploadParseFormFailedPrefix() string {
-	return "failed to parse multipart form"
-}
-
-func uploadOpenFileFailedPrefix() string {
-	return "failed to open uploaded file"
-}
-
-func uploadReadContentFailedPrefix() string {
-	return "failed to read file content"
-}
-
-func uploadStoreFileFailedPrefix() string {
-	return "failed to store file"
-}
-
-func uploadProcessFileFailedPrefix() string {
-	return "failed to process file"
-}
-
-func publicPathMissingLogMessage() string {
-	return "public path does not exist"
-}
-
-func missingAppPortLogMessage() string {
-	return "app port is required for app server type"
-}
-
-func invalidProxyURLLogMessage() string {
-	return "invalid proxy URL"
-}
-
-func proxyRequestFailedLogMessage() string {
-	return "proxy request failed"
-}
-
-func webSocketConnectFailedLogMessage() string {
-	return "failed to connect to target WebSocket"
-}
-
-func webSocketHandshakeFailedLogMessage() string {
-	return "WebSocket handshake failed"
-}
-
-func webSocketUpgradeFailedLogMessage() string {
-	return "failed to upgrade client connection to WebSocket"
-}
-
-func storageDeleteFileFailedPrefix() string {
-	return "failed to delete file"
-}
-
-func storageCreateUploadDirFailedPrefix() string {
-	return "failed to create upload directory"
-}
-
-func storageWriteFileFailedPrefix() string {
-	return "failed to write file"
-}

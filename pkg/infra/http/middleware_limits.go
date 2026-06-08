@@ -43,7 +43,7 @@ func respondUploadBodyTooLarge(
 
 func respondRateLimitExceeded(w stdhttp.ResponseWriter, r *stdhttp.Request) {
 	setRateLimitRetryAfter(w)
-	respondMiddlewareError(w, r, domain.ErrCodeRateLimited, rateLimitExceededMessage())
+	respondMiddlewareError(w, r, domain.ErrCodeRateLimited, rateLimitExceededMessage)
 }
 
 func RateLimitMiddleware(
@@ -96,7 +96,7 @@ func ConcurrentLimitMiddleware(limit int) func(stdhttp.HandlerFunc) stdhttp.Hand
 					w,
 					r,
 					domain.ErrCodeServiceUnavail,
-					serverAtCapacityMessage(),
+					serverAtCapacityMessage,
 				)
 			}
 		}

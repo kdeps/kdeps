@@ -29,13 +29,13 @@ func (s *Server) respondWithRequestError(w stdhttp.ResponseWriter, r *stdhttp.Re
 }
 
 func respondManagementDisabled(w stdhttp.ResponseWriter) {
-	respondPlainHTTPError(w, managementDisabledMessage(), stdhttp.StatusServiceUnavailable)
+	respondPlainHTTPError(w, managementDisabledMessage, stdhttp.StatusServiceUnavailable)
 }
 
 func respondManagementUnauthorized(w stdhttp.ResponseWriter) {
-	respondPlainHTTPError(w, managementUnauthorizedMessage(), stdhttp.StatusUnauthorized)
+	respondPlainHTTPError(w, managementUnauthorizedMessage, stdhttp.StatusUnauthorized)
 }
 
 func respondUnauthorized(w stdhttp.ResponseWriter, r *stdhttp.Request) {
-	respondMiddlewareError(w, r, domain.ErrCodeUnauthorized, authRequiredMessage())
+	respondMiddlewareError(w, r, domain.ErrCodeUnauthorized, authRequiredMessage)
 }

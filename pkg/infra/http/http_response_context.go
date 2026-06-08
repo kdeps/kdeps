@@ -63,7 +63,7 @@ func RespondWithValidationErrors(
 		Success: false,
 		Error: &ErrorDetail{
 			Code:    domain.ErrCodeValidation,
-			Message: validationFailedMessage(),
+			Message: validationFailedMessage,
 			Details: validationErrorDetailsMap(validationErrors),
 		},
 		Meta: requestMetaFromRequest(r),

@@ -21,7 +21,7 @@ package http
 import stdhttp "net/http"
 
 func (s *WebServer) logAndRespondNotFound(w stdhttp.ResponseWriter, fullPath string) {
-	s.logBackgroundError(publicPathMissingLogMessage(), logKeyPath, fullPath)
+	s.logBackgroundError(publicPathMissingLogMessage, logKeyPath, fullPath)
 	respondWebServerNotFound(w)
 }
 
@@ -31,13 +31,13 @@ func (s *WebServer) logAndRespondProxyError(
 	err error,
 ) {
 	s.logBackgroundError(
-		proxyRequestFailedLogMessage(),
+		proxyRequestFailedLogMessage,
 		"url",
 		req.URL.String(),
 		logKeyError,
 		err,
 	)
-	respondBadGateway(w, proxyReachAppFailedMessage())
+	respondBadGateway(w, proxyReachAppFailedMessage)
 }
 
 func (s *WebServer) logAndRespondInvalidProxyURL(
@@ -46,7 +46,7 @@ func (s *WebServer) logAndRespondInvalidProxyURL(
 	err error,
 ) {
 	s.logBackgroundError(
-		invalidProxyURLLogMessage(),
+		invalidProxyURLLogMessage,
 		"host",
 		localAppProxyHost,
 		"port",
@@ -58,7 +58,7 @@ func (s *WebServer) logAndRespondInvalidProxyURL(
 }
 
 func (s *WebServer) logAndRespondMissingPort(w stdhttp.ResponseWriter) {
-	s.logBackgroundError(missingAppPortLogMessage())
+	s.logBackgroundError(missingAppPortLogMessage)
 	respondWebServerInternalError(w)
 }
 
@@ -68,16 +68,16 @@ func (s *WebServer) logAndRespondWSConnectFailed(
 	err error,
 ) {
 	s.logBackgroundError(
-		webSocketConnectFailedLogMessage(),
+		webSocketConnectFailedLogMessage,
 		"url",
 		targetURL,
 		logKeyError,
 		err,
 	)
-	respondBadGateway(w, proxyWebSocketConnectFailedMessage())
+	respondBadGateway(w, proxyWebSocketConnectFailedMessage)
 }
 
 func (s *WebServer) logAndRespondWSHandshakeFailed(w stdhttp.ResponseWriter, statusCode int) {
-	s.logBackgroundError(webSocketHandshakeFailedLogMessage(), "statusCode", statusCode)
-	respondBadGateway(w, proxyWebSocketHandshakeFailedMessage())
+	s.logBackgroundError(webSocketHandshakeFailedLogMessage, "statusCode", statusCode)
+	respondBadGateway(w, proxyWebSocketHandshakeFailedMessage)
 }
