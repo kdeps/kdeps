@@ -82,3 +82,5 @@ func (b *CohereBackend) GetAPIKeyHeader(apiKey string) (string, string) {
 	kdeps_debug.Log("enter: GetAPIKeyHeader")
 	return bearerAuthAPIKeyHeader(apiKey, "COHERE_API_KEY")
 }
+
+func (b *CohereBackend) APIKeyEnvVar() string { return "COHERE_API_KEY" }

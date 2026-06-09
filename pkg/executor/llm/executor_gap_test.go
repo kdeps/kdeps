@@ -67,6 +67,7 @@ func (b *htcBuildRequestErrorBackend) ParseResponse(
 func (b *htcBuildRequestErrorBackend) GetAPIKeyHeader(_ string) (string, string) {
 	return "", ""
 }
+func (b *htcBuildRequestErrorBackend) APIKeyEnvVar() string { return "" }
 
 // TestHandleToolCalls_BuildRequestError covers lines 518-520:
 // backend.BuildRequest fails on the follow-up request after tool results.
@@ -285,6 +286,7 @@ func (b *mockOllamaDefaultsBackend) ParseResponse(
 	return nil, errMockNotImplemented
 }
 func (b *mockOllamaDefaultsBackend) GetAPIKeyHeader(_ string) (string, string) { return "", "" }
+func (b *mockOllamaDefaultsBackend) APIKeyEnvVar() string                      { return "" }
 
 // TestRetryFallbackRoutes_EmptyBackendAndBaseURL covers three branches:
 // - Line 1553-1555: empty cfg.Backend defaults to "ollama"
@@ -335,6 +337,7 @@ func (b *retryBuildReqErrBackend) ParseResponse(
 	return nil, errMockNotImplemented
 }
 func (b *retryBuildReqErrBackend) GetAPIKeyHeader(_ string) (string, string) { return "", "" }
+func (b *retryBuildReqErrBackend) APIKeyEnvVar() string                      { return "" }
 
 // TestRetryFallbackRoutes_BuildRequestError covers line 1565-1566:
 // fb.BuildRequest fails, triggering continue to the next route.

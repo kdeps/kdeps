@@ -85,6 +85,8 @@ func (b *OllamaBackend) GetAPIKeyHeader(_ string) (string, string) {
 	return "", "" // Local backend, no API key needed
 }
 
+func (b *OllamaBackend) APIKeyEnvVar() string { return "" }
+
 // ParseOllamaStreamingResponseForTesting exposes parseOllamaStreamingResponse for tests.
 func ParseOllamaStreamingResponseForTesting(body io.Reader) (map[string]interface{}, error) {
 	kdeps_debug.Log("enter: ParseOllamaStreamingResponseForTesting")

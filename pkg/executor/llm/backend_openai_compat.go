@@ -75,6 +75,11 @@ func (b *openAICompatBackend) GetAPIKeyHeader(apiKey string) (string, string) {
 	return bearerAuthAPIKeyHeader(apiKey, b.cfg.envVar)
 }
 
+func (b *openAICompatBackend) APIKeyEnvVar() string {
+	kdeps_debug.Log("enter: APIKeyEnvVar")
+	return b.cfg.envVar
+}
+
 //nolint:gochecknoglobals // shared backend instances for OpenAI-compatible providers
 var (
 	defaultOpenAIBackend = newOpenAICompatBackend(openAICompatBackendConfig{
