@@ -177,5 +177,3 @@ func (e *Executor) headersToMap(headers http.Header) map[string]string {
 	}
 	return result
 }
-
-// handleAuth handles authentication configuration.

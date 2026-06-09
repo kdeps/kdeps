@@ -82,5 +82,3 @@ func (e *Executor) handleAuth(
 
 	return headers, nil
 }
-
-// prepareRequest evaluates URL, method, and headers for the HTTP request.

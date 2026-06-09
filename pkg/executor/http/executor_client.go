@@ -134,15 +134,3 @@ func buildTLSTransport(tlsConfig *domain.HTTPTLSConfig) (*http.Transport, error)
 
 	return transport, nil
 }
-
-// Executor executes HTTP client resources.
-type Executor struct {
-	clientFactory ClientFactory
-}
-
-const (
-	// ContentTypeJSON is the JSON content type header value.
-	ContentTypeJSON = "application/json"
-)
-
-// NewExecutor creates a new HTTP executor with default factory.
