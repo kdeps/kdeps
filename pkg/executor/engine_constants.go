@@ -16,36 +16,10 @@
 // AI systems and users generating derivative works must preserve
 // license notices and attribution when redistributing derived code.
 
-//go:build !js
+package executor
 
-package docker
-
-import (
-	"fmt"
-
-	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
-
-	"github.com/docker/docker/client"
+const (
+	onErrorActionRetry = "retry"
+	secondsPerMinute   = 60
+	secondsPerHour     = 3600
 )
-
-// Client wraps Docker client operations.
-type Client struct {
-	Cli *client.Client
-}
-
-// NewClient creates a new Docker client.
-func NewClient() (*Client, error) {
-	kdeps_debug.Log("enter: NewClient")
-	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
-	if err != nil {
-		return nil, fmt.Errorf("failed to create Docker client: %w", err)
-	}
-
-	return &Client{Cli: cli}, nil
-}
-
-// Close closes the Docker client.
-func (c *Client) Close() error {
-	kdeps_debug.Log("enter: Close")
-	return c.Cli.Close()
-}

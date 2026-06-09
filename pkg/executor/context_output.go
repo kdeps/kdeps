@@ -219,6 +219,20 @@ func (ctx *ExecutionContext) GetHTTPResponseHeader(
 	return nil, fmt.Errorf("header '%s' not found in response", headerName)
 }
 
+// Output retrieves resource outputs.
+// Syntax: Output(resourceID).
+func (ctx *ExecutionContext) Output(resourceID string) (interface{}, error) {
+	kdeps_debug.Log("enter: Output")
+	ctx.mu.RLock()
+	defer ctx.mu.RUnlock()
+
+	if val, ok := ctx.Outputs[resourceID]; ok {
+		return val, nil
+	}
+
+	return nil, fmt.Errorf("output for resource '%s' not found", resourceID)
+}
+
 // SetOutput stores a resource output.
 func (ctx *ExecutionContext) SetOutput(actionID string, output interface{}) {
 	kdeps_debug.Log("enter: SetOutput")
