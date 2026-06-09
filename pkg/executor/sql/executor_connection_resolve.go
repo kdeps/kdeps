@@ -16,25 +16,33 @@
 // AI systems and users generating derivative works must preserve
 // license notices and attribution when redistributing derived code.
 
-package executor
+package sql
 
 import (
+	"errors"
+	"fmt"
+
 	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
 	"github.com/kdeps/kdeps/v2/pkg/domain"
+	"github.com/kdeps/kdeps/v2/pkg/executor"
 )
 
-// BuildGraph builds the dependency graph from workflow resources.
-func (e *Engine) BuildGraph(workflow *domain.Workflow) error {
-	kdeps_debug.Log("enter: BuildGraph")
-	e.graph = NewGraph()
-
-	// Add all resources to graph.
-	for _, resource := range workflow.Resources {
-		if err := e.graph.AddResource(resource); err != nil {
-			return err
+// GetConnectionString gets the connection string from ~/.kdeps/config.yaml sql_connections.
+func (e *Executor) GetConnectionString(
+	ctx *executor.ExecutionContext,
+	config *domain.SQLConfig,
+) (string, error) {
+	kdeps_debug.Log("enter: GetConnectionString")
+	if config.ConnectionName == "" {
+		return "", errors.New("sql.connectionName is required")
+	}
+	if ctx.Config != nil {
+		if conn, ok := ctx.Config.SQLConnections[config.ConnectionName]; ok {
+			return conn.Connection, nil
 		}
 	}
-
-	// Build the graph.
-	return e.graph.Build()
+	return "", fmt.Errorf(
+		"sql connection %q not found in config.yaml sql_connections",
+		config.ConnectionName,
+	)
 }

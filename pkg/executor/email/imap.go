@@ -50,8 +50,6 @@ func (e *Executor) executeRead(
 	return formatFetchResult("read", mailbox, msgs), nil
 }
 
-// --- Search ---
-
 func (e *Executor) executeSearch(
 	ctx *executor.ExecutionContext,
 	cfg *domain.EmailConfig,
@@ -76,8 +74,6 @@ func (e *Executor) executeSearch(
 	e.logger.Info("email search", "mailbox", mailbox, "count", len(msgs))
 	return formatFetchResult("search", mailbox, msgs), nil
 }
-
-// --- Modify ---
 
 func (e *Executor) executeModify(
 	ctx *executor.ExecutionContext,
@@ -114,52 +110,3 @@ func (e *Executor) executeModify(
 	e.logger.Info("email modify", "mailbox", mailbox, "count", len(affectedUIDs))
 	return formatModifyResult(mailbox, affectedUIDs), nil
 }
-
-// resolveMailbox returns the mailbox name with default fallback.
-func resolveMailbox(cfg *domain.EmailConfig) string {
-	kdeps_debug.Log("enter: resolveMailbox")
-	if cfg.Mailbox != "" {
-		return cfg.Mailbox
-	}
-	return defaultMailbox
-}
-
-// resolveMailboxSettings returns mailbox name and fetch limit with defaults.
-func resolveMailboxSettings(cfg *domain.EmailConfig) (string, int) {
-	kdeps_debug.Log("enter: resolveMailboxSettings")
-	mailbox := resolveMailbox(cfg)
-	limit := cfg.Limit
-	if limit <= 0 {
-		limit = defaultLimit
-	}
-	return mailbox, limit
-}
-
-// formatFetchResult builds the read/search action result map.
-func formatFetchResult(action, mailbox string, msgs []EmailMessage) map[string]interface{} {
-	kdeps_debug.Log("enter: formatFetchResult")
-	return map[string]interface{}{
-		"success":  true,
-		"action":   action,
-		"mailbox":  mailbox,
-		"count":    len(msgs),
-		"messages": msgs,
-	}
-}
-
-// formatModifyResult builds the modify action result map.
-func formatModifyResult(mailbox string, uids []uint32) map[string]interface{} {
-	kdeps_debug.Log("enter: formatModifyResult")
-	if uids == nil {
-		uids = []uint32{}
-	}
-	return map[string]interface{}{
-		"success": true,
-		"action":  "modify",
-		"mailbox": mailbox,
-		"count":   len(uids),
-		"uids":    uids,
-	}
-}
-
-// applyModifyOperations applies flag changes, move, and expunge for modify.
