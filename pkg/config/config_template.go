@@ -18,6 +18,11 @@
 
 package config
 
+import (
+	"fmt"
+	"strings"
+)
+
 // configOptionsReference is the shared source of truth for all available
 // config.yaml options. Used by both Scaffold() (non-interactive) and
 // Bootstrap() (interactive) to ensure consistent template output.
@@ -237,7 +242,9 @@ defaults:
 #           priority: 2
 `
 
-const configTemplateHeader = `# kdeps global configuration
+func buildConfigTemplateHeader() string {
+	var b strings.Builder
+	b.WriteString(`# kdeps global configuration
 # ~/.kdeps/config.yaml
 #
 # Values set here are applied as defaults. Explicit environment variables and
@@ -254,18 +261,13 @@ llm:
   # models_dir: ~/.kdeps/models   # cache dir for downloaded .llamafile binaries
 
   # ── Online provider API keys (set only the ones you use) ───────────────────
-  # openai_api_key: ""
-  # anthropic_api_key: ""
-  # google_api_key: ""
-  # cohere_api_key: ""
-  # mistral_api_key: ""
-  # together_api_key: ""
-  # perplexity_api_key: ""
-  # groq_api_key: ""
-  # deepseek_api_key: ""
-  # openrouter_api_key: ""
-
-`
+`)
+	for _, p := range cloudProvidersList {
+		fmt.Fprintf(&b, "  # %s: \"\"\n", p.yamlKey)
+	}
+	b.WriteString("\n")
+	return b.String()
+}
 
 // composeConfigTemplate joins the scaffold header with the shared options reference.
 func composeConfigTemplate(header, reference string) string {
@@ -276,4 +278,4 @@ func composeConfigTemplate(header, reference string) string {
 // and the shared configOptionsReference.
 //
 //nolint:gochecknoglobals // composed at init from two consts (Go cannot concat consts)
-var defaultConfigTemplate = composeConfigTemplate(configTemplateHeader, configOptionsReference)
+var defaultConfigTemplate = composeConfigTemplate(buildConfigTemplateHeader(), configOptionsReference)

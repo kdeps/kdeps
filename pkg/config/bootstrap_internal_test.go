@@ -354,19 +354,12 @@ func TestProviderMetaMap_HasAllProviders(t *testing.T) {
 	}
 }
 
-func TestProviderMetaMap_EnvVarsUseBackendToEnv(t *testing.T) {
+func TestProviderMetaMap_EnvVarsMatchCloudProviders(t *testing.T) {
 	meta := providerMetaMap()
-	for backend, env := range backendToEnv {
-		assert.Equal(t, env, meta[backend].envVar, "backend %s", backend)
+	for _, p := range cloudProvidersList {
+		assert.Equal(t, p.envVar, meta[p.name].envVar, "backend %s", p.name)
 	}
 	assert.Equal(t, "OLLAMA_HOST", meta[ollamaBackendStr].envVar)
-}
-
-func TestCloudProviders_PopulatesLookupTables(t *testing.T) {
-	for name, p := range cloudProviders {
-		assert.Equal(t, p.yamlKey, backendToKey[name])
-		assert.Equal(t, p.envVar, backendToEnv[name])
-	}
 }
 
 func TestCloudProvidersList_UniqueNames(t *testing.T) {
@@ -409,12 +402,8 @@ func TestBootstrap_WritesAllProviders(t *testing.T) {
 	data, err := os.ReadFile(path)
 	require.NoError(t, err)
 	content := string(data)
-	// Scaffold template must mention all providers.
-	for _, p := range []string{
-		"openai_api_key", "anthropic_api_key", "google_api_key",
-		"groq_api_key", "deepseek_api_key", "openrouter_api_key",
-	} {
-		assert.True(t, strings.Contains(content, p), "missing %s in template", p)
+	for _, p := range cloudProvidersList {
+		assert.Contains(t, content, p.yamlKey, "missing %s in template", p.yamlKey)
 	}
 }
 

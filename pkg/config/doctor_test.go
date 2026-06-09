@@ -331,15 +331,16 @@ func TestDoctorRunnerAdd(t *testing.T) {
 	assert.Len(t, r.checks, 2)
 }
 
-func TestBackendToKeyName(t *testing.T) {
-	assert.Equal(t, "openai_api_key", backendToKeyName("openai"))
-	assert.Equal(t, "unknown_api_key", backendToKeyName("unknown"))
+func TestProviderYAMLKey(t *testing.T) {
+	assert.Equal(t, "openai_api_key", providerYAMLKey("openai"))
+	assert.Equal(t, "unknown_api_key", providerYAMLKey("unknown"))
 }
 
-func TestBackendToEnv(t *testing.T) {
-	assert.Equal(t, "OPENAI_API_KEY", backendToEnv["openai"])
-	assert.Equal(t, "ANTHROPIC_API_KEY", backendToEnv["anthropic"])
-	assert.Empty(t, backendToEnv["unknown"])
+func TestCloudProviderEnvVars(t *testing.T) {
+	assert.Equal(t, "OPENAI_API_KEY", cloudProviders["openai"].envVar)
+	assert.Equal(t, "ANTHROPIC_API_KEY", cloudProviders["anthropic"].envVar)
+	_, ok := cloudProviders["unknown"]
+	assert.False(t, ok)
 }
 
 func TestBackendOrDefault(t *testing.T) {
