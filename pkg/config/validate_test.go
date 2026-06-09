@@ -358,29 +358,14 @@ func TestFindMappingValue(t *testing.T) {
 }
 
 func TestGetLLMAPIKey_AllBackends(t *testing.T) {
-	keys := LLMKeys{
-		OpenAI:     "sk-openai",
-		Anthropic:  "sk-anthropic",
-		Google:     "sk-google",
-		Cohere:     "sk-cohere",
-		Mistral:    "sk-mistral",
-		Together:   "sk-together",
-		Perplexity: "sk-perplexity",
-		Groq:       "sk-groq",
-		DeepSeek:   "sk-deepseek",
-		OpenRouter: "sk-openrouter",
+	cfg := &Config{}
+	for _, p := range cloudProvidersList {
+		p.setKey(cfg, "sk-"+p.name)
 	}
-	assert.Equal(t, "sk-openai", getLLMAPIKey(keys, "openai"))
-	assert.Equal(t, "sk-anthropic", getLLMAPIKey(keys, "anthropic"))
-	assert.Equal(t, "sk-google", getLLMAPIKey(keys, "google"))
-	assert.Equal(t, "sk-cohere", getLLMAPIKey(keys, "cohere"))
-	assert.Equal(t, "sk-mistral", getLLMAPIKey(keys, "mistral"))
-	assert.Equal(t, "sk-together", getLLMAPIKey(keys, "together"))
-	assert.Equal(t, "sk-perplexity", getLLMAPIKey(keys, "perplexity"))
-	assert.Equal(t, "sk-groq", getLLMAPIKey(keys, "groq"))
-	assert.Equal(t, "sk-deepseek", getLLMAPIKey(keys, "deepseek"))
-	assert.Equal(t, "sk-openrouter", getLLMAPIKey(keys, "openrouter"))
-	assert.Equal(t, "", getLLMAPIKey(keys, "unknown"))
+	for _, p := range cloudProvidersList {
+		assert.Equal(t, "sk-"+p.name, getLLMAPIKey(cfg.LLM, p.name))
+	}
+	assert.Equal(t, "", getLLMAPIKey(cfg.LLM, "unknown"))
 	assert.Equal(t, "", getLLMAPIKey(LLMKeys{}, "openai"))
 }
 
@@ -529,7 +514,7 @@ llm:
 `)
 	cfg := loadCfg(t)
 	warnings := cfg.Validate("")
-	// Unknown backend is not in backendToKey, so no API key warning
+	// Unknown backend is not in cloudProviders, so no API key warning
 	for _, w := range warnings {
 		assert.NotContains(t, w, "not set")
 	}

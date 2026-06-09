@@ -165,7 +165,9 @@ func (r *doctorRunner) backendKey(cfg *Config) {
 
 	key := getLLMAPIKey(cfg.LLM, backend)
 	if key == "" {
-		key = osGetenv(backendToEnv[backend])
+		if p, ok := cloudProviders[backend]; ok {
+			key = osGetenv(p.envVar)
+		}
 	}
 
 	if key != "" {
@@ -175,7 +177,7 @@ func (r *doctorRunner) backendKey(cfg *Config) {
 	}
 	r.add("Backend/API key", HealthWarn,
 		fmt.Sprintf("backend=%s but no API key set for %s",
-			backend, backendToKeyName(backend)))
+			backend, providerYAMLKey(backend)))
 }
 
 func (r *doctorRunner) agents(cfg *Config) {
@@ -203,9 +205,11 @@ func (r *doctorRunner) agents(cfg *Config) {
 }
 
 func (r *doctorRunner) criticalEnv() {
-	critical := []string{
-		"OLLAMA_HOST", "KDEPS_DEFAULT_BACKEND", "KDEPS_LLM_MODELS",
-		"OPENAI_API_KEY", "ANTHROPIC_API_KEY", "TZ",
+	critical := []string{"OLLAMA_HOST", "KDEPS_DEFAULT_BACKEND", "KDEPS_LLM_MODELS", "TZ"}
+	for _, name := range doctorSpotCheckBackends {
+		if p, ok := cloudProviders[name]; ok {
+			critical = append(critical, p.envVar)
+		}
 	}
 	missing := make([]string, 0)
 	for _, v := range critical {
@@ -272,11 +276,4 @@ func backendOrDefault(backend string) string {
 		return ollamaBackendStr
 	}
 	return backend
-}
-
-func backendToKeyName(backend string) string {
-	if k, ok := backendToKey[backend]; ok {
-		return k
-	}
-	return backend + "_api_key"
 }

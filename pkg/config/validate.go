@@ -104,9 +104,10 @@ var (
 	}
 
 	cloudProviders = buildCloudProviderMap(cloudProvidersList)
-	backendToKey   = buildBackendToKey(cloudProvidersList)
-	backendToEnv   = buildBackendToEnv(cloudProvidersList)
 	knownLLMKeys   = buildKnownLLMKeys(cloudProvidersList)
+
+	// Backends whose API key env vars doctor spot-checks (subset of cloud providers).
+	doctorSpotCheckBackends = []string{"openai", "anthropic"}
 )
 
 type cloudProvider struct {
@@ -121,22 +122,6 @@ func buildCloudProviderMap(list []cloudProvider) map[string]cloudProvider {
 	m := make(map[string]cloudProvider, len(list))
 	for _, p := range list {
 		m[p.name] = p
-	}
-	return m
-}
-
-func buildBackendToKey(list []cloudProvider) map[string]string {
-	m := make(map[string]string, len(list))
-	for _, p := range list {
-		m[p.name] = p.yamlKey
-	}
-	return m
-}
-
-func buildBackendToEnv(list []cloudProvider) map[string]string {
-	m := make(map[string]string, len(list))
-	for _, p := range list {
-		m[p.name] = p.envVar
 	}
 	return m
 }
@@ -162,4 +147,12 @@ func getLLMAPIKey(llm LLMKeys, backend string) string {
 		return p.getKey(llm)
 	}
 	return ""
+}
+
+// providerYAMLKey returns the config yaml field name for a backend's API key.
+func providerYAMLKey(backend string) string {
+	if p, ok := cloudProviders[backend]; ok {
+		return p.yamlKey
+	}
+	return backend + "_api_key"
 }
