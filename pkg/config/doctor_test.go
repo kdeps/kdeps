@@ -1,6 +1,7 @@
 package config
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -91,13 +92,13 @@ llm:
 }
 
 func TestRunDoctor_BackendWithoutAPIKey(t *testing.T) {
+	p := cloudProvidersList[0]
 	dir := t.TempDir()
-	// Ensure no env var leaks in.
-	t.Setenv("OPENAI_API_KEY", "")
-	writeTempConfig(t, dir, `
+	t.Setenv(p.envVar, "")
+	writeTempConfig(t, dir, fmt.Sprintf(`
 llm:
-  backend: openai
-`)
+  backend: %s
+`, p.name))
 	cfg := loadCfg(t)
 	report := RunDoctor(cfg)
 
@@ -114,13 +115,14 @@ llm:
 }
 
 func TestRunDoctor_BackendWithAPIKey(t *testing.T) {
+	p := cloudProvidersList[0]
 	dir := t.TempDir()
-	t.Setenv("OPENAI_API_KEY", "")
-	writeTempConfig(t, dir, `
+	t.Setenv(p.envVar, "")
+	writeTempConfig(t, dir, fmt.Sprintf(`
 llm:
-  backend: openai
-  openai_api_key: sk-test-key-12345678
-`)
+  backend: %s
+  %s: sk-test-key-12345678
+`, p.name, p.yamlKey))
 	cfg := loadCfg(t)
 	report := RunDoctor(cfg)
 
@@ -133,7 +135,7 @@ llm:
 	}
 	require.NotNil(t, backendCheck)
 	assert.Equal(t, HealthPass, backendCheck.Status)
-	assert.Contains(t, backendCheck.Message, "backend=openai")
+	assert.Contains(t, backendCheck.Message, "backend="+p.name)
 	assert.Contains(t, backendCheck.Message, "sk-t...5678")
 }
 
@@ -163,13 +165,14 @@ llm:
 }
 
 func TestRunDoctor_OllamaCheck_SkippedForCloudBackend(t *testing.T) {
+	p := cloudProvidersList[0]
 	t.Setenv("KDEPS_DEFAULT_BACKEND", "")
 	dir := t.TempDir()
-	writeTempConfig(t, dir, `
+	writeTempConfig(t, dir, fmt.Sprintf(`
 llm:
-  backend: openai
-  openai_api_key: sk-test
-`)
+  backend: %s
+  %s: sk-test
+`, p.name, p.yamlKey))
 	cfg := loadCfg(t)
 	report := RunDoctor(cfg)
 
@@ -331,7 +334,8 @@ func TestDoctorRunnerAdd(t *testing.T) {
 }
 
 func TestProviderYAMLKey(t *testing.T) {
-	assert.Equal(t, "openai_api_key", providerYAMLKey("openai"))
+	p := cloudProvidersList[0]
+	assert.Equal(t, p.yamlKey, providerYAMLKey(p.name))
 	assert.Equal(t, "unknown_api_key", providerYAMLKey("unknown"))
 }
 
@@ -344,15 +348,17 @@ func TestCloudProviderEnvVars(t *testing.T) {
 }
 
 func TestBackendOrDefault(t *testing.T) {
-	assert.Equal(t, "ollama", backendOrDefault(""))
-	assert.Equal(t, "openai", backendOrDefault("openai"))
+	p := cloudProvidersList[0]
+	assert.Equal(t, ollamaBackendStr, backendOrDefault(""))
+	assert.Equal(t, p.name, backendOrDefault(p.name))
 }
 
 // --- effectiveBackend ---
 
 func TestEffectiveBackend_FromEnv(t *testing.T) {
-	t.Setenv("KDEPS_DEFAULT_BACKEND", "openai")
-	assert.Equal(t, "openai", effectiveBackend(nil))
+	p := cloudProvidersList[0]
+	t.Setenv("KDEPS_DEFAULT_BACKEND", p.name)
+	assert.Equal(t, p.name, effectiveBackend(nil))
 }
 
 func TestEffectiveBackend_CfgTakesPrecedence(t *testing.T) {

@@ -17,6 +17,7 @@ package config
 
 import (
 	"errors"
+	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -544,68 +545,72 @@ func TestRunPythonCheck_OnlyPython_Shim(t *testing.T) {
 // --- LoadWithAgent (integration through real file) ---
 
 func TestLoadWithAgent_NoAgentName(t *testing.T) {
+	p := cloudProvidersList[0]
 	dir := t.TempDir()
-	writeTempConfig(t, dir, "llm:\n  openai_api_key: sk-base\n")
+	writeTempConfig(t, dir, fmt.Sprintf("llm:\n  %s: sk-base\n", p.yamlKey))
 	cfg, err := LoadWithAgent("")
 	require.NoError(t, err)
-	assert.Equal(t, "sk-base", cfg.LLM.OpenAI)
+	assert.Equal(t, "sk-base", p.getKey(cfg.LLM))
 }
 
 func TestLoadWithAgent_KnownAgent(t *testing.T) {
+	primary := cloudProvidersList[0]
+	secondary := cloudProvidersList[1]
 	dir := t.TempDir()
-	writeTempConfig(t, dir, `
+	writeTempConfig(t, dir, fmt.Sprintf(`
 llm:
-  openai_api_key: sk-base
-  anthropic_api_key: ant-base
+  %s: sk-base
+  %s: ant-base
 agents:
   my_agent:
     llm:
-      openai_api_key: sk-agent
-`)
-	// Unset known env vars so agent merge takes effect.
+      %s: sk-agent
+`, primary.yamlKey, secondary.yamlKey, primary.yamlKey))
 	for _, key := range knownConfigEnvVars() {
 		_ = os.Unsetenv(key)
 	}
 	cfg, err := LoadWithAgent("my_agent")
 	require.NoError(t, err)
-	assert.Equal(t, "sk-agent", cfg.LLM.OpenAI)
-	assert.Equal(t, "ant-base", cfg.LLM.Anthropic) // unchanged by agent
-	// Env should reflect the merged value.
-	assert.Equal(t, "sk-agent", os.Getenv("OPENAI_API_KEY"))
+	assert.Equal(t, "sk-agent", primary.getKey(cfg.LLM))
+	assert.Equal(t, "ant-base", secondary.getKey(cfg.LLM))
+	assert.Equal(t, "sk-agent", os.Getenv(primary.envVar))
 }
 
 func TestLoadWithAgent_UnknownAgent(t *testing.T) {
+	p := cloudProvidersList[0]
 	dir := t.TempDir()
-	writeTempConfig(t, dir, `
+	writeTempConfig(t, dir, fmt.Sprintf(`
 llm:
-  openai_api_key: sk-base
+  %s: sk-base
 agents:
   other_agent:
     llm:
-      openai_api_key: sk-other
-`)
+      %s: sk-other
+`, p.yamlKey, p.yamlKey))
 	for _, key := range knownConfigEnvVars() {
 		_ = os.Unsetenv(key)
 	}
 	cfg, err := LoadWithAgent("nonexistent")
 	require.NoError(t, err)
-	assert.Equal(t, "sk-base", cfg.LLM.OpenAI)
+	assert.Equal(t, "sk-base", p.getKey(cfg.LLM))
 }
 
 func TestLoadWithAgent_NoAgents(t *testing.T) {
+	p := cloudProvidersList[0]
 	dir := t.TempDir()
-	writeTempConfig(t, dir, "llm:\n  openai_api_key: sk-base\n")
+	writeTempConfig(t, dir, fmt.Sprintf("llm:\n  %s: sk-base\n", p.yamlKey))
 	for _, key := range knownConfigEnvVars() {
 		_ = os.Unsetenv(key)
 	}
 	cfg, err := LoadWithAgent("some_agent")
 	require.NoError(t, err)
-	assert.Equal(t, "sk-base", cfg.LLM.OpenAI)
+	assert.Equal(t, "sk-base", p.getKey(cfg.LLM))
 }
 
 func TestLoadWithAgent_PreservesExplicitAPIAuthToken(t *testing.T) {
+	p := cloudProvidersList[0]
 	dir := t.TempDir()
-	writeTempConfig(t, dir, "llm:\n  openai_api_key: sk-base\n")
+	writeTempConfig(t, dir, fmt.Sprintf("llm:\n  %s: sk-base\n", p.yamlKey))
 	t.Setenv("KDEPS_API_AUTH_TOKEN", "from-shell")
 	for _, key := range knownConfigEnvVars() {
 		if key != "KDEPS_API_AUTH_TOKEN" {
@@ -629,51 +634,56 @@ func TestLoadWithAgent_LoadError(t *testing.T) {
 // --- LoadStructWithAgent ---
 
 func TestLoadStructWithAgent_KnownAgent(t *testing.T) {
+	primary := cloudProvidersList[0]
+	secondary := cloudProvidersList[1]
 	dir := t.TempDir()
-	writeTempConfig(t, dir, `
+	writeTempConfig(t, dir, fmt.Sprintf(`
 llm:
-  openai_api_key: sk-base
+  %s: sk-base
 agents:
   my_agent:
     llm:
-      openai_api_key: sk-agent
-      anthropic_api_key: ant-agent
-`)
+      %s: sk-agent
+      %s: ant-agent
+`, primary.yamlKey, primary.yamlKey, secondary.yamlKey))
 	cfg, err := LoadStructWithAgent("my_agent")
 	require.NoError(t, err)
-	assert.Equal(t, "sk-agent", cfg.LLM.OpenAI)
-	assert.Equal(t, "ant-agent", cfg.LLM.Anthropic)
+	assert.Equal(t, "sk-agent", primary.getKey(cfg.LLM))
+	assert.Equal(t, "ant-agent", secondary.getKey(cfg.LLM))
 }
 
 func TestLoadStructWithAgent_UnknownAgent(t *testing.T) {
+	p := cloudProvidersList[0]
 	dir := t.TempDir()
-	writeTempConfig(t, dir, `
+	writeTempConfig(t, dir, fmt.Sprintf(`
 llm:
-  openai_api_key: sk-base
+  %s: sk-base
 agents:
   other:
     llm:
-      openai_api_key: sk-other
-`)
+      %s: sk-other
+`, p.yamlKey, p.yamlKey))
 	cfg, err := LoadStructWithAgent("nonexistent")
 	require.NoError(t, err)
-	assert.Equal(t, "sk-base", cfg.LLM.OpenAI)
+	assert.Equal(t, "sk-base", p.getKey(cfg.LLM))
 }
 
 func TestLoadStructWithAgent_NoAgentName(t *testing.T) {
+	p := cloudProvidersList[0]
 	dir := t.TempDir()
-	writeTempConfig(t, dir, "llm:\n  openai_api_key: sk-base\n")
+	writeTempConfig(t, dir, fmt.Sprintf("llm:\n  %s: sk-base\n", p.yamlKey))
 	cfg, err := LoadStructWithAgent("")
 	require.NoError(t, err)
-	assert.Equal(t, "sk-base", cfg.LLM.OpenAI)
+	assert.Equal(t, "sk-base", p.getKey(cfg.LLM))
 }
 
 func TestLoadStructWithAgent_NoAgentsInCfg(t *testing.T) {
+	p := cloudProvidersList[0]
 	dir := t.TempDir()
-	writeTempConfig(t, dir, "llm:\n  openai_api_key: sk-base\n")
+	writeTempConfig(t, dir, fmt.Sprintf("llm:\n  %s: sk-base\n", p.yamlKey))
 	cfg, err := LoadStructWithAgent("my_agent")
 	require.NoError(t, err)
-	assert.Equal(t, "sk-base", cfg.LLM.OpenAI)
+	assert.Equal(t, "sk-base", p.getKey(cfg.LLM))
 }
 
 func TestLoadStructWithAgent_LoadError(t *testing.T) {

@@ -172,6 +172,10 @@ func buildKnownLLMKeys(list []cloudProvider) map[string]bool {
 	return m
 }
 
+func isLocalBackend(backend string) bool {
+	return backend == "" || backend == ollamaBackendStr
+}
+
 // getLLMAPIKey returns the value of the API key field for a given backend.
 func getLLMAPIKey(llm LLMKeys, backend string) string {
 	if p, ok := cloudProviders[backend]; ok {

@@ -390,6 +390,15 @@ func TestProviderMetaMap_SetterWorks(t *testing.T) {
 	}
 }
 
+func TestBuildRoutingExamplesSection_UsesCloudProviders(t *testing.T) {
+	section := buildRoutingExamplesSection()
+	require.GreaterOrEqual(t, len(cloudProvidersList), 2)
+	for _, p := range cloudProvidersList[:2] {
+		assert.Contains(t, section, p.name)
+	}
+	assert.Contains(t, section, ollamaBackendStr)
+}
+
 func TestBuildAgentsExampleSection_UsesCloudProviders(t *testing.T) {
 	section := buildAgentsExampleSection()
 	require.GreaterOrEqual(t, len(cloudProvidersList), 2)
