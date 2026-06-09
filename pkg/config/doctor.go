@@ -124,7 +124,7 @@ func (r *doctorRunner) configValidation(cfg *Config) {
 
 func (r *doctorRunner) ollama(cfg *Config) {
 	backend := effectiveBackend(cfg)
-	if backend != "" && backend != ollamaBackendStr {
+	if backend != "" && !isLocalBackend(backend) {
 		r.add("Ollama", HealthPass, fmt.Sprintf("skipped — backend is %s", backend))
 		return
 	}

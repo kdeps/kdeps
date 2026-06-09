@@ -26,10 +26,6 @@ func loadCfg(t *testing.T) *Config {
 	return cfg
 }
 
-func primaryCloudProvider() cloudProvider {
-	return cloudProvidersList[0]
-}
-
 func allCloudProviderKeysYAML() string {
 	var b strings.Builder
 	for _, p := range cloudProvidersList {
@@ -39,18 +35,19 @@ func allCloudProviderKeysYAML() string {
 }
 
 func TestValidate_ValidConfig_NoWarnings(t *testing.T) {
+	p := primaryCloudProvider()
 	dir := t.TempDir()
-	writeTempConfig(t, dir, `
+	writeTempConfig(t, dir, fmt.Sprintf(`
 llm:
   ollama_host: http://localhost:11434
   backend: ollama
-  openai_api_key: sk-test
+  %s: sk-test
 defaults:
   timezone: UTC
 resource_defaults:
   chat:
     timeout: "60s"
-`)
+`, p.yamlKey))
 	cfg := loadCfg(t)
 	warnings := cfg.Validate("")
 	assert.Empty(t, warnings)
@@ -142,7 +139,7 @@ resource_defaults:
 }
 
 func TestValidate_BackendWithoutAPIKey(t *testing.T) {
-	p := cloudProvidersList[0]
+	p := primaryCloudProvider()
 	dir := t.TempDir()
 	writeTempConfig(t, dir, fmt.Sprintf(`
 llm:
@@ -161,7 +158,7 @@ llm:
 }
 
 func TestValidate_BackendWithAPIKey_NoWarning(t *testing.T) {
-	p := cloudProvidersList[0]
+	p := primaryCloudProvider()
 	dir := t.TempDir()
 	writeTempConfig(t, dir, fmt.Sprintf(`
 llm:
@@ -378,7 +375,7 @@ func TestFindMappingValue(t *testing.T) {
 func TestHasCloudProviderKey(t *testing.T) {
 	assert.False(t, hasCloudProviderKey(LLMKeys{}))
 	llm := LLMKeys{}
-	cloudProvidersList[0].setLLMKey(&llm, "sk-test")
+	primaryCloudProvider().setLLMKey(&llm, "sk-test")
 	assert.True(t, hasCloudProviderKey(llm))
 }
 
@@ -391,14 +388,15 @@ func TestGetLLMAPIKey_AllBackends(t *testing.T) {
 		assert.Equal(t, "sk-"+p.name, getLLMAPIKey(cfg.LLM, p.name))
 	}
 	assert.Equal(t, "", getLLMAPIKey(cfg.LLM, "unknown"))
-	assert.Equal(t, "", getLLMAPIKey(LLMKeys{}, "openai"))
+	assert.Equal(t, "", getLLMAPIKey(LLMKeys{}, primaryCloudProvider().name))
 }
 
 func TestValidate_UnreadableConfig(t *testing.T) {
 	// Config was loaded from a file that was then deleted.
 	// Validate should handle the missing file gracefully.
 	dir := t.TempDir()
-	writeTempConfig(t, dir, "llm:\n  openai_api_key: sk-test\n")
+	p := primaryCloudProvider()
+	writeTempConfig(t, dir, fmt.Sprintf("llm:\n  %s: sk-test\n", p.yamlKey))
 	cfg := loadCfg(t)
 	require.NoError(t, os.Remove(filepath.Join(dir, "config.yaml")))
 	warnings := cfg.Validate("")
@@ -485,12 +483,13 @@ func TestCollectWorkflowNames_WorkflowWithoutMetadata(t *testing.T) {
 
 func TestValidate_AgentProfileNoWorkflows(t *testing.T) {
 	dir := t.TempDir()
-	writeTempConfig(t, dir, `
+	p := primaryCloudProvider()
+	writeTempConfig(t, dir, fmt.Sprintf(`
 agents:
   some_agent:
     llm:
-      openai_api_key: sk-test
-`)
+      %s: sk-test
+`, p.yamlKey))
 	cfg := loadCfg(t)
 	// AgentsDir is empty string — no workflow discovery, so no "does not match" warning
 	warnings := cfg.Validate("")
@@ -538,7 +537,7 @@ func TestIsLocalBackend(t *testing.T) {
 func TestIsEmptyAgentProfile(t *testing.T) {
 	assert.True(t, isEmptyAgentProfile(Config{}))
 	llm := LLMKeys{}
-	cloudProvidersList[0].setLLMKey(&llm, "sk-test")
+	primaryCloudProvider().setLLMKey(&llm, "sk-test")
 	assert.False(t, isEmptyAgentProfile(Config{LLM: llm}))
 	assert.False(t, isEmptyAgentProfile(Config{Defaults: Defaults{Timezone: "UTC"}}))
 	assert.False(t, isEmptyAgentProfile(Config{ResourceDefaults: ResourceDefaults{

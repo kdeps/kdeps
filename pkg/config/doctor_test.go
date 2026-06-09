@@ -92,7 +92,7 @@ llm:
 }
 
 func TestRunDoctor_BackendWithoutAPIKey(t *testing.T) {
-	p := cloudProvidersList[0]
+	p := primaryCloudProvider()
 	dir := t.TempDir()
 	t.Setenv(p.envVar, "")
 	writeTempConfig(t, dir, fmt.Sprintf(`
@@ -115,7 +115,7 @@ llm:
 }
 
 func TestRunDoctor_BackendWithAPIKey(t *testing.T) {
-	p := cloudProvidersList[0]
+	p := primaryCloudProvider()
 	dir := t.TempDir()
 	t.Setenv(p.envVar, "")
 	writeTempConfig(t, dir, fmt.Sprintf(`
@@ -165,7 +165,7 @@ llm:
 }
 
 func TestRunDoctor_OllamaCheck_SkippedForCloudBackend(t *testing.T) {
-	p := cloudProvidersList[0]
+	p := primaryCloudProvider()
 	t.Setenv("KDEPS_DEFAULT_BACKEND", "")
 	dir := t.TempDir()
 	writeTempConfig(t, dir, fmt.Sprintf(`
@@ -334,7 +334,7 @@ func TestDoctorRunnerAdd(t *testing.T) {
 }
 
 func TestProviderYAMLKey(t *testing.T) {
-	p := cloudProvidersList[0]
+	p := primaryCloudProvider()
 	assert.Equal(t, p.yamlKey, providerYAMLKey(p.name))
 	assert.Equal(t, "unknown_api_key", providerYAMLKey("unknown"))
 }
@@ -348,7 +348,7 @@ func TestCloudProviderEnvVars(t *testing.T) {
 }
 
 func TestBackendOrDefault(t *testing.T) {
-	p := cloudProvidersList[0]
+	p := primaryCloudProvider()
 	assert.Equal(t, ollamaBackendStr, backendOrDefault(""))
 	assert.Equal(t, p.name, backendOrDefault(p.name))
 }
@@ -356,7 +356,7 @@ func TestBackendOrDefault(t *testing.T) {
 // --- effectiveBackend ---
 
 func TestEffectiveBackend_FromEnv(t *testing.T) {
-	p := cloudProvidersList[0]
+	p := primaryCloudProvider()
 	t.Setenv("KDEPS_DEFAULT_BACKEND", p.name)
 	assert.Equal(t, p.name, effectiveBackend(nil))
 }

@@ -15,6 +15,7 @@
 package config_test
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"testing"
@@ -31,48 +32,57 @@ func TestLoad_NoFile(t *testing.T) {
 	cfg, err := config.Load()
 	require.NoError(t, err)
 	assert.NotNil(t, cfg)
-	assert.Empty(t, cfg.LLM.OpenAI)
+	p := config.CloudLLMProviders()[0]
+	v, err := cfg.GetField("llm." + p.YAMLKey)
+	require.NoError(t, err)
+	assert.Empty(t, v)
 	assert.Empty(t, cfg.LLM.OllamaHost)
 }
 
 func TestLoad_ValidFile(t *testing.T) {
+	providers := config.CloudLLMProviders()
+	require.GreaterOrEqual(t, len(providers), 2)
+	primary, secondary := providers[0], providers[1]
 	dir := t.TempDir()
 	path := filepath.Join(dir, "config.yaml")
-	content := `
+	content := fmt.Sprintf(`
 llm:
   ollama_host: http://localhost:11434
-  openai_api_key: sk-test
-  anthropic_api_key: ant-test
-`
+  %s: sk-test
+  %s: ant-test
+`, primary.YAMLKey, secondary.YAMLKey)
 	require.NoError(t, os.WriteFile(path, []byte(content), 0600))
 	t.Setenv("KDEPS_CONFIG_PATH", path)
-	// Unset any pre-existing values so setIfUnset has room to act.
-	for _, k := range []string{"OPENAI_API_KEY", "ANTHROPIC_API_KEY", "OLLAMA_HOST"} {
+	for _, k := range []string{primary.EnvVar, secondary.EnvVar, "OLLAMA_HOST"} {
 		require.NoError(t, os.Unsetenv(k))
 	}
 
 	cfg, err := config.Load()
 	require.NoError(t, err)
-	assert.Equal(t, "sk-test", cfg.LLM.OpenAI)
+	v, err := cfg.GetField("llm." + primary.YAMLKey)
+	require.NoError(t, err)
+	assert.Equal(t, "sk-test", v)
 	assert.Equal(t, "http://localhost:11434", cfg.LLM.OllamaHost)
-	// Env vars should be populated.
-	assert.Equal(t, "sk-test", os.Getenv("OPENAI_API_KEY"))
-	assert.Equal(t, "ant-test", os.Getenv("ANTHROPIC_API_KEY"))
+	assert.Equal(t, "sk-test", os.Getenv(primary.EnvVar))
+	assert.Equal(t, "ant-test", os.Getenv(secondary.EnvVar))
 	assert.Equal(t, "http://localhost:11434", os.Getenv("OLLAMA_HOST"))
 }
 
 func TestLoad_EnvVarWins(t *testing.T) {
+	p := config.CloudLLMProviders()[0]
 	dir := t.TempDir()
 	path := filepath.Join(dir, "config.yaml")
-	content := "llm:\n  openai_api_key: from-file\n"
+	content := fmt.Sprintf("llm:\n  %s: from-file\n", p.YAMLKey)
 	require.NoError(t, os.WriteFile(path, []byte(content), 0600))
 	t.Setenv("KDEPS_CONFIG_PATH", path)
-	t.Setenv("OPENAI_API_KEY", "from-env")
+	t.Setenv(p.EnvVar, "from-env")
 
 	cfg, err := config.Load()
 	require.NoError(t, err)
-	assert.Equal(t, "from-file", cfg.LLM.OpenAI)             // struct always reflects file
-	assert.Equal(t, "from-env", os.Getenv("OPENAI_API_KEY")) // env not overwritten
+	v, err := cfg.GetField("llm." + p.YAMLKey)
+	require.NoError(t, err)
+	assert.Equal(t, "from-file", v)
+	assert.Equal(t, "from-env", os.Getenv(p.EnvVar))
 }
 
 func TestLoad_Malformed(t *testing.T) {
@@ -146,13 +156,15 @@ func TestScaffold_CreatesFile(t *testing.T) {
 	require.NoError(t, config.Scaffold())
 	data, err := os.ReadFile(path)
 	require.NoError(t, err)
-	assert.Contains(t, string(data), "openai_api_key")
+	for _, p := range config.CloudLLMProviders() {
+		assert.Contains(t, string(data), p.YAMLKey)
+	}
 }
 
 func TestScaffold_DoesNotOverwrite(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "config.yaml")
-	original := "llm:\n  openai_api_key: keep-me\n"
+	original := fmt.Sprintf("llm:\n  %s: keep-me\n", config.CloudLLMProviders()[0].YAMLKey)
 	require.NoError(t, os.WriteFile(path, []byte(original), 0600))
 	t.Setenv("KDEPS_CONFIG_PATH", path)
 

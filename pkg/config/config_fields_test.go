@@ -19,6 +19,7 @@
 package config_test
 
 import (
+	"fmt"
 	"os"
 	"testing"
 
@@ -28,68 +29,82 @@ import (
 	"github.com/kdeps/kdeps/v2/pkg/config"
 )
 
-func newTestConfig() *config.Config {
-	return &config.Config{
+func primaryProvider(t *testing.T) config.LLMProvider {
+	t.Helper()
+	providers := config.CloudLLMProviders()
+	require.NotEmpty(t, providers)
+	return providers[0]
+}
+
+func newTestConfig(t *testing.T) *config.Config {
+	t.Helper()
+	p := primaryProvider(t)
+	cfg := &config.Config{
 		LLM: config.LLMKeys{
 			OllamaHost: "http://localhost:11434",
-			OpenAI:     "sk-test",
 		},
 		Defaults: config.Defaults{
 			Timezone:    "UTC",
 			OfflineMode: false,
 		},
 	}
+	require.NoError(t, cfg.SetField("llm."+p.YAMLKey, "sk-test"))
+	return cfg
 }
 
 // --- GetField ---
 
 func TestConfig_GetField_LLMHost(t *testing.T) {
-	c := newTestConfig()
+	c := newTestConfig(t)
 	v, err := c.GetField("llm.ollama_host")
 	require.NoError(t, err)
 	assert.Equal(t, "http://localhost:11434", v)
 }
 
-func TestConfig_GetField_OpenAI(t *testing.T) {
-	c := newTestConfig()
-	v, err := c.GetField("llm.openai_api_key")
+func TestConfig_GetField_PrimaryAPIKey(t *testing.T) {
+	p := primaryProvider(t)
+	c := newTestConfig(t)
+	v, err := c.GetField("llm." + p.YAMLKey)
 	require.NoError(t, err)
 	assert.Equal(t, "sk-test", v)
 }
 
 func TestConfig_GetField_Timezone(t *testing.T) {
-	c := newTestConfig()
+	c := newTestConfig(t)
 	v, err := c.GetField("defaults.timezone")
 	require.NoError(t, err)
 	assert.Equal(t, "UTC", v)
 }
 
 func TestConfig_GetField_OfflineMode(t *testing.T) {
-	c := newTestConfig()
+	c := newTestConfig(t)
 	v, err := c.GetField("defaults.offline_mode")
 	require.NoError(t, err)
 	assert.Equal(t, false, v)
 }
 
 func TestConfig_GetField_Unknown(t *testing.T) {
-	c := newTestConfig()
+	c := newTestConfig(t)
 	_, err := c.GetField("llm.nonexistent")
 	assert.Error(t, err)
 }
 
 // --- SetField ---
 
-func TestConfig_SetField_OpenAI(t *testing.T) {
-	c := newTestConfig()
-	os.Unsetenv("OPENAI_API_KEY")
-	require.NoError(t, c.SetField("llm.openai_api_key", "sk-new"))
-	assert.Equal(t, "sk-new", c.LLM.OpenAI)
-	assert.Equal(t, "sk-new", os.Getenv("OPENAI_API_KEY"))
-	os.Unsetenv("OPENAI_API_KEY")
+func TestConfig_SetField_PrimaryAPIKey(t *testing.T) {
+	p := primaryProvider(t)
+	c := newTestConfig(t)
+	os.Unsetenv(p.EnvVar)
+	require.NoError(t, c.SetField("llm."+p.YAMLKey, "sk-new"))
+	v, err := c.GetField("llm." + p.YAMLKey)
+	require.NoError(t, err)
+	assert.Equal(t, "sk-new", v)
+	assert.Equal(t, "sk-new", os.Getenv(p.EnvVar))
+	os.Unsetenv(p.EnvVar)
 }
 
 func TestConfig_SetField_Timezone(t *testing.T) {
-	c := newTestConfig()
+	c := newTestConfig(t)
 	os.Unsetenv("TZ")
 	require.NoError(t, c.SetField("defaults.timezone", "America/New_York"))
 	assert.Equal(t, "America/New_York", c.Defaults.Timezone)
@@ -98,13 +113,13 @@ func TestConfig_SetField_Timezone(t *testing.T) {
 }
 
 func TestConfig_SetField_OfflineMode(t *testing.T) {
-	c := newTestConfig()
+	c := newTestConfig(t)
 	require.NoError(t, c.SetField("defaults.offline_mode", "true"))
 	assert.Equal(t, true, c.Defaults.OfflineMode)
 }
 
 func TestConfig_SetField_OllamaHost(t *testing.T) {
-	c := newTestConfig()
+	c := newTestConfig(t)
 	os.Unsetenv("OLLAMA_HOST")
 	require.NoError(t, c.SetField("llm.ollama_host", "http://gpu:11434"))
 	assert.Equal(t, "http://gpu:11434", c.LLM.OllamaHost)
@@ -113,7 +128,7 @@ func TestConfig_SetField_OllamaHost(t *testing.T) {
 }
 
 func TestConfig_SetField_Unknown(t *testing.T) {
-	c := newTestConfig()
+	c := newTestConfig(t)
 	err := c.SetField("llm.not_a_field", "x")
 	assert.Error(t, err)
 }
@@ -121,46 +136,52 @@ func TestConfig_SetField_Unknown(t *testing.T) {
 // --- LoadStruct ---
 
 func TestLoadStruct_NotExist(t *testing.T) {
+	p := primaryProvider(t)
 	t.Setenv("KDEPS_CONFIG_PATH", t.TempDir()+"/nonexistent.yaml")
 	cfg, err := config.LoadStruct()
 	require.NoError(t, err)
 	require.NotNil(t, cfg)
-	// Non-existent file returns empty config without error.
-	assert.Equal(t, "", cfg.LLM.OpenAI)
+	v, err := cfg.GetField("llm." + p.YAMLKey)
+	require.NoError(t, err)
+	assert.Equal(t, "", v)
 }
 
 func TestLoadStruct_ValidFile(t *testing.T) {
+	p := primaryProvider(t)
 	dir := t.TempDir()
 	path := dir + "/config.yaml"
-	require.NoError(t, os.WriteFile(path, []byte(`
+	require.NoError(t, os.WriteFile(path, []byte(fmt.Sprintf(`
 llm:
-  openai_api_key: sk-loadstruct
+  %s: sk-loadstruct
 
 defaults:
   timezone: America/Chicago
-`), 0600))
+`, p.YAMLKey)), 0600))
 	t.Setenv("KDEPS_CONFIG_PATH", path)
 	cfg, err := config.LoadStruct()
 	require.NoError(t, err)
-	assert.Equal(t, "sk-loadstruct", cfg.LLM.OpenAI)
+	v, err := cfg.GetField("llm." + p.YAMLKey)
+	require.NoError(t, err)
+	assert.Equal(t, "sk-loadstruct", v)
 	assert.Equal(t, "America/Chicago", cfg.Defaults.Timezone)
 }
 
 func TestLoadStruct_DoesNotApplyEnv(t *testing.T) {
+	p := primaryProvider(t)
 	dir := t.TempDir()
 	path := dir + "/config.yaml"
-	require.NoError(t, os.WriteFile(path, []byte(`
+	require.NoError(t, os.WriteFile(path, []byte(fmt.Sprintf(`
 llm:
-  openai_api_key: sk-envcheck
-`), 0600))
+  %s: sk-envcheck
+`, p.YAMLKey)), 0600))
 	t.Setenv("KDEPS_CONFIG_PATH", path)
-	t.Setenv("OPENAI_API_KEY", "already-set")
+	t.Setenv(p.EnvVar, "already-set")
 	cfg, err := config.LoadStruct()
 	require.NoError(t, err)
-	// LoadStruct reads the struct value but must NOT overwrite existing env var.
-	assert.Equal(t, "sk-envcheck", cfg.LLM.OpenAI)
-	// The env var should remain unchanged since LoadStruct skips applyEnv.
-	assert.Equal(t, "already-set", os.Getenv("OPENAI_API_KEY"))
+	v, err := cfg.GetField("llm." + p.YAMLKey)
+	require.NoError(t, err)
+	assert.Equal(t, "sk-envcheck", v)
+	assert.Equal(t, "already-set", os.Getenv(p.EnvVar))
 }
 
 func TestLoadStruct_MalformedFile(t *testing.T) {
@@ -173,7 +194,6 @@ func TestLoadStruct_MalformedFile(t *testing.T) {
 }
 
 func TestLoadStruct_ReadError(t *testing.T) {
-	// Point at a directory so ReadFile fails with a non-ErrNotExist error.
 	dir := t.TempDir()
 	t.Setenv("KDEPS_CONFIG_PATH", dir)
 	_, err := config.LoadStruct()
@@ -183,14 +203,15 @@ func TestLoadStruct_ReadError(t *testing.T) {
 // --- ToMap ---
 
 func TestConfig_ToMap_Structure(t *testing.T) {
-	c := newTestConfig()
+	p := primaryProvider(t)
+	c := newTestConfig(t)
 	m := c.ToMap()
 	require.NotNil(t, m)
 
 	llm, ok := m["llm"].(map[string]any)
 	require.True(t, ok)
 	assert.Equal(t, "http://localhost:11434", llm["ollama_host"])
-	assert.Equal(t, "sk-test", llm["openai_api_key"])
+	assert.Equal(t, "sk-test", llm[p.YAMLKey])
 
 	defaults, ok := m["defaults"].(map[string]any)
 	require.True(t, ok)
