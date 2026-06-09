@@ -29,36 +29,6 @@ import (
 	"github.com/kdeps/kdeps/v2/pkg/domain"
 )
 
-// ─── session management ───────────────────────────────────────────────────────
-
-func getOrCreateSession(
-	sessionID, engineName string,
-	headless bool,
-	viewport *domain.BrowserViewportConfig,
-	timeout time.Duration,
-	userAgent string,
-	stealthMode bool,
-) (*session, bool, error) {
-	kdeps_debug.Log("enter: getOrCreateSession")
-	if sessionID != "" {
-		if v, ok := activeSessions.Load(sessionID); ok {
-			s, _ := v.(*session)
-			return s, false, nil
-		}
-	}
-
-	sess, err := newSession(engineName, headless, viewport, timeout, userAgent, stealthMode)
-	if err != nil {
-		return nil, false, err
-	}
-
-	if sessionID != "" {
-		activeSessions.Store(sessionID, sess)
-	}
-
-	return sess, true, nil
-}
-
 func newSession(
 	engineName string,
 	headless bool,
@@ -73,18 +43,15 @@ func newSession(
 		return nil, fmt.Errorf("could not start playwright: %w", err)
 	}
 
-	// Default realistic user agent if not specified
 	if userAgent == "" {
 		userAgent = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
 	}
 
-	// Build browser launch options
 	launchOpts := playwright.BrowserTypeLaunchOptions{
 		Headless: playwright.Bool(headless),
 		Args:     []string{},
 	}
 
-	// Stealth mode: add args to evade bot detection
 	if stealthMode {
 		launchOpts.Args = []string{
 			"--disable-blink-features=AutomationControlled",
@@ -152,7 +119,6 @@ func createContextAndPage(
 		UserAgent: playwright.String(userAgent),
 	}
 
-	// Stealth mode: add more realistic context options
 	if stealthMode {
 		ctxOpts.Locale = playwright.String("en-US")
 		ctxOpts.TimezoneId = playwright.String("America/New_York")
@@ -171,26 +137,4 @@ func createContextAndPage(
 	}
 
 	return bCtx, page, nil
-}
-
-func cleanupSession(sessionID string, sess *session) {
-	kdeps_debug.Log("enter: cleanupSession")
-	if sessionID != "" {
-		activeSessions.Delete(sessionID)
-	}
-	if sess == nil {
-		return
-	}
-	_ = sess.ctx.Close()
-	_ = sess.browser.Close()
-	_ = sess.pw.Stop()
-}
-
-// CloseSession closes and removes a named persistent session.
-func CloseSession(sessionID string) {
-	kdeps_debug.Log("enter: CloseSession")
-	if v, ok := activeSessions.LoadAndDelete(sessionID); ok {
-		s, _ := v.(*session)
-		cleanupSession("", s)
-	}
 }
