@@ -405,6 +405,21 @@ func TestBootstrap_WritesAllProviders(t *testing.T) {
 	for _, p := range cloudProvidersList {
 		assert.Contains(t, content, p.yamlKey, "missing %s in template", p.yamlKey)
 	}
+	for _, name := range providerNames() {
+		assert.Contains(t, content, name, "missing provider %s in template", name)
+	}
+}
+
+func TestDoctorSpotCheckEnvVars_FromProviders(t *testing.T) {
+	var spotCheck []string
+	for _, p := range cloudProvidersList {
+		if p.doctorSpotCheck {
+			spotCheck = append(spotCheck, p.envVar)
+		}
+	}
+	require.Len(t, spotCheck, 2)
+	assert.Contains(t, spotCheck, "OPENAI_API_KEY")
+	assert.Contains(t, spotCheck, "ANTHROPIC_API_KEY")
 }
 
 // --- Path ---
