@@ -35,7 +35,6 @@ import (
 	"mime/multipart"
 	"net"
 	"net/textproto"
-	"strings"
 	"time"
 
 	"github.com/emersion/go-imap/v2/imapclient"
@@ -45,7 +44,6 @@ import (
 
 	"github.com/kdeps/kdeps/v2/pkg/domain"
 	"github.com/kdeps/kdeps/v2/pkg/executor"
-	"github.com/kdeps/kdeps/v2/pkg/parser/expression"
 )
 
 // DI variables - overridable for testing.
@@ -129,43 +127,4 @@ func (e *Executor) Execute(
 			action,
 		)
 	}
-}
-
-type evalFn func(string) string
-
-func (e *Executor) makeEvaluator(ctx *executor.ExecutionContext) evalFn {
-	kdeps_debug.Log("enter: makeEvaluator")
-	if ctx == nil || ctx.API == nil {
-		return func(s string) string { return s }
-	}
-	eval := expression.NewEvaluator(ctx.API)
-	env := ctx.BuildEvaluatorEnv()
-	return func(s string) string {
-		if !strings.Contains(s, "{{") {
-			return s
-		}
-		expr := &domain.Expression{Raw: s, Type: domain.ExprTypeInterpolated}
-		result, err := eval.Evaluate(expr, env)
-		if err != nil {
-			return s
-		}
-		if str, ok := result.(string); ok {
-			return str
-		}
-		if result == nil {
-			return ""
-		}
-		return fmt.Sprintf("%v", result)
-	}
-}
-
-func evalSlice(items []string, ev evalFn) []string {
-	kdeps_debug.Log("enter: evalSlice")
-	out := make([]string, 0, len(items))
-	for _, item := range items {
-		if v := strings.TrimSpace(ev(item)); v != "" {
-			out = append(out, v)
-		}
-	}
-	return out
 }
