@@ -369,6 +369,19 @@ func TestCloudProviders_PopulatesLookupTables(t *testing.T) {
 	}
 }
 
+func TestCloudProviderOrder_MatchesProviders(t *testing.T) {
+	require.Len(t, cloudProviderOrder, len(cloudProviders))
+	for _, name := range cloudProviderOrder {
+		assert.Contains(t, cloudProviders, name)
+	}
+}
+
+func TestKnownLLMKeys_IncludesCloudProviderFields(t *testing.T) {
+	for _, p := range cloudProviders {
+		assert.True(t, knownLLMKeys[p.yamlKey], "missing %s", p.yamlKey)
+	}
+}
+
 func TestProviderMetaMap_SetterWorks(t *testing.T) {
 	meta := providerMetaMap()
 	cfg := &Config{}

@@ -27,25 +27,6 @@ var (
 		"agents":            true,
 	}
 
-	knownLLMKeys = map[string]bool{
-		"ollama_host":        true,
-		"backend":            true,
-		"base_url":           true,
-		"strategy":           true,
-		"models":             true,
-		"models_dir":         true,
-		"openai_api_key":     true,
-		"anthropic_api_key":  true,
-		"google_api_key":     true,
-		"cohere_api_key":     true,
-		"mistral_api_key":    true,
-		"together_api_key":   true,
-		"perplexity_api_key": true,
-		"groq_api_key":       true,
-		"deepseek_api_key":   true,
-		"openrouter_api_key": true,
-	}
-
 	knownDefaultsKeys = map[string]bool{
 		"timezone":       true,
 		"python_version": true,
@@ -67,6 +48,11 @@ var (
 		"fallback":        true,
 		"cost_optimized":  true,
 		"round_robin":     true,
+	}
+
+	cloudProviderOrder = []string{
+		"openai", "anthropic", "google", "cohere",
+		"mistral", "together", "perplexity", "groq", "deepseek", "openrouter",
 	}
 
 	cloudProviders = map[string]cloudProvider{
@@ -134,6 +120,7 @@ var (
 
 	backendToKey = buildBackendToKey(cloudProviders)
 	backendToEnv = buildBackendToEnv(cloudProviders)
+	knownLLMKeys = buildKnownLLMKeys(cloudProviders)
 )
 
 type cloudProvider struct {
@@ -155,6 +142,21 @@ func buildBackendToEnv(providers map[string]cloudProvider) map[string]string {
 	m := make(map[string]string, len(providers))
 	for name, p := range providers {
 		m[name] = p.envVar
+	}
+	return m
+}
+
+func buildKnownLLMKeys(providers map[string]cloudProvider) map[string]bool {
+	m := map[string]bool{
+		"ollama_host": true,
+		"backend":     true,
+		"base_url":    true,
+		"strategy":    true,
+		"models":      true,
+		"models_dir":  true,
+	}
+	for _, p := range providers {
+		m[p.yamlKey] = true
 	}
 	return m
 }
