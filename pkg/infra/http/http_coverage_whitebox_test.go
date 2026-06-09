@@ -44,16 +44,16 @@ type nopMultipartFile struct {
 
 func (nopMultipartFile) Close() error { return nil }
 
-func TestClientIPFromAddr_NoPort(t *testing.T) {
-	assert.Equal(t, "192.168.1.1", clientIPFromAddr("192.168.1.1"))
+func TestPeerIPFromAddr_NoPort(t *testing.T) {
+	assert.Equal(t, "192.168.1.1", peerIPFromAddr("192.168.1.1"))
 }
 
-func TestClientIPFromAddr_WithPort(t *testing.T) {
-	assert.Equal(t, "192.168.1.1", clientIPFromAddr("192.168.1.1:8080"))
+func TestPeerIPFromAddr_WithPort(t *testing.T) {
+	assert.Equal(t, "192.168.1.1", peerIPFromAddr("192.168.1.1:8080"))
 }
 
-func TestClientIPFromAddr_IPv6(t *testing.T) {
-	assert.Equal(t, "2001:db8::1", clientIPFromAddr("[2001:db8::1]:443"))
+func TestPeerIPFromAddr_IPv6(t *testing.T) {
+	assert.Equal(t, "2001:db8::1", peerIPFromAddr("[2001:db8::1]:443"))
 }
 
 func TestIPLimiterStore_CleanupLoop(t *testing.T) {

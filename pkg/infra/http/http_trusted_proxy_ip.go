@@ -19,42 +19,10 @@
 package http
 
 import (
-	"context"
 	"net"
 	stdhttp "net/http"
 	"strings"
-
-	"github.com/kdeps/kdeps/v2/pkg/domain"
 )
-
-func registerTrustedProxiesMiddleware(router *Router, settings domain.WorkflowSettings) {
-	router.Use(TrustedProxiesMiddleware(trustedProxiesFromSettings(settings)))
-}
-
-func trustedProxiesFromSettings(settings domain.WorkflowSettings) []string {
-	var proxies []string
-	proxies = appendTrustedProxies(proxies, trustedProxiesFromAPIServer(settings))
-	proxies = appendTrustedProxies(proxies, trustedProxiesFromWebServer(settings))
-	return proxies
-}
-
-func trustedProxiesFromAPIServer(settings domain.WorkflowSettings) []string {
-	if settings.APIServer == nil {
-		return nil
-	}
-	return settings.APIServer.TrustedProxies
-}
-
-func trustedProxiesFromWebServer(settings domain.WorkflowSettings) []string {
-	if settings.WebServer == nil {
-		return nil
-	}
-	return settings.WebServer.TrustedProxies
-}
-
-func appendTrustedProxies(dst, src []string) []string {
-	return append(dst, src...)
-}
 
 func parseTrustedHeaderIP(raw string) string {
 	trimmed := strings.TrimSpace(raw)
@@ -140,11 +108,6 @@ func isTrustedPeer(peerIP string, trusted []string) bool {
 		}
 	}
 	return false
-}
-
-func trustedProxiesFromContext(ctx context.Context) []string {
-	proxies, _ := ctx.Value(TrustedProxiesKey).([]string)
-	return proxies
 }
 
 func extractClientIP(r *stdhttp.Request, trusted []string) string {

@@ -24,10 +24,6 @@ import (
 	"time"
 )
 
-func clientIPFromAddr(addr string) string {
-	return peerIPFromAddr(addr)
-}
-
 func requestPath(r *stdhttp.Request) string {
 	return r.URL.Path
 }

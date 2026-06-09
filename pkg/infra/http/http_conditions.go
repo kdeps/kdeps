@@ -102,36 +102,3 @@ func skipWebSecurityIfNoWeb(workflow *domain.Workflow) bool {
 func shouldSkipBodyLimit(r *stdhttp.Request) bool {
 	return isMultipartUpload(r)
 }
-
-func emptyRequestBodyMap() map[string]interface{} {
-	return make(map[string]interface{})
-}
-
-func newAPIMetaMap() map[string]any {
-	return make(map[string]any)
-}
-
-func newUploadMetadataMap() map[string]string {
-	return make(map[string]string)
-}
-
-func ensureMetaMap(meta map[string]any) map[string]any {
-	if meta == nil {
-		return make(map[string]any)
-	}
-	return meta
-}
-
-func workflowMetadataName(workflow *domain.Workflow) string {
-	if workflow == nil {
-		return ""
-	}
-	return workflow.Metadata.Name
-}
-
-func workflowMetadataVersion(workflow *domain.Workflow) string {
-	if workflow == nil {
-		return ""
-	}
-	return workflow.Metadata.Version
-}
