@@ -19,10 +19,6 @@
 package telephony
 
 import (
-	"strconv"
-	"strings"
-
-	"github.com/kdeps/kdeps/v2/pkg/domain"
 	"github.com/kdeps/kdeps/v2/pkg/executor"
 )
 
@@ -64,102 +60,6 @@ func resultFromSession(s *Session) *Result {
 		r.Status = StatusNoInput
 	}
 	return r
-}
-
-const defaultGatherTimeoutSeconds = 5
-
-func gatherTimeoutSeconds(timeout string) int {
-	if seconds := parseDurationSeconds(timeout); seconds > 0 {
-		return seconds
-	}
-	return defaultGatherTimeoutSeconds
-}
-
-func buildSpeechGatherOptions(g *GatherOptions, cfg *domain.TelephonyActionConfig, inputAttr string) {
-	if !strings.Contains(inputAttr, "speech") {
-		return
-	}
-	if cfg.Timeout != "" {
-		g.SpeechTimeout = cfg.Timeout
-	} else {
-		g.SpeechTimeout = "auto"
-	}
-}
-
-func buildGatherOptions(cfg *domain.TelephonyActionConfig, numDigits int, finishOnKey string) GatherOptions {
-	inputAttr := inputAttrFromMode(cfg.Mode)
-	g := GatherOptions{
-		Input:       inputAttr,
-		NumDigits:   numDigits,
-		Timeout:     gatherTimeoutSeconds(cfg.Timeout),
-		FinishOnKey: finishOnKey,
-		Say:         cfg.Say,
-		Voice:       cfg.Voice,
-		Audio:       cfg.Audio,
-	}
-	buildSpeechGatherOptions(&g, cfg, inputAttr)
-	return g
-}
-
-func collectMenuKeys(matches []domain.TelephonyMatch) []string {
-	var keys []string
-	for _, m := range matches {
-		keys = append(keys, m.Keys...)
-	}
-	return keys
-}
-
-func menuNumDigits(cfg *domain.TelephonyActionConfig, allKeys []string) int {
-	if cfg.Limit > 0 {
-		return cfg.Limit
-	}
-	if len(allKeys) > 0 {
-		return 1
-	}
-	return 0
-}
-
-func applyMenuMatch(cfg *domain.TelephonyActionConfig, r *Result) *Result {
-	if r.Status != StatusMatch {
-		return r
-	}
-	for _, m := range cfg.Matches {
-		for _, key := range m.Keys {
-			if strings.EqualFold(r.Utterance, key) {
-				r.Interpretation = key
-				return r
-			}
-		}
-	}
-	r.Status = StatusNoMatch
-	return r
-}
-
-// parseDurationSeconds parses a duration string like "5s", "30s", "2m" into
-// whole seconds. Returns 0 on empty input or parse error.
-func parseDurationSeconds(s string) int {
-	if s == "" {
-		return 0
-	}
-	s = strings.TrimSpace(s)
-	if strings.HasSuffix(s, "s") {
-		n, err := strconv.Atoi(strings.TrimSuffix(s, "s"))
-		if err == nil {
-			return n
-		}
-	}
-	if strings.HasSuffix(s, "m") {
-		n, err := strconv.Atoi(strings.TrimSuffix(s, "m"))
-		if err == nil {
-			const secsPerMinute = 60
-			return n * secsPerMinute
-		}
-	}
-	n, err := strconv.Atoi(s)
-	if err == nil {
-		return n
-	}
-	return 0
 }
 
 // buildResult serialises session+Result into the standard output map returned
