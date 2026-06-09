@@ -20,52 +20,41 @@ package http
 
 import (
 	"fmt"
-	"strings"
 
 	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
 	"github.com/kdeps/kdeps/v2/pkg/executor"
 	"github.com/kdeps/kdeps/v2/pkg/parser/expression"
 )
 
-func (e *Executor) evaluateExpression(
+// evaluateData evaluates request body data.
+func (e *Executor) evaluateData(
 	evaluator *expression.Evaluator,
 	ctx *executor.ExecutionContext,
-	exprStr string,
+	data interface{},
 ) (interface{}, error) {
-	kdeps_debug.Log("enter: evaluateExpression")
+	kdeps_debug.Log("enter: evaluateData")
 	env := e.BuildEnvironment(ctx)
 
-	parser := expression.NewParser()
-	expr, err := parser.ParseValue(exprStr)
-	if err != nil {
-		return nil, fmt.Errorf("failed to parse expression: %w", err)
+	if dataStr, ok := data.(string); ok {
+		parser := expression.NewParser()
+		expr, err := parser.ParseValue(dataStr)
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse data expression: %w", err)
+		}
+		return evaluator.Evaluate(expr, env)
 	}
 
-	return evaluator.Evaluate(expr, env)
-}
-
-// evaluateStringOrLiteral evaluates a string as an expression if it contains expression syntax,
-// otherwise returns it as a literal string.
-func (e *Executor) evaluateStringOrLiteral(
-	evaluator *expression.Evaluator,
-	ctx *executor.ExecutionContext,
-	value string,
-) (string, error) {
-	kdeps_debug.Log("enter: evaluateStringOrLiteral")
-	if !e.containsExpressionSyntax(value) {
-		return value, nil
+	if dataMap, ok := data.(map[string]interface{}); ok {
+		result := make(map[string]interface{})
+		for key, value := range dataMap {
+			evaluatedValue, err := e.evaluateData(evaluator, ctx, value)
+			if err != nil {
+				return nil, fmt.Errorf("failed to evaluate data field %s: %w", key, err)
+			}
+			result[key] = evaluatedValue
+		}
+		return result, nil
 	}
 
-	result, err := e.evaluateExpression(evaluator, ctx, value)
-	if err != nil {
-		return "", err
-	}
-
-	return fmt.Sprintf("%v", result), nil
-}
-
-// containsExpressionSyntax checks if a string contains expression syntax.
-func (e *Executor) containsExpressionSyntax(s string) bool {
-	kdeps_debug.Log("enter: containsExpressionSyntax")
-	return strings.Contains(s, "{{")
+	return data, nil
 }

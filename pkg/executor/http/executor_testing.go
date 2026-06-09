@@ -100,6 +100,36 @@ func (e *Executor) ExecuteRequestWithRetryForTesting(
 	)
 }
 
+// EvaluateExpressionForTesting calls evaluateExpression for testing.
+func (e *Executor) EvaluateExpressionForTesting(
+	evaluator *expression.Evaluator,
+	ctx *executor.ExecutionContext,
+	exprStr string,
+) (interface{}, error) {
+	kdeps_debug.Log("enter: EvaluateExpressionForTesting")
+	return e.evaluateExpression(evaluator, ctx, exprStr)
+}
+
+// EvaluateDataForTesting calls evaluateData for testing.
+func (e *Executor) EvaluateDataForTesting(
+	evaluator *expression.Evaluator,
+	ctx *executor.ExecutionContext,
+	data interface{},
+) (interface{}, error) {
+	kdeps_debug.Log("enter: EvaluateDataForTesting")
+	return e.evaluateData(evaluator, ctx, data)
+}
+
+// EvaluateStringOrLiteralForTesting calls evaluateStringOrLiteral for testing.
+func (e *Executor) EvaluateStringOrLiteralForTesting(
+	evaluator *expression.Evaluator,
+	ctx *executor.ExecutionContext,
+	value string,
+) (string, error) {
+	kdeps_debug.Log("enter: EvaluateStringOrLiteralForTesting")
+	return e.evaluateStringOrLiteral(evaluator, ctx, value)
+}
+
 // ProcessResponseForTesting calls processResponse for testing.
 func (e *Executor) ProcessResponseForTesting(resp *http.Response) interface{} {
 	kdeps_debug.Log("enter: ProcessResponseForTesting")

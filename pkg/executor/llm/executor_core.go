@@ -20,7 +20,6 @@
 package llm
 
 import (
-	"fmt"
 	"log/slog"
 	stdhttp "net/http"
 	"time"
@@ -30,7 +29,6 @@ import (
 	"github.com/kdeps/kdeps/v2/pkg/domain"
 	"github.com/kdeps/kdeps/v2/pkg/executor"
 	"github.com/kdeps/kdeps/v2/pkg/infra/logging"
-	"github.com/kdeps/kdeps/v2/pkg/parser/expression"
 	mcpclient "github.com/kdeps/kdeps/v2/pkg/tools/mcp"
 )
 
@@ -47,10 +45,10 @@ type HTTPClient interface {
 // Executor executes LLM chat resources.
 type Executor struct {
 	ollamaURL       string
-	client          HTTPClient            // Changed to interface for mocking
-	toolExecutor    toolExecutorInterface // Interface for tool execution (avoid import cycle)
+	client          HTTPClient
+	toolExecutor    toolExecutorInterface
 	backendRegistry *BackendRegistry
-	modelManager    *ModelManager // Optional: for model download/serving
+	modelManager    *ModelManager
 	logger          *slog.Logger
 }
 
@@ -105,70 +103,3 @@ func (e *Executor) SetHTTPClientForTesting(client HTTPClient) {
 	kdeps_debug.Log("enter: SetHTTPClientForTesting")
 	e.client = client
 }
-
-func (e *Executor) Execute(
-	ctx *executor.ExecutionContext,
-	config *domain.ChatConfig,
-) (interface{}, error) {
-	kdeps_debug.Log("enter: Execute")
-	evaluator := expression.NewEvaluator(ctx.API)
-
-	// Resolve configuration with evaluated expressions
-	resolvedConfig, err := e.resolveConfig(evaluator, ctx, config)
-	if err != nil {
-		return nil, err
-	}
-
-	modelStr, promptStr, fallbackRoutes, err := e.resolveModelForExecution(evaluator, ctx, resolvedConfig)
-	if err != nil {
-		return nil, err
-	}
-
-	// Build messages
-	messages, msgErr := e.buildMessages(evaluator, ctx, resolvedConfig, promptStr)
-	if msgErr != nil {
-		return nil, msgErr
-	}
-
-	backend, baseURL, backendErr := e.resolveBackendAndBaseURL(resolvedConfig)
-	if backendErr != nil {
-		return nil, backendErr
-	}
-	allTools := mergeComponentTools(resolvedConfig.Tools, resolvedConfig.ComponentTools, ctx.Workflow)
-	requestConfig := e.resolveChatRequestConfig(resolvedConfig, allTools)
-	requestBody, err := backend.BuildRequest(modelStr, messages, requestConfig)
-	if err != nil {
-		return nil, fmt.Errorf("failed to build request: %w", err)
-	}
-	timeout := e.resolveTimeout(resolvedConfig)
-	maxOutputBytes := e.resolveMaxOutputBytes()
-
-	response := e.callBackendWithFallback(
-		backend, baseURL, requestBody, timeout,
-		fallbackRoutes, resolvedConfig, messages, requestConfig,
-	)
-
-	// Check for tool calls and execute them if tools are configured and executor is available
-	if len(allTools) > 0 && e.toolExecutor != nil {
-		// Process tool calls iteratively (up to max iterations)
-		response, err = e.handleToolCalls(
-			ctx,
-			resolvedConfig,
-			allTools,
-			modelStr,
-			messages,
-			requestConfig,
-			backend,
-			baseURL,
-			response,
-			timeout,
-		)
-		if err != nil {
-			return nil, err
-		}
-	}
-
-	return e.formatExecuteResult(response, resolvedConfig, maxOutputBytes)
-}
-
-// buildMessages builds the messages array for the LLM request.
