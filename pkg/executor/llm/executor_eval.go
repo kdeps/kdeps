@@ -19,13 +19,10 @@
 package llm
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
 	"strings"
-	"time"
 
-	kdepsconfig "github.com/kdeps/kdeps/v2/pkg/config"
 	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
 	"github.com/kdeps/kdeps/v2/pkg/executor"
 	"github.com/kdeps/kdeps/v2/pkg/parser/expression"
@@ -37,40 +34,33 @@ func (e *Executor) evaluateExpression(
 	exprStr string,
 ) (interface{}, error) {
 	kdeps_debug.Log("enter: evaluateExpression")
-	// Handle nil evaluator
 	if evaluator == nil {
 		return nil, errors.New("expression evaluation not available")
 	}
 
-	// Build environment from context
 	env := e.buildEnvironment(ctx)
 
-	// Parse expression
 	parser := expression.NewParser()
 	expr, err := parser.ParseValue(exprStr)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse expression: %w", err)
 	}
 
-	// Evaluate
 	return evaluator.Evaluate(expr, env)
 }
 
 // evaluateStringOrLiteral evaluates a string as an expression if it contains expression syntax,
 // otherwise returns it as a literal string.
-
 func (e *Executor) evaluateStringOrLiteral(
 	evaluator *expression.Evaluator,
 	ctx *executor.ExecutionContext,
 	value string,
 ) (string, error) {
 	kdeps_debug.Log("enter: evaluateStringOrLiteral")
-	// Check if value should be treated as a literal (e.g., file paths)
 	if e.shouldTreatAsLiteral(value) || !e.containsExpressionSyntax(value) {
 		return value, nil
 	}
 
-	// Handle nil evaluator (for testing or when evaluation is not available)
 	if evaluator == nil {
 		return "", fmt.Errorf("expression evaluation not available: cannot evaluate %q", value)
 	}
@@ -93,11 +83,7 @@ func (e *Executor) containsExpressionSyntax(s string) bool {
 // rather than an expression, based on patterns like file paths.
 func (e *Executor) shouldTreatAsLiteral(value string) bool {
 	kdeps_debug.Log("enter: shouldTreatAsLiteral")
-	// Check if value looks like a file path (absolute path starting with / or Windows drive)
-	// These should be treated as literals even if they contain characters that might look like expressions
 	if len(value) > 0 && (value[0] == '/' || (len(value) > 1 && value[1] == ':')) {
-		// If it's an absolute path, check if it has a file extension or path separators
-		// to distinguish from actual expressions that might start with /
 		return strings.Contains(value, "/") || strings.Contains(value, "\\") ||
 			strings.Contains(value, ".")
 	}
@@ -109,7 +95,6 @@ func (e *Executor) buildEnvironment(ctx *executor.ExecutionContext) map[string]i
 	kdeps_debug.Log("enter: buildEnvironment")
 	env := make(map[string]interface{})
 
-	// Add request data if available
 	if ctx.Request != nil {
 		env["request"] = map[string]interface{}{
 			"method":  ctx.Request.Method,
@@ -120,96 +105,13 @@ func (e *Executor) buildEnvironment(ctx *executor.ExecutionContext) map[string]i
 		}
 	}
 
-	// Add resource outputs
 	env["outputs"] = ctx.Outputs
-
-	// Add input transcript and media file (set by the input processor before execution).
 	env["inputTranscript"] = ctx.InputTranscript
 	env["inputMedia"] = ctx.InputMediaFile
 
-	// Add typed accessor objects so expressions like llm.response('x') work in prompts.
 	for k, v := range ctx.BuildEvaluatorEnv() {
 		env[k] = v
 	}
 
 	return env
-}
-
-// callOllama calls the Ollama API (legacy method, kept for compatibility).
-// New code should use callBackend instead.
-//
-
-func (e *Executor) callOllama(
-	requestBody map[string]interface{},
-	timeoutStr string,
-) (map[string]interface{}, error) {
-	kdeps_debug.Log("enter: callOllama")
-	// Parse timeout
-	defaults, _ := kdepsconfig.GetDefaults()
-	timeout := defaults.Chat.TimeoutDuration()
-	if timeoutStr != "" {
-		parsedTimeout, err := time.ParseDuration(timeoutStr)
-		if err == nil {
-			timeout = parsedTimeout
-		}
-	}
-
-	// Use ollama backend
-	backend := e.backendRegistry.Get("ollama")
-	if backend == nil {
-		// Fallback to default
-		backend = e.backendRegistry.GetDefault()
-	}
-	if backend == nil {
-		return nil, errors.New("ollama backend not available")
-	}
-
-	return e.callBackend(backend, e.ollamaURL, requestBody, timeout, "")
-}
-
-// parseJSONResponse parses JSON response and extracts specified keys.
-func (e *Executor) parseJSONResponse(
-	response map[string]interface{},
-	keys []string,
-) (interface{}, error) {
-	kdeps_debug.Log("enter: parseJSONResponse")
-	// Extract message content
-	message, ok := response["message"].(map[string]interface{})
-	if !ok {
-		return nil, errors.New("invalid response format: missing message")
-	}
-
-	content, ok := message["content"].(string)
-	if !ok {
-		return nil, errors.New("invalid response format: missing content")
-	}
-
-	// Parse JSON content
-	var jsonData map[string]interface{}
-	if err := json.Unmarshal([]byte(content), &jsonData); err != nil {
-		return nil, fmt.Errorf("failed to parse JSON response: %w", err)
-	}
-	if jsonData == nil {
-		// LLM intentionally returned null (e.g. below-threshold score).
-		// Signal caller to skip this item by returning nil result with no error.
-		return nil, nil //nolint:nilnil // intentional: nil result signals ExecuteWithItems to skip this item
-	}
-
-	// If keys specified, extract only those keys
-	if len(keys) > 0 {
-		result := make(map[string]interface{})
-		for _, key := range keys {
-			if val, found := jsonData[key]; found {
-				result[key] = val
-			}
-		}
-		// If no keys were found, return the full JSON data instead of empty map
-		// This provides better debugging and fallback behavior
-		if len(result) == 0 {
-			return jsonData, nil
-		}
-		return result, nil
-	}
-
-	return jsonData, nil
 }
