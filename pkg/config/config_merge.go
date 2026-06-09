@@ -51,16 +51,7 @@ func mergeLLMKeys(dst, src *LLMKeys) {
 		dst.Models = src.Models
 	}
 	setStrIfNotEmpty(&dst.ModelsDir, src.ModelsDir)
-	setStrIfNotEmpty(&dst.OpenAI, src.OpenAI)
-	setStrIfNotEmpty(&dst.Anthropic, src.Anthropic)
-	setStrIfNotEmpty(&dst.Google, src.Google)
-	setStrIfNotEmpty(&dst.Cohere, src.Cohere)
-	setStrIfNotEmpty(&dst.Mistral, src.Mistral)
-	setStrIfNotEmpty(&dst.Together, src.Together)
-	setStrIfNotEmpty(&dst.Perplexity, src.Perplexity)
-	setStrIfNotEmpty(&dst.Groq, src.Groq)
-	setStrIfNotEmpty(&dst.DeepSeek, src.DeepSeek)
-	setStrIfNotEmpty(&dst.OpenRouter, src.OpenRouter)
+	mergeCloudProviderKeys(dst, src)
 }
 
 // mergeDefaults overlays non-empty fields from src Defaults onto dst.

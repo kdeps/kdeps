@@ -47,7 +47,7 @@ func providerMetaMap() map[string]providerKey {
 		ollamaBackendStr: {"OLLAMA_HOST", func(c *Config, v string) { c.LLM.OllamaHost = v }},
 	}
 	for _, p := range cloudProvidersList {
-		meta[p.name] = providerKey{envVar: p.envVar, setter: p.setKey}
+		meta[p.name] = providerKey{envVar: p.envVar, setter: p.setOnConfig}
 	}
 	return meta
 }

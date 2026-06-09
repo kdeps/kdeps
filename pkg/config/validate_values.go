@@ -119,16 +119,7 @@ func isLLMKeysEmpty(llm LLMKeys) bool {
 		llm.Strategy == "" &&
 		len(llm.Models) == 0 &&
 		llm.ModelsDir == "" &&
-		llm.OpenAI == "" &&
-		llm.Anthropic == "" &&
-		llm.Google == "" &&
-		llm.Cohere == "" &&
-		llm.Mistral == "" &&
-		llm.Together == "" &&
-		llm.Perplexity == "" &&
-		llm.Groq == "" &&
-		llm.DeepSeek == "" &&
-		llm.OpenRouter == ""
+		!hasCloudProviderKey(llm)
 }
 
 // isDefaultsEmpty reports whether all global defaults are unset.

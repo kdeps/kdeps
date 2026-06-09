@@ -357,10 +357,17 @@ func TestFindMappingValue(t *testing.T) {
 	assert.Nil(t, findMappingValue(root, "missing"))
 }
 
+func TestHasCloudProviderKey(t *testing.T) {
+	assert.False(t, hasCloudProviderKey(LLMKeys{}))
+	llm := LLMKeys{}
+	cloudProvidersList[0].setLLMKey(&llm, "sk-test")
+	assert.True(t, hasCloudProviderKey(llm))
+}
+
 func TestGetLLMAPIKey_AllBackends(t *testing.T) {
 	cfg := &Config{}
 	for _, p := range cloudProvidersList {
-		p.setKey(cfg, "sk-"+p.name)
+		p.setLLMKey(&cfg.LLM, "sk-"+p.name)
 	}
 	for _, p := range cloudProvidersList {
 		assert.Equal(t, "sk-"+p.name, getLLMAPIKey(cfg.LLM, p.name))
