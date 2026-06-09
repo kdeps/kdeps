@@ -105,10 +105,12 @@ func TestKnownConfigEnvVars_NotEmpty(t *testing.T) {
 	assert.NotEmpty(t, vars)
 	assert.Contains(t, vars, "TZ")
 	assert.Contains(t, vars, "KDEPS_LLM_ROUTER")
-	assert.Contains(t, vars, "OPENAI_API_KEY")
 	assert.Contains(t, vars, "OLLAMA_HOST")
 	assert.Contains(t, vars, "KDEPS_CHAT_TIMEOUT")
 	assert.Contains(t, vars, "KDEPS_API_AUTH_TOKEN")
+	for _, p := range cloudProvidersList {
+		assert.Contains(t, vars, p.envVar, p.name)
+	}
 }
 
 // --- GetDefaults ---

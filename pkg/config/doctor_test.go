@@ -248,8 +248,7 @@ func TestRunDoctor_AgentsCheck_WithAgents(t *testing.T) {
 }
 
 func TestRunDoctor_EnvVarsCheck_MissingVars(t *testing.T) {
-	// Unset some critical vars to test warning.
-	for _, v := range []string{"OLLAMA_HOST", "OPENAI_API_KEY", "ANTHROPIC_API_KEY", "TZ"} {
+	for _, v := range doctorCriticalEnvVars() {
 		t.Setenv(v, "")
 	}
 	cfg := &Config{}
@@ -337,8 +336,9 @@ func TestProviderYAMLKey(t *testing.T) {
 }
 
 func TestCloudProviderEnvVars(t *testing.T) {
-	assert.Equal(t, "OPENAI_API_KEY", cloudProviders["openai"].envVar)
-	assert.Equal(t, "ANTHROPIC_API_KEY", cloudProviders["anthropic"].envVar)
+	for _, p := range cloudProvidersList {
+		assert.Equal(t, p.envVar, cloudProviders[p.name].envVar, p.name)
+	}
 	_, ok := cloudProviders["unknown"]
 	assert.False(t, ok)
 }
@@ -369,12 +369,9 @@ func TestEffectiveBackend_EmptyEnvFallback(t *testing.T) {
 // --- runCriticalEnvCheck ---
 
 func TestRunCriticalEnvCheck_AllSet(t *testing.T) {
-	t.Setenv("OLLAMA_HOST", "http://localhost:11434")
-	t.Setenv("KDEPS_DEFAULT_BACKEND", "ollama")
-	t.Setenv("KDEPS_LLM_MODELS", "gpt-4")
-	t.Setenv("OPENAI_API_KEY", "sk-test")
-	t.Setenv("ANTHROPIC_API_KEY", "ant-test")
-	t.Setenv("TZ", "UTC")
+	for _, k := range doctorCriticalEnvVars() {
+		t.Setenv(k, "set")
+	}
 
 	r := &doctorRunner{healthy: true}
 	r.criticalEnv()
@@ -384,12 +381,14 @@ func TestRunCriticalEnvCheck_AllSet(t *testing.T) {
 }
 
 func TestRunCriticalEnvCheck_PartialSet(t *testing.T) {
-	// Set only 2 out of 6 critical vars so 4 are missing (<= envWarnThreshold).
-	for _, k := range []string{"OLLAMA_HOST", "KDEPS_DEFAULT_BACKEND", "OPENAI_API_KEY", "ANTHROPIC_API_KEY"} {
+	critical := doctorCriticalEnvVars()
+	require.Greater(t, len(critical), envWarnThreshold+1)
+	for _, k := range critical[:envWarnThreshold+1] {
 		t.Setenv(k, "")
 	}
-	t.Setenv("KDEPS_LLM_MODELS", "gpt-4")
-	t.Setenv("TZ", "UTC")
+	for _, k := range critical[envWarnThreshold+1:] {
+		t.Setenv(k, "set")
+	}
 
 	r := &doctorRunner{healthy: true}
 	r.criticalEnv()

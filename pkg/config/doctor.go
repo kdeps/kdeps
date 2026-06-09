@@ -204,15 +204,24 @@ func (r *doctorRunner) agents(cfg *Config) {
 	r.add("Agents", HealthPass, fmt.Sprintf("%d agent(s) installed (%s)", count, agentsDir))
 }
 
-func (r *doctorRunner) criticalEnv() {
-	critical := []string{"OLLAMA_HOST", "KDEPS_DEFAULT_BACKEND", "KDEPS_LLM_MODELS", "TZ"}
+func doctorSpotCheckEnvVars() []string {
+	vars := make([]string, 0)
 	for _, p := range cloudProvidersList {
 		if p.doctorSpotCheck {
-			critical = append(critical, p.envVar)
+			vars = append(vars, p.envVar)
 		}
 	}
+	return vars
+}
+
+func doctorCriticalEnvVars() []string {
+	critical := []string{"OLLAMA_HOST", "KDEPS_DEFAULT_BACKEND", "KDEPS_LLM_MODELS", "TZ"}
+	return append(critical, doctorSpotCheckEnvVars()...)
+}
+
+func (r *doctorRunner) criticalEnv() {
 	missing := make([]string, 0)
-	for _, v := range critical {
+	for _, v := range doctorCriticalEnvVars() {
 		if osGetenv(v) == "" {
 			missing = append(missing, v)
 		}

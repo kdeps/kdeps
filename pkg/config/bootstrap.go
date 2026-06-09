@@ -33,23 +33,28 @@ type providerKey struct {
 // providerNames returns the ordered list of supported LLM provider names.
 // "ollama" is the local option (no API key needed).
 func providerNames() []string {
-	names := make([]string, 0, 1+len(cloudProvidersList))
-	names = append(names, ollamaBackendStr)
-	for _, p := range cloudProvidersList {
-		names = append(names, p.name)
-	}
-	return names
+	return allProviderNames
 }
 
-// providerMetaMap returns the metadata for each provider.
-func providerMetaMap() map[string]providerKey {
+//nolint:gochecknoglobals // built from cloudProvidersList at init
+var providerMeta = buildProviderMetaMap()
+
+func buildProviderMetaMap() map[string]providerKey {
 	meta := map[string]providerKey{
-		ollamaBackendStr: {"OLLAMA_HOST", func(c *Config, v string) { c.LLM.OllamaHost = v }},
+		ollamaBackendStr: {
+			envVar: "OLLAMA_HOST",
+			setter: func(c *Config, v string) { c.LLM.OllamaHost = v },
+		},
 	}
 	for _, p := range cloudProvidersList {
 		meta[p.name] = providerKey{envVar: p.envVar, setter: p.setOnConfig}
 	}
 	return meta
+}
+
+// providerMetaMap returns the metadata for each provider.
+func providerMetaMap() map[string]providerKey {
+	return providerMeta
 }
 
 // Bootstrap writes an initial ~/.kdeps/config.yaml by interactively asking the
