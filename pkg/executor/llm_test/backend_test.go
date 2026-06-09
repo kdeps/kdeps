@@ -128,7 +128,7 @@ func TestOllamaBackend(t *testing.T) {
 }
 
 func TestOpenAIBackend(t *testing.T) {
-	backend := &llm.OpenAIBackend{}
+	backend := llm.NewBackendRegistry().Get("openai")
 	assert.Equal(t, "openai", backend.Name())
 	assert.Equal(t, "https://api.openai.com", backend.DefaultURL())
 	assert.Equal(
@@ -344,12 +344,12 @@ func TestBackendResponseParsing_OpenAIFormat(t *testing.T) {
 		name    string
 		backend llm.Backend
 	}{
-		{"openai", &llm.OpenAIBackend{}},
-		{"mistral", &llm.MistralBackend{}},
-		{"together", &llm.TogetherBackend{}},
-		{"perplexity", &llm.PerplexityBackend{}},
-		{"groq", &llm.GroqBackend{}},
-		{"deepseek", &llm.DeepSeekBackend{}},
+		{"openai", llm.NewBackendRegistry().Get("openai")},
+		{"mistral", llm.NewBackendRegistry().Get("mistral")},
+		{"together", llm.NewBackendRegistry().Get("together")},
+		{"perplexity", llm.NewBackendRegistry().Get("perplexity")},
+		{"groq", llm.NewBackendRegistry().Get("groq")},
+		{"deepseek", llm.NewBackendRegistry().Get("deepseek")},
 	}
 
 	for _, tt := range backends {

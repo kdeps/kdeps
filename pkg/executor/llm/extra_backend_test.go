@@ -50,31 +50,31 @@ func TestCohereBackend_ChatEndpoint(t *testing.T) {
 }
 
 func TestMistralBackend_ChatEndpoint_Extra(t *testing.T) {
-	b := &llm.MistralBackend{}
+	b := llm.NewBackendRegistry().Get("mistral")
 	ep := b.ChatEndpoint("https://api.mistral.ai")
 	assert.True(t, strings.Contains(ep, "mistral.ai"), ep)
 }
 
 func TestTogetherBackend_ChatEndpoint_Extra(t *testing.T) {
-	b := &llm.TogetherBackend{}
+	b := llm.NewBackendRegistry().Get("together")
 	ep := b.ChatEndpoint("https://api.together.xyz")
 	assert.Contains(t, ep, "chat/completions")
 }
 
 func TestPerplexityBackend_ChatEndpoint_Extra(t *testing.T) {
-	b := &llm.PerplexityBackend{}
+	b := llm.NewBackendRegistry().Get("perplexity")
 	ep := b.ChatEndpoint("https://api.perplexity.ai")
 	assert.Contains(t, ep, "completions")
 }
 
 func TestGroqBackend_ChatEndpoint_Extra(t *testing.T) {
-	b := &llm.GroqBackend{}
+	b := llm.NewBackendRegistry().Get("groq")
 	ep := b.ChatEndpoint("https://api.groq.com")
 	assert.Contains(t, ep, "completions")
 }
 
 func TestDeepSeekBackend_ChatEndpoint_Extra(t *testing.T) {
-	b := &llm.DeepSeekBackend{}
+	b := llm.NewBackendRegistry().Get("deepseek")
 	ep := b.ChatEndpoint("https://api.deepseek.com")
 	assert.Contains(t, ep, "completions")
 }
@@ -106,7 +106,7 @@ func TestCohereBackend_ParseResponse_NonOK(t *testing.T) {
 }
 
 func TestMistralBackend_ParseResponse_NonOK(t *testing.T) {
-	b := &llm.MistralBackend{}
+	b := llm.NewBackendRegistry().Get("mistral")
 	resp := makeResp(stdhttp.StatusTooManyRequests, `{"message":"rate limited"}`)
 	_, err := b.ParseResponse(resp)
 	require.Error(t, err)
@@ -114,7 +114,7 @@ func TestMistralBackend_ParseResponse_NonOK(t *testing.T) {
 }
 
 func TestTogetherBackend_ParseResponse_NonOK(t *testing.T) {
-	b := &llm.TogetherBackend{}
+	b := llm.NewBackendRegistry().Get("together")
 	resp := makeResp(stdhttp.StatusBadRequest, `{"error":"bad request"}`)
 	_, err := b.ParseResponse(resp)
 	require.Error(t, err)
@@ -122,7 +122,7 @@ func TestTogetherBackend_ParseResponse_NonOK(t *testing.T) {
 }
 
 func TestPerplexityBackend_ParseResponse_NonOK(t *testing.T) {
-	b := &llm.PerplexityBackend{}
+	b := llm.NewBackendRegistry().Get("perplexity")
 	resp := makeResp(stdhttp.StatusUnauthorized, `{"error":"unauthorized"}`)
 	_, err := b.ParseResponse(resp)
 	require.Error(t, err)
@@ -130,7 +130,7 @@ func TestPerplexityBackend_ParseResponse_NonOK(t *testing.T) {
 }
 
 func TestGroqBackend_ParseResponse_NonOK(t *testing.T) {
-	b := &llm.GroqBackend{}
+	b := llm.NewBackendRegistry().Get("groq")
 	resp := makeResp(stdhttp.StatusServiceUnavailable, `{"error":"unavailable"}`)
 	_, err := b.ParseResponse(resp)
 	require.Error(t, err)
@@ -138,7 +138,7 @@ func TestGroqBackend_ParseResponse_NonOK(t *testing.T) {
 }
 
 func TestDeepSeekBackend_ParseResponse_NonOK(t *testing.T) {
-	b := &llm.DeepSeekBackend{}
+	b := llm.NewBackendRegistry().Get("deepseek")
 	resp := makeResp(stdhttp.StatusUnauthorized, `{"error":"bad key"}`)
 	_, err := b.ParseResponse(resp)
 	require.Error(t, err)
@@ -165,14 +165,14 @@ func TestCohereBackend_GetAPIKeyHeader_WithEnv(t *testing.T) {
 
 func TestMistralBackend_GetAPIKeyHeader_Empty(t *testing.T) {
 	t.Setenv("MISTRAL_API_KEY", "")
-	b := &llm.MistralBackend{}
+	b := llm.NewBackendRegistry().Get("mistral")
 	name, val := b.GetAPIKeyHeader("")
 	assert.Empty(t, name)
 	assert.Empty(t, val)
 }
 
 func TestMistralBackend_GetAPIKeyHeader_WithKey(t *testing.T) {
-	b := &llm.MistralBackend{}
+	b := llm.NewBackendRegistry().Get("mistral")
 	name, val := b.GetAPIKeyHeader("direct-key")
 	assert.Equal(t, "Authorization", name)
 	assert.Contains(t, val, "direct-key")
@@ -180,14 +180,14 @@ func TestMistralBackend_GetAPIKeyHeader_WithKey(t *testing.T) {
 
 func TestTogetherBackend_GetAPIKeyHeader_Empty(t *testing.T) {
 	t.Setenv("TOGETHER_API_KEY", "")
-	b := &llm.TogetherBackend{}
+	b := llm.NewBackendRegistry().Get("together")
 	name, val := b.GetAPIKeyHeader("")
 	assert.Empty(t, name)
 	assert.Empty(t, val)
 }
 
 func TestTogetherBackend_GetAPIKeyHeader_WithKey(t *testing.T) {
-	b := &llm.TogetherBackend{}
+	b := llm.NewBackendRegistry().Get("together")
 	name, val := b.GetAPIKeyHeader("together-key")
 	assert.Equal(t, "Authorization", name)
 	assert.Contains(t, val, "together-key")
@@ -195,14 +195,14 @@ func TestTogetherBackend_GetAPIKeyHeader_WithKey(t *testing.T) {
 
 func TestPerplexityBackend_GetAPIKeyHeader_Empty(t *testing.T) {
 	t.Setenv("PERPLEXITY_API_KEY", "")
-	b := &llm.PerplexityBackend{}
+	b := llm.NewBackendRegistry().Get("perplexity")
 	name, val := b.GetAPIKeyHeader("")
 	assert.Empty(t, name)
 	assert.Empty(t, val)
 }
 
 func TestPerplexityBackend_GetAPIKeyHeader_WithKey(t *testing.T) {
-	b := &llm.PerplexityBackend{}
+	b := llm.NewBackendRegistry().Get("perplexity")
 	name, val := b.GetAPIKeyHeader("perp-key")
 	assert.Equal(t, "Authorization", name)
 	assert.Contains(t, val, "perp-key")
@@ -210,14 +210,14 @@ func TestPerplexityBackend_GetAPIKeyHeader_WithKey(t *testing.T) {
 
 func TestGroqBackend_GetAPIKeyHeader_Empty(t *testing.T) {
 	t.Setenv("GROQ_API_KEY", "")
-	b := &llm.GroqBackend{}
+	b := llm.NewBackendRegistry().Get("groq")
 	name, val := b.GetAPIKeyHeader("")
 	assert.Empty(t, name)
 	assert.Empty(t, val)
 }
 
 func TestGroqBackend_GetAPIKeyHeader_WithKey(t *testing.T) {
-	b := &llm.GroqBackend{}
+	b := llm.NewBackendRegistry().Get("groq")
 	name, val := b.GetAPIKeyHeader("groq-key")
 	assert.Equal(t, "Authorization", name)
 	assert.Contains(t, val, "groq-key")
@@ -225,7 +225,7 @@ func TestGroqBackend_GetAPIKeyHeader_WithKey(t *testing.T) {
 
 func TestDeepSeekBackend_GetAPIKeyHeader_Empty(t *testing.T) {
 	t.Setenv("DEEPSEEK_API_KEY", "")
-	b := &llm.DeepSeekBackend{}
+	b := llm.NewBackendRegistry().Get("deepseek")
 	name, val := b.GetAPIKeyHeader("")
 	assert.Empty(t, name)
 	assert.Empty(t, val)
@@ -233,7 +233,7 @@ func TestDeepSeekBackend_GetAPIKeyHeader_Empty(t *testing.T) {
 
 func TestDeepSeekBackend_GetAPIKeyHeader_WithEnv(t *testing.T) {
 	t.Setenv("DEEPSEEK_API_KEY", "env-deepseek")
-	b := &llm.DeepSeekBackend{}
+	b := llm.NewBackendRegistry().Get("deepseek")
 	name, val := b.GetAPIKeyHeader("")
 	assert.Equal(t, "Authorization", name)
 	assert.Contains(t, val, "env-deepseek")
@@ -274,7 +274,7 @@ func TestCohereBackend_ParseResponse_InvalidJSON(t *testing.T) {
 }
 
 func TestMistralBackend_ParseResponse_InvalidJSON(t *testing.T) {
-	b := &llm.MistralBackend{}
+	b := llm.NewBackendRegistry().Get("mistral")
 	resp := makeResp(stdhttp.StatusOK, "not-json")
 	_, err := b.ParseResponse(resp)
 	require.Error(t, err)
@@ -282,7 +282,7 @@ func TestMistralBackend_ParseResponse_InvalidJSON(t *testing.T) {
 }
 
 func TestTogetherBackend_ParseResponse_InvalidJSON(t *testing.T) {
-	b := &llm.TogetherBackend{}
+	b := llm.NewBackendRegistry().Get("together")
 	resp := makeResp(stdhttp.StatusOK, "not-json")
 	_, err := b.ParseResponse(resp)
 	require.Error(t, err)
@@ -290,7 +290,7 @@ func TestTogetherBackend_ParseResponse_InvalidJSON(t *testing.T) {
 }
 
 func TestPerplexityBackend_ParseResponse_InvalidJSON(t *testing.T) {
-	b := &llm.PerplexityBackend{}
+	b := llm.NewBackendRegistry().Get("perplexity")
 	resp := makeResp(stdhttp.StatusOK, "not-json")
 	_, err := b.ParseResponse(resp)
 	require.Error(t, err)
@@ -298,7 +298,7 @@ func TestPerplexityBackend_ParseResponse_InvalidJSON(t *testing.T) {
 }
 
 func TestGroqBackend_ParseResponse_InvalidJSON(t *testing.T) {
-	b := &llm.GroqBackend{}
+	b := llm.NewBackendRegistry().Get("groq")
 	resp := makeResp(stdhttp.StatusOK, "not-json")
 	_, err := b.ParseResponse(resp)
 	require.Error(t, err)
@@ -306,7 +306,7 @@ func TestGroqBackend_ParseResponse_InvalidJSON(t *testing.T) {
 }
 
 func TestDeepSeekBackend_ParseResponse_InvalidJSON(t *testing.T) {
-	b := &llm.DeepSeekBackend{}
+	b := llm.NewBackendRegistry().Get("deepseek")
 	resp := makeResp(stdhttp.StatusOK, "not-json")
 	_, err := b.ParseResponse(resp)
 	require.Error(t, err)
@@ -314,7 +314,7 @@ func TestDeepSeekBackend_ParseResponse_InvalidJSON(t *testing.T) {
 }
 
 func TestOpenRouterBackend_ParseResponse_InvalidJSON(t *testing.T) {
-	b := &llm.OpenRouterBackend{}
+	b := llm.NewBackendRegistry().Get("openrouter")
 	resp := makeResp(stdhttp.StatusOK, "not-json")
 	_, err := b.ParseResponse(resp)
 	require.Error(t, err)
@@ -324,7 +324,7 @@ func TestOpenRouterBackend_ParseResponse_InvalidJSON(t *testing.T) {
 // ── Together/Perplexity/Groq/DeepSeek BuildRequest branches ─────────────────
 
 func TestTogetherBackend_BuildRequest_Extended(t *testing.T) {
-	b := &llm.TogetherBackend{}
+	b := llm.NewBackendRegistry().Get("together")
 	msgs := []map[string]interface{}{{"role": "user", "content": "test"}}
 
 	t.Run("context length", func(t *testing.T) {
@@ -350,7 +350,7 @@ func TestTogetherBackend_BuildRequest_Extended(t *testing.T) {
 }
 
 func TestPerplexityBackend_BuildRequest_Extended(t *testing.T) {
-	b := &llm.PerplexityBackend{}
+	b := llm.NewBackendRegistry().Get("perplexity")
 	msgs := []map[string]interface{}{{"role": "user", "content": "test"}}
 
 	t.Run("context length", func(t *testing.T) {
@@ -376,7 +376,7 @@ func TestPerplexityBackend_BuildRequest_Extended(t *testing.T) {
 }
 
 func TestGroqBackend_BuildRequest_Extended(t *testing.T) {
-	b := &llm.GroqBackend{}
+	b := llm.NewBackendRegistry().Get("groq")
 	msgs := []map[string]interface{}{{"role": "user", "content": "test"}}
 
 	t.Run("context length", func(t *testing.T) {
@@ -402,7 +402,7 @@ func TestGroqBackend_BuildRequest_Extended(t *testing.T) {
 }
 
 func TestDeepSeekBackend_BuildRequest_Extended(t *testing.T) {
-	b := &llm.DeepSeekBackend{}
+	b := llm.NewBackendRegistry().Get("deepseek")
 	msgs := []map[string]interface{}{{"role": "user", "content": "test"}}
 
 	t.Run("context length", func(t *testing.T) {
@@ -455,7 +455,7 @@ func TestGoogleBackend_ChatEndpointWithKey_FromEnv(t *testing.T) {
 // ── Mistral BuildRequest tools branch ────────────────────────────────────────
 
 func TestMistralBackend_BuildRequest_Tools(t *testing.T) {
-	b := &llm.MistralBackend{}
+	b := llm.NewBackendRegistry().Get("mistral")
 	msgs := []map[string]interface{}{{"role": "user", "content": "test"}}
 	tools := []map[string]interface{}{{"type": "function", "name": "my_tool"}}
 	req, err := b.BuildRequest("mistral-model", msgs, llm.ChatRequestConfig{Tools: tools})
@@ -482,7 +482,7 @@ func TestGoogleBackend_GetAPIKeyHeader_AlwaysEmpty(t *testing.T) {
 func TestOpenAIBackend_GetAPIKeyHeader_EmptyExtra(t *testing.T) {
 	// Ensure env var is clear for this test.
 	t.Setenv("OPENAI_API_KEY", "")
-	b := &llm.OpenAIBackend{}
+	b := llm.NewBackendRegistry().Get("openai")
 	name, val := b.GetAPIKeyHeader("")
 	assert.Empty(t, name)
 	assert.Empty(t, val)
@@ -611,7 +611,7 @@ func TestGoogleBackend_BuildRequest_Tools(t *testing.T) {
 // ── ParseResponse — success paths with convertOpenAIResponse backends ──────
 
 func TestMistralBackend_ParseResponse_Success_Extra(t *testing.T) {
-	b := &llm.MistralBackend{}
+	b := llm.NewBackendRegistry().Get("mistral")
 	body := `{"choices":[{"message":{"role":"assistant","content":"mistral reply"}}]}`
 	resp := makeResp(stdhttp.StatusOK, body)
 	result, err := b.ParseResponse(resp)
@@ -622,7 +622,7 @@ func TestMistralBackend_ParseResponse_Success_Extra(t *testing.T) {
 }
 
 func TestTogetherBackend_ParseResponse_Success(t *testing.T) {
-	b := &llm.TogetherBackend{}
+	b := llm.NewBackendRegistry().Get("together")
 	body := `{"choices":[{"message":{"role":"assistant","content":"together reply"}}]}`
 	resp := makeResp(stdhttp.StatusOK, body)
 	result, err := b.ParseResponse(resp)
@@ -633,7 +633,7 @@ func TestTogetherBackend_ParseResponse_Success(t *testing.T) {
 }
 
 func TestPerplexityBackend_ParseResponse_Success(t *testing.T) {
-	b := &llm.PerplexityBackend{}
+	b := llm.NewBackendRegistry().Get("perplexity")
 	body := `{"choices":[{"message":{"role":"assistant","content":"perplexity reply"}}]}`
 	resp := makeResp(stdhttp.StatusOK, body)
 	result, err := b.ParseResponse(resp)
@@ -644,7 +644,7 @@ func TestPerplexityBackend_ParseResponse_Success(t *testing.T) {
 }
 
 func TestGroqBackend_ParseResponse_Success(t *testing.T) {
-	b := &llm.GroqBackend{}
+	b := llm.NewBackendRegistry().Get("groq")
 	body := `{"choices":[{"message":{"role":"assistant","content":"groq reply"}}]}`
 	resp := makeResp(stdhttp.StatusOK, body)
 	result, err := b.ParseResponse(resp)
@@ -655,7 +655,7 @@ func TestGroqBackend_ParseResponse_Success(t *testing.T) {
 }
 
 func TestDeepSeekBackend_ParseResponse_Success(t *testing.T) {
-	b := &llm.DeepSeekBackend{}
+	b := llm.NewBackendRegistry().Get("deepseek")
 	body := `{"choices":[{"message":{"role":"assistant","content":"deepseek reply"}}]}`
 	resp := makeResp(stdhttp.StatusOK, body)
 	result, err := b.ParseResponse(resp)
@@ -668,23 +668,23 @@ func TestDeepSeekBackend_ParseResponse_Success(t *testing.T) {
 // ── OpenRouterBackend ─────────────────────────────────────────────────────
 
 func TestOpenRouterBackend_Name(t *testing.T) {
-	b := &llm.OpenRouterBackend{}
+	b := llm.NewBackendRegistry().Get("openrouter")
 	assert.Equal(t, "openrouter", b.Name())
 }
 
 func TestOpenRouterBackend_DefaultURL(t *testing.T) {
-	b := &llm.OpenRouterBackend{}
+	b := llm.NewBackendRegistry().Get("openrouter")
 	assert.Equal(t, "https://openrouter.ai", b.DefaultURL())
 }
 
 func TestOpenRouterBackend_ChatEndpoint(t *testing.T) {
-	b := &llm.OpenRouterBackend{}
+	b := llm.NewBackendRegistry().Get("openrouter")
 	ep := b.ChatEndpoint("https://openrouter.ai")
 	assert.Equal(t, "https://openrouter.ai/api/v1/chat/completions", ep)
 }
 
 func TestOpenRouterBackend_BuildRequest_Basic(t *testing.T) {
-	b := &llm.OpenRouterBackend{}
+	b := llm.NewBackendRegistry().Get("openrouter")
 	msgs := []map[string]interface{}{
 		{"role": "user", "content": "hello"},
 	}
@@ -697,14 +697,14 @@ func TestOpenRouterBackend_BuildRequest_Basic(t *testing.T) {
 }
 
 func TestOpenRouterBackend_BuildRequest_WithContextLength(t *testing.T) {
-	b := &llm.OpenRouterBackend{}
+	b := llm.NewBackendRegistry().Get("openrouter")
 	req, err := b.BuildRequest("openai/gpt-4o", nil, llm.ChatRequestConfig{ContextLength: 2048})
 	require.NoError(t, err)
 	assert.Equal(t, 2048, req["max_tokens"])
 }
 
 func TestOpenRouterBackend_BuildRequest_JSONResponse(t *testing.T) {
-	b := &llm.OpenRouterBackend{}
+	b := llm.NewBackendRegistry().Get("openrouter")
 	req, err := b.BuildRequest("openai/gpt-4o", nil, llm.ChatRequestConfig{JSONResponse: true})
 	require.NoError(t, err)
 	rf, ok := req["response_format"].(map[string]interface{})
@@ -713,7 +713,7 @@ func TestOpenRouterBackend_BuildRequest_JSONResponse(t *testing.T) {
 }
 
 func TestOpenRouterBackend_BuildRequest_WithTools(t *testing.T) {
-	b := &llm.OpenRouterBackend{}
+	b := llm.NewBackendRegistry().Get("openrouter")
 	tools := []map[string]interface{}{{"type": "function", "name": "my_tool"}}
 	req, err := b.BuildRequest("openai/gpt-4o", nil, llm.ChatRequestConfig{Tools: tools})
 	require.NoError(t, err)
@@ -721,7 +721,7 @@ func TestOpenRouterBackend_BuildRequest_WithTools(t *testing.T) {
 }
 
 func TestOpenRouterBackend_ParseResponse_OK(t *testing.T) {
-	b := &llm.OpenRouterBackend{}
+	b := llm.NewBackendRegistry().Get("openrouter")
 	body := `{"choices":[{"message":{"role":"assistant","content":"hello from openrouter"}}]}`
 	resp := makeResp(stdhttp.StatusOK, body)
 	result, err := b.ParseResponse(resp)
@@ -732,7 +732,7 @@ func TestOpenRouterBackend_ParseResponse_OK(t *testing.T) {
 }
 
 func TestOpenRouterBackend_ParseResponse_Error(t *testing.T) {
-	b := &llm.OpenRouterBackend{}
+	b := llm.NewBackendRegistry().Get("openrouter")
 	resp := makeResp(stdhttp.StatusUnauthorized, `{"error":{"message":"invalid key"}}`)
 	_, err := b.ParseResponse(resp)
 	require.Error(t, err)
@@ -740,7 +740,7 @@ func TestOpenRouterBackend_ParseResponse_Error(t *testing.T) {
 }
 
 func TestOpenRouterBackend_GetAPIKeyHeader_Set(t *testing.T) {
-	b := &llm.OpenRouterBackend{}
+	b := llm.NewBackendRegistry().Get("openrouter")
 	name, val := b.GetAPIKeyHeader("mykey")
 	assert.Equal(t, "Authorization", name)
 	assert.Equal(t, "Bearer mykey", val)
@@ -748,7 +748,7 @@ func TestOpenRouterBackend_GetAPIKeyHeader_Set(t *testing.T) {
 
 func TestOpenRouterBackend_GetAPIKeyHeader_Empty(t *testing.T) {
 	t.Setenv("OPENROUTER_API_KEY", "")
-	b := &llm.OpenRouterBackend{}
+	b := llm.NewBackendRegistry().Get("openrouter")
 	name, val := b.GetAPIKeyHeader("")
 	assert.Empty(t, name)
 	assert.Empty(t, val)
@@ -756,7 +756,7 @@ func TestOpenRouterBackend_GetAPIKeyHeader_Empty(t *testing.T) {
 
 func TestOpenRouterBackend_GetAPIKeyHeader_EnvFallback(t *testing.T) {
 	t.Setenv("OPENROUTER_API_KEY", "envkey")
-	b := &llm.OpenRouterBackend{}
+	b := llm.NewBackendRegistry().Get("openrouter")
 	name, val := b.GetAPIKeyHeader("")
 	assert.Equal(t, "Authorization", name)
 	assert.Equal(t, "Bearer envkey", val)

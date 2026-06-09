@@ -46,7 +46,7 @@ func TestBackendRegistry_GetDefault_Fallback(t *testing.T) {
 	registry := llm.NewBackendRegistry()
 	// Clear all backends and register only openai backend
 	registry.SetBackendsForTesting(map[string]llm.Backend{
-		"openai": &llm.OpenAIBackend{},
+		"openai": llm.NewBackendRegistry().Get("openai"),
 	})
 
 	defaultBackend := registry.GetDefault()
@@ -298,7 +298,7 @@ func TestCohereBackend_BuildRequest_EmptyMessages(t *testing.T) {
 
 // TestOpenAIBackend_ParseResponse_ErrorResponse tests error response parsing.
 func TestOpenAIBackend_ParseResponse_ErrorResponse(t *testing.T) {
-	backend := &llm.OpenAIBackend{}
+	backend := llm.NewBackendRegistry().Get("openai")
 
 	errorResp := map[string]interface{}{
 		"error": map[string]interface{}{
@@ -330,7 +330,7 @@ func TestGoogleBackend_ParseResponse_ErrorResponse(t *testing.T) {
 
 // TestMistralBackend_ParseResponse_ErrorResponse tests error response parsing.
 func TestMistralBackend_ParseResponse_ErrorResponse(t *testing.T) {
-	backend := &llm.MistralBackend{}
+	backend := llm.NewBackendRegistry().Get("mistral")
 
 	errorResp := map[string]interface{}{
 		"error": map[string]interface{}{
@@ -346,7 +346,7 @@ func TestMistralBackend_ParseResponse_ErrorResponse(t *testing.T) {
 
 // TestTogetherBackend_ParseResponse_ErrorResponse tests error response parsing.
 func TestTogetherBackend_ParseResponse_ErrorResponse(t *testing.T) {
-	backend := &llm.TogetherBackend{}
+	backend := llm.NewBackendRegistry().Get("together")
 
 	errorResp := map[string]interface{}{
 		"error": map[string]interface{}{
@@ -362,7 +362,7 @@ func TestTogetherBackend_ParseResponse_ErrorResponse(t *testing.T) {
 
 // TestPerplexityBackend_ParseResponse_ErrorResponse tests error response parsing.
 func TestPerplexityBackend_ParseResponse_ErrorResponse(t *testing.T) {
-	backend := &llm.PerplexityBackend{}
+	backend := llm.NewBackendRegistry().Get("perplexity")
 
 	errorResp := map[string]interface{}{
 		"error": map[string]interface{}{
@@ -378,7 +378,7 @@ func TestPerplexityBackend_ParseResponse_ErrorResponse(t *testing.T) {
 
 // TestGroqBackend_ParseResponse_ErrorResponse tests error response parsing.
 func TestGroqBackend_ParseResponse_ErrorResponse(t *testing.T) {
-	backend := &llm.GroqBackend{}
+	backend := llm.NewBackendRegistry().Get("groq")
 
 	errorResp := map[string]interface{}{
 		"error": map[string]interface{}{
@@ -394,7 +394,7 @@ func TestGroqBackend_ParseResponse_ErrorResponse(t *testing.T) {
 
 // TestDeepSeekBackend_ParseResponse_ErrorResponse tests error response parsing.
 func TestDeepSeekBackend_ParseResponse_ErrorResponse(t *testing.T) {
-	backend := &llm.DeepSeekBackend{}
+	backend := llm.NewBackendRegistry().Get("deepseek")
 
 	errorResp := map[string]interface{}{
 		"error": map[string]interface{}{
@@ -412,15 +412,15 @@ func TestDeepSeekBackend_ParseResponse_ErrorResponse(t *testing.T) {
 func TestAllBackends_ParseResponse_InvalidJSON(t *testing.T) {
 	backends := []llm.Backend{
 		&llm.OllamaBackend{},
-		&llm.OpenAIBackend{},
+		llm.NewBackendRegistry().Get("openai"),
 		&llm.AnthropicBackend{},
 		&llm.GoogleBackend{},
 		&llm.CohereBackend{},
-		&llm.MistralBackend{},
-		&llm.TogetherBackend{},
-		&llm.PerplexityBackend{},
-		&llm.GroqBackend{},
-		&llm.DeepSeekBackend{},
+		llm.NewBackendRegistry().Get("mistral"),
+		llm.NewBackendRegistry().Get("together"),
+		llm.NewBackendRegistry().Get("perplexity"),
+		llm.NewBackendRegistry().Get("groq"),
+		llm.NewBackendRegistry().Get("deepseek"),
 	}
 
 	for _, backend := range backends {

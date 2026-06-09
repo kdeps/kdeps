@@ -87,7 +87,7 @@ func TestApplyBackendAuthHeaders(t *testing.T) {
 	req, err := stdhttp.NewRequest(stdhttp.MethodPost, "http://localhost/", nil)
 	require.NoError(t, err)
 
-	applyBackendAuthHeaders(req, &OpenAIBackend{}, "sk-test")
+	applyBackendAuthHeaders(req, defaultOpenAIBackend, "sk-test")
 	assert.Equal(t, "Bearer sk-test", req.Header.Get("Authorization"))
 
 	req2, err := stdhttp.NewRequest(stdhttp.MethodPost, "http://localhost/", nil)
