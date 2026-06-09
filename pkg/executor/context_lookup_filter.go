@@ -21,7 +21,6 @@ package executor
 import (
 	"errors"
 	"fmt"
-	"strings"
 
 	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
 )
@@ -58,71 +57,6 @@ func (ctx *ExecutionContext) getFromQuery(name string) (interface{}, error) {
 	return ctx.getFilteredStringValue(ctx.Request.Query, name, "query")
 }
 
-// GetFilteredValue retrieves a value from a map[string]interface{} with parameter filtering applied.
-// Exported for testing.
-func (ctx *ExecutionContext) GetFilteredValue(
-	source map[string]interface{},
-	name, sourceType string,
-) (interface{}, error) {
-	kdeps_debug.Log("enter: GetFilteredValue")
-	// Check if source map is nil
-	if source == nil {
-		if len(ctx.allowedParams) > 0 {
-			if !ctx.IsParamAllowed(name) {
-				return nil, fmt.Errorf("parameter '%s' not found (not in allowedParams list)", name)
-			}
-			// Parameter is allowed but source is nil, return error
-			return nil, fmt.Errorf("not found in %s", sourceType)
-		}
-		// No filtering enabled and source is nil
-		return nil, fmt.Errorf("not found in %s", sourceType)
-	}
-
-	if len(ctx.allowedParams) > 0 {
-		if !ctx.IsParamAllowed(name) {
-			return nil, fmt.Errorf("parameter '%s' not found (not in allowedParams list)", name)
-		}
-	}
-
-	if val, ok := source[name]; ok {
-		return val, nil
-	}
-
-	return nil, fmt.Errorf("not found in %s", sourceType)
-}
-
-// getFilteredStringValue retrieves a value from a map[string]string with parameter filtering applied.
-func (ctx *ExecutionContext) getFilteredStringValue(
-	source map[string]string,
-	name, sourceType string,
-) (interface{}, error) {
-	kdeps_debug.Log("enter: getFilteredStringValue")
-	// Check if source map is nil
-	if source == nil {
-		if len(ctx.allowedParams) > 0 {
-			if !ctx.IsParamAllowed(name) {
-				return nil, fmt.Errorf("parameter '%s' not found (not in allowedParams list)", name)
-			}
-			// Parameter is allowed but source is nil, return error
-			return nil, fmt.Errorf("not found in %s", sourceType)
-		}
-		// No filtering enabled and source is nil
-		return nil, fmt.Errorf("not found in %s", sourceType)
-	}
-
-	if len(ctx.allowedParams) > 0 {
-		if !ctx.IsParamAllowed(name) {
-			return nil, fmt.Errorf("parameter '%s' not found (not in allowedParams list)", name)
-		}
-	}
-
-	if val, ok := source[name]; ok {
-		return val, nil
-	}
-
-	return nil, fmt.Errorf("not found in %s", sourceType)
-}
-
 // getFromHeaders retrieves value from headers with filtering.
 func (ctx *ExecutionContext) getFromHeaders(name string) (interface{}, error) {
 	kdeps_debug.Log("enter: getFromHeaders")
@@ -153,60 +87,6 @@ func (ctx *ExecutionContext) getFromUploadedFiles(name string) (interface{}, err
 	}
 
 	return nil, errors.New("not found in uploaded files")
-}
-
-// IsParamAllowed checks if a parameter name is in the allowed list.
-// Exported for testing.
-func (ctx *ExecutionContext) IsParamAllowed(name string) bool {
-	kdeps_debug.Log("enter: IsParamAllowed")
-	// If no filtering is set (empty list), allow all parameters
-	if len(ctx.allowedParams) == 0 {
-		return true
-	}
-	// Otherwise, only allow parameters in the allowed list
-	for _, allowedParam := range ctx.allowedParams {
-		if allowedParam == name {
-			return true
-		}
-	}
-	return false
-}
-
-// IsHeaderAllowed checks if a header name is in the allowed list (case-insensitive).
-// Exported for testing.
-func (ctx *ExecutionContext) IsHeaderAllowed(name string) bool {
-	kdeps_debug.Log("enter: IsHeaderAllowed")
-	// If no filtering is set (empty list), allow all headers
-	if len(ctx.allowedHeaders) == 0 {
-		return true
-	}
-	// Otherwise, only allow headers in the allowed list (case-insensitive)
-	normalizedName := strings.ToLower(name)
-	for _, allowedHeader := range ctx.allowedHeaders {
-		if strings.ToLower(allowedHeader) == normalizedName {
-			return true
-		}
-	}
-	return false
-}
-
-// findHeaderValue finds a header value with case-insensitive lookup.
-func (ctx *ExecutionContext) findHeaderValue(name string) (interface{}, error) {
-	kdeps_debug.Log("enter: findHeaderValue")
-	// Try exact match first
-	if val, ok := ctx.Request.Headers[name]; ok {
-		return val, nil
-	}
-
-	// Try case-insensitive lookup
-	normalizedName := strings.ToLower(name)
-	for k, v := range ctx.Request.Headers {
-		if strings.ToLower(k) == normalizedName {
-			return v, nil
-		}
-	}
-
-	return nil, errors.New("header not found")
 }
 
 // createNotFoundError creates a helpful error message for missing values.

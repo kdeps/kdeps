@@ -29,8 +29,6 @@ import (
 	"github.com/kdeps/kdeps/v2/pkg/utils/dotpath"
 )
 
-// --- config namespace methods ---
-
 // isNamespacedPath reports whether name starts with a known config namespace prefix.
 func isNamespacedPath(name string) bool {
 	return strings.HasPrefix(name, nsConfig+".") ||
@@ -74,33 +72,6 @@ func (ctx *ExecutionContext) GetConfigField(fullPath string) (any, error) {
 	}
 }
 
-func (ctx *ExecutionContext) getConfigFieldResource(rest string) (any, error) {
-	actionID, fieldPath, hasField := strings.Cut(rest, ".")
-	r, exists := ctx.Resources[actionID]
-	if !exists {
-		return nil, fmt.Errorf("resource %q not found", actionID)
-	}
-	if !hasField {
-		return r, nil
-	}
-	return dotpath.Get(r, fieldPath)
-}
-
-func (ctx *ExecutionContext) getConfigFieldComponent(rest string) (any, error) {
-	if ctx.Workflow == nil || ctx.Workflow.Components == nil {
-		return nil, errors.New("no components loaded")
-	}
-	compName, fieldPath, hasField := strings.Cut(rest, ".")
-	c, exists := ctx.Workflow.Components[compName]
-	if !exists {
-		return nil, fmt.Errorf("component %q not found", compName)
-	}
-	if !hasField {
-		return c, nil
-	}
-	return dotpath.Get(c, fieldPath)
-}
-
 // SetConfigField updates a value in a config namespace by full dot-path.
 // For "config.*" paths the corresponding env var is also updated.
 func (ctx *ExecutionContext) SetConfigField(fullPath string, value any) error {
@@ -132,33 +103,6 @@ func (ctx *ExecutionContext) SetConfigField(fullPath string, value any) error {
 	default:
 		return fmt.Errorf("unknown namespace: %q", ns)
 	}
-}
-
-func (ctx *ExecutionContext) setConfigFieldResource(rest string, value any) error {
-	actionID, fieldPath, hasField := strings.Cut(rest, ".")
-	r, exists := ctx.Resources[actionID]
-	if !exists {
-		return fmt.Errorf("resource %q not found", actionID)
-	}
-	if !hasField {
-		return errors.New("resource path requires a field after the actionId")
-	}
-	return dotpath.Set(r, fieldPath, value)
-}
-
-func (ctx *ExecutionContext) setConfigFieldComponent(rest string, value any) error {
-	if ctx.Workflow == nil || ctx.Workflow.Components == nil {
-		return errors.New("no components loaded")
-	}
-	compName, fieldPath, hasField := strings.Cut(rest, ".")
-	c, exists := ctx.Workflow.Components[compName]
-	if !exists {
-		return fmt.Errorf("component %q not found", compName)
-	}
-	if !hasField {
-		return errors.New("component path requires a field after the name")
-	}
-	return dotpath.Set(c, fieldPath, value)
 }
 
 // ConfigNamespace returns a map[string]any snapshot of a named namespace for
