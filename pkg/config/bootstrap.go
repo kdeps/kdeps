@@ -24,32 +24,10 @@ import (
 	"golang.org/x/term"
 )
 
-// providerKey maps a friendly provider name to its API key field and env var.
-type providerKey struct {
-	envVar string
-	setter func(*Config, string)
-}
-
 // providerNames returns the ordered list of supported LLM provider names.
 // "ollama" is the local option (no API key needed).
 func providerNames() []string {
 	return allProviderNames
-}
-
-//nolint:gochecknoglobals // built from cloudProvidersList at init
-var providerMeta = buildProviderMetaMap()
-
-func buildProviderMetaMap() map[string]providerKey {
-	meta := map[string]providerKey{
-		ollamaBackendStr: {
-			envVar: "OLLAMA_HOST",
-			setter: func(c *Config, v string) { c.LLM.OllamaHost = v },
-		},
-	}
-	for _, p := range cloudProvidersList {
-		meta[p.name] = providerKey{envVar: p.envVar, setter: p.setOnConfig}
-	}
-	return meta
 }
 
 // Bootstrap writes an initial ~/.kdeps/config.yaml by interactively asking the
@@ -234,12 +212,15 @@ func resolveProviderChoice(choice string) string {
 func configureProvider(
 	out io.StringWriter, reader *bufio.Reader, w *fmtWriter, cfg *Config, chosenProvider string,
 ) error {
-	meta := providerMeta[chosenProvider]
-	if isLocalBackend(chosenProvider) && chosenProvider != "" {
+	if chosenProvider == ollamaBackendStr {
 		hostRaw := promptLine(out, reader, "  Ollama host URL [http://localhost:11434]: ", "http://localhost:11434")
 		if strings.TrimSpace(hostRaw) != "" {
-			meta.setter(cfg, strings.TrimSpace(hostRaw))
+			cfg.LLM.OllamaHost = strings.TrimSpace(hostRaw)
 		}
+		return nil
+	}
+	p, ok := cloudProviders[chosenProvider]
+	if !ok {
 		return nil
 	}
 	w.printf("\n  Enter your %s API key (input hidden): ", chosenProvider)
@@ -249,7 +230,7 @@ func configureProvider(
 		return readErr
 	}
 	if strings.TrimSpace(apiKey) != "" {
-		meta.setter(cfg, strings.TrimSpace(apiKey))
+		p.setOnConfig(cfg, strings.TrimSpace(apiKey))
 	}
 	return nil
 }
