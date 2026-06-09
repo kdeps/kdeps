@@ -105,8 +105,9 @@ var (
 		},
 	}
 
-	cloudProviders = buildCloudProviderMap(cloudProvidersList)
-	knownLLMKeys   = buildKnownLLMKeys(cloudProvidersList)
+	cloudProviders   = buildCloudProviderMap(cloudProvidersList)
+	knownLLMKeys     = buildKnownLLMKeys(cloudProvidersList)
+	allProviderNames = buildAllProviderNames(cloudProvidersList)
 )
 
 type cloudProvider struct {
@@ -145,6 +146,15 @@ func buildCloudProviderMap(list []cloudProvider) map[string]cloudProvider {
 		m[p.name] = p
 	}
 	return m
+}
+
+func buildAllProviderNames(list []cloudProvider) []string {
+	names := make([]string, 0, 1+len(list))
+	names = append(names, ollamaBackendStr)
+	for _, p := range list {
+		names = append(names, p.name)
+	}
+	return names
 }
 
 func buildKnownLLMKeys(list []cloudProvider) map[string]bool {

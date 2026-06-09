@@ -239,7 +239,7 @@ func TestReadSecret_Terminal(t *testing.T) {
 func TestProviderMetaMap_OllamaSetterWorks(t *testing.T) {
 	meta := providerMetaMap()
 	cfg := &Config{}
-	meta["ollama"].setter(cfg, "http://myhost:11434")
+	meta[ollamaBackendStr].setter(cfg, "http://myhost:11434")
 	assert.Equal(t, "http://myhost:11434", cfg.LLM.OllamaHost)
 }
 
@@ -411,15 +411,15 @@ func TestBootstrap_WritesAllProviders(t *testing.T) {
 }
 
 func TestDoctorSpotCheckEnvVars_FromProviders(t *testing.T) {
-	var spotCheck []string
+	spotCheck := doctorSpotCheckEnvVars()
+	require.NotEmpty(t, spotCheck)
 	for _, p := range cloudProvidersList {
 		if p.doctorSpotCheck {
-			spotCheck = append(spotCheck, p.envVar)
+			assert.Contains(t, spotCheck, p.envVar, p.name)
+		} else {
+			assert.NotContains(t, spotCheck, p.envVar, p.name)
 		}
 	}
-	require.Len(t, spotCheck, 2)
-	assert.Contains(t, spotCheck, "OPENAI_API_KEY")
-	assert.Contains(t, spotCheck, "ANTHROPIC_API_KEY")
 }
 
 // --- Path ---
