@@ -55,53 +55,53 @@ var (
 			name: "openai", yamlKey: "openai_api_key", envVar: "OPENAI_API_KEY",
 			doctorSpotCheck: true,
 			getKey:          func(k LLMKeys) string { return k.OpenAI },
-			setKey:          func(c *Config, v string) { c.LLM.OpenAI = v },
+			setLLMKey:       func(llm *LLMKeys, v string) { llm.OpenAI = v },
 		},
 		{
 			name: "anthropic", yamlKey: "anthropic_api_key", envVar: "ANTHROPIC_API_KEY",
 			doctorSpotCheck: true,
 			getKey:          func(k LLMKeys) string { return k.Anthropic },
-			setKey:          func(c *Config, v string) { c.LLM.Anthropic = v },
+			setLLMKey:       func(llm *LLMKeys, v string) { llm.Anthropic = v },
 		},
 		{
 			name: "google", yamlKey: "google_api_key", envVar: "GOOGLE_API_KEY",
-			getKey: func(k LLMKeys) string { return k.Google },
-			setKey: func(c *Config, v string) { c.LLM.Google = v },
+			getKey:    func(k LLMKeys) string { return k.Google },
+			setLLMKey: func(llm *LLMKeys, v string) { llm.Google = v },
 		},
 		{
 			name: "cohere", yamlKey: "cohere_api_key", envVar: "COHERE_API_KEY",
-			getKey: func(k LLMKeys) string { return k.Cohere },
-			setKey: func(c *Config, v string) { c.LLM.Cohere = v },
+			getKey:    func(k LLMKeys) string { return k.Cohere },
+			setLLMKey: func(llm *LLMKeys, v string) { llm.Cohere = v },
 		},
 		{
 			name: "mistral", yamlKey: "mistral_api_key", envVar: "MISTRAL_API_KEY",
-			getKey: func(k LLMKeys) string { return k.Mistral },
-			setKey: func(c *Config, v string) { c.LLM.Mistral = v },
+			getKey:    func(k LLMKeys) string { return k.Mistral },
+			setLLMKey: func(llm *LLMKeys, v string) { llm.Mistral = v },
 		},
 		{
 			name: "together", yamlKey: "together_api_key", envVar: "TOGETHER_API_KEY",
-			getKey: func(k LLMKeys) string { return k.Together },
-			setKey: func(c *Config, v string) { c.LLM.Together = v },
+			getKey:    func(k LLMKeys) string { return k.Together },
+			setLLMKey: func(llm *LLMKeys, v string) { llm.Together = v },
 		},
 		{
 			name: "perplexity", yamlKey: "perplexity_api_key", envVar: "PERPLEXITY_API_KEY",
-			getKey: func(k LLMKeys) string { return k.Perplexity },
-			setKey: func(c *Config, v string) { c.LLM.Perplexity = v },
+			getKey:    func(k LLMKeys) string { return k.Perplexity },
+			setLLMKey: func(llm *LLMKeys, v string) { llm.Perplexity = v },
 		},
 		{
 			name: "groq", yamlKey: "groq_api_key", envVar: "GROQ_API_KEY",
-			getKey: func(k LLMKeys) string { return k.Groq },
-			setKey: func(c *Config, v string) { c.LLM.Groq = v },
+			getKey:    func(k LLMKeys) string { return k.Groq },
+			setLLMKey: func(llm *LLMKeys, v string) { llm.Groq = v },
 		},
 		{
 			name: "deepseek", yamlKey: "deepseek_api_key", envVar: "DEEPSEEK_API_KEY",
-			getKey: func(k LLMKeys) string { return k.DeepSeek },
-			setKey: func(c *Config, v string) { c.LLM.DeepSeek = v },
+			getKey:    func(k LLMKeys) string { return k.DeepSeek },
+			setLLMKey: func(llm *LLMKeys, v string) { llm.DeepSeek = v },
 		},
 		{
 			name: "openrouter", yamlKey: "openrouter_api_key", envVar: "OPENROUTER_API_KEY",
-			getKey: func(k LLMKeys) string { return k.OpenRouter },
-			setKey: func(c *Config, v string) { c.LLM.OpenRouter = v },
+			getKey:    func(k LLMKeys) string { return k.OpenRouter },
+			setLLMKey: func(llm *LLMKeys, v string) { llm.OpenRouter = v },
 		},
 	}
 
@@ -115,7 +115,28 @@ type cloudProvider struct {
 	envVar          string
 	doctorSpotCheck bool
 	getKey          func(LLMKeys) string
-	setKey          func(*Config, string)
+	setLLMKey       func(*LLMKeys, string)
+}
+
+func (p cloudProvider) setOnConfig(c *Config, v string) {
+	p.setLLMKey(&c.LLM, v)
+}
+
+func mergeCloudProviderKeys(dst, src *LLMKeys) {
+	for _, p := range cloudProvidersList {
+		if v := p.getKey(*src); v != "" {
+			p.setLLMKey(dst, v)
+		}
+	}
+}
+
+func hasCloudProviderKey(llm LLMKeys) bool {
+	for _, p := range cloudProvidersList {
+		if p.getKey(llm) != "" {
+			return true
+		}
+	}
+	return false
 }
 
 func buildCloudProviderMap(list []cloudProvider) map[string]cloudProvider {
