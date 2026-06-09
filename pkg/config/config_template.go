@@ -23,15 +23,22 @@ import (
 	"strings"
 )
 
-// configOptionsReference is the shared source of truth for all available
-// config.yaml options. Used by both Scaffold() (non-interactive) and
-// Bootstrap() (interactive) to ensure consistent template output.
-const configOptionsReference = `# ── Default backend ───────────────────────────────────────────────────────
-# ollama (local, default) | openai | anthropic | google | cohere | mistral |
-# together | perplexity | groq | deepseek | openrouter
-# backend: ollama
+// configOptionsReferenceBody is the static portion of the config.yaml options
+// reference. Provider-specific sections are generated from cloudProvidersList.
+func buildBackendOptionsSection() string {
+	parts := []string{ollamaBackendStr + " (local, default)"}
+	for _, p := range cloudProvidersList {
+		parts = append(parts, p.name)
+	}
+	var b strings.Builder
+	b.WriteString("# ── Default backend ───────────────────────────────────────────────────────\n")
+	b.WriteString("# ")
+	b.WriteString(strings.Join(parts, " | "))
+	b.WriteString("\n# backend: ollama\n\n")
+	return b.String()
+}
 
-# Base URL override for the selected backend.
+const configOptionsReferenceBody = `# Base URL override for the selected backend.
 # base_url: http://localhost:11434
 
 # ── Model allowlist (plain model names) ───────────────────────────────────
@@ -269,13 +276,17 @@ llm:
 	return b.String()
 }
 
+func configOptionsReference() string {
+	return buildBackendOptionsSection() + configOptionsReferenceBody
+}
+
 // composeConfigTemplate joins the scaffold header with the shared options reference.
 func composeConfigTemplate(header, reference string) string {
 	return header + reference
 }
 
-// defaultConfigTemplate is the full scaffold template composed from the header
-// and the shared configOptionsReference.
+// defaultConfigTemplate is the full scaffold template composed from generated
+// provider sections and the shared options reference body.
 //
-//nolint:gochecknoglobals // composed at init from two consts (Go cannot concat consts)
-var defaultConfigTemplate = composeConfigTemplate(buildConfigTemplateHeader(), configOptionsReference)
+//nolint:gochecknoglobals // composed at init from generated + const sections
+var defaultConfigTemplate = composeConfigTemplate(buildConfigTemplateHeader(), configOptionsReference())

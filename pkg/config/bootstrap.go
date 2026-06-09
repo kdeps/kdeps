@@ -169,7 +169,7 @@ func writeConfig(path string, cfg Config) error {
 	}
 
 	userFields := buildUserFields(cfg)
-	content := userFields + "\n" + configOptionsReference
+	content := userFields + "\n" + configOptionsReference()
 	return os.WriteFile(path, []byte(content), configFilePerm)
 }
 

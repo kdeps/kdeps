@@ -53,13 +53,15 @@ var (
 	cloudProvidersList = []cloudProvider{
 		{
 			name: "openai", yamlKey: "openai_api_key", envVar: "OPENAI_API_KEY",
-			getKey: func(k LLMKeys) string { return k.OpenAI },
-			setKey: func(c *Config, v string) { c.LLM.OpenAI = v },
+			doctorSpotCheck: true,
+			getKey:          func(k LLMKeys) string { return k.OpenAI },
+			setKey:          func(c *Config, v string) { c.LLM.OpenAI = v },
 		},
 		{
 			name: "anthropic", yamlKey: "anthropic_api_key", envVar: "ANTHROPIC_API_KEY",
-			getKey: func(k LLMKeys) string { return k.Anthropic },
-			setKey: func(c *Config, v string) { c.LLM.Anthropic = v },
+			doctorSpotCheck: true,
+			getKey:          func(k LLMKeys) string { return k.Anthropic },
+			setKey:          func(c *Config, v string) { c.LLM.Anthropic = v },
 		},
 		{
 			name: "google", yamlKey: "google_api_key", envVar: "GOOGLE_API_KEY",
@@ -105,17 +107,15 @@ var (
 
 	cloudProviders = buildCloudProviderMap(cloudProvidersList)
 	knownLLMKeys   = buildKnownLLMKeys(cloudProvidersList)
-
-	// Backends whose API key env vars doctor spot-checks (subset of cloud providers).
-	doctorSpotCheckBackends = []string{"openai", "anthropic"}
 )
 
 type cloudProvider struct {
-	name    string
-	yamlKey string
-	envVar  string
-	getKey  func(LLMKeys) string
-	setKey  func(*Config, string)
+	name            string
+	yamlKey         string
+	envVar          string
+	doctorSpotCheck bool
+	getKey          func(LLMKeys) string
+	setKey          func(*Config, string)
 }
 
 func buildCloudProviderMap(list []cloudProvider) map[string]cloudProvider {
