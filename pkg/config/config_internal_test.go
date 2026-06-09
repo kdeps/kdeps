@@ -463,11 +463,10 @@ func TestMergeConfig_APIAuthToken(t *testing.T) {
 }
 
 func TestMergeConfig_EmptySrcNoOverwrite(t *testing.T) {
+	dstLLM := LLMKeys{OllamaHost: "http://original:11434"}
+	cloudProvidersList[0].setLLMKey(&dstLLM, "sk-original")
 	dst := &Config{
-		LLM: LLMKeys{
-			OllamaHost: "http://original:11434",
-			OpenAI:     "sk-original",
-		},
+		LLM: dstLLM,
 		Defaults: Defaults{
 			Timezone: "America/Chicago",
 		},
@@ -480,7 +479,7 @@ func TestMergeConfig_EmptySrcNoOverwrite(t *testing.T) {
 	mergeConfig(dst, src)
 	// dst values must be preserved
 	assert.Equal(t, "http://original:11434", dst.LLM.OllamaHost)
-	assert.Equal(t, "sk-original", dst.LLM.OpenAI)
+	assert.Equal(t, "sk-original", cloudProvidersList[0].getKey(dst.LLM))
 	assert.Equal(t, "America/Chicago", dst.Defaults.Timezone)
 	assert.Equal(t, "30s", dst.ResourceDefaults.Chat.Timeout)
 	assert.Equal(t, "15s", dst.ResourceDefaults.HTTP.Timeout)

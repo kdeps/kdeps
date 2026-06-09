@@ -43,7 +43,7 @@ func (c *Config) validateValues() []string {
 	}
 
 	// Backend set but no corresponding API key.
-	if c.LLM.Backend != "" && c.LLM.Backend != "ollama" {
+	if c.LLM.Backend != "" && c.LLM.Backend != ollamaBackendStr {
 		if p, ok := cloudProviders[c.LLM.Backend]; ok {
 			if getLLMAPIKey(c.LLM, c.LLM.Backend) == "" {
 				warnings = append(warnings, fmt.Sprintf(

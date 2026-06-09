@@ -26,9 +26,13 @@ import (
 // configOptionsReferenceBody is the static portion of the config.yaml options
 // reference. Provider-specific sections are generated from cloudProvidersList.
 func buildBackendOptionsSection() string {
-	parts := []string{ollamaBackendStr + " (local, default)"}
-	for _, p := range cloudProvidersList {
-		parts = append(parts, p.name)
+	parts := make([]string, len(providerNames()))
+	for i, name := range providerNames() {
+		if name == ollamaBackendStr {
+			parts[i] = ollamaBackendStr + " (local, default)"
+			continue
+		}
+		parts[i] = name
 	}
 	var b strings.Builder
 	b.WriteString("# ── Default backend ───────────────────────────────────────────────────────\n")
