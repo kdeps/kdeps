@@ -261,17 +261,10 @@ func TestMergeConfig_LLMFields(t *testing.T) {
 			Strategy:   "round_robin",
 			Models:     ModelList{{Model: "gpt-4"}, {Model: "claude"}},
 			ModelsDir:  "/custom/models",
-			OpenAI:     "sk-openai",
-			Anthropic:  "ant-key",
-			Google:     "ggl-key",
-			Cohere:     "co-key",
-			Mistral:    "ms-key",
-			Together:   "tg-key",
-			Perplexity: "pp-key",
-			Groq:       "grq-key",
-			DeepSeek:   "ds-key",
-			OpenRouter: "or-key",
 		},
+	}
+	for _, p := range cloudProvidersList {
+		p.setLLMKey(&src.LLM, p.name+"-key")
 	}
 	mergeConfig(dst, src)
 	assert.Equal(t, "http://ollama:11434", dst.LLM.OllamaHost)
@@ -280,16 +273,9 @@ func TestMergeConfig_LLMFields(t *testing.T) {
 	assert.Equal(t, "round_robin", dst.LLM.Strategy)
 	assert.Len(t, dst.LLM.Models, 2)
 	assert.Equal(t, "/custom/models", dst.LLM.ModelsDir)
-	assert.Equal(t, "sk-openai", dst.LLM.OpenAI)
-	assert.Equal(t, "ant-key", dst.LLM.Anthropic)
-	assert.Equal(t, "ggl-key", dst.LLM.Google)
-	assert.Equal(t, "co-key", dst.LLM.Cohere)
-	assert.Equal(t, "ms-key", dst.LLM.Mistral)
-	assert.Equal(t, "tg-key", dst.LLM.Together)
-	assert.Equal(t, "pp-key", dst.LLM.Perplexity)
-	assert.Equal(t, "grq-key", dst.LLM.Groq)
-	assert.Equal(t, "ds-key", dst.LLM.DeepSeek)
-	assert.Equal(t, "or-key", dst.LLM.OpenRouter)
+	for _, p := range cloudProvidersList {
+		assert.Equal(t, p.name+"-key", p.getKey(dst.LLM), p.name)
+	}
 }
 
 func TestMergeConfig_Defaults(t *testing.T) {
