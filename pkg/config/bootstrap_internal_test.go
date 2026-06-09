@@ -237,7 +237,7 @@ func TestReadSecret_Terminal(t *testing.T) {
 // --- providerMetaMap ollama setter ---
 
 func TestProviderMetaMap_OllamaSetterWorks(t *testing.T) {
-	meta := providerMetaMap()
+	meta := providerMeta
 	cfg := &Config{}
 	meta[ollamaBackendStr].setter(cfg, "http://myhost:11434")
 	assert.Equal(t, "http://myhost:11434", cfg.LLM.OllamaHost)
@@ -338,24 +338,24 @@ func TestDirOf_Root(t *testing.T) {
 
 func TestProviderNames_NonEmpty(t *testing.T) {
 	names := providerNames()
-	assert.NotEmpty(t, names)
-	assert.Contains(t, names, "ollama")
-	assert.Contains(t, names, "openai")
-	assert.Contains(t, names, "anthropic")
-	assert.Len(t, names, 11)
+	assert.Equal(t, len(allProviderNames), len(names))
+	assert.Equal(t, ollamaBackendStr, names[0])
+	for _, p := range cloudProvidersList {
+		assert.Contains(t, names, p.name)
+	}
 }
 
 // --- providerMetaMap ---
 
 func TestProviderMetaMap_HasAllProviders(t *testing.T) {
-	meta := providerMetaMap()
+	meta := providerMeta
 	for _, name := range providerNames() {
 		assert.Contains(t, meta, name, "missing provider %s", name)
 	}
 }
 
 func TestProviderMetaMap_EnvVarsMatchCloudProviders(t *testing.T) {
-	meta := providerMetaMap()
+	meta := providerMeta
 	for _, p := range cloudProvidersList {
 		assert.Equal(t, p.envVar, meta[p.name].envVar, "backend %s", p.name)
 	}
@@ -382,11 +382,20 @@ func TestKnownLLMKeys_IncludesCloudProviderFields(t *testing.T) {
 }
 
 func TestProviderMetaMap_SetterWorks(t *testing.T) {
-	meta := providerMetaMap()
+	meta := providerMeta
 	for _, p := range cloudProvidersList {
 		cfg := &Config{}
 		meta[p.name].setter(cfg, "test-key")
 		assert.Equal(t, "test-key", p.getKey(cfg.LLM), "backend %s", p.name)
+	}
+}
+
+func TestBuildAgentsExampleSection_UsesCloudProviders(t *testing.T) {
+	section := buildAgentsExampleSection()
+	require.GreaterOrEqual(t, len(cloudProvidersList), 2)
+	for _, p := range cloudProvidersList[:2] {
+		assert.Contains(t, section, p.name)
+		assert.Contains(t, section, p.yamlKey)
 	}
 }
 

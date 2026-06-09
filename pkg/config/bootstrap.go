@@ -52,11 +52,6 @@ func buildProviderMetaMap() map[string]providerKey {
 	return meta
 }
 
-// providerMetaMap returns the metadata for each provider.
-func providerMetaMap() map[string]providerKey {
-	return providerMeta
-}
-
 // Bootstrap writes an initial ~/.kdeps/config.yaml by interactively asking the
 // user for their LLM provider and API key. It is called automatically on first
 // run when the config file does not yet exist and stdin is a terminal.
@@ -239,7 +234,7 @@ func resolveProviderChoice(choice string) string {
 func configureProvider(
 	out io.StringWriter, reader *bufio.Reader, w *fmtWriter, cfg *Config, chosenProvider string,
 ) error {
-	meta := providerMetaMap()[chosenProvider]
+	meta := providerMeta[chosenProvider]
 	if chosenProvider == ollamaBackendStr {
 		hostRaw := promptLine(out, reader, "  Ollama host URL [http://localhost:11434]: ", "http://localhost:11434")
 		if strings.TrimSpace(hostRaw) != "" {

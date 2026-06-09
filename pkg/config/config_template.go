@@ -220,7 +220,13 @@ defaults:
 # Required when apiServer is enabled. Set here or via KDEPS_API_AUTH_TOKEN env var.
 # api_auth_token: "${API_AUTH_TOKEN}"
 
-# ── Per-agent config profiles ──────────────────────────────────────────────
+`
+
+func buildAgentsExampleSection() string {
+	primary := cloudProvidersList[0]
+	secondary := cloudProvidersList[1]
+	var b strings.Builder
+	b.WriteString(`# ── Per-agent config profiles ──────────────────────────────────────────────
 # Each key under agents: must match a workflow metadata.name value. When that
 # workflow runs, its profile is merged on top of the global config — only the
 # fields you specify override global values; everything else inherits.
@@ -228,9 +234,10 @@ defaults:
 # agents:
 #   my-agent:                    # matches metadata.name: my-agent
 #     llm:
-#       backend: openai
-#       openai_api_key: sk-agent-specific
-#       models:
+`)
+	fmt.Fprintf(&b, "#       backend: %s\n", primary.name)
+	fmt.Fprintf(&b, "#       %s: sk-agent-specific\n", primary.yamlKey)
+	b.WriteString(`#       models:
 #         - gpt-4o
 #     defaults:
 #       timezone: America/New_York
@@ -241,17 +248,21 @@ defaults:
 #
 #   another-agent:               # matches metadata.name: another-agent
 #     llm:
-#       backend: anthropic
-#       anthropic_api_key: sk-ant-agent
-#       strategy: fallback
+`)
+	fmt.Fprintf(&b, "#       backend: %s\n", secondary.name)
+	fmt.Fprintf(&b, "#       %s: sk-ant-agent\n", secondary.yamlKey)
+	b.WriteString(`#       strategy: fallback
 #       models:
 #         - model: claude-opus-4-7
-#           backend: anthropic
-#           priority: 1
+`)
+	fmt.Fprintf(&b, "#           backend: %s\n", secondary.name)
+	b.WriteString(`#           priority: 1
 #         - model: claude-sonnet-4-6
-#           backend: anthropic
-#           priority: 2
-`
+`)
+	fmt.Fprintf(&b, "#           backend: %s\n", secondary.name)
+	b.WriteString("#           priority: 2\n")
+	return b.String()
+}
 
 func buildConfigTemplateHeader() string {
 	var b strings.Builder
@@ -281,7 +292,7 @@ llm:
 }
 
 func configOptionsReference() string {
-	return buildBackendOptionsSection() + configOptionsReferenceBody
+	return buildBackendOptionsSection() + configOptionsReferenceBody + buildAgentsExampleSection()
 }
 
 // composeConfigTemplate joins the scaffold header with the shared options reference.

@@ -138,34 +138,36 @@ resource_defaults:
 }
 
 func TestValidate_BackendWithoutAPIKey(t *testing.T) {
+	p := cloudProvidersList[0]
 	dir := t.TempDir()
-	writeTempConfig(t, dir, `
+	writeTempConfig(t, dir, fmt.Sprintf(`
 llm:
-  backend: openai
-`)
+  backend: %s
+`, p.name))
 	cfg := loadCfg(t)
 	warnings := cfg.Validate("")
 	assert.NotEmpty(t, warnings)
 	found := false
 	for _, w := range warnings {
-		if strings.Contains(w, "openai") && strings.Contains(w, "openai_api_key") {
+		if strings.Contains(w, p.name) && strings.Contains(w, p.yamlKey) {
 			found = true
 		}
 	}
-	assert.True(t, found, "expected warning about missing openai_api_key, got: %v", warnings)
+	assert.True(t, found, "expected warning about missing %s, got: %v", p.yamlKey, warnings)
 }
 
 func TestValidate_BackendWithAPIKey_NoWarning(t *testing.T) {
+	p := cloudProvidersList[0]
 	dir := t.TempDir()
-	writeTempConfig(t, dir, `
+	writeTempConfig(t, dir, fmt.Sprintf(`
 llm:
-  backend: openai
-  openai_api_key: sk-test
-`)
+  backend: %s
+  %s: sk-test
+`, p.name, p.yamlKey))
 	cfg := loadCfg(t)
 	warnings := cfg.Validate("")
 	for _, w := range warnings {
-		assert.NotContains(t, w, "openai_api_key")
+		assert.NotContains(t, w, p.yamlKey)
 	}
 }
 
