@@ -92,9 +92,7 @@ func shouldParseOllamaStreaming(requestBody map[string]interface{}, backend Back
 // parseOllamaStreamingHTTPResponse handles a streaming Ollama HTTP response.
 func parseOllamaStreamingHTTPResponse(resp *stdhttp.Response) (map[string]interface{}, error) {
 	if resp.StatusCode != stdhttp.StatusOK {
-		var errorBody map[string]interface{}
-		_ = json.NewDecoder(resp.Body).Decode(&errorBody)
-		return nil, fmt.Errorf("ollama API error (status %d): %v", resp.StatusCode, errorBody)
+		return nil, backendAPIError(resp, backendOllama)
 	}
 	return parseOllamaStreamingResponse(resp.Body)
 }

@@ -293,46 +293,41 @@ func TestExtractContent_MapWithoutTextKey(t *testing.T) {
 	assert.Equal(t, "", result)
 }
 
-// ─── determineFinalMessage (CohereBackend) ──────────────────────────────────
+// ─── cohereHistory.finalMessage ──────────────────────────────────────────────
 
-func TestDetermineFinalMessage_EmptyMessages(t *testing.T) {
-	b := &CohereBackend{}
-	// userMessage == "", lastUserMessage != "", len(messages) == 0 (line 787-789)
-	result := b.determineFinalMessage([]map[string]interface{}{}, "", "last")
+func TestCohereFinalMessage_EmptyMessages(t *testing.T) {
+	h := &cohereHistory{lastUser: "last"}
+	result := h.finalMessage([]map[string]interface{}{})
 	assert.Equal(t, "", result)
 }
 
-func TestDetermineFinalMessage_UserMessageNotEmpty(t *testing.T) {
-	b := &CohereBackend{}
-	// userMessage != "" (line 779-781)
-	result := b.determineFinalMessage(nil, "user-message", "")
+func TestCohereFinalMessage_PendingNotEmpty(t *testing.T) {
+	h := &cohereHistory{pending: "user-message"}
+	result := h.finalMessage(nil)
 	assert.Equal(t, "user-message", result)
 }
 
-func TestDetermineFinalMessage_LastUserMessageEmpty(t *testing.T) {
-	b := &CohereBackend{}
-	// userMessage == "" AND lastUserMessage == "" (line 783-785)
-	result := b.determineFinalMessage(nil, "", "")
+func TestCohereFinalMessage_LastUserEmpty(t *testing.T) {
+	h := &cohereHistory{}
+	result := h.finalMessage(nil)
 	assert.Equal(t, "", result)
 }
 
-func TestDetermineFinalMessage_LastRoleNotAssistant(t *testing.T) {
-	b := &CohereBackend{}
-	// userMessage == "" AND lastUserMessage != "" AND len(messages) > 0 AND lastRole != "assistant" (line 793-795)
+func TestCohereFinalMessage_LastRoleNotAssistant(t *testing.T) {
+	h := &cohereHistory{lastUser: "lastUserMsg"}
 	msgs := []map[string]interface{}{
 		{"role": "user", "content": "hi"},
 	}
-	result := b.determineFinalMessage(msgs, "", "lastUserMsg")
+	result := h.finalMessage(msgs)
 	assert.Equal(t, "", result)
 }
 
-func TestDetermineFinalMessage_ReturnsLastUserMessage(t *testing.T) {
-	b := &CohereBackend{}
-	// All conditions met: userMessage=="", lastUserMessage!="", messages not empty, last role is assistant
+func TestCohereFinalMessage_ReturnsLastUser(t *testing.T) {
+	h := &cohereHistory{lastUser: "lastUserMsg"}
 	msgs := []map[string]interface{}{
 		{"role": "assistant", "content": "reply"},
 	}
-	result := b.determineFinalMessage(msgs, "", "lastUserMsg")
+	result := h.finalMessage(msgs)
 	assert.Equal(t, "lastUserMsg", result)
 }
 

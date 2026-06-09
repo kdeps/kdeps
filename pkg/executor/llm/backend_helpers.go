@@ -54,15 +54,20 @@ func buildOpenAICompatRequest(
 	return req
 }
 
+// backendAPIError decodes the error body of a non-200 backend response into an error.
+func backendAPIError(resp *stdhttp.Response, apiName string) error {
+	var errorBody map[string]interface{}
+	_ = json.NewDecoder(resp.Body).Decode(&errorBody)
+	return fmt.Errorf("%s API error (status %d): %v", apiName, resp.StatusCode, errorBody)
+}
+
 // parseBackendJSONResponse decodes a backend JSON response, returning an API error on non-200 status.
 func parseBackendJSONResponse(
 	resp *stdhttp.Response,
 	apiName string,
 ) (map[string]interface{}, error) {
 	if resp.StatusCode != stdhttp.StatusOK {
-		var errorBody map[string]interface{}
-		_ = json.NewDecoder(resp.Body).Decode(&errorBody)
-		return nil, fmt.Errorf("%s API error (status %d): %v", apiName, resp.StatusCode, errorBody)
+		return nil, backendAPIError(resp, apiName)
 	}
 
 	var response map[string]interface{}

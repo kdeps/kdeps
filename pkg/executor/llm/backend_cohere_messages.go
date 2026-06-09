@@ -22,34 +22,34 @@ import (
 	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
 )
 
+// cohereHistory accumulates Cohere chat_history entries while tracking the
+// pending user message that becomes the request's final "message" field.
+type cohereHistory struct {
+	entries   []map[string]interface{}
+	pending   string // user content not yet flushed to entries
+	lastUser  string // most recent user content seen
+	userCount int    // user messages flushed since the last assistant turn
+}
+
 func (b *CohereBackend) buildCohereMessages(
 	messages []map[string]interface{},
 ) ([]map[string]interface{}, string) {
 	kdeps_debug.Log("enter: buildCohereMessages")
-	chatHistory := make([]map[string]interface{}, 0)
-	userMessage := ""
-	lastUserMessage := ""
-	userMessageCount := 0
+	h := &cohereHistory{entries: make([]map[string]interface{}, 0)}
 
 	for _, msg := range messages {
 		role, _ := msg["role"].(string)
-		contentRaw := msg["content"]
-		content := b.extractContent(contentRaw)
+		content := b.extractContent(msg["content"])
 
 		switch role {
 		case roleUser:
-			chatHistory, userMessage, lastUserMessage, userMessageCount = b.handleUserMessage(
-				chatHistory, userMessage, lastUserMessage, content, userMessageCount,
-			)
+			h.addUser(content)
 		case "assistant":
-			chatHistory, userMessage, lastUserMessage, userMessageCount = b.handleAssistantMessage(
-				chatHistory, userMessage, lastUserMessage, content, userMessageCount,
-			)
+			h.addAssistant(content)
 		}
 	}
 
-	finalMessage := b.determineFinalMessage(messages, userMessage, lastUserMessage)
-	return chatHistory, finalMessage
+	return h.entries, h.finalMessage(messages)
 }
 
 func (b *CohereBackend) extractContent(contentRaw interface{}) string {
@@ -76,76 +76,59 @@ func (b *CohereBackend) extractContent(contentRaw interface{}) string {
 	return textValue
 }
 
-func (b *CohereBackend) handleUserMessage(
-	chatHistory []map[string]interface{},
-	userMessage string,
-	_ string,
-	content string,
-	userMessageCount int,
-) ([]map[string]interface{}, string, string, int) {
-	kdeps_debug.Log("enter: handleUserMessage")
-	if userMessage != "" {
-		chatHistory = append(chatHistory, map[string]interface{}{
-			"role":    "USER",
-			"message": userMessage,
-		})
-		userMessageCount++
-	}
-	return chatHistory, content, content, userMessageCount
+// flushPending moves the pending user message into the history entries.
+func (h *cohereHistory) flushPending() {
+	h.entries = append(h.entries, map[string]interface{}{
+		"role":    "USER",
+		"message": h.pending,
+	})
 }
 
-func (b *CohereBackend) handleAssistantMessage(
-	chatHistory []map[string]interface{},
-	userMessage string,
-	lastUserMessage string,
-	content string,
-	userMessageCount int,
-) ([]map[string]interface{}, string, string, int) {
-	kdeps_debug.Log("enter: handleAssistantMessage")
-	hadMultipleUserMessages := userMessageCount > 0
+func (h *cohereHistory) addUser(content string) {
+	kdeps_debug.Log("enter: addUser")
+	if h.pending != "" {
+		h.flushPending()
+		h.userCount++
+	}
+	h.pending = content
+	h.lastUser = content
+}
 
-	if userMessage != "" {
-		chatHistory = append(chatHistory, map[string]interface{}{
-			"role":    "USER",
-			"message": userMessage,
-		})
-		if !hadMultipleUserMessages {
-			lastUserMessage = ""
+func (h *cohereHistory) addAssistant(content string) {
+	kdeps_debug.Log("enter: addAssistant")
+	if h.pending != "" {
+		h.flushPending()
+		// A single user turn answered by the assistant is consumed entirely;
+		// only consecutive user turns keep lastUser as a final-message candidate.
+		if h.userCount == 0 {
+			h.lastUser = ""
 		}
-		userMessage = ""
+		h.pending = ""
 	}
 
-	chatHistory = append(chatHistory, map[string]interface{}{
+	h.entries = append(h.entries, map[string]interface{}{
 		"role":    "CHATBOT",
 		"message": content,
 	})
-
-	return chatHistory, userMessage, lastUserMessage, 0
+	h.userCount = 0
 }
 
-func (b *CohereBackend) determineFinalMessage(
-	messages []map[string]interface{},
-	userMessage string,
-	lastUserMessage string,
-) string {
-	kdeps_debug.Log("enter: determineFinalMessage")
-	if userMessage != "" {
-		return userMessage
+// finalMessage returns the Cohere "message" field: the pending user message,
+// or the last user message when the conversation ends on an assistant turn.
+func (h *cohereHistory) finalMessage(messages []map[string]interface{}) string {
+	kdeps_debug.Log("enter: finalMessage")
+	if h.pending != "" {
+		return h.pending
 	}
 
-	if lastUserMessage == "" {
-		return ""
-	}
-
-	if len(messages) == 0 {
+	if h.lastUser == "" || len(messages) == 0 {
 		return ""
 	}
 
 	lastMsg := messages[len(messages)-1]
-	lastRole, _ := lastMsg["role"].(string)
-	if lastRole != "assistant" {
+	if lastRole, _ := lastMsg["role"].(string); lastRole != "assistant" {
 		return ""
 	}
 
-	return lastUserMessage
+	return h.lastUser
 }
