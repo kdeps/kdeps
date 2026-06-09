@@ -31,7 +31,7 @@ import (
 )
 
 func TestOpenAIBackend_BuildRequest(t *testing.T) {
-	backend := &llm.OpenAIBackend{}
+	backend := llm.NewBackendRegistry().Get("openai")
 
 	tests := []struct {
 		name     string
@@ -95,7 +95,7 @@ func TestOpenAIBackend_BuildRequest(t *testing.T) {
 }
 
 func TestOpenAIBackend_ParseResponse(t *testing.T) {
-	backend := &llm.OpenAIBackend{}
+	backend := llm.NewBackendRegistry().Get("openai")
 
 	t.Run("successful response", func(t *testing.T) {
 		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
@@ -152,7 +152,7 @@ func TestOpenAIBackend_ParseResponse(t *testing.T) {
 }
 
 func TestMistralBackend_BuildRequest(t *testing.T) {
-	backend := &llm.MistralBackend{}
+	backend := llm.NewBackendRegistry().Get("mistral")
 
 	req, err := backend.BuildRequest("mistral-large", []map[string]interface{}{
 		{"role": "user", "content": "Hello"},
@@ -179,7 +179,7 @@ func TestMistralBackend_BuildRequest(t *testing.T) {
 }
 
 func TestMistralBackend_ParseResponse(t *testing.T) {
-	backend := &llm.MistralBackend{}
+	backend := llm.NewBackendRegistry().Get("mistral")
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		response := map[string]interface{}{
@@ -211,7 +211,7 @@ func TestMistralBackend_ParseResponse(t *testing.T) {
 }
 
 func TestTogetherBackend_BuildRequest(t *testing.T) {
-	backend := &llm.TogetherBackend{}
+	backend := llm.NewBackendRegistry().Get("together")
 
 	req, err := backend.BuildRequest("meta-llama/Llama-3-70b", []map[string]interface{}{
 		{"role": "user", "content": "Hello"},
@@ -228,7 +228,7 @@ func TestTogetherBackend_BuildRequest(t *testing.T) {
 }
 
 func TestTogetherBackend_ParseResponse(t *testing.T) {
-	backend := &llm.TogetherBackend{}
+	backend := llm.NewBackendRegistry().Get("together")
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		response := map[string]interface{}{
@@ -260,7 +260,7 @@ func TestTogetherBackend_ParseResponse(t *testing.T) {
 }
 
 func TestOpenAIBackend_ParseResponse_Error(t *testing.T) {
-	backend := &llm.OpenAIBackend{}
+	backend := llm.NewBackendRegistry().Get("openai")
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusInternalServerError)
@@ -285,7 +285,7 @@ func TestOpenAIBackend_ParseResponse_Error(t *testing.T) {
 }
 
 func TestMistralBackend_ParseResponse_Error(t *testing.T) {
-	backend := &llm.MistralBackend{}
+	backend := llm.NewBackendRegistry().Get("mistral")
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusNotFound)
@@ -333,7 +333,7 @@ func TestOllamaBackend_ParseResponse_InvalidJSON_HTTP(t *testing.T) {
 }
 
 func TestConvertOpenAIResponse_EmptyChoices(t *testing.T) {
-	backend := &llm.OpenAIBackend{}
+	backend := llm.NewBackendRegistry().Get("openai")
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		response := map[string]interface{}{
@@ -357,7 +357,7 @@ func TestConvertOpenAIResponse_EmptyChoices(t *testing.T) {
 }
 
 func TestConvertOpenAIResponse_InvalidChoice(t *testing.T) {
-	backend := &llm.MistralBackend{}
+	backend := llm.NewBackendRegistry().Get("mistral")
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		response := map[string]interface{}{

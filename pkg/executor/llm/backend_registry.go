@@ -29,16 +29,16 @@ type BackendRegistry struct {
 var defaultRegistryBackends = []Backend{
 	&OllamaBackend{},
 	&FileBackend{},
-	&OpenAIBackend{},
+	defaultOpenAIBackend,
 	&AnthropicBackend{},
 	&GoogleBackend{},
 	&CohereBackend{},
-	&MistralBackend{},
-	&TogetherBackend{},
-	&PerplexityBackend{},
-	&GroqBackend{},
-	&DeepSeekBackend{},
-	&OpenRouterBackend{},
+	defaultMistralBackend,
+	defaultTogetherBackend,
+	defaultPerplexityBackend,
+	defaultGroqBackend,
+	defaultDeepSeekBackend,
+	defaultOpenRouterBackend,
 }
 
 // DefaultRegistryBackendNames returns registered backend names in registration order.

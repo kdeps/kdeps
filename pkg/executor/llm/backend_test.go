@@ -57,7 +57,7 @@ func TestBackendRegistry_GetDefault_EmptyRegistry(t *testing.T) {
 func TestBackendRegistry_GetDefault_NoOllama(t *testing.T) {
 	registry := llm.NewBackendRegistry()
 	registry.SetBackendsForTesting(map[string]llm.Backend{
-		"openai": &llm.OpenAIBackend{},
+		"openai": llm.NewBackendRegistry().Get("openai"),
 	})
 
 	// Test that GetDefault returns first available backend when ollama is not present
@@ -76,7 +76,7 @@ func TestBackendRegistry_SetBackendsForTesting(t *testing.T) {
 
 	// Create test backends
 	testBackends := map[string]llm.Backend{
-		"test1": &llm.OpenAIBackend{},
+		"test1": llm.NewBackendRegistry().Get("openai"),
 		"test2": &llm.AnthropicBackend{},
 	}
 
@@ -124,7 +124,7 @@ func TestOllamaBackend_DefaultURL(t *testing.T) {
 }
 
 func TestOpenAIBackend_DefaultURL(t *testing.T) {
-	backend := &llm.OpenAIBackend{}
+	backend := llm.NewBackendRegistry().Get("openai")
 	expected := "https://api.openai.com"
 
 	if backend.DefaultURL() != expected {
@@ -160,7 +160,7 @@ func TestCohereBackend_DefaultURL(t *testing.T) {
 }
 
 func TestMistralBackend_DefaultURL(t *testing.T) {
-	backend := &llm.MistralBackend{}
+	backend := llm.NewBackendRegistry().Get("mistral")
 	expected := "https://api.mistral.ai"
 
 	if backend.DefaultURL() != expected {
@@ -169,7 +169,7 @@ func TestMistralBackend_DefaultURL(t *testing.T) {
 }
 
 func TestTogetherBackend_DefaultURL(t *testing.T) {
-	backend := &llm.TogetherBackend{}
+	backend := llm.NewBackendRegistry().Get("together")
 	expected := "https://api.together.xyz"
 
 	if backend.DefaultURL() != expected {
@@ -178,7 +178,7 @@ func TestTogetherBackend_DefaultURL(t *testing.T) {
 }
 
 func TestPerplexityBackend_DefaultURL(t *testing.T) {
-	backend := &llm.PerplexityBackend{}
+	backend := llm.NewBackendRegistry().Get("perplexity")
 	expected := "https://api.perplexity.ai"
 
 	if backend.DefaultURL() != expected {
@@ -187,7 +187,7 @@ func TestPerplexityBackend_DefaultURL(t *testing.T) {
 }
 
 func TestGroqBackend_DefaultURL(t *testing.T) {
-	backend := &llm.GroqBackend{}
+	backend := llm.NewBackendRegistry().Get("groq")
 	expected := "https://api.groq.com"
 
 	if backend.DefaultURL() != expected {
@@ -196,7 +196,7 @@ func TestGroqBackend_DefaultURL(t *testing.T) {
 }
 
 func TestDeepSeekBackend_DefaultURL(t *testing.T) {
-	backend := &llm.DeepSeekBackend{}
+	backend := llm.NewBackendRegistry().Get("deepseek")
 	expected := "https://api.deepseek.com"
 
 	if backend.DefaultURL() != expected {
@@ -228,7 +228,7 @@ func TestBackendRegistry_Register(t *testing.T) {
 	registry := llm.NewBackendRegistry()
 	registry.SetBackendsForTesting(make(map[string]llm.Backend))
 
-	backend := &llm.OpenAIBackend{}
+	backend := llm.NewBackendRegistry().Get("openai")
 	registry.Register(backend)
 
 	// Verify backend was registered
@@ -264,7 +264,7 @@ func TestNewBackendRegistry(t *testing.T) {
 }
 
 func TestOpenAIBackend_BuildRequest(t *testing.T) {
-	backend := &llm.OpenAIBackend{}
+	backend := llm.NewBackendRegistry().Get("openai")
 
 	messages := []map[string]interface{}{
 		{"role": "user", "content": "Hello"},
@@ -495,7 +495,7 @@ func TestCohereBackend_BuildRequest_WithContextLength(t *testing.T) {
 }
 
 func TestOpenAIBackend_ChatEndpoint(t *testing.T) {
-	backend := &llm.OpenAIBackend{}
+	backend := llm.NewBackendRegistry().Get("openai")
 
 	endpoint := backend.ChatEndpoint("https://api.openai.com")
 	expected := "https://api.openai.com/v1/chat/completions"
@@ -528,7 +528,7 @@ func TestGoogleBackend_ChatEndpoint(t *testing.T) {
 }
 
 func TestOpenAIBackend_GetAPIKeyHeader(t *testing.T) {
-	backend := &llm.OpenAIBackend{}
+	backend := llm.NewBackendRegistry().Get("openai")
 
 	tests := []struct {
 		name    string
@@ -581,15 +581,15 @@ func TestBackend_Names(t *testing.T) {
 		backend      llm.Backend
 		expectedName string
 	}{
-		{&llm.OpenAIBackend{}, "openai"},
+		{llm.NewBackendRegistry().Get("openai"), "openai"},
 		{&llm.AnthropicBackend{}, "anthropic"},
 		{&llm.GoogleBackend{}, "google"},
 		{&llm.CohereBackend{}, "cohere"},
-		{&llm.MistralBackend{}, "mistral"},
-		{&llm.TogetherBackend{}, "together"},
-		{&llm.PerplexityBackend{}, "perplexity"},
-		{&llm.GroqBackend{}, "groq"},
-		{&llm.DeepSeekBackend{}, "deepseek"},
+		{llm.NewBackendRegistry().Get("mistral"), "mistral"},
+		{llm.NewBackendRegistry().Get("together"), "together"},
+		{llm.NewBackendRegistry().Get("perplexity"), "perplexity"},
+		{llm.NewBackendRegistry().Get("groq"), "groq"},
+		{llm.NewBackendRegistry().Get("deepseek"), "deepseek"},
 	}
 
 	for _, tt := range tests {
@@ -606,13 +606,13 @@ func TestBackend_DefaultURLs(t *testing.T) {
 		backend     llm.Backend
 		expectedURL string
 	}{
-		{&llm.OpenAIBackend{}, "https://api.openai.com"},
+		{llm.NewBackendRegistry().Get("openai"), "https://api.openai.com"},
 		{&llm.AnthropicBackend{}, "https://api.anthropic.com"},
-		{&llm.MistralBackend{}, "https://api.mistral.ai"},
-		{&llm.TogetherBackend{}, "https://api.together.xyz"},
-		{&llm.PerplexityBackend{}, "https://api.perplexity.ai"},
-		{&llm.GroqBackend{}, "https://api.groq.com"},
-		{&llm.DeepSeekBackend{}, "https://api.deepseek.com"},
+		{llm.NewBackendRegistry().Get("mistral"), "https://api.mistral.ai"},
+		{llm.NewBackendRegistry().Get("together"), "https://api.together.xyz"},
+		{llm.NewBackendRegistry().Get("perplexity"), "https://api.perplexity.ai"},
+		{llm.NewBackendRegistry().Get("groq"), "https://api.groq.com"},
+		{llm.NewBackendRegistry().Get("deepseek"), "https://api.deepseek.com"},
 	}
 
 	for _, tt := range tests {
@@ -625,7 +625,7 @@ func TestBackend_DefaultURLs(t *testing.T) {
 }
 
 func TestOpenAIBackend_ParseResponse_Success(t *testing.T) {
-	backend := &llm.OpenAIBackend{}
+	backend := llm.NewBackendRegistry().Get("openai")
 
 	// Create a mock HTTP response with OpenAI format
 	responseBody := `{
@@ -669,7 +669,7 @@ func TestOpenAIBackend_ParseResponse_Success(t *testing.T) {
 }
 
 func TestOpenAIBackend_ParseResponse_Error(t *testing.T) {
-	backend := &llm.OpenAIBackend{}
+	backend := llm.NewBackendRegistry().Get("openai")
 
 	responseBody := `{"error": {"message": "Invalid API key"}}`
 
@@ -694,7 +694,7 @@ func TestOpenAIBackend_ParseResponse_Error(t *testing.T) {
 }
 
 func TestOpenAIBackend_ParseResponse_InvalidJSON(t *testing.T) {
-	backend := &llm.OpenAIBackend{}
+	backend := llm.NewBackendRegistry().Get("openai")
 
 	resp := &stdhttp.Response{
 		StatusCode: stdhttp.StatusOK,
@@ -860,7 +860,7 @@ func TestCohereBackend_GetAPIKeyHeader(t *testing.T) {
 }
 
 func TestMistralBackend_ParseResponse_Success(t *testing.T) {
-	backend := &llm.MistralBackend{}
+	backend := llm.NewBackendRegistry().Get("mistral")
 
 	responseBody := `{
 		"choices": [
@@ -895,7 +895,7 @@ func TestMistralBackend_ParseResponse_Success(t *testing.T) {
 }
 
 func TestTogetherBackend_BuildRequest(t *testing.T) {
-	backend := &llm.TogetherBackend{}
+	backend := llm.NewBackendRegistry().Get("together")
 
 	messages := []map[string]interface{}{
 		{"role": "user", "content": "Hello"},
@@ -913,7 +913,7 @@ func TestTogetherBackend_BuildRequest(t *testing.T) {
 }
 
 func TestPerplexityBackend_BuildRequest(t *testing.T) {
-	backend := &llm.PerplexityBackend{}
+	backend := llm.NewBackendRegistry().Get("perplexity")
 
 	messages := []map[string]interface{}{
 		{"role": "user", "content": "Search query"},
@@ -931,7 +931,7 @@ func TestPerplexityBackend_BuildRequest(t *testing.T) {
 }
 
 func TestGroqBackend_BuildRequest(t *testing.T) {
-	backend := &llm.GroqBackend{}
+	backend := llm.NewBackendRegistry().Get("groq")
 
 	messages := []map[string]interface{}{
 		{"role": "user", "content": "Hello Groq"},
@@ -949,7 +949,7 @@ func TestGroqBackend_BuildRequest(t *testing.T) {
 }
 
 func TestDeepSeekBackend_BuildRequest(t *testing.T) {
-	backend := &llm.DeepSeekBackend{}
+	backend := llm.NewBackendRegistry().Get("deepseek")
 
 	messages := []map[string]interface{}{
 		{"role": "user", "content": "Hello DeepSeek"},
@@ -982,7 +982,7 @@ func TestAnthropicBackend_GetAPIKeyHeader_WithEnv(t *testing.T) {
 }
 
 func TestOpenAIBackend_GetAPIKeyHeader_Empty(t *testing.T) {
-	backend := &llm.OpenAIBackend{}
+	backend := llm.NewBackendRegistry().Get("openai")
 
 	// Test with empty key (and no env var)
 	key, val := backend.GetAPIKeyHeader("")
@@ -999,7 +999,7 @@ func contains(s, substr string) bool {
 
 // Tests for Mistral Backend.
 func TestMistralBackend_ChatEndpoint(t *testing.T) {
-	backend := &llm.MistralBackend{}
+	backend := llm.NewBackendRegistry().Get("mistral")
 	endpoint := backend.ChatEndpoint("https://api.mistral.ai")
 
 	expected := "https://api.mistral.ai/v1/chat/completions"
@@ -1009,7 +1009,7 @@ func TestMistralBackend_ChatEndpoint(t *testing.T) {
 }
 
 func TestMistralBackend_BuildRequest(t *testing.T) {
-	backend := &llm.MistralBackend{}
+	backend := llm.NewBackendRegistry().Get("mistral")
 	messages := []map[string]interface{}{
 		{"role": "user", "content": "test message"},
 	}
@@ -1037,7 +1037,7 @@ func TestMistralBackend_BuildRequest(t *testing.T) {
 }
 
 func TestMistralBackend_ParseResponse(t *testing.T) {
-	backend := &llm.MistralBackend{}
+	backend := llm.NewBackendRegistry().Get("mistral")
 
 	// Test successful response
 	respBody := `{"choices": [{"message": {"role": "assistant", "content": "test response"}}]}`
@@ -1057,7 +1057,7 @@ func TestMistralBackend_ParseResponse(t *testing.T) {
 }
 
 func TestMistralBackend_GetAPIKeyHeader(t *testing.T) {
-	backend := &llm.MistralBackend{}
+	backend := llm.NewBackendRegistry().Get("mistral")
 
 	key, val := backend.GetAPIKeyHeader("test-key")
 
@@ -1072,7 +1072,7 @@ func TestMistralBackend_GetAPIKeyHeader(t *testing.T) {
 
 // Tests for Together Backend.
 func TestTogetherBackend_ChatEndpoint(t *testing.T) {
-	backend := &llm.TogetherBackend{}
+	backend := llm.NewBackendRegistry().Get("together")
 	endpoint := backend.ChatEndpoint("https://api.together.xyz")
 
 	expected := "https://api.together.xyz/v1/chat/completions"
@@ -1082,7 +1082,7 @@ func TestTogetherBackend_ChatEndpoint(t *testing.T) {
 }
 
 func TestTogetherBackend_ParseResponse(t *testing.T) {
-	backend := &llm.TogetherBackend{}
+	backend := llm.NewBackendRegistry().Get("together")
 
 	respBody := `{"choices": [{"message": {"role": "assistant", "content": "test"}}]}`
 	resp := &stdhttp.Response{
@@ -1101,7 +1101,7 @@ func TestTogetherBackend_ParseResponse(t *testing.T) {
 }
 
 func TestTogetherBackend_GetAPIKeyHeader(t *testing.T) {
-	backend := &llm.TogetherBackend{}
+	backend := llm.NewBackendRegistry().Get("together")
 
 	key, val := backend.GetAPIKeyHeader("test-key")
 
@@ -1116,7 +1116,7 @@ func TestTogetherBackend_GetAPIKeyHeader(t *testing.T) {
 
 // Tests for Perplexity Backend.
 func TestPerplexityBackend_ChatEndpoint(t *testing.T) {
-	backend := &llm.PerplexityBackend{}
+	backend := llm.NewBackendRegistry().Get("perplexity")
 	endpoint := backend.ChatEndpoint("https://api.perplexity.ai")
 
 	expected := "https://api.perplexity.ai/chat/completions"
@@ -1126,7 +1126,7 @@ func TestPerplexityBackend_ChatEndpoint(t *testing.T) {
 }
 
 func TestPerplexityBackend_ParseResponse(t *testing.T) {
-	backend := &llm.PerplexityBackend{}
+	backend := llm.NewBackendRegistry().Get("perplexity")
 
 	respBody := `{"choices": [{"message": {"role": "assistant", "content": "test"}}]}`
 	resp := &stdhttp.Response{
@@ -1145,7 +1145,7 @@ func TestPerplexityBackend_ParseResponse(t *testing.T) {
 }
 
 func TestPerplexityBackend_GetAPIKeyHeader(t *testing.T) {
-	backend := &llm.PerplexityBackend{}
+	backend := llm.NewBackendRegistry().Get("perplexity")
 
 	key, val := backend.GetAPIKeyHeader("test-key")
 
@@ -1160,7 +1160,7 @@ func TestPerplexityBackend_GetAPIKeyHeader(t *testing.T) {
 
 // Tests for Groq Backend.
 func TestGroqBackend_ChatEndpoint(t *testing.T) {
-	backend := &llm.GroqBackend{}
+	backend := llm.NewBackendRegistry().Get("groq")
 	endpoint := backend.ChatEndpoint("https://api.groq.com")
 
 	expected := "https://api.groq.com/openai/v1/chat/completions"
@@ -1170,7 +1170,7 @@ func TestGroqBackend_ChatEndpoint(t *testing.T) {
 }
 
 func TestGroqBackend_ParseResponse(t *testing.T) {
-	backend := &llm.GroqBackend{}
+	backend := llm.NewBackendRegistry().Get("groq")
 
 	respBody := `{"choices": [{"message": {"role": "assistant", "content": "test"}}]}`
 	resp := &stdhttp.Response{
@@ -1189,7 +1189,7 @@ func TestGroqBackend_ParseResponse(t *testing.T) {
 }
 
 func TestGroqBackend_GetAPIKeyHeader(t *testing.T) {
-	backend := &llm.GroqBackend{}
+	backend := llm.NewBackendRegistry().Get("groq")
 
 	key, val := backend.GetAPIKeyHeader("test-key")
 
@@ -1204,7 +1204,7 @@ func TestGroqBackend_GetAPIKeyHeader(t *testing.T) {
 
 // Tests for DeepSeek Backend.
 func TestDeepSeekBackend_ChatEndpoint(t *testing.T) {
-	backend := &llm.DeepSeekBackend{}
+	backend := llm.NewBackendRegistry().Get("deepseek")
 	endpoint := backend.ChatEndpoint("https://api.deepseek.com")
 
 	expected := "https://api.deepseek.com/v1/chat/completions"
@@ -1214,7 +1214,7 @@ func TestDeepSeekBackend_ChatEndpoint(t *testing.T) {
 }
 
 func TestDeepSeekBackend_ParseResponse(t *testing.T) {
-	backend := &llm.DeepSeekBackend{}
+	backend := llm.NewBackendRegistry().Get("deepseek")
 
 	respBody := `{"choices": [{"message": {"role": "assistant", "content": "test"}}]}`
 	resp := &stdhttp.Response{
@@ -1233,7 +1233,7 @@ func TestDeepSeekBackend_ParseResponse(t *testing.T) {
 }
 
 func TestDeepSeekBackend_GetAPIKeyHeader(t *testing.T) {
-	backend := &llm.DeepSeekBackend{}
+	backend := llm.NewBackendRegistry().Get("deepseek")
 
 	key, val := backend.GetAPIKeyHeader("test-key")
 
