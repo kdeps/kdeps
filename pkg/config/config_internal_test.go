@@ -949,9 +949,9 @@ func TestLoad_ParseError(t *testing.T) {
 }
 
 func TestConfigEnvVar_APIKeys(t *testing.T) {
-	for backend, keyField := range backendToKey {
-		env, ok := configEnvVar("llm." + keyField)
-		require.True(t, ok, "backend %s", backend)
-		assert.Equal(t, backendToEnv[backend], env)
+	for _, p := range cloudProvidersList {
+		env, ok := configEnvVar("llm." + p.yamlKey)
+		require.True(t, ok, "backend %s", p.name)
+		assert.Equal(t, p.envVar, env)
 	}
 }

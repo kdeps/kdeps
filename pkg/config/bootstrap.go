@@ -33,9 +33,12 @@ type providerKey struct {
 // providerNames returns the ordered list of supported LLM provider names.
 // "ollama" is the local option (no API key needed).
 func providerNames() []string {
-	names := make([]string, 0, 1+len(cloudProviderOrder))
+	names := make([]string, 0, 1+len(cloudProvidersList))
 	names = append(names, ollamaBackendStr)
-	return append(names, cloudProviderOrder...)
+	for _, p := range cloudProvidersList {
+		names = append(names, p.name)
+	}
+	return names
 }
 
 // providerMetaMap returns the metadata for each provider.
@@ -43,8 +46,8 @@ func providerMetaMap() map[string]providerKey {
 	meta := map[string]providerKey{
 		ollamaBackendStr: {"OLLAMA_HOST", func(c *Config, v string) { c.LLM.OllamaHost = v }},
 	}
-	for name, p := range cloudProviders {
-		meta[name] = providerKey{envVar: p.envVar, setter: p.setKey}
+	for _, p := range cloudProvidersList {
+		meta[p.name] = providerKey{envVar: p.envVar, setter: p.setKey}
 	}
 	return meta
 }
@@ -179,8 +182,7 @@ func buildUserFields(cfg Config) string {
 	lines = append(lines, "llm:")
 	appendField(&lines, "  ollama_host", cfg.LLM.OllamaHost)
 	appendField(&lines, "  models_dir", cfg.LLM.ModelsDir)
-	for _, name := range cloudProviderOrder {
-		p := cloudProviders[name]
+	for _, p := range cloudProvidersList {
 		appendField(&lines, "  "+p.yamlKey, p.getKey(cfg.LLM))
 	}
 	if cfg.Defaults.Timezone != "" || cfg.Defaults.PythonVersion != "" {

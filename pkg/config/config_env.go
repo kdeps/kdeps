@@ -128,7 +128,7 @@ func applyLLMEnv(keys LLMKeys) {
 		setIfUnset("KDEPS_LLM_MODELS", strings.Join(names, ","))
 	}
 	setIfUnset("KDEPS_MODELS_DIR", keys.ModelsDir)
-	for _, p := range cloudProviders {
+	for _, p := range cloudProvidersList {
 		setIfUnset(p.envVar, p.getKey(keys))
 	}
 	applyRouterEnv(keys)
