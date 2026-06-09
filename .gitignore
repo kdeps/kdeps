@@ -262,5 +262,21 @@ codeql-results.sarif
 # MCP integration test server binary (built by TestMain)
 tests/integration/mcp/testserver/testserver
 tests/integration/mcp/testserver/testserver.exe
+
+# Root-level binaries accidentally committed from local builds
+/testserver
+
+# Runtime SQLite databases and WAL sidecar files (created by tests or local runs)
+*.db
+*-shm
+*-wal
+
+# Local kdeps runtime state (sessions, caches)
+.kdeps/
+
+# Nested component/registry repos (clone separately; not part of main tree)
+/packages/
+/registry/
+
 book
 .claude_tmp/
