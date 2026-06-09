@@ -20,7 +20,6 @@ package sql
 
 import (
 	"fmt"
-	"regexp"
 	"strings"
 
 	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
@@ -72,38 +71,6 @@ func (e *Executor) containsExpressionSyntax(s string) bool {
 	return strings.Contains(s, "{{")
 }
 
-// evaluateSQLParameters evaluates SQL query parameters.
-func (e *Executor) evaluateSQLParameters(
-	evaluator *expression.Evaluator,
-	ctx *executor.ExecutionContext,
-	params []interface{},
-) ([]interface{}, error) {
-	kdeps_debug.Log("enter: evaluateSQLParameters")
-	evaluatedParams := make([]interface{}, len(params))
-
-	for i, param := range params {
-		evaluatedParam, err := e.EvaluateSingleParam(evaluator, ctx, param, i)
-		if err != nil {
-			return nil, err
-		}
-		evaluatedParams[i] = evaluatedParam
-	}
-
-	return evaluatedParams, nil
-}
-
-// containsSQLFunctionCalls checks if a string contains SQL-relevant function calls.
-func (e *Executor) containsSQLFunctionCalls(paramStr string) bool {
-	kdeps_debug.Log("enter: containsSQLFunctionCalls")
-	functionPatterns := []string{`get\(`, `set\(`, `file\(`, `info\(`, `len\(`}
-	for _, pattern := range functionPatterns {
-		if matched, _ := regexp.MatchString(pattern, paramStr); matched {
-			return true
-		}
-	}
-	return false
-}
-
 // buildEnvironment builds evaluation environment from context.
 func (e *Executor) buildEnvironment(ctx *executor.ExecutionContext) map[string]interface{} {
 	kdeps_debug.Log("enter: buildEnvironment")
@@ -122,39 +89,4 @@ func (e *Executor) buildEnvironment(ctx *executor.ExecutionContext) map[string]i
 	env["outputs"] = ctx.Outputs
 
 	return env
-}
-
-// EvaluateSingleParam evaluates a single SQL parameter.
-// EvaluateSingleParam evaluates a single SQL parameter (exported for testing).
-func (e *Executor) EvaluateSingleParam(
-	evaluator *expression.Evaluator,
-	ctx *executor.ExecutionContext,
-	param interface{},
-	index int,
-) (interface{}, error) {
-	kdeps_debug.Log("enter: EvaluateSingleParam")
-	paramStr, ok := param.(string)
-	if !ok {
-		// For non-string parameters, use as-is
-		return param, nil
-	}
-
-	// For string parameters in SQL, be very conservative - only evaluate if it contains function calls
-	if !e.containsSQLFunctionCalls(paramStr) {
-		// Otherwise treat as literal string
-		return paramStr, nil
-	}
-
-	// Only evaluate as expression if it contains function calls
-	evaluatedParam, evalErr := e.evaluateExpression(evaluator, ctx, paramStr)
-	if evalErr != nil {
-		return nil, fmt.Errorf("failed to evaluate parameter %d: %w", index, evalErr)
-	}
-	return evaluatedParam, nil
-}
-
-// ContainsSQLFunctionCallsForTesting calls containsSQLFunctionCalls for testing.
-func (e *Executor) ContainsSQLFunctionCallsForTesting(paramStr string) bool {
-	kdeps_debug.Log("enter: ContainsSQLFunctionCallsForTesting")
-	return e.containsSQLFunctionCalls(paramStr)
 }
