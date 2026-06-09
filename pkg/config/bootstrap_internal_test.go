@@ -17,6 +17,7 @@ package config
 
 import (
 	"bufio"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -45,22 +46,20 @@ func TestWriteConfig_AllEmpty(t *testing.T) {
 }
 
 func TestWriteConfig_WithValues(t *testing.T) {
+	primary := primaryCloudProvider()
+	secondary := secondaryCloudProvider()
 	dir := t.TempDir()
 	path := filepath.Join(dir, "config.yaml")
-	cfg := Config{
-		LLM: LLMKeys{
-			OllamaHost: "http://localhost:11434",
-			OpenAI:     "sk-test",
-			Anthropic:  "ant-test",
-		},
-	}
+	cfg := Config{LLM: LLMKeys{OllamaHost: "http://localhost:11434"}}
+	primary.setLLMKey(&cfg.LLM, "sk-test")
+	secondary.setLLMKey(&cfg.LLM, "ant-test")
 	require.NoError(t, writeConfig(path, cfg))
 	data, err := os.ReadFile(path)
 	require.NoError(t, err)
 	content := string(data)
 	assert.Contains(t, content, `ollama_host: "http://localhost:11434"`)
-	assert.Contains(t, content, `openai_api_key: "sk-test"`)
-	assert.Contains(t, content, `anthropic_api_key: "ant-test"`)
+	assert.Contains(t, content, fmt.Sprintf(`%s: "sk-test"`, primary.yamlKey))
+	assert.Contains(t, content, fmt.Sprintf(`%s: "ant-test"`, secondary.yamlKey))
 }
 
 func TestWriteConfig_MkdirError(t *testing.T) {
@@ -74,9 +73,11 @@ func TestWriteConfig_MkdirError(t *testing.T) {
 }
 
 func TestWriteConfig_QuotesInValue(t *testing.T) {
+	p := primaryCloudProvider()
 	dir := t.TempDir()
 	path := filepath.Join(dir, "config.yaml")
-	cfg := Config{LLM: LLMKeys{OpenAI: `key"with"quotes`}}
+	cfg := Config{LLM: LLMKeys{}}
+	p.setLLMKey(&cfg.LLM, `key"with"quotes`)
 	require.NoError(t, writeConfig(path, cfg))
 	data, _ := os.ReadFile(path)
 	assert.Contains(t, string(data), `key\"with\"quotes`)
@@ -120,9 +121,10 @@ func TestBootstrapInteractive_OllamaCustomHost(t *testing.T) {
 }
 
 func TestBootstrapInteractive_OnlineProvider(t *testing.T) {
+	p := primaryCloudProvider()
 	dir := t.TempDir()
 	path := filepath.Join(dir, "config.yaml")
-	// Input: choose "2" (openai), then API key via fallback reader
+	// Menu index 2 = first cloud provider after ollama.
 	input := "2\nsk-mykey\n"
 	reader := bufio.NewReader(strings.NewReader(input))
 	var out testWriter
@@ -130,7 +132,7 @@ func TestBootstrapInteractive_OnlineProvider(t *testing.T) {
 
 	data, err := os.ReadFile(path)
 	require.NoError(t, err)
-	assert.Contains(t, string(data), `openai_api_key: "sk-mykey"`)
+	assert.Contains(t, string(data), fmt.Sprintf(`%s: "sk-mykey"`, p.yamlKey))
 }
 
 func TestBootstrapInteractive_Skip(t *testing.T) {

@@ -235,7 +235,7 @@ func configureProvider(
 	out io.StringWriter, reader *bufio.Reader, w *fmtWriter, cfg *Config, chosenProvider string,
 ) error {
 	meta := providerMeta[chosenProvider]
-	if chosenProvider == ollamaBackendStr {
+	if isLocalBackend(chosenProvider) && chosenProvider != "" {
 		hostRaw := promptLine(out, reader, "  Ollama host URL [http://localhost:11434]: ", "http://localhost:11434")
 		if strings.TrimSpace(hostRaw) != "" {
 			meta.setter(cfg, strings.TrimSpace(hostRaw))

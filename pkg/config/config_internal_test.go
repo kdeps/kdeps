@@ -467,7 +467,7 @@ func TestMergeConfig_APIAuthToken(t *testing.T) {
 
 func TestMergeConfig_EmptySrcNoOverwrite(t *testing.T) {
 	dstLLM := LLMKeys{OllamaHost: "http://original:11434"}
-	cloudProvidersList[0].setLLMKey(&dstLLM, "sk-original")
+	primaryCloudProvider().setLLMKey(&dstLLM, "sk-original")
 	dst := &Config{
 		LLM: dstLLM,
 		Defaults: Defaults{
@@ -482,7 +482,7 @@ func TestMergeConfig_EmptySrcNoOverwrite(t *testing.T) {
 	mergeConfig(dst, src)
 	// dst values must be preserved
 	assert.Equal(t, "http://original:11434", dst.LLM.OllamaHost)
-	assert.Equal(t, "sk-original", cloudProvidersList[0].getKey(dst.LLM))
+	assert.Equal(t, "sk-original", primaryCloudProvider().getKey(dst.LLM))
 	assert.Equal(t, "America/Chicago", dst.Defaults.Timezone)
 	assert.Equal(t, "30s", dst.ResourceDefaults.Chat.Timeout)
 	assert.Equal(t, "15s", dst.ResourceDefaults.HTTP.Timeout)
@@ -545,7 +545,7 @@ func TestRunPythonCheck_OnlyPython_Shim(t *testing.T) {
 // --- LoadWithAgent (integration through real file) ---
 
 func TestLoadWithAgent_NoAgentName(t *testing.T) {
-	p := cloudProvidersList[0]
+	p := primaryCloudProvider()
 	dir := t.TempDir()
 	writeTempConfig(t, dir, fmt.Sprintf("llm:\n  %s: sk-base\n", p.yamlKey))
 	cfg, err := LoadWithAgent("")
@@ -554,8 +554,8 @@ func TestLoadWithAgent_NoAgentName(t *testing.T) {
 }
 
 func TestLoadWithAgent_KnownAgent(t *testing.T) {
-	primary := cloudProvidersList[0]
-	secondary := cloudProvidersList[1]
+	primary := primaryCloudProvider()
+	secondary := secondaryCloudProvider()
 	dir := t.TempDir()
 	writeTempConfig(t, dir, fmt.Sprintf(`
 llm:
@@ -577,7 +577,7 @@ agents:
 }
 
 func TestLoadWithAgent_UnknownAgent(t *testing.T) {
-	p := cloudProvidersList[0]
+	p := primaryCloudProvider()
 	dir := t.TempDir()
 	writeTempConfig(t, dir, fmt.Sprintf(`
 llm:
@@ -596,7 +596,7 @@ agents:
 }
 
 func TestLoadWithAgent_NoAgents(t *testing.T) {
-	p := cloudProvidersList[0]
+	p := primaryCloudProvider()
 	dir := t.TempDir()
 	writeTempConfig(t, dir, fmt.Sprintf("llm:\n  %s: sk-base\n", p.yamlKey))
 	for _, key := range knownConfigEnvVars() {
@@ -608,7 +608,7 @@ func TestLoadWithAgent_NoAgents(t *testing.T) {
 }
 
 func TestLoadWithAgent_PreservesExplicitAPIAuthToken(t *testing.T) {
-	p := cloudProvidersList[0]
+	p := primaryCloudProvider()
 	dir := t.TempDir()
 	writeTempConfig(t, dir, fmt.Sprintf("llm:\n  %s: sk-base\n", p.yamlKey))
 	t.Setenv("KDEPS_API_AUTH_TOKEN", "from-shell")
@@ -634,8 +634,8 @@ func TestLoadWithAgent_LoadError(t *testing.T) {
 // --- LoadStructWithAgent ---
 
 func TestLoadStructWithAgent_KnownAgent(t *testing.T) {
-	primary := cloudProvidersList[0]
-	secondary := cloudProvidersList[1]
+	primary := primaryCloudProvider()
+	secondary := secondaryCloudProvider()
 	dir := t.TempDir()
 	writeTempConfig(t, dir, fmt.Sprintf(`
 llm:
@@ -653,7 +653,7 @@ agents:
 }
 
 func TestLoadStructWithAgent_UnknownAgent(t *testing.T) {
-	p := cloudProvidersList[0]
+	p := primaryCloudProvider()
 	dir := t.TempDir()
 	writeTempConfig(t, dir, fmt.Sprintf(`
 llm:
@@ -669,7 +669,7 @@ agents:
 }
 
 func TestLoadStructWithAgent_NoAgentName(t *testing.T) {
-	p := cloudProvidersList[0]
+	p := primaryCloudProvider()
 	dir := t.TempDir()
 	writeTempConfig(t, dir, fmt.Sprintf("llm:\n  %s: sk-base\n", p.yamlKey))
 	cfg, err := LoadStructWithAgent("")
@@ -678,7 +678,7 @@ func TestLoadStructWithAgent_NoAgentName(t *testing.T) {
 }
 
 func TestLoadStructWithAgent_NoAgentsInCfg(t *testing.T) {
-	p := cloudProvidersList[0]
+	p := primaryCloudProvider()
 	dir := t.TempDir()
 	writeTempConfig(t, dir, fmt.Sprintf("llm:\n  %s: sk-base\n", p.yamlKey))
 	cfg, err := LoadStructWithAgent("my_agent")
@@ -711,7 +711,8 @@ func TestModelList_UnmarshalYAML_InvalidEntry(t *testing.T) {
 
 func TestModelList_UnmarshalYAML_FullEntry(t *testing.T) {
 	var ml ModelList
-	err := yaml.Unmarshal([]byte("- model: gpt-4\n  backend: openai"), &ml)
+	p := primaryCloudProvider()
+	err := yaml.Unmarshal([]byte(fmt.Sprintf("- model: gpt-4\n  backend: %s", p.name)), &ml)
 	require.NoError(t, err)
 	require.Len(t, ml, 1)
 	assert.Equal(t, "gpt-4", ml[0].Model)

@@ -15,6 +15,7 @@
 package config_test
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"testing"
@@ -28,7 +29,7 @@ import (
 func TestBootstrap_ExistingConfig(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "config.yaml")
-	existing := "llm:\n  openai_api_key: keep-me\n"
+	existing := fmt.Sprintf("llm:\n  %s: keep-me\n", config.CloudLLMProviders()[0].YAMLKey)
 	require.NoError(t, os.WriteFile(path, []byte(existing), 0600))
 	t.Setenv("KDEPS_CONFIG_PATH", path)
 
@@ -50,7 +51,9 @@ func TestBootstrap_NonInteractive_CreatesFile(t *testing.T) {
 
 	data, err := os.ReadFile(path)
 	require.NoError(t, err)
-	assert.Contains(t, string(data), "openai_api_key")
+	for _, p := range config.CloudLLMProviders() {
+		assert.Contains(t, string(data), p.YAMLKey)
+	}
 }
 
 func TestWriteConfigAndReload(t *testing.T) {
