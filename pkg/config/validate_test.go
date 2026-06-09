@@ -1,6 +1,7 @@
 package config
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -23,6 +24,14 @@ func loadCfg(t *testing.T) *Config {
 	cfg, err := LoadStruct()
 	require.NoError(t, err)
 	return cfg
+}
+
+func allCloudProviderKeysYAML() string {
+	var b strings.Builder
+	for _, p := range cloudProvidersList {
+		fmt.Fprintf(&b, "  %s: sk-%s\n", p.yamlKey, p.name)
+	}
+	return b.String()
 }
 
 func TestValidate_ValidConfig_NoWarnings(t *testing.T) {
@@ -391,23 +400,13 @@ func TestValidate_ValidateCalledAfterLoad(t *testing.T) {
 	// Validate on a config that was loaded from a valid file
 	// with all backends set should produce no API key warnings.
 	dir := t.TempDir()
-	writeTempConfig(t, dir, `
+	writeTempConfig(t, dir, fmt.Sprintf(`
 llm:
   backend: openai
-  openai_api_key: sk-test
-  anthropic_api_key: sk-ant
-  google_api_key: sk-goog
-  cohere_api_key: sk-coh
-  mistral_api_key: sk-mist
-  together_api_key: sk-tog
-  perplexity_api_key: sk-perp
-  groq_api_key: sk-groq
-  deepseek_api_key: sk-ds
-  openrouter_api_key: sk-or
-resource_defaults:
+%sresource_defaults:
   chat:
     timeout: "60s"
-`)
+`, allCloudProviderKeysYAML()))
 	cfg := loadCfg(t)
 	warnings := cfg.Validate("")
 	assert.Empty(t, warnings)
@@ -493,23 +492,18 @@ agents:
 }
 
 func TestValidate_BackendAllProvidersAPIKeyCheck(t *testing.T) {
-	backends := []string{
-		"openai", "anthropic", "google", "cohere", "mistral",
-		"together", "perplexity", "groq", "deepseek", "openrouter",
-	}
-	for _, backend := range backends {
+	for _, p := range cloudProvidersList {
 		dir := t.TempDir()
-		writeTempConfig(t, dir, "llm:\n  backend: "+backend+"\n")
+		writeTempConfig(t, dir, "llm:\n  backend: "+p.name+"\n")
 		cfg := loadCfg(t)
 		warnings := cfg.Validate("")
-		// Should warn about missing API key
 		found := false
 		for _, w := range warnings {
-			if strings.Contains(w, backend) && strings.Contains(w, "not set") {
+			if strings.Contains(w, p.name) && strings.Contains(w, "not set") {
 				found = true
 			}
 		}
-		assert.True(t, found, "expected warning for backend %q without API key, got: %v", backend, warnings)
+		assert.True(t, found, "expected warning for backend %q without API key, got: %v", p.name, warnings)
 	}
 }
 
@@ -529,7 +523,9 @@ llm:
 
 func TestIsEmptyAgentProfile(t *testing.T) {
 	assert.True(t, isEmptyAgentProfile(Config{}))
-	assert.False(t, isEmptyAgentProfile(Config{LLM: LLMKeys{OpenAI: "sk-test"}}))
+	llm := LLMKeys{}
+	cloudProvidersList[0].setLLMKey(&llm, "sk-test")
+	assert.False(t, isEmptyAgentProfile(Config{LLM: llm}))
 	assert.False(t, isEmptyAgentProfile(Config{Defaults: Defaults{Timezone: "UTC"}}))
 	assert.False(t, isEmptyAgentProfile(Config{ResourceDefaults: ResourceDefaults{
 		Chat: ChatDefaults{Timeout: "60s"},
