@@ -47,6 +47,8 @@ func (b *MistralBackend) GetAPIKeyHeader(apiKey string) (string, string) {
 	return defaultMistralBackend.GetAPIKeyHeader(apiKey)
 }
 
+func (b *MistralBackend) APIKeyEnvVar() string { return defaultMistralBackend.APIKeyEnvVar() }
+
 // TogetherBackend implements the Together AI backend.
 type TogetherBackend struct{}
 
@@ -73,6 +75,8 @@ func (b *TogetherBackend) ParseResponse(resp *stdhttp.Response) (map[string]inte
 func (b *TogetherBackend) GetAPIKeyHeader(apiKey string) (string, string) {
 	return defaultTogetherBackend.GetAPIKeyHeader(apiKey)
 }
+
+func (b *TogetherBackend) APIKeyEnvVar() string { return defaultTogetherBackend.APIKeyEnvVar() }
 
 // PerplexityBackend implements the Perplexity AI backend.
 type PerplexityBackend struct{}
@@ -101,6 +105,8 @@ func (b *PerplexityBackend) GetAPIKeyHeader(apiKey string) (string, string) {
 	return defaultPerplexityBackend.GetAPIKeyHeader(apiKey)
 }
 
+func (b *PerplexityBackend) APIKeyEnvVar() string { return defaultPerplexityBackend.APIKeyEnvVar() }
+
 // GroqBackend implements the Groq backend.
 type GroqBackend struct{}
 
@@ -127,6 +133,8 @@ func (b *GroqBackend) ParseResponse(resp *stdhttp.Response) (map[string]interfac
 func (b *GroqBackend) GetAPIKeyHeader(apiKey string) (string, string) {
 	return defaultGroqBackend.GetAPIKeyHeader(apiKey)
 }
+
+func (b *GroqBackend) APIKeyEnvVar() string { return defaultGroqBackend.APIKeyEnvVar() }
 
 // DeepSeekBackend implements the DeepSeek backend.
 type DeepSeekBackend struct{}
@@ -155,6 +163,8 @@ func (b *DeepSeekBackend) GetAPIKeyHeader(apiKey string) (string, string) {
 	return defaultDeepSeekBackend.GetAPIKeyHeader(apiKey)
 }
 
+func (b *DeepSeekBackend) APIKeyEnvVar() string { return defaultDeepSeekBackend.APIKeyEnvVar() }
+
 // OpenRouterBackend implements the OpenRouter backend.
 type OpenRouterBackend struct{}
 
@@ -181,3 +191,5 @@ func (b *OpenRouterBackend) ParseResponse(resp *stdhttp.Response) (map[string]in
 func (b *OpenRouterBackend) GetAPIKeyHeader(apiKey string) (string, string) {
 	return defaultOpenRouterBackend.GetAPIKeyHeader(apiKey)
 }
+
+func (b *OpenRouterBackend) APIKeyEnvVar() string { return defaultOpenRouterBackend.APIKeyEnvVar() }

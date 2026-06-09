@@ -92,6 +92,8 @@ func (b *FileBackend) GetAPIKeyHeader(_ string) (string, string) {
 	return "", ""
 }
 
+func (b *FileBackend) APIKeyEnvVar() string { return "" }
+
 // convertOpenAICompatResponse normalises an OpenAI-compatible response map
 // into the internal {message: {role, content}} format used by the executor.
 func convertOpenAICompatResponse(resp map[string]interface{}) map[string]interface{} {

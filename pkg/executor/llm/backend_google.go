@@ -82,3 +82,5 @@ func (b *GoogleBackend) GetAPIKeyHeader(_ string) (string, string) {
 	// We'll handle this in callBackend by modifying the endpoint URL
 	return "", ""
 }
+
+func (b *GoogleBackend) APIKeyEnvVar() string { return "GOOGLE_API_KEY" }

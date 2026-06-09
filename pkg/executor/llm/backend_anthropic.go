@@ -85,3 +85,5 @@ func (b *AnthropicBackend) GetAPIKeyHeader(apiKey string) (string, string) {
 	// The executor adds the version header separately via applyBackendAuthHeaders.
 	return rawAPIKeyHeader(apiKey, "ANTHROPIC_API_KEY", "x-api-key")
 }
+
+func (b *AnthropicBackend) APIKeyEnvVar() string { return "ANTHROPIC_API_KEY" }

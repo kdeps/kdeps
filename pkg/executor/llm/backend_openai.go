@@ -46,3 +46,5 @@ func (b *OpenAIBackend) ParseResponse(resp *stdhttp.Response) (map[string]interf
 func (b *OpenAIBackend) GetAPIKeyHeader(apiKey string) (string, string) {
 	return defaultOpenAIBackend.GetAPIKeyHeader(apiKey)
 }
+
+func (b *OpenAIBackend) APIKeyEnvVar() string { return defaultOpenAIBackend.APIKeyEnvVar() }

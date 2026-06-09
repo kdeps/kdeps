@@ -38,6 +38,7 @@ type Backend interface {
 	) (map[string]interface{}, error)
 	ParseResponse(resp *stdhttp.Response) (map[string]interface{}, error)
 	GetAPIKeyHeader(apiKey string) (headerName, keyValue string)
+	APIKeyEnvVar() string
 }
 
 // ChatRequestConfig contains configuration for chat requests.
