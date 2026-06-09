@@ -362,6 +362,13 @@ func TestProviderMetaMap_EnvVarsUseBackendToEnv(t *testing.T) {
 	assert.Equal(t, "OLLAMA_HOST", meta[ollamaBackendStr].envVar)
 }
 
+func TestCloudProviders_PopulatesLookupTables(t *testing.T) {
+	for name, p := range cloudProviders {
+		assert.Equal(t, p.yamlKey, backendToKey[name])
+		assert.Equal(t, p.envVar, backendToEnv[name])
+	}
+}
+
 func TestProviderMetaMap_SetterWorks(t *testing.T) {
 	meta := providerMetaMap()
 	cfg := &Config{}

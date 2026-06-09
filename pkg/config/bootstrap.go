@@ -42,19 +42,13 @@ func providerNames() []string {
 
 // providerMetaMap returns the metadata for each provider.
 func providerMetaMap() map[string]providerKey {
-	return map[string]providerKey{
+	meta := map[string]providerKey{
 		ollamaBackendStr: {"OLLAMA_HOST", func(c *Config, v string) { c.LLM.OllamaHost = v }},
-		"openai":         {backendToEnv["openai"], func(c *Config, v string) { c.LLM.OpenAI = v }},
-		"anthropic":      {backendToEnv["anthropic"], func(c *Config, v string) { c.LLM.Anthropic = v }},
-		"google":         {backendToEnv["google"], func(c *Config, v string) { c.LLM.Google = v }},
-		"cohere":         {backendToEnv["cohere"], func(c *Config, v string) { c.LLM.Cohere = v }},
-		"mistral":        {backendToEnv["mistral"], func(c *Config, v string) { c.LLM.Mistral = v }},
-		"together":       {backendToEnv["together"], func(c *Config, v string) { c.LLM.Together = v }},
-		"perplexity":     {backendToEnv["perplexity"], func(c *Config, v string) { c.LLM.Perplexity = v }},
-		"groq":           {backendToEnv["groq"], func(c *Config, v string) { c.LLM.Groq = v }},
-		"deepseek":       {backendToEnv["deepseek"], func(c *Config, v string) { c.LLM.DeepSeek = v }},
-		"openrouter":     {backendToEnv["openrouter"], func(c *Config, v string) { c.LLM.OpenRouter = v }},
 	}
+	for name, p := range cloudProviders {
+		meta[name] = providerKey{envVar: p.envVar, setter: p.setKey}
+	}
+	return meta
 }
 
 // Bootstrap writes an initial ~/.kdeps/config.yaml by interactively asking the

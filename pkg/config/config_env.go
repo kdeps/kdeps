@@ -128,16 +128,9 @@ func applyLLMEnv(keys LLMKeys) {
 		setIfUnset("KDEPS_LLM_MODELS", strings.Join(names, ","))
 	}
 	setIfUnset("KDEPS_MODELS_DIR", keys.ModelsDir)
-	setIfUnset("OPENAI_API_KEY", keys.OpenAI)
-	setIfUnset("ANTHROPIC_API_KEY", keys.Anthropic)
-	setIfUnset("GOOGLE_API_KEY", keys.Google)
-	setIfUnset("COHERE_API_KEY", keys.Cohere)
-	setIfUnset("MISTRAL_API_KEY", keys.Mistral)
-	setIfUnset("TOGETHER_API_KEY", keys.Together)
-	setIfUnset("PERPLEXITY_API_KEY", keys.Perplexity)
-	setIfUnset("GROQ_API_KEY", keys.Groq)
-	setIfUnset("DEEPSEEK_API_KEY", keys.DeepSeek)
-	setIfUnset("OPENROUTER_API_KEY", keys.OpenRouter)
+	for _, p := range cloudProviders {
+		setIfUnset(p.envVar, p.getKey(keys))
+	}
 	applyRouterEnv(keys)
 }
 

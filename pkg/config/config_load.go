@@ -131,14 +131,10 @@ func LoadWithAgent(agentName string) (*Config, error) {
 
 // knownConfigEnvVars returns all env var names that applyEnv may set.
 func knownConfigEnvVars() []string {
-	return []string{
+	vars := []string{
 		"TZ", "KDEPS_PYTHON_VERSION", "KDEPS_OFFLINE_MODE",
 		"OLLAMA_HOST", "KDEPS_DEFAULT_BACKEND", "KDEPS_LLM_BASE_URL",
 		"KDEPS_LLM_MODELS", "KDEPS_MODELS_DIR",
-		"OPENAI_API_KEY", "ANTHROPIC_API_KEY", "GOOGLE_API_KEY",
-		"COHERE_API_KEY", "MISTRAL_API_KEY", "TOGETHER_API_KEY",
-		"PERPLEXITY_API_KEY", "GROQ_API_KEY", "DEEPSEEK_API_KEY",
-		"OPENROUTER_API_KEY",
 		"KDEPS_CHAT_TIMEOUT", "KDEPS_CHAT_CONTEXT_LENGTH",
 		"KDEPS_CHAT_STREAMING", "KDEPS_CHAT_TEMPERATURE",
 		"KDEPS_CHAT_MAX_TOKENS", "KDEPS_CHAT_TOP_P",
@@ -157,6 +153,13 @@ func knownConfigEnvVars() []string {
 		"KDEPS_LLM_ROUTER",
 		"KDEPS_API_AUTH_TOKEN",
 	}
+	for _, name := range providerNames() {
+		if name == ollamaBackendStr {
+			continue
+		}
+		vars = append(vars, backendToEnv[name])
+	}
+	return vars
 }
 
 // load reads and parses config.yaml without applying env vars.

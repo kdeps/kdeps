@@ -69,56 +69,100 @@ var (
 		"round_robin":     true,
 	}
 
-	backendToKey = map[string]string{
-		"openai":     "openai_api_key",
-		"anthropic":  "anthropic_api_key",
-		"google":     "google_api_key",
-		"cohere":     "cohere_api_key",
-		"mistral":    "mistral_api_key",
-		"together":   "together_api_key",
-		"perplexity": "perplexity_api_key",
-		"groq":       "groq_api_key",
-		"deepseek":   "deepseek_api_key",
-		"openrouter": "openrouter_api_key",
+	cloudProviders = map[string]cloudProvider{
+		"openai": {
+			yamlKey: "openai_api_key",
+			envVar:  "OPENAI_API_KEY",
+			getKey:  func(k LLMKeys) string { return k.OpenAI },
+			setKey:  func(c *Config, v string) { c.LLM.OpenAI = v },
+		},
+		"anthropic": {
+			yamlKey: "anthropic_api_key",
+			envVar:  "ANTHROPIC_API_KEY",
+			getKey:  func(k LLMKeys) string { return k.Anthropic },
+			setKey:  func(c *Config, v string) { c.LLM.Anthropic = v },
+		},
+		"google": {
+			yamlKey: "google_api_key",
+			envVar:  "GOOGLE_API_KEY",
+			getKey:  func(k LLMKeys) string { return k.Google },
+			setKey:  func(c *Config, v string) { c.LLM.Google = v },
+		},
+		"cohere": {
+			yamlKey: "cohere_api_key",
+			envVar:  "COHERE_API_KEY",
+			getKey:  func(k LLMKeys) string { return k.Cohere },
+			setKey:  func(c *Config, v string) { c.LLM.Cohere = v },
+		},
+		"mistral": {
+			yamlKey: "mistral_api_key",
+			envVar:  "MISTRAL_API_KEY",
+			getKey:  func(k LLMKeys) string { return k.Mistral },
+			setKey:  func(c *Config, v string) { c.LLM.Mistral = v },
+		},
+		"together": {
+			yamlKey: "together_api_key",
+			envVar:  "TOGETHER_API_KEY",
+			getKey:  func(k LLMKeys) string { return k.Together },
+			setKey:  func(c *Config, v string) { c.LLM.Together = v },
+		},
+		"perplexity": {
+			yamlKey: "perplexity_api_key",
+			envVar:  "PERPLEXITY_API_KEY",
+			getKey:  func(k LLMKeys) string { return k.Perplexity },
+			setKey:  func(c *Config, v string) { c.LLM.Perplexity = v },
+		},
+		"groq": {
+			yamlKey: "groq_api_key",
+			envVar:  "GROQ_API_KEY",
+			getKey:  func(k LLMKeys) string { return k.Groq },
+			setKey:  func(c *Config, v string) { c.LLM.Groq = v },
+		},
+		"deepseek": {
+			yamlKey: "deepseek_api_key",
+			envVar:  "DEEPSEEK_API_KEY",
+			getKey:  func(k LLMKeys) string { return k.DeepSeek },
+			setKey:  func(c *Config, v string) { c.LLM.DeepSeek = v },
+		},
+		"openrouter": {
+			yamlKey: "openrouter_api_key",
+			envVar:  "OPENROUTER_API_KEY",
+			getKey:  func(k LLMKeys) string { return k.OpenRouter },
+			setKey:  func(c *Config, v string) { c.LLM.OpenRouter = v },
+		},
 	}
 
-	backendToEnv = map[string]string{
-		"openai":     "OPENAI_API_KEY",
-		"anthropic":  "ANTHROPIC_API_KEY",
-		"google":     "GOOGLE_API_KEY",
-		"cohere":     "COHERE_API_KEY",
-		"mistral":    "MISTRAL_API_KEY",
-		"together":   "TOGETHER_API_KEY",
-		"perplexity": "PERPLEXITY_API_KEY",
-		"groq":       "GROQ_API_KEY",
-		"deepseek":   "DEEPSEEK_API_KEY",
-		"openrouter": "OPENROUTER_API_KEY",
-	}
+	backendToKey = buildBackendToKey(cloudProviders)
+	backendToEnv = buildBackendToEnv(cloudProviders)
 )
+
+type cloudProvider struct {
+	yamlKey string
+	envVar  string
+	getKey  func(LLMKeys) string
+	setKey  func(*Config, string)
+}
+
+func buildBackendToKey(providers map[string]cloudProvider) map[string]string {
+	m := make(map[string]string, len(providers))
+	for name, p := range providers {
+		m[name] = p.yamlKey
+	}
+	return m
+}
+
+func buildBackendToEnv(providers map[string]cloudProvider) map[string]string {
+	m := make(map[string]string, len(providers))
+	for name, p := range providers {
+		m[name] = p.envVar
+	}
+	return m
+}
 
 // getLLMAPIKey returns the value of the API key field for a given backend.
 func getLLMAPIKey(llm LLMKeys, backend string) string {
-	switch backend {
-	case "openai":
-		return llm.OpenAI
-	case "anthropic":
-		return llm.Anthropic
-	case "google":
-		return llm.Google
-	case "cohere":
-		return llm.Cohere
-	case "mistral":
-		return llm.Mistral
-	case "together":
-		return llm.Together
-	case "perplexity":
-		return llm.Perplexity
-	case "groq":
-		return llm.Groq
-	case "deepseek":
-		return llm.DeepSeek
-	case "openrouter":
-		return llm.OpenRouter
+	if p, ok := cloudProviders[backend]; ok {
+		return p.getKey(llm)
 	}
 	return ""
 }
