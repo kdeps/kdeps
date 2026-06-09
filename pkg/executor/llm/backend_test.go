@@ -107,9 +107,7 @@ func TestBackendRegistry_GetBackendsForTesting(t *testing.T) {
 		t.Error("Expected initial backends to be non-empty")
 	}
 
-	// Verify it contains expected backends (ollama + online providers)
-	expectedBackends := []string{"ollama", "openai", "anthropic", "google", "cohere"}
-	for _, expected := range expectedBackends {
+	for _, expected := range llm.DefaultRegistryBackendNames() {
 		if _, exists := initialBackends[expected]; !exists {
 			t.Errorf("Expected backend '%s' to exist in registry", expected)
 		}
@@ -255,14 +253,7 @@ func TestNewBackendRegistry(t *testing.T) {
 		t.Error("Registry backends map is nil")
 	}
 
-	// Verify expected backends are registered (ollama + 9 online providers)
-	expectedBackends := []string{
-		"ollama",
-		"openai", "anthropic", "google", "cohere", "mistral",
-		"together", "perplexity", "groq", "deepseek",
-	}
-
-	for _, name := range expectedBackends {
+	for _, name := range llm.DefaultRegistryBackendNames() {
 		backend := registry.Get(name)
 		if backend == nil {
 			t.Errorf("Expected backend '%s' to be registered", name)

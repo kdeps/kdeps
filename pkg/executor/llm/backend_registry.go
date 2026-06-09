@@ -25,25 +25,41 @@ type BackendRegistry struct {
 	backends map[string]Backend
 }
 
+//nolint:gochecknoglobals // default registry backends in registration order
+var defaultRegistryBackends = []Backend{
+	&OllamaBackend{},
+	&FileBackend{},
+	&OpenAIBackend{},
+	&AnthropicBackend{},
+	&GoogleBackend{},
+	&CohereBackend{},
+	&MistralBackend{},
+	&TogetherBackend{},
+	&PerplexityBackend{},
+	&GroqBackend{},
+	&DeepSeekBackend{},
+	&OpenRouterBackend{},
+}
+
+// DefaultRegistryBackendNames returns registered backend names in registration order.
+func DefaultRegistryBackendNames() []string {
+	names := make([]string, len(defaultRegistryBackends))
+	for i, b := range defaultRegistryBackends {
+		names[i] = b.Name()
+	}
+	return names
+}
+
 // NewBackendRegistry creates a new backend registry.
 func NewBackendRegistry() *BackendRegistry {
 	kdeps_debug.Log("enter: NewBackendRegistry")
 	registry := &BackendRegistry{
-		backends: make(map[string]Backend),
+		backends: make(map[string]Backend, len(defaultRegistryBackends)),
 	}
 
-	registry.Register(&OllamaBackend{})
-	registry.Register(&FileBackend{})
-	registry.Register(&OpenAIBackend{})
-	registry.Register(&AnthropicBackend{})
-	registry.Register(&GoogleBackend{})
-	registry.Register(&CohereBackend{})
-	registry.Register(&MistralBackend{})
-	registry.Register(&TogetherBackend{})
-	registry.Register(&PerplexityBackend{})
-	registry.Register(&GroqBackend{})
-	registry.Register(&DeepSeekBackend{})
-	registry.Register(&OpenRouterBackend{})
+	for _, backend := range defaultRegistryBackends {
+		registry.Register(backend)
+	}
 
 	return registry
 }
