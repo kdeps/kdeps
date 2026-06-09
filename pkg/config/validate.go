@@ -81,6 +81,19 @@ var (
 		"deepseek":   "deepseek_api_key",
 		"openrouter": "openrouter_api_key",
 	}
+
+	backendToEnv = map[string]string{
+		"openai":     "OPENAI_API_KEY",
+		"anthropic":  "ANTHROPIC_API_KEY",
+		"google":     "GOOGLE_API_KEY",
+		"cohere":     "COHERE_API_KEY",
+		"mistral":    "MISTRAL_API_KEY",
+		"together":   "TOGETHER_API_KEY",
+		"perplexity": "PERPLEXITY_API_KEY",
+		"groq":       "GROQ_API_KEY",
+		"deepseek":   "DEEPSEEK_API_KEY",
+		"openrouter": "OPENROUTER_API_KEY",
+	}
 )
 
 // getLLMAPIKey returns the value of the API key field for a given backend.

@@ -30,11 +30,10 @@ func TestRunConfigFileCheck_StatError(t *testing.T) {
 	t.Cleanup(func() { AppFS = origFS })
 	AppFS = afero.NewMemMapFs()
 
-	var checks []HealthCheck
-	healthy := true
-	runConfigFileCheck(&checks, &healthy)
+	r := &doctorRunner{healthy: true}
+	r.configFile()
 
-	assert.NotEmpty(t, checks)
+	assert.NotEmpty(t, r.checks)
 }
 
 func TestRunConfigFileCheck_Success(t *testing.T) {
@@ -57,13 +56,12 @@ func TestRunConfigFileCheck_Success(t *testing.T) {
 		return ""
 	}
 
-	var checks []HealthCheck
-	healthy := true
-	runConfigFileCheck(&checks, &healthy)
+	r := &doctorRunner{healthy: true}
+	r.configFile()
 
-	assert.NotEmpty(t, checks)
+	assert.NotEmpty(t, r.checks)
 	found := false
-	for _, c := range checks {
+	for _, c := range r.checks {
 		if c.Status == HealthPass {
 			found = true
 			break
@@ -77,8 +75,7 @@ func TestRunAgentsCheck_ReadDirError(t *testing.T) {
 	t.Cleanup(func() { AppFS = origFS })
 	AppFS = afero.NewMemMapFs()
 
-	var checks []HealthCheck
-	healthy := true
-	runAgentsCheck(&checks, &Config{}, &healthy)
-	assert.NotEmpty(t, checks)
+	r := &doctorRunner{healthy: true}
+	r.agents(&Config{})
+	assert.NotEmpty(t, r.checks)
 }

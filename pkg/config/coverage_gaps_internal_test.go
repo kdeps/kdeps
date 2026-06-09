@@ -82,11 +82,10 @@ func TestRunConfigFileCheck_EmptyPath(t *testing.T) {
 		return "", errors.New("no home")
 	}
 
-	var checks []HealthCheck
-	healthy := true
-	runConfigFileCheck(&checks, &healthy)
-	require.NotEmpty(t, checks)
-	assert.Equal(t, HealthFail, checks[0].Status)
+	r := &doctorRunner{healthy: true}
+	r.configFile()
+	require.NotEmpty(t, r.checks)
+	assert.Equal(t, HealthFail, r.checks[0].Status)
 }
 
 func TestRunAgentsCheck_AgentsDirError(t *testing.T) {
@@ -96,11 +95,10 @@ func TestRunAgentsCheck_AgentsDirError(t *testing.T) {
 		return "", errors.New("no home")
 	}
 
-	var checks []HealthCheck
-	healthy := true
-	runAgentsCheck(&checks, &Config{}, &healthy)
-	require.NotEmpty(t, checks)
-	assert.Equal(t, HealthWarn, checks[0].Status)
+	r := &doctorRunner{healthy: true}
+	r.agents(&Config{})
+	require.NotEmpty(t, r.checks)
+	assert.Equal(t, HealthWarn, r.checks[0].Status)
 }
 
 func TestRunCriticalEnvCheck_WarnThreshold(t *testing.T) {
@@ -109,12 +107,11 @@ func TestRunCriticalEnvCheck_WarnThreshold(t *testing.T) {
 	t.Setenv("KDEPS_DEFAULT_BACKEND", "ollama")
 	t.Setenv("KDEPS_LLM_MODELS", "gpt-4")
 
-	var checks []HealthCheck
-	healthy := true
-	runCriticalEnvCheck(&checks, &healthy)
-	require.NotEmpty(t, checks)
-	assert.Equal(t, HealthWarn, checks[0].Status)
-	assert.Contains(t, checks[0].Message, "missing:")
+	r := &doctorRunner{healthy: true}
+	r.criticalEnv()
+	require.NotEmpty(t, r.checks)
+	assert.Equal(t, HealthWarn, r.checks[0].Status)
+	assert.Contains(t, r.checks[0].Message, "missing:")
 }
 
 func TestBootstrapInteractive_ConfigureProviderError(t *testing.T) {

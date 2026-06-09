@@ -50,20 +50,29 @@ type DoctorReport struct {
 	Healthy bool
 }
 
+type doctorRunner struct {
+	checks  []HealthCheck
+	healthy bool
+}
+
+func (r *doctorRunner) add(name string, status HealthStatus, msg string) {
+	r.checks = append(r.checks, HealthCheck{Name: name, Status: status, Message: msg})
+	if status == HealthFail {
+		r.healthy = false
+	}
+}
+
 // RunDoctor runs all health checks and returns a report.
 func RunDoctor(cfg *Config) *DoctorReport {
-	report := &DoctorReport{Healthy: true}
-	checks := &report.Checks
-
-	runConfigFileCheck(checks, &report.Healthy)
-	runConfigValidationCheck(checks, cfg, &report.Healthy)
-	runOllamaCheck(checks, cfg, &report.Healthy)
-	runPythonCheck(checks, &report.Healthy)
-	runBackendKeyCheck(checks, cfg, &report.Healthy)
-	runAgentsCheck(checks, cfg, &report.Healthy)
-	runCriticalEnvCheck(checks, &report.Healthy)
-
-	return report
+	r := &doctorRunner{healthy: true}
+	r.configFile()
+	r.configValidation(cfg)
+	r.ollama(cfg)
+	r.python()
+	r.backendKey(cfg)
+	r.agents(cfg)
+	r.criticalEnv()
+	return &DoctorReport{Checks: r.checks, Healthy: r.healthy}
 }
 
 // FormatReport formats the doctor report as a human-readable string.
@@ -85,112 +94,99 @@ func (r *DoctorReport) FormatReport() string {
 	return b.String()
 }
 
-func addCheck(checks *[]HealthCheck, name string, status HealthStatus, msg string, healthy *bool) {
-	*checks = append(*checks, HealthCheck{Name: name, Status: status, Message: msg})
-	if status == HealthFail {
-		*healthy = false
-	}
-}
-
-func runConfigFileCheck(checks *[]HealthCheck, healthy *bool) {
+func (r *doctorRunner) configFile() {
 	path, _ := Path()
 	if path == "" {
-		addCheck(checks, "Config file", HealthFail, "cannot determine config path", healthy)
+		r.add("Config file", HealthFail, "cannot determine config path")
 		return
 	}
 	if _, err := AppFS.Stat(path); os.IsNotExist(err) {
-		addCheck(checks, "Config file", HealthWarn,
-			fmt.Sprintf("%s not found — run 'kdeps edit' to create", path), healthy)
+		r.add("Config file", HealthWarn,
+			fmt.Sprintf("%s not found — run 'kdeps edit' to create", path))
 		return
 	}
-	addCheck(checks, "Config file", HealthPass, path, healthy)
+	r.add("Config file", HealthPass, path)
 }
 
-func runConfigValidationCheck(checks *[]HealthCheck, cfg *Config, healthy *bool) {
+func (r *doctorRunner) configValidation(cfg *Config) {
 	if cfg == nil {
-		addCheck(checks, "Config validation", HealthWarn, "no config loaded", healthy)
+		r.add("Config validation", HealthWarn, "no config loaded")
 		return
 	}
 	warnings := cfg.Validate("")
 	if len(warnings) == 0 {
-		addCheck(checks, "Config validation", HealthPass, "no warnings", healthy)
-	} else {
-		addCheck(checks, "Config validation", HealthWarn,
-			fmt.Sprintf("%d warning(s): %s", len(warnings), warnings[0]), healthy)
+		r.add("Config validation", HealthPass, "no warnings")
+		return
 	}
+	r.add("Config validation", HealthWarn,
+		fmt.Sprintf("%d warning(s): %s", len(warnings), warnings[0]))
 }
 
-func runOllamaCheck(checks *[]HealthCheck, cfg *Config, healthy *bool) {
-	backend := ollamaEffectiveBackend(cfg)
+func (r *doctorRunner) ollama(cfg *Config) {
+	backend := effectiveBackend(cfg)
 	if backend != "" && backend != ollamaBackendStr {
-		addCheck(checks, "Ollama", HealthPass,
-			fmt.Sprintf("skipped — backend is %s", backend), healthy)
+		r.add("Ollama", HealthPass, fmt.Sprintf("skipped — backend is %s", backend))
 		return
 	}
 
 	addr := ollamaDialAddr(cfg)
-
 	dialer := &net.Dialer{Timeout: ollamaDialTimeout}
 	conn, err := dialer.DialContext(context.Background(), "tcp", addr)
 	if err != nil {
-		addCheck(checks, "Ollama", HealthWarn,
-			fmt.Sprintf("not reachable at %s — %v", addr, err), healthy)
+		r.add("Ollama", HealthWarn, fmt.Sprintf("not reachable at %s — %v", addr, err))
 		return
 	}
 	_ = conn.Close()
-	addCheck(checks, "Ollama", HealthPass, fmt.Sprintf("reachable at %s", addr), healthy)
+	r.add("Ollama", HealthPass, fmt.Sprintf("reachable at %s", addr))
 }
 
-func runPythonCheck(checks *[]HealthCheck, healthy *bool) {
-	if _, python3Err := execLookPath("python3"); python3Err == nil {
-		addCheck(checks, "Python", HealthPass, "python3 available", healthy)
-	} else if _, pythonErr := execLookPath("python"); pythonErr == nil {
-		addCheck(checks, "Python", HealthPass, "python available", healthy)
-	} else {
-		addCheck(checks, "Python", HealthWarn,
-			"python not found in PATH — python resources will fail", healthy)
+func (r *doctorRunner) python() {
+	if _, err := execLookPath("python3"); err == nil {
+		r.add("Python", HealthPass, "python3 available")
+		return
 	}
+	if _, err := execLookPath("python"); err == nil {
+		r.add("Python", HealthPass, "python available")
+		return
+	}
+	r.add("Python", HealthWarn, "python not found in PATH — python resources will fail")
 }
 
-func runBackendKeyCheck(checks *[]HealthCheck, cfg *Config, healthy *bool) {
+func (r *doctorRunner) backendKey(cfg *Config) {
 	if cfg == nil {
 		return
 	}
-	backend := cfg.LLM.Backend
-	if backend == "" {
-		backend = osGetenv("KDEPS_DEFAULT_BACKEND")
-	}
+	backend := effectiveBackend(cfg)
 	if backend == "" || backend == ollamaBackendStr {
-		addCheck(checks, "Backend/API key", HealthPass,
-			fmt.Sprintf("backend=%s (no API key needed)", backendOrDefault(backend)), healthy)
+		r.add("Backend/API key", HealthPass,
+			fmt.Sprintf("backend=%s (no API key needed)", backendOrDefault(backend)))
 		return
 	}
 
 	key := getLLMAPIKey(cfg.LLM, backend)
 	if key == "" {
-		key = osGetenv(backendToEnvVar(backend))
+		key = osGetenv(backendToEnv[backend])
 	}
 
 	if key != "" {
-		addCheck(checks, "Backend/API key", HealthPass,
-			fmt.Sprintf("backend=%s, key=%s", backend, maskAPIKey(key)), healthy)
-	} else {
-		addCheck(checks, "Backend/API key", HealthWarn,
-			fmt.Sprintf("backend=%s but no API key set for %s",
-				backend, backendToKeyName(backend)), healthy)
+		r.add("Backend/API key", HealthPass,
+			fmt.Sprintf("backend=%s, key=%s", backend, maskAPIKey(key)))
+		return
 	}
+	r.add("Backend/API key", HealthWarn,
+		fmt.Sprintf("backend=%s but no API key set for %s",
+			backend, backendToKeyName(backend)))
 }
 
-func runAgentsCheck(checks *[]HealthCheck, cfg *Config, healthy *bool) {
+func (r *doctorRunner) agents(cfg *Config) {
 	agentsDir, err := AgentsDir(cfg)
 	if err != nil {
-		addCheck(checks, "Agents", HealthWarn, fmt.Sprintf("cannot resolve agents dir: %v", err), healthy)
+		r.add("Agents", HealthWarn, fmt.Sprintf("cannot resolve agents dir: %v", err))
 		return
 	}
 	entries, readErr := afero.ReadDir(AppFS, agentsDir)
 	if readErr != nil {
-		addCheck(checks, "Agents", HealthPass,
-			fmt.Sprintf("no agents installed (%s)", agentsDir), healthy)
+		r.add("Agents", HealthPass, fmt.Sprintf("no agents installed (%s)", agentsDir))
 		return
 	}
 	count := 0
@@ -200,15 +196,13 @@ func runAgentsCheck(checks *[]HealthCheck, cfg *Config, healthy *bool) {
 		}
 	}
 	if count == 0 {
-		addCheck(checks, "Agents", HealthPass,
-			fmt.Sprintf("no agents installed (%s)", agentsDir), healthy)
-	} else {
-		addCheck(checks, "Agents", HealthPass,
-			fmt.Sprintf("%d agent(s) installed (%s)", count, agentsDir), healthy)
+		r.add("Agents", HealthPass, fmt.Sprintf("no agents installed (%s)", agentsDir))
+		return
 	}
+	r.add("Agents", HealthPass, fmt.Sprintf("%d agent(s) installed (%s)", count, agentsDir))
 }
 
-func runCriticalEnvCheck(checks *[]HealthCheck, healthy *bool) {
+func (r *doctorRunner) criticalEnv() {
 	critical := []string{
 		"OLLAMA_HOST", "KDEPS_DEFAULT_BACKEND", "KDEPS_LLM_MODELS",
 		"OPENAI_API_KEY", "ANTHROPIC_API_KEY", "TZ",
@@ -221,15 +215,25 @@ func runCriticalEnvCheck(checks *[]HealthCheck, healthy *bool) {
 	}
 	switch {
 	case len(missing) == 0:
-		addCheck(checks, "Env vars", HealthPass, "all critical vars set", healthy)
+		r.add("Env vars", HealthPass, "all critical vars set")
 	case len(missing) <= envWarnThreshold:
-		addCheck(checks, "Env vars", HealthWarn,
-			fmt.Sprintf("missing: %v", missing), healthy)
+		r.add("Env vars", HealthWarn, fmt.Sprintf("missing: %v", missing))
 	default:
-		addCheck(checks, "Env vars", HealthPass,
+		r.add("Env vars", HealthPass,
 			fmt.Sprintf("%d critical vars not set (config file provides defaults)",
-				len(missing)), healthy)
+				len(missing)))
 	}
+}
+
+// effectiveBackend returns the configured LLM backend from config or env.
+func effectiveBackend(cfg *Config) string {
+	if cfg != nil && cfg.LLM.Backend != "" {
+		return cfg.LLM.Backend
+	}
+	if b := osGetenv("KDEPS_DEFAULT_BACKEND"); b != "" {
+		return b
+	}
+	return ""
 }
 
 // ollamaDialAddr resolves the TCP address used to probe Ollama reachability.
@@ -242,16 +246,17 @@ func ollamaDialAddr(cfg *Config) string {
 		host = "http://localhost:11434"
 	}
 
-	addr := host
-	if len(addr) > 7 && addr[:7] == "http://" {
-		addr = addr[7:]
-	} else if len(addr) > 8 && addr[:8] == "https://" {
-		addr = addr[8:]
-	}
-	if _, _, splitErr := net.SplitHostPort(addr); splitErr != nil {
+	addr := stripURLScheme(host)
+	if _, _, err := net.SplitHostPort(addr); err != nil {
 		addr = net.JoinHostPort(addr, defaultOllamaPort)
 	}
 	return addr
+}
+
+func stripURLScheme(host string) string {
+	host = strings.TrimPrefix(host, "http://")
+	host = strings.TrimPrefix(host, "https://")
+	return host
 }
 
 // maskAPIKey returns a partially redacted API key for display.
@@ -260,16 +265,6 @@ func maskAPIKey(key string) string {
 		return "****"
 	}
 	return key[:4] + "..." + key[len(key)-4:]
-}
-
-func ollamaEffectiveBackend(cfg *Config) string {
-	if cfg != nil && cfg.LLM.Backend != "" {
-		return cfg.LLM.Backend
-	}
-	if b := osGetenv("KDEPS_DEFAULT_BACKEND"); b != "" {
-		return b
-	}
-	return "" // effectively ollama
 }
 
 func backendOrDefault(backend string) string {
@@ -284,23 +279,4 @@ func backendToKeyName(backend string) string {
 		return k
 	}
 	return backend + "_api_key"
-}
-
-func backendToEnvVar(backend string) string {
-	envMap := map[string]string{
-		"openai":     "OPENAI_API_KEY",
-		"anthropic":  "ANTHROPIC_API_KEY",
-		"google":     "GOOGLE_API_KEY",
-		"cohere":     "COHERE_API_KEY",
-		"mistral":    "MISTRAL_API_KEY",
-		"together":   "TOGETHER_API_KEY",
-		"perplexity": "PERPLEXITY_API_KEY",
-		"groq":       "GROQ_API_KEY",
-		"deepseek":   "DEEPSEEK_API_KEY",
-		"openrouter": "OPENROUTER_API_KEY",
-	}
-	if v, ok := envMap[backend]; ok {
-		return v
-	}
-	return ""
 }
