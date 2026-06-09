@@ -23,114 +23,11 @@ package executor
 
 import (
 	"fmt"
-	"log/slog"
-	"sync"
 
 	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
 
 	"github.com/kdeps/kdeps/v2/pkg/domain"
-	"github.com/kdeps/kdeps/v2/pkg/events"
-	"github.com/kdeps/kdeps/v2/pkg/parser/expression"
-	"github.com/kdeps/kdeps/v2/pkg/validator"
 )
-
-// Engine is the main execution engine.
-type Engine struct {
-	evaluator           *expression.Evaluator
-	graph               *Graph
-	logger              *slog.Logger
-	registry            *Registry
-	inputValidator      inputValidator
-	exprValidator       exprValidator
-	newExecutionContext func(*domain.Workflow, string) (*ExecutionContext, error)
-	afterEvaluatorInit  func(*Engine, *ExecutionContext)
-	// executeFunc, when set via SetExecuteFunc, replaces the full Execute body.
-	// Used by tests (e.g. pkg/input/llm) to inject a stub engine without the
-	// full executor stack.
-	executeFunc         func(*domain.Workflow, interface{}) (interface{}, error)
-	debugMode           bool
-	emitter             events.Emitter
-	componentSetupCache sync.Map // keyed by component name, value struct{}{}
-}
-
-type inputValidator interface {
-	Validate(data map[string]interface{}, rules *domain.ValidationsConfig) error
-}
-
-type exprValidator interface {
-	ValidateCustomRules(
-		exprs []domain.Expression,
-		evaluator *expression.Evaluator,
-		env map[string]interface{},
-	) error
-}
-
-// NewEngine creates a new execution engine.
-func NewEngine(logger *slog.Logger) *Engine {
-	kdeps_debug.Log("enter: NewEngine")
-	if logger == nil {
-		logger = slog.Default()
-	}
-	engine := &Engine{
-		graph:          NewGraph(),
-		logger:         logger,
-		registry:       NewRegistry(),
-		inputValidator: validator.NewInputValidator(),
-		exprValidator:  validator.NewExpressionValidator(),
-		emitter:        events.NopEmitter{},
-	}
-	engine.newExecutionContext = func(workflow *domain.Workflow, sessionID string) (*ExecutionContext, error) {
-		if sessionID != "" {
-			return NewExecutionContext(workflow, sessionID)
-		}
-		return NewExecutionContext(workflow)
-	}
-	return engine
-}
-
-// SetEmitter configures the event emitter for this engine.
-// Call before Execute to receive structured lifecycle events.
-func (e *Engine) SetEmitter(em events.Emitter) {
-	kdeps_debug.Log("enter: SetEmitter")
-	if em == nil {
-		e.emitter = events.NopEmitter{}
-		return
-	}
-	e.emitter = em
-}
-
-// SetRegistry sets the executor registry.
-func (e *Engine) SetRegistry(registry *Registry) {
-	kdeps_debug.Log("enter: SetRegistry")
-	e.registry = registry
-}
-
-// SetDebugMode enables or disables debug mode.
-func (e *Engine) SetDebugMode(enabled bool) {
-	kdeps_debug.Log("enter: SetDebugMode")
-	e.debugMode = enabled
-}
-
-// SetNewExecutionContextForAgency overrides the execution-context factory so
-// every context created by this engine carries the provided agentPaths map.
-// This allows resources using the `agent` type to call sibling agents by name.
-func (e *Engine) SetNewExecutionContextForAgency(agentPaths map[string]string) {
-	kdeps_debug.Log("enter: SetNewExecutionContextForAgency")
-	e.newExecutionContext = func(workflow *domain.Workflow, sessionID string) (*ExecutionContext, error) {
-		var ctx *ExecutionContext
-		var err error
-		if sessionID != "" {
-			ctx, err = NewExecutionContext(workflow, sessionID)
-		} else {
-			ctx, err = NewExecutionContext(workflow)
-		}
-		if err != nil {
-			return nil, err
-		}
-		ctx.AgentPaths = agentPaths
-		return ctx, nil
-	}
-}
 
 // Execute executes a workflow.
 // req can be *RequestContext or nil.

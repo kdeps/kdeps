@@ -18,15 +18,12 @@
 
 //go:build !js
 
-//nolint:mnd // timeouts and split limits are documented inline
 package llm
 
 import (
-	"context"
 	"fmt"
 	"os"
 	"os/exec"
-	"time"
 
 	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
 
@@ -87,99 +84,4 @@ func (s *ModelService) ServeModel(backend, model string, host string, port int) 
 	default:
 		return fmt.Errorf("unsupported backend for model serving: %s", backend)
 	}
-}
-
-// prepareLlamafile resolves a llamafile model path and ensures it is executable.
-func (s *ModelService) prepareLlamafile(model string) (*LlamafileManager, string, error) {
-	mgr, err := NewLlamafileManager(s.logger)
-	if err != nil {
-		return nil, "", err
-	}
-	path, err := mgr.Resolve(model)
-	if err != nil {
-		return nil, "", err
-	}
-	if execErr := mgr.MakeExecutable(path); execErr != nil {
-		return nil, "", execErr
-	}
-	return mgr, path, nil
-}
-
-// downloadLlamafileModel resolves and makes executable a llamafile binary.
-func (s *ModelService) downloadLlamafileModel(model string) error {
-	kdeps_debug.Log("enter: downloadLlamafileModel")
-	_, _, err := s.prepareLlamafile(model)
-	return err
-}
-
-// serveLlamafileModel starts a llamafile binary as an OpenAI-compatible server.
-func (s *ModelService) serveLlamafileModel(model string, port int) error {
-	kdeps_debug.Log("enter: serveLlamafileModel")
-	mgr, path, err := s.prepareLlamafile(model)
-	if err != nil {
-		return err
-	}
-	_, err = mgr.Serve(path, port)
-	return err
-}
-
-// downloadOllamaModel downloads a model using Ollama.
-func (s *ModelService) downloadOllamaModel(model string) error {
-	kdeps_debug.Log("enter: downloadOllamaModel")
-	s.logger.Info("downloading model with Ollama", "model", model)
-
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Minute)
-	defer cancel()
-
-	cmd := execCommandContext(ctx, "ollama", "pull", model)
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-
-	if err := cmd.Run(); err != nil {
-		return fmt.Errorf("failed to download Ollama model %s: %w", model, err)
-	}
-
-	s.logger.Info("model downloaded successfully", "model", model)
-	return nil
-}
-
-// serveOllamaModel starts Ollama server with the specified model.
-func (s *ModelService) serveOllamaModel(model string, host string, port int) error {
-	kdeps_debug.Log("enter: serveOllamaModel")
-	s.logger.Info("starting Ollama server", "model", model, "host", host, "port", port)
-
-	// Check if ollama is already running by trying to list models
-	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
-	defer cancel()
-
-	testCmd := execCommandContext(ctx, "ollama", "list")
-	if err := testCmd.Run(); err == nil {
-		// Ollama is already running
-		s.logger.Info("Ollama server already running")
-		return nil
-	}
-
-	// Set Ollama host
-	if host != "" {
-		if err := osSetenv("OLLAMA_HOST", fmt.Sprintf("%s:%d", host, port)); err != nil {
-			s.logger.Warn("failed to set OLLAMA_HOST environment variable", "error", err)
-		}
-	}
-
-	// Start Ollama serve
-	cmd := execCommandContext(context.Background(), "ollama", "serve")
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-
-	// Start in background (don't wait)
-	if err := cmd.Start(); err != nil {
-		// If ollama is not available, this is not a fatal error
-		s.logger.Warn("failed to start Ollama server (may already be running)", "error", err)
-		return nil // Don't fail - server might already be running
-	}
-
-	s.logger.Info("Ollama server started", "pid", cmd.Process.Pid)
-	// Detach process so it continues running
-	_ = cmd.Process.Release()
-	return nil
 }
