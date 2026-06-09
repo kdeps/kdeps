@@ -22,10 +22,7 @@ import (
 	"errors"
 	"log/slog"
 
-	"github.com/kdeps/kdeps/v2/pkg/parser/expression"
-	"github.com/kdeps/kdeps/v2/pkg/parser/yaml"
 	"github.com/kdeps/kdeps/v2/pkg/templates"
-	"github.com/kdeps/kdeps/v2/pkg/validator"
 )
 
 func requireWatcher(watcher FileWatcher) error {
@@ -166,47 +163,4 @@ func (s *Server) reloadWorkflow() error {
 	logReloadedWorkflow(s)
 
 	return nil
-}
-
-func (s *Server) ensureWorkflowParser() error {
-	if hasWorkflowParser(s.parser) {
-		return nil
-	}
-	parser, err := workflowParserFactory()
-	if err != nil {
-		return err
-	}
-	s.parser = parser
-	return nil
-}
-
-func (s *Server) ensureReloadReady() error {
-	if err := s.ensureWorkflowParser(); err != nil {
-		return err
-	}
-
-	if s.workflowPath != "" {
-		return nil
-	}
-
-	absPath, absErr := filepathAbs(resolveDefaultWorkflowPath())
-	if absErr != nil {
-		return hotReloadResolvePathFailed(absErr)
-	}
-	s.workflowPath = absPath
-	return nil
-}
-
-//nolint:gochecknoglobals // test-replaceable
-var (
-	workflowParserFactory  = newWorkflowParser
-	schemaValidatorFactory = validator.NewSchemaValidator
-)
-
-func newWorkflowParser() (*yaml.Parser, error) {
-	schemaValidator, schemaErr := schemaValidatorFactory()
-	if schemaErr != nil {
-		return nil, workflowParserSchemaValidatorFailed(schemaErr)
-	}
-	return yaml.NewParser(schemaValidator, expression.NewParser()), nil
 }

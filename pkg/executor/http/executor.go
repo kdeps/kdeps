@@ -30,12 +30,6 @@ import (
 	"github.com/kdeps/kdeps/v2/pkg/parser/expression"
 )
 
-// forceRetryLoopExit, when true, breaks out of executeRequestWithRetry instead of
-// returning the response — used to exercise the post-loop error return in tests.
-//
-//nolint:gochecknoglobals // test-replaceable
-var forceRetryLoopExit bool
-
 //nolint:gochecknoglobals // test-replaceable
 var httpClientFactory = func(timeout time.Duration) *http.Client {
 	return &http.Client{Timeout: timeout}
@@ -48,6 +42,16 @@ type ClientFactory interface {
 
 // DefaultClientFactory implements ClientFactory using standard library.
 type DefaultClientFactory struct{}
+
+const (
+	// ContentTypeJSON is the JSON content type header value.
+	ContentTypeJSON = "application/json"
+)
+
+// Executor executes HTTP client resources.
+type Executor struct {
+	clientFactory ClientFactory
+}
 
 // NewExecutor creates a new HTTP executor with the default client factory.
 func NewExecutor() *Executor {
@@ -128,5 +132,3 @@ func (e *Executor) Execute(
 
 	return e.processResponse(resp, resolvedConfig, ctx, urlStr, method, headers)
 }
-
-// resolveConnectionAuth returns proxy and auth from a named HTTP connection.

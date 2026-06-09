@@ -179,5 +179,3 @@ func (e *Executor) resolveTLSConfig(
 
 	return &tlsConfig, nil
 }
-
-// ShouldRetryForTesting calls shouldRetry for testing.

@@ -18,10 +18,7 @@
 
 package http
 
-import (
-	stdhttp "net/http"
-	"strings"
-)
+import stdhttp "net/http"
 
 func supportedHTTPMethods() []string {
 	return []string{"GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"}
@@ -43,69 +40,6 @@ func exactRouteHandler(
 ) (stdhttp.HandlerFunc, bool) {
 	handler, found := methodRoutes[path]
 	return handler, found
-}
-
-func isParamPattern(part string) bool {
-	return strings.HasPrefix(part, ":")
-}
-
-func isWildcardPattern(part string) bool {
-	return part == "*"
-}
-
-func patternPartMatches(patternPart, pathPart string) bool {
-	if isParamPattern(patternPart) || isWildcardPattern(patternPart) {
-		return true
-	}
-	return patternPart == pathPart
-}
-
-func stripTrailingWildcard(parts []string) ([]string, bool) {
-	if len(parts) == 0 || parts[len(parts)-1] != "*" {
-		return parts, false
-	}
-	return parts[:len(parts)-1], true
-}
-
-func pathPartsMatch(patternParts, pathParts []string) bool {
-	for i, part := range patternParts {
-		if !patternPartMatches(part, pathParts[i]) {
-			return false
-		}
-	}
-	return true
-}
-
-func longestMatchingPattern(
-	methodRoutes map[string]stdhttp.HandlerFunc,
-	path string,
-	match func(string, string) bool,
-) stdhttp.HandlerFunc {
-	var bestPattern string
-	var bestHandler stdhttp.HandlerFunc
-	for pattern, handler := range methodRoutes {
-		if match(pattern, path) && len(pattern) > len(bestPattern) {
-			bestPattern = pattern
-			bestHandler = handler
-		}
-	}
-	return bestHandler
-}
-
-func pathRegisteredInRoutes(
-	routes map[string]stdhttp.HandlerFunc,
-	path string,
-	match func(string, string) bool,
-) bool {
-	if _, found := routes[path]; found {
-		return true
-	}
-	for pattern := range routes {
-		if match(pattern, path) {
-			return true
-		}
-	}
-	return false
 }
 
 func respondRouterNotFound(w stdhttp.ResponseWriter, req *stdhttp.Request) {
@@ -175,24 +109,6 @@ func routerAllowedMethods(r *Router, path string) []string {
 		}
 	}
 	return allowed
-}
-
-func matchRouterPattern(pattern, path string) bool {
-	patternParts := strings.Split(pattern, "/")
-	pathParts := strings.Split(path, "/")
-
-	var hasTrailingWildcard bool
-	patternParts, hasTrailingWildcard = stripTrailingWildcard(patternParts)
-	if hasTrailingWildcard {
-		if len(pathParts) < len(patternParts) {
-			return false
-		}
-		pathParts = pathParts[:len(patternParts)]
-	} else if len(patternParts) != len(pathParts) {
-		return false
-	}
-
-	return pathPartsMatch(patternParts, pathParts)
 }
 
 func dispatchRouter(r *Router, w stdhttp.ResponseWriter, req *stdhttp.Request) {
