@@ -84,30 +84,30 @@ func (b *openAICompatBackend) APIKeyEnvVar() string {
 var (
 	defaultOpenAIBackend = newOpenAICompatBackend(openAICompatBackendConfig{
 		name: "openai", defaultURL: "https://api.openai.com",
-		endpointFmt: "%s/v1/chat/completions", envVar: "OPENAI_API_KEY", apiName: "OpenAI",
+		endpointFmt: "%s/v1/chat/completions", envVar: providerAPIKeyEnvVar("openai"), apiName: "OpenAI",
 	})
 	defaultMistralBackend = newOpenAICompatBackend(openAICompatBackendConfig{
 		name: "mistral", defaultURL: "https://api.mistral.ai",
-		endpointFmt: "%s/v1/chat/completions", envVar: "MISTRAL_API_KEY", apiName: "mistral",
+		endpointFmt: "%s/v1/chat/completions", envVar: providerAPIKeyEnvVar("mistral"), apiName: "mistral",
 	})
 	defaultTogetherBackend = newOpenAICompatBackend(openAICompatBackendConfig{
 		name: "together", defaultURL: "https://api.together.xyz",
-		endpointFmt: "%s/v1/chat/completions", envVar: "TOGETHER_API_KEY", apiName: "together",
+		endpointFmt: "%s/v1/chat/completions", envVar: providerAPIKeyEnvVar("together"), apiName: "together",
 	})
 	defaultPerplexityBackend = newOpenAICompatBackend(openAICompatBackendConfig{
 		name: "perplexity", defaultURL: "https://api.perplexity.ai",
-		endpointFmt: "%s/chat/completions", envVar: "PERPLEXITY_API_KEY", apiName: "perplexity",
+		endpointFmt: "%s/chat/completions", envVar: providerAPIKeyEnvVar("perplexity"), apiName: "perplexity",
 	})
 	defaultGroqBackend = newOpenAICompatBackend(openAICompatBackendConfig{
 		name: "groq", defaultURL: "https://api.groq.com",
-		endpointFmt: "%s/openai/v1/chat/completions", envVar: "GROQ_API_KEY", apiName: "groq",
+		endpointFmt: "%s/openai/v1/chat/completions", envVar: providerAPIKeyEnvVar("groq"), apiName: "groq",
 	})
 	defaultDeepSeekBackend = newOpenAICompatBackend(openAICompatBackendConfig{
 		name: "deepseek", defaultURL: "https://api.deepseek.com",
-		endpointFmt: "%s/v1/chat/completions", envVar: "DEEPSEEK_API_KEY", apiName: "DeepSeek",
+		endpointFmt: "%s/v1/chat/completions", envVar: providerAPIKeyEnvVar("deepseek"), apiName: "DeepSeek",
 	})
 	defaultOpenRouterBackend = newOpenAICompatBackend(openAICompatBackendConfig{
 		name: "openrouter", defaultURL: "https://openrouter.ai",
-		endpointFmt: "%s/api/v1/chat/completions", envVar: "OPENROUTER_API_KEY", apiName: "OpenRouter",
+		endpointFmt: "%s/api/v1/chat/completions", envVar: providerAPIKeyEnvVar("openrouter"), apiName: "OpenRouter",
 	})
 )

@@ -80,7 +80,7 @@ func (b *CohereBackend) ParseResponse(resp *stdhttp.Response) (map[string]interf
 
 func (b *CohereBackend) GetAPIKeyHeader(apiKey string) (string, string) {
 	kdeps_debug.Log("enter: GetAPIKeyHeader")
-	return bearerAuthAPIKeyHeader(apiKey, "COHERE_API_KEY")
+	return bearerAuthAPIKeyHeader(apiKey, providerAPIKeyEnvVar("cohere"))
 }
 
-func (b *CohereBackend) APIKeyEnvVar() string { return "COHERE_API_KEY" }
+func (b *CohereBackend) APIKeyEnvVar() string { return providerAPIKeyEnvVar("cohere") }

@@ -49,7 +49,7 @@ func (b *GoogleBackend) ChatEndpointWithKey(baseURL string, apiKey string) strin
 	kdeps_debug.Log("enter: ChatEndpointWithKey")
 	endpoint := fmt.Sprintf("%s/openai/chat/completions", baseURL)
 	// Google Gemini uses API key as query parameter.
-	apiKey = resolveAPIKey(apiKey, "GOOGLE_API_KEY")
+	apiKey = resolveAPIKey(apiKey, providerAPIKeyEnvVar("google"))
 	if apiKey != "" {
 		parsedURL, err := url.Parse(endpoint)
 		if err == nil {
@@ -83,4 +83,4 @@ func (b *GoogleBackend) GetAPIKeyHeader(_ string) (string, string) {
 	return "", ""
 }
 
-func (b *GoogleBackend) APIKeyEnvVar() string { return "GOOGLE_API_KEY" }
+func (b *GoogleBackend) APIKeyEnvVar() string { return providerAPIKeyEnvVar("google") }

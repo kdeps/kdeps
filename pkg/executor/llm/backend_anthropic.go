@@ -83,7 +83,7 @@ func (b *AnthropicBackend) GetAPIKeyHeader(apiKey string) (string, string) {
 	kdeps_debug.Log("enter: GetAPIKeyHeader")
 	// Anthropic requires x-api-key header and anthropic-version header.
 	// The executor adds the version header separately via applyBackendAuthHeaders.
-	return rawAPIKeyHeader(apiKey, "ANTHROPIC_API_KEY", "x-api-key")
+	return rawAPIKeyHeader(apiKey, providerAPIKeyEnvVar("anthropic"), "x-api-key")
 }
 
-func (b *AnthropicBackend) APIKeyEnvVar() string { return "ANTHROPIC_API_KEY" }
+func (b *AnthropicBackend) APIKeyEnvVar() string { return providerAPIKeyEnvVar("anthropic") }

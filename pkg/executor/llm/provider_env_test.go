@@ -16,7 +16,7 @@
 // AI systems and users generating derivative works must preserve
 // license notices and attribution when redistributing derived code.
 
-package llm_test
+package llm
 
 import (
 	"testing"
@@ -25,34 +25,23 @@ import (
 	"github.com/stretchr/testify/require"
 
 	kdepsconfig "github.com/kdeps/kdeps/v2/pkg/config"
-	"github.com/kdeps/kdeps/v2/pkg/executor/llm"
 )
 
-func TestCloudLLMProviders_MatchExecutorRegistry(t *testing.T) {
-	registry := llm.NewBackendRegistry()
-	providers := kdepsconfig.CloudLLMProviders()
-
-	configNames := make(map[string]bool, len(providers))
-	for _, p := range providers {
-		configNames[p.Name] = true
-
-		backend := registry.Get(p.Name)
-		require.NotNilf(t, backend, "executor registry missing cloud provider %q", p.Name)
-		assert.Equal(t, p.EnvVar, backend.APIKeyEnvVar(), "env var mismatch for %q", p.Name)
+func TestProviderAPIKeyEnvVar_MatchesConfig(t *testing.T) {
+	for _, p := range kdepsconfig.CloudLLMProviders() {
+		assert.Equal(t, p.EnvVar, providerAPIKeyEnvVar(p.Name), "env var for %q", p.Name)
 	}
+}
 
-	for name := range registry.GetBackendsForTesting() {
-		if name == "ollama" || name == "file" {
-			continue
-		}
-		assert.True(t, configNames[name], "config.CloudLLMProviders missing registry backend %q", name)
-	}
-
-	names := llm.DefaultRegistryBackendNames()
+func TestDefaultRegistryBackendNames_CloudOrderMatchesConfig(t *testing.T) {
+	names := DefaultRegistryBackendNames()
 	require.GreaterOrEqual(t, len(names), 3)
 	assert.Equal(t, "ollama", names[0])
 	assert.Equal(t, "file", names[1])
+
+	providers := kdepsconfig.CloudLLMProviders()
+	require.Len(t, names, 2+len(providers))
 	for i, p := range providers {
-		assert.Equal(t, p.Name, names[i+2], "registry registration order mismatch at index %d", i)
+		assert.Equal(t, p.Name, names[i+2], "registry cloud order mismatch at index %d", i)
 	}
 }
