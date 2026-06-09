@@ -320,16 +320,15 @@ func TestRunDoctor_NilConfig(t *testing.T) {
 	assert.Equal(t, HealthWarn, valCheck.Status)
 }
 
-func TestAddCheck(t *testing.T) {
-	var checks []HealthCheck
-	healthy := true
-	addCheck(&checks, "test", HealthPass, "ok", &healthy)
-	assert.True(t, healthy)
-	assert.Len(t, checks, 1)
+func TestDoctorRunnerAdd(t *testing.T) {
+	r := &doctorRunner{healthy: true}
+	r.add("test", HealthPass, "ok")
+	assert.True(t, r.healthy)
+	assert.Len(t, r.checks, 1)
 
-	addCheck(&checks, "test2", HealthFail, "failed", &healthy)
-	assert.False(t, healthy)
-	assert.Len(t, checks, 2)
+	r.add("test2", HealthFail, "failed")
+	assert.False(t, r.healthy)
+	assert.Len(t, r.checks, 2)
 }
 
 func TestBackendToKeyName(t *testing.T) {
@@ -337,10 +336,10 @@ func TestBackendToKeyName(t *testing.T) {
 	assert.Equal(t, "unknown_api_key", backendToKeyName("unknown"))
 }
 
-func TestBackendToEnvVar(t *testing.T) {
-	assert.Equal(t, "OPENAI_API_KEY", backendToEnvVar("openai"))
-	assert.Equal(t, "ANTHROPIC_API_KEY", backendToEnvVar("anthropic"))
-	assert.Equal(t, "", backendToEnvVar("unknown"))
+func TestBackendToEnv(t *testing.T) {
+	assert.Equal(t, "OPENAI_API_KEY", backendToEnv["openai"])
+	assert.Equal(t, "ANTHROPIC_API_KEY", backendToEnv["anthropic"])
+	assert.Empty(t, backendToEnv["unknown"])
 }
 
 func TestBackendOrDefault(t *testing.T) {
@@ -348,24 +347,22 @@ func TestBackendOrDefault(t *testing.T) {
 	assert.Equal(t, "openai", backendOrDefault("openai"))
 }
 
-// --- ollamaEffectiveBackend ---
+// --- effectiveBackend ---
 
-func TestOllamaEffectiveBackend_FromEnv(t *testing.T) {
+func TestEffectiveBackend_FromEnv(t *testing.T) {
 	t.Setenv("KDEPS_DEFAULT_BACKEND", "openai")
-	// cfg is nil — should fall through to env var
-	assert.Equal(t, "openai", ollamaEffectiveBackend(nil))
+	assert.Equal(t, "openai", effectiveBackend(nil))
 }
 
-func TestOllamaEffectiveBackend_CfgTakesPrecedence(t *testing.T) {
+func TestEffectiveBackend_CfgTakesPrecedence(t *testing.T) {
 	t.Setenv("KDEPS_DEFAULT_BACKEND", "env-backend")
 	cfg := &Config{LLM: LLMKeys{Backend: "cfg-backend"}}
-	assert.Equal(t, "cfg-backend", ollamaEffectiveBackend(cfg))
+	assert.Equal(t, "cfg-backend", effectiveBackend(cfg))
 }
 
-func TestOllamaEffectiveBackend_EmptyEnvFallback(t *testing.T) {
+func TestEffectiveBackend_EmptyEnvFallback(t *testing.T) {
 	t.Setenv("KDEPS_DEFAULT_BACKEND", "")
-	// Neither cfg nor env has a backend set.
-	assert.Equal(t, "", ollamaEffectiveBackend(nil))
+	assert.Equal(t, "", effectiveBackend(nil))
 }
 
 // --- runCriticalEnvCheck ---
@@ -378,12 +375,11 @@ func TestRunCriticalEnvCheck_AllSet(t *testing.T) {
 	t.Setenv("ANTHROPIC_API_KEY", "ant-test")
 	t.Setenv("TZ", "UTC")
 
-	var checks []HealthCheck
-	healthy := true
-	runCriticalEnvCheck(&checks, &healthy)
-	require.GreaterOrEqual(t, len(checks), 1)
-	assert.Equal(t, HealthPass, checks[0].Status)
-	assert.Contains(t, checks[0].Message, "all critical vars set")
+	r := &doctorRunner{healthy: true}
+	r.criticalEnv()
+	require.GreaterOrEqual(t, len(r.checks), 1)
+	assert.Equal(t, HealthPass, r.checks[0].Status)
+	assert.Contains(t, r.checks[0].Message, "all critical vars set")
 }
 
 func TestRunCriticalEnvCheck_PartialSet(t *testing.T) {
@@ -394,18 +390,15 @@ func TestRunCriticalEnvCheck_PartialSet(t *testing.T) {
 	t.Setenv("KDEPS_LLM_MODELS", "gpt-4")
 	t.Setenv("TZ", "UTC")
 
-	var checks []HealthCheck
-	healthy := true
-	runCriticalEnvCheck(&checks, &healthy)
+	r := &doctorRunner{healthy: true}
+	r.criticalEnv()
 
-	require.GreaterOrEqual(t, len(checks), 1)
-	// With 4 missing out of 6, we're in the > envWarnThreshold case (HealthPass
-	// with "config file provides defaults") or <= envWarnThreshold (HealthWarn).
-	msg := checks[0].Message
-	if len(msg) > 0 && msg[0] == 'm' { // starts with "missing:" (< = threshold)
-		assert.Equal(t, HealthWarn, checks[0].Status)
+	require.GreaterOrEqual(t, len(r.checks), 1)
+	msg := r.checks[0].Message
+	if len(msg) > 0 && msg[0] == 'm' {
+		assert.Equal(t, HealthWarn, r.checks[0].Status)
 	} else {
-		assert.Equal(t, HealthPass, checks[0].Status)
+		assert.Equal(t, HealthPass, r.checks[0].Status)
 	}
 }
 
@@ -418,12 +411,11 @@ func TestRunAgentsCheck_ReadDirFails(t *testing.T) {
 	require.NoError(t, os.WriteFile(blocker, []byte("x"), 0600))
 	t.Setenv("KDEPS_AGENTS_DIR", blocker)
 
-	var checks []HealthCheck
-	healthy := true
-	runAgentsCheck(&checks, &Config{}, &healthy)
-	require.GreaterOrEqual(t, len(checks), 1)
-	assert.Equal(t, HealthPass, checks[0].Status)
-	assert.Contains(t, checks[0].Message, "no agents installed")
+	r := &doctorRunner{healthy: true}
+	r.agents(&Config{})
+	require.GreaterOrEqual(t, len(r.checks), 1)
+	assert.Equal(t, HealthPass, r.checks[0].Status)
+	assert.Contains(t, r.checks[0].Message, "no agents installed")
 }
 
 // --- runOllamaCheck with various URL formats ---
@@ -451,4 +443,22 @@ llm:
 	// Can't reach ollama.example.com, but the HTTPS URL parsing was exercised.
 	assert.Equal(t, HealthWarn, ollamaCheck.Status)
 	assert.Contains(t, ollamaCheck.Message, "not reachable")
+}
+
+func TestStripURLScheme(t *testing.T) {
+	assert.Equal(t, "localhost:11434", stripURLScheme("http://localhost:11434"))
+	assert.Equal(t, "ollama.example.com", stripURLScheme("https://ollama.example.com"))
+	assert.Equal(t, "host:8080", stripURLScheme("host:8080"))
+}
+
+func TestOllamaDialAddr(t *testing.T) {
+	t.Setenv("OLLAMA_HOST", "")
+	cfg := &Config{LLM: LLMKeys{OllamaHost: "http://myhost"}}
+	assert.Equal(t, "myhost:11434", ollamaDialAddr(cfg))
+
+	t.Setenv("OLLAMA_HOST", "https://envhost:9999")
+	assert.Equal(t, "envhost:9999", ollamaDialAddr(nil))
+
+	t.Setenv("OLLAMA_HOST", "")
+	assert.Equal(t, "localhost:11434", ollamaDialAddr(nil))
 }

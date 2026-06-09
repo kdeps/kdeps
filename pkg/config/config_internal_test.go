@@ -506,12 +506,11 @@ func TestRunPythonCheck_Python3Available(t *testing.T) {
 	if _, err := exec.LookPath("python3"); err != nil {
 		t.Skip("python3 not in PATH")
 	}
-	var checks []HealthCheck
-	healthy := true
-	runPythonCheck(&checks, &healthy)
-	assert.True(t, healthy)
-	assert.Equal(t, HealthPass, checks[0].Status)
-	assert.Contains(t, checks[0].Name, "Python")
+	r := &doctorRunner{healthy: true}
+	r.python()
+	assert.True(t, r.healthy)
+	assert.Equal(t, HealthPass, r.checks[0].Status)
+	assert.Contains(t, r.checks[0].Name, "Python")
 }
 
 func TestRunPythonCheck_OnlyPython(t *testing.T) {
@@ -521,11 +520,10 @@ func TestRunPythonCheck_OnlyPython(t *testing.T) {
 	if _, err := exec.LookPath("python"); err != nil {
 		t.Skip("python not in PATH either, skipping")
 	}
-	var checks []HealthCheck
-	healthy := true
-	runPythonCheck(&checks, &healthy)
-	assert.True(t, healthy)
-	assert.Equal(t, HealthPass, checks[0].Status)
+	r := &doctorRunner{healthy: true}
+	r.python()
+	assert.True(t, r.healthy)
+	assert.Equal(t, HealthPass, r.checks[0].Status)
 }
 
 func TestRunPythonCheck_Neither(t *testing.T) {
@@ -533,14 +531,12 @@ func TestRunPythonCheck_Neither(t *testing.T) {
 	dir := t.TempDir()
 	t.Setenv("PATH", dir)
 
-	var checks []HealthCheck
-	healthy := true
-	runPythonCheck(&checks, &healthy)
-	require.GreaterOrEqual(t, len(checks), 1)
-	assert.Equal(t, HealthWarn, checks[0].Status)
-	assert.Contains(t, checks[0].Message, "python not found")
-	// addCheck only sets healthy=false on HealthFail, so it stays true for Warn.
-	assert.True(t, healthy)
+	r := &doctorRunner{healthy: true}
+	r.python()
+	require.GreaterOrEqual(t, len(r.checks), 1)
+	assert.Equal(t, HealthWarn, r.checks[0].Status)
+	assert.Contains(t, r.checks[0].Message, "python not found")
+	assert.True(t, r.healthy)
 }
 
 func TestRunPythonCheck_OnlyPython_Shim(t *testing.T) {
@@ -550,13 +546,12 @@ func TestRunPythonCheck_OnlyPython_Shim(t *testing.T) {
 	require.NoError(t, os.WriteFile(pythonBin, []byte("#!/bin/sh\nexit 0"), 0755))
 	t.Setenv("PATH", dir)
 
-	var checks []HealthCheck
-	healthy := true
-	runPythonCheck(&checks, &healthy)
-	require.Len(t, checks, 1)
-	assert.Equal(t, HealthPass, checks[0].Status)
-	assert.Contains(t, checks[0].Message, "python available")
-	assert.True(t, healthy)
+	r := &doctorRunner{healthy: true}
+	r.python()
+	require.Len(t, r.checks, 1)
+	assert.Equal(t, HealthPass, r.checks[0].Status)
+	assert.Contains(t, r.checks[0].Message, "python available")
+	assert.True(t, r.healthy)
 }
 
 // --- LoadWithAgent (integration through real file) ---
