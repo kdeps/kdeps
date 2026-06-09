@@ -93,12 +93,9 @@ func configEnvVar(path string) (string, bool) {
 	}
 	if strings.HasPrefix(path, "llm.") {
 		keyField := strings.TrimPrefix(path, "llm.")
-		for backend, field := range backendToKey {
-			if field == keyField {
-				if env := backendToEnv[backend]; env != "" {
-					return env, true
-				}
-				break
+		for _, p := range cloudProvidersList {
+			if p.yamlKey == keyField {
+				return p.envVar, true
 			}
 		}
 	}

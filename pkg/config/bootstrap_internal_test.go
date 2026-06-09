@@ -369,51 +369,32 @@ func TestCloudProviders_PopulatesLookupTables(t *testing.T) {
 	}
 }
 
-func TestCloudProviderOrder_MatchesProviders(t *testing.T) {
-	require.Len(t, cloudProviderOrder, len(cloudProviders))
-	for _, name := range cloudProviderOrder {
-		assert.Contains(t, cloudProviders, name)
+func TestCloudProvidersList_UniqueNames(t *testing.T) {
+	seen := make(map[string]bool, len(cloudProvidersList))
+	for _, p := range cloudProvidersList {
+		assert.False(t, seen[p.name], "duplicate provider %s", p.name)
+		seen[p.name] = true
+		mapped, ok := cloudProviders[p.name]
+		require.True(t, ok)
+		assert.Equal(t, p.name, mapped.name)
+		assert.Equal(t, p.yamlKey, mapped.yamlKey)
+		assert.Equal(t, p.envVar, mapped.envVar)
 	}
 }
 
 func TestKnownLLMKeys_IncludesCloudProviderFields(t *testing.T) {
-	for _, p := range cloudProviders {
+	for _, p := range cloudProvidersList {
 		assert.True(t, knownLLMKeys[p.yamlKey], "missing %s", p.yamlKey)
 	}
 }
 
 func TestProviderMetaMap_SetterWorks(t *testing.T) {
 	meta := providerMetaMap()
-	cfg := &Config{}
-	meta["openai"].setter(cfg, "sk-xyz")
-	assert.Equal(t, "sk-xyz", cfg.LLM.OpenAI)
-
-	meta["anthropic"].setter(cfg, "ant-xyz")
-	assert.Equal(t, "ant-xyz", cfg.LLM.Anthropic)
-
-	meta["google"].setter(cfg, "ggl-xyz")
-	assert.Equal(t, "ggl-xyz", cfg.LLM.Google)
-
-	meta["groq"].setter(cfg, "grq-xyz")
-	assert.Equal(t, "grq-xyz", cfg.LLM.Groq)
-
-	meta["deepseek"].setter(cfg, "ds-xyz")
-	assert.Equal(t, "ds-xyz", cfg.LLM.DeepSeek)
-
-	meta["openrouter"].setter(cfg, "or-xyz")
-	assert.Equal(t, "or-xyz", cfg.LLM.OpenRouter)
-
-	meta["cohere"].setter(cfg, "co-xyz")
-	assert.Equal(t, "co-xyz", cfg.LLM.Cohere)
-
-	meta["mistral"].setter(cfg, "ms-xyz")
-	assert.Equal(t, "ms-xyz", cfg.LLM.Mistral)
-
-	meta["together"].setter(cfg, "tg-xyz")
-	assert.Equal(t, "tg-xyz", cfg.LLM.Together)
-
-	meta["perplexity"].setter(cfg, "pp-xyz")
-	assert.Equal(t, "pp-xyz", cfg.LLM.Perplexity)
+	for _, p := range cloudProvidersList {
+		cfg := &Config{}
+		meta[p.name].setter(cfg, "test-key")
+		assert.Equal(t, "test-key", p.getKey(cfg.LLM), "backend %s", p.name)
+	}
 }
 
 // --- Bootstrap via writeConfig path (integration through public API) ---

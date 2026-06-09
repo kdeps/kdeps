@@ -153,8 +153,8 @@ func knownConfigEnvVars() []string {
 		"KDEPS_LLM_ROUTER",
 		"KDEPS_API_AUTH_TOKEN",
 	}
-	for _, name := range cloudProviderOrder {
-		vars = append(vars, backendToEnv[name])
+	for _, p := range cloudProvidersList {
+		vars = append(vars, p.envVar)
 	}
 	return vars
 }

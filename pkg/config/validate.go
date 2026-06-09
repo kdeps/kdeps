@@ -50,103 +50,98 @@ var (
 		"round_robin":     true,
 	}
 
-	cloudProviderOrder = []string{
-		"openai", "anthropic", "google", "cohere",
-		"mistral", "together", "perplexity", "groq", "deepseek", "openrouter",
-	}
-
-	cloudProviders = map[string]cloudProvider{
-		"openai": {
-			yamlKey: "openai_api_key",
-			envVar:  "OPENAI_API_KEY",
-			getKey:  func(k LLMKeys) string { return k.OpenAI },
-			setKey:  func(c *Config, v string) { c.LLM.OpenAI = v },
+	cloudProvidersList = []cloudProvider{
+		{
+			name: "openai", yamlKey: "openai_api_key", envVar: "OPENAI_API_KEY",
+			getKey: func(k LLMKeys) string { return k.OpenAI },
+			setKey: func(c *Config, v string) { c.LLM.OpenAI = v },
 		},
-		"anthropic": {
-			yamlKey: "anthropic_api_key",
-			envVar:  "ANTHROPIC_API_KEY",
-			getKey:  func(k LLMKeys) string { return k.Anthropic },
-			setKey:  func(c *Config, v string) { c.LLM.Anthropic = v },
+		{
+			name: "anthropic", yamlKey: "anthropic_api_key", envVar: "ANTHROPIC_API_KEY",
+			getKey: func(k LLMKeys) string { return k.Anthropic },
+			setKey: func(c *Config, v string) { c.LLM.Anthropic = v },
 		},
-		"google": {
-			yamlKey: "google_api_key",
-			envVar:  "GOOGLE_API_KEY",
-			getKey:  func(k LLMKeys) string { return k.Google },
-			setKey:  func(c *Config, v string) { c.LLM.Google = v },
+		{
+			name: "google", yamlKey: "google_api_key", envVar: "GOOGLE_API_KEY",
+			getKey: func(k LLMKeys) string { return k.Google },
+			setKey: func(c *Config, v string) { c.LLM.Google = v },
 		},
-		"cohere": {
-			yamlKey: "cohere_api_key",
-			envVar:  "COHERE_API_KEY",
-			getKey:  func(k LLMKeys) string { return k.Cohere },
-			setKey:  func(c *Config, v string) { c.LLM.Cohere = v },
+		{
+			name: "cohere", yamlKey: "cohere_api_key", envVar: "COHERE_API_KEY",
+			getKey: func(k LLMKeys) string { return k.Cohere },
+			setKey: func(c *Config, v string) { c.LLM.Cohere = v },
 		},
-		"mistral": {
-			yamlKey: "mistral_api_key",
-			envVar:  "MISTRAL_API_KEY",
-			getKey:  func(k LLMKeys) string { return k.Mistral },
-			setKey:  func(c *Config, v string) { c.LLM.Mistral = v },
+		{
+			name: "mistral", yamlKey: "mistral_api_key", envVar: "MISTRAL_API_KEY",
+			getKey: func(k LLMKeys) string { return k.Mistral },
+			setKey: func(c *Config, v string) { c.LLM.Mistral = v },
 		},
-		"together": {
-			yamlKey: "together_api_key",
-			envVar:  "TOGETHER_API_KEY",
-			getKey:  func(k LLMKeys) string { return k.Together },
-			setKey:  func(c *Config, v string) { c.LLM.Together = v },
+		{
+			name: "together", yamlKey: "together_api_key", envVar: "TOGETHER_API_KEY",
+			getKey: func(k LLMKeys) string { return k.Together },
+			setKey: func(c *Config, v string) { c.LLM.Together = v },
 		},
-		"perplexity": {
-			yamlKey: "perplexity_api_key",
-			envVar:  "PERPLEXITY_API_KEY",
-			getKey:  func(k LLMKeys) string { return k.Perplexity },
-			setKey:  func(c *Config, v string) { c.LLM.Perplexity = v },
+		{
+			name: "perplexity", yamlKey: "perplexity_api_key", envVar: "PERPLEXITY_API_KEY",
+			getKey: func(k LLMKeys) string { return k.Perplexity },
+			setKey: func(c *Config, v string) { c.LLM.Perplexity = v },
 		},
-		"groq": {
-			yamlKey: "groq_api_key",
-			envVar:  "GROQ_API_KEY",
-			getKey:  func(k LLMKeys) string { return k.Groq },
-			setKey:  func(c *Config, v string) { c.LLM.Groq = v },
+		{
+			name: "groq", yamlKey: "groq_api_key", envVar: "GROQ_API_KEY",
+			getKey: func(k LLMKeys) string { return k.Groq },
+			setKey: func(c *Config, v string) { c.LLM.Groq = v },
 		},
-		"deepseek": {
-			yamlKey: "deepseek_api_key",
-			envVar:  "DEEPSEEK_API_KEY",
-			getKey:  func(k LLMKeys) string { return k.DeepSeek },
-			setKey:  func(c *Config, v string) { c.LLM.DeepSeek = v },
+		{
+			name: "deepseek", yamlKey: "deepseek_api_key", envVar: "DEEPSEEK_API_KEY",
+			getKey: func(k LLMKeys) string { return k.DeepSeek },
+			setKey: func(c *Config, v string) { c.LLM.DeepSeek = v },
 		},
-		"openrouter": {
-			yamlKey: "openrouter_api_key",
-			envVar:  "OPENROUTER_API_KEY",
-			getKey:  func(k LLMKeys) string { return k.OpenRouter },
-			setKey:  func(c *Config, v string) { c.LLM.OpenRouter = v },
+		{
+			name: "openrouter", yamlKey: "openrouter_api_key", envVar: "OPENROUTER_API_KEY",
+			getKey: func(k LLMKeys) string { return k.OpenRouter },
+			setKey: func(c *Config, v string) { c.LLM.OpenRouter = v },
 		},
 	}
 
-	backendToKey = buildBackendToKey(cloudProviders)
-	backendToEnv = buildBackendToEnv(cloudProviders)
-	knownLLMKeys = buildKnownLLMKeys(cloudProviders)
+	cloudProviders = buildCloudProviderMap(cloudProvidersList)
+	backendToKey   = buildBackendToKey(cloudProvidersList)
+	backendToEnv   = buildBackendToEnv(cloudProvidersList)
+	knownLLMKeys   = buildKnownLLMKeys(cloudProvidersList)
 )
 
 type cloudProvider struct {
+	name    string
 	yamlKey string
 	envVar  string
 	getKey  func(LLMKeys) string
 	setKey  func(*Config, string)
 }
 
-func buildBackendToKey(providers map[string]cloudProvider) map[string]string {
-	m := make(map[string]string, len(providers))
-	for name, p := range providers {
-		m[name] = p.yamlKey
+func buildCloudProviderMap(list []cloudProvider) map[string]cloudProvider {
+	m := make(map[string]cloudProvider, len(list))
+	for _, p := range list {
+		m[p.name] = p
 	}
 	return m
 }
 
-func buildBackendToEnv(providers map[string]cloudProvider) map[string]string {
-	m := make(map[string]string, len(providers))
-	for name, p := range providers {
-		m[name] = p.envVar
+func buildBackendToKey(list []cloudProvider) map[string]string {
+	m := make(map[string]string, len(list))
+	for _, p := range list {
+		m[p.name] = p.yamlKey
 	}
 	return m
 }
 
-func buildKnownLLMKeys(providers map[string]cloudProvider) map[string]bool {
+func buildBackendToEnv(list []cloudProvider) map[string]string {
+	m := make(map[string]string, len(list))
+	for _, p := range list {
+		m[p.name] = p.envVar
+	}
+	return m
+}
+
+func buildKnownLLMKeys(list []cloudProvider) map[string]bool {
 	m := map[string]bool{
 		"ollama_host": true,
 		"backend":     true,
@@ -155,7 +150,7 @@ func buildKnownLLMKeys(providers map[string]cloudProvider) map[string]bool {
 		"models":      true,
 		"models_dir":  true,
 	}
-	for _, p := range providers {
+	for _, p := range list {
 		m[p.yamlKey] = true
 	}
 	return m
