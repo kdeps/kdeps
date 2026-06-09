@@ -41,7 +41,8 @@ func TestHasRoutingMeta_NoMeta(t *testing.T) {
 }
 
 func TestHasRoutingMeta_WithBackend(t *testing.T) {
-	assert.True(t, hasRoutingMeta(ModelList{{Model: "gpt-4", Backend: "openai"}}))
+	p := primaryCloudProvider()
+	assert.True(t, hasRoutingMeta(ModelList{{Model: "gpt-4", Backend: p.name}}))
 }
 
 func TestHasRoutingMeta_WithBaseURL(t *testing.T) {
@@ -51,7 +52,7 @@ func TestHasRoutingMeta_WithBaseURL(t *testing.T) {
 func TestHasRoutingMeta_Mixed(t *testing.T) {
 	assert.True(t, hasRoutingMeta(ModelList{
 		{Model: "llama3.2"},
-		{Model: "gpt-4", Backend: "openai"},
+		{Model: "gpt-4", Backend: primaryCloudProvider().name},
 	}))
 }
 
@@ -70,12 +71,13 @@ func TestApplyRouterEnv_StrategySet(t *testing.T) {
 }
 
 func TestApplyRouterEnv_RoutingMeta(t *testing.T) {
+	p := primaryCloudProvider()
 	require.NoError(t, os.Unsetenv("KDEPS_LLM_ROUTER"))
 	applyRouterEnv(LLMKeys{
-		Models: ModelList{{Model: "gpt-4", Backend: "openai"}},
+		Models: ModelList{{Model: "gpt-4", Backend: p.name}},
 	})
 	val := os.Getenv("KDEPS_LLM_ROUTER")
-	assert.Contains(t, val, `"backend":"openai"`)
+	assert.Contains(t, val, fmt.Sprintf(`"backend":%q`, p.name))
 	require.NoError(t, os.Unsetenv("KDEPS_LLM_ROUTER"))
 }
 
@@ -259,7 +261,7 @@ func TestMergeConfig_LLMFields(t *testing.T) {
 	src := &Config{
 		LLM: LLMKeys{
 			OllamaHost: "http://ollama:11434",
-			Backend:    "openai",
+			Backend:    primaryCloudProvider().name,
 			BaseURL:    "http://proxy:8080",
 			Strategy:   "round_robin",
 			Models:     ModelList{{Model: "gpt-4"}, {Model: "claude"}},
@@ -271,7 +273,7 @@ func TestMergeConfig_LLMFields(t *testing.T) {
 	}
 	mergeConfig(dst, src)
 	assert.Equal(t, "http://ollama:11434", dst.LLM.OllamaHost)
-	assert.Equal(t, "openai", dst.LLM.Backend)
+	assert.Equal(t, primaryCloudProvider().name, dst.LLM.Backend)
 	assert.Equal(t, "http://proxy:8080", dst.LLM.BaseURL)
 	assert.Equal(t, "round_robin", dst.LLM.Strategy)
 	assert.Len(t, dst.LLM.Models, 2)
@@ -716,7 +718,7 @@ func TestModelList_UnmarshalYAML_FullEntry(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, ml, 1)
 	assert.Equal(t, "gpt-4", ml[0].Model)
-	assert.Equal(t, "openai", ml[0].Backend)
+	assert.Equal(t, p.name, ml[0].Backend)
 }
 
 // --- applyResourceDefaults ---
