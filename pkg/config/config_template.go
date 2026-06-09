@@ -42,7 +42,7 @@ func buildBackendOptionsSection() string {
 	return b.String()
 }
 
-const configOptionsReferenceBody = `# Base URL override for the selected backend.
+const configOptionsReferenceBodyPrefix = `# Base URL override for the selected backend.
 # base_url: http://localhost:11434
 
 # ── Model allowlist (plain model names) ───────────────────────────────────
@@ -55,64 +55,9 @@ const configOptionsReferenceBody = `# Base URL override for the selected backend
 #   - gpt-4o
 #   - claude-sonnet-4-6
 
-# ── Routing strategy + unified models list ──────────────────────────────
-# Set strategy to one of: token_threshold | fallback | cost_optimized | round_robin.
-# When strategy is set, models act as router routes with per-model metadata.
-# Model entries support: model, backend, base_url, min_tokens, max_tokens,
-# cost_per_input_token, cost_per_output_token, priority, default.
-#
-# --- token_threshold: route by prompt token count ---
-# strategy: token_threshold
-# models:
-#   - model: gpt-4o-mini
-#     backend: openai
-#     max_tokens: 500
-#     default: true
-#   - model: gpt-4o
-#     backend: openai
-#     min_tokens: 501
-#
-# --- fallback: try each route in priority order on error ---
-# strategy: fallback
-# models:
-#   - model: claude-opus-4-7
-#     backend: anthropic
-#     priority: 1
-#   - model: gpt-4o
-#     backend: openai
-#     priority: 2
-#   - model: llama3.2
-#     backend: ollama
-#     priority: 3
-#     default: true
-#
-# --- cost_optimized: pick cheapest model within token range ---
-# strategy: cost_optimized
-# models:
-#   - model: gpt-4o-mini
-#     backend: openai
-#     cost_per_input_token: 0.00015
-#     cost_per_output_token: 0.0006
-#   - model: gpt-4o
-#     backend: openai
-#     cost_per_input_token: 0.0025
-#     cost_per_output_token: 0.01
-#     default: true
-#
-# --- round_robin: rotate through models evenly ---
-# strategy: round_robin
-# models:
-#   - model: gpt-4o-mini
-#     backend: openai
-#   - model: gpt-4o
-#     backend: openai
-#   - model: claude-sonnet-4-6
-#     backend: anthropic
-#   - model: llama3.2
-#     backend: ollama
-#     default: true
+`
 
-# ── Global defaults — applied to all workflows that don't override them ────
+const configOptionsReferenceBodySuffix = `# ── Global defaults — applied to all workflows that don't override them ────
 defaults:
   # timezone: UTC                  # IANA timezone name (sets TZ env var)
   # python_version: "3.12"        # Python version for python resources
@@ -222,6 +167,80 @@ defaults:
 
 `
 
+func buildRoutingExamplesSection() string {
+	primary := cloudProvidersList[0]
+	secondary := cloudProvidersList[1]
+	var b strings.Builder
+	b.WriteString(`# ── Routing strategy + unified models list ──────────────────────────────
+# Set strategy to one of: token_threshold | fallback | cost_optimized | round_robin.
+# When strategy is set, models act as router routes with per-model metadata.
+# Model entries support: model, backend, base_url, min_tokens, max_tokens,
+# cost_per_input_token, cost_per_output_token, priority, default.
+#
+# --- token_threshold: route by prompt token count ---
+# strategy: token_threshold
+# models:
+#   - model: gpt-4o-mini
+`)
+	fmt.Fprintf(&b, "#     backend: %s\n", primary.name)
+	b.WriteString(`#     max_tokens: 500
+#     default: true
+#   - model: gpt-4o
+`)
+	fmt.Fprintf(&b, "#     backend: %s\n", primary.name)
+	b.WriteString(`#     min_tokens: 501
+#
+# --- fallback: try each route in priority order on error ---
+# strategy: fallback
+# models:
+#   - model: claude-opus-4-7
+`)
+	fmt.Fprintf(&b, "#     backend: %s\n", secondary.name)
+	b.WriteString(`#     priority: 1
+#   - model: gpt-4o
+`)
+	fmt.Fprintf(&b, "#     backend: %s\n", primary.name)
+	b.WriteString(`#     priority: 2
+#   - model: llama3.2
+`)
+	fmt.Fprintf(&b, "#     backend: %s\n", ollamaBackendStr)
+	b.WriteString(`#     priority: 3
+#     default: true
+#
+# --- cost_optimized: pick cheapest model within token range ---
+# strategy: cost_optimized
+# models:
+#   - model: gpt-4o-mini
+`)
+	fmt.Fprintf(&b, "#     backend: %s\n", primary.name)
+	b.WriteString(`#     cost_per_input_token: 0.00015
+#     cost_per_output_token: 0.0006
+#   - model: gpt-4o
+`)
+	fmt.Fprintf(&b, "#     backend: %s\n", primary.name)
+	b.WriteString(`#     cost_per_input_token: 0.0025
+#     cost_per_output_token: 0.01
+#     default: true
+#
+# --- round_robin: rotate through models evenly ---
+# strategy: round_robin
+# models:
+#   - model: gpt-4o-mini
+`)
+	fmt.Fprintf(&b, "#     backend: %s\n", primary.name)
+	b.WriteString(`#   - model: gpt-4o
+`)
+	fmt.Fprintf(&b, "#     backend: %s\n", primary.name)
+	b.WriteString(`#   - model: claude-sonnet-4-6
+`)
+	fmt.Fprintf(&b, "#     backend: %s\n", secondary.name)
+	b.WriteString(`#   - model: llama3.2
+`)
+	fmt.Fprintf(&b, "#     backend: %s\n", ollamaBackendStr)
+	b.WriteString("#     default: true\n\n")
+	return b.String()
+}
+
 func buildAgentsExampleSection() string {
 	primary := cloudProvidersList[0]
 	secondary := cloudProvidersList[1]
@@ -292,7 +311,11 @@ llm:
 }
 
 func configOptionsReference() string {
-	return buildBackendOptionsSection() + configOptionsReferenceBody + buildAgentsExampleSection()
+	return buildBackendOptionsSection() +
+		configOptionsReferenceBodyPrefix +
+		buildRoutingExamplesSection() +
+		configOptionsReferenceBodySuffix +
+		buildAgentsExampleSection()
 }
 
 // composeConfigTemplate joins the scaffold header with the shared options reference.

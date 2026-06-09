@@ -26,6 +26,10 @@ func loadCfg(t *testing.T) *Config {
 	return cfg
 }
 
+func primaryCloudProvider() cloudProvider {
+	return cloudProvidersList[0]
+}
+
 func allCloudProviderKeysYAML() string {
 	var b strings.Builder
 	for _, p := range cloudProvidersList {
@@ -278,16 +282,17 @@ agents:
 }
 
 func TestValidate_AgentProfileWithFields_NoWarning(t *testing.T) {
+	p := primaryCloudProvider()
 	dir := t.TempDir()
-	writeTempConfig(t, dir, `
+	writeTempConfig(t, dir, fmt.Sprintf(`
 llm:
-  backend: openai
-  openai_api_key: sk-global
+  backend: %s
+  %s: sk-global
 agents:
   my_agent:
     llm:
-      openai_api_key: sk-agent
-`)
+      %s: sk-agent
+`, p.name, p.yamlKey, p.yamlKey))
 	cfg := loadCfg(t)
 	warnings := cfg.Validate("")
 	for _, w := range warnings {
@@ -304,15 +309,16 @@ func TestValidate_AgentProfileWithWorkflow(t *testing.T) {
 	require.NoError(t, os.WriteFile(filepath.Join(workflowDir, "workflow.yaml"), []byte(workflowYAML), 0644))
 
 	dir := t.TempDir()
-	writeTempConfig(t, dir, `
+	p := primaryCloudProvider()
+	writeTempConfig(t, dir, fmt.Sprintf(`
 agents:
   my_agent:
     llm:
-      openai_api_key: sk-test
+      %s: sk-test
   unknown_agent:
     llm:
-      backend: openai
-`)
+      backend: %s
+`, p.yamlKey, p.name))
 	cfg := loadCfg(t)
 	warnings := cfg.Validate(agentsDir)
 
@@ -332,17 +338,18 @@ agents:
 }
 
 func TestValidate_MultipleWarnings(t *testing.T) {
+	p := primaryCloudProvider()
 	dir := t.TempDir()
-	writeTempConfig(t, dir, `
+	writeTempConfig(t, dir, fmt.Sprintf(`
 unknown_top: true
 llm:
   bad_llm_key: true
-  backend: openai
+  backend: %s
   strategy: invalid
 resource_defaults:
   chat:
     timeout: "bad"
-`)
+`, p.name))
 	cfg := loadCfg(t)
 	warnings := cfg.Validate("")
 	assert.GreaterOrEqual(t, len(warnings), 4, "expected at least 4 warnings, got %d: %v", len(warnings), warnings)
@@ -399,16 +406,15 @@ func TestValidate_UnreadableConfig(t *testing.T) {
 }
 
 func TestValidate_ValidateCalledAfterLoad(t *testing.T) {
-	// Validate on a config that was loaded from a valid file
-	// with all backends set should produce no API key warnings.
+	p := primaryCloudProvider()
 	dir := t.TempDir()
 	writeTempConfig(t, dir, fmt.Sprintf(`
 llm:
-  backend: openai
+  backend: %s
 %sresource_defaults:
   chat:
     timeout: "60s"
-`, allCloudProviderKeysYAML()))
+`, p.name, allCloudProviderKeysYAML()))
 	cfg := loadCfg(t)
 	warnings := cfg.Validate("")
 	assert.Empty(t, warnings)
@@ -521,6 +527,12 @@ llm:
 	for _, w := range warnings {
 		assert.NotContains(t, w, "not set")
 	}
+}
+
+func TestIsLocalBackend(t *testing.T) {
+	assert.True(t, isLocalBackend(""))
+	assert.True(t, isLocalBackend(ollamaBackendStr))
+	assert.False(t, isLocalBackend(primaryCloudProvider().name))
 }
 
 func TestIsEmptyAgentProfile(t *testing.T) {

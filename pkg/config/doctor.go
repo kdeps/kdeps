@@ -157,7 +157,7 @@ func (r *doctorRunner) backendKey(cfg *Config) {
 		return
 	}
 	backend := effectiveBackend(cfg)
-	if backend == "" || backend == ollamaBackendStr {
+	if isLocalBackend(backend) {
 		r.add("Backend/API key", HealthPass,
 			fmt.Sprintf("backend=%s (no API key needed)", backendOrDefault(backend)))
 		return
