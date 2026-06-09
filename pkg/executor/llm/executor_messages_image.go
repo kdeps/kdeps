@@ -134,7 +134,7 @@ func (e *Executor) detectImageMimeType(filePath string) (string, error) {
 		return "", errors.New("file is empty")
 	}
 
-	detectedType := stdhttp.DetectContentType(fileData[:minInt(512, len(fileData))])
+	detectedType := stdhttp.DetectContentType(fileData[:min(512, len(fileData))])
 	if strings.HasPrefix(detectedType, "image/") {
 		return detectedType, nil
 	}
@@ -162,15 +162,3 @@ func (e *Executor) encodeFileToBase64(fullPath, mimeType string) (string, string
 	// Return data URI format
 	return fmt.Sprintf("data:%s;base64,%s", mimeType, base64Str), mimeType, nil
 }
-
-// min returns the minimum of two integers.
-func minInt(a, b int) int {
-	kdeps_debug.Log("enter: minInt")
-	if a < b {
-		return a
-	}
-	return b
-}
-
-// buildRequestBody builds the request body for the LLM API (legacy, kept for compatibility).
-// New code should use backend.BuildRequest directly.

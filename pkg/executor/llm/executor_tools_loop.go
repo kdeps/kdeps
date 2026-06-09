@@ -79,7 +79,7 @@ func (e *Executor) chatFollowUp(
 	if err != nil {
 		return nil, fmt.Errorf("failed to build follow-up request: %w", err)
 	}
-	response, err := e.callBackend(backend, baseURL, requestBody, timeout, "")
+	response, err := e.callBackend(backend, baseURL, requestBody, timeout)
 	if err != nil {
 		return nil, fmt.Errorf("follow-up LLM call failed: %w", err)
 	}

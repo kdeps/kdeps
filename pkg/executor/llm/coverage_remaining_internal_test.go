@@ -100,7 +100,7 @@ func TestCallBackendWithEndpoint_Errors(t *testing.T) {
 	e := NewExecutor("")
 	backend := &OllamaBackend{}
 
-	_, err := e.callBackendWithEndpoint(backend, "://invalid", map[string]interface{}{"model": "m"}, time.Second, "")
+	_, err := e.callBackendWithEndpoint(backend, "://invalid", map[string]interface{}{"model": "m"}, time.Second)
 	require.Error(t, err)
 }
 
@@ -125,21 +125,6 @@ func TestDefaultModelsDir_UserHomeError(t *testing.T) {
 	}
 	_, err := DefaultModelsDir()
 	require.Error(t, err)
-}
-
-// ── buildRequestBody fallback ─────────────────────────────────────────────────
-
-func TestBuildRequestBody_EmptyRegistryFallback(t *testing.T) {
-	e := &Executor{backendRegistry: NewBackendRegistry()}
-	e.backendRegistry.SetBackendsForTesting(map[string]Backend{})
-
-	body := e.buildRequestBody("m", []map[string]interface{}{{"role": "user", "content": "hi"}}, &domain.ChatConfig{
-		JSONResponse: true,
-		Tools:        []domain.Tool{{Name: "t", Description: "d"}},
-	})
-	assert.Equal(t, "m", body["model"])
-	assert.Equal(t, "json", body["format"])
-	assert.NotNil(t, body["tools"])
 }
 
 // ── executor Execute paths ────────────────────────────────────────────────────
@@ -291,28 +276,6 @@ func TestEvaluateStringOrLiteral_Error(t *testing.T) {
 
 	_, err = e.evaluateStringOrLiteral(nil, ctx, "{{ x }}")
 	require.Error(t, err)
-}
-
-func TestCallOllama_BackendError(t *testing.T) {
-	e := &Executor{
-		backendRegistry: NewBackendRegistry(),
-		ollamaURL:       "http://localhost:11434",
-	}
-	e.backendRegistry.SetBackendsForTesting(map[string]Backend{})
-	_, err := e.callOllama(map[string]interface{}{"model": "m"}, "1s")
-	require.Error(t, err)
-}
-
-func TestCallOllama_HTTPError(t *testing.T) {
-	srv := httptest.NewServer(stdhttp.HandlerFunc(func(w stdhttp.ResponseWriter, _ *stdhttp.Request) {
-		w.WriteHeader(stdhttp.StatusInternalServerError)
-	}))
-	t.Cleanup(srv.Close)
-
-	e := NewExecutor(srv.URL)
-	resp, err := e.callOllama(map[string]interface{}{"model": "m", "messages": []interface{}{}}, "1s")
-	require.Error(t, err)
-	assert.Nil(t, resp)
 }
 
 func TestExecuteTool_ResourceExecutorError(t *testing.T) {

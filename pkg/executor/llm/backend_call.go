@@ -36,11 +36,10 @@ func (e *Executor) callBackend(
 	baseURL string,
 	requestBody map[string]interface{},
 	timeout time.Duration,
-	_ string,
 ) (map[string]interface{}, error) {
 	kdeps_debug.Log("enter: callBackend")
 	endpoint := backend.ChatEndpoint(baseURL)
-	return e.callBackendWithEndpoint(backend, endpoint, requestBody, timeout, "")
+	return e.callBackendWithEndpoint(backend, endpoint, requestBody, timeout)
 }
 
 // marshalBackendRequest serializes a backend request body to JSON.
@@ -101,12 +100,12 @@ func parseOllamaStreamingHTTPResponse(resp *stdhttp.Response) (map[string]interf
 }
 
 // callBackendWithEndpoint calls the backend API with a specific endpoint URL.
+// API keys are resolved from provider env vars inside GetAPIKeyHeader.
 func (e *Executor) callBackendWithEndpoint(
 	backend Backend,
 	endpointURL string,
 	requestBody map[string]interface{},
 	timeout time.Duration,
-	apiKey string,
 ) (map[string]interface{}, error) {
 	kdeps_debug.Log("enter: callBackendWithEndpoint")
 
@@ -122,7 +121,7 @@ func (e *Executor) callBackendWithEndpoint(
 	if err != nil {
 		return nil, err
 	}
-	applyBackendAuthHeaders(req, backend, apiKey)
+	applyBackendAuthHeaders(req, backend, "")
 
 	resp, err := e.client.Do(req)
 	if err != nil {

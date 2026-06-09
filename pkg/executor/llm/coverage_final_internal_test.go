@@ -298,7 +298,7 @@ func TestCallBackendWithEndpoint_MarshalError(t *testing.T) {
 	e := NewExecutor("")
 	_, err := e.callBackendWithEndpoint(&OllamaBackend{}, "http://localhost/", map[string]interface{}{
 		"bad": make(chan int),
-	}, time.Second, "")
+	}, time.Second)
 	require.Error(t, err)
 }
 
