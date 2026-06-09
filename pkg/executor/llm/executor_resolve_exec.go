@@ -72,7 +72,7 @@ func (e *Executor) callBackendWithFallback(
 	messages []map[string]interface{},
 	requestConfig ChatRequestConfig,
 ) map[string]interface{} {
-	response, err := e.callBackend(backend, baseURL, requestBody, timeout, "")
+	response, err := e.callBackend(backend, baseURL, requestBody, timeout)
 	if err != nil {
 		response = map[string]interface{}{"error": err.Error()}
 	}

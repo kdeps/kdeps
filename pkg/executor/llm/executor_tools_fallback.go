@@ -51,7 +51,7 @@ func (e *Executor) retryFallbackRoutes(
 		if rbErr != nil {
 			continue
 		}
-		response, lastErr = e.callBackend(fb, fbURL, rb, timeout, "")
+		response, lastErr = e.callBackend(fb, fbURL, rb, timeout)
 		if lastErr != nil {
 			response = map[string]interface{}{"error": lastErr.Error()}
 		}

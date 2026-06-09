@@ -22,38 +22,9 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"time"
 
-	kdepsconfig "github.com/kdeps/kdeps/v2/pkg/config"
 	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
 )
-
-// callOllama calls the Ollama API (legacy method, kept for compatibility).
-// New code should use callBackend instead.
-func (e *Executor) callOllama(
-	requestBody map[string]interface{},
-	timeoutStr string,
-) (map[string]interface{}, error) {
-	kdeps_debug.Log("enter: callOllama")
-	defaults, _ := kdepsconfig.GetDefaults()
-	timeout := defaults.Chat.TimeoutDuration()
-	if timeoutStr != "" {
-		parsedTimeout, err := time.ParseDuration(timeoutStr)
-		if err == nil {
-			timeout = parsedTimeout
-		}
-	}
-
-	backend := e.backendRegistry.Get("ollama")
-	if backend == nil {
-		backend = e.backendRegistry.GetDefault()
-	}
-	if backend == nil {
-		return nil, errors.New("ollama backend not available")
-	}
-
-	return e.callBackend(backend, e.ollamaURL, requestBody, timeout, "")
-}
 
 // parseJSONResponse parses JSON response and extracts specified keys.
 func (e *Executor) parseJSONResponse(
