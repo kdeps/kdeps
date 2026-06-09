@@ -19,27 +19,36 @@
 package executor
 
 import (
-	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
+	"fmt"
+
 	"github.com/kdeps/kdeps/v2/pkg/domain"
 )
 
-// ExecuteWithItems executes a resource for each item.
-func (e *Engine) ExecuteWithItems(
-	resource *domain.Resource,
+// runComponentResources executes the component's resources in order.
+func (e *Engine) runComponentResources(
+	comp *domain.Component,
+	componentName, callerID string,
 	ctx *ExecutionContext,
 ) (interface{}, error) {
-	kdeps_debug.Log("enter: ExecuteWithItems")
-	evaluatedItems, err := e.evaluateResourceItems(resource, ctx)
-	if err != nil {
-		return nil, err
+	if len(comp.Resources) == 0 {
+		return map[string]interface{}{"status": "component_no_resources"}, nil
 	}
 
-	e.setupItemsContext(resource, ctx, evaluatedItems)
-	results, err := e.executeItemsIteration(resource, ctx, evaluatedItems)
-	if err != nil {
-		return nil, err
+	var lastResult interface{}
+	for _, compRes := range comp.Resources {
+		result, execErr := e.ExecuteResource(compRes, ctx)
+		if execErr != nil {
+			return nil, fmt.Errorf("component %q resource %q failed: %w",
+				componentName, compRes.ActionID, execErr)
+		}
+		if result != nil {
+			lastResult = result
+			ctx.SetOutput(compRes.ActionID, result)
+		}
 	}
 
-	e.clearItemsContext(ctx)
-	return results, nil
+	if lastResult != nil {
+		ctx.SetOutput(callerID, lastResult)
+	}
+	return lastResult, nil
 }
