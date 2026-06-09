@@ -22,11 +22,6 @@ package searchlocal
 import (
 	"encoding/json"
 	"errors"
-	"fmt"
-	"io/fs"
-	"os"
-	"path/filepath"
-	"strings"
 
 	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
 	"github.com/kdeps/kdeps/v2/pkg/domain"
@@ -73,89 +68,4 @@ func (e *Executor) Execute(
 	}
 
 	return buildSearchResult(config.Path, results), nil
-}
-
-// walk traverses the directory tree and collects matching files.
-func (e *Executor) walk(config *domain.SearchLocalConfig) ([]map[string]interface{}, error) {
-	var results []map[string]interface{}
-	limitHit := false
-
-	walkErr := filepath.WalkDir(config.Path, func(path string, d fs.DirEntry, err error) error {
-		return e.walkEntry(path, d, err, config, &results, &limitHit)
-	})
-
-	if walkErr != nil && !limitHit {
-		return nil, fmt.Errorf("searchLocal: walk failed: %w", walkErr)
-	}
-
-	return results, nil
-}
-
-// walkEntry is the per-entry callback extracted from the WalkDir closure
-// so that Go's coverage tool can track its basic blocks correctly.
-func (e *Executor) walkEntry(
-	path string,
-	d fs.DirEntry,
-	err error,
-	config *domain.SearchLocalConfig,
-	results *[]map[string]interface{},
-	limitHit *bool,
-) error {
-	if err != nil || d.IsDir() {
-		return nil //nolint:nilerr // intentionally skip unreadable entries and directories
-	}
-
-	ok, filterErr := e.matchesFilters(path, d, config)
-	if filterErr != nil {
-		return filterErr
-	}
-	if !ok {
-		return nil
-	}
-
-	info, statErr := d.Info()
-	if statErr != nil {
-		return nil //nolint:nilerr // skip files whose stat fails
-	}
-
-	*results = append(*results, map[string]interface{}{
-		"path":  path,
-		"name":  d.Name(),
-		"size":  info.Size(),
-		"isDir": false,
-	})
-
-	if config.Limit > 0 && len(*results) >= config.Limit {
-		*limitHit = true
-		return fs.SkipAll
-	}
-	return nil
-}
-
-func contentMatchesQuery(path, query string) bool {
-	data, readErr := os.ReadFile(path) // path is walk-derived from caller-supplied root
-	if readErr != nil {
-		return false
-	}
-	return strings.Contains(strings.ToLower(string(data)), strings.ToLower(query))
-}
-
-// matchesFilters returns true when the file passes all configured filters.
-func (e *Executor) matchesFilters(path string, d fs.DirEntry, config *domain.SearchLocalConfig) (bool, error) {
-	if config.Glob != "" {
-		matched, matchErr := filepath.Match(config.Glob, filepath.Base(path))
-		if matchErr != nil {
-			return false, fmt.Errorf("searchLocal: invalid glob pattern: %w", matchErr)
-		}
-		if !matched {
-			return false, nil
-		}
-	}
-
-	if config.Query != "" && !contentMatchesQuery(path, config.Query) {
-		return false, nil
-	}
-
-	_ = d // d used only for IsDir check upstream
-	return true, nil
 }
