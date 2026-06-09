@@ -515,3 +515,11 @@ func TestGetDefaults_ParseError(t *testing.T) {
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "parse embedded defaults.yml")
 }
+
+func TestConfigureProvider_UnknownProvider(t *testing.T) {
+	reader := bufio.NewReader(strings.NewReader(""))
+	var out testWriter
+	cfg := &Config{}
+	err := configureProvider(&out, reader, &fmtWriter{w: &out}, cfg, "not-a-provider")
+	require.NoError(t, err)
+}

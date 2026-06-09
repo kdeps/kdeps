@@ -955,3 +955,11 @@ func TestConfigEnvVar_APIKeys(t *testing.T) {
 		assert.Equal(t, p.envVar, env)
 	}
 }
+
+func TestConfigEnvVar_NotFound(t *testing.T) {
+	_, ok := configEnvVar("nonexistent.path")
+	assert.False(t, ok)
+
+	_, ok = configEnvVar("llm.not_a_provider_key")
+	assert.False(t, ok)
+}
