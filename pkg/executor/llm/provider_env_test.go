@@ -33,6 +33,16 @@ func TestProviderAPIKeyEnvVar_MatchesConfig(t *testing.T) {
 	}
 }
 
+func TestBackendAPIKeyEnvVar_MatchesConfig(t *testing.T) {
+	envVars := make(map[string]string)
+	for _, p := range kdepsconfig.CloudLLMProviders() {
+		envVars[p.Name] = p.EnvVar
+	}
+	for _, b := range defaultRegistryBackends {
+		assert.Equal(t, envVars[b.Name()], b.APIKeyEnvVar(), "APIKeyEnvVar for %q", b.Name())
+	}
+}
+
 func TestDefaultRegistryBackendNames_CloudOrderMatchesConfig(t *testing.T) {
 	names := DefaultRegistryBackendNames()
 	require.GreaterOrEqual(t, len(names), 3)
