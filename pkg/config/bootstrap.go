@@ -44,16 +44,16 @@ func providerNames() []string {
 func providerMetaMap() map[string]providerKey {
 	return map[string]providerKey{
 		ollamaBackendStr: {"OLLAMA_HOST", func(c *Config, v string) { c.LLM.OllamaHost = v }},
-		"openai":         {"OPENAI_API_KEY", func(c *Config, v string) { c.LLM.OpenAI = v }},
-		"anthropic":      {"ANTHROPIC_API_KEY", func(c *Config, v string) { c.LLM.Anthropic = v }},
-		"google":         {"GOOGLE_API_KEY", func(c *Config, v string) { c.LLM.Google = v }},
-		"cohere":         {"COHERE_API_KEY", func(c *Config, v string) { c.LLM.Cohere = v }},
-		"mistral":        {"MISTRAL_API_KEY", func(c *Config, v string) { c.LLM.Mistral = v }},
-		"together":       {"TOGETHER_API_KEY", func(c *Config, v string) { c.LLM.Together = v }},
-		"perplexity":     {"PERPLEXITY_API_KEY", func(c *Config, v string) { c.LLM.Perplexity = v }},
-		"groq":           {"GROQ_API_KEY", func(c *Config, v string) { c.LLM.Groq = v }},
-		"deepseek":       {"DEEPSEEK_API_KEY", func(c *Config, v string) { c.LLM.DeepSeek = v }},
-		"openrouter":     {"OPENROUTER_API_KEY", func(c *Config, v string) { c.LLM.OpenRouter = v }},
+		"openai":         {backendToEnv["openai"], func(c *Config, v string) { c.LLM.OpenAI = v }},
+		"anthropic":      {backendToEnv["anthropic"], func(c *Config, v string) { c.LLM.Anthropic = v }},
+		"google":         {backendToEnv["google"], func(c *Config, v string) { c.LLM.Google = v }},
+		"cohere":         {backendToEnv["cohere"], func(c *Config, v string) { c.LLM.Cohere = v }},
+		"mistral":        {backendToEnv["mistral"], func(c *Config, v string) { c.LLM.Mistral = v }},
+		"together":       {backendToEnv["together"], func(c *Config, v string) { c.LLM.Together = v }},
+		"perplexity":     {backendToEnv["perplexity"], func(c *Config, v string) { c.LLM.Perplexity = v }},
+		"groq":           {backendToEnv["groq"], func(c *Config, v string) { c.LLM.Groq = v }},
+		"deepseek":       {backendToEnv["deepseek"], func(c *Config, v string) { c.LLM.DeepSeek = v }},
+		"openrouter":     {backendToEnv["openrouter"], func(c *Config, v string) { c.LLM.OpenRouter = v }},
 	}
 }
 

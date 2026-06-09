@@ -947,3 +947,11 @@ func TestLoad_ParseError(t *testing.T) {
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "parse")
 }
+
+func TestConfigEnvVar_APIKeys(t *testing.T) {
+	for backend, keyField := range backendToKey {
+		env, ok := configEnvVar("llm." + keyField)
+		require.True(t, ok, "backend %s", backend)
+		assert.Equal(t, backendToEnv[backend], env)
+	}
+}
