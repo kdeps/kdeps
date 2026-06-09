@@ -40,110 +40,6 @@ func NewResponseBuilder() *ResponseBuilder {
 	return &ResponseBuilder{}
 }
 
-// --- TwiML node types -------------------------------------------------------
-
-type twiMLSay struct {
-	XMLName xml.Name `xml:"Say"`
-	Voice   string   `xml:"voice,attr,omitempty"`
-	Text    string   `xml:",chardata"`
-}
-
-type twiMLPlay struct {
-	XMLName xml.Name `xml:"Play"`
-	URL     string   `xml:",chardata"`
-}
-
-type twiMLGatherSay struct {
-	XMLName xml.Name `xml:"Say"`
-	Voice   string   `xml:"voice,attr,omitempty"`
-	Text    string   `xml:",chardata"`
-}
-
-type twiMLGatherPlay struct {
-	XMLName xml.Name `xml:"Play"`
-	URL     string   `xml:",chardata"`
-}
-
-type twiMLGather struct {
-	XMLName       xml.Name         `xml:"Gather"`
-	Input         string           `xml:"input,attr,omitempty"`
-	NumDigits     int              `xml:"numDigits,attr,omitempty"`
-	Timeout       int              `xml:"timeout,attr,omitempty"`
-	SpeechTimeout string           `xml:"speechTimeout,attr,omitempty"`
-	FinishOnKey   string           `xml:"finishOnKey,attr,omitempty"`
-	Action        string           `xml:"action,attr,omitempty"`
-	Say           *twiMLGatherSay  `xml:",omitempty"`
-	Play          *twiMLGatherPlay `xml:",omitempty"`
-}
-
-type twiMLDialNumber struct {
-	XMLName xml.Name `xml:"Number"`
-	Number  string   `xml:",chardata"`
-}
-
-type twiMLDialSIP struct {
-	XMLName xml.Name `xml:"Sip"`
-	URI     string   `xml:",chardata"`
-}
-
-// twiMLDial represents a <Dial> TwiML verb.
-// SIP URIs (sip:user@host) are emitted as <Sip> children;
-// E.164 numbers are emitted as <Number> children.
-type twiMLDial struct {
-	XMLName  xml.Name `xml:"Dial"`
-	CallerID string   `xml:"callerId,attr,omitempty"`
-	Timeout  int      `xml:"timeout,attr,omitempty"`
-	Targets  []any    `xml:",omitempty"`
-}
-
-type twiMLRecord struct {
-	XMLName                 xml.Name `xml:"Record"`
-	MaxLength               int      `xml:"maxLength,attr,omitempty"`
-	PlayBeep                bool     `xml:"playBeep,attr,omitempty"`
-	FinishOnKey             string   `xml:"finishOnKey,attr,omitempty"`
-	RecordingStatusCallback string   `xml:"recordingStatusCallback,attr,omitempty"`
-}
-
-type twiMLHangup struct {
-	XMLName xml.Name `xml:"Hangup"`
-}
-
-type twiMLReject struct {
-	XMLName xml.Name `xml:"Reject"`
-	Reason  string   `xml:"reason,attr,omitempty"`
-}
-
-type twiMLRedirect struct {
-	XMLName xml.Name `xml:"Redirect"`
-	URL     string   `xml:",chardata"`
-}
-
-type twiMLMute struct {
-	XMLName xml.Name `xml:"Mute"`
-}
-
-type twiMLUnmute struct {
-	XMLName xml.Name `xml:"Unmute"`
-}
-
-// twiMLResponse is the root XML element.
-type twiMLResponse struct {
-	XMLName xml.Name `xml:"Response"`
-	Nodes   []any    `xml:",omitempty"`
-}
-
-// --- Builder methods --------------------------------------------------------
-
-// AddSay appends a <Say> node.
-func (rb *ResponseBuilder) AddSay(text, voice string) {
-	rb.nodes = append(rb.nodes, twiMLSay{Text: text, Voice: voice})
-}
-
-// AddPlay appends a <Play> node.
-func (rb *ResponseBuilder) AddPlay(url string) {
-	rb.nodes = append(rb.nodes, twiMLPlay{URL: url})
-}
-
 // GatherOptions configures a <Gather> node.
 type GatherOptions struct {
 	Input         string // "dtmf" | "speech" | "dtmf speech"
@@ -155,6 +51,30 @@ type GatherOptions struct {
 	Say           string
 	Voice         string
 	Audio         string
+}
+
+// DialOptions configures a <Dial> node.
+type DialOptions struct {
+	To       []string
+	CallerID string
+	Timeout  int // seconds
+}
+
+// RecordOptions configures a <Record> node.
+type RecordOptions struct {
+	MaxLength   int
+	PlayBeep    bool
+	FinishOnKey string
+}
+
+// AddSay appends a <Say> node.
+func (rb *ResponseBuilder) AddSay(text, voice string) {
+	rb.nodes = append(rb.nodes, twiMLSay{Text: text, Voice: voice})
+}
+
+// AddPlay appends a <Play> node.
+func (rb *ResponseBuilder) AddPlay(url string) {
+	rb.nodes = append(rb.nodes, twiMLPlay{URL: url})
 }
 
 // AddGather appends a <Gather> node with optional nested <Say> or <Play>.
@@ -181,13 +101,6 @@ func attachGatherPrompt(g *twiMLGather, opts GatherOptions) {
 	}
 }
 
-// DialOptions configures a <Dial> node.
-type DialOptions struct {
-	To       []string
-	CallerID string
-	Timeout  int // seconds
-}
-
 // AddDial appends a <Dial> node.
 // SIP URIs (starting with "sip:") are emitted as <Sip> children;
 // all other values are emitted as <Number> children.
@@ -200,13 +113,6 @@ func (rb *ResponseBuilder) AddDial(opts DialOptions) {
 		d.Targets = append(d.Targets, dialTargetNode(target))
 	}
 	rb.nodes = append(rb.nodes, d)
-}
-
-// RecordOptions configures a <Record> node.
-type RecordOptions struct {
-	MaxLength   int
-	PlayBeep    bool
-	FinishOnKey string
 }
 
 // AddRecord appends a <Record> node.
