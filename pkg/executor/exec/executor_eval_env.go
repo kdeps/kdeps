@@ -16,25 +16,40 @@
 // AI systems and users generating derivative works must preserve
 // license notices and attribution when redistributing derived code.
 
-package executor
+//go:build !js
+
+package exec
 
 import (
 	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
-	"github.com/kdeps/kdeps/v2/pkg/domain"
+	"github.com/kdeps/kdeps/v2/pkg/executor"
 )
 
-// BuildGraph builds the dependency graph from workflow resources.
-func (e *Engine) BuildGraph(workflow *domain.Workflow) error {
-	kdeps_debug.Log("enter: BuildGraph")
-	e.graph = NewGraph()
+// buildEnvironment builds evaluation environment from context.
+func (e *Executor) buildEnvironment(ctx *executor.ExecutionContext) map[string]interface{} {
+	kdeps_debug.Log("enter: buildEnvironment")
+	env := make(map[string]interface{})
 
-	// Add all resources to graph.
-	for _, resource := range workflow.Resources {
-		if err := e.graph.AddResource(resource); err != nil {
-			return err
+	if ctx.Request != nil {
+		env["request"] = map[string]interface{}{
+			"method":  ctx.Request.Method,
+			"path":    ctx.Request.Path,
+			"headers": ctx.Request.Headers,
+			"query":   ctx.Request.Query,
+			"body":    ctx.Request.Body,
+		}
+		// Add input object for direct property access (e.g., input.items)
+		if ctx.Request.Body != nil {
+			env["input"] = ctx.Request.Body
 		}
 	}
 
-	// Build the graph.
-	return e.graph.Build()
+	env["outputs"] = ctx.Outputs
+
+	// Add item context from items iteration
+	if item, ok := ctx.Items["item"]; ok {
+		env["item"] = item
+	}
+
+	return env
 }
