@@ -33,11 +33,9 @@ type providerKey struct {
 // providerNames returns the ordered list of supported LLM provider names.
 // "ollama" is the local option (no API key needed).
 func providerNames() []string {
-	return []string{
-		"ollama",
-		"openai", "anthropic", "google", "cohere",
-		"mistral", "together", "perplexity", "groq", "deepseek", "openrouter",
-	}
+	names := make([]string, 0, 1+len(cloudProviderOrder))
+	names = append(names, ollamaBackendStr)
+	return append(names, cloudProviderOrder...)
 }
 
 // providerMetaMap returns the metadata for each provider.
@@ -181,16 +179,10 @@ func buildUserFields(cfg Config) string {
 	lines = append(lines, "llm:")
 	appendField(&lines, "  ollama_host", cfg.LLM.OllamaHost)
 	appendField(&lines, "  models_dir", cfg.LLM.ModelsDir)
-	appendField(&lines, "  openai_api_key", cfg.LLM.OpenAI)
-	appendField(&lines, "  anthropic_api_key", cfg.LLM.Anthropic)
-	appendField(&lines, "  google_api_key", cfg.LLM.Google)
-	appendField(&lines, "  cohere_api_key", cfg.LLM.Cohere)
-	appendField(&lines, "  mistral_api_key", cfg.LLM.Mistral)
-	appendField(&lines, "  together_api_key", cfg.LLM.Together)
-	appendField(&lines, "  perplexity_api_key", cfg.LLM.Perplexity)
-	appendField(&lines, "  groq_api_key", cfg.LLM.Groq)
-	appendField(&lines, "  deepseek_api_key", cfg.LLM.DeepSeek)
-	appendField(&lines, "  openrouter_api_key", cfg.LLM.OpenRouter)
+	for _, name := range cloudProviderOrder {
+		p := cloudProviders[name]
+		appendField(&lines, "  "+p.yamlKey, p.getKey(cfg.LLM))
+	}
 	if cfg.Defaults.Timezone != "" || cfg.Defaults.PythonVersion != "" {
 		lines = append(lines, "defaults:")
 		appendField(&lines, "  timezone", cfg.Defaults.Timezone)

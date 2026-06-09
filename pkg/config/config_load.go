@@ -153,10 +153,7 @@ func knownConfigEnvVars() []string {
 		"KDEPS_LLM_ROUTER",
 		"KDEPS_API_AUTH_TOKEN",
 	}
-	for _, name := range providerNames() {
-		if name == ollamaBackendStr {
-			continue
-		}
+	for _, name := range cloudProviderOrder {
 		vars = append(vars, backendToEnv[name])
 	}
 	return vars
