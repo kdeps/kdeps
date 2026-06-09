@@ -13,10 +13,7 @@ package iso
 import (
 	"errors"
 	"fmt"
-	"os"
 	"runtime"
-	"sort"
-	"strings"
 
 	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
 
@@ -178,115 +175,6 @@ func buildBaseConfig(hostname, arch string) *LinuxKitConfig {
 	}
 }
 
-func addThinBuildSteps(config *LinuxKitConfig, imageName string) {
-	kdeps_debug.Log("enter: addThinBuildSteps")
-	config.Onboot = append(config.Onboot, LinuxKitImage{
-		Name:  "mount-data",
-		Image: "alpine:3.19",
-		Command: []string{
-			"sh", "-c",
-			"mkdir -p /mnt/data && mount /dev/vda2 /mnt/data || mount /dev/sda2 /mnt/data || true",
-		},
-		Capabilities: []string{"all"},
-		Binds:        []string{"/dev:/dev", "/mnt:/mnt:shared"},
-	})
-
-	config.Onboot = append(config.Onboot, LinuxKitImage{
-		Name:  "import-image",
-		Image: "linuxkit/containerd:" + linuxkitComponentTag,
-		Command: []string{
-			"sh", "-c",
-			"ctr -n services images import /mnt/data/image.tar",
-		},
-		Binds: []string{"/run/containerd:/run/containerd", "/mnt:/mnt"},
-	})
-
-	// Use a detached container to run kdeps in thin mode
-	config.Onboot = append(config.Onboot, LinuxKitImage{
-		Name:  "start-kdeps",
-		Image: "linuxkit/containerd:" + linuxkitComponentTag,
-		Command: []string{
-			"sh", "-c",
-			fmt.Sprintf(
-				"ctr -n services containers create --net-host %s kdeps && ctr -n services tasks start -d kdeps",
-				imageName,
-			),
-		},
-		Binds: []string{"/run/containerd:/run/containerd"},
-	})
-}
-
-func buildKdepsEnvList(workflow *domain.Workflow) []string {
-	envList := []string{
-		"KDEPS_BIND_HOST=0.0.0.0",
-		"KDEPS_PLATFORM=iso",
-	}
-	if !ShouldInstallOllama(workflow) {
-		return appendWorkflowEnv(envList, workflow)
-	}
-
-	envList = append(envList,
-		"OLLAMA_HOST=127.0.0.1",
-		"OLLAMA_MODELS=/root/.ollama/models",
-	)
-	return appendWorkflowEnv(envList, workflow)
-}
-
-func appendWorkflowEnv(envList []string, workflow *domain.Workflow) []string {
-	if workflow.Settings.AgentSettings.Env == nil {
-		return envList
-	}
-
-	keys := make([]string, 0, len(workflow.Settings.AgentSettings.Env))
-	for k := range workflow.Settings.AgentSettings.Env {
-		keys = append(keys, k)
-	}
-	sort.Strings(keys)
-
-	for _, k := range keys {
-		envList = append(
-			envList,
-			fmt.Sprintf("%s=%s", k, workflow.Settings.AgentSettings.Env[k]),
-		)
-	}
-	return envList
-}
-
-func buildKdepsBinds(workflow *domain.Workflow) []string {
-	binds := []string{"/var/run:/var/run"}
-	if ShouldInstallOllama(workflow) {
-		binds = append(binds, "/dev:/dev")
-	}
-	return binds
-}
-
-func workflowHasChatResources(workflow *domain.Workflow) bool {
-	for _, resource := range workflow.Resources {
-		if resource.Chat != nil {
-			return true
-		}
-	}
-	return false
-}
-
-func addFatBuildService(config *LinuxKitConfig, imageName string, workflow *domain.Workflow) {
-	kdeps_debug.Log("enter: addFatBuildService")
-	config.Services = append(config.Services, LinuxKitImage{
-		Name:         "kdeps",
-		Image:        imageName,
-		Net:          "host",
-		Capabilities: []string{"all"},
-		Binds:        buildKdepsBinds(workflow),
-		Env:          buildKdepsEnvList(workflow),
-		Command: []string{
-			"/entrypoint.sh",
-			"/usr/bin/supervisord",
-			"-c",
-			"/etc/supervisord.conf",
-		},
-	})
-}
-
 //nolint:gochecknoglobals // test-replaceable global
 var yamlMarshal = yaml.Marshal
 
@@ -299,26 +187,4 @@ func MarshalConfig(config *LinuxKitConfig) ([]byte, error) {
 	}
 
 	return data, nil
-}
-
-// ShouldInstallOllama determines if Ollama is needed (mirrors docker builder logic).
-func ShouldInstallOllama(workflow *domain.Workflow) bool {
-	kdeps_debug.Log("enter: ShouldInstallOllama")
-	if workflow.Settings.AgentSettings.InstallOllama != nil {
-		return *workflow.Settings.AgentSettings.InstallOllama
-	}
-
-	if workflowHasChatResources(workflow) {
-		backend := os.Getenv("KDEPS_DEFAULT_BACKEND")
-		if backend == "" || backend == backendOllama {
-			return true
-		}
-	}
-
-	if routerJSON := os.Getenv("KDEPS_LLM_ROUTER"); routerJSON != "" &&
-		strings.Contains(routerJSON, `"ollama"`) {
-		return true
-	}
-
-	return os.Getenv("KDEPS_LLM_MODELS") != ""
 }
