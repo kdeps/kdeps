@@ -20,12 +20,8 @@ package config
 
 import (
 	"fmt"
-	"os"
-	"path/filepath"
 	"strings"
 	"time"
-
-	"gopkg.in/yaml.v3"
 )
 
 // validateValues checks field values for correctness.
@@ -99,7 +95,7 @@ func (c *Config) validateAgentProfiles(agentsDir string) []string {
 	}
 
 	var warnings []string
-	workflowNames := collectWorkflowNames(agentsDir)
+	workflowNames := ScanWorkflowNames(agentsDir)
 
 	for name, profile := range c.Agents {
 		if len(workflowNames) > 0 && !workflowNames[name] {
@@ -114,39 +110,4 @@ func (c *Config) validateAgentProfiles(agentsDir string) []string {
 	}
 
 	return warnings
-}
-
-// collectWorkflowNames scans agentsDir for workflow.yaml files and returns
-// a set of metadata.name values. Returns nil if agentsDir is empty or doesn't exist.
-func collectWorkflowNames(agentsDir string) map[string]bool {
-	if agentsDir == "" {
-		return nil
-	}
-	names := make(map[string]bool)
-	entries, err := os.ReadDir(agentsDir)
-	if err != nil {
-		return nil
-	}
-	for _, entry := range entries {
-		if !entry.IsDir() {
-			continue
-		}
-		workflowPath := filepath.Join(agentsDir, entry.Name(), "workflow.yaml")
-		data, readErr := os.ReadFile(workflowPath)
-		if readErr != nil {
-			continue
-		}
-		var wf struct {
-			Metadata struct {
-				Name string `yaml:"name"`
-			} `yaml:"metadata"`
-		}
-		if yaml.Unmarshal(data, &wf) == nil && wf.Metadata.Name != "" {
-			names[wf.Metadata.Name] = true
-		}
-	}
-	if len(names) == 0 {
-		return nil
-	}
-	return names
 }
