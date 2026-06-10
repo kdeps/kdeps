@@ -40,7 +40,7 @@ func (e *Executor) evaluateStringOrLiteral(
 	if evaluator == nil {
 		return "", fmt.Errorf("expression evaluation not available: cannot evaluate %q", value)
 	}
-	result, err := executor.EvaluateExpression(evaluator, e.buildEnvironment(ctx), value)
+	result, err := executor.EvaluateExpression(evaluator, executor.BuildLLMSubExecutorEnv(ctx), value)
 	if err != nil {
 		return "", err
 	}
@@ -57,11 +57,5 @@ func (e *Executor) shouldTreatAsLiteral(value string) bool {
 // buildEnvironment builds evaluation environment from context.
 func (e *Executor) buildEnvironment(ctx *executor.ExecutionContext) map[string]interface{} {
 	kdeps_debug.Log("enter: buildEnvironment")
-	env := executor.BuildSubExecutorEnv(ctx, executor.SubExecutorEnvOptions{})
-	env["inputTranscript"] = ctx.InputTranscript
-	env["inputMedia"] = ctx.InputMediaFile
-	for k, v := range ctx.BuildEvaluatorEnv() {
-		env[k] = v
-	}
-	return env
+	return executor.BuildLLMSubExecutorEnv(ctx)
 }

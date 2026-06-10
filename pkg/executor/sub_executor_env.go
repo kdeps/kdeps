@@ -24,6 +24,27 @@ type SubExecutorEnvOptions struct {
 	IncludeItem  bool
 }
 
+// BuildBasicSubExecutorEnv builds request metadata and outputs without input/item.
+func BuildBasicSubExecutorEnv(ctx *ExecutionContext) map[string]interface{} {
+	return BuildSubExecutorEnv(ctx, SubExecutorEnvOptions{})
+}
+
+// BuildRequestSubExecutorEnv includes request body as input and loop item context.
+func BuildRequestSubExecutorEnv(ctx *ExecutionContext) map[string]interface{} {
+	return BuildSubExecutorEnv(ctx, SubExecutorEnvOptions{IncludeInput: true, IncludeItem: true})
+}
+
+// BuildLLMSubExecutorEnv builds the expression env for LLM resource evaluation.
+func BuildLLMSubExecutorEnv(ctx *ExecutionContext) map[string]interface{} {
+	env := BuildBasicSubExecutorEnv(ctx)
+	env["inputTranscript"] = ctx.InputTranscript
+	env["inputMedia"] = ctx.InputMediaFile
+	for k, v := range ctx.BuildEvaluatorEnv() {
+		env[k] = v
+	}
+	return env
+}
+
 // BuildSubExecutorEnv builds the evaluation environment shared by resource executors.
 func BuildSubExecutorEnv(ctx *ExecutionContext, opts SubExecutorEnvOptions) map[string]interface{} {
 	env := make(map[string]interface{})

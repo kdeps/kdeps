@@ -68,10 +68,7 @@ func TestBuildSubExecutorEnv_RequestInputItem(t *testing.T) {
 		"item": map[string]interface{}{"name": "row"},
 	}
 
-	env := executor.BuildSubExecutorEnv(ctx, executor.SubExecutorEnvOptions{
-		IncludeInput: true,
-		IncludeItem:  true,
-	})
+	env := executor.BuildRequestSubExecutorEnv(ctx)
 	assert.Equal(t, ctx.Outputs, env["outputs"])
 	assert.Equal(t, ctx.Request.Body, env["input"])
 	assert.Equal(t, ctx.Items["item"], env["item"])
@@ -86,7 +83,7 @@ func TestEvaluateExpression_Simple(t *testing.T) {
 	require.NoError(t, err)
 	ctx.API.Set("n", 3)
 	evaluator := expression.NewEvaluator(ctx.API)
-	env := executor.BuildSubExecutorEnv(ctx, executor.SubExecutorEnvOptions{})
+	env := executor.BuildBasicSubExecutorEnv(ctx)
 
 	result, err := executor.EvaluateExpression(evaluator, env, `get("n") + 1`)
 	require.NoError(t, err)
@@ -115,7 +112,7 @@ func TestEvaluateStringOrLiteral_EvaluatesExpression(t *testing.T) {
 	require.NoError(t, err)
 	ctx.API.Set("msg", "hi")
 	evaluator := expression.NewEvaluator(ctx.API)
-	env := executor.BuildSubExecutorEnv(ctx, executor.SubExecutorEnvOptions{})
+	env := executor.BuildBasicSubExecutorEnv(ctx)
 	got, err := executor.EvaluateStringOrLiteral(
 		evaluator,
 		env,
@@ -124,4 +121,18 @@ func TestEvaluateStringOrLiteral_EvaluatesExpression(t *testing.T) {
 	)
 	require.NoError(t, err)
 	assert.Equal(t, "hi", got)
+}
+
+func TestBuildLLMSubExecutorEnv(t *testing.T) {
+	t.Parallel()
+	ctx, err := executor.NewExecutionContext(&domain.Workflow{})
+	require.NoError(t, err)
+	ctx.InputTranscript = "hello"
+	ctx.InputMediaFile = "/tmp/audio.wav"
+
+	env := executor.BuildLLMSubExecutorEnv(ctx)
+	assert.Equal(t, "hello", env["inputTranscript"])
+	assert.Equal(t, "/tmp/audio.wav", env["inputMedia"])
+	assert.Contains(t, env, "llm")
+	assert.Contains(t, env, "item")
 }

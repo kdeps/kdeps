@@ -38,5 +38,5 @@ func (e *Executor) EvaluateExpression(
 	exprStr string,
 ) (interface{}, error) {
 	kdeps_debug.Log("enter: EvaluateExpression")
-	return executor.EvaluateExpression(evaluator, e.buildEnvironment(ctx), exprStr)
+	return executor.EvaluateExpression(evaluator, executor.BuildRequestSubExecutorEnv(ctx), exprStr)
 }
