@@ -78,3 +78,18 @@ func PrimaryResourceTypeNames() []string {
 func PrimaryResourceTypesList() string {
 	return strings.Join(PrimaryResourceTypeNames(), ", ")
 }
+
+// IsPrimaryResourceTypeName reports whether name is a canonical primary execution YAML key.
+func IsPrimaryResourceTypeName(name string) bool {
+	for _, entry := range PrimaryResourceTypes() {
+		if entry.Name == name {
+			return true
+		}
+	}
+	return false
+}
+
+// IsRecognizedResourceActionKey reports whether name is a primary execution key or apiResponse.
+func IsRecognizedResourceActionKey(name string) bool {
+	return name == "apiResponse" || IsPrimaryResourceTypeName(name)
+}

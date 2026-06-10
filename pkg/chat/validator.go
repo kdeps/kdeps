@@ -24,6 +24,8 @@ import (
 	"strings"
 
 	"gopkg.in/yaml.v3"
+
+	"github.com/kdeps/kdeps/v2/pkg/domain"
 )
 
 //nolint:gochecknoglobals // test-replaceable
@@ -36,16 +38,6 @@ var resourceMetaKeys = map[string]bool{ //nolint:gochecknoglobals // immutable l
 	"category": true, "requires": true, "items": true,
 	"tool": true, "validations": true, "loop": true,
 	"before": true, "after": true, "onError": true,
-}
-
-func isValidRunAction(action string) bool {
-	switch action {
-	case "chat", "httpClient", "exec", "python", "sql",
-		"apiResponse", "component", "agent", "scraper",
-		"embedding", "searchLocal", "searchWeb", "telephony", "browser":
-		return true
-	}
-	return false
 }
 
 // wfDoc is the minimal structure of workflow.yaml.
@@ -138,7 +130,7 @@ func resourceHasValidAction(rawDoc map[string]interface{}) bool {
 		if resourceMetaKeys[key] {
 			continue
 		}
-		if isValidRunAction(key) {
+		if domain.IsRecognizedResourceActionKey(key) {
 			return true
 		}
 	}
@@ -156,8 +148,8 @@ func unrecognizedActionMessage(name, actionID string, rawDoc map[string]interfac
 	sort.Strings(actions)
 	msg := fmt.Sprintf("%s (actionId=%s): no recognized action type", name, actionID)
 	if len(actions) > 0 {
-		msg += fmt.Sprintf(" (got: %s; valid: chat, httpClient, exec, python, sql, apiResponse, component, ...)",
-			strings.Join(actions, ", "))
+		msg += fmt.Sprintf(" (got: %s; valid: %s, apiResponse)",
+			strings.Join(actions, ", "), domain.PrimaryResourceTypesList())
 	}
 	return msg
 }
