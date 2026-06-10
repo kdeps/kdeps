@@ -22,33 +22,9 @@ import (
 	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
 )
 
-func itemValuesAccessor(ctx *ExecutionContext) func(actionID string) interface{} {
-	return func(actionID string) interface{} {
-		val, _ := ctx.GetItemValues(actionID)
-		return val
-	}
-}
-
-func (ctx *ExecutionContext) buildEvaluatorItemEnv() map[string]interface{} {
-	if itemValue, ok := ctx.Items["item"].(map[string]interface{}); ok {
-		itemCopy := make(map[string]interface{}, len(itemValue))
-		for k, v := range itemValue {
-			itemCopy[k] = v
-		}
-		itemCopy["values"] = itemValuesAccessor(ctx)
-		return itemCopy
-	}
-	return map[string]interface{}{
-		"values": itemValuesAccessor(ctx),
-	}
-}
-
 func (ctx *ExecutionContext) BuildEvaluatorEnv() map[string]interface{} {
 	kdeps_debug.Log("enter: BuildEvaluatorEnv")
-	env := make(map[string]interface{})
-	env["llm"] = buildLLMAccessorEnv(ctx)
-	env["python"] = buildPythonAccessorEnv(ctx)
-	env["exec"] = buildExecAccessorEnv(ctx)
-	env["item"] = ctx.buildEvaluatorItemEnv()
+	env := buildCoreResourceAccessorEnv(ctx)
+	env["item"] = buildItemAccessorEnv(ctx, true)
 	return env
 }

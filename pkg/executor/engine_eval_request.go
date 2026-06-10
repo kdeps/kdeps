@@ -91,17 +91,7 @@ func (e *Engine) addRequestEnv(env map[string]interface{}, ctx *ExecutionContext
 
 // addItemEnv exposes item iteration context and item.values accessors.
 func (e *Engine) addItemEnv(env map[string]interface{}, ctx *ExecutionContext) {
-	if itemValue, ok := ctx.Items["item"].(map[string]interface{}); ok {
-		env["item"] = itemValue
-	}
-	valuesFn := itemValuesAccessor(ctx)
-	if existingItem, ok := env["item"].(map[string]interface{}); ok {
-		existingItem["values"] = valuesFn
-	} else {
-		env["item"] = map[string]interface{}{
-			"values": valuesFn,
-		}
-	}
+	env["item"] = buildItemAccessorEnv(ctx, false)
 }
 
 // addProcessorInputEnv exposes input processor and file input expression variables.
