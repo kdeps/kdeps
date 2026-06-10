@@ -37,9 +37,9 @@ func (e *Engine) buildEvaluationEnvironment(ctx *ExecutionContext) map[string]in
 
 // addResourceAccessorEnv exposes llm, python, exec, http, and telephony accessors.
 func (e *Engine) addResourceAccessorEnv(env map[string]interface{}, ctx *ExecutionContext) {
-	env["llm"] = buildLLMAccessorEnv(ctx)
-	env["python"] = buildPythonAccessorEnv(ctx)
-	env["exec"] = buildExecAccessorEnv(ctx)
+	for k, v := range buildCoreResourceAccessorEnv(ctx) {
+		env[k] = v
+	}
 	env["http"] = buildHTTPAccessorEnv(ctx)
 	env["telephony"] = buildTelephonyAccessorEnv(ctx)
 }
