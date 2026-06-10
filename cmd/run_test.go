@@ -731,7 +731,7 @@ func TestFindAvailablePort_UsedPort(t *testing.T) {
 func TestFindAvailablePort_AvailablePort(t *testing.T) {
 	// Another test's server can grab the freed port between Close and the
 	// check, so retry with fresh ports instead of asserting a single shot.
-	for attempt := 0; attempt < 5; attempt++ {
+	for range 5 {
 		l, err := net.Listen("tcp", "127.0.0.1:0")
 		require.NoError(t, err)
 		freePort := l.Addr().(*net.TCPAddr).Port

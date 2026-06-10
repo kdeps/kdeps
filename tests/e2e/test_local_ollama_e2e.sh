@@ -205,7 +205,7 @@ EOF
 
         if [ -n "$api_response" ] && echo "$api_response" | grep -q "data"; then
             # Check if response contains Paris
-            if output_grep_fixed_i "paris\|Paris" "$api_response"; then
+            if output_grep_i "paris|Paris" "$api_response"; then
                 test_passed "Complete workflow test passed (${duration}s) - LLM responded with Paris"
             else
                 # Extract answer field if possible

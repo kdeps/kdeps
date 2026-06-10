@@ -156,7 +156,7 @@ if command -v curl &> /dev/null; then
             test_passed "CORS - Preflight response has Access-Control-Allow-Origin header"
             
             ORIGIN_HEADER=$(echo "$HEADERS" | grep -i "Access-Control-Allow-Origin" | head -1)
-            if output_grep_fixed_i "localhost:16395\|*" "$ORIGIN_HEADER"; then
+            if output_grep_i "localhost:16395|*" "$ORIGIN_HEADER"; then
                 test_passed "CORS - Access-Control-Allow-Origin header has correct value"
             fi
         else

@@ -262,7 +262,7 @@ else
             fi
         elif [ "$STATUS_CODE" = "500" ]; then
             # Check if it's a connection error or actual LLM error
-            if output_grep_fixed "connection refused\|dial tcp" "$BODY"; then
+            if output_grep "connection refused|dial tcp" "$BODY"; then
                 test_skipped "Chatbot LLM - Ollama connection issue during request"
             else
                 ERROR_MSG=""

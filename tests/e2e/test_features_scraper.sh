@@ -246,7 +246,7 @@ except Exception:
     print('')
 " 2>/dev/null || echo "")
 
-if output_grep_fixed_i "scraper\|Hello" "$PLAIN_RESULT"; then
+if output_grep_i "scraper|Hello" "$PLAIN_RESULT"; then
     test_passed "Scraper - text page scraping"
 else
     test_failed "Scraper - text page scraping" "result='$PLAIN_RESULT' resp='$PLAIN_RESP'"
@@ -269,7 +269,7 @@ except Exception:
     print('')
 " 2>/dev/null || echo "")
 
-if output_grep_fixed_i "title\|content\|Page" "$HTML_RESULT"; then
+if output_grep_i "title|content|Page" "$HTML_RESULT"; then
     test_passed "Scraper - HTML page scraping"
 else
     test_failed "Scraper - HTML page scraping" "result='$HTML_RESULT' resp='$HTML_RESP'"
