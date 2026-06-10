@@ -996,13 +996,9 @@ settings:
 		t.Run(tt.name, func(t *testing.T) {
 			sourceDir, outputDir := tt.setup(t)
 
-			// Create a cobra command with the flags set
-			cobraCmd := &cobra.Command{}
-			cobraCmd.Flags().String("output", outputDir, "Output directory")
-			cobraCmd.Flags().String("name", "custom-package", "Package name")
-
+			flags := &cmd.PackageFlags{Output: outputDir, Name: "custom-package"}
 			args := []string{sourceDir}
-			err := cmd.PackageWorkflow(cobraCmd, args)
+			err := cmd.PackageWorkflowWithFlags(&cobra.Command{}, args, flags)
 
 			if tt.wantErr {
 				require.Error(t, err)

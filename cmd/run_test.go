@@ -95,81 +95,6 @@ func TestParseWorkflowFile_MissingFile(t *testing.T) {
 	require.Error(t, err)
 }
 
-func TestLoadResourceFiles(t *testing.T) {
-	tmpDir := t.TempDir()
-	resourcesDir := filepath.Join(tmpDir, "resources")
-	err := os.MkdirAll(resourcesDir, 0755)
-	require.NoError(t, err)
-
-	resourceContent := `
-actionId: test-action
-name: Test Action
-apiResponse:
-  success: true
-`
-
-	resourcePath := filepath.Join(resourcesDir, "test-action.yaml")
-	err = os.WriteFile(resourcePath, []byte(resourceContent), 0644)
-	require.NoError(t, err)
-
-	workflow := &domain.Workflow{
-		Metadata:  domain.WorkflowMetadata{Name: "test"},
-		Resources: []*domain.Resource{},
-	}
-
-	schemaValidator, err := validator.NewSchemaValidator()
-	require.NoError(t, err)
-	exprParser := expression.NewParser()
-	yamlParser := yaml.NewParser(schemaValidator, exprParser)
-
-	err = cmd.LoadResourceFiles(workflow, resourcesDir, yamlParser)
-	require.NoError(t, err)
-	assert.Len(t, workflow.Resources, 1)
-}
-
-func TestLoadResourceFiles_NoDirectory(t *testing.T) {
-	tmpDir := t.TempDir()
-	nonexistentDir := filepath.Join(tmpDir, "nonexistent")
-
-	workflow := &domain.Workflow{
-		Metadata:  domain.WorkflowMetadata{Name: "test"},
-		Resources: []*domain.Resource{},
-	}
-
-	schemaValidator, err := validator.NewSchemaValidator()
-	require.NoError(t, err)
-	exprParser := expression.NewParser()
-	yamlParser := yaml.NewParser(schemaValidator, exprParser)
-
-	err = cmd.LoadResourceFiles(workflow, nonexistentDir, yamlParser)
-	// Should not error if directory doesn't exist
-	assert.NoError(t, err)
-}
-
-func TestLoadResourceFiles_InvalidResource(t *testing.T) {
-	tmpDir := t.TempDir()
-	resourcesDir := filepath.Join(tmpDir, "resources")
-	err := os.MkdirAll(resourcesDir, 0755)
-	require.NoError(t, err)
-
-	resourcePath := filepath.Join(resourcesDir, "invalid.yaml")
-	err = os.WriteFile(resourcePath, []byte("invalid: yaml: content: ["), 0644)
-	require.NoError(t, err)
-
-	workflow := &domain.Workflow{
-		Metadata:  domain.WorkflowMetadata{Name: "test"},
-		Resources: []*domain.Resource{},
-	}
-
-	schemaValidator, err := validator.NewSchemaValidator()
-	require.NoError(t, err)
-	exprParser := expression.NewParser()
-	yamlParser := yaml.NewParser(schemaValidator, exprParser)
-
-	err = cmd.LoadResourceFiles(workflow, resourcesDir, yamlParser)
-	require.Error(t, err)
-}
-
 func TestValidateWorkflow(t *testing.T) {
 	workflow := &domain.Workflow{
 		Metadata: domain.WorkflowMetadata{
@@ -664,7 +589,7 @@ apiResponse:
 
 	// This will try to execute, which may fail due to missing executors
 	// but tests the parsing and validation paths
-	err = cmd.RunWorkflow(&cobra.Command{}, []string{workflowPath})
+	err = cmd.RunWorkflowWithFlags(&cobra.Command{}, []string{workflowPath}, &cmd.RunFlags{})
 	// May error during execution, but parsing/validation should work
 	_ = err
 }
@@ -712,7 +637,7 @@ settings:
 
 	// This will try to execute, which may fail due to missing executors
 	// but tests the package extraction path
-	err = cmd.RunWorkflow(&cobra.Command{}, []string{packagePath})
+	err = cmd.RunWorkflowWithFlags(&cobra.Command{}, []string{packagePath}, &cmd.RunFlags{})
 	// May error during execution, but extraction should work
 	_ = err
 }
@@ -1529,7 +1454,7 @@ chat:
 	// - ensureOllamaRunning (which calls ParseOllamaURL, IsOllamaRunning, etc.)
 	// The workflow will likely fail when trying to connect to Ollama,
 	// but the parsing and setup functions should be exercised
-	err = cmd.ExecuteWorkflowSteps(&cobra.Command{}, workflowPath)
+	err = cmd.ExecuteWorkflowStepsWithFlags(&cobra.Command{}, workflowPath, &cmd.RunFlags{})
 
 	// We expect this to fail because Ollama connection/execution fails,
 	// but the important thing is that the code paths were exercised
@@ -1594,7 +1519,7 @@ func TestStartOllamaServer_ErrorPaths(t *testing.T) {
 		// This is already tested indirectly through ensureOllamaRunning
 		// when workflow execution tries to start Ollama
 		// and fail because ollama is not in PATH in test environment
-		err := cmd.ExecuteWorkflowSteps(&cobra.Command{}, "/nonexistent/workflow.yaml")
+		err := cmd.ExecuteWorkflowStepsWithFlags(&cobra.Command{}, "/nonexistent/workflow.yaml", &cmd.RunFlags{})
 		// We expect this to fail early (either j2 preprocessing or workflow parsing)
 		require.Error(t, err)
 		assert.True(t,
@@ -1915,7 +1840,7 @@ chat:
 	// 2. ensureOllamaRunning() - calls ParseOllamaURL, IsOllamaRunning
 	// 3. If not running: startOllamaServer() and waitForOllamaReady()
 	// 4. LLM execution (which will fail in test environment)
-	err = cmd.ExecuteWorkflowSteps(&cobra.Command{}, workflowPath)
+	err = cmd.ExecuteWorkflowStepsWithFlags(&cobra.Command{}, workflowPath, &cmd.RunFlags{})
 
 	// We expect failure due to LLM execution, but the setup should have been exercised
 	require.Error(t, err)
@@ -1973,7 +1898,7 @@ chat:
 	// Execute workflow - this will try to start Ollama server
 	// In test environment, ollama command won't be available, so it should fail
 	// But the code path to startOllamaServer will be exercised
-	err = cmd.ExecuteWorkflowSteps(&cobra.Command{}, workflowPath)
+	err = cmd.ExecuteWorkflowStepsWithFlags(&cobra.Command{}, workflowPath, &cmd.RunFlags{})
 	require.Error(t, err)
 	// The error should be related to LLM execution or Ollama setup
 	assert.True(t,
@@ -2027,7 +1952,7 @@ chat:
 	t.Chdir(tmpDir)
 
 	// Execute workflow - this should trigger waitForOllamaReady with timeout
-	err = cmd.ExecuteWorkflowSteps(&cobra.Command{}, workflowPath)
+	err = cmd.ExecuteWorkflowStepsWithFlags(&cobra.Command{}, workflowPath, &cmd.RunFlags{})
 	require.Error(t, err)
 	// Should eventually fail with timeout or connection error
 	assert.True(t,
@@ -2088,7 +2013,7 @@ chat:
 	// - waitForOllamaReady (to wait for Ollama to be ready)
 	// - ensureOllamaRunning (to orchestrate the whole process)
 
-	err = cmd.ExecuteWorkflowSteps(&cobra.Command{}, workflowPath)
+	err = cmd.ExecuteWorkflowStepsWithFlags(&cobra.Command{}, workflowPath, &cmd.RunFlags{})
 	require.Error(t, err)
 
 	// The workflow execution should have exercised the Ollama server functions
@@ -2146,7 +2071,7 @@ chat:
 	// Execute workflow - this will try to start Ollama server
 	// In test environment, ollama command won't be available, so it should fail
 	// But the code path to startOllamaServer will be exercised
-	err = cmd.ExecuteWorkflowSteps(&cobra.Command{}, workflowPath)
+	err = cmd.ExecuteWorkflowStepsWithFlags(&cobra.Command{}, workflowPath, &cmd.RunFlags{})
 	require.Error(t, err)
 	// The error should be related to LLM execution or Ollama setup
 	assert.True(t,
@@ -2203,7 +2128,7 @@ chat:
 	t.Chdir(tmpDir)
 
 	// Execute workflow - this will exercise startOllamaServer through ensureOllamaRunning
-	err = cmd.ExecuteWorkflowSteps(&cobra.Command{}, workflowPath)
+	err = cmd.ExecuteWorkflowStepsWithFlags(&cobra.Command{}, workflowPath, &cmd.RunFlags{})
 
 	// Should fail because ollama is not available in test environment
 	require.Error(t, err)
@@ -2257,7 +2182,7 @@ chat:
 	t.Chdir(tmpDir)
 
 	// Execute workflow - this will exercise waitForOllamaReady with timeout
-	err = cmd.ExecuteWorkflowSteps(&cobra.Command{}, workflowPath)
+	err = cmd.ExecuteWorkflowStepsWithFlags(&cobra.Command{}, workflowPath, &cmd.RunFlags{})
 
 	// Should fail due to timeout waiting for Ollama
 	require.Error(t, err)
@@ -2313,7 +2238,7 @@ chat:
 	t.Chdir(tmpDir)
 
 	// Execute workflow - this should trigger waitForOllamaReady with timeout
-	err = cmd.ExecuteWorkflowSteps(&cobra.Command{}, workflowPath)
+	err = cmd.ExecuteWorkflowStepsWithFlags(&cobra.Command{}, workflowPath, &cmd.RunFlags{})
 	require.Error(t, err)
 	// Should eventually fail with timeout or connection error
 	assert.True(t,
@@ -2425,135 +2350,6 @@ metadata:
 			} else {
 				require.NoError(t, err)
 				assert.NotNil(t, workflow)
-			}
-		})
-	}
-}
-
-// TestLoadResourceFiles_EdgeCases tests LoadResourceFiles with various edge cases.
-func TestLoadResourceFiles_EdgeCases(t *testing.T) {
-	tests := []struct {
-		name        string
-		setupFunc   func(t *testing.T) (string, *domain.Workflow)
-		expectError bool
-		errorMsg    string
-		expectedLen int
-	}{
-		{
-			name: "directory with multiple valid resources",
-			setupFunc: func(t *testing.T) (string, *domain.Workflow) {
-				tmpDir := t.TempDir()
-				resourcesDir := filepath.Join(tmpDir, "resources")
-				err := os.MkdirAll(resourcesDir, 0755)
-				require.NoError(t, err)
-
-				// Create multiple resource files
-				for i := 1; i <= 3; i++ {
-					resourcePath := filepath.Join(resourcesDir, fmt.Sprintf("resource%d.yaml", i))
-					content := fmt.Sprintf(`
-actionId: action-%d
-name: Action %d
-apiResponse:
-  success: true
-`, i, i)
-					err = os.WriteFile(resourcePath, []byte(content), 0644)
-					require.NoError(t, err)
-				}
-
-				workflow := &domain.Workflow{
-					Metadata:  domain.WorkflowMetadata{Name: "test"},
-					Resources: []*domain.Resource{},
-				}
-
-				return resourcesDir, workflow
-			},
-			expectError: false,
-			expectedLen: 3,
-		},
-		{
-			name: "directory with mixed valid and invalid resources",
-			setupFunc: func(t *testing.T) (string, *domain.Workflow) {
-				tmpDir := t.TempDir()
-				resourcesDir := filepath.Join(tmpDir, "resources")
-				err := os.MkdirAll(resourcesDir, 0755)
-				require.NoError(t, err)
-
-				// Valid resource
-				validPath := filepath.Join(resourcesDir, "valid.yaml")
-				err = os.WriteFile(validPath, []byte(`
-actionId: valid-action
-name: Valid Action
-apiResponse:
-  success: true
-`), 0644)
-				require.NoError(t, err)
-
-				// Invalid resource
-				invalidPath := filepath.Join(resourcesDir, "invalid.yaml")
-				err = os.WriteFile(invalidPath, []byte("invalid: yaml: [content"), 0644)
-				require.NoError(t, err)
-
-				workflow := &domain.Workflow{
-					Metadata:  domain.WorkflowMetadata{Name: "test"},
-					Resources: []*domain.Resource{},
-				}
-
-				return resourcesDir, workflow
-			},
-			expectError: true,
-			errorMsg:    "failed to parse resource",
-		},
-		{
-			name: "directory with non-yaml files",
-			setupFunc: func(t *testing.T) (string, *domain.Workflow) {
-				tmpDir := t.TempDir()
-				resourcesDir := filepath.Join(tmpDir, "resources")
-				err := os.MkdirAll(resourcesDir, 0755)
-				require.NoError(t, err)
-
-				// Create a text file (should be ignored)
-				textPath := filepath.Join(resourcesDir, "readme.txt")
-				err = os.WriteFile(textPath, []byte("This is not a resource file"), 0644)
-				require.NoError(t, err)
-
-				// Create a valid resource file
-				resourcePath := filepath.Join(resourcesDir, "resource.yaml")
-				err = os.WriteFile(resourcePath, []byte(`
-actionId: test-action
-name: Test Action
-apiResponse:
-  success: true
-`), 0644)
-				require.NoError(t, err)
-
-				workflow := &domain.Workflow{
-					Metadata:  domain.WorkflowMetadata{Name: "test"},
-					Resources: []*domain.Resource{},
-				}
-
-				return resourcesDir, workflow
-			},
-			expectError: false,
-			expectedLen: 1,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			resourcesDir, workflow := tt.setupFunc(t)
-
-			schemaValidator, err := validator.NewSchemaValidator()
-			require.NoError(t, err)
-			exprParser := expression.NewParser()
-			yamlParser := yaml.NewParser(schemaValidator, exprParser)
-
-			err = cmd.LoadResourceFiles(workflow, resourcesDir, yamlParser)
-			if tt.expectError {
-				require.Error(t, err)
-				assert.Contains(t, err.Error(), tt.errorMsg)
-			} else {
-				require.NoError(t, err)
-				assert.Len(t, workflow.Resources, tt.expectedLen)
 			}
 		})
 	}

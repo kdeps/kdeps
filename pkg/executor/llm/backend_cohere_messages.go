@@ -44,7 +44,7 @@ func (b *CohereBackend) buildCohereMessages(
 		switch role {
 		case roleUser:
 			h.addUser(content)
-		case "assistant":
+		case roleAssistant:
 			h.addAssistant(content)
 		}
 	}
@@ -126,7 +126,7 @@ func (h *cohereHistory) finalMessage(messages []map[string]interface{}) string {
 	}
 
 	lastMsg := messages[len(messages)-1]
-	if lastRole, _ := lastMsg["role"].(string); lastRole != "assistant" {
+	if lastRole, _ := lastMsg["role"].(string); lastRole != roleAssistant {
 		return ""
 	}
 

@@ -59,20 +59,14 @@ var GithubReleasesBaseURL = &githubReleasesBaseURL //nolint:gochecknoglobals // 
 // IsAgencyFile exposes the unexported isAgencyFile helper for unit testing.
 var IsAgencyFile = isAgencyFile //nolint:gochecknoglobals // test-only export
 
+// ExportISOInternal exposes the unexported exportISOInternal helper for unit testing.
+var ExportISOInternal = exportISOInternal //nolint:gochecknoglobals // test-only export
+
 // BuildAgentNameMap exposes the unexported buildAgentNameMap helper for unit testing.
 var BuildAgentNameMap = buildAgentNameMap //nolint:gochecknoglobals // test-only export
 
 // IsKagencyFile exposes the unexported isKagencyFile helper for unit testing.
 var IsKagencyFile = isKagencyFile //nolint:gochecknoglobals // test-only export
-
-// NotFound exposes the unexported notFound helper for unit testing.
-var NotFound = notFound //nolint:gochecknoglobals // test-only export
-
-// IsBinaryAvailable exposes the unexported isBinaryAvailable helper for unit testing.
-var IsBinaryAvailable = isBinaryAvailable //nolint:gochecknoglobals // test-only export
-
-// IsPythonModuleAvailable exposes the unexported isPythonModuleAvailable helper for unit testing.
-var IsPythonModuleAvailable = isPythonModuleAvailable //nolint:gochecknoglobals // test-only export
 
 // PrintRoutes exposes the unexported printRoutes helper for unit testing.
 var PrintRoutes = printRoutes //nolint:gochecknoglobals // test-only export
@@ -82,9 +76,6 @@ var PrintBotRequirements = printBotRequirements //nolint:gochecknoglobals // tes
 
 // ComponentInstallDir exposes the unexported componentInstallDir helper for unit testing.
 var ComponentInstallDir = componentInstallDir //nolint:gochecknoglobals // test-only export
-
-// ListKomponentFiles exposes the unexported listKomponentFiles helper for unit testing.
-var ListKomponentFiles = listKomponentFiles //nolint:gochecknoglobals // test-only export
 
 // ListLocalComponents exposes the unexported listLocalComponents helper for unit testing.
 var ListLocalComponents = listLocalComponents //nolint:gochecknoglobals // test-only export

@@ -22,7 +22,6 @@ package cmd
 
 import (
 	"fmt"
-	"os"
 	"path/filepath"
 
 	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
@@ -91,46 +90,6 @@ func ParseAgencyFileWithParser(path string) (*domain.Agency, []string, *yaml.Par
 	}
 
 	return agency, agentPaths, yamlParser, nil
-}
-
-// LoadResourceFiles loads all resource files from resources directory.
-func LoadResourceFiles(
-	workflow *domain.Workflow,
-	resourcesDir string,
-	yamlParser *yaml.Parser,
-) error {
-	kdeps_debug.Log("enter: LoadResourceFiles")
-	// Check if resources directory exists.
-	if _, err := os.Stat(resourcesDir); os.IsNotExist(err) {
-		return nil // No resources directory is ok.
-	}
-
-	// Find all .yaml files
-	entries, err := os.ReadDir(resourcesDir)
-	if err != nil {
-		return fmt.Errorf("failed to read resources directory: %w", err)
-	}
-
-	// Parse each resource file.
-	for _, entry := range entries {
-		if entry.IsDir() {
-			continue
-		}
-
-		if filepath.Ext(entry.Name()) != ".yaml" && filepath.Ext(entry.Name()) != ".yml" {
-			continue
-		}
-
-		resourcePath := filepath.Join(resourcesDir, entry.Name())
-		resource, resourceErr := yamlParser.ParseResource(resourcePath)
-		if resourceErr != nil {
-			return fmt.Errorf("failed to parse resource %s: %w", entry.Name(), resourceErr)
-		}
-
-		workflow.Resources = append(workflow.Resources, resource)
-	}
-
-	return nil
 }
 
 // ValidateWorkflow validates a workflow.

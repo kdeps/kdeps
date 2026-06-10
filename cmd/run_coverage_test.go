@@ -177,50 +177,13 @@ func TestExtractTarFiles_PathTraversal(t *testing.T) {
 // notFound
 // ---------------------------------------------------------------------------
 
-func TestNotFound_Available(t *testing.T) {
-	result := cmd.NotFound(true)
-	assert.Equal(t, "", result)
-}
-
-func TestNotFound_NotAvailable(t *testing.T) {
-	result := cmd.NotFound(false)
-	assert.Equal(t, "  [not found]", result)
-}
-
 // ---------------------------------------------------------------------------
 // isBinaryAvailable
 // ---------------------------------------------------------------------------
 
-func TestIsBinaryAvailable_KnownBinary(t *testing.T) {
-	// "sh" is always present on Linux/macOS; skip on environments without it.
-	if _, err := os.Stat("/bin/sh"); os.IsNotExist(err) {
-		t.Skip("no /bin/sh")
-	}
-	assert.True(t, cmd.IsBinaryAvailable("sh"))
-}
-
-func TestIsBinaryAvailable_NonexistentBinary(t *testing.T) {
-	assert.False(t, cmd.IsBinaryAvailable("this-binary-definitely-does-not-exist-kdeps"))
-}
-
 // ---------------------------------------------------------------------------
 // isPythonModuleAvailable
 // ---------------------------------------------------------------------------
-
-func TestIsPythonModuleAvailable_SysMod(t *testing.T) {
-	// "sys" is part of the Python standard library and always importable.
-	if !cmd.IsBinaryAvailable("python3") && !cmd.IsBinaryAvailable("python") {
-		t.Skip("python not available")
-	}
-	assert.True(t, cmd.IsPythonModuleAvailable("sys"))
-}
-
-func TestIsPythonModuleAvailable_NonexistentModule(t *testing.T) {
-	if !cmd.IsBinaryAvailable("python3") && !cmd.IsBinaryAvailable("python") {
-		t.Skip("python not available")
-	}
-	assert.False(t, cmd.IsPythonModuleAvailable("this_module_definitely_does_not_exist_kdeps"))
-}
 
 // ---------------------------------------------------------------------------
 // ParseAgencyFile / ParseAgencyFileWithParser

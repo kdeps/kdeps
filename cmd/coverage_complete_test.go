@@ -413,17 +413,6 @@ func TestFindAvailablePort_PortInUseNotice(t *testing.T) {
 	assert.Greater(t, got, port)
 }
 
-func TestStartLLMRunner_APIServerMode(t *testing.T) {
-	stubDispatchHooks(t) // execHTTPServerFn stub avoids blocking server start
-	wf := &domain.Workflow{
-		Settings: domain.WorkflowSettings{
-			LLM:       &domain.LLMInputConfig{ExecutionType: domain.LLMExecutionTypeAPIServer},
-			APIServer: &domain.APIServerConfig{PortNum: mustFreePort(t)},
-		},
-	}
-	require.NoError(t, StartLLMRunner(wf, false, t.TempDir(), false))
-}
-
 func TestStartInteractiveMode_BackgroundError(t *testing.T) {
 	orig := execHTTPServerWithEngineFn
 	t.Cleanup(func() { execHTTPServerWithEngineFn = orig })
@@ -648,10 +637,6 @@ func TestExecuteSingleRun_Error(t *testing.T) {
 	wf := &domain.Workflow{Metadata: domain.WorkflowMetadata{TargetActionID: "missing"}}
 	err := ExecuteSingleRun(wf)
 	require.Error(t, err)
-}
-
-func TestIsPythonModuleAvailable_Invoked(_ *testing.T) {
-	_ = isPythonModuleAvailable("sys")
 }
 
 func TestNewYAMLParser_Error(t *testing.T) {
@@ -2364,23 +2349,6 @@ agents:
 	require.NoError(t, os.WriteFile(filepath.Join(tmp, "agency.yaml"), []byte(agency), 0644))
 	_, _, _, err := ParseAgencyFileWithParser(filepath.Join(tmp, "agency.yaml"))
 	require.Error(t, err)
-}
-
-func TestLoadResourceFiles_SkipsDirs(t *testing.T) {
-	tmp := t.TempDir()
-	resDir := filepath.Join(tmp, "resources")
-	require.NoError(t, os.MkdirAll(filepath.Join(resDir, "subdir"), 0755))
-	require.NoError(t, os.WriteFile(filepath.Join(resDir, "r.yaml"), []byte(`actionId: act
-name: Act
-apiResponse:
-  success: true
-`), 0644))
-	wf := &domain.Workflow{}
-	parser, err := newYAMLParser()
-	require.NoError(t, err)
-	defer parser.Cleanup()
-	require.NoError(t, LoadResourceFiles(wf, resDir, parser))
-	assert.Len(t, wf.Resources, 1)
 }
 
 func TestValidateWorkflow_SchemaInitError(t *testing.T) {

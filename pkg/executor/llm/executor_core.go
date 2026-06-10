@@ -55,6 +55,7 @@ type Executor struct {
 const (
 	defaultOllamaURL = "http://localhost:11434"
 	roleUser         = "user"
+	roleAssistant    = "assistant"
 )
 
 //nolint:gochecknoglobals // test-replaceable

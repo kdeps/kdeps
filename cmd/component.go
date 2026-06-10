@@ -85,23 +85,6 @@ func componentInstallDir() (string, error) {
 	return filepath.Join(home, ".kdeps", "components"), nil
 }
 
-// listKomponentFiles returns the bare names of every .komponent file in dir.
-func listKomponentFiles(dir string) []string {
-	kdeps_debug.Log("enter: listKomponentFiles")
-	entries, err := os.ReadDir(dir)
-	if err != nil {
-		return nil
-	}
-	var names []string
-	for _, e := range entries {
-		if e.IsDir() || !strings.HasSuffix(e.Name(), komponentExtension) {
-			continue
-		}
-		names = append(names, strings.TrimSuffix(e.Name(), komponentExtension))
-	}
-	return names
-}
-
 // listLocalComponents returns component names found inside the given local
 // directory. It recognises both .komponent archives and unpacked directories
 // that contain a component.yaml file.
