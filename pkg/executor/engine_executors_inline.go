@@ -19,7 +19,6 @@
 package executor
 
 import (
-	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
 	"github.com/kdeps/kdeps/v2/pkg/domain"
 )
 
@@ -27,14 +26,7 @@ func (e *Engine) executeInlineHTTP(
 	config *domain.HTTPClientConfig,
 	ctx *ExecutionContext,
 ) (interface{}, error) {
-	kdeps_debug.Log("enter: executeInlineHTTP")
-	return runRegisteredExecutor(
-		e.registry.GetHTTPExecutor,
-		"HTTP",
-		func(exec ResourceExecutor) (interface{}, error) {
-			return exec.Execute(ctx, config)
-		},
-	)
+	return e.executeRegistered("executeInlineHTTP", e.registry.GetHTTPExecutor, "HTTP", ctx, config)
 }
 
 // executeInlineSQL executes an inline SQL resource.
@@ -42,14 +34,7 @@ func (e *Engine) executeInlineSQL(
 	config *domain.SQLConfig,
 	ctx *ExecutionContext,
 ) (interface{}, error) {
-	kdeps_debug.Log("enter: executeInlineSQL")
-	return runRegisteredExecutor(
-		e.registry.GetSQLExecutor,
-		"SQL",
-		func(exec ResourceExecutor) (interface{}, error) {
-			return exec.Execute(ctx, config)
-		},
-	)
+	return e.executeRegistered("executeInlineSQL", e.registry.GetSQLExecutor, "SQL", ctx, config)
 }
 
 // executeInlinePython executes an inline Python resource.
@@ -57,14 +42,7 @@ func (e *Engine) executeInlinePython(
 	config *domain.PythonConfig,
 	ctx *ExecutionContext,
 ) (interface{}, error) {
-	kdeps_debug.Log("enter: executeInlinePython")
-	return runRegisteredExecutor(
-		e.registry.GetPythonExecutor,
-		"python",
-		func(exec ResourceExecutor) (interface{}, error) {
-			return exec.Execute(ctx, config)
-		},
-	)
+	return e.executeRegistered("executeInlinePython", e.registry.GetPythonExecutor, "python", ctx, config)
 }
 
 // executeInlineExec executes an inline Exec resource.
@@ -72,12 +50,5 @@ func (e *Engine) executeInlineExec(
 	config *domain.ExecConfig,
 	ctx *ExecutionContext,
 ) (interface{}, error) {
-	kdeps_debug.Log("enter: executeInlineExec")
-	return runRegisteredExecutor(
-		e.registry.GetExecExecutor,
-		"exec",
-		func(exec ResourceExecutor) (interface{}, error) {
-			return exec.Execute(ctx, config)
-		},
-	)
+	return e.executeRegistered("executeInlineExec", e.registry.GetExecExecutor, "exec", ctx, config)
 }
