@@ -154,27 +154,38 @@ func isResourceFile(path string) bool {
 	return ok
 }
 
-func validateResourceFile(resourcePath string) error {
-	kdeps_debug.Log("enter: validateResourceFile")
-	fmt.Fprintf(os.Stdout, "Validating resource: %s\n\n", resourcePath)
+func printParseValidationSuccess() {
+	fmt.Fprintln(os.Stdout, "- YAML syntax valid")
+	fmt.Fprintln(os.Stdout, "- Schema validation passed")
+}
 
+func printValidationDone() {
+	fmt.Fprintln(os.Stdout)
+	fmt.Fprintln(os.Stdout, "Validation successful!")
+}
+
+func validateWithParser(label, path string, parse func(*yaml.Parser) error) error {
+	fmt.Fprintf(os.Stdout, "Validating %s: %s\n\n", label, path)
 	yamlParser, err := newYamlParser()
 	if err != nil {
 		kdepslog.Error("validation failed", "error", err)
 		return err
 	}
-
-	if _, parseErr := yamlParser.ParseResource(resourcePath); parseErr != nil {
+	if parseErr := parse(yamlParser); parseErr != nil {
 		kdepslog.Error("validation failed", "error", parseErr)
 		return parseErr
 	}
-
-	fmt.Fprintln(os.Stdout, "- YAML syntax valid")
-	fmt.Fprintln(os.Stdout, "- Schema validation passed")
-	fmt.Fprintln(os.Stdout)
-	fmt.Fprintln(os.Stdout, "Validation successful!")
-
+	printParseValidationSuccess()
+	printValidationDone()
 	return nil
+}
+
+func validateResourceFile(resourcePath string) error {
+	kdeps_debug.Log("enter: validateResourceFile")
+	return validateWithParser("resource", resourcePath, func(p *yaml.Parser) error {
+		_, err := p.ParseResource(resourcePath)
+		return err
+	})
 }
 
 func validateWorkflowFile(workflowPath string) error {
@@ -186,8 +197,7 @@ func validateWorkflowFile(workflowPath string) error {
 		kdepslog.Error("validation failed", "error", err)
 		return err
 	}
-	fmt.Fprintln(os.Stdout, "- YAML syntax valid")
-	fmt.Fprintln(os.Stdout, "- Schema validation passed")
+	printParseValidationSuccess()
 
 	if validateErr := ValidateWorkflow(workflow); validateErr != nil {
 		kdepslog.Error("validation failed", "error", validateErr)
@@ -204,33 +214,17 @@ func validateWorkflowFile(workflowPath string) error {
 		fmt.Fprintf(os.Stdout, "  warning: %s\n", w.String())
 	}
 
-	fmt.Fprintln(os.Stdout)
-	fmt.Fprintln(os.Stdout, "Validation successful!")
+	printValidationDone()
 
 	return nil
 }
 
 func validateComponentFile(componentPath string) error {
 	kdeps_debug.Log("enter: validateComponentFile")
-	fmt.Fprintf(os.Stdout, "Validating component: %s\n\n", componentPath)
-
-	yamlParser, err := newYamlParser()
-	if err != nil {
-		kdepslog.Error("validation failed", "error", err)
+	return validateWithParser("component", componentPath, func(p *yaml.Parser) error {
+		_, err := p.ParseComponent(componentPath)
 		return err
-	}
-
-	if _, parseErr := yamlParser.ParseComponent(componentPath); parseErr != nil {
-		kdepslog.Error("validation failed", "error", parseErr)
-		return parseErr
-	}
-
-	fmt.Fprintln(os.Stdout, "- YAML syntax valid")
-	fmt.Fprintln(os.Stdout, "- Schema validation passed")
-	fmt.Fprintln(os.Stdout)
-	fmt.Fprintln(os.Stdout, "Validation successful!")
-
-	return nil
+	})
 }
 
 func validateAgencyFile(agencyPath string) error {
