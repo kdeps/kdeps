@@ -194,7 +194,7 @@ if command -v curl &> /dev/null; then
         # Connection timeout - LLM may be slow
         test_skipped "ChatGPT Clone - POST /api/v1/chat (LLM timeout - try with faster model)"
     elif [ "$STATUS_CODE" = "500" ]; then
-        if output_grep_fixed_i "connection refused\|dial tcp\|ollama" "$BODY"; then
+        if output_grep_i "connection refused|dial tcp|ollama" "$BODY"; then
             test_skipped "ChatGPT Clone - POST /api/v1/chat (Ollama not available)"
         else
             test_failed "ChatGPT Clone - POST /api/v1/chat" "Status: 500"

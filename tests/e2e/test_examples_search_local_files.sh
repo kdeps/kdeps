@@ -148,7 +148,7 @@ RESP=$(curl -s --max-time 10 -X POST "http://127.0.0.1:${API_PORT}/search" \
     -H "Content-Type: application/json" \
     -d '{"query": "compiled"}' 2>&1)
 
-if output_grep_fixed "success\|results\|count\|go.txt" "$RESP"; then
+if output_grep "success|results|count|go.txt" "$RESP"; then
     test_passed "search-local-files - /search finds matching files"
 else
     test_failed "search-local-files - /search finds matching files" "resp=$RESP"
@@ -159,7 +159,7 @@ EMPTY_RESP=$(curl -s --max-time 10 -X POST "http://127.0.0.1:${API_PORT}/search"
     -H "Content-Type: application/json" \
     -d '{"query": "javascript"}' 2>&1)
 
-if output_grep_fixed "success\|results" "$EMPTY_RESP"; then
+if output_grep "success|results" "$EMPTY_RESP"; then
     test_passed "search-local-files - /search returns empty results gracefully"
 else
     test_failed "search-local-files - /search returns empty results gracefully" "resp=$EMPTY_RESP"

@@ -167,7 +167,7 @@ RESP=$(curl -s --max-time 10 -X POST "http://127.0.0.1:${API_PORT}/summarize" \
     -H "Content-Type: application/json" -d "{}" 2>&1)
 
 # Either a success response or an LLM error - just check it responded
-if output_grep_fixed "success\|error\|summary\|url" "$RESP"; then
+if output_grep "success|error|summary|url" "$RESP"; then
     test_passed "scraper-native - /summarize endpoint responds"
 else
     test_failed "scraper-native - /summarize endpoint responds" "resp=$RESP"

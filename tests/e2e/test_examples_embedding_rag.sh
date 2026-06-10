@@ -135,7 +135,7 @@ IDX_RESP=$(curl -s --max-time 10 -X POST "http://127.0.0.1:${API_PORT}/index" \
     -H "Content-Type: application/json" \
     -d '{"text": "Go is a compiled programming language designed at Google."}' 2>&1)
 
-if output_grep_fixed "success\|true" "$IDX_RESP"; then
+if output_grep "success|true" "$IDX_RESP"; then
     test_passed "embedding-rag - /index endpoint responds with success"
 else
     test_failed "embedding-rag - /index endpoint responds with success" "resp=$IDX_RESP"
@@ -146,7 +146,7 @@ SRCH_RESP=$(curl -s --max-time 10 -X POST "http://127.0.0.1:${API_PORT}/search" 
     -H "Content-Type: application/json" \
     -d '{"query": "compiled language"}' 2>&1)
 
-if output_grep_fixed "success\|results\|count" "$SRCH_RESP"; then
+if output_grep "success|results|count" "$SRCH_RESP"; then
     test_passed "embedding-rag - /search endpoint responds"
 else
     test_failed "embedding-rag - /search endpoint responds" "resp=$SRCH_RESP"
