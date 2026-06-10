@@ -20,14 +20,31 @@ package domain
 
 import kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
 
+func hostIPFromServers(api *APIServerConfig, web *WebServerConfig) string {
+	if api != nil && api.HostIP != "" {
+		return api.HostIP
+	}
+	if web != nil && web.HostIP != "" {
+		return web.HostIP
+	}
+	return ""
+}
+
+func portFromServers(api *APIServerConfig, web *WebServerConfig) int {
+	if api != nil && api.PortNum > 0 {
+		return api.PortNum
+	}
+	if web != nil && web.PortNum > 0 {
+		return web.PortNum
+	}
+	return 0
+}
+
 // GetHostIP returns the resolved host IP from the server config or default.
 func (w *WorkflowSettings) GetHostIP() string {
 	kdeps_debug.Log("enter: GetHostIP")
-	if w.APIServer != nil && w.APIServer.HostIP != "" {
-		return w.APIServer.HostIP
-	}
-	if w.WebServer != nil && w.WebServer.HostIP != "" {
-		return w.WebServer.HostIP
+	if ip := hostIPFromServers(w.APIServer, w.WebServer); ip != "" {
+		return ip
 	}
 	return "0.0.0.0"
 }
@@ -35,11 +52,8 @@ func (w *WorkflowSettings) GetHostIP() string {
 // GetPortNum returns the resolved port number from the server config or default.
 func (w *WorkflowSettings) GetPortNum() int {
 	kdeps_debug.Log("enter: GetPortNum")
-	if w.APIServer != nil && w.APIServer.PortNum > 0 {
-		return w.APIServer.PortNum
-	}
-	if w.WebServer != nil && w.WebServer.PortNum > 0 {
-		return w.WebServer.PortNum
+	if port := portFromServers(w.APIServer, w.WebServer); port > 0 {
+		return port
 	}
 	return DefaultPort
 }

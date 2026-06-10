@@ -185,6 +185,26 @@ func (r *doctorRunner) backendKey(cfg *Config) {
 			backend, providerYAMLKey(backend)))
 }
 
+func countSubdirs(entries []os.FileInfo) int {
+	count := 0
+	for _, e := range entries {
+		if e.IsDir() {
+			count++
+		}
+	}
+	return count
+}
+
+func missingEnvVars(vars []string) []string {
+	missing := make([]string, 0)
+	for _, v := range vars {
+		if osGetenv(v) == "" {
+			missing = append(missing, v)
+		}
+	}
+	return missing
+}
+
 func (r *doctorRunner) agents(cfg *Config) {
 	agentsDir, err := AgentsDir(cfg)
 	if err != nil {
@@ -196,12 +216,7 @@ func (r *doctorRunner) agents(cfg *Config) {
 		r.add("Agents", HealthPass, fmt.Sprintf("no agents installed (%s)", agentsDir))
 		return
 	}
-	count := 0
-	for _, e := range entries {
-		if e.IsDir() {
-			count++
-		}
-	}
+	count := countSubdirs(entries)
 	if count == 0 {
 		r.add("Agents", HealthPass, fmt.Sprintf("no agents installed (%s)", agentsDir))
 		return
@@ -225,12 +240,7 @@ func doctorCriticalEnvVars() []string {
 }
 
 func (r *doctorRunner) criticalEnv() {
-	missing := make([]string, 0)
-	for _, v := range doctorCriticalEnvVars() {
-		if osGetenv(v) == "" {
-			missing = append(missing, v)
-		}
-	}
+	missing := missingEnvVars(doctorCriticalEnvVars())
 	switch {
 	case len(missing) == 0:
 		r.add("Env vars", HealthPass, "all critical vars set")

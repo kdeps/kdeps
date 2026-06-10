@@ -30,6 +30,13 @@ import (
 	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
 )
 
+func sessionExpiresAt(ttl time.Duration) interface{} {
+	if ttl > 0 {
+		return time.Now().Add(ttl).UnixMilli()
+	}
+	return nil
+}
+
 // Get retrieves a value from session storage.
 func (s *SessionStorage) Get(key string) (interface{}, bool) {
 	kdeps_debug.Log("enter: Get")
@@ -83,10 +90,7 @@ func (s *SessionStorage) SetWithTTL(key string, value interface{}, ttl time.Dura
 	}
 
 	now := time.Now().UnixMilli()
-	var expiresAt interface{}
-	if ttl > 0 {
-		expiresAt = time.Now().Add(ttl).UnixMilli()
-	}
+	expiresAt := sessionExpiresAt(ttl)
 
 	// Insert or update
 	query := `
@@ -123,10 +127,7 @@ func (s *SessionStorage) TouchWithTTL(key string, ttl time.Duration) error {
 	defer s.mu.Unlock()
 
 	now := time.Now().UnixMilli()
-	var expiresAt interface{}
-	if ttl > 0 {
-		expiresAt = time.Now().Add(ttl).UnixMilli()
-	}
+	expiresAt := sessionExpiresAt(ttl)
 
 	query := `
 	UPDATE sessions 

@@ -86,20 +86,10 @@ var cloneTypeLabels = map[string]string{ //nolint:gochecknoglobals // package-le
 
 // parseCloneRef splits "owner/repo[:subdir]" into its components.
 func parseCloneRef(ref string) (string, string, string, string, error) {
-	const maxParts = 2
-
-	colonParts := strings.SplitN(ref, ":", maxParts)
-	repoRef := colonParts[0]
-	var subdir string
-	if len(colonParts) == maxParts {
-		subdir = strings.Trim(colonParts[1], "/")
+	owner, repo, subdir, err := parseOwnerRepoRef(ref, "ref")
+	if err != nil {
+		return "", "", "", "", err
 	}
-
-	slashParts := strings.SplitN(repoRef, "/", maxParts)
-	if len(slashParts) != maxParts || slashParts[0] == "" || slashParts[1] == "" {
-		return "", "", "", "", fmt.Errorf("invalid ref %q: expected owner/repo or owner/repo:subdir", ref)
-	}
-	owner, repo := slashParts[0], slashParts[1]
 
 	name := repo
 	if subdir != "" {
