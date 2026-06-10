@@ -43,12 +43,10 @@ func validateIntegerType(value interface{}) error {
 
 // validateNumberType checks that value is a numeric type.
 func validateNumberType(value interface{}) error {
-	switch value.(type) {
-	case int, int64, int32, int16, int8, float64, float32:
+	if _, ok := toFloat64(value); ok {
 		return nil
-	default:
-		return fmt.Errorf("expected number, got %T", value)
 	}
+	return fmt.Errorf("expected number, got %T", value)
 }
 
 // validateEmailType checks that value is a valid email address string.

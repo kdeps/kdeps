@@ -53,25 +53,30 @@ func (c *Config) validateValues() []string {
 		}
 	}
 
-	// Duration fields.
-	warnings = append(warnings,
-		validateDuration("resource_defaults.chat.timeout", c.ResourceDefaults.Chat.Timeout)...)
-	warnings = append(warnings,
-		validateDuration("resource_defaults.http.timeout", c.ResourceDefaults.HTTP.Timeout)...)
-	warnings = append(warnings,
-		validateDuration("resource_defaults.http.retry_backoff", c.ResourceDefaults.HTTP.RetryBackoff)...)
-	warnings = append(warnings,
-		validateDuration("resource_defaults.http.retry_max_backoff", c.ResourceDefaults.HTTP.RetryMaxBackoff)...)
-	warnings = append(warnings,
-		validateDuration("resource_defaults.python.timeout", c.ResourceDefaults.Python.Timeout)...)
-	warnings = append(warnings,
-		validateDuration("resource_defaults.exec.timeout", c.ResourceDefaults.Exec.Timeout)...)
-	warnings = append(warnings,
-		validateDuration("resource_defaults.sql.timeout", c.ResourceDefaults.SQL.Timeout)...)
-	warnings = append(warnings,
-		validateDuration("resource_defaults.onError.retry_delay", c.ResourceDefaults.OnError.RetryDelay)...)
+	for _, field := range configDurationFields(c) {
+		warnings = append(warnings, validateDuration(field.path, field.value)...)
+	}
 
 	return warnings
+}
+
+type configDurationField struct {
+	path  string
+	value string
+}
+
+func configDurationFields(c *Config) []configDurationField {
+	rd := c.ResourceDefaults
+	return []configDurationField{
+		{"resource_defaults.chat.timeout", rd.Chat.Timeout},
+		{"resource_defaults.http.timeout", rd.HTTP.Timeout},
+		{"resource_defaults.http.retry_backoff", rd.HTTP.RetryBackoff},
+		{"resource_defaults.http.retry_max_backoff", rd.HTTP.RetryMaxBackoff},
+		{"resource_defaults.python.timeout", rd.Python.Timeout},
+		{"resource_defaults.exec.timeout", rd.Exec.Timeout},
+		{"resource_defaults.sql.timeout", rd.SQL.Timeout},
+		{"resource_defaults.onError.retry_delay", rd.OnError.RetryDelay},
+	}
 }
 
 // validateDuration checks if a string parses as a valid Go duration.
