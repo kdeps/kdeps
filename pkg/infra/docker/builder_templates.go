@@ -21,13 +21,11 @@
 package docker
 
 import (
-	"bytes"
 	"fmt"
-	"text/template"
 
 	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
-
 	"github.com/kdeps/kdeps/v2/pkg/domain"
+	"github.com/kdeps/kdeps/v2/pkg/infra/texttmpl"
 )
 
 // generateDockerfile generates a Dockerfile using templates.
@@ -91,17 +89,16 @@ func (b *Builder) renderWorkflowTemplate(name, templateStr string, workflow *dom
 }
 
 func renderTemplate(name, templateStr string, data any) (string, error) {
-	tmpl, err := template.New(name).Parse(templateStr)
+	tmpl, err := texttmpl.Parse(name, templateStr)
 	if err != nil {
 		return "", parseTemplateError(name, err)
 	}
 
-	var buf bytes.Buffer
-	if execErr := tmpl.Execute(&buf, data); execErr != nil {
-		return "", renderTemplateError(name, execErr)
+	out, err := texttmpl.ExecuteTemplate(tmpl, data)
+	if err != nil {
+		return "", renderTemplateError(name, err)
 	}
-
-	return buf.String(), nil
+	return out, nil
 }
 
 func parseTemplateError(name string, err error) error {

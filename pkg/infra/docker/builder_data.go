@@ -21,14 +21,13 @@
 package docker
 
 import (
-	"bytes"
 	"fmt"
 	"os"
 	"strings"
-	"text/template"
 
 	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
 	"github.com/kdeps/kdeps/v2/pkg/domain"
+	"github.com/kdeps/kdeps/v2/pkg/infra/texttmpl"
 	"github.com/kdeps/kdeps/v2/pkg/security/deployenv"
 )
 
@@ -43,7 +42,11 @@ func (b *Builder) buildTemplateData(workflow *domain.Workflow) (*DockerfileData,
 		return nil, err
 	}
 
-	models, offlineMode, defaultModel := resolveModelSettings(workflow, installOllama, b.getDefaultModel)
+	models, offlineMode, defaultModel := resolveModelSettings(
+		workflow,
+		installOllama,
+		b.getDefaultModel,
+	)
 	prepackagedAMD64, prepackagedARM64 := b.prepackagedFlags()
 	usePrepackagedBinary := prepackagedAMD64 || prepackagedARM64
 	hasResources, hasData := resolveBuildContextDirs(usePrepackagedBinary)
@@ -140,17 +143,11 @@ func (b *Builder) renderBackendInstall(installOllama bool) (string, error) {
 		GPUType:       b.GPUType,
 	}
 
-	installTmpl, err := template.New("backend-install").Parse(backendInstallTemplate)
+	out, err := texttmpl.Render("backend-install", backendInstallTemplate, backendData)
 	if err != nil {
-		return "", fmt.Errorf("failed to parse backend install template: %w", err)
+		return "", fmt.Errorf("failed to render backend install: %w", err)
 	}
-
-	var backendInstallBuf bytes.Buffer
-	if execErr := installTmpl.Execute(&backendInstallBuf, backendData); execErr != nil {
-		return "", fmt.Errorf("failed to render backend install: %w", execErr)
-	}
-
-	return backendInstallBuf.String(), nil
+	return out, nil
 }
 
 func resolvePythonVersion(workflow *domain.Workflow) string {
