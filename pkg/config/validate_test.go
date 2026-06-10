@@ -436,51 +436,51 @@ func TestValidateUnknownKeys_MalformedYAML(t *testing.T) {
 	assert.Empty(t, warnings)
 }
 
-func TestCollectWorkflowNames_EmptyDir(t *testing.T) {
-	assert.Nil(t, collectWorkflowNames(""))
+func TestScanWorkflowNames_EmptyDir(t *testing.T) {
+	assert.Nil(t, ScanWorkflowNames(""))
 }
 
-func TestCollectWorkflowNames_NonExistentDir(t *testing.T) {
-	assert.Nil(t, collectWorkflowNames("/nonexistent/path/12345"))
+func TestScanWorkflowNames_NonExistentDir(t *testing.T) {
+	assert.Nil(t, ScanWorkflowNames("/nonexistent/path/12345"))
 }
 
-func TestCollectWorkflowNames_EmptyDirNoFiles(t *testing.T) {
+func TestScanWorkflowNames_EmptyDirNoFiles(t *testing.T) {
 	dir := t.TempDir()
-	assert.Nil(t, collectWorkflowNames(dir))
+	assert.Nil(t, ScanWorkflowNames(dir))
 }
 
-func TestCollectWorkflowNames_DirWithNonDirEntries(t *testing.T) {
+func TestScanWorkflowNames_DirWithNonDirEntries(t *testing.T) {
 	dir := t.TempDir()
 	// Create a file (not a directory) in agents dir
 	require.NoError(t, os.WriteFile(filepath.Join(dir, "readme.txt"), []byte("hello"), 0644))
-	assert.Nil(t, collectWorkflowNames(dir))
+	assert.Nil(t, ScanWorkflowNames(dir))
 }
 
-func TestCollectWorkflowNames_NoWorkflowYAML(t *testing.T) {
+func TestScanWorkflowNames_NoWorkflowYAML(t *testing.T) {
 	dir := t.TempDir()
 	agentDir := filepath.Join(dir, "some_agent")
 	require.NoError(t, os.MkdirAll(agentDir, 0755))
 	// Create a file that is NOT workflow.yaml
 	require.NoError(t, os.WriteFile(filepath.Join(agentDir, "README.md"), []byte("readme"), 0644))
-	assert.Nil(t, collectWorkflowNames(dir))
+	assert.Nil(t, ScanWorkflowNames(dir))
 }
 
-func TestCollectWorkflowNames_WorkflowWithEmptyName(t *testing.T) {
+func TestScanWorkflowNames_WorkflowWithEmptyName(t *testing.T) {
 	dir := t.TempDir()
 	agentDir := filepath.Join(dir, "empty_agent")
 	require.NoError(t, os.MkdirAll(agentDir, 0755))
 	require.NoError(t, os.WriteFile(filepath.Join(agentDir, "workflow.yaml"),
 		[]byte("metadata:\n  name: \"\"\n"), 0644))
-	assert.Nil(t, collectWorkflowNames(dir))
+	assert.Nil(t, ScanWorkflowNames(dir))
 }
 
-func TestCollectWorkflowNames_WorkflowWithoutMetadata(t *testing.T) {
+func TestScanWorkflowNames_WorkflowWithoutMetadata(t *testing.T) {
 	dir := t.TempDir()
 	agentDir := filepath.Join(dir, "no_meta_agent")
 	require.NoError(t, os.MkdirAll(agentDir, 0755))
 	require.NoError(t, os.WriteFile(filepath.Join(agentDir, "workflow.yaml"),
 		[]byte("resources:\n  - name: test\n"), 0644))
-	assert.Nil(t, collectWorkflowNames(dir))
+	assert.Nil(t, ScanWorkflowNames(dir))
 }
 
 func TestValidate_AgentProfileNoWorkflows(t *testing.T) {

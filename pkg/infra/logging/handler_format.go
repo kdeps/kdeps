@@ -48,6 +48,26 @@ func (h *PrettyHandler) formatSourceLocation(pc uintptr) string {
 	return fmt.Sprintf("%s:%d", file, f.Line)
 }
 
+// writeColoredScalar formats primitive values with consistent colors.
+func (h *PrettyHandler) writeColoredScalar(buf *strings.Builder, v interface{}) {
+	switch val := v.(type) {
+	case string:
+		buf.WriteString(h.colorize(colorGreen, fmt.Sprintf("%q", val)))
+	case int:
+		buf.WriteString(h.colorize(colorBlue, strconv.Itoa(val)))
+	case int8, int16, int32, int64:
+		buf.WriteString(h.colorize(colorBlue, fmt.Sprintf("%d", val)))
+	case uint, uint8, uint16, uint32, uint64:
+		buf.WriteString(h.colorize(colorBlue, fmt.Sprintf("%d", val)))
+	case float32:
+		buf.WriteString(h.colorize(colorBlue, fmt.Sprintf("%.2f", val)))
+	case float64:
+		buf.WriteString(h.colorize(colorBlue, fmt.Sprintf("%.2f", val)))
+	case bool:
+		buf.WriteString(h.formatColoredBool(val))
+	}
+}
+
 // formatColoredBool returns a colorized boolean string.
 func (h *PrettyHandler) formatColoredBool(val bool) string {
 	if val {
@@ -115,15 +135,15 @@ func (h *PrettyHandler) formatValue(buf *strings.Builder, v slog.Value, indent s
 	kdeps_debug.Log("enter: formatValue")
 	switch v.Kind() {
 	case slog.KindString:
-		buf.WriteString(h.colorize(colorGreen, fmt.Sprintf("%q", v.String())))
+		h.writeColoredScalar(buf, v.String())
 	case slog.KindInt64:
-		buf.WriteString(h.colorize(colorBlue, strconv.FormatInt(v.Int64(), 10)))
+		h.writeColoredScalar(buf, v.Int64())
 	case slog.KindUint64:
-		buf.WriteString(h.colorize(colorBlue, strconv.FormatUint(v.Uint64(), 10)))
+		h.writeColoredScalar(buf, v.Uint64())
 	case slog.KindFloat64:
-		buf.WriteString(h.colorize(colorBlue, fmt.Sprintf("%.2f", v.Float64())))
+		h.writeColoredScalar(buf, v.Float64())
 	case slog.KindBool:
-		buf.WriteString(h.formatColoredBool(v.Bool()))
+		h.writeColoredScalar(buf, v.Bool())
 	case slog.KindDuration:
 		buf.WriteString(h.colorize(colorMagenta, v.Duration().String()))
 	case slog.KindTime:
@@ -156,16 +176,8 @@ func (h *PrettyHandler) formatValue(buf *strings.Builder, v slog.Value, indent s
 func (h *PrettyHandler) FormatAny(buf *strings.Builder, v interface{}, indent string) {
 	kdeps_debug.Log("enter: FormatAny")
 	switch val := v.(type) {
-	case string:
-		buf.WriteString(h.colorize(colorGreen, fmt.Sprintf("%q", val)))
-	case int, int8, int16, int32, int64:
-		buf.WriteString(h.colorize(colorBlue, fmt.Sprintf("%d", val)))
-	case uint, uint8, uint16, uint32, uint64:
-		buf.WriteString(h.colorize(colorBlue, fmt.Sprintf("%d", val)))
-	case float32, float64:
-		buf.WriteString(h.colorize(colorBlue, fmt.Sprintf("%.2f", val)))
-	case bool:
-		buf.WriteString(h.formatColoredBool(val))
+	case string, int, int8, int16, int32, int64, uint, uint8, uint16, uint32, uint64, float32, float64, bool:
+		h.writeColoredScalar(buf, val)
 	case error:
 		buf.WriteString(h.colorize(colorRed, fmt.Sprintf("%q", val.Error())))
 	case map[string]interface{}:
