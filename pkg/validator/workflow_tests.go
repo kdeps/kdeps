@@ -29,10 +29,6 @@ import (
 // ValidateTestCases validates self-test case definitions.
 func ValidateTestCases(tests []domain.TestCase) error {
 	kdeps_debug.Log("enter: ValidateTestCases")
-	validMethods := map[string]bool{
-		"GET": true, "POST": true, "PUT": true,
-		"DELETE": true, "PATCH": true, "": true, // empty defaults to GET
-	}
 	for i, tc := range tests {
 		if tc.Name == "" {
 			return domain.NewError(
@@ -49,12 +45,12 @@ func ValidateTestCases(tests []domain.TestCase) error {
 			)
 		}
 		method := strings.ToUpper(tc.Request.Method)
-		if !validMethods[method] {
+		if !domain.IsValidHTTPMethodAllowEmpty(method) {
 			return domain.NewError(
 				domain.ErrCodeInvalidWorkflow,
 				fmt.Sprintf(
-					"test %q: invalid method %q (use GET, POST, PUT, DELETE, PATCH)",
-					tc.Name, tc.Request.Method,
+					"test %q: invalid method %q (use %s)",
+					tc.Name, tc.Request.Method, domain.StandardHTTPMethodsDisplay(),
 				),
 				nil,
 			)

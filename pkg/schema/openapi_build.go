@@ -26,10 +26,6 @@ import (
 	"github.com/kdeps/kdeps/v2/pkg/domain"
 )
 
-func defaultHTTPMethods() []string {
-	return []string{"GET", "POST", "PUT", "PATCH", "DELETE"}
-}
-
 // sortedStringSet returns the keys of m in sorted order.
 func sortedStringSet(m map[string]struct{}) []string {
 	out := make([]string, 0, len(m))
@@ -84,7 +80,7 @@ func indexResourcesByRoute(workflow *domain.Workflow) map[routeKey][]*domain.Res
 		for _, route := range v.Routes {
 			methods := v.Methods
 			if len(methods) == 0 {
-				methods = defaultHTTPMethods()
+				methods = domain.StandardHTTPMethods()
 			}
 			for _, m := range methods {
 				k := routeKey{path: route, method: strings.ToLower(m)}

@@ -22,6 +22,7 @@ import (
 	"strings"
 
 	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
+	"github.com/kdeps/kdeps/v2/pkg/domain"
 )
 
 func (sv *SchemaValidator) IsEnumField(field string, schemaType string) bool {
@@ -32,19 +33,20 @@ func (sv *SchemaValidator) IsEnumField(field string, schemaType string) bool {
 
 // schemaEnumMap returns known enum fields and their allowed values.
 func schemaEnumMap() map[string][]interface{} {
+	httpMethods := domain.StandardHTTPMethodsEnum()
 	return map[string][]interface{}{
 		"run.chat.backend": {
 			"ollama", "openai", "anthropic", "google", "cohere", "mistral",
 			"together", "perplexity", "groq", "deepseek", "openrouter",
 		},
-		"run.httpClient.method": {"GET", "POST", "PUT", "DELETE", "PATCH"},
+		"run.httpClient.method": httpMethods,
 		"run.chat.contextLength": {
 			4096, 8192, 16384, 32768, 65536, 131072, 262144,
 		},
 		"run.sql.format":                    {"json", "csv", "table"},
-		"run.validations.methods":           {"GET", "POST", "PUT", "DELETE", "PATCH"},
-		"settings.apiServer.routes.methods": {"GET", "POST", "PUT", "DELETE", "PATCH"},
-		"routes.methods":                    {"GET", "POST", "PUT", "DELETE", "PATCH"},
+		"run.validations.methods":           httpMethods,
+		"settings.apiServer.routes.methods": httpMethods,
+		"routes.methods":                    httpMethods,
 		"apiVersion":                        {"kdeps.io/v1"},
 		"kind":                              {"Workflow", "Resource"},
 	}
