@@ -53,36 +53,5 @@ func (e *Engine) finalizeWorkflowOutput(
 
 // resourceTypeName returns a short string identifying the primary resource type.
 func resourceTypeName(r *domain.Resource) string {
-	switch {
-	case r.Exec != nil:
-		return "exec"
-	case r.Python != nil:
-		return "python"
-	case r.Chat != nil:
-		return "llm"
-	case r.SQL != nil:
-		return "sql"
-	case r.HTTPClient != nil:
-		return "http"
-	case r.Agent != nil:
-		return "agent"
-	case r.APIResponse != nil:
-		return "apiResponse"
-	case r.Scraper != nil:
-		return ExecutorScraper
-	case r.Embedding != nil:
-		return ExecutorEmbedding
-	case r.SearchLocal != nil:
-		return ExecutorSearchLocal
-	case r.SearchWeb != nil:
-		return ExecutorSearchWeb
-	case r.Telephony != nil:
-		return ExecutorTelephony
-	case r.BotReply != nil:
-		return ExecutorBotReply
-	case r.Email != nil:
-		return ExecutorEmail
-	default:
-		return "unknown"
-	}
+	return domain.PrimaryResourceEventName(r)
 }
