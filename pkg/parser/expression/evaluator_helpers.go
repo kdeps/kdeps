@@ -29,17 +29,17 @@ import (
 	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
 )
 
-// parseWhereThreshold converts minVal to a float64 threshold for the where() helper.
-func parseWhereThreshold(minVal interface{}) (float64, bool) {
-	switch v := minVal.(type) {
+// asFloat64 coerces numeric and string values to float64 for where() helpers.
+func asFloat64(v interface{}) (float64, bool) {
+	switch n := v.(type) {
 	case float64:
-		return v, true
+		return n, true
 	case int:
-		return float64(v), true
+		return float64(n), true
 	case int64:
-		return float64(v), true
+		return float64(n), true
 	case string:
-		parsed, err := strconv.ParseFloat(v, 64)
+		parsed, err := strconv.ParseFloat(n, 64)
 		if err != nil {
 			return 0, false
 		}
@@ -49,15 +49,16 @@ func parseWhereThreshold(minVal interface{}) (float64, bool) {
 	}
 }
 
+// parseWhereThreshold converts minVal to a float64 threshold for the where() helper.
+func parseWhereThreshold(minVal interface{}) (float64, bool) {
+	return asFloat64(minVal)
+}
+
 // scoreFromMapValue extracts a numeric score from a map value for where() filtering.
 func scoreFromMapValue(val interface{}) (float64, bool) {
-	switch v := val.(type) {
-	case float64:
-		return v, true
-	case int:
-		return float64(v), true
-	case int64:
-		return float64(v), true
+	switch val.(type) {
+	case float64, int, int64:
+		return asFloat64(val)
 	default:
 		return 0, false
 	}

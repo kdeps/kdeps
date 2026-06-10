@@ -161,10 +161,14 @@ func registerServeTools(p string, registry *tools.Registry, debug bool) (*domain
 	return registerWorkflowTool(p, registry, debug)
 }
 
+func serveLoadError(kind, path string, err error) error {
+	return fmt.Errorf("serve: failed to load %s %s: %w", kind, path, err)
+}
+
 func registerWorkflowTool(p string, registry *tools.Registry, debug bool) (*domain.Workflow, error) {
 	wf, err := ParseWorkflowFile(p)
 	if err != nil {
-		return nil, fmt.Errorf("serve: failed to load workflow %s: %w", p, err)
+		return nil, serveLoadError("workflow", p, err)
 	}
 	eng := setupEngine(nil, debug)
 	registry.Register(tools.AgentToolDef(wf, eng))
@@ -175,7 +179,7 @@ func registerWorkflowTool(p string, registry *tools.Registry, debug bool) (*doma
 func registerAgencyTool(p string, registry *tools.Registry, debug bool) (*domain.Workflow, error) {
 	agency, agentPaths, err := ParseAgencyFile(p)
 	if err != nil {
-		return nil, fmt.Errorf("serve: failed to load agency %s: %w", p, err)
+		return nil, serveLoadError("agency", p, err)
 	}
 	nameMap, targetPath, err := buildAgentNameMap(agentPaths, agency.Metadata.TargetAgentID)
 	if err != nil {
@@ -266,6 +270,13 @@ func registerComponentTools(registry *tools.Registry, wf *domain.Workflow, eng *
 	}
 }
 
+func findServeManifestInDir(dir string) string {
+	if p := FindAgencyFile(dir); p != "" {
+		return p
+	}
+	return FindWorkflowFile(dir)
+}
+
 // findServeWorkflowFiles walks root recursively and returns one workflow or
 // agency file per directory. Agency files take precedence over workflow files.
 func findServeWorkflowFiles(root string) []string {
@@ -277,11 +288,7 @@ func findServeWorkflowFiles(root string) []string {
 		if !d.IsDir() {
 			return nil
 		}
-		if p := FindAgencyFile(path); p != "" {
-			paths = append(paths, p)
-			return nil
-		}
-		if p := FindWorkflowFile(path); p != "" {
+		if p := findServeManifestInDir(path); p != "" {
 			paths = append(paths, p)
 		}
 		return nil

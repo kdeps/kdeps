@@ -149,23 +149,28 @@ func NewClientForTesting(stdin io.WriteCloser, stdout *bufio.Scanner) *Client {
 	return &Client{stdin: stdin, stdout: stdout}
 }
 
+func (c *Client) newRequest(method string, params interface{}, withID bool) jsonRPCRequest {
+	req := jsonRPCRequest{JSONRPC: "2.0", Method: method, Params: params}
+	if withID {
+		req.ID = c.nextID.Add(1)
+	}
+	return req
+}
+
+func formatRPCError(prefix string, err *jsonRPCError) error {
+	return fmt.Errorf("%s %d: %s", prefix, err.Code, err.Message)
+}
+
 func (c *Client) initialize() error {
 	kdeps_debug.Log("enter: initialize")
-	id := c.nextID.Add(1)
-
-	req := jsonRPCRequest{
-		JSONRPC: "2.0",
-		ID:      id,
-		Method:  "initialize",
-		Params: map[string]interface{}{
-			"protocolVersion": protocolVersion,
-			"capabilities":    map[string]interface{}{},
-			"clientInfo": map[string]interface{}{
-				"name":    clientName,
-				"version": clientVersion,
-			},
+	req := c.newRequest("initialize", map[string]interface{}{
+		"protocolVersion": protocolVersion,
+		"capabilities":    map[string]interface{}{},
+		"clientInfo": map[string]interface{}{
+			"name":    clientName,
+			"version": clientVersion,
 		},
-	}
+	}, true)
 
 	if err := c.send(req); err != nil {
 		return err
@@ -176,14 +181,10 @@ func (c *Client) initialize() error {
 		return fmt.Errorf("read initialize response: %w", err)
 	}
 	if resp.Error != nil {
-		return fmt.Errorf("MCP init error %d: %s", resp.Error.Code, resp.Error.Message)
+		return formatRPCError("MCP init error", resp.Error)
 	}
 
-	notification := jsonRPCRequest{
-		JSONRPC: "2.0",
-		Method:  "notifications/initialized",
-	}
-	return c.send(notification)
+	return c.send(c.newRequest("notifications/initialized", nil, false))
 }
 
 func extractTextContent(content []mcpContent) string {
@@ -198,7 +199,7 @@ func extractTextContent(content []mcpContent) string {
 
 func (c *Client) parseToolCallResponse(resp *jsonRPCResponse) (string, error) {
 	if resp.Error != nil {
-		return "", fmt.Errorf("MCP tool error %d: %s", resp.Error.Code, resp.Error.Message)
+		return "", formatRPCError("MCP tool error", resp.Error)
 	}
 	if resp.Result == nil {
 		return "", nil
@@ -220,17 +221,10 @@ func (c *Client) parseToolCallResponse(resp *jsonRPCResponse) (string, error) {
 // CallTool calls an MCP tool and returns text content from the result.
 func (c *Client) CallTool(name string, arguments map[string]interface{}) (string, error) {
 	kdeps_debug.Log("enter: CallTool")
-	id := c.nextID.Add(1)
-
-	req := jsonRPCRequest{
-		JSONRPC: "2.0",
-		ID:      id,
-		Method:  "tools/call",
-		Params: map[string]interface{}{
-			"name":      name,
-			"arguments": arguments,
-		},
-	}
+	req := c.newRequest("tools/call", map[string]interface{}{
+		"name":      name,
+		"arguments": arguments,
+	}, true)
 
 	if err := c.send(req); err != nil {
 		return "", err
@@ -254,6 +248,10 @@ func (c *Client) send(req jsonRPCRequest) error {
 	return err
 }
 
+func isIgnorableRPCResponse(resp *jsonRPCResponse) bool {
+	return resp.ID == nil && resp.Result == nil && resp.Error == nil
+}
+
 func (c *Client) readResponse() (*jsonRPCResponse, error) {
 	kdeps_debug.Log("enter: readResponse")
 	for c.stdout.Scan() {
@@ -265,7 +263,7 @@ func (c *Client) readResponse() (*jsonRPCResponse, error) {
 		if err := json.Unmarshal([]byte(line), &resp); err != nil {
 			continue
 		}
-		if resp.ID == nil && resp.Result == nil && resp.Error == nil {
+		if isIgnorableRPCResponse(&resp) {
 			continue
 		}
 		return &resp, nil
