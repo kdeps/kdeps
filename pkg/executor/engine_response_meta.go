@@ -120,25 +120,18 @@ func (e *Engine) applyLLMMetadataToResponse(
 		return
 	}
 
-	metaMap, ok := apiResponse["_meta"].(map[string]interface{})
-	if ok {
-		if ctx.LLMMetadata.Model != "" && metaMap["model"] == nil {
-			metaMap["model"] = ctx.LLMMetadata.Model
-		}
-		if ctx.LLMMetadata.Backend != "" && metaMap["backend"] == nil {
-			metaMap["backend"] = ctx.LLMMetadata.Backend
-		}
-		return
+	metaMap, exists := apiResponse["_meta"].(map[string]interface{})
+	if !exists {
+		metaMap = make(map[string]interface{})
 	}
-
-	newMetaMap := make(map[string]interface{})
-	if ctx.LLMMetadata.Model != "" {
-		newMetaMap["model"] = ctx.LLMMetadata.Model
+	if ctx.LLMMetadata.Model != "" && metaMap["model"] == nil {
+		metaMap["model"] = ctx.LLMMetadata.Model
 	}
-	if ctx.LLMMetadata.Backend != "" {
-		newMetaMap["backend"] = ctx.LLMMetadata.Backend
+	if ctx.LLMMetadata.Backend != "" && metaMap["backend"] == nil {
+		metaMap["backend"] = ctx.LLMMetadata.Backend
 	}
-	if len(newMetaMap) > 0 {
-		apiResponse["_meta"] = newMetaMap
+	// The guards above ensure at least one key was set on a fresh map.
+	if !exists {
+		apiResponse["_meta"] = metaMap
 	}
 }

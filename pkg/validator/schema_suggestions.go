@@ -26,30 +26,56 @@ import (
 	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
 )
 
+// expectedTypeRe extracts the expected type from messages like "Expected: string".
+var expectedTypeRe = regexp.MustCompile(`Expected:\s*(\w+)`)
+
+var (
+	rangeBoundLTE    = regexp.MustCompile(`less than or equal to\s+(\d+)`)
+	rangeBoundGTE    = regexp.MustCompile(`greater than or equal to\s+(\d+)`)
+	rangeBoundMax    = regexp.MustCompile(`Must be less.*?(\d+)`)
+	rangeBoundMin    = regexp.MustCompile(`minimum.*?(\d+)`)
+	rangeBoundMaxAlt = regexp.MustCompile(`maximum.*?(\d+)`)
+)
+
+func rangeBoundPatterns() []struct {
+	phrase string
+	re     *regexp.Regexp
+	isMin  bool
+} {
+	return []struct {
+		phrase string
+		re     *regexp.Regexp
+		isMin  bool
+	}{
+		{"less than or equal to", rangeBoundLTE, false},
+		{"greater than or equal to", rangeBoundGTE, true},
+		{"Must be less", rangeBoundMax, false},
+		{"minimum", rangeBoundMin, true},
+		{"maximum", rangeBoundMaxAlt, false},
+	}
+}
+
+// extractExpectedType pulls the expected type name out of a validation error
+// description, trying the known message formats before a regex fallback.
+func extractExpectedType(descStr string) string {
+	for _, t := range []string{"string", "integer", "boolean", "object", "array"} {
+		if strings.Contains(descStr, "Expected: "+t) ||
+			strings.Contains(descStr, "expected "+t) ||
+			strings.Contains(descStr, "Expected "+t) {
+			return t
+		}
+	}
+	if matches := expectedTypeRe.FindStringSubmatch(descStr); len(matches) > 1 {
+		return matches[1]
+	}
+	return ""
+}
+
 func (sv *SchemaValidator) getTypeSuggestion(field string, descStr string) string {
 	kdeps_debug.Log("enter: getTypeSuggestion")
-	// Extract expected type from error message - try multiple formats
-	var expectedType string
-	switch {
-	case strings.Contains(descStr, "Expected: string") || strings.Contains(descStr, "expected string") || strings.Contains(descStr, "Expected string"):
-		expectedType = "string"
-	case strings.Contains(descStr, "Expected: integer") || strings.Contains(descStr, "expected integer") || strings.Contains(descStr, "Expected integer"):
-		expectedType = "integer"
-	case strings.Contains(descStr, "Expected: boolean") || strings.Contains(descStr, "expected boolean") || strings.Contains(descStr, "Expected boolean"):
-		expectedType = "boolean"
-	case strings.Contains(descStr, "Expected: object") || strings.Contains(descStr, "expected object") || strings.Contains(descStr, "Expected object"):
-		expectedType = "object"
-	case strings.Contains(descStr, "Expected: array") || strings.Contains(descStr, "expected array") || strings.Contains(descStr, "Expected array"):
-		expectedType = "array"
-	default:
-		// Try regex extraction
-		re := regexp.MustCompile(`Expected:\s*(\w+)`)
-		matches := re.FindStringSubmatch(descStr)
-		if len(matches) > 1 {
-			expectedType = matches[1]
-		} else {
-			return ""
-		}
+	expectedType := extractExpectedType(descStr)
+	if expectedType == "" {
+		return ""
 	}
 
 	// Include examples only for certain description formats (to match test expectations)
@@ -104,18 +130,7 @@ func (sv *SchemaValidator) getPatternSuggestion(field string) string {
 // extractRangeBounds parses min/max numeric bounds from a validation error description.
 func extractRangeBounds(descStr string) (string, string) {
 	var minValue, maxValue string
-	patterns := []struct {
-		phrase string
-		re     *regexp.Regexp
-		isMin  bool
-	}{
-		{"less than or equal to", regexp.MustCompile(`less than or equal to\s+(\d+)`), false},
-		{"greater than or equal to", regexp.MustCompile(`greater than or equal to\s+(\d+)`), true},
-		{"Must be less", regexp.MustCompile(`Must be less.*?(\d+)`), false},
-		{"minimum", regexp.MustCompile(`minimum.*?(\d+)`), true},
-		{"maximum", regexp.MustCompile(`maximum.*?(\d+)`), false},
-	}
-	for _, p := range patterns {
+	for _, p := range rangeBoundPatterns() {
 		if !strings.Contains(descStr, p.phrase) {
 			continue
 		}

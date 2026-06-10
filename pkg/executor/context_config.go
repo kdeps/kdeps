@@ -31,11 +31,12 @@ import (
 
 // isNamespacedPath reports whether name starts with a known config namespace prefix.
 func isNamespacedPath(name string) bool {
-	return strings.HasPrefix(name, nsConfig+".") ||
-		strings.HasPrefix(name, nsWorkflow+".") ||
-		strings.HasPrefix(name, nsResource+".") ||
-		strings.HasPrefix(name, nsComponent+".") ||
-		strings.HasPrefix(name, nsAgency+".")
+	for _, ns := range []string{nsConfig, nsWorkflow, nsResource, nsComponent, nsAgency} {
+		if strings.HasPrefix(name, ns+".") {
+			return true
+		}
+	}
+	return false
 }
 
 // GetConfigField retrieves a value from a config namespace by full dot-path.
@@ -122,23 +123,12 @@ func (ctx *ExecutionContext) ConfigNamespace(namespace string) map[string]any {
 		}
 		return dotpath.StructToMap(ctx.Workflow)
 	case nsResource:
-		if len(ctx.Resources) == 0 {
-			return nil
-		}
-		m := make(map[string]any, len(ctx.Resources))
-		for id, r := range ctx.Resources {
-			m[id] = dotpath.StructToMap(r)
-		}
-		return m
+		return structMapsOf(ctx.Resources)
 	case nsComponent:
-		if ctx.Workflow == nil || len(ctx.Workflow.Components) == 0 {
+		if ctx.Workflow == nil {
 			return nil
 		}
-		m := make(map[string]any, len(ctx.Workflow.Components))
-		for name, c := range ctx.Workflow.Components {
-			m[name] = dotpath.StructToMap(c)
-		}
-		return m
+		return structMapsOf(ctx.Workflow.Components)
 	case nsAgency:
 		if ctx.Agency == nil {
 			return nil
@@ -147,4 +137,17 @@ func (ctx *ExecutionContext) ConfigNamespace(namespace string) map[string]any {
 	default:
 		return nil
 	}
+}
+
+// structMapsOf converts a map of structs into a map of dotpath snapshots,
+// returning nil when the source is empty.
+func structMapsOf[T any](src map[string]T) map[string]any {
+	if len(src) == 0 {
+		return nil
+	}
+	m := make(map[string]any, len(src))
+	for k, v := range src {
+		m[k] = dotpath.StructToMap(v)
+	}
+	return m
 }

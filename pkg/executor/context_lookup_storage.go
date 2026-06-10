@@ -24,63 +24,65 @@ import (
 	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
 )
 
-// getByType retrieves a value from a specific storage type.
-func (ctx *ExecutionContext) getByType(name, storageType string) (interface{}, error) {
-	kdeps_debug.Log("enter: getByType")
-	switch storageType {
-	case storageTypeItem:
-		// For "item" type, use Item() function which handles iteration context
-		// If name is provided, it's treated as the item type (e.g., "index", "count", "current")
-		if name == "" || name == storageTypeItem || name == itemKeyCurrent {
-			return ctx.Item() // Return current item
-		}
-		return ctx.Item(name) // Pass name as item type (e.g., "index", "count", "prev", "next")
-	case storageTypeLoop:
-		// For "loop" type, use Loop() function which handles loop iteration context
-		return ctx.Loop(name)
-	case storageTypeMemory:
-		return ctx.getMemory(name)
-	case storageTypeSession:
-		return ctx.getSession(name)
-	case "output":
-		return ctx.getOutput(name)
-	case "param":
-		return ctx.GetParam(name)
-	case "header":
-		return ctx.GetHeader(name)
-	case inputTypeFile:
-		// Check uploaded files first, then local files
-		if ctx.Request != nil {
-			if file, err := ctx.GetUploadedFile(name); err == nil {
-				return ReadFile(file.Path)
-			}
-		}
-		return ctx.File(name)
-	case "info":
-		return ctx.Info(name)
-	case "data", "body":
-		return ctx.getBody(name)
-	case "filepath":
-		if ctx.Request != nil {
-			if file, err := ctx.GetUploadedFile(name); err == nil {
-				return file.Path, nil
-			}
-		}
-		return nil, fmt.Errorf("uploaded file '%s' not found", name)
-	case "filetype":
-		if ctx.Request != nil {
-			if file, err := ctx.GetUploadedFile(name); err == nil {
-				return file.MimeType, nil
-			}
-		}
-		return nil, fmt.Errorf("uploaded file '%s' not found", name)
-	default:
-		return nil, fmt.Errorf("unknown storage type: %s", storageType)
+type storageLookupHandler func(*ExecutionContext, string) (interface{}, error)
+
+// storageTypeHandlers maps storage type names to their lookup implementations.
+func storageTypeHandlers() map[string]storageLookupHandler {
+	return map[string]storageLookupHandler{
+		storageTypeItem:    lookupStorageItem,
+		storageTypeLoop:    func(ctx *ExecutionContext, name string) (interface{}, error) { return ctx.Loop(name) },
+		storageTypeMemory:  func(ctx *ExecutionContext, name string) (interface{}, error) { return ctx.getMemory(name) },
+		storageTypeSession: func(ctx *ExecutionContext, name string) (interface{}, error) { return ctx.getSession(name) },
+		"output":           func(ctx *ExecutionContext, name string) (interface{}, error) { return ctx.getOutput(name) },
+		"param":            func(ctx *ExecutionContext, name string) (interface{}, error) { return ctx.GetParam(name) },
+		"header":           func(ctx *ExecutionContext, name string) (interface{}, error) { return ctx.GetHeader(name) },
+		inputTypeFile:      lookupStorageFile,
+		"info":             func(ctx *ExecutionContext, name string) (interface{}, error) { return ctx.Info(name) },
+		"data":             func(ctx *ExecutionContext, name string) (interface{}, error) { return ctx.getBody(name) },
+		"body":             func(ctx *ExecutionContext, name string) (interface{}, error) { return ctx.getBody(name) },
+		"filepath": func(ctx *ExecutionContext, name string) (interface{}, error) {
+			return ctx.uploadedFileField(name, func(f *FileUpload) interface{} { return f.Path })
+		},
+		"filetype": func(ctx *ExecutionContext, name string) (interface{}, error) {
+			return ctx.uploadedFileField(name, func(f *FileUpload) interface{} { return f.MimeType })
+		},
 	}
 }
 
-// getItem retrieves an item from Items map (legacy - use Item() for iteration context).
-//
+func lookupStorageItem(ctx *ExecutionContext, name string) (interface{}, error) {
+	if name == "" || name == storageTypeItem || name == itemKeyCurrent {
+		return ctx.Item()
+	}
+	return ctx.Item(name)
+}
+
+func lookupStorageFile(ctx *ExecutionContext, name string) (interface{}, error) {
+	if ctx.Request != nil {
+		if file, err := ctx.GetUploadedFile(name); err == nil {
+			return ReadFile(file.Path)
+		}
+	}
+	return ctx.File(name)
+}
+
+// getByType retrieves a value from a specific storage type.
+func (ctx *ExecutionContext) getByType(name, storageType string) (interface{}, error) {
+	kdeps_debug.Log("enter: getByType")
+	if handler, ok := storageTypeHandlers()[storageType]; ok {
+		return handler(ctx, name)
+	}
+	return nil, fmt.Errorf("unknown storage type: %s", storageType)
+}
+
+// uploadedFileField returns a single attribute of an uploaded file by name.
+func (ctx *ExecutionContext) uploadedFileField(name string, field func(*FileUpload) interface{}) (interface{}, error) {
+	if ctx.Request != nil {
+		if file, err := ctx.GetUploadedFile(name); err == nil {
+			return field(file), nil
+		}
+	}
+	return nil, fmt.Errorf("uploaded file '%s' not found", name)
+}
 
 // getMemory retrieves a value from Memory storage.
 func (ctx *ExecutionContext) getMemory(name string) (interface{}, error) {

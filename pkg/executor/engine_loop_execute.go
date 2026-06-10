@@ -61,6 +61,8 @@ func (e *Engine) ExecuteWithLoop(
 		return nil, schedErr
 	}
 
+	defer clearLoopContext(ctx)
+
 	var lastResult interface{}
 	results := make([]interface{}, 0)
 
@@ -83,10 +85,6 @@ func (e *Engine) ExecuteWithLoop(
 			env := e.buildEvaluationEnvironment(ctx)
 			cont, err := e.evaluator.EvaluateCondition(whileExpr, env)
 			if err != nil {
-				// Clean up loop context before returning.
-				delete(ctx.Items, loopKeyIndex)
-				delete(ctx.Items, loopKeyCount)
-				delete(ctx.Items, loopKeyResults)
 				return nil, fmt.Errorf("loop while condition evaluation failed: %w", err)
 			}
 			if !cont {
@@ -97,20 +95,12 @@ func (e *Engine) ExecuteWithLoop(
 		// Execute the resource body for this iteration.
 		result, execErr := e.ExecuteResource(resource, ctx)
 		if execErr != nil {
-			delete(ctx.Items, loopKeyIndex)
-			delete(ctx.Items, loopKeyCount)
-			delete(ctx.Items, loopKeyResults)
 			return nil, fmt.Errorf("loop iteration %d failed: %w", i, execErr)
 		}
 
 		lastResult = result
 		results = append(results, result)
 	}
-
-	// Clean up loop context.
-	delete(ctx.Items, loopKeyIndex)
-	delete(ctx.Items, loopKeyCount)
-	delete(ctx.Items, loopKeyResults)
 
 	// Return the collected results from all iterations.
 	// When apiResponse is present, each iteration produces an apiResponse map;
@@ -123,4 +113,14 @@ func (e *Engine) ExecuteWithLoop(
 		return lastResult, nil
 	}
 	return results, nil
+}
+
+// clearLoopContext removes loop iteration variables from the items context.
+func clearLoopContext(ctx *ExecutionContext) {
+	if ctx == nil {
+		return
+	}
+	delete(ctx.Items, loopKeyIndex)
+	delete(ctx.Items, loopKeyCount)
+	delete(ctx.Items, loopKeyResults)
 }

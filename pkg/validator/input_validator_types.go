@@ -114,38 +114,37 @@ func validateDateType(value interface{}) error {
 	return errors.New("invalid date format (expected RFC3339 or YYYY-MM-DD)")
 }
 
+// requireGoType returns a validator asserting the value's underlying Go type.
+func requireGoType[T any](name string) func(interface{}) error {
+	return func(value interface{}) error {
+		if _, ok := value.(T); !ok {
+			return fmt.Errorf("expected %s, got %T", name, value)
+		}
+		return nil
+	}
+}
+
+// fieldTypeValidators maps each schema field type to its validation func.
+//
+//nolint:gochecknoglobals // dispatch table
+var fieldTypeValidators = map[domain.FieldType]func(interface{}) error{
+	domain.FieldTypeString:  requireGoType[string]("string"),
+	domain.FieldTypeInteger: validateIntegerType,
+	domain.FieldTypeNumber:  validateNumberType,
+	domain.FieldTypeBoolean: requireGoType[bool]("boolean"),
+	domain.FieldTypeArray:   requireGoType[[]interface{}]("array"),
+	domain.FieldTypeObject:  requireGoType[map[string]interface{}]("object"),
+	domain.FieldTypeEmail:   validateEmailType,
+	domain.FieldTypeURL:     validateURLType,
+	domain.FieldTypeUUID:    validateUUIDType,
+	domain.FieldTypeDate:    validateDateType,
+}
+
 // ValidateType checks if value matches expected type.
 func (v *InputValidator) ValidateType(fieldType domain.FieldType, value interface{}) error {
 	kdeps_debug.Log("enter: ValidateType")
-	switch fieldType {
-	case domain.FieldTypeString:
-		if _, ok := value.(string); !ok {
-			return fmt.Errorf("expected string, got %T", value)
-		}
-	case domain.FieldTypeInteger:
-		return validateIntegerType(value)
-	case domain.FieldTypeNumber:
-		return validateNumberType(value)
-	case domain.FieldTypeBoolean:
-		if _, ok := value.(bool); !ok {
-			return fmt.Errorf("expected boolean, got %T", value)
-		}
-	case domain.FieldTypeArray:
-		if _, ok := value.([]interface{}); !ok {
-			return fmt.Errorf("expected array, got %T", value)
-		}
-	case domain.FieldTypeObject:
-		if _, ok := value.(map[string]interface{}); !ok {
-			return fmt.Errorf("expected object, got %T", value)
-		}
-	case domain.FieldTypeEmail:
-		return validateEmailType(value)
-	case domain.FieldTypeURL:
-		return validateURLType(value)
-	case domain.FieldTypeUUID:
-		return validateUUIDType(value)
-	case domain.FieldTypeDate:
-		return validateDateType(value)
+	if validate, ok := fieldTypeValidators[fieldType]; ok {
+		return validate(value)
 	}
 	return nil
 }
