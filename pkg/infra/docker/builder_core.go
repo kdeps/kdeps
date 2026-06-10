@@ -74,12 +74,6 @@ const (
 	DefaultFilePermissions = 0644
 )
 
-// NewBuilder creates a new Docker builder with default OS (alpine).
-func NewBuilder() (*Builder, error) {
-	kdeps_debug.Log("enter: NewBuilder")
-	return NewBuilderWithOS(baseOSAlpine)
-}
-
 // NewBuilderWithOS creates a new Docker builder with specified base OS.
 func NewBuilderWithOS(baseOS string) (*Builder, error) {
 	kdeps_debug.Log("enter: NewBuilderWithOS")

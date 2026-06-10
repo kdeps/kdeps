@@ -21,14 +21,8 @@
 package docker
 
 import (
-	"archive/tar"
 	"encoding/json"
 	"fmt"
-	"io"
-	"os"
-	"path/filepath"
-
-	"github.com/docker/go-connections/nat"
 )
 
 type buildResponseLine struct {
@@ -55,49 +49,6 @@ func buildErrorFromResponse(buildResp buildResponseLine) error {
 	}
 	if buildResp.ErrorDetail.Message != "" {
 		return fmt.Errorf("docker build failed: %s", buildResp.ErrorDetail.Message)
-	}
-	return nil
-}
-
-// makePortBindings converts string port mappings to Docker nat.PortMap values.
-func makePortBindings(bindings map[string]string) nat.PortMap {
-	portBindings := make(nat.PortMap, len(bindings))
-	for port, hostPort := range bindings {
-		portBindings[nat.Port(port)] = []nat.PortBinding{{HostPort: hostPort}}
-	}
-	return portBindings
-}
-
-// writeReaderToFile copies reader contents to dstPath.
-func writeReaderToFile(dstPath string, reader io.Reader) error {
-	outFile, err := os.Create(dstPath)
-	if err != nil {
-		return fmt.Errorf("failed to create output file: %w", err)
-	}
-	defer func() {
-		_ = outFile.Close()
-	}()
-
-	_, err = io.Copy(outFile, reader)
-	return err
-}
-
-// extractTarEntryToFile writes the current tar entry from reader to dstPath.
-func extractTarEntryToFile(tarReader *tar.Reader, dstPath string, maxBytes int64) error {
-	if mkdirErr := os.MkdirAll(filepath.Dir(dstPath), 0750); mkdirErr != nil {
-		return fmt.Errorf("failed to create output directory: %w", mkdirErr)
-	}
-
-	outFile, err := os.Create(dstPath)
-	if err != nil {
-		return fmt.Errorf("failed to create output file: %w", err)
-	}
-	defer func() {
-		_ = outFile.Close()
-	}()
-
-	if _, copyErr := io.Copy(outFile, io.LimitReader(tarReader, maxBytes)); copyErr != nil {
-		return fmt.Errorf("failed to write file: %w", copyErr)
 	}
 	return nil
 }

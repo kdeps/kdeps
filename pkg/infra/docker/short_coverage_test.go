@@ -44,7 +44,7 @@ func TestNewClient_ShortMode_Success(t *testing.T) {
 func TestNewBuilder_ShortMode_Success(t *testing.T) {
 	mockDockerHost(t)
 
-	builder, err := dockerpkg.NewBuilder()
+	builder, err := dockerpkg.NewBuilderWithOS("alpine")
 	require.NoError(t, err)
 	require.NotNil(t, builder)
 	assert.Equal(t, "alpine", builder.BaseOS)
@@ -74,39 +74,4 @@ func TestClient_Close_ShortMode(t *testing.T) {
 
 	err := c.Close()
 	require.NoError(t, err)
-}
-
-func TestClient_RunContainer_Mock_ValidationErrors(t *testing.T) {
-	c := newMockDockerClient(t, func(_ *http.Request) (*http.Response, error) {
-		return jsonResponse(http.StatusNotFound, map[string]string{"message": "unexpected"}), nil
-	})
-
-	ctx := t.Context()
-	config := &dockerpkg.ContainerConfig{}
-
-	_, err := c.RunContainer(ctx, "test-image:latest", nil)
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "config cannot be nil")
-
-	_, err = c.RunContainer(ctx, "", config)
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "image name cannot be empty")
-}
-
-func TestClient_RunContainer_Mock_CreateError(t *testing.T) {
-	c := newMockDockerClient(t, func(r *http.Request) (*http.Response, error) {
-		if strings.Contains(r.URL.Path, "/containers/create") {
-			return jsonResponse(http.StatusInternalServerError, map[string]string{"message": "create failed"}), nil
-		}
-		return jsonResponse(http.StatusNotFound, map[string]string{"message": "unexpected"}), nil
-	})
-
-	ctx := t.Context()
-	config := &dockerpkg.ContainerConfig{
-		PortBindings: map[string]string{"8080": "8080"},
-	}
-
-	_, err := c.RunContainer(ctx, "test-image:latest", config)
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "create container")
 }

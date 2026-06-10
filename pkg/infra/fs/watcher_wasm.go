@@ -30,12 +30,6 @@ import (
 // Watcher is a no-op stub for WASM builds (no filesystem watching).
 type Watcher struct{}
 
-// NewWatcher creates a no-op file watcher for WASM.
-func NewWatcher() (*Watcher, error) {
-	kdeps_debug.Log("enter: NewWatcher")
-	return newWasmWatcher(), nil
-}
-
 // NewWatcherWithLogger creates a no-op file watcher for WASM.
 func NewWatcherWithLogger(_ *slog.Logger) (*Watcher, error) {
 	kdeps_debug.Log("enter: NewWatcherWithLogger")

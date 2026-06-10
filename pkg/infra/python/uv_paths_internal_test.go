@@ -66,32 +66,6 @@ func TestUvVenvEnv_IncludesPythonDir(t *testing.T) {
 	assert.True(t, found)
 }
 
-func withIOToolsBaseDir(t *testing.T, base string) {
-	t.Helper()
-	orig := userCacheDirFunc
-	t.Cleanup(func() { userCacheDirFunc = orig })
-	userCacheDirFunc = func() (string, error) { return base, nil }
-}
-
-func TestIOToolPythonBin_ExistsInTempBase(t *testing.T) {
-	withIOToolsBaseDir(t, t.TempDir())
-	toolName := "whisper-test"
-	binPath := filepath.Join(IOToolVenvPath(toolName), "bin", "python")
-	require.NoError(t, os.MkdirAll(filepath.Dir(binPath), 0755))
-	require.NoError(t, os.WriteFile(binPath, []byte("x"), 0755))
-	assert.Equal(t, binPath, IOToolPythonBin(toolName))
-}
-
-func TestIOToolBin_ExistsInTempBase(t *testing.T) {
-	withIOToolsBaseDir(t, t.TempDir())
-	toolName := "whisper-test"
-	binName := "whisper-cli"
-	binPath := filepath.Join(IOToolVenvPath(toolName), "bin", binName)
-	require.NoError(t, os.MkdirAll(filepath.Dir(binPath), 0755))
-	require.NoError(t, os.WriteFile(binPath, []byte("x"), 0755))
-	assert.Equal(t, binPath, IOToolBin(toolName, binName))
-}
-
 func TestRunUVFunc_NilEnv(t *testing.T) {
 	orig := runUVFunc
 	t.Cleanup(func() { runUVFunc = orig })

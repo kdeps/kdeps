@@ -39,7 +39,7 @@ func TestNewBuilder(t *testing.T) {
 		t.Skip("Skipping Docker test in short mode")
 	}
 
-	builder, err := docker.NewBuilder()
+	builder, err := docker.NewBuilderWithOS("alpine")
 	// May fail if Docker is not available, but should not panic
 	if err != nil {
 		t.Logf("Expected error due to Docker not being available: %v", err)
@@ -351,67 +351,6 @@ func TestClient_BuildImage(t *testing.T) {
 	}
 }
 
-func TestClient_RunContainer(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping Docker test in short mode")
-	}
-
-	client, err := docker.NewClient()
-	if err != nil {
-		t.Skip("Docker not available for testing")
-	}
-
-	ctx := t.Context()
-	config := &docker.ContainerConfig{
-		PortBindings: map[string]string{"16395": "16395"},
-	}
-
-	containerID, err := client.RunContainer(ctx, "test-image:latest", config)
-	// Will likely fail since test-image doesn't exist
-	if err != nil {
-		t.Logf("Expected error: %v", err)
-		assert.Empty(t, containerID)
-	}
-}
-
-func TestClient_StopContainer(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping Docker test in short mode")
-	}
-
-	client, err := docker.NewClient()
-	if err != nil {
-		t.Skip("Docker not available for testing")
-	}
-
-	ctx := t.Context()
-
-	err = client.StopContainer(ctx, "nonexistent-container")
-	// Will fail since container doesn't exist
-	if err != nil {
-		t.Logf("Expected error: %v", err)
-	}
-}
-
-func TestClient_RemoveContainer(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping Docker test in short mode")
-	}
-
-	client, err := docker.NewClient()
-	if err != nil {
-		t.Skip("Docker not available for testing")
-	}
-
-	ctx := t.Context()
-
-	err = client.RemoveContainer(ctx, "nonexistent-container")
-	// Will fail since container doesn't exist
-	if err != nil {
-		t.Logf("Expected error: %v", err)
-	}
-}
-
 func TestClient_Close(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping Docker test in short mode")
@@ -432,7 +371,7 @@ func TestBuilder_Build(t *testing.T) {
 		t.Skip("Skipping Docker test in short mode")
 	}
 
-	builder, err := docker.NewBuilder()
+	builder, err := docker.NewBuilderWithOS("alpine")
 	if err != nil {
 		t.Skip("Docker not available for testing")
 	}
@@ -976,7 +915,7 @@ func TestBuilder_Build_SuccessCase(t *testing.T) {
 		t.Skip("Skipping Docker test in short mode")
 	}
 
-	builder, _ := docker.NewBuilder()
+	builder, _ := docker.NewBuilderWithOS("alpine")
 	if builder == nil {
 		builder = &docker.Builder{BaseOS: "alpine", Client: &docker.Client{}}
 	}
@@ -1011,30 +950,6 @@ func TestBuilder_Build_SuccessCase(t *testing.T) {
 		assert.NotContains(t, err.Error(), "invalid base OS")
 		assert.NotContains(t, err.Error(), "workflow name cannot be empty")
 	}
-}
-
-func TestClient_RunContainer_ErrorCases(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping Docker test in short mode")
-	}
-
-	client, err := docker.NewClient()
-	if err != nil {
-		t.Skip("Docker not available for testing")
-	}
-
-	ctx := t.Context()
-
-	// Test with nil config
-	_, err = client.RunContainer(ctx, "test-image:latest", nil)
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "config cannot be nil")
-
-	// Test with empty image name
-	config := &docker.ContainerConfig{}
-	_, err = client.RunContainer(ctx, "", config)
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "image name cannot be empty")
 }
 
 func TestClient_BuildImage_ErrorCases(t *testing.T) {
@@ -1480,7 +1395,7 @@ func TestBuilder_Build_DockerClientFailure(t *testing.T) {
 
 	// Test Build method when Docker client creation fails
 	// This tests the error handling in NewBuilder
-	_, err := docker.NewBuilder()
+	_, err := docker.NewBuilderWithOS("alpine")
 	if err != nil {
 		// If Docker is not available, NewBuilder will fail
 		t.Skip("Docker not available for testing")
@@ -2010,39 +1925,6 @@ func TestSupervisord_FallbackNoPrepackagedBinary(t *testing.T) {
 
 	require.NotEmpty(t, supervisordContent)
 	assert.Contains(t, supervisordContent, "run /app/workflow.yaml")
-}
-
-// TestClient_CreateContainerNoStart_Validation tests the validation path that does
-// not require a live Docker daemon.
-func TestClient_CreateContainerNoStart_Validation(t *testing.T) {
-	// We construct a Client with a nil Cli intentionally to test only the early
-	// validation branch (empty imageName → error before Cli is touched).
-	c := &docker.Client{}
-	ctx := t.Context()
-
-	_, err := c.CreateContainerNoStart(ctx, "")
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "image name cannot be empty")
-}
-
-// TestClient_SaveImage_Validation tests the validation path without Docker.
-func TestClient_SaveImage_Validation(t *testing.T) {
-	c := &docker.Client{}
-	ctx := t.Context()
-
-	err := c.SaveImage(ctx, "", "/tmp/out.tar")
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "image name cannot be empty")
-}
-
-// TestClient_RemoveImage_Validation tests the validation path without Docker.
-func TestClient_RemoveImage_Validation(t *testing.T) {
-	c := &docker.Client{}
-	ctx := t.Context()
-
-	err := c.RemoveImage(ctx, "")
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "image name cannot be empty")
 }
 
 // TestClient_ImageSize_Validation tests the validation path without Docker.

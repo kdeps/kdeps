@@ -55,12 +55,6 @@ func defaultWatcherLogger() *slog.Logger {
 	return slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{}))
 }
 
-// NewWatcher creates a new file watcher.
-func NewWatcher() (*Watcher, error) {
-	kdeps_debug.Log("enter: NewWatcher")
-	return NewWatcherWithLogger(nil)
-}
-
 // NewWatcherWithLogger creates a new file watcher with a logger.
 func NewWatcherWithLogger(logger *slog.Logger) (*Watcher, error) {
 	kdeps_debug.Log("enter: NewWatcherWithLogger")
