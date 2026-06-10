@@ -112,22 +112,21 @@ func tryRemoveGlobalComponent(cmd *cobra.Command, name string) (bool, error) {
 
 // removeInstalledPath removes a directory and reports success to the user.
 func removeInstalledPath(cmd *cobra.Command, name, path, kind string) (bool, error) {
-	if _, statErr := os.Stat(path); os.IsNotExist(statErr) {
-		return false, nil
-	}
-	if removeErr := os.RemoveAll(path); removeErr != nil {
-		return false, fmt.Errorf("remove %s %q: %w", kind, name, removeErr)
-	}
-	fmt.Fprintf(cmd.OutOrStdout(), "✓ Uninstalled %s %q from %s\n", kind, name, path)
-	return true, nil
+	return removeInstalled(cmd, name, path, kind, os.RemoveAll)
 }
 
 // removeInstalledFile removes a single file and reports success to the user.
 func removeInstalledFile(cmd *cobra.Command, name, path, kind string) (bool, error) {
+	return removeInstalled(cmd, name, path, kind, os.Remove)
+}
+
+// removeInstalled removes an installed path with the given remove func and
+// reports success to the user.
+func removeInstalled(cmd *cobra.Command, name, path, kind string, remove func(string) error) (bool, error) {
 	if _, statErr := os.Stat(path); os.IsNotExist(statErr) {
 		return false, nil
 	}
-	if removeErr := os.Remove(path); removeErr != nil {
+	if removeErr := remove(path); removeErr != nil {
 		return false, fmt.Errorf("remove %s %q: %w", kind, name, removeErr)
 	}
 	fmt.Fprintf(cmd.OutOrStdout(), "✓ Uninstalled %s %q from %s\n", kind, name, path)

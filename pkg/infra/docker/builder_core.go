@@ -82,13 +82,7 @@ func NewBuilderWithOS(baseOS string) (*Builder, error) {
 		return nil, err
 	}
 
-	// Validate baseOS (alpine, ubuntu, and debian supported)
-	validOS := map[string]bool{
-		baseOSAlpine: true,
-		baseOSUbuntu: true,
-		baseOSDebian: true,
-	}
-	if !validOS[baseOS] {
+	if !isValidBaseOS(baseOS) {
 		return nil, fmt.Errorf("invalid base OS: %s (supported: alpine, ubuntu, debian)", baseOS)
 	}
 
@@ -111,12 +105,7 @@ func (b *Builder) Build(workflow *domain.Workflow, _ string, noCache bool) (stri
 	}
 
 	// Validate base OS
-	validOS := map[string]bool{
-		baseOSAlpine: true,
-		baseOSUbuntu: true,
-		baseOSDebian: true,
-	}
-	if b.BaseOS != "" && !validOS[b.BaseOS] {
+	if b.BaseOS != "" && !isValidBaseOS(b.BaseOS) {
 		return "", fmt.Errorf("invalid base OS: %s (supported: alpine, ubuntu, debian)", b.BaseOS)
 	}
 

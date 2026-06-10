@@ -36,30 +36,20 @@ func (ctx *ExecutionContext) GetUploadedFile(name string) (*FileUpload, error) {
 		return nil, errors.New("no uploaded files available")
 	}
 
-	// Handle array-style access: "file[0]", "file[1]", etc.
-	if strings.HasSuffix(name, "]") {
-		openBracket := strings.LastIndex(name, "[")
-		if openBracket > 0 {
-			indexStr := name[openBracket+1 : len(name)-1]
-			if index, err := strconv.Atoi(indexStr); err == nil && index >= 0 &&
-				index < len(ctx.Request.Files) {
-				return &ctx.Request.Files[index], nil
-			}
-		}
+	if file := ctx.uploadedFileByIndex(name); file != nil {
+		return file, nil
 	}
 
 	// Try form field name first (e.g., get('cv', 'filepath') when form field is 'cv')
-	for i, file := range ctx.Request.Files {
-		if file.FieldName != "" && file.FieldName == name {
-			return &ctx.Request.Files[i], nil
-		}
+	if file := ctx.uploadedFileMatching(func(f *FileUpload) bool {
+		return f.FieldName != "" && f.FieldName == name
+	}); file != nil {
+		return file, nil
 	}
 
 	// Try exact filename match (e.g., get('resume.pdf', 'filepath'))
-	for i, file := range ctx.Request.Files {
-		if file.Name == name {
-			return &ctx.Request.Files[i], nil
-		}
+	if file := ctx.uploadedFileMatching(func(f *FileUpload) bool { return f.Name == name }); file != nil {
+		return file, nil
 	}
 
 	// Handle common form field names that should return first file
@@ -69,4 +59,31 @@ func (ctx *ExecutionContext) GetUploadedFile(name string) (*FileUpload, error) {
 	}
 
 	return nil, fmt.Errorf("uploaded file '%s' not found", name)
+}
+
+// uploadedFileMatching returns the first uploaded file satisfying match.
+func (ctx *ExecutionContext) uploadedFileMatching(match func(*FileUpload) bool) *FileUpload {
+	for i := range ctx.Request.Files {
+		if match(&ctx.Request.Files[i]) {
+			return &ctx.Request.Files[i]
+		}
+	}
+	return nil
+}
+
+// uploadedFileByIndex resolves array-style access ("file[0]", "file[1]", ...)
+// and returns nil when name is not a valid in-range index expression.
+func (ctx *ExecutionContext) uploadedFileByIndex(name string) *FileUpload {
+	if !strings.HasSuffix(name, "]") {
+		return nil
+	}
+	openBracket := strings.LastIndex(name, "[")
+	if openBracket <= 0 {
+		return nil
+	}
+	index, err := strconv.Atoi(name[openBracket+1 : len(name)-1])
+	if err != nil || index < 0 || index >= len(ctx.Request.Files) {
+		return nil
+	}
+	return &ctx.Request.Files[index]
 }

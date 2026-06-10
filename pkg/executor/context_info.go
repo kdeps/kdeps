@@ -24,81 +24,93 @@ import (
 	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
 )
 
+type infoFieldHandler func(*ExecutionContext) (interface{}, error)
+
+// infoFieldHandlers is the single source of truth for metadata field names:
+// Info dispatches through it and IsMetadataField checks key membership.
+//
+//nolint:gochecknoglobals // dispatch table
+var infoFieldHandlers = map[string]infoFieldHandler{
+	// Shorthand "method"/"path" return empty string when there is no request
+	// (for Get() compatibility); "request.method"/"request.path" error instead.
+	"method":               infoShorthandMethod,
+	"path":                 infoShorthandPath,
+	"request.method":       (*ExecutionContext).getRequestMethod,
+	"request.path":         (*ExecutionContext).getRequestPath,
+	"filecount":            (*ExecutionContext).getFileCount,
+	"files":                (*ExecutionContext).getFiles,
+	"filenames":            infoFileNames,
+	"filetypes":            infoFileTypes,
+	"request.IP":           (*ExecutionContext).GetRequestIP,
+	"IP":                   (*ExecutionContext).GetRequestIP,
+	"request.ID":           (*ExecutionContext).GetRequestID,
+	"ID":                   (*ExecutionContext).GetRequestID,
+	"request_id":           (*ExecutionContext).GetRequestID,
+	itemKeyIndex:           infoItemField(itemKeyIndex),
+	itemKeyCount:           infoItemField(itemKeyCount),
+	itemKeyCurrent:         infoItemField(itemKeyCurrent),
+	itemKeyPrev:            infoItemField(itemKeyPrev),
+	itemKeyNext:            infoItemField(itemKeyNext),
+	"workflow.name":        infoWorkflowName,
+	"name":                 infoWorkflowName,
+	"workflow.version":     infoWorkflowVersion,
+	"version":              infoWorkflowVersion,
+	"workflow.description": infoWorkflowDescription,
+	"description":          infoWorkflowDescription,
+	"current_time":         (*ExecutionContext).getCurrentTime,
+	"timestamp":            (*ExecutionContext).getCurrentTime,
+	"session_id":           (*ExecutionContext).GetSessionID,
+	"sessionId":            (*ExecutionContext).GetSessionID,
+}
+
+func infoShorthandMethod(ctx *ExecutionContext) (interface{}, error) {
+	return infoRequestField(ctx, func(r *RequestContext) string { return r.Method }), nil
+}
+
+func infoShorthandPath(ctx *ExecutionContext) (interface{}, error) {
+	return infoRequestField(ctx, func(r *RequestContext) string { return r.Path }), nil
+}
+
+func infoRequestField(ctx *ExecutionContext, field func(*RequestContext) string) string {
+	if ctx.Request != nil {
+		return field(ctx.Request)
+	}
+	return ""
+}
+
+func infoFileNames(ctx *ExecutionContext) (interface{}, error) { return ctx.GetAllFileNames() }
+
+func infoFileTypes(ctx *ExecutionContext) (interface{}, error) { return ctx.GetAllFileTypes() }
+
+func infoItemField(key string) infoFieldHandler {
+	return func(ctx *ExecutionContext) (interface{}, error) {
+		return ctx.getItemFromContext(key)
+	}
+}
+
+func infoWorkflowName(ctx *ExecutionContext) (interface{}, error) {
+	return ctx.Workflow.Metadata.Name, nil
+}
+
+func infoWorkflowVersion(ctx *ExecutionContext) (interface{}, error) {
+	return ctx.Workflow.Metadata.Version, nil
+}
+
+func infoWorkflowDescription(ctx *ExecutionContext) (interface{}, error) {
+	return ctx.Workflow.Metadata.Description, nil
+}
+
 func (ctx *ExecutionContext) Info(field string) (interface{}, error) {
 	kdeps_debug.Log("enter: Info")
-	// Handle shorthand metadata names
-	switch field {
-	case "method":
-		// Shorthand "method" returns empty string if no request (for Get() compatibility)
-		if ctx.Request != nil {
-			return ctx.Request.Method, nil
-		}
-		return "", nil
-	case "request.method":
-		// Explicit "request.method" returns error if no request
-		return ctx.getRequestMethod()
-	case "path":
-		// Shorthand "path" returns empty string if no request (for Get() compatibility)
-		if ctx.Request != nil {
-			return ctx.Request.Path, nil
-		}
-		return "", nil
-	case "request.path":
-		// Explicit "request.path" returns error if no request
-		return ctx.getRequestPath()
-	case "filecount":
-		return ctx.getFileCount()
-	case "files":
-		return ctx.getFiles()
-	case "filenames":
-		return ctx.GetAllFileNames()
-	case "filetypes":
-		return ctx.GetAllFileTypes()
-	case "request.IP", "IP":
-		return ctx.GetRequestIP()
-	case "request.ID", "ID", "request_id":
-		return ctx.GetRequestID()
-	case itemKeyIndex:
-		return ctx.getItemFromContext(itemKeyIndex)
-	case itemKeyCount:
-		return ctx.getItemFromContext(itemKeyCount)
-	case itemKeyCurrent:
-		return ctx.getItemFromContext(itemKeyCurrent)
-	case itemKeyPrev:
-		return ctx.getItemFromContext(itemKeyPrev)
-	case itemKeyNext:
-		return ctx.getItemFromContext(itemKeyNext)
-	case "workflow.name", "name":
-		return ctx.Workflow.Metadata.Name, nil
-	case "workflow.version", "version":
-		return ctx.Workflow.Metadata.Version, nil
-	case "workflow.description", "description":
-		return ctx.Workflow.Metadata.Description, nil
-	case "current_time", "timestamp":
-		return ctx.getCurrentTime()
-	case "session_id", "sessionId":
-		return ctx.GetSessionID()
-	default:
-		return nil, fmt.Errorf("unknown info field: %s", field)
+	if handler, ok := infoFieldHandlers[field]; ok {
+		return handler(ctx)
 	}
+	return nil, fmt.Errorf("unknown info field: %s", field)
 }
 
 // IsMetadataField checks if a name is a metadata field (exported for testing).
 func (ctx *ExecutionContext) IsMetadataField(name string) bool {
 	kdeps_debug.Log("enter: IsMetadataField")
-	metadataFields := []string{
-		"method", "path", "filecount", "files", itemKeyIndex, itemKeyCount,
-		itemKeyCurrent, itemKeyPrev, itemKeyNext, "current_time", "timestamp",
-		"workflow.name", "workflow.version", "workflow.description",
-		"name", "version", "description",
-		"request.method", "request.path", "request.IP", "request.ID",
-		"IP", "ID", "request_id", "session_id", "sessionId",
-		"filenames", "filetypes",
-	}
-	for _, field := range metadataFields {
-		if name == field {
-			return true
-		}
-	}
-	return false
+	_, ok := infoFieldHandlers[name]
+	return ok
 }

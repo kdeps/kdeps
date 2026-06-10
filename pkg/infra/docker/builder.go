@@ -46,6 +46,16 @@ const (
 	bytesPerMB = 1024 * 1024
 )
 
+// isValidBaseOS reports whether os is a supported container base operating system.
+func isValidBaseOS(os string) bool {
+	switch os {
+	case baseOSAlpine, baseOSUbuntu, baseOSDebian:
+		return true
+	default:
+		return false
+	}
+}
+
 //go:embed templates/alpine.Dockerfile.tmpl
 var alpineTemplate string
 

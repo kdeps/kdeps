@@ -24,6 +24,19 @@ import (
 	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
 )
 
+// itemKeyAliases maps accepted item type spellings to their canonical keys.
+//
+//nolint:gochecknoglobals // alias lookup table
+var itemKeyAliases = map[string]string{
+	storageTypeItem: itemKeyCurrent,
+	"previous":      itemKeyPrev,
+	"i":             itemKeyIndex,
+	"total":         itemKeyCount,
+	"length":        itemKeyCount,
+	itemKeyAll:      itemKeyItems,
+	"list":          itemKeyItems,
+}
+
 // Item retrieves items iteration context.
 // Syntax: Item() or Item("current"|"prev"|"next"|"index"|"count"|"all"|"items")
 // - "current" or no argument: returns current item
@@ -43,21 +56,9 @@ func (ctx *ExecutionContext) Item(itemType ...string) (interface{}, error) {
 		itemKey = itemType[0]
 	}
 
-	// Map common aliases
-	switch itemKey {
-	case itemKeyCurrent, storageTypeItem:
-		itemKey = itemKeyCurrent
-	case "previous", itemKeyPrev:
-		itemKey = itemKeyPrev
-	case itemKeyNext:
-		itemKey = itemKeyNext
-	case itemKeyIndex, "i":
-		itemKey = itemKeyIndex
-	case itemKeyCount, "total", "length":
-		itemKey = itemKeyCount
-	case itemKeyAll, itemKeyItems, "list":
-		// Return all items as an array
-		itemKey = itemKeyItems
+	// Map common aliases to canonical item keys
+	if canonical, ok := itemKeyAliases[itemKey]; ok {
+		itemKey = canonical
 	}
 
 	// Retrieve from items context
@@ -65,22 +66,10 @@ func (ctx *ExecutionContext) Item(itemType ...string) (interface{}, error) {
 		return val, nil
 	}
 
-	// Special handling for index and count - return 0 if not in iteration context
-	if itemKey == itemKeyIndex || itemKey == itemKeyCount {
-		return 0, nil
+	if defaultVal, ok := itemDefaultForMissing(itemKey); ok {
+		return defaultVal, nil
 	}
 
-	// Special handling for current item - return nil if not in iteration context
-	if itemKey == itemKeyCurrent {
-		return nil, nil //nolint:nilnil // intentional API design - current item returns nil when not in iteration context
-	}
-
-	// Special handling for items/all - return empty array if not in iteration context
-	if itemKey == itemKeyItems {
-		return []interface{}{}, nil
-	}
-
-	// For unknown item types, return an error
 	return nil, fmt.Errorf("unknown item type: %s", itemKey)
 }
 
@@ -95,4 +84,17 @@ func (ctx *ExecutionContext) GetItemValues(actionID string) (interface{}, error)
 	}
 
 	return []interface{}{}, nil
+}
+
+func itemDefaultForMissing(key string) (interface{}, bool) {
+	switch key {
+	case itemKeyIndex, itemKeyCount:
+		return 0, true
+	case itemKeyCurrent:
+		return nil, true
+	case itemKeyItems:
+		return []interface{}{}, true
+	default:
+		return nil, false
+	}
 }

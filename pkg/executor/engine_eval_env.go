@@ -61,25 +61,31 @@ func buildLLMAccessorEnv(ctx *ExecutionContext) map[string]interface{} {
 	}
 }
 
-// buildPythonAccessorEnv returns expression accessors for Python resource outputs.
-func buildPythonAccessorEnv(ctx *ExecutionContext) map[string]interface{} {
+type procOutputGetters struct {
+	stdout   func(string) (interface{}, error)
+	stderr   func(string) (interface{}, error)
+	exitCode func(string) (interface{}, error)
+}
+
+// buildProcOutputAccessorEnv returns stdout/stderr/exitCode accessors for process resources.
+func buildProcOutputAccessorEnv(getters procOutputGetters) map[string]interface{} {
 	return map[string]interface{}{
 		"stdout": func(actionID string) interface{} {
-			val, err := ctx.GetPythonStdout(actionID)
+			val, err := getters.stdout(actionID)
 			if err != nil {
 				return ""
 			}
 			return val
 		},
 		"stderr": func(actionID string) interface{} {
-			val, err := ctx.GetPythonStderr(actionID)
+			val, err := getters.stderr(actionID)
 			if err != nil {
 				return ""
 			}
 			return val
 		},
 		"exitCode": func(actionID string) interface{} {
-			val, err := ctx.GetPythonExitCode(actionID)
+			val, err := getters.exitCode(actionID)
 			if err != nil {
 				return 0
 			}
@@ -88,31 +94,22 @@ func buildPythonAccessorEnv(ctx *ExecutionContext) map[string]interface{} {
 	}
 }
 
+// buildPythonAccessorEnv returns expression accessors for Python resource outputs.
+func buildPythonAccessorEnv(ctx *ExecutionContext) map[string]interface{} {
+	return buildProcOutputAccessorEnv(procOutputGetters{
+		stdout:   ctx.GetPythonStdout,
+		stderr:   ctx.GetPythonStderr,
+		exitCode: ctx.GetPythonExitCode,
+	})
+}
+
 // buildExecAccessorEnv returns expression accessors for exec resource outputs.
 func buildExecAccessorEnv(ctx *ExecutionContext) map[string]interface{} {
-	return map[string]interface{}{
-		"stdout": func(actionID string) interface{} {
-			val, err := ctx.GetExecStdout(actionID)
-			if err != nil {
-				return ""
-			}
-			return val
-		},
-		"stderr": func(actionID string) interface{} {
-			val, err := ctx.GetExecStderr(actionID)
-			if err != nil {
-				return ""
-			}
-			return val
-		},
-		"exitCode": func(actionID string) interface{} {
-			val, err := ctx.GetExecExitCode(actionID)
-			if err != nil {
-				return 0
-			}
-			return val
-		},
-	}
+	return buildProcOutputAccessorEnv(procOutputGetters{
+		stdout:   ctx.GetExecStdout,
+		stderr:   ctx.GetExecStderr,
+		exitCode: ctx.GetExecExitCode,
+	})
 }
 
 // buildHTTPAccessorEnv returns expression accessors for HTTP resource outputs.
@@ -154,5 +151,3 @@ func (e *Engine) addInputEnv(env map[string]interface{}, ctx *ExecutionContext) 
 		env["input"] = map[string]interface{}{}
 	}
 }
-
-// addRequestEnv exposes request metadata and file/query/header accessors.

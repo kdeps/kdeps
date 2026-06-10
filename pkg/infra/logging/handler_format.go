@@ -153,7 +153,6 @@ func (h *PrettyHandler) formatValue(buf *strings.Builder, v slog.Value, indent s
 }
 
 // FormatAny formats any value type with pretty printing.
-// FormatAny formats any value for testing purposes.
 func (h *PrettyHandler) FormatAny(buf *strings.Builder, v interface{}, indent string) {
 	kdeps_debug.Log("enter: FormatAny")
 	switch val := v.(type) {

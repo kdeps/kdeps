@@ -95,19 +95,10 @@ func (e *Engine) handleItemsDispatch(
 
 // hasPrimaryResourceType reports whether the resource defines a primary execution block.
 func hasPrimaryResourceType(resource *domain.Resource) bool {
-	return resource.Chat != nil ||
-		resource.HTTPClient != nil ||
-		resource.SQL != nil ||
-		resource.Python != nil ||
-		resource.Exec != nil ||
-		resource.Agent != nil ||
-		resource.Component != nil ||
-		resource.Scraper != nil ||
-		resource.Embedding != nil ||
-		resource.SearchLocal != nil ||
-		resource.SearchWeb != nil ||
-		resource.Telephony != nil ||
-		resource.Browser != nil ||
-		resource.BotReply != nil ||
-		resource.Email != nil
+	for _, entry := range primaryResourceDispatch() {
+		if entry.present(resource) {
+			return true
+		}
+	}
+	return false
 }

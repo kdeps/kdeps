@@ -24,45 +24,47 @@ import (
 	"github.com/kdeps/kdeps/v2/pkg/domain"
 )
 
+type primaryDispatchEntry struct {
+	present func(*domain.Resource) bool
+	execute func(*Engine, *domain.Resource, *ExecutionContext) (interface{}, error)
+}
+
+// primaryResourceDispatch maps each primary execution block to its executor.
+// It is the single source of truth for dispatchPrimaryResource and
+// hasPrimaryResourceType; order determines dispatch precedence. It is a
+// function rather than a package var to avoid an initialization cycle with
+// the executor methods it references.
+func primaryResourceDispatch() []primaryDispatchEntry {
+	return []primaryDispatchEntry{
+		{func(r *domain.Resource) bool { return r.Chat != nil }, (*Engine).executeLLM},
+		{func(r *domain.Resource) bool { return r.HTTPClient != nil }, (*Engine).executeHTTP},
+		{func(r *domain.Resource) bool { return r.SQL != nil }, (*Engine).executeSQL},
+		{func(r *domain.Resource) bool { return r.Python != nil }, (*Engine).executePython},
+		{func(r *domain.Resource) bool { return r.Exec != nil }, (*Engine).executeExec},
+		{func(r *domain.Resource) bool { return r.Agent != nil }, (*Engine).executeAgent},
+		{func(r *domain.Resource) bool { return r.Component != nil }, (*Engine).executeComponentCall},
+		{func(r *domain.Resource) bool { return r.Scraper != nil }, (*Engine).executeScraper},
+		{func(r *domain.Resource) bool { return r.Embedding != nil }, (*Engine).executeEmbedding},
+		{func(r *domain.Resource) bool { return r.SearchLocal != nil }, (*Engine).executeSearchLocal},
+		{func(r *domain.Resource) bool { return r.SearchWeb != nil }, (*Engine).executeSearchWeb},
+		{func(r *domain.Resource) bool { return r.Telephony != nil }, (*Engine).executeTelephony},
+		{func(r *domain.Resource) bool { return r.Browser != nil }, (*Engine).executeBrowser},
+		{func(r *domain.Resource) bool { return r.BotReply != nil }, (*Engine).executeBotReply},
+		{func(r *domain.Resource) bool { return r.Email != nil }, (*Engine).executeEmail},
+	}
+}
+
 // dispatchPrimaryResource runs the primary execution block for a resource.
 func (e *Engine) dispatchPrimaryResource(
 	resource *domain.Resource,
 	ctx *ExecutionContext,
 ) (interface{}, error) {
-	switch {
-	case resource.Chat != nil:
-		return e.executeLLM(resource, ctx)
-	case resource.HTTPClient != nil:
-		return e.executeHTTP(resource, ctx)
-	case resource.SQL != nil:
-		return e.executeSQL(resource, ctx)
-	case resource.Python != nil:
-		return e.executePython(resource, ctx)
-	case resource.Exec != nil:
-		return e.executeExec(resource, ctx)
-	case resource.Agent != nil:
-		return e.executeAgent(resource, ctx)
-	case resource.Component != nil:
-		return e.executeComponentCall(resource, ctx)
-	case resource.Scraper != nil:
-		return e.executeScraper(resource, ctx)
-	case resource.Embedding != nil:
-		return e.executeEmbedding(resource, ctx)
-	case resource.SearchLocal != nil:
-		return e.executeSearchLocal(resource, ctx)
-	case resource.SearchWeb != nil:
-		return e.executeSearchWeb(resource, ctx)
-	case resource.Telephony != nil:
-		return e.executeTelephony(resource, ctx)
-	case resource.Browser != nil:
-		return e.executeBrowser(resource, ctx)
-	case resource.BotReply != nil:
-		return e.executeBotReply(resource, ctx)
-	case resource.Email != nil:
-		return e.executeEmail(resource, ctx)
-	default:
-		return nil, fmt.Errorf("unknown primary resource type for %s", resource.ActionID)
+	for _, entry := range primaryResourceDispatch() {
+		if entry.present(resource) {
+			return entry.execute(e, resource, ctx)
+		}
 	}
+	return nil, fmt.Errorf("unknown primary resource type for %s", resource.ActionID)
 }
 
 // finalizeResourceResult returns apiResponse, primary output, or expression-only status.
