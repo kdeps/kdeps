@@ -52,7 +52,7 @@ func TestWatcher_Watch_ResolvePathError(t *testing.T) {
 	}
 	defer func() { filepathAbs = orig }()
 
-	watcher, err := NewWatcher()
+	watcher, err := NewWatcherWithLogger(nil)
 	require.NoError(t, err)
 	defer watcher.Close()
 
@@ -62,7 +62,7 @@ func TestWatcher_Watch_ResolvePathError(t *testing.T) {
 }
 
 func TestWatcher_Watch_FsnotifyAddError(t *testing.T) {
-	watcher, err := NewWatcher()
+	watcher, err := NewWatcherWithLogger(nil)
 	require.NoError(t, err)
 
 	tmpDir := t.TempDir()

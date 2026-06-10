@@ -62,34 +62,6 @@ func IOToolsBaseDir() string {
 	return filepath.Join(os.TempDir(), "kdeps-io-venvs")
 }
 
-// IOToolVenvPath returns the full path to the venv for a named I/O tool.
-func IOToolVenvPath(toolName string) string {
-	kdeps_debug.Log("enter: IOToolVenvPath")
-	return filepath.Join(IOToolsBaseDir(), toolName)
-}
-
-// IOToolPythonBin returns the python executable path for an I/O tool venv.
-// Returns empty string when the venv does not exist yet.
-func IOToolPythonBin(toolName string) string {
-	kdeps_debug.Log("enter: IOToolPythonBin")
-	p := filepath.Join(IOToolVenvPath(toolName), "bin", "python")
-	if _, err := os.Stat(p); err == nil {
-		return p
-	}
-	return ""
-}
-
-// IOToolBin returns the path to a named binary inside an I/O tool venv.
-// Returns empty string when the binary does not exist.
-func IOToolBin(toolName, binName string) string {
-	kdeps_debug.Log("enter: IOToolBin")
-	p := filepath.Join(IOToolVenvPath(toolName), "bin", binName)
-	if _, err := os.Stat(p); err == nil {
-		return p
-	}
-	return ""
-}
-
 // NewManager creates a new uv manager.
 func NewManager(baseDir string) *Manager {
 	kdeps_debug.Log("enter: NewManager")

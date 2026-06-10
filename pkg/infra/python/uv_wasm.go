@@ -46,24 +46,6 @@ func IOToolsBaseDir() string {
 	return ""
 }
 
-// IOToolVenvPath returns an empty path in WASM.
-func IOToolVenvPath(_ string) string {
-	kdeps_debug.Log("enter: IOToolVenvPath")
-	return ""
-}
-
-// IOToolPythonBin returns an empty string in WASM (no Python available).
-func IOToolPythonBin(_ string) string {
-	kdeps_debug.Log("enter: IOToolPythonBin")
-	return ""
-}
-
-// IOToolBin returns an empty string in WASM (no local binaries available).
-func IOToolBin(_, _ string) string {
-	kdeps_debug.Log("enter: IOToolBin")
-	return ""
-}
-
 // NewManager returns a no-op Manager in WASM.
 func NewManager(_ string) *Manager {
 	kdeps_debug.Log("enter: NewManager")

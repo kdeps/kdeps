@@ -31,73 +31,9 @@ import (
 // StopContainer mock tests (only integration tests exist previously)
 // ---------------------------------------------------------------------------
 
-func TestClient_StopContainer_Mock_Success(t *testing.T) {
-	c := newMockDockerClient(t, func(r *http.Request) (*http.Response, error) {
-		if strings.Contains(r.URL.Path, "/containers/") && strings.Contains(r.URL.Path, "/stop") {
-			return &http.Response{
-				StatusCode: http.StatusNoContent,
-				Proto:      "HTTP/1.1",
-				ProtoMajor: 1,
-				ProtoMinor: 1,
-				Body:       http.NoBody,
-			}, nil
-		}
-		return jsonResponse(http.StatusNotFound, map[string]string{"message": "unexpected"}), nil
-	})
-
-	ctx := t.Context()
-	err := c.StopContainer(ctx, "test-container")
-	assert.NoError(t, err)
-}
-
-func TestClient_StopContainer_Mock_APIError(t *testing.T) {
-	c := newMockDockerClient(t, func(r *http.Request) (*http.Response, error) {
-		if strings.Contains(r.URL.Path, "/containers/") && strings.Contains(r.URL.Path, "/stop") {
-			return jsonResponse(http.StatusInternalServerError, map[string]string{"message": "stop error"}), nil
-		}
-		return jsonResponse(http.StatusNotFound, map[string]string{"message": "unexpected"}), nil
-	})
-
-	ctx := t.Context()
-	err := c.StopContainer(ctx, "test-container")
-	require.Error(t, err)
-}
-
 // ---------------------------------------------------------------------------
 // RemoveContainer mock tests (only integration tests exist previously)
 // ---------------------------------------------------------------------------
-
-func TestClient_RemoveContainer_Mock_Success(t *testing.T) {
-	c := newMockDockerClient(t, func(r *http.Request) (*http.Response, error) {
-		if strings.Contains(r.URL.Path, "/containers/") && r.Method == http.MethodDelete {
-			return &http.Response{
-				StatusCode: http.StatusNoContent,
-				Proto:      "HTTP/1.1",
-				ProtoMajor: 1,
-				ProtoMinor: 1,
-				Body:       http.NoBody,
-			}, nil
-		}
-		return jsonResponse(http.StatusNotFound, map[string]string{"message": "unexpected"}), nil
-	})
-
-	ctx := t.Context()
-	err := c.RemoveContainer(ctx, "test-container")
-	assert.NoError(t, err)
-}
-
-func TestClient_RemoveContainer_Mock_APIError(t *testing.T) {
-	c := newMockDockerClient(t, func(r *http.Request) (*http.Response, error) {
-		if strings.Contains(r.URL.Path, "/containers/") && r.Method == http.MethodDelete {
-			return jsonResponse(http.StatusInternalServerError, map[string]string{"message": "remove error"}), nil
-		}
-		return jsonResponse(http.StatusNotFound, map[string]string{"message": "unexpected"}), nil
-	})
-
-	ctx := t.Context()
-	err := c.RemoveContainer(ctx, "test-container")
-	require.Error(t, err)
-}
 
 // ---------------------------------------------------------------------------
 // TagImage mock tests (only integration tests exist previously)

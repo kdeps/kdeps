@@ -114,64 +114,6 @@ func TestIOToolsBaseDir(t *testing.T) {
 	assert.NotEmpty(t, dir)
 }
 
-func TestIOToolVenvPath(t *testing.T) {
-	p := python.IOToolVenvPath("whisper")
-	assert.NotEmpty(t, p)
-	assert.Contains(t, p, "whisper")
-}
-
-func TestIOToolPythonBin_NotExists(t *testing.T) {
-	// Tool "no-such-io-tool-xyz" doesn't have a venv, so should return "".
-	p := python.IOToolPythonBin("no-such-io-tool-xyz")
-	assert.Empty(t, p)
-}
-
-func TestIOToolBin_NotExists(t *testing.T) {
-	p := python.IOToolBin("no-such-io-tool-xyz", "python")
-	assert.Empty(t, p)
-}
-
-func TestIOToolPythonBin_Exists(t *testing.T) {
-	// Directly test the path logic: IOToolVenvPath + "bin/python"
-	toolName := "test-io-tool"
-	venvDir := python.IOToolVenvPath(toolName)
-	binDir := filepath.Join(venvDir, "bin")
-	binPath := filepath.Join(binDir, "python")
-
-	// If we can create the file, the function should return the path.
-	if err := os.MkdirAll(binDir, 0o755); err != nil {
-		t.Skipf("cannot create test directory: %v", err)
-	}
-	defer os.RemoveAll(venvDir)
-
-	if err := os.WriteFile(binPath, []byte("#!/bin/sh\n"), 0o755); err != nil {
-		t.Skipf("cannot create test binary: %v", err)
-	}
-
-	got := python.IOToolPythonBin(toolName)
-	assert.Equal(t, binPath, got)
-}
-
-func TestIOToolBin_Exists(t *testing.T) {
-	toolName := "test-io-tool-bin"
-	binName := "whisper-cli"
-	venvDir := python.IOToolVenvPath(toolName)
-	binDir := filepath.Join(venvDir, "bin")
-	binPath := filepath.Join(binDir, binName)
-
-	if err := os.MkdirAll(binDir, 0o755); err != nil {
-		t.Skipf("cannot create test directory: %v", err)
-	}
-	defer os.RemoveAll(venvDir)
-
-	if err := os.WriteFile(binPath, []byte("#!/bin/sh\n"), 0o755); err != nil {
-		t.Skipf("cannot create test binary: %v", err)
-	}
-
-	got := python.IOToolBin(toolName, binName)
-	assert.Equal(t, binPath, got)
-}
-
 // TestIOToolsBaseDir_UserCacheDirFallback verifies the fallback path in
 // IOToolsBaseDir when os.UserCacheDir() returns an error.
 func TestIOToolsBaseDir_UserCacheDirFallback(t *testing.T) {

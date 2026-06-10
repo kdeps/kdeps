@@ -28,49 +28,12 @@ import (
 	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
 
 	"github.com/docker/docker/api/types/filters"
-	"github.com/docker/docker/api/types/image"
 )
 
 // TagImage tags a Docker image.
 func (c *Client) TagImage(ctx context.Context, sourceImage, targetImage string) error {
 	kdeps_debug.Log("enter: TagImage")
 	return c.Cli.ImageTag(ctx, sourceImage, targetImage)
-}
-
-// SaveImage exports a Docker image to a tar file on disk.
-func (c *Client) SaveImage(ctx context.Context, imageName, destPath string) error {
-	kdeps_debug.Log("enter: SaveImage")
-	if imageName == "" {
-		return errors.New("image name cannot be empty")
-	}
-
-	reader, err := c.Cli.ImageSave(ctx, []string{imageName})
-	if err != nil {
-		return fmt.Errorf("failed to save image: %w", err)
-	}
-	defer func() {
-		_ = reader.Close()
-	}()
-
-	if writeErr := writeReaderToFile(destPath, reader); writeErr != nil {
-		return fmt.Errorf("failed to write image tar: %w", writeErr)
-	}
-	return nil
-}
-
-// RemoveImage removes a Docker image.
-func (c *Client) RemoveImage(ctx context.Context, imageName string) error {
-	kdeps_debug.Log("enter: RemoveImage")
-	if imageName == "" {
-		return errors.New("image name cannot be empty")
-	}
-
-	_, err := c.Cli.ImageRemove(ctx, imageName, image.RemoveOptions{Force: true})
-	if err != nil {
-		return fmt.Errorf("failed to remove image: %w", err)
-	}
-
-	return nil
 }
 
 // ImageSize returns the size of a Docker image in bytes.

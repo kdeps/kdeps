@@ -3369,6 +3369,7 @@ func TestExecutionContext_IsFilePattern_EdgeCases(t *testing.T) {
 		"regular_string",
 		"no_extension",
 		"workflow.name",
+		"archive.tar.gz",
 		"request.method",
 		"session_id",
 	}

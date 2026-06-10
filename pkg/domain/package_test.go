@@ -19,3 +19,24 @@
 //go:build !js
 
 package domain_test
+
+import (
+	"testing"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+
+	"github.com/kdeps/kdeps/v2/pkg/domain"
+)
+
+func TestParseKdepsPkgFromBytes_Valid(t *testing.T) {
+	pkg, err := domain.ParseKdepsPkgFromBytes([]byte("name: demo\nversion: 1.0.0\n"))
+	require.NoError(t, err)
+	assert.Equal(t, "demo", pkg.Name)
+	assert.Equal(t, "1.0.0", pkg.Version)
+}
+
+func TestParseKdepsPkgFromBytes_InvalidYAML(t *testing.T) {
+	_, err := domain.ParseKdepsPkgFromBytes([]byte("{{{not yaml"))
+	require.Error(t, err)
+}

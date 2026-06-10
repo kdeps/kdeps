@@ -386,8 +386,8 @@ func TestBuilder_Build_EmptyName(_ *testing.T) {
 func TestBuilder_Build_WorkflowBaseOSOverride(t *testing.T) {
 	mockClient := newMockDockerClient(t, func(r *http.Request) (*http.Response, error) {
 		if strings.Contains(r.URL.Path, "/build") {
-			return bytesResponse("application/x-ndjson",
-				[]byte(`{"stream":"Successfully built"}`+"\n")), nil
+			return bytesResponse(
+				[]byte(`{"stream":"Successfully built"}` + "\n")), nil
 		}
 		if strings.Contains(r.URL.Path, "/images/prune") {
 			return jsonResponse(http.StatusOK, map[string]any{"SpaceReclaimed": uint64(0)}), nil
@@ -426,8 +426,8 @@ func TestBuilder_Build_WorkflowBaseOSOverride(t *testing.T) {
 func TestBuilder_Build_PruneSuccessWithSpace(t *testing.T) {
 	mockClient := newMockDockerClient(t, func(r *http.Request) (*http.Response, error) {
 		if strings.Contains(r.URL.Path, "/build") {
-			return bytesResponse("application/x-ndjson",
-				[]byte(`{"stream":"Successfully built"}`+"\n")), nil
+			return bytesResponse(
+				[]byte(`{"stream":"Successfully built"}` + "\n")), nil
 		}
 		if strings.Contains(r.URL.Path, "/images/prune") {
 			return jsonResponse(http.StatusOK, map[string]any{"SpaceReclaimed": uint64(5242880)}), nil
@@ -464,8 +464,8 @@ func TestBuilder_Build_PruneSuccessWithSpace(t *testing.T) {
 func TestBuilder_Build_PruneError(t *testing.T) {
 	mockClient := newMockDockerClient(t, func(r *http.Request) (*http.Response, error) {
 		if strings.Contains(r.URL.Path, "/build") {
-			return bytesResponse("application/x-ndjson",
-				[]byte(`{"stream":"Successfully built"}`+"\n")), nil
+			return bytesResponse(
+				[]byte(`{"stream":"Successfully built"}` + "\n")), nil
 		}
 		if strings.Contains(r.URL.Path, "/images/prune") {
 			return jsonResponse(http.StatusInternalServerError, map[string]string{"message": "prune failed"}), nil
@@ -502,8 +502,8 @@ func TestBuilder_Build_PruneError(t *testing.T) {
 func TestBuilder_Build_PruneZeroSpace(t *testing.T) {
 	mockClient := newMockDockerClient(t, func(r *http.Request) (*http.Response, error) {
 		if strings.Contains(r.URL.Path, "/build") {
-			return bytesResponse("application/x-ndjson",
-				[]byte(`{"stream":"Successfully built"}`+"\n")), nil
+			return bytesResponse(
+				[]byte(`{"stream":"Successfully built"}` + "\n")), nil
 		}
 		if strings.Contains(r.URL.Path, "/images/prune") {
 			return jsonResponse(http.StatusOK, map[string]any{"SpaceReclaimed": uint64(0)}), nil
@@ -540,51 +540,3 @@ func TestBuilder_Build_PruneZeroSpace(t *testing.T) {
 // ---------------------------------------------------------------------------
 // RunContainer mock tests (client.go lines 172-176)
 // ---------------------------------------------------------------------------
-
-func TestClient_RunContainer_Mock_Success(t *testing.T) {
-	c := newMockDockerClient(t, func(r *http.Request) (*http.Response, error) {
-		if strings.Contains(r.URL.Path, "/containers/create") {
-			return jsonResponse(http.StatusCreated, map[string]any{"Id": "container-123"}), nil
-		}
-		if strings.Contains(r.URL.Path, "/containers/") && strings.Contains(r.URL.Path, "/start") {
-			return &http.Response{
-				StatusCode: http.StatusNoContent,
-				Proto:      "HTTP/1.1",
-				ProtoMajor: 1,
-				ProtoMinor: 1,
-				Body:       http.NoBody,
-			}, nil
-		}
-		return jsonResponse(http.StatusNotFound, map[string]string{"message": "unexpected"}), nil
-	})
-
-	ctx := t.Context()
-	config := &docker.ContainerConfig{
-		PortBindings: map[string]string{"8080": "8080"},
-	}
-
-	id, err := c.RunContainer(ctx, "test-image:latest", config)
-	require.NoError(t, err)
-	assert.Equal(t, "container-123", id)
-}
-
-func TestClient_RunContainer_Mock_StartError(t *testing.T) {
-	c := newMockDockerClient(t, func(r *http.Request) (*http.Response, error) {
-		if strings.Contains(r.URL.Path, "/containers/create") {
-			return jsonResponse(http.StatusCreated, map[string]any{"Id": "container-456"}), nil
-		}
-		if strings.Contains(r.URL.Path, "/containers/") && strings.Contains(r.URL.Path, "/start") {
-			return jsonResponse(http.StatusInternalServerError, map[string]string{"message": "start failed"}), nil
-		}
-		return jsonResponse(http.StatusNotFound, map[string]string{"message": "unexpected"}), nil
-	})
-
-	ctx := t.Context()
-	config := &docker.ContainerConfig{
-		PortBindings: map[string]string{"8080": "8080"},
-	}
-
-	_, err := c.RunContainer(ctx, "test-image:latest", config)
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "start container")
-}

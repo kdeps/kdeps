@@ -33,7 +33,7 @@ import (
 )
 
 func TestNewWatcher(t *testing.T) {
-	watcher, err := fs.NewWatcher()
+	watcher, err := fs.NewWatcherWithLogger(nil)
 	require.NoError(t, err)
 	assert.NotNil(t, watcher)
 
@@ -48,7 +48,7 @@ func TestNewWatcher(t *testing.T) {
 }
 
 func TestWatcher_Watch_SingleFile(t *testing.T) {
-	watcher, err := fs.NewWatcher()
+	watcher, err := fs.NewWatcherWithLogger(nil)
 	require.NoError(t, err)
 	defer watcher.Close()
 
@@ -79,7 +79,7 @@ func TestWatcher_Watch_SingleFile(t *testing.T) {
 }
 
 func TestWatcher_Watch_Directory(t *testing.T) {
-	watcher, err := fs.NewWatcher()
+	watcher, err := fs.NewWatcherWithLogger(nil)
 	require.NoError(t, err)
 	defer watcher.Close()
 
@@ -106,7 +106,7 @@ func TestWatcher_Watch_Directory(t *testing.T) {
 }
 
 func TestWatcher_Watch_MultipleCallbacks(t *testing.T) {
-	watcher, err := fs.NewWatcher()
+	watcher, err := fs.NewWatcherWithLogger(nil)
 	require.NoError(t, err)
 	defer watcher.Close()
 
@@ -141,7 +141,7 @@ func TestWatcher_Watch_MultipleCallbacks(t *testing.T) {
 }
 
 func TestWatcher_Watch_NonExistentPath(t *testing.T) {
-	watcher, err := fs.NewWatcher()
+	watcher, err := fs.NewWatcherWithLogger(nil)
 	require.NoError(t, err)
 	defer watcher.Close()
 
@@ -153,7 +153,7 @@ func TestWatcher_Watch_NonExistentPath(t *testing.T) {
 }
 
 func TestWatcher_Watch_AfterClose(t *testing.T) {
-	watcher, err := fs.NewWatcher()
+	watcher, err := fs.NewWatcherWithLogger(nil)
 	require.NoError(t, err)
 
 	_ = watcher.Close()
@@ -164,7 +164,7 @@ func TestWatcher_Watch_AfterClose(t *testing.T) {
 }
 
 func TestWatcher_Close(t *testing.T) {
-	watcher, err := fs.NewWatcher()
+	watcher, err := fs.NewWatcherWithLogger(nil)
 	require.NoError(t, err)
 	require.NotNil(t, watcher)
 
@@ -182,7 +182,7 @@ func TestWatcher_Close(t *testing.T) {
 }
 
 func TestWatcher_WatchFileTypes(t *testing.T) {
-	watcher, err := fs.NewWatcher()
+	watcher, err := fs.NewWatcherWithLogger(nil)
 	require.NoError(t, err)
 	defer watcher.Close()
 
@@ -233,7 +233,7 @@ func TestWatcher_Watch_Symlinks(t *testing.T) {
 		t.Skip("Symlinks may not work reliably on Windows")
 	}
 
-	watcher, err := fs.NewWatcher()
+	watcher, err := fs.NewWatcherWithLogger(nil)
 	require.NoError(t, err)
 	defer watcher.Close()
 
@@ -271,7 +271,7 @@ func TestWatcher_Watch_Symlinks(t *testing.T) {
 }
 
 func TestWatcher_ConcurrentOperations(t *testing.T) {
-	watcher, err := fs.NewWatcher()
+	watcher, err := fs.NewWatcherWithLogger(nil)
 	require.NoError(t, err)
 	defer watcher.Close()
 
@@ -310,7 +310,7 @@ func TestWatcher_ConcurrentOperations(t *testing.T) {
 }
 
 func TestWatcher_Watch_LargeDirectory(t *testing.T) {
-	watcher, err := fs.NewWatcher()
+	watcher, err := fs.NewWatcherWithLogger(nil)
 	require.NoError(t, err)
 	defer watcher.Close()
 
@@ -341,7 +341,7 @@ func TestWatcher_Watch_LargeDirectory(t *testing.T) {
 }
 
 func TestWatcher_ErrorHandling(t *testing.T) {
-	watcher, err := fs.NewWatcher()
+	watcher, err := fs.NewWatcherWithLogger(nil)
 	require.NoError(t, err)
 	defer watcher.Close()
 
@@ -361,7 +361,7 @@ func TestWatcher_ErrorHandling(t *testing.T) {
 }
 
 func TestWatcher_InternalState(t *testing.T) {
-	watcher, err := fs.NewWatcher()
+	watcher, err := fs.NewWatcherWithLogger(nil)
 	require.NoError(t, err)
 	defer watcher.Close()
 
@@ -391,7 +391,7 @@ func TestWatcher_InternalState(t *testing.T) {
 }
 
 func TestWatcher_CallbackExecution(t *testing.T) {
-	watcher, err := fs.NewWatcher()
+	watcher, err := fs.NewWatcherWithLogger(nil)
 	require.NoError(t, err)
 	defer watcher.Close()
 
@@ -423,7 +423,7 @@ func TestWatcher_CallbackExecution(t *testing.T) {
 }
 
 func TestWatcher_MultipleFiles(t *testing.T) {
-	watcher, err := fs.NewWatcher()
+	watcher, err := fs.NewWatcherWithLogger(nil)
 	require.NoError(t, err)
 	defer watcher.Close()
 
@@ -463,7 +463,7 @@ func TestWatcher_MultipleFiles(t *testing.T) {
 }
 
 func TestWatcher_Watch_CompleteCoverage(t *testing.T) {
-	watcher, err := fs.NewWatcher()
+	watcher, err := fs.NewWatcherWithLogger(nil)
 	require.NoError(t, err)
 	defer watcher.Close()
 

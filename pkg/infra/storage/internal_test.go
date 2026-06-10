@@ -31,6 +31,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/DATA-DOG/go-sqlmock"
 	_ "github.com/mattn/go-sqlite3" // SQLite driver for database connectivity
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -414,4 +415,23 @@ func TestSessionStorage_InitSchema_IndexError(t *testing.T) {
 	err = s.initSchema()
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "failed to create index")
+}
+
+// TestSessionStorage_GetAll_RowsErrDeterministic uses sqlmock to force a
+// rows iteration error deterministically (the cancellation-based test above
+// can hit either the scan or iteration error path depending on timing).
+func TestSessionStorage_GetAll_RowsErrDeterministic(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	require.NoError(t, err)
+	defer func() { _ = db.Close() }()
+
+	rows := sqlmock.NewRows([]string{"key", "value"}).
+		AddRow("k1", `"v1"`).
+		RowError(0, errors.New("iteration broke"))
+	mock.ExpectQuery("SELECT key, value FROM sessions").WillReturnRows(rows)
+
+	s := &SessionStorage{DB: db, SessionID: "test", ctx: context.Background()}
+	_, err = s.GetAll()
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "rows iteration error")
 }

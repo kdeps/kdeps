@@ -22,6 +22,7 @@ import (
 	"embed"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -443,4 +444,35 @@ func TestPreprocessJ2Files_WalkError(t *testing.T) {
 
 	err := PreprocessJ2Files(tmpDir)
 	require.Error(t, err)
+}
+
+func TestAutoProtectKdepsExpressions_WrapsBareExpressions(t *testing.T) {
+	in := `value: {{ get('url') }}`
+	out := autoProtectKdepsExpressions(in)
+	assert.Equal(t, `value: {% raw %}{{ get('url') }}{% endraw %}`, out)
+}
+
+func TestAutoProtectKdepsExpressions_LeavesRawBlocksUntouched(t *testing.T) {
+	in := `value: {% raw %}{{ get('url') }}{% endraw %}`
+	out := autoProtectKdepsExpressions(in)
+	assert.Equal(t, in, out)
+}
+
+func TestAutoProtectKdepsExpressions_MixedRawAndBare(t *testing.T) {
+	in := `a: {% raw %}{{ get('a') }}{% endraw %}
+b: {{ info('time') }}`
+	out := autoProtectKdepsExpressions(in)
+	assert.Contains(t, out, `{% raw %}{{ get('a') }}{% endraw %}`)
+	assert.Contains(t, out, `{% raw %}{{ info('time') }}{% endraw %}`)
+	assert.Equal(t, 1, strings.Count(out, `{{ get('a') }}`))
+}
+
+func TestAutoProtectKdepsExpressions_NoKdepsExpressions(t *testing.T) {
+	in := `plain: value`
+	assert.Equal(t, in, autoProtectKdepsExpressions(in))
+}
+
+func TestIsInRawBlock_OutsideRange(t *testing.T) {
+	assert.False(t, isInRawBlock([][]int{{0, 10}}, 12, 20))
+	assert.True(t, isInRawBlock([][]int{{0, 30}}, 5, 10))
 }
