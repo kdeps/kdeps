@@ -95,10 +95,5 @@ func (e *Engine) handleItemsDispatch(
 
 // hasPrimaryResourceType reports whether the resource defines a primary execution block.
 func hasPrimaryResourceType(resource *domain.Resource) bool {
-	for _, entry := range primaryResourceDispatch() {
-		if entry.present(resource) {
-			return true
-		}
-	}
-	return false
+	return domain.HasPrimaryResourceType(resource)
 }
