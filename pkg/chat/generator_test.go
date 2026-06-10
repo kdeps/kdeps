@@ -472,3 +472,16 @@ func TestGenerate_ValidationErrorRecovery(t *testing.T) {
 	assert.Contains(t, wf.Files, "workflow.yaml")
 	assert.Contains(t, wf.Files, "resources/main.yaml")
 }
+
+func TestGenerator_Generate_RetryExhausted(t *testing.T) {
+	client := &mockLLMClient{reply: "no file blocks here"}
+	origRetries := maxValidationRetries
+	t.Cleanup(func() { maxValidationRetries = origRetries })
+	maxValidationRetries = 0
+
+	gen := NewGenerator(client, "llama3", "", "", nil)
+
+	_, err := gen.Generate(context.Background(), []Turn{{Role: "user", Content: "test"}})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "retry loop exhausted")
+}

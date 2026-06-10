@@ -5545,3 +5545,177 @@ func TestLoop_TuringCompleteness_BusyBeaver(t *testing.T) {
 	// 1+2+3+4+5 = 15 (condition 15<=10 is false, so loop exits after 5 iterations).
 	assert.EqualValues(t, 15, sum, "sum should be 15 when loop exits")
 }
+
+// TestEngine_Execute_RestrictToHTTPMethods tests HTTP method restrictions.
+func TestEngine_Execute_RestrictToHTTPMethods(t *testing.T) {
+	engine := executor.NewEngine(slog.Default())
+	registry := executor.NewRegistry()
+	engine.SetRegistry(registry)
+
+	workflow := &domain.Workflow{
+		APIVersion: "kdeps.io/v1",
+		Kind:       "Workflow",
+		Metadata: domain.WorkflowMetadata{
+			Name:           "restrict-workflow",
+			Version:        "1.0.0",
+			TargetActionID: "restricted-resource",
+		},
+		Settings: domain.WorkflowSettings{
+			AgentSettings: domain.AgentSettings{
+				PythonVersion: "3.12",
+			},
+		},
+		Resources: []*domain.Resource{
+			{
+
+				ActionID: "restricted-resource",
+				Name:     "Restricted Resource",
+
+				Validations: &domain.ValidationsConfig{
+					Methods: []string{"GET", "POST"},
+				},
+				APIResponse: &domain.APIResponseConfig{
+					Success: true,
+					Response: map[string]interface{}{
+						"result": "success",
+					},
+				},
+			},
+		},
+	}
+
+	// Test with matching method
+	reqCtx := &executor.RequestContext{
+		Method: "GET",
+		Path:   "/api/test",
+	}
+	result, err := engine.Execute(workflow, reqCtx)
+	require.NoError(t, err)
+	assert.NotNil(t, result)
+
+	// Test with non-matching method
+	reqCtx.Method = "PUT"
+	_, err = engine.Execute(workflow, reqCtx)
+	// Resource should be skipped, so we get an error about missing target
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "target resource")
+}
+
+// TestEngine_Execute_RestrictToRoutes tests route restrictions.
+func TestEngine_Execute_RestrictToRoutes(t *testing.T) {
+	engine := executor.NewEngine(slog.Default())
+	registry := executor.NewRegistry()
+	engine.SetRegistry(registry)
+
+	workflow := &domain.Workflow{
+		APIVersion: "kdeps.io/v1",
+		Kind:       "Workflow",
+		Metadata: domain.WorkflowMetadata{
+			Name:           "route-restrict-workflow",
+			Version:        "1.0.0",
+			TargetActionID: "route-restricted-resource",
+		},
+		Settings: domain.WorkflowSettings{
+			AgentSettings: domain.AgentSettings{
+				PythonVersion: "3.12",
+			},
+		},
+		Resources: []*domain.Resource{
+			{
+
+				ActionID: "route-restricted-resource",
+				Name:     "Route Restricted Resource",
+
+				Validations: &domain.ValidationsConfig{
+					Routes: []string{"/api/v1/data"},
+				},
+				APIResponse: &domain.APIResponseConfig{
+					Success: true,
+					Response: map[string]interface{}{
+						"result": "success",
+					},
+				},
+			},
+		},
+	}
+
+	// Test with matching route
+	reqCtx := &executor.RequestContext{
+		Method: "GET",
+		Path:   "/api/v1/data",
+	}
+	result, err := engine.Execute(workflow, reqCtx)
+	require.NoError(t, err)
+	assert.NotNil(t, result)
+
+	// Test with non-matching route
+	reqCtx.Path = "/api/v1/other"
+	_, err = engine.Execute(workflow, reqCtx)
+	// Resource should be skipped, so we get an error about missing target
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "target resource")
+}
+
+// TestEngine_Execute_CombinedRestrictions tests combined HTTP method and route restrictions.
+func TestEngine_Execute_CombinedRestrictions(t *testing.T) {
+	engine := executor.NewEngine(slog.Default())
+	registry := executor.NewRegistry()
+	engine.SetRegistry(registry)
+
+	workflow := &domain.Workflow{
+		APIVersion: "kdeps.io/v1",
+		Kind:       "Workflow",
+		Metadata: domain.WorkflowMetadata{
+			Name:           "combined-restrict-workflow",
+			Version:        "1.0.0",
+			TargetActionID: "restricted-resource",
+		},
+		Settings: domain.WorkflowSettings{
+			AgentSettings: domain.AgentSettings{
+				PythonVersion: "3.12",
+			},
+		},
+		Resources: []*domain.Resource{
+			{
+
+				ActionID: "restricted-resource",
+				Name:     "Restricted Resource",
+
+				Validations: &domain.ValidationsConfig{
+					Methods: []string{"GET", "POST"},
+					Routes:  []string{"/api/v1/data"},
+				},
+				APIResponse: &domain.APIResponseConfig{
+					Success: true,
+					Response: map[string]interface{}{
+						"result": "success",
+					},
+				},
+			},
+		},
+	}
+
+	// Test with matching method and route
+	reqCtx := &executor.RequestContext{
+		Method: "GET",
+		Path:   "/api/v1/data",
+	}
+	result, err := engine.Execute(workflow, reqCtx)
+	require.NoError(t, err)
+	assert.NotNil(t, result)
+
+	// Test with matching method but wrong route
+	reqCtx.Path = "/api/v1/other"
+	_, err = engine.Execute(workflow, reqCtx)
+	// Resource should be skipped
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "target resource")
+
+	// Test with matching route but wrong method
+	reqCtx.Method = "PUT"
+	reqCtx.Path = "/api/v1/data"
+	_, err = engine.Execute(workflow, reqCtx)
+	// Resource should be skipped
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "target resource")
+}

@@ -261,3 +261,406 @@ agents:
 	require.NoError(t, err)
 	assert.Equal(t, "chatbot", agency.Metadata.TargetAgentID)
 }
+
+// TestDiscoverAgentWorkflows_ExplicitKdepsMissingFile verifies that referencing
+// a non-existent .kdeps file returns an error through appendKdepsWorkflow's error
+// wrapping path (lines 534-538) and extractKdepsPackage's os.Stat failure (line 55-57).
+func TestDiscoverAgentWorkflows_ExplicitKdepsMissingFile(t *testing.T) {
+	dir := t.TempDir()
+
+	agencyYAML := `apiVersion: kdeps.io/v1
+kind: Agency
+metadata:
+  name: test-agency
+  version: "1.0.0"
+agents:
+  - missing-agent.kdeps
+`
+	agencyPath := filepath.Join(dir, "agency.yml")
+	require.NoError(t, os.WriteFile(agencyPath, []byte(agencyYAML), 0o600))
+
+	parser := newAgencyParser()
+	defer parser.Cleanup()
+
+	agency, err := parser.ParseAgency(agencyPath)
+	require.NoError(t, err)
+
+	_, err = parser.DiscoverAgentWorkflows(agency, dir)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "failed to load .kdeps agent")
+	assert.Contains(t, err.Error(), "kdeps package not found")
+}
+
+// TestDiscoverAgentWorkflows_ExplicitKdepsNoWorkflowInside verifies that a
+// .kdeps archive which extracts successfully but contains no workflow.* file
+// triggers the "no workflow file found" error.
+func TestDiscoverAgentWorkflows_ExplicitKdepsNoWorkflowInside(t *testing.T) {
+	dir := t.TempDir()
+
+	pkgPath := filepath.Join(dir, "empty.kdeps")
+	createKdepsArchiveWithoutWorkflow(t, pkgPath)
+
+	agencyYAML := `apiVersion: kdeps.io/v1
+kind: Agency
+metadata:
+  name: test-agency
+  version: "1.0.0"
+agents:
+  - empty.kdeps
+`
+	agencyPath := filepath.Join(dir, "agency.yml")
+	require.NoError(t, os.WriteFile(agencyPath, []byte(agencyYAML), 0o600))
+
+	parser := newAgencyParser()
+	defer parser.Cleanup()
+
+	agency, err := parser.ParseAgency(agencyPath)
+	require.NoError(t, err)
+
+	_, err = parser.DiscoverAgentWorkflows(agency, dir)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "no workflow file found in .kdeps package")
+}
+
+// TestDiscoverAgentWorkflows_ExplicitKdepsPathTraversal verifies that a .kdeps
+// archive with a ../ path entry triggers the safeJoinPath error from
+// extractTarEntries.
+func TestDiscoverAgentWorkflows_ExplicitKdepsPathTraversal(t *testing.T) {
+	dir := t.TempDir()
+
+	pkgPath := filepath.Join(dir, "traversal.kdeps")
+	createTraversalKdepsArchive(t, pkgPath)
+
+	agencyYAML := `apiVersion: kdeps.io/v1
+kind: Agency
+metadata:
+  name: test-agency
+  version: "1.0.0"
+agents:
+  - traversal.kdeps
+`
+	agencyPath := filepath.Join(dir, "agency.yml")
+	require.NoError(t, os.WriteFile(agencyPath, []byte(agencyYAML), 0o600))
+
+	parser := newAgencyParser()
+	defer parser.Cleanup()
+
+	agency, err := parser.ParseAgency(agencyPath)
+	require.NoError(t, err)
+
+	_, err = parser.DiscoverAgentWorkflows(agency, dir)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "invalid path in archive")
+}
+
+// TestDiscoverAgentWorkflows_ExplicitKdepsOversizedEntry verifies that a .kdeps
+// archive with an entry whose size exceeds 100 MB triggers the oversized-entry
+// rejection in extractTarFile.
+func TestDiscoverAgentWorkflows_ExplicitKdepsOversizedEntry(t *testing.T) {
+	dir := t.TempDir()
+
+	pkgPath := filepath.Join(dir, "oversized.kdeps")
+	createOversizedKdepsArchive(t, pkgPath)
+
+	agencyYAML := `apiVersion: kdeps.io/v1
+kind: Agency
+metadata:
+  name: test-agency
+  version: "1.0.0"
+agents:
+  - oversized.kdeps
+`
+	agencyPath := filepath.Join(dir, "agency.yml")
+	require.NoError(t, os.WriteFile(agencyPath, []byte(agencyYAML), 0o600))
+
+	parser := newAgencyParser()
+	defer parser.Cleanup()
+
+	agency, err := parser.ParseAgency(agencyPath)
+	require.NoError(t, err)
+
+	_, err = parser.DiscoverAgentWorkflows(agency, dir)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "exceeds maximum allowed size")
+}
+
+// TestDiscoverAgentWorkflows_AutoDiscoverKdepsNoWorkflowInside verifies that
+// auto-discovery of a .kdeps archive without a workflow file returns an error.
+func TestDiscoverAgentWorkflows_AutoDiscoverKdepsNoWorkflowInside(t *testing.T) {
+	dir := t.TempDir()
+
+	agentsDir := filepath.Join(dir, "agents")
+	require.NoError(t, os.MkdirAll(agentsDir, 0o750))
+
+	pkgPath := filepath.Join(agentsDir, "empty.kdeps")
+	createKdepsArchiveWithoutWorkflow(t, pkgPath)
+
+	agencyYAML := `apiVersion: kdeps.io/v1
+kind: Agency
+metadata:
+  name: test-agency
+  version: "1.0.0"
+`
+	agencyPath := filepath.Join(dir, "agency.yml")
+	require.NoError(t, os.WriteFile(agencyPath, []byte(agencyYAML), 0o600))
+
+	parser := newAgencyParser()
+	defer parser.Cleanup()
+
+	agency, err := parser.ParseAgency(agencyPath)
+	require.NoError(t, err)
+
+	_, err = parser.DiscoverAgentWorkflows(agency, dir)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "no workflow file found in .kdeps package")
+}
+
+// TestDiscoverAgentWorkflows_AutoDiscoverKdepsPathTraversal verifies that
+// auto-discovery of a path-traversal .kdeps archive returns an error.
+func TestDiscoverAgentWorkflows_AutoDiscoverKdepsPathTraversal(t *testing.T) {
+	dir := t.TempDir()
+
+	agentsDir := filepath.Join(dir, "agents")
+	require.NoError(t, os.MkdirAll(agentsDir, 0o750))
+
+	pkgPath := filepath.Join(agentsDir, "traversal.kdeps")
+	createTraversalKdepsArchive(t, pkgPath)
+
+	agencyYAML := `apiVersion: kdeps.io/v1
+kind: Agency
+metadata:
+  name: test-agency
+  version: "1.0.0"
+`
+	agencyPath := filepath.Join(dir, "agency.yml")
+	require.NoError(t, os.WriteFile(agencyPath, []byte(agencyYAML), 0o600))
+
+	parser := newAgencyParser()
+	defer parser.Cleanup()
+
+	agency, err := parser.ParseAgency(agencyPath)
+	require.NoError(t, err)
+
+	_, err = parser.DiscoverAgentWorkflows(agency, dir)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "invalid path in archive")
+}
+
+// TestDiscoverAgentWorkflows_ExplicitKdepsPackage verifies that an explicit agent
+// entry pointing to a .kdeps file is extracted and its workflow discovered.
+func TestDiscoverAgentWorkflows_ExplicitKdepsPackage(t *testing.T) {
+	dir := t.TempDir()
+
+	// Create a source directory that will be packed into a .kdeps archive.
+	srcDir := filepath.Join(dir, "packed-src")
+	require.NoError(t, os.MkdirAll(srcDir, 0o750))
+	require.NoError(t, os.WriteFile(
+		filepath.Join(srcDir, "workflow.yaml"),
+		[]byte(minimalPackagedWorkflowYAML),
+		0o600,
+	))
+
+	// Pack into a .kdeps archive.
+	pkgPath := filepath.Join(dir, "packed-agent.kdeps")
+	createKdepsPackage(t, srcDir, pkgPath)
+
+	// Write agency file referencing the .kdeps archive.
+	agencyYAML := `apiVersion: kdeps.io/v1
+kind: Agency
+metadata:
+  name: test-agency
+  version: "1.0.0"
+agents:
+  - packed-agent.kdeps
+`
+	agencyPath := filepath.Join(dir, "agency.yml")
+	require.NoError(t, os.WriteFile(agencyPath, []byte(agencyYAML), 0o600))
+
+	parser := newAgencyParser()
+	defer parser.Cleanup()
+
+	agency, err := parser.ParseAgency(agencyPath)
+	require.NoError(t, err)
+
+	paths, err := parser.DiscoverAgentWorkflows(agency, dir)
+	require.NoError(t, err)
+	require.Len(t, paths, 1)
+	assert.Contains(t, paths[0], "workflow.yaml")
+}
+
+// TestDiscoverAgentWorkflows_AutoDiscoverKdepsPackage verifies that .kdeps files
+// placed under the agents/ directory are auto-discovered when agency.agents is empty.
+func TestDiscoverAgentWorkflows_AutoDiscoverKdepsPackage(t *testing.T) {
+	dir := t.TempDir()
+
+	// Create packed agent under agents/ directory.
+	agentsDir := filepath.Join(dir, "agents")
+	require.NoError(t, os.MkdirAll(agentsDir, 0o750))
+
+	srcDir := filepath.Join(dir, "packed-src")
+	require.NoError(t, os.MkdirAll(srcDir, 0o750))
+	require.NoError(t, os.WriteFile(
+		filepath.Join(srcDir, "workflow.yaml"),
+		[]byte(minimalPackagedWorkflowYAML),
+		0o600,
+	))
+
+	pkgPath := filepath.Join(agentsDir, "packed-agent.kdeps")
+	createKdepsPackage(t, srcDir, pkgPath)
+
+	// Write agency file with empty agents list (auto-discover).
+	agencyYAML := `apiVersion: kdeps.io/v1
+kind: Agency
+metadata:
+  name: test-agency
+  version: "1.0.0"
+`
+	agencyPath := filepath.Join(dir, "agency.yml")
+	require.NoError(t, os.WriteFile(agencyPath, []byte(agencyYAML), 0o600))
+
+	parser := newAgencyParser()
+	defer parser.Cleanup()
+
+	agency, err := parser.ParseAgency(agencyPath)
+	require.NoError(t, err)
+
+	paths, err := parser.DiscoverAgentWorkflows(agency, dir)
+	require.NoError(t, err)
+	require.Len(t, paths, 1)
+	assert.Contains(t, paths[0], "workflow.yaml")
+}
+
+// TestDiscoverAgentWorkflows_MixedDirectoryAndKdeps verifies that auto-discover
+// returns both directory-based and .kdeps-based agents.
+func TestDiscoverAgentWorkflows_MixedDirectoryAndKdeps(t *testing.T) {
+	dir := t.TempDir()
+	agentsDir := filepath.Join(dir, "agents")
+	require.NoError(t, os.MkdirAll(agentsDir, 0o750))
+
+	// Directory-based agent.
+	dirAgent := filepath.Join(agentsDir, "dir-agent")
+	require.NoError(t, os.MkdirAll(dirAgent, 0o750))
+	require.NoError(t, os.WriteFile(
+		filepath.Join(dirAgent, "workflow.yaml"),
+		[]byte(minimalPackagedWorkflowYAML),
+		0o600,
+	))
+
+	// .kdeps-based agent.
+	srcDir := filepath.Join(dir, "packed-src")
+	require.NoError(t, os.MkdirAll(srcDir, 0o750))
+	require.NoError(t, os.WriteFile(
+		filepath.Join(srcDir, "workflow.yaml"),
+		[]byte(minimalPackagedWorkflowYAML),
+		0o600,
+	))
+	createKdepsPackage(t, srcDir, filepath.Join(agentsDir, "packed-agent.kdeps"))
+
+	// Agency with no explicit agents list.
+	agencyYAML := `apiVersion: kdeps.io/v1
+kind: Agency
+metadata:
+  name: mixed-agency
+  version: "1.0.0"
+`
+	agencyPath := filepath.Join(dir, "agency.yml")
+	require.NoError(t, os.WriteFile(agencyPath, []byte(agencyYAML), 0o600))
+
+	parser := newAgencyParser()
+	defer parser.Cleanup()
+
+	agency, err := parser.ParseAgency(agencyPath)
+	require.NoError(t, err)
+
+	paths, err := parser.DiscoverAgentWorkflows(agency, dir)
+	require.NoError(t, err)
+	assert.Len(t, paths, 2, "expected one directory agent and one packed agent")
+}
+
+// TestParserCleanup_RemovesTempDirs verifies that Cleanup() removes all temp dirs
+// created during .kdeps extraction.
+func TestParserCleanup_RemovesTempDirs(t *testing.T) {
+	dir := t.TempDir()
+	agentsDir := filepath.Join(dir, "agents")
+	require.NoError(t, os.MkdirAll(agentsDir, 0o750))
+
+	srcDir := filepath.Join(dir, "packed-src")
+	require.NoError(t, os.MkdirAll(srcDir, 0o750))
+	require.NoError(t, os.WriteFile(
+		filepath.Join(srcDir, "workflow.yaml"),
+		[]byte(minimalPackagedWorkflowYAML),
+		0o600,
+	))
+	createKdepsPackage(t, srcDir, filepath.Join(agentsDir, "packed-agent.kdeps"))
+
+	agencyYAML := `apiVersion: kdeps.io/v1
+kind: Agency
+metadata:
+  name: test-agency
+  version: "1.0.0"
+`
+	agencyPath := filepath.Join(dir, "agency.yml")
+	require.NoError(t, os.WriteFile(agencyPath, []byte(agencyYAML), 0o600))
+
+	parser := newAgencyParser()
+	agency, err := parser.ParseAgency(agencyPath)
+	require.NoError(t, err)
+
+	paths, err := parser.DiscoverAgentWorkflows(agency, dir)
+	require.NoError(t, err)
+	require.Len(t, paths, 1)
+
+	// The extracted workflow file should exist before cleanup.
+	assert.FileExists(t, paths[0])
+	tempDir := filepath.Dir(paths[0])
+
+	// After cleanup the temp dir should be gone.
+	parser.Cleanup()
+	_, statErr := os.Stat(tempDir)
+	assert.True(t, os.IsNotExist(statErr), "temp dir should be removed after Cleanup()")
+}
+
+func TestDiscoverAgentWorkflows_ExplicitFileReference(t *testing.T) {
+	dir := t.TempDir()
+
+	// Create an agent directory with a workflow file.
+	agentDir := filepath.Join(dir, "agents", "bot-a")
+	require.NoError(t, os.MkdirAll(agentDir, 0750))
+
+	workflowAbsPath := filepath.Join(agentDir, "workflow.yaml")
+	require.NoError(t, os.WriteFile(workflowAbsPath, []byte(`apiVersion: kdeps.io/v1
+kind: Workflow
+metadata:
+  name: bot-a
+  version: "1.0.0"
+  targetActionId: response
+settings:
+  agentSettings:
+    timezone: "UTC"
+resources:
+  - actionId: response
+    name: Response
+    response:
+      data: "hello"
+`), 0600))
+
+	// Agency references the exact workflow file path (not a directory).
+	agencyPath := filepath.Join(dir, "agency.yml")
+	require.NoError(t, os.WriteFile(agencyPath, []byte(`apiVersion: kdeps.io/v1
+kind: Agency
+metadata:
+  name: test-agency
+  version: "1.0.0"
+agents:
+  - agents/bot-a/workflow.yaml
+`), 0600))
+
+	parser := yaml.NewParser(&mockSchemaValidator{}, &mockExprParser{})
+	agency, err := parser.ParseAgency(agencyPath)
+	require.NoError(t, err)
+
+	paths, err := parser.DiscoverAgentWorkflows(agency, dir)
+	require.NoError(t, err)
+	require.Len(t, paths, 1)
+	assert.Equal(t, workflowAbsPath, paths[0])
+}

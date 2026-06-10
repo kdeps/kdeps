@@ -23,6 +23,9 @@ import (
 
 	"gopkg.in/yaml.v3"
 
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+
 	"github.com/kdeps/kdeps/v2/pkg/domain"
 )
 
@@ -565,4 +568,26 @@ func TestSessionConfig_GetPath(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestWorkflow_ComponentsMap(t *testing.T) {
+	wf := &domain.Workflow{
+		Components: map[string]*domain.Component{
+			"scraper": {
+				Metadata: domain.ComponentMetadata{Name: "scraper", Version: "1.0.0"},
+				Interface: &domain.ComponentInterface{
+					Inputs: []domain.ComponentInput{
+						{Name: "url", Type: "string", Required: true},
+						{Name: "selector", Type: "string", Required: false},
+					},
+				},
+			},
+		},
+	}
+	comp, ok := wf.Components["scraper"]
+	require.True(t, ok)
+	assert.Equal(t, "scraper", comp.Metadata.Name)
+	assert.Len(t, comp.Interface.Inputs, 2)
+	assert.True(t, comp.Interface.Inputs[0].Required)
+	assert.False(t, comp.Interface.Inputs[1].Required)
 }

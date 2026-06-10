@@ -25,6 +25,9 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+
 	"github.com/kdeps/kdeps/v2/pkg/executor/llm"
 )
 
@@ -1265,4 +1268,108 @@ func TestGoogleBackend_ChatEndpointWithKey(t *testing.T) {
 	if !strings.Contains(endpoint, "key=") {
 		t.Errorf("Expected endpoint to contain 'key=' query parameter, got '%s'", endpoint)
 	}
+}
+
+func TestTogetherBackend_BuildRequest_Extended(t *testing.T) {
+	b := llm.NewBackendRegistry().Get("together")
+	msgs := []map[string]interface{}{{"role": "user", "content": "test"}}
+
+	t.Run("context length", func(t *testing.T) {
+		req, err := b.BuildRequest("model", msgs, llm.ChatRequestConfig{ContextLength: 2048})
+		require.NoError(t, err)
+		assert.Equal(t, 2048, req["max_tokens"])
+	})
+
+	t.Run("json response", func(t *testing.T) {
+		req, err := b.BuildRequest("model", msgs, llm.ChatRequestConfig{JSONResponse: true})
+		require.NoError(t, err)
+		rf, ok := req["response_format"].(map[string]interface{})
+		require.True(t, ok)
+		assert.Equal(t, "json_object", rf["type"])
+	})
+
+	t.Run("tools", func(t *testing.T) {
+		tools := []map[string]interface{}{{"type": "function", "name": "my_tool"}}
+		req, err := b.BuildRequest("model", msgs, llm.ChatRequestConfig{Tools: tools})
+		require.NoError(t, err)
+		assert.Equal(t, tools, req["tools"])
+	})
+}
+
+func TestPerplexityBackend_BuildRequest_Extended(t *testing.T) {
+	b := llm.NewBackendRegistry().Get("perplexity")
+	msgs := []map[string]interface{}{{"role": "user", "content": "test"}}
+
+	t.Run("context length", func(t *testing.T) {
+		req, err := b.BuildRequest("model", msgs, llm.ChatRequestConfig{ContextLength: 1024})
+		require.NoError(t, err)
+		assert.Equal(t, 1024, req["max_tokens"])
+	})
+
+	t.Run("json response", func(t *testing.T) {
+		req, err := b.BuildRequest("model", msgs, llm.ChatRequestConfig{JSONResponse: true})
+		require.NoError(t, err)
+		rf, ok := req["response_format"].(map[string]interface{})
+		require.True(t, ok)
+		assert.Equal(t, "json_object", rf["type"])
+	})
+
+	t.Run("tools", func(t *testing.T) {
+		tools := []map[string]interface{}{{"type": "function", "name": "my_tool"}}
+		req, err := b.BuildRequest("model", msgs, llm.ChatRequestConfig{Tools: tools})
+		require.NoError(t, err)
+		assert.Equal(t, tools, req["tools"])
+	})
+}
+
+func TestGroqBackend_BuildRequest_Extended(t *testing.T) {
+	b := llm.NewBackendRegistry().Get("groq")
+	msgs := []map[string]interface{}{{"role": "user", "content": "test"}}
+
+	t.Run("context length", func(t *testing.T) {
+		req, err := b.BuildRequest("model", msgs, llm.ChatRequestConfig{ContextLength: 4096})
+		require.NoError(t, err)
+		assert.Equal(t, 4096, req["max_tokens"])
+	})
+
+	t.Run("json response", func(t *testing.T) {
+		req, err := b.BuildRequest("model", msgs, llm.ChatRequestConfig{JSONResponse: true})
+		require.NoError(t, err)
+		rf, ok := req["response_format"].(map[string]interface{})
+		require.True(t, ok)
+		assert.Equal(t, "json_object", rf["type"])
+	})
+
+	t.Run("tools", func(t *testing.T) {
+		tools := []map[string]interface{}{{"type": "function", "name": "my_tool"}}
+		req, err := b.BuildRequest("model", msgs, llm.ChatRequestConfig{Tools: tools})
+		require.NoError(t, err)
+		assert.Equal(t, tools, req["tools"])
+	})
+}
+
+func TestDeepSeekBackend_BuildRequest_Extended(t *testing.T) {
+	b := llm.NewBackendRegistry().Get("deepseek")
+	msgs := []map[string]interface{}{{"role": "user", "content": "test"}}
+
+	t.Run("context length", func(t *testing.T) {
+		req, err := b.BuildRequest("model", msgs, llm.ChatRequestConfig{ContextLength: 8192})
+		require.NoError(t, err)
+		assert.Equal(t, 8192, req["max_tokens"])
+	})
+
+	t.Run("json response", func(t *testing.T) {
+		req, err := b.BuildRequest("model", msgs, llm.ChatRequestConfig{JSONResponse: true})
+		require.NoError(t, err)
+		rf, ok := req["response_format"].(map[string]interface{})
+		require.True(t, ok)
+		assert.Equal(t, "json_object", rf["type"])
+	})
+
+	t.Run("tools", func(t *testing.T) {
+		tools := []map[string]interface{}{{"type": "function", "name": "my_tool"}}
+		req, err := b.BuildRequest("model", msgs, llm.ChatRequestConfig{Tools: tools})
+		require.NoError(t, err)
+		assert.Equal(t, tools, req["tools"])
+	})
 }

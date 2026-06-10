@@ -18,7 +18,10 @@ import (
 	"strings"
 	"testing"
 
+	"errors"
+
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func validWorkflow() *GeneratedWorkflow {
@@ -207,4 +210,18 @@ func containsErr(errs []string, substr string) bool {
 		}
 	}
 	return false
+}
+
+func TestValidateResourceFile_UnmarshalError(t *testing.T) {
+	orig := yamlUnmarshalToMap
+	t.Cleanup(func() { yamlUnmarshalToMap = orig })
+	yamlUnmarshalToMap = func(_ []byte, _ *map[string]interface{}) error {
+		return errors.New("map unmarshal failed")
+	}
+
+	ids := map[string]bool{}
+	var errs []string
+	validateResourceFile("res.yaml", "actionId: main\n", ids, &errs)
+	require.Len(t, errs, 1)
+	assert.Contains(t, errs[0], "invalid YAML")
 }

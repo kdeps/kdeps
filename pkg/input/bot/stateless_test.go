@@ -22,8 +22,17 @@ import (
 	"strings"
 	"testing"
 
+	"context"
+	"errors"
+	"io"
+	"log/slog"
+	"os"
+
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/kdeps/kdeps/v2/pkg/domain"
+	"github.com/kdeps/kdeps/v2/pkg/executor"
 )
 
 func TestReadStatelessInput_FullJSON(t *testing.T) {
@@ -102,4 +111,135 @@ func TestReadStatelessInput_WhitespaceOnly(t *testing.T) {
 	// Should fail JSON parsing
 	require.Error(t, err)
 	_ = msg
+}
+
+func TestRunStateless_BotSendTriggered(t *testing.T) {
+	engine := executor.NewEngine(slog.Default())
+	var capturedText string
+	engine.SetExecuteFunc(func(_ *domain.Workflow, req interface{}) (interface{}, error) {
+		reqCtx := req.(*executor.RequestContext)
+		// Invoke BotSend to exercise the stdout-writing closure.
+		err := reqCtx.BotSend(context.Background(), "stdout reply")
+		require.NoError(t, err)
+		return "ok", nil
+	})
+
+	workflow := &domain.Workflow{}
+
+	// Stdin pipe
+	pr, pw, err := os.Pipe()
+	require.NoError(t, err)
+	oldStdin := os.Stdin
+	os.Stdin = pr
+
+	// Stdout pipe
+	outR, outW, err := os.Pipe()
+	require.NoError(t, err)
+	oldStdout := os.Stdout
+	os.Stdout = outW
+
+	defer func() {
+		os.Stdin = oldStdin
+		os.Stdout = oldStdout
+	}()
+
+	_, writeErr := pw.WriteString(`{"message":"hi","platform":"slack"}`)
+	require.NoError(t, writeErr)
+	pw.Close()
+
+	err = RunStateless(context.Background(), workflow, engine, nil)
+	require.NoError(t, err)
+
+	outW.Close()
+	out, readErr := io.ReadAll(outR)
+	require.NoError(t, readErr)
+	assert.Contains(t, string(out), "stdout reply")
+	_ = capturedText
+}
+
+func TestReadStatelessInput_ReadError(t *testing.T) {
+	_, err := readStatelessInput(&errReader{})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "read stdin")
+}
+
+func TestRunStateless_StdinParseError(t *testing.T) {
+	// Replace os.Stdin with a pipe containing invalid JSON
+	pr, pw, err := os.Pipe()
+	require.NoError(t, err)
+
+	oldStdin := os.Stdin
+	os.Stdin = pr
+	defer func() { os.Stdin = oldStdin }()
+
+	_, writeErr := pw.WriteString("{invalid json")
+	require.NoError(t, writeErr)
+	pw.Close()
+
+	engine := executor.NewEngine(slog.Default())
+	workflow := &domain.Workflow{}
+
+	err = RunStateless(context.Background(), workflow, engine, nil)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "bot stateless: read input")
+}
+
+func TestRunStateless_ExecuteError(t *testing.T) {
+	engine := executor.NewEngine(slog.Default())
+	engine.SetExecuteFunc(func(_ *domain.Workflow, _ interface{}) (interface{}, error) {
+		return nil, errors.New("execution failed")
+	})
+
+	workflow := &domain.Workflow{}
+
+	pr, pw, err := os.Pipe()
+	require.NoError(t, err)
+
+	oldStdin := os.Stdin
+	os.Stdin = pr
+	defer func() { os.Stdin = oldStdin }()
+
+	_, writeErr := pw.WriteString(`{"message":"test","platform":"telegram"}`)
+	require.NoError(t, writeErr)
+	pw.Close()
+
+	err = RunStateless(context.Background(), workflow, engine, nil)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "bot stateless: workflow execution failed")
+}
+
+func TestRunStateless_Success(t *testing.T) {
+	engine := executor.NewEngine(slog.Default())
+	var capturedReq interface{}
+	engine.SetExecuteFunc(func(_ *domain.Workflow, req interface{}) (interface{}, error) {
+		capturedReq = req
+		return "ok", nil
+	})
+
+	workflow := &domain.Workflow{}
+
+	pr, pw, err := os.Pipe()
+	require.NoError(t, err)
+
+	oldStdin := os.Stdin
+	os.Stdin = pr
+	defer func() { os.Stdin = oldStdin }()
+
+	_, writeErr := pw.WriteString(`{"message":"hello","chatId":"chat-1","userId":"user-1","platform":"slack"}`)
+	require.NoError(t, writeErr)
+	pw.Close()
+
+	err = RunStateless(context.Background(), workflow, engine, nil)
+	require.NoError(t, err)
+
+	// Verify the request context was built correctly
+	reqCtx, ok := capturedReq.(*executor.RequestContext)
+	require.True(t, ok)
+	assert.Equal(t, "POST", reqCtx.Method)
+	assert.Equal(t, "/bot/slack", reqCtx.Path)
+	assert.Equal(t, "hello", reqCtx.Body["message"])
+	assert.Equal(t, "chat-1", reqCtx.Body["chatId"])
+	assert.Equal(t, "user-1", reqCtx.Body["userId"])
+	assert.Equal(t, "slack", reqCtx.Body["platform"])
+	assert.NotNil(t, reqCtx.BotSend)
 }

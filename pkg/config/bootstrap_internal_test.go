@@ -24,6 +24,8 @@ import (
 	"sync"
 	"testing"
 
+	"errors"
+
 	"github.com/creack/pty"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -522,4 +524,18 @@ func TestConfigureProvider_UnknownProvider(t *testing.T) {
 	cfg := &Config{}
 	err := configureProvider(&out, reader, &fmtWriter{w: &out}, cfg, "not-a-provider")
 	require.NoError(t, err)
+}
+
+func TestBootstrapInteractive_ConfigureProviderError(t *testing.T) {
+	origReadSecret := readSecretFunc
+	t.Cleanup(func() { readSecretFunc = origReadSecret })
+	readSecretFunc = func(_ *bufio.Reader) (string, error) {
+		return "", errors.New("secret read failed")
+	}
+
+	reader := bufio.NewReader(strings.NewReader("2\n"))
+	var out testWriter
+	err := bootstrapInteractive(&out, reader, "/tmp/test-config.yaml")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "secret read failed")
 }

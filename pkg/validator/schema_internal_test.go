@@ -107,3 +107,12 @@ func TestNewSchemaValidatorFromFS_LoadErrors(t *testing.T) {
 		assert.Contains(t, err.Error(), "failed to load component schema")
 	})
 }
+
+func TestLookupNestedFieldEnums_EmptyParts(t *testing.T) {
+	orig := splitFieldParts
+	t.Cleanup(func() { splitFieldParts = orig })
+	splitFieldParts = func(_ string) []string { return nil }
+
+	result := lookupNestedFieldEnums("chat.backend", map[string][]interface{}{})
+	assert.Nil(t, result)
+}

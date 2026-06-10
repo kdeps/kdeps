@@ -27,6 +27,7 @@ import (
 	"github.com/kdeps/kdeps/v2/pkg/config"
 	"github.com/kdeps/kdeps/v2/pkg/domain"
 	"github.com/kdeps/kdeps/v2/pkg/executor"
+	"github.com/kdeps/kdeps/v2/pkg/parser/expression"
 )
 
 func newConfigTestCtx(t *testing.T) *executor.ExecutionContext {
@@ -418,4 +419,20 @@ func TestSet_WorkflowPath(t *testing.T) {
 	err := ctx.Set("workflow.metadata.version", "2.0")
 	require.NoError(t, err)
 	assert.Equal(t, "2.0", ctx.Workflow.Metadata.Version)
+}
+
+// TestIntegration_ConfigNamespace_DirectPropertyAccess verifies that
+// {{ config.llm.openai_api_key }} resolves via the registered namespace map.
+func TestIntegration_ConfigNamespace_DirectPropertyAccess(t *testing.T) {
+	ctx := newIntegrationCtx(t)
+	api := makeIntegrationAPI(ctx)
+	ev := expression.NewEvaluator(api)
+
+	expr := &domain.Expression{
+		Raw:  "config.llm.openai_api_key",
+		Type: domain.ExprTypeDirect,
+	}
+	result, err := ev.Evaluate(expr, map[string]interface{}{})
+	require.NoError(t, err)
+	assert.Equal(t, "sk-integration", result)
 }
