@@ -422,12 +422,9 @@ jobs:
       - name: Summary
         run: |
           if [ "${{ steps.should_release.outputs.should_release }}" = "true" ]; then
-            RELEASE_TYPE="latest"
-            if [ "${{ steps.release_type.outputs.prerelease }}" = "true" ]; then
-              RELEASE_TYPE="prerelease (validation checks failed)"
-            fi
             echo "✅ Nightly release created successfully: ${{ steps.create_tag.outputs.tag }}"
-            echo "📦 Release type: $RELEASE_TYPE"
+            echo "📦 Release type: latest"
+            echo "🔍 Checks: lint=${{ steps.lint.outcome }} build=${{ steps.build.outcome }} test=${{ steps.test.outcome }}"
             
             if [ "${{ steps.check_changes.outputs.has_code_changes }}" = "true" ]; then
               echo "📝 Code changes detected since last release"

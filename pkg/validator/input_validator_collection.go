@@ -31,52 +31,18 @@ func (v *InputValidator) ValidateNumber(
 	value interface{},
 ) *domain.ValidationError {
 	kdeps_debug.Log("enter: ValidateNumber")
-	var num float64
-
-	switch val := value.(type) {
-	case int:
-		num = float64(val)
-	case int64:
-		num = float64(val)
-	case int32:
-		num = float64(val)
-	case int16:
-		num = float64(val)
-	case int8:
-		num = float64(val)
-	case float64:
-		num = val
-	case float32:
-		num = float64(val)
-	default:
-		return &domain.ValidationError{
-			Field:   rule.Field,
-			Type:    "type",
-			Message: "expected number",
-			Value:   value,
-		}
+	num, ok := toFloat64(value)
+	if !ok {
+		return fieldValidationError(rule, "type", "expected number", value)
 	}
-
-	// Min
 	if rule.Min != nil && num < *rule.Min {
-		return &domain.ValidationError{
-			Field:   rule.Field,
-			Type:    "min",
-			Message: GetErrorMessage(rule.Message, fmt.Sprintf("must be at least %v", *rule.Min)),
-			Value:   value,
-		}
+		return fieldValidationError(
+			rule, "min", fmt.Sprintf("must be at least %v", *rule.Min), value)
 	}
-
-	// Max
 	if rule.Max != nil && num > *rule.Max {
-		return &domain.ValidationError{
-			Field:   rule.Field,
-			Type:    "max",
-			Message: GetErrorMessage(rule.Message, fmt.Sprintf("must be at most %v", *rule.Max)),
-			Value:   value,
-		}
+		return fieldValidationError(
+			rule, "max", fmt.Sprintf("must be at most %v", *rule.Max), value)
 	}
-
 	return nil
 }
 
