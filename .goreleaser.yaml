@@ -92,6 +92,9 @@ changelog:
 
 brews:
   - name: kdeps
+    # Only stable releases update the formula; nightly prerelease tags
+    # (vX.Y.Z-nightly...) must not clobber the tap.
+    skip_upload: auto
     commit_author:
       name: jjuliano
       email: joelbryan.julianoe@gmail.com
