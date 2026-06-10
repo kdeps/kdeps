@@ -102,7 +102,7 @@ func (g *Generator) buildTemplateData(workflow *domain.Workflow) *ManifestData {
 	}
 
 	applyManifestPorts(data, workflow)
-	if resolveInstallOllama(workflow) {
+	if domain.ResolveInstallOllama(workflow) {
 		data.BackendPort = defaultOllamaPort
 	}
 
@@ -126,22 +126,6 @@ func applyManifestPorts(data *ManifestData, workflow *domain.Workflow) {
 	if workflow.Settings.WebServer != nil {
 		data.WebServerPort = port
 	}
-}
-
-func resolveInstallOllama(workflow *domain.Workflow) bool {
-	if workflow.Settings.AgentSettings.InstallOllama != nil {
-		return *workflow.Settings.AgentSettings.InstallOllama
-	}
-	return workflowNeedsOllama(workflow)
-}
-
-func workflowNeedsOllama(workflow *domain.Workflow) bool {
-	for _, r := range workflow.Resources {
-		if r.Chat != nil {
-			return true
-		}
-	}
-	return false
 }
 
 func (g *Generator) renderTemplate(name, tmplStr string, data *ManifestData) (string, error) {

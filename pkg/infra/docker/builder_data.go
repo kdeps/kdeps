@@ -34,7 +34,7 @@ import (
 // buildTemplateData builds data for template rendering.
 func (b *Builder) buildTemplateData(workflow *domain.Workflow) (*DockerfileData, error) {
 	kdeps_debug.Log("enter: buildTemplateData")
-	installOllama := b.shouldInstallOllama(workflow)
+	installOllama := domain.ResolveInstallOllama(workflow)
 	installUV := b.shouldInstallUV(workflow)
 
 	backendInstall, err := b.renderBackendInstall(installOllama)

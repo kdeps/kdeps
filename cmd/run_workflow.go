@@ -126,7 +126,7 @@ func setupEnvironmentStep(workflow *domain.Workflow) error {
 func ensureLLMBackendStep(workflow *domain.Workflow) error {
 	kdeps_debug.Log("enter: ensureLLMBackendStep")
 	fmt.Fprintln(os.Stdout, "\n[4/5] Checking LLM backend...")
-	if !workflowNeedsOllama(workflow) {
+	if !domain.NeedsOllamaAtRuntime(workflow) {
 		fmt.Fprintln(os.Stdout, "  ✓ No local LLM backend required")
 		return nil
 	}

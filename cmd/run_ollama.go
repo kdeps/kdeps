@@ -31,7 +31,6 @@ import (
 	"time"
 
 	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
-	"github.com/kdeps/kdeps/v2/pkg/domain"
 	kdepslog "github.com/kdeps/kdeps/v2/pkg/log"
 )
 
@@ -42,7 +41,6 @@ const (
 	ollamaDefaultURL     = "http://localhost:11434"
 	ollamaStartupTimeout = 60 * time.Second
 	ollamaCheckInterval  = time.Second
-	backendOllama        = "ollama"
 )
 
 // getOllamaURL returns the configured Ollama base URL from OLLAMA_HOST or the default.
@@ -164,23 +162,4 @@ func ensureOllamaRunning(ollamaURL string) error {
 
 	fmt.Fprintf(os.Stdout, "  ✓ Ollama started on %s:%d\n", host, port)
 	return nil
-}
-
-// workflowNeedsOllama checks if the workflow uses the ollama backend.
-// Backend is now configured via KDEPS_DEFAULT_BACKEND env var (set by config.yaml).
-func workflowNeedsOllama(workflow *domain.Workflow) bool {
-	kdeps_debug.Log("enter: workflowNeedsOllama")
-	// If any chat resources exist, check the configured backend.
-	hasChatResources := false
-	for _, resource := range workflow.Resources {
-		if resource.Chat != nil {
-			hasChatResources = true
-			break
-		}
-	}
-	if !hasChatResources {
-		return false
-	}
-	backend := os.Getenv("KDEPS_DEFAULT_BACKEND")
-	return backend == "" || backend == backendOllama
 }

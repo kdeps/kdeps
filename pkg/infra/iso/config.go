@@ -28,8 +28,6 @@ const (
 	linuxkitComponentTag = "v1.3.0"
 	linuxkitMountTag     = "v1.1.0"
 	linuxkitFormatTag    = "v1.1.0"
-
-	backendOllama = "ollama"
 )
 
 // LinuxKitConfig represents a LinuxKit YAML configuration.

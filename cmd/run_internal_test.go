@@ -46,7 +46,7 @@ func TestParseOllamaURL_Internal(t *testing.T) {
 }
 
 func TestWorkflowNeedsOllama_Internal(t *testing.T) {
-	// workflowNeedsOllama reads KDEPS_DEFAULT_BACKEND from env (not from the
+	// NeedsOllamaAtRuntime reads KDEPS_DEFAULT_BACKEND from env (not from the
 	// struct field which now has yaml:"-"). Backend struct fields are ignored.
 	tests := []struct {
 		name       string
@@ -101,7 +101,7 @@ func TestWorkflowNeedsOllama_Internal(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Setenv("KDEPS_DEFAULT_BACKEND", tt.envBackend)
-			assert.Equal(t, tt.expected, workflowNeedsOllama(tt.workflow))
+			assert.Equal(t, tt.expected, domain.NeedsOllamaAtRuntime(tt.workflow))
 		})
 	}
 }
