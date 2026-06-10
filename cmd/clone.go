@@ -62,6 +62,13 @@ var filepathRelCopyDirFunc = filepath.Rel
 //nolint:gochecknoglobals // test-replaceable hook
 var copyFileCloseFunc = func(f *os.File) error { return f.Close() }
 
+// cloneManifestOrder is the priority order for manifest detection (agency > workflow > component).
+var cloneManifestOrder = []string{ //nolint:gochecknoglobals // package-level lookup order
+	"agency.yml", "agency.yaml", "agency.yml.j2", "agency.yaml.j2",
+	"workflow.yaml", "workflow.yml", "workflow.yaml.j2", "workflow.yml.j2",
+	"component.yaml", "component.yml", "component.yaml.j2",
+}
+
 // cloneTypeNames maps detected manifest filenames to a human label.
 var cloneTypeLabels = map[string]string{ //nolint:gochecknoglobals // package-level const map
 	"agency.yml":        "agency",
@@ -148,13 +155,7 @@ func cloneFromRemote(ref string) error {
 // ("agency"|"agent"|"component"|"") and the manifest filename found.
 func detectCloneType(sourceDir string) (string, string) {
 	kdeps_debug.Log("enter: detectCloneType")
-	// Priority order: agency > workflow > component
-	candidates := []string{
-		"agency.yml", "agency.yaml", "agency.yml.j2", "agency.yaml.j2",
-		"workflow.yaml", "workflow.yml", "workflow.yaml.j2", "workflow.yml.j2",
-		"component.yaml", "component.yml", "component.yaml.j2",
-	}
-	for _, c := range candidates {
+	for _, c := range cloneManifestOrder {
 		if _, err := os.Stat(filepath.Join(sourceDir, c)); err == nil {
 			label, ok := cloneTypeLabels[c]
 			if !ok {

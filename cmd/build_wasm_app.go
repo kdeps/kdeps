@@ -207,28 +207,45 @@ func collectWebServerFiles(packageDir string) (map[string]string, error) {
 		if info.IsDir() {
 			return nil
 		}
-
-		relPath, relErr := collectWebServerRelFunc(packageDir, path)
-		if relErr != nil {
-			return relErr
-		}
-
-		f, openErr := root.Open(filepath.ToSlash(relPath))
-		if openErr != nil {
-			return openErr
-		}
-
-		content, readErr := collectWebServerReadAllFunc(f)
-		_ = f.Close()
+		relPath, content, readErr := readWebServerFile(root, packageDir, path)
 		if readErr != nil {
 			return readErr
 		}
-
-		files[filepath.ToSlash(relPath)] = string(content)
+		files[relPath] = content
 		return nil
 	})
 
 	return files, err
+}
+
+func readWebServerFile(root *os.Root, packageDir, path string) (string, string, error) {
+	relPath, relErr := collectWebServerRelFunc(packageDir, path)
+	if relErr != nil {
+		return "", "", relErr
+	}
+	slashPath := filepath.ToSlash(relPath)
+	f, openErr := root.Open(slashPath)
+	if openErr != nil {
+		return "", "", openErr
+	}
+	raw, readErr := collectWebServerReadAllFunc(f)
+	_ = f.Close()
+	if readErr != nil {
+		return "", "", readErr
+	}
+	return slashPath, string(raw), nil
+}
+
+// wasmArtifactCandidates builds the standard search path list for a WASM artifact.
+func wasmArtifactCandidates(envKey, filename string, extra ...string) []string {
+	candidates := []string{os.Getenv(envKey)}
+	if exePath, err := osExecutable(); err == nil {
+		candidates = append(candidates, filepath.Join(filepath.Dir(exePath), filename))
+	}
+	if abs, absErr := filepath.Abs(filename); absErr == nil {
+		candidates = append(candidates, abs)
+	}
+	return append(candidates, extra...)
 }
 
 // findExistingPath returns the first path in candidates that exists on disk.
@@ -248,15 +265,7 @@ func findExistingPath(candidates ...string) (string, bool) {
 // Search order: KDEPS_WASM_BINARY env var, next to kdeps binary, current directory.
 func findWASMBinary() (string, error) {
 	kdeps_debug.Log("enter: findWASMBinary")
-	candidates := []string{os.Getenv("KDEPS_WASM_BINARY")}
-	if exePath, err := osExecutable(); err == nil {
-		candidates = append(candidates, filepath.Join(filepath.Dir(exePath), "kdeps.wasm"))
-	}
-	if abs, absErr := filepath.Abs("kdeps.wasm"); absErr == nil {
-		candidates = append(candidates, abs)
-	}
-
-	if path, ok := findExistingPath(candidates...); ok {
+	if path, ok := findExistingPath(wasmArtifactCandidates("KDEPS_WASM_BINARY", "kdeps.wasm")...); ok {
 		return path, nil
 	}
 
@@ -310,15 +319,11 @@ func gorootWASMExecCandidates(ctx context.Context) []string {
 // Search order: KDEPS_WASM_EXEC_JS env var, next to kdeps binary, current directory, Go SDK.
 func findWASMExecJS(ctx context.Context) (string, error) {
 	kdeps_debug.Log("enter: findWASMExecJS")
-	candidates := []string{os.Getenv("KDEPS_WASM_EXEC_JS")}
-	if exePath, err := osExecutable(); err == nil {
-		candidates = append(candidates, filepath.Join(filepath.Dir(exePath), "wasm_exec.js"))
-	}
-	if abs, absErr := filepath.Abs("wasm_exec.js"); absErr == nil {
-		candidates = append(candidates, abs)
-	}
-	candidates = append(candidates, gorootWASMExecCandidates(ctx)...)
-
+	candidates := wasmArtifactCandidates(
+		"KDEPS_WASM_EXEC_JS",
+		"wasm_exec.js",
+		gorootWASMExecCandidates(ctx)...,
+	)
 	if path, ok := findExistingPath(candidates...); ok {
 		return path, nil
 	}

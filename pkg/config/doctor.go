@@ -140,13 +140,18 @@ func (r *doctorRunner) ollama(cfg *Config) {
 	r.add("Ollama", HealthPass, fmt.Sprintf("reachable at %s", addr))
 }
 
-func (r *doctorRunner) python() {
-	if _, err := execLookPath("python3"); err == nil {
-		r.add("Python", HealthPass, "python3 available")
-		return
+func firstInPath(names ...string) (string, bool) {
+	for _, name := range names {
+		if _, err := execLookPath(name); err == nil {
+			return name, true
+		}
 	}
-	if _, err := execLookPath("python"); err == nil {
-		r.add("Python", HealthPass, "python available")
+	return "", false
+}
+
+func (r *doctorRunner) python() {
+	if name, ok := firstInPath("python3", "python"); ok {
+		r.add("Python", HealthPass, name+" available")
 		return
 	}
 	r.add("Python", HealthWarn, "python not found in PATH — python resources will fail")

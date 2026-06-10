@@ -65,15 +65,21 @@ func resolveBuildWorkflowPaths(packagePath string) (string, string, func(), erro
 	return workflowPath, packageDir, nil, nil
 }
 
+func extractArchivePackage(packagePath, label, failVerb string) (string, func(), error) {
+	fmt.Fprintf(os.Stdout, "%s: %s\n", label, packagePath)
+	tempDir, err := ExtractPackage(packagePath)
+	if err != nil {
+		return "", nil, fmt.Errorf("failed to %s: %w", failVerb, err)
+	}
+	return tempDir, func() { _ = os.RemoveAll(tempDir) }, nil
+}
+
 // resolveBuildKdepsPackage handles .kdeps package file extraction.
 func resolveBuildKdepsPackage(packagePath string) (string, string, func(), error) {
 	kdeps_debug.Log("enter: resolveBuildKdepsPackage")
-	fmt.Fprintf(os.Stdout, "Package: %s\n", packagePath)
-
-	// Extract package to temporary directory
-	tempDir, err := ExtractPackage(packagePath)
+	tempDir, cleanupFunc, err := extractArchivePackage(packagePath, "Package", "extract package")
 	if err != nil {
-		return "", "", nil, fmt.Errorf("failed to extract package: %w", err)
+		return "", "", nil, err
 	}
 
 	workflowPath := FindWorkflowFile(tempDir)
@@ -81,7 +87,6 @@ func resolveBuildKdepsPackage(packagePath string) (string, string, func(), error
 		workflowPath = filepath.Join(tempDir, "workflow.yaml") // fallback for legacy packages
 	}
 	packageDir := tempDir
-	cleanupFunc := func() { _ = os.RemoveAll(tempDir) }
 
 	fmt.Fprintf(os.Stdout, "Extracted to: %s\n", tempDir)
 	fmt.Fprintf(os.Stdout, "Workflow: %s\n\n", "workflow.yaml")
@@ -93,13 +98,10 @@ func resolveBuildKdepsPackage(packagePath string) (string, string, func(), error
 // resolves the entry-point agent workflow for Docker/ISO builds.
 func resolveBuildKagencyPackage(packagePath string) (string, string, func(), error) {
 	kdeps_debug.Log("enter: resolveBuildKagencyPackage")
-	fmt.Fprintf(os.Stdout, "Agency Package: %s\n", packagePath)
-
-	tempDir, err := ExtractPackage(packagePath)
+	tempDir, cleanupFunc, err := extractArchivePackage(packagePath, "Agency Package", "extract agency package")
 	if err != nil {
-		return "", "", nil, fmt.Errorf("failed to extract agency package: %w", err)
+		return "", "", nil, err
 	}
-	cleanupFunc := func() { _ = os.RemoveAll(tempDir) }
 
 	agencyFile := FindAgencyFile(tempDir)
 	if agencyFile == "" {
