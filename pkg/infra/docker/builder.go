@@ -34,10 +34,9 @@ import (
 )
 
 const (
-	baseOSAlpine  = "alpine"
-	baseOSUbuntu  = "ubuntu"
-	baseOSDebian  = "debian"
-	backendOllama = "ollama"
+	baseOSAlpine = "alpine"
+	baseOSUbuntu = "ubuntu"
+	baseOSDebian = "debian"
 
 	// Default port for Ollama.
 	defaultOllamaPort = 11434

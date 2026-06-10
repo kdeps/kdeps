@@ -21,52 +21,9 @@
 package docker
 
 import (
-	"os"
-	"strings"
-
 	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
 	"github.com/kdeps/kdeps/v2/pkg/domain"
 )
-
-// shouldInstallOllama determines if Ollama should be installed in the Docker image.
-// Priority: explicit setting > auto-detect from resources/models.
-func (b *Builder) shouldInstallOllama(workflow *domain.Workflow) bool {
-	kdeps_debug.Log("enter: shouldInstallOllama")
-	// Check explicit setting first
-	if workflow.Settings.AgentSettings.InstallOllama != nil {
-		return *workflow.Settings.AgentSettings.InstallOllama
-	}
-
-	// Auto-detect: install if there are Chat resources using the ollama backend.
-	// Backend is now configured via KDEPS_DEFAULT_BACKEND env var.
-	hasChatResources := false
-	for _, resource := range workflow.Resources {
-		if resource.Chat != nil {
-			hasChatResources = true
-			break
-		}
-	}
-	if hasChatResources {
-		backend := os.Getenv("KDEPS_DEFAULT_BACKEND")
-		if backend == "" || backend == backendOllama {
-			return true
-		}
-	}
-
-	// Also check router config for ollama routes.
-	if routerJSON := os.Getenv("KDEPS_LLM_ROUTER"); routerJSON != "" {
-		if strings.Contains(routerJSON, `"ollama"`) {
-			return true
-		}
-	}
-
-	// Auto-detect: install if models are configured.
-	if os.Getenv("KDEPS_LLM_MODELS") != "" {
-		return true
-	}
-
-	return false
-}
 
 // shouldInstallUV determines if uv should be installed in the Docker image.
 // Install if there are Python resources, Python packages, requirements file, or if it's explicitly enabled.

@@ -61,7 +61,7 @@ func buildKdepsEnvList(workflow *domain.Workflow) []string {
 		"KDEPS_BIND_HOST=0.0.0.0",
 		"KDEPS_PLATFORM=iso",
 	}
-	if !ShouldInstallOllama(workflow) {
+	if !domain.ResolveInstallOllama(workflow) {
 		return appendWorkflowEnv(envList, workflow)
 	}
 
@@ -94,19 +94,10 @@ func appendWorkflowEnv(envList []string, workflow *domain.Workflow) []string {
 
 func buildKdepsBinds(workflow *domain.Workflow) []string {
 	binds := []string{"/var/run:/var/run"}
-	if ShouldInstallOllama(workflow) {
+	if domain.ResolveInstallOllama(workflow) {
 		binds = append(binds, "/dev:/dev")
 	}
 	return binds
-}
-
-func workflowHasChatResources(workflow *domain.Workflow) bool {
-	for _, resource := range workflow.Resources {
-		if resource.Chat != nil {
-			return true
-		}
-	}
-	return false
 }
 
 func addFatBuildService(config *LinuxKitConfig, imageName string, workflow *domain.Workflow) {

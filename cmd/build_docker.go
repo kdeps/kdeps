@@ -44,7 +44,6 @@ import (
 	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
 	"github.com/kdeps/kdeps/v2/pkg/domain"
 	"github.com/kdeps/kdeps/v2/pkg/infra/docker"
-	"github.com/kdeps/kdeps/v2/pkg/infra/iso"
 )
 
 func setupDockerBuilder(flags *BuildFlags) (*docker.Builder, error) {
@@ -99,7 +98,7 @@ func getWorkflowPorts(workflow *domain.Workflow) []int {
 		// Use resolved port from settings
 		ports = append(ports, workflow.Settings.GetPortNum())
 
-		if iso.ShouldInstallOllama(workflow) {
+		if domain.ResolveInstallOllama(workflow) {
 			// Add Ollama port (default 11434)
 			ports = append(ports, ollamaDefaultPort)
 		}
