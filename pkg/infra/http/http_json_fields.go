@@ -63,22 +63,6 @@ func successResponseMap(data interface{}, meta map[string]interface{}) map[strin
 	}
 }
 
-func validationErrorDetailsMap(errors []*domain.ValidationError) map[string]any {
-	return map[string]any{jsonFieldErrors: validationErrorsToDetails(errors)}
-}
-
-func validationErrorDetailMap(err *domain.ValidationError) map[string]any {
-	detail := map[string]any{
-		jsonFieldField:   err.Field,
-		jsonFieldType:    err.Type,
-		jsonFieldMessage: err.Message,
-	}
-	if err.Value != nil {
-		detail[jsonFieldValue] = err.Value
-	}
-	return detail
-}
-
 func apiResultSuccessValue(resultMap map[string]interface{}) bool {
 	success, validBool := domain.ParseBool(resultMap[jsonFieldSuccess])
 	if !validBool {

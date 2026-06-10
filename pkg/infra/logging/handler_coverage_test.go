@@ -22,13 +22,11 @@ import (
 	"bytes"
 	"errors"
 	"log/slog"
-	"os"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 
 	"github.com/kdeps/kdeps/v2/pkg/infra/logging"
 )
@@ -469,31 +467,6 @@ func TestPrettyHandler_FormatAny_Default(t *testing.T) {
 	handler.FormatAny(builder, custom, "  ")
 	// Should format using JSON or fallback
 	assert.NotEmpty(t, builder.String())
-}
-
-// TestNewLoggerWithLevel tests NewLoggerWithLevel function.
-func TestNewLoggerWithLevel(t *testing.T) {
-	logger := logging.NewLoggerWithLevel(slog.LevelWarn, true)
-	assert.NotNil(t, logger)
-
-	// Test that logger works
-	logger.Info("test message")
-	logger.Warn("warning message")
-}
-
-// TestNewLoggerForFile tests NewLoggerForFile function.
-func TestNewLoggerForFile(t *testing.T) {
-	tmpFile, err := os.CreateTemp(t.TempDir(), "test-log-*.txt")
-	require.NoError(t, err)
-	defer os.Remove(tmpFile.Name())
-	defer func() {
-		_ = tmpFile.Close()
-	}()
-
-	logger := logging.NewLoggerForFile(tmpFile, slog.LevelInfo)
-	assert.NotNil(t, logger)
-
-	logger.Info("test message")
 }
 
 // TestPrettyHandler_FormatAny_JSONMarshalSuccess tests formatAny with JSON marshaling success.

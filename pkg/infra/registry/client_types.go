@@ -21,24 +21,10 @@
 package registry
 
 import (
-	"encoding/json"
-	"io"
 	"net/http"
 	"os"
 	"time"
 )
-
-// jsonMarshal is json.Marshal, overridable for testing.
-//
-//nolint:gochecknoglobals // test-replaceable
-var jsonMarshal = json.Marshal
-
-// testMultipartBodyWriter, if non-nil, replaces the bytes.Buffer used as the
-// underlying writer for multipart form construction in Publish. Used in tests
-// to trigger error branches in CreateFormFile, io.Copy, and writer.Close.
-//
-//nolint:gochecknoglobals // test-injectable hook for error branches
-var testMultipartBodyWriter io.Writer
 
 // testFileClose, if non-nil, is called instead of *os.File.Close in Download.
 // Used in tests to trigger the close error branch.

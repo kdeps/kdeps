@@ -37,22 +37,10 @@ func (c *InputConfig) HasBotSource() bool {
 	return c.HasSource(InputSourceBot)
 }
 
-// IsBotSource returns true when the given source name is the "bot" source.
-func IsBotSource(s string) bool {
-	kdeps_debug.Log("enter: IsBotSource")
-	return s == InputSourceBot
-}
-
 // HasFileSource reports whether "file" is in the Sources list.
 func (c *InputConfig) HasFileSource() bool {
 	kdeps_debug.Log("enter: HasFileSource")
 	return c.HasSource(InputSourceFile)
-}
-
-// IsFileSource returns true when the given source name is the "file" source.
-func IsFileSource(s string) bool {
-	kdeps_debug.Log("enter: IsFileSource")
-	return s == InputSourceFile
 }
 
 // LLMInputConfig holds optional configuration for the LLM REPL.

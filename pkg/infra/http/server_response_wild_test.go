@@ -32,40 +32,6 @@ import (
 	httppkg "github.com/kdeps/kdeps/v2/pkg/infra/http"
 )
 
-// TestServer_RespondSuccess_WithMeta tests RespondSuccess with meta data.
-func TestServer_RespondSuccess_WithMeta(t *testing.T) {
-	w := httptest.NewRecorder()
-	req := httptest.NewRequest(stdhttp.MethodGet, "/api/test", nil)
-
-	meta := map[string]interface{}{
-		"requestID": "test-id",
-		"timestamp": "2024-01-01T00:00:00Z",
-	}
-
-	httppkg.RespondWithSuccess(w, req, map[string]interface{}{"key": "value"}, meta)
-	assert.Equal(t, stdhttp.StatusOK, w.Code)
-
-	var response map[string]interface{}
-	err := json.NewDecoder(w.Body).Decode(&response)
-	require.NoError(t, err)
-	assert.True(t, response["success"].(bool))
-	assert.Contains(t, response, "meta")
-}
-
-// TestServer_RespondSuccess_NoMeta tests RespondSuccess without meta data.
-func TestServer_RespondSuccess_NoMeta(t *testing.T) {
-	w := httptest.NewRecorder()
-	req := httptest.NewRequest(stdhttp.MethodGet, "/api/test", nil)
-
-	httppkg.RespondWithSuccess(w, req, map[string]interface{}{"key": "value"}, nil)
-	assert.Equal(t, stdhttp.StatusOK, w.Code)
-
-	var response map[string]interface{}
-	err := json.NewDecoder(w.Body).Decode(&response)
-	require.NoError(t, err)
-	assert.True(t, response["success"].(bool))
-}
-
 // TestServer_RespondError_WithDebugMode tests RespondError with debug mode enabled.
 func TestServer_RespondError_WithDebugMode(t *testing.T) {
 	w := httptest.NewRecorder()

@@ -809,40 +809,6 @@ func TestNewBuilder_EnsureLinuxKitError(t *testing.T) {
 	assert.Contains(t, err.Error(), "linuxkit not available")
 }
 
-func TestBuilder_CacheImportImage_Success(t *testing.T) {
-	mockRunner := &mockRunner{}
-	builder := iso.NewBuilderWithRunner(mockRunner)
-
-	tmpDir := t.TempDir()
-	tarPath := filepath.Join(tmpDir, "image.tar")
-	_ = os.WriteFile(tarPath, []byte("fake-tar"), 0644)
-
-	err := builder.CacheImportImage(t.Context(), tarPath)
-
-	require.NoError(t, err)
-	require.Len(t, mockRunner.cacheImportCalls, 1)
-	assert.Equal(t, tarPath, mockRunner.cacheImportCalls[0])
-}
-
-func TestBuilder_CacheImportImage_RunnerError(t *testing.T) {
-	mockRunner := &mockRunner{
-		cacheImportErr: errors.New("cache import failed"),
-	}
-	builder := iso.NewBuilderWithRunner(mockRunner)
-
-	err := builder.CacheImportImage(t.Context(), "image.tar")
-
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "cache import failed")
-}
-
-func TestBuilder_CacheImportImage_NilRunner(t *testing.T) {
-	builder := &iso.Builder{} // Runner is nil
-	err := builder.CacheImportImage(t.Context(), "test.tar")
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "runner is nil")
-}
-
 func TestBuilder_Build_EmptyFormatDefaultsToISOEFI(t *testing.T) {
 	runner := &mockRunner{}
 	builder := &iso.Builder{

@@ -19,7 +19,6 @@
 package templates_test
 
 import (
-	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -35,126 +34,6 @@ func TestNewGenerator(t *testing.T) {
 	generator, err := templates.NewGenerator()
 	require.NoError(t, err)
 	assert.NotNil(t, generator)
-}
-
-func TestGenerator_GenerateBasicResource(t *testing.T) {
-	generator, err := templates.NewGenerator()
-	require.NoError(t, err)
-
-	tmpDir := t.TempDir()
-
-	tests := []struct {
-		name         string
-		resourceName string
-		checkContent func(*testing.T, string)
-	}{
-		{
-			name:         "http-client",
-			resourceName: "http-client",
-			checkContent: func(t *testing.T, content string) {
-				assert.Contains(t, content, "httpClient")
-				assert.Contains(t, content, "GET")
-			},
-		},
-		{
-			name:         "llm",
-			resourceName: "llm",
-			checkContent: func(t *testing.T, content string) {
-				assert.Contains(t, content, "chat:")
-				assert.Contains(t, content, "llama3.2:1b")
-			},
-		},
-		{
-			name:         "sql",
-			resourceName: "sql",
-			checkContent: func(t *testing.T, content string) {
-				assert.Contains(t, content, "sql:")
-				assert.Contains(t, content, "SELECT")
-			},
-		},
-		{
-			name:         "python",
-			resourceName: "python",
-			checkContent: func(t *testing.T, content string) {
-				assert.Contains(t, content, "python:")
-				assert.Contains(t, content, "script:")
-			},
-		},
-		{
-			name:         "exec",
-			resourceName: "exec",
-			checkContent: func(t *testing.T, content string) {
-				assert.Contains(t, content, "exec:")
-				assert.Contains(t, content, "command:")
-			},
-		},
-		{
-			name:         "response",
-			resourceName: "response",
-			checkContent: func(t *testing.T, content string) {
-				assert.Contains(t, content, "apiResponse:")
-				assert.Contains(t, content, "success:")
-			},
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			targetPath := filepath.Join(tmpDir, tt.resourceName+".yaml")
-
-			genErr := generator.GenerateResource(tt.resourceName, targetPath)
-			require.NoError(t, genErr)
-
-			content, readErr := os.ReadFile(targetPath)
-			require.NoError(t, readErr)
-
-			tt.checkContent(t, string(content))
-		})
-	}
-}
-
-func TestGenerator_GenerateResource_UnknownType(t *testing.T) {
-	generator, err := templates.NewGenerator()
-	require.NoError(t, err)
-
-	tmpDir := t.TempDir()
-	targetPath := filepath.Join(tmpDir, "unknown.yaml")
-
-	err = generator.GenerateResource("unknown", targetPath)
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "unknown resource type")
-}
-
-func TestGenerator_ListTemplates(t *testing.T) {
-	generator, err := templates.NewGenerator()
-	require.NoError(t, err)
-
-	templates, err := generator.ListTemplates()
-	require.NoError(t, err)
-	assert.NotEmpty(t, templates)
-
-	// Should include at least api-service
-	found := false
-	for _, tmpl := range templates {
-		if tmpl == "api-service" {
-			found = true
-			break
-		}
-	}
-	assert.True(t, found, "Should include api-service template")
-
-	// Should not include "resources" directory
-	for _, tmpl := range templates {
-		assert.NotEqual(
-			t,
-			"resources",
-			tmpl,
-			"Should not include resources directory in template list",
-		)
-	}
-
-	// Verify templates is not nil and contains expected structure
-	assert.NotEmpty(t, templates, "Should return at least one template")
 }
 
 func TestGenerator_GenerateProject(t *testing.T) {
@@ -274,17 +153,6 @@ func TestGenerator_GenerateProject_WithSubdirectories(t *testing.T) {
 	assert.NoError(t, err, "resources/response.yaml should be created")
 }
 
-func TestGenerator_GenerateFile_ErrorHandling(t *testing.T) {
-	generator, err := templates.NewGenerator()
-	require.NoError(t, err)
-
-	// Test with invalid output path (should fail on directory creation)
-	invalidPath := "/nonexistent/deep/path/file.yaml"
-
-	err = generator.GenerateResource("http-client", invalidPath)
-	require.Error(t, err, "Should fail when output directory cannot be created")
-}
-
 func TestGenerator_GenerateProject_EmptyTemplate(t *testing.T) {
 	generator, err := templates.NewGenerator()
 	require.NoError(t, err)
@@ -304,19 +172,6 @@ func TestGenerator_GenerateProject_EmptyTemplate(t *testing.T) {
 	workflowPath := filepath.Join(outputDir, "workflow.yaml")
 	_, err = os.Stat(workflowPath)
 	assert.NoError(t, err, "workflow.yaml should be created even with minimal data")
-}
-
-func TestGenerator_GenerateResource_TemplateNotFound(t *testing.T) {
-	generator, err := templates.NewGenerator()
-	require.NoError(t, err)
-
-	tmpDir := t.TempDir()
-	targetPath := filepath.Join(tmpDir, "nonexistent.yaml")
-
-	// This should fall back to basic resource generation
-	err = generator.GenerateResource("nonexistent", targetPath)
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "unknown resource type")
 }
 
 func TestGenerator_GenerateFile_TemplateLookupFallback(t *testing.T) {
@@ -432,17 +287,6 @@ func TestGenerator_StripJinja2Ext_EdgeCases(t *testing.T) {
 	}
 }
 
-func TestGenerator_GenerateBasicResource_WriteFileError(t *testing.T) {
-	generator, err := templates.NewGenerator()
-	require.NoError(t, err)
-
-	// Test with invalid path that should cause WriteFile to fail
-	invalidPath := "/dev/null/invalid/path/resource.yaml"
-
-	err = generator.GenerateResource("http-client", invalidPath)
-	require.Error(t, err, "Should fail when writing to invalid path")
-}
-
 func TestGenerator_GenerateProject_DirectoryCreationFailure(t *testing.T) {
 	generator, err := templates.NewGenerator()
 	require.NoError(t, err)
@@ -496,28 +340,6 @@ func TestGenerator_GenerateFile_TemplateLookupFailure(t *testing.T) {
 	files, err := os.ReadDir(outputDir)
 	require.NoError(t, err)
 	assert.NotEmpty(t, files, "Should generate some files")
-}
-
-func TestGenerator_GenerateResource_TemplateExistsPath(t *testing.T) {
-	// Test the path where a resource template actually exists
-	// We need to create a mock template in the embedded FS, but since we can't,
-	// we'll test with a resource that we know has a template
-
-	generator, err := templates.NewGenerator()
-	require.NoError(t, err)
-
-	tmpDir := t.TempDir()
-	targetPath := filepath.Join(tmpDir, "test-resource.yaml")
-
-	// Use a resource type that should have a template
-	// If it doesn't exist, it falls back to basic generation
-	err = generator.GenerateResource("http-client", targetPath)
-	require.NoError(t, err, "Should generate resource successfully")
-
-	// Verify file was created
-	content, err := os.ReadFile(targetPath)
-	require.NoError(t, err)
-	assert.Contains(t, string(content), "apiVersion: v2")
 }
 
 func TestGenerator_StripTemplateExt_AdditionalEdgeCases(t *testing.T) {
@@ -583,22 +405,6 @@ func TestGenerator_StripTemplateExt_AdditionalEdgeCases(t *testing.T) {
 	}
 }
 
-func TestGenerator_ListTemplates_ReadDirError(t *testing.T) {
-	// Test ListTemplates error handling
-	generator, err := templates.NewGenerator()
-	require.NoError(t, err)
-
-	// Test successful case (main path)
-	templateList, err := generator.ListTemplates()
-	require.NoError(t, err)
-	assert.NotEmpty(t, templateList, "Should return templates successfully")
-
-	// Verify resources directory is filtered out
-	for _, tmpl := range templateList {
-		assert.NotEqual(t, "resources", tmpl, "Should filter out resources directory")
-	}
-}
-
 func TestGenerator_WalkTemplate_ErrorPaths(t *testing.T) {
 	generator, err := templates.NewGenerator()
 	require.NoError(t, err)
@@ -659,30 +465,6 @@ func TestGenerator_GenerateFile_TemplateExecutionErrors(t *testing.T) {
 	files, err := os.ReadDir(outputDir)
 	require.NoError(t, err)
 	assert.NotEmpty(t, files, "Should create files even with template execution challenges")
-}
-
-func TestGenerator_GenerateResource_TemplateFileHandling(t *testing.T) {
-	generator, err := templates.NewGenerator()
-	require.NoError(t, err)
-
-	tmpDir := t.TempDir()
-
-	// Test resource generation for all supported types to ensure template file checks
-	resourceTypes := []string{"http-client", "llm", "sql", "python", "exec", "response"}
-
-	for _, resourceType := range resourceTypes {
-		t.Run(fmt.Sprintf("template_check_%s", resourceType), func(t *testing.T) {
-			targetPath := filepath.Join(tmpDir, resourceType+"_check.yaml")
-
-			err = generator.GenerateResource(resourceType, targetPath)
-			require.NoError(t, err)
-
-			// Verify file was created
-			info, statErr := os.Stat(targetPath)
-			require.NoError(t, statErr)
-			assert.Positive(t, info.Size(), "Generated resource file should not be empty")
-		})
-	}
 }
 
 func TestGenerator_StripTemplateExt_Comprehensive(t *testing.T) {
@@ -788,43 +570,6 @@ func TestGenerator_StripTemplateExt_Comprehensive(t *testing.T) {
 			require.NoError(t, err)
 		})
 	}
-}
-
-func TestGenerator_ListTemplates_ErrorScenarios(t *testing.T) {
-	// Test ListTemplates error handling
-	generator, err := templates.NewGenerator()
-	require.NoError(t, err)
-
-	// Test successful case (main path)
-	templateList, err := generator.ListTemplates()
-	require.NoError(t, err)
-	assert.NotEmpty(t, templateList, "Should return templates successfully")
-
-	// Verify "resources" is not included (error handling for filtering)
-	for _, tmpl := range templateList {
-		assert.NotEqual(t, "resources", tmpl, "Should filter out resources directory")
-	}
-}
-
-func TestGenerator_GenerateFile_FallbackPath(t *testing.T) {
-	// Test the fallback template parsing path in generateFile
-	generator, err := templates.NewGenerator()
-	require.NoError(t, err)
-
-	tmpDir := t.TempDir()
-	targetPath := filepath.Join(tmpDir, "fallback-test.yaml")
-
-	// The existing GenerateResource test already exercises both paths:
-	// - When template exists: calls generateFile with existing template
-	// - When template doesn't exist: calls generateBasicResource
-
-	// Verify that the GenerateResource path that uses templates works
-	err = generator.GenerateResource("http-client", targetPath)
-	require.NoError(t, err)
-
-	content, err := os.ReadFile(targetPath)
-	require.NoError(t, err)
-	assert.Contains(t, string(content), "apiVersion: v2")
 }
 
 func TestGenerator_StripTemplateExt_Coverage(t *testing.T) {
@@ -994,24 +739,6 @@ func TestGenerator_GenerateFile_TemplateNotFound(t *testing.T) {
 	assert.NotEmpty(t, files)
 }
 
-func TestGenerator_GenerateResource_TemplateReadError(t *testing.T) {
-	// Test GenerateResource when template file read fails
-	generator, err := templates.NewGenerator()
-	require.NoError(t, err)
-
-	tmpDir := t.TempDir()
-	// Try to generate to a path that should cause issues
-	// Since we can't easily make templatesFS.ReadFile fail, we test the success path
-	targetPath := filepath.Join(tmpDir, "test.yaml")
-
-	err = generator.GenerateResource("http-client", targetPath)
-	require.NoError(t, err)
-
-	// Verify file was created
-	_, err = os.Stat(targetPath)
-	assert.NoError(t, err)
-}
-
 func TestGenerator_StripTemplateExt_AllPaths(t *testing.T) {
 	// Test stripTemplateExt function comprehensively
 	// Since it's private, we test it indirectly through behavior
@@ -1062,35 +789,6 @@ func TestGenerator_StripTemplateExt_AllPaths(t *testing.T) {
 			)
 		})
 	}
-}
-
-func TestGenerator_ListTemplates_ReadDirFailure(t *testing.T) {
-	// Test ListTemplates when ReadDir fails
-	// Since we can't easily make templatesFS.ReadDir fail, we test the success path
-	generator, err := templates.NewGenerator()
-	require.NoError(t, err)
-
-	templates, err := generator.ListTemplates()
-	require.NoError(t, err)
-	assert.NotEmpty(t, templates)
-
-	// Verify resources directory is filtered out
-	for _, tmpl := range templates {
-		assert.NotEqual(t, "resources", tmpl)
-	}
-}
-
-func TestGenerator_GenerateResource_DirectoryCreationFailure(t *testing.T) {
-	// Test GenerateResource when directory creation fails
-	generator, err := templates.NewGenerator()
-	require.NoError(t, err)
-
-	// Test with deeply nested invalid path
-	invalidPath := "/dev/null/invalid/deep/nested/path/resource.yaml"
-
-	err = generator.GenerateResource("http-client", invalidPath)
-	// Should fail with directory creation error
-	require.Error(t, err)
 }
 
 func TestGenerator_GenerateFile_TemplateReadError(t *testing.T) {

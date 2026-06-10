@@ -60,9 +60,6 @@ func ensure() *slog.Logger {
 	return logger
 }
 
-// Debug logs a debug message.
-func Debug(msg string, args ...any) { ensure().Debug(msg, args...) }
-
 // Info logs an info message.
 func Info(msg string, args ...any) { ensure().Info(msg, args...) }
 
@@ -71,6 +68,3 @@ func Warn(msg string, args ...any) { ensure().Warn(msg, args...) }
 
 // Error logs an error message.
 func Error(msg string, args ...any) { ensure().Error(msg, args...) }
-
-// Logger returns the underlying slog.Logger for direct use.
-func Logger() *slog.Logger { return ensure() }

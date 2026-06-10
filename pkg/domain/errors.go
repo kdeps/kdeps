@@ -229,17 +229,6 @@ type ValidationError struct {
 	Value   interface{} `json:"value,omitempty"`
 }
 
-// NewValidationError creates a new validation error.
-func NewValidationError(field, errType, message string, value interface{}) *ValidationError {
-	kdeps_debug.Log("enter: NewValidationError")
-	return &ValidationError{
-		Field:   field,
-		Type:    errType,
-		Message: message,
-		Value:   value,
-	}
-}
-
 // Error implements the error interface.
 func (e *ValidationError) Error() string {
 	kdeps_debug.Log("enter: Error")

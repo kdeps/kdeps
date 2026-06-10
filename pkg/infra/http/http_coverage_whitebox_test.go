@@ -12,7 +12,6 @@ import (
 	"archive/tar"
 	"bytes"
 	"compress/gzip"
-	"context"
 	"crypto/tls"
 	"errors"
 	"fmt"
@@ -258,15 +257,6 @@ func TestPathRegisteredForMethod_UnknownMethod(t *testing.T) {
 	router.GET("/api/test", func(stdhttp.ResponseWriter, *stdhttp.Request) {})
 
 	assert.False(t, routerPathRegisteredForMethod(router, stdhttp.MethodPost, "/api/test"))
-}
-
-func TestRespondWithSuccess_EncodeError(t *testing.T) {
-	rec := httptest.NewRecorder()
-	req := httptest.NewRequest(stdhttp.MethodGet, "/", nil)
-	req = req.WithContext(context.WithValue(context.Background(), RequestIDKey, "req-1"))
-
-	RespondWithSuccess(rec, req, make(chan int), nil)
-	assert.Equal(t, stdhttp.StatusOK, rec.Code)
 }
 
 func TestIsSecureRequest_TLS(t *testing.T) {

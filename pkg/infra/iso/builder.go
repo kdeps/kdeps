@@ -23,7 +23,6 @@ package iso
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"os"
 	"runtime"
@@ -99,18 +98,6 @@ func NewBuilderWithRunner(runner LinuxKitRunner) *Builder {
 		Format:   defaultFormat,
 		Arch:     runtime.GOARCH,
 	}
-}
-
-// CacheImportImage imports a Docker image tar into linuxkit's local cache.
-// This must be called before Build when using locally built Docker images
-// that aren't available in a remote registry.
-func (b *Builder) CacheImportImage(ctx context.Context, tarPath string) error {
-	kdeps_debug.Log("enter: CacheImportImage")
-	if b.Runner == nil {
-		return errors.New("runner is nil")
-	}
-
-	return b.Runner.CacheImport(ctx, tarPath)
 }
 
 // Build creates a bootable image from a kdeps Docker image.

@@ -33,7 +33,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/kdeps/kdeps/v2/pkg/domain"
 	"github.com/kdeps/kdeps/v2/pkg/infra/registry"
 )
 
@@ -106,51 +105,6 @@ func TestClient_GetPackage_NotFound(t *testing.T) {
 
 	client := registry.NewClient("", server.URL)
 	_, err := client.GetPackage(context.Background(), "nonexistent")
-	assert.Error(t, err)
-}
-
-// TestClient_Publish_Success verifies successful publish response.
-func TestClient_Publish_Success(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		assert.Equal(t, "Bearer test-key", r.Header.Get("Authorization"))
-		w.WriteHeader(http.StatusCreated)
-		_ = json.NewEncoder(w).Encode(registry.PublishResponse{
-			Name:    "my-agent",
-			Version: "1.0.0",
-			Message: "Published successfully",
-		})
-	}))
-	defer server.Close()
-
-	dir := t.TempDir()
-	archivePath := filepath.Join(dir, "my-agent-1.0.0.kdeps")
-	require.NoError(t, os.WriteFile(archivePath, []byte("fake archive"), 0o644))
-
-	manifest := &domain.KdepsPkg{
-		Name:    "my-agent",
-		Version: "1.0.0",
-		Type:    "workflow",
-	}
-	client := registry.NewClient("test-key", server.URL)
-	result, err := client.Publish(context.Background(), archivePath, manifest)
-	require.NoError(t, err)
-	assert.Equal(t, "my-agent", result.Name)
-}
-
-// TestClient_Publish_Unauthorized verifies error on invalid API key.
-func TestClient_Publish_Unauthorized(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		w.WriteHeader(http.StatusUnauthorized)
-	}))
-	defer server.Close()
-
-	dir := t.TempDir()
-	archivePath := filepath.Join(dir, "my-agent-1.0.0.kdeps")
-	require.NoError(t, os.WriteFile(archivePath, []byte("fake archive"), 0o644))
-
-	manifest := &domain.KdepsPkg{Name: "my-agent", Version: "1.0.0"}
-	client := registry.NewClient("bad-key", server.URL)
-	_, err := client.Publish(context.Background(), archivePath, manifest)
 	assert.Error(t, err)
 }
 
@@ -266,54 +220,6 @@ func TestClient_GetPackage_InvalidJSON(t *testing.T) {
 	assert.Error(t, err)
 }
 
-// TestClient_Publish_ServerError verifies error on server error response.
-func TestClient_Publish_ServerError(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		w.WriteHeader(http.StatusInternalServerError)
-	}))
-	defer server.Close()
-
-	dir := t.TempDir()
-	archivePath := filepath.Join(dir, "my-agent-1.0.0.kdeps")
-	require.NoError(t, os.WriteFile(archivePath, []byte("fake archive"), 0o644))
-
-	manifest := &domain.KdepsPkg{Name: "my-agent", Version: "1.0.0"}
-	client := registry.NewClient("test-key", server.URL)
-	_, err := client.Publish(context.Background(), archivePath, manifest)
-	assert.Error(t, err)
-}
-
-// TestClient_Publish_ConnectionError verifies error on connection failure.
-func TestClient_Publish_ConnectionError(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		w.WriteHeader(http.StatusOK)
-	}))
-	server.Close()
-
-	dir := t.TempDir()
-	archivePath := filepath.Join(dir, "my-agent-1.0.0.kdeps")
-	require.NoError(t, os.WriteFile(archivePath, []byte("fake archive"), 0o644))
-
-	manifest := &domain.KdepsPkg{Name: "my-agent", Version: "1.0.0"}
-	client := registry.NewClient("test-key", server.URL)
-	_, err := client.Publish(context.Background(), archivePath, manifest)
-	assert.Error(t, err)
-}
-
-// TestClient_Publish_ArchiveNotFound verifies error for missing archive file.
-func TestClient_Publish_ArchiveNotFound(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		w.WriteHeader(http.StatusOK)
-	}))
-	defer server.Close()
-
-	archivePath := filepath.Join(t.TempDir(), "nonexistent.kdeps")
-	manifest := &domain.KdepsPkg{Name: "my-agent", Version: "1.0.0"}
-	client := registry.NewClient("test-key", server.URL)
-	_, err := client.Publish(context.Background(), archivePath, manifest)
-	assert.Error(t, err)
-}
-
 // TestClient_Download_ServerError verifies error on server error response.
 func TestClient_Download_ServerError(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
@@ -374,39 +280,6 @@ func TestClient_GetPackage_InvalidAPIURL(t *testing.T) {
 	assert.Error(t, err)
 }
 
-// TestClient_Publish_InvalidAPIURL verifies error when APIURL produces a scheme-less URL.
-func TestClient_Publish_InvalidAPIURL(t *testing.T) {
-	dir := t.TempDir()
-	archivePath := filepath.Join(dir, "my-agent-1.0.0.kdeps")
-	require.NoError(t, os.WriteFile(archivePath, []byte("fake archive"), 0o644))
-
-	manifest := &domain.KdepsPkg{Name: "my-agent", Version: "1.0.0"}
-	client := &registry.Client{
-		APIURL:     "",
-		HTTPClient: &http.Client{Timeout: 30 * time.Second},
-	}
-	_, err := client.Publish(context.Background(), archivePath, manifest)
-	assert.Error(t, err)
-}
-
-// TestClient_Publish_InvalidJSON verifies error on malformed JSON in publish response.
-func TestClient_Publish_InvalidJSON(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		w.WriteHeader(http.StatusCreated)
-		_, _ = w.Write([]byte("not json"))
-	}))
-	defer server.Close()
-
-	dir := t.TempDir()
-	archivePath := filepath.Join(dir, "my-agent-1.0.0.kdeps")
-	require.NoError(t, os.WriteFile(archivePath, []byte("fake archive"), 0o644))
-
-	manifest := &domain.KdepsPkg{Name: "my-agent", Version: "1.0.0"}
-	client := registry.NewClient("test-key", server.URL)
-	_, err := client.Publish(context.Background(), archivePath, manifest)
-	assert.Error(t, err)
-}
-
 // TestClient_Download_InvalidAPIURL verifies error when APIURL produces a scheme-less URL.
 func TestClient_Download_InvalidAPIURL(t *testing.T) {
 	client := &registry.Client{
@@ -431,25 +304,6 @@ func TestClient_Download_CreateFileError(t *testing.T) {
 
 	client := registry.NewClient("", server.URL)
 	_, err := client.Download(context.Background(), "chatbot", "1.0.0", destDir)
-	assert.Error(t, err)
-}
-
-// TestClient_Publish_NewRequestError verifies error when APIURL contains an invalid
-// character that causes http.NewRequestWithContext to fail during Publish.
-// Unlike TestClient_Publish_InvalidAPIURL, which tests the Do-error path with a
-// scheme-less URL that still parses, this test triggers the NewRequestWithContext
-// error directly by using a URL with a control character.
-func TestClient_Publish_NewRequestError(t *testing.T) {
-	dir := t.TempDir()
-	archivePath := filepath.Join(dir, "my-agent-1.0.0.kdeps")
-	require.NoError(t, os.WriteFile(archivePath, []byte("fake archive"), 0o644))
-
-	manifest := &domain.KdepsPkg{Name: "my-agent", Version: "1.0.0"}
-	client := &registry.Client{
-		APIURL:     "\x00",
-		HTTPClient: &http.Client{Timeout: 30 * time.Second},
-	}
-	_, err := client.Publish(context.Background(), archivePath, manifest)
 	assert.Error(t, err)
 }
 

@@ -21,8 +21,6 @@ package http
 import (
 	"context"
 	stdhttp "net/http"
-
-	"github.com/kdeps/kdeps/v2/pkg/domain"
 )
 
 func enrichResponseMeta(r *stdhttp.Request, meta map[string]any) map[string]any {
@@ -31,45 +29,6 @@ func enrichResponseMeta(r *stdhttp.Request, meta map[string]any) map[string]any 
 		meta[key] = value
 	}
 	return meta
-}
-
-func RespondWithSuccess(
-	w stdhttp.ResponseWriter,
-	r *stdhttp.Request,
-	data any,
-	meta map[string]any,
-) {
-	debugEnter("RespondWithSuccess")
-	meta = enrichResponseMeta(r, meta)
-	applySessionCookieIfPresent(w, r)
-
-	response := &SuccessResponse{
-		Success: true,
-		Data:    data,
-		Meta:    meta,
-	}
-
-	writeOKJSON(w, response)
-}
-
-// RespondWithValidationErrors sends validation errors.
-func RespondWithValidationErrors(
-	w stdhttp.ResponseWriter,
-	r *stdhttp.Request,
-	validationErrors []*domain.ValidationError,
-) {
-	debugEnter("RespondWithValidationErrors")
-	response := &ErrorResponse{
-		Success: false,
-		Error: &ErrorDetail{
-			Code:    domain.ErrCodeValidation,
-			Message: validationFailedMessage,
-			Details: validationErrorDetailsMap(validationErrors),
-		},
-		Meta: requestMetaFromRequest(r),
-	}
-
-	writeBadRequestJSON(w, response)
 }
 
 // GetRequestID gets the request ID from context.
