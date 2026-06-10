@@ -25,23 +25,11 @@ import (
 	"github.com/kdeps/kdeps/v2/pkg/executor"
 )
 
-// Adapter adapts Scraper executor to ResourceExecutor interface.
-type Adapter struct {
-	executor *Executor
-}
+// Adapter adapts the scraper Executor to the ResourceExecutor interface.
+type Adapter = executor.TypedAdapter[domain.ScraperConfig]
 
-// NewAdapter creates a new Scraper executor adapter.
+// NewAdapter creates a new scraper executor adapter.
 func NewAdapter() *Adapter {
 	kdeps_debug.Log("enter: NewAdapter")
-	return &Adapter{executor: NewExecutor()}
-}
-
-// Execute implements ResourceExecutor interface.
-func (a *Adapter) Execute(ctx *executor.ExecutionContext, config interface{}) (interface{}, error) {
-	kdeps_debug.Log("enter: Execute")
-	cfg, err := executor.AdaptConfig[domain.ScraperConfig](config, "scraper")
-	if err != nil {
-		return nil, err
-	}
-	return a.executor.Execute(ctx, cfg)
+	return executor.NewTypedAdapter[domain.ScraperConfig]("scraper", NewExecutor())
 }

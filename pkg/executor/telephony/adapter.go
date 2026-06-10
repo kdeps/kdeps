@@ -25,23 +25,11 @@ import (
 	"github.com/kdeps/kdeps/v2/pkg/executor"
 )
 
-// Adapter wraps Executor to implement the executor.ResourceExecutor interface.
-type Adapter struct {
-	executor *Executor
-}
+// Adapter adapts the telephony Executor to the ResourceExecutor interface.
+type Adapter = executor.TypedAdapter[domain.TelephonyActionConfig]
 
-// NewAdapter returns a new telephony Adapter.
+// NewAdapter creates a new telephony executor adapter.
 func NewAdapter() *Adapter {
 	kdeps_debug.Log("enter: NewAdapter")
-	return &Adapter{executor: NewExecutor()}
-}
-
-// Execute implements executor.ResourceExecutor.
-func (a *Adapter) Execute(ctx *executor.ExecutionContext, config interface{}) (interface{}, error) {
-	kdeps_debug.Log("enter: Execute")
-	cfg, err := executor.AdaptConfig[domain.TelephonyActionConfig](config, "telephony")
-	if err != nil {
-		return nil, err
-	}
-	return a.executor.Execute(ctx, cfg)
+	return executor.NewTypedAdapter[domain.TelephonyActionConfig]("telephony", NewExecutor())
 }

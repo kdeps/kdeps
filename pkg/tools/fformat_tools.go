@@ -62,21 +62,34 @@ func RegisterFFormatTools(r *Registry) {
 	r.Register(fformatConvertFromJSONTool())
 }
 
-func fformatValidateTool() *Tool {
+// fformatToolSpec describes one fformat tool: a fixed "input" string param
+// plus one format-selector param whose value is handed to run.
+type fformatToolSpec struct {
+	name      string
+	desc      string
+	inputDesc string
+	argName   string
+	argDesc   string
+	enum      []string
+	argErr    error
+	run       func(input string, format fformat.Format) fformat.Result
+}
+
+func newFFormatTool(spec fformatToolSpec) *Tool {
 	return &Tool{
-		Name:        "fformat_validate",
-		Description: "Validate whether a string is valid for a given format (json, yaml, csv, xml, toml, markdown, sql, html).",
+		Name:        spec.name,
+		Description: spec.desc,
 		Parameters: map[string]domain.ToolParam{
 			"input": {
 				Type:        "string",
-				Description: "The string to validate.",
+				Description: spec.inputDesc,
 				Required:    true,
 			},
-			"format": {
+			spec.argName: {
 				Type:        "string",
-				Description: "The format to validate against.",
+				Description: spec.argDesc,
 				Required:    true,
-				Enum:        allFormats(),
+				Enum:        spec.enum,
 			},
 		},
 		Execute: func(args map[string]interface{}) (string, error) {
@@ -84,104 +97,63 @@ func fformatValidateTool() *Tool {
 			if err != nil {
 				return "", err
 			}
-			fmtStr, err := requireStringArg(args, "format", errFormatNotString)
+			val, err := requireStringArg(args, spec.argName, spec.argErr)
 			if err != nil {
 				return "", err
 			}
-			return marshalFFormatResult(fformat.ValidateString(input, fformat.Format(fmtStr)))
+			return marshalFFormatResult(spec.run(input, fformat.Format(val)))
 		},
 	}
+}
+
+func fformatValidateTool() *Tool {
+	return newFFormatTool(fformatToolSpec{
+		name:      "fformat_validate",
+		desc:      "Validate whether a string is valid for a given format (json, yaml, csv, xml, toml, markdown, sql, html).",
+		inputDesc: "The string to validate.",
+		argName:   "format",
+		argDesc:   "The format to validate against.",
+		enum:      allFormats(),
+		argErr:    errFormatNotString,
+		run:       fformat.ValidateString,
+	})
 }
 
 func fformatFormatTool() *Tool {
-	return &Tool{
-		Name:        "fformat_format",
-		Description: "Pretty-print / normalize a string in the given format (json, yaml, xml, toml, sql, html).",
-		Parameters: map[string]domain.ToolParam{
-			"input": {
-				Type:        "string",
-				Description: "The string to format.",
-				Required:    true,
-			},
-			"format": {
-				Type:        "string",
-				Description: "The format to apply.",
-				Required:    true,
-				Enum:        allFormats(),
-			},
-		},
-		Execute: func(args map[string]interface{}) (string, error) {
-			input, err := requireStringArg(args, "input", errInputNotString)
-			if err != nil {
-				return "", err
-			}
-			fmtStr, err := requireStringArg(args, "format", errFormatNotString)
-			if err != nil {
-				return "", err
-			}
-			return marshalFFormatResult(fformat.FormatString(input, fformat.Format(fmtStr)))
-		},
-	}
+	return newFFormatTool(fformatToolSpec{
+		name:      "fformat_format",
+		desc:      "Pretty-print / normalize a string in the given format (json, yaml, xml, toml, sql, html).",
+		inputDesc: "The string to format.",
+		argName:   "format",
+		argDesc:   "The format to apply.",
+		enum:      allFormats(),
+		argErr:    errFormatNotString,
+		run:       fformat.FormatString,
+	})
 }
 
 func fformatConvertToJSONTool() *Tool {
-	return &Tool{
-		Name:        "fformat_convert_to_json",
-		Description: "Convert a string from the given format to JSON (supports yaml, csv, xml, toml).",
-		Parameters: map[string]domain.ToolParam{
-			"input": {
-				Type:        "string",
-				Description: "The string to convert.",
-				Required:    true,
-			},
-			"from": {
-				Type:        "string",
-				Description: "The source format.",
-				Required:    true,
-				Enum:        []string{"yaml", "csv", "xml", "toml"},
-			},
-		},
-		Execute: func(args map[string]interface{}) (string, error) {
-			input, err := requireStringArg(args, "input", errInputNotString)
-			if err != nil {
-				return "", err
-			}
-			fromStr, err := requireStringArg(args, "from", errFromNotString)
-			if err != nil {
-				return "", err
-			}
-			return marshalFFormatResult(fformat.ConvertToJSON(fformat.Format(fromStr), input))
-		},
-	}
+	return newFFormatTool(fformatToolSpec{
+		name:      "fformat_convert_to_json",
+		desc:      "Convert a string from the given format to JSON (supports yaml, csv, xml, toml).",
+		inputDesc: "The string to convert.",
+		argName:   "from",
+		argDesc:   "The source format.",
+		enum:      []string{"yaml", "csv", "xml", "toml"},
+		argErr:    errFromNotString,
+		run:       func(input string, f fformat.Format) fformat.Result { return fformat.ConvertToJSON(f, input) },
+	})
 }
 
 func fformatConvertFromJSONTool() *Tool {
-	return &Tool{
-		Name:        "fformat_convert_from_json",
-		Description: "Convert a JSON string to another format (supports yaml, csv).",
-		Parameters: map[string]domain.ToolParam{
-			"input": {
-				Type:        "string",
-				Description: "The JSON string to convert.",
-				Required:    true,
-			},
-			"to": {
-				Type:        "string",
-				Description: "The target format.",
-				Required:    true,
-				Enum:        []string{"yaml", "csv"},
-			},
-		},
-		Execute: func(args map[string]interface{}) (string, error) {
-			input, err := requireStringArg(args, "input", errInputNotString)
-			if err != nil {
-				return "", err
-			}
-			toStr, err := requireStringArg(args, "to", errToNotString)
-			if err != nil {
-				return "", err
-			}
-			return marshalFFormatResult(fformat.ConvertFromJSON(fformat.Format(toStr), input))
-		},
-	}
+	return newFFormatTool(fformatToolSpec{
+		name:      "fformat_convert_from_json",
+		desc:      "Convert a JSON string to another format (supports yaml, csv).",
+		inputDesc: "The JSON string to convert.",
+		argName:   "to",
+		argDesc:   "The target format.",
+		enum:      []string{"yaml", "csv"},
+		argErr:    errToNotString,
+		run:       func(input string, f fformat.Format) fformat.Result { return fformat.ConvertFromJSON(f, input) },
+	})
 }

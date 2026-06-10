@@ -25,23 +25,11 @@ import (
 	"github.com/kdeps/kdeps/v2/pkg/executor"
 )
 
-// Adapter adapts SearchWeb executor to ResourceExecutor interface.
-type Adapter struct {
-	executor *Executor
-}
+// Adapter adapts the searchweb Executor to the ResourceExecutor interface.
+type Adapter = executor.TypedAdapter[domain.SearchWebConfig]
 
-// NewAdapter creates a new SearchWeb executor adapter.
+// NewAdapter creates a new searchweb executor adapter.
 func NewAdapter() *Adapter {
 	kdeps_debug.Log("enter: NewAdapter")
-	return &Adapter{executor: NewExecutor()}
-}
-
-// Execute implements ResourceExecutor interface.
-func (a *Adapter) Execute(ctx *executor.ExecutionContext, config interface{}) (interface{}, error) {
-	kdeps_debug.Log("enter: Execute")
-	cfg, err := executor.AdaptConfig[domain.SearchWebConfig](config, "searchWeb")
-	if err != nil {
-		return nil, err
-	}
-	return a.executor.Execute(ctx, cfg)
+	return executor.NewTypedAdapter[domain.SearchWebConfig]("searchWeb", NewExecutor())
 }

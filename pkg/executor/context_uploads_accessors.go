@@ -32,24 +32,26 @@ func (ctx *ExecutionContext) GetRequestFileContent(name string) (interface{}, er
 	return ReadFile(file.Path)
 }
 
-// GetRequestFilePath retrieves uploaded file path by name.
-func (ctx *ExecutionContext) GetRequestFilePath(name string) (interface{}, error) {
-	kdeps_debug.Log("enter: GetRequestFilePath")
+// requestFileField returns one attribute of an uploaded file, propagating
+// GetUploadedFile's lookup error.
+func (ctx *ExecutionContext) requestFileField(name string, field func(*FileUpload) interface{}) (interface{}, error) {
 	file, err := ctx.GetUploadedFile(name)
 	if err != nil {
 		return nil, err
 	}
-	return file.Path, nil
+	return field(file), nil
+}
+
+// GetRequestFilePath retrieves uploaded file path by name.
+func (ctx *ExecutionContext) GetRequestFilePath(name string) (interface{}, error) {
+	kdeps_debug.Log("enter: GetRequestFilePath")
+	return ctx.requestFileField(name, func(f *FileUpload) interface{} { return f.Path })
 }
 
 // GetRequestFileType retrieves uploaded file MIME type by name.
 func (ctx *ExecutionContext) GetRequestFileType(name string) (interface{}, error) {
 	kdeps_debug.Log("enter: GetRequestFileType")
-	file, err := ctx.GetUploadedFile(name)
-	if err != nil {
-		return nil, err
-	}
-	return file.MimeType, nil
+	return ctx.requestFileField(name, func(f *FileUpload) interface{} { return f.MimeType })
 }
 
 // GetRequestFilesByType retrieves file paths filtered by MIME type.

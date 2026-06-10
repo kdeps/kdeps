@@ -158,3 +158,38 @@ func TestRegistry_TypedSettersUseMap(t *testing.T) {
 	assert.Equal(t, mock, byName)
 	assert.Equal(t, mock, r.GetLLMExecutor())
 }
+
+type typedAdapterStubConfig struct{ Value string }
+
+type typedAdapterStubExecutor struct {
+	gotCfg *typedAdapterStubConfig
+}
+
+func (s *typedAdapterStubExecutor) Execute(
+	_ *executor.ExecutionContext,
+	cfg *typedAdapterStubConfig,
+) (interface{}, error) {
+	s.gotCfg = cfg
+	return "ran", nil
+}
+
+func TestTypedAdapter_Execute_Success(t *testing.T) {
+	t.Parallel()
+	stub := &typedAdapterStubExecutor{}
+	adapter := executor.NewTypedAdapter[typedAdapterStubConfig]("stub", stub)
+
+	cfg := &typedAdapterStubConfig{Value: "v"}
+	out, err := adapter.Execute(nil, cfg)
+	assert.NoError(t, err)
+	assert.Equal(t, "ran", out)
+	assert.Same(t, cfg, stub.gotCfg)
+}
+
+func TestTypedAdapter_Execute_InvalidConfigType(t *testing.T) {
+	t.Parallel()
+	adapter := executor.NewTypedAdapter[typedAdapterStubConfig]("stub", &typedAdapterStubExecutor{})
+
+	_, err := adapter.Execute(nil, 42)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "invalid config type for stub executor")
+}

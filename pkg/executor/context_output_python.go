@@ -38,19 +38,11 @@ func (ctx *ExecutionContext) GetPythonStdout(actionID string) (interface{}, erro
 // GetPythonStderr retrieves Python stderr from resource output.
 func (ctx *ExecutionContext) GetPythonStderr(actionID string) (interface{}, error) {
 	kdeps_debug.Log("enter: GetPythonStderr")
-	output, err := ctx.resourceOutput(actionID)
-	if err != nil {
-		return nil, err
-	}
-	return outputMapFieldString(output, "stderr", ""), nil
+	return ctx.outputStringField(actionID, "stderr")
 }
 
 // GetPythonExitCode retrieves Python exit code from resource output.
 func (ctx *ExecutionContext) GetPythonExitCode(actionID string) (interface{}, error) {
 	kdeps_debug.Log("enter: GetPythonExitCode")
-	output, err := ctx.resourceOutput(actionID)
-	if err != nil {
-		return nil, err
-	}
-	return outputMapFieldExitCode(output, 0), nil
+	return ctx.outputExitCodeField(actionID)
 }

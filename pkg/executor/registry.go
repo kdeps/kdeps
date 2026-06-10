@@ -41,6 +41,35 @@ func AdaptConfig[C any](config interface{}, name string) (*C, error) {
 	return cfg, nil
 }
 
+// TypedResourceExecutor is implemented by executors whose Execute takes a
+// concrete config type rather than interface{}.
+type TypedResourceExecutor[C any] interface {
+	Execute(ctx *ExecutionContext, config *C) (interface{}, error)
+}
+
+// TypedAdapter adapts a TypedResourceExecutor to the ResourceExecutor
+// interface by asserting the untyped config to *C before delegating.
+type TypedAdapter[C any] struct {
+	name string
+	exec TypedResourceExecutor[C]
+}
+
+// NewTypedAdapter wraps exec as a ResourceExecutor; name appears in the
+// invalid-config error message.
+func NewTypedAdapter[C any](name string, exec TypedResourceExecutor[C]) *TypedAdapter[C] {
+	return &TypedAdapter[C]{name: name, exec: exec}
+}
+
+// Execute implements the ResourceExecutor interface.
+func (a *TypedAdapter[C]) Execute(ctx *ExecutionContext, config interface{}) (interface{}, error) {
+	kdeps_debug.Log("enter: Execute")
+	cfg, err := AdaptConfig[C](config, a.name)
+	if err != nil {
+		return nil, err
+	}
+	return a.exec.Execute(ctx, cfg)
+}
+
 // Registry holds resource executors.
 // Executors are stored in a dynamic map keyed by resource type name so that
 // plugins can register additional executors at runtime without requiring

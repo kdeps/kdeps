@@ -27,26 +27,11 @@ import (
 	"github.com/kdeps/kdeps/v2/pkg/executor"
 )
 
-// Adapter adapts the ExecExecutor to the ResourceExecutor interface.
-type Adapter struct {
-	executor *Executor
-}
+// Adapter adapts the exec Executor to the ResourceExecutor interface.
+type Adapter = executor.TypedAdapter[domain.ExecConfig]
 
-// NewAdapter creates a new exec adapter.
+// NewAdapter creates a new exec executor adapter.
 func NewAdapter() *Adapter {
 	kdeps_debug.Log("enter: NewAdapter")
-	return &Adapter{
-		executor: NewExecutor(),
-	}
-}
-
-// Execute executes a resource using the exec executor.
-func (a *Adapter) Execute(ctx *executor.ExecutionContext, config interface{}) (interface{}, error) {
-	kdeps_debug.Log("enter: Execute")
-	execConfig, err := executor.AdaptConfig[domain.ExecConfig](config, "exec")
-	if err != nil {
-		return nil, err
-	}
-
-	return a.executor.Execute(ctx, execConfig)
+	return executor.NewTypedAdapter[domain.ExecConfig]("exec", NewExecutor())
 }
