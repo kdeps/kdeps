@@ -13,7 +13,6 @@ require (
 	github.com/creack/pty v1.1.24
 	github.com/denisenkom/go-mssqldb v0.12.3
 	github.com/docker/docker v28.5.2+incompatible
-	github.com/docker/go-connections v0.7.0
 	github.com/emersion/go-imap/v2 v2.0.0-beta.8
 	github.com/expr-lang/expr v1.17.8
 	github.com/fsnotify/fsnotify v1.10.1
@@ -30,8 +29,8 @@ require (
 	github.com/slack-go/slack v0.25.0
 	github.com/spf13/afero v1.15.0
 	github.com/spf13/cobra v1.10.2
-	github.com/spf13/fileflow v0.0.0-20260423171140-86078757609f
-	github.com/spf13/pathologize v0.0.0-20260505185802-eaa16159b601
+	github.com/spf13/fileflow v0.0.0-20260609143555-4ad4d1024283
+	github.com/spf13/pathologize v1.0.0
 	github.com/stretchr/testify v1.11.1
 	github.com/xeipuuv/gojsonschema v1.2.0
 	golang.org/x/net v0.55.0
@@ -64,6 +63,7 @@ require (
 	github.com/distribution/reference v0.6.0 // indirect
 	github.com/dlclark/regexp2 v1.12.0 // indirect
 	github.com/dlclark/regexp2/v2 v2.2.1 // indirect
+	github.com/docker/go-connections v0.7.0 // indirect
 	github.com/docker/go-units v0.5.0 // indirect
 	github.com/dustin/go-humanize v1.0.1 // indirect
 	github.com/emersion/go-message v0.18.2 // indirect
