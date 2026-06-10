@@ -81,6 +81,23 @@ func TestCountPrimaryResourceTypes(t *testing.T) {
 	}
 }
 
+func TestIsRecognizedResourceActionKey(t *testing.T) {
+	t.Parallel()
+
+	if !domain.IsRecognizedResourceActionKey("chat") {
+		t.Fatal("chat should be recognized")
+	}
+	if !domain.IsRecognizedResourceActionKey("apiResponse") {
+		t.Fatal("apiResponse should be recognized")
+	}
+	if !domain.IsRecognizedResourceActionKey("botReply") {
+		t.Fatal("botReply should be recognized")
+	}
+	if domain.IsRecognizedResourceActionKey("unknownAction") {
+		t.Fatal("unknownAction should not be recognized")
+	}
+}
+
 func TestPrimaryResourceTypeNames_MatchesExecutorRegistry(t *testing.T) {
 	t.Parallel()
 

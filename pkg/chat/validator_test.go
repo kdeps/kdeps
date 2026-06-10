@@ -22,6 +22,8 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/kdeps/kdeps/v2/pkg/domain"
 )
 
 func validWorkflow() *GeneratedWorkflow {
@@ -190,11 +192,7 @@ metadata:
 }
 
 func TestValidate_AllValidRunActions(t *testing.T) {
-	actions := []string{
-		"chat", "httpClient", "exec", "python", "sql",
-		"apiResponse", "component", "agent", "scraper",
-		"embedding", "searchLocal", "searchWeb", "telephony",
-	}
+	actions := append(domain.PrimaryResourceTypeNames(), "apiResponse")
 	for _, action := range actions {
 		wf := validWorkflow()
 		wf.Files["resources/main.yaml"] = "actionId: main\nname: main\n" + action + ": {}\n"
