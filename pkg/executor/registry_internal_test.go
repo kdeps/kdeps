@@ -22,6 +22,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestEmptyTelephonyEnv(t *testing.T) {
@@ -78,4 +79,10 @@ func TestEmptyTelephonyEnv(t *testing.T) {
 	match, ok := env["match"].(func() bool)
 	assert.True(t, ok)
 	assert.Equal(t, false, match())
+}
+
+func TestAdaptConfig_InvalidType(t *testing.T) {
+	_, err := AdaptConfig[struct{ X int }]("not-a-config", "test")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "invalid config type for test executor")
 }

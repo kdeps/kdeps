@@ -243,6 +243,11 @@ func TestConfigNamespace_Unknown(t *testing.T) {
 	assert.Nil(t, m)
 }
 
+func TestConfigNamespace_ComponentNilWorkflow(t *testing.T) {
+	ctx := &executor.ExecutionContext{}
+	assert.Nil(t, ctx.ConfigNamespace("component"))
+}
+
 func TestGetConfigField_ResourceNoField(t *testing.T) {
 	ctx := newConfigTestCtx(t)
 	ctx.Resources["myaction"] = &domain.Resource{

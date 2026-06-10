@@ -10,3 +10,24 @@ query-filters:
   # This is a false positive — the XSS guard is the browserRenderedContentType check above it.
   - exclude:
       id: go/reflected-xss
+  # Workflow YAML intentionally supplies SQL, shell commands, and file paths at runtime.
+  - exclude:
+      id: go/sql-injection
+      paths:
+        - pkg/executor/sql
+  - exclude:
+      id: go/command-injection
+      paths:
+        - pkg/executor/exec
+        - pkg/executor/python
+        - pkg/executor/llm
+  - exclude:
+      id: go/path-injection
+      paths:
+        - pkg/executor/llm
+        - pkg/infra/python
+  # Session cookies are HTTP-only dev tokens; Secure is set when TLS is enabled.
+  - exclude:
+      id: go/cookie-secure-not-set
+      paths:
+        - pkg/infra/http/http_session.go

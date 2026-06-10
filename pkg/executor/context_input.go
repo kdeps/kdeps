@@ -34,28 +34,24 @@ func (ctx *ExecutionContext) inputWithTypeHint(name, hint string) (interface{}, 
 	case "body", "data":
 		return ctx.getBody(name)
 	case "transcript":
-		if ctx.InputTranscript == "" {
-			return nil, errors.New("no input transcript available")
-		}
-		return ctx.InputTranscript, nil
+		return requiredInput(ctx.InputTranscript, "input transcript")
 	case "media":
-		if ctx.InputMediaFile == "" {
-			return nil, errors.New("no input media file available")
-		}
-		return ctx.InputMediaFile, nil
+		return requiredInput(ctx.InputMediaFile, "input media file")
 	case inputTypeFile, keyInputFileContent:
-		if ctx.InputFileContent == "" {
-			return nil, errors.New("no file input content available")
-		}
-		return ctx.InputFileContent, nil
+		return requiredInput(ctx.InputFileContent, "file input content")
 	case keyInputFilePath:
-		if ctx.InputFilePath == "" {
-			return nil, errors.New("no file input path available")
-		}
-		return ctx.InputFilePath, nil
+		return requiredInput(ctx.InputFilePath, "file input path")
 	default:
 		return nil, fmt.Errorf("unknown input type: %s", hint)
 	}
+}
+
+// requiredInput returns value or an error naming the missing input kind.
+func requiredInput(value, what string) (interface{}, error) {
+	if value == "" {
+		return nil, errors.New("no " + what + " available")
+	}
+	return value, nil
 }
 
 func (ctx *ExecutionContext) getInputByName(name string) (interface{}, bool) {

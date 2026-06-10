@@ -25,8 +25,7 @@ import (
 	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
 )
 
-// FormatAsCSV formats query results as CSV string.
-// FormatAsCSV formats results as CSV (exported for testing).
+// FormatAsCSV formats query results as a CSV string (exported for testing).
 func (e *Executor) FormatAsCSV(results []map[string]interface{}) (string, error) {
 	kdeps_debug.Log("enter: FormatAsCSV")
 	if len(results) == 0 {

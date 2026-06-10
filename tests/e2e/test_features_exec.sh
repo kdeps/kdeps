@@ -244,7 +244,7 @@ except Exception:
     print('')
 " 2>/dev/null || echo "")
 
-if echo "$ECHO_STDOUT" | grep -q "hello world"; then
+if output_grep_fixed "hello world" "$ECHO_STDOUT"; then
     test_passed "Exec - stdout contains expected text"
 else
     test_failed "Exec - stdout contains expected text" "stdout='$ECHO_STDOUT'"
@@ -288,7 +288,7 @@ except Exception:
     print('')
 " 2>/dev/null || echo "")
 
-if echo "$ENV_STDOUT" | grep -q "hello_from_env"; then
+if output_grep_fixed "hello_from_env" "$ENV_STDOUT"; then
     test_passed "Exec - environment variable passed to command"
 else
     test_failed "Exec - environment variable passed to command" "stdout='$ENV_STDOUT'"

@@ -39,7 +39,7 @@ run_capturing() {
 
 # --- Test: help flag ---
 run_capturing "$KDEPS_BIN" registry verify --help
-if echo "$OUTPUT" | grep -qiE "verify|path|publish"; then
+if output_grep_i "verify|path|publish" "$OUTPUT"; then
     test_passed "registry verify - help flag works"
 else
     test_failed "registry verify - help flag works" "Output: $OUTPUT"
@@ -67,7 +67,7 @@ run:
     apiKey: "sk-supersecret1234567890"
 YAML
 run_capturing "$KDEPS_BIN" registry verify "$TMP_SECRET"
-if [ $EXIT_CODE -ne 0 ] && echo "$OUTPUT" | grep -qiE "ERROR|error.*apiKey|hardcoded"; then
+if [ $EXIT_CODE -ne 0 ] && output_grep_i "ERROR|error.*apiKey|hardcoded" "$OUTPUT"; then
     test_passed "registry verify - hardcoded apiKey exits non-zero"
 else
     test_failed "registry verify - hardcoded apiKey exits non-zero" "exit=$EXIT_CODE output=$OUTPUT"

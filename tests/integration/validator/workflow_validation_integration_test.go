@@ -325,14 +325,14 @@ settings:
 			}
 
 			// Validate workflow
-			err = workflowValidator.Validate(workflow)
+			validateErr := workflowValidator.Validate(workflow)
 			if tt.expectError {
-				require.Error(t, err, "Expected validation error for: %s", tt.name)
+				require.Error(t, validateErr, "Expected validation error for: %s", tt.name)
 				if tt.errorMsg != "" {
-					assert.Contains(t, err.Error(), tt.errorMsg)
+					assert.Contains(t, validateErr.Error(), tt.errorMsg)
 				}
 			} else {
-				require.NoError(t, err, "Expected no validation error for: %s", tt.name)
+				require.NoError(t, validateErr, "Expected no validation error for: %s", tt.name)
 			}
 		})
 	}

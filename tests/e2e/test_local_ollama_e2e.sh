@@ -66,7 +66,7 @@ test_direct_api() {
     if [ $? -eq 0 ] && echo "$response" | grep -q "message"; then
         local content
         content=$(echo "$response" | grep -o '"content":"[^"]*"' | head -1 | sed 's/"content":"//' | sed 's/"$//')
-        if echo "$content" | grep -qi "hello from local e2e test"; then
+        if output_grep_fixed_i "hello from local e2e test" "$content"; then
             test_passed "Direct API call successful: $content"
             return 0
         else
@@ -205,7 +205,7 @@ EOF
 
         if [ -n "$api_response" ] && echo "$api_response" | grep -q "data"; then
             # Check if response contains Paris
-            if echo "$api_response" | grep -qi "paris\|Paris"; then
+            if output_grep_fixed_i "paris\|Paris" "$api_response"; then
                 test_passed "Complete workflow test passed (${duration}s) - LLM responded with Paris"
             else
                 # Extract answer field if possible

@@ -152,12 +152,12 @@ if [ "$SERVER_READY" = true ]; then
                     
                     # Check if analytics is CSV format (string)
                     ANALYTICS_VALUE=$(echo "$INNER_DATA" | jq -r '.analytics' 2>/dev/null)
-                    if echo "$ANALYTICS_VALUE" | grep -qE "date|total_users|unique_emails|avg_age"; then
+                    if output_grep "date|total_users|unique_emails|avg_age" "$ANALYTICS_VALUE"; then
                         test_passed "SQL Advanced - GET response structure (analytics contains CSV format)"
                     fi
                 elif echo "$INNER_DATA" | jq -e 'type == "string"' > /dev/null 2>&1; then
                     # Data might be CSV string directly
-                    if echo "$INNER_DATA" | grep -qE "date|total_users|unique_emails|avg_age"; then
+                    if output_grep "date|total_users|unique_emails|avg_age" "$INNER_DATA"; then
                         test_passed "SQL Advanced - GET response structure (data is CSV format)"
                     fi
                 fi
@@ -182,7 +182,7 @@ if [ "$SERVER_READY" = true ]; then
         else
             # Fallback: check for expected structure
             if echo "$JSON_BODY" | grep -q '"success"' && echo "$JSON_BODY" | grep -q '"data\|"error"'; then
-                if echo "$JSON_BODY" | grep -qE "analytics|date.*total_users"; then
+                if output_grep "analytics|date.*total_users" "$JSON_BODY"; then
                     test_passed "SQL Advanced - GET response structure (contains expected fields)"
                 fi
             else

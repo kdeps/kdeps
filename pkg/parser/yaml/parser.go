@@ -96,17 +96,21 @@ func (p *Parser) GetExpressionParserForTesting() ExpressionParser {
 	return p.exprParser
 }
 
-// ParseWorkflow parses a workflow YAML file.
-func (p *Parser) ParseWorkflow(path string) (*domain.Workflow, error) {
-	kdeps_debug.Log("enter: ParseWorkflow")
-	var validate func(map[string]interface{}) error
-	if p.schemaValidator != nil {
-		sv := p.schemaValidator
-		validate = func(rawData map[string]interface{}) error {
-			if schemaErr := sv.ValidateWorkflow(rawData); schemaErr != nil {
+// parseManifest reads, preprocesses, schema-validates, and unmarshals a YAML
+// manifest of type T. kind names the manifest in error messages; validate is
+// the schema-validator method to apply (nil skips schema validation).
+func parseManifest[T any](
+	p *Parser,
+	path, kind, readMsg string,
+	validate func(map[string]interface{}) error,
+) (*T, error) {
+	var validateFn func(map[string]interface{}) error
+	if validate != nil {
+		validateFn = func(rawData map[string]interface{}) error {
+			if schemaErr := validate(rawData); schemaErr != nil {
 				return domain.NewError(
 					domain.ErrCodeValidationFailed,
-					"workflow schema validation failed",
+					kind+" schema validation failed",
 					schemaErr,
 				)
 			}
@@ -116,36 +120,50 @@ func (p *Parser) ParseWorkflow(path string) (*domain.Workflow, error) {
 
 	data, err := p.readPreprocessAndValidateYAML(
 		path,
-		"failed to read workflow file",
-		"failed to preprocess workflow Jinja2 template",
-		validate,
+		readMsg,
+		"failed to preprocess "+kind+" Jinja2 template",
+		validateFn,
 	)
 	if err != nil {
 		return nil, err
 	}
 
-	var workflow domain.Workflow
-	if workflowErr := yaml.Unmarshal(data, &workflow); workflowErr != nil {
+	var out T
+	if parseErr := yaml.Unmarshal(data, &out); parseErr != nil {
 		return nil, domain.NewError(
 			domain.ErrCodeParseError,
-			"failed to parse workflow",
-			workflowErr,
+			"failed to parse "+kind,
+			parseErr,
 		)
+	}
+	return &out, nil
+}
+
+// ParseWorkflow parses a workflow YAML file.
+func (p *Parser) ParseWorkflow(path string) (*domain.Workflow, error) {
+	kdeps_debug.Log("enter: ParseWorkflow")
+	var validate func(map[string]interface{}) error
+	if p.schemaValidator != nil {
+		validate = p.schemaValidator.ValidateWorkflow
+	}
+	workflow, err := parseManifest[domain.Workflow](p, path, "workflow", "failed to read workflow file", validate)
+	if err != nil {
+		return nil, err
 	}
 
 	if workflow.Resources == nil {
 		workflow.Resources = make([]*domain.Resource, 0)
 	}
 
-	if loadErr := p.loadResources(&workflow, path); loadErr != nil {
+	if loadErr := p.loadResources(workflow, path); loadErr != nil {
 		return nil, loadErr
 	}
 
-	if compErr := p.loadComponents(&workflow, path); compErr != nil {
+	if compErr := p.loadComponents(workflow, path); compErr != nil {
 		return nil, compErr
 	}
 
-	return &workflow, nil
+	return workflow, nil
 }
 
 // readPreprocessAndValidateYAML reads the file at path, applies Jinja2

@@ -50,7 +50,7 @@ func TestWebServer_HandleAppRequest_WithBackend(t *testing.T) {
 		w.WriteHeader(stdhttp.StatusOK)
 		_, _ = fmt.Fprint(w, "backend-ok")
 	}))
-	defer backend.Close()
+	t.Cleanup(backend.Close)
 
 	// Extract port from backend listener address
 	addr := backend.Listener.Addr().String()
@@ -118,7 +118,7 @@ func TestWebServer_HandleAppRequest_RootPathWithBackend(t *testing.T) {
 		w.WriteHeader(stdhttp.StatusOK)
 		_, _ = fmt.Fprint(w, r.URL.Path)
 	}))
-	defer backend.Close()
+	t.Cleanup(backend.Close)
 
 	addr := backend.Listener.Addr().String()
 	_, portStr, err := net.SplitHostPort(addr)

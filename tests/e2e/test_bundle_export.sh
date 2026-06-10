@@ -35,7 +35,7 @@ echo "Testing bundle export command..."
 
 # ── Test 1: bundle export --help ──────────────────────────────────────────────
 OUTPUT=$("$KDEPS_BIN" bundle export --help 2>&1 || true)
-if echo "$OUTPUT" | grep -q "export"; then
+if output_grep_fixed "export" "$OUTPUT"; then
     test_passed "bundle export - help flag works"
 else
     test_failed "bundle export - help flag works" "Output: $OUTPUT"
@@ -43,7 +43,7 @@ fi
 
 # ── Test 2: bundle export iso --help ─────────────────────────────────────────
 OUTPUT=$("$KDEPS_BIN" bundle export iso --help 2>&1 || true)
-if echo "$OUTPUT" | grep -qiE "iso|bootable|linuxkit|image"; then
+if output_grep_i "iso|bootable|linuxkit|image" "$OUTPUT"; then
     test_passed "bundle export iso - help describes ISO format"
 else
     test_failed "bundle export iso - help describes ISO format" "Output: $OUTPUT"
@@ -51,7 +51,7 @@ fi
 
 # ── Test 3: bundle export iso rejects missing path ───────────────────────────
 OUTPUT=$("$KDEPS_BIN" bundle export iso /nonexistent/path/agent.kdeps 2>&1 || true)
-if echo "$OUTPUT" | grep -qiE "error|not found|no such|exist|invalid"; then
+if output_grep_i "error|not found|no such|exist|invalid" "$OUTPUT"; then
     test_passed "bundle export iso - rejects nonexistent .kdeps path"
 else
     test_failed "bundle export iso - rejects nonexistent .kdeps path" "Output: $OUTPUT"
@@ -61,11 +61,11 @@ fi
 TMP_FILE=$(mktemp /tmp/test_export_XXXXXX.txt)
 trap 'rm -f "$TMP_FILE"' EXIT
 OUTPUT=$("$KDEPS_BIN" bundle export iso "$TMP_FILE" 2>&1 || true)
-if echo "$OUTPUT" | grep -qiE "error|invalid|kdeps|extension"; then
+if output_grep_i "error|invalid|kdeps|extension" "$OUTPUT"; then
     test_passed "bundle export iso - rejects non-.kdeps file extension"
 else
     # Some versions just try Docker; acceptable if it fails with Docker error
-    if echo "$OUTPUT" | grep -qiE "docker|daemon|connect"; then
+    if output_grep_i "docker|daemon|connect" "$OUTPUT"; then
         test_passed "bundle export iso - non-.kdeps falls through to Docker check"
     else
         test_failed "bundle export iso - rejects non-.kdeps file extension" "Output: $OUTPUT"
@@ -98,7 +98,7 @@ else
         test_skipped "bundle export iso - could not create .kdeps package"
     else
         OUTPUT=$("$KDEPS_BIN" bundle export iso "$PKG_OUT" --output "${TMP_DIR}/out" 2>&1 || true)
-        if echo "$OUTPUT" | grep -qiE "error|failed"; then
+        if output_grep_i "error|failed" "$OUTPUT"; then
             test_skipped "bundle export iso - Docker available but ISO build failed (expected in CI)"
         else
             test_passed "bundle export iso - ISO export succeeded"

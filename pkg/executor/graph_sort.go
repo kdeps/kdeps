@@ -48,7 +48,6 @@ func (g *Graph) topologicalSortAllNodes() ([]*domain.Resource, error) {
 	return result, nil
 }
 
-// TopologicalSortUtil performs DFS for topological sort.
 // TopologicalSortUtil performs DFS for topological sort (exported for testing).
 func (g *Graph) TopologicalSortUtil(
 	actionID string,

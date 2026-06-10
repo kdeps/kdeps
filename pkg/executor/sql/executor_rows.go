@@ -27,8 +27,7 @@ import (
 	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
 )
 
-// ReadRowsWithLimit reads all rows from a query result with optional limit.
-// ReadRowsWithLimit reads rows with a limit (exported for testing).
+// ReadRowsWithLimit reads all rows from a query result with optional limit (exported for testing).
 func (e *Executor) ReadRowsWithLimit(
 	rows *sql.Rows,
 	maxRows int,

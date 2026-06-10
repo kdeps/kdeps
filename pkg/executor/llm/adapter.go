@@ -21,8 +21,6 @@
 package llm
 
 import (
-	"errors"
-
 	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
 
 	"github.com/kdeps/kdeps/v2/pkg/domain"
@@ -117,20 +115,11 @@ func (a *Adapter) GetExecutorForTesting() *Executor {
 // Execute implements ResourceExecutor interface.
 func (a *Adapter) Execute(ctx *executor.ExecutionContext, config interface{}) (interface{}, error) {
 	kdeps_debug.Log("enter: Execute")
-	chatConfig, err := parseChatConfig(config)
+	chatConfig, err := executor.AdaptConfig[domain.ChatConfig](config, "LLM")
 	if err != nil {
 		return nil, err
 	}
 	return a.executor.Execute(ctx, chatConfig)
-}
-
-func parseChatConfig(config interface{}) (*domain.ChatConfig, error) {
-	kdeps_debug.Log("enter: parseChatConfig")
-	chatConfig, ok := config.(*domain.ChatConfig)
-	if !ok {
-		return nil, errors.New("invalid config type for LLM executor")
-	}
-	return chatConfig, nil
 }
 
 func wireModelManager(adapter *Adapter, modelService ModelServiceInterface) {

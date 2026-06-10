@@ -204,9 +204,9 @@ func TestPrettyHandler_FormatAny(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			buf.Reset()
-			handler.FormatAny(&buf, tt.value, "")
-			result := buf.String()
+			var out strings.Builder
+			handler.FormatAny(&out, tt.value, "")
+			result := out.String()
 			if result != tt.expected {
 				t.Errorf("FormatAny() = %q, want %q", result, tt.expected)
 			}

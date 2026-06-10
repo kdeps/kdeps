@@ -54,19 +54,19 @@ func TestAdapter_Execute_Success(t *testing.T) {
 	a := NewAdapter("")
 	ctx, err := executor.NewExecutionContext(&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "t"}})
 	require.NoError(t, err)
-	cfg, err := parseChatConfig(&domain.ChatConfig{Model: "m", Prompt: "p"})
+	cfg, err := executor.AdaptConfig[domain.ChatConfig](&domain.ChatConfig{Model: "m", Prompt: "p"}, "LLM")
 	require.NoError(t, err)
 	assert.Equal(t, "m", cfg.Model)
 	_, _ = a.Execute(ctx, cfg)
 }
 
 func TestParseChatConfig_InvalidType(t *testing.T) {
-	_, err := parseChatConfig(42)
+	_, err := executor.AdaptConfig[domain.ChatConfig](42, "LLM")
 	require.Error(t, err)
 }
 
 func TestParseChatConfig_Valid(t *testing.T) {
-	cfg, err := parseChatConfig(&domain.ChatConfig{Model: "m", Prompt: "p"})
+	cfg, err := executor.AdaptConfig[domain.ChatConfig](&domain.ChatConfig{Model: "m", Prompt: "p"}, "LLM")
 	require.NoError(t, err)
 	assert.Equal(t, "m", cfg.Model)
 }

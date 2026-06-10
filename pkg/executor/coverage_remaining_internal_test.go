@@ -1108,3 +1108,36 @@ func TestCovReflectUsed(t *testing.T) {
 	assert.Equal(t, reflect.Kind(0), reflect.Invalid)
 	_ = fmt.Sprintf
 }
+
+func TestIsNilConfig_TypedNil(t *testing.T) {
+	var p *domain.Resource
+	var iface any = p
+	assert.True(t, isNilConfig(iface))
+	assert.True(t, isNilConfig(nil))
+	assert.False(t, isNilConfig("x"))
+}
+
+func TestClearLoopContext_Nil(_ *testing.T) {
+	clearLoopContext(nil)
+}
+
+func TestClearLoopContext_ClearsKeys(t *testing.T) {
+	ctx := &ExecutionContext{Items: map[string]interface{}{
+		loopKeyIndex: 1, loopKeyCount: 2, loopKeyResults: []interface{}{"x"},
+	}}
+	clearLoopContext(ctx)
+	assert.NotContains(t, ctx.Items, loopKeyIndex)
+	assert.NotContains(t, ctx.Items, loopKeyCount)
+	assert.NotContains(t, ctx.Items, loopKeyResults)
+}
+
+func TestUploadedFileByIndex_InvalidSyntax(t *testing.T) {
+	ctx := &ExecutionContext{
+		Request: &RequestContext{
+			Files: []FileUpload{{Name: "a.txt", Path: "/a"}},
+		},
+	}
+	assert.Nil(t, ctx.uploadedFileByIndex("plain"))
+	assert.Nil(t, ctx.uploadedFileByIndex("[0]"))
+	assert.Nil(t, ctx.uploadedFileByIndex("file[-1]"))
+}

@@ -55,9 +55,9 @@ test_prepackage_help() {
     local test_name="prepackage --help shows flags"
     local output
     if output=$("$KDEPS_BIN" bundle prepackage --help 2>&1); then
-        if echo "$output" | grep -q "\-\-arch" && \
-           echo "$output" | grep -q "\-\-output" && \
-           echo "$output" | grep -q "\-\-kdeps-version"; then
+        if output_grep_fixed "--arch" "$output" && \
+           output_grep_fixed "--output" "$output" && \
+           output_grep_fixed "--kdeps-version" "$output"; then
             test_passed "$test_name"
         else
             test_failed "$test_name" "Expected flags not found in help output"

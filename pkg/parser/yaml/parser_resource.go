@@ -72,40 +72,9 @@ func (p *Parser) ParseResource(path string) (*domain.Resource, error) {
 	kdeps_debug.Log("enter: ParseResource")
 	var validate func(map[string]interface{}) error
 	if p.schemaValidator != nil {
-		sv := p.schemaValidator
-		validate = func(rawData map[string]interface{}) error {
-			// Validate the whole resource first
-			if validateErr := sv.ValidateResource(rawData); validateErr != nil {
-				return domain.NewError(
-					domain.ErrCodeValidationFailed,
-					"resource schema validation failed",
-					validateErr,
-				)
-			}
-			return nil
-		}
+		validate = p.schemaValidator.ValidateResource
 	}
-
-	data, err := p.readPreprocessAndValidateYAML(
-		path,
-		"failed to read file",
-		"failed to preprocess resource Jinja2 template",
-		validate,
-	)
-	if err != nil {
-		return nil, err
-	}
-
-	var resource domain.Resource
-	if resourceErr := yaml.Unmarshal(data, &resource); resourceErr != nil {
-		return nil, domain.NewError(
-			domain.ErrCodeParseError,
-			"failed to parse resource",
-			resourceErr,
-		)
-	}
-
-	return &resource, nil
+	return parseManifest[domain.Resource](p, path, "resource", "failed to read file", validate)
 }
 
 // loadResources loads and parses all resource files referenced by the workflow.

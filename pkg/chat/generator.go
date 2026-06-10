@@ -169,26 +169,31 @@ func (g *Generator) BackendLabel() string {
 	return g.model + " via " + backendName(g.baseURL) + " (" + g.baseURL + ")"
 }
 
+// backendHostMarkers maps URL substrings to backend names; first match wins.
+//
+//nolint:gochecknoglobals // static lookup table
+var backendHostMarkers = []struct {
+	name    string
+	markers []string
+}{
+	{"ollama", []string{"localhost", "127.0.0.1", "ollama"}},
+	{"openai", []string{"openai.com", "api.openai"}},
+	{"anthropic", []string{"anthropic.com"}},
+	{"google", []string{"googleapis.com", "generativelanguage"}},
+	{"groq", []string{"groq.com"}},
+	{"deepseek", []string{"deepseek.com"}},
+	{"openrouter", []string{"openrouter.ai"}},
+}
+
 func backendName(baseURL string) string {
-	switch {
-	case strings.Contains(baseURL, "localhost") || strings.Contains(baseURL, "127.0.0.1") ||
-		strings.Contains(baseURL, "ollama"):
-		return "ollama"
-	case strings.Contains(baseURL, "openai.com") || strings.Contains(baseURL, "api.openai"):
-		return "openai"
-	case strings.Contains(baseURL, "anthropic.com"):
-		return "anthropic"
-	case strings.Contains(baseURL, "googleapis.com") || strings.Contains(baseURL, "generativelanguage"):
-		return "google"
-	case strings.Contains(baseURL, "groq.com"):
-		return "groq"
-	case strings.Contains(baseURL, "deepseek.com"):
-		return "deepseek"
-	case strings.Contains(baseURL, "openrouter.ai"):
-		return "openrouter"
-	default:
-		return "openai-compatible"
+	for _, backend := range backendHostMarkers {
+		for _, marker := range backend.markers {
+			if strings.Contains(baseURL, marker) {
+				return backend.name
+			}
+		}
 	}
+	return "openai-compatible"
 }
 
 //nolint:gochecknoglobals // test-replaceable

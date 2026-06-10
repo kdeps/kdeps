@@ -191,7 +191,10 @@ func copyWebServerFiles(files map[string]string, distDir string) error {
 		servePath := normalizeWebServePath(path)
 
 		dst := filepath.Join(distDir, servePath)
-		if err := writeBundleBytes(dst, []byte(content)); err != nil {
+		if err := AppFS.MkdirAll(filepath.Dir(dst), 0750); err != nil {
+			return fmt.Errorf("failed to create directory for %s: %w", servePath, err)
+		}
+		if err := afero.WriteFile(AppFS, dst, []byte(content), 0644); err != nil {
 			return fmt.Errorf("failed to write %s: %w", servePath, err)
 		}
 	}

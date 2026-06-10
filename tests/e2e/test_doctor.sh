@@ -28,7 +28,7 @@ KDEPS_BIN="${KDEPS_BIN:-kdeps}"
 # ── doctor --help ──────────────────────────────────────────────────────────
 
 OUTPUT=$("$KDEPS_BIN" doctor --help 2>&1) || true
-if echo "$OUTPUT" | grep -q "Run diagnostic health checks"; then
+if output_grep_fixed "Run diagnostic health checks" "$OUTPUT"; then
     test_passed "[PASS] doctor --help shows description"
 else
     test_failed "[FAIL] doctor --help shows description" "got: $OUTPUT"
@@ -53,25 +53,25 @@ resource_defaults:
 EOF
 
 OUTPUT=$(KDEPS_CONFIG_PATH="$CONFIG_PATH" KDEPS_SKIP_BOOTSTRAP=1 "$KDEPS_BIN" doctor 2>&1) || true
-if echo "$OUTPUT" | grep -q "kdeps doctor"; then
+if output_grep_fixed "kdeps doctor" "$OUTPUT"; then
     test_passed "[PASS] doctor produces report header"
 else
     test_failed "[FAIL] doctor produces report header" "got: $OUTPUT"
 fi
 
-if echo "$OUTPUT" | grep -q "Config file"; then
+if output_grep_fixed "Config file" "$OUTPUT"; then
     test_passed "[PASS] doctor reports config file status"
 else
     test_failed "[FAIL] doctor reports config file status" "got: $OUTPUT"
 fi
 
-if echo "$OUTPUT" | grep -q "Python"; then
+if output_grep_fixed "Python" "$OUTPUT"; then
     test_passed "[PASS] doctor reports Python status"
 else
     test_failed "[FAIL] doctor reports Python status" "got: $OUTPUT"
 fi
 
-if echo "$OUTPUT" | grep -q "Overall"; then
+if output_grep_fixed "Overall" "$OUTPUT"; then
     test_passed "[PASS] doctor reports overall status"
 else
     test_failed "[FAIL] doctor reports overall status" "got: $OUTPUT"
@@ -85,7 +85,7 @@ llm:
 EOF
 
 OUTPUT=$(KDEPS_CONFIG_PATH="$CONFIG_PATH" KDEPS_SKIP_BOOTSTRAP=1 "$KDEPS_BIN" doctor 2>&1) || true
-if echo "$OUTPUT" | grep -q "openai_apikey"; then
+if output_grep_fixed "openai_apikey" "$OUTPUT"; then
     test_passed "[PASS] doctor surfaces config validation warnings"
 else
     test_failed "[FAIL] doctor surfaces config validation warnings" "got: $OUTPUT"
@@ -95,7 +95,7 @@ fi
 
 MISSING_CONFIG=$(mktemp -d)/nonexistent.yaml
 OUTPUT=$(KDEPS_CONFIG_PATH="$MISSING_CONFIG" KDEPS_SKIP_BOOTSTRAP=1 "$KDEPS_BIN" doctor 2>&1) || true
-if echo "$OUTPUT" | grep -q "not found"; then
+if output_grep_fixed "not found" "$OUTPUT"; then
     test_passed "[PASS] doctor warns when config file is missing"
 else
     test_failed "[FAIL] doctor warns when config file is missing" "got: $OUTPUT"

@@ -113,7 +113,7 @@ fi
 # ── Test 4: non-component dir gives appropriate error ────────────────────────
 EMPTY=$(mktemp -d)
 OUTPUT=$("$KDEPS_BIN" registry update "$EMPTY" 2>&1 || true)
-if echo "$OUTPUT" | grep -qi "component\|agency\|workflow"; then
+if output_grep_i "component|agency|workflow" "$OUTPUT"; then
     test_passed "component update - non-component dir gives descriptive message"
 else
     test_failed "component update - non-component dir gives descriptive message" "output: $OUTPUT"

@@ -39,14 +39,23 @@ func isNamespacedPath(name string) bool {
 	return false
 }
 
+// splitConfigPath splits a full dot-path into its namespace and remainder.
+func splitConfigPath(fullPath string) (string, string, error) {
+	ns, rest, hasDot := strings.Cut(fullPath, ".")
+	if !hasDot || rest == "" {
+		return "", "", fmt.Errorf("invalid config path: %q", fullPath)
+	}
+	return ns, rest, nil
+}
+
 // GetConfigField retrieves a value from a config namespace by full dot-path.
 // The first segment of fullPath is the namespace ("config", "workflow", "resource",
 // "component", "agency"); the remainder is the dot-path within that namespace.
 func (ctx *ExecutionContext) GetConfigField(fullPath string) (any, error) {
 	kdeps_debug.Log("enter: GetConfigField")
-	ns, rest, hasDot := strings.Cut(fullPath, ".")
-	if !hasDot || rest == "" {
-		return nil, fmt.Errorf("invalid config path: %q", fullPath)
+	ns, rest, err := splitConfigPath(fullPath)
+	if err != nil {
+		return nil, err
 	}
 	switch ns {
 	case nsConfig:
@@ -77,9 +86,9 @@ func (ctx *ExecutionContext) GetConfigField(fullPath string) (any, error) {
 // For "config.*" paths the corresponding env var is also updated.
 func (ctx *ExecutionContext) SetConfigField(fullPath string, value any) error {
 	kdeps_debug.Log("enter: SetConfigField")
-	ns, rest, hasDot := strings.Cut(fullPath, ".")
-	if !hasDot || rest == "" {
-		return fmt.Errorf("invalid config path: %q", fullPath)
+	ns, rest, err := splitConfigPath(fullPath)
+	if err != nil {
+		return err
 	}
 	switch ns {
 	case nsConfig:

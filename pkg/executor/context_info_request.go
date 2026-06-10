@@ -84,7 +84,6 @@ func (ctx *ExecutionContext) GetRequestIP() (interface{}, error) {
 	return nil, errors.New("no request context")
 }
 
-// GetRequestID retrieves the request ID.
 // GetRequestID retrieves the request ID (exported for testing).
 func (ctx *ExecutionContext) GetRequestID() (interface{}, error) {
 	kdeps_debug.Log("enter: GetRequestID")

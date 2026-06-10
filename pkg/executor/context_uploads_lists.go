@@ -22,43 +22,34 @@ import (
 	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
 )
 
-// GetAllFilePaths gets all file paths from uploaded files.
-func (ctx *ExecutionContext) GetAllFilePaths() ([]string, error) {
-	kdeps_debug.Log("enter: GetAllFilePaths")
+// uploadedFileValues collects one attribute from every uploaded file.
+func (ctx *ExecutionContext) uploadedFileValues(field func(*FileUpload) string) ([]string, error) {
 	if ctx.Request == nil {
 		return []string{}, nil
 	}
-	paths := make([]string, 0, len(ctx.Request.Files))
-	for _, file := range ctx.Request.Files {
-		paths = append(paths, file.Path)
+	values := make([]string, 0, len(ctx.Request.Files))
+	for i := range ctx.Request.Files {
+		values = append(values, field(&ctx.Request.Files[i]))
 	}
-	return paths, nil
+	return values, nil
+}
+
+// GetAllFilePaths gets all file paths from uploaded files.
+func (ctx *ExecutionContext) GetAllFilePaths() ([]string, error) {
+	kdeps_debug.Log("enter: GetAllFilePaths")
+	return ctx.uploadedFileValues(func(f *FileUpload) string { return f.Path })
 }
 
 // GetAllFileNames gets all file names from uploaded files.
 func (ctx *ExecutionContext) GetAllFileNames() ([]string, error) {
 	kdeps_debug.Log("enter: GetAllFileNames")
-	if ctx.Request == nil {
-		return []string{}, nil
-	}
-	names := make([]string, 0, len(ctx.Request.Files))
-	for _, file := range ctx.Request.Files {
-		names = append(names, file.Name)
-	}
-	return names, nil
+	return ctx.uploadedFileValues(func(f *FileUpload) string { return f.Name })
 }
 
 // GetAllFileTypes gets all file types from uploaded files.
 func (ctx *ExecutionContext) GetAllFileTypes() ([]string, error) {
 	kdeps_debug.Log("enter: GetAllFileTypes")
-	if ctx.Request == nil {
-		return []string{}, nil
-	}
-	types := make([]string, 0, len(ctx.Request.Files))
-	for _, file := range ctx.Request.Files {
-		types = append(types, file.MimeType)
-	}
-	return types, nil
+	return ctx.uploadedFileValues(func(f *FileUpload) string { return f.MimeType })
 }
 
 // GetFilesByType gets files by MIME type.

@@ -28,8 +28,7 @@ import (
 	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
 )
 
-// ExecuteSelectQuery executes a SELECT query and returns results.
-// ExecuteSelectQuery executes a SELECT query (exported for testing).
+// ExecuteSelectQuery executes a SELECT query and returns results (exported for testing).
 func (e *Executor) ExecuteSelectQuery(
 	queryCtx context.Context,
 	db *sql.DB,
@@ -54,7 +53,6 @@ func (e *Executor) ExecuteSelectQuery(
 	return results, nil
 }
 
-// FormatSelectResults formats SELECT query results based on the specified format.
 // FormatSelectResults formats SELECT query results based on the specified format (exported for testing).
 func (e *Executor) FormatSelectResults(
 	results []map[string]interface{},

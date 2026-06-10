@@ -184,7 +184,7 @@ func TestWatcher_Close(t *testing.T) {
 func TestWatcher_WatchFileTypes(t *testing.T) {
 	watcher, err := fs.NewWatcherWithLogger(nil)
 	require.NoError(t, err)
-	defer watcher.Close()
+	t.Cleanup(func() { _ = watcher.Close() })
 
 	tmpDir := t.TempDir()
 
@@ -465,7 +465,7 @@ func TestWatcher_MultipleFiles(t *testing.T) {
 func TestWatcher_Watch_CompleteCoverage(t *testing.T) {
 	watcher, err := fs.NewWatcherWithLogger(nil)
 	require.NoError(t, err)
-	defer watcher.Close()
+	t.Cleanup(func() { _ = watcher.Close() })
 
 	tmpDir := t.TempDir()
 

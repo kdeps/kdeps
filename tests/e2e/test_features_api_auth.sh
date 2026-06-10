@@ -140,7 +140,7 @@ if command -v curl &> /dev/null; then
 
     CSP_HEADER=$(command curl -s -D - -o /dev/null \
         "http://127.0.0.1:${PORT}/health" 2>/dev/null | grep -i "^content-security-policy:" || true)
-    if echo "$CSP_HEADER" | grep -qi "default-src 'none'"; then
+    if output_grep_fixed_i "default-src 'none'" "$CSP_HEADER"; then
         test_passed "API Auth - Content-Security-Policy header on apiServer"
     else
         test_failed "API Auth - Content-Security-Policy header on apiServer" "header: $CSP_HEADER"

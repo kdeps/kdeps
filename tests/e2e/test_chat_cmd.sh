@@ -30,7 +30,7 @@ echo "Testing chat command..."
 
 # ── Test 1: help flag ─────────────────────────────────────────────────────────
 OUTPUT=$("$KDEPS_BIN" chat --help 2>&1 || true)
-if echo "$OUTPUT" | grep -qiE "workflow|assistant|task"; then
+if output_grep_i "workflow|assistant|task" "$OUTPUT"; then
     test_passed "chat - help describes AI workflow assistant"
 else
     test_failed "chat - help describes AI workflow assistant" "Output: $OUTPUT"
@@ -38,7 +38,7 @@ fi
 
 # ── Test 2: --model flag appears in help ──────────────────────────────────────
 OUTPUT=$("$KDEPS_BIN" chat --help 2>&1 || true)
-if echo "$OUTPUT" | grep -q "\-\-model"; then
+if output_grep_fixed "--model" "$OUTPUT"; then
     test_passed "chat - --model flag documented in help"
 else
     test_failed "chat - --model flag documented in help" "Output: $OUTPUT"
@@ -46,7 +46,7 @@ fi
 
 # ── Test 3: --base-url flag appears in help ───────────────────────────────────
 OUTPUT=$("$KDEPS_BIN" chat --help 2>&1 || true)
-if echo "$OUTPUT" | grep -q "\-\-base-url"; then
+if output_grep_fixed "--base-url" "$OUTPUT"; then
     test_passed "chat - --base-url flag documented in help"
 else
     test_failed "chat - --base-url flag documented in help" "Output: $OUTPUT"
@@ -54,7 +54,7 @@ fi
 
 # ── Test 4: --no-execute flag appears in help ─────────────────────────────────
 OUTPUT=$("$KDEPS_BIN" chat --help 2>&1 || true)
-if echo "$OUTPUT" | grep -q "\-\-no-execute"; then
+if output_grep_fixed "--no-execute" "$OUTPUT"; then
     test_passed "chat - --no-execute flag documented in help"
 else
     test_failed "chat - --no-execute flag documented in help" "Output: $OUTPUT"
@@ -62,7 +62,7 @@ fi
 
 # ── Test 5: --session flag appears in help ────────────────────────────────────
 OUTPUT=$("$KDEPS_BIN" chat --help 2>&1 || true)
-if echo "$OUTPUT" | grep -q "\-\-session"; then
+if output_grep_fixed "--session" "$OUTPUT"; then
     test_passed "chat - --session flag documented in help"
 else
     test_failed "chat - --session flag documented in help" "Output: $OUTPUT"
@@ -70,7 +70,7 @@ fi
 
 # ── Test 6: slash commands listed in help ─────────────────────────────────────
 OUTPUT=$("$KDEPS_BIN" chat --help 2>&1 || true)
-if echo "$OUTPUT" | grep -qE "/show|/run|/save|/export|/reset|/quit"; then
+if output_grep "/show|/run|/save|/export|/reset|/quit" "$OUTPUT"; then
     test_passed "chat - slash commands listed in help"
 else
     test_failed "chat - slash commands listed in help" "Output: $OUTPUT"
@@ -80,7 +80,7 @@ fi
 TMP_HOME=$(mktemp -d)
 trap 'rm -rf "$TMP_HOME"' EXIT
 OUTPUT=$(HOME="$TMP_HOME" "$KDEPS_BIN" chat --session "nonexistent-session-xyz" 2>&1 || true)
-if echo "$OUTPUT" | grep -qiE "error|not found|session"; then
+if output_grep_i "error|not found|session" "$OUTPUT"; then
     test_passed "chat - nonexistent --session returns error"
 else
     test_failed "chat - nonexistent --session returns error" "Output: $OUTPUT"
@@ -91,7 +91,7 @@ fi
 # input is exhausted, even without a /quit command.
 OUTPUT=$(echo "" | HOME="$TMP_HOME" timeout 10 "$KDEPS_BIN" chat 2>&1 || true)
 # Any exit (including timeout fallback) is acceptable; we just verify no panic
-if echo "$OUTPUT" | grep -qiE "panic|runtime error"; then
+if output_grep_i "panic|runtime error" "$OUTPUT"; then
     test_failed "chat - EOF on stdin exits cleanly (got panic)" "Output: $OUTPUT"
 else
     test_passed "chat - EOF on stdin exits cleanly"
@@ -99,7 +99,7 @@ fi
 
 # ── Test 9: /quit exits immediately ──────────────────────────────────────────
 OUTPUT=$(printf '/quit\n' | HOME="$TMP_HOME" timeout 10 "$KDEPS_BIN" chat 2>&1 || true)
-if echo "$OUTPUT" | grep -qiE "panic|runtime error"; then
+if output_grep_i "panic|runtime error" "$OUTPUT"; then
     test_failed "chat - /quit exits cleanly (got panic)" "Output: $OUTPUT"
 else
     test_passed "chat - /quit exits cleanly"

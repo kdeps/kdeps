@@ -146,7 +146,7 @@ echo "-- Tier 1b: CLI discoverability --"
 
 LIST_OUTPUT=$(KDEPS_COMPONENT_DIR="$CONTRIB_DIR" "$KDEPS_BIN" registry list 2>&1 || true)
 for comp in "${ALL_COMPONENTS[@]}"; do
-    if echo "$LIST_OUTPUT" | grep -q "  ${comp}$"; then
+    if output_grep "  ${comp}\$" "$LIST_OUTPUT"; then
         test_passed "$comp - appears in 'kdeps registry list'"
     else
         test_failed "$comp - appears in 'kdeps registry list'" "Not found in: $LIST_OUTPUT"
@@ -360,9 +360,9 @@ component:
     value: hello-world
 YAML
     RUN_OUT=$(cd "$TMP_MEM_PROJ" && "$KDEPS_BIN" run workflow.yaml 2>&1 || true)
-    if echo "$RUN_OUT" | grep -qiE "stored|memory-op|do-store|completed"; then
+    if output_grep_i "stored|memory-op|do-store|completed" "$RUN_OUT"; then
         test_passed "memory component - store operation runs without fatal error"
-    elif echo "$RUN_OUT" | grep -qiE "component.*not found|failed.*memory"; then
+    elif output_grep_i "component.*not found|failed.*memory" "$RUN_OUT"; then
         test_failed "memory component - store operation runs without fatal error" \
             "$(echo "$RUN_OUT" | grep -iE "component.*not found|failed.*memory" | head -2)"
     else
@@ -402,9 +402,9 @@ component:
     glob: "*.txt"
 YAML
     RUN_OUT=$(cd "$TMP_SL_PROJ" && "$KDEPS_BIN" run workflow.yaml 2>&1 || true)
-    if echo "$RUN_OUT" | grep -qiE "search-local|do-search|completed|result"; then
+    if output_grep_i "search-local|do-search|completed|result" "$RUN_OUT"; then
         test_passed "search-local component - runs without fatal error"
-    elif echo "$RUN_OUT" | grep -qiE "component.*not found"; then
+    elif output_grep_i "component.*not found" "$RUN_OUT"; then
         test_failed "search-local component - runs without fatal error" "Component not found"
     else
         test_skipped "search-local component - runtime (output inconclusive)"
@@ -443,9 +443,9 @@ YAML
         "$MOCK_PORT" > "$TMP_SCRAPER/resources/do-scrape.yaml"
     RUN_OUT=$(cd "$TMP_SCRAPER" && "$KDEPS_BIN" run workflow.yaml 2>&1 || true)
     kill "$MOCK_PID" 2>/dev/null || true
-    if echo "$RUN_OUT" | grep -qiE "component.*not found"; then
+    if output_grep_i "component.*not found" "$RUN_OUT"; then
         test_failed "scraper component - runs against local mock server" "Component not found"
-    elif echo "$RUN_OUT" | grep -qiE "do-scrape|completed|result"; then
+    elif output_grep_i "do-scrape|completed|result" "$RUN_OUT"; then
         test_passed "scraper component - runs against local mock server"
     else
         test_skipped "scraper component - mock HTTP run (output inconclusive)"
@@ -482,9 +482,9 @@ component:
     end: "2024-06-01T11:00:00"
 YAML
     RUN_OUT=$(cd "$TMP_CAL" && "$KDEPS_BIN" run workflow.yaml 2>&1 || true)
-    if echo "$RUN_OUT" | grep -qiE "create-event|calendar|completed|ics"; then
+    if output_grep_i "create-event|calendar|completed|ics" "$RUN_OUT"; then
         test_passed "calendar component - create-event runs with icalendar"
-    elif echo "$RUN_OUT" | grep -qiE "component.*not found"; then
+    elif output_grep_i "component.*not found" "$RUN_OUT"; then
         test_failed "calendar component - create-event runs" "Component not found"
     else
         test_skipped "calendar component - icalendar runtime (output inconclusive)"
@@ -519,7 +519,7 @@ component:
     content: "<h1>E2E Test</h1>"
 YAML
     RUN_OUT=$(cd "$TMP_PDF" && "$KDEPS_BIN" run workflow.yaml 2>&1 || true)
-    if echo "$RUN_OUT" | grep -qiE "generate-pdf|do-pdf|completed|generated"; then
+    if output_grep_i "generate-pdf|do-pdf|completed|generated" "$RUN_OUT"; then
         test_passed "pdf component - generate-pdf runs with pdfkit+wkhtmltopdf"
     else
         test_skipped "pdf component - pdfkit runtime (output inconclusive)"
@@ -554,7 +554,7 @@ component:
     text: "hello world"
 YAML
     RUN_OUT=$(cd "$TMP_TTS" && "$KDEPS_BIN" run workflow.yaml 2>&1 || true)
-    if echo "$RUN_OUT" | grep -qiE "speak-offline|do-tts|completed"; then
+    if output_grep_i "speak-offline|do-tts|completed" "$RUN_OUT"; then
         test_passed "tts (offline) component - speak-offline runs with espeak"
     else
         test_skipped "tts (offline) component - espeak runtime (output inconclusive)"

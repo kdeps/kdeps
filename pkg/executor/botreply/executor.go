@@ -47,7 +47,7 @@ func (e *Executor) Execute(
 	config interface{},
 ) (interface{}, error) {
 	kdeps_debug.Log("enter: Execute")
-	cfg, err := parseBotReplyConfig(config)
+	cfg, err := executor.AdaptConfig[domain.BotReplyConfig](config, "botreply")
 	if err != nil {
 		return nil, err
 	}
@@ -66,15 +66,6 @@ func (e *Executor) Execute(
 	}
 
 	return buildSuccessResult(text), nil
-}
-
-func parseBotReplyConfig(config interface{}) (*domain.BotReplyConfig, error) {
-	kdeps_debug.Log("enter: parseBotReplyConfig")
-	cfg, ok := config.(*domain.BotReplyConfig)
-	if !ok {
-		return nil, errors.New("botreply executor: invalid config type")
-	}
-	return cfg, nil
 }
 
 func validateBotSend(ctx *executor.ExecutionContext) error {

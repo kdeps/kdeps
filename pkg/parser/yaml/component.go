@@ -26,8 +26,6 @@ import (
 
 	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
 
-	"gopkg.in/yaml.v3"
-
 	"github.com/kdeps/kdeps/v2/pkg/domain"
 )
 
@@ -68,37 +66,7 @@ func (p *Parser) ParseComponent(path string) (*domain.Component, error) {
 	kdeps_debug.Log("enter: ParseComponent")
 	var validate func(map[string]interface{}) error
 	if p.schemaValidator != nil {
-		sv := p.schemaValidator
-		validate = func(rawData map[string]interface{}) error {
-			if schemaErr := sv.ValidateComponent(rawData); schemaErr != nil {
-				return domain.NewError(
-					domain.ErrCodeValidationFailed,
-					"component schema validation failed",
-					schemaErr,
-				)
-			}
-			return nil
-		}
+		validate = p.schemaValidator.ValidateComponent
 	}
-
-	data, err := p.readPreprocessAndValidateYAML(
-		path,
-		"failed to read file",
-		"failed to preprocess component Jinja2 template",
-		validate,
-	)
-	if err != nil {
-		return nil, err
-	}
-
-	var component domain.Component
-	if compErr := yaml.Unmarshal(data, &component); compErr != nil {
-		return nil, domain.NewError(
-			domain.ErrCodeParseError,
-			"failed to parse component",
-			compErr,
-		)
-	}
-
-	return &component, nil
+	return parseManifest[domain.Component](p, path, "component", "failed to read file", validate)
 }

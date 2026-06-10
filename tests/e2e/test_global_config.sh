@@ -86,7 +86,7 @@ CONFIG_PATH2="$CONFIG_DIR2/config.yaml"
 echo "llm:" > "$CONFIG_PATH2"
 echo "  openai_api_key: \"from-config-file\"" >> "$CONFIG_PATH2"
 run_noninteractive "KDEPS_CONFIG_PATH=$CONFIG_PATH2" "OPENAI_API_KEY=env-wins" "$KDEPS_BIN" validate /dev/null
-if [ $EXIT_CODE -eq 0 ] || echo "$OUTPUT" | grep -qiE "validate|workflow|error"; then
+if [ $EXIT_CODE -eq 0 ] || output_grep_i "validate|workflow|error" "$OUTPUT"; then
     test_passed "global config - env var wins over config file value"
 else
     test_failed "global config - env var wins over config file value" "exit=$EXIT_CODE output=$OUTPUT"
@@ -104,7 +104,7 @@ defaults:
 EOF
 run_noninteractive "KDEPS_CONFIG_PATH=$CONFIG_PATH3" "$KDEPS_BIN" validate /dev/null
 # Binary should run cleanly; the env var propagation is verified at the Go unit test level.
-if [ $EXIT_CODE -eq 0 ] || echo "$OUTPUT" | grep -qiE "validate|workflow|error"; then
+if [ $EXIT_CODE -eq 0 ] || output_grep_i "validate|workflow|error" "$OUTPUT"; then
     test_passed "global config - defaults section accepted without error"
 else
     test_failed "global config - defaults section accepted without error" "exit=$EXIT_CODE output=$OUTPUT"
@@ -152,7 +152,7 @@ rm -rf "$CONFIG_DIR6"
 # --- Test: binary runs when config dir does not exist ---
 EXIT_CODE=0
 OUTPUT=$(echo "" | env "KDEPS_CONFIG_PATH=/nonexistent/dir/config.yaml" "$KDEPS_BIN" validate /dev/null 2>&1) || EXIT_CODE=$?
-if echo "$OUTPUT" | grep -qiE "validate|workflow|error|no such"; then
+if output_grep_i "validate|workflow|error|no such" "$OUTPUT"; then
     test_passed "global config - binary runs when config path dir is missing"
 else
     test_failed "global config - binary runs when config path dir is missing" "exit=$EXIT_CODE output=$OUTPUT"
@@ -179,7 +179,7 @@ llm:
 EOF
 run_noninteractive "KDEPS_CONFIG_PATH=$CONFIG_PATH8" "KDEPS_MODELS_DIR=" "$KDEPS_BIN" validate /dev/null
 # Binary loads config and propagates models_dir to KDEPS_MODELS_DIR; validated at Go unit test level.
-if [ $EXIT_CODE -eq 0 ] || echo "$OUTPUT" | grep -qiE "validate|workflow|error"; then
+if [ $EXIT_CODE -eq 0 ] || output_grep_i "validate|workflow|error" "$OUTPUT"; then
     test_passed "global config - models_dir field accepted without error"
 else
     test_failed "global config - models_dir field accepted without error" "exit=$EXIT_CODE output=$OUTPUT"

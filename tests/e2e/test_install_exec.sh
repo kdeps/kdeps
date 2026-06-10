@@ -39,7 +39,7 @@ run_capturing() {
 
 # --- Test: exec help ---
 run_capturing "$KDEPS_BIN" exec --help
-if echo "$OUTPUT" | grep -qiE "exec|agent|install|run"; then
+if output_grep_i "exec|agent|install|run" "$OUTPUT"; then
     test_passed "exec - help flag works"
 else
     test_failed "exec - help flag works" "Output: $OUTPUT"
@@ -48,7 +48,7 @@ fi
 # --- Test: exec on missing agent gives install hint ---
 FAKE_AGENTS_DIR=$(mktemp -d)
 run_capturing env KDEPS_AGENTS_DIR="$FAKE_AGENTS_DIR" "$KDEPS_BIN" exec no-such-agent-xyz
-if [ $EXIT_CODE -ne 0 ] && echo "$OUTPUT" | grep -qiE "not installed|install|not found"; then
+if [ $EXIT_CODE -ne 0 ] && output_grep_i "not installed|install|not found" "$OUTPUT"; then
     test_passed "exec - missing agent returns meaningful error with install hint"
 else
     test_failed "exec - missing agent returns meaningful error with install hint" "exit=$EXIT_CODE output=$OUTPUT"
@@ -73,7 +73,7 @@ YAML
 # Run exec — it should attempt to start the agent (not fail with "not found").
 # We expect a run-related error (no server, missing resources, etc.) but NOT "not found".
 run_capturing env KDEPS_AGENTS_DIR="$FAKE_AGENTS_DIR" "$KDEPS_BIN" exec hello-agent
-if echo "$OUTPUT" | grep -qiE "not installed|no agent.*found"; then
+if output_grep_i "not installed|no agent.*found" "$OUTPUT"; then
     test_failed "exec - manually installed agent found in KDEPS_AGENTS_DIR" "exit=$EXIT_CODE output=$OUTPUT"
 else
     test_passed "exec - manually installed agent found in KDEPS_AGENTS_DIR"
@@ -82,7 +82,7 @@ rm -rf "$FAKE_AGENTS_DIR"
 
 # --- Test: registry install --help ---
 run_capturing "$KDEPS_BIN" registry install --help
-if echo "$OUTPUT" | grep -qiE "install|package|registry"; then
+if output_grep_i "install|package|registry" "$OUTPUT"; then
     test_passed "registry install - help flag works"
 else
     test_failed "registry install - help flag works" "Output: $OUTPUT"
@@ -90,7 +90,7 @@ fi
 
 # --- Test: registry install with bad/fake package name fails gracefully ---
 run_capturing "$KDEPS_BIN" registry install this-package-does-not-exist-xyz
-if [ $EXIT_CODE -ne 0 ] && echo "$OUTPUT" | grep -qiE "404|not found|error|fail"; then
+if [ $EXIT_CODE -ne 0 ] && output_grep_i "404|not found|error|fail" "$OUTPUT"; then
     test_passed "registry install - nonexistent package fails gracefully"
 else
     test_failed "registry install - nonexistent package fails gracefully" "exit=$EXIT_CODE output=$OUTPUT"

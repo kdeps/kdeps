@@ -59,33 +59,27 @@ func resolveDockerfileTemplate(baseOS string) (string, error) {
 // generateEntrypoint generates the entrypoint script.
 func (b *Builder) generateEntrypoint(workflow *domain.Workflow) (string, error) {
 	kdeps_debug.Log("enter: generateEntrypoint")
-	if err := runEntrypointHook(); err != nil {
-		return "", err
-	}
-	return b.renderWorkflowTemplate("entrypoint", entrypointTemplate, workflow)
-}
-
-func runEntrypointHook() error {
-	if GenerateEntrypointHook == nil {
-		return nil
-	}
-	return GenerateEntrypointHook()
+	return b.renderHookedTemplate(GenerateEntrypointHook, "entrypoint", entrypointTemplate, workflow)
 }
 
 // generateSupervisord generates the supervisord config.
 func (b *Builder) generateSupervisord(workflow *domain.Workflow) (string, error) {
 	kdeps_debug.Log("enter: generateSupervisord")
-	if err := runSupervisordHook(); err != nil {
-		return "", err
-	}
-	return b.renderWorkflowTemplate("supervisord", supervisordTemplate, workflow)
+	return b.renderHookedTemplate(GenerateSupervisordHook, "supervisord", supervisordTemplate, workflow)
 }
 
-func runSupervisordHook() error {
-	if GenerateSupervisordHook == nil {
-		return nil
+// renderHookedTemplate runs the optional test hook before rendering a template.
+func (b *Builder) renderHookedTemplate(
+	hook func() error,
+	name, templateStr string,
+	workflow *domain.Workflow,
+) (string, error) {
+	if hook != nil {
+		if err := hook(); err != nil {
+			return "", err
+		}
 	}
-	return GenerateSupervisordHook()
+	return b.renderWorkflowTemplate(name, templateStr, workflow)
 }
 
 func (b *Builder) renderWorkflowTemplate(name, templateStr string, workflow *domain.Workflow) (string, error) {

@@ -290,3 +290,13 @@ func TestGenerateDefaultIndex_MkdirAllError(t *testing.T) {
 	err := generateDefaultIndex(tmpDir)
 	require.Error(t, err)
 }
+
+func TestWriteBundleBytes_MkdirAllError(t *testing.T) {
+	orig := AppFS
+	t.Cleanup(func() { AppFS = orig })
+	mem := afero.NewMemMapFs()
+	require.NoError(t, afero.WriteFile(mem, "/blocked", []byte("not-a-dir"), 0644))
+	AppFS = afero.NewReadOnlyFs(mem)
+	err := writeBundleBytes("/blocked/sub/file.txt", []byte("data"))
+	require.Error(t, err)
+}

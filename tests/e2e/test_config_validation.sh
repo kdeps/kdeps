@@ -40,10 +40,10 @@ assert_warning() {
     local output
     output=$(KDEPS_CONFIG_PATH="$config_path" KDEPS_SKIP_BOOTSTRAP=1 "$KDEPS_BIN" validate /dev/null 2>&1) || true
 
-    if echo "$output" | grep -qi "$pattern"; then
+    if output_grep_fixed_i "$pattern" "$output"; then
         test_passed "[PASS] $desc"
     else
-        test_failed "[FAIL] $desc — expected '$pattern' in output, got: $(echo "$output" | tr '\n' ' ')"
+        test_failed "[FAIL] $desc — expected '$pattern' in output, got: $(printf '%s' "$output" | tr '\n' ' ')"
     fi
 }
 
@@ -55,7 +55,7 @@ assert_no_warning() {
     local output
     output=$(KDEPS_CONFIG_PATH="$config_path" KDEPS_SKIP_BOOTSTRAP=1 "$KDEPS_BIN" validate /dev/null 2>&1) || true
 
-    if echo "$output" | grep -qi "$pattern"; then
+    if output_grep_fixed_i "$pattern" "$output"; then
         test_failed "[FAIL] $desc — unexpected '$pattern' in output: $(echo "$output" | tr '\n' ' ')"
     else
         test_passed "[PASS] $desc"

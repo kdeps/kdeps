@@ -107,7 +107,7 @@ if $SERVER_READY; then
 
     # Send a test request.
     RESPONSE=$(curl -sf "http://localhost:${PORT}${ENDPOINT}?name=World" 2>/dev/null || echo "")
-    if echo "$RESPONSE" | grep -qi "responder-agent"; then
+    if output_grep_fixed_i "responder-agent" "$RESPONSE"; then
         test_passed "Agency - Greeter returns responder response"
     else
         test_failed "Agency - Greeter returns responder response" "Unexpected response: $RESPONSE"

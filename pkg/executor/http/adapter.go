@@ -20,8 +20,6 @@
 package http
 
 import (
-	"errors"
-
 	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
 
 	"github.com/kdeps/kdeps/v2/pkg/domain"
@@ -44,18 +42,9 @@ func NewAdapter() *Adapter {
 // Execute implements ResourceExecutor interface.
 func (a *Adapter) Execute(ctx *executor.ExecutionContext, config interface{}) (interface{}, error) {
 	kdeps_debug.Log("enter: Execute")
-	httpConfig, err := parseHTTPConfig(config)
+	httpConfig, err := executor.AdaptConfig[domain.HTTPClientConfig](config, "HTTP")
 	if err != nil {
 		return nil, err
 	}
 	return a.executor.Execute(ctx, httpConfig)
-}
-
-func parseHTTPConfig(config interface{}) (*domain.HTTPClientConfig, error) {
-	kdeps_debug.Log("enter: parseHTTPConfig")
-	httpConfig, ok := config.(*domain.HTTPClientConfig)
-	if !ok {
-		return nil, errors.New("invalid config type for HTTP executor")
-	}
-	return httpConfig, nil
 }

@@ -20,8 +20,6 @@
 package embedding
 
 import (
-	"errors"
-
 	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
 	"github.com/kdeps/kdeps/v2/pkg/domain"
 	"github.com/kdeps/kdeps/v2/pkg/executor"
@@ -41,18 +39,9 @@ func NewAdapter() *Adapter {
 // Execute implements ResourceExecutor interface.
 func (a *Adapter) Execute(ctx *executor.ExecutionContext, config interface{}) (interface{}, error) {
 	kdeps_debug.Log("enter: Execute")
-	cfg, err := parseEmbeddingConfig(config)
+	cfg, err := executor.AdaptConfig[domain.EmbeddingConfig](config, "embedding")
 	if err != nil {
 		return nil, err
 	}
 	return a.executor.Execute(ctx, cfg)
-}
-
-func parseEmbeddingConfig(config interface{}) (*domain.EmbeddingConfig, error) {
-	kdeps_debug.Log("enter: parseEmbeddingConfig")
-	cfg, ok := config.(*domain.EmbeddingConfig)
-	if !ok {
-		return nil, errors.New("invalid config type for embedding executor")
-	}
-	return cfg, nil
 }
