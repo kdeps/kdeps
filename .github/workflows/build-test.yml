@@ -194,7 +194,7 @@ jobs:
           fi
           printf '%s\n' "{\"schemaVersion\":1,\"label\":\"coverage\",\"message\":\"${COV}\",\"color\":\"${COLOR}\"}" > .github/coverage-badge.json
       - name: Commit coverage badge
-        uses: stefanzweifel/git-auto-commit-action@v5
+        uses: stefanzweifel/git-auto-commit-action@v7
         with:
           commit_message: "chore: update coverage badge [skip ci]"
           file_pattern: .github/coverage-badge.json
