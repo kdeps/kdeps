@@ -25,11 +25,11 @@ import (
 	"fmt"
 	"path/filepath"
 	"strings"
-	"text/template"
 
 	"github.com/spf13/afero"
 
 	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
+	"github.com/kdeps/kdeps/v2/pkg/infra/texttmpl"
 )
 
 //nolint:gochecknoglobals // test-replaceable
@@ -163,11 +163,6 @@ func renderBootstrap(config *BundleConfig, distDir string) error {
 		return fmt.Errorf("failed to read bootstrap template: %w", err)
 	}
 
-	tmpl, err := template.New("bootstrap.js").Parse(string(tmplContent))
-	if err != nil {
-		return fmt.Errorf("failed to parse bootstrap template: %w", err)
-	}
-
 	escapedYAML := escapeWorkflowYAMLForJS(config.WorkflowYAML)
 	routesJSON := marshalAPIRoutesJSON(config.APIRoutes)
 
@@ -177,10 +172,14 @@ func renderBootstrap(config *BundleConfig, distDir string) error {
 	}
 	defer outFile.Close()
 
-	return tmpl.Execute(outFile, bootstrapData{
+	renderErr := texttmpl.RenderTo(outFile, "bootstrap.js", string(tmplContent), bootstrapData{
 		WorkflowYAML:  escapedYAML,
 		APIRoutesJSON: routesJSON,
 	})
+	if renderErr != nil {
+		return fmt.Errorf("failed to render bootstrap template: %w", renderErr)
+	}
+	return nil
 }
 
 // copyWebServerFiles copies user-provided web server files into the dist directory.

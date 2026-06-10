@@ -10,6 +10,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gopkg.in/yaml.v3"
+
+	"github.com/kdeps/kdeps/v2/pkg/yamlutil"
 )
 
 func writeTempConfig(t *testing.T, dir, content string) {
@@ -357,7 +359,7 @@ func TestCollectUnknownKeys(t *testing.T) {
 	require.NoError(t, yaml.Unmarshal([]byte("a: 1\nb: 2\nc: 3"), &node))
 	root := node.Content[0]
 	known := map[string]bool{"a": true, "b": true}
-	unknown := collectUnknownKeys(root, known)
+	unknown := yamlutil.UnknownKeys(root, known)
 	assert.Equal(t, []string{"c"}, unknown)
 }
 
@@ -365,11 +367,11 @@ func TestFindMappingValue(t *testing.T) {
 	var node yaml.Node
 	require.NoError(t, yaml.Unmarshal([]byte("a:\n  x: 1\nb: 2"), &node))
 	root := node.Content[0]
-	found := findMappingValue(root, "a")
+	found := yamlutil.MappingChild(root, "a")
 	require.NotNil(t, found)
 	assert.Equal(t, yaml.MappingNode, found.Kind)
-	assert.Nil(t, findMappingValue(root, "b"))
-	assert.Nil(t, findMappingValue(root, "missing"))
+	assert.Nil(t, yamlutil.MappingChild(root, "b"))
+	assert.Nil(t, yamlutil.MappingChild(root, "missing"))
 }
 
 func TestHasCloudProviderKey(t *testing.T) {

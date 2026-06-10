@@ -23,6 +23,7 @@ import (
 	"fmt"
 
 	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
+	"github.com/kdeps/kdeps/v2/pkg/yamlutil"
 
 	"gopkg.in/yaml.v3"
 )
@@ -191,7 +192,7 @@ func (v *ValidationsConfig) UnmarshalYAML(node *yaml.Node) error {
 
 // extractMapRulesFromNode parses a map-based rules section (fields/properties) from a YAML node.
 func extractMapRulesFromNode(node *yaml.Node, key string) ([]FieldRule, error) {
-	mapNode := findMappingChild(node, key)
+	mapNode := yamlutil.ChildValue(node, key)
 	if mapNode == nil {
 		return nil, nil
 	}
@@ -210,16 +211,6 @@ func extractMapRulesFromNode(node *yaml.Node, key string) ([]FieldRule, error) {
 		rules = append(rules, rule)
 	}
 	return rules, nil
-}
-
-// findMappingChild returns the value node for key in a YAML mapping, or nil if absent.
-func findMappingChild(node *yaml.Node, key string) *yaml.Node {
-	for i := 0; i+1 < len(node.Content); i += 2 {
-		if node.Content[i].Value == key {
-			return node.Content[i+1]
-		}
-	}
-	return nil
 }
 
 // MultipleValidationError wraps multiple validation errors.

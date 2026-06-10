@@ -23,6 +23,8 @@ import (
 	"os"
 
 	"gopkg.in/yaml.v3"
+
+	"github.com/kdeps/kdeps/v2/pkg/yamlutil"
 )
 
 // Validate checks the config for common mistakes and returns human-readable
@@ -66,7 +68,7 @@ func validateUnknownKeys(data []byte) []string {
 	}
 
 	// Check top-level keys.
-	topUnknown := collectUnknownKeys(root, knownTopLevelKeys)
+	topUnknown := yamlutil.UnknownKeys(root, knownTopLevelKeys)
 	for _, k := range topUnknown {
 		warnings = append(warnings, fmt.Sprintf(
 			"unknown top-level key %q — check for typos "+
@@ -87,38 +89,13 @@ func validateUnknownKeys(data []byte) []string {
 // subKeyWarnings reports unknown keys under a named mapping section using msgFmt
 // (which must contain a single %q verb for the offending key).
 func subKeyWarnings(root *yaml.Node, section string, known map[string]bool, msgFmt string) []string {
-	node := findMappingValue(root, section)
+	node := yamlutil.MappingChild(root, section)
 	if node == nil {
 		return nil
 	}
 	var warnings []string
-	for _, k := range collectUnknownKeys(node, known) {
+	for _, k := range yamlutil.UnknownKeys(node, known) {
 		warnings = append(warnings, fmt.Sprintf(msgFmt, k))
 	}
 	return warnings
-}
-
-// findMappingValue returns the value node for a given key in a mapping node.
-func findMappingValue(mapping *yaml.Node, key string) *yaml.Node {
-	for i := 0; i+1 < len(mapping.Content); i += 2 {
-		if mapping.Content[i].Value == key {
-			v := mapping.Content[i+1]
-			if v.Kind == yaml.MappingNode {
-				return v
-			}
-		}
-	}
-	return nil
-}
-
-// collectUnknownKeys returns keys in mapping that are not in known.
-func collectUnknownKeys(mapping *yaml.Node, known map[string]bool) []string {
-	var unknown []string
-	for i := 0; i+1 < len(mapping.Content); i += 2 {
-		k := mapping.Content[i].Value
-		if !known[k] {
-			unknown = append(unknown, k)
-		}
-	}
-	return unknown
 }

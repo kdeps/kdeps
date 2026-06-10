@@ -19,13 +19,12 @@
 package k8s
 
 import (
-	"bytes"
 	_ "embed"
 	"fmt"
-	"text/template"
 
 	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
 	"github.com/kdeps/kdeps/v2/pkg/domain"
+	"github.com/kdeps/kdeps/v2/pkg/infra/texttmpl"
 	"github.com/kdeps/kdeps/v2/pkg/security/deployenv"
 )
 
@@ -147,16 +146,5 @@ func workflowNeedsOllama(workflow *domain.Workflow) bool {
 
 func (g *Generator) renderTemplate(name, tmplStr string, data *ManifestData) (string, error) {
 	kdeps_debug.Log("enter: renderTemplate")
-
-	tmpl, err := template.New(name).Parse(tmplStr)
-	if err != nil {
-		return "", err
-	}
-
-	var buf bytes.Buffer
-	if execErr := tmpl.Execute(&buf, data); execErr != nil {
-		return "", execErr
-	}
-
-	return buf.String(), nil
+	return texttmpl.Render(name, tmplStr, data)
 }

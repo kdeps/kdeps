@@ -262,7 +262,7 @@ func TestRenderBootstrap_ParseTemplateError(t *testing.T) {
 
 	err := renderBootstrap(&BundleConfig{WorkflowYAML: "test"}, t.TempDir())
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "failed to parse bootstrap template")
+	assert.Contains(t, err.Error(), "failed to render bootstrap template")
 }
 
 func TestGenerateDefaultIndex_ReadTemplateError(t *testing.T) {
