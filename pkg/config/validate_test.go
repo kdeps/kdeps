@@ -535,15 +535,25 @@ func TestIsLocalBackend(t *testing.T) {
 }
 
 func TestIsEmptyAgentProfile(t *testing.T) {
-	assert.True(t, isEmptyAgentProfile(Config{}))
+	empty := Config{}
+	assert.True(t, empty.IsEmptyAgentProfile())
 	llm := LLMKeys{}
 	primaryCloudProvider().setLLMKey(&llm, "sk-test")
-	assert.False(t, isEmptyAgentProfile(Config{LLM: llm}))
-	assert.False(t, isEmptyAgentProfile(Config{Defaults: Defaults{Timezone: "UTC"}}))
-	assert.False(t, isEmptyAgentProfile(Config{ResourceDefaults: ResourceDefaults{
+	assert.False(t, (&Config{LLM: llm}).IsEmptyAgentProfile())
+	assert.False(t, (&Config{Defaults: Defaults{Timezone: "UTC"}}).IsEmptyAgentProfile())
+	assert.False(t, (&Config{ResourceDefaults: ResourceDefaults{
 		Chat: ChatDefaults{Timeout: "60s"},
-	}}))
-	assert.False(t, isEmptyAgentProfile(Config{ResourceDefaults: ResourceDefaults{
+	}}).IsEmptyAgentProfile())
+	assert.False(t, (&Config{ResourceDefaults: ResourceDefaults{
 		Chat: ChatDefaults{Streaming: true},
-	}}))
+	}}).IsEmptyAgentProfile())
+	assert.False(t, (&Config{ResourceDefaults: ResourceDefaults{
+		Chat: ChatDefaults{MaxOutputBytes: 1024},
+	}}).IsEmptyAgentProfile())
+	assert.False(t, (&Config{ResourceDefaults: ResourceDefaults{
+		HTTP: HTTPDefaults{MaxResponseBytes: 2048},
+	}}).IsEmptyAgentProfile())
+	assert.False(t, (&Config{ResourceDefaults: ResourceDefaults{
+		Python: PythonDefaults{MaxOutputBytes: 512},
+	}}).IsEmptyAgentProfile())
 }

@@ -107,72 +107,13 @@ func (c *Config) validateAgentProfiles(agentsDir string) []string {
 				"agents.%q does not match any installed workflow metadata.name", name))
 		}
 
-		if isEmptyAgentProfile(profile) {
+		if profile.IsEmptyAgentProfile() {
 			warnings = append(warnings, fmt.Sprintf(
 				"agents.%q has no non-empty fields set — profile has no effect", name))
 		}
 	}
 
 	return warnings
-}
-
-// isLLMKeysEmpty reports whether all LLM key fields are unset.
-func isLLMKeysEmpty(llm LLMKeys) bool {
-	return llm.OllamaHost == "" &&
-		llm.Backend == "" &&
-		llm.BaseURL == "" &&
-		llm.Strategy == "" &&
-		len(llm.Models) == 0 &&
-		llm.ModelsDir == "" &&
-		!hasCloudProviderKey(llm)
-}
-
-// isDefaultsEmpty reports whether all global defaults are unset.
-func isDefaultsEmpty(d Defaults) bool {
-	return d.Timezone == "" && d.PythonVersion == "" && !d.OfflineMode
-}
-
-// isChatDefaultsEmpty reports whether all chat resource defaults are unset.
-func isChatDefaultsEmpty(c ChatDefaults) bool {
-	return c.Timeout == "" &&
-		c.ContextLength == 0 &&
-		!c.Streaming &&
-		c.Temperature == nil &&
-		c.MaxTokens == nil &&
-		c.TopP == nil &&
-		c.FrequencyPenalty == nil &&
-		c.PresencePenalty == nil
-}
-
-// isHTTPDefaultsEmpty reports whether all HTTP resource defaults are unset.
-func isHTTPDefaultsEmpty(h HTTPDefaults) bool {
-	return h.Timeout == "" &&
-		!h.FollowRedirects &&
-		h.Proxy == "" &&
-		h.RetryMaxAttempts == 0 &&
-		h.RetryBackoff == "" &&
-		h.RetryMaxBackoff == "" &&
-		h.RetryOn == ""
-}
-
-// isResourceDefaultsEmpty reports whether all per-resource defaults are unset.
-func isResourceDefaultsEmpty(rd ResourceDefaults) bool {
-	return isChatDefaultsEmpty(rd.Chat) &&
-		isHTTPDefaultsEmpty(rd.HTTP) &&
-		rd.Python.Timeout == "" &&
-		rd.Exec.Timeout == "" &&
-		rd.SQL.Timeout == "" &&
-		rd.SQL.MaxRows == 0 &&
-		rd.OnError.Action == "" &&
-		rd.OnError.MaxRetries == 0 &&
-		rd.OnError.RetryDelay == ""
-}
-
-// isEmptyAgentProfile returns true when all fields in the profile are zero.
-func isEmptyAgentProfile(cfg Config) bool {
-	return isLLMKeysEmpty(cfg.LLM) &&
-		isDefaultsEmpty(cfg.Defaults) &&
-		isResourceDefaultsEmpty(cfg.ResourceDefaults)
 }
 
 // collectWorkflowNames scans agentsDir for workflow.yaml files and returns
