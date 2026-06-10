@@ -19,9 +19,6 @@
 package sql
 
 import (
-	"fmt"
-	"strings"
-
 	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
 	"github.com/kdeps/kdeps/v2/pkg/executor"
 	"github.com/kdeps/kdeps/v2/pkg/parser/expression"
@@ -34,15 +31,7 @@ func (e *Executor) evaluateExpression(
 	exprStr string,
 ) (interface{}, error) {
 	kdeps_debug.Log("enter: evaluateExpression")
-	env := e.buildEnvironment(ctx)
-
-	parser := expression.NewParser()
-	expr, err := parser.ParseValue(exprStr)
-	if err != nil {
-		return nil, fmt.Errorf("failed to parse expression: %w", err)
-	}
-
-	return evaluator.Evaluate(expr, env)
+	return executor.EvaluateExpression(evaluator, e.buildEnvironment(ctx), exprStr)
 }
 
 // evaluateStringOrLiteral evaluates a string as an expression if it contains expression syntax,
@@ -53,40 +42,11 @@ func (e *Executor) evaluateStringOrLiteral(
 	value string,
 ) (string, error) {
 	kdeps_debug.Log("enter: evaluateStringOrLiteral")
-	if !e.containsExpressionSyntax(value) {
-		return value, nil
-	}
-
-	result, err := e.evaluateExpression(evaluator, ctx, value)
-	if err != nil {
-		return "", err
-	}
-
-	return fmt.Sprintf("%v", result), nil
-}
-
-// containsExpressionSyntax checks if a string contains expression syntax.
-func (e *Executor) containsExpressionSyntax(s string) bool {
-	kdeps_debug.Log("enter: containsExpressionSyntax")
-	return strings.Contains(s, "{{")
+	return executor.EvaluateStringOrLiteral(evaluator, e.buildEnvironment(ctx), value, executor.StringLiteralOptions{})
 }
 
 // buildEnvironment builds evaluation environment from context.
 func (e *Executor) buildEnvironment(ctx *executor.ExecutionContext) map[string]interface{} {
 	kdeps_debug.Log("enter: buildEnvironment")
-	env := make(map[string]interface{})
-
-	if ctx.Request != nil {
-		env["request"] = map[string]interface{}{
-			"method":  ctx.Request.Method,
-			"path":    ctx.Request.Path,
-			"headers": ctx.Request.Headers,
-			"query":   ctx.Request.Query,
-			"body":    ctx.Request.Body,
-		}
-	}
-
-	env["outputs"] = ctx.Outputs
-
-	return env
+	return executor.BuildSubExecutorEnv(ctx, executor.SubExecutorEnvOptions{})
 }

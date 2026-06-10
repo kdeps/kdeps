@@ -26,6 +26,7 @@ import (
 )
 
 func TestAppendUniqueEnvVars_SkipsDuplicate(t *testing.T) {
+	t.Parallel()
 	seen := map[string]bool{"FOO": true}
 	var result []EnvVar
 	appendUniqueEnvVars(&result, seen, []EnvVar{{Name: "FOO"}, {Name: "BAR"}})
@@ -59,6 +60,7 @@ func TestHTTPLLMClient_DoRequest_MarshalError(t *testing.T) {
 }
 
 func TestHTTPLLMClient_DoRequest_ReadBodyError(t *testing.T) {
+	t.Parallel()
 	c := &HTTPLLMClient{httpClient: &http.Client{
 		Transport: roundTripperFunc(func(_ *http.Request) (*http.Response, error) {
 			return &http.Response{
@@ -84,7 +86,7 @@ func TestLoadSession_HomeDirError(t *testing.T) {
 	assert.Contains(t, err.Error(), "could not determine home directory")
 }
 
-func TestValidateResourceFile_SecondUnmarshalError(t *testing.T) {
+func TestValidateResourceFile_UnmarshalError(t *testing.T) {
 	orig := yamlUnmarshalToMap
 	t.Cleanup(func() { yamlUnmarshalToMap = orig })
 	yamlUnmarshalToMap = func(_ []byte, _ *map[string]interface{}) error {
@@ -94,7 +96,8 @@ func TestValidateResourceFile_SecondUnmarshalError(t *testing.T) {
 	ids := map[string]bool{}
 	var errs []string
 	validateResourceFile("res.yaml", "actionId: main\n", ids, &errs)
-	assert.Empty(t, errs)
+	require.Len(t, errs, 1)
+	assert.Contains(t, errs[0], "invalid YAML")
 }
 
 type failReader struct{}

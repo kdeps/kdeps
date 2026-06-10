@@ -28,28 +28,10 @@ import (
 // BuildEnvironment builds evaluation environment from context.
 func (e *Executor) BuildEnvironment(ctx *executor.ExecutionContext) map[string]interface{} {
 	kdeps_debug.Log("enter: BuildEnvironment")
-	env := make(map[string]interface{})
-
-	if ctx.Request != nil {
-		env["request"] = map[string]interface{}{
-			"method":  ctx.Request.Method,
-			"path":    ctx.Request.Path,
-			"headers": ctx.Request.Headers,
-			"query":   ctx.Request.Query,
-			"body":    ctx.Request.Body,
-		}
-		if ctx.Request.Body != nil {
-			env["input"] = ctx.Request.Body
-		}
-	}
-
-	env["outputs"] = ctx.Outputs
-
-	if item, ok := ctx.Items["item"]; ok {
-		env["item"] = item
-	}
-
-	return env
+	return executor.BuildSubExecutorEnv(ctx, executor.SubExecutorEnvOptions{
+		IncludeInput: true,
+		IncludeItem:  true,
+	})
 }
 
 // headersToMap converts http.Header to map[string]string.

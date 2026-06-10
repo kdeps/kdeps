@@ -19,35 +19,12 @@
 package llm
 
 import (
-	"errors"
 	"fmt"
-	"strings"
 
 	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
 	"github.com/kdeps/kdeps/v2/pkg/executor"
 	"github.com/kdeps/kdeps/v2/pkg/parser/expression"
 )
-
-func (e *Executor) evaluateExpression(
-	evaluator *expression.Evaluator,
-	ctx *executor.ExecutionContext,
-	exprStr string,
-) (interface{}, error) {
-	kdeps_debug.Log("enter: evaluateExpression")
-	if evaluator == nil {
-		return nil, errors.New("expression evaluation not available")
-	}
-
-	env := e.buildEnvironment(ctx)
-
-	parser := expression.NewParser()
-	expr, err := parser.ParseValue(exprStr)
-	if err != nil {
-		return nil, fmt.Errorf("failed to parse expression: %w", err)
-	}
-
-	return evaluator.Evaluate(expr, env)
-}
 
 // evaluateStringOrLiteral evaluates a string as an expression if it contains expression syntax,
 // otherwise returns it as a literal string.
@@ -57,61 +34,34 @@ func (e *Executor) evaluateStringOrLiteral(
 	value string,
 ) (string, error) {
 	kdeps_debug.Log("enter: evaluateStringOrLiteral")
-	if e.shouldTreatAsLiteral(value) || !e.containsExpressionSyntax(value) {
+	if e.shouldTreatAsLiteral(value) || !executor.ContainsExpressionSyntax(value) {
 		return value, nil
 	}
-
 	if evaluator == nil {
 		return "", fmt.Errorf("expression evaluation not available: cannot evaluate %q", value)
 	}
-
-	result, err := e.evaluateExpression(evaluator, ctx, value)
+	result, err := executor.EvaluateExpression(evaluator, e.buildEnvironment(ctx), value)
 	if err != nil {
 		return "", err
 	}
-
 	return fmt.Sprintf("%v", result), nil
-}
-
-// containsExpressionSyntax checks if a string contains expression syntax.
-func (e *Executor) containsExpressionSyntax(s string) bool {
-	kdeps_debug.Log("enter: containsExpressionSyntax")
-	return strings.Contains(s, "{{")
 }
 
 // shouldTreatAsLiteral determines if a value should be treated as a literal string
 // rather than an expression, based on patterns like file paths.
 func (e *Executor) shouldTreatAsLiteral(value string) bool {
 	kdeps_debug.Log("enter: shouldTreatAsLiteral")
-	if len(value) > 0 && (value[0] == '/' || (len(value) > 1 && value[1] == ':')) {
-		return strings.Contains(value, "/") || strings.Contains(value, "\\") ||
-			strings.Contains(value, ".")
-	}
-	return false
+	return executor.ShouldTreatPathAsLiteral(value)
 }
 
 // buildEnvironment builds evaluation environment from context.
 func (e *Executor) buildEnvironment(ctx *executor.ExecutionContext) map[string]interface{} {
 	kdeps_debug.Log("enter: buildEnvironment")
-	env := make(map[string]interface{})
-
-	if ctx.Request != nil {
-		env["request"] = map[string]interface{}{
-			"method":  ctx.Request.Method,
-			"path":    ctx.Request.Path,
-			"headers": ctx.Request.Headers,
-			"query":   ctx.Request.Query,
-			"body":    ctx.Request.Body,
-		}
-	}
-
-	env["outputs"] = ctx.Outputs
+	env := executor.BuildSubExecutorEnv(ctx, executor.SubExecutorEnvOptions{})
 	env["inputTranscript"] = ctx.InputTranscript
 	env["inputMedia"] = ctx.InputMediaFile
-
 	for k, v := range ctx.BuildEvaluatorEnv() {
 		env[k] = v
 	}
-
 	return env
 }

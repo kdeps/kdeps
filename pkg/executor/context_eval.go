@@ -29,49 +29,6 @@ func itemValuesAccessor(ctx *ExecutionContext) func(actionID string) interface{}
 	}
 }
 
-func (ctx *ExecutionContext) buildEvaluatorLLMEnv() map[string]interface{} {
-	return map[string]interface{}{
-		"response": func(actionID string) interface{} {
-			val, err := ctx.GetLLMResponse(actionID)
-			if err != nil {
-				return nil
-			}
-			return val
-		},
-	}
-}
-
-func (ctx *ExecutionContext) buildEvaluatorPythonEnv() map[string]interface{} {
-	return map[string]interface{}{
-		"stdout": func(actionID string) interface{} {
-			val, err := ctx.GetPythonStdout(actionID)
-			if err != nil {
-				return ""
-			}
-			return val
-		},
-		"stderr": func(actionID string) interface{} {
-			val, err := ctx.GetPythonStderr(actionID)
-			if err != nil {
-				return ""
-			}
-			return val
-		},
-	}
-}
-
-func (ctx *ExecutionContext) buildEvaluatorExecEnv() map[string]interface{} {
-	return map[string]interface{}{
-		"stdout": func(actionID string) interface{} {
-			val, err := ctx.GetExecStdout(actionID)
-			if err != nil {
-				return ""
-			}
-			return val
-		},
-	}
-}
-
 func (ctx *ExecutionContext) buildEvaluatorItemEnv() map[string]interface{} {
 	if itemValue, ok := ctx.Items["item"].(map[string]interface{}); ok {
 		itemCopy := make(map[string]interface{}, len(itemValue))
@@ -89,9 +46,9 @@ func (ctx *ExecutionContext) buildEvaluatorItemEnv() map[string]interface{} {
 func (ctx *ExecutionContext) BuildEvaluatorEnv() map[string]interface{} {
 	kdeps_debug.Log("enter: BuildEvaluatorEnv")
 	env := make(map[string]interface{})
-	env["llm"] = ctx.buildEvaluatorLLMEnv()
-	env["python"] = ctx.buildEvaluatorPythonEnv()
-	env["exec"] = ctx.buildEvaluatorExecEnv()
+	env["llm"] = buildLLMAccessorEnv(ctx)
+	env["python"] = buildPythonAccessorEnv(ctx)
+	env["exec"] = buildExecAccessorEnv(ctx)
 	env["item"] = ctx.buildEvaluatorItemEnv()
 	return env
 }
