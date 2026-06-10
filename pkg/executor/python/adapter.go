@@ -29,26 +29,11 @@ import (
 	"github.com/kdeps/kdeps/v2/pkg/infra/python"
 )
 
-// Adapter adapts Python executor to ResourceExecutor interface.
-type Adapter struct {
-	executor *Executor
-}
+// Adapter adapts the python Executor to the ResourceExecutor interface.
+type Adapter = executor.TypedAdapter[domain.PythonConfig]
 
-// NewAdapter creates a new Python executor adapter.
+// NewAdapter creates a new python executor adapter.
 func NewAdapter() *Adapter {
 	kdeps_debug.Log("enter: NewAdapter")
-	uvManager := python.NewManager("")
-	return &Adapter{
-		executor: NewExecutor(uvManager),
-	}
-}
-
-// Execute implements ResourceExecutor interface.
-func (a *Adapter) Execute(ctx *executor.ExecutionContext, config interface{}) (interface{}, error) {
-	kdeps_debug.Log("enter: Execute")
-	pythonConfig, err := executor.AdaptConfig[domain.PythonConfig](config, "Python")
-	if err != nil {
-		return nil, err
-	}
-	return a.executor.Execute(ctx, pythonConfig)
+	return executor.NewTypedAdapter[domain.PythonConfig]("Python", NewExecutor(python.NewManager("")))
 }

@@ -43,28 +43,14 @@ func (v *InputValidator) validateString(
 
 	// MinLength
 	if rule.MinLength != nil && len(str) < *rule.MinLength {
-		return &domain.ValidationError{
-			Field: rule.Field,
-			Type:  "minLength",
-			Message: GetErrorMessage(
-				rule.Message,
-				fmt.Sprintf("must be at least %d characters", *rule.MinLength),
-			),
-			Value: value,
-		}
+		return fieldValidationError(
+			rule, "minLength", fmt.Sprintf("must be at least %d characters", *rule.MinLength), value)
 	}
 
 	// MaxLength
 	if rule.MaxLength != nil && len(str) > *rule.MaxLength {
-		return &domain.ValidationError{
-			Field: rule.Field,
-			Type:  "maxLength",
-			Message: GetErrorMessage(
-				rule.Message,
-				fmt.Sprintf("must be at most %d characters", *rule.MaxLength),
-			),
-			Value: value,
-		}
+		return fieldValidationError(
+			rule, "maxLength", fmt.Sprintf("must be at most %d characters", *rule.MaxLength), value)
 	}
 
 	// Pattern

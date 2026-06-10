@@ -25,26 +25,32 @@ import (
 // GetExecStdout retrieves Exec stdout from resource output.
 func (ctx *ExecutionContext) GetExecStdout(actionID string) (interface{}, error) {
 	kdeps_debug.Log("enter: GetExecStdout")
-	output, err := ctx.resourceOutput(actionID)
-	if err != nil {
-		return nil, err
-	}
-	return outputMapFieldString(output, "stdout", ""), nil
+	return ctx.outputStringField(actionID, "stdout")
 }
 
 // GetExecStderr retrieves Exec stderr from resource output.
 func (ctx *ExecutionContext) GetExecStderr(actionID string) (interface{}, error) {
 	kdeps_debug.Log("enter: GetExecStderr")
-	output, err := ctx.resourceOutput(actionID)
-	if err != nil {
-		return nil, err
-	}
-	return outputMapFieldString(output, "stderr", ""), nil
+	return ctx.outputStringField(actionID, "stderr")
 }
 
 // GetExecExitCode retrieves Exec exit code from resource output.
 func (ctx *ExecutionContext) GetExecExitCode(actionID string) (interface{}, error) {
 	kdeps_debug.Log("enter: GetExecExitCode")
+	return ctx.outputExitCodeField(actionID)
+}
+
+// outputStringField fetches a string field from a resource's output map.
+func (ctx *ExecutionContext) outputStringField(actionID, field string) (interface{}, error) {
+	output, err := ctx.resourceOutput(actionID)
+	if err != nil {
+		return nil, err
+	}
+	return outputMapFieldString(output, field, ""), nil
+}
+
+// outputExitCodeField fetches the exit code from a resource's output map.
+func (ctx *ExecutionContext) outputExitCodeField(actionID string) (interface{}, error) {
 	output, err := ctx.resourceOutput(actionID)
 	if err != nil {
 		return nil, err

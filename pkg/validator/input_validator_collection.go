@@ -64,28 +64,14 @@ func (v *InputValidator) ValidateArray(
 
 	// MinItems
 	if rule.MinItems != nil && len(arr) < *rule.MinItems {
-		return &domain.ValidationError{
-			Field: rule.Field,
-			Type:  "minItems",
-			Message: GetErrorMessage(
-				rule.Message,
-				fmt.Sprintf("must have at least %d items", *rule.MinItems),
-			),
-			Value: value,
-		}
+		return fieldValidationError(
+			rule, "minItems", fmt.Sprintf("must have at least %d items", *rule.MinItems), value)
 	}
 
 	// MaxItems
 	if rule.MaxItems != nil && len(arr) > *rule.MaxItems {
-		return &domain.ValidationError{
-			Field: rule.Field,
-			Type:  "maxItems",
-			Message: GetErrorMessage(
-				rule.Message,
-				fmt.Sprintf("must have at most %d items", *rule.MaxItems),
-			),
-			Value: value,
-		}
+		return fieldValidationError(
+			rule, "maxItems", fmt.Sprintf("must have at most %d items", *rule.MaxItems), value)
 	}
 
 	return nil

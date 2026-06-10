@@ -26,25 +26,11 @@ import (
 	"github.com/kdeps/kdeps/v2/pkg/executor"
 )
 
-// Adapter adapts SQL executor to ResourceExecutor interface.
-type Adapter struct {
-	executor *Executor
-}
+// Adapter adapts the sql Executor to the ResourceExecutor interface.
+type Adapter = executor.TypedAdapter[domain.SQLConfig]
 
-// NewAdapter creates a new SQL executor adapter.
+// NewAdapter creates a new sql executor adapter.
 func NewAdapter() *Adapter {
 	kdeps_debug.Log("enter: NewAdapter")
-	return &Adapter{
-		executor: NewExecutor(),
-	}
-}
-
-// Execute implements ResourceExecutor interface.
-func (a *Adapter) Execute(ctx *executor.ExecutionContext, config interface{}) (interface{}, error) {
-	kdeps_debug.Log("enter: Execute")
-	sqlConfig, err := executor.AdaptConfig[domain.SQLConfig](config, "SQL")
-	if err != nil {
-		return nil, err
-	}
-	return a.executor.Execute(ctx, sqlConfig)
+	return executor.NewTypedAdapter[domain.SQLConfig]("SQL", NewExecutor())
 }

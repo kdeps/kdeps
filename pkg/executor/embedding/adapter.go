@@ -25,23 +25,11 @@ import (
 	"github.com/kdeps/kdeps/v2/pkg/executor"
 )
 
-// Adapter adapts Embedding executor to ResourceExecutor interface.
-type Adapter struct {
-	executor *Executor
-}
+// Adapter adapts the embedding Executor to the ResourceExecutor interface.
+type Adapter = executor.TypedAdapter[domain.EmbeddingConfig]
 
-// NewAdapter creates a new Embedding executor adapter.
+// NewAdapter creates a new embedding executor adapter.
 func NewAdapter() *Adapter {
 	kdeps_debug.Log("enter: NewAdapter")
-	return &Adapter{executor: NewExecutor()}
-}
-
-// Execute implements ResourceExecutor interface.
-func (a *Adapter) Execute(ctx *executor.ExecutionContext, config interface{}) (interface{}, error) {
-	kdeps_debug.Log("enter: Execute")
-	cfg, err := executor.AdaptConfig[domain.EmbeddingConfig](config, "embedding")
-	if err != nil {
-		return nil, err
-	}
-	return a.executor.Execute(ctx, cfg)
+	return executor.NewTypedAdapter[domain.EmbeddingConfig]("embedding", NewExecutor())
 }
