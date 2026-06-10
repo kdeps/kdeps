@@ -21,9 +21,6 @@
 package cmd
 
 import (
-	"fmt"
-	"os"
-
 	"github.com/spf13/cobra"
 
 	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
@@ -126,43 +123,12 @@ const bytesPerMB = 1024 * 1024
 func prepareISOExportWorkflow(packagePath string) (
 	*domain.Workflow, string, func(), error,
 ) {
-	workflowPath, packageDir, cleanupFunc, err := resolveBuildWorkflowPaths(packagePath)
+	pkg, err := LoadWorkflowPackage(packagePath, LoadWorkflowPackageOpts{Chdir: true})
 	if err != nil {
 		return nil, "", nil, err
 	}
-
-	workflow, err := parseWorkflow(workflowPath)
-	if err != nil {
-		if cleanupFunc != nil {
-			cleanupFunc()
-		}
-		return nil, "", nil, err
-	}
-
-	absPackageDir, err := filepathAbsFunc(packageDir)
-	if err != nil {
-		if cleanupFunc != nil {
-			cleanupFunc()
-		}
-		return nil, "", nil, fmt.Errorf("failed to get absolute path: %w", err)
-	}
-
-	originalDir, _ := os.Getwd()
-	restoreDir, err := chdirToPackageDir(absPackageDir)
-	if err != nil {
-		if cleanupFunc != nil {
-			cleanupFunc()
-		}
-		return nil, "", nil, err
-	}
-
-	combinedCleanup := func() {
-		restoreDir()
-		if cleanupFunc != nil {
-			cleanupFunc()
-		}
-	}
-	return workflow, originalDir, combinedCleanup, nil
+	cleanup := func() { pkg.Cleanup() }
+	return pkg.Workflow, pkg.OriginalDir, cleanup, nil
 }
 
 // enableISOOfflineMode forces offline mode when models are configured for ISO export.

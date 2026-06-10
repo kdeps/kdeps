@@ -340,6 +340,20 @@ func TestResolveBuildWorkflowPaths_DirectoryWithWorkflow(t *testing.T) {
 	}
 }
 
+func TestLoadWorkflowPackage_DirectoryWithWorkflow(t *testing.T) {
+	tmp := t.TempDir()
+	wfPath := filepath.Join(tmp, "workflow.yaml")
+	require.NoError(t, os.WriteFile(wfPath, []byte(minimalWorkflowYAML()), 0o644))
+
+	pkg, err := LoadWorkflowPackage(tmp, LoadWorkflowPackageOpts{})
+	require.NoError(t, err)
+	require.NotNil(t, pkg.Workflow)
+	assert.Equal(t, wfPath, pkg.WorkflowPath)
+	assert.Equal(t, tmp, pkg.PackageDir)
+	assert.Equal(t, tmp, pkg.PackagePath)
+	pkg.Cleanup()
+}
+
 func TestResolveBuildWorkflowPaths_DirectoryWithAgency(t *testing.T) {
 	tmp := t.TempDir()
 	agencyPath := filepath.Join(tmp, "agency.yaml")

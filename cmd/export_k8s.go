@@ -113,18 +113,13 @@ func exportK8sInternal(cmd *cobra.Command, args []string, flags *K8sFlags) error
 	kdeps_debug.Log("enter: exportK8sInternal")
 	packagePath := args[0]
 
-	workflowPath, _, cleanupFunc, err := resolveBuildWorkflowPaths(packagePath)
+	pkg, err := LoadWorkflowPackage(packagePath, LoadWorkflowPackageOpts{})
 	if err != nil {
 		return err
 	}
-	if cleanupFunc != nil {
-		defer cleanupFunc()
-	}
+	defer pkg.Cleanup()
 
-	workflow, err := parseWorkflow(workflowPath)
-	if err != nil {
-		return err
-	}
+	workflow := pkg.Workflow
 
 	if flags.Replica > 0 {
 		workflow.Settings.AgentSettings.Replicas = flags.Replica

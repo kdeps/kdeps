@@ -269,4 +269,106 @@ var newDockerBuilderWithOSFunc = docker.NewBuilderWithOS
 //nolint:gochecknoglobals // test-replaceable hook
 var setupDockerBuilderFunc = setupDockerBuilderImpl
 
+// LoadWorkflowPackageOpts controls workflow package loading behavior.
+type LoadWorkflowPackageOpts struct {
+	// Chdir switches to the package directory and records OriginalDir.
+	Chdir bool
+	// ResolveAbsPaths populates AbsPackageDir and AbsPackagePath before chdir.
+	ResolveAbsPaths bool
+}
+
+// WorkflowPackage holds a parsed workflow and package paths for build/export commands.
+type WorkflowPackage struct {
+	Workflow       *domain.Workflow
+	WorkflowPath   string
+	PackageDir     string
+	PackagePath    string
+	AbsPackageDir  string
+	AbsPackagePath string
+	OriginalDir    string
+	cleanup        func()
+}
+
+// Cleanup restores the working directory and removes any temporary extraction dirs.
+func (p *WorkflowPackage) Cleanup() {
+	if p == nil || p.cleanup == nil {
+		return
+	}
+	p.cleanup()
+	p.cleanup = nil
+}
+
+func abortWorkflowPackageLoad(cleanup func(), err error) (*WorkflowPackage, error) {
+	if cleanup != nil {
+		cleanup()
+	}
+	return nil, err
+}
+
+// LoadWorkflowPackage resolves, parses, and optionally chdirs into a workflow package.
+func LoadWorkflowPackage(
+	packagePath string,
+	opts LoadWorkflowPackageOpts,
+) (*WorkflowPackage, error) {
+	kdeps_debug.Log("enter: LoadWorkflowPackage")
+	workflowPath, packageDir, archiveCleanup, err := resolveBuildWorkflowPaths(packagePath)
+	if err != nil {
+		return nil, err
+	}
+
+	workflow, err := parseWorkflow(workflowPath)
+	if err != nil {
+		return abortWorkflowPackageLoad(archiveCleanup, err)
+	}
+
+	pkg := &WorkflowPackage{
+		Workflow:     workflow,
+		WorkflowPath: workflowPath,
+		PackageDir:   packageDir,
+		PackagePath:  packagePath,
+	}
+
+	if opts.ResolveAbsPaths || opts.Chdir {
+		absPackageDir, absErr := filepathAbsFunc(packageDir)
+		if absErr != nil {
+			return abortWorkflowPackageLoad(
+				archiveCleanup,
+				fmt.Errorf("failed to get absolute path: %w", absErr),
+			)
+		}
+		pkg.AbsPackageDir = absPackageDir
+
+		if opts.ResolveAbsPaths {
+			absPackagePath, pathErr := filepathAbsFunc(packagePath)
+			if pathErr != nil {
+				return abortWorkflowPackageLoad(
+					archiveCleanup,
+					fmt.Errorf("failed to get absolute package path: %w", pathErr),
+				)
+			}
+			pkg.AbsPackagePath = absPackagePath
+		}
+	}
+
+	var restoreDir func()
+	if opts.Chdir {
+		pkg.OriginalDir, _ = os.Getwd()
+		restoreDir, err = chdirToPackageDir(pkg.AbsPackageDir)
+		if err != nil {
+			return abortWorkflowPackageLoad(archiveCleanup, err)
+		}
+	}
+
+	pkg.cleanup = func() {
+		if restoreDir != nil {
+			restoreDir()
+		}
+		if archiveCleanup != nil {
+			archiveCleanup()
+		}
+	}
+
+	return pkg, nil
+}
+
 // setupDockerBuilder creates and configures the Docker builder.

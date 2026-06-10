@@ -73,18 +73,14 @@ func buildWASMImage(ctx context.Context, packagePath string, flags *BuildFlags) 
 	kdeps_debug.Log("enter: buildWASMImage")
 	fmt.Fprintf(os.Stdout, "Building WASM web app from: %s\n\n", packagePath)
 
-	workflowPath, packageDir, cleanupFunc, err := resolveBuildWorkflowPaths(packagePath)
+	pkg, err := LoadWorkflowPackage(packagePath, LoadWorkflowPackageOpts{})
 	if err != nil {
 		return err
 	}
-	if cleanupFunc != nil {
-		defer cleanupFunc()
-	}
+	defer pkg.Cleanup()
 
-	workflow, err := parseWorkflow(workflowPath)
-	if err != nil {
-		return err
-	}
+	workflow := pkg.Workflow
+	packageDir := pkg.PackageDir
 
 	combinedYAML, err := workflowYAMLMarshalFunc(workflow)
 	if err != nil {

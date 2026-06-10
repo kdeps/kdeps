@@ -68,34 +68,18 @@ func buildImageInternal(cmd *cobra.Command, args []string, flags *BuildFlags) er
 	packagePath := args[0]
 	fmt.Fprintf(os.Stdout, "Building Docker image from: %s\n\n", packagePath)
 
-	workflowPath, packageDir, cleanupFunc, err := resolveBuildWorkflowPaths(packagePath)
+	pkg, err := LoadWorkflowPackage(packagePath, LoadWorkflowPackageOpts{
+		Chdir:           true,
+		ResolveAbsPaths: true,
+	})
 	if err != nil {
 		return err
 	}
-	if cleanupFunc != nil {
-		defer cleanupFunc()
-	}
+	defer pkg.Cleanup()
 
-	workflow, err := parseWorkflow(workflowPath)
-	if err != nil {
-		return err
-	}
-
-	// Resolve absolute paths before chdir so they remain valid afterwards.
-	absPackageDir, err := filepathAbsFunc(packageDir)
-	if err != nil {
-		return fmt.Errorf("failed to get absolute path: %w", err)
-	}
-	absPackagePath, err := filepathAbsFunc(packagePath)
-	if err != nil {
-		return fmt.Errorf("failed to get absolute package path: %w", err)
-	}
-
-	restoreDir, err := chdirToPackageDir(absPackageDir)
-	if err != nil {
-		return err
-	}
-	defer restoreDir()
+	workflow := pkg.Workflow
+	absPackageDir := pkg.AbsPackageDir
+	absPackagePath := pkg.AbsPackagePath
 
 	builder, err := setupDockerBuilder(flags)
 	if err != nil {
