@@ -92,31 +92,6 @@ func (v *WorkflowValidator) ValidateDependencies(workflow *domain.Workflow) erro
 	return nil
 }
 
-// countPrimaryExecutionTypes returns the number of mutually-exclusive primary
-// execution types set on run (chat, httpClient, sql, python, exec, agent, component).
-func countPrimaryExecutionTypes(run *domain.RunConfig) int {
-	kdeps_debug.Log("enter: countPrimaryExecutionTypes")
-	n := 0
-	for _, set := range []bool{
-		run.Chat != nil,
-		run.HTTPClient != nil,
-		run.SQL != nil,
-		run.Python != nil,
-		run.Exec != nil,
-		run.Agent != nil,
-		run.Component != nil,
-		run.Telephony != nil,
-		run.Browser != nil,
-		run.BotReply != nil,
-		run.Email != nil,
-	} {
-		if set {
-			n++
-		}
-	}
-	return n
-}
-
 // hasExpressionEntries reports whether any entry in the slice is an expression step.
 func hasExpressionEntries(entries []domain.ActionConfig) bool {
 	for _, e := range entries {
@@ -144,7 +119,7 @@ func (v *WorkflowValidator) ValidateResource(
 	// Validate execution types.
 	// Primary execution types (only one allowed): chat, httpClient, sql, python, exec, agent.
 	// apiResponse can be combined with any primary execution type or used alone.
-	primaryCount := countPrimaryExecutionTypes(resource)
+	primaryCount := domain.CountPrimaryResourceTypes(resource)
 	hasAPIResponse := resource.APIResponse != nil
 	hasExprEntries := hasExpressionEntries(resource.Before) || hasExpressionEntries(resource.After)
 
@@ -158,7 +133,7 @@ func (v *WorkflowValidator) ValidateResource(
 		return domain.NewError(
 			domain.ErrCodeInvalidResource,
 			"resource must specify at least one execution type"+
-				" (chat, httpClient, sql, python, exec, agent, component, telephony, browser, botReply, email, apiResponse, before, after)",
+				" ("+domain.PrimaryResourceTypesList()+", apiResponse, before, after)",
 			nil,
 		)
 	}
@@ -166,7 +141,7 @@ func (v *WorkflowValidator) ValidateResource(
 		return domain.NewError(
 			domain.ErrCodeInvalidResource,
 			"resource can only specify one primary execution type"+
-				" (chat, httpClient, sql, python, exec, agent, component, telephony, browser, botReply, email)",
+				" ("+domain.PrimaryResourceTypesList()+")",
 			nil,
 		)
 	}

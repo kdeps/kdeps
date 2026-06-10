@@ -30,28 +30,39 @@ type primaryDispatchEntry struct {
 }
 
 // primaryResourceDispatch maps each primary execution block to its executor.
-// It is the single source of truth for dispatchPrimaryResource and
-// hasPrimaryResourceType; order determines dispatch precedence. It is a
-// function rather than a package var to avoid an initialization cycle with
-// the executor methods it references.
+// Present checks come from domain.PrimaryResourceTypes; execute closures stay here
+// to avoid an initialization cycle with Engine methods.
 func primaryResourceDispatch() []primaryDispatchEntry {
-	return []primaryDispatchEntry{
-		{func(r *domain.Resource) bool { return r.Chat != nil }, (*Engine).executeLLM},
-		{func(r *domain.Resource) bool { return r.HTTPClient != nil }, (*Engine).executeHTTP},
-		{func(r *domain.Resource) bool { return r.SQL != nil }, (*Engine).executeSQL},
-		{func(r *domain.Resource) bool { return r.Python != nil }, (*Engine).executePython},
-		{func(r *domain.Resource) bool { return r.Exec != nil }, (*Engine).executeExec},
-		{func(r *domain.Resource) bool { return r.Agent != nil }, (*Engine).executeAgent},
-		{func(r *domain.Resource) bool { return r.Component != nil }, (*Engine).executeComponentCall},
-		{func(r *domain.Resource) bool { return r.Scraper != nil }, (*Engine).executeScraper},
-		{func(r *domain.Resource) bool { return r.Embedding != nil }, (*Engine).executeEmbedding},
-		{func(r *domain.Resource) bool { return r.SearchLocal != nil }, (*Engine).executeSearchLocal},
-		{func(r *domain.Resource) bool { return r.SearchWeb != nil }, (*Engine).executeSearchWeb},
-		{func(r *domain.Resource) bool { return r.Telephony != nil }, (*Engine).executeTelephony},
-		{func(r *domain.Resource) bool { return r.Browser != nil }, (*Engine).executeBrowser},
-		{func(r *domain.Resource) bool { return r.BotReply != nil }, (*Engine).executeBotReply},
-		{func(r *domain.Resource) bool { return r.Email != nil }, (*Engine).executeEmail},
+	executors := map[string]func(*Engine, *domain.Resource, *ExecutionContext) (interface{}, error){
+		"chat":        (*Engine).executeLLM,
+		"httpClient":  (*Engine).executeHTTP,
+		"sql":         (*Engine).executeSQL,
+		"python":      (*Engine).executePython,
+		"exec":        (*Engine).executeExec,
+		"agent":       (*Engine).executeAgent,
+		"component":   (*Engine).executeComponentCall,
+		"scraper":     (*Engine).executeScraper,
+		"embedding":   (*Engine).executeEmbedding,
+		"searchLocal": (*Engine).executeSearchLocal,
+		"searchWeb":   (*Engine).executeSearchWeb,
+		"telephony":   (*Engine).executeTelephony,
+		"browser":     (*Engine).executeBrowser,
+		"botReply":    (*Engine).executeBotReply,
+		"email":       (*Engine).executeEmail,
 	}
+
+	entries := make([]primaryDispatchEntry, 0, len(domain.PrimaryResourceTypes()))
+	for _, resourceType := range domain.PrimaryResourceTypes() {
+		execute, ok := executors[resourceType.Name]
+		if !ok {
+			panic(fmt.Sprintf("missing primary executor for %q", resourceType.Name))
+		}
+		entries = append(entries, primaryDispatchEntry{
+			present: resourceType.Present,
+			execute: execute,
+		})
+	}
+	return entries
 }
 
 // dispatchPrimaryResource runs the primary execution block for a resource.
