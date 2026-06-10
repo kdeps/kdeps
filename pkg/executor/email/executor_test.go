@@ -43,6 +43,14 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"bytes"
+	"errors"
+	"io"
+	"mime/multipart"
+	"net/textproto"
+
+	"github.com/spf13/afero"
+
 	kdepsconfig "github.com/kdeps/kdeps/v2/pkg/config"
 	"github.com/kdeps/kdeps/v2/pkg/domain"
 	"github.com/kdeps/kdeps/v2/pkg/executor"
@@ -1897,4 +1905,182 @@ func TestSendImplicitTLS_NewClientFailure(t *testing.T) {
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "smtp client")
 	<-serverDone
+}
+
+func TestSendSTARTTLS_SetDeadlineError(t *testing.T) {
+	orig := connSetDeadline
+	t.Cleanup(func() { connSetDeadline = orig })
+	connSetDeadline = func(_ net.Conn, _ time.Time) error {
+		return errors.New("set deadline failed")
+	}
+
+	ln, err := net.Listen("tcp", "127.0.0.1:0")
+	require.NoError(t, err)
+	defer ln.Close()
+
+	_, portStr, err := net.SplitHostPort(ln.Addr().String())
+	require.NoError(t, err)
+
+	err = sendSTARTTLS(
+		"127.0.0.1:"+portStr, "localhost", "", "",
+		"from@x.com", []string{"to@x.com"}, []byte("msg"),
+		false, time.Second,
+	)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "set deadline")
+}
+
+func TestSendImplicitTLS_SetDeadlineErrorAfterDial(t *testing.T) {
+	origDeadline := connSetDeadline
+	t.Cleanup(func() { connSetDeadline = origDeadline })
+	connSetDeadline = func(_ net.Conn, _ time.Time) error {
+		return errors.New("set deadline failed")
+	}
+
+	origDial := implicitTLSDial
+	t.Cleanup(func() { implicitTLSDial = origDial })
+	server, client := net.Pipe()
+	t.Cleanup(func() { _ = server.Close() })
+	implicitTLSDial = func(_ string, _ *tls.Config) (net.Conn, error) {
+		return client, nil
+	}
+
+	err := sendImplicitTLS(
+		"127.0.0.1:0", "localhost", "", "",
+		"from@x.com", []string{"to@x.com"}, []byte("msg"),
+		true, time.Second,
+	)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "set deadline")
+}
+
+func TestOpenIMAPClient_DialTLSSuccess(t *testing.T) {
+	orig := imapDialTLS
+	t.Cleanup(func() { imapDialTLS = orig })
+	imapDialTLS = func(_ string, _ *imapclient.Options) (*imapclient.Client, error) {
+		return &imapclient.Client{}, nil
+	}
+
+	c, err := openIMAPClient(&imapDialParams{
+		addr: "imap.example.com:993", host: "imap.example.com", useTLS: true,
+	})
+	require.NoError(t, err)
+	assert.NotNil(t, c)
+}
+
+func TestDoSend_WriteBodyError(t *testing.T) {
+	orig := smtpDataWrite
+	t.Cleanup(func() { smtpDataWrite = orig })
+	smtpDataWrite = func(_ io.Writer, _ []byte) (int, error) {
+		return 0, errors.New("write body failed")
+	}
+
+	conn, ready, done := withSMTPServer(func(srvConn net.Conn, br *bufio.Reader) {
+		_, _ = br.ReadString('\n')
+		_, _ = srvConn.Write([]byte("250 OK\r\n"))
+		_, _ = br.ReadString('\n')
+		_, _ = srvConn.Write([]byte("250 OK\r\n"))
+		_, _ = br.ReadString('\n')
+		_, _ = srvConn.Write([]byte("250 OK\r\n"))
+		_, _ = br.ReadString('\n')
+		_, _ = srvConn.Write([]byte("354 Go ahead\r\n"))
+	})
+	defer conn.Close()
+	<-ready
+
+	client, err := smtp.NewClient(conn, "localhost")
+	require.NoError(t, err)
+
+	err = doSend(client, "from@x.com", []string{"to@x.com"}, []byte("body"))
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "write body")
+	_ = client.Close()
+	<-done
+}
+
+func TestWriteMultipartBody_CreatePartError(t *testing.T) {
+	orig := multipartCreatePart
+	t.Cleanup(func() { multipartCreatePart = orig })
+	multipartCreatePart = func(_ *multipart.Writer, _ textproto.MIMEHeader) (io.Writer, error) {
+		return nil, errors.New("create part failed")
+	}
+
+	var buf bytes.Buffer
+	err := writeMultipartBody(&buf, "body", false, nil)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "create body part")
+}
+
+func TestWriteMultipartBody_WriteBodyPartError(t *testing.T) {
+	orig := multipartCreatePart
+	t.Cleanup(func() { multipartCreatePart = orig })
+	multipartCreatePart = func(_ *multipart.Writer, _ textproto.MIMEHeader) (io.Writer, error) {
+		return &failWriter{}, nil
+	}
+
+	var buf bytes.Buffer
+	err := writeMultipartBody(&buf, "body", false, nil)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "write body part")
+}
+
+func TestWriteAttachmentPart_CreatePartError(t *testing.T) {
+	origFS := AppFS
+	t.Cleanup(func() { AppFS = origFS })
+	AppFS = afero.NewMemMapFs()
+	_ = afero.WriteFile(AppFS, "/att.txt", []byte("data"), 0o644)
+
+	orig := multipartCreatePart
+	t.Cleanup(func() { multipartCreatePart = orig })
+	multipartCreatePart = func(_ *multipart.Writer, _ textproto.MIMEHeader) (io.Writer, error) {
+		return nil, errors.New("create part failed")
+	}
+
+	mw := multipart.NewWriter(&bytes.Buffer{})
+	err := writeAttachmentPart(mw, "/att.txt")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "create attachment part")
+}
+
+func TestWriteAttachmentPart_EncodeError(t *testing.T) {
+	origFS := AppFS
+	t.Cleanup(func() { AppFS = origFS })
+	AppFS = afero.NewMemMapFs()
+	_ = afero.WriteFile(AppFS, "/att.txt", []byte("data"), 0o644)
+
+	orig := multipartCreatePart
+	t.Cleanup(func() { multipartCreatePart = orig })
+	multipartCreatePart = func(_ *multipart.Writer, _ textproto.MIMEHeader) (io.Writer, error) {
+		return &failWriter{}, nil
+	}
+
+	mw := multipart.NewWriter(&bytes.Buffer{})
+	err := writeAttachmentPart(mw, "/att.txt")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "encode attachment")
+}
+
+func TestWriteMultipartBody_CloseError(t *testing.T) {
+	orig := multipartWriterClose
+	t.Cleanup(func() { multipartWriterClose = orig })
+	multipartWriterClose = func(_ *multipart.Writer) error {
+		return errors.New("close failed")
+	}
+
+	var buf bytes.Buffer
+	err := writeMultipartBody(&buf, "body", false, []string{})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "close multipart writer")
+}
+
+func TestApplyModifyOperations_ExpungeError(t *testing.T) {
+	orig := imapExpungeClose
+	t.Cleanup(func() { imapExpungeClose = orig })
+	imapExpungeClose = func(_ *imapclient.Client) error {
+		return errors.New("expunge failed")
+	}
+
+	err := applyModifyOperations(&imapclient.Client{}, domain.EmailModifyConfig{Expunge: true}, nil, nil)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "expunge")
 }

@@ -32,6 +32,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"context"
+
 	kdepsconfig "github.com/kdeps/kdeps/v2/pkg/config"
 	"github.com/kdeps/kdeps/v2/pkg/domain"
 	"github.com/kdeps/kdeps/v2/pkg/executor"
@@ -3012,4 +3014,90 @@ func TestExecutor_Execute_NewRequestFail(t *testing.T) {
 	_, err = exec.Execute(ctx, config)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "failed to create request")
+}
+
+// TestExecutor_ExecuteRequestWithRetry_MaxAttemptsZero exercises the
+// maxAttempts <= 0 branch in executeRequestWithRetry (executor.go:736-738).
+func TestExecutor_ExecuteRequestWithRetry_MaxAttemptsZero(t *testing.T) {
+	exec := httpexecutor.NewExecutor()
+	ctx, err := executor.NewExecutionContext(
+		&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}},
+	)
+	require.NoError(t, err)
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{"ok": true}`))
+	}))
+	defer server.Close()
+
+	req, reqErr := http.NewRequestWithContext(context.Background(), http.MethodGet, server.URL, nil)
+	require.NoError(t, reqErr)
+
+	// MaxAttempts = 0 triggers the if maxAttempts <= 0 { maxAttempts = 1 } branch
+	retry := &domain.RetryConfig{MaxAttempts: 0}
+	result, execErr := exec.ExecuteRequestWithRetryForTesting(ctx, req, 30*time.Second, retry)
+	require.NoError(t, execErr)
+
+	resultMap, ok := result.(map[string]interface{})
+	require.True(t, ok)
+	assert.Equal(t, 200, resultMap["statusCode"])
+}
+
+// TestExecutor_ExecuteRequestWithRetry_NegativeMaxAttempts exercises the
+// maxAttempts <= 0 branch with a negative value.
+func TestExecutor_ExecuteRequestWithRetry_NegativeMaxAttempts(t *testing.T) {
+	exec := httpexecutor.NewExecutor()
+	ctx, err := executor.NewExecutionContext(
+		&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}},
+	)
+	require.NoError(t, err)
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{"ok": true}`))
+	}))
+	defer server.Close()
+
+	req, reqErr := http.NewRequestWithContext(context.Background(), http.MethodGet, server.URL, nil)
+	require.NoError(t, reqErr)
+
+	// Negative MaxAttempts also triggers the maxAttempts <= 0 branch
+	retry := &domain.RetryConfig{MaxAttempts: -1}
+	result, execErr := exec.ExecuteRequestWithRetryForTesting(ctx, req, 30*time.Second, retry)
+	require.NoError(t, execErr)
+
+	resultMap, ok := result.(map[string]interface{})
+	require.True(t, ok)
+	assert.Equal(t, 200, resultMap["statusCode"])
+}
+
+// TestExecutor_ExecuteRequestWithRetry_RetryOnError exercises the retry-on-error
+// path in executeRequestWithRetry (executor.go:746-748) by making a request to a
+// closed server so client.Do returns a transport error, then retrying.
+func TestExecutor_ExecuteRequestWithRetry_RetryOnError(t *testing.T) {
+	exec := httpexecutor.NewExecutor()
+	ctx, err := executor.NewExecutionContext(
+		&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}},
+	)
+	require.NoError(t, err)
+
+	// Create a server and close it immediately -- client.Do returns a transport error
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	}))
+	server.Close()
+
+	req, reqErr := http.NewRequestWithContext(context.Background(), http.MethodGet, server.URL, nil)
+	require.NoError(t, reqErr)
+
+	// Use MaxAttempts >= 2 so the first attempt triggers the retry-on-error path
+	retry := &domain.RetryConfig{MaxAttempts: 2, Backoff: "1ms"}
+	result, execErr := exec.ExecuteRequestWithRetryForTesting(ctx, req, 30*time.Second, retry)
+	// The request should fail after all retries, but the error is mapped to result
+	require.NoError(t, execErr)
+
+	resultMap, ok := result.(map[string]interface{})
+	require.True(t, ok)
+	assert.Contains(t, resultMap, "error")
 }

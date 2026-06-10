@@ -468,3 +468,16 @@ func TestOllamaDialAddr(t *testing.T) {
 	t.Setenv("OLLAMA_HOST", "")
 	assert.Equal(t, "localhost:11434", ollamaDialAddr(nil))
 }
+
+func TestRunCriticalEnvCheck_WarnThreshold(t *testing.T) {
+	// Leave exactly 3 of 6 critical vars unset (at envWarnThreshold).
+	t.Setenv("OLLAMA_HOST", "http://localhost:11434")
+	t.Setenv("KDEPS_DEFAULT_BACKEND", "ollama")
+	t.Setenv("KDEPS_LLM_MODELS", "gpt-4")
+
+	r := &doctorRunner{healthy: true}
+	r.criticalEnv()
+	require.NotEmpty(t, r.checks)
+	assert.Equal(t, HealthWarn, r.checks[0].Status)
+	assert.Contains(t, r.checks[0].Message, "missing:")
+}

@@ -35,6 +35,10 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"errors"
+	"fmt"
+	"net"
+
 	kdepsconfig "github.com/kdeps/kdeps/v2/pkg/config"
 	"github.com/kdeps/kdeps/v2/pkg/domain"
 )
@@ -352,4 +356,208 @@ func TestWhatsAppReply_NilService(t *testing.T) {
 	// Empty credentials and empty chatID — request still builds successfully.
 	err := r.Reply(context.Background(), "", "hello")
 	require.NoError(t, err)
+}
+
+func TestWhatsAppReply_MarshalError(t *testing.T) {
+	orig := whatsAppJSONMarshal
+	t.Cleanup(func() { whatsAppJSONMarshal = orig })
+	whatsAppJSONMarshal = func(_ any) ([]byte, error) {
+		return nil, errors.New("marshal failed")
+	}
+
+	r := &whatsAppRunner{accessToken: "tok", phoneNumberID: "123"}
+	err := r.Reply(context.Background(), "1", "hi")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "whatsapp: marshal reply")
+}
+
+func TestWhatsAppReply_NewRequestError(t *testing.T) {
+	orig := whatsAppNewRequest
+	t.Cleanup(func() { whatsAppNewRequest = orig })
+	whatsAppNewRequest = func(_ context.Context, _, _ string, _ io.Reader) (*http.Request, error) {
+		return nil, errors.New("request failed")
+	}
+
+	r := &whatsAppRunner{accessToken: "tok", phoneNumberID: "123"}
+	err := r.Reply(context.Background(), "1", "hi")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "whatsapp: build request")
+}
+
+func TestWhatsAppReply_NilClient(t *testing.T) {
+	oldTransport := http.DefaultTransport
+	http.DefaultTransport = roundTripperFunc(func(_ *http.Request) (*http.Response, error) {
+		return &http.Response{
+			StatusCode: http.StatusOK,
+			Body:       io.NopCloser(bytes.NewReader([]byte(`{}`))),
+		}, nil
+	})
+	defer func() { http.DefaultTransport = oldTransport }()
+
+	r := &whatsAppRunner{
+		accessToken:   "test-token",
+		phoneNumberID: "123",
+		client:        nil, // Triggers the http.DefaultClient fallback
+	}
+
+	err := r.Reply(context.Background(), "recipient-id", "hello")
+	require.NoError(t, err)
+}
+
+func TestWhatsAppReply_DoError(t *testing.T) {
+	r := &whatsAppRunner{
+		accessToken:   "test-token",
+		phoneNumberID: "123",
+		client:        &http.Client{Transport: &failTransport{}},
+	}
+
+	err := r.Reply(context.Background(), "recipient-id", "hello")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "whatsapp: send message")
+}
+
+func TestWhatsAppStart_DefaultPort(t *testing.T) {
+	// Pre-bind the default port to force ListenAndServe failure,
+	// proving the default port fallback (port==0 -> whatsAppDefaultWebhookPort)
+	// was exercised.
+	l, err := net.Listen("tcp", fmt.Sprintf(":%d", whatsAppDefaultWebhookPort))
+	if err != nil {
+		t.Skipf("default port %d in use: %v", whatsAppDefaultWebhookPort, err)
+	}
+	defer l.Close()
+
+	r := newWhatsAppRunner(
+		&domain.WhatsAppConfig{}, // WebhookPort defaults to 0
+		&kdepsconfig.WhatsAppConnectionConfig{},
+		slog.Default(),
+	)
+	ch := make(chan Message, 10)
+	ctx, cancel := context.WithCancel(t.Context())
+	defer cancel()
+
+	err = r.Start(ctx, ch)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "address already in use")
+}
+
+func TestHandleWebhookPost_MalformedJSON(t *testing.T) {
+	r := &whatsAppRunner{webhookSecret: "", logger: slog.Default()}
+	ch := make(chan Message, 1)
+	ctx := context.Background()
+
+	// Invalid JSON body — unmarshal failure path
+	req := httptest.NewRequest(http.MethodPost, "/webhook", bytes.NewReader([]byte("{invalid")))
+	rr := httptest.NewRecorder()
+
+	r.handleWebhookPost(ctx, rr, req, ch)
+	assert.Equal(t, http.StatusOK, rr.Code) // 200 written before unmarshal
+	assert.Empty(t, ch)
+}
+
+func TestHandleWebhookPost_CtxDone(t *testing.T) {
+	r := &whatsAppRunner{webhookSecret: "", logger: slog.Default()}
+	ch := make(chan Message) // unbuffered — send blocks with no reader
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel() // cancel before the call; ctx.Done() is immediately ready
+
+	payload := map[string]interface{}{
+		"entry": []interface{}{
+			map[string]interface{}{
+				"changes": []interface{}{
+					map[string]interface{}{
+						"value": map[string]interface{}{
+							"messages": []interface{}{
+								map[string]interface{}{
+									"from": "15551234567",
+									"text": map[string]interface{}{"body": "hello"},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+	body, _ := json.Marshal(payload)
+
+	req := httptest.NewRequest(http.MethodPost, "/webhook", bytes.NewReader(body))
+	rr := httptest.NewRecorder()
+
+	r.handleWebhookPost(ctx, rr, req, ch)
+	assert.Equal(t, http.StatusOK, rr.Code) // 200 written before the select
+	assert.Empty(t, ch)                     // ctx.Done() case won the select
+}
+
+func TestWhatsAppStart_POST_ValidPayload(t *testing.T) {
+	port, err := getFreePortDynamic()
+	require.NoError(t, err)
+
+	r := newWhatsAppRunner(
+		&domain.WhatsAppConfig{WebhookPort: port},
+		&kdepsconfig.WhatsAppConnectionConfig{},
+		slog.Default(),
+	)
+	ch := make(chan Message, 10)
+	ctx, cancel := context.WithCancel(t.Context())
+	defer cancel()
+
+	done := make(chan error, 1)
+	go func() { done <- r.Start(ctx, ch) }()
+
+	require.NoError(t, waitForPort(port))
+
+	payload := map[string]interface{}{
+		"entry": []interface{}{
+			map[string]interface{}{
+				"changes": []interface{}{
+					map[string]interface{}{
+						"value": map[string]interface{}{
+							"messages": []interface{}{
+								map[string]interface{}{
+									"from": "15551234567",
+									"text": map[string]interface{}{"body": "hello from webhook"},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+	body, _ := json.Marshal(payload)
+
+	resp, err := http.Post(
+		fmt.Sprintf("http://localhost:%d/webhook", port),
+		"application/json",
+		bytes.NewReader(body),
+	)
+	require.NoError(t, err)
+	defer resp.Body.Close()
+
+	assert.Equal(t, http.StatusOK, resp.StatusCode)
+
+	select {
+	case msg := <-ch:
+		assert.Equal(t, whatsAppPlatform, msg.Platform)
+		assert.Equal(t, "15551234567", msg.ChatID)
+		assert.Equal(t, "hello from webhook", msg.Text)
+	case <-time.After(time.Second):
+		t.Fatal("expected message on channel after POST")
+	}
+
+	cancel()
+	<-done
+}
+
+func TestHandleWebhookPost_ReadError(t *testing.T) {
+	r := &whatsAppRunner{webhookSecret: "", logger: nil}
+	ch := make(chan Message, 1)
+	ctx := context.Background()
+
+	req := httptest.NewRequest(http.MethodPost, "/webhook", &errReader{})
+	rr := httptest.NewRecorder()
+
+	r.handleWebhookPost(ctx, rr, req, ch)
+	assert.Equal(t, http.StatusBadRequest, rr.Code)
+	assert.Empty(t, ch)
 }

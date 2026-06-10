@@ -21,8 +21,6 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
-
-	"github.com/kdeps/kdeps/v2/pkg/domain"
 )
 
 // TestBrowserConfig_StealthModeUnmarshal verifies that stealthMode can be

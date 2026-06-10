@@ -18,6 +18,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func wfWithContent(content string) *GeneratedWorkflow {
@@ -204,4 +205,13 @@ func hasVar(vars []EnvVar, name string) bool {
 		}
 	}
 	return false
+}
+
+func TestAppendUniqueEnvVars_SkipsDuplicate(t *testing.T) {
+	t.Parallel()
+	seen := map[string]bool{"FOO": true}
+	var result []EnvVar
+	appendUniqueEnvVars(&result, seen, []EnvVar{{Name: "FOO"}, {Name: "BAR"}})
+	require.Len(t, result, 1)
+	assert.Equal(t, "BAR", result[0].Name)
 }

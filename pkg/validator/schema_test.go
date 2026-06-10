@@ -2565,3 +2565,754 @@ func TestSchemaValidator_ValidateRemoteAgent_MissingUrn(t *testing.T) {
 func TestSchemaValidator_ValidateRemoteAgent_MissingInput(t *testing.T) {
 	t.Skip("remoteAgent executor removed; validation no longer available")
 }
+
+// TestSchemaValidator_ValidateComponent_InvalidKind tests the errMsg path in ValidateComponent.
+func TestSchemaValidator_ValidateComponent_InvalidKind(t *testing.T) {
+	v, err := validator.NewSchemaValidator()
+	if err != nil {
+		t.Fatalf("Failed to create validator: %v", err)
+	}
+
+	data := map[string]interface{}{
+		"apiVersion": "kdeps.io/v1",
+		"kind":       "InvalidKind",
+		"metadata": map[string]interface{}{
+			"name": "my-component",
+		},
+	}
+	compErr := v.ValidateComponent(data)
+	if compErr == nil {
+		t.Fatal("expected validation error for invalid kind, got nil")
+	}
+}
+
+// TestSchemaValidator_ValidateAgency_InvalidKind tests the errMsg path in ValidateAgency.
+func TestSchemaValidator_ValidateAgency_InvalidKind(t *testing.T) {
+	v, err := validator.NewSchemaValidator()
+	if err != nil {
+		t.Fatalf("Failed to create validator: %v", err)
+	}
+
+	data := map[string]interface{}{
+		"apiVersion": "kdeps.io/v1",
+		"kind":       "InvalidKind",
+		"metadata": map[string]interface{}{
+			"name":          "Test Agency",
+			"targetAgentId": "main-agent",
+		},
+	}
+	agencyErr := v.ValidateAgency(data)
+	if agencyErr == nil {
+		t.Fatal("expected validation error for invalid kind, got nil")
+	}
+}
+
+// TestSchemaValidator_GetEnumValues_MethodsInResourceContext tests getEnumValues
+// with schemaType="resource" and a field whose last part is "methods" containing "routes".
+func TestSchemaValidator_GetEnumValues_MethodsInResourceContext(t *testing.T) {
+	v, err := validator.NewSchemaValidator()
+	if err != nil {
+		t.Fatalf("Failed to create validator: %v", err)
+	}
+
+	result := v.GetEnumValues("check.routes.methods", "resource")
+	if len(result) == 0 {
+		t.Fatal("expected enum values for check.routes.methods in resource context")
+	}
+	expected := []interface{}{"GET", "POST", "PUT", "DELETE", "PATCH"}
+	for i, val := range expected {
+		if result[i] != val {
+			t.Errorf("result[%d] = %v, expected %v", i, result[i], val)
+		}
+	}
+}
+
+// TestSchemaValidator_GetEnumValues_MethodsInResourceContextWithApiServer tests
+// the lastPart==methodsField && contains "apiServer" branch with resource schema type.
+func TestSchemaValidator_GetEnumValues_MethodsInResourceApiServer(t *testing.T) {
+	v, err := validator.NewSchemaValidator()
+	if err != nil {
+		t.Fatalf("Failed to create validator: %v", err)
+	}
+
+	result := v.GetEnumValues("test.apiServer.methods", "resource")
+	if len(result) == 0 {
+		t.Fatal("expected enum values for test.apiServer.methods in resource context")
+	}
+	expected := []interface{}{"GET", "POST", "PUT", "DELETE", "PATCH"}
+	for i, val := range expected {
+		if result[i] != val {
+			t.Errorf("result[%d] = %v, expected %v", i, result[i], val)
+		}
+	}
+}
+
+// TestSchemaValidator_AllResourceTypes_RequiredFields tests required fields for all resource types.
+func TestSchemaValidator_AllResourceTypes_RequiredFields(t *testing.T) {
+	validator, err := validator.NewSchemaValidator()
+	if err != nil {
+		t.Fatalf("Failed to create validator: %v", err)
+	}
+
+	tests := []struct {
+		name          string
+		data          map[string]interface{}
+		expectedError string
+		expectedField string
+	}{
+		{
+			name: "missing actionId",
+			data: map[string]interface{}{
+				"name": "Test",
+				"chat": map[string]interface{}{
+					"model":  "llama3.2",
+					"prompt": "test",
+				},
+			},
+			expectedError: "actionId is required",
+			expectedField: "actionId",
+		},
+		{
+			name: "missing name",
+			data: map[string]interface{}{
+				"actionId": "test",
+				"chat": map[string]interface{}{
+					"model":  "llama3.2",
+					"prompt": "test",
+				},
+			},
+			expectedError: "name is required",
+			expectedField: "name",
+		},
+		{
+			name: "missing run block (now valid — run no longer required)",
+			data: map[string]interface{}{
+				"apiVersion": "kdeps.io/v1",
+				"kind":       "Resource",
+				"actionId":   "test",
+				"name":       "Test",
+			},
+			expectedError: "",
+			expectedField: "",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			validateErr := validator.ValidateResource(tt.data)
+			if tt.expectedField == "" {
+				if validateErr != nil {
+					t.Errorf("Expected no error, got: %v", validateErr)
+				}
+				return
+			}
+			if validateErr == nil {
+				t.Fatal("Expected validation error but got nil")
+			}
+
+			errMsg := validateErr.Error()
+			if !contains(errMsg, tt.expectedField) {
+				t.Errorf(
+					"Error message should contain field '%s', got: %s",
+					tt.expectedField,
+					errMsg,
+				)
+			}
+		})
+	}
+}
+
+// TestSchemaValidator_AllResourceTypes_TypeErrors tests type errors for all resource types.
+func TestSchemaValidator_AllResourceTypes_TypeErrors(t *testing.T) {
+	validator, err := validator.NewSchemaValidator()
+	if err != nil {
+		t.Fatalf("Failed to create validator: %v", err)
+	}
+
+	tests := []struct {
+		name          string
+		data          map[string]interface{}
+		expectedField string
+		expectedType  string
+	}{
+		{
+			name: "apiVersion wrong type - integer",
+			data: map[string]interface{}{
+				"apiVersion": 123,
+				"kind":       "Resource",
+				"actionId":   "test",
+				"name":       "Test",
+				"chat": map[string]interface{}{
+					"model":  "llama3.2",
+					"prompt": "test",
+				},
+			},
+			expectedField: "apiVersion",
+			expectedType:  "string",
+		},
+		{
+			name: "kind wrong type - integer",
+			data: map[string]interface{}{
+				"apiVersion": "kdeps.io/v1",
+				"kind":       123,
+				"metadata": map[string]interface{}{
+					"actionId": "test",
+					"name":     "Test",
+				},
+				"chat": map[string]interface{}{
+					"model":  "llama3.2",
+					"prompt": "test",
+				},
+			},
+			expectedField: "kind",
+			expectedType:  "string",
+		},
+		{
+			name: "actionId wrong type - integer",
+			data: map[string]interface{}{
+				"apiVersion": "kdeps.io/v1",
+				"kind":       "Resource",
+				"actionId":   123,
+				"name":       "Test",
+				"chat": map[string]interface{}{
+					"model":  "llama3.2",
+					"prompt": "test",
+				},
+			},
+			expectedField: "actionId",
+			expectedType:  "string",
+		},
+		{
+			name: "chat.prompt wrong type - integer (replaces removed model field)",
+			data: map[string]interface{}{
+				"apiVersion": "kdeps.io/v1",
+				"kind":       "Resource",
+				"actionId":   "test",
+				"name":       "Test",
+				"chat": map[string]interface{}{
+					"prompt": 123,
+				},
+			},
+			expectedField: "chat.prompt",
+			expectedType:  "string",
+		},
+		{
+			name: "chat.prompt wrong type - integer",
+			data: map[string]interface{}{
+				"apiVersion": "kdeps.io/v1",
+				"kind":       "Resource",
+				"actionId":   "test",
+				"name":       "Test",
+				"chat": map[string]interface{}{
+					"model":  "llama3.2",
+					"prompt": 123,
+				},
+			},
+			expectedField: "chat.prompt",
+			expectedType:  "string",
+		},
+		{
+			name: "chat.jsonResponse wrong type - string",
+			data: map[string]interface{}{
+				"apiVersion": "kdeps.io/v1",
+				"kind":       "Resource",
+				"actionId":   "test",
+				"name":       "Test",
+				"chat": map[string]interface{}{
+					"model":        "llama3.2",
+					"prompt":       "test",
+					"jsonResponse": "true",
+				},
+			},
+			expectedField: "chat.jsonResponse",
+			expectedType:  "boolean",
+		},
+		{
+			name: "httpClient.url wrong type - integer",
+			data: map[string]interface{}{
+				"apiVersion": "kdeps.io/v1",
+				"kind":       "Resource",
+				"actionId":   "test",
+				"name":       "Test",
+				"httpClient": map[string]interface{}{
+					"method": "GET",
+					"url":    123,
+				},
+			},
+			expectedField: "httpClient.url",
+			expectedType:  "string",
+		},
+		{
+			name: "sql.connection wrong type - integer",
+			data: map[string]interface{}{
+				"apiVersion": "kdeps.io/v1",
+				"kind":       "Resource",
+				"actionId":   "test",
+				"name":       "Test",
+				"sql": map[string]interface{}{
+					"connection": 123,
+					"query":      "SELECT * FROM users",
+				},
+			},
+			expectedField: "sql.connection",
+			expectedType:  "string",
+		},
+		{
+			name: "sql.query wrong type - integer",
+			data: map[string]interface{}{
+				"apiVersion": "kdeps.io/v1",
+				"kind":       "Resource",
+				"actionId":   "test",
+				"name":       "Test",
+				"sql": map[string]interface{}{
+					"connection": "postgresql://localhost:5432/db",
+					"query":      123,
+				},
+			},
+			expectedField: "sql.query",
+			expectedType:  "string",
+		},
+		{
+			name: "sql.maxRows wrong type - string",
+			data: map[string]interface{}{
+				"apiVersion": "kdeps.io/v1",
+				"kind":       "Resource",
+				"actionId":   "test",
+				"name":       "Test",
+				"sql": map[string]interface{}{
+					"connection": "postgresql://localhost:5432/db",
+					"query":      "SELECT * FROM users",
+					"maxRows":    "100",
+				},
+			},
+			expectedField: "sql.maxRows",
+			expectedType:  "integer",
+		},
+		{
+			name: "python.script wrong type - integer",
+			data: map[string]interface{}{
+				"apiVersion": "kdeps.io/v1",
+				"kind":       "Resource",
+				"actionId":   "test",
+				"name":       "Test",
+				"python": map[string]interface{}{
+					"script": 123,
+				},
+			},
+			expectedField: "python.script",
+			expectedType:  "string",
+		},
+		{
+			name: "python.file wrong type - integer",
+			data: map[string]interface{}{
+				"apiVersion": "kdeps.io/v1",
+				"kind":       "Resource",
+				"actionId":   "test",
+				"name":       "Test",
+				"python": map[string]interface{}{
+					"file": 123,
+				},
+			},
+			expectedField: "python.file",
+			expectedType:  "string",
+		},
+		{
+			name: "apiResponse.success wrong type - string",
+			data: map[string]interface{}{
+				"apiVersion": "kdeps.io/v1",
+				"kind":       "Resource",
+				"actionId":   "test",
+				"name":       "Test",
+				"apiResponse": map[string]interface{}{
+					"success":  "true",
+					"response": map[string]interface{}{},
+				},
+			},
+			expectedField: "apiResponse.success",
+			expectedType:  "boolean",
+		},
+		// Note: apiResponse.response now accepts any type (string, array, object, etc.)
+		// so we don't have a type validation test for it
+		{
+			name: "chat.role wrong type - integer (replaces removed baseUrl field)",
+			data: map[string]interface{}{
+				"apiVersion": "kdeps.io/v1",
+				"kind":       "Resource",
+				"actionId":   "test",
+				"name":       "Test",
+				"chat": map[string]interface{}{
+					"prompt": "test",
+					"role":   8080,
+				},
+			},
+			expectedField: "chat.role",
+			expectedType:  "string",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			validateErr := validator.ValidateResource(tt.data)
+			if tt.expectedField == "" {
+				if validateErr != nil {
+					t.Errorf("Expected no error, got: %v", validateErr)
+				}
+				return
+			}
+			if validateErr == nil {
+				t.Fatal("Expected validation error but got nil")
+			}
+
+			errMsg := validateErr.Error()
+			if !contains(errMsg, tt.expectedField) {
+				t.Errorf(
+					"Error message should contain field '%s', got: %s",
+					tt.expectedField,
+					errMsg,
+				)
+			}
+			if !contains(errMsg, "Expected: "+tt.expectedType) {
+				t.Errorf(
+					"Error message should mention expected type '%s', got: %s",
+					tt.expectedType,
+					errMsg,
+				)
+			}
+		})
+	}
+}
+
+// TestSchemaValidator_ValidationsMethodsEnum tests validations.methods enum validation.
+func TestSchemaValidator_ValidationsMethodsEnum(t *testing.T) {
+	validator, err := validator.NewSchemaValidator()
+	if err != nil {
+		t.Fatalf("Failed to create validator: %v", err)
+	}
+
+	tests := []struct {
+		name           string
+		data           map[string]interface{}
+		expectedField  string
+		expectedOption string
+	}{
+		{
+			name: "invalid validations.methods value",
+			data: map[string]interface{}{
+				"apiVersion": "kdeps.io/v1",
+				"kind":       "Resource",
+				"actionId":   "test",
+				"name":       "Test",
+				"validations": map[string]interface{}{
+					"methods": []interface{}{"INVALID"},
+				},
+				"chat": map[string]interface{}{
+					"model":  "llama3.2",
+					"prompt": "test",
+				},
+			},
+			expectedField:  "methods",
+			expectedOption: "GET",
+		},
+		{
+			name: "invalid validations.methods type - integer",
+			data: map[string]interface{}{
+				"apiVersion": "kdeps.io/v1",
+				"kind":       "Resource",
+				"actionId":   "test",
+				"name":       "Test",
+				"validations": map[string]interface{}{
+					"methods": []interface{}{123},
+				},
+				"chat": map[string]interface{}{
+					"model":  "llama3.2",
+					"prompt": "test",
+				},
+			},
+			expectedField:  "methods",
+			expectedOption: "GET",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			validateErr := validator.ValidateResource(tt.data)
+			if tt.expectedField == "" {
+				if validateErr != nil {
+					t.Errorf("Expected no error, got: %v", validateErr)
+				}
+				return
+			}
+			if validateErr == nil {
+				t.Fatal("Expected validation error but got nil")
+			}
+
+			errMsg := validateErr.Error()
+			if !contains(errMsg, tt.expectedField) {
+				t.Errorf(
+					"Error message should contain field '%s', got: %s",
+					tt.expectedField,
+					errMsg,
+				)
+			}
+
+			if !contains(errMsg, tt.expectedOption) {
+				t.Errorf(
+					"Error message should contain option '%s', got: %s",
+					tt.expectedOption,
+					errMsg,
+				)
+			}
+		})
+	}
+}
+
+// TestSchemaValidator_AllResourceTypes_ValidConfigs tests valid configurations for all resource types.
+func TestSchemaValidator_AllResourceTypes_ValidConfigs(t *testing.T) {
+	validator, err := validator.NewSchemaValidator()
+	if err != nil {
+		t.Fatalf("Failed to create validator: %v", err)
+	}
+
+	tests := []struct {
+		name string
+		data map[string]interface{}
+	}{
+		{
+			name: "valid chat resource",
+			data: map[string]interface{}{
+				"apiVersion": "kdeps.io/v1",
+				"kind":       "Resource",
+				"actionId":   "test",
+				"name":       "Test",
+				"chat": map[string]interface{}{
+					"model":  "llama3.2",
+					"prompt": "test",
+				},
+			},
+		},
+		{
+			name: "valid httpClient resource",
+			data: map[string]interface{}{
+				"apiVersion": "kdeps.io/v1",
+				"kind":       "Resource",
+				"actionId":   "test",
+				"name":       "Test",
+				"httpClient": map[string]interface{}{
+					"method": "GET",
+					"url":    "https://api.example.com",
+				},
+			},
+		},
+		{
+			name: "valid sql resource",
+			data: map[string]interface{}{
+				"apiVersion": "kdeps.io/v1",
+				"kind":       "Resource",
+				"actionId":   "test",
+				"name":       "Test",
+				"sql": map[string]interface{}{
+					"connection": "postgresql://localhost:5432/db",
+					"query":      "SELECT * FROM users",
+				},
+			},
+		},
+		{
+			name: "valid python resource",
+			data: map[string]interface{}{
+				"apiVersion": "kdeps.io/v1",
+				"kind":       "Resource",
+				"actionId":   "test",
+				"name":       "Test",
+				"python": map[string]interface{}{
+					"script": "print('hello')",
+				},
+			},
+		},
+		{
+			name: "valid apiResponse resource",
+			data: map[string]interface{}{
+				"apiVersion": "kdeps.io/v1",
+				"kind":       "Resource",
+				"actionId":   "test",
+				"name":       "Test",
+				"apiResponse": map[string]interface{}{
+					"success":  true,
+					"response": map[string]interface{}{},
+				},
+			},
+		},
+		{
+			name: "valid resource with validations.methods",
+			data: map[string]interface{}{
+				"apiVersion": "kdeps.io/v1",
+				"kind":       "Resource",
+				"actionId":   "test",
+				"name":       "Test",
+				"validations": map[string]interface{}{
+					"methods": []interface{}{"GET", "POST"},
+				},
+				"chat": map[string]interface{}{
+					"model":  "llama3.2",
+					"prompt": "test",
+				},
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			validateErr := validator.ValidateResource(tt.data)
+			if validateErr != nil {
+				t.Errorf(
+					"ValidateResource() should pass for valid config, got error: %v",
+					validateErr,
+				)
+			}
+		})
+	}
+}
+
+// TestSchemaValidator_ValidateComponent_ErrorPath tests the schema error path.
+func TestSchemaValidator_ValidateComponent_ErrorPath(t *testing.T) {
+	v, err := validator.NewSchemaValidator()
+	if err != nil {
+		t.Fatalf("Failed to create validator: %v", err)
+	}
+
+	data := map[string]interface{}{
+		"invalid": make(chan int),
+	}
+	if compErr := v.ValidateComponent(data); compErr == nil {
+		t.Error("expected error for invalid component data, got nil")
+	}
+}
+
+// TestSchemaValidator_ValidateAgency_ErrorPath tests the schema error path.
+func TestSchemaValidator_ValidateAgency_ErrorPath(t *testing.T) {
+	v, err := validator.NewSchemaValidator()
+	if err != nil {
+		t.Fatalf("Failed to create validator: %v", err)
+	}
+
+	data := map[string]interface{}{
+		"invalid": make(chan int),
+	}
+	if agencyErr := v.ValidateAgency(data); agencyErr == nil {
+		t.Error("expected error for invalid agency data, got nil")
+	}
+}
+
+// TestGetTypeSuggestion_InnerSwitchCases exercises the inner type-default switch
+// in getTypeSuggestion for string, integer, boolean, object, array.
+func TestGetTypeSuggestion_InnerSwitchCases(t *testing.T) {
+	v, err := validator.NewSchemaValidator()
+	if err != nil {
+		t.Fatalf("Failed to create validator: %v", err)
+	}
+
+	tests := []struct {
+		name     string
+		field    string
+		descStr  string
+		expected string
+	}{
+		{
+			name:     "default string example for unknown field",
+			field:    "x.y.z",
+			descStr:  "Invalid type. Expected: string, given: integer",
+			expected: "Expected type: string. Example: \"example\"",
+		},
+		{
+			name:     "default integer example for unknown field",
+			field:    "x.y.z",
+			descStr:  "Invalid type. Expected: integer, given: string",
+			expected: "Expected type: integer. Example: 123",
+		},
+		{
+			name:     "default boolean example for unknown field",
+			field:    "x.y.z",
+			descStr:  "Invalid type. Expected: boolean, given: string",
+			expected: "Expected type: boolean. Example: true",
+		},
+		{
+			name:     "default object example for unknown field",
+			field:    "x.y.z",
+			descStr:  "Invalid type. Expected: object, given: string",
+			expected: "Expected type: object. Example: {\"key\": \"value\"}",
+		},
+		{
+			name:     "default array example for unknown field",
+			field:    "x.y.z",
+			descStr:  "Invalid type. Expected: array, given: string",
+			expected: "Expected type: array. Example: [\"item1\", \"item2\"]",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := v.GetTypeSuggestion(tt.field, tt.descStr)
+			if got != tt.expected {
+				t.Errorf("GetTypeSuggestion(%q, %q) = %q, want %q", tt.field, tt.descStr, got, tt.expected)
+			}
+		})
+	}
+}
+
+// TestGetTypeSuggestion_OuterSwitchCases exercises the type-extraction switch.
+func TestGetTypeSuggestion_OuterSwitchCases(t *testing.T) {
+	v, err := validator.NewSchemaValidator()
+	if err != nil {
+		t.Fatalf("Failed to create validator: %v", err)
+	}
+
+	tests := []struct {
+		name     string
+		field    string
+		descStr  string
+		expected string
+	}{
+		{
+			name:     "Expected string (lowercase)",
+			field:    "x",
+			descStr:  "Invalid type. Expected string, but got number",
+			expected: "Expected type: string",
+		},
+		{
+			name:     "Expected string format",
+			field:    "x",
+			descStr:  "Expected string, but got something",
+			expected: "Expected type: string",
+		},
+		{
+			name:     "expected integer",
+			field:    "x",
+			descStr:  "Invalid type. expected integer, but got string",
+			expected: "Expected type: integer",
+		},
+		{
+			name:     "expected boolean",
+			field:    "x",
+			descStr:  "Invalid type. expected boolean, but got string",
+			expected: "Expected type: boolean",
+		},
+		{
+			name:     "expected object",
+			field:    "x",
+			descStr:  "Invalid type. expected object, but got string",
+			expected: "Expected type: object",
+		},
+		{
+			name:     "expected array",
+			field:    "x",
+			descStr:  "Invalid type. expected array, but got string",
+			expected: "Expected type: array",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := v.GetTypeSuggestion(tt.field, tt.descStr)
+			if got != tt.expected {
+				t.Errorf("GetTypeSuggestion(%q, %q) = %q, want %q", tt.field, tt.descStr, got, tt.expected)
+			}
+		})
+	}
+}

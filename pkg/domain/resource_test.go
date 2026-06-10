@@ -24,6 +24,9 @@ import (
 
 	"gopkg.in/yaml.v3"
 
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+
 	"github.com/kdeps/kdeps/v2/pkg/domain"
 )
 
@@ -569,4 +572,245 @@ func TestActionConfig_UnmarshalYAML_Error(t *testing.T) {
 	if err == nil {
 		t.Error("expected error when decoding sequence into ActionConfig")
 	}
+}
+
+func TestRunConfig_HasComponentField(t *testing.T) {
+	input := `
+component:
+  name: scraper
+  with:
+    url: "https://example.com"
+`
+	var run domain.RunConfig
+	err := yaml.Unmarshal([]byte(input), &run)
+	require.NoError(t, err)
+	require.NotNil(t, run.Component)
+	assert.Equal(t, "scraper", run.Component.Name)
+	assert.Equal(t, "https://example.com", run.Component.With["url"])
+}
+
+func TestInlineResource_HasComponentField(t *testing.T) {
+	input := `
+component:
+  name: email
+  with:
+    to: "user@example.com"
+    subject: "Hello"
+    body: "World"
+`
+	var ir domain.InlineResource
+	err := yaml.Unmarshal([]byte(input), &ir)
+	require.NoError(t, err)
+	require.NotNil(t, ir.Component)
+	assert.Equal(t, "email", ir.Component.Name)
+	assert.Equal(t, "user@example.com", ir.Component.With["to"])
+}
+
+func TestInlineResource_YAMLParsing(t *testing.T) {
+	tests := []struct {
+		name     string
+		yaml     string
+		validate func(t *testing.T, resource *domain.Resource)
+	}{
+		{
+			name: "inline resources before",
+			yaml: `
+actionId: test
+name: Test Resource
+before:
+  - httpClient:
+      method: GET
+      url: http://example.com
+  - exec:
+      command: echo hello
+chat:
+  model: test-model
+  role: user
+  prompt: test
+`,
+			validate: func(t *testing.T, resource *domain.Resource) {
+				require.Len(t, resource.Before, 2)
+				assert.NotNil(t, resource.Before[0].HTTPClient)
+				assert.Equal(t, "GET", resource.Before[0].HTTPClient.Method)
+				assert.Equal(t, "http://example.com", resource.Before[0].HTTPClient.URL)
+				assert.NotNil(t, resource.Before[1].Exec)
+				assert.Equal(t, "echo hello", resource.Before[1].Exec.Command)
+				assert.NotNil(t, resource.Chat)
+			},
+		},
+		{
+			name: "inline resources after",
+			yaml: `
+actionId: test
+name: Test Resource
+chat:
+  model: test-model
+  role: user
+  prompt: test
+after:
+  - sql:
+      connectionName: local
+      query: INSERT INTO logs VALUES (?)
+  - python:
+      script: print('done')
+`,
+			validate: func(t *testing.T, resource *domain.Resource) {
+				require.Len(t, resource.After, 2)
+				assert.NotNil(t, resource.After[0].SQL)
+				assert.Equal(t, "local", resource.After[0].SQL.ConnectionName)
+				assert.Equal(t, "INSERT INTO logs VALUES (?)", resource.After[0].SQL.Query)
+				assert.NotNil(t, resource.After[1].Python)
+				assert.Equal(t, "print('done')", resource.After[1].Python.Script)
+				assert.NotNil(t, resource.Chat)
+			},
+		},
+		{
+			name: "inline resources before and after",
+			yaml: `
+actionId: test
+name: Test Resource
+before:
+  - httpClient:
+      method: POST
+      url: http://example.com/before
+chat:
+  model: test-model
+  role: user
+  prompt: test
+after:
+  - exec:
+      command: echo after
+`,
+			validate: func(t *testing.T, resource *domain.Resource) {
+				require.Len(t, resource.Before, 1)
+				require.Len(t, resource.After, 1)
+				assert.NotNil(t, resource.Before[0].HTTPClient)
+				assert.Equal(t, "POST", resource.Before[0].HTTPClient.Method)
+				assert.NotNil(t, resource.After[0].Exec)
+				assert.Equal(t, "echo after", resource.After[0].Exec.Command)
+				assert.NotNil(t, resource.Chat)
+			},
+		},
+		{
+			name: "only inline resources no main",
+			yaml: `
+actionId: test
+name: Test Resource
+before:
+  - httpClient:
+      method: GET
+      url: http://example.com
+after:
+  - exec:
+      command: echo done
+`,
+			validate: func(t *testing.T, resource *domain.Resource) {
+				require.Len(t, resource.Before, 1)
+				require.Len(t, resource.After, 1)
+				assert.Nil(t, resource.Chat)
+				assert.Nil(t, resource.HTTPClient)
+				assert.Nil(t, resource.SQL)
+				assert.Nil(t, resource.Python)
+				assert.Nil(t, resource.Exec)
+			},
+		},
+		{
+			name: "multiple inline resources of different types",
+			yaml: `
+actionId: test
+name: Test Resource
+before:
+  - chat:
+      model: helper-model
+      role: user
+      prompt: prepare
+  - httpClient:
+      method: GET
+      url: http://example.com
+  - sql:
+      connection: sqlite3://./db.sqlite
+      query: SELECT * FROM config
+  - python:
+      script: print('setup')
+  - exec:
+      command: mkdir -p /tmp/test
+chat:
+  model: main-model
+  role: user
+  prompt: main prompt
+`,
+			validate: func(t *testing.T, resource *domain.Resource) {
+				require.Len(t, resource.Before, 5)
+				assert.NotNil(t, resource.Before[0].Chat)
+				assert.Equal(t, "helper-model", resource.Before[0].Chat.Model)
+				assert.NotNil(t, resource.Before[1].HTTPClient)
+				assert.NotNil(t, resource.Before[2].SQL)
+				assert.NotNil(t, resource.Before[3].Python)
+				assert.NotNil(t, resource.Before[4].Exec)
+				assert.NotNil(t, resource.Chat)
+				assert.Equal(t, "main-model", resource.Chat.Model)
+			},
+		},
+		{
+			name: "bare scalar expression in before",
+			yaml: `
+actionId: test
+name: Test Resource
+before:
+  - "{{ set('x', 1) }}"
+chat:
+  model: test-model
+  role: user
+  prompt: test
+`,
+			validate: func(t *testing.T, resource *domain.Resource) {
+				require.Len(t, resource.Before, 1)
+				assert.Equal(t, "{{ set('x', 1) }}", resource.Before[0].Expr)
+			},
+		},
+		{
+			name: "bare scalar expression in after",
+			yaml: `
+actionId: test
+name: Test Resource
+chat:
+  model: test-model
+  role: user
+  prompt: test
+after:
+  - "{{ get('test') }}"
+`,
+			validate: func(t *testing.T, resource *domain.Resource) {
+				require.Len(t, resource.After, 1)
+				assert.Equal(t, "{{ get('test') }}", resource.After[0].Expr)
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var resource domain.Resource
+			err := yaml.Unmarshal([]byte(tt.yaml), &resource)
+			require.NoError(t, err)
+			tt.validate(t, &resource)
+		})
+	}
+}
+
+func TestInlineResource_EmptyArrays(t *testing.T) {
+	yamlContent := `
+actionId: test
+name: Test Resource
+chat:
+  model: test-model
+  role: user
+  prompt: test
+`
+
+	var resource domain.Resource
+	err := yaml.Unmarshal([]byte(yamlContent), &resource)
+	require.NoError(t, err)
+	assert.Empty(t, resource.Before)
+	assert.Empty(t, resource.After)
+	assert.NotNil(t, resource.Chat)
 }

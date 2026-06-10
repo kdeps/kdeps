@@ -19,6 +19,8 @@ import (
 	"path/filepath"
 	"testing"
 
+	"errors"
+
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -290,4 +292,16 @@ func TestSession_SaveHistory_WriteError(t *testing.T) {
 	}
 	err := s.SaveHistory()
 	require.Error(t, err)
+}
+
+func TestLoadSession_HomeDirError(t *testing.T) {
+	orig := osUserHomeDir
+	t.Cleanup(func() { osUserHomeDir = orig })
+	osUserHomeDir = func() (string, error) {
+		return "", errors.New("no home")
+	}
+
+	_, err := LoadSession("id")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "could not determine home directory")
 }

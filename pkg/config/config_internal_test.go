@@ -963,3 +963,29 @@ func TestConfigEnvVar_NotFound(t *testing.T) {
 	_, ok = configEnvVar("llm.not_a_provider_key")
 	assert.False(t, ok)
 }
+
+func TestRunConfigFileCheck_EmptyPath(t *testing.T) {
+	origHome := osUserHomeDir
+	t.Cleanup(func() { osUserHomeDir = origHome })
+	osUserHomeDir = func() (string, error) {
+		return "", errors.New("no home")
+	}
+
+	r := &doctorRunner{healthy: true}
+	r.configFile()
+	require.NotEmpty(t, r.checks)
+	assert.Equal(t, HealthFail, r.checks[0].Status)
+}
+
+func TestRunAgentsCheck_AgentsDirError(t *testing.T) {
+	origHome := osUserHomeDir
+	t.Cleanup(func() { osUserHomeDir = origHome })
+	osUserHomeDir = func() (string, error) {
+		return "", errors.New("no home")
+	}
+
+	r := &doctorRunner{healthy: true}
+	r.agents(&Config{})
+	require.NotEmpty(t, r.checks)
+	assert.Equal(t, HealthWarn, r.checks[0].Status)
+}
