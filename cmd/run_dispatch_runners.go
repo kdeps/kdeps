@@ -62,36 +62,6 @@ func StartFileRunner(
 	return startFileRunnerWithEngine(engine, workflow, debugMode, fileArg)
 }
 
-// StartLLMRunner starts the LLM interactive runner.
-// When executionType is "apiServer" (or the workflow has an apiServer block),
-// the HTTP API server is started. Otherwise an interactive stdin REPL is started.
-func StartLLMRunner(
-	workflow *domain.Workflow,
-	debugMode bool,
-	workflowPath string,
-	devMode bool,
-) error {
-	kdeps_debug.Log("enter: StartLLMRunner")
-	var llmCfg *domain.LLMInputConfig
-	if workflow.Settings.LLM != nil {
-		llmCfg = workflow.Settings.LLM
-	}
-	if llmCfg != nil && llmCfg.ExecutionType == domain.LLMExecutionTypeAPIServer {
-		return execHTTPServerFn(workflow, workflowPath, devMode, debugMode)
-	}
-
-	engine := setupEngine(workflow, debugMode)
-	logger := logging.NewLogger(debugMode)
-	fmt.Fprintln(
-		os.Stdout,
-		"  ✓ Starting LLM interactive REPL (type /quit or /exit to stop, Ctrl+D for EOF)",
-	)
-	fmt.Fprintln(os.Stdout, "")
-
-	ctx := context.Background()
-	return llminput.Run(ctx, workflow, engine, logger)
-}
-
 // startInteractiveMode runs the workflow's normal execution concurrently with an
 // interactive REPL. The workflow dispatch (server, bot, single-run, etc.) runs in a
 // background goroutine unchanged. The REPL runs in the foreground: each line the user

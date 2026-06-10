@@ -117,13 +117,6 @@ Examples:
 	return runCmd
 }
 
-// RunWorkflow executes the run command with default flags.
-func RunWorkflow(cmd *cobra.Command, args []string) error {
-	kdeps_debug.Log("enter: RunWorkflow")
-	flags := &RunFlags{}
-	return RunWorkflowWithFlags(cmd, args, flags)
-}
-
 // RunWorkflowWithFlags executes the run command with injected flags.
 func RunWorkflowWithFlags(cmd *cobra.Command, args []string, flags *RunFlags) error {
 	kdeps_debug.Log("enter: RunWorkflowWithFlags")

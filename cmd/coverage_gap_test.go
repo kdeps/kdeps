@@ -496,18 +496,6 @@ func TestStartBotRunners_Delegates(t *testing.T) {
 	_ = eng
 }
 
-func TestStartLLMRunner_REPL(t *testing.T) {
-	wf := &domain.Workflow{
-		Metadata: domain.WorkflowMetadata{Name: "llm"},
-		Settings: domain.WorkflowSettings{
-			LLM: &domain.LLMInputConfig{ExecutionType: domain.LLMExecutionTypeStdin},
-		},
-	}
-	// EOF on stdin exits the REPL cleanly (nil) or returns an error depending on platform.
-	err := StartLLMRunner(wf, false, t.TempDir(), false)
-	t.Logf("StartLLMRunner returned: %v", err)
-}
-
 func TestResolveServerBindAddress_Override(t *testing.T) {
 	t.Setenv("KDEPS_BIND_HOST", "127.0.0.1")
 	port := mustFreePort(t)

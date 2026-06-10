@@ -36,7 +36,7 @@ func (e *Executor) addToolResultsToMessages(
 	kdeps_debug.Log("enter: addToolResultsToMessages")
 	// Add assistant message with tool calls
 	messages = append(messages, map[string]interface{}{
-		"role":       "assistant",
+		"role":       roleAssistant,
 		"content":    "",
 		"tool_calls": toolCalls,
 	})

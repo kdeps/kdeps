@@ -127,7 +127,7 @@ func parseOllamaStreamingResponse(body io.Reader) (map[string]interface{}, error
 	// Build a response identical to the non-streaming format
 	result := map[string]interface{}{
 		"message": map[string]interface{}{
-			"role":    "assistant",
+			"role":    roleAssistant,
 			"content": contentBuilder.String(),
 		},
 	}

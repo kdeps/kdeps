@@ -111,20 +111,6 @@ func PackageAutoWithFlags(cmd *cobra.Command, args []string, flags *PackageFlags
 	return PackageWorkflowWithFlags(cmd, args, flags)
 }
 
-// PackageWorkflow packages a workflow into a .kdeps file.
-func PackageWorkflow(cmd *cobra.Command, args []string) error {
-	kdeps_debug.Log("enter: PackageWorkflow")
-	// Read flags from command if they are defined
-	flags := &PackageFlags{}
-	if cmd.Flags().Lookup("output") != nil {
-		flags.Output, _ = cmd.Flags().GetString("output")
-	}
-	if cmd.Flags().Lookup("name") != nil {
-		flags.Name, _ = cmd.Flags().GetString("name")
-	}
-	return PackageWorkflowWithFlags(cmd, args, flags)
-}
-
 // newSchemaValidatorFunc creates the schema validator (overridable in tests).
 //
 //nolint:gochecknoglobals // test-replaceable hook

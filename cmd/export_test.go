@@ -35,7 +35,7 @@ func TestExportISO_MissingWorkflow(t *testing.T) {
 	tmpDir := t.TempDir()
 
 	flags := &cmd.ExportFlags{}
-	err := cmd.ExportISOWithFlags(&cobra.Command{}, []string{tmpDir}, flags)
+	err := cmd.ExportISOInternal(&cobra.Command{}, []string{tmpDir}, flags)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "workflow.yaml not found")
 }
@@ -48,14 +48,14 @@ func TestExportISO_InvalidWorkflow(t *testing.T) {
 	require.NoError(t, err)
 
 	flags := &cmd.ExportFlags{}
-	err = cmd.ExportISOWithFlags(&cobra.Command{}, []string{tmpDir}, flags)
+	err = cmd.ExportISOInternal(&cobra.Command{}, []string{tmpDir}, flags)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "failed to parse workflow")
 }
 
 func TestExportISO_InvalidPath(t *testing.T) {
 	flags := &cmd.ExportFlags{}
-	err := cmd.ExportISOWithFlags(&cobra.Command{}, []string{"/nonexistent/path"}, flags)
+	err := cmd.ExportISOInternal(&cobra.Command{}, []string{"/nonexistent/path"}, flags)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "failed to access path")
 }
@@ -87,7 +87,7 @@ settings:
 	}
 
 	// ShowConfig generates LinuxKit YAML (no Docker needed)
-	err = cmd.ExportISOWithFlags(&cobra.Command{}, []string{tmpDir}, flags)
+	err = cmd.ExportISOInternal(&cobra.Command{}, []string{tmpDir}, flags)
 	require.NoError(t, err)
 }
 
@@ -122,7 +122,7 @@ settings:
 	}
 
 	// Build may fail if Docker or linuxkit is not available - that's acceptable
-	err = cmd.ExportISOWithFlags(&cobra.Command{}, []string{tmpDir}, flags)
+	err = cmd.ExportISOInternal(&cobra.Command{}, []string{tmpDir}, flags)
 	if err != nil {
 		t.Logf("Export failed (expected if Docker/linuxkit unavailable): %v", err)
 	}
@@ -155,7 +155,7 @@ settings:
 
 	// This should fail at format validation, but only after Docker builder
 	// is created (which may fail first if Docker is unavailable)
-	err = cmd.ExportISOWithFlags(&cobra.Command{}, []string{tmpDir}, flags)
+	err = cmd.ExportISOInternal(&cobra.Command{}, []string{tmpDir}, flags)
 	if err != nil {
 		t.Logf("Export failed: %v", err)
 	}

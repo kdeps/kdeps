@@ -21,10 +21,8 @@
 package cmd
 
 import (
-	"context"
 	"fmt"
 	"os"
-	"os/exec"
 
 	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
 	"github.com/kdeps/kdeps/v2/pkg/domain"
@@ -86,33 +84,6 @@ func printBotRequirements(input *domain.InputConfig) {
 			"The webhook endpoint must be reachable from the internet (use ngrok or a reverse proxy)",
 		)
 	}
-}
-
-// isBinaryAvailable returns true when name is found on PATH.
-func isBinaryAvailable(name string) bool {
-	kdeps_debug.Log("enter: isBinaryAvailable")
-	return isBinaryAvailableFunc(name)
-}
-
-// isPythonModuleAvailable returns true when `python3 -c "import <module>"` exits 0.
-// Falls back to "python" when python3 is not on PATH.
-func isPythonModuleAvailable(module string) bool {
-	kdeps_debug.Log("enter: isPythonModuleAvailable")
-	python := "python3"
-	if !isBinaryAvailable("python3") {
-		python = "python"
-	}
-	//nolint:gosec // module is an internal constant, not user input
-	return exec.CommandContext(context.Background(), python, "-c", "import "+module).Run() == nil
-}
-
-// notFound returns "  [not found]" when avail is false, empty string otherwise.
-func notFound(avail bool) string {
-	kdeps_debug.Log("enter: notFound")
-	if avail {
-		return ""
-	}
-	return "  [not found]"
 }
 
 // SetupEnvironment sets up the execution environment.

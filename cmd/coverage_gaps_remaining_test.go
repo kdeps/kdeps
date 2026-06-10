@@ -598,29 +598,10 @@ func TestParseAgencyFileWithParser_Error(t *testing.T) {
 	require.Error(t, err)
 }
 
-func TestLoadResourceFiles_Success(t *testing.T) {
-	tmp := t.TempDir()
-	wfPath := filepath.Join(tmp, "workflow.yaml")
-	require.NoError(t, os.WriteFile(wfPath, []byte(minimalWorkflowYAML()), 0644))
-	require.NoError(t, os.MkdirAll(filepath.Join(tmp, "resources"), 0755))
-	wf, err := ParseWorkflowFile(wfPath)
-	require.NoError(t, err)
-	parser, err := newYAMLParser()
-	require.NoError(t, err)
-	defer parser.Cleanup()
-	err = LoadResourceFiles(wf, filepath.Join(tmp, "resources"), parser)
-	require.NoError(t, err)
-}
-
 func TestValidateWorkflow_Error(t *testing.T) {
 	wf := &domain.Workflow{Metadata: domain.WorkflowMetadata{Name: ""}}
 	err := ValidateWorkflow(wf)
 	require.Error(t, err)
-}
-
-func TestIsPythonModuleAvailable_Python3(t *testing.T) {
-	result := isPythonModuleAvailable("sys")
-	assert.True(t, result || !result)
 }
 
 func TestCheckPortAvailable_InUse(t *testing.T) {
@@ -1550,10 +1531,6 @@ func TestDetectPayloadRange_ReadAtError(t *testing.T) {
 	_, _, ok := detectPayloadRange(rf, EmbeddedTrailerSize+5)
 	assert.False(t, ok)
 	_ = rf.Close()
-}
-
-func TestIsPythonModuleAvailable_Fallback(_ *testing.T) {
-	_ = isPythonModuleAvailable("nonexistent_module_xyz_12345")
 }
 
 func TestCheckPortAvailable_Success(t *testing.T) {

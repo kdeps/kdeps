@@ -69,7 +69,6 @@ var (
 	httpServerShutdownFunc                     = defaultHTTPServerShutdown
 	webServerStartFunc                         = defaultWebServerStart
 	webServerShutdownFunc                      = defaultWebServerShutdown
-	isBinaryAvailableFunc                      = defaultIsBinaryAvailable
 	botDispatcherRunFunc                       = defaultBotDispatcherRun
 	httpNewServerFunc                          = http.NewServer
 	httpNewWebServerFunc                       = http.NewWebServer
@@ -79,11 +78,6 @@ var (
 	parseWorkflowFileAgentMapFunc              = ParseWorkflowFile
 	dispatchExecutionWithEngineInteractiveFunc = dispatchExecutionWithEngine
 )
-
-func defaultIsBinaryAvailable(name string) bool {
-	_, err := exec.LookPath(name)
-	return err == nil
-}
 
 func defaultHTTPServerStart(srv *http.Server, addr string, devMode bool) error {
 	return srv.Start(addr, devMode)

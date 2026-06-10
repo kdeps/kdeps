@@ -33,12 +33,6 @@ import (
 	"github.com/kdeps/kdeps/v2/pkg/templates"
 )
 
-func ExecuteWorkflowSteps(cmd *cobra.Command, workflowPath string) error {
-	kdeps_debug.Log("enter: ExecuteWorkflowSteps")
-	flags := &RunFlags{}
-	return ExecuteWorkflowStepsWithFlags(cmd, workflowPath, flags)
-}
-
 // isAgencyFile reports whether path points to an agency file based on its base name.
 func isAgencyFile(path string) bool {
 	kdeps_debug.Log("enter: isAgencyFile")

@@ -119,12 +119,6 @@ Examples:
 	return isoCmd
 }
 
-// ExportISOWithFlags exports the exportISOInternal function for testing.
-func ExportISOWithFlags(cmd *cobra.Command, args []string, flags *ExportFlags) error {
-	kdeps_debug.Log("enter: ExportISOWithFlags")
-	return exportISOInternal(cmd, args, flags)
-}
-
 const bytesPerMB = 1024 * 1024
 
 // prepareISOExportWorkflow parses the workflow and switches to the package directory.

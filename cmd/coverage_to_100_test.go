@@ -134,35 +134,10 @@ agents:
 	require.Error(t, err)
 }
 
-func TestLoadResourceFiles_ReadAndParseErr(t *testing.T) {
-	tmp := t.TempDir()
-	resDir := filepath.Join(tmp, "resources")
-	require.NoError(t, os.MkdirAll(resDir, 0755))
-	require.NoError(t, os.WriteFile(filepath.Join(resDir, "bad.yaml"), []byte("invalid: ["), 0644))
-	wf := &domain.Workflow{}
-	parser, err := newYAMLParser()
-	require.NoError(t, err)
-	defer parser.Cleanup()
-	err = LoadResourceFiles(wf, resDir, parser)
-	require.Error(t, err)
-
-	blocker := filepath.Join(tmp, "blocker")
-	require.NoError(t, os.WriteFile(blocker, []byte("x"), 0644))
-	err = LoadResourceFiles(wf, blocker, parser)
-	require.Error(t, err)
-}
-
 func TestValidateWorkflow_InitErr(t *testing.T) {
 	wf := &domain.Workflow{}
 	err := ValidateWorkflow(wf)
 	require.Error(t, err)
-}
-
-func TestIsPythonModuleAvailable_PythonFallback(t *testing.T) {
-	orig := isBinaryAvailableFunc
-	t.Cleanup(func() { isBinaryAvailableFunc = orig })
-	isBinaryAvailableFunc = func(name string) bool { return name == "python" }
-	_ = isPythonModuleAvailable("sys")
 }
 
 func TestFindAvailablePort_ScanNotice_To100(t *testing.T) {

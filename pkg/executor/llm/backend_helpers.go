@@ -121,7 +121,7 @@ func rawAPIKeyHeader(apiKey, envVar, headerName string) (string, string) {
 func assistantMessageResult(content string) map[string]interface{} {
 	return map[string]interface{}{
 		"message": map[string]interface{}{
-			"role":    "assistant",
+			"role":    roleAssistant,
 			"content": content,
 		},
 	}
@@ -134,7 +134,7 @@ func convertAnthropicResponse(response map[string]interface{}) map[string]interf
 		if firstContent, okContent := content[0].(map[string]interface{}); okContent {
 			if text, okText := firstContent["text"].(string); okText {
 				result["message"] = map[string]interface{}{
-					"role":    "assistant",
+					"role":    roleAssistant,
 					"content": text,
 				}
 			}

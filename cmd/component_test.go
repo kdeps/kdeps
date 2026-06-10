@@ -143,28 +143,6 @@ func TestRegistryList_WithSubdir(t *testing.T) {
 // listKomponentFiles and listLocalComponents helpers
 // ---------------------------------------------------------------------------
 
-func TestListKomponentFiles_Empty(t *testing.T) {
-	tmp := t.TempDir()
-	got := cmd.ListKomponentFiles(tmp)
-	assert.Empty(t, got)
-}
-
-func TestListKomponentFiles_WithFiles(t *testing.T) {
-	tmp := t.TempDir()
-	require.NoError(t, os.WriteFile(filepath.Join(tmp, "email.komponent"), []byte("x"), 0o600))
-	require.NoError(t, os.WriteFile(filepath.Join(tmp, "tts.komponent"), []byte("x"), 0o600))
-	require.NoError(t, os.WriteFile(filepath.Join(tmp, "readme.txt"), []byte("x"), 0o600))
-	require.NoError(t, os.Mkdir(filepath.Join(tmp, "somedir"), 0o755))
-
-	got := cmd.ListKomponentFiles(tmp)
-	assert.ElementsMatch(t, []string{"email", "tts"}, got)
-}
-
-func TestListKomponentFiles_NonExistentDir(t *testing.T) {
-	got := cmd.ListKomponentFiles("/nonexistent/path/xyz")
-	assert.Empty(t, got)
-}
-
 func TestListLocalComponents_Empty(t *testing.T) {
 	tmp := t.TempDir()
 	got := cmd.ListLocalComponents(tmp)
