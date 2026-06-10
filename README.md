@@ -32,6 +32,12 @@ Hands-on guide covering deterministic pipelines, multi-agent orchestration, erro
 curl -LsSf https://raw.githubusercontent.com/kdeps/kdeps/main/install.sh | sh
 ```
 
+Or with Homebrew (macOS and Linux):
+
+```bash
+brew install kdeps/tap/kdeps
+```
+
 ## Modes
 
 ### Workflow mode
