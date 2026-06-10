@@ -31,7 +31,7 @@ func (e *Executor) evaluateExpression(
 	exprStr string,
 ) (interface{}, error) {
 	kdeps_debug.Log("enter: evaluateExpression")
-	return executor.EvaluateExpression(evaluator, e.buildEnvironment(ctx), exprStr)
+	return executor.EvaluateExpression(evaluator, executor.BuildBasicSubExecutorEnv(ctx), exprStr)
 }
 
 // evaluateStringOrLiteral evaluates a string as an expression if it contains expression syntax,
@@ -42,11 +42,6 @@ func (e *Executor) evaluateStringOrLiteral(
 	value string,
 ) (string, error) {
 	kdeps_debug.Log("enter: evaluateStringOrLiteral")
-	return executor.EvaluateStringOrLiteral(evaluator, e.buildEnvironment(ctx), value, executor.StringLiteralOptions{})
-}
-
-// buildEnvironment builds evaluation environment from context.
-func (e *Executor) buildEnvironment(ctx *executor.ExecutionContext) map[string]interface{} {
-	kdeps_debug.Log("enter: buildEnvironment")
-	return executor.BuildSubExecutorEnv(ctx, executor.SubExecutorEnvOptions{})
+	return executor.EvaluateStringOrLiteral(
+		evaluator, executor.BuildBasicSubExecutorEnv(ctx), value, executor.StringLiteralOptions{})
 }

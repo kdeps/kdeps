@@ -28,10 +28,7 @@ import (
 // BuildEnvironment builds evaluation environment from context.
 func (e *Executor) BuildEnvironment(ctx *executor.ExecutionContext) map[string]interface{} {
 	kdeps_debug.Log("enter: BuildEnvironment")
-	return executor.BuildSubExecutorEnv(ctx, executor.SubExecutorEnvOptions{
-		IncludeInput: true,
-		IncludeItem:  true,
-	})
+	return executor.BuildRequestSubExecutorEnv(ctx)
 }
 
 // headersToMap converts http.Header to map[string]string.

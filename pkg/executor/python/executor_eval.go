@@ -33,7 +33,7 @@ func (e *Executor) EvaluateExpression(
 	exprStr string,
 ) (interface{}, error) {
 	kdeps_debug.Log("enter: EvaluateExpression")
-	return executor.EvaluateExpression(evaluator, e.buildEnvironment(ctx), exprStr)
+	return executor.EvaluateExpression(evaluator, executor.BuildBasicSubExecutorEnv(ctx), exprStr)
 }
 
 // EvaluateStringOrLiteral evaluates a string as an expression if it contains expression syntax,
@@ -46,7 +46,7 @@ func (e *Executor) EvaluateStringOrLiteral(
 	kdeps_debug.Log("enter: EvaluateStringOrLiteral")
 	return executor.EvaluateStringOrLiteral(
 		evaluator,
-		e.buildEnvironment(ctx),
+		executor.BuildBasicSubExecutorEnv(ctx),
 		value,
 		executor.StringLiteralOptions{},
 	)
@@ -59,15 +59,10 @@ func (e *Executor) evaluateInterpolatedString(
 	value string,
 ) (string, error) {
 	kdeps_debug.Log("enter: evaluateInterpolatedString")
-	result, err := executor.EvaluateExpression(evaluator, e.buildEnvironment(ctx), value)
+	result, err := executor.EvaluateExpression(
+		evaluator, executor.BuildBasicSubExecutorEnv(ctx), value)
 	if err != nil {
 		return "", fmt.Errorf("failed to evaluate interpolated string: %w", err)
 	}
 	return fmt.Sprintf("%v", result), nil
-}
-
-// buildEnvironment builds evaluation environment from context.
-func (e *Executor) buildEnvironment(ctx *executor.ExecutionContext) map[string]interface{} {
-	kdeps_debug.Log("enter: buildEnvironment")
-	return executor.BuildSubExecutorEnv(ctx, executor.SubExecutorEnvOptions{})
 }
