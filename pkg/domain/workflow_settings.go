@@ -88,7 +88,7 @@ func corsAllowsWildcard(config *CORS) bool {
 func defaultCORSConfig() *CORS {
 	return &CORS{
 		AllowOrigins: []string{"*"},
-		AllowMethods: []string{"GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"},
+		AllowMethods: CORSHTTPMethods(),
 		AllowHeaders: []string{
 			"Content-Type",
 			"Authorization",

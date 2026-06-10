@@ -63,7 +63,7 @@ func printRoutes(serverConfig *domain.APIServerConfig) {
 		for _, route := range serverConfig.Routes {
 			methods := route.Methods
 			if len(methods) == 0 {
-				methods = []string{"GET", "POST", "PUT", "DELETE", "PATCH"}
+				methods = domain.StandardHTTPMethods()
 			}
 			for _, method := range methods {
 				fmt.Fprintf(os.Stdout, "  %s %s\n", method, route.Path)

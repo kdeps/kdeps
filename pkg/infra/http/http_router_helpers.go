@@ -18,10 +18,14 @@
 
 package http
 
-import stdhttp "net/http"
+import (
+	stdhttp "net/http"
+
+	"github.com/kdeps/kdeps/v2/pkg/domain"
+)
 
 func supportedHTTPMethods() []string {
-	return []string{"GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"}
+	return domain.CORSHTTPMethods()
 }
 
 func ensureMethodRoutes(

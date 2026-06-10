@@ -20,14 +20,16 @@ package http
 
 import (
 	stdhttp "net/http"
+	"strings"
 
 	"github.com/kdeps/kdeps/v2/pkg/domain"
 )
 
-const (
-	defaultCORSAllowMethods = "GET, POST, PUT, DELETE, PATCH, OPTIONS"
-	defaultCORSAllowHeaders = "Content-Type, Authorization"
-)
+const defaultCORSAllowHeaders = "Content-Type, Authorization"
+
+func defaultCORSAllowMethods() string {
+	return strings.Join(domain.CORSHTTPMethods(), ", ")
+}
 
 func isCorsPreflight(method string) bool {
 	return method == stdhttp.MethodOptions
@@ -43,7 +45,7 @@ func corsOriginAllowed(cors *domain.CORS, origin string) bool {
 }
 
 func corsAllowedMethods(cors *domain.CORS) string {
-	return joinCORSList(cors.AllowMethods, defaultCORSAllowMethods)
+	return joinCORSList(cors.AllowMethods, defaultCORSAllowMethods())
 }
 
 func corsAllowedHeaders(cors *domain.CORS) string {

@@ -115,23 +115,13 @@ func (v *WorkflowValidator) ValidateHTTPConfig(config *domain.HTTPClientConfig) 
 		return domain.NewError(domain.ErrCodeInvalidResource, "httpClient.method is required", nil)
 	}
 
-	// Validate method.
-	validMethods := map[string]bool{
-		"GET":    true,
-		"POST":   true,
-		"PUT":    true,
-		"DELETE": true,
-		"PATCH":  true,
-	}
-
-	if !validMethods[config.Method] {
-		availableOptions := "GET, POST, PUT, DELETE, PATCH"
+	if !domain.IsValidHTTPMethod(config.Method) {
 		return domain.NewError(
 			domain.ErrCodeInvalidResource,
 			fmt.Sprintf(
 				"invalid HTTP method: %s. Available options: [%s]",
 				config.Method,
-				availableOptions,
+				domain.StandardHTTPMethodsDisplay(),
 			),
 			nil,
 		)
