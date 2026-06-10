@@ -24,6 +24,19 @@ import (
 	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
 )
 
+// transformRouterSegment converts a kdeps path segment to OpenAPI form and
+// returns the parameter name when the segment captures a path variable.
+func transformRouterSegment(part string) (string, string) {
+	if strings.HasPrefix(part, ":") {
+		name := part[1:]
+		return "{" + name + "}", name
+	}
+	if part == "*" {
+		return "{wildcard}", "wildcard"
+	}
+	return part, ""
+}
+
 // toOpenAPIPath translates a kdeps router path pattern to an OpenAPI 3.0 path
 // template. Segment-level ":param" placeholders become "{param}". The catch-all
 // wildcard "*" (which matches any remaining path segments in the kdeps router)
@@ -33,11 +46,8 @@ func toOpenAPIPath(routerPath string) string {
 	kdeps_debug.Log("enter: toOpenAPIPath")
 	parts := strings.Split(routerPath, "/")
 	for i, part := range parts {
-		if strings.HasPrefix(part, ":") {
-			parts[i] = "{" + part[1:] + "}"
-		} else if part == "*" {
-			parts[i] = "{wildcard}"
-		}
+		open, _ := transformRouterSegment(part)
+		parts[i] = open
 	}
 	return strings.Join(parts, "/")
 }
@@ -48,10 +58,9 @@ func pathParamNames(routerPath string) []string {
 	kdeps_debug.Log("enter: pathParamNames")
 	var params []string
 	for _, part := range strings.Split(routerPath, "/") {
-		if strings.HasPrefix(part, ":") {
-			params = append(params, part[1:])
-		} else if part == "*" {
-			params = append(params, "wildcard")
+		_, name := transformRouterSegment(part)
+		if name != "" {
+			params = append(params, name)
 		}
 	}
 	return params
@@ -126,5 +135,3 @@ func errorResponse() *OpenAPIResponse {
 		},
 	}
 }
-
-// GenerateOpenAPI produces an OpenAPI 3.0.3 specification from a workflow.

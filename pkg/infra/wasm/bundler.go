@@ -122,14 +122,18 @@ func finalizeIndexHTML(config *BundleConfig, distDir string) error {
 	return nil
 }
 
-func copyDeploymentFiles(outputDir string) error {
-	if err := copyEmbeddedFile("templates/nginx.conf", filepath.Join(outputDir, "nginx.conf")); err != nil {
-		return fmt.Errorf("failed to copy nginx.conf: %w", err)
-	}
-	if err := copyEmbeddedFile("templates/Dockerfile.tmpl", filepath.Join(outputDir, "Dockerfile")); err != nil {
-		return fmt.Errorf("failed to copy Dockerfile: %w", err)
+func copyEmbeddedDeploymentFile(outputDir, embeddedPath, dstName, label string) error {
+	if err := copyEmbeddedFile(embeddedPath, filepath.Join(outputDir, dstName)); err != nil {
+		return fmt.Errorf("failed to copy %s: %w", label, err)
 	}
 	return nil
+}
+
+func copyDeploymentFiles(outputDir string) error {
+	if err := copyEmbeddedDeploymentFile(outputDir, "templates/nginx.conf", "nginx.conf", "nginx.conf"); err != nil {
+		return err
+	}
+	return copyEmbeddedDeploymentFile(outputDir, "templates/Dockerfile.tmpl", "Dockerfile", "Dockerfile")
 }
 
 // Bundle creates a static WASM bundle in the output directory.
@@ -187,10 +191,7 @@ func copyWebServerFiles(files map[string]string, distDir string) error {
 		servePath := normalizeWebServePath(path)
 
 		dst := filepath.Join(distDir, servePath)
-		if err := AppFS.MkdirAll(filepath.Dir(dst), 0750); err != nil {
-			return fmt.Errorf("failed to create directory for %s: %w", servePath, err)
-		}
-		if err := afero.WriteFile(AppFS, dst, []byte(content), 0644); err != nil {
+		if err := writeBundleBytes(dst, []byte(content)); err != nil {
 			return fmt.Errorf("failed to write %s: %w", servePath, err)
 		}
 	}
@@ -247,6 +248,13 @@ func generateDefaultIndex(distDir string) error {
 	)
 }
 
+func writeBundleBytes(dst string, data []byte) error {
+	if err := AppFS.MkdirAll(filepath.Dir(dst), 0750); err != nil {
+		return err
+	}
+	return afero.WriteFile(AppFS, dst, data, 0644)
+}
+
 // copyFile copies a file from src to dst.
 func copyFile(src, dst string) error {
 	kdeps_debug.Log("enter: copyFile")
@@ -254,7 +262,7 @@ func copyFile(src, dst string) error {
 	if err != nil {
 		return err
 	}
-	return afero.WriteFile(AppFS, dst, data, 0644)
+	return writeBundleBytes(dst, data)
 }
 
 // copyEmbeddedFile copies an embedded file to the destination path.
@@ -264,5 +272,5 @@ func copyEmbeddedFile(embeddedPath, dst string) error {
 	if err != nil {
 		return err
 	}
-	return afero.WriteFile(AppFS, dst, data, 0644)
+	return writeBundleBytes(dst, data)
 }

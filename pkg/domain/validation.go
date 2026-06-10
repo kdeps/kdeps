@@ -82,16 +82,17 @@ func (f *FieldRule) UnmarshalYAML(node *yaml.Node) error {
 		return err
 	}
 
-	f.Field = raw.Field
-	f.Type = raw.Type
-	f.MinLength = raw.MinLength
-	f.MaxLength = raw.MaxLength
-	f.Pattern = raw.Pattern
-	f.MinItems = raw.MinItems
-	f.MaxItems = raw.MaxItems
-	f.Enum = raw.Enum
-	f.Message = raw.Message
-
+	*f = FieldRule{
+		Field:     raw.Field,
+		Type:      raw.Type,
+		MinLength: raw.MinLength,
+		MaxLength: raw.MaxLength,
+		Pattern:   raw.Pattern,
+		MinItems:  raw.MinItems,
+		MaxItems:  raw.MaxItems,
+		Enum:      raw.Enum,
+		Message:   raw.Message,
+	}
 	f.Min, f.Max = resolveMinMaxAliases(raw.Min, raw.Max, raw.Minimum, raw.Maximum)
 
 	return nil
@@ -226,17 +227,17 @@ type MultipleValidationError struct {
 	Errors []*ValidationError
 }
 
+func formatValidationError(err *ValidationError) string {
+	if err.Field != "" {
+		return fmt.Sprintf("validation error on field '%s': %s", err.Field, err.Message)
+	}
+	return fmt.Sprintf("validation error: %s", err.Message)
+}
+
 func (e *MultipleValidationError) Error() string {
 	kdeps_debug.Log("enter: Error")
 	if len(e.Errors) == 1 {
-		if e.Errors[0].Field != "" {
-			return fmt.Sprintf(
-				"validation error on field '%s': %s",
-				e.Errors[0].Field,
-				e.Errors[0].Message,
-			)
-		}
-		return fmt.Sprintf("validation error: %s", e.Errors[0].Message)
+		return formatValidationError(e.Errors[0])
 	}
 	return fmt.Sprintf("%d validation errors occurred", len(e.Errors))
 }

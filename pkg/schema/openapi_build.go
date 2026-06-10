@@ -26,6 +26,20 @@ import (
 	"github.com/kdeps/kdeps/v2/pkg/domain"
 )
 
+func defaultHTTPMethods() []string {
+	return []string{"GET", "POST", "PUT", "PATCH", "DELETE"}
+}
+
+// sortedStringSet returns the keys of m in sorted order.
+func sortedStringSet(m map[string]struct{}) []string {
+	out := make([]string, 0, len(m))
+	for k := range m {
+		out = append(out, k)
+	}
+	sort.Strings(out)
+	return out
+}
+
 // GenerateOpenAPI produces an OpenAPI 3.0.3 specification from a workflow.
 // It returns an empty-paths spec (not nil) when the workflow is nil.
 func GenerateOpenAPI(workflow *domain.Workflow) *OpenAPISpec {
@@ -70,7 +84,7 @@ func indexResourcesByRoute(workflow *domain.Workflow) map[routeKey][]*domain.Res
 		for _, route := range v.Routes {
 			methods := v.Methods
 			if len(methods) == 0 {
-				methods = []string{"GET", "POST", "PUT", "PATCH", "DELETE"}
+				methods = defaultHTTPMethods()
 			}
 			for _, m := range methods {
 				k := routeKey{path: route, method: strings.ToLower(m)}
@@ -150,11 +164,7 @@ func collectMethodsForPath(
 		}
 	}
 
-	out := make([]string, 0, len(seen))
-	for m := range seen {
-		out = append(out, m)
-	}
-	return out
+	return sortedStringSet(seen)
 }
 
 // operationValidations holds the result of collecting validation data from a
@@ -249,12 +259,7 @@ func buildRequestBody(upperMethod string, ov operationValidations) *OpenAPIReque
 		Properties: ov.fieldSchemas,
 	}
 	if len(ov.requiredFields) > 0 {
-		required := make([]string, 0, len(ov.requiredFields))
-		for f := range ov.requiredFields {
-			required = append(required, f)
-		}
-		sort.Strings(required)
-		bodySchema.Required = required
+		bodySchema.Required = sortedStringSet(ov.requiredFields)
 	}
 
 	return &OpenAPIRequestBody{
