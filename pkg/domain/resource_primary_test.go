@@ -98,6 +98,52 @@ func TestIsRecognizedResourceActionKey(t *testing.T) {
 	}
 }
 
+func TestPrimaryResourceEventName(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name string
+		res  *domain.Resource
+		want string
+	}{
+		{"exec", &domain.Resource{Exec: &domain.ExecConfig{}}, "exec"},
+		{"python", &domain.Resource{Python: &domain.PythonConfig{}}, "python"},
+		{"chat maps to llm", &domain.Resource{Chat: &domain.ChatConfig{}}, "llm"},
+		{"sql", &domain.Resource{SQL: &domain.SQLConfig{}}, "sql"},
+		{"httpClient maps to http", &domain.Resource{HTTPClient: &domain.HTTPClientConfig{}}, "http"},
+		{"agent", &domain.Resource{Agent: &domain.AgentCallConfig{}}, "agent"},
+		{"component", &domain.Resource{Component: &domain.ComponentCallConfig{}}, "component"},
+		{"scraper", &domain.Resource{Scraper: &domain.ScraperConfig{}}, "scraper"},
+		{"embedding", &domain.Resource{Embedding: &domain.EmbeddingConfig{}}, "embedding"},
+		{"searchLocal", &domain.Resource{SearchLocal: &domain.SearchLocalConfig{}}, "searchLocal"},
+		{"searchWeb", &domain.Resource{SearchWeb: &domain.SearchWebConfig{}}, "searchWeb"},
+		{"telephony", &domain.Resource{Telephony: &domain.TelephonyActionConfig{}}, "telephony"},
+		{"browser", &domain.Resource{Browser: &domain.BrowserConfig{}}, "browser"},
+		{"botReply", &domain.Resource{BotReply: &domain.BotReplyConfig{}}, "botReply"},
+		{"email", &domain.Resource{Email: &domain.EmailConfig{}}, "email"},
+		{"apiResponse only", &domain.Resource{APIResponse: &domain.APIResponseConfig{}}, "apiResponse"},
+		{
+			"primary beats apiResponse",
+			&domain.Resource{
+				Chat:        &domain.ChatConfig{},
+				APIResponse: &domain.APIResponseConfig{},
+			},
+			"llm",
+		},
+		{"unknown", &domain.Resource{}, "unknown"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			got := domain.PrimaryResourceEventName(tt.res)
+			if got != tt.want {
+				t.Fatalf("PrimaryResourceEventName() = %q, want %q", got, tt.want)
+			}
+		})
+	}
+}
+
 func TestPrimaryResourceTypeNames_MatchesExecutorRegistry(t *testing.T) {
 	t.Parallel()
 

@@ -994,6 +994,16 @@ func TestEngine_ResourceTypeName(t *testing.T) {
 			&domain.Resource{Telephony: &domain.TelephonyActionConfig{}},
 			executor.ExecutorTelephony,
 		},
+		{
+			"browser",
+			&domain.Resource{Browser: &domain.BrowserConfig{}},
+			executor.ExecutorBrowser,
+		},
+		{
+			"component",
+			&domain.Resource{Component: &domain.ComponentCallConfig{}},
+			"component",
+		},
 		{"unknown", &domain.Resource{}, "unknown"},
 	}
 	for _, tt := range tests {
