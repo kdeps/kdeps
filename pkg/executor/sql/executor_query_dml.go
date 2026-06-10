@@ -27,8 +27,7 @@ import (
 	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
 )
 
-// ExecuteDMLQuery executes a DML statement and returns affected rows and last insert ID.
-// ExecuteDMLQuery executes a DML query (exported for testing).
+// ExecuteDMLQuery executes a DML statement and returns affected rows and last insert ID (exported for testing).
 func (e *Executor) ExecuteDMLQuery(
 	queryCtx context.Context,
 	db *sql.DB,

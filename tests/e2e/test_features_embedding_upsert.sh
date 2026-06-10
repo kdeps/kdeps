@@ -134,7 +134,7 @@ fi
 UPS_RESP=$(curl -sf --max-time 5 -X POST "http://127.0.0.1:${API_PORT}/embed/upsert" \
     -H "Content-Type: application/json" -d '{}' 2>&1)
 
-if echo "$UPS_RESP" | grep -qi "upsert\|success\|operation"; then
+if output_grep_i "upsert|success|operation" "$UPS_RESP"; then
     test_passed "Embedding Upsert - upsert operation"
 else
     test_failed "Embedding Upsert - upsert operation" "resp=$UPS_RESP"

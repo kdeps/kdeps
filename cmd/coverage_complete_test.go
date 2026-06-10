@@ -1925,6 +1925,12 @@ func TestRegistryURL_Env(t *testing.T) {
 	assert.Equal(t, "http://custom-registry", registryURL(cmd))
 }
 
+func TestRegistryURL_DefaultBase(t *testing.T) {
+	t.Setenv("KDEPS_REGISTRY_URL", "")
+	cmd := &cobra.Command{}
+	assert.Equal(t, registryBaseURL, registryURL(cmd))
+}
+
 func TestResolveRegistryEnvURL(t *testing.T) {
 	t.Setenv("KDEPS_REGISTRY_URL", "http://custom-registry/")
 	assert.Equal(t, "http://custom-registry", resolveRegistryEnvURL())

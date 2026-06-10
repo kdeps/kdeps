@@ -262,7 +262,7 @@ else
             fi
         elif [ "$STATUS_CODE" = "500" ]; then
             # Check if it's a connection error or actual LLM error
-            if echo "$BODY" | grep -q "connection refused\|dial tcp"; then
+            if output_grep_fixed "connection refused\|dial tcp" "$BODY"; then
                 test_skipped "Chatbot LLM - Ollama connection issue during request"
             else
                 ERROR_MSG=""
@@ -344,7 +344,7 @@ if [ $? -eq 0 ] && [ -n "$CONV_RESPONSE" ]; then
     test_passed "Conversation context - Response received: $CONTENT"
     
     # Note: Small models may not always follow context correctly
-    if echo "$CONTENT" | grep -q "42"; then
+    if output_grep_fixed "42" "$CONTENT"; then
         test_passed "Conversation context - Model correctly recalled the number"
     else
         echo "  Note: Small models may not always follow conversation context correctly"

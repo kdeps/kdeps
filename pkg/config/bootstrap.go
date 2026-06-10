@@ -24,6 +24,9 @@ import (
 	"golang.org/x/term"
 )
 
+//nolint:gochecknoglobals // test-replaceable
+var isStdinTerminal = func() bool { return term.IsTerminal(int(os.Stdin.Fd())) }
+
 // providerNames returns the ordered list of supported LLM provider names.
 // "ollama" is the local option (no API key needed).
 func providerNames() []string {
@@ -51,7 +54,7 @@ func Bootstrap(out *os.File) error {
 		return nil // config already exists
 	}
 
-	if !term.IsTerminal(int(os.Stdin.Fd())) {
+	if !isStdinTerminal() {
 		// Non-interactive: write template and continue silently.
 		return Scaffold()
 	}
@@ -130,7 +133,7 @@ var readSecretFunc = readSecret
 
 // readSecret reads a line from stdin with echo disabled when possible.
 func readSecret(fallback *bufio.Reader) (string, error) {
-	if term.IsTerminal(int(os.Stdin.Fd())) {
+	if isStdinTerminal() {
 		b, err := term.ReadPassword(int(os.Stdin.Fd()))
 		return string(b), err
 	}

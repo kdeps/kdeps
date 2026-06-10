@@ -242,7 +242,7 @@ test_kdeps_binary_format() {
     local kdeps_output
     kdeps_output=$(docker exec "$container_name" timeout 5 /usr/local/bin/kdeps version 2>&1 || echo "EXEC_FAILED")
 
-    if echo "$kdeps_output" | grep -q "EXEC_FAILED"; then
+    if output_grep_fixed "EXEC_FAILED" "$kdeps_output"; then
         # Try just checking if it's executable
         if docker exec "$container_name" test -x /usr/local/bin/kdeps 2>/dev/null; then
             # Binary is executable but version command failed - might need args
@@ -284,7 +284,7 @@ test_environment_variables() {
     # Check PATH includes /opt/venv/bin
     local path
     path=$(docker exec "$container_name" printenv PATH 2>/dev/null || echo "")
-    if ! echo "$path" | grep -q "/opt/venv/bin"; then
+    if ! output_grep_fixed "/opt/venv/bin" "$path"; then
         test_failed "$test_name" "PATH does not include /opt/venv/bin"
         return 1
     fi
@@ -509,7 +509,7 @@ test_container_logs() {
     logs=$(docker logs "$container_name" 2>&1 | head -20 || echo "")
 
     # Check for expected startup messages
-    if echo "$logs" | grep -q "KDeps Docker Container Starting"; then
+    if output_grep_fixed "KDeps Docker Container Starting" "$logs"; then
         test_passed "$test_name"
         return 0
     else

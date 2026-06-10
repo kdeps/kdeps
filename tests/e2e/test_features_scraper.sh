@@ -224,7 +224,7 @@ PLAIN_RESP=$(curl -s --max-time 5 \
     -H "Content-Type: application/json" -d '{}' 2>&1)
 
 # If the component fails with INTERNAL_ERROR and the log shows missing packages, skip.
-if echo "$PLAIN_RESP" | grep -q "INTERNAL_ERROR" && \
+if output_grep_fixed "INTERNAL_ERROR" "$PLAIN_RESP" && \
    grep -q "ModuleNotFoundError\|No module named\|requests\|beautifulsoup" "$LOG_FILE" 2>/dev/null; then
     test_skipped "Scraper - text page scraping (requests/beautifulsoup4 not installed)"
     test_skipped "Scraper - HTML page scraping (requests/beautifulsoup4 not installed)"
@@ -246,7 +246,7 @@ except Exception:
     print('')
 " 2>/dev/null || echo "")
 
-if echo "$PLAIN_RESULT" | grep -qi "scraper\|Hello"; then
+if output_grep_fixed_i "scraper\|Hello" "$PLAIN_RESULT"; then
     test_passed "Scraper - text page scraping"
 else
     test_failed "Scraper - text page scraping" "result='$PLAIN_RESULT' resp='$PLAIN_RESP'"
@@ -269,7 +269,7 @@ except Exception:
     print('')
 " 2>/dev/null || echo "")
 
-if echo "$HTML_RESULT" | grep -qi "title\|content\|Page"; then
+if output_grep_fixed_i "title\|content\|Page" "$HTML_RESULT"; then
     test_passed "Scraper - HTML page scraping"
 else
     test_failed "Scraper - HTML page scraping" "result='$HTML_RESULT' resp='$HTML_RESP'"
@@ -292,7 +292,7 @@ except Exception:
     print('')
 " 2>/dev/null || echo "")
 
-if echo "$SEL_RESULT" | grep -qi "scraped content"; then
+if output_grep_fixed_i "scraped content" "$SEL_RESULT"; then
     test_passed "Scraper - CSS selector scraping"
 else
     test_failed "Scraper - CSS selector scraping" "result='$SEL_RESULT' resp='$SEL_RESP'"

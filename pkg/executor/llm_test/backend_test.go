@@ -338,7 +338,7 @@ func TestBackendResponseParsing_OpenAIFormat(t *testing.T) {
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(response)
 	}))
-	defer server.Close()
+	t.Cleanup(server.Close)
 
 	backends := []struct {
 		name    string
@@ -356,7 +356,7 @@ func TestBackendResponseParsing_OpenAIFormat(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			resp, err := http.Get(server.URL)
 			require.NoError(t, err)
-			defer resp.Body.Close()
+			t.Cleanup(func() { _ = resp.Body.Close() })
 
 			parsed, err := tt.backend.ParseResponse(resp)
 			require.NoError(t, err)

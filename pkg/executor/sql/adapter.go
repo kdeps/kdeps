@@ -20,8 +20,6 @@
 package sql
 
 import (
-	"errors"
-
 	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
 
 	"github.com/kdeps/kdeps/v2/pkg/domain"
@@ -44,18 +42,9 @@ func NewAdapter() *Adapter {
 // Execute implements ResourceExecutor interface.
 func (a *Adapter) Execute(ctx *executor.ExecutionContext, config interface{}) (interface{}, error) {
 	kdeps_debug.Log("enter: Execute")
-	sqlConfig, err := parseSQLConfig(config)
+	sqlConfig, err := executor.AdaptConfig[domain.SQLConfig](config, "SQL")
 	if err != nil {
 		return nil, err
 	}
 	return a.executor.Execute(ctx, sqlConfig)
-}
-
-func parseSQLConfig(config interface{}) (*domain.SQLConfig, error) {
-	kdeps_debug.Log("enter: parseSQLConfig")
-	sqlConfig, ok := config.(*domain.SQLConfig)
-	if !ok {
-		return nil, errors.New("invalid config type for SQL executor")
-	}
-	return sqlConfig, nil
 }

@@ -100,7 +100,7 @@ YAML
 
     local result
     if result=$(timeout 30 "$KDEPS_BIN" run "$pkg_dir" 2>&1); then
-        if echo "$result" | grep -q "scraper-ok"; then
+        if output_grep_fixed "scraper-ok" "$result"; then
             test_passed "native scraper - plain text fetch"
         else
             test_skipped "native scraper - plain text fetch (output format mismatch, may need server mode)"
@@ -143,7 +143,7 @@ YAML
 
     local result
     if result=$(timeout 30 "$KDEPS_BIN" run "$pkg_dir" 2>&1); then
-        if echo "$result" | grep -q "scraper-ok"; then
+        if output_grep_fixed "scraper-ok" "$result"; then
             test_passed "native scraper - CSS selector"
         else
             test_skipped "native scraper - CSS selector (output format mismatch)"

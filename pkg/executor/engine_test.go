@@ -825,9 +825,9 @@ func TestEngine_RunPreflightCheck_CompleteCoverage(t *testing.T) {
 			},
 		}
 
-		err = engine.RunPreflightCheck(resource, nil)
-		require.Error(t, err)
-		assert.Contains(t, err.Error(), "execution context required for preflight check")
+		checkErr := engine.RunPreflightCheck(resource, nil)
+		require.Error(t, checkErr)
+		assert.Contains(t, checkErr.Error(), "execution context required for preflight check")
 	})
 
 	t.Run("no preflight check returns nil", func(t *testing.T) {
@@ -839,8 +839,8 @@ func TestEngine_RunPreflightCheck_CompleteCoverage(t *testing.T) {
 			// No PreflightCheck - should return nil
 		}
 
-		err = engine.RunPreflightCheck(resource, ctx)
-		require.NoError(t, err)
+		checkErr := engine.RunPreflightCheck(resource, ctx)
+		require.NoError(t, checkErr)
 	})
 
 	t.Run("validation passes", func(t *testing.T) {
@@ -856,8 +856,8 @@ func TestEngine_RunPreflightCheck_CompleteCoverage(t *testing.T) {
 			},
 		}
 
-		err = engine.RunPreflightCheck(resource, ctx)
-		require.NoError(t, err)
+		checkErr := engine.RunPreflightCheck(resource, ctx)
+		require.NoError(t, checkErr)
 	})
 
 	t.Run("validation fails with custom error", func(t *testing.T) {
@@ -877,12 +877,12 @@ func TestEngine_RunPreflightCheck_CompleteCoverage(t *testing.T) {
 			},
 		}
 
-		err = engine.RunPreflightCheck(resource, ctx)
-		require.Error(t, err)
+		checkErr := engine.RunPreflightCheck(resource, ctx)
+		require.Error(t, checkErr)
 
 		// Should return PreflightError
 		var preflightErr *executor.PreflightError
-		require.ErrorAs(t, err, &preflightErr)
+		require.ErrorAs(t, checkErr, &preflightErr)
 		assert.Equal(t, 400, preflightErr.Code)
 		assert.Equal(t, "Custom preflight error", preflightErr.Message)
 	})
@@ -901,12 +901,12 @@ func TestEngine_RunPreflightCheck_CompleteCoverage(t *testing.T) {
 			},
 		}
 
-		err = engine.RunPreflightCheck(resource, ctx)
-		require.Error(t, err)
-		assert.Contains(t, err.Error(), "preflight validation failed: false")
+		checkErr := engine.RunPreflightCheck(resource, ctx)
+		require.Error(t, checkErr)
+		assert.Contains(t, checkErr.Error(), "preflight validation failed: false")
 		// Should NOT be a PreflightError (no custom error config)
 		var preflightErr *executor.PreflightError
-		assert.NotErrorAs(t, err, &preflightErr)
+		assert.NotErrorAs(t, checkErr, &preflightErr)
 	})
 
 	t.Run("expression with template syntax", func(t *testing.T) {
@@ -922,8 +922,8 @@ func TestEngine_RunPreflightCheck_CompleteCoverage(t *testing.T) {
 			},
 		}
 
-		err = engine.RunPreflightCheck(resource, ctx)
-		require.NoError(t, err)
+		checkErr := engine.RunPreflightCheck(resource, ctx)
+		require.NoError(t, checkErr)
 	})
 
 	t.Run("validation expression evaluation error", func(t *testing.T) {
@@ -939,9 +939,9 @@ func TestEngine_RunPreflightCheck_CompleteCoverage(t *testing.T) {
 			},
 		}
 
-		err = engine.RunPreflightCheck(resource, ctx)
-		require.Error(t, err)
-		assert.Contains(t, err.Error(), "validation expression error")
+		checkErr := engine.RunPreflightCheck(resource, ctx)
+		require.Error(t, checkErr)
+		assert.Contains(t, checkErr.Error(), "validation expression error")
 	})
 }
 

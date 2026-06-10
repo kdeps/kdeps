@@ -59,7 +59,6 @@ func (e *Executor) containsSQLFunctionCalls(paramStr string) bool {
 	return false
 }
 
-// EvaluateSingleParam evaluates a single SQL parameter.
 // EvaluateSingleParam evaluates a single SQL parameter (exported for testing).
 func (e *Executor) EvaluateSingleParam(
 	evaluator *expression.Evaluator,

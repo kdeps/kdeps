@@ -92,3 +92,36 @@ func TestEvaluateExpression_Simple(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, float64(4), result)
 }
+
+func TestEvaluateExpression_ParseError(t *testing.T) {
+	_, err := executor.EvaluateExpression(expression.NewEvaluator(nil), nil, "{{")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "failed to parse expression")
+}
+
+func TestEvaluateStringOrLiteral_TreatAsLiteral(t *testing.T) {
+	got, err := executor.EvaluateStringOrLiteral(
+		nil,
+		nil,
+		"{{skip}}",
+		executor.StringLiteralOptions{TreatAsLiteral: func(string) bool { return true }},
+	)
+	require.NoError(t, err)
+	assert.Equal(t, "{{skip}}", got)
+}
+
+func TestEvaluateStringOrLiteral_EvaluatesExpression(t *testing.T) {
+	ctx, err := executor.NewExecutionContext(&domain.Workflow{})
+	require.NoError(t, err)
+	ctx.API.Set("msg", "hi")
+	evaluator := expression.NewEvaluator(ctx.API)
+	env := executor.BuildSubExecutorEnv(ctx, executor.SubExecutorEnvOptions{})
+	got, err := executor.EvaluateStringOrLiteral(
+		evaluator,
+		env,
+		`{{get("msg")}}`,
+		executor.StringLiteralOptions{},
+	)
+	require.NoError(t, err)
+	assert.Equal(t, "hi", got)
+}

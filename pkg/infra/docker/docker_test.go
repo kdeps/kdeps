@@ -1029,16 +1029,16 @@ CMD ["cat", "/test.txt"]
 	tags := []string{"test:v1", "test:latest", "test:build"}
 	for _, tag := range tags {
 		t.Run("tag_"+tag, func(t *testing.T) {
-			err = client.BuildImage(ctx, "Dockerfile", tag, reader, false)
+			buildErr := client.BuildImage(ctx, "Dockerfile", tag, reader, false)
 			// May fail due to Docker daemon not running
-			if err != nil {
-				t.Logf("BuildImage error for tag %s: %v", tag, err)
+			if buildErr != nil {
+				t.Logf("BuildImage error for tag %s: %v", tag, buildErr)
 				// Ensure it's a Docker-related error, not a code panic
 				assert.True(t,
-					strings.Contains(err.Error(), "build") ||
-						strings.Contains(err.Error(), "daemon") ||
-						strings.Contains(err.Error(), "docker"),
-					"Error should be Docker-related for tag %s: %v", tag, err)
+					strings.Contains(buildErr.Error(), "build") ||
+						strings.Contains(buildErr.Error(), "daemon") ||
+						strings.Contains(buildErr.Error(), "docker"),
+					"Error should be Docker-related for tag %s: %v", tag, buildErr)
 			}
 		})
 	}

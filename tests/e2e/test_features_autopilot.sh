@@ -55,7 +55,7 @@ EOF
         # the failure is due to autopilot being unrecognized vs environment.
         local output
         output=$("$KDEPS_BIN" bundle package "$tmpdir" --output "$tmpdir/out.kdeps" 2>&1 || true)
-        if echo "$output" | grep -qi "unknown\|unrecognized\|invalid.*autopilot"; then
+        if output_grep_fixed_i "unknown\|unrecognized\|invalid.*autopilot" "$output"; then
             test_failed "autopilot resource type recognized" "Binary rejects autopilot as unknown field: $output"
         else
             test_skipped "autopilot resource type recognized (environment-specific failure)"
@@ -99,7 +99,7 @@ EOF
     else
         local output
         output=$("$KDEPS_BIN" bundle package "$tmpdir" --output "$tmpdir/out.kdeps" 2>&1 || true)
-        if echo "$output" | grep -qi "goal.*empty\|empty.*goal"; then
+        if output_grep_fixed_i "goal.*empty\|empty.*goal" "$output"; then
             test_passed "autopilot empty goal rejected at parse time"
         else
             test_skipped "autopilot empty goal test (environment-specific failure)"

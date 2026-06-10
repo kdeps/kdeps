@@ -56,7 +56,7 @@ WFEOF
 
 # ── Test 1: help flag ─────────────────────────────────────────────────────────
 OUTPUT=$("$KDEPS_BIN" export k8s --help 2>&1 || true)
-if echo "$OUTPUT" | grep -qiE "kubernetes|manifest|Deployment|k8s"; then
+if output_grep_i "kubernetes|manifest|Deployment|k8s" "$OUTPUT"; then
     test_passed "export k8s - help describes Kubernetes export"
 else
     test_failed "export k8s - help describes Kubernetes export" "Output: $OUTPUT"
@@ -64,7 +64,7 @@ fi
 
 # ── Test 2: stdout output contains Deployment and Service ─────────────────────
 OUTPUT=$("$KDEPS_BIN" export k8s "$TMP_DIR" 2>/dev/null)
-if echo "$OUTPUT" | grep -q "kind: Deployment" && echo "$OUTPUT" | grep -q "kind: Service"; then
+if output_grep_fixed "kind: Deployment" "$OUTPUT" && output_grep_fixed "kind: Service" "$OUTPUT"; then
     test_passed "export k8s - generates Deployment and Service manifests"
 else
     test_failed "export k8s - generates Deployment and Service manifests" "Output: $OUTPUT"
@@ -72,7 +72,7 @@ fi
 
 # ── Test 3: workflow name appears in manifest ──────────────────────────────────
 OUTPUT=$("$KDEPS_BIN" export k8s "$TMP_DIR" 2>/dev/null)
-if echo "$OUTPUT" | grep -q "name: k8s-e2e-test"; then
+if output_grep_fixed "name: k8s-e2e-test" "$OUTPUT"; then
     test_passed "export k8s - manifest contains workflow name"
 else
     test_failed "export k8s - manifest contains workflow name" "Output: $OUTPUT"
@@ -80,7 +80,7 @@ fi
 
 # ── Test 4: replicas from workflow.yaml ───────────────────────────────────────
 OUTPUT=$("$KDEPS_BIN" export k8s "$TMP_DIR" 2>/dev/null)
-if echo "$OUTPUT" | grep -q "replicas: 2"; then
+if output_grep_fixed "replicas: 2" "$OUTPUT"; then
     test_passed "export k8s - replicas from workflow.yaml"
 else
     test_failed "export k8s - replicas from workflow.yaml" "Output: $OUTPUT"
@@ -88,7 +88,7 @@ fi
 
 # ── Test 5: --replicas flag overrides workflow ────────────────────────────────
 OUTPUT=$("$KDEPS_BIN" export k8s "$TMP_DIR" --replicas 5 2>/dev/null)
-if echo "$OUTPUT" | grep -q "replicas: 5"; then
+if output_grep_fixed "replicas: 5" "$OUTPUT"; then
     test_passed "export k8s - --replicas flag overrides workflow value"
 else
     test_failed "export k8s - --replicas flag overrides workflow value" "Output: $OUTPUT"
@@ -96,7 +96,7 @@ fi
 
 # ── Test 6: --image flag sets container image ─────────────────────────────────
 OUTPUT=$("$KDEPS_BIN" export k8s "$TMP_DIR" --image my-registry/app:v2 2>/dev/null)
-if echo "$OUTPUT" | grep -q "image: my-registry/app:v2"; then
+if output_grep_fixed "image: my-registry/app:v2" "$OUTPUT"; then
     test_passed "export k8s - --image flag sets container image"
 else
     test_failed "export k8s - --image flag sets container image" "Output: $OUTPUT"
@@ -104,7 +104,7 @@ fi
 
 # ── Test 7: port appears in manifest ─────────────────────────────────────────
 OUTPUT=$("$KDEPS_BIN" export k8s "$TMP_DIR" 2>/dev/null)
-if echo "$OUTPUT" | grep -q "containerPort: 8080"; then
+if output_grep_fixed "containerPort: 8080" "$OUTPUT"; then
     test_passed "export k8s - container port from workflow portNum"
 else
     test_failed "export k8s - container port from workflow portNum" "Output: $OUTPUT"
@@ -112,7 +112,7 @@ fi
 
 # ── Test 8: resource limits in manifest ───────────────────────────────────────
 OUTPUT=$("$KDEPS_BIN" export k8s "$TMP_DIR" 2>/dev/null)
-if echo "$OUTPUT" | grep -q "cpu:" && echo "$OUTPUT" | grep -q "memory:"; then
+if output_grep_fixed "cpu:" "$OUTPUT" && output_grep_fixed "memory:" "$OUTPUT"; then
     test_passed "export k8s - resource limits appear in manifest"
 else
     test_failed "export k8s - resource limits appear in manifest" "Output: $OUTPUT"
@@ -120,14 +120,14 @@ fi
 
 # ── Test 9: env vars in manifest ──────────────────────────────────────────────
 OUTPUT=$("$KDEPS_BIN" export k8s "$TMP_DIR" 2>/dev/null)
-if echo "$OUTPUT" | grep -q "APP_ENV"; then
+if output_grep_fixed "APP_ENV" "$OUTPUT"; then
     test_passed "export k8s - env vars from workflow appear in manifest"
 else
     test_failed "export k8s - env vars from workflow appear in manifest" "Output: $OUTPUT"
 fi
 
 # ── Test 9b: apiServer emits auth token secretKeyRef ─────────────────────────
-if echo "$OUTPUT" | grep -q "KDEPS_API_AUTH_TOKEN" && echo "$OUTPUT" | grep -q "secretKeyRef"; then
+if output_grep_fixed "KDEPS_API_AUTH_TOKEN" "$OUTPUT" && output_grep_fixed "secretKeyRef" "$OUTPUT"; then
     test_passed "export k8s - apiServer auth tokens use secretKeyRef"
 else
     test_failed "export k8s - apiServer auth tokens use secretKeyRef" "Output: $OUTPUT"
@@ -144,7 +144,7 @@ fi
 
 # ── Test 11: default image uses name:version ──────────────────────────────────
 OUTPUT=$("$KDEPS_BIN" export k8s "$TMP_DIR" 2>/dev/null)
-if echo "$OUTPUT" | grep -q "image: k8s-e2e-test:1.0.0"; then
+if output_grep_fixed "image: k8s-e2e-test:1.0.0" "$OUTPUT"; then
     test_passed "export k8s - default image is name:version"
 else
     test_failed "export k8s - default image is name:version" "Output: $OUTPUT"
@@ -152,7 +152,7 @@ fi
 
 # ── Test 12: nonexistent path returns error ───────────────────────────────────
 OUTPUT=$("$KDEPS_BIN" export k8s /nonexistent/path 2>&1 || true)
-if echo "$OUTPUT" | grep -qiE "error|not found|no such|exist"; then
+if output_grep_i "error|not found|no such|exist" "$OUTPUT"; then
     test_passed "export k8s - rejects nonexistent workflow path"
 else
     test_failed "export k8s - rejects nonexistent workflow path" "Output: $OUTPUT"
@@ -181,7 +181,7 @@ trap 'rm -rf "$TMP_DIR" "$OLLAMA_DIR"' EXIT
 cp "$TMP_DIR/workflow_ollama.yaml" "$OLLAMA_DIR/workflow.yaml"
 
 OUTPUT=$("$KDEPS_BIN" export k8s "$OLLAMA_DIR" 2>/dev/null)
-if echo "$OUTPUT" | grep -q "containerPort: 11434"; then
+if output_grep_fixed "containerPort: 11434" "$OUTPUT"; then
     test_passed "export k8s - Ollama backend port (11434) present when installOllama: true"
 else
     test_failed "export k8s - Ollama backend port (11434) present when installOllama: true" "Output: $OUTPUT"

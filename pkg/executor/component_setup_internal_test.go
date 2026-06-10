@@ -372,9 +372,12 @@ func TestInstallOSPackages_AllInstalled(t *testing.T) {
 	apkBin := filepath.Join(tmpDir, "apk")
 	// apk info -e exits 0 => package is already installed.
 	require.NoError(t, os.WriteFile(apkBin, []byte("#!/bin/sh\n"+
-		"if [ \"$1\" = \"info\" ] && [ \"$2\" = \"-e\" ]; then exit 0; fi\n"+
+		"case \"$1\" in\n"+
+		"  info) [ \"$2\" = \"-e\" ] && exit 0 ;;\n"+
+		"  add) [ \"$2\" = \"--no-cache\" ] && exit 0 ;;\n"+
+		"esac\n"+
 		"exit 1\n"), 0755))
-	t.Setenv("PATH", tmpDir)
+	t.Setenv("PATH", tmpDir+string(os.PathListSeparator)+"/usr/bin:/bin")
 
 	require.NoError(t, installOSPackages([]string{"some-pkg"}))
 }

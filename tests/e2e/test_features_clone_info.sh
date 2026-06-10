@@ -133,7 +133,8 @@ fi
 
 # ── Test 5: kdeps registry install --help works ───────────────────────────────
 
-if "$KDEPS_BIN" registry install --help 2>&1 | grep -qiE "owner/repo|registry|local"; then
+HELP_OUTPUT=$("$KDEPS_BIN" registry install --help 2>&1 || true)
+if output_grep_i "owner/repo|registry|local" "$HELP_OUTPUT"; then
     test_passed "kdeps registry install - --help shows usage"
 else
     test_failed "kdeps registry install - --help shows usage" "Help text missing expected content"
@@ -141,7 +142,8 @@ fi
 
 # ── Test 6: kdeps registry info --help works ──────────────────────────────────
 
-if "$KDEPS_BIN" registry info --help 2>&1 | grep -qiE "readme|component|agent|ref|owner"; then
+HELP_INFO=$("$KDEPS_BIN" registry info --help 2>&1 || true)
+if output_grep_i "readme|component|agent|ref|owner" "$HELP_INFO"; then
     test_passed "kdeps registry info - --help shows usage"
 else
     test_failed "kdeps registry info - --help shows usage" "Help text missing expected content"
@@ -225,7 +227,7 @@ mkdir -p "$INSTALL_COMP_DIR"
 
 OUTPUT=$("$KDEPS_BIN" registry install "$COMP_FILE" \
     2>&1) || true
-if echo "$OUTPUT" | grep -qiE "Installing|installed|mycomp"; then
+if output_grep_i "Installing|installed|mycomp" "$OUTPUT"; then
     test_passed "kdeps registry install - installs from local .komponent archive"
 else
     test_failed "kdeps registry install - installs from local .komponent archive" "Output: $OUTPUT"

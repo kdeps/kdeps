@@ -51,7 +51,7 @@ completion_test() {
     fi
     test_passed "completion $shell - produces non-empty output"
 
-    if echo "$OUTPUT" | grep -q "$marker"; then
+    if output_grep_fixed "$marker" "$OUTPUT"; then
         test_passed "completion $shell - output contains expected marker ($marker)"
     else
         test_failed "completion $shell - output contains expected marker ($marker)" \
@@ -62,7 +62,7 @@ completion_test() {
 # ── Parent help ───────────────────────────────────────────────────────────────
 OUTPUT=$("$KDEPS_BIN" completion --help 2>&1 || true)
 for shell in bash zsh fish powershell; do
-    if echo "$OUTPUT" | grep -q "$shell"; then
+    if output_grep_fixed "$shell" "$OUTPUT"; then
         test_passed "completion --help - lists '$shell'"
     else
         test_failed "completion --help - lists '$shell'" "Output: $OUTPUT"
@@ -77,7 +77,7 @@ completion_test "powershell" "Register-ArgumentCompleter"
 
 # ── Invalid shell errors cleanly ─────────────────────────────────────────────
 BAD_OUT=$("$KDEPS_BIN" completion invalidshell 2>&1 || true)
-if echo "$BAD_OUT" | grep -qiE "error|unknown|invalid|usage"; then
+if output_grep_i "error|unknown|invalid|usage" "$BAD_OUT"; then
     test_passed "completion invalidshell - errors cleanly"
 else
     test_failed "completion invalidshell - errors cleanly" "Output: $BAD_OUT"

@@ -67,7 +67,7 @@ metadata:
 "
 
 OUTPUT=$(KDEPS_AGENTS_DIR="$AGENTS_DIR" "$KDEPS_BIN" registry install "$ARCHIVE" 2>&1)
-if echo "$OUTPUT" | grep -qiE "Installing|Installed|my-workflow"; then
+if output_grep_i "Installing|Installed|my-workflow" "$OUTPUT"; then
     test_passed "registry install - installs local .kdeps workflow archive"
 else
     test_failed "registry install - installs local .kdeps workflow archive" "Output: $OUTPUT"
@@ -94,7 +94,7 @@ metadata:
 "
 
 OUTPUT2=$(KDEPS_AGENTS_DIR="$AGENTS_DIR2" "$KDEPS_BIN" registry install "$ARCHIVE2" 2>&1)
-if echo "$OUTPUT2" | grep -qiE "Installing|Installed|my-agency"; then
+if output_grep_i "Installing|Installed|my-agency" "$OUTPUT2"; then
     test_passed "registry install - installs local .kagency archive"
 else
     test_failed "registry install - installs local .kagency archive" "Output: $OUTPUT2"
@@ -121,7 +121,7 @@ metadata:
 "
 
 OUTPUT3=$(KDEPS_COMPONENT_DIR="$COMP_DIR" "$KDEPS_BIN" registry install "$ARCHIVE3" 2>&1)
-if echo "$OUTPUT3" | grep -qiE "Installing|installed|my-comp"; then
+if output_grep_i "Installing|installed|my-comp" "$OUTPUT3"; then
     test_passed "registry install - installs local .komponent archive"
 else
     test_failed "registry install - installs local .komponent archive" "Output: $OUTPUT3"
@@ -145,7 +145,7 @@ metadata:
 cd "$TMPDIR4"
 OUTPUT4=$(KDEPS_AGENTS_DIR="$AGENTS_DIR4" "$KDEPS_BIN" registry install "./rel-workflow-1.0.0.kdeps" 2>&1)
 cd "$SCRIPT_DIR"
-if echo "$OUTPUT4" | grep -qiE "Installing|Installed|rel-workflow"; then
+if output_grep_i "Installing|Installed|rel-workflow" "$OUTPUT4"; then
     test_passed "registry install - installs using relative path ./"
 else
     test_failed "registry install - installs using relative path ./" "Output: $OUTPUT4"
@@ -154,7 +154,7 @@ fi
 # ── Test 5: install a non-existent local file returns error ───────────────────
 
 ERR_OUTPUT=$("$KDEPS_BIN" registry install "/nonexistent/path/archive.kdeps" 2>&1 || true)
-if echo "$ERR_OUTPUT" | grep -qiE "no such file|not found|error|local file"; then
+if output_grep_i "no such file|not found|error|local file" "$ERR_OUTPUT"; then
     test_passed "registry install - non-existent local file returns error"
 else
     test_failed "registry install - non-existent local file returns error" "Output: $ERR_OUTPUT"

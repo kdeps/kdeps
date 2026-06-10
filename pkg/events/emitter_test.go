@@ -26,12 +26,12 @@ import (
 )
 
 func TestNopEmitter_Emit(_ *testing.T) {
-	e := NopEmitter{}
+	var e Emitter = NopEmitter{}
 	e.Emit(Event{Event: "test"})
 }
 
 func TestNopEmitter_Close(_ *testing.T) {
-	e := NopEmitter{}
+	var e Emitter = NopEmitter{}
 	e.Close()
 }
 
@@ -46,7 +46,7 @@ func TestNDJSONEmitter_Emit(t *testing.T) {
 }
 
 func TestNDJSONEmitter_Close(_ *testing.T) {
-	e := NewNDJSONEmitter(&bytes.Buffer{})
+	var e Emitter = NewNDJSONEmitter(&bytes.Buffer{})
 	e.Close()
 }
 

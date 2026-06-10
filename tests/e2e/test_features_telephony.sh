@@ -275,7 +275,7 @@ SAY_RESP=$(curl -sf --max-time 5 \
 
 SAY_TWIML=$(extract_twiml "$SAY_RESP" "say")
 
-if echo "$SAY_TWIML" | grep -q "<Say"; then
+if output_grep_fixed "<Say" "$SAY_TWIML"; then
     test_passed "Telephony - say action TwiML"
 else
     test_failed "Telephony - say action TwiML" "twiml='$SAY_TWIML' resp='$SAY_RESP'"
@@ -287,7 +287,7 @@ else
     test_failed "Telephony - say voice attribute" "twiml='$SAY_TWIML'"
 fi
 
-if echo "$SAY_TWIML" | grep -q "Hello from kdeps telephony"; then
+if output_grep_fixed "Hello from kdeps telephony" "$SAY_TWIML"; then
     test_passed "Telephony - say text content"
 else
     test_failed "Telephony - say text content" "twiml='$SAY_TWIML'"
@@ -302,7 +302,7 @@ ASK_RESP=$(curl -sf --max-time 5 \
 
 ASK_TWIML=$(extract_twiml "$ASK_RESP" "ask")
 
-if echo "$ASK_TWIML" | grep -q "<Gather"; then
+if output_grep_fixed "<Gather" "$ASK_TWIML"; then
     test_passed "Telephony - ask action Gather"
 else
     test_failed "Telephony - ask action Gather" "twiml='$ASK_TWIML'"
@@ -329,13 +329,13 @@ MENU_RESP=$(curl -sf --max-time 5 \
 
 MENU_TWIML=$(extract_twiml "$MENU_RESP" "menu")
 
-if echo "$MENU_TWIML" | grep -q "<Gather"; then
+if output_grep_fixed "<Gather" "$MENU_TWIML"; then
     test_passed "Telephony - menu Gather node"
 else
     test_failed "Telephony - menu Gather node" "twiml='$MENU_TWIML'"
 fi
 
-if echo "$MENU_TWIML" | grep -q "Press 1 for sales"; then
+if output_grep_fixed "Press 1 for sales" "$MENU_TWIML"; then
     test_passed "Telephony - menu say text"
 else
     test_failed "Telephony - menu say text" "twiml='$MENU_TWIML'"
@@ -405,19 +405,19 @@ DIAL_RESP=$(curl -sf --max-time 5 \
 
 DIAL_TWIML=$(extract_twiml "$DIAL_RESP" "dial")
 
-if echo "$DIAL_TWIML" | grep -q "<Dial"; then
+if output_grep_fixed "<Dial" "$DIAL_TWIML"; then
     test_passed "Telephony - dial Dial node"
 else
     test_failed "Telephony - dial Dial node" "twiml='$DIAL_TWIML'"
 fi
 
-if echo "$DIAL_TWIML" | grep -q "agent@pbx.example.com"; then
+if output_grep_fixed "agent@pbx.example.com" "$DIAL_TWIML"; then
     test_passed "Telephony - dial SIP target"
 else
     test_failed "Telephony - dial SIP target" "twiml='$DIAL_TWIML'"
 fi
 
-if echo "$DIAL_TWIML" | grep -q "+15005550001"; then
+if output_grep_fixed "+15005550001" "$DIAL_TWIML"; then
     test_passed "Telephony - dial PSTN target"
 else
     test_failed "Telephony - dial PSTN target" "twiml='$DIAL_TWIML'"
@@ -438,7 +438,7 @@ REC_RESP=$(curl -sf --max-time 5 \
 
 REC_TWIML=$(extract_twiml "$REC_RESP" "record")
 
-if echo "$REC_TWIML" | grep -q "<Record"; then
+if output_grep_fixed "<Record" "$REC_TWIML"; then
     test_passed "Telephony - record Record node"
 else
     test_failed "Telephony - record Record node" "twiml='$REC_TWIML'"
@@ -459,7 +459,7 @@ HUP_RESP=$(curl -sf --max-time 5 \
 
 HUP_TWIML=$(extract_twiml "$HUP_RESP" "hangup")
 
-if echo "$HUP_TWIML" | grep -q "<Hangup"; then
+if output_grep_fixed "<Hangup" "$HUP_TWIML"; then
     test_passed "Telephony - hangup Hangup node"
 else
     test_failed "Telephony - hangup Hangup node" "twiml='$HUP_TWIML'"
@@ -474,7 +474,7 @@ REJ_RESP=$(curl -sf --max-time 5 \
 
 REJ_TWIML=$(extract_twiml "$REJ_RESP" "reject")
 
-if echo "$REJ_TWIML" | grep -q "<Reject"; then
+if output_grep_fixed "<Reject" "$REJ_TWIML"; then
     test_passed "Telephony - reject Reject node"
 else
     test_failed "Telephony - reject Reject node" "twiml='$REJ_TWIML'"

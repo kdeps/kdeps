@@ -41,10 +41,19 @@ import (
 )
 
 // captureStdout redirects os.Stdout to a pipe for the duration of f.
+// The pipe is drained concurrently so writes larger than the pipe buffer
+// (including stray output from leaked goroutines) cannot deadlock f.
 func captureStdout(t *testing.T, f func()) string {
 	t.Helper()
 	r, w, err := os.Pipe()
 	require.NoError(t, err)
+
+	done := make(chan string)
+	go func() {
+		var buf bytes.Buffer
+		_, _ = buf.ReadFrom(r)
+		done <- buf.String()
+	}()
 
 	orig := os.Stdout
 	os.Stdout = w //nolint:reassign // test helper
@@ -52,10 +61,7 @@ func captureStdout(t *testing.T, f func()) string {
 	w.Close()
 	os.Stdout = orig //nolint:reassign // test helper
 
-	var buf bytes.Buffer
-	_, err = buf.ReadFrom(r)
-	require.NoError(t, err)
-	return buf.String()
+	return <-done
 }
 
 // buildTarGz creates a temp tar.gz file with the given files and returns its path.

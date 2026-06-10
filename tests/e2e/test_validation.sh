@@ -39,7 +39,7 @@ test_validate() {
     
     local output
     output=$("$KDEPS_BIN" validate "$workflow_path" 2>&1)
-    if echo "$output" | grep -q "Validation successful"; then
+    if output_grep_fixed "Validation successful" "$output"; then
         test_passed "$test_name"
         return 0
     else
@@ -169,7 +169,7 @@ test_validation_error() {
     
     # Check for expected field in error message
     local escaped_field=$(echo "$expected_field" | sed 's/\./\\./g')
-    if ! echo "$output" | grep -qE "$escaped_field"; then
+    if ! output_grep "$escaped_field" "$output"; then
         test_failed "$test_name" "Error message missing expected field '$expected_field'"
         echo "Output: $output" | grep -E "(Error|validation)" | head -5
         return 1
@@ -195,7 +195,7 @@ test_enhanced_error() {
     output=$("$KDEPS_BIN" run "$workflow_path" 2>&1 || true)
     
     # Check for "Available options" in the error message
-    if ! echo "$output" | grep -q "Available options"; then
+    if ! output_grep_fixed "Available options" "$output"; then
         test_failed "$test_name" "Error message missing 'Available options'"
         echo "Output: $output" | grep -E "(Error|validation|$expected_field)" | head -5
         return 1
@@ -203,14 +203,14 @@ test_enhanced_error() {
     
     # Check for expected field (escape dots for grep, use -E for extended regex)
     local escaped_field=$(echo "$expected_field" | sed 's/\./\\./g')
-    if ! echo "$output" | grep -qE "$escaped_field"; then
+    if ! output_grep "$escaped_field" "$output"; then
         test_failed "$test_name" "Error message missing expected field '$expected_field'"
         echo "Output: $output" | grep -E "(Error|validation|Available|$expected_field)" | head -5
         return 1
     fi
     
     # Check for expected option (case-insensitive, use -E for extended regex)
-    if ! echo "$output" | grep -qiE "$expected_option"; then
+    if ! output_grep_i "$expected_option" "$output"; then
         test_failed "$test_name" "Error message missing expected option '$expected_option'"
         echo "Output: $output" | grep -E "(Error|validation|Available|$expected_option)" | head -5
         return 1

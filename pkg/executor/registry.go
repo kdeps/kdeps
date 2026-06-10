@@ -19,6 +19,7 @@
 package executor
 
 import (
+	"fmt"
 	"sync"
 
 	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
@@ -27,6 +28,17 @@ import (
 // ResourceExecutor is the interface for resource executors.
 type ResourceExecutor interface {
 	Execute(ctx *ExecutionContext, config interface{}) (interface{}, error)
+}
+
+// AdaptConfig asserts an untyped resource config to its concrete type, naming
+// the executor in the error for diagnostics. It is the shared type-assertion
+// step of every executor adapter's Execute method.
+func AdaptConfig[C any](config interface{}, name string) (*C, error) {
+	cfg, ok := config.(*C)
+	if !ok {
+		return nil, fmt.Errorf("invalid config type for %s executor: %T", name, config)
+	}
+	return cfg, nil
 }
 
 // Registry holds resource executors.

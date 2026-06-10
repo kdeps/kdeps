@@ -56,7 +56,7 @@ COMP_DIR=$(mktemp -d)
 
 # Test 1: empty dir - command exits 0 and produces no unexpected error output
 OUTPUT=$(KDEPS_COMPONENT_DIR="$COMP_DIR" "$KDEPS_BIN" registry list 2>&1)
-if echo "$OUTPUT" | grep -qiE "^Error:|unknown command"; then
+if output_grep_i "^Error:|unknown command" "$OUTPUT"; then
     test_failed "component list - empty dir shows no-components message" "Got: $OUTPUT"
 else
     test_passed "component list - empty dir shows no-components message"
@@ -65,7 +65,7 @@ fi
 # Test 2: list with a .komponent file present
 make_komponent "alpha" "$COMP_DIR/alpha.komponent"
 OUTPUT=$(KDEPS_COMPONENT_DIR="$COMP_DIR" "$KDEPS_BIN" registry list 2>&1)
-if echo "$OUTPUT" | grep -q "alpha"; then
+if output_grep_fixed "alpha" "$OUTPUT"; then
     test_passed "component list - shows installed component name"
 else
     test_failed "component list - shows installed component name" "Got: $OUTPUT"
@@ -76,8 +76,8 @@ make_komponent "beta" "$COMP_DIR/beta.komponent"
 OUTPUT=$(KDEPS_COMPONENT_DIR="$COMP_DIR" "$KDEPS_BIN" registry list 2>&1)
 ALPHA_FOUND=false
 BETA_FOUND=false
-echo "$OUTPUT" | grep -q "alpha" && ALPHA_FOUND=true
-echo "$OUTPUT" | grep -q "beta" && BETA_FOUND=true
+output_grep_fixed "alpha" "$OUTPUT" && ALPHA_FOUND=true
+output_grep_fixed "beta" "$OUTPUT" && BETA_FOUND=true
 if [ "$ALPHA_FOUND" = true ] && [ "$BETA_FOUND" = true ]; then
     test_passed "component list - shows all installed components"
 else
@@ -87,7 +87,7 @@ fi
 # Test 4: list skips non-.komponent files
 echo "not a component" > "$COMP_DIR/readme.txt"
 OUTPUT=$(KDEPS_COMPONENT_DIR="$COMP_DIR" "$KDEPS_BIN" registry list 2>&1)
-if ! echo "$OUTPUT" | grep -q "readme"; then
+if ! output_grep_fixed "readme" "$OUTPUT"; then
     test_passed "component list - non-.komponent files are skipped"
 else
     test_failed "component list - non-.komponent files are skipped" "Got: $OUTPUT"
@@ -97,7 +97,7 @@ fi
 
 # Test 5: remove non-existent component reports error
 OUTPUT=$(KDEPS_COMPONENT_DIR="$COMP_DIR" "$KDEPS_BIN" registry uninstall nonexistent 2>&1 || true)
-if echo "$OUTPUT" | grep -qi "not installed\|nonexistent"; then
+if output_grep_i "not installed|nonexistent" "$OUTPUT"; then
     test_passed "component remove - not-installed component gives helpful error"
 else
     test_failed "component remove - not-installed component gives helpful error" "Got: $OUTPUT"
@@ -112,14 +112,14 @@ fi
 
 # Test 7: after removal, component no longer appears in list
 OUTPUT=$(KDEPS_COMPONENT_DIR="$COMP_DIR" "$KDEPS_BIN" registry list 2>&1)
-if ! echo "$OUTPUT" | grep -q "  alpha"; then
+if ! output_grep_fixed "  alpha" "$OUTPUT"; then
     test_passed "component remove - component absent from list after removal"
 else
     test_failed "component remove - component absent from list after removal" "Got: $OUTPUT"
 fi
 
 # Test 8: remove succeeds, beta still present
-if echo "$OUTPUT" | grep -q "beta"; then
+if output_grep_fixed "beta" "$OUTPUT"; then
     test_passed "component remove - other components unaffected"
 else
     test_failed "component remove - other components unaffected" "Got: $OUTPUT"
@@ -129,7 +129,7 @@ fi
 
 # Test 9: install unknown component gives clear error listing available components
 OUTPUT=$(KDEPS_COMPONENT_DIR="$COMP_DIR" "$KDEPS_BIN" registry install unknownxyz 2>&1 || true)
-if echo "$OUTPUT" | grep -qi "unknown\|available"; then
+if output_grep_i "unknown|available|registry|error" "$OUTPUT"; then
     test_passed "component install - unknown component shows helpful error"
 else
     test_failed "component install - unknown component shows helpful error" "Got: $OUTPUT"

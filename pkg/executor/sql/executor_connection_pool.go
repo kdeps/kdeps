@@ -28,28 +28,34 @@ import (
 	"github.com/kdeps/kdeps/v2/pkg/domain"
 )
 
+// driverPrefixes maps connection string prefixes to driver names; first match wins.
+//
+//nolint:gochecknoglobals // static lookup table
+var driverPrefixes = []struct {
+	driver   string
+	prefixes []string
+}{
+	{"postgres", []string{"postgres"}},
+	{"mysql", []string{"mysql", "mariadb"}},
+	{"sqlite3", []string{"sqlite", "file:"}},
+	{"sqlserver", []string{"sqlserver", "mssql"}},
+	{"oracle", []string{"oracle", "oci8"}},
+}
+
 // DetectDriver detects database driver from connection string (exported for testing).
 func (e *Executor) DetectDriver(connectionStr string) string {
 	kdeps_debug.Log("enter: DetectDriver")
-	if len(connectionStr) > 0 {
-		lowerStr := strings.ToLower(connectionStr)
-		switch {
-		case strings.HasPrefix(lowerStr, "postgres"):
-			return "postgres"
-		case strings.HasPrefix(lowerStr, "mysql") || strings.HasPrefix(lowerStr, "mariadb"):
-			return "mysql"
-		case strings.HasPrefix(lowerStr, "sqlite") || strings.HasPrefix(lowerStr, "file:"):
-			return "sqlite3"
-		case strings.HasPrefix(lowerStr, "sqlserver") || strings.HasPrefix(lowerStr, "mssql"):
-			return "sqlserver"
-		case strings.HasPrefix(lowerStr, "oracle") || strings.HasPrefix(lowerStr, "oci8"):
-			return "oracle"
+	lowerStr := strings.ToLower(connectionStr)
+	for _, d := range driverPrefixes {
+		for _, prefix := range d.prefixes {
+			if strings.HasPrefix(lowerStr, prefix) {
+				return d.driver
+			}
 		}
 	}
 	return "postgres" // Default
 }
 
-// ConfigurePool configures database connection pool settings.
 // ConfigurePool configures the database connection pool (exported for testing).
 func (e *Executor) ConfigurePool(db *sql.DB, poolConfig *domain.PoolConfig) {
 	kdeps_debug.Log("enter: ConfigurePool")

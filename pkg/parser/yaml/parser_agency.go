@@ -24,7 +24,6 @@ import (
 	"path/filepath"
 
 	"github.com/spf13/afero"
-	"gopkg.in/yaml.v3"
 
 	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
 	"github.com/kdeps/kdeps/v2/pkg/domain"
@@ -34,39 +33,9 @@ func (p *Parser) ParseAgency(path string) (*domain.Agency, error) {
 	kdeps_debug.Log("enter: ParseAgency")
 	var validate func(map[string]interface{}) error
 	if p.schemaValidator != nil {
-		sv := p.schemaValidator
-		validate = func(rawData map[string]interface{}) error {
-			if schemaErr := sv.ValidateAgency(rawData); schemaErr != nil {
-				return domain.NewError(
-					domain.ErrCodeValidationFailed,
-					"agency schema validation failed",
-					schemaErr,
-				)
-			}
-			return nil
-		}
+		validate = p.schemaValidator.ValidateAgency
 	}
-
-	data, err := p.readPreprocessAndValidateYAML(
-		path,
-		"failed to read file",
-		"failed to preprocess agency Jinja2 template",
-		validate,
-	)
-	if err != nil {
-		return nil, err
-	}
-
-	var agency domain.Agency
-	if agencyErr := yaml.Unmarshal(data, &agency); agencyErr != nil {
-		return nil, domain.NewError(
-			domain.ErrCodeParseError,
-			"failed to parse agency",
-			agencyErr,
-		)
-	}
-
-	return &agency, nil
+	return parseManifest[domain.Agency](p, path, "agency", "failed to read file", validate)
 }
 
 // DiscoverAgentWorkflows returns the workflow file paths for all agents defined

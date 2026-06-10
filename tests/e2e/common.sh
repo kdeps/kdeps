@@ -143,6 +143,25 @@ PYEOF
     export KDEPS_REGISTRY_URL="http://127.0.0.1:$_MOCK_PORT"
 fi
 
+# Match patterns in command output without pipefail SIGPIPE from echo|grep pipelines.
+output_grep() {
+    grep -qE "$1" <<< "$2"
+}
+
+output_grep_i() {
+    grep -qiE "$1" <<< "$2"
+}
+
+output_grep_fixed() {
+    grep -qF -- "$1" <<< "$2"
+}
+
+output_grep_fixed_i() {
+    grep -qiF -- "$1" <<< "$2"
+}
+
+export -f output_grep output_grep_i output_grep_fixed output_grep_fixed_i
+
 # Test helper functions
 test_passed() {
     echo -e "${GREEN}✓ PASSED:${NC} $1"

@@ -20,8 +20,6 @@
 package searchweb
 
 import (
-	"errors"
-
 	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
 	"github.com/kdeps/kdeps/v2/pkg/domain"
 	"github.com/kdeps/kdeps/v2/pkg/executor"
@@ -41,18 +39,9 @@ func NewAdapter() *Adapter {
 // Execute implements ResourceExecutor interface.
 func (a *Adapter) Execute(ctx *executor.ExecutionContext, config interface{}) (interface{}, error) {
 	kdeps_debug.Log("enter: Execute")
-	cfg, err := parseSearchWebConfig(config)
+	cfg, err := executor.AdaptConfig[domain.SearchWebConfig](config, "searchWeb")
 	if err != nil {
 		return nil, err
 	}
 	return a.executor.Execute(ctx, cfg)
-}
-
-func parseSearchWebConfig(config interface{}) (*domain.SearchWebConfig, error) {
-	kdeps_debug.Log("enter: parseSearchWebConfig")
-	cfg, ok := config.(*domain.SearchWebConfig)
-	if !ok {
-		return nil, errors.New("invalid config type for searchWeb executor")
-	}
-	return cfg, nil
 }

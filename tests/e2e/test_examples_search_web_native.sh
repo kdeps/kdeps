@@ -180,7 +180,7 @@ RESP=$(curl -s --max-time 15 -X POST "http://127.0.0.1:${API_PORT}/search" \
     -H "Content-Type: application/json" \
     -d '{"query": "Go programming language"}' 2>&1)
 
-if echo "$RESP" | grep -q "success\|answer\|error\|results"; then
+if output_grep_fixed "success\|answer\|error\|results" "$RESP"; then
     test_passed "search-web-native - /search endpoint responds"
 else
     test_failed "search-web-native - /search endpoint responds" "resp=$RESP"

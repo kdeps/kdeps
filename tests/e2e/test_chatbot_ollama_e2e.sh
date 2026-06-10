@@ -125,7 +125,7 @@ test_chatbot_workflow() {
 
     if [ -n "$api_response" ] && echo "$api_response" | grep -q "data"; then
         # Check if response contains expected structure
-        if echo "$api_response" | grep -q "answer"; then
+        if output_grep_fixed "answer" "$api_response"; then
             local answer
             answer=$(echo "$api_response" | grep -o '"answer":"[^"]*"' | sed 's/"answer":"//' | sed 's/"$//' 2>/dev/null | head -1)
 

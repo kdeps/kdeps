@@ -20,8 +20,6 @@
 package telephony
 
 import (
-	"errors"
-
 	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
 	"github.com/kdeps/kdeps/v2/pkg/domain"
 	"github.com/kdeps/kdeps/v2/pkg/executor"
@@ -41,18 +39,9 @@ func NewAdapter() *Adapter {
 // Execute implements executor.ResourceExecutor.
 func (a *Adapter) Execute(ctx *executor.ExecutionContext, config interface{}) (interface{}, error) {
 	kdeps_debug.Log("enter: Execute")
-	cfg, err := parseTelephonyConfig(config)
+	cfg, err := executor.AdaptConfig[domain.TelephonyActionConfig](config, "telephony")
 	if err != nil {
 		return nil, err
 	}
 	return a.executor.Execute(ctx, cfg)
-}
-
-func parseTelephonyConfig(config interface{}) (*domain.TelephonyActionConfig, error) {
-	kdeps_debug.Log("enter: parseTelephonyConfig")
-	cfg, ok := config.(*domain.TelephonyActionConfig)
-	if !ok {
-		return nil, errors.New("invalid config type for telephony executor")
-	}
-	return cfg, nil
 }

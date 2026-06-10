@@ -73,35 +73,28 @@ func validateUnknownKeys(data []byte) []string {
 				"(valid keys: llm, defaults, resource_defaults, agents)", k))
 	}
 
-	// Check llm: sub-keys.
-	if llmNode := findMappingValue(root, "llm"); llmNode != nil {
-		llmUnknown := collectUnknownKeys(llmNode, knownLLMKeys)
-		for _, k := range llmUnknown {
-			warnings = append(warnings, fmt.Sprintf(
-				"unknown llm key %q — check for typos in API key or field name", k))
-		}
-	}
+	// Check sub-keys of each known section.
+	warnings = append(warnings, subKeyWarnings(root, "llm", knownLLMKeys,
+		"unknown llm key %q — check for typos in API key or field name")...)
+	warnings = append(warnings, subKeyWarnings(root, "defaults", knownDefaultsKeys,
+		"unknown defaults key %q — valid keys: timezone, python_version, offline_mode")...)
+	warnings = append(warnings, subKeyWarnings(root, "resource_defaults", knownResourceDefaultsKeys,
+		"unknown resource_defaults key %q — valid keys: chat, http, python, exec, sql, onError")...)
 
-	// Check defaults: sub-keys.
-	if defNode := findMappingValue(root, "defaults"); defNode != nil {
-		defUnknown := collectUnknownKeys(defNode, knownDefaultsKeys)
-		for _, k := range defUnknown {
-			warnings = append(warnings, fmt.Sprintf(
-				"unknown defaults key %q — "+
-					"valid keys: timezone, python_version, offline_mode", k))
-		}
-	}
+	return warnings
+}
 
-	// Check resource_defaults: sub-keys.
-	if rdNode := findMappingValue(root, "resource_defaults"); rdNode != nil {
-		rdUnknown := collectUnknownKeys(rdNode, knownResourceDefaultsKeys)
-		for _, k := range rdUnknown {
-			warnings = append(warnings, fmt.Sprintf(
-				"unknown resource_defaults key %q — "+
-					"valid keys: chat, http, python, exec, sql, onError", k))
-		}
+// subKeyWarnings reports unknown keys under a named mapping section using msgFmt
+// (which must contain a single %q verb for the offending key).
+func subKeyWarnings(root *yaml.Node, section string, known map[string]bool, msgFmt string) []string {
+	node := findMappingValue(root, section)
+	if node == nil {
+		return nil
 	}
-
+	var warnings []string
+	for _, k := range collectUnknownKeys(node, known) {
+		warnings = append(warnings, fmt.Sprintf(msgFmt, k))
+	}
 	return warnings
 }
 

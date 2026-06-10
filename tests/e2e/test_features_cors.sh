@@ -152,22 +152,22 @@ if command -v curl &> /dev/null; then
         test_passed "CORS - OPTIONS preflight request (200/204 OK)"
         
         # Check for CORS headers
-        if echo "$HEADERS" | grep -qi "Access-Control-Allow-Origin"; then
+        if output_grep_fixed_i "Access-Control-Allow-Origin" "$HEADERS"; then
             test_passed "CORS - Preflight response has Access-Control-Allow-Origin header"
             
             ORIGIN_HEADER=$(echo "$HEADERS" | grep -i "Access-Control-Allow-Origin" | head -1)
-            if echo "$ORIGIN_HEADER" | grep -qi "localhost:16395\|*"; then
+            if output_grep_fixed_i "localhost:16395\|*" "$ORIGIN_HEADER"; then
                 test_passed "CORS - Access-Control-Allow-Origin header has correct value"
             fi
         else
             test_skipped "CORS - Access-Control-Allow-Origin header (may use different header format)"
         fi
         
-        if echo "$HEADERS" | grep -qi "Access-Control-Allow-Methods"; then
+        if output_grep_fixed_i "Access-Control-Allow-Methods" "$HEADERS"; then
             test_passed "CORS - Preflight response has Access-Control-Allow-Methods header"
         fi
         
-        if echo "$HEADERS" | grep -qi "Access-Control-Allow-Headers"; then
+        if output_grep_fixed_i "Access-Control-Allow-Headers" "$HEADERS"; then
             test_passed "CORS - Preflight response has Access-Control-Allow-Headers header"
         fi
     else

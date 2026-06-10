@@ -14,7 +14,6 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
-	"syscall"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -994,31 +993,6 @@ func TestBuilder_GenerateConfigYAMLExtended_EmptyImageName(t *testing.T) {
 	assert.Contains(t, err.Error(), "image name cannot be empty")
 }
 
-// TestBuilder_Build_WriteStringError covers the tmpFile.WriteString error path
-// (builder.go:151-153). We set RLIMIT_FSIZE to 1 byte so CreateTemp succeeds
-// (empty file) but WriteString fails (EFBIG).
-func TestBuilder_Build_WriteStringError(t *testing.T) {
-	var rlim syscall.Rlimit
-	require.NoError(t, syscall.Getrlimit(syscall.RLIMIT_FSIZE, &rlim))
-
-	// Set file size limit to 1 byte. CreateTemp creates a 0-byte file (OK),
-	// but WriteString tries to write >1 byte and fails with EFBIG.
-	require.NoError(t, syscall.Setrlimit(syscall.RLIMIT_FSIZE, &syscall.Rlimit{Cur: 1, Max: rlim.Max}))
-	defer func() {
-		_ = syscall.Setrlimit(syscall.RLIMIT_FSIZE, &rlim)
-	}()
-
-	runner := &mockRunner{}
-	builder := iso.NewBuilderWithRunner(runner)
-
-	workflow := &domain.Workflow{
-		Metadata: domain.WorkflowMetadata{
-			Name: "write-error-test",
-		},
-	}
-
-	outputPath := filepath.Join(t.TempDir(), "output.iso")
-	err := builder.Build(t.Context(), "write-error-test:1.0.0", workflow, outputPath, false)
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "failed to write LinuxKit config")
-}
+// TestBuilder_Build_WriteStringError moved to builder_write_error_internal_test.go:
+// the WriteString error path is now triggered via the osCreateTemp seam instead of
+// RLIMIT_FSIZE, which broke the test runtime's own bookkeeping writes.

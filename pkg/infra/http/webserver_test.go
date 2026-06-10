@@ -30,6 +30,7 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"github.com/kdeps/kdeps/v2/pkg/domain"
 	httppkg "github.com/kdeps/kdeps/v2/pkg/infra/http"
@@ -526,50 +527,49 @@ func TestWebServer_HandleWebSocketProxy_ErrorCases(t *testing.T) {
 }
 
 func TestWebServer_StartAppCommand(t *testing.T) {
-	workflow := &domain.Workflow{
-		Settings: domain.WorkflowSettings{
-			WebServer: &domain.WebServerConfig{
-				Routes: []domain.WebRoute{},
+	newTestWebServer := func() *httppkg.WebServer {
+		t.Helper()
+		workflow := &domain.Workflow{
+			Settings: domain.WorkflowSettings{
+				WebServer: &domain.WebServerConfig{
+					Routes: []domain.WebRoute{},
+				},
 			},
-		},
+		}
+		server, err := httppkg.NewWebServer(workflow, slog.Default())
+		require.NoError(t, err)
+		return server
 	}
 
-	server, _ := httppkg.NewWebServer(workflow, slog.Default())
-
-	// Test StartAppCommand with various scenarios
-	t.Run("empty command", func(_ *testing.T) {
+	t.Run("empty command", func(t *testing.T) {
+		server := newTestWebServer()
 		route := &domain.WebRoute{
-			Path:    "/test",
-			Command: "", // Empty command should be handled gracefully
+			Path:    "/test-empty",
+			Command: "",
 		}
-
-		ctx := t.Context()
-		// Should not panic with empty command
-		server.StartAppCommand(ctx, route)
+		server.StartAppCommand(t.Context(), route)
 	})
 
-	t.Run("invalid working directory", func(_ *testing.T) {
+	t.Run("invalid working directory", func(t *testing.T) {
+		server := newTestWebServer()
 		route := &domain.WebRoute{
-			Path:       "/test",
+			Path:       "/test-invalid-wd",
 			Command:    "echo test",
 			PublicPath: "/nonexistent/directory",
 		}
-
-		ctx := t.Context()
-		// Should handle invalid working directory gracefully
-		server.StartAppCommand(ctx, route)
+		server.StartAppCommand(t.Context(), route)
 	})
 
-	t.Run("command with context cancellation", func(_ *testing.T) {
+	t.Run("command with context cancellation", func(t *testing.T) {
+		server := newTestWebServer()
 		route := &domain.WebRoute{
-			Path:       "/test",
-			Command:    "sleep 10", // Long running command
-			PublicPath: ".",        // Current directory
+			Path:       "/test-cancel",
+			Command:    "sleep 10",
+			PublicPath: ".",
 		}
 
 		ctx, cancel := context.WithCancel(t.Context())
 
-		// Start command in background
 		go server.StartAppCommand(ctx, route)
 
 		// Cancel context after short delay

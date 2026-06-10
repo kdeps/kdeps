@@ -77,7 +77,7 @@ EOF
 write_workflow "      version: 1.2.0"
 
 OUTPUT=$(cd "$TEST_DIR" && KDEPS_SKIP_BOOTSTRAP=1 "$KDEPS_BIN" run workflow/workflow.yaml 2>&1) || true
-if echo "$OUTPUT" | grep -q "Execution complete"; then
+if output_grep_fixed "Execution complete" "$OUTPUT"; then
     test_passed "[PASS] version match — pinned 1.2.0 matches component 1.2.0"
 else
     test_failed "[FAIL] version match — pinned 1.2.0 matches component 1.2.0" "got: $(echo "$OUTPUT" | grep -i 'error\|fail\|version\|echo' | tail -3)"
@@ -88,7 +88,7 @@ fi
 write_workflow "      version: 2.0.0"
 
 OUTPUT=$(cd "$TEST_DIR" && KDEPS_SKIP_BOOTSTRAP=1 "$KDEPS_BIN" run workflow/workflow.yaml 2>&1) || true
-if echo "$OUTPUT" | grep -q "version mismatch"; then
+if output_grep_fixed "version mismatch" "$OUTPUT"; then
     test_passed "[PASS] version mismatch — pinned 2.0.0 rejected, component is 1.2.0"
 else
     test_failed "[FAIL] version mismatch — pinned 2.0.0 rejected, component is 1.2.0" "got: $(echo "$OUTPUT" | grep -i 'error\|fail\|version' | tail -3)"
@@ -99,7 +99,7 @@ fi
 write_workflow ""
 
 OUTPUT=$(cd "$TEST_DIR" && KDEPS_SKIP_BOOTSTRAP=1 "$KDEPS_BIN" run workflow/workflow.yaml 2>&1) || true
-if echo "$OUTPUT" | grep -q "Execution complete"; then
+if output_grep_fixed "Execution complete" "$OUTPUT"; then
     test_passed "[PASS] no version pin — runs any component version"
 else
     test_failed "[FAIL] no version pin — runs any component version" "got: $(echo "$OUTPUT" | grep -i 'error\|fail\|Execution' | tail -3)"
@@ -140,7 +140,7 @@ resources:
 EOF
 
 OUTPUT=$(cd "$TEST_DIR" && KDEPS_SKIP_BOOTSTRAP=1 "$KDEPS_BIN" run workflow/workflow.yaml 2>&1) || true
-if echo "$OUTPUT" | grep -q "Execution complete"; then
+if output_grep_fixed "Execution complete" "$OUTPUT"; then
     test_passed "[PASS] version pinned on unversioned component — runs with warning"
 else
     test_failed "[FAIL] version pinned on unversioned component — runs with warning" "got: $(echo "$OUTPUT" | grep -i 'error\|fail\|no-version' | tail -3)"
@@ -165,7 +165,7 @@ resources:
 EOF
 
 OUTPUT=$(cd "$TEST_DIR" && KDEPS_SKIP_BOOTSTRAP=1 "$KDEPS_BIN" validate workflow/workflow.yaml 2>&1) || true
-if echo "$OUTPUT" | grep -q "Validation successful"; then
+if output_grep_fixed "Validation successful" "$OUTPUT"; then
     test_passed "[PASS] validate accepts component version field"
 else
     test_failed "[FAIL] validate accepts component version field" "got: $(echo "$OUTPUT" | tail -5)"
