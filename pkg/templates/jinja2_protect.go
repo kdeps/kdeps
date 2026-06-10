@@ -100,13 +100,6 @@ func needsJinja2Preprocess(content string) bool {
 	return strings.Contains(content, "{%") || strings.Contains(content, "{#")
 }
 
-// AutoProtectKdepsExpressions is the exported form of autoProtectKdepsExpressions,
-// exposed for testing. Application code should prefer calling PreprocessYAML directly.
-func AutoProtectKdepsExpressions(content string) string {
-	kdeps_debug.Log("enter: AutoProtectKdepsExpressions")
-	return autoProtectKdepsExpressions(content)
-}
-
 // yamlRenderer is a package-level Jinja2Renderer used for YAML preprocessing.
 // It caches parsed templates across calls (e.g. hot-reload) to minimise parse overhead.
 var yamlRenderer = &Jinja2Renderer{} //nolint:gochecknoglobals // shared cache for YAML preprocessing

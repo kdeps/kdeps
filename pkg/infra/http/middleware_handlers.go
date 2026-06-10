@@ -32,11 +32,3 @@ func TrustedProxiesMiddleware(trusted []string) func(stdhttp.HandlerFunc) stdhtt
 		}
 	}
 }
-
-// LoggingMiddleware logs request information (basic implementation).
-func LoggingMiddleware(next stdhttp.HandlerFunc) stdhttp.HandlerFunc {
-	debugEnter("LoggingMiddleware")
-	return func(w stdhttp.ResponseWriter, r *stdhttp.Request) {
-		next(w, r)
-	}
-}

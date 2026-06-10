@@ -20,8 +20,6 @@ package domain
 
 import (
 	"fmt"
-	"os"
-	"path/filepath"
 
 	"gopkg.in/yaml.v3"
 
@@ -41,16 +39,6 @@ type KdepsPkg struct {
 	Dependencies map[string]string `yaml:"dependencies,omitempty" json:"dependencies,omitempty"`
 }
 
-// ParseKdepsPkg reads and parses a kdeps.pkg.yaml file from the given path.
-func ParseKdepsPkg(path string) (*KdepsPkg, error) {
-	kdeps_debug.Log("enter: ParseKdepsPkg")
-	data, err := os.ReadFile(path)
-	if err != nil {
-		return nil, fmt.Errorf("failed to read %s: %w", path, err)
-	}
-	return ParseKdepsPkgFromBytes(data)
-}
-
 // ParseKdepsPkgFromBytes parses a KdepsPkg manifest from raw YAML bytes.
 func ParseKdepsPkgFromBytes(data []byte) (*KdepsPkg, error) {
 	kdeps_debug.Log("enter: ParseKdepsPkgFromBytes")
@@ -59,91 +47,4 @@ func ParseKdepsPkgFromBytes(data []byte) (*KdepsPkg, error) {
 		return nil, fmt.Errorf("failed to parse kdeps.pkg.yaml: %w", unmarshalErr)
 	}
 	return &pkg, nil
-}
-
-// FindKdepsPkg searches dir for kdeps.pkg.yaml and returns the parsed manifest.
-// Falls back to reading name/version/description from workflow.yaml or agency.yaml.
-// Returns the manifest, the path to the manifest file, and any error.
-func FindKdepsPkg(dir string) (*KdepsPkg, string, error) {
-	kdeps_debug.Log("enter: FindKdepsPkg")
-	pkgPath := filepath.Join(dir, "kdeps.pkg.yaml")
-	if _, statErr := os.Stat(pkgPath); statErr == nil {
-		pkg, parseErr := ParseKdepsPkg(pkgPath)
-		if parseErr != nil {
-			return nil, "", parseErr
-		}
-		return pkg, pkgPath, nil
-	}
-	return findKdepsPkgFallback(dir)
-}
-
-// findKdepsPkgFallback tries to build a KdepsPkg from workflow.yaml or agency.yaml.
-func findKdepsPkgFallback(dir string) (*KdepsPkg, string, error) {
-	kdeps_debug.Log("enter: findKdepsPkgFallback")
-	for _, c := range kdepsPkgFallbackCandidates() {
-		path := filepath.Join(dir, c.file)
-		if _, err := os.Stat(path); err != nil {
-			continue
-		}
-		pkg, err := extractPkgFromManifest(path, c.pkgType)
-		if err != nil {
-			return nil, "", err
-		}
-		return pkg, path, nil
-	}
-	return nil, "", fmt.Errorf("no kdeps.pkg.yaml or workflow/agency manifest found in %s", dir)
-}
-
-type kdepsPkgFallbackCandidate struct {
-	file    string
-	pkgType string
-}
-
-func kdepsPkgFallbackCandidates() []kdepsPkgFallbackCandidate {
-	return []kdepsPkgFallbackCandidate{
-		{"workflow.yaml", "workflow"},
-		{"workflow.yml", "workflow"},
-		{"agency.yaml", "agency"},
-		{"agency.yml", "agency"},
-	}
-}
-
-// extractPkgFromManifest extracts KdepsPkg fields from a workflow or agency YAML file.
-func extractPkgFromManifest(path, pkgType string) (*KdepsPkg, error) {
-	kdeps_debug.Log("enter: extractPkgFromManifest")
-	data, err := os.ReadFile(path)
-	if err != nil {
-		return nil, fmt.Errorf("failed to read %s: %w", path, err)
-	}
-	raw, err := parseManifestMetadata(data, path)
-	if err != nil {
-		return nil, err
-	}
-	return buildKdepsPkgFromMetadata(raw, pkgType), nil
-}
-
-type manifestMetadata struct {
-	Kind     string `yaml:"kind"`
-	Metadata struct {
-		Name        string `yaml:"name"`
-		Version     string `yaml:"version"`
-		Description string `yaml:"description"`
-	} `yaml:"metadata"`
-}
-
-func parseManifestMetadata(data []byte, path string) (*manifestMetadata, error) {
-	var raw manifestMetadata
-	if unmarshalErr := yaml.Unmarshal(data, &raw); unmarshalErr != nil {
-		return nil, fmt.Errorf("failed to parse %s: %w", path, unmarshalErr)
-	}
-	return &raw, nil
-}
-
-func buildKdepsPkgFromMetadata(raw *manifestMetadata, pkgType string) *KdepsPkg {
-	return &KdepsPkg{
-		Name:        raw.Metadata.Name,
-		Version:     raw.Metadata.Version,
-		Description: raw.Metadata.Description,
-		Type:        pkgType,
-	}
 }

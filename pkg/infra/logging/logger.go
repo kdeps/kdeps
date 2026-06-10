@@ -38,22 +38,6 @@ func NewLogger(debug bool) *slog.Logger {
 	return newPrettyLogger(opts)
 }
 
-// NewLoggerWithLevel creates a new logger with a specific log level.
-func NewLoggerWithLevel(level slog.Level, addSource bool) *slog.Logger {
-	kdeps_debug.Log("enter: NewLoggerWithLevel")
-	opts := buildPrettyHandlerOptions(level, addSource)
-	return newPrettyLogger(opts)
-}
-
-// NewLoggerForFile creates a new logger that writes to a file (no colors).
-func NewLoggerForFile(file *os.File, level slog.Level) *slog.Logger {
-	kdeps_debug.Log("enter: NewLoggerForFile")
-	opts := buildPrettyHandlerOptions(level, true)
-	opts.DisableColors = true
-	opts.TimeFormat = "2006-01-02 15:04:05.000"
-	return newPrettyLoggerTo(file, opts)
-}
-
 func resolveDebugEnabled(debug bool) bool {
 	if debug {
 		return true

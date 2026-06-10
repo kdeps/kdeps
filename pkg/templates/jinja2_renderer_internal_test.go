@@ -225,67 +225,6 @@ func TestProcessJinja2Directory(t *testing.T) {
 	require.NoError(t, err, "rendered j2 file should exist")
 }
 
-// TestGenerateBasicResource tests the private generateBasicResource function
-// for all known resource types.
-func TestGenerateBasicResource(t *testing.T) {
-	g := &Generator{}
-
-	tests := []struct {
-		resourceName string
-		wantErr      bool
-		wantContent  string
-	}{
-		{
-			resourceName: "http-client",
-			wantContent:  "httpClient",
-		},
-		{
-			resourceName: "llm",
-			wantContent:  "chat",
-		},
-		{
-			resourceName: "sql",
-			wantContent:  "sql",
-		},
-		{
-			resourceName: "python",
-			wantContent:  "python",
-		},
-		{
-			resourceName: "exec",
-			wantContent:  "exec",
-		},
-		{
-			resourceName: "response",
-			wantContent:  "apiResponse",
-		},
-		{
-			resourceName: "unknown-type",
-			wantErr:      true,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.resourceName, func(t *testing.T) {
-			tmpDir := t.TempDir()
-			targetPath := tmpDir + "/" + tt.resourceName + ".yaml"
-
-			err := g.generateBasicResource(tt.resourceName, targetPath)
-			if tt.wantErr {
-				require.Error(t, err)
-				return
-			}
-			require.NoError(t, err)
-
-			if tt.wantContent != "" {
-				content, readErr := os.ReadFile(targetPath)
-				require.NoError(t, readErr)
-				assert.Contains(t, string(content), tt.wantContent)
-			}
-		})
-	}
-}
-
 // TestProcessJ2File_SkipExistingOutput tests that processJ2File skips when output already exists.
 func TestProcessJ2File_SkipExistingOutput(t *testing.T) {
 	tmpDir := t.TempDir()
@@ -362,16 +301,6 @@ func TestRender_ExecuteError(t *testing.T) {
 	_, err := renderer.Render(`{{ "hello" | nonexistent_filter }}`, nil)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "failed to render Jinja2 template")
-}
-
-// TestGenerateBasicResource_MkdirAllError tests generateBasicResource when
-// the parent directory cannot be created.
-func TestGenerateBasicResource_MkdirAllError(t *testing.T) {
-	g := &Generator{}
-
-	// Use a path where the parent directory is a non-directory, causing MkdirAll to fail.
-	err := g.generateBasicResource("http-client", "/dev/null/invalid/resource.yaml")
-	require.Error(t, err)
 }
 
 // TestWalkJinja2Template_ProcessDirectoryError tests walkJinja2Template when

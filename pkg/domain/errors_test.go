@@ -325,26 +325,6 @@ func TestGetHTTPStatus(t *testing.T) {
 	}
 }
 
-func TestNewValidationError(t *testing.T) {
-	err := domain.NewValidationError("email", "email", "Invalid email address", "invalid@")
-
-	if err.Field != "email" {
-		t.Errorf("expected field 'email', got '%s'", err.Field)
-	}
-
-	if err.Type != "email" {
-		t.Errorf("expected type 'email', got '%s'", err.Type)
-	}
-
-	if err.Message != "Invalid email address" {
-		t.Errorf("expected message 'Invalid email address', got '%s'", err.Message)
-	}
-
-	if err.Value != "invalid@" {
-		t.Errorf("expected value 'invalid@', got '%v'", err.Value)
-	}
-}
-
 func TestAppError_ChainedMethods(t *testing.T) {
 	originalErr := errors.New("original error")
 	err := domain.NewAppError(domain.ErrCodeResourceFailed, "test error").

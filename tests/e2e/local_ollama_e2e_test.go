@@ -65,12 +65,12 @@ func TestLocalOllamaE2E(t *testing.T) {
 	kdeps_debug.Log("enter: TestLocalOllamaE2E")
 	// Check if Ollama CLI is installed
 	if !isOllamaInstalled() {
-		t.Fatal("ERROR: Ollama CLI not installed - please install Ollama to run LLM tests")
+		t.Skip("Ollama CLI not installed - skipping local Ollama E2E test")
 	}
 
 	// Check if Ollama server is running
 	if !isOllamaServerRunning() {
-		t.Fatal("ERROR: Ollama server not running - run 'ollama serve' to start the server")
+		t.Skip("Ollama server not running - skipping local Ollama E2E test")
 	}
 
 	// Get available small model (tinydolphin or llama 1b)

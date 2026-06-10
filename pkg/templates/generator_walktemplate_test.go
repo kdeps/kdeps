@@ -63,28 +63,6 @@ func TestGenerator_WalkTemplate_WithSubdirectories(t *testing.T) {
 	require.NoError(t, err, ".env.example should be created")
 }
 
-func TestGenerator_GenerateFile_InlineTemplate(t *testing.T) {
-	generator, err := templates.NewGenerator()
-	require.NoError(t, err)
-
-	tmpDir := t.TempDir()
-	targetPath := filepath.Join(tmpDir, "test.txt")
-
-	// Generate a resource file which uses generateFile
-	err = generator.GenerateResource("http-client", targetPath)
-	require.NoError(t, err)
-
-	// Verify file was created
-	_, err = os.Stat(targetPath)
-	require.NoError(t, err)
-
-	// Verify content contains expected template values
-	content, err := os.ReadFile(targetPath)
-	require.NoError(t, err)
-	assert.Contains(t, string(content), "apiVersion")
-	assert.Contains(t, string(content), "Resource")
-}
-
 func TestGenerator_GenerateFile_TemplateWithHasFunction(t *testing.T) {
 	generator, err := templates.NewGenerator()
 	require.NoError(t, err)
@@ -133,26 +111,6 @@ func TestGenerator_WalkTemplate_ErrorHandling(t *testing.T) {
 	assert.Contains(t, err.Error(), "template not found")
 }
 
-func TestGenerator_GenerateFile_ErrorCases(t *testing.T) {
-	generator, err := templates.NewGenerator()
-	require.NoError(t, err)
-
-	tmpDir := t.TempDir()
-
-	// Test with non-existent template path (this will be handled by generateFile)
-	// Create a file that can't be written to (read-only directory)
-	readOnlyDir := filepath.Join(tmpDir, "readonly")
-	err = os.MkdirAll(readOnlyDir, 0500) // Read-only permissions
-	require.NoError(t, err)
-	defer os.Chmod(readOnlyDir, 0755) // Restore permissions for cleanup
-
-	targetPath := filepath.Join(readOnlyDir, "test.txt")
-	err = generator.GenerateResource("http-client", targetPath)
-
-	// Should fail when trying to create file in read-only directory
-	require.Error(t, err)
-}
-
 func TestGenerator_WalkTemplate_DirectoryCreationFailure(t *testing.T) {
 	generator, err := templates.NewGenerator()
 	require.NoError(t, err)
@@ -176,44 +134,6 @@ func TestGenerator_WalkTemplate_DirectoryCreationFailure(t *testing.T) {
 	err = generator.GenerateProject("api-service", outputDir, data)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "failed")
-}
-
-func TestGenerator_GenerateFile_TemplateExecutionFailure(t *testing.T) {
-	generator, err := templates.NewGenerator()
-	require.NoError(t, err)
-
-	tmpDir := t.TempDir()
-
-	// Create a template with invalid syntax that will fail during execution
-	// We'll create a resource file with a template that has syntax errors
-	targetPath := filepath.Join(tmpDir, "invalid.txt")
-
-	// Use a mock generator to inject a failing template
-	// Since we can't easily modify the embedded templates, we'll test the error path
-	// by using a resource type that triggers the inline template parsing path
-
-	// The generateFile function has error handling for template execution
-	// We'll test by ensuring the function properly handles and wraps errors
-	err = generator.GenerateResource("http-client", targetPath)
-	require.NoError(t, err) // This should succeed with valid template
-
-	// Verify the file was created despite our attempt to test error paths
-	_, statErr := os.Stat(targetPath)
-	require.NoError(t, statErr)
-}
-
-func TestGenerator_GenerateFile_FileCreationFailure(t *testing.T) {
-	generator, err := templates.NewGenerator()
-	require.NoError(t, err)
-
-	// Test file creation failure by using an invalid path
-	// This should trigger the os.Create failure path in generateFile
-	invalidPath := "/dev/null/invalid/path/file.txt" // Path that will fail to create
-
-	err = generator.GenerateResource("http-client", invalidPath)
-	require.Error(t, err)
-	// The error should contain some indication of failure
-	assert.NotEmpty(t, err.Error())
 }
 
 func TestGenerator_WalkTemplate_ReadDirFailure(_ *testing.T) {

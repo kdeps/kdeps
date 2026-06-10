@@ -16,9 +16,3 @@ func TestCloudLLMProviders_MatchesRegistry(t *testing.T) {
 		assert.Equal(t, cloudProvidersList[i].envVar, p.EnvVar)
 	}
 }
-
-func TestAllLLMProviderNames_MatchesRegistry(t *testing.T) {
-	names := AllLLMProviderNames()
-	assert.Equal(t, allProviderNames, names)
-	assert.Equal(t, ollamaBackendStr, names[0])
-}

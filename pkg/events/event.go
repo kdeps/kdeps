@@ -142,10 +142,3 @@ func ResourceCompleted(workflowID, actionID, resourceType string) Event {
 func ResourceFailed(workflowID, actionID, resourceType string, err error) Event {
 	return failedEvent(EventResourceFailed, workflowID, actionID, resourceType, err)
 }
-
-// ResourceRetrying returns a resource.retrying event.
-func ResourceRetrying(workflowID, actionID, resourceType string, attempt int) Event {
-	ev := resourceEvent(EventResourceRetrying, workflowID, actionID, resourceType)
-	ev.Data = map[string]int{"attempt": attempt}
-	return ev
-}

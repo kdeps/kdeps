@@ -99,20 +99,6 @@ func TestResourceFailed(t *testing.T) {
 	}
 }
 
-func TestResourceRetrying(t *testing.T) {
-	ev := events.ResourceRetrying("wf", "step-5", "exec", 2)
-	if ev.Event != events.EventResourceRetrying {
-		t.Errorf("want %q, got %q", events.EventResourceRetrying, ev.Event)
-	}
-	data, ok := ev.Data.(map[string]int)
-	if !ok {
-		t.Fatalf("Data should be map[string]int, got %T", ev.Data)
-	}
-	if data["attempt"] != 2 {
-		t.Errorf("want attempt 2, got %d", data["attempt"])
-	}
-}
-
 // --- EmittedAt is always UTC ---
 
 func TestEventEmittedAtIsUTC(t *testing.T) {

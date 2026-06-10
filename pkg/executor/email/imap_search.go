@@ -63,26 +63,6 @@ func buildSearchCriteria(s domain.EmailSearchConfig, ev evalFn) imap.SearchCrite
 	return criteria
 }
 
-func emptyCriteria(c imap.SearchCriteria) bool {
-	kdeps_debug.Log("enter: emptyCriteria")
-	return len(c.SeqNum) == 0 &&
-		len(c.UID) == 0 &&
-		c.Since.IsZero() &&
-		c.Before.IsZero() &&
-		c.SentSince.IsZero() &&
-		c.SentBefore.IsZero() &&
-		len(c.Header) == 0 &&
-		len(c.Body) == 0 &&
-		len(c.Text) == 0 &&
-		len(c.Flag) == 0 &&
-		len(c.NotFlag) == 0 &&
-		c.Larger == 0 &&
-		c.Smaller == 0 &&
-		len(c.Not) == 0 &&
-		len(c.Or) == 0 &&
-		c.ModSeq == nil
-}
-
 func parseDate(s string) (time.Time, error) {
 	kdeps_debug.Log("enter: parseDate")
 	for _, layout := range []string{"2006-01-02", time.RFC3339} {

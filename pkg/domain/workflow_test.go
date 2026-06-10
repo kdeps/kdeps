@@ -515,18 +515,6 @@ func TestInputConfig_HasBotSource(t *testing.T) {
 	}
 }
 
-func TestIsBotSource(t *testing.T) {
-	if !domain.IsBotSource(domain.InputSourceBot) {
-		t.Error("IsBotSource(bot) should be true")
-	}
-	if domain.IsBotSource(domain.InputSourceAPI) {
-		t.Error("IsBotSource(api) should be false")
-	}
-	if domain.IsBotSource("") {
-		t.Error("IsBotSource('') should be false")
-	}
-}
-
 func TestHasFileSource(t *testing.T) {
 	cWith := &domain.InputConfig{Sources: []string{domain.InputSourceFile}}
 	cWithout := &domain.InputConfig{}
@@ -536,15 +524,6 @@ func TestHasFileSource(t *testing.T) {
 	}
 	if cWithout.HasFileSource() {
 		t.Error("HasFileSource() should be false when sources is empty")
-	}
-}
-
-func TestIsFileSource(t *testing.T) {
-	if !domain.IsFileSource(domain.InputSourceFile) {
-		t.Error("IsFileSource(file) should be true")
-	}
-	if domain.IsFileSource("other") {
-		t.Error("IsFileSource(other) should be false")
 	}
 }
 

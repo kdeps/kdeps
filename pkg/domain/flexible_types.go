@@ -19,7 +19,6 @@
 package domain
 
 import (
-	"strconv"
 	"strings"
 
 	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
@@ -55,47 +54,4 @@ func parseBoolFromString(val string) (bool, bool) {
 	default:
 		return false, false
 	}
-}
-
-// parseInt parses an integer from various types (int, string, float).
-// Returns the integer value and true if parsing succeeded.
-func parseInt(v interface{}) (int, bool) {
-	kdeps_debug.Log("enter: parseInt")
-	switch val := v.(type) {
-	case int:
-		return val, true
-	case int64:
-		return int(val), true
-	case float64:
-		return int(val), true
-	case string:
-		return parseIntFromString(val)
-	}
-	return 0, false
-}
-
-// parseIntFromString parses an integer from a trimmed string.
-func parseIntFromString(val string) (int, bool) {
-	trimmed := strings.TrimSpace(val)
-	if trimmed == "" {
-		return 0, true
-	}
-	i, err := strconv.Atoi(trimmed)
-	if err != nil {
-		return 0, false
-	}
-	return i, true
-}
-
-// parseBoolPtr parses a boolean pointer from various types.
-// Returns nil if the value is nil, otherwise returns a pointer to the boolean.
-func parseBoolPtr(v interface{}) *bool {
-	kdeps_debug.Log("enter: parseBoolPtr")
-	if v == nil {
-		return nil
-	}
-	if b, ok := ParseBool(v); ok {
-		return &b
-	}
-	return nil
 }

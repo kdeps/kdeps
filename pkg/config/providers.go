@@ -29,10 +29,3 @@ func CloudLLMProviders() []LLMProvider {
 	}
 	return providers
 }
-
-// AllLLMProviderNames returns bootstrap menu provider names (ollama first, then cloud).
-func AllLLMProviderNames() []string {
-	names := make([]string, len(allProviderNames))
-	copy(names, allProviderNames)
-	return names
-}

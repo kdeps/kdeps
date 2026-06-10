@@ -580,34 +580,7 @@ func TestFormatAddress_WithoutName(t *testing.T) {
 
 // --- emptyCriteria ---
 
-func TestEmptyCriteria_EmptyIsTrue(t *testing.T) {
-	assert.True(t, emptyCriteria(imap.SearchCriteria{}))
-}
-
-func TestEmptyCriteria_WithHeader_IsFalse(t *testing.T) {
-	c := imap.SearchCriteria{
-		Header: []imap.SearchCriteriaHeaderField{{Key: "From", Value: "x@y.com"}},
-	}
-	assert.False(t, emptyCriteria(c))
-}
-
-func TestEmptyCriteria_WithNotFlag_IsFalse(t *testing.T) {
-	c := imap.SearchCriteria{NotFlag: []imap.Flag{imap.FlagSeen}}
-	assert.False(t, emptyCriteria(c))
-}
-
-func TestEmptyCriteria_WithSince_IsFalse(t *testing.T) {
-	c := imap.SearchCriteria{Since: time.Now()}
-	assert.False(t, emptyCriteria(c))
-}
-
 // --- buildSearchCriteria ---
-
-func TestBuildSearchCriteria_Empty(t *testing.T) {
-	identity := func(s string) string { return s }
-	criteria := buildSearchCriteria(domain.EmailSearchConfig{}, identity)
-	assert.True(t, emptyCriteria(criteria))
-}
 
 func TestBuildSearchCriteria_FromFilter(t *testing.T) {
 	identity := func(s string) string { return s }

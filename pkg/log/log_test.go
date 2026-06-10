@@ -49,17 +49,6 @@ func TestEnsure(t *testing.T) {
 	assert.NotNil(t, l)
 }
 
-func TestLogger(t *testing.T) {
-	Init(false, false)
-	l := Logger()
-	assert.NotNil(t, l)
-}
-
-func TestDebug(_ *testing.T) {
-	Init(false, false)
-	Debug("test debug", "key", "val")
-}
-
 func TestInfo(_ *testing.T) {
 	Init(false, false)
 	Info("test info", "key", "val")

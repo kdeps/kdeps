@@ -159,18 +159,6 @@ func TestDebugModeMiddleware(t *testing.T) {
 	})
 }
 
-func TestLoggingMiddleware(t *testing.T) {
-	handler := http.LoggingMiddleware(func(w stdhttp.ResponseWriter, _ *stdhttp.Request) {
-		w.WriteHeader(stdhttp.StatusOK)
-	})
-
-	w := httptest.NewRecorder()
-	req := httptest.NewRequest(stdhttp.MethodGet, "/test", nil)
-	handler(w, req)
-
-	assert.Equal(t, stdhttp.StatusOK, w.Code)
-}
-
 func TestUploadMiddleware(t *testing.T) {
 	t.Run("passes through non-multipart requests", func(t *testing.T) {
 		middleware := http.UploadMiddleware(10 * 1024 * 1024) // 10MB

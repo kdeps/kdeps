@@ -48,15 +48,6 @@ func setStringResponseHeaders(w stdhttp.ResponseWriter, headers map[string]strin
 	}
 }
 
-// validationErrorsToDetails converts validation errors to response details.
-func validationErrorsToDetails(validationErrors []*domain.ValidationError) []map[string]any {
-	details := make([]map[string]any, len(validationErrors))
-	for i, err := range validationErrors {
-		details[i] = validationErrorDetailMap(err)
-	}
-	return details
-}
-
 // RespondWithError sends an error response.
 func RespondWithError(w stdhttp.ResponseWriter, r *stdhttp.Request, err error, debugMode bool) {
 	debugEnter("RespondWithError")

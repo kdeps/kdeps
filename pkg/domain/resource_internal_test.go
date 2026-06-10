@@ -22,32 +22,6 @@ import (
 	"testing"
 )
 
-// TestParseIntErrors tests parseInt with various inputs.
-func TestParseIntErrors(t *testing.T) {
-	tests := []struct {
-		input interface{}
-		want  int
-		ok    bool
-	}{
-		{42, 42, true},
-		{"42", 42, true},
-		{"not-an-int", 0, false},
-		{nil, 0, false},
-		{float64(3), 3, true},
-		{"0", 0, true},
-	}
-
-	for _, tt := range tests {
-		got, ok := parseInt(tt.input)
-		if ok != tt.ok {
-			t.Errorf("parseInt(%v) ok = %v, want %v", tt.input, ok, tt.ok)
-		}
-		if ok && got != tt.want {
-			t.Errorf("parseInt(%v) = %d, want %d", tt.input, got, tt.want)
-		}
-	}
-}
-
 // TestParseBoolErrors tests ParseBool with various inputs.
 func TestParseBoolErrors(t *testing.T) {
 	tests := []struct {

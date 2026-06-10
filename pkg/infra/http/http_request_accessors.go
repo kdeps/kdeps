@@ -72,10 +72,6 @@ func writeOKJSON(w stdhttp.ResponseWriter, payload any) {
 	writeJSONResponse(w, stdhttp.StatusOK, payload)
 }
 
-func writeBadRequestJSON(w stdhttp.ResponseWriter, payload any) {
-	writeJSONResponse(w, stdhttp.StatusBadRequest, payload)
-}
-
 func setRateLimitRetryAfter(w stdhttp.ResponseWriter) {
 	setRateLimitRetryAfterHeader(w, rateLimitRetryAfterSeconds)
 }
