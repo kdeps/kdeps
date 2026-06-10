@@ -21,9 +21,6 @@
 package exec
 
 import (
-	"fmt"
-	"strings"
-
 	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
 	"github.com/kdeps/kdeps/v2/pkg/executor"
 	"github.com/kdeps/kdeps/v2/pkg/parser/expression"
@@ -31,7 +28,7 @@ import (
 
 func (e *Executor) containsExpressionSyntax(s string) bool {
 	kdeps_debug.Log("enter: containsExpressionSyntax")
-	return strings.Contains(s, "{{")
+	return executor.ContainsExpressionSyntax(s)
 }
 
 // EvaluateExpression evaluates an expression string.
@@ -41,13 +38,5 @@ func (e *Executor) EvaluateExpression(
 	exprStr string,
 ) (interface{}, error) {
 	kdeps_debug.Log("enter: EvaluateExpression")
-	env := e.buildEnvironment(ctx)
-
-	parser := expression.NewParser()
-	expr, err := parser.ParseValue(exprStr)
-	if err != nil {
-		return nil, fmt.Errorf("failed to parse expression: %w", err)
-	}
-
-	return evaluator.Evaluate(expr, env)
+	return executor.EvaluateExpression(evaluator, e.buildEnvironment(ctx), exprStr)
 }

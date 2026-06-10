@@ -31,13 +31,11 @@ var yamlUnmarshalToMap = func(in []byte, out *map[string]interface{}) error {
 	return yaml.Unmarshal(in, out)
 }
 
-func resourceMetaKeys() map[string]bool {
-	return map[string]bool{
-		"apiVersion": true, "kind": true, "actionId": true, "name": true, "description": true,
-		"category": true, "requires": true, "items": true,
-		"tool": true, "validations": true, "loop": true,
-		"before": true, "after": true, "onError": true,
-	}
+var resourceMetaKeys = map[string]bool{ //nolint:gochecknoglobals // immutable lookup set
+	"apiVersion": true, "kind": true, "actionId": true, "name": true, "description": true,
+	"category": true, "requires": true, "items": true,
+	"tool": true, "validations": true, "loop": true,
+	"before": true, "after": true, "onError": true,
 }
 
 func isValidRunAction(action string) bool {
@@ -59,14 +57,6 @@ type wfDoc struct {
 		Version        string `yaml:"version"`
 		TargetActionID string `yaml:"targetActionId"`
 	} `yaml:"metadata"`
-}
-
-// resourceDoc is the minimal structure of a resource file.
-type resourceDoc struct {
-	APIVersion string `yaml:"apiVersion,omitempty"`
-	Kind       string `yaml:"kind,omitempty"`
-	ActionID   string `yaml:"actionId"`
-	// Other action-type fields are checked via rawDoc below.
 }
 
 func parseWorkflowDoc(raw string) (wfDoc, error) {
@@ -145,7 +135,7 @@ func collectResourceIDs(wf *GeneratedWorkflow, errs *[]string) map[string]bool {
 
 func resourceHasValidAction(rawDoc map[string]interface{}) bool {
 	for key := range rawDoc {
-		if resourceMetaKeys()[key] {
+		if resourceMetaKeys[key] {
 			continue
 		}
 		if isValidRunAction(key) {
@@ -173,26 +163,23 @@ func unrecognizedActionMessage(name, actionID string, rawDoc map[string]interfac
 }
 
 func validateResourceFile(name, content string, ids map[string]bool, errs *[]string) {
-	var res resourceDoc
-	if err := yaml.Unmarshal([]byte(content), &res); err != nil {
+	var rawDoc map[string]interface{}
+	if err := yamlUnmarshalToMap([]byte(content), &rawDoc); err != nil {
 		*errs = append(*errs, fmt.Sprintf("%s: invalid YAML: %v", name, err))
 		return
 	}
-	if res.ActionID == "" {
+
+	actionID, _ := rawDoc["actionId"].(string)
+	if actionID == "" {
 		*errs = append(*errs, fmt.Sprintf("%s: missing actionId", name))
 		return
 	}
-	ids[res.ActionID] = true
-
-	var rawDoc map[string]interface{}
-	if err := yamlUnmarshalToMap([]byte(content), &rawDoc); err != nil {
-		return
-	}
+	ids[actionID] = true
 
 	if resourceHasValidAction(rawDoc) {
 		return
 	}
-	*errs = append(*errs, unrecognizedActionMessage(name, res.ActionID, rawDoc))
+	*errs = append(*errs, unrecognizedActionMessage(name, actionID, rawDoc))
 }
 
 func sortedKeys(m map[string]bool) []string {

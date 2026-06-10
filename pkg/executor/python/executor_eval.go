@@ -20,7 +20,6 @@ package python
 
 import (
 	"fmt"
-	"strings"
 
 	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
 	"github.com/kdeps/kdeps/v2/pkg/executor"
@@ -34,15 +33,7 @@ func (e *Executor) EvaluateExpression(
 	exprStr string,
 ) (interface{}, error) {
 	kdeps_debug.Log("enter: EvaluateExpression")
-	env := e.buildEnvironment(ctx)
-
-	parser := expression.NewParser()
-	expr, err := parser.ParseValue(exprStr)
-	if err != nil {
-		return nil, fmt.Errorf("failed to parse expression: %w", err)
-	}
-
-	return evaluator.Evaluate(expr, env)
+	return executor.EvaluateExpression(evaluator, e.buildEnvironment(ctx), exprStr)
 }
 
 // EvaluateStringOrLiteral evaluates a string as an expression if it contains expression syntax,
@@ -53,22 +44,12 @@ func (e *Executor) EvaluateStringOrLiteral(
 	value string,
 ) (string, error) {
 	kdeps_debug.Log("enter: EvaluateStringOrLiteral")
-	if !e.containsExpressionSyntax(value) {
-		return value, nil
-	}
-
-	result, err := e.EvaluateExpression(evaluator, ctx, value)
-	if err != nil {
-		return "", err
-	}
-
-	return fmt.Sprintf("%v", result), nil
-}
-
-// containsExpressionSyntax checks if a string contains expression syntax.
-func (e *Executor) containsExpressionSyntax(s string) bool {
-	kdeps_debug.Log("enter: containsExpressionSyntax")
-	return strings.Contains(s, "{{")
+	return executor.EvaluateStringOrLiteral(
+		evaluator,
+		e.buildEnvironment(ctx),
+		value,
+		executor.StringLiteralOptions{},
+	)
 }
 
 // evaluateInterpolatedString evaluates a string with interpolation syntax {{ }}.
@@ -78,38 +59,15 @@ func (e *Executor) evaluateInterpolatedString(
 	value string,
 ) (string, error) {
 	kdeps_debug.Log("enter: evaluateInterpolatedString")
-	env := e.buildEnvironment(ctx)
-
-	parser := expression.NewParser()
-	expr, err := parser.ParseValue(value)
-	if err != nil {
-		return "", fmt.Errorf("failed to parse interpolated string: %w", err)
-	}
-
-	result, err := evaluator.Evaluate(expr, env)
+	result, err := executor.EvaluateExpression(evaluator, e.buildEnvironment(ctx), value)
 	if err != nil {
 		return "", fmt.Errorf("failed to evaluate interpolated string: %w", err)
 	}
-
 	return fmt.Sprintf("%v", result), nil
 }
 
 // buildEnvironment builds evaluation environment from context.
 func (e *Executor) buildEnvironment(ctx *executor.ExecutionContext) map[string]interface{} {
 	kdeps_debug.Log("enter: buildEnvironment")
-	env := make(map[string]interface{})
-
-	if ctx.Request != nil {
-		env["request"] = map[string]interface{}{
-			"method":  ctx.Request.Method,
-			"path":    ctx.Request.Path,
-			"headers": ctx.Request.Headers,
-			"query":   ctx.Request.Query,
-			"body":    ctx.Request.Body,
-		}
-	}
-
-	env["outputs"] = ctx.Outputs
-
-	return env
+	return executor.BuildSubExecutorEnv(ctx, executor.SubExecutorEnvOptions{})
 }

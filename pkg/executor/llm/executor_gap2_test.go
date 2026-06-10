@@ -32,25 +32,17 @@ import (
 	"github.com/kdeps/kdeps/v2/pkg/parser/expression"
 )
 
-// ─── evaluateExpression nil evaluator ─────────────────────────────────────────
-
-func TestEvaluateExpression_NilEvaluator(t *testing.T) {
-	e := NewExecutor("")
-	ctx := &executor.ExecutionContext{}
-	_, err := e.evaluateExpression(nil, ctx, "{{anything}}")
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "expression evaluation not available")
-}
-
 // ─── capLLMResponseContent ────────────────────────────────────────────────────
 
 func TestCapLLMResponseContent_MissingMessage(t *testing.T) {
+	t.Parallel()
 	response := map[string]interface{}{}
 	err := capLLMResponseContent(response, 100)
 	assert.NoError(t, err)
 }
 
 func TestCapLLMResponseContent_ContentExceedsLimit(t *testing.T) {
+	t.Parallel()
 	response := map[string]interface{}{
 		"message": map[string]interface{}{
 			"content": "this is a long response that exceeds the byte limit",
@@ -64,6 +56,7 @@ func TestCapLLMResponseContent_ContentExceedsLimit(t *testing.T) {
 // ─── buildEnvironment with request ────────────────────────────────────────────
 
 func TestBuildEnvironment_WithRequest(t *testing.T) {
+	t.Parallel()
 	e := NewExecutor("")
 	ctx := &executor.ExecutionContext{
 		Request: &executor.RequestContext{
@@ -85,6 +78,7 @@ func TestBuildEnvironment_WithRequest(t *testing.T) {
 // ─── findUploadedFile unmatched name ─────────────────────────────────────────
 
 func TestFindUploadedFile_UnmatchedName(t *testing.T) {
+	t.Parallel()
 	e := NewExecutor("")
 	ctx := &executor.ExecutionContext{
 		Request: &executor.RequestContext{
@@ -102,6 +96,7 @@ func TestFindUploadedFile_UnmatchedName(t *testing.T) {
 // ─── resolveConfig ────────────────────────────────────────────────────────────
 
 func TestResolveConfig_RoleError(t *testing.T) {
+	t.Parallel()
 	e := NewExecutor("")
 	ctx := &executor.ExecutionContext{}
 	evaluator := expression.NewEvaluator(nil)
@@ -115,6 +110,7 @@ func TestResolveConfig_RoleError(t *testing.T) {
 }
 
 func TestResolveConfig_JSONResponseKeysError(t *testing.T) {
+	t.Parallel()
 	e := NewExecutor("")
 	ctx := &executor.ExecutionContext{}
 	evaluator := expression.NewEvaluator(nil)
@@ -131,6 +127,7 @@ func TestResolveConfig_JSONResponseKeysError(t *testing.T) {
 // ─── parseJSONResponse ────────────────────────────────────────────────────────
 
 func TestParseJSONResponse_MissingMessage(t *testing.T) {
+	t.Parallel()
 	e := NewExecutor("")
 	response := map[string]interface{}{}
 	_, err := e.parseJSONResponse(response, nil)
@@ -139,6 +136,7 @@ func TestParseJSONResponse_MissingMessage(t *testing.T) {
 }
 
 func TestParseJSONResponse_MissingContent(t *testing.T) {
+	t.Parallel()
 	e := NewExecutor("")
 	response := map[string]interface{}{
 		"message": map[string]interface{}{},
@@ -151,6 +149,7 @@ func TestParseJSONResponse_MissingContent(t *testing.T) {
 // ─── defaultEntry with default model ─────────────────────────────────────────
 
 func TestDefaultEntry_WithDefault(t *testing.T) {
+	t.Parallel()
 	r := &Router{
 		models: []config.ModelEntry{
 			{Model: "model-a", Default: false},

@@ -94,10 +94,7 @@ func (e *Engine) addItemEnv(env map[string]interface{}, ctx *ExecutionContext) {
 	if itemValue, ok := ctx.Items["item"].(map[string]interface{}); ok {
 		env["item"] = itemValue
 	}
-	valuesFn := func(actionID string) interface{} {
-		val, _ := ctx.GetItemValues(actionID)
-		return val
-	}
+	valuesFn := itemValuesAccessor(ctx)
 	if existingItem, ok := env["item"].(map[string]interface{}); ok {
 		existingItem["values"] = valuesFn
 	} else {

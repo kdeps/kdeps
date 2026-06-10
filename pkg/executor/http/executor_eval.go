@@ -19,9 +19,6 @@
 package http
 
 import (
-	"fmt"
-	"strings"
-
 	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
 	"github.com/kdeps/kdeps/v2/pkg/executor"
 	"github.com/kdeps/kdeps/v2/pkg/parser/expression"
@@ -33,15 +30,7 @@ func (e *Executor) evaluateExpression(
 	exprStr string,
 ) (interface{}, error) {
 	kdeps_debug.Log("enter: evaluateExpression")
-	env := e.BuildEnvironment(ctx)
-
-	parser := expression.NewParser()
-	expr, err := parser.ParseValue(exprStr)
-	if err != nil {
-		return nil, fmt.Errorf("failed to parse expression: %w", err)
-	}
-
-	return evaluator.Evaluate(expr, env)
+	return executor.EvaluateExpression(evaluator, e.BuildEnvironment(ctx), exprStr)
 }
 
 // evaluateStringOrLiteral evaluates a string as an expression if it contains expression syntax,
@@ -52,20 +41,5 @@ func (e *Executor) evaluateStringOrLiteral(
 	value string,
 ) (string, error) {
 	kdeps_debug.Log("enter: evaluateStringOrLiteral")
-	if !e.containsExpressionSyntax(value) {
-		return value, nil
-	}
-
-	result, err := e.evaluateExpression(evaluator, ctx, value)
-	if err != nil {
-		return "", err
-	}
-
-	return fmt.Sprintf("%v", result), nil
-}
-
-// containsExpressionSyntax checks if a string contains expression syntax.
-func (e *Executor) containsExpressionSyntax(s string) bool {
-	kdeps_debug.Log("enter: containsExpressionSyntax")
-	return strings.Contains(s, "{{")
+	return executor.EvaluateStringOrLiteral(evaluator, e.BuildEnvironment(ctx), value, executor.StringLiteralOptions{})
 }

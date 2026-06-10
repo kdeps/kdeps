@@ -39,6 +39,7 @@ import (
 // ─── capLLMResponseContent ──────────────────────────────────────────────────
 
 func TestCapLLMResponseContent_NonStringContent(t *testing.T) {
+	t.Parallel()
 	// content is a number, not a string → should return nil (line 440-442)
 	response := map[string]interface{}{
 		"message": map[string]interface{}{
@@ -52,6 +53,7 @@ func TestCapLLMResponseContent_NonStringContent(t *testing.T) {
 // ─── loadImageAsBase64 success path ──────────────────────────────────────────
 
 func TestLoadImageAsBase64_Success(t *testing.T) {
+	t.Parallel()
 	tmp := t.TempDir()
 	imgPath := filepath.Join(tmp, "test.png")
 	require.NoError(t, os.WriteFile(imgPath, []byte("fake-png-data"), 0o600))
@@ -64,15 +66,15 @@ func TestLoadImageAsBase64_Success(t *testing.T) {
 	assert.Contains(t, dataURI, "data:image/png;base64,")
 }
 
-// ─── evaluateExpression ─────────────────────────────────────────────────────
+// ─── evaluateStringOrLiteral parse error ────────────────────────────────────
 
-func TestEvaluateExpression_ParseValueError(t *testing.T) {
+func TestEvaluateStringOrLiteral_ParseValueError(t *testing.T) {
+	t.Parallel()
 	e := NewExecutor("")
 	evaluator := expression.NewEvaluator(nil)
 	ctx := &executor.ExecutionContext{}
 
-	// Unclosed interpolation causes ParseValue to fail (line 1050-1053)
-	_, err := e.evaluateExpression(evaluator, ctx, "{{unclosed")
+	_, err := e.evaluateStringOrLiteral(evaluator, ctx, "{{unclosed")
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "failed to parse expression")
 }
@@ -80,6 +82,7 @@ func TestEvaluateExpression_ParseValueError(t *testing.T) {
 // ─── evaluateStringOrLiteral ────────────────────────────────────────────────
 
 func TestEvaluateStringOrLiteral_EvaluateError(t *testing.T) {
+	t.Parallel()
 	e := NewExecutor("")
 	evaluator := expression.NewEvaluator(nil)
 	// Construct a minimal context so buildEnvironment succeeds.
@@ -97,6 +100,7 @@ func TestEvaluateStringOrLiteral_EvaluateError(t *testing.T) {
 // ─── executeTool: parse error ──────────────────────────────────────────────
 
 func TestExecuteTool_ParseError(t *testing.T) {
+	t.Parallel()
 	e := NewExecutor("")
 	ctx, err := executor.NewExecutionContext(
 		&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}},
@@ -113,6 +117,7 @@ func TestExecuteTool_ParseError(t *testing.T) {
 // ─── executeTool: Execute func returns error ────────────────────────────────
 
 func TestExecuteTool_ExecuteFuncError(t *testing.T) {
+	t.Parallel()
 	e := NewExecutor("")
 	ctx, err := executor.NewExecutionContext(
 		&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}},
@@ -134,6 +139,7 @@ func TestExecuteTool_ExecuteFuncError(t *testing.T) {
 // ─── executeTool: resource lookup failure ───────────────────────────────────
 
 func TestExecuteTool_ResourceLookupFailure(t *testing.T) {
+	t.Parallel()
 	e := NewExecutor("")
 	ctx, err := executor.NewExecutionContext(
 		&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}},
@@ -188,6 +194,7 @@ func TestExecuteTool_ExecuteResourceError(t *testing.T) {
 // ─── retryFallbackRoutes: nil backend ──────────────────────────────────────
 
 func TestRetryFallbackRoutes_NilBackend(t *testing.T) {
+	t.Parallel()
 	e := NewExecutor("")
 	cfg := &domain.ChatConfig{Model: "test-model", Backend: "nonexistent-backend"}
 
@@ -210,6 +217,7 @@ func TestRetryFallbackRoutes_NilBackend(t *testing.T) {
 // ─── retryFallbackRoutes: callBackend error ─────────────────────────────────
 
 func TestRetryFallbackRoutes_CallBackendError(t *testing.T) {
+	t.Parallel()
 	e := NewExecutor("")
 	cfg := &domain.ChatConfig{Model: "test-model", Backend: "ollama", BaseURL: "http://127.0.0.1:1"}
 
@@ -228,6 +236,7 @@ func TestRetryFallbackRoutes_CallBackendError(t *testing.T) {
 // ─── selectRoundRobin: empty models ─────────────────────────────────────────
 
 func TestSelectRoundRobin_EmptyModels(t *testing.T) {
+	t.Parallel()
 	r := &Router{models: []kdepsconfig.ModelEntry{}}
 	route, err := r.selectRoundRobin("test-id")
 	require.NoError(t, err)
@@ -237,6 +246,7 @@ func TestSelectRoundRobin_EmptyModels(t *testing.T) {
 // ─── defaultEntry: no default model ─────────────────────────────────────────
 
 func TestDefaultEntry_NoDefault(t *testing.T) {
+	t.Parallel()
 	r := &Router{
 		models: []kdepsconfig.ModelEntry{
 			{Model: "model-a", Default: false},
@@ -250,6 +260,7 @@ func TestDefaultEntry_NoDefault(t *testing.T) {
 // ─── MockHTTPClient.Do ──────────────────────────────────────────────────────
 
 func TestMockHTTPClientDo_Error(t *testing.T) {
+	t.Parallel()
 	mock := &MockHTTPClient{Error: assert.AnError}
 	_, err := mock.Do(nil)
 	require.Error(t, err)
@@ -257,6 +268,7 @@ func TestMockHTTPClientDo_Error(t *testing.T) {
 }
 
 func TestMockHTTPClientDo_Success(t *testing.T) {
+	t.Parallel()
 	mock := &MockHTTPClient{ResponseBody: `{"ok":true}`, StatusCode: 200}
 	resp, err := mock.Do(nil)
 	require.NoError(t, err)
@@ -271,6 +283,7 @@ func TestMockHTTPClientDo_Success(t *testing.T) {
 // ─── extractContent (CohereBackend) ─────────────────────────────────────────
 
 func TestExtractContent_NonStringNonArray(t *testing.T) {
+	t.Parallel()
 	b := &CohereBackend{}
 	// contentRaw is a bare int, not string and not []interface{} (line 708-711)
 	result := b.extractContent(42)
@@ -278,6 +291,7 @@ func TestExtractContent_NonStringNonArray(t *testing.T) {
 }
 
 func TestExtractContent_ArrayNonMapElement(t *testing.T) {
+	t.Parallel()
 	b := &CohereBackend{}
 	// contentArray[0] is a string, not a map[string]interface{} (line 713-716)
 	result := b.extractContent([]interface{}{"just a string"})
@@ -285,6 +299,7 @@ func TestExtractContent_ArrayNonMapElement(t *testing.T) {
 }
 
 func TestExtractContent_MapWithoutTextKey(t *testing.T) {
+	t.Parallel()
 	b := &CohereBackend{}
 	// contentArray[0] is a map but without "text" key (line 718-721)
 	result := b.extractContent([]interface{}{
@@ -296,24 +311,28 @@ func TestExtractContent_MapWithoutTextKey(t *testing.T) {
 // ─── cohereHistory.finalMessage ──────────────────────────────────────────────
 
 func TestCohereFinalMessage_EmptyMessages(t *testing.T) {
+	t.Parallel()
 	h := &cohereHistory{lastUser: "last"}
 	result := h.finalMessage([]map[string]interface{}{})
 	assert.Equal(t, "", result)
 }
 
 func TestCohereFinalMessage_PendingNotEmpty(t *testing.T) {
+	t.Parallel()
 	h := &cohereHistory{pending: "user-message"}
 	result := h.finalMessage(nil)
 	assert.Equal(t, "user-message", result)
 }
 
 func TestCohereFinalMessage_LastUserEmpty(t *testing.T) {
+	t.Parallel()
 	h := &cohereHistory{}
 	result := h.finalMessage(nil)
 	assert.Equal(t, "", result)
 }
 
 func TestCohereFinalMessage_LastRoleNotAssistant(t *testing.T) {
+	t.Parallel()
 	h := &cohereHistory{lastUser: "lastUserMsg"}
 	msgs := []map[string]interface{}{
 		{"role": "user", "content": "hi"},
@@ -323,6 +342,7 @@ func TestCohereFinalMessage_LastRoleNotAssistant(t *testing.T) {
 }
 
 func TestCohereFinalMessage_ReturnsLastUser(t *testing.T) {
+	t.Parallel()
 	h := &cohereHistory{lastUser: "lastUserMsg"}
 	msgs := []map[string]interface{}{
 		{"role": "assistant", "content": "reply"},
@@ -334,6 +354,7 @@ func TestCohereFinalMessage_ReturnsLastUser(t *testing.T) {
 // ─── CountTokens: encoding failure ──────────────────────────────────────────
 
 func TestCountTokens_EncodingFailure(t *testing.T) {
+	t.Parallel()
 	// Model name that does not have a tiktoken encoding → fallback to len/4 (line 28-30)
 	count := CountTokens("__nonexistent_model__", "hello world")
 	assert.Greater(t, count, 0)
@@ -353,6 +374,7 @@ func TestDefaultModelsDir_Error(t *testing.T) {
 // ─── buildContent: file expression evaluation error ─────────────────────────
 
 func TestBuildContent_FileExpressionError(t *testing.T) {
+	t.Parallel()
 	e := NewExecutor("")
 	evaluator := expression.NewEvaluator(nil)
 	ctx, err := executor.NewExecutionContext(
@@ -369,6 +391,7 @@ func TestBuildContent_FileExpressionError(t *testing.T) {
 // ─── buildMessages: scenario evaluation errors ──────────────────────────────
 
 func TestBuildMessages_ScenarioPromptError(t *testing.T) {
+	t.Parallel()
 	e := NewExecutor("")
 	evaluator := expression.NewEvaluator(nil)
 	ctx, err := executor.NewExecutionContext(
@@ -393,6 +416,7 @@ func TestBuildMessages_ScenarioPromptError(t *testing.T) {
 }
 
 func TestBuildMessages_ScenarioRoleError(t *testing.T) {
+	t.Parallel()
 	e := NewExecutor("")
 	evaluator := expression.NewEvaluator(nil)
 	ctx, err := executor.NewExecutionContext(
@@ -417,6 +441,7 @@ func TestBuildMessages_ScenarioRoleError(t *testing.T) {
 }
 
 func TestBuildMessages_ScenarioNameError(t *testing.T) {
+	t.Parallel()
 	e := NewExecutor("")
 	evaluator := expression.NewEvaluator(nil)
 	ctx, err := executor.NewExecutionContext(
@@ -442,6 +467,7 @@ func TestBuildMessages_ScenarioNameError(t *testing.T) {
 }
 
 func TestBuildMessages_ScenarioWithName(t *testing.T) {
+	t.Parallel()
 	e := NewExecutor("")
 	evaluator := expression.NewEvaluator(nil)
 	ctx, err := executor.NewExecutionContext(
@@ -476,6 +502,7 @@ func TestBuildMessages_ScenarioWithName(t *testing.T) {
 // ─── storeToolArguments: ctx.Set fails ──────────────────────────────────────
 
 func TestStoreToolArguments_CtxSetError(t *testing.T) {
+	t.Parallel()
 	e := NewExecutor("")
 	ctx, err := executor.NewExecutionContext(
 		&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}},
@@ -498,6 +525,7 @@ func TestStoreToolArguments_CtxSetError(t *testing.T) {
 // ─── FindFreePort: basic sanity ────────────────────────────────────────────
 
 func TestFindFreePort_Basic(t *testing.T) {
+	t.Parallel()
 	port, err := FindFreePort()
 	require.NoError(t, err)
 	assert.Greater(t, port, 0)
