@@ -232,9 +232,8 @@ func (e *Evaluator) EvaluateCondition(exprStr string, env map[string]interface{}
 	case nil:
 		return false, nil
 	default:
-		// Check if it's a slice/array type using reflection
-		if reflect.ValueOf(result).Kind() == reflect.Slice || reflect.ValueOf(result).Kind() == reflect.Array {
-			// Slices are always truthy in Go (both empty and non-empty)
+		rv := reflect.ValueOf(result)
+		if rv.Kind() == reflect.Slice || rv.Kind() == reflect.Array {
 			return true, nil
 		}
 		return false, fmt.Errorf("condition must evaluate to boolean, got %T", result)

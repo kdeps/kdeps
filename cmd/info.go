@@ -182,25 +182,7 @@ func fetchRemoteReadme(ref string) (string, error) {
 // parseRemoteRef splits "owner/repo[:subdir]" into its components.
 func parseRemoteRef(ref string) (string, string, string, error) {
 	kdeps_debug.Log("enter: parseRemoteRef")
-	const maxParts = 2
-
-	// Split on ":" to get optional subdir.
-	colonParts := strings.SplitN(ref, ":", maxParts)
-	repoRef := colonParts[0]
-	var subdir string
-	if len(colonParts) == maxParts {
-		subdir = strings.Trim(colonParts[1], "/")
-	}
-
-	// Split repo part on "/"
-	slashParts := strings.SplitN(repoRef, "/", maxParts)
-	if len(slashParts) != maxParts || slashParts[0] == "" || slashParts[1] == "" {
-		return "", "", "", fmt.Errorf(
-			"invalid remote ref %q: expected owner/repo or owner/repo:subdir",
-			ref,
-		)
-	}
-	return slashParts[0], slashParts[1], subdir, nil
+	return parseOwnerRepoRef(ref, "remote ref")
 }
 
 // fetchReadmeURLTimeout is the per-request timeout for README fetches.

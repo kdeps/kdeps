@@ -228,10 +228,7 @@ type MultipleValidationError struct {
 }
 
 func formatValidationError(err *ValidationError) string {
-	if err.Field != "" {
-		return fmt.Sprintf("validation error on field '%s': %s", err.Field, err.Message)
-	}
-	return fmt.Sprintf("validation error: %s", err.Message)
+	return err.Error()
 }
 
 func (e *MultipleValidationError) Error() string {

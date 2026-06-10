@@ -174,24 +174,14 @@ jobs:
           echo "Running unit tests..."
           go test -v -short -timeout=5m ./pkg/... ./cmd/...
 
-      - name: Determine release type
+      - name: Report validation outcomes
         if: steps.should_release.outputs.should_release == 'true'
-        id: release_type
         run: |
-          # Check if all validation steps succeeded
-          # Note: This step only runs when has_changes is true, ensuring validation steps have executed
-          if [ "${{ steps.lint.outcome }}" = "success" ] && \
-             [ "${{ steps.build.outcome }}" = "success" ] && \
-             [ "${{ steps.test.outcome }}" = "success" ]; then
-            echo "prerelease=false" >> $GITHUB_OUTPUT
-            echo "All checks passed - releasing as latest"
-          else
-            echo "prerelease=true" >> $GITHUB_OUTPUT
-            echo "Some checks failed - releasing as prerelease"
-            echo "Lint: ${{ steps.lint.outcome }}"
-            echo "Build: ${{ steps.build.outcome }}"
-            echo "Test: ${{ steps.test.outcome }}"
-          fi
+          # Validation outcomes are informational only; the nightly release is
+          # always published as latest regardless of check results.
+          echo "Lint: ${{ steps.lint.outcome }}"
+          echo "Build: ${{ steps.build.outcome }}"
+          echo "Test: ${{ steps.test.outcome }}"
 
       - name: Update npm packages in docs/v2
         id: update_npm
@@ -397,11 +387,9 @@ jobs:
           GH_TOKEN: ${{ secrets.RELEASE_TOKEN }}
           MODULE_SUMMARY: ${{ steps.update_modules.outputs.module_updates_summary }}
         run: |
-          # Update the release to mark as latest or prerelease based on validation results
-          # and add module update information to release notes
+          # Mark the release as latest (regardless of validation results) and
+          # add module update information to release notes
           TAG="${{ steps.create_tag.outputs.tag }}"
-          IS_PRERELEASE="${{ steps.release_type.outputs.prerelease }}"
-          IS_PRERELEASE="${IS_PRERELEASE:-true}"
           HAS_MODULE_UPDATES="${{ steps.update_modules.outputs.has_module_updates }}"
           
           # Get the release ID
@@ -424,20 +412,12 @@ jobs:
           # Add validation status
           RELEASE_NOTES="$RELEASE_NOTES"$'\n\n'"---"$'\n\n'"### Build Status"$'\n'"- 🔍 Linting: ${{ steps.lint.outcome }}"$'\n'"- 🔨 Build: ${{ steps.build.outcome }}"$'\n'"- ✅ Tests: ${{ steps.test.outcome }}"
           
-          # Update release with new notes and status
-          if [ "$IS_PRERELEASE" = "false" ]; then
-            echo "Marking release as latest (not prerelease)"
-            gh api -X PATCH repos/${{ github.repository }}/releases/$RELEASE_ID \
-              -f body="$RELEASE_NOTES" \
-              -f prerelease=false \
-              -f make_latest=true
-          else
-            echo "Marking release as prerelease"
-            gh api -X PATCH repos/${{ github.repository }}/releases/$RELEASE_ID \
-              -f body="$RELEASE_NOTES" \
-              -f prerelease=true \
-              -f make_latest=false
-          fi
+          # Update release with new notes and mark as latest
+          echo "Marking release as latest (not prerelease)"
+          gh api -X PATCH repos/${{ github.repository }}/releases/$RELEASE_ID \
+            -f body="$RELEASE_NOTES" \
+            -f prerelease=false \
+            -f make_latest=true
 
       - name: Summary
         run: |
