@@ -515,3 +515,371 @@ func TestSessionStorage_GetAll_DatabaseClosed(t *testing.T) {
 	require.Error(t, err)
 	assert.Nil(t, all)
 }
+
+func TestNewSessionStorage(t *testing.T) {
+	tmpDir := t.TempDir()
+	dbPath := filepath.Join(tmpDir, "test_session.db")
+	sessionID := "test-session"
+
+	storage, err := storage.NewSessionStorage(dbPath, sessionID)
+	require.NoError(t, err)
+	assert.NotNil(t, storage)
+	assert.NotNil(t, storage.DB)
+	assert.Equal(t, sessionID, storage.SessionID)
+
+	// Test basic operations
+	testKey := "session_key"
+	testValue := map[string]interface{}{
+		"user": "testuser",
+		"data": "testdata",
+	}
+
+	// Set value
+	storage.Set(testKey, testValue)
+
+	// Get value
+	retrieved, exists := storage.Get(testKey)
+	assert.True(t, exists)
+	assert.NotNil(t, retrieved)
+
+	// Clean up
+	_ = storage.DB.Close()
+}
+
+func TestNewSessionStorage_EmptyPath(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	// Test with empty path (should use default)
+	sessionID := "default-session"
+	storage, err := storage.NewSessionStorage("", sessionID)
+	require.NoError(t, err)
+	assert.NotNil(t, storage)
+	assert.NotNil(t, storage.DB)
+	assert.Equal(t, sessionID, storage.SessionID)
+
+	// Clean up
+	_ = storage.DB.Close()
+}
+
+func TestNewSessionStorage_InvalidDirectory(t *testing.T) {
+	// Test with invalid directory path
+	invalidPath := "/nonexistent/parent/directory/sessions.db"
+	sessionID := "test-session"
+	storage, err := storage.NewSessionStorage(invalidPath, sessionID)
+	require.Error(t, err)
+	assert.Nil(t, storage)
+	assert.Contains(t, err.Error(), "failed to create directory")
+}
+
+func TestNewSessionStorage_EmptySessionID(t *testing.T) {
+	tmpDir := t.TempDir()
+	dbPath := filepath.Join(tmpDir, "test_session.db")
+
+	// Test with empty session ID (should generate a default)
+	storage, err := storage.NewSessionStorage(dbPath, "")
+	require.NoError(t, err)
+	assert.NotNil(t, storage)
+	assert.NotNil(t, storage.DB)
+	assert.NotEmpty(t, storage.SessionID) // Should generate a default session ID
+
+	// Clean up
+	_ = storage.DB.Close()
+}
+
+func TestSessionStorage_Get_EdgeCases(t *testing.T) {
+	tmpDir := t.TempDir()
+	dbPath := filepath.Join(tmpDir, "test_session.db")
+
+	storage, err := storage.NewSessionStorage(dbPath, "test-session")
+	require.NoError(t, err)
+	defer storage.DB.Close()
+
+	// Test getting non-existent key
+	_, exists := storage.Get("nonexistent")
+	assert.False(t, exists)
+
+	// Test with empty key
+	_, exists = storage.Get("")
+	assert.False(t, exists)
+
+	// Test after setting and deleting
+	storage.Set("temp", "value")
+	_, exists = storage.Get("temp")
+	assert.True(t, exists)
+
+	storage.Delete("temp")
+	_, exists = storage.Get("temp")
+	assert.False(t, exists)
+}
+
+func TestSessionStorage_Set_EdgeCases(t *testing.T) {
+	tmpDir := t.TempDir()
+	dbPath := filepath.Join(tmpDir, "test_session.db")
+
+	storage, err := storage.NewSessionStorage(dbPath, "test-session")
+	require.NoError(t, err)
+	defer storage.DB.Close()
+
+	// Test setting nil value
+	err = storage.Set("nil_key", nil)
+	require.NoError(t, err)
+
+	retrieved, exists := storage.Get("nil_key")
+	assert.True(t, exists)
+	assert.Nil(t, retrieved)
+
+	// Test setting complex nested data
+	complexData := map[string]interface{}{
+		"nested": map[string]interface{}{
+			"deep": map[string]interface{}{
+				"value": []interface{}{1, 2, 3},
+			},
+		},
+		"array": []interface{}{
+			map[string]interface{}{"id": 1},
+			map[string]interface{}{"id": 2},
+		},
+	}
+
+	err = storage.Set("complex", complexData)
+	require.NoError(t, err)
+
+	retrieved, exists = storage.Get("complex")
+	assert.True(t, exists)
+	assert.NotNil(t, retrieved)
+}
+
+func TestSessionStorage_Delete_EdgeCases(t *testing.T) {
+	tmpDir := t.TempDir()
+	dbPath := filepath.Join(tmpDir, "test_session.db")
+
+	storage, err := storage.NewSessionStorage(dbPath, "test-session")
+	require.NoError(t, err)
+	defer storage.DB.Close()
+
+	// Test deleting non-existent key (should not error)
+	err = storage.Delete("nonexistent")
+	require.NoError(t, err)
+
+	// Test deleting existing key
+	storage.Set("existing", "value")
+	err = storage.Delete("existing")
+	require.NoError(t, err)
+
+	// Verify it's gone
+	_, exists := storage.Get("existing")
+	assert.False(t, exists)
+}
+
+func TestSessionStorage_Clear_EmptySession(t *testing.T) {
+	tmpDir := t.TempDir()
+	dbPath := filepath.Join(tmpDir, "test_session.db")
+
+	storage, err := storage.NewSessionStorage(dbPath, "empty-session")
+	require.NoError(t, err)
+	defer storage.DB.Close()
+
+	// Clear empty session (should not error)
+	err = storage.Clear()
+	require.NoError(t, err)
+}
+
+func TestSessionStorage_GetSet(t *testing.T) {
+	tmpDir := t.TempDir()
+	dbPath := filepath.Join(tmpDir, "test_session.db")
+
+	storage, err := storage.NewSessionStorage(dbPath, "test-session")
+	require.NoError(t, err)
+	defer storage.DB.Close()
+
+	// Test basic set/get
+	sessionKey := "user_session"
+	sessionData := map[string]interface{}{
+		"user_id": 12345,
+		"role":    "admin",
+	}
+
+	storage.Set(sessionKey, sessionData)
+
+	retrieved, exists := storage.Get(sessionKey)
+	assert.True(t, exists)
+	assert.NotNil(t, retrieved)
+
+	// Test overwriting
+	newData := map[string]interface{}{
+		"user_id": 12345,
+		"role":    "user", // Changed
+	}
+	storage.Set(sessionKey, newData)
+
+	retrieved, exists = storage.Get(sessionKey)
+	assert.True(t, exists)
+	assert.NotNil(t, retrieved)
+}
+
+func TestSessionStorage_NonExistentKey(t *testing.T) {
+	tmpDir := t.TempDir()
+	dbPath := filepath.Join(tmpDir, "test_session.db")
+
+	storage, err := storage.NewSessionStorage(dbPath, "test-session")
+	require.NoError(t, err)
+	defer storage.DB.Close()
+
+	_, exists := storage.Get("nonexistent_session")
+	assert.False(t, exists)
+}
+
+func TestSessionStorage_SetWithTTL_ZeroTTL(t *testing.T) {
+	tmpDir := t.TempDir()
+	dbPath := filepath.Join(tmpDir, "test_session.db")
+
+	storage, err := storage.NewSessionStorage(dbPath, "test-session")
+	require.NoError(t, err)
+	defer storage.DB.Close()
+
+	// Set with zero TTL (no expiration)
+	err = storage.SetWithTTL("test_key", "test_value", 0)
+	require.NoError(t, err)
+
+	// Should be able to retrieve it
+	value, exists := storage.Get("test_key")
+	assert.True(t, exists)
+	assert.Equal(t, "test_value", value)
+}
+
+func TestSessionStorage_SetWithTTL_CustomTTL(t *testing.T) {
+	tmpDir := t.TempDir()
+	dbPath := filepath.Join(tmpDir, "test_session.db")
+
+	storage, err := storage.NewSessionStorage(dbPath, "test-session")
+	require.NoError(t, err)
+	defer storage.DB.Close()
+
+	// Set with custom TTL
+	customTTL := 5 * time.Minute
+	err = storage.SetWithTTL("test_key", "test_value", customTTL)
+	require.NoError(t, err)
+
+	// Should be able to retrieve it
+	value, exists := storage.Get("test_key")
+	assert.True(t, exists)
+	assert.Equal(t, "test_value", value)
+}
+
+func TestSessionStorage_IsExpired_NoExpiration(t *testing.T) {
+	tmpDir := t.TempDir()
+	dbPath := filepath.Join(tmpDir, "test_session.db")
+
+	storage, err := storage.NewSessionStorage(dbPath, "test-session")
+	require.NoError(t, err)
+	defer storage.DB.Close()
+
+	// Set a value with no expiration
+	storage.SetWithTTL("test_key", "test_value", 0)
+
+	// Should not be expired
+	expired, err := storage.IsExpired("test_key")
+	require.NoError(t, err)
+	assert.False(t, expired)
+}
+
+func TestSessionStorage_IsExpired_WithExpiration(t *testing.T) {
+	tmpDir := t.TempDir()
+	dbPath := filepath.Join(tmpDir, "test_session.db")
+
+	storage, err := storage.NewSessionStorage(dbPath, "test-session")
+	require.NoError(t, err)
+	defer storage.DB.Close()
+
+	// Set a value with very short expiration (1 millisecond)
+	shortTTL := 1 * time.Millisecond
+	storage.SetWithTTL("test_key", "test_value", shortTTL)
+
+	// Wait for expiration
+	time.Sleep(10 * time.Millisecond)
+
+	// Should be expired
+	expired, err := storage.IsExpired("test_key")
+	require.NoError(t, err)
+	assert.True(t, expired)
+}
+
+func TestSessionStorage_IsExpired_NonExistentKey(t *testing.T) {
+	tmpDir := t.TempDir()
+	dbPath := filepath.Join(tmpDir, "test_session.db")
+
+	storage, err := storage.NewSessionStorage(dbPath, "test-session")
+	require.NoError(t, err)
+	defer storage.DB.Close()
+
+	// Check non-existent key
+	expired, err := storage.IsExpired("nonexistent")
+	require.NoError(t, err)
+	assert.True(t, expired) // Non-existent = expired
+}
+
+func TestSessionStorage_Delete(t *testing.T) {
+	tmpDir := t.TempDir()
+	dbPath := filepath.Join(tmpDir, "test_session.db")
+
+	storage, err := storage.NewSessionStorage(dbPath, "test-session")
+	require.NoError(t, err)
+	defer storage.DB.Close()
+
+	// Set a value
+	testKey := "test_key"
+	testValue := map[string]interface{}{"name": "test"}
+	storage.Set(testKey, testValue)
+
+	// Verify it exists
+	_, exists := storage.Get(testKey)
+	assert.True(t, exists)
+
+	// Delete it
+	err = storage.Delete(testKey)
+	require.NoError(t, err)
+
+	// Verify it's gone
+	_, exists = storage.Get(testKey)
+	assert.False(t, exists)
+}
+
+func TestSessionStorage_Clear(t *testing.T) {
+	tmpDir := t.TempDir()
+	dbPath := filepath.Join(tmpDir, "test_session.db")
+
+	storage, err := storage.NewSessionStorage(dbPath, "test-session")
+	require.NoError(t, err)
+	defer storage.DB.Close()
+
+	// Set multiple values
+	storage.Set("key1", "value1")
+	storage.Set("key2", "value2")
+
+	// Verify they exist
+	_, exists1 := storage.Get("key1")
+	_, exists2 := storage.Get("key2")
+	assert.True(t, exists1)
+	assert.True(t, exists2)
+
+	// Clear all
+	err = storage.Clear()
+	require.NoError(t, err)
+
+	// Verify they're gone
+	_, exists1 = storage.Get("key1")
+	_, exists2 = storage.Get("key2")
+	assert.False(t, exists1)
+	assert.False(t, exists2)
+}
+
+func TestSessionStorage_Close(t *testing.T) {
+	tmpDir := t.TempDir()
+	dbPath := filepath.Join(tmpDir, "test_session.db")
+
+	storage, err := storage.NewSessionStorage(dbPath, "test-session")
+	require.NoError(t, err)
+
+	// Close should not error
+	err = storage.Close()
+	require.NoError(t, err)
+}

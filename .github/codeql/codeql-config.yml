@@ -4,30 +4,26 @@ paths-ignore:
   - "kdeps-io.old/"
   - "private/"
 
+# NOTE: query-filters can only exclude whole queries; per-path filtering is
+# not supported by CodeQL config, so these are repo-wide with justification.
 query-filters:
   # ResponseWriterWrapper.Write routes browser-rendered content through html.EscapeString.
   # The unescaped path is only reachable for non-browser content types (JSON, binary).
   # This is a false positive — the XSS guard is the browserRenderedContentType check above it.
   - exclude:
       id: go/reflected-xss
-  # Workflow YAML intentionally supplies SQL, shell commands, and file paths at runtime.
+  # kdeps is a workflow engine: workflow YAML written by the operator intentionally
+  # supplies the SQL queries, shell commands, scripts, and file paths executed at
+  # runtime (pkg/executor/sql, pkg/executor/exec, pkg/executor/python,
+  # pkg/executor/llm, pkg/infra/python). The "untrusted" source is the user's own
+  # config file, equivalent to Make executing a Makefile.
   - exclude:
       id: go/sql-injection
-      paths:
-        - pkg/executor/sql
   - exclude:
       id: go/command-injection
-      paths:
-        - pkg/executor/exec
-        - pkg/executor/python
-        - pkg/executor/llm
   - exclude:
       id: go/path-injection
-      paths:
-        - pkg/executor/llm
-        - pkg/infra/python
-  # Session cookies are HTTP-only dev tokens; Secure is set when TLS is enabled.
+  # Session cookies are HTTP-only dev tokens; Secure is set when TLS is enabled
+  # (pkg/infra/http/http_session.go).
   - exclude:
       id: go/cookie-secure-not-set
-      paths:
-        - pkg/infra/http/http_session.go
