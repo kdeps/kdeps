@@ -19,22 +19,14 @@
 package executor
 
 import (
-	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
 	"github.com/kdeps/kdeps/v2/pkg/domain"
 )
 
 // executeSearchWeb executes a searchWeb resource.
 func (e *Engine) executeSearchWeb(resource *domain.Resource, ctx *ExecutionContext) (interface{}, error) {
-	kdeps_debug.Log("enter: executeSearchWeb")
-	if resource.SearchWeb == nil {
-		return nil, missingResourceConfigErr(resource.ActionID, "searchWeb")
-	}
-	return runRegisteredExecutor(
-		e.registry.GetSearchWebExecutor,
-		"searchWeb",
-		func(exec ResourceExecutor) (interface{}, error) {
-			return exec.Execute(ctx, resource.SearchWeb)
-		},
+	return e.executeRegisteredResource(
+		resource, "searchWeb", resource.SearchWeb,
+		e.registry.GetSearchWebExecutor, "searchWeb", "executeSearchWeb", ctx,
 	)
 }
 
@@ -43,28 +35,14 @@ func (e *Engine) executeInlineSearchWeb(
 	config *domain.SearchWebConfig,
 	ctx *ExecutionContext,
 ) (interface{}, error) {
-	kdeps_debug.Log("enter: executeInlineSearchWeb")
-	return runRegisteredExecutor(
-		e.registry.GetSearchWebExecutor,
-		"searchWeb",
-		func(exec ResourceExecutor) (interface{}, error) {
-			return exec.Execute(ctx, config)
-		},
-	)
+	return e.executeRegistered("executeInlineSearchWeb", e.registry.GetSearchWebExecutor, "searchWeb", ctx, config)
 }
 
 // executeTelephony executes a telephony action resource.
 func (e *Engine) executeTelephony(resource *domain.Resource, ctx *ExecutionContext) (interface{}, error) {
-	kdeps_debug.Log("enter: executeTelephony")
-	if resource.Telephony == nil {
-		return nil, missingResourceConfigErr(resource.ActionID, "telephony")
-	}
-	return runRegisteredExecutor(
-		e.registry.GetTelephonyExecutor,
-		"telephony",
-		func(exec ResourceExecutor) (interface{}, error) {
-			return exec.Execute(ctx, resource.Telephony)
-		},
+	return e.executeRegisteredResource(
+		resource, "telephony", resource.Telephony,
+		e.registry.GetTelephonyExecutor, "telephony", "executeTelephony", ctx,
 	)
 }
 
@@ -73,28 +51,14 @@ func (e *Engine) executeInlineTelephony(
 	config *domain.TelephonyActionConfig,
 	ctx *ExecutionContext,
 ) (interface{}, error) {
-	kdeps_debug.Log("enter: executeInlineTelephony")
-	return runRegisteredExecutor(
-		e.registry.GetTelephonyExecutor,
-		"telephony",
-		func(exec ResourceExecutor) (interface{}, error) {
-			return exec.Execute(ctx, config)
-		},
-	)
+	return e.executeRegistered("executeInlineTelephony", e.registry.GetTelephonyExecutor, "telephony", ctx, config)
 }
 
 // executeBrowser executes a browser automation resource.
 func (e *Engine) executeBrowser(resource *domain.Resource, ctx *ExecutionContext) (interface{}, error) {
-	kdeps_debug.Log("enter: executeBrowser")
-	if resource.Browser == nil {
-		return nil, missingResourceConfigErr(resource.ActionID, "browser")
-	}
-	return runRegisteredExecutor(
-		e.registry.GetBrowserExecutor,
-		"browser",
-		func(exec ResourceExecutor) (interface{}, error) {
-			return exec.Execute(ctx, resource.Browser)
-		},
+	return e.executeRegisteredResource(
+		resource, "browser", resource.Browser,
+		e.registry.GetBrowserExecutor, "browser", "executeBrowser", ctx,
 	)
 }
 
@@ -103,12 +67,5 @@ func (e *Engine) executeInlineBrowser(
 	config *domain.BrowserConfig,
 	ctx *ExecutionContext,
 ) (interface{}, error) {
-	kdeps_debug.Log("enter: executeInlineBrowser")
-	return runRegisteredExecutor(
-		e.registry.GetBrowserExecutor,
-		"browser",
-		func(exec ResourceExecutor) (interface{}, error) {
-			return exec.Execute(ctx, config)
-		},
-	)
+	return e.executeRegistered("executeInlineBrowser", e.registry.GetBrowserExecutor, "browser", ctx, config)
 }

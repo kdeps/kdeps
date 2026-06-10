@@ -21,10 +21,25 @@ package executor
 import (
 	"errors"
 	"fmt"
+	"reflect"
 
 	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
 	"github.com/kdeps/kdeps/v2/pkg/domain"
 )
+
+// isNilConfig reports whether v is nil, including typed nil pointers in interfaces.
+func isNilConfig(v any) bool {
+	if v == nil {
+		return true
+	}
+	val := reflect.ValueOf(v)
+	switch val.Kind() { //nolint:exhaustive // IsNil only applies to reference kinds
+	case reflect.Ptr, reflect.Slice, reflect.Map, reflect.Interface, reflect.Chan, reflect.Func:
+		return val.IsNil()
+	default:
+		return false
+	}
+}
 
 func missingResourceConfigErr(actionID, configType string) error {
 	return fmt.Errorf("resource %s has no %s configuration", actionID, configType)
@@ -46,102 +61,86 @@ func runRegisteredExecutor(
 	return execute(exec)
 }
 
-// executeHTTP executes an HTTP client resource.
-func (e *Engine) executeHTTP(
+// executeRegistered runs a config through a registry-backed ResourceExecutor.
+func (e *Engine) executeRegistered(
+	logName string,
+	getExecutor func() ResourceExecutor,
+	executorName string,
+	ctx *ExecutionContext,
+	config any,
+) (interface{}, error) {
+	kdeps_debug.Log("enter: " + logName)
+	return runRegisteredExecutor(
+		getExecutor,
+		executorName,
+		func(exec ResourceExecutor) (interface{}, error) {
+			return exec.Execute(ctx, config)
+		},
+	)
+}
+
+// executeRegisteredResource validates a resource config is present, then delegates
+// to executeRegistered.
+func (e *Engine) executeRegisteredResource(
 	resource *domain.Resource,
+	configType string,
+	config any,
+	getExecutor func() ResourceExecutor,
+	executorName string,
+	logName string,
 	ctx *ExecutionContext,
 ) (interface{}, error) {
-	kdeps_debug.Log("enter: executeHTTP")
-	if resource.HTTPClient == nil {
-		return nil, missingResourceConfigErr(resource.ActionID, "HTTP client")
+	if isNilConfig(config) {
+		return nil, missingResourceConfigErr(resource.ActionID, configType)
 	}
-	return runRegisteredExecutor(
-		e.registry.GetHTTPExecutor,
-		"HTTP",
-		func(exec ResourceExecutor) (interface{}, error) {
-			return exec.Execute(ctx, resource.HTTPClient)
-		},
+	return e.executeRegistered(logName, getExecutor, executorName, ctx, config)
+}
+
+// executeHTTP executes an HTTP client resource.
+func (e *Engine) executeHTTP(resource *domain.Resource, ctx *ExecutionContext) (interface{}, error) {
+	return e.executeRegisteredResource(
+		resource, "HTTP client", resource.HTTPClient,
+		e.registry.GetHTTPExecutor, "HTTP", "executeHTTP", ctx,
 	)
 }
 
 // executeSQL executes a SQL resource.
 func (e *Engine) executeSQL(resource *domain.Resource, ctx *ExecutionContext) (interface{}, error) {
-	kdeps_debug.Log("enter: executeSQL")
-	if resource.SQL == nil {
-		return nil, missingResourceConfigErr(resource.ActionID, "SQL")
-	}
-	return runRegisteredExecutor(
-		e.registry.GetSQLExecutor,
-		"SQL",
-		func(exec ResourceExecutor) (interface{}, error) {
-			return exec.Execute(ctx, resource.SQL)
-		},
+	return e.executeRegisteredResource(
+		resource, "SQL", resource.SQL,
+		e.registry.GetSQLExecutor, "SQL", "executeSQL", ctx,
 	)
 }
 
 // executePython executes a Python resource.
-func (e *Engine) executePython(
-	resource *domain.Resource,
-	ctx *ExecutionContext,
-) (interface{}, error) {
-	kdeps_debug.Log("enter: executePython")
-	if resource.Python == nil {
-		return nil, missingResourceConfigErr(resource.ActionID, "Python")
-	}
-	return runRegisteredExecutor(
-		e.registry.GetPythonExecutor,
-		"python",
-		func(exec ResourceExecutor) (interface{}, error) {
-			return exec.Execute(ctx, resource.Python)
-		},
+func (e *Engine) executePython(resource *domain.Resource, ctx *ExecutionContext) (interface{}, error) {
+	return e.executeRegisteredResource(
+		resource, "Python", resource.Python,
+		e.registry.GetPythonExecutor, "python", "executePython", ctx,
 	)
 }
 
 // executeExec executes a shell command resource.
-func (e *Engine) executeExec(
-	resource *domain.Resource,
-	ctx *ExecutionContext,
-) (interface{}, error) {
-	kdeps_debug.Log("enter: executeExec")
-	if resource.Exec == nil {
-		return nil, missingResourceConfigErr(resource.ActionID, "exec")
-	}
-	return runRegisteredExecutor(
-		e.registry.GetExecExecutor,
-		"exec",
-		func(exec ResourceExecutor) (interface{}, error) {
-			return exec.Execute(ctx, resource.Exec)
-		},
+func (e *Engine) executeExec(resource *domain.Resource, ctx *ExecutionContext) (interface{}, error) {
+	return e.executeRegisteredResource(
+		resource, "exec", resource.Exec,
+		e.registry.GetExecExecutor, "exec", "executeExec", ctx,
 	)
 }
 
 // executeEmail executes an email resource.
 func (e *Engine) executeEmail(resource *domain.Resource, ctx *ExecutionContext) (interface{}, error) {
-	kdeps_debug.Log("enter: executeEmail")
-	if resource.Email == nil {
-		return nil, missingResourceConfigErr(resource.ActionID, "email")
-	}
-	return runRegisteredExecutor(
-		e.registry.GetEmailExecutor,
-		"email",
-		func(exec ResourceExecutor) (interface{}, error) {
-			return exec.Execute(ctx, resource.Email)
-		},
+	return e.executeRegisteredResource(
+		resource, "email", resource.Email,
+		e.registry.GetEmailExecutor, "email", "executeEmail", ctx,
 	)
 }
 
 // executeBotReply executes a botReply resource, sending the reply text to the
 // originating bot platform via the BotSend function set on the execution context.
 func (e *Engine) executeBotReply(resource *domain.Resource, ctx *ExecutionContext) (interface{}, error) {
-	kdeps_debug.Log("enter: executeBotReply")
-	if resource.BotReply == nil {
-		return nil, missingResourceConfigErr(resource.ActionID, "botReply")
-	}
-	return runRegisteredExecutor(
-		e.registry.GetBotReplyExecutor,
-		"botReply",
-		func(exec ResourceExecutor) (interface{}, error) {
-			return exec.Execute(ctx, resource.BotReply)
-		},
+	return e.executeRegisteredResource(
+		resource, "botReply", resource.BotReply,
+		e.registry.GetBotReplyExecutor, "botReply", "executeBotReply", ctx,
 	)
 }

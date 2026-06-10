@@ -23,22 +23,42 @@ import (
 	"strings"
 )
 
+const (
+	commentIndentRoutingBackend = 5
+	commentIndentAgentBackend   = 7
+	commentIndentNestedBackend  = 11
+)
+
+func formatBackendOption(name string) string {
+	if name == ollamaBackendStr {
+		return ollamaBackendStr + " (local, default)"
+	}
+	return name
+}
+
+func commentedKeyValue(b *strings.Builder, spacesAfterHash int, key, value string) {
+	fmt.Fprintf(b, "#%s%s: %s\n", strings.Repeat(" ", spacesAfterHash), key, value)
+}
+
+func commentedBackend(b *strings.Builder, spacesAfterHash int, backend string) {
+	commentedKeyValue(b, spacesAfterHash, "backend", backend)
+}
+
+func commentedProviderKey(b *strings.Builder, spacesAfterHash int, key, value string) {
+	commentedKeyValue(b, spacesAfterHash, key, value)
+}
+
 // configOptionsReferenceBody is the static portion of the config.yaml options
 // reference. Provider-specific sections are generated from cloudProvidersList.
 func buildBackendOptionsSection() string {
-	parts := make([]string, len(providerNames()))
-	for i, name := range providerNames() {
-		if name == ollamaBackendStr {
-			parts[i] = ollamaBackendStr + " (local, default)"
-			continue
-		}
-		parts[i] = name
+	names := providerNames()
+	parts := make([]string, len(names))
+	for i, name := range names {
+		parts[i] = formatBackendOption(name)
 	}
 	var b strings.Builder
 	b.WriteString("# ── Default backend ───────────────────────────────────────────────────────\n")
-	b.WriteString("# ")
-	b.WriteString(strings.Join(parts, " | "))
-	b.WriteString("\n# backend: ollama\n\n")
+	fmt.Fprintf(&b, "# %s\n# backend: ollama\n\n", strings.Join(parts, " | "))
 	return b.String()
 }
 
@@ -182,12 +202,12 @@ func buildRoutingExamplesSection() string {
 # models:
 #   - model: gpt-4o-mini
 `)
-	fmt.Fprintf(&b, "#     backend: %s\n", primary.name)
+	commentedBackend(&b, commentIndentRoutingBackend, primary.name)
 	b.WriteString(`#     max_tokens: 500
 #     default: true
 #   - model: gpt-4o
 `)
-	fmt.Fprintf(&b, "#     backend: %s\n", primary.name)
+	commentedBackend(&b, commentIndentRoutingBackend, primary.name)
 	b.WriteString(`#     min_tokens: 501
 #
 # --- fallback: try each route in priority order on error ---
@@ -195,15 +215,15 @@ func buildRoutingExamplesSection() string {
 # models:
 #   - model: claude-opus-4-7
 `)
-	fmt.Fprintf(&b, "#     backend: %s\n", secondary.name)
+	commentedBackend(&b, commentIndentRoutingBackend, secondary.name)
 	b.WriteString(`#     priority: 1
 #   - model: gpt-4o
 `)
-	fmt.Fprintf(&b, "#     backend: %s\n", primary.name)
+	commentedBackend(&b, commentIndentRoutingBackend, primary.name)
 	b.WriteString(`#     priority: 2
 #   - model: llama3.2
 `)
-	fmt.Fprintf(&b, "#     backend: %s\n", ollamaBackendStr)
+	commentedBackend(&b, commentIndentRoutingBackend, ollamaBackendStr)
 	b.WriteString(`#     priority: 3
 #     default: true
 #
@@ -212,12 +232,12 @@ func buildRoutingExamplesSection() string {
 # models:
 #   - model: gpt-4o-mini
 `)
-	fmt.Fprintf(&b, "#     backend: %s\n", primary.name)
+	commentedBackend(&b, commentIndentRoutingBackend, primary.name)
 	b.WriteString(`#     cost_per_input_token: 0.00015
 #     cost_per_output_token: 0.0006
 #   - model: gpt-4o
 `)
-	fmt.Fprintf(&b, "#     backend: %s\n", primary.name)
+	commentedBackend(&b, commentIndentRoutingBackend, primary.name)
 	b.WriteString(`#     cost_per_input_token: 0.0025
 #     cost_per_output_token: 0.01
 #     default: true
@@ -227,16 +247,16 @@ func buildRoutingExamplesSection() string {
 # models:
 #   - model: gpt-4o-mini
 `)
-	fmt.Fprintf(&b, "#     backend: %s\n", primary.name)
+	commentedBackend(&b, commentIndentRoutingBackend, primary.name)
 	b.WriteString(`#   - model: gpt-4o
 `)
-	fmt.Fprintf(&b, "#     backend: %s\n", primary.name)
+	commentedBackend(&b, commentIndentRoutingBackend, primary.name)
 	b.WriteString(`#   - model: claude-sonnet-4-6
 `)
-	fmt.Fprintf(&b, "#     backend: %s\n", secondary.name)
+	commentedBackend(&b, commentIndentRoutingBackend, secondary.name)
 	b.WriteString(`#   - model: llama3.2
 `)
-	fmt.Fprintf(&b, "#     backend: %s\n", ollamaBackendStr)
+	commentedBackend(&b, commentIndentRoutingBackend, ollamaBackendStr)
 	b.WriteString("#     default: true\n\n")
 	return b.String()
 }
@@ -254,8 +274,8 @@ func buildAgentsExampleSection() string {
 #   my-agent:                    # matches metadata.name: my-agent
 #     llm:
 `)
-	fmt.Fprintf(&b, "#       backend: %s\n", primary.name)
-	fmt.Fprintf(&b, "#       %s: sk-agent-specific\n", primary.yamlKey)
+	commentedBackend(&b, commentIndentAgentBackend, primary.name)
+	commentedProviderKey(&b, commentIndentAgentBackend, primary.yamlKey, "sk-agent-specific")
 	b.WriteString(`#       models:
 #         - gpt-4o
 #     defaults:
@@ -268,17 +288,17 @@ func buildAgentsExampleSection() string {
 #   another-agent:               # matches metadata.name: another-agent
 #     llm:
 `)
-	fmt.Fprintf(&b, "#       backend: %s\n", secondary.name)
-	fmt.Fprintf(&b, "#       %s: sk-ant-agent\n", secondary.yamlKey)
+	commentedBackend(&b, commentIndentAgentBackend, secondary.name)
+	commentedProviderKey(&b, commentIndentAgentBackend, secondary.yamlKey, "sk-ant-agent")
 	b.WriteString(`#       strategy: fallback
 #       models:
 #         - model: claude-opus-4-7
 `)
-	fmt.Fprintf(&b, "#           backend: %s\n", secondary.name)
+	commentedBackend(&b, commentIndentNestedBackend, secondary.name)
 	b.WriteString(`#           priority: 1
 #         - model: claude-sonnet-4-6
 `)
-	fmt.Fprintf(&b, "#           backend: %s\n", secondary.name)
+	commentedBackend(&b, commentIndentNestedBackend, secondary.name)
 	b.WriteString("#           priority: 2\n")
 	return b.String()
 }
