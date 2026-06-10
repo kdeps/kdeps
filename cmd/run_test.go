@@ -729,14 +729,21 @@ func TestFindAvailablePort_UsedPort(t *testing.T) {
 }
 
 func TestFindAvailablePort_AvailablePort(t *testing.T) {
-	l, err := net.Listen("tcp", "127.0.0.1:0")
-	require.NoError(t, err)
-	freePort := l.Addr().(*net.TCPAddr).Port
-	l.Close()
+	// Another test's server can grab the freed port between Close and the
+	// check, so retry with fresh ports instead of asserting a single shot.
+	for attempt := 0; attempt < 5; attempt++ {
+		l, err := net.Listen("tcp", "127.0.0.1:0")
+		require.NoError(t, err)
+		freePort := l.Addr().(*net.TCPAddr).Port
+		l.Close()
 
-	found, err := cmd.FindAvailablePort("127.0.0.1", freePort)
-	require.NoError(t, err)
-	assert.Equal(t, freePort, found, "available port should be returned without increment")
+		found, err := cmd.FindAvailablePort("127.0.0.1", freePort)
+		require.NoError(t, err)
+		if found == freePort {
+			return
+		}
+	}
+	t.Error("available port was never returned without increment across 5 attempts")
 }
 
 func TestStartHTTPServer_InvalidPort(t *testing.T) {
