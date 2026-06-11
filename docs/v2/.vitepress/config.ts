@@ -108,6 +108,7 @@ export default defineConfig({
             { text: 'Browser', link: '/resources/browser' },
             { text: 'Embedding', link: '/resources/embedding' },
             { text: 'Search', link: '/resources/search' },
+            { text: 'Telephony', link: '/resources/telephony' },
             { text: 'API Response', link: '/resources/api-response' },
           ]
         },
