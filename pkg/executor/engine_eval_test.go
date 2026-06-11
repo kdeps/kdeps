@@ -39,6 +39,17 @@ func TestParseAtTime_TimeOfDay(t *testing.T) {
 	assert.Equal(t, 59, got.Minute())
 }
 
+func TestParseAtTime_TimeOfDayRollsToTomorrow(t *testing.T) {
+	t.Parallel()
+	got, err := parseAtTime("00:00:01")
+	require.NoError(t, err)
+	now := time.Now()
+	if now.Hour() == 0 && now.Minute() == 0 && now.Second() <= 1 {
+		t.Skip("ambiguous at midnight")
+	}
+	assert.True(t, got.After(now))
+}
+
 func TestParseAtTime_DateOnly(t *testing.T) {
 	t.Parallel()
 	got, err := parseAtTime("2026-12-25")

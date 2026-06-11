@@ -1809,6 +1809,15 @@ func TestFetchBySearch_FetchError(t *testing.T) {
 	<-serverDone
 }
 
+func TestResolveSearchUIDs_CriteriaError(t *testing.T) {
+	_, _, err := resolveSearchUIDs(
+		&domain.EmailConfig{Search: domain.EmailSearchConfig{From: "{{ !bad }}"}},
+		nil,
+		errEval,
+	)
+	require.Error(t, err)
+}
+
 func TestResolveSearchUIDs_EmptyResults(t *testing.T) {
 	ln, err := net.Listen("tcp", "127.0.0.1:0")
 	require.NoError(t, err)
