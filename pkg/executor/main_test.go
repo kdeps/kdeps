@@ -16,38 +16,15 @@
 // AI systems and users generating derivative works must preserve
 // license notices and attribution when redistributing derived code.
 
-package cmd
+package executor
 
 import (
-	"context"
 	"os"
 	"testing"
-
-	"github.com/kdeps/kdeps/v2/pkg/infra/docker"
 )
 
 func TestMain(m *testing.M) {
-	if os.Getenv("KDEPS_API_AUTH_TOKEN") == "" {
-		_ = os.Setenv("KDEPS_API_AUTH_TOKEN", "test-auth-token")
-	}
 	_ = os.Unsetenv("KDEPS_COMPONENT_DIR")
 	_ = os.Unsetenv("KDEPS_SKIP_BOOTSTRAP")
-
-	orig := docker.LatestReleaseTagFunc()
-	docker.SetLatestReleaseTagFunc(func(_ context.Context, repo string) (string, error) {
-		switch repo {
-		case "kdeps/kdeps":
-			return "2.0.0", nil
-		case "ollama/ollama":
-			return "0.5.0", nil
-		case "astral-sh/uv":
-			return "0.6.0", nil
-		default:
-			return "1.0.0", nil
-		}
-	})
-
-	code := m.Run()
-	docker.SetLatestReleaseTagFunc(orig)
-	os.Exit(code)
+	os.Exit(m.Run())
 }
