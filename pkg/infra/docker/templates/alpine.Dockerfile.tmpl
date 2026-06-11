@@ -18,8 +18,10 @@ ENV {{ $key }}="{{ $value }}"
 {{- end }}
 {{- end }}
 
-# Install base dependencies
-RUN apk add --no-cache \
+# Install base dependencies (upgrade first to pick up security patches
+# published after the base image was built)
+RUN apk upgrade --no-cache && \
+    apk add --no-cache \
     zstd \
     python3 \
     py3-pip \

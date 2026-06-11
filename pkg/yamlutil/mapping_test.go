@@ -47,4 +47,14 @@ func TestMappingHelpers(t *testing.T) {
 	assert.Equal(t, yaml.MappingNode, mapping.Kind)
 	assert.Nil(t, yamlutil.MappingChild(root, "b"))
 	assert.Nil(t, yamlutil.MappingChild(root, "missing"))
+
+	assert.Equal(t, []string{"a", "b", "c"}, yamlutil.MappingKeys(root))
+}
+
+func TestMappingHelpers_NilAndNonMapping(t *testing.T) {
+	t.Parallel()
+
+	assert.Nil(t, yamlutil.ChildValue(nil, "a"))
+	assert.Nil(t, yamlutil.MappingKeys(nil))
+	assert.Nil(t, yamlutil.MappingKeys(&yaml.Node{Kind: yaml.ScalarNode}))
 }

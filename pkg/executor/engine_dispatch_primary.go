@@ -51,8 +51,15 @@ func primaryResourceDispatch() []primaryDispatchEntry {
 		"email":       (*Engine).executeEmail,
 	}
 
-	entries := make([]primaryDispatchEntry, 0, len(domain.PrimaryResourceTypes()))
-	for _, resourceType := range domain.PrimaryResourceTypes() {
+	return buildPrimaryDispatch(domain.PrimaryResourceTypes(), executors)
+}
+
+func buildPrimaryDispatch(
+	types []domain.PrimaryResourceType,
+	executors map[string]func(*Engine, *domain.Resource, *ExecutionContext) (interface{}, error),
+) []primaryDispatchEntry {
+	entries := make([]primaryDispatchEntry, 0, len(types))
+	for _, resourceType := range types {
 		execute, ok := executors[resourceType.Name]
 		if !ok {
 			panic(fmt.Sprintf("missing primary executor for %q", resourceType.Name))

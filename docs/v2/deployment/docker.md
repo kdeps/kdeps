@@ -266,8 +266,9 @@ KDeps uses a streamlined build process that leverages the official installation 
 # Example of generated Dockerfile logic
 FROM alpine:3.18
 
-# Install dependencies
-RUN apk add --no-cache curl bash python3 py3-pip
+# Upgrade base packages (security patches), then install dependencies
+RUN apk upgrade --no-cache && \
+    apk add --no-cache curl bash python3 py3-pip
 
 # Install kdeps via official install script
 RUN curl -LsSf https://raw.githubusercontent.com/kdeps/kdeps/main/install.sh | sh -s -- -b /usr/local/bin

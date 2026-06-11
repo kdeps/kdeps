@@ -354,6 +354,12 @@ func TestLoadWorkflowPackage_DirectoryWithWorkflow(t *testing.T) {
 	pkg.Cleanup()
 }
 
+func TestWorkflowPackageCleanup_NilSafe(_ *testing.T) {
+	var pkg *WorkflowPackage
+	pkg.Cleanup()
+	(&WorkflowPackage{}).Cleanup()
+}
+
 func TestResolveBuildWorkflowPaths_DirectoryWithAgency(t *testing.T) {
 	tmp := t.TempDir()
 	agencyPath := filepath.Join(tmp, "agency.yaml")

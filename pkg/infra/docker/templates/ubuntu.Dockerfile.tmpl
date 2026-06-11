@@ -19,8 +19,10 @@ ENV {{ $key }}="{{ $value }}"
 {{- end }}
 {{- end }}
 
-# Install base dependencies
+# Install base dependencies (upgrade first to pick up security patches
+# published after the base image was built)
 RUN apt-get update && \
+    apt-get upgrade -y && \
     apt-get install -y \
         zstd \
         python3 \
