@@ -72,17 +72,57 @@ func (e *Executor) resolveSendRequest(
 ) (*sendRequest, error) {
 	kdeps_debug.Log("enter: resolveSendRequest")
 	ev := e.makeEvaluator(ctx)
+	from, err := ev(cfg.From)
+	if err != nil {
+		return nil, fmt.Errorf("email executor: evaluate from: %w", err)
+	}
+	subject, err := ev(cfg.Subject)
+	if err != nil {
+		return nil, fmt.Errorf("email executor: evaluate subject: %w", err)
+	}
+	body, err := ev(cfg.Body)
+	if err != nil {
+		return nil, fmt.Errorf("email executor: evaluate body: %w", err)
+	}
+	to, err := evalSlice(cfg.To, ev)
+	if err != nil {
+		return nil, fmt.Errorf("email executor: evaluate to: %w", err)
+	}
+	cc, err := evalSlice(cfg.CC, ev)
+	if err != nil {
+		return nil, fmt.Errorf("email executor: evaluate cc: %w", err)
+	}
+	bcc, err := evalSlice(cfg.BCC, ev)
+	if err != nil {
+		return nil, fmt.Errorf("email executor: evaluate bcc: %w", err)
+	}
+	attachments, err := evalSlice(cfg.Attachments, ev)
+	if err != nil {
+		return nil, fmt.Errorf("email executor: evaluate attachments: %w", err)
+	}
+	smtpHost, err := ev(smtpCfg.Host)
+	if err != nil {
+		return nil, fmt.Errorf("email executor: evaluate smtp host: %w", err)
+	}
+	smtpUser, err := ev(smtpCfg.Username)
+	if err != nil {
+		return nil, fmt.Errorf("email executor: evaluate smtp user: %w", err)
+	}
+	smtpPass, err := ev(smtpCfg.Password)
+	if err != nil {
+		return nil, fmt.Errorf("email executor: evaluate smtp password: %w", err)
+	}
 	req := &sendRequest{
-		from:               ev(cfg.From),
-		subject:            ev(cfg.Subject),
-		body:               ev(cfg.Body),
-		to:                 evalSlice(cfg.To, ev),
-		cc:                 evalSlice(cfg.CC, ev),
-		bcc:                evalSlice(cfg.BCC, ev),
-		attachments:        evalSlice(cfg.Attachments, ev),
-		smtpHost:           ev(smtpCfg.Host),
-		smtpUser:           ev(smtpCfg.Username),
-		smtpPass:           ev(smtpCfg.Password),
+		from:               from,
+		subject:            subject,
+		body:               body,
+		to:                 to,
+		cc:                 cc,
+		bcc:                bcc,
+		attachments:        attachments,
+		smtpHost:           smtpHost,
+		smtpUser:           smtpUser,
+		smtpPass:           smtpPass,
 		useTLS:             smtpCfg.TLS,
 		insecureSkipVerify: smtpCfg.InsecureSkipVerify,
 		timeout:            resolveTimeout(cfg),

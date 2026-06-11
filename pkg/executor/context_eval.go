@@ -24,7 +24,5 @@ import (
 
 func (ctx *ExecutionContext) BuildEvaluatorEnv() map[string]interface{} {
 	kdeps_debug.Log("enter: BuildEvaluatorEnv")
-	env := buildCoreResourceAccessorEnv(ctx)
-	env["item"] = buildItemAccessorEnv(ctx, true)
-	return env
+	return BuildEvalEnv(ctx, EvalEnvResource)
 }

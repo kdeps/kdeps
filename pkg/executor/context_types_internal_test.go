@@ -60,7 +60,6 @@ func TestExecuteSingleInlineResource_Telephony(t *testing.T) {
 
 func TestAddRequestEnv_FileSuccess(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
-	e := covTestEngine()
 	ctx, err := NewExecutionContext(&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "t"}})
 	require.NoError(t, err)
 	ctx.Request = &RequestContext{
@@ -68,7 +67,7 @@ func TestAddRequestEnv_FileSuccess(t *testing.T) {
 	}
 	require.NoError(t, os.WriteFile(ctx.Request.Files[0].Path, []byte("data"), 0600))
 	env := map[string]interface{}{}
-	e.addRequestEnv(env, ctx)
+	addRichRequestEnv(env, ctx)
 	req := env["request"].(map[string]interface{})
 	assert.NotNil(t, req["file"].(func(string) interface{})("f.txt"))
 	assert.NotNil(t, req["filepath"].(func(string) interface{})("f.txt"))

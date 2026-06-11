@@ -10,7 +10,7 @@ validations:
 apiResponse:
   success: true
   response:
-    data: get('llmResource').message.content
+    data: get('llmResource')
     query: get('q')
   headers:
     Content-Type: application/json

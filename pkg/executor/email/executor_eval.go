@@ -23,46 +23,48 @@ import (
 	"strings"
 
 	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
-	"github.com/kdeps/kdeps/v2/pkg/domain"
 	"github.com/kdeps/kdeps/v2/pkg/executor"
 	"github.com/kdeps/kdeps/v2/pkg/parser/expression"
 )
 
-type evalFn func(string) string
+type evalFn func(string) (string, error)
 
 func (e *Executor) makeEvaluator(ctx *executor.ExecutionContext) evalFn {
 	kdeps_debug.Log("enter: makeEvaluator")
 	if ctx == nil || ctx.API == nil {
-		return func(s string) string { return s }
+		return func(s string) (string, error) { return s, nil }
 	}
-	eval := expression.NewEvaluator(ctx.API)
-	env := ctx.BuildEvaluatorEnv()
-	return func(s string) string {
-		if !strings.Contains(s, "{{") {
-			return s
+	evaluator := expression.NewEvaluator(ctx.API)
+	env := executor.BuildEvalEnv(ctx, executor.EvalEnvResource)
+	return func(s string) (string, error) {
+		if !executor.ContainsExpressionSyntax(s) {
+			return s, nil
 		}
-		expr := &domain.Expression{Raw: s, Type: domain.ExprTypeInterpolated}
-		result, err := eval.Evaluate(expr, env)
+		result, err := executor.EvaluateExpression(evaluator, env, s)
 		if err != nil {
-			return s
-		}
-		if str, ok := result.(string); ok {
-			return str
+			return "", err
 		}
 		if result == nil {
-			return ""
+			return "", nil
 		}
-		return fmt.Sprintf("%v", result)
+		if str, ok := result.(string); ok {
+			return str, nil
+		}
+		return fmt.Sprintf("%v", result), nil
 	}
 }
 
-func evalSlice(items []string, ev evalFn) []string {
+func evalSlice(items []string, ev evalFn) ([]string, error) {
 	kdeps_debug.Log("enter: evalSlice")
 	out := make([]string, 0, len(items))
 	for _, item := range items {
-		if v := strings.TrimSpace(ev(item)); v != "" {
-			out = append(out, v)
+		v, err := ev(item)
+		if err != nil {
+			return nil, err
+		}
+		if trimmed := strings.TrimSpace(v); trimmed != "" {
+			out = append(out, trimmed)
 		}
 	}
-	return out
+	return out, nil
 }

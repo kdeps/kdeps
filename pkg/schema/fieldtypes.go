@@ -40,53 +40,30 @@ type fieldTypeSpec struct {
 }
 
 // mapFieldType converts a domain.FieldRule to its JSON Schema type, format and
-// associated constraints. It is shared by both the OpenAPI and JSON Schema
-// generators to avoid duplicating the type-switch logic.
+// associated constraints using the domain field-type registry.
 func mapFieldType(rule *domain.FieldRule) fieldTypeSpec {
 	kdeps_debug.Log("enter: mapFieldType")
-	switch rule.Type {
-	case domain.FieldTypeString:
-		return stringFieldSpec(rule)
-	case domain.FieldTypeInteger:
-		return numericFieldSpec("integer", rule.Min, rule.Max)
-	case domain.FieldTypeNumber:
-		return numericFieldSpec("number", rule.Min, rule.Max)
-	case domain.FieldTypeBoolean:
-		return fieldTypeSpec{SchemaType: "boolean"}
-	case domain.FieldTypeArray:
-		return arrayFieldSpec(rule)
-	case domain.FieldTypeObject:
-		return fieldTypeSpec{SchemaType: "object"}
-	case domain.FieldTypeEmail:
-		return formattedStringSpec("email")
-	case domain.FieldTypeURL:
-		return formattedStringSpec("uri")
-	case domain.FieldTypeUUID:
-		return formattedStringSpec("uuid")
-	case domain.FieldTypeDate:
-		return formattedStringSpec("date")
-	default:
+	entry, ok := domain.LookupFieldType(rule.Type)
+	if !ok {
 		return fieldTypeSpec{SchemaType: fieldTypeString}
 	}
-}
 
-func stringFieldSpec(rule *domain.FieldRule) fieldTypeSpec {
-	return fieldTypeSpec{
-		SchemaType: fieldTypeString,
-		MinLength:  rule.MinLength,
-		MaxLength:  rule.MaxLength,
-		Pattern:    rule.Pattern,
+	spec := fieldTypeSpec{
+		SchemaType: entry.Schema.Type,
+		Format:     entry.Schema.Format,
 	}
-}
-
-func numericFieldSpec(schemaType string, minVal, maxVal *float64) fieldTypeSpec {
-	return fieldTypeSpec{SchemaType: schemaType, Minimum: minVal, Maximum: maxVal}
-}
-
-func arrayFieldSpec(rule *domain.FieldRule) fieldTypeSpec {
-	return fieldTypeSpec{SchemaType: "array", MinItems: rule.MinItems, MaxItems: rule.MaxItems}
-}
-
-func formattedStringSpec(format string) fieldTypeSpec {
-	return fieldTypeSpec{SchemaType: fieldTypeString, Format: format}
+	switch entry.Constraints {
+	case domain.FieldConstraintsString:
+		spec.MinLength = rule.MinLength
+		spec.MaxLength = rule.MaxLength
+		spec.Pattern = rule.Pattern
+	case domain.FieldConstraintsNumber:
+		spec.Minimum = rule.Min
+		spec.Maximum = rule.Max
+	case domain.FieldConstraintsArray:
+		spec.MinItems = rule.MinItems
+		spec.MaxItems = rule.MaxItems
+	case domain.FieldConstraintsNone:
+	}
+	return spec
 }

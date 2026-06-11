@@ -122,21 +122,29 @@ func requireGoType[T any](name string) func(interface{}) error {
 	}
 }
 
-// fieldTypeValidators maps each schema field type to its validation func.
+// fieldTypeValidators maps each registered field type to its validation func.
 //
 //nolint:gochecknoglobals // dispatch table
-var fieldTypeValidators = map[domain.FieldType]func(interface{}) error{
-	domain.FieldTypeString:  requireGoType[string]("string"),
-	domain.FieldTypeInteger: validateIntegerType,
-	domain.FieldTypeNumber:  validateNumberType,
-	domain.FieldTypeBoolean: requireGoType[bool]("boolean"),
-	domain.FieldTypeArray:   requireGoType[[]interface{}]("array"),
-	domain.FieldTypeObject:  requireGoType[map[string]interface{}]("object"),
-	domain.FieldTypeEmail:   validateEmailType,
-	domain.FieldTypeURL:     validateURLType,
-	domain.FieldTypeUUID:    validateUUIDType,
-	domain.FieldTypeDate:    validateDateType,
-}
+var fieldTypeValidators = func() map[domain.FieldType]func(interface{}) error {
+	validators := map[domain.FieldType]func(interface{}) error{
+		domain.FieldTypeString:  requireGoType[string]("string"),
+		domain.FieldTypeInteger: validateIntegerType,
+		domain.FieldTypeNumber:  validateNumberType,
+		domain.FieldTypeBoolean: requireGoType[bool]("boolean"),
+		domain.FieldTypeArray:   requireGoType[[]interface{}]("array"),
+		domain.FieldTypeObject:  requireGoType[map[string]interface{}]("object"),
+		domain.FieldTypeEmail:   validateEmailType,
+		domain.FieldTypeURL:     validateURLType,
+		domain.FieldTypeUUID:    validateUUIDType,
+		domain.FieldTypeDate:    validateDateType,
+	}
+	for _, ft := range domain.AllFieldTypes() {
+		if _, ok := validators[ft]; !ok {
+			panic("missing validator for registered field type: " + string(ft))
+		}
+	}
+	return validators
+}()
 
 // ValidateType checks if value matches expected type.
 func (v *InputValidator) ValidateType(fieldType domain.FieldType, value interface{}) error {
