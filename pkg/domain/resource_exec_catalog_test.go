@@ -40,7 +40,7 @@ func TestResourceExecCatalog_DerivesPrimaryAndInline(t *testing.T) {
 	wantInline := []string{
 		"chat", "httpClient", "sql", "python", "exec", "agent", "component",
 		"scraper", "embedding", "searchLocal", "searchWeb",
-		"telephony", "browser", "email",
+		"telephony", "browser", "botReply", "email", "apiResponse",
 	}
 	if len(inlineNames) != len(wantInline) {
 		t.Fatalf("inline count %d, want %d", len(inlineNames), len(wantInline))
@@ -52,18 +52,18 @@ func TestResourceExecCatalog_DerivesPrimaryAndInline(t *testing.T) {
 	}
 }
 
-func TestResourceExecCatalog_BotReplyPrimaryOnly(t *testing.T) {
+func TestResourceExecCatalog_BotReplyInline(t *testing.T) {
 	t.Parallel()
 
 	for _, entry := range resourceExecCatalog {
 		if entry.Name != "botReply" {
 			continue
 		}
-		if !entry.PrimaryOnly {
-			t.Fatal("botReply must be primary-only")
+		if entry.PrimaryOnly {
+			t.Fatal("botReply must support inline actions")
 		}
-		if entry.PresentAction != nil {
-			t.Fatal("botReply must not have inline presence check")
+		if entry.PresentAction == nil {
+			t.Fatal("botReply must have inline presence check")
 		}
 		return
 	}

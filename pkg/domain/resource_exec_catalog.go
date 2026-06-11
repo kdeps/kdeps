@@ -79,11 +79,9 @@ var resourceExecCatalog = []ResourceExecCatalogEntry{
 	catalogEntry("browser",
 		func(r *Resource) bool { return r.Browser != nil },
 		func(a *ActionConfig) bool { return a.Browser != nil }),
-	{
-		Name:            "botReply",
-		PrimaryOnly:     true,
-		PresentResource: func(r *Resource) bool { return r.BotReply != nil },
-	},
+	catalogEntry("botReply",
+		func(r *Resource) bool { return r.BotReply != nil },
+		func(a *ActionConfig) bool { return a.BotReply != nil }),
 	catalogEntry("email",
 		func(r *Resource) bool { return r.Email != nil },
 		func(a *ActionConfig) bool { return a.Email != nil }),
@@ -106,9 +104,20 @@ func buildPrimaryResourceTypes() []PrimaryResourceType {
 	return types
 }
 
+// inlineOnlyResourceTypes are valid in before/after but not primary execution types.
+func inlineOnlyResourceTypes() []InlineResourceType {
+	return []InlineResourceType{
+		{
+			Name:    "apiResponse",
+			Present: func(a *ActionConfig) bool { return a.APIResponse != nil },
+		},
+	}
+}
+
 func buildInlineResourceTypes() []InlineResourceType {
 	catalog := ResourceExecCatalog()
-	types := make([]InlineResourceType, 0, len(catalog))
+	inlineOnly := inlineOnlyResourceTypes()
+	types := make([]InlineResourceType, 0, len(catalog)+len(inlineOnly))
 	for _, entry := range catalog {
 		if entry.PrimaryOnly || entry.PresentAction == nil {
 			continue
@@ -119,5 +128,5 @@ func buildInlineResourceTypes() []InlineResourceType {
 			Present: present,
 		})
 	}
-	return types
+	return append(types, inlineOnly...)
 }

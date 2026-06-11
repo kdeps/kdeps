@@ -39,7 +39,9 @@ type ActionConfig struct {
 	SearchWeb   *SearchWebConfig       `yaml:"searchWeb,omitempty"`
 	Telephony   *TelephonyActionConfig `yaml:"telephony,omitempty"`
 	Browser     *BrowserConfig         `yaml:"browser,omitempty"`
+	BotReply    *BotReplyConfig        `yaml:"botReply,omitempty"`
 	Email       *EmailConfig           `yaml:"email,omitempty"`
+	APIResponse *APIResponseConfig     `yaml:"apiResponse,omitempty"`
 }
 
 // actionConfigAlias is used for normal YAML struct unmarshaling without recursion.

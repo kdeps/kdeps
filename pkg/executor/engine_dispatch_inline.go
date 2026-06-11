@@ -135,6 +135,12 @@ func inlineResourceDispatch() []inlineDispatchEntry {
 		"email": func(e *Engine, inline *domain.InlineResource, index int, ctx *ExecutionContext) (interface{}, error) {
 			return e.executeEmail(inlineSyntheticResource(inline, index), ctx)
 		},
+		"botReply": func(e *Engine, inline *domain.InlineResource, index int, ctx *ExecutionContext) (interface{}, error) {
+			return e.executeBotReply(inlineSyntheticResource(inline, index), ctx)
+		},
+		"apiResponse": func(e *Engine, inline *domain.InlineResource, index int, ctx *ExecutionContext) (interface{}, error) {
+			return e.executeAPIResponse(inlineSyntheticResource(inline, index), ctx)
+		},
 	}
 
 	return buildInlineDispatch(domain.InlineResourceTypes(), executors)
@@ -163,9 +169,11 @@ func buildInlineDispatch(
 
 func inlineSyntheticResource(inline *domain.InlineResource, index int) *domain.Resource {
 	return &domain.Resource{
-		ActionID:  fmt.Sprintf("_inline_%d", index),
-		Component: inline.Component,
-		Email:     inline.Email,
+		ActionID:    fmt.Sprintf("_inline_%d", index),
+		Component:   inline.Component,
+		Email:       inline.Email,
+		BotReply:    inline.BotReply,
+		APIResponse: inline.APIResponse,
 	}
 }
 
