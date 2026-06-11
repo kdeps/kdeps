@@ -1,0 +1,18 @@
+actionId: answerLLM
+name: LLM Answer
+validations:
+  routes: [/twilio/answer]
+  methods: [POST]
+  check:
+    - get('SpeechResult') != ''   # SpeechResult arrives in the provider webhook body
+  error:
+    code: 400
+    message: "SpeechResult is required"
+chat:
+  model: llama3.2:1b
+  role: user
+  prompt: |
+    A caller asked the following question over the phone:
+    "{{ get('SpeechResult') }}"
+    Answer in one short, friendly sentence suitable for being read aloud.
+  timeout: 60s

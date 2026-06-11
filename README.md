@@ -98,7 +98,7 @@ chat:
   model: llama3.2:1b
   prompt: "Summarize this page: {{ output('fetch').body }}"
 apiResponse:
-  response: "{{ output('respond') }}"
+  response: "{{ output('respond').message.content }}"  # the model's reply text
 ```
 
 ```bash

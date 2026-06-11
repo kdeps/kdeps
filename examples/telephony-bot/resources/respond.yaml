@@ -1,0 +1,19 @@
+actionId: respond
+name: TwiML Response
+requires:
+  - welcomeMenu
+  - sayHours
+  - askQuestion
+  - answerLLM
+before:
+  # Chat output is the raw response map; the text lives at .message.content
+  - set('answerText', safe(safe(get('answerLLM'), 'message'), 'content'))
+apiResponse:
+  success: true
+  response:
+    menu:   "{{ output('welcomeMenu') }}"
+    hours:  "{{ output('sayHours') }}"
+    ask:    "{{ output('askQuestion') }}"
+    # Plain text -- telephony say: is not template-interpolated, so the
+    # provider glue wraps this in <Say> (or feeds it to TTS) itself.
+    answer: "{{ get('answerText') }}"

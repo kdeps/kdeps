@@ -59,4 +59,4 @@ resources:
     apiResponse:
       success: true
       response:
-        answer: "{{ get('llm') }}"
+        answer: "{{ get('llm').message.content }}"

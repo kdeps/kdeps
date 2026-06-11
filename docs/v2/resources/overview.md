@@ -44,7 +44,7 @@ after:                  # runs after the action; use to process output
 
 # Exactly one primary action per resource (apiResponse: may accompany it
 # on the same resource to format the HTTP response):
-chat: { ... }        # send a prompt to an LLM; output is the model response
+chat: { ... }        # send a prompt to an LLM; reply text at .message.content
 httpClient: { ... }  # make an HTTP request; output is the parsed response body
 sql: { ... }         # run a SQL query; output is the row set
 python: { ... }      # run a Python script; output is its stdout (parsed as JSON)
@@ -116,7 +116,7 @@ name: API Response
 requires: [llm]          # response will not run until llm is done
 apiResponse:
   response:
-    answer: get('llm')   # reads the output of the llm resource
+    answer: get('llm').message.content   # reply text from the llm resource
 ```
 
 `requires:` lists direct dependencies only. kdeps resolves transitive dependencies automatically -- you do not need to list the entire chain.
@@ -245,7 +245,7 @@ chat:
 requires: [llmResource]
 apiResponse:
   response:
-    answer: get('llmResource')  # Get the LLM response
+    answer: get('llmResource').message.content  # the reply text
 ```
 
 </div>

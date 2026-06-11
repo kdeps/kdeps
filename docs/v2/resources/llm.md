@@ -1,6 +1,6 @@
 # LLM Resource
 
-The `chat:` resource sends a prompt to a language model and stores the response as the resource's output. The output is a string (or a JSON object when `jsonResponse: true`).
+The `chat:` resource sends a prompt to a language model and stores the response as the resource's output. The output is the raw response object -- the reply text is at `get('id').message.content`. With `jsonResponse: true` the output is the parsed JSON object instead.
 
 ## Where it runs
 
@@ -347,8 +347,9 @@ chat:
 requires: [llmResource]
 apiResponse:
   response:
-    llm_output: get('llmResource')
-    answer: get('llmResource').answer  # If jsonResponse: true
+    answer: get('llmResource').message.content   # reply text
+    raw: get('llmResource')                      # full response object
+    parsed: get('llmResource').answer            # if jsonResponse: true with key "answer"
 ```
 
 ## See Also

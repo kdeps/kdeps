@@ -1,0 +1,26 @@
+apiVersion: kdeps.io/v1
+kind: Workflow
+
+metadata:
+  name: telephony-bot
+  description: AI phone IVR using the native telephony resource
+  version: "1.0.0"
+  targetActionId: respond
+
+settings:
+  apiServer:
+    hostIp: "127.0.0.1"
+    portNum: 16395
+    routes:
+      - path: /twilio/voice    # entry point: welcome menu
+        methods: [POST]
+      - path: /twilio/hours    # static answer: opening hours
+        methods: [POST]
+      - path: /twilio/ask      # gather a spoken question
+        methods: [POST]
+      - path: /twilio/answer   # LLM answers the spoken question
+        methods: [POST]
+
+  agentSettings:
+    timezone: Etc/UTC
+    installOllama: true
