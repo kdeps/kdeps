@@ -5,13 +5,21 @@ projects for you when you install the **kdeps skill**.
 
 ## Install the skill
 
+Clone into your agent's skills directory (folder name `kdeps`):
+
 ```bash
+# Claude Code
 git clone https://github.com/kdeps/skill ~/.claude/skills/kdeps
+
+# Cursor
+git clone https://github.com/kdeps/skill ~/.cursor/skills/kdeps
+
+# Grok
+git clone https://github.com/kdeps/skill ~/.grok/skills/kdeps
 ```
 
-Symlink or copy the repo into your agent's skills directory. The skill
-activates when you ask the agent to build a kdeps workflow, component, or
-agency.
+Symlink instead of clone if you prefer. The skill activates when you ask the
+agent to build a kdeps workflow, component, or agency.
 
 ## What it covers
 
