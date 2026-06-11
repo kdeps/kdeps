@@ -119,6 +119,42 @@ func TestServer_Start_rejectsMissingAuthToken(t *testing.T) {
 	assert.Contains(t, err.Error(), "KDEPS_API_AUTH_TOKEN")
 }
 
+func TestServer_configureRouter_corsPreflightBypassesAuth(t *testing.T) {
+	t.Setenv("KDEPS_API_AUTH_TOKEN", "secret")
+
+	server, err := NewServer(&domain.Workflow{
+		Metadata: domain.WorkflowMetadata{Name: "test"},
+		Settings: domain.WorkflowSettings{
+			APIServer: &domain.APIServerConfig{},
+		},
+	}, nil, nil)
+	require.NoError(t, err)
+
+	require.NoError(t, server.configureRouter(false))
+
+	// Browsers never attach credentials to preflight OPTIONS requests, so
+	// the CORS middleware must answer them before auth can reject them.
+	preflight := httptest.NewRequest(stdhttp.MethodOptions, "/api/v1/test", nil)
+	preflight.Header.Set("Origin", "http://example.com")
+	preflight.Header.Set("Access-Control-Request-Method", stdhttp.MethodPost)
+	preflight.Header.Set("Access-Control-Request-Headers", "authorization,content-type")
+	rec := httptest.NewRecorder()
+	server.Router.ServeHTTP(rec, preflight)
+
+	assert.Equal(t, stdhttp.StatusOK, rec.Code)
+	assert.NotEmpty(t, rec.Header().Get("Access-Control-Allow-Methods"))
+
+	// Non-preflight requests still require the token.
+	post := httptest.NewRequest(stdhttp.MethodPost, "/api/v1/test", bytes.NewBufferString("{}"))
+	post.Header.Set("Origin", "http://example.com")
+	rec = httptest.NewRecorder()
+	server.Router.ServeHTTP(rec, post)
+
+	assert.Equal(t, stdhttp.StatusUnauthorized, rec.Code)
+	// Auth failures must carry CORS headers so browsers can surface them.
+	assert.NotEmpty(t, rec.Header().Get("Access-Control-Allow-Methods"))
+}
+
 func TestWebServer_applyWebSecurityMiddleware_appliesRateLimit(t *testing.T) {
 	webServer, err := NewWebServer(&domain.Workflow{
 		Metadata: domain.WorkflowMetadata{Name: "web"},
