@@ -48,7 +48,7 @@ func TestBuilder_shouldInstallOllama_RouterEnv(t *testing.T) {
 
 	dockerfile, err := builder.GenerateDockerfile(workflow)
 	require.NoError(t, err)
-	assert.Contains(t, dockerfile, "FROM ollama/ollama:latest")
+	assert.Contains(t, dockerfile, "FROM ollama/ollama:0.5.0")
 	assert.Contains(t, dockerfile, "11434")
 }
 
@@ -588,7 +588,7 @@ func TestBuilder_GenerateDockerfile_Ubuntu(t *testing.T) {
 	dockerfile, err := builder.GenerateDockerfile(workflow)
 	require.NoError(t, err)
 
-	assert.Contains(t, dockerfile, "FROM ollama/ollama:latest")
+	assert.Contains(t, dockerfile, "FROM ollama/ollama:0.5.0")
 	assert.Contains(t, dockerfile, "curl")
 	assert.Contains(t, dockerfile, "python3")
 	assert.Contains(t, dockerfile, "uv venv")
@@ -789,7 +789,7 @@ func TestBuilder_GenerateDockerfile_WithOllamaBackend(t *testing.T) {
 	dockerfile, err := builder.GenerateDockerfile(workflow)
 	require.NoError(t, err)
 
-	assert.Contains(t, dockerfile, "FROM ollama/ollama:latest")
+	assert.Contains(t, dockerfile, "FROM ollama/ollama:0.5.0")
 	assert.Contains(
 		t,
 		dockerfile,
@@ -825,7 +825,7 @@ func TestBuilder_GenerateDockerfile_WithInstallOllamaFlag(t *testing.T) {
 	dockerfile, err := builder.GenerateDockerfile(workflow)
 	require.NoError(t, err)
 
-	assert.Contains(t, dockerfile, "FROM ollama/ollama:latest")
+	assert.Contains(t, dockerfile, "FROM ollama/ollama:0.5.0")
 	assert.Contains(t, dockerfile, "11434") // Ollama port in EXPOSE statement
 	assert.Contains(t, dockerfile, "USER kdeps")
 	assert.Contains(t, dockerfile, "OLLAMA_MODELS=/app/.ollama/models")
@@ -912,7 +912,7 @@ func TestBuilder_GenerateDockerfile_ComplexWorkflow(t *testing.T) {
 	require.NoError(t, err)
 
 	// Check all components are included
-	assert.Contains(t, dockerfile, "FROM ollama/ollama:latest")
+	assert.Contains(t, dockerfile, "FROM ollama/ollama:0.5.0")
 	assert.Contains(t, dockerfile, "9000")  // API server port in EXPOSE statement
 	assert.Contains(t, dockerfile, "11434") // Ollama port in EXPOSE statement
 	assert.Contains(t, dockerfile, "fastapi")
@@ -1181,20 +1181,20 @@ func TestBuilder_shouldInstallOllama(t *testing.T) {
 					},
 				},
 			},
-			contains: []string{"FROM ollama/ollama:latest"},
+			contains: []string{"FROM ollama/ollama:0.5.0"},
 		},
 		{
 			name: "explicit installOllama flag",
 			settings: domain.AgentSettings{
 				InstallOllama: &installOllama,
 			},
-			contains: []string{"FROM ollama/ollama:latest"},
+			contains: []string{"FROM ollama/ollama:0.5.0"},
 		},
 		{
 			// Models struct field has yaml:"-"; Ollama auto-detect uses KDEPS_LLM_MODELS env.
 			name:      "auto-detect from models env",
 			envModels: "llama3.2:1b",
-			contains:  []string{"FROM ollama/ollama:latest"},
+			contains:  []string{"FROM ollama/ollama:0.5.0"},
 		},
 		{
 			name: "no LLM resources - no ollama",
@@ -1531,7 +1531,7 @@ func TestBuilder_TemplateFunctions_ComprehensiveCoverage(t *testing.T) {
 				},
 			},
 			expectedInDockerfile: []string{
-				"FROM ollama/ollama:latest",
+				"FROM ollama/ollama:0.5.0",
 				"pandas",
 				"numpy",
 				"torch",
@@ -1572,7 +1572,7 @@ func TestBuilder_TemplateFunctions_ComprehensiveCoverage(t *testing.T) {
 					},
 				},
 			},
-			expectedInDockerfile: []string{"FROM ollama/ollama:latest"},
+			expectedInDockerfile: []string{"FROM ollama/ollama:0.5.0"},
 		},
 		{
 			name:   "alpine with offline mode enabled",
@@ -1916,7 +1916,7 @@ func TestBuilder_GenerateDockerfile_debianWithOllama(t *testing.T) {
 	dockerfile, err := builder.GenerateDockerfile(workflow)
 	require.NoError(t, err)
 	// debian + ollama falls back to the Ollama official (ubuntu-based) image.
-	assert.Contains(t, dockerfile, "FROM ollama/ollama:latest")
+	assert.Contains(t, dockerfile, "FROM ollama/ollama:0.5.0")
 }
 
 // TestBuilder_buildTemplateData_resourcesDataDir verifies that has_resources and
@@ -2215,7 +2215,7 @@ func TestBuilder_GenerateDockerfile_OllamaUbuntu(t *testing.T) {
 	dockerfile, err := builder.GenerateDockerfile(workflow)
 	require.NoError(t, err)
 	// For Ubuntu+Ollama, should use official ollama image
-	assert.Contains(t, dockerfile, "ollama/ollama:latest")
+	assert.Contains(t, dockerfile, "ollama/ollama:0.5.0")
 }
 
 func TestBuilder_GenerateDockerfile_OllamaAlpine(t *testing.T) {

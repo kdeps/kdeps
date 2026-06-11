@@ -188,25 +188,31 @@ settings:
 
 ## Package Version Pinning
 
-Pin the packages kdeps copies into generated Docker images. Each field accepts `latest` or a semver like `v1.2.3` / `1.2.3`.
+On every `bundle build`, kdeps resolves package versions before generating the Dockerfile:
+
+- **kdeps** — latest [GitHub release](https://github.com/kdeps/kdeps/releases); `install.sh` is fetched from that tag and the same tag is passed to the installer (never `main` + floating latest)
+- **ollama** — latest [ollama/ollama](https://github.com/ollama/ollama/releases) release as the Docker image tag (never `:latest`)
+- **uv** — latest [astral-sh/uv](https://github.com/astral-sh/uv/releases) release as the `ghcr.io/astral-sh/uv` tag
+
+Override any field with an explicit semver (`v1.2.3` or `1.2.3`). Use `latest` or omit a field to accept the resolved value at build time.
 
 ```yaml
 # workflow.yaml
 settings:
   agentSettings:
     versions:
-      kdeps: v2.0.0    # install.sh ref + binary tag; default: building CLI version (or latest on dev builds)
-      ollama: 0.5.4    # Ollama image tag; default: latest
-      uv: 0.6.3        # uv image tag; default: latest
+      kdeps: v2.0.0    # optional — default: newest GitHub release when bundle build runs
+      ollama: 0.5.4    # optional — default: newest ollama/ollama release
+      uv: 0.6.3        # optional — default: newest astral-sh/uv release
 ```
 
-Preview the pins in the generated Dockerfile:
+Preview resolved pins:
 
 ```bash
 kdeps bundle build myagent-1.0.0.kdeps --show-dockerfile
 ```
 
-Invalid pins are rejected at Dockerfile generation time before `docker build` runs.
+Other floating tags still used when no Ollama base image is selected: `alpine:latest`, `ubuntu:latest`, and `debian:latest` for non-Ollama CPU images. Python defaults to `3.12` when `pythonVersion` is omitted.
 
 ## Environment Variables
 

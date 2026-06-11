@@ -51,13 +51,13 @@ RUN ARCH="${TARGETARCH:-$(uname -m | sed 's/x86_64/amd64/;s/aarch64/arm64/')}" &
     if [ -f "/tmp/kdeps-linux-${ARCH}" ]; then \
         mv "/tmp/kdeps-linux-${ARCH}" /usr/local/bin/kdeps; \
     else \
-        curl -LsSf https://raw.githubusercontent.com/kdeps/kdeps/{{ .InstallerRef }}/install.sh | sh -s -- -b /usr/local/bin{{ if ne .InstallerRef "main" }} {{ .InstallerRef }}{{ end }}; \
+        curl -LsSf https://raw.githubusercontent.com/kdeps/kdeps/{{ .InstallerRef }}/install.sh | sh -s -- -b /usr/local/bin {{ .InstallerRef }}; \
     fi && \
     rm -f /tmp/kdeps-linux-amd64 /tmp/kdeps-linux-arm64 && \
     chmod +x /usr/local/bin/kdeps
 {{- else }}
 # Install kdeps binary
-RUN curl -LsSf https://raw.githubusercontent.com/kdeps/kdeps/{{ .InstallerRef }}/install.sh | sh -s -- -b /usr/local/bin{{ if ne .InstallerRef "main" }} {{ .InstallerRef }}{{ end }}
+RUN curl -LsSf https://raw.githubusercontent.com/kdeps/kdeps/{{ .InstallerRef }}/install.sh | sh -s -- -b /usr/local/bin {{ .InstallerRef }}
 {{- end }}
 
 {{- if .OSPackages }}
