@@ -216,8 +216,20 @@ kdeps export k8s            # Kubernetes manifests
 ```bash
 kdeps registry search <query>
 kdeps registry install <package>
-kdeps registry publish
+kdeps registry submit --tag v1.0.0   # generate formula for kdeps.io PR
 ```
+
+## Agent skill
+
+A [coding-agent skill](https://github.com/kdeps/skill) teaches Claude Code, Cursor,
+Grok, and other agents how to scaffold kdeps workflows, components, and agencies —
+including `kdeps.pkg.yaml` for [kdeps.io](https://kdeps.io) distribution.
+
+```bash
+git clone https://github.com/kdeps/skill ~/.claude/skills/kdeps
+```
+
+Docs: [kdeps.com/getting-started/agent-skills](https://kdeps.com/getting-started/agent-skills)
 
 ## Global config
 

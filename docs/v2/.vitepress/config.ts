@@ -66,6 +66,7 @@ export default defineConfig({
             { text: 'Why kdeps?', link: '/concepts/why-kdeps' },
             { text: 'Installation', link: '/getting-started/installation' },
             { text: 'Quickstart', link: '/getting-started/quickstart' },
+            { text: 'Agent Skills', link: '/getting-started/agent-skills' },
           ]
         },
         {
