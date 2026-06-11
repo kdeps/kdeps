@@ -38,6 +38,10 @@ func (e *Engine) ExecuteResource(
 		return result, err
 	}
 
+	if e.shouldStreamInlineResponse(resource, ctx) {
+		return e.executeStreamingInlineResponse(resource, ctx)
+	}
+
 	if len(resource.Before) > 0 {
 		if err := e.executeInlineResources(resource.Before, ctx); err != nil {
 			return nil, fmt.Errorf("inline before resource failed: %w", err)

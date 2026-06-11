@@ -4925,9 +4925,14 @@ func TestEngine_SessionSetGet_E2E(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, result)
 
-	// Verify session data
-	resultMap, ok := result.(map[string]interface{})
-	require.True(t, ok, "Result should be a map")
+	stream, ok := result.([]interface{})
+	require.True(t, ok, "apiResponse primary with inline before should stream")
+	require.Len(t, stream, 3)
+
+	lastChunk, ok := stream[len(stream)-1].(map[string]interface{})
+	require.True(t, ok)
+	resultMap, ok := lastChunk["data"].(map[string]interface{})
+	require.True(t, ok, "final chunk should expose apiResponse data")
 
 	// Check individual get
 	assert.Equal(t, "testuser", resultMap["user_id"])

@@ -65,6 +65,16 @@ func TestCountPrimaryResourceTypes(t *testing.T) {
 			},
 			count: 2,
 		},
+		{
+			name: "chat and apiResponse",
+			res: &domain.Resource{
+				ActionID:    "a",
+				Name:        "n",
+				Chat:        &domain.ChatConfig{Model: "m", Prompt: "p"},
+				APIResponse: &domain.APIResponseConfig{Success: true},
+			},
+			count: 1,
+		},
 	}
 
 	for _, tt := range tests {
@@ -153,7 +163,8 @@ func TestPrimaryResourceTypesList(t *testing.T) {
 
 	got := domain.PrimaryResourceTypesList()
 	if got != "chat, httpClient, sql, python, exec, agent, component, scraper, "+
-		"embedding, searchLocal, searchWeb, telephony, browser, botReply, email" {
+		"embedding, searchLocal, searchWeb, telephony, browser, botReply, email, "+
+		"apiServer, apiResponse" {
 		t.Fatalf("PrimaryResourceTypesList() = %q", got)
 	}
 }
@@ -164,7 +175,7 @@ func TestPrimaryResourceTypeNames_MatchesExecutorRegistry(t *testing.T) {
 	want := []string{
 		"chat", "httpClient", "sql", "python", "exec", "agent", "component",
 		"scraper", "embedding", "searchLocal", "searchWeb",
-		"telephony", "browser", "botReply", "email",
+		"telephony", "browser", "botReply", "email", "apiServer", "apiResponse",
 	}
 	got := domain.PrimaryResourceTypeNames()
 	if len(got) != len(want) {

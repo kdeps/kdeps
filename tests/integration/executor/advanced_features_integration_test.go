@@ -426,7 +426,13 @@ func TestAdvancedFeatures_ExprBlock(t *testing.T) {
 	require.NoError(t, err)
 	assert.NotNil(t, result)
 
-	resultMap, ok := result.(map[string]interface{})
+	stream, ok := result.([]interface{})
+	require.True(t, ok, "apiResponse primary with inline after should stream")
+	require.GreaterOrEqual(t, len(stream), 1)
+
+	lastChunk, ok := stream[len(stream)-1].(map[string]interface{})
+	require.True(t, ok)
+	resultMap, ok := lastChunk["data"].(map[string]interface{})
 	require.True(t, ok)
 	assert.NotNil(t, resultMap["computed"])
 	assert.NotNil(t, resultMap["formatted"])

@@ -32,7 +32,9 @@ after:
 
 ## Supported Resource Types
 
-Each inline resource can be any supported execution block, including `chat`, `httpClient`, `sql`, `python`, `exec`, `agent`, `component`, `scraper`, `embedding`, `searchLocal`, `searchWeb`, `telephony`, `browser`, `botReply`, `email`, `apiServer`, or `apiResponse`.
+Each inline resource can be any supported execution block, including `chat`, `httpClient`, `sql`, `python`, `exec`, `agent`, `component`, `scraper`, `embedding`, `searchLocal`, `searchWeb`, `telephony`, `browser`, `botReply`, `email`, `apiServer`, or `apiResponse`. Every execution type works as either the resource primary block or as an inline step in `before:`/`after:`.
+
+When `apiResponse` (or `apiServer`) is the only primary block and the resource has `before:` or `after:` inline steps, kdeps emits a **streaming response**: a slice of `apiResponse` maps, one snapshot after each inline step plus a final snapshot.
 
 ## Execution Order
 

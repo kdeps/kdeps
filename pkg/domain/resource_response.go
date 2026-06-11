@@ -71,3 +71,19 @@ func (a *ActionConfig) InlineResponseBlock() *APIResponseConfig {
 	}
 	return a.APIResponse
 }
+
+// IsResponseOnlyPrimary reports whether the resource's only execution block is a response block.
+func (r *Resource) IsResponseOnlyPrimary() bool {
+	if r == nil || !r.HasResponseBlock() {
+		return false
+	}
+	return CountPrimaryResourceTypes(r) == 0
+}
+
+// HasInlineActions reports whether the resource defines before/after inline entries.
+func (r *Resource) HasInlineActions() bool {
+	if r == nil {
+		return false
+	}
+	return len(r.Before) > 0 || len(r.After) > 0
+}

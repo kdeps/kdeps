@@ -35,6 +35,10 @@ func (e *Engine) executeExpressions(exprs []domain.Expression, ctx *ExecutionCon
 			return fmt.Errorf("failed to parse expression: %w", err)
 		}
 
+		if err := e.ensureResponseEvaluator(ctx); err != nil {
+			return err
+		}
+
 		env := e.buildEvaluationEnvironment(ctx)
 		_, err = e.evaluator.Evaluate(parsed, env)
 		if err != nil {
