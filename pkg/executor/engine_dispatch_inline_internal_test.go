@@ -25,6 +25,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/kdeps/kdeps/v2/pkg/domain"
+	"github.com/kdeps/kdeps/v2/pkg/parser/expression"
 )
 
 func TestBuildInlineDispatch_PanicsOnMissingExecutor(t *testing.T) {
@@ -54,5 +55,30 @@ func TestExecuteSingleInlineResource_Email(t *testing.T) {
 	_, err := e.executeSingleInlineResource(domain.InlineResource{
 		Email: &domain.EmailConfig{Action: "send"},
 	}, 2, ctx)
+	require.NoError(t, err)
+}
+
+func TestExecuteSingleInlineResource_BotReply(t *testing.T) {
+	e := covTestEngine()
+	reg := NewRegistry()
+	reg.SetBotReplyExecutor(&covMockExecutor{result: "replied"})
+	e.SetRegistry(reg)
+	ctx := &ExecutionContext{Workflow: &domain.Workflow{}}
+
+	_, err := e.executeSingleInlineResource(domain.InlineResource{
+		BotReply: &domain.BotReplyConfig{Text: "hello"},
+	}, 1, ctx)
+	require.NoError(t, err)
+}
+
+func TestExecuteSingleInlineResource_APIResponse(t *testing.T) {
+	e := covTestEngine()
+	ctx, err := NewExecutionContext(&domain.Workflow{})
+	require.NoError(t, err)
+	e.SetEvaluatorForTesting(expression.NewEvaluator(ctx.API))
+
+	_, err = e.executeSingleInlineResource(domain.InlineResource{
+		APIResponse: &domain.APIResponseConfig{Success: true, Response: "ok"},
+	}, 0, ctx)
 	require.NoError(t, err)
 }
