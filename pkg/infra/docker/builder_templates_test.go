@@ -19,6 +19,7 @@
 package docker_test
 
 import (
+	"context"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -63,7 +64,7 @@ func TestBuilderTemplates_generateDockerfile(t *testing.T) {
 					},
 				},
 			},
-			contains: []string{"FROM ollama/ollama:latest", "ollama"},
+			contains: []string{"FROM ollama/ollama:0.5.0", "ollama"},
 		},
 		{
 			name:   "debian with installOllama flag",
@@ -77,7 +78,7 @@ func TestBuilderTemplates_generateDockerfile(t *testing.T) {
 					},
 				},
 			},
-			contains: []string{"FROM ollama/ollama:latest", "11434"},
+			contains: []string{"FROM ollama/ollama:0.5.0", "11434"},
 		},
 	}
 
@@ -189,15 +190,30 @@ func TestBuilderTemplates_invalidPackageVersionPin(t *testing.T) {
 }
 
 func TestBuilderTemplates_installerRefPinned(t *testing.T) {
-	// Dev builds (version 2.0.0-dev) fetch install.sh from main without a tag.
+	orig := docker.LatestReleaseTagFunc()
+	t.Cleanup(func() { docker.SetLatestReleaseTagFunc(orig) })
+	docker.SetLatestReleaseTagFunc(func(_ context.Context, repo string) (string, error) {
+		switch repo {
+		case "kdeps/kdeps":
+			return "9.9.9", nil
+		case "ollama/ollama":
+			return "0.1.0", nil
+		case "astral-sh/uv":
+			return "0.2.0", nil
+		default:
+			return "", nil
+		}
+	})
+
 	builder := &docker.Builder{BaseOS: "alpine"}
 	workflow := &domain.Workflow{
 		Metadata: domain.WorkflowMetadata{Name: "test", Version: "1.0.0"},
 	}
 	dockerfile, err := builder.GenerateDockerfile(workflow)
 	require.NoError(t, err)
-	assert.Contains(t, dockerfile, "kdeps/kdeps/main/install.sh")
-	assert.NotContains(t, dockerfile, "/usr/local/bin v")
+	assert.Contains(t, dockerfile, "kdeps/kdeps/v9.9.9/install.sh")
+	assert.Contains(t, dockerfile, "-b /usr/local/bin v9.9.9")
+	assert.NotContains(t, dockerfile, "kdeps/kdeps/main/install.sh")
 }
 
 func TestBuilderTemplates_generateEntrypoint(t *testing.T) {

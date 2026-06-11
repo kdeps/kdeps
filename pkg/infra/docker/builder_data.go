@@ -26,11 +26,13 @@ import (
 	"regexp"
 	"strings"
 
+	"context"
+
 	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
+
 	"github.com/kdeps/kdeps/v2/pkg/domain"
 	"github.com/kdeps/kdeps/v2/pkg/infra/texttmpl"
 	"github.com/kdeps/kdeps/v2/pkg/security/deployenv"
-	"github.com/kdeps/kdeps/v2/pkg/version"
 )
 
 // releaseVersionRe matches release versions injected by goreleaser; dev
@@ -50,34 +52,6 @@ func installerRef(v string) string {
 		return "v" + v
 	}
 	return "main"
-}
-
-// resolveKdepsInstallerRef applies an explicit agentSettings.versions.kdeps
-// pin on top of the default: "latest" maps to main (install the newest
-// release), a semver maps to its tag (script and binary pinned together).
-func resolveKdepsInstallerRef(pin string) (string, error) {
-	if pin == "" {
-		return installerRef(version.Version), nil
-	}
-	if err := validatePinnedVersion("kdeps", pin); err != nil {
-		return "", err
-	}
-	if pin == "latest" {
-		return "main", nil
-	}
-	return "v" + strings.TrimPrefix(pin, "v"), nil
-}
-
-// resolveImageTag maps a package pin to a Docker image tag: registries tag
-// releases without a leading v, so "v1.2.3" and "1.2.3" both become "1.2.3".
-func resolveImageTag(name, pin string) (string, error) {
-	if pin == "" {
-		return "latest", nil
-	}
-	if err := validatePinnedVersion(name, pin); err != nil {
-		return "", err
-	}
-	return strings.TrimPrefix(pin, "v"), nil
 }
 
 func validatePinnedVersion(name, pin string) error {
@@ -109,22 +83,13 @@ func (b *Builder) buildTemplateData(workflow *domain.Workflow) (*DockerfileData,
 		return nil, secretErr
 	}
 
-	pins := workflow.Settings.AgentSettings.Versions
-	if pins == nil {
-		pins = &domain.PackageVersions{}
-	}
-	kdepsRef, err := resolveKdepsInstallerRef(pins.Kdeps)
+	resolved, err := resolvePackageVersions(context.Background(), workflow.Settings.AgentSettings.Versions)
 	if err != nil {
 		return nil, err
 	}
-	ollamaTag, err := resolveImageTag("ollama", pins.Ollama)
-	if err != nil {
-		return nil, err
-	}
-	uvTag, err := resolveImageTag("uv", pins.UV)
-	if err != nil {
-		return nil, err
-	}
+	kdepsRef := kdepsInstallerRef(resolved.Kdeps)
+	ollamaTag := resolved.Ollama
+	uvTag := resolved.UV
 
 	backendInstall, err := b.renderBackendInstall(installOllama, ollamaTag)
 	if err != nil {

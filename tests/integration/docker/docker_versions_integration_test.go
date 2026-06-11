@@ -21,6 +21,7 @@
 package docker_test
 
 import (
+	"context"
 	"strings"
 	"testing"
 
@@ -30,6 +31,22 @@ import (
 	"github.com/kdeps/kdeps/v2/pkg/domain"
 	"github.com/kdeps/kdeps/v2/pkg/infra/docker"
 )
+
+//nolint:gochecknoinits // integration test stub for version resolution
+func init() {
+	docker.SetLatestReleaseTagFunc(func(_ context.Context, repo string) (string, error) {
+		switch repo {
+		case "kdeps/kdeps":
+			return "1.9.0", nil
+		case "ollama/ollama":
+			return "0.4.0", nil
+		case "astral-sh/uv":
+			return "0.5.0", nil
+		default:
+			return "1.0.0", nil
+		}
+	})
+}
 
 func TestDockerVersionsIntegration_GenerateDockerfilePins(t *testing.T) {
 	builder, err := docker.NewBuilderWithOS("alpine")
