@@ -150,7 +150,26 @@ func (s *Server) SetWatcher(watcher FileWatcher) {
 // Start starts the HTTP server.
 func (s *Server) Start(addr string, devMode bool) error {
 	debugEnter("Start")
+	if err := s.configureRouter(devMode); err != nil {
+		return err
+	}
+
+	certFile, keyFile := workflowTLSCertificates(s.Workflow)
+
+	s.httpServer = newDefaultHTTPServer(addr, s.Router)
+
+	return s.listenAndServe(addr, certFile, keyFile)
+}
+
+// configureRouter wires middleware and routes in execution order.
+func (s *Server) configureRouter(devMode bool) error {
 	s.setupCoreMiddleware()
+
+	// CORS must run before auth: browsers never attach credentials to
+	// preflight OPTIONS requests, so auth-first would reject every
+	// cross-origin request with 401. CORS-first also decorates auth
+	// error responses with CORS headers so browsers can surface them.
+	s.Router.Use(s.CorsMiddleware)
 
 	// Apply security middleware from apiServer config when present.
 	if err := s.applySecurityMiddleware(); err != nil {
@@ -163,16 +182,9 @@ func (s *Server) Start(addr string, devMode bool) error {
 	// Setup routes
 	s.SetupRoutes()
 
-	// Setup CORS (defaults to enabled)
-	s.Router.Use(s.CorsMiddleware)
-
 	s.enableHotReloadIfDev(devMode)
 
-	certFile, keyFile := workflowTLSCertificates(s.Workflow)
-
-	s.httpServer = newDefaultHTTPServer(addr, s.Router)
-
-	return s.listenAndServe(addr, certFile, keyFile)
+	return nil
 }
 
 // Shutdown gracefully shuts down the HTTP server.
