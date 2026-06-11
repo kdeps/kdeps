@@ -33,15 +33,10 @@ func (ctx *ExecutionContext) inputWithTypeHint(name, hint string) (interface{}, 
 		return ctx.GetHeader(name)
 	case "body", "data":
 		return ctx.getBody(name)
-	case "transcript":
-		return requiredInput(ctx.InputTranscript, "input transcript")
-	case "media":
-		return requiredInput(ctx.InputMediaFile, "input media file")
-	case inputTypeFile, keyInputFileContent:
-		return requiredInput(ctx.InputFileContent, "file input content")
-	case keyInputFilePath:
-		return requiredInput(ctx.InputFilePath, "file input path")
 	default:
+		if field, ok := lookupInputProcessorFieldByHint(hint); ok {
+			return requiredInput(field.getter(ctx), field.missing)
+		}
 		return nil, fmt.Errorf("unknown input type: %s", hint)
 	}
 }
@@ -55,25 +50,7 @@ func requiredInput(value, what string) (interface{}, error) {
 }
 
 func (ctx *ExecutionContext) getInputByName(name string) (interface{}, bool) {
-	switch name {
-	case keyInputTranscript, "transcript":
-		if ctx.InputTranscript != "" {
-			return ctx.InputTranscript, true
-		}
-	case keyInputMedia, "media":
-		if ctx.InputMediaFile != "" {
-			return ctx.InputMediaFile, true
-		}
-	case keyInputFileContent, inputTypeFile:
-		if ctx.InputFileContent != "" {
-			return ctx.InputFileContent, true
-		}
-	case keyInputFilePath:
-		if ctx.InputFilePath != "" {
-			return ctx.InputFilePath, true
-		}
-	}
-	return nil, false
+	return ctx.getInputProcessorValue(name)
 }
 
 func (ctx *ExecutionContext) inputAutoDetect(name string) (interface{}, error) {

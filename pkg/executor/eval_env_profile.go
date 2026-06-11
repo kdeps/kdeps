@@ -216,8 +216,5 @@ func addRichRequestEnv(env map[string]interface{}, ctx *ExecutionContext) {
 }
 
 func addProcessorInputEnv(env map[string]interface{}, ctx *ExecutionContext) {
-	env["inputTranscript"] = ctx.InputTranscript
-	env["inputMedia"] = ctx.InputMediaFile
-	env["inputFileContent"] = ctx.InputFileContent
-	env["inputFilePath"] = ctx.InputFilePath
+	addInputProcessorEnv(env, ctx)
 }

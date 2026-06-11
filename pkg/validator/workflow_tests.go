@@ -69,19 +69,6 @@ func ValidateTestCases(tests []domain.TestCase) error {
 // ValidateTelephonyActionConfig validates a run.telephony block.
 func (v *WorkflowValidator) ValidateTelephonyActionConfig(config *domain.TelephonyActionConfig) error {
 	kdeps_debug.Log("enter: ValidateTelephonyActionConfig")
-	validActions := map[string]bool{
-		"answer":   true,
-		"say":      true,
-		"ask":      true,
-		"menu":     true,
-		"dial":     true,
-		"record":   true,
-		"mute":     true,
-		"unmute":   true,
-		"hangup":   true,
-		"reject":   true,
-		"redirect": true,
-	}
 	if config.Action == "" {
 		return domain.NewError(
 			domain.ErrCodeInvalidResource,
@@ -89,12 +76,13 @@ func (v *WorkflowValidator) ValidateTelephonyActionConfig(config *domain.Telepho
 			nil,
 		)
 	}
-	if !validActions[config.Action] {
+	if !domain.IsValidTelephonyAction(config.Action) {
 		return domain.NewError(
 			domain.ErrCodeInvalidResource,
 			fmt.Sprintf(
-				"invalid telephony.action %q. Available: [answer, say, ask, menu, dial, record, mute, unmute, hangup, reject, redirect]",
+				"invalid telephony.action %q. Available: [%s]",
 				config.Action,
+				domain.TelephonyActionsDisplay(),
 			),
 			nil,
 		)
@@ -103,7 +91,7 @@ func (v *WorkflowValidator) ValidateTelephonyActionConfig(config *domain.Telepho
 		return err
 	}
 	// dial requires at least one target.
-	if config.Action == "dial" && len(config.To) == 0 {
+	if config.Action == domain.TelephonyActionDial && len(config.To) == 0 {
 		return domain.NewError(
 			domain.ErrCodeInvalidResource,
 			"telephony action \"dial\" requires at least one entry in to",
