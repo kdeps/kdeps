@@ -38,7 +38,7 @@ func (e *Engine) executeAPIResponse(
 	env := e.buildEvaluationEnvironment(ctx)
 	apiResponseConfig := resource.ResponseBlock()
 	if apiResponseConfig == nil {
-		return nil, errors.New("no apiServer or apiResponse configuration")
+		return nil, errors.New("no apiResponse configuration")
 	}
 
 	evaluatedResponse, err := e.evaluateResponseValue(apiResponseConfig.Response, env)

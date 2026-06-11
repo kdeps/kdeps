@@ -148,7 +148,7 @@ func unrecognizedActionMessage(name, actionID string, rawDoc map[string]interfac
 	sort.Strings(actions)
 	msg := fmt.Sprintf("%s (actionId=%s): no recognized action type", name, actionID)
 	if len(actions) > 0 {
-		msg += fmt.Sprintf(" (got: %s; valid: %s, apiServer, apiResponse)",
+		msg += fmt.Sprintf(" (got: %s; valid: %s, apiResponse)",
 			strings.Join(actions, ", "), domain.PrimaryResourceTypesList())
 	}
 	return msg

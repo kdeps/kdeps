@@ -22,12 +22,9 @@ func TestResource_ResponseBlock(t *testing.T) {
 	if (&Resource{}).HasResponseBlock() {
 		t.Fatal("empty resource should not have response block")
 	}
-	cfg := (&Resource{APIServer: &APIResponseConfig{Success: true}}).ResponseBlock()
+	cfg := (&Resource{APIResponse: &APIResponseConfig{Success: true}}).ResponseBlock()
 	if cfg == nil || cfg.Success != true {
-		t.Fatal("apiServer block should be returned")
-	}
-	if name := (&Resource{APIServer: &APIResponseConfig{}}).ResponseBlockEventName(); name != "apiServer" {
-		t.Fatalf("event name = %q, want apiServer", name)
+		t.Fatal("apiResponse block should be returned")
 	}
 	if name := (&Resource{APIResponse: &APIResponseConfig{}}).ResponseBlockEventName(); name != "apiResponse" {
 		t.Fatalf("event name = %q, want apiResponse", name)
@@ -37,11 +34,11 @@ func TestResource_ResponseBlock(t *testing.T) {
 func TestActionConfig_InlineResponseBlock(t *testing.T) {
 	t.Parallel()
 
-	if (&ActionConfig{APIServer: &APIResponseConfig{}}).InlineResponseBlock() == nil {
-		t.Fatal("apiServer inline should be recognized")
+	if (&ActionConfig{APIResponse: &APIResponseConfig{}}).InlineResponseBlock() == nil {
+		t.Fatal("apiResponse inline should be recognized")
 	}
-	if !IsRecognizedResourceActionKey("apiServer") {
-		t.Fatal("apiServer should be recognized action key")
+	if !IsRecognizedResourceActionKey("apiResponse") {
+		t.Fatal("apiResponse should be recognized action key")
 	}
 }
 

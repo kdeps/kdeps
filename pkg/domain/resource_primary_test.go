@@ -100,9 +100,7 @@ func TestIsRecognizedResourceActionKey(t *testing.T) {
 	if !domain.IsRecognizedResourceActionKey("apiResponse") {
 		t.Fatal("apiResponse should be recognized")
 	}
-	if !domain.IsRecognizedResourceActionKey("apiServer") {
-		t.Fatal("apiServer should be recognized")
-	}
+
 	if !domain.IsRecognizedResourceActionKey("botReply") {
 		t.Fatal("botReply should be recognized")
 	}
@@ -135,7 +133,6 @@ func TestPrimaryResourceEventName(t *testing.T) {
 		{"botReply", &domain.Resource{BotReply: &domain.BotReplyConfig{}}, "botReply"},
 		{"email", &domain.Resource{Email: &domain.EmailConfig{}}, "email"},
 		{"apiResponse only", &domain.Resource{APIResponse: &domain.APIResponseConfig{}}, "apiResponse"},
-		{"apiServer only", &domain.Resource{APIServer: &domain.APIResponseConfig{}}, "apiServer"},
 		{
 			"primary beats apiResponse",
 			&domain.Resource{
@@ -164,7 +161,7 @@ func TestPrimaryResourceTypesList(t *testing.T) {
 	got := domain.PrimaryResourceTypesList()
 	if got != "chat, httpClient, sql, python, exec, agent, component, scraper, "+
 		"embedding, searchLocal, searchWeb, telephony, browser, botReply, email, "+
-		"apiServer, apiResponse" {
+		"apiResponse" {
 		t.Fatalf("PrimaryResourceTypesList() = %q", got)
 	}
 }
@@ -175,7 +172,7 @@ func TestPrimaryResourceTypeNames_MatchesExecutorRegistry(t *testing.T) {
 	want := []string{
 		"chat", "httpClient", "sql", "python", "exec", "agent", "component",
 		"scraper", "embedding", "searchLocal", "searchWeb",
-		"telephony", "browser", "botReply", "email", "apiServer", "apiResponse",
+		"telephony", "browser", "botReply", "email", "apiResponse",
 	}
 	got := domain.PrimaryResourceTypeNames()
 	if len(got) != len(want) {
