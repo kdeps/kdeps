@@ -32,11 +32,16 @@ func PrimaryResourceTypes() []PrimaryResourceType {
 	return buildPrimaryResourceTypes()
 }
 
-// CountPrimaryResourceTypes returns how many primary execution blocks are set on a resource.
+// CountPrimaryResourceTypes returns how many mutually-exclusive primary execution blocks
+// are set on a resource. Response blocks (apiServer, apiResponse) are excluded because
+// they combine with any other primary type.
 func CountPrimaryResourceTypes(resource *Resource) int {
 	n := 0
-	for _, entry := range PrimaryResourceTypes() {
-		if entry.Present(resource) {
+	for _, entry := range resourceExecCatalog {
+		if entry.ResponseBlock {
+			continue
+		}
+		if entry.PresentResource(resource) {
 			n++
 		}
 	}

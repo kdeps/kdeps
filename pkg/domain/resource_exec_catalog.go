@@ -22,6 +22,7 @@ package domain
 type ResourceExecCatalogEntry struct {
 	Name            string
 	PrimaryOnly     bool
+	ResponseBlock   bool
 	PresentResource func(*Resource) bool
 	PresentAction   func(*ActionConfig) bool
 }
@@ -33,6 +34,19 @@ func catalogEntry(
 ) ResourceExecCatalogEntry {
 	return ResourceExecCatalogEntry{
 		Name:            name,
+		PresentResource: presentResource,
+		PresentAction:   presentAction,
+	}
+}
+
+func catalogResponseEntry(
+	name string,
+	presentResource func(*Resource) bool,
+	presentAction func(*ActionConfig) bool,
+) ResourceExecCatalogEntry {
+	return ResourceExecCatalogEntry{
+		Name:            name,
+		ResponseBlock:   true,
 		PresentResource: presentResource,
 		PresentAction:   presentAction,
 	}
@@ -85,6 +99,12 @@ var resourceExecCatalog = []ResourceExecCatalogEntry{
 	catalogEntry("email",
 		func(r *Resource) bool { return r.Email != nil },
 		func(a *ActionConfig) bool { return a.Email != nil }),
+	catalogResponseEntry("apiServer",
+		func(r *Resource) bool { return r.APIServer != nil },
+		func(a *ActionConfig) bool { return a.APIServer != nil }),
+	catalogResponseEntry("apiResponse",
+		func(r *Resource) bool { return r.APIResponse != nil },
+		func(a *ActionConfig) bool { return a.APIResponse != nil }),
 }
 
 // ResourceExecCatalog returns the canonical ordered execution-type catalog.
@@ -104,24 +124,9 @@ func buildPrimaryResourceTypes() []PrimaryResourceType {
 	return types
 }
 
-// inlineOnlyResourceTypes are valid in before/after but not primary execution types.
-func inlineOnlyResourceTypes() []InlineResourceType {
-	return []InlineResourceType{
-		{
-			Name:    "apiServer",
-			Present: func(a *ActionConfig) bool { return a.APIServer != nil },
-		},
-		{
-			Name:    "apiResponse",
-			Present: func(a *ActionConfig) bool { return a.APIResponse != nil },
-		},
-	}
-}
-
 func buildInlineResourceTypes() []InlineResourceType {
 	catalog := ResourceExecCatalog()
-	inlineOnly := inlineOnlyResourceTypes()
-	types := make([]InlineResourceType, 0, len(catalog)+len(inlineOnly))
+	types := make([]InlineResourceType, 0, len(catalog))
 	for _, entry := range catalog {
 		if entry.PrimaryOnly || entry.PresentAction == nil {
 			continue
@@ -132,5 +137,5 @@ func buildInlineResourceTypes() []InlineResourceType {
 			Present: present,
 		})
 	}
-	return append(types, inlineOnly...)
+	return types
 }

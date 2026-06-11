@@ -44,3 +44,26 @@ func TestActionConfig_InlineResponseBlock(t *testing.T) {
 		t.Fatal("apiServer should be recognized action key")
 	}
 }
+
+func TestResource_IsResponseOnlyPrimary(t *testing.T) {
+	t.Parallel()
+
+	res := &Resource{
+		Before:      []ActionConfig{{Chat: &ChatConfig{}}},
+		APIResponse: &APIResponseConfig{Success: true},
+	}
+	if !res.IsResponseOnlyPrimary() {
+		t.Fatal("apiResponse-only resource should be response-only primary")
+	}
+	if !res.HasInlineActions() {
+		t.Fatal("resource with before should have inline actions")
+	}
+
+	combo := &Resource{
+		Chat:        &ChatConfig{},
+		APIResponse: &APIResponseConfig{},
+	}
+	if combo.IsResponseOnlyPrimary() {
+		t.Fatal("chat + apiResponse is not response-only primary")
+	}
+}
