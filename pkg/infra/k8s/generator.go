@@ -34,6 +34,9 @@ var deploymentTemplate string
 //go:embed templates/service.yaml.tmpl
 var serviceTemplate string
 
+//go:embed templates/networkpolicy.yaml.tmpl
+var networkPolicyTemplate string
+
 const defaultOllamaPort = 11434
 
 // ManifestData contains data for Kubernetes manifest rendering.
@@ -46,6 +49,7 @@ type ManifestData struct {
 	WebServerPort int
 	BackendPort   int
 	HasAPIServer  bool
+	NetworkPolicy bool
 	Env           map[string]string
 	SecretEnv     []string
 	Resources     *domain.Resources
@@ -83,7 +87,17 @@ func (g *Generator) GenerateManifests(workflow *domain.Workflow) (string, error)
 		return "", fmt.Errorf("failed to render service template: %w", err)
 	}
 
-	return fmt.Sprintf("%s---\n%s", deployment, service), nil
+	manifests := fmt.Sprintf("%s---\n%s", deployment, service)
+
+	if data.NetworkPolicy {
+		policy, policyErr := g.renderTemplate("networkpolicy", networkPolicyTemplate, data)
+		if policyErr != nil {
+			return "", fmt.Errorf("failed to render networkpolicy template: %w", policyErr)
+		}
+		manifests = fmt.Sprintf("%s---\n%s", manifests, policy)
+	}
+
+	return manifests, nil
 }
 
 func (g *Generator) buildTemplateData(workflow *domain.Workflow) *ManifestData {
@@ -91,14 +105,15 @@ func (g *Generator) buildTemplateData(workflow *domain.Workflow) *ManifestData {
 
 	plainEnv, secretEnv := deployenv.PartitionK8sEnv(workflow.Settings.AgentSettings.Env)
 	data := &ManifestData{
-		Name:         workflow.Metadata.Name,
-		Version:      workflow.Metadata.Version,
-		Image:        g.ImageName,
-		Replicas:     resolveReplicas(workflow),
-		HasAPIServer: workflow.Settings.APIServer != nil,
-		Env:          plainEnv,
-		SecretEnv:    secretEnv,
-		Resources:    workflow.Settings.AgentSettings.Resources,
+		Name:          workflow.Metadata.Name,
+		Version:       workflow.Metadata.Version,
+		Image:         g.ImageName,
+		Replicas:      resolveReplicas(workflow),
+		HasAPIServer:  workflow.Settings.APIServer != nil,
+		NetworkPolicy: workflow.Settings.AgentSettings.NetworkPolicy,
+		Env:           plainEnv,
+		SecretEnv:     secretEnv,
+		Resources:     workflow.Settings.AgentSettings.Resources,
 	}
 
 	applyManifestPorts(data, workflow)
@@ -117,15 +132,22 @@ func resolveReplicas(workflow *domain.Workflow) int {
 	return replicas
 }
 
+// applyManifestPorts derives ports from what the workflow actually configures:
+// each server contributes its own port, nothing else is exposed.
 func applyManifestPorts(data *ManifestData, workflow *domain.Workflow) {
-	if workflow.Settings.APIServer == nil && workflow.Settings.WebServer == nil {
-		return
+	if api := workflow.Settings.APIServer; api != nil {
+		data.APIPort = portOrDefault(api.PortNum)
 	}
-	port := workflow.Settings.GetPortNum()
-	data.APIPort = port
-	if workflow.Settings.WebServer != nil {
-		data.WebServerPort = port
+	if web := workflow.Settings.WebServer; web != nil {
+		data.WebServerPort = portOrDefault(web.PortNum)
 	}
+}
+
+func portOrDefault(port int) int {
+	if port > 0 {
+		return port
+	}
+	return domain.DefaultPort
 }
 
 func (g *Generator) renderTemplate(name, tmplStr string, data *ManifestData) (string, error) {

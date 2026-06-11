@@ -125,6 +125,95 @@ func TestGenerateManifests_WebServer(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Contains(t, manifests, "containerPort: 9090")
 	assert.Contains(t, manifests, "name: web")
+	// No API server: no api port, and probes fall back to a TCP check on web.
+	assert.NotContains(t, manifests, "name: api")
+	assert.NotContains(t, manifests, "httpGet")
+	assert.Contains(t, manifests, "tcpSocket")
+	assert.Contains(t, manifests, "port: web")
+}
+
+func TestGenerateManifests_NoServers_NoPortsNoProbes(t *testing.T) {
+	workflow := &domain.Workflow{
+		Metadata: domain.WorkflowMetadata{Name: "bot-app"},
+		Settings: domain.WorkflowSettings{},
+	}
+
+	manifests, err := NewGenerator("bot-image").GenerateManifests(workflow)
+
+	assert.NoError(t, err)
+	assert.NotContains(t, manifests, "containerPort:")
+	assert.NotContains(t, manifests, "readinessProbe")
+	assert.NotContains(t, manifests, "livenessProbe")
+}
+
+func TestGenerateManifests_DefaultPortsWhenUnset(t *testing.T) {
+	workflow := &domain.Workflow{
+		Metadata: domain.WorkflowMetadata{Name: "defaults-app"},
+		Settings: domain.WorkflowSettings{
+			APIServer: &domain.APIServerConfig{},
+			WebServer: &domain.WebServerConfig{},
+		},
+	}
+
+	manifests, err := NewGenerator("img").GenerateManifests(workflow)
+
+	assert.NoError(t, err)
+	assert.Contains(t, manifests, "containerPort: 16395")
+	assert.Contains(t, manifests, "name: api")
+	assert.Contains(t, manifests, "name: web")
+}
+
+func TestGenerateManifests_NetworkPolicy(t *testing.T) {
+	workflow := &domain.Workflow{
+		Metadata: domain.WorkflowMetadata{Name: "np-app", Version: "1.0.0"},
+		Settings: domain.WorkflowSettings{
+			APIServer: &domain.APIServerConfig{PortNum: 8080},
+			WebServer: &domain.WebServerConfig{PortNum: 9090},
+			AgentSettings: domain.AgentSettings{
+				NetworkPolicy: true,
+			},
+		},
+	}
+
+	manifests, err := NewGenerator("np-image").GenerateManifests(workflow)
+
+	assert.NoError(t, err)
+	assert.Contains(t, manifests, "kind: NetworkPolicy")
+	assert.Contains(t, manifests, "policyTypes:\n  - Ingress")
+	assert.Contains(t, manifests, "port: 8080")
+	assert.Contains(t, manifests, "port: 9090")
+	// Egress stays unrestricted: not listed as a policy type.
+	assert.NotContains(t, manifests, "- Egress")
+}
+
+func TestGenerateManifests_NetworkPolicy_NoServers_DeniesAllIngress(t *testing.T) {
+	workflow := &domain.Workflow{
+		Metadata: domain.WorkflowMetadata{Name: "np-bot"},
+		Settings: domain.WorkflowSettings{
+			AgentSettings: domain.AgentSettings{NetworkPolicy: true},
+		},
+	}
+
+	manifests, err := NewGenerator("img").GenerateManifests(workflow)
+
+	assert.NoError(t, err)
+	assert.Contains(t, manifests, "kind: NetworkPolicy")
+	// No serving ports: no ingress rules at all (deny all ingress).
+	assert.NotContains(t, manifests, "ingress:")
+}
+
+func TestGenerateManifests_NetworkPolicy_DisabledByDefault(t *testing.T) {
+	workflow := &domain.Workflow{
+		Metadata: domain.WorkflowMetadata{Name: "plain-app"},
+		Settings: domain.WorkflowSettings{
+			APIServer: &domain.APIServerConfig{PortNum: 8080},
+		},
+	}
+
+	manifests, err := NewGenerator("img").GenerateManifests(workflow)
+
+	assert.NoError(t, err)
+	assert.NotContains(t, manifests, "NetworkPolicy")
 }
 
 func TestGenerateManifests_Defaults(t *testing.T) {
@@ -211,6 +300,20 @@ func TestGenerateManifests_TemplateErrors(t *testing.T) {
 	_, err = generator.GenerateManifests(workflow)
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "render service template")
+
+	// Error in networkpolicy template
+	origPolicy := networkPolicyTemplate
+	defer func() { networkPolicyTemplate = origPolicy }()
+	serviceTemplate = origService
+	networkPolicyTemplate = "{{ if }}"
+	npWorkflow := &domain.Workflow{
+		Settings: domain.WorkflowSettings{
+			AgentSettings: domain.AgentSettings{NetworkPolicy: true},
+		},
+	}
+	_, err = generator.GenerateManifests(npWorkflow)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "render networkpolicy template")
 }
 
 func TestRenderTemplate_Error(t *testing.T) {

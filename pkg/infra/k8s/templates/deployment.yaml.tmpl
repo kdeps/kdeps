@@ -76,15 +76,29 @@ spec:
             cpu: "{{ .Resources.CPURequest }}"
             memory: "{{ .Resources.MemoryRequest }}"
         {{- end }}
+        {{- if .HasAPIServer }}
         readinessProbe:
           httpGet:
             path: /health
-            port: {{ .APIPort }}
+            port: api
           initialDelaySeconds: 10
           periodSeconds: 10
         livenessProbe:
           httpGet:
             path: /health
-            port: {{ .APIPort }}
+            port: api
           initialDelaySeconds: 30
           periodSeconds: 30
+        {{- else if .WebServerPort }}
+        # Web server has no /health endpoint; probe the TCP socket instead.
+        readinessProbe:
+          tcpSocket:
+            port: web
+          initialDelaySeconds: 10
+          periodSeconds: 10
+        livenessProbe:
+          tcpSocket:
+            port: web
+          initialDelaySeconds: 30
+          periodSeconds: 30
+        {{- end }}

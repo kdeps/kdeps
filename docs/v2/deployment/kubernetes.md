@@ -29,6 +29,7 @@ kdeps export k8s [path] [flags]
 | `--image` | `-i` | Container image to use | `{name}:{version}` from workflow |
 | `--output` | `-o` | Output file path | stdout |
 | `--replicas` | `-r` | Number of replicas (overrides `workflow.yaml`) | From workflow |
+| `--network-policy` | | Also generate a NetworkPolicy restricting ingress to the configured ports | Off (or `agentSettings.networkPolicy`) |
 
 **Examples:**
 
@@ -75,6 +76,11 @@ settings:
     env:
       APP_MODE: production
       DATABASE_URL: "postgres://user:pass@db-service:5432/mydb"
+
+    # Opt in to a NetworkPolicy that restricts pod ingress to the
+    # configured server ports. Egress stays unrestricted so chat,
+    # httpClient, searchWeb, and sql resources can reach external services.
+    networkPolicy: true
 ```
 
 ### Ports
@@ -88,6 +94,8 @@ Ports are derived from your workflow settings:
 | `installOllama: true` (or auto-detected) | `backend` | Ollama LLM backend (11434) |
 
 Ollama port is auto-detected when any resource uses a `chat:` executor.
+
+Ports, probes, and NetworkPolicy rules are all derived from this configuration -- only what the workflow actually serves is exposed. A workflow with no `apiServer` or `webServer` (a bot or file workflow) gets no container ports and no probes.
 
 ### Resources
 
@@ -107,7 +115,7 @@ When `resources` is absent, no `resources:` block is emitted (Kubernetes default
 
 ## Generated Manifests
 
-`kdeps export k8s` produces a single YAML document with two resources separated by `---`.
+`kdeps export k8s` produces a single YAML document with a Deployment and a Service separated by `---` (plus a NetworkPolicy when opted in).
 
 ### Deployment
 
@@ -150,13 +158,13 @@ spec:
         readinessProbe:     # traffic is held until this passes
           httpGet:
             path: /health
-            port: 8080
+            port: api       # named port -- follows apiServer.portNum automatically
           initialDelaySeconds: 10  # wait 10s after start before first probe
           periodSeconds: 10        # re-probe every 10s
         livenessProbe:      # container is restarted if this fails
           httpGet:
             path: /health
-            port: 8080
+            port: api
           initialDelaySeconds: 30  # longer grace period than readiness
           periodSeconds: 30        # re-probe every 30s
 ```
@@ -181,7 +189,36 @@ spec:
   type: ClusterIP
 ```
 
-Health check probes are automatically generated from the configured port.
+Probes follow what the workflow serves: an `apiServer` workflow gets HTTP probes on `/health` at the `api` port; a web-only workflow gets TCP probes on the `web` port (the web server has no `/health` endpoint); a workflow with neither gets no probes.
+
+### NetworkPolicy (opt-in)
+
+Set `agentSettings.networkPolicy: true` in `workflow.yaml` (or pass `--network-policy` at export time) to append a NetworkPolicy. Ingress is allowed only on the ports the workflow actually serves; everything else is denied. Egress is deliberately unrestricted so `chat`, `httpClient`, `searchWeb`, and `sql` resources can reach external services.
+
+```yaml
+# k8s.yaml (appended when networkPolicy is enabled)
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: chatbot
+  labels:
+    app: chatbot
+    kdeps-component: "true"
+spec:
+  podSelector:
+    matchLabels:
+      app: chatbot
+  policyTypes:
+  - Ingress          # egress is not listed, so it stays unrestricted
+  ingress:
+  - ports:
+    - protocol: TCP
+      port: 8080     # only the configured apiServer port accepts traffic
+```
+
+The Ollama backend port (11434) is never opened for ingress: Ollama binds `127.0.0.1` inside the pod, so it is only reachable from within the pod regardless. A workflow with no `apiServer` or `webServer` gets a policy with no ingress rules at all -- all ingress denied.
+
+Your cluster must run a CNI that enforces NetworkPolicy (Calico, Cilium, etc.); on clusters without one the policy is accepted but has no effect.
 
 When `apiServer` is configured, the Deployment references auth tokens from a Kubernetes Secret (never from `agentSettings.env`):
 

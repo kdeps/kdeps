@@ -33,9 +33,10 @@ import (
 
 // K8sFlags holds the flags for the export k8s command.
 type K8sFlags struct {
-	Image   string
-	Output  string
-	Replica int
+	Image         string
+	Output        string
+	Replica       int
+	NetworkPolicy bool
 }
 
 // newExportK8sCmd creates the export k8s subcommand.
@@ -60,7 +61,10 @@ Examples:
   kdeps export k8s examples/chatbot --image my-registry/chatbot:1.0.0
 
   # Export to a file
-  kdeps export k8s examples/chatbot --output k8s-manifest.yaml`,
+  kdeps export k8s examples/chatbot --output k8s-manifest.yaml
+
+  # Include a NetworkPolicy restricting ingress to the configured ports
+  kdeps export k8s examples/chatbot --network-policy`,
 		Args: cobra.ExactArgs(1),
 		RunE: RunExportK8sCmd,
 	}
@@ -68,6 +72,8 @@ Examples:
 	cmd.Flags().StringVarP(&flags.Image, "image", "i", "", "Docker image to use in the manifest")
 	cmd.Flags().StringVarP(&flags.Output, "output", "o", "", "Output file path (default: stdout)")
 	cmd.Flags().IntVarP(&flags.Replica, "replicas", "r", 0, "Number of replicas (overrides workflow.yaml)")
+	cmd.Flags().
+		BoolVar(&flags.NetworkPolicy, "network-policy", false, "Generate a NetworkPolicy restricting ingress to the configured ports (or set agentSettings.networkPolicy in workflow.yaml)")
 
 	return cmd
 }
@@ -80,6 +86,7 @@ func RunExportK8sCmd(cmd *cobra.Command, args []string) error {
 		flags.Image, _ = cmd.Flags().GetString("image")
 		flags.Output, _ = cmd.Flags().GetString("output")
 		flags.Replica, _ = cmd.Flags().GetInt("replicas")
+		flags.NetworkPolicy, _ = cmd.Flags().GetBool("network-policy")
 	}
 	return exportK8sInternal(cmd, args, flags)
 }
@@ -123,6 +130,9 @@ func exportK8sInternal(cmd *cobra.Command, args []string, flags *K8sFlags) error
 
 	if flags.Replica > 0 {
 		workflow.Settings.AgentSettings.Replicas = flags.Replica
+	}
+	if flags.NetworkPolicy {
+		workflow.Settings.AgentSettings.NetworkPolicy = true
 	}
 
 	injectConfigEnv(workflow)

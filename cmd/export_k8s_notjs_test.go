@@ -169,11 +169,38 @@ func TestRunExportK8sCmd_WithCommand(t *testing.T) {
 	cmd.Flags().String("image", "", "")
 	cmd.Flags().String("output", "", "")
 	cmd.Flags().Int("replicas", 0, "")
+	cmd.Flags().Bool("network-policy", false, "")
 	require.NoError(t, cmd.Flags().Set("image", "myimg:v1"))
 	require.NoError(t, cmd.Flags().Set("replicas", "2"))
+	require.NoError(t, cmd.Flags().Set("network-policy", "true"))
 
+	var out bytes.Buffer
+	cmd.SetOut(&out)
 	err := RunExportK8sCmd(cmd, []string{tmp})
 	require.NoError(t, err)
+	assert.Contains(t, out.String(), "kind: NetworkPolicy")
+}
+
+func TestExportK8sInternal_NetworkPolicyFromWorkflow(t *testing.T) {
+	tmp := t.TempDir()
+	wfContent := "apiVersion: kdeps.io/v1\nkind: Workflow\nmetadata:\n  name: test\n  version: \"1.0\"\n  targetActionId: act\nsettings:\n  apiServer:\n    portNum: 8080\n    routes:\n      - path: /api\n        methods: [GET]\n  agentSettings:\n    networkPolicy: true\n"
+	require.NoError(t, os.WriteFile(filepath.Join(tmp, "workflow.yaml"), []byte(wfContent), 0644))
+	require.NoError(t, os.MkdirAll(filepath.Join(tmp, "resources"), 0755))
+	require.NoError(
+		t,
+		os.WriteFile(
+			filepath.Join(tmp, "resources", "act.yaml"),
+			[]byte("actionId: act\nname: T\n"),
+			0644,
+		),
+	)
+
+	cmd := &cobra.Command{}
+	var out bytes.Buffer
+	cmd.SetOut(&out)
+	require.NoError(t, exportK8sInternal(cmd, []string{tmp}, &K8sFlags{}))
+	assert.Contains(t, out.String(), "kind: NetworkPolicy")
+	assert.Contains(t, out.String(), "port: 8080")
 }
 
 func TestExportK8sInternal_ReplicaOverride(t *testing.T) {

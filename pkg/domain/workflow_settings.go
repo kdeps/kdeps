@@ -241,6 +241,9 @@ type AgentSettings struct {
 	Env         map[string]string `yaml:"env,omitempty"`
 	Replicas    int               `yaml:"replicas,omitempty"`  // Kubernetes replicas
 	Resources   *Resources        `yaml:"resources,omitempty"` // Kubernetes resources
+	// NetworkPolicy opts in to generating a Kubernetes NetworkPolicy that
+	// restricts pod ingress to the configured server ports. Egress is unrestricted.
+	NetworkPolicy bool `yaml:"networkPolicy,omitempty"`
 }
 
 // SQLConnection represents pool configuration for a named SQL connection.

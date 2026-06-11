@@ -104,6 +104,7 @@ kdeps export k8s [path] [flags]
 | `--image` | `-i` | Container image name | `{name}:{version}` |
 | `--output` | `-o` | Output file path | stdout |
 | `--replicas` | `-r` | Number of replicas | From workflow |
+| `--network-policy` | | Also generate an ingress-restricting NetworkPolicy | Off |
 
 **Examples:**
 
@@ -119,6 +120,7 @@ Manifests are driven by `agentSettings` in `workflow.yaml`:
 - `replicas` -- number of pod replicas
 - `resources` -- CPU/memory limits and requests
 - `env` -- container environment variables
+- `networkPolicy: true` -- appends a NetworkPolicy restricting ingress to the configured ports
 - `portNum` inside `apiServer:`/`webServer:` -- exposed ports
 - `installOllama: true` -- adds Ollama backend port (11434)
 
