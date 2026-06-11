@@ -1,0 +1,13 @@
+actionId: welcomeMenu
+name: Welcome Menu
+validations:
+  routes: [/twilio/voice]
+  methods: [POST]
+telephony:
+  action: menu
+  say: "Welcome to kdeps. Press 1 for opening hours. Press 2 to ask our assistant a question."
+  voice: alice
+  timeout: 8s
+  matches:
+    - keys: ["1"]   # result.interpretation: "1" -- provider posts to /twilio/hours
+    - keys: ["2"]   # result.interpretation: "2" -- provider posts to /twilio/ask

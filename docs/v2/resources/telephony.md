@@ -54,6 +54,8 @@ apiResponse:
 | `reject` | Reject the call (with optional `reason:`) |
 | `redirect` | Redirect call control elsewhere |
 
+`ask` and `menu` must set at least one of `grammar`, `grammarUrl`, `limit`, or `matches` -- validation fails otherwise.
+
 ## Complete reference
 
 <div v-pre>
@@ -79,19 +81,13 @@ telephony:
   interDigitTimeout: 2s   # between-digit timeout
 
   # --- Menu ---
-  tries: 3                # retry count (default: 1)
-  matches:
-    - keys: ["1"]         # DTMF digits or speech phrases to match
-      invoke: salesFlow   # component name to invoke on match
-    - keys: ["2"]
-      expr:               # inline expressions to run on match
-        - set('branch', 'support')
-  onNoMatch: |            # expression on nomatch
-    say("Sorry, that option is not available.")
-  onNoInput: |            # expression on noinput
-    say("I did not hear anything.")
-  onFailure: |            # expression after all tries exhausted
-    telephony.action("hangup")
+  matches:                # input -> interpretation mapping; a matching key sets
+    - keys: ["1"]         #   result.status: match and result.interpretation
+    - keys: ["2"]         # DTMF digits or speech phrases to match
+  # tries, onNoMatch, onNoInput, onFailure, and matches[].invoke/expr are
+  # accepted by the schema but not yet evaluated by the executor. Branch on
+  # the menu result with downstream resources (validations.skip) and retry
+  # with loop.while instead.
 
   # --- Dial ---
   to:                     # SIP URIs or tel: numbers
@@ -113,6 +109,8 @@ telephony:
 
 </div>
 
+Telephony fields are static -- <span v-pre>`{{ }}`</span> templates inside them (e.g. a dynamic `say:`) are not interpolated. To return dynamic content (such as an LLM answer) to the caller, include it in the `apiResponse` and have your provider glue render it.
+
 ## IVR Menu Example
 
 <div v-pre>
@@ -130,15 +128,27 @@ telephony:
   timeout: 8s
   matches:
     - keys: ["1"]
-      invoke: salesFlow     # component invoked when caller presses 1
     - keys: ["2"]
-      invoke: supportFlow
-  onNoMatch: repeatMenu
+```
+
+```yaml
+# resources/sales.yaml -- runs only when the caller pressed 1
+actionId: salesFlow
+name: Sales Flow
+requires: [mainMenu]
+validations:
+  routes: [/twilio/menu]
+  methods: [POST]
+  skip:
+    - output('mainMenu').result.interpretation != '1'
+telephony:
+  action: say
+  say: "Connecting you to sales."
 ```
 
 </div>
 
-When the provider posts `Digits: "1"`, the menu resolves to `status: match` with `interpretation: "1"` and invokes the `salesFlow` component. With no digits, the resource returns a TwiML `<Gather>` prompt so the provider collects input.
+When the provider posts `Digits: "1"`, the menu resolves to `status: match` with `interpretation: "1"`; downstream resources branch on that via `validations.skip`. With no digits, the resource returns a TwiML `<Gather>` prompt so the provider collects input.
 
 ## Output
 
@@ -156,7 +166,18 @@ The resource output contains the accumulated TwiML and, for `ask`/`menu`, a resu
 
 ## Expression Accessors
 
-Usable in `expr` lists and <span v-pre>`{{ }}`</span> blocks:
+Usable in expression lists (`before:`, `after:`, `validations`, `onError.expr`). To use a value in a <span v-pre>`{{ }}`</span> template, copy it to a key first -- bare `telephony.` references inside templates fail static analysis:
+
+<div v-pre>
+
+```yaml
+before:
+  - set('question', telephony.speech())
+chat:
+  prompt: "Caller asked: {{ get('question') }}"
+```
+
+</div>
 
 ```yaml
 telephony.callId()      # unique call identifier

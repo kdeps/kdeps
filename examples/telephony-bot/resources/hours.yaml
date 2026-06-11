@@ -1,0 +1,9 @@
+actionId: sayHours
+name: Say Opening Hours
+validations:
+  routes: [/twilio/hours]
+  methods: [POST]
+telephony:
+  action: say
+  say: "We are open Monday to Friday, nine to five, Central European Time."
+  voice: alice

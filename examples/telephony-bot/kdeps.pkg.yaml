@@ -1,0 +1,9 @@
+name: telephony-bot
+version: "1.0.0"
+type: workflow
+description: AI phone IVR using the native telephony resource (TwiML for Twilio-compatible providers)
+tags:
+  - telephony
+  - ivr
+  - twilio
+  - llm

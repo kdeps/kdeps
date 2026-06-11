@@ -94,7 +94,8 @@ requires: [llm]
 apiResponse:
   success: true
   response:
-    answer: get('llm')
+    # chat output is the raw response object; the reply text is at .message.content
+    answer: get('llm').message.content
 ```
 
 ## Run it
@@ -135,7 +136,7 @@ direction: down
 
 A: "POST /api/v1/chat\n{\"q\": \"What is entropy?\"}" {shape: oval}
 B: "resource: llm\nvalidates get('q') != ''; calls llama3.2:1b"
-C: "resource: response\nrequires: [llm]; reads get('llm')"
+C: "resource: response\nrequires: [llm]; reads get('llm').message.content"
 D: "{\"success\": true, \"response\": {\"answer\": \"...\"}}" {shape: oval}
 
 A -> B

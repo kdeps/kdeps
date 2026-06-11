@@ -10,5 +10,5 @@ apiResponse:
   success: true
   response:
     query: "{{ get('q') }}"
-    llm_response: "{{ get('llmWithTools') }}"
+    llm_response: "{{ get('llmWithTools').message.content }}"
     tools_available: true

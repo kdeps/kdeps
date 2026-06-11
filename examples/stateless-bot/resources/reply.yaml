@@ -7,4 +7,4 @@ exec:
   command: sh
   args:
     - "-c"
-    - "printf '%s' '{{ get('llm') }}'"
+    - "printf '%s' '{{ get('llm').message.content }}'"
