@@ -82,13 +82,17 @@ settings:
 ```yaml
 # resources/fetch.yaml
 actionId: fetch
+name: Fetch Page
 httpClient:
   method: GET
   url: "{{ get('url') }}"
   timeout: 10s
+```
 
----
+```yaml
+# resources/respond.yaml
 actionId: respond
+name: Summarize and Respond
 requires: [fetch]
 chat:
   model: llama3.2:1b
@@ -169,16 +173,19 @@ POST /run-marketing-pipeline
 The orchestrating workflow calls each agent in order using `agent:`:
 
 ```yaml
-# resources/pipeline.yaml
-
+# resources/draft.yaml
 actionId: draft
+name: Draft Post
 agent:
   name: content-writer        # runs agents/content-writer/workflow.yaml
   params:
     topic: "{{ get('topic') }}"  # passed as get('topic') inside that agent
+```
 
----
+```yaml
+# resources/publish.yaml
 actionId: publish
+name: Publish Post
 requires: [draft]
 agent:
   name: cms-publisher         # runs agents/cms-publisher/workflow.yaml

@@ -58,6 +58,7 @@ Components cannot contain `settings` (no server modes, port bindings) -- they ar
 ```yaml
 # resources/fetch.yaml
 actionId: fetch-article
+name: Fetch Article
 component:
   name: scraper
   with:

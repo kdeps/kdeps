@@ -64,6 +64,7 @@ settings:
 ```yaml
 # resources/llm.yaml
 actionId: llm
+name: LLM Chat
 validations:
   methods: [POST]
   routes: [/api/v1/chat]
@@ -88,6 +89,7 @@ chat:
 ```yaml
 # resources/response.yaml
 actionId: response
+name: API Response
 requires: [llm]
 apiResponse:
   success: true
