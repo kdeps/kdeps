@@ -31,6 +31,9 @@ import (
 // generateDockerfile generates a Dockerfile using templates.
 func (b *Builder) generateDockerfile(workflow *domain.Workflow) (string, error) {
 	kdeps_debug.Log("enter: generateDockerfile")
+	if err := b.applyImageProfile(workflow); err != nil {
+		return "", err
+	}
 	templateStr, err := resolveDockerfileTemplate(b.BaseOS)
 	if err != nil {
 		return "", err
@@ -44,11 +47,9 @@ func resolveDockerfileTemplate(baseOS string) (string, error) {
 		return alpineTemplate, nil
 	case baseOSUbuntu:
 		return ubuntuTemplate, nil
-	case baseOSDebian:
-		return debianTemplate, nil
 	default:
 		return "", fmt.Errorf(
-			"unsupported base OS: %s (supported: alpine, ubuntu, debian)",
+			"unsupported base OS: %s (supported: alpine, ubuntu)",
 			baseOS,
 		)
 	}

@@ -1,6 +1,5 @@
 {{- if .InstallOllama }}
-# Install Ollama
-COPY --from={{ if eq .OS "alpine" }}alpine/ollama:{{ .OllamaImageTag }}{{ else }}ollama/ollama:{{ .OllamaImageTag }}{{ end }} /usr/bin/ollama /usr/local/bin/ollama
+# Ollama included in base image
 {{- else }}
 # No LLM backend to install
 {{- end }}

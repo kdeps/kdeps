@@ -73,12 +73,12 @@ func TestRenderBackendInstall_ParseAndExecuteErrors(t *testing.T) {
 	builder := &Builder{BaseOS: "alpine"}
 
 	backendInstallTemplate = "{{.Broken"
-	_, err := builder.renderBackendInstall(false, "latest")
+	_, err := builder.renderBackendInstall(false)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "failed to render backend install")
 
 	backendInstallTemplate = "{{call .InstallOllama}}"
-	_, err = builder.renderBackendInstall(false, "latest")
+	_, err = builder.renderBackendInstall(false)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "failed to render backend install")
 }

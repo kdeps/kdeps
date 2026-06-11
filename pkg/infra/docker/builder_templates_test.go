@@ -67,8 +67,8 @@ func TestBuilderTemplates_generateDockerfile(t *testing.T) {
 			contains: []string{"FROM ollama/ollama:0.5.0", "ollama"},
 		},
 		{
-			name:   "debian with installOllama flag",
-			baseOS: "debian",
+			name:   "ubuntu with installOllama flag",
+			baseOS: "ubuntu",
 			workflow: &domain.Workflow{
 				Metadata: domain.WorkflowMetadata{Name: "test", Version: "1.0.0"},
 				Settings: domain.WorkflowSettings{
@@ -96,7 +96,7 @@ func TestBuilderTemplates_generateDockerfile(t *testing.T) {
 }
 
 func TestBuilderTemplates_healthcheckFollowsConfiguration(t *testing.T) {
-	for _, baseOS := range []string{"alpine", "debian", "ubuntu"} {
+	for _, baseOS := range []string{"alpine", "ubuntu"} {
 		t.Run(baseOS, func(t *testing.T) {
 			builder := &docker.Builder{BaseOS: baseOS}
 

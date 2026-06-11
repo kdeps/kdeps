@@ -4,7 +4,7 @@ This example demonstrates all Docker configuration features in KDeps v2.
 
 ## Features Demonstrated
 
-1. **Base OS Selection** - Choose Alpine, Ubuntu, or Debian
+1. **Base OS Selection** - Choose Alpine or Ubuntu
 2. **OS Package Installation** - Install system-level packages
 3. **Python Package Management** - Specify Python packages
 4. **Auto-backend Installation** - Automatically install Ollama LLM backend
@@ -17,21 +17,15 @@ This example demonstrates all Docker configuration features in KDeps v2.
 
 ```yaml
 agentSettings:
-  # Options: alpine, ubuntu, debian
+  # Options: alpine, ubuntu
   # Default: alpine
   baseOS: "alpine"
 ```
 
-**Can be overridden via CLI:**
+**GPU builds auto-select Ubuntu:**
 ```bash
-# Use workflow's baseOS (alpine)
-kdeps build .
-
-# Override with Ubuntu
-kdeps build . --os ubuntu
-
-# Override with Debian
-kdeps build . --os debian
+kdeps build .              # CPU: alpine (or workflow baseOS)
+kdeps build . --gpu cuda   # GPU: ubuntu + official ollama/ollama when Ollama is enabled
 ```
 
 ### OS Packages
@@ -51,7 +45,7 @@ agentSettings:
 
 **Package managers by OS:**
 - Alpine: `apk` (e.g., `git`, `vim`, `curl`)
-- Ubuntu/Debian: `apt` (e.g., `git`, `vim`, `curl`)
+- Ubuntu: `apt` (e.g., `git`, `vim`, `curl`)
 
 ### Python Packages
 
@@ -114,11 +108,9 @@ agentSettings:
 **Build:**
 ```bash
 kdeps build .
-# Or explicitly:
-kdeps build . --os alpine
 ```
 
-**Result:** ~200MB image with Ollama
+**Result:** ~70MB Ollama base (`alpine/ollama`) plus kdeps layers
 
 ---
 
@@ -152,11 +144,11 @@ kdeps build .
 
 ---
 
-### Example 3: Debian with Database Tools
+### Example 3: Ubuntu with Database Tools
 
 ```yaml
 agentSettings:
-  baseOS: "debian"
+  baseOS: "ubuntu"
   pythonPackages:
     - psycopg2-binary
     - sqlalchemy
@@ -171,7 +163,7 @@ agentSettings:
 kdeps build .
 ```
 
-**Result:** Debian image with PostgreSQL client and Redis tools
+**Result:** Ubuntu image with PostgreSQL client and Redis tools
 
 ---
 
@@ -206,14 +198,14 @@ kdeps build . --tag datascience:latest
 # Preview what will be generated
 kdeps build . --show-dockerfile
 
-# Preview with different OS
-kdeps build . --show-dockerfile --os ubuntu
+# Preview with Ubuntu baseOS in workflow.yaml
+kdeps build . --show-dockerfile
 ```
 
 ### Example Output (Alpine + Ollama):
 
 ```dockerfile
-FROM alpine:latest
+FROM alpine/ollama:0.5.0
 
 # Set environment variables
 ENV PYTHONUNBUFFERED=1 \
@@ -240,8 +232,7 @@ RUN curl -LsSf https://raw.githubusercontent.com/kdeps/kdeps/main/install.sh | s
 # Install OS packages
 RUN apk add --no-cache git vim curl jq
 
-# Install Ollama
-RUN curl -fsSL https://ollama.com/install.sh | sh
+# Ollama included in base image
 
 # Install uv for Python package management
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /usr/local/bin/uv
@@ -278,48 +269,42 @@ CMD ["supervisord", "-c", "/etc/supervisord.conf"]
 
 ## Build Process
 
-### 1. Workflow Configuration Takes Precedence
+### 1. Workflow `baseOS`
 
 ```yaml
 agentSettings:
-  baseOS: "debian"
+  baseOS: "ubuntu"
 ```
 
-**Result:** Builds with Debian unless overridden
+**Result:** Ubuntu base (unless `--gpu` is set, which also forces Ubuntu)
 
-### 2. CLI Override
+### 2. `--gpu` Flag
 
 ```bash
-kdeps build . --os ubuntu
+kdeps build . --gpu cuda
 ```
 
-**Result:** Builds with Ubuntu (overrides workflow)
+**Result:** Ubuntu + `ollama/ollama` when Ollama is enabled
 
 ### 3. Default Behavior
 
-No baseOS in workflow + no CLI flag = **Alpine** (default)
+No `baseOS` in workflow + no `--gpu` = **Alpine** (default)
 
 ---
 
 ## OS Comparison
 
 ### Alpine
-- **Size:** Smallest (~50-100MB less than Ubuntu/Debian)
-- **Best for:** Lightweight APIs, simple workflows
+- **Size:** Smallest (~300MB without Ollama; ~70MB Ollama base via `alpine/ollama`)
+- **Best for:** Lightweight APIs, CPU-only local LLM
 - **Package Manager:** `apk`
 - **Use when:** Image size is critical
 
 ### Ubuntu
-- **Size:** Largest (but most packages available)
-- **Best for:** Complex applications, data science
+- **Size:** Larger (~800MB+ with official `ollama/ollama`)
+- **Best for:** GPU inference, complex applications, data science
 - **Package Manager:** `apt`
-- **Use when:** Need maximum compatibility
-
-### Debian
-- **Size:** Medium (between Alpine and Ubuntu)
-- **Best for:** Production workloads, stability
-- **Package Manager:** `apt`
-- **Use when:** Need balance of size and features
+- **Use when:** Need GPU drivers or maximum apt compatibility
 
 ---
 
@@ -374,9 +359,8 @@ docker run -p 16395:16395 docker-config:latest
 
 ## Tips
 
-1. **Start with Alpine** for simplest workflows
-2. **Use Ubuntu** when you need specific packages
-3. **Use Debian** for production stability
+1. **Start with Alpine** for simplest CPU workflows
+2. **Use Ubuntu** when you need GPU or specific apt packages
 4. **Install only what you need** - keeps images small
 5. **Test locally first** before building Docker
 6. **Use `--show-dockerfile`** to preview before building
@@ -386,7 +370,7 @@ docker run -p 16395:16395 docker-config:latest
 
 ## Notes
 
-- baseOS can be specified in workflow AND overridden via CLI
+- `baseOS` in workflow selects alpine or ubuntu; `--gpu` forces ubuntu
 - Ollama is auto-detected from resources or explicitly controlled via `installOllama`
 - OS packages use appropriate package manager (apk/apt)
 - Python packages installed via uv (fast and reliable)

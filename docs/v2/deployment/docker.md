@@ -121,6 +121,36 @@ kdeps bundle build myagent-1.0.0.kdeps --gpu cuda
 | `kdeps bundle build . --gpu intel` | **Ubuntu** | ~600MB+ | Intel GPU inference |
 | `kdeps bundle build . --gpu vulkan` | **Ubuntu** | ~600MB+ | Cross-platform GPU |
 
+Override the auto-selected distro in `workflow.yaml`:
+
+```yaml
+settings:
+  agentSettings:
+    baseOS: ubuntu  # alpine (default) or ubuntu
+```
+
+`--gpu` always forces Ubuntu. `debian` is not supported.
+
+## Ollama Docker Images
+
+Ollama is bundled only when `installOllama: true`, local Ollama is detected (`KDEPS_DEFAULT_BACKEND` empty or `ollama`), `KDEPS_LLM_ROUTER` routes to Ollama, or `KDEPS_LLM_MODELS` is set.
+
+```text
+needs Ollama + alpine CPU  → FROM alpine/ollama:<tag>   (~70MB third-party CPU image)
+needs Ollama + ubuntu CPU  → FROM ollama/ollama:<tag>   (official image)
+needs Ollama + --gpu cuda  → FROM ollama/ollama:<tag>   (runtime: docker run --gpus all)
+needs Ollama + --gpu rocm  → FROM ollama/ollama:rocm    (runtime: --device /dev/kfd --device /dev/dri)
+no Ollama                  → FROM alpine:latest or ubuntu:latest
+```
+
+| Image | Size | GPU | Source |
+|-------|------|-----|--------|
+| `alpine/ollama` | ~70MB | CPU only | [alpine-docker/ollama](https://github.com/alpine-docker/ollama) |
+| `ollama/ollama` | ~4GB | CPU + NVIDIA | [Official Ollama Docker](https://hub.docker.com/r/ollama/ollama) |
+| `ollama/ollama:rocm` | varies | AMD | Official `:rocm` variant |
+
+When the base image already includes Ollama, kdeps does not `COPY --from` a second Ollama layer.
+
 ## Offline Mode
 
 Bake models into the image for air-gapped deployments:
@@ -191,7 +221,7 @@ settings:
 On every `bundle build`, kdeps resolves package versions before generating the Dockerfile:
 
 - **kdeps** — latest [GitHub release](https://github.com/kdeps/kdeps/releases); `install.sh` is fetched from that tag and the same tag is passed to the installer (never `main` + floating latest)
-- **ollama** — latest [ollama/ollama](https://github.com/ollama/ollama/releases) release as the Docker image tag (never `:latest`)
+- **ollama** — latest [ollama/ollama](https://github.com/ollama/ollama/releases) release as the Docker image tag for `ollama/ollama` and `alpine/ollama` (never `:latest`). `--gpu rocm` uses the fixed `ollama/ollama:rocm` tag instead.
 - **uv** — latest [astral-sh/uv](https://github.com/astral-sh/uv/releases) release as the `ghcr.io/astral-sh/uv` tag
 
 Override any field with an explicit semver (`v1.2.3` or `1.2.3`). Use `latest` or omit a field to accept the resolved value at build time.
@@ -212,7 +242,7 @@ Preview resolved pins:
 kdeps bundle build myagent-1.0.0.kdeps --show-dockerfile
 ```
 
-Other floating tags still used when no Ollama base image is selected: `alpine:latest`, `ubuntu:latest`, and `debian:latest` for non-Ollama CPU images. Python defaults to `3.12` when `pythonVersion` is omitted.
+When no Ollama base image is selected, kdeps uses `alpine:latest` or `ubuntu:latest`. Python defaults to `3.12` when `pythonVersion` is omitted.
 
 ## Environment Variables
 

@@ -230,7 +230,7 @@ type AgentSettings struct {
 	Repositories     []string `yaml:"repositories,omitempty"`
 	Packages         []string `yaml:"packages,omitempty"`
 	OSPackages       []string `yaml:"osPackages,omitempty"`    // OS-level packages (apt, apk, yum)
-	BaseOS           string   `yaml:"baseOS,omitempty"`        // Docker base OS: alpine, ubuntu, debian
+	BaseOS           string   `yaml:"baseOS,omitempty"`        // Docker base OS: alpine, ubuntu
 	InstallOllama    *bool    `yaml:"installOllama,omitempty"` // Whether to install Ollama in Docker image (default: auto-detect from resources)
 	// Models, OfflineMode, and OllamaURL are runtime fields read from env vars.
 	// Configure them in ~/.kdeps/config.yaml (llm.models, defaults.offline_mode, llm.ollama_host).

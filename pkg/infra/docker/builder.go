@@ -36,7 +36,6 @@ import (
 const (
 	baseOSAlpine = "alpine"
 	baseOSUbuntu = "ubuntu"
-	baseOSDebian = "debian"
 
 	// Default port for Ollama.
 	defaultOllamaPort = 11434
@@ -48,7 +47,7 @@ const (
 // isValidBaseOS reports whether os is a supported container base operating system.
 func isValidBaseOS(os string) bool {
 	switch os {
-	case baseOSAlpine, baseOSUbuntu, baseOSDebian:
+	case baseOSAlpine, baseOSUbuntu:
 		return true
 	default:
 		return false
@@ -60,9 +59,6 @@ var alpineTemplate string
 
 //go:embed templates/ubuntu.Dockerfile.tmpl
 var ubuntuTemplate string
-
-//go:embed templates/debian.Dockerfile.tmpl
-var debianTemplate string
 
 //go:embed templates/backend_install.tmpl
 var backendInstallTemplate string

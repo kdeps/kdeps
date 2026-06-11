@@ -86,7 +86,7 @@ func NewBuilderWithOS(baseOS string) (*Builder, error) {
 	}
 
 	if !isValidBaseOS(baseOS) {
-		return nil, fmt.Errorf("invalid base OS: %s (supported: alpine, ubuntu, debian)", baseOS)
+		return nil, fmt.Errorf("invalid base OS: %s (supported: alpine, ubuntu)", baseOS)
 	}
 
 	return &Builder{
@@ -107,18 +107,8 @@ func (b *Builder) Build(workflow *domain.Workflow, _ string, noCache bool) (stri
 		return "", errors.New("workflow name cannot be empty")
 	}
 
-	// Validate base OS
-	if b.BaseOS != "" && !isValidBaseOS(b.BaseOS) {
-		return "", fmt.Errorf("invalid base OS: %s (supported: alpine, ubuntu, debian)", b.BaseOS)
-	}
-
-	// Use workflow baseOS if not explicitly set via CLI
-	if b.BaseOS == "" || b.BaseOS == baseOSAlpine {
-		if workflow.Settings.AgentSettings.BaseOS != "" {
-			b.BaseOS = workflow.Settings.AgentSettings.BaseOS
-		} else if b.BaseOS == "" {
-			b.BaseOS = baseOSAlpine // default
-		}
+	if err := b.applyImageProfile(workflow); err != nil {
+		return "", err
 	}
 
 	// Generate Dockerfile
