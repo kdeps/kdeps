@@ -16,8 +16,11 @@ spec:
       labels:
         app: {{ .Name }}
     spec:
+      automountServiceAccountToken: false
       securityContext:
         runAsNonRoot: true
+        seccompProfile:
+          type: RuntimeDefault
       containers:
       - name: {{ .Name }}
         image: {{ .Image }}
