@@ -204,15 +204,6 @@ func (e *Evaluator) buildEnvironment(env map[string]interface{}) map[string]inte
 	return evalEnv
 }
 
-// isNamespacedPath reports whether name starts with a config namespace prefix.
-func isNamespacedPath(name string) bool {
-	return strings.HasPrefix(name, "config.") ||
-		strings.HasPrefix(name, "workflow.") ||
-		strings.HasPrefix(name, "resource.") ||
-		strings.HasPrefix(name, "component.") ||
-		strings.HasPrefix(name, "agency.")
-}
-
 // EvaluateCondition evaluates a boolean condition.
 func (e *Evaluator) EvaluateCondition(exprStr string, env map[string]interface{}) (bool, error) {
 	kdeps_debug.Log("enter: EvaluateCondition")

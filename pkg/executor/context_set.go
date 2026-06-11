@@ -22,6 +22,7 @@ import (
 	"fmt"
 
 	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
+	"github.com/kdeps/kdeps/v2/pkg/namespace"
 )
 
 // Set stores a value in memory or session.
@@ -29,7 +30,7 @@ func (ctx *ExecutionContext) Set(key string, value interface{}, storageType ...s
 	kdeps_debug.Log("enter: Set")
 
 	// Namespace-prefixed keys route to config structs (no storage type needed).
-	if isNamespacedPath(key) && len(storageType) == 0 {
+	if namespace.IsNamespacedPath(key) && len(storageType) == 0 {
 		return ctx.SetConfigField(key, value)
 	}
 

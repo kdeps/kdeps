@@ -53,11 +53,4 @@ const (
 
 	// Input type name used in switch statements and form field names.
 	inputTypeFile = "file"
-
-	// Config namespace names used in expression routing.
-	nsConfig    = "config"
-	nsWorkflow  = "workflow"
-	nsResource  = "resource"
-	nsComponent = "component"
-	nsAgency    = "agency"
 )

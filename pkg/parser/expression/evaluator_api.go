@@ -18,7 +18,11 @@
 
 package expression
 
-import "os"
+import (
+	"os"
+
+	"github.com/kdeps/kdeps/v2/pkg/namespace"
+)
 
 func (e *Evaluator) apiItemAccessor(field string, fallback interface{}) func() interface{} {
 	return func() interface{} {
@@ -64,7 +68,7 @@ func (e *Evaluator) buildLoopObject() map[string]interface{} {
 
 // evalGet resolves a get() call with namespace routing, type hints, and default values.
 func (e *Evaluator) evalGet(name string, args ...string) interface{} {
-	if isNamespacedPath(name) && e.api.GetConfigField != nil {
+	if namespace.IsNamespacedPath(name) && e.api.GetConfigField != nil {
 		val, err := e.api.GetConfigField(name)
 		if err != nil {
 			if len(args) > 0 {
@@ -92,7 +96,7 @@ func (e *Evaluator) evalGet(name string, args ...string) interface{} {
 func (e *Evaluator) addGetSetWrappers(evalEnv map[string]interface{}) {
 	evalEnv["get"] = e.evalGet
 	evalEnv["set"] = func(key string, value interface{}, storageType ...string) interface{} {
-		if isNamespacedPath(key) && len(storageType) == 0 && e.api.SetConfigField != nil {
+		if namespace.IsNamespacedPath(key) && len(storageType) == 0 && e.api.SetConfigField != nil {
 			return e.api.SetConfigField(key, value) == nil
 		}
 		return e.api.Set(key, value, storageType...) == nil
@@ -159,7 +163,7 @@ func (e *Evaluator) addIterationAPIWrappers(evalEnv map[string]interface{}) {
 		return os.Getenv(name)
 	}
 	if e.api.ConfigNamespace != nil {
-		for _, ns := range []string{"config", "workflow", "resource", "component", "agency"} {
+		for _, ns := range namespace.All() {
 			if m := e.api.ConfigNamespace(ns); m != nil {
 				evalEnv[ns] = m
 			}

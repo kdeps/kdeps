@@ -20,6 +20,7 @@ package executor
 
 import (
 	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
+	"github.com/kdeps/kdeps/v2/pkg/namespace"
 )
 
 func (ctx *ExecutionContext) Get(name string, typeHint ...string) (interface{}, error) {
@@ -35,7 +36,7 @@ func (ctx *ExecutionContext) Get(name string, typeHint ...string) (interface{}, 
 	// Namespace-prefixed paths are resolved via config structs first.
 	// Fall back to auto-detection if resolution fails (preserves backward compat
 	// for names like "workflow.name" that are also metadata fields).
-	if isNamespacedPath(name) {
+	if namespace.IsNamespacedPath(name) {
 		if val, err := ctx.GetConfigField(name); err == nil {
 			return val, nil
 		}
