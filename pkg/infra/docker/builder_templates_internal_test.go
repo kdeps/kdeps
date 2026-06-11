@@ -70,6 +70,12 @@ func TestRenderTemplateError_AllBranches(t *testing.T) {
 	}
 }
 
+func TestResolveDockerfileTemplate_UnsupportedOS(t *testing.T) {
+	_, err := resolveDockerfileTemplate("fedora")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "unsupported base OS")
+}
+
 func TestRenderTemplate_ParseAndExecuteErrors(t *testing.T) {
 	_, err := renderTemplate("dockerfile", "{{.Missing", nil)
 	require.Error(t, err)

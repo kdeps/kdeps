@@ -14,7 +14,11 @@
 
 package domain
 
-import "testing"
+import (
+	"testing"
+
+	"github.com/stretchr/testify/assert"
+)
 
 func TestResource_ResponseBlock(t *testing.T) {
 	t.Parallel()
@@ -31,6 +35,13 @@ func TestResource_ResponseBlock(t *testing.T) {
 	}
 }
 
+func TestActionConfig_HasInlineResponseBlock(t *testing.T) {
+	t.Parallel()
+
+	assert.True(t, (&ActionConfig{APIResponse: &APIResponseConfig{}}).HasInlineResponseBlock())
+	assert.False(t, (&ActionConfig{}).HasInlineResponseBlock())
+}
+
 func TestActionConfig_InlineResponseBlock(t *testing.T) {
 	t.Parallel()
 
@@ -40,6 +51,25 @@ func TestActionConfig_InlineResponseBlock(t *testing.T) {
 	if !IsRecognizedResourceActionKey("apiResponse") {
 		t.Fatal("apiResponse should be recognized action key")
 	}
+}
+
+func TestResource_ResponseBlock_NilReceiver(t *testing.T) {
+	t.Parallel()
+
+	var res *Resource
+	assert.False(t, res.HasResponseBlock())
+	assert.Nil(t, res.ResponseBlock())
+	assert.Empty(t, res.ResponseBlockEventName())
+	assert.False(t, res.IsResponseOnlyPrimary())
+	assert.False(t, res.HasInlineActions())
+}
+
+func TestActionConfig_InlineResponseBlock_NilReceiver(t *testing.T) {
+	t.Parallel()
+
+	var action *ActionConfig
+	assert.False(t, action.HasInlineResponseBlock())
+	assert.Nil(t, action.InlineResponseBlock())
 }
 
 func TestResource_IsResponseOnlyPrimary(t *testing.T) {

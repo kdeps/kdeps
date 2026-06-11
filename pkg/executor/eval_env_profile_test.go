@@ -101,6 +101,14 @@ func TestBuildEvalEnv_LLMProfile(t *testing.T) {
 	assert.Contains(t, env, "item")
 }
 
+func TestBuildEvalEnv_UnknownProfile(t *testing.T) {
+	t.Parallel()
+	ctx, err := NewExecutionContext(&domain.Workflow{})
+	require.NoError(t, err)
+	env := BuildEvalEnv(ctx, EvalEnvProfile(99))
+	assert.Empty(t, env)
+}
+
 func TestBuildEvalEnv_EngineProfile(t *testing.T) {
 	t.Parallel()
 	ctx, err := NewExecutionContext(&domain.Workflow{})

@@ -84,15 +84,11 @@ func IsRecognizedResourceActionKey(name string) bool {
 }
 
 // PrimaryResourceEventName returns the event/telemetry label for the resource's execution type.
-// It walks PrimaryResourceTypes in dispatch order; apiResponse is used only when no primary block is set.
 func PrimaryResourceEventName(r *Resource) string {
 	for _, entry := range PrimaryResourceTypes() {
 		if entry.Present(r) {
 			return primaryResourceEventLabel(entry.Name)
 		}
-	}
-	if name := r.ResponseBlockEventName(); name != "" {
-		return name
 	}
 	return "unknown"
 }

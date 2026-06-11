@@ -19,66 +19,12 @@
 package http
 
 import (
-	"archive/tar"
 	"bytes"
-	"io"
 	"os"
-	"path/filepath"
 	"strings"
 
 	"github.com/kdeps/kdeps/v2/pkg/archive/targz"
 )
-
-func resolvePackageEntryPath(absDestDir, entryName string) (string, error) {
-	relPath := filepath.Clean(entryName)
-	if isInvalidPackageRelPath(relPath) {
-		return "", invalidPackagePathError(entryName)
-	}
-	absTargetPath, err := filepathAbs(filepath.Join(absDestDir, relPath))
-	if err != nil {
-		return "", packageResolveTargetPathFailed(relPath, err)
-	}
-	relToBase, relErr := filepath.Rel(absDestDir, absTargetPath)
-	if packagePathEscapesBase(relToBase, relErr) {
-		return "", invalidPackagePathError(entryName)
-	}
-	return absTargetPath, nil
-}
-
-func extractPackageEntry(
-	hdr *tar.Header,
-	baseDirAbs, absTargetPath string,
-	tr *tar.Reader,
-	totalExtracted *int64,
-) error {
-	if !isExtractedPathUnderBase(baseDirAbs, absTargetPath) {
-		return invalidPackagePathError(packageEntryLabel(hdr))
-	}
-	if err := ensurePackageEntryDir(hdr, absTargetPath); err != nil {
-		return err
-	}
-	if hdr.FileInfo().IsDir() {
-		return nil
-	}
-	if writeErr := writeExtractedFile(baseDirAbs, absTargetPath, tr, totalExtracted); writeErr != nil {
-		return packageExtractFailed(packageEntryLabel(hdr), writeErr)
-	}
-	return nil
-}
-
-func ensurePackageEntryDir(hdr *tar.Header, absTargetPath string) error {
-	label := packageEntryLabel(hdr)
-	if hdr.FileInfo().IsDir() {
-		if mkdirErr := mkdirSecureAfero(absTargetPath); mkdirErr != nil {
-			return packageDirectoryCreateError(label, mkdirErr)
-		}
-		return nil
-	}
-	if mkdirErr := mkdirSecureAfero(filepath.Dir(absTargetPath)); mkdirErr != nil {
-		return packageParentDirectoryCreateError(label, mkdirErr)
-	}
-	return nil
-}
 
 func httpPackageExtractOpts() targz.Options {
 	return targz.Options{
@@ -140,37 +86,4 @@ func extractHTTPErrorPath(msg string) string {
 		return strings.Trim(msg[i+2:], `"`)
 	}
 	return msg
-}
-
-func writeExtractedFile(baseDirAbs, targetPath string, r io.Reader, totalExtracted *int64) error {
-	debugEnter("writeExtractedFile")
-	if !isExtractedPathUnderBase(baseDirAbs, targetPath) {
-		return invalidExtractedTargetError(targetPath)
-	}
-	f, err := os.OpenFile(
-		targetPath,
-		os.O_CREATE|os.O_WRONLY|os.O_TRUNC,
-		secureFilePerm,
-	)
-	if err != nil {
-		return err
-	}
-
-	n, copyErr := copyLimited(f, r, maxPackageFileSizeLimit)
-	if copyErr != nil {
-		return abortExtractedWrite(f, copyErr)
-	}
-	if exceedsMaxSize(n, maxPackageFileSizeLimit) {
-		return abortExtractedWrite(f, packageFileSizeExceededError(targetPath))
-	}
-	*totalExtracted += n
-	if exceedsTotalExtracted(*totalExtracted, maxPackageTotalUncompressedLimit) {
-		return abortExtractedWrite(f, packageTotalSizeExceededError())
-	}
-
-	if closeErr := closeExtractedFile(f); closeErr != nil {
-		return closeErr
-	}
-
-	return nil
 }

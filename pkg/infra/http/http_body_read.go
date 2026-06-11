@@ -50,7 +50,3 @@ func wrapMaxBytesReader(
 ) io.ReadCloser {
 	return stdhttp.MaxBytesReader(w, body, maxBytes)
 }
-
-func copyLimited(dst io.Writer, src io.Reader, maxSize int64) (int64, error) {
-	return io.Copy(dst, io.LimitReader(src, maxSize+1))
-}

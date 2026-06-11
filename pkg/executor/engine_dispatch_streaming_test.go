@@ -96,3 +96,192 @@ func TestExecuteResource_ChatPlusAPIResponseDoesNotStream(t *testing.T) {
 	require.True(t, ok)
 	assert.Equal(t, true, resp["success"])
 }
+
+func TestShouldStreamInlineResponse_Guards(t *testing.T) {
+	e := covTestEngine()
+	assert.False(t, e.shouldStreamInlineResponse(nil, &ExecutionContext{}))
+	assert.False(t, e.shouldStreamInlineResponse(&domain.Resource{}, nil))
+
+	ctx, err := NewExecutionContext(&domain.Workflow{})
+	require.NoError(t, err)
+	ctx.Items["item"] = 1
+	res := &domain.Resource{
+		Before:      []domain.InlineResource{{Expr: "set('x', 1)"}},
+		APIResponse: &domain.APIResponseConfig{Success: true, Response: "ok"},
+	}
+	assert.False(t, e.shouldStreamInlineResponse(res, ctx))
+}
+
+func TestExecuteResource_StreamingAfterInline(t *testing.T) {
+	e := covTestEngine()
+	ctx, err := NewExecutionContext(&domain.Workflow{
+		APIVersion: "kdeps.io/v1",
+		Kind:       "Workflow",
+		Metadata:   domain.WorkflowMetadata{Name: "wf", Version: "1.0.0"},
+	})
+	require.NoError(t, err)
+	e.SetEvaluatorForTesting(expression.NewEvaluator(ctx.API))
+
+	resource := &domain.Resource{
+		ActionID: "stream-after",
+		Name:     "Stream After",
+		After: []domain.InlineResource{
+			{Expr: "set('step', 1)"},
+		},
+		APIResponse: &domain.APIResponseConfig{
+			Success:  true,
+			Response: map[string]interface{}{"step": "{{ get('step') }}"},
+		},
+	}
+
+	result, err := e.ExecuteResource(resource, ctx)
+	require.NoError(t, err)
+	stream, ok := result.([]interface{})
+	require.True(t, ok)
+	assert.Len(t, stream, 2)
+}
+
+func TestExecuteResource_StreamingSingleChunk(t *testing.T) {
+	e := covTestEngine()
+	ctx, err := NewExecutionContext(&domain.Workflow{
+		APIVersion: "kdeps.io/v1",
+		Kind:       "Workflow",
+		Metadata:   domain.WorkflowMetadata{Name: "wf", Version: "1.0.0"},
+	})
+	require.NoError(t, err)
+	e.SetEvaluatorForTesting(expression.NewEvaluator(ctx.API))
+
+	resource := &domain.Resource{
+		ActionID: "single",
+		Name:     "Single",
+		APIResponse: &domain.APIResponseConfig{
+			Success:  true,
+			Response: "only",
+		},
+	}
+
+	result, err := e.ExecuteResource(resource, ctx)
+	require.NoError(t, err)
+	_, isSlice := result.([]interface{})
+	assert.False(t, isSlice)
+}
+
+func TestExecuteInlineStep_NonExpressionInline(t *testing.T) {
+	e := covTestEngine()
+	reg := NewRegistry()
+	reg.SetHTTPExecutor(&covMockExecutor{result: map[string]interface{}{"ok": true}})
+	e.SetRegistry(reg)
+	ctx, err := NewExecutionContext(&domain.Workflow{})
+	require.NoError(t, err)
+
+	resource := &domain.Resource{
+		ActionID: "inline-http",
+		Name:     "Inline HTTP",
+		Before: []domain.InlineResource{
+			{HTTPClient: &domain.HTTPClientConfig{Method: "GET", URL: "https://example.com"}},
+		},
+		APIResponse: &domain.APIResponseConfig{Success: true, Response: "ok"},
+	}
+
+	_, err = e.ExecuteResource(resource, ctx)
+	require.NoError(t, err)
+}
+
+func TestExecuteStreamingInlineResponse_SingleSnapshot(t *testing.T) {
+	e := covTestEngine()
+	ctx, err := NewExecutionContext(&domain.Workflow{
+		APIVersion: "kdeps.io/v1",
+		Kind:       "Workflow",
+		Metadata:   domain.WorkflowMetadata{Name: "wf", Version: "1.0.0"},
+	})
+	require.NoError(t, err)
+	e.SetEvaluatorForTesting(expression.NewEvaluator(ctx.API))
+
+	resource := &domain.Resource{
+		APIResponse: &domain.APIResponseConfig{Success: true, Response: "only"},
+	}
+
+	result, err := e.executeStreamingInlineResponse(resource, ctx)
+	require.NoError(t, err)
+	_, isSlice := result.([]interface{})
+	assert.False(t, isSlice)
+}
+
+func TestExecuteStreamingInlineResponse_BeforeExprError(t *testing.T) {
+	e := covTestEngine()
+	ctx, err := NewExecutionContext(&domain.Workflow{})
+	require.NoError(t, err)
+	e.SetEvaluatorForTesting(expression.NewEvaluator(ctx.API))
+
+	resource := &domain.Resource{
+		Before:      []domain.InlineResource{{Expr: "{{unclosed"}},
+		APIResponse: &domain.APIResponseConfig{Success: true, Response: "ok"},
+	}
+
+	_, err = e.executeStreamingInlineResponse(resource, ctx)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "inline before resource")
+}
+
+func TestExecuteStreamingInlineResponse_AfterExprError(t *testing.T) {
+	e := covTestEngine()
+	ctx, err := NewExecutionContext(&domain.Workflow{})
+	require.NoError(t, err)
+	e.SetEvaluatorForTesting(expression.NewEvaluator(ctx.API))
+
+	resource := &domain.Resource{
+		After:       []domain.InlineResource{{Expr: "{{unclosed"}},
+		APIResponse: &domain.APIResponseConfig{Success: true, Response: "ok"},
+	}
+
+	_, err = e.executeStreamingInlineResponse(resource, ctx)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "inline after resource")
+}
+
+func TestExecuteStreamingInlineResponse_FinalSnapshotError(t *testing.T) {
+	e := covTestEngine()
+	ctx, err := NewExecutionContext(&domain.Workflow{})
+	require.NoError(t, err)
+
+	resource := &domain.Resource{}
+
+	_, err = e.executeStreamingInlineResponse(resource, ctx)
+	require.Error(t, err)
+}
+
+func TestExecuteStreamingInlineResponse_AfterSnapshotError(t *testing.T) {
+	e := covTestEngine()
+	ctx, err := NewExecutionContext(&domain.Workflow{})
+	require.NoError(t, err)
+	e.SetEvaluatorForTesting(expression.NewEvaluator(ctx.API))
+
+	resource := &domain.Resource{
+		After: []domain.InlineResource{{Expr: "set('x', 1)"}},
+	}
+
+	_, err = e.executeStreamingInlineResponse(resource, ctx)
+	require.Error(t, err)
+}
+
+func TestExecuteExpressions_NilContextRequiresEvaluator(t *testing.T) {
+	e := covTestEngine()
+	err := e.executeExpressions([]domain.Expression{{Raw: "1 + 1"}}, nil)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "execution context required")
+}
+
+func TestExecuteStreamingInlineResponse_SnapshotError(t *testing.T) {
+	e := covTestEngine()
+	ctx, err := NewExecutionContext(&domain.Workflow{})
+	require.NoError(t, err)
+	e.SetEvaluatorForTesting(expression.NewEvaluator(ctx.API))
+
+	resource := &domain.Resource{
+		Before: []domain.InlineResource{{Expr: "set('x', 1)"}},
+	}
+
+	_, err = e.executeStreamingInlineResponse(resource, ctx)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "no apiResponse configuration")
+}

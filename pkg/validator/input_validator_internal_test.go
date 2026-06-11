@@ -53,6 +53,15 @@ func TestInputValidator_ValidateArray_NonArrayValue(t *testing.T) {
 	assert.Equal(t, "items", err.Field)
 }
 
+func TestInputValidator_ValidateField_UnknownTypePasses(t *testing.T) {
+	v := &InputValidator{}
+	err := v.ValidateField(domain.FieldRule{
+		Field: "custom",
+		Type:  domain.FieldType("unknown_custom_type"),
+	}, "value")
+	assert.Nil(t, err)
+}
+
 func TestInputValidator_ValidateType_URLMalformed(t *testing.T) {
 	v := &InputValidator{}
 	// A URL that has the http:// prefix but fails url.Parse.

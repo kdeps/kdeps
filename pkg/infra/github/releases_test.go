@@ -20,9 +20,11 @@ package github_test
 
 import (
 	"context"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -47,4 +49,147 @@ func TestLatestReleaseTagFromAPI(t *testing.T) {
 	)
 	require.NoError(t, err)
 	assert.Equal(t, "2.4.1", tag)
+}
+
+func TestLatestReleaseTagFromAPI_NilClient(t *testing.T) {
+	t.Parallel()
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_, _ = w.Write([]byte(`{"tag_name":"v1.2.3"}`))
+	}))
+	t.Cleanup(server.Close)
+
+	tag, err := gh.LatestReleaseTagFromAPI(context.Background(), server.URL, "kdeps/kdeps", nil)
+	require.NoError(t, err)
+	assert.Equal(t, "1.2.3", tag)
+}
+
+func TestLatestReleaseTagFromAPI_WithToken(t *testing.T) {
+	t.Setenv("GITHUB_TOKEN", "test-token")
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, "Bearer test-token", r.Header.Get("Authorization"))
+		_, _ = w.Write([]byte(`{"tag_name":"v3.0.0"}`))
+	}))
+	t.Cleanup(server.Close)
+
+	tag, err := gh.LatestReleaseTagFromAPI(context.Background(), server.URL, "kdeps/kdeps", server.Client())
+	require.NoError(t, err)
+	assert.Equal(t, "3.0.0", tag)
+}
+
+func TestLatestReleaseTagFromAPI_StatusError(t *testing.T) {
+	t.Parallel()
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusNotFound)
+		_, _ = w.Write([]byte("not found"))
+	}))
+	t.Cleanup(server.Close)
+
+	_, err := gh.LatestReleaseTagFromAPI(context.Background(), server.URL, "kdeps/kdeps", server.Client())
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "returned 404")
+}
+
+func TestLatestReleaseTagFromAPI_InvalidJSON(t *testing.T) {
+	t.Parallel()
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_, _ = w.Write([]byte("not-json"))
+	}))
+	t.Cleanup(server.Close)
+
+	_, err := gh.LatestReleaseTagFromAPI(context.Background(), server.URL, "kdeps/kdeps", server.Client())
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "parse GitHub response")
+}
+
+type errReadCloser struct{ err error }
+
+func (e errReadCloser) Read([]byte) (int, error) { return 0, e.err }
+func (e errReadCloser) Close() error             { return nil }
+
+func TestLatestReleaseTag_Wrapper(t *testing.T) {
+	t.Parallel()
+
+	tag, err := gh.LatestReleaseTag(context.Background(), "kdeps/kdeps")
+	if err != nil {
+		assert.Contains(t, err.Error(), "GitHub")
+		return
+	}
+	assert.NotEmpty(t, tag)
+}
+
+func TestLatestReleaseTagFromAPI_EmptyAPIBase(t *testing.T) {
+	t.Parallel()
+
+	_, err := gh.LatestReleaseTagFromAPI(
+		context.Background(),
+		"",
+		"kdeps/kdeps",
+		&http.Client{Timeout: 50 * time.Millisecond},
+	)
+	require.Error(t, err)
+}
+
+func TestLatestReleaseTagFromAPI_ReadBodyError(t *testing.T) {
+	t.Parallel()
+
+	client := &http.Client{
+		Transport: roundTripFunc(func(*http.Request) (*http.Response, error) {
+			return &http.Response{
+				StatusCode: http.StatusOK,
+				Body:       errReadCloser{err: errors.New("read fail")},
+				Header:     make(http.Header),
+			}, nil
+		}),
+	}
+
+	_, err := gh.LatestReleaseTagFromAPI(context.Background(), "http://example.com", "kdeps/kdeps", client)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "read GitHub response")
+}
+
+type roundTripFunc func(*http.Request) (*http.Response, error)
+
+func (f roundTripFunc) RoundTrip(req *http.Request) (*http.Response, error) { return f(req) }
+
+func TestLatestReleaseTagFromAPI_RequestFailed(t *testing.T) {
+	t.Parallel()
+
+	_, err := gh.LatestReleaseTagFromAPI(
+		context.Background(),
+		"http://127.0.0.1:1",
+		"kdeps/kdeps",
+		&http.Client{Timeout: 50 * time.Millisecond},
+	)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "GitHub request for kdeps/kdeps failed")
+}
+
+func TestLatestReleaseTagFromAPI_CreateRequestError(t *testing.T) {
+	t.Parallel()
+
+	_, err := gh.LatestReleaseTagFromAPI(
+		context.Background(),
+		"http://example.com",
+		"kdeps\x00/kdeps",
+		&http.Client{Timeout: 50 * time.Millisecond},
+	)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "create GitHub request")
+}
+
+func TestLatestReleaseTagFromAPI_EmptyTag(t *testing.T) {
+	t.Parallel()
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_, _ = w.Write([]byte(`{"tag_name":"   "}`))
+	}))
+	t.Cleanup(server.Close)
+
+	_, err := gh.LatestReleaseTagFromAPI(context.Background(), server.URL, "kdeps/kdeps", server.Client())
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "empty tag_name")
 }

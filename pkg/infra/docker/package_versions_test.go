@@ -94,6 +94,77 @@ func TestResolvePackageVersions_LatestFromGitHub(t *testing.T) {
 	assert.Equal(t, "0.7.0", got.UV)
 }
 
+func TestResolvePackageVersions_InvalidPin(t *testing.T) {
+	t.Parallel()
+
+	_, err := resolvePackageVersions(context.Background(), &domain.PackageVersions{
+		Kdeps: "not-semver",
+	})
+	require.Error(t, err)
+}
+
+func TestResolvePackageVersions_OllamaFetchError(t *testing.T) {
+	t.Parallel()
+
+	orig := latestReleaseTagFunc
+	t.Cleanup(func() { latestReleaseTagFunc = orig })
+	latestReleaseTagFunc = func(_ context.Context, repo string) (string, error) {
+		if repo == ollamaReleaseRepo {
+			return "", errors.New("ollama down")
+		}
+		return "2.0.0", nil
+	}
+
+	_, err := resolvePackageVersions(context.Background(), &domain.PackageVersions{Ollama: "latest"})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "resolve latest versions.ollama")
+}
+
+func TestResolvePackageVersions_InvalidLatestSemver(t *testing.T) {
+	t.Parallel()
+
+	orig := latestReleaseTagFunc
+	t.Cleanup(func() { latestReleaseTagFunc = orig })
+	latestReleaseTagFunc = func(context.Context, string) (string, error) {
+		return "not-semver", nil
+	}
+
+	_, err := resolvePackageVersions(context.Background(), &domain.PackageVersions{UV: "latest"})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "not a supported semver pin")
+}
+
+func TestResolvePackageVersions_UVFetchError(t *testing.T) {
+	t.Parallel()
+
+	orig := latestReleaseTagFunc
+	t.Cleanup(func() { latestReleaseTagFunc = orig })
+	latestReleaseTagFunc = func(_ context.Context, repo string) (string, error) {
+		if repo == uvReleaseRepo {
+			return "", errors.New("uv down")
+		}
+		return "2.0.0", nil
+	}
+
+	_, err := resolvePackageVersions(context.Background(), &domain.PackageVersions{UV: "latest"})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "resolve latest versions.uv")
+}
+
+func TestResolvePackageVersions_LatestFetchError(t *testing.T) {
+	t.Parallel()
+
+	orig := latestReleaseTagFunc
+	t.Cleanup(func() { latestReleaseTagFunc = orig })
+	latestReleaseTagFunc = func(context.Context, string) (string, error) {
+		return "", errors.New("network down")
+	}
+
+	_, err := resolvePackageVersions(context.Background(), &domain.PackageVersions{Kdeps: "latest"})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "resolve latest versions.kdeps")
+}
+
 func TestKdepsInstallerRef(t *testing.T) {
 	t.Parallel()
 	assert.Equal(t, "v2.0.0", kdepsInstallerRef("2.0.0"))

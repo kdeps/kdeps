@@ -83,3 +83,67 @@ func TestIsProjectDir(t *testing.T) {
 	require.NoError(t, os.WriteFile(filepath.Join(dir, "workflow.yaml"), []byte(""), 0644))
 	assert.True(t, manifest.IsProjectDir(dir))
 }
+
+func TestFirstExisting_NotFound(t *testing.T) {
+	assert.Empty(t, manifest.FirstExisting(t.TempDir(), "missing.yaml"))
+}
+
+func TestResolveDirectory_Empty(t *testing.T) {
+	path, kind := manifest.ResolveDirectory(t.TempDir())
+	assert.Empty(t, path)
+	assert.Empty(t, string(kind))
+}
+
+func TestResolveDirectoryWorkflowFirst_Empty(t *testing.T) {
+	path, kind := manifest.ResolveDirectoryWorkflowFirst(t.TempDir())
+	assert.Empty(t, path)
+	assert.Empty(t, string(kind))
+}
+
+func TestIsWorkflowFile(t *testing.T) {
+	assert.True(t, manifest.IsWorkflowFile("/tmp/workflow.yml"))
+	assert.False(t, manifest.IsWorkflowFile("/tmp/agency.yaml"))
+}
+
+func TestIsComponentFile(t *testing.T) {
+	assert.True(t, manifest.IsComponentFile("/tmp/component.yaml"))
+	assert.False(t, manifest.IsComponentFile("/tmp/workflow.yaml"))
+}
+
+func TestCloneManifestNames(t *testing.T) {
+	names := manifest.CloneManifestNames()
+	assert.Contains(t, names, "agency.yaml")
+	assert.Contains(t, names, "workflow.yaml")
+	assert.Contains(t, names, "component.yaml")
+}
+
+func TestWorkflowAndAgency_YMLVariants(t *testing.T) {
+	wfDir := t.TempDir()
+	require.NoError(t, os.WriteFile(filepath.Join(wfDir, "workflow.yml"), []byte(""), 0644))
+	assert.Equal(t, filepath.Join(wfDir, "workflow.yml"), manifest.Workflow(wfDir))
+
+	agencyDir := t.TempDir()
+	require.NoError(t, os.WriteFile(filepath.Join(agencyDir, "agency.yml"), []byte(""), 0644))
+	assert.Equal(t, filepath.Join(agencyDir, "agency.yml"), manifest.Agency(agencyDir))
+}
+
+func TestResolveDirectoryWorkflowFirst_AgencyFallback(t *testing.T) {
+	dir := t.TempDir()
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "agency.yaml"), []byte(""), 0644))
+
+	path, kind := manifest.ResolveDirectoryWorkflowFirst(dir)
+	assert.Equal(t, filepath.Join(dir, "agency.yaml"), path)
+	assert.Equal(t, manifest.KindAgency, kind)
+}
+
+func TestCloneTypeLabel_Agency(t *testing.T) {
+	label, ok := manifest.CloneTypeLabel("agency.yaml")
+	assert.True(t, ok)
+	assert.Equal(t, "agency", label)
+}
+
+func TestCloneTypeLabel_Component(t *testing.T) {
+	label, ok := manifest.CloneTypeLabel("component.yaml")
+	assert.True(t, ok)
+	assert.Equal(t, "component", label)
+}

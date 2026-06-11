@@ -371,6 +371,8 @@ func TestBuildMessage_EmptyAttachmentPath_Skipped(t *testing.T) {
 
 func identityEval(s string) (string, error) { return s, nil }
 
+func errEval(string) (string, error) { return "", errors.New("eval boom") }
+
 // --- evalSlice ---
 
 func TestEvalSlice_FiltersEmptyStrings(t *testing.T) {
@@ -665,6 +667,36 @@ func TestBuildSearchCriteria_BodyFilter(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, criteria.Body, 1)
 	assert.Equal(t, "urgent", criteria.Body[0])
+}
+
+func TestBuildSearchCriteria_FromEvalError(t *testing.T) {
+	_, err := buildSearchCriteria(domain.EmailSearchConfig{From: "x"}, errEval)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "evaluate search from")
+}
+
+func TestBuildSearchCriteria_SubjectEvalError(t *testing.T) {
+	failSubject := func(s string) (string, error) {
+		if s == "invoice" {
+			return "", errors.New("eval boom")
+		}
+		return s, nil
+	}
+	_, err := buildSearchCriteria(domain.EmailSearchConfig{Subject: "invoice"}, failSubject)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "evaluate search subject")
+}
+
+func TestBuildSearchCriteria_BodyEvalError(t *testing.T) {
+	failBody := func(s string) (string, error) {
+		if s == "urgent" {
+			return "", errors.New("eval boom")
+		}
+		return s, nil
+	}
+	_, err := buildSearchCriteria(domain.EmailSearchConfig{Body: "urgent"}, failBody)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "evaluate search body")
 }
 
 // --- bufToMessages ---
@@ -1215,6 +1247,39 @@ func TestResolveExplicitUIDs_AllEmptyError(t *testing.T) {
 	_, _, err := resolveExplicitUIDs([]string{"", "  "}, identityEval)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "no valid UIDs")
+}
+
+func TestResolveExplicitUIDs_EvalError(t *testing.T) {
+	_, _, err := resolveExplicitUIDs([]string{"1"}, errEval)
+	require.Error(t, err)
+}
+
+func TestResolveIMAPDialParams_EvalErrors(t *testing.T) {
+	ex := &Executor{}
+	cfg := &domain.EmailConfig{IMAPConnection: "test"}
+
+	_, err := ex.resolveIMAPDialParams(
+		newExecCtxWithIMAP(t, kdepsconfig.IMAPConnectionConfig{Host: "{{ !bad }}"}),
+		cfg,
+	)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "evaluate imap host")
+
+	_, err = ex.resolveIMAPDialParams(
+		newExecCtxWithIMAP(t, kdepsconfig.IMAPConnectionConfig{Host: "imap.example.com", Username: "{{ !bad }}"}),
+		cfg,
+	)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "evaluate imap user")
+
+	_, err = ex.resolveIMAPDialParams(
+		newExecCtxWithIMAP(t, kdepsconfig.IMAPConnectionConfig{
+			Host: "imap.example.com", Username: "user", Password: "{{ !bad }}",
+		}),
+		cfg,
+	)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "evaluate imap password")
 }
 
 // --- executeSend — empty SMTP host via expression ---

@@ -88,10 +88,6 @@ func invalidPackagePathError(entryName string) error {
 	return fmt.Errorf("invalid path in package: %s", entryName)
 }
 
-func invalidExtractedTargetError(targetPath string) error {
-	return fmt.Errorf("invalid target path: %s", targetPath)
-}
-
 func packageDirectoryCreateError(label string, err error) error {
 	return fmt.Errorf("failed to create directory %s: %w", label, err)
 }
