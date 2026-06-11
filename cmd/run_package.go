@@ -22,132 +22,81 @@ package cmd
 
 import (
 	"archive/tar"
-	"compress/gzip"
-	"errors"
 	"fmt"
-	"io"
-	"os"
-	"path/filepath"
 	"strings"
 
+	"github.com/kdeps/kdeps/v2/pkg/archive/targz"
 	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
 	"github.com/kdeps/kdeps/v2/pkg/domain"
 )
 
 func ExtractPackage(packagePath string) (string, error) {
 	kdeps_debug.Log("enter: ExtractPackage")
-	// Verify package file exists
-	if _, err := os.Stat(packagePath); os.IsNotExist(err) {
-		return "", fmt.Errorf("package file not found: %s", packagePath)
-	}
-
-	// Create temporary directory
-	tempDir, err := osMkdirTempExtractFunc("", "kdeps-run-*")
+	tempDir, _, err := targz.ExtractToTemp(packagePath, "kdeps-run-*", runPackageExtractOpts())
 	if err != nil {
-		return "", fmt.Errorf("failed to create temp directory: %w", err)
+		return "", mapRunPackageExtractError(packagePath, err)
 	}
-
-	// Open package file
-	file, err := os.Open(packagePath)
-	if err != nil {
-		_ = os.RemoveAll(tempDir)
-		return "", fmt.Errorf("failed to open package: %w", err)
-	}
-	defer file.Close()
-
-	// Create gzip reader
-	gzipReader, err := gzip.NewReader(file)
-	if err != nil {
-		_ = os.RemoveAll(tempDir)
-		return "", fmt.Errorf("failed to create gzip reader: %w", err)
-	}
-	defer gzipReader.Close()
-
-	// Create tar reader
-	tarReader := tar.NewReader(gzipReader)
-
-	// Extract files
-	if extractErr := ExtractTarFiles(tarReader, tempDir); extractErr != nil {
-		_ = os.RemoveAll(tempDir)
-		return "", extractErr
-	}
-
 	return tempDir, nil
+}
+
+func runPackageExtractOpts() targz.Options {
+	opts := targz.DefaultOptions()
+	opts.MaxFileSize = maxExtractFileSize
+	opts.Hooks.MkdirTemp = osMkdirTempExtractFunc
+	opts.Hooks.IOCopyN = extractFileCopyNFunc
+	return opts
+}
+
+func mapRunPackageExtractError(packagePath string, err error) error {
+	msg := err.Error()
+	switch {
+	case strings.Contains(msg, "archive not found"):
+		return fmt.Errorf("package file not found: %s", packagePath)
+	case strings.Contains(msg, "failed to read gzip header"):
+		return fmt.Errorf("failed to create gzip reader: %w", err)
+	case strings.Contains(msg, "failed to read tar entry"):
+		return fmt.Errorf("failed to read tar header: %w", err)
+	default:
+		return err
+	}
 }
 
 // ExtractTarFiles extracts all files from a tar reader to a temporary directory.
 func ExtractTarFiles(tarReader *tar.Reader, tempDir string) error {
 	kdeps_debug.Log("enter: ExtractTarFiles")
-	for {
-		header, nextErr := tarReader.Next()
-		if errors.Is(nextErr, io.EOF) {
-			break
-		}
-		if nextErr != nil {
-			return fmt.Errorf("failed to read tar header: %w", nextErr)
-		}
-
-		targetPath, pathErr := ValidateAndJoinPath(header.Name, tempDir)
-		if pathErr != nil {
-			return pathErr
-		}
-
-		if header.FileInfo().IsDir() {
-			if mkdirErr := os.MkdirAll(targetPath, 0750); mkdirErr != nil {
-				return fmt.Errorf("failed to create directory: %w", mkdirErr)
-			}
-			continue
-		}
-
-		if extractErr := ExtractFile(tarReader, header, targetPath); extractErr != nil {
-			return extractErr
-		}
+	if err := targz.ExtractTar(tarReader, tempDir, runPackageExtractOpts()); err != nil {
+		return mapRunTarExtractError(err)
 	}
 	return nil
+}
+
+func mapRunTarExtractError(err error) error {
+	msg := err.Error()
+	if strings.Contains(msg, "invalid archive path:") {
+		if i := strings.LastIndex(msg, ": "); i >= 0 {
+			return fmt.Errorf("invalid file path: %s", strings.TrimSpace(msg[i+2:]))
+		}
+	}
+	if strings.Contains(msg, "failed to read tar entry") {
+		return fmt.Errorf("failed to read tar header: %w", err)
+	}
+	return err
 }
 
 // ValidateAndJoinPath validates a file path and joins it with the temp directory.
-// It uses filepath.Rel for a separator-aware check so that paths like
-// /tmp/destDir/../other or a tempDir that is a string-prefix of another
-// directory are both handled correctly.
 func ValidateAndJoinPath(headerName, tempDir string) (string, error) {
 	kdeps_debug.Log("enter: ValidateAndJoinPath")
-	targetPath := filepath.Join(tempDir, headerName)
-	rel, relErr := filepath.Rel(tempDir, targetPath)
-	if relErr != nil || strings.HasPrefix(rel, "..") {
+	path, err := targz.SafeJoin(tempDir, headerName)
+	if err != nil {
 		return "", fmt.Errorf("invalid file path: %s", headerName)
 	}
-	return targetPath, nil
+	return path, nil
 }
 
-// ExtractFile extracts a single file from tar reader.  The header is used to
-// enforce the size limit before any bytes are written so that oversized entries
-// are rejected rather than silently truncated.
+// ExtractFile extracts a single file from tar reader.
 func ExtractFile(tarReader *tar.Reader, header *tar.Header, targetPath string) error {
 	kdeps_debug.Log("enter: ExtractFile")
-	if header.Size > maxExtractFileSize {
-		return fmt.Errorf(
-			"archive entry %q exceeds maximum allowed size of %d bytes",
-			header.Name,
-			maxExtractFileSize,
-		)
-	}
-
-	if parentErr := os.MkdirAll(filepath.Dir(targetPath), 0750); parentErr != nil {
-		return fmt.Errorf("failed to create parent directory: %w", parentErr)
-	}
-
-	outFile, createErr := os.Create(targetPath)
-	if createErr != nil {
-		return fmt.Errorf("failed to create file: %w", createErr)
-	}
-	defer outFile.Close()
-
-	if _, copyErr := extractFileCopyNFunc(outFile, tarReader, maxExtractFileSize); copyErr != nil &&
-		!errors.Is(copyErr, io.EOF) {
-		return fmt.Errorf("failed to extract file: %w", copyErr)
-	}
-	return nil
+	return targz.WriteEntry(tarReader, header, targetPath, runPackageExtractOpts())
 }
 
 // ExecuteSingleRun executes workflow once and exits.

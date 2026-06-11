@@ -19,7 +19,6 @@
 package http
 
 import (
-	"errors"
 	"io"
 	stdhttp "net/http"
 )
@@ -54,8 +53,4 @@ func wrapMaxBytesReader(
 
 func copyLimited(dst io.Writer, src io.Reader, maxSize int64) (int64, error) {
 	return io.Copy(dst, io.LimitReader(src, maxSize+1))
-}
-
-func isTarEOF(err error) bool {
-	return errors.Is(err, io.EOF)
 }

@@ -58,10 +58,6 @@ func packageExtractFailed(label string, err error) error {
 	return prefixedWrapError("failed to extract "+label, err)
 }
 
-func packageReadEntryFailed(err error) error {
-	return prefixedWrapError("failed to read archive entry", err)
-}
-
 func packageResolveDestDirFailed(err error) error {
 	return prefixedWrapError("failed to resolve destination directory", err)
 }

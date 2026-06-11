@@ -350,7 +350,7 @@ agents:
 
 	_, err = parser.DiscoverAgentWorkflows(agency, dir)
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "invalid path in archive")
+	assert.Contains(t, err.Error(), "invalid archive path")
 }
 
 // TestDiscoverAgentWorkflows_ExplicitKdepsOversizedEntry verifies that a .kdeps
@@ -443,7 +443,7 @@ metadata:
 
 	_, err = parser.DiscoverAgentWorkflows(agency, dir)
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "invalid path in archive")
+	assert.Contains(t, err.Error(), "invalid archive path")
 }
 
 // TestDiscoverAgentWorkflows_ExplicitKdepsPackage verifies that an explicit agent
