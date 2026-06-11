@@ -24,6 +24,7 @@ import (
 	"archive/tar"
 	"bytes"
 	"compress/gzip"
+	"errors"
 	"io"
 	"os"
 	"path/filepath"
@@ -72,23 +73,6 @@ func TestExtractArchive_NextError(t *testing.T) {
 	require.Error(t, err)
 }
 
-func TestExtractFileRegistry_CloseError(t *testing.T) {
-	tmp := t.TempDir()
-	f, err := os.Create(filepath.Join(tmp, "out"))
-	require.NoError(t, err)
-	require.NoError(t, f.Close())
-	ro, err := os.OpenFile(f.Name(), os.O_RDONLY, 0444)
-	require.NoError(t, err)
-	err = extractFile(f.Name(), bytes.NewReader([]byte("x")))
-	_ = ro.Close()
-	if err == nil {
-		blocker := filepath.Join(tmp, "blocker")
-		require.NoError(t, os.WriteFile(blocker, []byte("x"), 0644))
-		err = extractFile(filepath.Join(blocker, "nested", "f.txt"), bytes.NewReader([]byte("x")))
-	}
-	require.Error(t, err)
-}
-
 func TestExtractArchive_SkipEntry(t *testing.T) {
 	tmp := t.TempDir()
 	var buf bytes.Buffer
@@ -128,6 +112,17 @@ func TestExtractRegularFile_HeaderOversized(t *testing.T) {
 		tar.NewReader(bytes.NewReader([]byte("x"))),
 	)
 	require.Error(t, err)
+}
+
+func TestExtractFileRegistry_CloseOnSuccessError(t *testing.T) {
+	orig := extractFileCloseFunc
+	t.Cleanup(func() { extractFileCloseFunc = orig })
+	extractFileCloseFunc = func(_ *os.File) error { return errors.New("close failed") }
+
+	target := filepath.Join(t.TempDir(), "out.txt")
+	err := extractFile(target, bytes.NewReader([]byte("ok")))
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "close file")
 }
 
 func TestExtractFileRegistry_CopyAtLimit(t *testing.T) {
