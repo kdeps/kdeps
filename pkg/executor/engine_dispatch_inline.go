@@ -83,50 +83,106 @@ func (e *Engine) executeInlineResources(
 	return nil
 }
 
+type inlineDispatchEntry struct {
+	present func(*domain.InlineResource) bool
+	execute func(*Engine, *domain.InlineResource, int, *ExecutionContext) (interface{}, error)
+}
+
+// inlineResourceDispatch maps each inline action block to its executor.
+// Present checks come from domain.InlineResourceTypes; execute closures stay here
+// to avoid an initialization cycle with Engine methods.
+func inlineResourceDispatch() []inlineDispatchEntry {
+	executors := map[string]func(*Engine, *domain.InlineResource, int, *ExecutionContext) (interface{}, error){
+		"chat": func(e *Engine, inline *domain.InlineResource, _ int, ctx *ExecutionContext) (interface{}, error) {
+			return e.executeInlineLLM(inline.Chat, ctx)
+		},
+		"httpClient": func(e *Engine, inline *domain.InlineResource, _ int, ctx *ExecutionContext) (interface{}, error) {
+			return e.executeInlineHTTP(inline.HTTPClient, ctx)
+		},
+		"sql": func(e *Engine, inline *domain.InlineResource, _ int, ctx *ExecutionContext) (interface{}, error) {
+			return e.executeInlineSQL(inline.SQL, ctx)
+		},
+		"python": func(e *Engine, inline *domain.InlineResource, _ int, ctx *ExecutionContext) (interface{}, error) {
+			return e.executeInlinePython(inline.Python, ctx)
+		},
+		"exec": func(e *Engine, inline *domain.InlineResource, _ int, ctx *ExecutionContext) (interface{}, error) {
+			return e.executeInlineExec(inline.Exec, ctx)
+		},
+		"agent": func(e *Engine, inline *domain.InlineResource, _ int, ctx *ExecutionContext) (interface{}, error) {
+			return e.executeInlineAgent(inline.Agent, ctx)
+		},
+		"component": func(e *Engine, inline *domain.InlineResource, index int, ctx *ExecutionContext) (interface{}, error) {
+			return e.executeComponentCall(inlineSyntheticResource(inline, index), ctx)
+		},
+		"scraper": func(e *Engine, inline *domain.InlineResource, _ int, ctx *ExecutionContext) (interface{}, error) {
+			return e.executeInlineScraper(inline.Scraper, ctx)
+		},
+		"embedding": func(e *Engine, inline *domain.InlineResource, _ int, ctx *ExecutionContext) (interface{}, error) {
+			return e.executeInlineEmbedding(inline.Embedding, ctx)
+		},
+		"searchLocal": func(e *Engine, inline *domain.InlineResource, _ int, ctx *ExecutionContext) (interface{}, error) {
+			return e.executeInlineSearchLocal(inline.SearchLocal, ctx)
+		},
+		"searchWeb": func(e *Engine, inline *domain.InlineResource, _ int, ctx *ExecutionContext) (interface{}, error) {
+			return e.executeInlineSearchWeb(inline.SearchWeb, ctx)
+		},
+		"telephony": func(e *Engine, inline *domain.InlineResource, _ int, ctx *ExecutionContext) (interface{}, error) {
+			return e.executeInlineTelephony(inline.Telephony, ctx)
+		},
+		"browser": func(e *Engine, inline *domain.InlineResource, _ int, ctx *ExecutionContext) (interface{}, error) {
+			return e.executeInlineBrowser(inline.Browser, ctx)
+		},
+		"email": func(e *Engine, inline *domain.InlineResource, index int, ctx *ExecutionContext) (interface{}, error) {
+			return e.executeEmail(inlineSyntheticResource(inline, index), ctx)
+		},
+	}
+
+	return buildInlineDispatch(domain.InlineResourceTypes(), executors)
+}
+
+func buildInlineDispatch(
+	types []domain.InlineResourceType,
+	executors map[string]func(*Engine, *domain.InlineResource, int, *ExecutionContext) (interface{}, error),
+) []inlineDispatchEntry {
+	entries := make([]inlineDispatchEntry, 0, len(types))
+	for _, resourceType := range types {
+		execute, ok := executors[resourceType.Name]
+		if !ok {
+			panic(fmt.Sprintf("missing inline executor for %q", resourceType.Name))
+		}
+		present := resourceType.Present
+		entries = append(entries, inlineDispatchEntry{
+			present: func(inline *domain.InlineResource) bool {
+				return present(inline)
+			},
+			execute: execute,
+		})
+	}
+	return entries
+}
+
+func inlineSyntheticResource(inline *domain.InlineResource, index int) *domain.Resource {
+	return &domain.Resource{
+		ActionID:  fmt.Sprintf("_inline_%d", index),
+		Component: inline.Component,
+		Email:     inline.Email,
+	}
+}
+
 // executeSingleInlineResource runs one inline resource entry.
 func (e *Engine) executeSingleInlineResource(
 	inline domain.InlineResource,
 	index int,
 	ctx *ExecutionContext,
 ) (interface{}, error) {
-	var result interface{}
-	var err error
-	switch {
-	case inline.Chat != nil:
-		result, err = e.executeInlineLLM(inline.Chat, ctx)
-	case inline.HTTPClient != nil:
-		result, err = e.executeInlineHTTP(inline.HTTPClient, ctx)
-	case inline.SQL != nil:
-		result, err = e.executeInlineSQL(inline.SQL, ctx)
-	case inline.Python != nil:
-		result, err = e.executeInlinePython(inline.Python, ctx)
-	case inline.Exec != nil:
-		result, err = e.executeInlineExec(inline.Exec, ctx)
-	case inline.Agent != nil:
-		result, err = e.executeInlineAgent(inline.Agent, ctx)
-	case inline.Component != nil:
-		synthetic := &domain.Resource{
-			ActionID:  fmt.Sprintf("_inline_%d", index),
-			Component: inline.Component,
+	for _, entry := range inlineResourceDispatch() {
+		if entry.present(&inline) {
+			result, err := entry.execute(e, &inline, index, ctx)
+			if err != nil {
+				return nil, fmt.Errorf("inline resource at index %d failed: %w", index, err)
+			}
+			return result, nil
 		}
-		result, err = e.executeComponentCall(synthetic, ctx)
-	case inline.Scraper != nil:
-		result, err = e.executeInlineScraper(inline.Scraper, ctx)
-	case inline.Embedding != nil:
-		result, err = e.executeInlineEmbedding(inline.Embedding, ctx)
-	case inline.SearchLocal != nil:
-		result, err = e.executeInlineSearchLocal(inline.SearchLocal, ctx)
-	case inline.SearchWeb != nil:
-		result, err = e.executeInlineSearchWeb(inline.SearchWeb, ctx)
-	case inline.Telephony != nil:
-		result, err = e.executeInlineTelephony(inline.Telephony, ctx)
-	case inline.Browser != nil:
-		result, err = e.executeInlineBrowser(inline.Browser, ctx)
-	default:
-		return nil, fmt.Errorf("inline resource at index %d has no valid resource type", index)
 	}
-	if err != nil {
-		return nil, fmt.Errorf("inline resource at index %d failed: %w", index, err)
-	}
-	return result, nil
+	return nil, fmt.Errorf("inline resource at index %d has no valid resource type", index)
 }

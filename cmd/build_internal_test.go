@@ -819,7 +819,7 @@ func TestHandleDockerfileShow_Error(t *testing.T) {
 	err := handleDockerfileShow(builder, wf)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "failed to generate Dockerfile")
-	assert.Contains(t, err.Error(), "unsupported base OS")
+	assert.Contains(t, err.Error(), "invalid base OS")
 }
 
 // ---------------------------------------------------------------------------
