@@ -229,7 +229,7 @@ lint:
 		golangci-lint run --config=.golangci.yml ./cmd/... ./pkg/... ./tests/...; \
 	else \
 		echo "Warning: golangci-lint not found in PATH. Skipping linter."; \
-		echo "Install $(GOLANGCI_VERSION) with: curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b \$$(go env GOPATH)/bin $(GOLANGCI_VERSION)"; \
+		echo "Install $(GOLANGCI_VERSION) with: curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/$(GOLANGCI_VERSION)/install.sh | sh -s -- -b \$$(go env GOPATH)/bin $(GOLANGCI_VERSION)"; \
 	fi
 	@echo "Running govulncheck..."
 	@set +e; \

@@ -21,9 +21,9 @@ jobs:
   security-scan:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
       - name: Run Trivy filesystem scan
-        uses: aquasecurity/trivy-action@v0.36.0
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
         with:
           scan-type: fs
           scan-ref: .
@@ -36,10 +36,10 @@ jobs:
   docker-scan:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v4
-      - uses: actions/setup-go@v6
+        uses: docker/setup-buildx-action@d7f5e7f509e45cec5c76c4d5afdd7de93d0b3df5 # v4
+      - uses: actions/setup-go@4a3601121dd01d1626a1e23e37211e3254c1c06c # v6
         with:
           go-version-file: go.mod
       - name: Build kdeps binary
@@ -47,7 +47,7 @@ jobs:
       - name: Build sample Docker image
         run: ./kdeps bundle build examples/webserver-static --tag kdeps-ci-scan:local
       - name: Scan image with Trivy
-        uses: aquasecurity/trivy-action@v0.36.0
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
         with:
           scan-type: image
           image-ref: kdeps-ci-scan:local
@@ -58,8 +58,8 @@ jobs:
   lint:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-go@v6
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+      - uses: actions/setup-go@4a3601121dd01d1626a1e23e37211e3254c1c06c # v6
         with:
           go-version-file: 'go.mod'
       - name: Install golangci-lint
@@ -68,7 +68,7 @@ jobs:
           VERSION="$(cat .golangci-lint-version)"
           BIN_DIR="$(go env GOPATH)/bin"
           for attempt in 1 2 3 4 5; do
-            if curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b "$BIN_DIR" "$VERSION"; then
+            if curl -sSfL "https://raw.githubusercontent.com/golangci/golangci-lint/${VERSION}/install.sh" | sh -s -- -b "$BIN_DIR" "$VERSION"; then
               echo "$BIN_DIR" >> "$GITHUB_PATH"
               golangci-lint version
               exit 0
@@ -100,19 +100,20 @@ jobs:
     env:
       UV_NO_CACHE: 1
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
 
     - name: Set up Go
-      uses: actions/setup-go@v6
+      uses: actions/setup-go@4a3601121dd01d1626a1e23e37211e3254c1c06c # v6
       with:
         go-version-file: 'go.mod'
 
     - name: Install uv
-      run: curl -LsSf https://astral.sh/uv/install.sh | sh && echo "$HOME/.local/bin" >> $GITHUB_PATH
+      run: curl -LsSf https://astral.sh/uv/0.11.20/install.sh | sh && echo "$HOME/.local/bin" >> $GITHUB_PATH
 
     - name: Install ollama
       run: |
-        curl -fsSL https://ollama.com/install.sh | sh
+        curl -fsSL -o /tmp/ollama.tar.zst https://github.com/ollama/ollama/releases/download/v0.30.7/ollama-linux-amd64.tar.zst
+        sudo tar --zstd -xf /tmp/ollama.tar.zst -C /usr/local
         ollama --version
 
     # We need golangci-lint installed because 'make test-unit' depends on 'lint'
@@ -122,7 +123,7 @@ jobs:
         VERSION="$(cat .golangci-lint-version)"
         BIN_DIR="$(go env GOPATH)/bin"
         for attempt in 1 2 3 4 5; do
-          if curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b "$BIN_DIR" "$VERSION"; then
+          if curl -sSfL "https://raw.githubusercontent.com/golangci/golangci-lint/${VERSION}/install.sh" | sh -s -- -b "$BIN_DIR" "$VERSION"; then
             echo "$BIN_DIR" >> "$GITHUB_PATH"
             golangci-lint version
             exit 0
@@ -146,7 +147,7 @@ jobs:
       timeout-minutes: 15
 
     - name: Upload unit coverage artifact
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
       with:
         name: coverage-out
         path: coverage.out
@@ -157,7 +158,7 @@ jobs:
       timeout-minutes: 15
 
     - name: Upload coverage reports to Codecov
-      uses: codecov/codecov-action@v7
+      uses: codecov/codecov-action@fb8b3582c8e4def4969c97caa2f19720cb33a72f # v7
       with:
         token: ${{ secrets.CODECOV_TOKEN }}
         slug: kdeps/kdeps
@@ -175,11 +176,11 @@ jobs:
     permissions:
       contents: write
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-go@v6
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+      - uses: actions/setup-go@4a3601121dd01d1626a1e23e37211e3254c1c06c # v6
         with:
           go-version-file: go.mod
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
         with:
           name: coverage-out
       - name: Update coverage badge
@@ -194,7 +195,7 @@ jobs:
           fi
           printf '%s\n' "{\"schemaVersion\":1,\"label\":\"coverage\",\"message\":\"${COV}\",\"color\":\"${COLOR}\"}" > .github/coverage-badge.json
       - name: Commit coverage badge
-        uses: stefanzweifel/git-auto-commit-action@v7
+        uses: stefanzweifel/git-auto-commit-action@04702edda442b2e678b25b537cec683a1493fcb9 # v7
         with:
           commit_message: "chore: update coverage badge [skip ci]"
           file_pattern: .github/coverage-badge.json
