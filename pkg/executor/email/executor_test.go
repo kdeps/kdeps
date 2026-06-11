@@ -1809,6 +1809,71 @@ func TestFetchBySearch_FetchError(t *testing.T) {
 	<-serverDone
 }
 
+func TestResolveSearchUIDs_EmptyResults(t *testing.T) {
+	ln, err := net.Listen("tcp", "127.0.0.1:0")
+	require.NoError(t, err)
+	defer ln.Close()
+
+	ready := make(chan struct{})
+	serverDone := make(chan error, 1)
+
+	conn, dialErr := net.Dial("tcp", ln.Addr().String())
+	require.NoError(t, dialErr)
+
+	go func() {
+		srvConn, acceptErr := ln.Accept()
+		if acceptErr != nil {
+			serverDone <- acceptErr
+			return
+		}
+		defer func() { _ = srvConn.Close(); serverDone <- nil }()
+		_, _ = fmt.Fprint(srvConn, "* OK [CAPABILITY IMAP4REV1] ready\r\n")
+		close(ready)
+		br := bufio.NewReader(srvConn)
+		for {
+			line, readErr := br.ReadString('\n')
+			if readErr != nil {
+				return
+			}
+			line = strings.TrimRight(line, "\r\n")
+			parts := strings.SplitN(line, " ", 3)
+			if len(parts) < 2 {
+				continue
+			}
+			tag := parts[0]
+			cmd := parts[1]
+			if strings.EqualFold(cmd, "UID") && len(parts) > 2 {
+				subParts := strings.SplitN(parts[2], " ", 2)
+				cmd = "UID " + strings.ToUpper(subParts[0])
+			}
+			switch strings.ToUpper(cmd) {
+			case "LOGIN", "CAPABILITY":
+				_, _ = fmt.Fprintf(srvConn, "%s OK %s completed\r\n", tag, cmd)
+			case "UID SEARCH":
+				_, _ = fmt.Fprintf(srvConn, "%s OK SEARCH completed\r\n", tag)
+				return
+			default:
+				_, _ = fmt.Fprintf(srvConn, "%s BAD unknown\r\n", tag)
+			}
+		}
+	}()
+
+	<-ready
+
+	c := imapclient.New(conn, nil)
+	require.NoError(t, c.Login("user", "pass").Wait())
+
+	cfg := &domain.EmailConfig{
+		Search: domain.EmailSearchConfig{From: "nobody@example.com"},
+	}
+	uidSet, found, err := resolveSearchUIDs(cfg, c, identityEval)
+	require.NoError(t, err)
+	assert.False(t, found)
+	assert.Nil(t, uidSet)
+	conn.Close()
+	<-serverDone
+}
+
 func TestResolveSearchUIDs_SearchError(t *testing.T) {
 	ln, err := net.Listen("tcp", "127.0.0.1:0")
 	require.NoError(t, err)

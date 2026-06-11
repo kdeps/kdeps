@@ -24,6 +24,8 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/kdeps/kdeps/v2/pkg/domain"
 )
 
 func TestParseTemplateError_AllBranches(t *testing.T) {
@@ -68,6 +70,19 @@ func TestRenderTemplateError_AllBranches(t *testing.T) {
 			assert.Contains(t, err.Error(), tc.wantSub)
 		})
 	}
+}
+
+func TestGenerateDockerfile_ApplyImageProfileError(t *testing.T) {
+	b := &Builder{BaseOS: ""}
+	wf := &domain.Workflow{
+		Metadata: domain.WorkflowMetadata{Name: "t", Version: "1.0.0"},
+		Settings: domain.WorkflowSettings{
+			AgentSettings: domain.AgentSettings{BaseOS: "fedora"},
+		},
+	}
+	_, err := b.generateDockerfile(wf)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "invalid baseOS")
 }
 
 func TestResolveDockerfileTemplate_UnsupportedOS(t *testing.T) {
