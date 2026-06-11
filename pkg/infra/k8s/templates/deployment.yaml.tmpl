@@ -16,7 +16,7 @@ spec:
       labels:
         app: {{ .Name }}
     spec:
-      automountServiceAccountToken: false
+      automountServiceAccountToken: false  # kdeps workloads never call the Kubernetes API
       securityContext:
         runAsNonRoot: true
         seccompProfile:
