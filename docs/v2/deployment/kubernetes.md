@@ -222,7 +222,7 @@ stringData:
 kubectl apply -f deploy/env-secret.yaml
 ```
 
-Pod `securityContext` defaults include `runAsNonRoot: true` and `capabilities.drop: ["ALL"]`.
+Pod `securityContext` defaults include `runAsNonRoot: true`, `seccompProfile.type: RuntimeDefault`, and `capabilities.drop: ["ALL"]`. The pod also sets `automountServiceAccountToken: false` since kdeps workloads never call the Kubernetes API.
 
 ## Typical Workflow
 

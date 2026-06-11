@@ -66,6 +66,8 @@ func TestGenerateManifests(t *testing.T) {
 	assert.Contains(t, manifests, "port: 8080")
 	assert.Contains(t, manifests, "targetPort: api")
 	assert.Contains(t, manifests, "runAsNonRoot: true")
+	assert.Contains(t, manifests, "type: RuntimeDefault")
+	assert.Contains(t, manifests, "automountServiceAccountToken: false")
 	assert.Contains(t, manifests, `drop: ["ALL"]`)
 	assert.Contains(t, manifests, "KDEPS_API_AUTH_TOKEN")
 	assert.Contains(t, manifests, "secretKeyRef")
