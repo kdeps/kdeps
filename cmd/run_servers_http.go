@@ -28,6 +28,7 @@ import (
 	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
 	"github.com/kdeps/kdeps/v2/pkg/domain"
 	"github.com/kdeps/kdeps/v2/pkg/executor"
+	"github.com/kdeps/kdeps/v2/pkg/infra/http"
 	"github.com/kdeps/kdeps/v2/pkg/infra/logging"
 )
 
@@ -98,6 +99,11 @@ func startBothServersWithEngine(
 		return fmt.Errorf("failed to create web server: %w", err)
 	}
 	webServer.SetWorkflowDir(workflowPath)
+
+	if workflow.Settings.HasDistinctWebPort() {
+		return startSplitServers(httpServer, webServer, workflow, devMode)
+	}
+
 	webServer.RegisterRoutesOn(context.Background(), httpServer.Router)
 
 	addr, err := resolveServerBindAddress(workflow)
@@ -121,5 +127,49 @@ func startBothServersWithEngine(
 		webServer.Stop,
 	))
 }
+
+// startSplitServers runs the API and web servers on separate listeners when
+// webServer declares its own port. Web routes stay off the API router, so
+// static assets are served without API auth, matching webServer-only mode.
+func startSplitServers(
+	httpServer *http.Server,
+	webServer *http.WebServer,
+	workflow *domain.Workflow,
+	devMode bool,
+) error {
+	kdeps_debug.Log("enter: startSplitServers")
+	apiAddr, err := resolveServerBindAddress(workflow)
+	if err != nil {
+		return fmt.Errorf("server cannot start: %w", err)
+	}
+
+	fmt.Fprintf(os.Stdout, "  ✓ Starting API server on %s and web server on port %d\n",
+		apiAddr, workflow.Settings.GetWebPortNum())
+	fmt.Fprintln(os.Stdout, "\n✓ Server ready!")
+
+	ctx := context.Background()
+	return runUntilSignalOrError(httpServerSignalServeConfig(
+		func() error {
+			serveErr := make(chan error, splitServerCount)
+			go func() { serveErr <- webServerStartFunc(webServer, ctx) }()
+			go func() { serveErr <- httpServerStartFunc(httpServer, apiAddr, devMode) }()
+			if startErr := <-serveErr; startErr != nil {
+				return fmt.Errorf("server error: %w", startErr)
+			}
+			return nil
+		},
+		func(stopCtx context.Context) error {
+			webErr := webServerShutdownFunc(webServer, stopCtx)
+			if shutdownErr := httpServerShutdownFunc(httpServer, stopCtx); shutdownErr != nil {
+				return shutdownErr
+			}
+			return webErr
+		},
+		"Server",
+		webServer.Stop,
+	))
+}
+
+const splitServerCount = 2
 
 // botPlatformsFromInput returns the configured bot platform names for status output.
