@@ -270,8 +270,9 @@ FROM alpine:3.18
 RUN apk upgrade --no-cache && \
     apk add --no-cache curl bash python3 py3-pip
 
-# Install kdeps via official install script
-RUN curl -LsSf https://raw.githubusercontent.com/kdeps/kdeps/main/install.sh | sh -s -- -b /usr/local/bin
+# Install kdeps via official install script. Released CLIs pin both the
+# script ref and the binary tag to their own version; dev builds use main.
+RUN curl -LsSf https://raw.githubusercontent.com/kdeps/kdeps/v2.1.0/install.sh | sh -s -- -b /usr/local/bin v2.1.0
 
 # Copy agent files
 COPY workflow.yaml /app/workflow.yaml

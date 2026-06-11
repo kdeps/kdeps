@@ -51,13 +51,13 @@ RUN ARCH="${TARGETARCH:-$(uname -m | sed 's/x86_64/amd64/;s/aarch64/arm64/')}" &
     if [ -f "/tmp/kdeps-linux-${ARCH}" ]; then \
         mv "/tmp/kdeps-linux-${ARCH}" /usr/local/bin/kdeps; \
     else \
-        curl -LsSf https://raw.githubusercontent.com/kdeps/kdeps/main/install.sh | sh -s -- -b /usr/local/bin; \
+        curl -LsSf https://raw.githubusercontent.com/kdeps/kdeps/{{ .InstallerRef }}/install.sh | sh -s -- -b /usr/local/bin{{ if ne .InstallerRef "main" }} {{ .InstallerRef }}{{ end }}; \
     fi && \
     rm -f /tmp/kdeps-linux-amd64 /tmp/kdeps-linux-arm64 && \
     chmod +x /usr/local/bin/kdeps
 {{- else }}
 # Install kdeps binary
-RUN curl -LsSf https://raw.githubusercontent.com/kdeps/kdeps/main/install.sh | sh -s -- -b /usr/local/bin
+RUN curl -LsSf https://raw.githubusercontent.com/kdeps/kdeps/{{ .InstallerRef }}/install.sh | sh -s -- -b /usr/local/bin{{ if ne .InstallerRef "main" }} {{ .InstallerRef }}{{ end }}
 {{- end }}
 
 {{- if .OSPackages }}
@@ -150,9 +150,15 @@ EXPOSE {{ .WebServerPort }}
 EXPOSE {{ .BackendPort }}
 {{- end }}
 
-# Healthcheck
+{{- if .HasAPIServer }}
+# Healthcheck (API server serves /health)
 HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \
   CMD wget -qO- http://localhost:{{ .APIPort }}/health || exit 1
+{{- else if .HasWebServer }}
+# Healthcheck (web server has no /health endpoint; check the TCP socket)
+HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \
+  CMD bash -c 'exec 3<>/dev/tcp/127.0.0.1/{{ .WebServerPort }}' || exit 1
+{{- end }}
 
 # Use entrypoint for backend management
 ENTRYPOINT ["/entrypoint.sh"]

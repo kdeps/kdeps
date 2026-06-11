@@ -23,13 +23,29 @@ package docker
 import (
 	"fmt"
 	"os"
+	"regexp"
 	"strings"
 
 	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
 	"github.com/kdeps/kdeps/v2/pkg/domain"
 	"github.com/kdeps/kdeps/v2/pkg/infra/texttmpl"
 	"github.com/kdeps/kdeps/v2/pkg/security/deployenv"
+	"github.com/kdeps/kdeps/v2/pkg/version"
 )
+
+// releaseVersionRe matches release versions injected by goreleaser; dev
+// builds like 2.0.0-dev do not match.
+var releaseVersionRe = regexp.MustCompile(`^[0-9]+\.[0-9]+\.[0-9]+$`)
+
+// installerRef returns the kdeps repo ref Dockerfiles fetch install.sh from:
+// the matching release tag for released CLIs (script and binary both pinned),
+// or main for dev builds where no tag exists.
+func installerRef(v string) string {
+	if releaseVersionRe.MatchString(v) {
+		return "v" + v
+	}
+	return "main"
+}
 
 // buildTemplateData builds data for template rendering.
 func (b *Builder) buildTemplateData(workflow *domain.Workflow) (*DockerfileData, error) {
@@ -83,6 +99,7 @@ func (b *Builder) buildTemplateData(workflow *domain.Workflow) (*DockerfileData,
 		HasResources:         hasResources,
 		HasData:              hasData,
 		Env:                  workflow.Settings.AgentSettings.Env,
+		InstallerRef:         installerRef(version.Version),
 	}, nil
 }
 

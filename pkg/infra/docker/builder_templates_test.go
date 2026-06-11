@@ -94,6 +94,59 @@ func TestBuilderTemplates_generateDockerfile(t *testing.T) {
 	}
 }
 
+func TestBuilderTemplates_healthcheckFollowsConfiguration(t *testing.T) {
+	for _, baseOS := range []string{"alpine", "debian", "ubuntu"} {
+		t.Run(baseOS, func(t *testing.T) {
+			builder := &docker.Builder{BaseOS: baseOS}
+
+			// API server: HTTP healthcheck against /health.
+			api := &domain.Workflow{
+				Metadata: domain.WorkflowMetadata{Name: "api", Version: "1.0.0"},
+				Settings: domain.WorkflowSettings{
+					APIServer: &domain.APIServerConfig{PortNum: 8080},
+				},
+			}
+			dockerfile, err := builder.GenerateDockerfile(api)
+			require.NoError(t, err)
+			assert.Contains(t, dockerfile, "HEALTHCHECK")
+			assert.Contains(t, dockerfile, "http://localhost:8080/health")
+
+			// Web-only: TCP healthcheck on the web port, no /health probe.
+			web := &domain.Workflow{
+				Metadata: domain.WorkflowMetadata{Name: "web", Version: "1.0.0"},
+				Settings: domain.WorkflowSettings{
+					WebServer: &domain.WebServerConfig{PortNum: 9090},
+				},
+			}
+			dockerfile, err = builder.GenerateDockerfile(web)
+			require.NoError(t, err)
+			assert.Contains(t, dockerfile, "HEALTHCHECK")
+			assert.Contains(t, dockerfile, "/dev/tcp/127.0.0.1/9090")
+			assert.NotContains(t, dockerfile, "/health ||")
+
+			// No servers: no healthcheck at all.
+			bot := &domain.Workflow{
+				Metadata: domain.WorkflowMetadata{Name: "bot", Version: "1.0.0"},
+			}
+			dockerfile, err = builder.GenerateDockerfile(bot)
+			require.NoError(t, err)
+			assert.NotContains(t, dockerfile, "HEALTHCHECK")
+		})
+	}
+}
+
+func TestBuilderTemplates_installerRefPinned(t *testing.T) {
+	// Dev builds (version 2.0.0-dev) fetch install.sh from main without a tag.
+	builder := &docker.Builder{BaseOS: "alpine"}
+	workflow := &domain.Workflow{
+		Metadata: domain.WorkflowMetadata{Name: "test", Version: "1.0.0"},
+	}
+	dockerfile, err := builder.GenerateDockerfile(workflow)
+	require.NoError(t, err)
+	assert.Contains(t, dockerfile, "kdeps/kdeps/main/install.sh")
+	assert.NotContains(t, dockerfile, "/usr/local/bin v")
+}
+
 func TestBuilderTemplates_generateEntrypoint(t *testing.T) {
 	builder := &docker.Builder{BaseOS: "alpine"}
 

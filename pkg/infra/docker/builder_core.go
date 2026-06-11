@@ -57,6 +57,7 @@ type DockerfileData struct {
 	HasResources         bool              // Whether resources directory exists
 	HasData              bool              // Whether data directory exists
 	Env                  map[string]string // User-defined environment variables
+	InstallerRef         string            // kdeps repo ref for install.sh (release tag, or main for dev builds)
 }
 
 // Builder builds Docker images from workflows.
