@@ -39,6 +39,7 @@ jobs:
       - name: Install D2
         run: |
           curl -fsSL -o /tmp/d2.tar.gz https://github.com/terrastruct/d2/releases/download/v0.7.1/d2-v0.7.1-linux-amd64.tar.gz
+          echo "eb172adf59f38d1e5a70ab177591356754ffaf9bebb84e0ca8b767dfb421dad7  /tmp/d2.tar.gz" | sha256sum -c
           tar -xzf /tmp/d2.tar.gz -C /tmp
           sudo install /tmp/d2-v0.7.1/bin/d2 /usr/local/bin/d2
           d2 --version
