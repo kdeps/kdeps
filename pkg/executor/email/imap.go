@@ -64,7 +64,10 @@ func (e *Executor) executeSearch(
 	defer func() { _ = c.Logout().Wait() }()
 
 	mailbox, limit := resolveMailboxSettings(cfg)
-	criteria := buildSearchCriteria(cfg.Search, ev)
+	criteria, err := buildSearchCriteria(cfg.Search, ev)
+	if err != nil {
+		return nil, fmt.Errorf("email executor: search: %w", err)
+	}
 
 	msgs, err := fetchBySearch(c, mailbox, limit, cfg.MarkRead, criteria)
 	if err != nil {

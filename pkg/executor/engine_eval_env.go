@@ -22,26 +22,7 @@ import kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
 
 func (e *Engine) buildEvaluationEnvironment(ctx *ExecutionContext) map[string]interface{} {
 	kdeps_debug.Log("enter: buildEvaluationEnvironment")
-	env := make(map[string]interface{})
-	if ctx == nil {
-		return env
-	}
-
-	e.addResourceAccessorEnv(env, ctx)
-	e.addInputEnv(env, ctx)
-	e.addRequestEnv(env, ctx)
-	e.addItemEnv(env, ctx)
-	e.addProcessorInputEnv(env, ctx)
-	return env
-}
-
-// addResourceAccessorEnv exposes llm, python, exec, http, and telephony accessors.
-func (e *Engine) addResourceAccessorEnv(env map[string]interface{}, ctx *ExecutionContext) {
-	for k, v := range buildCoreResourceAccessorEnv(ctx) {
-		env[k] = v
-	}
-	env["http"] = buildHTTPAccessorEnv(ctx)
-	env["telephony"] = buildTelephonyAccessorEnv(ctx)
+	return BuildEvalEnv(ctx, EvalEnvEngine)
 }
 
 // buildLLMAccessorEnv returns expression accessors for LLM resource outputs.
@@ -138,16 +119,4 @@ func buildTelephonyAccessorEnv(ctx *ExecutionContext) map[string]interface{} {
 		return s.ToEnvMap()
 	}
 	return emptyTelephonyEnv()
-}
-
-// addInputEnv exposes the request body as the input object for property access.
-func (e *Engine) addInputEnv(env map[string]interface{}, ctx *ExecutionContext) {
-	if ctx.Request == nil {
-		return
-	}
-	if ctx.Request.Body != nil {
-		env["input"] = ctx.Request.Body
-	} else {
-		env["input"] = map[string]interface{}{}
-	}
 }

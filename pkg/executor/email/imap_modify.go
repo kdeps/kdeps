@@ -74,7 +74,11 @@ func resolveExplicitUIDs(rawUIDs []string, ev evalFn) (imap.UIDSet, bool, error)
 	kdeps_debug.Log("enter: resolveExplicitUIDs")
 	var uidSet imap.UIDSet
 	for _, raw := range rawUIDs {
-		s := strings.TrimSpace(ev(raw))
+		evaluated, err := ev(raw)
+		if err != nil {
+			return nil, false, err
+		}
+		s := strings.TrimSpace(evaluated)
 		if s == "" {
 			continue
 		}
@@ -95,7 +99,10 @@ func resolveSearchUIDs(
 	ev evalFn,
 ) (imap.UIDSet, bool, error) {
 	kdeps_debug.Log("enter: resolveSearchUIDs")
-	criteria := buildSearchCriteria(cfg.Search, ev)
+	criteria, err := buildSearchCriteria(cfg.Search, ev)
+	if err != nil {
+		return nil, false, err
+	}
 	searchData, searchErr := c.UIDSearch(&criteria, nil).Wait()
 	if searchErr != nil {
 		return nil, false, fmt.Errorf("email executor: modify: uid search: %w", searchErr)

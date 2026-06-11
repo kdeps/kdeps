@@ -26,49 +26,23 @@ type SubExecutorEnvOptions struct {
 
 // BuildBasicSubExecutorEnv builds request metadata and outputs without input/item.
 func BuildBasicSubExecutorEnv(ctx *ExecutionContext) map[string]interface{} {
-	return BuildSubExecutorEnv(ctx, SubExecutorEnvOptions{})
+	return BuildEvalEnv(ctx, EvalEnvBasic)
 }
 
 // BuildRequestSubExecutorEnv includes request body as input and loop item context.
 func BuildRequestSubExecutorEnv(ctx *ExecutionContext) map[string]interface{} {
-	return BuildSubExecutorEnv(ctx, SubExecutorEnvOptions{IncludeInput: true, IncludeItem: true})
+	return BuildEvalEnv(ctx, EvalEnvRequest)
 }
 
 // BuildLLMSubExecutorEnv builds the expression env for LLM resource evaluation.
 func BuildLLMSubExecutorEnv(ctx *ExecutionContext) map[string]interface{} {
-	env := BuildBasicSubExecutorEnv(ctx)
-	env["inputTranscript"] = ctx.InputTranscript
-	env["inputMedia"] = ctx.InputMediaFile
-	for k, v := range ctx.BuildEvaluatorEnv() {
-		env[k] = v
-	}
-	return env
+	return BuildEvalEnv(ctx, EvalEnvLLM)
 }
 
 // BuildSubExecutorEnv builds the evaluation environment shared by resource executors.
 func BuildSubExecutorEnv(ctx *ExecutionContext, opts SubExecutorEnvOptions) map[string]interface{} {
-	env := make(map[string]interface{})
-
-	if ctx.Request != nil {
-		env["request"] = map[string]interface{}{
-			"method":  ctx.Request.Method,
-			"path":    ctx.Request.Path,
-			"headers": ctx.Request.Headers,
-			"query":   ctx.Request.Query,
-			"body":    ctx.Request.Body,
-		}
-		if opts.IncludeInput && ctx.Request.Body != nil {
-			env["input"] = ctx.Request.Body
-		}
+	if opts.IncludeInput || opts.IncludeItem {
+		return BuildEvalEnv(ctx, EvalEnvRequest)
 	}
-
-	env["outputs"] = ctx.Outputs
-
-	if opts.IncludeItem {
-		if item, ok := ctx.Items["item"]; ok {
-			env["item"] = item
-		}
-	}
-
-	return env
+	return BuildEvalEnv(ctx, EvalEnvBasic)
 }

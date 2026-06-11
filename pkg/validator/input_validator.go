@@ -94,22 +94,20 @@ func (v *InputValidator) ValidateField(
 		}
 	}
 
-	// Type-specific validation
-	switch rule.Type {
-	case domain.FieldTypeString, domain.FieldTypeEmail, domain.FieldTypeURL:
-		return v.validateString(rule, value)
-	case domain.FieldTypeInteger, domain.FieldTypeNumber:
-		return v.ValidateNumber(rule, value)
-	case domain.FieldTypeArray:
-		return v.ValidateArray(rule, value)
-	case domain.FieldTypeBoolean,
-		domain.FieldTypeObject,
-		domain.FieldTypeUUID,
-		domain.FieldTypeDate:
-		// These types have no additional validation rules beyond type checking (already done in validateType)
+	entry, ok := domain.LookupFieldType(rule.Type)
+	if !ok {
 		return nil
 	}
-
+	switch entry.Constraints {
+	case domain.FieldConstraintsString:
+		return v.validateString(rule, value)
+	case domain.FieldConstraintsNumber:
+		return v.ValidateNumber(rule, value)
+	case domain.FieldConstraintsArray:
+		return v.ValidateArray(rule, value)
+	case domain.FieldConstraintsNone:
+		return nil
+	}
 	return nil
 }
 

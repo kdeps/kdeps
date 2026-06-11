@@ -73,9 +73,20 @@ func (e *Executor) resolveIMAPDialParams(
 		return nil, imapErr
 	}
 	ev := e.makeEvaluator(ctx)
-	host := ev(imapCfg.Host)
+	host, err := ev(imapCfg.Host)
+	if err != nil {
+		return nil, fmt.Errorf("email executor: evaluate imap host: %w", err)
+	}
 	if host == "" {
 		return nil, errors.New("email executor: imap host is required for read/search")
+	}
+	user, err := ev(imapCfg.Username)
+	if err != nil {
+		return nil, fmt.Errorf("email executor: evaluate imap user: %w", err)
+	}
+	pass, err := ev(imapCfg.Password)
+	if err != nil {
+		return nil, fmt.Errorf("email executor: evaluate imap password: %w", err)
 	}
 
 	useTLS := imapCfg.TLS
@@ -91,8 +102,8 @@ func (e *Executor) resolveIMAPDialParams(
 	return &imapDialParams{
 		addr:               fmt.Sprintf("%s:%d", host, port),
 		host:               host,
-		user:               ev(imapCfg.Username),
-		pass:               ev(imapCfg.Password),
+		user:               user,
+		pass:               pass,
 		useTLS:             useTLS,
 		insecureSkipVerify: imapCfg.InsecureSkipVerify,
 		timeout:            resolveTimeout(cfg),

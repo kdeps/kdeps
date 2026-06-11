@@ -369,34 +369,45 @@ func TestBuildMessage_EmptyAttachmentPath_Skipped(t *testing.T) {
 	require.NoError(t, err)
 }
 
+func identityEval(s string) (string, error) { return s, nil }
+
 // --- evalSlice ---
 
 func TestEvalSlice_FiltersEmptyStrings(t *testing.T) {
-	ev := func(s string) string { return s }
-	result := evalSlice([]string{"a@b.com", "", "  ", "c@d.com"}, ev)
+	result, err := evalSlice([]string{"a@b.com", "", "  ", "c@d.com"}, identityEval)
+	require.NoError(t, err)
 	require.Len(t, result, 2)
 	assert.Equal(t, []string{"a@b.com", "c@d.com"}, result)
 }
 
 func TestEvalSlice_NilInput(t *testing.T) {
-	ev := func(s string) string { return s }
-	assert.Empty(t, evalSlice(nil, ev))
+	result, err := evalSlice(nil, identityEval)
+	require.NoError(t, err)
+	assert.Empty(t, result)
 }
 
 func TestEvalSlice_AllWhitespace(t *testing.T) {
-	ev := func(s string) string { return s }
-	assert.Empty(t, evalSlice([]string{"   ", "\t", "\n"}, ev))
+	result, err := evalSlice([]string{"   ", "\t", "\n"}, identityEval)
+	require.NoError(t, err)
+	assert.Empty(t, result)
 }
 
 func TestEvalSlice_EvaluatorApplied(t *testing.T) {
 	called := 0
-	ev := func(s string) string {
+	ev := func(s string) (string, error) {
 		called++
-		return strings.ToUpper(s)
+		return strings.ToUpper(s), nil
 	}
-	result := evalSlice([]string{"a@b.com", "c@d.com"}, ev)
+	result, err := evalSlice([]string{"a@b.com", "c@d.com"}, ev)
+	require.NoError(t, err)
 	assert.Equal(t, 2, called)
 	assert.Equal(t, []string{"A@B.COM", "C@D.COM"}, result)
+}
+
+func TestEvalSlice_PropagatesError(t *testing.T) {
+	ev := func(string) (string, error) { return "", assert.AnError }
+	_, err := evalSlice([]string{"a@b.com"}, ev)
+	require.Error(t, err)
 }
 
 // --- makeEvaluator ---
@@ -404,16 +415,26 @@ func TestEvalSlice_EvaluatorApplied(t *testing.T) {
 func TestMakeEvaluator_NilContext_PassThrough(t *testing.T) {
 	ex := &Executor{}
 	ev := ex.makeEvaluator(nil)
-	assert.Equal(t, "hello", ev("hello"))
-	assert.Equal(t, "{{whatever}}", ev("{{whatever}}"))
-	assert.Equal(t, "", ev(""))
+	got, err := ev("hello")
+	require.NoError(t, err)
+	assert.Equal(t, "hello", got)
+	got, err = ev("{{whatever}}")
+	require.NoError(t, err)
+	assert.Equal(t, "{{whatever}}", got)
+	got, err = ev("")
+	require.NoError(t, err)
+	assert.Equal(t, "", got)
 }
 
 func TestMakeEvaluator_NilAPI_PassThrough(t *testing.T) {
 	ex := &Executor{}
 	ev := ex.makeEvaluator(&executor.ExecutionContext{})
-	assert.Equal(t, "plain text", ev("plain text"))
-	assert.Equal(t, "no-expression", ev("no-expression"))
+	got, err := ev("plain text")
+	require.NoError(t, err)
+	assert.Equal(t, "plain text", got)
+	got, err = ev("no-expression")
+	require.NoError(t, err)
+	assert.Equal(t, "no-expression", got)
 }
 
 // --- sendSTARTTLS / sendImplicitTLS — unreachable addresses ---
@@ -591,57 +612,57 @@ func TestFormatAddress_WithoutName(t *testing.T) {
 // --- buildSearchCriteria ---
 
 func TestBuildSearchCriteria_FromFilter(t *testing.T) {
-	identity := func(s string) string { return s }
-	criteria := buildSearchCriteria(domain.EmailSearchConfig{From: "alice@example.com"}, identity)
+	criteria, err := buildSearchCriteria(domain.EmailSearchConfig{From: "alice@example.com"}, identityEval)
+	require.NoError(t, err)
 	require.Len(t, criteria.Header, 1)
 	assert.Equal(t, "From", criteria.Header[0].Key)
 	assert.Equal(t, "alice@example.com", criteria.Header[0].Value)
 }
 
 func TestBuildSearchCriteria_SubjectFilter(t *testing.T) {
-	identity := func(s string) string { return s }
-	criteria := buildSearchCriteria(domain.EmailSearchConfig{Subject: "Invoice"}, identity)
+	criteria, err := buildSearchCriteria(domain.EmailSearchConfig{Subject: "Invoice"}, identityEval)
+	require.NoError(t, err)
 	require.Len(t, criteria.Header, 1)
 	assert.Equal(t, "Subject", criteria.Header[0].Key)
 	assert.Equal(t, "Invoice", criteria.Header[0].Value)
 }
 
 func TestBuildSearchCriteria_Unseen(t *testing.T) {
-	identity := func(s string) string { return s }
-	criteria := buildSearchCriteria(domain.EmailSearchConfig{Unseen: true}, identity)
+	criteria, err := buildSearchCriteria(domain.EmailSearchConfig{Unseen: true}, identityEval)
+	require.NoError(t, err)
 	require.Len(t, criteria.NotFlag, 1)
 	assert.Equal(t, imap.FlagSeen, criteria.NotFlag[0])
 }
 
 func TestBuildSearchCriteria_SinceDate(t *testing.T) {
-	identity := func(s string) string { return s }
-	criteria := buildSearchCriteria(domain.EmailSearchConfig{Since: "2024-01-01"}, identity)
+	criteria, err := buildSearchCriteria(domain.EmailSearchConfig{Since: "2024-01-01"}, identityEval)
+	require.NoError(t, err)
 	assert.Equal(t, 2024, criteria.Since.Year())
 }
 
 func TestBuildSearchCriteria_InvalidSince_Ignored(t *testing.T) {
-	identity := func(s string) string { return s }
-	criteria := buildSearchCriteria(domain.EmailSearchConfig{Since: "bad"}, identity)
+	criteria, err := buildSearchCriteria(domain.EmailSearchConfig{Since: "bad"}, identityEval)
+	require.NoError(t, err)
 	assert.True(t, criteria.Since.IsZero())
 }
 
 func TestBuildSearchCriteria_BeforeDate(t *testing.T) {
-	identity := func(s string) string { return s }
-	criteria := buildSearchCriteria(domain.EmailSearchConfig{Before: "2024-06-15"}, identity)
+	criteria, err := buildSearchCriteria(domain.EmailSearchConfig{Before: "2024-06-15"}, identityEval)
+	require.NoError(t, err)
 	assert.Equal(t, 2024, criteria.Before.Year())
 	assert.Equal(t, time.June, criteria.Before.Month())
 	assert.Equal(t, 15, criteria.Before.Day())
 }
 
 func TestBuildSearchCriteria_InvalidBefore_Ignored(t *testing.T) {
-	identity := func(s string) string { return s }
-	criteria := buildSearchCriteria(domain.EmailSearchConfig{Before: "bad"}, identity)
+	criteria, err := buildSearchCriteria(domain.EmailSearchConfig{Before: "bad"}, identityEval)
+	require.NoError(t, err)
 	assert.True(t, criteria.Before.IsZero())
 }
 
 func TestBuildSearchCriteria_BodyFilter(t *testing.T) {
-	identity := func(s string) string { return s }
-	criteria := buildSearchCriteria(domain.EmailSearchConfig{Body: "urgent"}, identity)
+	criteria, err := buildSearchCriteria(domain.EmailSearchConfig{Body: "urgent"}, identityEval)
+	require.NoError(t, err)
 	require.Len(t, criteria.Body, 1)
 	assert.Equal(t, "urgent", criteria.Body[0])
 }
@@ -934,9 +955,15 @@ func TestMakeEvaluator_WithAPI_PlainText(t *testing.T) {
 	ev := ex.makeEvaluator(ctx)
 
 	// Plain text without braces should pass through unchanged.
-	assert.Equal(t, "hello world", ev("hello world"))
-	assert.Equal(t, "no-expression", ev("no-expression"))
-	assert.Equal(t, "", ev(""))
+	got, err := ev("hello world")
+	require.NoError(t, err)
+	assert.Equal(t, "hello world", got)
+	got, err = ev("no-expression")
+	require.NoError(t, err)
+	assert.Equal(t, "no-expression", got)
+	got, err = ev("")
+	require.NoError(t, err)
+	assert.Equal(t, "", got)
 }
 
 func TestMakeEvaluator_WithAPI_Expression(t *testing.T) {
@@ -955,11 +982,14 @@ func TestMakeEvaluator_WithAPI_Expression(t *testing.T) {
 
 	// Expression with braces should be evaluated.
 	// {{ info('name') }} returns the workflow metadata name.
-	assert.Equal(t, "test-wf", ev("{{ info('name') }}"))
+	got, err := ev("{{ info('name') }}")
+	require.NoError(t, err)
+	assert.Equal(t, "test-wf", got)
 
-	// Nonexistent expression returns empty string (Jinja2-like).
-	// This exercises the nil-result-to-empty-string branch.
-	assert.Equal(t, "", ev("{{ nonexistent }}"))
+	// Unknown identifiers evaluate to empty output.
+	got, err = ev("{{ nonexistent }}")
+	require.NoError(t, err)
+	assert.Equal(t, "", got)
 }
 
 // --- doSend — error paths ---
@@ -1172,8 +1202,7 @@ func TestSendImplicitTLS_ViaLocalTLSServer(t *testing.T) {
 // --- resolveExplicitUIDs ---
 
 func TestResolveExplicitUIDs_EmptyStringSkipped(t *testing.T) {
-	identity := func(s string) string { return s }
-	uidSet, found, err := resolveExplicitUIDs([]string{"1", "", "2"}, identity)
+	uidSet, found, err := resolveExplicitUIDs([]string{"1", "", "2"}, identityEval)
 	require.NoError(t, err)
 	require.True(t, found)
 	// UIDSet may merge consecutive UIDs into one range; use collectAffectedUIDs
@@ -1183,8 +1212,7 @@ func TestResolveExplicitUIDs_EmptyStringSkipped(t *testing.T) {
 }
 
 func TestResolveExplicitUIDs_AllEmptyError(t *testing.T) {
-	identity := func(s string) string { return s }
-	_, _, err := resolveExplicitUIDs([]string{"", "  "}, identity)
+	_, _, err := resolveExplicitUIDs([]string{"", "  "}, identityEval)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "no valid UIDs")
 }
@@ -1221,9 +1249,9 @@ func TestMakeEvaluator_MalformedExpression(t *testing.T) {
 	ex := &Executor{}
 	ev := ex.makeEvaluator(ctx)
 
-	// A malformed expression causes the evaluator to return an error,
-	// and makeEvaluator returns the original string unchanged.
-	assert.Equal(t, "{{ !@#$% }}", ev("{{ !@#$% }}"))
+	// Malformed expressions propagate as evaluation errors.
+	_, evalErr := ev("{{ !@#$% }}")
+	require.Error(t, evalErr)
 }
 
 func TestMakeEvaluator_NilResult(t *testing.T) {
@@ -1240,10 +1268,10 @@ func TestMakeEvaluator_NilResult(t *testing.T) {
 	ex := &Executor{}
 	ev := ex.makeEvaluator(ctx)
 
-	// info('nonexistent_field') calls ctx.Info() which returns error for unknown
-	// fields. The info() wrapper converts the error to nil, so the evaluator
-	// returns (nil, nil), exercising the result==nil branch.
-	assert.Equal(t, "", ev("{{ info('nonexistent_field') }}"))
+	// info('nonexistent_field') returns nil from the info() wrapper.
+	got, err := ev("{{ info('nonexistent_field') }}")
+	require.NoError(t, err)
+	assert.Equal(t, "", got)
 }
 
 func TestMakeEvaluator_NonStringResult(t *testing.T) {
@@ -1260,9 +1288,10 @@ func TestMakeEvaluator_NonStringResult(t *testing.T) {
 	ex := &Executor{}
 	ev := ex.makeEvaluator(ctx)
 
-	// Arithmetic expression returns an int (non-string, non-nil), exercising
-	// the fmt.Sprintf branch.
-	assert.Equal(t, "2", ev("{{ 1 + 1 }}"))
+	// Arithmetic expression returns a formatted non-string result.
+	got, err := ev("{{ 1 + 1 }}")
+	require.NoError(t, err)
+	assert.Equal(t, "2", got)
 }
 
 // --- sendSTARTTLS — smtp.NewClient failure ---
@@ -1769,11 +1798,10 @@ func TestResolveSearchUIDs_SearchError(t *testing.T) {
 	c := imapclient.New(conn, nil)
 	require.NoError(t, c.Login("user", "pass").Wait())
 
-	identity := func(s string) string { return s }
 	cfg := &domain.EmailConfig{
 		Search: domain.EmailSearchConfig{From: "test@example.com"},
 	}
-	_, _, err = resolveSearchUIDs(cfg, c, identity)
+	_, _, err = resolveSearchUIDs(cfg, c, identityEval)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "uid search")
 	conn.Close()

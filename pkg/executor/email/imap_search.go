@@ -29,16 +29,24 @@ import (
 	"github.com/kdeps/kdeps/v2/pkg/domain"
 )
 
-func buildSearchCriteria(s domain.EmailSearchConfig, ev evalFn) imap.SearchCriteria {
+func buildSearchCriteria(s domain.EmailSearchConfig, ev evalFn) (imap.SearchCriteria, error) {
 	kdeps_debug.Log("enter: buildSearchCriteria")
 	criteria := imap.SearchCriteria{}
-	if from := ev(s.From); from != "" {
+	from, err := ev(s.From)
+	if err != nil {
+		return criteria, fmt.Errorf("evaluate search from: %w", err)
+	}
+	if from != "" {
 		criteria.Header = append(
 			criteria.Header,
 			imap.SearchCriteriaHeaderField{Key: "From", Value: from},
 		)
 	}
-	if subj := ev(s.Subject); subj != "" {
+	subj, err := ev(s.Subject)
+	if err != nil {
+		return criteria, fmt.Errorf("evaluate search subject: %w", err)
+	}
+	if subj != "" {
 		criteria.Header = append(
 			criteria.Header,
 			imap.SearchCriteriaHeaderField{Key: "Subject", Value: subj},
@@ -48,19 +56,23 @@ func buildSearchCriteria(s domain.EmailSearchConfig, ev evalFn) imap.SearchCrite
 		criteria.NotFlag = append(criteria.NotFlag, imap.FlagSeen)
 	}
 	if s.Since != "" {
-		if t, err := parseDate(s.Since); err == nil {
+		if t, parseErr := parseDate(s.Since); parseErr == nil {
 			criteria.Since = t
 		}
 	}
 	if s.Before != "" {
-		if t, err := parseDate(s.Before); err == nil {
+		if t, parseErr := parseDate(s.Before); parseErr == nil {
 			criteria.Before = t
 		}
 	}
-	if body := ev(s.Body); body != "" {
+	body, err := ev(s.Body)
+	if err != nil {
+		return criteria, fmt.Errorf("evaluate search body: %w", err)
+	}
+	if body != "" {
 		criteria.Body = append(criteria.Body, body)
 	}
-	return criteria
+	return criteria, nil
 }
 
 func parseDate(s string) (time.Time, error) {
