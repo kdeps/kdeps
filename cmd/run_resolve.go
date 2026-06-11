@@ -137,7 +137,6 @@ func ResolveDirectoryPath(absPath string) (string, func(), error) {
 	case manifest.KindWorkflow:
 		fmt.Fprintf(os.Stdout, "Workflow: %s\n", path)
 	case manifest.KindComponent:
-		fmt.Fprintf(os.Stdout, "Component: %s\n", path)
 	}
 	return path, nil, nil
 }

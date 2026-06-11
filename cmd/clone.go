@@ -126,10 +126,7 @@ func detectCloneType(sourceDir string) (string, string) {
 	kdeps_debug.Log("enter: detectCloneType")
 	for _, c := range manifest.CloneManifestNames() {
 		if _, err := os.Stat(filepath.Join(sourceDir, c)); err == nil {
-			label, ok := manifest.CloneTypeLabel(c)
-			if !ok {
-				label = "agent"
-			}
+			label, _ := manifest.CloneTypeLabel(c)
 			return label, c
 		}
 	}

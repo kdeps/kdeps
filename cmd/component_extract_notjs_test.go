@@ -292,6 +292,15 @@ func TestCmdExtractTarGz_CorruptTar(t *testing.T) {
 	assert.Contains(t, err.Error(), "tar next")
 }
 
+func TestCmdExtractTarEntry_SkipsUnsupportedType(t *testing.T) {
+	destDir := t.TempDir()
+	require.NoError(t, cmdExtractTarEntry(
+		tar.NewReader(bytes.NewReader(nil)),
+		&tar.Header{Name: "link", Typeflag: tar.TypeSymlink, Linkname: "x"},
+		destDir,
+	))
+}
+
 func TestCmdExtractTarEntry_DotEntry(t *testing.T) {
 	// Entry with cleanName == "." should be skipped.
 	destDir := t.TempDir()

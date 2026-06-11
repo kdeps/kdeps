@@ -60,6 +60,24 @@ func TestEvaluateStringOrLiteral_PathLiteral(t *testing.T) {
 	assert.Equal(t, "/absolute/path/file.txt", got)
 }
 
+func TestBuildSubExecutorEnv_Options(t *testing.T) {
+	t.Parallel()
+	ctx, err := executor.NewExecutionContext(&domain.Workflow{})
+	require.NoError(t, err)
+	ctx.Request = &executor.RequestContext{
+		Method: "POST",
+		Body:   map[string]interface{}{"id": 1},
+	}
+
+	basic := executor.BuildSubExecutorEnv(ctx, executor.SubExecutorEnvOptions{})
+	assert.NotNil(t, basic["outputs"])
+	_, hasInput := basic["input"]
+	assert.False(t, hasInput)
+
+	withInput := executor.BuildSubExecutorEnv(ctx, executor.SubExecutorEnvOptions{IncludeInput: true})
+	assert.Equal(t, ctx.Request.Body, withInput["input"])
+}
+
 func TestBuildSubExecutorEnv_RequestInputItem(t *testing.T) {
 	t.Parallel()
 	ctx, err := executor.NewExecutionContext(&domain.Workflow{})

@@ -50,14 +50,6 @@ func packageInvalidGzipError(err error) error {
 	return prefixedWrapError("invalid package: not a valid gzip archive", err)
 }
 
-func packageResolveTargetPathFailed(relPath string, err error) error {
-	return prefixedWrapError("failed to resolve target path "+relPath, err)
-}
-
-func packageExtractFailed(label string, err error) error {
-	return prefixedWrapError("failed to extract "+label, err)
-}
-
 func packageResolveDestDirFailed(err error) error {
 	return prefixedWrapError("failed to resolve destination directory", err)
 }

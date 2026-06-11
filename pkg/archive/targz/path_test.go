@@ -15,6 +15,7 @@
 package targz_test
 
 import (
+	"errors"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -46,4 +47,82 @@ func TestResolveTarget_AbsSkip(t *testing.T) {
 	require.NoError(t, err)
 	assert.False(t, skip)
 	assert.Contains(t, target, "workflow.yaml")
+}
+
+func TestResolveTarget_RelativeJoin(t *testing.T) {
+	dir := t.TempDir()
+	opts := targz.DefaultOptions()
+	target, skip, err := targz.ResolveTarget(dir, "nested/file.txt", opts)
+	require.NoError(t, err)
+	assert.False(t, skip)
+	assert.Contains(t, target, "nested")
+}
+
+func TestResolveTarget_AbsDestError(t *testing.T) {
+	opts := targz.RegistryOptions()
+	opts.AbsDest = true
+	opts.Hooks.DestAbs = func(string) (string, error) {
+		return "", errors.New("dest abs fail")
+	}
+	_, _, err := targz.ResolveTarget(t.TempDir(), "file.txt", opts)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "resolve dest dir")
+}
+
+func TestResolveTarget_TargetAbsError(t *testing.T) {
+	opts := targz.RegistryOptions()
+	opts.Hooks.TargetAbs = func(string) (string, error) {
+		return "", errors.New("target abs fail")
+	}
+	_, _, err := targz.ResolveTarget(t.TempDir(), "file.txt", opts)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "resolve target path")
+}
+
+func TestResolveTarget_SkipBadAbsPath(t *testing.T) {
+	opts := targz.RegistryOptions()
+	_, skip, err := targz.ResolveTarget(t.TempDir(), "/abs/outside", opts)
+	require.NoError(t, err)
+	assert.True(t, skip)
+}
+
+func TestResolveTarget_InvalidAbsPathWithoutSkip(t *testing.T) {
+	opts := targz.RegistryOptions()
+	opts.SkipBadPaths = false
+	_, _, err := targz.ResolveTarget(t.TempDir(), "/abs/outside", opts)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "invalid archive path")
+}
+
+func TestResolveTarget_SkipParentEscape(t *testing.T) {
+	opts := targz.RegistryOptions()
+	_, skip, err := targz.ResolveTarget(t.TempDir(), "..", opts)
+	require.NoError(t, err)
+	assert.True(t, skip)
+}
+
+func TestResolveTarget_RelativeEscapeError(t *testing.T) {
+	opts := targz.RegistryOptions()
+	opts.SkipBadPaths = false
+	_, _, err := targz.ResolveTarget(t.TempDir(), "../escape.txt", opts)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "invalid archive path")
+}
+
+func TestResolveTarget_SkipRelativeEscapeAfterAbs(t *testing.T) {
+	opts := targz.RegistryOptions()
+	_, skip, err := targz.ResolveTarget(t.TempDir(), "../escape.txt", opts)
+	require.NoError(t, err)
+	assert.True(t, skip)
+}
+
+func TestResolveTarget_RelError(t *testing.T) {
+	opts := targz.RegistryOptions()
+	opts.AbsDest = true
+	opts.Hooks.FilepathRel = func(string, string) (string, error) {
+		return "", errors.New("rel fail")
+	}
+	_, _, err := targz.ResolveTarget(t.TempDir(), "file.txt", opts)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "validate target path")
 }

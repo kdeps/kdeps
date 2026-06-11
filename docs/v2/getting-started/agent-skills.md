@@ -5,21 +5,25 @@ projects for you when you install the **kdeps skill**.
 
 ## Install the skill
 
-Clone into your agent's skills directory (folder name `kdeps`):
+**Skills CLI:**
 
 ```bash
-# Claude Code
-git clone https://github.com/kdeps/skill ~/.claude/skills/kdeps
-
-# Cursor
-git clone https://github.com/kdeps/skill ~/.cursor/skills/kdeps
-
-# Grok
-git clone https://github.com/kdeps/skill ~/.grok/skills/kdeps
+npx skills add https://github.com/kdeps/skill --skill kdeps
 ```
 
-Symlink instead of clone if you prefer. The skill activates when you ask the
-agent to build a kdeps workflow, component, or agency.
+**Git clone + symlink:**
+
+```bash
+git clone https://github.com/kdeps/skill ~/src/kdeps-skill
+ln -sf ~/src/kdeps-skill/skills/kdeps ~/.claude/skills/kdeps
+```
+
+Both methods install the same skill from `skills/kdeps/`. Use `~/.cursor/skills/kdeps`
+or `~/.grok/skills/kdeps` for other agents. Add `-y -g` to the `npx` command to
+skip prompts and install globally.
+
+The skill activates when you ask the agent to build a kdeps workflow, component,
+or agency.
 
 ## What it covers
 
@@ -43,7 +47,7 @@ kdeps registry submit --tag v1.0.0
 # Open a PR to https://github.com/kdeps/registry with the printed formula
 ```
 
-See the skill's [registry reference](https://github.com/kdeps/skill/blob/main/references/registry.md)
+See the skill's [registry reference](https://github.com/kdeps/skill/blob/main/skills/kdeps/references/registry.md)
 for the full publish checklist.
 
 ## Skill vs registry packages
@@ -51,8 +55,8 @@ for the full publish checklist.
 | | **kdeps skill** | **Your kdeps project** |
 |---|---|---|
 | What it is | Instructions for coding agents | Runnable workflow / component / agency |
-| Install | `git clone` into skills dir | `kdeps registry install <name>` |
-| Manifest | `SKILL.md` | `kdeps.pkg.yaml` |
+| Install | `npx skills add https://github.com/kdeps/skill --skill kdeps` | `kdeps registry install <name>` |
+| Manifest | `skills/kdeps/SKILL.md` | `kdeps.pkg.yaml` |
 
 The skill teaches agents how to write YAML that installs from
 [kdeps.io](https://kdeps.io). It is not itself a registry package.
