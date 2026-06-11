@@ -43,7 +43,7 @@ func schemaEnumMap() map[string][]interface{} {
 		"run.chat.contextLength": {
 			4096, 8192, 16384, 32768, 65536, 131072, 262144,
 		},
-		"run.sql.format":                    {"json", "csv", "table"},
+		"run.sql.format":                    domain.SQLResultFormatsEnum(),
 		"run.validations.methods":           httpMethods,
 		"settings.apiServer.routes.methods": httpMethods,
 		"routes.methods":                    httpMethods,

@@ -30,17 +30,17 @@ import (
 
 // Action constants for the telephony resource.
 const (
-	ActionAnswer   = "answer"
-	ActionSay      = "say"
-	ActionAsk      = "ask"
-	ActionMenu     = "menu"
-	ActionDial     = "dial"
-	ActionRecord   = "record"
-	ActionMute     = "mute"
-	ActionUnmute   = "unmute"
-	ActionHangup   = "hangup"
-	ActionReject   = "reject"
-	ActionRedirect = "redirect"
+	ActionAnswer   = domain.TelephonyActionAnswer
+	ActionSay      = domain.TelephonyActionSay
+	ActionAsk      = domain.TelephonyActionAsk
+	ActionMenu     = domain.TelephonyActionMenu
+	ActionDial     = domain.TelephonyActionDial
+	ActionRecord   = domain.TelephonyActionRecord
+	ActionMute     = domain.TelephonyActionMute
+	ActionUnmute   = domain.TelephonyActionUnmute
+	ActionHangup   = domain.TelephonyActionHangup
+	ActionReject   = domain.TelephonyActionReject
+	ActionRedirect = domain.TelephonyActionRedirect
 )
 
 // SessionKey is the Items key used to store the TelephonySession across

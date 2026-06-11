@@ -28,12 +28,6 @@ import (
 // validateSourcesList validates each source entry and per-source config requirements.
 func (v *WorkflowValidator) validateSourcesList(config *domain.InputConfig) error {
 	kdeps_debug.Log("enter: validateSourcesList")
-	validSources := map[string]bool{
-		domain.InputSourceAPI:  true,
-		domain.InputSourceBot:  true,
-		domain.InputSourceFile: true,
-	}
-
 	hasBot := false
 	seen := make(map[string]bool)
 	for _, source := range config.Sources {
@@ -44,12 +38,13 @@ func (v *WorkflowValidator) validateSourcesList(config *domain.InputConfig) erro
 				nil,
 			)
 		}
-		if !validSources[source] {
+		if !domain.IsValidWorkflowInputSource(source) {
 			return domain.NewError(
 				domain.ErrCodeInvalidWorkflow,
 				fmt.Sprintf(
-					"invalid input source: %s. Available options: [api, bot, file]",
+					"invalid input source: %s. Available options: [%s]",
 					source,
+					domain.WorkflowInputSourcesDisplay(),
 				),
 				nil,
 			)

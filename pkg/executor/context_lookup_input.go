@@ -24,28 +24,6 @@ import (
 	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
 )
 
-func (ctx *ExecutionContext) getInputProcessorValue(name string) (interface{}, bool) {
-	switch name {
-	case keyInputTranscript:
-		if ctx.InputTranscript != "" {
-			return ctx.InputTranscript, true
-		}
-	case keyInputMedia:
-		if ctx.InputMediaFile != "" {
-			return ctx.InputMediaFile, true
-		}
-	case keyInputFileContent:
-		if ctx.InputFileContent != "" {
-			return ctx.InputFileContent, true
-		}
-	case keyInputFilePath:
-		if ctx.InputFilePath != "" {
-			return ctx.InputFilePath, true
-		}
-	}
-	return nil, false
-}
-
 func isParamFilteringBlocked(err error, allowedParams []string) bool {
 	return len(allowedParams) > 0 &&
 		err != nil &&

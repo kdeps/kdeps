@@ -80,25 +80,16 @@ func (v *WorkflowValidator) ValidateSQLConfig(
 		)
 	}
 
-	// Validate format if provided
-	if config.Format != "" {
-		validFormats := map[string]bool{
-			"json":  true,
-			"csv":   true,
-			"table": true,
-		}
-		if !validFormats[config.Format] {
-			availableOptions := "json, csv, table"
-			return domain.NewError(
-				domain.ErrCodeInvalidResource,
-				fmt.Sprintf(
-					"invalid SQL format: %s. Available options: [%s]",
-					config.Format,
-					availableOptions,
-				),
-				nil,
-			)
-		}
+	if config.Format != "" && !domain.IsValidSQLResultFormat(config.Format) {
+		return domain.NewError(
+			domain.ErrCodeInvalidResource,
+			fmt.Sprintf(
+				"invalid SQL format: %s. Available options: [%s]",
+				config.Format,
+				domain.SQLResultFormatsDisplay(),
+			),
+			nil,
+		)
 	}
 
 	return nil
