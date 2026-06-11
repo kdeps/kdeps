@@ -20,9 +20,13 @@ package http
 
 import (
 	"archive/tar"
+	"bytes"
 	"io"
 	"os"
 	"path/filepath"
+	"strings"
+
+	"github.com/kdeps/kdeps/v2/pkg/archive/targz"
 )
 
 func resolvePackageEntryPath(absDestDir, entryName string) (string, error) {
@@ -76,52 +80,66 @@ func ensurePackageEntryDir(hdr *tar.Header, absTargetPath string) error {
 	return nil
 }
 
-func extractKdepsPackageEntry(
-	hdr *tar.Header,
-	baseDirAbs string,
-	tr *tar.Reader,
-	entryCount int,
-	totalExtracted *int64,
-) error {
-	if exceedsPackageEntryCount(entryCount) {
-		return packageEntryCountExceededError()
+func httpPackageExtractOpts() targz.Options {
+	return targz.Options{
+		MaxFileSize:  maxPackageFileSizeLimit,
+		MaxTotalSize: maxPackageTotalUncompressedLimit,
+		MaxEntries:   maxPackageEntryCountLimit,
+		DirPerm:      secureDirPerm,
+		FilePerm:     secureFilePerm,
+		AbsPaths:     true,
 	}
-	absTargetPath, pathErr := resolvePackageEntryPath(baseDirAbs, hdr.Name)
-	if pathErr != nil {
-		return pathErr
-	}
-	return extractPackageEntry(hdr, baseDirAbs, absTargetPath, tr, totalExtracted)
 }
 
 func extractKdepsPackage(data []byte, destDir string) error {
 	debugEnter("extractKdepsPackage")
-	baseDirAbs, baseErr := filepathAbs(destDir)
-	if baseErr != nil {
-		return packageResolveDestDirFailed(baseErr)
+	if _, absErr := filepathAbs(destDir); absErr != nil {
+		return packageResolveDestDirFailed(absErr)
 	}
+	opts := httpPackageExtractOpts()
+	opts.AbsDest = true
+	opts.Hooks.DestAbs = filepathAbs
+	opts.Hooks.TargetAbs = filepathAbs
+	opts.Hooks.MkdirAll = func(path string, _ os.FileMode) error {
+		return mkdirSecureAfero(path)
+	}
+	opts.Hooks.FileClose = closeExtractedFile
+	err := targz.ExtractGzipTar(bytes.NewReader(data), destDir, opts)
+	return mapHTTPExtractError(err)
+}
 
-	tr, closer, err := openPackageTarReader(data)
-	if err != nil {
+func mapHTTPExtractError(err error) error {
+	if err == nil {
+		return nil
+	}
+	msg := err.Error()
+	switch {
+	case strings.Contains(msg, "failed to read gzip header"):
+		return packageInvalidGzipError(err)
+	case strings.Contains(msg, "resolve dest dir"):
+		return packageResolveDestDirFailed(err)
+	case strings.Contains(msg, "invalid archive path"):
+		return invalidPackagePathError(extractHTTPErrorPath(msg))
+	case strings.Contains(msg, "entry count exceeds"):
+		return packageEntryCountExceededError()
+	case strings.Contains(msg, "total uncompressed size exceeds"):
+		return packageTotalSizeExceededError()
+	case strings.Contains(msg, "exceeds maximum allowed size"):
+		return packageFileSizeExceededError(extractHTTPErrorPath(msg))
+	case strings.Contains(msg, "failed to create directory"):
+		return packageDirectoryCreateError(extractHTTPErrorPath(msg), err)
+	case strings.Contains(msg, "failed to create parent directory"):
+		return packageParentDirectoryCreateError(extractHTTPErrorPath(msg), err)
+	default:
 		return err
 	}
-	defer closer.Close()
-	var entryCount int
-	var totalExtracted int64
-	for {
-		hdr, nextErr := readNextPackageEntry(tr)
-		if isTarEOF(nextErr) {
-			break
-		}
-		if nextErr != nil {
-			return nextErr
-		}
-		entryCount++
-		if entryErr := extractKdepsPackageEntry(hdr, baseDirAbs, tr, entryCount, &totalExtracted); entryErr != nil {
-			return entryErr
-		}
-	}
+}
 
-	return nil
+func extractHTTPErrorPath(msg string) string {
+	if i := strings.LastIndex(msg, ": "); i >= 0 {
+		return strings.Trim(msg[i+2:], `"`)
+	}
+	return msg
 }
 
 func writeExtractedFile(baseDirAbs, targetPath string, r io.Reader, totalExtracted *int64) error {

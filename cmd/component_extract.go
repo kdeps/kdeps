@@ -22,108 +22,56 @@ package cmd
 
 import (
 	"archive/tar"
-	"compress/gzip"
 	"fmt"
 	"io"
 	"os"
-	"path/filepath"
 	"strings"
 
+	"github.com/kdeps/kdeps/v2/pkg/archive/targz"
 	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
 )
+
+func komponentExtractOpts() targz.Options {
+	opts := targz.RegistryOptions()
+	opts.AbsDest = true
+	opts.MaxFileSize = maxExtractFileSize
+	opts.Hooks.DestAbs = filepathAbsSafeFunc
+	opts.Hooks.TargetAbs = filepathAbsTargetFunc
+	opts.Hooks.FilepathRel = filepathRelSafeFunc
+	opts.Hooks.IOCopy = komponentIOCopyFunc
+	opts.Hooks.FileClose = komponentFileCloseFunc
+	return opts
+}
 
 // cmdExtractTarGz extracts a gzip-compressed tar stream into destDir.
 func cmdExtractTarGz(r io.Reader, destDir string) error {
 	kdeps_debug.Log("enter: cmdExtractTarGz")
-	gz, gzErr := gzip.NewReader(r)
-	if gzErr != nil {
-		return fmt.Errorf("gzip reader: %w", gzErr)
+	err := targz.ExtractGzipTar(r, destDir, komponentExtractOpts())
+	if err == nil {
+		return nil
 	}
-	defer gz.Close()
-
-	tr := tar.NewReader(gz)
-	for {
-		header, nextErr := tr.Next()
-		if nextErr == io.EOF {
-			break
-		}
-		if nextErr != nil {
-			return fmt.Errorf("tar next: %w", nextErr)
-		}
-		if err := cmdExtractTarEntryFunc(tr, header, destDir); err != nil {
-			return err
-		}
+	if strings.Contains(err.Error(), "failed to read gzip header") {
+		return fmt.Errorf("gzip reader: %w", err)
 	}
-	return nil
+	if strings.Contains(err.Error(), "failed to read tar entry") {
+		return fmt.Errorf("tar next: %w", err)
+	}
+	return err
 }
 
 // safeKomponentTarget resolves and validates an extraction target under destDir.
 func safeKomponentTarget(destDir, entryName string) (string, bool, error) {
-	cleanName := filepath.Clean(entryName)
-	if cleanName == "." || strings.HasPrefix(cleanName, "..") || filepath.IsAbs(cleanName) {
+	target, skip, err := targz.ResolveTarget(destDir, entryName, komponentExtractOpts())
+	if skip {
 		return "", false, nil
 	}
-
-	baseDir, baseErr := filepathAbsSafeFunc(destDir)
-	if baseErr != nil {
-		return "", false, fmt.Errorf("resolve dest dir: %w", baseErr)
-	}
-	baseDir = filepath.Clean(baseDir)
-
-	target := filepath.Join(baseDir, cleanName)
-	absTarget, targetErr := filepathAbsTargetFunc(target)
-	if targetErr != nil {
-		return "", false, fmt.Errorf("resolve target path: %w", targetErr)
-	}
-	absTarget = filepath.Clean(absTarget)
-
-	rel, relErr := filepathRelSafeFunc(baseDir, absTarget)
-	if relErr != nil {
-		return "", false, fmt.Errorf("validate target path: %w", relErr)
-	}
-	if rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
-		return "", false, nil
-	}
-	return absTarget, true, nil
+	return target, true, err
 }
 
 // writeKomponentRegularFile creates a regular file from a tar entry.
 func writeKomponentRegularFile(absTarget string, header *tar.Header, tr *tar.Reader) error {
-	if header.Size > maxExtractFileSize {
-		return fmt.Errorf(
-			"archive entry %q exceeds maximum allowed size of %d bytes",
-			header.Name,
-			maxExtractFileSize,
-		)
-	}
-	if mkErr := os.MkdirAll(filepath.Dir(absTarget), 0o750); mkErr != nil {
-		return fmt.Errorf("mkdir parent: %w", mkErr)
-	}
-	f, createErr := os.Create(absTarget)
-	if createErr != nil {
-		return fmt.Errorf("create %s: %w", absTarget, createErr)
-	}
-	n, copyErr := komponentIOCopyFunc(f, io.LimitReader(tr, maxExtractFileSize))
-	if closeErr := komponentFileCloseFunc(f); closeErr != nil && copyErr == nil {
-		return fmt.Errorf("close %s: %w", absTarget, closeErr)
-	}
-	if copyErr != nil {
-		return fmt.Errorf("copy %s: %w", absTarget, copyErr)
-	}
-	if n >= maxExtractFileSize {
-		return fmt.Errorf(
-			"archive entry %q exceeds maximum allowed size of %d bytes",
-			header.Name,
-			maxExtractFileSize,
-		)
-	}
-	return nil
+	return targz.WriteEntry(tr, header, absTarget, komponentExtractOpts())
 }
-
-// cmdExtractTarEntryFunc extracts a single tar entry (overridable in tests).
-//
-//nolint:gochecknoglobals // test-replaceable hook
-var cmdExtractTarEntryFunc = cmdExtractTarEntry
 
 // cmdExtractTarEntry writes a single tar entry to destDir.
 func cmdExtractTarEntry(tr *tar.Reader, header *tar.Header, destDir string) error {

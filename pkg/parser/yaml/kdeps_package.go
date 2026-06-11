@@ -20,14 +20,11 @@ package yaml
 
 import (
 	"archive/tar"
-	"compress/gzip"
-	"errors"
 	"fmt"
-	"io"
 	"os"
-	"path/filepath"
 	"strings"
 
+	"github.com/kdeps/kdeps/v2/pkg/archive/targz"
 	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
 )
 
@@ -36,7 +33,7 @@ const (
 	kdepsPackageSuffix = ".kdeps"
 
 	// maxKdepsExtractSize is the maximum size allowed for extracted files (100 MB).
-	maxKdepsExtractSize = 100 * 1024 * 1024
+	maxKdepsExtractSize = targz.DefaultMaxFileSize
 )
 
 // isKdepsPackage reports whether path points to a .kdeps packed agent.
@@ -55,113 +52,42 @@ func extractKdepsPackage(packagePath string) (string, func(), error) {
 	if _, err := os.Stat(packagePath); os.IsNotExist(err) {
 		return "", nil, fmt.Errorf("kdeps package not found: %s", packagePath)
 	}
-
-	tempDir, err := os.MkdirTemp("", "kdeps-agent-*")
+	opts := yamlExtractOpts()
+	tempDir, cleanup, err := targz.ExtractToTemp(packagePath, "kdeps-agent-*", opts)
 	if err != nil {
-		return "", nil, fmt.Errorf("failed to create temp directory: %w", err)
+		if strings.Contains(err.Error(), "failed to open archive") {
+			return "", nil, fmt.Errorf("failed to open package %s: %w", packagePath, err)
+		}
+		return "", nil, err
 	}
-	cleanup := func() { _ = os.RemoveAll(tempDir) }
-
-	if extractErr := extractKdepsArchive(packagePath, tempDir); extractErr != nil {
-		cleanup()
-		return "", nil, extractErr
-	}
-
 	return tempDir, cleanup, nil
 }
 
-// extractKdepsArchive opens packagePath and extracts its tar.gz contents into destDir.
-func extractKdepsArchive(packagePath, destDir string) error {
-	f, err := os.Open(packagePath)
-	if err != nil {
-		return fmt.Errorf("failed to open package %s: %w", packagePath, err)
-	}
-	defer f.Close()
-
-	gz, err := gzip.NewReader(f)
-	if err != nil {
-		return fmt.Errorf("failed to read gzip header of %s: %w", packagePath, err)
-	}
-	defer gz.Close()
-
-	if extractErr := extractTarEntries(tar.NewReader(gz), destDir); extractErr != nil {
-		return fmt.Errorf("failed to extract %s: %w", packagePath, extractErr)
-	}
-	return nil
+func yamlExtractOpts() targz.Options {
+	opts := targz.DefaultOptions()
+	opts.MaxFileSize = maxKdepsExtractSize
+	return opts
 }
 
 // extractTarEntries writes all entries from tr into destDir, guarding against
 // directory traversal and decompression bombs.
 func extractTarEntries(tr *tar.Reader, destDir string) error {
 	kdeps_debug.Log("enter: extractTarEntries")
-	for {
-		header, err := tr.Next()
-		if errors.Is(err, io.EOF) {
-			break
-		}
-		if err != nil {
-			return fmt.Errorf("failed to read tar entry: %w", err)
-		}
-
-		targetPath, pathErr := safeJoinPath(header.Name, destDir)
-		if pathErr != nil {
-			return pathErr
-		}
-
-		if header.FileInfo().IsDir() {
-			if mkErr := os.MkdirAll(targetPath, 0o750); mkErr != nil {
-				return fmt.Errorf("failed to create directory %s: %w", targetPath, mkErr)
-			}
-			continue
-		}
-
-		if err = extractTarFile(tr, header, targetPath); err != nil {
-			return err
-		}
-	}
-	return nil
+	return targz.ExtractTar(tr, destDir, yamlExtractOpts())
 }
 
 // extractTarFile writes a single tar entry to targetPath, creating parent dirs
-// as needed.  The header is used to enforce the size limit before any bytes are
-// written so that oversized entries are rejected rather than silently truncated.
+// as needed.
 func extractTarFile(tr *tar.Reader, header *tar.Header, targetPath string) error {
 	kdeps_debug.Log("enter: extractTarFile")
-	if header.Size > maxKdepsExtractSize {
-		return fmt.Errorf(
-			"archive entry %q exceeds maximum allowed size of %d bytes",
-			header.Name,
-			maxKdepsExtractSize,
-		)
-	}
-
-	if mkErr := os.MkdirAll(filepath.Dir(targetPath), 0o750); mkErr != nil {
-		return fmt.Errorf("failed to create parent directory: %w", mkErr)
-	}
-
-	out, err := os.Create(targetPath)
-	if err != nil {
-		return fmt.Errorf("failed to create file %s: %w", targetPath, err)
-	}
-	defer out.Close()
-
-	if _, copyErr := io.CopyN(out, tr, maxKdepsExtractSize); copyErr != nil &&
-		!errors.Is(copyErr, io.EOF) {
-		return fmt.Errorf("failed to write file %s: %w", targetPath, copyErr)
+	if err := targz.WriteEntry(tr, header, targetPath, yamlExtractOpts()); err != nil {
+		if strings.Contains(err.Error(), "failed to extract file") {
+			return fmt.Errorf("failed to write file %s: %w", targetPath, err)
+		}
+		if strings.Contains(err.Error(), "failed to create file") {
+			return fmt.Errorf("failed to create file %s: %w", targetPath, err)
+		}
+		return err
 	}
 	return nil
-}
-
-// safeJoinPath joins name under destDir, rejecting paths that escape destDir.
-// It uses filepath.Rel for a separator-aware check so that paths like
-// /tmp/destDir/../other or a destDir that is a string-prefix of another
-// directory are both handled correctly.
-func safeJoinPath(name, destDir string) (string, error) {
-	kdeps_debug.Log("enter: safeJoinPath")
-	target := filepath.Join(destDir, name)
-	rel, err := filepath.Rel(destDir, target)
-	if err != nil || strings.HasPrefix(rel, "..") {
-		return "", fmt.Errorf("invalid path in archive: %s", name)
-	}
-	return target, nil
 }

@@ -22,8 +22,6 @@ package cmd
 
 import (
 	"archive/tar"
-	"compress/gzip"
-	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -32,77 +30,58 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/kdeps/kdeps/v2/pkg/archive/targz"
 	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
 )
 
 // safeArchiveTarget returns the absolute target path for a tar entry.
 // Returns ("", false, nil) for entries that should be skipped, or an error
 // if the path cannot be resolved safely.
+//
+//nolint:unparam // callers only inspect the ok and error returns
 func safeArchiveTarget(absDest, entryName string) (string, bool, error) {
-	cleanName := filepath.Clean(entryName)
-	if cleanName == "." || cleanName == "" || filepath.IsAbs(cleanName) {
+	target, skip, err := targz.ResolveTarget(absDest, entryName, registryExtractOpts())
+	if skip {
 		return "", false, nil
 	}
-	target := filepath.Join(absDest, cleanName)
-	absTarget, err := safeArchiveTargetAbsFunc(target)
-	if err != nil {
-		return "", false, fmt.Errorf("abs target %s: %w", target, err)
-	}
-	rel, err := filepath.Rel(absDest, absTarget)
-	if err != nil {
-		return "", false, fmt.Errorf("rel target %s from %s: %w", absTarget, absDest, err)
-	}
-	if rel == ".." || strings.HasPrefix(rel, ".."+string(os.PathSeparator)) {
-		return "", false, nil
-	}
-	return absTarget, true, nil
+	return target, true, err
+}
+
+func registryExtractOpts() targz.Options {
+	opts := targz.RegistryOptions()
+	opts.MaxFileSize = maxExtractFileSize
+	opts.DirPerm = registryInstallDirPerm
+	opts.FilePerm = registryInstallFilePerm
+	opts.Hooks.TargetAbs = safeArchiveTargetAbsFunc
+	opts.Hooks.IOCopy = extractFileIOCopyFunc
+	opts.Hooks.FileClose = extractFileCloseFunc
+	return opts
 }
 
 func extractArchive(archivePath, destDir string) error {
 	kdeps_debug.Log("enter: extractArchive")
-	f, err := os.Open(archivePath)
-	if err != nil {
-		return fmt.Errorf("open archive: %w", err)
-	}
-	defer f.Close()
-	gz, err := gzip.NewReader(f)
-	if err != nil {
-		return fmt.Errorf("gzip reader: %w", err)
-	}
-	defer gz.Close()
 	absDest, err := extractArchiveAbsDestFunc(destDir)
 	if err != nil {
 		return fmt.Errorf("abs dest dir: %w", err)
 	}
-	tr := tar.NewReader(gz)
-	for {
-		hdr, nextErr := tr.Next()
-		if errors.Is(nextErr, io.EOF) {
-			break
-		}
-		if nextErr != nil {
-			return fmt.Errorf("tar next: %w", nextErr)
-		}
-		absTarget, ok, targetErr := safeArchiveTarget(absDest, hdr.Name)
-		if targetErr != nil {
-			return targetErr
-		}
-		if !ok {
-			continue
-		}
-
-		switch hdr.Typeflag {
-		case tar.TypeDir:
-			if mkdirErr := os.MkdirAll(absTarget, registryInstallDirPerm); mkdirErr != nil {
-				return fmt.Errorf("mkdir %s: %w", absTarget, mkdirErr)
-			}
-		case tar.TypeReg:
-			if extractErr := extractRegularFile(absTarget, hdr, tr); extractErr != nil {
-				return extractErr
-			}
-		}
+	if extractErr := targz.ExtractFile(archivePath, absDest, registryExtractOpts()); extractErr != nil {
+		return mapRegistryExtractError(extractErr)
 	}
 	return nil
+}
+
+func mapRegistryExtractError(err error) error {
+	msg := err.Error()
+	switch {
+	case strings.Contains(msg, "failed to open archive"):
+		return fmt.Errorf("open archive: %w", err)
+	case strings.Contains(msg, "failed to read gzip header"):
+		return fmt.Errorf("gzip reader: %w", err)
+	case strings.Contains(msg, "failed to read tar entry"):
+		return fmt.Errorf("tar next: %w", err)
+	default:
+		return err
+	}
 }
 
 func extractRegularFile(absTarget string, hdr *tar.Header, tr *tar.Reader) error {
@@ -113,7 +92,7 @@ func extractRegularFile(absTarget string, hdr *tar.Header, tr *tar.Reader) error
 			maxExtractFileSize,
 		)
 	}
-	return extractFile(absTarget, tr)
+	return targz.WriteEntry(tr, hdr, absTarget, registryExtractOpts())
 }
 
 func extractFile(target string, r io.Reader) (retErr error) {

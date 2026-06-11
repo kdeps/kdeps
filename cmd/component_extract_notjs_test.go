@@ -33,6 +33,8 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/kdeps/kdeps/v2/pkg/archive/targz"
 )
 
 func TestSafeKomponentTarget_Errors(t *testing.T) {
@@ -145,9 +147,9 @@ func TestWriteKomponentRegularFile_MkdirError_Final(t *testing.T) {
 }
 
 func TestCmdExtractTarGz_EntryError(t *testing.T) {
-	orig := cmdExtractTarEntryFunc
-	t.Cleanup(func() { cmdExtractTarEntryFunc = orig })
-	cmdExtractTarEntryFunc = func(_ *tar.Reader, _ *tar.Header, _ string) error {
+	orig := targz.ExtractTarHook
+	t.Cleanup(func() { targz.ExtractTarHook = orig })
+	targz.ExtractTarHook = func(_ *tar.Reader, _ string, _ targz.Options) error {
 		return errors.New("entry fail")
 	}
 	tmp := t.TempDir()
