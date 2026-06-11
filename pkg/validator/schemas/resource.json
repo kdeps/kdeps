@@ -459,9 +459,6 @@
     "apiResponse": {
       "$ref": "#/definitions/responseBlock"
     },
-    "apiServer": {
-      "$ref": "#/definitions/responseBlock"
-    },
     "agent": {
       "type": "object",
       "description": "Invoke another agent within the same agency",

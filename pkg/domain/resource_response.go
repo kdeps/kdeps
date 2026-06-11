@@ -20,54 +20,42 @@ package domain
 
 const resourceActionAPIResponse = "apiResponse"
 
-// HasResponseBlock reports whether the resource defines apiServer or apiResponse.
+// HasResponseBlock reports whether the resource defines apiResponse.
 func (r *Resource) HasResponseBlock() bool {
 	if r == nil {
 		return false
 	}
-	return r.APIServer != nil || r.APIResponse != nil
+	return r.APIResponse != nil
 }
 
-// ResponseBlock returns the configured HTTP response block, preferring apiServer.
+// ResponseBlock returns the configured HTTP response block.
 func (r *Resource) ResponseBlock() *APIResponseConfig {
 	if r == nil {
 		return nil
-	}
-	if r.APIServer != nil {
-		return r.APIServer
 	}
 	return r.APIResponse
 }
 
 // ResponseBlockEventName returns the telemetry label for the active response block.
 func (r *Resource) ResponseBlockEventName() string {
-	if r == nil {
+	if r == nil || r.APIResponse == nil {
 		return ""
 	}
-	if r.APIServer != nil {
-		return LLMExecutionTypeAPIServer
-	}
-	if r.APIResponse != nil {
-		return resourceActionAPIResponse
-	}
-	return ""
+	return resourceActionAPIResponse
 }
 
-// HasInlineResponseBlock reports whether the inline entry defines apiServer or apiResponse.
+// HasInlineResponseBlock reports whether the inline entry defines apiResponse.
 func (a *ActionConfig) HasInlineResponseBlock() bool {
 	if a == nil {
 		return false
 	}
-	return a.APIServer != nil || a.APIResponse != nil
+	return a.APIResponse != nil
 }
 
-// InlineResponseBlock returns the inline HTTP response block, preferring apiServer.
+// InlineResponseBlock returns the inline HTTP response block.
 func (a *ActionConfig) InlineResponseBlock() *APIResponseConfig {
 	if a == nil {
 		return nil
-	}
-	if a.APIServer != nil {
-		return a.APIServer
 	}
 	return a.APIResponse
 }

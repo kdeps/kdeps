@@ -33,7 +33,7 @@ func PrimaryResourceTypes() []PrimaryResourceType {
 }
 
 // CountPrimaryResourceTypes returns how many mutually-exclusive primary execution blocks
-// are set on a resource. Response blocks (apiServer, apiResponse) are excluded because
+// are set on a resource. Response blocks (apiResponse) are excluded because
 // they combine with any other primary type.
 func CountPrimaryResourceTypes(resource *Resource) int {
 	n := 0
@@ -80,8 +80,7 @@ func IsPrimaryResourceTypeName(name string) bool {
 
 // IsRecognizedResourceActionKey reports whether name is a primary execution key or response block.
 func IsRecognizedResourceActionKey(name string) bool {
-	return name == LLMExecutionTypeAPIServer || name == resourceActionAPIResponse ||
-		IsPrimaryResourceTypeName(name)
+	return name == resourceActionAPIResponse || IsPrimaryResourceTypeName(name)
 }
 
 // PrimaryResourceEventName returns the event/telemetry label for the resource's execution type.

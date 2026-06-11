@@ -35,8 +35,8 @@ func (e *Engine) executeExpressions(exprs []domain.Expression, ctx *ExecutionCon
 			return fmt.Errorf("failed to parse expression: %w", err)
 		}
 
-		if err := e.ensureResponseEvaluator(ctx); err != nil {
-			return err
+		if evalInitErr := e.ensureResponseEvaluator(ctx); evalInitErr != nil {
+			return evalInitErr
 		}
 
 		env := e.buildEvaluationEnvironment(ctx)
@@ -142,9 +142,6 @@ func inlineResourceDispatch() []inlineDispatchEntry {
 		"botReply": func(e *Engine, inline *domain.InlineResource, index int, ctx *ExecutionContext) (interface{}, error) {
 			return e.executeBotReply(inlineSyntheticResource(inline, index), ctx)
 		},
-		"apiServer": func(e *Engine, inline *domain.InlineResource, index int, ctx *ExecutionContext) (interface{}, error) {
-			return e.executeAPIResponse(inlineSyntheticResource(inline, index), ctx)
-		},
 		"apiResponse": func(e *Engine, inline *domain.InlineResource, index int, ctx *ExecutionContext) (interface{}, error) {
 			return e.executeAPIResponse(inlineSyntheticResource(inline, index), ctx)
 		},
@@ -181,7 +178,6 @@ func inlineSyntheticResource(inline *domain.InlineResource, index int) *domain.R
 		Email:       inline.Email,
 		BotReply:    inline.BotReply,
 		APIResponse: inline.APIResponse,
-		APIServer:   inline.APIServer,
 	}
 }
 

@@ -82,15 +82,3 @@ func TestExecuteSingleInlineResource_APIResponse(t *testing.T) {
 	}, 0, ctx)
 	require.NoError(t, err)
 }
-
-func TestExecuteSingleInlineResource_APIServer(t *testing.T) {
-	e := covTestEngine()
-	ctx, err := NewExecutionContext(&domain.Workflow{})
-	require.NoError(t, err)
-	e.SetEvaluatorForTesting(expression.NewEvaluator(ctx.API))
-
-	_, err = e.executeSingleInlineResource(domain.InlineResource{
-		APIServer: &domain.APIResponseConfig{Success: true, Response: "ok"},
-	}, 0, ctx)
-	require.NoError(t, err)
-}
