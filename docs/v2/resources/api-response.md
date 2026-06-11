@@ -34,6 +34,7 @@ apiResponse:
       key: value
   headers:
     Header-Name: value
+  statusCode: 200              # HTTP status code (optional)
   model: llama3.2:1b
   backend: ollama
 ```

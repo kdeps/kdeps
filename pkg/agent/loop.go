@@ -13,7 +13,8 @@
 // limitations under the License.
 
 // Package agent implements the kdeps agent loop: a stateless LLM-driven execution
-// mode where every workflow resource, component, and agency is a callable tool.
+// mode where every workflow, component, and agency is a callable tool. Workflows
+// run as a whole pipeline per call; individual resources are never exposed.
 package agent
 
 import (

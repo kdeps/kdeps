@@ -50,6 +50,8 @@ sql: { ... }         # run a SQL query; output is the row set
 python: { ... }      # run a Python script; output is its stdout (parsed as JSON)
 exec: { ... }        # run a shell command; output is its stdout
 email: { ... }       # send SMTP email or read/search/modify IMAP messages
+telephony: { ... }   # in-call action (say, ask, menu, ...); output is TwiML
+botReply: { ... }    # reply to the bot platform that delivered the message
 agent: { ... }       # run another agent's full workflow; output is its apiResponse
 apiResponse: { ... } # build the HTTP response returned to the caller
 component:           # call an installable registry component
@@ -78,6 +80,8 @@ These executors are compiled into the `kdeps` binary and require no installation
 | `searchWeb` | Web search | DuckDuckGo (default), Brave, Bing, Tavily |
 | `browser` | Browser automation | Playwright-based navigation, screenshots, JS eval |
 | `email` | Email send/receive | SMTP send, IMAP read/search/modify |
+| `telephony` | Voice call handling | TwiML actions (say, ask, menu, dial, record) for Twilio-compatible providers |
+| `botReply` | Bot platform reply | Send a text reply to the platform that delivered the current message |
 | `agent` | Inter-agent delegation | Call another agent in an [agency](/reference/glossary#agency) |
 | `apiResponse` | API response | Return data to the HTTP caller |
 
