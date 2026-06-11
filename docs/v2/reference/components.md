@@ -5,13 +5,14 @@ Full schema, lifecycle, and packaging reference for kdeps components. For an int
 ## component.yaml Reference
 
 ```yaml
-# workflow.yaml
+# component.yaml
 apiVersion: kdeps.io/v1
 kind: Component
-name: greeter                # Required: component name
-description: "A greeting component"
-version: "1.0.0"
-targetActionId: greet        # Optional: default action to invoke
+metadata:
+  name: greeter              # Required: component name
+  description: "A greeting component"
+  version: "1.0.0"
+  targetActionId: greet      # Optional: default action to invoke
 interface:
   inputs:
     - name: message            # Required: input parameter name
@@ -20,8 +21,8 @@ interface:
       description: "Message to greet with"
       default: "Hello"         # Optional: default value if not required
 resources:
-  - apiVersion: kdeps.io/v1
-    actionId: greet
+  - actionId: greet
+    name: Greet
     # ... resource definition
 ```
 
@@ -31,9 +32,10 @@ resources:
 |---|---|---|---|
 | `apiVersion` | string | yes | Must be `kdeps.io/v1` |
 | `kind` | string | yes | Must be `Component` |
-| `name` | string | yes | Unique component name within the workflow |
-| `version` | string | no | Component version for packaging |
-| [`targetActionId`](/reference/glossary#targetactionid) | string | no | Default resource [`actionId`](/reference/glossary#actionid) when component is invoked |
+| `metadata.name` | string | yes | Unique component name within the workflow |
+| `metadata.description` | string | no | Human-readable description |
+| `metadata.version` | string | no | Component version for packaging |
+| [`metadata.targetActionId`](/reference/glossary#targetactionid) | string | no | Default resource [`actionId`](/reference/glossary#actionid) when component is invoked |
 | `setup.pythonPackages` | `[]string` | no | Python packages installed via `uv pip install` |
 | `setup.osPackages` | `[]string` | no | OS packages installed via system package manager |
 | `setup.commands` | `[]string` | no | Shell commands run after package installs |
@@ -101,15 +103,15 @@ interface:
       default: 0.7
 ```
 
-Inside component resources, reference inputs:
+Inside component resources, reference inputs with `input()`:
 
 ```yaml
-# resources/example.yaml
+# component.yaml
 resources:
-  - apiVersion: kdeps.io/v1
-    actionId: greet
+  - actionId: greet
+    name: Greet
     chat:
-      prompt: "{{ inputs.message }}"
+      prompt: "{{ input('message') }}"
 ```
 
 ## Input Validation
@@ -140,14 +142,18 @@ After `component:` executes, results are stored under the caller resource's `act
 ```yaml
 # resources/fetch.yaml
 actionId: fetch-article
+name: Fetch Article
 component:
   name: scraper
   with:
     url: "https://example.com/article"
     selector: ".content"
+```
 
----
+```yaml
+# resources/summarize.yaml
 actionId: summarize
+name: Summarize
 requires: [fetch-article]
 chat:
   prompt: "Summarize: {{ output('fetch-article').content }}"
@@ -162,14 +168,19 @@ Inputs are scoped to the caller's `actionId`, so the same component works with d
 <div v-pre>
 
 ```yaml
-# resources/fetch.yaml
+# resources/fetch-jd.yaml
 actionId: fetch-jd
+name: Fetch Job Description
 component:
   name: scraper
   with:
     url: "{{ get('jd_url') }}"
+```
 
+```yaml
+# resources/fetch-company.yaml
 actionId: fetch-company
+name: Fetch Company Page
 component:
   name: scraper
   with:
@@ -356,12 +367,13 @@ apiResponse:
 <div v-pre>
 
 ```yaml
-# workflow.yaml
+# components/greeter/component.yaml
 apiVersion: kdeps.io/v1
 kind: Component
-name: greeter
-version: "1.0.0"
-targetActionId: greet
+metadata:
+  name: greeter
+  version: "1.0.0"
+  targetActionId: greet
 interface:
   inputs:
     - name: message
@@ -373,10 +385,10 @@ interface:
       required: false
       default: "World"
 resources:
-  - apiVersion: kdeps.io/v1
-    actionId: greet
+  - actionId: greet
+    name: Greet
     exec:
-      command: "echo '{{ inputs.message }}, {{ inputs.recipient }}!'"
+      command: "echo '{{ input('message') }}, {{ input('recipient') }}!'"
 ```
 
 </div>
@@ -386,6 +398,7 @@ resources:
 ```yaml
 # resources/main.yaml
 actionId: main
+name: Call Greeter
 component:
   name: greeter
   with:

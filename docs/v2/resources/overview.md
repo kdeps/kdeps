@@ -10,8 +10,8 @@ All resource types work in both [workflow mode](/modes/workflow-mode) and [agent
 
 ```yaml
 # resources/my-resource.yaml
-actionId: myResource        # unique ID -- used by requires: and get()
-name: My Resource           # human-readable label (optional)
+actionId: myResource        # required: unique ID -- used by requires: and get()
+name: My Resource           # required: human-readable label
 description: What it does   # optional
 category: api               # optional grouping label
 
@@ -42,7 +42,8 @@ before:                 # runs before the action; use to prepare values
 after:                  # runs after the action; use to process output
   - set('post', 'value')
 
-# Exactly one action per resource:
+# Exactly one primary action per resource (apiResponse: may accompany it
+# on the same resource to format the HTTP response):
 chat: { ... }        # send a prompt to an LLM; output is the model response
 httpClient: { ... }  # make an HTTP request; output is the parsed response body
 sql: { ... }         # run a SQL query; output is the row set
@@ -99,11 +100,15 @@ See the [Components guide](../concepts/components) for installation and usage de
 ```yaml
 # resources/llm.yaml
 actionId: llm
+name: LLM Chat
 chat:
   prompt: "{{ get('q') }}"
+```
 
----
+```yaml
+# resources/response.yaml
 actionId: response
+name: API Response
 requires: [llm]          # response will not run until llm is done
 apiResponse:
   response:
