@@ -72,3 +72,37 @@ func TestDockerVersionsIntegration_GenerateDockerfilePins(t *testing.T) {
 	assert.Contains(t, dockerfile, strings.Join([]string{"-b", "/usr/local/bin", "v1.9.0"}, " "))
 	assert.Contains(t, dockerfile, "ghcr.io/astral-sh/uv:0.5.0")
 }
+
+func TestDockerVersionsIntegration_RocmOllamaTag(t *testing.T) {
+	installOllama := true
+	builder, err := docker.NewBuilderWithOS("ubuntu")
+	require.NoError(t, err)
+	builder.GPUType = "rocm"
+
+	workflow := &domain.Workflow{
+		Metadata: domain.WorkflowMetadata{Name: "rocm", Version: "1.0.0"},
+		Settings: domain.WorkflowSettings{
+			AgentSettings: domain.AgentSettings{InstallOllama: &installOllama},
+		},
+	}
+
+	dockerfile, genErr := builder.GenerateDockerfile(workflow)
+	require.NoError(t, genErr)
+	assert.Contains(t, dockerfile, "FROM ollama/ollama:rocm")
+}
+
+func TestDockerVersionsIntegration_RejectDebianBaseOS(t *testing.T) {
+	builder, err := docker.NewBuilderWithOS("alpine")
+	require.NoError(t, err)
+
+	workflow := &domain.Workflow{
+		Metadata: domain.WorkflowMetadata{Name: "bad-os", Version: "1.0.0"},
+		Settings: domain.WorkflowSettings{
+			AgentSettings: domain.AgentSettings{BaseOS: "debian"},
+		},
+	}
+
+	_, genErr := builder.GenerateDockerfile(workflow)
+	require.Error(t, genErr)
+	assert.Contains(t, genErr.Error(), "invalid baseOS")
+}

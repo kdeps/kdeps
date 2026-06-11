@@ -88,10 +88,10 @@ func (b *Builder) buildTemplateData(workflow *domain.Workflow) (*DockerfileData,
 		return nil, err
 	}
 	kdepsRef := kdepsInstallerRef(resolved.Kdeps)
-	ollamaTag := resolved.Ollama
+	ollamaTag := ResolveOllamaImageTag(b.GPUType, resolved.Ollama)
 	uvTag := resolved.UV
 
-	backendInstall, err := b.renderBackendInstall(installOllama, ollamaTag)
+	backendInstall, err := b.renderBackendInstall(installOllama)
 	if err != nil {
 		return nil, err
 	}
@@ -155,6 +155,24 @@ func isValidDockerEnvKey(key string) bool {
 	return true
 }
 
+func (b *Builder) applyImageProfile(workflow *domain.Workflow) error {
+	baseOS, err := domain.ResolveDockerBaseOS(workflow, b.GPUType, b.BaseOS)
+	if err != nil {
+		return err
+	}
+	b.BaseOS = baseOS
+	return nil
+}
+
+// ResolveOllamaImageTag maps GPU type and resolved semver to a Docker image tag.
+// AMD ROCm uses the official fixed :rocm variant per ollama/ollama docs.
+func ResolveOllamaImageTag(gpuType, semverTag string) string {
+	if gpuType == "rocm" {
+		return "rocm"
+	}
+	return semverTag
+}
+
 func resolveBaseImage(baseOS string, installOllama bool, ollamaTag string) string {
 	if installOllama {
 		if baseOS == baseOSAlpine {
@@ -163,27 +181,17 @@ func resolveBaseImage(baseOS string, installOllama bool, ollamaTag string) strin
 		return "ollama/ollama:" + ollamaTag
 	}
 
-	switch baseOS {
-	case baseOSUbuntu:
+	if baseOS == baseOSUbuntu {
 		return "ubuntu:latest"
-	case baseOSDebian:
-		return "debian:latest"
-	default:
-		return "alpine:latest"
 	}
+	return "alpine:latest"
 }
 
-func (b *Builder) renderBackendInstall(installOllama bool, ollamaTag string) (string, error) {
+func (b *Builder) renderBackendInstall(installOllama bool) (string, error) {
 	backendData := struct {
-		InstallOllama  bool
-		OS             string
-		GPUType        string
-		OllamaImageTag string
+		InstallOllama bool
 	}{
-		InstallOllama:  installOllama,
-		OS:             b.BaseOS,
-		GPUType:        b.GPUType,
-		OllamaImageTag: ollamaTag,
+		InstallOllama: installOllama,
 	}
 
 	out, err := texttmpl.Render("backend-install", backendInstallTemplate, backendData)

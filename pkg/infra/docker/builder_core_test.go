@@ -110,7 +110,7 @@ func TestBuilder_Build_GenerateDockerfileError(t *testing.T) {
 
 	_, err := builder.Build(workflow, "output.tar", false)
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "failed to generate Dockerfile")
+	assert.Contains(t, err.Error(), "invalid baseOS")
 }
 
 // TestBuilder_GenerateDockerfile_WebServerCustomPort covers the custom port path
@@ -630,7 +630,7 @@ func TestNewBuilderWithOS_ValidOS(t *testing.T) {
 	}{
 		{"alpine", "alpine", true},
 		{"ubuntu", "ubuntu", true},
-		{"debian", "debian", true},
+		{"debian-removed", "debian", false},
 		{"invalid-fedora", "fedora", false},
 		{"invalid-centos", "centos", false},
 		{"empty", "", false},
@@ -1677,7 +1677,7 @@ func TestBuilder_TemplateFunctions_ErrorCases(t *testing.T) {
 
 	_, err := invalidBuilder.GenerateDockerfile(workflow)
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "unsupported base OS")
+	assert.Contains(t, err.Error(), "invalid base OS")
 }
 
 // TestBuilder_GenerateDockerfile_PrepackagedBothArches verifies that when both
@@ -1878,45 +1878,6 @@ func TestBuilder_addPrepackagedBinariesToContext_ReadError(t *testing.T) {
 	_, err := builder.CreateBuildContext(wf, "FROM alpine\n")
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "amd64")
-}
-
-// TestBuilder_GenerateDockerfile_debian verifies that the debian base OS produces
-// a valid Dockerfile with the correct base image.
-func TestBuilder_GenerateDockerfile_debian(t *testing.T) {
-	builder := &docker.Builder{BaseOS: "debian"}
-
-	workflow := &domain.Workflow{
-		Metadata: domain.WorkflowMetadata{Name: "test", Version: "1.0.0"},
-		Settings: domain.WorkflowSettings{
-			AgentSettings: domain.AgentSettings{PythonVersion: "3.12"},
-		},
-	}
-
-	dockerfile, err := builder.GenerateDockerfile(workflow)
-	require.NoError(t, err)
-	assert.Contains(t, dockerfile, "FROM debian:latest")
-}
-
-// TestBuilder_GenerateDockerfile_debianWithOllama verifies that debian + Ollama
-// uses the official Ollama image (not debian:latest).
-func TestBuilder_GenerateDockerfile_debianWithOllama(t *testing.T) {
-	installOllama := true
-	builder := &docker.Builder{BaseOS: "debian"}
-
-	workflow := &domain.Workflow{
-		Metadata: domain.WorkflowMetadata{Name: "test", Version: "1.0.0"},
-		Settings: domain.WorkflowSettings{
-			AgentSettings: domain.AgentSettings{
-				PythonVersion: "3.12",
-				InstallOllama: &installOllama,
-			},
-		},
-	}
-
-	dockerfile, err := builder.GenerateDockerfile(workflow)
-	require.NoError(t, err)
-	// debian + ollama falls back to the Ollama official (ubuntu-based) image.
-	assert.Contains(t, dockerfile, "FROM ollama/ollama:0.5.0")
 }
 
 // TestBuilder_buildTemplateData_resourcesDataDir verifies that has_resources and
@@ -2158,23 +2119,6 @@ func TestBuilder_ShouldInstallUV_NoPython(t *testing.T) {
 	require.NoError(t, err)
 	// uv should not be mentioned in installation block when no Python usage
 	assert.NotContains(t, dockerfile, "uv pip")
-}
-
-func TestBuilder_GenerateDockerfile_DebianBase(t *testing.T) {
-	builder := &docker.Builder{BaseOS: "debian"}
-
-	workflow := &domain.Workflow{
-		Metadata: domain.WorkflowMetadata{Name: "debian-app", Version: "1.0.0"},
-		Settings: domain.WorkflowSettings{
-			AgentSettings: domain.AgentSettings{
-				PythonVersion: "3.12",
-			},
-		},
-	}
-
-	dockerfile, err := builder.GenerateDockerfile(workflow)
-	require.NoError(t, err)
-	assert.Contains(t, dockerfile, "debian:latest")
 }
 
 func TestBuilder_GenerateDockerfile_UbuntuBase(t *testing.T) {

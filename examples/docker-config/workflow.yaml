@@ -19,8 +19,8 @@ settings:
     timezone: "UTC"
     pythonVersion: "3.12"
 
-    # Base OS for Docker build (alpine, ubuntu, or debian)
-    # Can be overridden with: kdeps build --os ubuntu
+    # Base OS for Docker build (alpine or ubuntu)
+    # --gpu forces ubuntu; otherwise workflow baseOS wins over CLI default
     baseOS: "alpine"
 
     # Install Ollama for local LLM support
@@ -34,7 +34,7 @@ settings:
 
     # OS-level packages to install
     # For alpine: apk packages
-    # For ubuntu/debian: apt packages
+    # For ubuntu: apt packages
     osPackages:
       - git
       - vim

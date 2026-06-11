@@ -149,7 +149,7 @@ settings:
       - requests
     osPackages:
       - ffmpeg
-    baseOS: alpine               # alpine (default), ubuntu, debian
+    baseOS: alpine               # alpine (default) or ubuntu
     installOllama: true          # install Ollama in Docker image
     env:
       API_KEY: "value"           # environment variables available to all resources

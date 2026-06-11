@@ -36,11 +36,8 @@ func ResolveInstallOllama(workflow *Workflow) bool {
 		return *workflow.Settings.AgentSettings.InstallOllama
 	}
 
-	if hasChatResources(workflow) {
-		backend := os.Getenv("KDEPS_DEFAULT_BACKEND")
-		if backend == "" || backend == backendOllama {
-			return true
-		}
+	if NeedsOllamaAtRuntime(workflow) {
+		return true
 	}
 
 	if routerJSON := os.Getenv("KDEPS_LLM_ROUTER"); routerJSON != "" &&
