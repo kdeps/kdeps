@@ -43,6 +43,29 @@ func TestRenderWorkflowTemplate_BuildTemplateDataError(t *testing.T) {
 	assert.Contains(t, err.Error(), "failed to build template data")
 }
 
+func TestInstallerRef(t *testing.T) {
+	t.Parallel()
+	assert.Equal(t, "v2.1.0", installerRef("2.1.0"))
+	assert.Equal(t, "main", installerRef("2.0.0-dev"))
+	assert.Equal(t, "main", installerRef("dev"))
+	assert.Equal(t, "main", installerRef(""))
+}
+
+func TestDockerfileTemplate_PinnedInstallerRef(t *testing.T) {
+	t.Parallel()
+	tmpl, err := resolveDockerfileTemplate("alpine")
+	require.NoError(t, err)
+
+	out, err := renderTemplate("dockerfile", tmpl, &DockerfileData{
+		BaseImage:    "alpine:latest",
+		InstallerRef: "v9.9.9",
+	})
+	require.NoError(t, err)
+	// Released CLIs pin both the install script ref and the binary tag.
+	assert.Contains(t, out, "kdeps/kdeps/v9.9.9/install.sh")
+	assert.Contains(t, out, "-b /usr/local/bin v9.9.9")
+}
+
 func TestRenderBackendInstall_ParseAndExecuteErrors(t *testing.T) {
 	orig := backendInstallTemplate
 	t.Cleanup(func() { backendInstallTemplate = orig })
