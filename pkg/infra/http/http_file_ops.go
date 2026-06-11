@@ -51,11 +51,6 @@ func pathExists(path string) bool {
 	return !isNotExistErr(err)
 }
 
-func fileExists(path string) bool {
-	_, err := os.Stat(path)
-	return err == nil
-}
-
 func removeFileSilent(path string) {
 	_ = os.Remove(path)
 }

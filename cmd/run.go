@@ -37,12 +37,6 @@ const (
 	maxPortScanRange = 100
 	// maxPort is the highest valid TCP port number.
 	maxPort = 65535
-
-	agencyFile       = "agency.yaml"
-	agencyYAMLJ2File = "agency.yaml.j2"
-	agencyYMLFile    = "agency.yml"
-	agencyYMLJ2File  = "agency.yml.j2"
-	agencyJ2File     = "agency.j2"
 )
 
 // RunFlags holds the flags for the run command.

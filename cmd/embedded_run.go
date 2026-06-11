@@ -29,6 +29,7 @@ import (
 
 	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
 	kdepslog "github.com/kdeps/kdeps/v2/pkg/log"
+	"github.com/kdeps/kdeps/v2/pkg/manifest"
 )
 
 // RunEmbeddedPackage streams the embedded .kdeps/.kagency package directly from
@@ -107,7 +108,7 @@ func detectEmbeddedArchiveType(f *os.File, offset int64) string {
 			break
 		}
 		base := filepath.Base(hdr.Name)
-		if base == agencyFile || base == agencyYMLFile {
+		if manifest.IsAgencyFile(base) {
 			return kagencyExtension
 		}
 	}

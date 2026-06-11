@@ -30,18 +30,14 @@ import (
 	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
 	"github.com/kdeps/kdeps/v2/pkg/domain"
 	kdepslog "github.com/kdeps/kdeps/v2/pkg/log"
+	"github.com/kdeps/kdeps/v2/pkg/manifest"
 	"github.com/kdeps/kdeps/v2/pkg/templates"
 )
 
 // isAgencyFile reports whether path points to an agency file based on its base name.
 func isAgencyFile(path string) bool {
 	kdeps_debug.Log("enter: isAgencyFile")
-	base := filepath.Base(path)
-	return base == agencyFile ||
-		base == agencyYMLFile ||
-		base == agencyYAMLJ2File ||
-		base == agencyYMLJ2File ||
-		base == agencyJ2File
+	return manifest.IsAgencyFile(path)
 }
 
 // preprocessProjectDir renders all .j2 templates in a project directory.
