@@ -165,6 +165,26 @@ func TestResolvePackageVersions_LatestFetchError(t *testing.T) {
 	assert.Contains(t, err.Error(), "resolve latest versions.kdeps")
 }
 
+func TestValidatePinnedVersion_NightlyTag(t *testing.T) {
+	t.Parallel()
+	require.NoError(t, validatePinnedVersion("kdeps", "2.0.5-nightly202606110328"))
+	require.NoError(t, validatePinnedVersion("kdeps", "v2.0.4"))
+}
+
+func TestResolvePackageVersions_LatestNightlyTag(t *testing.T) {
+	t.Parallel()
+
+	orig := latestReleaseTagFunc
+	t.Cleanup(func() { latestReleaseTagFunc = orig })
+	latestReleaseTagFunc = func(context.Context, string) (string, error) {
+		return "2.0.5-nightly202606110328", nil
+	}
+
+	got, err := resolvePackageVersions(context.Background(), &domain.PackageVersions{Kdeps: "latest"})
+	require.NoError(t, err)
+	assert.Equal(t, "2.0.5-nightly202606110328", got.Kdeps)
+}
+
 func TestKdepsInstallerRef(t *testing.T) {
 	t.Parallel()
 	assert.Equal(t, "v2.0.0", kdepsInstallerRef("2.0.0"))

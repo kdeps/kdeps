@@ -42,7 +42,7 @@ var releaseVersionRe = regexp.MustCompile(`^[0-9]+\.[0-9]+\.[0-9]+$`)
 // pinnedVersionRe matches user-supplied package pins: "latest" or a semver
 // with optional leading v. Anything else is rejected before it can reach a
 // generated Dockerfile.
-var pinnedVersionRe = regexp.MustCompile(`^(latest|v?[0-9]+\.[0-9]+\.[0-9]+)$`)
+var pinnedVersionRe = regexp.MustCompile(`^(latest|v?[0-9]+\.[0-9]+\.[0-9]+([.-][a-zA-Z0-9]+)*)$`)
 
 // installerRef returns the kdeps repo ref Dockerfiles fetch install.sh from:
 // the matching release tag for released CLIs (script and binary both pinned),

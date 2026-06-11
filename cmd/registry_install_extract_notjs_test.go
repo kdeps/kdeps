@@ -24,6 +24,7 @@ import (
 	"archive/tar"
 	"bytes"
 	"compress/gzip"
+	"io"
 	"os"
 	"path/filepath"
 	"testing"
@@ -127,6 +128,17 @@ func TestExtractRegularFile_HeaderOversized(t *testing.T) {
 		tar.NewReader(bytes.NewReader([]byte("x"))),
 	)
 	require.Error(t, err)
+}
+
+func TestExtractFileRegistry_CopyAtLimit(t *testing.T) {
+	orig := extractFileIOCopyFunc
+	t.Cleanup(func() { extractFileIOCopyFunc = orig })
+	extractFileIOCopyFunc = func(_ io.Writer, _ io.Reader) (int64, error) {
+		return maxExtractFileSize, nil
+	}
+	err := extractFile(filepath.Join(t.TempDir(), "f.txt"), bytes.NewReader([]byte("x")))
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "exceeds maximum allowed size")
 }
 
 func TestExtractRegularFile_Success(t *testing.T) {
