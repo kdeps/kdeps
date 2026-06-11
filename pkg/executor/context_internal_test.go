@@ -21,6 +21,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/kdeps/kdeps/v2/pkg/domain"
+	"github.com/kdeps/kdeps/v2/pkg/namespace"
 )
 
 func TestBuildEvaluatorEnv_Basic(t *testing.T) {
@@ -96,13 +97,13 @@ func TestBuildEvaluatorEnv_PythonStdout(t *testing.T) {
 }
 
 func TestIsNamespacedPath(t *testing.T) {
-	assert.True(t, isNamespacedPath("config.llm.provider"))
-	assert.True(t, isNamespacedPath("workflow.settings"))
-	assert.True(t, isNamespacedPath("resource.myRes.field"))
-	assert.True(t, isNamespacedPath("component.myComp.key"))
-	assert.True(t, isNamespacedPath("agency.myAgency.key"))
-	assert.False(t, isNamespacedPath("plain"))
-	assert.False(t, isNamespacedPath(""))
+	assert.True(t, namespace.IsNamespacedPath("config.llm.provider"))
+	assert.True(t, namespace.IsNamespacedPath("workflow.settings"))
+	assert.True(t, namespace.IsNamespacedPath("resource.myRes.field"))
+	assert.True(t, namespace.IsNamespacedPath("component.myComp.key"))
+	assert.True(t, namespace.IsNamespacedPath("agency.myAgency.key"))
+	assert.False(t, namespace.IsNamespacedPath("plain"))
+	assert.False(t, namespace.IsNamespacedPath(""))
 }
 
 func TestGetConfigField_InvalidPath(t *testing.T) {

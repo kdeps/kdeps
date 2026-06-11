@@ -21,58 +21,38 @@ package executor
 import (
 	"errors"
 	"fmt"
-	"strings"
-
-	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
 
 	"github.com/kdeps/kdeps/v2/pkg/config"
+	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
+	"github.com/kdeps/kdeps/v2/pkg/namespace"
 	"github.com/kdeps/kdeps/v2/pkg/utils/dotpath"
 )
-
-// isNamespacedPath reports whether name starts with a known config namespace prefix.
-func isNamespacedPath(name string) bool {
-	for _, ns := range []string{nsConfig, nsWorkflow, nsResource, nsComponent, nsAgency} {
-		if strings.HasPrefix(name, ns+".") {
-			return true
-		}
-	}
-	return false
-}
-
-// splitConfigPath splits a full dot-path into its namespace and remainder.
-func splitConfigPath(fullPath string) (string, string, error) {
-	ns, rest, hasDot := strings.Cut(fullPath, ".")
-	if !hasDot || rest == "" {
-		return "", "", fmt.Errorf("invalid config path: %q", fullPath)
-	}
-	return ns, rest, nil
-}
 
 // GetConfigField retrieves a value from a config namespace by full dot-path.
 // The first segment of fullPath is the namespace ("config", "workflow", "resource",
 // "component", "agency"); the remainder is the dot-path within that namespace.
 func (ctx *ExecutionContext) GetConfigField(fullPath string) (any, error) {
 	kdeps_debug.Log("enter: GetConfigField")
-	ns, rest, err := splitConfigPath(fullPath)
+	ns, rest, err := namespace.SplitPath(fullPath)
 	if err != nil {
 		return nil, err
 	}
 	switch ns {
-	case nsConfig:
+	case namespace.Config:
 		if ctx.Config == nil {
 			return nil, errors.New("config not loaded")
 		}
 		return ctx.Config.GetField(rest)
-	case nsWorkflow:
+	case namespace.Workflow:
 		if ctx.Workflow == nil {
 			return nil, errors.New("workflow not loaded")
 		}
 		return dotpath.Get(ctx.Workflow, rest)
-	case nsResource:
+	case namespace.Resource:
 		return ctx.getConfigFieldResource(rest)
-	case nsComponent:
+	case namespace.Component:
 		return ctx.getConfigFieldComponent(rest)
-	case nsAgency:
+	case namespace.Agency:
 		if ctx.Agency == nil {
 			return nil, errors.New("agency not loaded")
 		}
@@ -86,26 +66,26 @@ func (ctx *ExecutionContext) GetConfigField(fullPath string) (any, error) {
 // For "config.*" paths the corresponding env var is also updated.
 func (ctx *ExecutionContext) SetConfigField(fullPath string, value any) error {
 	kdeps_debug.Log("enter: SetConfigField")
-	ns, rest, err := splitConfigPath(fullPath)
+	ns, rest, err := namespace.SplitPath(fullPath)
 	if err != nil {
 		return err
 	}
 	switch ns {
-	case nsConfig:
+	case namespace.Config:
 		if ctx.Config == nil {
 			ctx.Config = &config.Config{}
 		}
 		return ctx.Config.SetField(rest, value)
-	case nsWorkflow:
+	case namespace.Workflow:
 		if ctx.Workflow == nil {
 			return errors.New("workflow not loaded")
 		}
 		return dotpath.Set(ctx.Workflow, rest, value)
-	case nsResource:
+	case namespace.Resource:
 		return ctx.setConfigFieldResource(rest, value)
-	case nsComponent:
+	case namespace.Component:
 		return ctx.setConfigFieldComponent(rest, value)
-	case nsAgency:
+	case namespace.Agency:
 		if ctx.Agency == nil {
 			return errors.New("agency not loaded")
 		}
@@ -118,27 +98,27 @@ func (ctx *ExecutionContext) SetConfigField(fullPath string, value any) error {
 // ConfigNamespace returns a map[string]any snapshot of a named namespace for
 // direct property access in the expression evaluator environment.
 // For "resource" it returns map[actionId → map], for "component" map[name → map].
-func (ctx *ExecutionContext) ConfigNamespace(namespace string) map[string]any {
+func (ctx *ExecutionContext) ConfigNamespace(namespaceName string) map[string]any {
 	kdeps_debug.Log("enter: ConfigNamespace")
-	switch namespace {
-	case nsConfig:
+	switch namespaceName {
+	case namespace.Config:
 		if ctx.Config == nil {
 			return nil
 		}
 		return ctx.Config.ToMap()
-	case nsWorkflow:
+	case namespace.Workflow:
 		if ctx.Workflow == nil {
 			return nil
 		}
 		return dotpath.StructToMap(ctx.Workflow)
-	case nsResource:
+	case namespace.Resource:
 		return structMapsOf(ctx.Resources)
-	case nsComponent:
+	case namespace.Component:
 		if ctx.Workflow == nil {
 			return nil
 		}
 		return structMapsOf(ctx.Workflow.Components)
-	case nsAgency:
+	case namespace.Agency:
 		if ctx.Agency == nil {
 			return nil
 		}

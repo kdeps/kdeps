@@ -24,6 +24,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/kdeps/kdeps/v2/pkg/domain"
+	"github.com/kdeps/kdeps/v2/pkg/namespace"
 	"github.com/kdeps/kdeps/v2/pkg/parser/expression"
 )
 
@@ -65,11 +66,11 @@ func makeNamespaceAPI() *domain.UnifiedAPI {
 			}
 			return errors.New("not found: " + fullPath)
 		},
-		ConfigNamespace: func(namespace string) map[string]any {
-			switch namespace {
-			case "config":
+		ConfigNamespace: func(ns string) map[string]any {
+			switch ns {
+			case namespace.Config:
 				return configMap
-			case "workflow":
+			case namespace.Workflow:
 				return workflowMap
 			default:
 				return nil
