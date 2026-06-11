@@ -186,6 +186,28 @@ settings:
       - ppa:alex-p/tesseract-ocr-devel
 ```
 
+## Package Version Pinning
+
+Pin the packages kdeps copies into generated Docker images. Each field accepts `latest` or a semver like `v1.2.3` / `1.2.3`.
+
+```yaml
+# workflow.yaml
+settings:
+  agentSettings:
+    versions:
+      kdeps: v2.0.0    # install.sh ref + binary tag; default: building CLI version (or latest on dev builds)
+      ollama: 0.5.4    # Ollama image tag; default: latest
+      uv: 0.6.3        # uv image tag; default: latest
+```
+
+Preview the pins in the generated Dockerfile:
+
+```bash
+kdeps bundle build myagent-1.0.0.kdeps --show-dockerfile
+```
+
+Invalid pins are rejected at Dockerfile generation time before `docker build` runs.
+
 ## Environment Variables
 
 ### Build-time Args

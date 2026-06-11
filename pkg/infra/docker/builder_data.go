@@ -37,6 +37,11 @@ import (
 // builds like 2.0.0-dev do not match.
 var releaseVersionRe = regexp.MustCompile(`^[0-9]+\.[0-9]+\.[0-9]+$`)
 
+// pinnedVersionRe matches user-supplied package pins: "latest" or a semver
+// with optional leading v. Anything else is rejected before it can reach a
+// generated Dockerfile.
+var pinnedVersionRe = regexp.MustCompile(`^(latest|v?[0-9]+\.[0-9]+\.[0-9]+)$`)
+
 // installerRef returns the kdeps repo ref Dockerfiles fetch install.sh from:
 // the matching release tag for released CLIs (script and binary both pinned),
 // or main for dev builds where no tag exists.
@@ -47,16 +52,46 @@ func installerRef(v string) string {
 	return "main"
 }
 
+// resolveKdepsInstallerRef applies an explicit agentSettings.versions.kdeps
+// pin on top of the default: "latest" maps to main (install the newest
+// release), a semver maps to its tag (script and binary pinned together).
+func resolveKdepsInstallerRef(pin string) (string, error) {
+	if pin == "" {
+		return installerRef(version.Version), nil
+	}
+	if err := validatePinnedVersion("kdeps", pin); err != nil {
+		return "", err
+	}
+	if pin == "latest" {
+		return "main", nil
+	}
+	return "v" + strings.TrimPrefix(pin, "v"), nil
+}
+
+// resolveImageTag maps a package pin to a Docker image tag: registries tag
+// releases without a leading v, so "v1.2.3" and "1.2.3" both become "1.2.3".
+func resolveImageTag(name, pin string) (string, error) {
+	if pin == "" {
+		return "latest", nil
+	}
+	if err := validatePinnedVersion(name, pin); err != nil {
+		return "", err
+	}
+	return strings.TrimPrefix(pin, "v"), nil
+}
+
+func validatePinnedVersion(name, pin string) error {
+	if !pinnedVersionRe.MatchString(pin) {
+		return fmt.Errorf("invalid versions.%s %q: must be \"latest\" or a semver like \"v1.2.3\"", name, pin)
+	}
+	return nil
+}
+
 // buildTemplateData builds data for template rendering.
 func (b *Builder) buildTemplateData(workflow *domain.Workflow) (*DockerfileData, error) {
 	kdeps_debug.Log("enter: buildTemplateData")
 	installOllama := domain.ResolveInstallOllama(workflow)
 	installUV := b.shouldInstallUV(workflow)
-
-	backendInstall, err := b.renderBackendInstall(installOllama)
-	if err != nil {
-		return nil, err
-	}
 
 	models, offlineMode, defaultModel := resolveModelSettings(
 		workflow,
@@ -74,8 +109,30 @@ func (b *Builder) buildTemplateData(workflow *domain.Workflow) (*DockerfileData,
 		return nil, secretErr
 	}
 
+	pins := workflow.Settings.AgentSettings.Versions
+	if pins == nil {
+		pins = &domain.PackageVersions{}
+	}
+	kdepsRef, err := resolveKdepsInstallerRef(pins.Kdeps)
+	if err != nil {
+		return nil, err
+	}
+	ollamaTag, err := resolveImageTag("ollama", pins.Ollama)
+	if err != nil {
+		return nil, err
+	}
+	uvTag, err := resolveImageTag("uv", pins.UV)
+	if err != nil {
+		return nil, err
+	}
+
+	backendInstall, err := b.renderBackendInstall(installOllama, ollamaTag)
+	if err != nil {
+		return nil, err
+	}
+
 	return &DockerfileData{
-		BaseImage:            resolveBaseImage(b.BaseOS, installOllama),
+		BaseImage:            resolveBaseImage(b.BaseOS, installOllama, ollamaTag),
 		OS:                   b.BaseOS,
 		UsePrepackagedBinary: usePrepackagedBinary,
 		PrepackagedAMD64:     prepackagedAMD64,
@@ -99,7 +156,9 @@ func (b *Builder) buildTemplateData(workflow *domain.Workflow) (*DockerfileData,
 		HasResources:         hasResources,
 		HasData:              hasData,
 		Env:                  workflow.Settings.AgentSettings.Env,
-		InstallerRef:         installerRef(version.Version),
+		InstallerRef:         kdepsRef,
+		OllamaImageTag:       ollamaTag,
+		UVImageTag:           uvTag,
 	}, nil
 }
 
@@ -131,12 +190,12 @@ func isValidDockerEnvKey(key string) bool {
 	return true
 }
 
-func resolveBaseImage(baseOS string, installOllama bool) string {
+func resolveBaseImage(baseOS string, installOllama bool, ollamaTag string) string {
 	if installOllama {
 		if baseOS == baseOSAlpine {
-			return "alpine/ollama"
+			return "alpine/ollama:" + ollamaTag
 		}
-		return "ollama/ollama:latest"
+		return "ollama/ollama:" + ollamaTag
 	}
 
 	switch baseOS {
@@ -149,15 +208,17 @@ func resolveBaseImage(baseOS string, installOllama bool) string {
 	}
 }
 
-func (b *Builder) renderBackendInstall(installOllama bool) (string, error) {
+func (b *Builder) renderBackendInstall(installOllama bool, ollamaTag string) (string, error) {
 	backendData := struct {
-		InstallOllama bool
-		OS            string
-		GPUType       string
+		InstallOllama  bool
+		OS             string
+		GPUType        string
+		OllamaImageTag string
 	}{
-		InstallOllama: installOllama,
-		OS:            b.BaseOS,
-		GPUType:       b.GPUType,
+		InstallOllama:  installOllama,
+		OS:             b.BaseOS,
+		GPUType:        b.GPUType,
+		OllamaImageTag: ollamaTag,
 	}
 
 	out, err := texttmpl.Render("backend-install", backendInstallTemplate, backendData)
