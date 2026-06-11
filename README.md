@@ -112,7 +112,7 @@ kdeps run workflow.yaml --dev    # hot reload
 
 ### Agent mode
 
-Autonomous LLM loop. Every resource in the workflow is auto-registered as a callable tool -- the LLM decides which tools to call, in what order, to complete the task.
+Autonomous LLM loop. Each workflow is registered as a callable tool, named after its `metadata.name` -- the LLM decides which tools to call, in what order, to complete the task. Calling a tool runs that workflow's full pipeline, so every `requires:` dependency resolves correctly. Agencies and installed components become tools too; individual resources are never exposed directly.
 
 ```
 stdin prompt
@@ -122,11 +122,11 @@ stdin prompt
 |  LLM                |  plans steps, picks tools
 +---------------------+
       |
-      +-- call tool: httpClient  -->  fetch URL
+      +-- call tool: summarizer    -->  runs that workflow's full DAG
       |
-      +-- call tool: python      -->  process data
+      +-- call tool: research-bot  -->  runs another workflow
       |
-      +-- call tool: sql         -->  query database
+      +-- call tool: scraper       -->  runs an installed component
       |
       v
 +---------------------+
@@ -138,11 +138,12 @@ stdin prompt
 ```
 
 ```bash
-kdeps serve workflow.yaml
-kdeps serve workflow.yaml --model llama3.2 --system "You are a DevOps assistant."
+kdeps serve ./my-agent/    # one workflow = one tool
+kdeps serve ./agents/      # folder = every workflow inside becomes a tool
+kdeps serve ./my-agent/ --model llama3.2 --system "You are a DevOps assistant."
 ```
 
-The agent reads from stdin and runs until you exit. All resource types (http, python, exec, sql, ...) are available as tools without any extra wiring.
+The agent reads from stdin and runs until you exit. Workflows, agencies, and installed components are available as tools without any extra wiring.
 
 ```
 KDEPS_AGENT_MODEL=claude-3-5-sonnet   # override model via env
