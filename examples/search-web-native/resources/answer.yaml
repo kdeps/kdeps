@@ -1,12 +1,10 @@
 actionId: answer
+name: Answer from Search
 requires: [search]
 chat:
   model: llama3.2:1b
   prompt: |
     Based on these search results, answer the question: {{ get('query') }}
 
-    Search results:
-    {% for r in output('search').results %}
-    - {{ r.title }}: {{ r.url }}
-      {{ r.snippet }}
-    {% endfor %}
+    Search results (JSON):
+    {{ json(output('search').results) }}

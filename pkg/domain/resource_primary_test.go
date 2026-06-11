@@ -90,6 +90,9 @@ func TestIsRecognizedResourceActionKey(t *testing.T) {
 	if !domain.IsRecognizedResourceActionKey("apiResponse") {
 		t.Fatal("apiResponse should be recognized")
 	}
+	if !domain.IsRecognizedResourceActionKey("apiServer") {
+		t.Fatal("apiServer should be recognized")
+	}
 	if !domain.IsRecognizedResourceActionKey("botReply") {
 		t.Fatal("botReply should be recognized")
 	}
@@ -122,6 +125,7 @@ func TestPrimaryResourceEventName(t *testing.T) {
 		{"botReply", &domain.Resource{BotReply: &domain.BotReplyConfig{}}, "botReply"},
 		{"email", &domain.Resource{Email: &domain.EmailConfig{}}, "email"},
 		{"apiResponse only", &domain.Resource{APIResponse: &domain.APIResponseConfig{}}, "apiResponse"},
+		{"apiServer only", &domain.Resource{APIServer: &domain.APIResponseConfig{}}, "apiServer"},
 		{
 			"primary beats apiResponse",
 			&domain.Resource{

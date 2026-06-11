@@ -1,4 +1,5 @@
 actionId: summarize
+name: Summarize Page
 requires: [fetch]
 chat:
   model: llama3.2:1b

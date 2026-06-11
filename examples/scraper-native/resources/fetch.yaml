@@ -1,4 +1,5 @@
 actionId: fetch
+name: Fetch Page
 validations:
   methods: [POST]
   routes: [/summarize]

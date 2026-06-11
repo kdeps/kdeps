@@ -1,4 +1,5 @@
 actionId: indexDoc
+name: Index Document
 validations:
   methods: [POST]
   routes: [/index]

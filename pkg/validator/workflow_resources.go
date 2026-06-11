@@ -120,7 +120,7 @@ func (v *WorkflowValidator) ValidateResource(
 	// Primary execution types (only one allowed): chat, httpClient, sql, python, exec, agent.
 	// apiResponse can be combined with any primary execution type or used alone.
 	primaryCount := domain.CountPrimaryResourceTypes(resource)
-	hasAPIResponse := resource.APIResponse != nil
+	hasAPIResponse := resource.HasResponseBlock()
 	hasExprEntries := hasExpressionEntries(resource.Before) || hasExpressionEntries(resource.After)
 
 	// A resource is valid if it has:

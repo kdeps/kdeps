@@ -32,7 +32,7 @@ after:
 
 ## Supported Resource Types
 
-Each inline resource can be any supported execution block, including `chat`, `httpClient`, `sql`, `python`, `exec`, `agent`, `component`, `scraper`, `embedding`, `searchLocal`, `searchWeb`, `telephony`, `browser`, `botReply`, `email`, or `apiResponse`.
+Each inline resource can be any supported execution block, including `chat`, `httpClient`, `sql`, `python`, `exec`, `agent`, `component`, `scraper`, `embedding`, `searchLocal`, `searchWeb`, `telephony`, `browser`, `botReply`, `email`, `apiServer`, or `apiResponse`.
 
 ## Execution Order
 

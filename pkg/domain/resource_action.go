@@ -42,6 +42,7 @@ type ActionConfig struct {
 	BotReply    *BotReplyConfig        `yaml:"botReply,omitempty"`
 	Email       *EmailConfig           `yaml:"email,omitempty"`
 	APIResponse *APIResponseConfig     `yaml:"apiResponse,omitempty"`
+	APIServer   *APIResponseConfig     `yaml:"apiServer,omitempty"`
 }
 
 // actionConfigAlias is used for normal YAML struct unmarshaling without recursion.

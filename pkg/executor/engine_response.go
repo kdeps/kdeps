@@ -19,6 +19,7 @@
 package executor
 
 import (
+	"errors"
 	"fmt"
 
 	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
@@ -35,7 +36,10 @@ func (e *Engine) executeAPIResponse(
 	}
 
 	env := e.buildEvaluationEnvironment(ctx)
-	apiResponseConfig := resource.APIResponse
+	apiResponseConfig := resource.ResponseBlock()
+	if apiResponseConfig == nil {
+		return nil, errors.New("no apiServer or apiResponse configuration")
+	}
 
 	evaluatedResponse, err := e.evaluateResponseValue(apiResponseConfig.Response, env)
 	if err != nil {
