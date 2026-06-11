@@ -92,7 +92,7 @@ func (e *Engine) finalizeResourceResult(
 	hasPrimaryType bool,
 	primaryResult interface{},
 ) (interface{}, error) {
-	if resource.APIResponse != nil {
+	if resource.HasResponseBlock() {
 		if hasPrimaryType && primaryResult != nil {
 			ctx.SetOutput(resource.ActionID, primaryResult)
 		}

@@ -108,6 +108,10 @@ func buildPrimaryResourceTypes() []PrimaryResourceType {
 func inlineOnlyResourceTypes() []InlineResourceType {
 	return []InlineResourceType{
 		{
+			Name:    "apiServer",
+			Present: func(a *ActionConfig) bool { return a.APIServer != nil },
+		},
+		{
 			Name:    "apiResponse",
 			Present: func(a *ActionConfig) bool { return a.APIResponse != nil },
 		},

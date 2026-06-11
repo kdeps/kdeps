@@ -1,4 +1,5 @@
 actionId: search
+name: Web Search
 searchWeb:
   query: "{{ get('query') }}"
   provider: "{{ get('provider', 'ddg') }}"

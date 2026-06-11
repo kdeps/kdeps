@@ -1,4 +1,5 @@
 actionId: response
+name: API Response
 requires: [summarize]
 apiResponse:
   success: true

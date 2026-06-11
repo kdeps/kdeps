@@ -39,6 +39,7 @@ type Resource struct {
 	Before      []ActionConfig     `yaml:"before,omitempty"` // expressions/actions before primary
 	After       []ActionConfig     `yaml:"after,omitempty"`  // expressions/actions after primary
 	APIResponse *APIResponseConfig `yaml:"apiResponse,omitempty"`
+	APIServer   *APIResponseConfig `yaml:"apiServer,omitempty"`
 	OnError     *OnErrorConfig     `yaml:"onError,omitempty"`
 
 	// Action types (set exactly one):

@@ -59,6 +59,37 @@ func TestInlineBotReply_Integration(t *testing.T) {
 	require.NoError(t, err)
 }
 
+func TestInlineAPIServer_Integration(t *testing.T) {
+	engine := executor.NewEngine(nil)
+
+	workflow := &domain.Workflow{
+		APIVersion: "kdeps.io/v1",
+		Kind:       "Workflow",
+		Metadata: domain.WorkflowMetadata{
+			Name:           "inline-apiserver",
+			Version:        "1.0.0",
+			TargetActionID: "main",
+		},
+		Resources: []*domain.Resource{
+			{
+				ActionID: "main",
+				Name:     "Main",
+				After: []domain.InlineResource{
+					{
+						APIServer: &domain.APIResponseConfig{
+							Success:  true,
+							Response: map[string]interface{}{"ok": true},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	_, err := engine.Execute(workflow, nil)
+	require.NoError(t, err)
+}
+
 func TestInlineAPIResponse_Integration(t *testing.T) {
 	engine := executor.NewEngine(nil)
 

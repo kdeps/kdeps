@@ -1,6 +1,31 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
   "definitions": {
+    "responseBlock": {
+      "type": "object",
+      "properties": {
+        "success": {
+          "type": "boolean"
+        },
+        "response": {
+          "description": "Response data - can be any type: string, array, object, number, etc."
+        },
+        "headers": {
+          "type": "object",
+          "description": "HTTP headers for the response"
+        },
+        "statusCode": {
+          "type": "integer",
+          "description": "HTTP status code for the response"
+        },
+        "model": {
+          "type": "string"
+        },
+        "backend": {
+          "type": "string"
+        }
+      }
+    },
     "fieldRule": {
       "type": "object",
       "properties": {
@@ -432,29 +457,10 @@
       }
     },
     "apiResponse": {
-      "type": "object",
-      "properties": {
-        "success": {
-          "type": "boolean"
-        },
-        "response": {
-          "description": "Response data - can be any type: string, array, object, number, etc."
-        },
-        "headers": {
-          "type": "object",
-          "description": "HTTP headers for the response"
-        },
-        "statusCode": {
-          "type": "integer",
-          "description": "HTTP status code for the response"
-        },
-        "model": {
-          "type": "string"
-        },
-        "backend": {
-          "type": "string"
-        }
-      }
+      "$ref": "#/definitions/responseBlock"
+    },
+    "apiServer": {
+      "$ref": "#/definitions/responseBlock"
     },
     "agent": {
       "type": "object",

@@ -138,6 +138,9 @@ func inlineResourceDispatch() []inlineDispatchEntry {
 		"botReply": func(e *Engine, inline *domain.InlineResource, index int, ctx *ExecutionContext) (interface{}, error) {
 			return e.executeBotReply(inlineSyntheticResource(inline, index), ctx)
 		},
+		"apiServer": func(e *Engine, inline *domain.InlineResource, index int, ctx *ExecutionContext) (interface{}, error) {
+			return e.executeAPIResponse(inlineSyntheticResource(inline, index), ctx)
+		},
 		"apiResponse": func(e *Engine, inline *domain.InlineResource, index int, ctx *ExecutionContext) (interface{}, error) {
 			return e.executeAPIResponse(inlineSyntheticResource(inline, index), ctx)
 		},
@@ -174,6 +177,7 @@ func inlineSyntheticResource(inline *domain.InlineResource, index int) *domain.R
 		Email:       inline.Email,
 		BotReply:    inline.BotReply,
 		APIResponse: inline.APIResponse,
+		APIServer:   inline.APIServer,
 	}
 }
 

@@ -73,9 +73,10 @@ func IsPrimaryResourceTypeName(name string) bool {
 	return false
 }
 
-// IsRecognizedResourceActionKey reports whether name is a primary execution key or apiResponse.
+// IsRecognizedResourceActionKey reports whether name is a primary execution key or response block.
 func IsRecognizedResourceActionKey(name string) bool {
-	return name == "apiResponse" || IsPrimaryResourceTypeName(name)
+	return name == LLMExecutionTypeAPIServer || name == resourceActionAPIResponse ||
+		IsPrimaryResourceTypeName(name)
 }
 
 // PrimaryResourceEventName returns the event/telemetry label for the resource's execution type.
@@ -86,8 +87,8 @@ func PrimaryResourceEventName(r *Resource) string {
 			return primaryResourceEventLabel(entry.Name)
 		}
 	}
-	if r.APIResponse != nil {
-		return "apiResponse"
+	if name := r.ResponseBlockEventName(); name != "" {
+		return name
 	}
 	return "unknown"
 }

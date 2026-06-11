@@ -1,4 +1,5 @@
 actionId: searchDocs
+name: Search Documents
 validations:
   methods: [POST]
   routes: [/search]
