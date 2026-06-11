@@ -135,6 +135,59 @@ func TestBuilderTemplates_healthcheckFollowsConfiguration(t *testing.T) {
 	}
 }
 
+func TestBuilderTemplates_packageVersionPins(t *testing.T) {
+	t.Parallel()
+
+	builder := &docker.Builder{BaseOS: "ubuntu"}
+	workflow := &domain.Workflow{
+		Metadata: domain.WorkflowMetadata{Name: "pinned", Version: "1.0.0"},
+		Settings: domain.WorkflowSettings{
+			AgentSettings: domain.AgentSettings{
+				PythonPackages: []string{"requests"},
+				Versions: &domain.PackageVersions{
+					Kdeps:  "v2.0.0",
+					Ollama: "v0.5.4",
+					UV:     "0.6.3",
+				},
+			},
+		},
+		Resources: []*domain.Resource{
+			{
+				ActionID: "main",
+				Name:     "main",
+				Chat: &domain.ChatConfig{
+					Model:  "llama3.2:1b",
+					Prompt: "hi",
+				},
+			},
+		},
+	}
+
+	dockerfile, err := builder.GenerateDockerfile(workflow)
+	require.NoError(t, err)
+	assert.Contains(t, dockerfile, "kdeps/kdeps/v2.0.0/install.sh")
+	assert.Contains(t, dockerfile, "ollama/ollama:0.5.4")
+	assert.Contains(t, dockerfile, "ghcr.io/astral-sh/uv:0.6.3")
+}
+
+func TestBuilderTemplates_invalidPackageVersionPin(t *testing.T) {
+	t.Parallel()
+
+	builder := &docker.Builder{BaseOS: "alpine"}
+	workflow := &domain.Workflow{
+		Metadata: domain.WorkflowMetadata{Name: "bad-pin", Version: "1.0.0"},
+		Settings: domain.WorkflowSettings{
+			AgentSettings: domain.AgentSettings{
+				Versions: &domain.PackageVersions{Kdeps: "bad"},
+			},
+		},
+	}
+
+	_, err := builder.GenerateDockerfile(workflow)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "versions.kdeps")
+}
+
 func TestBuilderTemplates_installerRefPinned(t *testing.T) {
 	// Dev builds (version 2.0.0-dev) fetch install.sh from main without a tag.
 	builder := &docker.Builder{BaseOS: "alpine"}

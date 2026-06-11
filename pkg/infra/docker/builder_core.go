@@ -58,6 +58,8 @@ type DockerfileData struct {
 	HasData              bool              // Whether data directory exists
 	Env                  map[string]string // User-defined environment variables
 	InstallerRef         string            // kdeps repo ref for install.sh (release tag, or main for dev builds)
+	OllamaImageTag       string            // Docker image tag for Ollama COPY --from sources
+	UVImageTag           string            // Docker image tag for uv COPY --from sources
 }
 
 // Builder builds Docker images from workflows.

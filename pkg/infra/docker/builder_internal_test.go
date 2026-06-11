@@ -20,6 +20,7 @@ package docker
 
 import (
 	"errors"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -51,6 +52,50 @@ func TestInstallerRef(t *testing.T) {
 	assert.Equal(t, "main", installerRef(""))
 }
 
+func TestResolveKdepsInstallerRef(t *testing.T) {
+	t.Parallel()
+
+	ref, err := resolveKdepsInstallerRef("")
+	require.NoError(t, err)
+	assert.True(t, ref == "main" || strings.HasPrefix(ref, "v"))
+
+	ref, err = resolveKdepsInstallerRef("latest")
+	require.NoError(t, err)
+	assert.Equal(t, "main", ref)
+
+	ref, err = resolveKdepsInstallerRef("v2.3.4")
+	require.NoError(t, err)
+	assert.Equal(t, "v2.3.4", ref)
+
+	ref, err = resolveKdepsInstallerRef("2.3.4")
+	require.NoError(t, err)
+	assert.Equal(t, "v2.3.4", ref)
+
+	_, err = resolveKdepsInstallerRef("not-a-version")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "versions.kdeps")
+}
+
+func TestResolveImageTag(t *testing.T) {
+	t.Parallel()
+
+	tag, err := resolveImageTag("ollama", "")
+	require.NoError(t, err)
+	assert.Equal(t, "latest", tag)
+
+	tag, err = resolveImageTag("ollama", "latest")
+	require.NoError(t, err)
+	assert.Equal(t, "latest", tag)
+
+	tag, err = resolveImageTag("uv", "v0.6.3")
+	require.NoError(t, err)
+	assert.Equal(t, "0.6.3", tag)
+
+	_, err = resolveImageTag("uv", "nightly")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "versions.uv")
+}
+
 func TestDockerfileTemplate_PinnedInstallerRef(t *testing.T) {
 	t.Parallel()
 	tmpl, err := resolveDockerfileTemplate("alpine")
@@ -73,12 +118,12 @@ func TestRenderBackendInstall_ParseAndExecuteErrors(t *testing.T) {
 	builder := &Builder{BaseOS: "alpine"}
 
 	backendInstallTemplate = "{{.Broken"
-	_, err := builder.renderBackendInstall(false)
+	_, err := builder.renderBackendInstall(false, "latest")
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "failed to render backend install")
 
 	backendInstallTemplate = "{{call .InstallOllama}}"
-	_, err = builder.renderBackendInstall(false)
+	_, err = builder.renderBackendInstall(false, "latest")
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "failed to render backend install")
 }

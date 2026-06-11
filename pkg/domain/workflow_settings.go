@@ -244,6 +244,16 @@ type AgentSettings struct {
 	// NetworkPolicy opts in to generating a Kubernetes NetworkPolicy that
 	// restricts pod ingress to the configured server ports. Egress is unrestricted.
 	NetworkPolicy bool `yaml:"networkPolicy,omitempty"`
+	// Versions pins the packages downloaded into generated Docker images.
+	// Each accepts "latest" or a semver like "v1.2.3" / "1.2.3".
+	Versions *PackageVersions `yaml:"versions,omitempty"`
+}
+
+// PackageVersions pins downloaded package versions in generated Docker images.
+type PackageVersions struct {
+	Kdeps  string `yaml:"kdeps,omitempty"`  // default: the building CLI's own version (released) or latest (dev builds)
+	Ollama string `yaml:"ollama,omitempty"` // default: latest
+	UV     string `yaml:"uv,omitempty"`     // default: latest
 }
 
 // SQLConnection represents pool configuration for a named SQL connection.
