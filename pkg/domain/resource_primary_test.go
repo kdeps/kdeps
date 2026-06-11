@@ -144,6 +144,16 @@ func TestPrimaryResourceEventName(t *testing.T) {
 	}
 }
 
+func TestPrimaryResourceTypesList(t *testing.T) {
+	t.Parallel()
+
+	got := domain.PrimaryResourceTypesList()
+	if got != "chat, httpClient, sql, python, exec, agent, component, scraper, "+
+		"embedding, searchLocal, searchWeb, telephony, browser, botReply, email" {
+		t.Fatalf("PrimaryResourceTypesList() = %q", got)
+	}
+}
+
 func TestPrimaryResourceTypeNames_MatchesExecutorRegistry(t *testing.T) {
 	t.Parallel()
 

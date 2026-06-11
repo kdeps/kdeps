@@ -537,6 +537,8 @@ func TestIsLocalBackend(t *testing.T) {
 }
 
 func TestIsEmptyAgentProfile(t *testing.T) {
+	var nilConfig *Config
+	assert.True(t, nilConfig.IsEmptyAgentProfile())
 	empty := Config{}
 	assert.True(t, empty.IsEmptyAgentProfile())
 	llm := LLMKeys{}

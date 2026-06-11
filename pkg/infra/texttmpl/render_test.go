@@ -44,3 +44,27 @@ func TestRenderTo(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, "n=3", buf.String())
 }
+
+func TestRender_ParseError(t *testing.T) {
+	t.Parallel()
+
+	_, err := texttmpl.Render("bad", "{{ if }}", nil)
+	assert.Error(t, err)
+}
+
+func TestRenderTo_ParseError(t *testing.T) {
+	t.Parallel()
+
+	var buf bytes.Buffer
+	err := texttmpl.RenderTo(&buf, "bad", "{{ if }}", nil)
+	assert.Error(t, err)
+}
+
+func TestExecuteTemplate_ExecuteError(t *testing.T) {
+	t.Parallel()
+
+	tmpl, err := texttmpl.Parse("missing", "{{ .NoSuchField }}")
+	require.NoError(t, err)
+	_, err = texttmpl.ExecuteTemplate(tmpl, struct{}{})
+	assert.Error(t, err)
+}

@@ -42,6 +42,12 @@ func TestEvaluateStringOrLiteral_LiteralPassthrough(t *testing.T) {
 	assert.Equal(t, "hello", got)
 }
 
+func TestEvaluateStringOrLiteral_ParseError(t *testing.T) {
+	t.Parallel()
+	_, err := executor.EvaluateStringOrLiteral(nil, nil, "{{ unclosed", executor.StringLiteralOptions{})
+	assert.Error(t, err)
+}
+
 func TestEvaluateStringOrLiteral_PathLiteral(t *testing.T) {
 	t.Parallel()
 	got, err := executor.EvaluateStringOrLiteral(

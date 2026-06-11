@@ -74,6 +74,14 @@ func TestIsValidHTTPMethodAllowEmpty(t *testing.T) {
 	}
 }
 
+func TestStandardHTTPMethodsDisplay(t *testing.T) {
+	t.Parallel()
+
+	if got := domain.StandardHTTPMethodsDisplay(); got != "GET, POST, PUT, DELETE, PATCH" {
+		t.Fatalf("StandardHTTPMethodsDisplay() = %q", got)
+	}
+}
+
 func TestStandardHTTPMethodsEnum(t *testing.T) {
 	t.Parallel()
 
