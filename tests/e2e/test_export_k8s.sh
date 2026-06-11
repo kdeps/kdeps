@@ -187,5 +187,73 @@ else
     test_failed "export k8s - Ollama backend port (11434) present when installOllama: true" "Output: $OUTPUT"
 fi
 
+# ── Test 14: no NetworkPolicy by default ──────────────────────────────────────
+OUTPUT=$("$KDEPS_BIN" export k8s "$TMP_DIR" 2>/dev/null)
+if output_grep_fixed "kind: NetworkPolicy" "$OUTPUT"; then
+    test_failed "export k8s - no NetworkPolicy without opt-in" "Output: $OUTPUT"
+else
+    test_passed "export k8s - no NetworkPolicy without opt-in"
+fi
+
+# ── Test 15: --network-policy flag emits NetworkPolicy ─────────────────────────
+OUTPUT=$("$KDEPS_BIN" export k8s "$TMP_DIR" --network-policy 2>/dev/null)
+if output_grep_fixed "kind: NetworkPolicy" "$OUTPUT" && output_grep_fixed "port: 8080" "$OUTPUT"; then
+    test_passed "export k8s - --network-policy emits ingress-restricted policy"
+else
+    test_failed "export k8s - --network-policy emits ingress-restricted policy" "Output: $OUTPUT"
+fi
+
+# ── Test 16: agentSettings.networkPolicy in workflow.yaml ──────────────────────
+NP_DIR=$(mktemp -d)
+trap 'rm -rf "$TMP_DIR" "$OLLAMA_DIR" "$NP_DIR"' EXIT
+cat > "$NP_DIR/workflow.yaml" <<'WFEOF'
+apiVersion: kdeps.io/v1
+kind: Workflow
+metadata:
+  name: np-workflow-test
+  version: 1.0.0
+  targetActionId: main
+settings:
+  apiServer:
+    portNum: 8080
+    routes:
+      - path: /api
+        methods: [GET]
+  agentSettings:
+    networkPolicy: true
+WFEOF
+
+OUTPUT=$("$KDEPS_BIN" export k8s "$NP_DIR" 2>/dev/null)
+if output_grep_fixed "kind: NetworkPolicy" "$OUTPUT"; then
+    test_passed "export k8s - agentSettings.networkPolicy enables NetworkPolicy"
+else
+    test_failed "export k8s - agentSettings.networkPolicy enables NetworkPolicy" "Output: $OUTPUT"
+fi
+
+# ── Test 17: probes are derived from configuration ─────────────────────────────
+WEB_DIR=$(mktemp -d)
+trap 'rm -rf "$TMP_DIR" "$OLLAMA_DIR" "$NP_DIR" "$WEB_DIR"' EXIT
+cat > "$WEB_DIR/workflow.yaml" <<'WFEOF'
+apiVersion: kdeps.io/v1
+kind: Workflow
+metadata:
+  name: web-only-test
+  version: 1.0.0
+  targetActionId: main
+settings:
+  webServer:
+    portNum: 9090
+    routes:
+      - path: /
+        publicPath: /public
+WFEOF
+
+OUTPUT=$("$KDEPS_BIN" export k8s "$WEB_DIR" 2>/dev/null)
+if output_grep_fixed "tcpSocket" "$OUTPUT" && ! output_grep_fixed "name: api" "$OUTPUT"; then
+    test_passed "export k8s - web-only workflow gets TCP probe and no api port"
+else
+    test_failed "export k8s - web-only workflow gets TCP probe and no api port" "Output: $OUTPUT"
+fi
+
 echo ""
 echo "export k8s E2E tests complete."

@@ -1,0 +1,28 @@
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ .Name }}
+  labels:
+    app: {{ .Name }}
+    kdeps-component: "true"
+spec:
+  podSelector:
+    matchLabels:
+      app: {{ .Name }}
+  # Ingress is restricted to the ports this workflow actually serves.
+  # Egress is deliberately unrestricted: chat/httpClient/searchWeb/sql
+  # resources must reach external services.
+  policyTypes:
+  - Ingress
+{{- if or .APIPort .WebServerPort }}
+  ingress:
+  - ports:
+{{- if .APIPort }}
+    - protocol: TCP
+      port: {{ .APIPort }}
+{{- end }}
+{{- if .WebServerPort }}
+    - protocol: TCP
+      port: {{ .WebServerPort }}
+{{- end }}
+{{- end }}

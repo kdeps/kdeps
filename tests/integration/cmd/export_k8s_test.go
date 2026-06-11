@@ -87,6 +87,47 @@ settings:
 	assert.Contains(t, output, "image: my-org/my-app:v2")
 }
 
+func TestExportK8s_NetworkPolicyFlag_Integration(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	workflowYAML := `
+apiVersion: kdeps.io/v1
+kind: Workflow
+metadata:
+  name: np-flag-test
+  version: 1.0.0
+  targetActionId: main
+settings:
+  apiServer:
+    portNum: 8080
+    routes:
+      - path: /api
+        methods: [GET]
+  agentSettings: {}
+`
+	err := os.WriteFile(filepath.Join(tmpDir, "workflow.yaml"), []byte(workflowYAML), 0644)
+	assert.NoError(t, err)
+
+	// Without the flag: no NetworkPolicy.
+	rootCmd := cmd.NewRootCmd()
+	var out bytes.Buffer
+	rootCmd.SetOut(&out)
+	rootCmd.SetArgs([]string{"export", "k8s", tmpDir})
+	assert.NoError(t, rootCmd.Execute())
+	assert.NotContains(t, out.String(), "kind: NetworkPolicy")
+
+	// With --network-policy: NetworkPolicy restricted to the configured port.
+	rootCmd = cmd.NewRootCmd()
+	out.Reset()
+	rootCmd.SetOut(&out)
+	rootCmd.SetArgs([]string{"export", "k8s", tmpDir, "--network-policy"})
+	assert.NoError(t, rootCmd.Execute())
+	output := out.String()
+	assert.Contains(t, output, "kind: NetworkPolicy")
+	assert.Contains(t, output, "port: 8080")
+	assert.NotContains(t, output, "- Egress")
+}
+
 func TestExportK8s_OutputFile_Integration(t *testing.T) {
 	tmpDir := t.TempDir()
 
