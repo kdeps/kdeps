@@ -155,32 +155,3 @@ func (v *WorkflowValidator) ValidateResource(
 
 	return v.validateResourceExecutionTypes(resource, workflow)
 }
-
-// validateResourceExecutionTypes validates the execution-type-specific fields
-// of a resource. Extracted to keep ValidateResource within complexity limits.
-func (v *WorkflowValidator) validateResourceExecutionTypes(
-	resource *domain.Resource,
-	workflow *domain.Workflow,
-) error {
-	if resource.Chat != nil {
-		if err := v.ValidateChatConfig(resource.Chat); err != nil {
-			return err
-		}
-	}
-	if resource.SQL != nil {
-		if err := v.ValidateSQLConfig(resource.SQL, workflow); err != nil {
-			return err
-		}
-	}
-	if resource.HTTPClient != nil {
-		if err := v.ValidateHTTPConfig(resource.HTTPClient); err != nil {
-			return err
-		}
-	}
-	if resource.Telephony != nil {
-		if err := v.ValidateTelephonyActionConfig(resource.Telephony); err != nil {
-			return err
-		}
-	}
-	return nil
-}

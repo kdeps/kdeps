@@ -29,23 +29,7 @@ type PrimaryResourceType struct {
 
 // PrimaryResourceTypes returns the canonical registry of primary execution types.
 func PrimaryResourceTypes() []PrimaryResourceType {
-	return []PrimaryResourceType{
-		{Name: "chat", Present: func(r *Resource) bool { return r.Chat != nil }},
-		{Name: "httpClient", Present: func(r *Resource) bool { return r.HTTPClient != nil }},
-		{Name: "sql", Present: func(r *Resource) bool { return r.SQL != nil }},
-		{Name: "python", Present: func(r *Resource) bool { return r.Python != nil }},
-		{Name: "exec", Present: func(r *Resource) bool { return r.Exec != nil }},
-		{Name: "agent", Present: func(r *Resource) bool { return r.Agent != nil }},
-		{Name: "component", Present: func(r *Resource) bool { return r.Component != nil }},
-		{Name: "scraper", Present: func(r *Resource) bool { return r.Scraper != nil }},
-		{Name: "embedding", Present: func(r *Resource) bool { return r.Embedding != nil }},
-		{Name: "searchLocal", Present: func(r *Resource) bool { return r.SearchLocal != nil }},
-		{Name: "searchWeb", Present: func(r *Resource) bool { return r.SearchWeb != nil }},
-		{Name: "telephony", Present: func(r *Resource) bool { return r.Telephony != nil }},
-		{Name: "browser", Present: func(r *Resource) bool { return r.Browser != nil }},
-		{Name: "botReply", Present: func(r *Resource) bool { return r.BotReply != nil }},
-		{Name: "email", Present: func(r *Resource) bool { return r.Email != nil }},
-	}
+	return buildPrimaryResourceTypes()
 }
 
 // CountPrimaryResourceTypes returns how many primary execution blocks are set on a resource.

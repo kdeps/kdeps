@@ -27,22 +27,7 @@ type InlineResourceType struct {
 
 // InlineResourceTypes returns the canonical registry of inline execution types.
 func InlineResourceTypes() []InlineResourceType {
-	return []InlineResourceType{
-		{Name: "chat", Present: func(a *ActionConfig) bool { return a.Chat != nil }},
-		{Name: "httpClient", Present: func(a *ActionConfig) bool { return a.HTTPClient != nil }},
-		{Name: "sql", Present: func(a *ActionConfig) bool { return a.SQL != nil }},
-		{Name: "python", Present: func(a *ActionConfig) bool { return a.Python != nil }},
-		{Name: "exec", Present: func(a *ActionConfig) bool { return a.Exec != nil }},
-		{Name: "agent", Present: func(a *ActionConfig) bool { return a.Agent != nil }},
-		{Name: "component", Present: func(a *ActionConfig) bool { return a.Component != nil }},
-		{Name: "scraper", Present: func(a *ActionConfig) bool { return a.Scraper != nil }},
-		{Name: "embedding", Present: func(a *ActionConfig) bool { return a.Embedding != nil }},
-		{Name: "searchLocal", Present: func(a *ActionConfig) bool { return a.SearchLocal != nil }},
-		{Name: "searchWeb", Present: func(a *ActionConfig) bool { return a.SearchWeb != nil }},
-		{Name: "telephony", Present: func(a *ActionConfig) bool { return a.Telephony != nil }},
-		{Name: "browser", Present: func(a *ActionConfig) bool { return a.Browser != nil }},
-		{Name: "email", Present: func(a *ActionConfig) bool { return a.Email != nil }},
-	}
+	return buildInlineResourceTypes()
 }
 
 // HasInlineResourceType reports whether the inline entry defines an action block.
