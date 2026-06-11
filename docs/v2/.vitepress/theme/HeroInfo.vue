@@ -9,7 +9,14 @@ const { frontmatter } = useData()
 
 <template>
   <div class="hero-info">
-    <span v-if="frontmatter.hero?.announcement" class="announcement">
+    <a
+      v-if="frontmatter.hero?.announcement && frontmatter.hero?.announcementLink"
+      :href="frontmatter.hero.announcementLink"
+      class="announcement announcement-link"
+    >
+      {{ frontmatter.hero.announcement }}
+    </a>
+    <span v-else-if="frontmatter.hero?.announcement" class="announcement">
       {{ frontmatter.hero.announcement }}
     </span>
     <p v-if="frontmatter.hero?.text" class="hero-text">
@@ -40,6 +47,16 @@ const { frontmatter } = useData()
   border-radius: 2px;
   padding: 4px 10px;
   margin-bottom: 4px;
+}
+
+.announcement-link {
+  text-decoration: none;
+  transition: border-color 0.2s, background-color 0.2s;
+}
+
+.announcement-link:hover {
+  border-color: rgba(0, 229, 255, 0.6);
+  background-color: rgba(0, 229, 255, 0.08);
 }
 
 .hero-text {
