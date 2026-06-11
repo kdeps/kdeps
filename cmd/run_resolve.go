@@ -27,31 +27,26 @@ import (
 	"strings"
 
 	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
+	"github.com/kdeps/kdeps/v2/pkg/manifest"
 )
 
 func resolveWorkflowPath(inputPath string) (string, func(), error) {
 	kdeps_debug.Log("enter: resolveWorkflowPath")
-	// Check if input is a .kdeps package file
 	if strings.HasSuffix(inputPath, ".kdeps") {
 		return resolveKdepsPackage(inputPath)
 	}
 
-	// Check if input is a .kagency agency package file.
 	if isKagencyFile(inputPath) {
 		return resolveKagencyPackage(inputPath)
 	}
 
-	// Handle regular file or directory path
 	return ResolveRegularPath(inputPath)
 }
 
-// resolveKagencyPackage extracts a .kagency archive to a temp dir and returns
-// the path to the agency manifest file inside it.
 func resolveKagencyPackage(inputPath string) (string, func(), error) {
 	kdeps_debug.Log("enter: resolveKagencyPackage")
 	fmt.Fprintf(os.Stdout, "Agency Package: %s\n", inputPath)
 
-	// Reuse the generic tar.gz extraction from .kdeps infrastructure.
 	tempDir, err := ExtractPackage(inputPath)
 	if err != nil {
 		return "", nil, fmt.Errorf("failed to extract agency package: %w", err)
@@ -61,7 +56,7 @@ func resolveKagencyPackage(inputPath string) (string, func(), error) {
 	agencyPath := FindAgencyFile(tempDir)
 	if agencyPath == "" {
 		cleanup()
-		return "", nil, fmt.Errorf("no %s found inside %s", agencyFile, inputPath)
+		return "", nil, fmt.Errorf("no %s found inside %s", manifest.AgencyYAML, inputPath)
 	}
 
 	fmt.Fprintf(os.Stdout, "Extracted to: %s\n", tempDir)
@@ -70,12 +65,10 @@ func resolveKagencyPackage(inputPath string) (string, func(), error) {
 	return agencyPath, cleanup, nil
 }
 
-// resolveKdepsPackage handles .kdeps package file resolution.
 func resolveKdepsPackage(inputPath string) (string, func(), error) {
 	kdeps_debug.Log("enter: resolveKdepsPackage")
 	fmt.Fprintf(os.Stdout, "Package: %s\n", inputPath)
 
-	// Extract package to temporary directory
 	tempDir, err := ExtractPackage(inputPath)
 	if err != nil {
 		return "", nil, fmt.Errorf("failed to extract package: %w", err)
@@ -83,29 +76,23 @@ func resolveKdepsPackage(inputPath string) (string, func(), error) {
 
 	workflowPath := FindWorkflowFile(tempDir)
 	if workflowPath == "" {
-		workflowPath = filepath.Join(
-			tempDir,
-			"workflow.yaml",
-		) // fallback for packages that may use legacy name
+		workflowPath = filepath.Join(tempDir, manifest.WorkflowYAML)
 	}
 	cleanup := func() { _ = os.RemoveAll(tempDir) }
 
 	fmt.Fprintf(os.Stdout, "Extracted to: %s\n", tempDir)
-	fmt.Fprintf(os.Stdout, "Workflow: %s\n", "workflow.yaml")
+	fmt.Fprintf(os.Stdout, "Workflow: %s\n", manifest.WorkflowYAML)
 
 	return workflowPath, cleanup, nil
 }
 
-// ResolveRegularPath handles regular file or directory path resolution.
 func ResolveRegularPath(inputPath string) (string, func(), error) {
 	kdeps_debug.Log("enter: ResolveRegularPath")
-	// Convert to absolute path
 	absPath, err := filepathAbsFunc(inputPath)
 	if err != nil {
 		return "", nil, fmt.Errorf("failed to resolve path: %w", err)
 	}
 
-	// Check if input is a directory
 	info, err := os.Stat(absPath)
 	if err != nil {
 		return "", nil, fmt.Errorf("failed to stat path: %w", err)
@@ -119,78 +106,38 @@ func ResolveRegularPath(inputPath string) (string, func(), error) {
 	return absPath, nil, nil
 }
 
-// findFirstExistingFile returns the first path in dir/name that exists on disk.
-func findFirstExistingFile(dir string, names ...string) string {
-	kdeps_debug.Log("enter: findFirstExistingFile")
-	for _, name := range names {
-		p := filepath.Join(dir, name)
-		if _, err := os.Stat(p); err == nil {
-			return p
-		}
-	}
-	return ""
-}
-
-// FindWorkflowFile returns the path to the workflow file inside dir.
-// It tries workflow.yaml first, then workflow.yaml.j2, then workflow.yml,
-// workflow.yml.j2, and finally workflow.j2 (a pure Jinja2 template with no
-// YAML extension prefix).  Returns an empty string if none of those files exist.
+// FindWorkflowFile returns the workflow manifest path inside dir.
 func FindWorkflowFile(dir string) string {
 	kdeps_debug.Log("enter: FindWorkflowFile")
-	return findFirstExistingFile(
-		dir,
-		"workflow.yaml",
-		"workflow.yaml.j2",
-		"workflow.yml",
-		"workflow.yml.j2",
-		"workflow.j2",
-	)
+	return manifest.Workflow(dir)
 }
 
-// FindComponentFile returns the path to the component manifest inside dir.
-// It tries component.yaml first, then Jinja2 variants, then .yml forms.
-// Returns an empty string if none exist.
+// FindComponentFile returns the component manifest path inside dir.
 func FindComponentFile(dir string) string {
 	kdeps_debug.Log("enter: FindComponentFile")
-	return findFirstExistingFile(
-		dir,
-		"component.yaml",
-		"component.yaml.j2",
-		"component.yml",
-		"component.yml.j2",
-		"component.j2",
-	)
+	return manifest.Component(dir)
 }
 
-// FindAgencyFile returns the path to the agency file inside dir.
-// It tries agency.yaml first, then agency.yaml.j2, then agency.yml,
-// agency.yml.j2, and finally agency.j2.  Returns an empty string if none exist.
+// FindAgencyFile returns the agency manifest path inside dir.
 func FindAgencyFile(dir string) string {
 	kdeps_debug.Log("enter: FindAgencyFile")
-	return findFirstExistingFile(
-		dir,
-		agencyFile,
-		agencyYAMLJ2File,
-		agencyYMLFile,
-		agencyYMLJ2File,
-		agencyJ2File,
-	)
+	return manifest.Agency(dir)
 }
 
-// ResolveDirectoryPath resolves workflow path for directory inputs.
-// It prefers an agency file when both an agency.yml and workflow.yaml exist.
 func ResolveDirectoryPath(absPath string) (string, func(), error) {
 	kdeps_debug.Log("enter: ResolveDirectoryPath")
-	if agencyPath := FindAgencyFile(absPath); agencyPath != "" {
-		fmt.Fprintf(os.Stdout, "Agency: %s\n", agencyPath)
-		return agencyPath, nil, nil
-	}
-
-	workflowPath := FindWorkflowFile(absPath)
-	if workflowPath == "" {
+	path, kind := manifest.ResolveDirectory(absPath)
+	if path == "" {
 		return "", nil, fmt.Errorf("workflow.yaml not found in directory: %s", absPath)
 	}
 
-	fmt.Fprintf(os.Stdout, "Workflow: %s\n", workflowPath)
-	return workflowPath, nil, nil
+	switch kind {
+	case manifest.KindAgency:
+		fmt.Fprintf(os.Stdout, "Agency: %s\n", path)
+	case manifest.KindWorkflow:
+		fmt.Fprintf(os.Stdout, "Workflow: %s\n", path)
+	case manifest.KindComponent:
+		fmt.Fprintf(os.Stdout, "Component: %s\n", path)
+	}
+	return path, nil, nil
 }

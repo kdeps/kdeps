@@ -30,6 +30,7 @@ import (
 	"strings"
 
 	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
+	"github.com/kdeps/kdeps/v2/pkg/manifest"
 )
 
 // githubArchiveBaseURL is the base URL for downloading GitHub repo archives.
@@ -61,28 +62,6 @@ var filepathRelCopyDirFunc = filepath.Rel
 //
 //nolint:gochecknoglobals // test-replaceable hook
 var copyFileCloseFunc = func(f *os.File) error { return f.Close() }
-
-// cloneManifestOrder is the priority order for manifest detection (agency > workflow > component).
-var cloneManifestOrder = []string{ //nolint:gochecknoglobals // package-level lookup order
-	"agency.yml", "agency.yaml", "agency.yml.j2", "agency.yaml.j2",
-	"workflow.yaml", "workflow.yml", "workflow.yaml.j2", "workflow.yml.j2",
-	"component.yaml", "component.yml", "component.yaml.j2",
-}
-
-// cloneTypeNames maps detected manifest filenames to a human label.
-var cloneTypeLabels = map[string]string{ //nolint:gochecknoglobals // package-level const map
-	"agency.yml":        "agency",
-	"agency.yaml":       "agency",
-	"agency.yml.j2":     "agency",
-	"agency.yaml.j2":    "agency",
-	"workflow.yaml":     "agent",
-	"workflow.yml":      "agent",
-	"workflow.yaml.j2":  "agent",
-	"workflow.yml.j2":   "agent",
-	"component.yaml":    "component",
-	"component.yml":     "component",
-	"component.yaml.j2": "component",
-}
 
 // parseCloneRef splits "owner/repo[:subdir]" into its components.
 func parseCloneRef(ref string) (string, string, string, string, error) {
@@ -145,9 +124,9 @@ func cloneFromRemote(ref string) error {
 // ("agency"|"agent"|"component"|"") and the manifest filename found.
 func detectCloneType(sourceDir string) (string, string) {
 	kdeps_debug.Log("enter: detectCloneType")
-	for _, c := range cloneManifestOrder {
+	for _, c := range manifest.CloneManifestNames() {
 		if _, err := os.Stat(filepath.Join(sourceDir, c)); err == nil {
-			label, ok := cloneTypeLabels[c]
+			label, ok := manifest.CloneTypeLabel(c)
 			if !ok {
 				label = "agent"
 			}

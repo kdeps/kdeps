@@ -29,6 +29,7 @@ import (
 	"github.com/spf13/cobra"
 
 	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
+	"github.com/kdeps/kdeps/v2/pkg/manifest"
 )
 
 // newRegistryUpdateCmd creates the registry update subcommand.
@@ -116,7 +117,7 @@ func findInstalledPackage(name string) (bool, string, error) {
 		return true, agentDir, nil
 	}
 
-	if isKdepsProjectDir(".") {
+	if manifest.IsProjectDir(".") {
 		localDir := filepath.Join(".", "components", name)
 		if _, statErr := os.Stat(localDir); statErr == nil {
 			return true, localDir, nil

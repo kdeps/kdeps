@@ -22,6 +22,8 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+
+	"github.com/kdeps/kdeps/v2/pkg/manifest"
 )
 
 func isYAMLResourceFile(name string) bool {
@@ -60,7 +62,7 @@ func dockerDefaultWorkflowPath() string {
 	if p := findWorkflowFileHook("/app"); p != "" {
 		return p
 	}
-	return "/app/workflow.yaml"
+	return filepath.Join("/app", manifest.WorkflowYAML)
 }
 
 func managementWorkflowPathFallback() string {
@@ -70,22 +72,7 @@ func managementWorkflowPathFallback() string {
 	return defaultWorkflowFile
 }
 
-func workflowFileCandidates(dir string) []string {
-	return []string{
-		filepath.Join(dir, "workflow.yaml"),
-		filepath.Join(dir, "workflow.yaml.j2"),
-		filepath.Join(dir, "workflow.yml"),
-		filepath.Join(dir, "workflow.yml.j2"),
-		filepath.Join(dir, "workflow.j2"),
-	}
-}
-
 func findWorkflowFile(dir string) string {
 	debugEnter("findWorkflowFile")
-	for _, p := range workflowFileCandidates(dir) {
-		if fileExists(p) {
-			return p
-		}
-	}
-	return ""
+	return manifest.Workflow(dir)
 }

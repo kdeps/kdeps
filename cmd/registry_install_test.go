@@ -38,6 +38,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/kdeps/kdeps/v2/pkg/domain"
+	"github.com/kdeps/kdeps/v2/pkg/manifest"
 )
 
 // testCreateTarGz builds a .kdeps archive from a map of filename->content.
@@ -337,9 +338,9 @@ func TestPeekManifest_NoManifest(t *testing.T) {
 
 func TestIsKdepsProjectDir(t *testing.T) {
 	dir := t.TempDir()
-	assert.False(t, isKdepsProjectDir(dir))
+	assert.False(t, manifest.IsProjectDir(dir))
 	require.NoError(t, os.WriteFile(filepath.Join(dir, "workflow.yaml"), []byte(""), 0600))
-	assert.True(t, isKdepsProjectDir(dir))
+	assert.True(t, manifest.IsProjectDir(dir))
 }
 
 func TestKdepsAgentsDir_DefaultPath(t *testing.T) {

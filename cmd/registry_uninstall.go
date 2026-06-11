@@ -28,6 +28,7 @@ import (
 	"github.com/spf13/cobra"
 
 	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
+	"github.com/kdeps/kdeps/v2/pkg/manifest"
 )
 
 // newRegistryUninstallCmd creates the registry uninstall subcommand.
@@ -87,7 +88,7 @@ func uninstallComponent(cmd *cobra.Command, name string) (bool, error) {
 
 // tryRemoveLocalComponent removes a project-local component when present.
 func tryRemoveLocalComponent(cmd *cobra.Command, name string) (bool, error) {
-	if !isKdepsProjectDir(".") {
+	if !manifest.IsProjectDir(".") {
 		return false, nil
 	}
 	localDir := filepath.Join(".", "components", name)

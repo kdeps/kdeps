@@ -28,6 +28,7 @@ import (
 	"github.com/spf13/cobra"
 
 	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
+	"github.com/kdeps/kdeps/v2/pkg/manifest"
 )
 
 // newExecCmd creates the exec subcommand.
@@ -96,16 +97,9 @@ func resolveInstalledAgentWorkflow(name string) (string, error) {
 // resolveWorkflowInDir searches dir for a workflow or agency manifest.
 func resolveWorkflowInDir(dir string) (string, error) {
 	kdeps_debug.Log("enter: resolveWorkflowInDir")
-	candidates := []string{
-		"workflow.yaml", "workflow.yml",
-		"workflow.yaml.j2", "workflow.yml.j2",
-		"agency.yaml", "agency.yml",
+	path, _ := manifest.ResolveDirectoryWorkflowFirst(dir)
+	if path == "" {
+		return "", fmt.Errorf("no workflow or agency manifest found in %s", dir)
 	}
-	for _, name := range candidates {
-		p := filepath.Join(dir, name)
-		if _, err := os.Stat(p); err == nil {
-			return p, nil
-		}
-	}
-	return "", fmt.Errorf("no workflow or agency manifest found in %s", dir)
+	return path, nil
 }

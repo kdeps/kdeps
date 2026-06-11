@@ -79,15 +79,8 @@ func TestCloneFromRemote_MkdirTempError(t *testing.T) {
 	require.Error(t, err)
 }
 
-func TestDetectCloneType_UnknownLabelFallback(t *testing.T) {
+func TestDetectCloneType_WorkflowAgent(t *testing.T) {
 	tmp := t.TempDir()
-	origLabel, had := cloneTypeLabels["workflow.yaml"]
-	delete(cloneTypeLabels, "workflow.yaml")
-	t.Cleanup(func() {
-		if had {
-			cloneTypeLabels["workflow.yaml"] = origLabel
-		}
-	})
 	require.NoError(t, os.WriteFile(filepath.Join(tmp, "workflow.yaml"), []byte(minimalWorkflowYAML()), 0644))
 	typ, name := detectCloneType(tmp)
 	assert.Equal(t, "agent", typ)

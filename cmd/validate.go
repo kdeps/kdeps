@@ -28,6 +28,8 @@ import (
 	"github.com/spf13/cobra"
 	goyaml "gopkg.in/yaml.v3"
 
+	"github.com/kdeps/kdeps/v2/pkg/manifest"
+
 	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
 	kdepslog "github.com/kdeps/kdeps/v2/pkg/log"
 	"github.com/kdeps/kdeps/v2/pkg/parser/expression"
@@ -98,10 +100,10 @@ func runValidateCmd(_ *cobra.Command, args []string) error {
 // validateFileByName routes a single file path to the appropriate validator.
 func validateFileByName(inputPath string) error {
 	base := filepath.Base(inputPath)
-	switch { //nolint:staticcheck // multi-value cases prevent tagged switch
-	case base == agencyFile || base == agencyYMLFile:
+	switch {
+	case manifest.IsAgencyFile(base):
 		return validateAgencyFile(inputPath)
-	case base == "component.yaml" || base == "component.yml":
+	case manifest.IsComponentFile(base):
 		return validateComponentFile(inputPath)
 	default:
 		if isResourceFile(inputPath) {

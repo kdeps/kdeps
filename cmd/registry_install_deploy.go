@@ -33,6 +33,7 @@ import (
 
 	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
 	"github.com/kdeps/kdeps/v2/pkg/domain"
+	kdepsmanifest "github.com/kdeps/kdeps/v2/pkg/manifest"
 )
 
 // installWorkflowOrAgency extracts into ~/.kdeps/agents/<name>/ (like a home-local install).
@@ -93,7 +94,7 @@ func installRegistryComponent(cmd *cobra.Command, manifest *domain.KdepsPkg, arc
 		return err
 	}
 	// Prefer ./components/ if inside a kdeps project.
-	if isKdepsProjectDir(".") {
+	if kdepsmanifest.IsProjectDir(".") {
 		compDir = filepath.Join(".", "components")
 	}
 
@@ -121,17 +122,6 @@ func installRegistryComponent(cmd *cobra.Command, manifest *domain.KdepsPkg, arc
 	fmt.Fprintln(w)
 	fmt.Fprintf(w, "Documentation: kdeps registry info %s\n", manifest.Name)
 	return nil
-}
-
-// isKdepsProjectDir returns true if dir contains a workflow or agency manifest.
-func isKdepsProjectDir(dir string) bool {
-	kdeps_debug.Log("enter: isKdepsProjectDir")
-	for _, f := range []string{"workflow.yaml", "workflow.yml", "agency.yaml", "agency.yml"} {
-		if _, err := os.Stat(filepath.Join(dir, f)); err == nil {
-			return true
-		}
-	}
-	return false
 }
 
 // peekManifest reads kdeps.pkg.yaml from the archive without full extraction.

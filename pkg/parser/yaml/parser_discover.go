@@ -20,11 +20,10 @@ package yaml
 
 import (
 	"fmt"
-	"os"
-	"path/filepath"
 
 	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
 	"github.com/kdeps/kdeps/v2/pkg/domain"
+	"github.com/kdeps/kdeps/v2/pkg/manifest"
 )
 
 // extractAndFindWorkflow extracts a .kdeps package to a temp directory, records the
@@ -61,21 +60,7 @@ func (p *Parser) appendKdepsWorkflow(paths []string, pkgPath, agentName string) 
 	return append(paths, wf), nil
 }
 
-// findWorkflowInDir returns the first workflow file found in dir, or empty string.
-// Mirrors the priority order used by FindWorkflowFile in cmd/run.go.
 func findWorkflowInDir(dir string) string {
 	kdeps_debug.Log("enter: findWorkflowInDir")
-	candidates := []string{
-		filepath.Join(dir, "workflow.yaml"),
-		filepath.Join(dir, "workflow.yaml.j2"),
-		filepath.Join(dir, "workflow.yml"),
-		filepath.Join(dir, "workflow.yml.j2"),
-		filepath.Join(dir, "workflow.j2"),
-	}
-	for _, c := range candidates {
-		if _, err := os.Stat(c); err == nil {
-			return c
-		}
-	}
-	return ""
+	return manifest.Workflow(dir)
 }
