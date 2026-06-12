@@ -58,6 +58,24 @@ func (w *WorkflowSettings) GetPortNum() int {
 	return DefaultPort
 }
 
+// GetWebPortNum returns the webServer port, falling back to the shared port
+// resolution when the web server does not declare its own.
+func (w *WorkflowSettings) GetWebPortNum() int {
+	kdeps_debug.Log("enter: GetWebPortNum")
+	if w.WebServer != nil && w.WebServer.PortNum > 0 {
+		return w.WebServer.PortNum
+	}
+	return w.GetPortNum()
+}
+
+// HasDistinctWebPort reports whether the web server declares its own port and
+// must run on a separate listener instead of being merged onto the API port.
+func (w *WorkflowSettings) HasDistinctWebPort() bool {
+	kdeps_debug.Log("enter: HasDistinctWebPort")
+	return w.APIServer != nil && w.WebServer != nil &&
+		w.WebServer.PortNum > 0 && w.WebServer.PortNum != w.GetPortNum()
+}
+
 // GetCORSConfig returns the CORS configuration, providing defaults if not set.
 // Presence of a cors: block always enables CORS. To disable, omit the block.
 func (w *WorkflowSettings) GetCORSConfig() *CORS {

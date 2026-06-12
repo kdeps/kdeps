@@ -359,6 +359,155 @@ func TestStartWebServer_SignalShutdown(t *testing.T) {
 	}
 }
 
+func TestStartBothServersWithEngine_MergedSignalShutdown(t *testing.T) {
+	origStart := httpServerStartFunc
+	t.Cleanup(func() { httpServerStartFunc = origStart })
+	block := make(chan struct{})
+	httpServerStartFunc = func(_ *kdepshttp.Server, _ string, _ bool) error {
+		<-block
+		return http.ErrServerClosed
+	}
+	eng := executor.NewEngine(nil)
+	samePort := mustFreePort(t)
+	wf := &domain.Workflow{
+		Metadata: domain.WorkflowMetadata{Name: "both", Version: "1.0", TargetActionID: "act"},
+		Settings: domain.WorkflowSettings{
+			APIServer: &domain.APIServerConfig{PortNum: samePort},
+			WebServer: &domain.WebServerConfig{PortNum: samePort, Routes: []domain.WebRoute{}},
+		},
+		Resources: []*domain.Resource{{ActionID: "act", APIResponse: &domain.APIResponseConfig{Success: true}}},
+	}
+	done := make(chan error, 1)
+	go func() { done <- startBothServersWithEngine(eng, wf, t.TempDir(), false, false) }()
+	time.Sleep(100 * time.Millisecond)
+	sendSIGINTToSelf(t)
+	close(block)
+	select {
+	case err := <-done:
+		require.NoError(t, err)
+	case <-time.After(5 * time.Second):
+		t.Fatal("timeout")
+	}
+}
+
+func TestStartBothServersWithEngine_MergedStartsClean(t *testing.T) {
+	orig := httpServerStartFunc
+	t.Cleanup(func() { httpServerStartFunc = orig })
+	httpServerStartFunc = func(_ *kdepshttp.Server, _ string, _ bool) error {
+		return nil
+	}
+	eng := executor.NewEngine(nil)
+	samePort := mustFreePort(t)
+	wf := &domain.Workflow{
+		Metadata: domain.WorkflowMetadata{Name: "both", Version: "1.0", TargetActionID: "act"},
+		Settings: domain.WorkflowSettings{
+			APIServer: &domain.APIServerConfig{PortNum: samePort},
+			WebServer: &domain.WebServerConfig{PortNum: samePort, Routes: []domain.WebRoute{}},
+		},
+		Resources: []*domain.Resource{{ActionID: "act", APIResponse: &domain.APIResponseConfig{Success: true}}},
+	}
+	require.NoError(t, startBothServersWithEngine(eng, wf, t.TempDir(), false, false))
+}
+
+func TestStartBothServersWithEngine_MergedStartError(t *testing.T) {
+	orig := httpServerStartFunc
+	t.Cleanup(func() { httpServerStartFunc = orig })
+	httpServerStartFunc = func(_ *kdepshttp.Server, _ string, _ bool) error {
+		return errors.New("merged start failed")
+	}
+	eng := executor.NewEngine(nil)
+	samePort := mustFreePort(t)
+	wf := &domain.Workflow{
+		Metadata: domain.WorkflowMetadata{Name: "both", Version: "1.0", TargetActionID: "act"},
+		Settings: domain.WorkflowSettings{
+			APIServer: &domain.APIServerConfig{PortNum: samePort},
+			WebServer: &domain.WebServerConfig{PortNum: samePort, Routes: []domain.WebRoute{}},
+		},
+		Resources: []*domain.Resource{{ActionID: "act", APIResponse: &domain.APIResponseConfig{Success: true}}},
+	}
+	err := startBothServersWithEngine(eng, wf, t.TempDir(), false, false)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "merged start failed")
+}
+
+func TestStartBothServersWithEngine_SplitWebStartError(t *testing.T) {
+	origHTTPStart := httpServerStartFunc
+	origWebStart := webServerStartFunc
+	origWebShutdown := webServerShutdownFunc
+	t.Cleanup(func() {
+		httpServerStartFunc = origHTTPStart
+		webServerStartFunc = origWebStart
+		webServerShutdownFunc = origWebShutdown
+	})
+	block := make(chan struct{})
+	t.Cleanup(func() { close(block) })
+	httpServerStartFunc = func(_ *kdepshttp.Server, _ string, _ bool) error {
+		<-block
+		return http.ErrServerClosed
+	}
+	webServerStartFunc = func(_ *kdepshttp.WebServer, _ context.Context) error {
+		return errors.New("web bind failed")
+	}
+	webServerShutdownFunc = func(_ *kdepshttp.WebServer, _ context.Context) error {
+		return errors.New("web shutdown failed")
+	}
+	eng := executor.NewEngine(nil)
+	wf := &domain.Workflow{
+		Metadata: domain.WorkflowMetadata{Name: "both", Version: "1.0", TargetActionID: "act"},
+		Settings: domain.WorkflowSettings{
+			APIServer: &domain.APIServerConfig{PortNum: mustFreePort(t)},
+			WebServer: &domain.WebServerConfig{PortNum: mustFreePort(t), Routes: []domain.WebRoute{}},
+		},
+		Resources: []*domain.Resource{{ActionID: "act", APIResponse: &domain.APIResponseConfig{Success: true}}},
+	}
+	err := startBothServersWithEngine(eng, wf, t.TempDir(), false, false)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "web bind failed")
+}
+
+func TestStartBothServersWithEngine_SplitAPIStartsClean(t *testing.T) {
+	origHTTPStart := httpServerStartFunc
+	origWebStart := webServerStartFunc
+	t.Cleanup(func() {
+		httpServerStartFunc = origHTTPStart
+		webServerStartFunc = origWebStart
+	})
+	block := make(chan struct{})
+	t.Cleanup(func() { close(block) })
+	httpServerStartFunc = func(_ *kdepshttp.Server, _ string, _ bool) error {
+		return nil
+	}
+	webServerStartFunc = func(_ *kdepshttp.WebServer, _ context.Context) error {
+		<-block
+		return http.ErrServerClosed
+	}
+	eng := executor.NewEngine(nil)
+	wf := &domain.Workflow{
+		Metadata: domain.WorkflowMetadata{Name: "both", Version: "1.0", TargetActionID: "act"},
+		Settings: domain.WorkflowSettings{
+			APIServer: &domain.APIServerConfig{PortNum: mustFreePort(t)},
+			WebServer: &domain.WebServerConfig{PortNum: mustFreePort(t), Routes: []domain.WebRoute{}},
+		},
+		Resources: []*domain.Resource{{ActionID: "act", APIResponse: &domain.APIResponseConfig{Success: true}}},
+	}
+	require.NoError(t, startBothServersWithEngine(eng, wf, t.TempDir(), false, false))
+}
+
+func TestStartBothServersWithEngine_SplitBindAddressError(t *testing.T) {
+	orig := findAvailablePortFunc
+	t.Cleanup(func() { findAvailablePortFunc = orig })
+	findAvailablePortFunc = func(_ string, _ int) (int, error) { return 0, errors.New("no port") }
+	eng := executor.NewEngine(nil)
+	wf := &domain.Workflow{
+		Settings: domain.WorkflowSettings{
+			APIServer: &domain.APIServerConfig{PortNum: 8080},
+			WebServer: &domain.WebServerConfig{PortNum: 9090, Routes: []domain.WebRoute{}},
+		},
+	}
+	err := startBothServersWithEngine(eng, wf, t.TempDir(), false, false)
+	require.Error(t, err)
+}
+
 func TestStartOllamaServer_StartError(t *testing.T) {
 	origLook := execLookPathFunc
 	t.Cleanup(func() { execLookPathFunc = origLook })

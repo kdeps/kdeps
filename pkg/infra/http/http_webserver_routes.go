@@ -66,7 +66,7 @@ func (s *WebServer) logWebRouteConfigured(route domain.WebRoute) {
 func webServerListenAddr(settings domain.WorkflowSettings) string {
 	return listenAddrFromHostPort(
 		effectiveBindHostFromEnv(settings.GetHostIP()),
-		settings.GetPortNum(),
+		settings.GetWebPortNum(),
 	)
 }
 

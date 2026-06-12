@@ -498,6 +498,107 @@ func TestWorkflowSettings_GetPortNum(t *testing.T) {
 	}
 }
 
+func TestWorkflowSettings_GetWebPortNum(t *testing.T) {
+	tests := []struct {
+		name     string
+		settings *domain.WorkflowSettings
+		want     int
+	}{
+		{
+			name: "returns WebServer PortNum when set",
+			settings: &domain.WorkflowSettings{
+				APIServer: &domain.APIServerConfig{PortNum: 8080},
+				WebServer: &domain.WebServerConfig{PortNum: 9090},
+			},
+			want: 9090,
+		},
+		{
+			name: "falls back to shared port when WebServer PortNum unset",
+			settings: &domain.WorkflowSettings{
+				APIServer: &domain.APIServerConfig{PortNum: 8080},
+				WebServer: &domain.WebServerConfig{},
+			},
+			want: 8080,
+		},
+		{
+			name:     "falls back to default without server config",
+			settings: &domain.WorkflowSettings{},
+			want:     domain.DefaultPort,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := tt.settings.GetWebPortNum()
+			if got != tt.want {
+				t.Errorf("GetWebPortNum() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestWorkflowSettings_HasDistinctWebPort(t *testing.T) {
+	tests := []struct {
+		name     string
+		settings *domain.WorkflowSettings
+		want     bool
+	}{
+		{
+			name: "true when both servers declare different ports",
+			settings: &domain.WorkflowSettings{
+				APIServer: &domain.APIServerConfig{PortNum: 8080},
+				WebServer: &domain.WebServerConfig{PortNum: 9090},
+			},
+			want: true,
+		},
+		{
+			name: "false when ports match",
+			settings: &domain.WorkflowSettings{
+				APIServer: &domain.APIServerConfig{PortNum: 8080},
+				WebServer: &domain.WebServerConfig{PortNum: 8080},
+			},
+			want: false,
+		},
+		{
+			name: "false when WebServer PortNum unset",
+			settings: &domain.WorkflowSettings{
+				APIServer: &domain.APIServerConfig{PortNum: 8080},
+				WebServer: &domain.WebServerConfig{},
+			},
+			want: false,
+		},
+		{
+			name: "false when only API port unset (web port becomes shared port)",
+			settings: &domain.WorkflowSettings{
+				APIServer: &domain.APIServerConfig{},
+				WebServer: &domain.WebServerConfig{PortNum: 9090},
+			},
+			want: false,
+		},
+		{
+			name: "false without APIServer",
+			settings: &domain.WorkflowSettings{
+				WebServer: &domain.WebServerConfig{PortNum: 9090},
+			},
+			want: false,
+		},
+		{
+			name:     "false without WebServer",
+			settings: &domain.WorkflowSettings{APIServer: &domain.APIServerConfig{PortNum: 8080}},
+			want:     false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := tt.settings.HasDistinctWebPort()
+			if got != tt.want {
+				t.Errorf("HasDistinctWebPort() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
 // TestInputConfig_UnmarshalYAML covers all input source branches.
 //
 //nolint:gocognit // table-driven test covers all input source branches

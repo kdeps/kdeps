@@ -18,6 +18,8 @@
 
 package http
 
+import "github.com/kdeps/kdeps/v2/pkg/domain"
+
 // applySecurityMiddleware wires auth, rate-limit, and body-limit middleware
 // from the workflow's APIServer config.
 func (s *Server) applySecurityMiddleware() error {
@@ -30,9 +32,54 @@ func (s *Server) applySecurityMiddleware() error {
 	if err != nil {
 		return err
 	}
-	s.Router.Use(AuthMiddleware(token))
+	s.Router.Use(AuthMiddlewareExempting(token, mergedWebRouteMatcher(s.Workflow)))
 	configureTrustedProxyLimits(s.Router, s.Workflow.Settings, apiServerLimitConfig(api), s.logger)
 	return nil
+}
+
+// mergedWebRouteMatcher returns a predicate marking webServer routes as public
+// when they are merged onto the API router. Web assets are unauthenticated in
+// webServer-only mode; merging them onto the API port must not change that —
+// a browser navigation cannot send an Authorization header. Paths claimed by
+// an API route always stay authenticated, even when a wildcard web route
+// (e.g. "/") would also match them. Returns nil (no exemption) when the web
+// server runs on its own listener or is absent.
+func mergedWebRouteMatcher(workflow *domain.Workflow) func(string) bool {
+	if workflow == nil || workflow.Settings.WebServer == nil ||
+		workflow.Settings.HasDistinctWebPort() {
+		return nil
+	}
+	apiRoutes := apiRoutePatterns(workflow.Settings.APIServer)
+	webPatterns := make([]string, 0, len(workflow.Settings.WebServer.Routes))
+	for _, route := range workflow.Settings.WebServer.Routes {
+		webPatterns = append(webPatterns, wildcardRoutePath(route.Path))
+	}
+	return func(path string) bool {
+		if anyPatternMatches(apiRoutes, path) {
+			return false
+		}
+		return anyPatternMatches(webPatterns, path)
+	}
+}
+
+func apiRoutePatterns(api *domain.APIServerConfig) []string {
+	if api == nil {
+		return nil
+	}
+	patterns := make([]string, 0, len(api.Routes))
+	for _, route := range api.Routes {
+		patterns = append(patterns, route.Path)
+	}
+	return patterns
+}
+
+func anyPatternMatches(patterns []string, path string) bool {
+	for _, pattern := range patterns {
+		if matchRouterPattern(pattern, path) {
+			return true
+		}
+	}
+	return false
 }
 
 // applyWebSecurityMiddleware wires rate-limit and body-limit middleware for webServer-only mode.
