@@ -46,12 +46,17 @@ func (e *Executor) buildMessages(
 		role = roleUser
 	}
 
-	messages := []map[string]interface{}{
-		{
-			"role":    role,
-			"content": content,
-		},
+	history, err := e.buildHistoryMessages(evaluator, ctx, config.Messages)
+	if err != nil {
+		return nil, err
 	}
+
+	messages := make([]map[string]interface{}, 0, len(history)+1)
+	messages = append(messages, history...)
+	messages = append(messages, map[string]interface{}{
+		"role":    role,
+		"content": content,
+	})
 
 	// Build system prompt with JSON response instructions (v1 compatibility)
 	systemPrompt := e.buildSystemPrompt(config)
