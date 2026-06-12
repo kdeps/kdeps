@@ -30,6 +30,16 @@ type ResponseWriterWrapper struct {
 	stdhttp.ResponseWriter
 	headersWritten bool
 	flusher        stdhttp.Flusher
+	escapeDisabled bool
+}
+
+// DisableHTMLEscape turns off the browser-rendered-content XSS escaping for
+// this response. Web server routes call it: they serve real HTML (static
+// files, proxied apps), where escaping corrupts the body and the length
+// mismatch with the already-written Content-Length truncates the response.
+func (w *ResponseWriterWrapper) DisableHTMLEscape() {
+	debugEnter("DisableHTMLEscape")
+	w.escapeDisabled = true
 }
 
 func (w *ResponseWriterWrapper) WriteHeader(code int) {
@@ -72,6 +82,10 @@ func (w *ResponseWriterWrapper) resolvedContentType(body []byte) string {
 func (w *ResponseWriterWrapper) Write(b []byte) (int, error) {
 	debugEnter("Write")
 	w.markHeadersWritten()
+
+	if w.escapeDisabled {
+		return w.ResponseWriter.Write(b)
+	}
 
 	ct := w.resolvedContentType(b)
 	if !browserRenderedContentType(ct) {

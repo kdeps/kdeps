@@ -183,6 +183,20 @@ func TestResponseWriterWrapper_Write_NonBrowserContent(t *testing.T) {
 	assert.Equal(t, string(data), recorder.Body.String())
 }
 
+func TestResponseWriterWrapper_DisableHTMLEscape(t *testing.T) {
+	recorder := httptest.NewRecorder()
+	recorder.Header().Set("Content-Type", "text/html")
+	wrapper := &http.ResponseWriterWrapper{ResponseWriter: recorder}
+	wrapper.DisableHTMLEscape()
+	data := []byte("<html><body>raw</body></html>")
+	n, err := wrapper.Write(data)
+	assert.NoError(t, err)
+	assert.Equal(t, len(data), n)
+	// Web routes serve real HTML: with escaping disabled the body must pass
+	// through verbatim instead of being entity-encoded.
+	assert.Equal(t, string(data), recorder.Body.String())
+}
+
 func TestBrowserRenderedContentType_AllTypes(t *testing.T) {
 	middleware := http.BodyLimitMiddleware(1 << 20) // just to indirectly verify - we test Write directly
 	_ = middleware
