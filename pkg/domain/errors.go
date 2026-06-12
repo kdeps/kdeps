@@ -208,7 +208,7 @@ var appErrorHTTPStatus = map[AppErrorCode]int{ //nolint:gochecknoglobals // look
 	ErrCodeInternal:         http.StatusInternalServerError,
 	ErrCodeDependencyFailed: http.StatusInternalServerError,
 	ErrCodeResourceFailed:   http.StatusInternalServerError,
-	ErrCodePreflightFailed:  http.StatusInternalServerError,
+	ErrCodePreflightFailed:  http.StatusBadRequest,
 	ErrCodeExpressionErr:    http.StatusInternalServerError,
 }
 

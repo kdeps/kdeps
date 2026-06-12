@@ -55,10 +55,39 @@ func appendDebugAppErrorDetails(
 	return appErr
 }
 
+// preflightStatusError is implemented by executor.PreflightError. Declared
+// locally so the infra layer stays decoupled from the executor package.
+type preflightStatusError interface {
+	error
+	PreflightStatus() (int, string)
+}
+
+const (
+	minHTTPStatus = 100
+	maxHTTPStatus = 599
+)
+
+// preflightAppError maps a failed validations.check to the user-configured
+// error code and message instead of a generic 500.
+func preflightAppError(preflight preflightStatusError) *domain.AppError {
+	status, message := preflight.PreflightStatus()
+	appErr := domain.NewAppError(domain.ErrCodePreflightFailed, message).
+		WithError(preflight)
+	if status >= minHTTPStatus && status <= maxHTTPStatus {
+		appErr.StatusCode = status
+	}
+	return appErr
+}
+
 func normalizeToAppError(err error, debugMode bool) *domain.AppError {
 	var appErr *domain.AppError
 	if errors.As(err, &appErr) {
 		return appErr
+	}
+
+	var preflight preflightStatusError
+	if errors.As(err, &preflight) {
+		return preflightAppError(preflight)
 	}
 
 	appErr = domain.NewAppError(

@@ -310,7 +310,7 @@ func TestGetHTTPStatus(t *testing.T) {
 		{domain.ErrCodeServiceUnavail, http.StatusServiceUnavailable},
 		{domain.ErrCodeInternal, http.StatusInternalServerError},
 		{domain.ErrCodeResourceFailed, http.StatusInternalServerError},
-		{domain.ErrCodePreflightFailed, http.StatusInternalServerError},
+		{domain.ErrCodePreflightFailed, http.StatusBadRequest},
 		{domain.ErrCodeExpressionErr, http.StatusInternalServerError},
 		{domain.AppErrorCode("UNKNOWN"), http.StatusInternalServerError},
 	}
