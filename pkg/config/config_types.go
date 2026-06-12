@@ -151,7 +151,7 @@ type LLMKeys struct {
 	// Ollama — local inference, no API key needed.
 	OllamaHost string `yaml:"ollama_host"` // default: http://localhost:11434
 
-	// Default backend: ollama (local), openai, anthropic, google, etc.
+	// Default backend: file (local, llamafile), ollama, openai, anthropic, google, etc.
 	// Serialized to KDEPS_DEFAULT_BACKEND.
 	Backend string `yaml:"backend,omitempty"`
 

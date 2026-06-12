@@ -23,7 +23,9 @@ kdeps run examples/input-component
 
 ## Requirements
 
-- Ollama running locally with `llama3.2` (`ollama pull llama3.2`)
+None - the `llama3.2` model runs as a local llamafile (default `file` backend),
+auto-downloaded to `~/.kdeps/models/` on first run (~1.1 GB).
+To use ollama instead, set `KDEPS_DEFAULT_BACKEND=ollama` and run `ollama pull llama3.2`.
 
 ## The Built-in `input` Component
 

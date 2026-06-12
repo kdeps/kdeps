@@ -1173,6 +1173,13 @@ func TestLlamafileChatExample_ResourceParsing(t *testing.T) {
 	assert.Equal(t, "", resource.Chat.Backend)
 	assert.Equal(t, "llama3.2:1b", resource.Chat.Model)
 	assert.Equal(t, "user", resource.Chat.Role)
+
+	// The example's model string must be resolvable by the llamafile registry
+	// (the default file backend downloads it from this URL on first run).
+	url, ok := llm.ResolveLlamafileAlias(resource.Chat.Model)
+	require.True(t, ok, "example model %q must be a known llamafile alias", resource.Chat.Model)
+	assert.Contains(t, url, "huggingface.co")
+	assert.Contains(t, url, ".llamafile")
 }
 
 // TestLlamafileChatExample_MockExecution exercises the full execution path

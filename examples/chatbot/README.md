@@ -1,16 +1,24 @@
-# Chatbot Example
+# Chatbot Example (Ollama backend)
 
-Simple LLM chatbot using the unified API.
+Simple LLM chatbot that explicitly opts into the ollama backend.
+
+kdeps defaults to the `file` backend (llamafile, no server needed - see
+`examples/llamafile-chat/`). This example pins ollama instead via
+`KDEPS_DEFAULT_BACKEND: ollama` in `agentSettings.env` and bakes the ollama
+server into container builds with `installOllama: true`.
 
 ## Features
 
 - ✅ YAML configuration
 - ✅ Unified API (`get()` function)
-- ✅ LLM chat with Ollama
+- ✅ LLM chat with Ollama (explicit opt-in)
 - ✅ JSON response
 - ✅ Validation with preflight checks
 
 ## Run Locally
+
+Requires the [ollama](https://ollama.com) CLI; kdeps starts the server
+automatically if it is not already running.
 
 ```bash
 # From examples/chatbot directory

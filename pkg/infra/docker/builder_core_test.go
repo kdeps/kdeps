@@ -1172,12 +1172,12 @@ func TestBuilder_shouldInstallOllama(t *testing.T) {
 		envModels  string // value to set KDEPS_LLM_MODELS
 	}{
 		{
-			name: "ollama backend from resource",
+			name:       "ollama backend via env",
+			envBackend: "ollama",
 			resources: []*domain.Resource{
 				{
 					Chat: &domain.ChatConfig{
-						Backend: "ollama",
-						Model:   "llama2:7b",
+						Model: "llama2:7b",
 					},
 				},
 			},
@@ -1191,10 +1191,10 @@ func TestBuilder_shouldInstallOllama(t *testing.T) {
 			contains: []string{"FROM ollama/ollama:0.5.0"},
 		},
 		{
-			// Models struct field has yaml:"-"; Ollama auto-detect uses KDEPS_LLM_MODELS env.
-			name:      "auto-detect from models env",
+			// KDEPS_LLM_MODELS alone no longer implies ollama; models resolve via the file backend.
+			name:      "models env alone - no ollama",
 			envModels: "llama3.2:1b",
-			contains:  []string{"FROM ollama/ollama:0.5.0"},
+			contains:  []string{"FROM ubuntu:latest"},
 		},
 		{
 			name: "no LLM resources - no ollama",

@@ -1,6 +1,6 @@
 # Telegram Bot Example
 
-A Telegram bot that receives user messages and replies using a local LLM (Ollama `llama3.2:3b`).
+A Telegram bot that receives user messages and replies using a local LLM (`llama3.2:1b` llamafile, no server install needed).
 
 ## Features
 
@@ -55,7 +55,7 @@ Open Telegram, find your bot by its username, and send it a message. It will rep
 
 ```
 telegram-bot/
-├── workflow.yaml              # Bot source config, Telegram credentials, Ollama model
+├── workflow.yaml              # Bot source config, Telegram credentials, LLM model
 ├── components/
 │   └── botreply/
 │       └── component.yaml     # .komponent: sends reply through the bot session

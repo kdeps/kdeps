@@ -19,6 +19,7 @@
 package executor
 
 import (
+	"os"
 	"time"
 
 	kdepsconfig "github.com/kdeps/kdeps/v2/pkg/config"
@@ -42,12 +43,16 @@ func (e *Engine) resolveLLMTimeout(chat *domain.ChatConfig) (time.Duration, stri
 	return timeoutDuration, timeoutDurationStr
 }
 
-// resolveLLMBackend returns the configured backend name with ollama as default.
+// resolveLLMBackend returns the configured backend name.
+// Resolution order: resource config > KDEPS_DEFAULT_BACKEND > "file".
 func (e *Engine) resolveLLMBackend(chat *domain.ChatConfig) string {
 	if chat.Backend != "" {
 		return chat.Backend
 	}
-	return "ollama"
+	if backend := os.Getenv("KDEPS_DEFAULT_BACKEND"); backend != "" {
+		return backend
+	}
+	return "file"
 }
 
 // evaluateLLMModel evaluates the model field when it contains expression syntax.

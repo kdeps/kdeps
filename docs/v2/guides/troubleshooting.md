@@ -94,9 +94,20 @@ Error: model 'llama3.2' not found
 The configured LLM model isn't available on the backend.
 
 Fix:
+- For the default file backend: check the alias with `kdeps llamafile list` (e.g. `llama3.2:1b`), or pass a URL/path to a `.llamafile`
 - For Ollama: run `ollama pull llama3.2` to download the model
 - For OpenAI: check the model name (e.g., `gpt-4o`, not `gpt-4`)
 - Verify the `--model` flag or `KDEPS_AGENT_MODEL` env var
+
+### llamafile won't start (exec format / run-detectors errors)
+
+Llamafiles are portable executables that re-exec themselves via `/bin/sh`.
+On some kernels (binfmt_misc misconfiguration, WSL) the trampoline fails.
+
+Fix:
+- Run it through a shell explicitly: `sh ~/.kdeps/models/<model>.llamafile --version`
+- Ensure `$HOME` is writable (the APE loader extracts to `~/.ape`)
+- Make sure the file is executable: `chmod +x ~/.kdeps/models/*.llamafile`
 
 ### Missing API key
 

@@ -29,6 +29,27 @@ jobs:
         with:
           go-version-file: go.mod
 
+      - name: Install huggingface_hub (for llamafile harvest)
+        run: pip3 install --break-system-packages -q huggingface_hub 2>/dev/null || pip3 install -q huggingface_hub
+
+      - name: Cache HuggingFace Hub
+        uses: actions/cache@5a3b741034b46473a32912e53e790aad831be74f # v4
+        with:
+          path: ~/.cache/huggingface
+          key: hf-hub-${{ hashFiles('tools/llamafile-harvester/harvest.py') }}
+
+      - name: Harvest llamafile registry
+        id: harvest_llamafiles
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+        run: |
+          python3 tools/llamafile-harvester/harvest.py --write || echo "harvest failed; keeping committed registry"
+          if git diff --quiet pkg/executor/llm/llamafile_versions_data.go tools/llamafile-harvester/llamafile_versions.yaml 2>/dev/null; then
+            echo "has_registry_updates=false" >> $GITHUB_OUTPUT
+          else
+            echo "has_registry_updates=true" >> $GITHUB_OUTPUT
+          fi
+
       - name: Configure Git
         run: |
           git config user.name "github-actions[bot]"
@@ -211,7 +232,7 @@ jobs:
           fi
 
       - name: Commit and push module updates
-        if: steps.update_modules.outputs.has_module_updates == 'true' || steps.update_npm.outputs.has_npm_updates == 'true' || steps.update_npm_kdeps.outputs.has_npm_updates == 'true'
+        if: steps.update_modules.outputs.has_module_updates == 'true' || steps.update_npm.outputs.has_npm_updates == 'true' || steps.update_npm_kdeps.outputs.has_npm_updates == 'true' || steps.harvest_llamafiles.outputs.has_registry_updates == 'true'
         run: |
           if git diff --quiet go.mod go.sum; then
             echo "No Go module changes to commit"
@@ -227,6 +248,11 @@ jobs:
             echo "No npm changes to commit"
           else
             git add package.json package-lock.json
+          fi
+          if git diff --quiet pkg/executor/llm/llamafile_versions_data.go tools/llamafile-harvester/llamafile_versions.yaml; then
+            echo "No llamafile registry changes to commit"
+          else
+            git add pkg/executor/llm/llamafile_versions_data.go tools/llamafile-harvester/llamafile_versions.yaml
           fi
           git commit -m "chore: update dependencies [nightly]"
           git push origin main

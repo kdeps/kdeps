@@ -1,4 +1,4 @@
-.PHONY: build build-wasm test lint clean install run codeql codeql-db install-hooks
+.PHONY: build build-wasm test lint clean install run codeql codeql-db install-hooks harvest-llamafiles
 
 # Build variables
 VERSION ?= 2.0.0-dev
@@ -278,7 +278,12 @@ deps:
 	@go mod download
 	@go mod tidy
 
-# Help
+# Harvest llamafile registry from HuggingFace (requires huggingface_hub)
+harvest-llamafiles:
+	@echo "Harvesting llamafile registry from HuggingFace..."
+	@pip3 install --break-system-packages -q huggingface_hub 2>/dev/null || pip3 install -q huggingface_hub; \
+	PYTHONPATH="/tmp/hf-hub:$$PYTHONPATH" python3 tools/llamafile-harvester/harvest.py --write && \
+	echo "✓ llamafile registry updated"
 help:
 	@echo "KDeps v2 - Makefile commands"
 	@echo ""
@@ -299,6 +304,7 @@ help:
 	@echo "  make dev             Run in dev mode"
 	@echo "  make fmt             Format code"
 	@echo "  make deps            Download dependencies"
+	@echo "  make harvest-llamafiles  Refresh llamafile YAML from HuggingFace"
 	@echo "  make install-hooks   Install git pre-commit hooks"
 
 # Install git hooks

@@ -23,6 +23,7 @@ package docker
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 	"regexp"
 	"strings"
 
@@ -31,6 +32,7 @@ import (
 	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
 
 	"github.com/kdeps/kdeps/v2/pkg/domain"
+	"github.com/kdeps/kdeps/v2/pkg/executor/llm"
 	"github.com/kdeps/kdeps/v2/pkg/infra/texttmpl"
 	"github.com/kdeps/kdeps/v2/pkg/security/deployenv"
 )
@@ -72,6 +74,26 @@ func (b *Builder) buildTemplateData(workflow *domain.Workflow) (*DockerfileData,
 		installOllama,
 		b.getDefaultModel,
 	)
+
+	// Resolve llamafile model URLs for file backend pre-bake.
+	var llamafileModels []LlamafileModel
+	if !installOllama && domain.HasChatResources(workflow) {
+		seen := make(map[string]bool)
+		for _, m := range domain.ChatModels(workflow) {
+			if seen[m] {
+				continue
+			}
+			seen[m] = true
+			if url, ok := llm.ResolveLlamafileAlias(m); ok {
+				llamafileModels = append(llamafileModels, LlamafileModel{
+					URL:   url,
+					File:  filepath.Base(url),
+					Alias: m,
+				})
+			}
+		}
+	}
+
 	prepackagedAMD64, prepackagedARM64 := b.prepackagedFlags()
 	usePrepackagedBinary := prepackagedAMD64 || prepackagedARM64
 	hasResources, hasData := resolveBuildContextDirs(usePrepackagedBinary)
@@ -124,6 +146,7 @@ func (b *Builder) buildTemplateData(workflow *domain.Workflow) (*DockerfileData,
 		InstallerRef:         kdepsRef,
 		OllamaImageTag:       ollamaTag,
 		UVImageTag:           uvTag,
+		LlamafileModels:      llamafileModels,
 	}, nil
 }
 
@@ -240,7 +263,11 @@ func resolveModelSettings(
 	if installOllama {
 		return models, offlineMode, defaultModel
 	}
-	return nil, false, ""
+	// File backend: collect chat model names from workflow resources.
+	if domain.HasChatResources(workflow) {
+		models = domain.ChatModels(workflow)
+	}
+	return models, offlineMode, defaultModel
 }
 
 // GenerateDockerfile generates a Dockerfile (public method for --show-dockerfile).

@@ -31,6 +31,13 @@ import (
 	"github.com/kdeps/kdeps/v2/pkg/domain"
 )
 
+// LlamafileModel describes a single llamafile to pre-bake into a Docker image.
+type LlamafileModel struct {
+	URL   string
+	File  string // basename, e.g. "Llama-3.2-1B-Instruct-Q4_K_M.llamafile"
+	Alias string // human-readable alias, e.g. "llama3.2:1b"
+}
+
 // DockerfileData contains data for Dockerfile template rendering.
 type DockerfileData struct {
 	BaseImage            string
@@ -60,6 +67,7 @@ type DockerfileData struct {
 	InstallerRef         string            // kdeps repo ref for install.sh (release tag, or main for dev builds)
 	OllamaImageTag       string            // Docker image tag for Ollama COPY --from sources
 	UVImageTag           string            // Docker image tag for uv COPY --from sources
+	LlamafileModels      []LlamafileModel  // Llamafiles to pre-bake (file backend, not Ollama)
 }
 
 // Builder builds Docker images from workflows.

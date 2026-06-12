@@ -80,7 +80,7 @@ test_chatbot_workflow() {
     start_time=$(date +%s)
 
     # Start kdeps with model sourced from env (model: removed from resource YAML)
-    KDEPS_DEFAULT_MODEL="$model" timeout 180 "$KDEPS_BIN" run "$workflow_file" &
+    KDEPS_DEFAULT_BACKEND=ollama KDEPS_DEFAULT_MODEL="$model" timeout 180 "$KDEPS_BIN" run "$workflow_file" &
     local kdeps_pid=$!
 
     # Wait for server to start (chatbot uses port 16395)

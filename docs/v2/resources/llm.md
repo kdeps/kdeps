@@ -21,10 +21,14 @@ chat:
 ```yaml
 # ~/.kdeps/config.yaml
 llm:
-  backend: ollama              # ollama, openai, anthropic, groq, ...
+  backend: file                # default: local llamafile, no server install. Also: ollama, openai, anthropic, groq, ...
   # openai_api_key: sk-...
   # anthropic_api_key: sk-ant-...
 ```
+
+With the default `file` backend, `model: llama3.2:1b` resolves to a local
+llamafile that is downloaded once (~1.1 GB) and served automatically - see
+[LLM Backends](llm-backends#the-default-llamafile-file-backend).
 
 Set `model: router` to delegate model selection to the router configured in `~/.kdeps/config.yaml`. See [LLM Backends](llm-backends) for routing strategies.
 

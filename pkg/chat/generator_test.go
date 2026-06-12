@@ -238,7 +238,7 @@ func TestBackendName(t *testing.T) {
 		{"https://generativelanguage.googleapis.com", "google"},
 		{"https://api.groq.com/openai", "groq"},
 		{"https://api.deepseek.com", "deepseek"},
-		{"", "openai-compatible"},
+		{"", "llamafile (local, served on first message)"},
 	}
 	for _, tc := range tests {
 		gen := NewGenerator(&mockLLMClient{}, "model", tc.baseURL, "", nil)
@@ -330,13 +330,10 @@ func TestHTTPLLMClient_Chat_EmptyBaseURL(t *testing.T) {
 	)
 	defer server.Close()
 
-	client := NewHTTPLLMClient()
+	client := NewHTTPLLMClientWithBackend("ollama")
 	client.httpClient = server.Client()
 
-	// When baseURL is empty, Chat defaults to http://localhost:11434.
-	// Override the httpClient transport to point to our test server.
-	// We verify the Ollama routing path via the URL path check in the handler above.
-	baseURL := server.URL // contains "127.0.0.1" -> triggers Ollama path
+	baseURL := server.URL
 	reply, err := client.Chat(context.Background(), "llama3", baseURL, "", nil)
 	require.NoError(t, err)
 	assert.Equal(t, "local response", reply)
@@ -373,7 +370,7 @@ apiVersion: kdeps.io/v1
 }
 
 func TestHTTPLLMClient_Chat_OpenAIRoute(t *testing.T) {
-	client := NewHTTPLLMClient()
+	client := NewHTTPLLMClientWithBackend("")
 	client.httpClient = &stdhttp.Client{
 		Transport: roundTripFunc(func(req *stdhttp.Request) (*stdhttp.Response, error) {
 			assert.Equal(t, "/chat/completions", req.URL.Path)
@@ -403,7 +400,7 @@ func TestHTTPLLMClient_Chat_OpenAIRoute(t *testing.T) {
 }
 
 func TestHTTPLLMClient_Chat_EmptyBaseURLRoutesToOllama(t *testing.T) {
-	client := NewHTTPLLMClient()
+	client := NewHTTPLLMClientWithBackend("ollama")
 	client.httpClient = &stdhttp.Client{
 		Transport: roundTripFunc(func(req *stdhttp.Request) (*stdhttp.Response, error) {
 			assert.Equal(t, "/api/chat", req.URL.Path)

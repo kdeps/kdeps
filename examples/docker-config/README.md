@@ -64,30 +64,21 @@ agentSettings:
 
 ### LLM Backend Installation
 
-Control Ollama installation with the `installOllama` flag:
+By default no LLM server is installed: chat resources run on the `file`
+backend, and the referenced llamafile models are pre-baked into the image.
+Ollama is an explicit opt-in via the `installOllama` flag:
 
 ```yaml
 agentSettings:
-  installOllama: true   # Install Ollama for local LLM support
-  # or
-  installOllama: false  # Disable Ollama (for cloud-only workflows)
+  installOllama: true   # Bake the ollama server into the image
+  env:
+    KDEPS_DEFAULT_BACKEND: ollama  # route chat resources to ollama at runtime
 ```
 
-When `installOllama: true`, Ollama is installed via the official install script and you can use local LLM resources:
-
-```yaml
-resources:
-  - metadata:
-      actionId: llm
-    chat:
-      backend: "ollama"
-      model: "llama3.2:1b"
-      prompt: "{{ get('q') }}"
-```
-
-Ollama is automatically installed when:
+Ollama is installed when:
 - `installOllama: true` is explicitly set
-- Models are configured in `agentSettings.models` (implies Ollama usage)
+- `KDEPS_DEFAULT_BACKEND=ollama` is set and the workflow has chat resources
+- The LLM router config (`KDEPS_LLM_ROUTER`) contains ollama routes
 
 ---
 

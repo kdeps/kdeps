@@ -62,6 +62,9 @@ func buildKdepsEnvList(workflow *domain.Workflow) []string {
 		"KDEPS_PLATFORM=iso",
 	}
 	if !domain.ResolveInstallOllama(workflow) {
+		if domain.HasChatResources(workflow) {
+			envList = append(envList, "KDEPS_MODELS_DIR=/app/.kdeps/models")
+		}
 		return appendWorkflowEnv(envList, workflow)
 	}
 
@@ -97,6 +100,7 @@ func buildKdepsBinds(workflow *domain.Workflow) []string {
 	if domain.ResolveInstallOllama(workflow) {
 		binds = append(binds, "/dev:/dev")
 	}
+	// file backend does not need /dev bind
 	return binds
 }
 

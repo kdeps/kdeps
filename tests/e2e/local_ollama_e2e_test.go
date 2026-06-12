@@ -63,6 +63,8 @@ const (
 // This test verifies that Ollama is installed and can serve tinydolphin or llama 1b models.
 func TestLocalOllamaE2E(t *testing.T) {
 	kdeps_debug.Log("enter: TestLocalOllamaE2E")
+	// This test exercises the explicit ollama opt-in path (default backend is file).
+	t.Setenv("KDEPS_DEFAULT_BACKEND", "ollama")
 	// Check if Ollama CLI is installed
 	if !isOllamaInstalled() {
 		t.Skip("Ollama CLI not installed - skipping local Ollama E2E test")

@@ -31,7 +31,9 @@ echo '{"path":"/tmp/doc.txt","content":"Your text here"}' | kdeps run examples/f
 
 ## Requirements
 
-- Ollama running locally with `llama3.2` installed (`ollama pull llama3.2`)
+None - the `llama3.2` model runs as a local llamafile (default `file` backend),
+auto-downloaded to `~/.kdeps/models/` on first run (~1.1 GB).
+To use ollama instead, set `KDEPS_DEFAULT_BACKEND=ollama` and run `ollama pull llama3.2`.
 
 ## Input Resolution Priority
 

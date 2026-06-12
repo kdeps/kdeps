@@ -175,3 +175,9 @@ func (a *Adapter) Execute(ctx *executor.ExecutionContext, config any) (any, erro
 	}
 	return a.executor.Execute(ctx, chatConfig)
 }
+
+// ResolveLlamafileAlias is a no-op under js; the llamafile registry is host-only.
+func ResolveLlamafileAlias(_ string) (string, bool) { return "", false }
+
+// LlamafileAliasNames returns no aliases under js.
+func LlamafileAliasNames() []string { return nil }

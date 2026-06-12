@@ -76,7 +76,7 @@ settings:
       - path: /summarize
         methods: [POST]
   agentSettings:
-    installOllama: true
+    timezone: Etc/UTC
 ```
 
 ```yaml
@@ -95,7 +95,7 @@ actionId: respond
 name: Summarize and Respond
 requires: [fetch]
 chat:
-  model: llama3.2:1b
+  model: llama3.2:1b  # local llamafile, auto-downloaded on first run - no LLM server needed
   prompt: "Summarize this page: {{ output('fetch').body }}"
 apiResponse:
   response: "{{ output('respond').message.content }}"  # the model's reply text
@@ -235,13 +235,13 @@ Docs: [kdeps.com/getting-started/agent-skills](https://kdeps.com/getting-started
 
 ```bash
 kdeps edit    # opens ~/.kdeps/config.yaml
-kdeps doctor  # check config, Ollama, Python, installed agents
+kdeps doctor  # check config, LLM backend, Python, installed agents
 ```
 
 ```yaml
 # ~/.kdeps/config.yaml
 llm:
-  backend: ollama           # ollama, openai, anthropic, groq, ...
+  backend: file             # default: local llamafile, no server install. Also: ollama, openai, anthropic, groq, ...
   openai_api_key: sk-...    # only needed for the relevant backend
 
 defaults:

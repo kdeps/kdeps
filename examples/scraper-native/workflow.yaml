@@ -14,4 +14,3 @@ settings:
   agentSettings:
     timezone: Etc/UTC
     pythonVersion: "3.12"
-    installOllama: true

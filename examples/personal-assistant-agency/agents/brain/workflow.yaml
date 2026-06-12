@@ -30,7 +30,6 @@ settings:
   agentSettings:
     timezone: "UTC"
     pythonVersion: "3.12"
-    installOllama: true
 
   sqlConnections:
     memory:

@@ -501,6 +501,7 @@ func TestOllamaDetection_ExplicitFlag(t *testing.T) {
 }
 
 func TestOllamaDetection_BackendOllama(t *testing.T) {
+	t.Setenv("KDEPS_DEFAULT_BACKEND", "ollama")
 	workflow := &domain.Workflow{
 		Resources: []*domain.Resource{
 			{

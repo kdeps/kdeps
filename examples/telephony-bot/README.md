@@ -15,7 +15,9 @@ Each webhook is a separate request. The provider drives the flow: it posts the c
 
 ## Prerequisites
 
-- [Ollama](https://ollama.ai) with `ollama pull llama3.2:1b` (for the `/twilio/answer` route)
+- No LLM install needed - `llama3.2:1b` runs as a local llamafile (default
+  `file` backend), auto-downloaded on first run (~1.1 GB; used by the
+  `/twilio/answer` route)
 - A Twilio-compatible telephony provider pointing its voice webhook at this server
 
 ## Run
@@ -40,7 +42,7 @@ curl -sX POST http://localhost:16395/twilio/hours \
   -H "Content-Type: application/json" \
   -d '{"CallSid":"CA001","Digits":"1"}'
 
-# Caller spoke a question (requires Ollama)
+# Caller spoke a question (invokes the local LLM)
 curl -sX POST http://localhost:16395/twilio/answer \
   -H "Authorization: Bearer $KDEPS_API_AUTH_TOKEN" \
   -H "Content-Type: application/json" \

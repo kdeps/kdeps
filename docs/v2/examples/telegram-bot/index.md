@@ -1,6 +1,6 @@
 # Example: Telegram LLM Bot
 
-This workflow runs in workflow mode (`kdeps run`) as a Telegram bot -- it polls for messages and replies with an Ollama LLM response. Two resources: `llm` calls the model, `reply` sends the answer back.
+This workflow runs in workflow mode (`kdeps run`) as a Telegram bot -- it polls for messages and replies with a local LLM response (llamafile, no server install). Two resources: `llm` calls the model, `reply` sends the answer back.
 
 ## Files
 
@@ -26,9 +26,6 @@ targetActionId: reply
 settings:
   agentSettings:
     timezone: Etc/UTC
-    installOllama: true
-    models:
-      - llama3.2:3b
 
   input:
     sources: [bot]

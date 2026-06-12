@@ -69,5 +69,6 @@ curl -X POST https://<your-deployment>.kdeps.io/api/v1/review \
 
 ## Model
 
-All agents use `llama3.2:3b` (local Ollama).  Swap to any Ollama-compatible model
-in the `agentSettings.models` list of each workflow.
+All agents use `llama3.2:1b` (local llamafile, the default backend - no server
+install needed).  Swap to any other registry alias (`kdeps llamafile list`) in
+each workflow.

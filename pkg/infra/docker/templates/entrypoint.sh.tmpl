@@ -4,6 +4,8 @@ set -e
 echo "=== KDeps Docker Container Starting ==="
 {{- if .InstallOllama }}
 echo "Ollama enabled on port: ${BACKEND_PORT:-11434}"
+{{- else if .LlamafileModels }}
+echo "LLM backend: file (llamafile, self-serving)"
 {{- else }}
 echo "No local LLM backend installed"
 {{- end }}

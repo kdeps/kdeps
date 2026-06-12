@@ -53,7 +53,7 @@ metadata:
 settings:
   apiServer: { ... }       # HTTP REST server settings
   webServer: { ... }       # static file or app proxy settings
-  agentSettings: { ... }   # runtime environment (Python, OS packages, Ollama)
+  agentSettings: { ... }   # runtime environment (Python, OS packages, LLM backend)
   sqlConnections: { ... }  # named database connections
   session: { ... }         # session persistence settings
 ```
@@ -150,7 +150,7 @@ settings:
     osPackages:
       - ffmpeg
     baseOS: alpine               # alpine (default) or ubuntu
-    installOllama: true          # install Ollama in Docker image
+    installOllama: true          # opt-in: bake the ollama server into Docker images (default backend is llamafile, no server)
     env:
       API_KEY: "value"           # environment variables available to all resources
 ```

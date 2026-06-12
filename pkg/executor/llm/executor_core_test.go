@@ -35,16 +35,19 @@ import (
 )
 
 func TestNewExecutor(t *testing.T) {
+	t.Setenv("KDEPS_DEFAULT_BACKEND", "ollama")
 	executor := llm.NewExecutor("http://localhost:11434")
 	assert.NotNil(t, executor)
 }
 
 func TestNewExecutor_DefaultURL(t *testing.T) {
+	t.Setenv("KDEPS_DEFAULT_BACKEND", "ollama")
 	executor := llm.NewExecutor("")
 	assert.NotNil(t, executor)
 }
 
 func TestExecutor_Execute_Success(t *testing.T) {
+	t.Setenv("KDEPS_DEFAULT_BACKEND", "ollama")
 	t.Setenv("HOME", t.TempDir())
 	// Create mock Ollama server
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -102,6 +105,7 @@ func TestExecutor_Execute_Success(t *testing.T) {
 }
 
 func TestExecutor_Execute_WithScenario(t *testing.T) {
+	t.Setenv("KDEPS_DEFAULT_BACKEND", "ollama")
 	t.Setenv("HOME", t.TempDir())
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		var req map[string]interface{}
@@ -180,6 +184,7 @@ func TestExecutor_Execute_WithScenario(t *testing.T) {
 }
 
 func TestExecutor_Execute_JSONResponse(t *testing.T) {
+	t.Setenv("KDEPS_DEFAULT_BACKEND", "ollama")
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		response := map[string]interface{}{
 			"model": "llama3.2:1b",
@@ -218,6 +223,7 @@ func TestExecutor_Execute_JSONResponse(t *testing.T) {
 }
 
 func TestExecutor_Execute_JSONResponseWithKeys(t *testing.T) {
+	t.Setenv("KDEPS_DEFAULT_BACKEND", "ollama")
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		response := map[string]interface{}{
 			"model": "llama3.2:1b",
@@ -258,6 +264,7 @@ func TestExecutor_Execute_JSONResponseWithKeys(t *testing.T) {
 }
 
 func TestExecutor_Execute_OllamaError(t *testing.T) {
+	t.Setenv("KDEPS_DEFAULT_BACKEND", "ollama")
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusInternalServerError)
 		w.Write([]byte(`{"error": "model not found"}`))
@@ -286,6 +293,7 @@ func TestExecutor_Execute_OllamaError(t *testing.T) {
 }
 
 func TestExecutor_Execute_Timeout(t *testing.T) {
+	t.Setenv("KDEPS_DEFAULT_BACKEND", "ollama")
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		time.Sleep(100 * time.Millisecond) // Short delay, still longer than timeout
 		w.WriteHeader(http.StatusOK)
@@ -314,6 +322,7 @@ func TestExecutor_Execute_Timeout(t *testing.T) {
 }
 
 func TestExecutor_Execute_ExpressionEvaluation(t *testing.T) {
+	t.Setenv("KDEPS_DEFAULT_BACKEND", "ollama")
 	t.Setenv("HOME", t.TempDir())
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		var req map[string]interface{}
@@ -366,6 +375,7 @@ func TestExecutor_Execute_ExpressionEvaluation(t *testing.T) {
 }
 
 func TestExecutor_Execute_WithTools(t *testing.T) {
+	t.Setenv("KDEPS_DEFAULT_BACKEND", "ollama")
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		var req map[string]interface{}
 		json.NewDecoder(r.Body).Decode(&req)
@@ -433,6 +443,7 @@ func TestExecutor_Execute_WithTools(t *testing.T) {
 }
 
 func TestExecutor_Execute_InvalidJSONResponse(t *testing.T) {
+	t.Setenv("KDEPS_DEFAULT_BACKEND", "ollama")
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		response := map[string]interface{}{
 			"model": "llama3.2:1b",
@@ -472,6 +483,7 @@ func TestExecutor_Execute_InvalidJSONResponse(t *testing.T) {
 }
 
 func TestExecutor_Execute_MissingModel(t *testing.T) {
+	t.Setenv("KDEPS_DEFAULT_BACKEND", "ollama")
 	llmExecutor := llm.NewExecutor("http://localhost:11434")
 	ctx, err := executor.NewExecutionContext(
 		&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}},
@@ -489,6 +501,7 @@ func TestExecutor_Execute_MissingModel(t *testing.T) {
 }
 
 func TestExecutor_Execute_MissingPrompt(t *testing.T) {
+	t.Setenv("KDEPS_DEFAULT_BACKEND", "ollama")
 	llmExecutor := llm.NewExecutor("http://localhost:11434")
 	ctx, err := executor.NewExecutionContext(
 		&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}},
@@ -506,17 +519,20 @@ func TestExecutor_Execute_MissingPrompt(t *testing.T) {
 }
 
 func TestNewExecutor_CustomURL(t *testing.T) {
+	t.Setenv("KDEPS_DEFAULT_BACKEND", "ollama")
 	customURL := "http://custom-ollama:16395"
 	executor := llm.NewExecutor(customURL)
 	assert.NotNil(t, executor)
 }
 
 func TestNewExecutor_EmptyURL(t *testing.T) {
+	t.Setenv("KDEPS_DEFAULT_BACKEND", "ollama")
 	executor := llm.NewExecutor("")
 	assert.NotNil(t, executor)
 }
 
 func TestExecutor_Execute_ResourceModelUsed(t *testing.T) {
+	t.Setenv("KDEPS_DEFAULT_BACKEND", "ollama")
 	t.Setenv("HOME", t.TempDir())
 	var gotModel string
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -543,6 +559,7 @@ func TestExecutor_Execute_ResourceModelUsed(t *testing.T) {
 }
 
 func TestExecutor_Execute_WorkflowModelAllowlist_Override(t *testing.T) {
+	t.Setenv("KDEPS_DEFAULT_BACKEND", "ollama")
 	t.Setenv("HOME", t.TempDir())
 	t.Setenv("KDEPS_LLM_MODELS", "llama3.3:latest")
 	var gotModel string
@@ -576,6 +593,7 @@ func TestExecutor_Execute_WorkflowModelAllowlist_Override(t *testing.T) {
 }
 
 func TestExecutor_Execute_WorkflowModelAllowlist_Permitted(t *testing.T) {
+	t.Setenv("KDEPS_DEFAULT_BACKEND", "ollama")
 	t.Setenv("HOME", t.TempDir())
 	t.Setenv("KDEPS_LLM_MODELS", "llama3.3:latest,mistral:7b")
 	var gotModel string
@@ -604,6 +622,7 @@ func TestExecutor_Execute_WorkflowModelAllowlist_Permitted(t *testing.T) {
 }
 
 func TestExecutor_Execute_NoAllowlist_UsesResourceModel(t *testing.T) {
+	t.Setenv("KDEPS_DEFAULT_BACKEND", "ollama")
 	t.Setenv("HOME", t.TempDir())
 	var gotModel string
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -630,6 +649,7 @@ func TestExecutor_Execute_NoAllowlist_UsesResourceModel(t *testing.T) {
 }
 
 func TestExecutor_Execute_EnvVarChatTimeout(t *testing.T) {
+	t.Setenv("KDEPS_DEFAULT_BACKEND", "ollama")
 	t.Setenv("HOME", t.TempDir())
 	t.Setenv("KDEPS_CHAT_TIMEOUT", "30s")
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
@@ -650,6 +670,7 @@ func TestExecutor_Execute_EnvVarChatTimeout(t *testing.T) {
 }
 
 func TestExecutor_Execute_EnvVarChatTimeoutOverriddenByResource(t *testing.T) {
+	t.Setenv("KDEPS_DEFAULT_BACKEND", "ollama")
 	t.Setenv("HOME", t.TempDir())
 	t.Setenv("KDEPS_CHAT_TIMEOUT", "30s")
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
@@ -670,6 +691,7 @@ func TestExecutor_Execute_EnvVarChatTimeoutOverriddenByResource(t *testing.T) {
 }
 
 func TestExecutor_Execute_InvalidEnvVarChatTimeoutFallsToDefault(t *testing.T) {
+	t.Setenv("KDEPS_DEFAULT_BACKEND", "ollama")
 	t.Setenv("HOME", t.TempDir())
 	t.Setenv("KDEPS_CHAT_TIMEOUT", "not-a-duration")
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
@@ -690,6 +712,7 @@ func TestExecutor_Execute_InvalidEnvVarChatTimeoutFallsToDefault(t *testing.T) {
 }
 
 func TestExecutor_Execute_EnvVarContextLength(t *testing.T) {
+	t.Setenv("KDEPS_DEFAULT_BACKEND", "ollama")
 	t.Setenv("HOME", t.TempDir())
 	t.Setenv("KDEPS_CHAT_CONTEXT_LENGTH", "8192")
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
@@ -711,6 +734,7 @@ func TestExecutor_Execute_EnvVarContextLength(t *testing.T) {
 }
 
 func TestExecutor_Execute_EnvVarContextLength_ResourceWins(t *testing.T) {
+	t.Setenv("KDEPS_DEFAULT_BACKEND", "ollama")
 	t.Setenv("HOME", t.TempDir())
 	t.Setenv("KDEPS_CHAT_CONTEXT_LENGTH", "8192")
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
@@ -732,6 +756,7 @@ func TestExecutor_Execute_EnvVarContextLength_ResourceWins(t *testing.T) {
 }
 
 func TestExecutor_Execute_InvalidEnvVarContextLengthFallsToDefault(t *testing.T) {
+	t.Setenv("KDEPS_DEFAULT_BACKEND", "ollama")
 	t.Setenv("HOME", t.TempDir())
 	t.Setenv("KDEPS_CHAT_CONTEXT_LENGTH", "not-a-number")
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
@@ -752,6 +777,7 @@ func TestExecutor_Execute_InvalidEnvVarContextLengthFallsToDefault(t *testing.T)
 }
 
 func TestExecutor_Execute_OutputCapExceeded(t *testing.T) {
+	t.Setenv("KDEPS_DEFAULT_BACKEND", "ollama")
 	t.Setenv("KDEPS_CHAT_MAX_OUTPUT_BYTES", "5")
 	// Mock backend returns content > 5 bytes
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
@@ -772,6 +798,7 @@ func TestExecutor_Execute_OutputCapExceeded(t *testing.T) {
 }
 
 func TestExecutor_Execute_OutputCapNotExceeded(t *testing.T) {
+	t.Setenv("KDEPS_DEFAULT_BACKEND", "ollama")
 	t.Setenv("KDEPS_CHAT_MAX_OUTPUT_BYTES", "1000")
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		resp := map[string]interface{}{
@@ -791,6 +818,7 @@ func TestExecutor_Execute_OutputCapNotExceeded(t *testing.T) {
 }
 
 func TestExecutor_Execute_Streaming_AccumulatesChunks(t *testing.T) {
+	t.Setenv("KDEPS_DEFAULT_BACKEND", "ollama")
 	t.Setenv("HOME", t.TempDir())
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -842,6 +870,7 @@ func TestExecutor_Execute_Streaming_AccumulatesChunks(t *testing.T) {
 }
 
 func TestExecutor_Execute_Streaming_ErrorStatus(t *testing.T) {
+	t.Setenv("KDEPS_DEFAULT_BACKEND", "ollama")
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusInternalServerError)
 		_, _ = io.WriteString(w, `{"error":"model not found"}`)

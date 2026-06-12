@@ -29,6 +29,11 @@ import (
 	"github.com/kdeps/kdeps/v2/pkg/infra/docker"
 )
 
+// installOllamaTrue is used to explicitly enable Ollama in tests.
+//
+//nolint:gochecknoglobals // shared test fixture pointer target
+var installOllamaTrue = true
+
 func TestBuilderTemplates_generateDockerfile(t *testing.T) {
 	// Test various template data combinations with proper workflows
 	installOllama := true
@@ -44,8 +49,10 @@ func TestBuilderTemplates_generateDockerfile(t *testing.T) {
 			workflow: &domain.Workflow{
 				Metadata: domain.WorkflowMetadata{Name: "test", Version: "1.0.0"},
 				Settings: domain.WorkflowSettings{
-					APIServer:     &domain.APIServerConfig{},
-					AgentSettings: domain.AgentSettings{PythonVersion: "3.12"},
+					APIServer: &domain.APIServerConfig{},
+					AgentSettings: domain.AgentSettings{
+						PythonVersion: "3.12",
+					},
 				},
 			},
 			contains: []string{"FROM alpine:latest", "python3", "supervisord", "16395"},
@@ -56,7 +63,10 @@ func TestBuilderTemplates_generateDockerfile(t *testing.T) {
 			workflow: &domain.Workflow{
 				Metadata: domain.WorkflowMetadata{Name: "test", Version: "1.0.0"},
 				Settings: domain.WorkflowSettings{
-					AgentSettings: domain.AgentSettings{PythonVersion: "3.12"},
+					AgentSettings: domain.AgentSettings{
+						PythonVersion: "3.12",
+						InstallOllama: &installOllamaTrue,
+					},
 				},
 				Resources: []*domain.Resource{
 					{
@@ -144,6 +154,7 @@ func TestBuilderTemplates_packageVersionPins(t *testing.T) {
 		Metadata: domain.WorkflowMetadata{Name: "pinned", Version: "1.0.0"},
 		Settings: domain.WorkflowSettings{
 			AgentSettings: domain.AgentSettings{
+				InstallOllama:  &installOllamaTrue,
 				PythonPackages: []string{"requests"},
 				Versions: &domain.PackageVersions{
 					Kdeps:  "v2.0.0",
@@ -238,6 +249,11 @@ func TestBuilderTemplates_generateEntrypoint(t *testing.T) {
 			name: "ollama backend",
 			workflow: &domain.Workflow{
 				Metadata: domain.WorkflowMetadata{Name: "test"},
+				Settings: domain.WorkflowSettings{
+					AgentSettings: domain.AgentSettings{
+						InstallOllama: &installOllamaTrue,
+					},
+				},
 				Resources: []*domain.Resource{
 					{
 						Chat: &domain.ChatConfig{Backend: "ollama"},
@@ -290,7 +306,10 @@ func TestBuilderTemplates_generateSupervisord(t *testing.T) {
 			workflow: &domain.Workflow{
 				Metadata: domain.WorkflowMetadata{Name: "test", Version: "1.0.0"},
 				Settings: domain.WorkflowSettings{
-					AgentSettings: domain.AgentSettings{PythonVersion: "3.12"},
+					AgentSettings: domain.AgentSettings{
+						PythonVersion: "3.12",
+						InstallOllama: &installOllamaTrue,
+					},
 				},
 			},
 			// Dockerfile should copy supervisord.conf and reference supervisord
@@ -301,7 +320,10 @@ func TestBuilderTemplates_generateSupervisord(t *testing.T) {
 			workflow: &domain.Workflow{
 				Metadata: domain.WorkflowMetadata{Name: "test", Version: "1.0.0"},
 				Settings: domain.WorkflowSettings{
-					AgentSettings: domain.AgentSettings{PythonVersion: "3.12"},
+					AgentSettings: domain.AgentSettings{
+						PythonVersion: "3.12",
+						InstallOllama: &installOllamaTrue,
+					},
 				},
 				Resources: []*domain.Resource{
 					{

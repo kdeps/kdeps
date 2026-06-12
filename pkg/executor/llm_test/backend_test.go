@@ -72,7 +72,7 @@ func TestBackendRegistry_GetDefault(t *testing.T) {
 	registry := llm.NewBackendRegistry()
 	defaultBackend := registry.GetDefault()
 	assert.NotNil(t, defaultBackend)
-	assert.Equal(t, "ollama", defaultBackend.Name())
+	assert.Equal(t, "file", defaultBackend.Name())
 }
 
 func TestOllamaBackend(t *testing.T) {

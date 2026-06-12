@@ -38,5 +38,4 @@ settings:
   # Agent settings for Docker builds
   agentSettings:
     timezone: Etc/UTC
-    installOllama: true
     # Pre-load these models when building Docker image

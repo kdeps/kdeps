@@ -185,7 +185,7 @@ func TestHandleToolCalls_Error(t *testing.T) {
 func TestResolveBackend_Defaults(t *testing.T) {
 	t.Setenv("KDEPS_DEFAULT_BACKEND", "")
 	cfg := &domain.ChatConfig{}
-	assert.Equal(t, backendOllama, resolveBackend(cfg))
+	assert.Equal(t, backendFile, resolveBackend(cfg))
 
 	t.Setenv("KDEPS_DEFAULT_BACKEND", "vllm")
 	assert.Equal(t, "vllm", resolveBackend(cfg))

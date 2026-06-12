@@ -32,7 +32,7 @@ func resolveBackend(config *domain.ChatConfig) string {
 		backend = os.Getenv("KDEPS_DEFAULT_BACKEND")
 	}
 	if backend == "" {
-		backend = backendOllama
+		backend = backendFile
 	}
 	return backend
 }

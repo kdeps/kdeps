@@ -73,7 +73,7 @@ func TestWorkflowNeedsOllama_Internal(t *testing.T) {
 			expected: true,
 		},
 		{
-			name:       "default backend (empty env = ollama)",
+			name:       "default backend (empty env = file, not ollama)",
 			envBackend: "",
 			workflow: &domain.Workflow{
 				Resources: []*domain.Resource{
@@ -82,7 +82,7 @@ func TestWorkflowNeedsOllama_Internal(t *testing.T) {
 					},
 				},
 			},
-			expected: true,
+			expected: false,
 		},
 		{
 			name:       "non-ollama backend via env",

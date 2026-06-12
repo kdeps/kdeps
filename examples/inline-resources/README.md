@@ -19,7 +19,7 @@ Resources configured in the `before` section execute **before** the main resourc
 
 ### Main Resource
 The primary resource that performs the core business logic:
-- LLM chat processing with Ollama
+- LLM chat processing (local llamafile by default)
 
 ### After Inline Resources
 Resources configured in the `after` section execute **after** the main resource:
@@ -84,10 +84,8 @@ If an inline resource fails:
 
 ## Running the Example
 
-1. Start Ollama:
-   ```bash
-   ollama pull llama3.2:1b
-   ```
+1. Nothing to install for the LLM - `llama3.2:1b` runs as a local llamafile
+   (default `file` backend), auto-downloaded on first run (~1.1 GB).
 
 2. Create the SQLite database:
    ```bash

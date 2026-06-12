@@ -16,11 +16,9 @@ A ChatGPT-like web interface powered by open-source LLMs running locally via KDe
 ### Prerequisites
 
 1. [Install KDeps](https://github.com/kdeps/kdeps#installation)
-2. [Install Ollama](https://ollama.ai/) and ensure it's running
-3. Pull at least one model:
-   ```bash
-   ollama pull llama3.2:1b
-   ```
+
+That's it - models run as local llamafiles (the default `file` backend) and
+are downloaded to `~/.kdeps/models/` automatically on first use.
 
 ### Run Locally
 
@@ -97,20 +95,22 @@ Get list of available models.
 
 | Model | Size | Description |
 |-------|------|-------------|
-| llama3.2:1b | 1B | Meta's smallest and fastest model |
-| llama3.2:3b | 3B | Balanced speed and quality |
-| mistral:7b | 7B | Excellent performance |
-| phi3:3.8b | 3.8B | Microsoft's efficient model |
-| gemma2:2b | 2B | Google's lightweight model |
-| qwen2.5:3b | 3B | Multilingual support |
+| llama3.2:1b | 1B | Meta's smallest and fastest model (~1.1 GB) |
+| llama3.2:1b-q6 | 1B | Higher-quality quantization (~1.5 GB) |
+| llama3.2:3b | 3B | Balanced speed and quality (~2.2 GB) |
+| llama3.1:8b | 8B | Stronger reasoning (~5.2 GB) |
+| qwen3.5:0.8b | 0.8B | Tiny, fast, multilingual (~1.3 GB) |
+| qwen3.5:2b | 2B | Multilingual support (~3 GB) |
 
-To add more models, pull them with Ollama:
+Model ids are llamafile registry aliases. List all known aliases (or refresh
+the registry from HuggingFace):
 ```bash
-ollama pull codellama:7b
-ollama pull deepseek-coder:6.7b
+kdeps llamafile list
+kdeps llamafile update
 ```
 
-Then add them to the model selector in `public/index.html`.
+To add more models, add their alias to `resources/models.yaml` and the model
+selector in `public/index.html`.
 
 ## Docker Deployment
 
@@ -121,7 +121,7 @@ kdeps build workflow.yaml
 ```
 
 The resulting image will include:
-- Ollama with pre-loaded models
+- Pre-baked llamafile models (no LLM server install)
 - KDeps runtime
 - Static web interface
 
@@ -157,21 +157,20 @@ Edit `public/styles.css` to customize colors, fonts, and layout.
 ### "Unable to connect to the server"
 
 1. Check if KDeps is running: `kdeps run workflow.yaml`
-2. Check if Ollama is running: `ollama list`
-3. Verify the API: `curl http://localhost:16395/api/v1/models`
+2. Verify the API: `curl http://localhost:16395/api/v1/models`
 
 ### "Model not found"
 
-Pull the model with Ollama:
+Check the model id is a known llamafile alias:
 ```bash
-ollama pull llama3.2:1b
+kdeps llamafile list
 ```
 
 ### Slow responses
 
-- Use a smaller model (1B or 3B)
+- Use a smaller model (1B or 0.8B)
 - Ensure you have enough RAM (8GB+ recommended)
-- For GPU acceleration, install Ollama with CUDA support
+- The first request per model downloads the llamafile - subsequent requests use the cache
 
 ## License
 

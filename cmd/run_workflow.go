@@ -29,6 +29,7 @@ import (
 
 	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
 	"github.com/kdeps/kdeps/v2/pkg/domain"
+	"github.com/kdeps/kdeps/v2/pkg/executor/llm"
 	kdepslog "github.com/kdeps/kdeps/v2/pkg/log"
 	"github.com/kdeps/kdeps/v2/pkg/manifest"
 	"github.com/kdeps/kdeps/v2/pkg/templates"
@@ -118,18 +119,55 @@ func setupEnvironmentStep(workflow *domain.Workflow) error {
 	return nil
 }
 
-// ensureLLMBackendStep ensures Ollama is running when required and prints step [4/5] progress.
+// ensureLLMBackendStep prepares the LLM backend and prints step [4/5] progress.
+// Ollama is started only when explicitly selected; the default file backend
+// pre-downloads llamafiles so the first request does not block on a download.
 func ensureLLMBackendStep(workflow *domain.Workflow) error {
 	kdeps_debug.Log("enter: ensureLLMBackendStep")
 	fmt.Fprintln(os.Stdout, "\n[4/5] Checking LLM backend...")
-	if !domain.NeedsOllamaAtRuntime(workflow) {
-		fmt.Fprintln(os.Stdout, "  ✓ No local LLM backend required")
+	if domain.NeedsOllamaAtRuntime(workflow) {
+		if ollamaErr := ensureOllamaRunningFunc(getOllamaURL()); ollamaErr != nil {
+			return fmt.Errorf("LLM backend setup failed: %w", ollamaErr)
+		}
 		return nil
 	}
-	if ollamaErr := ensureOllamaRunningFunc(getOllamaURL()); ollamaErr != nil {
-		return fmt.Errorf("LLM backend setup failed: %w", ollamaErr)
+	if needsLlamafileWarmup(workflow) {
+		warmupLlamafiles(workflow)
+		return nil
 	}
+	fmt.Fprintln(os.Stdout, "  ✓ No local LLM backend required")
 	return nil
+}
+
+// needsLlamafileWarmup reports whether chat resources will be served by the
+// local file backend (default when no other backend or external URL is set).
+func needsLlamafileWarmup(workflow *domain.Workflow) bool {
+	if !domain.HasChatResources(workflow) {
+		return false
+	}
+	if backend := os.Getenv("KDEPS_DEFAULT_BACKEND"); backend != "" && backend != "file" {
+		return false
+	}
+	return os.Getenv("KDEPS_LLM_BASE_URL") == ""
+}
+
+// warmupLlamafiles resolves (and downloads if missing) the llamafiles for all
+// literal chat models. Failures are non-fatal: unknown names may still resolve
+// at request time (e.g. router-selected models or expression results).
+func warmupLlamafiles(workflow *domain.Workflow) {
+	mgr, err := llm.NewLlamafileManager(nil)
+	if err != nil {
+		fmt.Fprintf(os.Stdout, "  ! llamafile cache unavailable: %v\n", err)
+		return
+	}
+	for _, model := range domain.ChatModels(workflow) {
+		path, resolveErr := mgr.Resolve(model)
+		if resolveErr != nil {
+			fmt.Fprintf(os.Stdout, "  ! %s: %v\n", model, resolveErr)
+			continue
+		}
+		fmt.Fprintf(os.Stdout, "  ✓ llamafile ready: %s (%s)\n", model, path)
+	}
 }
 
 // ExecuteWorkflowStepsWithFlags executes the main workflow steps after path resolution with flags.

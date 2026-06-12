@@ -91,9 +91,10 @@ Ports are derived from your workflow settings:
 |---------|-----------------------|-------------|
 | `apiServer:` with `portNum` | `api` | REST API server |
 | `webServer:` with `portNum` | `web` | Web server |
-| `installOllama: true` (or auto-detected) | `backend` | Ollama LLM backend (11434) |
+| `installOllama: true` (or `KDEPS_DEFAULT_BACKEND=ollama` with chat resources) | `backend` | Ollama LLM backend (11434) |
 
-Ollama port is auto-detected when any resource uses a `chat:` executor.
+Chat resources on the default `file` backend need no backend port: the
+llamafile self-serves on localhost inside the pod.
 
 Ports, probes, and NetworkPolicy rules are all derived from this configuration -- only what the workflow actually serves is exposed. A workflow with no `apiServer` or `webServer` (a bot or file workflow) gets no container ports and no probes.
 

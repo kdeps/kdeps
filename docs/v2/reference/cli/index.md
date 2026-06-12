@@ -42,6 +42,7 @@ kdeps run workflow.yaml
 | `kdeps edit` | [Dev Commands](/reference/cli/dev#kdeps-edit) | Edit global config |
 | `kdeps doctor` | [Dev Commands](/reference/cli/dev#kdeps-doctor) | System health checks |
 | `kdeps chat` | [Dev Commands](/reference/cli/dev#kdeps-chat) | Interactive workflow generator |
+| `kdeps llamafile` | [Dev Commands](/reference/cli/dev#kdeps-llamafile) | Llamafile model registry (list, update) |
 | `kdeps registry` | [Registry Commands](/reference/cli/registry) | Search, install, publish packages |
 | `kdeps bundle package` | [Packaging Commands](/reference/cli/packaging#kdeps-bundle-package) | Package for distribution |
 | `kdeps bundle build` | [Packaging Commands](/reference/cli/packaging#kdeps-bundle-build) | Build Docker image |

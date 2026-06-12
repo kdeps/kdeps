@@ -6,7 +6,7 @@ description: |
 
     Reuses the authenticated browser session from the login step.
     Returns: job_id, title, company, location, work_style, job_link for each card.
-  requires: [login]
+requires: [login]
 
 browser:
   engine: chromium

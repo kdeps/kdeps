@@ -26,9 +26,6 @@ targetActionId: reply
 settings:
   agentSettings:
     timezone: Etc/UTC
-    installOllama: true
-    models:
-      - llama3.2:3b
 
   input:
     sources: [bot]

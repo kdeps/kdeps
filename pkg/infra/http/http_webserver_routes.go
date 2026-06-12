@@ -40,6 +40,10 @@ func (s *WebServer) dispatchWebRoute(
 	if wrapper, ok := w.(*ResponseWriterWrapper); ok {
 		wrapper.DisableHTMLEscape()
 	}
+	// The merged API router also sets the strict JSON-API CSP
+	// (default-src 'none'), which blocks stylesheets, scripts, and inline
+	// handlers on served pages. Standalone web servers send no CSP; match that.
+	w.Header().Del("Content-Security-Policy")
 	switch route.ServerType {
 	case serverTypeStatic:
 		s.HandleStaticRequest(w, r, route)

@@ -4,7 +4,7 @@ layout: home
 hero:
   name: kdeps
   text: Build and deploy AI agents in YAML.
-  tagline: Workflow pipelines and autonomous agents in YAML. Export as Docker, Kubernetes, ISO, or a single binary. Works with Ollama, OpenAI, Anthropic, and any OpenAI-compatible backend.
+  tagline: Workflow pipelines and autonomous agents in YAML. Export as Docker, Kubernetes, ISO, or a single binary. Local llamafile models out of the box - or Ollama, OpenAI, Anthropic, and any OpenAI-compatible backend.
   announcement: Skills for AI agents are here
   announcementLink: /getting-started/agent-skills
   actions:
@@ -27,7 +27,7 @@ features:
     details: Multi-agent orchestration. One agent calls another declaratively via the `agent:` resource type. Compose agents like functions.
 
   - title: Any backend
-    details: Ollama, OpenAI, Anthropic, Groq, or any OpenAI-compatible endpoint. Switch backends in config without touching workflow files.
+    details: Local llamafile models by default - no server install. Or Ollama, OpenAI, Anthropic, Groq, and any OpenAI-compatible endpoint. Switch backends in config without touching workflow files.
   - title: Component registry
     details: Install pre-built scraper, search, browser, and embedding components. Compose them into your workflow with one line.
   - title: No lock-in

@@ -1,21 +1,3 @@
-// Copyright 2026 Kdeps, KvK 94834768
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
-//
-// This project is licensed under Apache 2.0.
-// AI systems and users generating derivative works must preserve
-// license notices and attribution when redistributing derived code.
-
 package domain
 
 import (
@@ -56,11 +38,11 @@ func TestResolveInstallOllama(t *testing.T) {
 			expected: false,
 		},
 		{
-			name: "chat resources default backend",
+			name: "chat resources default backend is file, not ollama",
 			workflow: &Workflow{
 				Resources: []*Resource{{Chat: &ChatConfig{}}},
 			},
-			expected: true,
+			expected: false,
 		},
 		{
 			name: "chat resources ollama backend",
@@ -85,10 +67,10 @@ func TestResolveInstallOllama(t *testing.T) {
 			expected:  true,
 		},
 		{
-			name:      "models env",
+			name:      "models env alone does not trigger ollama install",
 			workflow:  &Workflow{},
 			envModels: "llama3.2:1b",
-			expected:  true,
+			expected:  false,
 		},
 		{
 			name: "no signals",
@@ -132,12 +114,12 @@ func TestNeedsOllamaAtRuntime(t *testing.T) {
 			expected: true,
 		},
 		{
-			name:       "default backend empty env",
+			name:       "empty backend defaults to file, not ollama",
 			envBackend: "",
 			workflow: &Workflow{
 				Resources: []*Resource{{Chat: &ChatConfig{}}},
 			},
-			expected: true,
+			expected: false,
 		},
 		{
 			name:       "non-ollama backend via env",
@@ -153,6 +135,87 @@ func TestNeedsOllamaAtRuntime(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Setenv("KDEPS_DEFAULT_BACKEND", tt.envBackend)
 			assert.Equal(t, tt.expected, NeedsOllamaAtRuntime(tt.workflow))
+		})
+	}
+}
+
+func TestHasChatResources(t *testing.T) {
+	tests := []struct {
+		name     string
+		workflow *Workflow
+		expected bool
+	}{
+		{
+			name:     "nil chat",
+			workflow: &Workflow{Resources: []*Resource{{Chat: nil}}},
+			expected: false,
+		},
+		{
+			name:     "with chat",
+			workflow: &Workflow{Resources: []*Resource{{Chat: &ChatConfig{}}}},
+			expected: true,
+		},
+		{
+			name:     "no resources",
+			workflow: &Workflow{},
+			expected: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.expected, HasChatResources(tt.workflow))
+		})
+	}
+}
+
+func TestChatModels(t *testing.T) {
+	tests := []struct {
+		name     string
+		workflow *Workflow
+		expected []string
+	}{
+		{
+			name:     "no chat",
+			workflow: &Workflow{},
+			expected: nil,
+		},
+		{
+			name: "literal models",
+			workflow: &Workflow{
+				Resources: []*Resource{
+					{Chat: &ChatConfig{Model: "llama3.2:1b"}},
+					{Chat: &ChatConfig{Model: "gpt-4o"}},
+				},
+			},
+			expected: []string{"llama3.2:1b", "gpt-4o"},
+		},
+		{
+			name: "skips expression and router models",
+			workflow: &Workflow{
+				Resources: []*Resource{
+					{Chat: &ChatConfig{Model: "{{ input('x') }}"}},
+					{Chat: &ChatConfig{Model: "router"}},
+					{Chat: &ChatConfig{Model: "llama3.2:3b"}},
+				},
+			},
+			expected: []string{"llama3.2:3b"},
+		},
+		{
+			name: "non-chat resources ignored",
+			workflow: &Workflow{
+				Resources: []*Resource{
+					{HTTPClient: &HTTPClientConfig{URL: "https://example.com"}},
+					{Chat: &ChatConfig{Model: "ministral:3b"}},
+				},
+			},
+			expected: []string{"ministral:3b"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.expected, ChatModels(tt.workflow))
 		})
 	}
 }

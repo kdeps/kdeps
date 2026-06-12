@@ -124,6 +124,11 @@ func (r *doctorRunner) configValidation(cfg *Config) {
 
 func (r *doctorRunner) ollama(cfg *Config) {
 	backend := effectiveBackend(cfg)
+	if backend == fileBackendStr {
+		r.add("Ollama", HealthPass, "skipped — default backend is file (llamafile, self-serving)")
+		r.modelsDir(cfg)
+		return
+	}
 	if backend != "" && !isLocalBackend(backend) {
 		r.add("Ollama", HealthPass, fmt.Sprintf("skipped — backend is %s", backend))
 		return
@@ -138,6 +143,13 @@ func (r *doctorRunner) ollama(cfg *Config) {
 	}
 	_ = conn.Close()
 	r.add("Ollama", HealthPass, fmt.Sprintf("reachable at %s", addr))
+}
+func (r *doctorRunner) modelsDir(cfg *Config) {
+	dir := "~/.kdeps/models"
+	if cfg != nil && cfg.LLM.ModelsDir != "" {
+		dir = cfg.LLM.ModelsDir
+	}
+	r.add("Models dir", HealthPass, fmt.Sprintf("models directory: %s", dir))
 }
 
 func firstInPath(names ...string) (string, bool) {

@@ -40,9 +40,9 @@ func TestBackendRegistry_GetDefault(t *testing.T) {
 		t.Fatal("GetDefault() returned nil")
 	}
 
-	// Should return ollama backend by default
-	if defaultBackend.Name() != "ollama" {
-		t.Errorf("Expected default backend to be 'ollama', got '%s'", defaultBackend.Name())
+	// Should return file backend by default
+	if defaultBackend.Name() != "file" {
+		t.Errorf("Expected default backend to be 'file', got '%s'", defaultBackend.Name())
 	}
 }
 

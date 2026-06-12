@@ -23,6 +23,7 @@ import (
 	"fmt"
 	stdhttp "net/http"
 	"os"
+	"strings"
 
 	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
 )
@@ -99,14 +100,53 @@ func (b *FileBackend) APIKeyEnvVar() string { return "" }
 func convertOpenAICompatResponse(resp map[string]interface{}) map[string]interface{} {
 	kdeps_debug.Log("enter: convertOpenAICompatResponse")
 	result := make(map[string]interface{})
-	if choices, ok := resp["choices"].([]interface{}); ok && len(choices) > 0 {
-		if choice, ok2 := choices[0].(map[string]interface{}); ok2 {
-			if message, ok3 := choice["message"].(map[string]interface{}); ok3 {
-				result["message"] = message
+	message := firstChoiceMessage(resp)
+	if message == nil {
+		return result
+	}
+	if content, ok := message["content"].(string); ok {
+		message["content"] = stripTrailingSpecialTokens(content)
+	}
+	result["message"] = message
+	return result
+}
+
+// firstChoiceMessage extracts choices[0].message from an OpenAI-compatible response.
+func firstChoiceMessage(resp map[string]interface{}) map[string]interface{} {
+	choices, ok := resp["choices"].([]interface{})
+	if !ok || len(choices) == 0 {
+		return nil
+	}
+	choice, ok := choices[0].(map[string]interface{})
+	if !ok {
+		return nil
+	}
+	message, ok := choice["message"].(map[string]interface{})
+	if !ok {
+		return nil
+	}
+	return message
+}
+
+// llamafileStopTokens are chat-template stop markers that llamafile's server
+// can leave at the end of the generated text; they break jsonResponse parsing.
+//
+//nolint:gochecknoglobals // static lookup table
+var llamafileStopTokens = []string{"<|eot_id|>", "<|end_of_text|>", "<|im_end|>", "</s>"}
+
+// stripTrailingSpecialTokens removes trailing chat-template stop markers.
+func stripTrailingSpecialTokens(content string) string {
+	trimmed := strings.TrimRight(content, " \n\t")
+	for changed := true; changed; {
+		changed = false
+		for _, token := range llamafileStopTokens {
+			if strings.HasSuffix(trimmed, token) {
+				trimmed = strings.TrimRight(strings.TrimSuffix(trimmed, token), " \n\t")
+				changed = true
 			}
 		}
 	}
-	return result
+	return trimmed
 }
 
 // IsRemoteModel reports whether model is a remote URL (http/https).

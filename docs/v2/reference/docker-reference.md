@@ -117,7 +117,8 @@ docker info
 ### Model Download Slow
 
 ```bash
-# Pre-pull models before build
+# Llamafiles are cached in ~/.kdeps/models/ and baked into the image at build
+# time automatically. For the ollama backend, pre-pull models before build:
 ollama pull llama3.2:1b
 
 # Or use offline mode
