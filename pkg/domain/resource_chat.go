@@ -25,9 +25,15 @@ type ChatConfig struct {
 	Backend string `yaml:"-"`
 	BaseURL string `yaml:"-"`
 
-	ContextLength    int            `yaml:"contextLength,omitempty"` // Context length in tokens: 4096, 8192, 16384, 32768, 65536, 131072, 262144 (default: 4096)
-	Role             string         `yaml:"role"`
-	Prompt           string         `yaml:"prompt"`
+	ContextLength int    `yaml:"contextLength,omitempty"` // Context length in tokens: 4096, 8192, 16384, 32768, 65536, 131072, 262144 (default: 4096)
+	Role          string `yaml:"role"`
+	Prompt        string `yaml:"prompt"`
+	// Messages is an expression yielding runtime conversation history as an
+	// array of {role, content} (or {role, prompt}) items, e.g.
+	// "{{ get('history') }}". Evaluated per request and inserted before the
+	// final prompt message. A JSON-encoded array string is also accepted.
+	// Use scenario: for static history known at authoring time.
+	Messages         string         `yaml:"messages,omitempty"`
 	Scenario         []ScenarioItem `yaml:"scenario,omitempty"`
 	Tools            []Tool         `yaml:"tools,omitempty"`
 	ComponentTools   []string       `yaml:"componentTools,omitempty"` // Allowlist of installed component names to auto-register as LLM tools. Empty/absent = none registered.
