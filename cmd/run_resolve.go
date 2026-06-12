@@ -52,6 +52,7 @@ func resolveKagencyPackage(inputPath string) (string, func(), error) {
 		return "", nil, fmt.Errorf("failed to extract agency package: %w", err)
 	}
 	cleanup := func() { _ = os.RemoveAll(tempDir) }
+	applyBundledModelsDir(tempDir)
 
 	agencyPath := FindAgencyFile(tempDir)
 	if agencyPath == "" {
@@ -79,6 +80,7 @@ func resolveKdepsPackage(inputPath string) (string, func(), error) {
 		workflowPath = filepath.Join(tempDir, manifest.WorkflowYAML)
 	}
 	cleanup := func() { _ = os.RemoveAll(tempDir) }
+	applyBundledModelsDir(tempDir)
 
 	fmt.Fprintf(os.Stdout, "Extracted to: %s\n", tempDir)
 	fmt.Fprintf(os.Stdout, "Workflow: %s\n", manifest.WorkflowYAML)

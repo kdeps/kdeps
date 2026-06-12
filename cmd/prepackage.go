@@ -39,9 +39,10 @@ import (
 
 // PrePackageFlags holds the configuration flags for the prepackage command.
 type PrePackageFlags struct {
-	Output       string
-	Arch         string
-	KdepsVersion string
+	Output        string
+	Arch          string
+	KdepsVersion  string
+	IncludeModels bool
 }
 
 // archTarget represents a GOOS/GOARCH combination to build a prepackaged binary for.
@@ -129,7 +130,14 @@ Examples:
   kdeps prepackage myagent-1.0.0.kdeps --output dist/
 
   # Use a specific kdeps runtime version as the base
-  kdeps prepackage myagent-1.0.0.kdeps --kdeps-version 2.0.1`,
+  kdeps prepackage myagent-1.0.0.kdeps --kdeps-version 2.0.1
+
+  # Pre-bake the chat models' llamafiles for fully offline execution
+  # (adds ~1.1 GB per model; the binary needs no network on first run)
+  kdeps prepackage myagent-1.0.0.kdeps --include-models
+
+  # Agencies work the same way
+  kdeps prepackage my-agency-1.0.0.kagency --include-models`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cobraCmd *cobra.Command, args []string) error {
 			return PrePackageWithFlags(cobraCmd.Context(), args, flags)
@@ -150,17 +158,24 @@ Examples:
 		"",
 		"kdeps runtime version to embed (default: version of the running binary)",
 	)
+	cmd.Flags().BoolVar(
+		&flags.IncludeModels,
+		"include-models",
+		false,
+		"Pre-bake the chat models' llamafiles into the executable (offline-ready, large output)",
+	)
 
 	return cmd
 }
 
-// validateKdepsInput ensures the prepackage input is an accessible .kdeps file.
+// validateKdepsInput ensures the prepackage input is an accessible
+// .kdeps or .kagency package.
 func validateKdepsInput(kdepsFile string) error {
-	if !strings.HasSuffix(kdepsFile, ".kdeps") {
-		return fmt.Errorf("input must be a .kdeps file: %s", kdepsFile)
+	if !strings.HasSuffix(kdepsFile, ".kdeps") && !strings.HasSuffix(kdepsFile, kagencyExtension) {
+		return fmt.Errorf("input must be a .kdeps or .kagency file: %s", kdepsFile)
 	}
 	if _, err := os.Stat(kdepsFile); err != nil {
-		return fmt.Errorf("cannot access .kdeps file: %w", err)
+		return fmt.Errorf("cannot access package file: %w", err)
 	}
 	return nil
 }

@@ -74,7 +74,7 @@ func TestExtractTarFiles_MkdirError(t *testing.T) {
 }
 
 func TestExtractFile_Oversized(t *testing.T) {
-	hdr := &tar.Header{Name: "big.bin", Size: maxExtractFileSize + 1, Mode: 0644}
+	hdr := &tar.Header{Name: "big.bin", Size: maxRunExtractFileSize + 1, Mode: 0644}
 	err := ExtractFile(
 		tar.NewReader(bytes.NewReader(nil)),
 		hdr,
@@ -138,7 +138,7 @@ func TestExtractFile_CreateAndCopyErrors(t *testing.T) {
 	err := ExtractFile(tar.NewReader(bytes.NewReader([]byte("ab"))), hdr, filepath.Join(tmp, "dir"))
 	require.Error(t, err)
 
-	hdr2 := &tar.Header{Name: "big.bin", Size: maxExtractFileSize + 1, Mode: 0644}
+	hdr2 := &tar.Header{Name: "big.bin", Size: maxRunExtractFileSize + 1, Mode: 0644}
 	err = ExtractFile(tar.NewReader(bytes.NewReader([]byte("x"))), hdr2, filepath.Join(tmp, "big.bin"))
 	require.Error(t, err)
 }
@@ -389,7 +389,7 @@ func TestExtractFile_CreateAndCopyErr(t *testing.T) {
 	err := ExtractFile(tar.NewReader(bytes.NewReader([]byte("x"))), hdr, filepath.Join(blocker, "nested", "f.txt"))
 	require.Error(t, err)
 
-	hdr2 := &tar.Header{Name: "big.bin", Size: maxExtractFileSize + 1, Mode: 0644}
+	hdr2 := &tar.Header{Name: "big.bin", Size: maxRunExtractFileSize + 1, Mode: 0644}
 	err = ExtractFile(tar.NewReader(bytes.NewReader(nil)), hdr2, filepath.Join(tmp, "big.bin"))
 	require.Error(t, err)
 }

@@ -41,7 +41,7 @@ func ExtractPackage(packagePath string) (string, error) {
 
 func runPackageExtractOpts() targz.Options {
 	opts := targz.DefaultOptions()
-	opts.MaxFileSize = maxExtractFileSize
+	opts.MaxFileSize = maxRunExtractFileSize
 	opts.Hooks.MkdirTemp = osMkdirTempExtractFunc
 	opts.Hooks.IOCopyN = extractFileCopyNFunc
 	return opts

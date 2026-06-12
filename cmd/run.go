@@ -32,6 +32,10 @@ import (
 const (
 	// maxExtractFileSize is the maximum size allowed for extracted files to prevent decompression bombs.
 	maxExtractFileSize = 100 * 1024 * 1024 // 100MB
+	// maxRunExtractFileSize bounds single entries when extracting packages for
+	// execution. Larger than the registry/component limit because prepackaged
+	// archives can carry multi-GB llamafile models (--include-models).
+	maxRunExtractFileSize = 8 << 30 // 8 GiB
 
 	// maxPortScanRange is the number of consecutive ports checked when the configured port is busy.
 	maxPortScanRange = 100

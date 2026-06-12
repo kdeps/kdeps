@@ -32,7 +32,10 @@ import (
 	"github.com/kdeps/kdeps/v2/pkg/chat"
 )
 
-const defaultChatModel = "llama3.2:3b"
+const (
+	defaultChatModel  = "llama3.2:3b"
+	chatBackendOllama = "ollama"
+)
 
 // ChatFlags holds flags for the chat command.
 type ChatFlags struct {
@@ -129,7 +132,7 @@ func resolveChatBackend() string {
 		return backend
 	}
 	if os.Getenv("OLLAMA_HOST") != "" {
-		return "ollama"
+		return chatBackendOllama
 	}
 	return "file"
 }
@@ -143,7 +146,7 @@ func resolveChatBaseURL(baseURL, backend string) string {
 	if baseURL != "" {
 		return baseURL
 	}
-	if backend == "ollama" {
+	if backend == chatBackendOllama {
 		if host := os.Getenv("OLLAMA_HOST"); host != "" {
 			return host
 		}
