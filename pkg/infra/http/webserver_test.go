@@ -1351,6 +1351,57 @@ func TestWebServer_HandleAppRequest_WithBackend(t *testing.T) {
 	})
 }
 
+// TestWebServer_HandleAppRequest_RouteHeaders tests that configured route
+// headers are injected into proxied requests, with env() interpolation, and
+// override same-name headers forwarded from the client.
+func TestWebServer_HandleAppRequest_RouteHeaders(t *testing.T) {
+	t.Setenv("UPSTREAM_TOKEN", "secret-token")
+
+	var recordedHeaders http.Header
+	backend := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		recordedHeaders = r.Header.Clone()
+		w.WriteHeader(http.StatusOK)
+		_, _ = fmt.Fprint(w, "backend-ok")
+	}))
+	t.Cleanup(backend.Close)
+
+	addr := backend.Listener.Addr().String()
+	_, portStr, err := net.SplitHostPort(addr)
+	require.NoError(t, err)
+	port, err := strconv.Atoi(portStr)
+	require.NoError(t, err)
+
+	workflow := &domain.Workflow{
+		Metadata: domain.WorkflowMetadata{Name: "test"},
+		Settings: domain.WorkflowSettings{
+			WebServer: &domain.WebServerConfig{},
+		},
+	}
+	webServer, err := httppkg.NewWebServer(workflow, slog.Default())
+	require.NoError(t, err)
+
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/app/test", nil)
+	req.Header.Set("Authorization", "Bearer client-token")
+
+	route := &domain.WebRoute{
+		Path:       "/app",
+		ServerType: "app",
+		AppPort:    port,
+		Headers: map[string]string{
+			"Authorization": "Bearer {{ env('UPSTREAM_TOKEN') }}",
+			"X-Static":      "fixed-value",
+		},
+	}
+
+	webServer.HandleAppRequest(w, req, route)
+	require.Equal(t, http.StatusOK, w.Code)
+	// Configured headers reach the upstream, env-interpolated, and take
+	// precedence over the same header forwarded from the client.
+	assert.Equal(t, "Bearer secret-token", recordedHeaders.Get("Authorization"))
+	assert.Equal(t, "fixed-value", recordedHeaders.Get("X-Static"))
+}
+
 // TestWebServer_HandleAppRequest_RootPath tests HandleAppRequest with a root route path,
 // covering the route.Path == "/" branch of the Rewrite closure.
 func TestWebServer_HandleAppRequest_RootPathWithBackend(t *testing.T) {
