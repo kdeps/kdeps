@@ -44,48 +44,34 @@ func (e *Engine) shouldStreamInlineResponse(
 	return true
 }
 
+// executeStreamingInlineResponse runs a response-only resource's inline steps
+// and evaluates the apiResponse exactly once, after all before: steps. API
+// clients receive a single response object; per-step snapshot slices broke
+// every JSON consumer (the HTTP layer has no chunk streaming).
 func (e *Engine) executeStreamingInlineResponse(
 	resource *domain.Resource,
 	ctx *ExecutionContext,
 ) (interface{}, error) {
 	kdeps_debug.Log("enter: executeStreamingInlineResponse")
 
-	chunks := make([]interface{}, 0)
-	appendSnapshot := func() error {
-		resp, err := e.executeAPIResponse(resource, ctx)
-		if err != nil {
-			return err
-		}
-		chunks = append(chunks, resp)
-		return nil
-	}
-
 	for i, inline := range resource.Before {
 		if err := e.executeInlineStep(inline, i, ctx); err != nil {
 			return nil, fmt.Errorf("inline before resource at index %d failed: %w", i, err)
 		}
-		if err := appendSnapshot(); err != nil {
-			return nil, err
-		}
 	}
 
-	if err := appendSnapshot(); err != nil {
+	response, err := e.executeAPIResponse(resource, ctx)
+	if err != nil {
 		return nil, err
 	}
 
 	for i, inline := range resource.After {
-		if err := e.executeInlineStep(inline, i, ctx); err != nil {
-			return nil, fmt.Errorf("inline after resource at index %d failed: %w", i, err)
-		}
-		if err := appendSnapshot(); err != nil {
-			return nil, err
+		if afterErr := e.executeInlineStep(inline, i, ctx); afterErr != nil {
+			return nil, fmt.Errorf("inline after resource at index %d failed: %w", i, afterErr)
 		}
 	}
 
-	if len(chunks) == 1 {
-		return chunks[0], nil
-	}
-	return chunks, nil
+	return response, nil
 }
 
 func (e *Engine) executeInlineStep(

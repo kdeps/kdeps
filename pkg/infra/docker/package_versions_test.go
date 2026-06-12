@@ -46,8 +46,6 @@ func init() {
 }
 
 func TestResolvePackageVersions_ExplicitPins(t *testing.T) {
-	t.Parallel()
-
 	orig := latestReleaseTagFunc
 	t.Cleanup(func() { latestReleaseTagFunc = orig })
 	latestReleaseTagFunc = func(context.Context, string) (string, error) {
@@ -66,8 +64,6 @@ func TestResolvePackageVersions_ExplicitPins(t *testing.T) {
 }
 
 func TestResolvePackageVersions_LatestFromGitHub(t *testing.T) {
-	t.Parallel()
-
 	orig := latestReleaseTagFunc
 	t.Cleanup(func() { latestReleaseTagFunc = orig })
 	latestReleaseTagFunc = func(_ context.Context, repo string) (string, error) {
@@ -95,8 +91,6 @@ func TestResolvePackageVersions_LatestFromGitHub(t *testing.T) {
 }
 
 func TestResolvePackageVersions_InvalidPin(t *testing.T) {
-	t.Parallel()
-
 	_, err := resolvePackageVersions(context.Background(), &domain.PackageVersions{
 		Kdeps: "not-semver",
 	})
@@ -104,8 +98,6 @@ func TestResolvePackageVersions_InvalidPin(t *testing.T) {
 }
 
 func TestResolvePackageVersions_OllamaFetchError(t *testing.T) {
-	t.Parallel()
-
 	orig := latestReleaseTagFunc
 	t.Cleanup(func() { latestReleaseTagFunc = orig })
 	latestReleaseTagFunc = func(_ context.Context, repo string) (string, error) {
@@ -121,8 +113,6 @@ func TestResolvePackageVersions_OllamaFetchError(t *testing.T) {
 }
 
 func TestResolvePackageVersions_InvalidLatestSemver(t *testing.T) {
-	t.Parallel()
-
 	orig := latestReleaseTagFunc
 	t.Cleanup(func() { latestReleaseTagFunc = orig })
 	latestReleaseTagFunc = func(context.Context, string) (string, error) {
@@ -135,8 +125,6 @@ func TestResolvePackageVersions_InvalidLatestSemver(t *testing.T) {
 }
 
 func TestResolvePackageVersions_UVFetchError(t *testing.T) {
-	t.Parallel()
-
 	orig := latestReleaseTagFunc
 	t.Cleanup(func() { latestReleaseTagFunc = orig })
 	latestReleaseTagFunc = func(_ context.Context, repo string) (string, error) {
@@ -152,8 +140,6 @@ func TestResolvePackageVersions_UVFetchError(t *testing.T) {
 }
 
 func TestResolvePackageVersions_LatestFetchError(t *testing.T) {
-	t.Parallel()
-
 	orig := latestReleaseTagFunc
 	t.Cleanup(func() { latestReleaseTagFunc = orig })
 	latestReleaseTagFunc = func(context.Context, string) (string, error) {
@@ -166,14 +152,11 @@ func TestResolvePackageVersions_LatestFetchError(t *testing.T) {
 }
 
 func TestValidatePinnedVersion_NightlyTag(t *testing.T) {
-	t.Parallel()
 	require.NoError(t, validatePinnedVersion("kdeps", "2.0.5-nightly202606110328"))
 	require.NoError(t, validatePinnedVersion("kdeps", "v2.0.4"))
 }
 
 func TestResolvePackageVersions_LatestNightlyTag(t *testing.T) {
-	t.Parallel()
-
 	orig := latestReleaseTagFunc
 	t.Cleanup(func() { latestReleaseTagFunc = orig })
 	latestReleaseTagFunc = func(context.Context, string) (string, error) {
@@ -186,7 +169,6 @@ func TestResolvePackageVersions_LatestNightlyTag(t *testing.T) {
 }
 
 func TestKdepsInstallerRef(t *testing.T) {
-	t.Parallel()
 	assert.Equal(t, "v2.0.0", kdepsInstallerRef("2.0.0"))
 	assert.Equal(t, "v2.0.0", kdepsInstallerRef("v2.0.0"))
 }

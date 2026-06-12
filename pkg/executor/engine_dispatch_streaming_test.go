@@ -15,6 +15,7 @@
 package executor
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -50,15 +51,14 @@ func TestExecuteResource_StreamingInlineResponse(t *testing.T) {
 	result, err := e.ExecuteResource(resource, ctx)
 	require.NoError(t, err)
 
-	stream, ok := result.([]interface{})
-	require.True(t, ok, "response-only primary with inline should stream")
-	// 2 before steps + 1 final apiResponse snapshot
-	assert.Len(t, stream, 3)
-	for i, chunk := range stream {
-		resp, mapOK := chunk.(map[string]interface{})
-		require.True(t, mapOK, "chunk %d should be apiResponse map", i)
-		assert.Equal(t, true, resp["success"])
-	}
+	// A single apiResponse evaluated after all before: steps — JSON API
+	// clients must never receive per-step snapshot slices.
+	resp, ok := result.(map[string]interface{})
+	require.True(t, ok, "response-only primary with inline must return one apiResponse map")
+	assert.Equal(t, true, resp["success"])
+	data, ok := resp["data"].(map[string]interface{})
+	require.True(t, ok)
+	assert.Equal(t, "2", fmt.Sprintf("%v", data["step"]), "response must see the final before-step state")
 }
 
 func TestExecuteResource_ChatPlusAPIResponseDoesNotStream(t *testing.T) {
@@ -136,9 +136,9 @@ func TestExecuteResource_StreamingAfterInline(t *testing.T) {
 
 	result, err := e.ExecuteResource(resource, ctx)
 	require.NoError(t, err)
-	stream, ok := result.([]interface{})
-	require.True(t, ok)
-	assert.Len(t, stream, 2)
+	resp, ok := result.(map[string]interface{})
+	require.True(t, ok, "after: steps must not turn the response into a slice")
+	assert.Equal(t, true, resp["success"])
 }
 
 func TestExecuteResource_StreamingSingleChunk(t *testing.T) {

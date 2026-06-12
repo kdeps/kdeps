@@ -16,8 +16,10 @@ settings:
     routes:
       - path: /api/v1/chat
         methods: [POST]
+        public: true  # browser frontend cannot hold a bearer token
       - path: /api/v1/models
         methods: [GET]
+        public: true
     cors:
       allowOrigins:
         - "*"

@@ -32,9 +32,38 @@ func (s *Server) applySecurityMiddleware() error {
 	if err != nil {
 		return err
 	}
-	s.Router.Use(AuthMiddlewareExempting(token, mergedWebRouteMatcher(s.Workflow)))
+	s.Router.Use(AuthMiddlewareExempting(token, publicPathMatcher(s.Workflow)))
 	configureTrustedProxyLimits(s.Router, s.Workflow.Settings, apiServerLimitConfig(api), s.logger)
 	return nil
+}
+
+// publicPathMatcher combines the merged-web exemption with API routes that
+// declare public: true (browser-facing endpoints that cannot carry a token).
+func publicPathMatcher(workflow *domain.Workflow) func(string) bool {
+	webMatcher := mergedWebRouteMatcher(workflow)
+	publicRoutes := publicAPIRoutePatterns(workflow.Settings.APIServer)
+	if webMatcher == nil && len(publicRoutes) == 0 {
+		return nil
+	}
+	return func(path string) bool {
+		if anyPatternMatches(publicRoutes, path) {
+			return true
+		}
+		return webMatcher != nil && webMatcher(path)
+	}
+}
+
+func publicAPIRoutePatterns(api *domain.APIServerConfig) []string {
+	if api == nil {
+		return nil
+	}
+	var patterns []string
+	for _, route := range api.Routes {
+		if route.Public {
+			patterns = append(patterns, route.Path)
+		}
+	}
+	return patterns
 }
 
 // mergedWebRouteMatcher returns a predicate marking webServer routes as public

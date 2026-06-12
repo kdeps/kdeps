@@ -370,3 +370,58 @@ func TestMergedWebRoutes_NoStrictCSP(t *testing.T) {
 	assert.Empty(t, rec.Header().Get("Content-Security-Policy"), "static assets must not carry the strict JSON-API CSP")
 	t.Logf("headers: %v", rec.Header())
 }
+
+func TestPublicPathMatcher_PublicAPIRoutes(t *testing.T) {
+	workflow := &domain.Workflow{
+		Settings: domain.WorkflowSettings{
+			APIServer: &domain.APIServerConfig{
+				Routes: []domain.Route{
+					{Path: "/api/v1/chat", Methods: []string{"POST"}, Public: true},
+					{Path: "/api/v1/admin", Methods: []string{"POST"}},
+				},
+			},
+		},
+	}
+
+	matcher := publicPathMatcher(workflow)
+	require.NotNil(t, matcher)
+	assert.True(t, matcher("/api/v1/chat"), "public: true routes are exempt from auth")
+	assert.False(t, matcher("/api/v1/admin"), "routes without public: true stay authenticated")
+}
+
+func TestPublicPathMatcher_NoExemptions(t *testing.T) {
+	workflow := &domain.Workflow{
+		Settings: domain.WorkflowSettings{
+			APIServer: &domain.APIServerConfig{
+				Routes: []domain.Route{{Path: "/api/v1/admin", Methods: []string{"POST"}}},
+			},
+		},
+	}
+	assert.Nil(t, publicPathMatcher(workflow), "no web routes and no public routes means no exemptions")
+}
+
+func TestAuthMiddleware_PublicPathValidatesPresentedToken(t *testing.T) {
+	middleware := AuthMiddlewareExempting("secret", func(string) bool { return true })
+	handler := middleware(func(w stdhttp.ResponseWriter, _ *stdhttp.Request) {
+		w.WriteHeader(stdhttp.StatusOK)
+	})
+
+	// No credentials: allowed (browser navigation/fetch).
+	rec := httptest.NewRecorder()
+	handler(rec, httptest.NewRequest(stdhttp.MethodGet, "/api/v1/chat", nil))
+	assert.Equal(t, stdhttp.StatusOK, rec.Code)
+
+	// Correct token: allowed.
+	rec = httptest.NewRecorder()
+	req := httptest.NewRequest(stdhttp.MethodGet, "/api/v1/chat", nil)
+	req.Header.Set("Authorization", "Bearer secret")
+	handler(rec, req)
+	assert.Equal(t, stdhttp.StatusOK, rec.Code)
+
+	// Wrong token: rejected even though the path is public.
+	rec = httptest.NewRecorder()
+	req = httptest.NewRequest(stdhttp.MethodGet, "/api/v1/chat", nil)
+	req.Header.Set("Authorization", "Bearer wrong")
+	handler(rec, req)
+	assert.Equal(t, stdhttp.StatusUnauthorized, rec.Code)
+}
