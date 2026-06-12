@@ -160,7 +160,7 @@ func TestPrimaryResourceTypesList(t *testing.T) {
 
 	got := domain.PrimaryResourceTypesList()
 	if got != "chat, httpClient, sql, python, exec, agent, component, scraper, "+
-		"embedding, searchLocal, searchWeb, telephony, browser, botReply, email, "+
+		"embedding, searchLocal, searchWeb, telephony, browser, botReply, email, file, "+
 		"apiResponse" {
 		t.Fatalf("PrimaryResourceTypesList() = %q", got)
 	}
@@ -172,7 +172,7 @@ func TestPrimaryResourceTypeNames_MatchesExecutorRegistry(t *testing.T) {
 	want := []string{
 		"chat", "httpClient", "sql", "python", "exec", "agent", "component",
 		"scraper", "embedding", "searchLocal", "searchWeb",
-		"telephony", "browser", "botReply", "email", "apiResponse",
+		"telephony", "browser", "botReply", "email", "file", "apiResponse",
 	}
 	got := domain.PrimaryResourceTypeNames()
 	if len(got) != len(want) {

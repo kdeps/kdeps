@@ -144,3 +144,11 @@ func (e *Engine) executeBotReply(resource *domain.Resource, ctx *ExecutionContex
 		e.registry.GetBotReplyExecutor, "botReply", "executeBotReply", ctx,
 	)
 }
+
+// executeFile executes a file resource.
+func (e *Engine) executeFile(resource *domain.Resource, ctx *ExecutionContext) (interface{}, error) {
+	return e.executeRegisteredResource(
+		resource, "file", resource.File,
+		e.registry.GetFileExecutor, "file", "executeFile", ctx,
+	)
+}

@@ -41,6 +41,7 @@ type ActionConfig struct {
 	Browser     *BrowserConfig         `yaml:"browser,omitempty"`
 	BotReply    *BotReplyConfig        `yaml:"botReply,omitempty"`
 	Email       *EmailConfig           `yaml:"email,omitempty"`
+	File        *FileResourceConfig    `yaml:"file,omitempty"`
 	APIResponse *APIResponseConfig     `yaml:"apiResponse,omitempty"`
 }
 

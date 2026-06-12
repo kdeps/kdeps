@@ -62,3 +62,6 @@ func (r *Registry) GetBotReplyExecutor() ResourceExecutor     { return r.getExec
 
 func (r *Registry) SetEmailExecutor(exec ResourceExecutor) { r.Register(ExecutorEmail, exec) }
 func (r *Registry) GetEmailExecutor() ResourceExecutor     { return r.getExecutor(ExecutorEmail) }
+
+func (r *Registry) SetFileExecutor(exec ResourceExecutor) { r.Register(ExecutorFile, exec) }
+func (r *Registry) GetFileExecutor() ResourceExecutor     { return r.getExecutor(ExecutorFile) }

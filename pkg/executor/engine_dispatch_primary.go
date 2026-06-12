@@ -49,6 +49,7 @@ func primaryResourceDispatch() []primaryDispatchEntry {
 		"browser":     (*Engine).executeBrowser,
 		"botReply":    (*Engine).executeBotReply,
 		"email":       (*Engine).executeEmail,
+		"file":        (*Engine).executeFile,
 		"apiResponse": (*Engine).executeAPIResponse,
 	}
 

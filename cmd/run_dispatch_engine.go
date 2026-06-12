@@ -29,6 +29,7 @@ import (
 	"github.com/kdeps/kdeps/v2/pkg/domain"
 	"github.com/kdeps/kdeps/v2/pkg/executor"
 	executorBotReply "github.com/kdeps/kdeps/v2/pkg/executor/botreply"
+	executorFile "github.com/kdeps/kdeps/v2/pkg/executor/file"
 	executorBrowser "github.com/kdeps/kdeps/v2/pkg/executor/browser"
 	executorEmail "github.com/kdeps/kdeps/v2/pkg/executor/email"
 	executorEmbedding "github.com/kdeps/kdeps/v2/pkg/executor/embedding"
@@ -98,6 +99,7 @@ func newExecutorRegistry(logger *slog.Logger) *executor.Registry {
 	registry.SetBrowserExecutor(executorBrowser.NewAdapter())
 	registry.SetBotReplyExecutor(executorBotReply.NewAdapter())
 	registry.SetEmailExecutor(executorEmail.NewAdapter(logger))
+	registry.SetFileExecutor(executorFile.NewAdapter())
 	registry.SetLLMExecutor(executorLLM.NewAdapter(getOllamaURL()))
 	return registry
 }
