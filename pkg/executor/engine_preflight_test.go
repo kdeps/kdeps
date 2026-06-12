@@ -21,6 +21,7 @@ package executor_test
 import (
 	"testing"
 
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/kdeps/kdeps/v2/pkg/executor"
@@ -29,4 +30,11 @@ import (
 func TestParseAtTime_Invalid(t *testing.T) {
 	_, err := executor.ParseAtTimeForTesting("not-a-time")
 	require.Error(t, err)
+}
+
+func TestPreflightError_PreflightStatus(t *testing.T) {
+	preflight := &executor.PreflightError{Code: 400, Message: "'q' is required"}
+	code, message := preflight.PreflightStatus()
+	assert.Equal(t, 400, code)
+	assert.Equal(t, "'q' is required", message)
 }
