@@ -4925,14 +4925,10 @@ func TestEngine_SessionSetGet_E2E(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, result)
 
-	stream, ok := result.([]interface{})
-	require.True(t, ok, "apiResponse primary with inline before should stream")
-	require.Len(t, stream, 3)
-
-	lastChunk, ok := stream[len(stream)-1].(map[string]interface{})
-	require.True(t, ok)
-	resultMap, ok := lastChunk["data"].(map[string]interface{})
-	require.True(t, ok, "final chunk should expose apiResponse data")
+	// The workflow output is the single apiResponse's data, evaluated after
+	// all before: steps (no per-step snapshot slices).
+	resultMap, ok := result.(map[string]interface{})
+	require.True(t, ok, "workflow output should expose apiResponse data")
 
 	// Check individual get
 	assert.Equal(t, "testuser", resultMap["user_id"])

@@ -24,7 +24,6 @@ import (
 	"fmt"
 	"net"
 	stdhttp "net/http"
-	"os"
 	"os/exec"
 	"strconv"
 	"sync"
@@ -113,8 +112,11 @@ func startLlamafileServer(path string, port int) error {
 		"--port", strconv.Itoa(port),
 		"--nobrowser",
 	)
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
+	// The server is detached and outlives the parent; it must not inherit
+	// stdout/stderr (holding those fds blocks `go test` and pipes long after
+	// the parent exits). Health is checked via HTTP, not log output.
+	cmd.Stdout = nil
+	cmd.Stderr = nil
 	if startErr := cmd.Start(); startErr != nil {
 		return fmt.Errorf("failed to start llamafile server: %w", startErr)
 	}

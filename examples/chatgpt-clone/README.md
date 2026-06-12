@@ -33,6 +33,10 @@ This starts both servers:
 
 Open http://localhost:16395 in your browser to use the chat interface.
 
+The two API routes declare `public: true` in `workflow.yaml`: the browser
+frontend cannot hold a bearer token, so these endpoints opt out of API auth.
+Routes without `public: true` still require `Authorization: Bearer $KDEPS_API_AUTH_TOKEN`.
+
 ## Architecture
 
 ```

@@ -56,6 +56,10 @@ func TestRunServeCmd_EmptyDir(t *testing.T) {
 }
 
 func TestRunServeCmd_Success(t *testing.T) {
+	// Pin the agent away from local backends: the default file backend would
+	// download and boot a real llamafile server inside the test.
+	t.Setenv("KDEPS_AGENT_BACKEND", "openai")
+	t.Setenv("KDEPS_AGENT_BASE_URL", "http://127.0.0.1:1")
 	tmpDir := t.TempDir()
 
 	// Create a minimal valid workflow.yaml that passes schema validation.

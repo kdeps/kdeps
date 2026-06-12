@@ -47,7 +47,18 @@ func AuthMiddlewareExempting(
 	return func(next stdhttp.HandlerFunc) stdhttp.HandlerFunc {
 		return func(w stdhttp.ResponseWriter, r *stdhttp.Request) {
 			path := requestPath(r)
-			if shouldBypassAuth(token, path) || pathIsPublic(isPublicPath, path) {
+			if shouldBypassAuth(token, path) {
+				next(w, r)
+				return
+			}
+			if pathIsPublic(isPublicPath, path) {
+				// Public paths accept credential-less requests (browsers
+				// cannot hold a token), but a presented token must still
+				// be valid — a wrong credential is always rejected.
+				if extractAuthToken(r) != "" && !authTokenMatches(r, token) {
+					respondUnauthorized(w, r)
+					return
+				}
 				next(w, r)
 				return
 			}

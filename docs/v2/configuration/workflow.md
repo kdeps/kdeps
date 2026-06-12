@@ -94,10 +94,14 @@ settings:
     routes:
       - path: /api/v1/chat
         methods: [POST]        # GET, POST, PUT, PATCH, DELETE, OPTIONS, HEAD
+        public: true           # opt out of API auth for this route - use for endpoints
+                               # called by a browser frontend (it cannot hold a bearer
+                               # token; anything shipped in JS is public anyway)
     cors:
       allowOrigins:
         - http://localhost:16395
     # auth token (required): KDEPS_API_AUTH_TOKEN env var or api_auth_token in ~/.kdeps/config.yaml
+    # routes without public: true require: Authorization: Bearer <token>
     rateLimit:
       requestsPerMinute: 60    # sustained per-IP rate
       burst: 10                # burst allowance above the sustained rate

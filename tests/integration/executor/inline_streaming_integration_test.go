@@ -15,6 +15,7 @@
 package executor_test
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -55,8 +56,12 @@ func TestInlineStreamingResponse_Integration(t *testing.T) {
 	result, err := engine.ExecuteResource(resource, ctx)
 	require.NoError(t, err)
 
-	stream, ok := result.([]interface{})
-	require.True(t, ok, "apiResponse primary with inline should produce streaming slice")
-	// before (1) + final (1) + after (1)
-	assert.Len(t, stream, 3)
+	// A single apiResponse map, evaluated after the before: step and before
+	// the after: step - API clients never receive per-step snapshot slices.
+	resp, ok := result.(map[string]interface{})
+	require.True(t, ok, "apiResponse primary with inline must return one apiResponse map")
+	assert.Equal(t, true, resp["success"])
+	data, ok := resp["data"].(map[string]interface{})
+	require.True(t, ok)
+	assert.Equal(t, "1", fmt.Sprintf("%v", data["n"]), "response sees before: state, not after: state")
 }

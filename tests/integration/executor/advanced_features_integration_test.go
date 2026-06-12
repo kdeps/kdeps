@@ -19,6 +19,7 @@
 package executor_test
 
 import (
+	"fmt"
 	"log/slog"
 	"testing"
 
@@ -404,7 +405,10 @@ func TestAdvancedFeatures_ExprBlock(t *testing.T) {
 				ActionID: "expr-resource",
 				Name:     "Expression Resource",
 
-				After: []domain.ActionConfig{
+				// before: runs ahead of the response evaluation, so the
+				// apiResponse can read the computed values (after: steps run
+				// once the response is already evaluated).
+				Before: []domain.ActionConfig{
 					{Expr: "set('computed', 42)"},
 					{Expr: "set('formatted', 'Result: ' + string(get('computed')))"},
 				},
@@ -426,16 +430,11 @@ func TestAdvancedFeatures_ExprBlock(t *testing.T) {
 	require.NoError(t, err)
 	assert.NotNil(t, result)
 
-	stream, ok := result.([]interface{})
-	require.True(t, ok, "apiResponse primary with inline after should stream")
-	require.GreaterOrEqual(t, len(stream), 1)
-
-	lastChunk, ok := stream[len(stream)-1].(map[string]interface{})
-	require.True(t, ok)
-	resultMap, ok := lastChunk["data"].(map[string]interface{})
-	require.True(t, ok)
-	assert.NotNil(t, resultMap["computed"])
-	assert.NotNil(t, resultMap["formatted"])
+	// Single apiResponse: the workflow output is its evaluated data.
+	resultMap, ok := result.(map[string]interface{})
+	require.True(t, ok, "workflow output should expose apiResponse data")
+	assert.Equal(t, "42", fmt.Sprintf("%v", resultMap["computed"]))
+	assert.Equal(t, "Result: 42", fmt.Sprintf("%v", resultMap["formatted"]))
 }
 
 // TestAdvancedFeatures_CombinedFeatures tests multiple advanced features together.

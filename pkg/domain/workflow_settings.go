@@ -196,6 +196,11 @@ type APIServerConfig struct {
 type Route struct {
 	Path    string   `yaml:"path"`
 	Methods []string `yaml:"methods"`
+	// Public exempts the route from API auth. For browser-facing apps in
+	// merged API+Web mode: a static frontend cannot hold a bearer token
+	// (anything shipped in JS is public), so demo/same-app endpoints opt
+	// out explicitly instead.
+	Public bool `yaml:"public,omitempty"`
 }
 
 // CORS represents CORS configuration.
