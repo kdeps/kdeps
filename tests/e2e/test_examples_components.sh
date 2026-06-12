@@ -284,45 +284,47 @@ fi
 
 _TELE_DIR="$(find_example_dir telephony-bot)"
 TELE_WF="$_TELE_DIR/workflow.yaml"
-TELE_COMP="$_TELE_DIR/components/tts/component.yaml"
 
 if [ ! -f "$TELE_WF" ]; then
     test_skipped "telephony-bot component (workflow.yaml not found)"
 else
-    # Test 31: telephony-bot tts component exists
-    if [ -f "$TELE_COMP" ]; then
-        test_passed "telephony-bot - components/tts/component.yaml exists"
+    # Test 31: workflow validates
+    if "$KDEPS_BIN" validate "$TELE_WF" &> /dev/null; then
+        test_passed "telephony-bot - workflow validation"
     else
-        test_failed "telephony-bot - components/tts/component.yaml exists" "File not found: $TELE_COMP"
+        test_failed "telephony-bot - workflow validation" "kdeps validate failed for $TELE_WF"
     fi
 
-    # Test 32: telephony-bot tts component has kind: Component
-    if grep -q "kind: Component" "$TELE_COMP" 2>/dev/null; then
-        test_passed "telephony-bot - tts component has kind: Component"
+    # Test 32: native telephony IVR routes are declared
+    if grep -q "/twilio/voice" "$TELE_WF" 2>/dev/null && grep -q "/twilio/answer" "$TELE_WF" 2>/dev/null; then
+        test_passed "telephony-bot - declares /twilio IVR routes"
     else
-        test_failed "telephony-bot - tts component has kind: Component" "kind: Component not found in $TELE_COMP"
+        test_failed "telephony-bot - declares /twilio IVR routes" "/twilio routes not found in $TELE_WF"
     fi
 
-    # Test 33: telephony-bot tts component provides ttsResponse action
-    if grep -q "actionId: ttsResponse" "$TELE_COMP" 2>/dev/null; then
-        test_passed "telephony-bot - tts component exports ttsResponse action"
+    # Test 33: one resource per IVR action exists
+    if [ -f "$_TELE_DIR/resources/menu.yaml" ] && \
+       [ -f "$_TELE_DIR/resources/hours.yaml" ] && \
+       [ -f "$_TELE_DIR/resources/ask.yaml" ] && \
+       [ -f "$_TELE_DIR/resources/answer.yaml" ]; then
+        test_passed "telephony-bot - IVR resources exist (menu, hours, ask, answer)"
     else
-        test_failed "telephony-bot - tts component exports ttsResponse action" "actionId: ttsResponse not found in $TELE_COMP"
+        test_failed "telephony-bot - IVR resources exist" "missing resource files in $_TELE_DIR/resources"
     fi
 
-    # Test 34: tts-response.yaml removed (logic in component)
-    if [ ! -f "$_TELE_DIR/resources/tts-response.yaml" ]; then
-        test_passed "telephony-bot - tts-response.yaml removed (moved to component)"
+    # Test 34: answer resource feeds the LLM from the provider webhook
+    if grep -q "SpeechResult" "$_TELE_DIR/resources/answer.yaml" 2>/dev/null; then
+        test_passed "telephony-bot - answer.yaml reads SpeechResult"
     else
-        test_failed "telephony-bot - tts-response.yaml removed (moved to component)" "tts-response.yaml still exists as a resource"
+        test_failed "telephony-bot - answer.yaml reads SpeechResult" "SpeechResult not found in answer.yaml"
     fi
 
-    # Test 35: call-response.yaml still requires ttsResponse (component-provided)
-    CALL_RES="$_TELE_DIR/resources/call-response.yaml"
-    if grep -q "ttsResponse" "$CALL_RES" 2>/dev/null; then
-        test_passed "telephony-bot - call-response.yaml still requires ttsResponse"
+    # Test 35: respond.yaml aggregates the IVR actions
+    RESPOND_RES="$_TELE_DIR/resources/respond.yaml"
+    if grep -q "answerLLM" "$RESPOND_RES" 2>/dev/null; then
+        test_passed "telephony-bot - respond.yaml requires answerLLM"
     else
-        test_failed "telephony-bot - call-response.yaml requires ttsResponse" "ttsResponse not found in $CALL_RES"
+        test_failed "telephony-bot - respond.yaml requires answerLLM" "answerLLM not found in $RESPOND_RES"
     fi
 fi
 
