@@ -34,6 +34,12 @@ func (s *WebServer) dispatchWebRoute(
 	r *stdhttp.Request,
 	route *domain.WebRoute,
 ) {
+	// In merged API+Web mode the API router wraps responses in
+	// ResponseWriterWrapper, whose XSS guard HTML-escapes browser-rendered
+	// bodies. Web routes serve real HTML — disable escaping for them.
+	if wrapper, ok := w.(*ResponseWriterWrapper); ok {
+		wrapper.DisableHTMLEscape()
+	}
 	switch route.ServerType {
 	case serverTypeStatic:
 		s.HandleStaticRequest(w, r, route)
