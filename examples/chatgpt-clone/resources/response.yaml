@@ -5,19 +5,23 @@ requires:
     - llmResource
     - modelsResource
 
+# Guard every lookup: on each request one of the two endpoint resources is
+# route-skipped, so its keys do not exist. A bare get() on a missing key
+# aborts the before: chain; default() makes the lookups nil-safe.
 before:
   - "set('isModelsEndpoint', info('method') == 'GET' && info('path') == '/api/v1/models')"
   - "set('isChatEndpoint', info('method') == 'POST' && info('path') == '/api/v1/chat')"
-  - "set('llmResult', get('llmResource'))"
-  - "set('modelsResult', get('modelsResource'))"
+  - "set('llmResult', default(get('llmResource'), false))"
   - "set('hasLLMError', safe(get('llmResult'), 'error') == true)"
-  - "set('messageContent', safe(safe(get('llmResult'), 'message'), 'content'))"
+  - "set('messageContent', default(safe(safe(get('llmResult'), 'message'), 'content'), ''))"
 
 apiResponse:
   success: true
   response:
-    # Return models for models endpoint, chat for chat endpoint
-    message: "{{ get('isChatEndpoint') ? (get('hasLLMError') ? safe(get('llmResult'), 'error') : get('messageContent')) : '' }}"
-    query: "{{ get('isChatEndpoint') ? get('userMessage') : '' }}"
+    # Chat endpoint: the LLM reply (or the onError fallback message).
+    message: "{{ default(get('isChatEndpoint'), false) ? (default(get('hasLLMError'), false) ? safe(get('llmResult'), 'message') : default(get('messageContent'), '')) : '' }}"
+    query: "{{ default(get('isChatEndpoint'), false) ? default(get('userMessage'), '') : '' }}"
+    # Models endpoint: the list assembled by modelsResource.
+    models: "{{ default(get('isModelsEndpoint'), false) ? default(get('availableModels'), []) : [] }}"
   headers:
     Content-Type: application/json
