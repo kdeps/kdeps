@@ -69,3 +69,17 @@ func (e *Engine) executeInlineSearchLocal(
 		config,
 	)
 }
+
+// executeInlineFile executes an inline file resource.
+func (e *Engine) executeInlineFile(
+	config *domain.FileResourceConfig,
+	ctx *ExecutionContext,
+) (interface{}, error) {
+	return e.executeRegistered(
+		"executeInlineFile",
+		e.registry.GetFileExecutor,
+		"file",
+		ctx,
+		config,
+	)
+}

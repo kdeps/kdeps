@@ -57,6 +57,7 @@ type Resource struct {
 	Browser     *BrowserConfig         `yaml:"browser,omitempty"`
 	BotReply    *BotReplyConfig        `yaml:"botReply,omitempty"`
 	Email       *EmailConfig           `yaml:"email,omitempty"`
+	File        *FileResourceConfig    `yaml:"file,omitempty"`
 }
 
 // LoopConfig configures while-loop repetition for a resource, enabling Turing-complete

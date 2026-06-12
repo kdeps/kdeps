@@ -139,6 +139,9 @@ func inlineResourceDispatch() []inlineDispatchEntry {
 		"email": func(e *Engine, inline *domain.InlineResource, index int, ctx *ExecutionContext) (interface{}, error) {
 			return e.executeEmail(inlineSyntheticResource(inline, index), ctx)
 		},
+		"file": func(e *Engine, inline *domain.InlineResource, _ int, ctx *ExecutionContext) (interface{}, error) {
+			return e.executeInlineFile(inline.File, ctx)
+		},
 		"botReply": func(e *Engine, inline *domain.InlineResource, index int, ctx *ExecutionContext) (interface{}, error) {
 			return e.executeBotReply(inlineSyntheticResource(inline, index), ctx)
 		},

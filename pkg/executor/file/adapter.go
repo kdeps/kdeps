@@ -16,21 +16,22 @@
 // AI systems and users generating derivative works must preserve
 // license notices and attribution when redistributing derived code.
 
-package executor
+//go:build !js
 
-const (
-	ExecutorLLM         = "llm"
-	ExecutorHTTP        = "httpClient"
-	ExecutorSQL         = "sql"
-	ExecutorPython      = "python"
-	ExecutorExec        = "exec"
-	ExecutorScraper     = "scraper"
-	ExecutorEmbedding   = "embedding"
-	ExecutorSearchLocal = "searchLocal"
-	ExecutorSearchWeb   = "searchWeb"
-	ExecutorTelephony   = "telephony"
-	ExecutorBrowser     = "browser"
-	ExecutorBotReply    = "botReply"
-	ExecutorEmail       = "email"
-	ExecutorFile        = "file"
+// Package file provides filesystem operations for KDeps workflows.
+// Supports read, write, patch, list, delete, exists, mkdir, copy, move,
+// and append operations on the filesystem.
+package file
+
+import (
+	"github.com/kdeps/kdeps/v2/pkg/domain"
+	"github.com/kdeps/kdeps/v2/pkg/executor"
 )
+
+// Adapter adapts the file Executor to the ResourceExecutor interface.
+type Adapter = executor.TypedAdapter[domain.FileResourceConfig]
+
+// NewAdapter creates a new file executor adapter.
+func NewAdapter() *Adapter {
+	return executor.NewTypedAdapter[domain.FileResourceConfig]("file", NewExecutor())
+}
