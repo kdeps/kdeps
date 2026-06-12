@@ -227,6 +227,10 @@ type WebRoute struct {
 	PublicPath string `yaml:"publicPath,omitempty"`
 	AppPort    int    `yaml:"appPort,omitempty"`
 	Command    string `yaml:"command,omitempty"`
+	// Headers are set on proxied requests for app routes. Values support
+	// {{ env('VAR') }} interpolation so secrets stay out of the YAML, e.g.
+	// Authorization: "Bearer {{ env('UPSTREAM_TOKEN') }}".
+	Headers map[string]string `yaml:"headers,omitempty"`
 }
 
 // Resources contains resource limits and requests.

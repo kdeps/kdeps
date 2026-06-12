@@ -22,6 +22,8 @@ import (
 	stdhttp "net/http"
 	"net/http/httputil"
 	"net/url"
+	"os"
+	"regexp"
 
 	"github.com/kdeps/kdeps/v2/pkg/domain"
 )
@@ -39,6 +41,7 @@ func newAppReverseProxy(
 			copyQueryString(pr.Out.URL, r.URL)
 			setProxyHost(pr.Out.URL, targetURL)
 			forwardProxyRequestHeaders(pr.Out.Header, r.Header)
+			applyRouteHeaders(pr.Out.Header, route.Headers)
 			logProxyRequest(s.logger, pr.Out.URL.String())
 		},
 		Transport: &stdhttp.Transport{
@@ -52,4 +55,26 @@ func newAppReverseProxy(
 
 func localAppProxyTarget(port int) (*url.URL, error) {
 	return httpURLFromHostPort(localAppProxyHost, port)
+}
+
+// routeHeaderEnvPattern matches {{ env('VAR') }} (single or double quotes)
+// inside webServer route header values.
+var routeHeaderEnvPattern = regexp.MustCompile(
+	`\{\{\s*env\(\s*['"]([A-Za-z_][A-Za-z0-9_]*)['"]\s*\)\s*\}\}`,
+)
+
+// applyRouteHeaders sets configured route headers on the proxied request,
+// overriding any forwarded header of the same name. Values support
+// {{ env('VAR') }} interpolation so secrets stay out of the workflow YAML.
+func applyRouteHeaders(header stdhttp.Header, routeHeaders map[string]string) {
+	for name, value := range routeHeaders {
+		header.Set(name, resolveRouteHeaderValue(value))
+	}
+}
+
+func resolveRouteHeaderValue(value string) string {
+	return routeHeaderEnvPattern.ReplaceAllStringFunc(value, func(match string) string {
+		name := routeHeaderEnvPattern.FindStringSubmatch(match)[1]
+		return os.Getenv(name)
+	})
 }
