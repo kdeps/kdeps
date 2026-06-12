@@ -103,3 +103,21 @@ func TestWebServer_HandleWebSocketProxy_HandshakeFailure(t *testing.T) {
 	webServer.HandleWebSocketProxy(rec, req, targetURL, &domain.WebRoute{Path: "/"})
 	assert.Equal(t, stdhttp.StatusBadGateway, rec.Code)
 }
+
+func TestResolveRouteHeaderValue(t *testing.T) {
+	t.Setenv("ROUTE_HDR_TOKEN", "tok-123")
+
+	assert.Equal(t, "plain", resolveRouteHeaderValue("plain"))
+	assert.Equal(t, "Bearer tok-123", resolveRouteHeaderValue("Bearer {{ env('ROUTE_HDR_TOKEN') }}"))
+	assert.Equal(t, "Bearer tok-123", resolveRouteHeaderValue(`Bearer {{env("ROUTE_HDR_TOKEN")}}`))
+	// Unset variables resolve to an empty string, like env() in workflows.
+	assert.Equal(t, "Bearer ", resolveRouteHeaderValue("Bearer {{ env('ROUTE_HDR_UNSET_VAR') }}"))
+	// Other expression forms are left untouched: header values only support env().
+	assert.Equal(t, "{{ get('q') }}", resolveRouteHeaderValue("{{ get('q') }}"))
+}
+
+func TestApplyRouteHeaders_Empty(t *testing.T) {
+	header := stdhttp.Header{}
+	applyRouteHeaders(header, nil)
+	assert.Empty(t, header)
+}
