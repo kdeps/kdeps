@@ -501,6 +501,7 @@ func TestExecutor_Execute_HandleToolCallsReturnError(t *testing.T) {
 	_, err = e.Execute(ctx, &domain.ChatConfig{
 		Model:   "m",
 		Prompt:  "p",
+		Backend: "ollama",
 		BaseURL: srv.URL,
 		Tools: []domain.Tool{{
 			Name: "t",
@@ -897,6 +898,7 @@ func TestExecutor_Execute_HandleToolCalls_Loop(t *testing.T) {
 	config := &domain.ChatConfig{
 		Model:   "llama3.2:1b",
 		Prompt:  "Use the tool",
+		Backend: "ollama",
 		BaseURL: server.URL,
 		Tools: []domain.Tool{
 			{
@@ -957,6 +959,7 @@ func TestExecutor_Execute_HandleToolCalls_MaxIterations(t *testing.T) {
 
 	config := &domain.ChatConfig{
 		Model:   "llama3.2:1b",
+		Backend: "ollama",
 		Prompt:  "Use the tool repeatedly",
 		BaseURL: server.URL,
 		Tools: []domain.Tool{

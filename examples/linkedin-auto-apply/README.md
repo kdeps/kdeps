@@ -27,10 +27,8 @@ submit) for every matched job.
 ## Prerequisites
 
 - kdeps installed (`kdeps --version`)
-- [Ollama](https://ollama.ai) running locally with `llama3.2`
-  ```
-  ollama pull llama3.2
-  ```
+- No LLM install needed - `llama3.2` runs as a local llamafile (default `file`
+  backend), auto-downloaded on first run (~1.1 GB)
 - A LinkedIn account with Easy Apply access
 - Your resume as a local PDF file
 

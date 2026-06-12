@@ -5,6 +5,9 @@ ENV DEBIAN_FRONTEND=noninteractive \
     PYTHONUNBUFFERED=1 \
     PATH=/opt/venv/bin:$PATH \
     KDEPS_BIND_HOST=0.0.0.0 \
+    {{- if .LlamafileModels }}
+    KDEPS_MODELS_DIR=/app/.kdeps/models \
+    {{- end }}
     {{- if .InstallOllama }}
     OLLAMA_HOST=127.0.0.1 \
     OLLAMA_PORT={{ .BackendPort }} \
@@ -127,6 +130,17 @@ RUN (OLLAMA_HOST=127.0.0.1 /usr/local/bin/ollama serve &) && \
     sleep 2 && \
     # Copy to the image layer
     cp -r /root/.ollama/* /llm/
+{{- end }}
+
+{{- if .LlamafileModels }}
+
+# Pre-bake llamafile models (file backend)
+RUN mkdir -p /app/.kdeps/models && \
+    {{- range .LlamafileModels }}
+    curl -fL --retry 3 -o /app/.kdeps/models/{{ .File }} "{{ .URL }}" && \
+    chmod +x /app/.kdeps/models/{{ .File }} && \
+    {{- end }}
+    true
 {{- end }}
 
 WORKDIR /app

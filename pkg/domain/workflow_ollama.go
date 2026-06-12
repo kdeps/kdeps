@@ -29,7 +29,8 @@ const backendOllama = "ollama"
 
 // ResolveInstallOllama determines if Ollama should be installed or bundled.
 // Priority: explicit installOllama setting > chat resources with ollama backend >
-// KDEPS_LLM_ROUTER ollama routes > KDEPS_LLM_MODELS.
+// KDEPS_LLM_ROUTER ollama routes. KDEPS_LLM_MODELS alone does not trigger install
+// (models resolve via the file backend).
 func ResolveInstallOllama(workflow *Workflow) bool {
 	kdeps_debug.Log("enter: ResolveInstallOllama")
 	if workflow.Settings.AgentSettings.InstallOllama != nil {
@@ -45,25 +46,42 @@ func ResolveInstallOllama(workflow *Workflow) bool {
 		return true
 	}
 
-	return os.Getenv("KDEPS_LLM_MODELS") != ""
+	return false
 }
 
 // NeedsOllamaAtRuntime checks if the workflow needs a local Ollama process at run time.
 // Backend is configured via KDEPS_DEFAULT_BACKEND (set from ~/.kdeps/config.yaml).
+// Empty backend defaults to "file", so only explicit "ollama" triggers this.
 func NeedsOllamaAtRuntime(workflow *Workflow) bool {
 	kdeps_debug.Log("enter: NeedsOllamaAtRuntime")
-	if !hasChatResources(workflow) {
+	if !HasChatResources(workflow) {
 		return false
 	}
 	backend := os.Getenv("KDEPS_DEFAULT_BACKEND")
-	return backend == "" || backend == backendOllama
+	return backend == backendOllama
 }
 
-func hasChatResources(workflow *Workflow) bool {
+// HasChatResources returns true if any workflow resource has a chat block.
+func HasChatResources(workflow *Workflow) bool {
 	for _, resource := range workflow.Resources {
 		if resource.Chat != nil {
 			return true
 		}
 	}
 	return false
+}
+
+// ChatModels returns the literal chat model strings from all chat resources.
+// Expression-based and router models are excluded.
+func ChatModels(workflow *Workflow) []string {
+	var models []string
+	for _, resource := range workflow.Resources {
+		if resource.Chat != nil && resource.Chat.Model != "" {
+			if strings.HasPrefix(resource.Chat.Model, "{{") || resource.Chat.Model == "router" {
+				continue
+			}
+			models = append(models, resource.Chat.Model)
+		}
+	}
+	return models
 }

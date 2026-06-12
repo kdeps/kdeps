@@ -143,7 +143,7 @@ settings:
 | Field | Description |
 |-------|-------------|
 | `baseOS` | Base Docker image OS (`alpine`, `ubuntu`) |
-| `installOllama` | Force/suppress Ollama installation in Docker image (default: auto-detect) |
+| `installOllama` | Force/suppress Ollama installation in Docker image (default: off - chat resources use the llamafile file backend) |
 
 > LLM model is set per resource in `chat.model`. Backend, base URL, and API keys are configured in `~/.kdeps/config.yaml`. See [LLM Backends](../resources/llm-backends).
 

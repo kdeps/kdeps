@@ -27,9 +27,19 @@ import (
 	"os"
 	"os/exec"
 	"strconv"
+	"sync"
 	"time"
 
 	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
+)
+
+// servedLlamafiles tracks running llamafile servers by resolved binary path
+// so each model gets one long-lived server instead of one per request.
+//
+//nolint:gochecknoglobals // process-wide server registry
+var (
+	servedLlamafiles   = map[string]int{}
+	servedLlamafilesMu sync.Mutex
 )
 
 func FindFreePort() (int, error) {
@@ -53,8 +63,16 @@ func FindFreePort() (int, error) {
 func (m *LlamafileManager) Serve(path string, port int) (int, error) {
 	kdeps_debug.Log("enter: LlamafileManager.Serve")
 
+	servedLlamafilesMu.Lock()
+	defer servedLlamafilesMu.Unlock()
+
 	var err error
 	if port == 0 {
+		// Reuse the server already launched for this binary if it is still healthy.
+		if served, ok := servedLlamafiles[path]; ok && isHealthy(llamafileServerURL(served)) {
+			m.logger.Info("llamafile server already running", "url", llamafileServerURL(served))
+			return served, nil
+		}
 		port, err = FindFreePort()
 		if err != nil {
 			return 0, err
@@ -64,6 +82,7 @@ func (m *LlamafileManager) Serve(path string, port int) (int, error) {
 	serverURL := llamafileServerURL(port)
 	if isHealthy(serverURL) {
 		m.logger.Info("llamafile server already running", "url", serverURL)
+		servedLlamafiles[path] = port
 		return port, nil
 	}
 
@@ -75,6 +94,7 @@ func (m *LlamafileManager) Serve(path string, port int) (int, error) {
 		return 0, healthErr
 	}
 	m.logger.Info("llamafile server ready", "url", serverURL)
+	servedLlamafiles[path] = port
 	return port, nil
 }
 
@@ -84,7 +104,10 @@ func llamafileServerURL(port int) string {
 
 func startLlamafileServer(path string, port int) error {
 	ctx := context.Background()
-	cmd := exec.CommandContext(ctx, path, //nolint:gosec // path is validated by Resolve()
+	// Llamafiles are APE (Actually Portable Executable) shell-script polyglots:
+	// macOS and kernels without binfmt support cannot execve them directly
+	// ("exec format error"), so always launch through sh.
+	cmd := exec.CommandContext(ctx, "/bin/sh", path,
 		"--server",
 		"--host", "127.0.0.1",
 		"--port", strconv.Itoa(port),

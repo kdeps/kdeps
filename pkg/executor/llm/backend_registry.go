@@ -76,10 +76,10 @@ func (r *BackendRegistry) Get(name string) Backend {
 	return r.backends[name]
 }
 
-// GetDefault returns the default backend (ollama).
+// GetDefault returns the default backend (file / llamafile).
 func (r *BackendRegistry) GetDefault() Backend {
 	kdeps_debug.Log("enter: GetDefault")
-	if backend := r.backends["ollama"]; backend != nil {
+	if backend := r.backends[backendFile]; backend != nil {
 		return backend
 	}
 	for _, backend := range r.backends {

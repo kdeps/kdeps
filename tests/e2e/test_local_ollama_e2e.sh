@@ -158,7 +158,7 @@ EOF
     start_time=$(date +%s)
 
     # Use timeout to prevent hanging; model is sourced from env (no longer in YAML)
-    KDEPS_DEFAULT_MODEL="$model" timeout 120 "$KDEPS_BIN" run "$workflow_file" << EOF &
+    KDEPS_DEFAULT_BACKEND=ollama KDEPS_DEFAULT_MODEL="$model" timeout 120 "$KDEPS_BIN" run "$workflow_file" << EOF &
 POST /api/v1/test
 Content-Type: application/json
 

@@ -17,7 +17,6 @@ settings:
 
   agentSettings:
     timezone: "UTC"
-    installOllama: true
 
 resources:
   # Step 1: Fetch repository data

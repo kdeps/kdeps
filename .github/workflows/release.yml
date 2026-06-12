@@ -25,6 +25,8 @@ jobs:
         with:
           go-version-file: go.mod
 
+      # Release binaries embed the committed llamafile registry
+      # (refreshed and committed by the nightly workflow) for reproducible builds.
       - name: Set up Zig
         uses: goto-bus-stop/setup-zig@abea47f85e598557f500fa1fd2ab7464fcb39406 # v2
 

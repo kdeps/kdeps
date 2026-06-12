@@ -24,7 +24,6 @@ settings:
     baseOS: "alpine"
 
     # Install Ollama for local LLM support
-    installOllama: true
 
     # Python packages to install
     pythonPackages:

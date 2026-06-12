@@ -17,7 +17,7 @@ description: |
       - Uploads the resume PDF
       - Clicks "Review" then "Submit application"
       - Records applied/skipped/failed status per job
-  requires: [analyze-jobs]
+requires: [analyze-jobs]
 
 items:
   - "{{ where(get('analyze-jobs'), 'match_score', get('min_match_score') | default(60)) }}"

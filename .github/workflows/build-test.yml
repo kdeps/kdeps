@@ -134,6 +134,15 @@ jobs:
         done
         exit 1
 
+    # Tests run against the committed llamafile registry
+    # (pkg/executor/llm/llamafile_versions_data.go); the registry is refreshed
+    # and committed by the nightly workflow, never harvested live here.
+    - name: Cache llamafile models
+      uses: actions/cache@5a3b741034b46473a32912e53e790aad831be74f # v4
+      with:
+        path: ~/.kdeps/models
+        key: llamafiles-${{ hashFiles('pkg/executor/llm/llamafile_versions_data.go') }}
+
     - name: Build
       run: make build
 
@@ -166,9 +175,23 @@ jobs:
         files: coverage.out,coverage-integration.out
         fail_ci_if_error: false
 
+    # Populate the llamafile cache (no-op on cache hit) so the llamafile e2e
+    # exercises the default file backend with a real model.
+    - name: Pre-download default llamafile
+      run: |
+        mkdir -p ~/.kdeps/models
+        FILE=~/.kdeps/models/Llama-3.2-1B-Instruct-Q4_K_M.llamafile
+        if [ ! -f "$FILE" ]; then
+          curl -fL --retry 3 -o "$FILE" \
+            https://huggingface.co/mozilla-ai/Llama-3.2-1B-Instruct-llamafile/resolve/main/Llama-3.2-1B-Instruct-Q4_K_M.llamafile
+        fi
+        chmod +x "$FILE"
+
     - name: Test E2E
       run: make test-e2e
-      timeout-minutes: 15
+      timeout-minutes: 25
+      env:
+        KDEPS_E2E_LLAMAFILE_DOWNLOAD: "1"
 
   coverage-badge:
     needs: test

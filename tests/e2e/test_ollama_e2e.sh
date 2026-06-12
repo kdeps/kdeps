@@ -173,7 +173,7 @@ else
 
     # Start server
     SERVER_LOG=$(mktemp)
-    KDEPS_DEFAULT_MODEL="$AVAILABLE_MODEL" timeout 120 "$KDEPS_BIN" run "$WORKFLOW_PATH" > "$SERVER_LOG" 2>&1 &
+    KDEPS_DEFAULT_BACKEND=ollama KDEPS_DEFAULT_MODEL="$AVAILABLE_MODEL" timeout 120 "$KDEPS_BIN" run "$WORKFLOW_PATH" > "$SERVER_LOG" 2>&1 &
     SERVER_PID=$!
     
     # Wait for server to start

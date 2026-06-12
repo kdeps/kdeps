@@ -255,7 +255,31 @@ func TestGenerateManifests_Ollama(t *testing.T) {
 	assert.Contains(t, manifests, "name: backend")
 }
 
-func TestGenerateManifests_AutoDetectOllama(t *testing.T) {
+func TestGenerateManifests_ChatResourcesDefaultToFileBackend(t *testing.T) {
+	// Chat resources alone no longer imply ollama: the default file backend
+	// self-serves llamafiles inside the container, so no backend port is exposed.
+	workflow := &domain.Workflow{
+		Metadata: domain.WorkflowMetadata{
+			Name: "auto-ollama",
+		},
+		Resources: []*domain.Resource{
+			{
+				Chat: &domain.ChatConfig{
+					Model: "llama3",
+				},
+			},
+		},
+	}
+
+	generator := NewGenerator("auto-image")
+	manifests, err := generator.GenerateManifests(workflow)
+
+	assert.NoError(t, err)
+	assert.NotContains(t, manifests, "containerPort: 11434")
+}
+
+func TestGenerateManifests_OllamaViaEnvBackend(t *testing.T) {
+	t.Setenv("KDEPS_DEFAULT_BACKEND", "ollama")
 	workflow := &domain.Workflow{
 		Metadata: domain.WorkflowMetadata{
 			Name: "auto-ollama",

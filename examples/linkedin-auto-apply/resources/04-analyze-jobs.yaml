@@ -7,7 +7,7 @@ description: |
     Uses items iteration so each job card is scored individually.
     The LLM returns the original job object enriched with match_score,
     match_reasons, gaps, and a short cover_letter.
-  requires: [search-jobs]
+requires: [search-jobs]
 
 items:
   - "{{ get('search-jobs')['actionResults'][0]['result'] | default('[]') }}"

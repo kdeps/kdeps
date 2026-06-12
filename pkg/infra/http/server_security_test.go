@@ -322,3 +322,51 @@ func TestServer_CorsMiddleware_AllowCredentials(t *testing.T) {
 	assert.True(t, called)
 	assert.Equal(t, "true", w.Header().Get("Access-Control-Allow-Credentials"))
 }
+
+// TestMergedWebRoutes_NoStrictCSP guards against the strict JSON-API CSP
+// leaking onto merged web routes: it blocks stylesheets, scripts, and inline
+// handlers on served pages (kdeps run with apiServer + webServer on one port).
+func TestMergedWebRoutes_NoStrictCSP(t *testing.T) {
+	t.Setenv("KDEPS_API_AUTH_TOKEN", "secret")
+
+	publicDir := t.TempDir()
+	require.NoError(t, os.WriteFile(filepath.Join(publicDir, "index.html"), []byte("<html></html>"), 0o644))
+	require.NoError(t, os.WriteFile(filepath.Join(publicDir, "styles.css"), []byte("body{}"), 0o644))
+
+	workflow := &domain.Workflow{
+		Metadata: domain.WorkflowMetadata{Name: "test"},
+		Settings: domain.WorkflowSettings{
+			APIServer: &domain.APIServerConfig{
+				Routes: []domain.Route{
+					{Path: "/api/v1/chat", Methods: []string{"POST"}},
+					{Path: "/api/v1/models", Methods: []string{"GET"}},
+				},
+				CORS: &domain.CORS{AllowOrigins: []string{"*"}},
+			},
+			WebServer: &domain.WebServerConfig{
+				Routes: []domain.WebRoute{{Path: "/", ServerType: "static", PublicPath: publicDir}},
+			},
+		},
+	}
+	server, err := NewServer(workflow, nil, nil)
+	require.NoError(t, err)
+
+	// Match cmd/run_servers_http.go order: web routes registered first,
+	// then Start() wires middleware + API routes.
+	webServer, err := NewWebServer(workflow, slog.Default())
+	require.NoError(t, err)
+	webServer.RegisterRoutesOn(t.Context(), server.Router)
+
+	require.NoError(t, server.configureRouter(false))
+
+	rec := httptest.NewRecorder()
+	server.Router.ServeHTTP(rec, httptest.NewRequest(stdhttp.MethodGet, "/", nil))
+	assert.Equal(t, stdhttp.StatusOK, rec.Code)
+	assert.Empty(t, rec.Header().Get("Content-Security-Policy"), "web routes must not carry the strict JSON-API CSP")
+
+	rec = httptest.NewRecorder()
+	server.Router.ServeHTTP(rec, httptest.NewRequest(stdhttp.MethodGet, "/styles.css", nil))
+	assert.Equal(t, stdhttp.StatusOK, rec.Code)
+	assert.Empty(t, rec.Header().Get("Content-Security-Policy"), "static assets must not carry the strict JSON-API CSP")
+	t.Logf("headers: %v", rec.Header())
+}

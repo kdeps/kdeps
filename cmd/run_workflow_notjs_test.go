@@ -298,3 +298,51 @@ func TestExecuteWorkflowStepsWithFlags_LLMErr(t *testing.T) {
 	err := ExecuteWorkflowStepsWithFlags(cmd, filepath.Join(tmp, "workflow.yaml"), &RunFlags{})
 	require.Error(t, err)
 }
+
+func TestSetupEnvironment_AppliesWorkflowEnv(t *testing.T) {
+	t.Setenv("KDEPS_TEST_WORKFLOW_ENV", "")
+	require.NoError(t, os.Unsetenv("KDEPS_TEST_WORKFLOW_ENV"))
+
+	wf := &domain.Workflow{
+		Settings: domain.WorkflowSettings{
+			AgentSettings: domain.AgentSettings{
+				Env: map[string]string{"KDEPS_TEST_WORKFLOW_ENV": "from-workflow"},
+			},
+		},
+	}
+	require.NoError(t, SetupEnvironment(wf))
+	assert.Equal(t, "from-workflow", os.Getenv("KDEPS_TEST_WORKFLOW_ENV"))
+}
+
+func TestSetupEnvironment_ProcessEnvWinsOverWorkflowEnv(t *testing.T) {
+	t.Setenv("KDEPS_TEST_WORKFLOW_ENV", "from-process")
+
+	wf := &domain.Workflow{
+		Settings: domain.WorkflowSettings{
+			AgentSettings: domain.AgentSettings{
+				Env: map[string]string{"KDEPS_TEST_WORKFLOW_ENV": "from-workflow"},
+			},
+		},
+	}
+	require.NoError(t, SetupEnvironment(wf))
+	assert.Equal(t, "from-process", os.Getenv("KDEPS_TEST_WORKFLOW_ENV"))
+}
+
+func TestNeedsLlamafileWarmup(t *testing.T) {
+	chatWF := &domain.Workflow{
+		Resources: []*domain.Resource{{Chat: &domain.ChatConfig{Model: "llama3.2:1b"}}},
+	}
+	noChatWF := &domain.Workflow{}
+
+	t.Setenv("KDEPS_DEFAULT_BACKEND", "")
+	t.Setenv("KDEPS_LLM_BASE_URL", "")
+	assert.True(t, needsLlamafileWarmup(chatWF), "default backend with chat resources warms up")
+	assert.False(t, needsLlamafileWarmup(noChatWF), "no chat resources, no warm-up")
+
+	t.Setenv("KDEPS_DEFAULT_BACKEND", "ollama")
+	assert.False(t, needsLlamafileWarmup(chatWF), "non-file backend skips warm-up")
+
+	t.Setenv("KDEPS_DEFAULT_BACKEND", "file")
+	t.Setenv("KDEPS_LLM_BASE_URL", "http://example.com/v1")
+	assert.False(t, needsLlamafileWarmup(chatWF), "external base URL skips warm-up")
+}

@@ -36,7 +36,7 @@ apiResponse:
     Header-Name: value
   statusCode: 200              # HTTP status code (optional)
   model: llama3.2:1b
-  backend: ollama
+  backend: file
 ```
 
 ## Response Structure
@@ -124,7 +124,7 @@ apiResponse:
   response:
     answer: get('llmResource')
   model: llama3.2:1b
-  backend: ollama
+  backend: file
 ```
 
 **Automatic Metadata**: If an LLM resource was used in the workflow, model and backend information are automatically added to the response metadata (unless explicitly specified).
@@ -161,7 +161,7 @@ Response format:
   },
   "meta": {
     "model": "llama3.2:1b",
-    "backend": "ollama"
+    "backend": "file"
   }
 }
 ```

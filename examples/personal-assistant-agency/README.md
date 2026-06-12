@@ -89,13 +89,13 @@ Edit it to add or remove recurring tasks:
 
 ### 4. Swap the model
 
-Change `llama3.2:3b` to any Ollama-compatible model in all three
-`workflow.yaml` files, or switch `backend: ollama` to `backend: openai`
-and set `OPENAI_API_KEY` to use GPT-4o / Claude.
+Change `llama3.2:1b` to any other registry alias (`kdeps llamafile list`)
+in all three `workflow.yaml` files, or set `KDEPS_DEFAULT_BACKEND=openai`
+and `OPENAI_API_KEY` to use GPT-4o instead of a local model.
 
 ### 5. Streaming LLM responses
 
-The brain agent uses `streaming: true` so Ollama sends tokens as they are
+The brain agent uses `streaming: true` so the LLM server sends tokens as they are
 generated rather than buffering the full response.  The accumulated response
 is returned to the gateway in the normal format — no frontend changes are
 required.  To disable streaming, remove the flag or set it to `false`.

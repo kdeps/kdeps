@@ -2,11 +2,30 @@
 
 Per-provider configuration for all backends supported by kdeps. Backend and API keys go in `~/.kdeps/config.yaml`. See [LLM Backends](/resources/llm-backends) for routing, allowlists, and streaming.
 
-## Local Backend
+## Local Backends
 
-### Ollama (Default)
+### Llamafile (Default)
 
-Ollama is the default backend for local model serving.
+The `file` backend is the default: models run as
+[llamafiles](https://github.com/Mozilla-Ocho/llamafile) - single self-contained
+binaries that kdeps downloads to `~/.kdeps/models/` and serves locally as an
+OpenAI-compatible server. No server install, no API key.
+
+```yaml
+# ~/.kdeps/config.yaml
+llm:
+  backend: file   # this is the default - the line can be omitted entirely
+```
+
+Model names like `llama3.2:1b` are registry aliases resolved to Mozilla's
+HuggingFace llamafiles (`kdeps llamafile list` shows all; `kdeps llamafile update`
+refreshes the registry). The `chat.model` field also accepts a direct URL or a
+path to a `.llamafile`.
+
+When building Docker images, the llamafiles for all chat models are pre-baked
+into the image - see [Docker deployment](/deployment/docker#llm-backend-in-images).
+
+### Ollama (opt-in)
 
 ```yaml
 # ~/.kdeps/config.yaml
@@ -15,13 +34,13 @@ llm:
   # base_url: http://custom-ollama:11434   # optional override
 ```
 
-When building Docker images, Ollama is automatically installed when `backend: ollama` is set. The `installOllama` workflow flag can force or suppress this:
+When building Docker images, Ollama is installed when `backend: ollama` is set. The `installOllama` workflow flag can force or suppress this:
 
 ```yaml
 # workflow.yaml
 settings:
   agentSettings:
-    installOllama: true  # Force install (default: auto-detect from chat resources)
+    installOllama: true  # bake the ollama server into the image
 ```
 
 ## Cloud Backends

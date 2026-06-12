@@ -32,15 +32,9 @@ Perfect for demonstrating:
 
 ## Prerequisites
 
-### Install Ollama (for AI analysis)
-
-```bash
-# macOS/Linux
-curl -fsSL https://ollama.com/install.sh | sh
-
-# Pull the model
-ollama pull llama3.2
-```
+None for the AI analysis step - `llama3.2` runs as a local llamafile (default
+`file` backend), auto-downloaded to `~/.kdeps/models/` on first run (~1.1 GB).
+To use ollama instead, set `KDEPS_DEFAULT_BACKEND=ollama` and run `ollama pull llama3.2`.
 
 ## Running the Example
 

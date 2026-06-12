@@ -295,10 +295,12 @@ resource_defaults:
 	assert.Equal(t, "8192", os.Getenv("KDEPS_CHAT_CONTEXT_LENGTH"))
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		// OpenAI-compatible response shape (default file backend).
 		resp := map[string]interface{}{
-			"model":   "llama3.2:1b",
-			"message": map[string]interface{}{"role": "assistant", "content": "hello"},
-			"done":    true,
+			"model": "llama3.2:1b",
+			"choices": []map[string]interface{}{
+				{"message": map[string]interface{}{"role": "assistant", "content": "hello"}},
+			},
 		}
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(resp) //nolint:errcheck
@@ -345,10 +347,12 @@ resource_defaults:
 `)
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		// OpenAI-compatible response shape (default file backend).
 		resp := map[string]interface{}{
-			"model":   "llama3.2:1b",
-			"message": map[string]interface{}{"role": "assistant", "content": "hello"},
-			"done":    true,
+			"model": "llama3.2:1b",
+			"choices": []map[string]interface{}{
+				{"message": map[string]interface{}{"role": "assistant", "content": "hello"}},
+			},
 		}
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(resp) //nolint:errcheck

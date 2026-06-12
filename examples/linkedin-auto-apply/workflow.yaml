@@ -21,7 +21,7 @@ metadata:
       7. Return applied/skipped/failed summary
 
     Requirements:
-      - Ollama running locally with llama3.2 installed
+      - No LLM install needed (llama3.2 runs as a local llamafile, downloaded on first run)
       - A profile markdown file (joel-profile.md or sample-profile.md) with YAML front matter
       - Chrome must be fully closed before running (profile lock)
 
@@ -51,4 +51,3 @@ settings:
   agentSettings:
     timezone: "UTC"
     pythonVersion: "3.12"
-    installOllama: true

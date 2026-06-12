@@ -2,6 +2,38 @@
 
 kdeps separates two concerns: which model to call (set in the resource file) and where to call it (set in `~/.kdeps/config.yaml`). This lets you switch backends without touching your workflow.
 
+## The default: llamafile (file backend)
+
+With no configuration at all, chat resources run on the `file` backend: the
+model is a [llamafile](https://github.com/Mozilla-Ocho/llamafile) - a single
+self-contained binary that kdeps downloads, caches in `~/.kdeps/models/`, and
+serves as a local OpenAI-compatible server. No ollama, no GPU, no API key.
+
+```text
+chat resource --> kdeps resolves model alias --> downloads llamafile (once)
+                                              --> serves it locally
+                                              --> request answered
+```
+
+Known model aliases map to Mozilla's HuggingFace llamafiles. Quantization is
+part of the alias so you can trade size for quality:
+
+| Alias | Model | Quant | Size |
+|-------|-------|-------|------|
+| `llama3.2` / `llama3.2:1b` | Llama 3.2 1B Instruct | Q4_K_M | ~1.1 GB |
+| `llama3.2:1b-q6` | Llama 3.2 1B Instruct | Q6_K | ~1.5 GB |
+| `llama3.2:1b-q8` | Llama 3.2 1B Instruct | Q8_0 | ~2.1 GB |
+| `llama3.2:3b` | Llama 3.2 3B Instruct | Q4_K_M | ~2.2 GB |
+| `llama3.1:8b` | Llama 3.1 8B Instruct | Q4_K_M | ~5.2 GB |
+
+```bash
+kdeps llamafile list      # all known aliases (the registry has 100+ models)
+kdeps llamafile update    # refresh the registry from HuggingFace
+```
+
+The `chat.model` field also accepts a direct URL, an absolute/relative path to
+a `.llamafile`, or a bare filename looked up in `~/.kdeps/models/`.
+
 ## Where it runs
 
 Backend configuration applies to both [workflow mode](/modes/workflow-mode) and [agent mode](/modes/agent-mode). All `chat:` resources in both modes resolve their backend from `~/.kdeps/config.yaml`.
@@ -25,7 +57,8 @@ Backend, base URL, and API keys go in `~/.kdeps/config.yaml`:
 ```yaml
 # ~/.kdeps/config.yaml
 llm:
-  backend: ollama              # default backend for all resources
+  backend: file                # default: local llamafile, no server install
+  # backend: ollama            # opt-in: requires the ollama server
   # base_url: http://localhost:11434
   # openai_api_key: sk-...
   # anthropic_api_key: sk-ant-...

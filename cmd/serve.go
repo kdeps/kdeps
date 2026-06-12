@@ -71,8 +71,8 @@ Examples:
 
 Environment variables (override defaults):
   KDEPS_AGENT_MODEL      LLM model name (default: llama3.2)
-  KDEPS_AGENT_BACKEND    LLM backend (default: ollama)
-  KDEPS_AGENT_BASE_URL   LLM API base URL`,
+  KDEPS_AGENT_BACKEND    LLM backend (default: file)
+  KDEPS_AGENT_BASE_URL   LLM API base URL — leave empty for file backend`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			debugMode, _ := cmd.Flags().GetBool("debug")
@@ -82,7 +82,7 @@ Environment variables (override defaults):
 	}
 
 	cmd.Flags().StringVar(&flags.Model, "model", "", "LLM model to use (default: KDEPS_AGENT_MODEL env or llama3.2)")
-	cmd.Flags().StringVar(&flags.Backend, "backend", "", "LLM backend (default: KDEPS_AGENT_BACKEND env or ollama)")
+	cmd.Flags().StringVar(&flags.Backend, "backend", "", "LLM backend (default: KDEPS_AGENT_BACKEND env or file)")
 	cmd.Flags().StringVar(&flags.BaseURL, "base-url", "", "LLM API base URL (default: KDEPS_AGENT_BASE_URL env)")
 	cmd.Flags().StringVar(
 		&flags.SystemPrompt, "system", "",

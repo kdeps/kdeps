@@ -81,7 +81,7 @@ func TestRunChat_DefaultFlags(t *testing.T) {
 	assert.Contains(t, output, "kdeps chat - AI workflow assistant")
 	assert.Contains(t, output, "Model:")
 	assert.Contains(t, output, "llama3.2:3b")
-	assert.Contains(t, output, "http://localhost:11434")
+	assert.Contains(t, output, "via llamafile (local, served on first message)")
 	assert.Contains(t, output, "Bye.")
 }
 

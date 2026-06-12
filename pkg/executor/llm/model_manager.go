@@ -22,6 +22,7 @@ package llm
 
 import (
 	"log/slog"
+	"os"
 
 	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
 
@@ -93,12 +94,18 @@ func (m *ModelManager) EnsureModel(config *domain.ChatConfig) error {
 	backend := resolveBackend(config)
 	host, port := resolveModelHostPort(config, backend)
 
-	m.downloadModelIfOnline(backend, config.Model)
-
 	if backend == backendFile {
+		// An explicit base URL points at an already-running OpenAI-compatible
+		// server; there is no llamafile to download or serve.
+		if config.BaseURL != "" || os.Getenv("KDEPS_LLM_BASE_URL") != "" {
+			return nil
+		}
+		m.downloadModelIfOnline(backend, config.Model)
 		m.serveFileModelIfNeeded(config, port)
 		return nil
 	}
+
+	m.downloadModelIfOnline(backend, config.Model)
 	m.serveBackendModel(backend, config.Model, host, port)
 	return nil
 }

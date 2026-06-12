@@ -21,7 +21,8 @@ No. Workflows are written in YAML. The only code you might write is inline Pytho
 ## What LLM providers are supported?
 
 Any provider compatible with the OpenAI API format. This includes:
-- Ollama (local)
+- llamafile (local, the default - models run as self-contained binaries, no server install)
+- Ollama (local, opt-in)
 - OpenAI
 - Anthropic
 - Groq

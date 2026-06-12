@@ -85,7 +85,8 @@ Examples:
 	}
 
 	cmd.Flags().StringVar(&flags.Model, "model", "", "LLM model for workflow generation (default: from config)")
-	cmd.Flags().StringVar(&flags.BaseURL, "base-url", "", "LLM backend base URL (default: http://localhost:11434)")
+	cmd.Flags().
+		StringVar(&flags.BaseURL, "base-url", "", "LLM backend base URL (default: auto-served for file backend, http://localhost:11434 for ollama)")
 	cmd.Flags().StringVar(&flags.SessionID, "session", "", "Resume a previous session by ID")
 	cmd.Flags().BoolVar(&flags.NoExecute, "no-execute", false, "Generate workflow but do not allow /run")
 
@@ -96,7 +97,8 @@ func runChat(_ *cobra.Command, flags *ChatFlags) error {
 	kdeps_debug.Log("enter: runChat")
 
 	model := resolveChatModel(flags.Model)
-	baseURL := resolveChatBaseURL(flags.BaseURL)
+	backend := resolveChatBackend()
+	baseURL := resolveChatBaseURL(flags.BaseURL, backend)
 
 	session, err := loadOrCreateChatSession(flags.SessionID)
 	if err != nil {
@@ -104,7 +106,7 @@ func runChat(_ *cobra.Command, flags *ChatFlags) error {
 	}
 
 	catalog := chat.ScanCatalog()
-	llmClient := chat.NewHTTPLLMClient()
+	llmClient := chat.NewHTTPLLMClientWithBackend(backend)
 	generator := chat.NewGenerator(llmClient, model, baseURL, "", catalog)
 	executor := buildChatExecutor(flags.NoExecute)
 
@@ -120,15 +122,34 @@ func resolveChatModel(model string) string {
 	return defaultChatModel
 }
 
-// resolveChatBaseURL returns the effective LLM backend URL for chat.
-func resolveChatBaseURL(baseURL string) string {
+// resolveChatBackend returns the effective LLM backend name.
+// Order: KDEPS_DEFAULT_BACKEND env > OLLAMA_HOST implies ollama > "file" (default).
+func resolveChatBackend() string {
+	if backend := os.Getenv("KDEPS_DEFAULT_BACKEND"); backend != "" {
+		return backend
+	}
+	if os.Getenv("OLLAMA_HOST") != "" {
+		return "ollama"
+	}
+	return "file"
+}
+
+// resolveChatBaseURL returns the effective LLM backend URL.
+// When baseURL is explicitly set it is used as-is.
+// For the Ollama backend, OLLAMA_HOST or the Ollama default port is used.
+// For the file backend it returns "" — the llamafile is resolved and served
+// lazily on the first chat message (the download can be large).
+func resolveChatBaseURL(baseURL, backend string) string {
 	if baseURL != "" {
 		return baseURL
 	}
-	if host := os.Getenv("OLLAMA_HOST"); host != "" {
-		return host
+	if backend == "ollama" {
+		if host := os.Getenv("OLLAMA_HOST"); host != "" {
+			return host
+		}
+		return "http://localhost:11434"
 	}
-	return "http://localhost:11434"
+	return ""
 }
 
 // chatNewSessionFunc creates a new chat session (overridable in tests).

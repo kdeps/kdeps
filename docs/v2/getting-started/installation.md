@@ -68,26 +68,35 @@ Docker is only needed if you want to build container images for deployment. For 
 docker --version
 ```
 
+## Local LLMs (no install needed)
+
+For local LLM inference, KDeps uses [llamafile](https://github.com/Mozilla-Ocho/llamafile)
+as the default backend (`file`): models are single self-contained binaries that
+kdeps downloads to `~/.kdeps/models/` and serves locally - no server install,
+no GPU, no API key. The default model alias `llama3.2:1b` resolves to Mozilla's
+Llama 3.2 1B Instruct llamafile (~1.1 GB, downloaded on first run).
+
+```bash
+kdeps llamafile list      # see all known model aliases
+kdeps llamafile update    # refresh the registry from HuggingFace
+```
+
 ## Ollama (Optional)
 
-For local LLM inference, KDeps uses [Ollama](https://ollama.ai/) as the default backend. If you want to use local LLMs:
-
-### Install Ollama
+To use [Ollama](https://ollama.ai/) instead of the default llamafile backend:
 
 ```bash
 # macOS / Linux
 curl -fsSL https://ollama.ai/install.sh | sh
-
-# Or download from https://ollama.ai/download
-```
-
-### Pull a Model
-
-```bash
 ollama pull llama3.2:1b
 ```
 
-> **Note**: KDeps can automatically download models when you run a workflow, so manual model pulling is optional.
+Then select it in `~/.kdeps/config.yaml`:
+
+```yaml
+llm:
+  backend: ollama  # default is "file" (llamafile)
+```
 
 ## Troubleshooting
 

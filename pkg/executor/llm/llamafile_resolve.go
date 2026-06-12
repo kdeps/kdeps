@@ -37,6 +37,11 @@ func (m *LlamafileManager) Resolve(model string) (string, error) {
 	if IsRemoteModel(model) {
 		return m.download(model)
 	}
+	// Check the alias table before falling through to local resolution.
+	// Known aliases are converted to their download URL and fetched/cached.
+	if url, ok := ResolveLlamafileAlias(model); ok {
+		return m.download(url)
+	}
 	return m.resolveLocalModel(model)
 }
 
@@ -61,9 +66,10 @@ func (m *LlamafileManager) resolveRelativeModel(model string) (string, error) {
 func (m *LlamafileManager) resolveCachedModel(model string) (string, error) {
 	cached := filepath.Join(m.modelsDir, model)
 	if _, err := AppFS.Stat(cached); err != nil {
+		known := LlamafileAliasNames()
 		return "", fmt.Errorf(
-			"llamafile %q not found in cache (%s); set model to a URL or full path",
-			model, m.modelsDir,
+			"llamafile %q not found in cache (%s); set model to a URL, full path, or one of: %v",
+			model, m.modelsDir, known,
 		)
 	}
 	return cached, nil

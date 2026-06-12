@@ -30,8 +30,8 @@ const (
 )
 
 func formatBackendOption(name string) string {
-	if name == ollamaBackendStr {
-		return ollamaBackendStr + " (local, default)"
+	if name == fileBackendStr {
+		return "file (local, default)"
 	}
 	return name
 }
@@ -58,11 +58,12 @@ func buildBackendOptionsSection() string {
 	}
 	var b strings.Builder
 	b.WriteString("# ── Default backend ───────────────────────────────────────────────────────\n")
-	fmt.Fprintf(&b, "# %s\n# backend: ollama\n\n", strings.Join(parts, " | "))
+	fmt.Fprintf(&b, "# %s\n# backend: file\n\n", strings.Join(parts, " | "))
 	return b.String()
 }
 
 const configOptionsReferenceBodyPrefix = `# Base URL override for the selected backend.
+# For file backend (default): leave empty — kdeps auto-serves llamafiles.
 # base_url: http://localhost:11434
 
 # ── Model allowlist (plain model names) ───────────────────────────────────

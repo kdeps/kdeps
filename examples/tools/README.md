@@ -244,7 +244,7 @@ When LLM calls `calculate({"expression": "sqrt(16) + sin(pi/2)"})`:
 
 ## Notes
 
-- Tool calling requires models that support function calling (check Ollama model capabilities)
+- Tool calling requires models that support function calling (Llama 3.2 supports it; check your model's capabilities)
 - Tool `script` field must match a resource `actionID`
 - Tool arguments are automatically stored in memory for resource access
 - Maximum 5 tool call iterations to prevent infinite loops

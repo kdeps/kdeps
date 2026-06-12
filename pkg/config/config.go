@@ -33,6 +33,7 @@ const (
 	configDirPerm    = 0750
 	configFilePerm   = 0600
 	ollamaBackendStr = "ollama"
+	fileBackendStr   = "file"
 )
 
 //nolint:gochecknoglobals // test-replaceable

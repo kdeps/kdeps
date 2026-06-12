@@ -34,7 +34,7 @@ func buildOpenAICompatRequest(
 	req := map[string]interface{}{
 		"model":    model,
 		"messages": messages,
-		"stream":   false,
+		"stream":   config.Streaming,
 	}
 
 	if config.ContextLength > 0 {

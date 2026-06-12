@@ -131,9 +131,23 @@ settings:
 
 `--gpu` always forces Ubuntu. `debian` is not supported.
 
-## Ollama Docker Images
+## LLM Backend in Images
 
-Ollama is bundled only when `installOllama: true`, local Ollama is detected (`KDEPS_DEFAULT_BACKEND` empty or `ollama`), `KDEPS_LLM_ROUTER` routes to Ollama, or `KDEPS_LLM_MODELS` is set.
+By default no LLM server is installed: chat resources run on the `file`
+backend, and the llamafile model for each chat resource is downloaded into the
+image at build time (`/app/.kdeps/models/`). The container is a vanilla
+`alpine:latest` or `ubuntu:latest` base plus kdeps and the baked models -
+the llamafile self-serves inside the container, no extra process to manage.
+
+```text
+default (file backend)     → FROM alpine:latest or ubuntu:latest
+                             + pre-baked llamafile per chat model (~1.1 GB for llama3.2:1b)
+no chat resources          → FROM alpine:latest or ubuntu:latest (vanilla)
+```
+
+## Ollama Docker Images (opt-in)
+
+Ollama is bundled only when `installOllama: true`, `KDEPS_DEFAULT_BACKEND=ollama` is set with chat resources, or `KDEPS_LLM_ROUTER` routes to Ollama.
 
 ```text
 needs Ollama + alpine CPU  → FROM alpine/ollama:<tag>   (~70MB third-party CPU image)

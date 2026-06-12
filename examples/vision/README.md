@@ -12,9 +12,12 @@ This example demonstrates vision model integration in KDeps v2, allowing you to 
 
 ## Prerequisites
 
-You need a vision-capable model installed in Ollama:
+Multimodal chat uses the ollama backend (vision models are not in the
+llamafile registry). Pin ollama and install a vision-capable model:
 
 ```bash
+export KDEPS_DEFAULT_BACKEND=ollama
+
 # Install a vision model (choose one)
 ollama pull moondream:1.8b    # Lightweight, fast
 ollama pull llava:7b          # More capable

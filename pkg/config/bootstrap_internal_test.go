@@ -96,7 +96,7 @@ func TestBootstrapInteractive_OllamaDefaultHost(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "config.yaml")
 	// Input: choose "1" (ollama), accept default host
-	input := "1\n\n"
+	input := "2\n\n"
 	reader := bufio.NewReader(strings.NewReader(input))
 	var out testWriter
 	require.NoError(t, bootstrapInteractive(&out, reader, path))
@@ -111,7 +111,7 @@ func TestBootstrapInteractive_OllamaCustomHost(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "config.yaml")
 	// Input: choose "1" (ollama), custom host
-	input := "1\nhttp://myserver:11434\n"
+	input := "2\nhttp://myserver:11434\n"
 	reader := bufio.NewReader(strings.NewReader(input))
 	var out testWriter
 	require.NoError(t, bootstrapInteractive(&out, reader, path))
@@ -126,8 +126,8 @@ func TestBootstrapInteractive_OnlineProvider(t *testing.T) {
 	p := primaryCloudProvider()
 	dir := t.TempDir()
 	path := filepath.Join(dir, "config.yaml")
-	// Menu index 2 = first cloud provider after ollama.
-	input := "2\nsk-mykey\n"
+	// Menu index 3 = first cloud provider after file + ollama.
+	input := "3\nsk-mykey\n"
 	reader := bufio.NewReader(strings.NewReader(input))
 	var out testWriter
 	require.NoError(t, bootstrapInteractive(&out, reader, path))
@@ -334,7 +334,8 @@ func TestDirOf_Root(t *testing.T) {
 func TestProviderNames_NonEmpty(t *testing.T) {
 	names := providerNames()
 	assert.Equal(t, len(allProviderNames), len(names))
-	assert.Equal(t, ollamaBackendStr, names[0])
+	assert.Equal(t, "file", names[0])
+	assert.Equal(t, ollamaBackendStr, names[1])
 	for _, p := range cloudProvidersList {
 		assert.Contains(t, names, p.name)
 	}
@@ -480,8 +481,8 @@ func TestBootstrap_InteractivePath(t *testing.T) {
 	t.Setenv("KDEPS_CONFIG_PATH", path)
 	t.Setenv("KDEPS_SKIP_BOOTSTRAP", "")
 
-	// Pre-fill PTY: choose ollama (1), accept default host (empty gives default).
-	_, err = master.WriteString("1\n\n")
+	// Pre-fill PTY: choose ollama (2), accept default host (empty gives default).
+	_, err = master.WriteString("2\n\n")
 	require.NoError(t, err)
 
 	outFile, err := os.CreateTemp(dir, "bootstrap-out-*.txt")
@@ -533,7 +534,7 @@ func TestBootstrapInteractive_ConfigureProviderError(t *testing.T) {
 		return "", errors.New("secret read failed")
 	}
 
-	reader := bufio.NewReader(strings.NewReader("2\n"))
+	reader := bufio.NewReader(strings.NewReader("3\n"))
 	var out testWriter
 	err := bootstrapInteractive(&out, reader, "/tmp/test-config.yaml")
 	require.Error(t, err)

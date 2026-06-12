@@ -67,7 +67,7 @@ func applyConfigDefaults(cfg Config) Config {
 		cfg.Model = envOrDefault("KDEPS_AGENT_MODEL", "llama3.2")
 	}
 	if cfg.Backend == "" {
-		cfg.Backend = envOrDefault("KDEPS_AGENT_BACKEND", "ollama")
+		cfg.Backend = envOrDefault("KDEPS_AGENT_BACKEND", "file")
 	}
 	if cfg.BaseURL == "" {
 		cfg.BaseURL = os.Getenv("KDEPS_AGENT_BASE_URL")

@@ -280,3 +280,4 @@ tests/integration/mcp/testserver/testserver.exe
 
 book
 .claude_tmp/
+__pycache__/

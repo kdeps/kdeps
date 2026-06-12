@@ -21,4 +21,6 @@ settings:
   agentSettings:
     timezone: Etc/UTC
     pythonVersion: "3.12"
-    installOllama: true
+    installOllama: true  # multimodal chat needs the ollama backend
+    env:
+      KDEPS_DEFAULT_BACKEND: ollama

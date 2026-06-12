@@ -74,6 +74,12 @@ func (e *Executor) ensureModelAvailable(resolvedConfig *domain.ChatConfig, model
 	if ensureErr != nil {
 		_ = ensureErr
 	}
+	// EnsureModel resolves the actual serve URL for self-served backends
+	// (file backend picks a free port); propagate it so the request targets
+	// the running server instead of the backend's static default URL.
+	if resolvedConfig.BaseURL == "" && configCopy.BaseURL != "" {
+		resolvedConfig.BaseURL = configCopy.BaseURL
+	}
 }
 
 // resolveModelForExecution evaluates model and prompt, applies router/allowlist, and ensures model availability.

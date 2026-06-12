@@ -3,7 +3,7 @@ kind: Workflow
 
 metadata:
   name: chatbot
-  description: Simple LLM chatbot
+  description: Simple LLM chatbot on the ollama backend (explicit opt-in)
   version: "1.0.0"
   targetActionId: responseResource
 
@@ -21,4 +21,6 @@ settings:
   agentSettings:
     timezone: Etc/UTC
     pythonVersion: "3.12"
-    installOllama: true
+    installOllama: true  # bake the ollama server into Docker/ISO builds
+    env:
+      KDEPS_DEFAULT_BACKEND: ollama  # pin ollama (default backend is "file"/llamafile)

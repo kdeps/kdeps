@@ -10,7 +10,6 @@ metadata:
 settings:
   agentSettings:
     timezone: Etc/UTC
-    installOllama: true
 
   input:
     sources: [bot]

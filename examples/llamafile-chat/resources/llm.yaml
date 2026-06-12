@@ -12,9 +12,11 @@ validations:
     message: Query parameter 'q' is required
 
 chat:
-  model: llama3.2:1b
-  # file backend: runs a llamafile binary as a local OpenAI-compatible server.
+  model: llama3.2:1b  # registry alias - auto-downloaded to ~/.kdeps/models (~1.1 GB, first run only)
+  # file backend (the default): runs a llamafile binary as a local
+  # OpenAI-compatible server. No ollama or other server install needed.
   # The model field accepts:
+  #   - Registry alias  (llama3.2:1b, llama3.2:1b-q6, llama3.2:3b, ... - kdeps llamafile list)
   #   - Remote URL  (auto-downloaded and cached in ~/.kdeps/models/)
   #   - Absolute path  (/path/to/model.llamafile)
   #   - Relative path  (./models/model.llamafile)

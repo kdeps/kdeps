@@ -11,13 +11,10 @@ Install kdeps:
 curl -LsSf https://raw.githubusercontent.com/kdeps/kdeps/main/install.sh | sh
 ```
 
-Install and start Ollama (for local LLM):
-
-```bash
-# macOS / Linux
-curl -fsSL https://ollama.ai/install.sh | sh
-ollama pull llama3.2:1b
-```
+No LLM server needed: models run as local
+[llamafiles](https://github.com/Mozilla-Ocho/llamafile) (the default `file`
+backend). The default model (`llama3.2:1b`, ~1.1 GB) is downloaded to
+`~/.kdeps/models/` automatically on first run.
 
 ## Create a project
 

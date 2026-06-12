@@ -143,7 +143,8 @@ func buildCloudProviderMap(list []cloudProvider) map[string]cloudProvider {
 }
 
 func buildAllProviderNames(list []cloudProvider) []string {
-	names := make([]string, 0, 1+len(list))
+	names := make([]string, 0, len(list)+2) //nolint:mnd // file + ollama prepended
+	names = append(names, fileBackendStr)
 	names = append(names, ollamaBackendStr)
 	for _, p := range list {
 		names = append(names, p.name)
@@ -167,7 +168,7 @@ func buildKnownLLMKeys(list []cloudProvider) map[string]bool {
 }
 
 func isLocalBackend(backend string) bool {
-	return backend == "" || backend == ollamaBackendStr
+	return backend == "" || backend == ollamaBackendStr || backend == fileBackendStr
 }
 
 // getLLMAPIKey returns the value of the API key field for a given backend.

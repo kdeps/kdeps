@@ -35,7 +35,6 @@ settings:
 
   agentSettings:
     timezone: "UTC"
-    installOllama: true
 
 resources:
 

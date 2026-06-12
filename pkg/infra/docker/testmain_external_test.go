@@ -27,6 +27,9 @@ import (
 )
 
 func TestMain(m *testing.M) {
+	// Most Docker tests assume ollama integration; set it here so they
+	// don't need individual KDEPS_DEFAULT_BACKEND declarations.
+	os.Setenv("KDEPS_DEFAULT_BACKEND", "ollama")
 	orig := docker.LatestReleaseTagFunc()
 	docker.SetLatestReleaseTagFunc(func(_ context.Context, repo string) (string, error) {
 		switch repo {

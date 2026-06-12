@@ -98,6 +98,9 @@ source "$SCRIPT_DIR/test_config_validation.sh"
 source "$SCRIPT_DIR/test_doctor.sh"
 source "$SCRIPT_DIR/test_component_version_pinning.sh"
 
+# Run llamafile (default file backend) live test (skips when model not cached)
+source "$SCRIPT_DIR/test_llamafile_e2e.sh"
+
 # Run Ollama LLM tests (will skip if Ollama not available)
 source "$SCRIPT_DIR/test_ollama_e2e.sh"
 source "$SCRIPT_DIR/test_local_ollama_e2e.sh"

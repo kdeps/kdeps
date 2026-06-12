@@ -26,19 +26,83 @@ import (
 	"io"
 	stdhttp "net/http"
 	"strings"
+	"sync"
+
+	"github.com/kdeps/kdeps/v2/pkg/executor/llm"
 )
 
 // HTTPLLMClient implements LLMClient using direct HTTP calls to the backend API.
-// It supports Ollama and OpenAI-compatible APIs.
+// It supports Ollama and OpenAI-compatible APIs. The Backend field determines
+// which API path to use: "ollama" → /api/chat, everything else → /v1/chat/completions.
+//
+// For the file backend with no base URL, the model is resolved as a llamafile
+// and served locally on the first chat call (downloads can be large, so this
+// is deferred rather than done at REPL startup).
 type HTTPLLMClient struct {
 	httpClient *stdhttp.Client
+	Backend    string
+
+	mu         sync.Mutex
+	servedURLs map[string]string // model -> local llamafile base URL
 }
 
-// NewHTTPLLMClient creates a new HTTP-based LLM client.
+// serveLlamafileForChat resolves and serves a llamafile, returning its local
+// base URL (overridable in tests to avoid downloads and processes).
+//
+//nolint:gochecknoglobals // test-replaceable hook
+var serveLlamafileForChat = func(model string) (string, error) {
+	mgr, err := llm.NewLlamafileManager(nil)
+	if err != nil {
+		return "", err
+	}
+	path, err := mgr.Resolve(model)
+	if err != nil {
+		return "", err
+	}
+	if execErr := mgr.MakeExecutable(path); execErr != nil {
+		return "", execErr
+	}
+	port, err := mgr.Serve(path, 0)
+	if err != nil {
+		return "", err
+	}
+	return fmt.Sprintf("http://127.0.0.1:%d/v1", port), nil
+}
+
+// NewHTTPLLMClient creates a new HTTP-based LLM client with default backend
+// (empty — uses OpenAI-compatible /v1/chat/completions path).
 func NewHTTPLLMClient() *HTTPLLMClient {
 	return &HTTPLLMClient{
 		httpClient: &stdhttp.Client{Timeout: defaultGeneratorTimeout},
 	}
+}
+
+// NewHTTPLLMClientWithBackend creates a new HTTP-based LLM client with the
+// given backend name. "ollama" selects the Ollama /api/chat endpoint; any
+// other value (or empty) selects the OpenAI-compatible /v1/chat/completions.
+func NewHTTPLLMClientWithBackend(backend string) *HTTPLLMClient {
+	return &HTTPLLMClient{
+		httpClient: &stdhttp.Client{Timeout: defaultGeneratorTimeout},
+		Backend:    backend,
+	}
+}
+
+// ensureLocalLlamafile lazily serves the model's llamafile, memoizing the URL.
+func (c *HTTPLLMClient) ensureLocalLlamafile(model string) (string, error) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	if url, ok := c.servedURLs[model]; ok {
+		return url, nil
+	}
+	url, err := serveLlamafileForChat(model)
+	if err != nil {
+		return "", fmt.Errorf("cannot serve llamafile for %s: %w", model, err)
+	}
+	if c.servedURLs == nil {
+		c.servedURLs = make(map[string]string)
+	}
+	c.servedURLs[model] = url
+	return url, nil
 }
 
 // Chat sends a chat completion request to the backend.
@@ -48,18 +112,20 @@ func (c *HTTPLLMClient) Chat(
 	messages []map[string]interface{},
 ) (string, error) {
 	if baseURL == "" {
-		baseURL = "http://localhost:11434"
+		if c.Backend == "ollama" {
+			baseURL = "http://localhost:11434"
+		} else {
+			served, err := c.ensureLocalLlamafile(model)
+			if err != nil {
+				return "", err
+			}
+			baseURL = served
+		}
 	}
-	if isOllamaBackend(baseURL) {
+	if c.Backend == "ollama" {
 		return c.chatOllama(ctx, model, baseURL, messages)
 	}
 	return c.chatOpenAI(ctx, model, baseURL, apiKey, messages)
-}
-
-func isOllamaBackend(baseURL string) bool {
-	return strings.Contains(baseURL, "localhost") ||
-		strings.Contains(baseURL, "127.0.0.1") ||
-		strings.Contains(baseURL, "ollama")
 }
 
 func (c *HTTPLLMClient) chatOllama(

@@ -89,6 +89,16 @@ func printBotRequirements(input *domain.InputConfig) {
 // SetupEnvironment sets up the execution environment.
 func SetupEnvironment(workflow *domain.Workflow) error {
 	kdeps_debug.Log("enter: SetupEnvironment")
+	// Apply workflow-declared env (agentSettings.env). Existing process env
+	// wins so users can override per invocation.
+	for key, value := range workflow.Settings.AgentSettings.Env {
+		if _, exists := os.LookupEnv(key); !exists {
+			if err := os.Setenv(key, value); err != nil {
+				return fmt.Errorf("failed to set env %s: %w", key, err)
+			}
+		}
+	}
+
 	// Check if Python is needed
 	pythonVersion := workflow.Settings.AgentSettings.PythonVersion
 	if pythonVersion == "" {

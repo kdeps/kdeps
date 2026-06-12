@@ -166,6 +166,9 @@ func NewGenerator(client LLMClient, model, baseURL, apiKey string, catalog []Com
 
 // BackendLabel returns a human-readable description of the model and backend.
 func (g *Generator) BackendLabel() string {
+	if g.baseURL == "" {
+		return g.model + " via llamafile (local, served on first message)"
+	}
 	return g.model + " via " + backendName(g.baseURL) + " (" + g.baseURL + ")"
 }
 

@@ -132,8 +132,8 @@ kdeps serve <path> [flags]
 | Flag | Default | Description |
 |---|---|---|
 | `--model` | `KDEPS_AGENT_MODEL` or `llama3.2` | LLM model name |
-| `--backend` | `KDEPS_AGENT_BACKEND` or `ollama` | LLM backend |
-| `--base-url` | `KDEPS_AGENT_BASE_URL` | LLM API base URL |
+| `--backend` | `KDEPS_AGENT_BACKEND` or `file` | LLM backend (`file` = local llamafile, no server) |
+| `--base-url` | `KDEPS_AGENT_BASE_URL` | LLM API base URL (leave empty for the file backend) |
 | `--system` | (none) | System prompt injected at conversation start |
 | `--debug` | false | Enable debug logging |
 
@@ -141,8 +141,9 @@ kdeps serve <path> [flags]
 
 ```bash
 KDEPS_AGENT_MODEL=llama3.2
-KDEPS_AGENT_BACKEND=ollama
-KDEPS_AGENT_BASE_URL=http://localhost:11434
+KDEPS_AGENT_BACKEND=file                     # default: local llamafile
+# KDEPS_AGENT_BACKEND=ollama                 # opt-in: requires the ollama server
+# KDEPS_AGENT_BASE_URL=http://localhost:11434
 ```
 
 ## Examples

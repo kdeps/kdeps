@@ -52,7 +52,7 @@ kdeps serve <path> [flags]
 | Flag | Default | Description |
 |---|---|---|
 | `--model` | `KDEPS_AGENT_MODEL` or `llama3.2` | LLM model name |
-| `--backend` | `KDEPS_AGENT_BACKEND` or `ollama` | LLM backend |
+| `--backend` | `KDEPS_AGENT_BACKEND` or `file` | LLM backend (`file` = local llamafile, no server) |
 | `--base-url` | `KDEPS_AGENT_BASE_URL` | LLM API base URL |
 | `--system` | (none) | System prompt injected at conversation start |
 | `--debug` | false | Enable debug logging |
@@ -179,7 +179,7 @@ kdeps doctor [flags]
 |---|---|
 | Config file | Existence of `~/.kdeps/config.yaml` |
 | Config validation | Typos in API key names, missing keys |
-| Ollama | TCP connectivity to the Ollama server |
+| LLM backend | Models dir and cached llamafiles (file backend) or TCP connectivity (ollama) |
 | Python | `python3` availability in PATH |
 | Backend/API key | Cloud backend configured without its API key |
 | Agents | Installed agent count |
@@ -222,6 +222,22 @@ kdeps chat                                    # Start interactive assistant
 kdeps chat --model gpt-4o                     # Use specific model
 echo "list files in /tmp" | kdeps chat --no-execute
 ```
+
+## `kdeps llamafile`
+
+Manage the llamafile model registry used by the default `file` backend.
+Aliases like `llama3.2:1b` resolve to Mozilla's HuggingFace llamafiles;
+models are downloaded to `~/.kdeps/models/` on first use.
+
+```bash
+kdeps llamafile list      # all known aliases with size, quant, and URL
+kdeps llamafile update    # refresh the registry from HuggingFace
+```
+
+`update` merges remote entries into `~/.kdeps/llamafile_versions.yaml`;
+entries you added locally are preserved.
+
+---
 
 ## See Also
 
