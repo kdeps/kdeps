@@ -32,9 +32,22 @@ func isPublicAPIPath(path string) bool {
 // Clients supply the API token via "Authorization: Bearer <token>" or "X-API-Key: <token>".
 func AuthMiddleware(token string) func(stdhttp.HandlerFunc) stdhttp.HandlerFunc {
 	debugEnter("AuthMiddleware")
+	return AuthMiddlewareExempting(token, nil)
+}
+
+// AuthMiddlewareExempting behaves like AuthMiddleware but additionally bypasses
+// authentication for paths where isPublicPath returns true. Used to keep
+// webServer routes public when they are merged onto the API router, matching
+// webServer-only mode semantics.
+func AuthMiddlewareExempting(
+	token string,
+	isPublicPath func(string) bool,
+) func(stdhttp.HandlerFunc) stdhttp.HandlerFunc {
+	debugEnter("AuthMiddlewareExempting")
 	return func(next stdhttp.HandlerFunc) stdhttp.HandlerFunc {
 		return func(w stdhttp.ResponseWriter, r *stdhttp.Request) {
-			if shouldBypassAuth(token, requestPath(r)) {
+			path := requestPath(r)
+			if shouldBypassAuth(token, path) || pathIsPublic(isPublicPath, path) {
 				next(w, r)
 				return
 			}
@@ -45,4 +58,8 @@ func AuthMiddleware(token string) func(stdhttp.HandlerFunc) stdhttp.HandlerFunc 
 			next(w, r)
 		}
 	}
+}
+
+func pathIsPublic(isPublicPath func(string) bool, path string) bool {
+	return isPublicPath != nil && isPublicPath(path)
 }
