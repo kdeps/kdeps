@@ -39,6 +39,15 @@ func (e *PreflightError) Error() string {
 	return fmt.Sprintf("preflight error (code %d): %s", e.Code, e.Message)
 }
 
+// PreflightStatus returns the configured HTTP status code and client-facing
+// message. The HTTP layer probes for this method via a local interface so the
+// configured validations.error surfaces as the response instead of a generic
+// 500, without coupling infra to the executor package.
+func (e *PreflightError) PreflightStatus() (int, string) {
+	kdeps_debug.Log("enter: PreflightStatus")
+	return e.Code, e.Message
+}
+
 // RunPreflightCheck runs preflight validations.
 func (e *Engine) RunPreflightCheck(resource *domain.Resource, ctx *ExecutionContext) error {
 	kdeps_debug.Log("enter: RunPreflightCheck")
