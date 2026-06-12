@@ -23,6 +23,8 @@ import (
 	"log/slog"
 	stdhttp "net/http"
 	"net/http/httptest"
+	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -158,6 +160,10 @@ func TestServer_configureRouter_corsPreflightBypassesAuth(t *testing.T) {
 func TestServer_configureRouter_mergedWebRoutesArePublic(t *testing.T) {
 	t.Setenv("KDEPS_API_AUTH_TOKEN", "secret")
 
+	publicDir := t.TempDir()
+	indexHTML := "<html><body>merged fixture</body></html>"
+	require.NoError(t, os.WriteFile(filepath.Join(publicDir, "index.html"), []byte(indexHTML), 0o644))
+
 	workflow := &domain.Workflow{
 		Metadata: domain.WorkflowMetadata{Name: "test"},
 		Settings: domain.WorkflowSettings{
@@ -165,7 +171,7 @@ func TestServer_configureRouter_mergedWebRoutesArePublic(t *testing.T) {
 				Routes: []domain.Route{{Path: "/api/v1/chat", Methods: []string{"POST"}}},
 			},
 			WebServer: &domain.WebServerConfig{
-				Routes: []domain.WebRoute{{Path: "/", ServerType: "static", PublicPath: t.TempDir()}},
+				Routes: []domain.WebRoute{{Path: "/", ServerType: "static", PublicPath: publicDir}},
 			},
 		},
 	}
@@ -181,7 +187,10 @@ func TestServer_configureRouter_mergedWebRoutesArePublic(t *testing.T) {
 	// routes must load without a token, like webServer-only mode.
 	rec := httptest.NewRecorder()
 	server.Router.ServeHTTP(rec, httptest.NewRequest(stdhttp.MethodGet, "/", nil))
-	assert.NotEqual(t, stdhttp.StatusUnauthorized, rec.Code)
+	assert.Equal(t, stdhttp.StatusOK, rec.Code)
+	// Static HTML must arrive verbatim: the API router's XSS-escape wrapper
+	// must not mangle web-route bodies (escaping also breaks Content-Length).
+	assert.Equal(t, indexHTML, rec.Body.String())
 
 	// API routes stay authenticated even though the "/" web route's
 	// wildcard pattern also matches them.
