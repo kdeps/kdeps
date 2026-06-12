@@ -65,6 +65,18 @@ func getPackageName(kdepsFile string) (string, error) {
 	}
 	defer os.RemoveAll(tempDir)
 
+	if agencyPath := FindAgencyFile(tempDir); agencyPath != "" {
+		agency, _, agencyErr := ParseAgencyFile(agencyPath)
+		if agencyErr != nil {
+			return "", agencyErr
+		}
+		name := agency.Metadata.Name
+		if agency.Metadata.Version != "" {
+			name = fmt.Sprintf("%s-%s", name, agency.Metadata.Version)
+		}
+		return name, nil
+	}
+
 	workflowPath := FindWorkflowFile(tempDir)
 	if workflowPath == "" {
 		return "", fmt.Errorf("no workflow file found inside %s", kdepsFile)

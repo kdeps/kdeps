@@ -287,7 +287,7 @@ func TestPrePackageWithFlags_NonExistentFile(t *testing.T) {
 		},
 	)
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "cannot access .kdeps file")
+	assert.Contains(t, err.Error(), "cannot access package file")
 }
 
 // TestPrePackageWithFlags_HostArch tests that prepackaging succeeds for the

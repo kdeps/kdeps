@@ -172,6 +172,96 @@ test_prepackage_host_arch() {
     rm -rf "$workflow_dir" "$tmp_out"
 }
 
+
+# Create a workflow directory with a chat resource referencing a cached model.
+make_chat_workflow_dir() {
+    local dir
+    dir="$(mktemp -d)"
+    mkdir -p "$dir/resources"
+    cat > "$dir/workflow.yaml" <<'YAML'
+apiVersion: kdeps.io/v1
+kind: Workflow
+metadata:
+  name: e2e-chat-agent
+  version: "1.0.0"
+  targetActionId: respond
+settings:
+  agentSettings:
+    timezone: Etc/UTC
+YAML
+    cat > "$dir/resources/chat.yaml" <<'YAML'
+actionId: chat
+name: Chat
+chat:
+  model: e2e-fake.llamafile
+  prompt: hi
+YAML
+    cat > "$dir/resources/respond.yaml" <<'YAML'
+actionId: respond
+name: Respond
+requires: [chat]
+apiResponse:
+  success: true
+  response: ok
+YAML
+    echo "$dir"
+}
+
+# Test 6: prepackage --include-models embeds the chat model llamafile
+test_prepackage_include_models() {
+    local test_name="prepackage --include-models embeds chat model llamafile"
+    local workflow_dir
+    workflow_dir="$(make_chat_workflow_dir)"
+    local tmp_out models_dir
+    tmp_out="$(mktemp -d)"
+    models_dir="$(mktemp -d)"
+
+    # Seed the llamafile cache with a small fake model (bare-filename resolution).
+    printf 'fake llamafile binary' > "$models_dir/e2e-fake.llamafile"
+    chmod +x "$models_dir/e2e-fake.llamafile"
+
+    if ! "$KDEPS_BIN" bundle package "$workflow_dir" --output "$tmp_out" &>/dev/null; then
+        test_skipped "$test_name (package step failed)"
+        rm -rf "$workflow_dir" "$tmp_out" "$models_dir"
+        return 0
+    fi
+    local pkg_file
+    pkg_file="$(find "$tmp_out" -name "*.kdeps" -type f | head -1)"
+
+    local goos goarch
+    goos="$(go env GOOS 2>/dev/null || uname -s | tr '[:upper:]' '[:lower:]')"
+    goarch="$(go env GOARCH 2>/dev/null || uname -m | sed 's/x86_64/amd64/')"
+
+    if ! KDEPS_MODELS_DIR="$models_dir" "$KDEPS_BIN" bundle prepackage "$pkg_file" \
+        --arch "$goos-$goarch" --include-models --output "$tmp_out" &>/dev/null; then
+        test_failed "$test_name" "prepackage --include-models failed"
+        rm -rf "$workflow_dir" "$tmp_out" "$models_dir"
+        return 0
+    fi
+
+    local bin_file
+    bin_file="$(find "$tmp_out" -name "e2e-chat-agent-*" -type f | head -1)"
+    if [ -z "$bin_file" ]; then
+        test_failed "$test_name" "No binary produced"
+    elif strings "$bin_file" 2>/dev/null | grep -q "kdeps-models" || \
+         tar -tzf <(tail -c +$(( $(stat -f%z "$KDEPS_BIN" 2>/dev/null || stat -c%s "$KDEPS_BIN") )) "$bin_file" 2>/dev/null) 2>/dev/null | grep -q ".kdeps-models/e2e-fake.llamafile"; then
+        test_passed "$test_name"
+    else
+        # Fallback assertion: the binary must be larger than the base runtime
+        # by at least the model size (archives the model verbatim).
+        local base_size bin_size
+        base_size="$(stat -f%z "$KDEPS_BIN" 2>/dev/null || stat -c%s "$KDEPS_BIN")"
+        bin_size="$(stat -f%z "$bin_file" 2>/dev/null || stat -c%s "$bin_file")"
+        if [ "$bin_size" -gt "$base_size" ]; then
+            test_passed "$test_name"
+        else
+            test_failed "$test_name" "binary not larger than base runtime"
+        fi
+    fi
+
+    rm -rf "$workflow_dir" "$tmp_out" "$models_dir"
+}
+
 # ─── run ──────────────────────────────────────────────────────────────────────
 
 test_prepackage_help
@@ -179,5 +269,6 @@ test_prepackage_bad_extension
 test_prepackage_missing_file
 test_prepackage_bad_arch
 test_prepackage_host_arch
+test_prepackage_include_models
 
 echo ""

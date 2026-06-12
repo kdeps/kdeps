@@ -45,6 +45,55 @@ kdeps bundle package my-agent/ --name custom-agent
 
 ---
 
+## `kdeps bundle prepackage`
+
+Bundle a `.kdeps` or `.kagency` package with the kdeps runtime into a single
+self-contained executable per architecture. The produced binary needs no kdeps
+installation: running it executes the embedded package directly.
+
+```bash
+kdeps bundle prepackage <package.kdeps|package.kagency> [flags]
+```
+
+**Flags:**
+
+| Flag | Description | Default |
+|---|---|---|
+| `--output, -o` | Output directory | `.` (current) |
+| `--arch` | Single target (e.g. `linux-amd64`) | all targets |
+| `--kdeps-version` | Runtime version to embed | running binary's version |
+| `--include-models` | Pre-bake the chat models' llamafiles into the executable | off |
+
+**`--include-models`** makes the binary fully offline: every literal
+`chat.model` in the package's workflows is resolved through the llamafile
+registry (downloaded into your local cache if missing) and embedded under a
+reserved `.kdeps-models/` directory. At run time the embedded models become
+the llamafile cache, so aliases like `llama3.2:1b` resolve without network.
+Expect roughly +1.1 GB per model in the output binary.
+
+```text
+prepackage --include-models          run the binary
+        |                                  |
+        v                                  v
+[kdeps runtime][workflow][model]  -->  model served from the
+   one executable file                 embedded .kdeps-models/
+```
+
+**Examples:**
+
+```bash
+# All architectures
+kdeps bundle prepackage my-agent-1.0.0.kdeps
+
+# One target, fully offline (model embedded)
+kdeps bundle prepackage my-agent-1.0.0.kdeps --arch linux-amd64 --include-models
+
+# Agencies work the same way
+kdeps bundle prepackage my-agency-1.0.0.kagency --include-models
+```
+
+---
+
 ## `kdeps bundle build`
 
 Build Docker image from workflow.

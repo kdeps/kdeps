@@ -71,6 +71,15 @@ func PrePackageWithFlags(ctx context.Context, args []string, flags *PrePackageFl
 	ver := resolvePrepackageVersion(flags.KdepsVersion)
 	pkgName := resolvePrepackageName(kdepsFile)
 
+	if flags.IncludeModels {
+		augmented, cleanup, augmentErr := augmentPackageWithModels(kdepsFile)
+		if augmentErr != nil {
+			return augmentErr
+		}
+		defer cleanup()
+		kdepsFile = augmented
+	}
+
 	targets, err := resolvePrepackageTargets(flags.Arch)
 	if err != nil {
 		return err
