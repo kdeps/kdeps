@@ -66,7 +66,11 @@ func (r *Registry) GetEmailExecutor() ResourceExecutor     { return r.getExecuto
 func (r *Registry) SetFileExecutor(exec ResourceExecutor) { r.Register(ExecutorFile, exec) }
 func (r *Registry) GetFileExecutor() ResourceExecutor     { return r.getExecutor(ExecutorFile) }
 
-func (r *Registry) SetGitExecutor(exec ResourceExecutor)             { r.Register(ExecutorGit, exec) }
-func (r *Registry) GetGitExecutor() ResourceExecutor                 { return r.getExecutor(ExecutorGit) }
-func (r *Registry) SetCodeIntelligenceExecutor(exec ResourceExecutor) { r.Register(ExecutorCodeIntel, exec) }
-func (r *Registry) GetCodeIntelligenceExecutor() ResourceExecutor     { return r.getExecutor(ExecutorCodeIntel) }
+func (r *Registry) SetGitExecutor(exec ResourceExecutor) { r.Register(ExecutorGit, exec) }
+func (r *Registry) GetGitExecutor() ResourceExecutor     { return r.getExecutor(ExecutorGit) }
+func (r *Registry) SetCodeIntelligenceExecutor(exec ResourceExecutor) {
+	r.Register(ExecutorCodeIntel, exec)
+}
+func (r *Registry) GetCodeIntelligenceExecutor() ResourceExecutor {
+	return r.getExecutor(ExecutorCodeIntel)
+}

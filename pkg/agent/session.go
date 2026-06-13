@@ -25,6 +25,11 @@ import (
 	"sync"
 )
 
+const (
+	sessionInitCap = 32
+	sessionMsgsPer = 2 // user + assistant per turn
+)
+
 // Session holds multi-turn conversation history for the agent loop.
 // Messages are stored as role-content pairs and serialized to JSON
 // for injection as the chat.messages expression value on each turn.
@@ -42,7 +47,7 @@ type sessionMessage struct {
 // NewSession creates a session. maxTurns caps history (0 = unlimited).
 func NewSession(maxTurns int) *Session {
 	return &Session{
-		messages: make([]sessionMessage, 0, 32),
+		messages: make([]sessionMessage, 0, sessionInitCap),
 		maxTurns: maxTurns,
 	}
 }
@@ -57,8 +62,8 @@ func (s *Session) Append(userInput, assistantResponse string) {
 		sessionMessage{Role: "assistant", Content: assistantResponse},
 	)
 
-	if s.maxTurns > 0 && len(s.messages)/2 > s.maxTurns {
-		excess := (len(s.messages)/2 - s.maxTurns) * 2
+	if s.maxTurns > 0 && len(s.messages)/sessionMsgsPer > s.maxTurns {
+		excess := (len(s.messages)/sessionMsgsPer - s.maxTurns) * sessionMsgsPer
 		s.messages = s.messages[excess:]
 	}
 }
@@ -90,7 +95,7 @@ func (s *Session) BuildMessagesJSON() string {
 func (s *Session) TurnCount() int {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
-	return len(s.messages) / 2
+	return len(s.messages) / sessionMsgsPer
 }
 
 // Clear resets the session.
@@ -118,12 +123,12 @@ func (s *Session) Compact() string {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	if s.maxTurns <= 0 || len(s.messages)/2 <= s.maxTurns {
+	if s.maxTurns <= 0 || len(s.messages)/sessionMsgsPer <= s.maxTurns {
 		return ""
 	}
 
-	removed := len(s.messages)/2 - s.maxTurns
-	excess := removed * 2
+	removed := len(s.messages)/sessionMsgsPer - s.maxTurns
+	excess := removed * sessionMsgsPer
 	s.messages = s.messages[excess:]
 	return fmt.Sprintf("Compacted %d previous conversation turns. Continue.", removed)
 }

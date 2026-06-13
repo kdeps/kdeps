@@ -114,8 +114,16 @@ func TestCompact_RemovesOld(t *testing.T) {
 	// Append trims to maxTurns, so session now has only the last turn (q3)
 	// Create a new session to test Compact directly bypassing Append trim
 	s2 := NewSession(1)
-	s2.messages = append(s2.messages, sessionMessage{Role: "user", Content: "q1"}, sessionMessage{Role: "assistant", Content: "a1"})
-	s2.messages = append(s2.messages, sessionMessage{Role: "user", Content: "q2"}, sessionMessage{Role: "assistant", Content: "a2"})
+	s2.messages = append(
+		s2.messages,
+		sessionMessage{Role: "user", Content: "q1"},
+		sessionMessage{Role: "assistant", Content: "a1"},
+	)
+	s2.messages = append(
+		s2.messages,
+		sessionMessage{Role: "user", Content: "q2"},
+		sessionMessage{Role: "assistant", Content: "a2"},
+	)
 	result := s2.Compact()
 	if result == "" {
 		t.Fatal("expected non-empty compact result")

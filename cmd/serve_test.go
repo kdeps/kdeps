@@ -11,58 +11,64 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestNewServeCmd_Flags(t *testing.T) {
-	cmd := newServeCmd()
-	if cmd == nil {
-		t.Fatal("expected non-nil command")
-	}
-	if cmd.Use != "serve <path>" {
-		t.Errorf("unexpected Use: %q", cmd.Use)
-	}
+func TestRootCmd_AgentLoopFlags(t *testing.T) {
+	cmd := NewRootCmd()
+	require.NotNil(t, cmd)
+	assert.Equal(t, "kdeps [path]", cmd.Use)
 	for _, flagName := range []string{"model", "backend", "base-url", "system"} {
 		if cmd.Flags().Lookup(flagName) == nil {
-			t.Errorf("expected flag --%s", flagName)
+			t.Errorf("expected flag --%s on root command", flagName)
 		}
 	}
 }
 
-func TestNewServeCmd_RequiresOneArg(t *testing.T) {
-	cmd := newServeCmd()
-	// Zero args should error.
-	if err := cmd.Args(cmd, []string{}); err == nil {
-		t.Error("expected error for zero args")
-	}
-	// Two args should error.
-	if err := cmd.Args(cmd, []string{"a", "b"}); err == nil {
-		t.Error("expected error for two args")
-	}
-	// Exactly one arg should be accepted.
-	if err := cmd.Args(cmd, []string{"workflow.yaml"}); err != nil {
-		t.Errorf("unexpected error for one arg: %v", err)
-	}
+func TestRootCmd_AcceptsOptionalPath(t *testing.T) {
+	cmd := NewRootCmd()
+	// Zero args: OK (model-only mode).
+	require.NoError(t, cmd.Args(cmd, []string{}))
+	// One arg: OK (load tools from path).
+	require.NoError(t, cmd.Args(cmd, []string{"workflow.yaml"}))
+	// Two args: error.
+	require.Error(t, cmd.Args(cmd, []string{"a", "b"}))
 }
 
-func TestRunServeCmd_NonExistentPath(t *testing.T) {
-	err := runServeCmd("/nonexistent/path", &serveFlags{})
+func TestRunAgentLoopCmd_NonExistentPath(t *testing.T) {
+	err := runAgentLoopCmd("/nonexistent/path", &agentLoopFlags{})
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "serve: path not found")
+	assert.Contains(t, err.Error(), "path not found")
 }
 
-func TestRunServeCmd_EmptyDir(t *testing.T) {
+func TestRunAgentLoopCmd_EmptyDir(t *testing.T) {
 	tmpDir := t.TempDir()
-	err := runServeCmd(tmpDir, &serveFlags{})
+	err := runAgentLoopCmd(tmpDir, &agentLoopFlags{})
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "no workflow or agency files found")
 }
 
-func TestRunServeCmd_Success(t *testing.T) {
-	// Pin the agent away from local backends: the default file backend would
-	// download and boot a real llamafile server inside the test.
+func TestRunAgentLoopCmd_NoPath(t *testing.T) {
+	t.Setenv("KDEPS_AGENT_BACKEND", "openai")
+	t.Setenv("KDEPS_AGENT_BASE_URL", "http://127.0.0.1:1")
+
+	r, w, err := os.Pipe()
+	require.NoError(t, err)
+	oldStdin := os.Stdin
+	t.Cleanup(func() { os.Stdin = oldStdin })
+	os.Stdin = r
+
+	_, err = w.WriteString("hello\n")
+	require.NoError(t, err)
+	w.Close()
+
+	// No path: model-only mode, loop starts and processes one message then exits on EOF.
+	err = runAgentLoopCmd("", &agentLoopFlags{Debug: true})
+	assert.NoError(t, err)
+}
+
+func TestRunAgentLoopCmd_WithPath(t *testing.T) {
 	t.Setenv("KDEPS_AGENT_BACKEND", "openai")
 	t.Setenv("KDEPS_AGENT_BASE_URL", "http://127.0.0.1:1")
 	tmpDir := t.TempDir()
 
-	// Create a minimal valid workflow.yaml that passes schema validation.
 	workflowContent := `apiVersion: kdeps.io/v1
 kind: Workflow
 metadata:
@@ -76,8 +82,6 @@ resources:
 	workflowPath := filepath.Join(tmpDir, "workflow.yaml")
 	require.NoError(t, os.WriteFile(workflowPath, []byte(workflowContent), 0644))
 
-	// Redirect stdin to a pipe.  Write one input line then close the writer so
-	// the REPL scanner hits EOF after a single iteration.
 	r, w, err := os.Pipe()
 	require.NoError(t, err)
 	oldStdin := os.Stdin
@@ -88,10 +92,6 @@ resources:
 	require.NoError(t, err)
 	w.Close()
 
-	err = runServeCmd(tmpDir, &serveFlags{Debug: true})
-	// The REPL runs one loop iteration.  The engine execution will fail because
-	// no LLM backend is available -- the REPL prints the error to stderr and
-	// continues.  The next scanner.Scan() returns false (EOF) so it exits
-	// cleanly with nil error.
+	err = runAgentLoopCmd(tmpDir, &agentLoopFlags{Debug: true})
 	assert.NoError(t, err)
 }

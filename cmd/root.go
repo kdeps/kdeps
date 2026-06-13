@@ -82,20 +82,57 @@ func NewRootCmd() *cobra.Command {
 // createRootCommand creates the root cobra command with all subcommands.
 func createRootCommand() *cobra.Command {
 	kdeps_debug.Log("enter: createRootCommand")
+	flags := &agentLoopFlags{}
+
 	rootCmd := &cobra.Command{
-		Use:           "kdeps",
+		Use:           "kdeps [path]",
 		Short:         "KDeps - AI Agent Framework",
-		Long:          `Build AI agents with YAML configuration.`,
+		Long:          `Build AI agents with YAML configuration. Run without arguments to start the interactive agent loop.`,
 		SilenceUsage:  true,
 		SilenceErrors: true,
+		Args:          cobra.MaximumNArgs(1),
 		PersistentPreRun: func(cmd *cobra.Command, _ []string) {
 			runRootPersistentPreRun(cmd)
+		},
+		RunE: func(cmd *cobra.Command, args []string) error {
+			debugMode, _ := cmd.Flags().GetBool("debug")
+			flags.Debug = debugMode
+			path := ""
+			if len(args) == 1 {
+				path = args[0]
+			}
+			return runAgentLoopCmd(path, flags)
 		},
 	}
 
 	rootCmd.PersistentFlags().Bool("verbose", false, "Enable verbose output")
 	rootCmd.PersistentFlags().Bool("debug", false, "Enable debug logging")
 	rootCmd.PersistentFlags().Bool("instrument", false, "Enable call-chain instrumentation tracing")
+
+	rootCmd.Flags().StringVar(
+		&flags.Model, "model", "",
+		"LLM model to use (default: KDEPS_AGENT_MODEL env or llama3.2)",
+	)
+	rootCmd.Flags().StringVar(
+		&flags.Backend, "backend", "",
+		"LLM backend (default: KDEPS_AGENT_BACKEND env or file)",
+	)
+	rootCmd.Flags().StringVar(
+		&flags.BaseURL, "base-url", "",
+		"LLM API base URL (default: KDEPS_AGENT_BASE_URL env)",
+	)
+	rootCmd.Flags().StringVar(
+		&flags.SystemPrompt, "system", "",
+		"System prompt injected at the start of every conversation",
+	)
+	rootCmd.Flags().StringArrayVar(
+		&flags.SkillPaths, "skill", nil,
+		"Path to a skill file or directory (can be specified multiple times)",
+	)
+	rootCmd.Flags().StringVar(
+		&flags.Resume, "resume", "",
+		"Session ID to resume a previous conversation",
+	)
 
 	addSubcommands(rootCmd)
 
@@ -172,7 +209,6 @@ func addDevelopCommands(rootCmd *cobra.Command) {
 	addCommandToGroup(rootCmd, groupDevelop, newRunCmd())
 	addCommandToGroup(rootCmd, groupDevelop, newChatCmd())
 	addCommandToGroup(rootCmd, groupDevelop, newDoctorCmd())
-	addCommandToGroup(rootCmd, groupDevelop, newServeCmd())
 	addCommandToGroup(rootCmd, groupDevelop, newLlamafileCmd())
 }
 

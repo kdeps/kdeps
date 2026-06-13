@@ -34,9 +34,9 @@ import (
 	"github.com/kdeps/kdeps/v2/pkg/tools"
 )
 
-func TestNewServeCmd_RunE(t *testing.T) {
-	c := newServeCmd()
-	assert.Equal(t, "serve <path>", c.Use)
+func TestRootCmd_AgentLoopUse(t *testing.T) {
+	c := NewRootCmd()
+	assert.Equal(t, "kdeps [path]", c.Use)
 }
 
 func TestRegisterAgencyTool_ParseError_Complete(t *testing.T) {
@@ -55,11 +55,11 @@ func TestFindServeWorkflowFiles_SkipMissing(t *testing.T) {
 	assert.Empty(t, files)
 }
 
-func TestRunServeCmd_AbsError(t *testing.T) {
+func TestRunAgentLoopCmd_AbsError(t *testing.T) {
 	if os.Getenv("GOOS") == "windows" {
 		t.Skip("invalid path semantics differ on Windows")
 	}
-	err := runServeCmd("\x00bad", &serveFlags{})
+	err := runAgentLoopCmd("\x00bad", &agentLoopFlags{})
 	require.Error(t, err)
 }
 
@@ -89,11 +89,11 @@ func TestFindServeWorkflowFiles_WalkErrPath(t *testing.T) {
 	assert.Empty(t, paths)
 }
 
-func TestRunServeCmd_AbsError_Final(t *testing.T) {
+func TestRunAgentLoopCmd_AbsError_Final(t *testing.T) {
 	if os.Getenv("GOOS") == "windows" {
 		t.Skip("invalid path semantics differ on Windows")
 	}
-	require.Error(t, runServeCmd("\x00bad", &serveFlags{}))
+	require.Error(t, runAgentLoopCmd("\x00bad", &agentLoopFlags{}))
 }
 
 func TestRegisterAgencyTool_TargetParseError(t *testing.T) {
@@ -111,11 +111,11 @@ agents:
 	require.Error(t, err)
 }
 
-func TestRunServeCmd_AbsErrorHook(t *testing.T) {
-	orig := filepathAbsServeFunc
-	t.Cleanup(func() { filepathAbsServeFunc = orig })
-	filepathAbsServeFunc = func(_ string) (string, error) { return "", errors.New("abs") }
-	require.Error(t, runServeCmd("bad", &serveFlags{}))
+func TestRunAgentLoopCmd_AbsErrorHook(t *testing.T) {
+	orig := filepathAbsAgentLoopFunc
+	t.Cleanup(func() { filepathAbsAgentLoopFunc = orig })
+	filepathAbsAgentLoopFunc = func(_ string) (string, error) { return "", errors.New("abs") }
+	require.Error(t, runAgentLoopCmd("bad", &agentLoopFlags{}))
 }
 
 func TestRegisterAgencyTool_TargetError_Complete(t *testing.T) {
@@ -171,13 +171,8 @@ agents:
 	require.NotNil(t, wf)
 }
 
-func TestNewServeCmd(t *testing.T) {
-	c := newServeCmd()
-	assert.Equal(t, "serve <path>", c.Use)
-}
-
-func TestRunServeCmd_InvalidPath_Remaining(t *testing.T) {
-	err := runServeCmd("\x00bad", &serveFlags{})
+func TestRunAgentLoopCmd_InvalidPath_Remaining(t *testing.T) {
+	err := runAgentLoopCmd("\x00bad", &agentLoopFlags{})
 	require.Error(t, err)
 }
 
@@ -214,8 +209,8 @@ func TestFindServeWorkflowFiles_SkipsInvalid(t *testing.T) {
 	assert.NotEmpty(t, files)
 }
 
-func TestRunServeCmd_InvalidPath(t *testing.T) {
-	err := runServeCmd("/nonexistent/serve/path", &serveFlags{})
+func TestRunAgentLoopCmd_InvalidPath(t *testing.T) {
+	err := runAgentLoopCmd("/nonexistent/serve/path", &agentLoopFlags{})
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "not found")
 }
@@ -260,17 +255,16 @@ func TestNewMinimalHostWorkflow(t *testing.T) {
 }
 
 func TestRegisterComponentTools_NoComponents(_ *testing.T) {
-	// Should not panic with nil registry when no components.
 	registerComponentTools(nil, &domain.Workflow{}, nil)
 }
 
-func TestRunServeCmd_Errors(t *testing.T) {
+func TestRunAgentLoopCmd_Errors(t *testing.T) {
 	if os.Getenv("GOOS") == "windows" {
 		t.Skip("invalid path semantics differ on Windows")
 	}
-	err := runServeCmd("\x00bad", &serveFlags{})
+	err := runAgentLoopCmd("\x00bad", &agentLoopFlags{})
 	require.Error(t, err)
-	err = runServeCmd("/nonexistent", &serveFlags{})
+	err = runAgentLoopCmd("/nonexistent", &agentLoopFlags{})
 	require.Error(t, err)
 }
 
@@ -297,7 +291,6 @@ func TestFindServeWorkflowFiles_WalkErr(t *testing.T) {
 	tmp := t.TempDir()
 	f := filepath.Join(tmp, "blocker")
 	require.NoError(t, os.WriteFile(f, []byte("x"), 0644))
-	// Walk into file-as-dir triggers error
 	paths := findServeWorkflowFiles(f)
 	assert.Empty(t, paths)
 }

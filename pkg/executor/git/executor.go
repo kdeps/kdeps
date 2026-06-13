@@ -5,6 +5,7 @@ package git
 import (
 	"bufio"
 	"bytes"
+	"context"
 	"errors"
 	"fmt"
 	"os"
@@ -16,8 +17,14 @@ import (
 )
 
 const (
-	defaultMaxCount = 10
-	defaultRemote   = "origin"
+	defaultMaxCount  = 10
+	defaultRemote    = "origin"
+	statusHeaderLen  = 2 // "## " prefix length in git status output
+	statusLinMinLen  = 4 // minimum valid status line length
+	statusBranchSep  = 2 // SplitN limit for branch parsing
+	logFieldCount    = 5 // hash|author|email|date|message
+	branchLineMinLen = 2 // minimum branch line length (marker + name)
+	remoteMinFields  = 3 // name url type
 )
 
 // CommandRunner runs git commands (overridable for testing).
@@ -104,7 +111,7 @@ func (e *Executor) Execute(
 // --- helpers ---
 
 func (e *Executor) buildGitCmd(config *domain.GitResourceConfig, args ...string) *exec.Cmd {
-	cmd := exec.Command("git", args...)
+	cmd := exec.CommandContext(context.Background(), "git", args...)
 	cmd.Env = append(os.Environ(),
 		"GIT_PAGER=cat",
 		"GIT_TERMINAL_PROMPT=0",
@@ -139,11 +146,11 @@ func (e *Executor) status(config *domain.GitResourceConfig) (interface{}, error)
 	for scanner.Scan() {
 		line := scanner.Text()
 		if strings.HasPrefix(line, "##") {
-			parts := strings.SplitN(line[2:], "...", 2)
+			parts := strings.SplitN(line[statusHeaderLen:], "...", statusBranchSep)
 			branch = strings.TrimSpace(parts[0])
 			continue
 		}
-		if len(line) < 4 {
+		if len(line) < statusLinMinLen {
 			continue
 		}
 		xy := line[:2]
@@ -214,8 +221,8 @@ func (e *Executor) log(config *domain.GitResourceConfig) (interface{}, error) {
 	scanner := bufio.NewScanner(strings.NewReader(stdout))
 	for scanner.Scan() {
 		line := scanner.Text()
-		parts := strings.SplitN(line, "|", 5)
-		if len(parts) >= 5 {
+		parts := strings.SplitN(line, "|", logFieldCount)
+		if len(parts) >= logFieldCount {
 			commits = append(commits, map[string]interface{}{
 				"hash":    parts[0],
 				"author":  parts[1],
@@ -257,7 +264,7 @@ func (e *Executor) branch(config *domain.GitResourceConfig) (interface{}, error)
 	scanner := bufio.NewScanner(strings.NewReader(stdout))
 	for scanner.Scan() {
 		line := scanner.Text()
-		if len(line) < 2 {
+		if len(line) < branchLineMinLen {
 			continue
 		}
 		isCurrent := line[0] == '*'
@@ -296,7 +303,7 @@ func (e *Executor) remote(config *domain.GitResourceConfig) (interface{}, error)
 	for scanner.Scan() {
 		line := scanner.Text()
 		parts := strings.Fields(line)
-		if len(parts) >= 3 {
+		if len(parts) >= remoteMinFields {
 			key := parts[0] + "|" + parts[1]
 			if !seen[key] {
 				seen[key] = true
@@ -451,58 +458,40 @@ func (e *Executor) cloneOp(config *domain.GitResourceConfig) (interface{}, error
 	}), nil
 }
 
-func (e *Executor) push(config *domain.GitResourceConfig) (interface{}, error) {
+func (e *Executor) pushOrPull(config *domain.GitResourceConfig, verb, doneKey string) (interface{}, error) {
 	if config.DryRun {
 		return result(true, map[string]interface{}{
 			"dryRun": true,
 			"remote": remoteOrDefault(config.Remote),
 			"branch": config.Branch,
-			"pushed": false,
+			doneKey:  false,
 		}), nil
 	}
 
-	args := []string{"push", remoteOrDefault(config.Remote)}
+	args := []string{verb, remoteOrDefault(config.Remote)}
 	if config.Branch != "" {
 		args = append(args, config.Branch)
 	}
 	cmd := e.buildGitCmd(config, args...)
 	_, stderr, exitCode, err := e.runner.Run(cmd)
 	if err != nil || exitCode != 0 {
-		return result(false, map[string]interface{}{"error": stderr}), fmt.Errorf("git push failed: %w", err)
+		return result(false, map[string]interface{}{"error": stderr}),
+			fmt.Errorf("git %s failed: %w", verb, err)
 	}
 
 	return result(true, map[string]interface{}{
 		"remote": remoteOrDefault(config.Remote),
 		"branch": config.Branch,
-		"pushed": true,
+		doneKey:  true,
 	}), nil
 }
 
+func (e *Executor) push(config *domain.GitResourceConfig) (interface{}, error) {
+	return e.pushOrPull(config, "push", "pushed")
+}
+
 func (e *Executor) pull(config *domain.GitResourceConfig) (interface{}, error) {
-	if config.DryRun {
-		return result(true, map[string]interface{}{
-			"dryRun": true,
-			"remote": remoteOrDefault(config.Remote),
-			"branch": config.Branch,
-			"pulled": false,
-		}), nil
-	}
-
-	args := []string{"pull", remoteOrDefault(config.Remote)}
-	if config.Branch != "" {
-		args = append(args, config.Branch)
-	}
-	cmd := e.buildGitCmd(config, args...)
-	_, stderr, exitCode, err := e.runner.Run(cmd)
-	if err != nil || exitCode != 0 {
-		return result(false, map[string]interface{}{"error": stderr}), fmt.Errorf("git pull failed: %w", err)
-	}
-
-	return result(true, map[string]interface{}{
-		"remote": remoteOrDefault(config.Remote),
-		"branch": config.Branch,
-		"pulled": true,
-	}), nil
+	return e.pushOrPull(config, "pull", "pulled")
 }
 
 func remoteOrDefault(r string) string {

@@ -2,7 +2,6 @@ package cmd
 
 import (
 	"fmt"
-	"github.com/spf13/cobra"
 	"io/fs"
 	"os"
 	"path/filepath"
@@ -13,17 +12,17 @@ import (
 	"github.com/kdeps/kdeps/v2/pkg/tools"
 )
 
-// filepathAbsServeFunc resolves serve paths (overridable in tests).
+// filepathAbsAgentLoopFunc resolves agent loop paths (overridable in tests).
 //
 //nolint:gochecknoglobals // test-replaceable hook
-var filepathAbsServeFunc = filepath.Abs
+var filepathAbsAgentLoopFunc = filepath.Abs
 
 // registerAgencyTargetParseFunc parses agency target workflows (overridable in tests).
 //
 //nolint:gochecknoglobals // test-replaceable hook
 var registerAgencyTargetParseFunc = ParseWorkflowFile
 
-type serveFlags struct {
+type agentLoopFlags struct {
 	Model        string
 	Backend      string
 	BaseURL      string
@@ -33,91 +32,33 @@ type serveFlags struct {
 	Resume       string
 }
 
-func newServeCmd() *cobra.Command {
-	flags := &serveFlags{}
-
-	cmd := &cobra.Command{
-		Use:   "serve <path>",
-		Short: "Start agent loop mode (interactive LLM loop with workflows as tools)",
-		Long: `Start agent loop mode -- an interactive LLM loop where whole workflows and
-components are registered as callable tools.
-
-Pass a directory to expose every workflow and agency found inside as
-separate tools. Each workflow becomes one tool. Each agency becomes one
-tool (the agency's entry point runs; internal agents are not exposed
-individually). Pass a single workflow file or agency file to expose just
-that one tool.
-
-The tool name for each workflow or agency is its metadata.name field.
-Each tool call runs the full workflow DAG so requires: dependencies
-always resolve.
-
-Examples:
-  # All workflows and agencies in a folder -- each becomes one tool
-  kdeps serve ./agents/
-
-  # One tool from a single workflow directory
-  kdeps serve ./my-agent/
-
-  # One tool from an agency file (entry point runs when called)
-  kdeps serve agency.yaml
-
-  # Override the model
-  kdeps serve ./agents/ --model mistral
-
-  # Provide a system prompt
-  kdeps serve ./agents/ --system "You are a helpful assistant."
-
-  # Load a skill file
-  kdeps serve ./agents/ --skill ./my-skill.md
-
-Environment variables (override defaults):
-  KDEPS_AGENT_MODEL      LLM model name (default: llama3.2)
-  KDEPS_AGENT_BACKEND    LLM backend (default: file)
-  KDEPS_AGENT_BASE_URL   LLM API base URL -- leave empty for file backend`,
-		Args: cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			debugMode, _ := cmd.Flags().GetBool("debug")
-			flags.Debug = debugMode
-			return runServeCmd(args[0], flags)
-		},
-	}
-
-	cmd.Flags().StringVar(&flags.Model, "model", "", "LLM model to use (default: KDEPS_AGENT_MODEL env or llama3.2)")
-	cmd.Flags().StringVar(&flags.Backend, "backend", "", "LLM backend (default: KDEPS_AGENT_BACKEND env or file)")
-	cmd.Flags().StringVar(&flags.BaseURL, "base-url", "", "LLM API base URL (default: KDEPS_AGENT_BASE_URL env)")
-	cmd.Flags().StringVar(
-		&flags.SystemPrompt, "system", "",
-		"System prompt injected at the start of every conversation",
-	)
-	cmd.Flags().StringArrayVar(
-		&flags.SkillPaths, "skill", nil,
-		"Path to a skill file or directory (can be specified multiple times)",
-	)
-	cmd.Flags().StringVar(
-		&flags.Resume, "resume", "",
-		"Session ID to resume a previous conversation",
-	)
-
-	return cmd
-}
-
-func runServeCmd(path string, flags *serveFlags) error {
-	absPath, err := filepathAbsServeFunc(path)
-	if err != nil {
-		return fmt.Errorf("serve: invalid path %q: %w", path, err)
-	}
-	info, err := os.Stat(absPath)
-	if err != nil {
-		return fmt.Errorf("serve: path not found %q: %w", path, err)
-	}
-
+// runAgentLoopCmd starts the interactive agent loop. When path is empty the
+// loop starts with no workflow tools (model-only mode). When path is provided
+// every workflow and agency found at that path is registered as a tool.
+func runAgentLoopCmd(path string, flags *agentLoopFlags) error {
 	registry := tools.NewRegistry()
 	tools.RegisterFFormatTools(registry)
 
-	hostWorkflow, err := loadAndRegisterAll(absPath, info.IsDir(), registry, flags.Debug)
-	if err != nil {
-		return err
+	var (
+		hostWorkflow *domain.Workflow
+		err          error
+	)
+
+	if path != "" {
+		absPath, absErr := filepathAbsAgentLoopFunc(path)
+		if absErr != nil {
+			return fmt.Errorf("agent loop: invalid path %q: %w", path, absErr)
+		}
+		info, statErr := os.Stat(absPath)
+		if statErr != nil {
+			return fmt.Errorf("agent loop: path not found %q: %w", path, statErr)
+		}
+		hostWorkflow, err = loadAndRegisterAll(absPath, info.IsDir(), registry, flags.Debug)
+		if err != nil {
+			return err
+		}
+	} else {
+		hostWorkflow = newMinimalHostWorkflow()
 	}
 
 	skillPaths := resolveSkillPaths(flags.SkillPaths)
@@ -131,12 +72,11 @@ func runServeCmd(path string, flags *serveFlags) error {
 	}
 	eng := setupEngine(nil, flags.Debug)
 
-	// Load previous session if --resume is set
 	if flags.Resume != "" {
 		store := agent.NewSessionStore("")
 		saved, loadErr := store.Load(flags.Resume)
 		if loadErr != nil {
-			return fmt.Errorf("serve: failed to load session %q: %w", flags.Resume, loadErr)
+			return fmt.Errorf("agent loop: failed to load session %q: %w", flags.Resume, loadErr)
 		}
 		cfg.ResumeSession = saved
 	}
@@ -146,8 +86,7 @@ func runServeCmd(path string, flags *serveFlags) error {
 	return repl.Run()
 }
 
-// resolveSkillPaths resolves relative skill paths to absolute and
-// includes any directories passed as flags that contain SKILL.md files.
+// resolveSkillPaths converts relative skill paths to absolute paths.
 func resolveSkillPaths(paths []string) []string {
 	if len(paths) == 0 {
 		return nil
@@ -188,12 +127,6 @@ func loadAndRegisterAll(absPath string, isDir bool, registry *tools.Registry, de
 }
 
 // registerServeTools loads a workflow or agency file and registers tools.
-//
-// Workflow: registers one tool (metadata.name) + its component tools.
-// Agency: registers one tool (agency metadata.name) whose Execute runs
-// the agency entry-point workflow. Internal agents are NOT exposed as
-// individual tools. A dedicated engine with the agency's agentPaths is
-// created so agent: resources inside the entry-point workflow resolve.
 func registerServeTools(p string, registry *tools.Registry, debug bool) (*domain.Workflow, error) {
 	if isAgencyFile(p) {
 		return registerAgencyTool(p, registry, debug)
@@ -230,17 +163,14 @@ func registerAgencyTool(p string, registry *tools.Registry, debug bool) (*domain
 		return nil, fmt.Errorf("serve: agency %s target: %w", p, err)
 	}
 
-	// Give the agency its own engine so AgentPaths is scoped correctly.
 	agencyEng := setupEngine(nil, debug)
 	agencyEng.SetNewExecutionContextForAgency(nameMap)
 
-	// Register one tool named after the agency (not the individual agents).
 	agencyTool := agencyToolDef(agency, targetWF, agencyEng)
 	registry.Register(agencyTool)
 	return targetWF, nil
 }
 
-// agencyToolNameAndDesc returns the display name and description for an agency tool.
 func agencyToolNameAndDesc(agency *domain.Agency) (string, string) {
 	name := agency.Metadata.Name
 	if name == "" {
@@ -253,15 +183,12 @@ func agencyToolNameAndDesc(agency *domain.Agency) (string, string) {
 	return name, desc
 }
 
-// agencyToolDef wraps a whole agency as a single callable tool.
-// The tool name is the agency's metadata.name. Execute runs the entry-point workflow.
 func agencyToolDef(agency *domain.Agency, entryWorkflow *domain.Workflow, eng *executor.Engine) *tools.Tool {
 	name, desc := agencyToolNameAndDesc(agency)
 	return tools.AgentToolDefWithName(name, desc, entryWorkflow, eng)
 }
 
-// newMinimalHostWorkflow returns a bare workflow used as the agent loop host
-// when no single workflow is the canonical entry point (e.g. folder mode).
+// newMinimalHostWorkflow returns a bare workflow used as the agent loop host.
 func newMinimalHostWorkflow() *domain.Workflow {
 	return &domain.Workflow{
 		APIVersion: "kdeps.io/v1",
