@@ -58,19 +58,20 @@ type Config struct {
 // the engine's existing handleToolCalls path dispatches them without any
 // additional plumbing.
 type Loop struct {
-	engine   *executor.Engine
-	registry *tools.Registry
-	workflow *domain.Workflow
-	config   Config
-	session  *Session
-	skills   string // pre-formatted skill XML block
+	engine    *executor.Engine
+	registry  *tools.Registry
+	workflow  *domain.Workflow
+	config    Config
+	session   *Session
+	skills    string  // pre-formatted skill XML block for the system prompt
+	skillList []Skill // raw skill structs for name lookup (/skill-name invocation)
 }
 
 // New creates a new Loop. cfg fields with zero values fall back to env vars and
 // then to sensible defaults.
 func New(eng *executor.Engine, workflow *domain.Workflow, reg *tools.Registry, cfg Config) *Loop {
 	cfg = applyConfigDefaults(cfg)
-	skills := loadSkills(cfg.SkillPaths)
+	skillSlice := loadSkillSlice(cfg.SkillPaths)
 
 	session := NewSession(cfg.MaxTurns)
 	if cfg.ResumeSession != nil {
@@ -78,13 +79,24 @@ func New(eng *executor.Engine, workflow *domain.Workflow, reg *tools.Registry, c
 	}
 
 	return &Loop{
-		engine:   eng,
-		registry: reg,
-		workflow: workflow,
-		config:   cfg,
-		session:  session,
-		skills:   skills,
+		engine:    eng,
+		registry:  reg,
+		workflow:  workflow,
+		config:    cfg,
+		session:   session,
+		skills:    formatSkillsForPrompt(skillSlice),
+		skillList: skillSlice,
 	}
+}
+
+// SkillByName returns the skill with the given name, or nil if not found.
+func (l *Loop) SkillByName(name string) *Skill {
+	for i := range l.skillList {
+		if l.skillList[i].Name == name {
+			return &l.skillList[i]
+		}
+	}
+	return nil
 }
 
 func applyConfigDefaults(cfg Config) Config {
