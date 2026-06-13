@@ -1,14 +1,11 @@
 package cmd
 
 import (
-	"bufio"
-	"context"
 	"fmt"
+	"github.com/spf13/cobra"
 	"io/fs"
 	"os"
 	"path/filepath"
-
-	"github.com/spf13/cobra"
 
 	"github.com/kdeps/kdeps/v2/pkg/agent"
 	"github.com/kdeps/kdeps/v2/pkg/domain"
@@ -32,6 +29,8 @@ type serveFlags struct {
 	BaseURL      string
 	SystemPrompt string
 	Debug        bool
+	SkillPaths   []string
+	Resume       string
 }
 
 func newServeCmd() *cobra.Command {
@@ -39,8 +38,8 @@ func newServeCmd() *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:   "serve <path>",
-		Short: "Start agent mode (interactive LLM loop with workflows as tools)",
-		Long: `Start agent mode -- an interactive LLM loop where whole workflows and
+		Short: "Start agent loop mode (interactive LLM loop with workflows as tools)",
+		Long: `Start agent loop mode -- an interactive LLM loop where whole workflows and
 components are registered as callable tools.
 
 Pass a directory to expose every workflow and agency found inside as
@@ -69,10 +68,13 @@ Examples:
   # Provide a system prompt
   kdeps serve ./agents/ --system "You are a helpful assistant."
 
+  # Load a skill file
+  kdeps serve ./agents/ --skill ./my-skill.md
+
 Environment variables (override defaults):
   KDEPS_AGENT_MODEL      LLM model name (default: llama3.2)
   KDEPS_AGENT_BACKEND    LLM backend (default: file)
-  KDEPS_AGENT_BASE_URL   LLM API base URL — leave empty for file backend`,
+  KDEPS_AGENT_BASE_URL   LLM API base URL -- leave empty for file backend`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			debugMode, _ := cmd.Flags().GetBool("debug")
@@ -87,6 +89,14 @@ Environment variables (override defaults):
 	cmd.Flags().StringVar(
 		&flags.SystemPrompt, "system", "",
 		"System prompt injected at the start of every conversation",
+	)
+	cmd.Flags().StringArrayVar(
+		&flags.SkillPaths, "skill", nil,
+		"Path to a skill file or directory (can be specified multiple times)",
+	)
+	cmd.Flags().StringVar(
+		&flags.Resume, "resume", "",
+		"Session ID to resume a previous conversation",
 	)
 
 	return cmd
@@ -110,15 +120,45 @@ func runServeCmd(path string, flags *serveFlags) error {
 		return err
 	}
 
+	skillPaths := resolveSkillPaths(flags.SkillPaths)
+
 	cfg := agent.Config{
 		Model:        flags.Model,
 		Backend:      flags.Backend,
 		BaseURL:      flags.BaseURL,
 		SystemPrompt: flags.SystemPrompt,
+		SkillPaths:   skillPaths,
 	}
 	eng := setupEngine(nil, flags.Debug)
+
+	// Load previous session if --resume is set
+	if flags.Resume != "" {
+		store := agent.NewSessionStore("")
+		saved, loadErr := store.Load(flags.Resume)
+		if loadErr != nil {
+			return fmt.Errorf("serve: failed to load session %q: %w", flags.Resume, loadErr)
+		}
+		cfg.ResumeSession = saved
+	}
+
 	loop := agent.New(eng, hostWorkflow, registry, cfg)
-	return runREPL(loop)
+	repl := agent.NewREPL(loop)
+	return repl.Run()
+}
+
+// resolveSkillPaths resolves relative skill paths to absolute and
+// includes any directories passed as flags that contain SKILL.md files.
+func resolveSkillPaths(paths []string) []string {
+	if len(paths) == 0 {
+		return nil
+	}
+	resolved := make([]string, 0, len(paths))
+	for _, p := range paths {
+		if abs, err := filepath.Abs(p); err == nil {
+			resolved = append(resolved, abs)
+		}
+	}
+	return resolved
 }
 
 // loadAndRegisterAll loads workflow/agency files from path and registers tools.
@@ -218,29 +258,6 @@ func agencyToolNameAndDesc(agency *domain.Agency) (string, string) {
 func agencyToolDef(agency *domain.Agency, entryWorkflow *domain.Workflow, eng *executor.Engine) *tools.Tool {
 	name, desc := agencyToolNameAndDesc(agency)
 	return tools.AgentToolDefWithName(name, desc, entryWorkflow, eng)
-}
-
-func runREPL(loop *agent.Loop) error {
-	ctx := context.Background()
-	scanner := bufio.NewScanner(os.Stdin)
-	fmt.Fprintln(os.Stdout, "kdeps agent mode — type your message and press Enter. Ctrl+D to exit.")
-	for {
-		fmt.Fprint(os.Stdout, "> ")
-		if !scanner.Scan() {
-			break
-		}
-		input := scanner.Text()
-		if input == "" {
-			continue
-		}
-		resp, err := loop.Run(ctx, input)
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "error: %v\n", err)
-			continue
-		}
-		fmt.Fprintln(os.Stdout, resp)
-	}
-	return scanner.Err()
 }
 
 // newMinimalHostWorkflow returns a bare workflow used as the agent loop host
