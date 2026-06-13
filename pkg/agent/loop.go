@@ -227,3 +227,21 @@ func (l *Loop) Session() *Session {
 func (l *Loop) Skills() string {
 	return l.skills
 }
+
+// ReloadSkills reloads skills from the given paths and updates the system prompt.
+// This is called when /settings saves new skill selections.
+func (l *Loop) ReloadSkills(skillPaths []string) {
+	slice := loadSkillSlice(resolveAbsPaths(skillPaths))
+	l.skillList = slice
+	l.skills = formatSkillsForPrompt(slice)
+	l.config.SkillPaths = skillPaths
+}
+
+func resolveAbsPaths(paths []string) []string {
+	if len(paths) == 0 {
+		return nil
+	}
+	out := make([]string, 0, len(paths))
+	out = append(out, paths...) // already absolute from selection
+	return out
+}

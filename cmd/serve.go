@@ -36,6 +36,9 @@ type agentLoopFlags struct {
 // runAgentLoopCmd starts the interactive agent loop. When path is empty the
 // loop starts with no workflow tools (model-only mode). When path is provided
 // every workflow and agency found at that path is registered as a tool.
+//
+// Discovered items from ~/.kdeps are registered according to persisted settings
+// (default: all enabled). Use /settings inside the REPL to change selections.
 func runAgentLoopCmd(path string, flags *agentLoopFlags) error {
 	registry := tools.NewRegistry()
 	tools.RegisterFFormatTools(registry)
@@ -62,13 +65,10 @@ func runAgentLoopCmd(path string, flags *agentLoopFlags) error {
 		hostWorkflow = newMinimalHostWorkflow()
 	}
 
-	// Show TUI selector when running in an interactive terminal.
-	// A TUI failure is non-fatal — we fall through to the REPL without selections.
-	if isTerminal(os.Stdout) && isTerminal(os.Stdin) {
-		if sel, tuiErr := tui.Run(); tuiErr == nil {
-			applyTUISelection(sel, registry, flags, flags.Debug)
-		}
-	}
+	// Load persisted settings and register discovered items accordingly.
+	// Default (SelectAll: true) registers everything found in ~/.kdeps.
+	settings, _ := tui.LoadSettings()
+	applySettingsToRegistry(settings, registry, flags, flags.Debug)
 
 	skillPaths := resolveSkillPaths(flags.SkillPaths)
 
@@ -92,6 +92,12 @@ func runAgentLoopCmd(path string, flags *agentLoopFlags) error {
 
 	loop := agent.New(eng, hostWorkflow, registry, cfg)
 	repl := agent.NewREPL(loop)
+
+	// Wire /settings TUI when running interactively.
+	if isTerminal(os.Stdout) && isTerminal(os.Stdin) {
+		repl.SetTUIRunner(buildTUIRunner(registry, flags))
+	}
+
 	return repl.Run()
 }
 
@@ -258,8 +264,68 @@ func isTerminal(f *os.File) bool {
 	return (info.Mode() & os.ModeCharDevice) != 0
 }
 
-// applyTUISelection registers tools and skill paths from the TUI selection.
-func applyTUISelection(sel tui.Selection, registry *tools.Registry, flags *agentLoopFlags, debug bool) {
+// buildTUIRunner returns an agent.TUIRunner that opens the settings TUI,
+// saves the result, and reports what changed.
+func buildTUIRunner(registry *tools.Registry, flags *agentLoopFlags) agent.TUIRunner {
+	return func() ([]string, bool, error) {
+		prevSel := tui.SelectionFromSettings(func() tui.Settings {
+			s, _ := tui.LoadSettings()
+			return s
+		}())
+
+		sel, _, tuiErr := tui.Run()
+		if tuiErr != nil {
+			return nil, false, tuiErr
+		}
+
+		skillPaths := make([]string, 0, len(sel.Skills))
+		for _, it := range sel.Skills {
+			skillPaths = append(skillPaths, it.Path)
+		}
+
+		// Detect if tool selections changed (requires restart to take effect).
+		toolsChanged := !selectionsEqual(prevSel, sel)
+
+		// Register newly selected tools immediately (best-effort; duplicates are safe).
+		for _, it := range sel.Workflows {
+			_, _ = registerServeTools(it.Path, registry, flags.Debug)
+		}
+		for _, it := range sel.Agencies {
+			_, _ = registerServeTools(it.Path, registry, flags.Debug)
+		}
+		for _, it := range sel.Components {
+			_, _ = registerServeTools(it.Path, registry, flags.Debug)
+		}
+
+		return skillPaths, toolsChanged, nil
+	}
+}
+
+// selectionsEqual returns true when the workflow/agency/component sets are identical.
+func selectionsEqual(a, b tui.Selection) bool {
+	return namesEqual(a.Workflows, b.Workflows) &&
+		namesEqual(a.Agencies, b.Agencies) &&
+		namesEqual(a.Components, b.Components)
+}
+
+func namesEqual(a, b []tui.Item) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	for i := range a {
+		if a[i].Name != b[i].Name {
+			return false
+		}
+	}
+	return true
+}
+
+// applySettingsToRegistry discovers items from ~/.kdeps and registers those
+// permitted by settings. When SelectAll is true (the default), everything is
+// registered. Otherwise only items whose names appear in the enabled lists are
+// registered.
+func applySettingsToRegistry(settings tui.Settings, registry *tools.Registry, flags *agentLoopFlags, debug bool) {
+	sel := tui.SelectionFromSettings(settings)
 	for _, it := range sel.Workflows {
 		if _, regErr := registerServeTools(it.Path, registry, debug); regErr != nil {
 			continue

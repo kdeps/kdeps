@@ -90,6 +90,77 @@ func TestLoadSkillSlice_WithSkill(t *testing.T) {
 	assert.Equal(t, "does things", slc[0].Description)
 }
 
+func TestReloadSkills(t *testing.T) {
+	loop := makeTestLoop(nil)
+	assert.Empty(t, loop.skillList)
+	assert.Empty(t, loop.Skills())
+
+	dir := t.TempDir()
+	content := "---\nname: new-skill\ndescription: test\n---\n\nDo things."
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "SKILL.md"), []byte(content), 0o644))
+
+	loop.ReloadSkills([]string{dir})
+	require.Len(t, loop.skillList, 1)
+	assert.Equal(t, "new-skill", loop.skillList[0].Name)
+	assert.Contains(t, loop.Skills(), "new-skill")
+}
+
+func TestSetTUIRunner(t *testing.T) {
+	loop := makeTestLoop(nil)
+	repl := NewREPL(loop)
+	defer repl.cancel()
+
+	called := false
+	repl.SetTUIRunner(func() ([]string, bool, error) {
+		called = true
+		return nil, false, nil
+	})
+
+	// cmdSettings with runner set should invoke it (no panic)
+	err := repl.cmdSettings()
+	assert.NoError(t, err)
+	assert.True(t, called)
+}
+
+func TestSetOnSettingsChange(t *testing.T) {
+	loop := makeTestLoop(nil)
+	repl := NewREPL(loop)
+	defer repl.cancel()
+
+	var gotPaths []string
+	var gotToolsChanged bool
+	repl.SetOnSettingsChange(func(paths []string, changed bool) {
+		gotPaths = paths
+		gotToolsChanged = changed
+	})
+	repl.SetTUIRunner(func() ([]string, bool, error) {
+		return []string{"/some/path"}, true, nil
+	})
+
+	require.NoError(t, repl.cmdSettings())
+	assert.Equal(t, []string{"/some/path"}, gotPaths)
+	assert.True(t, gotToolsChanged)
+}
+
+func TestCmdSettings_NoRunner(t *testing.T) {
+	loop := makeTestLoop(nil)
+	repl := NewREPL(loop)
+	defer repl.cancel()
+
+	// No TUI runner — should print a message and return nil
+	err := repl.cmdSettings()
+	assert.NoError(t, err)
+}
+
+func TestDispatchCommand_Settings(t *testing.T) {
+	loop := makeTestLoop(nil)
+	repl := NewREPL(loop)
+	defer repl.cancel()
+
+	err := repl.dispatchCommand("/settings")
+	assert.NoError(t, err) // no runner set, prints message
+}
+
 func TestLoadSkillSlice_DedupByName(t *testing.T) {
 	dir1 := t.TempDir()
 	dir2 := t.TempDir()

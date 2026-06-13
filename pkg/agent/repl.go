@@ -34,13 +34,24 @@ const (
 	replLabelMod       = 2
 )
 
+// OnSettingsChange is called after /settings saves new selections.
+// skillPaths contains the SKILL.md paths for enabled skills; toolsChanged
+// indicates that workflow/agency/component selections changed (requires restart).
+type OnSettingsChange func(skillPaths []string, toolsChanged bool)
+
+// TUIRunner is a function that opens the settings TUI and returns new skill paths
+// and whether tool selections changed. Injected to avoid import cycles.
+type TUIRunner func() (skillPaths []string, toolsChanged bool, err error)
+
 // REPL drives an interactive read-eval-print loop for the agent.
 type REPL struct {
-	loop    *Loop
-	ctx     context.Context
-	cancel  context.CancelFunc
-	history []string
-	prompt  string
+	loop             *Loop
+	ctx              context.Context
+	cancel           context.CancelFunc
+	history          []string
+	prompt           string
+	onSettingsChange OnSettingsChange // optional callback for /settings
+	tuiRunner        TUIRunner        // optional injected TUI opener for /settings
 }
 
 // NewREPL creates a new REPL for the given agent loop.
@@ -53,6 +64,16 @@ func NewREPL(loop *Loop) *REPL {
 		history: make([]string, 0, replHistoryInitCap),
 		prompt:  "> ",
 	}
+}
+
+// SetOnSettingsChange registers the callback invoked after /settings saves.
+func (r *REPL) SetOnSettingsChange(fn OnSettingsChange) {
+	r.onSettingsChange = fn
+}
+
+// SetTUIRunner injects the function that opens the settings TUI.
+func (r *REPL) SetTUIRunner(fn TUIRunner) {
+	r.tuiRunner = fn
 }
 
 // Run starts the REPL. It blocks until the user exits or an error occurs.
@@ -133,6 +154,8 @@ func (r *REPL) dispatchCommand(cmd string) error {
 		return r.cmdCompact()
 	case "/history":
 		return r.cmdHistory()
+	case "/settings":
+		return r.cmdSettings()
 	case "/exit", "/quit":
 		r.cancel()
 		return nil
@@ -150,6 +173,7 @@ func (r *REPL) dispatchCommand(cmd string) error {
 func (r *REPL) cmdHelp() error {
 	fmt.Fprintln(os.Stdout, `Available commands:
   /help               Show this help message
+  /settings           Open the tool/skill selector TUI and save selections
   /clear              Clear the conversation history
   /model [name]       Show or set the LLM model
   /skills             List loaded skills
@@ -216,6 +240,35 @@ func (r *REPL) cmdHistory() error {
 			preview = preview[:replPreviewMax] + "..."
 		}
 		fmt.Fprintf(os.Stdout, "  [%d] %s: %s\n", i/replLabelMod, label, preview)
+	}
+	return nil
+}
+
+// cmdSettings opens the TUI selector, saves the result, and applies skill changes live.
+// Workflow/agency/component changes take effect on next start (tool re-registration
+// requires restart).
+func (r *REPL) cmdSettings() error {
+	if r.tuiRunner == nil {
+		fmt.Fprintln(os.Stdout, "Settings TUI not available in this environment.")
+		return nil
+	}
+
+	skillPaths, toolsChanged, err := r.tuiRunner()
+	if err != nil {
+		return fmt.Errorf("settings: %w", err)
+	}
+
+	// Apply skill changes immediately
+	r.loop.ReloadSkills(skillPaths)
+
+	if r.onSettingsChange != nil {
+		r.onSettingsChange(skillPaths, toolsChanged)
+	}
+
+	if toolsChanged {
+		fmt.Fprintln(os.Stdout, "Settings saved. Skill changes applied. Tool changes take effect on next start.")
+	} else {
+		fmt.Fprintln(os.Stdout, "Settings saved.")
 	}
 	return nil
 }
