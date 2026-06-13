@@ -381,14 +381,14 @@ func TestRunREPL_NormalFlow(t *testing.T) {
 	require.NoError(t, err)
 	stdinW.Close()
 
-	err = runREPL(loop)
+	err = agent.NewREPL(loop).Run()
 	require.NoError(t, err)
 
 	stdoutW.Close()
 	out, _ := io.ReadAll(stdoutR)
 	output := string(out)
 
-	assert.Contains(t, output, "kdeps agent mode")
+	assert.Contains(t, output, "Agent loop mode")
 	assert.Contains(t, output, "> ")
 	assert.Contains(t, output, "mock response")
 }
@@ -419,7 +419,7 @@ func TestRunREPL_EmptyInput(t *testing.T) {
 	require.NoError(t, err)
 	stdinW.Close()
 
-	err = runREPL(loop)
+	err = agent.NewREPL(loop).Run()
 	require.NoError(t, err)
 
 	stdoutW.Close()
@@ -427,7 +427,7 @@ func TestRunREPL_EmptyInput(t *testing.T) {
 	output := string(out)
 
 	// The empty line should be skipped -- the response for "valid input" appears.
-	assert.Contains(t, output, "kdeps agent mode")
+	assert.Contains(t, output, "Agent loop mode")
 	assert.Contains(t, output, "should-not-reach")
 }
 
@@ -462,7 +462,7 @@ func TestRunREPL_ErrorFromRun(t *testing.T) {
 	require.NoError(t, err)
 	stdinW.Close()
 
-	err = runREPL(loop)
+	err = agent.NewREPL(loop).Run()
 	require.NoError(t, err)
 
 	stdoutW.Close()
@@ -470,7 +470,7 @@ func TestRunREPL_ErrorFromRun(t *testing.T) {
 	out, _ := io.ReadAll(stdoutR)
 	errOut, _ := io.ReadAll(stderrR)
 
-	assert.Contains(t, string(out), "kdeps agent mode")
+	assert.Contains(t, string(out), "Agent loop mode")
 	assert.Contains(t, string(errOut), "error: agent loop: something went wrong")
 }
 
@@ -498,14 +498,14 @@ func TestRunREPL_EOF(t *testing.T) {
 	// Close write end immediately -- no input at all.
 	stdinW.Close()
 
-	err = runREPL(loop)
+	err = agent.NewREPL(loop).Run()
 	require.NoError(t, err)
 
 	stdoutW.Close()
 	out, _ := io.ReadAll(stdoutR)
 	output := string(out)
 
-	assert.Contains(t, output, "kdeps agent mode")
+	assert.Contains(t, output, "Agent loop mode")
 	// Only the welcome message and one prompt should appear.
 	assert.Contains(t, output, "> ")
 }
@@ -537,7 +537,7 @@ func TestRunREPL_ScannerError(t *testing.T) {
 	// Close the read end so scanner.Scan() fails with a read error.
 	stdinR.Close()
 
-	err = runREPL(loop)
+	err = agent.NewREPL(loop).Run()
 	require.Error(t, err)
 
 	// Consume stdout (welcome message) so the pipe doesn't block cleanup.
