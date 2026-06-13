@@ -104,6 +104,8 @@ export default defineConfig({
             { text: 'Python', link: '/resources/python' },
             { text: 'Exec (Shell)', link: '/resources/exec' },
             { text: 'File', link: '/resources/file' },
+            { text: 'Git', link: '/resources/git' },
+            { text: 'Code Intelligence', link: '/resources/codeintelligence' },
             { text: 'SQL', link: '/resources/sql' },
             { text: 'Email', link: '/resources/email' },
             { text: 'Scraper', link: '/resources/scraper' },

@@ -8,7 +8,7 @@ Every kdeps term defined in one place. First mention of any term in other docs p
 A unique string identifier for a [resource](#resource) within a workflow. Used as the target for `requires` dependencies. Must be unique across all resources in the workflow. In [agent mode](#agent-mode), resources are not exposed as tools directly -- the whole workflow is the tool, named after `metadata.name`.
 
 ### agent
-An autonomous LLM-driven pipeline defined by `kind: Agent` in a workflow. Agents have tools, memory, and multi-step reasoning. Run with `kdeps serve`. See [Agent Mode](/modes/agent-mode).
+An autonomous LLM-driven pipeline defined by `kind: Agent` in a workflow. Agents have tools, memory, and multi-step reasoning. Run with `kdeps serve`. See [Agent Mode](/modes/agent-loop-mode).
 
 ### agency
 A pattern where one agent calls another agent as a sub-agent. The caller delegates a task, the callee runs autonomously, and the result is returned. Defined via the `agent:` action type. See [Agencies](/concepts/agency).
@@ -38,6 +38,9 @@ A reusable, packaged workflow published to the kdeps registry. Components encaps
 ### componentTools
 Tools provided by a [component](#component) that are exposed to the calling agent or workflow. When an agent calls a component, the component's tools become available for the LLM to invoke.
 
+### codeIntelligence
+A resource action type for code navigation and intelligence. Supports symbol search, definition lookup, reference finding, document symbols, hover info, and diagnostics via ripgrep and Go vet. See [Code Intelligence](/resources/codeintelligence).
+
 ## E
 
 ### embedding
@@ -65,6 +68,9 @@ A resource action type for filesystem operations. Supports read, write, patch, l
 
 ### get
 The primary data access function. Retrieves values from query params, headers, request body, session, memory, environment variables, or resource outputs. Uses auto-detection when no source hint is given. See [Expression Functions](/reference/expression-functions-reference).
+
+### git
+A resource action type for version control operations. Supports status, diff, log, commit, branch, push, pull, and other git operations. See [Git](/resources/git).
 
 ## H
 

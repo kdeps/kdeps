@@ -10,7 +10,7 @@ Yes. kdeps is open source under the Apache 2.0 license. The CLI, engine, and all
 
 [Workflow mode](/modes/workflow-mode) (`kdeps run`) runs resources in a deterministic DAG order defined by [`requires`](/reference/glossary#requires) dependencies. You control exactly what runs and when.
 
-[Agent mode](/modes/agent-mode) (`kdeps serve`) registers whole workflows and components as tools and lets an LLM decide which to invoke in response to user prompts. Workflow tools execute as a complete pipeline so all `requires:` dependencies resolve. Component tools run a single reusable component in isolation. Point at a single file or a folder -- folder mode exposes every workflow and agency found recursively, plus all their components.
+[Agent mode](/modes/agent-loop-mode) (`kdeps serve`) registers whole workflows and components as tools and lets an LLM decide which to invoke in response to user prompts. Workflow tools execute as a complete pipeline so all `requires:` dependencies resolve. Component tools run a single reusable component in isolation. Point at a single file or a folder -- folder mode exposes every workflow and agency found recursively, plus all their components.
 
 Use workflow mode when you know the pipeline upfront. Use agent mode when you want an interactive, conversational interface.
 
@@ -32,7 +32,7 @@ Set the backend, base URL, and model via flags or environment variables.
 
 ## Can I run kdeps without an LLM?
 
-Yes. Resources like `httpClient`, `sql`, `python`, `exec`, `email`, `scraper`, `browser`, `file`, and `apiResponse` don't require an LLM. You can build pure data pipelines with no AI at all.
+Yes. Resources like `httpClient`, `sql`, `python`, `exec`, `email`, `scraper`, `browser`, `file`, `git`, `codeIntelligence`, and `apiResponse` don't require an LLM. You can build pure data pipelines with no AI at all.
 
 ## How is this different from writing a Python script?
 

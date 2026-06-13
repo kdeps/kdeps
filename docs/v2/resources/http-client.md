@@ -4,7 +4,7 @@ The `httpClient:` resource makes an outbound HTTP request and stores the parsed 
 
 ## Where it runs
 
-Both [workflow mode](/modes/workflow-mode) and [agent mode](/modes/agent-mode). In workflow mode it executes as a DAG step. In agent mode, the workflow containing this resource runs as a single callable tool.
+Both [workflow mode](/modes/workflow-mode) and [agent mode](/modes/agent-loop-mode). In workflow mode it executes as a DAG step. In agent mode, the workflow containing this resource runs as a single callable tool.
 
 ## Global Named Connections
 

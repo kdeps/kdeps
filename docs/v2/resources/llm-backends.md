@@ -36,7 +36,7 @@ a `.llamafile`, or a bare filename looked up in `~/.kdeps/models/`.
 
 ## Where it runs
 
-Backend configuration applies to both [workflow mode](/modes/workflow-mode) and [agent mode](/modes/agent-mode). All `chat:` resources in both modes resolve their backend from `~/.kdeps/config.yaml`.
+Backend configuration applies to both [workflow mode](/modes/workflow-mode) and [agent mode](/modes/agent-loop-mode). All `chat:` resources in both modes resolve their backend from `~/.kdeps/config.yaml`.
 
 ## Model configuration
 

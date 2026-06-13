@@ -4,7 +4,7 @@ A resource is a single step in a workflow. It has an ID, optional dependencies, 
 
 ## Where it runs
 
-All resource types work in both [workflow mode](/modes/workflow-mode) and [agent mode](/modes/agent-mode). In workflow mode, resources execute as DAG steps ordered by `requires:`. In agent mode, whole workflows are registered as callable tools -- the LLM invokes a workflow as a unit, and all resource dependencies inside it resolve correctly.
+All resource types work in both [workflow mode](/modes/workflow-mode) and [agent mode](/modes/agent-loop-mode). In workflow mode, resources execute as DAG steps ordered by `requires:`. In agent mode, whole workflows are registered as callable tools -- the LLM invokes a workflow as a unit, and all resource dependencies inside it resolve correctly.
 
 ## Resource Structure
 
@@ -53,6 +53,8 @@ email: { ... }       # send SMTP email or read/search/modify IMAP messages
 telephony: { ... }   # in-call action (say, ask, menu, ...); output is TwiML
 botReply: { ... }    # reply to the bot platform that delivered the message
 file: { ... }       # filesystem operations: read, write, patch, list, delete
+git: { ... }        # version control: status, diff, log, commit, push, pull
+codeIntelligence: { ... }  # code navigation: search, definitions, diagnostics
 agent: { ... }       # run another agent's full workflow; output is its apiResponse
 apiResponse: { ... } # build the HTTP response returned to the caller
 component:           # call an installable registry component
@@ -85,6 +87,8 @@ These executors are compiled into the `kdeps` binary and require no installation
 | `botReply` | Bot platform reply | Send a text reply to the platform that delivered the current message |
 | `agent` | Inter-agent delegation | Call another agent in an [agency](/reference/glossary#agency) |
 | `file` | Filesystem operations | Read, write, patch, list, delete, copy, move files and directories |
+| `git` | Version control | Status, diff, log, commit, branch, push, pull operations |
+| `codeIntelligence` | Code navigation | Symbol search, definitions, references, diagnostics via ripgrep |
 | `apiResponse` | API response | Return data to the HTTP caller |
 
 ### Registry components (installable via `kdeps registry install`)

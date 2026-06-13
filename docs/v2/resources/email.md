@@ -4,7 +4,7 @@ The `email:` resource sends outbound email via SMTP and reads or searches inboun
 
 ## Where it runs
 
-Both [workflow mode](/modes/workflow-mode) and [agent mode](/modes/agent-mode).
+Both [workflow mode](/modes/workflow-mode) and [agent mode](/modes/agent-loop-mode).
 
 ## Actions
 

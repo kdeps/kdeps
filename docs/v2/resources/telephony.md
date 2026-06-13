@@ -4,7 +4,7 @@ The `telephony:` resource models in-call actions (answer, say, ask, menu, dial, 
 
 ## Where it runs
 
-Both [workflow mode](/modes/workflow-mode) and [agent mode](/modes/agent-mode). In workflow mode it executes as a DAG step. In agent mode, the workflow containing this resource runs as a single callable tool.
+Both [workflow mode](/modes/workflow-mode) and [agent mode](/modes/agent-loop-mode). In workflow mode it executes as a DAG step. In agent mode, the workflow containing this resource runs as a single callable tool.
 
 ## How it works
 
