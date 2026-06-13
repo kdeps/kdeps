@@ -9,7 +9,7 @@ direction: down
 
 A: incoming request {shape: oval}
 B: "apiServer\nHTTP server: TLS, auth, rate limit, routes"
-C: "resources/\nDAG pipeline: chat, sql, http, python, exec"
+C: "resources/\nDAG pipeline: chat, sql, http, python, exec, file"
 D: "apiResponse\nterminal resource; builds the HTTP response"
 E: HTTP response {shape: oval}
 
@@ -158,6 +158,12 @@ settings:
     env:
       API_KEY: "value"           # environment variables available to all resources
 ```
+
+`agentSettings.env` applies everywhere the workflow runs: local `kdeps run`,
+Docker images (as `ENV` directives), ISO services, and Kubernetes manifests.
+On local runs an already-set process variable always wins, so you can override
+per invocation: `API_KEY=other kdeps run workflow.yaml`. This is also how an
+example pins a backend, e.g. `KDEPS_DEFAULT_BACKEND: ollama`.
 
 Model selection goes in `chat.model` inside each resource file. Backend and API keys go in `~/.kdeps/config.yaml`. See [LLM Backends](../resources/llm-backends) for routing.
 

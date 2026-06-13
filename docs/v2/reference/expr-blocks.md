@@ -2,7 +2,7 @@
 
 `before:` and `after:` are expression lists that run around a resource's main action -- `before:` prepares data before the action runs, `after:` processes output after it completes. Think of them like setup/teardown blocks around a function call.
 
-- `before:` runs before the main action (chat, httpClient, sql, etc.)
+- `before:` runs before the main action (chat, httpClient, sql, file, etc.)
 - `after:` runs after the main action
 
 Both accept bare scalar expressions. Each item executes in sequence and can call `set()` to store values, perform calculations, or read from memory and session.
@@ -107,7 +107,7 @@ direction: down
 
 A: Request {shape: oval}
 B: "before:\nexpressions run in order\nvalues stored via set()"
-C: "Main Action\nchat, httpClient, sql, python, exec, apiResponse"
+C: "Main Action\nchat, httpClient, sql, python, exec, file, apiResponse"
 D: "after:\nexpressions run in order\noutput accessible via get()"
 E: response {shape: oval}
 
