@@ -51,7 +51,7 @@ func TestInlineResourceTypeNames_MatchesRegistry(t *testing.T) {
 	want := []string{
 		"chat", "httpClient", "sql", "python", "exec", "agent", "component",
 		"scraper", "embedding", "searchLocal", "searchWeb",
-		"telephony", "browser", "botReply", "email", "file", "apiResponse",
+		"telephony", "browser", "botReply", "email", "file", "git", "codeIntelligence", "apiResponse",
 	}
 	got := InlineResourceTypeNames()
 	if len(got) != len(want) {

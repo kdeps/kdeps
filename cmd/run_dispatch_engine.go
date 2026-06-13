@@ -33,7 +33,9 @@ import (
 	executorEmail "github.com/kdeps/kdeps/v2/pkg/executor/email"
 	executorEmbedding "github.com/kdeps/kdeps/v2/pkg/executor/embedding"
 	executorExec "github.com/kdeps/kdeps/v2/pkg/executor/exec"
+	executorCodeIntelligence "github.com/kdeps/kdeps/v2/pkg/executor/codeintelligence"
 	executorFile "github.com/kdeps/kdeps/v2/pkg/executor/file"
+	executorGit "github.com/kdeps/kdeps/v2/pkg/executor/git"
 	executorHTTP "github.com/kdeps/kdeps/v2/pkg/executor/http"
 	executorLLM "github.com/kdeps/kdeps/v2/pkg/executor/llm"
 	executorPython "github.com/kdeps/kdeps/v2/pkg/executor/python"
@@ -100,6 +102,8 @@ func newExecutorRegistry(logger *slog.Logger) *executor.Registry {
 	registry.SetBotReplyExecutor(executorBotReply.NewAdapter())
 	registry.SetEmailExecutor(executorEmail.NewAdapter(logger))
 	registry.SetFileExecutor(executorFile.NewAdapter())
+	registry.SetGitExecutor(executorGit.NewAdapter())
+	registry.SetCodeIntelligenceExecutor(executorCodeIntelligence.NewAdapter())
 	registry.SetLLMExecutor(executorLLM.NewAdapter(getOllamaURL()))
 	return registry
 }

@@ -49,8 +49,10 @@ func primaryResourceDispatch() []primaryDispatchEntry {
 		"browser":     (*Engine).executeBrowser,
 		"botReply":    (*Engine).executeBotReply,
 		"email":       (*Engine).executeEmail,
-		"file":        (*Engine).executeFile,
-		"apiResponse": (*Engine).executeAPIResponse,
+		"file":              (*Engine).executeFile,
+		"git":               (*Engine).executeGit,
+		"codeIntelligence":  (*Engine).executeCodeIntelligence,
+		"apiResponse":       (*Engine).executeAPIResponse,
 	}
 
 	return buildPrimaryDispatch(domain.PrimaryResourceTypes(), executors)

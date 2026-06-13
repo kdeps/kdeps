@@ -33,4 +33,6 @@ const (
 	ExecutorBotReply    = "botReply"
 	ExecutorEmail       = "email"
 	ExecutorFile        = "file"
+	ExecutorGit         = "git"
+	ExecutorCodeIntel   = "codeIntelligence"
 )
