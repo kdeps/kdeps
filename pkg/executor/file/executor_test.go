@@ -1411,7 +1411,6 @@ func TestApplyPatch_NoNewline(t *testing.T) {
 	}
 }
 
-
 func TestApplyPatch_HeaderParseError(t *testing.T) {
 	_, err := applyPatch("old", "@@ -invalid @@")
 	if err == nil {
@@ -1457,4 +1456,3 @@ func TestReadDirRecursive_MalformedPattern(t *testing.T) {
 		t.Fatal("expected malformed pattern error")
 	}
 }
-

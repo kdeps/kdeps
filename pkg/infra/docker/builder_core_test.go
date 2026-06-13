@@ -2582,7 +2582,6 @@ func TestNewBuilderWithOS_ShortMode_InvalidOS(t *testing.T) {
 	assert.Contains(t, err.Error(), "invalid base OS")
 }
 
-
 func TestBuild_GenerateDockerfileError(t *testing.T) {
 	b := &docker.Builder{BaseOS: "nonexistent-os-12345"}
 	_, err := b.Build(&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test", Version: "1"}}, "", false)

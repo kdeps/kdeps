@@ -301,7 +301,6 @@ func TestModelService_ServeModel_File_NotFound(t *testing.T) {
 	assert.Error(t, err)
 }
 
-
 func TestServeModel_UnsupportedBackend(t *testing.T) {
 	svc := llm.NewModelService(nil)
 	err := svc.ServeModel("unknown-backend", "model", "127.0.0.1", 0)
