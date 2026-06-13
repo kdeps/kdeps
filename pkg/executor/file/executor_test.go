@@ -173,7 +173,7 @@ func TestWrite_CreatesParentDir(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if _, err := os.Stat(path); os.IsNotExist(err) {
+	if _, statErr := os.Stat(path); os.IsNotExist(statErr) {
 		t.Fatal("file was not created")
 	}
 }
@@ -200,7 +200,7 @@ func TestWrite_DryRun(t *testing.T) {
 	if m["written"] != false {
 		t.Fatalf("expected written false")
 	}
-	if _, err := os.Stat(path); !os.IsNotExist(err) {
+	if _, statErr := os.Stat(path); !os.IsNotExist(statErr) {
 		t.Fatal("file should not exist after dry run")
 	}
 }
@@ -246,9 +246,9 @@ func TestWrite_AppendNewline(t *testing.T) {
 
 	e := NewExecutor()
 	_, err := e.Execute(nil, &domain.FileResourceConfig{
-		Operation:    domain.FileOpWrite,
-		Path:         path,
-		Content:      "no newline",
+		Operation:     domain.FileOpWrite,
+		Path:          path,
+		Content:       "no newline",
 		AppendNewline: true,
 	})
 	if err != nil {
@@ -392,7 +392,7 @@ func TestDelete_Success(t *testing.T) {
 	if m["deleted"] != true {
 		t.Fatal("expected deleted true")
 	}
-	if _, err := os.Stat(path); !os.IsNotExist(err) {
+	if _, statErr := os.Stat(path); !os.IsNotExist(statErr) {
 		t.Fatal("file should not exist after delete")
 	}
 }
@@ -432,7 +432,7 @@ func TestDelete_DryRun(t *testing.T) {
 	if m["dryRun"] != true {
 		t.Fatal("expected dryRun true")
 	}
-	if _, err := os.Stat(path); os.IsNotExist(err) {
+	if _, statErr := os.Stat(path); os.IsNotExist(statErr) {
 		t.Fatal("file should still exist after dry run")
 	}
 }
@@ -525,7 +525,7 @@ func TestMkdir_Success(t *testing.T) {
 	if m["created"] != true {
 		t.Fatal("expected created true")
 	}
-	if _, err := os.Stat(path); os.IsNotExist(err) {
+	if _, statErr := os.Stat(path); os.IsNotExist(statErr) {
 		t.Fatal("directory was not created")
 	}
 }
@@ -548,7 +548,7 @@ func TestMkdir_DryRun(t *testing.T) {
 	if m["dryRun"] != true {
 		t.Fatal("expected dryRun true")
 	}
-	if _, err := os.Stat(path); !os.IsNotExist(err) {
+	if _, statErr := os.Stat(path); !os.IsNotExist(statErr) {
 		t.Fatal("directory should not exist after dry run")
 	}
 }
@@ -670,10 +670,10 @@ func TestMove_Success(t *testing.T) {
 		t.Fatal("expected moved true")
 	}
 
-	if _, err := os.Stat(src); !os.IsNotExist(err) {
+	if _, statErr := os.Stat(src); !os.IsNotExist(statErr) {
 		t.Fatal("source should not exist after move")
 	}
-	if _, err := os.Stat(dst); os.IsNotExist(err) {
+	if _, statErr := os.Stat(dst); os.IsNotExist(statErr) {
 		t.Fatal("destination should exist after move")
 	}
 }
@@ -760,9 +760,9 @@ func TestAppend_AppendNewline(t *testing.T) {
 
 	e := NewExecutor()
 	_, err := e.Execute(nil, &domain.FileResourceConfig{
-		Operation:    domain.FileOpAppend,
-		Path:         path,
-		Content:      "more",
+		Operation:     domain.FileOpAppend,
+		Path:          path,
+		Content:       "more",
 		AppendNewline: true,
 	})
 	if err != nil {
@@ -925,6 +925,469 @@ func TestDefaultDirMode(t *testing.T) {
 	if mode := defaultDirMode("0700"); mode != 0700 {
 		t.Fatalf("expected 0700, got %v", mode)
 	}
+	if mode := defaultDirMode("invalid"); mode != 0755 {
+		t.Fatalf("expected 0755 for invalid, got %v", mode)
+	}
+}
+
+func TestNewAdapter(t *testing.T) {
+	a := NewAdapter()
+	if a == nil {
+		t.Fatal("expected non-nil adapter")
+	}
+}
+
+func TestWrite_ParentDirError(t *testing.T) {
+	// Cannot create parent dir under a file.
+	dir := t.TempDir()
+	path := filepath.Join(dir, "existing.txt")
+	if err := os.WriteFile(path, []byte("x"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	path = filepath.Join(path, "child", "out.txt")
+
+	e := NewExecutor()
+	_, err := e.Execute(nil, &domain.FileResourceConfig{
+		Operation: domain.FileOpWrite,
+		Path:      path,
+		Content:   "test",
+	})
+	if err == nil {
+		t.Fatal("expected error for parent under file")
+	}
+}
+
+func TestWrite_BackupError(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "writable.txt")
+	if err := os.WriteFile(path, []byte("original"), 0444); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Chmod(dir, 0500); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { os.Chmod(dir, 0755) })
+
+	e := NewExecutor()
+	_, err := e.Execute(nil, &domain.FileResourceConfig{
+		Operation: domain.FileOpWrite,
+		Path:      path,
+		Content:   "modified",
+		Backup:    true,
+	})
+	if err == nil {
+		t.Fatal("expected error for backup failure")
+	}
+	os.Chmod(dir, 0755)
+}
+
+func TestWrite_WriteFileError(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "readonly")
+	if err := os.MkdirAll(path, 0755); err != nil {
+		t.Fatal(err)
+	}
+
+	e := NewExecutor()
+	_, err := e.Execute(nil, &domain.FileResourceConfig{
+		Operation: domain.FileOpWrite,
+		Path:      path,
+		Content:   "test",
+	})
+	if err == nil {
+		t.Fatal("expected error writing to directory path")
+	}
+}
+
+func TestPatch_ReadError(t *testing.T) {
+	e := NewExecutor()
+	_, err := e.Execute(nil, &domain.FileResourceConfig{
+		Operation: domain.FileOpPatch,
+		Path:      "/nonexistent/file",
+		Patch:     "@@ -1 +1 @@\n-old\n+new\n",
+	})
+	if err == nil {
+		t.Fatal("expected error for nonexistent file")
+	}
+}
+
+func TestPatch_ApplyError(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "patch.txt")
+	if err := os.WriteFile(path, []byte("content"), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	e := NewExecutor()
+	_, err := e.Execute(nil, &domain.FileResourceConfig{
+		Operation: domain.FileOpPatch,
+		Path:      path,
+		Patch:     "@@ -999 +1 @@\n-old\n+new\n",
+	})
+	if err == nil {
+		t.Fatal("expected error for invalid hunk position")
+	}
+}
+
+func TestPatch_DryRun(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "dry_patch.txt")
+	if err := os.WriteFile(path, []byte("old"), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	e := NewExecutor()
+	res, err := e.Execute(nil, &domain.FileResourceConfig{
+		Operation: domain.FileOpPatch,
+		Path:      path,
+		Patch:     "@@ -1 +1 @@\n-old\n+new\n",
+		DryRun:    true,
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	m := res.(map[string]interface{})
+	if m["dryRun"] != true {
+		t.Fatal("expected dryRun true")
+	}
+	if m["patched"] != false {
+		t.Fatal("expected patched false")
+	}
+	data, _ := os.ReadFile(path)
+	if string(data) != "old" {
+		t.Fatalf("file should be unchanged, got %q", string(data))
+	}
+}
+
+func TestPatch_Backup(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "backup_patch.txt")
+	if err := os.WriteFile(path, []byte("old"), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	e := NewExecutor()
+	_, err := e.Execute(nil, &domain.FileResourceConfig{
+		Operation: domain.FileOpPatch,
+		Path:      path,
+		Patch:     "@@ -1 +1 @@\n-old\n+new\n",
+		Backup:    true,
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	data, _ := os.ReadFile(path)
+	if string(data) != "new" {
+		t.Fatalf("expected 'new', got %q", string(data))
+	}
+	if _, statErr := os.Stat(path + ".bak"); statErr != nil {
+		t.Fatal("backup file should exist")
+	}
+}
+
+func TestList_Recursive(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, "a.txt"), []byte("a"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	sub := filepath.Join(dir, "sub")
+	if err := os.MkdirAll(sub, 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(sub, "b.txt"), []byte("b"), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	e := NewExecutor()
+	res, err := e.Execute(nil, &domain.FileResourceConfig{
+		Operation: domain.FileOpList,
+		Path:      dir,
+		Recursive: true,
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	m := res.(map[string]interface{})
+	if m["count"].(int) < 2 {
+		t.Fatalf("expected at least 2 entries, got %d", m["count"])
+	}
+}
+
+func TestDelete_RemoveError(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "protected")
+	if err := os.WriteFile(path, []byte("x"), 0444); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Chmod(dir, 0500); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { os.Chmod(dir, 0755) })
+
+	e := NewExecutor()
+	_, err := e.Execute(nil, &domain.FileResourceConfig{
+		Operation: domain.FileOpDelete,
+		Path:      path,
+	})
+	if err == nil {
+		t.Fatal("expected error for protected directory")
+	}
+	os.Chmod(dir, 0755)
+}
+
+func TestMkdir_MkdirAllError(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "existing.txt")
+	if err := os.WriteFile(path, []byte("x"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	base := filepath.Join(path, "sub")
+
+	e := NewExecutor()
+	_, err := e.Execute(nil, &domain.FileResourceConfig{
+		Operation: domain.FileOpMkdir,
+		Path:      base,
+	})
+	if err == nil {
+		t.Fatal("expected error for mkdir under file")
+	}
+}
+
+func TestCopy_Dir(t *testing.T) {
+	dir := t.TempDir()
+	src := filepath.Join(dir, "srcdir")
+	if err := os.MkdirAll(src, 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(src, "f.txt"), []byte("x"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	dst := filepath.Join(dir, "dstdir")
+
+	e := NewExecutor()
+	res, err := e.Execute(nil, &domain.FileResourceConfig{
+		Operation: domain.FileOpCopy,
+		Source:    src,
+		Path:      dst,
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	m := res.(map[string]interface{})
+	if m["copied"] != true {
+		t.Fatal("expected copied true")
+	}
+	if _, statErr := os.Stat(filepath.Join(dst, "f.txt")); statErr != nil {
+		t.Fatal("copied file should exist")
+	}
+}
+
+func TestCopy_SourceStatError(t *testing.T) {
+	e := NewExecutor()
+	_, err := e.Execute(nil, &domain.FileResourceConfig{
+		Operation: domain.FileOpCopy,
+		Source:    "/nonexistent/source",
+		Path:      "/dest",
+	})
+	if err == nil {
+		t.Fatal("expected error for nonexistent source")
+	}
+}
+
+func TestCopy_FileError(t *testing.T) {
+	dir := t.TempDir()
+	src := filepath.Join(dir, "src.txt")
+	if err := os.WriteFile(src, []byte("content"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	dst := filepath.Join(dir, "sub", "dst.txt")
+
+	e := NewExecutor()
+	res, err := e.Execute(nil, &domain.FileResourceConfig{
+		Operation: domain.FileOpCopy,
+		Source:    src,
+		Path:      dst,
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	m := res.(map[string]interface{})
+	if m["copied"] != true {
+		t.Fatal("expected copied true")
+	}
+}
+
+func TestMove_MissingDest(t *testing.T) {
+	e := NewExecutor()
+	_, err := e.Execute(nil, &domain.FileResourceConfig{
+		Operation: domain.FileOpMove,
+		Source:    "/src",
+	})
+	if err == nil || !strings.Contains(err.Error(), "destination") {
+		t.Fatalf("expected dest required error, got: %v", err)
+	}
+}
+
+func TestMove_DryRun(t *testing.T) {
+	dir := t.TempDir()
+	src := filepath.Join(dir, "src.txt")
+	dst := filepath.Join(dir, "dst.txt")
+	if err := os.WriteFile(src, []byte("x"), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	e := NewExecutor()
+	res, err := e.Execute(nil, &domain.FileResourceConfig{
+		Operation: domain.FileOpMove,
+		Source:    src,
+		Path:      dst,
+		DryRun:    true,
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	m := res.(map[string]interface{})
+	if m["dryRun"] != true {
+		t.Fatal("expected dryRun true")
+	}
+	if _, statErr := os.Stat(src); statErr != nil {
+		t.Fatal("source should still exist after dry run")
+	}
+}
+
+func TestMove_RenameError(t *testing.T) {
+	dir := t.TempDir()
+	src := filepath.Join(dir, "src.txt")
+	dst := filepath.Join(dir, "nonexistent", "dst.txt")
+	if err := os.WriteFile(src, []byte("x"), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	e := NewExecutor()
+	_, err := e.Execute(nil, &domain.FileResourceConfig{
+		Operation: domain.FileOpMove,
+		Source:    src,
+		Path:      dst,
+	})
+	if err == nil {
+		t.Fatal("expected error for rename to nonexistent dir")
+	}
+}
+
+func TestAppend_OpenFileError(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "sub", "nonexistent", "file.txt")
+
+	e := NewExecutor()
+	_, err := e.Execute(nil, &domain.FileResourceConfig{
+		Operation: domain.FileOpAppend,
+		Path:      path,
+		Content:   "test",
+	})
+	if err == nil {
+		t.Fatal("expected error for invalid path")
+	}
+}
+
+func TestAppend_WriteStringError(t *testing.T) {
+	dir := t.TempDir()
+	// Open /dev/fdset or a read-only path.
+	path := filepath.Join(dir, "write_protected.txt")
+	if err := os.WriteFile(path, []byte("x"), 0444); err != nil {
+		t.Fatal(err)
+	}
+
+	e := NewExecutor()
+	_, err := e.Execute(nil, &domain.FileResourceConfig{
+		Operation: domain.FileOpAppend,
+		Path:      path,
+		Content:   "more",
+	})
+	if err == nil {
+		t.Fatal("expected error for appending to read-only file")
+	}
+}
+
+func TestCopyFile_OpenError(t *testing.T) {
+	err := copyFile("/nonexistent/src", "/dest")
+	if err == nil {
+		t.Fatal("expected error")
+	}
+}
+
+func TestCopyFile_CreateError(t *testing.T) {
+	dir := t.TempDir()
+	src := filepath.Join(dir, "src.txt")
+	if err := os.WriteFile(src, []byte("x"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	err := copyFile(src, filepath.Join(dir, "nonexistent", "dst.txt"))
+	if err != nil {
+		t.Fatal("expected parent dir auto-creation")
+	}
+}
+
+func TestReadDirRecursive(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, "a.txt"), []byte("a"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	sub := filepath.Join(dir, "sub")
+	if err := os.MkdirAll(sub, 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(sub, "b.txt"), []byte("b"), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	entries, err := readDirRecursive(dir, "")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(entries) < 2 {
+		t.Fatalf("expected at least 2 entries, got %d", len(entries))
+	}
+
+	entries, err = readDirRecursive(dir, "*.txt")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(entries) < 2 {
+		t.Fatalf("expected at least 2 entries with pattern, got %d", len(entries))
+	}
+}
+
+func TestList_EntryStatError(t *testing.T) {
+	dir := t.TempDir()
+	// Path is a single non-dir entry, triggers the file not dir branch.
+	path := filepath.Join(dir, "single.txt")
+	if err := os.WriteFile(path, []byte("x"), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	e := NewExecutor()
+	res, err := e.Execute(nil, &domain.FileResourceConfig{
+		Operation: domain.FileOpList,
+		Path:      path,
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	m := res.(map[string]interface{})
+	if m["count"].(int) != 1 {
+		t.Fatalf("expected 1 entry, got %d", m["count"])
+	}
+}
+
+func TestList_ListDirError(t *testing.T) {
+	e := NewExecutor()
+	_, err := e.Execute(nil, &domain.FileResourceConfig{
+		Operation: domain.FileOpList,
+		Path:      "/nonexistent/dir",
+	})
+	if err == nil {
+		t.Fatal("expected error for nonexistent dir")
+	}
 }
 
 func TestApplyPatch_NoPatch(t *testing.T) {
@@ -947,3 +1410,51 @@ func TestApplyPatch_NoNewline(t *testing.T) {
 		t.Fatalf("expected 'new', got %q", result)
 	}
 }
+
+
+func TestApplyPatch_HeaderParseError(t *testing.T) {
+	_, err := applyPatch("old", "@@ -invalid @@")
+	if err == nil {
+		t.Fatal("expected parse error")
+	}
+}
+
+func TestApplyPatch_NoValidHunks(t *testing.T) {
+	_, err := applyPatch("content", "no hunks here")
+	if err == nil || !strings.Contains(err.Error(), "no valid hunks") {
+		t.Fatalf("expected no valid hunks error, got: %v", err)
+	}
+}
+
+func TestApplyPatch_ContextOutOfRange(t *testing.T) {
+	_, err := applyPatch("", "@@ -1,1 +1,1 @@\n context\n")
+	if err == nil {
+		t.Fatal("expected context out of range error")
+	}
+}
+
+func TestApplyPatch_ContextMismatch(t *testing.T) {
+	_, err := applyPatch("different", "@@ -1,1 +1,1 @@\n expected\n")
+	if err == nil {
+		t.Fatal("expected context mismatch error")
+	}
+}
+
+func TestApplyPatch_RemovalOutOfRange(t *testing.T) {
+	_, err := applyPatch("only", "@@ -1,3 +0,0 @@\n-one\n-two\n-three\n")
+	if err == nil {
+		t.Fatal("expected removal out of range error")
+	}
+}
+
+func TestReadDirRecursive_MalformedPattern(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, "f.txt"), []byte("x"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	_, err := readDirRecursive(dir, "[")
+	if err == nil {
+		t.Fatal("expected malformed pattern error")
+	}
+}
+

@@ -20,6 +20,7 @@ package docker_test
 
 import (
 	"context"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -346,4 +347,25 @@ func TestBuilderTemplates_generateSupervisord(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestGenerateDockerfile_LlamafilePreBakeAndDedupe(t *testing.T) {
+	t.Setenv("KDEPS_DEFAULT_BACKEND", "")
+	builder := &docker.Builder{BaseOS: "alpine"}
+	workflow := &domain.Workflow{
+		Metadata: domain.WorkflowMetadata{Name: "prebake", Version: "1.0.0"},
+		Resources: []*domain.Resource{
+			{Chat: &domain.ChatConfig{Model: "llama3.2:1b"}},
+			{Chat: &domain.ChatConfig{Model: "llama3.2:1b"}},       // duplicate - deduped
+			{Chat: &domain.ChatConfig{Model: "unknown-model-xyz"}}, // unresolvable - skipped
+		},
+	}
+
+	dockerfile, err := builder.GenerateDockerfile(workflow)
+	require.NoError(t, err)
+	assert.Contains(t, dockerfile, "FROM alpine:latest")
+	assert.Contains(t, dockerfile, "KDEPS_MODELS_DIR=/app/.kdeps/models")
+	assert.Equal(t, 1, strings.Count(dockerfile, "Llama-3.2-1B-Instruct-Q4_K_M.llamafile\" "),
+		"duplicate models must be baked once")
+	assert.NotContains(t, dockerfile, "unknown-model-xyz")
 }

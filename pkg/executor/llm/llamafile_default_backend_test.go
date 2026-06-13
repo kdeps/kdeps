@@ -26,6 +26,7 @@ import (
 	"net/http/httptest"
 	"strconv"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -69,7 +70,11 @@ func TestServe_ReusesRegisteredHealthyServer(t *testing.T) {
 
 func TestServe_StaleRegistryEntryStartsNewServer(t *testing.T) {
 	// Register a port nothing listens on; Serve must fall through to starting
-	// the binary, which fails because the path does not exist.
+	// the binary, which never becomes healthy (short timeout keeps tests fast).
+	origTimeout := llamafileStartTimeoutFunc
+	t.Cleanup(func() { llamafileStartTimeoutFunc = origTimeout })
+	llamafileStartTimeoutFunc = func() time.Duration { return 10 * time.Millisecond }
+
 	path := "/nonexistent/stale-test.llamafile"
 	registerServedLlamafile(t, path, 1)
 

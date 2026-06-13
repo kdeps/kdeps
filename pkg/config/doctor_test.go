@@ -349,7 +349,7 @@ func TestCloudProviderEnvVars(t *testing.T) {
 
 func TestBackendOrDefault(t *testing.T) {
 	p := primaryCloudProvider()
-	assert.Equal(t, ollamaBackendStr, backendOrDefault(""))
+	assert.Equal(t, fileBackendStr, backendOrDefault(""))
 	assert.Equal(t, p.name, backendOrDefault(p.name))
 }
 
@@ -480,4 +480,23 @@ func TestRunCriticalEnvCheck_WarnThreshold(t *testing.T) {
 	require.NotEmpty(t, r.checks)
 	assert.Equal(t, HealthWarn, r.checks[0].Status)
 	assert.Contains(t, r.checks[0].Message, "missing:")
+}
+
+func TestDoctorOllama_FileBackendReportsModelsDir(t *testing.T) {
+	t.Setenv("KDEPS_DEFAULT_BACKEND", "file")
+	r := &doctorRunner{healthy: true}
+	r.ollama(&Config{LLM: LLMKeys{ModelsDir: "/data/models"}})
+
+	require.Len(t, r.checks, 2)
+	assert.Equal(t, "Ollama", r.checks[0].Name)
+	assert.Contains(t, r.checks[0].Message, "llamafile")
+	assert.Equal(t, "Models dir", r.checks[1].Name)
+	assert.Contains(t, r.checks[1].Message, "/data/models")
+}
+
+func TestDoctorModelsDir_DefaultPath(t *testing.T) {
+	r := &doctorRunner{healthy: true}
+	r.modelsDir(nil)
+	require.Len(t, r.checks, 1)
+	assert.Contains(t, r.checks[0].Message, "~/.kdeps/models")
 }

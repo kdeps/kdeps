@@ -400,6 +400,10 @@ func TestPublicPathMatcher_NoExemptions(t *testing.T) {
 	assert.Nil(t, publicPathMatcher(workflow), "no web routes and no public routes means no exemptions")
 }
 
+func TestPublicPathMatcher_NilAPIServer(t *testing.T) {
+	assert.Nil(t, publicPathMatcher(&domain.Workflow{}), "nil APIServer must not panic")
+}
+
 func TestAuthMiddleware_PublicPathValidatesPresentedToken(t *testing.T) {
 	middleware := AuthMiddlewareExempting("secret", func(string) bool { return true })
 	handler := middleware(func(w stdhttp.ResponseWriter, _ *stdhttp.Request) {
@@ -424,4 +428,8 @@ func TestAuthMiddleware_PublicPathValidatesPresentedToken(t *testing.T) {
 	req.Header.Set("Authorization", "Bearer wrong")
 	handler(rec, req)
 	assert.Equal(t, stdhttp.StatusUnauthorized, rec.Code)
+}
+
+func TestPublicAPIRoutePatterns_NilAPI(t *testing.T) {
+	assert.Nil(t, publicAPIRoutePatterns(nil))
 }

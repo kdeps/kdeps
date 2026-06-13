@@ -103,10 +103,6 @@ func runLlamafileList() error {
 	kdeps_debug.Log("enter: runLlamafileList")
 
 	mappings := llm.ListLlamafileMappings()
-	if len(mappings) == 0 {
-		fmt.Fprintln(os.Stdout, "No llamafile mappings found in registry.")
-		return nil
-	}
 
 	w := tabwriter.NewWriter(os.Stdout, 0, 0, llamafileListPadding, ' ', 0)
 	fmt.Fprintln(w, "ALIAS\tPARAMS\tQUANT\tSIZE\tDOWNLOADS\tURL")
