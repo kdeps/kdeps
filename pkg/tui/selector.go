@@ -189,21 +189,34 @@ func (m model) toSelection() Selection {
 	return sel
 }
 
-// Run shows the startup selector TUI and returns the user's selection.
-// If the user quits without confirming, returns an empty Selection.
-func Run() (Selection, error) {
-	m := newModel(discoverItems())
+// Run shows the settings TUI with persisted selections pre-applied.
+// Saves the resulting selection to disk. Returns the selection and updated settings.
+func Run() (Selection, Settings, error) {
+	items := discoverItems()
+	settings, err := LoadSettings()
+	if err != nil {
+		settings = DefaultSettings()
+	}
+
+	m := applyToModel(newModel(items), settings)
 	p := tea.NewProgram(m)
 	final, runErr := p.Run()
 	if runErr != nil {
-		return Selection{}, fmt.Errorf("tui: %w", runErr)
+		return Selection{}, settings, fmt.Errorf("tui: %w", runErr)
 	}
 
 	fm, ok := final.(model)
 	if !ok || fm.quitted {
-		return Selection{}, nil
+		return Selection{}, settings, nil
 	}
-	return fm.toSelection(), nil
+
+	sel := fm.toSelection()
+	newSettings := SettingsFromSelection(sel, items)
+	if saveErr := newSettings.Save(); saveErr != nil {
+		// non-fatal: warn but don't block the user
+		fmt.Fprintf(os.Stderr, "warning: could not save settings: %v\n", saveErr)
+	}
+	return sel, newSettings, nil
 }
 
 // discoverItems scans configured directories for installed workflows, agencies,

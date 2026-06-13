@@ -29,4 +29,4 @@ type Selection struct {
 }
 
 // Run is a no-op stub for WASM/js targets (no terminal TUI available).
-func Run() (Selection, error) { return Selection{}, nil }
+func Run() (Selection, Settings, error) { return Selection{}, DefaultSettings(), nil }
