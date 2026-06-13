@@ -390,8 +390,7 @@ func TestRunREPL_NormalFlow(t *testing.T) {
 	out, _ := io.ReadAll(stdoutR)
 	output := string(out)
 
-	assert.Contains(t, output, "Agent loop mode")
-	assert.Contains(t, output, "> ")
+	assert.Contains(t, output, "Agent loop")
 	assert.Contains(t, output, "mock response")
 }
 
@@ -429,7 +428,7 @@ func TestRunREPL_EmptyInput(t *testing.T) {
 	output := string(out)
 
 	// The empty line should be skipped -- the response for "valid input" appears.
-	assert.Contains(t, output, "Agent loop mode")
+	assert.Contains(t, output, "Agent loop")
 	assert.Contains(t, output, "should-not-reach")
 }
 
@@ -472,12 +471,12 @@ func TestRunREPL_ErrorFromRun(t *testing.T) {
 	out, _ := io.ReadAll(stdoutR)
 	errOut, _ := io.ReadAll(stderrR)
 
-	assert.Contains(t, string(out), "Agent loop mode")
+	assert.Contains(t, string(out), "Agent loop")
 	assert.Contains(t, string(errOut), "error: agent loop: something went wrong")
 }
 
 // TestRunREPL_EOF verifies that Ctrl+D (closing stdin without any input)
-// exits cleanly with only the welcome message and no error.
+// exits cleanly with a welcome message and no error.
 func TestRunREPL_EOF(t *testing.T) {
 	loop := newTestLoop("unused", nil)
 
@@ -505,17 +504,13 @@ func TestRunREPL_EOF(t *testing.T) {
 
 	stdoutW.Close()
 	out, _ := io.ReadAll(stdoutR)
-	output := string(out)
-
-	assert.Contains(t, output, "Agent loop mode")
-	// Only the welcome message and one prompt should appear.
-	assert.Contains(t, output, "> ")
+	// The readline-based REPL prints a banner; verify it contains "Agent loop".
+	assert.Contains(t, string(out), "Agent loop")
 }
 
-// TestRunREPL_ScannerError verifies that a read error from stdin is
-// propagated as the return value of runREPL. We close the read end of the
-// pipe before the scanner reads, causing an EBADF / read error.
-func TestRunREPL_ScannerError(t *testing.T) {
+// TestRunREPL_StdinClosed verifies that closing stdin causes a clean exit (no error).
+// The readline fallback (runPlain) treats all stdin errors as EOF and returns nil.
+func TestRunREPL_StdinClosed(t *testing.T) {
 	loop := newTestLoop("unused", nil)
 
 	stdinR, stdinW, err := os.Pipe()
@@ -530,19 +525,18 @@ func TestRunREPL_ScannerError(t *testing.T) {
 	defer func() {
 		os.Stdin = origStdin
 		os.Stdout = origStdout
-		stdinR.Close()
 		stdinW.Close()
 		stdoutR.Close()
 		stdoutW.Close()
 	}()
 
-	// Close the read end so scanner.Scan() fails with a read error.
+	// Close the read end so any read on stdin errors immediately.
 	stdinR.Close()
 
+	// The REPL exits cleanly; stdin errors in the fallback path are not propagated.
 	err = agent.NewREPL(loop).Run()
-	require.Error(t, err)
+	require.NoError(t, err)
 
-	// Consume stdout (welcome message) so the pipe doesn't block cleanup.
 	stdoutW.Close()
 	_, _ = io.ReadAll(stdoutR)
 }
