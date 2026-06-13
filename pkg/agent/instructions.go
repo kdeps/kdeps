@@ -43,6 +43,7 @@ type instructionFile struct {
 // collecting instruction files (CLAUDE.md, CLAUDE.local.md,
 // .kdeps/CLAUDE.md, .kdeps/instructions.md). Files are deduplicated
 // by content hash and capped at maxTotalChars total.
+//nolint:gocognit // complexity comes from walking ancestor chain with 4 file candidates
 func discoverInstructions(startDir string) string {
 	if startDir == "" {
 		var err error
