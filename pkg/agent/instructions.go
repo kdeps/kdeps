@@ -43,6 +43,7 @@ type instructionFile struct {
 // collecting instruction files (CLAUDE.md, CLAUDE.local.md,
 // .kdeps/CLAUDE.md, .kdeps/instructions.md). Files are deduplicated
 // by content hash and capped at maxTotalChars total.
+//
 //nolint:gocognit // complexity comes from walking ancestor chain with 4 file candidates
 func discoverInstructions(startDir string) string {
 	if startDir == "" {
@@ -123,7 +124,7 @@ func discoverInstructions(startDir string) string {
 func formatInstructions(files []instructionFile) string {
 	var sb strings.Builder
 	for _, f := range files {
-		sb.WriteString(fmt.Sprintf("## %s (scope: %s)\n\n%s\n\n", f.Name, f.Path, f.Content))
+		fmt.Fprintf(&sb, "## %s (scope: %s)\n\n%s\n\n", f.Name, f.Path, f.Content)
 	}
 	return strings.TrimSpace(sb.String())
 }

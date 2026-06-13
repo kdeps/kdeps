@@ -103,8 +103,8 @@ func TestStatus_Success(t *testing.T) {
 
 	e := NewExecutor()
 	res, err := e.Execute(nil, &domain.GitResourceConfig{
-		Operation:   domain.GitOpStatus,
-		WorkingDir:  repo,
+		Operation:  domain.GitOpStatus,
+		WorkingDir: repo,
 	})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -309,7 +309,9 @@ func TestBranch_Real(t *testing.T) {
 func TestRemote_WithRunner(t *testing.T) {
 	runner := &mockRunner{
 		entries: map[string]mockEntry{
-			"remote -v": {stdout: "origin\thttps://github.com/user/repo.git (fetch)\norigin\thttps://github.com/user/repo.git (push)\n"},
+			"remote -v": {
+				stdout: "origin\thttps://github.com/user/repo.git (fetch)\norigin\thttps://github.com/user/repo.git (push)\n",
+			},
 		},
 	}
 	e := newTestExecutor(runner)
@@ -524,7 +526,7 @@ func TestInit_CreatesRepo(t *testing.T) {
 		t.Fatal("expected initialized true")
 	}
 
-	if _, err := os.Stat(filepath.Join(dir, ".git")); os.IsNotExist(err) {
+	if _, statErr := os.Stat(filepath.Join(dir, ".git")); os.IsNotExist(statErr) {
 		t.Fatal("expected .git directory to exist")
 	}
 }

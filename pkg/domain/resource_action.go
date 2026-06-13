@@ -26,25 +26,25 @@ type ActionConfig struct {
 	Tool string `yaml:"tool,omitempty"`
 	Expr string `yaml:"-"` // set when the YAML entry is a bare scalar expression
 
-	Chat        *ChatConfig            `yaml:"chat,omitempty"`
-	HTTPClient  *HTTPClientConfig      `yaml:"httpClient,omitempty"`
-	SQL         *SQLConfig             `yaml:"sql,omitempty"`
-	Python      *PythonConfig          `yaml:"python,omitempty"`
-	Exec        *ExecConfig            `yaml:"exec,omitempty"`
-	Agent       *AgentCallConfig       `yaml:"agent,omitempty"`
-	Component   *ComponentCallConfig   `yaml:"component,omitempty"`
-	Scraper     *ScraperConfig         `yaml:"scraper,omitempty"`
-	Embedding   *EmbeddingConfig       `yaml:"embedding,omitempty"`
-	SearchLocal *SearchLocalConfig     `yaml:"searchLocal,omitempty"`
-	SearchWeb   *SearchWebConfig       `yaml:"searchWeb,omitempty"`
-	Telephony   *TelephonyActionConfig `yaml:"telephony,omitempty"`
-	Browser     *BrowserConfig         `yaml:"browser,omitempty"`
-	BotReply    *BotReplyConfig        `yaml:"botReply,omitempty"`
-	Email       *EmailConfig           `yaml:"email,omitempty"`
-	File        *FileResourceConfig          `yaml:"file,omitempty"`
-	Git         *GitResourceConfig           `yaml:"git,omitempty"`
+	Chat             *ChatConfig             `yaml:"chat,omitempty"`
+	HTTPClient       *HTTPClientConfig       `yaml:"httpClient,omitempty"`
+	SQL              *SQLConfig              `yaml:"sql,omitempty"`
+	Python           *PythonConfig           `yaml:"python,omitempty"`
+	Exec             *ExecConfig             `yaml:"exec,omitempty"`
+	Agent            *AgentCallConfig        `yaml:"agent,omitempty"`
+	Component        *ComponentCallConfig    `yaml:"component,omitempty"`
+	Scraper          *ScraperConfig          `yaml:"scraper,omitempty"`
+	Embedding        *EmbeddingConfig        `yaml:"embedding,omitempty"`
+	SearchLocal      *SearchLocalConfig      `yaml:"searchLocal,omitempty"`
+	SearchWeb        *SearchWebConfig        `yaml:"searchWeb,omitempty"`
+	Telephony        *TelephonyActionConfig  `yaml:"telephony,omitempty"`
+	Browser          *BrowserConfig          `yaml:"browser,omitempty"`
+	BotReply         *BotReplyConfig         `yaml:"botReply,omitempty"`
+	Email            *EmailConfig            `yaml:"email,omitempty"`
+	File             *FileResourceConfig     `yaml:"file,omitempty"`
+	Git              *GitResourceConfig      `yaml:"git,omitempty"`
 	CodeIntelligence *CodeIntelligenceConfig `yaml:"codeIntelligence,omitempty"`
-	APIResponse *APIResponseConfig           `yaml:"apiResponse,omitempty"`
+	APIResponse      *APIResponseConfig      `yaml:"apiResponse,omitempty"`
 }
 
 // actionConfigAlias is used for normal YAML struct unmarshaling without recursion.

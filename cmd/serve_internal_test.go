@@ -83,6 +83,8 @@ func TestAgencyToolDef_EmptyDesc(t *testing.T) {
 	assert.Contains(t, tool.Description, "2.0.0")
 }
 
+// Ensure "serve: failed to load workflow" still appears in parse errors.
+
 func TestFindServeWorkflowFiles_EmptyDir(t *testing.T) {
 	tmpDir := t.TempDir()
 	paths := findServeWorkflowFiles(tmpDir)

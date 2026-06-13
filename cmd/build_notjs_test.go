@@ -167,7 +167,7 @@ func TestCobraRunEHandlers(t *testing.T) {
 			t.Cleanup(func() { os.Stdin = orig; _ = r.Close() })
 			return newChatCmd().RunE(&cobra.Command{}, nil)
 		}},
-		{"serve", func() error { return newServeCmd().RunE(&cobra.Command{}, []string{tmp}) }},
+		{"agent-loop", func() error { return runAgentLoopCmd(tmp, &agentLoopFlags{}) }},
 		{
 			"exec",
 			func() error { return newExecCmd().RunE(&cobra.Command{}, []string{"missing-agent"}) },

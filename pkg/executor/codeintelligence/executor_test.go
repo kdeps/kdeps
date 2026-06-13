@@ -3,6 +3,7 @@
 package codeintelligence
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"os/exec"
@@ -19,7 +20,7 @@ type mockRunner struct {
 	rgErr   error
 }
 
-func (r *mockRunner) Run(name string, args ...string) (string, string, error) {
+func (r *mockRunner) Run(_ string, args ...string) (string, string, error) {
 	key := strings.Join(args, " ")
 	if out, ok := r.entries[key]; ok {
 		return out, "", nil
@@ -37,18 +38,22 @@ func newTestExecutor(runner Runner) *Executor {
 // rgMatchJSON produces a single rg JSON match line for a given file/line/match.
 func rgMatchJSON(file, lineContent string, lineNum int) string {
 	escapedContent := strings.ReplaceAll(lineContent, `"`, `\"`)
-	return fmt.Sprintf(`{"type":"match","data":{"path":{"text":"%s"},"lines":{"text":"%s\n"},"line_number":%d,"absolute_offset":0,"submatches":[{"match":{"text":"%s"},"start":0,"end":0}]}}`,
-		file, escapedContent, lineNum, lineContent)
+	return fmt.Sprintf(
+		`{"type":"match","data":{"path":{"text":"%s"},"lines":{"text":"%s\n"},"line_number":%d,"absolute_offset":0,"submatches":[{"match":{"text":"%s"},"start":0,"end":0}]}}`,
+		file,
+		escapedContent,
+		lineNum,
+		lineContent,
+	)
 }
 
 // createGoSource creates a temp Go source file for testing.
-func createGoSource(t *testing.T, dir, name, content string) string {
+func createGoSource(t *testing.T, dir, name, content string) {
 	t.Helper()
 	p := filepath.Join(dir, name)
 	if err := os.WriteFile(p, []byte(content), 0644); err != nil {
 		t.Fatal(err)
 	}
-	return p
 }
 
 func hasRG() bool {
@@ -176,7 +181,11 @@ func TestSymbolSearch_NoMatches(t *testing.T) {
 func TestDefinition_WithRunner(t *testing.T) {
 	runner := &mockRunner{
 		entries: map[string]string{
-			`--json --line-number --sort path ^(func |type |var |const )?ParseConfig /path`: rgMatchJSON("config.go", "func ParseConfig() {", 5),
+			`--json --line-number --sort path ^(func |type |var |const )?ParseConfig /path`: rgMatchJSON(
+				"config.go",
+				"func ParseConfig() {",
+				5,
+			),
 		},
 	}
 	e := newTestExecutor(runner)
@@ -317,7 +326,11 @@ func main() {
 func TestDocumentSymbols_WithRunner(t *testing.T) {
 	runner := &mockRunner{
 		entries: map[string]string{
-			`--json --line-number --sort path ^(func |type |class |def |function |interface |struct |enum |trait |impl ) /path/main.go`: rgMatchJSON("main.go", "func main() {", 1),
+			`--json --line-number --sort path ^(func |type |class |def |function |interface |struct |enum |trait |impl ) /path/main.go`: rgMatchJSON(
+				"main.go",
+				"func main() {",
+				1,
+			),
 		},
 	}
 	e := newTestExecutor(runner)
@@ -387,7 +400,11 @@ func main() {}
 func TestHover_WithRunner(t *testing.T) {
 	runner := &mockRunner{
 		entries: map[string]string{
-			`--json --line-number -B 5 -A 2 ^(func |type |var |const )?myFunc\\. /path`: rgMatchJSON("main.go", "func myFunc() {", 10),
+			`--json --line-number -B 5 -A 2 ^(func |type |var |const )?myFunc\\. /path`: rgMatchJSON(
+				"main.go",
+				"func myFunc() {",
+				10,
+			),
 		},
 	}
 	e := newTestExecutor(runner)
@@ -602,7 +619,7 @@ func TestRGNotInstalled(t *testing.T) {
 	// Create runner that simulates rg not being installed
 	// We test the error path in runRG
 	runner := &mockRunner{
-		rgErr: fmt.Errorf("executable file not found"),
+		rgErr: errors.New("executable file not found"),
 	}
 	e := newTestExecutor(runner)
 	// We just need to make sure it doesn't panic

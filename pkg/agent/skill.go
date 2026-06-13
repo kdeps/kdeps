@@ -98,7 +98,7 @@ func discoverSkillsInDir(root string) []Skill {
 
 	// Check if root itself has SKILL.md
 	skillPath := filepath.Join(root, "SKILL.md")
-	if _, err := os.Stat(skillPath); err == nil {
+	if _, statErr := os.Stat(skillPath); statErr == nil {
 		if sk := loadSkillFromFile(skillPath); sk != nil {
 			skills = append(skills, *sk)
 		}
@@ -182,11 +182,11 @@ func formatSkillsForPrompt(skills []Skill) string {
 	var sb strings.Builder
 	sb.WriteString("<available_skills>\n")
 	for _, sk := range skills {
-		sb.WriteString(fmt.Sprintf("<skill name=\"%s\" source=\"%s\">\n", sk.Name, sk.Source))
+		fmt.Fprintf(&sb, "<skill name=\"%s\" source=\"%s\">\n", sk.Name, sk.Source)
 		if sk.Description != "" {
-			sb.WriteString(fmt.Sprintf("  %s\n", sk.Description))
+			fmt.Fprintf(&sb, "  %s\n", sk.Description)
 		}
-		sb.WriteString(fmt.Sprintf("  %s\n", strings.TrimSpace(sk.Content)))
+		fmt.Fprintf(&sb, "  %s\n", strings.TrimSpace(sk.Content))
 		sb.WriteString("</skill>\n")
 	}
 	sb.WriteString("</available_skills>")

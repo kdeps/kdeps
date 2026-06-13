@@ -84,7 +84,7 @@ func TestDiscoverInstructions_EmptyDir(t *testing.T) {
 	}
 }
 
-func TestDiscoverInstructions_NoStartDir(t *testing.T) {
+func TestDiscoverInstructions_NoStartDir(_ *testing.T) {
 	// Should use CWD and not crash
 	result := discoverInstructions("")
 	_ = result

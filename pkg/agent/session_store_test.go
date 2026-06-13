@@ -74,7 +74,7 @@ func TestSave_FileCreated(t *testing.T) {
 	}
 
 	path := filepath.Join(dir, id+".jsonl")
-	if _, err := os.Stat(path); os.IsNotExist(err) {
+	if _, statErr := os.Stat(path); os.IsNotExist(statErr) {
 		t.Fatal("expected session file to exist")
 	}
 }

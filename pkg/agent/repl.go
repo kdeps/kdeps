@@ -28,7 +28,11 @@ import (
 	"syscall"
 )
 
-const historyFile = ".kdeps_history"
+const (
+	replHistoryInitCap = 100
+	replPreviewMax     = 80
+	replLabelMod       = 2
+)
 
 // REPL drives an interactive read-eval-print loop for the agent.
 type REPL struct {
@@ -46,7 +50,7 @@ func NewREPL(loop *Loop) *REPL {
 		loop:    loop,
 		ctx:     ctx,
 		cancel:  cancel,
-		history: make([]string, 0, 100),
+		history: make([]string, 0, replHistoryInitCap),
 		prompt:  "> ",
 	}
 }
@@ -198,14 +202,14 @@ func (r *REPL) cmdHistory() error {
 	fmt.Fprintf(os.Stdout, "Conversation history (%d turns):\n", turns)
 	for i, m := range r.loop.Session().Messages() {
 		label := "USER"
-		if i%2 == 1 {
+		if i%replLabelMod == 1 {
 			label = "ASSISTANT"
 		}
 		preview := m.Content
-		if len(preview) > 80 {
-			preview = preview[:80] + "..."
+		if len(preview) > replPreviewMax {
+			preview = preview[:replPreviewMax] + "..."
 		}
-		fmt.Fprintf(os.Stdout, "  [%d] %s: %s\n", i/2, label, preview)
+		fmt.Fprintf(os.Stdout, "  [%d] %s: %s\n", i/replLabelMod, label, preview)
 	}
 	return nil
 }

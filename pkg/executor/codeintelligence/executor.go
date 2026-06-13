@@ -5,12 +5,14 @@ package codeintelligence
 import (
 	"bufio"
 	"bytes"
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strconv"
 	"strings"
 
 	"github.com/kdeps/kdeps/v2/pkg/domain"
@@ -27,7 +29,7 @@ type DefaultRunner struct{}
 
 func (r *DefaultRunner) Run(name string, args ...string) (string, string, error) {
 	var stdout, stderr bytes.Buffer
-	cmd := exec.Command(name, args...)
+	cmd := exec.CommandContext(context.Background(), name, args...)
 	cmd.Stdout = &stdout
 	cmd.Stderr = &stderr
 	err := cmd.Run()
@@ -96,9 +98,9 @@ type rgMatch struct {
 		Lines struct {
 			Text string `json:"text"`
 		} `json:"lines"`
-		LineNumber int `json:"line_number"`
+		LineNumber     int `json:"line_number"`
 		AbsoluteOffset int `json:"absolute_offset"`
-		Submatches []struct {
+		Submatches     []struct {
 			Match struct {
 				Text string `json:"text"`
 			} `json:"match"`
@@ -111,7 +113,7 @@ type rgMatch struct {
 func (e *Executor) buildRGArgs(config *domain.CodeIntelligenceConfig, extra ...string) []string {
 	args := []string{"--json", "--line-number"}
 	if config.Context > 0 {
-		args = append(args, "-C", fmt.Sprintf("%d", config.Context))
+		args = append(args, "-C", strconv.Itoa(config.Context))
 	}
 	if config.Pattern != "" {
 		args = append(args, "--glob", config.Pattern)
@@ -120,7 +122,7 @@ func (e *Executor) buildRGArgs(config *domain.CodeIntelligenceConfig, extra ...s
 		args = append(args, "--type", config.Language)
 	}
 	if config.Limit > 0 {
-		args = append(args, "--max-count", fmt.Sprintf("%d", config.Limit))
+		args = append(args, "--max-count", strconv.Itoa(config.Limit))
 	}
 	args = append(args, extra...)
 	return args
@@ -136,7 +138,9 @@ func (e *Executor) runRG(args []string) ([]rgMatch, error) {
 		}
 		// Check if rg is not installed
 		if strings.Contains(stderr, "executable file not found") || strings.Contains(err.Error(), "not found") {
-			return nil, errors.New("ripgrep (rg) is not installed. Install it with: brew install ripgrep (macOS) or apt install ripgrep (Linux)")
+			return nil, errors.New(
+				"ripgrep (rg) is not installed. Install it with: brew install ripgrep (macOS) or apt install ripgrep (Linux)",
+			)
 		}
 		return nil, fmt.Errorf("rg failed: %s", stderr)
 	}
@@ -145,7 +149,7 @@ func (e *Executor) runRG(args []string) ([]rgMatch, error) {
 	scanner := bufio.NewScanner(strings.NewReader(stdout))
 	for scanner.Scan() {
 		var m rgMatch
-		if err := json.Unmarshal([]byte(scanner.Text()), &m); err != nil {
+		if unmarshalErr := json.Unmarshal([]byte(scanner.Text()), &m); unmarshalErr != nil {
 			continue
 		}
 		if m.Type == "match" {
@@ -175,8 +179,8 @@ func (e *Executor) symbolSearch(config *domain.CodeIntelligenceConfig) (interfac
 	var symbols []map[string]interface{}
 	for _, m := range matches {
 		symbols = append(symbols, map[string]interface{}{
-			"file":   m.Data.Path.Text,
-			"line":   m.Data.LineNumber,
+			"file":    m.Data.Path.Text,
+			"line":    m.Data.LineNumber,
 			"content": strings.TrimSpace(m.Data.Lines.Text),
 		})
 	}
@@ -327,8 +331,10 @@ func (e *Executor) hover(config *domain.CodeIntelligenceConfig) (interface{}, er
 	}
 
 	// Find the symbol definition, then extract the comment block above it
+	const hoverContextBefore = "5"
+	const hoverContextAfter = "2"
 	pattern := fmt.Sprintf("^(func |type |var |const )?%s", regexEscape(config.Symbol))
-	args := []string{"--json", "--line-number", "-B", "5", "-A", "2", pattern}
+	args := []string{"--json", "--line-number", "-B", hoverContextBefore, "-A", hoverContextAfter, pattern}
 	if config.Path != "" {
 		args = append(args, config.Path)
 	}
@@ -353,53 +359,63 @@ func (e *Executor) hover(config *domain.CodeIntelligenceConfig) (interface{}, er
 	}), nil
 }
 
-//nolint:gocognit // complexity from go vet parsing with severity/filename heuristics
+const (
+	vetSplitMax = 4
+	vetMinParts = 3
+)
+
+func (e *Executor) goVetDiagnostics(config *domain.CodeIntelligenceConfig) []map[string]interface{} {
+	args := []string{"vet"}
+	switch {
+	case config.Pattern != "":
+		args = append(args, config.Pattern)
+	case strings.HasSuffix(config.Path, ".go"):
+		args = append(args, config.Path)
+	default:
+		args = append(args, "./...")
+	}
+
+	stdout, stderr, err := e.runner.Run("go", args...)
+	if err != nil {
+		_ = stdout
+	}
+
+	var diagnostics []map[string]interface{}
+	if stderr == "" {
+		return diagnostics
+	}
+	scanner := bufio.NewScanner(strings.NewReader(stderr))
+	for scanner.Scan() {
+		line := scanner.Text()
+		if !strings.Contains(line, ":") {
+			continue
+		}
+		parts := strings.SplitN(line, ":", vetSplitMax)
+		if len(parts) >= vetMinParts {
+			diagnostics = append(diagnostics, map[string]interface{}{
+				"file":    parts[0],
+				"line":    parts[1],
+				"message": strings.TrimSpace(parts[len(parts)-1]),
+				"tool":    "go vet",
+			})
+		}
+	}
+	return diagnostics
+}
+
 func (e *Executor) diagnostics(config *domain.CodeIntelligenceConfig) (interface{}, error) {
 	if config.Path == "" {
 		return nil, errors.New("codeIntelligence: path is required for diagnostics")
 	}
 
 	var diagnostics []map[string]interface{}
-
-	// Go-specific: run go vet
 	if strings.HasSuffix(config.Path, ".go") || isGoDir(config.Path) {
-		args := []string{"vet"}
-		if config.Pattern != "" {
-			args = append(args, config.Pattern)
-		} else if strings.HasSuffix(config.Path, ".go") {
-			args = append(args, config.Path)
-		} else {
-			args = append(args, "./...")
-		}
-
-		stdout, stderr, err := e.runner.Run("go", args...)
-		if err != nil {
-			// go vet exits non-zero on findings
-			_ = stdout
-		}
-
-		if stderr != "" {
-			scanner := bufio.NewScanner(strings.NewReader(stderr))
-			for scanner.Scan() {
-				line := scanner.Text()
-				if strings.Contains(line, ":") {
-					parts := strings.SplitN(line, ":", 4)
-					if len(parts) >= 3 {
-						diagnostics = append(diagnostics, map[string]interface{}{
-							"file":    parts[0],
-							"line":    parts[1],
-							"message": strings.TrimSpace(parts[len(parts)-1]),
-							"tool":    "go vet",
-						})
-					}
-				}
-			}
-		}
+		diagnostics = e.goVetDiagnostics(config)
 	}
 
 	return result(true, map[string]interface{}{
 		"diagnostics": diagnostics,
-		"count":      len(diagnostics),
+		"count":       len(diagnostics),
 	}), nil
 }
 
@@ -409,9 +425,11 @@ func regexEscape(s string) string {
 	return strings.ReplaceAll(s, ".", "\\.")
 }
 
+const symbolNameMinFields = 2
+
 func extractSymbolName(line string) string {
 	fields := strings.Fields(line)
-	if len(fields) >= 2 {
+	if len(fields) >= symbolNameMinFields {
 		return fields[1]
 	}
 	return ""

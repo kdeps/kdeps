@@ -83,5 +83,5 @@ func TestBootstrapRootConfig_LoadError(t *testing.T) {
 
 func TestNewRootCmd(t *testing.T) {
 	c := NewRootCmd()
-	assert.Equal(t, "kdeps", c.Use)
+	assert.Equal(t, "kdeps [path]", c.Use)
 }
