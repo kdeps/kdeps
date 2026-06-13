@@ -24,16 +24,22 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"path/filepath"
+	"regexp"
 	"strings"
+	"time"
 
 	"github.com/charmbracelet/lipgloss"
 	"github.com/chzyer/readline"
 )
 
 const (
-	replHistoryInitCap = 100
-	replPreviewMax     = 80
-	replLabelMod       = 2
+	replHistoryInitCap    = 100
+	replPreviewMax        = 80
+	replLabelMod          = 2
+	replThinkingDelay     = 400 * time.Millisecond
+	replFileCompletionMax = 20
+	replAutoCompactEvery  = 25
 )
 
 //nolint:gochecknoglobals // command list must be package-level for completer
@@ -49,6 +55,8 @@ var (
 	styleReplMeta     = lipgloss.NewStyle().Foreground(lipgloss.Color("#555555")).Italic(true)
 	styleReplHeading  = lipgloss.NewStyle().Foreground(lipgloss.Color("#00E5FF")).Bold(true)
 )
+
+var atFileRefRe = regexp.MustCompile(`@(\S+)`)
 
 // OnSettingsChange is called after /settings saves new selections.
 // skillPaths contains the SKILL.md paths for enabled skills; toolsChanged
@@ -100,22 +108,158 @@ func (r *REPL) dynamicPrompt() string {
 	return fmt.Sprintf("[%s|%d] > ", model, turns)
 }
 
-// buildCompleter returns a readline.AutoCompleter that completes /commands and skill names.
+// buildCompleter returns a custom AutoCompleter with fuzzy command matching
+// and @file path completion.
 func (r *REPL) buildCompleter() readline.AutoCompleter {
-	return readline.NewPrefixCompleter(
-		r.completionItems()...,
-	)
+	return &replCompleter{repl: r}
 }
 
-func (r *REPL) completionItems() []readline.PrefixCompleterInterface {
-	items := make([]readline.PrefixCompleterInterface, 0, len(builtinCmds)+len(r.loop.skillList))
-	for _, cmd := range builtinCmds {
-		items = append(items, readline.PcItem(cmd))
+// replCompleter implements readline.AutoCompleter.
+// It fuzzy-matches slash commands and skill names, and completes @path tokens.
+type replCompleter struct {
+	repl *REPL
+}
+
+// Do implements readline.AutoCompleter.
+// length is the number of runes before the cursor to replace; each newLine[i] is
+// the full replacement string for that token.
+func (c *replCompleter) Do(line []rune, pos int) ([][]rune, int) {
+	str := string(line[:pos])
+	lastSpace := strings.LastIndexAny(str, " \t")
+	token := str[lastSpace+1:]
+	tokenLen := len([]rune(token))
+
+	if strings.HasPrefix(token, "@") {
+		completions := filePathCompletions(token[1:])
+		results := make([][]rune, 0, len(completions))
+		for _, p := range completions {
+			results = append(results, []rune("@"+p))
+		}
+		return results, tokenLen
 	}
+
+	if strings.HasPrefix(token, "/") && !strings.Contains(token, " ") {
+		query := strings.ToLower(strings.TrimPrefix(token, "/"))
+		names := c.repl.allCommandNames()
+		var results [][]rune
+		for _, name := range names {
+			if fuzzyMatch(query, strings.TrimPrefix(name, "/")) {
+				results = append(results, []rune(name))
+			}
+		}
+		return results, tokenLen
+	}
+
+	return nil, 0
+}
+
+// allCommandNames returns all slash command names including loaded skills.
+func (r *REPL) allCommandNames() []string {
+	names := make([]string, 0, len(builtinCmds)+len(r.loop.skillList))
+	names = append(names, builtinCmds...)
 	for _, sk := range r.loop.skillList {
-		items = append(items, readline.PcItem("/"+sk.Name))
+		names = append(names, "/"+sk.Name)
 	}
-	return items
+	return names
+}
+
+// fuzzyMatch returns true if needle is a subsequence of haystack (case-insensitive).
+func fuzzyMatch(needle, haystack string) bool {
+	if needle == "" {
+		return true
+	}
+	n := []rune(strings.ToLower(needle))
+	ni := 0
+	for _, c := range strings.ToLower(haystack) {
+		if ni < len(n) && n[ni] == c {
+			ni++
+		}
+	}
+	return ni == len(n)
+}
+
+// filePathCompletions returns up to replFileCompletionMax file/dir completions for prefix.
+func filePathCompletions(prefix string) []string {
+	dir, base := filepath.Split(prefix)
+	searchDir := dir
+	if searchDir == "" {
+		searchDir = "."
+	}
+	entries, err := os.ReadDir(searchDir)
+	if err != nil {
+		return nil
+	}
+	baseLower := strings.ToLower(base)
+	var results []string
+	for _, e := range entries {
+		name := e.Name()
+		if !strings.HasPrefix(strings.ToLower(name), baseLower) {
+			continue
+		}
+		rel := filepath.Join(dir, name)
+		if dir == "" {
+			rel = name
+		}
+		if e.IsDir() {
+			rel += "/"
+		}
+		results = append(results, rel)
+		if len(results) >= replFileCompletionMax {
+			break
+		}
+	}
+	return results
+}
+
+// expandFileRefs replaces @path tokens in input with file contents.
+// Tokens that don't resolve to readable files are left unchanged.
+func expandFileRefs(input string) string {
+	return atFileRefRe.ReplaceAllStringFunc(input, func(match string) string {
+		path := match[1:]
+		data, err := os.ReadFile(path)
+		if err != nil {
+			return match
+		}
+		return fmt.Sprintf("\n\n--- %s ---\n%s", path, strings.TrimRight(string(data), "\n"))
+	})
+}
+
+// runWithThinking wraps loop.Run with a deferred thinking indicator.
+// If the LLM call takes longer than replThinkingDelay, it prints "thinking..." and
+// clears the line when the response arrives.
+func (r *REPL) runWithThinking(ctx context.Context, input string) (string, error) {
+	type result struct {
+		resp string
+		err  error
+	}
+	ch := make(chan result, 1)
+	go func() {
+		resp, err := r.loop.Run(ctx, input)
+		ch <- result{resp, err}
+	}()
+
+	timer := time.NewTimer(replThinkingDelay)
+	defer timer.Stop()
+
+	select {
+	case res := <-ch:
+		return res.resp, res.err
+	case <-timer.C:
+		fmt.Fprint(os.Stdout, styleReplMeta.Render("thinking..."))
+		res := <-ch
+		fmt.Fprint(os.Stdout, "\r\x1b[K")
+		return res.resp, res.err
+	}
+}
+
+// maybeHintCompact prints a compaction suggestion every replAutoCompactEvery turns.
+func (r *REPL) maybeHintCompact() {
+	turns := r.loop.Session().TurnCount()
+	if turns > 0 && turns%replAutoCompactEvery == 0 {
+		fmt.Fprintln(os.Stdout, styleReplMeta.Render(
+			fmt.Sprintf("(%d turns in session - /compact to free context)", turns),
+		))
+	}
 }
 
 // Run starts the REPL. It blocks until the user exits or an error occurs.
@@ -189,14 +333,16 @@ func (r *REPL) processInput(input string) error {
 	if strings.HasPrefix(input, "/") {
 		return r.dispatchCommand(input)
 	}
+	expanded := expandFileRefs(input)
 	r.history = append(r.history, input)
-	resp, err := r.loop.Run(r.ctx, input)
+	resp, err := r.runWithThinking(r.ctx, expanded)
 	if err != nil {
 		return err
 	}
 	if resp != "" {
 		fmt.Fprintln(os.Stdout, styleReplResponse.Render(resp))
 	}
+	r.maybeHintCompact()
 	return nil
 }
 
@@ -391,10 +537,8 @@ func (r *REPL) cmdInvokeSkill(sk *Skill, extra []string) error {
 	if len(extra) > 0 {
 		prompt = prompt + "\n" + strings.Join(extra, " ")
 	}
-
 	r.history = append(r.history, "/"+sk.Name)
-
-	resp, err := r.loop.Run(r.ctx, prompt)
+	resp, err := r.runWithThinking(r.ctx, prompt)
 	if err != nil {
 		return fmt.Errorf("skill %s: %w", sk.Name, err)
 	}

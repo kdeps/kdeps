@@ -172,3 +172,171 @@ func TestLoadSkillSlice_DedupByName(t *testing.T) {
 	slc := loadSkillSlice([]string{dir1, dir2})
 	assert.Len(t, slc, 1)
 }
+
+// --- fuzzyMatch ---
+
+func TestFuzzyMatch_Empty(t *testing.T) {
+	assert.True(t, fuzzyMatch("", "anything"))
+}
+
+func TestFuzzyMatch_ExactMatch(t *testing.T) {
+	assert.True(t, fuzzyMatch("help", "help"))
+}
+
+func TestFuzzyMatch_Subsequence(t *testing.T) {
+	assert.True(t, fuzzyMatch("hlp", "help"))
+	assert.True(t, fuzzyMatch("hist", "history"))
+}
+
+func TestFuzzyMatch_NoMatch(t *testing.T) {
+	assert.False(t, fuzzyMatch("xyz", "help"))
+}
+
+func TestFuzzyMatch_CaseInsensitive(t *testing.T) {
+	assert.True(t, fuzzyMatch("HLP", "help"))
+}
+
+// --- expandFileRefs ---
+
+func TestExpandFileRefs_NoRefs(t *testing.T) {
+	out := expandFileRefs("hello world")
+	assert.Equal(t, "hello world", out)
+}
+
+func TestExpandFileRefs_UnreadablePath(t *testing.T) {
+	// @nonexistent-file should be left as-is
+	out := expandFileRefs("check @/nonexistent/file.txt please")
+	assert.Contains(t, out, "@/nonexistent/file.txt")
+}
+
+func TestExpandFileRefs_RealFile(t *testing.T) {
+	dir := t.TempDir()
+	p := filepath.Join(dir, "notes.txt")
+	require.NoError(t, os.WriteFile(p, []byte("hello from file"), 0o644))
+
+	out := expandFileRefs("review @" + p)
+	assert.Contains(t, out, "hello from file")
+	assert.Contains(t, out, "notes.txt")
+}
+
+// --- filePathCompletions ---
+
+func TestFilePathCompletions_EmptyPrefix(t *testing.T) {
+	dir := t.TempDir()
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "foo.go"), []byte(""), 0o644))
+	require.NoError(t, os.MkdirAll(filepath.Join(dir, "subdir"), 0o755))
+
+	// Change cwd to dir for the test
+	orig, _ := os.Getwd()
+	require.NoError(t, os.Chdir(dir))
+	defer func() { _ = os.Chdir(orig) }()
+
+	results := filePathCompletions("")
+	names := make([]string, len(results))
+	copy(names, results)
+	assert.Contains(t, names, "foo.go")
+	assert.Contains(t, names, "subdir/")
+}
+
+func TestFilePathCompletions_Prefix(t *testing.T) {
+	dir := t.TempDir()
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "alpha.go"), []byte(""), 0o644))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "beta.go"), []byte(""), 0o644))
+
+	results := filePathCompletions(dir + "/al")
+	require.Len(t, results, 1)
+	assert.Contains(t, results[0], "alpha.go")
+}
+
+func TestFilePathCompletions_BadDir(t *testing.T) {
+	results := filePathCompletions("/nonexistent/path/prefix")
+	assert.Empty(t, results)
+}
+
+// --- replCompleter ---
+
+func TestReplCompleter_SlashCommand(t *testing.T) {
+	loop := makeTestLoop(nil)
+	repl := NewREPL(loop)
+	defer repl.cancel()
+
+	c := &replCompleter{repl: repl}
+	// "/h" should fuzzy-match "/help" and "/history"
+	results, length := c.Do([]rune("/h"), 2)
+	assert.Equal(t, 2, length)
+	found := make([]string, 0, len(results))
+	for _, r := range results {
+		found = append(found, string(r))
+	}
+	assert.Contains(t, found, "/help")
+	assert.Contains(t, found, "/history")
+}
+
+func TestReplCompleter_SlashSkill(t *testing.T) {
+	loop := makeTestLoop([]Skill{{Name: "review", Description: "code review"}})
+	repl := NewREPL(loop)
+	defer repl.cancel()
+
+	c := &replCompleter{repl: repl}
+	// "/rev" should match "/review"
+	results, length := c.Do([]rune("/rev"), 4)
+	assert.Equal(t, 4, length)
+	found := make([]string, 0, len(results))
+	for _, r := range results {
+		found = append(found, string(r))
+	}
+	assert.Contains(t, found, "/review")
+}
+
+func TestReplCompleter_NoSlash(t *testing.T) {
+	loop := makeTestLoop(nil)
+	repl := NewREPL(loop)
+	defer repl.cancel()
+
+	c := &replCompleter{repl: repl}
+	// plain text returns no completions
+	results, length := c.Do([]rune("hello"), 5)
+	assert.Equal(t, 0, length)
+	assert.Empty(t, results)
+}
+
+func TestReplCompleter_AtFile(t *testing.T) {
+	dir := t.TempDir()
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "main.go"), []byte(""), 0o644))
+
+	loop := makeTestLoop(nil)
+	repl := NewREPL(loop)
+	defer repl.cancel()
+
+	c := &replCompleter{repl: repl}
+	token := "@" + dir + "/ma"
+	results, length := c.Do([]rune(token), len([]rune(token)))
+	assert.Equal(t, len([]rune(token)), length)
+	found := make([]string, 0, len(results))
+	for _, r := range results {
+		found = append(found, string(r))
+	}
+	require.Len(t, found, 1)
+	assert.Contains(t, found[0], "main.go")
+}
+
+// --- allCommandNames ---
+
+func TestAllCommandNames_IncludesBuiltins(t *testing.T) {
+	loop := makeTestLoop(nil)
+	repl := NewREPL(loop)
+	defer repl.cancel()
+
+	names := repl.allCommandNames()
+	assert.Contains(t, names, "/help")
+	assert.Contains(t, names, "/settings")
+}
+
+func TestAllCommandNames_IncludesSkills(t *testing.T) {
+	loop := makeTestLoop([]Skill{{Name: "lint"}})
+	repl := NewREPL(loop)
+	defer repl.cancel()
+
+	names := repl.allCommandNames()
+	assert.Contains(t, names, "/lint")
+}
