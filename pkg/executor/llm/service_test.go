@@ -19,6 +19,7 @@
 package llm_test
 
 import (
+	"strings"
 	"testing"
 
 	"log/slog"
@@ -298,4 +299,13 @@ func TestModelService_ServeModel_File_NotFound(t *testing.T) {
 	svc := llm.NewModelService(nil)
 	err := svc.ServeModel("file", "missing.llamafile", "127.0.0.1", 0)
 	assert.Error(t, err)
+}
+
+
+func TestServeModel_UnsupportedBackend(t *testing.T) {
+	svc := llm.NewModelService(nil)
+	err := svc.ServeModel("unknown-backend", "model", "127.0.0.1", 0)
+	if err == nil || !strings.Contains(err.Error(), "unsupported backend") {
+		t.Fatalf("expected unsupported backend error, got: %v", err)
+	}
 }

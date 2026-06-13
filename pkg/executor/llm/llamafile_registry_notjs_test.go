@@ -188,3 +188,11 @@ func TestParseLlamafileYAML_Empty(t *testing.T) {
 	require.NotNil(t, parsed)
 	assert.Empty(t, parsed.Llamafiles)
 }
+
+func TestWriteLocalRegistry_MarshalError(t *testing.T) {
+	t.Setenv("HOME", "/dev/null/impossible")
+	err := WriteLocalRegistry([]LlamafileEntry{{Alias: "test", URL: "https://x/y.llamafile"}})
+	if err == nil {
+		t.Fatal("expected error")
+	}
+}
