@@ -137,6 +137,11 @@ func (r *REPL) dispatchCommand(cmd string) error {
 		r.cancel()
 		return nil
 	default:
+		// Try skill invocation: /skill-name [optional extra prompt]
+		skillName := strings.TrimPrefix(command, "/")
+		if sk := r.loop.SkillByName(skillName); sk != nil {
+			return r.cmdInvokeSkill(sk, args)
+		}
 		fmt.Fprintf(os.Stdout, "Unknown command: %s. Type /help for available commands.\n", command)
 		return nil
 	}
@@ -148,6 +153,7 @@ func (r *REPL) cmdHelp() error {
   /clear              Clear the conversation history
   /model [name]       Show or set the LLM model
   /skills             List loaded skills
+  /<skill-name> [..] Invoke a loaded skill by name with optional extra prompt
   /compact            Compact conversation history (keep recent turns)
   /history            Show recent conversation turns
   /exit, /quit        Exit the agent loop
@@ -210,6 +216,26 @@ func (r *REPL) cmdHistory() error {
 			preview = preview[:replPreviewMax] + "..."
 		}
 		fmt.Fprintf(os.Stdout, "  [%d] %s: %s\n", i/replLabelMod, label, preview)
+	}
+	return nil
+}
+
+// cmdInvokeSkill runs a skill by injecting its content as the prompt, with any
+// extra user-supplied tokens appended after a newline.
+func (r *REPL) cmdInvokeSkill(sk *Skill, extra []string) error {
+	prompt := sk.Content
+	if len(extra) > 0 {
+		prompt = prompt + "\n" + strings.Join(extra, " ")
+	}
+
+	r.history = append(r.history, "/"+sk.Name)
+
+	resp, err := r.loop.Run(r.ctx, prompt)
+	if err != nil {
+		return fmt.Errorf("skill %s: %w", sk.Name, err)
+	}
+	if resp != "" {
+		fmt.Fprintln(os.Stdout, resp)
 	}
 	return nil
 }

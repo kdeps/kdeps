@@ -47,20 +47,22 @@ func defaultSkillDirs() []string {
 	return dirs
 }
 
-// loadSkills discovers and loads all skills from default locations and any
-// explicitly provided paths. Returns the formatted XML block for injection
-// into the system prompt, or empty string if no skills are found.
+// loadSkills returns the formatted XML skill block for use in system prompts.
 func loadSkills(extraPaths []string) string {
+	return formatSkillsForPrompt(loadSkillSlice(extraPaths))
+}
+
+// loadSkillSlice discovers and loads all skills from default locations and any
+// explicitly provided paths. Returns the raw slice of Skill structs.
+func loadSkillSlice(extraPaths []string) []Skill {
 	seen := sync.Map{}
 	skills := make([]Skill, 0)
 
-	// Collect all directories to scan
 	dirs := defaultSkillDirs()
 	for _, p := range extraPaths {
 		if info, err := os.Stat(p); err == nil && info.IsDir() {
 			dirs = append(dirs, p)
 		} else if err == nil && !info.IsDir() {
-			// Single file — load directly
 			if sk := loadSkillFromFile(p); sk != nil {
 				if _, loaded := seen.LoadOrStore(sk.Name, true); !loaded {
 					skills = append(skills, *sk)
@@ -70,19 +72,14 @@ func loadSkills(extraPaths []string) string {
 	}
 
 	for _, dir := range dirs {
-		discovered := discoverSkillsInDir(dir)
-		for _, sk := range discovered {
+		for _, sk := range discoverSkillsInDir(dir) {
 			if _, loaded := seen.LoadOrStore(sk.Name, true); !loaded {
 				skills = append(skills, sk)
 			}
 		}
 	}
 
-	if len(skills) == 0 {
-		return ""
-	}
-
-	return formatSkillsForPrompt(skills)
+	return skills
 }
 
 // discoverSkillsInDir walks a directory and finds SKILL.md files.
@@ -177,8 +174,11 @@ func loadSkillFromFile(path string) *Skill {
 }
 
 // formatSkillsForPrompt formats skills as an XML <available_skills> block
-// for injection into the system prompt.
+// for injection into the system prompt. Returns empty string when no skills.
 func formatSkillsForPrompt(skills []Skill) string {
+	if len(skills) == 0 {
+		return ""
+	}
 	var sb strings.Builder
 	sb.WriteString("<available_skills>\n")
 	for _, sk := range skills {
