@@ -130,7 +130,8 @@ func (e *Executor) runRG(args []string) ([]rgMatch, error) {
 	stdout, stderr, err := e.runner.Run("rg", args...)
 	if err != nil {
 		// rg exits with code 1 when no matches found — that's not a real error
-		if exitErr, ok := err.(*exec.ExitError); ok && exitErr.ExitCode() == 1 {
+		var exitErr *exec.ExitError
+		if errors.As(err, &exitErr) && exitErr.ExitCode() == 1 {
 			return nil, nil
 		}
 		// Check if rg is not installed
@@ -352,6 +353,7 @@ func (e *Executor) hover(config *domain.CodeIntelligenceConfig) (interface{}, er
 	}), nil
 }
 
+//nolint:gocognit // complexity from go vet parsing with severity/filename heuristics
 func (e *Executor) diagnostics(config *domain.CodeIntelligenceConfig) (interface{}, error) {
 	if config.Path == "" {
 		return nil, errors.New("codeIntelligence: path is required for diagnostics")
