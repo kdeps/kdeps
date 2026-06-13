@@ -19,19 +19,35 @@
 package agent
 
 import (
-	"bufio"
 	"context"
+	"errors"
 	"fmt"
+	"io"
 	"os"
-	"os/signal"
 	"strings"
-	"syscall"
+
+	"github.com/charmbracelet/lipgloss"
+	"github.com/chzyer/readline"
 )
 
 const (
 	replHistoryInitCap = 100
 	replPreviewMax     = 80
 	replLabelMod       = 2
+)
+
+//nolint:gochecknoglobals // command list must be package-level for completer
+var builtinCmds = []string{
+	"/help", "/settings", "/clear", "/model",
+	"/skills", "/compact", "/history", "/exit", "/quit",
+}
+
+//nolint:gochecknoglobals // lipgloss styles for REPL output
+var (
+	styleReplResponse = lipgloss.NewStyle().Foreground(lipgloss.Color("#CDD6F4"))
+	styleReplError    = lipgloss.NewStyle().Foreground(lipgloss.Color("#FF2D78"))
+	styleReplMeta     = lipgloss.NewStyle().Foreground(lipgloss.Color("#555555")).Italic(true)
+	styleReplHeading  = lipgloss.NewStyle().Foreground(lipgloss.Color("#00E5FF")).Bold(true)
 )
 
 // OnSettingsChange is called after /settings saves new selections.
@@ -49,9 +65,8 @@ type REPL struct {
 	ctx              context.Context
 	cancel           context.CancelFunc
 	history          []string
-	prompt           string
-	onSettingsChange OnSettingsChange // optional callback for /settings
-	tuiRunner        TUIRunner        // optional injected TUI opener for /settings
+	onSettingsChange OnSettingsChange
+	tuiRunner        TUIRunner
 }
 
 // NewREPL creates a new REPL for the given agent loop.
@@ -62,7 +77,6 @@ func NewREPL(loop *Loop) *REPL {
 		ctx:     ctx,
 		cancel:  cancel,
 		history: make([]string, 0, replHistoryInitCap),
-		prompt:  "> ",
 	}
 }
 
@@ -76,24 +90,61 @@ func (r *REPL) SetTUIRunner(fn TUIRunner) {
 	r.tuiRunner = fn
 }
 
+// dynamicPrompt returns a prompt string showing model and turn count.
+func (r *REPL) dynamicPrompt() string {
+	turns := r.loop.Session().TurnCount()
+	model := r.loop.config.Model
+	if turns == 0 {
+		return fmt.Sprintf("[%s] > ", model)
+	}
+	return fmt.Sprintf("[%s|%d] > ", model, turns)
+}
+
+// buildCompleter returns a readline.AutoCompleter that completes /commands and skill names.
+func (r *REPL) buildCompleter() readline.AutoCompleter {
+	return readline.NewPrefixCompleter(
+		r.completionItems()...,
+	)
+}
+
+func (r *REPL) completionItems() []readline.PrefixCompleterInterface {
+	items := make([]readline.PrefixCompleterInterface, 0, len(builtinCmds)+len(r.loop.skillList))
+	for _, cmd := range builtinCmds {
+		items = append(items, readline.PcItem(cmd))
+	}
+	for _, sk := range r.loop.skillList {
+		items = append(items, readline.PcItem("/"+sk.Name))
+	}
+	return items
+}
+
 // Run starts the REPL. It blocks until the user exits or an error occurs.
 func (r *REPL) Run() error {
 	defer r.cancel()
 
-	// Handle Ctrl+C gracefully
-	sigCh := make(chan os.Signal, 1)
-	signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
-	defer signal.Stop(sigCh)
+	rl, err := readline.NewEx(&readline.Config{
+		Prompt:          r.dynamicPrompt(),
+		HistoryLimit:    replHistoryInitCap,
+		AutoComplete:    r.buildCompleter(),
+		InterruptPrompt: "(interrupt - Ctrl+D to quit)",
+		EOFPrompt:       "exit",
+		Stdin:           os.Stdin,
+		Stdout:          os.Stdout,
+	})
+	if err != nil {
+		r.runPlain()
+		return nil
+	}
+	defer rl.Close()
 
-	go func() {
-		<-sigCh
-		fmt.Fprintln(os.Stderr, "\n(interrupt)")
-		r.cancel()
-	}()
+	fmt.Fprintln(os.Stdout, styleReplMeta.Render(
+		"Agent loop  /help for commands  Ctrl+D to exit",
+	))
+	return r.runLoop(rl)
+}
 
-	scanner := bufio.NewScanner(os.Stdin)
-	fmt.Fprintln(os.Stdout, "Agent loop mode — type your message or /help for commands. Ctrl+D to exit.")
-
+// runLoop is the core readline event loop extracted for complexity budget.
+func (r *REPL) runLoop(rl *readline.Instance) error {
 	for {
 		select {
 		case <-r.ctx.Done():
@@ -101,38 +152,87 @@ func (r *REPL) Run() error {
 		default:
 		}
 
-		fmt.Fprint(os.Stdout, r.prompt)
-		if !scanner.Scan() {
-			break
+		rl.SetPrompt(r.dynamicPrompt())
+		line, readErr := rl.Readline()
+
+		if stop, err := r.handleReadError(readErr); stop {
+			return err
 		}
 
-		input := strings.TrimSpace(scanner.Text())
+		input := strings.TrimSpace(line)
 		if input == "" {
 			continue
 		}
+		if procErr := r.processInput(input); procErr != nil {
+			fmt.Fprintln(os.Stderr, styleReplError.Render("error: "+procErr.Error()))
+		}
+	}
+}
 
-		// Check for slash commands
-		if strings.HasPrefix(input, "/") {
-			if err := r.dispatchCommand(input); err != nil {
-				fmt.Fprintf(os.Stderr, "error: %v\n", err)
-			}
-			continue
+// handleReadError classifies a readline error as stop/continue/fatal.
+// Returns (shouldStop, error).
+func (r *REPL) handleReadError(err error) (bool, error) {
+	switch {
+	case errors.Is(err, readline.ErrInterrupt):
+		return false, nil // Ctrl+C - continue
+	case errors.Is(err, io.EOF):
+		return true, nil
+	case err != nil:
+		return true, err
+	default:
+		return false, nil
+	}
+}
+
+// processInput routes a non-empty input line to a command or LLM turn.
+func (r *REPL) processInput(input string) error {
+	if strings.HasPrefix(input, "/") {
+		return r.dispatchCommand(input)
+	}
+	r.history = append(r.history, input)
+	resp, err := r.loop.Run(r.ctx, input)
+	if err != nil {
+		return err
+	}
+	if resp != "" {
+		fmt.Fprintln(os.Stdout, styleReplResponse.Render(resp))
+	}
+	return nil
+}
+
+// runPlain is a fallback REPL for non-TTY environments (pipes, tests).
+func (r *REPL) runPlain() {
+	var sb strings.Builder
+	buf := make([]byte, 4096) //nolint:mnd // 4 KiB read buffer
+
+	for {
+		select {
+		case <-r.ctx.Done():
+			return
+		default:
 		}
 
-		// Regular input — run agent loop turn
-		r.history = append(r.history, input)
-
-		resp, err := r.loop.Run(r.ctx, input)
+		n, err := os.Stdin.Read(buf)
+		if n > 0 {
+			sb.Write(buf[:n])
+		}
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "error: %v\n", err)
+			return
+		}
+		line := strings.TrimSpace(sb.String())
+		sb.Reset()
+		if line == "" {
 			continue
 		}
+		if strings.HasPrefix(line, "/") {
+			_ = r.dispatchCommand(line)
+			continue
+		}
+		resp, _ := r.loop.Run(r.ctx, line)
 		if resp != "" {
 			fmt.Fprintln(os.Stdout, resp)
 		}
 	}
-
-	return scanner.Err()
 }
 
 // dispatchCommand handles slash-prefixed commands.
@@ -160,7 +260,6 @@ func (r *REPL) dispatchCommand(cmd string) error {
 		r.cancel()
 		return nil
 	default:
-		// Try skill invocation: /skill-name [optional extra prompt]
 		skillName := strings.TrimPrefix(command, "/")
 		if sk := r.loop.SkillByName(skillName); sk != nil {
 			return r.cmdInvokeSkill(sk, args)
@@ -171,85 +270,96 @@ func (r *REPL) dispatchCommand(cmd string) error {
 }
 
 func (r *REPL) cmdHelp() error {
-	fmt.Fprintln(os.Stdout, `Available commands:
-  /help               Show this help message
-  /settings           Open the tool/skill selector TUI and save selections
-  /clear              Clear the conversation history
-  /model [name]       Show or set the LLM model
-  /skills             List loaded skills
-  /<skill-name> [..] Invoke a loaded skill by name with optional extra prompt
-  /compact            Compact conversation history (keep recent turns)
-  /history            Show recent conversation turns
-  /exit, /quit        Exit the agent loop
-
-Type any other text to send it as a prompt to the LLM.`)
+	heading := styleReplHeading.Render
+	meta := styleReplMeta.Render
+	fmt.Fprintf(os.Stdout, "%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n\n%s\n",
+		heading("Available commands:"),
+		"  /help               Show this help message",
+		"  /settings           Open the tool/skill selector and save selections",
+		"  /clear              Clear the conversation history",
+		"  /model [name]       Show or set the LLM model",
+		"  /skills             List loaded skills",
+		"  /<skill-name> [..] Invoke a loaded skill by name with optional extra prompt",
+		"  /compact            Compact conversation history (keep recent turns)",
+		"  /history            Show recent conversation turns",
+		meta("/exit, /quit, Ctrl+D to exit  |  Ctrl+C to cancel current line  |  Tab to complete commands"),
+	)
 	return nil
 }
 
 func (r *REPL) cmdClear() error {
 	r.loop.Session().Clear()
-	fmt.Fprintln(os.Stdout, "Conversation history cleared.")
+	fmt.Fprintln(os.Stdout, styleReplMeta.Render("Conversation history cleared."))
 	return nil
 }
 
 func (r *REPL) cmdModel(args []string) error {
 	if len(args) > 0 {
 		r.loop.config.Model = args[0]
-		fmt.Fprintf(os.Stdout, "Model set to %s\n", args[0])
+		fmt.Fprintln(os.Stdout, styleReplMeta.Render("Model set to "+args[0]))
 		return nil
 	}
-	fmt.Fprintf(os.Stdout, "Current model: %s\n", r.loop.config.Model)
+	fmt.Fprintln(os.Stdout, styleReplMeta.Render("Current model: "+r.loop.config.Model))
 	return nil
 }
 
 func (r *REPL) cmdSkills() error {
-	skills := r.loop.Skills()
-	if skills == "" {
-		fmt.Fprintln(os.Stdout, "No skills loaded.")
+	if len(r.loop.skillList) == 0 {
+		fmt.Fprintln(os.Stdout, styleReplMeta.Render("No skills loaded."))
 		return nil
 	}
-	fmt.Fprintf(os.Stdout, "Loaded skills:\n%s\n", skills)
+	fmt.Fprintln(os.Stdout, styleReplHeading.Render("Loaded skills:"))
+	for _, sk := range r.loop.skillList {
+		desc := sk.Description
+		if desc == "" {
+			desc = sk.Source
+		}
+		fmt.Fprintf(os.Stdout, "  /%s  %s\n", sk.Name, styleReplMeta.Render(desc))
+	}
 	return nil
 }
 
 func (r *REPL) cmdCompact() error {
 	result := r.loop.Session().Compact()
 	if result == "" {
-		fmt.Fprintln(os.Stdout, "No compaction needed.")
+		fmt.Fprintln(os.Stdout, styleReplMeta.Render("No compaction needed."))
 		return nil
 	}
-	fmt.Fprintf(os.Stdout, "%s (now %d turns)\n", result, r.loop.Session().TurnCount())
+	fmt.Fprintf(os.Stdout, "%s %s\n",
+		result,
+		styleReplMeta.Render(fmt.Sprintf("(now %d turns)", r.loop.Session().TurnCount())),
+	)
 	return nil
 }
 
 func (r *REPL) cmdHistory() error {
 	turns := r.loop.Session().TurnCount()
 	if turns == 0 {
-		fmt.Fprintln(os.Stdout, "No conversation history.")
+		fmt.Fprintln(os.Stdout, styleReplMeta.Render("No conversation history."))
 		return nil
 	}
-
-	fmt.Fprintf(os.Stdout, "Conversation history (%d turns):\n", turns)
+	fmt.Fprintln(os.Stdout, styleReplHeading.Render(fmt.Sprintf("Conversation history (%d turns):", turns)))
 	for i, m := range r.loop.Session().Messages() {
-		label := "USER"
+		label := "YOU"
 		if i%replLabelMod == 1 {
-			label = "ASSISTANT"
+			label = "AGENT"
 		}
 		preview := m.Content
 		if len(preview) > replPreviewMax {
 			preview = preview[:replPreviewMax] + "..."
 		}
-		fmt.Fprintf(os.Stdout, "  [%d] %s: %s\n", i/replLabelMod, label, preview)
+		fmt.Fprintf(os.Stdout, "  %s %s\n",
+			styleReplHeading.Render(fmt.Sprintf("[%d] %s:", i/replLabelMod, label)),
+			preview,
+		)
 	}
 	return nil
 }
 
 // cmdSettings opens the TUI selector, saves the result, and applies skill changes live.
-// Workflow/agency/component changes take effect on next start (tool re-registration
-// requires restart).
 func (r *REPL) cmdSettings() error {
 	if r.tuiRunner == nil {
-		fmt.Fprintln(os.Stdout, "Settings TUI not available in this environment.")
+		fmt.Fprintln(os.Stdout, styleReplMeta.Render("Settings TUI not available in this environment."))
 		return nil
 	}
 
@@ -258,7 +368,6 @@ func (r *REPL) cmdSettings() error {
 		return fmt.Errorf("settings: %w", err)
 	}
 
-	// Apply skill changes immediately
 	r.loop.ReloadSkills(skillPaths)
 
 	if r.onSettingsChange != nil {
@@ -266,9 +375,11 @@ func (r *REPL) cmdSettings() error {
 	}
 
 	if toolsChanged {
-		fmt.Fprintln(os.Stdout, "Settings saved. Skill changes applied. Tool changes take effect on next start.")
+		fmt.Fprintln(os.Stdout, styleReplMeta.Render(
+			"Settings saved. Skill changes applied. Tool changes take effect on next start.",
+		))
 	} else {
-		fmt.Fprintln(os.Stdout, "Settings saved.")
+		fmt.Fprintln(os.Stdout, styleReplMeta.Render("Settings saved."))
 	}
 	return nil
 }
@@ -288,7 +399,7 @@ func (r *REPL) cmdInvokeSkill(sk *Skill, extra []string) error {
 		return fmt.Errorf("skill %s: %w", sk.Name, err)
 	}
 	if resp != "" {
-		fmt.Fprintln(os.Stdout, resp)
+		fmt.Fprintln(os.Stdout, styleReplResponse.Render(resp))
 	}
 	return nil
 }
