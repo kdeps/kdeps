@@ -23,6 +23,7 @@ package cmd
 import (
 	"archive/tar"
 	"compress/gzip"
+	"errors"
 	"fmt"
 	"io"
 	"io/fs"
@@ -80,14 +81,10 @@ func augmentPackageWithModels(packageFile string) (string, func(), error) {
 	outPath := out.Name()
 	cleanup := func() { _ = os.Remove(outPath) }
 
-	if writeErr := writeAugmentedArchive(packageFile, out, resolved); writeErr != nil {
-		_ = out.Close()
+	writeErr := writeAugmentedArchive(packageFile, out, resolved)
+	if joinedErr := errors.Join(writeErr, out.Close()); joinedErr != nil {
 		cleanup()
-		return "", nil, writeErr
-	}
-	if closeErr := out.Close(); closeErr != nil {
-		cleanup()
-		return "", nil, fmt.Errorf("failed to close augmented archive: %w", closeErr)
+		return "", nil, fmt.Errorf("failed to write augmented archive: %w", joinedErr)
 	}
 	return outPath, cleanup, nil
 }
@@ -167,10 +164,7 @@ func writeAugmentedArchive(srcPath string, dst io.Writer, models map[string]stri
 		return appendErr
 	}
 
-	if closeErr := tarWriter.Close(); closeErr != nil {
-		return fmt.Errorf("failed to finalise augmented archive: %w", closeErr)
-	}
-	if closeErr := gzWriter.Close(); closeErr != nil {
+	if closeErr := errors.Join(tarWriter.Close(), gzWriter.Close()); closeErr != nil {
 		return fmt.Errorf("failed to finalise augmented archive: %w", closeErr)
 	}
 	return nil
@@ -205,16 +199,16 @@ func appendModelEntries(tarWriter *tar.Writer, models map[string]string) error {
 }
 
 func appendFileEntry(tarWriter *tar.Writer, entryName, filePath string) error {
+	info, err := os.Stat(filePath)
+	if err != nil {
+		return fmt.Errorf("failed to stat model %s: %w", filePath, err)
+	}
+
 	f, err := os.Open(filePath)
 	if err != nil {
 		return fmt.Errorf("failed to open model %s: %w", filePath, err)
 	}
 	defer f.Close()
-
-	info, err := f.Stat()
-	if err != nil {
-		return fmt.Errorf("failed to stat model %s: %w", filePath, err)
-	}
 
 	hdr := &tar.Header{
 		Name: filepath.ToSlash(entryName),

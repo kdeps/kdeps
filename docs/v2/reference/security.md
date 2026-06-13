@@ -19,6 +19,30 @@ A -> B -> C -> D -> E -> F
 
 When `apiServer` is configured, authentication is required. Every request must include the token via `Authorization: Bearer <token>` or `X-Api-Key: <token>`. The `/health` endpoint is always exempt. `/_kdeps/*` management routes use `KDEPS_MANAGEMENT_TOKEN` instead (see [Management API](./management-api.md)). kdeps refuses to start the API server without a token.
 
+### Public routes
+
+Routes serving a browser frontend can opt out of bearer auth with
+`public: true` - a static page cannot hold a secret, so anything shipped in
+JS would be public anyway:
+
+```yaml
+# workflow.yaml
+settings:
+  apiServer:
+    routes:
+      - path: /api/v1/chat
+        methods: [POST]
+        public: true   # no token needed for credential-less requests
+      - path: /api/v1/admin
+        methods: [POST]  # token still required here
+```
+
+Credential-less requests pass; a presented token is still validated, so a
+wrong `Authorization` header always gets 401. In merged API+Web mode the
+`webServer` routes themselves are always public (a browser navigation cannot
+send a header), but paths claimed by an API route stay authenticated unless
+marked `public: true`.
+
 Set the token in `~/.kdeps/config.yaml` (machine-local, never committed):
 
 ```yaml

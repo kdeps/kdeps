@@ -309,7 +309,7 @@ func maskAPIKey(key string) string {
 
 func backendOrDefault(backend string) string {
 	if backend == "" {
-		return ollamaBackendStr
+		return fileBackendStr
 	}
 	return backend
 }

@@ -86,10 +86,10 @@ func (m *LlamafileManager) Serve(path string, port int) (int, error) {
 	}
 
 	m.logger.Info("starting llamafile server", "path", path, "port", port)
-	if startErr := startLlamafileServer(path, port); startErr != nil {
+	if startErr := startLlamafileServerFunc(path, port); startErr != nil {
 		return 0, startErr
 	}
-	if healthErr := waitForHealthy(serverURL, port, llamafileStartTimeout); healthErr != nil {
+	if healthErr := waitForHealthy(serverURL, port, llamafileStartTimeoutFunc()); healthErr != nil {
 		return 0, healthErr
 	}
 	m.logger.Info("llamafile server ready", "url", serverURL)
@@ -101,12 +101,27 @@ func llamafileServerURL(port int) string {
 	return fmt.Sprintf("http://127.0.0.1:%d", port)
 }
 
+// startLlamafileServerFunc launches the server binary (overridable in tests).
+//
+//nolint:gochecknoglobals // test-replaceable hook
+var startLlamafileServerFunc = startLlamafileServer
+
+// llamafileShell is the shell used to launch APE binaries (overridable in tests).
+//
+//nolint:gochecknoglobals // test-replaceable hook
+var llamafileShell = "/bin/sh"
+
+// llamafileStartTimeoutFunc returns the health-wait budget (overridable in tests).
+//
+//nolint:gochecknoglobals // test-replaceable hook
+var llamafileStartTimeoutFunc = func() time.Duration { return llamafileStartTimeout }
+
 func startLlamafileServer(path string, port int) error {
 	ctx := context.Background()
 	// Llamafiles are APE (Actually Portable Executable) shell-script polyglots:
 	// macOS and kernels without binfmt support cannot execve them directly
 	// ("exec format error"), so always launch through sh.
-	cmd := exec.CommandContext(ctx, "/bin/sh", path,
+	cmd := exec.CommandContext(ctx, llamafileShell, path,
 		"--server",
 		"--host", "127.0.0.1",
 		"--port", strconv.Itoa(port),

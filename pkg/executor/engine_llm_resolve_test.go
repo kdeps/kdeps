@@ -19,6 +19,7 @@
 package executor
 
 import (
+	"os"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -26,6 +27,17 @@ import (
 
 	"github.com/kdeps/kdeps/v2/pkg/domain"
 )
+
+func TestResolveLLMBackend_DefaultBackendEnv(t *testing.T) {
+	t.Setenv("KDEPS_DEFAULT_BACKEND", "openai")
+	e := &Engine{}
+	assert.Equal(t, "openai", e.resolveLLMBackend(&domain.ChatConfig{}))
+}
+
+func TestResolveLLMBackend_FallbackToFile(t *testing.T) {
+	e := &Engine{}
+	assert.Equal(t, "file", e.resolveLLMBackend(&domain.ChatConfig{}))
+}
 
 func TestEvaluateLLMModel_ParseAndEvalFallback(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
@@ -38,4 +50,15 @@ func TestEvaluateLLMModel_ParseAndEvalFallback(t *testing.T) {
 	ctx.Set("modelName", "resolved", "memory")
 	assert.Equal(t, "resolved", e.evaluateLLMModel("{{ get('modelName') }}", ctx))
 	assert.Equal(t, "{{ get('n') }}", e.evaluateLLMModel("{{ get('n') }}", ctx))
+}
+
+func TestResolveLLMBackend_EnvFallback(t *testing.T) {
+	e := NewEngine(nil)
+	t.Setenv("KDEPS_DEFAULT_BACKEND", "groq")
+	assert.Equal(t, "groq", e.resolveLLMBackend(&domain.ChatConfig{}))
+
+	t.Setenv("KDEPS_DEFAULT_BACKEND", "")
+	require.NoError(t, os.Unsetenv("KDEPS_DEFAULT_BACKEND"))
+	assert.Equal(t, "file", e.resolveLLMBackend(&domain.ChatConfig{}))
+	assert.Equal(t, "openai", e.resolveLLMBackend(&domain.ChatConfig{Backend: "openai"}))
 }

@@ -116,3 +116,36 @@ func TestHTTPLLMClient_Chat_OllamaDefaultURL(t *testing.T) {
 	_, err := client.Chat(context.Background(), "m", "http://127.0.0.1:1", "", nil)
 	require.Error(t, err)
 }
+
+func TestHTTPLLMClient_Chat_OllamaDefaultBaseURL(_ *testing.T) {
+	client := NewHTTPLLMClientWithBackend("ollama")
+	// Empty base URL falls back to the local ollama default; the request
+	// itself may succeed or fail depending on the host - only the branch
+	// matters here.
+	_, _ = client.Chat(context.Background(), "m", "", "", nil)
+}
+
+func TestServeLlamafileForChat_ManagerError(t *testing.T) {
+	t.Setenv("KDEPS_MODELS_DIR", "/dev/null/impossible")
+	_, err := serveLlamafileForChat("anything.llamafile")
+	require.Error(t, err)
+}
+
+func TestServeLlamafileForChat_ResolveError(t *testing.T) {
+	t.Setenv("KDEPS_MODELS_DIR", t.TempDir())
+	_, err := serveLlamafileForChat("missing.llamafile")
+	require.Error(t, err)
+}
+
+func TestChat_FileBackendCallsEnsureLlamafile(t *testing.T) {
+	t.Setenv("KDEPS_MODELS_DIR", "/dev/null/impossible")
+
+	client := NewHTTPLLMClientWithBackend("file")
+	_, err := client.Chat(context.Background(), "x.llamafile", "", "", nil)
+	require.Error(t, err)
+}
+
+func TestBackendLabel_UnknownHostIsOpenAICompatible(t *testing.T) {
+	gen := NewGenerator(&mockLLMClient{}, "m", "https://unknown.example.com/v1", "", nil)
+	require.Contains(t, gen.BackendLabel(), "openai-compatible")
+}

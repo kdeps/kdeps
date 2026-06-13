@@ -36,16 +36,16 @@ const (
 
 // FileResourceConfig holds the configuration for a file system resource.
 type FileResourceConfig struct {
-	Operation    FileResourceOperation `yaml:"operation"`              // required
-	Path         string                `yaml:"path"`                   // required (dest for copy/move)
-	Source       string                `yaml:"source,omitempty"`       // source for copy/move
-	Content      string                `yaml:"content,omitempty"`      // for write/append
-	Patch        string                `yaml:"patch,omitempty"`        // unified diff for patch
-	Encoding     string                `yaml:"encoding,omitempty"`     // "text" (default) or "base64"
-	Pattern      string                `yaml:"pattern,omitempty"`      // glob pattern for list
-	Recursive    bool                  `yaml:"recursive,omitempty"`    // recursive list
-	Backup       bool                  `yaml:"backup,omitempty"`       // create .bak on write
-	DryRun       bool                  `yaml:"dryRun,omitempty"`       // dry-run mode
-	Mode         string                `yaml:"mode,omitempty"`         // file mode (e.g. "0644")
-	AppendNewline bool                 `yaml:"appendNewline,omitempty"` // ensure trailing newline
+	Operation     FileResourceOperation `yaml:"operation"`               // required
+	Path          string                `yaml:"path"`                    // required (dest for copy/move)
+	Source        string                `yaml:"source,omitempty"`        // source for copy/move
+	Content       string                `yaml:"content,omitempty"`       // for write/append
+	Patch         string                `yaml:"patch,omitempty"`         // unified diff for patch
+	Encoding      string                `yaml:"encoding,omitempty"`      // "text" (default) or "base64"
+	Pattern       string                `yaml:"pattern,omitempty"`       // glob pattern for list
+	Recursive     bool                  `yaml:"recursive,omitempty"`     // recursive list
+	Backup        bool                  `yaml:"backup,omitempty"`        // create .bak on write
+	DryRun        bool                  `yaml:"dryRun,omitempty"`        // dry-run mode
+	Mode          string                `yaml:"mode,omitempty"`          // file mode (e.g. "0644")
+	AppendNewline bool                  `yaml:"appendNewline,omitempty"` // ensure trailing newline
 }
