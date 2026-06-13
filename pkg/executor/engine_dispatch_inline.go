@@ -142,6 +142,12 @@ func inlineResourceDispatch() []inlineDispatchEntry {
 		"file": func(e *Engine, inline *domain.InlineResource, _ int, ctx *ExecutionContext) (interface{}, error) {
 			return e.executeInlineFile(inline.File, ctx)
 		},
+		"git": func(e *Engine, inline *domain.InlineResource, _ int, ctx *ExecutionContext) (interface{}, error) {
+			return e.executeInlineGit(inline.Git, ctx)
+		},
+		"codeIntelligence": func(e *Engine, inline *domain.InlineResource, _ int, ctx *ExecutionContext) (interface{}, error) {
+			return e.executeInlineCodeIntelligence(inline.CodeIntelligence, ctx)
+		},
 		"botReply": func(e *Engine, inline *domain.InlineResource, index int, ctx *ExecutionContext) (interface{}, error) {
 			return e.executeBotReply(inlineSyntheticResource(inline, index), ctx)
 		},
