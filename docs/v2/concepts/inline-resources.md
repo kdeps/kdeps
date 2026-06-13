@@ -1,6 +1,6 @@
 # Inline Resources
 
-Inline resources are full resource actions (chat, httpClient, sql, python, exec) placed directly inside a resource's `before:` or `after:` block. They run as part of that resource instead of requiring separate files.
+Inline resources are full resource actions (chat, httpClient, sql, python, exec, file) placed directly inside a resource's `before:` or `after:` block. They run as part of that resource instead of requiring separate files.
 
 ## Basic Syntax
 
@@ -16,7 +16,7 @@ before:
   - exec:
       command: "echo 'Preparing environment...'"
 
-# Main resource (chat, httpClient, sql, python, or exec)
+# Main resource (chat, httpClient, sql, python, exec, or file)
 chat:
   role: user
   prompt: "Process this data"
@@ -32,7 +32,7 @@ after:
 
 ## Supported Resource Types
 
-Each inline resource can be any supported execution block, including `chat`, `httpClient`, `sql`, `python`, `exec`, `agent`, `component`, `scraper`, `embedding`, `searchLocal`, `searchWeb`, `telephony`, `browser`, `botReply`, `email`, or `apiResponse`. Every execution type works as either the resource primary block or as an inline step in `before:`/`after:`.
+Each inline resource can be any supported execution block, including `chat`, `httpClient`, `sql`, `python`, `exec`, `agent`, `component`, `scraper`, `embedding`, `searchLocal`, `searchWeb`, `telephony`, `browser`, `botReply`, `email`, `file`, or `apiResponse`. Every execution type works as either the resource primary block or as an inline step in `before:`/`after:`.
 
 When `apiResponse` is the only primary block and the resource has `before:` or `after:` inline steps, the response is evaluated exactly once - after all `before:` steps have run - so API clients always receive a single response object.
 

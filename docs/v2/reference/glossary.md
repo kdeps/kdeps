@@ -58,6 +58,9 @@ Short for "expression." A statement evaluated by the expr-lang engine. Used in `
 ### file
 Accesses uploaded files or local files. The `file()` function takes a glob pattern and optional selector (`first`, `last`, `count`, `all`, `mime:<type>`).
 
+### file (resource)
+A resource action type for filesystem operations. Supports read, write, patch, list, delete, exists, mkdir, copy, move, and append operations on files and directories. See [File](/resources/file).
+
 ## G
 
 ### get
