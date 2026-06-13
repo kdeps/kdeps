@@ -4,7 +4,7 @@ kdeps provides two native search executors compiled into the binary: `searchLoca
 
 ## Where it runs
 
-Both [workflow mode](/modes/workflow-mode) and [agent mode](/modes/agent-mode). In workflow mode each executor runs as a DAG step. In agent mode, the workflow containing these resources runs as a single callable tool.
+Both [workflow mode](/modes/workflow-mode) and [agent mode](/modes/agent-loop-mode). In workflow mode each executor runs as a DAG step. In agent mode, the workflow containing these resources runs as a single callable tool.
 
 ---
 

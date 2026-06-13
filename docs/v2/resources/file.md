@@ -4,7 +4,7 @@ The `file:` resource provides structured filesystem operations for reading, writ
 
 ## Where it runs
 
-Both [workflow mode](/modes/workflow-mode) and [agent mode](/modes/agent-mode). In workflow mode it executes as a DAG step. In agent mode, the workflow containing this resource runs as a single callable tool.
+Both [workflow mode](/modes/workflow-mode) and [agent mode](/modes/agent-loop-mode). In workflow mode it executes as a DAG step. In agent mode, the workflow containing this resource runs as a single callable tool.
 
 ## Basic Usage
 
@@ -308,4 +308,6 @@ If `/config/settings.yaml` exists, the original is saved to `/config/settings.ya
 
 - [Exec Resource](exec) — shell commands (use for CLI tools that lack a native resource)
 - [Python Resource](python) — complex data processing
+- [Git Resource](git) — version control operations
+- [Code Intelligence Resource](codeintelligence) — code navigation and search
 - [Workflow Configuration](../configuration/workflow)

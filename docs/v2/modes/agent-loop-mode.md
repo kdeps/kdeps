@@ -1,6 +1,6 @@
-# Agent Mode
+# Agent Loop Mode
 
-Agent mode (`kdeps serve`) starts an interactive LLM loop where whole workflows and components are registered as callable tools. The LLM decides which tool to invoke based on the user's prompt. Workflow tools run the full pipeline atomically so all `requires:` dependencies resolve correctly. Component tools run a single reusable component in isolation. Individual resources are never exposed as tools directly.
+Agent loop mode (`kdeps serve`) starts an interactive LLM loop where whole workflows and components are registered as callable tools. The LLM decides which tool to invoke based on the user's prompt. Workflow tools run the full pipeline atomically so all `requires:` dependencies resolve correctly. Component tools run a single reusable component in isolation. Individual resources are never exposed as tools directly.
 
 ## Single workflow vs folder
 
@@ -112,7 +112,7 @@ Why agencies are one tool and not one tool per internal agent? Agencies are desi
 
 Workflow tool input is forwarded as `get('key')` request params inside the pipeline. Output is the workflow's `apiResponse.response`. Agency tool input runs the agency's entry-point workflow. Component tool inputs map to the component's declared interface fields.
 
-## When to use agent mode
+## When to use agent loop mode
 
 - You want a conversational interface that dynamically picks which workflow to run.
 - You have multiple specialized workflows and want the LLM to route between them.
@@ -165,7 +165,7 @@ KDEPS_AGENT_BACKEND=openai KDEPS_AGENT_BASE_URL=https://api.openai.com \
 
 ## Differences from workflow mode
 
-| | Workflow mode (`kdeps run`) | Agent mode (`kdeps serve`) |
+| | Workflow mode (`kdeps run`) | Agent loop mode (`kdeps serve`) |
 |---|---|---|
 | Execution | DAG, deterministic | LLM loop, tool-driven |
 | Entry point | `metadata.targetActionId` | User prompt |

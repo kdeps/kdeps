@@ -66,7 +66,7 @@ kdeps serve ./my-agent/ --model mistral
 kdeps serve ./agents/ --system "You are a helpful assistant."
 ```
 
-See [Agent Mode](/modes/agent-mode) for full details.
+See [Agent Mode](/modes/agent-loop-mode) for full details.
 
 ---
 

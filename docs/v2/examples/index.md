@@ -51,4 +51,4 @@ Best for:
 
 - [Quickstart](/getting-started/quickstart) -- build your first workflow in 5 minutes
 - [Workflow Mode](/modes/workflow-mode) -- deterministic DAG execution
-- [Agent Mode](/modes/agent-mode) -- interactive LLM-driven tool calling
+- [Agent Mode](/modes/agent-loop-mode) -- interactive LLM-driven tool calling
