@@ -10,6 +10,7 @@ import (
 	"github.com/kdeps/kdeps/v2/pkg/domain"
 	"github.com/kdeps/kdeps/v2/pkg/executor"
 	"github.com/kdeps/kdeps/v2/pkg/tools"
+	"github.com/kdeps/kdeps/v2/pkg/tui"
 )
 
 // filepathAbsAgentLoopFunc resolves agent loop paths (overridable in tests).
@@ -59,6 +60,14 @@ func runAgentLoopCmd(path string, flags *agentLoopFlags) error {
 		}
 	} else {
 		hostWorkflow = newMinimalHostWorkflow()
+	}
+
+	// Show TUI selector when running in an interactive terminal.
+	// A TUI failure is non-fatal — we fall through to the REPL without selections.
+	if isTerminal(os.Stdout) && isTerminal(os.Stdin) {
+		if sel, tuiErr := tui.Run(); tuiErr == nil {
+			applyTUISelection(sel, registry, flags, flags.Debug)
+		}
 	}
 
 	skillPaths := resolveSkillPaths(flags.SkillPaths)
@@ -238,4 +247,35 @@ func findServeWorkflowFiles(root string) []string {
 		return nil
 	})
 	return paths
+}
+
+// isTerminal returns true when f is connected to an interactive terminal.
+func isTerminal(f *os.File) bool {
+	info, err := f.Stat()
+	if err != nil {
+		return false
+	}
+	return (info.Mode() & os.ModeCharDevice) != 0
+}
+
+// applyTUISelection registers tools and skill paths from the TUI selection.
+func applyTUISelection(sel tui.Selection, registry *tools.Registry, flags *agentLoopFlags, debug bool) {
+	for _, it := range sel.Workflows {
+		if _, regErr := registerServeTools(it.Path, registry, debug); regErr != nil {
+			continue
+		}
+	}
+	for _, it := range sel.Agencies {
+		if _, regErr := registerServeTools(it.Path, registry, debug); regErr != nil {
+			continue
+		}
+	}
+	for _, it := range sel.Components {
+		if _, regErr := registerServeTools(it.Path, registry, debug); regErr != nil {
+			continue
+		}
+	}
+	for _, it := range sel.Skills {
+		flags.SkillPaths = append(flags.SkillPaths, it.Path)
+	}
 }
