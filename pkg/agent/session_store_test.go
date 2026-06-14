@@ -147,3 +147,59 @@ func TestSave_EmptySession(t *testing.T) {
 		t.Fatalf("expected 0 turns, got %d", loaded.TurnCount())
 	}
 }
+
+func TestSave_MkdirError(t *testing.T) {
+	// basePath is an existing FILE, so MkdirAll fails.
+	f, err := os.CreateTemp("", "session-not-a-dir-*")
+	if err != nil {
+		t.Fatal(err)
+	}
+	f.Close()
+	t.Cleanup(func() { os.Remove(f.Name()) })
+
+	store := NewSessionStore(f.Name())
+	_, err = store.Save(NewSession(0))
+	if err == nil {
+		t.Fatal("expected error when basePath is a file")
+	}
+}
+
+func TestSave_CreateError(t *testing.T) {
+	dir := t.TempDir()
+	// Make dir unwritable so os.Create fails.
+	if err := os.Chmod(dir, 0555); err != nil {
+		t.Skip("cannot change permissions:", err)
+	}
+	t.Cleanup(func() { os.Chmod(dir, 0755) }) //nolint:errcheck
+
+	store := NewSessionStore(dir)
+	_, err := store.Save(NewSession(0))
+	if err == nil {
+		t.Fatal("expected error when dir is not writable")
+	}
+}
+
+func TestList_NonExistentDir(t *testing.T) {
+	store := NewSessionStore(filepath.Join(t.TempDir(), "does-not-exist"))
+	ids, err := store.List()
+	if err != nil {
+		t.Fatalf("expected nil error for non-existent dir, got: %v", err)
+	}
+	if ids != nil {
+		t.Fatalf("expected nil slice, got: %v", ids)
+	}
+}
+
+func TestList_UnreadableDir(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.Chmod(dir, 0000); err != nil {
+		t.Skip("cannot change permissions:", err)
+	}
+	t.Cleanup(func() { os.Chmod(dir, 0755) }) //nolint:errcheck
+
+	store := NewSessionStore(dir)
+	_, err := store.List()
+	if err == nil {
+		t.Fatal("expected error when dir is not readable")
+	}
+}
