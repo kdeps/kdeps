@@ -150,6 +150,39 @@ func TestEnsureModel_FileBackendSkipsWhenEnvBaseURLSet(t *testing.T) {
 	assert.False(t, downloaded)
 }
 
+func TestEnsureModel_GGUFBackendSkipsWhenBaseURLSet(t *testing.T) {
+	t.Setenv("KDEPS_DEFAULT_BACKEND", backendGGUF)
+	t.Setenv("KDEPS_LLM_BASE_URL", "")
+
+	downloaded := false
+	mock := NewMockModelService()
+	mock.SetDownloadModelFunc(func(_, _ string) error {
+		downloaded = true
+		return nil
+	})
+
+	mgr := NewModelManagerFromServiceInterface(mock)
+	config := &domain.ChatConfig{Model: "model.gguf", BaseURL: "http://example.com/v1"}
+	require.NoError(t, mgr.EnsureModel(config))
+	assert.False(t, downloaded, "explicit base URL must skip gguf download/serve")
+}
+
+func TestEnsureModel_GGUFBackendSkipsWhenEnvBaseURLSet(t *testing.T) {
+	t.Setenv("KDEPS_DEFAULT_BACKEND", backendGGUF)
+	t.Setenv("KDEPS_LLM_BASE_URL", "http://example.com/v1")
+
+	downloaded := false
+	mock := NewMockModelService()
+	mock.SetDownloadModelFunc(func(_, _ string) error {
+		downloaded = true
+		return nil
+	})
+
+	mgr := NewModelManagerFromServiceInterface(mock)
+	require.NoError(t, mgr.EnsureModel(&domain.ChatConfig{Model: "model.gguf"}))
+	assert.False(t, downloaded)
+}
+
 func TestResolveBackend_DefaultsToFile(t *testing.T) {
 	t.Setenv("KDEPS_DEFAULT_BACKEND", "")
 	assert.Equal(t, backendFile, resolveBackend(&domain.ChatConfig{}))

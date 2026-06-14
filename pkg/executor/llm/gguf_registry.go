@@ -56,7 +56,7 @@ var (
 )
 
 func localGGUFRegistryPath() string {
-	home, err := os.UserHomeDir()
+	home, err := userHomeDirFunc()
 	if err != nil {
 		return ""
 	}

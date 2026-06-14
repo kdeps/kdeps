@@ -236,6 +236,126 @@ func TestServiceGGUF_ServeModel_DownloadError(t *testing.T) {
 	require.Error(t, err)
 }
 
+func TestGGUFManager_NewGGUFManager_Error(t *testing.T) {
+	t.Setenv("KDEPS_MODELS_DIR", "/dev/null/no-such-dir-xyz")
+	_, err := NewGGUFManager(nil)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "cannot create models directory")
+}
+
+func TestGGUFManager_Resolve_RelativePath(t *testing.T) {
+	origFS := AppFS
+	t.Cleanup(func() { AppFS = origFS })
+	AppFS = afero.NewMemMapFs()
+
+	dir := t.TempDir()
+	target := filepath.Join(dir, "mymodel.gguf")
+	require.NoError(t, afero.WriteFile(AppFS, target, []byte("data"), 0600))
+
+	origAbs := filepathAbsFunc
+	t.Cleanup(func() { filepathAbsFunc = origAbs })
+	filepathAbsFunc = func(_ string) (string, error) { return target, nil }
+
+	mgr := NewGGUFManagerWithDir(nil, dir)
+	got, err := mgr.Resolve("./mymodel.gguf")
+	require.NoError(t, err)
+	assert.Equal(t, target, got)
+}
+
+func TestGGUFManager_Resolve_RelativePath_AbsError(t *testing.T) {
+	origAbs := filepathAbsFunc
+	t.Cleanup(func() { filepathAbsFunc = origAbs })
+	filepathAbsFunc = func(_ string) (string, error) {
+		return "", errors.New("abs error")
+	}
+
+	mgr := NewGGUFManagerWithDir(nil, t.TempDir())
+	_, err := mgr.Resolve("./bad.gguf")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "cannot resolve relative path")
+}
+
+func TestGGUFManager_Resolve_AbsPath_NotFound(t *testing.T) {
+	origFS := AppFS
+	t.Cleanup(func() { AppFS = origFS })
+	AppFS = afero.NewMemMapFs()
+
+	mgr := NewGGUFManagerWithDir(nil, t.TempDir())
+	_, err := mgr.Resolve("/nonexistent/path/model.gguf")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "gguf model not found at")
+}
+
+func TestGGUFManager_Serve_StartError(t *testing.T) {
+	origStart := startGGUFServerFunc
+	t.Cleanup(func() { startGGUFServerFunc = origStart })
+	startGGUFServerFunc = func(_ string, _ int) error {
+		return errors.New("start failed")
+	}
+
+	origDo := httpDefaultClientDo
+	t.Cleanup(func() { httpDefaultClientDo = origDo })
+	httpDefaultClientDo = func(_ *stdhttp.Request) (*stdhttp.Response, error) {
+		return nil, errors.New("no server")
+	}
+
+	path := "/fake/start-error.gguf"
+	t.Cleanup(func() {
+		servedGGUFsMu.Lock()
+		delete(servedGGUFs, path)
+		servedGGUFsMu.Unlock()
+	})
+
+	mgr := NewGGUFManagerWithDir(nil, t.TempDir())
+	_, err := mgr.Serve(path, 19998)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "start failed")
+}
+
+func TestStartGGUFServer_BadBinary(t *testing.T) {
+	orig := ggufLlamaCPPBinary
+	t.Cleanup(func() { ggufLlamaCPPBinary = orig })
+	ggufLlamaCPPBinary = "/no/such/binary-xyz"
+
+	err := startGGUFServer("/tmp/model.gguf", 19997)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "failed to start llama-server")
+}
+
+func TestGGUFBackend_ParseResponse_DecodeError(t *testing.T) {
+	b := &GGUFBackend{}
+	resp := &stdhttp.Response{
+		StatusCode: stdhttp.StatusOK,
+		Body:       io.NopCloser(bytes.NewReader([]byte("not-json"))),
+	}
+	_, err := b.ParseResponse(resp)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "failed to decode llama-server response")
+}
+
+func TestLocalGGUFRegistryPath_HomeDirError(t *testing.T) {
+	orig := userHomeDirFunc
+	t.Cleanup(func() { userHomeDirFunc = orig })
+	userHomeDirFunc = func() (string, error) { return "", errors.New("no home") }
+
+	path := localGGUFRegistryPath()
+	assert.Empty(t, path)
+}
+
+func TestGGUFRegistry_LoadOrSeed_SeededWhenMissing(t *testing.T) {
+	dir := t.TempDir()
+	localPath := filepath.Join(dir, ".kdeps", "gguf_versions.yaml")
+
+	result := loadOrSeedLocalGGUFRegistry(localPath)
+	// Returns nil on first call (file didn't exist yet, only seeds it)
+	assert.Nil(t, result)
+}
+
+func TestGGUFRegistry_ParseGGUFYAML_Invalid(t *testing.T) {
+	result := parseGGUFYAML([]byte("not: valid: yaml: ["))
+	assert.Nil(t, result)
+}
+
 func TestModelDownload_SharedHelper_CacheHit(t *testing.T) {
 	origFS := AppFS
 	t.Cleanup(func() { AppFS = origFS })
