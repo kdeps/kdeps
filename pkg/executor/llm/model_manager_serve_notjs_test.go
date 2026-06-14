@@ -21,10 +21,19 @@
 package llm
 
 import (
+	"bytes"
+	"io"
+	stdhttp "net/http"
+	"os"
+	"path/filepath"
 	"testing"
+	"time"
 
+	"github.com/spf13/afero"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	domainpkg "github.com/kdeps/kdeps/v2/pkg/domain"
 )
 
 // TestServeFileModel_NewLlamafileManagerFailure covers line 183-185:
@@ -36,4 +45,70 @@ func TestServeFileModel_NewLlamafileManagerFailure(t *testing.T) {
 	_, err := m.serveFileModel("test.llamafile", 0)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "cannot create models directory")
+}
+
+func TestServeGGUFModel_NewGGUFManagerFailure(t *testing.T) {
+	t.Setenv("KDEPS_MODELS_DIR", "/dev/null/models-test")
+
+	m := NewModelManager(nil)
+	_, err := m.serveGGUFModel("test.gguf", 0)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "cannot create models directory")
+}
+
+func TestServeGGUFModelIfNeeded_Error(t *testing.T) {
+	t.Setenv("KDEPS_MODELS_DIR", "/dev/null/models-test")
+
+	m := NewModelManager(nil)
+	config := &domainpkg.ChatConfig{Model: "test.gguf"}
+	m.serveGGUFModelIfNeeded(config, 0)
+	// On error, BaseURL stays empty
+	assert.Empty(t, config.BaseURL)
+}
+
+func TestServeGGUFModelIfNeeded_SetsBaseURL(t *testing.T) {
+	origStart := startGGUFServerFunc
+	origTimeout := ggufStartTimeoutFunc
+	origReady := waitForCompletionsReadyFunc
+	origDo := httpDefaultClientDo
+	origGet := httpGet
+	origFS := AppFS
+	t.Cleanup(func() {
+		startGGUFServerFunc = origStart
+		ggufStartTimeoutFunc = origTimeout
+		waitForCompletionsReadyFunc = origReady
+		httpDefaultClientDo = origDo
+		httpGet = origGet
+		AppFS = origFS
+	})
+
+	AppFS = afero.NewOsFs()
+	startGGUFServerFunc = func(_ string, _ int) error { return nil }
+	ggufStartTimeoutFunc = func() time.Duration { return 10 * time.Millisecond }
+	waitForCompletionsReadyFunc = func(_ string) {}
+	httpDefaultClientDo = func(_ *stdhttp.Request) (*stdhttp.Response, error) {
+		return &stdhttp.Response{
+			StatusCode: stdhttp.StatusOK,
+			Body:       io.NopCloser(bytes.NewReader(nil)),
+		}, nil
+	}
+	httpGet = func(_ string) (*stdhttp.Response, error) {
+		return &stdhttp.Response{
+			StatusCode:    stdhttp.StatusOK,
+			ContentLength: 4,
+			Body:          io.NopCloser(bytes.NewReader([]byte("GGUF"))),
+		}, nil
+	}
+
+	dir := t.TempDir()
+	// Pre-create a cached model so Resolve doesn't download
+	modelPath := filepath.Join(dir, "test.gguf")
+	require.NoError(t, os.WriteFile(modelPath, []byte("fake"), 0600))
+	t.Setenv("KDEPS_MODELS_DIR", dir)
+
+	m := NewModelManager(nil)
+	config := &domainpkg.ChatConfig{Model: modelPath}
+	m.serveGGUFModelIfNeeded(config, 0)
+	assert.NotEmpty(t, config.BaseURL)
+	assert.Contains(t, config.BaseURL, "127.0.0.1")
 }
