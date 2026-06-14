@@ -19,7 +19,6 @@
 package llm
 
 import (
-	"os"
 	"path/filepath"
 	"sort"
 	"sync"
@@ -29,7 +28,6 @@ import (
 	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
 )
 
-// GGUFEntry describes a known GGUF model alias and its download URL.
 type GGUFEntry struct {
 	Alias        string `yaml:"alias"`
 	Description  string `yaml:"description,omitempty"`
@@ -48,7 +46,7 @@ type ggufVersions struct {
 	GGUFs   []GGUFEntry `yaml:"ggufs"`
 }
 
-//nolint:gochecknoglobals // registry is process-wide state, reset via ReloadGGUFRegistry in tests
+//nolint:gochecknoglobals // process-wide registry cache, loaded once
 var (
 	ggufRegistryOnce sync.Once
 	ggufRegistryData *ggufVersions
@@ -70,30 +68,19 @@ func loadGGUFRegistry() {
 	local := loadOrSeedLocalGGUFRegistry(localGGUFRegistryPath())
 	ggufRegistryData = mergeGGUFRegistries(embedded, local)
 
-	ggufAliasMap = make(map[string]string, len(ggufRegistryData.GGUFs))
-	for _, e := range ggufRegistryData.GGUFs {
-		ggufAliasMap[e.Alias] = e.URL
-	}
+	ggufAliasMap = buildAliasMap(ggufRegistryData.GGUFs,
+		func(e GGUFEntry) string { return e.Alias },
+		func(e GGUFEntry) string { return e.URL })
 }
 
 func loadOrSeedLocalGGUFRegistry(localPath string) *ggufVersions {
-	if localPath == "" {
-		return nil
-	}
-	if _, statErr := os.Stat(localPath); statErr != nil {
-		if mkdirErr := os.MkdirAll(filepath.Dir(localPath), 0750); mkdirErr == nil {
-			_ = os.WriteFile(localPath, []byte(defaultGGUFVersionsYAML), 0600)
-		}
-		return nil
-	}
-	raw, err := os.ReadFile(localPath)
-	if err != nil {
+	raw, ok := loadOrSeedLocalFile(localPath, defaultGGUFVersionsYAML)
+	if !ok {
 		return nil
 	}
 	return parseGGUFYAML(raw)
 }
 
-//nolint:dupl // mirrors mergeLlamafileRegistries; different types, same shape
 func mergeGGUFRegistries(embedded, local *ggufVersions) *ggufVersions {
 	if embedded == nil {
 		embedded = &ggufVersions{Version: 1}
@@ -101,26 +88,11 @@ func mergeGGUFRegistries(embedded, local *ggufVersions) *ggufVersions {
 	if local == nil {
 		return embedded
 	}
-	localByAlias := make(map[string]GGUFEntry, len(local.GGUFs))
-	for _, e := range local.GGUFs {
-		localByAlias[e.Alias] = e
+	return &ggufVersions{
+		Version: embedded.Version,
+		GGUFs: mergeByAlias(embedded.GGUFs, local.GGUFs,
+			func(e GGUFEntry) string { return e.Alias }),
 	}
-	merged := &ggufVersions{Version: embedded.Version}
-	seen := make(map[string]bool, len(embedded.GGUFs))
-	for _, e := range embedded.GGUFs {
-		seen[e.Alias] = true
-		if override, ok := localByAlias[e.Alias]; ok {
-			merged.GGUFs = append(merged.GGUFs, override)
-		} else {
-			merged.GGUFs = append(merged.GGUFs, e)
-		}
-	}
-	for _, e := range local.GGUFs {
-		if !seen[e.Alias] {
-			merged.GGUFs = append(merged.GGUFs, e)
-		}
-	}
-	return merged
 }
 
 func parseGGUFYAML(raw []byte) *ggufVersions {
@@ -135,14 +107,12 @@ func ensureGGUFRegistryLoaded() {
 	ggufRegistryOnce.Do(loadGGUFRegistry)
 }
 
-// ResolveGGUFAlias returns the download URL for a known GGUF alias.
 func ResolveGGUFAlias(model string) (string, bool) {
 	ensureGGUFRegistryLoaded()
 	url, ok := ggufAliasMap[model]
 	return url, ok
 }
 
-// GGUFAliasNames returns sorted alias names from the GGUF registry.
 func GGUFAliasNames() []string {
 	ensureGGUFRegistryLoaded()
 	names := make([]string, 0, len(ggufAliasMap))
@@ -153,20 +123,16 @@ func GGUFAliasNames() []string {
 	return names
 }
 
-// ListGGUFMappings returns all entries in the merged GGUF registry.
 func ListGGUFMappings() []GGUFEntry {
 	ensureGGUFRegistryLoaded()
 	return ggufRegistryData.GGUFs
 }
 
-// GGUFRegistryVersion returns the version field of the merged registry.
 func GGUFRegistryVersion() int {
 	ensureGGUFRegistryLoaded()
 	return ggufRegistryData.Version
 }
 
-// ReloadGGUFRegistry resets the once so the registry is re-parsed on next access.
-// Primarily for testing.
 func ReloadGGUFRegistry() {
 	ggufRegistryOnce = sync.Once{}
 }
