@@ -1215,19 +1215,25 @@ func TestAgentLoop_SinkError_OnTurnEnd_AfterTools(t *testing.T) {
 }
 
 func TestAgentLoop_SinkError_OnTurnEnd_TerminalStop(t *testing.T) {
-	// Covers handleTerminalStop emitTurnEnd error (239-241)
+	// Covers handleTerminalStop emitTurnEnd error (239-241).
+	// ChatFn must return an error so callChatFn produces StopReasonError,
+	// which makes isTerminalStop return true and routes through handleTerminalStop.
 	ctx := context.Background()
-	cfg := AgentLoopConfig{ChatFn: endTurnChat("hi")}
+	cfg := AgentLoopConfig{ChatFn: func(_ context.Context, _ AgentContext) (AgentMessage, error) {
+		return AgentMessage{}, errors.New("chat error")
+	}}
 	_, err := AgentLoop(ctx, []AgentMessage{{Role: RoleUser, Content: "hi"}}, AgentContext{}, cfg,
 		failOnEvent(EventTurnEnd))
 	assert.Error(t, err)
 }
 
 func TestAgentLoop_SinkError_OnAgentEnd_TerminalStop(t *testing.T) {
-	// Covers handleTerminalStop emit EventAgentEnd error (242-244)
+	// Covers handleTerminalStop emit EventAgentEnd error (242-244).
+	// ChatFn returns error → StopReasonError → handleTerminalStop.
 	ctx := context.Background()
-	cfg := AgentLoopConfig{ChatFn: endTurnChat("hi")}
-	// Fail on EventAgentEnd (let TurnEnd through)
+	cfg := AgentLoopConfig{ChatFn: func(_ context.Context, _ AgentContext) (AgentMessage, error) {
+		return AgentMessage{}, errors.New("chat error")
+	}}
 	var turnEndSeen int32
 	sink := func(_ context.Context, e AgentEvent) error {
 		if e.Type == EventTurnEnd {
