@@ -44,6 +44,8 @@ func defaultPortForBackend(backend string) int {
 		return 11434
 	case backendFile:
 		return backendFilePort
+	case backendGGUF:
+		return backendGGUFPort
 	case "vllm":
 		return 8000
 	case "llamacpp", "tgi", "localai":
@@ -59,7 +61,7 @@ func resolveModelHostPort(config *domain.ChatConfig, backend string) (string, in
 		baseURL = os.Getenv("KDEPS_LLM_BASE_URL")
 	}
 	host, port := parseHostPortFromURL(baseURL, "", defaultPortForBackend(backend))
-	if backend == backendFile && baseURL == "" {
+	if (backend == backendFile || backend == backendGGUF) && baseURL == "" {
 		port = 0
 	}
 	return host, port

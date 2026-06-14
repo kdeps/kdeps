@@ -26,6 +26,9 @@ var registerAgencyTargetParseFunc = ParseWorkflowFile
 // agentBackendFile is the default LLM backend (llamafile).
 const agentBackendFile = "file"
 
+// agentBackendGGUF is the llama.cpp/llama-server backend for GGUF model files.
+const agentBackendGGUF = "gguf"
+
 type agentLoopFlags struct {
 	Model        string
 	Backend      string

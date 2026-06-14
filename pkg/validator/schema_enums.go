@@ -36,6 +36,7 @@ func schemaEnumMap() map[string][]interface{} {
 	httpMethods := domain.StandardHTTPMethodsEnum()
 	return map[string][]interface{}{
 		"run.chat.backend": {
+			"file", "gguf",
 			"ollama", "openai", "anthropic", "google", "cohere", "mistral",
 			"together", "perplexity", "groq", "deepseek", "openrouter",
 		},
