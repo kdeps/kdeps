@@ -1419,23 +1419,56 @@ func TestAgentLoop_SinkError_AfterParallelToolResult(t *testing.T) {
 }
 
 func TestAgentLoop_SinkError_SequentialInParallel_ToolEnd(t *testing.T) {
-	// Covers launchToolCall resolved path emitToolEnd error (520-522) and startParallelTools launchToolCall error (495-497)
+	// Covers launchToolCall resolved path emitToolEnd error (520-522) and startParallelTools launchToolCall error (495-497).
+	// Uses a tool name NOT in agentCtx.Tools so hasSequentialTool returns false
+	// → dispatchToolCalls picks parallel → launchToolCall gets nil tool → sequential-in-parallel path.
 	ctx := context.Background()
-	seqTool := AgentTool{
-		Name:          "seq",
-		ExecutionMode: ToolExecutionSequential, // sequential tool inside parallel dispatch
-		Execute: func(_ context.Context, _ string, _ map[string]any, _ AgentToolUpdateFunc) (AgentToolResult, error) {
-			return AgentToolResult{Content: "result"}, nil
-		},
-	}
-	agentCtx := AgentContext{Tools: []AgentTool{seqTool}}
+	agentCtx := AgentContext{} // no tools registered; "notfound" → nil tool in launchToolCall
 	cfg := AgentLoopConfig{
-		ChatFn:        toolCallChat([]ToolCall{{ID: "s1", Name: "seq"}}, "done"),
+		ChatFn:        toolCallChat([]ToolCall{{ID: "s1", Name: "notfound"}}, "done"),
 		ToolExecution: ToolExecutionParallel,
 	}
 	_, err := AgentLoop(ctx, []AgentMessage{{Role: RoleUser, Content: "hi"}}, agentCtx, cfg,
 		failOnEvent(EventToolEnd))
 	assert.Error(t, err)
+}
+
+func TestAgentLoop_CtxCancelDuringParallelStart(t *testing.T) {
+	t.Parallel()
+	// Covers startParallelTools ctx.Err() check (499-500).
+	// Cancel the context from within the first tool's Execute so that by the time
+	// startParallelTools checks ctx.Err() after appending the first entry, the
+	// context is cancelled and the loop breaks.
+	ctx, cancel := context.WithCancel(context.Background())
+	var called int32
+	tool1 := AgentTool{
+		Name:          "t1",
+		ExecutionMode: ToolExecutionParallel,
+		Execute: func(_ context.Context, _ string, _ map[string]any, _ AgentToolUpdateFunc) (AgentToolResult, error) {
+			if atomic.AddInt32(&called, 1) == 1 {
+				cancel()
+			}
+			return AgentToolResult{Content: "r1"}, nil
+		},
+	}
+	tool2 := AgentTool{
+		Name:          "t2",
+		ExecutionMode: ToolExecutionParallel,
+		Execute: func(_ context.Context, _ string, _ map[string]any, _ AgentToolUpdateFunc) (AgentToolResult, error) {
+			return AgentToolResult{Content: "r2"}, nil
+		},
+	}
+	agentCtx := AgentContext{Tools: []AgentTool{tool1, tool2}}
+	cfg := AgentLoopConfig{
+		ChatFn: toolCallChat([]ToolCall{
+			{ID: "c1", Name: "t1"},
+			{ID: "c2", Name: "t2"},
+		}, "done"),
+		ToolExecution: ToolExecutionParallel,
+	}
+	// Just run - may succeed or return ctx error; the important thing is that
+	// startParallelTools ctx.Err() branch is exercised without panic.
+	_, _ = AgentLoop(ctx, []AgentMessage{{Role: RoleUser, Content: "hi"}}, agentCtx, cfg, noopSink)
 }
 
 func TestAgentLoop_CtxCancelBeforeTool(t *testing.T) {

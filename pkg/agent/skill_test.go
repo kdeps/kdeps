@@ -149,3 +149,62 @@ func TestFormatSkillsForPrompt(t *testing.T) {
 		t.Fatal("expected closing tag")
 	}
 }
+
+func TestLoadSkillSlice_FileExtraPath(t *testing.T) {
+	// Pass a FILE (not a dir) as an extra path so loadSkillSlice takes the
+	// file branch (lines 65-69).
+	dir := t.TempDir()
+	p := filepath.Join(dir, "my-skill.md")
+	content := "---\nname: file-skill\ndescription: A file skill\n---\n\nDo stuff."
+	if err := os.WriteFile(p, []byte(content), 0644); err != nil {
+		t.Fatal(err)
+	}
+	skills := loadSkillSlice([]string{p})
+	if len(skills) == 0 {
+		t.Fatal("expected at least one skill from file extra path")
+	}
+	if skills[0].Name != "file-skill" {
+		t.Fatalf("expected name 'file-skill', got %q", skills[0].Name)
+	}
+}
+
+func TestLoadSkillSlice_DuplicateSkillName(t *testing.T) {
+	// Two file paths with the same skill name: the second should be deduped.
+	dir := t.TempDir()
+	content := "---\nname: dup-skill\n---\n\nContent."
+	p1 := filepath.Join(dir, "skill1.md")
+	p2 := filepath.Join(dir, "skill2.md")
+	if err := os.WriteFile(p1, []byte(content), 0644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(p2, []byte(content), 0644); err != nil {
+		t.Fatal(err)
+	}
+	skills := loadSkillSlice([]string{p1, p2})
+	if len(skills) != 1 {
+		t.Fatalf("expected 1 skill (deduped), got %d", len(skills))
+	}
+}
+
+func TestDiscoverSkillsInDir_WalkError(t *testing.T) {
+	// Create a subdir then make it unreadable so WalkDir encounters a permission
+	// error on entry, covering the err != nil return in the callback (line 107-109).
+	root := t.TempDir()
+	sub := filepath.Join(root, "unreadable")
+	if err := os.Mkdir(sub, 0755); err != nil {
+		t.Fatal(err)
+	}
+	// Put a nested dir inside so WalkDir tries to descend into it.
+	nested := filepath.Join(sub, "nested")
+	if err := os.Mkdir(nested, 0755); err != nil {
+		t.Fatal(err)
+	}
+	// Make the inner dir unreadable so WalkDir gets an error.
+	if err := os.Chmod(nested, 0000); err != nil {
+		t.Skip("cannot change permissions:", err)
+	}
+	t.Cleanup(func() { os.Chmod(nested, 0755) }) //nolint:errcheck
+
+	// The function should not panic and returns whatever it found before the error.
+	_ = discoverSkillsInDir(root)
+}

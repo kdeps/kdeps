@@ -102,3 +102,56 @@ func TestDiscoverInstructions_IncludesScope(t *testing.T) {
 		t.Fatal("expected scope notation in output")
 	}
 }
+
+func TestDiscoverInstructions_DuplicateContent(t *testing.T) {
+	// Two files with identical content → second is deduplicated via content hash.
+	dir := t.TempDir()
+	content := strings.Repeat("x", 100)
+	if err := os.WriteFile(filepath.Join(dir, "CLAUDE.md"), []byte(content), 0644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "CLAUDE.local.md"), []byte(content), 0644); err != nil {
+		t.Fatal(err)
+	}
+	result := discoverInstructions(dir)
+	// Only one copy of the content should appear.
+	if count := strings.Count(result, content); count != 1 {
+		t.Fatalf("expected content once, got %d times", count)
+	}
+}
+
+func TestDiscoverInstructions_TruncatesAtMaxTotal(t *testing.T) {
+	// Write three files with DISTINCT content (to avoid hash dedup), each large
+	// enough so their combined size exceeds maxTotalChars (12000). The third file
+	// triggers the content-truncation branch (94-97) and the early-return branch
+	// (106-108).
+	dir := t.TempDir()
+	// Each chunk is distinct so content hashes differ.
+	chunks := []string{
+		strings.Repeat("a", 5000),
+		strings.Repeat("b", 5000),
+		strings.Repeat("c", 5000),
+	}
+	names := []string{"CLAUDE.md", "CLAUDE.local.md"}
+	for i, name := range names {
+		if err := os.WriteFile(filepath.Join(dir, name), []byte(chunks[i]), 0644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	kdepsDir := filepath.Join(dir, ".kdeps")
+	if err := os.MkdirAll(kdepsDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(kdepsDir, "CLAUDE.md"), []byte(chunks[2]), 0644); err != nil {
+		t.Fatal(err)
+	}
+	result := discoverInstructions(dir)
+	if result == "" {
+		t.Fatal("expected non-empty result")
+	}
+	// After truncation, the raw content written is exactly maxTotalChars.
+	// Formatting adds headers/newlines on top of that.
+	if len(result) < maxTotalChars {
+		t.Fatalf("expected result to reach max capacity, got len=%d", len(result))
+	}
+}
