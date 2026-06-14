@@ -512,6 +512,8 @@ func TestSchemaValidator_DirectFunctionCoverage(t *testing.T) {
 				field:      "chat.backend",
 				schemaType: "resource",
 				expectedResult: []interface{}{
+					"file",
+					"gguf",
 					"ollama",
 					"openai",
 					"anthropic",
@@ -602,6 +604,8 @@ func TestSchemaValidator_DirectFunctionCoverage(t *testing.T) {
 				field:      "backend",
 				schemaType: "resource",
 				expectedResult: []interface{}{
+					"file",
+					"gguf",
 					"ollama",
 					"openai",
 					"anthropic",
@@ -656,6 +660,8 @@ func TestSchemaValidator_DirectFunctionCoverage(t *testing.T) {
 				field:      "chat.some.backend",
 				schemaType: "resource",
 				expectedResult: []interface{}{
+					"file",
+					"gguf",
 					"ollama",
 					"openai",
 					"anthropic",

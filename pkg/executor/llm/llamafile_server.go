@@ -60,6 +60,7 @@ func FindFreePort() (int, error) {
 	return port, nil
 }
 
+//nolint:dupl // mirrors GGUFManager.Serve; different types, same shape
 func (m *LlamafileManager) Serve(path string, port int) (int, error) {
 	kdeps_debug.Log("enter: LlamafileManager.Serve")
 

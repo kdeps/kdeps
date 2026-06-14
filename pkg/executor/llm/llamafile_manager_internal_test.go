@@ -42,7 +42,7 @@ func TestDownload_HTTPGetError(t *testing.T) {
 
 	_, err = m.download("https://example.com/model.llamafile")
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "failed to download llamafile")
+	assert.Contains(t, err.Error(), "failed to download model from")
 	assert.Contains(t, err.Error(), "connection refused")
 }
 

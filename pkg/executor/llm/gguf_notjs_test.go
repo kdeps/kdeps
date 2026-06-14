@@ -83,9 +83,7 @@ func TestGGUFManager_Resolve_RemoteURL(t *testing.T) {
 
 	origGet := httpGet
 	t.Cleanup(func() { httpGet = origGet })
-	httpGet = func(url string) (*stdhttp.Response, error) {
-		return stdhttp.Get(url) //nolint:noctx
-	}
+	httpGet = stdhttp.Get //nolint:noctx
 
 	origFS := AppFS
 	t.Cleanup(func() { AppFS = origFS })
@@ -134,7 +132,7 @@ func TestGGUFManager_Serve_AlreadyRunning(t *testing.T) {
 
 	origDo := httpDefaultClientDo
 	t.Cleanup(func() { httpDefaultClientDo = origDo })
-	httpDefaultClientDo = func(req *stdhttp.Request) (*stdhttp.Response, error) {
+	httpDefaultClientDo = func(_ *stdhttp.Request) (*stdhttp.Response, error) {
 		return &stdhttp.Response{
 			StatusCode: stdhttp.StatusOK,
 			Body:       io.NopCloser(bytes.NewReader(nil)),

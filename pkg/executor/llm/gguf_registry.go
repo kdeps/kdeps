@@ -48,7 +48,7 @@ type ggufVersions struct {
 	GGUFs   []GGUFEntry `yaml:"ggufs"`
 }
 
-//nolint:gochecknoglobals
+//nolint:gochecknoglobals // registry is process-wide state, reset via ReloadGGUFRegistry in tests
 var (
 	ggufRegistryOnce sync.Once
 	ggufRegistryData *ggufVersions
@@ -93,6 +93,7 @@ func loadOrSeedLocalGGUFRegistry(localPath string) *ggufVersions {
 	return parseGGUFYAML(raw)
 }
 
+//nolint:dupl // mirrors mergeLlamafileRegistries; different types, same shape
 func mergeGGUFRegistries(embedded, local *ggufVersions) *ggufVersions {
 	if embedded == nil {
 		embedded = &ggufVersions{Version: 1}
