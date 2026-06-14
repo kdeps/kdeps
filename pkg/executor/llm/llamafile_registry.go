@@ -71,39 +71,20 @@ func localRegistryPath() string {
 func loadLlamafileRegistry() {
 	kdeps_debug.Log("enter: loadLlamafileRegistry")
 
-	// 1. Parse embedded YAML (always available).
 	embedded := parseLlamafileYAML([]byte(defaultLlamafileVersionsYAML))
-
-	// 2. Try to seed/load local ~/.kdeps/llamafile_versions.yaml.
 	local := loadOrSeedLocalRegistry(localRegistryPath())
-
-	// 3. Merge: the embedded registry is the base (so binary upgrades surface
-	// new aliases even with a stale local file); local entries override or
-	// extend it per alias.
 	llamafileRegistryData = mergeLlamafileRegistries(embedded, local)
 
-	// 4. Build alias → URL map.
-	llamafileAliasMap = make(map[string]string, len(llamafileRegistryData.Llamafiles))
-	for _, e := range llamafileRegistryData.Llamafiles {
-		llamafileAliasMap[e.Alias] = e.URL
-	}
+	llamafileAliasMap = buildAliasMap(llamafileRegistryData.Llamafiles,
+		func(e LlamafileEntry) string { return e.Alias },
+		func(e LlamafileEntry) string { return e.URL })
 }
 
 // loadOrSeedLocalRegistry reads the local registry file, seeding it from the
 // embedded data when missing. Returns nil when no usable local data exists.
 func loadOrSeedLocalRegistry(localPath string) *llamafileVersions {
-	if localPath == "" {
-		return nil
-	}
-	if _, statErr := os.Stat(localPath); statErr != nil {
-		// Seed local file from embedded so it's editable and updateable.
-		if writeErr := os.MkdirAll(filepath.Dir(localPath), 0750); writeErr == nil {
-			_ = os.WriteFile(localPath, []byte(defaultLlamafileVersionsYAML), 0600)
-		}
-		return nil
-	}
-	raw, readErr := os.ReadFile(localPath)
-	if readErr != nil {
+	raw, ok := loadOrSeedLocalFile(localPath, defaultLlamafileVersionsYAML)
+	if !ok {
 		return nil
 	}
 	return parseLlamafileYAML(raw)
@@ -111,8 +92,6 @@ func loadOrSeedLocalRegistry(localPath string) *llamafileVersions {
 
 // mergeLlamafileRegistries overlays local entries onto the embedded base.
 // Local entries win per alias; local-only entries are appended.
-//
-//nolint:dupl // mirrors mergeGGUFRegistries; different types, same shape
 func mergeLlamafileRegistries(embedded, local *llamafileVersions) *llamafileVersions {
 	if embedded == nil {
 		embedded = &llamafileVersions{Version: 1}
@@ -120,26 +99,11 @@ func mergeLlamafileRegistries(embedded, local *llamafileVersions) *llamafileVers
 	if local == nil {
 		return embedded
 	}
-	localByAlias := make(map[string]LlamafileEntry, len(local.Llamafiles))
-	for _, e := range local.Llamafiles {
-		localByAlias[e.Alias] = e
+	return &llamafileVersions{
+		Version: embedded.Version,
+		Llamafiles: mergeByAlias(embedded.Llamafiles, local.Llamafiles,
+			func(e LlamafileEntry) string { return e.Alias }),
 	}
-	merged := &llamafileVersions{Version: embedded.Version}
-	seen := make(map[string]bool, len(embedded.Llamafiles))
-	for _, e := range embedded.Llamafiles {
-		seen[e.Alias] = true
-		if override, ok := localByAlias[e.Alias]; ok {
-			merged.Llamafiles = append(merged.Llamafiles, override)
-		} else {
-			merged.Llamafiles = append(merged.Llamafiles, e)
-		}
-	}
-	for _, e := range local.Llamafiles {
-		if !seen[e.Alias] {
-			merged.Llamafiles = append(merged.Llamafiles, e)
-		}
-	}
-	return merged
 }
 
 // parseLlamafileYAML attempts to parse YAML bytes into a llamafileVersions.
