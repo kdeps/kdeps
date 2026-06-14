@@ -84,3 +84,27 @@ func TestModelService_ServeOllamaModel_SetEnvError(t *testing.T) {
 	err := s.serveOllamaModel("m", "127.0.0.1", 11434)
 	require.NoError(t, err)
 }
+
+func TestModelService_ServeModel_OllamaCase(t *testing.T) {
+	orig := execCommandContext
+	t.Cleanup(func() { execCommandContext = orig })
+	execCommandContext = func(ctx context.Context, _ string, args ...string) *exec.Cmd {
+		if len(args) > 0 && args[0] == "list" {
+			return exec.CommandContext(ctx, "false")
+		}
+		return exec.CommandContext(ctx, "echo", "ok")
+	}
+	s := NewModelService(nil)
+	err := s.ServeModel(backendOllama, "m", "127.0.0.1", 11434)
+	require.NoError(t, err)
+}
+
+func TestModelService_DownloadModel_OllamaCase(t *testing.T) {
+	orig := execCommandContext
+	t.Cleanup(func() { execCommandContext = orig })
+	execCommandContext = func(ctx context.Context, _ string, _ ...string) *exec.Cmd {
+		return exec.CommandContext(ctx, "echo", "ok")
+	}
+	s := NewModelService(nil)
+	require.NoError(t, s.DownloadModel(backendOllama, "m"))
+}
