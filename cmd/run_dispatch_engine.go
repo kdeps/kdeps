@@ -108,6 +108,20 @@ func newExecutorRegistry(logger *slog.Logger) *executor.Registry {
 	return registry
 }
 
+// prefetchModel starts a background goroutine that downloads the model for the
+// given backend before the first prompt arrives. The download is idempotent:
+// if the model is already present the service returns immediately.
+// Errors are silently ignored — the executor will retry on the first prompt.
+func prefetchModel(backend, model string) {
+	if model == "" {
+		return
+	}
+	svc := executorLLM.NewModelService(nil)
+	go func() {
+		_ = svc.DownloadModel(backend, model)
+	}()
+}
+
 // setupEngineWithAgentPaths is like setupEngine but also injects the agentNameMap
 // into every new ExecutionContext so that `agent` resources can call sibling agents.
 func setupEngineWithAgentPaths(

@@ -584,6 +584,35 @@ func TestResolveSkillPaths_AbsolutePassthrough(t *testing.T) {
 	assert.Equal(t, f, paths[0])
 }
 
+// --- resolveAgentBackend ---
+
+func TestResolveAgentBackend_FromFlag(t *testing.T) {
+	assert.Equal(t, "ollama", resolveAgentBackend("ollama"))
+}
+
+func TestResolveAgentBackend_FromEnv(t *testing.T) {
+	t.Setenv("KDEPS_DEFAULT_BACKEND", "vllm")
+	assert.Equal(t, "vllm", resolveAgentBackend(""))
+}
+
+func TestResolveAgentBackend_Default(t *testing.T) {
+	t.Setenv("KDEPS_DEFAULT_BACKEND", "")
+	assert.Equal(t, agentBackendFile, resolveAgentBackend(""))
+}
+
+// --- prefetchModel ---
+
+func TestPrefetchModel_EmptyModel(_ *testing.T) {
+	// Empty model: should return without starting a goroutine (no panic).
+	prefetchModel("ollama", "")
+}
+
+func TestPrefetchModel_NonEmpty(_ *testing.T) {
+	// Non-empty model: goroutine starts; download will fail (no real Ollama in test)
+	// but the function itself must not panic.
+	prefetchModel("ollama", "nonexistent-model-test-only")
+}
+
 // --- TestRunREPL_EOF verifies that Ctrl+D (closing stdin without any input)
 // exits cleanly with a welcome message and no error.
 func TestRunREPL_EOF(t *testing.T) {

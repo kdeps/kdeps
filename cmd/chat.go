@@ -134,7 +134,7 @@ func resolveChatBackend() string {
 	if os.Getenv("OLLAMA_HOST") != "" {
 		return chatBackendOllama
 	}
-	return "file"
+	return agentBackendFile
 }
 
 // resolveChatBaseURL returns the effective LLM backend URL.
