@@ -93,7 +93,7 @@ func (m *LlamafileManager) download(rawURL string) (string, error) {
 	dest := filepath.Join(m.modelsDir, basename)
 
 	if _, err := AppFS.Stat(dest); err == nil {
-		m.logger.Info("llamafile already cached", "path", dest)
+		m.logger.Debug("llamafile already cached", "path", dest)
 		return dest, nil
 	}
 
