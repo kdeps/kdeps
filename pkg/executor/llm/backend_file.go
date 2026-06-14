@@ -19,7 +19,6 @@
 package llm
 
 import (
-	"encoding/json"
 	"fmt"
 	stdhttp "net/http"
 	"os"
@@ -75,16 +74,7 @@ func (b *FileBackend) BuildRequest(
 // ParseResponse parses the OpenAI-compatible response from the llamafile server.
 func (b *FileBackend) ParseResponse(resp *stdhttp.Response) (map[string]interface{}, error) {
 	kdeps_debug.Log("enter: FileBackend.ParseResponse")
-	if resp.StatusCode != stdhttp.StatusOK {
-		var errorBody map[string]interface{}
-		_ = json.NewDecoder(resp.Body).Decode(&errorBody)
-		return nil, fmt.Errorf("llamafile server error (status %d): %v", resp.StatusCode, errorBody)
-	}
-	var response map[string]interface{}
-	if err := json.NewDecoder(resp.Body).Decode(&response); err != nil {
-		return nil, fmt.Errorf("failed to decode llamafile response: %w", err)
-	}
-	return convertOpenAICompatResponse(response), nil
+	return parseLocalServerResponse(resp, "llamafile server")
 }
 
 // GetAPIKeyHeader returns empty strings - llamafile runs locally with no auth.

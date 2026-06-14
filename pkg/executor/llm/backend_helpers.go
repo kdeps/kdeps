@@ -91,6 +91,21 @@ func parseOpenAICompatHTTPResponse(
 	return convertOpenAICompatResponse(response), nil
 }
 
+// parseLocalServerResponse decodes a local model server HTTP response.
+// serverLabel is used verbatim in error messages (e.g. "llamafile server", "llama-server").
+func parseLocalServerResponse(resp *stdhttp.Response, serverLabel string) (map[string]interface{}, error) {
+	if resp.StatusCode != stdhttp.StatusOK {
+		var errorBody map[string]interface{}
+		_ = json.NewDecoder(resp.Body).Decode(&errorBody)
+		return nil, fmt.Errorf("%s error (status %d): %v", serverLabel, resp.StatusCode, errorBody)
+	}
+	var response map[string]interface{}
+	if err := json.NewDecoder(resp.Body).Decode(&response); err != nil {
+		return nil, fmt.Errorf("failed to decode %s response: %w", serverLabel, err)
+	}
+	return convertOpenAICompatResponse(response), nil
+}
+
 // resolveAPIKey returns apiKey or falls back to the named environment variable.
 func resolveAPIKey(apiKey, envVar string) string {
 	if apiKey == "" {
