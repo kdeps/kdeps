@@ -2279,6 +2279,8 @@ func TestSchemaValidator_GetEnumValues_EdgeCases(t *testing.T) {
 			field:      "chat.backend",
 			schemaType: "resource",
 			expected: []interface{}{
+				"file",
+				"gguf",
 				"ollama",
 				"openai",
 				"anthropic",
@@ -2357,6 +2359,8 @@ func TestSchemaValidator_GetEnumValues_EdgeCases(t *testing.T) {
 			field:      "backend",
 			schemaType: "resource",
 			expected: []interface{}{
+				"file",
+				"gguf",
 				"ollama",
 				"openai",
 				"anthropic",

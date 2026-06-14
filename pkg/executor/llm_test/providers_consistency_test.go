@@ -42,17 +42,18 @@ func TestCloudLLMProviders_MatchExecutorRegistry(t *testing.T) {
 	}
 
 	for name := range registry.GetBackendsForTesting() {
-		if name == "ollama" || name == "file" {
+		if name == "ollama" || name == "file" || name == "gguf" {
 			continue
 		}
 		assert.True(t, configNames[name], "config.CloudLLMProviders missing registry backend %q", name)
 	}
 
 	names := llm.DefaultRegistryBackendNames()
-	require.GreaterOrEqual(t, len(names), 3)
+	require.GreaterOrEqual(t, len(names), 4)
 	assert.Equal(t, "ollama", names[0])
 	assert.Equal(t, "file", names[1])
+	assert.Equal(t, "gguf", names[2])
 	for i, p := range providers {
-		assert.Equal(t, p.Name, names[i+2], "registry registration order mismatch at index %d", i)
+		assert.Equal(t, p.Name, names[i+3], "registry registration order mismatch at index %d", i)
 	}
 }

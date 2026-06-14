@@ -45,13 +45,14 @@ func TestBackendAPIKeyEnvVar_MatchesConfig(t *testing.T) {
 
 func TestDefaultRegistryBackendNames_CloudOrderMatchesConfig(t *testing.T) {
 	names := DefaultRegistryBackendNames()
-	require.GreaterOrEqual(t, len(names), 3)
+	require.GreaterOrEqual(t, len(names), 4)
 	assert.Equal(t, "ollama", names[0])
 	assert.Equal(t, "file", names[1])
+	assert.Equal(t, "gguf", names[2])
 
 	providers := kdepsconfig.CloudLLMProviders()
-	require.Len(t, names, 2+len(providers))
+	require.Len(t, names, 3+len(providers))
 	for i, p := range providers {
-		assert.Equal(t, p.Name, names[i+2], "registry cloud order mismatch at index %d", i)
+		assert.Equal(t, p.Name, names[i+3], "registry cloud order mismatch at index %d", i)
 	}
 }

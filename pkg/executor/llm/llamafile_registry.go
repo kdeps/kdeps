@@ -111,6 +111,8 @@ func loadOrSeedLocalRegistry(localPath string) *llamafileVersions {
 
 // mergeLlamafileRegistries overlays local entries onto the embedded base.
 // Local entries win per alias; local-only entries are appended.
+//
+//nolint:dupl // mirrors mergeGGUFRegistries; different types, same shape
 func mergeLlamafileRegistries(embedded, local *llamafileVersions) *llamafileVersions {
 	if embedded == nil {
 		embedded = &llamafileVersions{Version: 1}
