@@ -255,6 +255,7 @@ jobs:
             git add pkg/executor/llm/llamafile_versions_data.go tools/llamafile-harvester/llamafile_versions.yaml
           fi
           git commit -m "chore: update dependencies [nightly]"
+          git pull --rebase origin main
           git push origin main
 
       - name: Create nightly tag and clean up existing release
