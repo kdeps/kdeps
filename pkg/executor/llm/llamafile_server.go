@@ -26,9 +26,12 @@ import (
 	"log/slog"
 	"net"
 	stdhttp "net/http"
+	"os"
 	"os/exec"
+	"os/signal"
 	"strconv"
 	"sync"
+	"syscall"
 	"time"
 
 	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
@@ -39,9 +42,56 @@ import (
 //
 //nolint:gochecknoglobals // process-wide server registry
 var (
-	servedLlamafiles   = map[string]int{}
-	servedLlamafilesMu sync.Mutex
+	servedLlamafiles    = map[string]int{}
+	servedLlamafilePIDs = map[string]int{}
+	servedLlamafilesMu  sync.Mutex
 )
+
+// shutdownOnce registers the signal handler exactly once across all servers.
+//
+//nolint:gochecknoglobals // process-wide one-time init
+var shutdownOnce sync.Once
+
+// registerShutdownHookOnce sets up a SIGINT/SIGTERM handler that kills all tracked
+// local model servers when the process exits.
+func registerShutdownHookOnce() {
+	shutdownOnce.Do(func() {
+		go func() {
+			ch := make(chan os.Signal, 1)
+			signal.Notify(ch, syscall.SIGINT, syscall.SIGTERM)
+			<-ch
+			ShutdownLocalServers()
+		}()
+	})
+}
+
+// ShutdownLocalServers kills all llamafile and llama-server (gguf) processes
+// started by this process. Safe to call multiple times or from multiple goroutines.
+func ShutdownLocalServers() {
+	servedLlamafilesMu.Lock()
+	for _, pid := range servedLlamafilePIDs {
+		killLocalProcess(pid)
+	}
+	servedLlamafilePIDs = map[string]int{}
+	servedLlamafiles = map[string]int{}
+	servedLlamafilesMu.Unlock()
+
+	servedGGUFsMu.Lock()
+	for _, pid := range servedGGUFPIDs {
+		killLocalProcess(pid)
+	}
+	servedGGUFPIDs = map[string]int{}
+	servedGGUFs = map[string]int{}
+	servedGGUFsMu.Unlock()
+}
+
+func killLocalProcess(pid int) {
+	proc, err := os.FindProcess(pid)
+	if err != nil {
+		return
+	}
+	_ = proc.Kill()
+}
 
 func FindFreePort() (int, error) {
 	kdeps_debug.Log("enter: FindFreePort")
@@ -70,9 +120,11 @@ func localServerURL(port int) string {
 type localProcessConfig struct {
 	mu          *sync.Mutex
 	served      map[string]int
-	startServer func(string, int) error
+	pids        map[string]int // path -> PID for cleanup on exit
+	startServer func(string, int) (int, error)
 	timeout     func() time.Duration
 	label       string // used in log messages
+	defaultPort int    // probe this port before FindFreePort (0 = skip)
 }
 
 // serveLocalProcess is the shared Serve implementation for LlamafileManager and
@@ -82,12 +134,19 @@ func serveLocalProcess(logger *slog.Logger, cfg localProcessConfig, path string,
 	cfg.mu.Lock()
 	defer cfg.mu.Unlock()
 
-	var err error
+	// Reuse in-memory tracked server if still healthy.
 	if port == 0 {
 		if served, ok := cfg.served[path]; ok && isHealthy(localServerURL(served)) {
 			logger.Info(cfg.label+" already running", "url", localServerURL(served))
 			return served, nil
 		}
+		// Probe the backend's well-known port before allocating a random one.
+		if cfg.defaultPort != 0 && isHealthy(localServerURL(cfg.defaultPort)) {
+			logger.Info(cfg.label+" already running on default port", "url", localServerURL(cfg.defaultPort))
+			cfg.served[path] = cfg.defaultPort
+			return cfg.defaultPort, nil
+		}
+		var err error
 		port, err = FindFreePort()
 		if err != nil {
 			return 0, err
@@ -102,7 +161,8 @@ func serveLocalProcess(logger *slog.Logger, cfg localProcessConfig, path string,
 	}
 
 	logger.Info("starting "+cfg.label, "path", path, "port", port)
-	if startErr := cfg.startServer(path, port); startErr != nil {
+	pid, startErr := cfg.startServer(path, port)
+	if startErr != nil {
 		return 0, startErr
 	}
 	if healthErr := waitForHealthy(serverURL, port, cfg.timeout()); healthErr != nil {
@@ -112,6 +172,10 @@ func serveLocalProcess(logger *slog.Logger, cfg localProcessConfig, path string,
 	waitForCompletionsReadyFunc(serverURL)
 	logger.Info(cfg.label+" ready", "url", serverURL)
 	cfg.served[path] = port
+	if pid > 0 && cfg.pids != nil {
+		cfg.pids[path] = pid
+	}
+	registerShutdownHookOnce()
 	return port, nil
 }
 
@@ -120,9 +184,11 @@ func (m *LlamafileManager) Serve(path string, port int) (int, error) {
 	return serveLocalProcess(m.logger, localProcessConfig{
 		mu:          &servedLlamafilesMu,
 		served:      servedLlamafiles,
+		pids:        servedLlamafilePIDs,
 		startServer: startLlamafileServerFunc,
 		timeout:     llamafileStartTimeoutFunc,
 		label:       "llamafile server",
+		defaultPort: backendFilePort,
 	}, path, port)
 }
 
@@ -141,7 +207,7 @@ var llamafileShell = "/bin/sh"
 //nolint:gochecknoglobals // test-replaceable hook
 var llamafileStartTimeoutFunc = func() time.Duration { return llamafileStartTimeout }
 
-func startLlamafileServer(path string, port int) error {
+func startLlamafileServer(path string, port int) (int, error) {
 	ctx := context.Background()
 	// Llamafiles are APE (Actually Portable Executable) shell-script polyglots:
 	// macOS and kernels without binfmt support cannot execve them directly
@@ -158,10 +224,11 @@ func startLlamafileServer(path string, port int) error {
 	cmd.Stdout = nil
 	cmd.Stderr = nil
 	if startErr := cmd.Start(); startErr != nil {
-		return fmt.Errorf("failed to start llamafile server: %w", startErr)
+		return 0, fmt.Errorf("failed to start llamafile server: %w", startErr)
 	}
+	pid := cmd.Process.Pid
 	_ = cmd.Process.Release()
-	return nil
+	return pid, nil
 }
 
 func waitForHealthy(serverURL string, port int, timeout time.Duration) error {

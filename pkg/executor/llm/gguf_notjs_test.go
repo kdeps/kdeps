@@ -128,9 +128,9 @@ func TestGGUFManager_Serve_AlreadyRunning(t *testing.T) {
 	origStart := startGGUFServerFunc
 	t.Cleanup(func() { startGGUFServerFunc = origStart })
 	startCalled := false
-	startGGUFServerFunc = func(_ string, _ int) error {
+	startGGUFServerFunc = func(_ string, _ int) (int, error) {
 		startCalled = true
-		return nil
+		return 0, nil
 	}
 
 	origDo := httpDefaultClientDo
@@ -172,7 +172,7 @@ func TestGGUFManager_Serve_StartNew(t *testing.T) {
 		httpDefaultClientDo = origDo
 	})
 
-	startGGUFServerFunc = func(_ string, _ int) error { return nil }
+	startGGUFServerFunc = func(_ string, _ int) (int, error) { return 0, nil }
 	ggufStartTimeoutFunc = func() time.Duration { return 10 * time.Millisecond }
 	waitForCompletionsReadyFunc = func(_ string) {}
 
@@ -292,8 +292,8 @@ func TestGGUFManager_Resolve_AbsPath_NotFound(t *testing.T) {
 func TestGGUFManager_Serve_StartError(t *testing.T) {
 	origStart := startGGUFServerFunc
 	t.Cleanup(func() { startGGUFServerFunc = origStart })
-	startGGUFServerFunc = func(_ string, _ int) error {
-		return errors.New("start failed")
+	startGGUFServerFunc = func(_ string, _ int) (int, error) {
+		return 0, errors.New("start failed")
 	}
 
 	origDo := httpDefaultClientDo
@@ -320,7 +320,7 @@ func TestStartGGUFServer_BadBinary(t *testing.T) {
 	t.Cleanup(func() { ggufLlamaCPPBinary = orig })
 	ggufLlamaCPPBinary = "/no/such/binary-xyz"
 
-	err := startGGUFServer("/tmp/model.gguf", 19997)
+	_, err := startGGUFServer("/tmp/model.gguf", 19997)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "failed to start llama-server")
 }
@@ -416,7 +416,7 @@ func TestStartGGUFServer_Success(t *testing.T) {
 	t.Cleanup(func() { ggufLlamaCPPBinary = orig })
 	// /bin/sh always exists; it will exit with unknown-flag error but cmd.Start() succeeds.
 	ggufLlamaCPPBinary = "/bin/sh"
-	err := startGGUFServer("/tmp/model.gguf", 29995)
+	_, err := startGGUFServer("/tmp/model.gguf", 29995)
 	require.NoError(t, err)
 }
 
@@ -448,7 +448,7 @@ func TestGGUFManager_Serve_WaitForHealthyError(t *testing.T) {
 		httpDefaultClientDo = origDo
 	})
 
-	startGGUFServerFunc = func(_ string, _ int) error { return nil }
+	startGGUFServerFunc = func(_ string, _ int) (int, error) { return 0, nil }
 	ggufStartTimeoutFunc = func() time.Duration { return 1 * time.Millisecond }
 	httpDefaultClientDo = func(_ *stdhttp.Request) (*stdhttp.Response, error) {
 		return nil, errors.New("server not ready")
@@ -478,7 +478,7 @@ func TestGGUFManager_Serve_FullSuccessViaStart(t *testing.T) {
 		httpDefaultClientDo = origDo
 	})
 
-	startGGUFServerFunc = func(_ string, _ int) error { return nil }
+	startGGUFServerFunc = func(_ string, _ int) (int, error) { return 0, nil }
 	ggufStartTimeoutFunc = func() time.Duration { return 100 * time.Millisecond }
 	waitForCompletionsReadyFunc = func(_ string) {}
 

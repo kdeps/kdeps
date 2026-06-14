@@ -32,8 +32,9 @@ import (
 
 //nolint:gochecknoglobals // process-wide server registry
 var (
-	servedGGUFs   = map[string]int{}
-	servedGGUFsMu sync.Mutex
+	servedGGUFs    = map[string]int{}
+	servedGGUFPIDs = map[string]int{}
+	servedGGUFsMu  sync.Mutex
 )
 
 // ggufLlamaCPPBinary is the llama-server executable name. Override with
@@ -74,13 +75,15 @@ func (m *GGUFManager) Serve(path string, port int) (int, error) {
 	return serveLocalProcess(m.logger, localProcessConfig{
 		mu:          &servedGGUFsMu,
 		served:      servedGGUFs,
+		pids:        servedGGUFPIDs,
 		startServer: startGGUFServerFunc,
 		timeout:     ggufStartTimeoutFunc,
 		label:       "llama-server",
+		defaultPort: backendGGUFPort,
 	}, path, port)
 }
 
-func startGGUFServer(path string, port int) error {
+func startGGUFServer(path string, port int) (int, error) {
 	cmd := exec.CommandContext(context.Background(), ggufLlamaCPPBinary,
 		"--model", path,
 		"--host", "127.0.0.1",
@@ -91,8 +94,9 @@ func startGGUFServer(path string, port int) error {
 	cmd.Stdout = nil
 	cmd.Stderr = nil
 	if err := cmd.Start(); err != nil {
-		return fmt.Errorf("failed to start llama-server: %w", err)
+		return 0, fmt.Errorf("failed to start llama-server: %w", err)
 	}
+	pid := cmd.Process.Pid
 	_ = cmd.Process.Release()
-	return nil
+	return pid, nil
 }

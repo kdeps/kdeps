@@ -99,8 +99,8 @@ func TestResolve_AliasDownloads(t *testing.T) {
 func TestServe_StartErrorBranch(t *testing.T) {
 	orig := startLlamafileServerFunc
 	t.Cleanup(func() { startLlamafileServerFunc = orig })
-	startLlamafileServerFunc = func(_ string, _ int) error {
-		return errors.New("spawn failed")
+	startLlamafileServerFunc = func(_ string, _ int) (int, error) {
+		return 0, errors.New("spawn failed")
 	}
 
 	m := NewLlamafileManagerWithDir(nil, t.TempDir())
@@ -116,7 +116,7 @@ func TestServe_FixedPortHealthTimeout(t *testing.T) {
 		startLlamafileServerFunc = origStart
 		llamafileStartTimeoutFunc = origTimeout
 	})
-	startLlamafileServerFunc = func(_ string, _ int) error { return nil }
+	startLlamafileServerFunc = func(_ string, _ int) (int, error) { return 0, nil }
 	llamafileStartTimeoutFunc = func() time.Duration { return 10 * time.Millisecond }
 
 	m := NewLlamafileManagerWithDir(nil, t.TempDir())
@@ -130,7 +130,8 @@ func TestStartLlamafileServer_SpawnsViaShell(t *testing.T) {
 	// immediately; Start must succeed and detach without inheriting stdio.
 	script := filepath.Join(t.TempDir(), "noop.llamafile")
 	require.NoError(t, os.WriteFile(script, []byte("exit 0\n"), 0o755))
-	require.NoError(t, startLlamafileServer(script, 1))
+	_, err := startLlamafileServer(script, 1)
+	require.NoError(t, err)
 }
 
 func TestStartLlamafileServer_MissingShell(t *testing.T) {
@@ -138,7 +139,7 @@ func TestStartLlamafileServer_MissingShell(t *testing.T) {
 	t.Cleanup(func() { llamafileShell = orig })
 	llamafileShell = "/nonexistent/shell"
 
-	err := startLlamafileServer("/nonexistent/model.llamafile", 1)
+	_, err := startLlamafileServer("/nonexistent/model.llamafile", 1)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "failed to start llamafile server")
 }

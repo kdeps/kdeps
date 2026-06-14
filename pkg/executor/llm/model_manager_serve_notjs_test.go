@@ -93,7 +93,7 @@ func TestServeGGUFModelIfNeeded_SetsBaseURL(t *testing.T) {
 	})
 
 	AppFS = afero.NewOsFs()
-	startGGUFServerFunc = func(_ string, _ int) error { return nil }
+	startGGUFServerFunc = func(_ string, _ int) (int, error) { return 0, nil }
 	ggufStartTimeoutFunc = func() time.Duration { return 10 * time.Millisecond }
 	waitForCompletionsReadyFunc = func(_ string) {}
 	httpDefaultClientDo = func(_ *stdhttp.Request) (*stdhttp.Response, error) {
