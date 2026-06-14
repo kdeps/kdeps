@@ -145,7 +145,7 @@ func needsLlamafileWarmup(workflow *domain.Workflow) bool {
 	if !domain.HasChatResources(workflow) {
 		return false
 	}
-	if backend := os.Getenv("KDEPS_DEFAULT_BACKEND"); backend != "" && backend != "file" {
+	if backend := os.Getenv("KDEPS_DEFAULT_BACKEND"); backend != "" && backend != agentBackendFile {
 		return false
 	}
 	return os.Getenv("KDEPS_LLM_BASE_URL") == ""

@@ -23,6 +23,9 @@ var filepathAbsAgentLoopFunc = filepath.Abs
 //nolint:gochecknoglobals // test-replaceable hook
 var registerAgencyTargetParseFunc = ParseWorkflowFile
 
+// agentBackendFile is the default LLM backend (llamafile).
+const agentBackendFile = "file"
+
 type agentLoopFlags struct {
 	Model        string
 	Backend      string
@@ -90,6 +93,9 @@ func runAgentLoopCmd(path string, flags *agentLoopFlags) error {
 		cfg.ResumeSession = saved
 	}
 
+	// Start model download in background so it is ready before the first prompt.
+	prefetchModel(resolveAgentBackend(flags.Backend), flags.Model)
+
 	loop := agent.New(eng, hostWorkflow, registry, cfg)
 	repl := agent.NewREPL(loop)
 
@@ -99,6 +105,18 @@ func runAgentLoopCmd(path string, flags *agentLoopFlags) error {
 	}
 
 	return repl.Run()
+}
+
+// resolveAgentBackend returns the effective LLM backend, applying the same
+// fallback order as the LLM executor: flag -> env var -> "file" (llamafile).
+func resolveAgentBackend(flagBackend string) string {
+	if flagBackend != "" {
+		return flagBackend
+	}
+	if env := os.Getenv("KDEPS_DEFAULT_BACKEND"); env != "" {
+		return env
+	}
+	return agentBackendFile
 }
 
 // resolveSkillPaths converts relative skill paths to absolute paths.
