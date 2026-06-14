@@ -21,12 +21,9 @@ package llm
 import (
 	"fmt"
 	"io"
-	stdhttp "net/http"
 	"os"
 	"path/filepath"
 	"strings"
-
-	"github.com/spf13/pathologize"
 
 	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
 )
@@ -84,38 +81,7 @@ func (m *LlamafileManager) resolveExistingPath(path, notFoundFmt string) (string
 
 func (m *LlamafileManager) download(rawURL string) (string, error) {
 	kdeps_debug.Log("enter: LlamafileManager.download")
-	basename := filepath.Base(rawURL)
-	if basename == "" || basename == "." || basename == "/" {
-		basename = "model.llamafile"
-	} else {
-		basename = pathologize.Clean(basename)
-	}
-	dest := filepath.Join(m.modelsDir, basename)
-
-	if _, err := AppFS.Stat(dest); err == nil {
-		m.logger.Debug("llamafile already cached", "path", dest)
-		return dest, nil
-	}
-
-	m.logger.Info("downloading llamafile", "url", rawURL, "dest", dest)
-
-	resp, err := httpGet(rawURL)
-	if err != nil {
-		return "", fmt.Errorf("failed to download llamafile from %s: %w", rawURL, err)
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != stdhttp.StatusOK {
-		return "", fmt.Errorf("download failed (HTTP %d) for %s", resp.StatusCode, rawURL)
-	}
-
-	body := newProgressReader(resp.Body, resp.ContentLength, basename)
-	if writeErr := writeDownloadToFile(dest, body); writeErr != nil {
-		return "", writeErr
-	}
-
-	m.logger.Info("llamafile downloaded", "path", dest)
-	return dest, nil
+	return downloadModelFile(rawURL, "model.llamafile", m.modelsDir, m.logger, AppFS)
 }
 
 func writeDownloadToFile(dest string, body io.Reader) error {

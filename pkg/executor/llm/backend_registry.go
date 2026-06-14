@@ -29,6 +29,7 @@ type BackendRegistry struct {
 var defaultRegistryBackends = []Backend{
 	&OllamaBackend{},
 	&FileBackend{},
+	&GGUFBackend{},
 	defaultOpenAIBackend,
 	&AnthropicBackend{},
 	&GoogleBackend{},

@@ -68,6 +68,30 @@ func (m *ModelManager) serveBackendModel(backend, model, host string, port int) 
 	}
 }
 
+func (m *ModelManager) serveGGUFModelIfNeeded(config *domain.ChatConfig, port int) {
+	actualPort, err := m.serveGGUFModel(config.Model, port)
+	if err != nil {
+		m.logger.Warn("llama-server serve failed", "model", config.Model, "error", err)
+		return
+	}
+	if config.BaseURL == "" {
+		config.BaseURL = fmt.Sprintf("http://127.0.0.1:%d", actualPort)
+	}
+}
+
+func (m *ModelManager) serveGGUFModel(model string, port int) (int, error) {
+	kdeps_debug.Log("enter: serveGGUFModel")
+	mgr, err := NewGGUFManager(m.logger)
+	if err != nil {
+		return 0, err
+	}
+	path, err := mgr.Resolve(model)
+	if err != nil {
+		return 0, err
+	}
+	return mgr.Serve(path, port)
+}
+
 // serveFileModel resolves, chmod+x, and serves a llamafile, returning the actual port.
 func (m *ModelManager) serveFileModel(model string, port int) (int, error) {
 	kdeps_debug.Log("enter: serveFileModel")

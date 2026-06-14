@@ -121,7 +121,7 @@ func prefetchModel(backend, model string) {
 	if err := svc.DownloadModel(backend, model); err != nil {
 		return
 	}
-	if backend == agentBackendFile {
+	if backend == agentBackendFile || backend == agentBackendGGUF {
 		_ = svc.ServeModel(backend, model, "", 0)
 	}
 }

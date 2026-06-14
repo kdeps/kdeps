@@ -68,6 +68,8 @@ func (s *ModelService) DownloadModel(backend, model string) error {
 		return s.downloadOllamaModel(model)
 	case backendFile:
 		return s.downloadLlamafileModel(model)
+	case backendGGUF:
+		return s.downloadGGUFModel(model)
 	default:
 		return fmt.Errorf("unsupported backend for model download: %s", backend)
 	}
@@ -81,6 +83,8 @@ func (s *ModelService) ServeModel(backend, model string, host string, port int) 
 		return s.serveOllamaModel(model, host, port)
 	case backendFile:
 		return s.serveLlamafileModel(model, port)
+	case backendGGUF:
+		return s.serveGGUFModel(model, port)
 	default:
 		return fmt.Errorf("unsupported backend for model serving: %s", backend)
 	}

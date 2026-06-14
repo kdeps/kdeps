@@ -105,6 +105,15 @@ func (m *ModelManager) EnsureModel(config *domain.ChatConfig) error {
 		return nil
 	}
 
+	if backend == backendGGUF {
+		if config.BaseURL != "" || os.Getenv("KDEPS_LLM_BASE_URL") != "" {
+			return nil
+		}
+		m.downloadModelIfOnline(backend, config.Model)
+		m.serveGGUFModelIfNeeded(config, port)
+		return nil
+	}
+
 	m.downloadModelIfOnline(backend, config.Model)
 	m.serveBackendModel(backend, config.Model, host, port)
 	return nil
