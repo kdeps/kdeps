@@ -109,7 +109,8 @@ func (m *LlamafileManager) download(rawURL string) (string, error) {
 		return "", fmt.Errorf("download failed (HTTP %d) for %s", resp.StatusCode, rawURL)
 	}
 
-	if writeErr := writeDownloadToFile(dest, resp.Body); writeErr != nil {
+	body := newProgressReader(resp.Body, resp.ContentLength, basename)
+	if writeErr := writeDownloadToFile(dest, body); writeErr != nil {
 		return "", writeErr
 	}
 

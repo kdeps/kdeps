@@ -608,7 +608,7 @@ func TestPrefetchModel_EmptyModel(_ *testing.T) {
 }
 
 func TestPrefetchModel_NonEmpty(_ *testing.T) {
-	// Non-empty model: goroutine starts; download will fail (no real Ollama in test)
+	// Non-empty model: blocks until download fails (no real Ollama in test),
 	// but the function itself must not panic.
 	prefetchModel("ollama", "nonexistent-model-test-only")
 }
