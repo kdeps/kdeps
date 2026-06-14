@@ -30,6 +30,7 @@ import (
 	"github.com/kdeps/kdeps/v2/pkg/domain"
 	"github.com/kdeps/kdeps/v2/pkg/executor"
 	"github.com/kdeps/kdeps/v2/pkg/tools"
+	"github.com/kdeps/kdeps/v2/pkg/tui"
 )
 
 func TestAgencyToolDef_WithNameAndDesc(t *testing.T) {
@@ -475,7 +476,115 @@ func TestRunREPL_ErrorFromRun(t *testing.T) {
 	assert.Contains(t, string(errOut), "error: agent loop: something went wrong")
 }
 
-// TestRunREPL_EOF verifies that Ctrl+D (closing stdin without any input)
+// --- selectionsEqual / namesEqual ---
+
+func TestNamesEqual_Equal(t *testing.T) {
+	a := []tui.Item{{Name: "foo"}, {Name: "bar"}}
+	b := []tui.Item{{Name: "foo"}, {Name: "bar"}}
+	assert.True(t, namesEqual(a, b))
+}
+
+func TestNamesEqual_DiffLen(t *testing.T) {
+	a := []tui.Item{{Name: "foo"}}
+	b := []tui.Item{{Name: "foo"}, {Name: "bar"}}
+	assert.False(t, namesEqual(a, b))
+}
+
+func TestNamesEqual_DiffName(t *testing.T) {
+	a := []tui.Item{{Name: "foo"}}
+	b := []tui.Item{{Name: "baz"}}
+	assert.False(t, namesEqual(a, b))
+}
+
+func TestNamesEqual_Empty(t *testing.T) {
+	assert.True(t, namesEqual(nil, nil))
+}
+
+func TestSelectionsEqual_Equal(t *testing.T) {
+	a := tui.Selection{
+		Workflows:  []tui.Item{{Name: "wf1"}},
+		Agencies:   []tui.Item{{Name: "ag1"}},
+		Components: []tui.Item{{Name: "co1"}},
+	}
+	assert.True(t, selectionsEqual(a, a))
+}
+
+func TestSelectionsEqual_DiffWorkflows(t *testing.T) {
+	a := tui.Selection{Workflows: []tui.Item{{Name: "wf1"}}}
+	b := tui.Selection{Workflows: []tui.Item{{Name: "wf2"}}}
+	assert.False(t, selectionsEqual(a, b))
+}
+
+func TestSelectionsEqual_Empty(t *testing.T) {
+	assert.True(t, selectionsEqual(tui.Selection{}, tui.Selection{}))
+}
+
+// --- isTerminal ---
+
+func TestIsTerminal_Pipe(t *testing.T) {
+	r, w, err := os.Pipe()
+	require.NoError(t, err)
+	defer r.Close()
+	defer w.Close()
+
+	// A pipe is not a character device.
+	assert.False(t, isTerminal(r))
+}
+
+func TestIsTerminal_DevNull(t *testing.T) {
+	f, err := os.Open(os.DevNull)
+	require.NoError(t, err)
+	defer f.Close()
+
+	// /dev/null is not a terminal (it's a char device but not a TTY).
+	// The result depends on platform; we just verify no panic.
+	_ = isTerminal(f)
+}
+
+// --- applySettingsToRegistry ---
+
+func TestApplySettingsToRegistry_Empty(_ *testing.T) {
+	reg := tools.NewRegistry()
+	flags := &agentLoopFlags{}
+	// Empty settings: SelectAll=true but no items in ~/.kdeps — no panic.
+	applySettingsToRegistry(tui.Settings{SelectAll: true}, reg, flags, false)
+}
+
+func TestApplySettingsToRegistry_WithSkillPath(_ *testing.T) {
+	reg := tools.NewRegistry()
+	flags := &agentLoopFlags{}
+	settings := tui.Settings{
+		SelectAll:     false,
+		EnabledSkills: []string{"skill1"},
+	}
+	// Skill paths that don't exist on disk are skipped; just verify no panic.
+	applySettingsToRegistry(settings, reg, flags, false)
+}
+
+// --- resolveSkillPaths ---
+
+func TestResolveSkillPaths_Empty(t *testing.T) {
+	paths := resolveSkillPaths(nil)
+	assert.Empty(t, paths)
+}
+
+func TestResolveSkillPaths_Absolutizes(t *testing.T) {
+	// filepath.Abs on a relative path returns an absolute path regardless of existence.
+	paths := resolveSkillPaths([]string{"relative/path.md"})
+	require.Len(t, paths, 1)
+	assert.True(t, filepath.IsAbs(paths[0]))
+}
+
+func TestResolveSkillPaths_AbsolutePassthrough(t *testing.T) {
+	dir := t.TempDir()
+	f := filepath.Join(dir, "SKILL.md")
+	require.NoError(t, os.WriteFile(f, []byte("---\nname: s\n---"), 0o644))
+	paths := resolveSkillPaths([]string{f})
+	require.Len(t, paths, 1)
+	assert.Equal(t, f, paths[0])
+}
+
+// --- TestRunREPL_EOF verifies that Ctrl+D (closing stdin without any input)
 // exits cleanly with a welcome message and no error.
 func TestRunREPL_EOF(t *testing.T) {
 	loop := newTestLoop("unused", nil)
