@@ -167,6 +167,24 @@ func TestEnsureModel_GGUFBackendSkipsWhenBaseURLSet(t *testing.T) {
 	assert.False(t, downloaded, "explicit base URL must skip gguf download/serve")
 }
 
+func TestEnsureModel_GGUFBackend_ExecutesBranchBody(t *testing.T) {
+	t.Setenv("KDEPS_DEFAULT_BACKEND", backendGGUF)
+	t.Setenv("KDEPS_LLM_BASE_URL", "")
+	t.Setenv("KDEPS_MODELS_DIR", "/dev/null/no-such-dir-xyz")
+
+	downloadCalled := false
+	mock := NewMockModelService()
+	mock.SetDownloadModelFunc(func(_, _ string) error {
+		downloadCalled = true
+		return nil
+	})
+
+	mgr := NewModelManagerFromServiceInterface(mock)
+	config := &domain.ChatConfig{Model: "model.gguf"}
+	require.NoError(t, mgr.EnsureModel(config))
+	assert.True(t, downloadCalled)
+}
+
 func TestEnsureModel_GGUFBackendSkipsWhenEnvBaseURLSet(t *testing.T) {
 	t.Setenv("KDEPS_DEFAULT_BACKEND", backendGGUF)
 	t.Setenv("KDEPS_LLM_BASE_URL", "http://example.com/v1")
