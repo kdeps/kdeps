@@ -108,16 +108,22 @@ func newExecutorRegistry(logger *slog.Logger) *executor.Registry {
 	return registry
 }
 
-// prefetchModel downloads the model for the given backend before entering the
-// system. Blocks until the download completes; returns immediately when the
-// model is already cached or when model is empty. Errors are silently ignored
-// — the executor will retry on the first prompt.
+// prefetchModel downloads and starts serving the model before entering the
+// system. For the file (llamafile) backend this also blocks until the model
+// weights are fully loaded so the first prompt is not delayed. Returns
+// immediately when the model is already cached/running or model is empty.
+// Errors are silently ignored — the executor retries on the first prompt.
 func prefetchModel(backend, model string) {
 	if model == "" {
 		return
 	}
 	svc := executorLLM.NewModelService(nil)
-	_ = svc.DownloadModel(backend, model)
+	if err := svc.DownloadModel(backend, model); err != nil {
+		return
+	}
+	if backend == agentBackendFile {
+		_ = svc.ServeModel(backend, model, "", 0)
+	}
 }
 
 // setupEngineWithAgentPaths is like setupEngine but also injects the agentNameMap
