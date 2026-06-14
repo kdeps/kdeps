@@ -19,6 +19,7 @@
 package llm
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
@@ -92,6 +93,9 @@ func (m *LlamafileManager) Serve(path string, port int) (int, error) {
 	if healthErr := waitForHealthy(serverURL, port, llamafileStartTimeoutFunc()); healthErr != nil {
 		return 0, healthErr
 	}
+	// Health OK means the server process is up, but model weights may still be
+	// loading into memory. Block until the completions endpoint responds.
+	waitForCompletionsReadyFunc(serverURL)
 	m.logger.Info("llamafile server ready", "url", serverURL)
 	servedLlamafiles[path] = port
 	return port, nil
@@ -163,4 +167,45 @@ func isHealthy(baseURL string) bool {
 	}
 	_ = resp.Body.Close()
 	return resp.StatusCode == stdhttp.StatusOK
+}
+
+// waitForCompletionsReadyFunc blocks until /v1/chat/completions responds
+// (overridable in tests to avoid real HTTP calls).
+//
+//nolint:gochecknoglobals // test-replaceable hook
+var waitForCompletionsReadyFunc = waitForCompletionsReady
+
+// waitForCompletionsReady polls the completions endpoint until the model
+// responds. The /health endpoint becomes OK while weights are still loading;
+// this probe ensures the model is ready before the first real request.
+func waitForCompletionsReady(serverURL string) {
+	const (
+		probePollInterval = 500 * time.Millisecond
+		probeTimeout      = 5 * time.Minute
+		probeReqTimeout   = 30 * time.Second
+	)
+	endpoint := serverURL + "/v1/chat/completions"
+	body := []byte(`{"model":"probe","messages":[{"role":"user","content":"hi"}],"max_tokens":1}`)
+	deadline := time.Now().Add(probeTimeout)
+	start := time.Now()
+	for time.Now().Before(deadline) {
+		elapsed := time.Since(start).Round(time.Second)
+		fmt.Fprintf(progressOut, "\r  Loading model...  (%s)", elapsed)
+		ctx, cancel := context.WithTimeout(context.Background(), probeReqTimeout)
+		req, err := stdhttp.NewRequestWithContext(ctx, stdhttp.MethodPost, endpoint, bytes.NewReader(body))
+		if err != nil {
+			cancel()
+			return
+		}
+		req.Header.Set("Content-Type", "application/json")
+		resp, doErr := httpDefaultClientDo(req)
+		cancel()
+		if doErr == nil {
+			_ = resp.Body.Close()
+			fmt.Fprintln(progressOut)
+			return
+		}
+		time.Sleep(probePollInterval)
+	}
+	fmt.Fprintln(progressOut)
 }
