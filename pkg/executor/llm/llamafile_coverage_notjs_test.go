@@ -201,3 +201,39 @@ func TestServeModel_UnsupportedBackend(t *testing.T) {
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "unsupported backend")
 }
+
+func TestShutdownLocalServers_ClearsAllMaps(t *testing.T) {
+	// Populate both PID maps with fake PIDs that don't exist (no actual process to kill).
+	servedLlamafilesMu.Lock()
+	servedLlamafilePIDs["test-lf"] = 9999991
+	servedLlamafiles["test-lf"] = 9999
+	servedLlamafilesMu.Unlock()
+
+	servedGGUFsMu.Lock()
+	servedGGUFPIDs["test-gguf"] = 9999992
+	servedGGUFs["test-gguf"] = 9998
+	servedGGUFsMu.Unlock()
+
+	ShutdownLocalServers()
+
+	servedLlamafilesMu.Lock()
+	assert.Empty(t, servedLlamafilePIDs)
+	assert.Empty(t, servedLlamafiles)
+	servedLlamafilesMu.Unlock()
+
+	servedGGUFsMu.Lock()
+	assert.Empty(t, servedGGUFPIDs)
+	assert.Empty(t, servedGGUFs)
+	servedGGUFsMu.Unlock()
+}
+
+func TestShutdownLocalServers_EmptyMaps(t *testing.T) {
+	t.Parallel()
+	ShutdownLocalServers() // must not panic when maps are empty
+}
+
+func TestKillLocalProcess_InvalidPID(t *testing.T) {
+	t.Parallel()
+	killLocalProcess(0)      // PID 0 is special; should not panic
+	killLocalProcess(999999) // non-existent PID; should not panic
+}
