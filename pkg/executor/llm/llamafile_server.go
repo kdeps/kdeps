@@ -23,6 +23,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"net"
 	stdhttp "net/http"
 	"os/exec"
@@ -60,18 +61,31 @@ func FindFreePort() (int, error) {
 	return port, nil
 }
 
-//nolint:dupl // mirrors GGUFManager.Serve; different types, same shape
-func (m *LlamafileManager) Serve(path string, port int) (int, error) {
-	kdeps_debug.Log("enter: LlamafileManager.Serve")
+// localServerURL returns the base URL for a local model server on the given port.
+func localServerURL(port int) string {
+	return fmt.Sprintf("http://127.0.0.1:%d", port)
+}
 
-	servedLlamafilesMu.Lock()
-	defer servedLlamafilesMu.Unlock()
+// localProcessConfig holds the type-specific dependencies for serveLocalProcess.
+type localProcessConfig struct {
+	mu          *sync.Mutex
+	served      map[string]int
+	startServer func(string, int) error
+	timeout     func() time.Duration
+	label       string // used in log messages
+}
+
+// serveLocalProcess is the shared Serve implementation for LlamafileManager and
+// GGUFManager. It reuses an already-running server when possible, starts a new
+// one otherwise, and blocks until the model is fully ready.
+func serveLocalProcess(logger *slog.Logger, cfg localProcessConfig, path string, port int) (int, error) {
+	cfg.mu.Lock()
+	defer cfg.mu.Unlock()
 
 	var err error
 	if port == 0 {
-		// Reuse the server already launched for this binary if it is still healthy.
-		if served, ok := servedLlamafiles[path]; ok && isHealthy(llamafileServerURL(served)) {
-			m.logger.Info("llamafile server already running", "url", llamafileServerURL(served))
+		if served, ok := cfg.served[path]; ok && isHealthy(localServerURL(served)) {
+			logger.Info(cfg.label+" already running", "url", localServerURL(served))
 			return served, nil
 		}
 		port, err = FindFreePort()
@@ -80,30 +94,36 @@ func (m *LlamafileManager) Serve(path string, port int) (int, error) {
 		}
 	}
 
-	serverURL := llamafileServerURL(port)
+	serverURL := localServerURL(port)
 	if isHealthy(serverURL) {
-		m.logger.Info("llamafile server already running", "url", serverURL)
-		servedLlamafiles[path] = port
+		logger.Info(cfg.label+" already running", "url", serverURL)
+		cfg.served[path] = port
 		return port, nil
 	}
 
-	m.logger.Info("starting llamafile server", "path", path, "port", port)
-	if startErr := startLlamafileServerFunc(path, port); startErr != nil {
+	logger.Info("starting "+cfg.label, "path", path, "port", port)
+	if startErr := cfg.startServer(path, port); startErr != nil {
 		return 0, startErr
 	}
-	if healthErr := waitForHealthy(serverURL, port, llamafileStartTimeoutFunc()); healthErr != nil {
+	if healthErr := waitForHealthy(serverURL, port, cfg.timeout()); healthErr != nil {
 		return 0, healthErr
 	}
-	// Health OK means the server process is up, but model weights may still be
-	// loading into memory. Block until the completions endpoint responds.
+	// Health OK means the process is up but the model may still be loading.
 	waitForCompletionsReadyFunc(serverURL)
-	m.logger.Info("llamafile server ready", "url", serverURL)
-	servedLlamafiles[path] = port
+	logger.Info(cfg.label+" ready", "url", serverURL)
+	cfg.served[path] = port
 	return port, nil
 }
 
-func llamafileServerURL(port int) string {
-	return fmt.Sprintf("http://127.0.0.1:%d", port)
+func (m *LlamafileManager) Serve(path string, port int) (int, error) {
+	kdeps_debug.Log("enter: LlamafileManager.Serve")
+	return serveLocalProcess(m.logger, localProcessConfig{
+		mu:          &servedLlamafilesMu,
+		served:      servedLlamafiles,
+		startServer: startLlamafileServerFunc,
+		timeout:     llamafileStartTimeoutFunc,
+		label:       "llamafile server",
+	}, path, port)
 }
 
 // startLlamafileServerFunc launches the server binary (overridable in tests).
@@ -152,7 +172,7 @@ func waitForHealthy(serverURL string, port int, timeout time.Duration) error {
 		}
 		time.Sleep(llamafileHealthPoll)
 	}
-	return fmt.Errorf("llamafile server did not become healthy within %s on port %d", timeout, port)
+	return fmt.Errorf("server did not become healthy within %s on port %d", timeout, port)
 }
 
 func isHealthy(baseURL string) bool {

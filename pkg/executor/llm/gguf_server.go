@@ -69,49 +69,15 @@ var ggufStartTimeoutFunc = func() time.Duration { return llamafileStartTimeout }
 
 // Serve starts a llama-server instance for the given .gguf model file (or
 // reuses one if already running). Returns the port the server is listening on.
-//
-//nolint:dupl // mirrors LlamafileManager.Serve; different types, same shape
 func (m *GGUFManager) Serve(path string, port int) (int, error) {
 	kdeps_debug.Log("enter: GGUFManager.Serve")
-
-	servedGGUFsMu.Lock()
-	defer servedGGUFsMu.Unlock()
-
-	var err error
-	if port == 0 {
-		if served, ok := servedGGUFs[path]; ok && isHealthy(ggufServerURL(served)) {
-			m.logger.Info("llama-server already running", "url", ggufServerURL(served))
-			return served, nil
-		}
-		port, err = FindFreePort()
-		if err != nil {
-			return 0, err
-		}
-	}
-
-	serverURL := ggufServerURL(port)
-	if isHealthy(serverURL) {
-		m.logger.Info("llama-server already running", "url", serverURL)
-		servedGGUFs[path] = port
-		return port, nil
-	}
-
-	m.logger.Info("starting llama-server", "path", path, "port", port)
-	if startErr := startGGUFServerFunc(path, port); startErr != nil {
-		return 0, startErr
-	}
-	if healthErr := waitForHealthy(serverURL, port, ggufStartTimeoutFunc()); healthErr != nil {
-		return 0, healthErr
-	}
-	// Health OK means the process is up but the model may still be loading.
-	waitForCompletionsReadyFunc(serverURL)
-	m.logger.Info("llama-server ready", "url", serverURL)
-	servedGGUFs[path] = port
-	return port, nil
-}
-
-func ggufServerURL(port int) string {
-	return fmt.Sprintf("http://127.0.0.1:%d", port)
+	return serveLocalProcess(m.logger, localProcessConfig{
+		mu:          &servedGGUFsMu,
+		served:      servedGGUFs,
+		startServer: startGGUFServerFunc,
+		timeout:     ggufStartTimeoutFunc,
+		label:       "llama-server",
+	}, path, port)
 }
 
 func startGGUFServer(path string, port int) error {
