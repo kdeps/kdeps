@@ -66,6 +66,16 @@ func TestServeGGUFModelIfNeeded_Error(t *testing.T) {
 	assert.Empty(t, config.BaseURL)
 }
 
+func TestServeGGUFModel_ResolveError(t *testing.T) {
+	dir := t.TempDir()
+	t.Setenv("KDEPS_MODELS_DIR", dir)
+
+	m := NewModelManager(nil)
+	_, err := m.serveGGUFModel("nonexistent-alias-xyz-abc", 0)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "not found in cache")
+}
+
 func TestServeGGUFModelIfNeeded_SetsBaseURL(t *testing.T) {
 	origStart := startGGUFServerFunc
 	origTimeout := ggufStartTimeoutFunc

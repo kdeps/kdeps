@@ -22,10 +22,13 @@ package llm
 
 import (
 	"bytes"
+	"context"
 	"errors"
 	"io"
+	"net"
 	stdhttp "net/http"
 	"net/http/httptest"
+	"os"
 	"path/filepath"
 	"testing"
 	"time"
@@ -377,4 +380,171 @@ func TestModelDownload_SharedHelper_CacheHit(t *testing.T) {
 	path, err := downloadModelFile("https://example.com/cached.gguf", "model.gguf", dir, nil, fs)
 	require.NoError(t, err)
 	assert.Equal(t, dest, path)
+}
+
+func TestLoadOrSeedLocalGGUFRegistry_EmptyPath(t *testing.T) {
+	assert.Nil(t, loadOrSeedLocalGGUFRegistry(""))
+}
+
+func TestLoadOrSeedLocalGGUFRegistry_ReadError(t *testing.T) {
+	// Pass a directory: os.Stat succeeds but os.ReadFile fails.
+	path := t.TempDir()
+	result := loadOrSeedLocalGGUFRegistry(path)
+	assert.Nil(t, result)
+}
+
+func TestMergeGGUFRegistries_NilEmbedded(t *testing.T) {
+	local := &ggufVersions{Version: 1, GGUFs: []GGUFEntry{{Alias: "x", URL: "http://x"}}}
+	result := mergeGGUFRegistries(nil, local)
+	require.NotNil(t, result)
+}
+
+func TestMergeGGUFRegistries_NilLocal(t *testing.T) {
+	embedded := &ggufVersions{Version: 1, GGUFs: []GGUFEntry{{Alias: "x", URL: "http://x"}}}
+	result := mergeGGUFRegistries(embedded, nil)
+	assert.Equal(t, embedded, result)
+}
+
+func TestGGUFStartTimeoutFunc_Default(t *testing.T) {
+	// Call the original (unreplaced) hook to cover its function body.
+	d := ggufStartTimeoutFunc()
+	assert.Greater(t, d, time.Duration(0))
+}
+
+func TestStartGGUFServer_Success(t *testing.T) {
+	orig := ggufLlamaCPPBinary
+	t.Cleanup(func() { ggufLlamaCPPBinary = orig })
+	// /bin/sh always exists; it will exit with unknown-flag error but cmd.Start() succeeds.
+	ggufLlamaCPPBinary = "/bin/sh"
+	err := startGGUFServer("/tmp/model.gguf", 29995)
+	require.NoError(t, err)
+}
+
+func TestGGUFManager_Serve_FindFreePortError(t *testing.T) {
+	origListen := netListenConfigListen
+	t.Cleanup(func() { netListenConfigListen = origListen })
+	netListenConfigListen = func(_ context.Context, _, _ string) (net.Listener, error) {
+		return nil, errors.New("no ports available")
+	}
+
+	path := "/fake/port-error.gguf"
+	servedGGUFsMu.Lock()
+	delete(servedGGUFs, path)
+	servedGGUFsMu.Unlock()
+
+	mgr := NewGGUFManagerWithDir(nil, t.TempDir())
+	_, err := mgr.Serve(path, 0)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "cannot find free port")
+}
+
+func TestGGUFManager_Serve_WaitForHealthyError(t *testing.T) {
+	origStart := startGGUFServerFunc
+	origTimeout := ggufStartTimeoutFunc
+	origDo := httpDefaultClientDo
+	t.Cleanup(func() {
+		startGGUFServerFunc = origStart
+		ggufStartTimeoutFunc = origTimeout
+		httpDefaultClientDo = origDo
+	})
+
+	startGGUFServerFunc = func(_ string, _ int) error { return nil }
+	ggufStartTimeoutFunc = func() time.Duration { return 1 * time.Millisecond }
+	httpDefaultClientDo = func(_ *stdhttp.Request) (*stdhttp.Response, error) {
+		return nil, errors.New("server not ready")
+	}
+
+	path := "/fake/health-wait-error.gguf"
+	t.Cleanup(func() {
+		servedGGUFsMu.Lock()
+		delete(servedGGUFs, path)
+		servedGGUFsMu.Unlock()
+	})
+
+	mgr := NewGGUFManagerWithDir(nil, t.TempDir())
+	_, err := mgr.Serve(path, 29994)
+	require.Error(t, err)
+}
+
+func TestGGUFManager_Serve_FullSuccessViaStart(t *testing.T) {
+	origStart := startGGUFServerFunc
+	origTimeout := ggufStartTimeoutFunc
+	origReady := waitForCompletionsReadyFunc
+	origDo := httpDefaultClientDo
+	t.Cleanup(func() {
+		startGGUFServerFunc = origStart
+		ggufStartTimeoutFunc = origTimeout
+		waitForCompletionsReadyFunc = origReady
+		httpDefaultClientDo = origDo
+	})
+
+	startGGUFServerFunc = func(_ string, _ int) error { return nil }
+	ggufStartTimeoutFunc = func() time.Duration { return 100 * time.Millisecond }
+	waitForCompletionsReadyFunc = func(_ string) {}
+
+	calls := 0
+	httpDefaultClientDo = func(_ *stdhttp.Request) (*stdhttp.Response, error) {
+		calls++
+		if calls == 1 {
+			return nil, errors.New("not yet healthy")
+		}
+		return &stdhttp.Response{
+			StatusCode: stdhttp.StatusOK,
+			Body:       io.NopCloser(bytes.NewReader(nil)),
+		}, nil
+	}
+
+	path := "/fake/full-success-via-start.gguf"
+	t.Cleanup(func() {
+		servedGGUFsMu.Lock()
+		delete(servedGGUFs, path)
+		servedGGUFsMu.Unlock()
+	})
+
+	mgr := NewGGUFManagerWithDir(nil, t.TempDir())
+	port, err := mgr.Serve(path, 29993)
+	require.NoError(t, err)
+	assert.Equal(t, 29993, port)
+}
+
+func TestServiceGGUF_PrepareGGUF_NewManagerError(t *testing.T) {
+	t.Setenv("KDEPS_MODELS_DIR", "/dev/null/no-such-dir-xyz")
+	svc := NewModelService(nil)
+	err := svc.ServeModel("gguf", "any-model", "", 0)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "cannot create models directory")
+}
+
+func TestServiceGGUF_ServeModel_Success(t *testing.T) {
+	origFS := AppFS
+	t.Cleanup(func() { AppFS = origFS })
+	AppFS = afero.NewOsFs()
+
+	origDo := httpDefaultClientDo
+	t.Cleanup(func() { httpDefaultClientDo = origDo })
+	httpDefaultClientDo = func(_ *stdhttp.Request) (*stdhttp.Response, error) {
+		return &stdhttp.Response{
+			StatusCode: stdhttp.StatusOK,
+			Body:       io.NopCloser(bytes.NewReader(nil)),
+		}, nil
+	}
+
+	f, err := os.CreateTemp("", "model*.gguf")
+	require.NoError(t, err)
+	path := f.Name()
+	f.Close()
+	t.Cleanup(func() { os.Remove(path) })
+
+	servedGGUFsMu.Lock()
+	servedGGUFs[path] = 29992
+	servedGGUFsMu.Unlock()
+	t.Cleanup(func() {
+		servedGGUFsMu.Lock()
+		delete(servedGGUFs, path)
+		servedGGUFsMu.Unlock()
+	})
+
+	svc := NewModelService(nil)
+	err = svc.ServeModel("gguf", path, "", 0)
+	require.NoError(t, err)
 }
