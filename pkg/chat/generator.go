@@ -186,6 +186,7 @@ var backendHostMarkers = []struct {
 	{"groq", []string{"groq.com"}},
 	{"deepseek", []string{"deepseek.com"}},
 	{"openrouter", []string{"openrouter.ai"}},
+	{"xai", []string{"x.ai", "api.x.ai"}},
 }
 
 func backendName(baseURL string) string {

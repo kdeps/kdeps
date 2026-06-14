@@ -110,4 +110,8 @@ var (
 		name: "openrouter", defaultURL: "https://openrouter.ai",
 		endpointFmt: "%s/api/v1/chat/completions", envVar: providerAPIKeyEnvVar("openrouter"), apiName: "OpenRouter",
 	})
+	defaultXAIBackend = newOpenAICompatBackend(openAICompatBackendConfig{
+		name: "xai", defaultURL: "https://api.x.ai",
+		endpointFmt: "%s/v1/chat/completions", envVar: providerAPIKeyEnvVar("xai"), apiName: "xAI",
+	})
 )

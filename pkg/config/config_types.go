@@ -184,6 +184,7 @@ type LLMKeys struct {
 	Groq       string `yaml:"groq_api_key"`
 	DeepSeek   string `yaml:"deepseek_api_key"`
 	OpenRouter string `yaml:"openrouter_api_key"`
+	XAI        string `yaml:"xai_api_key"`
 }
 
 // HTTPAuthConfig holds authentication credentials for a named HTTP connection.

@@ -2292,6 +2292,7 @@ func TestSchemaValidator_GetEnumValues_EdgeCases(t *testing.T) {
 				"groq",
 				"deepseek",
 				"openrouter",
+				"xai",
 			},
 		},
 		{
@@ -2372,6 +2373,7 @@ func TestSchemaValidator_GetEnumValues_EdgeCases(t *testing.T) {
 				"groq",
 				"deepseek",
 				"openrouter",
+				"xai",
 			},
 		},
 		{

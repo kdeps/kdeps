@@ -93,6 +93,10 @@ var (
 			name: "openrouter", yamlKey: "openrouter_api_key", envVar: "OPENROUTER_API_KEY",
 			field: func(k *LLMKeys) *string { return &k.OpenRouter },
 		},
+		{
+			name: "xai", yamlKey: "xai_api_key", envVar: "XAI_API_KEY",
+			field: func(k *LLMKeys) *string { return &k.XAI },
+		},
 	}
 
 	cloudProviders   = buildCloudProviderMap(cloudProvidersList)

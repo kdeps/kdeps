@@ -390,3 +390,62 @@ func TestOpenRouterBackend_GetAPIKeyHeader_EnvFallback(t *testing.T) {
 	assert.Equal(t, "Authorization", name)
 	assert.Equal(t, "Bearer envkey", val)
 }
+
+func TestXAIBackend_Name(t *testing.T) {
+	b := llm.NewBackendRegistry().Get("xai")
+	require.NotNil(t, b)
+	assert.Equal(t, "xai", b.Name())
+}
+
+func TestXAIBackend_DefaultURL(t *testing.T) {
+	b := llm.NewBackendRegistry().Get("xai")
+	assert.Equal(t, "https://api.x.ai", b.DefaultURL())
+}
+
+func TestXAIBackend_ChatEndpoint(t *testing.T) {
+	b := llm.NewBackendRegistry().Get("xai")
+	ep := b.ChatEndpoint("https://api.x.ai")
+	assert.Equal(t, "https://api.x.ai/v1/chat/completions", ep)
+}
+
+func TestXAIBackend_BuildRequest_Basic(t *testing.T) {
+	b := llm.NewBackendRegistry().Get("xai")
+	msgs := []map[string]interface{}{
+		{"role": "user", "content": "hello"},
+	}
+	req, err := b.BuildRequest("grok-3", msgs, llm.ChatRequestConfig{})
+	require.NoError(t, err)
+	assert.Equal(t, "grok-3", req["model"])
+	assert.Equal(t, false, req["stream"])
+}
+
+func TestXAIBackend_ParseResponse_OK(t *testing.T) {
+	b := llm.NewBackendRegistry().Get("xai")
+	body := `{"choices":[{"message":{"role":"assistant","content":"hello from grok"}}]}`
+	resp := makeResp(stdhttp.StatusOK, body)
+	result, err := b.ParseResponse(resp)
+	require.NoError(t, err)
+	msg, ok := result["message"].(map[string]interface{})
+	require.True(t, ok)
+	assert.Equal(t, "hello from grok", msg["content"])
+}
+
+func TestXAIBackend_GetAPIKeyHeader_Set(t *testing.T) {
+	b := llm.NewBackendRegistry().Get("xai")
+	name, val := b.GetAPIKeyHeader("myxaikey")
+	assert.Equal(t, "Authorization", name)
+	assert.Equal(t, "Bearer myxaikey", val)
+}
+
+func TestXAIBackend_GetAPIKeyHeader_EnvFallback(t *testing.T) {
+	t.Setenv("XAI_API_KEY", "envxaikey")
+	b := llm.NewBackendRegistry().Get("xai")
+	name, val := b.GetAPIKeyHeader("")
+	assert.Equal(t, "Authorization", name)
+	assert.Equal(t, "Bearer envxaikey", val)
+}
+
+func TestXAIBackend_APIKeyEnvVar(t *testing.T) {
+	b := llm.NewBackendRegistry().Get("xai")
+	assert.Equal(t, "XAI_API_KEY", b.APIKeyEnvVar())
+}

@@ -40,6 +40,7 @@ var defaultRegistryBackends = []Backend{
 	defaultGroqBackend,
 	defaultDeepSeekBackend,
 	defaultOpenRouterBackend,
+	defaultXAIBackend,
 }
 
 // DefaultRegistryBackendNames returns registered backend names in registration order.
