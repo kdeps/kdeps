@@ -75,6 +75,7 @@ type REPL struct {
 	history          []string
 	onSettingsChange OnSettingsChange
 	tuiRunner        TUIRunner
+	runFn            func(context.Context, string) (string, error) // nil in production; injected in tests
 }
 
 // NewREPL creates a new REPL for the given agent loop.
@@ -228,13 +229,17 @@ func expandFileRefs(input string) string {
 // If the LLM call takes longer than replThinkingDelay, it prints "thinking..." and
 // clears the line when the response arrives.
 func (r *REPL) runWithThinking(ctx context.Context, input string) (string, error) {
+	runFn := r.loop.Run
+	if r.runFn != nil {
+		runFn = r.runFn
+	}
 	type result struct {
 		resp string
 		err  error
 	}
 	ch := make(chan result, 1)
 	go func() {
-		resp, err := r.loop.Run(ctx, input)
+		resp, err := runFn(ctx, input)
 		ch <- result{resp, err}
 	}()
 
@@ -348,6 +353,11 @@ func (r *REPL) processInput(input string) error {
 
 // runPlain is a fallback REPL for non-TTY environments (pipes, tests).
 func (r *REPL) runPlain() {
+	runFn := r.loop.Run
+	if r.runFn != nil {
+		runFn = r.runFn
+	}
+
 	var sb strings.Builder
 	buf := make([]byte, 4096) //nolint:mnd // 4 KiB read buffer
 
@@ -374,7 +384,7 @@ func (r *REPL) runPlain() {
 			_ = r.dispatchCommand(line)
 			continue
 		}
-		resp, _ := r.loop.Run(r.ctx, line)
+		resp, _ := runFn(r.ctx, line)
 		if resp != "" {
 			fmt.Fprintln(os.Stdout, resp)
 		}
