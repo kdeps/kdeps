@@ -1,10 +1,16 @@
 package agent
 
 import (
+	"context"
+	"errors"
+	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 
+	"github.com/chzyer/readline"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -150,6 +156,19 @@ func TestCmdSettings_NoRunner(t *testing.T) {
 	// No TUI runner — should print a message and return nil
 	err := repl.cmdSettings()
 	assert.NoError(t, err)
+}
+
+func TestCmdSettings_RunnerError(t *testing.T) {
+	loop := makeTestLoop(nil)
+	repl := NewREPL(loop)
+	defer repl.cancel()
+
+	repl.SetTUIRunner(func() ([]string, bool, error) {
+		return nil, false, errors.New("tui failed")
+	})
+	err := repl.cmdSettings()
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "tui failed")
 }
 
 func TestDispatchCommand_Settings(t *testing.T) {
@@ -339,4 +358,689 @@ func TestAllCommandNames_IncludesSkills(t *testing.T) {
 
 	names := repl.allCommandNames()
 	assert.Contains(t, names, "/lint")
+}
+
+// --- dynamicPrompt ---
+
+func TestDynamicPrompt_ZeroTurns(t *testing.T) {
+	loop := makeTestLoop(nil)
+	repl := NewREPL(loop)
+	defer repl.cancel()
+
+	p := repl.dynamicPrompt()
+	assert.Contains(t, p, "test-model")
+	assert.NotContains(t, p, "|")
+}
+
+func TestDynamicPrompt_WithTurns(t *testing.T) {
+	loop := makeTestLoop(nil)
+	loop.session.Append("hi", "hello")
+	repl := NewREPL(loop)
+	defer repl.cancel()
+
+	p := repl.dynamicPrompt()
+	assert.Contains(t, p, "test-model")
+	assert.Contains(t, p, "|")
+}
+
+// --- buildCompleter ---
+
+func TestBuildCompleter_ReturnsNonNil(t *testing.T) {
+	loop := makeTestLoop(nil)
+	repl := NewREPL(loop)
+	defer repl.cancel()
+
+	c := repl.buildCompleter()
+	assert.NotNil(t, c)
+}
+
+// --- handleReadError ---
+
+func TestHandleReadError_Nil(t *testing.T) {
+	loop := makeTestLoop(nil)
+	repl := NewREPL(loop)
+	defer repl.cancel()
+
+	stop, err := repl.handleReadError(nil)
+	assert.False(t, stop)
+	assert.NoError(t, err)
+}
+
+func TestHandleReadError_EOF(t *testing.T) {
+	loop := makeTestLoop(nil)
+	repl := NewREPL(loop)
+	defer repl.cancel()
+
+	stop, err := repl.handleReadError(io.EOF)
+	assert.True(t, stop)
+	assert.NoError(t, err)
+}
+
+func TestHandleReadError_Interrupt(t *testing.T) {
+	loop := makeTestLoop(nil)
+	repl := NewREPL(loop)
+	defer repl.cancel()
+
+	stop, err := repl.handleReadError(readline.ErrInterrupt)
+	assert.False(t, stop)
+	assert.NoError(t, err)
+}
+
+func TestHandleReadError_OtherError(t *testing.T) {
+	loop := makeTestLoop(nil)
+	repl := NewREPL(loop)
+	defer repl.cancel()
+
+	sentinel := errors.New("terminal closed")
+	stop, err := repl.handleReadError(sentinel)
+	assert.True(t, stop)
+	assert.ErrorIs(t, err, sentinel)
+}
+
+// --- processInput ---
+
+func TestProcessInput_Command(t *testing.T) {
+	loop := makeTestLoop(nil)
+	repl := NewREPL(loop)
+	defer repl.cancel()
+
+	// /help is a command - should route to cmdHelp, no error
+	err := repl.processInput("/help")
+	assert.NoError(t, err)
+}
+
+func TestProcessInput_TextMessage(t *testing.T) {
+	loop := makeTestLoop(nil)
+	repl := NewREPL(loop)
+	defer repl.cancel()
+
+	repl.runFn = func(_ context.Context, _ string) (string, error) {
+		return "mock response", nil
+	}
+	err := repl.processInput("hello agent")
+	assert.NoError(t, err)
+	assert.Len(t, repl.history, 1)
+}
+
+func TestProcessInput_RunError(t *testing.T) {
+	loop := makeTestLoop(nil)
+	repl := NewREPL(loop)
+	defer repl.cancel()
+
+	repl.runFn = func(_ context.Context, _ string) (string, error) {
+		return "", errors.New("llm error")
+	}
+	err := repl.processInput("will fail")
+	assert.Error(t, err)
+}
+
+func TestProcessInput_EmptyResponse(t *testing.T) {
+	loop := makeTestLoop(nil)
+	repl := NewREPL(loop)
+	defer repl.cancel()
+
+	repl.runFn = func(_ context.Context, _ string) (string, error) {
+		return "", nil
+	}
+	err := repl.processInput("silent")
+	assert.NoError(t, err)
+}
+
+// --- runWithThinking ---
+
+func TestRunWithThinking_Success(t *testing.T) {
+	loop := makeTestLoop(nil)
+	repl := NewREPL(loop)
+	defer repl.cancel()
+
+	repl.runFn = func(_ context.Context, _ string) (string, error) {
+		return "result", nil
+	}
+	resp, err := repl.runWithThinking(repl.ctx, "prompt")
+	assert.NoError(t, err)
+	assert.Equal(t, "result", resp)
+}
+
+func TestRunWithThinking_SlowResponse(t *testing.T) {
+	loop := makeTestLoop(nil)
+	repl := NewREPL(loop)
+	defer repl.cancel()
+
+	repl.runFn = func(_ context.Context, _ string) (string, error) {
+		time.Sleep(replThinkingDelay + 50*time.Millisecond)
+		return "slow result", nil
+	}
+	resp, err := repl.runWithThinking(repl.ctx, "prompt")
+	assert.NoError(t, err)
+	assert.Equal(t, "slow result", resp)
+}
+
+func TestRunWithThinking_Error(t *testing.T) {
+	loop := makeTestLoop(nil)
+	repl := NewREPL(loop)
+	defer repl.cancel()
+
+	repl.runFn = func(_ context.Context, _ string) (string, error) {
+		return "", errors.New("fail")
+	}
+	_, err := repl.runWithThinking(repl.ctx, "prompt")
+	assert.Error(t, err)
+}
+
+// --- maybeHintCompact ---
+
+func TestMaybeHintCompact_NoHint(_ *testing.T) {
+	loop := makeTestLoop(nil)
+	repl := NewREPL(loop)
+	defer repl.cancel()
+
+	// 0 turns - no hint (no panic)
+	repl.maybeHintCompact()
+}
+
+func TestMaybeHintCompact_AtThreshold(_ *testing.T) {
+	loop := makeTestLoop(nil)
+	for range replAutoCompactEvery {
+		loop.session.Append("q", "a")
+	}
+	repl := NewREPL(loop)
+	defer repl.cancel()
+
+	// exactly 25 turns - hint fires (no panic)
+	repl.maybeHintCompact()
+}
+
+// --- cmdHelp ---
+
+func TestCmdHelp(t *testing.T) {
+	loop := makeTestLoop(nil)
+	repl := NewREPL(loop)
+	defer repl.cancel()
+
+	err := repl.cmdHelp()
+	assert.NoError(t, err)
+}
+
+// --- cmdClear ---
+
+func TestCmdClear(t *testing.T) {
+	loop := makeTestLoop(nil)
+	loop.session.Append("hi", "hello")
+	repl := NewREPL(loop)
+	defer repl.cancel()
+
+	err := repl.cmdClear()
+	assert.NoError(t, err)
+	assert.Zero(t, loop.session.TurnCount())
+}
+
+// --- cmdModel ---
+
+func TestCmdModel_Show(t *testing.T) {
+	loop := makeTestLoop(nil)
+	repl := NewREPL(loop)
+	defer repl.cancel()
+
+	err := repl.cmdModel(nil)
+	assert.NoError(t, err)
+}
+
+func TestCmdModel_Set(t *testing.T) {
+	loop := makeTestLoop(nil)
+	repl := NewREPL(loop)
+	defer repl.cancel()
+
+	err := repl.cmdModel([]string{"gpt-4"})
+	assert.NoError(t, err)
+	assert.Equal(t, "gpt-4", loop.config.Model)
+}
+
+// --- cmdSkills ---
+
+func TestCmdSkills_Empty(t *testing.T) {
+	loop := makeTestLoop(nil)
+	repl := NewREPL(loop)
+	defer repl.cancel()
+
+	err := repl.cmdSkills()
+	assert.NoError(t, err)
+}
+
+func TestCmdSkills_WithSkills(t *testing.T) {
+	loop := makeTestLoop([]Skill{
+		{Name: "lint", Description: "run linter"},
+		{Name: "review", Source: "review.md"},
+	})
+	repl := NewREPL(loop)
+	defer repl.cancel()
+
+	err := repl.cmdSkills()
+	assert.NoError(t, err)
+}
+
+// --- cmdCompact ---
+
+func TestCmdCompact_NoHistory(t *testing.T) {
+	loop := makeTestLoop(nil)
+	repl := NewREPL(loop)
+	defer repl.cancel()
+
+	err := repl.cmdCompact()
+	assert.NoError(t, err)
+}
+
+func TestCmdCompact_WithHistory(t *testing.T) {
+	loop := &Loop{
+		config:  Config{Model: "test-model"},
+		session: NewSession(2), // maxTurns=2
+	}
+	// Bypass Append's trimming to create a state where Compact() returns non-empty.
+	sess := loop.session
+	sess.mu.Lock()
+	sess.messages = []sessionMessage{
+		{Role: "user", Content: "q1"}, {Role: "assistant", Content: "a1"},
+		{Role: "user", Content: "q2"}, {Role: "assistant", Content: "a2"},
+		{Role: "user", Content: "q3"}, {Role: "assistant", Content: "a3"},
+	}
+	sess.mu.Unlock()
+
+	repl := NewREPL(loop)
+	defer repl.cancel()
+
+	err := repl.cmdCompact()
+	assert.NoError(t, err)
+}
+
+// --- cmdHistory ---
+
+func TestCmdHistory_Empty(t *testing.T) {
+	loop := makeTestLoop(nil)
+	repl := NewREPL(loop)
+	defer repl.cancel()
+
+	err := repl.cmdHistory()
+	assert.NoError(t, err)
+}
+
+func TestCmdHistory_WithMessages(t *testing.T) {
+	loop := makeTestLoop(nil)
+	loop.session.Append("hello", "world")
+	repl := NewREPL(loop)
+	defer repl.cancel()
+
+	err := repl.cmdHistory()
+	assert.NoError(t, err)
+}
+
+func TestCmdHistory_LongMessage(t *testing.T) {
+	loop := makeTestLoop(nil)
+	long := make([]byte, replPreviewMax+10)
+	for i := range long {
+		long[i] = 'x'
+	}
+	loop.session.Append(string(long), "short")
+	repl := NewREPL(loop)
+	defer repl.cancel()
+
+	err := repl.cmdHistory()
+	assert.NoError(t, err)
+}
+
+// --- dispatchCommand remaining branches ---
+
+func TestDispatchCommand_Help(t *testing.T) {
+	loop := makeTestLoop(nil)
+	repl := NewREPL(loop)
+	defer repl.cancel()
+
+	err := repl.dispatchCommand("/help")
+	assert.NoError(t, err)
+}
+
+func TestDispatchCommand_Clear(t *testing.T) {
+	loop := makeTestLoop(nil)
+	repl := NewREPL(loop)
+	defer repl.cancel()
+
+	err := repl.dispatchCommand("/clear")
+	assert.NoError(t, err)
+}
+
+func TestDispatchCommand_ModelShow(t *testing.T) {
+	loop := makeTestLoop(nil)
+	repl := NewREPL(loop)
+	defer repl.cancel()
+
+	err := repl.dispatchCommand("/model")
+	assert.NoError(t, err)
+}
+
+func TestDispatchCommand_ModelSet(t *testing.T) {
+	loop := makeTestLoop(nil)
+	repl := NewREPL(loop)
+	defer repl.cancel()
+
+	err := repl.dispatchCommand("/model claude-3")
+	assert.NoError(t, err)
+	assert.Equal(t, "claude-3", loop.config.Model)
+}
+
+func TestDispatchCommand_Skills(t *testing.T) {
+	loop := makeTestLoop(nil)
+	repl := NewREPL(loop)
+	defer repl.cancel()
+
+	err := repl.dispatchCommand("/skills")
+	assert.NoError(t, err)
+}
+
+func TestDispatchCommand_Compact(t *testing.T) {
+	loop := makeTestLoop(nil)
+	repl := NewREPL(loop)
+	defer repl.cancel()
+
+	err := repl.dispatchCommand("/compact")
+	assert.NoError(t, err)
+}
+
+func TestDispatchCommand_History(t *testing.T) {
+	loop := makeTestLoop(nil)
+	repl := NewREPL(loop)
+	defer repl.cancel()
+
+	err := repl.dispatchCommand("/history")
+	assert.NoError(t, err)
+}
+
+func TestDispatchCommand_Exit(t *testing.T) {
+	loop := makeTestLoop(nil)
+	repl := NewREPL(loop)
+	defer repl.cancel()
+
+	err := repl.dispatchCommand("/exit")
+	assert.NoError(t, err)
+}
+
+func TestDispatchCommand_Quit(t *testing.T) {
+	loop := makeTestLoop(nil)
+	repl := NewREPL(loop)
+	defer repl.cancel()
+
+	err := repl.dispatchCommand("/quit")
+	assert.NoError(t, err)
+}
+
+func TestDispatchCommand_InvokeSkill(t *testing.T) {
+	loop := makeTestLoop([]Skill{{Name: "lint", Content: "Run linter."}})
+	repl := NewREPL(loop)
+	defer repl.cancel()
+	repl.runFn = func(_ context.Context, _ string) (string, error) {
+		return "lint output", nil
+	}
+
+	err := repl.dispatchCommand("/lint extra args")
+	assert.NoError(t, err)
+	require.Len(t, repl.history, 1)
+	assert.Equal(t, "/lint", repl.history[0])
+}
+
+// --- cmdInvokeSkill ---
+
+func TestCmdInvokeSkill_NoExtra(t *testing.T) {
+	loop := makeTestLoop(nil)
+	repl := NewREPL(loop)
+	defer repl.cancel()
+	repl.runFn = func(_ context.Context, prompt string) (string, error) {
+		return "ok: " + prompt, nil
+	}
+
+	sk := &Skill{Name: "review", Content: "Review code."}
+	err := repl.cmdInvokeSkill(sk, nil)
+	assert.NoError(t, err)
+}
+
+func TestCmdInvokeSkill_WithExtra(t *testing.T) {
+	loop := makeTestLoop(nil)
+	repl := NewREPL(loop)
+	defer repl.cancel()
+	repl.runFn = func(_ context.Context, prompt string) (string, error) {
+		return prompt, nil
+	}
+
+	sk := &Skill{Name: "review", Content: "Review."}
+	err := repl.cmdInvokeSkill(sk, []string{"focus", "on", "security"})
+	assert.NoError(t, err)
+}
+
+func TestCmdInvokeSkill_Error(t *testing.T) {
+	loop := makeTestLoop(nil)
+	repl := NewREPL(loop)
+	defer repl.cancel()
+	repl.runFn = func(_ context.Context, _ string) (string, error) {
+		return "", errors.New("llm down")
+	}
+
+	sk := &Skill{Name: "test", Content: "Test."}
+	err := repl.cmdInvokeSkill(sk, nil)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "test")
+}
+
+func TestCmdInvokeSkill_EmptyResponse(t *testing.T) {
+	loop := makeTestLoop(nil)
+	repl := NewREPL(loop)
+	defer repl.cancel()
+	repl.runFn = func(_ context.Context, _ string) (string, error) {
+		return "", nil
+	}
+
+	sk := &Skill{Name: "noop", Content: "Do nothing."}
+	err := repl.cmdInvokeSkill(sk, nil)
+	assert.NoError(t, err)
+}
+
+// --- runPlain ---
+
+func TestRunPlain_EOF(t *testing.T) {
+	loop := makeTestLoop(nil)
+	repl := NewREPL(loop)
+	defer repl.cancel()
+
+	// pipe that immediately closes - runPlain should return on EOF
+	pr, pw, err := os.Pipe()
+	require.NoError(t, err)
+	pw.Close()
+
+	orig := os.Stdin
+	os.Stdin = pr
+	defer func() { os.Stdin = orig; pr.Close() }()
+
+	// should not block
+	repl.runPlain()
+}
+
+func TestRunPlain_WithCommand(t *testing.T) {
+	loop := makeTestLoop(nil)
+	repl := NewREPL(loop)
+	defer repl.cancel()
+
+	pr, pw, err := os.Pipe()
+	require.NoError(t, err)
+	_, _ = pw.WriteString("/help\n")
+	pw.Close()
+
+	orig := os.Stdin
+	os.Stdin = pr
+	defer func() { os.Stdin = orig; pr.Close() }()
+
+	repl.runPlain()
+}
+
+func TestRunPlain_WithMessage(t *testing.T) {
+	loop := makeTestLoop(nil)
+	repl := NewREPL(loop)
+	defer repl.cancel()
+	repl.runFn = func(_ context.Context, _ string) (string, error) {
+		return "reply", nil
+	}
+
+	pr, pw, err := os.Pipe()
+	require.NoError(t, err)
+	_, _ = pw.WriteString("hello\n")
+	pw.Close()
+
+	orig := os.Stdin
+	os.Stdin = pr
+	defer func() { os.Stdin = orig; pr.Close() }()
+
+	repl.runPlain()
+}
+
+func TestRunPlain_ContextCancel(_ *testing.T) {
+	loop := makeTestLoop(nil)
+	repl := NewREPL(loop)
+
+	// cancel before runPlain - should exit immediately
+	repl.cancel()
+
+	pr, pw, _ := os.Pipe()
+	defer pr.Close()
+	defer pw.Close()
+
+	orig := os.Stdin
+	os.Stdin = pr
+	defer func() { os.Stdin = orig }()
+
+	repl.runPlain()
+}
+
+// --- Run / runLoop ---
+
+func TestRun_ExitsOnEOF(t *testing.T) {
+	pr, pw, err := os.Pipe()
+	require.NoError(t, err)
+	// Send /exit so runLoop dispatches cancel, then close to signal EOF.
+	_, _ = pw.WriteString("/exit\n")
+	pw.Close()
+
+	outR, outW, err := os.Pipe()
+	require.NoError(t, err)
+	defer outR.Close()
+
+	origIn := os.Stdin
+	origOut := os.Stdout
+	os.Stdin = pr
+	os.Stdout = outW
+	defer func() {
+		os.Stdin = origIn
+		os.Stdout = origOut
+		pr.Close()
+		outW.Close()
+	}()
+
+	loop := makeTestLoop(nil)
+	repl := NewREPL(loop)
+	rerr := repl.Run()
+	assert.NoError(t, rerr)
+}
+
+func TestRun_EmptyLineIgnored(t *testing.T) {
+	pr, pw, err := os.Pipe()
+	require.NoError(t, err)
+	// empty line then exit
+	_, _ = pw.WriteString("\n   \n/exit\n")
+	pw.Close()
+
+	outR, outW, err := os.Pipe()
+	require.NoError(t, err)
+	defer outR.Close()
+
+	origIn := os.Stdin
+	origOut := os.Stdout
+	os.Stdin = pr
+	os.Stdout = outW
+	defer func() {
+		os.Stdin = origIn
+		os.Stdout = origOut
+		pr.Close()
+		outW.Close()
+	}()
+
+	loop := makeTestLoop(nil)
+	repl := NewREPL(loop)
+	rerr := repl.Run()
+	assert.NoError(t, rerr)
+}
+
+func TestRun_ProcessInputError(t *testing.T) {
+	pr, pw, err := os.Pipe()
+	require.NoError(t, err)
+	_, _ = pw.WriteString("bad input\n/exit\n")
+	pw.Close()
+
+	outR, outW, err := os.Pipe()
+	require.NoError(t, err)
+	defer outR.Close()
+
+	origIn := os.Stdin
+	origOut := os.Stdout
+	os.Stdin = pr
+	os.Stdout = outW
+	defer func() {
+		os.Stdin = origIn
+		os.Stdout = origOut
+		pr.Close()
+		outW.Close()
+	}()
+
+	loop := makeTestLoop(nil)
+	repl := NewREPL(loop)
+	repl.runFn = func(_ context.Context, _ string) (string, error) {
+		return "", errors.New("llm error")
+	}
+	rerr := repl.Run()
+	assert.NoError(t, rerr) // error is printed but loop continues
+}
+
+func TestRun_ProcessesMessage(t *testing.T) {
+	pr, pw, err := os.Pipe()
+	require.NoError(t, err)
+	_, _ = pw.WriteString("hello\n/exit\n")
+	pw.Close()
+
+	outR, outW, err := os.Pipe()
+	require.NoError(t, err)
+	defer outR.Close()
+
+	origIn := os.Stdin
+	origOut := os.Stdout
+	os.Stdin = pr
+	os.Stdout = outW
+	defer func() {
+		os.Stdin = origIn
+		os.Stdout = origOut
+		pr.Close()
+		outW.Close()
+	}()
+
+	loop := makeTestLoop(nil)
+	repl := NewREPL(loop)
+	repl.runFn = func(_ context.Context, _ string) (string, error) {
+		return "agent reply", nil
+	}
+	rerr := repl.Run()
+	assert.NoError(t, rerr)
+}
+
+// --- filePathCompletions cap ---
+
+func TestFilePathCompletions_Cap(t *testing.T) {
+	dir := t.TempDir()
+	for i := range replFileCompletionMax + 5 {
+		name := fmt.Sprintf("file%02d.go", i)
+		require.NoError(t, os.WriteFile(filepath.Join(dir, name), []byte(""), 0o644))
+	}
+
+	results := filePathCompletions(dir + "/")
+	assert.Len(t, results, replFileCompletionMax)
 }
