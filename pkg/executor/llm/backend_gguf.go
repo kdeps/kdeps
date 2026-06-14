@@ -19,7 +19,6 @@
 package llm
 
 import (
-	"encoding/json"
 	"fmt"
 	stdhttp "net/http"
 
@@ -63,16 +62,7 @@ func (b *GGUFBackend) BuildRequest(
 
 func (b *GGUFBackend) ParseResponse(resp *stdhttp.Response) (map[string]interface{}, error) {
 	kdeps_debug.Log("enter: GGUFBackend.ParseResponse")
-	if resp.StatusCode != stdhttp.StatusOK {
-		var errorBody map[string]interface{}
-		_ = json.NewDecoder(resp.Body).Decode(&errorBody)
-		return nil, fmt.Errorf("llama-server error (status %d): %v", resp.StatusCode, errorBody)
-	}
-	var response map[string]interface{}
-	if err := json.NewDecoder(resp.Body).Decode(&response); err != nil {
-		return nil, fmt.Errorf("failed to decode llama-server response: %w", err)
-	}
-	return convertOpenAICompatResponse(response), nil
+	return parseLocalServerResponse(resp, "llama-server")
 }
 
 func (b *GGUFBackend) GetAPIKeyHeader(_ string) (string, string) {
