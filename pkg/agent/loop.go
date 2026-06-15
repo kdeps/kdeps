@@ -24,6 +24,7 @@ package agent
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"os"
 	"strings"
@@ -148,6 +149,11 @@ func (l *Loop) Run(_ context.Context, input string) (string, error) {
 	return response, nil
 }
 
+// toolUseGuidance is injected into the system preamble when tools are registered.
+// Small models hallucinate tool calls for conversational messages; this instruction
+// suppresses that behavior without disabling tool use for genuine requests.
+const toolUseGuidance = `Only call a tool when the user explicitly asks you to perform a task that requires it. For conversational messages, greetings, questions about yourself, or general chat, respond in plain text. Never invent or call tools that are not listed in your available tools.`
+
 // buildSystemPreamble constructs the system prompt preamble from skills,
 // instruction files, and the user-configured system prompt.
 func (l *Loop) buildSystemPreamble() string {
@@ -155,6 +161,10 @@ func (l *Loop) buildSystemPreamble() string {
 
 	if l.skills != "" {
 		parts = append(parts, l.skills)
+	}
+
+	if len(l.registry.List()) > 0 {
+		parts = append(parts, toolUseGuidance)
 	}
 
 	if l.config.SystemPrompt != "" {
@@ -208,14 +218,44 @@ func (l *Loop) buildSyntheticWorkflow(actionID string, chatCfg *domain.ChatConfi
 	}
 }
 
+// formatLoopResult extracts the text response from the engine result.
+// The LLM executor returns map[string]interface{}{"message": {"content": "...", "role": "assistant"}};
+// this function unwraps that structure instead of using fmt.Sprintf which produces garbled output.
 func formatLoopResult(result interface{}) string {
 	if result == nil {
 		return ""
 	}
 	if s, ok := result.(string); ok {
-		return s
+		return stripContentToolCalls(s)
 	}
-	return fmt.Sprintf("%v", result)
+	if m, ok := result.(map[string]interface{}); ok {
+		msg, msgOK := m["message"].(map[string]interface{})
+		if msgOK {
+			if content, contentOK := msg["content"].(string); contentOK {
+				return stripContentToolCalls(content)
+			}
+		}
+	}
+	return ""
+}
+
+// stripContentToolCalls returns empty string when content is a JSON array of tool call
+// objects ({"name": "...", "arguments": {...}}). Small models sometimes put tool calls
+// in the content field instead of the tool_calls field; discarding them prevents garbled
+// text from poisoning the conversation history.
+func stripContentToolCalls(content string) string {
+	trimmed := strings.TrimSpace(content)
+	if !strings.HasPrefix(trimmed, "[") {
+		return content
+	}
+	var arr []map[string]interface{}
+	if err := json.Unmarshal([]byte(trimmed), &arr); err != nil || len(arr) == 0 {
+		return content
+	}
+	if _, hasName := arr[0]["name"]; hasName {
+		return "" // content is a tool call array, not a text response
+	}
+	return content
 }
 
 // Session returns the loop's conversation session for inspection.

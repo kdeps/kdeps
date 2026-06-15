@@ -106,6 +106,7 @@ func TestLoop_Run_NilResult(t *testing.T) {
 }
 
 func TestLoop_Run_NonStringResult(t *testing.T) {
+	// An unrecognized map (not the {"message": {"content": ...}} shape) returns empty.
 	eng := newTestEngine(map[string]string{"key": "val"}, nil)
 	reg := tools.NewRegistry()
 	loop := agent.New(eng, newTestWorkflow(), reg, agent.Config{})
@@ -114,8 +115,28 @@ func TestLoop_Run_NonStringResult(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if resp == "" {
-		t.Fatal("expected non-empty string for map result")
+	if resp != "" {
+		t.Fatalf("expected empty string for unrecognized map result, got %q", resp)
+	}
+}
+
+func TestLoop_Run_MessageMapResult(t *testing.T) {
+	result := map[string]interface{}{
+		"message": map[string]interface{}{
+			"content": "hello from llm",
+			"role":    "assistant",
+		},
+	}
+	eng := newTestEngine(result, nil)
+	reg := tools.NewRegistry()
+	loop := agent.New(eng, newTestWorkflow(), reg, agent.Config{})
+
+	resp, err := loop.Run(context.Background(), "hi")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if resp != "hello from llm" {
+		t.Fatalf("expected %q, got %q", "hello from llm", resp)
 	}
 }
 
