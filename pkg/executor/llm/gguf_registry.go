@@ -113,6 +113,21 @@ func ResolveGGUFAlias(model string) (string, bool) {
 	return url, ok
 }
 
+// GGUFCachedPath returns the expected local cache path for a GGUF alias,
+// or ("", false) if the alias is unknown. It does not stat the file.
+func GGUFCachedPath(alias, modelsDir string) (string, bool) {
+	ensureGGUFRegistryLoaded()
+	rawURL, ok := ggufAliasMap[alias]
+	if !ok {
+		return "", false
+	}
+	basename := filepath.Base(rawURL)
+	if basename == "" || basename == "." || basename == "/" {
+		return "", false
+	}
+	return filepath.Join(modelsDir, basename), true
+}
+
 func GGUFAliasNames() []string {
 	ensureGGUFRegistryLoaded()
 	names := make([]string, 0, len(ggufAliasMap))
