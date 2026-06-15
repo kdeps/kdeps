@@ -100,6 +100,13 @@ func TestSettingsFromSelection_AllEnabled(t *testing.T) {
 	assert.True(t, s.SelectAll)
 }
 
+func TestSettingsFromSelection_NoItems(t *testing.T) {
+	// Zero discovered items + zero enabled → SelectAll: true so future items auto-enable.
+	var allItems [numTabs][]Item
+	s := SettingsFromSelection(Selection{}, allItems)
+	assert.True(t, s.SelectAll)
+}
+
 func TestSettingsFromSelection_PartialEnabled(t *testing.T) {
 	var allItems [numTabs][]Item
 	allItems[tabWorkflows] = []Item{{Name: "wf1"}, {Name: "wf2"}}
