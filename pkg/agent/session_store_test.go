@@ -203,3 +203,195 @@ func TestList_UnreadableDir(t *testing.T) {
 		t.Fatal("expected error when dir is not readable")
 	}
 }
+
+// --- SaveAs ---
+
+func TestSaveAs_WithNameAndModel(t *testing.T) {
+	dir := t.TempDir()
+	store := NewSessionStore(dir)
+
+	session := NewSession(0)
+	session.Append("q", "a")
+
+	id, err := store.SaveAs(session, "my-session", "llama3.2")
+	if err != nil {
+		t.Fatalf("SaveAs failed: %v", err)
+	}
+	if id == "" {
+		t.Fatal("expected non-empty session ID")
+	}
+
+	meta, err := store.LoadMeta(id)
+	if err != nil {
+		t.Fatalf("LoadMeta failed: %v", err)
+	}
+	if meta.Name != "my-session" {
+		t.Fatalf("expected Name=my-session, got %q", meta.Name)
+	}
+	if meta.Model != "llama3.2" {
+		t.Fatalf("expected Model=llama3.2, got %q", meta.Model)
+	}
+	if meta.Turns != 1 {
+		t.Fatalf("expected Turns=1, got %d", meta.Turns)
+	}
+}
+
+func TestSaveAs_EmptyNameModel(t *testing.T) {
+	dir := t.TempDir()
+	store := NewSessionStore(dir)
+
+	session := NewSession(0)
+	id, err := store.SaveAs(session, "", "")
+	if err != nil {
+		t.Fatalf("SaveAs failed: %v", err)
+	}
+
+	meta, err := store.LoadMeta(id)
+	if err != nil {
+		t.Fatalf("LoadMeta failed: %v", err)
+	}
+	if meta.Name != "" {
+		t.Fatalf("expected empty name, got %q", meta.Name)
+	}
+}
+
+// --- LoadMeta ---
+
+func TestLoadMeta_NotFound(t *testing.T) {
+	dir := t.TempDir()
+	store := NewSessionStore(dir)
+
+	_, err := store.LoadMeta("nonexistent-id")
+	if err == nil {
+		t.Fatal("expected error for nonexistent session")
+	}
+}
+
+func TestLoadMeta_ReturnsID(t *testing.T) {
+	dir := t.TempDir()
+	store := NewSessionStore(dir)
+
+	session := NewSession(0)
+	session.Append("hi", "hello")
+
+	id, err := store.Save(session)
+	if err != nil {
+		t.Fatalf("save failed: %v", err)
+	}
+
+	meta, err := store.LoadMeta(id)
+	if err != nil {
+		t.Fatalf("LoadMeta failed: %v", err)
+	}
+	if meta.ID != id {
+		t.Fatalf("expected ID=%q, got %q", id, meta.ID)
+	}
+	if meta.Turns != 1 {
+		t.Fatalf("expected Turns=1, got %d", meta.Turns)
+	}
+}
+
+// --- ListMeta ---
+
+func TestListMeta_Empty(t *testing.T) {
+	dir := t.TempDir()
+	store := NewSessionStore(dir)
+
+	metas, err := store.ListMeta()
+	if err != nil {
+		t.Fatalf("ListMeta failed: %v", err)
+	}
+	if len(metas) != 0 {
+		t.Fatalf("expected empty list, got %d", len(metas))
+	}
+}
+
+func TestListMeta_MultipleSessions(t *testing.T) {
+	dir := t.TempDir()
+	store := NewSessionStore(dir)
+
+	for i := range 3 {
+		s := NewSession(0)
+		s.Append("q", "a")
+		if _, err := store.SaveAs(s, "session"+string(rune('A'+i)), "llama3"); err != nil {
+			t.Fatalf("save failed: %v", err)
+		}
+	}
+
+	metas, err := store.ListMeta()
+	if err != nil {
+		t.Fatalf("ListMeta failed: %v", err)
+	}
+	if len(metas) != 3 {
+		t.Fatalf("expected 3 sessions, got %d", len(metas))
+	}
+	for _, m := range metas {
+		if m.ID == "" {
+			t.Fatal("expected non-empty ID")
+		}
+		if m.Turns != 1 {
+			t.Fatalf("expected 1 turn, got %d", m.Turns)
+		}
+	}
+}
+
+func TestListMeta_NonExistentDir(t *testing.T) {
+	store := NewSessionStore(filepath.Join(t.TempDir(), "no-such-dir"))
+	metas, err := store.ListMeta()
+	if err != nil {
+		t.Fatalf("expected nil error for non-existent dir, got: %v", err)
+	}
+	if metas != nil {
+		t.Fatalf("expected nil slice, got: %v", metas)
+	}
+}
+
+// --- Delete ---
+
+func TestDelete_Existing(t *testing.T) {
+	dir := t.TempDir()
+	store := NewSessionStore(dir)
+
+	session := NewSession(0)
+	session.Append("x", "y")
+	id, err := store.Save(session)
+	if err != nil {
+		t.Fatalf("save failed: %v", err)
+	}
+
+	if delErr := store.Delete(id); delErr != nil {
+		t.Fatalf("delete failed: %v", delErr)
+	}
+
+	// File should no longer exist.
+	if _, statErr := os.Stat(filepath.Join(dir, id+".jsonl")); !os.IsNotExist(statErr) {
+		t.Fatal("expected file to be deleted")
+	}
+}
+
+func TestDelete_Nonexistent(t *testing.T) {
+	dir := t.TempDir()
+	store := NewSessionStore(dir)
+
+	if err := store.Delete("does-not-exist"); err == nil {
+		t.Fatal("expected error when deleting nonexistent session")
+	}
+}
+
+func TestDelete_ThenListEmpty(t *testing.T) {
+	dir := t.TempDir()
+	store := NewSessionStore(dir)
+
+	s := NewSession(0)
+	s.Append("q", "a")
+	id, _ := store.Save(s)
+	_ = store.Delete(id)
+
+	ids, err := store.List()
+	if err != nil {
+		t.Fatalf("list failed: %v", err)
+	}
+	if len(ids) != 0 {
+		t.Fatalf("expected empty list after delete, got %v", ids)
+	}
+}

@@ -62,6 +62,8 @@ type Config struct {
 	AutoCompactThreshold int
 	// PromptPaths are additional directories to search for prompt template .md files.
 	PromptPaths []string
+	// Store is an optional session store for /session save|load|list|delete commands.
+	Store *SessionStore
 }
 
 // Loop drives a multi-turn agent conversation using the kdeps engine as the
@@ -78,6 +80,7 @@ type Loop struct {
 	skillList     []Skill          // raw skill structs for name lookup (/skill-name invocation)
 	prompts       []PromptTemplate // loaded prompt templates
 	onAutoCompact func(summary string)
+	store         *SessionStore // optional persistence
 }
 
 // New creates a new Loop. cfg fields with zero values fall back to env vars and
@@ -100,7 +103,13 @@ func New(eng *executor.Engine, workflow *domain.Workflow, reg *tools.Registry, c
 		skills:    formatSkillsForPrompt(skillSlice),
 		skillList: skillSlice,
 		prompts:   loadPromptTemplateSlice(cfg.PromptPaths),
+		store:     cfg.Store,
 	}
+}
+
+// Store returns the session store, or nil if none was configured.
+func (l *Loop) Store() *SessionStore {
+	return l.store
 }
 
 // SkillByName returns the skill with the given name, or nil if not found.
