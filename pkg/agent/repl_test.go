@@ -215,6 +215,105 @@ func TestFuzzyMatch_CaseInsensitive(t *testing.T) {
 	assert.True(t, fuzzyMatch("HLP", "help"))
 }
 
+// --- fuzzyScore ---
+
+func TestFuzzyScore_Empty(t *testing.T) {
+	ok, score := fuzzyScore("", "anything")
+	assert.True(t, ok)
+	assert.Equal(t, 0, score)
+}
+
+func TestFuzzyScore_ExactMatch(t *testing.T) {
+	ok, score := fuzzyScore("help", "help")
+	assert.True(t, ok)
+	// exact match gets a bonus (lower score)
+	ok2, score2 := fuzzyScore("hlp", "help")
+	assert.True(t, ok2)
+	assert.Less(t, score, score2)
+}
+
+func TestFuzzyScore_NoMatch(t *testing.T) {
+	ok, _ := fuzzyScore("xyz", "help")
+	assert.False(t, ok)
+}
+
+func TestFuzzyScore_WordBoundaryRanksHigher(t *testing.T) {
+	// "he" matches "help" at a word boundary (start) better than a mid-word match
+	ok1, score1 := fuzzyScore("he", "help")
+	ok2, score2 := fuzzyScore("he", "the-thing")
+	assert.True(t, ok1)
+	assert.True(t, ok2)
+	// word boundary start should score better (lower)
+	assert.Less(t, score1, score2)
+}
+
+// --- fuzzyRankStrings ---
+
+func TestFuzzyRankStrings_Empty(t *testing.T) {
+	results := fuzzyRankStrings("", nil)
+	assert.Empty(t, results)
+}
+
+func TestFuzzyRankStrings_NoMatches(t *testing.T) {
+	results := fuzzyRankStrings("xyz", []string{"help", "clear", "exit"})
+	assert.Empty(t, results)
+}
+
+func TestFuzzyRankStrings_RankedByScore(t *testing.T) {
+	// "help" should rank above "history" for query "he"
+	results := fuzzyRankStrings("hel", []string{"history", "help", "compact"})
+	require.NotEmpty(t, results)
+	assert.Equal(t, "help", results[0])
+}
+
+// --- SetModelNames / /model completion ---
+
+func TestSetModelNames(t *testing.T) {
+	loop := makeTestLoop(nil)
+	repl := NewREPL(loop)
+	defer repl.cancel()
+	repl.SetModelNames([]string{"llama3.2:1b", "llama3.2:3b", "qwen3.5-4b"})
+	assert.Equal(t, []string{"llama3.2:1b", "llama3.2:3b", "qwen3.5-4b"}, repl.modelNames)
+}
+
+func TestReplCompleter_ModelArgCompletion(t *testing.T) {
+	loop := makeTestLoop(nil)
+	repl := NewREPL(loop)
+	defer repl.cancel()
+	repl.SetModelNames([]string{"llama3.2:1b", "llama3.2:3b", "qwen3.5-4b"})
+
+	c := &replCompleter{repl: repl}
+	// "/model llama" should complete to llama model names
+	input := []rune("/model llama")
+	results, length := c.Do(input, len(input))
+	assert.Equal(t, len([]rune("llama")), length)
+	found := make([]string, 0, len(results))
+	for _, r := range results {
+		found = append(found, string(r))
+	}
+	assert.Contains(t, found, "llama3.2:1b")
+	assert.Contains(t, found, "llama3.2:3b")
+	assert.NotContains(t, found, "qwen3.5-4b")
+}
+
+func TestReplCompleter_ModelArgAllModels(t *testing.T) {
+	loop := makeTestLoop(nil)
+	repl := NewREPL(loop)
+	defer repl.cancel()
+	repl.SetModelNames([]string{"llama3.2:1b", "qwen3.5-4b"})
+
+	c := &replCompleter{repl: repl}
+	// "/model " (empty arg) should return all models
+	input := []rune("/model ")
+	results, _ := c.Do(input, len(input))
+	found := make([]string, 0, len(results))
+	for _, r := range results {
+		found = append(found, string(r))
+	}
+	assert.Contains(t, found, "llama3.2:1b")
+	assert.Contains(t, found, "qwen3.5-4b")
+}
+
 // --- expandFileRefs ---
 
 func TestExpandFileRefs_NoRefs(t *testing.T) {

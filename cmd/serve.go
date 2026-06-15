@@ -9,6 +9,7 @@ import (
 	"github.com/kdeps/kdeps/v2/pkg/agent"
 	"github.com/kdeps/kdeps/v2/pkg/domain"
 	"github.com/kdeps/kdeps/v2/pkg/executor"
+	"github.com/kdeps/kdeps/v2/pkg/executor/llm"
 	"github.com/kdeps/kdeps/v2/pkg/tools"
 	"github.com/kdeps/kdeps/v2/pkg/tui"
 )
@@ -101,6 +102,9 @@ func runAgentLoopCmd(path string, flags *agentLoopFlags) error {
 
 	loop := agent.New(eng, hostWorkflow, registry, cfg)
 	repl := agent.NewREPL(loop)
+
+	// Provide model name suggestions for /model <tab> completion.
+	repl.SetModelNames(buildModelNames())
 
 	// Wire /settings TUI when running interactively.
 	if isTerminal(os.Stdout) && isTerminal(os.Stdin) {
@@ -339,6 +343,20 @@ func namesEqual(a, b []tui.Item) bool {
 		}
 	}
 	return true
+}
+
+// buildModelNames returns sorted model alias names from llamafile and gguf registries.
+func buildModelNames() []string {
+	names := append(llm.LlamafileAliasNames(), llm.GGUFAliasNames()...)
+	seen := make(map[string]bool, len(names))
+	out := make([]string, 0, len(names))
+	for _, n := range names {
+		if !seen[n] {
+			seen[n] = true
+			out = append(out, n)
+		}
+	}
+	return out
 }
 
 // applySettingsToRegistry discovers items from ~/.kdeps and registers those

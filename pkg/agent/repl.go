@@ -24,8 +24,11 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"regexp"
+	"sort"
+	"strconv"
 	"strings"
 	"time"
 
@@ -73,6 +76,7 @@ type REPL struct {
 	ctx              context.Context
 	cancel           context.CancelFunc
 	history          []string
+	modelNames       []string // suggestions for /model <tab>
 	onSettingsChange OnSettingsChange
 	tuiRunner        TUIRunner
 	runFn            func(context.Context, string) (string, error) // nil in production; injected in tests
@@ -99,6 +103,11 @@ func (r *REPL) SetTUIRunner(fn TUIRunner) {
 	r.tuiRunner = fn
 }
 
+// SetModelNames registers model name suggestions for /model <tab> completion.
+func (r *REPL) SetModelNames(names []string) {
+	r.modelNames = names
+}
+
 // dynamicPrompt returns a prompt string showing model and turn count.
 func (r *REPL) dynamicPrompt() string {
 	turns := r.loop.Session().TurnCount()
@@ -121,6 +130,41 @@ type replCompleter struct {
 	repl *REPL
 }
 
+// doAtFileCompletion handles @path completions using fd when available.
+func doAtFileCompletion(prefix string) ([][]rune, int) {
+	var completions []string
+	if fd := fdBinPath(); fd != "" {
+		completions = filePathCompletionsFd(prefix, fd)
+	} else {
+		completions = filePathCompletions(prefix)
+	}
+	results := make([][]rune, 0, len(completions))
+	for _, p := range completions {
+		results = append(results, []rune("@"+p))
+	}
+	return results, len([]rune("@" + prefix))
+}
+
+// fuzzyRankStrings returns strings from candidates that fuzzy-match query, sorted by score.
+func fuzzyRankStrings(query string, candidates []string) []string {
+	type entry struct {
+		s     string
+		score int
+	}
+	var scored []entry
+	for _, s := range candidates {
+		if ok, sc := fuzzyScore(query, s); ok {
+			scored = append(scored, entry{s, sc})
+		}
+	}
+	sort.Slice(scored, func(i, j int) bool { return scored[i].score < scored[j].score })
+	out := make([]string, len(scored))
+	for i, e := range scored {
+		out[i] = e.s
+	}
+	return out
+}
+
 // Do implements readline.AutoCompleter.
 // length is the number of runes before the cursor to replace; each newLine[i] is
 // the full replacement string for that token.
@@ -130,25 +174,38 @@ func (c *replCompleter) Do(line []rune, pos int) ([][]rune, int) {
 	token := str[lastSpace+1:]
 	tokenLen := len([]rune(token))
 
+	// @file: fuzzy file completion; uses fd for deep search when available.
 	if strings.HasPrefix(token, "@") {
-		completions := filePathCompletions(token[1:])
-		results := make([][]rune, 0, len(completions))
-		for _, p := range completions {
-			results = append(results, []rune("@"+p))
+		return doAtFileCompletion(token[1:])
+	}
+
+	// /command: fuzzy command completion ranked by score.
+	if strings.HasPrefix(token, "/") && !strings.Contains(token, " ") {
+		query := strings.ToLower(strings.TrimPrefix(token, "/"))
+		names := c.repl.allCommandNames()
+		bare := make([]string, len(names))
+		for i, n := range names {
+			bare[i] = strings.TrimPrefix(n, "/")
+		}
+		ranked := fuzzyRankStrings(query, bare)
+		results := make([][]rune, 0, len(ranked))
+		for _, n := range ranked {
+			results = append(results, []rune("/"+n))
 		}
 		return results, tokenLen
 	}
 
-	if strings.HasPrefix(token, "/") && !strings.Contains(token, " ") {
-		query := strings.ToLower(strings.TrimPrefix(token, "/"))
-		names := c.repl.allCommandNames()
-		var results [][]rune
-		for _, name := range names {
-			if fuzzyMatch(query, strings.TrimPrefix(name, "/")) {
-				results = append(results, []rune(name))
+	// /model <arg>: suggest model names ranked by fuzzy score.
+	if lastSpace >= 0 && len(c.repl.modelNames) > 0 {
+		cmd := strings.ToLower(strings.TrimSpace(str[:lastSpace]))
+		if cmd == "/model" {
+			ranked := fuzzyRankStrings(strings.ToLower(token), c.repl.modelNames)
+			results := make([][]rune, 0, len(ranked))
+			for _, n := range ranked {
+				results = append(results, []rune(n))
 			}
+			return results, tokenLen
 		}
-		return results, tokenLen
 	}
 
 	return nil, 0
@@ -164,19 +221,131 @@ func (r *REPL) allCommandNames() []string {
 	return names
 }
 
-// fuzzyMatch returns true if needle is a subsequence of haystack (case-insensitive).
-func fuzzyMatch(needle, haystack string) bool {
-	if needle == "" {
+const (
+	fuzzyWordBoundBonus  = 10
+	fuzzyConsecutiveStep = 5
+	fuzzyGapPenalty      = 2
+	fuzzyExactBonus      = 100
+	fuzzyFdTimeout       = 2 * time.Second
+)
+
+// isWordBoundary returns true when position i in h follows a delimiter rune.
+func isWordBoundary(h []rune, i int) bool {
+	if i == 0 {
 		return true
 	}
+	p := h[i-1]
+	return p == ' ' || p == '-' || p == '_' || p == '.' || p == '/' || p == ':'
+}
+
+// applyMatchScore updates score for a match at position i given consecutive run and last match position.
+func applyMatchScore(score, i, lastMatch, consecutive int, wordBound bool) (int, int) {
+	if wordBound {
+		score -= fuzzyWordBoundBonus
+	}
+	if lastMatch == i-1 {
+		consecutive++
+		score -= consecutive * fuzzyConsecutiveStep
+	} else {
+		consecutive = 0
+		if lastMatch >= 0 {
+			score += (i - lastMatch - 1) * fuzzyGapPenalty
+		}
+	}
+	score += i
+	return score, consecutive
+}
+
+// fuzzyScore returns (matched, score) for needle against haystack (case-insensitive).
+// Lower score = better match. Rewards consecutive matches and word boundaries.
+// Returns false if needle is not a fuzzy subsequence of haystack.
+func fuzzyScore(needle, haystack string) (bool, int) {
+	if needle == "" {
+		return true, 0
+	}
 	n := []rune(strings.ToLower(needle))
-	ni := 0
-	for _, c := range strings.ToLower(haystack) {
+	h := []rune(strings.ToLower(haystack))
+	ni, score, lastMatch, consecutive := 0, 0, -1, 0
+	for i, c := range h {
 		if ni < len(n) && n[ni] == c {
+			score, consecutive = applyMatchScore(score, i, lastMatch, consecutive, isWordBoundary(h, i))
+			lastMatch = i
 			ni++
 		}
 	}
-	return ni == len(n)
+	if ni < len(n) {
+		return false, 0
+	}
+	if string(n) == string(h) {
+		score -= fuzzyExactBonus
+	}
+	return true, score
+}
+
+// fuzzyMatch returns true if needle is a fuzzy subsequence match of haystack.
+func fuzzyMatch(needle, haystack string) bool {
+	ok, _ := fuzzyScore(needle, haystack)
+	return ok
+}
+
+// fdBinPath returns the path to the fd binary (fd or fdfind), or empty string.
+func fdBinPath() string {
+	for _, name := range []string{"fd", "fdfind"} {
+		if p, err := exec.LookPath(name); err == nil {
+			return p
+		}
+	}
+	return ""
+}
+
+// filePathCompletionsFd uses the fd binary for fast deep fuzzy file search.
+// Falls back to filePathCompletions on error.
+func filePathCompletionsFd(prefix, fdBin string) []string {
+	ctx, cancel := context.WithTimeout(context.Background(), fuzzyFdTimeout)
+	defer cancel()
+
+	searchDir := "."
+	query := prefix
+	if idx := strings.LastIndex(prefix, "/"); idx >= 0 {
+		dir := prefix[:idx+1]
+		query = prefix[idx+1:]
+		switch {
+		case strings.HasPrefix(dir, "~/"):
+			home, _ := os.UserHomeDir()
+			searchDir = filepath.Join(home, dir[2:])
+		case filepath.IsAbs(dir):
+			searchDir = dir
+		default:
+			searchDir = dir
+		}
+	}
+
+	args := []string{
+		"--base-directory", searchDir,
+		"--max-results", strconv.Itoa(replFileCompletionMax),
+		"--type", "f", "--type", "d",
+		"--follow", "--hidden",
+		"--exclude", ".git",
+	}
+	if query != "" {
+		args = append(args, query)
+	}
+
+	out, err := exec.CommandContext(ctx, fdBin, args...).Output()
+	if err != nil {
+		return filePathCompletions(prefix)
+	}
+
+	lines := strings.Split(strings.TrimSpace(string(out)), "\n")
+	results := make([]string, 0, len(lines))
+	for _, line := range lines {
+		line = strings.TrimSpace(line)
+		if line == "" || line == ".git" {
+			continue
+		}
+		results = append(results, line)
+	}
+	return results
 }
 
 // filePathCompletions returns up to replFileCompletionMax file/dir completions for prefix.
