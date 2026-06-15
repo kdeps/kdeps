@@ -283,7 +283,7 @@ func TestReplCompleter_ModelArgCompletion(t *testing.T) {
 	repl.SetModelNames([]string{"llama3.2:1b", "llama3.2:3b", "qwen3.5-4b"})
 
 	c := &replCompleter{repl: repl}
-	// "/model llama" should complete to llama model names
+	// "/model llama" - token="llama" (5), suffixes should be "3.2:1b" and "3.2:3b"
 	input := []rune("/model llama")
 	results, length := c.Do(input, len(input))
 	assert.Equal(t, len([]rune("llama")), length)
@@ -291,8 +291,9 @@ func TestReplCompleter_ModelArgCompletion(t *testing.T) {
 	for _, r := range results {
 		found = append(found, string(r))
 	}
-	assert.Contains(t, found, "llama3.2:1b")
-	assert.Contains(t, found, "llama3.2:3b")
+	// readline displays same+suffix: "llama"+"3.2:1b" = "llama3.2:1b"
+	assert.Contains(t, found, "3.2:1b")
+	assert.Contains(t, found, "3.2:3b")
 	assert.NotContains(t, found, "qwen3.5-4b")
 }
 
@@ -303,7 +304,7 @@ func TestReplCompleter_ModelArgAllModels(t *testing.T) {
 	repl.SetModelNames([]string{"llama3.2:1b", "qwen3.5-4b"})
 
 	c := &replCompleter{repl: repl}
-	// "/model " (empty arg) should return all models
+	// "/model " - empty token, suffixes = full model names (tokenLen=0)
 	input := []rune("/model ")
 	results, _ := c.Do(input, len(input))
 	found := make([]string, 0, len(results))
@@ -379,15 +380,15 @@ func TestReplCompleter_SlashCommand(t *testing.T) {
 	defer repl.cancel()
 
 	c := &replCompleter{repl: repl}
-	// "/h" should fuzzy-match "/help" and "/history"
+	// "/h" -> token="/h" (len=2), suffixes: "elp", "istory" (readline shows "/h"+"elp" = "/help")
 	results, length := c.Do([]rune("/h"), 2)
 	assert.Equal(t, 2, length)
 	found := make([]string, 0, len(results))
 	for _, r := range results {
 		found = append(found, string(r))
 	}
-	assert.Contains(t, found, "/help")
-	assert.Contains(t, found, "/history")
+	assert.Contains(t, found, "elp")
+	assert.Contains(t, found, "istory")
 }
 
 func TestReplCompleter_SlashSkill(t *testing.T) {
@@ -396,14 +397,14 @@ func TestReplCompleter_SlashSkill(t *testing.T) {
 	defer repl.cancel()
 
 	c := &replCompleter{repl: repl}
-	// "/rev" should match "/review"
+	// "/rev" -> token="/rev" (len=4), suffix: "iew" (readline shows "/rev"+"iew" = "/review")
 	results, length := c.Do([]rune("/rev"), 4)
 	assert.Equal(t, 4, length)
 	found := make([]string, 0, len(results))
 	for _, r := range results {
 		found = append(found, string(r))
 	}
-	assert.Contains(t, found, "/review")
+	assert.Contains(t, found, "iew")
 }
 
 func TestReplCompleter_NoSlash(t *testing.T) {
