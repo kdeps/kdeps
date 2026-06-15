@@ -180,6 +180,7 @@ func (c *replCompleter) Do(line []rune, pos int) ([][]rune, int) {
 	}
 
 	// /command: fuzzy command completion ranked by score.
+	// Returns suffixes so readline displays same+suffix correctly (e.g. "/mo"+"del" = "/model").
 	if strings.HasPrefix(token, "/") && !strings.Contains(token, " ") {
 		query := strings.ToLower(strings.TrimPrefix(token, "/"))
 		names := c.repl.allCommandNames()
@@ -190,19 +191,26 @@ func (c *replCompleter) Do(line []rune, pos int) ([][]rune, int) {
 		ranked := fuzzyRankStrings(query, bare)
 		results := make([][]rune, 0, len(ranked))
 		for _, n := range ranked {
-			results = append(results, []rune("/"+n))
+			full := "/" + n
+			if len([]rune(full)) >= tokenLen {
+				results = append(results, []rune(full)[tokenLen:])
+			}
 		}
 		return results, tokenLen
 	}
 
 	// /model <arg>: suggest model names ranked by fuzzy score.
+	// Returns suffixes so readline displays same+suffix correctly (e.g. "qwen2.5"+":7b" = "qwen2.5:7b").
 	if lastSpace >= 0 && len(c.repl.modelNames) > 0 {
 		cmd := strings.ToLower(strings.TrimSpace(str[:lastSpace]))
 		if cmd == "/model" {
 			ranked := fuzzyRankStrings(strings.ToLower(token), c.repl.modelNames)
 			results := make([][]rune, 0, len(ranked))
 			for _, n := range ranked {
-				results = append(results, []rune(n))
+				nr := []rune(n)
+				if len(nr) >= tokenLen {
+					results = append(results, nr[tokenLen:])
+				}
 			}
 			return results, tokenLen
 		}
