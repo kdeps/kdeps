@@ -25,6 +25,7 @@ package agent
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"strings"
@@ -52,6 +53,15 @@ type Config struct {
 	SkillPaths []string
 	// ResumeSession is a previously-saved session to load on startup.
 	ResumeSession *Session
+	// CompactTokenBudget is the approximate number of recent tokens to retain
+	// when compacting with CompactWithLLM. 0 uses the default (20000).
+	CompactTokenBudget int
+	// AutoCompactThreshold is the estimated token count at which the session
+	// is automatically compacted before the next LLM call. 0 disables auto-compaction.
+	// Default: 40000.
+	AutoCompactThreshold int
+	// PromptPaths are additional directories to search for prompt template .md files.
+	PromptPaths []string
 }
 
 // Loop drives a multi-turn agent conversation using the kdeps engine as the
@@ -59,13 +69,15 @@ type Config struct {
 // the engine's existing handleToolCalls path dispatches them without any
 // additional plumbing.
 type Loop struct {
-	engine    *executor.Engine
-	registry  *tools.Registry
-	workflow  *domain.Workflow
-	config    Config
-	session   *Session
-	skills    string  // pre-formatted skill XML block for the system prompt
-	skillList []Skill // raw skill structs for name lookup (/skill-name invocation)
+	engine        *executor.Engine
+	registry      *tools.Registry
+	workflow      *domain.Workflow
+	config        Config
+	session       *Session
+	skills        string           // pre-formatted skill XML block for the system prompt
+	skillList     []Skill          // raw skill structs for name lookup (/skill-name invocation)
+	prompts       []PromptTemplate // loaded prompt templates
+	onAutoCompact func(summary string)
 }
 
 // New creates a new Loop. cfg fields with zero values fall back to env vars and
@@ -87,6 +99,7 @@ func New(eng *executor.Engine, workflow *domain.Workflow, reg *tools.Registry, c
 		session:   session,
 		skills:    formatSkillsForPrompt(skillSlice),
 		skillList: skillSlice,
+		prompts:   loadPromptTemplateSlice(cfg.PromptPaths),
 	}
 }
 
@@ -95,6 +108,16 @@ func (l *Loop) SkillByName(name string) *Skill {
 	for i := range l.skillList {
 		if l.skillList[i].Name == name {
 			return &l.skillList[i]
+		}
+	}
+	return nil
+}
+
+// PromptByName returns the prompt template with the given name, or nil if not found.
+func (l *Loop) PromptByName(name string) *PromptTemplate {
+	for i := range l.prompts {
+		if l.prompts[i].Name == name {
+			return &l.prompts[i]
 		}
 	}
 	return nil
@@ -113,8 +136,19 @@ func applyConfigDefaults(cfg Config) Config {
 	if cfg.Role == "" {
 		cfg.Role = "user"
 	}
+	if cfg.CompactTokenBudget <= 0 {
+		cfg.CompactTokenBudget = compactKeepRecentTokens
+	}
+	if cfg.AutoCompactThreshold < 0 {
+		cfg.AutoCompactThreshold = 0
+	}
+	if cfg.AutoCompactThreshold == 0 {
+		cfg.AutoCompactThreshold = defaultAutoCompactThreshold
+	}
 	return cfg
 }
+
+const defaultAutoCompactThreshold = 40000
 
 func envOrDefault(key, fallback string) string {
 	if v := os.Getenv(key); v != "" {
@@ -127,8 +161,17 @@ func envOrDefault(key, fallback string) string {
 // synthetic single-chat-resource workflow. All registry tools are attached so
 // the engine's existing tool-call loop can dispatch them. Conversation history
 // is preserved across calls. Returns the final LLM text response.
-func (l *Loop) Run(_ context.Context, input string) (string, error) {
+func (l *Loop) Run(ctx context.Context, input string) (string, error) {
 	const actionID = "agent_loop_chat"
+
+	// Auto-compact before the LLM call when history exceeds the token threshold.
+	if msgs := l.session.rawMessages(); shouldAutoCompact(msgs, l.config.AutoCompactThreshold) {
+		if summary, err := l.CompactWithLLM(ctx); err == nil && summary != "" {
+			if l.onAutoCompact != nil {
+				l.onAutoCompact(summary)
+			}
+		}
+	}
 
 	// Build system prompt preamble: skills + instructions + user system prompt
 	systemPreamble := l.buildSystemPreamble()
@@ -258,9 +301,70 @@ func stripContentToolCalls(content string) string {
 	return content
 }
 
+// SetOnAutoCompact registers a callback invoked when auto-compaction fires
+// during Run(). The callback receives the compaction summary text.
+func (l *Loop) SetOnAutoCompact(fn func(summary string)) {
+	l.onAutoCompact = fn
+}
+
 // Session returns the loop's conversation session for inspection.
 func (l *Loop) Session() *Session {
 	return l.session
+}
+
+// CompactWithLLM summarizes old conversation turns using the LLM and replaces
+// them with a structured summary, keeping recent turns intact. It returns the
+// summary text. Falls back to truncation-only Compact() if the LLM call fails.
+func (l *Loop) CompactWithLLM(_ context.Context) (string, error) {
+	msgs := l.session.rawMessages()
+	if len(msgs) == 0 {
+		return "", nil
+	}
+
+	cutIdx := findCutIndex(msgs, l.config.CompactTokenBudget)
+	if cutIdx == 0 {
+		// Not enough turns to compact.
+		return "", nil
+	}
+
+	toSummarize := msgs[:cutIdx]
+	toKeep := msgs[cutIdx:]
+	compactedTurns := len(toSummarize) / sessionMsgsPer
+
+	conversationText := serializeConversation(toSummarize)
+	prompt := "<conversation>\n" + conversationText + "\n</conversation>\n\n" + compactionUserPrompt
+
+	const compactionActionID = "agent_loop_compact"
+	chatCfg := &domain.ChatConfig{
+		Model:   l.config.Model,
+		Backend: l.config.Backend,
+		BaseURL: l.config.BaseURL,
+		Role:    l.config.Role,
+		Prompt:  prompt,
+		Scenario: []domain.ScenarioItem{
+			{Role: "system", Prompt: compactionSystemPrompt},
+		},
+		// No tools - compaction is a standalone summarization call.
+	}
+	synthetic := l.buildSyntheticWorkflow(compactionActionID, chatCfg)
+
+	result, err := l.engine.Execute(synthetic, nil)
+	if err != nil {
+		// Fall back to truncation so the user isn't left with nothing.
+		fallback := l.session.Compact()
+		if fallback != "" {
+			return fallback, nil
+		}
+		return "", fmt.Errorf("compaction LLM call failed: %w", err)
+	}
+
+	summary := formatLoopResult(result)
+	if summary == "" {
+		return "", errors.New("compaction produced empty summary")
+	}
+
+	l.session.CompactWith(summary, toKeep, compactedTurns)
+	return summary, nil
 }
 
 // Skills returns the loaded skills block (empty if none).
