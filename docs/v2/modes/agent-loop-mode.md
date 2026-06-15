@@ -1,15 +1,79 @@
 # Agent Loop Mode
 
-Agent loop mode (`kdeps serve`) starts an interactive LLM loop where whole workflows and components are registered as callable tools. The LLM decides which tool to invoke based on the user's prompt. Workflow tools run the full pipeline atomically so all `requires:` dependencies resolve correctly. Component tools run a single reusable component in isolation. Individual resources are never exposed as tools directly.
+Agent loop mode starts an interactive LLM REPL where whole workflows and components are registered as callable tools. The LLM decides which tool to invoke based on the user's prompt. Workflow tools run the full pipeline atomically so all `requires:` dependencies resolve correctly.
+
+Running `kdeps` with no arguments starts a model-only REPL with no workflow tools. Pass a path to load workflows/agencies as tools.
+
+## Starting the agent loop
+
+```bash
+kdeps                              # model-only REPL (no tools)
+kdeps ./my-agent/                  # one workflow = one tool
+kdeps ./agents/                    # folder = every workflow inside becomes a tool
+kdeps ./my-agent/ --model llama3.2 --system "You are a DevOps assistant."
+kdeps --skill ~/.kdeps/skills/     # load skill files
+kdeps --resume <session-id>        # continue a saved session
+```
+
+## REPL slash commands
+
+Inside the REPL, type `/help` for the full list:
+
+| Command | Description |
+|---------|-------------|
+| `/help` | Show available commands |
+| `/clear` | Clear the current conversation |
+| `/model <name>` | Switch model mid-session |
+| `/skills` | List loaded skills |
+| `/<skill-name> [prompt]` | Invoke a skill directly |
+| `/compact` | Summarize history to free context |
+| `/history` | Show conversation history |
+| `/exit` | Exit the REPL |
+
+## Skills
+
+Skills are markdown files with optional YAML frontmatter that teach the agent how to behave in specific contexts. Place them in `~/.kdeps/skills/` or pass `--skill <path>` at startup.
+
+```markdown
+---
+name: code-review
+description: Guidelines for reviewing Go code
+---
+
+Always check for error handling. Prefer early returns over nested conditions.
+```
+
+Skills are discovered from:
+- `~/.kdeps/skills/` (global)
+- `./.kdeps/skills/` (project-local)
+- Paths passed with `--skill` (explicit, repeatable)
+
+Invoke a skill from the REPL with `/<skill-name>` or `/<skill-name> extra context here`.
+
+## Instructions
+
+The agent automatically discovers instruction files by walking up the directory tree from CWD:
+
+- `CLAUDE.md`, `CLAUDE.local.md` at any ancestor directory
+- `.kdeps/CLAUDE.md`, `.kdeps/instructions.md` at any ancestor directory
+
+Duplicate content (by hash) is deduplicated. Total injected context is capped at ~12 KB. Instructions are injected into the system prompt at startup.
+
+## Session persistence
+
+Every conversation is saved as a JSONL file under `~/.kdeps/sessions/`. To resume a previous session:
+
+```bash
+kdeps --resume <session-id>
+```
+
+Session IDs are shown at the start of each run.
 
 ## Single workflow vs folder
 
 ```bash
-# One workflow = one tool (named after metadata.name)
-kdeps serve ./my-agent/
-
-# Folder = every workflow and agency inside becomes a separate tool
-kdeps serve ./agents/
+kdeps ./my-agent/     # One workflow = one tool (named after metadata.name)
+kdeps ./agents/       # Folder = every workflow and agency inside becomes a separate tool
 ```
 
 When you point to a folder, kdeps discovers every workflow and agency file inside it (recursively). Each becomes a separate tool. The tool name is `metadata.name` from the workflow's manifest -- not the filename.
@@ -41,36 +105,10 @@ settings:
 Running:
 
 ```bash
-kdeps serve ./my-agent/
+kdeps ./my-agent/
 ```
 
 The LLM receives one tool named `my-agent`. When it calls that tool, kdeps runs the full workflow DAG -- every resource in dependency order -- and returns `apiResponse.response` to the LLM.
-
-The LLM never sees individual resources. It sees:
-
-```
-Tool: my-agent
-Description: Answers questions about our product
-Input: { "input": string }
-```
-
-## Folder mode -- multiple tools
-
-```
-agents/
-  research/
-    workflow.yaml    # metadata.name: research-agent
-  writer/
-    workflow.yaml    # metadata.name: writer-agent
-  summarizer/
-    workflow.yaml    # metadata.name: summarizer-agent
-```
-
-```bash
-kdeps serve ./agents/
-```
-
-The LLM now has three tools: `research-agent`, `writer-agent`, `summarizer-agent`. It routes between them based on the user's prompt.
 
 ## How it works
 
@@ -98,83 +136,86 @@ F -> C: yes
 F -> G: no
 ```
 
-Why whole workflows and not individual resources? A resource that calls `get('otherDep')` depends on an upstream resource having run first. If the LLM called that resource in isolation, the upstream data would be missing and the output would be wrong. Running the full workflow guarantees all dependencies execute in the correct order.
-
-Why agencies are one tool and not one tool per internal agent? Agencies are designed as a single orchestrated unit. The entry-point agent coordinates the other agents internally via `agent:` resources -- the LLM does not need to know about the internal structure. One agency = one tool call.
-
 ## Tool registration
 
-| `kdeps serve` target | Tools registered |
-|---|---|
-| Single workflow file/dir | One tool (`metadata.name`) + one tool per component in that workflow |
-| Single agency file | One tool (`agency metadata.name`) -- the agency's entry-point runs when called; internal agents are not exposed individually |
-| Folder | One tool per workflow/agency found recursively + component tools for each workflow |
-
-Workflow tool input is forwarded as `get('key')` request params inside the pipeline. Output is the workflow's `apiResponse.response`. Agency tool input runs the agency's entry-point workflow. Component tool inputs map to the component's declared interface fields.
-
-## When to use agent loop mode
-
-- You want a conversational interface that dynamically picks which workflow to run.
-- You have multiple specialized workflows and want the LLM to route between them.
-- You are prototyping before formalizing a fixed pipeline in workflow mode.
-- You are building a chatbot or assistant that calls your business logic on demand.
+| Target | Tools registered |
+|--------|-----------------|
+| No path (model-only) | None -- pure LLM conversation |
+| Single workflow file/dir | One tool (`metadata.name`) + one tool per component |
+| Single agency file | One tool (`agency metadata.name`) |
+| Folder | One tool per workflow/agency found recursively + component tools |
 
 ## Command
 
 ```bash
-kdeps serve <path> [flags]
+kdeps [path] [flags]
 ```
 
-`<path>` is a workflow or agency file, or a directory. The tool name comes from `metadata.name` inside each file -- not from the filename itself.
+`[path]` is optional. When provided it must be a workflow/agency file or directory. The tool name comes from `metadata.name` -- not the filename.
 
 ### Flags
 
 | Flag | Default | Description |
-|---|---|---|
+|------|---------|-------------|
 | `--model` | `KDEPS_AGENT_MODEL` or `llama3.2` | LLM model name |
-| `--backend` | `KDEPS_AGENT_BACKEND` or `file` | LLM backend (`file` = local llamafile, no server) |
-| `--base-url` | `KDEPS_AGENT_BASE_URL` | LLM API base URL (leave empty for the file backend) |
+| `--backend` | `KDEPS_AGENT_BACKEND` or `file` | LLM backend (`file`, `gguf`, `ollama`, `openai`, ...) |
+| `--base-url` | `KDEPS_AGENT_BASE_URL` | LLM API base URL |
 | `--system` | (none) | System prompt injected at conversation start |
+| `--skill` | (none) | Path to a skill file or directory (repeatable) |
+| `--resume` | (none) | Session ID to resume a previous conversation |
 | `--debug` | false | Enable debug logging |
 
 ### Environment variables
 
 ```bash
 KDEPS_AGENT_MODEL=llama3.2
-KDEPS_AGENT_BACKEND=file                     # default: local llamafile
-# KDEPS_AGENT_BACKEND=ollama                 # opt-in: requires the ollama server
+KDEPS_AGENT_BACKEND=file              # default: local llamafile
+# KDEPS_AGENT_BACKEND=gguf           # llama.cpp via llama-server
+# KDEPS_AGENT_BACKEND=ollama         # requires ollama server
 # KDEPS_AGENT_BASE_URL=http://localhost:11434
 ```
 
 ## Examples
 
 ```bash
+# Pure LLM REPL, no workflows
+kdeps
+
 # Single workflow -- one tool
-kdeps serve ./my-agent/
+kdeps ./my-agent/
 
 # All workflows in a folder
-kdeps serve ./agents/
+kdeps ./agents/
 
 # Specify model and system prompt
-kdeps serve ./agents/ --model mistral --system "You are a data analyst."
+kdeps ./agents/ --model mistral --system "You are a data analyst."
 
-# OpenAI-compatible backend
-KDEPS_AGENT_BACKEND=openai KDEPS_AGENT_BASE_URL=https://api.openai.com \
-  kdeps serve ./agents/ --model gpt-4o
+# GGUF backend with local model file
+kdeps --backend gguf --model qwen3.5-4b
+
+# OpenAI backend
+KDEPS_AGENT_BACKEND=openai kdeps ./agents/ --model gpt-4o
+
+# Load a skill directory
+kdeps --skill ~/.kdeps/skills/
+
+# Resume a previous session
+kdeps --resume abc123def456
 ```
 
 ## Differences from workflow mode
 
-| | Workflow mode (`kdeps run`) | Agent loop mode (`kdeps serve`) |
-|---|---|---|
+| | Workflow mode (`kdeps run`) | Agent loop mode (`kdeps [path]`) |
+|--|-----------------------------|---------------------------------|
 | Execution | DAG, deterministic | LLM loop, tool-driven |
 | Entry point | `metadata.targetActionId` | User prompt |
 | Unit of work | Individual resources | Whole workflows |
 | Tools exposed | N/A | One per workflow + one per component |
-| Input | Single workflow path | File or folder |
+| Input | Single workflow path | Optional file or folder |
+| Session memory | None | Multi-turn, persistent JSONL |
 
 ## See Also
 
 - [Workflow Mode](workflow-mode) - Deterministic DAG pipelines
+- [LLM Provider Reference](/reference/llm-providers) - Backend config and model names
 - [Agencies](/concepts/agency) - Multi-agent orchestration
-- [CLI: Dev Commands](/reference/cli/dev) - `kdeps serve` flags

@@ -34,6 +34,26 @@ kdeps llamafile update    # refresh the registry from HuggingFace
 The `chat.model` field also accepts a direct URL, an absolute/relative path to
 a `.llamafile`, or a bare filename looked up in `~/.kdeps/models/`.
 
+## GGUF backend (llama.cpp)
+
+The `gguf` backend serves GGUF model files via `llama-server` (llama.cpp). Same download-and-cache flow as `file`, but requires `llama-server` installed separately.
+
+```yaml
+# ~/.kdeps/config.yaml
+llm:
+  backend: gguf
+```
+
+```text
+chat resource --> kdeps resolves GGUF alias --> downloads .gguf (once)
+                                            --> starts llama-server
+                                            --> request answered
+```
+
+Known aliases: `qwen3.5-4b`, `qwen3.5-8b`, `llama3.2-3b`, `llama3.1-8b`, `phi4-mini`, `gemma3-4b`, `mistral-7b`, `deepseek-r1-7b`. The `chat.model` field also accepts a direct URL, absolute/relative path to a `.gguf`, or a bare filename in `~/.kdeps/models/`.
+
+Environment overrides: `KDEPS_LLAMA_SERVER_BIN` (binary path), `KDEPS_GGUF_CTX_SIZE` (context window).
+
 ## Where it runs
 
 Backend configuration applies to both [workflow mode](/modes/workflow-mode) and [agent mode](/modes/agent-loop-mode). All `chat:` resources in both modes resolve their backend from `~/.kdeps/config.yaml`.
@@ -239,7 +259,7 @@ Counters are keyed by a fingerprint of the model list, so different route config
 
 ## Supported Backends
 
-kdeps supports Ollama (local) and any OpenAI-compatible API: OpenAI, Anthropic, Google, Mistral, Groq, Together AI, Perplexity, Cohere, DeepSeek, xAI (Grok), OpenRouter, and self-hosted solutions (vLLM, TGI, LocalAI, LlamaCpp). See [LLM Provider Reference](/reference/llm-providers) for per-provider config snippets and available model names.
+kdeps supports local backends (Llamafile, GGUF/llama.cpp, Ollama) and any OpenAI-compatible API: OpenAI, Anthropic, Google, Mistral, Groq, Together AI, Perplexity, Cohere, DeepSeek, xAI (Grok), OpenRouter, and self-hosted solutions (vLLM, TGI, LocalAI, LlamaCpp). See [LLM Provider Reference](/reference/llm-providers) for per-provider config snippets and available model names.
 
 ## Streaming (Ollama)
 
