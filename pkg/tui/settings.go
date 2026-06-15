@@ -147,7 +147,7 @@ func SettingsFromSelection(sel Selection, allItems [numTabs][]Item) Settings {
 	}
 	totalEnabled += len(sel.Workflows) + len(sel.Agencies) + len(sel.Components) + len(sel.Skills)
 
-	if totalItems > 0 && totalEnabled == totalItems {
+	if totalEnabled == totalItems {
 		return Settings{SelectAll: true}
 	}
 
