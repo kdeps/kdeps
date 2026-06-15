@@ -30,6 +30,7 @@ import (
 	"os/exec"
 	"os/signal"
 	"strconv"
+	"strings"
 	"sync"
 	"syscall"
 	"time"
@@ -69,16 +70,18 @@ func registerShutdownHookOnce() {
 // started by this process. Safe to call multiple times or from multiple goroutines.
 func ShutdownLocalServers() {
 	servedLlamafilesMu.Lock()
-	for _, pid := range servedLlamafilePIDs {
+	for path, pid := range servedLlamafilePIDs {
 		killLocalProcess(pid)
+		removeServerPortFile(path)
 	}
 	servedLlamafilePIDs = map[string]int{}
 	servedLlamafiles = map[string]int{}
 	servedLlamafilesMu.Unlock()
 
 	servedGGUFsMu.Lock()
-	for _, pid := range servedGGUFPIDs {
+	for path, pid := range servedGGUFPIDs {
 		killLocalProcess(pid)
+		removeServerPortFile(path)
 	}
 	servedGGUFPIDs = map[string]int{}
 	servedGGUFs = map[string]int{}
@@ -127,10 +130,42 @@ type localProcessConfig struct {
 	defaultPort int    // probe this port before FindFreePort (0 = skip)
 }
 
+// serverPortFile returns the path of the per-model port state file.
+// The file contains the port number of a running server for this model binary.
+func serverPortFile(path string) string {
+	return path + ".port"
+}
+
+// writeServerPortFile persists the port so other processes can reuse this server.
+func writeServerPortFile(path string, port int) {
+	_ = os.WriteFile(serverPortFile(path), []byte(strconv.Itoa(port)), 0600)
+}
+
+// readServerPortFile returns the port stored in the state file, or 0 if missing/invalid.
+func readServerPortFile(path string) int {
+	data, err := os.ReadFile(serverPortFile(path))
+	if err != nil {
+		return 0
+	}
+	p, err := strconv.Atoi(strings.TrimSpace(string(data)))
+	if err != nil || p <= 0 {
+		return 0
+	}
+	return p
+}
+
+// removeServerPortFile deletes the port state file when a server is shut down.
+func removeServerPortFile(path string) {
+	_ = os.Remove(serverPortFile(path))
+}
+
 // serveLocalProcess is the shared Serve implementation for LlamafileManager and
 // GGUFManager. It reuses an already-running server when possible, starts a new
 // one otherwise, and blocks until the model is fully ready.
 func serveLocalProcess(logger *slog.Logger, cfg localProcessConfig, path string, port int) (int, error) {
+	if logger == nil {
+		logger = slog.Default()
+	}
 	cfg.mu.Lock()
 	defer cfg.mu.Unlock()
 
@@ -139,6 +174,12 @@ func serveLocalProcess(logger *slog.Logger, cfg localProcessConfig, path string,
 		if served, ok := cfg.served[path]; ok && isHealthy(localServerURL(served)) {
 			logger.Info(cfg.label+" already running", "url", localServerURL(served))
 			return served, nil
+		}
+		// Check cross-process state file: another kdeps process may already serve this model.
+		if saved := readServerPortFile(path); saved != 0 && isHealthy(localServerURL(saved)) {
+			logger.Info(cfg.label+" already running (cross-process)", "url", localServerURL(saved))
+			cfg.served[path] = saved
+			return saved, nil
 		}
 		// Probe the backend's well-known port before allocating a random one.
 		if cfg.defaultPort != 0 && isHealthy(localServerURL(cfg.defaultPort)) {
@@ -175,6 +216,7 @@ func serveLocalProcess(logger *slog.Logger, cfg localProcessConfig, path string,
 	if pid > 0 && cfg.pids != nil {
 		cfg.pids[path] = pid
 	}
+	writeServerPortFile(path, port)
 	registerShutdownHookOnce()
 	return port, nil
 }
