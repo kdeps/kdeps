@@ -17,6 +17,7 @@ package agent_test
 import (
 	"context"
 	"errors"
+	"strings"
 	"testing"
 
 	"github.com/kdeps/kdeps/v2/pkg/agent"
@@ -381,6 +382,116 @@ func TestLoop_Run_AutoCompact_Fires(t *testing.T) {
 	// The callback should have fired during one of the later runs.
 	if autoCompactSummary == "" {
 		t.Fatal("expected auto-compact callback to fire")
+	}
+}
+
+func TestLoop_SummarizeBranch_TooFewTurns(t *testing.T) {
+	eng := newTestEngine("summary text", nil)
+	reg := tools.NewRegistry()
+	loop := agent.New(eng, newTestWorkflow(), reg, agent.Config{})
+
+	// Only 2 turns - below compactMinTurns threshold.
+	loop.Run(context.Background(), "q1") //nolint:errcheck
+	loop.Run(context.Background(), "q2") //nolint:errcheck
+
+	summary, err := loop.SummarizeBranch(context.Background())
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if summary != "" {
+		t.Fatalf("expected empty summary for too-few turns, got %q", summary)
+	}
+}
+
+func TestLoop_SummarizeBranch_ReturnsPreambleAndContent(t *testing.T) {
+	const fakeBody = "## Goal\nFix bug\n\n## Progress\n### Done\n- [x] Fixed it"
+	eng := executor.NewEngine(nil)
+	callCount := 0
+	eng.SetExecuteFunc(func(_ *domain.Workflow, _ interface{}) (interface{}, error) {
+		callCount++
+		return fakeBody, nil
+	})
+	reg := tools.NewRegistry()
+	loop := agent.New(eng, newTestWorkflow(), reg, agent.Config{})
+
+	// Add enough turns to exceed compactMinTurns threshold.
+	for range 8 {
+		loop.Run(context.Background(), "work item") //nolint:errcheck
+	}
+
+	summary, err := loop.SummarizeBranch(context.Background())
+	if err != nil {
+		t.Fatalf("SummarizeBranch error: %v", err)
+	}
+	if summary == "" {
+		t.Fatal("expected non-empty summary")
+	}
+	// Must contain the preamble.
+	if !strings.Contains(summary, "explored a different conversation branch") {
+		t.Fatalf("expected preamble in summary, got %q", summary)
+	}
+	// Must contain the LLM body.
+	if !strings.Contains(summary, fakeBody) {
+		t.Fatalf("expected LLM body in summary, got %q", summary)
+	}
+}
+
+func TestLoop_SummarizeBranch_EngineError(t *testing.T) {
+	callCount := 0
+	eng := executor.NewEngine(nil)
+	eng.SetExecuteFunc(func(_ *domain.Workflow, _ interface{}) (interface{}, error) {
+		callCount++
+		if callCount > 8 {
+			return nil, errors.New("LLM offline")
+		}
+		return "ok", nil
+	})
+	reg := tools.NewRegistry()
+	loop := agent.New(eng, newTestWorkflow(), reg, agent.Config{})
+
+	for range 8 {
+		loop.Run(context.Background(), "work") //nolint:errcheck
+	}
+
+	_, err := loop.SummarizeBranch(context.Background())
+	if err == nil {
+		t.Fatal("expected error when engine fails")
+	}
+}
+
+func TestLoop_SummarizeBranch_NoToolsInCall(t *testing.T) {
+	var capturedWorkflow *domain.Workflow
+	callCount := 0
+	eng := executor.NewEngine(nil)
+	eng.SetExecuteFunc(func(wf *domain.Workflow, _ interface{}) (interface{}, error) {
+		callCount++
+		if callCount > 8 {
+			capturedWorkflow = wf
+		}
+		return "branch summary body", nil
+	})
+	reg := tools.NewRegistry()
+	reg.Register(&tools.Tool{
+		Name:        "sometool",
+		Description: "A tool",
+		Parameters:  map[string]domain.ToolParam{},
+		Execute:     func(_ map[string]interface{}) (string, error) { return "r", nil },
+	})
+	loop := agent.New(eng, newTestWorkflow(), reg, agent.Config{})
+
+	for range 8 {
+		loop.Run(context.Background(), "prompt") //nolint:errcheck
+	}
+
+	_, err := loop.SummarizeBranch(context.Background())
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if capturedWorkflow == nil {
+		t.Fatal("branch summary workflow not captured")
+	}
+	if len(capturedWorkflow.Resources[0].Chat.Tools) != 0 {
+		t.Fatalf("expected 0 tools in branch summary call, got %d", len(capturedWorkflow.Resources[0].Chat.Tools))
 	}
 }
 

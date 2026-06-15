@@ -687,6 +687,15 @@ func (r *REPL) cmdHelp() error {
 }
 
 func (r *REPL) cmdClear() error {
+	if r.loop.Session().TurnCount() >= compactMinTurns {
+		fmt.Fprintln(os.Stdout, styleReplMeta.Render("Summarizing branch before clearing..."))
+		if summary, err := r.loop.SummarizeBranch(r.ctx); err == nil && summary != "" {
+			fmt.Fprintf(os.Stdout, "%s\n\n%s\n\n",
+				styleReplHeading.Render("Branch summary:"),
+				summary,
+			)
+		}
+	}
 	r.loop.Session().Clear()
 	fmt.Fprintln(os.Stdout, styleReplMeta.Render("Conversation history cleared."))
 	return nil
