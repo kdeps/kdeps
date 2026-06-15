@@ -105,6 +105,7 @@ func runAgentLoopCmd(path string, flags *agentLoopFlags) error {
 
 	// Provide model name suggestions for /model <tab> completion.
 	repl.SetModelNames(buildModelNames())
+	repl.SetDownloadedModels(llm.DownloadedModelAliases())
 
 	// Wire /settings TUI when running interactively.
 	if isTerminal(os.Stdout) && isTerminal(os.Stdin) {

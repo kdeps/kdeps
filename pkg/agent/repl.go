@@ -76,7 +76,8 @@ type REPL struct {
 	ctx              context.Context
 	cancel           context.CancelFunc
 	history          []string
-	modelNames       []string // suggestions for /model <tab>
+	modelNames       []string          // suggestions for /model <tab>
+	downloadedModels map[string]bool   // set of already-downloaded model aliases
 	onSettingsChange OnSettingsChange
 	tuiRunner        TUIRunner
 	runFn            func(context.Context, string) (string, error) // nil in production; injected in tests
@@ -106,6 +107,12 @@ func (r *REPL) SetTUIRunner(fn TUIRunner) {
 // SetModelNames registers model name suggestions for /model <tab> completion.
 func (r *REPL) SetModelNames(names []string) {
 	r.modelNames = names
+}
+
+// SetDownloadedModels registers which model aliases are already cached locally.
+// Completion candidates for downloaded models are prefixed with "*" as a visual indicator.
+func (r *REPL) SetDownloadedModels(downloaded map[string]bool) {
+	r.downloadedModels = downloaded
 }
 
 // dynamicPrompt returns a prompt string showing model and turn count.
@@ -200,23 +207,47 @@ func (c *replCompleter) Do(line []rune, pos int) ([][]rune, int) {
 	}
 
 	// /model <arg>: suggest model names ranked by fuzzy score.
-	// Returns suffixes so readline displays same+suffix correctly (e.g. "qwen2.5"+":7b" = "qwen2.5:7b").
+	// Downloaded models sort first and are prefixed with "*" so readline displays
+	// e.g. "qwen2.5" + "*:7b" = "qwen2.5*:7b" for a cached model.
+	// The "*" is stripped by cmdModel before applying the selection.
 	if lastSpace >= 0 && len(c.repl.modelNames) > 0 {
 		cmd := strings.ToLower(strings.TrimSpace(str[:lastSpace]))
 		if cmd == "/model" {
 			ranked := fuzzyRankStrings(strings.ToLower(token), c.repl.modelNames)
-			results := make([][]rune, 0, len(ranked))
-			for _, n := range ranked {
-				nr := []rune(n)
-				if len(nr) >= tokenLen {
-					results = append(results, nr[tokenLen:])
-				}
-			}
-			return results, tokenLen
+			return c.repl.modelCompletionSuffixes(ranked, tokenLen), tokenLen
 		}
 	}
 
 	return nil, 0
+}
+
+// modelCompletionSuffixes builds the readline suffix list for /model completion.
+// Downloaded models are sorted first and their suffixes are prefixed with "*".
+// tokenLen is the number of runes already typed (suffix = candidate[tokenLen:]).
+func (r *REPL) modelCompletionSuffixes(ranked []string, tokenLen int) [][]rune {
+	var downloaded, rest []string
+	for _, n := range ranked {
+		if r.downloadedModels[n] {
+			downloaded = append(downloaded, n)
+		} else {
+			rest = append(rest, n)
+		}
+	}
+	ordered := append(downloaded, rest...)
+	results := make([][]rune, 0, len(ordered))
+	for _, n := range ordered {
+		nr := []rune(n)
+		if len(nr) < tokenLen {
+			continue
+		}
+		suffix := nr[tokenLen:]
+		if r.downloadedModels[n] {
+			// Prefix "*" so the completion list shows e.g. "qwen2.5*:7b" for cached models.
+			suffix = append([]rune{'*'}, suffix...)
+		}
+		results = append(results, suffix)
+	}
+	return results
 }
 
 // allCommandNames returns all slash command names including loaded skills.
@@ -628,8 +659,10 @@ func (r *REPL) cmdClear() error {
 
 func (r *REPL) cmdModel(args []string) error {
 	if len(args) > 0 {
-		r.loop.config.Model = args[0]
-		fmt.Fprintln(os.Stdout, styleReplMeta.Render("Model set to "+args[0]))
+		// Strip "*" markers inserted by tab completion for downloaded models.
+		model := strings.ReplaceAll(args[0], "*", "")
+		r.loop.config.Model = model
+		fmt.Fprintln(os.Stdout, styleReplMeta.Render("Model set to "+model))
 		return nil
 	}
 	fmt.Fprintln(os.Stdout, styleReplMeta.Render("Current model: "+r.loop.config.Model))

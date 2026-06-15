@@ -159,6 +159,21 @@ func ResolveLlamafileAlias(model string) (string, bool) {
 	return url, ok
 }
 
+// LlamafileCachedPath returns the expected local cache path for a llamafile alias,
+// or ("", false) if the alias is unknown. It does not stat the file.
+func LlamafileCachedPath(alias, modelsDir string) (string, bool) {
+	ensureRegistryLoaded()
+	rawURL, ok := llamafileAliasMap[alias]
+	if !ok {
+		return "", false
+	}
+	basename := filepath.Base(rawURL)
+	if basename == "" || basename == "." || basename == "/" {
+		return "", false
+	}
+	return filepath.Join(modelsDir, basename), true
+}
+
 // LlamafileAliasNames returns all known alias names, sorted alphabetically.
 // Used for error messages and suggestions.
 func LlamafileAliasNames() []string {

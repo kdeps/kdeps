@@ -315,6 +315,61 @@ func TestReplCompleter_ModelArgAllModels(t *testing.T) {
 	assert.Contains(t, found, "qwen3.5-4b")
 }
 
+func TestReplCompleter_DownloadedModelMarker(t *testing.T) {
+	loop := makeTestLoop(nil)
+	repl := NewREPL(loop)
+	defer repl.cancel()
+	repl.SetModelNames([]string{"llama3.2:1b", "llama3.2:3b", "qwen3.5-4b"})
+	repl.SetDownloadedModels(map[string]bool{"llama3.2:1b": true})
+
+	c := &replCompleter{repl: repl}
+	// empty token - all models, downloaded first with "*" prefix
+	input := []rune("/model ")
+	results, _ := c.Do(input, len(input))
+	found := make([]string, 0, len(results))
+	for _, r := range results {
+		found = append(found, string(r))
+	}
+	// downloaded model gets "*" prefix
+	assert.Contains(t, found, "*llama3.2:1b")
+	// non-downloaded models have no marker
+	assert.Contains(t, found, "llama3.2:3b")
+	assert.Contains(t, found, "qwen3.5-4b")
+	// downloaded model appears first
+	assert.Equal(t, "*llama3.2:1b", found[0])
+}
+
+func TestReplCompleter_DownloadedModelMarkerPartialToken(t *testing.T) {
+	loop := makeTestLoop(nil)
+	repl := NewREPL(loop)
+	defer repl.cancel()
+	repl.SetModelNames([]string{"llama3.2:1b", "llama3.2:3b"})
+	repl.SetDownloadedModels(map[string]bool{"llama3.2:1b": true})
+
+	c := &replCompleter{repl: repl}
+	// token="llama3.2" - suffixes: "*:1b" (downloaded), ":3b" (not)
+	input := []rune("/model llama3.2")
+	results, length := c.Do(input, len(input))
+	assert.Equal(t, len([]rune("llama3.2")), length)
+	found := make([]string, 0, len(results))
+	for _, r := range results {
+		found = append(found, string(r))
+	}
+	assert.Contains(t, found, "*:1b")
+	assert.Contains(t, found, ":3b")
+	assert.Equal(t, "*:1b", found[0])
+}
+
+func TestCmdModel_StripsStar(t *testing.T) {
+	loop := makeTestLoop(nil)
+	repl := NewREPL(loop)
+	defer repl.cancel()
+
+	// Simulate selection of a "*"-prefixed model name.
+	_ = repl.cmdModel([]string{"qwen2.5*:7b"})
+	assert.Equal(t, "qwen2.5:7b", repl.loop.config.Model)
+}
+
 // --- expandFileRefs ---
 
 func TestExpandFileRefs_NoRefs(t *testing.T) {

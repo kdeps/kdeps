@@ -147,6 +147,43 @@ func IsRemoteModel(model string) bool {
 //nolint:gochecknoglobals // test-replaceable
 var userHomeDirFunc = os.UserHomeDir
 
+// DownloadedModelAliases returns the set of model aliases whose files exist in the local cache.
+// Used for tab-completion highlighting. Returns empty set on any error.
+func DownloadedModelAliases() map[string]bool {
+	modelsDir, err := modelsDir()
+	if err != nil {
+		return nil
+	}
+	out := make(map[string]bool)
+	for _, alias := range LlamafileAliasNames() {
+		if p, ok := LlamafileCachedPath(alias, modelsDir); ok {
+			if _, statErr := os.Stat(p); statErr == nil {
+				out[alias] = true
+			}
+		}
+	}
+	for _, alias := range GGUFAliasNames() {
+		if p, ok := GGUFCachedPath(alias, modelsDir); ok {
+			if _, statErr := os.Stat(p); statErr == nil {
+				out[alias] = true
+			}
+		}
+	}
+	return out
+}
+
+// modelsDir returns the models directory path without creating it.
+func modelsDir() (string, error) {
+	if d := os.Getenv("KDEPS_MODELS_DIR"); d != "" {
+		return d, nil
+	}
+	homeDir, err := userHomeDirFunc()
+	if err != nil {
+		return "", fmt.Errorf("cannot determine home directory: %w", err)
+	}
+	return homeDir + "/.kdeps/models", nil
+}
+
 // DefaultModelsDir returns the llamafile cache directory, creating it if necessary.
 // Respects $KDEPS_MODELS_DIR (set via ~/.kdeps/config.yaml models_dir:); falls back to ~/.kdeps/models.
 func DefaultModelsDir() (string, error) {
