@@ -29,6 +29,24 @@ const (
 	compactMinTurns         = 4 // don't compact unless at least 4 turns exist
 )
 
+// compactionSummaryPrefix / compactionSummarySuffix wrap the LLM-generated
+// compaction text when it is injected as a context message for the next turn.
+// The <summary> tag aids models that respond to XML structure.
+const (
+	compactionSummaryPrefix = `The conversation history before this point was compacted into the following summary:
+
+<summary>
+`
+	compactionSummarySuffix = `
+</summary>`
+
+	branchSummaryPrefix = `The following is a summary of a branch that this conversation came back from:
+
+<summary>
+`
+	branchSummarySuffix = `</summary>`
+)
+
 const compactionSystemPrompt = `You are a context summarization assistant. Your task is to read a conversation between a user and an AI assistant, then produce a structured summary following the exact format specified.
 
 Do NOT continue the conversation. Do NOT respond to any questions in the conversation. ONLY output the structured summary.`

@@ -194,8 +194,12 @@ func TestCompactWith_ReplacesHistory(t *testing.T) {
 	if !strings.Contains(msgs[0].Content, "This is the summary.") {
 		t.Fatalf("expected summary in first message, got %q", msgs[0].Content)
 	}
-	if !strings.Contains(msgs[0].Content, "4 previous") {
-		t.Fatalf("expected compacted turn count in message, got %q", msgs[0].Content)
+	// turn count appears in the assistant ack message
+	if !strings.Contains(msgs[1].Content, "4 turns") {
+		t.Fatalf("expected compacted turn count in ack message, got %q", msgs[1].Content)
+	}
+	if !strings.Contains(msgs[0].Content, "<summary>") {
+		t.Fatalf("expected <summary> XML tag in compaction message, got %q", msgs[0].Content)
 	}
 	if msgs[1].Role != "assistant" {
 		t.Fatalf("expected second message role=assistant, got %q", msgs[1].Role)

@@ -426,9 +426,13 @@ func TestLoop_SummarizeBranch_ReturnsPreambleAndContent(t *testing.T) {
 	if summary == "" {
 		t.Fatal("expected non-empty summary")
 	}
-	// Must contain the preamble.
-	if !strings.Contains(summary, "explored a different conversation branch") {
+	// Must contain the pi-style preamble.
+	if !strings.Contains(summary, "summary of a branch") {
 		t.Fatalf("expected preamble in summary, got %q", summary)
+	}
+	// Must use <summary> XML tags.
+	if !strings.Contains(summary, "<summary>") {
+		t.Fatalf("expected <summary> XML tag in branch summary, got %q", summary)
 	}
 	// Must contain the LLM body.
 	if !strings.Contains(summary, fakeBody) {

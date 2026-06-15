@@ -26,11 +26,6 @@ import (
 	"github.com/kdeps/kdeps/v2/pkg/domain"
 )
 
-const branchSummaryPreamble = `The user explored a different conversation branch before returning here.
-Summary of that exploration:
-
-`
-
 const branchSummaryPrompt = `Create a structured summary of this conversation branch for context when returning later.
 
 Use this EXACT format:
@@ -100,5 +95,5 @@ func (l *Loop) SummarizeBranch(_ context.Context) (string, error) {
 		return "", errors.New("branch summary produced empty result")
 	}
 
-	return branchSummaryPreamble + raw, nil
+	return branchSummaryPrefix + raw + branchSummarySuffix, nil
 }
