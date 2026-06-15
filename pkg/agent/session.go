@@ -141,9 +141,13 @@ func (s *Session) CompactWith(summary string, keptMessages []sessionMessage, com
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	header := fmt.Sprintf("[Context summary of %d previous conversation turns]\n\n%s", compactedTurns, summary)
+	header := compactionSummaryPrefix + summary + compactionSummarySuffix
+
 	newMsgs := make([]sessionMessage, 0, sessionMsgsPer+len(keptMessages))
-	const ackMsg = "Understood. I have the context and will continue from where we left off."
+	ackMsg := fmt.Sprintf(
+		"Understood. I have the context from those %d turns and will continue from where we left off.",
+		compactedTurns,
+	)
 	newMsgs = append(newMsgs,
 		sessionMessage{Role: "user", Content: header},
 		sessionMessage{Role: "assistant", Content: ackMsg},

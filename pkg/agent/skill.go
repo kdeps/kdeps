@@ -173,6 +173,10 @@ func loadSkillFromFile(path string) *Skill {
 	}
 }
 
+const skillsSystemPromptPreamble = `The following skills provide specialized instructions for specific tasks.
+Use the skill content when the user's task matches the skill description.
+When a skill references a relative path, resolve it against the skill directory.`
+
 // formatSkillsForPrompt formats skills as an XML <available_skills> block
 // for injection into the system prompt. Returns empty string when no skills.
 func formatSkillsForPrompt(skills []Skill) string {
@@ -180,7 +184,8 @@ func formatSkillsForPrompt(skills []Skill) string {
 		return ""
 	}
 	var sb strings.Builder
-	sb.WriteString("<available_skills>\n")
+	sb.WriteString(skillsSystemPromptPreamble)
+	sb.WriteString("\n\n<available_skills>\n")
 	for _, sk := range skills {
 		fmt.Fprintf(&sb, "<skill name=\"%s\" source=\"%s\">\n", sk.Name, sk.Source)
 		if sk.Description != "" {
