@@ -38,6 +38,7 @@ import (
 
 const (
 	replHistoryInitCap    = 100
+	sessionSubcmdArgMin   = 2 // minimum args for /session load|delete: subcommand + id
 	replPreviewMax        = 80
 	replLabelMod          = 2
 	replThinkingDelay     = 400 * time.Millisecond
@@ -48,7 +49,7 @@ const (
 //nolint:gochecknoglobals // command list must be package-level for completer
 var builtinCmds = []string{
 	"/help", "/settings", "/clear", "/model",
-	"/skills", "/prompts", "/compact", "/history", "/exit", "/quit",
+	"/skills", "/prompts", "/compact", "/history", "/session", "/exit", "/quit",
 }
 
 //nolint:gochecknoglobals // lipgloss styles for REPL output
@@ -649,6 +650,8 @@ func (r *REPL) dispatchCommand(cmd string) error {
 		return r.cmdCompact()
 	case "/history":
 		return r.cmdHistory()
+	case "/session":
+		return r.cmdSession(args)
 	case "/settings":
 		return r.cmdSettings()
 	case "/exit", "/quit":
@@ -670,17 +673,18 @@ func (r *REPL) dispatchCommand(cmd string) error {
 func (r *REPL) cmdHelp() error {
 	heading := styleReplHeading.Render
 	meta := styleReplMeta.Render
-	fmt.Fprintf(os.Stdout, "%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n\n%s\n",
+	fmt.Fprintf(os.Stdout, "%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n\n%s\n",
 		heading("Available commands:"),
-		"  /help               Show this help message",
-		"  /settings           Open the tool/skill selector and save selections",
-		"  /clear              Clear the conversation history",
-		"  /model [name]       Show or set the LLM model",
-		"  /skills             List loaded skills",
-		"  /prompts            List loaded prompt templates",
-		"  /<skill-name> [..] Invoke a loaded skill or prompt template by name",
-		"  /compact            Compact conversation history (keep recent turns)",
-		"  /history            Show recent conversation turns",
+		"  /help                    Show this help message",
+		"  /settings                Open the tool/skill selector and save selections",
+		"  /clear                   Clear the conversation history",
+		"  /model [name]            Show or set the LLM model",
+		"  /skills                  List loaded skills",
+		"  /prompts                 List loaded prompt templates",
+		"  /<skill-name> [..]      Invoke a loaded skill or prompt template by name",
+		"  /compact                 Compact conversation history (keep recent turns)",
+		"  /history                 Show recent conversation turns",
+		"  /session list|save|load|delete  Manage saved sessions",
 		meta("/exit, /quit, Ctrl+D to exit  |  Ctrl+C to cancel current line  |  Tab to complete commands"),
 	)
 	return nil
@@ -834,6 +838,113 @@ func (r *REPL) cmdSettings() error {
 	} else {
 		fmt.Fprintln(os.Stdout, styleReplMeta.Render("Settings saved."))
 	}
+	return nil
+}
+
+// cmdSession handles /session list|save [name]|load <id>|delete <id>.
+func (r *REPL) cmdSession(args []string) error {
+	store := r.loop.Store()
+	if store == nil {
+		fmt.Fprintln(os.Stdout, styleReplMeta.Render("Session store not configured. Pass --session-store to enable."))
+		return nil
+	}
+
+	sub := ""
+	if len(args) > 0 {
+		sub = strings.ToLower(args[0])
+	}
+
+	switch sub {
+	case "list", "":
+		return r.cmdSessionList(store)
+	case "save":
+		name := ""
+		if len(args) > 1 {
+			name = strings.Join(args[1:], " ")
+		}
+		return r.cmdSessionSave(store, name)
+	case "load":
+		if len(args) < sessionSubcmdArgMin {
+			fmt.Fprintln(os.Stdout, styleReplMeta.Render("Usage: /session load <id>"))
+			return nil
+		}
+		return r.cmdSessionLoad(store, args[1])
+	case "delete":
+		if len(args) < sessionSubcmdArgMin {
+			fmt.Fprintln(os.Stdout, styleReplMeta.Render("Usage: /session delete <id>"))
+			return nil
+		}
+		return r.cmdSessionDelete(store, args[1])
+	default:
+		fmt.Fprintf(os.Stdout, "Unknown /session subcommand: %s. Use list, save, load, or delete.\n", sub)
+		return nil
+	}
+}
+
+func (r *REPL) cmdSessionList(store *SessionStore) error {
+	metas, err := store.ListMeta()
+	if err != nil {
+		return fmt.Errorf("session list: %w", err)
+	}
+	if len(metas) == 0 {
+		fmt.Fprintln(os.Stdout, styleReplMeta.Render("No saved sessions."))
+		return nil
+	}
+	fmt.Fprintln(os.Stdout, styleReplHeading.Render("Saved sessions:"))
+	for _, m := range metas {
+		ts := time.UnixMilli(m.CreatedAt).Format("2006-01-02 15:04")
+		name := m.Name
+		if name == "" {
+			name = "(unnamed)"
+		}
+		model := m.Model
+		if model == "" {
+			model = "-"
+		}
+		fmt.Fprintf(os.Stdout, "  %s  %s  turns=%-3d model=%s  %s\n",
+			styleReplHeading.Render(m.ID),
+			styleReplMeta.Render(ts),
+			m.Turns,
+			model,
+			name,
+		)
+	}
+	return nil
+}
+
+func (r *REPL) cmdSessionSave(store *SessionStore, name string) error {
+	id, err := store.SaveAs(r.loop.Session(), name, r.loop.config.Model)
+	if err != nil {
+		return fmt.Errorf("session save: %w", err)
+	}
+	msg := fmt.Sprintf("Session saved as %s", id)
+	if name != "" {
+		msg += fmt.Sprintf(" (%q)", name)
+	}
+	fmt.Fprintln(os.Stdout, styleReplMeta.Render(msg))
+	return nil
+}
+
+func (r *REPL) cmdSessionLoad(store *SessionStore, id string) error {
+	session, err := store.Load(id)
+	if err != nil {
+		return fmt.Errorf("session load: %w", err)
+	}
+	// Replace the loop's session in-place by repopulating its messages.
+	r.loop.session.mu.Lock()
+	r.loop.session.messages = session.messages
+	r.loop.session.mu.Unlock()
+	fmt.Fprintln(os.Stdout, styleReplMeta.Render(fmt.Sprintf(
+		"Session %s loaded (%d turns).", id, r.loop.session.TurnCount(),
+	)))
+	return nil
+}
+
+func (r *REPL) cmdSessionDelete(store *SessionStore, id string) error {
+	if err := store.Delete(id); err != nil {
+		return fmt.Errorf("session delete: %w", err)
+	}
+	fmt.Fprintln(os.Stdout, styleReplMeta.Render(fmt.Sprintf("Session %s deleted.", id)))
 	return nil
 }
 

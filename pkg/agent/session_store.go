@@ -19,6 +19,7 @@
 package agent
 
 import (
+	"bufio"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -29,6 +30,15 @@ import (
 )
 
 const sessionDir = ".kdeps/sessions"
+
+// SessionMetadata holds summary information about a saved session.
+type SessionMetadata struct {
+	ID        string `json:"id"`
+	Name      string `json:"name,omitempty"`
+	Model     string `json:"model,omitempty"`
+	Turns     int    `json:"turns"`
+	CreatedAt int64  `json:"createdAt"`
+}
 
 // SessionStore persists conversation sessions as JSONL files.
 type SessionStore struct {
@@ -43,6 +53,8 @@ type sessionEntry struct {
 	Role      string `json:"role,omitempty"`
 	Content   string `json:"content,omitempty"`
 	SessionID string `json:"sessionId,omitempty"`
+	Name      string `json:"name,omitempty"`
+	Model     string `json:"model,omitempty"`
 	Turns     int    `json:"turns,omitempty"`
 }
 
@@ -58,8 +70,9 @@ func NewSessionStore(basePath string) *SessionStore {
 	return &SessionStore{basePath: basePath}
 }
 
-// Save persists the current session to a JSONL file.
-func (s *SessionStore) Save(session *Session) (string, error) {
+// SaveAs persists the session to a JSONL file with an optional name and model tag.
+// Returns the generated session ID.
+func (s *SessionStore) SaveAs(session *Session, name, model string) (string, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -67,7 +80,7 @@ func (s *SessionStore) Save(session *Session) (string, error) {
 		return "", fmt.Errorf("session store: failed to create dir: %w", err)
 	}
 
-	id := fmt.Sprintf("session-%d", time.Now().UnixMilli())
+	id := fmt.Sprintf("session-%d", time.Now().UnixNano())
 	path := filepath.Join(s.basePath, id+".jsonl")
 
 	f, err := os.Create(path)
@@ -76,18 +89,18 @@ func (s *SessionStore) Save(session *Session) (string, error) {
 	}
 	defer f.Close()
 
-	// Write session metadata
 	meta := sessionEntry{
 		Type:      "session_meta",
 		Timestamp: time.Now().UnixMilli(),
 		SessionID: id,
+		Name:      name,
+		Model:     model,
 		Turns:     session.TurnCount(),
 	}
 	if metaErr := writeJSONLine(f, meta); metaErr != nil {
 		return "", metaErr
 	}
 
-	// Write each message
 	for _, m := range session.Messages() {
 		entry := sessionEntry{
 			Type:      "message",
@@ -103,6 +116,11 @@ func (s *SessionStore) Save(session *Session) (string, error) {
 	return id, nil
 }
 
+// Save persists the session without a name or model tag.
+func (s *SessionStore) Save(session *Session) (string, error) {
+	return s.SaveAs(session, "", "")
+}
+
 // Load loads a session from a JSONL file.
 func (s *SessionStore) Load(id string) (*Session, error) {
 	s.mu.Lock()
@@ -116,13 +134,13 @@ func (s *SessionStore) Load(id string) (*Session, error) {
 	defer f.Close()
 
 	session := NewSession(0)
-	decoder := json.NewDecoder(f)
+	scanner := bufio.NewScanner(f)
+	scanner.Buffer(make([]byte, 1<<20), 1<<20) //nolint:mnd // 1 MiB max line
 
-	var entry sessionEntry
-
-	for {
-		if decodeErr := decoder.Decode(&entry); decodeErr != nil {
-			break
+	for scanner.Scan() {
+		var entry sessionEntry
+		if jsonErr := json.Unmarshal(scanner.Bytes(), &entry); jsonErr != nil {
+			continue
 		}
 		if entry.Type == "message" && entry.Role != "" {
 			session.messages = append(session.messages, sessionMessage{
@@ -131,8 +149,80 @@ func (s *SessionStore) Load(id string) (*Session, error) {
 			})
 		}
 	}
+	if scanErr := scanner.Err(); scanErr != nil {
+		return nil, fmt.Errorf("session store: read error: %w", scanErr)
+	}
 
 	return session, nil
+}
+
+// LoadMeta reads only the header line of a session file and returns its metadata.
+func (s *SessionStore) LoadMeta(id string) (*SessionMetadata, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	return s.loadMetaLocked(id)
+}
+
+func (s *SessionStore) loadMetaLocked(id string) (*SessionMetadata, error) {
+	path := filepath.Join(s.basePath, id+".jsonl")
+	f, err := os.Open(path)
+	if err != nil {
+		return nil, fmt.Errorf("session store: %w", err)
+	}
+	defer f.Close()
+
+	scanner := bufio.NewScanner(f)
+	if !scanner.Scan() {
+		return nil, fmt.Errorf("session store: empty file for %s", id)
+	}
+	var entry sessionEntry
+	if jsonErr := json.Unmarshal(scanner.Bytes(), &entry); jsonErr != nil {
+		return nil, fmt.Errorf("session store: bad header in %s: %w", id, jsonErr)
+	}
+	if entry.Type != "session_meta" {
+		return nil, fmt.Errorf("session store: unexpected first entry type %q in %s", entry.Type, id)
+	}
+	sid := entry.SessionID
+	if sid == "" {
+		sid = id
+	}
+	return &SessionMetadata{
+		ID:        sid,
+		Name:      entry.Name,
+		Model:     entry.Model,
+		Turns:     entry.Turns,
+		CreatedAt: entry.Timestamp,
+	}, nil
+}
+
+// ListMeta returns metadata for all stored sessions, newest first.
+func (s *SessionStore) ListMeta() ([]SessionMetadata, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	entries, err := os.ReadDir(s.basePath)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil, nil
+		}
+		return nil, err
+	}
+
+	var metas []SessionMetadata
+	for i := len(entries) - 1; i >= 0; i-- {
+		e := entries[i]
+		if e.IsDir() || filepath.Ext(e.Name()) != ".jsonl" {
+			continue
+		}
+		id := strings.TrimSuffix(e.Name(), ".jsonl")
+		meta, metaErr := s.loadMetaLocked(id)
+		if metaErr != nil {
+			continue // skip corrupt files
+		}
+		metas = append(metas, *meta)
+	}
+	return metas, nil
 }
 
 // List returns all stored session IDs.
@@ -155,6 +245,18 @@ func (s *SessionStore) List() ([]string, error) {
 		}
 	}
 	return ids, nil
+}
+
+// Delete removes a stored session file.
+func (s *SessionStore) Delete(id string) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	path := filepath.Join(s.basePath, id+".jsonl")
+	if err := os.Remove(path); err != nil {
+		return fmt.Errorf("session store: delete %s: %w", id, err)
+	}
+	return nil
 }
 
 func writeJSONLine(f *os.File, v interface{}) error {
