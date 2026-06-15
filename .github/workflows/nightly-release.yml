@@ -174,7 +174,6 @@ jobs:
       - name: Run linter
         if: steps.should_release.outputs.should_release == 'true'
         id: lint
-        continue-on-error: true
         uses: golangci/golangci-lint-action@82606bf257cbaff209d206a39f5134f0cfbfd2ee # v9
         with:
           version: ${{ steps.lint-version.outputs.version }}
@@ -184,25 +183,14 @@ jobs:
       - name: Build
         if: steps.should_release.outputs.should_release == 'true'
         id: build
-        continue-on-error: true
         run: make build
 
       - name: Run tests
         if: steps.should_release.outputs.should_release == 'true'
         id: test
-        continue-on-error: true
         run: |
           echo "Running unit tests..."
           go test -v -short -timeout=5m ./pkg/... ./cmd/...
-
-      - name: Report validation outcomes
-        if: steps.should_release.outputs.should_release == 'true'
-        run: |
-          # Validation outcomes are informational only; the nightly release is
-          # always published as latest regardless of check results.
-          echo "Lint: ${{ steps.lint.outcome }}"
-          echo "Build: ${{ steps.build.outcome }}"
-          echo "Test: ${{ steps.test.outcome }}"
 
       - name: Update npm packages in docs/v2
         id: update_npm
