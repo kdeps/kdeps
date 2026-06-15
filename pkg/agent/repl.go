@@ -48,7 +48,7 @@ const (
 //nolint:gochecknoglobals // command list must be package-level for completer
 var builtinCmds = []string{
 	"/help", "/settings", "/clear", "/model",
-	"/skills", "/compact", "/history", "/exit", "/quit",
+	"/skills", "/prompts", "/compact", "/history", "/exit", "/quit",
 }
 
 //nolint:gochecknoglobals // lipgloss styles for REPL output
@@ -60,6 +60,22 @@ var (
 )
 
 var atFileRefRe = regexp.MustCompile(`@(\S+)`)
+
+const firstLineMax = 80
+
+// firstLine returns the first non-empty line of s, truncated to firstLineMax chars.
+func firstLine(s string) string {
+	for _, line := range strings.Split(s, "\n") {
+		line = strings.TrimSpace(line)
+		if line != "" {
+			if len(line) > firstLineMax {
+				return line[:firstLineMax] + "..."
+			}
+			return line
+		}
+	}
+	return s
+}
 
 // OnSettingsChange is called after /settings saves new selections.
 // skillPaths contains the SKILL.md paths for enabled skills; toolsChanged
@@ -76,8 +92,8 @@ type REPL struct {
 	ctx              context.Context
 	cancel           context.CancelFunc
 	history          []string
-	modelNames       []string          // suggestions for /model <tab>
-	downloadedModels map[string]bool   // set of already-downloaded model aliases
+	modelNames       []string        // suggestions for /model <tab>
+	downloadedModels map[string]bool // set of already-downloaded model aliases
 	onSettingsChange OnSettingsChange
 	tuiRunner        TUIRunner
 	runFn            func(context.Context, string) (string, error) // nil in production; injected in tests
@@ -86,12 +102,21 @@ type REPL struct {
 // NewREPL creates a new REPL for the given agent loop.
 func NewREPL(loop *Loop) *REPL {
 	ctx, cancel := context.WithCancel(context.Background())
-	return &REPL{
+	r := &REPL{
 		loop:    loop,
 		ctx:     ctx,
 		cancel:  cancel,
 		history: make([]string, 0, replHistoryInitCap),
 	}
+	loop.SetOnAutoCompact(func(summary string) {
+		fmt.Fprintf(os.Stdout, "\n%s\n%s\n\n",
+			styleReplMeta.Render(fmt.Sprintf(
+				"(auto-compacted - session now %d turns)", loop.Session().TurnCount(),
+			)),
+			styleReplMeta.Render("Summary: "+firstLine(summary)),
+		)
+	})
+	return r
 }
 
 // SetOnSettingsChange registers the callback invoked after /settings saves.
@@ -233,7 +258,8 @@ func (r *REPL) modelCompletionSuffixes(ranked []string, tokenLen int) [][]rune {
 			rest = append(rest, n)
 		}
 	}
-	ordered := append(downloaded, rest...)
+	downloaded = append(downloaded, rest...)
+	ordered := downloaded
 	results := make([][]rune, 0, len(ordered))
 	for _, n := range ordered {
 		nr := []rune(n)
@@ -250,12 +276,15 @@ func (r *REPL) modelCompletionSuffixes(ranked []string, tokenLen int) [][]rune {
 	return results
 }
 
-// allCommandNames returns all slash command names including loaded skills.
+// allCommandNames returns all slash command names including loaded skills and prompt templates.
 func (r *REPL) allCommandNames() []string {
-	names := make([]string, 0, len(builtinCmds)+len(r.loop.skillList))
+	names := make([]string, 0, len(builtinCmds)+len(r.loop.skillList)+len(r.loop.prompts))
 	names = append(names, builtinCmds...)
 	for _, sk := range r.loop.skillList {
 		names = append(names, "/"+sk.Name)
+	}
+	for _, pt := range r.loop.prompts {
+		names = append(names, "/"+pt.Name)
 	}
 	return names
 }
@@ -614,6 +643,8 @@ func (r *REPL) dispatchCommand(cmd string) error {
 		return r.cmdModel(args)
 	case "/skills":
 		return r.cmdSkills()
+	case "/prompts":
+		return r.cmdPrompts()
 	case "/compact":
 		return r.cmdCompact()
 	case "/history":
@@ -624,9 +655,12 @@ func (r *REPL) dispatchCommand(cmd string) error {
 		r.cancel()
 		return nil
 	default:
-		skillName := strings.TrimPrefix(command, "/")
-		if sk := r.loop.SkillByName(skillName); sk != nil {
+		name := strings.TrimPrefix(command, "/")
+		if sk := r.loop.SkillByName(name); sk != nil {
 			return r.cmdInvokeSkill(sk, args)
+		}
+		if pt := r.loop.PromptByName(name); pt != nil {
+			return r.cmdInvokePrompt(pt, args)
 		}
 		fmt.Fprintf(os.Stdout, "Unknown command: %s. Type /help for available commands.\n", command)
 		return nil
@@ -636,14 +670,15 @@ func (r *REPL) dispatchCommand(cmd string) error {
 func (r *REPL) cmdHelp() error {
 	heading := styleReplHeading.Render
 	meta := styleReplMeta.Render
-	fmt.Fprintf(os.Stdout, "%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n\n%s\n",
+	fmt.Fprintf(os.Stdout, "%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n\n%s\n",
 		heading("Available commands:"),
 		"  /help               Show this help message",
 		"  /settings           Open the tool/skill selector and save selections",
 		"  /clear              Clear the conversation history",
 		"  /model [name]       Show or set the LLM model",
 		"  /skills             List loaded skills",
-		"  /<skill-name> [..] Invoke a loaded skill by name with optional extra prompt",
+		"  /prompts            List loaded prompt templates",
+		"  /<skill-name> [..] Invoke a loaded skill or prompt template by name",
 		"  /compact            Compact conversation history (keep recent turns)",
 		"  /history            Show recent conversation turns",
 		meta("/exit, /quit, Ctrl+D to exit  |  Ctrl+C to cancel current line  |  Tab to complete commands"),
@@ -685,16 +720,59 @@ func (r *REPL) cmdSkills() error {
 	return nil
 }
 
+func (r *REPL) cmdPrompts() error {
+	if len(r.loop.prompts) == 0 {
+		fmt.Fprintln(os.Stdout, styleReplMeta.Render("No prompt templates loaded."))
+		return nil
+	}
+	fmt.Fprintln(os.Stdout, styleReplHeading.Render("Loaded prompt templates:"))
+	for _, pt := range r.loop.prompts {
+		hint := ""
+		if pt.ArgumentHint != "" {
+			hint = " " + styleReplMeta.Render("<"+pt.ArgumentHint+">")
+		}
+		desc := pt.Description
+		if desc == "" {
+			desc = pt.Source
+		}
+		fmt.Fprintf(os.Stdout, "  /%s%s  %s\n", pt.Name, hint, styleReplMeta.Render(desc))
+	}
+	return nil
+}
+
+// cmdInvokePrompt expands a prompt template with the provided args and sends
+// the result as the next LLM turn.
+func (r *REPL) cmdInvokePrompt(pt *PromptTemplate, args []string) error {
+	expanded := substituteArgs(pt.Content, args)
+	r.history = append(r.history, "/"+pt.Name)
+	resp, err := r.runWithThinking(r.ctx, expanded)
+	if err != nil {
+		return fmt.Errorf("prompt %s: %w", pt.Name, err)
+	}
+	if resp != "" {
+		fmt.Fprintln(os.Stdout, styleReplResponse.Render(resp))
+	}
+	return nil
+}
+
 func (r *REPL) cmdCompact() error {
-	result := r.loop.Session().Compact()
-	if result == "" {
+	fmt.Fprintln(os.Stdout, styleReplMeta.Render("Compacting conversation history..."))
+
+	summary, err := r.loop.CompactWithLLM(r.ctx)
+	if err != nil {
+		return fmt.Errorf("compact: %w", err)
+	}
+	if summary == "" {
 		fmt.Fprintln(os.Stdout, styleReplMeta.Render("No compaction needed."))
 		return nil
 	}
-	fmt.Fprintf(os.Stdout, "%s %s\n",
-		result,
-		styleReplMeta.Render(fmt.Sprintf("(now %d turns)", r.loop.Session().TurnCount())),
+	fmt.Fprintf(os.Stdout, "%s\n\n%s\n",
+		styleReplHeading.Render("Compaction summary:"),
+		summary,
 	)
+	fmt.Fprintln(os.Stdout, styleReplMeta.Render(
+		fmt.Sprintf("History compacted. Session now has %d turns.", r.loop.Session().TurnCount()),
+	))
 	return nil
 }
 

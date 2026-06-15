@@ -185,6 +185,137 @@ func TestLoop_Run_SystemPrompt(t *testing.T) {
 	}
 }
 
+func TestLoop_CompactWithLLM_TooFewTurns(t *testing.T) {
+	eng := newTestEngine("summary text", nil)
+	reg := tools.NewRegistry()
+	loop := agent.New(eng, newTestWorkflow(), reg, agent.Config{})
+
+	// Only 2 turns - below compactMinTurns threshold, should return empty.
+	loop.Run(context.Background(), "q1") //nolint:errcheck
+	loop.Run(context.Background(), "q2") //nolint:errcheck
+
+	summary, err := loop.CompactWithLLM(context.Background())
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if summary != "" {
+		t.Fatalf("expected empty summary for too-few turns, got %q", summary)
+	}
+}
+
+func TestLoop_CompactWithLLM_SummarizesAndReplaces(t *testing.T) {
+	const fakeSummary = "## Goal\nTest compaction.\n\n## Progress\n### Done\n- [x] Ran tests"
+	var callCount int
+	eng := executor.NewEngine(nil)
+	eng.SetExecuteFunc(func(_ *domain.Workflow, _ interface{}) (interface{}, error) {
+		callCount++
+		return fakeSummary, nil
+	})
+	reg := tools.NewRegistry()
+	// Use a tiny token budget so even short messages trigger compaction.
+	loop := agent.New(eng, newTestWorkflow(), reg, agent.Config{
+		Model:              "llama3.2",
+		CompactTokenBudget: 10, // very small: forces compaction after a few turns
+	})
+
+	// Add enough turns to trigger compaction (need compactMinTurns = 4 minimum).
+	for range 10 {
+		_, err := loop.Run(context.Background(), "what is 2+2?")
+		if err != nil {
+			t.Fatalf("Run error: %v", err)
+		}
+	}
+
+	prevTurns := loop.Session().TurnCount()
+	summary, err := loop.CompactWithLLM(context.Background())
+	if err != nil {
+		t.Fatalf("CompactWithLLM error: %v", err)
+	}
+	if summary == "" {
+		t.Fatal("expected non-empty summary")
+	}
+	if summary != fakeSummary {
+		t.Fatalf("expected %q, got %q", fakeSummary, summary)
+	}
+	afterTurns := loop.Session().TurnCount()
+	if afterTurns >= prevTurns {
+		t.Fatalf("expected fewer turns after compaction: before=%d after=%d", prevTurns, afterTurns)
+	}
+}
+
+func TestLoop_CompactWithLLM_NoToolsInCompactionCall(t *testing.T) {
+	var capturedWorkflow *domain.Workflow
+	eng := executor.NewEngine(nil)
+	callCount := 0
+	eng.SetExecuteFunc(func(wf *domain.Workflow, _ interface{}) (interface{}, error) {
+		callCount++
+		// Only capture the compaction call (the one after 10 Run calls).
+		if callCount > 10 {
+			capturedWorkflow = wf
+		}
+		return "summary output", nil
+	})
+	reg := tools.NewRegistry()
+	reg.Register(&tools.Tool{
+		Name:        "sometool",
+		Description: "A tool",
+		Parameters:  map[string]domain.ToolParam{},
+		Execute:     func(_ map[string]interface{}) (string, error) { return "r", nil },
+	})
+	// Tiny budget to force compaction.
+	loop := agent.New(eng, newTestWorkflow(), reg, agent.Config{CompactTokenBudget: 10})
+
+	for range 10 {
+		loop.Run(context.Background(), "prompt") //nolint:errcheck
+	}
+
+	_, err := loop.CompactWithLLM(context.Background())
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if capturedWorkflow == nil {
+		t.Fatal("compaction workflow was not captured")
+	}
+	if len(capturedWorkflow.Resources[0].Chat.Tools) != 0 {
+		t.Fatalf("expected 0 tools in compaction call, got %d", len(capturedWorkflow.Resources[0].Chat.Tools))
+	}
+}
+
+func TestLoop_CompactWithLLM_FallsBackOnEngineError(t *testing.T) {
+	callCount := 0
+	eng := executor.NewEngine(nil)
+	eng.SetExecuteFunc(func(_ *domain.Workflow, _ interface{}) (interface{}, error) {
+		callCount++
+		if callCount > 10 {
+			return nil, errors.New("LLM offline")
+		}
+		return "answer", nil
+	})
+	reg := tools.NewRegistry()
+	// MaxTurns=3 so truncation fallback has something to compact.
+	// CompactTokenBudget=10 forces compaction trigger.
+	loop := agent.New(eng, newTestWorkflow(), reg, agent.Config{
+		MaxTurns:           3,
+		CompactTokenBudget: 10,
+	})
+
+	for range 10 {
+		loop.Run(context.Background(), "question") //nolint:errcheck
+	}
+
+	// Inject extra messages directly to trigger truncation fallback.
+	s := loop.Session()
+	for range 5 {
+		s.Append("extra", "response")
+	}
+
+	// CompactWithLLM should fall back to truncation, not return an error.
+	_, err := loop.CompactWithLLM(context.Background())
+	if err != nil {
+		t.Fatalf("expected fallback (no error), got %v", err)
+	}
+}
+
 func TestLoop_Run_ToolsWired(t *testing.T) {
 	var capturedWorkflow *domain.Workflow
 	eng := executor.NewEngine(nil)
@@ -212,5 +343,64 @@ func TestLoop_Run_ToolsWired(t *testing.T) {
 	}
 	if capturedWorkflow.Resources[0].Chat.Tools[0].Name != "mytool" {
 		t.Fatalf("unexpected tool name: %q", capturedWorkflow.Resources[0].Chat.Tools[0].Name)
+	}
+}
+
+func TestLoop_Run_AutoCompact_Fires(t *testing.T) {
+	var callCount int
+	eng := executor.NewEngine(nil)
+	eng.SetExecuteFunc(func(_ *domain.Workflow, _ interface{}) (interface{}, error) {
+		callCount++
+		return "response", nil
+	})
+	reg := tools.NewRegistry()
+
+	var autoCompactSummary string
+	loop := agent.New(eng, newTestWorkflow(), reg, agent.Config{
+		AutoCompactThreshold: 1,  // fire on first turn that exceeds 1 token
+		CompactTokenBudget:   10, // keep minimal recent context
+	})
+	loop.SetOnAutoCompact(func(summary string) {
+		autoCompactSummary = summary
+	})
+
+	// First run: session empty, no auto-compact yet.
+	_, err := loop.Run(context.Background(), "hello")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	// Fill enough turns that shouldAutoCompact returns true on next Run.
+	for range 5 {
+		_, err = loop.Run(context.Background(), "more input")
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+	}
+
+	// The callback should have fired during one of the later runs.
+	if autoCompactSummary == "" {
+		t.Fatal("expected auto-compact callback to fire")
+	}
+}
+
+func TestLoop_Run_AutoCompact_Disabled(t *testing.T) {
+	eng := newTestEngine("response", nil)
+	reg := tools.NewRegistry()
+
+	callbackFired := false
+	loop := agent.New(eng, newTestWorkflow(), reg, agent.Config{
+		AutoCompactThreshold: -1, // disabled
+	})
+	loop.SetOnAutoCompact(func(_ string) {
+		callbackFired = true
+	})
+
+	for range 10 {
+		loop.Run(context.Background(), "question") //nolint:errcheck
+	}
+
+	if callbackFired {
+		t.Fatal("expected auto-compact callback NOT to fire when disabled")
 	}
 }
