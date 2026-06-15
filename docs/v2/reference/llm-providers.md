@@ -25,6 +25,31 @@ path to a `.llamafile`.
 When building Docker images, the llamafiles for all chat models are pre-baked
 into the image - see [Docker deployment](/deployment/docker#llm-backend-in-images).
 
+### GGUF (llama.cpp)
+
+The `gguf` backend serves GGUF model files via `llama-server` (llama.cpp). Full parity with the `file` backend: alias resolution, URL download with progress bar, shared cache at `~/.kdeps/models/`. Requires `llama-server` installed separately (override with `KDEPS_LLAMA_SERVER_BIN`).
+
+```yaml
+# ~/.kdeps/config.yaml
+llm:
+  backend: gguf
+```
+
+| Alias | Model | Quant | Size |
+|-------|-------|-------|------|
+| `qwen3.5-4b` | Qwen3.5 4B | Q5_K_S | ~3.1 GB |
+| `qwen3.5-8b` | Qwen3.5 8B | Q4_K_M | ~5.0 GB |
+| `llama3.2-3b` | Llama 3.2 3B Instruct | Q5_K_M | ~2.4 GB |
+| `llama3.1-8b` | Llama 3.1 8B Instruct | Q4_K_M | ~4.9 GB |
+| `phi4-mini` | Phi-4 Mini | Q5_K_M | ~2.7 GB |
+| `gemma3-4b` | Gemma 3 4B | Q5_K_M | ~3.1 GB |
+| `mistral-7b` | Mistral 7B v0.3 | Q4_K_M | ~4.4 GB |
+| `deepseek-r1-7b` | DeepSeek-R1 Distill 7B | Q4_K_M | ~5.0 GB |
+
+The `chat.model` field also accepts a direct HuggingFace URL, an absolute/relative path to a `.gguf`, or a bare filename looked up in `~/.kdeps/models/`.
+
+Set `KDEPS_GGUF_CTX_SIZE` to override the context window (default: `llama-server` default).
+
 ### Ollama (opt-in)
 
 ```yaml

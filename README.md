@@ -136,12 +136,15 @@ stdin prompt
 ```
 
 ```bash
-kdeps serve ./my-agent/    # one workflow = one tool
-kdeps serve ./agents/      # folder = every workflow inside becomes a tool
-kdeps serve ./my-agent/ --model llama3.2 --system "You are a DevOps assistant."
+kdeps                              # model-only REPL, no workflows
+kdeps ./my-agent/                  # one workflow = one tool
+kdeps ./agents/                    # folder = every workflow inside becomes a tool
+kdeps ./my-agent/ --model llama3.2 --system "You are a DevOps assistant."
+kdeps --skill ~/.kdeps/skills/     # load skill files into the agent
+kdeps --resume <session-id>        # continue a previous conversation
 ```
 
-The agent reads from stdin and runs until you exit. Workflows, agencies, and installed components are available as tools without any extra wiring.
+The agent reads from stdin (REPL with slash commands: `/help`, `/clear`, `/model`, `/skills`, `/history`, `/exit`) and runs until you exit. Sessions are persisted as JSONL under `~/.kdeps/sessions/` and can be resumed with `--resume`. Workflows, agencies, and installed components are available as tools without any extra wiring.
 
 ```
 KDEPS_AGENT_MODEL=claude-3-5-sonnet   # override model via env
@@ -239,7 +242,7 @@ kdeps doctor  # check config, LLM backend, Python, installed agents
 ```yaml
 # ~/.kdeps/config.yaml
 llm:
-  backend: file             # default: local llamafile, no server install. Also: ollama, openai, anthropic, groq, xai, openrouter, ...
+  backend: file             # default: local llamafile, no server install. Also: gguf, ollama, openai, anthropic, groq, xai, openrouter, ...
   openai_api_key: sk-...    # only needed for the relevant backend
 
 defaults:
