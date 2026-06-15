@@ -239,7 +239,7 @@ Counters are keyed by a fingerprint of the model list, so different route config
 
 ## Supported Backends
 
-kdeps supports Ollama (local) and any OpenAI-compatible API: OpenAI, Anthropic, Google, Mistral, Groq, Together AI, Perplexity, Cohere, DeepSeek, and self-hosted solutions (vLLM, TGI, LocalAI, LlamaCpp). See [LLM Provider Reference](/reference/llm-providers) for per-provider config snippets and available model names.
+kdeps supports Ollama (local) and any OpenAI-compatible API: OpenAI, Anthropic, Google, Mistral, Groq, Together AI, Perplexity, Cohere, DeepSeek, xAI (Grok), OpenRouter, and self-hosted solutions (vLLM, TGI, LocalAI, LlamaCpp). See [LLM Provider Reference](/reference/llm-providers) for per-provider config snippets and available model names.
 
 ## Streaming (Ollama)
 

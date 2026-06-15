@@ -192,6 +192,34 @@ llm:
 | `deepseek-chat` | General chat |
 | `deepseek-coder` | Code generation |
 
+### xAI (Grok)
+
+```yaml
+# ~/.kdeps/config.yaml
+llm:
+  backend: xai
+  xai_api_key: xai-...
+```
+
+| Model | Description |
+|-------|-------------|
+| `grok-2` | Grok 2 |
+| `grok-beta` | Grok beta |
+| `grok-vision-beta` | Grok with vision |
+
+### OpenRouter
+
+Access 100+ models from multiple providers through a single API.
+
+```yaml
+# ~/.kdeps/config.yaml
+llm:
+  backend: openrouter
+  openrouter_api_key: sk-or-...
+```
+
+Model names use the `provider/model` format, e.g. `openai/gpt-4o`, `anthropic/claude-3.5-sonnet`, `meta-llama/llama-3.1-70b-instruct`. See [openrouter.ai/models](https://openrouter.ai/models) for the full list.
+
 ## Self-Hosted Solutions
 
 kdeps works with any self-hosted solution that implements the OpenAI API: vLLM, Text Generation Inference (TGI), LocalAI, LlamaCpp Server.

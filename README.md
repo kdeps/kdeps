@@ -239,7 +239,7 @@ kdeps doctor  # check config, LLM backend, Python, installed agents
 ```yaml
 # ~/.kdeps/config.yaml
 llm:
-  backend: file             # default: local llamafile, no server install. Also: ollama, openai, anthropic, groq, ...
+  backend: file             # default: local llamafile, no server install. Also: ollama, openai, anthropic, groq, xai, openrouter, ...
   openai_api_key: sk-...    # only needed for the relevant backend
 
 defaults:
