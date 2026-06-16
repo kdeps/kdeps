@@ -20,8 +20,12 @@ package agent
 
 import (
 	"context"
+	"database/sql"
+	"os"
+	"path/filepath"
 	"testing"
 
+	_ "github.com/mattn/go-sqlite3"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -73,7 +77,7 @@ func TestBuiltinToolExecute_EmptyQuery(t *testing.T) {
 }
 
 func TestBuiltinTools_ToLLMTools(t *testing.T) {
-	// Clear API key env vars so we get exactly the three no-key tools.
+	// Clear API key env vars so we get exactly the no-key tools.
 	t.Setenv("SERPAPI_API_KEY", "")
 	t.Setenv("PERPLEXITY_API_KEY", "")
 	t.Setenv("EXA_API_KEY", "")
@@ -82,11 +86,12 @@ func TestBuiltinTools_ToLLMTools(t *testing.T) {
 	RegisterBuiltinTools(context.Background(), reg)
 
 	llmTools := reg.ToLLMTools()
+	// web_search, wikipedia, web_scraper, sql_list_tables, sql_describe_table, sql_query = 6
 	assert.Len(
 		t,
 		llmTools,
-		3,
-		"three built-in tools (web_search, wikipedia, web_scraper) should be convertible to LLM tools",
+		6,
+		"six built-in tools should be convertible to LLM tools",
 	)
 
 	for _, lt := range llmTools {
@@ -214,4 +219,161 @@ func TestCallExaSearch_MissingQuery(t *testing.T) {
 	_, err := tool.Execute(map[string]interface{}{})
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "query is required")
+}
+
+// makeTestSQLiteDB creates a temp SQLite DB with a "users" table for SQL tool tests.
+func makeTestSQLiteDB(t *testing.T) string {
+	t.Helper()
+	dir := t.TempDir()
+	dbPath := filepath.Join(dir, "test.db")
+	db, err := sql.Open("sqlite3", dbPath)
+	require.NoError(t, err)
+	defer db.Close()
+	_, err = db.Exec(`CREATE TABLE users (id INTEGER PRIMARY KEY, name TEXT, email TEXT)`)
+	require.NoError(t, err)
+	_, err = db.Exec(`INSERT INTO users VALUES (1,'Alice','alice@example.com')`)
+	require.NoError(t, err)
+	_, err = db.Exec(`INSERT INTO users VALUES (2,'Bob','bob@example.com')`)
+	require.NoError(t, err)
+	return dbPath
+}
+
+func TestSQLListTables_ReturnsTableNames(t *testing.T) {
+	dbPath := makeTestSQLiteDB(t)
+	result, err := sqlListTables(dbPath)
+	require.NoError(t, err)
+	assert.Contains(t, result, "users")
+}
+
+func TestSQLDescribeTable_ReturnsSchema(t *testing.T) {
+	dbPath := makeTestSQLiteDB(t)
+	result, err := sqlDescribeTable(dbPath, "users")
+	require.NoError(t, err)
+	assert.Contains(t, result, "users")
+	assert.Contains(t, result, "id")
+	assert.Contains(t, result, "name")
+	assert.Contains(t, result, "email")
+}
+
+func TestSQLExecQuery_ReturnsRows(t *testing.T) {
+	dbPath := makeTestSQLiteDB(t)
+	result, err := sqlExecQuery(dbPath, "SELECT id, name FROM users ORDER BY id")
+	require.NoError(t, err)
+	assert.Contains(t, result, "Alice")
+	assert.Contains(t, result, "Bob")
+}
+
+func TestSQLExecQuery_RejectsNonSelect(t *testing.T) {
+	reg := kdepstools.NewRegistry()
+	RegisterBuiltinTools(context.Background(), reg)
+	tool := reg.Get("sql_query")
+	require.NotNil(t, tool)
+	_, err := tool.Execute(map[string]interface{}{"query": "DROP TABLE users"})
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "only SELECT/WITH queries are allowed")
+}
+
+func TestSQLQuery_EmptyQuery(t *testing.T) {
+	reg := kdepstools.NewRegistry()
+	RegisterBuiltinTools(context.Background(), reg)
+	tool := reg.Get("sql_query")
+	require.NotNil(t, tool)
+	_, err := tool.Execute(map[string]interface{}{"query": ""})
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "query is required")
+}
+
+func TestSQLDescribeTable_MissingTable(t *testing.T) {
+	reg := kdepstools.NewRegistry()
+	RegisterBuiltinTools(context.Background(), reg)
+	tool := reg.Get("sql_describe_table")
+	require.NotNil(t, tool)
+	_, err := tool.Execute(map[string]interface{}{"table": ""})
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "table is required")
+}
+
+func TestSQLListTables_AlwaysRegistered(t *testing.T) {
+	reg := kdepstools.NewRegistry()
+	RegisterBuiltinTools(context.Background(), reg)
+	assert.NotNil(t, reg.Get("sql_list_tables"), "sql_list_tables should always register")
+	assert.NotNil(t, reg.Get("sql_describe_table"), "sql_describe_table should always register")
+	assert.NotNil(t, reg.Get("sql_query"), "sql_query should always register")
+}
+
+func TestSQLDBPath_UsesEnvFallback(t *testing.T) {
+	t.Setenv("KDEPS_SQL_DB_PATH", "/tmp/fallback.db")
+	p := sqlDBPath(map[string]interface{}{})
+	assert.Equal(t, "/tmp/fallback.db", p)
+}
+
+func TestSQLDBPath_ArgOverridesEnv(t *testing.T) {
+	t.Setenv("KDEPS_SQL_DB_PATH", "/tmp/fallback.db")
+	p := sqlDBPath(map[string]interface{}{"db_path": "/tmp/override.db"})
+	assert.Equal(t, "/tmp/override.db", p)
+}
+
+func TestSQLListTables_Tool_WithDBPath(t *testing.T) {
+	dbPath := makeTestSQLiteDB(t)
+	reg := kdepstools.NewRegistry()
+	RegisterBuiltinTools(context.Background(), reg)
+	tool := reg.Get("sql_list_tables")
+	require.NotNil(t, tool)
+	result, err := tool.Execute(map[string]interface{}{"db_path": dbPath})
+	require.NoError(t, err)
+	assert.Contains(t, result, "users")
+}
+
+func TestSQLQuery_Tool_WithDBPath(t *testing.T) {
+	dbPath := makeTestSQLiteDB(t)
+	t.Setenv("KDEPS_SQL_DB_PATH", "")
+	reg := kdepstools.NewRegistry()
+	RegisterBuiltinTools(context.Background(), reg)
+	tool := reg.Get("sql_query")
+	require.NotNil(t, tool)
+	result, err := tool.Execute(map[string]interface{}{
+		"query":   "SELECT name FROM users WHERE id=1",
+		"db_path": dbPath,
+	})
+	require.NoError(t, err)
+	assert.Contains(t, result, "Alice")
+	assert.NotContains(t, result, "Bob")
+}
+
+func TestSQLOpenDB_EmptyPath(t *testing.T) {
+	t.Setenv("KDEPS_SQL_DB_PATH", "")
+	_, err := sqlOpenDB("")
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "db_path is required")
+}
+
+func TestSQLListTables_MissingDBPath(t *testing.T) {
+	t.Setenv("KDEPS_SQL_DB_PATH", "")
+	reg := kdepstools.NewRegistry()
+	RegisterBuiltinTools(context.Background(), reg)
+	tool := reg.Get("sql_list_tables")
+	require.NotNil(t, tool)
+	_, err := tool.Execute(map[string]interface{}{})
+	assert.Error(t, err)
+}
+
+func TestSQLTools_WithDBPath_IntegrationNoEnv(t *testing.T) {
+	t.Setenv("KDEPS_SQL_DB_PATH", "")
+	dbPath := makeTestSQLiteDB(t)
+	_ = os.Setenv("KDEPS_SQL_DB_PATH", dbPath)
+
+	reg := kdepstools.NewRegistry()
+	RegisterBuiltinTools(context.Background(), reg)
+
+	listTool := reg.Get("sql_list_tables")
+	require.NotNil(t, listTool)
+	r1, err := listTool.Execute(map[string]interface{}{})
+	require.NoError(t, err)
+	assert.Contains(t, r1, "users")
+
+	describeTool := reg.Get("sql_describe_table")
+	require.NotNil(t, describeTool)
+	r2, err := describeTool.Execute(map[string]interface{}{"table": "users"})
+	require.NoError(t, err)
+	assert.Contains(t, r2, "name")
 }

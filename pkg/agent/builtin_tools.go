@@ -21,6 +21,7 @@ package agent
 import (
 	"bytes"
 	"context"
+	"database/sql"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -30,6 +31,7 @@ import (
 	"strings"
 
 	"github.com/PuerkitoBio/goquery"
+	_ "github.com/mattn/go-sqlite3" // SQLite driver
 	"github.com/microcosm-cc/bluemonday"
 
 	"github.com/kdeps/kdeps/v2/pkg/domain"
@@ -46,13 +48,14 @@ const (
 	builtinUserAgent     = "kdeps/agent"
 )
 
-// RegisterBuiltinTools adds built-in tools (web_search, wikipedia, web_scraper, and optional
+// RegisterBuiltinTools adds built-in tools (web_search, wikipedia, web_scraper, sql_* and optional
 // API-key tools: serpapi_search, perplexity_search, exa_search) to the registry.
 // API-key tools are registered only when the corresponding env var is set.
 func RegisterBuiltinTools(ctx context.Context, reg *kdepstools.Registry) {
 	registerDuckDuckGo(ctx, reg)
 	registerWikipedia(ctx, reg)
 	registerWebScraper(ctx, reg)
+	registerSQLTools(ctx, reg)
 	registerSerpAPI(ctx, reg)
 	registerPerplexity(ctx, reg)
 	registerExa(ctx, reg)
@@ -156,6 +159,209 @@ func scrapeURL(url string, policy *bluemonday.Policy) (string, error) {
 	return result, nil
 }
 
+// registerSQLTools registers three tools for interacting with a SQLite database:
+//   - sql_list_tables: returns all user table names
+//   - sql_describe_table: returns column names and types for a table
+//   - sql_query: executes a read-only SQL statement and returns results as text
+//
+// The db_path parameter selects the database file; defaults to KDEPS_SQL_DB_PATH env var.
+func registerSQLTools(_ context.Context, reg *kdepstools.Registry) {
+	dbPathParam := domain.ToolParam{
+		Type:        "string",
+		Description: "Path to the SQLite database file. Defaults to KDEPS_SQL_DB_PATH environment variable.",
+		Required:    false,
+	}
+
+	reg.Register(&kdepstools.Tool{
+		Name:        "sql_list_tables",
+		Description: "List all tables in a SQLite database. Use this to discover available data before querying. Returns a newline-separated list of table names.",
+		Parameters: map[string]domain.ToolParam{
+			"db_path": dbPathParam,
+		},
+		Execute: func(args map[string]interface{}) (string, error) {
+			dbPath := sqlDBPath(args)
+			return sqlListTables(dbPath)
+		},
+	})
+
+	reg.Register(&kdepstools.Tool{
+		Name:        "sql_describe_table",
+		Description: "Return the schema (column names and types) for a table in a SQLite database. Use before writing queries to know the exact column names.",
+		Parameters: map[string]domain.ToolParam{
+			"table": {
+				Type:        "string",
+				Description: "Name of the table to describe",
+				Required:    true,
+			},
+			"db_path": dbPathParam,
+		},
+		Execute: func(args map[string]interface{}) (string, error) {
+			table, _ := args["table"].(string)
+			if table == "" {
+				return "", errors.New("sql_describe_table: table is required")
+			}
+			dbPath := sqlDBPath(args)
+			return sqlDescribeTable(dbPath, table)
+		},
+	})
+
+	reg.Register(&kdepstools.Tool{
+		Name:        "sql_query",
+		Description: "Execute a SQL query against a SQLite database and return the results as formatted text. Use SELECT statements to retrieve data. Non-SELECT statements are rejected for safety.",
+		Parameters: map[string]domain.ToolParam{
+			"query": {
+				Type:        "string",
+				Description: "The SQL SELECT statement to execute",
+				Required:    true,
+			},
+			"db_path": dbPathParam,
+		},
+		Execute: func(args map[string]interface{}) (string, error) {
+			query, _ := args["query"].(string)
+			if query == "" {
+				return "", errors.New("sql_query: query is required")
+			}
+			trimmed := strings.TrimSpace(strings.ToUpper(query))
+			if !strings.HasPrefix(trimmed, "SELECT") && !strings.HasPrefix(trimmed, "WITH") {
+				return "", errors.New("sql_query: only SELECT/WITH queries are allowed")
+			}
+			dbPath := sqlDBPath(args)
+			return sqlExecQuery(dbPath, query)
+		},
+	})
+}
+
+func sqlDBPath(args map[string]interface{}) string {
+	if p, ok := args["db_path"].(string); ok && p != "" {
+		return p
+	}
+	return os.Getenv("KDEPS_SQL_DB_PATH")
+}
+
+func sqlOpenDB(dbPath string) (*sql.DB, error) {
+	if dbPath == "" {
+		return nil, errors.New("sql tool: db_path is required (or set KDEPS_SQL_DB_PATH)")
+	}
+	db, openErr := sql.Open("sqlite3", dbPath+"?mode=ro")
+	if openErr != nil {
+		return nil, fmt.Errorf("sql tool: open %s: %w", dbPath, openErr)
+	}
+	return db, nil
+}
+
+func sqlListTables(dbPath string) (string, error) {
+	db, err := sqlOpenDB(dbPath)
+	if err != nil {
+		return "", err
+	}
+	defer db.Close()
+
+	rows, queryErr := db.QueryContext(
+		context.Background(),
+		"SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' ORDER BY name",
+	)
+	if queryErr != nil {
+		return "", fmt.Errorf("sql_list_tables: %w", queryErr)
+	}
+	defer rows.Close()
+
+	var tables []string
+	for rows.Next() {
+		var name string
+		if scanErr := rows.Scan(&name); scanErr != nil {
+			continue
+		}
+		tables = append(tables, name)
+	}
+	if rowsErr := rows.Err(); rowsErr != nil {
+		return "", fmt.Errorf("sql_list_tables: iterate: %w", rowsErr)
+	}
+	return strings.Join(tables, "\n"), nil
+}
+
+func sqlDescribeTable(dbPath, table string) (string, error) {
+	db, err := sqlOpenDB(dbPath)
+	if err != nil {
+		return "", err
+	}
+	defer db.Close()
+
+	rows, queryErr := db.QueryContext(context.Background(), "PRAGMA table_info("+table+")")
+	if queryErr != nil {
+		return "", fmt.Errorf("sql_describe_table: %w", queryErr)
+	}
+	defer rows.Close()
+
+	var sb strings.Builder
+	fmt.Fprintf(&sb, "Table: %s\n", table)
+	for rows.Next() {
+		var cid int
+		var name, colType string
+		var notNull, pk int
+		var dflt interface{}
+		if scanErr := rows.Scan(&cid, &name, &colType, &notNull, &dflt, &pk); scanErr != nil {
+			continue
+		}
+		pkMarker := ""
+		if pk > 0 {
+			pkMarker = " (PK)"
+		}
+		fmt.Fprintf(&sb, "  %s %s%s\n", name, colType, pkMarker)
+	}
+	if rowsErr := rows.Err(); rowsErr != nil {
+		return "", fmt.Errorf("sql_describe_table: iterate: %w", rowsErr)
+	}
+	return strings.TrimSpace(sb.String()), nil
+}
+
+func sqlExecQuery(dbPath, query string) (string, error) {
+	db, err := sqlOpenDB(dbPath)
+	if err != nil {
+		return "", err
+	}
+	defer db.Close()
+
+	rows, queryErr := db.QueryContext(context.Background(), query)
+	if queryErr != nil {
+		return "", fmt.Errorf("sql_query: %w", queryErr)
+	}
+	defer rows.Close()
+
+	cols, colsErr := rows.Columns()
+	if colsErr != nil {
+		return "", fmt.Errorf("sql_query: columns: %w", colsErr)
+	}
+
+	var sb strings.Builder
+	sb.WriteString(strings.Join(cols, "\t"))
+	sb.WriteByte('\n')
+
+	vals := make([]interface{}, len(cols))
+	ptrs := make([]interface{}, len(cols))
+	for i := range vals {
+		ptrs[i] = &vals[i]
+	}
+	for rows.Next() {
+		if scanErr := rows.Scan(ptrs...); scanErr != nil {
+			continue
+		}
+		parts := make([]string, len(cols))
+		for i, v := range vals {
+			if v == nil {
+				parts[i] = "NULL"
+			} else {
+				parts[i] = fmt.Sprintf("%v", v)
+			}
+		}
+		sb.WriteString(strings.Join(parts, "\t"))
+		sb.WriteByte('\n')
+	}
+	if rowsErr := rows.Err(); rowsErr != nil {
+		return "", fmt.Errorf("sql_query: iterate: %w", rowsErr)
+	}
+	return strings.TrimSpace(sb.String()), nil
+}
+
 // registerSerpAPI registers Google Search via SerpAPI when SERPAPI_API_KEY is set.
 func registerSerpAPI(ctx context.Context, reg *kdepstools.Registry) {
 	if os.Getenv("SERPAPI_API_KEY") == "" {
@@ -225,7 +431,12 @@ func callExaSearch(ctx context.Context, apiKey, query string) (string, error) {
 		"query":      query,
 		"numResults": exaDefaultNumResults,
 	})
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, exaSearchURL, bytes.NewReader(body))
+	req, err := http.NewRequestWithContext(
+		ctx,
+		http.MethodPost,
+		exaSearchURL,
+		bytes.NewReader(body),
+	)
 	if err != nil {
 		return "", fmt.Errorf("exa_search: build request: %w", err)
 	}
