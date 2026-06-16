@@ -54,6 +54,7 @@ func primaryResourceDispatch() []primaryDispatchEntry {
 		"codeIntelligence": (*Engine).executeCodeIntelligence,
 		"loader":           (*Engine).executeLoader,
 		"vectorStore":      (*Engine).executeVectorStore,
+		"transcribe":       (*Engine).executeTranscribe,
 		"apiResponse":      (*Engine).executeAPIResponse,
 	}
 
