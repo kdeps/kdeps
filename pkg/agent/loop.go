@@ -75,6 +75,9 @@ type Config struct {
 	// Streamer enables streaming output in the REPL. When set, Run() uses
 	// RunStreaming() instead of the engine path for interactive turns.
 	Streamer Streamer
+	// MaxToolRounds caps how many tool-call/result round trips RunStreaming
+	// will perform in a single turn. 0 means unlimited (default: 10).
+	MaxToolRounds int
 }
 
 // Loop drives a multi-turn agent conversation using the kdeps engine as the
@@ -167,10 +170,16 @@ func applyConfigDefaults(cfg Config) Config {
 	if cfg.AutoCompactThreshold == 0 {
 		cfg.AutoCompactThreshold = defaultAutoCompactThreshold
 	}
+	if cfg.MaxToolRounds <= 0 {
+		cfg.MaxToolRounds = defaultMaxToolRounds
+	}
 	return cfg
 }
 
-const defaultAutoCompactThreshold = 40000
+const (
+	defaultAutoCompactThreshold = 40000
+	defaultMaxToolRounds        = 10
+)
 
 func envOrDefault(key, fallback string) string {
 	if v := os.Getenv(key); v != "" {
@@ -236,7 +245,7 @@ func (l *Loop) RunStreaming(ctx context.Context, input string, w io.Writer) (str
 	chatCfg := l.buildChatConfig(input, systemPreamble)
 
 	var finalContent string
-	for {
+	for range l.config.MaxToolRounds {
 		content, toolCalls, err := l.streamer.StreamChat(ctx, chatCfg, w)
 		if err != nil {
 			return "", fmt.Errorf("agent loop stream: %w", err)
@@ -247,9 +256,7 @@ func (l *Loop) RunStreaming(ctx context.Context, input string, w io.Writer) (str
 			break
 		}
 
-		// Execute each tool and accumulate tool result messages.
 		chatCfg = l.appendToolRoundTrip(chatCfg, content, toolCalls)
-
 		fmt.Fprintln(w) // newline before next streaming response
 	}
 

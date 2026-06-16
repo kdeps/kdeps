@@ -25,7 +25,10 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"mime"
 	"os"
+	"path/filepath"
+	"strings"
 
 	"github.com/tmc/langchaingo/llms"
 	lcanthropic "github.com/tmc/langchaingo/llms/anthropic"
@@ -127,16 +130,47 @@ func buildLangchainMessages(cfg *domain.ChatConfig) []llms.MessageContent {
 		msgs = append(msgs, buildHistoryMessages(cfg.Messages)...)
 	}
 
-	// Current user prompt.
-	if cfg.Prompt != "" {
+	// Current user prompt, optionally with attached files as multimodal parts.
+	if cfg.Prompt != "" || len(cfg.Files) > 0 {
 		role := cfg.Role
 		if role == "" {
 			role = roleUser
 		}
-		msgs = append(msgs, llms.TextParts(roleToMessageType(role), cfg.Prompt))
+		msgs = append(msgs, buildUserMessage(roleToMessageType(role), cfg.Prompt, cfg.Files))
 	}
 
 	return msgs
+}
+
+// buildUserMessage creates a human MessageContent combining text and any attached files.
+func buildUserMessage(msgType llms.ChatMessageType, prompt string, files []string) llms.MessageContent {
+	var parts []llms.ContentPart
+	if prompt != "" {
+		parts = append(parts, llms.TextContent{Text: prompt})
+	}
+	for _, f := range files {
+		if part, ok := fileContentPart(f); ok {
+			parts = append(parts, part)
+		}
+	}
+	return llms.MessageContent{Role: msgType, Parts: parts}
+}
+
+// fileContentPart converts a file path or URL into a langchaingo ContentPart.
+// URLs become ImageURLPart; local files are read and sent as BinaryPart.
+func fileContentPart(f string) (llms.ContentPart, bool) {
+	if strings.HasPrefix(f, "http://") || strings.HasPrefix(f, "https://") {
+		return llms.ImageURLPart(f), true
+	}
+	data, err := os.ReadFile(f)
+	if err != nil {
+		return nil, false
+	}
+	mimeType := mime.TypeByExtension(filepath.Ext(f))
+	if mimeType == "" {
+		mimeType = "application/octet-stream"
+	}
+	return llms.BinaryPart(mimeType, data), true
 }
 
 // buildHistoryMessages parses a JSON history string into langchaingo MessageContent entries.
@@ -289,6 +323,50 @@ func convertTools(tools []domain.Tool) []llms.Tool {
 	return result
 }
 
+// buildStreamOpts assembles the langchaingo CallOption slice for a streaming call.
+func buildStreamOpts(cfg *domain.ChatConfig, backend string, w io.Writer) []llms.CallOption {
+	opts := []llms.CallOption{
+		llms.WithStreamingFunc(func(_ context.Context, chunk []byte) error {
+			_, _ = w.Write(chunk)
+			return nil
+		}),
+	}
+
+	if len(cfg.Tools) > 0 {
+		opts = append(opts, llms.WithTools(convertTools(cfg.Tools)), llms.WithToolChoice("auto"))
+	}
+
+	opts = append(opts, buildJSONOpts(cfg, backend)...)
+	opts = append(opts, buildThinkingOpts(cfg)...)
+
+	if cfg.PromptCaching && backend == backendAnthropic {
+		opts = append(opts, llms.WithPromptCaching(true))
+	}
+	return opts
+}
+
+func buildJSONOpts(cfg *domain.ChatConfig, backend string) []llms.CallOption {
+	wantJSON := cfg.JSONResponse || len(cfg.JSONSchema) > 0
+	if !wantJSON || backend == backendAnthropic {
+		return nil
+	}
+	if backend == backendGoogle {
+		return []llms.CallOption{llms.WithResponseMIMEType("application/json")}
+	}
+	return []llms.CallOption{llms.WithJSONMode()}
+}
+
+func buildThinkingOpts(cfg *domain.ChatConfig) []llms.CallOption {
+	if cfg.Thinking == nil || cfg.Thinking.Mode == domain.ThinkingModeNone {
+		return nil
+	}
+	return []llms.CallOption{llms.WithThinking(&llms.ThinkingConfig{
+		Mode:           llms.ThinkingMode(cfg.Thinking.Mode),
+		BudgetTokens:   cfg.Thinking.BudgetTokens,
+		ReturnThinking: cfg.Thinking.ReturnOutput,
+	})}
+}
+
 // StreamChat implements agent.Streamer using langchaingo.
 // Tokens are written to w as they arrive. Tool calls are returned for the caller to dispatch.
 func (e *Executor) StreamChat(
@@ -305,31 +383,7 @@ func (e *Executor) StreamChat(
 	}
 
 	messages := buildLangchainMessages(cfg)
-
-	opts := []llms.CallOption{
-		llms.WithStreamingFunc(func(_ context.Context, chunk []byte) error {
-			_, _ = w.Write(chunk)
-			return nil
-		}),
-	}
-
-	if len(cfg.Tools) > 0 {
-		opts = append(opts,
-			llms.WithTools(convertTools(cfg.Tools)),
-			llms.WithToolChoice("auto"),
-		)
-	}
-
-	if cfg.JSONResponse {
-		switch backend {
-		case backendGoogle:
-			opts = append(opts, llms.WithResponseMIMEType("application/json"))
-		case backendAnthropic:
-			// Anthropic doesn't support JSON mode directly; skip.
-		default:
-			opts = append(opts, llms.WithJSONMode())
-		}
-	}
+	opts := buildStreamOpts(cfg, backend, w)
 
 	resp, err := model.GenerateContent(ctx, messages, opts...)
 	if err != nil {
@@ -342,6 +396,11 @@ func (e *Executor) StreamChat(
 
 	choice := resp.Choices[0]
 	content := choice.Content
+
+	// When thinking is enabled and ReturnOutput is true, prepend the reasoning block.
+	if cfg.Thinking != nil && cfg.Thinking.ReturnOutput && choice.ReasoningContent != "" {
+		content = "<thinking>\n" + choice.ReasoningContent + "\n</thinking>\n\n" + content
+	}
 
 	var toolCalls []domain.StreamedToolCall
 	for _, tc := range choice.ToolCalls {
