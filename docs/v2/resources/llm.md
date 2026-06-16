@@ -335,6 +335,57 @@ chat:
 
 Both fields can be combined: `fewShotSelectK` ranks examples by similarity first, then `fewShotMaxTokens` prunes the result to the token budget. Pairs (user + assistant) are always kept whole.
 
+## RAG Context Injection
+
+Pass pre-fetched retriever chunks into the system prompt with `retrieverContext`. Each chunk becomes a "Retrieved context:" block prepended to the first system message. Populate this from a `vectorStore:` action output.
+
+<div v-pre>
+
+```yaml
+# resources/rag-chat.yaml
+chat:
+  prompt: "{{ get('q') }}"
+  retrieverContext: "{{ $actions.search.output.documents }}"
+  scenario:
+    - role: system
+      prompt: Answer using only the retrieved context.
+```
+
+</div>
+
+### Contextual compression
+
+`retrieverContextTopK` keeps only the K chunks most relevant to the current prompt (Jaccard word-overlap similarity). Useful when a vectorstore returns many results but you only want the most relevant ones:
+
+<div v-pre>
+
+```yaml
+chat:
+  prompt: "{{ get('q') }}"
+  retrieverContext: "{{ $actions.search.output.documents }}"
+  retrieverContextTopK: 5   # keep 5 most relevant chunks
+```
+
+</div>
+
+### Token budget for retriever chunks
+
+`retrieverContextMaxTokens` caps the total tokens of all injected chunks. Chunks are added in similarity-score order until the budget is reached:
+
+<div v-pre>
+
+```yaml
+chat:
+  prompt: "{{ get('q') }}"
+  retrieverContext: "{{ $actions.search.output.documents }}"
+  retrieverContextTopK: 10           # pick 10 most relevant
+  retrieverContextMaxTokens: 1000    # but never use more than 1000 tokens
+```
+
+</div>
+
+When combined, `retrieverContextTopK` selects by relevance first, then `retrieverContextMaxTokens` prunes the result to the token budget.
+
 ## Examples
 
 ### Simple Q&A

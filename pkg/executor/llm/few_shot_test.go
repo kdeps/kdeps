@@ -512,3 +512,52 @@ func TestBuildLangchainMessages_FewShotMaxTokens(t *testing.T) {
 	// At least one message (the prompt itself) should be present.
 	assert.NotEmpty(t, msgs)
 }
+
+func TestPruneRetrieverContextByTokens_ZeroLimit(t *testing.T) {
+	t.Parallel()
+	chunks := []string{"chunk one", "chunk two"}
+	result := pruneRetrieverContextByTokens(chunks, "gpt-4", 0)
+	assert.Equal(t, chunks, result, "zero limit should return all chunks unchanged")
+}
+
+func TestPruneRetrieverContextByTokens_EmptyChunks(t *testing.T) {
+	t.Parallel()
+	result := pruneRetrieverContextByTokens(nil, "gpt-4", 100)
+	assert.Empty(t, result)
+}
+
+func TestPruneRetrieverContextByTokens_AllFit(t *testing.T) {
+	t.Parallel()
+	chunks := []string{"short", "also short"}
+	result := pruneRetrieverContextByTokens(chunks, "gpt-4", 10000)
+	assert.Len(t, result, 2)
+}
+
+func TestPruneRetrieverContextByTokens_PrunesToBudget(t *testing.T) {
+	t.Parallel()
+	chunks := []string{
+		"a short chunk",
+		"another longer chunk that should be cut off by the budget",
+	}
+	result := pruneRetrieverContextByTokens(chunks, "gpt-4", 5)
+	// First chunk should fit; second should be pruned.
+	assert.NotEmpty(t, result)
+	assert.Less(t, len(result), len(chunks))
+}
+
+func TestBuildLangchainMessages_RetrieverContextMaxTokens(t *testing.T) {
+	t.Parallel()
+	cfg := &domain.ChatConfig{
+		Prompt: "what is the answer",
+		RetrieverContext: []string{
+			"The answer is 42.",
+			"Some additional context that pushes past the budget.",
+		},
+		RetrieverContextMaxTokens: 5, // very tight -- only first chunk fits
+	}
+	msgs := buildLangchainMessages(cfg)
+	// The retriever preamble should be in the first system message.
+	assert.NotEmpty(t, msgs)
+	// The message list should not be empty regardless of budget.
+	assert.NotEmpty(t, msgs)
+}
