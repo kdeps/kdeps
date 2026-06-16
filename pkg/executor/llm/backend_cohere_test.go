@@ -139,6 +139,36 @@ func TestCohereBackend_BuildRequest_ContentArrayMessage(t *testing.T) {
 	assert.Equal(t, "array content", req["message"])
 }
 
+func TestCohereBackend_Name(t *testing.T) {
+	t.Parallel()
+	b := &llm.CohereBackend{}
+	assert.Equal(t, "cohere", b.Name())
+}
+
+func TestCohereBackend_APIKeyEnvVar(t *testing.T) {
+	t.Parallel()
+	b := &llm.CohereBackend{}
+	assert.Equal(t, "COHERE_API_KEY", b.APIKeyEnvVar())
+}
+
+func TestCohereBackend_ChatEndpoint_CustomURL(t *testing.T) {
+	t.Parallel()
+	b := &llm.CohereBackend{}
+	got := b.ChatEndpoint("https://custom.cohere.example.com")
+	assert.Equal(t, "https://custom.cohere.example.com/v1/chat", got)
+}
+
+func TestCohereBackend_ParseResponse_EmptyText(t *testing.T) {
+	t.Parallel()
+	b := &llm.CohereBackend{}
+	// When text field is missing, returns empty map (no error)
+	body := `{"generation_id":"abc","finish_reason":"COMPLETE"}`
+	resp := makeResp(stdhttp.StatusOK, body)
+	result, err := b.ParseResponse(resp)
+	require.NoError(t, err)
+	assert.NotNil(t, result)
+}
+
 // TestCohereBackend_ParseResponse_Success_Extra tests 200-OK parse with text field.
 func TestCohereBackend_ParseResponse_Success_Extra(t *testing.T) {
 	b := &llm.CohereBackend{}

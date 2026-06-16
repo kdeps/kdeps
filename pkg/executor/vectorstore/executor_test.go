@@ -803,6 +803,48 @@ func TestPostgresInsertSQL(t *testing.T) {
 	assert.Contains(t, sql, "$4")
 }
 
+func TestBuildStore_AlloyDB_MissingURL(t *testing.T) {
+	t.Setenv("OPENAI_API_KEY", "test-key")
+	cfg := &domain.VectorStoreConfig{
+		Provider:     "alloydb",
+		Collection:   "embeddings",
+		EmbedModel:   "text-embedding-ada-002",
+		EmbedBackend: "openai",
+	}
+	_, err := buildStore(t.Context(), cfg)
+	if err == nil {
+		t.Fatal("expected error for missing alloydb url")
+	}
+}
+
+func TestBuildStore_AlloyDB_MissingCollection(t *testing.T) {
+	t.Setenv("OPENAI_API_KEY", "test-key")
+	cfg := &domain.VectorStoreConfig{
+		Provider:     "alloydb",
+		URL:          "postgres://user:pass@localhost:5432/mydb?sslmode=disable",
+		EmbedModel:   "text-embedding-ada-002",
+		EmbedBackend: "openai",
+	}
+	_, err := buildStore(t.Context(), cfg)
+	if err == nil {
+		t.Fatal("expected error for missing alloydb collection")
+	}
+}
+
+func TestBuildStore_CloudSQL_MissingURL(t *testing.T) {
+	t.Setenv("OPENAI_API_KEY", "test-key")
+	cfg := &domain.VectorStoreConfig{
+		Provider:     "cloudsql",
+		Collection:   "embeddings",
+		EmbedModel:   "text-embedding-ada-002",
+		EmbedBackend: "openai",
+	}
+	_, err := buildStore(t.Context(), cfg)
+	if err == nil {
+		t.Fatal("expected error for missing cloudsql url")
+	}
+}
+
 func TestBuildStore_MongoDB_MissingURL(t *testing.T) {
 	t.Setenv("OPENAI_API_KEY", "test-key")
 	cfg := &domain.VectorStoreConfig{
