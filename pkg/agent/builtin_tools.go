@@ -49,7 +49,8 @@ const (
 )
 
 // RegisterBuiltinTools adds built-in tools (web_search, wikipedia, web_scraper, sql_* and optional
-// API-key tools: serpapi_search, perplexity_search, exa_search) to the registry.
+// API-key tools: serpapi_search, perplexity_search, exa_search, zapier_list_actions,
+// zapier_run_action) to the registry.
 // API-key tools are registered only when the corresponding env var is set.
 func RegisterBuiltinTools(ctx context.Context, reg *kdepstools.Registry) {
 	registerDuckDuckGo(ctx, reg)
@@ -59,6 +60,7 @@ func RegisterBuiltinTools(ctx context.Context, reg *kdepstools.Registry) {
 	registerSerpAPI(ctx, reg)
 	registerPerplexity(ctx, reg)
 	registerExa(ctx, reg)
+	registerZapierNLA(ctx, reg)
 }
 
 func registerDuckDuckGo(ctx context.Context, reg *kdepstools.Registry) {
@@ -396,6 +398,10 @@ const (
 	exaDefaultNumResults = 5
 )
 
+const (
+	zapierNLABaseURL = "https://nla.zapier.com/api/v1/dynamic/exposed"
+)
+
 // registerExa registers the Exa (formerly Metaphor) neural search tool when EXA_API_KEY is set.
 // Exa finds the most relevant URLs for a search query using link-prediction neural search.
 func registerExa(ctx context.Context, reg *kdepstools.Registry) {
@@ -476,6 +482,128 @@ func callExaSearch(ctx context.Context, apiKey, query string) (string, error) {
 		}
 	}
 	return strings.TrimSpace(sb.String()), nil
+}
+
+// registerZapierNLA registers zapier_list_actions and zapier_run_action when ZAPIER_NLA_API_KEY is set.
+func registerZapierNLA(ctx context.Context, reg *kdepstools.Registry) {
+	apiKey := os.Getenv("ZAPIER_NLA_API_KEY")
+	if apiKey == "" {
+		return
+	}
+
+	reg.Register(&kdepstools.Tool{
+		Name:        "zapier_list_actions",
+		Description: "List all available Zapier NLA actions configured in your Zapier account. Returns action IDs, names, and descriptions. Use this to discover what actions you can run with zapier_run_action. Requires ZAPIER_NLA_API_KEY.",
+		Parameters:  map[string]domain.ToolParam{},
+		Execute: func(_ map[string]interface{}) (string, error) {
+			return callZapierListActions(ctx, apiKey)
+		},
+	})
+
+	reg.Register(&kdepstools.Tool{
+		Name:        "zapier_run_action",
+		Description: "Execute a Zapier NLA action by action ID with natural language instructions. First use zapier_list_actions to find available action IDs. Requires ZAPIER_NLA_API_KEY.",
+		Parameters: map[string]domain.ToolParam{
+			"action_id": {
+				Type:        "string",
+				Description: "The Zapier NLA action ID to execute (from zapier_list_actions)",
+				Required:    true,
+			},
+			"instructions": {
+				Type:        "string",
+				Description: "Natural language instructions describing what to do with this action",
+				Required:    true,
+			},
+		},
+		Execute: func(args map[string]interface{}) (string, error) {
+			actionID, _ := args["action_id"].(string)
+			instructions, _ := args["instructions"].(string)
+			if actionID == "" {
+				return "", errors.New("zapier_run_action: action_id is required")
+			}
+			if instructions == "" {
+				return "", errors.New("zapier_run_action: instructions is required")
+			}
+			return callZapierRunAction(ctx, apiKey, actionID, instructions)
+		},
+	})
+}
+
+func callZapierListActions(ctx context.Context, apiKey string) (string, error) {
+	req, reqErr := http.NewRequestWithContext(ctx, http.MethodGet, zapierNLABaseURL+"/", nil)
+	if reqErr != nil {
+		return "", fmt.Errorf("zapier_list_actions: build request: %w", reqErr)
+	}
+	req.Header.Set("X-Api-Key", apiKey)
+
+	resp, doErr := http.DefaultClient.Do(req)
+	if doErr != nil {
+		return "", fmt.Errorf("zapier_list_actions: request: %w", doErr)
+	}
+	defer resp.Body.Close()
+
+	body, readErr := io.ReadAll(resp.Body)
+	if readErr != nil {
+		return "", fmt.Errorf("zapier_list_actions: read response: %w", readErr)
+	}
+	if resp.StatusCode != http.StatusOK {
+		return "", fmt.Errorf("zapier_list_actions: API error %d: %s", resp.StatusCode, string(body))
+	}
+
+	var result struct {
+		Results []struct {
+			ID          string `json:"id"`
+			Description string `json:"description"`
+		} `json:"results"`
+	}
+	if parseErr := json.Unmarshal(body, &result); parseErr != nil {
+		return string(body), nil
+	}
+
+	var sb strings.Builder
+	for i, r := range result.Results {
+		fmt.Fprintf(&sb, "%d. [%s] %s\n", i+1, r.ID, r.Description)
+	}
+	return strings.TrimSpace(sb.String()), nil
+}
+
+func callZapierRunAction(ctx context.Context, apiKey, actionID, instructions string) (string, error) {
+	payload, marshalErr := json.Marshal(map[string]string{"instructions": instructions})
+	if marshalErr != nil {
+		return "", fmt.Errorf("zapier_run_action: marshal payload: %w", marshalErr)
+	}
+
+	url := zapierNLABaseURL + "/" + actionID + "/execute/"
+	req, reqErr := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewReader(payload))
+	if reqErr != nil {
+		return "", fmt.Errorf("zapier_run_action: build request: %w", reqErr)
+	}
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("X-Api-Key", apiKey)
+
+	resp, doErr := http.DefaultClient.Do(req)
+	if doErr != nil {
+		return "", fmt.Errorf("zapier_run_action: request: %w", doErr)
+	}
+	defer resp.Body.Close()
+
+	body, readErr := io.ReadAll(resp.Body)
+	if readErr != nil {
+		return "", fmt.Errorf("zapier_run_action: read response: %w", readErr)
+	}
+	if resp.StatusCode != http.StatusOK {
+		return "", fmt.Errorf("zapier_run_action: API error %d: %s", resp.StatusCode, string(body))
+	}
+
+	var result map[string]interface{}
+	if parseErr := json.Unmarshal(body, &result); parseErr != nil {
+		return string(body), nil
+	}
+	out, marshalErr2 := json.MarshalIndent(result, "", "  ")
+	if marshalErr2 != nil {
+		return string(body), nil
+	}
+	return string(out), nil
 }
 
 // registerPerplexity registers the Perplexity AI search tool when PERPLEXITY_API_KEY is set.

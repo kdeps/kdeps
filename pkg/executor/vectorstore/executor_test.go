@@ -453,3 +453,89 @@ func TestWeaviateClassNameUppercase(t *testing.T) {
 		t.Fatalf("expected className=Articles, got %q", store.className)
 	}
 }
+
+func TestBuildStore_MariaDB_MissingURL(t *testing.T) {
+	t.Setenv("OPENAI_API_KEY", "test-key")
+	cfg := &domain.VectorStoreConfig{
+		Provider:     "mariadb",
+		Collection:   "docs",
+		EmbedModel:   "text-embedding-ada-002",
+		EmbedBackend: "openai",
+	}
+	_, err := buildStore(t.Context(), cfg)
+	if err == nil {
+		t.Fatal("expected error for missing mariadb url")
+	}
+}
+
+func TestBuildStore_Dolt_MissingURL(t *testing.T) {
+	t.Setenv("OPENAI_API_KEY", "test-key")
+	cfg := &domain.VectorStoreConfig{
+		Provider:     "dolt",
+		Collection:   "docs",
+		EmbedModel:   "text-embedding-ada-002",
+		EmbedBackend: "openai",
+	}
+	_, err := buildStore(t.Context(), cfg)
+	if err == nil {
+		t.Fatal("expected error for missing dolt url")
+	}
+}
+
+func TestBuildStore_MySQL_MissingCollection(t *testing.T) {
+	t.Setenv("OPENAI_API_KEY", "test-key")
+	cfg := &domain.VectorStoreConfig{
+		Provider:     "mysql",
+		URL:          "user:pass@tcp(localhost:3306)/mydb",
+		EmbedModel:   "text-embedding-ada-002",
+		EmbedBackend: "openai",
+	}
+	_, err := buildStore(t.Context(), cfg)
+	if err == nil {
+		t.Fatal("expected error for missing mysql collection")
+	}
+}
+
+func TestBuildStore_MariaDB_WithURL(t *testing.T) {
+	t.Setenv("OPENAI_API_KEY", "test-key")
+	cfg := &domain.VectorStoreConfig{
+		Provider:     "mariadb",
+		Collection:   "docs",
+		URL:          "user:pass@tcp(localhost:3306)/mydb",
+		EmbedModel:   "text-embedding-ada-002",
+		EmbedBackend: "openai",
+	}
+	store, err := buildStore(t.Context(), cfg)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if store == nil {
+		t.Fatal("expected non-nil store")
+	}
+}
+
+func TestCosineSimilarity_SameVector(t *testing.T) {
+	v := []float32{0.1, 0.2, 0.3, 0.4}
+	score := cosineSimilarity(v, v)
+	if score < 0.999 {
+		t.Fatalf("expected near 1.0 cosine similarity for same vector, got %f", score)
+	}
+}
+
+func TestCosineSimilarity_ZeroVector(t *testing.T) {
+	a := []float32{0, 0, 0}
+	b := []float32{0, 0, 0}
+	score := cosineSimilarity(a, b)
+	if score != 0 {
+		t.Fatalf("expected 0 for zero vectors, got %f", score)
+	}
+}
+
+func TestCosineSimilarity_LengthMismatch(t *testing.T) {
+	a := []float32{1, 2, 3}
+	b := []float32{1, 2}
+	score := cosineSimilarity(a, b)
+	if score != 0 {
+		t.Fatalf("expected 0 for mismatched lengths, got %f", score)
+	}
+}
