@@ -41,6 +41,9 @@ func applyOutputParser(parserName, content string) (string, error) {
 	if strings.HasPrefix(parserName, "combining:") {
 		return parseCombiningOutput(strings.TrimPrefix(parserName, "combining:"), content)
 	}
+	if strings.HasPrefix(parserName, "enum:") {
+		return parseEnumOutput(strings.TrimPrefix(parserName, "enum:"), content)
+	}
 	switch parserName {
 	case "simple":
 		return parseSimpleOutput(content)
@@ -100,6 +103,20 @@ func parseStructuredOutput(content string) (string, error) {
 	return string(b), nil
 }
 
+// parseEnumOutput validates that the LLM output (trimmed, lowercased) is one
+// of the comma-separated allowed values. Returns the matching allowed value
+// (preserving original case) on success, or an error if none match.
+func parseEnumOutput(allowedList, content string) (string, error) {
+	normalized := strings.ToLower(strings.TrimSpace(content))
+	for _, v := range strings.Split(allowedList, ",") {
+		v = strings.TrimSpace(v)
+		if strings.ToLower(v) == normalized {
+			return v, nil
+		}
+	}
+	return content, fmt.Errorf("output_parser: enum: %q is not one of [%s]", content, allowedList)
+}
+
 // parseCombiningOutput tries each comma-separated parser name in order and
 // returns the first successful result. Falls back to content if all fail.
 func parseCombiningOutput(parserList, content string) (string, error) {
@@ -146,6 +163,9 @@ func outputParserFormatInstructions(parserName string) string {
 		return lc.NewStructured(nil).GetFormatInstructions()
 	case strings.HasPrefix(parserName, "regex:"):
 		return lc.NewRegexParser(strings.TrimPrefix(parserName, "regex:")).GetFormatInstructions()
+	case strings.HasPrefix(parserName, "enum:"):
+		vals := strings.TrimPrefix(parserName, "enum:")
+		return fmt.Sprintf("Your response must be exactly one of: %s", vals)
 	case strings.HasPrefix(parserName, "combining:"):
 		// Use the instructions of the first named parser in the list.
 		list := strings.TrimPrefix(parserName, "combining:")

@@ -142,3 +142,34 @@ func TestOutputParserFormatInstructions_Combining(t *testing.T) {
 	boolInst := outputParserFormatInstructions("boolean")
 	assert.Equal(t, boolInst, inst)
 }
+
+func TestApplyOutputParser_Enum_Valid(t *testing.T) {
+	out, err := applyOutputParser("enum:yes,no,maybe", "yes")
+	require.NoError(t, err)
+	assert.Equal(t, "yes", out)
+}
+
+func TestApplyOutputParser_Enum_CaseInsensitive(t *testing.T) {
+	out, err := applyOutputParser("enum:Yes,No", "YES")
+	require.NoError(t, err)
+	assert.Equal(t, "Yes", out)
+}
+
+func TestApplyOutputParser_Enum_Invalid(t *testing.T) {
+	out, err := applyOutputParser("enum:yes,no", "maybe")
+	assert.Error(t, err)
+	assert.Equal(t, "maybe", out)
+}
+
+func TestApplyOutputParser_Enum_Trims(t *testing.T) {
+	out, err := applyOutputParser("enum:yes,no", "  yes  ")
+	require.NoError(t, err)
+	assert.Equal(t, "yes", out)
+}
+
+func TestOutputParserFormatInstructions_Enum(t *testing.T) {
+	inst := outputParserFormatInstructions("enum:yes,no,maybe")
+	assert.Contains(t, inst, "yes")
+	assert.Contains(t, inst, "no")
+	assert.Contains(t, inst, "maybe")
+}
