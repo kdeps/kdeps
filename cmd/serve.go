@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"context"
 	"fmt"
 	"io/fs"
 	"os"
@@ -49,6 +50,7 @@ type agentLoopFlags struct {
 func runAgentLoopCmd(path string, flags *agentLoopFlags) error {
 	registry := tools.NewRegistry()
 	tools.RegisterFFormatTools(registry)
+	agent.RegisterBuiltinTools(context.Background(), registry)
 
 	var (
 		hostWorkflow *domain.Workflow

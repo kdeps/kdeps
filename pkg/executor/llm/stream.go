@@ -59,31 +59,44 @@ var langchainBaseURLs = map[string]string{
 	"ollama":     "http://localhost:11434/v1",
 }
 
-// buildLangchainLLM constructs a langchaingo LLM from cfg.
+// buildLangchainLLM constructs a langchaingo LLM from cfg, optionally wrapped
+// in a process-lifetime in-memory response cache when cfg.UseCache is true.
 func buildLangchainLLM(ctx context.Context, cfg *domain.ChatConfig) (llms.Model, error) {
 	backend := cfg.Backend
 	if backend == "" {
 		backend = backendFile
 	}
 
+	var (
+		model llms.Model
+		err   error
+	)
 	switch backend {
 	case backendAnthropic:
 		apiKey := os.Getenv(providerAPIKeyEnvVar(backendAnthropic))
-		return lcanthropic.New(
+		model, err = lcanthropic.New(
 			lcanthropic.WithToken(apiKey),
 			lcanthropic.WithModel(cfg.Model),
 		)
 
 	case backendGoogle:
 		apiKey := os.Getenv(providerAPIKeyEnvVar(backendGoogle))
-		return lcgoogleai.New(ctx,
+		model, err = lcgoogleai.New(ctx,
 			lcgoogleai.WithAPIKey(apiKey),
 			lcgoogleai.WithDefaultModel(cfg.Model),
 		)
 
 	default:
-		return buildOpenAICompatLLM(cfg, backend)
+		model, err = buildOpenAICompatLLM(cfg, backend)
 	}
+
+	if err != nil || model == nil {
+		return model, err
+	}
+	if cfg.UseCache {
+		return &cachedLLM{inner: model}, nil
+	}
+	return model, nil
 }
 
 func buildOpenAICompatLLM(cfg *domain.ChatConfig, backend string) (llms.Model, error) {
