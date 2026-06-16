@@ -631,3 +631,65 @@ func TestRegisterBuiltinTools_JinaRerankRegisteredWithKey(t *testing.T) {
 	RegisterBuiltinTools(context.Background(), reg)
 	assert.NotNil(t, reg.Get("jina_rerank"))
 }
+
+func TestRegisterBuiltinTools_CalculatorAlwaysRegistered(t *testing.T) {
+	t.Parallel()
+	reg := kdepstools.NewRegistry()
+	RegisterBuiltinTools(context.Background(), reg)
+	assert.NotNil(t, reg.Get("calculator"), "calculator should always be registered")
+}
+
+func TestCalculator_BasicArithmetic(t *testing.T) {
+	t.Parallel()
+	reg := kdepstools.NewRegistry()
+	registerCalculator(reg)
+	tool := reg.Get("calculator")
+	require.NotNil(t, tool)
+	result, err := tool.Execute(map[string]interface{}{"expression": "2 + 2"})
+	require.NoError(t, err)
+	assert.Equal(t, "4", result)
+}
+
+func TestCalculator_Multiplication(t *testing.T) {
+	t.Parallel()
+	reg := kdepstools.NewRegistry()
+	registerCalculator(reg)
+	tool := reg.Get("calculator")
+	require.NotNil(t, tool)
+	result, err := tool.Execute(map[string]interface{}{"expression": "6 * 7"})
+	require.NoError(t, err)
+	assert.Equal(t, "42", result)
+}
+
+func TestCalculator_MathFunction(t *testing.T) {
+	t.Parallel()
+	reg := kdepstools.NewRegistry()
+	registerCalculator(reg)
+	tool := reg.Get("calculator")
+	require.NotNil(t, tool)
+	result, err := tool.Execute(map[string]interface{}{"expression": "pow(2, 10)"})
+	require.NoError(t, err)
+	assert.Contains(t, result, "1024")
+}
+
+func TestCalculator_EmptyExpression(t *testing.T) {
+	t.Parallel()
+	reg := kdepstools.NewRegistry()
+	registerCalculator(reg)
+	tool := reg.Get("calculator")
+	require.NotNil(t, tool)
+	_, err := tool.Execute(map[string]interface{}{"expression": ""})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "expression is required")
+}
+
+func TestCalculator_InvalidExpression(t *testing.T) {
+	t.Parallel()
+	reg := kdepstools.NewRegistry()
+	registerCalculator(reg)
+	tool := reg.Get("calculator")
+	require.NotNil(t, tool)
+	result, err := tool.Execute(map[string]interface{}{"expression": "not a math expr !!!"})
+	require.NoError(t, err)
+	assert.Contains(t, result, "error")
+}

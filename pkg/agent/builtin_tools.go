@@ -44,6 +44,8 @@ import (
 	lcperplexity "github.com/tmc/langchaingo/tools/perplexity"
 	lcserpapi "github.com/tmc/langchaingo/tools/serpapi"
 	lcwikipedia "github.com/tmc/langchaingo/tools/wikipedia"
+	"go.starlark.net/lib/math"
+	"go.starlark.net/starlark"
 )
 
 const (
@@ -60,16 +62,18 @@ const (
 	defaultRerankTopN    = 5
 )
 
-// RegisterBuiltinTools adds built-in tools (web_search, wikipedia, web_scraper, sql_*, bash_exec and
-// optional API-key tools: serpapi_search, perplexity_search, exa_search, zapier_list_actions,
-// zapier_run_action, wolfram_alpha, cohere_rerank, voyageai_rerank, jina_rerank) to the registry.
-// API-key tools are registered only when the corresponding env var is set.
+// RegisterBuiltinTools adds built-in tools (web_search, wikipedia, web_scraper, sql_*, bash_exec,
+// calculator and optional API-key tools: serpapi_search, perplexity_search, exa_search,
+// zapier_list_actions, zapier_run_action, wolfram_alpha, cohere_rerank, voyageai_rerank,
+// jina_rerank) to the registry. API-key tools are registered only when the corresponding
+// env var is set.
 func RegisterBuiltinTools(ctx context.Context, reg *kdepstools.Registry) {
 	registerDuckDuckGo(ctx, reg)
 	registerWikipedia(ctx, reg)
 	registerWebScraper(ctx, reg)
 	registerSQLTools(ctx, reg)
 	registerBashExec(ctx, reg)
+	registerCalculator(reg)
 	registerSerpAPI(ctx, reg)
 	registerPerplexity(ctx, reg)
 	registerExa(ctx, reg)
@@ -78,6 +82,38 @@ func RegisterBuiltinTools(ctx context.Context, reg *kdepstools.Registry) {
 	registerCohereRerank(ctx, reg)
 	registerVoyageAIRerank(ctx, reg)
 	registerJinaRerank(ctx, reg)
+}
+
+// registerCalculator registers a starlark-powered math expression evaluator.
+// No API key required. Accepts any valid Starlark numeric expression.
+func registerCalculator(reg *kdepstools.Registry) {
+	reg.Register(&kdepstools.Tool{
+		Name:        "calculator",
+		Description: "Evaluate a mathematical expression and return the result. Accepts any valid numeric expression (e.g. '2 + 2', '3.14 * 10**2', 'sqrt(16)'). Powered by Starlark math evaluation.",
+		Parameters: map[string]domain.ToolParam{
+			"expression": {
+				Type:        "string",
+				Description: "The mathematical expression to evaluate",
+				Required:    true,
+			},
+		},
+		Execute: func(args map[string]interface{}) (string, error) {
+			expr, _ := args["expression"].(string)
+			if expr == "" {
+				return "", errors.New("calculator: expression is required")
+			}
+			v, err := starlark.Eval(
+				&starlark.Thread{Name: "calculator"},
+				"expr",
+				expr,
+				math.Module.Members,
+			)
+			if err != nil {
+				return fmt.Sprintf("error: %s", err.Error()), nil
+			}
+			return v.String(), nil
+		},
+	})
 }
 
 func registerDuckDuckGo(ctx context.Context, reg *kdepstools.Registry) {
