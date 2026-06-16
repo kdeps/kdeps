@@ -17,37 +17,37 @@ package vectorstore
 import (
 	"fmt"
 
-	_ "github.com/go-sql-driver/mysql" // MySQL/MariaDB/Dolt driver
+	_ "github.com/lib/pq" // PostgreSQL driver
 	lcemb "github.com/tmc/langchaingo/embeddings"
 
 	"github.com/kdeps/kdeps/v2/pkg/domain"
 )
 
-func mysqlCreateTableSQL(table string) string {
+func postgresCreateTableSQL(table string) string {
 	return fmt.Sprintf(`CREATE TABLE IF NOT EXISTS %s (
-		id VARCHAR(36) NOT NULL PRIMARY KEY,
-		content LONGTEXT NOT NULL,
-		embedding JSON NOT NULL,
-		metadata JSON
-	) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
+		id TEXT NOT NULL PRIMARY KEY,
+		content TEXT NOT NULL,
+		embedding JSONB NOT NULL,
+		metadata JSONB
+	)`,
 		table,
 	)
 }
 
-func mysqlInsertSQL(table string) string {
-	return fmt.Sprintf("INSERT INTO %s (id, content, embedding, metadata) VALUES (?, ?, ?, ?)",
+func postgresInsertSQL(table string) string {
+	return fmt.Sprintf("INSERT INTO %s (id, content, embedding, metadata) VALUES ($1, $2, $3, $4)",
 		table,
 	)
 }
 
-func newMySQLStore(cfg *domain.VectorStoreConfig, embedder lcemb.Embedder) (*sqlStore, error) {
+func newPostgresStore(cfg *domain.VectorStoreConfig, embedder lcemb.Embedder) (*sqlStore, error) {
 	return newSQLStore(
-		"mysql",
+		"postgres",
 		cfg.URL,
 		cfg.Collection,
-		"mysql",
-		mysqlCreateTableSQL,
-		mysqlInsertSQL,
+		"postgres",
+		postgresCreateTableSQL,
+		postgresInsertSQL,
 		embedder,
 	)
 }

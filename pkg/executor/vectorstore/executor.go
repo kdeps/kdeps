@@ -15,7 +15,7 @@
 // Package vectorstore executes vectorStore: resources, adding documents to
 // and searching a vector database. Supported providers: qdrant (default),
 // azureaisearch, chroma, pinecone, opensearch, elasticsearch, weaviate,
-// mariadb, dolt, mysql.
+// mariadb, dolt, mysql, pgvector, postgres, postgresql, alloydb, cloudsql.
 package vectorstore
 
 import (
@@ -170,6 +170,8 @@ func buildStore(
 		return buildWeaviateStore(ctx, cfg)
 	case "mariadb", "dolt", "mysql":
 		return buildMySQLStore(ctx, cfg)
+	case "pgvector", "postgres", "postgresql", "alloydb", "cloudsql":
+		return buildPostgresStore(ctx, cfg)
 	default:
 		return buildQdrantStore(ctx, cfg)
 	}
@@ -247,6 +249,17 @@ func buildMySQLStore(ctx context.Context, cfg *domain.VectorStoreConfig) (lcvect
 		return nil, fmt.Errorf("vectorstore: build embedder: %w", err)
 	}
 	return newMySQLStore(cfg, embedder)
+}
+
+func buildPostgresStore(
+	ctx context.Context,
+	cfg *domain.VectorStoreConfig,
+) (lcvectorstores.VectorStore, error) {
+	embedder, err := buildEmbedder(ctx, cfg)
+	if err != nil {
+		return nil, fmt.Errorf("vectorstore: build embedder: %w", err)
+	}
+	return newPostgresStore(cfg, embedder)
 }
 
 func buildAzureAISearchStore(
