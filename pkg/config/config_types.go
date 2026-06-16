@@ -187,6 +187,8 @@ type LLMKeys struct {
 	XAI         string `yaml:"xai_api_key"`
 	HuggingFace string `yaml:"huggingface_api_key"`
 	Cloudflare  string `yaml:"cloudflare_api_token"`
+	Maritaca    string `yaml:"maritaca_api_key"`
+	Ernie       string `yaml:"ernie_api_key"`
 }
 
 // HTTPAuthConfig holds authentication credentials for a named HTTP connection.

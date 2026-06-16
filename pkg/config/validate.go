@@ -105,6 +105,14 @@ var (
 			name: "cloudflare", yamlKey: "cloudflare_api_token", envVar: "CLOUDFLARE_API_TOKEN",
 			field: func(k *LLMKeys) *string { return &k.Cloudflare },
 		},
+		{
+			name: "maritaca", yamlKey: "maritaca_api_key", envVar: "MARITACA_API_KEY",
+			field: func(k *LLMKeys) *string { return &k.Maritaca },
+		},
+		{
+			name: "ernie", yamlKey: "ernie_api_key", envVar: "ERNIE_API_KEY",
+			field: func(k *LLMKeys) *string { return &k.Ernie },
+		},
 	}
 
 	cloudProviders   = buildCloudProviderMap(cloudProvidersList)
