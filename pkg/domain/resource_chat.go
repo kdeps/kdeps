@@ -74,6 +74,14 @@ type ChatConfig struct {
 	// Identical requests (same model + messages + options) are served from cache.
 	// Useful for development to avoid redundant API calls. Not for production.
 	UseCache bool `yaml:"useCache,omitempty"`
+	// OutputParser applies a named post-processor to the LLM response before
+	// storing it to the action output. Supported values:
+	//   "simple"   - trims whitespace
+	//   "boolean"  - normalizes yes/no/true/false → "true" or "false"
+	//   "csv"      - splits by comma → JSON array of strings
+	//   "regex:<expr>" - applies named-group regex, returns JSON map
+	//   "structured"   - extracts JSON from a ```json...``` fenced block
+	OutputParser string `yaml:"outputParser,omitempty"`
 	// Advanced LLM parameters (may not be supported by all backends)
 	Temperature      *float64 `yaml:"temperature,omitempty"`      // Sampling temperature (0.0-2.0)
 	MaxTokens        *int     `yaml:"maxTokens,omitempty"`        // Maximum tokens to generate

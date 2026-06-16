@@ -93,6 +93,7 @@ func buildLangchainLLM(ctx context.Context, cfg *domain.ChatConfig) (llms.Model,
 	if err != nil || model == nil {
 		return model, err
 	}
+	model = withObservability(model, cfg.Model)
 	if cfg.UseCache {
 		return &cachedLLM{inner: model}, nil
 	}
@@ -126,8 +127,10 @@ func buildOpenAICompatLLM(cfg *domain.ChatConfig, backend string) (llms.Model, e
 func buildLangchainMessages(cfg *domain.ChatConfig) []llms.MessageContent {
 	var msgs []llms.MessageContent
 
-	// System prompt from scenario.
-	for _, sc := range cfg.Scenario {
+	// System prompt from scenario. Append output parser format instructions
+	// to the last system message so the model knows what format to produce.
+	formatHint := outputParserFormatInstructions(cfg.OutputParser)
+	for i, sc := range cfg.Scenario {
 		role := sc.Role
 		if role == "" {
 			role = roleSystem
@@ -135,7 +138,15 @@ func buildLangchainMessages(cfg *domain.ChatConfig) []llms.MessageContent {
 		if sc.Prompt == "" {
 			continue
 		}
-		msgs = append(msgs, llms.TextParts(roleToMessageType(role), sc.Prompt))
+		prompt := sc.Prompt
+		if formatHint != "" && i == len(cfg.Scenario)-1 {
+			prompt = prompt + "\n\n" + formatHint
+		}
+		msgs = append(msgs, llms.TextParts(roleToMessageType(role), prompt))
+	}
+	// No scenario messages but format hint exists: inject as standalone system message.
+	if formatHint != "" && len(cfg.Scenario) == 0 {
+		msgs = append(msgs, llms.TextParts(llms.ChatMessageTypeSystem, formatHint))
 	}
 
 	// Conversation history.
@@ -425,6 +436,13 @@ func (e *Executor) StreamChat(
 			Name:      tc.FunctionCall.Name,
 			Arguments: tc.FunctionCall.Arguments,
 		})
+	}
+
+	// Apply output parser if configured. On parse failure, return the raw content.
+	if cfg.OutputParser != "" && len(toolCalls) == 0 {
+		if parsed, perr := applyOutputParser(cfg.OutputParser, content); perr == nil {
+			content = parsed
+		}
 	}
 
 	return content, toolCalls, nil
