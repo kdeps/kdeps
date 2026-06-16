@@ -70,6 +70,10 @@ type ChatConfig struct {
 	// PromptCaching caches the system prompt at the provider level to reduce cost.
 	// Currently only Anthropic honors this field.
 	PromptCaching bool `yaml:"promptCaching,omitempty"`
+	// UseCache enables process-lifetime in-memory response caching.
+	// Identical requests (same model + messages + options) are served from cache.
+	// Useful for development to avoid redundant API calls. Not for production.
+	UseCache bool `yaml:"useCache,omitempty"`
 	// Advanced LLM parameters (may not be supported by all backends)
 	Temperature      *float64 `yaml:"temperature,omitempty"`      // Sampling temperature (0.0-2.0)
 	MaxTokens        *int     `yaml:"maxTokens,omitempty"`        // Maximum tokens to generate
