@@ -33,8 +33,10 @@ import (
 	"github.com/tmc/langchaingo/llms"
 	lcanthropic "github.com/tmc/langchaingo/llms/anthropic"
 	lccloudflare "github.com/tmc/langchaingo/llms/cloudflare"
+	lcernie "github.com/tmc/langchaingo/llms/ernie"
 	lcgoogleai "github.com/tmc/langchaingo/llms/googleai"
 	lchuggingface "github.com/tmc/langchaingo/llms/huggingface"
+	lcmaritaca "github.com/tmc/langchaingo/llms/maritaca"
 	lcopenai "github.com/tmc/langchaingo/llms/openai"
 
 	"github.com/kdeps/kdeps/v2/pkg/domain"
@@ -45,6 +47,8 @@ const (
 	backendGoogle      = "google"
 	backendHuggingFace = "huggingface"
 	backendCloudflare  = "cloudflare"
+	backendMaritaca    = "maritaca"
+	backendErnie       = "ernie"
 )
 
 //nolint:gochecknoglobals // provider base URLs are constant lookup table, not mutable state
@@ -104,6 +108,21 @@ func buildLangchainLLM(ctx context.Context, cfg *domain.ChatConfig) (llms.Model,
 			lccloudflare.WithToken(token),
 			lccloudflare.WithAccountID(accountID),
 			lccloudflare.WithModel(cfg.Model),
+		)
+
+	case backendMaritaca:
+		apiKey := os.Getenv(providerAPIKeyEnvVar(backendMaritaca))
+		model, err = lcmaritaca.New(
+			lcmaritaca.WithToken(apiKey),
+			lcmaritaca.WithModel(cfg.Model),
+		)
+
+	case backendErnie:
+		apiKey := os.Getenv(providerAPIKeyEnvVar(backendErnie))
+		secretKey := os.Getenv("ERNIE_SECRET_KEY")
+		model, err = lcernie.New(
+			lcernie.WithAKSK(apiKey, secretKey),
+			lcernie.WithModel(cfg.Model),
 		)
 
 	default:
