@@ -26,6 +26,9 @@ import (
 	"os"
 
 	lcemb "github.com/tmc/langchaingo/embeddings"
+	lchemb_hf "github.com/tmc/langchaingo/embeddings/huggingface"
+	lchemb_jina "github.com/tmc/langchaingo/embeddings/jina"
+	lchemb_voyage "github.com/tmc/langchaingo/embeddings/voyageai"
 	lcgoogleai "github.com/tmc/langchaingo/llms/googleai"
 	lcopenai "github.com/tmc/langchaingo/llms/openai"
 
@@ -37,6 +40,9 @@ const (
 	backendOllamaLocal = "ollama"
 	backendFileLocal   = "file"
 	backendGGUFLocal   = "gguf"
+	backendHuggingFace = "huggingface"
+	backendJina        = "jina"
+	backendVoyageAI    = "voyageai"
 )
 
 // vectorizeInputs embeds cfg.Inputs using the configured model/backend and
@@ -101,10 +107,18 @@ func buildEmbedder(ctx context.Context, cfg *domain.EmbeddingConfig) (lcemb.Embe
 		return nil, errors.New("embedding: model is required for vectorize/embed_query operations")
 	}
 
-	if cfg.Backend == backendGoogle {
+	switch cfg.Backend {
+	case backendGoogle:
 		return buildGoogleEmbedder(ctx, cfg)
+	case backendHuggingFace:
+		return buildHuggingFaceEmbedder(cfg)
+	case backendJina:
+		return buildJinaEmbedder(cfg)
+	case backendVoyageAI:
+		return buildVoyageAIEmbedder(cfg)
+	default:
+		return buildOpenAICompatEmbedder(cfg)
 	}
-	return buildOpenAICompatEmbedder(cfg)
 }
 
 func buildOpenAICompatEmbedder(cfg *domain.EmbeddingConfig) (lcemb.Embedder, error) {
@@ -142,6 +156,37 @@ func buildGoogleEmbedder(ctx context.Context, cfg *domain.EmbeddingConfig) (lcem
 		return nil, fmt.Errorf("embedding: build google client: %w", err)
 	}
 	return lcemb.NewEmbedder(client)
+}
+
+func buildHuggingFaceEmbedder(cfg *domain.EmbeddingConfig) (lcemb.Embedder, error) {
+	token := os.Getenv("HF_TOKEN")
+	if token == "" {
+		token = os.Getenv("HUGGINGFACEHUB_API_TOKEN")
+	}
+	opts := []lchemb_hf.Option{}
+	if cfg.Model != "" {
+		opts = append(opts, lchemb_hf.WithModel(cfg.Model))
+	}
+	_ = token // HuggingFace SDK reads HF_TOKEN from env automatically
+	return lchemb_hf.NewHuggingface(opts...)
+}
+
+func buildJinaEmbedder(cfg *domain.EmbeddingConfig) (lcemb.Embedder, error) {
+	apiKey := os.Getenv("JINA_API_KEY")
+	opts := []lchemb_jina.Option{lchemb_jina.WithAPIKey(apiKey)}
+	if cfg.Model != "" {
+		opts = append(opts, lchemb_jina.WithModel(cfg.Model))
+	}
+	return lchemb_jina.NewJina(opts...)
+}
+
+func buildVoyageAIEmbedder(cfg *domain.EmbeddingConfig) (lcemb.Embedder, error) {
+	token := os.Getenv("VOYAGEAI_API_KEY")
+	opts := []lchemb_voyage.Option{lchemb_voyage.WithToken(token)}
+	if cfg.Model != "" {
+		opts = append(opts, lchemb_voyage.WithModel(cfg.Model))
+	}
+	return lchemb_voyage.NewVoyageAI(opts...)
 }
 
 func openAICompatBaseURL(backend string) string {
