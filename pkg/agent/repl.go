@@ -48,7 +48,7 @@ const (
 
 //nolint:gochecknoglobals // command list must be package-level for completer
 var builtinCmds = []string{
-	"/help", "/settings", "/clear", "/model",
+	"/help", "/settings", "/clear", "/model", "/models",
 	"/skills", "/prompts", "/compact", "/history", "/session", "/exit", "/quit",
 }
 
@@ -95,6 +95,7 @@ type REPL struct {
 	history          []string
 	modelNames       []string        // suggestions for /model <tab>
 	downloadedModels map[string]bool // set of already-downloaded model aliases
+	providerStatus   map[string]bool // backend -> API key set
 	onSettingsChange OnSettingsChange
 	tuiRunner        TUIRunner
 	runFn            func(context.Context, string) (string, error) // nil in production; injected in tests
@@ -139,6 +140,11 @@ func (r *REPL) SetModelNames(names []string) {
 // Completion candidates for downloaded models are prefixed with "*" as a visual indicator.
 func (r *REPL) SetDownloadedModels(downloaded map[string]bool) {
 	r.downloadedModels = downloaded
+}
+
+// SetProviderStatus registers which cloud backend providers have an API key set.
+func (r *REPL) SetProviderStatus(status map[string]bool) {
+	r.providerStatus = status
 }
 
 // dynamicPrompt returns a prompt string showing model and turn count.
@@ -527,6 +533,7 @@ func (r *REPL) Run() error {
 	fmt.Fprintln(os.Stdout, styleReplMeta.Render(
 		"Agent loop  /help for commands  Ctrl+D to exit",
 	))
+	fmt.Fprintln(os.Stdout, styleReplMeta.Render(r.providerStatusLine()))
 	return r.runLoop(rl)
 }
 
@@ -642,6 +649,8 @@ func (r *REPL) dispatchCommand(cmd string) error {
 		return r.cmdClear()
 	case "/model":
 		return r.cmdModel(args)
+	case "/models":
+		return r.cmdModels()
 	case "/skills":
 		return r.cmdSkills()
 	case "/prompts":
@@ -673,12 +682,13 @@ func (r *REPL) dispatchCommand(cmd string) error {
 func (r *REPL) cmdHelp() error {
 	heading := styleReplHeading.Render
 	meta := styleReplMeta.Render
-	fmt.Fprintf(os.Stdout, "%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n\n%s\n",
+	fmt.Fprintf(os.Stdout, "%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n\n%s\n",
 		heading("Available commands:"),
 		"  /help                    Show this help message",
 		"  /settings                Open the tool/skill selector and save selections",
 		"  /clear                   Clear the conversation history",
 		"  /model [name]            Show or set the LLM model",
+		"  /models                  List all available models with provider status",
 		"  /skills                  List loaded skills",
 		"  /prompts                 List loaded prompt templates",
 		"  /<skill-name> [..]      Invoke a loaded skill or prompt template by name",
@@ -715,6 +725,144 @@ func (r *REPL) cmdModel(args []string) error {
 	}
 	fmt.Fprintln(os.Stdout, styleReplMeta.Render("Current model: "+r.loop.config.Model))
 	return nil
+}
+
+// providerStatusLine returns a one-line summary of ready providers for the welcome banner.
+func (r *REPL) providerStatusLine() string {
+	var ready []string
+	for backend, ok := range r.providerStatus {
+		if ok {
+			ready = append(ready, backend)
+		}
+	}
+	sort.Strings(ready)
+	if len(ready) == 0 {
+		return "No cloud API keys set  |  /models to browse all"
+	}
+	return "Ready: " + strings.Join(ready, ", ") + "  |  /models to browse all"
+}
+
+const modelsIDWidth = 46
+
+//nolint:gochecknoglobals // shared style instances for /models output
+var (
+	styleModelsReady   = lipgloss.NewStyle().Foreground(lipgloss.Color("#00E5FF")).Bold(true)
+	styleModelsNoKey   = lipgloss.NewStyle().Foreground(lipgloss.Color("#555555"))
+	styleModelsCurrent = lipgloss.NewStyle().Foreground(lipgloss.Color("#FFD60A")).Bold(true)
+)
+
+// cmdModels prints all known cloud models grouped by backend with [READY]/[NO KEY] status,
+// followed by local models.
+func (r *REPL) cmdModels() error {
+	fmt.Fprintf(os.Stdout, "%s\n\n",
+		styleReplHeading.Render("Available models  (use /model <id> to switch)"),
+	)
+	r.printCloudModels()
+	r.printLocalModels()
+	fmt.Fprintf(os.Stdout, "\n%s\n",
+		styleReplMeta.Render("* = downloaded locally  |  /model <id> to switch"),
+	)
+	return nil
+}
+
+func (r *REPL) printCloudModels() {
+	currentModel := r.loop.config.Model
+	lastBackend := ""
+	for _, m := range KnownCloudModels {
+		ready := r.providerStatus[m.Backend]
+		if m.Backend != lastBackend {
+			r.printBackendHeader(m.Backend, m.EnvVar, ready, lastBackend != "")
+			lastBackend = m.Backend
+		}
+		r.printCloudModelRow(m, currentModel, ready)
+	}
+}
+
+func (r *REPL) printBackendHeader(backend, envVar string, ready, addBlank bool) {
+	if addBlank {
+		fmt.Fprintln(os.Stdout)
+	}
+	var statusLabel string
+	if ready {
+		statusLabel = styleModelsReady.Render("[READY]")
+	} else {
+		statusLabel = styleModelsNoKey.Render("[NO KEY - set " + envVar + "]")
+	}
+	fmt.Fprintf(os.Stdout, "  %s  %s\n",
+		styleReplHeading.Render(strings.ToUpper(backend)),
+		statusLabel,
+	)
+}
+
+func (r *REPL) printCloudModelRow(m CloudModel, currentModel string, ready bool) {
+	idField := fmt.Sprintf("%-*s", modelsIDWidth, m.ID)
+	isCurrent := m.ID == currentModel
+	switch {
+	case isCurrent:
+		fmt.Fprintf(os.Stdout, "  %s  %s  %s\n",
+			styleModelsCurrent.Render(idField),
+			styleReplMeta.Render(m.Desc),
+			styleModelsCurrent.Render("<-- current"),
+		)
+	case ready:
+		fmt.Fprintf(os.Stdout, "  %s  %s\n", idField, styleReplMeta.Render(m.Desc))
+	default:
+		fmt.Fprintf(os.Stdout, "  %s  %s\n",
+			styleModelsNoKey.Render(idField),
+			styleModelsNoKey.Render(m.Desc),
+		)
+	}
+}
+
+// isCloudModelID returns true if name is a known cloud model ID.
+func isCloudModelID(name string) bool {
+	for _, m := range KnownCloudModels {
+		if m.ID == name {
+			return true
+		}
+	}
+	return false
+}
+
+func (r *REPL) printLocalModels() {
+	currentModel := r.loop.config.Model
+	var localNames []string
+	for _, name := range r.modelNames {
+		if !isCloudModelID(name) {
+			localNames = append(localNames, name)
+		}
+	}
+	if len(localNames) == 0 {
+		return
+	}
+	fmt.Fprintf(os.Stdout, "\n  %s\n",
+		styleReplHeading.Render("LOCAL  (ollama / llamafile / gguf)"),
+	)
+	for _, name := range localNames {
+		r.printLocalModelRow(name, currentModel)
+	}
+}
+
+func (r *REPL) printLocalModelRow(name, currentModel string) {
+	downloaded := r.downloadedModels[name]
+	marker := "  "
+	if downloaded {
+		marker = "* "
+	}
+	idField := fmt.Sprintf("%-*s", modelsIDWidth, name)
+	isCurrent := name == currentModel
+	switch {
+	case isCurrent:
+		fmt.Fprintf(os.Stdout, "  %s%s  %s\n",
+			marker,
+			styleModelsCurrent.Render(idField),
+			styleModelsCurrent.Render("<-- current"),
+		)
+	case downloaded:
+		fmt.Fprintf(os.Stdout, "  %s%s  %s\n", marker, idField, styleReplMeta.Render("downloaded"))
+	default:
+		fmt.Fprintf(os.Stdout, "  %s%s\n", marker, styleModelsNoKey.Render(idField))
+	}
 }
 
 func (r *REPL) cmdSkills() error {

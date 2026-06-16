@@ -143,7 +143,7 @@ func applyConfigDefaults(cfg Config) Config {
 		cfg.BaseURL = os.Getenv("KDEPS_AGENT_BASE_URL")
 	}
 	if cfg.Role == "" {
-		cfg.Role = "user"
+		cfg.Role = RoleUser
 	}
 	if cfg.CompactTokenBudget <= 0 {
 		cfg.CompactTokenBudget = compactKeepRecentTokens
