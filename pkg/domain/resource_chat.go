@@ -101,6 +101,13 @@ type ChatConfig struct {
 	// item is included automatically. 0 (default) uses all examples.
 	FewShotSelectK int `yaml:"fewShotSelectK,omitempty"`
 
+	// FewShotMaxTokens, when > 0, caps the total token count of injected few-shot
+	// examples. Examples are added in similarity-score order until the budget is
+	// reached (the langchaingo LengthBasedExampleSelector pattern). 0 = no limit.
+	// When combined with FewShotSelectK, the K selection runs first, then the token
+	// budget prunes the result.
+	FewShotMaxTokens int `yaml:"fewShotMaxTokens,omitempty"`
+
 	// PromptVars is a map of variable name → value for {{var}} substitution
 	// in the prompt and scenario system messages. Enables chat prompt templates
 	// with named slots. Example: {role: "helpful"} replaces {{role}} in prompt.

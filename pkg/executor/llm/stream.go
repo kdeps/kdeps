@@ -240,6 +240,46 @@ func selectFewShotExamples(pool []domain.ScenarioItem, prompt string, k int) []d
 	return result
 }
 
+// pruneFewShotByTokens trims examples from the end of pool until the total token
+// count of all Prompt texts is within maxTokens. This implements the langchaingo
+// LengthBasedExampleSelector pattern: fill up to a token budget, then stop.
+// Pairs (user + assistant) are kept whole — if the user item fits but the
+// assistant item would push over the limit, both are dropped.
+func pruneFewShotByTokens(pool []domain.ScenarioItem, model string, maxTokens int) []domain.ScenarioItem {
+	if maxTokens <= 0 || len(pool) == 0 {
+		return pool
+	}
+	var result []domain.ScenarioItem
+	used := 0
+	i := 0
+	for i < len(pool) {
+		item := pool[i]
+		itemTokens := CountTokens(model, item.Prompt)
+		// Check if the next item is an assistant pair to include together.
+		var pairTokens int
+		hasPair := i+1 < len(pool) && strings.EqualFold(pool[i+1].Role, roleAssistant)
+		if hasPair {
+			pairTokens = CountTokens(model, pool[i+1].Prompt)
+		}
+		total := itemTokens
+		if hasPair {
+			total += pairTokens
+		}
+		if used+total > maxTokens {
+			break // budget exhausted
+		}
+		result = append(result, item)
+		used += itemTokens
+		i++
+		if hasPair {
+			result = append(result, pool[i])
+			used += pairTokens
+			i++
+		}
+	}
+	return result
+}
+
 func wordSet(s string) map[string]struct{} {
 	set := make(map[string]struct{})
 	for _, w := range strings.Fields(s) {
@@ -383,7 +423,11 @@ func buildLangchainMessages(cfg *domain.ChatConfig) []llms.MessageContent {
 
 	// Few-shot examples (user/assistant pairs) injected before runtime history.
 	// When FewShotSelectK > 0, dynamically select the K most similar examples.
+	// When FewShotMaxTokens > 0, prune by token budget after selection.
 	fewShot := selectFewShotExamples(cfg.FewShot, cfg.Prompt, cfg.FewShotSelectK)
+	if cfg.FewShotMaxTokens > 0 {
+		fewShot = pruneFewShotByTokens(fewShot, cfg.Model, cfg.FewShotMaxTokens)
+	}
 	for _, fs := range fewShot {
 		if fs.Prompt == "" {
 			continue

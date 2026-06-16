@@ -439,3 +439,76 @@ func TestBuildLangchainMessages_FewShotSelectK(t *testing.T) {
 	}
 	assert.True(t, hasTranslation, "selected few-shot should be translation related")
 }
+
+func TestPruneFewShotByTokens_ZeroLimit(t *testing.T) {
+	t.Parallel()
+	pool := []domain.ScenarioItem{
+		{Role: "user", Prompt: "hello world"},
+		{Role: "assistant", Prompt: "hi there"},
+	}
+	result := pruneFewShotByTokens(pool, "gpt-4", 0)
+	assert.Equal(t, pool, result, "zero maxTokens should return pool unchanged")
+}
+
+func TestPruneFewShotByTokens_EmptyPool(t *testing.T) {
+	t.Parallel()
+	result := pruneFewShotByTokens(nil, "gpt-4", 100)
+	assert.Empty(t, result)
+}
+
+func TestPruneFewShotByTokens_AllFit(t *testing.T) {
+	t.Parallel()
+	pool := []domain.ScenarioItem{
+		{Role: "user", Prompt: "hi"},
+		{Role: "assistant", Prompt: "hello"},
+	}
+	// Very large budget: all items fit.
+	result := pruneFewShotByTokens(pool, "gpt-4", 10000)
+	assert.Len(t, result, 2)
+}
+
+func TestPruneFewShotByTokens_PrunesToBudget(t *testing.T) {
+	t.Parallel()
+	// Two user/assistant pairs. Budget only fits the first pair.
+	pool := []domain.ScenarioItem{
+		{Role: "user", Prompt: "short"},
+		{Role: "assistant", Prompt: "ok"},
+		{Role: "user", Prompt: "another short one"},
+		{Role: "assistant", Prompt: "yes"},
+	}
+	// Allow 5 tokens max — should fit first pair but not second.
+	result := pruneFewShotByTokens(pool, "gpt-4", 5)
+	// First pair must be present; second pair pruned.
+	assert.NotEmpty(t, result)
+	assert.Less(t, len(result), len(pool))
+}
+
+func TestPruneFewShotByTokens_PreservesPairs(t *testing.T) {
+	t.Parallel()
+	pool := []domain.ScenarioItem{
+		{Role: "user", Prompt: "translate goodbye"},
+		{Role: "assistant", Prompt: "au revoir"},
+		{Role: "user", Prompt: "explain entanglement"},
+		{Role: "assistant", Prompt: "quantum answer here"},
+	}
+	// Large budget: both pairs fit.
+	result := pruneFewShotByTokens(pool, "gpt-4", 1000)
+	assert.Len(t, result, 4)
+}
+
+func TestBuildLangchainMessages_FewShotMaxTokens(t *testing.T) {
+	t.Parallel()
+	cfg := &domain.ChatConfig{
+		Prompt: "say hello",
+		FewShot: []domain.ScenarioItem{
+			{Role: "user", Prompt: "hi"},
+			{Role: "assistant", Prompt: "hello"},
+			{Role: "user", Prompt: "goodbye"},
+			{Role: "assistant", Prompt: "farewell"},
+		},
+		FewShotMaxTokens: 5, // very tight — should prune second pair
+	}
+	msgs := buildLangchainMessages(cfg)
+	// At least one message (the prompt itself) should be present.
+	assert.NotEmpty(t, msgs)
+}
