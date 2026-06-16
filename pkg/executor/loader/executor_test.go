@@ -149,3 +149,33 @@ func writeTempFileExt(t *testing.T, content, ext string) string {
 	require.NoError(t, f.Close())
 	return f.Name()
 }
+
+func TestLoadNotionDirectory_OnlyMD(t *testing.T) {
+	dir := t.TempDir()
+	// Write an .md file (should be loaded)
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "page.md"), []byte("# Title\nContent"), 0o600))
+	// Write a .txt file (should be ignored)
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "ignore.txt"), []byte("not md"), 0o600))
+
+	docs, err := loadNotionDirectory(dir)
+	require.NoError(t, err)
+	require.Len(t, docs, 1)
+	assert.Contains(t, docs[0].Content, "Title")
+	assert.Contains(t, docs[0].Metadata["filename"], "page.md")
+}
+
+func TestLoadNotionDirectory_NotFound(t *testing.T) {
+	_, err := loadNotionDirectory("/nonexistent/path")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "loader notion")
+}
+
+func TestLoadDocuments_NotionType(t *testing.T) {
+	dir := t.TempDir()
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "doc.md"), []byte("hello"), 0o600))
+	cfg := &domain.LoaderConfig{Type: "notion", Source: dir}
+	docs, err := loadDocuments(cfg)
+	require.NoError(t, err)
+	require.Len(t, docs, 1)
+	assert.Equal(t, "hello", docs[0].Content)
+}
