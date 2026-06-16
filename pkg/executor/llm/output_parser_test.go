@@ -108,3 +108,37 @@ func TestOutputParserFormatInstructions(t *testing.T) {
 	assert.Empty(t, outputParserFormatInstructions("simple"))
 	assert.Empty(t, outputParserFormatInstructions(""))
 }
+
+func TestApplyOutputParser_Combining_FirstSucceeds(t *testing.T) {
+	// "boolean" succeeds for "true", so result is "true"
+	out, err := applyOutputParser("combining:boolean,csv", "true")
+	require.NoError(t, err)
+	assert.Equal(t, "true", out)
+}
+
+func TestApplyOutputParser_Combining_FallsToSecond(t *testing.T) {
+	// "boolean" fails for "foo, bar", "csv" succeeds
+	out, err := applyOutputParser("combining:boolean,csv", "foo, bar")
+	require.NoError(t, err)
+	assert.Equal(t, `["foo","bar"]`, out)
+}
+
+func TestApplyOutputParser_Combining_AllFail(t *testing.T) {
+	// Neither boolean nor structured can parse plain text
+	out, err := applyOutputParser("combining:boolean,structured", "plain text")
+	assert.Error(t, err)
+	assert.Equal(t, "plain text", out)
+}
+
+func TestApplyOutputParser_Combining_Empty(t *testing.T) {
+	out, err := applyOutputParser("combining:", "data")
+	require.NoError(t, err)
+	assert.Equal(t, "data", out)
+}
+
+func TestOutputParserFormatInstructions_Combining(t *testing.T) {
+	// combining uses the first named parser's instructions
+	inst := outputParserFormatInstructions("combining:boolean,csv")
+	boolInst := outputParserFormatInstructions("boolean")
+	assert.Equal(t, boolInst, inst)
+}
