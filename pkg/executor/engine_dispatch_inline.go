@@ -154,6 +154,9 @@ func inlineResourceDispatch() []inlineDispatchEntry {
 		"vectorStore": func(e *Engine, inline *domain.InlineResource, _ int, ctx *ExecutionContext) (interface{}, error) {
 			return e.executeInlineVectorStore(inline.VectorStore, ctx)
 		},
+		"transcribe": func(e *Engine, inline *domain.InlineResource, _ int, ctx *ExecutionContext) (interface{}, error) {
+			return e.executeInlineTranscribe(inline.Transcribe, ctx)
+		},
 		"botReply": func(e *Engine, inline *domain.InlineResource, index int, ctx *ExecutionContext) (interface{}, error) {
 			return e.executeBotReply(inlineSyntheticResource(inline, index), ctx)
 		},

@@ -84,3 +84,10 @@ func (r *Registry) SetVectorStoreExecutor(exec ResourceExecutor) {
 func (r *Registry) GetVectorStoreExecutor() ResourceExecutor {
 	return r.getExecutor(ExecutorVectorStore)
 }
+
+func (r *Registry) SetTranscribeExecutor(exec ResourceExecutor) {
+	r.Register(ExecutorTranscribe, exec)
+}
+func (r *Registry) GetTranscribeExecutor() ResourceExecutor {
+	return r.getExecutor(ExecutorTranscribe)
+}

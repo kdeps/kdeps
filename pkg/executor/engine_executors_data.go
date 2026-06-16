@@ -141,3 +141,20 @@ func (e *Engine) executeInlineVectorStore(
 		"executeInlineVectorStore", e.registry.GetVectorStoreExecutor, "vectorStore", ctx, config,
 	)
 }
+
+// executeTranscribe executes a transcribe resource.
+func (e *Engine) executeTranscribe(resource *domain.Resource, ctx *ExecutionContext) (interface{}, error) {
+	return e.executeRegisteredResource(
+		resource, "transcribe", resource.Transcribe,
+		e.registry.GetTranscribeExecutor, "transcribe", "executeTranscribe", ctx,
+	)
+}
+
+// executeInlineTranscribe executes an inline transcribe resource.
+func (e *Engine) executeInlineTranscribe(
+	config *domain.TranscribeConfig, ctx *ExecutionContext,
+) (interface{}, error) {
+	return e.executeRegistered(
+		"executeInlineTranscribe", e.registry.GetTranscribeExecutor, "transcribe", ctx, config,
+	)
+}
