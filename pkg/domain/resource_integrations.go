@@ -27,11 +27,20 @@ type ScraperConfig struct {
 
 // EmbeddingConfig represents embedding/vector store configuration.
 type EmbeddingConfig struct {
-	Operation  string `yaml:"operation"` // index | search | upsert | delete
+	// Operation controls the executor mode.
+	// Keyword-search (SQLite): index | search | upsert | delete
+	// Vector embedding (LLM API): vectorize | embed_query
+	Operation  string `yaml:"operation"`
 	Text       string `yaml:"text,omitempty"`
 	Collection string `yaml:"collection,omitempty"`
 	DBPath     string `yaml:"dbPath,omitempty"`
 	Limit      int    `yaml:"limit,omitempty"`
+
+	// Vector embedding fields (operation: vectorize or embed_query).
+	Model   string   `yaml:"model,omitempty"`   // e.g. "text-embedding-3-small"
+	Backend string   `yaml:"backend,omitempty"` // openai | ollama | google
+	BaseURL string   `yaml:"baseURL,omitempty"` // custom base URL for openai-compat backends
+	Inputs  []string `yaml:"inputs,omitempty"`  // texts to embed (vectorize operation)
 }
 
 // SearchLocalConfig represents local filesystem search configuration.

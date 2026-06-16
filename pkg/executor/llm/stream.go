@@ -393,9 +393,14 @@ func buildThinkingOpts(cfg *domain.ChatConfig) []llms.CallOption {
 
 // StreamChat implements agent.Streamer using langchaingo.
 // Tokens are written to w as they arrive. Tool calls are returned for the caller to dispatch.
+// When cfg.ChunkSize > 0, the prompt is split into chunks and each is sent separately;
+// all responses are concatenated. Tool calls are not supported in chunked mode.
 func (e *Executor) StreamChat(
 	ctx context.Context, cfg *domain.ChatConfig, w io.Writer,
 ) (string, []domain.StreamedToolCall, error) {
+	if cfg.ChunkSize > 0 && cfg.Prompt != "" {
+		return e.streamChatChunked(ctx, cfg, w)
+	}
 	backend := cfg.Backend
 	if backend == "" {
 		backend = backendFile
@@ -439,6 +444,85 @@ func (e *Executor) StreamChat(
 	}
 
 	// Apply output parser if configured. On parse failure, return the raw content.
+	if cfg.OutputParser != "" && len(toolCalls) == 0 {
+		if parsed, perr := applyOutputParser(cfg.OutputParser, content); perr == nil {
+			content = parsed
+		}
+	}
+
+	return content, toolCalls, nil
+}
+
+// streamChatChunked splits cfg.Prompt into chunks and calls the LLM once per chunk.
+// All responses are concatenated. Tool calls are not supported in this mode.
+func (e *Executor) streamChatChunked(
+	ctx context.Context, cfg *domain.ChatConfig, w io.Writer,
+) (string, []domain.StreamedToolCall, error) {
+	chunks, err := SplitText(cfg.ChunkSplitter, cfg.Prompt, cfg.ChunkSize, cfg.ChunkOverlap)
+	if err != nil {
+		return "", nil, fmt.Errorf("stream: chunk split: %w", err)
+	}
+
+	var combined strings.Builder
+	for _, chunk := range chunks {
+		chunkCfg := *cfg
+		chunkCfg.Prompt = chunk
+		chunkCfg.ChunkSize = 0 // prevent infinite recursion
+
+		content, _, cerr := e.streamChatOnce(ctx, &chunkCfg, w)
+		if cerr != nil {
+			return combined.String(), nil, cerr
+		}
+		combined.WriteString(content)
+	}
+	return combined.String(), nil, nil
+}
+
+// streamChatOnce runs a single LLM call without chunking.
+func (e *Executor) streamChatOnce(
+	ctx context.Context, cfg *domain.ChatConfig, w io.Writer,
+) (string, []domain.StreamedToolCall, error) {
+	backend := cfg.Backend
+	if backend == "" {
+		backend = backendFile
+	}
+
+	model, err := buildLangchainLLM(ctx, cfg)
+	if err != nil {
+		return "", nil, fmt.Errorf("stream: build llm: %w", err)
+	}
+
+	messages := buildLangchainMessages(cfg)
+	opts := buildStreamOpts(cfg, backend, w)
+
+	resp, err := model.GenerateContent(ctx, messages, opts...)
+	if err != nil {
+		return "", nil, fmt.Errorf("stream: generate: %w", err)
+	}
+
+	if len(resp.Choices) == 0 {
+		return "", nil, nil
+	}
+
+	choice := resp.Choices[0]
+	content := choice.Content
+
+	if cfg.Thinking != nil && cfg.Thinking.ReturnOutput && choice.ReasoningContent != "" {
+		content = "<thinking>\n" + choice.ReasoningContent + "\n</thinking>\n\n" + content
+	}
+
+	var toolCalls []domain.StreamedToolCall
+	for _, tc := range choice.ToolCalls {
+		if tc.FunctionCall == nil {
+			continue
+		}
+		toolCalls = append(toolCalls, domain.StreamedToolCall{
+			ID:        tc.ID,
+			Name:      tc.FunctionCall.Name,
+			Arguments: tc.FunctionCall.Arguments,
+		})
+	}
+
 	if cfg.OutputParser != "" && len(toolCalls) == 0 {
 		if parsed, perr := applyOutputParser(cfg.OutputParser, content); perr == nil {
 			content = parsed

@@ -97,6 +97,25 @@ func (e *Executor) Execute(
 ) (interface{}, error) {
 	kdeps_debug.Log("enter: Execute")
 
+	ctx := context.Background()
+
+	// Vector embedding operations use the LLM API, not SQLite.
+	switch strings.ToLower(config.Operation) {
+	case "vectorize":
+		result, err := vectorizeInputs(ctx, config)
+		if err != nil {
+			return nil, err
+		}
+		return buildEmbeddingResult(result), nil
+	case "embed_query":
+		result, err := embedQuery(ctx, config)
+		if err != nil {
+			return nil, err
+		}
+		return buildEmbeddingResult(result), nil
+	}
+
+	// Keyword-search operations use SQLite.
 	resolved := resolveEmbeddingConfig(config)
 
 	db, openErr := sqlOpen("sqlite3", resolved.dbPath)
@@ -119,7 +138,10 @@ func (e *Executor) Execute(
 	case "delete":
 		return e.delete(db, resolved.collection, config.Text)
 	default:
-		return nil, fmt.Errorf("embedding: unknown operation %q (use index, search, upsert, delete)", config.Operation)
+		return nil, fmt.Errorf(
+			"embedding: unknown operation %q (use index, search, upsert, delete, vectorize, embed_query)",
+			config.Operation,
+		)
 	}
 }
 

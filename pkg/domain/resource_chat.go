@@ -74,6 +74,15 @@ type ChatConfig struct {
 	// Identical requests (same model + messages + options) are served from cache.
 	// Useful for development to avoid redundant API calls. Not for production.
 	UseCache bool `yaml:"useCache,omitempty"`
+	// ChunkSize enables automatic text splitting of the prompt before the LLM call.
+	// When > 0, the prompt is split into chunks of this size and the LLM is called
+	// once per chunk. All chunk responses are concatenated into the action output.
+	// ChunkSplitter controls which splitter to use (default: "recursive").
+	// ChunkOverlap controls the overlap between adjacent chunks.
+	ChunkSize     int    `yaml:"chunkSize,omitempty"`
+	ChunkOverlap  int    `yaml:"chunkOverlap,omitempty"`
+	ChunkSplitter string `yaml:"chunkSplitter,omitempty"` // recursive | token | markdown
+
 	// OutputParser applies a named post-processor to the LLM response before
 	// storing it to the action output. Supported values:
 	//   "simple"   - trims whitespace
