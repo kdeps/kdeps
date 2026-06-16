@@ -130,6 +130,20 @@ func TestProviderStatusLine_ContainsBrowseHint(t *testing.T) {
 	}
 }
 
+func TestBackendForModel_KnownModel(t *testing.T) {
+	backend := BackendForModel("deepseek-chat")
+	if backend != "deepseek" {
+		t.Errorf("expected deepseek, got %q", backend)
+	}
+}
+
+func TestBackendForModel_UnknownModel(t *testing.T) {
+	backend := BackendForModel("llama3.2")
+	if backend != "" {
+		t.Errorf("expected empty string for local model, got %q", backend)
+	}
+}
+
 func TestIsCloudModelID_KnownModel(t *testing.T) {
 	if !isCloudModelID(KnownCloudModels[0].ID) {
 		t.Errorf("expected %q to be a cloud model ID", KnownCloudModels[0].ID)

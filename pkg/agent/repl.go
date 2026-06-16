@@ -469,10 +469,20 @@ func expandFileRefs(input string) string {
 	})
 }
 
-// runWithThinking wraps loop.Run with a deferred thinking indicator.
-// If the LLM call takes longer than replThinkingDelay, it prints "thinking..." and
-// clears the line when the response arrives.
+// runWithThinking runs an agent turn, using streaming output when available.
+// In non-streaming mode it shows a deferred "thinking..." indicator.
 func (r *REPL) runWithThinking(ctx context.Context, input string) (string, error) {
+	// Streaming path: tokens appear on stdout in real-time; no thinking indicator needed.
+	if r.runFn == nil && r.loop.IsStreaming() {
+		resp, err := r.loop.RunStreaming(ctx, input, os.Stdout)
+		if err == nil {
+			// Ensure a newline after the streamed output.
+			fmt.Fprintln(os.Stdout)
+		}
+		return resp, err
+	}
+
+	// Non-streaming path: run in background and show "thinking..." after a delay.
 	runFn := r.loop.Run
 	if r.runFn != nil {
 		runFn = r.runFn
@@ -589,7 +599,8 @@ func (r *REPL) processInput(input string) error {
 	if err != nil {
 		return err
 	}
-	if resp != "" {
+	// In streaming mode tokens were already written to stdout by runWithThinking.
+	if resp != "" && (r.runFn != nil || !r.loop.IsStreaming()) {
 		fmt.Fprintln(os.Stdout, styleReplResponse.Render(resp))
 	}
 	r.maybeHintCompact()
@@ -720,6 +731,11 @@ func (r *REPL) cmdModel(args []string) error {
 		// Strip "*" markers inserted by tab completion for downloaded models.
 		model := strings.ReplaceAll(args[0], "*", "")
 		r.loop.config.Model = model
+		// Auto-switch backend when selecting a known cloud model.
+		if backend := BackendForModel(model); backend != "" {
+			r.loop.config.Backend = backend
+			r.loop.config.BaseURL = ""
+		}
 		fmt.Fprintln(os.Stdout, styleReplMeta.Render("Model set to "+model))
 		return nil
 	}
