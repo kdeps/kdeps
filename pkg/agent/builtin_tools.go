@@ -51,11 +51,18 @@ const (
 	builtinUserAgent     = "kdeps/agent"
 	builtinBashTimeout   = 30 * time.Second
 	wolframAlphaBaseURL  = "https://api.wolframalpha.com/v1/result"
+	cohereRerankURL      = "https://api.cohere.com/v2/rerank"
+	voyageRerankURL      = "https://api.voyageai.com/v1/rerank"
+	jinaRerankURL        = "https://api.jina.ai/v1/rerank"
+	defaultCohereRerank  = "rerank-v3.5"
+	defaultVoyageRerank  = "rerank-2"
+	defaultJinaRerank    = "jina-reranker-v2-base-multilingual"
+	defaultRerankTopN    = 5
 )
 
 // RegisterBuiltinTools adds built-in tools (web_search, wikipedia, web_scraper, sql_*, bash_exec and
 // optional API-key tools: serpapi_search, perplexity_search, exa_search, zapier_list_actions,
-// zapier_run_action, wolfram_alpha) to the registry.
+// zapier_run_action, wolfram_alpha, cohere_rerank, voyageai_rerank, jina_rerank) to the registry.
 // API-key tools are registered only when the corresponding env var is set.
 func RegisterBuiltinTools(ctx context.Context, reg *kdepstools.Registry) {
 	registerDuckDuckGo(ctx, reg)
@@ -68,6 +75,9 @@ func RegisterBuiltinTools(ctx context.Context, reg *kdepstools.Registry) {
 	registerExa(ctx, reg)
 	registerZapierNLA(ctx, reg)
 	registerWolframAlpha(ctx, reg)
+	registerCohereRerank(ctx, reg)
+	registerVoyageAIRerank(ctx, reg)
+	registerJinaRerank(ctx, reg)
 }
 
 func registerDuckDuckGo(ctx context.Context, reg *kdepstools.Registry) {
@@ -746,4 +756,327 @@ func callWolframAlpha(ctx context.Context, appID, query string) (string, error) 
 		return "", fmt.Errorf("wolfram_alpha: API error %d: %s", resp.StatusCode, string(body))
 	}
 	return strings.TrimSpace(string(body)), nil
+}
+
+// rerankParams holds shared parameters for all reranker tools.
+type rerankParams struct {
+	query     string
+	documents []string
+	model     string
+	topN      int
+}
+
+func parseRerankArgs(args map[string]interface{}, defaultModel string) (rerankParams, error) {
+	query, _ := args["query"].(string)
+	if query == "" {
+		return rerankParams{}, errors.New("rerank: query is required")
+	}
+
+	rawDocs, _ := args["documents"].(string)
+	if rawDocs == "" {
+		return rerankParams{}, errors.New("rerank: documents (JSON array of strings) is required")
+	}
+
+	var docs []string
+	if parseErr := json.Unmarshal([]byte(rawDocs), &docs); parseErr != nil {
+		return rerankParams{}, fmt.Errorf(
+			"rerank: documents must be a JSON array of strings: %w",
+			parseErr,
+		)
+	}
+	if len(docs) == 0 {
+		return rerankParams{}, errors.New("rerank: documents array must not be empty")
+	}
+
+	model, _ := args["model"].(string)
+	if model == "" {
+		model = defaultModel
+	}
+
+	topN := defaultRerankTopN
+	if v, ok := args["top_n"].(float64); ok && int(v) > 0 {
+		topN = int(v)
+	}
+
+	return rerankParams{query: query, documents: docs, model: model, topN: topN}, nil
+}
+
+// rerankResult is the normalized output of a reranker call.
+type rerankResult struct {
+	Index int     `json:"index"`
+	Text  string  `json:"text"`
+	Score float64 `json:"score"`
+}
+
+func rerankResultsToJSON(results []rerankResult) (string, error) {
+	out, err := json.MarshalIndent(results, "", "  ")
+	if err != nil {
+		return "", fmt.Errorf("rerank: marshal results: %w", err)
+	}
+	return string(out), nil
+}
+
+// registerCohereRerank registers the Cohere reranking tool when COHERE_API_KEY is set.
+func registerCohereRerank(ctx context.Context, reg *kdepstools.Registry) {
+	apiKey := os.Getenv("COHERE_API_KEY")
+	if apiKey == "" {
+		return
+	}
+	rerankParams := map[string]domain.ToolParam{
+		"query": {
+			Type:        "string",
+			Description: "The search query to rank documents against",
+			Required:    true,
+		},
+		"documents": {
+			Type:        "string",
+			Description: `JSON array of document texts to rerank, e.g. ["doc1", "doc2"]`,
+			Required:    true,
+		},
+		"model": {
+			Type:        "string",
+			Description: fmt.Sprintf("Cohere rerank model (default: %s)", defaultCohereRerank),
+		},
+		"top_n": {
+			Type: "number",
+			Description: fmt.Sprintf(
+				"Number of top results to return (default: %d)",
+				defaultRerankTopN,
+			),
+		},
+	}
+	reg.Register(&kdepstools.Tool{
+		Name:        "cohere_rerank",
+		Description: "Rerank a list of documents by relevance to a query using Cohere's reranking API. Returns documents sorted by relevance score. Requires COHERE_API_KEY.",
+		Parameters:  rerankParams,
+		Execute: func(args map[string]interface{}) (string, error) {
+			p, parseErr := parseRerankArgs(args, defaultCohereRerank)
+			if parseErr != nil {
+				return "", parseErr
+			}
+			return callCohereRerank(ctx, apiKey, p)
+		},
+	})
+}
+
+func callCohereRerank(ctx context.Context, apiKey string, p rerankParams) (string, error) {
+	return callCohereFormatReranker(ctx, apiKey, cohereRerankURL, "cohere_rerank", p)
+}
+
+// registerVoyageAIRerank registers the VoyageAI reranking tool when VOYAGEAI_API_KEY is set.
+func registerVoyageAIRerank(ctx context.Context, reg *kdepstools.Registry) {
+	apiKey := os.Getenv("VOYAGEAI_API_KEY")
+	if apiKey == "" {
+		return
+	}
+	rerankParams := map[string]domain.ToolParam{
+		"query": {
+			Type:        "string",
+			Description: "The search query to rank documents against",
+			Required:    true,
+		},
+		"documents": {
+			Type:        "string",
+			Description: `JSON array of document texts to rerank`,
+			Required:    true,
+		},
+		"model": {
+			Type:        "string",
+			Description: fmt.Sprintf("VoyageAI rerank model (default: %s)", defaultVoyageRerank),
+		},
+		"top_n": {
+			Type: "number",
+			Description: fmt.Sprintf(
+				"Number of top results to return (default: %d)",
+				defaultRerankTopN,
+			),
+		},
+	}
+	reg.Register(&kdepstools.Tool{
+		Name:        "voyageai_rerank",
+		Description: "Rerank a list of documents by relevance to a query using VoyageAI's reranking API. Requires VOYAGEAI_API_KEY.",
+		Parameters:  rerankParams,
+		Execute: func(args map[string]interface{}) (string, error) {
+			p, parseErr := parseRerankArgs(args, defaultVoyageRerank)
+			if parseErr != nil {
+				return "", parseErr
+			}
+			return callVoyageRerank(ctx, apiKey, p)
+		},
+	})
+}
+
+func callVoyageRerank(ctx context.Context, apiKey string, p rerankParams) (string, error) {
+	payload, _ := json.Marshal(map[string]interface{}{
+		"model":            p.model,
+		"query":            p.query,
+		"documents":        p.documents,
+		"top_k":            p.topN,
+		"return_documents": true,
+	})
+
+	req, reqErr := http.NewRequestWithContext(
+		ctx,
+		http.MethodPost,
+		voyageRerankURL,
+		bytes.NewReader(payload),
+	)
+	if reqErr != nil {
+		return "", fmt.Errorf("voyageai_rerank: build request: %w", reqErr)
+	}
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", "Bearer "+apiKey)
+
+	resp, doErr := http.DefaultClient.Do(req)
+	if doErr != nil {
+		return "", fmt.Errorf("voyageai_rerank: request: %w", doErr)
+	}
+	defer resp.Body.Close()
+
+	body, readErr := io.ReadAll(resp.Body)
+	if readErr != nil {
+		return "", fmt.Errorf("voyageai_rerank: read response: %w", readErr)
+	}
+	if resp.StatusCode != http.StatusOK {
+		return "", fmt.Errorf("voyageai_rerank: API error %d: %s", resp.StatusCode, string(body))
+	}
+
+	var result struct {
+		Data []struct {
+			Index    int     `json:"index"`
+			Score    float64 `json:"relevance_score"`
+			Document *string `json:"document"`
+		} `json:"data"`
+	}
+	if parseErr := json.Unmarshal(body, &result); parseErr != nil {
+		return string(body), nil
+	}
+
+	out := make([]rerankResult, len(result.Data))
+	for i, r := range result.Data {
+		text := ""
+		if r.Document != nil {
+			text = *r.Document
+		}
+		if text == "" && r.Index < len(p.documents) {
+			text = p.documents[r.Index]
+		}
+		out[i] = rerankResult{Index: r.Index, Text: text, Score: r.Score}
+	}
+	return rerankResultsToJSON(out)
+}
+
+// registerJinaRerank registers the Jina reranking tool when JINA_API_KEY is set.
+func registerJinaRerank(ctx context.Context, reg *kdepstools.Registry) {
+	apiKey := os.Getenv("JINA_API_KEY")
+	if apiKey == "" {
+		return
+	}
+	rerankParams := map[string]domain.ToolParam{
+		"query": {
+			Type:        "string",
+			Description: "The search query to rank documents against",
+			Required:    true,
+		},
+		"documents": {
+			Type:        "string",
+			Description: `JSON array of document texts to rerank`,
+			Required:    true,
+		},
+		"model": {
+			Type:        "string",
+			Description: fmt.Sprintf("Jina rerank model (default: %s)", defaultJinaRerank),
+		},
+		"top_n": {
+			Type: "number",
+			Description: fmt.Sprintf(
+				"Number of top results to return (default: %d)",
+				defaultRerankTopN,
+			),
+		},
+	}
+	reg.Register(&kdepstools.Tool{
+		Name:        "jina_rerank",
+		Description: "Rerank a list of documents by relevance to a query using Jina AI's reranking API. Requires JINA_API_KEY.",
+		Parameters:  rerankParams,
+		Execute: func(args map[string]interface{}) (string, error) {
+			p, parseErr := parseRerankArgs(args, defaultJinaRerank)
+			if parseErr != nil {
+				return "", parseErr
+			}
+			return callJinaRerank(ctx, apiKey, p)
+		},
+	})
+}
+
+func callJinaRerank(ctx context.Context, apiKey string, p rerankParams) (string, error) {
+	return callCohereFormatReranker(ctx, apiKey, jinaRerankURL, "jina_rerank", p)
+}
+
+// callCohereFormatReranker handles Cohere-format reranker APIs (Cohere + Jina share the same
+// request/response schema: top_n, results[].index, results[].relevance_score, results[].document.text).
+func callCohereFormatReranker(
+	ctx context.Context,
+	apiKey, endpoint, toolName string,
+	p rerankParams,
+) (string, error) {
+	payload, _ := json.Marshal(map[string]interface{}{
+		"model":            p.model,
+		"query":            p.query,
+		"documents":        p.documents,
+		"top_n":            p.topN,
+		"return_documents": true,
+	})
+
+	req, reqErr := http.NewRequestWithContext(
+		ctx,
+		http.MethodPost,
+		endpoint,
+		bytes.NewReader(payload),
+	)
+	if reqErr != nil {
+		return "", fmt.Errorf("%s: build request: %w", toolName, reqErr)
+	}
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", "Bearer "+apiKey)
+
+	resp, doErr := http.DefaultClient.Do(req)
+	if doErr != nil {
+		return "", fmt.Errorf("%s: request: %w", toolName, doErr)
+	}
+	defer resp.Body.Close()
+
+	body, readErr := io.ReadAll(resp.Body)
+	if readErr != nil {
+		return "", fmt.Errorf("%s: read response: %w", toolName, readErr)
+	}
+	if resp.StatusCode != http.StatusOK {
+		return "", fmt.Errorf("%s: API error %d: %s", toolName, resp.StatusCode, string(body))
+	}
+
+	var result struct {
+		Results []struct {
+			Index    int     `json:"index"`
+			Score    float64 `json:"relevance_score"`
+			Document *struct {
+				Text string `json:"text"`
+			} `json:"document"`
+		} `json:"results"`
+	}
+	if parseErr := json.Unmarshal(body, &result); parseErr != nil {
+		return string(body), nil
+	}
+
+	out := make([]rerankResult, len(result.Results))
+	for i, r := range result.Results {
+		text := ""
+		if r.Document != nil {
+			text = r.Document.Text
+		}
+		if text == "" && r.Index < len(p.documents) {
+			text = p.documents[r.Index]
+		}
+		out[i] = rerankResult{Index: r.Index, Text: text, Score: r.Score}
+	}
+	return rerankResultsToJSON(out)
 }
