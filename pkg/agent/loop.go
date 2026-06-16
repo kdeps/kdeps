@@ -57,6 +57,11 @@ type Config struct {
 	Role string
 	// MaxTurns caps conversation history retained in the session (0 = unlimited).
 	MaxTurns int
+	// MaxHistoryTokens caps session history by token count (0 = unlimited).
+	// When set, oldest turns are dropped in Append until the total token count
+	// of all retained messages is at or below this limit.
+	// Takes effect after MaxTurns trimming. Complements AutoCompactThreshold.
+	MaxHistoryTokens int
 	// SkillPaths are additional directories to search for SKILL.md files.
 	SkillPaths []string
 	// ResumeSession is a previously-saved session to load on startup.
@@ -105,6 +110,9 @@ func New(eng *executor.Engine, workflow *domain.Workflow, reg *tools.Registry, c
 	skillSlice := loadSkillSlice(cfg.SkillPaths)
 
 	session := NewSession(cfg.MaxTurns)
+	if cfg.MaxHistoryTokens > 0 {
+		session.SetTokenBudget(cfg.MaxHistoryTokens, cfg.Model)
+	}
 	if cfg.ResumeSession != nil {
 		session = cfg.ResumeSession
 	}

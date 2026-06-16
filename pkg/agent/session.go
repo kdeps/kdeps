@@ -23,6 +23,8 @@ import (
 	"fmt"
 	"strings"
 	"sync"
+
+	"github.com/tmc/langchaingo/llms"
 )
 
 const (
@@ -34,9 +36,11 @@ const (
 // Messages are stored as role-content pairs and serialized to JSON
 // for injection as the chat.messages expression value on each turn.
 type Session struct {
-	mu       sync.RWMutex
-	messages []sessionMessage
-	maxTurns int // 0 = unlimited
+	mu               sync.RWMutex
+	messages         []sessionMessage
+	maxTurns         int    // 0 = unlimited
+	maxHistoryTokens int    // 0 = unlimited; trims oldest turns to stay under this token count
+	modelHint        string // used for token counting; defaults to gpt2 encoding
 }
 
 type sessionMessage struct {
@@ -50,6 +54,17 @@ func NewSession(maxTurns int) *Session {
 		messages: make([]sessionMessage, 0, sessionInitCap),
 		maxTurns: maxTurns,
 	}
+}
+
+// SetTokenBudget sets a token-count cap on retained history.
+// When maxTokens > 0, the oldest turns are dropped in Append until the
+// total token count of all messages is at or below maxTokens.
+// model is the LLM model name used to pick the right tokenizer (empty = gpt2).
+func (s *Session) SetTokenBudget(maxTokens int, model string) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.maxHistoryTokens = maxTokens
+	s.modelHint = model
 }
 
 // Append adds a user-assistant turn pair to the session.
@@ -66,6 +81,35 @@ func (s *Session) Append(userInput, assistantResponse string) {
 		excess := (len(s.messages)/sessionMsgsPer - s.maxTurns) * sessionMsgsPer
 		s.messages = s.messages[excess:]
 	}
+
+	if s.maxHistoryTokens > 0 {
+		s.trimByTokenBudget()
+	}
+}
+
+// trimByTokenBudget removes oldest turns until total token count <= maxHistoryTokens.
+// Must be called with s.mu held for writing.
+func (s *Session) trimByTokenBudget() {
+	for len(s.messages) > sessionMsgsPer && s.totalTokens() > s.maxHistoryTokens {
+		s.messages = s.messages[sessionMsgsPer:]
+	}
+}
+
+// totalTokens counts the combined token length of all messages.
+// Must be called with s.mu held (at least for reading).
+func (s *Session) totalTokens() int {
+	total := 0
+	for _, m := range s.messages {
+		total += llms.CountTokens(s.modelHint, m.Content)
+	}
+	return total
+}
+
+// TotalTokens returns the current total token count of all messages.
+func (s *Session) TotalTokens() int {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	return s.totalTokens()
 }
 
 // BuildMessagesJSON returns the conversation history as a JSON array string
