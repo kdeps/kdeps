@@ -514,6 +514,70 @@ func TestBuildStore_MariaDB_WithURL(t *testing.T) {
 	}
 }
 
+func TestBuildStore_Postgres_MissingURL(t *testing.T) {
+	t.Setenv("OPENAI_API_KEY", "test-key")
+	cfg := &domain.VectorStoreConfig{
+		Provider:     "pgvector",
+		Collection:   "docs",
+		EmbedModel:   "text-embedding-ada-002",
+		EmbedBackend: "openai",
+	}
+	_, err := buildStore(t.Context(), cfg)
+	if err == nil {
+		t.Fatal("expected error for missing pgvector url")
+	}
+}
+
+func TestBuildStore_Postgres_MissingCollection(t *testing.T) {
+	t.Setenv("OPENAI_API_KEY", "test-key")
+	cfg := &domain.VectorStoreConfig{
+		Provider:     "postgres",
+		URL:          "postgres://user:pass@localhost:5432/mydb?sslmode=disable",
+		EmbedModel:   "text-embedding-ada-002",
+		EmbedBackend: "openai",
+	}
+	_, err := buildStore(t.Context(), cfg)
+	if err == nil {
+		t.Fatal("expected error for missing postgres collection")
+	}
+}
+
+func TestBuildStore_Postgres_WithURL(t *testing.T) {
+	t.Setenv("OPENAI_API_KEY", "test-key")
+	cfg := &domain.VectorStoreConfig{
+		Provider:     "pgvector",
+		Collection:   "docs",
+		URL:          "postgres://user:pass@localhost:5432/mydb?sslmode=disable",
+		EmbedModel:   "text-embedding-ada-002",
+		EmbedBackend: "openai",
+	}
+	store, err := buildStore(t.Context(), cfg)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if store == nil {
+		t.Fatal("expected non-nil store")
+	}
+}
+
+func TestBuildStore_AlloyDB_WithURL(t *testing.T) {
+	t.Setenv("OPENAI_API_KEY", "test-key")
+	cfg := &domain.VectorStoreConfig{
+		Provider:     "alloydb",
+		Collection:   "embeddings",
+		URL:          "postgres://user:pass@localhost:5432/mydb?sslmode=disable",
+		EmbedModel:   "text-embedding-ada-002",
+		EmbedBackend: "openai",
+	}
+	store, err := buildStore(t.Context(), cfg)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if store == nil {
+		t.Fatal("expected non-nil store")
+	}
+}
+
 func TestCosineSimilarity_SameVector(t *testing.T) {
 	v := []float32{0.1, 0.2, 0.3, 0.4}
 	score := cosineSimilarity(v, v)
