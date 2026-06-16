@@ -68,3 +68,31 @@ func TestHuggingFaceBackend_APIKeyEnvVar(t *testing.T) {
 	b := &llm.HuggingFaceBackend{}
 	assert.Equal(t, "HF_TOKEN", b.APIKeyEnvVar())
 }
+
+func TestHuggingFaceBackend_GetAPIKeyHeader_Set(t *testing.T) {
+	t.Parallel()
+	b := &llm.HuggingFaceBackend{}
+	name, val := b.GetAPIKeyHeader("hf-abc123")
+	assert.Equal(t, "Authorization", name)
+	assert.Equal(t, "Bearer hf-abc123", val)
+}
+
+func TestHuggingFaceBackend_ChatEndpoint_CustomURL(t *testing.T) {
+	t.Parallel()
+	b := &llm.HuggingFaceBackend{}
+	got := b.ChatEndpoint("https://custom.hf.co/proxy")
+	assert.Equal(t, "https://custom.hf.co/proxy/v1/chat/completions", got)
+}
+
+func TestHuggingFaceBackend_ParseResponse_Success(t *testing.T) {
+	t.Parallel()
+	b := &llm.HuggingFaceBackend{}
+	body := `{"choices":[{"message":{"role":"assistant","content":"Hello from HuggingFace!"}}]}`
+	resp := makeResp(stdhttp.StatusOK, body)
+	result, err := b.ParseResponse(resp)
+	require.NoError(t, err)
+	require.NotNil(t, result)
+	msg, ok := result["message"].(map[string]interface{})
+	require.True(t, ok)
+	assert.Equal(t, "Hello from HuggingFace!", msg["content"])
+}
