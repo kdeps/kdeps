@@ -61,3 +61,39 @@ func TestMaritacaBackend_APIKeyEnvVar(t *testing.T) {
 	b := &llm.MaritacaBackend{}
 	assert.Equal(t, "MARITACA_API_KEY", b.APIKeyEnvVar())
 }
+
+func TestMaritacaBackend_GetAPIKeyHeader_Empty(t *testing.T) {
+	t.Setenv("MARITACA_API_KEY", "")
+	b := &llm.MaritacaBackend{}
+	name, val := b.GetAPIKeyHeader("")
+	assert.Empty(t, name)
+	assert.Empty(t, val)
+}
+
+func TestMaritacaBackend_GetAPIKeyHeader_Set(t *testing.T) {
+	t.Parallel()
+	b := &llm.MaritacaBackend{}
+	name, val := b.GetAPIKeyHeader("tok-abc")
+	assert.Equal(t, "Authorization", name)
+	assert.Equal(t, "Bearer tok-abc", val)
+}
+
+func TestMaritacaBackend_ChatEndpoint_CustomBaseURL(t *testing.T) {
+	t.Parallel()
+	b := &llm.MaritacaBackend{}
+	got := b.ChatEndpoint("https://custom.example.com")
+	assert.Equal(t, "https://custom.example.com/api/chat/inference", got)
+}
+
+func TestMaritacaBackend_ParseResponse_Success(t *testing.T) {
+	t.Parallel()
+	b := &llm.MaritacaBackend{}
+	body := `{"choices":[{"message":{"role":"assistant","content":"Ola! Como posso ajudar?"}}]}`
+	resp := makeResp(stdhttp.StatusOK, body)
+	result, err := b.ParseResponse(resp)
+	require.NoError(t, err)
+	require.NotNil(t, result)
+	msg, ok := result["message"].(map[string]interface{})
+	require.True(t, ok)
+	assert.Equal(t, "Ola! Como posso ajudar?", msg["content"])
+}

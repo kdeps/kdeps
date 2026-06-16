@@ -60,3 +60,39 @@ func TestErnieBackend_APIKeyEnvVar(t *testing.T) {
 	b := &llm.ErnieBackend{}
 	assert.Equal(t, "ERNIE_API_KEY", b.APIKeyEnvVar())
 }
+
+func TestErnieBackend_GetAPIKeyHeader_Empty(t *testing.T) {
+	t.Setenv("ERNIE_API_KEY", "")
+	b := &llm.ErnieBackend{}
+	name, val := b.GetAPIKeyHeader("")
+	assert.Empty(t, name)
+	assert.Empty(t, val)
+}
+
+func TestErnieBackend_GetAPIKeyHeader_Set(t *testing.T) {
+	t.Parallel()
+	b := &llm.ErnieBackend{}
+	name, val := b.GetAPIKeyHeader("ernie-key-xyz")
+	assert.Equal(t, "Authorization", name)
+	assert.Equal(t, "Bearer ernie-key-xyz", val)
+}
+
+func TestErnieBackend_ChatEndpoint_CustomBaseURL(t *testing.T) {
+	t.Parallel()
+	b := &llm.ErnieBackend{}
+	got := b.ChatEndpoint("https://custom.baidubce.com/rpc/chat")
+	assert.Equal(t, "https://custom.baidubce.com/rpc/chat/ernie-bot", got)
+}
+
+func TestErnieBackend_ParseResponse_Success(t *testing.T) {
+	t.Parallel()
+	b := &llm.ErnieBackend{}
+	body := `{"choices":[{"message":{"role":"assistant","content":"Hello from ERNIE!"}}]}`
+	resp := makeResp(stdhttp.StatusOK, body)
+	result, err := b.ParseResponse(resp)
+	require.NoError(t, err)
+	require.NotNil(t, result)
+	msg, ok := result["message"].(map[string]interface{})
+	require.True(t, ok)
+	assert.Equal(t, "Hello from ERNIE!", msg["content"])
+}

@@ -856,3 +856,323 @@ func TestCosineSimilarity_LengthMismatch(t *testing.T) {
 		t.Fatalf("expected 0 for mismatched lengths, got %f", score)
 	}
 }
+
+func TestOpenSearchStore_AddDocuments_HTTPError(t *testing.T) {
+	t.Parallel()
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusInternalServerError)
+		_, _ = w.Write([]byte("server error"))
+	}))
+	defer srv.Close()
+
+	store := &openSearchStore{
+		baseURL:  srv.URL,
+		index:    "test-index",
+		embedder: &stubVectorEmbedder{vectors: [][]float32{{0.1, 0.2}}},
+		client:   http.DefaultClient,
+	}
+	_, err := store.AddDocuments(context.Background(), []schema.Document{
+		{PageContent: "hello"},
+	})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "500")
+}
+
+func TestOpenSearchStore_SimilaritySearch_HTTPError(t *testing.T) {
+	t.Parallel()
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusUnauthorized)
+		_, _ = w.Write([]byte("unauthorized"))
+	}))
+	defer srv.Close()
+
+	store := &openSearchStore{
+		baseURL:  srv.URL,
+		index:    "test-index",
+		embedder: &stubVectorEmbedder{vectors: [][]float32{{0.1, 0.2}}},
+		client:   http.DefaultClient,
+	}
+	_, err := store.SimilaritySearch(context.Background(), "query", 5)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "401")
+}
+
+func TestOpenSearchStore_SimilaritySearch_Success(t *testing.T) {
+	t.Parallel()
+	respBody := `{
+		"hits": {
+			"hits": [
+				{"_score": 0.95, "_source": {"text": "doc one", "meta": {"src": "a"}}},
+				{"_score": 0.70, "_source": {"text": "doc two", "meta": {}}}
+			]
+		}
+	}`
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(respBody))
+	}))
+	defer srv.Close()
+
+	store := &openSearchStore{
+		baseURL:  srv.URL,
+		index:    "test-index",
+		embedder: &stubVectorEmbedder{vectors: [][]float32{{0.1, 0.2}}},
+		client:   http.DefaultClient,
+	}
+	docs, err := store.SimilaritySearch(context.Background(), "query", 5)
+	require.NoError(t, err)
+	require.Len(t, docs, 2)
+	assert.Equal(t, "doc one", docs[0].PageContent)
+	assert.InDelta(t, 0.95, float64(docs[0].Score), 0.001)
+}
+
+func TestOpenSearchStore_AddDocuments_Success(t *testing.T) {
+	t.Parallel()
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{"errors":false,"items":[]}`))
+	}))
+	defer srv.Close()
+
+	store := &openSearchStore{
+		baseURL:  srv.URL,
+		index:    "test-index",
+		embedder: &stubVectorEmbedder{vectors: [][]float32{{0.1, 0.2}}},
+		client:   http.DefaultClient,
+	}
+	ids, err := store.AddDocuments(context.Background(), []schema.Document{
+		{PageContent: "hello world"},
+	})
+	require.NoError(t, err)
+	require.Len(t, ids, 1)
+	assert.NotEmpty(t, ids[0])
+}
+
+func TestOpenSearchStore_BasicAuth(t *testing.T) {
+	t.Parallel()
+	var gotAuth string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotAuth = r.Header.Get("Authorization")
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{"errors":false,"items":[]}`))
+	}))
+	defer srv.Close()
+
+	store := &openSearchStore{
+		baseURL:  srv.URL,
+		index:    "test-index",
+		username: "admin",
+		password: "secret",
+		embedder: &stubVectorEmbedder{vectors: [][]float32{{0.1, 0.2}}},
+		client:   http.DefaultClient,
+	}
+	_, _ = store.AddDocuments(context.Background(), []schema.Document{
+		{PageContent: "hello"},
+	})
+	assert.Contains(t, gotAuth, "Basic ")
+}
+
+func TestNewOpenSearchStore_APIKeyBasicAuth(t *testing.T) {
+	t.Parallel()
+	cfg := &domain.VectorStoreConfig{
+		URL:        "http://localhost:9200",
+		Collection: "my-index",
+		APIKey:     "admin:password123",
+	}
+	store, err := newOpenSearchStore(cfg, nil)
+	require.NoError(t, err)
+	assert.Equal(t, "admin", store.username)
+	assert.Equal(t, "password123", store.password)
+}
+
+func TestPineconeStore_AddDocuments_HTTPError(t *testing.T) {
+	t.Parallel()
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusForbidden)
+		_, _ = w.Write([]byte("forbidden"))
+	}))
+	defer srv.Close()
+
+	store := &pineconeStore{
+		host:      srv.URL,
+		namespace: "default",
+		embedder:  &stubVectorEmbedder{vectors: [][]float32{{0.1, 0.2}}},
+		client:    http.DefaultClient,
+	}
+	_, err := store.AddDocuments(context.Background(), []schema.Document{
+		{PageContent: "hello"},
+	})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "403")
+}
+
+func TestPineconeStore_SimilaritySearch_Success(t *testing.T) {
+	t.Parallel()
+	respBody := `{
+		"matches": [
+			{"id": "id1", "score": 0.92, "metadata": {"text": "first doc", "source": "a"}},
+			{"id": "id2", "score": 0.75, "metadata": {"text": "second doc"}}
+		]
+	}`
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(respBody))
+	}))
+	defer srv.Close()
+
+	store := &pineconeStore{
+		host:      srv.URL,
+		namespace: "default",
+		embedder:  &stubVectorEmbedder{vectors: [][]float32{{0.1, 0.2}}},
+		client:    http.DefaultClient,
+	}
+	docs, err := store.SimilaritySearch(context.Background(), "query", 5)
+	require.NoError(t, err)
+	require.Len(t, docs, 2)
+	assert.Equal(t, "first doc", docs[0].PageContent)
+	assert.InDelta(t, 0.92, float64(docs[0].Score), 0.001)
+	assert.Equal(t, "a", docs[0].Metadata["source"])
+}
+
+func TestPineconeStore_AddDocuments_APIKeyHeader(t *testing.T) {
+	t.Parallel()
+	var gotKey string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotKey = r.Header.Get("Api-Key")
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{}`))
+	}))
+	defer srv.Close()
+
+	store := &pineconeStore{
+		host:      srv.URL,
+		namespace: "default",
+		apiKey:    "pc-test-key",
+		embedder:  &stubVectorEmbedder{vectors: [][]float32{{0.1, 0.2}}},
+		client:    http.DefaultClient,
+	}
+	_, _ = store.AddDocuments(context.Background(), []schema.Document{
+		{PageContent: "hello"},
+	})
+	assert.Equal(t, "pc-test-key", gotKey)
+}
+
+func TestPineconeStore_SimilaritySearch_HTTPError(t *testing.T) {
+	t.Parallel()
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusServiceUnavailable)
+	}))
+	defer srv.Close()
+
+	store := &pineconeStore{
+		host:      srv.URL,
+		namespace: "default",
+		embedder:  &stubVectorEmbedder{vectors: [][]float32{{0.1, 0.2}}},
+		client:    http.DefaultClient,
+	}
+	_, err := store.SimilaritySearch(context.Background(), "query", 3)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "503")
+}
+
+func TestChromaStore_SimilaritySearch_Success(t *testing.T) {
+	t.Parallel()
+	collID := "coll-uuid-123"
+	queryResp := `{
+		"documents": [["doc one", "doc two"]],
+		"metadatas": [[{"src": "a"}, {}]],
+		"distances": [[0.1, 0.4]]
+	}`
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		switch r.Method {
+		case http.MethodGet:
+			// collectionID: return existing collection
+			_, _ = w.Write([]byte(`{"id":"` + collID + `","name":"test"}`))
+		default:
+			// query endpoint
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte(queryResp))
+		}
+	}))
+	defer srv.Close()
+
+	store := &chromaStore{
+		baseURL:    srv.URL,
+		collection: "test",
+		embedder:   &stubVectorEmbedder{vectors: [][]float32{{0.1, 0.2}}},
+		client:     http.DefaultClient,
+	}
+	docs, err := store.SimilaritySearch(context.Background(), "query", 5)
+	require.NoError(t, err)
+	require.Len(t, docs, 2)
+	assert.Equal(t, "doc one", docs[0].PageContent)
+	assert.Equal(t, "a", docs[0].Metadata["src"])
+	// distance 0.1 -> score 1/(1+0.1) = ~0.909
+	assert.InDelta(t, 0.909, float64(docs[0].Score), 0.01)
+}
+
+func TestChromaStore_AddDocuments_CreateCollection(t *testing.T) {
+	t.Parallel()
+	collID := "new-coll-id"
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		switch r.Method {
+		case http.MethodGet:
+			// collection not found -- trigger create path
+			w.WriteHeader(http.StatusNotFound)
+			_, _ = w.Write([]byte(`{"error":"not found"}`))
+		case http.MethodPost:
+			if r.URL.Path == "/api/v1/collections" {
+				// create collection
+				w.WriteHeader(http.StatusCreated)
+				_, _ = w.Write([]byte(`{"id":"` + collID + `","name":"test"}`))
+			} else {
+				// add documents
+				w.WriteHeader(http.StatusCreated)
+				_, _ = w.Write([]byte(`{}`))
+			}
+		}
+	}))
+	defer srv.Close()
+
+	store := &chromaStore{
+		baseURL:    srv.URL,
+		collection: "test",
+		embedder:   &stubVectorEmbedder{vectors: [][]float32{{0.1, 0.2}}},
+		client:     http.DefaultClient,
+	}
+	ids, err := store.AddDocuments(context.Background(), []schema.Document{
+		{PageContent: "hello chroma"},
+	})
+	require.NoError(t, err)
+	require.Len(t, ids, 1)
+	assert.NotEmpty(t, ids[0])
+}
+
+func TestChromaStore_APIKey_Header(t *testing.T) {
+	t.Parallel()
+	var gotAuth string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotAuth = r.Header.Get("Authorization")
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"id":"col-id","name":"test"}`))
+	}))
+	defer srv.Close()
+
+	store := &chromaStore{
+		baseURL:    srv.URL,
+		collection: "test",
+		apiKey:     "chroma-secret",
+		embedder:   &stubVectorEmbedder{vectors: [][]float32{{0.1, 0.2}}},
+		client:     http.DefaultClient,
+	}
+	// collectionID is called on AddDocuments; trigger it with an empty doc list (returns nil early)
+	// so we call it directly via SimilaritySearch with a query that will fail at query step
+	store.SimilaritySearch(context.Background(), "q", 1) //nolint:errcheck // only checking header
+	assert.Equal(t, "Bearer chroma-secret", gotAuth)
+}
