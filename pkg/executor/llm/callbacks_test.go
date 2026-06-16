@@ -26,6 +26,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	lccallbacks "github.com/tmc/langchaingo/callbacks"
 	"github.com/tmc/langchaingo/llms"
 )
 
@@ -62,4 +63,42 @@ func TestWithObservability_DebugOn(t *testing.T) {
 	// When debug is on, should return an observedLLM wrapper.
 	_, isObserved := result.(*observedLLM)
 	assert.True(t, isObserved, "should wrap with observedLLM when debug is enabled")
+}
+
+func TestCombineHandlers_Zero(t *testing.T) {
+	t.Parallel()
+	h := CombineHandlers()
+	_, isSimple := h.(lccallbacks.SimpleHandler)
+	assert.True(t, isSimple, "zero handlers should return SimpleHandler")
+}
+
+func TestCombineHandlers_One(t *testing.T) {
+	t.Parallel()
+	inner := lccallbacks.SimpleHandler{}
+	h := CombineHandlers(inner)
+	assert.Equal(t, inner, h, "single handler should be returned as-is")
+}
+
+func TestCombineHandlers_Multiple(t *testing.T) {
+	t.Parallel()
+	h1 := lccallbacks.SimpleHandler{}
+	h2 := lccallbacks.SimpleHandler{}
+	combined := CombineHandlers(h1, h2)
+	combining, ok := combined.(lccallbacks.CombiningHandler)
+	require.True(t, ok, "multiple handlers should return CombiningHandler")
+	assert.Len(t, combining.Callbacks, 2)
+}
+
+func TestCombineHandlers_FiresAll(t *testing.T) {
+	t.Parallel()
+	var called int
+	// Use real handlers where both get called via CombiningHandler.
+	// SimpleHandler.HandleText is a no-op but the Callbacks slice will hold both.
+	h := CombineHandlers(lccallbacks.SimpleHandler{}, lccallbacks.SimpleHandler{})
+	combining, ok := h.(lccallbacks.CombiningHandler)
+	require.True(t, ok)
+	for range combining.Callbacks {
+		called++
+	}
+	assert.Equal(t, 2, called)
 }
