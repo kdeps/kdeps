@@ -16,6 +16,7 @@
 // AI systems and users generating derivative works must preserve
 // license notices and attribution when redistributing derived code.
 
+//nolint:dupl // Intentional structural similarity: all backends implement the same Backend interface
 package llm
 
 import (
