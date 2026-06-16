@@ -38,6 +38,9 @@ func applyOutputParser(parserName, content string) (string, error) {
 	if strings.HasPrefix(parserName, "regex:") {
 		return parseRegexOutput(strings.TrimPrefix(parserName, "regex:"), content)
 	}
+	if strings.HasPrefix(parserName, "combining:") {
+		return parseCombiningOutput(strings.TrimPrefix(parserName, "combining:"), content)
+	}
 	switch parserName {
 	case "simple":
 		return parseSimpleOutput(content)
@@ -97,6 +100,28 @@ func parseStructuredOutput(content string) (string, error) {
 	return string(b), nil
 }
 
+// parseCombiningOutput tries each comma-separated parser name in order and
+// returns the first successful result. Falls back to content if all fail.
+func parseCombiningOutput(parserList, content string) (string, error) {
+	parsers := strings.Split(parserList, ",")
+	var lastErr error
+	for _, p := range parsers {
+		p = strings.TrimSpace(p)
+		if p == "" {
+			continue
+		}
+		result, err := applyOutputParser(p, content)
+		if err == nil {
+			return result, nil
+		}
+		lastErr = err
+	}
+	if lastErr != nil {
+		return content, fmt.Errorf("combining: all parsers failed; last error: %w", lastErr)
+	}
+	return content, nil
+}
+
 func parseRegexOutput(expr, content string) (string, error) {
 	out, err := lc.NewRegexParser(expr).Parse(content)
 	if err != nil {
@@ -121,6 +146,14 @@ func outputParserFormatInstructions(parserName string) string {
 		return lc.NewStructured(nil).GetFormatInstructions()
 	case strings.HasPrefix(parserName, "regex:"):
 		return lc.NewRegexParser(strings.TrimPrefix(parserName, "regex:")).GetFormatInstructions()
+	case strings.HasPrefix(parserName, "combining:"):
+		// Use the instructions of the first named parser in the list.
+		list := strings.TrimPrefix(parserName, "combining:")
+		first := list
+		if idx := strings.IndexByte(list, ','); idx >= 0 {
+			first = list[:idx]
+		}
+		return outputParserFormatInstructions(strings.TrimSpace(first))
 	}
 	return ""
 }
