@@ -27,8 +27,11 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"os"
+	"os/exec"
 	"strings"
+	"time"
 
 	"github.com/PuerkitoBio/goquery"
 	_ "github.com/mattn/go-sqlite3" // SQLite driver
@@ -46,21 +49,25 @@ import (
 const (
 	builtinDDGMaxResults = 5
 	builtinUserAgent     = "kdeps/agent"
+	builtinBashTimeout   = 30 * time.Second
+	wolframAlphaBaseURL  = "https://api.wolframalpha.com/v1/result"
 )
 
-// RegisterBuiltinTools adds built-in tools (web_search, wikipedia, web_scraper, sql_* and optional
-// API-key tools: serpapi_search, perplexity_search, exa_search, zapier_list_actions,
-// zapier_run_action) to the registry.
+// RegisterBuiltinTools adds built-in tools (web_search, wikipedia, web_scraper, sql_*, bash_exec and
+// optional API-key tools: serpapi_search, perplexity_search, exa_search, zapier_list_actions,
+// zapier_run_action, wolfram_alpha) to the registry.
 // API-key tools are registered only when the corresponding env var is set.
 func RegisterBuiltinTools(ctx context.Context, reg *kdepstools.Registry) {
 	registerDuckDuckGo(ctx, reg)
 	registerWikipedia(ctx, reg)
 	registerWebScraper(ctx, reg)
 	registerSQLTools(ctx, reg)
+	registerBashExec(ctx, reg)
 	registerSerpAPI(ctx, reg)
 	registerPerplexity(ctx, reg)
 	registerExa(ctx, reg)
 	registerZapierNLA(ctx, reg)
+	registerWolframAlpha(ctx, reg)
 }
 
 func registerDuckDuckGo(ctx context.Context, reg *kdepstools.Registry) {
@@ -547,7 +554,11 @@ func callZapierListActions(ctx context.Context, apiKey string) (string, error) {
 		return "", fmt.Errorf("zapier_list_actions: read response: %w", readErr)
 	}
 	if resp.StatusCode != http.StatusOK {
-		return "", fmt.Errorf("zapier_list_actions: API error %d: %s", resp.StatusCode, string(body))
+		return "", fmt.Errorf(
+			"zapier_list_actions: API error %d: %s",
+			resp.StatusCode,
+			string(body),
+		)
 	}
 
 	var result struct {
@@ -567,7 +578,10 @@ func callZapierListActions(ctx context.Context, apiKey string) (string, error) {
 	return strings.TrimSpace(sb.String()), nil
 }
 
-func callZapierRunAction(ctx context.Context, apiKey, actionID, instructions string) (string, error) {
+func callZapierRunAction(
+	ctx context.Context,
+	apiKey, actionID, instructions string,
+) (string, error) {
 	payload, marshalErr := json.Marshal(map[string]string{"instructions": instructions})
 	if marshalErr != nil {
 		return "", fmt.Errorf("zapier_run_action: marshal payload: %w", marshalErr)
@@ -633,4 +647,103 @@ func registerPerplexity(ctx context.Context, reg *kdepstools.Registry) {
 			return tool.Call(ctx, query)
 		},
 	})
+}
+
+// registerBashExec registers a bash command execution tool.
+// Runs arbitrary shell commands with a 30-second timeout.
+// Only enabled when KDEPS_ALLOW_BASH=true to prevent accidental exposure.
+func registerBashExec(_ context.Context, reg *kdepstools.Registry) {
+	if os.Getenv("KDEPS_ALLOW_BASH") != "true" {
+		return
+	}
+	reg.Register(&kdepstools.Tool{
+		Name:        "bash_exec",
+		Description: "Execute a bash shell command and return its output. Use for running scripts, checking system state, or performing file operations. Requires KDEPS_ALLOW_BASH=true.",
+		Parameters: map[string]domain.ToolParam{
+			"command": {
+				Type:        "string",
+				Description: "The bash command to execute",
+				Required:    true,
+			},
+		},
+		Execute: func(args map[string]interface{}) (string, error) {
+			command, _ := args["command"].(string)
+			if command == "" {
+				return "", errors.New("bash_exec: command is required")
+			}
+			ctx, cancel := context.WithTimeout(context.Background(), builtinBashTimeout)
+			defer cancel()
+			cmd := exec.CommandContext(ctx, "bash", "-c", command)
+			var stdout, stderr strings.Builder
+			cmd.Stdout = &stdout
+			cmd.Stderr = &stderr
+			runErr := cmd.Run()
+			out := strings.TrimSpace(stdout.String())
+			errOut := strings.TrimSpace(stderr.String())
+			if runErr != nil {
+				if errOut != "" {
+					return "", fmt.Errorf("bash_exec: %w\nstderr: %s", runErr, errOut)
+				}
+				return "", fmt.Errorf("bash_exec: %w", runErr)
+			}
+			if errOut != "" {
+				out += "\nstderr: " + errOut
+			}
+			return out, nil
+		},
+	})
+}
+
+// registerWolframAlpha registers the Wolfram Alpha short-answer API tool
+// when WOLFRAM_APP_ID is set.
+func registerWolframAlpha(ctx context.Context, reg *kdepstools.Registry) {
+	appID := os.Getenv("WOLFRAM_APP_ID")
+	if appID == "" {
+		return
+	}
+	reg.Register(&kdepstools.Tool{
+		Name:        "wolfram_alpha",
+		Description: "Query Wolfram Alpha for factual computations, math, science, unit conversions, and data lookups. Returns a concise plain-text answer. Requires WOLFRAM_APP_ID.",
+		Parameters: map[string]domain.ToolParam{
+			"query": {
+				Type:        "string",
+				Description: "The question or computation to evaluate (e.g. 'integral of x^2', 'population of France', '42 miles in km')",
+				Required:    true,
+			},
+		},
+		Execute: func(args map[string]interface{}) (string, error) {
+			query, _ := args["query"].(string)
+			if query == "" {
+				return "", errors.New("wolfram_alpha: query is required")
+			}
+			return callWolframAlpha(ctx, appID, query)
+		},
+	})
+}
+
+func callWolframAlpha(ctx context.Context, appID, query string) (string, error) {
+	reqURL := wolframAlphaBaseURL + "?i=" + url.QueryEscape(
+		query,
+	) + "&appid=" + url.QueryEscape(
+		appID,
+	)
+	req, reqErr := http.NewRequestWithContext(ctx, http.MethodGet, reqURL, nil)
+	if reqErr != nil {
+		return "", fmt.Errorf("wolfram_alpha: build request: %w", reqErr)
+	}
+
+	resp, doErr := http.DefaultClient.Do(req)
+	if doErr != nil {
+		return "", fmt.Errorf("wolfram_alpha: request: %w", doErr)
+	}
+	defer resp.Body.Close()
+
+	body, readErr := io.ReadAll(resp.Body)
+	if readErr != nil {
+		return "", fmt.Errorf("wolfram_alpha: read response: %w", readErr)
+	}
+	if resp.StatusCode != http.StatusOK {
+		return "", fmt.Errorf("wolfram_alpha: API error %d: %s", resp.StatusCode, string(body))
+	}
+	return strings.TrimSpace(string(body)), nil
 }
