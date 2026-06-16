@@ -21,6 +21,7 @@
 package llm
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -29,6 +30,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"text/template"
 
 	"github.com/tmc/langchaingo/llms"
 	lcanthropic "github.com/tmc/langchaingo/llms/anthropic"
@@ -172,6 +174,23 @@ func applyPromptVars(text string, vars map[string]string) string {
 	return text
 }
 
+// renderGoTemplate executes text as a Go text/template with vars as data.
+// Returns the rendered string, or the original text if parsing fails.
+func renderGoTemplate(text string, vars map[string]string) string {
+	if text == "" || len(vars) == 0 {
+		return text
+	}
+	tmpl, parseErr := template.New("prompt").Parse(text)
+	if parseErr != nil {
+		return text // graceful fallback
+	}
+	var buf bytes.Buffer
+	if execErr := tmpl.Execute(&buf, vars); execErr != nil {
+		return text // graceful fallback
+	}
+	return buf.String()
+}
+
 // buildRetrieverPreamble produces a "Retrieved context:" block from RetrieverContext
 // chunks, ready to prepend to a system message. Returns "" when no chunks.
 func buildRetrieverPreamble(chunks []string) string {
@@ -181,11 +200,21 @@ func buildRetrieverPreamble(chunks []string) string {
 	return "Retrieved context:\n---\n" + strings.Join(chunks, "\n---\n") + "\n---"
 }
 
+// applyTemplate applies either Go template rendering (when goTmpl=true) or plain
+// {{key}} substitution to text using vars. Falls back to the raw string on errors.
+func applyTemplate(text string, vars map[string]string, goTmpl bool) string {
+	if goTmpl {
+		return renderGoTemplate(text, vars)
+	}
+	return applyPromptVars(text, vars)
+}
+
 // buildScenarioMessages converts scenario items to MessageContent, prepending
 // retrieverPreamble to the first system message and appending formatHint to the last.
 // Returns the converted messages and whether the preamble was injected.
 func buildScenarioMessages(
-	scenario []domain.ScenarioItem, vars map[string]string, retrieverPreamble, formatHint string,
+	scenario []domain.ScenarioItem, vars map[string]string,
+	retrieverPreamble, formatHint string, goTmpl bool,
 ) ([]llms.MessageContent, bool) {
 	var msgs []llms.MessageContent
 	injected := false
@@ -197,7 +226,7 @@ func buildScenarioMessages(
 		if sc.Prompt == "" {
 			continue
 		}
-		prompt := applyPromptVars(sc.Prompt, vars)
+		prompt := applyTemplate(sc.Prompt, vars, goTmpl)
 		if retrieverPreamble != "" && !injected && role == roleSystem {
 			prompt = retrieverPreamble + "\n\n" + prompt
 			injected = true
@@ -230,7 +259,7 @@ func buildLangchainMessages(cfg *domain.ChatConfig) []llms.MessageContent {
 	formatHint := outputParserFormatInstructions(cfg.OutputParser)
 
 	scenarioMsgs, injectedPreamble := buildScenarioMessages(
-		cfg.Scenario, cfg.PromptVars, retrieverPreamble, formatHint,
+		cfg.Scenario, cfg.PromptVars, retrieverPreamble, formatHint, cfg.GoTemplate,
 	)
 	msgs = append(msgs, scenarioMsgs...)
 
@@ -268,7 +297,7 @@ func buildLangchainMessages(cfg *domain.ChatConfig) []llms.MessageContent {
 		if role == "" {
 			role = roleUser
 		}
-		promptText := applyPromptVars(cfg.Prompt, cfg.PromptVars)
+		promptText := applyTemplate(cfg.Prompt, cfg.PromptVars, cfg.GoTemplate)
 		msgs = append(msgs, buildUserMessage(roleToMessageType(role), promptText, cfg.Files))
 	}
 

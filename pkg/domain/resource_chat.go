@@ -107,6 +107,12 @@ type ChatConfig struct {
 	// system message as a "Retrieved context:" block separated by "---".
 	RetrieverContext []string `yaml:"retrieverContext,omitempty"`
 
+	// GoTemplate enables Go text/template rendering for the Prompt and scenario
+	// messages. When true, PromptVars is passed as the template data (accessible
+	// via {{.VarName}}). Supports conditionals, ranges, and all stdlib template
+	// functions. Falls back to the raw string on template parse errors.
+	GoTemplate bool `yaml:"goTemplate,omitempty"`
+
 	// OutputParser applies a named post-processor to the LLM response before
 	// storing it to the action output. Supported values:
 	//   "simple"   - trims whitespace

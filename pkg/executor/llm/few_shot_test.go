@@ -209,3 +209,43 @@ func TestBuildLangchainMessages_RetrieverContextNoScenario(t *testing.T) {
 	assert.Contains(t, text.Text, "Retrieved context:")
 	assert.Contains(t, text.Text, "kdeps is a Go framework")
 }
+
+func TestRenderGoTemplate_Basic(t *testing.T) {
+	t.Parallel()
+	vars := map[string]string{"Name": "world"}
+	result := renderGoTemplate("Hello {{.Name}}", vars)
+	assert.Equal(t, "Hello world", result)
+}
+
+func TestRenderGoTemplate_Conditional(t *testing.T) {
+	t.Parallel()
+	vars := map[string]string{"Debug": "true"}
+	result := renderGoTemplate(`{{if .Debug}}debug mode{{else}}prod mode{{end}}`, vars)
+	assert.Equal(t, "debug mode", result)
+}
+
+func TestRenderGoTemplate_ParseError_FallsBack(t *testing.T) {
+	t.Parallel()
+	result := renderGoTemplate("{{invalid template !!!", map[string]string{"x": "y"})
+	assert.Equal(t, "{{invalid template !!!", result, "should fall back to raw string on parse error")
+}
+
+func TestRenderGoTemplate_EmptyVars(t *testing.T) {
+	t.Parallel()
+	result := renderGoTemplate("hello world", nil)
+	assert.Equal(t, "hello world", result)
+}
+
+func TestBuildLangchainMessages_GoTemplate(t *testing.T) {
+	t.Parallel()
+	cfg := &domain.ChatConfig{
+		GoTemplate: true,
+		PromptVars: map[string]string{"Lang": "Go"},
+		Prompt:     "I love {{.Lang}} programming",
+	}
+	msgs := buildLangchainMessages(cfg)
+	require.Len(t, msgs, 1)
+	text, ok := msgs[0].Parts[0].(lc.TextContent)
+	require.True(t, ok)
+	assert.Equal(t, "I love Go programming", text.Text)
+}
