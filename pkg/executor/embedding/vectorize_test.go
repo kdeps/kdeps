@@ -147,3 +147,41 @@ func TestBuildEmbedder_RoutesVoyageAI(t *testing.T) {
 	require.NoError(t, err)
 	assert.NotNil(t, emb)
 }
+
+func TestOpenAICompatBaseURL_Cohere(t *testing.T) {
+	t.Parallel()
+	assert.Equal(t, "https://api.cohere.com/compatibility/v1", openAICompatBaseURL("cohere"))
+}
+
+func TestOpenAICompatBaseURL_XAI(t *testing.T) {
+	t.Parallel()
+	assert.Equal(t, "https://api.x.ai/v1", openAICompatBaseURL("xai"))
+}
+
+func TestOpenAICompatBaseURL_Perplexity(t *testing.T) {
+	t.Parallel()
+	assert.Equal(t, "https://api.perplexity.ai", openAICompatBaseURL("perplexity"))
+}
+
+func TestProviderEnvKey_Cohere(t *testing.T) {
+	t.Parallel()
+	assert.Equal(t, "COHERE_API_KEY", providerEnvKey("cohere"))
+}
+
+func TestProviderEnvKey_XAI(t *testing.T) {
+	t.Parallel()
+	assert.Equal(t, "XAI_API_KEY", providerEnvKey("xai"))
+}
+
+func TestProviderEnvKey_Perplexity(t *testing.T) {
+	t.Parallel()
+	assert.Equal(t, "PERPLEXITY_API_KEY", providerEnvKey("perplexity"))
+}
+
+func TestBuildEmbedder_CohereUsesOpenAICompat(t *testing.T) {
+	t.Setenv("COHERE_API_KEY", "test-cohere-key")
+	cfg := &domain.EmbeddingConfig{Model: "embed-english-v3.0", Backend: "cohere"}
+	emb, err := buildEmbedder(context.Background(), cfg)
+	require.NoError(t, err)
+	assert.NotNil(t, emb)
+}

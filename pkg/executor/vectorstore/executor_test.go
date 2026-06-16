@@ -192,6 +192,9 @@ func TestProviderEnvKey(t *testing.T) {
 		{"openai", "OPENAI_API_KEY"},
 		{"groq", "GROQ_API_KEY"},
 		{"mistral", "MISTRAL_API_KEY"},
+		{"cohere", "COHERE_API_KEY"},
+		{"xai", "XAI_API_KEY"},
+		{"perplexity", "PERPLEXITY_API_KEY"},
 		{"unknown", ""},
 	}
 	for _, c := range cases {
@@ -208,6 +211,15 @@ func TestOpenAICompatBaseURL(t *testing.T) {
 	}
 	if u := openAICompatBaseURL("ollama"); u == "" {
 		t.Error("expected non-empty base URL for ollama")
+	}
+	if u := openAICompatBaseURL("cohere"); u == "" {
+		t.Error("expected non-empty base URL for cohere")
+	}
+	if u := openAICompatBaseURL("xai"); u == "" {
+		t.Error("expected non-empty base URL for xai")
+	}
+	if u := openAICompatBaseURL("perplexity"); u == "" {
+		t.Error("expected non-empty base URL for perplexity")
 	}
 	if u := openAICompatBaseURL("unknown"); u != "" {
 		t.Errorf("expected empty URL for unknown backend, got %q", u)
