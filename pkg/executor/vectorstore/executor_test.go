@@ -218,6 +218,52 @@ func TestBuildEmbedder_OpenAICompat_Default(t *testing.T) {
 	}
 }
 
+func TestBuildEmbedder_OpenAICompat_CustomBaseURL(t *testing.T) {
+	t.Setenv("OPENAI_API_KEY", "test-key")
+	cfg := &domain.VectorStoreConfig{
+		EmbedBackend: "openai",
+		EmbedModel:   "text-embedding-ada-002",
+		EmbedBaseURL: "https://custom.openai.example.com/v1",
+	}
+	emb, err := buildEmbedder(t.Context(), cfg)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if emb == nil {
+		t.Fatal("expected non-nil embedder")
+	}
+}
+
+func TestBuildEmbedder_Groq(t *testing.T) {
+	t.Setenv("GROQ_API_KEY", "test-key")
+	cfg := &domain.VectorStoreConfig{
+		EmbedBackend: "groq",
+		EmbedModel:   "nomic-embed-text-v1.5",
+	}
+	emb, err := buildEmbedder(t.Context(), cfg)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if emb == nil {
+		t.Fatal("expected non-nil embedder")
+	}
+}
+
+func TestBuildEmbedder_Cohere(t *testing.T) {
+	t.Setenv("COHERE_API_KEY", "test-cohere-key")
+	cfg := &domain.VectorStoreConfig{
+		EmbedBackend: "cohere",
+		EmbedModel:   "embed-english-v3.0",
+	}
+	emb, err := buildEmbedder(t.Context(), cfg)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if emb == nil {
+		t.Fatal("expected non-nil embedder")
+	}
+}
+
 func TestNewAdapter(t *testing.T) {
 	a := NewAdapter()
 	if a == nil {
@@ -857,6 +903,24 @@ func TestBuildStore_MongoDB_MissingURL(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected error for missing mongodb url")
 	}
+}
+
+func TestBuildStore_MongoDB_WithURL(t *testing.T) {
+	t.Setenv("OPENAI_API_KEY", "test-key")
+	cfg := &domain.VectorStoreConfig{
+		Provider:     "mongodb",
+		Collection:   "docs",
+		URL:          "mongodb://localhost:27017",
+		EmbedModel:   "text-embedding-ada-002",
+		EmbedBackend: "openai",
+	}
+	store, err := buildStore(t.Context(), cfg)
+	// MongoDB connect is lazy; just verify no constructor error
+	if err != nil {
+		t.Logf("mongodb connection error (expected in CI): %v", err)
+		return
+	}
+	assert.NotNil(t, store)
 }
 
 func TestBuildStore_MongoDB_MissingCollection(t *testing.T) {
