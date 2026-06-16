@@ -265,6 +265,38 @@ func jaccardSimilarity(a, b map[string]struct{}) float64 {
 	return float64(intersection) / float64(union)
 }
 
+// compressRetrieverContext returns up to topK chunks from chunks that are most
+// relevant to prompt by Jaccard word-overlap similarity. When topK == 0 or
+// len(chunks) == 0, the original slice is returned unchanged.
+func compressRetrieverContext(chunks []string, prompt string, topK int) []string {
+	if topK <= 0 || len(chunks) == 0 {
+		return chunks
+	}
+	promptWords := wordSet(strings.ToLower(prompt))
+	type scored struct {
+		idx   int
+		score float64
+	}
+	scores := make([]scored, len(chunks))
+	for i, c := range chunks {
+		scores[i] = scored{idx: i, score: jaccardSimilarity(promptWords, wordSet(strings.ToLower(c)))}
+	}
+	sort.SliceStable(scores, func(i, j int) bool {
+		return scores[i].score > scores[j].score
+	})
+	if topK < len(scores) {
+		scores = scores[:topK]
+	}
+	sort.SliceStable(scores, func(i, j int) bool {
+		return scores[i].idx < scores[j].idx
+	})
+	result := make([]string, len(scores))
+	for i, s := range scores {
+		result[i] = chunks[s.idx]
+	}
+	return result
+}
+
 // buildRetrieverPreamble produces a "Retrieved context:" block from RetrieverContext
 // chunks, ready to prepend to a system message. Returns "" when no chunks.
 func buildRetrieverPreamble(chunks []string) string {
@@ -329,7 +361,8 @@ func buildSystemPreamble(retrieverPreamble, formatHint string) string {
 func buildLangchainMessages(cfg *domain.ChatConfig) []llms.MessageContent {
 	var msgs []llms.MessageContent
 
-	retrieverPreamble := buildRetrieverPreamble(cfg.RetrieverContext)
+	retrieverChunks := compressRetrieverContext(cfg.RetrieverContext, cfg.Prompt, cfg.RetrieverContextTopK)
+	retrieverPreamble := buildRetrieverPreamble(retrieverChunks)
 	formatHint := outputParserFormatInstructions(cfg.OutputParser)
 
 	scenarioMsgs, injectedPreamble := buildScenarioMessages(

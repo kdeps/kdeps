@@ -351,6 +351,68 @@ func TestJaccardSimilarity_Empty(t *testing.T) {
 	assert.Equal(t, 0.0, jaccardSimilarity(wordSet("hello"), map[string]struct{}{}))
 }
 
+// --- Contextual compression (T15) tests ---
+
+func TestCompressRetrieverContext_TopKZero_ReturnsAll(t *testing.T) {
+	t.Parallel()
+	chunks := []string{"chunk a", "chunk b", "chunk c"}
+	result := compressRetrieverContext(chunks, "prompt", 0)
+	assert.Equal(t, chunks, result)
+}
+
+func TestCompressRetrieverContext_EmptyChunks(t *testing.T) {
+	t.Parallel()
+	result := compressRetrieverContext(nil, "prompt", 2)
+	assert.Nil(t, result)
+}
+
+func TestCompressRetrieverContext_SelectsTopK(t *testing.T) {
+	t.Parallel()
+	chunks := []string{
+		"Go programming language goroutines concurrency",
+		"Python machine learning neural networks",
+		"Go channels select statement goroutines",
+	}
+	result := compressRetrieverContext(chunks, "Go concurrency model goroutines", 1)
+	require.Len(t, result, 1)
+	assert.Contains(t, result[0], "goroutine")
+}
+
+func TestCompressRetrieverContext_PreservesOrder(t *testing.T) {
+	t.Parallel()
+	chunks := []string{"apple fruit red", "banana fruit yellow", "cherry fruit small"}
+	result := compressRetrieverContext(chunks, "what is a fruit", 2)
+	require.Len(t, result, 2)
+	// Original order preserved among selected.
+	idx0 := strings.Index(strings.Join(chunks, "|"), result[0])
+	idx1 := strings.Index(strings.Join(chunks, "|"), result[1])
+	assert.Less(t, idx0, idx1, "original order must be preserved")
+}
+
+func TestBuildLangchainMessages_RetrieverContextTopK(t *testing.T) {
+	t.Parallel()
+	cfg := &domain.ChatConfig{
+		Prompt: "explain Go concurrency",
+		RetrieverContext: []string{
+			"Go has goroutines and channels for concurrency",
+			"Python uses GIL and threads",
+			"Go select statement multiplexes channels",
+		},
+		RetrieverContextTopK: 1,
+		Scenario: []domain.ScenarioItem{
+			{Role: "system", Prompt: "You are helpful."},
+		},
+	}
+	msgs := buildLangchainMessages(cfg)
+	require.NotEmpty(t, msgs)
+	sysText, ok := msgs[0].Parts[0].(lc.TextContent)
+	require.True(t, ok)
+	// Should contain Go-related chunk, not Python-only content.
+	assert.Contains(t, sysText.Text, "Go")
+	// Should NOT contain both Go and Python (only top-1 selected).
+	assert.NotContains(t, sysText.Text, "Python")
+}
+
 func TestBuildLangchainMessages_FewShotSelectK(t *testing.T) {
 	t.Parallel()
 	cfg := &domain.ChatConfig{
