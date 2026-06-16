@@ -767,6 +767,42 @@ func TestBuildStore_AlloyDB_WithURL(t *testing.T) {
 	}
 }
 
+func TestBuildStore_Postgres_AliasPSQL(t *testing.T) {
+	t.Setenv("OPENAI_API_KEY", "test-key")
+	for _, alias := range []string{"postgresql", "cloudsql"} {
+		t.Run(alias, func(t *testing.T) {
+			cfg := &domain.VectorStoreConfig{
+				Provider:     alias,
+				Collection:   "docs",
+				URL:          "postgres://user:pass@localhost:5432/mydb?sslmode=disable",
+				EmbedModel:   "text-embedding-ada-002",
+				EmbedBackend: "openai",
+			}
+			store, err := buildStore(t.Context(), cfg)
+			require.NoError(t, err, "alias %q should construct without error", alias)
+			assert.NotNil(t, store)
+		})
+	}
+}
+
+func TestPostgresCreateTableSQL(t *testing.T) {
+	t.Parallel()
+	sql := postgresCreateTableSQL("my_table")
+	assert.Contains(t, sql, "my_table")
+	assert.Contains(t, sql, "embedding JSONB")
+	assert.Contains(t, sql, "id TEXT")
+	assert.Contains(t, sql, "content TEXT")
+	assert.Contains(t, sql, "metadata JSONB")
+}
+
+func TestPostgresInsertSQL(t *testing.T) {
+	t.Parallel()
+	sql := postgresInsertSQL("my_table")
+	assert.Contains(t, sql, "my_table")
+	assert.Contains(t, sql, "$1")
+	assert.Contains(t, sql, "$4")
+}
+
 func TestBuildStore_MongoDB_MissingURL(t *testing.T) {
 	t.Setenv("OPENAI_API_KEY", "test-key")
 	cfg := &domain.VectorStoreConfig{
