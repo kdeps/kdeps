@@ -21,6 +21,9 @@
 package llm
 
 import (
+	"context"
+	"io"
+
 	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
 
 	"github.com/kdeps/kdeps/v2/pkg/domain"
@@ -120,6 +123,13 @@ func (a *Adapter) Execute(ctx *executor.ExecutionContext, config interface{}) (i
 		return nil, err
 	}
 	return a.executor.Execute(ctx, chatConfig)
+}
+
+// StreamChat implements agent.Streamer. It makes a streaming LLM call using a
+// pre-resolved ChatConfig and writes tokens to w as they arrive.
+func (a *Adapter) StreamChat(ctx context.Context, cfg *domain.ChatConfig, w io.Writer) (string, error) {
+	kdeps_debug.Log("enter: StreamChat")
+	return a.executor.StreamChat(ctx, cfg, w)
 }
 
 func wireModelManager(adapter *Adapter, modelService ModelServiceInterface) {

@@ -27,6 +27,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"strings"
 
@@ -34,6 +35,13 @@ import (
 	"github.com/kdeps/kdeps/v2/pkg/executor"
 	"github.com/kdeps/kdeps/v2/pkg/tools"
 )
+
+// Streamer makes streaming LLM calls for the agent loop.
+// Implementations write each token chunk to w as it arrives and return
+// the full accumulated response text.
+type Streamer interface {
+	StreamChat(ctx context.Context, cfg *domain.ChatConfig, w io.Writer) (string, error)
+}
 
 // Config holds agent loop configuration.
 type Config struct {
@@ -64,6 +72,9 @@ type Config struct {
 	PromptPaths []string
 	// Store is an optional session store for /session save|load|list|delete commands.
 	Store *SessionStore
+	// Streamer enables streaming output in the REPL. When set, Run() uses
+	// RunStreaming() instead of the engine path for interactive turns.
+	Streamer Streamer
 }
 
 // Loop drives a multi-turn agent conversation using the kdeps engine as the
@@ -81,6 +92,7 @@ type Loop struct {
 	prompts       []PromptTemplate // loaded prompt templates
 	onAutoCompact func(summary string)
 	store         *SessionStore // optional persistence
+	streamer      Streamer      // optional streaming LLM caller
 }
 
 // New creates a new Loop. cfg fields with zero values fall back to env vars and
@@ -104,6 +116,7 @@ func New(eng *executor.Engine, workflow *domain.Workflow, reg *tools.Registry, c
 		skillList: skillSlice,
 		prompts:   loadPromptTemplateSlice(cfg.PromptPaths),
 		store:     cfg.Store,
+		streamer:  cfg.Streamer,
 	}
 }
 
@@ -198,6 +211,36 @@ func (l *Loop) Run(ctx context.Context, input string) (string, error) {
 	// Preserve conversation history
 	l.session.Append(input, response)
 
+	return response, nil
+}
+
+// IsStreaming reports whether the loop has a streaming backend configured.
+func (l *Loop) IsStreaming() bool {
+	return l.streamer != nil
+}
+
+// RunStreaming sends input to the LLM via the streaming backend, writing tokens to w
+// as they arrive. Returns the full accumulated response (also stored in session history).
+// The caller should write a trailing newline after this returns if needed.
+func (l *Loop) RunStreaming(ctx context.Context, input string, w io.Writer) (string, error) {
+	// Auto-compact before the LLM call when history exceeds the token threshold.
+	if msgs := l.session.rawMessages(); shouldAutoCompact(msgs, l.config.AutoCompactThreshold) {
+		if summary, err := l.CompactWithLLM(ctx); err == nil && summary != "" {
+			if l.onAutoCompact != nil {
+				l.onAutoCompact(summary)
+			}
+		}
+	}
+
+	systemPreamble := l.buildSystemPreamble()
+	chatCfg := l.buildChatConfig(input, systemPreamble)
+
+	response, err := l.streamer.StreamChat(ctx, chatCfg, w)
+	if err != nil {
+		return "", fmt.Errorf("agent loop stream: %w", err)
+	}
+
+	l.session.Append(input, response)
 	return response, nil
 }
 

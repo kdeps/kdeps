@@ -84,6 +84,17 @@ var KnownCloudModels = []CloudModel{
 	},
 }
 
+// BackendForModel returns the backend name for a known cloud model ID, or ""
+// if the model is not in the catalog (i.e. it is a local/custom model).
+func BackendForModel(modelID string) string {
+	for _, m := range KnownCloudModels {
+		if m.ID == modelID {
+			return m.Backend
+		}
+	}
+	return ""
+}
+
 // CloudModelIDs returns just the model ID strings from KnownCloudModels.
 func CloudModelIDs() []string {
 	ids := make([]string, len(KnownCloudModels))

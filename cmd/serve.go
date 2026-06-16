@@ -79,14 +79,17 @@ func runAgentLoopCmd(path string, flags *agentLoopFlags) error {
 
 	skillPaths := resolveSkillPaths(flags.SkillPaths)
 
+	eng := setupEngine(nil, flags.Debug)
+	llmAdapter := llm.NewAdapter(flags.BaseURL)
+
 	cfg := agent.Config{
 		Model:        flags.Model,
 		Backend:      flags.Backend,
 		BaseURL:      flags.BaseURL,
 		SystemPrompt: flags.SystemPrompt,
 		SkillPaths:   skillPaths,
+		Streamer:     llmAdapter,
 	}
-	eng := setupEngine(nil, flags.Debug)
 
 	if flags.Resume != "" {
 		store := agent.NewSessionStore("")
