@@ -548,3 +548,86 @@ func TestWolframAlpha_HasRequiredParams(t *testing.T) {
 	require.True(t, ok)
 	assert.True(t, param.Required)
 }
+
+func TestRegisterBuiltinTools_CohereRerankNotRegisteredWithoutKey(t *testing.T) {
+	t.Setenv("COHERE_API_KEY", "")
+	reg := kdepstools.NewRegistry()
+	RegisterBuiltinTools(context.Background(), reg)
+	assert.Nil(t, reg.Get("cohere_rerank"))
+}
+
+func TestRegisterBuiltinTools_CohereRerankRegisteredWithKey(t *testing.T) {
+	t.Setenv("COHERE_API_KEY", "test-key")
+	reg := kdepstools.NewRegistry()
+	RegisterBuiltinTools(context.Background(), reg)
+	assert.NotNil(t, reg.Get("cohere_rerank"))
+}
+
+func TestParseRerankArgs_MissingQuery(t *testing.T) {
+	t.Parallel()
+	_, err := parseRerankArgs(map[string]interface{}{}, "rerank-v3.5")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "query is required")
+}
+
+func TestParseRerankArgs_MissingDocuments(t *testing.T) {
+	t.Parallel()
+	_, err := parseRerankArgs(map[string]interface{}{"query": "hello"}, "rerank-v3.5")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "documents")
+}
+
+func TestParseRerankArgs_InvalidDocumentsJSON(t *testing.T) {
+	t.Parallel()
+	_, err := parseRerankArgs(map[string]interface{}{
+		"query":     "hello",
+		"documents": "not-json",
+	}, "rerank-v3.5")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "JSON array")
+}
+
+func TestParseRerankArgs_ValidArgs(t *testing.T) {
+	t.Parallel()
+	p, err := parseRerankArgs(map[string]interface{}{
+		"query":     "what is AI?",
+		"documents": `["doc1","doc2"]`,
+		"model":     "custom-model",
+		"top_n":     float64(3),
+	}, "default-model")
+	require.NoError(t, err)
+	assert.Equal(t, "what is AI?", p.query)
+	assert.Len(t, p.documents, 2)
+	assert.Equal(t, "custom-model", p.model)
+	assert.Equal(t, 3, p.topN)
+}
+
+func TestRerankResultsToJSON(t *testing.T) {
+	t.Parallel()
+	results := []rerankResult{{Index: 0, Text: "hello", Score: 0.9}}
+	out, err := rerankResultsToJSON(results)
+	require.NoError(t, err)
+	assert.Contains(t, out, "hello")
+	assert.Contains(t, out, "0.9")
+}
+
+func TestRegisterBuiltinTools_VoyageAIRerankNotRegisteredWithoutKey(t *testing.T) {
+	t.Setenv("VOYAGEAI_API_KEY", "")
+	reg := kdepstools.NewRegistry()
+	RegisterBuiltinTools(context.Background(), reg)
+	assert.Nil(t, reg.Get("voyageai_rerank"))
+}
+
+func TestRegisterBuiltinTools_JinaRerankNotRegisteredWithoutKey(t *testing.T) {
+	t.Setenv("JINA_API_KEY", "")
+	reg := kdepstools.NewRegistry()
+	RegisterBuiltinTools(context.Background(), reg)
+	assert.Nil(t, reg.Get("jina_rerank"))
+}
+
+func TestRegisterBuiltinTools_JinaRerankRegisteredWithKey(t *testing.T) {
+	t.Setenv("JINA_API_KEY", "test-key")
+	reg := kdepstools.NewRegistry()
+	RegisterBuiltinTools(context.Background(), reg)
+	assert.NotNil(t, reg.Get("jina_rerank"))
+}
