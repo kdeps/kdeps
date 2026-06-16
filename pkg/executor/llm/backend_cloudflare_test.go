@@ -76,3 +76,34 @@ func TestCloudflareBackend_APIKeyEnvVar(t *testing.T) {
 	b := &llm.CloudflareBackend{}
 	assert.Equal(t, "CLOUDFLARE_API_TOKEN", b.APIKeyEnvVar())
 }
+
+func TestCloudflareBackend_ChatEndpoint_CustomBaseURL(t *testing.T) {
+	t.Parallel()
+	b := &llm.CloudflareBackend{}
+	// When user overrides base_url, ChatEndpoint appends /v1/chat/completions.
+	customBase := "https://custom.endpoint.example.com/v4/accounts/myid/ai"
+	got := b.ChatEndpoint(customBase)
+	assert.Equal(t, customBase+"/v1/chat/completions", got)
+}
+
+func TestCloudflareBackend_DefaultURL_AccountIDInterpolated(t *testing.T) {
+	t.Setenv("CLOUDFLARE_ACCOUNT_ID", "my-account-id-xyz")
+	b := &llm.CloudflareBackend{}
+	url := b.DefaultURL()
+	assert.Contains(t, url, "my-account-id-xyz")
+	assert.Contains(t, url, "accounts/my-account-id-xyz/ai")
+}
+
+func TestCloudflareBackend_ParseResponse_Success(t *testing.T) {
+	t.Parallel()
+	b := &llm.CloudflareBackend{}
+	// Cloudflare /v1/chat/completions returns OpenAI-compat format.
+	body := `{"choices":[{"message":{"role":"assistant","content":"Hello from Cloudflare!"}}]}`
+	resp := makeResp(stdhttp.StatusOK, body)
+	result, err := b.ParseResponse(resp)
+	require.NoError(t, err)
+	require.NotNil(t, result)
+	msg, ok := result["message"].(map[string]interface{})
+	require.True(t, ok)
+	assert.Equal(t, "Hello from Cloudflare!", msg["content"])
+}
