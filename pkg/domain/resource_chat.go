@@ -125,6 +125,13 @@ type ChatConfig struct {
 	// similarity. 0 (default) injects all chunks. Implements contextual compression.
 	RetrieverContextTopK int `yaml:"retrieverContextTopK,omitempty"`
 
+	// RetrieverContextMaxTokens, when > 0, caps the total token count of injected
+	// retriever context chunks. Chunks are added greedily in similarity-score order
+	// until the budget is reached. 0 = no limit. When combined with
+	// RetrieverContextTopK, the TopK selection runs first, then the token budget
+	// prunes the result further.
+	RetrieverContextMaxTokens int `yaml:"retrieverContextMaxTokens,omitempty"`
+
 	// GoTemplate enables Go text/template rendering for the Prompt and scenario
 	// messages. When true, PromptVars is passed as the template data (accessible
 	// via {{.VarName}}). Supports conditionals, ranges, and all stdlib template

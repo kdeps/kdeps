@@ -337,6 +337,26 @@ func compressRetrieverContext(chunks []string, prompt string, topK int) []string
 	return result
 }
 
+// pruneRetrieverContextByTokens trims chunks to a token budget, keeping the
+// highest-scoring chunks (already sorted by compressRetrieverContext) up to
+// maxTokens total. When chunks are not pre-scored they are added in order.
+func pruneRetrieverContextByTokens(chunks []string, model string, maxTokens int) []string {
+	if maxTokens <= 0 || len(chunks) == 0 {
+		return chunks
+	}
+	var result []string
+	used := 0
+	for _, c := range chunks {
+		t := CountTokens(model, c)
+		if used+t > maxTokens {
+			break
+		}
+		result = append(result, c)
+		used += t
+	}
+	return result
+}
+
 // buildRetrieverPreamble produces a "Retrieved context:" block from RetrieverContext
 // chunks, ready to prepend to a system message. Returns "" when no chunks.
 func buildRetrieverPreamble(chunks []string) string {
@@ -402,6 +422,9 @@ func buildLangchainMessages(cfg *domain.ChatConfig) []llms.MessageContent {
 	var msgs []llms.MessageContent
 
 	retrieverChunks := compressRetrieverContext(cfg.RetrieverContext, cfg.Prompt, cfg.RetrieverContextTopK)
+	if cfg.RetrieverContextMaxTokens > 0 {
+		retrieverChunks = pruneRetrieverContextByTokens(retrieverChunks, cfg.Model, cfg.RetrieverContextMaxTokens)
+	}
 	retrieverPreamble := buildRetrieverPreamble(retrieverChunks)
 	formatHint := outputParserFormatInstructions(cfg.OutputParser)
 
