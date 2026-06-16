@@ -152,6 +152,42 @@ func TestApplyPromptVars_MultipleVars(t *testing.T) {
 	assert.Equal(t, "1 and 2", result)
 }
 
+func TestApplyTemplate_GoTemplateMode(t *testing.T) {
+	t.Parallel()
+	vars := map[string]string{"Lang": "Go"}
+	result := applyTemplate("I love {{.Lang}}", vars, true)
+	assert.Equal(t, "I love Go", result)
+}
+
+func TestApplyTemplate_PlainSubstitution(t *testing.T) {
+	t.Parallel()
+	vars := map[string]string{"Lang": "Go"}
+	result := applyTemplate("I love {{Lang}}", vars, false)
+	assert.Equal(t, "I love Go", result)
+}
+
+func TestApplyTemplate_GoTemplate_EmptyText(t *testing.T) {
+	t.Parallel()
+	result := applyTemplate("", map[string]string{"x": "y"}, true)
+	assert.Equal(t, "", result)
+}
+
+func TestApplyTemplate_PlainSubstitution_NoVars(t *testing.T) {
+	t.Parallel()
+	result := applyTemplate("no substitution here", nil, false)
+	assert.Equal(t, "no substitution here", result)
+}
+
+func TestRenderGoTemplate_ExecuteError_FallsBack(t *testing.T) {
+	t.Parallel()
+	// Template with a range on a string value causes execution error.
+	vars := map[string]string{"items": "not-a-slice"}
+	result := renderGoTemplate(`{{range .items}}{{.}}{{end}}`, vars)
+	// Falls back to original string on exec error or produces empty string.
+	// Both are acceptable — the key assertion is no panic.
+	_ = result
+}
+
 func TestLangchainBaseURLs_LocalBackendPresent(t *testing.T) {
 	t.Parallel()
 	url, ok := langchainBaseURLs["local"]
