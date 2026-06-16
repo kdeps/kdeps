@@ -124,3 +124,20 @@ func (e *Engine) executeLoader(resource *domain.Resource, ctx *ExecutionContext)
 func (e *Engine) executeInlineLoader(config *domain.LoaderConfig, ctx *ExecutionContext) (interface{}, error) {
 	return e.executeRegistered("executeInlineLoader", e.registry.GetLoaderExecutor, "loader", ctx, config)
 }
+
+// executeVectorStore executes a vectorStore resource.
+func (e *Engine) executeVectorStore(resource *domain.Resource, ctx *ExecutionContext) (interface{}, error) {
+	return e.executeRegisteredResource(
+		resource, "vectorStore", resource.VectorStore,
+		e.registry.GetVectorStoreExecutor, "vectorStore", "executeVectorStore", ctx,
+	)
+}
+
+// executeInlineVectorStore executes an inline vectorStore resource.
+func (e *Engine) executeInlineVectorStore(
+	config *domain.VectorStoreConfig, ctx *ExecutionContext,
+) (interface{}, error) {
+	return e.executeRegistered(
+		"executeInlineVectorStore", e.registry.GetVectorStoreExecutor, "vectorStore", ctx, config,
+	)
+}

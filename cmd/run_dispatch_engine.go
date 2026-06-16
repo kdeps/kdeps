@@ -45,6 +45,7 @@ import (
 	executorSearchWeb "github.com/kdeps/kdeps/v2/pkg/executor/searchweb"
 	executorSQL "github.com/kdeps/kdeps/v2/pkg/executor/sql"
 	executorTelephony "github.com/kdeps/kdeps/v2/pkg/executor/telephony"
+	executorVectorStore "github.com/kdeps/kdeps/v2/pkg/executor/vectorstore"
 	"github.com/kdeps/kdeps/v2/pkg/infra/logging"
 )
 
@@ -106,6 +107,7 @@ func newExecutorRegistry(logger *slog.Logger) *executor.Registry {
 	registry.SetGitExecutor(executorGit.NewAdapter())
 	registry.SetCodeIntelligenceExecutor(executorCodeIntelligence.NewAdapter())
 	registry.SetLoaderExecutor(executorLoader.NewAdapter())
+	registry.SetVectorStoreExecutor(executorVectorStore.NewAdapter())
 	registry.SetLLMExecutor(executorLLM.NewAdapter(getOllamaURL()))
 	return registry
 }

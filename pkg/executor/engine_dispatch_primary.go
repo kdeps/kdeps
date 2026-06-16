@@ -53,6 +53,7 @@ func primaryResourceDispatch() []primaryDispatchEntry {
 		"git":              (*Engine).executeGit,
 		"codeIntelligence": (*Engine).executeCodeIntelligence,
 		"loader":           (*Engine).executeLoader,
+		"vectorStore":      (*Engine).executeVectorStore,
 		"apiResponse":      (*Engine).executeAPIResponse,
 	}
 

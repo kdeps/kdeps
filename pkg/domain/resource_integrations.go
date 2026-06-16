@@ -63,6 +63,38 @@ type LoaderConfig struct {
 	ChunkSplitter string `yaml:"chunkSplitter,omitempty"` // recursive | token | markdown
 }
 
+// VectorStoreDocument is a document to upsert into a vector store.
+type VectorStoreDocument struct {
+	Content  string                 `yaml:"content"`
+	Metadata map[string]interface{} `yaml:"metadata,omitempty"`
+}
+
+// VectorStoreConfig configures a vector store operation.
+type VectorStoreConfig struct {
+	// Provider selects the vector store backend: qdrant (default).
+	Provider string `yaml:"provider,omitempty"`
+	// URL is the base URL of the vector store service (e.g. "http://localhost:6333").
+	URL string `yaml:"url"`
+	// Collection is the collection/namespace name in the store.
+	Collection string `yaml:"collection"`
+	// APIKey authenticates requests (optional for local deployments).
+	APIKey string `yaml:"apiKey,omitempty"`
+	// Operation controls what to do: add_documents | similarity_search.
+	Operation string `yaml:"operation"`
+
+	// For add_documents: the documents to upsert.
+	Documents []VectorStoreDocument `yaml:"documents,omitempty"`
+
+	// For similarity_search: the natural language query and how many results to return.
+	Query string `yaml:"query,omitempty"`
+	TopK  int    `yaml:"topK,omitempty"` // default: 5
+
+	// Embedder config - used to generate vectors for documents and queries.
+	EmbedModel   string `yaml:"embedModel"`
+	EmbedBackend string `yaml:"embedBackend,omitempty"`
+	EmbedBaseURL string `yaml:"embedBaseURL,omitempty"`
+}
+
 // SearchLocalConfig represents local filesystem search configuration.
 type SearchLocalConfig struct {
 	Path  string `yaml:"path"`
