@@ -173,3 +173,30 @@ func TestOutputParserFormatInstructions_Enum(t *testing.T) {
 	assert.Contains(t, inst, "no")
 	assert.Contains(t, inst, "maybe")
 }
+
+func TestApplyOutputParser_RegexDict_Valid(t *testing.T) {
+	// The regex_dict pattern matches "Pattern: value" in text.
+	content := "Name: Alice.\nAction: run."
+	out, err := applyOutputParser("regex_dict:name=Name,action=Action", content)
+	require.NoError(t, err)
+	assert.Contains(t, out, "Alice")
+	assert.Contains(t, out, "run")
+}
+
+func TestApplyOutputParser_RegexDict_NoMatch(t *testing.T) {
+	content := "nothing here"
+	out, err := applyOutputParser("regex_dict:name=Name", content)
+	assert.Error(t, err)
+	assert.Equal(t, content, out)
+}
+
+func TestApplyOutputParser_RegexDict_EmptySpec(t *testing.T) {
+	out, err := applyOutputParser("regex_dict:", "data")
+	assert.Error(t, err)
+	assert.Equal(t, "data", out)
+}
+
+func TestOutputParserFormatInstructions_RegexDict(t *testing.T) {
+	inst := outputParserFormatInstructions("regex_dict:key=Pattern")
+	assert.NotEmpty(t, inst)
+}

@@ -35,6 +35,9 @@ func applyOutputParser(parserName, content string) (string, error) {
 	if parserName == "" {
 		return content, nil
 	}
+	if strings.HasPrefix(parserName, "regex_dict:") {
+		return parseRegexDictOutput(strings.TrimPrefix(parserName, "regex_dict:"), content)
+	}
 	if strings.HasPrefix(parserName, "regex:") {
 		return parseRegexOutput(strings.TrimPrefix(parserName, "regex:"), content)
 	}
@@ -139,6 +142,37 @@ func parseCombiningOutput(parserList, content string) (string, error) {
 	return content, nil
 }
 
+// parseRegexDictOutput extracts multiple named fields from content.
+// keyPatternList format: "key1=Pattern1,key2=Pattern2"
+// Each Pattern is matched against "Pattern: <value>" in the content.
+// Returns a JSON object string mapping keys to extracted values.
+func parseRegexDictOutput(keyPatternList, content string) (string, error) {
+	outputKeyToFormat := make(map[string]string)
+	for _, pair := range strings.Split(keyPatternList, ",") {
+		idx := strings.IndexByte(pair, '=')
+		if idx < 0 {
+			continue
+		}
+		k := strings.TrimSpace(pair[:idx])
+		v := strings.TrimSpace(pair[idx+1:])
+		if k != "" && v != "" {
+			outputKeyToFormat[k] = v
+		}
+	}
+	if len(outputKeyToFormat) == 0 {
+		return content, fmt.Errorf("output_parser: regex_dict: no key=pattern pairs in %q", keyPatternList)
+	}
+	out, err := lc.NewRegexDict(outputKeyToFormat, "").Parse(content)
+	if err != nil {
+		return content, err
+	}
+	b, merr := json.Marshal(out)
+	if merr != nil {
+		return content, merr
+	}
+	return string(b), nil
+}
+
 func parseRegexOutput(expr, content string) (string, error) {
 	out, err := lc.NewRegexParser(expr).Parse(content)
 	if err != nil {
@@ -161,6 +195,8 @@ func outputParserFormatInstructions(parserName string) string {
 		return lc.NewCommaSeparatedList().GetFormatInstructions()
 	case parserName == "structured":
 		return lc.NewStructured(nil).GetFormatInstructions()
+	case strings.HasPrefix(parserName, "regex_dict:"):
+		return lc.NewRegexDict(nil, "").GetFormatInstructions()
 	case strings.HasPrefix(parserName, "regex:"):
 		return lc.NewRegexParser(strings.TrimPrefix(parserName, "regex:")).GetFormatInstructions()
 	case strings.HasPrefix(parserName, "enum:"):
