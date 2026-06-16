@@ -250,3 +250,99 @@ func TestLoadDocuments_NotionType(t *testing.T) {
 	require.Len(t, docs, 1)
 	assert.Equal(t, "hello", docs[0].Content)
 }
+
+func TestLoadHTML_NotFound(t *testing.T) {
+	t.Parallel()
+	_, err := loadHTML("/nonexistent/file.html")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "loader html")
+}
+
+func TestLoadDirectory_NotFound(t *testing.T) {
+	t.Parallel()
+	// WalkDir on a nonexistent root calls fn with the error; fn returns nil,
+	// so WalkDir returns nil — result is empty docs, no error.
+	docs, err := loadDirectory("/nonexistent/path/to/directory")
+	require.NoError(t, err)
+	assert.Empty(t, docs)
+}
+
+func TestLoadCSV_NotFound(t *testing.T) {
+	t.Parallel()
+	_, err := loadCSV("/nonexistent/file.csv", nil)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "loader csv")
+}
+
+func TestExecute_FullPipeline(t *testing.T) {
+	f := writeTempFile(t, "hello world from execute")
+	e := NewExecutor()
+	result, err := e.Execute(nil, &domain.LoaderConfig{Source: f})
+	require.NoError(t, err)
+	m, ok := result.(map[string]interface{})
+	require.True(t, ok)
+	assert.Equal(t, 1, m["count"])
+}
+
+func TestExecute_WithChunking(t *testing.T) {
+	content := "The quick brown fox. The lazy dog. Pack my box. Five dozen. Liquor jugs."
+	f := writeTempFile(t, content)
+	e := NewExecutor()
+	result, err := e.Execute(nil, &domain.LoaderConfig{
+		Source:        f,
+		ChunkSize:     20,
+		ChunkSplitter: "recursive",
+	})
+	require.NoError(t, err)
+	m, ok := result.(map[string]interface{})
+	require.True(t, ok)
+	assert.Greater(t, m["count"], 1)
+}
+
+func TestExecute_SplitError(t *testing.T) {
+	f := writeTempFile(t, "some text")
+	e := NewExecutor()
+	_, err := e.Execute(nil, &domain.LoaderConfig{
+		Source:        f,
+		ChunkSize:     10,
+		ChunkSplitter: "invalid_splitter_xyz",
+	})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "invalid_splitter_xyz")
+}
+
+func TestLoadDocuments_DefaultTypeIsText(t *testing.T) {
+	f := writeTempFile(t, "default type content")
+	docs, err := loadDocuments(&domain.LoaderConfig{Source: f})
+	require.NoError(t, err)
+	require.Len(t, docs, 1)
+	assert.Equal(t, "default type content", docs[0].Content)
+}
+
+func TestLoadDocuments_HTMLType(t *testing.T) {
+	content := "<html><body><p>Hello from HTML loader</p></body></html>"
+	f := writeTempFileExt(t, content, ".html")
+	docs, err := loadDocuments(&domain.LoaderConfig{Type: "html", Source: f})
+	require.NoError(t, err)
+	require.Len(t, docs, 1)
+	assert.Contains(t, docs[0].Content, "Hello from HTML loader")
+}
+
+func TestLoadDocuments_DirectoryType(t *testing.T) {
+	dir := t.TempDir()
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "a.txt"), []byte("aaa"), 0o600))
+	docs, err := loadDocuments(&domain.LoaderConfig{Type: "directory", Source: dir})
+	require.NoError(t, err)
+	require.Len(t, docs, 1)
+}
+
+func TestBuildLoaderResult_MultipleDocuments(t *testing.T) {
+	t.Parallel()
+	docs := []Document{
+		{Content: "first", Metadata: map[string]interface{}{"idx": 0}},
+		{Content: "second", Metadata: map[string]interface{}{"idx": 1}},
+	}
+	result := buildLoaderResult(docs)
+	assert.Equal(t, 2, result["count"])
+	assert.NotEmpty(t, result["json"])
+}

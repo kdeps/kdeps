@@ -148,3 +148,64 @@ func TestOllamaBackend_BuildRequest_StreamingFalse(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, false, req["stream"])
 }
+
+func TestOllamaBackend_Name(t *testing.T) {
+	t.Parallel()
+	b := &llm.OllamaBackend{}
+	assert.Equal(t, "ollama", b.Name())
+}
+
+func TestOllamaBackend_APIKeyEnvVar(t *testing.T) {
+	t.Parallel()
+	b := &llm.OllamaBackend{}
+	assert.Equal(t, "", b.APIKeyEnvVar())
+}
+
+func TestOllamaBackend_GetAPIKeyHeader(t *testing.T) {
+	t.Parallel()
+	b := &llm.OllamaBackend{}
+	name, val := b.GetAPIKeyHeader("any-key")
+	assert.Empty(t, name)
+	assert.Empty(t, val)
+}
+
+func TestOllamaBackend_ChatEndpoint_Custom(t *testing.T) {
+	t.Parallel()
+	b := &llm.OllamaBackend{}
+	ep := b.ChatEndpoint("http://remote:11434")
+	assert.Equal(t, "http://remote:11434/api/chat", ep)
+}
+
+func TestOllamaBackend_ParseResponse_NonOK(t *testing.T) {
+	t.Parallel()
+	b := &llm.OllamaBackend{}
+	resp := makeResp(stdhttp.StatusInternalServerError, `{"error":"model not found"}`)
+	_, err := b.ParseResponse(resp)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "500")
+}
+
+func TestOllamaBackend_BuildRequest_JSONResponse(t *testing.T) {
+	t.Parallel()
+	b := &llm.OllamaBackend{}
+	req, err := b.BuildRequest("llama3.2:1b", nil, llm.ChatRequestConfig{JSONResponse: true})
+	require.NoError(t, err)
+	assert.Equal(t, "json", req["format"])
+}
+
+func TestOllamaBackend_BuildRequest_WithTools(t *testing.T) {
+	t.Parallel()
+	b := &llm.OllamaBackend{}
+	tools := []map[string]interface{}{{"type": "function", "name": "my_fn"}}
+	req, err := b.BuildRequest("llama3.2:1b", nil, llm.ChatRequestConfig{Tools: tools})
+	require.NoError(t, err)
+	assert.Equal(t, tools, req["tools"])
+}
+
+func TestOllamaBackend_BuildRequest_Model(t *testing.T) {
+	t.Parallel()
+	b := &llm.OllamaBackend{}
+	req, err := b.BuildRequest("phi4", nil, llm.ChatRequestConfig{})
+	require.NoError(t, err)
+	assert.Equal(t, "phi4", req["model"])
+}
