@@ -267,6 +267,74 @@ chat:
 
 </div>
 
+## Few-Shot Prompting
+
+Inject example user/assistant pairs before the conversation to demonstrate the expected output format. Like calling a function with example inputs and outputs — the model learns the pattern from the examples.
+
+<div v-pre>
+
+```yaml
+# resources/classifier.yaml
+chat:
+  prompt: "{{ get('q') }}"
+  fewShot:
+    - role: user
+      prompt: What color is the sky?
+    - role: assistant
+      prompt: blue
+    - role: user
+      prompt: What color is grass?
+    - role: assistant
+      prompt: green
+```
+
+</div>
+
+### Dynamic example selection
+
+When you have many examples, `fewShotSelectK` picks the K most relevant to the current prompt using word-overlap similarity:
+
+<div v-pre>
+
+```yaml
+# resources/classifier.yaml
+chat:
+  prompt: "{{ get('q') }}"
+  fewShotSelectK: 3   # pick 3 most similar examples
+  fewShot:
+    - role: user
+      prompt: What color is the sky?
+    - role: assistant
+      prompt: blue
+    # ... many more examples
+```
+
+</div>
+
+### Token budget for examples
+
+`fewShotMaxTokens` caps the total tokens used by examples, implementing the LengthBasedExampleSelector pattern. Useful when your example pool is large and you want to stay within context limits:
+
+<div v-pre>
+
+```yaml
+# resources/classifier.yaml
+chat:
+  prompt: "{{ get('q') }}"
+  fewShotSelectK: 10          # pick up to 10 similar examples
+  fewShotMaxTokens: 500       # but never use more than 500 tokens total
+  fewShot:
+    - role: user
+      prompt: What color is the sky?
+    - role: assistant
+      prompt: blue
+    # ... large example bank
+```
+
+</div>
+
+Both fields can be combined: `fewShotSelectK` ranks examples by similarity first, then `fewShotMaxTokens` prunes the result to the token budget. Pairs (user + assistant) are always kept whole.
+
 ## Examples
 
 ### Simple Q&A
