@@ -127,7 +127,9 @@ func (a *Adapter) Execute(ctx *executor.ExecutionContext, config interface{}) (i
 
 // StreamChat implements agent.Streamer. It makes a streaming LLM call using a
 // pre-resolved ChatConfig and writes tokens to w as they arrive.
-func (a *Adapter) StreamChat(ctx context.Context, cfg *domain.ChatConfig, w io.Writer) (string, error) {
+func (a *Adapter) StreamChat(
+	ctx context.Context, cfg *domain.ChatConfig, w io.Writer,
+) (string, []domain.StreamedToolCall, error) {
 	kdeps_debug.Log("enter: StreamChat")
 	return a.executor.StreamChat(ctx, cfg, w)
 }

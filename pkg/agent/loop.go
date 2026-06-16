@@ -38,9 +38,9 @@ import (
 
 // Streamer makes streaming LLM calls for the agent loop.
 // Implementations write each token chunk to w as it arrives and return
-// the full accumulated response text.
+// the full accumulated response text along with any tool calls.
 type Streamer interface {
-	StreamChat(ctx context.Context, cfg *domain.ChatConfig, w io.Writer) (string, error)
+	StreamChat(ctx context.Context, cfg *domain.ChatConfig, w io.Writer) (string, []domain.StreamedToolCall, error)
 }
 
 // Config holds agent loop configuration.
@@ -235,13 +235,91 @@ func (l *Loop) RunStreaming(ctx context.Context, input string, w io.Writer) (str
 	systemPreamble := l.buildSystemPreamble()
 	chatCfg := l.buildChatConfig(input, systemPreamble)
 
-	response, err := l.streamer.StreamChat(ctx, chatCfg, w)
-	if err != nil {
-		return "", fmt.Errorf("agent loop stream: %w", err)
+	var finalContent string
+	for {
+		content, toolCalls, err := l.streamer.StreamChat(ctx, chatCfg, w)
+		if err != nil {
+			return "", fmt.Errorf("agent loop stream: %w", err)
+		}
+
+		if len(toolCalls) == 0 {
+			finalContent = content
+			break
+		}
+
+		// Execute each tool and accumulate tool result messages.
+		chatCfg = l.appendToolRoundTrip(chatCfg, content, toolCalls)
+
+		fmt.Fprintln(w) // newline before next streaming response
 	}
 
+	response := stripContentToolCalls(finalContent)
 	l.session.Append(input, response)
 	return response, nil
+}
+
+// appendToolRoundTrip appends the assistant tool-call turn and tool results to
+// cfg.Messages and returns an updated ChatConfig ready for the next LLM call.
+func (l *Loop) appendToolRoundTrip(
+	cfg *domain.ChatConfig, assistantContent string, toolCalls []domain.StreamedToolCall,
+) *domain.ChatConfig {
+	var history []map[string]interface{}
+	if cfg.Messages != "" {
+		_ = json.Unmarshal([]byte(cfg.Messages), &history)
+	}
+
+	// Build tool_calls JSON for the assistant turn.
+	tcJSON := make([]map[string]interface{}, len(toolCalls))
+	for i, tc := range toolCalls {
+		tcJSON[i] = map[string]interface{}{
+			"id":   tc.ID,
+			"type": "function",
+			"function": map[string]interface{}{
+				"name":      tc.Name,
+				"arguments": tc.Arguments,
+			},
+		}
+	}
+	history = append(history, map[string]interface{}{
+		"role":       "assistant",
+		"content":    assistantContent,
+		"tool_calls": tcJSON,
+	})
+
+	// Execute each tool and add tool result messages.
+	for _, tc := range toolCalls {
+		result := l.dispatchStreamToolCall(tc)
+		history = append(history, map[string]interface{}{
+			"role":         "tool",
+			"tool_call_id": tc.ID,
+			"name":         tc.Name,
+			"content":      result,
+		})
+	}
+
+	updated := *cfg
+	if b, err := json.Marshal(history); err == nil {
+		updated.Messages = string(b)
+		updated.Prompt = "" // already in history
+	}
+	return &updated
+}
+
+// dispatchStreamToolCall executes a tool call from the streaming path.
+func (l *Loop) dispatchStreamToolCall(tc domain.StreamedToolCall) string {
+	tool := l.registry.Get(tc.Name)
+	if tool == nil {
+		return fmt.Sprintf(`{"error":"tool %q not found"}`, tc.Name)
+	}
+	var args map[string]interface{}
+	if err := json.Unmarshal([]byte(tc.Arguments), &args); err != nil {
+		args = make(map[string]interface{})
+	}
+	result, err := tool.Execute(args)
+	if err != nil {
+		return fmt.Sprintf(`{"error":"%s"}`, err.Error())
+	}
+	return result
 }
 
 // toolUseGuidance is injected into the system preamble when tools are registered.
@@ -334,10 +412,8 @@ func formatLoopResult(result interface{}) string {
 	return ""
 }
 
-// stripContentToolCalls returns empty string when content is a JSON array of tool call
-// objects ({"name": "...", "arguments": {...}}). Small models sometimes put tool calls
-// in the content field instead of the tool_calls field; discarding them prevents garbled
-// text from poisoning the conversation history.
+// stripContentToolCalls removes model-generated tool call noise from content.
+// Handles JSON array tool calls (small models putting tool_calls in content field).
 func stripContentToolCalls(content string) string {
 	trimmed := strings.TrimSpace(content)
 	if !strings.HasPrefix(trimmed, "[") {

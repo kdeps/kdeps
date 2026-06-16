@@ -55,7 +55,7 @@ func (e *Executor) buildScenarioMessages(
 		if scenarioName != "" {
 			msg["name"] = scenarioName
 		}
-		if scenarioRole == "system" {
+		if scenarioRole == roleSystem {
 			beforeUser = append(beforeUser, msg)
 		} else {
 			afterUser = append(afterUser, msg)

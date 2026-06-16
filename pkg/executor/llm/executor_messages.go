@@ -63,7 +63,7 @@ func (e *Executor) buildMessages(
 	if systemPrompt != "" {
 		messages = append([]map[string]interface{}{
 			{
-				"role":    "system",
+				"role":    roleSystem,
 				"content": systemPrompt,
 			},
 		}, messages...)

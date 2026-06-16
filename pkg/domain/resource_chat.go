@@ -97,4 +97,11 @@ type ToolParam struct {
 	Default     interface{} `yaml:"default,omitempty"` // Default value
 }
 
+// StreamedToolCall is a tool call returned from a streaming LLM response.
+type StreamedToolCall struct {
+	ID        string // tool call ID from the model
+	Name      string // function name
+	Arguments string // JSON-encoded argument string
+}
+
 // HTTPClientConfig represents HTTP client configuration.
