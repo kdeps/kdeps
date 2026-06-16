@@ -19,9 +19,15 @@
 package agent
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
+	"fmt"
+	"io"
+	"net/http"
 	"os"
+	"strings"
 
 	"github.com/kdeps/kdeps/v2/pkg/domain"
 	kdepstools "github.com/kdeps/kdeps/v2/pkg/tools"
@@ -38,13 +44,14 @@ const (
 )
 
 // RegisterBuiltinTools adds built-in tools (web_search, wikipedia, and optional
-// API-key tools: serpapi_search, perplexity_search) to the registry.
+// API-key tools: serpapi_search, perplexity_search, exa_search) to the registry.
 // API-key tools are registered only when the corresponding env var is set.
 func RegisterBuiltinTools(ctx context.Context, reg *kdepstools.Registry) {
 	registerDuckDuckGo(ctx, reg)
 	registerWikipedia(ctx, reg)
 	registerSerpAPI(ctx, reg)
 	registerPerplexity(ctx, reg)
+	registerExa(ctx, reg)
 }
 
 func registerDuckDuckGo(ctx context.Context, reg *kdepstools.Registry) {
@@ -121,6 +128,88 @@ func registerSerpAPI(ctx context.Context, reg *kdepstools.Registry) {
 			return tool.Call(ctx, query)
 		},
 	})
+}
+
+const (
+	exaSearchURL         = "https://api.exa.ai/search"
+	exaDefaultNumResults = 5
+)
+
+// registerExa registers the Exa (formerly Metaphor) neural search tool when EXA_API_KEY is set.
+// Exa finds the most relevant URLs for a search query using link-prediction neural search.
+func registerExa(ctx context.Context, reg *kdepstools.Registry) {
+	apiKey := os.Getenv("EXA_API_KEY")
+	if apiKey == "" {
+		apiKey = os.Getenv("METAPHOR_API_KEY")
+	}
+	if apiKey == "" {
+		return
+	}
+	reg.Register(&kdepstools.Tool{
+		Name:        "exa_search",
+		Description: "Search the web using Exa (formerly Metaphor) neural search. Finds highly relevant URLs and content using AI-powered link prediction. Best for research, finding authoritative sources, and content discovery. Requires EXA_API_KEY.",
+		Parameters: map[string]domain.ToolParam{
+			"query": {
+				Type:        "string",
+				Description: "The search query or prompt to find relevant links for",
+				Required:    true,
+			},
+		},
+		Execute: func(args map[string]interface{}) (string, error) {
+			query, _ := args["query"].(string)
+			if query == "" {
+				return "", errors.New("exa_search: query is required")
+			}
+			return callExaSearch(ctx, apiKey, query)
+		},
+	})
+}
+
+func callExaSearch(ctx context.Context, apiKey, query string) (string, error) {
+	body, _ := json.Marshal(map[string]interface{}{
+		"query":      query,
+		"numResults": exaDefaultNumResults,
+	})
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, exaSearchURL, bytes.NewReader(body))
+	if err != nil {
+		return "", fmt.Errorf("exa_search: build request: %w", err)
+	}
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("X-Api-Key", apiKey)
+
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return "", fmt.Errorf("exa_search: request: %w", err)
+	}
+	defer resp.Body.Close()
+
+	respBody, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return "", fmt.Errorf("exa_search: read response: %w", err)
+	}
+	if resp.StatusCode != http.StatusOK {
+		return "", fmt.Errorf("exa_search: API error %d: %s", resp.StatusCode, string(respBody))
+	}
+
+	var result struct {
+		Results []struct {
+			Title string `json:"title"`
+			URL   string `json:"url"`
+			Text  string `json:"text"`
+		} `json:"results"`
+	}
+	if parseErr := json.Unmarshal(respBody, &result); parseErr != nil {
+		return string(respBody), nil
+	}
+
+	var sb strings.Builder
+	for i, r := range result.Results {
+		fmt.Fprintf(&sb, "%d. %s\n   %s\n", i+1, r.Title, r.URL)
+		if r.Text != "" {
+			fmt.Fprintf(&sb, "   %s\n", r.Text)
+		}
+	}
+	return strings.TrimSpace(sb.String()), nil
 }
 
 // registerPerplexity registers the Perplexity AI search tool when PERPLEXITY_API_KEY is set.

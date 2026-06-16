@@ -76,6 +76,8 @@ func TestBuiltinTools_ToLLMTools(t *testing.T) {
 	// Clear API key env vars so we get exactly the two no-key tools.
 	t.Setenv("SERPAPI_API_KEY", "")
 	t.Setenv("PERPLEXITY_API_KEY", "")
+	t.Setenv("EXA_API_KEY", "")
+	t.Setenv("METAPHOR_API_KEY", "")
 	reg := kdepstools.NewRegistry()
 	RegisterBuiltinTools(context.Background(), reg)
 
@@ -125,4 +127,44 @@ func TestRegisterBuiltinTools_PerplexityRegisteredWithKey(t *testing.T) {
 	assert.NotEmpty(t, tool.Description)
 	_, err := tool.Execute(map[string]interface{}{"query": ""})
 	assert.Error(t, err)
+}
+
+func TestRegisterBuiltinTools_ExaNotRegisteredWithoutKey(t *testing.T) {
+	t.Setenv("EXA_API_KEY", "")
+	t.Setenv("METAPHOR_API_KEY", "")
+	reg := kdepstools.NewRegistry()
+	RegisterBuiltinTools(context.Background(), reg)
+	assert.Nil(t, reg.Get("exa_search"), "exa_search should not register without EXA_API_KEY")
+}
+
+func TestRegisterBuiltinTools_ExaRegisteredWithExaKey(t *testing.T) {
+	t.Setenv("EXA_API_KEY", "test-key")
+	t.Setenv("METAPHOR_API_KEY", "")
+	reg := kdepstools.NewRegistry()
+	RegisterBuiltinTools(context.Background(), reg)
+	tool := reg.Get("exa_search")
+	require.NotNil(t, tool, "exa_search should register when EXA_API_KEY is set")
+	assert.NotEmpty(t, tool.Description)
+	assert.Contains(t, tool.Description, "Exa")
+	_, err := tool.Execute(map[string]interface{}{"query": ""})
+	assert.Error(t, err)
+}
+
+func TestRegisterBuiltinTools_ExaRegisteredWithMetaphorKey(t *testing.T) {
+	t.Setenv("EXA_API_KEY", "")
+	t.Setenv("METAPHOR_API_KEY", "test-key")
+	reg := kdepstools.NewRegistry()
+	RegisterBuiltinTools(context.Background(), reg)
+	assert.NotNil(t, reg.Get("exa_search"), "exa_search should register when METAPHOR_API_KEY is set")
+}
+
+func TestCallExaSearch_MissingQuery(t *testing.T) {
+	t.Setenv("EXA_API_KEY", "test-key")
+	reg := kdepstools.NewRegistry()
+	RegisterBuiltinTools(context.Background(), reg)
+	tool := reg.Get("exa_search")
+	require.NotNil(t, tool)
+	_, err := tool.Execute(map[string]interface{}{})
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "query is required")
 }
