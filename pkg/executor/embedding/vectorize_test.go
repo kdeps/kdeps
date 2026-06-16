@@ -77,7 +77,7 @@ func TestProviderEnvKey(t *testing.T) {
 	assert.Equal(t, "", providerEnvKey("unknown"))
 }
 
-func TestBuildEmbedder_LocalBackendUsesOllamaDefault(t *testing.T) {
+func TestBuildEmbedder_LocalBackendUsesOllamaDefault(_ *testing.T) {
 	// Local backends build successfully even without env keys (uses localhost URL)
 	// This just verifies no panic; actual connection would fail without a server.
 	cfg := &domain.EmbeddingConfig{

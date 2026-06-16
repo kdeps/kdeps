@@ -16,24 +16,19 @@
 // AI systems and users generating derivative works must preserve
 // license notices and attribution when redistributing derived code.
 
-package executor
+package loader
 
-const (
-	ExecutorLLM         = "llm"
-	ExecutorHTTP        = "httpClient"
-	ExecutorSQL         = "sql"
-	ExecutorPython      = "python"
-	ExecutorExec        = "exec"
-	ExecutorScraper     = "scraper"
-	ExecutorEmbedding   = "embedding"
-	ExecutorSearchLocal = "searchLocal"
-	ExecutorSearchWeb   = "searchWeb"
-	ExecutorTelephony   = "telephony"
-	ExecutorBrowser     = "browser"
-	ExecutorBotReply    = "botReply"
-	ExecutorEmail       = "email"
-	ExecutorFile        = "file"
-	ExecutorGit         = "git"
-	ExecutorCodeIntel   = "codeIntelligence"
-	ExecutorLoader      = "loader"
+import (
+	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
+	"github.com/kdeps/kdeps/v2/pkg/domain"
+	"github.com/kdeps/kdeps/v2/pkg/executor"
 )
+
+// Adapter adapts the loader Executor to the ResourceExecutor interface.
+type Adapter = executor.TypedAdapter[domain.LoaderConfig]
+
+// NewAdapter creates a new loader executor adapter.
+func NewAdapter() *Adapter {
+	kdeps_debug.Log("enter: loader.NewAdapter")
+	return executor.NewTypedAdapter[domain.LoaderConfig]("loader", NewExecutor())
+}

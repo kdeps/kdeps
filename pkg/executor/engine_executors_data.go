@@ -111,3 +111,16 @@ func (e *Engine) executeInlineCodeIntelligence(
 		config,
 	)
 }
+
+// executeLoader executes a loader resource.
+func (e *Engine) executeLoader(resource *domain.Resource, ctx *ExecutionContext) (interface{}, error) {
+	return e.executeRegisteredResource(
+		resource, "loader", resource.Loader,
+		e.registry.GetLoaderExecutor, "loader", "executeLoader", ctx,
+	)
+}
+
+// executeInlineLoader executes an inline loader resource.
+func (e *Engine) executeInlineLoader(config *domain.LoaderConfig, ctx *ExecutionContext) (interface{}, error) {
+	return e.executeRegistered("executeInlineLoader", e.registry.GetLoaderExecutor, "loader", ctx, config)
+}

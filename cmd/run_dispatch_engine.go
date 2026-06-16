@@ -38,6 +38,7 @@ import (
 	executorGit "github.com/kdeps/kdeps/v2/pkg/executor/git"
 	executorHTTP "github.com/kdeps/kdeps/v2/pkg/executor/http"
 	executorLLM "github.com/kdeps/kdeps/v2/pkg/executor/llm"
+	executorLoader "github.com/kdeps/kdeps/v2/pkg/executor/loader"
 	executorPython "github.com/kdeps/kdeps/v2/pkg/executor/python"
 	executorScraper "github.com/kdeps/kdeps/v2/pkg/executor/scraper"
 	executorSearchLocal "github.com/kdeps/kdeps/v2/pkg/executor/searchlocal"
@@ -104,6 +105,7 @@ func newExecutorRegistry(logger *slog.Logger) *executor.Registry {
 	registry.SetFileExecutor(executorFile.NewAdapter())
 	registry.SetGitExecutor(executorGit.NewAdapter())
 	registry.SetCodeIntelligenceExecutor(executorCodeIntelligence.NewAdapter())
+	registry.SetLoaderExecutor(executorLoader.NewAdapter())
 	registry.SetLLMExecutor(executorLLM.NewAdapter(getOllamaURL()))
 	return registry
 }

@@ -43,6 +43,26 @@ type EmbeddingConfig struct {
 	Inputs  []string `yaml:"inputs,omitempty"`  // texts to embed (vectorize operation)
 }
 
+// LoaderConfig represents a document loader configuration.
+// It loads structured content (text, PDF, HTML, CSV) into Document objects
+// for use in RAG pipelines (split -> embed -> store).
+type LoaderConfig struct {
+	// Type controls which loader to use: text (default), pdf, html, csv, directory.
+	Type   string `yaml:"type,omitempty"`
+	Source string `yaml:"source"` // file path, URL (html), or directory path
+
+	// CSV-only: optional column filter (empty = all columns)
+	Columns []string `yaml:"columns,omitempty"`
+	// PDF-only: optional decryption password
+	Password string `yaml:"password,omitempty"`
+
+	// Optional text splitting applied after loading.
+	// When ChunkSize > 0, each document is split into chunks.
+	ChunkSize     int    `yaml:"chunkSize,omitempty"`
+	ChunkOverlap  int    `yaml:"chunkOverlap,omitempty"`
+	ChunkSplitter string `yaml:"chunkSplitter,omitempty"` // recursive | token | markdown
+}
+
 // SearchLocalConfig represents local filesystem search configuration.
 type SearchLocalConfig struct {
 	Path  string `yaml:"path"`
