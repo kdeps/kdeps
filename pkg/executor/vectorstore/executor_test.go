@@ -578,6 +578,34 @@ func TestBuildStore_AlloyDB_WithURL(t *testing.T) {
 	}
 }
 
+func TestBuildStore_MongoDB_MissingURL(t *testing.T) {
+	t.Setenv("OPENAI_API_KEY", "test-key")
+	cfg := &domain.VectorStoreConfig{
+		Provider:     "mongodb",
+		Collection:   "docs",
+		EmbedModel:   "text-embedding-ada-002",
+		EmbedBackend: "openai",
+	}
+	_, err := buildStore(t.Context(), cfg)
+	if err == nil {
+		t.Fatal("expected error for missing mongodb url")
+	}
+}
+
+func TestBuildStore_MongoDB_MissingCollection(t *testing.T) {
+	t.Setenv("OPENAI_API_KEY", "test-key")
+	cfg := &domain.VectorStoreConfig{
+		Provider:     "mongo",
+		URL:          "mongodb://localhost:27017",
+		EmbedModel:   "text-embedding-ada-002",
+		EmbedBackend: "openai",
+	}
+	_, err := buildStore(t.Context(), cfg)
+	if err == nil {
+		t.Fatal("expected error for missing mongo collection")
+	}
+}
+
 func TestCosineSimilarity_SameVector(t *testing.T) {
 	v := []float32{0.1, 0.2, 0.3, 0.4}
 	score := cosineSimilarity(v, v)
