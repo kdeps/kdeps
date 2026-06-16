@@ -104,8 +104,10 @@ func runAgentLoopCmd(path string, flags *agentLoopFlags) error {
 	repl := agent.NewREPL(loop)
 
 	// Provide model name suggestions for /model <tab> completion.
-	repl.SetModelNames(buildModelNames())
+	// Cloud model IDs are appended after local models so local stay first.
+	repl.SetModelNames(buildAllModelNames())
 	repl.SetDownloadedModels(llm.DownloadedModelAliases())
+	repl.SetProviderStatus(agent.BuildProviderStatus())
 
 	// Wire /settings TUI when running interactively.
 	if isTerminal(os.Stdout) && isTerminal(os.Stdin) {
@@ -346,12 +348,34 @@ func namesEqual(a, b []tui.Item) bool {
 	return true
 }
 
-// buildModelNames returns sorted model alias names from llamafile and gguf registries.
+// buildModelNames returns local model alias names from llamafile and gguf registries.
 func buildModelNames() []string {
 	names := append(llm.LlamafileAliasNames(), llm.GGUFAliasNames()...)
 	seen := make(map[string]bool, len(names))
 	out := make([]string, 0, len(names))
 	for _, n := range names {
+		if !seen[n] {
+			seen[n] = true
+			out = append(out, n)
+		}
+	}
+	return out
+}
+
+// buildAllModelNames returns local model aliases followed by all known cloud model IDs.
+// Local models sort first so they appear first in /model <tab> completion.
+func buildAllModelNames() []string {
+	local := buildModelNames()
+	cloud := agent.CloudModelIDs()
+	seen := make(map[string]bool, len(local)+len(cloud))
+	out := make([]string, 0, len(local)+len(cloud))
+	for _, n := range local {
+		if !seen[n] {
+			seen[n] = true
+			out = append(out, n)
+		}
+	}
+	for _, n := range cloud {
 		if !seen[n] {
 			seen[n] = true
 			out = append(out, n)
