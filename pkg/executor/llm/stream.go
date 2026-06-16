@@ -188,6 +188,18 @@ func buildLangchainMessages(cfg *domain.ChatConfig) []llms.MessageContent {
 		msgs = append(msgs, llms.TextParts(llms.ChatMessageTypeSystem, formatHint))
 	}
 
+	// Few-shot examples (user/assistant pairs) injected before runtime history.
+	for _, fs := range cfg.FewShot {
+		if fs.Prompt == "" {
+			continue
+		}
+		role := fs.Role
+		if role == "" {
+			role = roleUser
+		}
+		msgs = append(msgs, llms.TextParts(roleToMessageType(role), fs.Prompt))
+	}
+
 	// Conversation history.
 	if cfg.Messages != "" {
 		msgs = append(msgs, buildHistoryMessages(cfg.Messages)...)

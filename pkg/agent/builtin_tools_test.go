@@ -73,6 +73,9 @@ func TestBuiltinToolExecute_EmptyQuery(t *testing.T) {
 }
 
 func TestBuiltinTools_ToLLMTools(t *testing.T) {
+	// Clear API key env vars so we get exactly the two no-key tools.
+	t.Setenv("SERPAPI_API_KEY", "")
+	t.Setenv("PERPLEXITY_API_KEY", "")
 	reg := kdepstools.NewRegistry()
 	RegisterBuiltinTools(context.Background(), reg)
 
@@ -85,4 +88,41 @@ func TestBuiltinTools_ToLLMTools(t *testing.T) {
 		assert.NotNil(t, lt.Execute)
 		assert.NotEmpty(t, lt.Parameters)
 	}
+}
+
+func TestRegisterBuiltinTools_SerpAPINotRegisteredWithoutKey(t *testing.T) {
+	t.Setenv("SERPAPI_API_KEY", "")
+	reg := kdepstools.NewRegistry()
+	RegisterBuiltinTools(context.Background(), reg)
+	assert.Nil(t, reg.Get("serpapi_search"), "serpapi_search should not register without SERPAPI_API_KEY")
+}
+
+func TestRegisterBuiltinTools_PerplexityNotRegisteredWithoutKey(t *testing.T) {
+	t.Setenv("PERPLEXITY_API_KEY", "")
+	reg := kdepstools.NewRegistry()
+	RegisterBuiltinTools(context.Background(), reg)
+	assert.Nil(t, reg.Get("perplexity_search"), "perplexity_search should not register without PERPLEXITY_API_KEY")
+}
+
+func TestRegisterBuiltinTools_SerpAPIRegisteredWithKey(t *testing.T) {
+	t.Setenv("SERPAPI_API_KEY", "test-key")
+	reg := kdepstools.NewRegistry()
+	RegisterBuiltinTools(context.Background(), reg)
+	tool := reg.Get("serpapi_search")
+	require.NotNil(t, tool, "serpapi_search should register when SERPAPI_API_KEY is set")
+	assert.NotEmpty(t, tool.Description)
+	// Execute with empty query should return an error.
+	_, err := tool.Execute(map[string]interface{}{"query": ""})
+	assert.Error(t, err)
+}
+
+func TestRegisterBuiltinTools_PerplexityRegisteredWithKey(t *testing.T) {
+	t.Setenv("PERPLEXITY_API_KEY", "test-key")
+	reg := kdepstools.NewRegistry()
+	RegisterBuiltinTools(context.Background(), reg)
+	tool := reg.Get("perplexity_search")
+	require.NotNil(t, tool, "perplexity_search should register when PERPLEXITY_API_KEY is set")
+	assert.NotEmpty(t, tool.Description)
+	_, err := tool.Execute(map[string]interface{}{"query": ""})
+	assert.Error(t, err)
 }

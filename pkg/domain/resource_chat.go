@@ -89,12 +89,19 @@ type ChatConfig struct {
 	// Only meaningful when tools are provided.
 	ToolChoice string `yaml:"toolChoice,omitempty"`
 
+	// FewShot injects example user/assistant pairs before the conversation history
+	// to demonstrate the expected output format. Each item should alternate roles:
+	// user (example input) then assistant (example output). Injected after scenario:
+	// messages and before runtime history.
+	FewShot []ScenarioItem `yaml:"fewShot,omitempty"`
+
 	// OutputParser applies a named post-processor to the LLM response before
 	// storing it to the action output. Supported values:
 	//   "simple"   - trims whitespace
 	//   "boolean"  - normalizes yes/no/true/false → "true" or "false"
 	//   "csv"      - splits by comma → JSON array of strings
 	//   "regex:<expr>" - applies named-group regex, returns JSON map
+	//   "regex_dict:key1=Pattern1,key2=Pattern2" - multi-field extraction, returns JSON map
 	//   "structured"   - extracts JSON from a ```json...``` fenced block
 	OutputParser string `yaml:"outputParser,omitempty"`
 	// Advanced LLM parameters (may not be supported by all backends)
