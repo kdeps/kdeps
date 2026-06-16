@@ -89,3 +89,61 @@ func TestBuildEmbedder_LocalBackendUsesOllamaDefault(_ *testing.T) {
 	// The openai client constructor itself doesn't make network calls.
 	_ = err
 }
+
+func TestBuildHuggingFaceEmbedder_ConstructsSuccessfully(t *testing.T) {
+	cfg := &domain.EmbeddingConfig{
+		Model:   "BAAI/bge-small-en-v1.5",
+		Backend: backendHuggingFace,
+	}
+	emb, err := buildHuggingFaceEmbedder(cfg)
+	require.NoError(t, err)
+	assert.NotNil(t, emb)
+}
+
+func TestBuildJinaEmbedder_ConstructsSuccessfully(t *testing.T) {
+	cfg := &domain.EmbeddingConfig{
+		Model:   "jina-embeddings-v2-small-en",
+		Backend: backendJina,
+	}
+	emb, err := buildJinaEmbedder(cfg)
+	require.NoError(t, err)
+	assert.NotNil(t, emb)
+}
+
+func TestBuildVoyageAIEmbedder_FailsWithoutKey(t *testing.T) {
+	t.Setenv("VOYAGEAI_API_KEY", "")
+	cfg := &domain.EmbeddingConfig{Model: "voyage-2", Backend: backendVoyageAI}
+	_, err := buildVoyageAIEmbedder(cfg)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "VOYAGEAI_API_KEY")
+}
+
+func TestBuildVoyageAIEmbedder_ConstructsWithKey(t *testing.T) {
+	t.Setenv("VOYAGEAI_API_KEY", "test-key")
+	cfg := &domain.EmbeddingConfig{Model: "voyage-2", Backend: backendVoyageAI}
+	emb, err := buildVoyageAIEmbedder(cfg)
+	require.NoError(t, err)
+	assert.NotNil(t, emb)
+}
+
+func TestBuildEmbedder_RoutesHuggingFace(t *testing.T) {
+	cfg := &domain.EmbeddingConfig{Model: "BAAI/bge-small-en-v1.5", Backend: backendHuggingFace}
+	emb, err := buildEmbedder(context.Background(), cfg)
+	require.NoError(t, err)
+	assert.NotNil(t, emb)
+}
+
+func TestBuildEmbedder_RoutesJina(t *testing.T) {
+	cfg := &domain.EmbeddingConfig{Model: "jina-embeddings-v2-small-en", Backend: backendJina}
+	emb, err := buildEmbedder(context.Background(), cfg)
+	require.NoError(t, err)
+	assert.NotNil(t, emb)
+}
+
+func TestBuildEmbedder_RoutesVoyageAI(t *testing.T) {
+	t.Setenv("VOYAGEAI_API_KEY", "test-key")
+	cfg := &domain.EmbeddingConfig{Model: "voyage-2", Backend: backendVoyageAI}
+	emb, err := buildEmbedder(context.Background(), cfg)
+	require.NoError(t, err)
+	assert.NotNil(t, emb)
+}
