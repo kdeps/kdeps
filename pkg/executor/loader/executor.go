@@ -26,6 +26,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"strings"
@@ -231,25 +232,24 @@ func loadPDF(source, password string) ([]Document, error) {
 }
 
 func loadDirectory(source string) ([]Document, error) {
-	entries, err := os.ReadDir(source)
-	if err != nil {
-		return nil, fmt.Errorf("loader directory: read %s: %w", source, err)
-	}
-
 	var docs []Document
-	for _, entry := range entries {
-		if entry.IsDir() {
-			continue
+	walkErr := filepath.WalkDir(source, func(path string, d fs.DirEntry, err error) error {
+		if err != nil || d.IsDir() {
+			return nil //nolint:nilerr // skip unreadable dirs/files; continue walk
 		}
-		path := filepath.Join(source, entry.Name())
-		data, rerr := os.ReadFile(path)
+		data, rerr := os.ReadFile(path) //nolint:gosec // G122: path comes from WalkDir; user controls source root
 		if rerr != nil {
-			continue
+			return nil //nolint:nilerr // skip unreadable files; continue walk
 		}
+		rel, _ := filepath.Rel(source, path)
 		docs = append(docs, Document{
 			Content:  string(data),
-			Metadata: map[string]interface{}{"source": path, "filename": entry.Name()},
+			Metadata: map[string]interface{}{"source": path, "filename": rel},
 		})
+		return nil
+	})
+	if walkErr != nil {
+		return nil, fmt.Errorf("loader directory: walk %s: %w", source, walkErr)
 	}
 	return docs, nil
 }

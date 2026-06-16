@@ -90,6 +90,27 @@ func TestLoadDirectory(t *testing.T) {
 	assert.Len(t, docs, 2)
 }
 
+func TestLoadDirectory_Recursive(t *testing.T) {
+	dir := t.TempDir()
+	subDir := filepath.Join(dir, "subdir")
+	require.NoError(t, os.MkdirAll(subDir, 0o750))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "root.txt"), []byte("root"), 0o600))
+	require.NoError(t, os.WriteFile(filepath.Join(subDir, "nested.txt"), []byte("nested"), 0o600))
+
+	docs, err := loadDirectory(dir)
+	require.NoError(t, err)
+	assert.Len(t, docs, 2)
+
+	found := map[string]bool{}
+	for _, d := range docs {
+		if fn, ok := d.Metadata["filename"].(string); ok {
+			found[fn] = true
+		}
+	}
+	assert.True(t, found["root.txt"], "root.txt should be found")
+	assert.True(t, found[filepath.Join("subdir", "nested.txt")], "nested.txt should be found")
+}
+
 func TestLoadDocuments_UnknownType(t *testing.T) {
 	_, err := loadDocuments(&domain.LoaderConfig{Type: "unknown", Source: "/tmp/x"})
 	require.Error(t, err)
