@@ -597,3 +597,325 @@ func TestBuildLangchainMessages_RetrieverContextMaxTokens(t *testing.T) {
 	// The message list should not be empty regardless of budget.
 	assert.NotEmpty(t, msgs)
 }
+
+func TestRoleToMessageType_AllRoles(t *testing.T) {
+	t.Parallel()
+	cases := []struct {
+		role     string
+		expected lc.ChatMessageType
+	}{
+		{"user", lc.ChatMessageTypeHuman},
+		{"human", lc.ChatMessageTypeHuman},
+		{"assistant", lc.ChatMessageTypeAI},
+		{"ai", lc.ChatMessageTypeAI},
+		{"system", lc.ChatMessageTypeSystem},
+		{"tool", lc.ChatMessageTypeTool},
+		{"", lc.ChatMessageTypeHuman},
+		{"unknown", lc.ChatMessageTypeHuman},
+	}
+	for _, tc := range cases {
+		got := roleToMessageType(tc.role)
+		assert.Equal(t, tc.expected, got, "role=%q", tc.role)
+	}
+}
+
+func TestBuildSystemPreamble_BothSet(t *testing.T) {
+	t.Parallel()
+	out := buildSystemPreamble("ctx", "hint")
+	assert.Contains(t, out, "ctx")
+	assert.Contains(t, out, "hint")
+}
+
+func TestBuildSystemPreamble_OnlyRetriever(t *testing.T) {
+	t.Parallel()
+	out := buildSystemPreamble("ctx", "")
+	assert.Equal(t, "ctx", out)
+}
+
+func TestBuildSystemPreamble_OnlyHint(t *testing.T) {
+	t.Parallel()
+	out := buildSystemPreamble("", "hint")
+	assert.Equal(t, "hint", out)
+}
+
+func TestBuildSystemPreamble_BothEmpty(t *testing.T) {
+	t.Parallel()
+	out := buildSystemPreamble("", "")
+	assert.Equal(t, "", out)
+}
+
+func TestBuildScenarioMessages_RetrievalInjectedIntoFirstSystem(t *testing.T) {
+	t.Parallel()
+	scenario := []domain.ScenarioItem{
+		{Role: "system", Prompt: "You are helpful."},
+		{Role: "user", Prompt: "Hello"},
+	}
+	msgs, injected := buildScenarioMessages(scenario, nil, "preamble", "", false)
+	assert.True(t, injected)
+	require.NotEmpty(t, msgs)
+	found := false
+	for _, m := range msgs {
+		if m.Role == lc.ChatMessageTypeSystem {
+			for _, p := range m.Parts {
+				if tc, ok := p.(lc.TextContent); ok && strings.Contains(tc.Text, "preamble") {
+					found = true
+				}
+			}
+		}
+	}
+	assert.True(t, found, "preamble should be in system message")
+}
+
+func TestBuildScenarioMessages_FormatHintAppendedToLast(t *testing.T) {
+	t.Parallel()
+	scenario := []domain.ScenarioItem{
+		{Role: "system", Prompt: "You are an assistant."},
+	}
+	msgs, _ := buildScenarioMessages(scenario, nil, "", "OUTPUT FORMAT", false)
+	require.Len(t, msgs, 1)
+	for _, p := range msgs[0].Parts {
+		if tc, ok := p.(lc.TextContent); ok {
+			assert.Contains(t, tc.Text, "OUTPUT FORMAT")
+		}
+	}
+}
+
+func TestBuildScenarioMessages_EmptyPromptSkipped(t *testing.T) {
+	t.Parallel()
+	scenario := []domain.ScenarioItem{
+		{Role: "system", Prompt: ""},
+		{Role: "user", Prompt: "real prompt"},
+	}
+	msgs, _ := buildScenarioMessages(scenario, nil, "", "", false)
+	assert.Len(t, msgs, 1)
+	assert.Equal(t, lc.ChatMessageTypeHuman, msgs[0].Role)
+}
+
+func TestBuildToolParameters_RequiredAndEnum(t *testing.T) {
+	t.Parallel()
+	params := map[string]domain.ToolParam{
+		"city": {
+			Type:        "string",
+			Description: "the city name",
+			Required:    true,
+			Enum:        []string{"NYC", "LA"},
+		},
+		"units": {
+			Type:        "string",
+			Description: "metric or imperial",
+			Required:    false,
+		},
+	}
+	schema := buildToolParameters(params)
+	assert.Equal(t, "object", schema["type"])
+	props, ok := schema["properties"].(map[string]interface{})
+	require.True(t, ok)
+	city, ok := props["city"].(map[string]interface{})
+	require.True(t, ok)
+	assert.Equal(t, "string", city["type"])
+	assert.Equal(t, []string{"NYC", "LA"}, city["enum"])
+	req, ok := schema["required"].([]string)
+	require.True(t, ok)
+	assert.Contains(t, req, "city")
+	assert.NotContains(t, req, "units")
+}
+
+func TestBuildToolParameters_NoRequired(t *testing.T) {
+	t.Parallel()
+	params := map[string]domain.ToolParam{
+		"q": {Type: "string", Description: "query", Required: false},
+	}
+	schema := buildToolParameters(params)
+	_, hasRequired := schema["required"]
+	assert.False(t, hasRequired)
+}
+
+func TestBuildToolParameters_Empty(t *testing.T) {
+	t.Parallel()
+	schema := buildToolParameters(nil)
+	assert.Equal(t, "object", schema["type"])
+}
+
+func TestWordSet_Basic(t *testing.T) {
+	t.Parallel()
+	set := wordSet("the quick brown fox")
+	assert.Len(t, set, 4)
+	_, hasThe := set["the"]
+	assert.True(t, hasThe)
+}
+
+func TestWordSet_Empty(t *testing.T) {
+	t.Parallel()
+	set := wordSet("")
+	assert.Empty(t, set)
+}
+
+func TestJaccardSimilarity_Identical(t *testing.T) {
+	t.Parallel()
+	a := wordSet("hello world")
+	score := jaccardSimilarity(a, a)
+	assert.InDelta(t, 1.0, score, 0.001)
+}
+
+func TestJaccardSimilarity_Disjoint(t *testing.T) {
+	t.Parallel()
+	a := wordSet("foo bar")
+	b := wordSet("baz qux")
+	score := jaccardSimilarity(a, b)
+	assert.Equal(t, 0.0, score)
+}
+
+func TestJaccardSimilarity_EmptySet(t *testing.T) {
+	t.Parallel()
+	score := jaccardSimilarity(map[string]struct{}{}, wordSet("foo"))
+	assert.Equal(t, 0.0, score)
+}
+
+func TestBuildJSONOpts_NoJSONResponse(t *testing.T) {
+	t.Parallel()
+	opts := buildJSONOpts(&domain.ChatConfig{}, "openai")
+	assert.Nil(t, opts)
+}
+
+func TestBuildJSONOpts_JSONResponse_Anthropic(t *testing.T) {
+	t.Parallel()
+	// Anthropic backend ignores JSONResponse - returns nil
+	opts := buildJSONOpts(&domain.ChatConfig{JSONResponse: true}, "anthropic")
+	assert.Nil(t, opts)
+}
+
+func TestBuildJSONOpts_JSONResponse_Google(t *testing.T) {
+	t.Parallel()
+	opts := buildJSONOpts(&domain.ChatConfig{JSONResponse: true}, "google")
+	assert.Len(t, opts, 1)
+}
+
+func TestBuildJSONOpts_JSONResponse_OpenAI(t *testing.T) {
+	t.Parallel()
+	opts := buildJSONOpts(&domain.ChatConfig{JSONResponse: true}, "openai")
+	assert.Len(t, opts, 1)
+}
+
+func TestBuildThinkingOpts_Nil(t *testing.T) {
+	t.Parallel()
+	opts := buildThinkingOpts(&domain.ChatConfig{})
+	assert.Nil(t, opts)
+}
+
+func TestBuildThinkingOpts_ModeNone(t *testing.T) {
+	t.Parallel()
+	opts := buildThinkingOpts(&domain.ChatConfig{
+		Thinking: &domain.ThinkingConfig{Mode: domain.ThinkingModeNone},
+	})
+	assert.Nil(t, opts)
+}
+
+func TestBuildThinkingOpts_Enabled(t *testing.T) {
+	t.Parallel()
+	opts := buildThinkingOpts(&domain.ChatConfig{
+		Thinking: &domain.ThinkingConfig{Mode: "enabled", BudgetTokens: 1024},
+	})
+	assert.Len(t, opts, 1)
+}
+
+func TestBuildRawHistoryMessages_UserAndAssistant(t *testing.T) {
+	t.Parallel()
+	histJSON := `[{"role":"user","content":"hello"},{"role":"assistant","content":"hi"}]`
+	msgs := buildHistoryMessages(histJSON)
+	require.Len(t, msgs, 2)
+	assert.Equal(t, lc.ChatMessageTypeHuman, msgs[0].Role)
+	assert.Equal(t, lc.ChatMessageTypeAI, msgs[1].Role)
+}
+
+func TestBuildRawHistoryMessages_MalformedJSON(t *testing.T) {
+	t.Parallel()
+	msgs := buildHistoryMessages("not json")
+	assert.Nil(t, msgs)
+}
+
+func TestBuildRawHistoryMessages_SkipsEmptyRole(t *testing.T) {
+	t.Parallel()
+	histJSON := `[{"role":"","content":"orphan"},{"role":"user","content":"valid"}]`
+	msgs := buildHistoryMessages(histJSON)
+	require.Len(t, msgs, 1)
+	assert.Equal(t, lc.ChatMessageTypeHuman, msgs[0].Role)
+}
+
+func TestBuildRawHistoryMessages_ToolMessage(t *testing.T) {
+	t.Parallel()
+	histJSON := `[{"role":"tool","content":"result","tool_call_id":"id1","name":"calc"}]`
+	msgs := buildHistoryMessages(histJSON)
+	require.Len(t, msgs, 1)
+	assert.Equal(t, lc.ChatMessageTypeTool, msgs[0].Role)
+}
+
+func TestBuildAIMessage_WithContent(t *testing.T) {
+	t.Parallel()
+	m := buildAIMessage("hello", nil)
+	require.NotNil(t, m)
+	assert.Equal(t, lc.ChatMessageTypeAI, m.Role)
+	require.Len(t, m.Parts, 1)
+}
+
+func TestBuildAIMessage_EmptyContentAndNoTools_ReturnsNil(t *testing.T) {
+	t.Parallel()
+	m := buildAIMessage("", nil)
+	assert.Nil(t, m)
+}
+
+func TestParseToolCallParts_ValidToolCalls(t *testing.T) {
+	t.Parallel()
+	raw := []interface{}{
+		map[string]interface{}{
+			"id":   "tc1",
+			"type": "function",
+			"function": map[string]interface{}{
+				"name":      "calc",
+				"arguments": `{"x":1}`,
+			},
+		},
+	}
+	parts := parseToolCallParts(raw)
+	require.Len(t, parts, 1)
+	tc, ok := parts[0].(lc.ToolCall)
+	require.True(t, ok)
+	assert.Equal(t, "tc1", tc.ID)
+	assert.Equal(t, "calc", tc.FunctionCall.Name)
+}
+
+func TestParseToolCallParts_NilInput(t *testing.T) {
+	t.Parallel()
+	parts := parseToolCallParts(nil)
+	assert.Empty(t, parts)
+}
+
+func TestConvertTools_BasicConversion(t *testing.T) {
+	t.Parallel()
+	tools := []domain.Tool{
+		{
+			Name:        "calculator",
+			Description: "Math tool",
+			Parameters: map[string]domain.ToolParam{
+				"expr": {Type: "string", Description: "expression", Required: true},
+			},
+		},
+	}
+	lcTools := convertTools(tools)
+	require.Len(t, lcTools, 1)
+	assert.Equal(t, "function", lcTools[0].Type)
+	assert.Equal(t, "calculator", lcTools[0].Function.Name)
+}
+
+func TestFileContentPart_HTTPUrl(t *testing.T) {
+	t.Parallel()
+	part, ok := fileContentPart("http://example.com/image.jpg")
+	require.True(t, ok)
+	_, isURL := part.(lc.ImageURLContent)
+	assert.True(t, isURL)
+}
+
+func TestFileContentPart_NotFound(t *testing.T) {
+	t.Parallel()
+	_, ok := fileContentPart("/nonexistent/path.png")
+	assert.False(t, ok)
+}
