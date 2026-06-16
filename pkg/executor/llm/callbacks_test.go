@@ -22,12 +22,14 @@ package llm
 
 import (
 	"context"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	lccallbacks "github.com/tmc/langchaingo/callbacks"
 	"github.com/tmc/langchaingo/llms"
+	"github.com/tmc/langchaingo/schema"
 )
 
 func TestObservedLLM_PassesThrough(t *testing.T) {
@@ -101,4 +103,124 @@ func TestCombineHandlers_FiresAll(t *testing.T) {
 		called++
 	}
 	assert.Equal(t, 2, called)
+}
+
+func TestKdepsLogHandler_ImplementsInterface(t *testing.T) {
+	t.Parallel()
+	var h lccallbacks.Handler = KdepsLogHandler{}
+	assert.NotNil(t, h)
+}
+
+func TestKdepsLogHandler_AllMethods_NoPanic(t *testing.T) {
+	// Verify all 17 Handler methods can be called without panic (debug off).
+	t.Setenv("KDEPS_DEBUG", "")
+	t.Setenv("KDEPS_INSTRUMENT", "")
+	t.Setenv("DEBUG", "")
+
+	ctx := context.Background()
+	h := KdepsLogHandler{}
+
+	h.HandleText(ctx, "hello")
+	h.HandleLLMStart(ctx, []string{"prompt"})
+	h.HandleLLMGenerateContentStart(ctx, []llms.MessageContent{
+		llms.TextParts(llms.ChatMessageTypeHuman, "hi"),
+	})
+	h.HandleLLMGenerateContentEnd(ctx, &llms.ContentResponse{
+		Choices: []*llms.ContentChoice{{Content: "ok", StopReason: "stop"}},
+	})
+	h.HandleLLMError(ctx, assert.AnError)
+	h.HandleChainStart(ctx, map[string]any{"k": "v"})
+	h.HandleChainEnd(ctx, map[string]any{"out": "val"})
+	h.HandleChainError(ctx, assert.AnError)
+	h.HandleToolStart(ctx, `{"query":"test"}`)
+	h.HandleToolEnd(ctx, "result")
+	h.HandleToolError(ctx, assert.AnError)
+	h.HandleAgentAction(ctx, schema.AgentAction{Tool: "calculator", ToolInput: "2+2"})
+	h.HandleAgentFinish(ctx, schema.AgentFinish{ReturnValues: map[string]any{"answer": "4"}})
+	h.HandleRetrieverStart(ctx, "what is kdeps")
+	h.HandleRetrieverEnd(ctx, "what is kdeps", []schema.Document{{PageContent: "kdeps is..."}})
+	h.HandleStreamingFunc(ctx, []byte("tok"))
+}
+
+func TestKdepsLogHandler_DebugOn_NoPanic(t *testing.T) {
+	// With debug enabled, all methods must still not panic.
+	t.Setenv("KDEPS_DEBUG", "true")
+	defer t.Setenv("KDEPS_DEBUG", "")
+
+	ctx := context.Background()
+	h := KdepsLogHandler{}
+
+	h.HandleText(ctx, "hello")
+	h.HandleLLMStart(ctx, []string{"prompt"})
+	h.HandleLLMGenerateContentStart(ctx, []llms.MessageContent{
+		llms.TextParts(llms.ChatMessageTypeHuman, "hi"),
+	})
+	h.HandleLLMGenerateContentEnd(ctx, &llms.ContentResponse{
+		Choices: []*llms.ContentChoice{{Content: "ok", StopReason: "stop"}},
+	})
+	h.HandleLLMError(ctx, assert.AnError)
+	h.HandleToolStart(ctx, `{"query":"test"}`)
+	h.HandleToolEnd(ctx, "result")
+	h.HandleToolError(ctx, assert.AnError)
+	h.HandleAgentAction(ctx, schema.AgentAction{Tool: "web_search", ToolInput: "golang"})
+	h.HandleAgentFinish(ctx, schema.AgentFinish{ReturnValues: map[string]any{"answer": "go"}})
+	h.HandleRetrieverStart(ctx, "query")
+	h.HandleRetrieverEnd(ctx, "query", nil)
+	h.HandleStreamingFunc(ctx, []byte("chunk"))
+}
+
+func TestKdepsLogHandler_GenerateContentEnd_NilResponse(t *testing.T) {
+	t.Parallel()
+	h := KdepsLogHandler{}
+	// nil response must not panic
+	h.HandleLLMGenerateContentEnd(context.Background(), nil)
+}
+
+func TestTruncate(t *testing.T) {
+	t.Parallel()
+	short := "hello"
+	assert.Equal(t, short, truncate(short))
+
+	long := strings.Repeat("x", logMsgPreviewLen+10)
+	result := truncate(long)
+	assert.Len(t, result, logMsgPreviewLen+3) // +3 for "..."
+	assert.True(t, strings.HasSuffix(result, "..."))
+}
+
+func TestExtractTextPreview_Empty(t *testing.T) {
+	t.Parallel()
+	assert.Equal(t, "", extractTextPreview(nil))
+	assert.Equal(t, "", extractTextPreview([]llms.ContentPart{}))
+}
+
+func TestExtractTextPreview_TextContent(t *testing.T) {
+	t.Parallel()
+	parts := []llms.ContentPart{
+		llms.TextContent{Text: "hello "},
+		llms.TextContent{Text: "world"},
+	}
+	assert.Equal(t, "hello world", extractTextPreview(parts))
+}
+
+func TestExtractTextPreview_Truncation(t *testing.T) {
+	t.Parallel()
+	long := strings.Repeat("a", logMsgPreviewLen+50)
+	parts := []llms.ContentPart{llms.TextContent{Text: long}}
+	result := extractTextPreview(parts)
+	assert.True(t, strings.HasSuffix(result, "..."))
+}
+
+func TestObservedLLM_DetailedLogging_DebugOn(t *testing.T) {
+	t.Setenv("KDEPS_DEBUG", "true")
+	defer t.Setenv("KDEPS_DEBUG", "")
+
+	stub := &stubLLM{response: "response text"}
+	obs := &observedLLM{inner: stub, model: "test-model"}
+
+	msgs := []llms.MessageContent{
+		llms.TextParts(llms.ChatMessageTypeHuman, "tell me about kdeps"),
+	}
+	resp, err := obs.GenerateContent(context.Background(), msgs)
+	require.NoError(t, err)
+	assert.Equal(t, "response text", resp.Choices[0].Content)
 }
