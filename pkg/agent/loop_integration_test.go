@@ -19,7 +19,9 @@
 package agent
 
 import (
+	"bytes"
 	"context"
+	"io"
 	"strings"
 	"testing"
 
@@ -27,6 +29,30 @@ import (
 	"github.com/kdeps/kdeps/v2/pkg/executor"
 	"github.com/kdeps/kdeps/v2/pkg/tools"
 )
+
+// mockStreamer replays a fixed sequence of (content, toolCalls) pairs.
+// After all entries are consumed it returns ("", nil, nil).
+type mockStreamer struct {
+	responses []mockStreamResponse
+	callCount int
+}
+
+type mockStreamResponse struct {
+	content   string
+	toolCalls []domain.StreamedToolCall
+}
+
+func (m *mockStreamer) StreamChat(
+	_ context.Context, _ *domain.ChatConfig, w io.Writer,
+) (string, []domain.StreamedToolCall, error) {
+	if m.callCount >= len(m.responses) {
+		return "", nil, nil
+	}
+	r := m.responses[m.callCount]
+	m.callCount++
+	_, _ = io.WriteString(w, r.content)
+	return r.content, r.toolCalls, nil
+}
 
 func TestLoop_SessionPersistsAcrossTurns(t *testing.T) {
 	var capturedWorkflows []*domain.Workflow
@@ -85,5 +111,106 @@ func newTestWorkflowForSession() *domain.Workflow {
 			Name:    "test",
 			Version: "1.0.0",
 		},
+	}
+}
+
+func newStreamingLoop(streamer Streamer, maxRounds int) *Loop {
+	eng := executor.NewEngine(nil)
+	reg := tools.NewRegistry()
+	return New(eng, newTestWorkflowForSession(), reg, Config{
+		Model:         "test",
+		Streamer:      streamer,
+		MaxToolRounds: maxRounds,
+	})
+}
+
+// TestRunStreaming_NaturalEarlyStop verifies that when the LLM returns no tool
+// calls the loop stops after one round and returns the content.
+func TestRunStreaming_NaturalEarlyStop(t *testing.T) {
+	ms := &mockStreamer{
+		responses: []mockStreamResponse{
+			{content: "hello world", toolCalls: nil},
+		},
+	}
+	loop := newStreamingLoop(ms, 5)
+	var buf bytes.Buffer
+	result, err := loop.RunStreaming(context.Background(), "hi", &buf)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if result != "hello world" {
+		t.Errorf("expected %q, got %q", "hello world", result)
+	}
+	if ms.callCount != 1 {
+		t.Errorf("expected 1 StreamChat call, got %d", ms.callCount)
+	}
+}
+
+// TestRunStreaming_MaxRoundsExhausted verifies that when tool calls keep coming
+// the loop stops at MaxToolRounds and returns the last non-empty content (not "").
+// This is the regression test for the early-stopping bug.
+func TestRunStreaming_MaxRoundsExhausted(t *testing.T) {
+	toolCall := domain.StreamedToolCall{ID: "1", Name: "noop", Arguments: "{}"}
+	ms := &mockStreamer{
+		responses: []mockStreamResponse{
+			{content: "round 1", toolCalls: []domain.StreamedToolCall{toolCall}},
+			{content: "round 2", toolCalls: []domain.StreamedToolCall{toolCall}},
+			{content: "round 3", toolCalls: []domain.StreamedToolCall{toolCall}},
+		},
+	}
+	loop := newStreamingLoop(ms, 3) // 3 rounds: after 3rd the loop breaks
+	var buf bytes.Buffer
+	result, err := loop.RunStreaming(context.Background(), "go", &buf)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	// Must return last captured content, not empty string.
+	if result == "" {
+		t.Error("expected non-empty result when MaxToolRounds exhausted")
+	}
+	if ms.callCount != 3 {
+		t.Errorf("expected exactly 3 StreamChat calls, got %d", ms.callCount)
+	}
+}
+
+// TestRunStreaming_StopsEarlyMidway verifies that when tool calls stop before
+// MaxToolRounds the loop exits after the clean round.
+func TestRunStreaming_StopsEarlyMidway(t *testing.T) {
+	toolCall := domain.StreamedToolCall{ID: "2", Name: "noop", Arguments: "{}"}
+	ms := &mockStreamer{
+		responses: []mockStreamResponse{
+			{content: "round 1", toolCalls: []domain.StreamedToolCall{toolCall}},
+			{content: "final answer", toolCalls: nil}, // no more tool calls
+		},
+	}
+	loop := newStreamingLoop(ms, 10)
+	var buf bytes.Buffer
+	result, err := loop.RunStreaming(context.Background(), "go", &buf)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !strings.Contains(result, "final answer") {
+		t.Errorf("expected 'final answer', got %q", result)
+	}
+	if ms.callCount != 2 {
+		t.Errorf("expected 2 StreamChat calls, got %d", ms.callCount)
+	}
+}
+
+// TestRunStreaming_SessionStoresResponse verifies that the session history is
+// updated after RunStreaming with the final content.
+func TestRunStreaming_SessionStoresResponse(t *testing.T) {
+	ms := &mockStreamer{
+		responses: []mockStreamResponse{
+			{content: "the answer", toolCalls: nil},
+		},
+	}
+	loop := newStreamingLoop(ms, 5)
+	_, err := loop.RunStreaming(context.Background(), "question", &bytes.Buffer{})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if loop.Session().TurnCount() != 1 {
+		t.Errorf("expected 1 turn in session, got %d", loop.Session().TurnCount())
 	}
 }

@@ -253,15 +253,20 @@ func (l *Loop) RunStreaming(ctx context.Context, input string, w io.Writer) (str
 	chatCfg := l.buildChatConfig(input, systemPreamble)
 
 	var finalContent string
-	for range l.config.MaxToolRounds {
+	for i := range l.config.MaxToolRounds {
 		content, toolCalls, err := l.streamer.StreamChat(ctx, chatCfg, w)
 		if err != nil {
 			return "", fmt.Errorf("agent loop stream: %w", err)
 		}
 
+		finalContent = content // always capture last response
+
 		if len(toolCalls) == 0 {
-			finalContent = content
-			break
+			break // natural early stop: no more tool calls
+		}
+
+		if i == l.config.MaxToolRounds-1 {
+			break // max rounds reached; use last content as response
 		}
 
 		chatCfg = l.appendToolRoundTrip(chatCfg, content, toolCalls)
