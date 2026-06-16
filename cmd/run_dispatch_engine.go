@@ -45,7 +45,7 @@ import (
 	executorSearchWeb "github.com/kdeps/kdeps/v2/pkg/executor/searchweb"
 	executorSQL "github.com/kdeps/kdeps/v2/pkg/executor/sql"
 	executorTelephony "github.com/kdeps/kdeps/v2/pkg/executor/telephony"
-	executorTranscribe  "github.com/kdeps/kdeps/v2/pkg/executor/transcribe"
+	executorTranscribe "github.com/kdeps/kdeps/v2/pkg/executor/transcribe"
 	executorVectorStore "github.com/kdeps/kdeps/v2/pkg/executor/vectorstore"
 	"github.com/kdeps/kdeps/v2/pkg/infra/logging"
 )

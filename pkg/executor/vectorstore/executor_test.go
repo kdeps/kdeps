@@ -213,3 +213,243 @@ func TestOpenAICompatBaseURL(t *testing.T) {
 		t.Errorf("expected empty URL for unknown backend, got %q", u)
 	}
 }
+
+func TestBuildStore_AzureAISearch_MissingEndpoint(t *testing.T) {
+	t.Setenv("AZURE_AI_SEARCH_ENDPOINT", "")
+	t.Setenv("OPENAI_API_KEY", "test-key")
+	cfg := &domain.VectorStoreConfig{
+		Provider:     "azureaisearch",
+		Collection:   "myindex",
+		EmbedModel:   "text-embedding-ada-002",
+		EmbedBackend: "openai",
+	}
+	_, err := buildStore(t.Context(), cfg)
+	if err == nil {
+		t.Fatal("expected error when Azure endpoint is missing")
+	}
+}
+
+func TestBuildStore_AzureAISearch_WithEndpoint(t *testing.T) {
+	t.Setenv("OPENAI_API_KEY", "test-key")
+	cfg := &domain.VectorStoreConfig{
+		Provider:     "azureaisearch",
+		Collection:   "myindex",
+		URL:          "https://mysearch.search.windows.net",
+		APIKey:       "azure-key",
+		EmbedModel:   "text-embedding-ada-002",
+		EmbedBackend: "openai",
+	}
+	store, err := buildStore(t.Context(), cfg)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if store == nil {
+		t.Fatal("expected non-nil store")
+	}
+}
+
+func TestBuildStore_AzureAISearch_EnvEndpoint(t *testing.T) {
+	t.Setenv("AZURE_AI_SEARCH_ENDPOINT", "https://envsearch.search.windows.net")
+	t.Setenv("OPENAI_API_KEY", "test-key")
+	cfg := &domain.VectorStoreConfig{
+		Provider:     "azureaisearch",
+		Collection:   "myindex",
+		EmbedModel:   "text-embedding-ada-002",
+		EmbedBackend: "openai",
+	}
+	store, err := buildStore(t.Context(), cfg)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if store == nil {
+		t.Fatal("expected non-nil store")
+	}
+}
+
+func TestBuildStore_AzureAISearch_MissingCollection(t *testing.T) {
+	t.Setenv("OPENAI_API_KEY", "test-key")
+	cfg := &domain.VectorStoreConfig{
+		Provider:     "azureaisearch",
+		URL:          "https://mysearch.search.windows.net",
+		EmbedModel:   "text-embedding-ada-002",
+		EmbedBackend: "openai",
+	}
+	_, err := buildStore(t.Context(), cfg)
+	if err == nil {
+		t.Fatal("expected error for missing collection")
+	}
+}
+
+func TestBuildStore_Qdrant_URLStillRequired(t *testing.T) {
+	cfg := &domain.VectorStoreConfig{
+		Provider:   "qdrant",
+		Collection: "test",
+		EmbedModel: "text-embedding-ada-002",
+	}
+	_, err := buildStore(t.Context(), cfg)
+	if err == nil {
+		t.Fatal("expected error for missing qdrant url")
+	}
+}
+
+func TestBuildStore_Chroma_DefaultURL(t *testing.T) {
+	t.Setenv("OPENAI_API_KEY", "test-key")
+	cfg := &domain.VectorStoreConfig{
+		Provider:     "chroma",
+		Collection:   "my_collection",
+		EmbedModel:   "text-embedding-ada-002",
+		EmbedBackend: "openai",
+	}
+	store, err := buildStore(t.Context(), cfg)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if store == nil {
+		t.Fatal("expected non-nil store")
+	}
+}
+
+func TestBuildStore_Chroma_MissingCollection(t *testing.T) {
+	cfg := &domain.VectorStoreConfig{
+		Provider:   "chroma",
+		EmbedModel: "text-embedding-ada-002",
+	}
+	_, err := buildStore(t.Context(), cfg)
+	if err == nil {
+		t.Fatal("expected error for missing collection")
+	}
+}
+
+func TestBuildStore_Pinecone_MissingURL(t *testing.T) {
+	t.Setenv("OPENAI_API_KEY", "test-key")
+	cfg := &domain.VectorStoreConfig{
+		Provider:     "pinecone",
+		Collection:   "default",
+		EmbedModel:   "text-embedding-ada-002",
+		EmbedBackend: "openai",
+	}
+	_, err := buildStore(t.Context(), cfg)
+	if err == nil {
+		t.Fatal("expected error for missing pinecone url (index host)")
+	}
+}
+
+func TestBuildStore_Pinecone_WithURL(t *testing.T) {
+	t.Setenv("OPENAI_API_KEY", "test-key")
+	cfg := &domain.VectorStoreConfig{
+		Provider:     "pinecone",
+		Collection:   "default",
+		URL:          "https://my-index-abc123.svc.us-east-1.pinecone.io",
+		APIKey:       "pc-key",
+		EmbedModel:   "text-embedding-ada-002",
+		EmbedBackend: "openai",
+	}
+	store, err := buildStore(t.Context(), cfg)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if store == nil {
+		t.Fatal("expected non-nil store")
+	}
+}
+
+func TestBuildStore_OpenSearch_MissingURL(t *testing.T) {
+	t.Setenv("OPENAI_API_KEY", "test-key")
+	cfg := &domain.VectorStoreConfig{
+		Provider:     "opensearch",
+		Collection:   "my-index",
+		EmbedModel:   "text-embedding-ada-002",
+		EmbedBackend: "openai",
+	}
+	_, err := buildStore(t.Context(), cfg)
+	if err == nil {
+		t.Fatal("expected error for missing opensearch url")
+	}
+}
+
+func TestBuildStore_OpenSearch_WithURL(t *testing.T) {
+	t.Setenv("OPENAI_API_KEY", "test-key")
+	cfg := &domain.VectorStoreConfig{
+		Provider:     "opensearch",
+		Collection:   "my-index",
+		URL:          "http://localhost:9200",
+		APIKey:       "admin:admin",
+		EmbedModel:   "text-embedding-ada-002",
+		EmbedBackend: "openai",
+	}
+	store, err := buildStore(t.Context(), cfg)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if store == nil {
+		t.Fatal("expected non-nil store")
+	}
+}
+
+func TestBuildStore_Elasticsearch_Alias(t *testing.T) {
+	t.Setenv("OPENAI_API_KEY", "test-key")
+	cfg := &domain.VectorStoreConfig{
+		Provider:     "elasticsearch",
+		Collection:   "my-index",
+		URL:          "http://localhost:9200",
+		EmbedModel:   "text-embedding-ada-002",
+		EmbedBackend: "openai",
+	}
+	store, err := buildStore(t.Context(), cfg)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if store == nil {
+		t.Fatal("expected non-nil store")
+	}
+}
+
+func TestBuildStore_Weaviate_MissingURL(t *testing.T) {
+	t.Setenv("OPENAI_API_KEY", "test-key")
+	cfg := &domain.VectorStoreConfig{
+		Provider:     "weaviate",
+		Collection:   "Articles",
+		EmbedModel:   "text-embedding-ada-002",
+		EmbedBackend: "openai",
+	}
+	_, err := buildStore(t.Context(), cfg)
+	if err == nil {
+		t.Fatal("expected error for missing weaviate url")
+	}
+}
+
+func TestBuildStore_Weaviate_WithURL(t *testing.T) {
+	t.Setenv("OPENAI_API_KEY", "test-key")
+	cfg := &domain.VectorStoreConfig{
+		Provider:     "weaviate",
+		Collection:   "articles",
+		URL:          "http://localhost:8080",
+		EmbedModel:   "text-embedding-ada-002",
+		EmbedBackend: "openai",
+	}
+	store, err := buildStore(t.Context(), cfg)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if store == nil {
+		t.Fatal("expected non-nil store")
+	}
+}
+
+func TestWeaviateClassNameUppercase(t *testing.T) {
+	t.Setenv("OPENAI_API_KEY", "test-key")
+	cfg := &domain.VectorStoreConfig{
+		Provider:     "weaviate",
+		Collection:   "articles",
+		URL:          "http://localhost:8080",
+		EmbedModel:   "text-embedding-ada-002",
+		EmbedBackend: "openai",
+	}
+	store, err := newWeaviateStore(cfg, nil)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if store.className != "Articles" {
+		t.Fatalf("expected className=Articles, got %q", store.className)
+	}
+}

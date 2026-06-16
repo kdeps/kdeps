@@ -71,11 +71,13 @@ type VectorStoreDocument struct {
 
 // VectorStoreConfig configures a vector store operation.
 type VectorStoreConfig struct {
-	// Provider selects the vector store backend: qdrant (default).
+	// Provider selects the vector store backend: qdrant (default), azureaisearch.
 	Provider string `yaml:"provider,omitempty"`
-	// URL is the base URL of the vector store service (e.g. "http://localhost:6333").
-	URL string `yaml:"url"`
-	// Collection is the collection/namespace name in the store.
+	// URL is the base URL of the vector store service.
+	// qdrant: "http://localhost:6333"
+	// azureaisearch: "https://<service>.search.windows.net" (or AZURE_AI_SEARCH_ENDPOINT env)
+	URL string `yaml:"url,omitempty"`
+	// Collection is the collection/index name in the store.
 	Collection string `yaml:"collection"`
 	// APIKey authenticates requests (optional for local deployments).
 	APIKey string `yaml:"apiKey,omitempty"`

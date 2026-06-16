@@ -13,8 +13,8 @@
 // limitations under the License.
 
 // Package vectorstore executes vectorStore: resources, adding documents to
-// and searching a vector database (Qdrant). Embeddings are generated on the
-// fly using the configured embed model and backend.
+// and searching a vector database. Supported providers: qdrant (default),
+// azureaisearch.
 package vectorstore
 
 import (
@@ -32,6 +32,8 @@ import (
 	lcgoogleai "github.com/tmc/langchaingo/llms/googleai"
 	lcopenai "github.com/tmc/langchaingo/llms/openai"
 	"github.com/tmc/langchaingo/schema"
+	lcvectorstores "github.com/tmc/langchaingo/vectorstores"
+	lcazure "github.com/tmc/langchaingo/vectorstores/azureaisearch"
 	lcqdrant "github.com/tmc/langchaingo/vectorstores/qdrant"
 
 	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
@@ -88,7 +90,7 @@ func executeAddDocuments(ctx context.Context, cfg *domain.VectorStoreConfig) (in
 		}
 	}
 
-	ids, err := store.AddDocuments(ctx, docs)
+	ids, err := store.AddDocuments(ctx, docs, lcvectorstores.WithNameSpace(cfg.Collection))
 	if err != nil {
 		return nil, fmt.Errorf("vectorstore add_documents: %w", err)
 	}
@@ -117,7 +119,12 @@ func executeSimilaritySearch(
 		topK = 5
 	}
 
-	docs, err := store.SimilaritySearch(ctx, cfg.Query, topK)
+	docs, err := store.SimilaritySearch(
+		ctx,
+		cfg.Query,
+		topK,
+		lcvectorstores.WithNameSpace(cfg.Collection),
+	)
 	if err != nil {
 		return nil, fmt.Errorf("vectorstore similarity_search: %w", err)
 	}
@@ -138,25 +145,49 @@ func executeSimilaritySearch(
 	}, nil
 }
 
-func buildStore(ctx context.Context, cfg *domain.VectorStoreConfig) (lcqdrant.Store, error) {
-	if cfg.URL == "" {
-		return lcqdrant.Store{}, errors.New("vectorstore: url is required")
-	}
+func buildStore(
+	ctx context.Context,
+	cfg *domain.VectorStoreConfig,
+) (lcvectorstores.VectorStore, error) {
 	if cfg.Collection == "" {
-		return lcqdrant.Store{}, errors.New("vectorstore: collection is required")
+		return nil, errors.New("vectorstore: collection is required")
 	}
 	if cfg.EmbedModel == "" {
-		return lcqdrant.Store{}, errors.New("vectorstore: embedModel is required")
+		return nil, errors.New("vectorstore: embedModel is required")
+	}
+
+	switch cfg.Provider {
+	case "azureaisearch":
+		return buildAzureAISearchStore(ctx, cfg)
+	case "chroma":
+		return buildChromaStore(ctx, cfg)
+	case "pinecone":
+		return buildPineconeStore(ctx, cfg)
+	case "opensearch", "elasticsearch":
+		return buildOpenSearchStore(ctx, cfg)
+	case "weaviate":
+		return buildWeaviateStore(ctx, cfg)
+	default:
+		return buildQdrantStore(ctx, cfg)
+	}
+}
+
+func buildQdrantStore(
+	ctx context.Context,
+	cfg *domain.VectorStoreConfig,
+) (lcvectorstores.VectorStore, error) {
+	if cfg.URL == "" {
+		return nil, errors.New("vectorstore: url is required")
 	}
 
 	qdrantURL, err := url.Parse(cfg.URL)
 	if err != nil {
-		return lcqdrant.Store{}, fmt.Errorf("vectorstore: invalid url %q: %w", cfg.URL, err)
+		return nil, fmt.Errorf("vectorstore: invalid url %q: %w", cfg.URL, err)
 	}
 
 	embedder, err := buildEmbedder(ctx, cfg)
 	if err != nil {
-		return lcqdrant.Store{}, fmt.Errorf("vectorstore: build embedder: %w", err)
+		return nil, fmt.Errorf("vectorstore: build embedder: %w", err)
 	}
 
 	opts := []lcqdrant.Option{
@@ -168,7 +199,69 @@ func buildStore(ctx context.Context, cfg *domain.VectorStoreConfig) (lcqdrant.St
 		opts = append(opts, lcqdrant.WithAPIKey(cfg.APIKey))
 	}
 
-	return lcqdrant.New(opts...)
+	store, err := lcqdrant.New(opts...)
+	if err != nil {
+		return nil, fmt.Errorf("vectorstore: qdrant: %w", err)
+	}
+	return &store, nil
+}
+
+func buildChromaStore(ctx context.Context, cfg *domain.VectorStoreConfig) (lcvectorstores.VectorStore, error) {
+	embedder, err := buildEmbedder(ctx, cfg)
+	if err != nil {
+		return nil, fmt.Errorf("vectorstore: build embedder: %w", err)
+	}
+	return newChromaStore(cfg, embedder), nil
+}
+
+func buildPineconeStore(ctx context.Context, cfg *domain.VectorStoreConfig) (lcvectorstores.VectorStore, error) {
+	embedder, err := buildEmbedder(ctx, cfg)
+	if err != nil {
+		return nil, fmt.Errorf("vectorstore: build embedder: %w", err)
+	}
+	return newPineconeStore(cfg, embedder)
+}
+
+func buildOpenSearchStore(ctx context.Context, cfg *domain.VectorStoreConfig) (lcvectorstores.VectorStore, error) {
+	embedder, err := buildEmbedder(ctx, cfg)
+	if err != nil {
+		return nil, fmt.Errorf("vectorstore: build embedder: %w", err)
+	}
+	return newOpenSearchStore(cfg, embedder)
+}
+
+func buildWeaviateStore(ctx context.Context, cfg *domain.VectorStoreConfig) (lcvectorstores.VectorStore, error) {
+	embedder, err := buildEmbedder(ctx, cfg)
+	if err != nil {
+		return nil, fmt.Errorf("vectorstore: build embedder: %w", err)
+	}
+	return newWeaviateStore(cfg, embedder)
+}
+
+func buildAzureAISearchStore(
+	ctx context.Context,
+	cfg *domain.VectorStoreConfig,
+) (lcvectorstores.VectorStore, error) {
+	embedder, err := buildEmbedder(ctx, cfg)
+	if err != nil {
+		return nil, fmt.Errorf("vectorstore: build embedder: %w", err)
+	}
+
+	opts := []lcazure.Option{
+		lcazure.WithEmbedder(embedder),
+	}
+	if cfg.URL != "" {
+		opts = append(opts, lcazure.WithEndpoint(cfg.URL))
+	}
+	if cfg.APIKey != "" {
+		opts = append(opts, lcazure.WithAPIKey(cfg.APIKey))
+	}
+
+	store, err := lcazure.New(opts...)
+	if err != nil {
+		return nil, fmt.Errorf("vectorstore: azureaisearch: %w", err)
+	}
+	return &store, nil
 }
 
 func buildEmbedder(ctx context.Context, cfg *domain.VectorStoreConfig) (lcemb.Embedder, error) {
