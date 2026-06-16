@@ -71,15 +71,27 @@ type VectorStoreDocument struct {
 
 // VectorStoreConfig configures a vector store operation.
 type VectorStoreConfig struct {
-	// Provider selects the vector store backend: qdrant (default), azureaisearch.
+	// Provider selects the vector store backend.
+	// Supported: qdrant (default), azureaisearch, chroma, pinecone, opensearch,
+	// elasticsearch, weaviate, mariadb, dolt, mysql, pgvector, postgres,
+	// postgresql, alloydb, cloudsql, mongodb, mongo.
 	Provider string `yaml:"provider,omitempty"`
-	// URL is the base URL of the vector store service.
+	// URL is the endpoint or DSN for the vector store service.
 	// qdrant: "http://localhost:6333"
 	// azureaisearch: "https://<service>.search.windows.net" (or AZURE_AI_SEARCH_ENDPOINT env)
+	// chroma: "http://localhost:8000" (default if empty)
+	// pinecone: "https://<index-host>.svc.<env>.pinecone.io"
+	// opensearch/elasticsearch: "http://localhost:9200"
+	// weaviate: "http://localhost:8080"
+	// mariadb/dolt/mysql: MySQL DSN e.g. "user:pass@tcp(localhost:3306)/dbname"
+	// pgvector/postgres/alloydb/cloudsql: PostgreSQL DSN e.g. "postgres://user:pass@localhost/db"
+	// mongodb/mongo: MongoDB URI e.g. "mongodb://localhost:27017"
 	URL string `yaml:"url,omitempty"`
-	// Collection is the collection/index name in the store.
+	// Collection is the collection/index/table name in the store.
 	Collection string `yaml:"collection"`
 	// APIKey authenticates requests (optional for local deployments).
+	// For mongodb/mongo: used as the database name (defaults to "kdeps" if empty).
+	// For opensearch/elasticsearch: format "user:pass" for basic auth.
 	APIKey string `yaml:"apiKey,omitempty"`
 	// Operation controls what to do: add_documents | similarity_search.
 	Operation string `yaml:"operation"`
