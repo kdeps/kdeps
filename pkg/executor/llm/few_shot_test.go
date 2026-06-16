@@ -17,6 +17,7 @@
 package llm
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -248,4 +249,131 @@ func TestBuildLangchainMessages_GoTemplate(t *testing.T) {
 	text, ok := msgs[0].Parts[0].(lc.TextContent)
 	require.True(t, ok)
 	assert.Equal(t, "I love Go programming", text.Text)
+}
+
+// --- Example Selector (T9) tests ---
+
+func TestSelectFewShotExamples_KZero_ReturnsAll(t *testing.T) {
+	t.Parallel()
+	pool := []domain.ScenarioItem{
+		{Role: "user", Prompt: "hello world"},
+		{Role: "assistant", Prompt: "hi there"},
+		{Role: "user", Prompt: "goodbye"},
+		{Role: "assistant", Prompt: "bye"},
+	}
+	result := selectFewShotExamples(pool, "some prompt", 0)
+	assert.Equal(t, pool, result)
+}
+
+func TestSelectFewShotExamples_EmptyPool(t *testing.T) {
+	t.Parallel()
+	result := selectFewShotExamples(nil, "prompt", 2)
+	assert.Nil(t, result)
+}
+
+func TestSelectFewShotExamples_SelectsTopK(t *testing.T) {
+	t.Parallel()
+	pool := []domain.ScenarioItem{
+		{Role: "user", Prompt: "translate English to French"},
+		{Role: "assistant", Prompt: "Je traduis"},
+		{Role: "user", Prompt: "explain quantum physics"},
+		{Role: "assistant", Prompt: "quantum explanation"},
+		{Role: "user", Prompt: "translate French to English"},
+		{Role: "assistant", Prompt: "I translate"},
+	}
+	// Prompt is about translation; should prefer first and third user examples.
+	result := selectFewShotExamples(pool, "translate this sentence", 1)
+	// Should include a translation pair, not quantum.
+	found := false
+	for _, item := range result {
+		if strings.Contains(strings.ToLower(item.Prompt), "translat") {
+			found = true
+		}
+	}
+	assert.True(t, found, "selected example should be translation-related")
+	assert.NotEmpty(t, result)
+}
+
+func TestSelectFewShotExamples_PreservesPairs(t *testing.T) {
+	t.Parallel()
+	pool := []domain.ScenarioItem{
+		{Role: "user", Prompt: "what is Go"},
+		{Role: "assistant", Prompt: "Go is a language"},
+	}
+	result := selectFewShotExamples(pool, "explain go programming", 1)
+	assert.Len(t, result, 2, "selecting 1 pair should include both user and assistant items")
+	assert.Equal(t, "user", result[0].Role)
+	assert.Equal(t, "assistant", result[1].Role)
+}
+
+func TestSelectFewShotExamples_OrderPreserved(t *testing.T) {
+	t.Parallel()
+	pool := []domain.ScenarioItem{
+		{Role: "user", Prompt: "apple fruit"},
+		{Role: "assistant", Prompt: "apple answer"},
+		{Role: "user", Prompt: "banana fruit"},
+		{Role: "assistant", Prompt: "banana answer"},
+		{Role: "user", Prompt: "cherry fruit"},
+		{Role: "assistant", Prompt: "cherry answer"},
+	}
+	// Select 2 pairs from fruit examples; result should be in authoring order.
+	result := selectFewShotExamples(pool, "what is a fruit", 2)
+	require.Equal(t, 4, len(result), "2 pairs = 4 items")
+	// First pair comes before second pair in original order.
+	assert.Less(t,
+		findItemIndex(pool, result[0].Prompt),
+		findItemIndex(pool, result[2].Prompt),
+		"authoring order must be preserved",
+	)
+}
+
+func findItemIndex(pool []domain.ScenarioItem, prompt string) int {
+	for i, item := range pool {
+		if item.Prompt == prompt {
+			return i
+		}
+	}
+	return -1
+}
+
+func TestJaccardSimilarity_Basic(t *testing.T) {
+	t.Parallel()
+	a := wordSet("the quick brown fox")
+	b := wordSet("the quick red fox")
+	score := jaccardSimilarity(a, b)
+	// 3 intersection (the quick fox) / 5 union
+	assert.InDelta(t, 0.6, score, 0.01)
+}
+
+func TestJaccardSimilarity_Empty(t *testing.T) {
+	t.Parallel()
+	assert.Equal(t, 0.0, jaccardSimilarity(map[string]struct{}{}, wordSet("hello")))
+	assert.Equal(t, 0.0, jaccardSimilarity(wordSet("hello"), map[string]struct{}{}))
+}
+
+func TestBuildLangchainMessages_FewShotSelectK(t *testing.T) {
+	t.Parallel()
+	cfg := &domain.ChatConfig{
+		Prompt: "translate hello to French",
+		FewShot: []domain.ScenarioItem{
+			{Role: "user", Prompt: "translate goodbye to French"},
+			{Role: "assistant", Prompt: "au revoir"},
+			{Role: "user", Prompt: "explain quantum entanglement"},
+			{Role: "assistant", Prompt: "quantum answer"},
+		},
+		FewShotSelectK: 1,
+	}
+	msgs := buildLangchainMessages(cfg)
+	// Should include the translation pair but not quantum.
+	hasTranslation := false
+	for _, m := range msgs {
+		for _, p := range m.Parts {
+			if tc, ok := p.(lc.TextContent); ok {
+				if strings.Contains(tc.Text, "translate") || strings.Contains(tc.Text, "au revoir") {
+					hasTranslation = true
+				}
+			}
+		}
+	}
+	assert.True(t, hasTranslation, "selected few-shot should be translation related")
 }
