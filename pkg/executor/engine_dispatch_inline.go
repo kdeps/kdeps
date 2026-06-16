@@ -148,6 +148,9 @@ func inlineResourceDispatch() []inlineDispatchEntry {
 		"codeIntelligence": func(e *Engine, inline *domain.InlineResource, _ int, ctx *ExecutionContext) (interface{}, error) {
 			return e.executeInlineCodeIntelligence(inline.CodeIntelligence, ctx)
 		},
+		"loader": func(e *Engine, inline *domain.InlineResource, _ int, ctx *ExecutionContext) (interface{}, error) {
+			return e.executeInlineLoader(inline.Loader, ctx)
+		},
 		"botReply": func(e *Engine, inline *domain.InlineResource, index int, ctx *ExecutionContext) (interface{}, error) {
 			return e.executeBotReply(inlineSyntheticResource(inline, index), ctx)
 		},

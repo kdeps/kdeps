@@ -52,6 +52,7 @@ func primaryResourceDispatch() []primaryDispatchEntry {
 		"file":             (*Engine).executeFile,
 		"git":              (*Engine).executeGit,
 		"codeIntelligence": (*Engine).executeCodeIntelligence,
+		"loader":           (*Engine).executeLoader,
 		"apiResponse":      (*Engine).executeAPIResponse,
 	}
 
