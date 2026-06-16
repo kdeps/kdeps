@@ -100,6 +100,13 @@ type ChatConfig struct {
 	// with named slots. Example: {role: "helpful"} replaces {{role}} in prompt.
 	PromptVars map[string]string `yaml:"promptVars,omitempty"`
 
+	// RetrieverContext holds pre-fetched document chunks to inject into the system
+	// prompt as RAG context. Callers populate this from a vectorstore:
+	// similarity_search action output before invoking the chat: executor.
+	// Each string is one retrieved chunk. Chunks are prepended to the first
+	// system message as a "Retrieved context:" block separated by "---".
+	RetrieverContext []string `yaml:"retrieverContext,omitempty"`
+
 	// OutputParser applies a named post-processor to the LLM response before
 	// storing it to the action output. Supported values:
 	//   "simple"   - trims whitespace

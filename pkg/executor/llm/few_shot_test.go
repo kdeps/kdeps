@@ -150,3 +150,62 @@ func TestApplyPromptVars_MultipleVars(t *testing.T) {
 	result := applyPromptVars("{{a}} and {{b}}", vars)
 	assert.Equal(t, "1 and 2", result)
 }
+
+func TestLangchainBaseURLs_LocalBackendPresent(t *testing.T) {
+	t.Parallel()
+	url, ok := langchainBaseURLs["local"]
+	assert.True(t, ok, "local backend must have a base URL entry")
+	assert.Contains(t, url, "localhost", "local backend URL should point to localhost")
+}
+
+func TestBuildRetrieverPreamble_Empty(t *testing.T) {
+	t.Parallel()
+	assert.Equal(t, "", buildRetrieverPreamble(nil))
+	assert.Equal(t, "", buildRetrieverPreamble([]string{}))
+}
+
+func TestBuildRetrieverPreamble_SingleChunk(t *testing.T) {
+	t.Parallel()
+	out := buildRetrieverPreamble([]string{"chunk one"})
+	assert.Contains(t, out, "Retrieved context:")
+	assert.Contains(t, out, "chunk one")
+}
+
+func TestBuildRetrieverPreamble_MultipleChunks(t *testing.T) {
+	t.Parallel()
+	out := buildRetrieverPreamble([]string{"a", "b", "c"})
+	assert.Contains(t, out, "a")
+	assert.Contains(t, out, "b")
+	assert.Contains(t, out, "c")
+}
+
+func TestBuildLangchainMessages_RetrieverContextInjectsIntoSystemMessage(t *testing.T) {
+	t.Parallel()
+	cfg := &domain.ChatConfig{
+		Scenario: []domain.ScenarioItem{
+			{Role: "system", Prompt: "You are helpful."},
+		},
+		RetrieverContext: []string{"doc chunk 1", "doc chunk 2"},
+	}
+	msgs := buildLangchainMessages(cfg)
+	require.Len(t, msgs, 1)
+	text, ok := msgs[0].Parts[0].(lc.TextContent)
+	require.True(t, ok)
+	assert.Contains(t, text.Text, "Retrieved context:")
+	assert.Contains(t, text.Text, "doc chunk 1")
+	assert.Contains(t, text.Text, "You are helpful.")
+}
+
+func TestBuildLangchainMessages_RetrieverContextNoScenario(t *testing.T) {
+	t.Parallel()
+	cfg := &domain.ChatConfig{
+		Prompt:           "What is kdeps?",
+		RetrieverContext: []string{"kdeps is a Go framework"},
+	}
+	msgs := buildLangchainMessages(cfg)
+	require.GreaterOrEqual(t, len(msgs), 2)
+	text, ok := msgs[0].Parts[0].(lc.TextContent)
+	require.True(t, ok)
+	assert.Contains(t, text.Text, "Retrieved context:")
+	assert.Contains(t, text.Text, "kdeps is a Go framework")
+}
