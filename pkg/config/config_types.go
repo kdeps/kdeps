@@ -174,17 +174,19 @@ type LLMKeys struct {
 	ModelsDir string `yaml:"models_dir"` // cache dir for downloaded llamafiles; default: ~/.kdeps/models
 
 	// Online provider API keys.
-	OpenAI     string `yaml:"openai_api_key"`
-	Anthropic  string `yaml:"anthropic_api_key"`
-	Google     string `yaml:"google_api_key"`
-	Cohere     string `yaml:"cohere_api_key"`
-	Mistral    string `yaml:"mistral_api_key"`
-	Together   string `yaml:"together_api_key"`
-	Perplexity string `yaml:"perplexity_api_key"`
-	Groq       string `yaml:"groq_api_key"`
-	DeepSeek   string `yaml:"deepseek_api_key"`
-	OpenRouter string `yaml:"openrouter_api_key"`
-	XAI        string `yaml:"xai_api_key"`
+	OpenAI      string `yaml:"openai_api_key"`
+	Anthropic   string `yaml:"anthropic_api_key"`
+	Google      string `yaml:"google_api_key"`
+	Cohere      string `yaml:"cohere_api_key"`
+	Mistral     string `yaml:"mistral_api_key"`
+	Together    string `yaml:"together_api_key"`
+	Perplexity  string `yaml:"perplexity_api_key"`
+	Groq        string `yaml:"groq_api_key"`
+	DeepSeek    string `yaml:"deepseek_api_key"`
+	OpenRouter  string `yaml:"openrouter_api_key"`
+	XAI         string `yaml:"xai_api_key"`
+	HuggingFace string `yaml:"huggingface_api_key"`
+	Cloudflare  string `yaml:"cloudflare_api_token"`
 }
 
 // HTTPAuthConfig holds authentication credentials for a named HTTP connection.

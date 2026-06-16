@@ -41,6 +41,8 @@ var defaultRegistryBackends = []Backend{
 	defaultDeepSeekBackend,
 	defaultOpenRouterBackend,
 	defaultXAIBackend,
+	&HuggingFaceBackend{},
+	&CloudflareBackend{},
 }
 
 // DefaultRegistryBackendNames returns registered backend names in registration order.
