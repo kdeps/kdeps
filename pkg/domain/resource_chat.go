@@ -18,6 +18,25 @@
 
 package domain
 
+// ThinkingMode controls the reasoning/thinking budget for models that support it.
+// Applies to Anthropic Claude 3.7+, OpenAI o-series, DeepSeek-R1, and similar.
+type ThinkingMode string
+
+const (
+	ThinkingModeNone   ThinkingMode = "none"
+	ThinkingModeLow    ThinkingMode = "low"    // ~20% of max tokens
+	ThinkingModeMedium ThinkingMode = "medium" // ~50% of max tokens
+	ThinkingModeHigh   ThinkingMode = "high"   // ~80% of max tokens
+	ThinkingModeAuto   ThinkingMode = "auto"   // provider decides
+)
+
+// ThinkingConfig controls extended reasoning/thinking for models that support it.
+type ThinkingConfig struct {
+	Mode         ThinkingMode `yaml:"mode,omitempty"`         // none | low | medium | high | auto
+	BudgetTokens int          `yaml:"budgetTokens,omitempty"` // explicit token budget (overrides Mode)
+	ReturnOutput bool         `yaml:"returnOutput,omitempty"` // include thinking text in action output
+}
+
 type ChatConfig struct {
 	// Model is set in resource YAML. Use "router" to delegate to the LLM router in config.yaml.
 	Model string `yaml:"model,omitempty"`
@@ -37,11 +56,20 @@ type ChatConfig struct {
 	Scenario         []ScenarioItem `yaml:"scenario,omitempty"`
 	Tools            []Tool         `yaml:"tools,omitempty"`
 	ComponentTools   []string       `yaml:"componentTools,omitempty"` // Allowlist of installed component names to auto-register as LLM tools. Empty/absent = none registered.
-	Files            []string       `yaml:"files,omitempty"`
+	Files            []string       `yaml:"files,omitempty"`          // Image/file paths to attach as multimodal content parts.
 	JSONResponse     bool           `yaml:"jsonResponse"`
 	JSONResponseKeys []string       `yaml:"jsonResponseKeys,omitempty"`
-	Streaming        bool           `yaml:"streaming,omitempty"` // Stream tokens from LLM as they are generated
-	Timeout          string         `yaml:"timeout,omitempty"`
+	// JSONSchema constrains the response to a specific JSON object schema (implies jsonResponse).
+	// Not supported by Anthropic. Example: {"type":"object","properties":{"answer":{"type":"string"}}}
+	JSONSchema map[string]interface{} `yaml:"jsonSchema,omitempty"`
+	Streaming  bool                   `yaml:"streaming,omitempty"` // Stream tokens from LLM as they are generated
+	Timeout    string                 `yaml:"timeout,omitempty"`
+	// Thinking enables extended reasoning for models that support it
+	// (Anthropic claude-3.7+, OpenAI o-series, DeepSeek-R1).
+	Thinking *ThinkingConfig `yaml:"thinking,omitempty"`
+	// PromptCaching caches the system prompt at the provider level to reduce cost.
+	// Currently only Anthropic honors this field.
+	PromptCaching bool `yaml:"promptCaching,omitempty"`
 	// Advanced LLM parameters (may not be supported by all backends)
 	Temperature      *float64 `yaml:"temperature,omitempty"`      // Sampling temperature (0.0-2.0)
 	MaxTokens        *int     `yaml:"maxTokens,omitempty"`        // Maximum tokens to generate
