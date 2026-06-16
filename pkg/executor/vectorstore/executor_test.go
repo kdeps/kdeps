@@ -1154,6 +1154,52 @@ func TestChromaStore_AddDocuments_CreateCollection(t *testing.T) {
 	assert.NotEmpty(t, ids[0])
 }
 
+func TestMySQLCreateTableSQL(t *testing.T) {
+	t.Parallel()
+	sql := mysqlCreateTableSQL("my_table")
+	assert.Contains(t, sql, "my_table")
+	assert.Contains(t, sql, "embedding JSON")
+	assert.Contains(t, sql, "id VARCHAR(36)")
+	assert.Contains(t, sql, "content LONGTEXT")
+	assert.Contains(t, sql, "metadata JSON")
+}
+
+func TestMySQLInsertSQL(t *testing.T) {
+	t.Parallel()
+	sql := mysqlInsertSQL("my_table")
+	assert.Contains(t, sql, "my_table")
+	assert.Contains(t, sql, "?")
+	assert.Contains(t, sql, "id, content, embedding, metadata")
+}
+
+func TestBuildStore_MySQL_WithURL(t *testing.T) {
+	t.Setenv("OPENAI_API_KEY", "test-key")
+	cfg := &domain.VectorStoreConfig{
+		Provider:     "mysql",
+		Collection:   "docs",
+		URL:          "user:pass@tcp(localhost:3306)/mydb",
+		EmbedModel:   "text-embedding-ada-002",
+		EmbedBackend: "openai",
+	}
+	store, err := buildStore(t.Context(), cfg)
+	require.NoError(t, err)
+	assert.NotNil(t, store)
+}
+
+func TestBuildStore_Dolt_WithURL(t *testing.T) {
+	t.Setenv("OPENAI_API_KEY", "test-key")
+	cfg := &domain.VectorStoreConfig{
+		Provider:     "dolt",
+		Collection:   "docs",
+		URL:          "user:pass@tcp(localhost:3306)/mydb",
+		EmbedModel:   "text-embedding-ada-002",
+		EmbedBackend: "openai",
+	}
+	store, err := buildStore(t.Context(), cfg)
+	require.NoError(t, err)
+	assert.NotNil(t, store)
+}
+
 func TestChromaStore_APIKey_Header(t *testing.T) {
 	t.Parallel()
 	var gotAuth string

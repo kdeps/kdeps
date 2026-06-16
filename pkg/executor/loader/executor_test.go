@@ -136,11 +136,61 @@ func TestSplitDocuments_NoSplit(t *testing.T) {
 	assert.Len(t, result, 1)
 }
 
+func TestSplitDocuments_Markdown(t *testing.T) {
+	t.Parallel()
+	docs := []Document{{
+		Content:  "# Header\n\nSome content under the header.\n\n## Sub-header\n\nMore content here.",
+		Metadata: map[string]interface{}{"source": "test.md"},
+	}}
+	cfg := &domain.LoaderConfig{ChunkSize: 50, ChunkSplitter: "markdown"}
+	result, err := splitDocuments(docs, cfg)
+	require.NoError(t, err)
+	assert.NotEmpty(t, result)
+	// Metadata is propagated to each chunk
+	for _, doc := range result {
+		assert.Equal(t, "test.md", doc.Metadata["source"])
+	}
+}
+
+func TestSplitDocuments_Token(t *testing.T) {
+	t.Parallel()
+	docs := []Document{{
+		Content:  "The quick brown fox jumps over the lazy dog. Pack my box with five dozen liquor jugs.",
+		Metadata: map[string]interface{}{},
+	}}
+	cfg := &domain.LoaderConfig{ChunkSize: 200, ChunkSplitter: "token"}
+	result, err := splitDocuments(docs, cfg)
+	require.NoError(t, err)
+	assert.NotEmpty(t, result)
+}
+
+func TestSplitDocuments_UnknownSplitter(t *testing.T) {
+	t.Parallel()
+	docs := []Document{{Content: "some text", Metadata: map[string]interface{}{}}}
+	cfg := &domain.LoaderConfig{ChunkSize: 10, ChunkSplitter: "invalid_splitter"}
+	_, err := splitDocuments(docs, cfg)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "invalid_splitter")
+}
+
 func TestBuildLoaderResult(t *testing.T) {
 	docs := []Document{{Content: "test", Metadata: map[string]interface{}{}}}
 	result := buildLoaderResult(docs)
 	assert.Equal(t, 1, result["count"])
 	assert.NotEmpty(t, result["json"])
+}
+
+func TestBuildLoaderResult_Empty(t *testing.T) {
+	t.Parallel()
+	result := buildLoaderResult(nil)
+	assert.Equal(t, 0, result["count"])
+}
+
+func TestLoadDocuments_PDF_NotFound(t *testing.T) {
+	t.Parallel()
+	cfg := &domain.LoaderConfig{Type: "pdf", Source: "/nonexistent/file.pdf"}
+	_, err := loadDocuments(cfg)
+	require.Error(t, err)
 }
 
 func TestContainsString(t *testing.T) {
