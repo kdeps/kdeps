@@ -98,8 +98,10 @@ func loadDocuments(cfg *domain.LoaderConfig) ([]Document, error) {
 		return loadPDF(cfg.Source, cfg.Password)
 	case "directory":
 		return loadDirectory(cfg.Source)
+	case "notion":
+		return loadNotionDirectory(cfg.Source)
 	}
-	return nil, fmt.Errorf("loader: unknown type %q (use text, html, csv, pdf, directory)", loaderType)
+	return nil, fmt.Errorf("loader: unknown type %q (use text, html, csv, pdf, directory, notion)", loaderType)
 }
 
 func loadText(source string) ([]Document, error) {
@@ -237,6 +239,32 @@ func loadDirectory(source string) ([]Document, error) {
 	var docs []Document
 	for _, entry := range entries {
 		if entry.IsDir() {
+			continue
+		}
+		path := filepath.Join(source, entry.Name())
+		data, rerr := os.ReadFile(path)
+		if rerr != nil {
+			continue
+		}
+		docs = append(docs, Document{
+			Content:  string(data),
+			Metadata: map[string]interface{}{"source": path, "filename": entry.Name()},
+		})
+	}
+	return docs, nil
+}
+
+// loadNotionDirectory loads all Notion-exported .md files from a directory.
+// Each .md file becomes one Document. Compatible with Notion's "Export as Markdown" format.
+func loadNotionDirectory(source string) ([]Document, error) {
+	entries, err := os.ReadDir(source)
+	if err != nil {
+		return nil, fmt.Errorf("loader notion: read %s: %w", source, err)
+	}
+
+	var docs []Document
+	for _, entry := range entries {
+		if entry.IsDir() || filepath.Ext(entry.Name()) != ".md" {
 			continue
 		}
 		path := filepath.Join(source, entry.Name())
