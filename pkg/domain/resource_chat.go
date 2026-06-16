@@ -83,6 +83,12 @@ type ChatConfig struct {
 	ChunkOverlap  int    `yaml:"chunkOverlap,omitempty"`
 	ChunkSplitter string `yaml:"chunkSplitter,omitempty"` // recursive | token | markdown
 
+	// ToolChoice controls which tool (if any) the model must call.
+	// Values: "auto" (default), "none" (disable tools), "required" (force any tool call),
+	// or a specific tool name (force calling that tool).
+	// Only meaningful when tools are provided.
+	ToolChoice string `yaml:"toolChoice,omitempty"`
+
 	// OutputParser applies a named post-processor to the LLM response before
 	// storing it to the action output. Supported values:
 	//   "simple"   - trims whitespace

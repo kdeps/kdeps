@@ -377,7 +377,11 @@ func buildStreamOpts(cfg *domain.ChatConfig, backend string, w io.Writer) []llms
 	}
 
 	if len(cfg.Tools) > 0 {
-		opts = append(opts, llms.WithTools(convertTools(cfg.Tools)), llms.WithToolChoice("auto"))
+		toolChoice := cfg.ToolChoice
+		if toolChoice == "" {
+			toolChoice = "auto"
+		}
+		opts = append(opts, llms.WithTools(convertTools(cfg.Tools)), llms.WithToolChoice(toolChoice))
 	}
 
 	opts = append(opts, buildJSONOpts(cfg, backend)...)
