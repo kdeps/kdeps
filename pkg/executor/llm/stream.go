@@ -162,6 +162,14 @@ func buildOpenAICompatLLM(cfg *domain.ChatConfig, backend string) (llms.Model, e
 	)
 }
 
+// applyPromptVars substitutes {{key}} placeholders in text using cfg.PromptVars.
+func applyPromptVars(text string, vars map[string]string) string {
+	for k, v := range vars {
+		text = strings.ReplaceAll(text, "{{"+k+"}}", v)
+	}
+	return text
+}
+
 // buildLangchainMessages converts ChatConfig into langchaingo MessageContent slices.
 func buildLangchainMessages(cfg *domain.ChatConfig) []llms.MessageContent {
 	var msgs []llms.MessageContent
@@ -177,7 +185,7 @@ func buildLangchainMessages(cfg *domain.ChatConfig) []llms.MessageContent {
 		if sc.Prompt == "" {
 			continue
 		}
-		prompt := sc.Prompt
+		prompt := applyPromptVars(sc.Prompt, cfg.PromptVars)
 		if formatHint != "" && i == len(cfg.Scenario)-1 {
 			prompt = prompt + "\n\n" + formatHint
 		}
@@ -211,7 +219,8 @@ func buildLangchainMessages(cfg *domain.ChatConfig) []llms.MessageContent {
 		if role == "" {
 			role = roleUser
 		}
-		msgs = append(msgs, buildUserMessage(roleToMessageType(role), cfg.Prompt, cfg.Files))
+		promptText := applyPromptVars(cfg.Prompt, cfg.PromptVars)
+		msgs = append(msgs, buildUserMessage(roleToMessageType(role), promptText, cfg.Files))
 	}
 
 	return msgs

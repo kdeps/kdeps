@@ -95,6 +95,11 @@ type ChatConfig struct {
 	// messages and before runtime history.
 	FewShot []ScenarioItem `yaml:"fewShot,omitempty"`
 
+	// PromptVars is a map of variable name → value for {{var}} substitution
+	// in the prompt and scenario system messages. Enables chat prompt templates
+	// with named slots. Example: {role: "helpful"} replaces {{role}} in prompt.
+	PromptVars map[string]string `yaml:"promptVars,omitempty"`
+
 	// OutputParser applies a named post-processor to the LLM response before
 	// storing it to the action output. Supported values:
 	//   "simple"   - trims whitespace

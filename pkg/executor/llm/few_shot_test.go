@@ -95,3 +95,58 @@ func TestBuildLangchainMessages_FewShot_Empty(t *testing.T) {
 	assert.Len(t, msgs, 1)
 	assert.Equal(t, lc.ChatMessageTypeHuman, msgs[0].Role)
 }
+
+func TestPromptVars_SubstitutionInPrompt(t *testing.T) {
+	cfg := &domain.ChatConfig{
+		Prompt:     "Hello, my name is {{name}} and I am a {{role}}.",
+		PromptVars: map[string]string{"name": "Alice", "role": "developer"},
+	}
+	msgs := buildLangchainMessages(cfg)
+	require.Len(t, msgs, 1)
+	require.Len(t, msgs[0].Parts, 1)
+	text, ok := msgs[0].Parts[0].(lc.TextContent)
+	require.True(t, ok, "expected TextContent")
+	assert.Contains(t, text.Text, "Alice")
+	assert.Contains(t, text.Text, "developer")
+	assert.NotContains(t, text.Text, "{{name}}")
+	assert.NotContains(t, text.Text, "{{role}}")
+}
+
+func TestPromptVars_SubstitutionInScenario(t *testing.T) {
+	cfg := &domain.ChatConfig{
+		Scenario: []domain.ScenarioItem{
+			{Role: "system", Prompt: "You are a {{role}} assistant."},
+		},
+		PromptVars: map[string]string{"role": "helpful"},
+	}
+	msgs := buildLangchainMessages(cfg)
+	require.Len(t, msgs, 1)
+	require.Len(t, msgs[0].Parts, 1)
+	text, ok := msgs[0].Parts[0].(lc.TextContent)
+	require.True(t, ok)
+	assert.Contains(t, text.Text, "helpful")
+	assert.NotContains(t, text.Text, "{{role}}")
+}
+
+func TestPromptVars_NoVars_Unchanged(t *testing.T) {
+	cfg := &domain.ChatConfig{
+		Prompt:     "Hello {{name}}",
+		PromptVars: nil,
+	}
+	msgs := buildLangchainMessages(cfg)
+	require.Len(t, msgs, 1)
+	text, ok := msgs[0].Parts[0].(lc.TextContent)
+	require.True(t, ok)
+	assert.Equal(t, "Hello {{name}}", text.Text)
+}
+
+func TestApplyPromptVars_Empty(t *testing.T) {
+	result := applyPromptVars("hello {{x}}", nil)
+	assert.Equal(t, "hello {{x}}", result)
+}
+
+func TestApplyPromptVars_MultipleVars(t *testing.T) {
+	vars := map[string]string{"a": "1", "b": "2"}
+	result := applyPromptVars("{{a}} and {{b}}", vars)
+	assert.Equal(t, "1 and 2", result)
+}
