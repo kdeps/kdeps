@@ -32,15 +32,19 @@ import (
 
 	"github.com/tmc/langchaingo/llms"
 	lcanthropic "github.com/tmc/langchaingo/llms/anthropic"
+	lccloudflare "github.com/tmc/langchaingo/llms/cloudflare"
 	lcgoogleai "github.com/tmc/langchaingo/llms/googleai"
+	lchuggingface "github.com/tmc/langchaingo/llms/huggingface"
 	lcopenai "github.com/tmc/langchaingo/llms/openai"
 
 	"github.com/kdeps/kdeps/v2/pkg/domain"
 )
 
 const (
-	backendAnthropic = "anthropic"
-	backendGoogle    = "google"
+	backendAnthropic   = "anthropic"
+	backendGoogle      = "google"
+	backendHuggingFace = "huggingface"
+	backendCloudflare  = "cloudflare"
 )
 
 //nolint:gochecknoglobals // provider base URLs are constant lookup table, not mutable state
@@ -84,6 +88,22 @@ func buildLangchainLLM(ctx context.Context, cfg *domain.ChatConfig) (llms.Model,
 		model, err = lcgoogleai.New(ctx,
 			lcgoogleai.WithAPIKey(apiKey),
 			lcgoogleai.WithDefaultModel(cfg.Model),
+		)
+
+	case backendHuggingFace:
+		apiKey := os.Getenv(providerAPIKeyEnvVar(backendHuggingFace))
+		model, err = lchuggingface.New(
+			lchuggingface.WithToken(apiKey),
+			lchuggingface.WithModel(cfg.Model),
+		)
+
+	case backendCloudflare:
+		token := os.Getenv(providerAPIKeyEnvVar(backendCloudflare))
+		accountID := os.Getenv("CLOUDFLARE_ACCOUNT_ID")
+		model, err = lccloudflare.New(
+			lccloudflare.WithToken(token),
+			lccloudflare.WithAccountID(accountID),
+			lccloudflare.WithModel(cfg.Model),
 		)
 
 	default:
