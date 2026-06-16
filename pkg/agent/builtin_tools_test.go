@@ -73,7 +73,7 @@ func TestBuiltinToolExecute_EmptyQuery(t *testing.T) {
 }
 
 func TestBuiltinTools_ToLLMTools(t *testing.T) {
-	// Clear API key env vars so we get exactly the two no-key tools.
+	// Clear API key env vars so we get exactly the three no-key tools.
 	t.Setenv("SERPAPI_API_KEY", "")
 	t.Setenv("PERPLEXITY_API_KEY", "")
 	t.Setenv("EXA_API_KEY", "")
@@ -82,7 +82,7 @@ func TestBuiltinTools_ToLLMTools(t *testing.T) {
 	RegisterBuiltinTools(context.Background(), reg)
 
 	llmTools := reg.ToLLMTools()
-	assert.Len(t, llmTools, 2, "two built-in tools should be convertible to LLM tools")
+	assert.Len(t, llmTools, 3, "three built-in tools (web_search, wikipedia, web_scraper) should be convertible to LLM tools")
 
 	for _, lt := range llmTools {
 		assert.NotEmpty(t, lt.Name)
@@ -156,6 +156,36 @@ func TestRegisterBuiltinTools_ExaRegisteredWithMetaphorKey(t *testing.T) {
 	reg := kdepstools.NewRegistry()
 	RegisterBuiltinTools(context.Background(), reg)
 	assert.NotNil(t, reg.Get("exa_search"), "exa_search should register when METAPHOR_API_KEY is set")
+}
+
+func TestRegisterBuiltinTools_WebScraperAlwaysRegistered(t *testing.T) {
+	t.Setenv("SERPAPI_API_KEY", "")
+	t.Setenv("PERPLEXITY_API_KEY", "")
+	t.Setenv("EXA_API_KEY", "")
+	reg := kdepstools.NewRegistry()
+	RegisterBuiltinTools(context.Background(), reg)
+	assert.NotNil(t, reg.Get("web_scraper"), "web_scraper should always register")
+}
+
+func TestWebScraper_EmptyURL(t *testing.T) {
+	reg := kdepstools.NewRegistry()
+	RegisterBuiltinTools(context.Background(), reg)
+	tool := reg.Get("web_scraper")
+	require.NotNil(t, tool)
+	_, err := tool.Execute(map[string]interface{}{"url": ""})
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "url is required")
+}
+
+func TestWebScraper_HasQueryParam(t *testing.T) {
+	reg := kdepstools.NewRegistry()
+	RegisterBuiltinTools(context.Background(), reg)
+	tool := reg.Get("web_scraper")
+	require.NotNil(t, tool)
+	param, ok := tool.Parameters["url"]
+	require.True(t, ok, "web_scraper must have a 'url' parameter")
+	assert.Equal(t, "string", param.Type)
+	assert.True(t, param.Required)
 }
 
 func TestCallExaSearch_MissingQuery(t *testing.T) {
