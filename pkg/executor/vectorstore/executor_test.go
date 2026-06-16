@@ -15,10 +15,48 @@
 package vectorstore
 
 import (
+	"context"
+	"net/http"
+	"net/http/httptest"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+	"github.com/tmc/langchaingo/schema"
 
 	"github.com/kdeps/kdeps/v2/pkg/domain"
 )
+
+// stubVectorEmbedder is a test double for lcemb.Embedder.
+type stubVectorEmbedder struct {
+	vectors [][]float32
+	err     error
+}
+
+func (s *stubVectorEmbedder) EmbedDocuments(_ context.Context, texts []string) ([][]float32, error) {
+	if s.err != nil {
+		return nil, s.err
+	}
+	result := make([][]float32, len(texts))
+	for i := range texts {
+		if i < len(s.vectors) {
+			result[i] = s.vectors[i]
+		} else {
+			result[i] = s.vectors[0]
+		}
+	}
+	return result, nil
+}
+
+func (s *stubVectorEmbedder) EmbedQuery(_ context.Context, _ string) ([]float32, error) {
+	if s.err != nil {
+		return nil, s.err
+	}
+	if len(s.vectors) > 0 {
+		return s.vectors[0], nil
+	}
+	return []float32{0.1, 0.2, 0.3}, nil
+}
 
 func TestExecute_UnknownOperation(t *testing.T) {
 	e := NewExecutor()
@@ -464,6 +502,145 @@ func TestWeaviateClassNameUppercase(t *testing.T) {
 	if store.className != "Articles" {
 		t.Fatalf("expected className=Articles, got %q", store.className)
 	}
+}
+
+func TestFloat64SliceToJSON(t *testing.T) {
+	t.Parallel()
+	tests := []struct {
+		name  string
+		input []float64
+		want  string
+	}{
+		{"empty", nil, "null"},
+		{"single", []float64{1.5}, "[1.5]"},
+		{"multiple", []float64{0.1, 0.2, 0.3}, "[0.1,0.2,0.3]"},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			got := float64SliceToJSON(tc.input)
+			assert.Equal(t, tc.want, got)
+		})
+	}
+}
+
+func TestWeaviateStore_AddDocuments_HTTPError(t *testing.T) {
+	t.Parallel()
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusInternalServerError)
+		_, _ = w.Write([]byte("server error"))
+	}))
+	defer srv.Close()
+
+	store := &weaviateStore{
+		baseURL:   srv.URL,
+		className: "Test",
+		embedder:  &stubVectorEmbedder{vectors: [][]float32{{0.1, 0.2}}},
+		client:    http.DefaultClient,
+	}
+	_, err := store.AddDocuments(context.Background(), []schema.Document{
+		{PageContent: "hello"},
+	})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "status 500")
+}
+
+func TestWeaviateStore_SimilaritySearch_HTTPError(t *testing.T) {
+	t.Parallel()
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusUnauthorized)
+		_, _ = w.Write([]byte("unauthorized"))
+	}))
+	defer srv.Close()
+
+	store := &weaviateStore{
+		baseURL:   srv.URL,
+		className: "Test",
+		embedder:  &stubVectorEmbedder{vectors: [][]float32{{0.1, 0.2}}},
+		client:    http.DefaultClient,
+	}
+	_, err := store.SimilaritySearch(context.Background(), "query", 5)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "status 401")
+}
+
+func TestWeaviateStore_SimilaritySearch_Success(t *testing.T) {
+	t.Parallel()
+	respBody := `{
+		"data": {
+			"Get": {
+				"Test": [
+					{"text": "hello world", "_additional": {"id": "abc", "distance": 0.2}},
+					{"text": "foo bar", "_additional": {"id": "def", "distance": 0.5}}
+				]
+			}
+		}
+	}`
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(respBody))
+	}))
+	defer srv.Close()
+
+	store := &weaviateStore{
+		baseURL:   srv.URL,
+		className: "Test",
+		embedder:  &stubVectorEmbedder{vectors: [][]float32{{0.1, 0.2}}},
+		client:    http.DefaultClient,
+	}
+	docs, err := store.SimilaritySearch(context.Background(), "query", 5)
+	require.NoError(t, err)
+	require.Len(t, docs, 2)
+	assert.Equal(t, "hello world", docs[0].PageContent)
+	assert.Equal(t, "foo bar", docs[1].PageContent)
+	// distance 0.2 -> score 1/(1+0.2) = ~0.833
+	assert.InDelta(t, 0.833, float64(docs[0].Score), 0.01)
+}
+
+func TestWeaviateStore_AddDocuments_Success(t *testing.T) {
+	t.Parallel()
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`[]`))
+	}))
+	defer srv.Close()
+
+	store := &weaviateStore{
+		baseURL:   srv.URL,
+		className: "Test",
+		embedder:  &stubVectorEmbedder{vectors: [][]float32{{0.1, 0.2}}},
+		client:    http.DefaultClient,
+	}
+	ids, err := store.AddDocuments(context.Background(), []schema.Document{
+		{PageContent: "hello world", Metadata: map[string]interface{}{"source": "test"}},
+	})
+	require.NoError(t, err)
+	require.Len(t, ids, 1)
+	assert.NotEmpty(t, ids[0])
+}
+
+func TestWeaviateStore_APIKey_Header(t *testing.T) {
+	t.Parallel()
+	var gotAuth string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotAuth = r.Header.Get("Authorization")
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`[]`))
+	}))
+	defer srv.Close()
+
+	store := &weaviateStore{
+		baseURL:   srv.URL,
+		className: "Test",
+		apiKey:    "my-secret-key",
+		embedder:  &stubVectorEmbedder{vectors: [][]float32{{0.1, 0.2}}},
+		client:    http.DefaultClient,
+	}
+	_, _ = store.AddDocuments(context.Background(), []schema.Document{
+		{PageContent: "hello"},
+	})
+	assert.Equal(t, "Bearer my-secret-key", gotAuth)
 }
 
 func TestBuildStore_MariaDB_MissingURL(t *testing.T) {
