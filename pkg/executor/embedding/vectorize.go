@@ -198,6 +198,9 @@ func openAICompatBaseURL(backend string) string {
 		"deepseek":         "https://api.deepseek.com/v1",
 		"openrouter":       "https://openrouter.ai/api/v1",
 		"together":         "https://api.together.xyz/v1",
+		"cohere":           "https://api.cohere.com/compatibility/v1",
+		"xai":              "https://api.x.ai/v1",
+		"perplexity":       "https://api.perplexity.ai",
 	}
 	if u, ok := urls[backend]; ok {
 		return u
@@ -221,6 +224,12 @@ func providerEnvKey(backend string) string {
 		return "OPENROUTER_API_KEY"
 	case "together":
 		return "TOGETHERAI_API_KEY"
+	case "cohere":
+		return "COHERE_API_KEY"
+	case "xai":
+		return "XAI_API_KEY"
+	case "perplexity":
+		return "PERPLEXITY_API_KEY"
 	case backendOllamaLocal, backendFileLocal, backendGGUFLocal:
 		return ""
 	default:
