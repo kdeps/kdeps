@@ -24,6 +24,8 @@ import (
 	"errors"
 	"fmt"
 	"time"
+
+	"github.com/kdeps/kdeps/v2/pkg/debug"
 )
 
 // AgentLoop starts an agent loop with one or more new prompt messages.
@@ -746,12 +748,23 @@ func emitTurnEnd(ctx context.Context, sink EventSink, msg AgentMessage, toolResu
 }
 
 func emitToolStart(ctx context.Context, sink EventSink, tc ToolCall) error {
+	if debug.Enabled() {
+		debug.Log(fmt.Sprintf("tool.start: name=%s id=%s", tc.Name, tc.ID))
+	}
 	return sink(ctx, AgentEvent{
 		Type: EventToolStart, ToolCallID: tc.ID, ToolName: tc.Name, Args: tc.Arguments,
 	})
 }
 
 func emitToolEnd(ctx context.Context, sink EventSink, f finalizedToolCall) error {
+	if debug.Enabled() {
+		resultLen := 0
+		if f.result.Content != "" {
+			resultLen = len(f.result.Content)
+		}
+		debug.Log(fmt.Sprintf("tool.end: name=%s id=%s result_len=%d is_error=%v",
+			f.toolCall.Name, f.toolCall.ID, resultLen, f.isError))
+	}
 	return sink(ctx, AgentEvent{
 		Type:       EventToolEnd,
 		ToolCallID: f.toolCall.ID,
