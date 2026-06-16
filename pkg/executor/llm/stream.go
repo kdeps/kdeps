@@ -64,6 +64,7 @@ var langchainBaseURLs = map[string]string{
 	"cohere":     "https://api.cohere.com/compatibility/v1",
 	"file":       "http://127.0.0.1:8080/v1",
 	"gguf":       "http://127.0.0.1:8080/v1",
+	"local":      "http://localhost:8080/v1",
 	"ollama":     "http://localhost:11434/v1",
 }
 
@@ -151,7 +152,8 @@ func buildOpenAICompatLLM(cfg *domain.ChatConfig, backend string) (llms.Model, e
 
 	apiKey := os.Getenv(providerAPIKeyEnvVar(backend))
 	// Local servers don't require auth.
-	if apiKey == "" && (backend == backendFile || backend == backendGGUF || backend == backendOllama) {
+	if apiKey == "" && (backend == backendFile || backend == backendGGUF ||
+		backend == backendOllama || backend == "local") {
 		apiKey = "ollama"
 	}
 
@@ -170,14 +172,24 @@ func applyPromptVars(text string, vars map[string]string) string {
 	return text
 }
 
-// buildLangchainMessages converts ChatConfig into langchaingo MessageContent slices.
-func buildLangchainMessages(cfg *domain.ChatConfig) []llms.MessageContent {
-	var msgs []llms.MessageContent
+// buildRetrieverPreamble produces a "Retrieved context:" block from RetrieverContext
+// chunks, ready to prepend to a system message. Returns "" when no chunks.
+func buildRetrieverPreamble(chunks []string) string {
+	if len(chunks) == 0 {
+		return ""
+	}
+	return "Retrieved context:\n---\n" + strings.Join(chunks, "\n---\n") + "\n---"
+}
 
-	// System prompt from scenario. Append output parser format instructions
-	// to the last system message so the model knows what format to produce.
-	formatHint := outputParserFormatInstructions(cfg.OutputParser)
-	for i, sc := range cfg.Scenario {
+// buildScenarioMessages converts scenario items to MessageContent, prepending
+// retrieverPreamble to the first system message and appending formatHint to the last.
+// Returns the converted messages and whether the preamble was injected.
+func buildScenarioMessages(
+	scenario []domain.ScenarioItem, vars map[string]string, retrieverPreamble, formatHint string,
+) ([]llms.MessageContent, bool) {
+	var msgs []llms.MessageContent
+	injected := false
+	for i, sc := range scenario {
 		role := sc.Role
 		if role == "" {
 			role = roleSystem
@@ -185,15 +197,52 @@ func buildLangchainMessages(cfg *domain.ChatConfig) []llms.MessageContent {
 		if sc.Prompt == "" {
 			continue
 		}
-		prompt := applyPromptVars(sc.Prompt, cfg.PromptVars)
-		if formatHint != "" && i == len(cfg.Scenario)-1 {
+		prompt := applyPromptVars(sc.Prompt, vars)
+		if retrieverPreamble != "" && !injected && role == roleSystem {
+			prompt = retrieverPreamble + "\n\n" + prompt
+			injected = true
+		}
+		if formatHint != "" && i == len(scenario)-1 {
 			prompt = prompt + "\n\n" + formatHint
 		}
 		msgs = append(msgs, llms.TextParts(roleToMessageType(role), prompt))
 	}
-	// No scenario messages but format hint exists: inject as standalone system message.
-	if formatHint != "" && len(cfg.Scenario) == 0 {
-		msgs = append(msgs, llms.TextParts(llms.ChatMessageTypeSystem, formatHint))
+	return msgs, injected
+}
+
+// buildSystemPreamble joins retrieverPreamble and formatHint into a single system message.
+func buildSystemPreamble(retrieverPreamble, formatHint string) string {
+	switch {
+	case retrieverPreamble != "" && formatHint != "":
+		return retrieverPreamble + "\n\n" + formatHint
+	case retrieverPreamble != "":
+		return retrieverPreamble
+	default:
+		return formatHint
+	}
+}
+
+// buildLangchainMessages converts ChatConfig into langchaingo MessageContent slices.
+func buildLangchainMessages(cfg *domain.ChatConfig) []llms.MessageContent {
+	var msgs []llms.MessageContent
+
+	retrieverPreamble := buildRetrieverPreamble(cfg.RetrieverContext)
+	formatHint := outputParserFormatInstructions(cfg.OutputParser)
+
+	scenarioMsgs, injectedPreamble := buildScenarioMessages(
+		cfg.Scenario, cfg.PromptVars, retrieverPreamble, formatHint,
+	)
+	msgs = append(msgs, scenarioMsgs...)
+
+	if len(cfg.Scenario) == 0 {
+		if sysMsg := buildSystemPreamble(retrieverPreamble, formatHint); sysMsg != "" {
+			msgs = append(msgs, llms.TextParts(llms.ChatMessageTypeSystem, sysMsg))
+		}
+	} else if retrieverPreamble != "" && !injectedPreamble {
+		// Scenario has no system messages; prepend retriever context as system message.
+		msgs = append([]llms.MessageContent{
+			llms.TextParts(llms.ChatMessageTypeSystem, retrieverPreamble),
+		}, msgs...)
 	}
 
 	// Few-shot examples (user/assistant pairs) injected before runtime history.
