@@ -814,3 +814,25 @@ chat:
 	assert.Empty(t, resource.After)
 	assert.NotNil(t, resource.Chat)
 }
+
+func TestChatConfig_ToolChoice_YAML(t *testing.T) {
+	yamlContent := `
+actionId: test
+name: Test Resource
+chat:
+  model: gpt-4o
+  prompt: hello
+  toolChoice: required
+`
+
+	var resource domain.Resource
+	err := yaml.Unmarshal([]byte(yamlContent), &resource)
+	require.NoError(t, err)
+	require.NotNil(t, resource.Chat)
+	assert.Equal(t, "required", resource.Chat.ToolChoice)
+}
+
+func TestChatConfig_ToolChoice_DefaultIsEmpty(t *testing.T) {
+	cfg := domain.ChatConfig{}
+	assert.Empty(t, cfg.ToolChoice)
+}
