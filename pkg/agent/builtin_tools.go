@@ -29,6 +29,9 @@ import (
 	"os"
 	"strings"
 
+	"github.com/PuerkitoBio/goquery"
+	"github.com/microcosm-cc/bluemonday"
+
 	"github.com/kdeps/kdeps/v2/pkg/domain"
 	kdepstools "github.com/kdeps/kdeps/v2/pkg/tools"
 
@@ -43,12 +46,13 @@ const (
 	builtinUserAgent     = "kdeps/agent"
 )
 
-// RegisterBuiltinTools adds built-in tools (web_search, wikipedia, and optional
+// RegisterBuiltinTools adds built-in tools (web_search, wikipedia, web_scraper, and optional
 // API-key tools: serpapi_search, perplexity_search, exa_search) to the registry.
 // API-key tools are registered only when the corresponding env var is set.
 func RegisterBuiltinTools(ctx context.Context, reg *kdepstools.Registry) {
 	registerDuckDuckGo(ctx, reg)
 	registerWikipedia(ctx, reg)
+	registerWebScraper(ctx, reg)
 	registerSerpAPI(ctx, reg)
 	registerPerplexity(ctx, reg)
 	registerExa(ctx, reg)
@@ -99,6 +103,57 @@ func registerWikipedia(ctx context.Context, reg *kdepstools.Registry) {
 			return wiki.Call(ctx, query)
 		},
 	})
+}
+
+// registerWebScraper registers a URL scraping tool using goquery + bluemonday.
+// No API key required. Fetches the URL and returns sanitized text content.
+func registerWebScraper(_ context.Context, reg *kdepstools.Registry) {
+	policy := bluemonday.StrictPolicy()
+	reg.Register(&kdepstools.Tool{
+		Name:        "web_scraper",
+		Description: "Fetch and extract readable text content from any web URL. Returns the cleaned text of the page without HTML tags, scripts, or styles. Use when you need to read a specific web page, article, or documentation URL.",
+		Parameters: map[string]domain.ToolParam{
+			"url": {
+				Type:        "string",
+				Description: "The full URL (including https://) to fetch and extract text from",
+				Required:    true,
+			},
+		},
+		Execute: func(args map[string]interface{}) (string, error) {
+			url, _ := args["url"].(string)
+			if url == "" {
+				return "", errors.New("web_scraper: url is required")
+			}
+			return scrapeURL(url, policy)
+		},
+	})
+}
+
+func scrapeURL(url string, policy *bluemonday.Policy) (string, error) {
+	resp, err := http.Get(url) //nolint:gosec,noctx // G107: URL provided by agent, caller trusts it
+	if err != nil {
+		return "", fmt.Errorf("web_scraper: fetch %s: %w", url, err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		return "", fmt.Errorf("web_scraper: HTTP %d for %s", resp.StatusCode, url)
+	}
+
+	doc, err := goquery.NewDocumentFromReader(resp.Body)
+	if err != nil {
+		return "", fmt.Errorf("web_scraper: parse %s: %w", url, err)
+	}
+
+	// Remove script/style nodes before extracting text.
+	doc.Find("script, style, noscript").Remove()
+
+	var sb strings.Builder
+	doc.Find("body").Each(func(_ int, sel *goquery.Selection) {
+		text := policy.Sanitize(sel.Text())
+		sb.WriteString(strings.TrimSpace(text))
+	})
+	result := strings.Join(strings.Fields(sb.String()), " ")
+	return result, nil
 }
 
 // registerSerpAPI registers Google Search via SerpAPI when SERPAPI_API_KEY is set.
