@@ -24,6 +24,7 @@ import (
 	"context"
 	"fmt"
 
+	lccallbacks "github.com/tmc/langchaingo/callbacks"
 	"github.com/tmc/langchaingo/llms"
 
 	"github.com/kdeps/kdeps/v2/pkg/debug"
@@ -74,4 +75,18 @@ func withObservability(model llms.Model, modelName string) llms.Model {
 		return model
 	}
 	return &observedLLM{inner: model, model: modelName}
+}
+
+// CombineHandlers fans out langchaingo callback events to multiple handlers.
+// When only one handler is given it is returned as-is to avoid wrapping overhead.
+// When no handlers are given, an empty SimpleHandler is returned.
+func CombineHandlers(handlers ...lccallbacks.Handler) lccallbacks.Handler {
+	switch len(handlers) {
+	case 0:
+		return lccallbacks.SimpleHandler{}
+	case 1:
+		return handlers[0]
+	default:
+		return lccallbacks.CombiningHandler{Callbacks: handlers}
+	}
 }
