@@ -36,4 +36,5 @@ const (
 	ExecutorGit         = "git"
 	ExecutorCodeIntel   = "codeIntelligence"
 	ExecutorLoader      = "loader"
+	ExecutorVectorStore = "vectorStore"
 )

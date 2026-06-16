@@ -77,3 +77,10 @@ func (r *Registry) GetCodeIntelligenceExecutor() ResourceExecutor {
 
 func (r *Registry) SetLoaderExecutor(exec ResourceExecutor) { r.Register(ExecutorLoader, exec) }
 func (r *Registry) GetLoaderExecutor() ResourceExecutor     { return r.getExecutor(ExecutorLoader) }
+
+func (r *Registry) SetVectorStoreExecutor(exec ResourceExecutor) {
+	r.Register(ExecutorVectorStore, exec)
+}
+func (r *Registry) GetVectorStoreExecutor() ResourceExecutor {
+	return r.getExecutor(ExecutorVectorStore)
+}

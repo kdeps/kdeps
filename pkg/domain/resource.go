@@ -61,6 +61,7 @@ type Resource struct {
 	Git              *GitResourceConfig      `yaml:"git,omitempty"`
 	CodeIntelligence *CodeIntelligenceConfig `yaml:"codeIntelligence,omitempty"`
 	Loader           *LoaderConfig           `yaml:"loader,omitempty"`
+	VectorStore      *VectorStoreConfig      `yaml:"vectorStore,omitempty"`
 }
 
 // LoopConfig configures while-loop repetition for a resource, enabling Turing-complete

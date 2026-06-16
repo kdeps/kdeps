@@ -1,0 +1,260 @@
+// Copyright 2026 Kdeps, KvK 94834768
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+// Package vectorstore executes vectorStore: resources, adding documents to
+// and searching a vector database (Qdrant). Embeddings are generated on the
+// fly using the configured embed model and backend.
+package vectorstore
+
+import (
+	"context"
+	"encoding/json"
+	"errors"
+	"fmt"
+	"net/url"
+	"os"
+
+	lcemb "github.com/tmc/langchaingo/embeddings"
+	lchemb_hf "github.com/tmc/langchaingo/embeddings/huggingface"
+	lchemb_jina "github.com/tmc/langchaingo/embeddings/jina"
+	lchemb_voyage "github.com/tmc/langchaingo/embeddings/voyageai"
+	lcgoogleai "github.com/tmc/langchaingo/llms/googleai"
+	lcopenai "github.com/tmc/langchaingo/llms/openai"
+	"github.com/tmc/langchaingo/schema"
+	lcqdrant "github.com/tmc/langchaingo/vectorstores/qdrant"
+
+	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
+	"github.com/kdeps/kdeps/v2/pkg/domain"
+	"github.com/kdeps/kdeps/v2/pkg/executor"
+)
+
+// Executor runs vectorStore: resources.
+type Executor struct{}
+
+// NewExecutor creates a new vector store executor.
+func NewExecutor() *Executor {
+	kdeps_debug.Log("enter: vectorstore.NewExecutor")
+	return &Executor{}
+}
+
+// Execute runs the configured vector store operation.
+func (e *Executor) Execute(
+	_ *executor.ExecutionContext,
+	cfg *domain.VectorStoreConfig,
+) (interface{}, error) {
+	kdeps_debug.Log("enter: vectorstore.Execute")
+
+	ctx := context.Background()
+
+	switch cfg.Operation {
+	case "add_documents":
+		return executeAddDocuments(ctx, cfg)
+	case "similarity_search":
+		return executeSimilaritySearch(ctx, cfg)
+	default:
+		return nil, fmt.Errorf(
+			"vectorstore: unknown operation %q (use add_documents, similarity_search)",
+			cfg.Operation,
+		)
+	}
+}
+
+func executeAddDocuments(ctx context.Context, cfg *domain.VectorStoreConfig) (interface{}, error) {
+	if len(cfg.Documents) == 0 {
+		return nil, errors.New("vectorstore add_documents: documents is required")
+	}
+
+	store, err := buildStore(ctx, cfg)
+	if err != nil {
+		return nil, err
+	}
+
+	docs := make([]schema.Document, len(cfg.Documents))
+	for i, d := range cfg.Documents {
+		docs[i] = schema.Document{
+			PageContent: d.Content,
+			Metadata:    d.Metadata,
+		}
+	}
+
+	ids, err := store.AddDocuments(ctx, docs)
+	if err != nil {
+		return nil, fmt.Errorf("vectorstore add_documents: %w", err)
+	}
+
+	return map[string]interface{}{
+		"added": len(ids),
+		"ids":   ids,
+	}, nil
+}
+
+func executeSimilaritySearch(
+	ctx context.Context,
+	cfg *domain.VectorStoreConfig,
+) (interface{}, error) {
+	if cfg.Query == "" {
+		return nil, errors.New("vectorstore similarity_search: query is required")
+	}
+
+	store, err := buildStore(ctx, cfg)
+	if err != nil {
+		return nil, err
+	}
+
+	topK := cfg.TopK
+	if topK <= 0 {
+		topK = 5
+	}
+
+	docs, err := store.SimilaritySearch(ctx, cfg.Query, topK)
+	if err != nil {
+		return nil, fmt.Errorf("vectorstore similarity_search: %w", err)
+	}
+
+	results := make([]map[string]interface{}, len(docs))
+	for i, d := range docs {
+		results[i] = map[string]interface{}{
+			"content":  d.PageContent,
+			"metadata": d.Metadata,
+		}
+	}
+
+	b, _ := json.Marshal(results)
+	return map[string]interface{}{
+		"results": results,
+		"count":   len(results),
+		"json":    string(b),
+	}, nil
+}
+
+func buildStore(ctx context.Context, cfg *domain.VectorStoreConfig) (lcqdrant.Store, error) {
+	if cfg.URL == "" {
+		return lcqdrant.Store{}, errors.New("vectorstore: url is required")
+	}
+	if cfg.Collection == "" {
+		return lcqdrant.Store{}, errors.New("vectorstore: collection is required")
+	}
+	if cfg.EmbedModel == "" {
+		return lcqdrant.Store{}, errors.New("vectorstore: embedModel is required")
+	}
+
+	qdrantURL, err := url.Parse(cfg.URL)
+	if err != nil {
+		return lcqdrant.Store{}, fmt.Errorf("vectorstore: invalid url %q: %w", cfg.URL, err)
+	}
+
+	embedder, err := buildEmbedder(ctx, cfg)
+	if err != nil {
+		return lcqdrant.Store{}, fmt.Errorf("vectorstore: build embedder: %w", err)
+	}
+
+	opts := []lcqdrant.Option{
+		lcqdrant.WithURL(*qdrantURL),
+		lcqdrant.WithCollectionName(cfg.Collection),
+		lcqdrant.WithEmbedder(embedder),
+	}
+	if cfg.APIKey != "" {
+		opts = append(opts, lcqdrant.WithAPIKey(cfg.APIKey))
+	}
+
+	return lcqdrant.New(opts...)
+}
+
+func buildEmbedder(ctx context.Context, cfg *domain.VectorStoreConfig) (lcemb.Embedder, error) {
+	switch cfg.EmbedBackend {
+	case "google":
+		apiKey := os.Getenv("GOOGLE_API_KEY")
+		client, err := lcgoogleai.New(ctx,
+			lcgoogleai.WithAPIKey(apiKey),
+			lcgoogleai.WithDefaultModel(cfg.EmbedModel),
+		)
+		if err != nil {
+			return nil, err
+		}
+		return lcemb.NewEmbedder(client)
+	case "huggingface":
+		return lchemb_hf.NewHuggingface(lchemb_hf.WithModel(cfg.EmbedModel))
+	case "jina":
+		return lchemb_jina.NewJina(
+			lchemb_jina.WithAPIKey(os.Getenv("JINA_API_KEY")),
+			lchemb_jina.WithModel(cfg.EmbedModel),
+		)
+	case "voyageai":
+		return lchemb_voyage.NewVoyageAI(
+			lchemb_voyage.WithToken(os.Getenv("VOYAGEAI_API_KEY")),
+			lchemb_voyage.WithModel(cfg.EmbedModel),
+		)
+	default:
+		return buildOpenAICompatEmbedder(cfg)
+	}
+}
+
+func buildOpenAICompatEmbedder(cfg *domain.VectorStoreConfig) (lcemb.Embedder, error) {
+	apiKey := os.Getenv(providerEnvKey(cfg.EmbedBackend))
+	baseURL := cfg.EmbedBaseURL
+	if baseURL == "" {
+		baseURL = openAICompatBaseURL(cfg.EmbedBackend)
+	}
+
+	opts := []lcopenai.Option{
+		lcopenai.WithToken(apiKey),
+		lcopenai.WithModel(cfg.EmbedModel),
+	}
+	if baseURL != "" {
+		opts = append(opts, lcopenai.WithBaseURL(baseURL))
+	}
+
+	client, err := lcopenai.New(opts...)
+	if err != nil {
+		return nil, fmt.Errorf("build openai compat embedder: %w", err)
+	}
+	return lcemb.NewEmbedder(client)
+}
+
+func providerEnvKey(backend string) string {
+	switch backend {
+	case "openai":
+		return "OPENAI_API_KEY"
+	case "google":
+		return "GOOGLE_API_KEY"
+	case "groq":
+		return "GROQ_API_KEY"
+	case "mistral":
+		return "MISTRAL_API_KEY"
+	case "deepseek":
+		return "DEEPSEEK_API_KEY"
+	case "openrouter":
+		return "OPENROUTER_API_KEY"
+	case "together":
+		return "TOGETHERAI_API_KEY"
+	default:
+		return ""
+	}
+}
+
+func openAICompatBaseURL(backend string) string {
+	urls := map[string]string{
+		"openai":     "https://api.openai.com/v1",
+		"ollama":     "http://localhost:11434/v1",
+		"groq":       "https://api.groq.com/openai/v1",
+		"mistral":    "https://api.mistral.ai/v1",
+		"deepseek":   "https://api.deepseek.com/v1",
+		"openrouter": "https://openrouter.ai/api/v1",
+		"together":   "https://api.together.xyz/v1",
+	}
+	if u, ok := urls[backend]; ok {
+		return u
+	}
+	return ""
+}

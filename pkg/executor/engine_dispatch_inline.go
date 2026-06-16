@@ -151,6 +151,9 @@ func inlineResourceDispatch() []inlineDispatchEntry {
 		"loader": func(e *Engine, inline *domain.InlineResource, _ int, ctx *ExecutionContext) (interface{}, error) {
 			return e.executeInlineLoader(inline.Loader, ctx)
 		},
+		"vectorStore": func(e *Engine, inline *domain.InlineResource, _ int, ctx *ExecutionContext) (interface{}, error) {
+			return e.executeInlineVectorStore(inline.VectorStore, ctx)
+		},
 		"botReply": func(e *Engine, inline *domain.InlineResource, index int, ctx *ExecutionContext) (interface{}, error) {
 			return e.executeBotReply(inlineSyntheticResource(inline, index), ctx)
 		},
