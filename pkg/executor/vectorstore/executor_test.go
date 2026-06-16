@@ -963,6 +963,36 @@ func TestCosineSimilarity_LengthMismatch(t *testing.T) {
 	}
 }
 
+func TestOpenSearchStore_SimilaritySearch_WithMetadata(t *testing.T) {
+	t.Parallel()
+	respBody := `{
+		"hits": {
+			"hits": [
+				{"_score": 0.85, "_source": {"text": "result with meta", "meta": {"src": "wiki", "lang": "en"}}}
+			]
+		}
+	}`
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(respBody))
+	}))
+	defer srv.Close()
+
+	store := &openSearchStore{
+		baseURL:  srv.URL,
+		index:    "test-index",
+		embedder: &stubVectorEmbedder{vectors: [][]float32{{0.1, 0.2}}},
+		client:   http.DefaultClient,
+	}
+	docs, err := store.SimilaritySearch(context.Background(), "query", 5)
+	require.NoError(t, err)
+	require.Len(t, docs, 1)
+	assert.Equal(t, "result with meta", docs[0].PageContent)
+	assert.Equal(t, "wiki", docs[0].Metadata["src"])
+	assert.Equal(t, "en", docs[0].Metadata["lang"])
+}
+
 func TestOpenSearchStore_AddDocuments_HTTPError(t *testing.T) {
 	t.Parallel()
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
@@ -1079,6 +1109,40 @@ func TestOpenSearchStore_BasicAuth(t *testing.T) {
 		{PageContent: "hello"},
 	})
 	assert.Contains(t, gotAuth, "Basic ")
+}
+
+func TestWeaviateStore_SimilaritySearch_WithMetadata(t *testing.T) {
+	t.Parallel()
+	// Response includes non-text, non-_additional fields (metadata propagation)
+	respBody := `{
+		"data": {
+			"Get": {
+				"Test": [
+					{"text": "doc with meta", "source": "wiki", "_additional": {"id": "abc", "distance": 0.1}}
+				]
+			}
+		}
+	}`
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(respBody))
+	}))
+	defer srv.Close()
+
+	store := &weaviateStore{
+		baseURL:   srv.URL,
+		className: "Test",
+		embedder:  &stubVectorEmbedder{vectors: [][]float32{{0.1, 0.2}}},
+		client:    http.DefaultClient,
+	}
+	docs, err := store.SimilaritySearch(context.Background(), "query", 5)
+	require.NoError(t, err)
+	require.Len(t, docs, 1)
+	assert.Equal(t, "doc with meta", docs[0].PageContent)
+	assert.Equal(t, "wiki", docs[0].Metadata["source"])
+	// distance 0.1 -> score 1/(1+0.1) = ~0.909
+	assert.InDelta(t, 0.909, float64(docs[0].Score), 0.01)
 }
 
 func TestNewOpenSearchStore_APIKeyBasicAuth(t *testing.T) {
