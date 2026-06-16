@@ -113,6 +113,11 @@ type ChatConfig struct {
 	// system message as a "Retrieved context:" block separated by "---".
 	RetrieverContext []string `yaml:"retrieverContext,omitempty"`
 
+	// RetrieverContextTopK, when > 0, compresses the RetrieverContext to the
+	// K chunks most relevant to the current Prompt using word-overlap (Jaccard)
+	// similarity. 0 (default) injects all chunks. Implements contextual compression.
+	RetrieverContextTopK int `yaml:"retrieverContextTopK,omitempty"`
+
 	// GoTemplate enables Go text/template rendering for the Prompt and scenario
 	// messages. When true, PromptVars is passed as the template data (accessible
 	// via {{.VarName}}). Supports conditionals, ranges, and all stdlib template
