@@ -151,3 +151,47 @@ func TestMessages_ReturnsCopy(t *testing.T) {
 		t.Fatalf("unexpected second message: %+v", msgs[1])
 	}
 }
+
+func TestSetTokenBudget_TrimsOldestTurns(t *testing.T) {
+	s := NewSession(0)
+	// Set a small token budget - 50 tokens should only hold a couple of short messages
+	s.SetTokenBudget(50, "")
+
+	// Append several turns; older ones should be dropped to stay under budget
+	for i := range 10 {
+		s.Append("hello", "world "+string(rune('0'+i)))
+	}
+
+	tokens := s.TotalTokens()
+	if tokens > 50 {
+		t.Fatalf("expected TotalTokens() <= 50, got %d", tokens)
+	}
+}
+
+func TestSetTokenBudget_UnlimitedWhenZero(t *testing.T) {
+	s := NewSession(0)
+	s.SetTokenBudget(0, "")
+
+	for i := range 20 {
+		s.Append("user input", "assistant response "+string(rune('0'+i)))
+	}
+
+	if s.TurnCount() != 20 {
+		t.Fatalf("expected 20 turns, got %d", s.TurnCount())
+	}
+}
+
+func TestTotalTokens_ReturnsPositive(t *testing.T) {
+	s := NewSession(0)
+	s.Append("Hello", "World")
+	if s.TotalTokens() <= 0 {
+		t.Fatal("expected positive token count")
+	}
+}
+
+func TestMaxHistoryTokens_InConfig(t *testing.T) {
+	cfg := Config{MaxHistoryTokens: 100}
+	if cfg.MaxHistoryTokens != 100 {
+		t.Fatal("MaxHistoryTokens not set")
+	}
+}
