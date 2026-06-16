@@ -124,6 +124,17 @@ func newStreamingLoop(streamer Streamer, maxRounds int) *Loop {
 	})
 }
 
+func newStreamingLoopFinalOnly(streamer Streamer, maxRounds int) *Loop {
+	eng := executor.NewEngine(nil)
+	reg := tools.NewRegistry()
+	return New(eng, newTestWorkflowForSession(), reg, Config{
+		Model:           "test",
+		Streamer:        streamer,
+		MaxToolRounds:   maxRounds,
+		StreamFinalOnly: true,
+	})
+}
+
 // TestRunStreaming_NaturalEarlyStop verifies that when the LLM returns no tool
 // calls the loop stops after one round and returns the content.
 func TestRunStreaming_NaturalEarlyStop(t *testing.T) {
@@ -212,5 +223,54 @@ func TestRunStreaming_SessionStoresResponse(t *testing.T) {
 	}
 	if loop.Session().TurnCount() != 1 {
 		t.Errorf("expected 1 turn in session, got %d", loop.Session().TurnCount())
+	}
+}
+
+// TestRunStreaming_StreamFinalOnly_SuppressesIntermediateRounds verifies that
+// when StreamFinalOnly=true, intermediate tool-call rounds are not written
+// to the caller's writer.
+func TestRunStreaming_StreamFinalOnly_SuppressesIntermediateRounds(t *testing.T) {
+	toolCall := domain.StreamedToolCall{ID: "t1", Name: "echo", Arguments: `{}`}
+	ms := &mockStreamer{
+		responses: []mockStreamResponse{
+			{content: "intermediate", toolCalls: []domain.StreamedToolCall{toolCall}},
+			{content: "final answer", toolCalls: nil},
+		},
+	}
+	loop := newStreamingLoopFinalOnly(ms, 10)
+	var buf bytes.Buffer
+	result, err := loop.RunStreaming(context.Background(), "go", &buf)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if strings.Contains(buf.String(), "intermediate") {
+		t.Errorf("intermediate content should not be written to writer, got %q", buf.String())
+	}
+	if !strings.Contains(buf.String(), "final answer") {
+		t.Errorf("final answer should be written to writer, got %q", buf.String())
+	}
+	if !strings.Contains(result, "final answer") {
+		t.Errorf("result should contain 'final answer', got %q", result)
+	}
+}
+
+// TestRunStreaming_StreamFinalOnly_FalseStreamsAll verifies that
+// when StreamFinalOnly=false (default), all rounds are streamed.
+func TestRunStreaming_StreamFinalOnly_FalseStreamsAll(t *testing.T) {
+	toolCall := domain.StreamedToolCall{ID: "t1", Name: "echo", Arguments: `{}`}
+	ms := &mockStreamer{
+		responses: []mockStreamResponse{
+			{content: "round1", toolCalls: []domain.StreamedToolCall{toolCall}},
+			{content: "final", toolCalls: nil},
+		},
+	}
+	loop := newStreamingLoop(ms, 10)
+	var buf bytes.Buffer
+	_, err := loop.RunStreaming(context.Background(), "go", &buf)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !strings.Contains(buf.String(), "round1") {
+		t.Errorf("round1 content should be written when StreamFinalOnly=false, got %q", buf.String())
 	}
 }

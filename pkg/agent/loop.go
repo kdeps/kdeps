@@ -83,6 +83,10 @@ type Config struct {
 	// MaxToolRounds caps how many tool-call/result round trips RunStreaming
 	// will perform in a single turn. 0 means unlimited (default: 10).
 	MaxToolRounds int
+	// StreamFinalOnly suppresses streaming output for intermediate tool-call
+	// rounds, writing only the final agent response to the caller's writer.
+	// When false (default), all rounds are streamed as they arrive.
+	StreamFinalOnly bool
 }
 
 // Loop drives a multi-turn agent conversation using the kdeps engine as the
@@ -252,30 +256,46 @@ func (l *Loop) RunStreaming(ctx context.Context, input string, w io.Writer) (str
 	systemPreamble := l.buildSystemPreamble()
 	chatCfg := l.buildChatConfig(input, systemPreamble)
 
-	var finalContent string
-	for i := range l.config.MaxToolRounds {
-		content, toolCalls, err := l.streamer.StreamChat(ctx, chatCfg, w)
-		if err != nil {
-			return "", fmt.Errorf("agent loop stream: %w", err)
-		}
-
-		finalContent = content // always capture last response
-
-		if len(toolCalls) == 0 {
-			break // natural early stop: no more tool calls
-		}
-
-		if i == l.config.MaxToolRounds-1 {
-			break // max rounds reached; use last content as response
-		}
-
-		chatCfg = l.appendToolRoundTrip(chatCfg, content, toolCalls)
-		fmt.Fprintln(w) // newline before next streaming response
+	finalContent, err := l.runToolRounds(ctx, chatCfg, w)
+	if err != nil {
+		return "", err
 	}
 
 	response := stripContentToolCalls(finalContent)
 	l.session.Append(input, response)
 	return response, nil
+}
+
+// runToolRounds drives the tool-call loop, returning the final content string.
+func (l *Loop) runToolRounds(ctx context.Context, chatCfg *domain.ChatConfig, w io.Writer) (string, error) {
+	var finalContent string
+	for i := range l.config.MaxToolRounds {
+		roundWriter := w
+		if l.config.StreamFinalOnly && i < l.config.MaxToolRounds-1 {
+			roundWriter = io.Discard
+		}
+
+		content, toolCalls, err := l.streamer.StreamChat(ctx, chatCfg, roundWriter)
+		if err != nil {
+			return "", fmt.Errorf("agent loop stream: %w", err)
+		}
+		finalContent = content
+
+		if len(toolCalls) == 0 {
+			if l.config.StreamFinalOnly && roundWriter == io.Discard {
+				_, _ = io.WriteString(w, content)
+			}
+			break
+		}
+		if i == l.config.MaxToolRounds-1 {
+			break
+		}
+		chatCfg = l.appendToolRoundTrip(chatCfg, content, toolCalls)
+		if !l.config.StreamFinalOnly {
+			fmt.Fprintln(w)
+		}
+	}
+	return finalContent, nil
 }
 
 // appendToolRoundTrip appends the assistant tool-call turn and tool results to

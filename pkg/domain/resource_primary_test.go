@@ -121,7 +121,11 @@ func TestPrimaryResourceEventName(t *testing.T) {
 		{"python", &domain.Resource{Python: &domain.PythonConfig{}}, "python"},
 		{"chat maps to llm", &domain.Resource{Chat: &domain.ChatConfig{}}, "llm"},
 		{"sql", &domain.Resource{SQL: &domain.SQLConfig{}}, "sql"},
-		{"httpClient maps to http", &domain.Resource{HTTPClient: &domain.HTTPClientConfig{}}, "http"},
+		{
+			"httpClient maps to http",
+			&domain.Resource{HTTPClient: &domain.HTTPClientConfig{}},
+			"http",
+		},
 		{"agent", &domain.Resource{Agent: &domain.AgentCallConfig{}}, "agent"},
 		{"component", &domain.Resource{Component: &domain.ComponentCallConfig{}}, "component"},
 		{"scraper", &domain.Resource{Scraper: &domain.ScraperConfig{}}, "scraper"},
@@ -132,7 +136,11 @@ func TestPrimaryResourceEventName(t *testing.T) {
 		{"browser", &domain.Resource{Browser: &domain.BrowserConfig{}}, "browser"},
 		{"botReply", &domain.Resource{BotReply: &domain.BotReplyConfig{}}, "botReply"},
 		{"email", &domain.Resource{Email: &domain.EmailConfig{}}, "email"},
-		{"apiResponse only", &domain.Resource{APIResponse: &domain.APIResponseConfig{}}, "apiResponse"},
+		{
+			"apiResponse only",
+			&domain.Resource{APIResponse: &domain.APIResponseConfig{}},
+			"apiResponse",
+		},
 		{
 			"primary beats apiResponse",
 			&domain.Resource{
@@ -172,7 +180,8 @@ func TestPrimaryResourceTypeNames_MatchesExecutorRegistry(t *testing.T) {
 	want := []string{
 		"chat", "httpClient", "sql", "python", "exec", "agent", "component",
 		"scraper", "embedding", "searchLocal", "searchWeb",
-		"telephony", "browser", "botReply", "email", "file", "git", "codeIntelligence", "loader", "vectorStore", "apiResponse",
+		"telephony", "browser", "botReply", "email", "file", "git",
+		"codeIntelligence", "loader", "vectorStore", "apiResponse",
 	}
 	got := domain.PrimaryResourceTypeNames()
 	if len(got) != len(want) {
