@@ -29,6 +29,7 @@ import (
 	"mime"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 	"text/template"
 
@@ -191,6 +192,79 @@ func renderGoTemplate(text string, vars map[string]string) string {
 	return buf.String()
 }
 
+// selectFewShotExamples returns up to k user/assistant pairs from pool that are
+// most similar to prompt, measured by word-overlap (Jaccard on bag-of-words).
+// Pairs are preserved: if a user item at index i is selected, item i+1 is included
+// when it is an assistant item. If k == 0 or len(pool) == 0, pool is returned as-is.
+func selectFewShotExamples(pool []domain.ScenarioItem, prompt string, k int) []domain.ScenarioItem {
+	if k <= 0 || len(pool) == 0 {
+		return pool
+	}
+
+	promptWords := wordSet(strings.ToLower(prompt))
+
+	type scored struct {
+		idx   int
+		score float64
+	}
+	var candidates []scored
+	for i, item := range pool {
+		if strings.EqualFold(item.Role, roleUser) || item.Role == "" {
+			candidates = append(candidates, scored{
+				idx:   i,
+				score: jaccardSimilarity(promptWords, wordSet(strings.ToLower(item.Prompt))),
+			})
+		}
+	}
+
+	// Sort descending by score, stable so equal scores keep insertion order.
+	sort.SliceStable(candidates, func(i, j int) bool {
+		return candidates[i].score > candidates[j].score
+	})
+	if k < len(candidates) {
+		candidates = candidates[:k]
+	}
+	// Re-sort by original index to preserve authoring order.
+	sort.SliceStable(candidates, func(i, j int) bool {
+		return candidates[i].idx < candidates[j].idx
+	})
+
+	var result []domain.ScenarioItem
+	for _, c := range candidates {
+		result = append(result, pool[c.idx])
+		// Include the immediately following assistant item if present.
+		if c.idx+1 < len(pool) && strings.EqualFold(pool[c.idx+1].Role, roleAssistant) {
+			result = append(result, pool[c.idx+1])
+		}
+	}
+	return result
+}
+
+func wordSet(s string) map[string]struct{} {
+	set := make(map[string]struct{})
+	for _, w := range strings.Fields(s) {
+		set[w] = struct{}{}
+	}
+	return set
+}
+
+func jaccardSimilarity(a, b map[string]struct{}) float64 {
+	if len(a) == 0 || len(b) == 0 {
+		return 0
+	}
+	intersection := 0
+	for w := range a {
+		if _, ok := b[w]; ok {
+			intersection++
+		}
+	}
+	union := len(a) + len(b) - intersection
+	if union == 0 {
+		return 0
+	}
+	return float64(intersection) / float64(union)
+}
+
 // buildRetrieverPreamble produces a "Retrieved context:" block from RetrieverContext
 // chunks, ready to prepend to a system message. Returns "" when no chunks.
 func buildRetrieverPreamble(chunks []string) string {
@@ -275,7 +349,9 @@ func buildLangchainMessages(cfg *domain.ChatConfig) []llms.MessageContent {
 	}
 
 	// Few-shot examples (user/assistant pairs) injected before runtime history.
-	for _, fs := range cfg.FewShot {
+	// When FewShotSelectK > 0, dynamically select the K most similar examples.
+	fewShot := selectFewShotExamples(cfg.FewShot, cfg.Prompt, cfg.FewShotSelectK)
+	for _, fs := range fewShot {
 		if fs.Prompt == "" {
 			continue
 		}

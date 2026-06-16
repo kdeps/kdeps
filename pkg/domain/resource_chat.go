@@ -95,6 +95,12 @@ type ChatConfig struct {
 	// messages and before runtime history.
 	FewShot []ScenarioItem `yaml:"fewShot,omitempty"`
 
+	// FewShotSelectK, when > 0, dynamically selects the K most similar examples
+	// from FewShot based on word-overlap similarity to the current Prompt.
+	// Pairs are preserved: if a user example is selected its following assistant
+	// item is included automatically. 0 (default) uses all examples.
+	FewShotSelectK int `yaml:"fewShotSelectK,omitempty"`
+
 	// PromptVars is a map of variable name → value for {{var}} substitution
 	// in the prompt and scenario system messages. Enables chat prompt templates
 	// with named slots. Example: {role: "helpful"} replaces {{role}} in prompt.
