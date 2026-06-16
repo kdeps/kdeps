@@ -88,12 +88,12 @@ func TestBuiltinTools_ToLLMTools(t *testing.T) {
 	RegisterBuiltinTools(context.Background(), reg)
 
 	llmTools := reg.ToLLMTools()
-	// web_search, wikipedia, web_scraper, sql_list_tables, sql_describe_table, sql_query = 6
+	// web_search, wikipedia, web_scraper, sql_list_tables, sql_describe_table, sql_query, calculator = 7
 	assert.Len(
 		t,
 		llmTools,
-		6,
-		"six built-in tools should be convertible to LLM tools",
+		7,
+		"seven built-in tools should be convertible to LLM tools",
 	)
 
 	for _, lt := range llmTools {
