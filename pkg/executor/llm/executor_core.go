@@ -56,6 +56,7 @@ const (
 	defaultOllamaURL = "http://localhost:11434"
 	roleUser         = "user"
 	roleAssistant    = "assistant"
+	roleSystem       = "system"
 )
 
 //nolint:gochecknoglobals // test-replaceable

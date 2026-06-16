@@ -32,9 +32,9 @@ import (
 //
 //nolint:gochecknoglobals // lookup table
 var historyRoles = map[string]bool{
-	"system":    true,
-	"user":      true,
-	"assistant": true,
+	roleSystem:    true,
+	roleUser:      true,
+	roleAssistant: true,
 }
 
 // buildHistoryMessages evaluates the chat messages: expression into

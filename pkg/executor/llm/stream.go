@@ -21,149 +21,110 @@
 package llm
 
 import (
-	"bufio"
-	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
 	"io"
-	stdhttp "net/http"
-	"strings"
-	"time"
+	"os"
+
+	"github.com/tmc/langchaingo/llms"
+	lcanthropic "github.com/tmc/langchaingo/llms/anthropic"
+	lcgoogleai "github.com/tmc/langchaingo/llms/googleai"
+	lcopenai "github.com/tmc/langchaingo/llms/openai"
 
 	"github.com/kdeps/kdeps/v2/pkg/domain"
-	"github.com/kdeps/kdeps/v2/pkg/version"
 )
 
 const (
-	streamSSEPrefix     = "data: "
-	streamSSEDone       = "data: [DONE]"
-	streamingTimeout    = 5 * time.Minute // long timeout for streaming responses.
-	backendAnthropic    = "anthropic"
-	streamFormatOllama  = "ollama"
-	streamFormatAnthrop = "anthropic"
-	streamFormatOpenAI  = "openai"
-	streamContextLength = 4096
+	backendAnthropic = "anthropic"
+	backendGoogle    = "google"
 )
 
-// streamingFormat returns the wire format for a given backend name.
-// streamFormatOllama  -> Ollama NDJSON line-delimited format.
-// streamFormatAnthrop -> Anthropic SSE format.
-// streamFormatOpenAI  -> OpenAI-compatible SSE (all other backends).
-func streamingFormat(backendName string) string {
-	switch backendName {
-	case backendOllama:
-		return streamFormatOllama
+//nolint:gochecknoglobals // provider base URLs are constant lookup table, not mutable state
+var langchainBaseURLs = map[string]string{
+	"openai":     "https://api.openai.com/v1",
+	"xai":        "https://api.x.ai/v1",
+	"groq":       "https://api.groq.com/openai/v1",
+	"mistral":    "https://api.mistral.ai/v1",
+	"deepseek":   "https://api.deepseek.com/v1",
+	"openrouter": "https://openrouter.ai/api/v1",
+	"together":   "https://api.together.xyz/v1",
+	"perplexity": "https://api.perplexity.ai",
+	"cohere":     "https://api.cohere.com/compatibility/v1",
+	"file":       "http://127.0.0.1:8080/v1",
+	"gguf":       "http://127.0.0.1:8080/v1",
+	"ollama":     "http://localhost:11434/v1",
+}
+
+// buildLangchainLLM constructs a langchaingo LLM from cfg.
+func buildLangchainLLM(ctx context.Context, cfg *domain.ChatConfig) (llms.Model, error) {
+	backend := cfg.Backend
+	if backend == "" {
+		backend = backendFile
+	}
+
+	switch backend {
 	case backendAnthropic:
-		return streamFormatAnthrop
+		apiKey := os.Getenv(providerAPIKeyEnvVar(backendAnthropic))
+		return lcanthropic.New(
+			lcanthropic.WithToken(apiKey),
+			lcanthropic.WithModel(cfg.Model),
+		)
+
+	case backendGoogle:
+		apiKey := os.Getenv(providerAPIKeyEnvVar(backendGoogle))
+		return lcgoogleai.New(ctx,
+			lcgoogleai.WithAPIKey(apiKey),
+			lcgoogleai.WithDefaultModel(cfg.Model),
+		)
+
 	default:
-		return streamFormatOpenAI
+		return buildOpenAICompatLLM(cfg, backend)
 	}
 }
 
-// StreamChat makes a streaming LLM call using a pre-resolved ChatConfig.
-// Tokens are written to w as they arrive; the full accumulated text is returned.
-// This is intended for the agent loop where all config values are already literals.
-func (e *Executor) StreamChat(ctx context.Context, cfg *domain.ChatConfig, w io.Writer) (string, error) {
-	backend, baseURL, err := e.resolveBackendAndBaseURL(cfg)
-	if err != nil {
-		return "", err
+func buildOpenAICompatLLM(cfg *domain.ChatConfig, backend string) (llms.Model, error) {
+	baseURL := cfg.BaseURL
+	if baseURL == "" {
+		if url, ok := langchainBaseURLs[backend]; ok {
+			baseURL = url
+		} else {
+			baseURL = langchainBaseURLs["openai"]
+		}
 	}
 
-	messages := streamBuildMessages(cfg)
-	requestCfg := ChatRequestConfig{
-		ContextLength: streamContextLength,
-		Streaming:     true,
+	apiKey := os.Getenv(providerAPIKeyEnvVar(backend))
+	// Local servers don't require auth.
+	if apiKey == "" && (backend == backendFile || backend == backendGGUF || backend == backendOllama) {
+		apiKey = "ollama"
 	}
-	requestBody, err := backend.BuildRequest(cfg.Model, messages, requestCfg)
-	if err != nil {
-		return "", fmt.Errorf("stream: build request: %w", err)
-	}
-	requestBody["stream"] = true
 
-	endpoint := streamEndpoint(backend, baseURL)
-	return e.callStreamingEndpoint(ctx, backend, endpoint, requestBody, w)
+	return lcopenai.New(
+		lcopenai.WithToken(apiKey),
+		lcopenai.WithModel(cfg.Model),
+		lcopenai.WithBaseURL(baseURL),
+	)
 }
 
-// streamEndpoint returns the HTTP endpoint URL for a streaming call.
-// Google requires the API key as a query parameter.
-func streamEndpoint(backend Backend, baseURL string) string {
-	if g, ok := backend.(*GoogleBackend); ok {
-		return g.ChatEndpointWithKey(baseURL, "")
-	}
-	return backend.ChatEndpoint(baseURL)
-}
+// buildLangchainMessages converts ChatConfig into langchaingo MessageContent slices.
+func buildLangchainMessages(cfg *domain.ChatConfig) []llms.MessageContent {
+	var msgs []llms.MessageContent
 
-// callStreamingEndpoint makes the streaming HTTP POST, parses the stream, and
-// writes tokens to w. Returns the full accumulated response text.
-func (e *Executor) callStreamingEndpoint(
-	ctx context.Context,
-	backend Backend,
-	endpointURL string,
-	requestBody map[string]interface{},
-	w io.Writer,
-) (string, error) {
-	jsonBody, err := json.Marshal(requestBody)
-	if err != nil {
-		return "", fmt.Errorf("stream: marshal request: %w", err)
-	}
-
-	streamCtx, cancel := context.WithTimeout(ctx, streamingTimeout)
-	defer cancel()
-
-	req, err := stdhttp.NewRequestWithContext(streamCtx, stdhttp.MethodPost, endpointURL, bytes.NewBuffer(jsonBody))
-	if err != nil {
-		return "", fmt.Errorf("stream: create request: %w", err)
-	}
-	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("User-Agent", "KDeps/"+version.Version)
-	applyBackendAuthHeaders(req, backend, "")
-
-	resp, err := e.client.Do(req)
-	if err != nil {
-		return "", fmt.Errorf("stream: request failed: %w", err)
-	}
-	defer func() { _ = resp.Body.Close() }()
-
-	if resp.StatusCode != stdhttp.StatusOK {
-		return "", backendAPIError(resp, backend.Name())
-	}
-
-	format := streamingFormat(backend.Name())
-	switch format {
-	case streamFormatOllama:
-		return parseOllamaStream(resp.Body, w)
-	case streamFormatAnthrop:
-		return parseAnthropicSSEStream(resp.Body, w)
-	default:
-		return parseOpenAISSEStream(resp.Body, w)
-	}
-}
-
-// streamBuildMessages constructs the LLM messages array from a pre-resolved ChatConfig.
-// No expression evaluation is performed - all values must be literal strings.
-func streamBuildMessages(cfg *domain.ChatConfig) []map[string]interface{} {
-	var messages []map[string]interface{}
-
-	// System prompt from scenario (agent loop places it first).
+	// System prompt from scenario.
 	for _, sc := range cfg.Scenario {
 		role := sc.Role
 		if role == "" {
-			role = "system"
+			role = roleSystem
 		}
-		prompt := sc.Prompt
-		if prompt == "" {
+		if sc.Prompt == "" {
 			continue
 		}
-		messages = append(messages, map[string]interface{}{"role": role, "content": prompt})
+		msgs = append(msgs, llms.TextParts(roleToMessageType(role), sc.Prompt))
 	}
 
-	// Conversation history (JSON-encoded array of {role, content}).
+	// Conversation history.
 	if cfg.Messages != "" {
-		var history []map[string]interface{}
-		if err := json.Unmarshal([]byte(cfg.Messages), &history); err == nil {
-			messages = append(messages, history...)
-		}
+		msgs = append(msgs, buildHistoryMessages(cfg.Messages)...)
 	}
 
 	// Current user prompt.
@@ -172,126 +133,227 @@ func streamBuildMessages(cfg *domain.ChatConfig) []map[string]interface{} {
 		if role == "" {
 			role = roleUser
 		}
-		messages = append(messages, map[string]interface{}{"role": role, "content": cfg.Prompt})
+		msgs = append(msgs, llms.TextParts(roleToMessageType(role), cfg.Prompt))
 	}
 
-	return messages
+	return msgs
 }
 
-// parseOllamaStream reads Ollama's NDJSON streaming format, writing each content
-// chunk to w. Returns the full accumulated text.
-func parseOllamaStream(body io.Reader, w io.Writer) (string, error) {
-	scanner := bufio.NewScanner(body)
-	var sb strings.Builder
-	for scanner.Scan() {
-		line := scanner.Text()
-		if line == "" {
+// buildHistoryMessages parses a JSON history string into langchaingo MessageContent entries.
+func buildHistoryMessages(historyJSON string) []llms.MessageContent {
+	var history []map[string]interface{}
+	if err := json.Unmarshal([]byte(historyJSON), &history); err != nil {
+		return nil
+	}
+
+	msgs := make([]llms.MessageContent, 0, len(history))
+	for _, h := range history {
+		role, _ := h["role"].(string)
+		content, _ := h["content"].(string)
+		if role == "" {
 			continue
 		}
-		var chunk map[string]interface{}
-		if err := json.Unmarshal([]byte(line), &chunk); err != nil {
-			continue
-		}
-		if msg, msgOK := chunk["message"].(map[string]interface{}); msgOK {
-			if content, contentOK := msg["content"].(string); contentOK && content != "" {
-				sb.WriteString(content)
-				_, _ = io.WriteString(w, content)
+		msgType := roleToMessageType(role)
+		switch msgType { //nolint:exhaustive // default handles all remaining types
+		case llms.ChatMessageTypeTool:
+			toolCallID, _ := h["tool_call_id"].(string)
+			name, _ := h["name"].(string)
+			msgs = append(msgs, llms.MessageContent{
+				Role: llms.ChatMessageTypeTool,
+				Parts: []llms.ContentPart{
+					llms.ToolCallResponse{
+						ToolCallID: toolCallID,
+						Name:       name,
+						Content:    content,
+					},
+				},
+			})
+		case llms.ChatMessageTypeAI:
+			if m := buildAIMessage(content, h["tool_calls"]); m != nil {
+				msgs = append(msgs, *m)
 			}
-		}
-		if done, _ := chunk["done"].(bool); done {
-			break
+		default:
+			msgs = append(msgs, llms.TextParts(msgType, content))
 		}
 	}
-	if err := scanner.Err(); err != nil {
-		return sb.String(), fmt.Errorf("ollama stream read: %w", err)
-	}
-	return sb.String(), nil
+	return msgs
 }
 
-// parseOpenAISSEStream reads OpenAI-compatible SSE streaming, writing each content
-// delta to w. Returns the full accumulated text.
-// Handles: openai, xai, groq, mistral, deepseek, perplexity, openrouter, together, google, file, gguf.
-func parseOpenAISSEStream(body io.Reader, w io.Writer) (string, error) {
-	scanner := bufio.NewScanner(body)
-	var sb strings.Builder
-	for scanner.Scan() {
-		line := scanner.Text()
-		if line == streamSSEDone {
-			break
-		}
-		if !strings.HasPrefix(line, streamSSEPrefix) {
-			continue
-		}
-		data := line[len(streamSSEPrefix):]
-		if data == "" {
-			continue
-		}
-		var chunk map[string]interface{}
-		if err := json.Unmarshal([]byte(data), &chunk); err != nil {
-			continue
-		}
-		choices, ok := chunk["choices"].([]interface{})
-		if !ok || len(choices) == 0 {
-			continue
-		}
-		choice, ok := choices[0].(map[string]interface{})
-		if !ok {
-			continue
-		}
-		delta, ok := choice["delta"].(map[string]interface{})
-		if !ok {
-			continue
-		}
-		content, ok := delta["content"].(string)
-		if !ok || content == "" {
-			continue
-		}
-		sb.WriteString(content)
-		_, _ = io.WriteString(w, content)
+// buildAIMessage constructs an AI MessageContent with optional tool call parts.
+func buildAIMessage(content string, rawToolCalls interface{}) *llms.MessageContent {
+	var parts []llms.ContentPart
+	if content != "" {
+		parts = append(parts, llms.TextContent{Text: content})
 	}
-	if err := scanner.Err(); err != nil {
-		return sb.String(), fmt.Errorf("openai stream read: %w", err)
+	if rawToolCalls != nil {
+		parts = append(parts, parseToolCallParts(rawToolCalls)...)
 	}
-	return sb.String(), nil
+	if len(parts) == 0 {
+		return nil
+	}
+	msg := llms.MessageContent{
+		Role:  llms.ChatMessageTypeAI,
+		Parts: parts,
+	}
+	return &msg
 }
 
-// parseAnthropicSSEStream reads Anthropic's SSE streaming format, writing each
-// text_delta to w. Returns the full accumulated text.
-func parseAnthropicSSEStream(body io.Reader, w io.Writer) (string, error) {
-	scanner := bufio.NewScanner(body)
-	var sb strings.Builder
-	for scanner.Scan() {
-		line := scanner.Text()
-		if !strings.HasPrefix(line, streamSSEPrefix) {
-			continue
-		}
-		data := line[len(streamSSEPrefix):]
-		if data == "" {
-			continue
-		}
-		var event map[string]interface{}
-		if err := json.Unmarshal([]byte(data), &event); err != nil {
-			continue
-		}
-		if event["type"] != "content_block_delta" {
-			continue
-		}
-		delta, ok := event["delta"].(map[string]interface{})
-		if !ok {
-			continue
-		}
-		if delta["type"] != "text_delta" {
-			continue
-		}
-		text, ok := delta["text"].(string)
-		if !ok || text == "" {
-			continue
-		}
-		sb.WriteString(text)
-		_, _ = io.WriteString(w, text)
+// parseToolCallParts converts raw tool_calls JSON into langchaingo ToolCall parts.
+func parseToolCallParts(rawToolCalls interface{}) []llms.ContentPart {
+	b, err := json.Marshal(rawToolCalls)
+	if err != nil {
+		return nil
 	}
-	if err := scanner.Err(); err != nil {
-		return sb.String(), fmt.Errorf("anthropic stream read: %w", err)
+	var tcs []struct {
+		ID       string `json:"id"`
+		Type     string `json:"type"`
+		Function struct {
+			Name      string `json:"name"`
+			Arguments string `json:"arguments"`
+		} `json:"function"`
 	}
-	return sb.String(), nil
+	if unmarshalErr := json.Unmarshal(b, &tcs); unmarshalErr != nil {
+		return nil
+	}
+	parts := make([]llms.ContentPart, 0, len(tcs))
+	for _, tc := range tcs {
+		parts = append(parts, llms.ToolCall{
+			ID:   tc.ID,
+			Type: tc.Type,
+			FunctionCall: &llms.FunctionCall{
+				Name:      tc.Function.Name,
+				Arguments: tc.Function.Arguments,
+			},
+		})
+	}
+	return parts
+}
+
+func roleToMessageType(role string) llms.ChatMessageType {
+	switch role {
+	case "user", "human":
+		return llms.ChatMessageTypeHuman
+	case "assistant", "ai":
+		return llms.ChatMessageTypeAI
+	case roleSystem:
+		return llms.ChatMessageTypeSystem
+	case "tool":
+		return llms.ChatMessageTypeTool
+	default:
+		return llms.ChatMessageTypeHuman
+	}
+}
+
+// buildToolParameters creates an OpenAI-style JSON schema for tool parameters.
+func buildToolParameters(params map[string]domain.ToolParam) map[string]interface{} {
+	properties := make(map[string]interface{}, len(params))
+	var required []string
+
+	for name, p := range params {
+		prop := map[string]interface{}{
+			"type":        p.Type,
+			"description": p.Description,
+		}
+		if len(p.Enum) > 0 {
+			prop["enum"] = p.Enum
+		}
+		properties[name] = prop
+		if p.Required {
+			required = append(required, name)
+		}
+	}
+
+	schema := map[string]interface{}{
+		"type":       "object",
+		"properties": properties,
+	}
+	if len(required) > 0 {
+		schema["required"] = required
+	}
+	return schema
+}
+
+// convertTools converts domain.Tool slice to langchaingo llms.Tool slice.
+func convertTools(tools []domain.Tool) []llms.Tool {
+	result := make([]llms.Tool, 0, len(tools))
+	for _, t := range tools {
+		result = append(result, llms.Tool{
+			Type: "function",
+			Function: &llms.FunctionDefinition{
+				Name:        t.Name,
+				Description: t.Description,
+				Parameters:  buildToolParameters(t.Parameters),
+			},
+		})
+	}
+	return result
+}
+
+// StreamChat implements agent.Streamer using langchaingo.
+// Tokens are written to w as they arrive. Tool calls are returned for the caller to dispatch.
+func (e *Executor) StreamChat(
+	ctx context.Context, cfg *domain.ChatConfig, w io.Writer,
+) (string, []domain.StreamedToolCall, error) {
+	backend := cfg.Backend
+	if backend == "" {
+		backend = backendFile
+	}
+
+	model, err := buildLangchainLLM(ctx, cfg)
+	if err != nil {
+		return "", nil, fmt.Errorf("stream: build llm: %w", err)
+	}
+
+	messages := buildLangchainMessages(cfg)
+
+	opts := []llms.CallOption{
+		llms.WithStreamingFunc(func(_ context.Context, chunk []byte) error {
+			_, _ = w.Write(chunk)
+			return nil
+		}),
+	}
+
+	if len(cfg.Tools) > 0 {
+		opts = append(opts,
+			llms.WithTools(convertTools(cfg.Tools)),
+			llms.WithToolChoice("auto"),
+		)
+	}
+
+	if cfg.JSONResponse {
+		switch backend {
+		case backendGoogle:
+			opts = append(opts, llms.WithResponseMIMEType("application/json"))
+		case backendAnthropic:
+			// Anthropic doesn't support JSON mode directly; skip.
+		default:
+			opts = append(opts, llms.WithJSONMode())
+		}
+	}
+
+	resp, err := model.GenerateContent(ctx, messages, opts...)
+	if err != nil {
+		return "", nil, fmt.Errorf("stream: generate: %w", err)
+	}
+
+	if len(resp.Choices) == 0 {
+		return "", nil, nil
+	}
+
+	choice := resp.Choices[0]
+	content := choice.Content
+
+	var toolCalls []domain.StreamedToolCall
+	for _, tc := range choice.ToolCalls {
+		if tc.FunctionCall == nil {
+			continue
+		}
+		toolCalls = append(toolCalls, domain.StreamedToolCall{
+			ID:        tc.ID,
+			Name:      tc.FunctionCall.Name,
+			Arguments: tc.FunctionCall.Arguments,
+		})
+	}
+
+	return content, toolCalls, nil
 }
