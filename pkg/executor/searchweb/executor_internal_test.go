@@ -88,7 +88,6 @@ func TestProviderRequiresAPIKey(t *testing.T) {
 }
 
 func TestBuildSearchResult_Success(t *testing.T) {
-	t.Parallel()
 	items := []map[string]interface{}{
 		{"title": "A", "url": "http://a.com", "snippet": "snip"},
 	}
@@ -101,7 +100,6 @@ func TestBuildSearchResult_Success(t *testing.T) {
 }
 
 func TestBuildSearchResult_MarshalError(t *testing.T) {
-	t.Parallel()
 	orig := jsonMarshal
 	t.Cleanup(func() { jsonMarshal = orig })
 	jsonMarshal = func(_ any) ([]byte, error) { return nil, errors.New("marshal fail") }

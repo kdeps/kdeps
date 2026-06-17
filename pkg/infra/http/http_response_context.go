@@ -40,7 +40,7 @@ func GetRequestID(ctx context.Context) string {
 // GetDebugMode gets the debug mode flag from context.
 func GetDebugMode(ctx context.Context) bool {
 	debugEnter("GetDebugMode")
-	return contextBoolValue(ctx, DebugModeKey)
+	return contextBoolValue(ctx)
 }
 
 // GetSessionID gets the session ID from context.

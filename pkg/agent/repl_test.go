@@ -1228,3 +1228,306 @@ func TestFirstLine_Empty(t *testing.T) {
 	t.Parallel()
 	assert.Equal(t, "", firstLine(""))
 }
+
+// --- SetProviderStatus ---
+
+func TestSetProviderStatus(t *testing.T) {
+	loop := makeTestLoop(nil)
+	repl := NewREPL(loop)
+	defer repl.cancel()
+	repl.SetProviderStatus(map[string]bool{"openai": true, "anthropic": false})
+	assert.True(t, repl.providerStatus["openai"])
+	assert.False(t, repl.providerStatus["anthropic"])
+}
+
+// --- filePathCompletionsFd ---
+
+func TestFilePathCompletionsFd_NoBinary(t *testing.T) {
+	// "nonexistent-fd-binary-xyz" won't be found - falls back to filePathCompletions
+	results := filePathCompletionsFd("./", "nonexistent-fd-binary-xyz")
+	// Returns either an empty slice or file results from fallback; must not panic.
+	assert.NotNil(t, results)
+}
+
+// --- cmdModels ---
+
+func TestCmdModels_NoLocalModels(t *testing.T) {
+	loop := makeTestLoop(nil)
+	repl := NewREPL(loop)
+	defer repl.cancel()
+
+	// Redirect stdout to avoid cluttering test output
+	origOut := os.Stdout
+	_, w, _ := os.Pipe()
+	os.Stdout = w
+	defer func() {
+		w.Close()
+		os.Stdout = origOut
+	}()
+
+	err := repl.cmdModels()
+	assert.NoError(t, err)
+}
+
+func TestCmdModels_WithLocalModel(t *testing.T) {
+	loop := makeTestLoop(nil)
+	loop.config.Model = "llama2"
+	repl := NewREPL(loop)
+	defer repl.cancel()
+	repl.modelNames = []string{"llama2", "codellama"}
+
+	origOut := os.Stdout
+	_, w, _ := os.Pipe()
+	os.Stdout = w
+	defer func() { w.Close(); os.Stdout = origOut }()
+
+	err := repl.cmdModels()
+	assert.NoError(t, err)
+}
+
+func TestCmdModels_WithProviderStatus(t *testing.T) {
+	loop := makeTestLoop(nil)
+	repl := NewREPL(loop)
+	defer repl.cancel()
+	repl.SetProviderStatus(map[string]bool{"openai": true, "anthropic": false})
+
+	origOut := os.Stdout
+	_, w, _ := os.Pipe()
+	os.Stdout = w
+	defer func() { w.Close(); os.Stdout = origOut }()
+
+	err := repl.cmdModels()
+	assert.NoError(t, err)
+}
+
+func TestPrintLocalModelRow_DownloadedAndCurrent(t *testing.T) {
+	loop := makeTestLoop(nil)
+	loop.config.Model = "llama2"
+	repl := NewREPL(loop)
+	defer repl.cancel()
+	repl.downloadedModels = map[string]bool{"llama2": true}
+
+	origOut := os.Stdout
+	_, w, _ := os.Pipe()
+	os.Stdout = w
+	defer func() { w.Close(); os.Stdout = origOut }()
+
+	repl.printLocalModelRow("llama2", "llama2")
+	repl.printLocalModelRow("codellama", "llama2")
+}
+
+// --- cmdPrompts ---
+
+func TestCmdPrompts_NoPrompts(t *testing.T) {
+	loop := makeTestLoop(nil)
+	repl := NewREPL(loop)
+	defer repl.cancel()
+
+	origOut := os.Stdout
+	_, w, _ := os.Pipe()
+	os.Stdout = w
+	defer func() { w.Close(); os.Stdout = origOut }()
+
+	err := repl.cmdPrompts()
+	assert.NoError(t, err)
+}
+
+func TestCmdPrompts_WithPrompts(t *testing.T) {
+	loop := makeTestLoop(nil)
+	loop.prompts = []PromptTemplate{
+		{Name: "review", Description: "Code review", Content: "Review this: {{.}}"},
+		{Name: "explain", ArgumentHint: "topic", Content: "Explain: {{.}}"},
+	}
+	repl := NewREPL(loop)
+	defer repl.cancel()
+
+	origOut := os.Stdout
+	_, w, _ := os.Pipe()
+	os.Stdout = w
+	defer func() { w.Close(); os.Stdout = origOut }()
+
+	err := repl.cmdPrompts()
+	assert.NoError(t, err)
+}
+
+// --- cmdInvokePrompt ---
+
+func TestCmdInvokePrompt_Success(t *testing.T) {
+	loop := makeTestLoop(nil)
+	repl := NewREPL(loop)
+	defer repl.cancel()
+	repl.runFn = func(_ context.Context, _ string) (string, error) {
+		return "response text", nil
+	}
+
+	origOut := os.Stdout
+	_, w, _ := os.Pipe()
+	os.Stdout = w
+	defer func() { w.Close(); os.Stdout = origOut }()
+
+	pt := &PromptTemplate{Name: "review", Content: "Review: {{1}}"}
+	err := repl.cmdInvokePrompt(pt, []string{"code"})
+	assert.NoError(t, err)
+}
+
+func TestCmdInvokePrompt_Error(t *testing.T) {
+	loop := makeTestLoop(nil)
+	repl := NewREPL(loop)
+	defer repl.cancel()
+	repl.runFn = func(_ context.Context, _ string) (string, error) {
+		return "", errors.New("LLM error")
+	}
+
+	pt := &PromptTemplate{Name: "review", Content: "Review."}
+	err := repl.cmdInvokePrompt(pt, nil)
+	assert.Error(t, err)
+}
+
+// --- cmdSession ---
+
+func TestCmdSession_NoStore(t *testing.T) {
+	loop := makeTestLoop(nil)
+	repl := NewREPL(loop)
+	defer repl.cancel()
+
+	origOut := os.Stdout
+	_, w, _ := os.Pipe()
+	os.Stdout = w
+	defer func() { w.Close(); os.Stdout = origOut }()
+
+	err := repl.cmdSession(nil)
+	assert.NoError(t, err)
+}
+
+func TestCmdSession_UnknownSubcommand(t *testing.T) {
+	loop := makeTestLoop(nil)
+	loop.store = NewSessionStore(t.TempDir())
+	repl := NewREPL(loop)
+	repl.loop.store = loop.store
+	defer repl.cancel()
+
+	origOut := os.Stdout
+	_, w, _ := os.Pipe()
+	os.Stdout = w
+	defer func() { w.Close(); os.Stdout = origOut }()
+
+	err := repl.cmdSession([]string{"bogus"})
+	assert.NoError(t, err)
+}
+
+func TestCmdSessionList_Empty(t *testing.T) {
+	loop := makeTestLoop(nil)
+	store := NewSessionStore(t.TempDir())
+	repl := NewREPL(loop)
+	defer repl.cancel()
+
+	origOut := os.Stdout
+	_, w, _ := os.Pipe()
+	os.Stdout = w
+	defer func() { w.Close(); os.Stdout = origOut }()
+
+	err := repl.cmdSessionList(store)
+	assert.NoError(t, err)
+}
+
+func TestCmdSessionSave_Success(t *testing.T) {
+	loop := makeTestLoop(nil)
+	store := NewSessionStore(t.TempDir())
+	repl := NewREPL(loop)
+	defer repl.cancel()
+
+	origOut := os.Stdout
+	_, w, _ := os.Pipe()
+	os.Stdout = w
+	defer func() { w.Close(); os.Stdout = origOut }()
+
+	err := repl.cmdSessionSave(store, "my-session")
+	assert.NoError(t, err)
+}
+
+func TestCmdSessionList_WithSessions(t *testing.T) {
+	loop := makeTestLoop(nil)
+	store := NewSessionStore(t.TempDir())
+	repl := NewREPL(loop)
+	defer repl.cancel()
+
+	// Save a session first
+	origOut := os.Stdout
+	_, w, _ := os.Pipe()
+	os.Stdout = w
+	defer func() { w.Close(); os.Stdout = origOut }()
+
+	require.NoError(t, repl.cmdSessionSave(store, "test"))
+	err := repl.cmdSessionList(store)
+	assert.NoError(t, err)
+}
+
+func TestCmdSessionLoadDelete(t *testing.T) {
+	loop := makeTestLoop(nil)
+	store := NewSessionStore(t.TempDir())
+	repl := NewREPL(loop)
+	defer repl.cancel()
+
+	origOut := os.Stdout
+	_, w, _ := os.Pipe()
+	os.Stdout = w
+	defer func() { w.Close(); os.Stdout = origOut }()
+
+	// Save first, then load and delete
+	id, err := store.SaveAs(loop.session, "test", "model")
+	require.NoError(t, err)
+
+	err = repl.cmdSessionLoad(store, id)
+	assert.NoError(t, err)
+
+	err = repl.cmdSessionDelete(store, id)
+	assert.NoError(t, err)
+}
+
+func TestCmdSession_SaveSubcommand(t *testing.T) {
+	loop := makeTestLoop(nil)
+	loop.store = NewSessionStore(t.TempDir())
+	repl := NewREPL(loop)
+	repl.loop.store = loop.store
+	defer repl.cancel()
+
+	origOut := os.Stdout
+	_, w, _ := os.Pipe()
+	os.Stdout = w
+	defer func() { w.Close(); os.Stdout = origOut }()
+
+	err := repl.cmdSession([]string{"save", "myname"})
+	assert.NoError(t, err)
+}
+
+func TestCmdSession_LoadMissingArg(t *testing.T) {
+	loop := makeTestLoop(nil)
+	loop.store = NewSessionStore(t.TempDir())
+	repl := NewREPL(loop)
+	repl.loop.store = loop.store
+	defer repl.cancel()
+
+	origOut := os.Stdout
+	_, w, _ := os.Pipe()
+	os.Stdout = w
+	defer func() { w.Close(); os.Stdout = origOut }()
+
+	err := repl.cmdSession([]string{"load"})
+	assert.NoError(t, err)
+}
+
+func TestCmdSession_DeleteMissingArg(t *testing.T) {
+	loop := makeTestLoop(nil)
+	loop.store = NewSessionStore(t.TempDir())
+	repl := NewREPL(loop)
+	repl.loop.store = loop.store
+	defer repl.cancel()
+
+	origOut := os.Stdout
+	_, w, _ := os.Pipe()
+	os.Stdout = w
+	defer func() { w.Close(); os.Stdout = origOut }()
+
+	err := repl.cmdSession([]string{"delete"})
+	assert.NoError(t, err)
+}

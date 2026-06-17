@@ -395,3 +395,147 @@ func TestDelete_ThenListEmpty(t *testing.T) {
 		t.Fatalf("expected empty list after delete, got %v", ids)
 	}
 }
+
+func TestLoadMeta_EmptyFile(t *testing.T) {
+	dir := t.TempDir()
+	store := NewSessionStore(dir)
+	path := filepath.Join(dir, "empty-session.jsonl")
+	if err := os.WriteFile(path, []byte{}, 0600); err != nil {
+		t.Fatal(err)
+	}
+	_, err := store.LoadMeta("empty-session")
+	if err == nil {
+		t.Fatal("expected error for empty session file")
+	}
+}
+
+func TestLoadMeta_BadJSONHeader(t *testing.T) {
+	dir := t.TempDir()
+	store := NewSessionStore(dir)
+	path := filepath.Join(dir, "bad-json.jsonl")
+	if err := os.WriteFile(path, []byte("not-valid-json\n"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	_, err := store.LoadMeta("bad-json")
+	if err == nil {
+		t.Fatal("expected error for bad JSON header")
+	}
+}
+
+func TestLoadMeta_WrongType(t *testing.T) {
+	dir := t.TempDir()
+	store := NewSessionStore(dir)
+	path := filepath.Join(dir, "wrong-type.jsonl")
+	if err := os.WriteFile(path, []byte(`{"type":"message","role":"user","content":"hi"}`+"\n"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	_, err := store.LoadMeta("wrong-type")
+	if err == nil {
+		t.Fatal("expected error for wrong entry type")
+	}
+}
+
+func TestLoadMeta_EmptySessionID(t *testing.T) {
+	dir := t.TempDir()
+	store := NewSessionStore(dir)
+	// Write a valid session_meta with no sessionId field - uses the file id as fallback.
+	path := filepath.Join(dir, "no-session-id.jsonl")
+	if err := os.WriteFile(path, []byte(`{"type":"session_meta","ts":1000,"name":"x","model":"m","turns":0}`+"\n"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	meta, err := store.LoadMeta("no-session-id")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if meta.ID != "no-session-id" {
+		t.Fatalf("expected ID=no-session-id, got %q", meta.ID)
+	}
+}
+
+func TestListMeta_SkipsCorruptFile(t *testing.T) {
+	dir := t.TempDir()
+	store := NewSessionStore(dir)
+	// Create a corrupt file - empty JSONL.
+	if err := os.WriteFile(filepath.Join(dir, "corrupt.jsonl"), []byte{}, 0600); err != nil {
+		t.Fatal(err)
+	}
+	// Create a valid session too.
+	s := NewSession(0)
+	if _, err := store.Save(s); err != nil {
+		t.Fatal(err)
+	}
+	metas, err := store.ListMeta()
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	// Only the valid session should appear (corrupt skipped).
+	if len(metas) != 1 {
+		t.Fatalf("expected 1 meta (corrupt skipped), got %d", len(metas))
+	}
+}
+
+func TestListMeta_SkipsNonJSONL(t *testing.T) {
+	dir := t.TempDir()
+	store := NewSessionStore(dir)
+	// Create a non-.jsonl file.
+	if err := os.WriteFile(filepath.Join(dir, "readme.txt"), []byte("hello"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	metas, err := store.ListMeta()
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(metas) != 0 {
+		t.Fatalf("expected 0 metas, got %d", len(metas))
+	}
+}
+
+func TestListMeta_UnreadableDir(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.Chmod(dir, 0000); err != nil {
+		t.Skip("cannot change permissions:", err)
+	}
+	t.Cleanup(func() { os.Chmod(dir, 0755) }) //nolint:errcheck
+
+	store := NewSessionStore(dir)
+	_, err := store.ListMeta()
+	if err == nil {
+		t.Fatal("expected error when dir is not readable")
+	}
+}
+
+func TestLoad_IgnoresBadJSONLine(t *testing.T) {
+	dir := t.TempDir()
+	store := NewSessionStore(dir)
+	// Write a file with a bad JSON line interspersed.
+	content := `{"type":"session_meta","ts":1000,"sessionId":"x","turns":0}` + "\n" +
+		`not-valid-json` + "\n" +
+		`{"type":"message","role":"user","content":"hello"}` + "\n"
+	path := filepath.Join(dir, "x.jsonl")
+	if err := os.WriteFile(path, []byte(content), 0600); err != nil {
+		t.Fatal(err)
+	}
+	session, err := store.Load("x")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	// Only the valid message line should be loaded.
+	if len(session.messages) != 1 {
+		t.Fatalf("expected 1 message, got %d", len(session.messages))
+	}
+}
+
+func TestList_SkipsNonJSONL(t *testing.T) {
+	dir := t.TempDir()
+	store := NewSessionStore(dir)
+	if err := os.WriteFile(filepath.Join(dir, "notes.txt"), []byte("x"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	ids, err := store.List()
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(ids) != 0 {
+		t.Fatalf("expected 0 ids (non-.jsonl skipped), got %d", len(ids))
+	}
+}

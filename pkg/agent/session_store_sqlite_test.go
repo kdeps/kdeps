@@ -209,3 +209,73 @@ func TestNewSQLiteSessionStore_DefaultPath(t *testing.T) {
 		t.Errorf("database file not created at %q", expected)
 	}
 }
+
+func TestSQLiteSessionStore_LoadMeta_NotFound(t *testing.T) {
+	store := newTestSQLiteStore(t)
+	_, err := store.LoadMeta("nonexistent-session-id")
+	if err == nil {
+		t.Fatal("expected error for nonexistent session")
+	}
+	if !strings.Contains(err.Error(), "not found") {
+		t.Errorf("expected 'not found' in error, got: %v", err)
+	}
+}
+
+func TestSQLiteSessionStore_ClosedDB_Errors(t *testing.T) {
+	store := newTestSQLiteStore(t)
+	// Close the DB first, then verify operations return errors
+	if err := store.Close(); err != nil {
+		t.Fatalf("Close: %v", err)
+	}
+
+	sess := NewSession(0)
+	_, err := store.Save(sess)
+	if err == nil {
+		t.Error("expected error from Save on closed DB")
+	}
+
+	_, err = store.Load("any-id")
+	if err == nil {
+		t.Error("expected error from Load on closed DB")
+	}
+
+	_, err = store.LoadMeta("any-id")
+	if err == nil {
+		t.Error("expected error from LoadMeta on closed DB")
+	}
+
+	_, err = store.ListMeta()
+	if err == nil {
+		t.Error("expected error from ListMeta on closed DB")
+	}
+
+	_, err = store.List()
+	if err == nil {
+		t.Error("expected error from List on closed DB")
+	}
+
+	err = store.Delete("any-id")
+	if err == nil {
+		t.Error("expected error from Delete on closed DB")
+	}
+
+	_, err = store.SearchSessions("query")
+	if err == nil {
+		t.Error("expected error from SearchSessions on closed DB")
+	}
+}
+
+func TestNewSQLiteSessionStore_MkdirError(t *testing.T) {
+	// Try to create a store under a path that cannot be created
+	// Use a file as a directory component to trigger mkdir error
+	dir := t.TempDir()
+	// Create a file where we want a directory
+	blocker := filepath.Join(dir, "blocker")
+	if err := os.WriteFile(blocker, []byte("x"), 0600); err != nil {
+		t.Fatalf("WriteFile: %v", err)
+	}
+	_, err := NewSQLiteSessionStore(filepath.Join(blocker, "sessions.db"))
+	if err == nil {
+		t.Fatal("expected error when mkdir fails")
+	}
+}

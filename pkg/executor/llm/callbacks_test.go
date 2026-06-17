@@ -210,6 +210,14 @@ func TestExtractTextPreview_Truncation(t *testing.T) {
 	assert.True(t, strings.HasSuffix(result, "..."))
 }
 
+func TestObservedLLM_Call(t *testing.T) {
+	stub := &stubLLM{response: "call result"}
+	obs := &observedLLM{inner: stub, model: "test-model"}
+	resp, err := obs.Call(context.Background(), "prompt text")
+	require.NoError(t, err)
+	assert.Equal(t, "call result", resp)
+}
+
 func TestObservedLLM_DetailedLogging_DebugOn(t *testing.T) {
 	t.Setenv("KDEPS_DEBUG", "true")
 	defer t.Setenv("KDEPS_DEBUG", "")
@@ -223,4 +231,77 @@ func TestObservedLLM_DetailedLogging_DebugOn(t *testing.T) {
 	resp, err := obs.GenerateContent(context.Background(), msgs)
 	require.NoError(t, err)
 	assert.Equal(t, "response text", resp.Choices[0].Content)
+}
+
+func TestObservedLLM_ErrorPath_DebugOn(t *testing.T) {
+	t.Setenv("KDEPS_DEBUG", "true")
+	defer t.Setenv("KDEPS_DEBUG", "")
+
+	errStub := &errorStubLLM{err: assert.AnError}
+	obs := &observedLLM{inner: errStub, model: "test-model"}
+	msgs := []llms.MessageContent{
+		llms.TextParts(llms.ChatMessageTypeHuman, "fail"),
+	}
+	_, err := obs.GenerateContent(context.Background(), msgs)
+	assert.ErrorIs(t, err, assert.AnError)
+}
+
+func TestObservedLLM_GenerationInfo_DebugOn(t *testing.T) {
+	t.Setenv("KDEPS_DEBUG", "true")
+	defer t.Setenv("KDEPS_DEBUG", "")
+
+	infoStub := &infoStubLLM{}
+	obs := &observedLLM{inner: infoStub, model: "test-model"}
+	msgs := []llms.MessageContent{
+		llms.TextParts(llms.ChatMessageTypeHuman, "info"),
+	}
+	resp, err := obs.GenerateContent(context.Background(), msgs)
+	require.NoError(t, err)
+	assert.NotNil(t, resp)
+}
+
+func TestKdepsLogHandler_ChainCallbacks_DebugOn(t *testing.T) {
+	t.Setenv("KDEPS_DEBUG", "true")
+	defer t.Setenv("KDEPS_DEBUG", "")
+
+	ctx := context.Background()
+	h := KdepsLogHandler{}
+	h.HandleChainStart(ctx, map[string]any{"input": "data"})
+	h.HandleChainEnd(ctx, map[string]any{"output": "result"})
+	h.HandleChainError(ctx, assert.AnError)
+}
+
+// errorStubLLM always returns an error.
+type errorStubLLM struct {
+	err error
+}
+
+func (e *errorStubLLM) Call(_ context.Context, _ string, _ ...llms.CallOption) (string, error) {
+	return "", e.err
+}
+
+func (e *errorStubLLM) GenerateContent(_ context.Context, _ []llms.MessageContent, _ ...llms.CallOption) (*llms.ContentResponse, error) {
+	return nil, e.err
+}
+
+// infoStubLLM returns a response with GenerationInfo populated.
+type infoStubLLM struct{}
+
+func (s *infoStubLLM) Call(_ context.Context, _ string, _ ...llms.CallOption) (string, error) {
+	return "ok", nil
+}
+
+func (s *infoStubLLM) GenerateContent(_ context.Context, _ []llms.MessageContent, _ ...llms.CallOption) (*llms.ContentResponse, error) {
+	return &llms.ContentResponse{
+		Choices: []*llms.ContentChoice{
+			{
+				Content:    "ok",
+				StopReason: "stop",
+				GenerationInfo: map[string]any{
+					"CompletionTokens": 10,
+					"PromptTokens":     5,
+				},
+			},
+		},
+	}, nil
 }

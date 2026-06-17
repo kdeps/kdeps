@@ -16,10 +16,12 @@ package vectorstore
 
 import (
 	"context"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"testing"
 
+	_ "github.com/mattn/go-sqlite3"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/tmc/langchaingo/schema"
@@ -1392,4 +1394,154 @@ func TestChromaStore_APIKey_Header(t *testing.T) {
 	// so we call it directly via SimilaritySearch with a query that will fail at query step
 	store.SimilaritySearch(context.Background(), "q", 1) //nolint:errcheck // only checking header
 	assert.Equal(t, "Bearer chroma-secret", gotAuth)
+}
+
+// sqliteCreateTableSQL returns a SQLite-compatible CREATE TABLE statement for testing.
+func sqliteCreateTableSQL(table string) string {
+	return "CREATE TABLE IF NOT EXISTS " + table + " (" +
+		"id TEXT NOT NULL PRIMARY KEY," +
+		"content TEXT NOT NULL," +
+		"embedding TEXT NOT NULL," +
+		"metadata TEXT" +
+		")"
+}
+
+// sqliteInsertSQL returns a SQLite-compatible INSERT statement for testing.
+func sqliteInsertSQL(table string) string {
+	return "INSERT INTO " + table + " (id, content, embedding, metadata) VALUES (?, ?, ?, ?)"
+}
+
+// newTestSQLiteStore creates a file-based SQLite sqlStore for testing.
+func newTestSQLiteStore(t *testing.T, embedder *stubVectorEmbedder) *sqlStore {
+	t.Helper()
+	dbPath := t.TempDir() + "/test.db"
+	store, err := newSQLStore(
+		"sqlite3",
+		dbPath,
+		"test_vectors",
+		"sqlite",
+		sqliteCreateTableSQL,
+		sqliteInsertSQL,
+		embedder,
+	)
+	require.NoError(t, err)
+	return store
+}
+
+func TestSQLStore_EnsureTable_CreatesTable(t *testing.T) {
+	store := newTestSQLiteStore(t, &stubVectorEmbedder{vectors: [][]float32{{0.1, 0.2}}})
+	err := store.ensureTable(context.Background())
+	require.NoError(t, err)
+	// idempotent
+	err = store.ensureTable(context.Background())
+	require.NoError(t, err)
+}
+
+func TestSQLStore_AddDocuments_Empty(t *testing.T) {
+	store := newTestSQLiteStore(t, &stubVectorEmbedder{vectors: [][]float32{{0.1, 0.2}}})
+	ids, err := store.AddDocuments(context.Background(), nil)
+	require.NoError(t, err)
+	assert.Nil(t, ids)
+}
+
+func TestSQLStore_AddDocuments_Success(t *testing.T) {
+	emb := &stubVectorEmbedder{vectors: [][]float32{{0.5, 0.5}, {0.9, 0.1}}}
+	store := newTestSQLiteStore(t, emb)
+	docs := []schema.Document{
+		{PageContent: "hello world", Metadata: map[string]interface{}{"src": "a"}},
+		{PageContent: "foo bar", Metadata: map[string]interface{}{"src": "b"}},
+	}
+	ids, err := store.AddDocuments(context.Background(), docs)
+	require.NoError(t, err)
+	require.Len(t, ids, 2)
+	assert.NotEmpty(t, ids[0])
+	assert.NotEmpty(t, ids[1])
+}
+
+func TestSQLStore_AddDocuments_EmbedError(t *testing.T) {
+	embedErr := errors.New("embed failed")
+	emb := &stubVectorEmbedder{err: embedErr}
+	store := newTestSQLiteStore(t, emb)
+	_, err := store.AddDocuments(context.Background(), []schema.Document{{PageContent: "test"}})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "embed")
+}
+
+func TestSQLStore_SimilaritySearch_Success(t *testing.T) {
+	emb := &stubVectorEmbedder{vectors: [][]float32{{0.5, 0.5}}}
+	store := newTestSQLiteStore(t, emb)
+
+	// add documents
+	docs := []schema.Document{
+		{PageContent: "alpha doc"},
+		{PageContent: "beta doc"},
+	}
+	_, err := store.AddDocuments(context.Background(), docs)
+	require.NoError(t, err)
+
+	results, err := store.SimilaritySearch(context.Background(), "alpha", 5)
+	require.NoError(t, err)
+	assert.Len(t, results, 2)
+}
+
+func TestSQLStore_SimilaritySearch_ZeroNumDocuments(t *testing.T) {
+	emb := &stubVectorEmbedder{vectors: [][]float32{{0.5, 0.5}}}
+	store := newTestSQLiteStore(t, emb)
+	docs := []schema.Document{{PageContent: "test doc"}}
+	_, addErr := store.AddDocuments(context.Background(), docs)
+	require.NoError(t, addErr)
+
+	// numDocuments=0 should default to 5
+	results, err := store.SimilaritySearch(context.Background(), "test", 0)
+	require.NoError(t, err)
+	assert.NotNil(t, results)
+}
+
+func TestSQLStore_SimilaritySearch_EmbedError(t *testing.T) {
+	emb := &stubVectorEmbedder{vectors: [][]float32{{0.5, 0.5}}}
+	store := newTestSQLiteStore(t, emb)
+	docs := []schema.Document{{PageContent: "test doc"}}
+	_, addErr := store.AddDocuments(context.Background(), docs)
+	require.NoError(t, addErr)
+
+	// Now set embed error
+	emb.err = errors.New("embed error")
+	_, err := store.SimilaritySearch(context.Background(), "test", 5)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "embed query")
+}
+
+func TestSQLStore_SimilaritySearch_LimitResults(t *testing.T) {
+	emb := &stubVectorEmbedder{vectors: [][]float32{{0.5, 0.5}}}
+	store := newTestSQLiteStore(t, emb)
+	docs := []schema.Document{
+		{PageContent: "doc one"},
+		{PageContent: "doc two"},
+		{PageContent: "doc three"},
+	}
+	_, err := store.AddDocuments(context.Background(), docs)
+	require.NoError(t, err)
+
+	results, err := store.SimilaritySearch(context.Background(), "query", 2)
+	require.NoError(t, err)
+	assert.Len(t, results, 2)
+}
+
+func TestCosineSimilarity_OrthogonalVectors(t *testing.T) {
+	a := []float32{1, 0}
+	b := []float32{0, 1}
+	score := cosineSimilarity(a, b)
+	assert.InDelta(t, 0.0, float64(score), 0.001)
+}
+
+func TestNewSQLStore_EmptyDSN(t *testing.T) {
+	_, err := newSQLStore("sqlite3", "", "table", "test", sqliteCreateTableSQL, sqliteInsertSQL, nil)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "url (DSN) is required")
+}
+
+func TestNewSQLStore_EmptyTableName(t *testing.T) {
+	_, err := newSQLStore("sqlite3", "file::memory:", "", "test", sqliteCreateTableSQL, sqliteInsertSQL, nil)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "collection")
 }

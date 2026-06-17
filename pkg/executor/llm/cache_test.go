@@ -109,3 +109,79 @@ func TestClearResponseCache(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, 2, stub.callCount)
 }
+
+func TestCachedLLM_Call(t *testing.T) {
+	ClearResponseCache()
+	defer ClearResponseCache()
+
+	stub := &stubLLM{response: "call-response"}
+	cached := &cachedLLM{inner: stub}
+	resp, err := cached.Call(context.Background(), "hello")
+	require.NoError(t, err)
+	assert.Equal(t, "call-response", resp)
+}
+
+func TestCachedLLM_WrongTypeInCache(t *testing.T) {
+	// Covers typeOK=false branch (lines 61-63): cached value isn't *ContentResponse.
+	ClearResponseCache()
+	defer ClearResponseCache()
+
+	msgs := []llms.MessageContent{
+		llms.TextParts(llms.ChatMessageTypeHuman, "wrong-type-test"),
+	}
+	// Compute the cache key and store a wrong type.
+	key, err := cacheKey(msgs, nil)
+	require.NoError(t, err)
+	responseCache.Store(key, "this is not a *ContentResponse")
+
+	stub := &stubLLM{response: "fallback"}
+	cached := &cachedLLM{inner: stub}
+	resp, err := cached.GenerateContent(context.Background(), msgs)
+	require.NoError(t, err)
+	assert.Equal(t, "fallback", resp.Choices[0].Content)
+	assert.Equal(t, 1, stub.callCount, "should fall through to inner on type mismatch")
+}
+
+func TestCachedLLM_StreamingOnCacheHit(t *testing.T) {
+	// Covers streaming func branch (lines 67-72): StreamingFunc called on cache hit.
+	ClearResponseCache()
+	defer ClearResponseCache()
+
+	stub := &stubLLM{response: "streamed-content"}
+	cached := &cachedLLM{inner: stub}
+	msgs := []llms.MessageContent{
+		llms.TextParts(llms.ChatMessageTypeHuman, "stream-hit-test"),
+	}
+
+	// First call: populate cache.
+	_, err := cached.GenerateContent(context.Background(), msgs)
+	require.NoError(t, err)
+	assert.Equal(t, 1, stub.callCount)
+
+	// Second call with streaming func: should hit cache and invoke streaming.
+	var streamed []byte
+	streamOpt := llms.WithStreamingFunc(func(_ context.Context, chunk []byte) error {
+		streamed = append(streamed, chunk...)
+		return nil
+	})
+	resp, err := cached.GenerateContent(context.Background(), msgs, streamOpt)
+	require.NoError(t, err)
+	assert.Equal(t, 1, stub.callCount, "cache hit - inner not called again")
+	assert.Equal(t, "streamed-content", resp.Choices[0].Content)
+	assert.Equal(t, "streamed-content", string(streamed))
+}
+
+func TestCachedLLM_InnerError(t *testing.T) {
+	// Covers inner GenerateContent error path (lines 78-80).
+	ClearResponseCache()
+	defer ClearResponseCache()
+
+	errStub := &errorStubLLM{err: assert.AnError}
+	cached := &cachedLLM{inner: errStub}
+	msgs := []llms.MessageContent{
+		llms.TextParts(llms.ChatMessageTypeHuman, "inner-error-test"),
+	}
+	_, err := cached.GenerateContent(context.Background(), msgs)
+	require.Error(t, err)
+	assert.ErrorIs(t, err, assert.AnError)
+}

@@ -200,3 +200,25 @@ func TestOutputParserFormatInstructions_RegexDict(t *testing.T) {
 	inst := outputParserFormatInstructions("regex_dict:key=Pattern")
 	assert.NotEmpty(t, inst)
 }
+
+func TestApplyOutputParser_Regex_NoMatch(t *testing.T) {
+	// Covers parseRegexOutput error path (lines 178-180): valid regex with no match.
+	out, err := applyOutputParser(`regex:(?P<name>NOMATCH_XYZ_\d+)`, "content without match")
+	assert.Error(t, err)
+	assert.Equal(t, "content without match", out)
+}
+
+func TestApplyOutputParser_SimpleOutput_Error(t *testing.T) {
+	// parseSimpleOutput: if the parser can fail, this exercises the error path.
+	// Pass content that triggers a parse failure if any exists.
+	// SimpleParser.Parse rarely errors, so this mainly verifies no panic.
+	_, _ = applyOutputParser("simple", "")
+}
+
+func TestApplyOutputParser_RegexDict_InvalidPair_Skipped(t *testing.T) {
+	// Covers parseRegexDictOutput idx<0 branch (line 153): pair without '=' is skipped.
+	// All pairs lack '=', so outputKeyToFormat ends up empty -> error.
+	out, err := applyOutputParser("regex_dict:noequalssign", "data")
+	assert.Error(t, err)
+	assert.Equal(t, "data", out)
+}

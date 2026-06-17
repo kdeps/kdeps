@@ -678,3 +678,30 @@ func TestRunREPL_StdinClosed(t *testing.T) {
 	stdoutW.Close()
 	_, _ = io.ReadAll(stdoutR)
 }
+
+func TestApplySettingsToRegistry_ErrorContinuePaths(t *testing.T) {
+	// Covers lines 399/404/409: registerServeTools error triggers continue.
+	// Set HOME to a temp dir with invalid kdeps items.
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+
+	// Create invalid workflow.yaml (not valid kdeps YAML).
+	wfDir := filepath.Join(home, ".kdeps", "agents", "bad-workflow")
+	require.NoError(t, os.MkdirAll(wfDir, 0755))
+	require.NoError(t, os.WriteFile(filepath.Join(wfDir, "workflow.yaml"), []byte("not: valid: kdeps: yaml:::"), 0600))
+
+	// Create invalid agency.yaml.
+	agDir := filepath.Join(home, ".kdeps", "agents", "bad-agency")
+	require.NoError(t, os.MkdirAll(agDir, 0755))
+	require.NoError(t, os.WriteFile(filepath.Join(agDir, "agency.yaml"), []byte("invalid yaml content:::"), 0600))
+
+	// Create component dir.
+	compDir := filepath.Join(home, ".kdeps", "components", "bad-component")
+	require.NoError(t, os.MkdirAll(compDir, 0755))
+	require.NoError(t, os.WriteFile(filepath.Join(compDir, "bad.yaml"), []byte("invalid:::"), 0600))
+
+	reg := tools.NewRegistry()
+	flags := &agentLoopFlags{}
+	// SelectAll=true: discovers all items, registerServeTools fails on each -> continue paths covered.
+	applySettingsToRegistry(tui.Settings{SelectAll: true}, reg, flags, false)
+}

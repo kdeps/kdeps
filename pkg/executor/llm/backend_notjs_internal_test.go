@@ -596,3 +596,315 @@ func TestRetryFallbackRoutes_BuildRequestError(t *testing.T) {
 	// so the original error response is returned.
 	assert.Contains(t, result, "error")
 }
+
+func TestBuildOpenAICompatLLM_FileBackend(t *testing.T) {
+	cfg := &domain.ChatConfig{Model: "test-model", Backend: backendFile}
+	model, err := buildOpenAICompatLLM(cfg, backendFile)
+	require.NoError(t, err)
+	assert.NotNil(t, model)
+}
+
+func TestBuildOpenAICompatLLM_UnknownBackend(t *testing.T) {
+	// unknown backend falls through to openai-compat; provide a base URL so no API key check.
+	cfg := &domain.ChatConfig{
+		Model:   "some-model",
+		Backend: backendFile, // local file backend doesn't require an API key
+		BaseURL: "http://127.0.0.1:19999",
+	}
+	model, err := buildOpenAICompatLLM(cfg, backendFile)
+	require.NoError(t, err)
+	assert.NotNil(t, model)
+}
+
+func TestBuildLangchainLLM_FileBackend(t *testing.T) {
+	cfg := &domain.ChatConfig{Model: "test-model", Backend: backendFile}
+	model, err := buildLangchainLLM(t.Context(), cfg)
+	require.NoError(t, err)
+	assert.NotNil(t, model)
+}
+
+func TestBuildLangchainLLM_EmptyBackendDefaultsToFile(t *testing.T) {
+	cfg := &domain.ChatConfig{Model: "test-model", Backend: ""}
+	model, err := buildLangchainLLM(t.Context(), cfg)
+	require.NoError(t, err)
+	assert.NotNil(t, model)
+}
+
+func TestBuildLangchainLLM_UseCache(t *testing.T) {
+	cfg := &domain.ChatConfig{Model: "test-model", Backend: backendFile, UseCache: true}
+	model, err := buildLangchainLLM(t.Context(), cfg)
+	require.NoError(t, err)
+	_, isCached := model.(*cachedLLM)
+	assert.True(t, isCached, "expected cachedLLM wrapper when UseCache=true")
+}
+
+func TestBuildStreamOpts_NoTools(t *testing.T) {
+	cfg := &domain.ChatConfig{Model: "m", Backend: backendFile}
+	opts := buildStreamOpts(cfg, backendFile, os.Stdout)
+	assert.NotEmpty(t, opts)
+}
+
+func TestBuildStreamOpts_WithTools(t *testing.T) {
+	cfg := &domain.ChatConfig{
+		Model:   "m",
+		Backend: backendFile,
+		Tools: []domain.Tool{
+			{Name: "mytool", Description: "test tool"},
+		},
+	}
+	opts := buildStreamOpts(cfg, backendFile, os.Stdout)
+	assert.NotEmpty(t, opts)
+}
+
+func TestBuildStreamOpts_AnthropicPromptCaching(t *testing.T) {
+	cfg := &domain.ChatConfig{Model: "m", Backend: backendAnthropic, PromptCaching: true}
+	opts := buildStreamOpts(cfg, backendAnthropic, os.Stdout)
+	assert.NotEmpty(t, opts)
+}
+
+func TestAdapter_StreamChat_FileBackendError(t *testing.T) {
+	// StreamChat with a file backend that has no running server should return an error.
+	e := NewExecutor("http://127.0.0.1:19991") // unused for streaming path
+	cfg := &domain.ChatConfig{
+		Model:   "test-model",
+		Backend: backendFile,
+		BaseURL: "http://127.0.0.1:19991",
+	}
+	_, _, err := e.StreamChat(t.Context(), cfg, os.Stdout)
+	assert.Error(t, err)
+}
+
+func TestStreamChatChunked_SplitError(t *testing.T) {
+	e := NewExecutor("")
+	// ChunkSize > 0 and Prompt non-empty triggers the chunked path.
+	// An invalid splitter forces SplitText to error.
+	cfg := &domain.ChatConfig{
+		Model:         "test-model",
+		Backend:       backendFile,
+		BaseURL:       "http://127.0.0.1:19991",
+		Prompt:        "hello world",
+		ChunkSize:     1,
+		ChunkSplitter: "invalid-splitter-xyz",
+	}
+	_, _, err := e.StreamChat(t.Context(), cfg, os.Stdout)
+	assert.Error(t, err)
+}
+
+func TestStreamChatChunked_StreamChatOnceError(t *testing.T) {
+	e := NewExecutor("")
+	// Valid splitter; split will succeed and produce chunks, then streamChatOnce will fail
+	// because the backend server is not running.
+	cfg := &domain.ChatConfig{
+		Model:     "test-model",
+		Backend:   backendFile,
+		BaseURL:   "http://127.0.0.1:19991",
+		Prompt:    "hello world test",
+		ChunkSize: 100,
+	}
+	_, _, err := e.StreamChat(t.Context(), cfg, os.Stdout)
+	assert.Error(t, err)
+}
+
+// newOpenAIMockServer creates an httptest server that returns a valid OpenAI chat completion response.
+// Supports both streaming (SSE) and non-streaming requests.
+func newOpenAIMockServer(content string) *httptest.Server {
+	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var reqBody struct {
+			Stream bool `json:"stream"`
+		}
+		_ = json.NewDecoder(r.Body).Decode(&reqBody)
+
+		if reqBody.Stream {
+			// Return SSE streaming response
+			w.Header().Set("Content-Type", "text/event-stream")
+			w.Header().Set("Cache-Control", "no-cache")
+			flusher, _ := w.(http.Flusher)
+
+			// Send content as a single delta chunk
+			chunk := map[string]interface{}{
+				"id":     "chatcmpl-test",
+				"object": "chat.completion.chunk",
+				"model":  "test-model",
+				"choices": []map[string]interface{}{
+					{
+						"index": 0,
+						"delta": map[string]interface{}{
+							"role":    "assistant",
+							"content": content,
+						},
+						"finish_reason": nil,
+					},
+				},
+			}
+			chunkJSON, _ := json.Marshal(chunk)
+			fmt.Fprintf(w, "data: %s\n\n", chunkJSON)
+			if flusher != nil {
+				flusher.Flush()
+			}
+
+			// Send stop chunk
+			stopChunk := map[string]interface{}{
+				"id":     "chatcmpl-test",
+				"object": "chat.completion.chunk",
+				"model":  "test-model",
+				"choices": []map[string]interface{}{
+					{
+						"index":         0,
+						"delta":         map[string]interface{}{},
+						"finish_reason": "stop",
+					},
+				},
+			}
+			stopJSON, _ := json.Marshal(stopChunk)
+			fmt.Fprintf(w, "data: %s\n\n", stopJSON)
+			fmt.Fprintf(w, "data: [DONE]\n\n")
+			if flusher != nil {
+				flusher.Flush()
+			}
+		} else {
+			// Non-streaming response
+			resp := map[string]interface{}{
+				"id":      "chatcmpl-test",
+				"object": "chat.completion",
+				"model":  "test-model",
+				"choices": []map[string]interface{}{
+					{
+						"index": 0,
+						"message": map[string]interface{}{
+							"role":    "assistant",
+							"content": content,
+						},
+						"finish_reason": "stop",
+					},
+				},
+				"usage": map[string]interface{}{
+					"prompt_tokens":     10,
+					"completion_tokens": 5,
+					"total_tokens":      15,
+				},
+			}
+			w.Header().Set("Content-Type", "application/json")
+			_ = json.NewEncoder(w).Encode(resp)
+		}
+	}))
+}
+
+func TestStreamChatOnce_Success(t *testing.T) {
+	srv := newOpenAIMockServer("hello from mock")
+	defer srv.Close()
+
+	e := NewExecutor("")
+	cfg := &domain.ChatConfig{
+		Model:   "test-model",
+		Backend: backendFile,
+		BaseURL: srv.URL,
+		Prompt:  "say hello",
+	}
+	content, toolCalls, err := e.streamChatOnce(t.Context(), cfg, os.Stdout)
+	require.NoError(t, err)
+	assert.Equal(t, "hello from mock", content)
+	assert.Nil(t, toolCalls)
+}
+
+func TestStreamChat_Success_NoChunks(t *testing.T) {
+	srv := newOpenAIMockServer("direct response")
+	defer srv.Close()
+
+	e := NewExecutor("")
+	cfg := &domain.ChatConfig{
+		Model:   "test-model",
+		Backend: backendFile,
+		BaseURL: srv.URL,
+		Prompt:  "hello",
+	}
+	content, toolCalls, err := e.StreamChat(t.Context(), cfg, os.Stdout)
+	require.NoError(t, err)
+	assert.Equal(t, "direct response", content)
+	assert.Nil(t, toolCalls)
+}
+
+func TestStreamChat_EmptyChoices(t *testing.T) {
+	// Server returns empty choices array.
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		resp := map[string]interface{}{
+			"id":      "chatcmpl-empty",
+			"object": "chat.completion",
+			"model":  "test-model",
+			"choices": []interface{}{},
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(resp)
+	}))
+	defer srv.Close()
+
+	e := NewExecutor("")
+	cfg := &domain.ChatConfig{
+		Model:   "test-model",
+		Backend: backendFile,
+		BaseURL: srv.URL,
+		Prompt:  "hello",
+	}
+	content, toolCalls, err := e.StreamChat(t.Context(), cfg, os.Stdout)
+	require.NoError(t, err)
+	assert.Empty(t, content)
+	assert.Nil(t, toolCalls)
+}
+
+func TestStreamChatChunked_Success(t *testing.T) {
+	srv := newOpenAIMockServer("chunk response")
+	defer srv.Close()
+
+	e := NewExecutor("")
+	cfg := &domain.ChatConfig{
+		Model:     "test-model",
+		Backend:   backendFile,
+		BaseURL:   srv.URL,
+		Prompt:    "word1 word2 word3",
+		ChunkSize: 5,
+	}
+	content, _, err := e.StreamChat(t.Context(), cfg, os.Stdout)
+	require.NoError(t, err)
+	assert.NotEmpty(t, content)
+}
+
+func TestStreamChat_WithOutputParser_Success(t *testing.T) {
+	srv := newOpenAIMockServer(`{"key": "value"}`)
+	defer srv.Close()
+
+	e := NewExecutor("")
+	cfg := &domain.ChatConfig{
+		Model:        "test-model",
+		Backend:      backendFile,
+		BaseURL:      srv.URL,
+		Prompt:       "return json",
+		OutputParser: "json",
+	}
+	content, _, err := e.StreamChat(t.Context(), cfg, os.Stdout)
+	require.NoError(t, err)
+	assert.NotEmpty(t, content)
+}
+
+func TestBuildLangchainLLM_GoogleBackend(t *testing.T) {
+	t.Setenv("GOOGLE_API_KEY", "test-key")
+	cfg := &domain.ChatConfig{Model: "gemini-pro", Backend: backendGoogle}
+	model, err := buildLangchainLLM(t.Context(), cfg)
+	// Google SDK may error without a real API, but the branch is exercised
+	_ = err
+	_ = model
+}
+
+func TestBuildLangchainLLM_HuggingFaceBackend(t *testing.T) {
+	t.Setenv("HUGGINGFACEHUB_API_TOKEN", "test-token")
+	cfg := &domain.ChatConfig{Model: "bert-base", Backend: backendHuggingFace}
+	model, err := buildLangchainLLM(t.Context(), cfg)
+	_ = err
+	_ = model
+}
+
+func TestBuildLangchainLLM_AnthropicBackend(t *testing.T) {
+	t.Setenv("ANTHROPIC_API_KEY", "test-key")
+	cfg := &domain.ChatConfig{Model: "claude-3", Backend: backendAnthropic}
+	model, err := buildLangchainLLM(t.Context(), cfg)
+	_ = err
+	_ = model
+}

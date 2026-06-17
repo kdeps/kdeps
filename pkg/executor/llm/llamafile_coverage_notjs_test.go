@@ -237,3 +237,19 @@ func TestKillLocalProcess_InvalidPID(t *testing.T) {
 	killLocalProcess(0)      // PID 0 is special; should not panic
 	killLocalProcess(999999) // non-existent PID; should not panic
 }
+
+func TestLlamafileCachedPath_UnknownAlias(t *testing.T) {
+	_, ok := LlamafileCachedPath("nonexistent-alias-xyz", t.TempDir())
+	assert.False(t, ok)
+}
+
+func TestLlamafileCachedPath_KnownAlias(t *testing.T) {
+	aliases := LlamafileAliasNames()
+	if len(aliases) == 0 {
+		t.Skip("no llamafile aliases registered")
+	}
+	dir := t.TempDir()
+	path, ok := LlamafileCachedPath(aliases[0], dir)
+	assert.True(t, ok)
+	assert.NotEmpty(t, path)
+}

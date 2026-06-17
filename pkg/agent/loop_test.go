@@ -568,3 +568,21 @@ func TestParseToolArguments_UnsupportedType(t *testing.T) {
 		t.Fatal("expected error for unsupported type")
 	}
 }
+
+func TestLoop_Store_Nil(t *testing.T) {
+	eng := newTestEngine("ok", nil)
+	reg := tools.NewRegistry()
+	loop := agent.New(eng, newTestWorkflow(), reg, agent.Config{})
+	if loop.Store() != nil {
+		t.Fatal("expected nil store when not configured")
+	}
+}
+
+func TestLoop_IsStreaming_False(t *testing.T) {
+	eng := newTestEngine("ok", nil)
+	reg := tools.NewRegistry()
+	loop := agent.New(eng, newTestWorkflow(), reg, agent.Config{})
+	if loop.IsStreaming() {
+		t.Fatal("expected IsStreaming() = false when no streamer configured")
+	}
+}
