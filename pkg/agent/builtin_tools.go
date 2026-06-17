@@ -59,6 +59,7 @@ const (
 )
 
 // URL variables (not consts) so tests can override them with httptest servers.
+//nolint:gochecknoglobals // test-facing URL overrides
 var (
 	wolframAlphaBaseURL = "https://api.wolframalpha.com/v1/result"
 	cohereRerankURL     = "https://api.cohere.com/v2/rerank"
@@ -454,6 +455,7 @@ const (
 	exaDefaultNumResults = 5
 )
 
+//nolint:gochecknoglobals // test-facing URL override
 var (
 	exaSearchURL     = "https://api.exa.ai/search"
 	zapierNLABaseURL = "https://nla.zapier.com/api/v1/dynamic/exposed"

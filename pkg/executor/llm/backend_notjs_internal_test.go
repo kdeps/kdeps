@@ -764,7 +764,7 @@ func newOpenAIMockServer(content string) *httptest.Server {
 		} else {
 			// Non-streaming response
 			resp := map[string]interface{}{
-				"id":      "chatcmpl-test",
+				"id":     "chatcmpl-test",
 				"object": "chat.completion",
 				"model":  "test-model",
 				"choices": []map[string]interface{}{
@@ -828,8 +828,8 @@ func TestStreamChat_EmptyChoices(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		resp := map[string]interface{}{
 			"id":      "chatcmpl-empty",
-			"object": "chat.completion",
-			"model":  "test-model",
+			"object":  "chat.completion",
+			"model":   "test-model",
 			"choices": []interface{}{},
 		}
 		w.Header().Set("Content-Type", "application/json")

@@ -211,10 +211,10 @@ func TestBuildReactSystemPreamble_WithSystemPrompt(t *testing.T) {
 	eng := executor.NewEngine(nil)
 	reg := tools.NewRegistry()
 	loop := New(eng, newTestWorkflowForSession(), reg, Config{
-		Model:        "test",
-		Streamer:     &mockStreamer{responses: []mockStreamResponse{{content: "Final Answer: ok"}}},
+		Model:         "test",
+		Streamer:      &mockStreamer{responses: []mockStreamResponse{{content: "Final Answer: ok"}}},
 		MaxToolRounds: 5,
-		SystemPrompt: "You are a helpful assistant",
+		SystemPrompt:  "You are a helpful assistant",
 	})
 	preamble := loop.buildReactSystemPreamble()
 	if !strings.Contains(preamble, "You are a helpful assistant") {
@@ -266,7 +266,7 @@ func TestDispatchReactTool_NonJSONInput(t *testing.T) {
 		Execute:     func(args map[string]interface{}) (string, error) { return "got it", nil },
 	})
 	loop := New(eng, newTestWorkflowForSession(), reg, Config{
-		Model:   "test",
+		Model:    "test",
 		Streamer: &mockStreamer{},
 	})
 	result := loop.dispatchReactTool("test_tool", "not json input")
@@ -288,7 +288,7 @@ func TestDispatchReactTool_ToolError(t *testing.T) {
 		},
 	})
 	loop := New(eng, newTestWorkflowForSession(), reg, Config{
-		Model:   "test",
+		Model:    "test",
 		Streamer: &mockStreamer{},
 	})
 	result := loop.dispatchReactTool("fail_tool", `{"input":"x"}`)
