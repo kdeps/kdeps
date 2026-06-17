@@ -208,7 +208,7 @@ func (l *Loop) Run(ctx context.Context, input string) (string, error) {
 	const actionID = "agent_loop_chat"
 
 	// Auto-compact before the LLM call when history exceeds the token threshold.
-	if msgs := l.session.rawMessages(); shouldAutoCompact(msgs, l.config.AutoCompactThreshold) {
+	if msgs := l.session.rawMessages(); shouldAutoCompact(msgs, l.config.AutoCompactThreshold, l.config.Model) {
 		if summary, err := l.CompactWithLLM(ctx); err == nil && summary != "" {
 			if l.onAutoCompact != nil {
 				l.onAutoCompact(summary)
@@ -245,7 +245,7 @@ func (l *Loop) IsStreaming() bool {
 // The caller should write a trailing newline after this returns if needed.
 func (l *Loop) RunStreaming(ctx context.Context, input string, w io.Writer) (string, error) {
 	// Auto-compact before the LLM call when history exceeds the token threshold.
-	if msgs := l.session.rawMessages(); shouldAutoCompact(msgs, l.config.AutoCompactThreshold) {
+	if msgs := l.session.rawMessages(); shouldAutoCompact(msgs, l.config.AutoCompactThreshold, l.config.Model) {
 		if summary, err := l.CompactWithLLM(ctx); err == nil && summary != "" {
 			if l.onAutoCompact != nil {
 				l.onAutoCompact(summary)
@@ -489,7 +489,7 @@ func (l *Loop) CompactWithLLM(_ context.Context) (string, error) {
 		return "", nil
 	}
 
-	cutIdx := findCutIndex(msgs, l.config.CompactTokenBudget)
+	cutIdx := findCutIndex(msgs, l.config.CompactTokenBudget, l.config.Model)
 	if cutIdx == 0 {
 		// Not enough turns to compact.
 		return "", nil

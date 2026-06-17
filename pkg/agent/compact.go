@@ -21,10 +21,11 @@ package agent
 import (
 	"fmt"
 	"strings"
+
+	"github.com/tmc/langchaingo/llms"
 )
 
 const (
-	charsPerToken           = 4
 	compactKeepRecentTokens = 20000
 	compactMinTurns         = 4 // don't compact unless at least 4 turns exist
 )
@@ -84,17 +85,20 @@ Use this EXACT format:
 
 Keep each section concise. Preserve exact file paths, function names, and error messages.`
 
-// estimateTokens returns a rough token count for a session message using the
-// standard 4-chars-per-token heuristic.
-func estimateTokens(m sessionMessage) int {
-	n := len(m.Content)
-	return (n + charsPerToken - 1) / charsPerToken
+// estimateTokens returns the exact token count for a session message using
+// tiktoken BPE encoding via langchaingo. Falls back to chars/4 if the model
+// string is empty (which should not happen in practice).
+func estimateTokens(m sessionMessage, modelHint string) int {
+	if modelHint == "" {
+		return (len(m.Content) + 3) / 4
+	}
+	return llms.CountTokens(modelHint, m.Content)
 }
 
 // findCutIndex returns the index of the first message to KEEP after compaction.
 // Messages before this index will be summarized. Returns 0 when there is
 // nothing worth compacting (too few turns, or all turns fit within budget).
-func findCutIndex(messages []sessionMessage, keepRecentTokens int) int {
+func findCutIndex(messages []sessionMessage, keepRecentTokens int, modelHint string) int {
 	n := len(messages)
 	// Need at least compactMinTurns*2 messages (compactMinTurns user+assistant pairs).
 	if n < sessionMsgsPer*compactMinTurns {
@@ -108,7 +112,7 @@ func findCutIndex(messages []sessionMessage, keepRecentTokens int) int {
 	for i := n; i >= sessionMsgsPer; i -= sessionMsgsPer {
 		u := messages[i-sessionMsgsPer]
 		a := messages[i-sessionMsgsPer+1]
-		turnTokens := estimateTokens(u) + estimateTokens(a)
+		turnTokens := estimateTokens(u, modelHint) + estimateTokens(a, modelHint)
 		if kept+turnTokens > keepRecentTokens {
 			break
 		}
@@ -128,24 +132,24 @@ func findCutIndex(messages []sessionMessage, keepRecentTokens int) int {
 }
 
 // estimateSessionTokens returns the total estimated token count for all messages.
-func estimateSessionTokens(messages []sessionMessage) int {
+func estimateSessionTokens(messages []sessionMessage, modelHint string) int {
 	var total int
 	for _, m := range messages {
-		total += estimateTokens(m)
+		total += estimateTokens(m, modelHint)
 	}
 	return total
 }
 
 // shouldAutoCompact returns true when the session's estimated token count
 // exceeds the given threshold (and there are enough turns to compact).
-func shouldAutoCompact(messages []sessionMessage, threshold int) bool {
+func shouldAutoCompact(messages []sessionMessage, threshold int, modelHint string) bool {
 	if threshold <= 0 {
 		return false
 	}
 	if len(messages) < sessionMsgsPer*compactMinTurns {
 		return false
 	}
-	return estimateSessionTokens(messages) > threshold
+	return estimateSessionTokens(messages, modelHint) > threshold
 }
 
 // serializeConversation formats session messages as plain text for the

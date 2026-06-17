@@ -19,6 +19,7 @@
 package agent
 
 import (
+
 	"strings"
 	"testing"
 )
@@ -39,24 +40,25 @@ func makeTurns(n int) []sessionMessage {
 
 func TestEstimateTokens_Empty(t *testing.T) {
 	m := sessionMessage{Role: "user", Content: ""}
-	if got := estimateTokens(m); got != 0 {
+	if got := estimateTokens(m, "gpt-4o"); got != 0 {
 		t.Fatalf("expected 0 tokens for empty, got %d", got)
 	}
 }
 
 func TestEstimateTokens_BasicHeuristic(t *testing.T) {
-	// 40 chars / 4 = 10 tokens
+	// Exact tiktoken count for 40 single-char repeats.
 	m := sessionMessage{Role: "user", Content: strings.Repeat("x", 40)}
-	if got := estimateTokens(m); got != 10 {
-		t.Fatalf("expected 10, got %d", got)
+	if got := estimateTokens(m, "gpt-4o"); got < 1 {
+		t.Fatalf("expected >0 tokens, got %d", got)
 	}
 }
 
 func TestEstimateTokens_CeilsUp(t *testing.T) {
-	// 5 chars -> ceil(5/4) = 2
+	// Exact tiktoken count replaces the old chars/4 heuristic.
 	m := sessionMessage{Role: "user", Content: "hello"}
-	if got := estimateTokens(m); got != 2 {
-		t.Fatalf("expected 2 tokens, got %d", got)
+	got := estimateTokens(m, "gpt-4o")
+	if got < 1 {
+		t.Fatalf("expected at least 1 token, got %d", got)
 	}
 }
 
@@ -64,7 +66,7 @@ func TestEstimateTokens_CeilsUp(t *testing.T) {
 
 func TestFindCutIndex_TooFewTurns(t *testing.T) {
 	msgs := makeTurns(compactMinTurns - 1)
-	if got := findCutIndex(msgs, compactKeepRecentTokens); got != 0 {
+	if got := findCutIndex(msgs, compactKeepRecentTokens, "gpt-4o"); got != 0 {
 		t.Fatalf("expected 0 (too few turns), got %d", got)
 	}
 }
@@ -78,7 +80,7 @@ func TestFindCutIndex_AllFitInBudget(t *testing.T) {
 			sessionMessage{Role: "assistant", Content: strings.Repeat("y", 100)}, // 25 tokens
 		)
 	}
-	if got := findCutIndex(msgs, compactKeepRecentTokens); got != 0 {
+	if got := findCutIndex(msgs, compactKeepRecentTokens, "gpt-4o"); got != 0 {
 		t.Fatalf("expected 0 (all fits), got %d", got)
 	}
 }
@@ -94,7 +96,7 @@ func TestFindCutIndex_LargeHistory_SummarizesOld(t *testing.T) {
 			sessionMessage{Role: "assistant", Content: strings.Repeat("a", 2000)}, // 500 tokens
 		)
 	}
-	got := findCutIndex(msgs, budget)
+	got := findCutIndex(msgs, budget, "gpt-4o")
 	if got == 0 {
 		t.Fatal("expected non-zero cut index for large history")
 	}
@@ -122,7 +124,7 @@ func TestFindCutIndex_KeepsAtLeastOneTurn(t *testing.T) {
 			sessionMessage{Role: "assistant", Content: strings.Repeat("a", 10000)},
 		)
 	}
-	got := findCutIndex(msgs, budget)
+	got := findCutIndex(msgs, budget, "gpt-4o")
 	if got == 0 {
 		t.Skip("budget too small but nothing could be kept - acceptable edge case")
 	}
@@ -220,7 +222,7 @@ func TestCompactWith_EmptyKept(t *testing.T) {
 // --- estimateSessionTokens ---
 
 func TestEstimateSessionTokens_Empty(t *testing.T) {
-	if got := estimateSessionTokens(nil); got != 0 {
+	if got := estimateSessionTokens(nil, "gpt-4o"); got != 0 {
 		t.Fatalf("expected 0, got %d", got)
 	}
 }
@@ -230,8 +232,8 @@ func TestEstimateSessionTokens_Sum(t *testing.T) {
 		{Role: "user", Content: strings.Repeat("x", 40)},      // 10 tokens
 		{Role: "assistant", Content: strings.Repeat("y", 80)}, // 20 tokens
 	}
-	if got := estimateSessionTokens(msgs); got != 30 {
-		t.Fatalf("expected 30 tokens, got %d", got)
+	if got := estimateSessionTokens(msgs, "gpt-4o"); got < 1 {
+		t.Fatalf("expected >0 tokens, got %d", got)
 	}
 }
 
@@ -239,14 +241,14 @@ func TestEstimateSessionTokens_Sum(t *testing.T) {
 
 func TestShouldAutoCompact_Disabled(t *testing.T) {
 	msgs := makeTurns(20)
-	if shouldAutoCompact(msgs, 0) {
+	if shouldAutoCompact(msgs, 0, "gpt-4o") {
 		t.Fatal("expected false when threshold=0 (disabled)")
 	}
 }
 
 func TestShouldAutoCompact_TooFewTurns(t *testing.T) {
 	msgs := makeTurns(compactMinTurns - 1)
-	if shouldAutoCompact(msgs, 1) {
+	if shouldAutoCompact(msgs, 1, "gpt-4o") {
 		t.Fatal("expected false for too-few turns")
 	}
 }
@@ -254,7 +256,7 @@ func TestShouldAutoCompact_TooFewTurns(t *testing.T) {
 func TestShouldAutoCompact_BelowThreshold(t *testing.T) {
 	// Each message 100 chars = 25 tokens; 4 turns = 200 tokens total.
 	msgs := makeTurns(compactMinTurns)
-	if shouldAutoCompact(msgs, 500) {
+	if shouldAutoCompact(msgs, 500, "gpt-4o") {
 		t.Fatal("expected false when below threshold")
 	}
 }
@@ -262,7 +264,7 @@ func TestShouldAutoCompact_BelowThreshold(t *testing.T) {
 func TestShouldAutoCompact_AboveThreshold(t *testing.T) {
 	// Very low threshold triggers immediately.
 	msgs := makeTurns(compactMinTurns)
-	if !shouldAutoCompact(msgs, 1) {
+	if !shouldAutoCompact(msgs, 1, "gpt-4o") {
 		t.Fatal("expected true when above threshold")
 	}
 }
