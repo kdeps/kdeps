@@ -280,7 +280,11 @@ func (e *errorStubLLM) Call(_ context.Context, _ string, _ ...llms.CallOption) (
 	return "", e.err
 }
 
-func (e *errorStubLLM) GenerateContent(_ context.Context, _ []llms.MessageContent, _ ...llms.CallOption) (*llms.ContentResponse, error) {
+func (e *errorStubLLM) GenerateContent(
+	_ context.Context,
+	_ []llms.MessageContent,
+	_ ...llms.CallOption,
+) (*llms.ContentResponse, error) {
 	return nil, e.err
 }
 
@@ -291,7 +295,11 @@ func (s *infoStubLLM) Call(_ context.Context, _ string, _ ...llms.CallOption) (s
 	return "ok", nil
 }
 
-func (s *infoStubLLM) GenerateContent(_ context.Context, _ []llms.MessageContent, _ ...llms.CallOption) (*llms.ContentResponse, error) {
+func (s *infoStubLLM) GenerateContent(
+	_ context.Context,
+	_ []llms.MessageContent,
+	_ ...llms.CallOption,
+) (*llms.ContentResponse, error) {
 	return &llms.ContentResponse{
 		Choices: []*llms.ContentChoice{
 			{

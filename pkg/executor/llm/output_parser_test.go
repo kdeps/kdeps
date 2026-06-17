@@ -208,7 +208,7 @@ func TestApplyOutputParser_Regex_NoMatch(t *testing.T) {
 	assert.Equal(t, "content without match", out)
 }
 
-func TestApplyOutputParser_SimpleOutput_Error(t *testing.T) {
+func TestApplyOutputParser_SimpleOutput_Error(_ *testing.T) {
 	// parseSimpleOutput: if the parser can fail, this exercises the error path.
 	// Pass content that triggers a parse failure if any exists.
 	// SimpleParser.Parse rarely errors, so this mainly verifies no panic.

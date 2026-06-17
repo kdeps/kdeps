@@ -59,6 +59,7 @@ const (
 )
 
 // URL variables (not consts) so tests can override them with httptest servers.
+//
 //nolint:gochecknoglobals // test-facing URL overrides
 var (
 	wolframAlphaBaseURL = "https://api.wolframalpha.com/v1/result"
