@@ -23,6 +23,7 @@ import (
 	"fmt"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/tmc/langchaingo/llms"
 )
@@ -36,17 +37,21 @@ const (
 // Messages are stored as role-content pairs and serialized to JSON
 // for injection as the chat.messages expression value on each turn.
 type Session struct {
-	mu               sync.RWMutex
-	messages         []sessionMessage
-	maxTurns         int    // 0 = unlimited
-	maxHistoryTokens int    // 0 = unlimited; trims oldest turns to stay under this token count
-	modelHint        string // used for token counting; defaults to gpt2 encoding
-	fileOps          []fileOpEntry // per-turn file operations; index matches turn index
+	mu                sync.RWMutex
+	messages          []sessionMessage
+	maxTurns          int    // 0 = unlimited
+	maxHistoryTokens  int    // 0 = unlimited; trims oldest turns to stay under this token count
+	modelHint         string // used for token counting; defaults to gpt2 encoding
+	fileOps           []fileOpEntry // per-turn file operations; index matches turn index
+	firstKeptEntryID  int64  // ID of the first kept entry after the most recent compaction (0 = none)
+	lastEntryID       int64  // monotonically increasing entry ID counter
 }
 
 type sessionMessage struct {
-	Role    string `json:"role"`
-	Content string `json:"content"`
+	Role     string `json:"role"`
+	Content  string `json:"content"`
+	ID       int64  `json:"id"`       // nanosecond timestamp; unique per entry
+	ParentID int64  `json:"parentId"` // parent entry ID for tree navigation; 0 = root
 }
 
 // fileOpEntry records file operations that occurred during a turn.
@@ -59,8 +64,9 @@ type fileOpEntry struct {
 // NewSession creates a session. maxTurns caps history (0 = unlimited).
 func NewSession(maxTurns int) *Session {
 	return &Session{
-		messages: make([]sessionMessage, 0, sessionInitCap),
-		maxTurns: maxTurns,
+		messages:    make([]sessionMessage, 0, sessionInitCap),
+		maxTurns:    maxTurns,
+		lastEntryID: time.Now().UnixNano(),
 	}
 }
 
@@ -97,14 +103,26 @@ func (s *Session) fileOpsForTurn(turnIdx int) *fileOpEntry {
 	return &s.fileOps[turnIdx]
 }
 
+// nextID returns a monotonically increasing entry ID (nanosecond precision).
+func (s *Session) nextID() int64 {
+	s.lastEntryID++
+	return s.lastEntryID
+}
+
 // Append adds a user-assistant turn pair to the session.
 func (s *Session) Append(userInput, assistantResponse string) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
+	parentID := int64(0)
+	if len(s.messages) > 0 {
+		parentID = s.messages[len(s.messages)-1].ID
+	}
+	uid := s.nextID()
+	aid := s.nextID()
 	s.messages = append(s.messages,
-		sessionMessage{Role: "user", Content: userInput},
-		sessionMessage{Role: "assistant", Content: assistantResponse},
+		sessionMessage{Role: "user", Content: userInput, ID: uid, ParentID: parentID},
+		sessionMessage{Role: "assistant", Content: assistantResponse, ID: aid, ParentID: uid},
 	)
 
 	if s.maxTurns > 0 && len(s.messages)/sessionMsgsPer > s.maxTurns {
@@ -242,6 +260,19 @@ func (s *Session) CompactWith(summary string, keptMessages []sessionMessage, com
 	} else {
 		s.fileOps = nil
 	}
+
+	// Track first kept entry ID for branch summarization (A14).
+	if len(keptMessages) > 0 {
+		s.firstKeptEntryID = keptMessages[0].ID
+	}
+}
+
+// FirstKeptEntryID returns the ID of the first entry kept after the most recent compaction.
+// Returns 0 if no compaction has occurred.
+func (s *Session) FirstKeptEntryID() int64 {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	return s.firstKeptEntryID
 }
 
 // rawMessages returns a copy of the internal messages for compaction
