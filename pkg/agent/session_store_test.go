@@ -440,7 +440,8 @@ func TestLoadMeta_EmptySessionID(t *testing.T) {
 	store := NewSessionStore(dir)
 	// Write a valid session_meta with no sessionId field - uses the file id as fallback.
 	path := filepath.Join(dir, "no-session-id.jsonl")
-	if err := os.WriteFile(path, []byte(`{"type":"session_meta","ts":1000,"name":"x","model":"m","turns":0}`+"\n"), 0600); err != nil {
+	metaJSON := `{"type":"session_meta","ts":1000,"name":"x","model":"m","turns":0}` + "\n"
+	if err := os.WriteFile(path, []byte(metaJSON), 0600); err != nil {
 		t.Fatal(err)
 	}
 	meta, err := store.LoadMeta("no-session-id")
