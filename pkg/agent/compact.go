@@ -154,11 +154,16 @@ func shouldAutoCompact(messages []sessionMessage, threshold int, modelHint strin
 
 // serializeConversation formats session messages as plain text for the
 // summarization prompt. Each turn is labeled "USER:" / "ASSISTANT:".
-func serializeConversation(messages []sessionMessage) string {
+// If fileOps is provided, per-turn file operations are included in the output.
+func serializeConversation(messages []sessionMessage, fileOps []fileOpEntry) string {
 	var sb strings.Builder
 	for i := 0; i+1 < len(messages); i += sessionMsgsPer {
 		u := messages[i]
 		a := messages[i+1]
+		turnIdx := i / sessionMsgsPer
+		if turnIdx < len(fileOps) && (len(fileOps[turnIdx].Read) > 0 || len(fileOps[turnIdx].Modified) > 0) {
+			fmt.Fprintf(&sb, "[FILES read: %v, modified: %v]\n", fileOps[turnIdx].Read, fileOps[turnIdx].Modified)
+		}
 		fmt.Fprintf(&sb, "USER: %s\n\nASSISTANT: %s\n\n", u.Content, a.Content)
 	}
 	return strings.TrimRight(sb.String(), "\n")

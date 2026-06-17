@@ -68,7 +68,7 @@ func (l *Loop) SummarizeBranch(_ context.Context) (string, error) {
 		return "", nil
 	}
 
-	conversationText := serializeConversation(msgs)
+	conversationText := serializeConversation(msgs, nil)
 	prompt := "<conversation>\n" + conversationText + "\n</conversation>\n\n" + branchSummaryPrompt
 
 	const branchActionID = "agent_loop_branch_summary"
