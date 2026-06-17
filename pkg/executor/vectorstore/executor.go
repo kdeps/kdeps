@@ -32,6 +32,7 @@ import (
 	lchemb_jina "github.com/tmc/langchaingo/embeddings/jina"
 	lchemb_voyage "github.com/tmc/langchaingo/embeddings/voyageai"
 	lcgoogleai "github.com/tmc/langchaingo/llms/googleai"
+	lchf "github.com/tmc/langchaingo/llms/huggingface"
 	lcopenai "github.com/tmc/langchaingo/llms/openai"
 	"github.com/tmc/langchaingo/schema"
 	lcvectorstores "github.com/tmc/langchaingo/vectorstores"
@@ -315,7 +316,19 @@ func buildEmbedder(ctx context.Context, cfg *domain.VectorStoreConfig) (lcemb.Em
 		}
 		return lcemb.NewEmbedder(client)
 	case "huggingface":
-		return lchemb_hf.NewHuggingface(lchemb_hf.WithModel(cfg.EmbedModel))
+		token := os.Getenv("HF_TOKEN")
+		if token == "" {
+			token = os.Getenv("HUGGINGFACEHUB_API_TOKEN")
+		}
+		llmClient, hfErr := lchf.New(lchf.WithToken(token))
+		if hfErr != nil {
+			return nil, fmt.Errorf("vectorstore: build huggingface client: %w", hfErr)
+		}
+		opts := []lchemb_hf.Option{lchemb_hf.WithClient(*llmClient)}
+		if cfg.EmbedModel != "" {
+			opts = append(opts, lchemb_hf.WithModel(cfg.EmbedModel))
+		}
+		return lchemb_hf.NewHuggingface(opts...)
 	case "jina":
 		return lchemb_jina.NewJina(
 			lchemb_jina.WithAPIKey(os.Getenv("JINA_API_KEY")),

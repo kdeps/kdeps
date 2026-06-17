@@ -48,7 +48,7 @@ func contextStringValue(ctx context.Context, key RequestContextKey) string {
 	return value
 }
 
-func contextBoolValue(ctx context.Context, key RequestContextKey) bool {
+func contextBoolValue(ctx context.Context, key RequestContextKey) bool { //nolint:unparam // key may be extended
 	value, ok := ctx.Value(key).(bool)
 	if !ok {
 		return false
