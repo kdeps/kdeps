@@ -118,6 +118,10 @@ var (
 			doctorSpotCheck: false,
 			field: func(k *LLMKeys) *string { return &k.Bedrock },
 		},
+		{
+			name: "watsonx", yamlKey: "watsonx_api_key", envVar: "WATSONX_API_KEY",
+			field: func(k *LLMKeys) *string { return &k.WatsonX },
+		},
 	}
 
 	cloudProviders   = buildCloudProviderMap(cloudProvidersList)

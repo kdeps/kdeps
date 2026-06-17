@@ -281,3 +281,4 @@ tests/integration/mcp/testserver/testserver.exe
 book
 .claude_tmp/
 __pycache__/
+pkg/executor/embedding/models/

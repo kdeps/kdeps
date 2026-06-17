@@ -42,6 +42,8 @@ import (
 	lchuggingface "github.com/tmc/langchaingo/llms/huggingface"
 	lcmaritaca "github.com/tmc/langchaingo/llms/maritaca"
 	lcopenai "github.com/tmc/langchaingo/llms/openai"
+	lcwatsonx "github.com/tmc/langchaingo/llms/watsonx"
+	wx "github.com/IBM/watsonx-go/pkg/models"
 
 	"github.com/kdeps/kdeps/v2/pkg/domain"
 )
@@ -54,6 +56,7 @@ const (
 	backendMaritaca    = "maritaca"
 	backendErnie       = "ernie"
 	backendBedrock     = "bedrock"
+	backendWatsonX     = "watsonx"
 )
 
 //nolint:gochecknoglobals // provider base URLs are constant lookup table, not mutable state
@@ -134,6 +137,13 @@ func buildLangchainLLM(ctx context.Context, cfg *domain.ChatConfig) (llms.Model,
 	case backendBedrock:
 		model, err = lcbedrock.New(
 			lcbedrock.WithModel(cfg.Model),
+		)
+
+	case backendWatsonX:
+		model, err = lcwatsonx.New(
+			cfg.Model,
+			wx.WithWatsonxAPIKey(wx.WatsonxAPIKey(os.Getenv(providerAPIKeyEnvVar(backendWatsonX)))),
+			wx.WithWatsonxProjectID(wx.WatsonxProjectID(os.Getenv("WATSONX_PROJECT_ID"))),
 		)
 
 	default:

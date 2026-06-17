@@ -29,6 +29,7 @@ import (
 
 	lcemb "github.com/tmc/langchaingo/embeddings"
 	lchemb_bedrock "github.com/tmc/langchaingo/embeddings/bedrock"
+	lchemb_cybertron "github.com/tmc/langchaingo/embeddings/cybertron"
 	lchemb_hf "github.com/tmc/langchaingo/embeddings/huggingface"
 	lchemb_jina "github.com/tmc/langchaingo/embeddings/jina"
 	lchemb_voyage "github.com/tmc/langchaingo/embeddings/voyageai"
@@ -354,6 +355,14 @@ func buildEmbedder(ctx context.Context, cfg *domain.VectorStoreConfig) (lcemb.Em
 		return lchemb_bedrock.NewBedrock(
 			lchemb_bedrock.WithModel(cfg.EmbedModel),
 		)
+	case "cybertron":
+		client, err := lchemb_cybertron.NewCybertron(
+			lchemb_cybertron.WithModel(cfg.EmbedModel),
+		)
+		if err != nil {
+			return nil, fmt.Errorf("vectorstore: build cybertron client: %w", err)
+		}
+		return lcemb.NewEmbedder(client)
 	default:
 		return buildOpenAICompatEmbedder(cfg)
 	}
