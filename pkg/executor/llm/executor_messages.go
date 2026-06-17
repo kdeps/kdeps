@@ -51,7 +51,7 @@ func (e *Executor) buildMessages(
 		return nil, err
 	}
 
-	messages := make([]map[string]interface{}, 0, len(history)+1)
+	messages := make([]map[string]interface{}, 0, len(history))
 	messages = append(messages, history...)
 	messages = append(messages, map[string]interface{}{
 		"role":    role,
