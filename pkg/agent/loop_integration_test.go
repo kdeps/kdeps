@@ -280,7 +280,11 @@ func TestRunStreaming_StreamFinalOnly_FalseStreamsAll(t *testing.T) {
 // errStreamer always returns an error from StreamChat.
 type errStreamer struct{ err error }
 
-func (e *errStreamer) StreamChat(_ context.Context, _ *domain.ChatConfig, _ io.Writer) (string, []domain.StreamedToolCall, error) {
+func (e *errStreamer) StreamChat(
+	_ context.Context,
+	_ *domain.ChatConfig,
+	_ io.Writer,
+) (string, []domain.StreamedToolCall, error) {
 	return "", nil, e.err
 }
 
@@ -476,7 +480,10 @@ func TestRunStreaming_AutoCompact_WithCallback(t *testing.T) {
 	// Build a session with 4 turns to exceed compactMinTurns threshold
 	existing := NewSession(0)
 	for i := 0; i < 4; i++ {
-		existing.Append(fmt.Sprintf("question %d", i), fmt.Sprintf("answer %d long enough to accumulate tokens here", i))
+		existing.Append(
+			fmt.Sprintf("question %d", i),
+			fmt.Sprintf("answer %d long enough to accumulate tokens here", i),
+		)
 	}
 
 	loop := New(eng, newTestWorkflowForSession(), reg, Config{

@@ -27,8 +27,8 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/microcosm-cc/bluemonday"
 	_ "github.com/mattn/go-sqlite3"
+	"github.com/microcosm-cc/bluemonday"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
