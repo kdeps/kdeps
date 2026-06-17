@@ -180,9 +180,18 @@ func buildStore(
 		return buildPostgresStore(ctx, cfg)
 	case "mongodb", "mongo":
 		return buildMongoStore(ctx, cfg)
+	case "redis":
+		return buildRedisStore(ctx, cfg)
 	default:
 		return buildQdrantStore(ctx, cfg)
 	}
+}
+
+func buildRedisStore(
+	ctx context.Context,
+	cfg *domain.VectorStoreConfig,
+) (lcvectorstores.VectorStore, error) {
+	return newRedisStore(ctx, cfg)
 }
 
 func buildBedrockStore(
