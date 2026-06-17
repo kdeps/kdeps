@@ -20,6 +20,7 @@ package embedding
 
 import (
 	"context"
+	"os"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -142,6 +143,48 @@ func TestBuildVoyageAIEmbedder_ConstructsWithKey(t *testing.T) {
 func TestBuildEmbedder_RoutesHuggingFace(t *testing.T) {
 	t.Setenv("HF_TOKEN", "test-token")
 	cfg := &domain.EmbeddingConfig{Model: "BAAI/bge-small-en-v1.5", Backend: backendHuggingFace}
+	emb, err := buildEmbedder(context.Background(), cfg)
+	require.NoError(t, err)
+	assert.NotNil(t, emb)
+}
+
+func TestBuildBedrockEmbedder_ConstructsSuccessfully(t *testing.T) {
+	t.Setenv("AWS_ACCESS_KEY_ID", "test-key")
+	t.Setenv("AWS_SECRET_ACCESS_KEY", "test-secret")
+	t.Setenv("AWS_REGION", "us-east-1")
+	cfg := &domain.EmbeddingConfig{
+		Model:   "amazon.titan-embed-text-v2:0",
+		Backend: backendBedrock,
+	}
+	emb, err := buildBedrockEmbedder(cfg)
+	require.NoError(t, err)
+	assert.NotNil(t, emb)
+}
+
+func TestBuildBedrockEmbedder_FailsWithoutAWSConfig(t *testing.T) {
+	// Bedrock's NewBedrock uses the full AWS credential chain
+	// (env vars, ~/.aws/credentials, IAM roles). Clearing env vars
+	// may not cause an error if other credential sources are available.
+	// Skip this test unless running in an isolated CI environment.
+	if os.Getenv("CI") == "" {
+		t.Skip("skipped: AWS credential chain may resolve from non-env sources")
+	}
+	t.Setenv("AWS_ACCESS_KEY_ID", "")
+	t.Setenv("AWS_SECRET_ACCESS_KEY", "")
+	t.Setenv("AWS_REGION", "")
+	cfg := &domain.EmbeddingConfig{
+		Model:   "amazon.titan-embed-text-v2:0",
+		Backend: backendBedrock,
+	}
+	_, err := buildBedrockEmbedder(cfg)
+	require.Error(t, err)
+}
+
+func TestBuildEmbedder_RoutesBedrock(t *testing.T) {
+	t.Setenv("AWS_ACCESS_KEY_ID", "test-key")
+	t.Setenv("AWS_SECRET_ACCESS_KEY", "test-secret")
+	t.Setenv("AWS_REGION", "us-east-1")
+	cfg := &domain.EmbeddingConfig{Model: "amazon.titan-embed-text-v2:0", Backend: backendBedrock}
 	emb, err := buildEmbedder(context.Background(), cfg)
 	require.NoError(t, err)
 	assert.NotNil(t, emb)

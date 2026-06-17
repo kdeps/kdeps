@@ -39,6 +39,7 @@ func schemaEnumMap() map[string][]interface{} {
 			"file", "gguf",
 			"ollama", "openai", "anthropic", "google", "cohere", "mistral",
 			"together", "perplexity", "groq", "deepseek", "openrouter", "xai",
+			"bedrock",
 		},
 		"run.httpClient.method": httpMethods,
 		"run.chat.contextLength": {

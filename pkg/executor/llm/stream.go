@@ -35,6 +35,7 @@ import (
 
 	"github.com/tmc/langchaingo/llms"
 	lcanthropic "github.com/tmc/langchaingo/llms/anthropic"
+	lcbedrock "github.com/tmc/langchaingo/llms/bedrock"
 	lccloudflare "github.com/tmc/langchaingo/llms/cloudflare"
 	lcernie "github.com/tmc/langchaingo/llms/ernie"
 	lcgoogleai "github.com/tmc/langchaingo/llms/googleai"
@@ -52,6 +53,7 @@ const (
 	backendCloudflare  = "cloudflare"
 	backendMaritaca    = "maritaca"
 	backendErnie       = "ernie"
+	backendBedrock     = "bedrock"
 )
 
 //nolint:gochecknoglobals // provider base URLs are constant lookup table, not mutable state
@@ -127,6 +129,11 @@ func buildLangchainLLM(ctx context.Context, cfg *domain.ChatConfig) (llms.Model,
 		model, err = lcernie.New(
 			lcernie.WithAKSK(apiKey, secretKey),
 			lcernie.WithModel(cfg.Model),
+		)
+
+	case backendBedrock:
+		model, err = lcbedrock.New(
+			lcbedrock.WithModel(cfg.Model),
 		)
 
 	default:
