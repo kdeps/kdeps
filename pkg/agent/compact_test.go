@@ -137,7 +137,7 @@ func TestFindCutIndex_KeepsAtLeastOneTurn(t *testing.T) {
 // --- serializeConversation ---
 
 func TestSerializeConversation_Empty(t *testing.T) {
-	if got := serializeConversation(nil); got != "" {
+	if got := serializeConversation(nil, nil); got != "" {
 		t.Fatalf("expected empty string, got %q", got)
 	}
 }
@@ -147,7 +147,7 @@ func TestSerializeConversation_SingleTurn(t *testing.T) {
 		{Role: "user", Content: "hello"},
 		{Role: "assistant", Content: "hi"},
 	}
-	got := serializeConversation(msgs)
+	got := serializeConversation(msgs, nil)
 	if !strings.Contains(got, "USER: hello") {
 		t.Fatalf("expected USER label, got %q", got)
 	}
@@ -163,7 +163,7 @@ func TestSerializeConversation_MultiTurn(t *testing.T) {
 		{Role: "user", Content: "q2"},
 		{Role: "assistant", Content: "a2"},
 	}
-	got := serializeConversation(msgs)
+	got := serializeConversation(msgs, nil)
 	if strings.Count(got, "USER:") != 2 {
 		t.Fatalf("expected 2 USER labels, got %q", got)
 	}
@@ -282,5 +282,36 @@ func TestRawMessages_ReturnsCopy(t *testing.T) {
 	raw[0].Content = "mutated"
 	if s.Messages()[0].Content != "a" {
 		t.Fatal("RawMessages did not return a copy")
+	}
+}
+
+func TestRecordFileOps(t *testing.T) {
+	s := NewSession(0)
+	s.Append("read file x", "ok I read it")
+	s.RecordFileOps([]string{"x.go"}, nil)
+	s.Append("edit file y", "ok I edited it")
+	s.RecordFileOps(nil, []string{"y.go"})
+
+	// After 2 turns, fileOps should have 2 entries.
+	if len(s.fileOps) != 2 {
+		t.Fatalf("expected 2 fileOp entries, got %d", len(s.fileOps))
+	}
+	if len(s.fileOps[0].Read) != 1 || s.fileOps[0].Read[0] != "x.go" {
+		t.Fatalf("turn 0: expected Read=[x.go], got %v", s.fileOps[0].Read)
+	}
+	if len(s.fileOps[1].Modified) != 1 || s.fileOps[1].Modified[0] != "y.go" {
+		t.Fatalf("turn 1: expected Modified=[y.go], got %v", s.fileOps[1].Modified)
+	}
+}
+
+func TestSerializeConversation_WithFileOps(t *testing.T) {
+	msgs := []sessionMessage{
+		{Role: "user", Content: "read x.go"},
+		{Role: "assistant", Content: "done"},
+	}
+	fileOps := []fileOpEntry{{Read: []string{"x.go"}}}
+	got := serializeConversation(msgs, fileOps)
+	if !strings.Contains(got, "[FILES read: [x.go]") {
+		t.Fatalf("expected FILES line, got %q", got)
 	}
 }

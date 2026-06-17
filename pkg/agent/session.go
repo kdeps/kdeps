@@ -41,11 +41,19 @@ type Session struct {
 	maxTurns         int    // 0 = unlimited
 	maxHistoryTokens int    // 0 = unlimited; trims oldest turns to stay under this token count
 	modelHint        string // used for token counting; defaults to gpt2 encoding
+	fileOps          []fileOpEntry // per-turn file operations; index matches turn index
 }
 
 type sessionMessage struct {
 	Role    string `json:"role"`
 	Content string `json:"content"`
+}
+
+// fileOpEntry records file operations that occurred during a turn.
+// Tracked per-turn so compaction entries can summarize what files were affected.
+type fileOpEntry struct {
+	Read     []string // files read during this turn
+	Modified []string // files modified during this turn
 }
 
 // NewSession creates a session. maxTurns caps history (0 = unlimited).
@@ -65,6 +73,28 @@ func (s *Session) SetTokenBudget(maxTokens int, model string) {
 	defer s.mu.Unlock()
 	s.maxHistoryTokens = maxTokens
 	s.modelHint = model
+}
+
+// RecordFileOps captures the files read and modified during the current turn.
+// Must be called after Append to associate file ops with the just-completed turn.
+func (s *Session) RecordFileOps(read, modified []string) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	turnIdx := len(s.messages)/sessionMsgsPer - 1
+	// Grow the fileOps slice to match the turn count.
+	for len(s.fileOps) <= turnIdx {
+		s.fileOps = append(s.fileOps, fileOpEntry{})
+	}
+	s.fileOps[turnIdx] = fileOpEntry{Read: read, Modified: modified}
+}
+
+// fileOpsForTurn returns the file ops for the given turn index.
+// Must be called with s.mu held (at least for reading). Returns nil if none recorded.
+func (s *Session) fileOpsForTurn(turnIdx int) *fileOpEntry {
+	if turnIdx < 0 || turnIdx >= len(s.fileOps) {
+		return nil
+	}
+	return &s.fileOps[turnIdx]
 }
 
 // Append adds a user-assistant turn pair to the session.
@@ -198,6 +228,20 @@ func (s *Session) CompactWith(summary string, keptMessages []sessionMessage, com
 	)
 	newMsgs = append(newMsgs, keptMessages...)
 	s.messages = newMsgs
+
+	// Preserve file ops for kept turns.
+	keptTurnCount := len(keptMessages) / sessionMsgsPer
+	if keptTurnCount > 0 && compactedTurns > 0 && compactedTurns < len(s.fileOps) {
+		startIdx := compactedTurns
+		if len(s.fileOps) > startIdx {
+			newOps := make([]fileOpEntry, 1+keptTurnCount)
+			// Slot 0 = summary turn (no file ops)
+			copy(newOps[1:], s.fileOps[startIdx:])
+			s.fileOps = newOps
+		}
+	} else {
+		s.fileOps = nil
+	}
 }
 
 // rawMessages returns a copy of the internal messages for compaction

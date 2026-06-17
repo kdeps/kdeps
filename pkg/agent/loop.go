@@ -499,7 +499,11 @@ func (l *Loop) CompactWithLLM(_ context.Context) (string, error) {
 	toKeep := msgs[cutIdx:]
 	compactedTurns := len(toSummarize) / sessionMsgsPer
 
-	conversationText := serializeConversation(toSummarize)
+	var fileOps []fileOpEntry
+	if cutIdx/sessionMsgsPer <= len(l.session.fileOps) {
+		fileOps = l.session.fileOps[:cutIdx/sessionMsgsPer]
+	}
+	conversationText := serializeConversation(toSummarize, fileOps)
 	prompt := "<conversation>\n" + conversationText + "\n</conversation>\n\n" + compactionUserPrompt
 
 	const compactionActionID = "agent_loop_compact"
