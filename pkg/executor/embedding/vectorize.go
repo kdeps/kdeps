@@ -29,6 +29,7 @@ import (
 	lchemb_hf "github.com/tmc/langchaingo/embeddings/huggingface"
 	lchemb_jina "github.com/tmc/langchaingo/embeddings/jina"
 	lchemb_voyage "github.com/tmc/langchaingo/embeddings/voyageai"
+	lchemb_bedrock "github.com/tmc/langchaingo/embeddings/bedrock"
 	lcgoogleai "github.com/tmc/langchaingo/llms/googleai"
 	lchf "github.com/tmc/langchaingo/llms/huggingface"
 	lcopenai "github.com/tmc/langchaingo/llms/openai"
@@ -44,6 +45,7 @@ const (
 	backendHuggingFace = "huggingface"
 	backendJina        = "jina"
 	backendVoyageAI    = "voyageai"
+	backendBedrock     = "bedrock"
 )
 
 // vectorizeInputs embeds cfg.Inputs using the configured model/backend and
@@ -117,6 +119,8 @@ func buildEmbedder(ctx context.Context, cfg *domain.EmbeddingConfig) (lcemb.Embe
 		return buildJinaEmbedder(cfg)
 	case backendVoyageAI:
 		return buildVoyageAIEmbedder(cfg)
+	case backendBedrock:
+		return buildBedrockEmbedder(cfg)
 	default:
 		return buildOpenAICompatEmbedder(cfg)
 	}
@@ -173,6 +177,13 @@ func buildHuggingFaceEmbedder(cfg *domain.EmbeddingConfig) (lcemb.Embedder, erro
 		opts = append(opts, lchemb_hf.WithModel(cfg.Model))
 	}
 	return lchemb_hf.NewHuggingface(opts...)
+}
+
+func buildBedrockEmbedder(cfg *domain.EmbeddingConfig) (lcemb.Embedder, error) {
+	opts := []lchemb_bedrock.Option{
+		lchemb_bedrock.WithModel(cfg.Model),
+	}
+	return lchemb_bedrock.NewBedrock(opts...)
 }
 
 func buildJinaEmbedder(cfg *domain.EmbeddingConfig) (lcemb.Embedder, error) {

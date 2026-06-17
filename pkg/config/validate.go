@@ -113,6 +113,11 @@ var (
 			name: "ernie", yamlKey: "ernie_api_key", envVar: "ERNIE_API_KEY",
 			field: func(k *LLMKeys) *string { return &k.Ernie },
 		},
+		{
+			name: "bedrock", yamlKey: "bedrock_api_key", envVar: "BEDROCK_API_KEY",
+			doctorSpotCheck: false,
+			field: func(k *LLMKeys) *string { return &k.Bedrock },
+		},
 	}
 
 	cloudProviders   = buildCloudProviderMap(cloudProvidersList)

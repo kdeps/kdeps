@@ -45,6 +45,7 @@ var defaultRegistryBackends = []Backend{
 	&CloudflareBackend{},
 	&MaritacaBackend{},
 	&ErnieBackend{},
+	&BedrockBackend{},
 }
 
 // DefaultRegistryBackendNames returns registered backend names in registration order.

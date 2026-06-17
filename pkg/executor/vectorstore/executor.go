@@ -28,6 +28,7 @@ import (
 	"os"
 
 	lcemb "github.com/tmc/langchaingo/embeddings"
+	lchemb_bedrock "github.com/tmc/langchaingo/embeddings/bedrock"
 	lchemb_hf "github.com/tmc/langchaingo/embeddings/huggingface"
 	lchemb_jina "github.com/tmc/langchaingo/embeddings/jina"
 	lchemb_voyage "github.com/tmc/langchaingo/embeddings/voyageai"
@@ -155,13 +156,15 @@ func buildStore(
 	if cfg.Collection == "" {
 		return nil, errors.New("vectorstore: collection is required")
 	}
-	if cfg.EmbedModel == "" {
+	if cfg.EmbedModel == "" && cfg.Provider != "bedrock" {
 		return nil, errors.New("vectorstore: embedModel is required")
 	}
 
 	switch cfg.Provider {
 	case "azureaisearch":
 		return buildAzureAISearchStore(ctx, cfg)
+	case "bedrock":
+		return buildBedrockStore(ctx, cfg)
 	case "chroma":
 		return buildChromaStore(ctx, cfg)
 	case "pinecone":
@@ -179,6 +182,14 @@ func buildStore(
 	default:
 		return buildQdrantStore(ctx, cfg)
 	}
+}
+
+func buildBedrockStore(
+	ctx context.Context,
+	cfg *domain.VectorStoreConfig,
+) (lcvectorstores.VectorStore, error) {
+	// Bedrock KB handles embedding server-side — no local embedder needed.
+	return newBedrockStore(ctx, cfg)
 }
 
 func buildQdrantStore(
@@ -338,6 +349,10 @@ func buildEmbedder(ctx context.Context, cfg *domain.VectorStoreConfig) (lcemb.Em
 		return lchemb_voyage.NewVoyageAI(
 			lchemb_voyage.WithToken(os.Getenv("VOYAGEAI_API_KEY")),
 			lchemb_voyage.WithModel(cfg.EmbedModel),
+		)
+	case "bedrock":
+		return lchemb_bedrock.NewBedrock(
+			lchemb_bedrock.WithModel(cfg.EmbedModel),
 		)
 	default:
 		return buildOpenAICompatEmbedder(cfg)
