@@ -92,6 +92,23 @@ func TestGGUFRegistry_LocalOverride(t *testing.T) {
 	assert.Equal(t, "https://example.com/custom.gguf", url)
 }
 
+func TestGGUFCachedPath_Hit(t *testing.T) {
+	ReloadGGUFRegistry()
+	t.Cleanup(ReloadGGUFRegistry)
+	path, ok := GGUFCachedPath("qwen3.5-4b", "/tmp/models")
+	require.True(t, ok)
+	assert.True(t, filepath.IsAbs(path))
+	assert.Contains(t, path, ".gguf")
+}
+
+func TestGGUFCachedPath_Miss(t *testing.T) {
+	ReloadGGUFRegistry()
+	t.Cleanup(ReloadGGUFRegistry)
+	path, ok := GGUFCachedPath("does-not-exist-xyz", "/tmp/models")
+	assert.False(t, ok)
+	assert.Empty(t, path)
+}
+
 func TestGGUFRegistry_MergeOverridesEmbedded(t *testing.T) {
 	dir := t.TempDir()
 	homeOrig := os.Getenv("HOME")

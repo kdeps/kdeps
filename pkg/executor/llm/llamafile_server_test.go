@@ -96,6 +96,12 @@ func TestServerPortFile_RoundTrip(t *testing.T) {
 	assert.Equal(t, 0, readServerPortFile(path), "removed file returns 0")
 }
 
+func TestLocalServerURL(t *testing.T) {
+	t.Parallel()
+	assert.Equal(t, "http://127.0.0.1:8080", localServerURL(8080))
+	assert.Equal(t, "http://127.0.0.1:0", localServerURL(0))
+}
+
 func TestServerPortFile_InvalidContent(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "model.llamafile")

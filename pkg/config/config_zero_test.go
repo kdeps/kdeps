@@ -20,6 +20,89 @@ package config
 
 import "testing"
 
+func TestLLMKeys_IsZero(t *testing.T) {
+	t.Parallel()
+	var empty LLMKeys
+	if !empty.IsZero() {
+		t.Fatal("empty LLMKeys should be zero")
+	}
+	if (LLMKeys{Backend: "openai"}).IsZero() {
+		t.Fatal("LLMKeys with Backend set should not be zero")
+	}
+}
+
+func TestDefaults_IsZero(t *testing.T) {
+	t.Parallel()
+	var empty Defaults
+	if !empty.IsZero() {
+		t.Fatal("empty Defaults should be zero")
+	}
+	if (Defaults{Timezone: "UTC"}).IsZero() {
+		t.Fatal("Defaults with Timezone should not be zero")
+	}
+}
+
+func TestPythonDefaults_IsZero(t *testing.T) {
+	t.Parallel()
+	var empty PythonDefaults
+	if !empty.IsZero() {
+		t.Fatal("empty PythonDefaults should be zero")
+	}
+	if (PythonDefaults{Timeout: "30s"}).IsZero() {
+		t.Fatal("PythonDefaults with Timeout should not be zero")
+	}
+}
+
+func TestExecDefaults_IsZero(t *testing.T) {
+	t.Parallel()
+	var empty ExecDefaults
+	if !empty.IsZero() {
+		t.Fatal("empty ExecDefaults should be zero")
+	}
+	if (ExecDefaults{MaxOutputBytes: 1}).IsZero() {
+		t.Fatal("ExecDefaults with MaxOutputBytes should not be zero")
+	}
+}
+
+func TestSQLDefaults_IsZero(t *testing.T) {
+	t.Parallel()
+	var empty SQLDefaults
+	if !empty.IsZero() {
+		t.Fatal("empty SQLDefaults should be zero")
+	}
+	if (SQLDefaults{MaxRows: 100}).IsZero() {
+		t.Fatal("SQLDefaults with MaxRows should not be zero")
+	}
+}
+
+func TestOnErrorDefaults_IsZero(t *testing.T) {
+	t.Parallel()
+	var empty OnErrorDefaults
+	if !empty.IsZero() {
+		t.Fatal("empty OnErrorDefaults should be zero")
+	}
+	if (OnErrorDefaults{Action: "retry"}).IsZero() {
+		t.Fatal("OnErrorDefaults with Action should not be zero")
+	}
+}
+
+func TestConfig_IsEmptyAgentProfile_Nil(t *testing.T) {
+	t.Parallel()
+	var c *Config
+	if !c.IsEmptyAgentProfile() {
+		t.Fatal("nil Config should return true for IsEmptyAgentProfile")
+	}
+}
+
+func TestConfig_IsEmptyAgentProfile_NonEmpty(t *testing.T) {
+	t.Parallel()
+	c := &Config{}
+	c.LLM.Backend = "openai"
+	if c.IsEmptyAgentProfile() {
+		t.Fatal("Config with LLM.Backend set should not be empty agent profile")
+	}
+}
+
 func TestConfigZeroHelpers(t *testing.T) {
 	t.Parallel()
 
