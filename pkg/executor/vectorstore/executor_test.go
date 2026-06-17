@@ -18,7 +18,6 @@ import (
 	"context"
 	"net/http"
 	"net/http/httptest"
-	"os"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -176,9 +175,7 @@ func TestBuildEmbedder_VoyageAI_WithKey(t *testing.T) {
 }
 
 func TestBuildEmbedder_HuggingFace(t *testing.T) {
-	if os.Getenv("HF_TOKEN") == "" && os.Getenv("HUGGINGFACEHUB_API_TOKEN") == "" {
-		t.Skip("skipping: HF_TOKEN or HUGGINGFACEHUB_API_TOKEN not set")
-	}
+	t.Setenv("HF_TOKEN", "test-token")
 	cfg := &domain.VectorStoreConfig{
 		EmbedBackend: "huggingface",
 		EmbedModel:   "sentence-transformers/all-MiniLM-L6-v2",

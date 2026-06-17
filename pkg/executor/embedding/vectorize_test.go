@@ -91,6 +91,7 @@ func TestBuildEmbedder_LocalBackendUsesOllamaDefault(_ *testing.T) {
 }
 
 func TestBuildHuggingFaceEmbedder_ConstructsSuccessfully(t *testing.T) {
+	t.Setenv("HF_TOKEN", "test-token")
 	cfg := &domain.EmbeddingConfig{
 		Model:   "BAAI/bge-small-en-v1.5",
 		Backend: backendHuggingFace,
@@ -98,6 +99,18 @@ func TestBuildHuggingFaceEmbedder_ConstructsSuccessfully(t *testing.T) {
 	emb, err := buildHuggingFaceEmbedder(cfg)
 	require.NoError(t, err)
 	assert.NotNil(t, emb)
+}
+
+func TestBuildHuggingFaceEmbedder_FailsWithoutToken(t *testing.T) {
+	t.Setenv("HF_TOKEN", "")
+	t.Setenv("HUGGINGFACEHUB_API_TOKEN", "")
+	cfg := &domain.EmbeddingConfig{
+		Model:   "BAAI/bge-small-en-v1.5",
+		Backend: backendHuggingFace,
+	}
+	_, err := buildHuggingFaceEmbedder(cfg)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "huggingface")
 }
 
 func TestBuildJinaEmbedder_ConstructsSuccessfully(t *testing.T) {
@@ -127,6 +140,7 @@ func TestBuildVoyageAIEmbedder_ConstructsWithKey(t *testing.T) {
 }
 
 func TestBuildEmbedder_RoutesHuggingFace(t *testing.T) {
+	t.Setenv("HF_TOKEN", "test-token")
 	cfg := &domain.EmbeddingConfig{Model: "BAAI/bge-small-en-v1.5", Backend: backendHuggingFace}
 	emb, err := buildEmbedder(context.Background(), cfg)
 	require.NoError(t, err)

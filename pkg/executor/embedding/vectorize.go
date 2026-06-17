@@ -30,6 +30,7 @@ import (
 	lchemb_jina "github.com/tmc/langchaingo/embeddings/jina"
 	lchemb_voyage "github.com/tmc/langchaingo/embeddings/voyageai"
 	lcgoogleai "github.com/tmc/langchaingo/llms/googleai"
+	lchf "github.com/tmc/langchaingo/llms/huggingface"
 	lcopenai "github.com/tmc/langchaingo/llms/openai"
 
 	"github.com/kdeps/kdeps/v2/pkg/domain"
@@ -163,11 +164,14 @@ func buildHuggingFaceEmbedder(cfg *domain.EmbeddingConfig) (lcemb.Embedder, erro
 	if token == "" {
 		token = os.Getenv("HUGGINGFACEHUB_API_TOKEN")
 	}
-	opts := []lchemb_hf.Option{}
+	llmClient, err := lchf.New(lchf.WithToken(token))
+	if err != nil {
+		return nil, fmt.Errorf("embedding: build huggingface client: %w", err)
+	}
+	opts := []lchemb_hf.Option{lchemb_hf.WithClient(*llmClient)}
 	if cfg.Model != "" {
 		opts = append(opts, lchemb_hf.WithModel(cfg.Model))
 	}
-	_ = token // HuggingFace SDK reads HF_TOKEN from env automatically
 	return lchemb_hf.NewHuggingface(opts...)
 }
 
