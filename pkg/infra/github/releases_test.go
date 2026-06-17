@@ -21,9 +21,9 @@ package github_test
 import (
 	"context"
 	"errors"
-	"os"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"testing"
 	"time"
 
