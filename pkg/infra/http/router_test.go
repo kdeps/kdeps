@@ -171,3 +171,61 @@ func TestNewRouter(t *testing.T) {
 	router := httppkg.NewRouter()
 	assert.NotNil(t, router)
 }
+
+func TestRouter_VerbRegistration(t *testing.T) {
+	t.Parallel()
+	handler := func(w stdhttp.ResponseWriter, _ *stdhttp.Request) { w.WriteHeader(stdhttp.StatusOK) }
+	router := httppkg.NewRouter()
+	router.GET("/get", handler)
+	router.POST("/post", handler)
+	router.PUT("/put", handler)
+	router.DELETE("/delete", handler)
+	router.PATCH("/patch", handler)
+	router.OPTIONS("/options", handler)
+
+	for _, tc := range []struct{ method, path string }{
+		{"GET", "/get"}, {"POST", "/post"}, {"PUT", "/put"},
+		{"DELETE", "/delete"}, {"PATCH", "/patch"}, {"OPTIONS", "/options"},
+	} {
+		w := httptest.NewRecorder()
+		req := httptest.NewRequest(tc.method, tc.path, nil)
+		router.ServeHTTP(w, req)
+		assert.Equal(t, stdhttp.StatusOK, w.Code, "%s %s should return 200", tc.method, tc.path)
+	}
+}
+
+func TestRouter_Use_MiddlewareApplied(t *testing.T) {
+	t.Parallel()
+	var called bool
+	router := httppkg.NewRouter()
+	router.Use(func(next stdhttp.HandlerFunc) stdhttp.HandlerFunc {
+		return func(w stdhttp.ResponseWriter, r *stdhttp.Request) {
+			called = true
+			next(w, r)
+		}
+	})
+	router.GET("/hello", func(w stdhttp.ResponseWriter, _ *stdhttp.Request) {
+		w.WriteHeader(stdhttp.StatusOK)
+	})
+
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest(stdhttp.MethodGet, "/hello", nil)
+	router.ServeHTTP(w, req)
+	assert.True(t, called, "middleware should be called")
+	assert.Equal(t, stdhttp.StatusOK, w.Code)
+}
+
+func TestRouter_ApplyMiddleware_NoOp(t *testing.T) {
+	t.Parallel()
+	router := httppkg.NewRouter()
+	var called bool
+	h := func(w stdhttp.ResponseWriter, _ *stdhttp.Request) {
+		called = true
+		w.WriteHeader(stdhttp.StatusOK)
+	}
+	wrapped := router.ApplyMiddleware(h)
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest(stdhttp.MethodGet, "/", nil)
+	wrapped(w, req)
+	assert.True(t, called)
+}

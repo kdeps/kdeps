@@ -69,3 +69,55 @@ func TestInputValidator_ValidateType_URLMalformed(t *testing.T) {
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "invalid URL format")
 }
+
+func TestValidateIntegerType(t *testing.T) {
+	t.Parallel()
+	assert.NoError(t, validateIntegerType(42))
+	assert.NoError(t, validateIntegerType(int64(100)))
+	assert.Error(t, validateIntegerType(3.14))
+	assert.Error(t, validateIntegerType("10"))
+}
+
+func TestValidateNumberType(t *testing.T) {
+	t.Parallel()
+	assert.NoError(t, validateNumberType(3.14))
+	assert.NoError(t, validateNumberType(int(5)))
+	assert.Error(t, validateNumberType("not-a-number"))
+}
+
+func TestValidateEmailType(t *testing.T) {
+	t.Parallel()
+	assert.NoError(t, validateEmailType("user@example.com"))
+	assert.Error(t, validateEmailType("not-an-email"))
+	assert.Error(t, validateEmailType(123))
+}
+
+func TestValidateURLType(t *testing.T) {
+	t.Parallel()
+	assert.NoError(t, validateURLType("https://example.com"))
+	assert.Error(t, validateURLType("ftp://example.com"))
+	assert.Error(t, validateURLType("not-a-url"))
+	assert.Error(t, validateURLType(42))
+}
+
+func TestValidateUUIDType(t *testing.T) {
+	t.Parallel()
+	assert.NoError(t, validateUUIDType("550e8400-e29b-41d4-a716-446655440000"))
+	assert.Error(t, validateUUIDType("not-a-uuid"))
+	assert.Error(t, validateUUIDType(true))
+}
+
+func TestValidateDateType(t *testing.T) {
+	t.Parallel()
+	assert.NoError(t, validateDateType("2026-06-17"))
+	assert.NoError(t, validateDateType("2026-06-17T12:00:00Z"))
+	assert.Error(t, validateDateType("not-a-date"))
+	assert.Error(t, validateDateType(12345))
+}
+
+func TestRequireGoType(t *testing.T) {
+	t.Parallel()
+	strValidator := requireGoType[string]("string")
+	assert.NoError(t, strValidator("hello"))
+	assert.Error(t, strValidator(42))
+}

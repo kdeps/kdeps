@@ -62,6 +62,73 @@ func TestTavilyBaseURLDefault(t *testing.T) {
 	}
 }
 
+func TestEnvOrDefault_Missing(t *testing.T) {
+	t.Setenv("KDEPS_TEST_KEY_XYZ", "")
+	assert.Equal(t, "fallback", envOrDefault("KDEPS_TEST_KEY_XYZ", "fallback"))
+}
+
+func TestEnvOrDefault_Set(t *testing.T) {
+	t.Setenv("KDEPS_TEST_KEY_XYZ", "override")
+	assert.Equal(t, "override", envOrDefault("KDEPS_TEST_KEY_XYZ", "fallback"))
+}
+
+func TestSearchResultItem(t *testing.T) {
+	t.Parallel()
+	item := searchResultItem("My Title", "https://example.com", "Some snippet")
+	assert.Equal(t, "My Title", item["title"])
+	assert.Equal(t, "https://example.com", item["url"])
+	assert.Equal(t, "Some snippet", item["snippet"])
+}
+
+func TestProviderRequiresAPIKey(t *testing.T) {
+	t.Parallel()
+	err := providerRequiresAPIKey("brave")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "brave")
+}
+
+func TestBuildSearchResult_Success(t *testing.T) {
+	t.Parallel()
+	items := []map[string]interface{}{
+		{"title": "A", "url": "http://a.com", "snippet": "snip"},
+	}
+	result, err := buildSearchResult(items, "golang", "ddg")
+	require.NoError(t, err)
+	assert.Equal(t, 1, result["count"])
+	assert.Equal(t, "golang", result["query"])
+	assert.Equal(t, "ddg", result["provider"])
+	assert.NotEmpty(t, result["json"])
+}
+
+func TestBuildSearchResult_MarshalError(t *testing.T) {
+	t.Parallel()
+	orig := jsonMarshal
+	t.Cleanup(func() { jsonMarshal = orig })
+	jsonMarshal = func(_ any) ([]byte, error) { return nil, errors.New("marshal fail") }
+
+	_, err := buildSearchResult(nil, "q", "ddg")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "marshal")
+}
+
+func TestSearchByProvider_UnknownProvider(t *testing.T) {
+	t.Parallel()
+	e := NewExecutor()
+	_, err := e.searchByProvider(&executeParams{provider: "unknown"}, "test")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "unknown provider")
+}
+
+func TestSearchByProvider_MissingAPIKey(t *testing.T) {
+	t.Parallel()
+	e := NewExecutor()
+	for _, provider := range []string{"brave", "bing", "tavily"} {
+		_, err := e.searchByProvider(&executeParams{provider: provider, apiKey: ""}, "q")
+		require.Error(t, err, "provider=%s", provider)
+		assert.Contains(t, err.Error(), provider, "provider=%s", provider)
+	}
+}
+
 func TestExecute_MarshalError(t *testing.T) {
 	origClient := httpClientFactory
 	t.Cleanup(func() { httpClientFactory = origClient })
