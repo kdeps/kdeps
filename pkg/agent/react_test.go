@@ -17,8 +17,13 @@ package agent
 import (
 	"bytes"
 	"context"
+	"fmt"
 	"strings"
 	"testing"
+
+	"github.com/kdeps/kdeps/v2/pkg/domain"
+	"github.com/kdeps/kdeps/v2/pkg/executor"
+	"github.com/kdeps/kdeps/v2/pkg/tools"
 )
 
 func TestExtractFinalAnswer(t *testing.T) {
@@ -189,4 +194,132 @@ func clampMax(a, b int) int {
 		return a
 	}
 	return b
+}
+
+func TestRunReact_StreamerError(t *testing.T) {
+	// Covers lines 80-82: streamer error path.
+	loop := newStreamingLoop(&errStreamer{err: fmt.Errorf("react stream error")}, 5)
+	var buf bytes.Buffer
+	_, err := loop.RunReact(context.Background(), "q?", &buf)
+	if err == nil {
+		t.Fatal("expected error from errStreamer")
+	}
+}
+
+func TestBuildReactSystemPreamble_WithSystemPrompt(t *testing.T) {
+	// Covers lines 131-133: extra != "" branch when SystemPrompt is set.
+	eng := executor.NewEngine(nil)
+	reg := tools.NewRegistry()
+	loop := New(eng, newTestWorkflowForSession(), reg, Config{
+		Model:        "test",
+		Streamer:     &mockStreamer{responses: []mockStreamResponse{{content: "Final Answer: ok"}}},
+		MaxToolRounds: 5,
+		SystemPrompt: "You are a helpful assistant",
+	})
+	preamble := loop.buildReactSystemPreamble()
+	if !strings.Contains(preamble, "You are a helpful assistant") {
+		t.Errorf("expected system prompt in preamble, got: %q", preamble[:clampMax(100, len(preamble))])
+	}
+}
+
+func TestBuildReactChatConfig_WithSteps(t *testing.T) {
+	// Covers lines 155-164: steps non-nil in buildReactChatConfig.
+	loop := newStreamingLoop(&mockStreamer{}, 5)
+	steps := []reactStep{
+		{thought: "thought1", action: "act1", actionInput: "in1", observation: "obs1"},
+		{thought: "thought2", action: "act2", actionInput: "in2", observation: "obs2"},
+	}
+	cfg := loop.buildReactChatConfig("question", "system preamble", steps)
+	if cfg == nil {
+		t.Fatal("expected non-nil config")
+	}
+	if len(cfg.Scenario) < 5 { // system + 2*(assistant+system)
+		t.Errorf("expected at least 5 scenario items, got %d", len(cfg.Scenario))
+	}
+}
+
+func TestBuildReactChatConfig_WithHistory(t *testing.T) {
+	// Covers lines 168-170: history branch when session has turns.
+	existing := NewSession(0)
+	existing.Append("prior question", "prior answer")
+	eng := executor.NewEngine(nil)
+	reg := tools.NewRegistry()
+	loop := New(eng, newTestWorkflowForSession(), reg, Config{
+		Model:         "test",
+		Streamer:      &mockStreamer{},
+		ResumeSession: existing,
+	})
+	cfg := loop.buildReactChatConfig("new question", "preamble", nil)
+	if cfg.Messages == "" {
+		t.Error("expected non-empty messages from existing session history")
+	}
+}
+
+func TestDispatchReactTool_NonJSONInput(t *testing.T) {
+	// Covers lines 218-222: non-JSON input treated as {input: toolInput}.
+	eng := executor.NewEngine(nil)
+	reg := tools.NewRegistry()
+	reg.Register(&tools.Tool{
+		Name:        "test_tool",
+		Description: "test",
+		Parameters:  map[string]domain.ToolParam{},
+		Execute:     func(args map[string]interface{}) (string, error) { return "got it", nil },
+	})
+	loop := New(eng, newTestWorkflowForSession(), reg, Config{
+		Model:   "test",
+		Streamer: &mockStreamer{},
+	})
+	result := loop.dispatchReactTool("test_tool", "not json input")
+	if result != "got it" {
+		t.Errorf("expected 'got it', got %q", result)
+	}
+}
+
+func TestDispatchReactTool_ToolError(t *testing.T) {
+	// Covers lines 223-227: tool returns error.
+	eng := executor.NewEngine(nil)
+	reg := tools.NewRegistry()
+	reg.Register(&tools.Tool{
+		Name:        "fail_tool",
+		Description: "test",
+		Parameters:  map[string]domain.ToolParam{},
+		Execute: func(_ map[string]interface{}) (string, error) {
+			return "", fmt.Errorf("tool exploded")
+		},
+	})
+	loop := New(eng, newTestWorkflowForSession(), reg, Config{
+		Model:   "test",
+		Streamer: &mockStreamer{},
+	})
+	result := loop.dispatchReactTool("fail_tool", `{"input":"x"}`)
+	if !strings.Contains(result, "error") {
+		t.Errorf("expected error in result, got %q", result)
+	}
+}
+
+func TestRunReact_WithHistory(t *testing.T) {
+	// Covers lines 168-170 via RunReact with existing session turns.
+	existing := NewSession(0)
+	existing.Append("previous q", "previous a")
+	ms := &mockStreamer{
+		responses: []mockStreamResponse{
+			{content: "Final Answer: history tested", toolCalls: nil},
+		},
+	}
+	eng := executor.NewEngine(nil)
+	reg := tools.NewRegistry()
+	loop := New(eng, newTestWorkflowForSession(), reg, Config{
+		Model:         "test",
+		Streamer:      ms,
+		MaxToolRounds: 3,
+		ResumeSession: existing,
+	})
+	var buf bytes.Buffer
+	result, err := loop.RunReact(context.Background(), "new q?", &buf)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if result != "history tested" {
+		t.Errorf("expected 'history tested', got %q", result)
+	}
 }

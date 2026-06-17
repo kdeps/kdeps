@@ -668,11 +668,388 @@ func TestDefaultRunner_Run(t *testing.T) {
 	_ = stderr
 }
 
+func TestDefaultRunner_Run_ExitCode(t *testing.T) {
+	r := &DefaultCommandRunner{}
+	_, _, exitCode, err := r.Run(exec.Command("sh", "-c", "exit 2"))
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if exitCode != 2 {
+		t.Fatalf("expected exitCode 2, got %d", exitCode)
+	}
+}
+
+func TestDefaultRunner_Run_BadBinary(t *testing.T) {
+	r := &DefaultCommandRunner{}
+	_, _, exitCode, err := r.Run(exec.Command("/nonexistent_kdeps_binary_xyz"))
+	if err == nil {
+		t.Fatal("expected error for nonexistent binary")
+	}
+	if exitCode != -1 {
+		t.Fatalf("expected exitCode -1, got %d", exitCode)
+	}
+}
+
 func TestRemoteOrDefault(t *testing.T) {
 	if remoteOrDefault("") != defaultRemote {
 		t.Fatalf("expected default remote 'origin', got %q", remoteOrDefault(""))
 	}
 	if remoteOrDefault("upstream") != "upstream" {
 		t.Fatalf("expected 'upstream', got %q", remoteOrDefault("upstream"))
+	}
+}
+
+// --- Error branch tests using empty mockRunner ---
+
+func TestStatus_Error(t *testing.T) {
+	e := newTestExecutor(&mockRunner{})
+	_, err := e.Execute(nil, &domain.GitResourceConfig{Operation: domain.GitOpStatus})
+	if err == nil {
+		t.Fatal("expected error")
+	}
+}
+
+func TestDiff_Error(t *testing.T) {
+	e := newTestExecutor(&mockRunner{})
+	_, err := e.Execute(nil, &domain.GitResourceConfig{Operation: domain.GitOpDiff})
+	if err == nil {
+		t.Fatal("expected error")
+	}
+}
+
+func TestLog_Error(t *testing.T) {
+	e := newTestExecutor(&mockRunner{})
+	_, err := e.Execute(nil, &domain.GitResourceConfig{Operation: domain.GitOpLog})
+	if err == nil {
+		t.Fatal("expected error")
+	}
+}
+
+func TestShow_Error(t *testing.T) {
+	e := newTestExecutor(&mockRunner{})
+	_, err := e.Execute(nil, &domain.GitResourceConfig{Operation: domain.GitOpShow})
+	if err == nil {
+		t.Fatal("expected error")
+	}
+}
+
+func TestBranch_Error(t *testing.T) {
+	e := newTestExecutor(&mockRunner{})
+	_, err := e.Execute(nil, &domain.GitResourceConfig{Operation: domain.GitOpBranch})
+	if err == nil {
+		t.Fatal("expected error")
+	}
+}
+
+func TestRemote_Error(t *testing.T) {
+	e := newTestExecutor(&mockRunner{})
+	_, err := e.Execute(nil, &domain.GitResourceConfig{Operation: domain.GitOpRemote})
+	if err == nil {
+		t.Fatal("expected error")
+	}
+}
+
+func TestClone_ExecutionError(t *testing.T) {
+	e := newTestExecutor(&mockRunner{})
+	_, err := e.Execute(nil, &domain.GitResourceConfig{
+		Operation: domain.GitOpClone,
+		URL:       "https://example.com/repo.git",
+	})
+	if err == nil {
+		t.Fatal("expected error")
+	}
+}
+
+func TestClone_Success(t *testing.T) {
+	runner := &mockRunner{
+		entries: map[string]mockEntry{
+			"clone https://example.com/repo.git": {stdout: ""},
+		},
+	}
+	e := newTestExecutor(runner)
+	res, err := e.Execute(nil, &domain.GitResourceConfig{
+		Operation: domain.GitOpClone,
+		URL:       "https://example.com/repo.git",
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if res.(map[string]interface{})["cloned"] != true {
+		t.Fatal("expected cloned true")
+	}
+}
+
+func TestClone_WithWorkingDir(t *testing.T) {
+	runner := &mockRunner{
+		entries: map[string]mockEntry{
+			"clone https://example.com/repo.git /tmp/dest": {stdout: ""},
+		},
+	}
+	e := newTestExecutor(runner)
+	res, err := e.Execute(nil, &domain.GitResourceConfig{
+		Operation:  domain.GitOpClone,
+		URL:        "https://example.com/repo.git",
+		WorkingDir: "/tmp/dest",
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if res.(map[string]interface{})["cloned"] != true {
+		t.Fatal("expected cloned true")
+	}
+}
+
+func TestPull_ExecutionError(t *testing.T) {
+	e := newTestExecutor(&mockRunner{})
+	_, err := e.Execute(nil, &domain.GitResourceConfig{Operation: domain.GitOpPull})
+	if err == nil {
+		t.Fatal("expected error")
+	}
+}
+
+func TestPull_Success(t *testing.T) {
+	runner := &mockRunner{
+		entries: map[string]mockEntry{
+			"pull origin": {stdout: "Already up to date."},
+		},
+	}
+	e := newTestExecutor(runner)
+	res, err := e.Execute(nil, &domain.GitResourceConfig{Operation: domain.GitOpPull})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if res.(map[string]interface{})["pulled"] != true {
+		t.Fatal("expected pulled true")
+	}
+}
+
+func TestPull_WithBranch(t *testing.T) {
+	runner := &mockRunner{
+		entries: map[string]mockEntry{
+			"pull origin main": {stdout: ""},
+		},
+	}
+	e := newTestExecutor(runner)
+	res, err := e.Execute(nil, &domain.GitResourceConfig{
+		Operation: domain.GitOpPull,
+		Branch:    "main",
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if res.(map[string]interface{})["pulled"] != true {
+		t.Fatal("expected pulled true")
+	}
+}
+
+func TestPush_ExecutionError(t *testing.T) {
+	e := newTestExecutor(&mockRunner{})
+	_, err := e.Execute(nil, &domain.GitResourceConfig{Operation: domain.GitOpPush})
+	if err == nil {
+		t.Fatal("expected error")
+	}
+}
+
+func TestPush_Success(t *testing.T) {
+	runner := &mockRunner{
+		entries: map[string]mockEntry{
+			"push origin": {stdout: ""},
+		},
+	}
+	e := newTestExecutor(runner)
+	res, err := e.Execute(nil, &domain.GitResourceConfig{Operation: domain.GitOpPush})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if res.(map[string]interface{})["pushed"] != true {
+		t.Fatal("expected pushed true")
+	}
+}
+
+func TestResult_NilData(t *testing.T) {
+	m := result(false, nil)
+	if m["success"] != false {
+		t.Fatal("expected success false")
+	}
+}
+
+func TestStatus_ConflictsAndStaged(t *testing.T) {
+	runner := &mockRunner{
+		entries: map[string]mockEntry{
+			"status --porcelain -b": {
+				stdout: "## main\nUU conflict.txt\nM  staged.txt\n   \n",
+			},
+		},
+	}
+	e := newTestExecutor(runner)
+	res, err := e.Execute(nil, &domain.GitResourceConfig{Operation: domain.GitOpStatus})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	m := res.(map[string]interface{})
+	if m["success"] != true {
+		t.Fatal("expected success true")
+	}
+	conflicts := m["conflicts"].([]string)
+	if len(conflicts) != 1 || conflicts[0] != "conflict.txt" {
+		t.Fatalf("expected 1 conflict, got %v", conflicts)
+	}
+	staged := m["staged"].([]string)
+	if len(staged) != 1 || staged[0] != "staged.txt" {
+		t.Fatalf("expected 1 staged, got %v", staged)
+	}
+}
+
+func TestStatus_ShortLine(t *testing.T) {
+	runner := &mockRunner{
+		entries: map[string]mockEntry{
+			"status --porcelain -b": {
+				stdout: "## main\n   \n",
+			},
+		},
+	}
+	e := newTestExecutor(runner)
+	res, err := e.Execute(nil, &domain.GitResourceConfig{Operation: domain.GitOpStatus})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if res.(map[string]interface{})["success"] != true {
+		t.Fatal("expected success true")
+	}
+}
+
+func TestDiff_WithPaths(t *testing.T) {
+	runner := &mockRunner{
+		entries: map[string]mockEntry{
+			"diff --no-color -- file.txt": {stdout: "diff --git a/file.txt b/file.txt\n+new line\n"},
+		},
+	}
+	e := newTestExecutor(runner)
+	res, err := e.Execute(nil, &domain.GitResourceConfig{
+		Operation: domain.GitOpDiff,
+		Paths:     []string{"file.txt"},
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if res.(map[string]interface{})["success"] != true {
+		t.Fatal("expected success true")
+	}
+}
+
+func TestLog_WithPaths(t *testing.T) {
+	runner := &mockRunner{
+		entries: map[string]mockEntry{
+			"log --oneline --max-count=10 --format=%H|%an|%ae|%ai|%s -- main.go": {
+				stdout: "abc123|Author|a@b.com|2025-01-01|fix bug\n",
+			},
+		},
+	}
+	e := newTestExecutor(runner)
+	res, err := e.Execute(nil, &domain.GitResourceConfig{
+		Operation: domain.GitOpLog,
+		Paths:     []string{"main.go"},
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if res.(map[string]interface{})["success"] != true {
+		t.Fatal("expected success true")
+	}
+}
+
+func TestBranch_ShortLine(t *testing.T) {
+	runner := &mockRunner{
+		entries: map[string]mockEntry{
+			"branch -a": {stdout: "* main\n \n"},
+		},
+	}
+	e := newTestExecutor(runner)
+	res, err := e.Execute(nil, &domain.GitResourceConfig{Operation: domain.GitOpBranch})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if res.(map[string]interface{})["success"] != true {
+		t.Fatal("expected success true")
+	}
+}
+
+func TestAdd_ExecutionError(t *testing.T) {
+	e := newTestExecutor(&mockRunner{})
+	_, err := e.Execute(nil, &domain.GitResourceConfig{
+		Operation: domain.GitOpAdd,
+		Paths:     []string{"file.txt"},
+	})
+	if err == nil {
+		t.Fatal("expected error for add failure")
+	}
+}
+
+func TestCommit_ExecutionError(t *testing.T) {
+	e := newTestExecutor(&mockRunner{})
+	_, err := e.Execute(nil, &domain.GitResourceConfig{
+		Operation: domain.GitOpCommit,
+		Message:   "test",
+	})
+	if err == nil {
+		t.Fatal("expected error for commit failure")
+	}
+}
+
+func TestCheckout_WithPaths(t *testing.T) {
+	runner := &mockRunner{
+		entries: map[string]mockEntry{
+			"checkout -- file.txt": {stdout: ""},
+		},
+	}
+	e := newTestExecutor(runner)
+	res, err := e.Execute(nil, &domain.GitResourceConfig{
+		Operation: domain.GitOpCheckout,
+		Paths:     []string{"file.txt"},
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if res.(map[string]interface{})["switched"] != true {
+		t.Fatal("expected switched true")
+	}
+}
+
+func TestCheckout_ExecutionError(t *testing.T) {
+	e := newTestExecutor(&mockRunner{})
+	_, err := e.Execute(nil, &domain.GitResourceConfig{
+		Operation: domain.GitOpCheckout,
+		Branch:    "nonexistent",
+	})
+	if err == nil {
+		t.Fatal("expected error for checkout failure")
+	}
+}
+
+func TestInit_ExecutionError(t *testing.T) {
+	e := newTestExecutor(&mockRunner{})
+	_, err := e.Execute(nil, &domain.GitResourceConfig{
+		Operation: domain.GitOpInit,
+	})
+	if err == nil {
+		t.Fatal("expected error for init failure")
+	}
+}
+
+func TestInit_UsesCwd(t *testing.T) {
+	runner := &mockRunner{
+		entries: map[string]mockEntry{
+			"init": {stdout: ""},
+		},
+	}
+	e := newTestExecutor(runner)
+	res, err := e.Execute(nil, &domain.GitResourceConfig{
+		Operation: domain.GitOpInit,
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if res.(map[string]interface{})["initialized"] != true {
+		t.Fatal("expected initialized true")
 	}
 }

@@ -10,13 +10,13 @@ import (
 func TestWithDebugMode(t *testing.T) {
 	t.Parallel()
 	ctx := withDebugMode(context.Background(), true)
-	assert.True(t, contextBoolValue(ctx, DebugModeKey))
+	assert.True(t, contextBoolValue(ctx))
 }
 
 func TestWithDebugMode_False(t *testing.T) {
 	t.Parallel()
 	ctx := withDebugMode(context.Background(), false)
-	assert.False(t, contextBoolValue(ctx, DebugModeKey))
+	assert.False(t, contextBoolValue(ctx))
 }
 
 func TestWithTrustedProxies(t *testing.T) {
@@ -46,7 +46,7 @@ func TestContextStringValue_Missing(t *testing.T) {
 
 func TestContextBoolValue_Missing(t *testing.T) {
 	t.Parallel()
-	assert.False(t, contextBoolValue(context.Background(), DebugModeKey))
+	assert.False(t, contextBoolValue(context.Background()))
 }
 
 func TestNewRequestID(t *testing.T) {

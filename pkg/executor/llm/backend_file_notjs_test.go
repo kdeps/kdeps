@@ -24,6 +24,7 @@ import (
 	"errors"
 	"testing"
 
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
@@ -43,4 +44,48 @@ func TestDefaultModelsDir_Error(t *testing.T) {
 	t.Setenv("KDEPS_MODELS_DIR", "/dev/null/models-test")
 	_, err := DefaultModelsDir()
 	require.Error(t, err)
+}
+
+func TestModelsDir_EnvSet(t *testing.T) {
+	tmp := t.TempDir()
+	t.Setenv("KDEPS_MODELS_DIR", tmp)
+	got, err := modelsDir()
+	require.NoError(t, err)
+	assert.Equal(t, tmp, got)
+}
+
+func TestModelsDir_FallbackHome(t *testing.T) {
+	t.Setenv("KDEPS_MODELS_DIR", "")
+	orig := userHomeDirFunc
+	t.Cleanup(func() { userHomeDirFunc = orig })
+	userHomeDirFunc = func() (string, error) { return "/fake/home", nil }
+	got, err := modelsDir()
+	require.NoError(t, err)
+	assert.Equal(t, "/fake/home/.kdeps/models", got)
+}
+
+func TestModelsDir_HomeError(t *testing.T) {
+	t.Setenv("KDEPS_MODELS_DIR", "")
+	orig := userHomeDirFunc
+	t.Cleanup(func() { userHomeDirFunc = orig })
+	userHomeDirFunc = func() (string, error) { return "", errors.New("no home") }
+	_, err := modelsDir()
+	require.Error(t, err)
+}
+
+func TestDownloadedModelAliases_EnvDir(t *testing.T) {
+	tmp := t.TempDir()
+	t.Setenv("KDEPS_MODELS_DIR", tmp)
+	result := DownloadedModelAliases()
+	assert.NotNil(t, result)
+	assert.Empty(t, result)
+}
+
+func TestDownloadedModelAliases_HomeError(t *testing.T) {
+	t.Setenv("KDEPS_MODELS_DIR", "")
+	orig := userHomeDirFunc
+	t.Cleanup(func() { userHomeDirFunc = orig })
+	userHomeDirFunc = func() (string, error) { return "", errors.New("no home") }
+	result := DownloadedModelAliases()
+	assert.Nil(t, result)
 }

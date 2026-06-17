@@ -52,14 +52,18 @@ const (
 	builtinDDGMaxResults = 5
 	builtinUserAgent     = "kdeps/agent"
 	builtinBashTimeout   = 30 * time.Second
-	wolframAlphaBaseURL  = "https://api.wolframalpha.com/v1/result"
-	cohereRerankURL      = "https://api.cohere.com/v2/rerank"
-	voyageRerankURL      = "https://api.voyageai.com/v1/rerank"
-	jinaRerankURL        = "https://api.jina.ai/v1/rerank"
 	defaultCohereRerank  = "rerank-v3.5"
 	defaultVoyageRerank  = "rerank-2"
 	defaultJinaRerank    = "jina-reranker-v2-base-multilingual"
 	defaultRerankTopN    = 5
+)
+
+// URL variables (not consts) so tests can override them with httptest servers.
+var (
+	wolframAlphaBaseURL = "https://api.wolframalpha.com/v1/result"
+	cohereRerankURL     = "https://api.cohere.com/v2/rerank"
+	voyageRerankURL     = "https://api.voyageai.com/v1/rerank"
+	jinaRerankURL       = "https://api.jina.ai/v1/rerank"
 )
 
 // RegisterBuiltinTools adds built-in tools (web_search, wikipedia, web_scraper, sql_*, bash_exec,
@@ -447,11 +451,11 @@ func registerSerpAPI(ctx context.Context, reg *kdepstools.Registry) {
 }
 
 const (
-	exaSearchURL         = "https://api.exa.ai/search"
 	exaDefaultNumResults = 5
 )
 
-const (
+var (
+	exaSearchURL     = "https://api.exa.ai/search"
 	zapierNLABaseURL = "https://nla.zapier.com/api/v1/dynamic/exposed"
 )
 

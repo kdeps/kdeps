@@ -215,3 +215,17 @@ func (m *MockHTTPClient) Do(_ *stdhttp.Request) (*stdhttp.Response, error) {
 		Body:       io.NopCloser(bytes.NewBufferString(responseBody)),
 	}, nil
 }
+
+func TestAdapter_StreamChat_ReturnsError(t *testing.T) {
+	// StreamChat with a local backend that has no server returns an error.
+	// This covers the Adapter.StreamChat delegation path.
+	adapter := llm.NewAdapter("http://127.0.0.1:19992")
+	cfg := &domain.ChatConfig{
+		Model:   "test-model",
+		Backend: "file",
+		BaseURL: "http://127.0.0.1:19992",
+	}
+	var buf bytes.Buffer
+	_, _, err := adapter.StreamChat(t.Context(), cfg, &buf)
+	assert.Error(t, err)
+}

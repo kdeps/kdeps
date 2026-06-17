@@ -1506,3 +1506,40 @@ func TestShouldTerminate_EmptyCalls(t *testing.T) {
 	assert.False(t, shouldTerminate(nil))
 	assert.False(t, shouldTerminate([]finalizedToolCall{}))
 }
+
+func TestEmitToolStart_DebugLogging(t *testing.T) {
+	// Covers emitToolStart debug branch (751-753) and emitToolEnd debug branch (760-766)
+	t.Setenv("KDEPS_DEBUG", "true")
+	defer t.Setenv("KDEPS_DEBUG", "")
+
+	ctx := context.Background()
+	tool := simpleTool("t", "debug-result")
+	agentCtx := AgentContext{Tools: []AgentTool{tool}}
+	cfg := AgentLoopConfig{
+		ChatFn:        toolCallChat([]ToolCall{{ID: "t1", Name: "t"}}, "done"),
+		ToolExecution: ToolExecutionSequential,
+	}
+	_, err := AgentLoop(ctx, []AgentMessage{{Role: RoleUser, Content: "hi"}}, agentCtx, cfg, noopSink)
+	assert.NoError(t, err)
+}
+
+func TestEmitToolEnd_DebugLogging_WithError(t *testing.T) {
+	// Covers emitToolEnd debug branch with non-empty result content
+	t.Setenv("KDEPS_DEBUG", "true")
+	defer t.Setenv("KDEPS_DEBUG", "")
+
+	ctx := context.Background()
+	errTool := AgentTool{
+		Name: "errtool",
+		Execute: func(_ context.Context, _ string, _ map[string]any, _ AgentToolUpdateFunc) (AgentToolResult, error) {
+			return AgentToolResult{Content: "error output"}, errors.New("tool error")
+		},
+	}
+	agentCtx := AgentContext{Tools: []AgentTool{errTool}}
+	cfg := AgentLoopConfig{
+		ChatFn:        toolCallChat([]ToolCall{{ID: "e1", Name: "errtool"}}, "done"),
+		ToolExecution: ToolExecutionSequential,
+	}
+	_, err := AgentLoop(ctx, []AgentMessage{{Role: RoleUser, Content: "hi"}}, agentCtx, cfg, noopSink)
+	assert.NoError(t, err)
+}
