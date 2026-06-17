@@ -81,7 +81,7 @@ func resolveEmbeddingConfig(config *domain.EmbeddingConfig) resolvedEmbeddingCon
 }
 
 func buildEmbeddingResult(fields map[string]interface{}) map[string]interface{} {
-	result := make(map[string]interface{}, len(fields)+1)
+	result := make(map[string]interface{}, len(fields))
 	for k, v := range fields {
 		result[k] = v
 	}

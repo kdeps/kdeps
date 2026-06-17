@@ -45,7 +45,7 @@ func buildItemAccessorEnv(ctx *ExecutionContext, copyItem bool) map[string]inter
 		}
 	}
 	if copyItem {
-		itemCopy := make(map[string]interface{}, len(itemValue)+1)
+		itemCopy := make(map[string]interface{}, len(itemValue))
 		for k, v := range itemValue {
 			itemCopy[k] = v
 		}
