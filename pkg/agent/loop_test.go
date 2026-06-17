@@ -519,3 +519,52 @@ func TestLoop_Run_AutoCompact_Disabled(t *testing.T) {
 		t.Fatal("expected auto-compact callback NOT to fire when disabled")
 	}
 }
+
+func TestParseToolArguments_Map(t *testing.T) {
+	t.Parallel()
+	m, err := agent.ParseToolArguments(map[string]any{"key": "val"})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if m["key"] != "val" {
+		t.Fatalf("expected key=val, got %v", m)
+	}
+}
+
+func TestParseToolArguments_JSONString(t *testing.T) {
+	t.Parallel()
+	m, err := agent.ParseToolArguments(`{"x":42}`)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if int(m["x"].(float64)) != 42 {
+		t.Fatalf("expected x=42, got %v", m["x"])
+	}
+}
+
+func TestParseToolArguments_Nil(t *testing.T) {
+	t.Parallel()
+	m, err := agent.ParseToolArguments(nil)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(m) != 0 {
+		t.Fatalf("expected empty map, got %v", m)
+	}
+}
+
+func TestParseToolArguments_InvalidJSON(t *testing.T) {
+	t.Parallel()
+	_, err := agent.ParseToolArguments("not json")
+	if err == nil {
+		t.Fatal("expected error for invalid JSON")
+	}
+}
+
+func TestParseToolArguments_UnsupportedType(t *testing.T) {
+	t.Parallel()
+	_, err := agent.ParseToolArguments(123)
+	if err == nil {
+		t.Fatal("expected error for unsupported type")
+	}
+}

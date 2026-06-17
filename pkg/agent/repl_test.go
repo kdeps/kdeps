@@ -7,6 +7,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -1198,4 +1199,32 @@ func TestFilePathCompletions_Cap(t *testing.T) {
 
 	results := filePathCompletions(dir + "/")
 	assert.Len(t, results, replFileCompletionMax)
+}
+
+func TestFirstLine_Short(t *testing.T) {
+	t.Parallel()
+	assert.Equal(t, "hello", firstLine("hello"))
+}
+
+func TestFirstLine_MultiLine(t *testing.T) {
+	t.Parallel()
+	assert.Equal(t, "first", firstLine("first\nsecond\nthird"))
+}
+
+func TestFirstLine_SkipsBlankLines(t *testing.T) {
+	t.Parallel()
+	assert.Equal(t, "real", firstLine("\n\nreal\n"))
+}
+
+func TestFirstLine_TruncatesLong(t *testing.T) {
+	t.Parallel()
+	long := strings.Repeat("x", firstLineMax+10)
+	result := firstLine(long)
+	assert.True(t, strings.HasSuffix(result, "..."))
+	assert.Equal(t, firstLineMax+3, len(result))
+}
+
+func TestFirstLine_Empty(t *testing.T) {
+	t.Parallel()
+	assert.Equal(t, "", firstLine(""))
 }
