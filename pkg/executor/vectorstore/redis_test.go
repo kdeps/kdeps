@@ -30,8 +30,8 @@ import (
 
 func TestBuildRedisStore_NoCollection(t *testing.T) {
 	cfg := &domain.VectorStoreConfig{
-		Provider:    "redis",
-		EmbedModel:  "text-embedding-3-small",
+		Provider:     "redis",
+		EmbedModel:   "text-embedding-3-small",
 		EmbedBackend: "openai",
 	}
 	_, err := buildRedisStore(context.Background(), cfg)

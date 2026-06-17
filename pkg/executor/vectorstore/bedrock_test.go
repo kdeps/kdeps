@@ -74,8 +74,8 @@ func TestBuildEmbedder_Bedrock_WithModel(t *testing.T) {
 	t.Setenv("AWS_SECRET_ACCESS_KEY", "test-secret")
 	t.Setenv("AWS_REGION", "us-east-1")
 	cfg := &domain.VectorStoreConfig{
-		Provider:    "bedrock",
-		EmbedModel:  "amazon.titan-embed-text-v2:0",
+		Provider:     "bedrock",
+		EmbedModel:   "amazon.titan-embed-text-v2:0",
 		EmbedBackend: "bedrock",
 	}
 	emb, err := buildEmbedder(context.Background(), cfg)

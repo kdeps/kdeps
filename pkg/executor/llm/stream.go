@@ -33,6 +33,7 @@ import (
 	"strings"
 	"text/template"
 
+	wx "github.com/IBM/watsonx-go/pkg/models"
 	"github.com/tmc/langchaingo/llms"
 	lcanthropic "github.com/tmc/langchaingo/llms/anthropic"
 	lcbedrock "github.com/tmc/langchaingo/llms/bedrock"
@@ -43,7 +44,6 @@ import (
 	lcmaritaca "github.com/tmc/langchaingo/llms/maritaca"
 	lcopenai "github.com/tmc/langchaingo/llms/openai"
 	lcwatsonx "github.com/tmc/langchaingo/llms/watsonx"
-	wx "github.com/IBM/watsonx-go/pkg/models"
 
 	"github.com/kdeps/kdeps/v2/pkg/domain"
 )
