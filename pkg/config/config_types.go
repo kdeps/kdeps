@@ -190,6 +190,7 @@ type LLMKeys struct {
 	Maritaca    string `yaml:"maritaca_api_key"`
 	Ernie       string `yaml:"ernie_api_key"`
 	Bedrock     string `yaml:"bedrock_api_key"`
+	WatsonX     string `yaml:"watsonx_api_key"`
 }
 
 // HTTPAuthConfig holds authentication credentials for a named HTTP connection.

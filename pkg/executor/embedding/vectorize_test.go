@@ -180,6 +180,31 @@ func TestBuildBedrockEmbedder_FailsWithoutAWSConfig(t *testing.T) {
 	require.Error(t, err)
 }
 
+func TestBuildCybertronEmbedder_ConstructsSuccessfully(t *testing.T) {
+	// Cybertron downloads models to disk; use a temp dir to avoid polluting the repo.
+	t.Setenv("CYBERTRON_MODELS_DIR", t.TempDir())
+	cfg := &domain.EmbeddingConfig{
+		Model:   "BAAI/bge-small-en-v1.5",
+		Backend: backendCybertron,
+	}
+	emb, err := buildCybertronEmbedder(cfg)
+	// Model download may fail in CI (no network or slow); accept nil error if already cached.
+	if err != nil {
+		t.Skipf("skipping: cybertron model download failed (expected in CI): %v", err)
+	}
+	assert.NotNil(t, emb)
+}
+
+func TestBuildEmbedder_RoutesCybertron(t *testing.T) {
+	t.Setenv("CYBERTRON_MODELS_DIR", t.TempDir())
+	cfg := &domain.EmbeddingConfig{Model: "BAAI/bge-small-en-v1.5", Backend: backendCybertron}
+	emb, err := buildEmbedder(context.Background(), cfg)
+	if err != nil {
+		t.Skipf("skipping: cybertron model download failed (expected in CI): %v", err)
+	}
+	assert.NotNil(t, emb)
+}
+
 func TestBuildEmbedder_RoutesBedrock(t *testing.T) {
 	t.Setenv("AWS_ACCESS_KEY_ID", "test-key")
 	t.Setenv("AWS_SECRET_ACCESS_KEY", "test-secret")
