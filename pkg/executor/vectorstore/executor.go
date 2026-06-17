@@ -46,6 +46,8 @@ import (
 	"github.com/kdeps/kdeps/v2/pkg/executor"
 )
 
+const providerBedrock = "bedrock"
+
 // Executor runs vectorStore: resources.
 type Executor struct{}
 
@@ -157,14 +159,14 @@ func buildStore(
 	if cfg.Collection == "" {
 		return nil, errors.New("vectorstore: collection is required")
 	}
-	if cfg.EmbedModel == "" && cfg.Provider != "bedrock" {
+	if cfg.EmbedModel == "" && cfg.Provider != providerBedrock {
 		return nil, errors.New("vectorstore: embedModel is required")
 	}
 
 	switch cfg.Provider {
 	case "azureaisearch":
 		return buildAzureAISearchStore(ctx, cfg)
-	case "bedrock":
+	case providerBedrock:
 		return buildBedrockStore(ctx, cfg)
 	case "chroma":
 		return buildChromaStore(ctx, cfg)
@@ -360,7 +362,7 @@ func buildEmbedder(ctx context.Context, cfg *domain.VectorStoreConfig) (lcemb.Em
 			lchemb_voyage.WithToken(os.Getenv("VOYAGEAI_API_KEY")),
 			lchemb_voyage.WithModel(cfg.EmbedModel),
 		)
-	case "bedrock":
+	case providerBedrock:
 		return lchemb_bedrock.NewBedrock(
 			lchemb_bedrock.WithModel(cfg.EmbedModel),
 		)

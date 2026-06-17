@@ -526,6 +526,8 @@ func TestSchemaValidator_DirectFunctionCoverage(t *testing.T) {
 					"deepseek",
 					"openrouter",
 					"xai",
+					"bedrock",
+					"watsonx",
 				},
 			},
 			{
@@ -619,6 +621,8 @@ func TestSchemaValidator_DirectFunctionCoverage(t *testing.T) {
 					"deepseek",
 					"openrouter",
 					"xai",
+					"bedrock",
+					"watsonx",
 				},
 			},
 			{
@@ -676,6 +680,8 @@ func TestSchemaValidator_DirectFunctionCoverage(t *testing.T) {
 					"deepseek",
 					"openrouter",
 					"xai",
+					"bedrock",
+					"watsonx",
 				},
 			},
 		}

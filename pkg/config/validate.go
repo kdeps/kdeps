@@ -116,7 +116,7 @@ var (
 		{
 			name: "bedrock", yamlKey: "bedrock_api_key", envVar: "BEDROCK_API_KEY",
 			doctorSpotCheck: false,
-			field: func(k *LLMKeys) *string { return &k.Bedrock },
+			field:           func(k *LLMKeys) *string { return &k.Bedrock },
 		},
 		{
 			name: "watsonx", yamlKey: "watsonx_api_key", envVar: "WATSONX_API_KEY",

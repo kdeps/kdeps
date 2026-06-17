@@ -49,7 +49,7 @@ func (b *WatsonXBackend) BuildRequest(
 ) (map[string]interface{}, error) {
 	kdeps_debug.Log("enter: BuildRequest")
 	req := map[string]interface{}{
-		"model_id":  model,
+		"model_id":   model,
 		"project_id": "",
 		"input":      extractWatsonXPrompt(messages),
 		"parameters": map[string]interface{}{

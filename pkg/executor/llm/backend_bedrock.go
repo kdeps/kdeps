@@ -100,11 +100,11 @@ func convertBedrockConverseResponse(response map[string]interface{}) map[string]
 	kdeps_debug.Log("enter: convertBedrockConverseResponse")
 	result := map[string]interface{}{}
 
-	if output, ok := response["output"].(map[string]interface{}); ok {
-		if msg, ok := output["message"].(map[string]interface{}); ok {
+	if output, okOut := response["output"].(map[string]interface{}); okOut {
+		if msg, okMsg := output["message"].(map[string]interface{}); okMsg {
 			result["role"] = msg["role"]
-			if content, ok := msg["content"].([]interface{}); ok && len(content) > 0 {
-				if block, ok := content[0].(map[string]interface{}); ok {
+			if content, okCnt := msg["content"].([]interface{}); okCnt && len(content) > 0 {
+				if block, okBlk := content[0].(map[string]interface{}); okBlk {
 					result["content"] = block["text"]
 				}
 			}

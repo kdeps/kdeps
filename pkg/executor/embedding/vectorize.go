@@ -26,11 +26,11 @@ import (
 	"os"
 
 	lcemb "github.com/tmc/langchaingo/embeddings"
+	lchemb_bedrock "github.com/tmc/langchaingo/embeddings/bedrock"
+	lchemb_cybertron "github.com/tmc/langchaingo/embeddings/cybertron"
 	lchemb_hf "github.com/tmc/langchaingo/embeddings/huggingface"
 	lchemb_jina "github.com/tmc/langchaingo/embeddings/jina"
 	lchemb_voyage "github.com/tmc/langchaingo/embeddings/voyageai"
-	lchemb_bedrock "github.com/tmc/langchaingo/embeddings/bedrock"
-	lchemb_cybertron "github.com/tmc/langchaingo/embeddings/cybertron"
 	lcgoogleai "github.com/tmc/langchaingo/llms/googleai"
 	lchf "github.com/tmc/langchaingo/llms/huggingface"
 	lcopenai "github.com/tmc/langchaingo/llms/openai"
