@@ -17,7 +17,7 @@ package agent
 import (
 	"bytes"
 	"context"
-	"fmt"
+	"errors"
 	"strings"
 	"testing"
 
@@ -198,7 +198,7 @@ func clampMax(a, b int) int {
 
 func TestRunReact_StreamerError(t *testing.T) {
 	// Covers lines 80-82: streamer error path.
-	loop := newStreamingLoop(&errStreamer{err: fmt.Errorf("react stream error")}, 5)
+	loop := newStreamingLoop(&errStreamer{err: errors.New("react stream error")}, 5)
 	var buf bytes.Buffer
 	_, err := loop.RunReact(context.Background(), "q?", &buf)
 	if err == nil {
@@ -263,7 +263,7 @@ func TestDispatchReactTool_NonJSONInput(t *testing.T) {
 		Name:        "test_tool",
 		Description: "test",
 		Parameters:  map[string]domain.ToolParam{},
-		Execute:     func(args map[string]interface{}) (string, error) { return "got it", nil },
+		Execute:     func(_ map[string]interface{}) (string, error) { return "got it", nil },
 	})
 	loop := New(eng, newTestWorkflowForSession(), reg, Config{
 		Model:    "test",
@@ -284,7 +284,7 @@ func TestDispatchReactTool_ToolError(t *testing.T) {
 		Description: "test",
 		Parameters:  map[string]domain.ToolParam{},
 		Execute: func(_ map[string]interface{}) (string, error) {
-			return "", fmt.Errorf("tool exploded")
+			return "", errors.New("tool exploded")
 		},
 	})
 	loop := New(eng, newTestWorkflowForSession(), reg, Config{

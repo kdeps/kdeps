@@ -21,6 +21,7 @@ package agent
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -291,7 +292,7 @@ func (e *errStreamer) StreamChat(
 func TestRunStreaming_StreamerError(t *testing.T) {
 	loop := New(executor.NewEngine(nil), newTestWorkflowForSession(), tools.NewRegistry(), Config{
 		Model:         "test",
-		Streamer:      &errStreamer{err: fmt.Errorf("stream error")},
+		Streamer:      &errStreamer{err: errors.New("stream error")},
 		MaxToolRounds: 3,
 	})
 	var buf bytes.Buffer
@@ -391,7 +392,7 @@ func TestDispatchStreamToolCall_ToolError(t *testing.T) {
 		Name:        "failing_tool",
 		Description: "tool that always fails",
 		Parameters:  map[string]domain.ToolParam{},
-		Execute:     func(_ map[string]interface{}) (string, error) { return "", fmt.Errorf("tool failed") },
+		Execute:     func(_ map[string]interface{}) (string, error) { return "", errors.New("tool failed") },
 	})
 	ms := &mockStreamer{
 		responses: []mockStreamResponse{
@@ -479,7 +480,7 @@ func TestRunStreaming_AutoCompact_WithCallback(t *testing.T) {
 
 	// Build a session with 4 turns to exceed compactMinTurns threshold
 	existing := NewSession(0)
-	for i := 0; i < 4; i++ {
+	for i := range 4 {
 		existing.Append(
 			fmt.Sprintf("question %d", i),
 			fmt.Sprintf("answer %d long enough to accumulate tokens here", i),

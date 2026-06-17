@@ -1300,7 +1300,7 @@ func TestCmdModels_WithProviderStatus(t *testing.T) {
 	assert.NoError(t, err)
 }
 
-func TestPrintLocalModelRow_DownloadedAndCurrent(t *testing.T) {
+func TestPrintLocalModelRow_DownloadedAndCurrent(_ *testing.T) {
 	loop := makeTestLoop(nil)
 	loop.config.Model = "llama2"
 	repl := NewREPL(loop)
