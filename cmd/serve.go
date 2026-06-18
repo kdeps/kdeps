@@ -114,6 +114,7 @@ func runAgentLoopCmd(path string, flags *agentLoopFlags) error {
 	repl.SetModelNames(buildAllModelNames())
 	repl.SetDownloadedModels(llm.DownloadedModelAliases())
 	repl.SetModelTypes(buildModelTypes())
+	repl.SetCloudModelBackends(buildCloudBackends())
 	repl.SetProviderStatus(agent.BuildProviderStatus())
 
 	// Wire /settings TUI when running interactively.
@@ -408,6 +409,16 @@ func buildModelTypes() map[string]string {
 	}
 	// Cloud models have no type entry (empty string = cloud).
 	return types
+}
+
+// buildCloudBackends returns a map from cloud model name → backend for /model
+// completion. Used to show [deepseek] instead of [cloud] when the API key is set.
+func buildCloudBackends() map[string]string {
+	m := make(map[string]string)
+	for _, cm := range agent.KnownCloudModels {
+		m[cm.ID] = cm.Backend
+	}
+	return m
 }
 
 // applySettingsToRegistry discovers items from ~/.kdeps and registers those
