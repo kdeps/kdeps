@@ -66,7 +66,7 @@ const firstLineMax = 80
 
 // firstLine returns the first non-empty line of s, truncated to firstLineMax chars.
 func firstLine(s string) string {
-	for _, line := range strings.Split(s, "\n") {
+	for line := range strings.SplitSeq(s, "\n") {
 		line = strings.TrimSpace(line)
 		if line != "" {
 			if len(line) > firstLineMax {
@@ -705,7 +705,7 @@ func (r *REPL) cmdHelp() error {
 		"  /<skill-name> [..]      Invoke a loaded skill or prompt template by name",
 		"  /compact                 Compact conversation history (keep recent turns)",
 		"  /history                 Show recent conversation turns",
-		"  /session list|save|load|delete  Manage saved sessions",
+		"  /session list|save|load|delete|checkpoint|goto  Manage saved sessions and checkpoints",
 		meta("/exit, /quit, Ctrl+D to exit  |  Ctrl+C to cancel current line  |  Tab to complete commands"),
 	)
 	return nil
@@ -1039,8 +1039,34 @@ func (r *REPL) cmdSession(args []string) error {
 			return nil
 		}
 		return r.cmdSessionDelete(store, args[1])
+	case "checkpoint":
+		id := r.loop.Session().Checkpoint()
+		if id == 0 {
+			fmt.Fprintln(os.Stdout, styleReplMeta.Render("No messages in session."))
+		} else {
+			fmt.Fprintln(os.Stdout, styleReplMeta.Render(fmt.Sprintf("Checkpoint: %d", id)))
+		}
+		return nil
+	case "goto":
+		if len(args) < sessionSubcmdArgMin {
+			fmt.Fprintln(os.Stdout, styleReplMeta.Render("Usage: /session goto <entry-id>"))
+			return nil
+		}
+		entryID, parseErr := strconv.ParseInt(args[1], 10, 64)
+		if parseErr != nil {
+			fmt.Fprintln(os.Stdout, styleReplMeta.Render(fmt.Sprintf("Invalid entry ID: %s", args[1])))
+			return nil
+		}
+		if !r.loop.Session().RestoreTo(entryID) {
+			fmt.Fprintln(os.Stdout, styleReplMeta.Render(fmt.Sprintf("Entry ID %d not found in current session.", entryID)))
+			return nil
+		}
+		fmt.Fprintln(os.Stdout, styleReplMeta.Render(fmt.Sprintf(
+			"Session restored to entry %d (%d turns).", entryID, r.loop.Session().TurnCount(),
+		)))
+		return nil
 	default:
-		fmt.Fprintf(os.Stdout, "Unknown /session subcommand: %s. Use list, save, load, or delete.\n", sub)
+		fmt.Fprintf(os.Stdout, "Unknown /session subcommand: %s. Use list, save, load, delete, checkpoint, or goto.\n", sub)
 		return nil
 	}
 }

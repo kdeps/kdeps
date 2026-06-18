@@ -195,3 +195,94 @@ func TestMaxHistoryTokens_InConfig(t *testing.T) {
 		t.Fatal("MaxHistoryTokens not set")
 	}
 }
+
+func TestCheckpoint_EmptySession(t *testing.T) {
+	s := NewSession(0)
+	if id := s.Checkpoint(); id != 0 {
+		t.Fatalf("expected 0 for empty session, got %d", id)
+	}
+}
+
+func TestCheckpoint_AfterAppend(t *testing.T) {
+	s := NewSession(0)
+	s.Append("hello", "world")
+	id := s.Checkpoint()
+	if id == 0 {
+		t.Fatal("expected non-zero checkpoint ID after append")
+	}
+}
+
+func TestRestoreTo_ValidID(t *testing.T) {
+	s := NewSession(0)
+	s.Append("turn1", "resp1")
+	cp := s.Checkpoint() // ID of the assistant message of turn 1
+	s.Append("turn2", "resp2")
+	s.Append("turn3", "resp3")
+
+	if s.TurnCount() != 3 {
+		t.Fatalf("expected 3 turns before restore, got %d", s.TurnCount())
+	}
+
+	if !s.RestoreTo(cp) {
+		t.Fatal("RestoreTo returned false for valid checkpoint ID")
+	}
+
+	if s.TurnCount() != 1 {
+		t.Fatalf("expected 1 turn after restore, got %d", s.TurnCount())
+	}
+}
+
+func TestRestoreTo_InvalidID(t *testing.T) {
+	s := NewSession(0)
+	s.Append("hello", "world")
+	if s.RestoreTo(9999999) {
+		t.Fatal("RestoreTo should return false for unknown ID")
+	}
+	if s.TurnCount() != 1 {
+		t.Fatal("session should be unchanged after failed RestoreTo")
+	}
+}
+
+func TestRestoreTo_TrimsFileOps(t *testing.T) {
+	s := NewSession(0)
+	s.Append("t1", "r1")
+	s.RecordFileOps([]string{"a.go"}, []string{"b.go"})
+	cp := s.Checkpoint()
+	s.Append("t2", "r2")
+	s.RecordFileOps([]string{"c.go"}, nil)
+
+	if !s.RestoreTo(cp) {
+		t.Fatal("RestoreTo failed")
+	}
+	msgs, ops := s.rawMessagesWithOps()
+	if len(msgs) != 2 {
+		t.Fatalf("expected 2 messages, got %d", len(msgs))
+	}
+	if len(ops) > 1 {
+		t.Fatalf("expected at most 1 fileOps entry, got %d", len(ops))
+	}
+}
+
+func TestRawMessagesWithOps_ReturnsCopies(t *testing.T) {
+	s := NewSession(0)
+	s.Append("hi", "there")
+	s.RecordFileOps([]string{"x.go"}, nil)
+
+	msgs, ops := s.rawMessagesWithOps()
+	if len(msgs) != 2 {
+		t.Fatalf("expected 2 messages, got %d", len(msgs))
+	}
+	if len(ops) != 1 {
+		t.Fatalf("expected 1 fileOps entry, got %d", len(ops))
+	}
+	// Mutating returned slices must not affect session internals.
+	msgs[0].Content = "mutated"
+	ops[0].Read = []string{"injected.go"}
+	ms2, ops2 := s.rawMessagesWithOps()
+	if ms2[0].Content == "mutated" {
+		t.Fatal("mutation of returned messages slice affected session")
+	}
+	if len(ops2[0].Read) == 1 && ops2[0].Read[0] == "injected.go" {
+		t.Fatal("mutation of returned ops slice affected session")
+	}
+}

@@ -63,12 +63,12 @@ Keep each section concise. Preserve exact file paths, function names, and error 
 // The returned string already includes the preamble for injection into
 // the next session's context.
 func (l *Loop) SummarizeBranch(_ context.Context) (string, error) {
-	msgs := l.session.rawMessages()
+	msgs, fileOps := l.session.rawMessagesWithOps()
 	if len(msgs) < compactMinTurns*sessionMsgsPer {
 		return "", nil
 	}
 
-	conversationText := serializeConversation(msgs, nil)
+	conversationText := serializeConversation(msgs, fileOps)
 	prompt := "<conversation>\n" + conversationText + "\n</conversation>\n\n" + branchSummaryPrompt
 
 	const branchActionID = "agent_loop_branch_summary"
