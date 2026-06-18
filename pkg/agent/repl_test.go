@@ -417,6 +417,13 @@ func TestExpandFileRefs_ImageNotFound(t *testing.T) {
 	assert.Empty(t, files)
 }
 
+func TestExpandFileRefs_URLImage(t *testing.T) {
+	out, files := expandFileRefs("describe @https://example.com/photo.png what is this?")
+	// URL refs are always treated as multimodal attachments, removed from text
+	assert.NotContains(t, out, "https://example.com/photo.png")
+	assert.Contains(t, files, "https://example.com/photo.png")
+}
+
 func TestSetPendingFiles_ClearedAfterBuildChatConfig(t *testing.T) {
 	loop := makeTestLoop(nil)
 	loop.SetPendingFiles([]string{"/tmp/img.png"})
