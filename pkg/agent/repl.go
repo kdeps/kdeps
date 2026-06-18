@@ -806,9 +806,12 @@ func (r *REPL) cmdModel(args []string) error {
 		}
 	}
 	model := strings.ReplaceAll(args[0], "*", "")
-	// Compact BEFORE switching models. The old model (still configured) handles
-	// the summarization call, avoiding context overflow on the new model.
+	// Compact BEFORE switching models. Use the new model's context limit as
+	// both the token budget AND the compact threshold so the session actually
+	// fits after summarization.
 	newLimit := r.contextLimitForModel(model)
+	r.loop.config.CompactTokenBudget = newLimit
+	r.loop.config.AutoCompactThreshold = newLimit
 	r.loop.Session().SetTokenBudget(newLimit, model)
 	r.loop.CompactIfNeeded(r.ctx)
 	r.loop.config.Model = model
