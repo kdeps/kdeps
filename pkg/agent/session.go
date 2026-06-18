@@ -33,6 +33,31 @@ const (
 	sessionMsgsPer = 2 // user + assistant per turn
 )
 
+// SessionReader is the read-only interface for a conversation session.
+// Pi equivalent: MemoryRepo (packages/agent/src/harness/session/memory-repo.ts).
+type SessionReader interface {
+	TotalTokens() int
+	TurnCount() int
+	Messages() []struct{ Role, Content string }
+	BuildMessagesJSON() string
+}
+
+// SessionWriter is the write interface for a conversation session.
+type SessionWriter interface {
+	Append(userInput, assistantResponse string)
+	Clear()
+	Compact() string
+	CompactWith(summary string, keptMessages []sessionMessage, compactedTurns int)
+	SetTokenBudget(maxTokens int, model string)
+}
+
+// SessionReadWriter combines read and write access to a conversation session.
+// Implemented by *Session.
+type SessionReadWriter interface {
+	SessionReader
+	SessionWriter
+}
+
 // Session holds multi-turn conversation history for the agent loop.
 // Messages are stored as role-content pairs and serialized to JSON
 // for injection as the chat.messages expression value on each turn.
@@ -62,6 +87,9 @@ type fileOpEntry struct {
 }
 
 // NewSession creates a session. maxTurns caps history (0 = unlimited).
+// Compile-time check: *Session satisfies SessionReadWriter.
+var _ SessionReadWriter = (*Session)(nil)
+
 func NewSession(maxTurns int) *Session {
 	return &Session{
 		messages:    make([]sessionMessage, 0, sessionInitCap),
