@@ -100,3 +100,33 @@ func startGGUFServer(path string, port int) (int, error) {
 	_ = cmd.Process.Release()
 	return pid, nil
 }
+
+// ResolvedGGUFURL returns the base URL of a running llama-server for the given
+// GGUF model. Checks the in-memory registry, cross-process port file, and default
+// port. Returns "" if no server is found.
+func ResolvedGGUFURL(model string) string {
+	modelsDir, err := modelsDir()
+	if err != nil {
+		return ""
+	}
+	path, ok := GGUFCachedPath(model, modelsDir)
+	if !ok {
+		return ""
+	}
+	// Check in-memory served map.
+	servedGGUFsMu.Lock()
+	if port, ok := servedGGUFs[path]; ok && isHealthy(localServerURL(port)) {
+		servedGGUFsMu.Unlock()
+		return localServerURL(port)
+	}
+	servedGGUFsMu.Unlock()
+	// Check cross-process port file.
+	if saved := readServerPortFile(path); saved != 0 && isHealthy(localServerURL(saved)) {
+		return localServerURL(saved)
+	}
+	// Probe default port.
+	if isHealthy(BackendGGUFHostURL) {
+		return BackendGGUFHostURL
+	}
+	return ""
+}
