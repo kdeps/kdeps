@@ -157,7 +157,7 @@ func TestServeModel_FileBackend(t *testing.T) {
 	svc := NewModelService(nil)
 	// The script exits immediately so the health wait times out: the file
 	// branch is exercised end to end without a real model.
-	err := svc.ServeModel(backendFile, "svc.llamafile", "127.0.0.1", 0)
+	err := svc.ServeModel(BackendFile, "svc.llamafile", "127.0.0.1", 0)
 	require.Error(t, err)
 }
 

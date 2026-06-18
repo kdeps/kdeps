@@ -88,7 +88,7 @@ func TestBedrockBackend_ParseResponse_Success(t *testing.T) {
 	bb := &BedrockBackend{}
 	body := `{"output":{"message":{"role":"assistant","content":[{"text":"hello from bedrock"}]}},"stopReason":"end_turn","usage":{"inputTokens":10,"outputTokens":5}}`
 	resp := &http.Response{
-		StatusCode: 200,
+		StatusCode: http.StatusOK,
 		Body:       io.NopCloser(bytes.NewBufferString(body)),
 	}
 	result, err := bb.ParseResponse(resp)
@@ -101,7 +101,7 @@ func TestBedrockBackend_ParseResponse_Success(t *testing.T) {
 func TestBedrockBackend_ParseResponse_NonOK(t *testing.T) {
 	bb := &BedrockBackend{}
 	resp := &http.Response{
-		StatusCode: 500,
+		StatusCode: http.StatusInternalServerError,
 		Body:       io.NopCloser(bytes.NewBufferString(`{"error":"internal"}`)),
 	}
 	_, err := bb.ParseResponse(resp)
@@ -111,7 +111,7 @@ func TestBedrockBackend_ParseResponse_NonOK(t *testing.T) {
 func TestBedrockBackend_ParseResponse_InvalidJSON(t *testing.T) {
 	bb := &BedrockBackend{}
 	resp := &http.Response{
-		StatusCode: 200,
+		StatusCode: http.StatusOK,
 		Body:       io.NopCloser(bytes.NewBufferString(`not-json`)),
 	}
 	_, err := bb.ParseResponse(resp)

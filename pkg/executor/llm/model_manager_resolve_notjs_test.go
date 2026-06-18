@@ -28,8 +28,8 @@ import (
 
 func TestDefaultPortForBackend_AllCases(t *testing.T) {
 	assert.Equal(t, 11434, defaultPortForBackend(backendOllama))
-	assert.Equal(t, backendFilePort, defaultPortForBackend(backendFile))
-	assert.Equal(t, backendGGUFPort, defaultPortForBackend(backendGGUF))
+	assert.Equal(t, BackendFilePort, defaultPortForBackend(BackendFile))
+	assert.Equal(t, BackendGGUFPort, defaultPortForBackend(BackendGGUF))
 	assert.Equal(t, 8000, defaultPortForBackend("vllm"))
 	assert.Equal(t, 16395, defaultPortForBackend("llamacpp"))
 	assert.Equal(t, 16395, defaultPortForBackend("unknown"))

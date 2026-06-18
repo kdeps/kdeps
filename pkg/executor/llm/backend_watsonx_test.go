@@ -66,7 +66,7 @@ func TestWatsonXBackend_ParseResponse_Success(t *testing.T) {
 	wb := &WatsonXBackend{}
 	body := `{"results":[{"generated_text":"hello from watsonx","stop_reason":"max_tokens"}]}`
 	resp := &http.Response{
-		StatusCode: 200,
+		StatusCode: http.StatusOK,
 		Body:       io.NopCloser(bytes.NewBufferString(body)),
 	}
 	result, err := wb.ParseResponse(resp)
@@ -77,7 +77,7 @@ func TestWatsonXBackend_ParseResponse_Success(t *testing.T) {
 func TestWatsonXBackend_ParseResponse_NonOK(t *testing.T) {
 	wb := &WatsonXBackend{}
 	resp := &http.Response{
-		StatusCode: 500,
+		StatusCode: http.StatusInternalServerError,
 		Body:       io.NopCloser(bytes.NewBufferString(`{"error":"fail"}`)),
 	}
 	_, err := wb.ParseResponse(resp)

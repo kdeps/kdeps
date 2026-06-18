@@ -37,7 +37,7 @@ func TestGGUFBackend_Name(t *testing.T) {
 
 func TestGGUFBackend_DefaultURL(t *testing.T) {
 	b := &GGUFBackend{}
-	assert.Equal(t, backendGGUFHostURL, b.DefaultURL())
+	assert.Equal(t, BackendGGUFHostURL, b.DefaultURL())
 }
 
 func TestGGUFBackend_ChatEndpoint(t *testing.T) {

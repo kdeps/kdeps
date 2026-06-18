@@ -24,6 +24,8 @@ import (
 	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
 )
 
+const defaultWatsonXTemperature = 0.7
+
 // WatsonXBackend implements the IBM WatsonX backend.
 type WatsonXBackend struct{}
 
@@ -54,7 +56,7 @@ func (b *WatsonXBackend) BuildRequest(
 		"input":      extractWatsonXPrompt(messages),
 		"parameters": map[string]interface{}{
 			"max_new_tokens": config.ContextLength,
-			"temperature":    0.7,
+			"temperature":    defaultWatsonXTemperature,
 		},
 	}
 	return req, nil
@@ -90,7 +92,7 @@ func convertWatsonXResponse(response map[string]interface{}) map[string]interfac
 		"role": "assistant",
 	}
 	if results, ok := response["results"].([]interface{}); ok && len(results) > 0 {
-		if r, ok := results[0].(map[string]interface{}); ok {
+		if r, okR := results[0].(map[string]interface{}); okR {
 			result["content"] = r["generated_text"]
 			result["stop_reason"] = r["stop_reason"]
 		}

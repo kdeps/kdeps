@@ -129,7 +129,7 @@ func TestServeFileModelIfNeeded_SetsBaseURLFromHealthyPort(t *testing.T) {
 	require.NoError(t, os.WriteFile(modelPath, []byte("bin"), 0755))
 
 	mgr := NewModelManagerFromServiceInterface(NewMockModelService())
-	cfg := &domain.ChatConfig{Model: modelPath, Backend: backendFile}
+	cfg := &domain.ChatConfig{Model: modelPath, Backend: BackendFile}
 	mgr.serveFileModelIfNeeded(cfg, port)
 	assert.Contains(t, cfg.BaseURL, "127.0.0.1")
 }
@@ -185,7 +185,7 @@ func TestHandleToolCalls_Error(t *testing.T) {
 func TestResolveBackend_Defaults(t *testing.T) {
 	t.Setenv("KDEPS_DEFAULT_BACKEND", "")
 	cfg := &domain.ChatConfig{}
-	assert.Equal(t, backendFile, resolveBackend(cfg))
+	assert.Equal(t, BackendFile, resolveBackend(cfg))
 
 	t.Setenv("KDEPS_DEFAULT_BACKEND", "vllm")
 	assert.Equal(t, "vllm", resolveBackend(cfg))
@@ -598,8 +598,8 @@ func TestRetryFallbackRoutes_BuildRequestError(t *testing.T) {
 }
 
 func TestBuildOpenAICompatLLM_FileBackend(t *testing.T) {
-	cfg := &domain.ChatConfig{Model: "test-model", Backend: backendFile}
-	model, err := buildOpenAICompatLLM(cfg, backendFile)
+	cfg := &domain.ChatConfig{Model: "test-model", Backend: BackendFile}
+	model, err := buildOpenAICompatLLM(cfg, BackendFile)
 	require.NoError(t, err)
 	assert.NotNil(t, model)
 }
@@ -608,16 +608,16 @@ func TestBuildOpenAICompatLLM_UnknownBackend(t *testing.T) {
 	// unknown backend falls through to openai-compat; provide a base URL so no API key check.
 	cfg := &domain.ChatConfig{
 		Model:   "some-model",
-		Backend: backendFile, // local file backend doesn't require an API key
+		Backend: BackendFile, // local file backend doesn't require an API key
 		BaseURL: "http://127.0.0.1:19999",
 	}
-	model, err := buildOpenAICompatLLM(cfg, backendFile)
+	model, err := buildOpenAICompatLLM(cfg, BackendFile)
 	require.NoError(t, err)
 	assert.NotNil(t, model)
 }
 
 func TestBuildLangchainLLM_FileBackend(t *testing.T) {
-	cfg := &domain.ChatConfig{Model: "test-model", Backend: backendFile}
+	cfg := &domain.ChatConfig{Model: "test-model", Backend: BackendFile}
 	model, err := buildLangchainLLM(t.Context(), cfg)
 	require.NoError(t, err)
 	assert.NotNil(t, model)
@@ -631,7 +631,7 @@ func TestBuildLangchainLLM_EmptyBackendDefaultsToFile(t *testing.T) {
 }
 
 func TestBuildLangchainLLM_UseCache(t *testing.T) {
-	cfg := &domain.ChatConfig{Model: "test-model", Backend: backendFile, UseCache: true}
+	cfg := &domain.ChatConfig{Model: "test-model", Backend: BackendFile, UseCache: true}
 	model, err := buildLangchainLLM(t.Context(), cfg)
 	require.NoError(t, err)
 	_, isCached := model.(*cachedLLM)
@@ -639,20 +639,20 @@ func TestBuildLangchainLLM_UseCache(t *testing.T) {
 }
 
 func TestBuildStreamOpts_NoTools(t *testing.T) {
-	cfg := &domain.ChatConfig{Model: "m", Backend: backendFile}
-	opts := buildStreamOpts(cfg, backendFile, os.Stdout)
+	cfg := &domain.ChatConfig{Model: "m", Backend: BackendFile}
+	opts := buildStreamOpts(cfg, BackendFile, os.Stdout)
 	assert.NotEmpty(t, opts)
 }
 
 func TestBuildStreamOpts_WithTools(t *testing.T) {
 	cfg := &domain.ChatConfig{
 		Model:   "m",
-		Backend: backendFile,
+		Backend: BackendFile,
 		Tools: []domain.Tool{
 			{Name: "mytool", Description: "test tool"},
 		},
 	}
-	opts := buildStreamOpts(cfg, backendFile, os.Stdout)
+	opts := buildStreamOpts(cfg, BackendFile, os.Stdout)
 	assert.NotEmpty(t, opts)
 }
 
@@ -667,7 +667,7 @@ func TestAdapter_StreamChat_FileBackendError(t *testing.T) {
 	e := NewExecutor("http://127.0.0.1:19991") // unused for streaming path
 	cfg := &domain.ChatConfig{
 		Model:   "test-model",
-		Backend: backendFile,
+		Backend: BackendFile,
 		BaseURL: "http://127.0.0.1:19991",
 	}
 	_, _, err := e.StreamChat(t.Context(), cfg, os.Stdout)
@@ -680,7 +680,7 @@ func TestStreamChatChunked_SplitError(t *testing.T) {
 	// An invalid splitter forces SplitText to error.
 	cfg := &domain.ChatConfig{
 		Model:         "test-model",
-		Backend:       backendFile,
+		Backend:       BackendFile,
 		BaseURL:       "http://127.0.0.1:19991",
 		Prompt:        "hello world",
 		ChunkSize:     1,
@@ -696,7 +696,7 @@ func TestStreamChatChunked_StreamChatOnceError(t *testing.T) {
 	// because the backend server is not running.
 	cfg := &domain.ChatConfig{
 		Model:     "test-model",
-		Backend:   backendFile,
+		Backend:   BackendFile,
 		BaseURL:   "http://127.0.0.1:19991",
 		Prompt:    "hello world test",
 		ChunkSize: 100,
@@ -796,7 +796,7 @@ func TestStreamChatOnce_Success(t *testing.T) {
 	e := NewExecutor("")
 	cfg := &domain.ChatConfig{
 		Model:   "test-model",
-		Backend: backendFile,
+		Backend: BackendFile,
 		BaseURL: srv.URL,
 		Prompt:  "say hello",
 	}
@@ -813,7 +813,7 @@ func TestStreamChat_Success_NoChunks(t *testing.T) {
 	e := NewExecutor("")
 	cfg := &domain.ChatConfig{
 		Model:   "test-model",
-		Backend: backendFile,
+		Backend: BackendFile,
 		BaseURL: srv.URL,
 		Prompt:  "hello",
 	}
@@ -840,7 +840,7 @@ func TestStreamChat_EmptyChoices(t *testing.T) {
 	e := NewExecutor("")
 	cfg := &domain.ChatConfig{
 		Model:   "test-model",
-		Backend: backendFile,
+		Backend: BackendFile,
 		BaseURL: srv.URL,
 		Prompt:  "hello",
 	}
@@ -857,7 +857,7 @@ func TestStreamChatChunked_Success(t *testing.T) {
 	e := NewExecutor("")
 	cfg := &domain.ChatConfig{
 		Model:     "test-model",
-		Backend:   backendFile,
+		Backend:   BackendFile,
 		BaseURL:   srv.URL,
 		Prompt:    "word1 word2 word3",
 		ChunkSize: 5,
@@ -874,7 +874,7 @@ func TestStreamChat_WithOutputParser_Success(t *testing.T) {
 	e := NewExecutor("")
 	cfg := &domain.ChatConfig{
 		Model:        "test-model",
-		Backend:      backendFile,
+		Backend:      BackendFile,
 		BaseURL:      srv.URL,
 		Prompt:       "return json",
 		OutputParser: "json",

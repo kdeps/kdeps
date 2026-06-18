@@ -42,6 +42,9 @@ var osSetenv = os.Setenv
 type ModelServiceInterface interface {
 	DownloadModel(backend, model string) error
 	ServeModel(backend, model string, host string, port int) error
+	// ServerURL returns the base URL of a running local model server, or "" if
+	// the server is not running or the backend is not a local server type.
+	ServerURL(backend, model string) string
 }
 
 // ModelService handles model download and serving for different backends.
@@ -87,5 +90,18 @@ func (s *ModelService) ServeModel(backend, model string, host string, port int) 
 		return s.serveGGUFModel(model, port)
 	default:
 		return fmt.Errorf("unsupported backend for model serving: %s", backend)
+	}
+}
+
+// ServerURL returns the base URL of a running local model server for the given
+// backend and model. Returns "" for cloud backends or when no server is running.
+func (s *ModelService) ServerURL(backend, model string) string {
+	switch backend {
+	case BackendFile:
+		return s.llamafileServerURL(model)
+	case BackendGGUF:
+		return s.ggufServerURL(model)
+	default:
+		return ""
 	}
 }

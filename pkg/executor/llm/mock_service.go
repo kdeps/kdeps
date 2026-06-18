@@ -30,6 +30,7 @@ import (
 type MockModelService struct {
 	DownloadModelFunc func(backend, model string) error
 	ServeModelFunc    func(backend, model string, host string, port int) error
+	ServerURLFunc     func(backend, model string) string
 	logger            *slog.Logger
 }
 
@@ -81,4 +82,13 @@ func (m *MockModelService) SetServeModelFunc(
 ) {
 	kdeps_debug.Log("enter: SetServeModelFunc")
 	m.ServeModelFunc = fn
+}
+
+// ServerURL mocks the server URL lookup.
+func (m *MockModelService) ServerURL(backend, model string) string {
+	kdeps_debug.Log("enter: ServerURL")
+	if m.ServerURLFunc != nil {
+		return m.ServerURLFunc(backend, model)
+	}
+	return ""
 }
