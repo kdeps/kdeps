@@ -71,7 +71,7 @@ var langchainBaseURLs = map[string]string{
 	"perplexity": "https://api.perplexity.ai",
 	"cohere":     "https://api.cohere.com/compatibility/v1",
 	"file":       "http://127.0.0.1:8080/v1",
-	"gguf":       "http://127.0.0.1:8080/v1",
+	"gguf":       "http://127.0.0.1:8081/v1",
 	"local":      "http://localhost:8080/v1",
 	"ollama":     "http://localhost:11434/v1",
 }
