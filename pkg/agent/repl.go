@@ -101,8 +101,9 @@ type REPL struct {
 	history            []string
 	modelNames         []string          // suggestions for /model <tab>
 	downloadedModels   map[string]bool   // set of already-downloaded model aliases
-	modelTypes         map[string]string // model name -> type (modelTypeLLamafile, modelTypeGGUF, ""=cloud)
-	cloudModelBackends map[string]string // cloud model name -> backend name
+	modelTypes         map[string]string                                     // model name -> type (modelTypeLLamafile, modelTypeGGUF, ""=cloud)
+	cloudModelBackends map[string]string                                     // cloud model name -> backend name
+	modelPickerFn      func() (string, error)                                // TUI model picker; nil if unavailable
 	providerStatus     map[string]bool   // backend -> API key set
 	onSettingsChange   OnSettingsChange
 	tuiRunner          TUIRunner
@@ -166,6 +167,12 @@ func (r *REPL) SetCloudModelBackends(backends map[string]string) {
 // SetProviderStatus registers which cloud backend providers have an API key set.
 func (r *REPL) SetProviderStatus(status map[string]bool) {
 	r.providerStatus = status
+}
+
+// SetModelPickerFn injects a TUI model picker function. When set, /model with
+// no arguments launches the picker. When nil (default), /model prints the current model.
+func (r *REPL) SetModelPickerFn(fn func() (string, error)) {
+	r.modelPickerFn = fn
 }
 
 // dynamicPrompt returns a prompt string showing model and turn count.
@@ -787,8 +794,16 @@ func (r *REPL) cmdClear() error {
 
 func (r *REPL) cmdModel(args []string) error {
 	if len(args) == 0 {
-		fmt.Fprintln(os.Stdout, styleReplMeta.Render("Current model: "+r.loop.config.Model))
-		return nil
+		if r.modelPickerFn != nil {
+			model, err := r.modelPickerFn()
+			if err != nil || model == "" {
+				return err
+			}
+			args = []string{model}
+		} else {
+			fmt.Fprintln(os.Stdout, styleReplMeta.Render("Current model: "+r.loop.config.Model))
+			return nil
+		}
 	}
 	model := strings.ReplaceAll(args[0], "*", "")
 	r.loop.config.Model = model
@@ -1268,3 +1283,18 @@ func (r *REPL) cmdInvokeSkill(sk *Skill, extra []string) error {
 	}
 	return nil
 }
+
+// ModelNames returns the model name suggestions for /model completion.
+func (r *REPL) ModelNames() []string { return r.modelNames }
+
+// DownloadedModels returns the set of cached model aliases.
+func (r *REPL) DownloadedModels() map[string]bool { return r.downloadedModels }
+
+// ModelTypes returns the model type map (cloud, llamafile, gguf).
+func (r *REPL) ModelTypes() map[string]string { return r.modelTypes }
+
+// CloudModelBackends returns the cloud model backend map.
+func (r *REPL) CloudModelBackends() map[string]string { return r.cloudModelBackends }
+
+// ProviderStatus returns the provider API key status.
+func (r *REPL) ProviderStatus() map[string]bool { return r.providerStatus }
