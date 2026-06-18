@@ -815,13 +815,11 @@ func (r *REPL) cmdModel(args []string) error {
 		r.loop.config.BaseURL = ""
 	}
 	r.startLocalModelServer(model)
-	// Auto-compact session when switching to a model with a small context window.
-	// Local models default to 4K context; compact to ~75% to leave room for prompt.
-	if r.modelTypes[model] != "" {
-		limit := contextLimitForModel(model)
-		r.loop.Session().SetTokenBudget(limit, model)
-		r.loop.CompactIfNeeded(r.ctx)
-	}
+	// Apply context budget and auto-compact if needed. Cloud models get 128K,
+	// local models use the configured or default context size (4K for GGUF).
+	limit := contextLimitForModel(model)
+	r.loop.Session().SetTokenBudget(limit, model)
+	r.loop.CompactIfNeeded(r.ctx)
 	fmt.Fprintln(os.Stdout, styleReplMeta.Render("Model set to "+model))
 	return nil
 }
