@@ -108,6 +108,7 @@ func runAgentLoopCmd(path string, flags *agentLoopFlags) error {
 
 	loop := agent.New(eng, hostWorkflow, registry, cfg)
 	repl := agent.NewREPL(loop)
+	defer llm.ShutdownLocalServers()
 
 	// Provide model name suggestions for /model <tab> completion.
 	// Cloud model IDs are appended after local models so local stay first.
