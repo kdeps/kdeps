@@ -25,6 +25,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"strings"
 	"time"
 
 	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
@@ -82,4 +83,35 @@ func (s *ModelService) serveOllamaModel(model string, host string, port int) err
 	s.logger.Info("Ollama server started", "pid", cmd.Process.Pid)
 	_ = cmd.Process.Release()
 	return nil
+}
+
+// OllamaModelEntry holds metadata for an installed Ollama model.
+type OllamaModelEntry struct {
+	Name string
+}
+
+// ListOllamaModels returns the names of models installed in the local Ollama
+// instance. Runs `ollama list` and parses the output. Returns nil if Ollama
+// is not installed or not running.
+func ListOllamaModels() []OllamaModelEntry {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	cmd := execCommandContext(ctx, "ollama", "list")
+	output, err := cmd.Output()
+	if err != nil {
+		return nil
+	}
+	var entries []OllamaModelEntry
+	for _, line := range strings.Split(string(output), "\n") {
+		line = strings.TrimSpace(line)
+		if line == "" || strings.HasPrefix(line, "NAME") {
+			continue
+		}
+		// Format: "name:tag    size    ..."
+		if idx := strings.IndexAny(line, " \t"); idx > 0 {
+			entries = append(entries, OllamaModelEntry{Name: line[:idx]})
+		}
+	}
+	return entries
 }

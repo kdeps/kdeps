@@ -36,7 +36,7 @@ type modelPickerModel struct {
 
 func newModelPickerModel(entries []ModelEntry) modelPickerModel {
 	sort.Slice(entries, func(i, j int) bool {
-		// Sort: cached first, then llamafile, then gguf, then cloud
+		// Sort: cached first, then llamafile, gguf, ollama, then cloud
 		order := func(e ModelEntry) int {
 			if e.Cached {
 				return 0
@@ -46,8 +46,10 @@ func newModelPickerModel(entries []ModelEntry) modelPickerModel {
 				return 1
 			case "gguf":
 				return 2
+			case "ollama":
+				return 3
 			}
-			return 3
+			return 4
 		}
 		oi, oj := order(entries[i]), order(entries[j])
 		if oi != oj {
@@ -155,6 +157,8 @@ func tagForEntry(e ModelEntry) string {
 			return "[✳ llamafile cached]"
 		case "gguf":
 			return "[✳ gguf cached]"
+		case "ollama":
+			return "[✳ ollama cached]"
 		default:
 			return "[✳ cached]"
 		}
@@ -164,6 +168,8 @@ func tagForEntry(e ModelEntry) string {
 		return "[llamafile]"
 	case "gguf":
 		return "[gguf]"
+	case "ollama":
+		return "[ollama]"
 	default:
 		if e.Enabled && e.Backend != "" {
 			return "[" + e.Backend + " ✓]"

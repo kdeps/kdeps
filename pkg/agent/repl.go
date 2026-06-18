@@ -49,6 +49,7 @@ const (
 
 	modelTypeLLamafile  = "llamafile"
 	modelTypeGGUF       = "gguf"
+	modelTypeOllama     = "ollama"
 	modelTypeCloud      = ""
 )
 
@@ -289,7 +290,7 @@ func (c *replCompleter) Do(line []rune, pos int) ([][]rune, int) {
 // includes a [type] tag so users can distinguish local from cloud at a glance.
 // tokenLen is the number of runes already typed (suffix = candidate[tokenLen:]).
 func (r *REPL) modelCompletionSuffixes(ranked []string, tokenLen int) [][]rune {
-	var cached, llamafile, gguf, cloud []string
+	var cached, llamafile, gguf, ollama, cloud []string
 	for _, n := range ranked {
 		if r.downloadedModels[n] {
 			cached = append(cached, n)
@@ -300,6 +301,8 @@ func (r *REPL) modelCompletionSuffixes(ranked []string, tokenLen int) [][]rune {
 			llamafile = append(llamafile, n)
 		case modelTypeGGUF:
 			gguf = append(gguf, n)
+		case modelTypeOllama:
+			ollama = append(ollama, n)
 		default:
 			cloud = append(cloud, n)
 		}
@@ -308,6 +311,7 @@ func (r *REPL) modelCompletionSuffixes(ranked []string, tokenLen int) [][]rune {
 	ordered = append(ordered, cached...)
 	ordered = append(ordered, llamafile...)
 	ordered = append(ordered, gguf...)
+	ordered = append(ordered, ollama...)
 	ordered = append(ordered, cloud...)
 
 	results := make([][]rune, 0, len(ordered))
@@ -335,12 +339,14 @@ func modelTag(r *REPL, name string) string {
 			return " [llamafile cached]"
 		case modelTypeGGUF:
 			return " [gguf cached]"
+		case modelTypeOllama:
+			return " [ollama cached]"
 		default:
 			return " [cached]"
 		}
 	}
 	mt := r.modelTypes[name]
-	if mt == modelTypeLLamafile || mt == modelTypeGGUF {
+	if mt != "" {
 		return " [" + mt + "]"
 	}
 	if backend, ok := r.cloudModelBackends[name]; ok && r.providerStatus[backend] {
@@ -820,9 +826,15 @@ func (r *REPL) cmdModel(args []string) error {
 	if backend := BackendForModel(model); backend != "" {
 		r.loop.config.Backend = backend
 		r.loop.config.BaseURL = ""
-	} else if mt := r.modelTypes[model]; mt == modelTypeGGUF {
-		r.loop.config.Backend = llm.BackendGGUF
-		r.loop.config.BaseURL = ""
+	} else {
+		switch r.modelTypes[model] {
+		case modelTypeGGUF:
+			r.loop.config.Backend = llm.BackendGGUF
+			r.loop.config.BaseURL = ""
+		case modelTypeOllama:
+			r.loop.config.Backend = "ollama"
+			r.loop.config.BaseURL = ""
+		}
 	}
 	r.startLocalModelServer(model)
 	r.loop.Session().SetTokenBudget(newLimit, model)
@@ -924,7 +936,7 @@ func (r *REPL) startLocalModelServer(model string) {
 		return
 	}
 	backend := r.loop.config.Backend
-	if backend != llm.BackendFile && backend != llm.BackendGGUF {
+	if backend != llm.BackendFile && backend != llm.BackendGGUF && backend != "ollama" {
 		return
 	}
 	_ = svc.DownloadModel(backend, model)

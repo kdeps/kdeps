@@ -360,9 +360,12 @@ func namesEqual(a, b []tui.Item) bool {
 	return true
 }
 
-// buildModelNames returns local model alias names from llamafile and gguf registries.
+// buildModelNames returns local model alias names from llamafile, gguf, and ollama.
 func buildModelNames() []string {
 	names := append(llm.LlamafileAliasNames(), llm.GGUFAliasNames()...)
+	for _, o := range llm.ListOllamaModels() {
+		names = append(names, o.Name)
+	}
 	seen := make(map[string]bool, len(names))
 	out := make([]string, 0, len(names))
 	for _, n := range names {
@@ -411,7 +414,9 @@ func buildModelTypes() map[string]string {
 	for _, a := range llm.ListGGUFMappings() {
 		types[a.Alias] = "gguf"
 	}
-	// Cloud models have no type entry (empty string = cloud).
+	for _, o := range llm.ListOllamaModels() {
+		types[o.Name] = "ollama"
+	}
 	return types
 }
 
