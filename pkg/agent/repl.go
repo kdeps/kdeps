@@ -95,10 +95,11 @@ type REPL struct {
 	ctx              context.Context
 	cancel           context.CancelFunc
 	history          []string
-	modelNames       []string            // suggestions for /model <tab>
-	downloadedModels map[string]bool     // set of already-downloaded model aliases
-	modelTypes       map[string]string   // model name -> type ("llamafile", "gguf", ""=cloud)
-	providerStatus   map[string]bool     // backend -> API key set
+	modelNames         []string            // suggestions for /model <tab>
+	downloadedModels   map[string]bool     // set of already-downloaded model aliases
+	modelTypes         map[string]string   // model name -> type ("llamafile", "gguf", ""=cloud)
+	cloudModelBackends map[string]string   // cloud model name -> backend name
+	providerStatus     map[string]bool     // backend -> API key set
 	onSettingsChange OnSettingsChange
 	tuiRunner        TUIRunner
 	runFn            func(context.Context, string) (string, error) // nil in production; injected in tests
@@ -150,6 +151,12 @@ func (r *REPL) SetDownloadedModels(downloaded map[string]bool) {
 // [type] tag and results are grouped: cached > llamafile > gguf > cloud.
 func (r *REPL) SetModelTypes(types map[string]string) {
 	r.modelTypes = types
+}
+
+// SetCloudModelBackends registers the backend for each cloud model name.
+// Used by /model completion to show [backendName] for enabled cloud models.
+func (r *REPL) SetCloudModelBackends(backends map[string]string) {
+	r.cloudModelBackends = backends
 }
 
 // SetProviderStatus registers which cloud backend providers have an API key set.
@@ -296,23 +303,36 @@ func (r *REPL) modelCompletionSuffixes(ranked []string, tokenLen int) [][]rune {
 			continue
 		}
 		suffix := nr[tokenLen:]
-		tag := ""
-		if r.downloadedModels[n] {
-			tag = " [cached]"
-		} else {
-			switch r.modelTypes[n] {
-			case "llamafile":
-				tag = " [llamafile]"
-			case "gguf":
-				tag = " [gguf]"
-			default:
-				tag = " [cloud]"
-			}
-		}
-		suffix = append(suffix, []rune(tag)...)
+		suffix = append(suffix, []rune(modelTag(r, n))...)
 		results = append(results, suffix)
 	}
 	return results
+}
+
+// modelTag returns a human-readable type tag for a model name.
+// [llamafile cached] / [gguf cached] for downloaded local models,
+// [llamafile] / [gguf] for non-downloaded local models,
+// [backendName] for enabled cloud models (e.g. [deepseek]),
+// [cloud] for cloud models without an API key.
+func modelTag(r *REPL, name string) string {
+	if r.downloadedModels[name] {
+		switch r.modelTypes[name] {
+		case "llamafile":
+			return " [llamafile cached]"
+		case "gguf":
+			return " [gguf cached]"
+		default:
+			return " [cached]"
+		}
+	}
+	mt := r.modelTypes[name]
+	if mt == "llamafile" || mt == "gguf" {
+		return " [" + mt + "]"
+	}
+	if backend, ok := r.cloudModelBackends[name]; ok && r.providerStatus[backend] {
+		return " [" + backend + "]"
+	}
+	return " [cloud]"
 }
 
 // allCommandNames returns all slash command names including loaded skills and prompt templates.
@@ -767,6 +787,9 @@ func (r *REPL) cmdModel(args []string) error {
 	r.loop.config.Model = model
 	if backend := BackendForModel(model); backend != "" {
 		r.loop.config.Backend = backend
+		r.loop.config.BaseURL = ""
+	} else if mt := r.modelTypes[model]; mt == "gguf" {
+		r.loop.config.Backend = llm.BackendGGUF
 		r.loop.config.BaseURL = ""
 	}
 	r.startLocalModelServer(model)
