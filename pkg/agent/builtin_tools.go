@@ -49,13 +49,18 @@ import (
 )
 
 const (
-	builtinDDGMaxResults = 5
-	builtinUserAgent     = "kdeps/agent"
-	builtinBashTimeout   = 30 * time.Second
-	defaultCohereRerank  = "rerank-v3.5"
-	defaultVoyageRerank  = "rerank-2"
-	defaultJinaRerank    = "jina-reranker-v2-base-multilingual"
-	defaultRerankTopN    = 5
+	builtinDDGMaxResults    = 5
+	builtinUserAgent        = "kdeps/agent"
+	builtinBashTimeout      = 30 * time.Second
+	defaultCohereRerank     = "rerank-v3.5"
+	defaultVoyageRerank     = "rerank-2"
+	defaultJinaRerank       = "jina-reranker-v2-base-multilingual"
+	defaultRerankTopN       = 5
+	bashOutputMaxLines      = 2000      // pi truncate.ts DEFAULT_MAX_LINES
+	bashOutputMaxBytes      = 50 * 1024 // pi truncate.ts DEFAULT_MAX_BYTES (50 KB)
+	asciiLastControlChar    = 0x1F      // last ASCII control char (non-printable)
+	unicodeInterlinearStart = 0xFFF9    // Unicode interlinear annotation (start)
+	unicodeInterlinearEnd   = 0xFFFB    // Unicode interlinear annotation (end)
 )
 
 // URL variables (not consts) so tests can override them with httptest servers.
@@ -742,7 +747,7 @@ func registerBashExec(_ context.Context, reg *kdepstools.Registry) {
 			if errOut != "" {
 				out += "\nstderr: " + errOut
 			}
-			return out, nil
+			return truncateBashOutput(out), nil
 		},
 	})
 }
@@ -1122,4 +1127,48 @@ func callCohereFormatReranker(
 		out[i] = rerankResult{Index: r.Index, Text: text, Score: r.Score}
 	}
 	return rerankResultsToJSON(out)
+}
+
+// sanitizeBashOutput removes non-printable control characters from bash output,
+// preserving tab, newline, and carriage return. Matches pi's sanitizeBinaryOutput.
+func sanitizeBashOutput(s string) string {
+	out := make([]rune, 0, len(s))
+	for _, r := range s {
+		switch {
+		case r == 0x09 || r == 0x0A || r == 0x0D:
+			out = append(out, r)
+		case r <= asciiLastControlChar:
+			// drop other ASCII control chars
+		case r >= unicodeInterlinearStart && r <= unicodeInterlinearEnd:
+			// drop Unicode interlinear annotation
+		default:
+			out = append(out, r)
+		}
+	}
+	return string(out)
+}
+
+// truncateBashOutput trims bash_exec output to bashOutputMaxLines lines or
+// bashOutputMaxBytes bytes, whichever is hit first, appending a truncation
+// notice. Matches pi's truncate.ts DEFAULT_MAX_LINES / DEFAULT_MAX_BYTES limits.
+func truncateBashOutput(out string) string {
+	out = sanitizeBashOutput(out)
+	if len(out) <= bashOutputMaxBytes {
+		lines := strings.Split(out, "\n")
+		if len(lines) <= bashOutputMaxLines {
+			return out
+		}
+		truncated := strings.Join(lines[:bashOutputMaxLines], "\n")
+		return fmt.Sprintf("%s\n[Output truncated: %d lines total, showing first %d]",
+			truncated, len(lines), bashOutputMaxLines)
+	}
+	// Byte limit: find the last complete line boundary within the byte limit.
+	cutoff := out[:bashOutputMaxBytes]
+	if idx := strings.LastIndexByte(cutoff, '\n'); idx > 0 {
+		cutoff = cutoff[:idx]
+	}
+	totalLines := strings.Count(out, "\n") + 1
+	shownLines := strings.Count(cutoff, "\n") + 1
+	return fmt.Sprintf("%s\n[Output truncated: %d bytes total, showing first %d/%d lines]",
+		cutoff, len(out), shownLines, totalLines)
 }
