@@ -25,6 +25,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	_ "github.com/mattn/go-sqlite3"
@@ -1407,4 +1408,54 @@ func TestWolframAlpha_Execute_WithMockServer(t *testing.T) {
 	result, err := tool.Execute(map[string]interface{}{"query": "2+2"})
 	require.NoError(t, err)
 	assert.Equal(t, "42", result)
+}
+
+func TestTruncateBashOutput_NoTruncation(t *testing.T) {
+	out := "line1\nline2\nline3"
+	got := truncateBashOutput(out)
+	assert.Equal(t, out, got)
+}
+
+func TestTruncateBashOutput_LineLimitExceeded(t *testing.T) {
+	lines := make([]string, bashOutputMaxLines+10)
+	for i := range lines {
+		lines[i] = "x"
+	}
+	input := strings.Join(lines, "\n")
+	got := truncateBashOutput(input)
+	assert.Contains(t, got, "[Output truncated:")
+	assert.Contains(t, got, "showing first 2000")
+	gotLines := strings.Count(got, "\n")
+	assert.LessOrEqual(t, gotLines, bashOutputMaxLines+2)
+}
+
+func TestTruncateBashOutput_ByteLimitExceeded(t *testing.T) {
+	// 60 KB of data on 3 lines
+	big := strings.Repeat("a", 60*1024)
+	input := "header\n" + big + "\nfooter"
+	got := truncateBashOutput(input)
+	assert.Contains(t, got, "[Output truncated:")
+	assert.Contains(t, got, "bytes total")
+	assert.LessOrEqual(t, len(got), bashOutputMaxBytes+200)
+}
+
+func TestSanitizeBashOutput_RemovesControlChars(t *testing.T) {
+	input := "hello\x00world\x01\x02\t\nfoo"
+	got := sanitizeBashOutput(input)
+	assert.Equal(t, "helloworld\t\nfoo", got)
+}
+
+func TestSanitizeBashOutput_KeepsTabNewlineCR(t *testing.T) {
+	input := "\t\n\r"
+	assert.Equal(t, input, sanitizeBashOutput(input))
+}
+
+func TestTruncateBashOutput_ExactLimit(t *testing.T) {
+	lines := make([]string, bashOutputMaxLines)
+	for i := range lines {
+		lines[i] = "y"
+	}
+	input := strings.Join(lines, "\n")
+	got := truncateBashOutput(input)
+	assert.Equal(t, input, got)
 }
