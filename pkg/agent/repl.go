@@ -806,6 +806,14 @@ func (r *REPL) cmdModel(args []string) error {
 		}
 	}
 	model := strings.ReplaceAll(args[0], "*", "")
+	// Compact with the OLD (larger-context) model before switching, so the
+	// summarization call doesn't fail on the new model's smaller context window.
+	newLimit := r.contextLimitForModel(model)
+	oldLimit := r.contextLimitForModel(r.loop.config.Model)
+	if newLimit < oldLimit && r.loop.Session().TurnCount() >= compactMinTurns {
+		r.loop.Session().SetTokenBudget(newLimit, model)
+		r.loop.CompactIfNeeded(r.ctx)
+	}
 	r.loop.config.Model = model
 	if backend := BackendForModel(model); backend != "" {
 		r.loop.config.Backend = backend
@@ -815,11 +823,7 @@ func (r *REPL) cmdModel(args []string) error {
 		r.loop.config.BaseURL = ""
 	}
 	r.startLocalModelServer(model)
-	// Apply context budget and auto-compact if needed. Cloud models get 128K,
-	// local models use the configured or default context size.
-	limit := r.contextLimitForModel(model)
-	r.loop.Session().SetTokenBudget(limit, model)
-	r.loop.CompactIfNeeded(r.ctx)
+	r.loop.Session().SetTokenBudget(newLimit, model)
 	fmt.Fprintln(os.Stdout, styleReplMeta.Render("Model set to "+model))
 	return nil
 }
