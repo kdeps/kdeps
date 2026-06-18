@@ -286,3 +286,30 @@ func TestRawMessagesWithOps_ReturnsCopies(t *testing.T) {
 		t.Fatal("mutation of returned ops slice affected session")
 	}
 }
+
+// TestBuildMessagesJSON_SpecialRolesConvertedToUser verifies that
+// compactionSummary and branchSummary internal roles become "user"
+// in the JSON sent to the LLM (matching pi's convertToLlm behavior).
+func TestBuildMessagesJSON_SpecialRolesConvertedToUser(t *testing.T) {
+	s := NewSession(0)
+	// Inject compaction summary message directly (bypassing Append).
+	s.messages = []sessionMessage{
+		{Role: RoleCompactionSummary, Content: "compaction content"},
+		{Role: RoleAssistant, Content: "ack"},
+		{Role: RoleUser, Content: "user msg"},
+		{Role: RoleBranchSummary, Content: "branch summary content"},
+		{Role: RoleAssistant, Content: "response"},
+	}
+	got := s.BuildMessagesJSON()
+	// compactionSummary must appear as "user"
+	if !strings.Contains(got, `"role":"user"`) {
+		t.Fatalf("expected user role in JSON, got: %s", got)
+	}
+	// neither internal role should appear in the output
+	if strings.Contains(got, RoleCompactionSummary) {
+		t.Fatalf("compactionSummary role leaked into JSON: %s", got)
+	}
+	if strings.Contains(got, RoleBranchSummary) {
+		t.Fatalf("branchSummary role leaked into JSON: %s", got)
+	}
+}

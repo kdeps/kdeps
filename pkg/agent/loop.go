@@ -92,6 +92,9 @@ type Config struct {
 	// rounds, writing only the final agent response to the caller's writer.
 	// When false (default), all rounds are streamed as they arrive.
 	StreamFinalOnly bool
+	// Thinking configures extended reasoning/thinking for models that support it.
+	// nil or ThinkingModeNone disables thinking (default).
+	Thinking *domain.ThinkingConfig
 }
 
 // Loop drives a multi-turn agent conversation using the kdeps engine as the
@@ -143,6 +146,17 @@ func New(eng *executor.Engine, workflow *domain.Workflow, reg *tools.Registry, c
 // Store returns the session store, or nil if none was configured.
 func (l *Loop) Store() *SessionStore {
 	return l.store
+}
+
+// Thinking returns the current thinking config (nil = disabled).
+func (l *Loop) Thinking() *domain.ThinkingConfig {
+	return l.config.Thinking
+}
+
+// SetThinking updates the thinking config for subsequent turns.
+// Pass nil to disable thinking.
+func (l *Loop) SetThinking(cfg *domain.ThinkingConfig) {
+	l.config.Thinking = cfg
 }
 
 // SkillByName returns the skill with the given name, or nil if not found.
@@ -438,13 +452,18 @@ func (l *Loop) buildSystemPreamble() string {
 }
 
 func (l *Loop) buildChatConfig(input, systemPreamble string) *domain.ChatConfig {
+	var tools []domain.Tool
+	if l.registry != nil {
+		tools = l.registry.ToLLMTools()
+	}
 	chatCfg := &domain.ChatConfig{
-		Model:   l.config.Model,
-		Backend: l.config.Backend,
-		BaseURL: l.config.BaseURL,
-		Role:    l.config.Role,
-		Prompt:  input,
-		Tools:   l.registry.ToLLMTools(),
+		Model:    l.config.Model,
+		Backend:  l.config.Backend,
+		BaseURL:  l.config.BaseURL,
+		Role:     l.config.Role,
+		Prompt:   input,
+		Tools:    tools,
+		Thinking: l.config.Thinking,
 	}
 
 	// Inject conversation history as the messages field
