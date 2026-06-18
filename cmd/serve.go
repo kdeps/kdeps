@@ -117,6 +117,9 @@ func runAgentLoopCmd(path string, flags *agentLoopFlags) error {
 	repl.SetCloudModelBackends(buildCloudBackends())
 	repl.SetProviderStatus(agent.BuildProviderStatus())
 
+	// Wire model picker TUI.
+	repl.SetModelPickerFn(buildModelPickerFn(repl))
+
 	// Wire /settings TUI when running interactively.
 	if isTerminal(os.Stdout) && isTerminal(os.Stdin) {
 		repl.SetTUIRunner(buildTUIRunner(registry, flags))
@@ -419,6 +422,40 @@ func buildCloudBackends() map[string]string {
 		m[cm.ID] = cm.Backend
 	}
 	return m
+}
+
+// buildModelPickerFn returns a function that opens the TUI model picker with
+// data from the agent REPL's model catalog.
+func buildModelPickerFn(repl *agent.REPL) func() (string, error) {
+	return func() (string, error) {
+		entries := make([]tui.ModelEntry, 0)
+		names := repl.ModelNames()
+		downloaded := repl.DownloadedModels()
+		types := repl.ModelTypes()
+		backends := repl.CloudModelBackends()
+		status := repl.ProviderStatus()
+		for _, name := range names {
+			backend, enabled := backends[name]
+			if !enabled && types[name] == "" {
+				// Only check provider status for cloud models without type data.
+				for _, cm := range agent.KnownCloudModels {
+					if cm.ID == name && status[cm.Backend] {
+						enabled = true
+						backend = cm.Backend
+						break
+					}
+				}
+			}
+			entries = append(entries, tui.ModelEntry{
+				Name:      name,
+				ModelType: types[name],
+				Backend:   backend,
+				Cached:    downloaded[name],
+				Enabled:   enabled,
+			})
+		}
+		return tui.RunModelPicker(entries)
+	}
 }
 
 // applySettingsToRegistry discovers items from ~/.kdeps and registers those
