@@ -22,6 +22,8 @@ import (
 	"fmt"
 	"log/slog"
 	stdhttp "net/http"
+	"os"
+	"os/exec"
 	"path/filepath"
 
 	"github.com/spf13/afero"
@@ -57,21 +59,47 @@ func downloadModelFile(
 
 	logger.Info("downloading model", "url", rawURL, "dest", dest)
 
-	resp, err := httpGet(rawURL)
-	if err != nil {
-		return "", fmt.Errorf("failed to download model from %s: %w", rawURL, err)
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != stdhttp.StatusOK {
-		return "", fmt.Errorf("download failed (HTTP %d) for %s", resp.StatusCode, rawURL)
-	}
-
-	body := newProgressReader(resp.Body, resp.ContentLength, basename)
-	if writeErr := writeDownloadToFile(dest, body); writeErr != nil {
-		return "", writeErr
+	if err := downloadWithResume(dest, rawURL, basename); err != nil {
+		logger.Debug("fast download failed, falling back to HTTP", "err", err)
+		// Fallback to simple HTTP GET.
+		resp, httpErr := httpGet(rawURL)
+		if httpErr != nil {
+			return "", fmt.Errorf("failed to download model from %s: %w", rawURL, httpErr)
+		}
+		defer resp.Body.Close()
+		if resp.StatusCode != stdhttp.StatusOK {
+			return "", fmt.Errorf("download failed (HTTP %d) for %s", resp.StatusCode, rawURL)
+		}
+		body := newProgressReader(resp.Body, resp.ContentLength, basename)
+		if writeErr := writeDownloadToFile(dest, body); writeErr != nil {
+			return "", writeErr
+		}
 	}
 
 	logger.Info("model downloaded", "path", dest)
 	return dest, nil
+}
+
+// downloadWithResume tries to download url to dest using aria2c with resume
+// support and multi-connection acceleration. Returns nil on success. Returns
+// an error if aria2c fails or is not available (caller should fall back to
+// Go HTTP download).
+func downloadWithResume(dest, url, basename string) error {
+	aria2c, err := exec.LookPath("aria2c")
+	if err != nil {
+		return fmt.Errorf("aria2c not found")
+	}
+	dir, file := filepath.Split(dest)
+	cmd := exec.Command(aria2c,
+		"-c",          // continue/resume partial downloads
+		"-x", "16",    // max 16 connections
+		"-s", "16",    // split into 16 pieces
+		"-d", dir,     // output directory
+		"-o", file,    // output filename
+		"--console-log-level=warn",
+		url,
+	)
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	return cmd.Run()
 }
