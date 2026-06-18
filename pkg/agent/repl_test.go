@@ -1785,3 +1785,41 @@ func TestLoopReload_DoesNotPanicWithNoPaths(_ *testing.T) {
 	loop := makeTestLoop(nil)
 	loop.Reload() // must not panic when SkillPaths and PromptPaths are empty
 }
+
+// --- buildSystemPreamble small-context path ---
+
+func TestBuildSystemPreamble_SmallContext_StripsSkills(t *testing.T) {
+	loop := makeTestLoop(nil)
+	loop.skills = "LARGE SKILL BLOCK"
+	loop.config.CompactTokenBudget = 4096 // < smallContext (8192)
+	loop.config.SystemPrompt = "you are a helpful assistant"
+
+	preamble := loop.buildSystemPreamble()
+
+	// Skills should be stripped when context window is tiny
+	assert.NotContains(t, preamble, "LARGE SKILL BLOCK")
+	// System prompt should be kept
+	assert.Contains(t, preamble, "you are a helpful assistant")
+}
+
+func TestBuildSystemPreamble_NormalContext_IncludesSkills(t *testing.T) {
+	loop := makeTestLoop(nil)
+	loop.skills = "MY SKILL CONTENT"
+	loop.config.CompactTokenBudget = 40000
+
+	preamble := loop.buildSystemPreamble()
+
+	assert.Contains(t, preamble, "MY SKILL CONTENT")
+}
+
+func TestBuildSystemPreamble_SmallContext_NoSystemPrompt(t *testing.T) {
+	loop := makeTestLoop(nil)
+	loop.skills = "SKILL"
+	loop.config.CompactTokenBudget = 4096
+	loop.config.SystemPrompt = ""
+
+	preamble := loop.buildSystemPreamble()
+
+	// Only tool guidance when no system prompt and small context
+	assert.NotContains(t, preamble, "SKILL")
+}

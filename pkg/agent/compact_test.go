@@ -61,6 +61,19 @@ func TestEstimateTokens_CeilsUp(t *testing.T) {
 	}
 }
 
+func TestEstimateTokens_NoModelHint_UsesHeuristic(t *testing.T) {
+	// When modelHint is empty, estimateTokens falls back to the chars/4 heuristic.
+	m := sessionMessage{Role: "user", Content: strings.Repeat("a", 40)}
+	got := estimateTokens(m, "")
+	if got < 1 {
+		t.Fatalf("expected >0 tokens from heuristic, got %d", got)
+	}
+	// Heuristic: ceil(40/4) = 10; result should be in that ballpark
+	if got > 20 {
+		t.Fatalf("heuristic returned suspiciously high token count: %d", got)
+	}
+}
+
 // --- findCutIndex ---
 
 func TestFindCutIndex_TooFewTurns(t *testing.T) {
