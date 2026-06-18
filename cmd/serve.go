@@ -113,6 +113,7 @@ func runAgentLoopCmd(path string, flags *agentLoopFlags) error {
 	// Cloud model IDs are appended after local models so local stay first.
 	repl.SetModelNames(buildAllModelNames())
 	repl.SetDownloadedModels(llm.DownloadedModelAliases())
+	repl.SetModelTypes(buildModelTypes())
 	repl.SetProviderStatus(agent.BuildProviderStatus())
 
 	// Wire /settings TUI when running interactively.
@@ -388,6 +389,25 @@ func buildAllModelNames() []string {
 		}
 	}
 	return out
+}
+
+// buildModelTypes returns a map of model name → type used by /model completion.
+// Types: "" (cloud), "llamafile", "gguf". Used for visual prefix in tab completion:
+//
+//	(no prefix) = cloud / ollama
+//	~ = llamafile (not downloaded)
+//	# = GGUF (not downloaded)
+//	* = downloaded (any type, overrides)
+func buildModelTypes() map[string]string {
+	types := make(map[string]string)
+	for _, a := range llm.ListLlamafileMappings() {
+		types[a.Alias] = "llamafile"
+	}
+	for _, a := range llm.ListGGUFMappings() {
+		types[a.Alias] = "gguf"
+	}
+	// Cloud models have no type entry (empty string = cloud).
+	return types
 }
 
 // applySettingsToRegistry discovers items from ~/.kdeps and registers those

@@ -98,9 +98,9 @@ func (s *ModelService) ServeModel(backend, model string, host string, port int) 
 func (s *ModelService) ServerURL(backend, model string) string {
 	switch backend {
 	case BackendFile:
-		return s.llamafileServerURL(model)
+		return ResolvedLlamafileURL(model)
 	case BackendGGUF:
-		return s.ggufServerURL(model)
+		return ResolvedGGUFURL(model)
 	default:
 		return ""
 	}
