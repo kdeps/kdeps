@@ -72,6 +72,17 @@ func (e *Executor) buildToolParameters(params map[string]domain.ToolParam) map[s
 // after the explicit tools. Explicit tools take precedence: if a component name
 // matches an explicit tool name, the component entry is skipped (no duplicate).
 // If allowlistNames is empty, no component tools are added (opt-in, default-disabled).
+// hasDirectlyExecutableTools returns true if any tool has an Execute function or MCP config,
+// meaning the tool dispatch loop can run without a resource-based toolExecutor.
+func hasDirectlyExecutableTools(tools []domain.Tool) bool {
+	for i := range tools {
+		if tools[i].Execute != nil || tools[i].MCP != nil {
+			return true
+		}
+	}
+	return false
+}
+
 func mergeComponentTools(explicit []domain.Tool, allowlistNames []string, wf *domain.Workflow) []domain.Tool {
 	kdeps_debug.Log("enter: mergeComponentTools")
 	if wf == nil || len(wf.Components) == 0 || len(allowlistNames) == 0 {

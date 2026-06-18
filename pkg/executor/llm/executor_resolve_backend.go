@@ -56,7 +56,7 @@ func (e *Executor) resolveBackend(config *domain.ChatConfig, useEnvDefaults bool
 		backendName = os.Getenv("KDEPS_DEFAULT_BACKEND")
 	}
 	if backendName == "" {
-		backendName = backendFile
+		backendName = BackendFile
 	}
 	backend := e.backendRegistry.Get(backendName)
 	if backend == nil {

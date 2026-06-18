@@ -79,7 +79,7 @@ func (m *GGUFManager) Serve(path string, port int) (int, error) {
 		startServer: startGGUFServerFunc,
 		timeout:     ggufStartTimeoutFunc,
 		label:       "llama-server",
-		defaultPort: backendGGUFPort,
+		defaultPort: BackendGGUFPort,
 	}, path, port)
 }
 

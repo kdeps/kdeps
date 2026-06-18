@@ -34,6 +34,8 @@ import (
 
 	"github.com/charmbracelet/lipgloss"
 	"github.com/chzyer/readline"
+
+	llm "github.com/kdeps/kdeps/v2/pkg/executor/llm"
 )
 
 const (
@@ -735,6 +737,14 @@ func (r *REPL) cmdModel(args []string) error {
 		if backend := BackendForModel(model); backend != "" {
 			r.loop.config.Backend = backend
 			r.loop.config.BaseURL = ""
+		}
+		// Auto-start local model server if the backend requires one.
+		if r.loop.config.ModelService != nil {
+			backend := r.loop.config.Backend
+			if backend == llm.BackendFile || backend == llm.BackendGGUF {
+				_ = r.loop.config.ModelService.DownloadModel(backend, model)
+				_ = r.loop.config.ModelService.ServeModel(backend, model, "", 0)
+			}
 		}
 		fmt.Fprintln(os.Stdout, styleReplMeta.Render("Model set to "+model))
 		return nil

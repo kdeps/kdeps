@@ -81,7 +81,7 @@ var langchainBaseURLs = map[string]string{
 func buildLangchainLLM(ctx context.Context, cfg *domain.ChatConfig) (llms.Model, error) {
 	backend := cfg.Backend
 	if backend == "" {
-		backend = backendFile
+		backend = BackendFile
 	}
 
 	var (
@@ -172,7 +172,7 @@ func buildOpenAICompatLLM(cfg *domain.ChatConfig, backend string) (llms.Model, e
 
 	apiKey := os.Getenv(providerAPIKeyEnvVar(backend))
 	// Local servers don't require auth.
-	if apiKey == "" && (backend == backendFile || backend == backendGGUF ||
+	if apiKey == "" && (backend == BackendFile || backend == BackendGGUF ||
 		backend == backendOllama || backend == "local") {
 		apiKey = "ollama"
 	}
@@ -738,7 +738,7 @@ func (e *Executor) StreamChat(
 	}
 	backend := cfg.Backend
 	if backend == "" {
-		backend = backendFile
+		backend = BackendFile
 	}
 
 	model, err := buildLangchainLLM(ctx, cfg)
@@ -819,7 +819,7 @@ func (e *Executor) streamChatOnce(
 ) (string, []domain.StreamedToolCall, error) {
 	backend := cfg.Backend
 	if backend == "" {
-		backend = backendFile
+		backend = BackendFile
 	}
 
 	model, err := buildLangchainLLM(ctx, cfg)
