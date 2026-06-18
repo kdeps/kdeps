@@ -37,13 +37,12 @@ func newLlamafileCmd() *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:   "llamafile",
-		Short: "Llamafile model registry management",
-		Long: `Manage the local llamafile model registry.
+		Short: "Local model registry management (llamafile + GGUF)",
+		Long: `Manage the local model registry for llamafile and GGUF models.
 
-Llamafiles are self-contained executable LLM binaries that serve an
-OpenAI-compatible endpoint with no dependencies. This command lists
-available models in the embedded version registry and updates it
-from the HuggingFace harvester.`,
+Llamafiles are self-contained executable LLM binaries; GGUF files are
+quantized model weights run via llama.cpp. Both serve an OpenAI-compatible
+endpoint with no cloud dependencies. List, download, and update models.`,
 	}
 
 	cmd.AddCommand(newLlamafileListCmd())
@@ -57,12 +56,12 @@ func newLlamafileListCmd() *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:   "list",
-		Short: "List available llamafile model mappings",
-		Long: `List known llamafile models and their aliases from the registry.
+		Short: "List available models (llamafile + GGUF)",
+		Long: `List known llamafile and GGUF models from the registry.
 
 Each row shows the alias, parameters, quantization, download URL,
 and approximate file size. Use the alias in workflow chat resource
-model: fields.`,
+model: fields or /model in the agent loop.`,
 		RunE: func(_ *cobra.Command, _ []string) error {
 			return runLlamafileList()
 		},
@@ -76,15 +75,16 @@ func newLlamafileUpdateCmd() *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:   "update",
-		Short: "Update llamafile registry from HuggingFace",
-		Long: `Update the local ~/.kdeps/llamafile_versions.yaml from the latest harvest.
+		Short: "Update model registry from HuggingFace (llamafile + GGUF)",
+		Long: `Update the local model registries from the latest HuggingFace harvest.
 
 Two sources are tried in order:
   1. Python harvester script (tools/llamafile-harvester/harvest.py) if available.
      Requires pip install huggingface_hub.
-  2. GitHub-hosted YAML from the kdeps repository (always available).
+  2. GitHub-hosted YAMLs from the kdeps repository (always available).
 
-Local-only entries (user-added aliases) survive the merge.`,
+Local-only entries (user-added aliases) survive the merge.
+Updates both llamafile_versions.yaml and gguf_versions.yaml.`,
 		RunE: func(_ *cobra.Command, _ []string) error {
 			return runLlamafileUpdate()
 		},
@@ -102,31 +102,37 @@ const (
 func runLlamafileList() error {
 	kdeps_debug.Log("enter: runLlamafileList")
 
-	mappings := llm.ListLlamafileMappings()
+	llamafiles := llm.ListLlamafileMappings()
+	ggufs := llm.ListGGUFMappings()
 
 	w := tabwriter.NewWriter(os.Stdout, 0, 0, llamafileListPadding, ' ', 0)
-	fmt.Fprintln(w, "ALIAS\tPARAMS\tQUANT\tSIZE\tDOWNLOADS\tURL")
-	fmt.Fprintln(w, "-----\t------\t-----\t----\t---------\t---")
-	for _, m := range mappings {
-		size := "?"
-		if m.SizeBytes > 0 {
-			size = fmt.Sprintf("%.1f GB", float64(m.SizeBytes)/bytesPerGB)
-		}
-		downloads := ""
-		if m.Downloads > 0 {
-			downloads = fmt.Sprintf("%dk", m.Downloads/downloadsPerThousand)
-		}
-		quant := m.Quantization
-		if quant == "" {
-			quant = extractQuantFromFilename(m.Filename)
-		}
-		params := m.Params
-		if params == "" {
-			params = m.PipelineTag
-		}
-		fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\t%s\n", m.Alias, params, quant, size, downloads, m.URL)
+	fmt.Fprintln(w, "TYPE\tALIAS\tPARAMS\tQUANT\tSIZE\tDOWNLOADS\tURL")
+	fmt.Fprintln(w, "----\t-----\t------\t-----\t----\t---------\t---")
+	for _, m := range llamafiles {
+		printModelRow(w, "LF", m.Alias, m.Params, m.Quantization, m.PipelineTag, m.Filename, m.SizeBytes, m.Downloads, m.URL)
+	}
+	for _, m := range ggufs {
+		printModelRow(w, "GGUF", m.Alias, m.Params, m.Quantization, m.PipelineTag, m.Filename, m.SizeBytes, m.Downloads, m.URL)
 	}
 	return w.Flush()
+}
+
+func printModelRow(w *tabwriter.Writer, kind, alias, params, quant, pipelineTag, filename string, sizeBytes int64, downloads int, url string) {
+	size := "?"
+	if sizeBytes > 0 {
+		size = fmt.Sprintf("%.1f GB", float64(sizeBytes)/bytesPerGB)
+	}
+	dl := ""
+	if downloads > 0 {
+		dl = fmt.Sprintf("%dk", downloads/downloadsPerThousand)
+	}
+	if quant == "" {
+		quant = extractQuantFromFilename(filename)
+	}
+	if params == "" {
+		params = pipelineTag
+	}
+	fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\t%s\t%s\n", kind, alias, params, quant, size, dl, url)
 }
 
 func runLlamafileUpdate() error {
@@ -134,8 +140,9 @@ func runLlamafileUpdate() error {
 
 	// First try: invoke Python harvester script.
 	if llm.RunHarvesterScript() {
-		entries := llm.ListLlamafileMappings()
-		fmt.Fprintf(os.Stdout, "Harvested %d llamafile entries from HuggingFace.\n", len(entries))
+		llamafiles := llm.ListLlamafileMappings()
+		ggufs := llm.ListGGUFMappings()
+		fmt.Fprintf(os.Stdout, "Harvested %d llamafile + %d GGUF entries from HuggingFace.\n", len(llamafiles), len(ggufs))
 		return nil
 	}
 
