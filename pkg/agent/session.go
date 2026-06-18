@@ -94,15 +94,6 @@ func (s *Session) RecordFileOps(read, modified []string) {
 	s.fileOps[turnIdx] = fileOpEntry{Read: read, Modified: modified}
 }
 
-// fileOpsForTurn returns the file ops for the given turn index.
-// Must be called with s.mu held (at least for reading). Returns nil if none recorded.
-func (s *Session) fileOpsForTurn(turnIdx int) *fileOpEntry {
-	if turnIdx < 0 || turnIdx >= len(s.fileOps) {
-		return nil
-	}
-	return &s.fileOps[turnIdx]
-}
-
 // nextID returns a monotonically increasing entry ID (nanosecond precision).
 func (s *Session) nextID() int64 {
 	s.lastEntryID++
@@ -283,6 +274,47 @@ func (s *Session) rawMessages() []sessionMessage {
 	out := make([]sessionMessage, len(s.messages))
 	copy(out, s.messages)
 	return out
+}
+
+func (s *Session) rawMessagesWithOps() ([]sessionMessage, []fileOpEntry) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	msgs := make([]sessionMessage, len(s.messages))
+	copy(msgs, s.messages)
+	ops := make([]fileOpEntry, len(s.fileOps))
+	copy(ops, s.fileOps)
+	return msgs, ops
+}
+
+// Checkpoint returns the ID of the last message in the session (the current
+// tip). Returns 0 if the session is empty.
+func (s *Session) Checkpoint() int64 {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	if len(s.messages) == 0 {
+		return 0
+	}
+	return s.messages[len(s.messages)-1].ID
+}
+
+// RestoreTo trims the session to the complete turn that contains the message
+// with the given entry ID. Returns false if the ID is not found.
+func (s *Session) RestoreTo(entryID int64) bool {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	for i, m := range s.messages {
+		if m.ID == entryID {
+			// round up to the next complete turn boundary
+			end := min((i/sessionMsgsPer+1)*sessionMsgsPer, len(s.messages))
+			s.messages = s.messages[:end]
+			newTurns := len(s.messages) / sessionMsgsPer
+			if len(s.fileOps) > newTurns {
+				s.fileOps = s.fileOps[:newTurns]
+			}
+			return true
+		}
+	}
+	return false
 }
 
 func jsonString(s string) string {
