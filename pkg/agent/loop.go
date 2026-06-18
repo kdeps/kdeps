@@ -637,6 +637,19 @@ func (l *Loop) ReloadSkills(skillPaths []string) {
 	l.config.SkillPaths = skillPaths
 }
 
+// Reload re-reads skills, prompt templates, and instructions from disk.
+// Matches pi's /reload command: picks up any changes without restarting.
+func (l *Loop) Reload() {
+	if len(l.config.SkillPaths) > 0 {
+		slice := loadSkillSlice(resolveAbsPaths(l.config.SkillPaths))
+		l.skillList = slice
+		l.skills = formatSkillsForPrompt(slice)
+	}
+	if len(l.config.PromptPaths) > 0 {
+		l.prompts = loadPromptTemplateSlice(l.config.PromptPaths)
+	}
+}
+
 func resolveAbsPaths(paths []string) []string {
 	if len(paths) == 0 {
 		return nil

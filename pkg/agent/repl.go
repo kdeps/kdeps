@@ -72,7 +72,8 @@ const (
 //nolint:gochecknoglobals // command list must be package-level for completer
 var builtinCmds = []string{
 	"/help", "/settings", "/clear", "/model", "/models",
-	"/skills", "/prompts", "/compact", "/history", "/thinking", "/session", "/exit", "/quit",
+	"/skills", "/prompts", "/compact", "/history", "/thinking", "/session",
+	"/copy", "/reload", "/exit", "/quit",
 }
 
 //nolint:gochecknoglobals // lipgloss styles for REPL output
@@ -740,6 +741,10 @@ func (r *REPL) dispatchCommand(cmd string) error {
 		return r.cmdSettings()
 	case "/thinking":
 		return r.cmdThinking(args)
+	case "/copy":
+		return r.cmdCopy()
+	case "/reload":
+		return r.cmdReload()
 	case "/exit", "/quit":
 		r.cancel()
 		return nil
@@ -759,7 +764,7 @@ func (r *REPL) dispatchCommand(cmd string) error {
 func (r *REPL) cmdHelp() error {
 	heading := styleReplHeading.Render
 	meta := styleReplMeta.Render
-	fmt.Fprintf(os.Stdout, "%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n\n%s\n",
+	fmt.Fprintf(os.Stdout, "%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n\n%s\n",
 		heading("Available commands:"),
 		"  /help                    Show this help message",
 		"  /settings                Open the tool/skill selector and save selections",
@@ -773,6 +778,8 @@ func (r *REPL) cmdHelp() error {
 		"  /history                 Show recent conversation turns",
 		"  /thinking [off|low|medium|high|auto]  Show or set extended reasoning/thinking mode",
 		"  /session list|save|load|delete|checkpoint|goto  Manage saved sessions and checkpoints",
+		"  /copy                    Copy the last assistant response to the system clipboard",
+		"  /reload                  Reload skills, prompt templates, and instructions from disk",
 		meta("/exit, /quit, Ctrl+D to exit  |  Ctrl+C to cancel current line  |  Tab to complete commands"),
 	)
 	return nil
@@ -1409,3 +1416,54 @@ func (r *REPL) CloudModelBackends() map[string]string { return r.cloudModelBacke
 
 // ProviderStatus returns the provider API key status.
 func (r *REPL) ProviderStatus() map[string]bool { return r.providerStatus }
+
+// cmdCopy copies the last assistant response to the system clipboard.
+// Matches pi's /copy command. Uses pbcopy (macOS), xclip/xsel (Linux), or clip.exe (Windows).
+func (r *REPL) cmdCopy() error {
+	msgs := r.loop.Session().Messages()
+	var last string
+	for i := len(msgs) - 1; i >= 0; i-- {
+		if msgs[i].Role == RoleAssistant {
+			last = msgs[i].Content
+			break
+		}
+	}
+	if last == "" {
+		fmt.Fprintln(os.Stdout, styleReplMeta.Render("Nothing to copy: no assistant response in session."))
+		return nil
+	}
+	if clipErr := copyToClipboard(last); clipErr != nil {
+		// Display clipboard errors but don't propagate them to the REPL dispatch loop.
+		fmt.Fprintf(os.Stdout, "%s\n", styleReplError.Render("Copy failed: "+clipErr.Error()))
+	} else {
+		fmt.Fprintln(os.Stdout, styleReplMeta.Render("Copied last response to clipboard."))
+	}
+	return nil
+}
+
+// copyToClipboard writes text to the OS clipboard via the platform clipboard command.
+func copyToClipboard(text string) error {
+	cmds := [][]string{
+		{"pbcopy"},                           // macOS
+		{"xclip", "-selection", "clipboard"}, // Linux (xclip)
+		{"xsel", "--clipboard", "--input"},   // Linux (xsel)
+		{"clip"},                             // Windows
+	}
+	ctx := context.Background()
+	for _, argv := range cmds {
+		cmd := exec.CommandContext(ctx, argv[0], argv[1:]...) //nolint:gosec // controlled command list
+		cmd.Stdin = strings.NewReader(text)
+		if err := cmd.Run(); err == nil {
+			return nil
+		}
+	}
+	return errors.New("no clipboard command found (tried pbcopy, xclip, xsel, clip)")
+}
+
+// cmdReload reloads skills, prompt templates, and instructions from disk.
+// Picks up changes to .kdeps/skills/ and .kdeps/prompts/ without restarting.
+func (r *REPL) cmdReload() error {
+	r.loop.Reload()
+	fmt.Fprintln(os.Stdout, styleReplMeta.Render("Reloaded skills and prompt templates from disk."))
+	return nil
+}

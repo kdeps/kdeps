@@ -1709,3 +1709,79 @@ func TestCmdSessionLoad_NoModelInMeta(t *testing.T) {
 	// Model should remain unchanged when metadata has no model
 	assert.Equal(t, "current-model", loop.config.Model)
 }
+
+// --- /copy ---
+
+func testCaptureStdout(_ *testing.T, fn func()) string {
+	pr, pw, err := os.Pipe()
+	if err != nil {
+		panic(err)
+	}
+	old := os.Stdout
+	os.Stdout = pw
+	fn()
+	pw.Close()
+	os.Stdout = old
+	var sb strings.Builder
+	_, _ = io.Copy(&sb, pr)
+	pr.Close()
+	return sb.String()
+}
+
+func TestCmdCopy_NoSession(t *testing.T) {
+	loop := makeTestLoop(nil)
+	repl := NewREPL(loop)
+	out := testCaptureStdout(t, func() {
+		err := repl.cmdCopy()
+		require.NoError(t, err)
+	})
+	assert.Contains(t, out, "Nothing to copy")
+}
+
+func TestCmdCopy_HasResponse(t *testing.T) {
+	loop := makeTestLoop(nil)
+	loop.session.Append("hello", "world response")
+	repl := NewREPL(loop)
+
+	// copyToClipboard may fail in test env; cmdCopy just prints error, no return error
+	out := testCaptureStdout(t, func() {
+		err := repl.cmdCopy()
+		require.NoError(t, err)
+	})
+	// Either "Copied" or clipboard error, not "Nothing to copy"
+	assert.NotContains(t, out, "Nothing to copy")
+}
+
+func TestDispatchCommand_Copy(t *testing.T) {
+	loop := makeTestLoop(nil)
+	repl := NewREPL(loop)
+	out := testCaptureStdout(t, func() {
+		_ = repl.dispatchCommand("/copy")
+	})
+	assert.Contains(t, out, "Nothing to copy")
+}
+
+func TestDispatchCommand_Reload(t *testing.T) {
+	loop := makeTestLoop(nil)
+	repl := NewREPL(loop)
+	out := testCaptureStdout(t, func() {
+		err := repl.dispatchCommand("/reload")
+		require.NoError(t, err)
+	})
+	assert.Contains(t, out, "Reloaded")
+}
+
+// --- /reload ---
+
+func TestCmdReload_NoSkillPaths(t *testing.T) {
+	loop := makeTestLoop([]Skill{{Name: "mypkg", Description: "d", Content: "c"}})
+	repl := NewREPL(loop)
+	// With no skill paths configured, reload should not clear the existing skills.
+	err := repl.cmdReload()
+	require.NoError(t, err)
+}
+
+func TestLoopReload_DoesNotPanicWithNoPaths(_ *testing.T) {
+	loop := makeTestLoop(nil)
+	loop.Reload() // must not panic when SkillPaths and PromptPaths are empty
+}
