@@ -1,5 +1,6 @@
 # kdeps
 
+[![NVIDIA Inception](https://img.shields.io/badge/NVIDIA-Inception-76B900?logo=nvidia&logoColor=white)](https://www.nvidia.com/en-us/startups/)
 [![Build and Test](https://github.com/kdeps/kdeps/actions/workflows/build-test.yml/badge.svg?branch=main)](https://github.com/kdeps/kdeps/actions/workflows/build-test.yml)
 [![Coverage](https://codecov.io/gh/kdeps/kdeps/branch/main/graph/badge.svg)](https://codecov.io/gh/kdeps/kdeps)
 [![Release](https://img.shields.io/github/v/tag/kdeps/kdeps?sort=semver&label=release)](https://github.com/kdeps/kdeps/releases)
@@ -12,7 +13,7 @@
 [![GitHub stars](https://img.shields.io/github/stars/kdeps/kdeps)](https://github.com/kdeps/kdeps/stargazers)
 [![NVIDIA Inception](https://img.shields.io/badge/NVIDIA-Inception-76B900?logo=nvidia&logoColor=white)](https://www.nvidia.com/en-us/startups/)
 
-Build and deploy AI agents in YAML. Two modes: **workflow** (DAG pipelines), **agent loop** (interactive LLM loop).
+Build and deploy AI agents in YAML. Two modes: **workflow** (DAG pipelines), **agent loop** (interactive LLM loop). Proud member of the [NVIDIA Inception](https://www.nvidia.com/en-us/startups/) program for AI startups.
 
 ## Book
 

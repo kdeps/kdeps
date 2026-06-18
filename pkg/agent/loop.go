@@ -555,6 +555,19 @@ func (l *Loop) CompactWithLLM(_ context.Context) (string, error) {
 	return summary, nil
 }
 
+// CompactIfNeeded compacts the session if it exceeds the configured
+// AutoCompactThreshold. No-op if compaction is disabled or not needed.
+func (l *Loop) CompactIfNeeded(ctx context.Context) {
+	msgs := l.session.rawMessages()
+	if shouldAutoCompact(msgs, l.config.AutoCompactThreshold, l.config.Model) {
+		if summary, err := l.CompactWithLLM(ctx); err == nil && summary != "" {
+			if l.onAutoCompact != nil {
+				l.onAutoCompact(summary)
+			}
+		}
+	}
+}
+
 // Skills returns the loaded skills block (empty if none).
 func (l *Loop) Skills() string {
 	return l.skills

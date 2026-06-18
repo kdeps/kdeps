@@ -796,8 +796,34 @@ func (r *REPL) cmdModel(args []string) error {
 		r.loop.config.BaseURL = ""
 	}
 	r.startLocalModelServer(model)
+	// Auto-compact session when switching to a model with a small context window.
+	// Local models default to 4K context; compact to ~75% to leave room for prompt.
+	if r.modelTypes[model] != "" {
+		limit := contextLimitForModel(model)
+		r.loop.Session().SetTokenBudget(limit, model)
+		r.loop.CompactIfNeeded(r.ctx)
+	}
 	fmt.Fprintln(os.Stdout, styleReplMeta.Render("Model set to "+model))
 	return nil
+}
+
+// contextLimitForModel returns the context window size for a model.
+// Returns 131072 for cloud models (generous default), the configured gguf
+// context size for gguf models, and 4096 as a safe fallback for local models.
+func contextLimitForModel(model string) int {
+	// Cloud models have large context windows; use 128K as safe default.
+	if BackendForModel(model) != "" {
+		return 131072
+	}
+	ctx := os.Getenv("KDEPS_GGUF_CTX_SIZE")
+	if ctx == "" {
+		// Probe the default gguf context size constant.
+		return 4096
+	}
+	if n, err := strconv.Atoi(ctx); err == nil && n > 0 {
+		return n
+	}
+	return 4096
 }
 
 // startLocalModelServer downloads, starts, and registers the URL for a local
