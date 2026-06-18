@@ -189,14 +189,20 @@ func (s *Session) BuildMessagesJSON() string {
 		return ""
 	}
 
-	// Build array of {role, content} objects
+	// Build array of {role, content} objects.
+	// Special internal roles (compactionSummary, branchSummary) are sent as
+	// "user" so the LLM receives a valid role — matching pi's convertToLlm().
 	var sb strings.Builder
 	sb.WriteByte('[')
 	for i, m := range s.messages {
 		if i > 0 {
 			sb.WriteByte(',')
 		}
-		fmt.Fprintf(&sb, `{"role":"%s","content":%s}`, m.Role, jsonString(m.Content))
+		role := m.Role
+		if role == RoleCompactionSummary || role == RoleBranchSummary {
+			role = RoleUser
+		}
+		fmt.Fprintf(&sb, `{"role":"%s","content":%s}`, role, jsonString(m.Content))
 	}
 	sb.WriteByte(']')
 	return sb.String()

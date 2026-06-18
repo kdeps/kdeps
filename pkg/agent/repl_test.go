@@ -14,6 +14,8 @@ import (
 	"github.com/chzyer/readline"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/kdeps/kdeps/v2/pkg/domain"
 )
 
 // makeTestLoop returns a minimal Loop with a fixed skill list for REPL tests.
@@ -1530,4 +1532,180 @@ func TestCmdSession_DeleteMissingArg(t *testing.T) {
 
 	err := repl.cmdSession([]string{"delete"})
 	assert.NoError(t, err)
+}
+
+// --- cmdThinking ---
+
+func TestCmdThinking_ShowDefault(t *testing.T) {
+	loop := makeTestLoop(nil)
+	repl := NewREPL(loop)
+	defer repl.cancel()
+
+	r, w, _ := os.Pipe()
+	origOut := os.Stdout
+	os.Stdout = w
+	err := repl.cmdThinking(nil)
+	w.Close()
+	os.Stdout = origOut
+
+	assert.NoError(t, err)
+	buf := make([]byte, 256)
+	n, _ := r.Read(buf)
+	assert.Contains(t, string(buf[:n]), "off")
+}
+
+func TestCmdThinking_SetHigh(t *testing.T) {
+	loop := makeTestLoop(nil)
+	repl := NewREPL(loop)
+	defer repl.cancel()
+
+	origOut := os.Stdout
+	_, w2, _ := os.Pipe()
+	os.Stdout = w2
+	defer func() { w2.Close(); os.Stdout = origOut }()
+
+	err := repl.cmdThinking([]string{"high"})
+	assert.NoError(t, err)
+
+	cfg := loop.Thinking()
+	assert.NotNil(t, cfg)
+	assert.Equal(t, domain.ThinkingModeHigh, cfg.Mode)
+}
+
+func TestCmdThinking_SetOff(t *testing.T) {
+	loop := makeTestLoop(nil)
+	loop.SetThinking(&domain.ThinkingConfig{Mode: domain.ThinkingModeHigh})
+	repl := NewREPL(loop)
+	defer repl.cancel()
+
+	origOut := os.Stdout
+	_, w2, _ := os.Pipe()
+	os.Stdout = w2
+	defer func() { w2.Close(); os.Stdout = origOut }()
+
+	err := repl.cmdThinking([]string{"off"})
+	assert.NoError(t, err)
+	assert.Nil(t, loop.Thinking())
+}
+
+func TestCmdThinking_InvalidMode(t *testing.T) {
+	loop := makeTestLoop(nil)
+	repl := NewREPL(loop)
+	defer repl.cancel()
+
+	origOut := os.Stdout
+	_, w2, _ := os.Pipe()
+	os.Stdout = w2
+	defer func() { w2.Close(); os.Stdout = origOut }()
+
+	err := repl.cmdThinking([]string{"bogus"})
+	assert.NoError(t, err)
+	assert.Nil(t, loop.Thinking()) // no change
+}
+
+func TestCmdThinking_AllModes(t *testing.T) {
+	modes := []domain.ThinkingMode{
+		domain.ThinkingModeLow,
+		domain.ThinkingModeMedium,
+		domain.ThinkingModeHigh,
+		domain.ThinkingModeAuto,
+	}
+	for _, mode := range modes {
+		loop := makeTestLoop(nil)
+		repl := NewREPL(loop)
+
+		origOut := os.Stdout
+		_, w2, _ := os.Pipe()
+		os.Stdout = w2
+
+		err := repl.cmdThinking([]string{string(mode)})
+		w2.Close()
+		os.Stdout = origOut
+
+		assert.NoError(t, err)
+		cfg := loop.Thinking()
+		assert.NotNil(t, cfg, "mode=%s", mode)
+		assert.Equal(t, mode, cfg.Mode, "mode=%s", mode)
+		repl.cancel()
+	}
+}
+
+func TestDispatchCommand_Thinking(t *testing.T) {
+	loop := makeTestLoop(nil)
+	repl := NewREPL(loop)
+	defer repl.cancel()
+
+	origOut := os.Stdout
+	_, w2, _ := os.Pipe()
+	os.Stdout = w2
+	defer func() { w2.Close(); os.Stdout = origOut }()
+
+	err := repl.dispatchCommand("/thinking medium")
+	assert.NoError(t, err)
+	cfg := loop.Thinking()
+	assert.NotNil(t, cfg)
+	assert.Equal(t, domain.ThinkingModeMedium, cfg.Mode)
+}
+
+func TestBuildChatConfig_ThinkingPropagated(t *testing.T) {
+	loop := makeTestLoop(nil)
+	thinking := &domain.ThinkingConfig{Mode: domain.ThinkingModeHigh, BudgetTokens: 1024}
+	loop.SetThinking(thinking)
+
+	cfg := loop.buildChatConfig("hello", "")
+	assert.Equal(t, thinking, cfg.Thinking)
+}
+
+func TestBuildChatConfig_NoThinkingByDefault(t *testing.T) {
+	loop := makeTestLoop(nil)
+	cfg := loop.buildChatConfig("hello", "")
+	assert.Nil(t, cfg.Thinking)
+}
+
+func TestCmdSessionLoad_RestoresModel(t *testing.T) {
+	loop := makeTestLoop(nil)
+	loop.config.Model = "initial-model"
+	store := NewSessionStore(t.TempDir())
+	repl := NewREPL(loop)
+	defer repl.cancel()
+
+	origOut := os.Stdout
+	_, w, _ := os.Pipe()
+	os.Stdout = w
+	defer func() { w.Close(); os.Stdout = origOut }()
+
+	id, err := store.SaveAs(loop.session, "test-session", "saved-model")
+	require.NoError(t, err)
+
+	// Switch model after saving
+	loop.config.Model = "different-model"
+
+	err = repl.cmdSessionLoad(store, id)
+	require.NoError(t, err)
+
+	// Model should be restored to what was saved
+	assert.Equal(t, "saved-model", loop.config.Model)
+}
+
+func TestCmdSessionLoad_NoModelInMeta(t *testing.T) {
+	loop := makeTestLoop(nil)
+	loop.config.Model = "current-model"
+	store := NewSessionStore(t.TempDir())
+	repl := NewREPL(loop)
+	defer repl.cancel()
+
+	origOut := os.Stdout
+	_, w, _ := os.Pipe()
+	os.Stdout = w
+	defer func() { w.Close(); os.Stdout = origOut }()
+
+	// Save without a model tag
+	id, err := store.SaveAs(loop.session, "test", "")
+	require.NoError(t, err)
+
+	err = repl.cmdSessionLoad(store, id)
+	require.NoError(t, err)
+
+	// Model should remain unchanged when metadata has no model
+	assert.Equal(t, "current-model", loop.config.Model)
 }

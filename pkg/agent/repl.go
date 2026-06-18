@@ -35,6 +35,7 @@ import (
 	"github.com/charmbracelet/lipgloss"
 	"github.com/chzyer/readline"
 
+	"github.com/kdeps/kdeps/v2/pkg/domain"
 	llm "github.com/kdeps/kdeps/v2/pkg/executor/llm"
 )
 
@@ -71,7 +72,7 @@ const (
 //nolint:gochecknoglobals // command list must be package-level for completer
 var builtinCmds = []string{
 	"/help", "/settings", "/clear", "/model", "/models",
-	"/skills", "/prompts", "/compact", "/history", "/session", "/exit", "/quit",
+	"/skills", "/prompts", "/compact", "/history", "/thinking", "/session", "/exit", "/quit",
 }
 
 //nolint:gochecknoglobals // lipgloss styles for REPL output
@@ -737,6 +738,8 @@ func (r *REPL) dispatchCommand(cmd string) error {
 		return r.cmdSession(args)
 	case "/settings":
 		return r.cmdSettings()
+	case "/thinking":
+		return r.cmdThinking(args)
 	case "/exit", "/quit":
 		r.cancel()
 		return nil
@@ -756,7 +759,7 @@ func (r *REPL) dispatchCommand(cmd string) error {
 func (r *REPL) cmdHelp() error {
 	heading := styleReplHeading.Render
 	meta := styleReplMeta.Render
-	fmt.Fprintf(os.Stdout, "%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n\n%s\n",
+	fmt.Fprintf(os.Stdout, "%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n\n%s\n",
 		heading("Available commands:"),
 		"  /help                    Show this help message",
 		"  /settings                Open the tool/skill selector and save selections",
@@ -768,6 +771,7 @@ func (r *REPL) cmdHelp() error {
 		"  /<skill-name> [..]      Invoke a loaded skill or prompt template by name",
 		"  /compact                 Compact conversation history (keep recent turns)",
 		"  /history                 Show recent conversation turns",
+		"  /thinking [off|low|medium|high|auto]  Show or set extended reasoning/thinking mode",
 		"  /session list|save|load|delete|checkpoint|goto  Manage saved sessions and checkpoints",
 		meta("/exit, /quit, Ctrl+D to exit  |  Ctrl+C to cancel current line  |  Tab to complete commands"),
 	)
@@ -1200,6 +1204,35 @@ func (r *REPL) cmdSettings() error {
 	return nil
 }
 
+// cmdThinking handles /thinking [off|low|medium|high|auto].
+// Without args it shows the current thinking mode.
+func (r *REPL) cmdThinking(args []string) error {
+	if len(args) == 0 {
+		cur := r.loop.Thinking()
+		if cur == nil || cur.Mode == domain.ThinkingModeNone {
+			fmt.Fprintln(os.Stdout, styleReplMeta.Render("Thinking: off"))
+		} else {
+			fmt.Fprintf(os.Stdout, "%s\n", styleReplMeta.Render(
+				fmt.Sprintf("Thinking: %s (budget %d tokens, return=%v)",
+					cur.Mode, cur.BudgetTokens, cur.ReturnOutput),
+			))
+		}
+		return nil
+	}
+	mode := domain.ThinkingMode(strings.ToLower(args[0]))
+	switch mode {
+	case domain.ThinkingModeNone, "off":
+		r.loop.SetThinking(nil)
+		fmt.Fprintln(os.Stdout, styleReplMeta.Render("Thinking disabled."))
+	case domain.ThinkingModeLow, domain.ThinkingModeMedium, domain.ThinkingModeHigh, domain.ThinkingModeAuto:
+		r.loop.SetThinking(&domain.ThinkingConfig{Mode: mode})
+		fmt.Fprintf(os.Stdout, "%s\n", styleReplMeta.Render(fmt.Sprintf("Thinking set to %s.", mode)))
+	default:
+		fmt.Fprintln(os.Stdout, styleReplMeta.Render("Usage: /thinking [off|low|medium|high|auto]"))
+	}
+	return nil
+}
+
 // cmdSession handles /session list|save [name]|load <id>|delete <id>.
 func (r *REPL) cmdSession(args []string) error {
 	store := r.loop.Store()
@@ -1326,6 +1359,10 @@ func (r *REPL) cmdSessionLoad(store *SessionStore, id string) error {
 	r.loop.session.mu.Lock()
 	r.loop.session.messages = session.messages
 	r.loop.session.mu.Unlock()
+	// Restore model from saved session metadata if available.
+	if meta, metaErr := store.LoadMeta(id); metaErr == nil && meta.Model != "" {
+		r.loop.config.Model = meta.Model
+	}
 	fmt.Fprintln(os.Stdout, styleReplMeta.Render(fmt.Sprintf(
 		"Session %s loaded (%d turns).", id, r.loop.session.TurnCount(),
 	)))
