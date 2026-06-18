@@ -47,10 +47,25 @@ const (
 	replFileCompletionMax = 20
 	replAutoCompactEvery  = 25
 
-	modelTypeLLamafile  = "llamafile"
-	modelTypeGGUF       = "gguf"
-	modelTypeOllama     = "ollama"
-	modelTypeCloud      = ""
+	replModelCompletionMax = 40 // max model name suggestions for /model <tab>
+
+	contextLimitCloud   = 131072 // 128K tokens for cloud models
+	contextLimitGGUF    = 131072 // 128K for large models (>=30B)
+	contextLimit13B     = 65536  // 64K for 13B models
+	contextLimit7B      = 32768  // 32K for 7B models
+	contextLimit3B      = 16384  // 16K for 3B models
+	contextLimit1B      = 8192   // 8K for 1B models
+	contextLimitDefault = 4096   // fallback for unknown sizes
+
+	paramsThreshold30B = 30
+	paramsThreshold13B = 13
+	paramsThreshold7B  = 7
+	paramsThreshold3B  = 3
+	paramsThreshold1B  = 1
+
+	modelTypeLLamafile = "llamafile"
+	modelTypeGGUF      = "gguf"
+	modelTypeOllama    = "ollama"
 )
 
 //nolint:gochecknoglobals // command list must be package-level for completer
@@ -100,12 +115,12 @@ type REPL struct {
 	ctx                context.Context
 	cancel             context.CancelFunc
 	history            []string
-	modelNames         []string          // suggestions for /model <tab>
-	downloadedModels   map[string]bool   // set of already-downloaded model aliases
-	modelTypes         map[string]string                                     // model name -> type (modelTypeLLamafile, modelTypeGGUF, ""=cloud)
-	cloudModelBackends map[string]string                                     // cloud model name -> backend name
-	modelPickerFn      func() (string, error)                                // TUI model picker; nil if unavailable
-	providerStatus     map[string]bool   // backend -> API key set
+	modelNames         []string               // suggestions for /model <tab>
+	downloadedModels   map[string]bool        // set of already-downloaded model aliases
+	modelTypes         map[string]string      // model name -> type (modelTypeLLamafile, modelTypeGGUF, ""=cloud)
+	cloudModelBackends map[string]string      // cloud model name -> backend name
+	modelPickerFn      func() (string, error) // TUI model picker; nil if unavailable
+	providerStatus     map[string]bool        // backend -> API key set
 	onSettingsChange   OnSettingsChange
 	tuiRunner          TUIRunner
 	runFn              func(context.Context, string) (string, error) // nil in production; injected in tests
@@ -275,8 +290,8 @@ func (c *replCompleter) Do(line []rune, pos int) ([][]rune, int) {
 		cmd := strings.ToLower(strings.TrimSpace(str[:lastSpace]))
 		if cmd == "/model" {
 			ranked := fuzzyRankStrings(strings.ToLower(token), c.repl.modelNames)
-			if len(ranked) > 40 {
-				ranked = ranked[:40]
+			if len(ranked) > replModelCompletionMax {
+				ranked = ranked[:replModelCompletionMax]
 			}
 			return c.repl.modelCompletionSuffixes(ranked, tokenLen), tokenLen
 		}
@@ -321,38 +336,14 @@ func (r *REPL) modelCompletionSuffixes(ranked []string, tokenLen int) [][]rune {
 			continue
 		}
 		suffix := nr[tokenLen:]
-		suffix = append(suffix, []rune(modelTag(r, n))...)
+		if r.downloadedModels[n] {
+			// Prepend "*" so readline shows e.g. "qwen2.5" + "*:7b" = "qwen2.5*:7b".
+			// cmdModel strips the "*" before using the selection.
+			suffix = append([]rune{'*'}, suffix...)
+		}
 		results = append(results, suffix)
 	}
 	return results
-}
-
-// modelTag returns a human-readable type tag for a model name.
-// [llamafile cached] / [gguf cached] for downloaded local models,
-// [llamafile] / [gguf] for non-downloaded local models,
-// [backendName] for enabled cloud models (e.g. [deepseek]),
-// [cloud] for cloud models without an API key.
-func modelTag(r *REPL, name string) string {
-	if r.downloadedModels[name] {
-		switch r.modelTypes[name] {
-		case modelTypeLLamafile:
-			return " [llamafile cached]"
-		case modelTypeGGUF:
-			return " [gguf cached]"
-		case modelTypeOllama:
-			return " [ollama cached]"
-		default:
-			return " [cached]"
-		}
-	}
-	mt := r.modelTypes[name]
-	if mt != "" {
-		return " [" + mt + "]"
-	}
-	if backend, ok := r.cloudModelBackends[name]; ok && r.providerStatus[backend] {
-		return " [" + backend + "]"
-	}
-	return " [cloud]"
 }
 
 // allCommandNames returns all slash command names including loaded skills and prompt templates.
@@ -817,7 +808,8 @@ func (r *REPL) cmdModel(args []string) error {
 	// fits after summarization.
 	newLimit := r.contextLimitForModel(model)
 	// Keep ~75% of context for history, leave ~25% for prompt + response.
-	budget := newLimit * 3 / 4
+	const contextHistoryFraction, contextHistoryDivisor = 3, 4
+	budget := newLimit * contextHistoryFraction / contextHistoryDivisor
 	r.loop.config.CompactTokenBudget = budget
 	r.loop.config.AutoCompactThreshold = budget
 	r.loop.Session().SetTokenBudget(newLimit, model)
@@ -847,7 +839,7 @@ func (r *REPL) cmdModel(args []string) error {
 // derives from the model's parameter count, falling back to 4096.
 func (r *REPL) contextLimitForModel(model string) int {
 	if BackendForModel(model) != "" {
-		return 131072
+		return contextLimitCloud
 	}
 	// Check per-backend env vars.
 	mt := r.modelTypes[model]
@@ -869,7 +861,7 @@ func (r *REPL) contextLimitForModel(model string) int {
 	if n := contextFromParams(model); n > 0 {
 		return n
 	}
-	return 4096
+	return contextLimitDefault
 }
 
 // modelTypeForName returns the type tag for a model name from the REPL's
@@ -880,16 +872,16 @@ func (r *REPL) contextLimitForModel(model string) int {
 func contextFromParams(model string) int {
 	params := paramsForModel(model)
 	switch {
-	case params >= 30:
-		return 131072
-	case params >= 13:
-		return 65536
-	case params >= 7:
-		return 32768
-	case params >= 3:
-		return 16384
-	case params >= 1:
-		return 8192
+	case params >= paramsThreshold30B:
+		return contextLimitGGUF
+	case params >= paramsThreshold13B:
+		return contextLimit13B
+	case params >= paramsThreshold7B:
+		return contextLimit7B
+	case params >= paramsThreshold3B:
+		return contextLimit3B
+	case params >= paramsThreshold1B:
+		return contextLimit1B
 	default:
 		return 0
 	}

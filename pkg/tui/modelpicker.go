@@ -11,6 +11,20 @@ import (
 	"github.com/charmbracelet/lipgloss"
 )
 
+const (
+	modelTypeLlamafile = "llamafile"
+	modelTypeGGUF      = "gguf"
+	modelTypeOllama    = "ollama"
+
+	modelSortCachedFirst   = 0
+	modelSortLlamafile     = 1
+	modelSortGGUF          = 2
+	modelSortOllama        = 3
+	modelSortCloudFallback = 4
+
+	viewSeparatorWidth = 60
+)
+
 // ModelEntry is a selectable model in the picker.
 type ModelEntry struct {
 	Name      string
@@ -27,10 +41,10 @@ type ModelPickerResult struct {
 }
 
 type modelPickerModel struct {
-	entries  []ModelEntry
-	cursor   int
-	filter   string
-	quitted  bool
+	entries   []ModelEntry
+	cursor    int
+	filter    string
+	quitted   bool
 	cancelled bool
 }
 
@@ -39,17 +53,17 @@ func newModelPickerModel(entries []ModelEntry) modelPickerModel {
 		// Sort: cached first, then llamafile, gguf, ollama, then cloud
 		order := func(e ModelEntry) int {
 			if e.Cached {
-				return 0
+				return modelSortCachedFirst
 			}
 			switch e.ModelType {
-			case "llamafile":
-				return 1
-			case "gguf":
-				return 2
-			case "ollama":
-				return 3
+			case modelTypeLlamafile:
+				return modelSortLlamafile
+			case modelTypeGGUF:
+				return modelSortGGUF
+			case modelTypeOllama:
+				return modelSortOllama
 			}
-			return 4
+			return modelSortCloudFallback
 		}
 		oi, oj := order(entries[i]), order(entries[j])
 		if oi != oj {
@@ -77,42 +91,43 @@ func (m modelPickerModel) filtered() []ModelEntry {
 func (m modelPickerModel) Init() tea.Cmd { return nil }
 
 func (m modelPickerModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
-	switch msg := msg.(type) {
-	case tea.KeyMsg:
-		switch msg.String() {
-		case "ctrl+c", "esc":
-			m.cancelled = true
+	key, ok := msg.(tea.KeyMsg)
+	if !ok {
+		return m, nil
+	}
+	switch key.String() {
+	case "ctrl+c", "esc":
+		m.cancelled = true
+		m.quitted = true
+		return m, tea.Quit
+	case "q":
+		m.quitted = true
+		return m, tea.Quit
+	case "enter":
+		filtered := m.filtered()
+		if len(filtered) > 0 && m.cursor < len(filtered) {
 			m.quitted = true
 			return m, tea.Quit
-		case "q":
-			m.quitted = true
-			return m, tea.Quit
-		case "enter":
-			filtered := m.filtered()
-			if len(filtered) > 0 && m.cursor < len(filtered) {
-				m.quitted = true
-				return m, tea.Quit
-			}
-		case "up", "k":
-			if m.cursor > 0 {
-				m.cursor--
-			}
-		case "down", "j":
-			filtered := m.filtered()
-			if m.cursor < len(filtered)-1 {
-				m.cursor++
-			}
-		case "backspace":
-			if len(m.filter) > 0 {
-				m.filter = m.filter[:len(m.filter)-1]
-				m.cursor = 0
-			}
-		default:
-			s := msg.String()
-			if len(s) == 1 && s >= " " && s <= "~" {
-				m.filter += s
-				m.cursor = 0
-			}
+		}
+	case "up", "k":
+		if m.cursor > 0 {
+			m.cursor--
+		}
+	case "down", "j":
+		filtered := m.filtered()
+		if m.cursor < len(filtered)-1 {
+			m.cursor++
+		}
+	case "backspace":
+		if len(m.filter) > 0 {
+			m.filter = m.filter[:len(m.filter)-1]
+			m.cursor = 0
+		}
+	default:
+		s := key.String()
+		if len(s) == 1 && s >= " " && s <= "~" {
+			m.filter += s
+			m.cursor = 0
 		}
 	}
 	return m, nil
@@ -126,7 +141,7 @@ func (m modelPickerModel) View() string {
 		sb.WriteString(styleCursor.Render("  filter: " + m.filter))
 		sb.WriteString("\n")
 	}
-	sb.WriteString(strings.Repeat("─", 60))
+	sb.WriteString(strings.Repeat("─", viewSeparatorWidth))
 	sb.WriteString("\n\n")
 
 	filtered := m.filtered()
@@ -143,32 +158,32 @@ func (m modelPickerModel) View() string {
 			nameStyle = styleEnabled
 		}
 		tag := tagForEntry(e)
-		sb.WriteString(fmt.Sprintf("%s%s  %s\n", cursor, nameStyle.Render(e.Name), styleDim.Render(tag)))
+		fmt.Fprintf(&sb, "%s%s  %s\n", cursor, nameStyle.Render(e.Name), styleDim.Render(tag))
 	}
 
-	sb.WriteString(fmt.Sprintf("\n%s\n", styleHelp.Render(fmt.Sprintf("%d models", len(filtered)))))
+	fmt.Fprintf(&sb, "\n%s\n", styleHelp.Render(fmt.Sprintf("%d models", len(filtered))))
 	return lipgloss.NewStyle().Padding(1).Render(sb.String())
 }
 
 func tagForEntry(e ModelEntry) string {
 	if e.Cached {
 		switch e.ModelType {
-		case "llamafile":
+		case modelTypeLlamafile:
 			return "[✳ llamafile cached]"
-		case "gguf":
+		case modelTypeGGUF:
 			return "[✳ gguf cached]"
-		case "ollama":
+		case modelTypeOllama:
 			return "[✳ ollama cached]"
 		default:
 			return "[✳ cached]"
 		}
 	}
 	switch e.ModelType {
-	case "llamafile":
+	case modelTypeLlamafile:
 		return "[llamafile]"
-	case "gguf":
+	case modelTypeGGUF:
 		return "[gguf]"
-	case "ollama":
+	case modelTypeOllama:
 		return "[ollama]"
 	default:
 		if e.Enabled && e.Backend != "" {

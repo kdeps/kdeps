@@ -36,13 +36,13 @@ import (
 	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
 )
 
-//nolint:gochecknoglobals // shared HTTP client for downloads
 const (
 	archAmd64 = "amd64"
 	archArm64 = "arm64"
 )
 
-var downloadHTTPClient = &http.Client{Timeout: 30 * time.Minute}
+//nolint:gochecknoglobals // shared HTTP client for downloads
+var downloadHTTPClient = &http.Client{Timeout: 30 * time.Minute} //nolint:mnd // 30-minute download timeout
 
 //nolint:gochecknoglobals // process-wide server registry
 var (
@@ -114,6 +114,7 @@ func (m *GGUFManager) Serve(path string, port int) (int, error) {
 }
 
 func startGGUFServer(path string, port int) (int, error) {
+	//nolint:gosec // path is validated by GGUFCachedPath before reaching here
 	cmd := exec.CommandContext(context.Background(), ggufLlamaServerBinaryFn(),
 		"--model", path,
 		"--host", "127.0.0.1",
@@ -145,9 +146,9 @@ func ResolvedGGUFURL(model string) string {
 	}
 	// Check in-memory served map.
 	servedGGUFsMu.Lock()
-	if port, ok := servedGGUFs[path]; ok && isHealthy(localServerURL(port)) {
+	if savedPort, found := servedGGUFs[path]; found && isHealthy(localServerURL(savedPort)) {
 		servedGGUFsMu.Unlock()
-		return localServerURL(port)
+		return localServerURL(savedPort)
 	}
 	servedGGUFsMu.Unlock()
 	// Check cross-process port file.
@@ -198,22 +199,21 @@ func detectOSArch() string {
 	kdeps_debug.Log("enter: detectOSArch")
 	switch runtime.GOOS {
 	case "linux":
-	switch runtime.GOARCH {
-		case archAmd64:
+		if runtime.GOARCH == archAmd64 {
 			return "b4582-bin-ubuntu-x64"
-		case archArm64:
+		}
+		if runtime.GOARCH == archArm64 {
 			return "b4582-bin-ubuntu-arm64"
 		}
 	case "darwin":
-	switch runtime.GOARCH {
-		case archAmd64:
+		if runtime.GOARCH == archAmd64 {
 			return "b4582-bin-macos-x64"
-		case archArm64:
+		}
+		if runtime.GOARCH == archArm64 {
 			return "b4582-bin-macos-arm64"
 		}
 	case "windows":
-	switch runtime.GOARCH {
-		case archAmd64:
+		if runtime.GOARCH == archAmd64 {
 			return "b4582-bin-win-x64"
 		}
 	}
@@ -222,7 +222,11 @@ func detectOSArch() string {
 
 func downloadFile(dest, url string) error {
 	kdeps_debug.Log("enter: downloadFile")
-	resp, err := downloadHTTPClient.Get(url)
+	req, err := http.NewRequestWithContext(context.Background(), http.MethodGet, url, nil)
+	if err != nil {
+		return fmt.Errorf("build download request: %w", err)
+	}
+	resp, err := downloadHTTPClient.Do(req)
 	if err != nil {
 		return err
 	}
@@ -234,7 +238,11 @@ func downloadFile(dest, url string) error {
 	if err != nil {
 		return err
 	}
-	defer func() { if closeErr := out.Close(); closeErr != nil { _ = closeErr } }()
+	defer func() {
+		if closeErr := out.Close(); closeErr != nil {
+			_ = closeErr
+		}
+	}()
 	_, err = io.Copy(out, resp.Body)
 	return err
 }
@@ -251,27 +259,31 @@ func extractZipFile(zipPath, destDir string) error {
 			continue
 		}
 		base := filepath.Base(f.Name)
-		if base == "llama-server" || base == "llama-server.exe" {
-			if err := os.MkdirAll(filepath.Dir(destDir), 0750); err != nil {
-				return err
-			}
-			rc, err := f.Open()
-			if err != nil {
-				return err
-			}
-			out, err := os.OpenFile(destDir, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0600)
-			if err != nil {
-				defer func(){ _ = rc.Close() }()
-				return err
-			}
-			_, err = io.Copy(out, rc)
-			defer func(){ _ = rc.Close() }()
-			if closeErr := out.Close(); closeErr != nil { return closeErr }
-			if err != nil {
-				return err
-			}
-			return nil
+		if base != "llama-server" && base != "llama-server.exe" {
+			continue
 		}
+		if mkdirErr := os.MkdirAll(filepath.Dir(destDir), 0750); mkdirErr != nil {
+			return mkdirErr
+		}
+		rc, openErr := f.Open()
+		if openErr != nil {
+			return openErr
+		}
+		out, outErr := os.OpenFile(destDir, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0600)
+		if outErr != nil {
+			_ = rc.Close()
+			return outErr
+		}
+		//nolint:gosec // G110: binary is size-bounded by GitHub release; not user-controlled decompression
+		_, copyErr := io.Copy(out, rc)
+		_ = rc.Close()
+		if closeErr := out.Close(); closeErr != nil {
+			return closeErr
+		}
+		if copyErr != nil {
+			return copyErr
+		}
+		return nil
 	}
 	return errors.New("llama-server binary not found in archive")
 }

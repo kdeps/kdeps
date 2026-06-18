@@ -19,6 +19,8 @@
 package llm
 
 import (
+	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 	stdhttp "net/http"
@@ -89,10 +91,10 @@ const defaultAria2cFlags = "-c -x 16 -s 16 --console-log-level=warn"
 // an error if aria2c fails or is not available (caller should fall back to
 // Go HTTP download). Aria2c flags can be configured via KDEPS_ARIA2C_FLAGS
 // or the ~/.kdeps/config.yaml aria2c_flags field.
-func downloadWithResume(dest, url, basename string) error {
+func downloadWithResume(dest, url string, _ string) error {
 	aria2c, err := exec.LookPath("aria2c")
 	if err != nil {
-		return fmt.Errorf("aria2c not found")
+		return errors.New("aria2c not found")
 	}
 	flags := os.Getenv("KDEPS_ARIA2C_FLAGS")
 	if flags == "" {
@@ -104,7 +106,7 @@ func downloadWithResume(dest, url, basename string) error {
 		"-o", file,
 	}, strings.Fields(flags)...)
 	args = append(args, url)
-	cmd := exec.Command(aria2c, args...)
+	cmd := exec.CommandContext(context.Background(), aria2c, args...)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	return cmd.Run()
