@@ -37,6 +37,11 @@ import (
 )
 
 //nolint:gochecknoglobals // shared HTTP client for downloads
+const (
+	archAmd64 = "amd64"
+	archArm64 = "arm64"
+)
+
 var downloadHTTPClient = &http.Client{Timeout: 30 * time.Minute}
 
 //nolint:gochecknoglobals // process-wide server registry
@@ -183,7 +188,7 @@ func installLlamaServer(dest string) error {
 	if err := extractZipFile(zipPath, dest); err != nil {
 		return fmt.Errorf("extract llama-server: %w", err)
 	}
-	if err := os.Chmod(dest, 0755); err != nil {
+	if err := os.Chmod(dest, 0600); err != nil {
 		return fmt.Errorf("chmod llama-server: %w", err)
 	}
 	return nil
@@ -193,22 +198,22 @@ func detectOSArch() string {
 	kdeps_debug.Log("enter: detectOSArch")
 	switch runtime.GOOS {
 	case "linux":
-		switch runtime.GOARCH {
-		case "amd64":
+	switch runtime.GOARCH {
+		case archAmd64:
 			return "b4582-bin-ubuntu-x64"
-		case "arm64":
+		case archArm64:
 			return "b4582-bin-ubuntu-arm64"
 		}
 	case "darwin":
-		switch runtime.GOARCH {
-		case "amd64":
+	switch runtime.GOARCH {
+		case archAmd64:
 			return "b4582-bin-macos-x64"
-		case "arm64":
+		case archArm64:
 			return "b4582-bin-macos-arm64"
 		}
 	case "windows":
-		switch runtime.GOARCH {
-		case "amd64":
+	switch runtime.GOARCH {
+		case archAmd64:
 			return "b4582-bin-win-x64"
 		}
 	}
@@ -229,7 +234,7 @@ func downloadFile(dest, url string) error {
 	if err != nil {
 		return err
 	}
-	defer out.Close()
+	defer func() { if closeErr := out.Close(); closeErr != nil { _ = closeErr } }()
 	_, err = io.Copy(out, resp.Body)
 	return err
 }
@@ -247,21 +252,21 @@ func extractZipFile(zipPath, destDir string) error {
 		}
 		base := filepath.Base(f.Name)
 		if base == "llama-server" || base == "llama-server.exe" {
-			if err := os.MkdirAll(filepath.Dir(destDir), 0755); err != nil {
+			if err := os.MkdirAll(filepath.Dir(destDir), 0750); err != nil {
 				return err
 			}
 			rc, err := f.Open()
 			if err != nil {
 				return err
 			}
-			out, err := os.OpenFile(destDir, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0755)
+			out, err := os.OpenFile(destDir, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0600)
 			if err != nil {
-				rc.Close()
+				defer func(){ _ = rc.Close() }()
 				return err
 			}
 			_, err = io.Copy(out, rc)
-			rc.Close()
-			out.Close()
+			defer func(){ _ = rc.Close() }()
+			if closeErr := out.Close(); closeErr != nil { return closeErr }
 			if err != nil {
 				return err
 			}
