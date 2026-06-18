@@ -376,14 +376,16 @@ func TestCmdModel_StripsStar(t *testing.T) {
 // --- expandFileRefs ---
 
 func TestExpandFileRefs_NoRefs(t *testing.T) {
-	out := expandFileRefs("hello world")
+	out, files := expandFileRefs("hello world")
 	assert.Equal(t, "hello world", out)
+	assert.Empty(t, files)
 }
 
 func TestExpandFileRefs_UnreadablePath(t *testing.T) {
 	// @nonexistent-file should be left as-is
-	out := expandFileRefs("check @/nonexistent/file.txt please")
+	out, files := expandFileRefs("check @/nonexistent/file.txt please")
 	assert.Contains(t, out, "@/nonexistent/file.txt")
+	assert.Empty(t, files)
 }
 
 func TestExpandFileRefs_RealFile(t *testing.T) {
@@ -391,9 +393,39 @@ func TestExpandFileRefs_RealFile(t *testing.T) {
 	p := filepath.Join(dir, "notes.txt")
 	require.NoError(t, os.WriteFile(p, []byte("hello from file"), 0o644))
 
-	out := expandFileRefs("review @" + p)
+	out, files := expandFileRefs("review @" + p)
 	assert.Contains(t, out, "hello from file")
 	assert.Contains(t, out, "notes.txt")
+	assert.Empty(t, files) // text files expand inline, not as attachments
+}
+
+func TestExpandFileRefs_ImageFile(t *testing.T) {
+	dir := t.TempDir()
+	p := filepath.Join(dir, "photo.png")
+	require.NoError(t, os.WriteFile(p, []byte("\x89PNG"), 0o644))
+
+	out, files := expandFileRefs("describe @" + p)
+	// Image ref should be stripped from text, not embedded inline
+	assert.NotContains(t, out, "photo.png")
+	assert.Contains(t, files, p)
+}
+
+func TestExpandFileRefs_ImageNotFound(t *testing.T) {
+	out, files := expandFileRefs("describe @/nonexistent/photo.png")
+	// Non-existent image ref left unchanged (file not accessible)
+	assert.Contains(t, out, "@/nonexistent/photo.png")
+	assert.Empty(t, files)
+}
+
+func TestSetPendingFiles_ClearedAfterBuildChatConfig(t *testing.T) {
+	loop := makeTestLoop(nil)
+	loop.SetPendingFiles([]string{"/tmp/img.png"})
+	assert.Equal(t, []string{"/tmp/img.png"}, loop.pendingFiles)
+
+	// buildChatConfig should consume and clear pendingFiles
+	cfg := loop.buildChatConfig("hello", "")
+	assert.Equal(t, []string{"/tmp/img.png"}, cfg.Files)
+	assert.Nil(t, loop.pendingFiles)
 }
 
 // --- filePathCompletions ---

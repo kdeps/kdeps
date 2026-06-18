@@ -521,17 +521,38 @@ func filePathCompletions(prefix string) []string {
 	return results
 }
 
-// expandFileRefs replaces @path tokens in input with file contents.
-// Tokens that don't resolve to readable files are left unchanged.
-func expandFileRefs(input string) string {
-	return atFileRefRe.ReplaceAllStringFunc(input, func(match string) string {
+// imageExts is the set of file extensions treated as binary image/media attachments.
+// These are sent as multimodal content parts rather than embedded as text.
+//
+//nolint:gochecknoglobals // package-level extension set, not test-facing state
+var imageExts = map[string]bool{
+	".png": true, ".jpg": true, ".jpeg": true, ".gif": true,
+	".webp": true, ".bmp": true, ".tiff": true, ".tif": true,
+	".pdf": true, ".mp3": true, ".mp4": true, ".wav": true,
+}
+
+// expandFileRefs replaces @path tokens that refer to text files with their contents.
+// Image and binary file references are extracted and returned in the files slice
+// so the caller can attach them as multimodal content. Unresolvable refs are kept as-is.
+func expandFileRefs(input string) (string, []string) {
+	var files []string
+	text := atFileRefRe.ReplaceAllStringFunc(input, func(match string) string {
 		path := match[1:]
+		ext := strings.ToLower(filepath.Ext(path))
+		if imageExts[ext] {
+			if _, err := os.Stat(path); err == nil {
+				files = append(files, path)
+				return "" // strip the @ref from the text; file goes to multimodal
+			}
+			return match
+		}
 		data, err := os.ReadFile(path)
 		if err != nil {
 			return match
 		}
 		return fmt.Sprintf("\n\n--- %s ---\n%s", path, strings.TrimRight(string(data), "\n"))
 	})
+	return strings.TrimSpace(text), files
 }
 
 // runWithThinking runs an agent turn, using streaming output when available.
@@ -658,7 +679,10 @@ func (r *REPL) processInput(input string) error {
 	if strings.HasPrefix(input, "/") {
 		return r.dispatchCommand(input)
 	}
-	expanded := expandFileRefs(input)
+	expanded, imgFiles := expandFileRefs(input)
+	if len(imgFiles) > 0 {
+		r.loop.SetPendingFiles(imgFiles)
+	}
 	r.history = append(r.history, input)
 	resp, err := r.runWithThinking(r.ctx, expanded)
 	if err != nil {
