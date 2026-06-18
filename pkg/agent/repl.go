@@ -810,8 +810,10 @@ func (r *REPL) cmdModel(args []string) error {
 	// both the token budget AND the compact threshold so the session actually
 	// fits after summarization.
 	newLimit := r.contextLimitForModel(model)
-	r.loop.config.CompactTokenBudget = newLimit
-	r.loop.config.AutoCompactThreshold = newLimit
+	// Keep ~75% of context for history, leave ~25% for prompt + response.
+	budget := newLimit * 3 / 4
+	r.loop.config.CompactTokenBudget = budget
+	r.loop.config.AutoCompactThreshold = budget
 	r.loop.Session().SetTokenBudget(newLimit, model)
 	r.loop.CompactIfNeeded(r.ctx)
 	r.loop.config.Model = model
