@@ -263,7 +263,10 @@ func (c *replCompleter) Do(line []rune, pos int) ([][]rune, int) {
 		cmd := strings.ToLower(strings.TrimSpace(str[:lastSpace]))
 		if cmd == "/model" {
 			ranked := fuzzyRankStrings(strings.ToLower(token), c.repl.modelNames)
-			return c.repl.modelCompletionSuffixes(ranked, tokenLen), tokenLen
+		if len(ranked) > 40 {
+			ranked = ranked[:40]
+		}
+		return c.repl.modelCompletionSuffixes(ranked, tokenLen), tokenLen
 		}
 	}
 
