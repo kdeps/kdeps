@@ -806,14 +806,11 @@ func (r *REPL) cmdModel(args []string) error {
 		}
 	}
 	model := strings.ReplaceAll(args[0], "*", "")
-	// Compact with the OLD (larger-context) model before switching, so the
-	// summarization call doesn't fail on the new model's smaller context window.
+	// Compact BEFORE switching models. The old model (still configured) handles
+	// the summarization call, avoiding context overflow on the new model.
 	newLimit := r.contextLimitForModel(model)
-	oldLimit := r.contextLimitForModel(r.loop.config.Model)
-	if newLimit < oldLimit && r.loop.Session().TurnCount() >= compactMinTurns {
-		r.loop.Session().SetTokenBudget(newLimit, model)
-		r.loop.CompactIfNeeded(r.ctx)
-	}
+	r.loop.Session().SetTokenBudget(newLimit, model)
+	r.loop.CompactIfNeeded(r.ctx)
 	r.loop.config.Model = model
 	if backend := BackendForModel(model); backend != "" {
 		r.loop.config.Backend = backend
