@@ -408,7 +408,13 @@ func fuzzyScore(needle, haystack string) (bool, int) {
 	ni, score, lastMatch, consecutive := 0, 0, -1, 0
 	for i, c := range h {
 		if ni < len(n) && n[ni] == c {
-			score, consecutive = applyMatchScore(score, i, lastMatch, consecutive, isWordBoundary(h, i))
+			score, consecutive = applyMatchScore(
+				score,
+				i,
+				lastMatch,
+				consecutive,
+				isWordBoundary(h, i),
+			)
 			lastMatch = i
 			ni++
 		}
@@ -538,6 +544,11 @@ func expandFileRefs(input string) (string, []string) {
 	var files []string
 	text := atFileRefRe.ReplaceAllStringFunc(input, func(match string) string {
 		path := match[1:]
+		// URL-based images are routed directly to multimodal (fileContentPart handles them).
+		if strings.HasPrefix(path, "http://") || strings.HasPrefix(path, "https://") {
+			files = append(files, path)
+			return ""
+		}
 		ext := strings.ToLower(filepath.Ext(path))
 		if imageExts[ext] {
 			if _, err := os.Stat(path); err == nil {
@@ -788,7 +799,9 @@ func (r *REPL) dispatchCommand(cmd string) error {
 func (r *REPL) cmdHelp() error {
 	heading := styleReplHeading.Render
 	meta := styleReplMeta.Render
-	fmt.Fprintf(os.Stdout, "%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n\n%s\n",
+	fmt.Fprintf(
+		os.Stdout,
+		"%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n\n%s\n\n%s\n",
 		heading("Available commands:"),
 		"  /help                    Show this help message",
 		"  /settings                Open the tool/skill selector and save selections",
@@ -804,7 +817,12 @@ func (r *REPL) cmdHelp() error {
 		"  /session list|save|load|delete|checkpoint|goto  Manage saved sessions and checkpoints",
 		"  /copy                    Copy the last assistant response to the system clipboard",
 		"  /reload                  Reload skills, prompt templates, and instructions from disk",
-		meta("/exit, /quit, Ctrl+D to exit  |  Ctrl+C to cancel current line  |  Tab to complete commands"),
+		meta(
+			"Tips: @file.txt embeds text inline  |  @photo.png attaches image as multimodal input  |  @https://... attaches image URL",
+		),
+		meta(
+			"/exit, /quit, Ctrl+D to exit  |  Ctrl+C to cancel current line  |  Tab to complete commands",
+		),
 	)
 	return nil
 }
@@ -1189,7 +1207,10 @@ func (r *REPL) cmdHistory() error {
 		fmt.Fprintln(os.Stdout, styleReplMeta.Render("No conversation history."))
 		return nil
 	}
-	fmt.Fprintln(os.Stdout, styleReplHeading.Render(fmt.Sprintf("Conversation history (%d turns):", turns)))
+	fmt.Fprintln(
+		os.Stdout,
+		styleReplHeading.Render(fmt.Sprintf("Conversation history (%d turns):", turns)),
+	)
 	for i, m := range r.loop.Session().Messages() {
 		label := "YOU"
 		if i%replLabelMod == 1 {
@@ -1210,7 +1231,10 @@ func (r *REPL) cmdHistory() error {
 // cmdSettings opens the TUI selector, saves the result, and applies skill changes live.
 func (r *REPL) cmdSettings() error {
 	if r.tuiRunner == nil {
-		fmt.Fprintln(os.Stdout, styleReplMeta.Render("Settings TUI not available in this environment."))
+		fmt.Fprintln(
+			os.Stdout,
+			styleReplMeta.Render("Settings TUI not available in this environment."),
+		)
 		return nil
 	}
 
@@ -1255,9 +1279,16 @@ func (r *REPL) cmdThinking(args []string) error {
 	case domain.ThinkingModeNone, "off":
 		r.loop.SetThinking(nil)
 		fmt.Fprintln(os.Stdout, styleReplMeta.Render("Thinking disabled."))
-	case domain.ThinkingModeLow, domain.ThinkingModeMedium, domain.ThinkingModeHigh, domain.ThinkingModeAuto:
+	case domain.ThinkingModeLow,
+		domain.ThinkingModeMedium,
+		domain.ThinkingModeHigh,
+		domain.ThinkingModeAuto:
 		r.loop.SetThinking(&domain.ThinkingConfig{Mode: mode})
-		fmt.Fprintf(os.Stdout, "%s\n", styleReplMeta.Render(fmt.Sprintf("Thinking set to %s.", mode)))
+		fmt.Fprintf(
+			os.Stdout,
+			"%s\n",
+			styleReplMeta.Render(fmt.Sprintf("Thinking set to %s.", mode)),
+		)
 	default:
 		fmt.Fprintln(os.Stdout, styleReplMeta.Render("Usage: /thinking [off|low|medium|high|auto]"))
 	}
@@ -1268,7 +1299,10 @@ func (r *REPL) cmdThinking(args []string) error {
 func (r *REPL) cmdSession(args []string) error {
 	store := r.loop.Store()
 	if store == nil {
-		fmt.Fprintln(os.Stdout, styleReplMeta.Render("Session store not configured. Pass --session-store to enable."))
+		fmt.Fprintln(
+			os.Stdout,
+			styleReplMeta.Render("Session store not configured. Pass --session-store to enable."),
+		)
 		return nil
 	}
 
@@ -1453,7 +1487,10 @@ func (r *REPL) cmdCopy() error {
 		}
 	}
 	if last == "" {
-		fmt.Fprintln(os.Stdout, styleReplMeta.Render("Nothing to copy: no assistant response in session."))
+		fmt.Fprintln(
+			os.Stdout,
+			styleReplMeta.Render("Nothing to copy: no assistant response in session."),
+		)
 		return nil
 	}
 	if clipErr := copyToClipboard(last); clipErr != nil {
@@ -1475,7 +1512,8 @@ func copyToClipboard(text string) error {
 	}
 	ctx := context.Background()
 	for _, argv := range cmds {
-		cmd := exec.CommandContext(ctx, argv[0], argv[1:]...) //nolint:gosec // controlled command list
+		//nolint:gosec // controlled command list; argv comes from the hardcoded cmds table above
+		cmd := exec.CommandContext(ctx, argv[0], argv[1:]...)
 		cmd.Stdin = strings.NewReader(text)
 		if err := cmd.Run(); err == nil {
 			return nil
