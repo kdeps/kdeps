@@ -223,6 +223,32 @@ func TestMergeComponentTools_AllowlistFilters(t *testing.T) {
 	assert.Equal(t, "scraper", result[0].Name)
 }
 
+func TestHasDirectlyExecutableTools_Empty(t *testing.T) {
+	assert.False(t, hasDirectlyExecutableTools(nil))
+	assert.False(t, hasDirectlyExecutableTools([]domain.Tool{}))
+}
+
+func TestHasDirectlyExecutableTools_ScriptOnlyTool(t *testing.T) {
+	tools := []domain.Tool{{Name: "t", Script: "some.script"}}
+	assert.False(t, hasDirectlyExecutableTools(tools))
+}
+
+func TestHasDirectlyExecutableTools_WithExecute(t *testing.T) {
+	tools := []domain.Tool{{
+		Name:    "t",
+		Execute: func(_ map[string]interface{}) (string, error) { return "", nil },
+	}}
+	assert.True(t, hasDirectlyExecutableTools(tools))
+}
+
+func TestHasDirectlyExecutableTools_Mixed(t *testing.T) {
+	tools := []domain.Tool{
+		{Name: "script-only", Script: "foo"},
+		{Name: "with-execute", Execute: func(_ map[string]interface{}) (string, error) { return "", nil }},
+	}
+	assert.True(t, hasDirectlyExecutableTools(tools))
+}
+
 func TestMergeComponentTools_ExplicitTakesPrecedence(t *testing.T) {
 	explicit := []domain.Tool{{Name: "scraper", Description: "My custom scraper"}}
 	wf := &domain.Workflow{

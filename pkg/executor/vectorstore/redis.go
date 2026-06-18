@@ -20,6 +20,7 @@ package vectorstore
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"github.com/tmc/langchaingo/schema"
@@ -38,7 +39,7 @@ var _ lcvectorstores.VectorStore = (*redisStore)(nil)
 
 func newRedisStore(ctx context.Context, cfg *domain.VectorStoreConfig) (*redisStore, error) {
 	if cfg.Collection == "" {
-		return nil, fmt.Errorf("vectorstore redis: index name is required (set collection field)")
+		return nil, errors.New("vectorstore redis: index name is required (set collection field)")
 	}
 	if cfg.URL == "" {
 		cfg.URL = "redis://localhost:6379"

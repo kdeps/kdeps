@@ -28,6 +28,8 @@ import (
 const (
 	compactKeepRecentTokens = 20000
 	compactMinTurns         = 4 // don't compact unless at least 4 turns exist
+	charsPerToken           = 4 // rough chars-per-token estimate for the fallback path
+	charsPerTokenRoundUp    = 3 // rounding offset for integer ceiling division
 )
 
 // compactionSummaryPrefix / compactionSummarySuffix wrap the LLM-generated
@@ -90,7 +92,7 @@ Keep each section concise. Preserve exact file paths, function names, and error 
 // string is empty (which should not happen in practice).
 func estimateTokens(m sessionMessage, modelHint string) int {
 	if modelHint == "" {
-		return (len(m.Content) + 3) / 4
+		return (len(m.Content) + charsPerTokenRoundUp) / charsPerToken
 	}
 	return llms.CountTokens(modelHint, m.Content)
 }

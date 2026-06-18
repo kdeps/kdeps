@@ -2293,8 +2293,8 @@ func TestSchemaValidator_GetEnumValues_EdgeCases(t *testing.T) {
 				"deepseek",
 				"openrouter",
 				"xai",
-					"bedrock",
-					"watsonx",
+				"bedrock",
+				"watsonx",
 			},
 		},
 		{
@@ -2376,8 +2376,8 @@ func TestSchemaValidator_GetEnumValues_EdgeCases(t *testing.T) {
 				"deepseek",
 				"openrouter",
 				"xai",
-					"bedrock",
-					"watsonx",
+				"bedrock",
+				"watsonx",
 			},
 		},
 		{

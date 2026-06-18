@@ -37,14 +37,14 @@ const (
 // Messages are stored as role-content pairs and serialized to JSON
 // for injection as the chat.messages expression value on each turn.
 type Session struct {
-	mu                sync.RWMutex
-	messages          []sessionMessage
-	maxTurns          int    // 0 = unlimited
-	maxHistoryTokens  int    // 0 = unlimited; trims oldest turns to stay under this token count
-	modelHint         string // used for token counting; defaults to gpt2 encoding
-	fileOps           []fileOpEntry // per-turn file operations; index matches turn index
-	firstKeptEntryID  int64  // ID of the first kept entry after the most recent compaction (0 = none)
-	lastEntryID       int64  // monotonically increasing entry ID counter
+	mu               sync.RWMutex
+	messages         []sessionMessage
+	maxTurns         int           // 0 = unlimited
+	maxHistoryTokens int           // 0 = unlimited; trims oldest turns to stay under this token count
+	modelHint        string        // used for token counting; defaults to gpt2 encoding
+	fileOps          []fileOpEntry // per-turn file operations; index matches turn index
+	firstKeptEntryID int64         // ID of the first kept entry after the most recent compaction (0 = none)
+	lastEntryID      int64         // monotonically increasing entry ID counter
 }
 
 type sessionMessage struct {

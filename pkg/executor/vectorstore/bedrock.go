@@ -20,6 +20,7 @@ package vectorstore
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"github.com/tmc/langchaingo/schema"
@@ -39,7 +40,7 @@ var _ lcvectorstores.VectorStore = (*bedrockStore)(nil)
 
 func newBedrockStore(ctx context.Context, cfg *domain.VectorStoreConfig) (*bedrockStore, error) {
 	if cfg.Collection == "" {
-		return nil, fmt.Errorf("vectorstore bedrock: knowledgeBaseId is required (set collection field)")
+		return nil, errors.New("vectorstore bedrock: knowledgeBaseId is required (set collection field)")
 	}
 	store, err := lcbedrockkb.New(ctx, cfg.Collection)
 	if err != nil {

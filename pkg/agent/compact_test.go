@@ -19,7 +19,6 @@
 package agent
 
 import (
-
 	"strings"
 	"testing"
 )

@@ -151,7 +151,7 @@ func TestEnsureModel_FileBackendSkipsWhenEnvBaseURLSet(t *testing.T) {
 }
 
 func TestEnsureModel_GGUFBackendSkipsWhenBaseURLSet(t *testing.T) {
-	t.Setenv("KDEPS_DEFAULT_BACKEND", backendGGUF)
+	t.Setenv("KDEPS_DEFAULT_BACKEND", BackendGGUF)
 	t.Setenv("KDEPS_LLM_BASE_URL", "")
 
 	downloaded := false
@@ -168,7 +168,7 @@ func TestEnsureModel_GGUFBackendSkipsWhenBaseURLSet(t *testing.T) {
 }
 
 func TestEnsureModel_GGUFBackend_ExecutesBranchBody(t *testing.T) {
-	t.Setenv("KDEPS_DEFAULT_BACKEND", backendGGUF)
+	t.Setenv("KDEPS_DEFAULT_BACKEND", BackendGGUF)
 	t.Setenv("KDEPS_LLM_BASE_URL", "")
 	t.Setenv("KDEPS_MODELS_DIR", "/dev/null/no-such-dir-xyz")
 
@@ -186,7 +186,7 @@ func TestEnsureModel_GGUFBackend_ExecutesBranchBody(t *testing.T) {
 }
 
 func TestEnsureModel_GGUFBackendSkipsWhenEnvBaseURLSet(t *testing.T) {
-	t.Setenv("KDEPS_DEFAULT_BACKEND", backendGGUF)
+	t.Setenv("KDEPS_DEFAULT_BACKEND", BackendGGUF)
 	t.Setenv("KDEPS_LLM_BASE_URL", "http://example.com/v1")
 
 	downloaded := false
@@ -203,7 +203,7 @@ func TestEnsureModel_GGUFBackendSkipsWhenEnvBaseURLSet(t *testing.T) {
 
 func TestResolveBackend_DefaultsToFile(t *testing.T) {
 	t.Setenv("KDEPS_DEFAULT_BACKEND", "")
-	assert.Equal(t, backendFile, resolveBackend(&domain.ChatConfig{}))
+	assert.Equal(t, BackendFile, resolveBackend(&domain.ChatConfig{}))
 }
 
 func TestStripTrailingSpecialTokens(t *testing.T) {

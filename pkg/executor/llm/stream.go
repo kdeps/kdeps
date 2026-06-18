@@ -142,8 +142,8 @@ func buildLangchainLLM(ctx context.Context, cfg *domain.ChatConfig) (llms.Model,
 	case backendWatsonX:
 		model, err = lcwatsonx.New(
 			cfg.Model,
-			wx.WithWatsonxAPIKey(wx.WatsonxAPIKey(os.Getenv(providerAPIKeyEnvVar(backendWatsonX)))),
-			wx.WithWatsonxProjectID(wx.WatsonxProjectID(os.Getenv("WATSONX_PROJECT_ID"))),
+			wx.WithWatsonxAPIKey(os.Getenv(providerAPIKeyEnvVar(backendWatsonX))),
+			wx.WithWatsonxProjectID(os.Getenv("WATSONX_PROJECT_ID")),
 		)
 
 	default:

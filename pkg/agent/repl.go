@@ -729,28 +729,38 @@ func (r *REPL) cmdClear() error {
 }
 
 func (r *REPL) cmdModel(args []string) error {
-	if len(args) > 0 {
-		// Strip "*" markers inserted by tab completion for downloaded models.
-		model := strings.ReplaceAll(args[0], "*", "")
-		r.loop.config.Model = model
-		// Auto-switch backend when selecting a known cloud model.
-		if backend := BackendForModel(model); backend != "" {
-			r.loop.config.Backend = backend
-			r.loop.config.BaseURL = ""
-		}
-		// Auto-start local model server if the backend requires one.
-		if r.loop.config.ModelService != nil {
-			backend := r.loop.config.Backend
-			if backend == llm.BackendFile || backend == llm.BackendGGUF {
-				_ = r.loop.config.ModelService.DownloadModel(backend, model)
-				_ = r.loop.config.ModelService.ServeModel(backend, model, "", 0)
-			}
-		}
-		fmt.Fprintln(os.Stdout, styleReplMeta.Render("Model set to "+model))
+	if len(args) == 0 {
+		fmt.Fprintln(os.Stdout, styleReplMeta.Render("Current model: "+r.loop.config.Model))
 		return nil
 	}
-	fmt.Fprintln(os.Stdout, styleReplMeta.Render("Current model: "+r.loop.config.Model))
+	model := strings.ReplaceAll(args[0], "*", "")
+	r.loop.config.Model = model
+	if backend := BackendForModel(model); backend != "" {
+		r.loop.config.Backend = backend
+		r.loop.config.BaseURL = ""
+	}
+	r.startLocalModelServer(model)
+	fmt.Fprintln(os.Stdout, styleReplMeta.Render("Model set to "+model))
 	return nil
+}
+
+// startLocalModelServer downloads, starts, and registers the URL for a local
+// (file or gguf) model. No-op when ModelService is not set or the backend is
+// not a local type.
+func (r *REPL) startLocalModelServer(model string) {
+	svc := r.loop.config.ModelService
+	if svc == nil {
+		return
+	}
+	backend := r.loop.config.Backend
+	if backend != llm.BackendFile && backend != llm.BackendGGUF {
+		return
+	}
+	_ = svc.DownloadModel(backend, model)
+	_ = svc.ServeModel(backend, model, "", 0)
+	if url := svc.ServerURL(backend, model); url != "" {
+		r.loop.config.BaseURL = url
+	}
 }
 
 // providerStatusLine returns a one-line summary of ready providers for the welcome banner.
@@ -1064,11 +1074,15 @@ func (r *REPL) cmdSession(args []string) error {
 		}
 		entryID, parseErr := strconv.ParseInt(args[1], 10, 64)
 		if parseErr != nil {
-			fmt.Fprintln(os.Stdout, styleReplMeta.Render(fmt.Sprintf("Invalid entry ID: %s", args[1])))
-			return nil
+			fmt.Fprintln(os.Stdout, styleReplMeta.Render(
+				fmt.Sprintf("Invalid entry ID: %s", args[1]),
+			))
+			return nil //nolint:nilerr // REPL shows a friendly message; parse error is not propagated
 		}
 		if !r.loop.Session().RestoreTo(entryID) {
-			fmt.Fprintln(os.Stdout, styleReplMeta.Render(fmt.Sprintf("Entry ID %d not found in current session.", entryID)))
+			fmt.Fprintln(os.Stdout, styleReplMeta.Render(
+				fmt.Sprintf("Entry ID %d not found in current session.", entryID),
+			))
 			return nil
 		}
 		fmt.Fprintln(os.Stdout, styleReplMeta.Render(fmt.Sprintf(
@@ -1076,7 +1090,10 @@ func (r *REPL) cmdSession(args []string) error {
 		)))
 		return nil
 	default:
-		fmt.Fprintf(os.Stdout, "Unknown /session subcommand: %s. Use list, save, load, delete, checkpoint, or goto.\n", sub)
+		fmt.Fprintf(os.Stdout,
+			"Unknown /session subcommand: %s. Use list, save, load, delete, checkpoint, or goto.\n",
+			sub,
+		)
 		return nil
 	}
 }

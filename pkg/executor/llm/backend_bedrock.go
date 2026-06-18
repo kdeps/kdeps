@@ -40,7 +40,7 @@ func (b *BedrockBackend) DefaultURL() string {
 	return ""
 }
 
-func (b *BedrockBackend) ChatEndpoint(baseURL string) string {
+func (b *BedrockBackend) ChatEndpoint(_ string) string {
 	// Bedrock uses the AWS SDK which resolves the regional endpoint internally.
 	return ""
 }
@@ -85,13 +85,28 @@ func (b *BedrockBackend) ParseResponse(resp *stdhttp.Response) (map[string]inter
 	return convertBedrockConverseResponse(response), nil
 }
 
-func (b *BedrockBackend) GetAPIKeyHeader(apiKey string) (string, string) {
+func (b *BedrockBackend) GetAPIKeyHeader(_ string) (string, string) {
 	// Bedrock uses AWS SigV4 signing, not HTTP header API keys.
 	return "", ""
 }
 
 func (b *BedrockBackend) APIKeyEnvVar() string {
 	return providerAPIKeyEnvVar("bedrock")
+}
+
+func extractBedrockOutputMessage(result map[string]interface{}, output map[string]interface{}) {
+	msg, okMsg := output["message"].(map[string]interface{})
+	if !okMsg {
+		return
+	}
+	result["role"] = msg["role"]
+	content, okCnt := msg["content"].([]interface{})
+	if !okCnt || len(content) == 0 {
+		return
+	}
+	if block, okBlk := content[0].(map[string]interface{}); okBlk {
+		result["content"] = block["text"]
+	}
 }
 
 // convertBedrockConverseResponse converts a Bedrock Converse API response
@@ -101,14 +116,7 @@ func convertBedrockConverseResponse(response map[string]interface{}) map[string]
 	result := map[string]interface{}{}
 
 	if output, okOut := response["output"].(map[string]interface{}); okOut {
-		if msg, okMsg := output["message"].(map[string]interface{}); okMsg {
-			result["role"] = msg["role"]
-			if content, okCnt := msg["content"].([]interface{}); okCnt && len(content) > 0 {
-				if block, okBlk := content[0].(map[string]interface{}); okBlk {
-					result["content"] = block["text"]
-				}
-			}
-		}
+		extractBedrockOutputMessage(result, output)
 	}
 
 	if stopReason, ok := response["stopReason"]; ok {
