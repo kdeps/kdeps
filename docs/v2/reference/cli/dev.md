@@ -225,17 +225,14 @@ echo "list files in /tmp" | kdeps chat --no-execute
 
 ## `kdeps llamafile`
 
-Manage the llamafile model registry used by the default `file` backend.
-Aliases like `llama3.2:1b` resolve to Mozilla's HuggingFace llamafiles;
-models are downloaded to `~/.kdeps/models/` on first use.
+Manage the local model registry. Covers **llamafile**, **GGUF** (llama.cpp), and **Ollama** models. Aliases like `llama3.2:1b` resolve to cached model files in `~/.kdeps/models/`; models are downloaded on first use with aria2c (fast parallel downloads with resume) or built-in HTTP.
 
 ```bash
-kdeps llamafile list      # all known aliases with size, quant, and URL
-kdeps llamafile update    # refresh the registry from HuggingFace
+kdeps llamafile list      # all known aliases (LF + GGUF + Ollama) with size, quant, and URL
+kdeps llamafile update    # refresh the registry from HuggingFace (llamafile + GGUF)
 ```
 
-`update` merges remote entries into `~/.kdeps/llamafile_versions.yaml`;
-entries you added locally are preserved.
+`list` shows a TYPE column (LF, GGUF, or model name) for each entry. `update` fetches the latest registries from HuggingFace and writes to both `~/.kdeps/llamafile_versions.yaml` and `~/.kdeps/gguf_versions.yaml`. Ollama models are discovered from the local `ollama list` output. Local entries are preserved across updates.
 
 ---
 

@@ -105,7 +105,15 @@ kdeps run workflow.yaml          # local, instant startup
 kdeps run workflow.yaml --dev    # hot reload
 ```
 
-**Resource types:** `chat`, `httpClient`, `python`, `exec`, `sql`, `email`, `scraper`, `browser`, `embedding`, `searchLocal`, `searchWeb`, `agent`, `component`, `file`, `git`, `codeIntelligence`
+**Resource types:** `chat`, `httpClient`, `python`, `exec`, `sql`, `email`, `scraper`, `browser`, `embedding`, `searchLocal`, `searchWeb`, `agent`, `component`, `file`, `git`, `codeIntelligence`, `loader`, `vectorStore`, `transcribe`
+
+**LLM providers:** OpenAI, Anthropic, Google (Gemini), DeepSeek, Groq, xAI, Mistral, Cohere, Together, Perplexity, OpenRouter, Bedrock (AWS), WatsonX (IBM), Cloudflare, HuggingFace, Maritaca, Ernie — plus Ollama, llamafile, and GGUF for local inference
+
+**Embedding backends:** OpenAI, Google, HuggingFace, Jina, VoyageAI, Bedrock, Cybertron (local), Ollama
+
+**Vector store providers:** Qdrant, Chroma, Pinecone, Weaviate, OpenSearch, pgvector, MongoDB, Redis, Azure AI Search, MariaDB, Dolt, Bedrock Knowledge Bases
+
+**Download acceleration:** aria2c with resume support, configurable via `llm.aria2c_flags` in config.yaml — falls back to built-in HTTP downloader if aria2c is not installed
 
 **Expressions:** `get('key')` reads request input, `output('actionId')` reads a prior step's result, `set('key', val)` stores state. All expressions are safe inside `{{ }}` — Jinja2 control flow (`{% if %}`, `{% for %}`) is also supported.
 
@@ -146,6 +154,13 @@ kdeps --resume <session-id>        # continue a previous conversation
 ```
 
 The agent reads from stdin (REPL with slash commands: `/help`, `/clear`, `/model`, `/skills`, `/history`, `/exit`) and runs until you exit. Sessions are persisted as JSONL under `~/.kdeps/sessions/` and can be resumed with `--resume`. Workflows, agencies, and installed components are available as tools without any extra wiring.
+
+`/model` with no arguments opens an interactive TUI model picker with search, type-to-filter, and visual tags for local vs cloud models. `/model <name>` switches models and auto-starts local servers for llamafile, GGUF, and Ollama models. Model downloads use aria2c for fast parallel downloads with resume support. Local model servers are automatically cleaned up on exit.
+
+```bash
+kdeps llamafile list               # list all LF + GGUF + Ollama models
+kdeps llamafile update             # refresh from HuggingFace
+```
 
 ```
 KDEPS_AGENT_MODEL=claude-3-5-sonnet   # override model via env
