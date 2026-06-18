@@ -109,15 +109,43 @@ func runLlamafileList() error {
 	fmt.Fprintln(w, "TYPE\tALIAS\tPARAMS\tQUANT\tSIZE\tDOWNLOADS\tURL")
 	fmt.Fprintln(w, "----\t-----\t------\t-----\t----\t---------\t---")
 	for _, m := range llamafiles {
-		printModelRow(w, "LF", m.Alias, m.Params, m.Quantization, m.PipelineTag, m.Filename, m.SizeBytes, m.Downloads, m.URL)
+		printModelRow(
+			w,
+			"LF",
+			m.Alias,
+			m.Params,
+			m.Quantization,
+			m.PipelineTag,
+			m.Filename,
+			m.SizeBytes,
+			m.Downloads,
+			m.URL,
+		)
 	}
 	for _, m := range ggufs {
-		printModelRow(w, "GGUF", m.Alias, m.Params, m.Quantization, m.PipelineTag, m.Filename, m.SizeBytes, m.Downloads, m.URL)
+		printModelRow(
+			w,
+			"GGUF",
+			m.Alias,
+			m.Params,
+			m.Quantization,
+			m.PipelineTag,
+			m.Filename,
+			m.SizeBytes,
+			m.Downloads,
+			m.URL,
+		)
 	}
 	return w.Flush()
 }
 
-func printModelRow(w *tabwriter.Writer, kind, alias, params, quant, pipelineTag, filename string, sizeBytes int64, downloads int, url string) {
+func printModelRow(
+	w *tabwriter.Writer,
+	kind, alias, params, quant, pipelineTag, filename string,
+	sizeBytes int64,
+	downloads int,
+	url string,
+) {
 	size := "?"
 	if sizeBytes > 0 {
 		size = fmt.Sprintf("%.1f GB", float64(sizeBytes)/bytesPerGB)
@@ -142,7 +170,12 @@ func runLlamafileUpdate() error {
 	if llm.RunHarvesterScript() {
 		llamafiles := llm.ListLlamafileMappings()
 		ggufs := llm.ListGGUFMappings()
-		fmt.Fprintf(os.Stdout, "Harvested %d llamafile + %d GGUF entries from HuggingFace.\n", len(llamafiles), len(ggufs))
+		fmt.Fprintf(
+			os.Stdout,
+			"Harvested %d llamafile + %d GGUF entries from HuggingFace.\n",
+			len(llamafiles),
+			len(ggufs),
+		)
 		return nil
 	}
 

@@ -46,6 +46,10 @@ const (
 	replThinkingDelay     = 400 * time.Millisecond
 	replFileCompletionMax = 20
 	replAutoCompactEvery  = 25
+
+	modelTypeLLamafile  = "llamafile"
+	modelTypeGGUF       = "gguf"
+	modelTypeCloud      = ""
 )
 
 //nolint:gochecknoglobals // command list must be package-level for completer
@@ -91,18 +95,18 @@ type TUIRunner func() (skillPaths []string, toolsChanged bool, err error)
 
 // REPL drives an interactive read-eval-print loop for the agent.
 type REPL struct {
-	loop             *Loop
-	ctx              context.Context
-	cancel           context.CancelFunc
-	history          []string
-	modelNames         []string            // suggestions for /model <tab>
-	downloadedModels   map[string]bool     // set of already-downloaded model aliases
-	modelTypes         map[string]string   // model name -> type ("llamafile", "gguf", ""=cloud)
-	cloudModelBackends map[string]string   // cloud model name -> backend name
-	providerStatus     map[string]bool     // backend -> API key set
-	onSettingsChange OnSettingsChange
-	tuiRunner        TUIRunner
-	runFn            func(context.Context, string) (string, error) // nil in production; injected in tests
+	loop               *Loop
+	ctx                context.Context
+	cancel             context.CancelFunc
+	history            []string
+	modelNames         []string          // suggestions for /model <tab>
+	downloadedModels   map[string]bool   // set of already-downloaded model aliases
+	modelTypes         map[string]string // model name -> type (modelTypeLLamafile, modelTypeGGUF, ""=cloud)
+	cloudModelBackends map[string]string // cloud model name -> backend name
+	providerStatus     map[string]bool   // backend -> API key set
+	onSettingsChange   OnSettingsChange
+	tuiRunner          TUIRunner
+	runFn              func(context.Context, string) (string, error) // nil in production; injected in tests
 }
 
 // NewREPL creates a new REPL for the given agent loop.
@@ -147,7 +151,7 @@ func (r *REPL) SetDownloadedModels(downloaded map[string]bool) {
 }
 
 // SetModelTypes registers the type of each model alias for /model tab completion.
-// Types are "" (cloud), "llamafile", or "gguf". Completion suffixes include a
+// Types are "" (cloud), modelTypeLLamafile, or modelTypeGGUF. Completion suffixes include a
 // [type] tag and results are grouped: cached > llamafile > gguf > cloud.
 func (r *REPL) SetModelTypes(types map[string]string) {
 	r.modelTypes = types
@@ -263,10 +267,10 @@ func (c *replCompleter) Do(line []rune, pos int) ([][]rune, int) {
 		cmd := strings.ToLower(strings.TrimSpace(str[:lastSpace]))
 		if cmd == "/model" {
 			ranked := fuzzyRankStrings(strings.ToLower(token), c.repl.modelNames)
-		if len(ranked) > 40 {
-			ranked = ranked[:40]
-		}
-		return c.repl.modelCompletionSuffixes(ranked, tokenLen), tokenLen
+			if len(ranked) > 40 {
+				ranked = ranked[:40]
+			}
+			return c.repl.modelCompletionSuffixes(ranked, tokenLen), tokenLen
 		}
 	}
 
@@ -285,9 +289,9 @@ func (r *REPL) modelCompletionSuffixes(ranked []string, tokenLen int) [][]rune {
 			continue
 		}
 		switch r.modelTypes[n] {
-		case "llamafile":
+		case modelTypeLLamafile:
 			llamafile = append(llamafile, n)
-		case "gguf":
+		case modelTypeGGUF:
 			gguf = append(gguf, n)
 		default:
 			cloud = append(cloud, n)
@@ -320,16 +324,16 @@ func (r *REPL) modelCompletionSuffixes(ranked []string, tokenLen int) [][]rune {
 func modelTag(r *REPL, name string) string {
 	if r.downloadedModels[name] {
 		switch r.modelTypes[name] {
-		case "llamafile":
+		case modelTypeLLamafile:
 			return " [llamafile cached]"
-		case "gguf":
+		case modelTypeGGUF:
 			return " [gguf cached]"
 		default:
 			return " [cached]"
 		}
 	}
 	mt := r.modelTypes[name]
-	if mt == "llamafile" || mt == "gguf" {
+	if mt == modelTypeLLamafile || mt == modelTypeGGUF {
 		return " [" + mt + "]"
 	}
 	if backend, ok := r.cloudModelBackends[name]; ok && r.providerStatus[backend] {
@@ -791,7 +795,7 @@ func (r *REPL) cmdModel(args []string) error {
 	if backend := BackendForModel(model); backend != "" {
 		r.loop.config.Backend = backend
 		r.loop.config.BaseURL = ""
-	} else if mt := r.modelTypes[model]; mt == "gguf" {
+	} else if mt := r.modelTypes[model]; mt == modelTypeGGUF {
 		r.loop.config.Backend = llm.BackendGGUF
 		r.loop.config.BaseURL = ""
 	}
