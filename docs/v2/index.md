@@ -4,7 +4,7 @@ layout: home
 hero:
   name: kdeps
   text: Build and deploy AI agents in YAML.
-  tagline: Workflow pipelines and autonomous agents in YAML. Export as Docker, Kubernetes, ISO, or a single binary. Local llamafile models out of the box - or Ollama, OpenAI, Anthropic, and any OpenAI-compatible backend.
+  tagline: Workflow pipelines and autonomous agents in YAML. Export as Docker, Kubernetes, ISO, or a single binary. Local llamafile models out of the box - or Ollama, OpenAI, Anthropic, and any OpenAI-compatible backend. Proud member of the NVIDIA Inception program.
   announcement: Skills for AI agents are here
   announcementLink: /getting-started/agent-skills
   actions:
