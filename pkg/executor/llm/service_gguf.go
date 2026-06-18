@@ -64,10 +64,10 @@ func (s *ModelService) ggufServerURL(model string) string {
 	port := servedGGUFs[path]
 	servedGGUFsMu.Unlock()
 	if port != 0 && isHealthy(localServerURL(port)) {
-		return localServerURL(port)
+		return localServerURL(port) + "/v1"
 	}
 	if saved := readServerPortFile(path); saved != 0 && isHealthy(localServerURL(saved)) {
-		return localServerURL(saved)
+		return localServerURL(saved) + "/v1"
 	}
 	return ""
 }
