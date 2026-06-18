@@ -26,9 +26,9 @@ import (
 )
 
 const (
-	backendGGUF        = "gguf"
-	backendGGUFPort    = 8081
-	backendGGUFHostURL = "http://127.0.0.1:8081"
+	BackendGGUF        = "gguf"
+	BackendGGUFPort    = 8081
+	BackendGGUFHostURL = "http://127.0.0.1:8081"
 )
 
 // GGUFBackend serves local .gguf model files via llama-server (llama.cpp).
@@ -38,12 +38,12 @@ type GGUFBackend struct{}
 
 func (b *GGUFBackend) Name() string {
 	kdeps_debug.Log("enter: GGUFBackend.Name")
-	return backendGGUF
+	return BackendGGUF
 }
 
 func (b *GGUFBackend) DefaultURL() string {
 	kdeps_debug.Log("enter: GGUFBackend.DefaultURL")
-	return backendGGUFHostURL
+	return BackendGGUFHostURL
 }
 
 func (b *GGUFBackend) ChatEndpoint(baseURL string) string {

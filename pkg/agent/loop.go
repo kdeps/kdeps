@@ -33,6 +33,7 @@ import (
 
 	"github.com/kdeps/kdeps/v2/pkg/domain"
 	"github.com/kdeps/kdeps/v2/pkg/executor"
+	executorLLM "github.com/kdeps/kdeps/v2/pkg/executor/llm"
 	"github.com/kdeps/kdeps/v2/pkg/tools"
 )
 
@@ -83,6 +84,10 @@ type Config struct {
 	// MaxToolRounds caps how many tool-call/result round trips RunStreaming
 	// will perform in a single turn. 0 means unlimited (default: 10).
 	MaxToolRounds int
+	// ModelService is used by the REPL to auto-start local model servers
+	// (file/gguf backends) when the user switches to a local model via /model.
+	// May be nil — auto-start is skipped if not set.
+	ModelService executorLLM.ModelServiceInterface
 	// StreamFinalOnly suppresses streaming output for intermediate tool-call
 	// rounds, writing only the final agent response to the caller's writer.
 	// When false (default), all rounds are streamed as they arrive.
@@ -421,8 +426,10 @@ func (l *Loop) buildSyntheticWorkflow(actionID string, chatCfg *domain.ChatConfi
 			Version:        l.workflow.Metadata.Version,
 			TargetActionID: actionID,
 		},
-		Settings:   l.workflow.Settings,
-		Components: l.workflow.Components,
+		Settings: l.workflow.Settings,
+		// Components intentionally omitted: in agent loop mode, workflows/components/agencies
+		// are LLM tools only. The synthetic workflow has a single chat resource and no component
+		// resources, so the host workflow's Components must not be present here.
 		Resources: []*domain.Resource{{
 			ActionID: actionID,
 			Name:     "agent_loop",

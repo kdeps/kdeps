@@ -230,7 +230,7 @@ func (m *LlamafileManager) Serve(path string, port int) (int, error) {
 		startServer: startLlamafileServerFunc,
 		timeout:     llamafileStartTimeoutFunc,
 		label:       "llamafile server",
-		defaultPort: backendFilePort,
+		defaultPort: BackendFilePort,
 	}, path, port)
 }
 

@@ -91,6 +91,7 @@ func runAgentLoopCmd(path string, flags *agentLoopFlags) error {
 		SystemPrompt: flags.SystemPrompt,
 		SkillPaths:   skillPaths,
 		Streamer:     llmAdapter,
+		ModelService: llm.NewModelService(nil),
 	}
 
 	if flags.Resume != "" {

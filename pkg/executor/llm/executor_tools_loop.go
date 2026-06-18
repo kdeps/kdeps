@@ -27,9 +27,11 @@ import (
 	"github.com/kdeps/kdeps/v2/pkg/executor"
 )
 
+const defaultMaxToolRounds = 5
+
 func (e *Executor) handleToolCalls(
 	ctx *executor.ExecutionContext,
-	_ *domain.ChatConfig,
+	cfg *domain.ChatConfig,
 	tools []domain.Tool,
 	modelStr string,
 	messages []map[string]interface{},
@@ -40,7 +42,10 @@ func (e *Executor) handleToolCalls(
 	timeout time.Duration,
 ) (map[string]interface{}, error) {
 	kdeps_debug.Log("enter: handleToolCalls")
-	maxIterations := 5
+	maxIterations := defaultMaxToolRounds
+	if cfg != nil && cfg.MaxToolRounds > 0 {
+		maxIterations = cfg.MaxToolRounds
+	}
 	currentResponse := response
 	currentMessages := messages
 

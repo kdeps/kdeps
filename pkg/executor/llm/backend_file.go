@@ -28,9 +28,9 @@ import (
 )
 
 const (
-	backendFile        = "file"
-	backendFilePort    = 8080
-	backendFileHostURL = "http://127.0.0.1:8080"
+	BackendFile        = "file"
+	BackendFilePort    = 8080
+	BackendFileHostURL = "http://127.0.0.1:8080"
 )
 
 // FileBackend implements the Backend interface for local llamafile executables.
@@ -41,7 +41,7 @@ type FileBackend struct{}
 
 func (b *FileBackend) Name() string {
 	kdeps_debug.Log("enter: FileBackend.Name")
-	return backendFile
+	return BackendFile
 }
 
 // DefaultURL returns the default local server URL for a llamafile.
@@ -49,7 +49,7 @@ func (b *FileBackend) Name() string {
 // the manager sets the resolved URL on the config before dispatching.
 func (b *FileBackend) DefaultURL() string {
 	kdeps_debug.Log("enter: FileBackend.DefaultURL")
-	return backendFileHostURL
+	return BackendFileHostURL
 }
 
 // ChatEndpoint returns the OpenAI-compatible chat completions endpoint.

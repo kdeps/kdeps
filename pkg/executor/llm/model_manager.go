@@ -94,7 +94,7 @@ func (m *ModelManager) EnsureModel(config *domain.ChatConfig) error {
 	backend := resolveBackend(config)
 	host, port := resolveModelHostPort(config, backend)
 
-	if backend == backendFile {
+	if backend == BackendFile {
 		// An explicit base URL points at an already-running OpenAI-compatible
 		// server; there is no llamafile to download or serve.
 		if config.BaseURL != "" || os.Getenv("KDEPS_LLM_BASE_URL") != "" {
@@ -105,7 +105,7 @@ func (m *ModelManager) EnsureModel(config *domain.ChatConfig) error {
 		return nil
 	}
 
-	if backend == backendGGUF {
+	if backend == BackendGGUF {
 		if config.BaseURL != "" || os.Getenv("KDEPS_LLM_BASE_URL") != "" {
 			return nil
 		}

@@ -89,6 +89,10 @@ type ChatConfig struct {
 	// Only meaningful when tools are provided.
 	ToolChoice string `yaml:"toolChoice,omitempty"`
 
+	// MaxToolRounds caps the number of tool call / response round-trips for this
+	// resource. 0 means use the executor default (currently 5).
+	MaxToolRounds int `yaml:"maxToolRounds,omitempty"`
+
 	// FewShot injects example user/assistant pairs before the conversation history
 	// to demonstrate the expected output format. Each item should alternate roles:
 	// user (example input) then assistant (example output). Injected after scenario:
