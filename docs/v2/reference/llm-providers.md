@@ -27,7 +27,7 @@ into the image - see [Docker deployment](/deployment/docker#llm-backend-in-image
 
 ### GGUF (llama.cpp)
 
-The `gguf` backend serves GGUF model files via `llama-server` (llama.cpp). Full parity with the `file` backend: alias resolution, URL download with progress bar, shared cache at `~/.kdeps/models/`. Requires `llama-server` installed separately (override with `KDEPS_LLAMA_SERVER_BIN`).
+The `gguf` backend serves GGUF model files via `llama-server` (llama.cpp). Full parity with the `file` backend: alias resolution, URL download with progress bar, shared cache at `~/.kdeps/models/`. llama-server is automatically downloaded and cached on first use — no manual install needed. Override with `KDEPS_LLAMA_SERVER_BIN` for a custom binary.
 
 ```yaml
 # ~/.kdeps/config.yaml
