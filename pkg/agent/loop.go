@@ -113,6 +113,7 @@ type Loop struct {
 	onAutoCompact func(summary string)
 	store         *SessionStore // optional persistence
 	streamer      Streamer      // optional streaming LLM caller
+	pendingFiles  []string      // per-turn image/file attachments; cleared after buildChatConfig
 }
 
 // New creates a new Loop. cfg fields with zero values fall back to env vars and
@@ -456,12 +457,15 @@ func (l *Loop) buildChatConfig(input, systemPreamble string) *domain.ChatConfig 
 	if l.registry != nil {
 		tools = l.registry.ToLLMTools()
 	}
+	files := l.pendingFiles
+	l.pendingFiles = nil // consume; clear for next turn
 	chatCfg := &domain.ChatConfig{
 		Model:    l.config.Model,
 		Backend:  l.config.Backend,
 		BaseURL:  l.config.BaseURL,
 		Role:     l.config.Role,
 		Prompt:   input,
+		Files:    files,
 		Tools:    tools,
 		Thinking: l.config.Thinking,
 	}
@@ -635,6 +639,13 @@ func (l *Loop) ReloadSkills(skillPaths []string) {
 	l.skillList = slice
 	l.skills = formatSkillsForPrompt(slice)
 	l.config.SkillPaths = skillPaths
+}
+
+// SetPendingFiles sets files to attach to the next LLM call as multimodal content.
+// The files are consumed by buildChatConfig and cleared afterwards.
+// Matches pi's optional images parameter on Agent.prompt/steer/followUp.
+func (l *Loop) SetPendingFiles(files []string) {
+	l.pendingFiles = files
 }
 
 // Reload re-reads skills, prompt templates, and instructions from disk.
