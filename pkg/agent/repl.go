@@ -95,9 +95,10 @@ type REPL struct {
 	ctx              context.Context
 	cancel           context.CancelFunc
 	history          []string
-	modelNames       []string        // suggestions for /model <tab>
-	downloadedModels map[string]bool // set of already-downloaded model aliases
-	providerStatus   map[string]bool // backend -> API key set
+	modelNames       []string            // suggestions for /model <tab>
+	downloadedModels map[string]bool     // set of already-downloaded model aliases
+	modelTypes       map[string]string   // model name -> type ("llamafile", "gguf", ""=cloud)
+	providerStatus   map[string]bool     // backend -> API key set
 	onSettingsChange OnSettingsChange
 	tuiRunner        TUIRunner
 	runFn            func(context.Context, string) (string, error) // nil in production; injected in tests
@@ -142,6 +143,13 @@ func (r *REPL) SetModelNames(names []string) {
 // Completion candidates for downloaded models are prefixed with "*" as a visual indicator.
 func (r *REPL) SetDownloadedModels(downloaded map[string]bool) {
 	r.downloadedModels = downloaded
+}
+
+// SetModelTypes registers the type of each model alias for /model tab completion.
+// Types are "" (cloud), "llamafile", or "gguf". Completion suffixes include a
+// [type] tag and results are grouped: cached > llamafile > gguf > cloud.
+func (r *REPL) SetModelTypes(types map[string]string) {
+	r.modelTypes = types
 }
 
 // SetProviderStatus registers which cloud backend providers have an API key set.
@@ -256,19 +264,31 @@ func (c *replCompleter) Do(line []rune, pos int) ([][]rune, int) {
 }
 
 // modelCompletionSuffixes builds the readline suffix list for /model completion.
-// Downloaded models are sorted first and their suffixes are prefixed with "*".
+// Models are grouped by type (cached > llamafile > gguf > cloud) and each suffix
+// includes a [type] tag so users can distinguish local from cloud at a glance.
 // tokenLen is the number of runes already typed (suffix = candidate[tokenLen:]).
 func (r *REPL) modelCompletionSuffixes(ranked []string, tokenLen int) [][]rune {
-	var downloaded, rest []string
+	var cached, llamafile, gguf, cloud []string
 	for _, n := range ranked {
 		if r.downloadedModels[n] {
-			downloaded = append(downloaded, n)
-		} else {
-			rest = append(rest, n)
+			cached = append(cached, n)
+			continue
+		}
+		switch r.modelTypes[n] {
+		case "llamafile":
+			llamafile = append(llamafile, n)
+		case "gguf":
+			gguf = append(gguf, n)
+		default:
+			cloud = append(cloud, n)
 		}
 	}
-	downloaded = append(downloaded, rest...)
-	ordered := downloaded
+	ordered := make([]string, 0, len(ranked))
+	ordered = append(ordered, cached...)
+	ordered = append(ordered, llamafile...)
+	ordered = append(ordered, gguf...)
+	ordered = append(ordered, cloud...)
+
 	results := make([][]rune, 0, len(ordered))
 	for _, n := range ordered {
 		nr := []rune(n)
@@ -276,10 +296,20 @@ func (r *REPL) modelCompletionSuffixes(ranked []string, tokenLen int) [][]rune {
 			continue
 		}
 		suffix := nr[tokenLen:]
+		tag := ""
 		if r.downloadedModels[n] {
-			// Prefix "*" so the completion list shows e.g. "qwen2.5*:7b" for cached models.
-			suffix = append([]rune{'*'}, suffix...)
+			tag = " [cached]"
+		} else {
+			switch r.modelTypes[n] {
+			case "llamafile":
+				tag = " [llamafile]"
+			case "gguf":
+				tag = " [gguf]"
+			default:
+				tag = " [cloud]"
+			}
 		}
+		suffix = append(suffix, []rune(tag)...)
 		results = append(results, suffix)
 	}
 	return results
