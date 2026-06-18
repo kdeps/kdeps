@@ -294,6 +294,50 @@ func (s *Session) FirstKeptEntryID() int64 {
 	return s.firstKeptEntryID
 }
 
+// GetBranch returns the chain of entries from the given entry back to the root.
+// Walks ParentID links to reconstruct the full branch. Returns nil if entryID is
+// not found. Pi equivalent: getBranch() in session.ts.
+func (s *Session) GetBranch(entryID int64) []sessionMessage {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	idx := s.indexOfID(entryID)
+	if idx < 0 {
+		return nil
+	}
+	var branch []sessionMessage
+	seen := make(map[int64]bool)
+	for cur := &s.messages[idx]; cur != nil; {
+		if seen[cur.ID] {
+			break
+		}
+		seen[cur.ID] = true
+		branch = append(branch, *cur)
+		if cur.ParentID == 0 {
+			break
+		}
+		parentIdx := s.indexOfID(cur.ParentID)
+		if parentIdx < 0 {
+			break
+		}
+		cur = &s.messages[parentIdx]
+	}
+	// Reverse so root is first.
+	for i, j := 0, len(branch)-1; i < j; i, j = i+1, j-1 {
+		branch[i], branch[j] = branch[j], branch[i]
+	}
+	return branch
+}
+
+// indexOfID returns the index of the message with the given ID, or -1.
+func (s *Session) indexOfID(id int64) int {
+	for i := len(s.messages) - 1; i >= 0; i-- {
+		if s.messages[i].ID == id {
+			return i
+		}
+	}
+	return -1
+}
+
 // rawMessages returns a copy of the internal messages for compaction
 // cut-point calculation. Unexported: callers are in the same package.
 func (s *Session) rawMessages() []sessionMessage {
