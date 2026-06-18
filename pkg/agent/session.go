@@ -232,8 +232,8 @@ func (s *Session) CompactWith(summary string, keptMessages []sessionMessage, com
 		compactedTurns,
 	)
 	newMsgs = append(newMsgs,
-		sessionMessage{Role: "user", Content: header},
-		sessionMessage{Role: "assistant", Content: ackMsg},
+		sessionMessage{Role: RoleCompactionSummary, Content: header},
+		sessionMessage{Role: RoleAssistant, Content: ackMsg},
 	)
 	newMsgs = append(newMsgs, keptMessages...)
 	s.messages = newMsgs

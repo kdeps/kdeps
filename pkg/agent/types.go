@@ -22,10 +22,12 @@ import "context"
 
 // Role constants for AgentMessage.
 const (
-	RoleUser       = "user"
-	RoleAssistant  = "assistant"
-	RoleSystem     = "system"
-	RoleToolResult = "toolResult"
+	RoleUser              = "user"
+	RoleAssistant         = "assistant"
+	RoleSystem            = "system"
+	RoleToolResult        = "toolResult"
+	RoleCompactionSummary = "compactionSummary"
+	RoleBranchSummary     = "branchSummary"
 )
 
 // StopReason constants for assistant messages.
