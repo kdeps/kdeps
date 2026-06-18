@@ -43,8 +43,8 @@ jobs:
         env:
           HF_TOKEN: ${{ secrets.HF_TOKEN }}
         run: |
-          python3 tools/llamafile-harvester/harvest.py --write || echo "harvest failed; keeping committed registry"
-          if git diff --quiet pkg/executor/llm/llamafile_versions_data.go tools/llamafile-harvester/llamafile_versions.yaml 2>/dev/null; then
+          python3 tools/llamafile-harvester/harvest.py --write --gguf || echo "harvest failed; keeping committed registry"
+          if git diff --quiet pkg/executor/llm/llamafile_versions_data.go tools/llamafile-harvester/llamafile_versions.yaml pkg/executor/llm/gguf_versions_data.go tools/llamafile-harvester/gguf_versions.yaml 2>/dev/null; then
             echo "has_registry_updates=false" >> $GITHUB_OUTPUT
           else
             echo "has_registry_updates=true" >> $GITHUB_OUTPUT
@@ -237,10 +237,11 @@ jobs:
           else
             git add package.json package-lock.json
           fi
-          if git diff --quiet pkg/executor/llm/llamafile_versions_data.go tools/llamafile-harvester/llamafile_versions.yaml; then
-            echo "No llamafile registry changes to commit"
+          if git diff --quiet pkg/executor/llm/llamafile_versions_data.go tools/llamafile-harvester/llamafile_versions.yaml pkg/executor/llm/gguf_versions_data.go tools/llamafile-harvester/gguf_versions.yaml; then
+            echo "No llamafile/GGUF registry changes to commit"
           else
             git add pkg/executor/llm/llamafile_versions_data.go tools/llamafile-harvester/llamafile_versions.yaml
+            git add pkg/executor/llm/gguf_versions_data.go tools/llamafile-harvester/gguf_versions.yaml 2>/dev/null || true
           fi
           git commit -m "chore: update dependencies [nightly]"
           git pull --rebase origin main
