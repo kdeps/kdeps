@@ -316,9 +316,9 @@ func TestGGUFManager_Serve_StartError(t *testing.T) {
 }
 
 func TestStartGGUFServer_BadBinary(t *testing.T) {
-	orig := ggufLlamaCPPBinary
-	t.Cleanup(func() { ggufLlamaCPPBinary = orig })
-	ggufLlamaCPPBinary = "/no/such/binary-xyz"
+	orig := ggufLlamaServerBinaryFn
+	t.Cleanup(func() { ggufLlamaServerBinaryFn = orig })
+	ggufLlamaServerBinaryFn = func() string { return "/no/such/binary-xyz" }
 
 	_, err := startGGUFServer("/tmp/model.gguf", 19997)
 	require.Error(t, err)
@@ -412,10 +412,10 @@ func TestGGUFStartTimeoutFunc_Default(t *testing.T) {
 }
 
 func TestStartGGUFServer_Success(t *testing.T) {
-	orig := ggufLlamaCPPBinary
-	t.Cleanup(func() { ggufLlamaCPPBinary = orig })
+	orig := ggufLlamaServerBinaryFn
+	t.Cleanup(func() { ggufLlamaServerBinaryFn = orig })
 	// /bin/sh always exists; it will exit with unknown-flag error but cmd.Start() succeeds.
-	ggufLlamaCPPBinary = "/bin/sh"
+	ggufLlamaServerBinaryFn = func() string { return "/bin/sh" }
 	_, err := startGGUFServer("/tmp/model.gguf", 29995)
 	require.NoError(t, err)
 }
