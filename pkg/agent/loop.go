@@ -428,7 +428,7 @@ func (l *Loop) buildSystemPreamble() string {
 	if l.skills != "" {
 		parts = append(parts, l.skills)
 	}
-	if len(l.registry.List()) > 0 {
+	if l.registry != nil && len(l.registry.List()) > 0 {
 		parts = append(parts, toolUseGuidance)
 	}
 	if l.config.SystemPrompt != "" {
