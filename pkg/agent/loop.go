@@ -383,22 +383,42 @@ const toolUseGuidance = `Only call a tool when the user explicitly asks you to p
 
 // buildSystemPreamble constructs the system prompt preamble from skills,
 // instruction files, and the user-configured system prompt.
+// For small-context models (< 8K), non-essential parts are dropped to
+// leave room for the actual conversation.
 func (l *Loop) buildSystemPreamble() string {
+	limit := l.config.CompactTokenBudget
+	if limit <= 0 {
+		limit = l.config.AutoCompactThreshold
+	}
+	if limit <= 0 {
+		limit = 40000
+	}
 	var parts []string
 
 	if l.skills != "" {
 		parts = append(parts, l.skills)
 	}
-
 	if len(l.registry.List()) > 0 {
 		parts = append(parts, toolUseGuidance)
 	}
-
 	if l.config.SystemPrompt != "" {
 		parts = append(parts, l.config.SystemPrompt)
 	}
 
-	return strings.Join(parts, "\n\n")
+	preamble := strings.Join(parts, "\n\n")
+	// For models with very small context windows, keep only tool guidance
+	// and strip large skill blocks that would cause immediate overflow.
+	const smallContext = 8192
+	if limit < smallContext && l.skills != "" {
+		essential := toolUseGuidance
+		if l.config.SystemPrompt != "" {
+			essential = l.config.SystemPrompt + "\n\n" + toolUseGuidance
+		}
+		if len(parts) > 0 {
+			preamble = essential
+		}
+	}
+	return preamble
 }
 
 func (l *Loop) buildChatConfig(input, systemPreamble string) *domain.ChatConfig {
