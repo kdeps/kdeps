@@ -816,8 +816,8 @@ func (r *REPL) cmdModel(args []string) error {
 	}
 	r.startLocalModelServer(model)
 	// Apply context budget and auto-compact if needed. Cloud models get 128K,
-	// local models use the configured or default context size (4K for GGUF).
-	limit := contextLimitForModel(model)
+	// local models use the configured or default context size.
+	limit := r.contextLimitForModel(model)
 	r.loop.Session().SetTokenBudget(limit, model)
 	r.loop.CompactIfNeeded(r.ctx)
 	fmt.Fprintln(os.Stdout, styleReplMeta.Render("Model set to "+model))
@@ -825,22 +825,88 @@ func (r *REPL) cmdModel(args []string) error {
 }
 
 // contextLimitForModel returns the context window size for a model.
-// Returns 131072 for cloud models (generous default), the configured gguf
-// context size for gguf models, and 4096 as a safe fallback for local models.
-func contextLimitForModel(model string) int {
-	// Cloud models have large context windows; use 128K as safe default.
+// Cloud models get 128K. For local models, checks env vars first, then
+// derives from the model's parameter count, falling back to 4096.
+func (r *REPL) contextLimitForModel(model string) int {
 	if BackendForModel(model) != "" {
 		return 131072
 	}
-	ctx := os.Getenv("KDEPS_GGUF_CTX_SIZE")
-	if ctx == "" {
-		// Probe the default gguf context size constant.
-		return 4096
+	// Check per-backend env vars.
+	mt := r.modelTypes[model]
+	switch mt {
+	case modelTypeGGUF:
+		if v := os.Getenv("KDEPS_GGUF_CTX_SIZE"); v != "" {
+			if n, err := strconv.Atoi(v); err == nil && n > 0 {
+				return n
+			}
+		}
+	case modelTypeLLamafile:
+		if v := os.Getenv("KDEPS_LLAMAFILE_CTX_SIZE"); v != "" {
+			if n, err := strconv.Atoi(v); err == nil && n > 0 {
+				return n
+			}
+		}
 	}
-	if n, err := strconv.Atoi(ctx); err == nil && n > 0 {
+	// Derive from model parameter count (e.g., "7B" → 32768).
+	if n := contextFromParams(model); n > 0 {
 		return n
 	}
 	return 4096
+}
+
+// modelTypeForName returns the type tag for a model name from the REPL's
+// modelTypes map, or the empty string if unknown.
+
+// contextFromParams derives a reasonable context window size from a model's
+// parameter count string (e.g. "7B" → 32768). Returns 0 if unknown.
+func contextFromParams(model string) int {
+	params := paramsForModel(model)
+	switch {
+	case params >= 30:
+		return 131072
+	case params >= 13:
+		return 65536
+	case params >= 7:
+		return 32768
+	case params >= 3:
+		return 16384
+	case params >= 1:
+		return 8192
+	default:
+		return 0
+	}
+}
+
+// paramsForModel extracts the parameter count (in billions) from a model alias
+// like "llama3.2:1b" → 1, "qwen2.5:7b" → 7. Returns 0 if unknown.
+func paramsForModel(model string) float64 {
+	// Check llamafile registry first.
+	for _, m := range llm.ListLlamafileMappings() {
+		if m.Alias == model && m.Params != "" {
+			if n := parseParamB(m.Params); n > 0 {
+				return n
+			}
+		}
+	}
+	for _, m := range llm.ListGGUFMappings() {
+		if m.Alias == model && m.Params != "" {
+			if n := parseParamB(m.Params); n > 0 {
+				return n
+			}
+		}
+	}
+	return 0
+}
+
+// parseParamB parses a parameter count string like "7B" or "0.5B" and returns
+// the value in billions as a float64.
+func parseParamB(s string) float64 {
+	s = strings.TrimSuffix(strings.ToUpper(s), "B")
+	n, err := strconv.ParseFloat(s, 64)
+	if err != nil || n <= 0 {
+		return 0
+	}
+	return n
 }
 
 // startLocalModelServer downloads, starts, and registers the URL for a local
