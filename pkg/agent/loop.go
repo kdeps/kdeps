@@ -271,6 +271,9 @@ func (l *Loop) RunStreaming(ctx context.Context, input string, w io.Writer) (str
 	chatCfg := l.buildChatConfig(input, systemPreamble)
 
 	finalContent, err := l.runToolRounds(ctx, chatCfg, w)
+	if err != nil && IsContextOverflowError(err) {
+		finalContent, err = l.compactAndRetry(ctx, input, w)
+	}
 	if err != nil {
 		return "", err
 	}
@@ -278,6 +281,19 @@ func (l *Loop) RunStreaming(ctx context.Context, input string, w io.Writer) (str
 	response := stripContentToolCalls(finalContent)
 	l.session.Append(input, response)
 	return response, nil
+}
+
+// compactAndRetry compacts session history and retries the streaming call once.
+// Called when runToolRounds returns an IsContextOverflowError.
+func (l *Loop) compactAndRetry(ctx context.Context, input string, w io.Writer) (string, error) {
+	if summary, compactErr := l.CompactWithLLM(ctx); compactErr == nil && summary != "" {
+		if l.onAutoCompact != nil {
+			l.onAutoCompact(summary)
+		}
+	}
+	preamble := l.buildSystemPreamble()
+	cfg := l.buildChatConfig(input, preamble)
+	return l.runToolRounds(ctx, cfg, w)
 }
 
 // runToolRounds drives the tool-call loop, returning the final content string.
@@ -317,24 +333,24 @@ func (l *Loop) runToolRounds(ctx context.Context, chatCfg *domain.ChatConfig, w 
 func (l *Loop) appendToolRoundTrip(
 	cfg *domain.ChatConfig, assistantContent string, toolCalls []domain.StreamedToolCall,
 ) *domain.ChatConfig {
-	var history []map[string]interface{}
+	var history []map[string]any
 	if cfg.Messages != "" {
 		_ = json.Unmarshal([]byte(cfg.Messages), &history)
 	}
 
 	// Build tool_calls JSON for the assistant turn.
-	tcJSON := make([]map[string]interface{}, len(toolCalls))
+	tcJSON := make([]map[string]any, len(toolCalls))
 	for i, tc := range toolCalls {
-		tcJSON[i] = map[string]interface{}{
+		tcJSON[i] = map[string]any{
 			"id":   tc.ID,
 			"type": "function",
-			"function": map[string]interface{}{
+			"function": map[string]any{
 				"name":      tc.Name,
 				"arguments": tc.Arguments,
 			},
 		}
 	}
-	history = append(history, map[string]interface{}{
+	history = append(history, map[string]any{
 		"role":       "assistant",
 		"content":    assistantContent,
 		"tool_calls": tcJSON,
@@ -343,7 +359,7 @@ func (l *Loop) appendToolRoundTrip(
 	// Execute each tool and add tool result messages.
 	for _, tc := range toolCalls {
 		result := l.dispatchStreamToolCall(tc)
-		history = append(history, map[string]interface{}{
+		history = append(history, map[string]any{
 			"role":         "tool",
 			"tool_call_id": tc.ID,
 			"name":         tc.Name,
@@ -365,9 +381,9 @@ func (l *Loop) dispatchStreamToolCall(tc domain.StreamedToolCall) string {
 	if tool == nil {
 		return fmt.Sprintf(`{"error":"tool %q not found"}`, tc.Name)
 	}
-	var args map[string]interface{}
+	var args map[string]any
 	if err := json.Unmarshal([]byte(tc.Arguments), &args); err != nil {
-		args = make(map[string]interface{})
+		args = make(map[string]any)
 	}
 	result, err := tool.Execute(args)
 	if err != nil {
@@ -468,17 +484,17 @@ func (l *Loop) buildSyntheticWorkflow(actionID string, chatCfg *domain.ChatConfi
 }
 
 // formatLoopResult extracts the text response from the engine result.
-// The LLM executor returns map[string]interface{}{"message": {"content": "...", "role": "assistant"}};
+// The LLM executor returns map[string]any{"message": {"content": "...", "role": "assistant"}};
 // this function unwraps that structure instead of using fmt.Sprintf which produces garbled output.
-func formatLoopResult(result interface{}) string {
+func formatLoopResult(result any) string {
 	if result == nil {
 		return ""
 	}
 	if s, ok := result.(string); ok {
 		return stripContentToolCalls(s)
 	}
-	if m, ok := result.(map[string]interface{}); ok {
-		msg, msgOK := m["message"].(map[string]interface{})
+	if m, ok := result.(map[string]any); ok {
+		msg, msgOK := m["message"].(map[string]any)
 		if msgOK {
 			if content, contentOK := msg["content"].(string); contentOK {
 				return stripContentToolCalls(content)
@@ -495,7 +511,7 @@ func stripContentToolCalls(content string) string {
 	if !strings.HasPrefix(trimmed, "[") {
 		return content
 	}
-	var arr []map[string]interface{}
+	var arr []map[string]any
 	if err := json.Unmarshal([]byte(trimmed), &arr); err != nil || len(arr) == 0 {
 		return content
 	}

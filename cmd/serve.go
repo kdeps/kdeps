@@ -415,7 +415,7 @@ func buildModelTypes() map[string]string {
 		types[a.Alias] = "gguf"
 	}
 	for _, o := range llm.ListOllamaModels() {
-		types[o.Name] = "ollama"
+		types[o.Name] = chatBackendOllama
 	}
 	return types
 }

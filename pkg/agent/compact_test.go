@@ -189,8 +189,8 @@ func TestCompactWith_ReplacesHistory(t *testing.T) {
 	if len(msgs) != 4 {
 		t.Fatalf("expected 4 messages after compact, got %d", len(msgs))
 	}
-	if msgs[0].Role != "user" {
-		t.Fatalf("expected first message role=user, got %q", msgs[0].Role)
+	if msgs[0].Role != RoleCompactionSummary {
+		t.Fatalf("expected first message role=%q, got %q", RoleCompactionSummary, msgs[0].Role)
 	}
 	if !strings.Contains(msgs[0].Content, "This is the summary.") {
 		t.Fatalf("expected summary in first message, got %q", msgs[0].Content)

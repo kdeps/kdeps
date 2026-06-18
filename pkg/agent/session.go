@@ -294,10 +294,12 @@ func (s *Session) FirstKeptEntryID() int64 {
 	return s.firstKeptEntryID
 }
 
-// GetBranch returns the chain of entries from the given entry back to the root.
+// getBranch returns the chain of entries from the given entry back to the root.
 // Walks ParentID links to reconstruct the full branch. Returns nil if entryID is
 // not found. Pi equivalent: getBranch() in session.ts.
-func (s *Session) GetBranch(entryID int64) []sessionMessage {
+//
+//nolint:unused // will be used when buildSessionContext is ported from pi
+func (s *Session) getBranch(entryID int64) []sessionMessage {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 	idx := s.indexOfID(entryID)
@@ -329,6 +331,8 @@ func (s *Session) GetBranch(entryID int64) []sessionMessage {
 }
 
 // indexOfID returns the index of the message with the given ID, or -1.
+//
+//nolint:unused // will be used when buildSessionContext is ported from pi
 func (s *Session) indexOfID(id int64) int {
 	for i := len(s.messages) - 1; i >= 0; i-- {
 		if s.messages[i].ID == id {

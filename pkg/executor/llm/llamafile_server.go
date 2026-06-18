@@ -354,9 +354,9 @@ func ResolvedLlamafileURL(model string) string {
 	}
 	// Check in-memory served map.
 	servedLlamafilesMu.Lock()
-	if port, ok := servedLlamafiles[path]; ok && isHealthy(localServerURL(port)) {
+	if savedPort, found := servedLlamafiles[path]; found && isHealthy(localServerURL(savedPort)) {
 		servedLlamafilesMu.Unlock()
-		return localServerURL(port)
+		return localServerURL(savedPort)
 	}
 	servedLlamafilesMu.Unlock()
 	// Check cross-process port file.
