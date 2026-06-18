@@ -25,6 +25,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 
 	"github.com/spf13/afero"
 	"github.com/spf13/pathologize"
@@ -80,25 +81,30 @@ func downloadModelFile(
 	return dest, nil
 }
 
+// defaultAria2cFlags are used when KDEPS_ARIA2C_FLAGS is not set.
+const defaultAria2cFlags = "-c -x 16 -s 16 --console-log-level=warn"
+
 // downloadWithResume tries to download url to dest using aria2c with resume
 // support and multi-connection acceleration. Returns nil on success. Returns
 // an error if aria2c fails or is not available (caller should fall back to
-// Go HTTP download).
+// Go HTTP download). Aria2c flags can be configured via KDEPS_ARIA2C_FLAGS
+// or the ~/.kdeps/config.yaml aria2c_flags field.
 func downloadWithResume(dest, url, basename string) error {
 	aria2c, err := exec.LookPath("aria2c")
 	if err != nil {
 		return fmt.Errorf("aria2c not found")
 	}
+	flags := os.Getenv("KDEPS_ARIA2C_FLAGS")
+	if flags == "" {
+		flags = defaultAria2cFlags
+	}
 	dir, file := filepath.Split(dest)
-	cmd := exec.Command(aria2c,
-		"-c",          // continue/resume partial downloads
-		"-x", "16",    // max 16 connections
-		"-s", "16",    // split into 16 pieces
-		"-d", dir,     // output directory
-		"-o", file,    // output filename
-		"--console-log-level=warn",
-		url,
-	)
+	args := append([]string{
+		"-d", dir,
+		"-o", file,
+	}, strings.Fields(flags)...)
+	args = append(args, url)
+	cmd := exec.Command(aria2c, args...)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	return cmd.Run()

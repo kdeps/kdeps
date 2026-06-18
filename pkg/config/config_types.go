@@ -173,6 +173,11 @@ type LLMKeys struct {
 	// Llamafile (file backend) — local self-contained model binaries.
 	ModelsDir string `yaml:"models_dir"` // cache dir for downloaded llamafiles; default: ~/.kdeps/models
 
+	// Aria2c download accelerator flags. When set, aria2c is used for model
+	// downloads with resume support. Falls back to Go HTTP download if empty
+	// or aria2c not installed. Default: "-c -x 16 -s 16 --console-log-level=warn"
+	Aria2cFlags string `yaml:"aria2c_flags,omitempty"`
+
 	// Online provider API keys.
 	OpenAI      string `yaml:"openai_api_key"`
 	Anthropic   string `yaml:"anthropic_api_key"`
