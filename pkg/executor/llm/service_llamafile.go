@@ -69,7 +69,7 @@ func (s *ModelService) llamafileServerURL(model string) string {
 	port := servedLlamafiles[path]
 	servedLlamafilesMu.Unlock()
 	if port != 0 && isHealthy(localServerURL(port)) {
-		return localServerURL(port) + "/v1"
+		return localServerURL(port)
 	}
 	if saved := readServerPortFile(path); saved != 0 && isHealthy(localServerURL(saved)) {
 		return localServerURL(saved) + "/v1"
