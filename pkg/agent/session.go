@@ -24,8 +24,6 @@ import (
 	"strings"
 	"sync"
 	"time"
-
-	"github.com/tmc/langchaingo/llms"
 )
 
 const (
@@ -167,7 +165,7 @@ func (s *Session) trimByTokenBudget() {
 func (s *Session) totalTokens() int {
 	total := 0
 	for _, m := range s.messages {
-		total += llms.CountTokens(s.modelHint, m.Content)
+		total += countTokensSilent(s.modelHint, m.Content)
 	}
 	return total
 }
