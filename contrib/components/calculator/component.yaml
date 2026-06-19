@@ -1,0 +1,46 @@
+apiVersion: kdeps.io/v1
+kind: Component
+metadata:
+  name: calculator
+  description: Evaluate arithmetic expressions (add, subtract, multiply, divide, power, modulo)
+  version: "1.0.0"
+interface:
+  inputs:
+    - name: expression
+      type: string
+      required: true
+      description: Arithmetic expression to evaluate, e.g. "2 + 3 * 4" or "10 / 2"
+resources:
+  - name: Evaluate Expression
+    actionId: evaluate-expression
+    python:
+      script: |
+        import json, ast, operator
+
+        expr = "{{ get('calculator.expression') }}"
+
+        _ops = {
+            ast.Add: operator.add,
+            ast.Sub: operator.sub,
+            ast.Mult: operator.mul,
+            ast.Div: operator.truediv,
+            ast.Pow: operator.pow,
+            ast.Mod: operator.mod,
+            ast.USub: operator.neg,
+        }
+
+        def _eval(node):
+            if isinstance(node, ast.Constant):
+                return node.value
+            if isinstance(node, ast.BinOp):
+                return _ops[type(node.op)](_eval(node.left), _eval(node.right))
+            if isinstance(node, ast.UnaryOp):
+                return _ops[type(node.op)](_eval(node.operand))
+            raise ValueError(f"unsupported operation: {type(node).__name__}")
+
+        try:
+            tree = ast.parse(expr, mode="eval")
+            result = _eval(tree.body)
+            print(json.dumps({"expression": expr, "result": result}))
+        except Exception as e:
+            print(json.dumps({"expression": expr, "error": str(e)}))
