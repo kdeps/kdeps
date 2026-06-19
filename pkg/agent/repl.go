@@ -690,6 +690,17 @@ func (r *REPL) processInput(input string) error {
 	if strings.HasPrefix(input, "/") {
 		return r.dispatchCommand(input)
 	}
+
+	// ! cmd  — run shell command, inject result as LLM context (pi's bang command)
+	// !! cmd — run shell command, print output but do NOT inject into LLM context
+	if strings.HasPrefix(input, "!") {
+		excludeFromContext := strings.HasPrefix(input, "!!")
+		cmd := strings.TrimSpace(strings.TrimPrefix(strings.TrimPrefix(input, "!!"), "!"))
+		if cmd != "" {
+			return r.execBangCommand(cmd, excludeFromContext)
+		}
+	}
+
 	expanded, imgFiles := expandFileRefs(input)
 	if len(imgFiles) > 0 {
 		r.loop.SetPendingFiles(imgFiles)
@@ -705,6 +716,51 @@ func (r *REPL) processInput(input string) error {
 	}
 	r.maybeHintCompact()
 	return nil
+}
+
+// execBangCommand executes a shell command via the ! prefix.
+// If excludeFromContext is false, the command and its output are injected into
+// the session so the LLM sees them as context. If true (!! prefix), the command
+// runs and prints to stdout but is NOT sent to the LLM.
+func (r *REPL) execBangCommand(cmd string, excludeFromContext bool) error {
+	ctx, cancel := context.WithTimeout(r.ctx, builtinBashTimeout)
+	defer cancel()
+	shell := exec.CommandContext(ctx, "bash", "-c", cmd)
+	shell.Stdout = os.Stdout
+	shell.Stderr = os.Stderr
+	shell.Stdin = os.Stdin
+
+	runErr := shell.Run()
+
+	var exitCode int
+	var errMsg string
+	if runErr != nil {
+		var exitErr *exec.ExitError
+		if errors.As(runErr, &exitErr) {
+			exitCode = exitErr.ExitCode()
+		} else {
+			errMsg = runErr.Error()
+		}
+	}
+
+	if excludeFromContext {
+		return runErr
+	}
+
+	// Build the LLM-facing text for this execution, matching pi's bashExecutionToText.
+	var sb strings.Builder
+	fmt.Fprintf(&sb, "Ran `%s`", cmd)
+	if errMsg != "" {
+		fmt.Fprintf(&sb, "\nerror: %s", errMsg)
+	} else if exitCode != 0 {
+		fmt.Fprintf(&sb, "\n\nCommand exited with code %d", exitCode)
+	}
+	contextMsg := sb.String()
+
+	// Inject into the session as a synthetic user+assistant turn so the LLM
+	// knows what was run. The assistant ack is minimal — it just confirms receipt.
+	r.loop.Session().Append(contextMsg, "I see the shell command output above.")
+	return runErr
 }
 
 // runPlain is a fallback REPL for non-TTY environments (pipes, tests).
@@ -801,7 +857,7 @@ func (r *REPL) cmdHelp() error {
 	meta := styleReplMeta.Render
 	fmt.Fprintf(
 		os.Stdout,
-		"%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n\n%s\n\n%s\n",
+		"%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n\n%s\n\n%s\n",
 		heading("Available commands:"),
 		"  /help                    Show this help message",
 		"  /settings                Open the tool/skill selector and save selections",
@@ -817,6 +873,8 @@ func (r *REPL) cmdHelp() error {
 		"  /session list|save|load|delete|checkpoint|goto  Manage saved sessions and checkpoints",
 		"  /copy                    Copy the last assistant response to the system clipboard",
 		"  /reload                  Reload skills, prompt templates, and instructions from disk",
+		"  ! <cmd>                  Run a shell command; result is added to LLM context",
+		"  !! <cmd>                 Run a shell command without adding it to LLM context",
 		meta(
 			"Tips: @file.txt embeds text inline  |  @photo.png attaches image as multimodal input  |  @https://... attaches image URL",
 		),

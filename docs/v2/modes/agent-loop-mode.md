@@ -36,6 +36,8 @@ Inside the REPL, type `/help` for the full list:
 | `/reload` | Reload skills and prompt templates from disk |
 | `/settings` | Open the tool/skill selector |
 | `/exit` | Exit the REPL |
+| `! <cmd>` | Run a shell command; result is added to LLM context |
+| `!! <cmd>` | Run a shell command without adding it to LLM context |
 
 ## Multimodal input
 
