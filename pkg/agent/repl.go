@@ -302,17 +302,19 @@ func (c *replCompleter) Do(line []rune, pos int) ([][]rune, int) {
 		return results, tokenLen
 	}
 
-	// /model <arg>: suggest model names ranked by fuzzy score.
+	// /model <arg>: suggest model names ranked by fuzzy score + tag match.
 	if lastSpace >= 0 && len(c.repl.modelNames) > 0 {
 		cmd := strings.ToLower(strings.TrimSpace(str[:lastSpace]))
 		if cmd == "/model" {
-			ranked := fuzzyRankStrings(strings.ToLower(token), c.repl.modelNames)
+			var ranked []string
 			if token == "" {
-				// No partial typed: return a prioritized short list so readline
-				// doesn't dump hundreds of entries. Cached > enabled cloud > rest.
-				ranked = c.repl.prioritizeModelNames(ranked, replModelCompletionMaxNoFilter)
-			} else if len(ranked) > replModelCompletionMax {
-				ranked = ranked[:replModelCompletionMax]
+				// No partial: return a prioritized short list (cached > enabled > rest).
+				ranked = c.repl.prioritizeModelNames(c.repl.modelNames, replModelCompletionMaxNoFilter)
+			} else {
+				ranked = c.repl.modelNamesMatchingToken(strings.ToLower(token))
+				if len(ranked) > replModelCompletionMax {
+					ranked = ranked[:replModelCompletionMax]
+				}
 			}
 			return c.repl.modelCompletionSuffixes(ranked, tokenLen), tokenLen
 		}
@@ -322,6 +324,30 @@ func (c *replCompleter) Do(line []rune, pos int) ([][]rune, int) {
 }
 
 // modelCompletionSuffixes builds the readline suffix list for /model completion.
+// modelNamesMatchingToken returns model names that match the token by either
+// fuzzy name match or by tag type match (e.g. "gguf", "cloud", "cached", "enabled").
+// Name-matched results appear first (ranked by score), tag-matched extras follow.
+func (r *REPL) modelNamesMatchingToken(lower string) []string {
+	byName := fuzzyRankStrings(lower, r.modelNames)
+	// quick set for dedup
+	seen := make(map[string]struct{}, len(byName))
+	for _, n := range byName {
+		seen[n] = struct{}{}
+	}
+	// include models whose tag contains the token (e.g. "gguf", "enabled", "cached")
+	for _, name := range r.modelNames {
+		if _, ok := seen[name]; ok {
+			continue
+		}
+		tag := strings.ToLower(strings.Trim(modelTag(r, name), " []"))
+		if strings.Contains(tag, lower) {
+			byName = append(byName, name)
+			seen[name] = struct{}{}
+		}
+	}
+	return byName
+}
+
 // prioritizeModelNames returns up to n model names from the input list, sorted
 // by priority: cached > enabled-cloud > llamafile > gguf > ollama > cloud.
 // Used when no partial filter is typed to avoid flooding readline with 500 entries.
