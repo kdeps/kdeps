@@ -324,12 +324,19 @@ func (c *replCompleter) Do(line []rune, pos int) ([][]rune, int) {
 }
 
 // modelCompletionSuffixes builds the readline suffix list for /model completion.
-// modelNamesMatchingToken returns model names fuzzy-ranked by name match.
-// Tag-type filtering (gguf, cloud, cached, etc.) is handled by the TUI picker
-// only; readline's display format (typed_token + suffix) makes tag-based tab
-// completion unreadable because the tag keyword is not a prefix of the model name.
+// modelNamesMatchingToken returns model names whose lowercased name starts with
+// the typed partial. Prefix matching is required because tab completion displays
+// as [typed_token + suffix], which only reads correctly when the token is a
+// prefix of the model name. Fuzzy matching and tag-type filtering (gguf, cached,
+// cloud, enabled) are available in the TUI picker (/model Enter).
 func (r *REPL) modelNamesMatchingToken(lower string) []string {
-	return fuzzyRankStrings(lower, r.modelNames)
+	var out []string
+	for _, name := range r.modelNames {
+		if strings.HasPrefix(strings.ToLower(name), lower) {
+			out = append(out, name)
+		}
+	}
+	return out
 }
 
 // prioritizeModelNames returns up to n model names from the input list, sorted
