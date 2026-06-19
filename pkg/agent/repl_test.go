@@ -1939,6 +1939,57 @@ func TestExecBangCommand_ExcludeFromContext(t *testing.T) {
 	assert.Equal(t, 0, loop.Session().TurnCount())
 }
 
+// --- applyConfigDefaults ModelService auto-start ---
+
+// mockModelService is a minimal ModelServiceInterface for testing.
+type mockModelService struct {
+	downloadCalled bool
+	serveCalled    bool
+	url            string
+}
+
+func (m *mockModelService) DownloadModel(_, _ string) error { m.downloadCalled = true; return nil }
+func (m *mockModelService) ServeModel(_, _, _ string, _ int) error {
+	m.serveCalled = true
+	return nil
+}
+func (m *mockModelService) ServerURL(_, _ string) string { return m.url }
+
+func TestApplyConfigDefaults_ModelServiceAutoStart(t *testing.T) {
+	svc := &mockModelService{url: "http://localhost:9999"}
+	cfg := applyConfigDefaults(Config{
+		Model:        "llama3.2",
+		Backend:      "file",
+		ModelService: svc,
+		// BaseURL intentionally empty to trigger auto-start
+	})
+	if !svc.downloadCalled {
+		t.Error("expected DownloadModel to be called")
+	}
+	if !svc.serveCalled {
+		t.Error("expected ServeModel to be called")
+	}
+	if cfg.BaseURL != "http://localhost:9999" {
+		t.Errorf("expected BaseURL=http://localhost:9999, got %q", cfg.BaseURL)
+	}
+}
+
+func TestApplyConfigDefaults_ModelServiceNotCalledWhenBaseURLSet(t *testing.T) {
+	svc := &mockModelService{url: "http://localhost:9999"}
+	cfg := applyConfigDefaults(Config{
+		Model:        "llama3.2",
+		Backend:      "file",
+		ModelService: svc,
+		BaseURL:      "http://existing:1234", // already set; should not trigger auto-start
+	})
+	if svc.downloadCalled || svc.serveCalled {
+		t.Error("expected ModelService methods not to be called when BaseURL is already set")
+	}
+	if cfg.BaseURL != "http://existing:1234" {
+		t.Errorf("expected BaseURL unchanged, got %q", cfg.BaseURL)
+	}
+}
+
 // --- buildSystemPreamble small-context path ---
 
 func TestBuildSystemPreamble_SmallContext_StripsSkills(t *testing.T) {
