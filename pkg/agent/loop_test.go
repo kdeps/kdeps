@@ -499,6 +499,27 @@ func TestLoop_SummarizeBranch_NoToolsInCall(t *testing.T) {
 	}
 }
 
+func TestLoop_SummarizeBranch_EmptyResult(t *testing.T) {
+	// Tests the raw=="" path: engine returns empty string -> error
+	callCount := 0
+	eng := executor.NewEngine(nil)
+	eng.SetExecuteFunc(func(_ *domain.Workflow, _ interface{}) (interface{}, error) {
+		callCount++
+		return "", nil // empty result for summary call
+	})
+	reg := tools.NewRegistry()
+	loop := agent.New(eng, newTestWorkflow(), reg, agent.Config{})
+
+	for range 8 {
+		loop.Run(context.Background(), "work") //nolint:errcheck
+	}
+
+	_, err := loop.SummarizeBranch(context.Background())
+	if err == nil {
+		t.Fatal("expected error for empty branch summary result")
+	}
+}
+
 func TestLoop_Run_AutoCompact_Disabled(t *testing.T) {
 	eng := newTestEngine("response", nil)
 	reg := tools.NewRegistry()
