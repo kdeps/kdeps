@@ -377,10 +377,11 @@ func (r *REPL) prioritizeModelNames(names []string, n int) []string {
 	return out
 }
 
-// Models are grouped by type (cached > llamafile > gguf > cloud) and each suffix
-// includes a [type] tag so users can distinguish local from cloud at a glance.
-// tokenLen is the number of runes already typed (suffix = candidate[tokenLen:]).
-func (r *REPL) modelCompletionSuffixes(ranked []string, tokenLen int) [][]rune {
+// Models are grouped by type (cached > llamafile > gguf > cloud) and each entry
+// is the FULL model name + tag. readline deletes tokenLen chars (the typed token)
+// and inserts the full name, so both name-prefix matches and tag-type matches
+// (e.g. "gguf", "enabled") produce correct results without mangling the display.
+func (r *REPL) modelCompletionSuffixes(ranked []string, _ int) [][]rune {
 	var cached, llamafile, gguf, ollama, cloud []string
 	for _, n := range ranked {
 		if r.downloadedModels[n] {
@@ -407,15 +408,12 @@ func (r *REPL) modelCompletionSuffixes(ranked []string, tokenLen int) [][]rune {
 
 	results := make([][]rune, 0, len(ordered))
 	for _, n := range ordered {
+		tag := []rune(modelTag(r, n))
 		nr := []rune(n)
-		if len(nr) < tokenLen {
-			continue
-		}
-		base := nr[tokenLen:]
-		suffix := make([]rune, len(base)+len(modelTag(r, n)))
-		copy(suffix, base)
-		copy(suffix[len(base):], []rune(modelTag(r, n)))
-		results = append(results, suffix)
+		entry := make([]rune, len(nr)+len(tag))
+		copy(entry, nr)
+		copy(entry[len(nr):], tag)
+		results = append(results, entry)
 	}
 	return results
 }
