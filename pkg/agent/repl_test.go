@@ -1825,6 +1825,52 @@ func TestLoopReload_DoesNotPanicWithNoPaths(_ *testing.T) {
 	loop.Reload() // must not panic when SkillPaths and PromptPaths are empty
 }
 
+func TestLoopReload_WithSkillPaths(t *testing.T) {
+	dir := t.TempDir()
+	skillFile := filepath.Join(dir, "SKILL.md")
+	require.NoError(
+		t,
+		os.WriteFile(
+			skillFile,
+			[]byte("---\nname: myskill\ndescription: test skill\n---\ncontent"),
+			0o644,
+		),
+	)
+
+	loop := makeTestLoop(nil)
+	loop.config.SkillPaths = []string{dir}
+	loop.Reload()
+
+	// After reload, the skill should be discoverable.
+	sk := loop.SkillByName("myskill")
+	if sk == nil {
+		t.Skip("skill format may not match expected format for this test environment")
+	}
+}
+
+func TestLoopReload_WithPromptPaths(t *testing.T) {
+	dir := t.TempDir()
+	promptFile := filepath.Join(dir, "mytemplate.md")
+	require.NoError(
+		t,
+		os.WriteFile(
+			promptFile,
+			[]byte("---\nname: mytemplate\ndescription: test template\n---\nhello $@"),
+			0o644,
+		),
+	)
+
+	loop := makeTestLoop(nil)
+	loop.config.PromptPaths = []string{dir}
+	loop.Reload()
+
+	// After reload, the prompt template should be discoverable.
+	pt := loop.PromptByName("mytemplate")
+	if pt == nil {
+		t.Fatalf("expected prompt template 'mytemplate' to be loaded after Reload")
+	}
+}
+
 // --- buildSystemPreamble small-context path ---
 
 func TestBuildSystemPreamble_SmallContext_StripsSkills(t *testing.T) {

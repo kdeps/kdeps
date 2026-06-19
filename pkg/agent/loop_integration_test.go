@@ -580,6 +580,31 @@ func (e *errorStreamer) StreamChat(
 	return "ok after retry", nil, nil
 }
 
+func TestCompactIfNeeded_TriggersWhenAboveThreshold(t *testing.T) {
+	eng := executor.NewEngine(nil)
+	eng.SetExecuteFunc(func(wf *domain.Workflow, _ interface{}) (interface{}, error) {
+		if len(wf.Resources) > 0 && wf.Resources[0].Chat.Prompt != "" {
+			return "compaction summary", nil
+		}
+		return "", nil
+	})
+	reg := tools.NewRegistry()
+	loop := New(eng, newTestWorkflowForSession(), reg, Config{
+		Model:                "test",
+		CompactTokenBudget:   1,
+		AutoCompactThreshold: 1,
+	})
+	var fired bool
+	loop.SetOnAutoCompact(func(_ string) { fired = true })
+	for range compactMinTurns {
+		loop.Session().Append(strings.Repeat("q", 100), strings.Repeat("a", 100))
+	}
+	loop.CompactIfNeeded(context.Background())
+	if !fired {
+		t.Error("expected CompactIfNeeded to fire onAutoCompact callback")
+	}
+}
+
 func TestCompactAndRetry_ContextOverflow(t *testing.T) {
 	// First StreamChat call returns context overflow; compactAndRetry should
 	// suppress it, attempt compaction, and succeed on the second call.
