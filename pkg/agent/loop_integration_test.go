@@ -273,8 +273,8 @@ func TestRunStreaming_StreamFinalOnly_FalseStreamsAll(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if !strings.Contains(buf.String(), "round1") {
-		t.Errorf("round1 content should be written when StreamFinalOnly=false, got %q", buf.String())
+	if !strings.Contains(buf.String(), "[echo") {
+		t.Errorf("tool call summary should be written when StreamFinalOnly=false, got %q", buf.String())
 	}
 }
 

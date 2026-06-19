@@ -90,12 +90,12 @@ func TestBuiltinTools_ToLLMTools(t *testing.T) {
 	RegisterBuiltinTools(context.Background(), reg)
 
 	llmTools := reg.ToLLMTools()
-	// web_search, wikipedia, web_scraper, sql_list_tables, sql_describe_table, sql_query, calculator = 7
+	// web_search, wikipedia, web_scraper, sql_list_tables, sql_describe_table, sql_query, calculator, read_file, write_file, bash_exec, list_files, edit_file = 12
 	assert.Len(
 		t,
 		llmTools,
-		7,
-		"seven built-in tools should be convertible to LLM tools",
+		12,
+		"twelve built-in tools should be convertible to LLM tools",
 	)
 
 	for _, lt := range llmTools {
@@ -456,11 +456,11 @@ func TestZapierRunAction_HasRequiredParams(t *testing.T) {
 	assert.True(t, instrParam.Required)
 }
 
-func TestRegisterBuiltinTools_BashNotRegisteredWithoutEnv(t *testing.T) {
-	t.Setenv("KDEPS_ALLOW_BASH", "")
+func TestRegisterBuiltinTools_BashNotRegisteredWhenDisabled(t *testing.T) {
+	t.Setenv("KDEPS_ALLOW_BASH", "false")
 	reg := kdepstools.NewRegistry()
 	RegisterBuiltinTools(context.Background(), reg)
-	assert.Nil(t, reg.Get("bash_exec"), "bash_exec should not be registered without KDEPS_ALLOW_BASH")
+	assert.Nil(t, reg.Get("bash_exec"), "bash_exec should not be registered when KDEPS_ALLOW_BASH=false")
 }
 
 func TestRegisterBuiltinTools_BashRegisteredWithEnv(t *testing.T) {
@@ -1643,4 +1643,347 @@ func TestZapierRunAction_ViaToolExecute(t *testing.T) {
 	result, err := tool.Execute(map[string]interface{}{"action_id": "act-id", "instructions": "do it"})
 	require.NoError(t, err)
 	assert.Contains(t, result, "ok")
+}
+
+// --- read_file tool tests ---
+
+func TestReadFile_Registered(t *testing.T) {
+	reg := kdepstools.NewRegistry()
+	RegisterBuiltinTools(context.Background(), reg)
+	tool := reg.Get("read_file")
+	require.NotNil(t, tool, "read_file should always be registered")
+	assert.NotEmpty(t, tool.Description)
+	assert.NotNil(t, tool.Execute)
+}
+
+func TestReadFile_Parameters(t *testing.T) {
+	reg := kdepstools.NewRegistry()
+	RegisterBuiltinTools(context.Background(), reg)
+	tool := reg.Get("read_file")
+	require.NotNil(t, tool)
+
+	param, ok := tool.Parameters["file_path"]
+	require.True(t, ok, "read_file must have 'file_path' parameter")
+	assert.Equal(t, "string", param.Type)
+	assert.True(t, param.Required)
+
+	_, ok = tool.Parameters["offset"]
+	assert.True(t, ok, "read_file must have 'offset' parameter")
+
+	_, ok = tool.Parameters["limit"]
+	assert.True(t, ok, "read_file must have 'limit' parameter")
+}
+
+func TestReadFile_EmptyFilePath(t *testing.T) {
+	reg := kdepstools.NewRegistry()
+	RegisterBuiltinTools(context.Background(), reg)
+	tool := reg.Get("read_file")
+	require.NotNil(t, tool)
+	_, err := tool.Execute(map[string]interface{}{"file_path": ""})
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "file_path is required")
+}
+
+func TestReadFile_RelativePath(t *testing.T) {
+	reg := kdepstools.NewRegistry()
+	RegisterBuiltinTools(context.Background(), reg)
+	tool := reg.Get("read_file")
+	require.NotNil(t, tool)
+	_, err := tool.Execute(map[string]interface{}{"file_path": "relative/path.txt"})
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "absolute path required")
+}
+
+func TestReadFile_NonExistentFile(t *testing.T) {
+	reg := kdepstools.NewRegistry()
+	RegisterBuiltinTools(context.Background(), reg)
+	tool := reg.Get("read_file")
+	require.NotNil(t, tool)
+	_, err := tool.Execute(map[string]interface{}{"file_path": "/nonexistent/path/to/file.txt"})
+	assert.Error(t, err)
+}
+
+func TestReadFile_Directory(t *testing.T) {
+	reg := kdepstools.NewRegistry()
+	RegisterBuiltinTools(context.Background(), reg)
+	tool := reg.Get("read_file")
+	require.NotNil(t, tool)
+	_, err := tool.Execute(map[string]interface{}{"file_path": "/tmp"})
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "is a directory")
+}
+
+func TestReadFile_Success(t *testing.T) {
+	reg := kdepstools.NewRegistry()
+	RegisterBuiltinTools(context.Background(), reg)
+	tool := reg.Get("read_file")
+	require.NotNil(t, tool)
+
+	tmpFile, err := os.CreateTemp("", "kdeps-readfile-test-*.txt")
+	require.NoError(t, err)
+	defer os.Remove(tmpFile.Name())
+
+	content := "line 1\nline 2\nline 3\nline 4\nline 5\n"
+	_, err = tmpFile.WriteString(content)
+	require.NoError(t, err)
+	require.NoError(t, tmpFile.Close())
+
+	result, err := tool.Execute(map[string]interface{}{"file_path": tmpFile.Name()})
+	require.NoError(t, err)
+	assert.Equal(t, "line 1\nline 2\nline 3\nline 4\nline 5", result)
+}
+
+func TestReadFile_WithOffset(t *testing.T) {
+	reg := kdepstools.NewRegistry()
+	RegisterBuiltinTools(context.Background(), reg)
+	tool := reg.Get("read_file")
+	require.NotNil(t, tool)
+
+	tmpFile, err := os.CreateTemp("", "kdeps-readfile-offset-*.txt")
+	require.NoError(t, err)
+	defer os.Remove(tmpFile.Name())
+
+	content := "line 1\nline 2\nline 3\nline 4\nline 5\n"
+	_, err = tmpFile.WriteString(content)
+	require.NoError(t, err)
+	require.NoError(t, tmpFile.Close())
+
+	result, err := tool.Execute(map[string]interface{}{
+		"file_path": tmpFile.Name(),
+		"offset":    float64(3),
+	})
+	require.NoError(t, err)
+	assert.Equal(t, "line 3\nline 4\nline 5\n[3/5 lines shown]", result)
+}
+
+func TestReadFile_WithOffsetAndLimit(t *testing.T) {
+	reg := kdepstools.NewRegistry()
+	RegisterBuiltinTools(context.Background(), reg)
+	tool := reg.Get("read_file")
+	require.NotNil(t, tool)
+
+	tmpFile, err := os.CreateTemp("", "kdeps-readfile-offsetlimit-*.txt")
+	require.NoError(t, err)
+	defer os.Remove(tmpFile.Name())
+
+	content := "line 1\nline 2\nline 3\nline 4\nline 5\n"
+	_, err = tmpFile.WriteString(content)
+	require.NoError(t, err)
+	require.NoError(t, tmpFile.Close())
+
+	result, err := tool.Execute(map[string]interface{}{
+		"file_path": tmpFile.Name(),
+		"offset":    float64(2),
+		"limit":     float64(2),
+	})
+	require.NoError(t, err)
+	assert.Equal(t, "line 2\nline 3\n[2/5 lines shown]", result)
+}
+
+func TestReadFile_OffsetBeyondEOF(t *testing.T) {
+	reg := kdepstools.NewRegistry()
+	RegisterBuiltinTools(context.Background(), reg)
+	tool := reg.Get("read_file")
+	require.NotNil(t, tool)
+
+	tmpFile, err := os.CreateTemp("", "kdeps-readfile-beyond-*.txt")
+	require.NoError(t, err)
+	defer os.Remove(tmpFile.Name())
+
+	_, err = tmpFile.WriteString("line 1\nline 2\n")
+	require.NoError(t, err)
+	require.NoError(t, tmpFile.Close())
+
+	result, err := tool.Execute(map[string]interface{}{
+		"file_path": tmpFile.Name(),
+		"offset":    float64(100),
+	})
+	require.NoError(t, err)
+	assert.Equal(t, "", result)
+}
+
+func TestReadFile_LimitBeyondEOF(t *testing.T) {
+	reg := kdepstools.NewRegistry()
+	RegisterBuiltinTools(context.Background(), reg)
+	tool := reg.Get("read_file")
+	require.NotNil(t, tool)
+
+	tmpFile, err := os.CreateTemp("", "kdeps-readfile-limitbeyond-*.txt")
+	require.NoError(t, err)
+	defer os.Remove(tmpFile.Name())
+
+	_, err = tmpFile.WriteString("line 1\nline 2\n")
+	require.NoError(t, err)
+	require.NoError(t, tmpFile.Close())
+
+	result, err := tool.Execute(map[string]interface{}{
+		"file_path": tmpFile.Name(),
+		"offset":    float64(1),
+		"limit":     float64(100),
+	})
+	require.NoError(t, err)
+	assert.Equal(t, "line 1\nline 2", result)
+}
+
+func TestReadFile_EmptyFile(t *testing.T) {
+	reg := kdepstools.NewRegistry()
+	RegisterBuiltinTools(context.Background(), reg)
+	tool := reg.Get("read_file")
+	require.NotNil(t, tool)
+
+	tmpFile, err := os.CreateTemp("", "kdeps-readfile-empty-*.txt")
+	require.NoError(t, err)
+	defer os.Remove(tmpFile.Name())
+	require.NoError(t, tmpFile.Close())
+
+	result, err := tool.Execute(map[string]interface{}{"file_path": tmpFile.Name()})
+	require.NoError(t, err)
+	assert.Empty(t, result)
+}
+
+func TestReadFile_MissingFileWritePermission(t *testing.T) {
+	reg := kdepstools.NewRegistry()
+	RegisterBuiltinTools(context.Background(), reg)
+	tool := reg.Get("read_file")
+	require.NotNil(t, tool)
+
+	tmpFile, err := os.CreateTemp("", "kdeps-readfile-noperm-*.txt")
+	require.NoError(t, err)
+	_, err = tmpFile.WriteString("secret content\n")
+	require.NoError(t, err)
+	require.NoError(t, tmpFile.Close())
+
+	require.NoError(t, os.Chmod(tmpFile.Name(), 0o000))
+	defer os.Remove(tmpFile.Name())
+
+	_, err = tool.Execute(map[string]interface{}{"file_path": tmpFile.Name()})
+	require.NoError(t, os.Chmod(tmpFile.Name(), 0o644))
+	assert.Error(t, err)
+}
+
+// --- write_file tool tests ---
+
+func TestWriteFile_Registered(t *testing.T) {
+	reg := kdepstools.NewRegistry()
+	RegisterBuiltinTools(context.Background(), reg)
+	tool := reg.Get("write_file")
+	require.NotNil(t, tool, "write_file should always be registered")
+	assert.NotEmpty(t, tool.Description)
+	assert.NotNil(t, tool.Execute)
+}
+
+func TestWriteFile_Parameters(t *testing.T) {
+	reg := kdepstools.NewRegistry()
+	RegisterBuiltinTools(context.Background(), reg)
+	tool := reg.Get("write_file")
+	require.NotNil(t, tool)
+
+	param, ok := tool.Parameters["file_path"]
+	require.True(t, ok, "write_file must have 'file_path' parameter")
+	assert.Equal(t, "string", param.Type)
+	assert.True(t, param.Required)
+
+	param, ok = tool.Parameters["content"]
+	require.True(t, ok, "write_file must have 'content' parameter")
+	assert.Equal(t, "string", param.Type)
+	assert.True(t, param.Required)
+}
+
+func TestWriteFile_EmptyFilePath(t *testing.T) {
+	reg := kdepstools.NewRegistry()
+	RegisterBuiltinTools(context.Background(), reg)
+	tool := reg.Get("write_file")
+	require.NotNil(t, tool)
+	_, err := tool.Execute(map[string]interface{}{"file_path": "", "content": "data"})
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "file_path is required")
+}
+
+func TestWriteFile_RelativePath(t *testing.T) {
+	reg := kdepstools.NewRegistry()
+	RegisterBuiltinTools(context.Background(), reg)
+	tool := reg.Get("write_file")
+	require.NotNil(t, tool)
+	_, err := tool.Execute(map[string]interface{}{"file_path": "relative/path.txt", "content": "data"})
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "absolute path required")
+}
+
+func TestWriteFile_Directory(t *testing.T) {
+	reg := kdepstools.NewRegistry()
+	RegisterBuiltinTools(context.Background(), reg)
+	tool := reg.Get("write_file")
+	require.NotNil(t, tool)
+	_, err := tool.Execute(map[string]interface{}{"file_path": "/tmp", "content": "data"})
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "is a directory")
+}
+
+func TestWriteFile_CreateNewFile(t *testing.T) {
+	reg := kdepstools.NewRegistry()
+	RegisterBuiltinTools(context.Background(), reg)
+	tool := reg.Get("write_file")
+	require.NotNil(t, tool)
+
+	tmpFile, err := os.CreateTemp("", "kdeps-writefile-new-*.txt")
+	require.NoError(t, err)
+	tmpPath := tmpFile.Name()
+	require.NoError(t, tmpFile.Close())
+	require.NoError(t, os.Remove(tmpPath))
+
+	result, err := tool.Execute(map[string]interface{}{
+		"file_path": tmpPath,
+		"content":   "hello world\n",
+	})
+	require.NoError(t, err)
+	assert.Contains(t, result, "Wrote")
+	defer os.Remove(tmpPath)
+
+	data, err := os.ReadFile(tmpPath)
+	require.NoError(t, err)
+	assert.Equal(t, "hello world\n", string(data))
+}
+
+func TestWriteFile_OverwriteExistingFile(t *testing.T) {
+	reg := kdepstools.NewRegistry()
+	RegisterBuiltinTools(context.Background(), reg)
+	tool := reg.Get("write_file")
+	require.NotNil(t, tool)
+
+	tmpFile, err := os.CreateTemp("", "kdeps-writefile-overwrite-*.txt")
+	require.NoError(t, err)
+	_, err = tmpFile.WriteString("original content\n")
+	require.NoError(t, err)
+	require.NoError(t, tmpFile.Close())
+	defer os.Remove(tmpFile.Name())
+
+	result, err := tool.Execute(map[string]interface{}{
+		"file_path": tmpFile.Name(),
+		"content":   "overwritten\n",
+	})
+	require.NoError(t, err)
+	assert.Contains(t, result, "Wrote")
+
+	data, err := os.ReadFile(tmpFile.Name())
+	require.NoError(t, err)
+	assert.Equal(t, "overwritten\n", string(data))
+}
+
+func TestWriteFile_NoPermission(t *testing.T) {
+	reg := kdepstools.NewRegistry()
+	RegisterBuiltinTools(context.Background(), reg)
+	tool := reg.Get("write_file")
+	require.NotNil(t, tool)
+
+	tmpDir, err := os.MkdirTemp("", "kdeps-writefile-noperm-*")
+	require.NoError(t, err)
+	require.NoError(t, os.Chmod(tmpDir, 0o500))
+	defer os.RemoveAll(tmpDir)
+
+	_, err = tool.Execute(map[string]interface{}{
+		"file_path": filepath.Join(tmpDir, "cant-write-here.txt"),
+		"content":   "data",
+	})
+	defer os.Chmod(tmpDir, 0o700)
+	assert.Error(t, err)
 }
