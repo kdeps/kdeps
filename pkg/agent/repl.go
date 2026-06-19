@@ -48,7 +48,8 @@ const (
 	replFileCompletionMax = 20
 	replAutoCompactEvery  = 25
 
-	replModelCompletionMax = 500 // max model name suggestions for /model <tab>
+	replModelCompletionMax         = 500 // max model name suggestions for /model <tab> with a partial filter
+	replModelCompletionMaxNoFilter = 20  // cap when no partial typed (prioritized: cached > enabled > rest)
 
 	replTickerMs    = 80    // streaming tick interval (milliseconds)
 	replHistoryMax  = 10000 // readline history buffer size
@@ -306,7 +307,11 @@ func (c *replCompleter) Do(line []rune, pos int) ([][]rune, int) {
 		cmd := strings.ToLower(strings.TrimSpace(str[:lastSpace]))
 		if cmd == "/model" {
 			ranked := fuzzyRankStrings(strings.ToLower(token), c.repl.modelNames)
-			if len(ranked) > replModelCompletionMax {
+			if token == "" {
+				// No partial typed: return a prioritized short list so readline
+				// doesn't dump hundreds of entries. Cached > enabled cloud > rest.
+				ranked = c.repl.prioritizeModelNames(ranked, replModelCompletionMaxNoFilter)
+			} else if len(ranked) > replModelCompletionMax {
 				ranked = ranked[:replModelCompletionMax]
 			}
 			return c.repl.modelCompletionSuffixes(ranked, tokenLen), tokenLen
@@ -317,6 +322,35 @@ func (c *replCompleter) Do(line []rune, pos int) ([][]rune, int) {
 }
 
 // modelCompletionSuffixes builds the readline suffix list for /model completion.
+// prioritizeModelNames returns up to n model names from the input list, sorted
+// by priority: cached > enabled-cloud > llamafile > gguf > ollama > cloud.
+// Used when no partial filter is typed to avoid flooding readline with 500 entries.
+func (r *REPL) prioritizeModelNames(names []string, n int) []string {
+	tiers := make([][]string, 5) //nolint:mnd // 5 priority tiers
+	for _, name := range names {
+		switch {
+		case r.downloadedModels[name]:
+			tiers[0] = append(tiers[0], name)
+		case r.cloudModelBackends[name] != "" && r.providerStatus[r.cloudModelBackends[name]]:
+			tiers[1] = append(tiers[1], name)
+		case r.modelTypes[name] == modelTypeLLamafile:
+			tiers[2] = append(tiers[2], name)
+		case r.modelTypes[name] == modelTypeGGUF:
+			tiers[3] = append(tiers[3], name)
+		default:
+			tiers[4] = append(tiers[4], name)
+		}
+	}
+	out := make([]string, 0, n)
+	for _, tier := range tiers {
+		out = append(out, tier...)
+		if len(out) >= n {
+			return out[:n]
+		}
+	}
+	return out
+}
+
 // Models are grouped by type (cached > llamafile > gguf > cloud) and each suffix
 // includes a [type] tag so users can distinguish local from cloud at a glance.
 // tokenLen is the number of runes already typed (suffix = candidate[tokenLen:]).
@@ -385,7 +419,7 @@ func modelTag(r *REPL, name string) string {
 	default:
 		backend := r.cloudModelBackends[name]
 		if backend != "" && r.providerStatus[backend] {
-			return " [" + backend + "]"
+			return " [cloud enabled]"
 		}
 		return " [cloud]"
 	}
@@ -1635,6 +1669,9 @@ func (r *REPL) CloudModelBackends() map[string]string { return r.cloudModelBacke
 
 // ProviderStatus returns the provider API key status.
 func (r *REPL) ProviderStatus() map[string]bool { return r.providerStatus }
+
+// CurrentModel returns the active model name.
+func (r *REPL) CurrentModel() string { return r.loop.config.Model }
 
 // cmdCopy copies the last assistant response to the system clipboard.
 // Matches pi's /copy command. Uses pbcopy (macOS), xclip/xsel (Linux), or clip.exe (Windows).
