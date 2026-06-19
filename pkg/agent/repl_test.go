@@ -1871,6 +1871,74 @@ func TestLoopReload_WithPromptPaths(t *testing.T) {
 	}
 }
 
+// --- bang command (! and !!) ---
+
+func TestProcessInput_BangCommand_InjectsContext(t *testing.T) {
+	loop := makeTestLoop(nil)
+	repl := NewREPL(loop)
+	defer repl.cancel()
+
+	// ! echo hello should run and inject into session
+	err := repl.processInput("! echo hello")
+	require.NoError(t, err)
+	// Session should have 1 turn (the injected bash result)
+	assert.Equal(t, 1, loop.Session().TurnCount())
+	msgs := loop.Session().Messages()
+	assert.Contains(t, msgs[0].Content, "Ran `echo hello`")
+}
+
+func TestProcessInput_DoubleBang_DoesNotInjectContext(t *testing.T) {
+	loop := makeTestLoop(nil)
+	repl := NewREPL(loop)
+	defer repl.cancel()
+
+	// !! echo hello should run but NOT inject into session
+	err := repl.processInput("!! echo hello")
+	require.NoError(t, err)
+	assert.Equal(t, 0, loop.Session().TurnCount())
+}
+
+func TestProcessInput_BangEmpty_Passthrough(t *testing.T) {
+	loop := makeTestLoop(nil)
+	repl := NewREPL(loop)
+	defer repl.cancel()
+
+	// A lone "!" (no command) should not be treated as a bang command.
+	// It will fall through to the LLM path but our test runFn returns ok.
+	called := false
+	repl.runFn = func(_ context.Context, _ string) (string, error) {
+		called = true
+		return "", nil
+	}
+	err := repl.processInput("!")
+	require.NoError(t, err)
+	// Falls through to LLM (not a bang command since cmd is empty)
+	assert.True(t, called)
+}
+
+func TestExecBangCommand_NonZeroExit_ErrorInContext(t *testing.T) {
+	loop := makeTestLoop(nil)
+	repl := NewREPL(loop)
+	defer repl.cancel()
+
+	// A command that exits non-zero; should still inject with exit code
+	_ = repl.execBangCommand("exit 1", false)
+	assert.Equal(t, 1, loop.Session().TurnCount())
+	msgs := loop.Session().Messages()
+	assert.Contains(t, msgs[0].Content, "exit 1")
+}
+
+func TestExecBangCommand_ExcludeFromContext(t *testing.T) {
+	loop := makeTestLoop(nil)
+	repl := NewREPL(loop)
+	defer repl.cancel()
+
+	err := repl.execBangCommand("echo quiet", true)
+	require.NoError(t, err)
+	// excludeFromContext=true means nothing added to session
+	assert.Equal(t, 0, loop.Session().TurnCount())
+}
+
 // --- buildSystemPreamble small-context path ---
 
 func TestBuildSystemPreamble_SmallContext_StripsSkills(t *testing.T) {
