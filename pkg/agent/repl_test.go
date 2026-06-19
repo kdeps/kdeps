@@ -391,18 +391,21 @@ func TestReplCompleter_TagFilter_Enabled(t *testing.T) {
 
 	c := &replCompleter{repl: repl}
 	// "enabled" matches no model names by prefix → tag fallback.
-	// Suffix = full name (length=0 to modelCompletionSuffixes), readline return tokenLen=7.
+	// length=0: readline shows suffix only (clean display, no typed prefix prepended).
 	input := []rune("/model enabled")
 	results, length := c.Do(input, len(input))
-	assert.Equal(t, len([]rune("enabled")), length, "length must equal tokenLen so readline deletes the filter")
+	assert.Equal(t, 0, length, "tag-only matches use length=0 for clean display")
 	found := make([]string, 0, len(results))
 	for _, r := range results {
 		found = append(found, string(r))
 	}
-	// Full names returned; display will be "enabled<name>" but insertion is correct.
-	assert.Contains(t, found, "gpt-4o [cloud enabled]")
-	assert.Contains(t, found, "gemini-2.5-flash [cloud enabled]")
-	assert.NotContains(t, found, "llama3.2:1b [cached]", "non-cloud model should not appear for 'enabled' filter")
+	// Suffixes contain model name + tag with ANSI bold on the matched keyword.
+	assert.Contains(t, found, "gpt-4o [cloud \033[1menabled\033[0m]")
+	assert.Contains(t, found, "gemini-2.5-flash [cloud \033[1menabled\033[0m]")
+	// llama3.2:1b is not a cloud model, so "enabled" does not appear in its tag.
+	for _, s := range found {
+		assert.NotContains(t, s, "llama3.2:1b", "non-cloud model must not appear for 'enabled' filter")
+	}
 }
 
 func TestReplCompleter_TagFilter_GGUF(t *testing.T) {
@@ -415,13 +418,29 @@ func TestReplCompleter_TagFilter_GGUF(t *testing.T) {
 	c := &replCompleter{repl: repl}
 	input := []rune("/model gguf")
 	results, length := c.Do(input, len(input))
-	assert.Equal(t, len([]rune("gguf")), length)
+	assert.Equal(t, 0, length, "tag-only matches use length=0 for clean display")
 	found := make([]string, 0, len(results))
 	for _, r := range results {
 		found = append(found, string(r))
 	}
-	assert.Contains(t, found, "llama3.2:1b [gguf]")
-	assert.NotContains(t, found, "gemini-2.5-flash [cloud]")
+	// The "gguf" keyword is bolded inside the tag bracket.
+	assert.Contains(t, found, "llama3.2:1b [\033[1mgguf\033[0m]")
+	for _, s := range found {
+		assert.NotContains(t, s, "gemini-2.5-flash", "cloud model must not appear for 'gguf' filter")
+	}
+}
+
+func TestCmdModel_TagKeywordPrefix(t *testing.T) {
+	loop := makeTestLoop(nil)
+	repl := NewREPL(loop)
+	defer repl.cancel()
+	repl.SetModelNames([]string{"gemma4:31b", "gpt-4o"})
+
+	// Tag-only completion (length=0) causes readline to append the full model name
+	// after the typed keyword: "/model gguf" + "gemma4:31b [gguf]" → arg = "ggufgemma4:31b [gguf]".
+	// cmdModel must strip the tag and the "gguf" prefix to recover "gemma4:31b".
+	_ = repl.cmdModel([]string{"ggufgemma4:31b [gguf]"})
+	assert.Equal(t, "gemma4:31b", repl.loop.config.Model)
 }
 
 func TestCmdModel_StripsStar(t *testing.T) {
