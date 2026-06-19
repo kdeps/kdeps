@@ -222,6 +222,43 @@ func TestBuildReactSystemPreamble_WithSystemPrompt(t *testing.T) {
 	}
 }
 
+func TestRunReact_AutoCompactFires(t *testing.T) {
+	// Seeds many turns so shouldAutoCompact returns true before RunReact;
+	// verifies that the onAutoCompact callback fires inside RunReact.
+	eng := executor.NewEngine(nil)
+	eng.SetExecuteFunc(func(wf *domain.Workflow, _ interface{}) (interface{}, error) {
+		if len(wf.Resources) > 0 && wf.Resources[0].Chat.Prompt != "" {
+			return "compaction summary", nil
+		}
+		return "", nil
+	})
+	ms := &mockStreamer{
+		responses: []mockStreamResponse{{content: "Final Answer: done"}},
+	}
+	reg := tools.NewRegistry()
+	loop := New(eng, newTestWorkflowForSession(), reg, Config{
+		Model:                "test",
+		Streamer:             ms,
+		CompactTokenBudget:   1,
+		AutoCompactThreshold: 1,
+		MaxToolRounds:        5,
+	})
+	var callbackFired bool
+	loop.SetOnAutoCompact(func(_ string) { callbackFired = true })
+	for range compactMinTurns {
+		loop.Session().Append(strings.Repeat("q", 300), strings.Repeat("a", 300))
+	}
+
+	var buf bytes.Buffer
+	_, err := loop.RunReact(context.Background(), "hi", &buf)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !callbackFired {
+		t.Error("expected onAutoCompact callback to fire inside RunReact")
+	}
+}
+
 func TestBuildReactSystemPreamble_WithTools(t *testing.T) {
 	// Covers the for-loop body: tool descriptions and name joining with ", ".
 	eng := executor.NewEngine(nil)
