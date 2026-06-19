@@ -63,7 +63,7 @@ Keep each section concise. Preserve exact file paths, function names, and error 
 // The returned string already includes the preamble for injection into
 // the next session's context.
 func (l *Loop) SummarizeBranch(_ context.Context) (string, error) {
-	msgs, fileOps := l.session.rawMessagesWithOps()
+	msgs, fileOps := l.session.currentBranchMessages()
 	if len(msgs) < compactMinTurns*sessionMsgsPer {
 		return "", nil
 	}
