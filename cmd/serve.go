@@ -441,17 +441,10 @@ func buildModelPickerFn(repl *agent.REPL) func(filter string) (string, error) {
 		backends := repl.CloudModelBackends()
 		status := repl.ProviderStatus()
 		for _, name := range names {
-			backend, enabled := backends[name]
-			if !enabled && types[name] == "" {
-				// Only check provider status for cloud models without type data.
-				for _, cm := range agent.KnownCloudModels {
-					if cm.ID == name && status[cm.Backend] {
-						enabled = true
-						backend = cm.Backend
-						break
-					}
-				}
-			}
+			backend := backends[name]
+			// enabled = API key is set for this model's provider.
+			// Map existence alone does not mean enabled; check providerStatus.
+			enabled := backend != "" && status[backend]
 			entries = append(entries, tui.ModelEntry{
 				Name:      name,
 				ModelType: types[name],
