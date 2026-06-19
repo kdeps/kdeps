@@ -351,21 +351,44 @@ func (r *REPL) modelCompletionSuffixes(ranked []string, tokenLen int) [][]rune {
 		if len(nr) < tokenLen {
 			continue
 		}
-		suffix := nr[tokenLen:]
-		switch {
-		case r.downloadedModels[n]:
-			// "*" = downloaded locally; cmdModel strips it before applying.
-			suffix = append([]rune{'*'}, suffix...)
-		case r.modelTypes[n] == modelTypeLLamafile:
-			// "~" = llamafile (not yet downloaded).
-			suffix = append([]rune{'~'}, suffix...)
-		case r.modelTypes[n] == modelTypeGGUF:
-			// "#" = GGUF (not yet downloaded).
-			suffix = append([]rune{'#'}, suffix...)
-		}
+		base := nr[tokenLen:]
+		suffix := make([]rune, len(base)+len(modelTag(r, n)))
+		copy(suffix, base)
+		copy(suffix[len(base):], []rune(modelTag(r, n)))
 		results = append(results, suffix)
 	}
 	return results
+}
+
+// modelTag returns a display tag appended to the model name in tab completion.
+// Shows type and availability at a glance; stripped before applying the model switch.
+func modelTag(r *REPL, name string) string {
+	if r.downloadedModels[name] {
+		switch r.modelTypes[name] {
+		case modelTypeLLamafile:
+			return " [llamafile cached]"
+		case modelTypeGGUF:
+			return " [gguf cached]"
+		case modelTypeOllama:
+			return " [ollama]"
+		default:
+			return " [cached]"
+		}
+	}
+	switch r.modelTypes[name] {
+	case modelTypeLLamafile:
+		return " [llamafile]"
+	case modelTypeGGUF:
+		return " [gguf]"
+	case modelTypeOllama:
+		return " [ollama]"
+	default:
+		backend := r.cloudModelBackends[name]
+		if backend != "" && r.providerStatus[backend] {
+			return " [" + backend + "]"
+		}
+		return " [cloud]"
+	}
 }
 
 // allCommandNames returns all slash command names including loaded skills and prompt templates.
@@ -987,12 +1010,12 @@ func (r *REPL) cmdModel(args []string) error {
 	return nil
 }
 
-// stripModelIndicators removes the *, ~, and # visual prefix characters that
-// /model tab completion injects to indicate download state and model type.
-// These characters may appear anywhere in the typed string when the user
-// completed a partially-typed name (e.g. "q*wen2.5:7b" -> "qwen2.5:7b").
+var modelTagRe = regexp.MustCompile(` \[[^\]]+\]$`)
+
+// stripModelIndicators removes the " [tag]" suffix that /model tab completion
+// appends to model names (e.g. "llama3.2:1b [llamafile cached]" -> "llama3.2:1b").
 func stripModelIndicators(name string) string {
-	return strings.NewReplacer("*", "", "~", "", "#", "").Replace(name)
+	return modelTagRe.ReplaceAllString(strings.ReplaceAll(name, "*", ""), "")
 }
 
 // applyModelSwitch applies a model selection and prints a confirmation.

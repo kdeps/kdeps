@@ -297,10 +297,8 @@ func TestReplCompleter_ModelArgCompletion(t *testing.T) {
 	for _, r := range results {
 		found = append(found, string(r))
 	}
-	// Downloaded model gets "*" prefix in the suffix so user can distinguish it.
-	// stripModelIndicators removes it before applying the selection.
-	assert.Contains(t, found, "*3.2:1b")
-	assert.Contains(t, found, "3.2:3b")
+	assert.Contains(t, found, "3.2:1b [cached]")
+	assert.Contains(t, found, "3.2:3b [cloud]")
 }
 
 func TestReplCompleter_ModelArgAllModels(t *testing.T) {
@@ -310,7 +308,6 @@ func TestReplCompleter_ModelArgAllModels(t *testing.T) {
 	repl.SetModelNames([]string{"llama3.2:1b", "llama3.2:3b"})
 
 	c := &replCompleter{repl: repl}
-	// TAB on "/model " (empty arg) should show all model names.
 	input := []rune("/model ")
 	results, _ := c.Do(input, len(input))
 	assert.Len(t, results, 2)
@@ -318,8 +315,8 @@ func TestReplCompleter_ModelArgAllModels(t *testing.T) {
 	for _, r := range results {
 		found = append(found, string(r))
 	}
-	assert.Contains(t, found, "llama3.2:1b")
-	assert.Contains(t, found, "llama3.2:3b")
+	assert.Contains(t, found, "llama3.2:1b [cloud]")
+	assert.Contains(t, found, "llama3.2:3b [cloud]")
 }
 
 func TestReplCompleter_DownloadedModelMarker(t *testing.T) {
@@ -330,7 +327,7 @@ func TestReplCompleter_DownloadedModelMarker(t *testing.T) {
 	repl.SetDownloadedModels(map[string]bool{"llama3.2:1b": true})
 
 	c := &replCompleter{repl: repl}
-	// TAB on "/model " shows all models; downloaded ones are prefixed with "*".
+	// Cached model sorts first; all entries have [tag] suffix.
 	input := []rune("/model ")
 	results, _ := c.Do(input, len(input))
 	assert.Len(t, results, 3)
@@ -338,9 +335,9 @@ func TestReplCompleter_DownloadedModelMarker(t *testing.T) {
 	for _, r := range results {
 		found = append(found, string(r))
 	}
-	assert.Contains(t, found, "*llama3.2:1b") // downloaded
-	assert.Contains(t, found, "llama3.2:3b")
-	assert.Contains(t, found, "qwen3.5-4b")
+	assert.Contains(t, found, "llama3.2:1b [cached]")
+	assert.Contains(t, found, "llama3.2:3b [cloud]")
+	assert.Contains(t, found, "qwen3.5-4b [cloud]")
 }
 
 func TestReplCompleter_DownloadedModelMarkerPartialToken(t *testing.T) {
@@ -351,7 +348,7 @@ func TestReplCompleter_DownloadedModelMarkerPartialToken(t *testing.T) {
 	repl.SetDownloadedModels(map[string]bool{"llama3.2:1b": true})
 
 	c := &replCompleter{repl: repl}
-	// Partial token "llama3.2" matches both; downloaded model gets "*" in suffix.
+	// Partial token "llama3.2" matches both; suffixes include [tag].
 	input := []rune("/model llama3.2")
 	results, length := c.Do(input, len(input))
 	assert.Equal(t, len([]rune("llama3.2")), length)
@@ -359,31 +356,8 @@ func TestReplCompleter_DownloadedModelMarkerPartialToken(t *testing.T) {
 	for _, r := range results {
 		found = append(found, string(r))
 	}
-	assert.Contains(t, found, "*:1b")
-	assert.Contains(t, found, ":3b")
-}
-
-func TestReplCompleter_ModelTypeIndicators(t *testing.T) {
-	loop := makeTestLoop(nil)
-	repl := NewREPL(loop)
-	defer repl.cancel()
-	repl.SetModelNames([]string{"my-gguf-model", "my-llamafile-model", "cloud-model"})
-	repl.SetModelTypes(map[string]string{
-		"my-gguf-model":      "gguf",
-		"my-llamafile-model": "llamafile",
-		// cloud-model has no type entry
-	})
-
-	c := &replCompleter{repl: repl}
-	input := []rune("/model ")
-	results, _ := c.Do(input, len(input))
-	found := make([]string, 0, len(results))
-	for _, r := range results {
-		found = append(found, string(r))
-	}
-	assert.Contains(t, found, "#my-gguf-model")      // # = GGUF not downloaded
-	assert.Contains(t, found, "~my-llamafile-model") // ~ = llamafile not downloaded
-	assert.Contains(t, found, "cloud-model")         // no prefix for cloud
+	assert.Contains(t, found, ":1b [cached]")
+	assert.Contains(t, found, ":3b [cloud]")
 }
 
 func TestCmdModel_StripsStar(t *testing.T) {
@@ -395,17 +369,17 @@ func TestCmdModel_StripsStar(t *testing.T) {
 	assert.Equal(t, "qwen2.5:7b", repl.loop.config.Model)
 }
 
-func TestCmdModel_StripsTypeIndicators(t *testing.T) {
+func TestCmdModel_StripsTagSuffix(t *testing.T) {
 	loop := makeTestLoop(nil)
 	repl := NewREPL(loop)
 	defer repl.cancel()
 
-	// ~ and # indicators embedded mid-name (partial token completion) are stripped.
-	_ = repl.cmdModel([]string{"my~llamafile-model"})
-	assert.Equal(t, "myllamafile-model", repl.loop.config.Model)
+	// [tag] suffix appended by tab completion is stripped before applying.
+	_ = repl.cmdModel([]string{"llama3.2:1b [llamafile cached]"})
+	assert.Equal(t, "llama3.2:1b", repl.loop.config.Model)
 
-	_ = repl.cmdModel([]string{"#my-gguf-model"})
-	assert.Equal(t, "my-gguf-model", repl.loop.config.Model)
+	_ = repl.cmdModel([]string{"deepseek-chat [deepseek]"})
+	assert.Equal(t, "deepseek-chat", repl.loop.config.Model)
 }
 
 // --- expandFileRefs ---
