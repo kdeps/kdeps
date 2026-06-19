@@ -1990,6 +1990,27 @@ func TestApplyConfigDefaults_ModelServiceNotCalledWhenBaseURLSet(t *testing.T) {
 	}
 }
 
+// --- buildSystemPreamble zero-limit fallback paths ---
+
+func TestBuildSystemPreamble_ZeroBudgetUsesAutoCompactThreshold(t *testing.T) {
+	loop := makeTestLoop(nil)
+	// CompactTokenBudget=0 -> falls through to AutoCompactThreshold
+	loop.config.CompactTokenBudget = 0
+	loop.config.AutoCompactThreshold = 20000
+	// Should not panic and should return an empty preamble (no skills/prompt/tools)
+	preamble := loop.buildSystemPreamble()
+	assert.Empty(t, preamble)
+}
+
+func TestBuildSystemPreamble_BothZeroFallsBackTo40000(t *testing.T) {
+	loop := makeTestLoop(nil)
+	// Both zero: final fallback to 40000
+	loop.config.CompactTokenBudget = 0
+	loop.config.AutoCompactThreshold = 0
+	preamble := loop.buildSystemPreamble()
+	assert.Empty(t, preamble) // no skills/prompt/tools set
+}
+
 // --- buildSystemPreamble small-context path ---
 
 func TestBuildSystemPreamble_SmallContext_StripsSkills(t *testing.T) {
