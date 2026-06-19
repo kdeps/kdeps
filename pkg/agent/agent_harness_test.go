@@ -1523,6 +1523,41 @@ func TestEmitToolStart_DebugLogging(t *testing.T) {
 	assert.NoError(t, err)
 }
 
+func TestStartParallelTools_CtxCancelledBreak(t *testing.T) {
+	// Pre-cancel ctx so ctx.Err() != nil fires the break after the first entry (line 502-503).
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	agentCtx := &AgentContext{}
+	assistantMsg := AgentMessage{
+		Role: RoleAssistant,
+		ToolCalls: []ToolCall{
+			{ID: "c1", Name: "unknown1"},
+			{ID: "c2", Name: "unknown2"},
+		},
+	}
+	cfg := AgentLoopConfig{ChatFn: endTurnChat("done")}
+
+	entries, err := startParallelTools(ctx, agentCtx, assistantMsg, cfg, noopSink)
+	require.NoError(t, err)
+	// ctx was cancelled - should break after the first entry, not process both
+	assert.Len(t, entries, 1)
+}
+
+func TestLaunchToolCall_EmitToolEndError(t *testing.T) {
+	// Covers line 520-522: emitToolEnd error in launchToolCall sequential (nil tool) path.
+	ctx := context.Background()
+	agentCtx := &AgentContext{}
+	assistantMsg := AgentMessage{Role: RoleAssistant}
+	tc := ToolCall{ID: "x", Name: "unknown"}
+	cfg := AgentLoopConfig{ChatFn: endTurnChat("done")}
+	sink := failOnEvent(EventToolEnd)
+
+	_, err := launchToolCall(ctx, agentCtx, assistantMsg, tc, cfg, sink)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "forced failure on "+EventToolEnd)
+}
+
 func TestEmitToolEnd_DebugLogging_WithError(t *testing.T) {
 	// Covers emitToolEnd debug branch with non-empty result content
 	t.Setenv("KDEPS_DEBUG", "true")
