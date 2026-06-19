@@ -313,9 +313,11 @@ func (c *replCompleter) Do(line []rune, pos int) ([][]rune, int) {
 	return nil, 0
 }
 
-// doModelCompletion handles tab completion for /model arguments. Prefix matches
-// use suffix approach (clean display). Tag-only matches return full names so
-// readline deletes the typed filter on selection.
+// doModelCompletion handles tab completion for /model arguments.
+// Prefix matches use suffix approach: display = typed+suffix = full name (clean).
+// Tag-only matches use length=0: display = just the suffix (model name with bold tag),
+// but on selection readline appends the suffix giving "/model <token><name>".
+// cmdModel handles the resulting concatenated arg via stripTagKeywordPrefix.
 func (r *REPL) doModelCompletion(token string, tokenLen int) ([][]rune, int) {
 	if token == "" {
 		ranked := r.prioritizeModelNames(r.modelNames, replModelCompletionMaxNoFilter)
@@ -328,8 +330,30 @@ func (r *REPL) doModelCompletion(token string, tokenLen int) ([][]rune, int) {
 	if isPrefix {
 		return r.modelCompletionSuffixes(matched, tokenLen), tokenLen
 	}
-	// Tag-only match: display garbled (typed+fullname) but insertion is correct.
-	return r.modelCompletionSuffixes(matched, 0), tokenLen
+	// Tag-only: length=0 → readline shows only the returned suffix (no typed prefix prepended).
+	// Display: "gemma4 [\033[1mgguf\033[0m]" instead of "ggufgemma4 [gguf]".
+	return r.tagMatchSuffixes(matched, strings.ToLower(token)), 0
+}
+
+// tagMatchSuffixes returns suffixes for tag-only completions with the matched
+// keyword bolded inside the tag bracket.
+func (r *REPL) tagMatchSuffixes(names []string, keyword string) [][]rune {
+	out := make([][]rune, 0, len(names))
+	for _, n := range names {
+		tag := modelTag(r, n)
+		out = append(out, []rune(n+boldTagKeyword(tag, keyword)))
+	}
+	return out
+}
+
+// boldTagKeyword wraps keyword occurrences inside a tag string with ANSI bold.
+func boldTagKeyword(tag, keyword string) string {
+	lower := strings.ToLower(tag)
+	idx := strings.Index(lower, keyword)
+	if idx < 0 {
+		return tag
+	}
+	return tag[:idx] + "\033[1m" + tag[idx:idx+len(keyword)] + "\033[0m" + tag[idx+len(keyword):]
 }
 
 // modelCompletionSuffixes builds the readline suffix list for /model completion.
@@ -1065,13 +1089,29 @@ func (r *REPL) cmdClear() error {
 	return nil
 }
 
+// tagKeywords are the filter words the user may type for tag-based completion.
+// When a tag-only completion is selected (length=0), readline appends the full
+// model name after the typed keyword, giving e.g. "ggufgemma4". This list is
+// used to recover the real model name by stripping the leading keyword.
+//
+//nolint:gochecknoglobals // package-level lookup table, not mutable state
+var tagKeywords = []string{"gguf", "llamafile", "cloud", "enabled", "cached", "installed", "ollama"}
+
 func (r *REPL) cmdModel(args []string) error {
 	if len(args) > 0 {
 		name := stripModelIndicators(args[0])
-		// If the arg is not a known model name, treat it as a picker filter.
-		// This allows "/model gguf", "/model enabled", "/model cached" etc. to
-		// open the picker pre-filtered to the matching type/tag.
-		if r.modelPickerFn != nil && !r.isModelName(name) {
+		if r.isModelName(name) {
+			r.applyModelSwitch(name)
+			return nil
+		}
+		// Tag-only TAB completion (length=0) prepends the typed keyword to the
+		// model name. Recover the real model by stripping the keyword prefix.
+		if resolved := r.stripTagKeywordPrefix(name); r.isModelName(resolved) {
+			r.applyModelSwitch(resolved)
+			return nil
+		}
+		// Not a model name: treat as picker filter.
+		if r.modelPickerFn != nil {
 			return r.openPickerWithFilter(name)
 		}
 		r.applyModelSwitch(name)
@@ -1093,6 +1133,22 @@ func (r *REPL) isModelName(name string) bool {
 		}
 	}
 	return false
+}
+
+// stripTagKeywordPrefix tries to remove a leading tag keyword from name to
+// recover the real model name. Used when a tag-only completion (length=0) was
+// selected and readline prepended the typed filter to the model name.
+func (r *REPL) stripTagKeywordPrefix(name string) string {
+	lower := strings.ToLower(name)
+	for _, kw := range tagKeywords {
+		if strings.HasPrefix(lower, kw) {
+			candidate := name[len(kw):]
+			if r.isModelName(candidate) {
+				return candidate
+			}
+		}
+	}
+	return name
 }
 
 func (r *REPL) openPickerWithFilter(filter string) error {
