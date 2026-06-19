@@ -22,13 +22,42 @@ Inside the REPL, type `/help` for the full list:
 | Command | Description |
 |---------|-------------|
 | `/help` | Show available commands |
-| `/clear` | Clear the current conversation |
-| `/model <name>` | Switch model mid-session |
+| `/clear` | Summarize and clear the current conversation |
+| `/model [name]` | Show or switch LLM model mid-session |
+| `/models` | List all available models with provider status |
 | `/skills` | List loaded skills |
-| `/<skill-name> [prompt]` | Invoke a skill directly |
+| `/prompts` | List loaded prompt templates |
+| `/<skill-name> [prompt]` | Invoke a skill or prompt template directly |
 | `/compact` | Summarize history to free context |
 | `/history` | Show conversation history |
+| `/thinking [off\|low\|medium\|high\|auto]` | Enable extended reasoning (Claude) |
+| `/session list\|save\|load\|delete\|checkpoint\|goto` | Manage saved sessions |
+| `/copy` | Copy last assistant response to clipboard |
+| `/reload` | Reload skills and prompt templates from disk |
+| `/settings` | Open the tool/skill selector |
 | `/exit` | Exit the REPL |
+
+## Multimodal input
+
+Attach images and other binary files to your prompt using `@`:
+
+```bash
+# Attach a local image
+describe @photo.png what is in this image?
+
+# Attach multiple images
+compare @before.jpg @after.jpg what changed?
+
+# Attach a remote image URL
+analyze @https://example.com/chart.png what trend does this show?
+
+# Embed a text file inline (text files expand inline, not as attachments)
+review @notes.txt and summarize the key points
+```
+
+- Image/binary refs (`.png`, `.jpg`, `.jpeg`, `.gif`, `.webp`, `.bmp`, `.tiff`, `.pdf`, `.mp3`, `.mp4`, `.wav`) are sent as multimodal content to the LLM
+- Text file refs are expanded inline in the prompt
+- Unresolvable refs (file not found, access denied) are left unchanged in the text
 
 ## Skills
 
@@ -49,6 +78,27 @@ Skills are discovered from:
 - Paths passed with `--skill` (explicit, repeatable)
 
 Invoke a skill from the REPL with `/<skill-name>` or `/<skill-name> extra context here`.
+
+## Prompt templates
+
+Prompt templates are reusable named prompts loaded from `.md` files. They work exactly like skills: invoke them by name from the REPL.
+
+```markdown
+---
+name: review-pr
+description: Review a GitHub pull request
+argument-hint: <PR number or URL>
+---
+
+Review the pull request at $1. Check for: correctness, test coverage, and breaking changes.
+```
+
+Place templates in `~/.kdeps/prompts/` or `./.kdeps/prompts/`. Templates use the same placeholder syntax as skills: `$1`, `$2`, `$@`, `${1:-default}`.
+
+```bash
+/review-pr 1234
+/summarize this document for a technical audience
+```
 
 ## Instructions
 
@@ -162,6 +212,7 @@ kdeps [path] [flags]
 | `--base-url` | `KDEPS_AGENT_BASE_URL` | LLM API base URL |
 | `--system` | (none) | System prompt injected at conversation start |
 | `--skill` | (none) | Path to a skill file or directory (repeatable) |
+| `--prompt` | (none) | Path to a prompt templates directory (repeatable) |
 | `--resume` | (none) | Session ID to resume a previous conversation |
 | `--debug` | false | Enable debug logging |
 
