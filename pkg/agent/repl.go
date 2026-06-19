@@ -19,6 +19,7 @@
 package agent
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
@@ -917,41 +918,43 @@ func (r *REPL) processInput(input string) error {
 func (r *REPL) execBangCommand(cmd string, excludeFromContext bool) error {
 	ctx, cancel := context.WithTimeout(r.ctx, builtinBashTimeout)
 	defer cancel()
+
+	var outBuf, errBuf bytes.Buffer
 	shell := exec.CommandContext(ctx, "bash", "-c", cmd)
-	shell.Stdout = os.Stdout
-	shell.Stderr = os.Stderr
+	// Tee stdout/stderr to terminal AND capture for LLM context.
+	shell.Stdout = io.MultiWriter(os.Stdout, &outBuf)
+	shell.Stderr = io.MultiWriter(os.Stderr, &errBuf)
 	shell.Stdin = os.Stdin
 
 	runErr := shell.Run()
-
-	var exitCode int
-	var errMsg string
-	if runErr != nil {
-		var exitErr *exec.ExitError
-		if errors.As(runErr, &exitErr) {
-			exitCode = exitErr.ExitCode()
-		} else {
-			errMsg = runErr.Error()
-		}
-	}
 
 	if excludeFromContext {
 		return runErr
 	}
 
-	// Build the LLM-facing text for this execution, matching pi's bashExecutionToText.
-	var sb strings.Builder
-	fmt.Fprintf(&sb, "Ran `%s`", cmd)
-	if errMsg != "" {
-		fmt.Fprintf(&sb, "\nerror: %s", errMsg)
-	} else if exitCode != 0 {
-		fmt.Fprintf(&sb, "\n\nCommand exited with code %d", exitCode)
+	var exitCode int
+	if runErr != nil {
+		var exitErr *exec.ExitError
+		if errors.As(runErr, &exitErr) {
+			exitCode = exitErr.ExitCode()
+		}
 	}
-	contextMsg := sb.String()
 
-	// Inject into the session as a synthetic user+assistant turn so the LLM
-	// knows what was run. The assistant ack is minimal — it just confirms receipt.
-	r.loop.Session().Append(contextMsg, "I see the shell command output above.")
+	// Build the LLM-facing text matching pi's bashExecutionToText format.
+	var sb strings.Builder
+	fmt.Fprintf(&sb, "Ran `%s`\n\n", cmd)
+	if out := strings.TrimRight(outBuf.String(), "\n"); out != "" {
+		fmt.Fprintf(&sb, "Output:\n%s\n", out)
+	}
+	if errOut := strings.TrimRight(errBuf.String(), "\n"); errOut != "" {
+		fmt.Fprintf(&sb, "Stderr:\n%s\n", errOut)
+	}
+	if exitCode != 0 {
+		fmt.Fprintf(&sb, "Exit code: %d\n", exitCode)
+	}
+
+	// Inject into the session so the LLM sees command + output as context.
+	r.loop.Session().Append(strings.TrimRight(sb.String(), "\n"), "I see the shell command output above.")
 	return runErr
 }
 
