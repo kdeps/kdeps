@@ -110,47 +110,23 @@ func runAgentLoopCmd(path string, flags *agentLoopFlags) error {
 	repl := agent.NewREPL(loop)
 	defer llm.ShutdownLocalServers()
 
-	for {
-		// Provide model name suggestions for /model <tab> completion.
-		repl.SetModelNames(buildAllModelNames())
-		repl.SetDownloadedModels(llm.DownloadedModelAliases())
-		repl.SetModelTypes(buildModelTypes())
-		repl.SetCloudModelBackends(buildCloudBackends())
-		repl.SetProviderStatus(agent.BuildProviderStatus())
+	// Provide model name suggestions for /model <tab> completion.
+	repl.SetModelNames(buildAllModelNames())
+	repl.SetDownloadedModels(llm.DownloadedModelAliases())
+	repl.SetModelTypes(buildModelTypes())
+	repl.SetCloudModelBackends(buildCloudBackends())
+	repl.SetProviderStatus(agent.BuildProviderStatus())
 
-		// Wire model picker TUI.
-		repl.SetModelPickerFn(buildModelPickerFn(repl))
+	// Wire model picker TUI.
+	repl.SetModelPickerFn(buildModelPickerFn(repl))
 
-		// Wire /settings TUI when running interactively.
-		if isTerminal(os.Stdout) && isTerminal(os.Stdin) {
-			repl.SetTUIRunner(buildTUIRunner(registry, flags))
-		}
-
-		err = repl.Run()
-		if err != nil || repl.WantsRestart() {
-			// Model was switched via TUI picker — rebuild loop with new config and restart.
-			// Carry the existing session so conversation history survives the model switch.
-			newCfg := agent.Config{
-				Model:                loop.Config().Model,
-				Backend:              loop.Config().Backend,
-				BaseURL:              loop.Config().BaseURL,
-				SystemPrompt:         cfg.SystemPrompt,
-				MaxTurns:             cfg.MaxTurns,
-				MaxHistoryTokens:     cfg.MaxHistoryTokens,
-				SkillPaths:           cfg.SkillPaths,
-				CompactTokenBudget:   loop.Config().CompactTokenBudget,
-				AutoCompactThreshold: loop.Config().AutoCompactThreshold,
-				StreamFinalOnly:      cfg.StreamFinalOnly,
-				Streamer:             llmAdapter,
-				ModelService:         llm.NewModelService(nil),
-				ResumeSession:        loop.Session(),
-			}
-			loop = agent.New(eng, hostWorkflow, registry, newCfg)
-			repl = agent.NewREPL(loop)
-			continue
-		}
-		return err
+	// Wire /settings TUI when running interactively.
+	if isTerminal(os.Stdout) && isTerminal(os.Stdin) {
+		repl.SetTUIRunner(buildTUIRunner(registry, flags))
 	}
+
+	err = repl.Run()
+	return err
 }
 
 // resolveAgentBackend returns the effective LLM backend, applying the same

@@ -138,9 +138,7 @@ type REPL struct {
 	modelTypes         map[string]string                   // model name -> type (modelTypeLLamafile, modelTypeGGUF, ""=cloud)
 	cloudModelBackends map[string]string                   // cloud model name -> backend name
 	modelPickerFn      func(filter string) (string, error) // TUI model picker; nil if unavailable
-	pendingModelFilter string                              // non-empty when ENTER pressed on /model <filter>
 	readlineInst       *readline.Instance                  // set during Run(); nil before/after
-	wantsRestart       bool                                // true if Run() returned because model was switched
 	providerStatus     map[string]bool                     // backend -> API key set
 	onSettingsChange   OnSettingsChange
 	tuiRunner          TUIRunner
@@ -205,10 +203,6 @@ func (r *REPL) SetCloudModelBackends(backends map[string]string) {
 func (r *REPL) SetProviderStatus(status map[string]bool) {
 	r.providerStatus = status
 }
-
-// WantsRestart returns true when the REPL exited because the model was switched
-// via the TUI picker. The caller should create a new REPL with the updated config.
-func (r *REPL) WantsRestart() bool { return r.wantsRestart }
 
 // SetModelPickerFn injects a TUI model picker function. When set, /model with
 // no arguments launches the picker. When nil (default), /model prints the current model.
@@ -739,20 +733,6 @@ func (r *REPL) runLoop(rl *readline.Instance) error {
 		if procErr := r.processInput(input); procErr != nil {
 			fmt.Fprintln(os.Stderr, styleReplError.Render("error: "+procErr.Error()))
 		}
-
-		// Model picker requested — release terminal, run TUI with alt screen.
-		if r.wantsRestart {
-			_ = rl.Close()
-			filter := r.pendingModelFilter
-			r.pendingModelFilter = ""
-			if r.modelPickerFn != nil {
-				model, err := r.modelPickerFn(filter)
-				if err == nil && model != "" {
-					r.applyModelSwitch(model)
-				}
-			}
-			return nil
-		}
 	}
 }
 
@@ -987,18 +967,23 @@ func (r *REPL) cmdClear() error {
 }
 
 func (r *REPL) cmdModel(args []string) error {
-	if len(args) == 0 || r.modelPickerFn != nil {
-		// Open the TUI model picker. When args are provided they become the pre-filter.
-		if r.modelPickerFn != nil {
-			r.pendingModelFilter = strings.Join(args, " ")
-			r.wantsRestart = true
-			return nil
-		} else if len(args) == 0 {
-			fmt.Fprintln(os.Stdout, styleReplMeta.Render("Current model: "+r.loop.config.Model))
-			return nil
-		}
+	if len(args) > 0 {
+		r.applyModelSwitch(stripModelIndicators(args[0]))
+		return nil
 	}
-	r.applyModelSwitch(stripModelIndicators(args[0]))
+	if r.modelPickerFn == nil {
+		fmt.Fprintln(os.Stdout, styleReplMeta.Render("Current model: "+r.loop.config.Model))
+		return nil
+	}
+	// readline has yielded the terminal (ReadLine already returned), so
+	// bubbletea can take over directly without closing readline first.
+	model, err := r.modelPickerFn("")
+	if err != nil {
+		return err
+	}
+	if model != "" {
+		r.applyModelSwitch(stripModelIndicators(model))
+	}
 	return nil
 }
 
