@@ -119,7 +119,7 @@ func TestGGUFManager_Resolve_Alias(t *testing.T) {
 
 	dir := t.TempDir()
 	mgr := NewGGUFManagerWithDir(nil, dir)
-	got, err := mgr.Resolve("qwen3.5-4b")
+	got, err := mgr.Resolve("qwen3.5:4b")
 	require.NoError(t, err)
 	assert.Contains(t, got, ".gguf")
 }

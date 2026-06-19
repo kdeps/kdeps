@@ -306,27 +306,30 @@ func (c *replCompleter) Do(line []rune, pos int) ([][]rune, int) {
 	if lastSpace >= 0 && len(c.repl.modelNames) > 0 {
 		cmd := strings.ToLower(strings.TrimSpace(str[:lastSpace]))
 		if cmd == "/model" {
-			if token == "" {
-				// No partial: return a prioritized short list (cached > enabled > rest).
-				ranked := c.repl.prioritizeModelNames(c.repl.modelNames, replModelCompletionMaxNoFilter)
-				return c.repl.modelCompletionSuffixes(ranked, 0), 0
-			}
-			matched, isPrefix := c.repl.modelNamesMatchingToken(strings.ToLower(token))
-			if len(matched) > replModelCompletionMax {
-				matched = matched[:replModelCompletionMax]
-			}
-			if isPrefix {
-				// Prefix match: suffix approach gives clean display (typed+suffix = name).
-				return c.repl.modelCompletionSuffixes(matched, tokenLen), tokenLen
-			}
-			// Tag-only match: no clean suffix exists. Return full names with tokenLen
-			// so readline deletes the typed filter and inserts the correct model name.
-			// Display will show [typed][fullname] but insertion is correct.
-			return c.repl.modelCompletionSuffixes(matched, 0), tokenLen
+			return c.repl.doModelCompletion(token, tokenLen)
 		}
 	}
 
 	return nil, 0
+}
+
+// doModelCompletion handles tab completion for /model arguments. Prefix matches
+// use suffix approach (clean display). Tag-only matches return full names so
+// readline deletes the typed filter on selection.
+func (r *REPL) doModelCompletion(token string, tokenLen int) ([][]rune, int) {
+	if token == "" {
+		ranked := r.prioritizeModelNames(r.modelNames, replModelCompletionMaxNoFilter)
+		return r.modelCompletionSuffixes(ranked, 0), 0
+	}
+	matched, isPrefix := r.modelNamesMatchingToken(strings.ToLower(token))
+	if len(matched) > replModelCompletionMax {
+		matched = matched[:replModelCompletionMax]
+	}
+	if isPrefix {
+		return r.modelCompletionSuffixes(matched, tokenLen), tokenLen
+	}
+	// Tag-only match: display garbled (typed+fullname) but insertion is correct.
+	return r.modelCompletionSuffixes(matched, 0), tokenLen
 }
 
 // modelCompletionSuffixes builds the readline suffix list for /model completion.
