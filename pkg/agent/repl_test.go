@@ -381,6 +381,49 @@ func TestReplCompleter_EnabledCloudModelTag(t *testing.T) {
 	assert.Contains(t, found, "deepseek-chat [cloud]")
 }
 
+func TestReplCompleter_TagFilter_Enabled(t *testing.T) {
+	loop := makeTestLoop(nil)
+	repl := NewREPL(loop)
+	defer repl.cancel()
+	repl.SetModelNames([]string{"gpt-4o", "gemini-2.5-flash", "llama3.2:1b"})
+	repl.SetCloudModelBackends(map[string]string{"gpt-4o": "openai", "gemini-2.5-flash": "gemini"})
+	repl.SetProviderStatus(map[string]bool{"openai": true, "gemini": true})
+
+	c := &replCompleter{repl: repl}
+	// "enabled" matches no model names by prefix → tag fallback.
+	// Suffix = full name (length=0 to modelCompletionSuffixes), readline return tokenLen=7.
+	input := []rune("/model enabled")
+	results, length := c.Do(input, len(input))
+	assert.Equal(t, len([]rune("enabled")), length, "length must equal tokenLen so readline deletes the filter")
+	found := make([]string, 0, len(results))
+	for _, r := range results {
+		found = append(found, string(r))
+	}
+	// Full names returned; display will be "enabled<name>" but insertion is correct.
+	assert.Contains(t, found, "gpt-4o [cloud enabled]")
+	assert.Contains(t, found, "gemini-2.5-flash [cloud enabled]")
+	assert.NotContains(t, found, "llama3.2:1b [cached]", "non-cloud model should not appear for 'enabled' filter")
+}
+
+func TestReplCompleter_TagFilter_GGUF(t *testing.T) {
+	loop := makeTestLoop(nil)
+	repl := NewREPL(loop)
+	defer repl.cancel()
+	repl.SetModelNames([]string{"llama3.2:1b", "gemini-2.5-flash"})
+	repl.SetModelTypes(map[string]string{"llama3.2:1b": "gguf"})
+
+	c := &replCompleter{repl: repl}
+	input := []rune("/model gguf")
+	results, length := c.Do(input, len(input))
+	assert.Equal(t, len([]rune("gguf")), length)
+	found := make([]string, 0, len(results))
+	for _, r := range results {
+		found = append(found, string(r))
+	}
+	assert.Contains(t, found, "llama3.2:1b [gguf]")
+	assert.NotContains(t, found, "gemini-2.5-flash [cloud]")
+}
+
 func TestCmdModel_StripsStar(t *testing.T) {
 	loop := makeTestLoop(nil)
 	repl := NewREPL(loop)

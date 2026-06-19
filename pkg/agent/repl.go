@@ -306,17 +306,23 @@ func (c *replCompleter) Do(line []rune, pos int) ([][]rune, int) {
 	if lastSpace >= 0 && len(c.repl.modelNames) > 0 {
 		cmd := strings.ToLower(strings.TrimSpace(str[:lastSpace]))
 		if cmd == "/model" {
-			var ranked []string
 			if token == "" {
 				// No partial: return a prioritized short list (cached > enabled > rest).
-				ranked = c.repl.prioritizeModelNames(c.repl.modelNames, replModelCompletionMaxNoFilter)
-			} else {
-				ranked = c.repl.modelNamesMatchingToken(strings.ToLower(token))
-				if len(ranked) > replModelCompletionMax {
-					ranked = ranked[:replModelCompletionMax]
-				}
+				ranked := c.repl.prioritizeModelNames(c.repl.modelNames, replModelCompletionMaxNoFilter)
+				return c.repl.modelCompletionSuffixes(ranked, 0), 0
 			}
-			return c.repl.modelCompletionSuffixes(ranked, tokenLen), tokenLen
+			matched, isPrefix := c.repl.modelNamesMatchingToken(strings.ToLower(token))
+			if len(matched) > replModelCompletionMax {
+				matched = matched[:replModelCompletionMax]
+			}
+			if isPrefix {
+				// Prefix match: suffix approach gives clean display (typed+suffix = name).
+				return c.repl.modelCompletionSuffixes(matched, tokenLen), tokenLen
+			}
+			// Tag-only match: no clean suffix exists. Return full names with tokenLen
+			// so readline deletes the typed filter and inserts the correct model name.
+			// Display will show [typed][fullname] but insertion is correct.
+			return c.repl.modelCompletionSuffixes(matched, 0), tokenLen
 		}
 	}
 
@@ -324,19 +330,34 @@ func (c *replCompleter) Do(line []rune, pos int) ([][]rune, int) {
 }
 
 // modelCompletionSuffixes builds the readline suffix list for /model completion.
-// modelNamesMatchingToken returns model names whose lowercased name starts with
-// the typed partial. Prefix matching is required because tab completion displays
-// as [typed_token + suffix], which only reads correctly when the token is a
-// prefix of the model name. Fuzzy matching and tag-type filtering (gguf, cached,
-// cloud, enabled) are available in the TUI picker (/model Enter).
-func (r *REPL) modelNamesMatchingToken(lower string) []string {
-	var out []string
+// modelNamesMatchingToken returns prefix-matched model names. If no prefix
+// matches exist, falls back to tag-type matches (gguf, cached, cloud, enabled,
+// llamafile). Callers must use the returned bool to distinguish the two cases
+// so that modelCompletionSuffixes uses the correct tokenLen.
+func (r *REPL) modelNamesMatchingToken(lower string) ([]string, bool) {
+	var prefix []string
 	for _, name := range r.modelNames {
 		if strings.HasPrefix(strings.ToLower(name), lower) {
-			out = append(out, name)
+			prefix = append(prefix, name)
 		}
 	}
-	return out
+	if len(prefix) > 0 {
+		return prefix, true
+	}
+	// No prefix matches: try tag-type filtering.
+	seen := make(map[string]struct{}, len(prefix))
+	var tagged []string
+	for _, name := range r.modelNames {
+		if _, ok := seen[name]; ok {
+			continue
+		}
+		tag := strings.ToLower(strings.Trim(modelTag(r, name), " []"))
+		if strings.Contains(tag, lower) {
+			tagged = append(tagged, name)
+			seen[name] = struct{}{}
+		}
+	}
+	return tagged, false
 }
 
 // prioritizeModelNames returns up to n model names from the input list, sorted
