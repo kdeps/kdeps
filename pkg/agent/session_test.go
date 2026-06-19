@@ -341,6 +341,73 @@ func TestFirstKeptEntryID_SetAfterCompaction(t *testing.T) {
 	}
 }
 
+func TestCurrentBranchMessages_EmptySession(t *testing.T) {
+	s := NewSession(0)
+	msgs, ops := s.currentBranchMessages()
+	if len(msgs) != 0 {
+		t.Fatalf("expected empty msgs, got %d", len(msgs))
+	}
+	if len(ops) != 0 {
+		t.Fatalf("expected empty ops, got %d", len(ops))
+	}
+}
+
+func TestCurrentBranchMessages_NoIDs_FallsBackToAll(t *testing.T) {
+	s := NewSession(0)
+	// Inject messages without IDs (simulates pre-ID session).
+	s.messages = []sessionMessage{
+		{Role: "user", Content: "q1"},
+		{Role: "assistant", Content: "a1"},
+	}
+	msgs, _ := s.currentBranchMessages()
+	if len(msgs) != 2 {
+		t.Fatalf("expected 2 msgs for no-ID fallback, got %d", len(msgs))
+	}
+}
+
+func TestCurrentBranchMessages_LinearHistory(t *testing.T) {
+	s := NewSession(0)
+	s.Append("q1", "a1")
+	s.Append("q2", "a2")
+	msgs, _ := s.currentBranchMessages()
+	// Linear history: all messages should be on the current branch.
+	if len(msgs) != 4 {
+		t.Fatalf("expected 4 msgs for linear history, got %d", len(msgs))
+	}
+	if msgs[0].Content != "q1" {
+		t.Fatalf("expected first msg=q1, got %q", msgs[0].Content)
+	}
+}
+
+func TestIndexOfID_NotFound(t *testing.T) {
+	s := NewSession(0)
+	s.Append("q", "a")
+	// indexOfID is called with lock held; we can call it from the test
+	// since it doesn't acquire a lock itself.
+	s.mu.RLock()
+	idx := s.indexOfID(99999) // non-existent ID
+	s.mu.RUnlock()
+	if idx != -1 {
+		t.Fatalf("expected -1 for non-existent ID, got %d", idx)
+	}
+}
+
+func TestCurrentBranchMessages_WithFileOps(t *testing.T) {
+	s := NewSession(0)
+	s.Append("q1", "a1")
+	s.RecordFileOps([]string{"x.go"}, nil)
+	s.Append("q2", "a2")
+	s.RecordFileOps(nil, []string{"y.go"})
+	msgs, ops := s.currentBranchMessages()
+	if len(msgs) != 4 {
+		t.Fatalf("expected 4 msgs, got %d", len(msgs))
+	}
+	// ops should be returned for branch messages
+	if len(ops) == 0 {
+		t.Fatal("expected file ops to be returned for branch messages")
+	}
+}
+
 func TestBuildMessagesJSON_SpecialRolesConvertedToUser(t *testing.T) {
 	s := NewSession(0)
 	// Inject compaction summary message directly (bypassing Append).

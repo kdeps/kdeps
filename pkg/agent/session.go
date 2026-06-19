@@ -300,21 +300,28 @@ func (s *Session) FirstKeptEntryID() int64 {
 	return s.firstKeptEntryID
 }
 
-// getBranch returns the chain of entries from the given entry back to the root.
-// Walks ParentID links to reconstruct the full branch. Returns nil if entryID is
-// not found. Pi equivalent: getBranch() in session.ts.
-//
-//nolint:unused // will be used when buildSessionContext is ported from pi
-func (s *Session) getBranch(entryID int64) []sessionMessage {
+// currentBranchMessages returns the messages on the current branch (from root to current tip).
+// Pi equivalent: collectEntriesForBranchSummary — walks ParentID links from tip to root.
+// Falls back to all messages when no IDs are set (pre-ID sessions).
+func (s *Session) currentBranchMessages() ([]sessionMessage, []fileOpEntry) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
-	idx := s.indexOfID(entryID)
-	if idx < 0 {
-		return nil
+	if len(s.messages) == 0 {
+		return nil, nil
 	}
+	tip := s.messages[len(s.messages)-1]
+	if tip.ID == 0 {
+		msgs := make([]sessionMessage, len(s.messages))
+		copy(msgs, s.messages)
+		ops := make([]fileOpEntry, len(s.fileOps))
+		copy(ops, s.fileOps)
+		return msgs, ops
+	}
+
+	// Walk ParentID links from tip to root (lock already held; indexOfID is lock-free).
 	var branch []sessionMessage
 	seen := make(map[int64]bool)
-	for cur := &s.messages[idx]; cur != nil; {
+	for cur := &s.messages[len(s.messages)-1]; cur != nil; {
 		if seen[cur.ID] {
 			break
 		}
@@ -333,12 +340,22 @@ func (s *Session) getBranch(entryID int64) []sessionMessage {
 	for i, j := 0, len(branch)-1; i < j; i, j = i+1, j-1 {
 		branch[i], branch[j] = branch[j], branch[i]
 	}
-	return branch
+
+	// Build per-message file ops for the branch.
+	var ops []fileOpEntry
+	for _, m := range branch {
+		turnIdx := s.indexOfID(m.ID) / sessionMsgsPer
+		if turnIdx < len(s.fileOps) {
+			ops = append(ops, s.fileOps[turnIdx])
+		} else {
+			ops = append(ops, fileOpEntry{})
+		}
+	}
+	return branch, ops
 }
 
 // indexOfID returns the index of the message with the given ID, or -1.
-//
-//nolint:unused // will be used when buildSessionContext is ported from pi
+// Must be called with s.mu held for reading.
 func (s *Session) indexOfID(id int64) int {
 	for i := len(s.messages) - 1; i >= 0; i-- {
 		if s.messages[i].ID == id {
