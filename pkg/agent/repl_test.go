@@ -360,6 +360,26 @@ func TestReplCompleter_DownloadedModelMarkerPartialToken(t *testing.T) {
 	assert.Contains(t, found, ":3b [cloud]")
 }
 
+func TestReplCompleter_EnabledCloudModelTag(t *testing.T) {
+	loop := makeTestLoop(nil)
+	repl := NewREPL(loop)
+	defer repl.cancel()
+	repl.SetModelNames([]string{"gpt-4o", "deepseek-chat"})
+	repl.SetCloudModelBackends(map[string]string{"gpt-4o": "openai", "deepseek-chat": "deepseek"})
+	repl.SetProviderStatus(map[string]bool{"openai": true, "deepseek": false})
+
+	c := &replCompleter{repl: repl}
+	input := []rune("/model ")
+	results, _ := c.Do(input, len(input))
+	found := make([]string, 0, len(results))
+	for _, r := range results {
+		found = append(found, string(r))
+	}
+	// Enabled cloud provider shows [cloud enabled]; disabled shows [cloud].
+	assert.Contains(t, found, "gpt-4o [cloud enabled]")
+	assert.Contains(t, found, "deepseek-chat [cloud]")
+}
+
 func TestCmdModel_StripsStar(t *testing.T) {
 	loop := makeTestLoop(nil)
 	repl := NewREPL(loop)
@@ -378,7 +398,7 @@ func TestCmdModel_StripsTagSuffix(t *testing.T) {
 	_ = repl.cmdModel([]string{"llama3.2:1b [llamafile cached]"})
 	assert.Equal(t, "llama3.2:1b", repl.loop.config.Model)
 
-	_ = repl.cmdModel([]string{"deepseek-chat [deepseek]"})
+	_ = repl.cmdModel([]string{"deepseek-chat [cloud enabled]"})
 	assert.Equal(t, "deepseek-chat", repl.loop.config.Model)
 }
 

@@ -460,7 +460,7 @@ func buildModelPickerFn(repl *agent.REPL) func(filter string) (string, error) {
 				Enabled:   enabled,
 			})
 		}
-		return tui.RunModelPicker(entries, filter)
+		return tui.RunModelPicker(entries, repl.CurrentModel(), filter)
 	}
 }
 
