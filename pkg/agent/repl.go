@@ -48,7 +48,7 @@ const (
 	replFileCompletionMax = 20
 	replAutoCompactEvery  = 25
 
-	replModelCompletionMax = 40 // max model name suggestions for /model <tab>
+	replModelCompletionMax = 500 // max model name suggestions for /model <tab>
 
 	replTickerMs    = 80    // streaming tick interval (milliseconds)
 	replHistoryMax  = 10000 // readline history buffer size
