@@ -113,10 +113,16 @@ func runLoop(
 			return nil, err
 		}
 		newMessages = msgs
-		if done {
-			break
-		}
 		followUps := drainQueue(cfg.GetFollowUpMessages)
+		if done {
+			if len(followUps) == 0 {
+				break
+			}
+			// Agent ended but follow-up messages were queued; start another round.
+			pending = followUps
+			firstTurn = true
+			continue
+		}
 		if len(followUps) == 0 {
 			break
 		}
