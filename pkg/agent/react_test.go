@@ -222,6 +222,41 @@ func TestBuildReactSystemPreamble_WithSystemPrompt(t *testing.T) {
 	}
 }
 
+func TestBuildReactSystemPreamble_WithTools(t *testing.T) {
+	// Covers the for-loop body: tool descriptions and name joining with ", ".
+	eng := executor.NewEngine(nil)
+	reg := tools.NewRegistry()
+	reg.Register(&tools.Tool{
+		Name:        "tool_alpha",
+		Description: "does alpha",
+		Parameters:  map[string]domain.ToolParam{},
+		Execute:     func(_ map[string]interface{}) (string, error) { return "r", nil },
+	})
+	reg.Register(&tools.Tool{
+		Name:        "tool_beta",
+		Description: "does beta",
+		Parameters:  map[string]domain.ToolParam{},
+		Execute:     func(_ map[string]interface{}) (string, error) { return "r", nil },
+	})
+	loop := New(eng, newTestWorkflowForSession(), reg, Config{
+		Model:         "test",
+		Streamer:      &mockStreamer{responses: []mockStreamResponse{{content: "Final Answer: ok"}}},
+		MaxToolRounds: 5,
+	})
+	preamble := loop.buildReactSystemPreamble()
+	// Both tool names should appear in the preamble
+	if !strings.Contains(preamble, "tool_alpha") {
+		t.Errorf("expected tool_alpha in preamble, got: %q", preamble[:clampMax(200, len(preamble))])
+	}
+	if !strings.Contains(preamble, "tool_beta") {
+		t.Errorf("expected tool_beta in preamble, got: %q", preamble[:clampMax(200, len(preamble))])
+	}
+	// The comma separator path should be exercised (tool_alpha, tool_beta)
+	if !strings.Contains(preamble, "tool_alpha, tool_beta") && !strings.Contains(preamble, "tool_beta, tool_alpha") {
+		t.Errorf("expected comma-joined tool names in preamble, got: %q", preamble[:clampMax(300, len(preamble))])
+	}
+}
+
 func TestBuildReactChatConfig_WithSteps(t *testing.T) {
 	// Covers lines 155-164: steps non-nil in buildReactChatConfig.
 	loop := newStreamingLoop(&mockStreamer{}, 5)
