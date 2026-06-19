@@ -7,6 +7,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -1570,6 +1571,191 @@ func TestCmdSession_DeleteMissingArg(t *testing.T) {
 	defer func() { w.Close(); os.Stdout = origOut }()
 
 	err := repl.cmdSession([]string{"delete"})
+	assert.NoError(t, err)
+}
+
+func TestCmdSession_LoadViaDispatcher(t *testing.T) {
+	// Tests the return r.cmdSessionLoad(store, args[1]) path in cmdSession
+	loop := makeTestLoop(nil)
+	store := NewSessionStore(t.TempDir())
+	loop.store = store
+	repl := NewREPL(loop)
+	defer repl.cancel()
+
+	origOut := os.Stdout
+	_, w, _ := os.Pipe()
+	os.Stdout = w
+	defer func() { w.Close(); os.Stdout = origOut }()
+
+	id, err := store.SaveAs(loop.session, "test-dispatch", "model")
+	require.NoError(t, err)
+
+	err = repl.cmdSession([]string{"load", id})
+	assert.NoError(t, err)
+}
+
+func TestCmdSession_DeleteViaDispatcher(t *testing.T) {
+	// Tests the return r.cmdSessionDelete(store, args[1]) path in cmdSession
+	loop := makeTestLoop(nil)
+	store := NewSessionStore(t.TempDir())
+	loop.store = store
+	repl := NewREPL(loop)
+	defer repl.cancel()
+
+	origOut := os.Stdout
+	_, w, _ := os.Pipe()
+	os.Stdout = w
+	defer func() { w.Close(); os.Stdout = origOut }()
+
+	id, err := store.SaveAs(loop.session, "test-delete", "model")
+	require.NoError(t, err)
+
+	err = repl.cmdSession([]string{"delete", id})
+	assert.NoError(t, err)
+}
+
+func TestCmdSession_GotoSuccess(t *testing.T) {
+	// Tests the goto success path including the return nil after RestoreTo succeeds
+	loop := makeTestLoop(nil)
+	loop.store = NewSessionStore(t.TempDir())
+	repl := NewREPL(loop)
+	defer repl.cancel()
+
+	origOut := os.Stdout
+	_, w, _ := os.Pipe()
+	os.Stdout = w
+	defer func() { w.Close(); os.Stdout = origOut }()
+
+	// Add a turn to the session so there's a valid checkpoint ID
+	loop.Session().Append("hello", "world")
+	id := loop.Session().Checkpoint()
+	require.NotZero(t, id)
+
+	err := repl.cmdSession([]string{"goto", strconv.FormatInt(id, 10)})
+	assert.NoError(t, err)
+}
+
+func TestCmdSession_GotoNotFound(t *testing.T) {
+	// Tests the !RestoreTo path in goto (ID not found)
+	loop := makeTestLoop(nil)
+	loop.store = NewSessionStore(t.TempDir())
+	repl := NewREPL(loop)
+	defer repl.cancel()
+
+	origOut := os.Stdout
+	_, w, _ := os.Pipe()
+	os.Stdout = w
+	defer func() { w.Close(); os.Stdout = origOut }()
+
+	err := repl.cmdSession([]string{"goto", "9999999999999"})
+	assert.NoError(t, err)
+}
+
+func TestCmdSessionList_UnnamedAndNoModel(t *testing.T) {
+	// Tests the name=="" and model=="" fallback paths in cmdSessionList
+	loop := makeTestLoop(nil)
+	store := NewSessionStore(t.TempDir())
+	repl := NewREPL(loop)
+	defer repl.cancel()
+	origOut := os.Stdout
+	_, w, _ := os.Pipe()
+	os.Stdout = w
+	defer func() { w.Close(); os.Stdout = origOut }()
+
+	// SaveAs with empty name and empty model -> unnamed session
+	_, err := store.SaveAs(loop.session, "", "")
+	require.NoError(t, err)
+	// List should show "(unnamed)" and "-" for model
+	err = repl.cmdSessionList(store)
+	assert.NoError(t, err)
+}
+
+func TestCmdSessionSave_WithName(t *testing.T) {
+	// Tests the name!="" path in cmdSessionSave (appends (name) to message)
+	loop := makeTestLoop(nil)
+	store := NewSessionStore(t.TempDir())
+	repl := NewREPL(loop)
+	defer repl.cancel()
+	origOut := os.Stdout
+	_, w, _ := os.Pipe()
+	os.Stdout = w
+	defer func() { w.Close(); os.Stdout = origOut }()
+
+	err := repl.cmdSessionSave(store, "my-session-name")
+	assert.NoError(t, err)
+}
+
+func TestCmdSessionDelete_NotFound(t *testing.T) {
+	// Tests the err!=nil path in cmdSessionDelete
+	loop := makeTestLoop(nil)
+	store := NewSessionStore(t.TempDir())
+	repl := NewREPL(loop)
+	defer repl.cancel()
+	origOut := os.Stdout
+	_, w, _ := os.Pipe()
+	os.Stdout = w
+	defer func() { w.Close(); os.Stdout = origOut }()
+
+	err := repl.cmdSessionDelete(store, "nonexistent-id")
+	assert.Error(t, err)
+}
+
+func TestCmdSession_CheckpointEmpty(t *testing.T) {
+	// Tests checkpoint with no messages (id==0 path)
+	loop := makeTestLoop(nil)
+	loop.store = NewSessionStore(t.TempDir())
+	repl := NewREPL(loop)
+	defer repl.cancel()
+	origOut := os.Stdout
+	_, w, _ := os.Pipe()
+	os.Stdout = w
+	defer func() { w.Close(); os.Stdout = origOut }()
+
+	err := repl.cmdSession([]string{"checkpoint"})
+	assert.NoError(t, err)
+}
+
+func TestCmdSession_CheckpointWithMessages(t *testing.T) {
+	// Tests checkpoint with messages (id>0 path, return nil)
+	loop := makeTestLoop(nil)
+	loop.store = NewSessionStore(t.TempDir())
+	repl := NewREPL(loop)
+	defer repl.cancel()
+	origOut := os.Stdout
+	_, w, _ := os.Pipe()
+	os.Stdout = w
+	defer func() { w.Close(); os.Stdout = origOut }()
+
+	loop.Session().Append("hello", "world")
+	err := repl.cmdSession([]string{"checkpoint"})
+	assert.NoError(t, err)
+}
+
+func TestCmdSession_GotoMissingArg(t *testing.T) {
+	loop := makeTestLoop(nil)
+	loop.store = NewSessionStore(t.TempDir())
+	repl := NewREPL(loop)
+	defer repl.cancel()
+	origOut := os.Stdout
+	_, w, _ := os.Pipe()
+	os.Stdout = w
+	defer func() { w.Close(); os.Stdout = origOut }()
+
+	err := repl.cmdSession([]string{"goto"})
+	assert.NoError(t, err)
+}
+
+func TestCmdSession_GotoInvalidID(t *testing.T) {
+	loop := makeTestLoop(nil)
+	loop.store = NewSessionStore(t.TempDir())
+	repl := NewREPL(loop)
+	defer repl.cancel()
+	origOut := os.Stdout
+	_, w, _ := os.Pipe()
+	os.Stdout = w
+	defer func() { w.Close(); os.Stdout = origOut }()
+
+	err := repl.cmdSession([]string{"goto", "not-a-number"})
 	assert.NoError(t, err)
 }
 
