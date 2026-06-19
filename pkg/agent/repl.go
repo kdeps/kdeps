@@ -52,6 +52,14 @@ const (
 	replModelCompletionMax         = 500 // max model name suggestions for /model <tab> with a partial filter
 	replModelCompletionMaxNoFilter = 100 // cap when no partial typed (prioritized: cached > enabled-cloud > llamafile > gguf > ollama > cloud)
 
+	// Default thinking token budgets per mode. These are explicit so langchaingo
+	// never falls back to CalculateThinkingBudget(mode, MaxTokens=0)=0 which
+	// silently disables thinking when no MaxTokens call option is set.
+	replThinkingBudgetLow    = 2048
+	replThinkingBudgetMedium = 8192
+	replThinkingBudgetHigh   = 16000
+	replThinkingBudgetAuto   = 10000
+
 	replTickerMs    = 80    // streaming tick interval (milliseconds)
 	replHistoryMax  = 10000 // readline history buffer size
 	replStatusWidth = 60    // minimum width for the REPL status separator line
@@ -1593,6 +1601,15 @@ func (r *REPL) cmdThinking(args []string) error {
 		}
 		return nil
 	}
+	// thinkingBudgets maps mode → explicit BudgetTokens so langchaingo never falls
+	// back to CalculateThinkingBudget(mode, 0)=0 (which silently disables thinking when MaxTokens=0).
+	thinkingBudgets := map[domain.ThinkingMode]int{
+		domain.ThinkingModeNone:   0,
+		domain.ThinkingModeLow:    replThinkingBudgetLow,
+		domain.ThinkingModeMedium: replThinkingBudgetMedium,
+		domain.ThinkingModeHigh:   replThinkingBudgetHigh,
+		domain.ThinkingModeAuto:   replThinkingBudgetAuto,
+	}
 	mode := domain.ThinkingMode(strings.ToLower(args[0]))
 	switch mode {
 	case domain.ThinkingModeNone, "off":
@@ -1602,11 +1619,12 @@ func (r *REPL) cmdThinking(args []string) error {
 		domain.ThinkingModeMedium,
 		domain.ThinkingModeHigh,
 		domain.ThinkingModeAuto:
-		r.loop.SetThinking(&domain.ThinkingConfig{Mode: mode})
+		budget := thinkingBudgets[mode]
+		r.loop.SetThinking(&domain.ThinkingConfig{Mode: mode, BudgetTokens: budget})
 		fmt.Fprintf(
 			os.Stdout,
 			"%s\n",
-			styleReplMeta.Render(fmt.Sprintf("Thinking set to %s.", mode)),
+			styleReplMeta.Render(fmt.Sprintf("Thinking set to %s (budget %d tokens).", mode, budget)),
 		)
 	default:
 		fmt.Fprintln(os.Stdout, styleReplMeta.Render("Usage: /thinking [off|low|medium|high|auto]"))

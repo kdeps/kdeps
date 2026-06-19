@@ -22,7 +22,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/tmc/langchaingo/llms"
+	tiktoken "github.com/pkoukk/tiktoken-go"
 )
 
 const (
@@ -87,14 +87,28 @@ Use this EXACT format:
 
 Keep each section concise. Preserve exact file paths, function names, and error messages.`
 
-// estimateTokens returns the exact token count for a session message using
-// tiktoken BPE encoding via langchaingo. Falls back to chars/4 if the model
-// string is empty (which should not happen in practice).
+// estimateTokens returns the token count for a session message using tiktoken
+// BPE encoding. Falls back silently to chars/4 on unknown models.
 func estimateTokens(m sessionMessage, modelHint string) int {
-	if modelHint == "" {
-		return (len(m.Content) + charsPerTokenRoundUp) / charsPerToken
+	return countTokensSilent(modelHint, m.Content)
+}
+
+// countTokensSilent counts tokens without emitting any log warnings.
+// langchaingo's llms.CountTokens logs "[WARN] Failed to calculate number of
+// tokens for model" for every unrecognized model, which is too noisy for
+// models like llama3.2:1b or gemini-2.5-flash. This implementation falls back
+// silently to the gpt2 encoding or a chars/4 approximation.
+func countTokensSilent(model, text string) int {
+	if model != "" {
+		if enc, err := tiktoken.EncodingForModel(model); err == nil {
+			return len(enc.Encode(text, nil, nil))
+		}
 	}
-	return llms.CountTokens(modelHint, m.Content)
+	if enc, err := tiktoken.GetEncoding("cl100k_base"); err == nil {
+		return len(enc.Encode(text, nil, nil))
+	}
+	// Silent fallback: approximate 4 chars per token.
+	return len([]rune(text)) / charsPerToken
 }
 
 // findCutIndex returns the index of the first message to KEEP after compaction.
