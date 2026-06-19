@@ -1459,3 +1459,188 @@ func TestTruncateBashOutput_ExactLimit(t *testing.T) {
 	got := truncateBashOutput(input)
 	assert.Equal(t, input, got)
 }
+
+// --- SQL error paths ---
+
+func TestSQLListTables_QueryError(t *testing.T) {
+	// A file that exists but is not a valid sqlite3 database causes QueryContext to fail.
+	dir := t.TempDir()
+	path := filepath.Join(dir, "corrupt.db")
+	require.NoError(t, os.WriteFile(path, []byte("not a sqlite database"), 0o600))
+	_, err := sqlListTables(path)
+	require.Error(t, err)
+}
+
+func TestSQLDescribeTable_QueryError(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "corrupt.db")
+	require.NoError(t, os.WriteFile(path, []byte("not a sqlite database"), 0o600))
+	_, err := sqlDescribeTable(path, "users")
+	require.Error(t, err)
+}
+
+func TestSQLExecQuery_OpenError(t *testing.T) {
+	// Empty dbPath triggers sqlOpenDB error, covering the err != nil branch in sqlExecQuery.
+	_, err := sqlExecQuery("", "SELECT 1")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "db_path is required")
+}
+
+// --- HTTP build-request error paths (malformed URL) ---
+
+func TestCallExaSearch_BuildRequestError(t *testing.T) {
+	old := exaSearchURL
+	exaSearchURL = "://invalid"
+	defer func() { exaSearchURL = old }()
+	_, err := callExaSearch(context.Background(), "key", "query")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "build request")
+}
+
+func TestCallZapierListActions_BuildRequestError(t *testing.T) {
+	old := zapierNLABaseURL
+	zapierNLABaseURL = "://invalid"
+	defer func() { zapierNLABaseURL = old }()
+	_, err := callZapierListActions(context.Background(), "key")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "build request")
+}
+
+func TestCallZapierRunAction_BuildRequestError(t *testing.T) {
+	old := zapierNLABaseURL
+	zapierNLABaseURL = "://invalid"
+	defer func() { zapierNLABaseURL = old }()
+	_, err := callZapierRunAction(context.Background(), "key", "act-id", "do it")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "build request")
+}
+
+func TestCallZapierRunAction_DoRequestError(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(_ http.ResponseWriter, _ *http.Request) {}))
+	srv.Close()
+	old := zapierNLABaseURL
+	zapierNLABaseURL = srv.URL
+	defer func() { zapierNLABaseURL = old }()
+	_, err := callZapierRunAction(context.Background(), "key", "act-id", "do it")
+	require.Error(t, err)
+}
+
+func TestCallWolframAlpha_BuildRequestError(t *testing.T) {
+	old := wolframAlphaBaseURL
+	wolframAlphaBaseURL = "://invalid"
+	defer func() { wolframAlphaBaseURL = old }()
+	_, err := callWolframAlpha(context.Background(), "app-id", "query")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "build request")
+}
+
+func TestCallVoyageRerank_BuildRequestError(t *testing.T) {
+	old := voyageRerankURL
+	voyageRerankURL = "://invalid"
+	defer func() { voyageRerankURL = old }()
+	p := rerankParams{query: "q", documents: []string{"d"}, model: "m", topN: 1}
+	_, err := callVoyageRerank(context.Background(), "key", p)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "build request")
+}
+
+func TestCallCohereFormatReranker_BuildRequestError(t *testing.T) {
+	p := rerankParams{query: "q", documents: []string{"d"}, model: "m", topN: 1}
+	_, err := callCohereFormatReranker(context.Background(), "key", "://invalid", "tool_name", p)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "build request")
+}
+
+func TestCallCohereFormatReranker_DoRequestError(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(_ http.ResponseWriter, _ *http.Request) {}))
+	srv.Close()
+	p := rerankParams{query: "q", documents: []string{"d"}, model: "m", topN: 1}
+	_, err := callCohereFormatReranker(context.Background(), "key", srv.URL, "tool_name", p)
+	require.Error(t, err)
+}
+
+// --- parseRerankArgs empty docs array ---
+
+func TestParseRerankArgs_EmptyDocsArray(t *testing.T) {
+	t.Parallel()
+	_, err := parseRerankArgs(map[string]interface{}{
+		"query":     "hello",
+		"documents": "[]",
+	}, "model")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "must not be empty")
+}
+
+// --- sanitizeBashOutput Unicode interlinear annotation ---
+
+func TestSanitizeBashOutput_InterlinearAnnotation(t *testing.T) {
+	// Runes U+FFF9..U+FFFB (interlinear annotation, unicodeInterlinearStart..End) are stripped.
+	input := "hello\ufff9world\ufffafoo\ufffbbar"
+	got := sanitizeBashOutput(input)
+	assert.Equal(t, "helloworldfoobar", got)
+}
+
+// --- Execute closures via tool.Execute (covers the return callXxx lines) ---
+
+func TestExaSearch_ViaToolExecute(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"results":[{"title":"Test","url":"http://x.com","text":"body"}]}`))
+	}))
+	defer srv.Close()
+
+	old := exaSearchURL
+	exaSearchURL = srv.URL
+	defer func() { exaSearchURL = old }()
+
+	t.Setenv("EXA_API_KEY", "test-key")
+	reg := kdepstools.NewRegistry()
+	RegisterBuiltinTools(context.Background(), reg)
+	tool := reg.Get("exa_search")
+	require.NotNil(t, tool)
+	result, err := tool.Execute(map[string]interface{}{"query": "test"})
+	require.NoError(t, err)
+	assert.Contains(t, result, "Test")
+}
+
+func TestZapierListActions_ViaToolExecute(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"results":[{"id":"abc","description":"Send email"}]}`))
+	}))
+	defer srv.Close()
+
+	old := zapierNLABaseURL
+	zapierNLABaseURL = srv.URL
+	defer func() { zapierNLABaseURL = old }()
+
+	t.Setenv("ZAPIER_NLA_API_KEY", "test-key")
+	reg := kdepstools.NewRegistry()
+	RegisterBuiltinTools(context.Background(), reg)
+	tool := reg.Get("zapier_list_actions")
+	require.NotNil(t, tool)
+	result, err := tool.Execute(map[string]interface{}{})
+	require.NoError(t, err)
+	assert.Contains(t, result, "abc")
+}
+
+func TestZapierRunAction_ViaToolExecute(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"status":"ok"}`))
+	}))
+	defer srv.Close()
+
+	old := zapierNLABaseURL
+	zapierNLABaseURL = srv.URL
+	defer func() { zapierNLABaseURL = old }()
+
+	t.Setenv("ZAPIER_NLA_API_KEY", "test-key")
+	reg := kdepstools.NewRegistry()
+	RegisterBuiltinTools(context.Background(), reg)
+	tool := reg.Get("zapier_run_action")
+	require.NotNil(t, tool)
+	result, err := tool.Execute(map[string]interface{}{"action_id": "act-id", "instructions": "do it"})
+	require.NoError(t, err)
+	assert.Contains(t, result, "ok")
+}

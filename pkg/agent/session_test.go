@@ -431,3 +431,34 @@ func TestBuildMessagesJSON_SpecialRolesConvertedToUser(t *testing.T) {
 		t.Fatalf("branchSummary role leaked into JSON: %s", got)
 	}
 }
+
+func TestCurrentBranchMessages_CycleDetection(t *testing.T) {
+	// Tests the seen[cur.ID] cycle guard (line 325): inject two messages that
+	// form a cycle via ParentID links (m[1].ParentID -> m[0].ID -> m[1].ID).
+	s := NewSession(0)
+	s.messages = []sessionMessage{
+		{Role: "user", Content: "q1", ID: 1, ParentID: 2},
+		{Role: "assistant", Content: "a1", ID: 2, ParentID: 1},
+	}
+	// Should not loop forever; should return messages without panic.
+	msgs, _ := s.currentBranchMessages()
+	if len(msgs) == 0 {
+		t.Fatal("expected at least one message from cycle walk")
+	}
+}
+
+func TestCurrentBranchMessages_ParentNotFound(t *testing.T) {
+	// Tests the parentIdx < 0 path (line 334): a message whose ParentID
+	// points to a non-existent ID terminates the walk early.
+	s := NewSession(0)
+	s.messages = []sessionMessage{
+		{Role: "user", Content: "q1", ID: 1, ParentID: 99999},
+	}
+	msgs, _ := s.currentBranchMessages()
+	if len(msgs) != 1 {
+		t.Fatalf("expected 1 message, got %d", len(msgs))
+	}
+	if msgs[0].Content != "q1" {
+		t.Fatalf("expected q1, got %q", msgs[0].Content)
+	}
+}
