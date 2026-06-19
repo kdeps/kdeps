@@ -394,6 +394,8 @@ func TestCmdModel_StripsTagSuffix(t *testing.T) {
 	loop := makeTestLoop(nil)
 	repl := NewREPL(loop)
 	defer repl.cancel()
+	// Register models so cmdModel treats them as known names (not filter queries).
+	repl.SetModelNames([]string{"llama3.2:1b", "deepseek-chat"})
 
 	// [tag] suffix appended by tab completion is stripped before applying.
 	_ = repl.cmdModel([]string{"llama3.2:1b [llamafile cached]"})

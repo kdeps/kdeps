@@ -1043,7 +1043,14 @@ func (r *REPL) cmdClear() error {
 
 func (r *REPL) cmdModel(args []string) error {
 	if len(args) > 0 {
-		r.applyModelSwitch(stripModelIndicators(args[0]))
+		name := stripModelIndicators(args[0])
+		// If the arg is not a known model name, treat it as a picker filter.
+		// This allows "/model gguf", "/model enabled", "/model cached" etc. to
+		// open the picker pre-filtered to the matching type/tag.
+		if r.modelPickerFn != nil && !r.isModelName(name) {
+			return r.openPickerWithFilter(name)
+		}
+		r.applyModelSwitch(name)
 		return nil
 	}
 	if r.modelPickerFn == nil {
@@ -1052,7 +1059,20 @@ func (r *REPL) cmdModel(args []string) error {
 	}
 	// readline has yielded the terminal (ReadLine already returned), so
 	// bubbletea can take over directly without closing readline first.
-	model, err := r.modelPickerFn("")
+	return r.openPickerWithFilter("")
+}
+
+func (r *REPL) isModelName(name string) bool {
+	for _, n := range r.modelNames {
+		if n == name {
+			return true
+		}
+	}
+	return false
+}
+
+func (r *REPL) openPickerWithFilter(filter string) error {
+	model, err := r.modelPickerFn(filter)
 	if err != nil {
 		return err
 	}
