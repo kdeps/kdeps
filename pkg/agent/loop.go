@@ -315,32 +315,72 @@ func (l *Loop) compactAndRetry(ctx context.Context, input string, w io.Writer) (
 func (l *Loop) runToolRounds(ctx context.Context, chatCfg *domain.ChatConfig, w io.Writer) (string, error) {
 	var finalContent string
 	for i := range l.config.MaxToolRounds {
-		roundWriter := w
-		if l.config.StreamFinalOnly && i < l.config.MaxToolRounds-1 {
-			roundWriter = io.Discard
-		}
-
-		content, toolCalls, err := l.streamer.StreamChat(ctx, chatCfg, roundWriter)
+		// Capture streamed output in a buffer so we can suppress raw tool-call JSON
+		// from reaching the terminal. Text-only responses are replayed to w below.
+		var roundBuf strings.Builder
+		content, toolCalls, err := l.streamer.StreamChat(ctx, chatCfg, &roundBuf)
 		if err != nil {
 			return "", fmt.Errorf("agent loop stream: %w", err)
 		}
 		finalContent = content
 
 		if len(toolCalls) == 0 {
-			if l.config.StreamFinalOnly && roundWriter == io.Discard {
-				_, _ = io.WriteString(w, content)
-			}
+			// Text-only response: replay the streamed content.
+			_, _ = io.WriteString(w, roundBuf.String())
 			break
 		}
 		if i == l.config.MaxToolRounds-1 {
 			break
 		}
-		chatCfg = l.appendToolRoundTrip(chatCfg, content, toolCalls)
-		if !l.config.StreamFinalOnly {
-			fmt.Fprintln(w)
+
+		// Write a clean tool call summary instead of the raw JSON chunks.
+		for _, tc := range toolCalls {
+			argSummary := summarizeToolArgs(tc.Arguments)
+			fmt.Fprintf(w, "\n[%s → %s]", tc.Name, argSummary)
 		}
+		fmt.Fprintln(w)
+
+		chatCfg = l.appendToolRoundTrip(chatCfg, content, toolCalls)
 	}
 	return finalContent, nil
+}
+
+const toolArgMaxDisplay = 80 // max chars shown in tool call summary line
+
+// summarizeToolArgs extracts a short display label from tool call arguments JSON.
+// Returns the first non-empty string value, or the raw JSON if nothing else works.
+func summarizeToolArgs(raw string) string {
+	if raw == "" || raw == "{}" {
+		return ""
+	}
+	var m map[string]any
+	if err := json.Unmarshal([]byte(raw), &m); err != nil {
+		if len(raw) > toolArgMaxDisplay {
+			return raw[:toolArgMaxDisplay-3] + "..."
+		}
+		return raw
+	}
+	// Prefer file_path, then query, then url, then expression, then first string value.
+	for _, key := range []string{"file_path", "query", "url", "expression", "command"} {
+		if v, ok := m[key].(string); ok && v != "" {
+			if len(v) > toolArgMaxDisplay {
+				v = v[:toolArgMaxDisplay-3] + "..."
+			}
+			return v
+		}
+	}
+	// Fallback: first non-empty value of any type.
+	for k, v := range m {
+		s := fmt.Sprintf("%v", v)
+		if s != "" && s != " " {
+			display := fmt.Sprintf("%s=%s", k, s)
+			if len(display) > toolArgMaxDisplay {
+				display = display[:toolArgMaxDisplay-3] + "..."
+			}
+			return display
+		}
+	}
+	return raw
 }
 
 // appendToolRoundTrip appends the assistant tool-call turn and tool results to
@@ -408,9 +448,25 @@ func (l *Loop) dispatchStreamToolCall(tc domain.StreamedToolCall) string {
 }
 
 // toolUseGuidance is injected into the system preamble when tools are registered.
-// Small models hallucinate tool calls for conversational messages; this instruction
-// suppresses that behavior without disabling tool use for genuine requests.
-const toolUseGuidance = `Only call a tool when the user explicitly asks you to perform a task that requires it. For conversational messages, greetings, questions about yourself, or general chat, respond in plain text. Never invent or call tools that are not listed in your available tools.`
+// Guides the model to complete tasks efficiently using the available file and shell tools.
+const toolUseGuidance = `You are a coding agent. Complete the user's task using the tools provided.
+
+Core tools:
+- read_file — read local files (always use before editing)
+- edit_file — replace a string in a file (use for targeted edits; read the file first to find the exact text to replace)
+- write_file — create or overwrite entire files
+- bash_exec — run shell commands (git, build, test, lint, etc.)
+- list_files — discover project structure
+- web_search, web_scraper, wikipedia — look up information online
+
+Rules:
+1. Complete the task. Read the target file, then IMMEDIATELY edit it. Do NOT explore unrelated files.
+2. For simple edits (changing values, fixing typos): read the file, then use edit_file with the exact old_string and new_string.
+3. For creating new files: use write_file.
+4. For shell commands: use bash_exec (git, build, test).
+5. One read + one edit is enough for most tasks. Do not read additional files unless the task explicitly requires it.
+6. For chat/conversation/greetings, respond directly without tools.
+7. If unsure, ask. Do not guess or invent.`
 
 // buildSystemPreamble constructs the system prompt preamble from skills,
 // instruction files, and the user-configured system prompt.
@@ -431,6 +487,13 @@ func (l *Loop) buildSystemPreamble() string {
 	}
 	if l.registry != nil && len(l.registry.List()) > 0 {
 		parts = append(parts, toolUseGuidance)
+		// Tell the model its working directory so it knows where to start.
+		if wd, err := os.Getwd(); err == nil && wd != "" {
+			parts = append(parts, fmt.Sprintf(
+				"Working directory: %s\nStart by listing this directory before reading or editing files.",
+				wd,
+			))
+		}
 	}
 	if l.config.SystemPrompt != "" {
 		parts = append(parts, l.config.SystemPrompt)

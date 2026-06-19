@@ -84,7 +84,11 @@ func RegisterBuiltinTools(ctx context.Context, reg *kdepstools.Registry) {
 	registerWebScraper(ctx, reg)
 	registerSQLTools(ctx, reg)
 	registerBashExec(ctx, reg)
+	registerListFiles(reg)
 	registerCalculator(reg)
+	registerReadFile(reg)
+	registerWriteFile(reg)
+	registerEditFile(reg)
 	registerSerpAPI(ctx, reg)
 	registerPerplexity(ctx, reg)
 	registerExa(ctx, reg)
@@ -123,6 +127,227 @@ func registerCalculator(reg *kdepstools.Registry) {
 				return fmt.Sprintf("error: %s", err.Error()), nil
 			}
 			return v.String(), nil
+		},
+	})
+}
+
+const maxFileReadBytes = 1 << 20 // 1 MB
+
+// registerReadFile registers a local file reading tool.
+// Reads text files from the filesystem. Accepts absolute paths only.
+// No API key required.
+func registerReadFile(reg *kdepstools.Registry) {
+	reg.Register(&kdepstools.Tool{
+		Name:        "read_file",
+		Description: "Read a file from the local filesystem. Returns the file contents as text. Use for reading source code, configuration files, documentation, Makefiles, or any text-based file the agent needs to understand.",
+		Parameters: map[string]domain.ToolParam{
+			"file_path": {
+				Type:        "string",
+				Description: "Absolute path to the file to read",
+				Required:    true,
+			},
+			"offset": {
+				Type:        "number",
+				Description: "Line number to start reading from (1-based). Optional; reads from beginning if omitted.",
+			},
+			"limit": {
+				Type:        "number",
+				Description: "Maximum number of lines to read. Optional; reads entire file up to the size limit if omitted.",
+			},
+		},
+		Execute: func(args map[string]interface{}) (string, error) {
+			filePath, _ := args["file_path"].(string)
+			if filePath == "" {
+				return "", errors.New("read_file: file_path is required")
+			}
+			if !strings.HasPrefix(filePath, "/") {
+				return "", errors.New("read_file: absolute path required")
+			}
+			return readLocalFile(filePath, args)
+		},
+	})
+}
+
+func readLocalFile(filePath string, args map[string]interface{}) (string, error) {
+	info, err := os.Stat(filePath)
+	if err != nil {
+		return "", fmt.Errorf("read_file: stat %s: %w", filePath, err)
+	}
+	if info.IsDir() {
+		return "", fmt.Errorf("read_file: %s is a directory", filePath)
+	}
+	if info.Size() > maxFileReadBytes {
+		return "", fmt.Errorf("read_file: %s is %d bytes (max %d)", filePath, info.Size(), maxFileReadBytes)
+	}
+
+	data, err := os.ReadFile(filePath)
+	if err != nil {
+		return "", fmt.Errorf("read_file: read %s: %w", filePath, err)
+	}
+
+	lines := strings.Split(string(data), "\n")
+	// File ending with \n produces a trailing empty element; drop it.
+	if len(lines) > 0 && lines[len(lines)-1] == "" {
+		lines = lines[:len(lines)-1]
+	}
+	totalLines := len(lines)
+	startLine := 0
+	endLine := totalLines
+
+	if v, ok := args["offset"].(float64); ok && v > 0 {
+		startLine = min(int(v)-1, totalLines)
+	}
+	if v, ok := args["limit"].(float64); ok && v > 0 {
+		endLine = min(startLine+int(v), totalLines)
+	}
+
+	out := strings.Join(lines[startLine:endLine], "\n")
+
+	shownLines := endLine - startLine
+	if shownLines > 0 && shownLines < totalLines {
+		out = fmt.Sprintf("%s\n[%d/%d lines shown]", out, shownLines, totalLines)
+	}
+
+	return out, nil
+}
+
+// registerWriteFile registers a local file write/overwrite tool.
+// Creates or overwrites text files on the filesystem. Accepts absolute paths only.
+// No API key required.
+func registerWriteFile(reg *kdepstools.Registry) {
+	reg.Register(&kdepstools.Tool{
+		Name:        "write_file",
+		Description: "Write or overwrite a text file on the local filesystem. Creates a new file if it does not exist; overwrites existing files entirely. Use for creating or updating configuration files, source code, scripts, or any text-based file. Requires an absolute path.",
+		Parameters: map[string]domain.ToolParam{
+			"file_path": {
+				Type:        "string",
+				Description: "Absolute path to the file to write",
+				Required:    true,
+			},
+			"content": {
+				Type:        "string",
+				Description: "Text content to write to the file",
+				Required:    true,
+			},
+		},
+		Execute: func(args map[string]interface{}) (string, error) {
+			filePath, _ := args["file_path"].(string)
+			if filePath == "" {
+				return "", errors.New("write_file: file_path is required")
+			}
+			if !strings.HasPrefix(filePath, "/") {
+				return "", errors.New("write_file: absolute path required")
+			}
+			content, _ := args["content"].(string)
+			if len(content) > maxFileReadBytes {
+				return "", fmt.Errorf("write_file: content is %d bytes (max %d)", len(content), maxFileReadBytes)
+			}
+			info, statErr := os.Stat(filePath)
+			if statErr == nil && info.IsDir() {
+				return "", fmt.Errorf("write_file: %s is a directory", filePath)
+			}
+			if err := os.WriteFile(filePath, []byte(content), 0o600); err != nil {
+				return "", fmt.Errorf("write_file: write %s: %w", filePath, err)
+			}
+			return fmt.Sprintf("Wrote %d bytes to %s", len(content), filePath), nil
+		},
+	})
+}
+
+// registerEditFile registers a targeted file editing tool using exact string replacement.
+// Reads the file, finds old_string, replaces it with new_string, and writes the result.
+// No API key required.
+func registerEditFile(reg *kdepstools.Registry) {
+	reg.Register(&kdepstools.Tool{
+		Name:        "edit_file",
+		Description: "Replace a string in a file with a new string. Reads the file, finds the exact old_string (must match exactly, including whitespace), and replaces it with new_string. Use for targeted edits without providing the entire file content. Requires an absolute path. The old_string must be unique in the file.",
+		Parameters: map[string]domain.ToolParam{
+			"file_path": {
+				Type:        "string",
+				Description: "Absolute path to the file to edit",
+				Required:    true,
+			},
+			"old_string": {
+				Type:        "string",
+				Description: "The exact text to replace (must match exactly, including indentation)",
+				Required:    true,
+			},
+			"new_string": {
+				Type:        "string",
+				Description: "The replacement text",
+				Required:    true,
+			},
+		},
+		Execute: func(args map[string]interface{}) (string, error) {
+			filePath, _ := args["file_path"].(string)
+			if filePath == "" {
+				return "", errors.New("edit_file: file_path is required")
+			}
+			if !strings.HasPrefix(filePath, "/") {
+				return "", errors.New("edit_file: absolute path required")
+			}
+			oldStr, _ := args["old_string"].(string)
+			newStr, _ := args["new_string"].(string)
+			if oldStr == newStr {
+				return "", errors.New("edit_file: old_string and new_string are identical")
+			}
+
+			data, err := os.ReadFile(filePath)
+			if err != nil {
+				return "", fmt.Errorf("edit_file: read %s: %w", filePath, err)
+			}
+			content := string(data)
+			count := strings.Count(content, oldStr)
+			if count == 0 {
+				return "", fmt.Errorf("edit_file: old_string not found in %s", filePath)
+			}
+			if count > 1 {
+				return "", fmt.Errorf("edit_file: old_string appears %d times in %s (must be unique)", count, filePath)
+			}
+			newContent := strings.Replace(content, oldStr, newStr, 1)
+			if err := os.WriteFile(filePath, []byte(newContent), 0o600); err != nil {
+				return "", fmt.Errorf("edit_file: write %s: %w", filePath, err)
+			}
+			return fmt.Sprintf("Replaced 1 occurrence in %s (%d bytes)", filePath, len(newContent)), nil
+		},
+	})
+}
+
+// registerListFiles registers a directory listing tool.
+// Lists files and directories at a given path. No API key required.
+func registerListFiles(reg *kdepstools.Registry) {
+	reg.Register(&kdepstools.Tool{
+		Name:        "list_files",
+		Description: "List files and directories in a given directory path. Returns names and types (file/dir). Use to discover project structure before reading or editing files. Requires an absolute path.",
+		Parameters: map[string]domain.ToolParam{
+			"path": {
+				Type:        "string",
+				Description: "Absolute path to the directory to list",
+				Required:    true,
+			},
+		},
+		Execute: func(args map[string]interface{}) (string, error) {
+			dirPath, _ := args["path"].(string)
+			if dirPath == "" {
+				return "", errors.New("list_files: path is required")
+			}
+			if !strings.HasPrefix(dirPath, "/") {
+				return "", errors.New("list_files: absolute path required")
+			}
+			entries, err := os.ReadDir(dirPath)
+			if err != nil {
+				return "", fmt.Errorf("list_files: read %s: %w", dirPath, err)
+			}
+			var sb strings.Builder
+			fmt.Fprintf(&sb, "%s:\n", dirPath)
+			for _, e := range entries {
+				kind := "file"
+				if e.IsDir() {
+					kind = "dir"
+				}
+				fmt.Fprintf(&sb, "  [%s] %s\n", kind, e.Name())
+			}
+			return strings.TrimSpace(sb.String()), nil
 		},
 	})
 }
@@ -709,14 +934,13 @@ func registerPerplexity(ctx context.Context, reg *kdepstools.Registry) {
 
 // registerBashExec registers a bash command execution tool.
 // Runs arbitrary shell commands with a 30-second timeout.
-// Only enabled when KDEPS_ALLOW_BASH=true to prevent accidental exposure.
 func registerBashExec(_ context.Context, reg *kdepstools.Registry) {
-	if os.Getenv("KDEPS_ALLOW_BASH") != "true" {
+	if os.Getenv("KDEPS_ALLOW_BASH") == "false" {
 		return
 	}
 	reg.Register(&kdepstools.Tool{
 		Name:        "bash_exec",
-		Description: "Execute a bash shell command and return its output. Use for running scripts, checking system state, or performing file operations. Requires KDEPS_ALLOW_BASH=true.",
+		Description: "Execute a bash shell command and return its output. Use for running scripts, checking system state (git status, ls, etc.), or performing file operations. Commands run with a 30-second timeout.",
 		Parameters: map[string]domain.ToolParam{
 			"command": {
 				Type:        "string",
