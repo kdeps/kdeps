@@ -605,6 +605,53 @@ func TestCompactIfNeeded_TriggersWhenAboveThreshold(t *testing.T) {
 	}
 }
 
+func TestCompactWithLLM_LLMFailFallsBackToTruncation(t *testing.T) {
+	eng := executor.NewEngine(nil)
+	eng.SetExecuteFunc(func(_ *domain.Workflow, _ interface{}) (interface{}, error) {
+		return "", errors.New("LLM unavailable")
+	})
+	reg := tools.NewRegistry()
+	loop := New(eng, newTestWorkflowForSession(), reg, Config{
+		Model:              "test",
+		CompactTokenBudget: 1,
+	})
+	// Append turns, then set maxTurns=1 so Compact() has something to truncate.
+	for range compactMinTurns + 1 {
+		loop.Session().Append(strings.Repeat("q", 200), strings.Repeat("a", 200))
+	}
+	loop.session.mu.Lock()
+	loop.session.maxTurns = 1
+	loop.session.mu.Unlock()
+
+	summary, err := loop.CompactWithLLM(context.Background())
+	// Should fall back to truncation, returning non-empty summary, no error.
+	if err != nil {
+		t.Fatalf("expected no error on LLM failure with truncation fallback, got: %v", err)
+	}
+	if summary == "" {
+		t.Error("expected non-empty summary from truncation fallback")
+	}
+}
+
+func TestCompactWithLLM_EmptySummaryReturnsError(t *testing.T) {
+	eng := executor.NewEngine(nil)
+	eng.SetExecuteFunc(func(_ *domain.Workflow, _ interface{}) (interface{}, error) {
+		return "", nil // returns empty string = empty summary
+	})
+	reg := tools.NewRegistry()
+	loop := New(eng, newTestWorkflowForSession(), reg, Config{
+		Model:              "test",
+		CompactTokenBudget: 1,
+	})
+	for range compactMinTurns {
+		loop.Session().Append(strings.Repeat("q", 200), strings.Repeat("a", 200))
+	}
+	_, err := loop.CompactWithLLM(context.Background())
+	if err == nil {
+		t.Error("expected error for empty compaction summary")
+	}
+}
+
 func TestCompactAndRetry_ContextOverflow(t *testing.T) {
 	// First StreamChat call returns context overflow; compactAndRetry should
 	// suppress it, attempt compaction, and succeed on the second call.
