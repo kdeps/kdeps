@@ -580,6 +580,78 @@ func (e *errorStreamer) StreamChat(
 	return "ok after retry", nil, nil
 }
 
+// alwaysErrorStreamer always returns the given error on every StreamChat call.
+type alwaysErrorStreamer struct{ err error }
+
+func (a *alwaysErrorStreamer) StreamChat(
+	_ context.Context, _ *domain.ChatConfig, _ io.Writer,
+) (string, []domain.StreamedToolCall, error) {
+	return "", nil, a.err
+}
+
+func TestRunStreaming_CompactAndRetryAlsoFails(t *testing.T) {
+	// When runToolRounds returns a context-overflow error AND the retry after
+	// compaction also errors, RunStreaming should propagate the retry error.
+	overflowErr := errors.New("prompt is too long: context_length_exceeded")
+	eng := executor.NewEngine(nil)
+	eng.SetExecuteFunc(func(wf *domain.Workflow, _ interface{}) (interface{}, error) {
+		if len(wf.Resources) > 0 && wf.Resources[0].Chat.Prompt != "" {
+			return "summary", nil
+		}
+		return "", nil
+	})
+	reg := tools.NewRegistry()
+	loop := New(eng, newTestWorkflowForSession(), reg, Config{
+		Model:              "test",
+		Streamer:           &alwaysErrorStreamer{err: overflowErr},
+		CompactTokenBudget: 1,
+	})
+	for range compactMinTurns {
+		loop.Session().Append(strings.Repeat("q", 200), strings.Repeat("a", 200))
+	}
+	var buf bytes.Buffer
+	_, err := loop.RunStreaming(context.Background(), "hi", &buf)
+	if err == nil {
+		t.Error("expected error when both initial call and retry fail")
+	}
+}
+
+func TestRunStreaming_AutoCompactFiringDuringRun(t *testing.T) {
+	// Seeds a session that exceeds AutoCompactThreshold before RunStreaming;
+	// verifies that the onAutoCompact callback fires inside RunStreaming.
+	eng := executor.NewEngine(nil)
+	eng.SetExecuteFunc(func(wf *domain.Workflow, _ interface{}) (interface{}, error) {
+		if len(wf.Resources) > 0 && wf.Resources[0].Chat.Prompt != "" {
+			return "compaction summary", nil
+		}
+		return "", nil
+	})
+	ms := &mockStreamer{
+		responses: []mockStreamResponse{{content: "done"}},
+	}
+	reg := tools.NewRegistry()
+	loop := New(eng, newTestWorkflowForSession(), reg, Config{
+		Model:                "test",
+		Streamer:             ms,
+		CompactTokenBudget:   1,
+		AutoCompactThreshold: 1,
+	})
+	var callbackFired bool
+	loop.SetOnAutoCompact(func(_ string) { callbackFired = true })
+	for range compactMinTurns {
+		loop.Session().Append(strings.Repeat("q", 300), strings.Repeat("a", 300))
+	}
+
+	var buf bytes.Buffer
+	_, err := loop.RunStreaming(context.Background(), "hi", &buf)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !callbackFired {
+		t.Error("expected onAutoCompact callback to fire inside RunStreaming")
+	}
+}
+
 func TestCompactIfNeeded_TriggersWhenAboveThreshold(t *testing.T) {
 	eng := executor.NewEngine(nil)
 	eng.SetExecuteFunc(func(wf *domain.Workflow, _ interface{}) (interface{}, error) {
