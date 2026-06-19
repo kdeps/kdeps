@@ -63,6 +63,24 @@ func TestSplitFrontmatter_MalformedNoDash(t *testing.T) {
 	}
 }
 
+func TestSplitFrontmatter_LineWithNoColon(t *testing.T) {
+	// Tests the idx < 0 path: a YAML block line without a colon is skipped
+	content := "---\ndescription: ok\nthis line has no colon\n---\nbody"
+	fm, body := splitFrontmatter(content)
+	if fm == nil {
+		t.Fatal("expected non-nil frontmatter")
+	}
+	if fm["description"] != "ok" {
+		t.Fatalf("expected description=ok, got %q", fm["description"])
+	}
+	if _, found := fm["this line has no colon"]; found {
+		t.Fatal("expected line without colon to be skipped")
+	}
+	if body != "body" {
+		t.Fatalf("expected body='body', got %q", body)
+	}
+}
+
 // --- parseCommandArgs ---
 
 func TestParseCommandArgs_Empty(t *testing.T) {
@@ -151,6 +169,31 @@ func TestSubstituteArgs_MissingPositional(t *testing.T) {
 	}
 }
 
+func TestSubstituteArgs_SliceStartBelowOne(t *testing.T) {
+	// Tests the start < 1 path in reSlice (${@:0} -> treated as ${@:1})
+	got := substituteArgs("${@:0}", []string{"a", "b", "c"})
+	if got != "a b c" {
+		t.Fatalf("expected 'a b c', got %q", got)
+	}
+}
+
+func TestSubstituteArgs_SliceStartBeyondEnd(t *testing.T) {
+	// Tests the start >= len(args) path in reSlice (returns "")
+	got := substituteArgs("${@:5}", []string{"a", "b"})
+	if got != "" {
+		t.Fatalf("expected empty when start > len(args), got %q", got)
+	}
+}
+
+func TestSubstituteArgs_SliceLengthClamped(t *testing.T) {
+	// Tests the end > len(args) path in reSlice (length clamped to end of slice)
+	got := substituteArgs("${@:1:10}", []string{"a", "b", "c"})
+	// start=1 (0-indexed: 0), length=10 -> clamp to len=3 -> all args
+	if got != "a b c" {
+		t.Fatalf("expected 'a b c', got %q", got)
+	}
+}
+
 // --- loadPromptTemplateFromFile ---
 
 func writeTemplate(t *testing.T, dir, name, content string) string {
@@ -198,6 +241,24 @@ func TestLoadPromptTemplateFromFile_NoFrontmatter(t *testing.T) {
 	}
 	if pt.Description == "" {
 		t.Fatal("expected description auto-derived from body")
+	}
+}
+
+func TestLoadPromptTemplateFromFile_LongFirstLine_TruncatesDescription(t *testing.T) {
+	// Tests the len(line) > promptDescriptionMaxLen path
+	dir := t.TempDir()
+	longLine := strings.Repeat("x", 80) // > 60 chars
+	path := writeTemplate(t, dir, "longdesc.md", longLine+"\nrest of template")
+
+	pt := loadPromptTemplateFromFile(path)
+	if pt == nil {
+		t.Fatal("expected non-nil template")
+	}
+	if len(pt.Description) != promptDescriptionMaxLen+3 { // 60 chars + "..."
+		t.Fatalf("expected truncated description, got %q (len=%d)", pt.Description, len(pt.Description))
+	}
+	if !strings.HasSuffix(pt.Description, "...") {
+		t.Fatalf("expected ellipsis suffix, got %q", pt.Description)
 	}
 }
 
