@@ -652,6 +652,61 @@ func TestRunStreaming_AutoCompactFiringDuringRun(t *testing.T) {
 	}
 }
 
+func TestCompactWithLLM_WithFileOps(t *testing.T) {
+	// Covers the fileOps slice path (line 578-579 in loop.go) when session has file ops.
+	eng := executor.NewEngine(nil)
+	eng.SetExecuteFunc(func(_ *domain.Workflow, _ interface{}) (interface{}, error) {
+		return "summary of recent work", nil
+	})
+	ms := &mockStreamer{responses: []mockStreamResponse{{content: "ok"}}}
+	reg := tools.NewRegistry()
+	loop := New(eng, newTestWorkflowForSession(), reg, Config{
+		Model:              "test",
+		Streamer:           ms,
+		CompactTokenBudget: 1,
+	})
+	for i := range compactMinTurns * 2 {
+		loop.Session().Append(strings.Repeat("q", 300), strings.Repeat("a", 300))
+		loop.Session().RecordFileOps([]string{fmt.Sprintf("file%d.go", i)}, nil)
+	}
+
+	summary, err := loop.CompactWithLLM(context.Background())
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if summary == "" {
+		t.Error("expected non-empty summary")
+	}
+}
+
+func TestCompactWithLLM_LLMFailNoFallback(t *testing.T) {
+	// LLM fails AND Compact() fallback returns "" (no maxTurns configured) ->
+	// CompactWithLLM must return an error (line 605 in loop.go).
+	eng := executor.NewEngine(nil)
+	eng.SetExecuteFunc(func(_ *domain.Workflow, _ interface{}) (interface{}, error) {
+		return nil, errors.New("LLM offline")
+	})
+	ms := &mockStreamer{responses: []mockStreamResponse{{content: "ok"}}}
+	reg := tools.NewRegistry()
+	loop := New(eng, newTestWorkflowForSession(), reg, Config{
+		Model:              "test",
+		Streamer:           ms,
+		CompactTokenBudget: 1,
+	})
+	for range compactMinTurns * 2 {
+		loop.Session().Append(strings.Repeat("q", 500), strings.Repeat("a", 500))
+	}
+	// maxTurns not set -> Compact() returns "" -> fallback fails -> error returned
+
+	_, err := loop.CompactWithLLM(context.Background())
+	if err == nil {
+		t.Fatal("expected error when LLM fails and fallback returns empty")
+	}
+	if !strings.Contains(err.Error(), "compaction LLM call failed") {
+		t.Errorf("unexpected error message: %v", err)
+	}
+}
+
 func TestCompactIfNeeded_TriggersWhenAboveThreshold(t *testing.T) {
 	eng := executor.NewEngine(nil)
 	eng.SetExecuteFunc(func(wf *domain.Workflow, _ interface{}) (interface{}, error) {
