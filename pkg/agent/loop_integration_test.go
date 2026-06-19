@@ -562,3 +562,59 @@ func TestStripContentToolCalls_InvalidJSON(t *testing.T) {
 		t.Fatalf("expected unchanged content, got %q", result)
 	}
 }
+
+// errorStreamer returns a fixed error on the first call, then succeeds.
+type errorStreamer struct {
+	firstErr  error
+	callCount int
+}
+
+func (e *errorStreamer) StreamChat(
+	_ context.Context, _ *domain.ChatConfig, w io.Writer,
+) (string, []domain.StreamedToolCall, error) {
+	e.callCount++
+	if e.callCount == 1 && e.firstErr != nil {
+		return "", nil, e.firstErr
+	}
+	_, _ = io.WriteString(w, "ok after retry")
+	return "ok after retry", nil, nil
+}
+
+func TestCompactAndRetry_ContextOverflow(t *testing.T) {
+	// First StreamChat call returns context overflow; compactAndRetry should
+	// suppress it, attempt compaction, and succeed on the second call.
+	overflowErr := errors.New("prompt is too long: context_length_exceeded")
+	es := &errorStreamer{firstErr: overflowErr}
+	eng := executor.NewEngine(nil)
+	eng.SetExecuteFunc(func(wf *domain.Workflow, _ interface{}) (interface{}, error) {
+		if len(wf.Resources) > 0 && wf.Resources[0].Chat.Prompt != "" {
+			return "compaction summary", nil
+		}
+		return "", nil
+	})
+	reg := tools.NewRegistry()
+	loop := New(eng, newTestWorkflowForSession(), reg, Config{
+		Model:              "test",
+		Streamer:           es,
+		MaxToolRounds:      3,
+		CompactTokenBudget: 1, // tiny budget forces compaction to cut old turns
+	})
+	var autoCompacted bool
+	loop.SetOnAutoCompact(func(_ string) { autoCompacted = true })
+	// Seed enough turns with large content so they exceed the tiny budget.
+	for range compactMinTurns {
+		loop.Session().Append(strings.Repeat("question ", 100), strings.Repeat("answer ", 100))
+	}
+
+	var buf bytes.Buffer
+	result, err := loop.RunStreaming(context.Background(), "go", &buf)
+	if err != nil {
+		t.Fatalf("unexpected error after compact+retry: %v", err)
+	}
+	if result != "ok after retry" {
+		t.Errorf("expected retry result, got %q", result)
+	}
+	if !autoCompacted {
+		t.Error("expected onAutoCompact callback to fire when compaction produced a summary")
+	}
+}

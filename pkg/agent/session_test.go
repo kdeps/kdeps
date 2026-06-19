@@ -290,6 +290,57 @@ func TestRawMessagesWithOps_ReturnsCopies(t *testing.T) {
 // TestBuildMessagesJSON_SpecialRolesConvertedToUser verifies that
 // compactionSummary and branchSummary internal roles become "user"
 // in the JSON sent to the LLM (matching pi's convertToLlm behavior).
+func TestTrimByTokenBudget_DropsOldestTurns(t *testing.T) {
+	s := NewSession(0)
+	// Set a tiny budget so any content will exceed it.
+	s.SetTokenBudget(1, "")
+	// Append enough turns to exceed the budget; trimByTokenBudget should run and trim.
+	for i := range 5 {
+		s.Append(strings.Repeat("q", 100*(i+1)), strings.Repeat("a", 100*(i+1)))
+	}
+	// With a budget of 1 token, only the most recent turn (or none) fits.
+	// Session must have at least 1 pair remaining (trim stops at >=2 messages).
+	count := s.TurnCount()
+	if count == 5 {
+		t.Fatal("expected some turns to be trimmed, but all 5 remained")
+	}
+	if count == 0 {
+		t.Fatal("expected at least 1 turn to be kept after trimming")
+	}
+}
+
+func TestTrimByTokenBudget_NoBudget_DoesNotTrim(t *testing.T) {
+	s := NewSession(0)
+	// No budget set (maxHistoryTokens=0), trim should never fire.
+	for range 5 {
+		s.Append("question", "answer")
+	}
+	if s.TurnCount() != 5 {
+		t.Fatalf("expected 5 turns with no budget, got %d", s.TurnCount())
+	}
+}
+
+func TestFirstKeptEntryID_ZeroBeforeCompaction(t *testing.T) {
+	s := NewSession(0)
+	if s.FirstKeptEntryID() != 0 {
+		t.Fatalf("expected 0 before compaction, got %d", s.FirstKeptEntryID())
+	}
+}
+
+func TestFirstKeptEntryID_SetAfterCompaction(t *testing.T) {
+	s := NewSession(0)
+	for range 5 {
+		s.Append("q", "a")
+	}
+	raw := s.rawMessages()
+	kept := raw[len(raw)-sessionMsgsPer:]
+	s.CompactWith("summary", kept, 4)
+	id := s.FirstKeptEntryID()
+	if id == 0 {
+		t.Fatal("expected non-zero FirstKeptEntryID after compaction")
+	}
+}
+
 func TestBuildMessagesJSON_SpecialRolesConvertedToUser(t *testing.T) {
 	s := NewSession(0)
 	// Inject compaction summary message directly (bypassing Append).

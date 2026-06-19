@@ -19,6 +19,7 @@
 package agent
 
 import (
+	"fmt"
 	"strings"
 	"testing"
 )
@@ -228,6 +229,39 @@ func TestCompactWith_EmptyKept(t *testing.T) {
 	// Should have just the summary turn (no kept messages).
 	if s.TurnCount() != 1 {
 		t.Fatalf("expected 1 turn (summary only), got %d", s.TurnCount())
+	}
+}
+
+func TestCompactWith_PreservesFileOps(t *testing.T) {
+	s := NewSession(0)
+	// 3 turns with file ops.
+	for i := range 3 {
+		s.Append("q", "a")
+		s.RecordFileOps([]string{fmt.Sprintf("read%d.go", i)}, nil)
+	}
+	raw := s.rawMessages()
+	// Compact: summarize turn 0, keep turns 1+2.
+	kept := raw[sessionMsgsPer:]
+	s.CompactWith("summary", kept, 1)
+
+	// After compaction, the file ops for kept turns should be preserved.
+	// Turn index 0 = summary (no file ops), turns 1+ = kept turns
+	if len(s.fileOps) == 0 {
+		t.Fatal("expected file ops to be preserved after compaction")
+	}
+}
+
+func TestCompactWith_TracksFirstKeptEntryID(t *testing.T) {
+	s := NewSession(0)
+	for range 3 {
+		s.Append("q", "a")
+	}
+	raw := s.rawMessages()
+	kept := raw[sessionMsgsPer:]
+	firstKeptID := kept[0].ID
+	s.CompactWith("summary", kept, 1)
+	if s.FirstKeptEntryID() != firstKeptID {
+		t.Fatalf("expected firstKeptEntryID=%d, got %d", firstKeptID, s.FirstKeptEntryID())
 	}
 }
 
