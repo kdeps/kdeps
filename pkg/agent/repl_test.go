@@ -2125,6 +2125,43 @@ func TestExecBangCommand_ExcludeFromContext(t *testing.T) {
 	assert.Equal(t, 0, loop.Session().TurnCount())
 }
 
+func TestREPL_ModelPickerAccessors(t *testing.T) {
+	// Tests the simple accessor methods that return model picker state
+	loop := makeTestLoop(nil)
+	repl := NewREPL(loop)
+	defer repl.cancel()
+
+	// Set values manually (mimics what refreshModels() would do)
+	repl.modelNames = []string{"llama3.2", "gpt-4o"}
+	repl.downloadedModels = map[string]bool{"llama3.2": true}
+	repl.modelTypes = map[string]string{"llama3.2": "llamafile"}
+	repl.cloudModelBackends = map[string]string{"gpt-4o": "openai"}
+	repl.providerStatus = map[string]bool{"openai": true}
+
+	assert.Equal(t, []string{"llama3.2", "gpt-4o"}, repl.ModelNames())
+	assert.Equal(t, map[string]bool{"llama3.2": true}, repl.DownloadedModels())
+	assert.Equal(t, map[string]string{"llama3.2": "llamafile"}, repl.ModelTypes())
+	assert.Equal(t, map[string]string{"gpt-4o": "openai"}, repl.CloudModelBackends())
+	assert.Equal(t, map[string]bool{"openai": true}, repl.ProviderStatus())
+}
+
+func TestExecBangCommand_NonExitError_ContextCancel(t *testing.T) {
+	// Tests the errMsg = runErr.Error() path (non-ExitError, e.g. context canceled).
+	loop := makeTestLoop(nil)
+	repl := NewREPL(loop)
+	// Cancel the context immediately so the bash command fails with context error,
+	// not with *exec.ExitError.
+	repl.cancel()
+	err := repl.execBangCommand("sleep 10", false)
+	// Should return a non-nil error (context canceled or killed).
+	assert.Error(t, err)
+	// The error message should appear in the injected context message.
+	if loop.Session().TurnCount() > 0 {
+		msgs := loop.Session().Messages()
+		assert.Contains(t, msgs[0].Content, "sleep 10")
+	}
+}
+
 // --- applyConfigDefaults ModelService auto-start ---
 
 // mockModelService is a minimal ModelServiceInterface for testing.
