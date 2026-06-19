@@ -52,13 +52,15 @@ const (
 
 //nolint:gochecknoglobals // lipgloss styles must be package-level vars
 var (
-	styleBase    = lipgloss.NewStyle()
-	styleTab     = lipgloss.NewStyle().Padding(0, tabPadH)
-	styleTabSel  = lipgloss.NewStyle().Padding(0, tabPadH).Bold(true).Foreground(lipgloss.Color("#00E5FF"))
-	styleEnabled = lipgloss.NewStyle().Foreground(lipgloss.Color("#00E5FF"))
-	styleDim     = lipgloss.NewStyle().Foreground(lipgloss.Color("#555555"))
-	styleHelp    = lipgloss.NewStyle().Foreground(lipgloss.Color("#555555")).Italic(true)
-	styleCursor  = lipgloss.NewStyle().Foreground(lipgloss.Color("#00E5FF")).Bold(true)
+	styleBase        = lipgloss.NewStyle()
+	styleTab         = lipgloss.NewStyle().Padding(0, tabPadH)
+	styleTabSel      = lipgloss.NewStyle().Padding(0, tabPadH).Bold(true).Foreground(lipgloss.Color("#00E5FF"))
+	styleEnabled     = lipgloss.NewStyle().Foreground(lipgloss.Color("#00E5FF"))
+	styleDim         = lipgloss.NewStyle().Foreground(lipgloss.Color("#555555"))
+	styleHelp        = lipgloss.NewStyle().Foreground(lipgloss.Color("#555555")).Italic(true)
+	styleCursor      = lipgloss.NewStyle().Foreground(lipgloss.Color("#00E5FF")).Bold(true)
+	styleAccent      = lipgloss.NewStyle().Foreground(lipgloss.Color("#00E5FF"))
+	styleGroupHeader = lipgloss.NewStyle().Foreground(lipgloss.Color("#7AA2F7")).Bold(true)
 )
 
 //nolint:gochecknoglobals // const slice

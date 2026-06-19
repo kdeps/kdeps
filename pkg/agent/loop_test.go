@@ -181,8 +181,8 @@ func TestLoop_Run_SystemPrompt(t *testing.T) {
 	if len(res[0].Chat.Scenario) != 1 {
 		t.Fatalf("expected 1 scenario item, got %d", len(res[0].Chat.Scenario))
 	}
-	if res[0].Chat.Scenario[0].Prompt != "Be concise." {
-		t.Fatalf("unexpected scenario prompt: %q", res[0].Chat.Scenario[0].Prompt)
+	if !strings.Contains(res[0].Chat.Scenario[0].Prompt, "Be concise.") {
+		t.Fatalf("system prompt not found in scenario: %q", res[0].Chat.Scenario[0].Prompt)
 	}
 }
 

@@ -12,58 +12,74 @@ import (
 )
 
 const (
-	modelTypeLlamafile = "llamafile"
+	modelPickerWidth   = 90
+	modelPickerColumns = 2 // side-by-side columns in the model grid
+	modelPickerPadding = 4 // total horizontal padding subtracted before dividing into columns
+
+	modelTypeLLamafile = "llamafile"
 	modelTypeGGUF      = "gguf"
 	modelTypeOllama    = "ollama"
-
-	modelSortCachedFirst   = 0
-	modelSortLlamafile     = 1
-	modelSortGGUF          = 2
-	modelSortOllama        = 3
-	modelSortCloudFallback = 4
-
-	viewSeparatorWidth = 60
 )
+
+// maxNameLen is the maximum length of a model name before truncation.
+const maxNameLen = 35
 
 // ModelEntry is a selectable model in the picker.
 type ModelEntry struct {
 	Name      string
-	ModelType string // "llamafile", "gguf", "" (cloud)
+	ModelType string // "llamafile", "gguf", "ollama", "" (cloud)
 	Backend   string // cloud backend name (e.g. "deepseek"), or ""
 	Cached    bool
 	Enabled   bool   // cloud API key is set
 	SizeGB    string // formatted size string, or ""
 }
 
-// ModelPickerResult holds the selected model or empty if cancelled.
-type ModelPickerResult struct {
-	Selected string
-}
+// group label ordering and labels.
+const (
+	groupCached    = 0
+	groupLLamafile = 1
+	groupGGUF      = 2
+	groupOllama    = 3
+	groupCloud     = 4
 
+	labelCached    = "📦 Cached (Downloaded)"
+	labelLLamafile = "🦙 LLamafile"
+	labelGGUF      = "📄 GGUF"
+	labelOllama    = "🦙 Ollama"
+	labelCloud     = "☁️  Cloud APIs"
+)
+
+// modelPickerModel holds the full state of the picker.
 type modelPickerModel struct {
 	entries   []ModelEntry
+	groups    []modelGroup
 	cursor    int
 	filter    string
 	quitted   bool
 	cancelled bool
 }
 
-func newModelPickerModel(entries []ModelEntry) modelPickerModel {
+type modelGroup struct {
+	label   string
+	entries []ModelEntry
+}
+
+func newModelPickerModel(entries []ModelEntry, preFilter string) modelPickerModel {
+	// Sort globally first: cached, llamafile, gguf, ollama, cloud
 	sort.Slice(entries, func(i, j int) bool {
-		// Sort: cached first, then llamafile, gguf, ollama, then cloud
 		order := func(e ModelEntry) int {
 			if e.Cached {
-				return modelSortCachedFirst
+				return groupCached
 			}
 			switch e.ModelType {
-			case modelTypeLlamafile:
-				return modelSortLlamafile
+			case modelTypeLLamafile:
+				return groupLLamafile
 			case modelTypeGGUF:
-				return modelSortGGUF
+				return groupGGUF
 			case modelTypeOllama:
-				return modelSortOllama
+				return groupOllama
 			}
-			return modelSortCloudFallback
+			return groupCloud
 		}
 		oi, oj := order(entries[i]), order(entries[j])
 		if oi != oj {
@@ -71,7 +87,39 @@ func newModelPickerModel(entries []ModelEntry) modelPickerModel {
 		}
 		return entries[i].Name < entries[j].Name
 	})
-	return modelPickerModel{entries: entries}
+
+	// Build groups
+	groups := []modelGroup{
+		{label: labelCached},
+		{label: labelLLamafile},
+		{label: labelGGUF},
+		{label: labelOllama},
+		{label: labelCloud},
+	}
+	for _, e := range entries {
+		var idx int
+		if e.Cached {
+			idx = 0
+		} else {
+			switch e.ModelType {
+			case modelTypeLLamafile:
+				idx = 1
+			case modelTypeGGUF:
+				idx = 2
+			case modelTypeOllama:
+				idx = 3
+			default:
+				idx = 4
+			}
+		}
+		groups[idx].entries = append(groups[idx].entries, e)
+	}
+
+	return modelPickerModel{
+		entries: entries,
+		groups:  groups,
+		filter:  preFilter,
+	}
 }
 
 func (m modelPickerModel) filtered() []ModelEntry {
@@ -95,17 +143,16 @@ func (m modelPickerModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	if !ok {
 		return m, nil
 	}
+	flat := m.flatIndexed()
+	total := len(flat)
+
 	switch key.String() {
 	case "ctrl+c", "esc":
 		m.cancelled = true
 		m.quitted = true
 		return m, tea.Quit
-	case "q":
-		m.quitted = true
-		return m, tea.Quit
 	case "enter":
-		filtered := m.filtered()
-		if len(filtered) > 0 && m.cursor < len(filtered) {
+		if total > 0 && m.cursor < total {
 			m.quitted = true
 			return m, tea.Quit
 		}
@@ -114,8 +161,7 @@ func (m modelPickerModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.cursor--
 		}
 	case "down", "j":
-		filtered := m.filtered()
-		if m.cursor < len(filtered)-1 {
+		if m.cursor < total-1 {
 			m.cursor++
 		}
 	case "backspace":
@@ -133,53 +179,116 @@ func (m modelPickerModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
+// flatIndexed returns a deduplicated, ordered slice for navigation.
+func (m modelPickerModel) flatIndexed() []ModelEntry {
+	flat := m.filtered()
+	return flat
+}
+
 func (m modelPickerModel) View() string {
 	var sb strings.Builder
-	sb.WriteString(styleHelp.Render("Model Picker — type to filter, ↑↓ navigate, enter select, esc cancel"))
+
+	// Header
+	fmt.Fprintf(&sb, "%s", styleAccent.Render("╭"+strings.Repeat("─", modelPickerWidth)+"╮"))
 	sb.WriteString("\n")
+	const pickerHelpText = "│ Model Picker — type to filter, ↑↓/jk navigate, enter select, esc cancel │"
+	fmt.Fprintf(&sb, "%s", styleDim.Render(pickerHelpText))
 	if m.filter != "" {
-		sb.WriteString(styleCursor.Render("  filter: " + m.filter))
-		sb.WriteString("\n")
+		badge := styleAccent.Render(" filter: " + m.filter + " ")
+		sb.WriteString("│ " + badge + "\n")
 	}
-	sb.WriteString(strings.Repeat("─", viewSeparatorWidth))
+	fmt.Fprintf(&sb, "%s", styleAccent.Render("╰"+strings.Repeat("─", modelPickerWidth)+"╯"))
 	sb.WriteString("\n\n")
 
-	filtered := m.filtered()
-	if len(filtered) == 0 {
-		sb.WriteString(styleDim.Render("  no models match"))
-		return lipgloss.NewStyle().Padding(1).Render(sb.String())
+	colWidth := (modelPickerWidth - modelPickerPadding) / modelPickerColumns
+
+	// Render entries grouped
+	flat := m.flatIndexed()
+	flatIdx := 0
+	flatSet := make(map[string]bool)
+	for _, e := range flat {
+		flatSet[e.Name] = true
 	}
 
-	for i, e := range filtered {
-		cursor := "  "
-		nameStyle := styleBase
-		if i == m.cursor {
-			cursor = styleCursor.Render("▸ ")
-			nameStyle = styleEnabled
+	for _, g := range m.groups {
+		var visible []ModelEntry
+		for _, e := range g.entries {
+			if flatSet[e.Name] {
+				visible = append(visible, e)
+			}
 		}
-		tag := tagForEntry(e)
-		fmt.Fprintf(&sb, "%s%s  %s\n", cursor, nameStyle.Render(e.Name), styleDim.Render(tag))
+		if len(visible) == 0 {
+			continue
+		}
+		sb.WriteString(styleGroupHeader.Render("▎" + g.label + fmt.Sprintf(" (%d)", len(visible))))
+		sb.WriteString("\n")
+
+		// Two-column layout
+		for i := 0; i < len(visible); i += modelPickerColumns {
+			left := m.renderCompactRow(visible[i], flatIdx == m.cursor, colWidth)
+			if i+1 < len(visible) {
+				right := m.renderCompactRow(visible[i+1], flatIdx+1 == m.cursor, colWidth)
+				fmt.Fprintf(&sb, "%s  %s\n", left, right)
+				flatIdx += modelPickerColumns
+			} else {
+				sb.WriteString(left + "\n")
+				flatIdx++
+			}
+		}
+		sb.WriteString("\n")
 	}
 
-	fmt.Fprintf(&sb, "\n%s\n", styleHelp.Render(fmt.Sprintf("%d models", len(filtered))))
-	return lipgloss.NewStyle().Padding(1).Render(sb.String())
+	// Footer
+	footer := fmt.Sprintf(" %d models ", len(m.filtered()))
+	if len(m.filtered()) > 0 && m.cursor < len(m.filtered()) {
+		sel := m.filtered()[m.cursor]
+		footer += fmt.Sprintf("· %s %s", sel.Name, tagForEntry(sel))
+		if sel.SizeGB != "" {
+			footer += " " + sel.SizeGB + "GB"
+		}
+	}
+	fmt.Fprintf(&sb, "%s", styleDim.Render(footer))
+
+	return lipgloss.NewStyle().Padding(0, 1).Render(sb.String())
+}
+
+func (m modelPickerModel) renderCompactRow(e ModelEntry, isCursor bool, width int) string {
+	marker := "  "
+	if isCursor {
+		marker = styleCursor.Render("▸ ")
+	}
+
+	// Truncate long names to keep columns aligned.
+	name := e.Name
+	if len(name) > maxNameLen {
+		name = name[:maxNameLen-1] + "…"
+	}
+	if isCursor {
+		name = styleAccent.Bold(true).Render(name)
+	}
+
+	tag := styleDim.Render(" " + tagForEntry(e))
+
+	// Build line and use lipgloss to set fixed width with right padding.
+	content := marker + name + tag
+	return lipgloss.NewStyle().Width(width).Render(content)
 }
 
 func tagForEntry(e ModelEntry) string {
 	if e.Cached {
 		switch e.ModelType {
-		case modelTypeLlamafile:
-			return "[✳ llamafile cached]"
+		case modelTypeLLamafile:
+			return "[llamafile installed]"
 		case modelTypeGGUF:
-			return "[✳ gguf cached]"
+			return "[gguf installed]"
 		case modelTypeOllama:
-			return "[✳ ollama cached]"
+			return "[ollama]"
 		default:
-			return "[✳ cached]"
+			return "[✓]"
 		}
 	}
 	switch e.ModelType {
-	case modelTypeLlamafile:
+	case modelTypeLLamafile:
 		return "[llamafile]"
 	case modelTypeGGUF:
 		return "[gguf]"
@@ -193,14 +302,15 @@ func tagForEntry(e ModelEntry) string {
 	}
 }
 
-// RunModelPicker opens the interactive model picker TUI. Returns the selected
+// RunModelPicker opens the interactive model picker TUI. If preFilter is
+// non-empty, the picker starts with that filter applied. Returns the selected
 // model name, or empty string if cancelled.
-func RunModelPicker(entries []ModelEntry) (string, error) {
+func RunModelPicker(entries []ModelEntry, preFilter string) (string, error) {
 	if len(entries) == 0 {
 		return "", nil
 	}
-	m := newModelPickerModel(entries)
-	p := tea.NewProgram(m)
+	m := newModelPickerModel(entries, preFilter)
+	p := tea.NewProgram(m, tea.WithAltScreen())
 	final, err := p.Run()
 	if err != nil {
 		return "", fmt.Errorf("model picker: %w", err)
@@ -209,9 +319,9 @@ func RunModelPicker(entries []ModelEntry) (string, error) {
 	if !ok || fm.cancelled || !fm.quitted {
 		return "", nil
 	}
-	filtered := fm.filtered()
-	if fm.cursor >= 0 && fm.cursor < len(filtered) {
-		return filtered[fm.cursor].Name, nil
+	flat := fm.flatIndexed()
+	if fm.cursor >= 0 && fm.cursor < len(flat) {
+		return flat[fm.cursor].Name, nil
 	}
 	return "", nil
 }

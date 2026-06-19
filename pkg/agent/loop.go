@@ -92,6 +92,10 @@ type Config struct {
 	// rounds, writing only the final agent response to the caller's writer.
 	// When false (default), all rounds are streamed as they arrive.
 	StreamFinalOnly bool
+	// ToolCallDisplay is an optional function that formats a tool call summary for
+	// display. When nil, a plain "[name → arg]" format is used. The REPL sets this
+	// to add lipgloss colors.
+	ToolCallDisplay func(name, args string) string
 	// Thinking configures extended reasoning/thinking for models that support it.
 	// nil or ThinkingModeNone disables thinking (default).
 	Thinking *domain.ThinkingConfig
@@ -336,7 +340,11 @@ func (l *Loop) runToolRounds(ctx context.Context, chatCfg *domain.ChatConfig, w 
 		// Write a clean tool call summary instead of the raw JSON chunks.
 		for _, tc := range toolCalls {
 			argSummary := summarizeToolArgs(tc.Arguments)
-			fmt.Fprintf(w, "\n[%s → %s]", tc.Name, argSummary)
+			line := fmt.Sprintf("[%s → %s]", tc.Name, argSummary)
+			if l.config.ToolCallDisplay != nil {
+				line = l.config.ToolCallDisplay(tc.Name, argSummary)
+			}
+			fmt.Fprintf(w, "\n%s", line)
 		}
 		fmt.Fprintln(w)
 
@@ -485,6 +493,16 @@ func (l *Loop) buildSystemPreamble() string {
 	if l.skills != "" {
 		parts = append(parts, l.skills)
 	}
+	// Project instruction files (CLAUDE.md, AGENTS.md, GEMINI.md, etc.) — loaded
+	// from the working directory and ancestors at preamble build time so they
+	// reflect the current working directory even after a cd via bash_exec.
+	// Only loaded in agent loop mode (when a tool registry is present); skipped
+	// for synthetic/internal LLM calls like compaction and command injection.
+	if l.registry != nil && len(l.registry.List()) > 0 {
+		if instructions := discoverInstructions(""); instructions != "" {
+			parts = append(parts, instructions)
+		}
+	}
 	if l.registry != nil && len(l.registry.List()) > 0 {
 		parts = append(parts, toolUseGuidance)
 		// Tell the model its working directory so it knows where to start.
@@ -617,6 +635,9 @@ func (l *Loop) SetOnAutoCompact(fn func(summary string)) {
 func (l *Loop) Session() *Session {
 	return l.session
 }
+
+// Config returns a copy of the loop's configuration.
+func (l *Loop) Config() Config { return l.config }
 
 // CompactWithLLM summarizes old conversation turns using the LLM and replaces
 // them with a structured summary, keeping recent turns intact. It returns the

@@ -305,12 +305,88 @@ func registerEditFile(reg *kdepstools.Registry) {
 				return "", fmt.Errorf("edit_file: old_string appears %d times in %s (must be unique)", count, filePath)
 			}
 			newContent := strings.Replace(content, oldStr, newStr, 1)
-			if err := os.WriteFile(filePath, []byte(newContent), 0o600); err != nil {
-				return "", fmt.Errorf("edit_file: write %s: %w", filePath, err)
+			if werr := os.WriteFile(filePath, []byte(newContent), 0o600); werr != nil {
+				return "", fmt.Errorf("edit_file: write %s: %w", filePath, werr)
 			}
-			return fmt.Sprintf("Replaced 1 occurrence in %s (%d bytes)", filePath, len(newContent)), nil
+			diff := coloredDiff(oldStr, newStr, filePath)
+			return fmt.Sprintf("Edited %s (%d bytes)\n%s", filePath, len(newContent), diff), nil
 		},
 	})
+}
+
+// ANSI color codes for coloredDiff output.
+const (
+	ansiRed   = "\033[31m"
+	ansiGreen = "\033[32m"
+	ansiDim   = "\033[2m"
+	ansiReset = "\033[0m"
+	ansiBold  = "\033[1m"
+	ansiCyan  = "\033[36m"
+
+	diffCtxLines = 2 // context lines shown before/after a diff hunk
+)
+
+// coloredDiff returns a human-readable unified-style diff between old and new.
+func coloredDiff(oldStr, newStr, filePath string) string {
+	var sb strings.Builder
+	fmt.Fprintf(&sb, "%s%s--- %s%s\n", ansiBold, ansiCyan, filePath, ansiReset)
+	fmt.Fprintf(&sb, "%s%s+++ %s%s\n", ansiBold, ansiCyan, filePath, ansiReset)
+
+	oldLines := strings.Split(oldStr, "\n")
+	newLines := strings.Split(newStr, "\n")
+
+	// Trim trailing empty from final newline
+	if len(oldLines) > 0 && oldLines[len(oldLines)-1] == "" {
+		oldLines = oldLines[:len(oldLines)-1]
+	}
+	if len(newLines) > 0 && newLines[len(newLines)-1] == "" {
+		newLines = newLines[:len(newLines)-1]
+	}
+
+	// Simple line-by-line diff: show removed lines in red, added lines in green.
+	// Find common prefix and suffix to show context.
+	commonPrefix := 0
+	for commonPrefix < len(oldLines) && commonPrefix < len(newLines) &&
+		oldLines[commonPrefix] == newLines[commonPrefix] {
+		commonPrefix++
+	}
+	commonSuffix := 0
+	for commonSuffix < len(oldLines)-commonPrefix && commonSuffix < len(newLines)-commonPrefix &&
+		oldLines[len(oldLines)-1-commonSuffix] == newLines[len(newLines)-1-commonSuffix] {
+		commonSuffix++
+	}
+
+	// Show up to diffCtxLines context lines before change
+	ctxBefore := min(commonPrefix, diffCtxLines)
+	if ctxBefore < commonPrefix {
+		fmt.Fprintf(&sb, "%s@@ ...@@%s\n", ansiDim, ansiReset)
+	}
+	for i := commonPrefix - ctxBefore; i < commonPrefix; i++ {
+		fmt.Fprintf(&sb, "%s  %s%s\n", ansiDim, oldLines[i], ansiReset)
+	}
+
+	// Removed lines
+	for i := commonPrefix; i < len(oldLines)-commonSuffix; i++ {
+		fmt.Fprintf(&sb, "%s%s- %s%s\n", ansiRed, ansiBold, oldLines[i], ansiReset)
+	}
+	// Added lines
+	for i := commonPrefix; i < len(newLines)-commonSuffix; i++ {
+		fmt.Fprintf(&sb, "%s%s+ %s%s\n", ansiGreen, ansiBold, newLines[i], ansiReset)
+	}
+
+	// Show up to diffCtxLines context lines after change
+	afterStart := len(newLines) - commonSuffix
+	ctxAfter := min(len(newLines)-afterStart, diffCtxLines)
+	if ctxAfter > 0 {
+		for i := afterStart; i < afterStart+ctxAfter; i++ {
+			fmt.Fprintf(&sb, "%s  %s%s\n", ansiDim, newLines[i], ansiReset)
+		}
+	}
+	if len(newLines)-commonSuffix < len(newLines)-ctxAfter {
+		fmt.Fprintf(&sb, "%s@@ ...@@%s\n", ansiDim, ansiReset)
+	}
+
+	return strings.TrimSuffix(sb.String(), "\n")
 }
 
 // registerListFiles registers a directory listing tool.

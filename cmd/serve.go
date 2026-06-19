@@ -110,23 +110,47 @@ func runAgentLoopCmd(path string, flags *agentLoopFlags) error {
 	repl := agent.NewREPL(loop)
 	defer llm.ShutdownLocalServers()
 
-	// Provide model name suggestions for /model <tab> completion.
-	// Cloud model IDs are appended after local models so local stay first.
-	repl.SetModelNames(buildAllModelNames())
-	repl.SetDownloadedModels(llm.DownloadedModelAliases())
-	repl.SetModelTypes(buildModelTypes())
-	repl.SetCloudModelBackends(buildCloudBackends())
-	repl.SetProviderStatus(agent.BuildProviderStatus())
+	for {
+		// Provide model name suggestions for /model <tab> completion.
+		repl.SetModelNames(buildAllModelNames())
+		repl.SetDownloadedModels(llm.DownloadedModelAliases())
+		repl.SetModelTypes(buildModelTypes())
+		repl.SetCloudModelBackends(buildCloudBackends())
+		repl.SetProviderStatus(agent.BuildProviderStatus())
 
-	// Wire model picker TUI.
-	repl.SetModelPickerFn(buildModelPickerFn(repl))
+		// Wire model picker TUI.
+		repl.SetModelPickerFn(buildModelPickerFn(repl))
 
-	// Wire /settings TUI when running interactively.
-	if isTerminal(os.Stdout) && isTerminal(os.Stdin) {
-		repl.SetTUIRunner(buildTUIRunner(registry, flags))
+		// Wire /settings TUI when running interactively.
+		if isTerminal(os.Stdout) && isTerminal(os.Stdin) {
+			repl.SetTUIRunner(buildTUIRunner(registry, flags))
+		}
+
+		err = repl.Run()
+		if err != nil || repl.WantsRestart() {
+			// Model was switched via TUI picker — rebuild loop with new config and restart.
+			// Carry the existing session so conversation history survives the model switch.
+			newCfg := agent.Config{
+				Model:                loop.Config().Model,
+				Backend:              loop.Config().Backend,
+				BaseURL:              loop.Config().BaseURL,
+				SystemPrompt:         cfg.SystemPrompt,
+				MaxTurns:             cfg.MaxTurns,
+				MaxHistoryTokens:     cfg.MaxHistoryTokens,
+				SkillPaths:           cfg.SkillPaths,
+				CompactTokenBudget:   loop.Config().CompactTokenBudget,
+				AutoCompactThreshold: loop.Config().AutoCompactThreshold,
+				StreamFinalOnly:      cfg.StreamFinalOnly,
+				Streamer:             llmAdapter,
+				ModelService:         llm.NewModelService(nil),
+				ResumeSession:        loop.Session(),
+			}
+			loop = agent.New(eng, hostWorkflow, registry, newCfg)
+			repl = agent.NewREPL(loop)
+			continue
+		}
+		return err
 	}
-
-	return repl.Run()
 }
 
 // resolveAgentBackend returns the effective LLM backend, applying the same
@@ -432,8 +456,8 @@ func buildCloudBackends() map[string]string {
 
 // buildModelPickerFn returns a function that opens the TUI model picker with
 // data from the agent REPL's model catalog.
-func buildModelPickerFn(repl *agent.REPL) func() (string, error) {
-	return func() (string, error) {
+func buildModelPickerFn(repl *agent.REPL) func(filter string) (string, error) {
+	return func(filter string) (string, error) {
 		entries := make([]tui.ModelEntry, 0)
 		names := repl.ModelNames()
 		downloaded := repl.DownloadedModels()
@@ -460,7 +484,7 @@ func buildModelPickerFn(repl *agent.REPL) func() (string, error) {
 				Enabled:   enabled,
 			})
 		}
-		return tui.RunModelPicker(entries)
+		return tui.RunModelPicker(entries, filter)
 	}
 }
 
