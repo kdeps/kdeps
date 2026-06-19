@@ -17,6 +17,8 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/kdeps/kdeps/v2/pkg/domain"
+	"github.com/kdeps/kdeps/v2/pkg/executor"
+	"github.com/kdeps/kdeps/v2/pkg/tools"
 )
 
 // makeTestLoop returns a minimal Loop with a fixed skill list for REPL tests.
@@ -2270,4 +2272,211 @@ func TestBuildSystemPreamble_SmallContext_NoSystemPrompt(t *testing.T) {
 
 	// Only tool guidance when no system prompt and small context
 	assert.NotContains(t, preamble, "SKILL")
+}
+
+// --- SetModelTypes / SetCloudModelBackends / SetModelPickerFn ---
+
+func TestSetModelTypes(t *testing.T) {
+	loop := makeTestLoop(nil)
+	repl := NewREPL(loop)
+	defer repl.cancel()
+	types := map[string]string{"llama3.2": modelTypeLLamafile, "codellama": modelTypeGGUF}
+	repl.SetModelTypes(types)
+	if repl.modelTypes["llama3.2"] != modelTypeLLamafile {
+		t.Fatalf("expected llamafile type, got %q", repl.modelTypes["llama3.2"])
+	}
+}
+
+func TestSetCloudModelBackends(t *testing.T) {
+	loop := makeTestLoop(nil)
+	repl := NewREPL(loop)
+	defer repl.cancel()
+	backends := map[string]string{"gpt-4o": "openai", "claude-3-5-sonnet": "anthropic"}
+	repl.SetCloudModelBackends(backends)
+	if repl.cloudModelBackends["gpt-4o"] != "openai" {
+		t.Fatalf("expected openai backend, got %q", repl.cloudModelBackends["gpt-4o"])
+	}
+}
+
+func TestSetModelPickerFn(t *testing.T) {
+	loop := makeTestLoop(nil)
+	repl := NewREPL(loop)
+	defer repl.cancel()
+	called := false
+	fn := func() (string, error) { called = true; return "llama3.2", nil }
+	repl.SetModelPickerFn(fn)
+	if repl.modelPickerFn == nil {
+		t.Fatal("expected modelPickerFn to be set")
+	}
+	model, err := repl.modelPickerFn()
+	if err != nil || model != "llama3.2" || !called {
+		t.Fatalf("modelPickerFn not working: model=%q err=%v called=%v", model, err, called)
+	}
+}
+
+// --- allCommandNames with prompts ---
+
+func TestAllCommandNames_WithPrompts(t *testing.T) {
+	loop := makeTestLoop(nil)
+	loop.prompts = []PromptTemplate{{Name: "summarize"}, {Name: "review"}}
+	repl := NewREPL(loop)
+	defer repl.cancel()
+	names := repl.allCommandNames()
+	assert.Contains(t, names, "/summarize")
+	assert.Contains(t, names, "/review")
+}
+
+// --- modelCompletionSuffixes ---
+
+func TestModelCompletionSuffixes_LocalTypes(t *testing.T) {
+	// Covers the llamafile/gguf/ollama/cloud switch cases in modelCompletionSuffixes.
+	loop := makeTestLoop(nil)
+	repl := NewREPL(loop)
+	defer repl.cancel()
+	repl.modelTypes = map[string]string{
+		"llama3.2":   modelTypeLLamafile,
+		"code.gguf":  modelTypeGGUF,
+		"phi3:mini":  modelTypeOllama,
+		"gpt-4o-min": "", // cloud (default)
+	}
+	repl.downloadedModels = map[string]bool{} // none cached
+	ranked := []string{"llama3.2", "code.gguf", "phi3:mini", "gpt-4o-min"}
+	suffixes := repl.modelCompletionSuffixes(ranked, 0) // tokenLen=0 -> all names as suffixes
+	if len(suffixes) != 4 {
+		t.Fatalf("expected 4 suffixes, got %d", len(suffixes))
+	}
+}
+
+func TestModelCompletionSuffixes_TruncatesToMax(t *testing.T) {
+	// Covers the len(ranked) > replModelCompletionMax truncation path.
+	loop := makeTestLoop(nil)
+	repl := NewREPL(loop)
+	defer repl.cancel()
+	repl.downloadedModels = map[string]bool{}
+	repl.modelTypes = map[string]string{}
+
+	// Build > replModelCompletionMax (40) model names all matching an empty prefix.
+	names := make([]string, replModelCompletionMax+5)
+	for i := range names {
+		names[i] = fmt.Sprintf("model-%02d", i)
+	}
+	repl.modelNames = names
+
+	// Drive the completer with "/model " so it fuzzy-matches and truncates.
+	completer := repl.buildCompleter()
+	line := []rune("/model ")
+	completions, _ := completer.Do(line, len(line))
+	// Should return at most replModelCompletionMax completions.
+	if len(completions) > replModelCompletionMax {
+		t.Fatalf("expected max %d completions, got %d", replModelCompletionMax, len(completions))
+	}
+}
+
+func TestModelCompletionSuffixes_SkipShortName(t *testing.T) {
+	// Covers len(nr) < tokenLen skip (line 337).
+	loop := makeTestLoop(nil)
+	repl := NewREPL(loop)
+	defer repl.cancel()
+	repl.downloadedModels = map[string]bool{}
+	repl.modelTypes = map[string]string{}
+	// Pass a model name shorter than tokenLen=10; it should be skipped.
+	suffixes := repl.modelCompletionSuffixes([]string{"ab"}, 10)
+	if len(suffixes) != 0 {
+		t.Fatalf("expected 0 suffixes for short name, got %d", len(suffixes))
+	}
+}
+
+// --- dispatchCommand routing for /models, /prompts ---
+
+func TestDispatchCommand_Models(t *testing.T) {
+	loop := makeTestLoop(nil)
+	repl := NewREPL(loop)
+	defer repl.cancel()
+	origOut := os.Stdout
+	_, w, _ := os.Pipe()
+	os.Stdout = w
+	defer func() { w.Close(); os.Stdout = origOut }()
+	assert.NoError(t, repl.dispatchCommand("/models"))
+}
+
+func TestDispatchCommand_Prompts(t *testing.T) {
+	loop := makeTestLoop(nil)
+	loop.prompts = []PromptTemplate{{Name: "greet", Description: "Greet", Content: "Hello $1"}}
+	repl := NewREPL(loop)
+	defer repl.cancel()
+	origOut := os.Stdout
+	_, w, _ := os.Pipe()
+	os.Stdout = w
+	defer func() { w.Close(); os.Stdout = origOut }()
+	assert.NoError(t, repl.dispatchCommand("/prompts"))
+}
+
+// --- runWithThinking streaming path ---
+
+func TestRunWithThinking_StreamingPath(t *testing.T) {
+	// Covers lines 573-579: runFn==nil && loop.IsStreaming() -> RunStreaming path.
+	ms := &mockStreamer{
+		responses: []mockStreamResponse{{content: "streamed response"}},
+	}
+	loop := newStreamingLoop(ms, 5)
+	repl := NewREPL(loop)
+	defer repl.cancel()
+
+	// runFn is nil by default; IsStreaming() returns true because loop.streamer is set.
+	origOut := os.Stdout
+	r, w, _ := os.Pipe()
+	os.Stdout = w
+	resp, err := repl.runWithThinking(context.Background(), "hello")
+	w.Close()
+	os.Stdout = origOut
+	io.Copy(io.Discard, r) //nolint:errcheck
+	r.Close()
+
+	assert.NoError(t, err)
+	assert.Equal(t, "streamed response", resp)
+}
+
+// --- NewREPL SetOnAutoCompact closure ---
+
+func TestNewREPL_AutoCompactCallbackFires(t *testing.T) {
+	// Covers lines 140-147: the SetOnAutoCompact closure set by NewREPL fires
+	// when auto-compaction triggers during RunStreaming.
+	eng := executor.NewEngine(nil)
+	eng.SetExecuteFunc(func(wf *domain.Workflow, _ interface{}) (interface{}, error) {
+		if len(wf.Resources) > 0 && wf.Resources[0].Chat.Prompt != "" {
+			return "compact summary", nil
+		}
+		return "", nil
+	})
+	ms := &mockStreamer{
+		responses: []mockStreamResponse{{content: "response after compact"}},
+	}
+	reg := tools.NewRegistry()
+	loop := New(eng, newTestWorkflowForSession(), reg, Config{
+		Model:                "test",
+		Streamer:             ms,
+		CompactTokenBudget:   1,
+		AutoCompactThreshold: 1,
+		MaxToolRounds:        3,
+	})
+	// NewREPL installs its own onAutoCompact callback that prints to stdout.
+	repl := NewREPL(loop)
+	defer repl.cancel()
+
+	// Seed enough turns to trigger auto-compact.
+	for range compactMinTurns {
+		loop.Session().Append(strings.Repeat("q", 300), strings.Repeat("a", 300))
+	}
+
+	origOut := os.Stdout
+	r, w, _ := os.Pipe()
+	os.Stdout = w
+	resp, err := repl.runWithThinking(context.Background(), "trigger compact")
+	w.Close()
+	os.Stdout = origOut
+	io.Copy(io.Discard, r) //nolint:errcheck
+	r.Close()
+
+	assert.NoError(t, err)
+	assert.Equal(t, "response after compact", resp)
 }
