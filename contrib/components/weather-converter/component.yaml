@@ -1,0 +1,60 @@
+apiVersion: kdeps.io/v1
+kind: Component
+metadata:
+  name: weather-converter
+  description: Convert temperatures between Celsius, Fahrenheit, and Kelvin
+  version: "1.0.0"
+interface:
+  inputs:
+    - name: value
+      type: number
+      required: true
+      description: Temperature value to convert
+    - name: from
+      type: string
+      required: true
+      description: Source unit - "celsius", "fahrenheit", or "kelvin"
+    - name: to
+      type: string
+      required: true
+      description: Target unit - "celsius", "fahrenheit", or "kelvin"
+resources:
+  - name: Convert Temperature
+    actionId: convert-temperature
+    python:
+      script: |
+        import json
+
+        value = float("{{ get('weather-converter.value') }}")
+        from_unit = "{{ get('weather-converter.from') }}".lower().strip()
+        to_unit   = "{{ get('weather-converter.to') }}".lower().strip()
+
+        # Normalize aliases
+        aliases = {"c": "celsius", "f": "fahrenheit", "k": "kelvin"}
+        from_unit = aliases.get(from_unit, from_unit)
+        to_unit   = aliases.get(to_unit, to_unit)
+
+        units = {"celsius", "fahrenheit", "kelvin"}
+        if from_unit not in units or to_unit not in units:
+            print(json.dumps({"error": f"unknown unit '{from_unit}' or '{to_unit}'. Use celsius, fahrenheit, or kelvin."}))
+        else:
+            # Convert to Celsius as intermediate
+            if from_unit == "celsius":
+                c = value
+            elif from_unit == "fahrenheit":
+                c = (value - 32) * 5 / 9
+            else:
+                c = value - 273.15
+
+            # Convert Celsius to target
+            if to_unit == "celsius":
+                result = c
+            elif to_unit == "fahrenheit":
+                result = c * 9 / 5 + 32
+            else:
+                result = c + 273.15
+
+            print(json.dumps({
+                "from": {"value": value, "unit": from_unit},
+                "to":   {"value": round(result, 4), "unit": to_unit},
+            }))
