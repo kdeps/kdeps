@@ -50,6 +50,10 @@ const (
 
 	replModelCompletionMax = 40 // max model name suggestions for /model <tab>
 
+	replTickerMs    = 80    // streaming tick interval (milliseconds)
+	replHistoryMax  = 10000 // readline history buffer size
+	replStatusWidth = 60    // minimum width for the REPL status separator line
+
 	contextLimitCloud   = 131072 // 128K tokens for cloud models
 	contextLimitGGUF    = 131072 // 128K for large models (>=30B)
 	contextLimit13B     = 65536  // 64K for 13B models
@@ -79,10 +83,22 @@ var builtinCmds = []string{
 //nolint:gochecknoglobals // lipgloss styles for REPL output
 var (
 	styleReplResponse = lipgloss.NewStyle().Foreground(lipgloss.Color("#CDD6F4"))
-	styleReplError    = lipgloss.NewStyle().Foreground(lipgloss.Color("#FF2D78"))
-	styleReplMeta     = lipgloss.NewStyle().Foreground(lipgloss.Color("#555555")).Italic(true)
+	styleReplError    = lipgloss.NewStyle().Foreground(lipgloss.Color("#FF2D78")).Bold(true)
+	styleReplMeta     = lipgloss.NewStyle().Foreground(lipgloss.Color("#888888"))
 	styleReplHeading  = lipgloss.NewStyle().Foreground(lipgloss.Color("#00E5FF")).Bold(true)
+	styleReplSuccess  = lipgloss.NewStyle().Foreground(lipgloss.Color("#00FF87"))
+	styleReplToolCall = lipgloss.NewStyle().Foreground(lipgloss.Color("#FFD60A"))
+	styleReplPrompt   = lipgloss.NewStyle().Foreground(lipgloss.Color("#00E5FF")).Bold(true)
+	styleReplInfo     = lipgloss.NewStyle().Foreground(lipgloss.Color("#7AA2F7"))
+	styleReplDim      = lipgloss.NewStyle().Foreground(lipgloss.Color("#555555"))
+	styleReplBanner   = lipgloss.NewStyle().
+				Foreground(lipgloss.Color("#CDD6F4")).
+				Border(lipgloss.NormalBorder(), false, false, true, false).
+				BorderForeground(lipgloss.Color("#333333"))
 )
+
+const historyDirName = ".kdeps"
+const historyFileName = "repl_history"
 
 var atFileRefRe = regexp.MustCompile(`@(\S+)`)
 
@@ -117,12 +133,15 @@ type REPL struct {
 	ctx                context.Context
 	cancel             context.CancelFunc
 	history            []string
-	modelNames         []string               // suggestions for /model <tab>
-	downloadedModels   map[string]bool        // set of already-downloaded model aliases
-	modelTypes         map[string]string      // model name -> type (modelTypeLLamafile, modelTypeGGUF, ""=cloud)
-	cloudModelBackends map[string]string      // cloud model name -> backend name
-	modelPickerFn      func() (string, error) // TUI model picker; nil if unavailable
-	providerStatus     map[string]bool        // backend -> API key set
+	modelNames         []string                            // suggestions for /model <tab>
+	downloadedModels   map[string]bool                     // set of already-downloaded model aliases
+	modelTypes         map[string]string                   // model name -> type (modelTypeLLamafile, modelTypeGGUF, ""=cloud)
+	cloudModelBackends map[string]string                   // cloud model name -> backend name
+	modelPickerFn      func(filter string) (string, error) // TUI model picker; nil if unavailable
+	pendingModelFilter string                              // non-empty when ENTER pressed on /model <filter>
+	readlineInst       *readline.Instance                  // set during Run(); nil before/after
+	wantsRestart       bool                                // true if Run() returned because model was switched
+	providerStatus     map[string]bool                     // backend -> API key set
 	onSettingsChange   OnSettingsChange
 	tuiRunner          TUIRunner
 	runFn              func(context.Context, string) (string, error) // nil in production; injected in tests
@@ -139,10 +158,10 @@ func NewREPL(loop *Loop) *REPL {
 	}
 	loop.SetOnAutoCompact(func(summary string) {
 		fmt.Fprintf(os.Stdout, "\n%s\n%s\n\n",
-			styleReplMeta.Render(fmt.Sprintf(
-				"(auto-compacted - session now %d turns)", loop.Session().TurnCount(),
+			styleReplSuccess.Render(fmt.Sprintf(
+				"⚡ auto-compacted · %d turns", loop.Session().TurnCount(),
 			)),
-			styleReplMeta.Render("Summary: "+firstLine(summary)),
+			styleReplDim.Render("Summary: "+firstLine(summary)),
 		)
 	})
 	return r
@@ -187,20 +206,24 @@ func (r *REPL) SetProviderStatus(status map[string]bool) {
 	r.providerStatus = status
 }
 
+// WantsRestart returns true when the REPL exited because the model was switched
+// via the TUI picker. The caller should create a new REPL with the updated config.
+func (r *REPL) WantsRestart() bool { return r.wantsRestart }
+
 // SetModelPickerFn injects a TUI model picker function. When set, /model with
 // no arguments launches the picker. When nil (default), /model prints the current model.
-func (r *REPL) SetModelPickerFn(fn func() (string, error)) {
+func (r *REPL) SetModelPickerFn(fn func(filter string) (string, error)) {
 	r.modelPickerFn = fn
 }
 
 // dynamicPrompt returns a prompt string showing model and turn count.
 func (r *REPL) dynamicPrompt() string {
 	turns := r.loop.Session().TurnCount()
-	model := r.loop.config.Model
+	model := styleReplPrompt.Render(r.loop.config.Model)
 	if turns == 0 {
-		return fmt.Sprintf("[%s] > ", model)
+		return styleReplDim.Render("[") + model + styleReplDim.Render("] > ")
 	}
-	return fmt.Sprintf("[%s|%d] > ", model, turns)
+	return styleReplDim.Render("[") + model + styleReplDim.Render(fmt.Sprintf("|%d] > ", turns))
 }
 
 // buildCompleter returns a custom AutoCompleter with fuzzy command matching
@@ -285,9 +308,6 @@ func (c *replCompleter) Do(line []rune, pos int) ([][]rune, int) {
 	}
 
 	// /model <arg>: suggest model names ranked by fuzzy score.
-	// Downloaded models sort first and are prefixed with "*" so readline displays
-	// e.g. "qwen2.5" + "*:7b" = "qwen2.5*:7b" for a cached model.
-	// The "*" is stripped by cmdModel before applying the selection.
 	if lastSpace >= 0 && len(c.repl.modelNames) > 0 {
 		cmd := strings.ToLower(strings.TrimSpace(str[:lastSpace]))
 		if cmd == "/model" {
@@ -338,10 +358,16 @@ func (r *REPL) modelCompletionSuffixes(ranked []string, tokenLen int) [][]rune {
 			continue
 		}
 		suffix := nr[tokenLen:]
-		if r.downloadedModels[n] {
-			// Prepend "*" so readline shows e.g. "qwen2.5" + "*:7b" = "qwen2.5*:7b".
-			// cmdModel strips the "*" before using the selection.
+		switch {
+		case r.downloadedModels[n]:
+			// "*" = downloaded locally; cmdModel strips it before applying.
 			suffix = append([]rune{'*'}, suffix...)
+		case r.modelTypes[n] == modelTypeLLamafile:
+			// "~" = llamafile (not yet downloaded).
+			suffix = append([]rune{'~'}, suffix...)
+		case r.modelTypes[n] == modelTypeGGUF:
+			// "#" = GGUF (not yet downloaded).
+			suffix = append([]rune{'#'}, suffix...)
 		}
 		results = append(results, suffix)
 	}
@@ -601,8 +627,25 @@ func (r *REPL) runWithThinking(ctx context.Context, input string) (string, error
 	case res := <-ch:
 		return res.resp, res.err
 	case <-timer.C:
-		fmt.Fprint(os.Stdout, styleReplMeta.Render("thinking..."))
+		// Animated spinner while waiting for LLM response.
+		spinFrames := []string{"⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"}
+		done := make(chan struct{})
+		go func() {
+			tick := time.NewTicker(replTickerMs * time.Millisecond)
+			defer tick.Stop()
+			i := 0
+			for {
+				select {
+				case <-tick.C:
+					fmt.Fprintf(os.Stdout, "\r  %s thinking", styleReplInfo.Render(spinFrames[i%len(spinFrames)]))
+					i++
+				case <-done:
+					return
+				}
+			}
+		}()
 		res := <-ch
+		close(done)
 		fmt.Fprint(os.Stdout, "\r\x1b[K")
 		return res.resp, res.err
 	}
@@ -618,18 +661,40 @@ func (r *REPL) maybeHintCompact() {
 	}
 }
 
+// historyPath returns the path to the persistent history file.
+func historyPath() string {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return ""
+	}
+	return filepath.Join(home, historyDirName, historyFileName)
+}
+
 // Run starts the REPL. It blocks until the user exits or an error occurs.
 func (r *REPL) Run() error {
 	defer r.cancel()
 
+	hpath := historyPath()
+
+	// Wire up colored tool call display.
+	r.loop.config.ToolCallDisplay = func(name, args string) string {
+		return styleReplDim.Render("[") +
+			styleReplToolCall.Render(name) +
+			styleReplDim.Render(" → ") +
+			styleReplToolCall.Render(args) +
+			styleReplDim.Render("]")
+	}
+
 	rl, err := readline.NewEx(&readline.Config{
-		Prompt:          r.dynamicPrompt(),
-		HistoryLimit:    replHistoryInitCap,
-		AutoComplete:    r.buildCompleter(),
-		InterruptPrompt: "(interrupt - Ctrl+D to quit)",
-		EOFPrompt:       "exit",
-		Stdin:           os.Stdin,
-		Stdout:          os.Stdout,
+		Prompt:            r.dynamicPrompt(),
+		HistoryLimit:      replHistoryMax,
+		HistoryFile:       hpath,
+		HistorySearchFold: true,
+		AutoComplete:      r.buildCompleter(),
+		InterruptPrompt:   "(interrupt - Ctrl+D to quit)",
+		EOFPrompt:         "exit",
+		Stdin:             os.Stdin,
+		Stdout:            os.Stdout,
 	})
 	if err != nil {
 		r.runPlain()
@@ -637,10 +702,17 @@ func (r *REPL) Run() error {
 	}
 	defer rl.Close()
 
-	fmt.Fprintln(os.Stdout, styleReplMeta.Render(
-		"Agent loop  /help for commands  Ctrl+D to exit",
+	r.readlineInst = rl
+
+	// Banner
+	fmt.Fprintln(os.Stdout, styleReplBanner.Render(
+		styleReplHeading.Render("kdeps agent")+
+			styleReplDim.Render("  ·  /help for commands  ·  Ctrl+D to exit"),
 	))
-	fmt.Fprintln(os.Stdout, styleReplMeta.Render(r.providerStatusLine()))
+	statusLine := r.providerStatusLine()
+	fmt.Fprintln(os.Stdout, styleReplInfo.Render(statusLine))
+	sepWidth := max(lipgloss.Width(statusLine), replStatusWidth)
+	fmt.Fprintln(os.Stdout, styleReplDim.Render(strings.Repeat("─", sepWidth)))
 	return r.runLoop(rl)
 }
 
@@ -666,6 +738,20 @@ func (r *REPL) runLoop(rl *readline.Instance) error {
 		}
 		if procErr := r.processInput(input); procErr != nil {
 			fmt.Fprintln(os.Stderr, styleReplError.Render("error: "+procErr.Error()))
+		}
+
+		// Model picker requested — release terminal, run TUI with alt screen.
+		if r.wantsRestart {
+			_ = rl.Close()
+			filter := r.pendingModelFilter
+			r.pendingModelFilter = ""
+			if r.modelPickerFn != nil {
+				model, err := r.modelPickerFn(filter)
+				if err == nil && model != "" {
+					r.applyModelSwitch(model)
+				}
+			}
+			return nil
 		}
 	}
 }
@@ -854,7 +940,7 @@ func (r *REPL) dispatchCommand(cmd string) error {
 
 func (r *REPL) cmdHelp() error {
 	heading := styleReplHeading.Render
-	meta := styleReplMeta.Render
+	dim := styleReplDim.Render
 	fmt.Fprintf(
 		os.Stdout,
 		"%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n\n%s\n\n%s\n",
@@ -875,10 +961,10 @@ func (r *REPL) cmdHelp() error {
 		"  /reload                  Reload skills, prompt templates, and instructions from disk",
 		"  ! <cmd>                  Run a shell command; result is added to LLM context",
 		"  !! <cmd>                 Run a shell command without adding it to LLM context",
-		meta(
+		dim(
 			"Tips: @file.txt embeds text inline  |  @photo.png attaches image as multimodal input  |  @https://... attaches image URL",
 		),
-		meta(
+		dim(
 			"/exit, /quit, Ctrl+D to exit  |  Ctrl+C to cancel current line  |  Tab to complete commands",
 		),
 	)
@@ -901,24 +987,32 @@ func (r *REPL) cmdClear() error {
 }
 
 func (r *REPL) cmdModel(args []string) error {
-	if len(args) == 0 {
+	if len(args) == 0 || r.modelPickerFn != nil {
+		// Open the TUI model picker. When args are provided they become the pre-filter.
 		if r.modelPickerFn != nil {
-			model, err := r.modelPickerFn()
-			if err != nil || model == "" {
-				return err
-			}
-			args = []string{model}
-		} else {
+			r.pendingModelFilter = strings.Join(args, " ")
+			r.wantsRestart = true
+			return nil
+		} else if len(args) == 0 {
 			fmt.Fprintln(os.Stdout, styleReplMeta.Render("Current model: "+r.loop.config.Model))
 			return nil
 		}
 	}
-	model := strings.ReplaceAll(args[0], "*", "")
-	// Compact BEFORE switching models. Use the new model's context limit as
-	// both the token budget AND the compact threshold so the session actually
-	// fits after summarization.
+	r.applyModelSwitch(stripModelIndicators(args[0]))
+	return nil
+}
+
+// stripModelIndicators removes the *, ~, and # visual prefix characters that
+// /model tab completion injects to indicate download state and model type.
+// These characters may appear anywhere in the typed string when the user
+// completed a partially-typed name (e.g. "q*wen2.5:7b" -> "qwen2.5:7b").
+func stripModelIndicators(name string) string {
+	return strings.NewReplacer("*", "", "~", "", "#", "").Replace(name)
+}
+
+// applyModelSwitch applies a model selection and prints a confirmation.
+func (r *REPL) applyModelSwitch(model string) {
 	newLimit := r.contextLimitForModel(model)
-	// Keep ~75% of context for history, leave ~25% for prompt + response.
 	const contextHistoryFraction, contextHistoryDivisor = 3, 4
 	budget := newLimit * contextHistoryFraction / contextHistoryDivisor
 	r.loop.config.CompactTokenBudget = budget
@@ -941,8 +1035,9 @@ func (r *REPL) cmdModel(args []string) error {
 	}
 	r.startLocalModelServer(model)
 	r.loop.Session().SetTokenBudget(newLimit, model)
-	fmt.Fprintln(os.Stdout, styleReplMeta.Render("Model set to "+model))
-	return nil
+	fmt.Fprintf(os.Stdout, "\n%s\n\n",
+		styleReplSuccess.Render(fmt.Sprintf("Model set to %s", model)),
+	)
 }
 
 // contextLimitForModel returns the context window size for a model.

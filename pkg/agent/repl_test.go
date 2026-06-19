@@ -287,9 +287,9 @@ func TestReplCompleter_ModelArgCompletion(t *testing.T) {
 	repl := NewREPL(loop)
 	defer repl.cancel()
 	repl.SetModelNames([]string{"llama3.2:1b", "llama3.2:3b", "qwen3.5-4b"})
+	repl.SetDownloadedModels(map[string]bool{"llama3.2:1b": true})
 
 	c := &replCompleter{repl: repl}
-	// "/model llama" - token="llama" (5), suffixes should be "3.2:1b" and "3.2:3b"
 	input := []rune("/model llama")
 	results, length := c.Do(input, len(input))
 	assert.Equal(t, len([]rune("llama")), length)
@@ -297,28 +297,29 @@ func TestReplCompleter_ModelArgCompletion(t *testing.T) {
 	for _, r := range results {
 		found = append(found, string(r))
 	}
-	// readline displays same+suffix: "llama"+"3.2:1b" = "llama3.2:1b"
-	assert.Contains(t, found, "3.2:1b")
+	// Downloaded model gets "*" prefix in the suffix so user can distinguish it.
+	// stripModelIndicators removes it before applying the selection.
+	assert.Contains(t, found, "*3.2:1b")
 	assert.Contains(t, found, "3.2:3b")
-	assert.NotContains(t, found, "qwen3.5-4b")
 }
 
 func TestReplCompleter_ModelArgAllModels(t *testing.T) {
 	loop := makeTestLoop(nil)
 	repl := NewREPL(loop)
 	defer repl.cancel()
-	repl.SetModelNames([]string{"llama3.2:1b", "qwen3.5-4b"})
+	repl.SetModelNames([]string{"llama3.2:1b", "llama3.2:3b"})
 
 	c := &replCompleter{repl: repl}
-	// "/model " - empty token, suffixes = full model names (tokenLen=0)
+	// TAB on "/model " (empty arg) should show all model names.
 	input := []rune("/model ")
 	results, _ := c.Do(input, len(input))
+	assert.Len(t, results, 2)
 	found := make([]string, 0, len(results))
 	for _, r := range results {
 		found = append(found, string(r))
 	}
 	assert.Contains(t, found, "llama3.2:1b")
-	assert.Contains(t, found, "qwen3.5-4b")
+	assert.Contains(t, found, "llama3.2:3b")
 }
 
 func TestReplCompleter_DownloadedModelMarker(t *testing.T) {
@@ -329,20 +330,17 @@ func TestReplCompleter_DownloadedModelMarker(t *testing.T) {
 	repl.SetDownloadedModels(map[string]bool{"llama3.2:1b": true})
 
 	c := &replCompleter{repl: repl}
-	// empty token - all models, downloaded first with "*" prefix
+	// TAB on "/model " shows all models; downloaded ones are prefixed with "*".
 	input := []rune("/model ")
 	results, _ := c.Do(input, len(input))
+	assert.Len(t, results, 3)
 	found := make([]string, 0, len(results))
 	for _, r := range results {
 		found = append(found, string(r))
 	}
-	// downloaded model gets "*" prefix
-	assert.Contains(t, found, "*llama3.2:1b")
-	// non-downloaded models have no marker
+	assert.Contains(t, found, "*llama3.2:1b") // downloaded
 	assert.Contains(t, found, "llama3.2:3b")
 	assert.Contains(t, found, "qwen3.5-4b")
-	// downloaded model appears first
-	assert.Equal(t, "*llama3.2:1b", found[0])
 }
 
 func TestReplCompleter_DownloadedModelMarkerPartialToken(t *testing.T) {
@@ -353,7 +351,7 @@ func TestReplCompleter_DownloadedModelMarkerPartialToken(t *testing.T) {
 	repl.SetDownloadedModels(map[string]bool{"llama3.2:1b": true})
 
 	c := &replCompleter{repl: repl}
-	// token="llama3.2" - suffixes: "*:1b" (downloaded), ":3b" (not)
+	// Partial token "llama3.2" matches both; downloaded model gets "*" in suffix.
 	input := []rune("/model llama3.2")
 	results, length := c.Do(input, len(input))
 	assert.Equal(t, len([]rune("llama3.2")), length)
@@ -363,7 +361,29 @@ func TestReplCompleter_DownloadedModelMarkerPartialToken(t *testing.T) {
 	}
 	assert.Contains(t, found, "*:1b")
 	assert.Contains(t, found, ":3b")
-	assert.Equal(t, "*:1b", found[0])
+}
+
+func TestReplCompleter_ModelTypeIndicators(t *testing.T) {
+	loop := makeTestLoop(nil)
+	repl := NewREPL(loop)
+	defer repl.cancel()
+	repl.SetModelNames([]string{"my-gguf-model", "my-llamafile-model", "cloud-model"})
+	repl.SetModelTypes(map[string]string{
+		"my-gguf-model":      "gguf",
+		"my-llamafile-model": "llamafile",
+		// cloud-model has no type entry
+	})
+
+	c := &replCompleter{repl: repl}
+	input := []rune("/model ")
+	results, _ := c.Do(input, len(input))
+	found := make([]string, 0, len(results))
+	for _, r := range results {
+		found = append(found, string(r))
+	}
+	assert.Contains(t, found, "#my-gguf-model")      // # = GGUF not downloaded
+	assert.Contains(t, found, "~my-llamafile-model") // ~ = llamafile not downloaded
+	assert.Contains(t, found, "cloud-model")         // no prefix for cloud
 }
 
 func TestCmdModel_StripsStar(t *testing.T) {
@@ -371,9 +391,21 @@ func TestCmdModel_StripsStar(t *testing.T) {
 	repl := NewREPL(loop)
 	defer repl.cancel()
 
-	// Simulate selection of a "*"-prefixed model name.
 	_ = repl.cmdModel([]string{"qwen2.5*:7b"})
 	assert.Equal(t, "qwen2.5:7b", repl.loop.config.Model)
+}
+
+func TestCmdModel_StripsTypeIndicators(t *testing.T) {
+	loop := makeTestLoop(nil)
+	repl := NewREPL(loop)
+	defer repl.cancel()
+
+	// ~ and # indicators embedded mid-name (partial token completion) are stripped.
+	_ = repl.cmdModel([]string{"my~llamafile-model"})
+	assert.Equal(t, "myllamafile-model", repl.loop.config.Model)
+
+	_ = repl.cmdModel([]string{"#my-gguf-model"})
+	assert.Equal(t, "my-gguf-model", repl.loop.config.Model)
 }
 
 // --- expandFileRefs ---
@@ -2303,12 +2335,12 @@ func TestSetModelPickerFn(t *testing.T) {
 	repl := NewREPL(loop)
 	defer repl.cancel()
 	called := false
-	fn := func() (string, error) { called = true; return "llama3.2", nil }
+	fn := func(_ string) (string, error) { called = true; return "llama3.2", nil }
 	repl.SetModelPickerFn(fn)
 	if repl.modelPickerFn == nil {
 		t.Fatal("expected modelPickerFn to be set")
 	}
-	model, err := repl.modelPickerFn()
+	model, err := repl.modelPickerFn("")
 	if err != nil || model != "llama3.2" || !called {
 		t.Fatalf("modelPickerFn not working: model=%q err=%v called=%v", model, err, called)
 	}

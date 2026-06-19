@@ -40,9 +40,10 @@ type instructionFile struct {
 }
 
 // discoverInstructions walks up from startDir to the filesystem root,
-// collecting instruction files (CLAUDE.md, CLAUDE.local.md,
-// .kdeps/CLAUDE.md, .kdeps/instructions.md). Files are deduplicated
-// by content hash and capped at maxTotalChars total.
+// collecting AI instruction files (CLAUDE.md, AGENTS.md, GEMINI.md,
+// COPILOT.md, CURSOR.md, CODEX.md, .cursorrules, .kdeps/CLAUDE.md,
+// .kdeps/instructions.md, .github/copilot-instructions.md).
+// Files are deduplicated by content hash and capped at maxTotalChars total.
 //
 //nolint:gocognit // complexity comes from walking ancestor chain with 4 file candidates
 func discoverInstructions(startDir string) string {
@@ -57,6 +58,13 @@ func discoverInstructions(startDir string) string {
 	candidates := []string{
 		"CLAUDE.md",
 		"CLAUDE.local.md",
+		"AGENTS.md",
+		"GEMINI.md",
+		"COPILOT.md",
+		"CURSOR.md",
+		"CODEX.md",
+		".cursorrules",
+		filepath.Join(".github", "copilot-instructions.md"),
 		filepath.Join(".kdeps", "CLAUDE.md"),
 		filepath.Join(".kdeps", "instructions.md"),
 	}

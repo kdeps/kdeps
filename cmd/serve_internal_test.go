@@ -391,7 +391,7 @@ func TestRunREPL_NormalFlow(t *testing.T) {
 	out, _ := io.ReadAll(stdoutR)
 	output := string(out)
 
-	assert.Contains(t, output, "Agent loop")
+	assert.Contains(t, output, "kdeps agent")
 	assert.Contains(t, output, "mock response")
 }
 
@@ -429,7 +429,7 @@ func TestRunREPL_EmptyInput(t *testing.T) {
 	output := string(out)
 
 	// The empty line should be skipped -- the response for "valid input" appears.
-	assert.Contains(t, output, "Agent loop")
+	assert.Contains(t, output, "kdeps agent")
 	assert.Contains(t, output, "should-not-reach")
 }
 
@@ -472,7 +472,7 @@ func TestRunREPL_ErrorFromRun(t *testing.T) {
 	out, _ := io.ReadAll(stdoutR)
 	errOut, _ := io.ReadAll(stderrR)
 
-	assert.Contains(t, string(out), "Agent loop")
+	assert.Contains(t, string(out), "kdeps agent")
 	assert.Contains(t, string(errOut), "error: agent loop: something went wrong")
 }
 
@@ -643,7 +643,7 @@ func TestRunREPL_EOF(t *testing.T) {
 	stdoutW.Close()
 	out, _ := io.ReadAll(stdoutR)
 	// The readline-based REPL prints a banner; verify it contains "Agent loop".
-	assert.Contains(t, string(out), "Agent loop")
+	assert.Contains(t, string(out), "kdeps agent")
 }
 
 // TestRunREPL_StdinClosed verifies that closing stdin causes a clean exit (no error).
