@@ -108,25 +108,20 @@ func runLoop(
 	pending := drainQueue(cfg.GetSteeringMessages)
 
 	for {
-		msgs, done, err := runTurnLoop(ctx, currentCtx, newMessages, cfg, sink, &firstTurn, pending)
+		msgs, _, err := runTurnLoop(ctx, currentCtx, newMessages, cfg, sink, &firstTurn, pending)
 		if err != nil {
 			return nil, err
 		}
 		newMessages = msgs
+		// runTurnLoop always sets done=true on success; check for follow-up
+		// messages queued by the caller before deciding to stop.
 		followUps := drainQueue(cfg.GetFollowUpMessages)
-		if done {
-			if len(followUps) == 0 {
-				break
-			}
-			// Agent ended but follow-up messages were queued; start another round.
-			pending = followUps
-			firstTurn = true
-			continue
-		}
 		if len(followUps) == 0 {
 			break
 		}
+		// Follow-up messages were queued; start another round with them.
 		pending = followUps
+		firstTurn = true
 	}
 
 	return newMessages, nil
