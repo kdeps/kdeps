@@ -297,9 +297,9 @@ func TestReplCompleter_ModelArgCompletion(t *testing.T) {
 	for _, r := range results {
 		found = append(found, string(r))
 	}
-	// Full names returned; readline deletes the typed token and inserts the full name.
-	assert.Contains(t, found, "llama3.2:1b [cached]")
-	assert.Contains(t, found, "llama3.2:3b [cloud]")
+	// Suffix after typed token; readline display: "llama" + suffix = full name.
+	assert.Contains(t, found, "3.2:1b [cached]")
+	assert.Contains(t, found, "3.2:3b [cloud]")
 }
 
 func TestReplCompleter_ModelArgAllModels(t *testing.T) {
@@ -349,7 +349,7 @@ func TestReplCompleter_DownloadedModelMarkerPartialToken(t *testing.T) {
 	repl.SetDownloadedModels(map[string]bool{"llama3.2:1b": true})
 
 	c := &replCompleter{repl: repl}
-	// Partial token "llama3.2" matches both; full names returned.
+	// Partial token "llama3.2" matches both; suffixes after the typed token.
 	input := []rune("/model llama3.2")
 	results, length := c.Do(input, len(input))
 	assert.Equal(t, len([]rune("llama3.2")), length)
@@ -357,8 +357,8 @@ func TestReplCompleter_DownloadedModelMarkerPartialToken(t *testing.T) {
 	for _, r := range results {
 		found = append(found, string(r))
 	}
-	assert.Contains(t, found, "llama3.2:1b [cached]")
-	assert.Contains(t, found, "llama3.2:3b [cloud]")
+	assert.Contains(t, found, ":1b [cached]")
+	assert.Contains(t, found, ":3b [cloud]")
 }
 
 func TestReplCompleter_EnabledCloudModelTag(t *testing.T) {
@@ -2399,17 +2399,16 @@ func TestModelCompletionSuffixes_TruncatesToMax(t *testing.T) {
 	}
 }
 
-func TestModelCompletionSuffixes_ShortName(t *testing.T) {
-	// Full-name approach: model names shorter than the typed token are still
-	// returned as full names (readline deletes the token and inserts the name).
+func TestModelCompletionSuffixes_SkipShortName(t *testing.T) {
+	// Model names shorter than tokenLen are skipped (can't produce a valid suffix).
 	loop := makeTestLoop(nil)
 	repl := NewREPL(loop)
 	defer repl.cancel()
 	repl.downloadedModels = map[string]bool{}
 	repl.modelTypes = map[string]string{}
 	suffixes := repl.modelCompletionSuffixes([]string{"ab"}, 10)
-	if len(suffixes) != 1 {
-		t.Fatalf("expected 1 suffix (full name), got %d", len(suffixes))
+	if len(suffixes) != 0 {
+		t.Fatalf("expected 0 suffixes for short name, got %d", len(suffixes))
 	}
 }
 

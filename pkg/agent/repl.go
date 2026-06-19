@@ -324,28 +324,12 @@ func (c *replCompleter) Do(line []rune, pos int) ([][]rune, int) {
 }
 
 // modelCompletionSuffixes builds the readline suffix list for /model completion.
-// modelNamesMatchingToken returns model names that match the token by either
-// fuzzy name match or by tag type match (e.g. "gguf", "cloud", "cached", "enabled").
-// Name-matched results appear first (ranked by score), tag-matched extras follow.
+// modelNamesMatchingToken returns model names fuzzy-ranked by name match.
+// Tag-type filtering (gguf, cloud, cached, etc.) is handled by the TUI picker
+// only; readline's display format (typed_token + suffix) makes tag-based tab
+// completion unreadable because the tag keyword is not a prefix of the model name.
 func (r *REPL) modelNamesMatchingToken(lower string) []string {
-	byName := fuzzyRankStrings(lower, r.modelNames)
-	// quick set for dedup
-	seen := make(map[string]struct{}, len(byName))
-	for _, n := range byName {
-		seen[n] = struct{}{}
-	}
-	// include models whose tag contains the token (e.g. "gguf", "enabled", "cached")
-	for _, name := range r.modelNames {
-		if _, ok := seen[name]; ok {
-			continue
-		}
-		tag := strings.ToLower(strings.Trim(modelTag(r, name), " []"))
-		if strings.Contains(tag, lower) {
-			byName = append(byName, name)
-			seen[name] = struct{}{}
-		}
-	}
-	return byName
+	return fuzzyRankStrings(lower, r.modelNames)
 }
 
 // prioritizeModelNames returns up to n model names from the input list, sorted
@@ -377,11 +361,10 @@ func (r *REPL) prioritizeModelNames(names []string, n int) []string {
 	return out
 }
 
-// Models are grouped by type (cached > llamafile > gguf > cloud) and each entry
-// is the FULL model name + tag. readline deletes tokenLen chars (the typed token)
-// and inserts the full name, so both name-prefix matches and tag-type matches
-// (e.g. "gguf", "enabled") produce correct results without mangling the display.
-func (r *REPL) modelCompletionSuffixes(ranked []string, _ int) [][]rune {
+// Models are grouped by type (cached > llamafile > gguf > cloud). Each entry is
+// the suffix after the typed token (name[tokenLen:] + tag), so readline display
+// reconstructs the full model name: typed_token + suffix = full_name + tag.
+func (r *REPL) modelCompletionSuffixes(ranked []string, tokenLen int) [][]rune {
 	var cached, llamafile, gguf, ollama, cloud []string
 	for _, n := range ranked {
 		if r.downloadedModels[n] {
@@ -408,12 +391,16 @@ func (r *REPL) modelCompletionSuffixes(ranked []string, _ int) [][]rune {
 
 	results := make([][]rune, 0, len(ordered))
 	for _, n := range ordered {
-		tag := []rune(modelTag(r, n))
 		nr := []rune(n)
-		entry := make([]rune, len(nr)+len(tag))
-		copy(entry, nr)
-		copy(entry[len(nr):], tag)
-		results = append(results, entry)
+		if len(nr) < tokenLen {
+			continue
+		}
+		base := nr[tokenLen:]
+		tag := []rune(modelTag(r, n))
+		suffix := make([]rune, len(base)+len(tag))
+		copy(suffix, base)
+		copy(suffix[len(base):], tag)
+		results = append(results, suffix)
 	}
 	return results
 }
