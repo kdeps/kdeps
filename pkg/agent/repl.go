@@ -49,7 +49,7 @@ const (
 	replAutoCompactEvery  = 25
 
 	replModelCompletionMax         = 500 // max model name suggestions for /model <tab> with a partial filter
-	replModelCompletionMaxNoFilter = 20  // cap when no partial typed (prioritized: cached > enabled > rest)
+	replModelCompletionMaxNoFilter = 100 // cap when no partial typed (prioritized: cached > enabled-cloud > llamafile > gguf > ollama > cloud)
 
 	replTickerMs    = 80    // streaming tick interval (milliseconds)
 	replHistoryMax  = 10000 // readline history buffer size
@@ -389,9 +389,10 @@ func (r *REPL) modelNamesMatchingToken(lower string) ([]string, bool) {
 
 // prioritizeModelNames returns up to n model names from the input list, sorted
 // by priority: cached > enabled-cloud > llamafile > gguf > ollama > cloud.
-// Used when no partial filter is typed to avoid flooding readline with 500 entries.
+// Used when no partial filter is typed to show a broad cross-section (100 entries).
 func (r *REPL) prioritizeModelNames(names []string, n int) []string {
-	tiers := make([][]string, 5) //nolint:mnd // 5 priority tiers
+	const numTiers = 6
+	tiers := make([][]string, numTiers)
 	for _, name := range names {
 		switch {
 		case r.downloadedModels[name]:
@@ -402,8 +403,10 @@ func (r *REPL) prioritizeModelNames(names []string, n int) []string {
 			tiers[2] = append(tiers[2], name)
 		case r.modelTypes[name] == modelTypeGGUF:
 			tiers[3] = append(tiers[3], name)
-		default:
+		case r.modelTypes[name] == modelTypeOllama:
 			tiers[4] = append(tiers[4], name)
+		default:
+			tiers[5] = append(tiers[5], name)
 		}
 	}
 	out := make([]string, 0, n)
