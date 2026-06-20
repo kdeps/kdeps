@@ -729,11 +729,46 @@ func buildStreamOpts(cfg *domain.ChatConfig, backend string, w io.Writer) []llms
 		opts = append(opts, llms.WithTools(convertTools(cfg.Tools)), llms.WithToolChoice(toolChoice))
 	}
 
+	opts = append(opts, buildSamplingOpts(cfg)...)
 	opts = append(opts, buildJSONOpts(cfg, backend)...)
 	opts = append(opts, buildThinkingOpts(cfg)...)
 
 	if cfg.PromptCaching && backend == backendAnthropic {
 		opts = append(opts, llms.WithPromptCaching(true))
+	}
+	return opts
+}
+
+// buildSamplingOpts converts ChatConfig sampling parameters to langchaingo CallOptions.
+// Only non-nil / non-zero fields are included so defaults remain unset.
+func buildSamplingOpts(cfg *domain.ChatConfig) []llms.CallOption {
+	var opts []llms.CallOption
+	if cfg.Temperature != nil {
+		opts = append(opts, llms.WithTemperature(*cfg.Temperature))
+	}
+	if cfg.MaxTokens != nil {
+		opts = append(opts, llms.WithMaxTokens(*cfg.MaxTokens))
+	}
+	if cfg.TopP != nil {
+		opts = append(opts, llms.WithTopP(*cfg.TopP))
+	}
+	if cfg.TopK != nil {
+		opts = append(opts, llms.WithTopK(*cfg.TopK))
+	}
+	if cfg.Seed != nil {
+		opts = append(opts, llms.WithSeed(*cfg.Seed))
+	}
+	if cfg.FrequencyPenalty != nil {
+		opts = append(opts, llms.WithFrequencyPenalty(*cfg.FrequencyPenalty))
+	}
+	if cfg.PresencePenalty != nil {
+		opts = append(opts, llms.WithPresencePenalty(*cfg.PresencePenalty))
+	}
+	if cfg.RepetitionPenalty != nil {
+		opts = append(opts, llms.WithRepetitionPenalty(*cfg.RepetitionPenalty))
+	}
+	if len(cfg.StopWords) > 0 {
+		opts = append(opts, llms.WithStopWords(cfg.StopWords))
 	}
 	return opts
 }
