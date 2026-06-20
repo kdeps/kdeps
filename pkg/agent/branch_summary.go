@@ -26,6 +26,11 @@ import (
 	"github.com/kdeps/kdeps/v2/pkg/domain"
 )
 
+const (
+	branchSummaryDefaultCtx = 8000 // fallback context window if model is unknown
+	branchSummaryReserved   = 2000 // tokens reserved for preamble + LLM response
+)
+
 const branchSummaryPrompt = `Create a structured summary of this conversation branch for context when returning later.
 
 Use this EXACT format:
@@ -55,6 +60,50 @@ Use this EXACT format:
 
 Keep each section concise. Preserve exact file paths, function names, and error messages.`
 
+// truncateBranchMessages trims msgs (and matching fileOps) from the front to
+// fit within tokenBudget tokens, keeping the most-recent turns. When turns are
+// dropped a note is prepended to the first kept message's content so the
+// summary LLM knows context was cut.
+func truncateBranchMessages(
+	msgs []sessionMessage,
+	fileOps []fileOpEntry,
+	model string,
+	tokenBudget int,
+) ([]sessionMessage, []fileOpEntry) {
+	if len(msgs) == 0 {
+		return msgs, fileOps
+	}
+	// Count total tokens for all messages.
+	total := 0
+	for i := range msgs {
+		total += countTokensSilent(model, msgs[i].Content)
+	}
+	if total <= tokenBudget {
+		return msgs, fileOps
+	}
+	// Drop oldest complete turns (2 messages each) until we fit.
+	dropped := 0
+	for total > tokenBudget && len(msgs) >= sessionMsgsPer*2 {
+		removed := msgs[:sessionMsgsPer]
+		for _, m := range removed {
+			total -= countTokensSilent(model, m.Content)
+		}
+		msgs = msgs[sessionMsgsPer:]
+		if len(fileOps) > 0 {
+			fileOps = fileOps[1:]
+		}
+		dropped++
+	}
+	if dropped > 0 && len(msgs) > 0 {
+		msgs[0].Content = fmt.Sprintf(
+			"[(%d earlier message(s) omitted due to context length)]\n%s",
+			dropped*sessionMsgsPer,
+			msgs[0].Content,
+		)
+	}
+	return msgs, fileOps
+}
+
 // SummarizeBranch generates an LLM summary of the current session before
 // it is cleared or branched. The summary uses a structured format that
 // captures goals, progress, decisions, and next steps.
@@ -67,6 +116,16 @@ func (l *Loop) SummarizeBranch(_ context.Context) (string, error) {
 	if len(msgs) < compactMinTurns*sessionMsgsPer {
 		return "", nil
 	}
+
+	// Determine token budget from model context window.
+	ctxWindow := ModelContextWindow(l.config.Model)
+	if ctxWindow <= 0 {
+		ctxWindow = branchSummaryDefaultCtx
+	} else if ctxWindow > branchSummaryDefaultCtx {
+		ctxWindow = branchSummaryDefaultCtx
+	}
+	tokenBudget := ctxWindow - branchSummaryReserved
+	msgs, fileOps = truncateBranchMessages(msgs, fileOps, l.config.Model, tokenBudget)
 
 	conversationText := serializeConversation(msgs, fileOps)
 	prompt := "<conversation>\n" + conversationText + "\n</conversation>\n\n" + branchSummaryPrompt
