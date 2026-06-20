@@ -17,6 +17,8 @@ concurrency:
 jobs:
   update-and-release:
     runs-on: macos-latest
+    env:
+      UV_NO_CACHE: 1
     steps:
       - name: Checkout
         uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
@@ -58,21 +60,17 @@ jobs:
       - name: Check for changes
         id: check_changes
         run: |
-          # Check if there are code changes since the last release
           LATEST_RELEASE_TAG=$(git tag -l 'v*' --sort=-version:refname | head -n 1)
-          
+
           if [ -z "$LATEST_RELEASE_TAG" ]; then
             echo "No previous release found, will create release"
             echo "has_code_changes=true" >> $GITHUB_OUTPUT
           else
             echo "Latest release tag: $LATEST_RELEASE_TAG"
-            
-            # Verify the tag exists before comparing
             if ! git rev-parse --verify "$LATEST_RELEASE_TAG" >/dev/null 2>&1; then
               echo "Warning: Tag $LATEST_RELEASE_TAG does not exist, will create release"
               echo "has_code_changes=true" >> $GITHUB_OUTPUT
             else
-              # Check if there are any differences between the latest release and HEAD
               if git diff --quiet "$LATEST_RELEASE_TAG" HEAD; then
                 echo "has_code_changes=false" >> $GITHUB_OUTPUT
                 echo "No code changes since latest release"
@@ -83,92 +81,30 @@ jobs:
             fi
           fi
 
-      - name: Update Go modules
-        id: update_modules
-        run: |
-          echo "Updating Go modules to latest versions..."
-          
-          # Capture current module versions before update
-          if ! go list -m -json all > /tmp/modules_before.json 2>/tmp/go-list-before.err; then
-            echo "Warning: Failed to capture module versions before update"
-            if [ -s /tmp/go-list-before.err ]; then
-              cat /tmp/go-list-before.err
-            fi
-            # Continue anyway, comparison will fall back to generic message
-          fi
-          
-          go get -u ./...
-          # langchaingo/llms/googleai uses the deprecated google/generative-ai-go SDK.
-          # generative-ai-go@v0.15.1 requires cloud.google.com/go/ai@v0.7.0; upgrading
-          # either breaks the VideoMetadata/VideoFileMetadata protobuf types. Pin both.
-          go get github.com/google/generative-ai-go@v0.15.1 cloud.google.com/go/ai@v0.7.0
-          go mod tidy
-          
-          # Check if there are any changes
-          if git diff --quiet go.mod go.sum; then
-            echo "has_module_updates=false" >> $GITHUB_OUTPUT
-            echo "No module updates available"
-            echo "module_updates_summary=" >> $GITHUB_OUTPUT
-          else
-            echo "has_module_updates=true" >> $GITHUB_OUTPUT
-            echo "Module updates found"
-            
-            # Capture updated module versions
-            if ! go list -m -json all > /tmp/modules_after.json 2>/tmp/go-list-after.err; then
-              echo "Warning: Failed to capture module versions after update"
-              if [ -s /tmp/go-list-after.err ]; then
-                cat /tmp/go-list-after.err
-              fi
-              # Continue anyway, comparison will fall back to generic message
-            fi
-            
-            # Generate summary of updated modules using the helper script
-            echo "Generating module updates summary..."
-            MODULE_SUMMARY=$(go run .github/scripts/compare-modules.go 2>/tmp/compare-modules-stderr.log)
-            SCRIPT_EXIT_CODE=$?
-            
-            # Check if script succeeded
-            if [ $SCRIPT_EXIT_CODE -ne 0 ]; then
-              echo "Warning: Module comparison script failed with exit code $SCRIPT_EXIT_CODE"
-              if [ -s /tmp/compare-modules-stderr.log ]; then
-                echo "Stderr from module comparison script:"
-                cat /tmp/compare-modules-stderr.log
-              fi
-              MODULE_SUMMARY="### Module Updates"$'\n\n'"Updates detected in go.mod and go.sum. See commit diff for details."
-            elif [ -z "$MODULE_SUMMARY" ]; then
-              echo "Warning: Module comparison script returned empty output"
-              MODULE_SUMMARY="### Module Updates"$'\n\n'"Updates detected in go.mod and go.sum. See commit diff for details."
-            fi
-            
-            # Save to output using proper multiline syntax
-            {
-              echo "module_updates_summary<<EOFMARKER"
-              echo "$MODULE_SUMMARY"
-              echo "EOFMARKER"
-            } >> $GITHUB_OUTPUT
-            
-            # Also log to console
-            echo "$MODULE_SUMMARY"
-          fi
-
       - name: Determine if release needed
         id: should_release
         run: |
-          # Use default value 'false' if variables are not set
           HAS_CODE_CHANGES="${{ steps.check_changes.outputs.has_code_changes }}"
-          HAS_MODULE_UPDATES="${{ steps.update_modules.outputs.has_module_updates }}"
+          HAS_REGISTRY_UPDATES="${{ steps.harvest_llamafiles.outputs.has_registry_updates }}"
           HAS_CODE_CHANGES="${HAS_CODE_CHANGES:-false}"
-          HAS_MODULE_UPDATES="${HAS_MODULE_UPDATES:-false}"
-          
-          HAS_NPM_UPDATES="${{ steps.update_npm.outputs.has_npm_updates }}"
-          HAS_NPM_UPDATES="${HAS_NPM_UPDATES:-false}"
-          if [ "$HAS_CODE_CHANGES" = "true" ] || [ "$HAS_MODULE_UPDATES" = "true" ] || [ "$HAS_NPM_UPDATES" = "true" ]; then
+          HAS_REGISTRY_UPDATES="${HAS_REGISTRY_UPDATES:-false}"
+          if [ "$HAS_CODE_CHANGES" = "true" ] || [ "$HAS_REGISTRY_UPDATES" = "true" ]; then
             echo "should_release=true" >> $GITHUB_OUTPUT
-            echo "Release will be created (code_changes=$HAS_CODE_CHANGES, module_updates=$HAS_MODULE_UPDATES, npm_updates=$HAS_NPM_UPDATES)"
+            echo "Release will be created (code_changes=$HAS_CODE_CHANGES, registry_updates=$HAS_REGISTRY_UPDATES)"
           else
             echo "should_release=false" >> $GITHUB_OUTPUT
-            echo "No release needed (no code changes or module updates)"
+            echo "No release needed"
           fi
+
+      - name: Install uv
+        if: steps.should_release.outputs.should_release == 'true'
+        run: curl -LsSf https://astral.sh/uv/0.11.20/install.sh | sh && echo "$HOME/.local/bin" >> $GITHUB_PATH
+
+      - name: Install ollama
+        if: steps.should_release.outputs.should_release == 'true'
+        run: |
+          curl -fsSL https://ollama.com/install.sh | sh
+          ollama --version
 
       - name: Read golangci-lint version
         if: steps.should_release.outputs.should_release == 'true'
@@ -193,65 +129,25 @@ jobs:
         id: build
         run: make build
 
+      - name: Start Ollama
+        if: steps.should_release.outputs.should_release == 'true'
+        run: |
+          ollama serve &
+          sleep 5
+          ollama pull tinydolphin
+
       - name: Run tests
         if: steps.should_release.outputs.should_release == 'true'
         id: test
-        run: |
-          echo "Running unit tests..."
-          go test -v -short -timeout=5m ./pkg/... ./cmd/...
+        run: make test-unit
+        timeout-minutes: 15
 
-      - name: Update npm packages in docs/v2
-        id: update_npm
+      - name: Commit llamafile registry updates
+        if: steps.harvest_llamafiles.outputs.has_registry_updates == 'true'
         run: |
-          echo "Updating npm packages in docs/v2..."
-          cd docs/v2
-          npm update --save --ignore-scripts
-          if git diff --quiet package.json package-lock.json; then
-            echo "has_npm_updates=false" >> $GITHUB_OUTPUT
-            echo "No npm updates available"
-          else
-            echo "has_npm_updates=true" >> $GITHUB_OUTPUT
-            echo "npm updates found"
-          fi
-
-      - name: Update npm packages in kdeps
-        id: update_npm_kdeps
-        run: |
-          echo "Updating npm packages in kdeps..."
-          npm update --save --ignore-scripts
-          if git diff --quiet package.json package-lock.json; then
-            echo "has_npm_updates=false" >> $GITHUB_OUTPUT
-            echo "No npm updates available"
-          else
-            echo "has_npm_updates=true" >> $GITHUB_OUTPUT
-            echo "npm updates found"
-          fi
-
-      - name: Commit and push module updates
-        if: steps.update_modules.outputs.has_module_updates == 'true' || steps.update_npm.outputs.has_npm_updates == 'true' || steps.update_npm_kdeps.outputs.has_npm_updates == 'true' || steps.harvest_llamafiles.outputs.has_registry_updates == 'true'
-        run: |
-          if git diff --quiet go.mod go.sum; then
-            echo "No Go module changes to commit"
-          else
-            git add go.mod go.sum
-          fi
-          if git diff --quiet docs/v2/package.json docs/v2/package-lock.json; then
-            echo "No npm changes to commit"
-          else
-            git add docs/v2/package.json docs/v2/package-lock.json
-          fi
-          if git diff --quiet package.json package-lock.json; then
-            echo "No npm changes to commit"
-          else
-            git add package.json package-lock.json
-          fi
-          if git diff --quiet pkg/executor/llm/llamafile_versions_data.go tools/llamafile-harvester/llamafile_versions.yaml pkg/executor/llm/gguf_versions_data.go tools/llamafile-harvester/gguf_versions.yaml; then
-            echo "No llamafile/GGUF registry changes to commit"
-          else
-            git add pkg/executor/llm/llamafile_versions_data.go tools/llamafile-harvester/llamafile_versions.yaml
-            git add pkg/executor/llm/gguf_versions_data.go tools/llamafile-harvester/gguf_versions.yaml 2>/dev/null || true
-          fi
-          git commit -m "chore: update dependencies [nightly]"
+          git add pkg/executor/llm/llamafile_versions_data.go tools/llamafile-harvester/llamafile_versions.yaml
+          git add pkg/executor/llm/gguf_versions_data.go tools/llamafile-harvester/gguf_versions.yaml 2>/dev/null || true
+          git commit -m "chore: update llamafile/GGUF registry [nightly]"
           git pull --rebase origin main
           git push origin main
 
@@ -261,64 +157,35 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.RELEASE_TOKEN }}
         run: |
-          # Get base version from the latest non-prerelease release tag (strict semver vX.Y.Z only)
           LATEST_RELEASE_TAG=$(git tag -l 'v*' --sort=-version:refname | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' | head -n 1)
 
           if [ -n "$LATEST_RELEASE_TAG" ]; then
-            # Extract version number from tag (e.g., "v2.0.1" → "2.0.1")
             BASE_VERSION=$(echo "$LATEST_RELEASE_TAG" | sed 's/^v//')
           else
-            # Fallback to reading from version.go if no release tags exist
             BASE_VERSION=$(sed -n 's/.*Version = "\([0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*\).*/\1/p' pkg/version/version.go)
           fi
 
-          # Verify version was extracted successfully
           if [ -z "$BASE_VERSION" ]; then
-            echo "Error: Failed to extract version from either git tags or pkg/version/version.go"
+            echo "Error: Failed to extract version"
             exit 1
           fi
-          
-          # Generate nightly tag with date and time for uniqueness in semver format
-          # Format: vX.X.X-nightlyYYYYMMDDHHMM (e.g., v2.0.0-nightly202602170323)
-          # This is valid semver prerelease syntax that GoReleaser can parse
+
           NIGHTLY_TAG="v${BASE_VERSION}-nightly$(date +%Y%m%d%H%M)"
           echo "tag=$NIGHTLY_TAG" >> $GITHUB_OUTPUT
           echo "Generated tag: $NIGHTLY_TAG"
-          
-          # Check if tag already exists (from a previous failed run)
+
           if git rev-parse "$NIGHTLY_TAG" >/dev/null 2>&1; then
-            echo "⚠️  Tag $NIGHTLY_TAG already exists - cleaning up previous release"
-            
-            # Try to delete the existing release (if it exists)
+            echo "Tag $NIGHTLY_TAG already exists - cleaning up"
             if gh release view "$NIGHTLY_TAG" >/dev/null 2>&1; then
-              echo "Deleting existing release $NIGHTLY_TAG..."
-              gh release delete "$NIGHTLY_TAG" --yes --cleanup-tag || {
-                echo "Failed to delete release via gh CLI, trying API..."
-                # Fallback to API
-                RELEASE_ID=$(gh api repos/${{ github.repository }}/releases/tags/$NIGHTLY_TAG --jq '.id' 2>&1)
-                API_EXIT_CODE=$?
-                if [ $API_EXIT_CODE -eq 0 ] && [ -n "$RELEASE_ID" ]; then
-                  echo "Found release ID: $RELEASE_ID, deleting..."
-                  gh api -X DELETE repos/${{ github.repository }}/releases/$RELEASE_ID || echo "Warning: API delete failed"
-                else
-                  echo "Warning: Could not retrieve release ID (exit code: $API_EXIT_CODE)"
-                fi
-              }
+              gh release delete "$NIGHTLY_TAG" --yes --cleanup-tag || true
             fi
-            
-            # Delete the tag locally and remotely
-            echo "Deleting tag $NIGHTLY_TAG..."
             git tag -d "$NIGHTLY_TAG" 2>/dev/null || true
             git push --delete origin "$NIGHTLY_TAG" 2>/dev/null || true
-            
-            echo "✓ Cleanup completed"
           fi
-          
-          # Create new tag
-          echo "Creating tag $NIGHTLY_TAG..."
-          git tag -a $NIGHTLY_TAG -m "Nightly release $(date +%Y-%m-%d-%H:%M) with updated dependencies"
+
+          git tag -a $NIGHTLY_TAG -m "Nightly release $(date +%Y-%m-%d-%H:%M)"
           git push origin $NIGHTLY_TAG
-          echo "✓ Tag created and pushed"
+          echo "Tag created and pushed"
 
       - name: Set up Zig
         if: steps.should_release.outputs.should_release == 'true'
@@ -335,54 +202,23 @@ jobs:
           GH_TOKEN: ${{ secrets.RELEASE_TOKEN }}
         run: |
           TAG="${{ steps.create_tag.outputs.tag }}"
-          echo "Checking for existing release: $TAG"
           if gh release view "$TAG" >/dev/null 2>&1; then
-            echo "⚠️  Existing release found for $TAG - deleting before GoReleaser run..."
-
-            # Best-effort delete via gh CLI
-            if gh release delete "$TAG" --yes; then
-              echo "✓ Release delete via gh CLI initiated"
-            else
-              DELETE_EXIT_CODE=$?
-              echo "⚠️  Failed to delete release $TAG via 'gh release delete' (exit code $DELETE_EXIT_CODE)"
-            fi
-            sleep 2  # Allow GitHub API to propagate the deletion
-
-            # If the release still exists, try deleting via the GitHub API
+            gh release delete "$TAG" --yes || true
+            sleep 2
             if gh release view "$TAG" >/dev/null 2>&1; then
-              echo "⚠️  Release still exists after gh delete, trying via API..."
               RELEASE_ID=$(gh api repos/${{ github.repository }}/releases/tags/$TAG --jq '.id' 2>/dev/null)
               if [ -n "$RELEASE_ID" ]; then
-                if gh api -X DELETE repos/${{ github.repository }}/releases/$RELEASE_ID; then
-                  echo "✓ Release deleted via API"
-                else
-                  echo "⚠️  API delete failed for release ID $RELEASE_ID"
-                fi
-                sleep 2  # Allow GitHub API to propagate the deletion
-              else
-                echo "ℹ️  No release ID found via API; it may have been deleted concurrently."
+                gh api -X DELETE repos/${{ github.repository }}/releases/$RELEASE_ID || true
+                sleep 2
               fi
             fi
-
-            # Bounded wait for deletion to fully propagate to avoid 422 already_exists
-            MAX_WAIT_SECONDS=60
-            SLEEP_INTERVAL=3
-            ELAPSED=0
-            while gh release view "$TAG" >/dev/null 2>&1 && [ "$ELAPSED" -lt "$MAX_WAIT_SECONDS" ]; do
-              echo "⏳ Release $TAG still exists; waiting for deletion to propagate... ($ELAPSED/${MAX_WAIT_SECONDS}s)"
-              sleep "$SLEEP_INTERVAL"
-              ELAPSED=$((ELAPSED + SLEEP_INTERVAL))
+            MAX_WAIT=60; ELAPSED=0
+            while gh release view "$TAG" >/dev/null 2>&1 && [ "$ELAPSED" -lt "$MAX_WAIT" ]; do
+              sleep 3; ELAPSED=$((ELAPSED + 3))
             done
-
             if gh release view "$TAG" >/dev/null 2>&1; then
-              echo "❌ Release $TAG still exists after cleanup and ${MAX_WAIT_SECONDS}s of waiting."
-              echo "   This may indicate insufficient permissions or incorrect scoping for secrets.RELEASE_TOKEN."
-              exit 1
-            else
-              echo "✓ Release deleted successfully and no longer visible."
+              echo "Release $TAG still exists after cleanup"; exit 1
             fi
-          else
-            echo "✓ No existing release found for $TAG"
           fi
 
       - name: Clean cmd test artifacts before release
@@ -390,7 +226,6 @@ jobs:
         run: |
           git clean -fd -- cmd/
           if [ -n "$(git status --porcelain)" ]; then
-            echo "Remaining dirty paths after cleanup:"
             git status --porcelain
           fi
 
@@ -409,35 +244,11 @@ jobs:
         if: steps.should_release.outputs.should_release == 'true'
         env:
           GH_TOKEN: ${{ secrets.RELEASE_TOKEN }}
-          MODULE_SUMMARY: ${{ steps.update_modules.outputs.module_updates_summary }}
         run: |
-          # Mark the release as latest (regardless of validation results) and
-          # add module update information to release notes
           TAG="${{ steps.create_tag.outputs.tag }}"
-          HAS_MODULE_UPDATES="${{ steps.update_modules.outputs.has_module_updates }}"
-          
-          # Get the release ID
           RELEASE_ID=$(gh api repos/${{ github.repository }}/releases/tags/$TAG --jq '.id')
-          
-          # Get current release body
           CURRENT_BODY=$(gh api repos/${{ github.repository }}/releases/$RELEASE_ID --jq '.body')
-          
-          # Prepare enhanced release notes
-          RELEASE_NOTES="$CURRENT_BODY"
-          
-          # Add module updates section if applicable
-          # MODULE_SUMMARY is passed via env to avoid backtick command substitution
-          if [ "$HAS_MODULE_UPDATES" = "true" ]; then
-            if [ -n "$MODULE_SUMMARY" ]; then
-              RELEASE_NOTES="$RELEASE_NOTES"$'\n\n'"---"$'\n\n'"$MODULE_SUMMARY"
-            fi
-          fi
-          
-          # Add validation status
-          RELEASE_NOTES="$RELEASE_NOTES"$'\n\n'"---"$'\n\n'"### Build Status"$'\n'"- 🔍 Linting: ${{ steps.lint.outputs.result }}"$'\n'"- 🔨 Build: ${{ steps.build.outcome }}"$'\n'"- ✅ Tests: ${{ steps.test.outcome }}"
-          
-          # Update release with new notes and mark as latest
-          echo "Marking release as latest (not prerelease)"
+          RELEASE_NOTES="$CURRENT_BODY"$'\n\n'"---"$'\n\n'"### Build Status"$'\n'"- Linting: ${{ steps.lint.outputs.result }}"$'\n'"- Build: ${{ steps.build.outcome }}"$'\n'"- Tests: ${{ steps.test.outcome }}"
           gh api -X PATCH repos/${{ github.repository }}/releases/$RELEASE_ID \
             -f body="$RELEASE_NOTES" \
             -f prerelease=false \
@@ -446,19 +257,10 @@ jobs:
       - name: Summary
         run: |
           if [ "${{ steps.should_release.outputs.should_release }}" = "true" ]; then
-            echo "✅ Nightly release created successfully: ${{ steps.create_tag.outputs.tag }}"
-            echo "📦 Release type: latest"
-            echo "🔍 Checks: lint=${{ steps.lint.outputs.result }} build=${{ steps.build.outcome }} test=${{ steps.test.outcome }}"
-            
-            if [ "${{ steps.check_changes.outputs.has_code_changes }}" = "true" ]; then
-              echo "📝 Code changes detected since last release"
-            fi
-            if [ "${{ steps.update_modules.outputs.has_module_updates }}" = "true" ]; then
-              echo "📦 Go module updates applied"
-            fi
-            if [ "${{ steps.update_npm.outputs.has_npm_updates }}" = "true" ]; then
-              echo "📦 npm package updates applied"
-            fi
+            echo "Nightly release created: ${{ steps.create_tag.outputs.tag }}"
+            echo "Checks: lint=${{ steps.lint.outputs.result }} build=${{ steps.build.outcome }} test=${{ steps.test.outcome }}"
+            [ "${{ steps.check_changes.outputs.has_code_changes }}" = "true" ] && echo "Code changes since last release"
+            [ "${{ steps.harvest_llamafiles.outputs.has_registry_updates }}" = "true" ] && echo "Llamafile registry updated"
           else
-            echo "ℹ️ No changes since last release. Skipping nightly release."
+            echo "No changes since last release. Skipping nightly release."
           fi
