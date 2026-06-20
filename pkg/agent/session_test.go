@@ -527,6 +527,54 @@ func TestRestoreTo_NavigateToPrunedBranch(t *testing.T) {
 	_ = cp1
 }
 
+// TestRestoreTo_MultiplePrunedBranches verifies that each RestoreTo call appends
+// a new stash entry rather than overwriting the previous one (n-way tree support).
+func TestRestoreTo_MultiplePrunedBranches(t *testing.T) {
+	s := NewSession(0)
+	s.Append("t1", "r1")
+	cp1 := s.Checkpoint() // assistant of turn1
+
+	// Build branch A: t1 -> t2a -> t3a, then prune back to t1.
+	s.Append("t2a", "r2a")
+	s.Append("t3a", "r3a")
+	if !s.RestoreTo(cp1) {
+		t.Fatal("first RestoreTo failed")
+	}
+	if s.TurnCount() != 1 {
+		t.Fatalf("expected 1 turn after first restore, got %d", s.TurnCount())
+	}
+
+	// Build branch B: t1 -> t2b -> t3b, then prune back to t1.
+	s.Append("t2b", "r2b")
+	s.Append("t3b", "r3b")
+	if !s.RestoreTo(cp1) {
+		t.Fatal("second RestoreTo failed")
+	}
+	if s.TurnCount() != 1 {
+		t.Fatalf("expected 1 turn after second restore, got %d", s.TurnCount())
+	}
+
+	// Both branches A and B must be stashed independently.
+	stashes := s.StashedBranches()
+	if len(stashes) != 2 {
+		t.Fatalf("expected 2 stashed branches, got %d", len(stashes))
+	}
+	for i, snap := range stashes {
+		if len(snap.TurnIDs) != 3 {
+			t.Fatalf("stash %d: expected 3 turns (t1+t2+t3), got %d", i+1, len(snap.TurnIDs))
+		}
+		if snap.BranchPoint == 0 {
+			t.Fatalf("stash %d: expected non-zero branch point", i+1)
+		}
+	}
+
+	// PrunedBranchIDs flattens both stashes: 3 turns each = 6 total IDs.
+	ids := s.PrunedBranchIDs()
+	if len(ids) != 6 {
+		t.Fatalf("expected 6 flattened pruned IDs, got %d", len(ids))
+	}
+}
+
 // TestRestoreTo_BranchAfterGoto verifies that Append after RestoreTo branches
 // correctly (parentID = restored tip, not old messages).
 func TestRestoreTo_BranchAfterGoto(t *testing.T) {

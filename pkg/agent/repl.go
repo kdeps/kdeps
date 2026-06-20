@@ -1736,21 +1736,23 @@ func (r *REPL) cmdSessionGoto(rawID string) error {
 	return nil
 }
 
-// cmdSessionBranches shows the stashed pruned branch (created by /session goto).
+// cmdSessionBranches shows all stashed branches (created by /session goto).
 func (r *REPL) cmdSessionBranches() error {
 	sess := r.loop.session
-	point, prunedTurns := sess.BranchInfo()
-	if point == 0 || prunedTurns == 0 {
-		fmt.Fprintln(os.Stdout, styleReplMeta.Render("No stashed branch. Use /session goto to create a branch."))
+	stashes := sess.StashedBranches()
+	if len(stashes) == 0 {
+		fmt.Fprintln(os.Stdout, styleReplMeta.Render("No stashed branches. Use /session goto to create a branch."))
 		return nil
 	}
-	ids := sess.PrunedBranchIDs()
-	fmt.Fprintln(os.Stdout, styleReplHeading.Render(fmt.Sprintf(
-		"Stashed branch: branched at entry %d, %d turns available", point, prunedTurns,
-	)))
-	fmt.Fprintln(os.Stdout, styleReplMeta.Render("Entry IDs (use /session goto <id> to switch back):"))
-	for i, id := range ids {
-		fmt.Fprintf(os.Stdout, "  turn %d: %d\n", i+1, id)
+	fmt.Fprintln(os.Stdout, styleReplHeading.Render(fmt.Sprintf("%d stashed branch(es):", len(stashes))))
+	for i, snap := range stashes {
+		fmt.Fprintln(os.Stdout, styleReplMeta.Render(fmt.Sprintf(
+			"  branch %d: branched at entry %d, %d turn(s)", i+1, snap.BranchPoint, len(snap.TurnIDs),
+		)))
+		fmt.Fprintln(os.Stdout, styleReplMeta.Render("  Entry IDs (use /session goto <id> to switch):"))
+		for j, id := range snap.TurnIDs {
+			fmt.Fprintf(os.Stdout, "    turn %d: %d\n", j+1, id)
+		}
 	}
 	return nil
 }
