@@ -276,6 +276,9 @@ func TestNewLlamafileManagerWithDir(t *testing.T) {
 
 func TestLlamafileManager_Download_TmpBlockedByDir(t *testing.T) {
 	// If a directory exists where the .tmp file would be created, OpenFile fails.
+	// Force aria2c to be unavailable so the HTTP fallback (writeDownloadToFile) is exercised.
+	t.Setenv("PATH", "")
+
 	content := []byte("fake llamafile content")
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusOK)
