@@ -71,8 +71,8 @@ func NewSessionStore(basePath string) *SessionStore {
 }
 
 // SaveAs persists the session to a JSONL file with an optional name and model tag.
-// Returns the generated session ID.
-func (s *SessionStore) SaveAs(session *Session, name, model string) (string, error) {
+// Returns the generated session ID. Accepts SessionReader so callers can work through interfaces.
+func (s *SessionStore) SaveAs(session SessionReader, name, model string) (string, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -117,7 +117,7 @@ func (s *SessionStore) SaveAs(session *Session, name, model string) (string, err
 }
 
 // Save persists the session without a name or model tag.
-func (s *SessionStore) Save(session *Session) (string, error) {
+func (s *SessionStore) Save(session SessionReader) (string, error) {
 	return s.SaveAs(session, "", "")
 }
 

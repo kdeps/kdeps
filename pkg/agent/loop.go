@@ -631,8 +631,10 @@ func (l *Loop) SetOnAutoCompact(fn func(summary string)) {
 	l.onAutoCompact = fn
 }
 
-// Session returns the loop's conversation session for inspection.
-func (l *Loop) Session() *Session {
+// Session returns the loop's conversation session via the SessionReadWriter interface.
+// Callers that need concrete *Session methods not in the interface (e.g. RecordFileOps)
+// should work through the REPL or loop helpers rather than down-casting.
+func (l *Loop) Session() SessionReadWriter {
 	return l.session
 }
 
