@@ -153,18 +153,7 @@ func newModelPickerModel(entries []ModelEntry, currentModel, preFilter string) m
 }
 
 func (m modelPickerModel) flatFiltered() []ModelEntry {
-	if m.filter == "" {
-		return m.allEntries
-	}
-	lower := strings.ToLower(m.filter)
-	var out []ModelEntry
-	for _, e := range m.allEntries {
-		if strings.Contains(strings.ToLower(e.Name), lower) ||
-			strings.Contains(strings.ToLower(tagForEntry(e)), lower) {
-			out = append(out, e)
-		}
-	}
-	return out
+	return fuzzyMatchEntries(m.allEntries, m.filter)
 }
 
 func (m modelPickerModel) Init() tea.Cmd { return nil }
