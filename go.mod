@@ -197,8 +197,10 @@ require (
 )
 
 exclude (
-	// v0.16+ has a compile bug in genai/files.go (VideoMetadata/VideoFileMetadata
-	// type mismatch) that breaks langchaingo/llms/googleai until upstream fixes it.
+	// langchaingo/llms/googleai uses the deprecated google/generative-ai-go SDK which
+	// is incompatible with cloud.google.com/go/ai v0.8.0+ (VideoMetadata type rename).
+	// Excluded to prevent accidental local upgrades; the nightly workflow pins the
+	// whole google-ai family after go get -u and lint is continue-on-error there.
 	github.com/google/generative-ai-go v0.16.0
 	github.com/google/generative-ai-go v0.17.0
 	github.com/google/generative-ai-go v0.18.0
