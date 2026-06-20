@@ -30,8 +30,9 @@ Inside the REPL, type `/help` for the full list:
 | `/<skill-name> [prompt]` | Invoke a skill or prompt template directly |
 | `/compact` | Summarize history to free context |
 | `/history` | Show conversation history |
-| `/thinking [off\|low\|medium\|high\|auto]` | Enable extended reasoning (Claude) |
-| `/session list\|save\|load\|delete\|checkpoint\|goto` | Manage saved sessions |
+| `/thinking [off\|low\|medium\|high\|auto]` | Enable extended reasoning (Claude only; warns if current model does not support it) |
+| `/session list\|save\|load\|delete\|checkpoint\|goto\|branches\|import` | Manage saved sessions and navigate branching history |
+| `/editor` | Open current input in `$EDITOR` (ctrl+g) |
 | `/copy` | Copy last assistant response to clipboard |
 | `/reload` | Reload skills and prompt templates from disk |
 | `/settings` | Open the tool/skill selector |
@@ -120,6 +121,25 @@ kdeps --resume <session-id>
 ```
 
 Session IDs are shown at the start of each run.
+
+### Session commands
+
+```
+/session list                  # list all saved sessions
+/session save [name]           # save current session
+/session load <id>             # restore a saved session
+/session delete <id>           # delete a saved session
+/session checkpoint            # print the current entry ID (for /session goto)
+/session goto <entry-id>       # restore session to the turn at that entry ID
+/session branches              # list stashed (pruned) turns from prior /session goto calls
+/session import <path>         # load a JSONL session file exported from another run
+```
+
+`/session goto` is non-destructive: the pruned tail is stashed. Use `/session branches` to see stashed entry IDs, then `/session goto <id>` again to navigate back.
+
+### Auto-retry
+
+Transient LLM errors (HTTP 429, 5xx, network timeouts) are automatically retried up to 3 times with exponential backoff (2s, 4s, 8s). Context-overflow and authentication errors are not retried.
 
 ## Single workflow vs folder
 

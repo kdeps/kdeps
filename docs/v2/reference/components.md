@@ -217,6 +217,8 @@ kdeps registry install scraper
 kdeps registry install search
 kdeps registry install embedding
 kdeps registry install browser
+kdeps registry install calculator       # evaluate arithmetic expressions
+kdeps registry install weather-converter # convert temperatures (C/F/K)
 # ... and more
 ```
 
