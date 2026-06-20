@@ -29,7 +29,9 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"regexp"
 	"strings"
+	"time"
 
 	"github.com/kdeps/kdeps/v2/pkg/domain"
 	"github.com/kdeps/kdeps/v2/pkg/executor"
@@ -66,7 +68,8 @@ type Config struct {
 	// SkillPaths are additional directories to search for SKILL.md files.
 	SkillPaths []string
 	// ResumeSession is a previously-saved session to load on startup.
-	ResumeSession *Session
+	// Accepts any SessionReadWriter implementation (concrete *Session or mock).
+	ResumeSession SessionReadWriter
 	// CompactTokenBudget is the approximate number of recent tokens to retain
 	// when compacting with CompactWithLLM. 0 uses the default (20000).
 	CompactTokenBudget int
@@ -99,6 +102,12 @@ type Config struct {
 	// Thinking configures extended reasoning/thinking for models that support it.
 	// nil or ThinkingModeNone disables thinking (default).
 	Thinking *domain.ThinkingConfig
+	// AutoRetryMax is the maximum number of retries on transient API errors
+	// (overloaded, rate-limit, 5xx). 0 disables auto-retry. Default: 3.
+	AutoRetryMax int
+	// AutoRetryBaseDelay is the initial backoff delay for auto-retry.
+	// Each retry doubles the delay. Default: 2s.
+	AutoRetryBaseDelay time.Duration
 }
 
 // Loop drives a multi-turn agent conversation using the kdeps engine as the
@@ -131,7 +140,12 @@ func New(eng *executor.Engine, workflow *domain.Workflow, reg *tools.Registry, c
 		session.SetTokenBudget(cfg.MaxHistoryTokens, cfg.Model)
 	}
 	if cfg.ResumeSession != nil {
-		session = cfg.ResumeSession
+		// Accept concrete *Session directly; other SessionReadWriter implementations
+		// (e.g. mocks) are not usable as the internal session because rawMessages()
+		// and fileOps are not on the interface.
+		if s, ok := cfg.ResumeSession.(*Session); ok {
+			session = s
+		}
 	}
 
 	return &Loop{
@@ -218,12 +232,20 @@ func applyConfigDefaults(cfg Config) Config {
 	if cfg.MaxToolRounds <= 0 {
 		cfg.MaxToolRounds = defaultMaxToolRounds
 	}
+	if cfg.AutoRetryMax == 0 {
+		cfg.AutoRetryMax = defaultAutoRetryMax
+	}
+	if cfg.AutoRetryBaseDelay == 0 {
+		cfg.AutoRetryBaseDelay = defaultAutoRetryBaseDelay
+	}
 	return cfg
 }
 
 const (
 	defaultAutoCompactThreshold = 40000
 	defaultMaxToolRounds        = 10
+	defaultAutoRetryMax         = 3
+	defaultAutoRetryBaseDelay   = 2 * time.Second
 )
 
 func envOrDefault(key, fallback string) string {
@@ -289,7 +311,7 @@ func (l *Loop) RunStreaming(ctx context.Context, input string, w io.Writer) (str
 	systemPreamble := l.buildSystemPreamble()
 	chatCfg := l.buildChatConfig(input, systemPreamble)
 
-	finalContent, err := l.runToolRounds(ctx, chatCfg, w)
+	finalContent, err := l.runWithRetry(ctx, chatCfg, w)
 	if err != nil && IsContextOverflowError(err) {
 		finalContent, err = l.compactAndRetry(ctx, input, w)
 	}
@@ -300,6 +322,50 @@ func (l *Loop) RunStreaming(ctx context.Context, input string, w io.Writer) (str
 	response := stripContentToolCalls(finalContent)
 	l.session.Append(input, response)
 	return response, nil
+}
+
+// runWithRetry calls runToolRounds and retries on transient API errors
+// (overloaded, rate-limit, 5xx) with exponential backoff.
+// Context overflow errors pass through immediately for compactAndRetry handling.
+func (l *Loop) runWithRetry(ctx context.Context, chatCfg *domain.ChatConfig, w io.Writer) (string, error) {
+	var lastErr error
+	for attempt := range l.config.AutoRetryMax {
+		content, err := l.runToolRounds(ctx, chatCfg, w)
+		if err == nil {
+			return content, nil
+		}
+		if !isTransientError(err) || IsContextOverflowError(err) {
+			return "", err
+		}
+		lastErr = err
+		if attempt == l.config.AutoRetryMax-1 {
+			break
+		}
+		delay := l.config.AutoRetryBaseDelay * (1 << attempt)
+		select {
+		case <-ctx.Done():
+			return "", ctx.Err()
+		case <-time.After(delay):
+		}
+	}
+	return "", lastErr
+}
+
+// transientErrRe matches error strings from transient API failures: overloaded,
+// rate-limit, 5xx, network/connection errors. Matches pi's _isRetryableError regex.
+var transientErrRe = regexp.MustCompile(
+	`(?i)overloaded|provider.?returned.?error|rate.?limit|too many requests` +
+		`|429|500|502|503|504|service.?unavailable|server.?error|internal.?error` +
+		`|network.?error|connection.?error|connection.?refused|connection.?lost` +
+		`|fetch failed|upstream.?connect|socket hang up|timed?.?out|timeout|terminated`,
+)
+
+// isTransientError reports whether err is a transient API error worth retrying.
+func isTransientError(err error) bool {
+	if err == nil {
+		return false
+	}
+	return transientErrRe.MatchString(err.Error())
 }
 
 // compactAndRetry compacts session history and retries the streaming call once.

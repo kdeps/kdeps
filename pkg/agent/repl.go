@@ -87,7 +87,7 @@ const (
 var builtinCmds = []string{
 	"/help", "/settings", "/clear", "/model", "/models",
 	"/skills", "/prompts", "/compact", "/history", "/thinking", "/session",
-	"/copy", "/reload", "/exit", "/quit",
+	"/editor", "/copy", "/reload", "/exit", "/quit",
 }
 
 //nolint:gochecknoglobals // lipgloss styles for REPL output
@@ -1035,6 +1035,8 @@ func (r *REPL) dispatchCommand(cmd string) error {
 		return r.cmdSettings()
 	case "/thinking":
 		return r.cmdThinking(args)
+	case "/editor":
+		return r.cmdEditor()
 	case "/copy":
 		return r.cmdCopy()
 	case "/reload":
@@ -1060,7 +1062,7 @@ func (r *REPL) cmdHelp() error {
 	dim := styleReplDim.Render
 	fmt.Fprintf(
 		os.Stdout,
-		"%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n\n%s\n\n%s\n",
+		"%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n\n%s\n\n%s\n",
 		heading("Available commands:"),
 		"  /help                    Show this help message",
 		"  /settings                Open the tool/skill selector and save selections",
@@ -1073,7 +1075,8 @@ func (r *REPL) cmdHelp() error {
 		"  /compact                 Compact conversation history (keep recent turns)",
 		"  /history                 Show recent conversation turns",
 		"  /thinking [off|low|medium|high|auto]  Show or set extended reasoning/thinking mode",
-		"  /session list|save|load|delete|checkpoint|goto  Manage saved sessions and checkpoints",
+		"  /session list|save|load|delete|import|checkpoint|goto  Manage saved sessions",
+		"  /editor                  Open $EDITOR to compose a long prompt",
 		"  /copy                    Copy the last assistant response to the system clipboard",
 		"  /reload                  Reload skills, prompt templates, and instructions from disk",
 		"  ! <cmd>                  Run a shell command; result is added to LLM context",
@@ -1669,14 +1672,14 @@ func (r *REPL) cmdSession(args []string) error {
 			return nil
 		}
 		return r.cmdSessionDelete(store, args[1])
-	case "checkpoint":
-		id := r.loop.Session().Checkpoint()
-		if id == 0 {
-			fmt.Fprintln(os.Stdout, styleReplMeta.Render("No messages in session."))
-		} else {
-			fmt.Fprintln(os.Stdout, styleReplMeta.Render(fmt.Sprintf("Checkpoint: %d", id)))
+	case "import":
+		if len(args) < sessionSubcmdArgMin {
+			fmt.Fprintln(os.Stdout, styleReplMeta.Render("Usage: /session import <path>"))
+			return nil
 		}
-		return nil
+		return r.cmdSessionImport(store, args[1])
+	case "checkpoint":
+		return r.cmdSessionCheckpoint()
 	case "branches":
 		return r.cmdSessionBranches()
 	case "goto":
@@ -1684,30 +1687,42 @@ func (r *REPL) cmdSession(args []string) error {
 			fmt.Fprintln(os.Stdout, styleReplMeta.Render("Usage: /session goto <entry-id>"))
 			return nil
 		}
-		entryID, parseErr := strconv.ParseInt(args[1], 10, 64)
-		if parseErr != nil {
-			fmt.Fprintln(os.Stdout, styleReplMeta.Render(
-				fmt.Sprintf("Invalid entry ID: %s", args[1]),
-			))
-			return nil //nolint:nilerr // REPL shows a friendly message; parse error is not propagated
-		}
-		if !r.loop.Session().RestoreTo(entryID) {
-			fmt.Fprintln(os.Stdout, styleReplMeta.Render(
-				fmt.Sprintf("Entry ID %d not found in current session.", entryID),
-			))
-			return nil
-		}
-		fmt.Fprintln(os.Stdout, styleReplMeta.Render(fmt.Sprintf(
-			"Session restored to entry %d (%d turns).", entryID, r.loop.Session().TurnCount(),
-		)))
-		return nil
+		return r.cmdSessionGoto(args[1])
 	default:
 		fmt.Fprintf(os.Stdout,
-			"Unknown /session subcommand: %s. Use list, save, load, delete, checkpoint, goto, or branches.\n",
+			"Unknown /session subcommand: %s. Use list, save, load, delete, import, checkpoint, goto, or branches.\n",
 			sub,
 		)
 		return nil
 	}
+}
+
+func (r *REPL) cmdSessionCheckpoint() error {
+	id := r.loop.Session().Checkpoint()
+	if id == 0 {
+		fmt.Fprintln(os.Stdout, styleReplMeta.Render("No messages in session."))
+	} else {
+		fmt.Fprintln(os.Stdout, styleReplMeta.Render(fmt.Sprintf("Checkpoint: %d", id)))
+	}
+	return nil
+}
+
+func (r *REPL) cmdSessionGoto(rawID string) error {
+	entryID, parseErr := strconv.ParseInt(rawID, 10, 64)
+	if parseErr != nil {
+		fmt.Fprintln(os.Stdout, styleReplMeta.Render(fmt.Sprintf("Invalid entry ID: %s", rawID)))
+		return nil //nolint:nilerr // REPL shows a friendly message; parse error is not propagated
+	}
+	if !r.loop.Session().RestoreTo(entryID) {
+		fmt.Fprintln(os.Stdout, styleReplMeta.Render(
+			fmt.Sprintf("Entry ID %d not found in current session.", entryID),
+		))
+		return nil
+	}
+	fmt.Fprintln(os.Stdout, styleReplMeta.Render(fmt.Sprintf(
+		"Session restored to entry %d (%d turns).", entryID, r.loop.Session().TurnCount(),
+	)))
+	return nil
 }
 
 // cmdSessionBranches shows the stashed pruned branch (created by /session goto).
@@ -1798,6 +1813,70 @@ func (r *REPL) cmdSessionDelete(store *SessionStore, id string) error {
 	}
 	fmt.Fprintln(os.Stdout, styleReplMeta.Render(fmt.Sprintf("Session %s deleted.", id)))
 	return nil
+}
+
+// cmdSessionImport copies an external JSONL file into the session store and
+// loads it as the active session. Mirrors pi's importFromJsonl().
+func (r *REPL) cmdSessionImport(store *SessionStore, path string) error {
+	expanded := path
+	if strings.HasPrefix(path, "~/") {
+		home, err := os.UserHomeDir()
+		if err == nil {
+			expanded = filepath.Join(home, path[2:])
+		}
+	}
+	if _, statErr := os.Stat(expanded); statErr != nil {
+		fmt.Fprintln(os.Stdout, styleReplMeta.Render(fmt.Sprintf("File not found: %s", expanded)))
+		return nil //nolint:nilerr // user-facing message; stat error is not propagated
+	}
+	id, err := store.Import(expanded)
+	if err != nil {
+		return fmt.Errorf("session import: %w", err)
+	}
+	return r.cmdSessionLoad(store, id)
+}
+
+// cmdEditor opens $EDITOR (fallback: $VISUAL, then vi) with a temp file so the
+// user can compose a multi-line prompt. On save+quit the file content is
+// submitted as a message to the LLM. Mirrors pi's app.editor.external binding.
+func (r *REPL) cmdEditor() error {
+	editor := os.Getenv("VISUAL")
+	if editor == "" {
+		editor = os.Getenv("EDITOR")
+	}
+	if editor == "" {
+		editor = "vi"
+	}
+
+	tmp, err := os.CreateTemp("", "kdeps-prompt-*.md")
+	if err != nil {
+		return fmt.Errorf("editor: create temp file: %w", err)
+	}
+	tmpPath := tmp.Name()
+	if closeErr := tmp.Close(); closeErr != nil {
+		return fmt.Errorf("editor: close temp file: %w", closeErr)
+	}
+	defer func() { _ = os.Remove(tmpPath) }()
+
+	cmd := exec.CommandContext(r.ctx, editor, tmpPath)
+	cmd.Stdin = os.Stdin
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	if runErr := cmd.Run(); runErr != nil {
+		return fmt.Errorf("editor: %s exited with error: %w", editor, runErr)
+	}
+
+	data, readErr := os.ReadFile(tmpPath)
+	if readErr != nil {
+		return fmt.Errorf("editor: read temp file: %w", readErr)
+	}
+	input := strings.TrimRight(string(data), "\n")
+	if input == "" {
+		fmt.Fprintln(os.Stdout, styleReplMeta.Render("(editor closed with empty content - nothing sent)"))
+		return nil
+	}
+	fmt.Fprintln(os.Stdout, styleReplDim.Render("Submitting editor content..."))
+	return r.processInput(input)
 }
 
 // cmdInvokeSkill runs a skill by injecting its content as the prompt, with any

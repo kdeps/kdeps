@@ -259,6 +259,29 @@ func (s *SessionStore) Delete(id string) error {
 	return nil
 }
 
+// Import copies a JSONL session file from an arbitrary path into the store
+// directory and returns the new session ID. Mirrors pi's importFromJsonl().
+func (s *SessionStore) Import(srcPath string) (string, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	if err := os.MkdirAll(s.basePath, 0750); err != nil {
+		return "", fmt.Errorf("session store: failed to create dir: %w", err)
+	}
+
+	id := fmt.Sprintf("session-%d", time.Now().UnixNano())
+	dstPath := filepath.Join(s.basePath, id+".jsonl")
+
+	data, err := os.ReadFile(srcPath)
+	if err != nil {
+		return "", fmt.Errorf("session store: import read %s: %w", srcPath, err)
+	}
+	if writeErr := os.WriteFile(dstPath, data, 0600); writeErr != nil {
+		return "", fmt.Errorf("session store: import write: %w", writeErr)
+	}
+	return id, nil
+}
+
 func writeJSONLine(f *os.File, v interface{}) error {
 	data, err := json.Marshal(v)
 	if err != nil {
