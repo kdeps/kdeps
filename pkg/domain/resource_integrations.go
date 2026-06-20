@@ -41,6 +41,11 @@ type EmbeddingConfig struct {
 	Backend string   `yaml:"backend,omitempty"` // openai | ollama | google
 	BaseURL string   `yaml:"baseURL,omitempty"` // custom base URL for openai-compat backends
 	Inputs  []string `yaml:"inputs,omitempty"`  // texts to embed (vectorize operation)
+
+	// Reranking fields (operation: rerank, backend: cohere only).
+	RerankQuery     string   `yaml:"rerankQuery,omitempty"`     // query string to rank documents against
+	RerankDocuments []string `yaml:"rerankDocuments,omitempty"` // candidate documents to rerank
+	RerankTopN      int      `yaml:"rerankTopN,omitempty"`      // number of top results to return (0 = all)
 }
 
 // LoaderConfig represents a document loader configuration.

@@ -99,7 +99,7 @@ func (e *Executor) Execute(
 
 	ctx := context.Background()
 
-	// Vector embedding operations use the LLM API, not SQLite.
+	// Vector embedding and reranking operations use the LLM API, not SQLite.
 	switch strings.ToLower(config.Operation) {
 	case "vectorize":
 		result, err := vectorizeInputs(ctx, config)
@@ -109,6 +109,12 @@ func (e *Executor) Execute(
 		return buildEmbeddingResult(result), nil
 	case "embed_query":
 		result, err := embedQuery(ctx, config)
+		if err != nil {
+			return nil, err
+		}
+		return buildEmbeddingResult(result), nil
+	case "rerank":
+		result, err := cohereRerank(config)
 		if err != nil {
 			return nil, err
 		}
@@ -139,7 +145,7 @@ func (e *Executor) Execute(
 		return e.delete(db, resolved.collection, config.Text)
 	default:
 		return nil, fmt.Errorf(
-			"embedding: unknown operation %q (use index, search, upsert, delete, vectorize, embed_query)",
+			"embedding: unknown operation %q (use index, search, upsert, delete, vectorize, embed_query, rerank)",
 			config.Operation,
 		)
 	}

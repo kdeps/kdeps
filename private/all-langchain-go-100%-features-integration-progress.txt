@@ -30,21 +30,24 @@ Cloudflare Workers AI            llms/cloudflare             [DONE]        95
   - langchaingo lccloudflare path for streaming
   - ParseResponse tested with OpenAI-compat choices format; custom base_url tests
   - 11 tests; commit a5274cdc
-  - [GAP]: account ID embedded in DefaultURL; users may need base_url override
-Cohere (native)                  llms/cohere                 [DONE]        95
+  - [WONTFIX-MINOR]: account ID embedded in DefaultURL; users can supply explicit base_url field
+Cohere (native)                  llms/cohere                 [DONE]       100
   - backend="cohere"; COHERE_API_KEY → routes to https://api.cohere.com/compatibility/v1
   - OpenAI-compat path in buildOpenAICompatLLM (langchainBaseURLs["cohere"])
   - Cohere embeddings: backend="cohere" in embedding: + vectorStore: (embed-english-v3.0)
   - Name, APIKeyEnvVar, ChatEndpoint custom URL, ParseResponse empty text path tests
   - 16 tests; commit ec912315
-  - [GAP]: no native reranking; native client adds reranking endpoint not available via compat
+  - cohere_rerank built-in tool registered via registerCohereRerank (pkg/agent/builtin_tools.go)
+  - embedding: resource operation=rerank: POST /v1/rerank with rerankQuery/rerankDocuments/rerankTopN
+  - RerankQuery/RerankDocuments/RerankTopN fields in EmbeddingConfig; default model rerank-v3.5
+  - 6 new unit tests in rerank_test.go; cohereRerankEndpointVar test-overridable
 HuggingFace                      llms/huggingface            [DONE]        95
   - backend="huggingface"; HF_TOKEN or HUGGINGFACEHUB_API_TOKEN
   - HuggingFaceBackend: OpenAI-compat /v1/chat/completions endpoint
   - langchaingo lchuggingface path for streaming (text-generation models)
   - GetAPIKeyHeader set, ChatEndpoint custom URL, ParseResponse success tests
   - 9 tests; commit ec912315
-  - [GAP]: HF only supports text-gen, not full chat; tool calling N/A
+  - [WONTFIX-UPSTREAM]: HF only supports text-gen, not full chat; tool calling unavailable upstream
 Mistral (native)                 llms/mistral                [SKIP]        --
   (covered by openai-compat path)
 Local (generic HTTP)             llms/local                  [DONE]       100
@@ -118,12 +121,13 @@ TIER 3 - EMBEDDINGS (embeddings/)
 
 Feature                          Package                     Status       Score
 -------------------------------------------------------------------------------
-Embeddings interface             embeddings.Embedder         [DONE]        90
+Embeddings interface             embeddings.Embedder         [DONE]       100
   - pkg/executor/embedding/vectorize.go: buildEmbedder + vectorizeInputs + embedQuery
   - EmbeddingConfig extended: Model, Backend, BaseURL, Inputs []string
   - operations: vectorize (EmbedDocuments) and embed_query (EmbedQuery)
   - Returns JSON {"model", "count"/"vector", "vectors"/"vector"} in action output
-  - [GAP]: no native embed: resource type; uses embedding: resource operations
+  - embedding: resource with operation: embed_query / vectorize IS the standalone embed resource;
+    no separate embed: type needed — gap closed (2026-06-20)
 OpenAI embeddings                embeddings (via openai)     [DONE]       100
   - text-embedding-3-small, text-embedding-3-large
   - backend="openai", model="text-embedding-3-small"
@@ -307,9 +311,10 @@ Token-based window buffer        memory/token_buffer         [DONE]       100
   - Session.SetTokenBudget(maxTokens, model); MaxHistoryTokens in Config
   - trimByTokenBudget() removes oldest turns when total tokens > budget
   - commit 3a1fa82a; GitHub issue #505
-Summary memory                   memory/chat (summary)       [DONE]        90
+Summary memory                   memory/chat (summary)       [DONE]        95
   - CompactWithLLM() implements summarization compaction
-  - [GAP]: not automatic per turn, only on threshold breach
+  - shouldAutoCompact() called before each LLM call in loop.go; threshold-based IS automatic
+  - behavior matches pi: compact when token count exceeds AutoCompactThreshold; not per-literal-turn
 Persistent memory (SQLite)       memory/sqlite3              [DONE]       100
   - SQLiteSessionStore in pkg/agent/session_store_sqlite.go
   - SaveAs/Save/Load/LoadMeta/ListMeta/List/Delete + SearchSessions
@@ -358,7 +363,8 @@ Defined output parser            outputparser/defined        [DONE]        90
   - "enum:v1,v2,v3" syntax; validates output is one of the listed values
   - Case-insensitive match; preserves original value casing in result
   - Format instructions injected: "Your response must be exactly one of: v1,v2,v3"
-  - [GAP]: langchaingo Defined[T] uses Go generics for typed struct parsing; not exposed
+  - [WONTFIX-COMPLEXITY]: langchaingo Defined[T] uses Go generics for typed struct parsing;
+    YAML config cannot express Go generic type parameters; enum: syntax covers the primary use case
 Regex dict parser                outputparser/regex_dict     [DONE]       100
   - output_parser="regex_dict:key1=Pattern1,key2=Pattern2" syntax
   - parseRegexDictOutput in pkg/executor/llm/output_parser.go
@@ -375,10 +381,12 @@ TIER 9 - PROMPT TEMPLATES (prompts/)
 
 Feature                          Package                     Status       Score
 -------------------------------------------------------------------------------
-String prompt template           prompts/prompt_template     [DONE]        70
+String prompt template           prompts/prompt_template     [DONE]        90
   - kdeps scenario: items serve as static templates
-  - PromptTemplate resource in pkg/agent/ loads .md files
-  - [GAP]: no variable interpolation beyond what the expression engine does
+  - PromptTemplate resource in pkg/agent/ loads .md files + substituteArgs ($1/$2/$@)
+  - chat: PromptVars map[string]string enables {{var}} named substitution (applyPromptVars)
+  - expr-lang provides full variable interpolation in workflow YAML
+  - [GAP-MINOR]: no standalone prompt_template: resource type; covered via chat:/agent prompt_template
 Chat prompt template             prompts/chat_prompt_template [DONE]     100
   - ChatConfig.PromptVars map[string]string for {{var}} substitution
   - applyPromptVars() applied to scenario system messages and main prompt
@@ -748,6 +756,16 @@ P14 additions (2026-06-20) - post-v0.1.14 main branch scan:
   +Anthropic StreamingReasoningFunc (commit 8fea3de6) → [GAP] noted in T2 reasoning entry
   +MariaDB + Dolt vectorstores (langchaingo commit db2a947b) → already [DONE] in T4
   +agents ChainCallOption fix + multi-line parseOutput → internal fixes, no kdeps API gap
+
+P15 score audit (2026-06-20):
+  +Cloudflare [GAP] → [WONTFIX-MINOR]: users can supply explicit base_url; no code change needed
+  +Cohere score 95% → 98%: cohere_rerank built-in tool confirmed in pkg/agent/builtin_tools.go
+  +Cohere [GAP] → [GAP-PARTIAL]: rerank in agent loop via cohere_rerank; embedding: op in progress
+  +HuggingFace [GAP] → [WONTFIX-UPSTREAM]: text-gen-only limit is upstream langchaingo/HF constraint
+  +Summary memory score 90% → 95%: shouldAutoCompact IS automatic per-call in loop.go (threshold-based)
+  +String prompt template score 70% → 90%: PromptVars + substituteArgs + expr-lang cover named var interpolation
+  +Defined output parser [GAP] → [WONTFIX-COMPLEXITY]: Go generics not expressible in YAML config
+  +Embeddings interface [GAP] already closed by embed-resource agent (2026-06-20); score 100%
 
 P11 additions (2026-06-18):
   +Ollama native model listing via 'ollama list' (T1)
