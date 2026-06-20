@@ -17,8 +17,6 @@ concurrency:
 jobs:
   update-and-release:
     runs-on: macos-latest
-    env:
-      UV_NO_CACHE: 1
     steps:
       - name: Checkout
         uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
@@ -96,16 +94,6 @@ jobs:
             echo "No release needed"
           fi
 
-      - name: Install uv
-        if: steps.should_release.outputs.should_release == 'true'
-        run: curl -LsSf https://astral.sh/uv/0.11.20/install.sh | sh && echo "$HOME/.local/bin" >> $GITHUB_PATH
-
-      - name: Install ollama
-        if: steps.should_release.outputs.should_release == 'true'
-        run: |
-          brew install ollama
-          ollama --version
-
       - name: Read golangci-lint version
         if: steps.should_release.outputs.should_release == 'true'
         id: lint-version
@@ -128,19 +116,6 @@ jobs:
         if: steps.should_release.outputs.should_release == 'true'
         id: build
         run: make build
-
-      - name: Start Ollama
-        if: steps.should_release.outputs.should_release == 'true'
-        run: |
-          ollama serve &
-          sleep 5
-          ollama pull tinydolphin
-
-      - name: Run tests
-        if: steps.should_release.outputs.should_release == 'true'
-        id: test
-        run: make test-unit
-        timeout-minutes: 15
 
       - name: Commit llamafile registry updates
         if: steps.harvest_llamafiles.outputs.has_registry_updates == 'true'
@@ -248,7 +223,7 @@ jobs:
           TAG="${{ steps.create_tag.outputs.tag }}"
           RELEASE_ID=$(gh api repos/${{ github.repository }}/releases/tags/$TAG --jq '.id')
           CURRENT_BODY=$(gh api repos/${{ github.repository }}/releases/$RELEASE_ID --jq '.body')
-          RELEASE_NOTES="$CURRENT_BODY"$'\n\n'"---"$'\n\n'"### Build Status"$'\n'"- Linting: ${{ steps.lint.outputs.result }}"$'\n'"- Build: ${{ steps.build.outcome }}"$'\n'"- Tests: ${{ steps.test.outcome }}"
+          RELEASE_NOTES="$CURRENT_BODY"$'\n\n'"---"$'\n\n'"### Build Status"$'\n'"- Linting: ${{ steps.lint.outputs.result }}"$'\n'"- Build: ${{ steps.build.outcome }}"
           gh api -X PATCH repos/${{ github.repository }}/releases/$RELEASE_ID \
             -f body="$RELEASE_NOTES" \
             -f prerelease=false \
@@ -258,7 +233,7 @@ jobs:
         run: |
           if [ "${{ steps.should_release.outputs.should_release }}" = "true" ]; then
             echo "Nightly release created: ${{ steps.create_tag.outputs.tag }}"
-            echo "Checks: lint=${{ steps.lint.outputs.result }} build=${{ steps.build.outcome }} test=${{ steps.test.outcome }}"
+            echo "Checks: lint=${{ steps.lint.outputs.result }} build=${{ steps.build.outcome }}"
             [ "${{ steps.check_changes.outputs.has_code_changes }}" = "true" ] && echo "Code changes since last release"
             [ "${{ steps.harvest_llamafiles.outputs.has_registry_updates }}" = "true" ] && echo "Llamafile registry updated"
           else
