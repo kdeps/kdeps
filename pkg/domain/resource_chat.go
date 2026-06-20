@@ -23,11 +23,13 @@ package domain
 type ThinkingMode string
 
 const (
-	ThinkingModeNone   ThinkingMode = "none"
-	ThinkingModeLow    ThinkingMode = "low"    // ~20% of max tokens
-	ThinkingModeMedium ThinkingMode = "medium" // ~50% of max tokens
-	ThinkingModeHigh   ThinkingMode = "high"   // ~80% of max tokens
-	ThinkingModeAuto   ThinkingMode = "auto"   // provider decides
+	ThinkingModeNone    ThinkingMode = "none"
+	ThinkingModeMinimal ThinkingMode = "minimal" // pi-compatible alias for light reasoning
+	ThinkingModeLow     ThinkingMode = "low"     // ~20% of max tokens
+	ThinkingModeMedium  ThinkingMode = "medium"  // ~50% of max tokens
+	ThinkingModeHigh    ThinkingMode = "high"    // ~80% of max tokens
+	ThinkingModeXHigh   ThinkingMode = "xhigh"   // maximum reasoning (selected models only)
+	ThinkingModeAuto    ThinkingMode = "auto"    // provider decides
 )
 
 // ThinkingConfig controls extended reasoning/thinking for models that support it.

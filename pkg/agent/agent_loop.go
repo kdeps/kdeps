@@ -284,6 +284,32 @@ func runToolBatch(
 	return batch.messages, !batch.terminate, nil
 }
 
+// applyPrepareNextTurn invokes cfg.PrepareNextTurn and applies the resulting update.
+func applyPrepareNextTurn(
+	ctx context.Context,
+	currentCtx *AgentContext,
+	cfg AgentLoopConfig,
+	stopCtx ShouldStopAfterTurnContext,
+) error {
+	if cfg.PrepareNextTurn == nil {
+		return nil
+	}
+	update, err := cfg.PrepareNextTurn(ctx, stopCtx)
+	if err != nil {
+		return err
+	}
+	if update == nil {
+		return nil
+	}
+	if update.Context != nil {
+		*currentCtx = *update.Context
+	}
+	if cfg.ApplyTurnUpdate != nil {
+		cfg.ApplyTurnUpdate(update)
+	}
+	return nil
+}
+
 // applyTurnHooks runs PrepareNextTurn and ShouldStopAfterTurn. Returns (stopped, error).
 func applyTurnHooks(
 	ctx context.Context,
@@ -293,14 +319,8 @@ func applyTurnHooks(
 	stopCtx ShouldStopAfterTurnContext,
 	msgs []AgentMessage,
 ) (bool, error) {
-	if cfg.PrepareNextTurn != nil {
-		update, err := cfg.PrepareNextTurn(ctx, stopCtx)
-		if err != nil {
-			return false, err
-		}
-		if update != nil && update.Context != nil {
-			*currentCtx = *update.Context
-		}
+	if err := applyPrepareNextTurn(ctx, currentCtx, cfg, stopCtx); err != nil {
+		return false, err
 	}
 
 	if cfg.ShouldStopAfterTurn != nil && cfg.ShouldStopAfterTurn(stopCtx) {

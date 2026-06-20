@@ -571,12 +571,14 @@ func (l *Loop) buildSystemPreamble() string {
 	}
 	if l.registry != nil && len(l.registry.List()) > 0 {
 		parts = append(parts, toolUseGuidance)
-		// Tell the model its working directory so it knows where to start.
+		// Inject current date and working directory so the model has accurate temporal context.
+		now := time.Now()
+		dateStr := fmt.Sprintf("Current date: %d-%02d-%02d", now.Year(), int(now.Month()), now.Day())
 		if wd, err := os.Getwd(); err == nil && wd != "" {
-			parts = append(parts, fmt.Sprintf(
-				"Working directory: %s\nStart by listing this directory before reading or editing files.",
-				wd,
-			))
+			parts = append(parts, dateStr+"\nWorking directory: "+wd+
+				"\nStart by listing this directory before reading or editing files.")
+		} else {
+			parts = append(parts, dateStr)
 		}
 	}
 	if l.config.SystemPrompt != "" {
