@@ -89,7 +89,7 @@ Keep each section concise. Preserve exact file paths, function names, and error 
 
 // estimateTokens returns the token count for a session message using tiktoken
 // BPE encoding. Falls back silently to chars/4 on unknown models.
-func estimateTokens(m sessionMessage, modelHint string) int {
+func estimateTokens(m SessionMessage, modelHint string) int {
 	return countTokensSilent(modelHint, m.Content)
 }
 
@@ -115,11 +115,11 @@ func countTokensSilent(model, text string) int {
 // Messages before this index will be summarized. Returns 0 when there is
 // nothing worth compacting (too few turns, or all turns fit within budget).
 //
-// Cuts always land on complete turn boundaries (even indices) so the LLM never
-// receives an assistant message without its preceding user prompt. Pi's split-turn
-// compaction cuts at individual message boundaries, but that requires special
-// LLM prompting to handle orphaned assistant messages; kdeps keeps turns intact.
-func findCutIndex(messages []sessionMessage, keepRecentTokens int, modelHint string) int {
+// Walks backwards message-by-message (pi-style split-turn granularity) but only
+// advances the cut point when landing on a "user" role message, so the kept
+// slice always begins with a user turn. This prevents orphaned assistant messages
+// at the start of context while still counting individual message tokens precisely.
+func findCutIndex(messages []SessionMessage, keepRecentTokens int, modelHint string) int {
 	n := len(messages)
 	// Need at least compactMinTurns*2 messages (compactMinTurns user+assistant pairs).
 	if n < sessionMsgsPer*compactMinTurns {
@@ -129,16 +129,17 @@ func findCutIndex(messages []sessionMessage, keepRecentTokens int, modelHint str
 	var kept int
 	cutIdx := n // default: keep everything (summarize nothing)
 
-	// Walk backwards in turn pairs, keeping recent turns within the token budget.
-	for i := n; i >= sessionMsgsPer; i -= sessionMsgsPer {
-		u := messages[i-sessionMsgsPer]
-		a := messages[i-sessionMsgsPer+1]
-		turnTokens := estimateTokens(u, modelHint) + estimateTokens(a, modelHint)
-		if kept+turnTokens > keepRecentTokens {
+	// Walk backwards one message at a time. Only snap the cut point when we land
+	// on a user message, ensuring context always starts with a user turn.
+	for i := n - 1; i >= 0; i-- {
+		msgTokens := estimateTokens(messages[i], modelHint)
+		if kept+msgTokens > keepRecentTokens {
 			break
 		}
-		kept += turnTokens
-		cutIdx = i - sessionMsgsPer
+		kept += msgTokens
+		if messages[i].Role == "user" {
+			cutIdx = i
+		}
 	}
 
 	if cutIdx == 0 {
@@ -153,7 +154,7 @@ func findCutIndex(messages []sessionMessage, keepRecentTokens int, modelHint str
 }
 
 // estimateSessionTokens returns the total estimated token count for all messages.
-func estimateSessionTokens(messages []sessionMessage, modelHint string) int {
+func estimateSessionTokens(messages []SessionMessage, modelHint string) int {
 	var total int
 	for _, m := range messages {
 		total += estimateTokens(m, modelHint)
@@ -163,7 +164,7 @@ func estimateSessionTokens(messages []sessionMessage, modelHint string) int {
 
 // shouldAutoCompact returns true when the session's estimated token count
 // exceeds the given threshold (and there are enough turns to compact).
-func shouldAutoCompact(messages []sessionMessage, threshold int, modelHint string) bool {
+func shouldAutoCompact(messages []SessionMessage, threshold int, modelHint string) bool {
 	if threshold <= 0 {
 		return false
 	}
@@ -176,7 +177,7 @@ func shouldAutoCompact(messages []sessionMessage, threshold int, modelHint strin
 // serializeConversation formats session messages as plain text for the
 // summarization prompt. Each turn is labeled "USER:" / "ASSISTANT:".
 // If fileOps is provided, per-turn file operations are included in the output.
-func serializeConversation(messages []sessionMessage, fileOps []fileOpEntry) string {
+func serializeConversation(messages []SessionMessage, fileOps []FileOpEntry) string {
 	var sb strings.Builder
 	for i := 0; i+1 < len(messages); i += sessionMsgsPer {
 		u := messages[i]

@@ -746,9 +746,10 @@ func TestCompactWithLLM_LLMFailFallsBackToTruncation(t *testing.T) {
 	for range compactMinTurns + 1 {
 		loop.Session().Append(strings.Repeat("q", 200), strings.Repeat("a", 200))
 	}
-	loop.session.mu.Lock()
-	loop.session.maxTurns = 1
-	loop.session.mu.Unlock()
+	sess := loop.session.(*Session)
+	sess.mu.Lock()
+	sess.maxTurns = 1
+	sess.mu.Unlock()
 
 	summary, err := loop.CompactWithLLM(context.Background())
 	// Should fall back to truncation, returning non-empty summary, no error.

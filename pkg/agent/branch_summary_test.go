@@ -25,7 +25,7 @@ import (
 
 func TestTruncateBranchMessages_NoTruncationNeeded(t *testing.T) {
 	msgs := makeTurns(2)
-	fileOps := make([]fileOpEntry, 2)
+	fileOps := make([]FileOpEntry, 2)
 	got, gotOps := truncateBranchMessages(msgs, fileOps, "", 100000)
 	if len(got) != len(msgs) {
 		t.Errorf("expected %d messages, got %d", len(msgs), len(got))
@@ -49,15 +49,15 @@ func TestTruncateBranchMessages_Empty(t *testing.T) {
 func TestTruncateBranchMessages_TruncatesOldest(t *testing.T) {
 	// 6 turns = 12 messages. Each message is "user N" / "assistant N" (~8-12 tokens).
 	// Set a budget that fits only the last 2 turns.
-	msgs := make([]sessionMessage, 0, 12)
+	msgs := make([]SessionMessage, 0, 12)
 	for i := range 6 {
 		msgs = append(msgs,
-			sessionMessage{Role: "user", Content: strings.Repeat("word ", 100)},
-			sessionMessage{Role: "assistant", Content: strings.Repeat("reply ", 100)},
+			SessionMessage{Role: "user", Content: strings.Repeat("word ", 100)},
+			SessionMessage{Role: "assistant", Content: strings.Repeat("reply ", 100)},
 		)
 		_ = i
 	}
-	fileOps := make([]fileOpEntry, 6)
+	fileOps := make([]FileOpEntry, 6)
 
 	// Budget is very small - forces truncation of all but last 2 turns.
 	got, gotOps := truncateBranchMessages(msgs, fileOps, "", 400)
@@ -80,7 +80,7 @@ func TestTruncateBranchMessages_TruncatesOldest(t *testing.T) {
 func TestTruncateBranchMessages_KeepsLastTurn(t *testing.T) {
 	// Even with budget=0, we should not drop below 2 messages (1 turn).
 	msgs := makeTurns(4)
-	fileOps := make([]fileOpEntry, 4)
+	fileOps := make([]FileOpEntry, 4)
 	got, _ := truncateBranchMessages(msgs, fileOps, "", 0)
 	// Loop condition requires len(msgs) >= sessionMsgsPer*2 to drop, so the last turn is kept.
 	if len(got) < sessionMsgsPer {

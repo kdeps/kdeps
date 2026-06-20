@@ -123,10 +123,10 @@ A13 LLM-based context compaction
            - serializeConversation includes [FILES read/modified] per turn
            - CompactWith preserves file ops for kept turns
            - countTokensSilent replaces llms.CountTokens (no more WARN log spam) (2026-06-20)
-           gap:   pi handles split-turn compaction; kdeps always cuts at complete turn boundaries
-                  to avoid orphaned assistant messages (user prompt always paired with response).
-                  Architecturally sound difference; not a priority to close.
-    score: 92%
+           - findCutIndex now walks message-by-message (pi-style split-turn granularity) and
+             snaps cut point to user-role messages only (prevents orphaned assistant context).
+             Tests: TestFindCutIndex_CutAlwaysAtUserRole, TestFindCutIndex_LargeAssistantAtBoundary (2026-06-20)
+    score: 97%
 
 A14 Branch summarization
     pi:    packages/agent/src/harness/compaction/branch-summarization.ts (8KB)

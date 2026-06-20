@@ -106,7 +106,7 @@ func TestPostgresSessionStore_SaveAsAndLoad(t *testing.T) {
 	defer store.Close() //nolint:errcheck
 
 	session := NewSession(0)
-	session.messages = []sessionMessage{
+	session.messages = []SessionMessage{
 		{Role: "user", Content: "hello"},
 		{Role: "assistant", Content: "hi there"},
 	}
@@ -198,7 +198,7 @@ func TestPostgresSessionStore_SearchSessions(t *testing.T) {
 	defer store.Close() //nolint:errcheck
 
 	session := NewSession(0)
-	session.messages = []sessionMessage{
+	session.messages = []SessionMessage{
 		{Role: "user", Content: "looking for specific content"},
 	}
 	id, err := store.SaveAs(session, "s", "m")

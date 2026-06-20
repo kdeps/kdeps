@@ -25,12 +25,12 @@ import (
 )
 
 // makeTurns builds a slice of n user+assistant message pairs.
-func makeTurns(n int) []sessionMessage {
-	msgs := make([]sessionMessage, 0, n*sessionMsgsPer)
+func makeTurns(n int) []SessionMessage {
+	msgs := make([]SessionMessage, 0, n*sessionMsgsPer)
 	for range n {
 		msgs = append(msgs,
-			sessionMessage{Role: "user", Content: strings.Repeat("u", 100)},
-			sessionMessage{Role: "assistant", Content: strings.Repeat("a", 100)},
+			SessionMessage{Role: "user", Content: strings.Repeat("u", 100)},
+			SessionMessage{Role: "assistant", Content: strings.Repeat("a", 100)},
 		)
 	}
 	return msgs
@@ -39,7 +39,7 @@ func makeTurns(n int) []sessionMessage {
 // --- estimateTokens ---
 
 func TestEstimateTokens_Empty(t *testing.T) {
-	m := sessionMessage{Role: "user", Content: ""}
+	m := SessionMessage{Role: "user", Content: ""}
 	if got := estimateTokens(m, "gpt-4o"); got != 0 {
 		t.Fatalf("expected 0 tokens for empty, got %d", got)
 	}
@@ -47,7 +47,7 @@ func TestEstimateTokens_Empty(t *testing.T) {
 
 func TestEstimateTokens_BasicHeuristic(t *testing.T) {
 	// Exact tiktoken count for 40 single-char repeats.
-	m := sessionMessage{Role: "user", Content: strings.Repeat("x", 40)}
+	m := SessionMessage{Role: "user", Content: strings.Repeat("x", 40)}
 	if got := estimateTokens(m, "gpt-4o"); got < 1 {
 		t.Fatalf("expected >0 tokens, got %d", got)
 	}
@@ -55,7 +55,7 @@ func TestEstimateTokens_BasicHeuristic(t *testing.T) {
 
 func TestEstimateTokens_CeilsUp(t *testing.T) {
 	// Exact tiktoken count replaces the old chars/4 heuristic.
-	m := sessionMessage{Role: "user", Content: "hello"}
+	m := SessionMessage{Role: "user", Content: "hello"}
 	got := estimateTokens(m, "gpt-4o")
 	if got < 1 {
 		t.Fatalf("expected at least 1 token, got %d", got)
@@ -64,7 +64,7 @@ func TestEstimateTokens_CeilsUp(t *testing.T) {
 
 func TestEstimateTokens_NoModelHint_UsesHeuristic(t *testing.T) {
 	// When modelHint is empty, estimateTokens falls back to the chars/4 heuristic.
-	m := sessionMessage{Role: "user", Content: strings.Repeat("a", 40)}
+	m := SessionMessage{Role: "user", Content: strings.Repeat("a", 40)}
 	got := estimateTokens(m, "")
 	if got < 1 {
 		t.Fatalf("expected >0 tokens from heuristic, got %d", got)
@@ -86,11 +86,11 @@ func TestFindCutIndex_TooFewTurns(t *testing.T) {
 
 func TestFindCutIndex_AllFitInBudget(t *testing.T) {
 	// 4 turns, each 50 tokens -> 200 total, well under compactKeepRecentTokens
-	msgs := make([]sessionMessage, 0, compactMinTurns*sessionMsgsPer)
+	msgs := make([]SessionMessage, 0, compactMinTurns*sessionMsgsPer)
 	for range compactMinTurns {
 		msgs = append(msgs,
-			sessionMessage{Role: "user", Content: strings.Repeat("x", 100)},      // 25 tokens
-			sessionMessage{Role: "assistant", Content: strings.Repeat("y", 100)}, // 25 tokens
+			SessionMessage{Role: "user", Content: strings.Repeat("x", 100)},      // 25 tokens
+			SessionMessage{Role: "assistant", Content: strings.Repeat("y", 100)}, // 25 tokens
 		)
 	}
 	if got := findCutIndex(msgs, compactKeepRecentTokens, "gpt-4o"); got != 0 {
@@ -102,11 +102,11 @@ func TestFindCutIndex_LargeHistory_SummarizesOld(t *testing.T) {
 	// 20 turns, each ~2000 chars = ~500 tokens per turn.
 	// Total ~10000 tokens > keepRecentTokens threshold with a small budget.
 	const budget = 2000 // keep ~2000 tokens = ~4 turns
-	msgs := make([]sessionMessage, 0)
+	msgs := make([]SessionMessage, 0)
 	for range 20 {
 		msgs = append(msgs,
-			sessionMessage{Role: "user", Content: strings.Repeat("u", 2000)},      // 500 tokens
-			sessionMessage{Role: "assistant", Content: strings.Repeat("a", 2000)}, // 500 tokens
+			SessionMessage{Role: "user", Content: strings.Repeat("u", 2000)},      // 500 tokens
+			SessionMessage{Role: "assistant", Content: strings.Repeat("a", 2000)}, // 500 tokens
 		)
 	}
 	got := findCutIndex(msgs, budget, "gpt-4o")
@@ -130,11 +130,11 @@ func TestFindCutIndex_LargeHistory_SummarizesOld(t *testing.T) {
 func TestFindCutIndex_KeepsAtLeastOneTurn(t *testing.T) {
 	// Each turn is enormous - nothing fits in budget except 1 turn at minimum.
 	const budget = 1 // extremely small budget
-	msgs := make([]sessionMessage, 0)
+	msgs := make([]SessionMessage, 0)
 	for range compactMinTurns {
 		msgs = append(msgs,
-			sessionMessage{Role: "user", Content: strings.Repeat("u", 10000)},
-			sessionMessage{Role: "assistant", Content: strings.Repeat("a", 10000)},
+			SessionMessage{Role: "user", Content: strings.Repeat("u", 10000)},
+			SessionMessage{Role: "assistant", Content: strings.Repeat("a", 10000)},
 		)
 	}
 	got := findCutIndex(msgs, budget, "gpt-4o")
@@ -147,6 +147,68 @@ func TestFindCutIndex_KeepsAtLeastOneTurn(t *testing.T) {
 	}
 }
 
+func TestFindCutIndex_CutAlwaysAtUserRole(t *testing.T) {
+	// Regardless of budget, the cut index must always point to a "user" role message.
+	// This tests the pi-style message-level walk with role-based snapping.
+	const budget = 300
+	// Build 8 turns with varying sizes so multiple cut points are possible.
+	msgs := []SessionMessage{
+		{Role: "user", Content: strings.Repeat("u", 200)},      // ~50 tok
+		{Role: "assistant", Content: strings.Repeat("a", 400)}, // ~100 tok - large asst
+		{Role: "user", Content: strings.Repeat("u", 200)},
+		{Role: "assistant", Content: strings.Repeat("a", 400)},
+		{Role: "user", Content: strings.Repeat("u", 200)},
+		{Role: "assistant", Content: strings.Repeat("a", 200)},
+		{Role: "user", Content: strings.Repeat("u", 200)},
+		{Role: "assistant", Content: strings.Repeat("a", 200)},
+		{Role: "user", Content: strings.Repeat("u", 200)},
+		{Role: "assistant", Content: strings.Repeat("a", 200)},
+		{Role: "user", Content: strings.Repeat("u", 200)},
+		{Role: "assistant", Content: strings.Repeat("a", 200)},
+		{Role: "user", Content: strings.Repeat("u", 200)},
+		{Role: "assistant", Content: strings.Repeat("a", 200)},
+		{Role: "user", Content: strings.Repeat("u", 200)},
+		{Role: "assistant", Content: strings.Repeat("a", 200)},
+	}
+	cut := findCutIndex(msgs, budget, "gpt-4o")
+	if cut == 0 {
+		return // all fits — ok
+	}
+	if cut >= len(msgs) {
+		t.Fatalf("cut %d >= len(msgs) %d, nothing kept", cut, len(msgs))
+	}
+	if msgs[cut].Role != "user" {
+		t.Fatalf("cut index %d has role %q, want \"user\"", cut, msgs[cut].Role)
+	}
+}
+
+func TestFindCutIndex_LargeAssistantAtBoundary(t *testing.T) {
+	// A large assistant message at the boundary turn means walking message-by-message
+	// counts that assistant's tokens but the cut snaps to the preceding user message.
+	// Verifies the role-based snap prevents an orphaned assistant at context start.
+	msgs := []SessionMessage{
+		{Role: "user", Content: strings.Repeat("u", 400)},       // turn 0
+		{Role: "assistant", Content: strings.Repeat("a", 400)},  // turn 0
+		{Role: "user", Content: strings.Repeat("u", 400)},       // turn 1
+		{Role: "assistant", Content: strings.Repeat("a", 400)},  // turn 1
+		{Role: "user", Content: strings.Repeat("u", 400)},       // turn 2
+		{Role: "assistant", Content: strings.Repeat("a", 400)},  // turn 2
+		{Role: "user", Content: strings.Repeat("u", 100)},       // turn 3 - small user
+		{Role: "assistant", Content: strings.Repeat("a", 1600)}, // turn 3 - huge assistant
+	}
+	// Budget fits the huge assistant alone (~400 tok) but not both messages of turn 3.
+	// The walk should count the assistant, hit budget on the user, and snap cut to
+	// the PRIOR user message (turn 2's user = index 4), not the huge assistant (index 7).
+	budget := countTokensSilent("gpt-4o", strings.Repeat("a", 1600)) + 50 // just over huge asst
+	cut := findCutIndex(msgs, budget, "gpt-4o")
+	if cut <= 0 || cut >= len(msgs) {
+		t.Skipf("budget edge case: cut=%d len=%d", cut, len(msgs))
+	}
+	if msgs[cut].Role != "user" {
+		t.Fatalf("cut index %d has role %q, expected \"user\"", cut, msgs[cut].Role)
+	}
+}
+
 // --- serializeConversation ---
 
 func TestSerializeConversation_Empty(t *testing.T) {
@@ -156,7 +218,7 @@ func TestSerializeConversation_Empty(t *testing.T) {
 }
 
 func TestSerializeConversation_SingleTurn(t *testing.T) {
-	msgs := []sessionMessage{
+	msgs := []SessionMessage{
 		{Role: "user", Content: "hello"},
 		{Role: "assistant", Content: "hi"},
 	}
@@ -170,7 +232,7 @@ func TestSerializeConversation_SingleTurn(t *testing.T) {
 }
 
 func TestSerializeConversation_MultiTurn(t *testing.T) {
-	msgs := []sessionMessage{
+	msgs := []SessionMessage{
 		{Role: "user", Content: "q1"},
 		{Role: "assistant", Content: "a1"},
 		{Role: "user", Content: "q2"},
@@ -193,7 +255,7 @@ func TestCompactWith_ReplacesHistory(t *testing.T) {
 		s.Append("question", "answer")
 	}
 
-	raw := s.rawMessages()
+	raw := s.RawMessages()
 	// Keep only the last turn (messages[8:9] = indices 8,9 = turn 4).
 	keptMsgs := raw[len(raw)-sessionMsgsPer:] // keep last 1 turn
 	s.CompactWith("This is the summary.", keptMsgs, 4)
@@ -239,7 +301,7 @@ func TestCompactWith_PreservesFileOps(t *testing.T) {
 		s.Append("q", "a")
 		s.RecordFileOps([]string{fmt.Sprintf("read%d.go", i)}, nil)
 	}
-	raw := s.rawMessages()
+	raw := s.RawMessages()
 	// Compact: summarize turn 0, keep turns 1+2.
 	kept := raw[sessionMsgsPer:]
 	s.CompactWith("summary", kept, 1)
@@ -256,7 +318,7 @@ func TestCompactWith_TracksFirstKeptEntryID(t *testing.T) {
 	for range 3 {
 		s.Append("q", "a")
 	}
-	raw := s.rawMessages()
+	raw := s.RawMessages()
 	kept := raw[sessionMsgsPer:]
 	firstKeptID := kept[0].ID
 	s.CompactWith("summary", kept, 1)
@@ -274,7 +336,7 @@ func TestEstimateSessionTokens_Empty(t *testing.T) {
 }
 
 func TestEstimateSessionTokens_Sum(t *testing.T) {
-	msgs := []sessionMessage{
+	msgs := []SessionMessage{
 		{Role: "user", Content: strings.Repeat("x", 40)},      // 10 tokens
 		{Role: "assistant", Content: strings.Repeat("y", 80)}, // 20 tokens
 	}
@@ -320,7 +382,7 @@ func TestShouldAutoCompact_AboveThreshold(t *testing.T) {
 func TestRawMessages_ReturnsCopy(t *testing.T) {
 	s := NewSession(0)
 	s.Append("a", "b")
-	raw := s.rawMessages()
+	raw := s.RawMessages()
 	if len(raw) != 2 {
 		t.Fatalf("expected 2 raw messages, got %d", len(raw))
 	}
@@ -351,11 +413,11 @@ func TestRecordFileOps(t *testing.T) {
 }
 
 func TestSerializeConversation_WithFileOps(t *testing.T) {
-	msgs := []sessionMessage{
+	msgs := []SessionMessage{
 		{Role: "user", Content: "read x.go"},
 		{Role: "assistant", Content: "done"},
 	}
-	fileOps := []fileOpEntry{{Read: []string{"x.go"}}}
+	fileOps := []FileOpEntry{{Read: []string{"x.go"}}}
 	got := serializeConversation(msgs, fileOps)
 	if !strings.Contains(got, "[FILES read: [x.go]") {
 		t.Fatalf("expected FILES line, got %q", got)

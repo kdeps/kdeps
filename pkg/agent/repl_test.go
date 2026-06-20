@@ -925,15 +925,13 @@ func TestCmdCompact_WithHistory(t *testing.T) {
 		config:  Config{Model: "test-model"},
 		session: NewSession(2), // maxTurns=2
 	}
-	// Bypass Append's trimming to create a state where Compact() returns non-empty.
-	sess := loop.session
-	sess.mu.Lock()
-	sess.messages = []sessionMessage{
+	// Use ReplaceMessages (bypasses maxTurns trimming) to seed 3 turns so
+	// Compact() has history to work with.
+	loop.session.ReplaceMessages([]SessionMessage{
 		{Role: "user", Content: "q1"}, {Role: "assistant", Content: "a1"},
 		{Role: "user", Content: "q2"}, {Role: "assistant", Content: "a2"},
 		{Role: "user", Content: "q3"}, {Role: "assistant", Content: "a3"},
-	}
-	sess.mu.Unlock()
+	})
 
 	repl := NewREPL(loop)
 	defer repl.cancel()
