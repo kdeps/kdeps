@@ -103,7 +103,7 @@ jobs:
       - name: Install ollama
         if: steps.should_release.outputs.should_release == 'true'
         run: |
-          curl -fsSL https://ollama.com/install.sh | sh
+          brew install ollama
           ollama --version
 
       - name: Read golangci-lint version
