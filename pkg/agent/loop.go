@@ -119,7 +119,7 @@ type Loop struct {
 	registry      *tools.Registry
 	workflow      *domain.Workflow
 	config        Config
-	session       *Session
+	session       SessionReadWriter
 	skills        string           // pre-formatted skill XML block for the system prompt
 	skillList     []Skill          // raw skill structs for name lookup (/skill-name invocation)
 	prompts       []PromptTemplate // loaded prompt templates
@@ -135,17 +135,15 @@ func New(eng *executor.Engine, workflow *domain.Workflow, reg *tools.Registry, c
 	cfg = applyConfigDefaults(cfg)
 	skillSlice := loadSkillSlice(cfg.SkillPaths)
 
-	session := NewSession(cfg.MaxTurns)
-	if cfg.MaxHistoryTokens > 0 {
-		session.SetTokenBudget(cfg.MaxHistoryTokens, cfg.Model)
-	}
+	var session SessionReadWriter
 	if cfg.ResumeSession != nil {
-		// Accept concrete *Session directly; other SessionReadWriter implementations
-		// (e.g. mocks) are not usable as the internal session because rawMessages()
-		// and fileOps are not on the interface.
-		if s, ok := cfg.ResumeSession.(*Session); ok {
-			session = s
+		session = cfg.ResumeSession
+	} else {
+		s := NewSession(cfg.MaxTurns)
+		if cfg.MaxHistoryTokens > 0 {
+			s.SetTokenBudget(cfg.MaxHistoryTokens, cfg.Model)
 		}
+		session = s
 	}
 
 	return &Loop{
@@ -263,7 +261,7 @@ func (l *Loop) Run(ctx context.Context, input string) (string, error) {
 	const actionID = "agent_loop_chat"
 
 	// Auto-compact before the LLM call when history exceeds the token threshold.
-	if msgs := l.session.rawMessages(); shouldAutoCompact(msgs, l.config.AutoCompactThreshold, l.config.Model) {
+	if msgs := l.session.RawMessages(); shouldAutoCompact(msgs, l.config.AutoCompactThreshold, l.config.Model) {
 		if summary, err := l.CompactWithLLM(ctx); err == nil && summary != "" {
 			if l.onAutoCompact != nil {
 				l.onAutoCompact(summary)
@@ -300,7 +298,7 @@ func (l *Loop) IsStreaming() bool {
 // The caller should write a trailing newline after this returns if needed.
 func (l *Loop) RunStreaming(ctx context.Context, input string, w io.Writer) (string, error) {
 	// Auto-compact before the LLM call when history exceeds the token threshold.
-	if msgs := l.session.rawMessages(); shouldAutoCompact(msgs, l.config.AutoCompactThreshold, l.config.Model) {
+	if msgs := l.session.RawMessages(); shouldAutoCompact(msgs, l.config.AutoCompactThreshold, l.config.Model) {
 		if summary, err := l.CompactWithLLM(ctx); err == nil && summary != "" {
 			if l.onAutoCompact != nil {
 				l.onAutoCompact(summary)
@@ -713,7 +711,7 @@ func (l *Loop) Config() Config { return l.config }
 // them with a structured summary, keeping recent turns intact. It returns the
 // summary text. Falls back to truncation-only Compact() if the LLM call fails.
 func (l *Loop) CompactWithLLM(_ context.Context) (string, error) {
-	msgs := l.session.rawMessages()
+	msgs := l.session.RawMessages()
 	if len(msgs) == 0 {
 		return "", nil
 	}
@@ -728,9 +726,9 @@ func (l *Loop) CompactWithLLM(_ context.Context) (string, error) {
 	toKeep := msgs[cutIdx:]
 	compactedTurns := len(toSummarize) / sessionMsgsPer
 
-	var fileOps []fileOpEntry
-	if cutIdx/sessionMsgsPer <= len(l.session.fileOps) {
-		fileOps = l.session.fileOps[:cutIdx/sessionMsgsPer]
+	var fileOps []FileOpEntry
+	if allOps := l.session.FileOps(); cutIdx/sessionMsgsPer <= len(allOps) {
+		fileOps = allOps[:cutIdx/sessionMsgsPer]
 	}
 	conversationText := serializeConversation(toSummarize, fileOps)
 	prompt := "<conversation>\n" + conversationText + "\n</conversation>\n\n" + compactionUserPrompt
@@ -771,7 +769,7 @@ func (l *Loop) CompactWithLLM(_ context.Context) (string, error) {
 // CompactIfNeeded compacts the session if it exceeds the configured
 // AutoCompactThreshold. No-op if compaction is disabled or not needed.
 func (l *Loop) CompactIfNeeded(ctx context.Context) {
-	msgs := l.session.rawMessages()
+	msgs := l.session.RawMessages()
 	if shouldAutoCompact(msgs, l.config.AutoCompactThreshold, l.config.Model) {
 		if summary, err := l.CompactWithLLM(ctx); err == nil && summary != "" {
 			if l.onAutoCompact != nil {

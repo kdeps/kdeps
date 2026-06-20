@@ -63,7 +63,7 @@ type reactStep struct {
 // the system prompt; the model responds in the structured text format and we
 // parse tool calls from the output manually.
 func (l *Loop) RunReact(ctx context.Context, input string, w io.Writer) (string, error) {
-	if msgs := l.session.rawMessages(); shouldAutoCompact(msgs, l.config.AutoCompactThreshold, l.config.Model) {
+	if msgs := l.session.RawMessages(); shouldAutoCompact(msgs, l.config.AutoCompactThreshold, l.config.Model) {
 		if summary, err := l.CompactWithLLM(ctx); err == nil && summary != "" {
 			if l.onAutoCompact != nil {
 				l.onAutoCompact(summary)

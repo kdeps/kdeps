@@ -78,9 +78,10 @@ A10 Session memory storage
            - Loop.Session() now returns SessionReadWriter (not *Session) — DI via interface (2026-06-20)
            - SessionWriter extended: Checkpoint(), RestoreTo(), RecordFileOps() (2026-06-20)
            - SessionStore.SaveAs/Save now accept SessionReader (not *Session) (2026-06-20)
-    gap:   Loop.session field is still *Session internally for rawMessages/fileOps access;
-           full mock-session DI requires rawMessages to be in the interface or passed differently
-    score: 95%
+           - Loop.session is now SessionReadWriter; RawMessages(), FileOps(), CurrentBranchMessages(),
+             ReplaceMessages() on the interface close all internal coupling (2026-06-20, A17)
+    gap:   none - full mock-session DI is supported
+    score: 99%
 
 A11 Message conversion layer
     pi:    packages/agent/src/harness/messages.ts (convertToLlm, createCompactionSummaryMessage,
@@ -194,7 +195,22 @@ A16 Session tree + branch management
            gap: none significant
     score: 98%
 
-A17 Context overflow detection
+A17 Loop.session DI gap closure
+    pi:    all session operations go through an interface, enabling test mocking
+    kdeps: pkg/agent/session.go SessionReader/SessionWriter/SessionReadWriter interfaces
+           - SessionReader: TotalTokens, TurnCount, Messages, BuildMessagesJSON, RawMessages,
+             CurrentBranchMessages, FileOps, StashedBranches (2026-06-20)
+           - SessionWriter: Append, Compact, CompactWith, RecordFileOps, Checkpoint, RestoreTo,
+             SetTokenBudget, ReplaceMessages (2026-06-20)
+           - Loop.session field changed from *Session to SessionReadWriter (2026-06-20)
+           - All internal calls (rawMessages, fileOps, currentBranchMessages) go through
+             the interface methods (2026-06-20)
+           - compact.go, branch_summary.go, loop.go, react.go, repl.go all updated (2026-06-20)
+           - session_store*.go, session_test.go, repl_test.go, loop_integration_test.go updated
+    gap:   none
+    score: 99%
+
+A18 Context overflow detection
     pi:    packages/coding-agent/src/core/ isContextOverflow() + shouldCompact() in agent-session.ts
     kdeps: compact.go estimateSessionTokens(), shouldAutoCompact()
            loop.go Run() checks before each LLM call; Config.AutoCompactThreshold (default 40000)

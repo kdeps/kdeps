@@ -143,7 +143,7 @@ func (s *SessionStore) Load(id string) (*Session, error) {
 			continue
 		}
 		if entry.Type == "message" && entry.Role != "" {
-			session.messages = append(session.messages, sessionMessage{
+			session.messages = append(session.messages, SessionMessage{
 				Role:    entry.Role,
 				Content: entry.Content,
 			})
