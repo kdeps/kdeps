@@ -92,6 +92,19 @@ chat:
     - answer
     - confidence
 
+  # strict JSON schema (OpenAI models only) — enforces exact output shape
+  # use this instead of jsonResponseKeys when you need guaranteed structure
+  jsonSchema:
+    type: object
+    properties:
+      answer:
+        type: string
+      confidence:
+        type: number
+    required:
+      - answer
+      - confidence
+
   timeout: 60s               # hard stop -- returns error, does not retry
   streaming: true            # Ollama only: stream NDJSON; kdeps accumulates before returning
 ```
@@ -100,15 +113,23 @@ chat:
 
 ## Advanced Parameters
 
+Full sampling control — all fields are optional and fall back to the model's provider defaults.
+
 ```yaml
 # resources/example.yaml
 chat:
   prompt: "Write a creative story"
-  temperature: 0.9      # 0.0 = deterministic, 1.0+ = more random/creative
-  maxTokens: 500        # hard cap on generated tokens; 0 = model default
-  topP: 0.9             # nucleus sampling -- lower = less diverse vocabulary
-  frequencyPenalty: 0.0 # penalises tokens repeated in the output (-2.0 to 2.0)
-  presencePenalty: 0.6  # penalises any token that appeared at all (-2.0 to 2.0)
+  temperature: 0.9          # 0.0 = deterministic, 1.0+ = more random/creative
+  maxTokens: 500            # hard cap on generated tokens; 0 = model default
+  topP: 0.9                 # nucleus sampling -- lower = less diverse vocabulary
+  topK: 40                  # top-K sampling -- limits vocabulary to K most likely tokens
+  seed: 42                  # fixed seed for reproducible outputs (provider support varies)
+  frequencyPenalty: 0.0     # penalises tokens repeated in the output (-2.0 to 2.0)
+  presencePenalty: 0.6      # penalises any token that appeared at all (-2.0 to 2.0)
+  repetitionPenalty: 1.1    # multiplicative penalty for repetition (1.0 = none; >1 = penalise)
+  stopWords:                # stop generation when any of these strings appear
+    - "END"
+    - "###"
 ```
 
 ## Context Length
