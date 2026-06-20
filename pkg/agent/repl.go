@@ -1622,6 +1622,11 @@ func (r *REPL) cmdThinking(args []string) error {
 		domain.ThinkingModeMedium,
 		domain.ThinkingModeHigh,
 		domain.ThinkingModeAuto:
+		if !ModelSupportsThinking(r.loop.config.Model) {
+			fmt.Fprintln(os.Stdout, styleReplMeta.Render(
+				fmt.Sprintf("Warning: model %q may not support extended thinking.", r.loop.config.Model),
+			))
+		}
 		budget := thinkingBudgets[mode]
 		r.loop.SetThinking(&domain.ThinkingConfig{Mode: mode, BudgetTokens: budget})
 		fmt.Fprintf(

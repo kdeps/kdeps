@@ -817,3 +817,115 @@ func TestCompactAndRetry_ContextOverflow(t *testing.T) {
 		t.Error("expected onAutoCompact callback to fire when compaction produced a summary")
 	}
 }
+
+// transientStreamer fails the first N calls with a transient error, then succeeds.
+type transientStreamer struct {
+	failCount int
+	calls     int
+	response  string
+}
+
+func (t *transientStreamer) StreamChat(
+	_ context.Context, _ *domain.ChatConfig, w io.Writer,
+) (string, []domain.StreamedToolCall, error) {
+	t.calls++
+	if t.calls <= t.failCount {
+		return "", nil, errors.New("service unavailable: 503")
+	}
+	_, _ = io.WriteString(w, t.response)
+	return t.response, nil, nil
+}
+
+func TestIsTransientError(t *testing.T) {
+	t.Parallel()
+	cases := []struct {
+		msg  string
+		want bool
+	}{
+		{"overloaded_error", true},
+		{"rate limit exceeded", true},
+		{"too many requests", true},
+		{"429 Too Many Requests", true},
+		{"503 Service Unavailable", true},
+		{"500 Internal Server Error", true},
+		{"connection refused", true},
+		{"timed out", true},
+		{"context deadline exceeded", false},
+		{"not found", false},
+		{"invalid input", false},
+	}
+	for _, c := range cases {
+		got := isTransientError(errors.New(c.msg))
+		if got != c.want {
+			t.Errorf("isTransientError(%q) = %v, want %v", c.msg, got, c.want)
+		}
+	}
+	if isTransientError(nil) {
+		t.Error("isTransientError(nil) should be false")
+	}
+}
+
+func TestRunStreaming_AutoRetry_Succeeds(t *testing.T) {
+	// Streamer fails twice with a transient error, then succeeds.
+	ts := &transientStreamer{failCount: 2, response: "hello after retry"}
+	loop := New(executor.NewEngine(nil), newTestWorkflowForSession(), tools.NewRegistry(), Config{
+		Model:              "test",
+		Streamer:           ts,
+		MaxToolRounds:      3,
+		AutoRetryMax:       3,
+		AutoRetryBaseDelay: 0, // no delay in tests
+	})
+
+	var buf bytes.Buffer
+	result, err := loop.RunStreaming(context.Background(), "hi", &buf)
+	if err != nil {
+		t.Fatalf("expected success after retry, got error: %v", err)
+	}
+	if result != "hello after retry" {
+		t.Errorf("expected %q, got %q", "hello after retry", result)
+	}
+	if ts.calls != 3 {
+		t.Errorf("expected 3 StreamChat calls (2 fail + 1 success), got %d", ts.calls)
+	}
+}
+
+func TestRunStreaming_AutoRetry_ExhaustedReturnsError(t *testing.T) {
+	// Streamer always returns a transient error.
+	es := &errStreamer{err: errors.New("overloaded_error: please retry")}
+	loop := New(executor.NewEngine(nil), newTestWorkflowForSession(), tools.NewRegistry(), Config{
+		Model:              "test",
+		Streamer:           es,
+		MaxToolRounds:      3,
+		AutoRetryMax:       2,
+		AutoRetryBaseDelay: 0,
+	})
+
+	var buf bytes.Buffer
+	_, err := loop.RunStreaming(context.Background(), "hi", &buf)
+	if err == nil {
+		t.Fatal("expected error after exhausting retries")
+	}
+	if !strings.Contains(err.Error(), "overloaded_error") {
+		t.Errorf("expected original error in result, got: %v", err)
+	}
+}
+
+func TestRunStreaming_NonTransient_NoRetry(t *testing.T) {
+	es := &errStreamer{err: errors.New("invalid API key")}
+	loop := New(executor.NewEngine(nil), newTestWorkflowForSession(), tools.NewRegistry(), Config{
+		Model:              "test",
+		Streamer:           es,
+		MaxToolRounds:      3,
+		AutoRetryMax:       3,
+		AutoRetryBaseDelay: 0,
+	})
+	var buf bytes.Buffer
+	_, err := loop.RunStreaming(context.Background(), "hi", &buf)
+	if err == nil {
+		t.Fatal("expected error for non-transient failure")
+	}
+	// Must NOT retry on non-transient errors like auth failures.
+	if !strings.Contains(err.Error(), "invalid API key") {
+		t.Errorf("expected original error, got: %v", err)
+	}
+}
