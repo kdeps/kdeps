@@ -178,12 +178,15 @@ jobs:
       - name: Run linter
         if: steps.should_release.outputs.should_release == 'true'
         id: lint
-        continue-on-error: true
-        uses: golangci/golangci-lint-action@82606bf257cbaff209d206a39f5134f0cfbfd2ee # v9
-        with:
-          version: ${{ steps.lint-version.outputs.version }}
-          args: --timeout=10m --config=.golangci.yml
-          only-new-issues: false
+        run: |
+          BIN_DIR="$(go env GOPATH)/bin"
+          VERSION="${{ steps.lint-version.outputs.version }}"
+          curl -sSfL "https://raw.githubusercontent.com/golangci/golangci-lint/${VERSION}/install.sh" | sh -s -- -b "$BIN_DIR" "$VERSION"
+          set +e
+          "$BIN_DIR/golangci-lint" run --timeout=10m --config=.golangci.yml
+          LINT_EXIT=$?
+          set -e
+          echo "result=$([ $LINT_EXIT -eq 0 ] && echo 'success' || echo 'failure')" >> "$GITHUB_OUTPUT"
 
       - name: Build
         if: steps.should_release.outputs.should_release == 'true'
@@ -431,7 +434,7 @@ jobs:
           fi
           
           # Add validation status
-          RELEASE_NOTES="$RELEASE_NOTES"$'\n\n'"---"$'\n\n'"### Build Status"$'\n'"- 🔍 Linting: ${{ steps.lint.outcome }}"$'\n'"- 🔨 Build: ${{ steps.build.outcome }}"$'\n'"- ✅ Tests: ${{ steps.test.outcome }}"
+          RELEASE_NOTES="$RELEASE_NOTES"$'\n\n'"---"$'\n\n'"### Build Status"$'\n'"- 🔍 Linting: ${{ steps.lint.outputs.result }}"$'\n'"- 🔨 Build: ${{ steps.build.outcome }}"$'\n'"- ✅ Tests: ${{ steps.test.outcome }}"
           
           # Update release with new notes and mark as latest
           echo "Marking release as latest (not prerelease)"
@@ -445,7 +448,7 @@ jobs:
           if [ "${{ steps.should_release.outputs.should_release }}" = "true" ]; then
             echo "✅ Nightly release created successfully: ${{ steps.create_tag.outputs.tag }}"
             echo "📦 Release type: latest"
-            echo "🔍 Checks: lint=${{ steps.lint.outcome }} build=${{ steps.build.outcome }} test=${{ steps.test.outcome }}"
+            echo "🔍 Checks: lint=${{ steps.lint.outputs.result }} build=${{ steps.build.outcome }} test=${{ steps.test.outcome }}"
             
             if [ "${{ steps.check_changes.outputs.has_code_changes }}" = "true" ]; then
               echo "📝 Code changes detected since last release"
