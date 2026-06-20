@@ -35,6 +35,8 @@ jobs:
 
   docker-scan:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
       - name: Set up Docker Buildx
@@ -45,6 +47,8 @@ jobs:
       - name: Build kdeps binary
         run: make build
       - name: Build sample Docker image
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: ./kdeps bundle build examples/webserver-static --tag kdeps-ci-scan:local
       - name: Scan image with Trivy
         uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
