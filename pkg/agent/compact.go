@@ -114,6 +114,11 @@ func countTokensSilent(model, text string) int {
 // findCutIndex returns the index of the first message to KEEP after compaction.
 // Messages before this index will be summarized. Returns 0 when there is
 // nothing worth compacting (too few turns, or all turns fit within budget).
+//
+// Cuts always land on complete turn boundaries (even indices) so the LLM never
+// receives an assistant message without its preceding user prompt. Pi's split-turn
+// compaction cuts at individual message boundaries, but that requires special
+// LLM prompting to handle orphaned assistant messages; kdeps keeps turns intact.
 func findCutIndex(messages []sessionMessage, keepRecentTokens int, modelHint string) int {
 	n := len(messages)
 	// Need at least compactMinTurns*2 messages (compactMinTurns user+assistant pairs).
@@ -139,7 +144,7 @@ func findCutIndex(messages []sessionMessage, keepRecentTokens int, modelHint str
 	if cutIdx == 0 {
 		return 0 // all turns fit within budget - nothing to compact
 	}
-	// Ensure at least 1 turn is kept (even if it blows the budget).
+	// Ensure at least 1 complete turn is kept (even if it blows the budget).
 	if cutIdx > n-sessionMsgsPer {
 		cutIdx = n - sessionMsgsPer
 	}
