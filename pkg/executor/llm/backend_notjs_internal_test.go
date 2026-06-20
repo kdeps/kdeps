@@ -908,3 +908,94 @@ func TestBuildLangchainLLM_AnthropicBackend(t *testing.T) {
 	_ = err
 	_ = model
 }
+
+func TestBuildOpenAIResponseFormat_Nil_WhenNoSchema(t *testing.T) {
+	cfg := &domain.ChatConfig{JSONResponse: true}
+	assert.Nil(t, buildOpenAIResponseFormat(cfg))
+}
+
+func TestBuildOpenAIResponseFormat_Nil_WhenEmptySchema(t *testing.T) {
+	cfg := &domain.ChatConfig{JSONSchema: map[string]interface{}{}}
+	assert.Nil(t, buildOpenAIResponseFormat(cfg))
+}
+
+func TestBuildOpenAIResponseFormat_BasicSchema(t *testing.T) {
+	cfg := &domain.ChatConfig{
+		JSONSchema: map[string]interface{}{
+			"type": "object",
+			"properties": map[string]interface{}{
+				"answer": map[string]interface{}{"type": "string"},
+			},
+		},
+	}
+	rf := buildOpenAIResponseFormat(cfg)
+	require.NotNil(t, rf)
+	assert.Equal(t, "json_schema", rf.Type)
+	require.NotNil(t, rf.JSONSchema)
+	assert.Equal(t, "response", rf.JSONSchema.Name)
+	assert.True(t, rf.JSONSchema.Strict)
+	require.NotNil(t, rf.JSONSchema.Schema)
+	assert.Equal(t, "object", rf.JSONSchema.Schema.Type)
+}
+
+func TestBuildOpenAIResponseFormat_TitleAsName(t *testing.T) {
+	cfg := &domain.ChatConfig{
+		JSONSchema: map[string]interface{}{
+			"title": "my_schema",
+			"type":  "object",
+		},
+	}
+	rf := buildOpenAIResponseFormat(cfg)
+	require.NotNil(t, rf)
+	assert.Equal(t, "my_schema", rf.JSONSchema.Name)
+}
+
+func TestBuildJSONOpts_SchemaSkipsJSONMode(t *testing.T) {
+	cfg := &domain.ChatConfig{
+		JSONSchema: map[string]interface{}{"type": "object"},
+	}
+	// JSONSchema with OpenAI-compat backend: no call options needed (schema is on constructor)
+	opts := buildJSONOpts(cfg, BackendFile)
+	assert.Empty(t, opts)
+}
+
+func TestBuildJSONOpts_JSONResponseAddsJSONMode(t *testing.T) {
+	cfg := &domain.ChatConfig{JSONResponse: true}
+	opts := buildJSONOpts(cfg, BackendFile)
+	assert.NotEmpty(t, opts)
+}
+
+func TestBuildJSONOpts_GoogleUsesResponseMIMEType(t *testing.T) {
+	cfg := &domain.ChatConfig{JSONResponse: true}
+	opts := buildJSONOpts(cfg, backendGoogle)
+	assert.NotEmpty(t, opts)
+}
+
+func TestBuildJSONOpts_AnthropicSkipsAll(t *testing.T) {
+	cfg := &domain.ChatConfig{JSONResponse: true}
+	opts := buildJSONOpts(cfg, backendAnthropic)
+	assert.Empty(t, opts)
+}
+
+func TestStreamChat_WithJSONSchema_OpenAICompat(t *testing.T) {
+	srv := newOpenAIMockServer(`{"answer":"42"}`)
+	defer srv.Close()
+
+	e := NewExecutor("")
+	cfg := &domain.ChatConfig{
+		Model:   "gpt-4o",
+		Backend: BackendFile,
+		BaseURL: srv.URL,
+		Prompt:  "what is 6*7",
+		JSONSchema: map[string]interface{}{
+			"type": "object",
+			"properties": map[string]interface{}{
+				"answer": map[string]interface{}{"type": "string"},
+			},
+			"required": []interface{}{"answer"},
+		},
+	}
+	content, _, err := e.StreamChat(t.Context(), cfg, os.Stdout)
+	require.NoError(t, err)
+	assert.Contains(t, content, "42")
+}

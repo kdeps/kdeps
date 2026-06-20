@@ -177,11 +177,45 @@ func buildOpenAICompatLLM(cfg *domain.ChatConfig, backend string) (llms.Model, e
 		apiKey = "ollama"
 	}
 
-	return lcopenai.New(
+	opts := []lcopenai.Option{
 		lcopenai.WithToken(apiKey),
 		lcopenai.WithModel(cfg.Model),
 		lcopenai.WithBaseURL(baseURL),
-	)
+	}
+
+	if rf := buildOpenAIResponseFormat(cfg); rf != nil {
+		opts = append(opts, lcopenai.WithResponseFormat(rf))
+	}
+
+	return lcopenai.New(opts...)
+}
+
+// buildOpenAIResponseFormat constructs a ResponseFormat for strict JSON schema output
+// when cfg.JSONSchema is set. Returns nil when no schema is configured.
+func buildOpenAIResponseFormat(cfg *domain.ChatConfig) *lcopenai.ResponseFormat {
+	if len(cfg.JSONSchema) == 0 {
+		return nil
+	}
+	raw, err := json.Marshal(cfg.JSONSchema)
+	if err != nil {
+		return nil
+	}
+	var schemaProp lcopenai.ResponseFormatJSONSchemaProperty
+	if unmarshalErr := json.Unmarshal(raw, &schemaProp); unmarshalErr != nil {
+		return nil
+	}
+	name := "response"
+	if n, ok := cfg.JSONSchema["title"].(string); ok && n != "" {
+		name = n
+	}
+	return &lcopenai.ResponseFormat{
+		Type: "json_schema",
+		JSONSchema: &lcopenai.ResponseFormatJSONSchema{
+			Name:   name,
+			Strict: true,
+			Schema: &schemaProp,
+		},
+	}
 }
 
 // applyPromptVars substitutes {{key}} placeholders in text using cfg.PromptVars.
@@ -711,6 +745,12 @@ func buildJSONOpts(cfg *domain.ChatConfig, backend string) []llms.CallOption {
 	}
 	if backend == backendGoogle {
 		return []llms.CallOption{llms.WithResponseMIMEType("application/json")}
+	}
+	// JSONSchema uses WithResponseFormat baked into the LLM constructor (buildOpenAICompatLLM).
+	// WithJSONMode() would conflict with json_schema response format, so only add it for
+	// plain jsonResponse mode (no schema).
+	if len(cfg.JSONSchema) > 0 {
+		return nil
 	}
 	return []llms.CallOption{llms.WithJSONMode()}
 }
