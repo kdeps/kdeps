@@ -188,10 +188,16 @@ type ShouldStopAfterTurnContext struct {
 }
 
 // AgentLoopTurnUpdate is returned by PrepareNextTurn to replace state before the next turn.
+// Matches pi's AgentLoopTurnUpdate: context, model, and thinking level can all be replaced.
 //
 //nolint:revive // Agent-prefixed names are intentional public API convention
 type AgentLoopTurnUpdate struct {
+	// Context replaces the conversation context for the next LLM call when non-nil.
 	Context *AgentContext
+	// Model switches the active model for the next turn when non-empty.
+	Model string
+	// ThinkingMode switches the extended reasoning mode for the next turn when non-empty.
+	ThinkingMode string
 }
 
 // AgentLoopConfig holds all configuration for the agent loop.
@@ -219,8 +225,13 @@ type AgentLoopConfig struct {
 	// ShouldStopAfterTurn is called after turn_end. Return true to exit before the next turn.
 	ShouldStopAfterTurn func(ShouldStopAfterTurnContext) bool
 
-	// PrepareNextTurn is called after turn_end to replace context/model for the next turn.
+	// PrepareNextTurn is called after turn_end to replace context/model/thinking for the next turn.
 	PrepareNextTurn func(context.Context, ShouldStopAfterTurnContext) (*AgentLoopTurnUpdate, error)
+
+	// ApplyTurnUpdate is wired by the Loop to apply model/thinking changes from PrepareNextTurn.
+	// It is called with the non-nil update returned by PrepareNextTurn.
+	// Internal use only — callers should not set this directly.
+	ApplyTurnUpdate func(*AgentLoopTurnUpdate)
 
 	// GetSteeringMessages returns messages to inject mid-run (checked after each turn).
 	GetSteeringMessages func() []AgentMessage

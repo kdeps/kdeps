@@ -55,10 +55,12 @@ const (
 	// Default thinking token budgets per mode. These are explicit so langchaingo
 	// never falls back to CalculateThinkingBudget(mode, MaxTokens=0)=0 which
 	// silently disables thinking when no MaxTokens call option is set.
-	replThinkingBudgetLow    = 2048
-	replThinkingBudgetMedium = 8192
-	replThinkingBudgetHigh   = 16000
-	replThinkingBudgetAuto   = 10000
+	replThinkingBudgetMinimal = 512 // pi "minimal" — light reasoning pass
+	replThinkingBudgetLow     = 2048
+	replThinkingBudgetMedium  = 8192
+	replThinkingBudgetHigh    = 16000
+	replThinkingBudgetXHigh   = 32000 // pi "xhigh" — maximum reasoning, selected models only
+	replThinkingBudgetAuto    = 10000
 
 	replTickerMs    = 80    // streaming tick interval (milliseconds)
 	replHistoryMax  = 10000 // readline history buffer size
@@ -1074,7 +1076,7 @@ func (r *REPL) cmdHelp() error {
 		"  /<skill-name> [..]      Invoke a loaded skill or prompt template by name",
 		"  /compact                 Compact conversation history (keep recent turns)",
 		"  /history                 Show recent conversation turns",
-		"  /thinking [off|low|medium|high|auto]  Show or set extended reasoning/thinking mode",
+		"  /thinking [off|minimal|low|medium|high|xhigh|auto]  Show or set extended reasoning/thinking mode",
 		"  /session list|save|load|delete|import|checkpoint|goto  Manage saved sessions",
 		"  /editor                  Open $EDITOR to compose a long prompt",
 		"  /copy                    Copy the last assistant response to the system clipboard",
@@ -1607,20 +1609,24 @@ func (r *REPL) cmdThinking(args []string) error {
 	// thinkingBudgets maps mode → explicit BudgetTokens so langchaingo never falls
 	// back to CalculateThinkingBudget(mode, 0)=0 (which silently disables thinking when MaxTokens=0).
 	thinkingBudgets := map[domain.ThinkingMode]int{
-		domain.ThinkingModeNone:   0,
-		domain.ThinkingModeLow:    replThinkingBudgetLow,
-		domain.ThinkingModeMedium: replThinkingBudgetMedium,
-		domain.ThinkingModeHigh:   replThinkingBudgetHigh,
-		domain.ThinkingModeAuto:   replThinkingBudgetAuto,
+		domain.ThinkingModeNone:    0,
+		domain.ThinkingModeMinimal: replThinkingBudgetMinimal,
+		domain.ThinkingModeLow:     replThinkingBudgetLow,
+		domain.ThinkingModeMedium:  replThinkingBudgetMedium,
+		domain.ThinkingModeHigh:    replThinkingBudgetHigh,
+		domain.ThinkingModeXHigh:   replThinkingBudgetXHigh,
+		domain.ThinkingModeAuto:    replThinkingBudgetAuto,
 	}
 	mode := domain.ThinkingMode(strings.ToLower(args[0]))
 	switch mode {
 	case domain.ThinkingModeNone, "off":
 		r.loop.SetThinking(nil)
 		fmt.Fprintln(os.Stdout, styleReplMeta.Render("Thinking disabled."))
-	case domain.ThinkingModeLow,
+	case domain.ThinkingModeMinimal,
+		domain.ThinkingModeLow,
 		domain.ThinkingModeMedium,
 		domain.ThinkingModeHigh,
+		domain.ThinkingModeXHigh,
 		domain.ThinkingModeAuto:
 		if !ModelSupportsThinking(r.loop.config.Model) {
 			fmt.Fprintln(os.Stdout, styleReplMeta.Render(
@@ -1635,7 +1641,7 @@ func (r *REPL) cmdThinking(args []string) error {
 			styleReplMeta.Render(fmt.Sprintf("Thinking set to %s (budget %d tokens).", mode, budget)),
 		)
 	default:
-		fmt.Fprintln(os.Stdout, styleReplMeta.Render("Usage: /thinking [off|low|medium|high|auto]"))
+		fmt.Fprintln(os.Stdout, styleReplMeta.Render("Usage: /thinking [off|minimal|low|medium|high|xhigh|auto]"))
 	}
 	return nil
 }
