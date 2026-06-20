@@ -38,6 +38,15 @@ type SessionReader interface {
 	TurnCount() int
 	Messages() []struct{ Role, Content string }
 	BuildMessagesJSON() string
+	// RawMessages returns a copy of all stored messages with full metadata (IDs, roles).
+	RawMessages() []SessionMessage
+	// CurrentBranchMessages returns messages on the current ParentID chain plus
+	// their per-turn file operations. Used for branch summarization.
+	CurrentBranchMessages() ([]SessionMessage, []FileOpEntry)
+	// FileOps returns a copy of the per-turn file operation log.
+	FileOps() []FileOpEntry
+	// StashedBranches returns snapshots of all branches stashed by RestoreTo.
+	StashedBranches() []BranchSnapshot
 }
 
 // SessionWriter is the write interface for a conversation session.
@@ -45,7 +54,7 @@ type SessionWriter interface {
 	Append(userInput, assistantResponse string)
 	Clear()
 	Compact() string
-	CompactWith(summary string, keptMessages []sessionMessage, compactedTurns int)
+	CompactWith(summary string, keptMessages []SessionMessage, compactedTurns int)
 	SetTokenBudget(maxTokens int, model string)
 	// RecordFileOps captures files read and modified during the current turn.
 	// Must be called after Append.
@@ -56,6 +65,9 @@ type SessionWriter interface {
 	// RestoreTo trims the session to the turn containing entryID.
 	// Returns false if the ID is not found.
 	RestoreTo(entryID int64) bool
+	// ReplaceMessages atomically replaces the session message log.
+	// Used by /session load to restore a saved session without losing IDs.
+	ReplaceMessages(msgs []SessionMessage)
 }
 
 // SessionReadWriter combines read and write access to a conversation session.
@@ -67,8 +79,8 @@ type SessionReadWriter interface {
 
 // prunedBranchEntry is one stashed branch created by RestoreTo.
 type prunedBranchEntry struct {
-	messages    []sessionMessage
-	ops         []fileOpEntry
+	messages    []SessionMessage
+	ops         []FileOpEntry
 	branchPoint int64 // last message ID of the active branch at stash time
 }
 
@@ -83,11 +95,11 @@ type BranchSnapshot struct {
 // for injection as the chat.messages expression value on each turn.
 type Session struct {
 	mu               sync.RWMutex
-	messages         []sessionMessage
+	messages         []SessionMessage
 	maxTurns         int           // 0 = unlimited
 	maxHistoryTokens int           // 0 = unlimited; trims oldest turns to stay under this token count
 	modelHint        string        // used for token counting; defaults to gpt2 encoding
-	fileOps          []fileOpEntry // per-turn file operations; index matches turn index
+	fileOps          []FileOpEntry // per-turn file operations; index matches turn index
 	firstKeptEntryID int64         // ID of the first kept entry after the most recent compaction (0 = none)
 	lastEntryID      int64         // monotonically increasing entry ID counter
 
@@ -97,16 +109,16 @@ type Session struct {
 	prunedBranches []prunedBranchEntry
 }
 
-type sessionMessage struct {
+type SessionMessage struct {
 	Role     string `json:"role"`
 	Content  string `json:"content"`
 	ID       int64  `json:"id"`       // nanosecond timestamp; unique per entry
 	ParentID int64  `json:"parentId"` // parent entry ID for tree navigation; 0 = root
 }
 
-// fileOpEntry records file operations that occurred during a turn.
+// FileOpEntry records file operations that occurred during a turn.
 // Tracked per-turn so compaction entries can summarize what files were affected.
-type fileOpEntry struct {
+type FileOpEntry struct {
 	Read     []string // files read during this turn
 	Modified []string // files modified during this turn
 }
@@ -117,7 +129,7 @@ var _ SessionReadWriter = (*Session)(nil)
 
 func NewSession(maxTurns int) *Session {
 	return &Session{
-		messages:    make([]sessionMessage, 0, sessionInitCap),
+		messages:    make([]SessionMessage, 0, sessionInitCap),
 		maxTurns:    maxTurns,
 		lastEntryID: time.Now().UnixNano(),
 	}
@@ -142,9 +154,9 @@ func (s *Session) RecordFileOps(read, modified []string) {
 	turnIdx := len(s.messages)/sessionMsgsPer - 1
 	// Grow the fileOps slice to match the turn count.
 	for len(s.fileOps) <= turnIdx {
-		s.fileOps = append(s.fileOps, fileOpEntry{})
+		s.fileOps = append(s.fileOps, FileOpEntry{})
 	}
-	s.fileOps[turnIdx] = fileOpEntry{Read: read, Modified: modified}
+	s.fileOps[turnIdx] = FileOpEntry{Read: read, Modified: modified}
 }
 
 // nextID returns a monotonically increasing entry ID (nanosecond precision).
@@ -165,8 +177,8 @@ func (s *Session) Append(userInput, assistantResponse string) {
 	uid := s.nextID()
 	aid := s.nextID()
 	s.messages = append(s.messages,
-		sessionMessage{Role: "user", Content: userInput, ID: uid, ParentID: parentID},
-		sessionMessage{Role: "assistant", Content: assistantResponse, ID: aid, ParentID: uid},
+		SessionMessage{Role: "user", Content: userInput, ID: uid, ParentID: parentID},
+		SessionMessage{Role: "assistant", Content: assistantResponse, ID: aid, ParentID: uid},
 	)
 
 	if s.maxTurns > 0 && len(s.messages)/sessionMsgsPer > s.maxTurns {
@@ -279,20 +291,20 @@ func (s *Session) Compact() string {
 // messages before keptMessages with a synthetic summary turn, then appends
 // keptMessages. compactedTurns is the number of turns that were summarized
 // (used in the summary header shown to the LLM).
-func (s *Session) CompactWith(summary string, keptMessages []sessionMessage, compactedTurns int) {
+func (s *Session) CompactWith(summary string, keptMessages []SessionMessage, compactedTurns int) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
 	header := compactionSummaryPrefix + summary + compactionSummarySuffix
 
-	newMsgs := make([]sessionMessage, 0, sessionMsgsPer+len(keptMessages))
+	newMsgs := make([]SessionMessage, 0, sessionMsgsPer+len(keptMessages))
 	ackMsg := fmt.Sprintf(
 		"Understood. I have the context from those %d turns and will continue from where we left off.",
 		compactedTurns,
 	)
 	newMsgs = append(newMsgs,
-		sessionMessage{Role: RoleCompactionSummary, Content: header},
-		sessionMessage{Role: RoleAssistant, Content: ackMsg},
+		SessionMessage{Role: RoleCompactionSummary, Content: header},
+		SessionMessage{Role: RoleAssistant, Content: ackMsg},
 	)
 	newMsgs = append(newMsgs, keptMessages...)
 	s.messages = newMsgs
@@ -302,7 +314,7 @@ func (s *Session) CompactWith(summary string, keptMessages []sessionMessage, com
 	if keptTurnCount > 0 && compactedTurns > 0 && compactedTurns < len(s.fileOps) {
 		startIdx := compactedTurns
 		if len(s.fileOps) > startIdx {
-			newOps := make([]fileOpEntry, 1+keptTurnCount)
+			newOps := make([]FileOpEntry, 1+keptTurnCount)
 			// Slot 0 = summary turn (no file ops)
 			copy(newOps[1:], s.fileOps[startIdx:])
 			s.fileOps = newOps
@@ -325,10 +337,10 @@ func (s *Session) FirstKeptEntryID() int64 {
 	return s.firstKeptEntryID
 }
 
-// currentBranchMessages returns the messages on the current branch (from root to current tip).
+// CurrentBranchMessages returns the messages on the current branch (from root to current tip).
 // Pi equivalent: collectEntriesForBranchSummary — walks ParentID links from tip to root.
 // Falls back to all messages when no IDs are set (pre-ID sessions).
-func (s *Session) currentBranchMessages() ([]sessionMessage, []fileOpEntry) {
+func (s *Session) CurrentBranchMessages() ([]SessionMessage, []FileOpEntry) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 	if len(s.messages) == 0 {
@@ -336,15 +348,15 @@ func (s *Session) currentBranchMessages() ([]sessionMessage, []fileOpEntry) {
 	}
 	tip := s.messages[len(s.messages)-1]
 	if tip.ID == 0 {
-		msgs := make([]sessionMessage, len(s.messages))
+		msgs := make([]SessionMessage, len(s.messages))
 		copy(msgs, s.messages)
-		ops := make([]fileOpEntry, len(s.fileOps))
+		ops := make([]FileOpEntry, len(s.fileOps))
 		copy(ops, s.fileOps)
 		return msgs, ops
 	}
 
 	// Walk ParentID links from tip to root (lock already held; indexOfID is lock-free).
-	var branch []sessionMessage
+	var branch []SessionMessage
 	seen := make(map[int64]bool)
 	for cur := &s.messages[len(s.messages)-1]; cur != nil; {
 		if seen[cur.ID] {
@@ -367,13 +379,13 @@ func (s *Session) currentBranchMessages() ([]sessionMessage, []fileOpEntry) {
 	}
 
 	// Build per-message file ops for the branch.
-	var ops []fileOpEntry
+	var ops []FileOpEntry
 	for _, m := range branch {
 		turnIdx := s.indexOfID(m.ID) / sessionMsgsPer
 		if turnIdx < len(s.fileOps) {
 			ops = append(ops, s.fileOps[turnIdx])
 		} else {
-			ops = append(ops, fileOpEntry{})
+			ops = append(ops, FileOpEntry{})
 		}
 	}
 	return branch, ops
@@ -390,22 +402,22 @@ func (s *Session) indexOfID(id int64) int {
 	return -1
 }
 
-// rawMessages returns a copy of the internal messages for compaction
-// cut-point calculation. Unexported: callers are in the same package.
-func (s *Session) rawMessages() []sessionMessage {
+// RawMessages returns a copy of the internal messages for compaction
+// cut-point calculation and DI/testing.
+func (s *Session) RawMessages() []SessionMessage {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
-	out := make([]sessionMessage, len(s.messages))
+	out := make([]SessionMessage, len(s.messages))
 	copy(out, s.messages)
 	return out
 }
 
-func (s *Session) rawMessagesWithOps() ([]sessionMessage, []fileOpEntry) {
+func (s *Session) RawMessagesWithOps() ([]SessionMessage, []FileOpEntry) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
-	msgs := make([]sessionMessage, len(s.messages))
+	msgs := make([]SessionMessage, len(s.messages))
 	copy(msgs, s.messages)
-	ops := make([]fileOpEntry, len(s.fileOps))
+	ops := make([]FileOpEntry, len(s.fileOps))
 	copy(ops, s.fileOps)
 	return msgs, ops
 }
@@ -451,22 +463,22 @@ func (s *Session) restoreFromPruned(entryID int64) bool {
 				curBP = s.messages[len(s.messages)-1].ID
 			}
 			curEntry := prunedBranchEntry{
-				messages:    make([]sessionMessage, len(s.messages)),
-				ops:         make([]fileOpEntry, len(s.fileOps)),
+				messages:    make([]SessionMessage, len(s.messages)),
+				ops:         make([]FileOpEntry, len(s.fileOps)),
 				branchPoint: curBP,
 			}
 			copy(curEntry.messages, s.messages)
 			copy(curEntry.ops, s.fileOps)
 
 			// Activate target.
-			s.messages = make([]sessionMessage, end)
+			s.messages = make([]SessionMessage, end)
 			copy(s.messages, entry.messages[:end])
 			newTurns := end / sessionMsgsPer
 			if newTurns < len(entry.ops) {
-				s.fileOps = make([]fileOpEntry, newTurns)
+				s.fileOps = make([]FileOpEntry, newTurns)
 				copy(s.fileOps, entry.ops[:newTurns])
 			} else {
-				s.fileOps = make([]fileOpEntry, len(entry.ops))
+				s.fileOps = make([]FileOpEntry, len(entry.ops))
 				copy(s.fileOps, entry.ops)
 			}
 
@@ -509,8 +521,8 @@ func (s *Session) appendStash(end int, branchPoint int64) {
 		return
 	}
 	entry := prunedBranchEntry{
-		messages:    make([]sessionMessage, len(s.messages)),
-		ops:         make([]fileOpEntry, len(s.fileOps)),
+		messages:    make([]SessionMessage, len(s.messages)),
+		ops:         make([]FileOpEntry, len(s.fileOps)),
 		branchPoint: branchPoint,
 	}
 	copy(entry.messages, s.messages)
@@ -558,6 +570,24 @@ func (s *Session) StashedBranches() []BranchSnapshot {
 		result[ei] = snap
 	}
 	return result
+}
+
+// FileOps returns a copy of the per-turn file operation log.
+func (s *Session) FileOps() []FileOpEntry {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	out := make([]FileOpEntry, len(s.fileOps))
+	copy(out, s.fileOps)
+	return out
+}
+
+// ReplaceMessages atomically replaces the session message log.
+// Used by /session load to restore a saved session without losing IDs.
+func (s *Session) ReplaceMessages(msgs []SessionMessage) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.messages = make([]SessionMessage, len(msgs))
+	copy(s.messages, msgs)
 }
 
 func jsonString(s string) string {

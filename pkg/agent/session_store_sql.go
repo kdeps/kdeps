@@ -90,7 +90,7 @@ func (s *sqlSessionStore) load(id string) (*Session, error) {
 		if scanErr := rows.Scan(&role, &content); scanErr != nil {
 			return nil, fmt.Errorf("sql session store: scan message: %w", scanErr)
 		}
-		session.messages = append(session.messages, sessionMessage{Role: role, Content: content})
+		session.messages = append(session.messages, SessionMessage{Role: role, Content: content})
 	}
 	if rowsErr := rows.Err(); rowsErr != nil {
 		return nil, fmt.Errorf("sql session store: rows error: %w", rowsErr)

@@ -1806,10 +1806,8 @@ func (r *REPL) cmdSessionLoad(store *SessionStore, id string) error {
 	if err != nil {
 		return fmt.Errorf("session load: %w", err)
 	}
-	// Replace the loop's session in-place by repopulating its messages.
-	r.loop.session.mu.Lock()
-	r.loop.session.messages = session.messages
-	r.loop.session.mu.Unlock()
+	// Replace the loop's session in-place via the interface (preserves IDs).
+	r.loop.session.ReplaceMessages(session.RawMessages())
 	// Restore model from saved session metadata if available.
 	if meta, metaErr := store.LoadMeta(id); metaErr == nil && meta.Model != "" {
 		r.loop.config.Model = meta.Model
