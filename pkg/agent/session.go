@@ -47,6 +47,15 @@ type SessionWriter interface {
 	Compact() string
 	CompactWith(summary string, keptMessages []sessionMessage, compactedTurns int)
 	SetTokenBudget(maxTokens int, model string)
+	// RecordFileOps captures files read and modified during the current turn.
+	// Must be called after Append.
+	RecordFileOps(read, modified []string)
+	// Checkpoint returns the ID of the last message (the current tip).
+	// Returns 0 if the session is empty.
+	Checkpoint() int64
+	// RestoreTo trims the session to the turn containing entryID.
+	// Returns false if the ID is not found.
+	RestoreTo(entryID int64) bool
 }
 
 // SessionReadWriter combines read and write access to a conversation session.
