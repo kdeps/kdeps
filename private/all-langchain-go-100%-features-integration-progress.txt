@@ -502,12 +502,12 @@ Wolfram Alpha                    tools/wolfram               [DONE]       100
   - Registered as "wolfram_alpha" when WOLFRAM_APP_ID is set
   - Direct HTTP to api.wolframalpha.com/v1/result (short-answer API); no external SDK dep
   - registerWolframAlpha + callWolframAlpha in pkg/agent/builtin_tools.go; 4 tests
-OpenAI native web search         llms/openai (post-v0.1.14)  [PLANNED]     0
+OpenAI native web search         llms/openai (post-v0.1.14)  [N/A-BLOCKED] 0
   - langchaingo commit 509308ff: adds WithWebSearch() OpenAI call option
   - Enables ChatGPT-style web search via tools={type:"web_search_preview"} in OpenAI API
   - DIFFERENT from DuckDuckGo built-in tool; this is OpenAI's server-side web browsing
-  - kdeps integration: ChatConfig.WebSearch bool → pass llms.WithWebSearch() in buildStreamOpts
-  - Only available with OpenAI-hosted models (not compatible with local/other backends)
+  - N/A-BLOCKED: WithWebSearch is main-only, not shipped in langchaingo v0.1.14
+  - Revisit when langchaingo v0.1.15+ is released
 
 ==============================================================================
 TIER 13 - AGENTS (agents/) - ReAct / OpenAI Functions
@@ -643,14 +643,14 @@ Tier                              Features  Done  In-Prog  Planned  Score
 9  Prompt Templates                     5     5       0        0     100%
 10 Callbacks / Observability            5     5       0        0     100%
 11 LLM Response Cache                   2     2       0        0     100%
-12 Built-in Tools                      17    16       0        1      94% (1 PLANNED: OpenAI native web search)
+12 Built-in Tools                      17    16       0        0      94% (1 N/A-BLOCKED: OpenAI native web search, main-only)
 13 Agents / ReAct                       6     6       0        0     100%
 14 Multimodal / Image                   3     3       0        0     100%
 15 RAG Pipeline                         3     3       0        0     100%
 16 Schema / JSON Types                  2     2       0        0     100%
 17 Chains (composition)                 9     0       0        9     N/A (all SKIP — covered by workflow DAG)
 --------------------------------------------------------------------------
-TOTAL                                 127   113       0       10      97% (1 N/A-BLOCKED: Milvus; 1 SKIP: Zep; 9 SKIP: chains; 1 PLANNED: OpenAI web search)
+TOTAL                                 127   113       0        9      97% (2 N/A-BLOCKED: Milvus + OpenAI web search; 1 SKIP: Zep; 9 SKIP: chains)
   +HuggingFace, Cloudflare, Maritaca, Ernie providers (T1)
   +token counting, ToolChoice field (T2)
   +token-based session memory (T7)

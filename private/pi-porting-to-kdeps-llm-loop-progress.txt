@@ -186,9 +186,13 @@ A16 Session tree + branch management
            - BranchInfo(), PrunedBranchIDs() expose stashed branch metadata (2026-06-20)
            - /session branches lists stashed branch turns and IDs (2026-06-20)
            - New Append after RestoreTo branches correctly via parentID chain (was already working)
-           gap: only 1 pruned branch stashed (last RestoreTo); older stashes overwritten.
-                pi supports a full n-way tree; kdeps supports linear + 1 stashed branch.
-    score: 95%
+           - prunedBranch → prunedBranches []prunedBranchEntry: n-way stash (2026-06-20)
+           - Each RestoreTo on current branch appends a new entry (not overwrite) (2026-06-20)
+           - RestoreTo on stashed id swaps-in-place; stash count stays bounded (2026-06-20)
+           - StashedBranches() returns []BranchSnapshot for per-stash display (2026-06-20)
+           - /session branches updated to show all stashed branches, not just one (2026-06-20)
+           gap: none significant
+    score: 98%
 
 A17 Context overflow detection
     pi:    packages/coding-agent/src/core/ isContextOverflow() + shouldCompact() in agent-session.ts
@@ -324,7 +328,7 @@ System prompt construction    harness/system-prompt.ts        loop.go + skill.go
 Compaction (LLM-based)        compaction/compaction.ts        compact.go + loop.go    92  [was 80/90; +countTokensSilent no WARN spam]
 Branch summarization          compaction/branch-summar.ts     branch_summary.go       97  [was 92; +token-budget-aware truncation: truncateBranchMessages caps messages to min(contextWindow,8000)-2000 tokens, prepends omission note when dropped; 4 unit tests added]
 Prompt templates              harness/prompt-templates.ts     prompt_template.go     100
-Session tree management       harness/session/session.ts      session_store.go        95  [was 90; +prunedBranch stash, /session branches, bi-directional goto]
+Session tree management       harness/session/session.ts      session_store.go        98  [was 90→95→98; +prunedBranch stash, /session branches, bi-directional goto, n-way multi-stash prunedBranches]
 Context overflow detection    agent-session.ts                overflow.go + loop.go   100
 git executor                  (new resource type)             executor/git/           100
 codeIntelligence executor     (new resource type)             executor/codeintelligence/ 100
