@@ -98,6 +98,10 @@ jobs:
           fi
           
           go get -u ./...
+          # google/generative-ai-go v0.16+ has a compile bug in genai/files.go
+          # (VideoMetadata/VideoFileMetadata type mismatch) that breaks langchaingo.
+          # Pin back to the last known-good version until upstream fixes it.
+          go get github.com/google/generative-ai-go@v0.15.1
           go mod tidy
           
           # Check if there are any changes

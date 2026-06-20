@@ -197,8 +197,12 @@ require (
 )
 
 exclude (
-	// v0.20.x has a compile bug in genai/files.go (VideoMetadata type mismatch)
-	// that breaks langchaingo/llms/googleai until upstream fixes it.
+	// v0.16+ has a compile bug in genai/files.go (VideoMetadata/VideoFileMetadata
+	// type mismatch) that breaks langchaingo/llms/googleai until upstream fixes it.
+	github.com/google/generative-ai-go v0.16.0
+	github.com/google/generative-ai-go v0.17.0
+	github.com/google/generative-ai-go v0.18.0
+	github.com/google/generative-ai-go v0.19.0
 	github.com/google/generative-ai-go v0.20.0
 	github.com/google/generative-ai-go v0.20.1
 )
