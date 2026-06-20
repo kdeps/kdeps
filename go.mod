@@ -195,3 +195,10 @@ require (
 	gotest.tools/v3 v3.5.2 // indirect
 	sigs.k8s.io/yaml v1.3.0 // indirect
 )
+
+exclude (
+	// v0.20.x has a compile bug in genai/files.go (VideoMetadata type mismatch)
+	// that breaks langchaingo/llms/googleai until upstream fixes it.
+	github.com/google/generative-ai-go v0.20.0
+	github.com/google/generative-ai-go v0.20.1
+)
