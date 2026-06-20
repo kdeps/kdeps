@@ -62,7 +62,7 @@ func downloadModelFile(
 
 	logger.Info("downloading model", "url", rawURL, "dest", dest)
 
-	if err := downloadWithResume(dest, rawURL, basename); err != nil {
+	if err := downloadWithResumeFunc(dest, rawURL, basename); err != nil {
 		logger.Debug("fast download failed, falling back to HTTP", "err", err)
 		// Fallback to simple HTTP GET.
 		resp, httpErr := httpGet(rawURL)
@@ -85,6 +85,9 @@ func downloadModelFile(
 
 // defaultAria2cFlags are used when KDEPS_ARIA2C_FLAGS is not set.
 const defaultAria2cFlags = "-c -x 16 -s 16 --console-log-level=warn"
+
+//nolint:gochecknoglobals // test-replaceable
+var downloadWithResumeFunc = downloadWithResume
 
 // downloadWithResume tries to download url to dest using aria2c with resume
 // support and multi-connection acceleration. Returns nil on success. Returns

@@ -30,7 +30,7 @@ import (
 func TestResolveGGUFAlias_Hit(t *testing.T) {
 	ReloadGGUFRegistry()
 	t.Cleanup(ReloadGGUFRegistry)
-	url, ok := ResolveGGUFAlias("qwen3.5-4b")
+	url, ok := ResolveGGUFAlias("qwen3.5:4b")
 	require.True(t, ok)
 	assert.Contains(t, url, "huggingface.co")
 	assert.Contains(t, url, ".gguf")
@@ -95,7 +95,7 @@ func TestGGUFRegistry_LocalOverride(t *testing.T) {
 func TestGGUFCachedPath_Hit(t *testing.T) {
 	ReloadGGUFRegistry()
 	t.Cleanup(ReloadGGUFRegistry)
-	path, ok := GGUFCachedPath("qwen3.5-4b", "/tmp/models")
+	path, ok := GGUFCachedPath("qwen3.5:4b", "/tmp/models")
 	require.True(t, ok)
 	assert.True(t, filepath.IsAbs(path))
 	assert.Contains(t, path, ".gguf")
