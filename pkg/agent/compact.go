@@ -137,7 +137,7 @@ func findCutIndex(messages []SessionMessage, keepRecentTokens int, modelHint str
 			break
 		}
 		kept += msgTokens
-		if messages[i].Role == "user" {
+		if messages[i].Role == RoleUser {
 			cutIdx = i
 		}
 	}
