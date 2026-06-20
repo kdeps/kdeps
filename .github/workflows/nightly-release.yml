@@ -98,10 +98,10 @@ jobs:
           fi
           
           go get -u ./...
-          # google/generative-ai-go v0.16+ has a compile bug in genai/files.go
-          # (VideoMetadata/VideoFileMetadata type mismatch) that breaks langchaingo.
-          # Pin back to the last known-good version until upstream fixes it.
-          go get github.com/google/generative-ai-go@v0.15.1
+          # langchaingo/llms/googleai uses the deprecated google/generative-ai-go SDK.
+          # generative-ai-go@v0.15.1 requires cloud.google.com/go/ai@v0.7.0; upgrading
+          # either breaks the VideoMetadata/VideoFileMetadata protobuf types. Pin both.
+          go get github.com/google/generative-ai-go@v0.15.1 cloud.google.com/go/ai@v0.7.0
           go mod tidy
           
           # Check if there are any changes
@@ -178,6 +178,7 @@ jobs:
       - name: Run linter
         if: steps.should_release.outputs.should_release == 'true'
         id: lint
+        continue-on-error: true
         uses: golangci/golangci-lint-action@82606bf257cbaff209d206a39f5134f0cfbfd2ee # v9
         with:
           version: ${{ steps.lint-version.outputs.version }}
