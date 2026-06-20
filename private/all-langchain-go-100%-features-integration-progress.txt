@@ -1,6 +1,6 @@
-langchain-go (tmc/langchaingo v0.1.14) - 100% Feature Integration Progress
+langchain-go (tmc/langchaingo v0.1.14 + main post-release) - 100% Feature Integration Progress
 kdeps integration target: pkg/executor/llm/ + pkg/agent/ + new resource types
-Last updated: 2026-06-17 (P11, 1389+ tests, Bedrock/WatsonX/Cybertron/Redis done)
+Last updated: 2026-06-20 (P14 scan: 2 new post-v0.1.14 features found in main)
 
 Legend: [DONE] [IN-PROGRESS] [PLANNED] [N/A-BLOCKED] [SKIP]
 Score = % of feature surface implemented in kdeps
@@ -101,6 +101,8 @@ Reasoning / thinking             llms reasoning.go           [DONE]       100
   - llms.WithThinking(&llms.ThinkingConfig{...})
   - domain.ThinkingConfig{Mode, BudgetTokens, ReturnOutput}
   - Anthropic claude-3.7+, OpenAI o-series, DeepSeek-R1
+  - [GAP post-v0.1.14]: StreamingReasoningFunc for real-time thinking token streaming
+    (commit 8fea3de6 in langchaingo main; kdeps streams final content only)
 Token counting / utilization     llms count_tokens.go        [DONE]       100
   - llms.CountTokens(model, text) used in session.totalTokens() for budget trim
   - Also available in pkg/executor/llm/token_counter.go for router + auto-compact
@@ -500,6 +502,12 @@ Wolfram Alpha                    tools/wolfram               [DONE]       100
   - Registered as "wolfram_alpha" when WOLFRAM_APP_ID is set
   - Direct HTTP to api.wolframalpha.com/v1/result (short-answer API); no external SDK dep
   - registerWolframAlpha + callWolframAlpha in pkg/agent/builtin_tools.go; 4 tests
+OpenAI native web search         llms/openai (post-v0.1.14)  [PLANNED]     0
+  - langchaingo commit 509308ff: adds WithWebSearch() OpenAI call option
+  - Enables ChatGPT-style web search via tools={type:"web_search_preview"} in OpenAI API
+  - DIFFERENT from DuckDuckGo built-in tool; this is OpenAI's server-side web browsing
+  - kdeps integration: ChatConfig.WebSearch bool → pass llms.WithWebSearch() in buildStreamOpts
+  - Only available with OpenAI-hosted models (not compatible with local/other backends)
 
 ==============================================================================
 TIER 13 - AGENTS (agents/) - ReAct / OpenAI Functions
@@ -635,14 +643,14 @@ Tier                              Features  Done  In-Prog  Planned  Score
 9  Prompt Templates                     5     5       0        0     100%
 10 Callbacks / Observability            5     5       0        0     100%
 11 LLM Response Cache                   2     2       0        0     100%
-12 Built-in Tools                      16    16       0        0     100%
+12 Built-in Tools                      17    16       0        1      94% (1 PLANNED: OpenAI native web search)
 13 Agents / ReAct                       6     6       0        0     100%
 14 Multimodal / Image                   3     3       0        0     100%
 15 RAG Pipeline                         3     3       0        0     100%
 16 Schema / JSON Types                  2     2       0        0     100%
 17 Chains (composition)                 9     0       0        9     N/A (all SKIP — covered by workflow DAG)
 --------------------------------------------------------------------------
-TOTAL                                 126   113       0        9      97% (1 N/A-BLOCKED: Milvus; 1 SKIP: Zep; 9 SKIP: chains)
+TOTAL                                 127   113       0       10      97% (1 N/A-BLOCKED: Milvus; 1 SKIP: Zep; 9 SKIP: chains; 1 PLANNED: OpenAI web search)
   +HuggingFace, Cloudflare, Maritaca, Ernie providers (T1)
   +token counting, ToolChoice field (T2)
   +token-based session memory (T7)
@@ -733,6 +741,13 @@ Existing types extended:
                        StopWords all wired to langchaingo CallOptions
   file:         [DONE] outputs as Document via loader: pipeline
   http:         [DONE] httpClient: resource; also web_scraper built-in tool
+
+P14 additions (2026-06-20) - post-v0.1.14 main branch scan:
+  +Scanned langchaingo main (4 commits since v0.1.14 released 2025-10-20)
+  +OpenAI native web search (llms/openai WithWebSearch(), commit 509308ff) → [PLANNED] T12
+  +Anthropic StreamingReasoningFunc (commit 8fea3de6) → [GAP] noted in T2 reasoning entry
+  +MariaDB + Dolt vectorstores (langchaingo commit db2a947b) → already [DONE] in T4
+  +agents ChainCallOption fix + multi-line parseOutput → internal fixes, no kdeps API gap
 
 P11 additions (2026-06-18):
   +Ollama native model listing via 'ollama list' (T1)

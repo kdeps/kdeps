@@ -322,7 +322,7 @@ Session persistence (JSONL)   harness/session/jsonl-*.ts      session_store.go  
 Message conversion            harness/messages.ts             compact.go + session.go  95
 System prompt construction    harness/system-prompt.ts        loop.go + skill.go       98  [+Current date injection in buildSystemPreamble (2026-06-20)]
 Compaction (LLM-based)        compaction/compaction.ts        compact.go + loop.go    92  [was 80/90; +countTokensSilent no WARN spam]
-Branch summarization          compaction/branch-summar.ts     branch_summary.go       92  [table was stale at 85%; preamble IS in branchSummaryPrefix; gap: token-budget-aware truncation only]
+Branch summarization          compaction/branch-summar.ts     branch_summary.go       97  [was 92; +token-budget-aware truncation: truncateBranchMessages caps messages to min(contextWindow,8000)-2000 tokens, prepends omission note when dropped; 4 unit tests added]
 Prompt templates              harness/prompt-templates.ts     prompt_template.go     100
 Session tree management       harness/session/session.ts      session_store.go        95  [was 90; +prunedBranch stash, /session branches, bi-directional goto]
 Context overflow detection    agent-session.ts                overflow.go + loop.go   100
