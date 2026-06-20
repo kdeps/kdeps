@@ -462,3 +462,94 @@ func TestCurrentBranchMessages_ParentNotFound(t *testing.T) {
 		t.Fatalf("expected q1, got %q", msgs[0].Content)
 	}
 }
+
+// TestRestoreTo_StashesPrunedBranch verifies that pruned messages are stored
+// and BranchInfo reflects the stashed turns.
+func TestRestoreTo_StashesPrunedBranch(t *testing.T) {
+	s := NewSession(0)
+	s.Append("turn1", "resp1")
+	cp := s.Checkpoint()
+	s.Append("turn2", "resp2")
+	s.Append("turn3", "resp3")
+
+	if !s.RestoreTo(cp) {
+		t.Fatal("RestoreTo returned false")
+	}
+	if s.TurnCount() != 1 {
+		t.Fatalf("expected 1 turn after restore, got %d", s.TurnCount())
+	}
+
+	point, prunedTurns := s.BranchInfo()
+	if point == 0 {
+		t.Fatal("expected non-zero branch point")
+	}
+	// Stash is a FULL snapshot of the pre-restore state (3 turns total).
+	if prunedTurns != 3 {
+		t.Fatalf("expected 3 pruned turns (full snapshot), got %d", prunedTurns)
+	}
+	ids := s.PrunedBranchIDs()
+	if len(ids) != 3 {
+		t.Fatalf("expected 3 pruned branch IDs, got %d", len(ids))
+	}
+	_ = point
+}
+
+// TestRestoreTo_NavigateToPrunedBranch verifies that /session goto can navigate
+// to an ID in the pruned branch, swapping the branches.
+func TestRestoreTo_NavigateToPrunedBranch(t *testing.T) {
+	s := NewSession(0)
+	s.Append("turn1", "resp1")
+	cp1 := s.Checkpoint()
+	s.Append("turn2", "resp2")
+	cp2 := s.Checkpoint() // tip of turn 2
+
+	// Restore to turn 1, stashing turn 2.
+	if !s.RestoreTo(cp1) {
+		t.Fatal("RestoreTo(cp1) failed")
+	}
+	if s.TurnCount() != 1 {
+		t.Fatalf("expected 1 turn, got %d", s.TurnCount())
+	}
+
+	// The stashed branch has turn 2 (starting at cp after turn1's assistant).
+	ids := s.PrunedBranchIDs()
+	if len(ids) == 0 {
+		t.Fatal("expected pruned branch IDs")
+	}
+
+	// Navigate to the pruned branch via a stashed ID.
+	if !s.RestoreTo(cp2) {
+		t.Fatal("RestoreTo(stashed ID) failed")
+	}
+	if s.TurnCount() != 2 {
+		t.Fatalf("expected 2 turns after navigating to pruned branch, got %d", s.TurnCount())
+	}
+	_ = cp1
+}
+
+// TestRestoreTo_BranchAfterGoto verifies that Append after RestoreTo branches
+// correctly (parentID = restored tip, not old messages).
+func TestRestoreTo_BranchAfterGoto(t *testing.T) {
+	s := NewSession(0)
+	s.Append("turn1", "resp1")
+	cp := s.Checkpoint()
+	s.Append("turn2", "resp2")
+
+	if !s.RestoreTo(cp) {
+		t.Fatal("RestoreTo failed")
+	}
+	// New turn after restore should branch from the restored tip.
+	s.Append("branch-turn", "branch-resp")
+	if s.TurnCount() != 2 {
+		t.Fatalf("expected 2 turns (turn1 + branch), got %d", s.TurnCount())
+	}
+	msgs := s.rawMessages()
+	// The 3rd message (index 2) should be the branch-turn user message.
+	if msgs[2].Content != "branch-turn" {
+		t.Fatalf("expected branch-turn at index 2, got %q", msgs[2].Content)
+	}
+	// Its parentID should be the ID of the assistant msg from turn1 (the restored tip).
+	if msgs[2].ParentID != cp {
+		t.Fatalf("expected parentID=%d (restored tip), got %d", cp, msgs[2].ParentID)
+	}
+}

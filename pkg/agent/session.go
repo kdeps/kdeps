@@ -77,6 +77,13 @@ type Session struct {
 	fileOps          []fileOpEntry // per-turn file operations; index matches turn index
 	firstKeptEntryID int64         // ID of the first kept entry after the most recent compaction (0 = none)
 	lastEntryID      int64         // monotonically increasing entry ID counter
+
+	// Non-linear branching (A16): when RestoreTo() prunes messages, they are
+	// stashed here so the user can navigate back to the original branch.
+	// Only the most recent pruned branch is kept; older stashes are overwritten.
+	prunedBranch    []sessionMessage
+	prunedBranchOps []fileOpEntry
+	branchPoint     int64 // last message ID of the active branch when pruning occurred
 }
 
 type sessionMessage struct {
@@ -404,23 +411,102 @@ func (s *Session) Checkpoint() int64 {
 }
 
 // RestoreTo trims the session to the complete turn that contains the message
-// with the given entry ID. Returns false if the ID is not found.
+// with the given entry ID. Pruned messages are stashed in prunedBranch so the
+// caller can navigate back with RestorePrunedBranch(). Returns false if not found.
+// If entryID is in prunedBranch, swaps current and pruned branch instead.
 func (s *Session) RestoreTo(entryID int64) bool {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	for i, m := range s.messages {
-		if m.ID == entryID {
-			// round up to the next complete turn boundary
-			end := min((i/sessionMsgsPer+1)*sessionMsgsPer, len(s.messages))
-			s.messages = s.messages[:end]
-			newTurns := len(s.messages) / sessionMsgsPer
-			if len(s.fileOps) > newTurns {
-				s.fileOps = s.fileOps[:newTurns]
-			}
-			return true
+	if s.restoreFromPruned(entryID) {
+		return true
+	}
+	return s.restoreFromCurrent(entryID)
+}
+
+// restoreFromPruned swaps branches if entryID is in the stashed pruned branch.
+// Must be called with s.mu held for writing.
+func (s *Session) restoreFromPruned(entryID int64) bool {
+	for i, m := range s.prunedBranch {
+		if m.ID != entryID {
+			continue
 		}
+		end := min((i/sessionMsgsPer+1)*sessionMsgsPer, len(s.prunedBranch))
+		newPruned := make([]sessionMessage, len(s.messages))
+		copy(newPruned, s.messages)
+		newPrunedOps := make([]fileOpEntry, len(s.fileOps))
+		copy(newPrunedOps, s.fileOps)
+
+		s.messages = s.prunedBranch[:end]
+		newTurns := len(s.messages) / sessionMsgsPer
+		if newTurns < len(s.prunedBranchOps) {
+			s.fileOps = s.prunedBranchOps[:newTurns]
+		} else {
+			s.fileOps = s.prunedBranchOps
+		}
+		s.prunedBranch = newPruned
+		s.prunedBranchOps = newPrunedOps
+		if len(s.messages) > 0 {
+			s.branchPoint = s.messages[len(s.messages)-1].ID
+		}
+		return true
 	}
 	return false
+}
+
+// restoreFromCurrent truncates current messages to the turn containing entryID,
+// stashing the pruned tail for branch recovery. Must be called with s.mu held for writing.
+func (s *Session) restoreFromCurrent(entryID int64) bool {
+	for i, m := range s.messages {
+		if m.ID != entryID {
+			continue
+		}
+		end := min((i/sessionMsgsPer+1)*sessionMsgsPer, len(s.messages))
+		s.stashPrunedTail(end)
+		s.messages = s.messages[:end]
+		newTurns := len(s.messages) / sessionMsgsPer
+		if len(s.fileOps) > newTurns {
+			s.fileOps = s.fileOps[:newTurns]
+		}
+		if len(s.messages) > 0 {
+			s.branchPoint = s.messages[len(s.messages)-1].ID
+		}
+		return true
+	}
+	return false
+}
+
+// stashPrunedTail snapshots the full current state into prunedBranch so that
+// RestoreTo(id-in-pruned) can restore the complete original history up to
+// any checkpoint, not just the trimmed tail.
+// Must be called with s.mu held for writing.
+func (s *Session) stashPrunedTail(end int) {
+	if end >= len(s.messages) {
+		return
+	}
+	s.prunedBranch = make([]sessionMessage, len(s.messages))
+	copy(s.prunedBranch, s.messages)
+	s.prunedBranchOps = make([]fileOpEntry, len(s.fileOps))
+	copy(s.prunedBranchOps, s.fileOps)
+}
+
+// BranchInfo returns the branch point ID and number of turns stashed in the
+// pruned branch (0, 0 if no branch exists).
+func (s *Session) BranchInfo() (int64, int) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	return s.branchPoint, len(s.prunedBranch) / sessionMsgsPer
+}
+
+// PrunedBranchIDs returns the entry IDs of the first message of each turn in
+// the pruned (stashed) branch. Used by /session branches to list navigable IDs.
+func (s *Session) PrunedBranchIDs() []int64 {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	var ids []int64
+	for i := 0; i < len(s.prunedBranch); i += sessionMsgsPer {
+		ids = append(ids, s.prunedBranch[i].ID)
+	}
+	return ids
 }
 
 func jsonString(s string) string {

@@ -1677,6 +1677,8 @@ func (r *REPL) cmdSession(args []string) error {
 			fmt.Fprintln(os.Stdout, styleReplMeta.Render(fmt.Sprintf("Checkpoint: %d", id)))
 		}
 		return nil
+	case "branches":
+		return r.cmdSessionBranches()
 	case "goto":
 		if len(args) < sessionSubcmdArgMin {
 			fmt.Fprintln(os.Stdout, styleReplMeta.Render("Usage: /session goto <entry-id>"))
@@ -1701,11 +1703,30 @@ func (r *REPL) cmdSession(args []string) error {
 		return nil
 	default:
 		fmt.Fprintf(os.Stdout,
-			"Unknown /session subcommand: %s. Use list, save, load, delete, checkpoint, or goto.\n",
+			"Unknown /session subcommand: %s. Use list, save, load, delete, checkpoint, goto, or branches.\n",
 			sub,
 		)
 		return nil
 	}
+}
+
+// cmdSessionBranches shows the stashed pruned branch (created by /session goto).
+func (r *REPL) cmdSessionBranches() error {
+	sess := r.loop.session
+	point, prunedTurns := sess.BranchInfo()
+	if point == 0 || prunedTurns == 0 {
+		fmt.Fprintln(os.Stdout, styleReplMeta.Render("No stashed branch. Use /session goto to create a branch."))
+		return nil
+	}
+	ids := sess.PrunedBranchIDs()
+	fmt.Fprintln(os.Stdout, styleReplHeading.Render(fmt.Sprintf(
+		"Stashed branch: branched at entry %d, %d turns available", point, prunedTurns,
+	)))
+	fmt.Fprintln(os.Stdout, styleReplMeta.Render("Entry IDs (use /session goto <id> to switch back):"))
+	for i, id := range ids {
+		fmt.Fprintf(os.Stdout, "  turn %d: %d\n", i+1, id)
+	}
+	return nil
 }
 
 func (r *REPL) cmdSessionList(store *SessionStore) error {
