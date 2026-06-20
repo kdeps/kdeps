@@ -919,3 +919,82 @@ func TestFileContentPart_NotFound(t *testing.T) {
 	_, ok := fileContentPart("/nonexistent/path.png")
 	assert.False(t, ok)
 }
+
+func ptr[T any](v T) *T { return &v }
+
+func TestBuildSamplingOpts_Empty(t *testing.T) {
+	t.Parallel()
+	opts := buildSamplingOpts(&domain.ChatConfig{})
+	assert.Empty(t, opts)
+}
+
+func TestBuildSamplingOpts_Temperature(t *testing.T) {
+	t.Parallel()
+	opts := buildSamplingOpts(&domain.ChatConfig{Temperature: ptr(0.7)})
+	assert.Len(t, opts, 1)
+}
+
+func TestBuildSamplingOpts_MaxTokens(t *testing.T) {
+	t.Parallel()
+	opts := buildSamplingOpts(&domain.ChatConfig{MaxTokens: ptr(512)})
+	assert.Len(t, opts, 1)
+}
+
+func TestBuildSamplingOpts_TopP(t *testing.T) {
+	t.Parallel()
+	opts := buildSamplingOpts(&domain.ChatConfig{TopP: ptr(0.9)})
+	assert.Len(t, opts, 1)
+}
+
+func TestBuildSamplingOpts_TopK(t *testing.T) {
+	t.Parallel()
+	opts := buildSamplingOpts(&domain.ChatConfig{TopK: ptr(40)})
+	assert.Len(t, opts, 1)
+}
+
+func TestBuildSamplingOpts_Seed(t *testing.T) {
+	t.Parallel()
+	opts := buildSamplingOpts(&domain.ChatConfig{Seed: ptr(42)})
+	assert.Len(t, opts, 1)
+}
+
+func TestBuildSamplingOpts_FrequencyPenalty(t *testing.T) {
+	t.Parallel()
+	opts := buildSamplingOpts(&domain.ChatConfig{FrequencyPenalty: ptr(0.5)})
+	assert.Len(t, opts, 1)
+}
+
+func TestBuildSamplingOpts_PresencePenalty(t *testing.T) {
+	t.Parallel()
+	opts := buildSamplingOpts(&domain.ChatConfig{PresencePenalty: ptr(0.3)})
+	assert.Len(t, opts, 1)
+}
+
+func TestBuildSamplingOpts_RepetitionPenalty(t *testing.T) {
+	t.Parallel()
+	opts := buildSamplingOpts(&domain.ChatConfig{RepetitionPenalty: ptr(1.1)})
+	assert.Len(t, opts, 1)
+}
+
+func TestBuildSamplingOpts_StopWords(t *testing.T) {
+	t.Parallel()
+	opts := buildSamplingOpts(&domain.ChatConfig{StopWords: []string{"<stop>", "END"}})
+	assert.Len(t, opts, 1)
+}
+
+func TestBuildSamplingOpts_AllParams(t *testing.T) {
+	t.Parallel()
+	cfg := &domain.ChatConfig{
+		Temperature:       ptr(0.5),
+		MaxTokens:         ptr(1024),
+		TopP:              ptr(0.95),
+		TopK:              ptr(50),
+		Seed:              ptr(7),
+		FrequencyPenalty:  ptr(0.1),
+		PresencePenalty:   ptr(0.2),
+		RepetitionPenalty: ptr(1.05),
+		StopWords:         []string{"stop"},
+	}
+	opts := buildSamplingOpts(cfg)
+	assert.Len(t, opts, 9)
+}

@@ -152,11 +152,15 @@ type ChatConfig struct {
 	//   "structured"   - extracts JSON from a ```json...``` fenced block
 	OutputParser string `yaml:"outputParser,omitempty"`
 	// Advanced LLM parameters (may not be supported by all backends)
-	Temperature      *float64 `yaml:"temperature,omitempty"`      // Sampling temperature (0.0-2.0)
-	MaxTokens        *int     `yaml:"maxTokens,omitempty"`        // Maximum tokens to generate
-	TopP             *float64 `yaml:"topP,omitempty"`             // Nucleus sampling parameter (0.0-1.0)
-	FrequencyPenalty *float64 `yaml:"frequencyPenalty,omitempty"` // Frequency penalty (-2.0 to 2.0)
-	PresencePenalty  *float64 `yaml:"presencePenalty,omitempty"`  // Presence penalty (-2.0 to 2.0)
+	Temperature       *float64 `yaml:"temperature,omitempty"`       // Sampling temperature (0.0-2.0)
+	MaxTokens         *int     `yaml:"maxTokens,omitempty"`         // Maximum tokens to generate
+	TopP              *float64 `yaml:"topP,omitempty"`              // Nucleus sampling parameter (0.0-1.0)
+	TopK              *int     `yaml:"topK,omitempty"`              // Top-K sampling (local/Gemini models)
+	Seed              *int     `yaml:"seed,omitempty"`              // Random seed for reproducible outputs
+	FrequencyPenalty  *float64 `yaml:"frequencyPenalty,omitempty"`  // Frequency penalty (-2.0 to 2.0)
+	PresencePenalty   *float64 `yaml:"presencePenalty,omitempty"`   // Presence penalty (-2.0 to 2.0)
+	RepetitionPenalty *float64 `yaml:"repetitionPenalty,omitempty"` // Repetition penalty (local models)
+	StopWords         []string `yaml:"stopWords,omitempty"`         // Stop sequences to halt generation
 }
 
 // ScenarioItem represents a chat scenario item.

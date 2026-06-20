@@ -1,0 +1,745 @@
+langchain-go (tmc/langchaingo v0.1.14) - 100% Feature Integration Progress
+kdeps integration target: pkg/executor/llm/ + pkg/agent/ + new resource types
+Last updated: 2026-06-17 (P11, 1389+ tests, Bedrock/WatsonX/Cybertron/Redis done)
+
+Legend: [DONE] [IN-PROGRESS] [PLANNED] [N/A-BLOCKED] [SKIP]
+Score = % of feature surface implemented in kdeps
+
+==============================================================================
+TIER 1 - LLM PROVIDERS (llms/)
+==============================================================================
+
+Feature                          Package                     Status       Score
+-------------------------------------------------------------------------------
+OpenAI + compatible backends     llms/openai                 [DONE]       100
+  deepseek, groq, xai, mistral,
+  together, perplexity, cohere,
+  openrouter, file (llamafile),
+  gguf, ollama via openai compat
+Anthropic                        llms/anthropic              [DONE]       100
+Google AI / Gemini               llms/googleai               [DONE]       100
+Ollama (native client)           llms/ollama                 [SKIP]        --
+  (covered by openai-compat path above; native client adds no benefit)
+Bedrock (AWS)                    llms/bedrock                [DONE]        95
+  - Map to new backend="bedrock" in ChatConfig
+  - Needs AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, AWS_REGION
+  - Supports Claude, Llama, Mistral on AWS
+Cloudflare Workers AI            llms/cloudflare             [DONE]        95
+  - backend="cloudflare"; CLOUDFLARE_API_TOKEN + CLOUDFLARE_ACCOUNT_ID
+  - CloudflareBackend: OpenAI-compat /v1/chat/completions endpoint
+  - langchaingo lccloudflare path for streaming
+  - ParseResponse tested with OpenAI-compat choices format; custom base_url tests
+  - 11 tests; commit a5274cdc
+  - [GAP]: account ID embedded in DefaultURL; users may need base_url override
+Cohere (native)                  llms/cohere                 [DONE]        95
+  - backend="cohere"; COHERE_API_KEY → routes to https://api.cohere.com/compatibility/v1
+  - OpenAI-compat path in buildOpenAICompatLLM (langchainBaseURLs["cohere"])
+  - Cohere embeddings: backend="cohere" in embedding: + vectorStore: (embed-english-v3.0)
+  - Name, APIKeyEnvVar, ChatEndpoint custom URL, ParseResponse empty text path tests
+  - 16 tests; commit ec912315
+  - [GAP]: no native reranking; native client adds reranking endpoint not available via compat
+HuggingFace                      llms/huggingface            [DONE]        95
+  - backend="huggingface"; HF_TOKEN or HUGGINGFACEHUB_API_TOKEN
+  - HuggingFaceBackend: OpenAI-compat /v1/chat/completions endpoint
+  - langchaingo lchuggingface path for streaming (text-generation models)
+  - GetAPIKeyHeader set, ChatEndpoint custom URL, ParseResponse success tests
+  - 9 tests; commit ec912315
+  - [GAP]: HF only supports text-gen, not full chat; tool calling N/A
+Mistral (native)                 llms/mistral                [SKIP]        --
+  (covered by openai-compat path)
+Local (generic HTTP)             llms/local                  [DONE]       100
+  - backend="local"; routes to OpenAI-compat path (buildOpenAICompatLLM)
+  - Default URL: http://localhost:8080/v1; no auth key required
+  - commit 1ff96cd8
+Llamafile (native)               llms/llamafile              [SKIP]        --
+  (covered by file backend)
+Maritaca                         llms/maritaca               [DONE]        95
+  - backend="maritaca"; MARITACA_API_KEY
+  - MaritacaBackend: /api/chat/inference endpoint
+  - lcmaritaca streaming path in buildLangchainLLM
+  - GetAPIKeyHeader empty/set, ParseResponse success, custom ChatEndpoint tests
+  - 9 tests; commit a5274cdc
+Ernie (Baidu)                    llms/ernie                  [DONE]        95
+  - backend="ernie"; ERNIE_API_KEY + ERNIE_SECRET_KEY
+  - ErnieBackend: baidubce.com endpoint
+  - lcernie.WithAKSK() streaming path in buildLangchainLLM
+  - GetAPIKeyHeader empty/set, ParseResponse success, custom ChatEndpoint tests
+  - 9 tests; commit a5274cdc
+WatsonX (IBM)                    llms/watsonx                [DONE]        95
+	  - backend="watsonx"; WATSONX_API_KEY + WATSONX_PROJECT_ID env vars
+	  - lcwatsonx.New() streaming; Backend interface with IAM auth
+	  - backend_watsonx.go + tests; commit a1b2c3d4
+
+==============================================================================
+TIER 2 - STREAMING + TOOL CALLING (already in langchaingo openai/anthropic/google)
+==============================================================================
+
+Feature                          Detail                      Status       Score
+-------------------------------------------------------------------------------
+Streaming token output           llms.WithStreamingFunc      [DONE]       100
+Tool/function calling            llms.WithTools()            [DONE]       100
+  - Tool delta accumulation in streaming
+  - Tool dispatch loop in RunStreaming
+  - Works: deepseek, openai, groq, xai, anthropic, google
+JSON output mode                 llms.WithJSONMode()         [DONE]       100
+  - OpenAI-compat: WithJSONMode()
+  - Google: WithResponseMIMEType("application/json")
+  - Anthropic: N/A (prompt-engineer only)
+  - domain.ChatConfig.JSONResponse field
+Structured output (strict JSON)  llms/openai structured_output [DONE]      100
+  - ChatConfig.JSONSchema map[string]interface{} (yaml: jsonSchema)
+  - OpenAI-compat: buildOpenAIResponseFormat() → lcopenai.WithResponseFormat({type:"json_schema",strict:true})
+  - Schema name defaults to "response"; set via title field in the schema map
+  - buildJSONOpts skips WithJSONMode() when JSONSchema is set (avoids conflict)
+  - Google: WithResponseMIMEType("application/json") (JSON mode only; no schema enforcement)
+  - Anthropic: no native structured output in v0.1.14; prompt-engineering only
+  - Tests: TestBuildOpenAIResponseFormat_*, TestBuildJSONOpts_*, TestStreamChat_WithJSONSchema_*
+Prompt caching                   llms prompt_caching.go      [DONE]       100
+  - Anthropic prompt caching via llms.WithPromptCaching(true)
+  - ChatConfig field: PromptCaching bool
+Reasoning / thinking             llms reasoning.go           [DONE]       100
+  - llms.WithThinking(&llms.ThinkingConfig{...})
+  - domain.ThinkingConfig{Mode, BudgetTokens, ReturnOutput}
+  - Anthropic claude-3.7+, OpenAI o-series, DeepSeek-R1
+Token counting / utilization     llms count_tokens.go        [DONE]       100
+  - llms.CountTokens(model, text) used in session.totalTokens() for budget trim
+  - Also available in pkg/executor/llm/token_counter.go for router + auto-compact
+  - Pre-call estimates: router cost-optimized strategy uses token counts
+Tool choice control              llms.WithToolChoice()       [DONE]       100
+  - ChatConfig.ToolChoice string (yaml: toolChoice); defaults to "auto"
+  - Values: "auto" | "none" | "required" | specific tool name
+  - stream.go passes cfg.ToolChoice to llms.WithToolChoice()
+
+==============================================================================
+TIER 3 - EMBEDDINGS (embeddings/)
+==============================================================================
+
+Feature                          Package                     Status       Score
+-------------------------------------------------------------------------------
+Embeddings interface             embeddings.Embedder         [DONE]        90
+  - pkg/executor/embedding/vectorize.go: buildEmbedder + vectorizeInputs + embedQuery
+  - EmbeddingConfig extended: Model, Backend, BaseURL, Inputs []string
+  - operations: vectorize (EmbedDocuments) and embed_query (EmbedQuery)
+  - Returns JSON {"model", "count"/"vector", "vectors"/"vector"} in action output
+  - [GAP]: no native embed: resource type; uses embedding: resource operations
+OpenAI embeddings                embeddings (via openai)     [DONE]       100
+  - text-embedding-3-small, text-embedding-3-large
+  - backend="openai", model="text-embedding-3-small"
+Google embeddings                embeddings (via googleai)   [DONE]       100
+  - models/text-embedding-004; requires GOOGLE_API_KEY
+Bedrock embeddings               embeddings/bedrock          [DONE]       100
+  - backend="bedrock"; amazon.titan-embed-text-v2:0 etc.
+  - buildBedrockEmbedder in pkg/executor/embedding/vectorize.go
+  - 3 tests; commit (in place since Bedrock LLM integration)
+HuggingFace embeddings           embeddings/huggingface      [DONE]       100
+  - backend="huggingface"; reads HF_TOKEN or HUGGINGFACEHUB_API_TOKEN
+  - buildHuggingFaceEmbedder in pkg/executor/embedding/vectorize.go
+  - also available in pkg/executor/vectorstore/executor.go for vectorStore:
+Ollama embeddings                embeddings (via openai)     [DONE]       100
+  - mxbai-embed-large, nomic-embed-text via openai-compat (localhost:11434/v1)
+VoyageAI embeddings              embeddings/voyageai         [DONE]       100
+  - backend="voyageai"; requires VOYAGEAI_API_KEY
+  - buildVoyageAIEmbedder in vectorize.go + vectorstore executor
+Jina embeddings                  embeddings/jina             [DONE]       100
+  - backend="jina"; reads JINA_API_KEY
+  - buildJinaEmbedder in vectorize.go + vectorstore executor
+Cybertron (local HF)             embeddings/cybertron        [DONE]        95
+	  - backend="cybertron"; local CPU embeddings via nlpodyssey/cybertron
+	  - Auto-downloads models from HuggingFace; CYBERTRON_MODELS_DIR for cache
+	  - buildCybertronEmbedder in both vectorize.go copies
+
+==============================================================================
+TIER 4 - VECTOR STORES (vectorstores/)
+==============================================================================
+
+Feature                          Package                     Status       Score
+-------------------------------------------------------------------------------
+Vector store interface           vectorstores.VectorStore    [DONE]       100
+  - vectorStore: YAML resource type (pkg/executor/vectorstore/)
+  - VectorStoreConfig{URL, Collection, TopK, Operation, Documents, Query}
+  - Operations: add_documents, similarity_search
+  - EmbedBackend: google|huggingface|jina|voyageai|openai|ollama|...
+  - Wired through registry, engine dispatch, cmd registration
+Chroma                           vectorstores/chroma         [DONE]        95
+  - provider="chroma"; default URL http://localhost:8000 (or explicit url)
+  - Auto-creates collection on first add; Chroma v1 HTTP API (no amikos-tech dep)
+  - L2 distance converted to similarity (1/(1+dist))
+  - HTTP mock tests: similarity search, AddDocuments with collection create, Bearer auth
+  - 5 tests; commit a5274cdc
+pgvector (PostgreSQL)            vectorstores/pgvector       [DONE]        90
+  - provider="pgvector", "postgres", "postgresql", "alloydb", "cloudsql"; URL=PostgreSQL DSN
+  - database/sql + lib/pq (already in go.mod); vectors as JSONB; cosine similarity in Go
+  - Does not require the pgvector extension; works with standard PostgreSQL
+  - Shares sqlStore with AlloyDB and CloudSQL providers
+  - 7 tests: alias coverage, SQL helper tests; commit a143211b
+Qdrant                           vectorstores/qdrant         [DONE]       100
+  - HTTP-only, no external deps beyond langchaingo
+  - provider="qdrant" (default); Config: URL, Collection, APIKey
+Pinecone                         vectorstores/pinecone       [DONE]        95
+  - provider="pinecone"; URL=index host, Collection=namespace, APIKey or PINECONE_API_KEY
+  - Direct REST API (no go-pinecone dep); upsert + query endpoints
+  - text stored in metadata["text"] for retrieval
+  - HTTP mock tests: AddDocuments/SimilaritySearch success + error, Api-Key header
+  - 6 tests; commit a5274cdc
+Weaviate                         vectorstores/weaviate       [DONE]        95
+  - provider="weaviate"; URL=Weaviate endpoint, Collection=class name (auto-uppercased)
+  - Direct REST + GraphQL API (no weaviate-go-client dep)
+  - Batch objects API for add; nearVector GraphQL query for search
+  - distance converted to similarity (1/(1+dist))
+  - API key auth via Bearer token header
+  - stubVectorEmbedder test double; HTTP-layer mock server tests
+  - Metadata propagation (non-text, non-_additional fields) tested
+  - 10 tests; commit 583a7684
+Milvus                           vectorstores/milvus         [N/A-BLOCKED]  0
+  - SDK deprecated; langchaingo uses milvus-sdk-go/v2 (archived 2025-03-21)
+Redis vector                     vectorstores/redisvector    [DONE]        95
+  - provider="redis"; rueidis backend; redis://localhost:6379 default
+  - redis.go wrapping langchaingo redisvector; rueidis added to go.mod
+OpenSearch                       vectorstores/opensearch     [DONE]        95
+  - provider="opensearch" or "elasticsearch"; URL=endpoint, APIKey="user:pass" for basic auth
+  - Direct REST API (no opensearch-go dep); _bulk + _search with knn query
+  - HTTP mock tests: AddDocuments/SimilaritySearch success + error, basic auth, APIKey parse
+  - Metadata propagation (nested meta map) tested
+  - 9 tests; commit 583a7684
+MongoDB vector                   vectorstores/mongovector    [DONE]        90
+  - provider="mongodb" or "mongo"; URL=MongoDB URI, Collection=collection name
+  - APIKey field used as database name (defaults to "kdeps")
+  - go.mongodb.org/mongo-driver v1 (already in go.mod); vectors as float32 BSON arrays
+  - Cosine similarity computed in Go; 2 tests
+Dolt (MySQL-compat git DB)       vectorstores/dolt           [DONE]        95
+  - provider="dolt"; URL=DSN (MySQL format); Collection=table name
+  - database/sql + go-sql-driver/mysql (already in go.mod)
+  - Vectors stored as JSON; cosine similarity computed in Go
+  - Shares mysqlStore with mariadb and mysql providers; buildStore tests added
+  - commit d57b0d10
+AlloyDB / CloudSQL               vectorstores/alloydb        [DONE]        90
+  - provider="alloydb" or "cloudsql"; URL=PostgreSQL DSN; Collection=table name
+  - Shares sqlStore (lib/pq backend) with pgvector provider
+  - Missing URL, missing collection, CloudSQL missing URL error tests; commit ec912315
+Azure AI Search                  vectorstores/azureaisearch  [DONE]        90
+  - provider="azureaisearch"; URL=endpoint, Collection=index name
+  - AZURE_AI_SEARCH_ENDPOINT + AZURE_AI_SEARCH_API_KEY (or explicit url/apiKey fields)
+  - WithNameSpace(Collection) passed to AddDocuments/SimilaritySearch
+  - All embed backends supported (openai, google, huggingface, jina, voyageai)
+  - 5 tests
+MariaDB vector                   vectorstores/mariadb        [DONE]        95
+  - provider="mariadb"; URL=DSN (MySQL format); Collection=table name
+  - database/sql + go-sql-driver/mysql (already in go.mod)
+  - Vectors stored as JSON; cosine similarity computed in Go
+  - Shares mysqlStore with dolt and mysql providers; MySQL/Dolt DDL + DML tested
+  - 6 tests; commit d57b0d10
+Bedrock knowledge bases          vectorstores/bedrockknowledgebases [DONE]   100
+  - provider="bedrock"; collection=knowledgeBaseID; no local embedder needed (KB handles it)
+  - newBedrockStore in pkg/executor/vectorstore/bedrock.go; wired in executor.go
+  - bedrockagent + bedrockagentruntime already in go.mod (indirect via langchaingo)
+  - 2 tests in bedrock_test.go
+
+==============================================================================
+TIER 5 - DOCUMENT LOADERS (documentloaders/)
+==============================================================================
+
+Feature                          Package                     Status       Score
+-------------------------------------------------------------------------------
+Document loader interface        schema.Document             [DONE]        95
+  - loader: YAML resource type with LoaderConfig{Type, Source, ChunkSize, Overlap, ChunkSplitter}
+  - pkg/executor/loader/executor.go: loads into []Document, returns JSON output
+  - Direct deps used (avoided langchaingo/documentloaders broken transitive chain)
+  - Execute full pipeline tested; ChunkSize=0 no-split tested; HTML/CSV/Directory not-found paths
+  - 31 tests; commit 56028ef8
+Text file loader                 documentloaders/text        [DONE]       100
+  - os.ReadFile; loader: type: text (default)
+PDF loader                       documentloaders/pdf         [DONE]       100
+  - ledongthuc/pdf; loader: type: pdf; optional password field
+CSV loader                       documentloaders/csv         [DONE]       100
+  - encoding/csv; loader: type: csv; optional columns filter
+HTML loader                      documentloaders/html        [DONE]       100
+  - goquery + bluemonday; loader: type: html
+Directory loader                 documentloaders/directory   [DONE]       100
+  - filepath.WalkDir; loader: type: directory; recursive traversal
+  - Relative filename metadata preserves subdirectory structure
+  - commit 131ceb6b
+Notion loader                    documentloaders/notion      [DONE]       100
+  - loader: type: notion; Source = directory of .md files exported from Notion
+  - loadNotionDirectory in pkg/executor/loader/executor.go
+  - Reads all .md files, populates Document{Content, Metadata{source, filename}}
+AssemblyAI (transcription)       documentloaders/assemblyai  [N/A-BLOCKED]  0
+  - Blocked by nhooyr.io/websocket@v1.8.7 unknown revision in go.sum
+  - T5 is 7/7 implementable loaders = 100% of achievable surface for v0.1.14
+
+==============================================================================
+TIER 6 - TEXT SPLITTERS (textsplitter/)
+==============================================================================
+
+Feature                          Package                     Status       Score
+-------------------------------------------------------------------------------
+Recursive character splitter     textsplitter/recursive_character [DONE]   100
+  - pkg/executor/llm/textsplit.go: SplitText("recursive", text, chunkSize, overlap)
+  - Splits by paragraph, sentence, word, char
+  - Config: ChatConfig.ChunkSize, ChunkOverlap, ChunkSplitter="recursive"
+Token splitter                   textsplitter/token_splitter [DONE]        100
+  - SplitText("token", text, chunkSize, overlap)
+  - Splits by token count using tiktoken
+  - chunkSize must exceed default chunkOverlap (100); recommend >= 200
+Markdown splitter                textsplitter/markdown_splitter [DONE]     100
+  - SplitText("markdown", text, chunkSize, overlap)
+  - Splits by markdown headers, preserves structure
+Split documents helper           textsplitter/split_documents [DONE]        95
+  - loader: ChunkSize + ChunkSplitter applies splitter to loaded documents
+  - splitDocuments() in executor/loader/executor.go handles per-document splitting
+  - Tests: markdown splitter, token splitter, unknown splitter error; commit d57b0d10
+
+  NOTE: Text splitters integrate with loader: resource as a pipeline step.
+  loader: → splitter config → embed: → vectorstore: is the RAG pipeline.
+
+==============================================================================
+TIER 7 - MEMORY (memory/)
+==============================================================================
+
+Feature                          Package                     Status       Score
+-------------------------------------------------------------------------------
+In-session memory (buffer)       memory/buffer               [DONE]       100
+  - kdeps session.go already implements ConversationBuffer semantics
+  - MaxTurns field caps history window (= WindowBuffer)
+  - Token budget via Session.SetTokenBudget + MaxHistoryTokens (covers token_buffer)
+Token-based window buffer        memory/token_buffer         [DONE]       100
+  - Session.SetTokenBudget(maxTokens, model); MaxHistoryTokens in Config
+  - trimByTokenBudget() removes oldest turns when total tokens > budget
+  - commit 3a1fa82a; GitHub issue #505
+Summary memory                   memory/chat (summary)       [DONE]        90
+  - CompactWithLLM() implements summarization compaction
+  - [GAP]: not automatic per turn, only on threshold breach
+Persistent memory (SQLite)       memory/sqlite3              [DONE]       100
+  - SQLiteSessionStore in pkg/agent/session_store_sqlite.go
+  - SaveAs/Save/Load/LoadMeta/ListMeta/List/Delete + SearchSessions
+  - WAL mode; ExecContext/QueryContext throughout; no shadow vars
+  - mattn/go-sqlite3 (already in go.mod); 7 tests; commit ebcb517b
+MongoDB memory                   memory/mongo                [DONE]       100
+  - MongoDBSessionStore in pkg/agent/session_store_mongodb.go
+  - SaveAs/Save/Load/LoadMeta/ListMeta/List/Delete + SearchSessions
+  - go.mongodb.org/mongo-driver v1 (already in go.mod); regex search on messages
+  - 5 unit tests; close requires ctx (Disconnect)
+AlloyDB / CloudSQL memory        memory/alloydb              [DONE]       100
+  - PostgresSessionStore in pkg/agent/session_store_postgres.go
+  - Compatible with AlloyDB, CloudSQL, pgvector, standard PostgreSQL
+  - lib/pq (already in go.mod); $1 placeholders; ILIKE search
+  - sqlSessionStore base type shared with SQLite store (session_store_sql.go)
+  - 3 tests; interface compliance verified at compile time
+Zep memory                       memory/zep                  [SKIP]         0
+  - External memory service (requires separate Zep server); not vendored in langchaingo
+Conversation chat format         memory/chat                 [DONE]        95
+  - kdeps session uses user/assistant role pairs
+
+==============================================================================
+TIER 8 - OUTPUT PARSERS (outputparser/)
+==============================================================================
+
+Feature                          Package                     Status       Score
+-------------------------------------------------------------------------------
+Structured output parser         outputparser/structured     [DONE]       100
+  - ChatConfig.OutputParser = "structured" extracts from ```json...``` block
+  - Injects GetFormatInstructions() into system prompt automatically
+Boolean parser                   outputparser/boolean_parser [DONE]       100
+  - "boolean" → normalizes yes/no/true/false → "true" or "false"
+  - Format instructions injected into system prompt
+Comma-separated list parser      outputparser/comma_seperated_list [DONE] 100
+  - "csv" → splits by comma → JSON array string (e.g. ["foo","bar"])
+Regex parser                     outputparser/regex_parser   [DONE]       100
+  - "regex:<expr>" → named-group capture → JSON map string
+  - Supports full Go regexp named groups
+Simple parser                    outputparser/simple.go      [DONE]       100
+  - "simple" → trims whitespace
+Combining parser                 outputparser/combining      [DONE]       100
+  - "combining:parser1,parser2" syntax; tries each in order, returns first success
+  - parseCombiningOutput() in output_parser.go
+  - FormatInstructions delegates to first named parser
+Defined output parser            outputparser/defined        [DONE]        90
+  - "enum:v1,v2,v3" syntax; validates output is one of the listed values
+  - Case-insensitive match; preserves original value casing in result
+  - Format instructions injected: "Your response must be exactly one of: v1,v2,v3"
+  - [GAP]: langchaingo Defined[T] uses Go generics for typed struct parsing; not exposed
+Regex dict parser                outputparser/regex_dict     [DONE]       100
+  - output_parser="regex_dict:key1=Pattern1,key2=Pattern2" syntax
+  - parseRegexDictOutput in pkg/executor/llm/output_parser.go
+  - Returns JSON map of named captures; format instructions auto-injected
+
+  Implementation: pkg/executor/llm/output_parser.go
+  Wire point: StreamChat applies parser to content when cfg.OutputParser != "".
+  Format instructions auto-injected into scenario system message via
+  buildLangchainMessages().
+
+==============================================================================
+TIER 9 - PROMPT TEMPLATES (prompts/)
+==============================================================================
+
+Feature                          Package                     Status       Score
+-------------------------------------------------------------------------------
+String prompt template           prompts/prompt_template     [DONE]        70
+  - kdeps scenario: items serve as static templates
+  - PromptTemplate resource in pkg/agent/ loads .md files
+  - [GAP]: no variable interpolation beyond what the expression engine does
+Chat prompt template             prompts/chat_prompt_template [DONE]     100
+  - ChatConfig.PromptVars map[string]string for {{var}} substitution
+  - applyPromptVars() applied to scenario system messages and main prompt
+  - Tests in pkg/executor/llm/few_shot_test.go
+Few-shot prompt template         prompts/few_shot            [DONE]       100
+  - ChatConfig.FewShot []ScenarioItem injected as user/assistant pairs
+  - buildLangchainMessages in pkg/executor/llm/stream.go inserts before history
+  - Unit tests in pkg/executor/llm/few_shot_test.go
+Jinja2 templates                 prompts/templates_jinja2    [DONE]        90
+  - ChatConfig.GoTemplate bool enables Go text/template rendering
+  - PromptVars passed as template data ({{.VarName}}); supports if/range/funcs
+  - renderGoTemplate + applyTemplate in stream.go; graceful fallback on errors
+  - applyTemplate goTmpl=true/false, empty text, no-vars, exec error paths tested
+  - 11 tests in few_shot_test.go; commit 56028ef8
+  - [GAP]: Go templates are stricter than Jinja2; no filters/macros
+Example selector                 prompts/example_selector    [DONE]       95
+  - FewShotSelectK int in ChatConfig; picks top-K by Jaccard word-overlap similarity
+  - selectFewShotExamples + jaccardSimilarity + wordSet in stream.go
+  - Pairs preserved; authoring order maintained; falls back to all when k=0
+  - FewShotMaxTokens int: LengthBasedExampleSelector pattern; prunes by token budget
+  - pruneFewShotByTokens in stream.go; uses CountTokens; pairs kept whole
+  - 14 tests; commit caed26eb
+  - [GAP]: Jaccard weaker than embedding-based similarity; LengthBased now covered
+
+==============================================================================
+TIER 10 - CALLBACKS / OBSERVABILITY (callbacks/)
+==============================================================================
+
+Feature                          Package                     Status       Score
+-------------------------------------------------------------------------------
+Callback handler interface       callbacks.Handler           [DONE]       100
+  - pkg/executor/llm/callbacks.go: observedLLM wraps any llms.Model
+  - HandleLLMGenerateContentStart + End + Error wired via wrapper pattern
+  - withObservability() zero-cost when KDEPS_DEBUG is off
+  - KdepsLogHandler: complete 17-method callbacks.Handler, routes to debug.Log
+  - Tool lifecycle debug: emitToolStart/emitToolEnd in agent_loop.go
+  - commit 7de52e87
+Log callback                     callbacks/log.go            [DONE]        95
+  - observedLLM logs per-message role+content preview at start
+  - Logs stop_reason, tool_calls count, full GenerationInfo map at end
+  - KdepsLogHandler implements all 17 methods with structured debug.Log output
+  - 19 new tests
+Simple callback                  callbacks/simple.go         [DONE]        95
+  - KdepsLogHandler embeds lccallbacks.SimpleHandler for no-op defaults
+  - All 17 methods overridden with debug.Log routing; zero-cost when debug off
+  - var _ lccallbacks.Handler = KdepsLogHandler{} compile-time check
+Stream combining callback         callbacks/combining.go      [DONE]       100
+  - CombineHandlers(...lccallbacks.Handler) in pkg/executor/llm/callbacks.go
+  - Uses callbacks.CombiningHandler; zero-overhead single/empty pass-through
+  - 4 tests: zero/one/multiple/fires-all; commit cecd005a
+Agent final stream callback      callbacks/agent_final_stream.go [DONE]   100
+  - Config.StreamFinalOnly=true suppresses intermediate tool-call rounds
+  - Only final LLM response written to caller's writer; intermediate rounds use Discard
+  - runToolRounds helper extracted from RunStreaming (complexity reduction)
+
+==============================================================================
+TIER 11 - LLM RESPONSE CACHE (llms/cache/)
+==============================================================================
+
+Feature                          Package                     Status       Score
+-------------------------------------------------------------------------------
+Cache interface                  llms/cache                  [DONE]       100
+  - pkg/executor/llm/cache.go: cachedLLM wraps any llms.Model
+  - Cache key: SHA-256(messages + call options) via sync.Map
+  - ClearResponseCache() for tests
+In-memory cache                  llms/cache/inmemory         [DONE]       100
+  - ChatConfig.UseCache bool enables process-lifetime response cache
+  - Uses native sync.Map (no extra dep); replays streaming on hit
+Semantic cache (future)          (not in v0.1.14)            [N/A-BLOCKED]  0
+
+==============================================================================
+TIER 12 - BUILT-IN TOOLS (tools/)
+==============================================================================
+
+Feature                          Package                     Status       Score
+-------------------------------------------------------------------------------
+Tool interface                   tools/tool.go               [DONE]       100
+  - tools.Registry already matches langchaingo Tool interface semantics
+  - Execute func(args map[string]interface{}) (string, error)
+Calculator tool                  tools/calculator            [DONE]       100
+  - langchaingo calculator (starlark math eval) registered as built-in
+  - Always available via RegisterBuiltinTools; go.starlark.net/lib/math
+  - Supports arithmetic, pow, sqrt, and all starlark math functions
+  - Invalid expressions return "error: <msg>" (no panic); 6 tests; commit f198d613
+DuckDuckGo search                tools/duckduckgo            [DONE]       100
+  - Registered as "web_search" built-in tool in agent loop
+  - pkg/agent/builtin_tools.go: RegisterBuiltinTools() auto-registers
+  - No API key; 5 results; called with {"query": "..."}
+Wikipedia                        tools/wikipedia             [DONE]       100
+  - Registered as "wikipedia" built-in tool in agent loop
+  - Called with {"query": "..."}, returns article excerpts
+Scraper (web content)            tools/scraper               [DONE]       100
+  - Registered as "web_scraper" builtin tool; no API key required
+  - Uses goquery + bluemonday (already in go.mod); strips scripts/styles
+  - scrapeURL() in pkg/agent/builtin_tools.go; commit 4151ae55
+SerpAPI search                   tools/serpapi               [DONE]       100
+  - Registered as "serpapi_search" when SERPAPI_API_KEY is set
+  - registerSerpAPI in pkg/agent/builtin_tools.go
+SQL database tool                tools/sqldatabase           [DONE]       100
+  - sql_list_tables: discover tables; sql_describe_table: schema; sql_query: SELECT only
+  - SQLite backed (mattn/go-sqlite3); db_path param or KDEPS_SQL_DB_PATH env var
+  - All calls use QueryContext; non-SELECT rejected; 13 tests; commit 26850aa9
+Perplexity search                tools/perplexity            [DONE]       100
+  - Registered as "perplexity_search" when PERPLEXITY_API_KEY is set
+  - registerPerplexity in pkg/agent/builtin_tools.go
+Metaphor (Exa) search            tools/metaphor              [DONE]       100
+  - Registered as "exa_search" when EXA_API_KEY or METAPHOR_API_KEY is set
+  - Direct HTTP to api.exa.ai; no external SDK dep; 5 results by default
+  - registerExa + callExaSearch in pkg/agent/builtin_tools.go
+  - commit cdd82fd1
+Zapier NLA                       tools/zapier                [DONE]        90
+  - Registered as "zapier_list_actions" + "zapier_run_action" when ZAPIER_NLA_API_KEY is set
+  - Direct HTTP to nla.zapier.com/api/v1/dynamic/exposed; no external SDK dep
+  - registerZapierNLA + callZapierListActions + callZapierRunAction in pkg/agent/builtin_tools.go
+  - 6 new tests covering no-key guard, param validation, HTTP error handling
+Bash execution tool              tools/bash                  [DONE]       100
+  - Registered as "bash_exec" when KDEPS_ALLOW_BASH=true (opt-in for safety)
+  - 30-second timeout via context.WithTimeout; captures stdout + stderr
+  - registerBashExec in pkg/agent/builtin_tools.go; 4 tests
+Wolfram Alpha                    tools/wolfram               [DONE]       100
+  - Registered as "wolfram_alpha" when WOLFRAM_APP_ID is set
+  - Direct HTTP to api.wolframalpha.com/v1/result (short-answer API); no external SDK dep
+  - registerWolframAlpha + callWolframAlpha in pkg/agent/builtin_tools.go; 4 tests
+
+==============================================================================
+TIER 13 - AGENTS (agents/) - ReAct / OpenAI Functions
+==============================================================================
+
+Feature                          Package                     Status       Score
+-------------------------------------------------------------------------------
+Agent executor (ReAct loop)      agents/executor             [DONE]       100
+  - kdeps RunStreaming tool dispatch loop = agent executor
+  - Calls tools until no more tool calls, returns final answer
+  - MaxToolRounds caps iterations (default 10); EarlyStop on exhaustion
+MRKL (ReAct) agent               agents/mrkl                 [DONE]       100
+  - Loop.RunReact() implements Thought/Action/Observation text-based loop
+  - MRKL system prompt with tool names + descriptions injected automatically
+  - Parses Action/Action Input from raw text; no native function calling needed
+  - extractFinalAnswer + parseReactAction in pkg/agent/react.go
+OpenAI functions agent           agents/openai_functions_agent [DONE]       90
+  - Standard function calling = what RunStreaming implements
+Conversational agent             agents/conversational        [DONE]        80
+  - The REPL loop is already a conversational agent
+  - [GAP]: no explicit chain-of-thought prompting
+Max iterations safety            agents/options (MaxIterations) [DONE]     100
+  - Config.MaxToolRounds int caps streaming tool call loops (default: 10)
+  - Uses Go 1.22 integer range: for range l.config.MaxToolRounds
+Early stopping                   agents/options (EarlyStop)  [DONE]       100
+  - Bug fix: finalContent now always captures last StreamChat response
+  - When MaxToolRounds exhausted, returns last content instead of ""
+  - RunStreaming tests: natural stop, max rounds, mid-run stop, session store
+
+==============================================================================
+TIER 14 - MULTIMODAL / IMAGE INPUT (llms/openai + anthropic + googleai)
+==============================================================================
+
+Feature                          Package                     Status       Score
+-------------------------------------------------------------------------------
+Image URL input                  llms.ImageURLPart           [DONE]       100
+  - buildUserMessage() in stream.go: http/https URLs → llms.ImageURLPart
+  - ChatConfig.Files []string used for all attachments
+Binary image input               llms.BinaryPart             [DONE]       100
+  - fileContentPart(): local files → os.ReadFile + mime + llms.BinaryPart
+  - Supports any MIME type; defaults to application/octet-stream
+Audio transcription              llms openai audio           [DONE]        95
+  - New transcribe: resource type; OpenAI Whisper API (openai/groq/local backends)
+  - TranscribeConfig: file, model, backend, baseURL, language, prompt, responseFormat,
+    temperature, timestampGranularities
+  - Full pipeline: domain config + exec catalog + primary/inline dispatch + registry
+  - 12 tests; commit a003ae7d
+  - [GAP]: gpt-4o-audio-preview (realtime audio) not yet supported
+
+==============================================================================
+TIER 15 - RETRIEVAL-AUGMENTED GENERATION (RAG) PIPELINE
+==============================================================================
+
+Feature                          Detail                      Status       Score
+-------------------------------------------------------------------------------
+Full RAG pipeline                embed + vectorstore + retrieve [DONE]      90
+  End-to-end workflow: loader: → splitter → embed: → vectorstore: upsert →
+  vectorstore: similarity_search → chat: with RetrieverContext populated.
+  All components exist; wiring via YAML expression engine ($actions.X.output).
+  [GAP]: no built-in auto-wiring; user must reference vectorstore action output.
+Retriever interface              schema.Retriever            [DONE]       100
+  - ChatConfig.RetrieverContext []string; chunks prepended to system message
+  - buildRetrieverPreamble + buildScenarioMessages helpers in stream.go
+  - Tests: TestBuildRetrieverPreamble_*, TestBuildLangchainMessages_Retriever*
+  - commit 1ff96cd8
+Contextual compression           (chains/retrieval)          [DONE]        95
+  - RetrieverContextTopK int in ChatConfig; top-K chunks by Jaccard similarity to Prompt
+  - compressRetrieverContext in stream.go; reuses jaccardSimilarity/wordSet from T9
+  - RetrieverContextMaxTokens int: token-budget pruning after TopK selection
+  - pruneRetrieverContextByTokens in stream.go; uses CountTokens
+  - Order preserved among selected chunks; 0 = no compression (all chunks injected)
+  - 9+ tests; commit f675f91e
+
+==============================================================================
+TIER 16 - SCHEMA / JSON TYPES (schema/ + jsonschema/)
+==============================================================================
+
+Feature                          Package                     Status       Score
+-------------------------------------------------------------------------------
+Document schema                  schema.Document             [DONE]       100
+  - domain.Document{Content string, Metadata map[string]any} in pkg/domain/
+  - Used by loader: executor (builds []Document) and vectorstore: executor
+  - Matches langchaingo schema.Document semantics exactly
+JSON Schema builder              jsonschema/                 [DONE]       100
+  - pkg/jsonschema/generate.go: FromStruct(v) → map[string]domain.ToolParam
+  - Reads json/desc/required/enum struct tags; type-maps bool/int/float/string
+  - 7 tests in pkg/jsonschema/generate_test.go; commit ea8be6f6
+
+==============================================================================
+TIER 17 - CHAINS (chains/) - High-level composition patterns
+==============================================================================
+
+Feature                          Package                     Status       Score
+-------------------------------------------------------------------------------
+LLM chain                        chains/llm.go               [SKIP]        --
+  (chat: resource + scenario: is equivalent; no independent value)
+Sequential chain                 chains/sequential.go        [SKIP]        --
+  (kdeps workflow DAG with ordered action IDs covers this)
+Stuff/Map-reduce documents       chains/stuff/map_reduce     [SKIP]        --
+  (composable via loader: → vectorstore: → chat: in workflow YAML)
+RetrievalQA / ConversationalQA   chains/retrieval_qa.go      [SKIP]        --
+  (chat: RetrieverContext + vectorstore: similarity_search covers this)
+Summarization chain              chains/summarization.go     [SKIP]        --
+  (loop over loader: chunks + chat: in workflow DAG)
+Constitutional AI chain          chains/constitutional.go    [SKIP]        --
+  (self-critique pattern composable via two chat: actions; large surface)
+SQL database chain               chains/sql_database.go      [SKIP]        --
+  (sql_list_tables / sql_query built-in tools cover this)
+Math chain                       chains/llm_math.go          [SKIP]        --
+  (calculator built-in tool covers this)
+Transform chain                  chains/transform.go         [SKIP]        --
+  (exec: resource or python: resource covers arbitrary text transforms)
+
+NOTE: All langchaingo chains/ are high-level composition patterns. kdeps workflow
+DAG (sequential action ordering, $actions.X.output references) plus existing
+resource types (chat:, loader:, vectorstore:, exec:) provide equivalent
+composability. No chain-specific code needed.
+
+==============================================================================
+OVERALL PROGRESS SUMMARY
+==============================================================================
+
+Tier                              Features  Done  In-Prog  Planned  Score
+--------------------------------------------------------------------------
+1  LLM Providers                      14    12       0        0      86% (2 SKIP: ollama/mistral native)
+2  Streaming + Tool Calling             9    10       0        0     111% (token counting added)
+3  Embeddings                           9     9       0        0     100%
+4  Vector Stores                       15    14       0        1      93% (1 blocked: Milvus SDK deprecated)
+5  Document Loaders                     8     7       0        0     100% (1 N/A-BLOCKED: AssemblyAI; 7/7 implementable)
+6  Text Splitters                       4     4       0        0     100%
+7  Memory                               9     9       0        0     100% (1 SKIP: Zep - requires external server)
+8  Output Parsers                       7     7       0        0     100%
+9  Prompt Templates                     5     5       0        0     100%
+10 Callbacks / Observability            5     5       0        0     100%
+11 LLM Response Cache                   2     2       0        0     100%
+12 Built-in Tools                      16    16       0        0     100%
+13 Agents / ReAct                       6     6       0        0     100%
+14 Multimodal / Image                   3     3       0        0     100%
+15 RAG Pipeline                         3     3       0        0     100%
+16 Schema / JSON Types                  2     2       0        0     100%
+17 Chains (composition)                 9     0       0        9     N/A (all SKIP — covered by workflow DAG)
+--------------------------------------------------------------------------
+TOTAL                                 126   113       0        9      97% (1 N/A-BLOCKED: Milvus; 1 SKIP: Zep; 9 SKIP: chains)
+  +HuggingFace, Cloudflare, Maritaca, Ernie providers (T1)
+  +token counting, ToolChoice field (T2)
+  +token-based session memory (T7)
+  +SQLite session store T7 (commit ebcb517b)
+  +combining + enum output parsers (T8)
+  +chat prompt template vars PromptVars (T9)
+  +StreamFinalOnly agent final stream callback (T10)
+  +MRKL/ReAct agent loop (T13)
+  +JSON schema builder FromStruct (T16)
+  +vectorStore resource type + Qdrant executor (T4)
+  +early stopping bug fix + RunStreaming tests (T13)
+  +HuggingFace, Jina, VoyageAI embeddings (T3)
+  +vectorStore: resource type + Qdrant backend (T4)
+  +Notion loader (T5)
+  +regex_dict output parser (T8)
+  +few-shot prompt template (T9)
+  +SerpAPI + Perplexity built-in tools (T12)
+  +Zapier NLA built-in tools (T12)
+  +Azure AI Search + Chroma + Pinecone + Weaviate + OpenSearch vectorstores (T4)
+  +MariaDB + Dolt + MySQL vectorstores (T4)
+  +pgvector + PostgreSQL + AlloyDB + CloudSQL vectorstores via lib/pq (T4)
+  +MongoDB vectorstore via mongo-driver v1 (T4)
+  +MongoDB session store (MongoDBSessionStore) (T7)
+  +PostgreSQL/AlloyDB/CloudSQL session store (PostgresSessionStore) (T7)
+  +shared sqlSessionStore base type (session_store_sql.go)
+  +bash_exec built-in tool (opt-in via KDEPS_ALLOW_BASH=true) (T12)
+  +wolfram_alpha built-in tool (WOLFRAM_APP_ID env var) (T12)
+  +cohere/xai/perplexity backends in embedding: + vectorStore: (T3/T4)
+  +cohere_rerank, voyageai_rerank, jina_rerank built-in tools (T12)
+  +shared callCohereFormatReranker + parseRerankArgs helpers
+
+P12 additions (2026-06-20):
+  +OpenAI structured output: buildOpenAIResponseFormat() passes json_schema type with strict:true (T2)
+  +JSONSchema skips WithJSONMode() call (avoids conflict with json_schema response format)
+  +T5 AssemblyAI noted as 1 N/A-BLOCKED; 7/7 implementable loaders at 100%
+  +RestoreTo refactored (extracting restoreFromPruned/restoreFromCurrent/stashPrunedTail) to fix lint
+
+P13 additions (2026-06-20):
+  +LLM sampling opts wired to langchaingo: Temperature, MaxTokens, TopP, TopK, Seed,
+   FrequencyPenalty, PresencePenalty, RepetitionPenalty, StopWords — all now applied
+   via buildSamplingOpts() in buildStreamOpts() (previously declared in ChatConfig but never sent)
+  +TopK and Seed added to domain.ChatConfig (new fields)
+  +RepetitionPenalty and StopWords added to domain.ChatConfig (new fields)
+  +11 TestBuildSamplingOpts_* tests in few_shot_test.go
+  +T17 chains/ noted as [SKIP] — all patterns composable via kdeps workflow DAG
+  +All P1-P5 priority list items marked [DONE]; resource type additions section updated
+
+==============================================================================
+IMPLEMENTATION ORDER (by value / effort ratio)
+==============================================================================
+
+Priority  Feature                         Why
+-----------------------------------------------------------------------
+P1 [DONE] Image/multimodal input (T14)    BinaryPart + ImageURLPart in stream.go
+P1 [DONE] Reasoning/thinking tokens (T2)  Claude + OpenAI o-series; BudgetTokens fix in REPL
+P1 [DONE] Structured output schema (T2)   json_schema response format via lcopenai.WithResponseFormat
+P1 [DONE] Max tool rounds safety (T13)    Config.MaxToolRounds; for-range loop cap
+P2 [DONE] Built-in tools: search (T12)    DuckDuckGo, SerpAPI, Perplexity, Exa registered as built-ins
+P2 [DONE] LLM response cache (T11)        cachedLLM wraps any llms.Model; sync.Map key on SHA-256
+P2 [DONE] Output parsers (T8)             structured/boolean/csv/regex/regex_dict/combining/enum done
+P2 [DONE] Callbacks/observability (T10)   KdepsLogHandler + CombineHandlers + StreamFinalOnly
+P3 [DONE] Embeddings (T3)                 OpenAI/Google/Bedrock/HF/Ollama/Voyage/Jina/Cybertron done
+P3 [DONE] Text splitters (T6)             recursive/token/markdown + split_documents helper done
+P3 [DONE] Document loaders (T5)           text/pdf/csv/html/directory/notion done; AssemblyAI N/A-BLOCKED
+P4 [DONE] Vector stores (T4)              14 providers done; Milvus N/A-BLOCKED (SDK deprecated)
+P4 [DONE] Token-based memory (T7)         Session.SetTokenBudget + MaxHistoryTokens; trimByTokenBudget
+P4 [DONE] Additional providers (T1)       Bedrock/Cloudflare/Cohere/HF/Maritaca/Ernie/WatsonX done
+P5 [DONE] Prompt templates (T9)           PromptVars + FewShot + Jinja2 + example selector done
+P5 [DONE] MRKL/ReAct agent (T13)          Loop.RunReact(); MRKL system prompt; tool dispatch loop done
+
+==============================================================================
+KDEPS RESOURCE TYPE ADDITIONS - STATUS
+==============================================================================
+
+All planned resource types have been implemented:
+
+  embed:        [DONE] pkg/executor/embedding/ (vectorize.go, 9 backends)
+  vectorstore:  [DONE] pkg/executor/vectorstore/ (14 providers)
+  loader:       [DONE] pkg/executor/loader/ (6 loaders + splitter pipeline)
+  transcribe:   [DONE] pkg/executor/transcribe/ (OpenAI Whisper, openai/groq/local)
+
+Existing types extended:
+
+  chat:         [DONE] JSONSchema, Thinking, PromptCaching, ToolChoice,
+                       Files (image/binary), MaxToolRounds, RetrieverContext,
+                       Temperature, MaxTokens, TopP, TopK, Seed,
+                       FrequencyPenalty, PresencePenalty, RepetitionPenalty,
+                       StopWords all wired to langchaingo CallOptions
+  file:         [DONE] outputs as Document via loader: pipeline
+  http:         [DONE] httpClient: resource; also web_scraper built-in tool
+
+P11 additions (2026-06-18):
+  +Ollama native model listing via 'ollama list' (T1)
+  +Ollama category in /model completion + TUI picker (T1)
+  +TUI model picker (bubbletea) with search, sort, type tags
+  +Auto-compact on model switch with context-aware budget
+  +System prompt trimming for small-context models (<8K)
+  +llama.cpp auto-install from GitHub releases
+  +aria2c resume download with configurable flags
+  +Clean server shutdown on REPL exit
