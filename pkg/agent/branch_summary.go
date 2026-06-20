@@ -65,11 +65,11 @@ Keep each section concise. Preserve exact file paths, function names, and error 
 // dropped a note is prepended to the first kept message's content so the
 // summary LLM knows context was cut.
 func truncateBranchMessages(
-	msgs []sessionMessage,
-	fileOps []fileOpEntry,
+	msgs []SessionMessage,
+	fileOps []FileOpEntry,
 	model string,
 	tokenBudget int,
-) ([]sessionMessage, []fileOpEntry) {
+) ([]SessionMessage, []FileOpEntry) {
 	if len(msgs) == 0 {
 		return msgs, fileOps
 	}
@@ -112,7 +112,7 @@ func truncateBranchMessages(
 // The returned string already includes the preamble for injection into
 // the next session's context.
 func (l *Loop) SummarizeBranch(_ context.Context) (string, error) {
-	msgs, fileOps := l.session.currentBranchMessages()
+	msgs, fileOps := l.session.CurrentBranchMessages()
 	if len(msgs) < compactMinTurns*sessionMsgsPer {
 		return "", nil
 	}

@@ -139,7 +139,7 @@ func (s *MongoDBSessionStore) Load(id string) (*Session, error) {
 	for _, m := range doc.Messages {
 		session.messages = append(
 			session.messages,
-			sessionMessage{Role: m.Role, Content: m.Content},
+			SessionMessage{Role: m.Role, Content: m.Content},
 		)
 	}
 	return session, nil

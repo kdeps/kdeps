@@ -116,13 +116,13 @@ func TestCompact_RemovesOld(t *testing.T) {
 	s2 := NewSession(1)
 	s2.messages = append(
 		s2.messages,
-		sessionMessage{Role: "user", Content: "q1"},
-		sessionMessage{Role: "assistant", Content: "a1"},
+		SessionMessage{Role: "user", Content: "q1"},
+		SessionMessage{Role: "assistant", Content: "a1"},
 	)
 	s2.messages = append(
 		s2.messages,
-		sessionMessage{Role: "user", Content: "q2"},
-		sessionMessage{Role: "assistant", Content: "a2"},
+		SessionMessage{Role: "user", Content: "q2"},
+		SessionMessage{Role: "assistant", Content: "a2"},
 	)
 	result := s2.Compact()
 	if result == "" {
@@ -254,7 +254,7 @@ func TestRestoreTo_TrimsFileOps(t *testing.T) {
 	if !s.RestoreTo(cp) {
 		t.Fatal("RestoreTo failed")
 	}
-	msgs, ops := s.rawMessagesWithOps()
+	msgs, ops := s.RawMessagesWithOps()
 	if len(msgs) != 2 {
 		t.Fatalf("expected 2 messages, got %d", len(msgs))
 	}
@@ -268,7 +268,7 @@ func TestRawMessagesWithOps_ReturnsCopies(t *testing.T) {
 	s.Append("hi", "there")
 	s.RecordFileOps([]string{"x.go"}, nil)
 
-	msgs, ops := s.rawMessagesWithOps()
+	msgs, ops := s.RawMessagesWithOps()
 	if len(msgs) != 2 {
 		t.Fatalf("expected 2 messages, got %d", len(msgs))
 	}
@@ -278,7 +278,7 @@ func TestRawMessagesWithOps_ReturnsCopies(t *testing.T) {
 	// Mutating returned slices must not affect session internals.
 	msgs[0].Content = "mutated"
 	ops[0].Read = []string{"injected.go"}
-	ms2, ops2 := s.rawMessagesWithOps()
+	ms2, ops2 := s.RawMessagesWithOps()
 	if ms2[0].Content == "mutated" {
 		t.Fatal("mutation of returned messages slice affected session")
 	}
@@ -332,7 +332,7 @@ func TestFirstKeptEntryID_SetAfterCompaction(t *testing.T) {
 	for range 5 {
 		s.Append("q", "a")
 	}
-	raw := s.rawMessages()
+	raw := s.RawMessages()
 	kept := raw[len(raw)-sessionMsgsPer:]
 	s.CompactWith("summary", kept, 4)
 	id := s.FirstKeptEntryID()
@@ -343,7 +343,7 @@ func TestFirstKeptEntryID_SetAfterCompaction(t *testing.T) {
 
 func TestCurrentBranchMessages_EmptySession(t *testing.T) {
 	s := NewSession(0)
-	msgs, ops := s.currentBranchMessages()
+	msgs, ops := s.CurrentBranchMessages()
 	if len(msgs) != 0 {
 		t.Fatalf("expected empty msgs, got %d", len(msgs))
 	}
@@ -355,11 +355,11 @@ func TestCurrentBranchMessages_EmptySession(t *testing.T) {
 func TestCurrentBranchMessages_NoIDs_FallsBackToAll(t *testing.T) {
 	s := NewSession(0)
 	// Inject messages without IDs (simulates pre-ID session).
-	s.messages = []sessionMessage{
+	s.messages = []SessionMessage{
 		{Role: "user", Content: "q1"},
 		{Role: "assistant", Content: "a1"},
 	}
-	msgs, _ := s.currentBranchMessages()
+	msgs, _ := s.CurrentBranchMessages()
 	if len(msgs) != 2 {
 		t.Fatalf("expected 2 msgs for no-ID fallback, got %d", len(msgs))
 	}
@@ -369,7 +369,7 @@ func TestCurrentBranchMessages_LinearHistory(t *testing.T) {
 	s := NewSession(0)
 	s.Append("q1", "a1")
 	s.Append("q2", "a2")
-	msgs, _ := s.currentBranchMessages()
+	msgs, _ := s.CurrentBranchMessages()
 	// Linear history: all messages should be on the current branch.
 	if len(msgs) != 4 {
 		t.Fatalf("expected 4 msgs for linear history, got %d", len(msgs))
@@ -398,7 +398,7 @@ func TestCurrentBranchMessages_WithFileOps(t *testing.T) {
 	s.RecordFileOps([]string{"x.go"}, nil)
 	s.Append("q2", "a2")
 	s.RecordFileOps(nil, []string{"y.go"})
-	msgs, ops := s.currentBranchMessages()
+	msgs, ops := s.CurrentBranchMessages()
 	if len(msgs) != 4 {
 		t.Fatalf("expected 4 msgs, got %d", len(msgs))
 	}
@@ -411,7 +411,7 @@ func TestCurrentBranchMessages_WithFileOps(t *testing.T) {
 func TestBuildMessagesJSON_SpecialRolesConvertedToUser(t *testing.T) {
 	s := NewSession(0)
 	// Inject compaction summary message directly (bypassing Append).
-	s.messages = []sessionMessage{
+	s.messages = []SessionMessage{
 		{Role: RoleCompactionSummary, Content: "compaction content"},
 		{Role: RoleAssistant, Content: "ack"},
 		{Role: RoleUser, Content: "user msg"},
@@ -436,12 +436,12 @@ func TestCurrentBranchMessages_CycleDetection(t *testing.T) {
 	// Tests the seen[cur.ID] cycle guard (line 325): inject two messages that
 	// form a cycle via ParentID links (m[1].ParentID -> m[0].ID -> m[1].ID).
 	s := NewSession(0)
-	s.messages = []sessionMessage{
+	s.messages = []SessionMessage{
 		{Role: "user", Content: "q1", ID: 1, ParentID: 2},
 		{Role: "assistant", Content: "a1", ID: 2, ParentID: 1},
 	}
 	// Should not loop forever; should return messages without panic.
-	msgs, _ := s.currentBranchMessages()
+	msgs, _ := s.CurrentBranchMessages()
 	if len(msgs) == 0 {
 		t.Fatal("expected at least one message from cycle walk")
 	}
@@ -451,10 +451,10 @@ func TestCurrentBranchMessages_ParentNotFound(t *testing.T) {
 	// Tests the parentIdx < 0 path (line 334): a message whose ParentID
 	// points to a non-existent ID terminates the walk early.
 	s := NewSession(0)
-	s.messages = []sessionMessage{
+	s.messages = []SessionMessage{
 		{Role: "user", Content: "q1", ID: 1, ParentID: 99999},
 	}
-	msgs, _ := s.currentBranchMessages()
+	msgs, _ := s.CurrentBranchMessages()
 	if len(msgs) != 1 {
 		t.Fatalf("expected 1 message, got %d", len(msgs))
 	}
@@ -591,7 +591,7 @@ func TestRestoreTo_BranchAfterGoto(t *testing.T) {
 	if s.TurnCount() != 2 {
 		t.Fatalf("expected 2 turns (turn1 + branch), got %d", s.TurnCount())
 	}
-	msgs := s.rawMessages()
+	msgs := s.RawMessages()
 	// The 3rd message (index 2) should be the branch-turn user message.
 	if msgs[2].Content != "branch-turn" {
 		t.Fatalf("expected branch-turn at index 2, got %q", msgs[2].Content)
