@@ -952,6 +952,18 @@ func buildSamplingOpts(cfg *domain.ChatConfig) []llms.CallOption {
 	if len(cfg.StopWords) > 0 {
 		opts = append(opts, llms.WithStopWords(cfg.StopWords))
 	}
+	if cfg.CandidateCount != nil {
+		opts = append(opts, llms.WithCandidateCount(*cfg.CandidateCount))
+	}
+	if cfg.N != nil {
+		opts = append(opts, llms.WithN(*cfg.N))
+	}
+	if cfg.MinLength != nil {
+		opts = append(opts, llms.WithMinLength(*cfg.MinLength))
+	}
+	if cfg.MaxLength != nil {
+		opts = append(opts, llms.WithMaxLength(*cfg.MaxLength))
+	}
 	return opts
 }
 

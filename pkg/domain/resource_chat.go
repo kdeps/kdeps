@@ -189,6 +189,10 @@ type ChatConfig struct {
 	PresencePenalty   *float64 `yaml:"presencePenalty,omitempty"`   // Presence penalty (-2.0 to 2.0)
 	RepetitionPenalty *float64 `yaml:"repetitionPenalty,omitempty"` // Repetition penalty (local models)
 	StopWords         []string `yaml:"stopWords,omitempty"`         // Stop sequences to halt generation
+	CandidateCount    *int     `yaml:"candidateCount,omitempty"`    // Number of response candidates (Google AI)
+	N                 *int     `yaml:"n,omitempty"`                 // Number of completions to generate (OpenAI)
+	MinLength         *int     `yaml:"minLength,omitempty"`         // Minimum generation length (local/HuggingFace)
+	MaxLength         *int     `yaml:"maxLength,omitempty"`         // Maximum generation length (local/HuggingFace)
 }
 
 // ScenarioItem represents a chat scenario item.
