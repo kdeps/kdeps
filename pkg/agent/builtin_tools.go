@@ -112,7 +112,7 @@ func registerCalculator(reg *kdepstools.Registry) {
 				Required:    true,
 			},
 		},
-		Execute: func(args map[string]interface{}) (string, error) {
+		Execute: func(args map[string]any) (string, error) {
 			expr, _ := args["expression"].(string)
 			if expr == "" {
 				return "", errors.New("calculator: expression is required")
@@ -155,7 +155,7 @@ func registerReadFile(reg *kdepstools.Registry) {
 				Description: "Maximum number of lines to read. Optional; reads entire file up to the size limit if omitted.",
 			},
 		},
-		Execute: func(args map[string]interface{}) (string, error) {
+		Execute: func(args map[string]any) (string, error) {
 			filePath, _ := args["file_path"].(string)
 			if filePath == "" {
 				return "", errors.New("read_file: file_path is required")
@@ -168,7 +168,7 @@ func registerReadFile(reg *kdepstools.Registry) {
 	})
 }
 
-func readLocalFile(filePath string, args map[string]interface{}) (string, error) {
+func readLocalFile(filePath string, args map[string]any) (string, error) {
 	info, err := os.Stat(filePath)
 	if err != nil {
 		return "", fmt.Errorf("read_file: stat %s: %w", filePath, err)
@@ -230,7 +230,7 @@ func registerWriteFile(reg *kdepstools.Registry) {
 				Required:    true,
 			},
 		},
-		Execute: func(args map[string]interface{}) (string, error) {
+		Execute: func(args map[string]any) (string, error) {
 			filePath, _ := args["file_path"].(string)
 			if filePath == "" {
 				return "", errors.New("write_file: file_path is required")
@@ -278,7 +278,7 @@ func registerEditFile(reg *kdepstools.Registry) {
 				Required:    true,
 			},
 		},
-		Execute: func(args map[string]interface{}) (string, error) {
+		Execute: func(args map[string]any) (string, error) {
 			filePath, _ := args["file_path"].(string)
 			if filePath == "" {
 				return "", errors.New("edit_file: file_path is required")
@@ -402,7 +402,7 @@ func registerListFiles(reg *kdepstools.Registry) {
 				Required:    true,
 			},
 		},
-		Execute: func(args map[string]interface{}) (string, error) {
+		Execute: func(args map[string]any) (string, error) {
 			dirPath, _ := args["path"].(string)
 			if dirPath == "" {
 				return "", errors.New("list_files: path is required")
@@ -443,7 +443,7 @@ func registerDuckDuckGo(ctx context.Context, reg *kdepstools.Registry) {
 				Required:    true,
 			},
 		},
-		Execute: func(args map[string]interface{}) (string, error) {
+		Execute: func(args map[string]any) (string, error) {
 			query, _ := args["query"].(string)
 			if query == "" {
 				return "", errors.New("web_search: query is required")
@@ -465,7 +465,7 @@ func registerWikipedia(ctx context.Context, reg *kdepstools.Registry) {
 				Required:    true,
 			},
 		},
-		Execute: func(args map[string]interface{}) (string, error) {
+		Execute: func(args map[string]any) (string, error) {
 			query, _ := args["query"].(string)
 			if query == "" {
 				return "", errors.New("wikipedia: query is required")
@@ -489,7 +489,7 @@ func registerWebScraper(_ context.Context, reg *kdepstools.Registry) {
 				Required:    true,
 			},
 		},
-		Execute: func(args map[string]interface{}) (string, error) {
+		Execute: func(args map[string]any) (string, error) {
 			url, _ := args["url"].(string)
 			if url == "" {
 				return "", errors.New("web_scraper: url is required")
@@ -545,7 +545,7 @@ func registerSQLTools(_ context.Context, reg *kdepstools.Registry) {
 		Parameters: map[string]domain.ToolParam{
 			"db_path": dbPathParam,
 		},
-		Execute: func(args map[string]interface{}) (string, error) {
+		Execute: func(args map[string]any) (string, error) {
 			dbPath := sqlDBPath(args)
 			return sqlListTables(dbPath)
 		},
@@ -562,7 +562,7 @@ func registerSQLTools(_ context.Context, reg *kdepstools.Registry) {
 			},
 			"db_path": dbPathParam,
 		},
-		Execute: func(args map[string]interface{}) (string, error) {
+		Execute: func(args map[string]any) (string, error) {
 			table, _ := args["table"].(string)
 			if table == "" {
 				return "", errors.New("sql_describe_table: table is required")
@@ -583,7 +583,7 @@ func registerSQLTools(_ context.Context, reg *kdepstools.Registry) {
 			},
 			"db_path": dbPathParam,
 		},
-		Execute: func(args map[string]interface{}) (string, error) {
+		Execute: func(args map[string]any) (string, error) {
 			query, _ := args["query"].(string)
 			if query == "" {
 				return "", errors.New("sql_query: query is required")
@@ -598,7 +598,7 @@ func registerSQLTools(_ context.Context, reg *kdepstools.Registry) {
 	})
 }
 
-func sqlDBPath(args map[string]interface{}) string {
+func sqlDBPath(args map[string]any) string {
 	if p, ok := args["db_path"].(string); ok && p != "" {
 		return p
 	}
@@ -665,7 +665,7 @@ func sqlDescribeTable(dbPath, table string) (string, error) {
 		var cid int
 		var name, colType string
 		var notNull, pk int
-		var dflt interface{}
+		var dflt any
 		if scanErr := rows.Scan(&cid, &name, &colType, &notNull, &dflt, &pk); scanErr != nil {
 			continue
 		}
@@ -703,8 +703,8 @@ func sqlExecQuery(dbPath, query string) (string, error) {
 	sb.WriteString(strings.Join(cols, "\t"))
 	sb.WriteByte('\n')
 
-	vals := make([]interface{}, len(cols))
-	ptrs := make([]interface{}, len(cols))
+	vals := make([]any, len(cols))
+	ptrs := make([]any, len(cols))
 	for i := range vals {
 		ptrs[i] = &vals[i]
 	}
@@ -748,7 +748,7 @@ func registerSerpAPI(ctx context.Context, reg *kdepstools.Registry) {
 				Required:    true,
 			},
 		},
-		Execute: func(args map[string]interface{}) (string, error) {
+		Execute: func(args map[string]any) (string, error) {
 			query, _ := args["query"].(string)
 			if query == "" {
 				return "", errors.New("serpapi_search: query is required")
@@ -788,7 +788,7 @@ func registerExa(ctx context.Context, reg *kdepstools.Registry) {
 				Required:    true,
 			},
 		},
-		Execute: func(args map[string]interface{}) (string, error) {
+		Execute: func(args map[string]any) (string, error) {
 			query, _ := args["query"].(string)
 			if query == "" {
 				return "", errors.New("exa_search: query is required")
@@ -799,7 +799,7 @@ func registerExa(ctx context.Context, reg *kdepstools.Registry) {
 }
 
 func callExaSearch(ctx context.Context, apiKey, query string) (string, error) {
-	body, _ := json.Marshal(map[string]interface{}{
+	body, _ := json.Marshal(map[string]any{
 		"query":      query,
 		"numResults": exaDefaultNumResults,
 	})
@@ -861,7 +861,7 @@ func registerZapierNLA(ctx context.Context, reg *kdepstools.Registry) {
 		Name:        "zapier_list_actions",
 		Description: "List all available Zapier NLA actions configured in your Zapier account. Returns action IDs, names, and descriptions. Use this to discover what actions you can run with zapier_run_action. Requires ZAPIER_NLA_API_KEY.",
 		Parameters:  map[string]domain.ToolParam{},
-		Execute: func(_ map[string]interface{}) (string, error) {
+		Execute: func(_ map[string]any) (string, error) {
 			return callZapierListActions(ctx, apiKey)
 		},
 	})
@@ -881,7 +881,7 @@ func registerZapierNLA(ctx context.Context, reg *kdepstools.Registry) {
 				Required:    true,
 			},
 		},
-		Execute: func(args map[string]interface{}) (string, error) {
+		Execute: func(args map[string]any) (string, error) {
 			actionID, _ := args["action_id"].(string)
 			instructions, _ := args["instructions"].(string)
 			if actionID == "" {
@@ -968,7 +968,7 @@ func callZapierRunAction(
 		return "", fmt.Errorf("zapier_run_action: API error %d: %s", resp.StatusCode, string(body))
 	}
 
-	var result map[string]interface{}
+	var result map[string]any
 	if parseErr := json.Unmarshal(body, &result); parseErr != nil {
 		return string(body), nil
 	}
@@ -998,7 +998,7 @@ func registerPerplexity(ctx context.Context, reg *kdepstools.Registry) {
 				Required:    true,
 			},
 		},
-		Execute: func(args map[string]interface{}) (string, error) {
+		Execute: func(args map[string]any) (string, error) {
 			query, _ := args["query"].(string)
 			if query == "" {
 				return "", errors.New("perplexity_search: query is required")
@@ -1024,7 +1024,7 @@ func registerBashExec(_ context.Context, reg *kdepstools.Registry) {
 				Required:    true,
 			},
 		},
-		Execute: func(args map[string]interface{}) (string, error) {
+		Execute: func(args map[string]any) (string, error) {
 			command, _ := args["command"].(string)
 			if command == "" {
 				return "", errors.New("bash_exec: command is required")
@@ -1069,7 +1069,7 @@ func registerWolframAlpha(ctx context.Context, reg *kdepstools.Registry) {
 				Required:    true,
 			},
 		},
-		Execute: func(args map[string]interface{}) (string, error) {
+		Execute: func(args map[string]any) (string, error) {
 			query, _ := args["query"].(string)
 			if query == "" {
 				return "", errors.New("wolfram_alpha: query is required")
@@ -1114,7 +1114,7 @@ type rerankParams struct {
 	topN      int
 }
 
-func parseRerankArgs(args map[string]interface{}, defaultModel string) (rerankParams, error) {
+func parseRerankArgs(args map[string]any, defaultModel string) (rerankParams, error) {
 	query, _ := args["query"].(string)
 	if query == "" {
 		return rerankParams{}, errors.New("rerank: query is required")
@@ -1197,7 +1197,7 @@ func registerCohereRerank(ctx context.Context, reg *kdepstools.Registry) {
 		Name:        "cohere_rerank",
 		Description: "Rerank a list of documents by relevance to a query using Cohere's reranking API. Returns documents sorted by relevance score. Requires COHERE_API_KEY.",
 		Parameters:  rerankParams,
-		Execute: func(args map[string]interface{}) (string, error) {
+		Execute: func(args map[string]any) (string, error) {
 			p, parseErr := parseRerankArgs(args, defaultCohereRerank)
 			if parseErr != nil {
 				return "", parseErr
@@ -1244,7 +1244,7 @@ func registerVoyageAIRerank(ctx context.Context, reg *kdepstools.Registry) {
 		Name:        "voyageai_rerank",
 		Description: "Rerank a list of documents by relevance to a query using VoyageAI's reranking API. Requires VOYAGEAI_API_KEY.",
 		Parameters:  rerankParams,
-		Execute: func(args map[string]interface{}) (string, error) {
+		Execute: func(args map[string]any) (string, error) {
 			p, parseErr := parseRerankArgs(args, defaultVoyageRerank)
 			if parseErr != nil {
 				return "", parseErr
@@ -1255,7 +1255,7 @@ func registerVoyageAIRerank(ctx context.Context, reg *kdepstools.Registry) {
 }
 
 func callVoyageRerank(ctx context.Context, apiKey string, p rerankParams) (string, error) {
-	payload, _ := json.Marshal(map[string]interface{}{
+	payload, _ := json.Marshal(map[string]any{
 		"model":            p.model,
 		"query":            p.query,
 		"documents":        p.documents,
@@ -1347,7 +1347,7 @@ func registerJinaRerank(ctx context.Context, reg *kdepstools.Registry) {
 		Name:        "jina_rerank",
 		Description: "Rerank a list of documents by relevance to a query using Jina AI's reranking API. Requires JINA_API_KEY.",
 		Parameters:  rerankParams,
-		Execute: func(args map[string]interface{}) (string, error) {
+		Execute: func(args map[string]any) (string, error) {
 			p, parseErr := parseRerankArgs(args, defaultJinaRerank)
 			if parseErr != nil {
 				return "", parseErr
@@ -1368,7 +1368,7 @@ func callCohereFormatReranker(
 	apiKey, endpoint, toolName string,
 	p rerankParams,
 ) (string, error) {
-	payload, _ := json.Marshal(map[string]interface{}{
+	payload, _ := json.Marshal(map[string]any{
 		"model":            p.model,
 		"query":            p.query,
 		"documents":        p.documents,

@@ -202,3 +202,24 @@ func TestIsCloudModelID_UnknownModel(t *testing.T) {
 		t.Error("expected local model not to be a cloud model ID")
 	}
 }
+
+func TestModelSupportsThinking_CatalogHit(t *testing.T) {
+	// claude-sonnet-4-6 is in the catalog with SupportsThinking: true
+	if !ModelSupportsThinking("claude-sonnet-4-6") {
+		t.Error("expected claude-sonnet-4-6 to support thinking via catalog")
+	}
+}
+
+func TestModelSupportsThinking_LangchaingoFallback(t *testing.T) {
+	// o1-mini is not in the kdeps catalog but matches langchaingo's heuristic
+	if !ModelSupportsThinking("o1-mini") {
+		t.Error("expected o1-mini to support thinking via langchaingo fallback")
+	}
+}
+
+func TestModelSupportsThinking_UnknownLocal(t *testing.T) {
+	// Completely unknown local model — should return false from both catalog and heuristic
+	if ModelSupportsThinking("my-custom-llama-finetuned") {
+		t.Error("expected unknown local model not to support thinking")
+	}
+}
