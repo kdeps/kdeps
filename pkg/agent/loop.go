@@ -731,7 +731,18 @@ func (l *Loop) CompactWithLLM(_ context.Context) (string, error) {
 		fileOps = allOps[:cutIdx/sessionMsgsPer]
 	}
 	conversationText := serializeConversation(toSummarize, fileOps)
-	prompt := "<conversation>\n" + conversationText + "\n</conversation>\n\n" + compactionUserPrompt
+
+	// Use iterative UPDATE prompt when a previous summary exists (pi parity:
+	// prepareCompaction passes previousSummary to generateSummary).
+	userPrompt := compactionUserPrompt
+	var promptSuffix string
+	if concreteSession, ok := l.session.(*Session); ok {
+		if prev := concreteSession.PreviousCompactionSummary(); prev != "" {
+			userPrompt = updateCompactionUserPrompt
+			promptSuffix = "\n\n<previous-summary>\n" + prev + "\n</previous-summary>\n\n"
+		}
+	}
+	prompt := "<conversation>\n" + conversationText + "\n</conversation>" + promptSuffix + "\n\n" + userPrompt
 
 	const compactionActionID = "agent_loop_compact"
 	chatCfg := &domain.ChatConfig{

@@ -154,5 +154,28 @@ func (l *Loop) SummarizeBranch(_ context.Context) (string, error) {
 		return "", errors.New("branch summary produced empty result")
 	}
 
-	return branchSummaryPrefix + raw + branchSummarySuffix, nil
+	// Append file operation metadata to the summary (pi parity: compact() appends
+	// formatFileOperations(readFiles, modifiedFiles) at the end of the summary).
+	readSet := make(map[string]bool)
+	modifiedSet := make(map[string]bool)
+	for _, op := range fileOps {
+		for _, f := range op.Modified {
+			modifiedSet[f] = true
+		}
+		for _, f := range op.Read {
+			if !modifiedSet[f] {
+				readSet[f] = true
+			}
+		}
+	}
+	var readFiles, modifiedFiles []string
+	for f := range readSet {
+		readFiles = append(readFiles, f)
+	}
+	for f := range modifiedSet {
+		modifiedFiles = append(modifiedFiles, f)
+	}
+	fileOpsMeta := formatFileOperations(readFiles, modifiedFiles)
+
+	return branchSummaryPrefix + raw + fileOpsMeta + branchSummarySuffix, nil
 }

@@ -26,6 +26,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"math"
 	"mime"
 	"os"
 	"path/filepath"
@@ -34,6 +35,7 @@ import (
 	"text/template"
 
 	wx "github.com/IBM/watsonx-go/pkg/models"
+	lcemb "github.com/tmc/langchaingo/embeddings"
 	"github.com/tmc/langchaingo/llms"
 	lcanthropic "github.com/tmc/langchaingo/llms/anthropic"
 	lcbedrock "github.com/tmc/langchaingo/llms/bedrock"
@@ -47,6 +49,10 @@ import (
 
 	"github.com/kdeps/kdeps/v2/pkg/domain"
 )
+
+// chainOfThoughtInstruction is the system-level CoT prompt injected when ChainOfThought is true.
+// Mirrors the langchaingo ConversationalAgent pattern of eliciting step-by-step reasoning.
+const chainOfThoughtInstruction = "Think step by step. Show your reasoning before giving your final answer."
 
 const (
 	backendAnthropic   = "anthropic"
@@ -356,6 +362,124 @@ func jaccardSimilarity(a, b map[string]struct{}) float64 {
 	return float64(intersection) / float64(union)
 }
 
+// cosineSimilarity returns the cosine similarity between two float32 vectors.
+// Returns 0 when either vector is zero-length or has zero norm.
+func cosineSimilarity(a, b []float32) float64 {
+	if len(a) == 0 || len(b) != len(a) {
+		return 0
+	}
+	var dot, normA, normB float64
+	for i := range a {
+		ai, bi := float64(a[i]), float64(b[i])
+		dot += ai * bi
+		normA += ai * ai
+		normB += bi * bi
+	}
+	denom := math.Sqrt(normA) * math.Sqrt(normB)
+	if denom == 0 {
+		return 0
+	}
+	return dot / denom
+}
+
+// buildFewShotEmbedder creates an openai-compat embedder for embedding-based
+// few-shot selection. Falls back gracefully; callers check for nil.
+func buildFewShotEmbedder(_ context.Context, model, backend, baseURL string) (lcemb.Embedder, error) {
+	actualBaseURL := baseURL
+	if actualBaseURL == "" {
+		if u, ok := langchainBaseURLs[backend]; ok {
+			actualBaseURL = u
+		}
+	}
+	apiKey := os.Getenv(providerAPIKeyEnvVar(backend))
+	opts := []lcopenai.Option{
+		lcopenai.WithToken(apiKey),
+		lcopenai.WithModel(model),
+	}
+	if actualBaseURL != "" {
+		opts = append(opts, lcopenai.WithBaseURL(actualBaseURL))
+	}
+	client, err := lcopenai.New(opts...)
+	if err != nil {
+		return nil, fmt.Errorf("few-shot embedder: %w", err)
+	}
+	emb, err := lcemb.NewEmbedder(client)
+	if err != nil {
+		return nil, fmt.Errorf("few-shot embedder: %w", err)
+	}
+	return emb, nil
+}
+
+// selectFewShotByEmbedding ranks pool examples by cosine similarity to prompt
+// using embeddings and returns the top-k user/assistant pairs. Falls back to
+// the full pool when embedding fails.
+func selectFewShotByEmbedding(
+	ctx context.Context, pool []domain.ScenarioItem, prompt string, k int, embedder lcemb.Embedder,
+) []domain.ScenarioItem {
+	if k <= 0 || len(pool) == 0 || embedder == nil {
+		return pool
+	}
+
+	// Collect user-role items with their positions.
+	type candidate struct {
+		idx int
+	}
+	var candidates []candidate
+	for i, item := range pool {
+		if strings.EqualFold(item.Role, roleUser) || item.Role == "" {
+			candidates = append(candidates, candidate{idx: i})
+		}
+	}
+	if len(candidates) == 0 {
+		return pool
+	}
+
+	texts := make([]string, len(candidates))
+	for i, c := range candidates {
+		texts[i] = pool[c.idx].Prompt
+	}
+
+	// Embed prompt + all candidate example inputs in one batch call.
+	allTexts := append([]string{prompt}, texts...)
+	vecs, err := embedder.EmbedDocuments(ctx, allTexts)
+	if err != nil || len(vecs) != len(allTexts) {
+		// Fall back to full pool on error.
+		return pool
+	}
+
+	promptVec := vecs[0]
+	type scored struct {
+		idx   int
+		score float64
+	}
+	scoredCandidates := make([]scored, len(candidates))
+	for i, c := range candidates {
+		scoredCandidates[i] = scored{
+			idx:   c.idx,
+			score: cosineSimilarity(promptVec, vecs[i+1]),
+		}
+	}
+
+	sort.SliceStable(scoredCandidates, func(i, j int) bool {
+		return scoredCandidates[i].score > scoredCandidates[j].score
+	})
+	if k < len(scoredCandidates) {
+		scoredCandidates = scoredCandidates[:k]
+	}
+	sort.SliceStable(scoredCandidates, func(i, j int) bool {
+		return scoredCandidates[i].idx < scoredCandidates[j].idx
+	})
+
+	var result []domain.ScenarioItem
+	for _, s := range scoredCandidates {
+		result = append(result, pool[s.idx])
+		if s.idx+1 < len(pool) && strings.EqualFold(pool[s.idx+1].Role, roleAssistant) {
+			result = append(result, pool[s.idx+1])
+		}
+	}
+	return result
+}
+
 // compressRetrieverContext returns up to topK chunks from chunks that are most
 // relevant to prompt by Jaccard word-overlap similarity. When topK == 0 or
 // len(chunks) == 0, the original slice is returned unchanged.
@@ -468,6 +592,54 @@ func buildSystemPreamble(retrieverPreamble, formatHint string) string {
 	}
 }
 
+// injectChainOfThought appends the CoT instruction to the first system message
+// in msgs. If no system message is present, a new one is prepended.
+func injectChainOfThought(msgs []llms.MessageContent) []llms.MessageContent {
+	for i, m := range msgs {
+		if m.Role != llms.ChatMessageTypeSystem {
+			continue
+		}
+		// Append CoT to the first system message found.
+		updated := make([]llms.ContentPart, 0, len(m.Parts))
+		for _, p := range m.Parts {
+			if tc, ok := p.(llms.TextContent); ok {
+				updated = append(updated, llms.TextContent{Text: tc.Text + "\n\n" + chainOfThoughtInstruction})
+			} else {
+				updated = append(updated, p)
+			}
+		}
+		msgs[i] = llms.MessageContent{Role: m.Role, Parts: updated}
+		return msgs
+	}
+	// No system message found; prepend one.
+	return append([]llms.MessageContent{
+		llms.TextParts(llms.ChatMessageTypeSystem, chainOfThoughtInstruction),
+	}, msgs...)
+}
+
+// prepareCfg returns a (possibly modified) copy of cfg ready for buildLangchainMessages.
+// When FewShotEmbeddingModel is set and FewShotSelectK > 0, it pre-selects few-shot
+// examples via embedding cosine similarity and clears FewShotSelectK so the Jaccard
+// path in buildLangchainMessages is skipped.
+func prepareCfg(ctx context.Context, cfg *domain.ChatConfig) *domain.ChatConfig {
+	if cfg.FewShotEmbeddingModel == "" || cfg.FewShotSelectK <= 0 || len(cfg.FewShot) == 0 {
+		return cfg
+	}
+	backend := cfg.FewShotEmbeddingBackend
+	if backend == "" {
+		backend = cfg.Backend
+	}
+	embedder, err := buildFewShotEmbedder(ctx, cfg.FewShotEmbeddingModel, backend, cfg.BaseURL)
+	if err != nil {
+		return cfg // fall back to Jaccard on build failure
+	}
+	selected := selectFewShotByEmbedding(ctx, cfg.FewShot, cfg.Prompt, cfg.FewShotSelectK, embedder)
+	cfgCopy := *cfg
+	cfgCopy.FewShot = selected
+	cfgCopy.FewShotSelectK = 0 // skip Jaccard path — embedding selection already done
+	return &cfgCopy
+}
+
 // buildLangchainMessages converts ChatConfig into langchaingo MessageContent slices.
 func buildLangchainMessages(cfg *domain.ChatConfig) []llms.MessageContent {
 	var msgs []llms.MessageContent
@@ -493,6 +665,11 @@ func buildLangchainMessages(cfg *domain.ChatConfig) []llms.MessageContent {
 		msgs = append([]llms.MessageContent{
 			llms.TextParts(llms.ChatMessageTypeSystem, retrieverPreamble),
 		}, msgs...)
+	}
+
+	// Inject chain-of-thought instruction when enabled.
+	if cfg.ChainOfThought {
+		msgs = injectChainOfThought(msgs)
 	}
 
 	// Few-shot examples (user/assistant pairs) injected before runtime history.
@@ -839,6 +1016,7 @@ func (e *Executor) StreamChat(
 		backend = BackendFile
 	}
 
+	cfg = prepareCfg(ctx, cfg)
 	model, err := buildLangchainLLM(ctx, cfg)
 	if err != nil {
 		return "", nil, fmt.Errorf("stream: build llm: %w", err)
@@ -917,6 +1095,7 @@ func (e *Executor) streamChatChunked(
 func (e *Executor) streamChatOnce(
 	ctx context.Context, cfg *domain.ChatConfig, w io.Writer,
 ) (string, []domain.StreamedToolCall, error) {
+	cfg = prepareCfg(ctx, cfg)
 	backend := cfg.Backend
 	if backend == "" {
 		backend = BackendFile

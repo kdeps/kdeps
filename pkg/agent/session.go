@@ -337,6 +337,29 @@ func (s *Session) FirstKeptEntryID() int64 {
 	return s.firstKeptEntryID
 }
 
+// PreviousCompactionSummary returns the raw summary text from the most recent
+// compaction in this session, or "" when no compaction has occurred. The text
+// is extracted from the RoleCompactionSummary message by stripping the wrapper
+// prefix/suffix added by CompactWith(). Mirrors pi's previousSummary field in
+// prepareCompaction() (compaction/compaction.ts).
+func (s *Session) PreviousCompactionSummary() string {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	for _, m := range s.messages {
+		if m.Role != RoleCompactionSummary {
+			continue
+		}
+		text := m.Content
+		if after, ok := strings.CutPrefix(text, compactionSummaryPrefix); ok {
+			if before, ok2 := strings.CutSuffix(after, compactionSummarySuffix); ok2 {
+				return before
+			}
+		}
+		return text
+	}
+	return ""
+}
+
 // CurrentBranchMessages returns the messages on the current branch (from root to current tip).
 // Pi equivalent: collectEntriesForBranchSummary — walks ParentID links from tip to root.
 // Falls back to all messages when no IDs are set (pre-ID sessions).

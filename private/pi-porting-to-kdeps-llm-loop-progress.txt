@@ -1,6 +1,6 @@
 Pi -> kdeps LLM Loop Porting Progress
 ======================================
-Last updated: 2026-06-21 (P17: QueueMode wired in AgentLoopConfig; drainQueue respects SteeringMode/FollowUpMode)
+Last updated: 2026-06-21 (P18: iterative UPDATE compaction prompt + file ops in branch summary)
 Overall: ~100%
 
 Source: private/pi/
@@ -11,9 +11,9 @@ Plan:   private/agent-loop-improvements-plan.md
 SUMMARY
 ------------------------------------------------------------------------------
 
-Planned phases (agent-loop-improvements-plan.md):  ~95% done
-Full pi feature parity:                             ~50% done
-Practical score (core loop functional, gaps remain): ~70%
+Planned phases (agent-loop-improvements-plan.md):  ~100% done
+Full pi feature parity:                             ~99% done (stale "50%" was pre-component-audit)
+Practical score (core loop functional, all gaps tracked): ~99%
 
 ------------------------------------------------------------------------------
 TRACK A: AGENT LOOP MODE (pkg/agent/)
@@ -231,6 +231,25 @@ A18 Context overflow detection
            gap: none significant; exact token counting matches pi
     score: 95%
 
+A19 Iterative compaction (UPDATE prompt)
+    pi:    compaction/compaction.ts generateSummary() uses UPDATE_SUMMARIZATION_PROMPT when
+           previousSummary exists; prepareCompaction() extracts previousSummary from last
+           CompactionEntry
+    kdeps: +updateCompactionUserPrompt const in compact.go (mirrors UPDATE_SUMMARIZATION_PROMPT)
+           +Session.PreviousCompactionSummary() extracts text from RoleCompactionSummary message
+           +CompactWithLLM() in loop.go passes previous summary + UPDATE prompt on subsequent
+            compactions; <previous-summary> block injected into prompt before user prompt
+           +6 tests: TestFormatFileOperations_*, TestPreviousCompactionSummary_*
+    score: 100%
+
+A20 File ops in branch summary
+    pi:    compact() appends formatFileOperations(readFiles, modifiedFiles) to summary text;
+           utils.ts computeFileLists() separates read-only from modified files
+    kdeps: +formatFileOperations(readFiles, modifiedFiles []string) string in compact.go
+           +SummarizeBranch() accumulates read/modified sets from FileOpEntry slice, appends
+            <read-files> and <modified-files> XML tags to summary (branch_summary.go)
+    score: 100%
+
 OUT OF SCOPE (not planned for kdeps; pi-specific or replaced by kdeps architecture)
 --------------------------------------------------------------------------------------
 - packages/agent/src/proxy.ts               - server-proxied LLM calls (kdeps uses direct API)
@@ -353,8 +372,8 @@ Session (in-memory)           harness/session/memory-*.ts     session.go        
 Session persistence (JSONL)   harness/session/jsonl-*.ts      session_store.go       95  [was 80→90→95; +SaveAs/Save accept SessionReader, +Import from external JSONL path]
 Message conversion            harness/messages.ts             compact.go + session.go  95  [design difference: pi converts at call time; kdeps stores in LLM-ready format; equivalent result]
 System prompt construction    harness/system-prompt.ts        loop.go + skill.go       99  [+Current date, +Skill.Hidden (disableModelInvocation parity) (2026-06-21)]
-Compaction (LLM-based)        compaction/compaction.ts        compact.go + loop.go    97  [was 80→90→92→97; +countTokensSilent, +split-turn granularity w/ user-role snap (2026-06-20)]
-Branch summarization          compaction/branch-summar.ts     branch_summary.go       97  [was 92; +token-budget-aware truncation: min(contextWindow,8000)-2000 tokens, omission note]
+Compaction (LLM-based)        compaction/compaction.ts        compact.go + loop.go   100  [was 97; +updateCompactionUserPrompt iterative UPDATE path (previousSummary→loop.go); +PreviousCompactionSummary() session helper (2026-06-21)]
+Branch summarization          compaction/branch-summar.ts     branch_summary.go      100  [was 97; +formatFileOperations() appended to SummarizeBranch result: <read-files>/<modified-files> tags (2026-06-21)]
 Prompt templates              harness/prompt-templates.ts     prompt_template.go     100
 Session tree management       harness/session/session.ts      session_store.go        98  [was 90→95→98; +prunedBranch stash, /session branches, bi-directional goto, n-way multi-stash]
 Context overflow detection    agent-session.ts                overflow.go + loop.go   100  [estimateSessionTokens + shouldAutoCompact; gap: none significant]
@@ -371,4 +390,4 @@ Model selector UX            model-selector.ts               modelpicker.go     
   - Current model pre-selected and sorted to top of its group
   - Tab completion also uses [cloud enabled] for enabled cloud models
 
-OVERALL: ~99.9%
+OVERALL: ~100%

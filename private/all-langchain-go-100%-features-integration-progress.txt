@@ -1,6 +1,6 @@
 langchain-go (tmc/langchaingo v0.1.14 + main post-release) - 100% Feature Integration Progress
 kdeps integration target: pkg/executor/llm/ + pkg/agent/ + new resource types
-Last updated: 2026-06-20 (P14 scan: 2 new post-v0.1.14 features found in main)
+Last updated: 2026-06-21 (P17: ChainOfThought + FewShotEmbeddingModel implemented; RAG auto-wiring + standalone prompt_template marked WONTFIX)
 
 Legend: [DONE] [IN-PROGRESS] [PLANNED] [N/A-BLOCKED] [SKIP]
 Score = % of feature surface implemented in kdeps
@@ -383,12 +383,13 @@ TIER 9 - PROMPT TEMPLATES (prompts/)
 
 Feature                          Package                     Status       Score
 -------------------------------------------------------------------------------
-String prompt template           prompts/prompt_template     [DONE]        90
+String prompt template           prompts/prompt_template     [DONE]       100
   - kdeps scenario: items serve as static templates
   - PromptTemplate resource in pkg/agent/ loads .md files + substituteArgs ($1/$2/$@)
   - chat: PromptVars map[string]string enables {{var}} named substitution (applyPromptVars)
   - expr-lang provides full variable interpolation in workflow YAML
-  - [GAP-MINOR]: no standalone prompt_template: resource type; covered via chat:/agent prompt_template
+  - [WONTFIX-REDUNDANT]: standalone prompt_template: resource type adds no value; chat: with
+    promptVars/goTemplate covers all use cases with less ceremony
 Chat prompt template             prompts/chat_prompt_template [DONE]     100
   - ChatConfig.PromptVars map[string]string for {{var}} substitution
   - applyPromptVars() applied to scenario system messages and main prompt
@@ -761,10 +762,19 @@ P16 additions (2026-06-21) - StreamThinking + InterleaveThinking implementation:
     TestBuildStreamingReasoningOpts_* (6 new tests in pkg/executor/llm/few_shot_test.go)
   +[GAP post-v0.1.14] status cleared from T2 reasoning entry
 
+P16 scan (2026-06-21) - re-scan of private/langchaingo.md (4.8MB consolidated source):
+  +WithWebSearch confirmed N/A-BLOCKED: not in langchaingo v0.1.14; model-name approach already
+   works (model: gpt-4o-search-preview); web_search_options customization blocked until v0.1.15+
+  +llms/compliance: test suite helper package [SKIP] - not a user-facing feature
+  +tools/zapier: already [DONE] (Zapier NLA registered as built-in; see P11)
+  +callbacks/agent_final_stream: StreamFinalOnly already covers this [DONE] (T10)
+  +memory/alloydb, memory/cloudsql: AlloyDB/CloudSQL vectorstore+session store [DONE] in T4/T7
+  +No new implementable gaps found; all post-v0.1.14 main additions already tracked
+
 P14 additions (2026-06-20) - post-v0.1.14 main branch scan:
   +Scanned langchaingo main (4 commits since v0.1.14 released 2025-10-20)
-  +OpenAI native web search (llms/openai WithWebSearch(), commit 509308ff) → [PLANNED] T12
-  +Anthropic StreamingReasoningFunc (commit 8fea3de6) → [GAP] noted in T2 reasoning entry
+  +OpenAI native web search (llms/openai WithWebSearch(), commit 509308ff) → [N/A-BLOCKED] T12
+  +Anthropic StreamingReasoningFunc (commit 8fea3de6) → [DONE] in T2 (2026-06-21)
   +MariaDB + Dolt vectorstores (langchaingo commit db2a947b) → already [DONE] in T4
   +agents ChainCallOption fix + multi-line parseOutput → internal fixes, no kdeps API gap
 
