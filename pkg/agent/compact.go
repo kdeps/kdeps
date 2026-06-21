@@ -87,6 +87,64 @@ Use this EXACT format:
 
 Keep each section concise. Preserve exact file paths, function names, and error messages.`
 
+// updateCompactionUserPrompt is used when a previous summary already exists.
+// It instructs the LLM to update the existing summary with new messages rather
+// than summarizing from scratch. Mirrors pi's UPDATE_SUMMARIZATION_PROMPT.
+const updateCompactionUserPrompt = `The messages above are NEW conversation messages to incorporate into the existing summary provided in <previous-summary> tags.
+
+Update the existing structured summary with new information. RULES:
+- PRESERVE all existing information from the previous summary
+- ADD new progress, decisions, and context from the new messages
+- UPDATE the Progress section: move items from "In Progress" to "Done" when completed
+- UPDATE "Next Steps" based on what was accomplished
+- PRESERVE exact file paths, function names, and error messages
+- If something is no longer relevant, you may remove it
+
+Use this EXACT format:
+
+## Goal
+[Preserve existing goals, add new ones if the task expanded]
+
+## Constraints & Preferences
+- [Preserve existing, add new ones discovered]
+
+## Progress
+### Done
+- [x] [Include previously done items AND newly completed items]
+
+### In Progress
+- [ ] [Current work - update based on progress]
+
+### Blocked
+- [Current blockers - remove if resolved]
+
+## Key Decisions
+- **[Decision]**: [Brief rationale] (preserve all previous, add new)
+
+## Next Steps
+1. [Update based on current state]
+
+## Critical Context
+- [Preserve important context, add new if needed]
+
+Keep each section concise. Preserve exact file paths, function names, and error messages.`
+
+// formatFileOperations formats file read/modified lists as XML summary metadata.
+// Mirrors pi's formatFileOperations() from compaction/utils.ts.
+func formatFileOperations(readFiles, modifiedFiles []string) string {
+	if len(readFiles) == 0 && len(modifiedFiles) == 0 {
+		return ""
+	}
+	var parts []string
+	if len(readFiles) > 0 {
+		parts = append(parts, "<read-files>\n"+strings.Join(readFiles, "\n")+"\n</read-files>")
+	}
+	if len(modifiedFiles) > 0 {
+		parts = append(parts, "<modified-files>\n"+strings.Join(modifiedFiles, "\n")+"\n</modified-files>")
+	}
+	return "\n\n" + strings.Join(parts, "\n\n")
+}
+
 // estimateTokens returns the token count for a session message using tiktoken
 // BPE encoding. Falls back silently to chars/4 on unknown models.
 func estimateTokens(m SessionMessage, modelHint string) int {

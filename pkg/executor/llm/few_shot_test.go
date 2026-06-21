@@ -1080,3 +1080,184 @@ func TestBuildSamplingOpts_AllParams(t *testing.T) {
 	opts := buildSamplingOpts(cfg)
 	assert.Len(t, opts, 9)
 }
+
+// --- ChainOfThought tests ---
+
+func TestChainOfThought_NoScenario_PrependsSysMsg(t *testing.T) {
+	t.Parallel()
+	msgs := buildLangchainMessages(&domain.ChatConfig{
+		Prompt:         "hello",
+		ChainOfThought: true,
+	})
+	found := false
+	for _, m := range msgs {
+		if m.Role == lc.ChatMessageTypeSystem {
+			for _, p := range m.Parts {
+				if tc, ok := p.(lc.TextContent); ok && strings.Contains(tc.Text, "step by step") {
+					found = true
+				}
+			}
+		}
+	}
+	assert.True(t, found, "CoT instruction should appear in a system message")
+}
+
+func TestChainOfThought_WithScenario_AppendToSystem(t *testing.T) {
+	t.Parallel()
+	msgs := buildLangchainMessages(&domain.ChatConfig{
+		Prompt:         "hello",
+		ChainOfThought: true,
+		Scenario: []domain.ScenarioItem{
+			{Role: "system", Prompt: "You are helpful."},
+			{Role: "user", Prompt: "hi"},
+		},
+	})
+	found := false
+	for _, m := range msgs {
+		if m.Role == lc.ChatMessageTypeSystem {
+			for _, p := range m.Parts {
+				if tc, ok := p.(lc.TextContent); ok &&
+					strings.Contains(tc.Text, "You are helpful.") &&
+					strings.Contains(tc.Text, "step by step") {
+					found = true
+				}
+			}
+		}
+	}
+	assert.True(t, found, "CoT instruction should be appended to the existing system message")
+}
+
+func TestChainOfThought_Disabled_NoCoTMsg(t *testing.T) {
+	t.Parallel()
+	msgs := buildLangchainMessages(&domain.ChatConfig{
+		Prompt:         "hello",
+		ChainOfThought: false,
+	})
+	for _, m := range msgs {
+		if m.Role == lc.ChatMessageTypeSystem {
+			for _, p := range m.Parts {
+				if tc, ok := p.(lc.TextContent); ok {
+					assert.NotContains(t, tc.Text, "step by step")
+				}
+			}
+		}
+	}
+}
+
+func TestChainOfThought_NoScenarioWithRetriever_CoTPresent(t *testing.T) {
+	t.Parallel()
+	msgs := buildLangchainMessages(&domain.ChatConfig{
+		Prompt:           "hello",
+		ChainOfThought:   true,
+		RetrieverContext: []string{"chunk1"},
+	})
+	found := false
+	for _, m := range msgs {
+		if m.Role == lc.ChatMessageTypeSystem {
+			for _, p := range m.Parts {
+				if tc, ok := p.(lc.TextContent); ok && strings.Contains(tc.Text, "step by step") {
+					found = true
+				}
+			}
+		}
+	}
+	assert.True(t, found, "CoT should appear even when retriever context is present")
+}
+
+// --- cosineSimilarity tests ---
+
+func TestCosineSimilarity_Identical(t *testing.T) {
+	t.Parallel()
+	v := []float32{1, 0, 0}
+	assert.InDelta(t, 1.0, cosineSimilarity(v, v), 1e-9)
+}
+
+func TestCosineSimilarity_Orthogonal(t *testing.T) {
+	t.Parallel()
+	a := []float32{1, 0}
+	b := []float32{0, 1}
+	assert.InDelta(t, 0.0, cosineSimilarity(a, b), 1e-9)
+}
+
+func TestCosineSimilarity_ZeroVector(t *testing.T) {
+	t.Parallel()
+	assert.Equal(t, 0.0, cosineSimilarity([]float32{0, 0}, []float32{1, 1}))
+}
+
+func TestCosineSimilarity_LengthMismatch(t *testing.T) {
+	t.Parallel()
+	assert.Equal(t, 0.0, cosineSimilarity([]float32{1, 2}, []float32{1}))
+}
+
+func TestCosineSimilarity_EmptySlice(t *testing.T) {
+	t.Parallel()
+	assert.Equal(t, 0.0, cosineSimilarity(nil, nil))
+}
+
+func TestCosineSimilarity_KnownValue(t *testing.T) {
+	t.Parallel()
+	// [1,1] · [1,0] / (sqrt(2) * 1) = 1/sqrt(2) ≈ 0.7071
+	a := []float32{1, 1}
+	b := []float32{1, 0}
+	got := cosineSimilarity(a, b)
+	assert.InDelta(t, 0.7071, got, 0.0001)
+}
+
+// --- selectFewShotByEmbedding fallback tests ---
+
+func TestSelectFewShotByEmbedding_NilEmbedder_ReturnsPool(t *testing.T) {
+	t.Parallel()
+	pool := []domain.ScenarioItem{
+		{Role: "user", Prompt: "hello"},
+		{Role: "assistant", Prompt: "hi"},
+	}
+	result := selectFewShotByEmbedding(t.Context(), pool, "hey", 1, nil)
+	assert.Equal(t, pool, result)
+}
+
+func TestSelectFewShotByEmbedding_ZeroK_ReturnsPool(t *testing.T) {
+	t.Parallel()
+	pool := []domain.ScenarioItem{
+		{Role: "user", Prompt: "a"},
+	}
+	result := selectFewShotByEmbedding(t.Context(), pool, "a", 0, nil)
+	assert.Equal(t, pool, result)
+}
+
+func TestSelectFewShotByEmbedding_EmptyPool_ReturnsPool(t *testing.T) {
+	t.Parallel()
+	result := selectFewShotByEmbedding(t.Context(), nil, "x", 2, nil)
+	assert.Nil(t, result)
+}
+
+// --- prepareCfg tests ---
+
+func TestPrepareCfg_NoEmbeddingModel_ReturnsSameCfg(t *testing.T) {
+	t.Parallel()
+	cfg := &domain.ChatConfig{Prompt: "hi", FewShotSelectK: 2}
+	result := prepareCfg(t.Context(), cfg)
+	assert.Same(t, cfg, result, "should return original cfg when no embedding model")
+}
+
+func TestPrepareCfg_ZeroK_ReturnsSameCfg(t *testing.T) {
+	t.Parallel()
+	cfg := &domain.ChatConfig{
+		Prompt:                "hi",
+		FewShotEmbeddingModel: "text-embedding-3-small",
+		FewShotSelectK:        0,
+	}
+	result := prepareCfg(t.Context(), cfg)
+	assert.Same(t, cfg, result)
+}
+
+func TestPrepareCfg_EmptyFewShot_ReturnsSameCfg(t *testing.T) {
+	t.Parallel()
+	cfg := &domain.ChatConfig{
+		Prompt:                "hi",
+		FewShotEmbeddingModel: "text-embedding-3-small",
+		FewShotSelectK:        2,
+		FewShot:               nil,
+	}
+	result := prepareCfg(t.Context(), cfg)
+	assert.Same(t, cfg, result)
+}

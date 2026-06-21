@@ -146,6 +146,24 @@ type ChatConfig struct {
 	// functions. Falls back to the raw string on template parse errors.
 	GoTemplate bool `yaml:"goTemplate,omitempty"`
 
+	// ChainOfThought, when true, appends a step-by-step reasoning instruction to
+	// the system context. This implements the langchaingo conversational agent
+	// pattern of injecting a CoT prompt to elicit structured reasoning before
+	// the final answer. Works with all backends that support system messages.
+	ChainOfThought bool `yaml:"chainOfThought,omitempty"`
+
+	// FewShotEmbeddingModel, when set, selects few-shot examples using cosine
+	// similarity on embedding vectors instead of Jaccard word-overlap. Requires
+	// FewShotSelectK > 0 to take effect. Uses the openai-compat embedding API
+	// (same base URL as the LLM backend by default). Falls back to Jaccard if
+	// the embedder cannot be built at runtime.
+	FewShotEmbeddingModel string `yaml:"fewShotEmbeddingModel,omitempty"`
+
+	// FewShotEmbeddingBackend overrides the backend used for embedding-based
+	// few-shot selection. When empty, inherits the LLM backend. Valid values
+	// match the chat: backend field (openai, groq, ollama, local, etc.).
+	FewShotEmbeddingBackend string `yaml:"fewShotEmbeddingBackend,omitempty"`
+
 	// OutputParser applies a named post-processor to the LLM response before
 	// storing it to the action output. Supported values:
 	//   "simple"   - trims whitespace

@@ -423,3 +423,90 @@ func TestSerializeConversation_WithFileOps(t *testing.T) {
 		t.Fatalf("expected FILES line, got %q", got)
 	}
 }
+
+// --- formatFileOperations ---
+
+func TestFormatFileOperations_Empty(t *testing.T) {
+	if got := formatFileOperations(nil, nil); got != "" {
+		t.Fatalf("expected empty string for no files, got %q", got)
+	}
+}
+
+func TestFormatFileOperations_ReadOnly(t *testing.T) {
+	got := formatFileOperations([]string{"a.go", "b.go"}, nil)
+	if !strings.Contains(got, "<read-files>") {
+		t.Fatalf("expected <read-files> tag, got %q", got)
+	}
+	if !strings.Contains(got, "a.go") || !strings.Contains(got, "b.go") {
+		t.Fatalf("expected both files, got %q", got)
+	}
+	if strings.Contains(got, "<modified-files>") {
+		t.Fatalf("unexpected <modified-files> tag, got %q", got)
+	}
+}
+
+func TestFormatFileOperations_ModifiedOnly(t *testing.T) {
+	got := formatFileOperations(nil, []string{"c.go"})
+	if strings.Contains(got, "<read-files>") {
+		t.Fatalf("unexpected <read-files> tag, got %q", got)
+	}
+	if !strings.Contains(got, "<modified-files>") {
+		t.Fatalf("expected <modified-files> tag, got %q", got)
+	}
+	if !strings.Contains(got, "c.go") {
+		t.Fatalf("expected c.go, got %q", got)
+	}
+}
+
+func TestFormatFileOperations_BothSections(t *testing.T) {
+	got := formatFileOperations([]string{"r.go"}, []string{"w.go"})
+	if !strings.Contains(got, "<read-files>") || !strings.Contains(got, "<modified-files>") {
+		t.Fatalf("expected both sections, got %q", got)
+	}
+	if !strings.Contains(got, "r.go") || !strings.Contains(got, "w.go") {
+		t.Fatalf("expected both files, got %q", got)
+	}
+}
+
+// --- PreviousCompactionSummary ---
+
+func TestPreviousCompactionSummary_Empty(t *testing.T) {
+	s := NewSession(0)
+	s.Append("q", "a")
+	if got := s.PreviousCompactionSummary(); got != "" {
+		t.Fatalf("expected empty summary, got %q", got)
+	}
+}
+
+func TestPreviousCompactionSummary_AfterCompaction(t *testing.T) {
+	s := NewSession(0)
+	for range compactMinTurns + 2 {
+		s.Append(strings.Repeat("u", 100), strings.Repeat("a", 100))
+	}
+	msgs := s.RawMessages()
+	cutIdx := findCutIndex(msgs, compactKeepRecentTokens, "")
+	if cutIdx == 0 {
+		t.Skip("not enough content to compact")
+	}
+	toKeep := msgs[cutIdx:]
+	compacted := len(msgs[:cutIdx]) / sessionMsgsPer
+	s.CompactWith("test summary content", toKeep, compacted)
+	got := s.PreviousCompactionSummary()
+	if got != "test summary content" {
+		t.Fatalf("expected 'test summary content', got %q", got)
+	}
+}
+
+func TestPreviousCompactionSummary_StripsPrefixSuffix(t *testing.T) {
+	s := NewSession(0)
+	// Manually insert a compaction summary message with wrapped content.
+	wrapped := compactionSummaryPrefix + "summary text" + compactionSummarySuffix
+	s.messages = append(s.messages,
+		SessionMessage{Role: RoleCompactionSummary, Content: wrapped},
+		SessionMessage{Role: RoleAssistant, Content: "ok"},
+	)
+	got := s.PreviousCompactionSummary()
+	if got != "summary text" {
+		t.Fatalf("expected unwrapped 'summary text', got %q", got)
+	}
+}
