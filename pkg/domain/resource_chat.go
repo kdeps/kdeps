@@ -193,6 +193,10 @@ type ChatConfig struct {
 	// AnthropicBetaHeaders adds custom Anthropic beta feature headers (e.g. "new-feature-2025-01-01").
 	// Only applies when backend="anthropic".
 	AnthropicBetaHeaders []string `yaml:"anthropicBetaHeaders,omitempty"`
+	// OpenAILegacyMaxTokens forces the max_tokens field instead of max_completion_tokens.
+	// Useful when connecting to older OpenAI-compatible servers that don't support max_completion_tokens.
+	// Only applies to OpenAI-compat backends.
+	OpenAILegacyMaxTokens bool `yaml:"openAILegacyMaxTokens,omitempty"`
 
 	// Advanced LLM parameters (may not be supported by all backends)
 	Temperature       *float64 `yaml:"temperature,omitempty"`       // Sampling temperature (0.0-2.0)
