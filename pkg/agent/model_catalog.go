@@ -22,7 +22,8 @@ import "os"
 
 // Context window sizes (tokens) for well-known model families.
 const (
-	ctxAnthropic     = 200_000
+	ctxAnthropic200k = 200_000
+	ctxAnthropic1M   = 1_000_000
 	ctxGemini15Pro   = 2_097_152
 	ctxGeminiFlash   = 1_048_576
 	ctxOpenAI128k    = 128_000
@@ -40,6 +41,18 @@ const (
 	ctxPerplexity    = 128_000
 )
 
+// Max output token limits per model family (from pi models.generated.ts).
+const (
+	outAnthropic4k   = 4_096
+	outAnthropic8k   = 8_192
+	outAnthropic32k  = 32_000
+	outAnthropic64k  = 64_000
+	outAnthropic128k = 128_000
+	outOpenAI        = 16_384
+	outGemini        = 8_192
+	outDefault       = 4_096
+)
+
 // CloudModel describes a well-known cloud LLM model.
 type CloudModel struct {
 	ID               string // API model identifier, e.g. "claude-opus-4-8"
@@ -47,7 +60,9 @@ type CloudModel struct {
 	Desc             string // short human label, e.g. "Opus 4.8 - most capable"
 	EnvVar           string // API key env var, e.g. "ANTHROPIC_API_KEY"
 	SupportsThinking bool   // true when the model supports extended thinking / reasoning
-	ContextWindow    int    // token context window (0 = unknown)
+	SupportsImages   bool   // true when the model accepts image inputs
+	ContextWindow    int    // input token context window (0 = unknown)
+	MaxOutputTokens  int    // max output tokens per call (0 = unknown/use provider default)
 }
 
 // KnownCloudModels is the static catalog of well-known cloud LLM models,
@@ -55,117 +70,172 @@ type CloudModel struct {
 //
 //nolint:gochecknoglobals // read-only static catalog
 var KnownCloudModels = []CloudModel{
-	// Anthropic
+	// Anthropic — claude-opus-4-6/7/8 have 1M context window (pi models.generated.ts)
 	{
 		ID: "claude-opus-4-8", Backend: "anthropic", Desc: "most capable",
-		EnvVar: "ANTHROPIC_API_KEY", SupportsThinking: true, ContextWindow: ctxAnthropic,
+		EnvVar: "ANTHROPIC_API_KEY", SupportsThinking: true, SupportsImages: true,
+		ContextWindow: ctxAnthropic1M, MaxOutputTokens: outAnthropic128k,
 	},
 	{
 		ID: "claude-sonnet-4-6", Backend: "anthropic", Desc: "balanced speed/intelligence",
-		EnvVar: "ANTHROPIC_API_KEY", SupportsThinking: true, ContextWindow: ctxAnthropic,
+		EnvVar: "ANTHROPIC_API_KEY", SupportsThinking: true, SupportsImages: true,
+		ContextWindow: ctxAnthropic1M, MaxOutputTokens: outAnthropic64k,
 	},
 	{
 		ID: "claude-haiku-4-5-20251001", Backend: "anthropic", Desc: "fast and lightweight",
-		EnvVar: "ANTHROPIC_API_KEY", SupportsThinking: true, ContextWindow: ctxAnthropic,
+		EnvVar: "ANTHROPIC_API_KEY", SupportsThinking: true, SupportsImages: true,
+		ContextWindow: ctxAnthropic200k, MaxOutputTokens: outAnthropic64k,
 	},
 	// Google
 	{
 		ID: "gemini-2.5-pro", Backend: "google", Desc: "most capable, best reasoning",
-		EnvVar: "GOOGLE_API_KEY", SupportsThinking: true, ContextWindow: ctxGeminiFlash,
+		EnvVar: "GOOGLE_API_KEY", SupportsThinking: true, SupportsImages: true,
+		ContextWindow: ctxGeminiFlash, MaxOutputTokens: outGemini,
 	},
 	{
 		ID: "gemini-2.5-flash", Backend: "google", Desc: "fast multimodal",
-		EnvVar: "GOOGLE_API_KEY", SupportsThinking: true, ContextWindow: ctxGeminiFlash,
+		EnvVar: "GOOGLE_API_KEY", SupportsThinking: true, SupportsImages: true,
+		ContextWindow: ctxGeminiFlash, MaxOutputTokens: outGemini,
 	},
 	{
 		ID: "gemini-2.0-flash", Backend: "google", Desc: "balanced",
-		EnvVar: "GOOGLE_API_KEY", ContextWindow: ctxGeminiFlash,
+		EnvVar: "GOOGLE_API_KEY", SupportsImages: true,
+		ContextWindow: ctxGeminiFlash, MaxOutputTokens: outGemini,
 	},
 	{
 		ID: "gemini-1.5-pro", Backend: "google", Desc: "long context",
-		EnvVar: "GOOGLE_API_KEY", ContextWindow: ctxGemini15Pro,
+		EnvVar: "GOOGLE_API_KEY", SupportsImages: true,
+		ContextWindow: ctxGemini15Pro, MaxOutputTokens: outGemini,
 	},
 	// OpenAI
 	{
 		ID: "gpt-4o", Backend: "openai", Desc: "flagship multimodal",
-		EnvVar: "OPENAI_API_KEY", ContextWindow: ctxOpenAI128k,
+		EnvVar: "OPENAI_API_KEY", SupportsImages: true,
+		ContextWindow: ctxOpenAI128k, MaxOutputTokens: outOpenAI,
 	},
 	{
 		ID: "gpt-4o-mini", Backend: "openai", Desc: "fast and cheap",
-		EnvVar: "OPENAI_API_KEY", ContextWindow: ctxOpenAI128k,
+		EnvVar: "OPENAI_API_KEY", SupportsImages: true,
+		ContextWindow: ctxOpenAI128k, MaxOutputTokens: outOpenAI,
 	},
 	{
 		ID: "o4-mini", Backend: "openai", Desc: "fast reasoning",
-		EnvVar: "OPENAI_API_KEY", SupportsThinking: true, ContextWindow: ctxOpenAI200k,
+		EnvVar: "OPENAI_API_KEY", SupportsThinking: true, SupportsImages: true,
+		ContextWindow: ctxOpenAI200k, MaxOutputTokens: outOpenAI,
 	},
 	{
 		ID: "o3", Backend: "openai", Desc: "advanced reasoning",
-		EnvVar: "OPENAI_API_KEY", SupportsThinking: true, ContextWindow: ctxOpenAI200k,
+		EnvVar: "OPENAI_API_KEY", SupportsThinking: true, SupportsImages: true,
+		ContextWindow: ctxOpenAI200k, MaxOutputTokens: outOpenAI,
 	},
 	{
 		ID: "o1", Backend: "openai", Desc: "reasoning",
-		EnvVar: "OPENAI_API_KEY", SupportsThinking: true, ContextWindow: ctxOpenAI200k,
+		EnvVar: "OPENAI_API_KEY", SupportsThinking: true,
+		ContextWindow: ctxOpenAI200k, MaxOutputTokens: outOpenAI,
 	},
 	// xAI (Grok)
-	{ID: "grok-3", Backend: "xai", Desc: "most capable", EnvVar: "XAI_API_KEY", ContextWindow: ctxGrok},
-	{ID: "grok-3-fast", Backend: "xai", Desc: "fast", EnvVar: "XAI_API_KEY", ContextWindow: ctxGrok},
+	{
+		ID:              "grok-3",
+		Backend:         "xai",
+		Desc:            "most capable",
+		EnvVar:          "XAI_API_KEY",
+		ContextWindow:   ctxGrok,
+		MaxOutputTokens: outDefault,
+	},
+	{
+		ID:              "grok-3-fast",
+		Backend:         "xai",
+		Desc:            "fast",
+		EnvVar:          "XAI_API_KEY",
+		ContextWindow:   ctxGrok,
+		MaxOutputTokens: outDefault,
+	},
 	{
 		ID: "grok-3-mini", Backend: "xai", Desc: "small and cheap",
-		EnvVar: "XAI_API_KEY", SupportsThinking: true, ContextWindow: ctxGrok,
+		EnvVar: "XAI_API_KEY", SupportsThinking: true, ContextWindow: ctxGrok, MaxOutputTokens: outDefault,
 	},
-	{ID: "grok-2", Backend: "xai", Desc: "previous generation", EnvVar: "XAI_API_KEY", ContextWindow: ctxGrok},
+	{
+		ID:              "grok-2",
+		Backend:         "xai",
+		Desc:            "previous generation",
+		EnvVar:          "XAI_API_KEY",
+		ContextWindow:   ctxGrok,
+		MaxOutputTokens: outDefault,
+	},
 	// DeepSeek
 	{
 		ID: "deepseek-chat", Backend: "deepseek", Desc: "balanced",
-		EnvVar: "DEEPSEEK_API_KEY", ContextWindow: ctxDeepSeek,
+		EnvVar: "DEEPSEEK_API_KEY", ContextWindow: ctxDeepSeek, MaxOutputTokens: outAnthropic8k,
 	},
 	{
 		ID: "deepseek-reasoner", Backend: "deepseek", Desc: "R1 reasoning model",
-		EnvVar: "DEEPSEEK_API_KEY", SupportsThinking: true, ContextWindow: ctxDeepSeek,
+		EnvVar: "DEEPSEEK_API_KEY", SupportsThinking: true, ContextWindow: ctxDeepSeek, MaxOutputTokens: outAnthropic8k,
 	},
 	// Groq (fast inference)
 	{
 		ID: "llama-3.3-70b-versatile", Backend: "groq", Desc: "fast Llama 3.3 70B",
-		EnvVar: "GROQ_API_KEY", ContextWindow: ctxGroqLarge,
+		EnvVar: "GROQ_API_KEY", ContextWindow: ctxGroqLarge, MaxOutputTokens: outAnthropic8k,
 	},
 	{
 		ID: "llama-3.1-8b-instant", Backend: "groq", Desc: "fastest, smallest",
-		EnvVar: "GROQ_API_KEY", ContextWindow: ctxGroqLarge,
+		EnvVar: "GROQ_API_KEY", ContextWindow: ctxGroqLarge, MaxOutputTokens: outAnthropic8k,
 	},
-	{ID: "gemma2-9b-it", Backend: "groq", Desc: "Google Gemma 2", EnvVar: "GROQ_API_KEY", ContextWindow: ctxGroqSmall},
+	{
+		ID:              "gemma2-9b-it",
+		Backend:         "groq",
+		Desc:            "Google Gemma 2",
+		EnvVar:          "GROQ_API_KEY",
+		ContextWindow:   ctxGroqSmall,
+		MaxOutputTokens: outDefault,
+	},
 	// Mistral
 	{
 		ID: "mistral-large-latest", Backend: "mistral", Desc: "most capable",
-		EnvVar: "MISTRAL_API_KEY", ContextWindow: ctxMistralLarge,
+		EnvVar: "MISTRAL_API_KEY", ContextWindow: ctxMistralLarge, MaxOutputTokens: outAnthropic8k,
 	},
 	{
 		ID: "mistral-small-latest", Backend: "mistral", Desc: "fast and cheap",
-		EnvVar: "MISTRAL_API_KEY", ContextWindow: ctxMistralSmall,
+		EnvVar: "MISTRAL_API_KEY", ContextWindow: ctxMistralSmall, MaxOutputTokens: outAnthropic8k,
 	},
 	{
 		ID: "codestral-latest", Backend: "mistral", Desc: "code specialist",
-		EnvVar: "MISTRAL_API_KEY", ContextWindow: ctxCodestamp,
+		EnvVar: "MISTRAL_API_KEY", ContextWindow: ctxCodestamp, MaxOutputTokens: outAnthropic8k,
 	},
 	// Cohere
-	{ID: "command-r-plus", Backend: "cohere", Desc: "most capable", EnvVar: "COHERE_API_KEY", ContextWindow: ctxCohere},
-	{ID: "command-r", Backend: "cohere", Desc: "balanced", EnvVar: "COHERE_API_KEY", ContextWindow: ctxCohere},
+	{
+		ID:              "command-r-plus",
+		Backend:         "cohere",
+		Desc:            "most capable",
+		EnvVar:          "COHERE_API_KEY",
+		ContextWindow:   ctxCohere,
+		MaxOutputTokens: outDefault,
+	},
+	{
+		ID:              "command-r",
+		Backend:         "cohere",
+		Desc:            "balanced",
+		EnvVar:          "COHERE_API_KEY",
+		ContextWindow:   ctxCohere,
+		MaxOutputTokens: outDefault,
+	},
 	// Together AI
 	{
 		ID: "meta-llama/Llama-3-70b-chat-hf", Backend: "together", Desc: "Llama 3 70B",
-		EnvVar: "TOGETHER_API_KEY", ContextWindow: ctxTogetherLarge,
+		EnvVar: "TOGETHER_API_KEY", ContextWindow: ctxTogetherLarge, MaxOutputTokens: outDefault,
 	},
 	{
 		ID: "meta-llama/Meta-Llama-3.1-8B-Instruct-Turbo", Backend: "together",
-		Desc: "Llama 3.1 8B fast", EnvVar: "TOGETHER_API_KEY", ContextWindow: ctxTogetherSmall,
+		Desc: "Llama 3.1 8B fast", EnvVar: "TOGETHER_API_KEY",
+		ContextWindow: ctxTogetherSmall, MaxOutputTokens: outDefault,
 	},
 	// Perplexity (online search)
 	{
 		ID: "llama-3.1-sonar-large-128k-online", Backend: "perplexity",
-		Desc: "with web search", EnvVar: "PERPLEXITY_API_KEY", ContextWindow: ctxPerplexity,
+		Desc: "with web search", EnvVar: "PERPLEXITY_API_KEY", ContextWindow: ctxPerplexity, MaxOutputTokens: outDefault,
 	},
 	{
 		ID: "llama-3.1-sonar-small-128k-online", Backend: "perplexity",
-		Desc: "fast with web search", EnvVar: "PERPLEXITY_API_KEY", ContextWindow: ctxPerplexity,
+		Desc: "fast with web search", EnvVar: "PERPLEXITY_API_KEY", ContextWindow: ctxPerplexity, MaxOutputTokens: outDefault,
 	},
 }
 
@@ -200,6 +270,28 @@ func BackendForModel(modelID string) string {
 		}
 	}
 	return ""
+}
+
+// ModelMaxOutputTokens returns the maximum output tokens for a known cloud model,
+// or 0 if the model is not in the catalog (caller should use the provider default).
+func ModelMaxOutputTokens(modelID string) int {
+	for _, m := range KnownCloudModels {
+		if m.ID == modelID {
+			return m.MaxOutputTokens
+		}
+	}
+	return 0
+}
+
+// ModelSupportsImages returns true when the model is known to accept image inputs.
+// Returns false for unknown/local models.
+func ModelSupportsImages(modelID string) bool {
+	for _, m := range KnownCloudModels {
+		if m.ID == modelID {
+			return m.SupportsImages
+		}
+	}
+	return false
 }
 
 // CloudModelIDs returns just the model ID strings from KnownCloudModels.
