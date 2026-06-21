@@ -934,6 +934,9 @@ func buildStreamOpts(cfg *domain.ChatConfig, backend string, w io.Writer) []llms
 			opts = append(opts, lcanthropic.WithBetaHeader(h))
 		}
 	}
+	if cfg.OpenAILegacyMaxTokens && backend != backendAnthropic && backend != backendGoogle {
+		opts = append(opts, lcopenai.WithLegacyMaxTokensField())
+	}
 	if cfg.GoogleCachedContent != "" && backend == backendGoogle {
 		opts = append(opts, lcgoogleai.WithCachedContent(cfg.GoogleCachedContent))
 	}
