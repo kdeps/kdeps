@@ -251,6 +251,11 @@ type AgentLoopConfig struct {
 
 	// ToolExecution controls sequential vs. parallel tool dispatch. Default: parallel.
 	ToolExecution ToolExecutionMode
+
+	// GetAPIKey resolves an API key dynamically per provider before each LLM call.
+	// Useful for short-lived OAuth tokens that may expire during long tool-execution phases.
+	// Return ("", false) when no key is available.
+	GetAPIKey func(provider string) (string, bool)
 }
 
 // AgentEvent is emitted by the agent loop to signal lifecycle transitions.
@@ -284,9 +289,13 @@ type EventSink func(ctx context.Context, event AgentEvent) error
 //
 //nolint:revive // Agent-prefixed names are intentional public API convention
 type AgentState struct {
-	SystemPrompt string
-	Tools        []AgentTool
-	Messages     []AgentMessage
-	IsStreaming  bool
-	ErrorMessage string
+	SystemPrompt     string
+	Model            string
+	ThinkingMode     string
+	Tools            []AgentTool
+	Messages         []AgentMessage
+	IsStreaming      bool
+	StreamingMessage *AgentMessage
+	PendingToolCalls []string
+	ErrorMessage     string
 }

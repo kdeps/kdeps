@@ -87,17 +87,21 @@ func (q *pendingMessageQueue) setMode(mode QueueMode) {
 //
 //nolint:revive // Agent-prefixed names are intentional public API convention
 type AgentOptions struct {
-	SystemPrompt     string
-	Tools            []AgentTool
-	Messages         []AgentMessage
-	ChatFn           ChatFn
-	ConvertToLLM     func([]AgentMessage) []AgentMessage
-	TransformContext func(context.Context, []AgentMessage) ([]AgentMessage, error)
-	BeforeToolCall   func(context.Context, BeforeToolCallContext) (*BeforeToolCallResult, error)
-	AfterToolCall    func(context.Context, AfterToolCallContext) (*AfterToolCallResult, error)
-	SteeringMode     QueueMode
-	FollowUpMode     QueueMode
-	ToolExecution    ToolExecutionMode
+	SystemPrompt        string
+	Model               string
+	ThinkingMode        string
+	Tools               []AgentTool
+	Messages            []AgentMessage
+	ChatFn              ChatFn
+	ConvertToLLM        func([]AgentMessage) []AgentMessage
+	TransformContext    func(context.Context, []AgentMessage) ([]AgentMessage, error)
+	BeforeToolCall      func(context.Context, BeforeToolCallContext) (*BeforeToolCallResult, error)
+	AfterToolCall       func(context.Context, AfterToolCallContext) (*AfterToolCallResult, error)
+	ShouldStopAfterTurn func(ShouldStopAfterTurnContext) bool
+	PrepareNextTurn     func(context.Context, ShouldStopAfterTurnContext) (*AgentLoopTurnUpdate, error)
+	SteeringMode        QueueMode
+	FollowUpMode        QueueMode
+	ToolExecution       ToolExecutionMode
 }
 
 // Agent is the stateful wrapper around the low-level agent loop.
@@ -120,12 +124,14 @@ type Agent struct {
 	followUpQueue *pendingMessageQueue
 
 	// Configurable hooks (public for easy mutation after construction).
-	ChatFn           ChatFn
-	ConvertToLLM     func([]AgentMessage) []AgentMessage
-	TransformContext func(context.Context, []AgentMessage) ([]AgentMessage, error)
-	BeforeToolCall   func(context.Context, BeforeToolCallContext) (*BeforeToolCallResult, error)
-	AfterToolCall    func(context.Context, AfterToolCallContext) (*AfterToolCallResult, error)
-	ToolExecution    ToolExecutionMode
+	ChatFn              ChatFn
+	ConvertToLLM        func([]AgentMessage) []AgentMessage
+	TransformContext    func(context.Context, []AgentMessage) ([]AgentMessage, error)
+	BeforeToolCall      func(context.Context, BeforeToolCallContext) (*BeforeToolCallResult, error)
+	AfterToolCall       func(context.Context, AfterToolCallContext) (*AfterToolCallResult, error)
+	ShouldStopAfterTurn func(ShouldStopAfterTurnContext) bool
+	PrepareNextTurn     func(context.Context, ShouldStopAfterTurnContext) (*AgentLoopTurnUpdate, error)
+	ToolExecution       ToolExecutionMode
 
 	// active run
 	activeMu     sync.Mutex
@@ -134,11 +140,15 @@ type Agent struct {
 }
 
 type mutableAgentState struct {
-	systemPrompt string
-	tools        []AgentTool
-	messages     []AgentMessage
-	isStreaming  bool
-	errorMessage string
+	systemPrompt     string
+	model            string
+	thinkingMode     string
+	tools            []AgentTool
+	messages         []AgentMessage
+	isStreaming      bool
+	streamingMessage *AgentMessage
+	pendingToolCalls map[string]bool
+	errorMessage     string
 }
 
 // NewAgent creates a new Agent with the given options.
@@ -157,16 +167,21 @@ func NewAgent(opts AgentOptions) *Agent {
 	}
 
 	a := &Agent{
-		steeringQueue:    newPendingMessageQueue(steeringMode),
-		followUpQueue:    newPendingMessageQueue(followUpMode),
-		ChatFn:           opts.ChatFn,
-		ConvertToLLM:     opts.ConvertToLLM,
-		TransformContext: opts.TransformContext,
-		BeforeToolCall:   opts.BeforeToolCall,
-		AfterToolCall:    opts.AfterToolCall,
-		ToolExecution:    toolExec,
+		steeringQueue:       newPendingMessageQueue(steeringMode),
+		followUpQueue:       newPendingMessageQueue(followUpMode),
+		ChatFn:              opts.ChatFn,
+		ConvertToLLM:        opts.ConvertToLLM,
+		TransformContext:    opts.TransformContext,
+		BeforeToolCall:      opts.BeforeToolCall,
+		AfterToolCall:       opts.AfterToolCall,
+		ShouldStopAfterTurn: opts.ShouldStopAfterTurn,
+		PrepareNextTurn:     opts.PrepareNextTurn,
+		ToolExecution:       toolExec,
 	}
 	a.state.systemPrompt = opts.SystemPrompt
+	a.state.model = opts.Model
+	a.state.thinkingMode = opts.ThinkingMode
+	a.state.pendingToolCalls = make(map[string]bool)
 	if opts.Tools != nil {
 		a.state.tools = append([]AgentTool{}, opts.Tools...)
 	}
@@ -196,12 +211,25 @@ func (a *Agent) Subscribe(fn func(context.Context, AgentEvent) error) func() {
 func (a *Agent) State() AgentState {
 	a.mu.RLock()
 	defer a.mu.RUnlock()
+	var streamMsg *AgentMessage
+	if a.state.streamingMessage != nil {
+		cp := *a.state.streamingMessage
+		streamMsg = &cp
+	}
+	pending := make([]string, 0, len(a.state.pendingToolCalls))
+	for id := range a.state.pendingToolCalls {
+		pending = append(pending, id)
+	}
 	return AgentState{
-		SystemPrompt: a.state.systemPrompt,
-		Tools:        append([]AgentTool{}, a.state.tools...),
-		Messages:     append([]AgentMessage{}, a.state.messages...),
-		IsStreaming:  a.state.isStreaming,
-		ErrorMessage: a.state.errorMessage,
+		SystemPrompt:     a.state.systemPrompt,
+		Model:            a.state.model,
+		ThinkingMode:     a.state.thinkingMode,
+		Tools:            append([]AgentTool{}, a.state.tools...),
+		Messages:         append([]AgentMessage{}, a.state.messages...),
+		IsStreaming:      a.state.isStreaming,
+		StreamingMessage: streamMsg,
+		PendingToolCalls: pending,
+		ErrorMessage:     a.state.errorMessage,
 	}
 }
 
@@ -210,6 +238,34 @@ func (a *Agent) SetSystemPrompt(prompt string) {
 	a.mu.Lock()
 	defer a.mu.Unlock()
 	a.state.systemPrompt = prompt
+}
+
+// Model returns the current model name.
+func (a *Agent) Model() string {
+	a.mu.RLock()
+	defer a.mu.RUnlock()
+	return a.state.model
+}
+
+// SetModel updates the model used for future turns.
+func (a *Agent) SetModel(model string) {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	a.state.model = model
+}
+
+// ThinkingMode returns the current thinking mode.
+func (a *Agent) ThinkingMode() string {
+	a.mu.RLock()
+	defer a.mu.RUnlock()
+	return a.state.thinkingMode
+}
+
+// SetThinkingMode updates the thinking mode used for future turns.
+func (a *Agent) SetThinkingMode(mode string) {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	a.state.thinkingMode = mode
 }
 
 // SetTools replaces the tool list.
@@ -293,6 +349,8 @@ func (a *Agent) Reset() {
 	a.mu.Lock()
 	a.state.messages = nil
 	a.state.isStreaming = false
+	a.state.streamingMessage = nil
+	a.state.pendingToolCalls = make(map[string]bool)
 	a.state.errorMessage = ""
 	a.mu.Unlock()
 	a.ClearAllQueues()
@@ -391,11 +449,24 @@ func (a *Agent) runWithLifecycle(ctx context.Context, fn func(context.Context) e
 func (a *Agent) eventSink(ctx context.Context, event AgentEvent) error {
 	// Reduce internal state
 	a.mu.Lock()
-	if event.Type == EventMessageEnd {
+	switch event.Type {
+	case EventMessageStart:
+		if event.Message.Role == RoleAssistant {
+			cp := event.Message
+			a.state.streamingMessage = &cp
+		}
+	case EventMessageEnd:
 		a.state.messages = append(a.state.messages, event.Message)
+		a.state.streamingMessage = nil
 		if event.Message.Role == RoleAssistant && event.Message.ErrorMessage != "" {
 			a.state.errorMessage = event.Message.ErrorMessage
 		}
+	case EventToolStart:
+		if event.ToolCallID != "" {
+			a.state.pendingToolCalls[event.ToolCallID] = true
+		}
+	case EventToolEnd:
+		delete(a.state.pendingToolCalls, event.ToolCallID)
 	}
 	a.mu.Unlock()
 
@@ -423,13 +494,15 @@ func (a *Agent) contextSnapshot() AgentContext {
 }
 
 func (a *Agent) loopConfig() AgentLoopConfig {
-	return AgentLoopConfig{
-		ChatFn:           a.ChatFn,
-		ConvertToLLM:     a.ConvertToLLM,
-		TransformContext: a.TransformContext,
-		BeforeToolCall:   a.BeforeToolCall,
-		AfterToolCall:    a.AfterToolCall,
-		ToolExecution:    a.ToolExecution,
+	cfg := AgentLoopConfig{
+		ChatFn:              a.ChatFn,
+		ConvertToLLM:        a.ConvertToLLM,
+		TransformContext:    a.TransformContext,
+		BeforeToolCall:      a.BeforeToolCall,
+		AfterToolCall:       a.AfterToolCall,
+		ShouldStopAfterTurn: a.ShouldStopAfterTurn,
+		PrepareNextTurn:     a.PrepareNextTurn,
+		ToolExecution:       a.ToolExecution,
 		GetSteeringMessages: func() []AgentMessage {
 			return a.steeringQueue.drain()
 		},
@@ -437,4 +510,16 @@ func (a *Agent) loopConfig() AgentLoopConfig {
 			return a.followUpQueue.drain()
 		},
 	}
+	// ApplyTurnUpdate reflects model/thinking-mode changes from PrepareNextTurn back into state.
+	cfg.ApplyTurnUpdate = func(update *AgentLoopTurnUpdate) {
+		a.mu.Lock()
+		defer a.mu.Unlock()
+		if update.Model != "" {
+			a.state.model = update.Model
+		}
+		if update.ThinkingMode != "" {
+			a.state.thinkingMode = update.ThinkingMode
+		}
+	}
+	return cfg
 }
