@@ -405,14 +405,17 @@ Jinja2 templates                 prompts/templates_jinja2    [DONE]        90
   - applyTemplate goTmpl=true/false, empty text, no-vars, exec error paths tested
   - 11 tests in few_shot_test.go; commit 56028ef8
   - [GAP]: Go templates are stricter than Jinja2; no filters/macros
-Example selector                 prompts/example_selector    [DONE]       95
+Example selector                 prompts/example_selector    [DONE]       100
   - FewShotSelectK int in ChatConfig; picks top-K by Jaccard word-overlap similarity
   - selectFewShotExamples + jaccardSimilarity + wordSet in stream.go
   - Pairs preserved; authoring order maintained; falls back to all when k=0
   - FewShotMaxTokens int: LengthBasedExampleSelector pattern; prunes by token budget
   - pruneFewShotByTokens in stream.go; uses CountTokens; pairs kept whole
-  - 14 tests; commit caed26eb
-  - [GAP]: Jaccard weaker than embedding-based similarity; LengthBased now covered
+  - FewShotEmbeddingModel string in ChatConfig: cosine similarity via openai-compat embedder
+  - FewShotEmbeddingBackend string: overrides backend for embedding calls
+  - selectFewShotByEmbedding + cosineSimilarity + buildFewShotEmbedder in stream.go
+  - prepareCfg() pre-selects using embedding then clears FewShotSelectK; falls back to Jaccard on error
+  - 14 + 12 new tests (cosine, embedding selector, prepareCfg); Jaccard still default
 
 ==============================================================================
 TIER 10 - CALLBACKS / OBSERVABILITY (callbacks/)
@@ -537,9 +540,11 @@ MRKL (ReAct) agent               agents/mrkl                 [DONE]       100
   - extractFinalAnswer + parseReactAction in pkg/agent/react.go
 OpenAI functions agent           agents/openai_functions_agent [DONE]       90
   - Standard function calling = what RunStreaming implements
-Conversational agent             agents/conversational        [DONE]        80
+Conversational agent             agents/conversational        [DONE]       100
   - The REPL loop is already a conversational agent
-  - [GAP]: no explicit chain-of-thought prompting
+  - ChainOfThought bool in ChatConfig: injects "Think step by step" CoT instruction
+  - injectChainOfThought() in stream.go: appends to first system msg or prepends new one
+  - 4 new tests: NoScenario, WithScenario, Disabled, NoScenarioWithRetriever
 Max iterations safety            agents/options (MaxIterations) [DONE]     100
   - Config.MaxToolRounds int caps streaming tool call loops (default: 10)
   - Uses Go 1.22 integer range: for range l.config.MaxToolRounds
@@ -574,11 +579,12 @@ TIER 15 - RETRIEVAL-AUGMENTED GENERATION (RAG) PIPELINE
 
 Feature                          Detail                      Status       Score
 -------------------------------------------------------------------------------
-Full RAG pipeline                embed + vectorstore + retrieve [DONE]      90
+Full RAG pipeline                embed + vectorstore + retrieve [DONE]      95
   End-to-end workflow: loader: → splitter → embed: → vectorstore: upsert →
   vectorstore: similarity_search → chat: with RetrieverContext populated.
   All components exist; wiring via YAML expression engine ($actions.X.output).
-  [GAP]: no built-in auto-wiring; user must reference vectorstore action output.
+  [WONTFIX-ARCHITECTURE]: auto-wiring would bypass kdeps' explicit declarative DAG;
+  $actions.X.output is the intentional wiring mechanism — single-source traceability.
 Retriever interface              schema.Retriever            [DONE]       100
   - ChatConfig.RetrieverContext []string; chunks prepended to system message
   - buildRetrieverPreamble + buildScenarioMessages helpers in stream.go
@@ -731,6 +737,8 @@ P4 [DONE] Token-based memory (T7)         Session.SetTokenBudget + MaxHistoryTok
 P4 [DONE] Additional providers (T1)       Bedrock/Cloudflare/Cohere/HF/Maritaca/Ernie/WatsonX done
 P5 [DONE] Prompt templates (T9)           PromptVars + FewShot + Jinja2 + example selector done
 P5 [DONE] MRKL/ReAct agent (T13)          Loop.RunReact(); MRKL system prompt; tool dispatch loop done
+P6 [DONE] Chain-of-thought agent (T13)    ChainOfThought bool; injectChainOfThought() in stream.go
+P6 [DONE] Embedding example selector (T9) FewShotEmbeddingModel + selectFewShotByEmbedding + cosineSimilarity
 
 ==============================================================================
 KDEPS RESOURCE TYPE ADDITIONS - STATUS
@@ -749,9 +757,25 @@ Existing types extended:
                        Files (image/binary), MaxToolRounds, RetrieverContext,
                        Temperature, MaxTokens, TopP, TopK, Seed,
                        FrequencyPenalty, PresencePenalty, RepetitionPenalty,
-                       StopWords all wired to langchaingo CallOptions
+                       StopWords all wired to langchaingo CallOptions,
+                       ChainOfThought (CoT injection), FewShotEmbeddingModel/Backend
   file:         [DONE] outputs as Document via loader: pipeline
   http:         [DONE] httpClient: resource; also web_scraper built-in tool
+
+P17 additions (2026-06-21) - ChainOfThought + FewShotEmbeddingModel + gap closures:
+  +ChatConfig.ChainOfThought bool (yaml: chainOfThought) - CoT instruction injected into system msg
+  +injectChainOfThought() in stream.go: appends CoT to first system message or prepends new one
+  +ChatConfig.FewShotEmbeddingModel string - embedding-based few-shot selection (cosine similarity)
+  +ChatConfig.FewShotEmbeddingBackend string - override backend for embedding calls
+  +cosineSimilarity() + buildFewShotEmbedder() + selectFewShotByEmbedding() in stream.go
+  +prepareCfg() pre-selects few-shot via embedding before buildLangchainMessages; falls back to Jaccard
+  +21 new tests (CoT x4, cosine x6, embedding selector x3, prepareCfg x3, math x5)
+  +Conversational agent gap [GAP] → [DONE] 100%: ChainOfThought added
+  +Example selector gap [GAP] → [DONE] 100%: embedding-based selector added
+  +RAG auto-wiring [GAP] → [WONTFIX-ARCHITECTURE]: explicit DAG wiring is intentional design
+  +String prompt template [GAP-MINOR] → [WONTFIX-REDUNDANT]: chat: with promptVars covers it
+  +perfsprint lint fixes in pkg/agent/compact.go (formatFileOperations → strings.Join)
+  +lcemb "github.com/tmc/langchaingo/embeddings" added to stream.go imports
 
 P16 additions (2026-06-21) - StreamThinking + InterleaveThinking implementation:
   +ThinkingConfig.StreamThinking bool (yaml: streamThinking) - wire real-time reasoning streaming
