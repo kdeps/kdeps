@@ -339,7 +339,7 @@ func pruneFewShotByTokens(pool []domain.ScenarioItem, model string, maxTokens in
 
 func wordSet(s string) map[string]struct{} {
 	set := make(map[string]struct{})
-	for _, w := range strings.Fields(s) {
+	for w := range strings.FieldsSeq(s) {
 		set[w] = struct{}{}
 	}
 	return set
@@ -741,7 +741,7 @@ func fileContentPart(f string) (llms.ContentPart, bool) {
 
 // buildHistoryMessages parses a JSON history string into langchaingo MessageContent entries.
 func buildHistoryMessages(historyJSON string) []llms.MessageContent {
-	var history []map[string]interface{}
+	var history []map[string]any
 	if err := json.Unmarshal([]byte(historyJSON), &history); err != nil {
 		return nil
 	}
@@ -780,7 +780,7 @@ func buildHistoryMessages(historyJSON string) []llms.MessageContent {
 }
 
 // buildAIMessage constructs an AI MessageContent with optional tool call parts.
-func buildAIMessage(content string, rawToolCalls interface{}) *llms.MessageContent {
+func buildAIMessage(content string, rawToolCalls any) *llms.MessageContent {
 	var parts []llms.ContentPart
 	if content != "" {
 		parts = append(parts, llms.TextContent{Text: content})
@@ -799,7 +799,7 @@ func buildAIMessage(content string, rawToolCalls interface{}) *llms.MessageConte
 }
 
 // parseToolCallParts converts raw tool_calls JSON into langchaingo ToolCall parts.
-func parseToolCallParts(rawToolCalls interface{}) []llms.ContentPart {
+func parseToolCallParts(rawToolCalls any) []llms.ContentPart {
 	b, err := json.Marshal(rawToolCalls)
 	if err != nil {
 		return nil
@@ -845,12 +845,12 @@ func roleToMessageType(role string) llms.ChatMessageType {
 }
 
 // buildToolParameters creates an OpenAI-style JSON schema for tool parameters.
-func buildToolParameters(params map[string]domain.ToolParam) map[string]interface{} {
-	properties := make(map[string]interface{}, len(params))
+func buildToolParameters(params map[string]domain.ToolParam) map[string]any {
+	properties := make(map[string]any, len(params))
 	var required []string
 
 	for name, p := range params {
-		prop := map[string]interface{}{
+		prop := map[string]any{
 			"type":        p.Type,
 			"description": p.Description,
 		}
@@ -863,7 +863,7 @@ func buildToolParameters(params map[string]domain.ToolParam) map[string]interfac
 		}
 	}
 
-	schema := map[string]interface{}{
+	schema := map[string]any{
 		"type":       "object",
 		"properties": properties,
 	}
