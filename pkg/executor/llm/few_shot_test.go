@@ -708,9 +708,9 @@ func TestBuildToolParameters_RequiredAndEnum(t *testing.T) {
 	}
 	schema := buildToolParameters(params)
 	assert.Equal(t, "object", schema["type"])
-	props, ok := schema["properties"].(map[string]interface{})
+	props, ok := schema["properties"].(map[string]any)
 	require.True(t, ok)
-	city, ok := props["city"].(map[string]interface{})
+	city, ok := props["city"].(map[string]any)
 	require.True(t, ok)
 	assert.Equal(t, "string", city["type"])
 	assert.Equal(t, []string{"NYC", "LA"}, city["enum"])
@@ -947,11 +947,11 @@ func TestBuildAIMessage_EmptyContentAndNoTools_ReturnsNil(t *testing.T) {
 
 func TestParseToolCallParts_ValidToolCalls(t *testing.T) {
 	t.Parallel()
-	raw := []interface{}{
-		map[string]interface{}{
+	raw := []any{
+		map[string]any{
 			"id":   "tc1",
 			"type": "function",
-			"function": map[string]interface{}{
+			"function": map[string]any{
 				"name":      "calc",
 				"arguments": `{"x":1}`,
 			},
@@ -1002,7 +1002,7 @@ func TestFileContentPart_NotFound(t *testing.T) {
 	assert.False(t, ok)
 }
 
-func ptr[T any](v T) *T { return &v }
+func ptr[T any](v T) *T { p := new(T); *p = v; return p }
 
 func TestBuildSamplingOpts_Empty(t *testing.T) {
 	t.Parallel()

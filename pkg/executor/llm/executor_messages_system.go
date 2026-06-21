@@ -40,7 +40,9 @@ func appendJSONResponseInstructions(sb *strings.Builder, config *domain.ChatConf
 	sb.WriteString("You are a helpful assistant. ")
 	if len(config.JSONResponseKeys) > 0 {
 		keys := strings.Join(config.JSONResponseKeys, "`, `")
-		sb.WriteString("Respond in JSON format, include `" + keys + "` in response keys. ")
+		sb.WriteString("Respond in JSON format, include `")
+		sb.WriteString(keys)
+		sb.WriteString("` in response keys. ")
 		return
 	}
 	sb.WriteString("Respond in JSON format. ")
@@ -69,12 +71,20 @@ func appendToolInstructions(sb *strings.Builder, config *domain.ChatConfig) {
 		sb.WriteString("- Do NOT include explanatory text with tool call JSON.\n")
 		sb.WriteString("\nAvailable tools:\n")
 		for _, tool := range config.Tools {
-			sb.WriteString("- " + tool.Name + ": " + tool.Description + "\n")
+			sb.WriteString("- ")
+			sb.WriteString(tool.Name)
+			sb.WriteString(": ")
+			sb.WriteString(tool.Description)
+			sb.WriteString("\n")
 			if len(tool.Parameters) > 0 {
 				for paramName, param := range tool.Parameters {
-					sb.WriteString(
-						"  - " + paramName + " (" + param.Type + "): " + param.Description + "\n",
-					)
+					sb.WriteString("  - ")
+					sb.WriteString(paramName)
+					sb.WriteString(" (")
+					sb.WriteString(param.Type)
+					sb.WriteString("): ")
+					sb.WriteString(param.Description)
+					sb.WriteString("\n")
 				}
 			}
 		}
