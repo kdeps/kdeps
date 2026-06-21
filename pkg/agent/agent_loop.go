@@ -105,7 +105,7 @@ func runLoop(
 	sink EventSink,
 ) ([]AgentMessage, error) {
 	firstTurn := true
-	pending := drainQueue(cfg.GetSteeringMessages)
+	pending := drainQueue(cfg.GetSteeringMessages, cfg.SteeringMode)
 
 	for {
 		msgs, _, err := runTurnLoop(ctx, currentCtx, newMessages, cfg, sink, &firstTurn, pending)
@@ -115,7 +115,7 @@ func runLoop(
 		newMessages = msgs
 		// runTurnLoop always sets done=true on success; check for follow-up
 		// messages queued by the caller before deciding to stop.
-		followUps := drainQueue(cfg.GetFollowUpMessages)
+		followUps := drainQueue(cfg.GetFollowUpMessages, cfg.FollowUpMode)
 		if len(followUps) == 0 {
 			break
 		}
@@ -174,7 +174,7 @@ func runTurnLoop(
 			return msgs, true, nil
 		}
 
-		pending = drainQueue(cfg.GetSteeringMessages)
+		pending = drainQueue(cfg.GetSteeringMessages, cfg.SteeringMode)
 	}
 
 	if err := emit(ctx, sink, AgentEvent{Type: EventAgentEnd, Messages: msgs}); err != nil {
@@ -391,11 +391,18 @@ func errorAgentMessage(text string) AgentMessage {
 	}
 }
 
-func drainQueue(fn func() []AgentMessage) []AgentMessage {
-	if fn != nil {
-		return fn()
+// drainQueue calls fn() to fetch available messages and respects QueueMode:
+// QueueModeOneAtATime (default): return at most one message per drain (pi default).
+// QueueModeAll: return all available messages at once.
+func drainQueue(fn func() []AgentMessage, mode QueueMode) []AgentMessage {
+	if fn == nil {
+		return nil
 	}
-	return nil
+	msgs := fn()
+	if mode != QueueModeAll && len(msgs) > 1 {
+		return msgs[:1]
+	}
+	return msgs
 }
 
 // executedToolBatch holds the results of a single batch of tool calls.
