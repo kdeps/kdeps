@@ -186,6 +186,46 @@ func TestLoadSkillSlice_DuplicateSkillName(t *testing.T) {
 	}
 }
 
+func TestLoadSkillFromFile_Hidden(t *testing.T) {
+	dir := t.TempDir()
+	p := filepath.Join(dir, "SKILL.md")
+	content := "---\nname: internal\ndescription: Internal only\nhidden: true\n---\n\nHidden content."
+	if err := os.WriteFile(p, []byte(content), 0644); err != nil {
+		t.Fatal(err)
+	}
+	sk := loadSkillFromFile(p)
+	if sk == nil {
+		t.Fatal("expected non-nil skill")
+	}
+	if !sk.Hidden {
+		t.Fatal("expected Hidden=true")
+	}
+}
+
+func TestFormatSkillsForPrompt_HiddenExcluded(t *testing.T) {
+	skills := []Skill{
+		{Name: "visible", Description: "Shown", Content: "Do A", Source: "/a/SKILL.md"},
+		{Name: "hidden", Description: "Not shown", Content: "Do B", Source: "/b/SKILL.md", Hidden: true},
+	}
+	result := formatSkillsForPrompt(skills)
+	if !strings.Contains(result, "visible") {
+		t.Fatal("expected visible skill in output")
+	}
+	if strings.Contains(result, "hidden") {
+		t.Fatal("expected hidden skill to be excluded from output")
+	}
+}
+
+func TestFormatSkillsForPrompt_AllHidden(t *testing.T) {
+	skills := []Skill{
+		{Name: "a", Content: "x", Source: "/a/SKILL.md", Hidden: true},
+	}
+	result := formatSkillsForPrompt(skills)
+	if result != "" {
+		t.Fatalf("expected empty string when all skills hidden, got %q", result)
+	}
+}
+
 func TestDiscoverSkillsInDir_WalkError(t *testing.T) {
 	// Create a subdir then make it unreadable so WalkDir encounters a permission
 	// error on entry, covering the err != nil return in the callback (line 107-109).
