@@ -1,6 +1,6 @@
 Pi -> kdeps LLM Loop Porting Progress
 ======================================
-Last updated: 2026-06-21
+Last updated: 2026-06-21 (P17: QueueMode wired in AgentLoopConfig; drainQueue respects SteeringMode/FollowUpMode)
 Overall: ~100%
 
 Source: private/pi/
@@ -56,7 +56,14 @@ A6  Agent loop type system + event system
 
 A7  Core agent loop (agentLoop + agentLoopContinue)
     pi:    packages/agent/src/agent-loop.ts (agentLoop, agentLoopContinue, runAgentLoop)
+           - PendingMessageQueue.drain() with QueueMode (steeringMode/followUpMode, default "one-at-a-time")
     kdeps: pkg/agent/agent_loop.go (AgentLoop, AgentLoopContinue, runLoop, runTurnLoop)
+           - AgentLoopConfig.SteeringMode/FollowUpMode QueueMode fields added (2026-06-21)
+           - drainQueue() now accepts mode: QueueModeOneAtATime limits to 1 message/turn (pi default),
+             QueueModeAll drains all at once (2026-06-21)
+           - Agent.steeringQueue/followUpQueue already implemented pendingMessageQueue (agent.go)
+           - Tests: TestDrainQueue_NilFn, TestDrainQueue_WithFn updated; +TestDrainQueue_OneAtATime,
+             TestDrainQueue_AllMode added (2026-06-21)
 
 A8  Loop + agent orchestration
     pi:    packages/agent/src/agent.ts (Agent class, tool dispatch, event emission)
@@ -103,10 +110,15 @@ A12 System prompt construction
            pkg/agent/skill.go skillsSystemPromptPreamble - added pi-style introductory
            text before <available_skills> block ("The following skills provide specialized
            instructions... Use the skill content when the user's task matches...")
+           - Skill.Hidden bool (frontmatter: hidden: true) excludes skill from system prompt
+             while still making it available for explicit lookup — matches pi's
+             Skill.disableModelInvocation (2026-06-21)
+           - 3 new tests: TestLoadSkillFromFile_Hidden, TestFormatSkillsForPrompt_HiddenExcluded,
+             TestFormatSkillsForPrompt_AllHidden
     gap:   design difference: pi lists skill name/description/location and tells LLM to read the
            file; kdeps embeds full skill content inline (correct since kdeps has no file-reading
            tool by default). Both approaches achieve the same system prompt goal.
-    score: 95%
+    score: 99%
 
 A13 LLM-based context compaction
     pi:    packages/agent/src/harness/compaction/compaction.ts (22KB)
@@ -337,15 +349,15 @@ Loop orchestration            agent.ts, agent-harness.ts      loop.go           
 REPL + slash commands         tui/, slash-commands.ts         repl.go                99  [+/editor external editor, +/session import, +cmdSessionCheckpoint/Goto extracted, +/thinking warns non-supporting models, +minimal/xhigh modes (2026-06-20)]
 Skills loading                harness/skills.ts               skill.go               100
 Instruction discovery         (claw-code pattern)             instructions.go        100
-Session (in-memory)           harness/session/memory-*.ts     session.go             96  [was 70; +DI interface, +Checkpoint/RestoreTo in SessionWriter; Config.ResumeSession now SessionReadWriter]
+Session (in-memory)           harness/session/memory-*.ts     session.go             99  [was 70→96→99; +DI interface, +Checkpoint/RestoreTo; Loop.session→SessionReadWriter; gap: none]
 Session persistence (JSONL)   harness/session/jsonl-*.ts      session_store.go       95  [was 80→90→95; +SaveAs/Save accept SessionReader, +Import from external JSONL path]
-Message conversion            harness/messages.ts             compact.go + session.go  95
-System prompt construction    harness/system-prompt.ts        loop.go + skill.go       98  [+Current date injection in buildSystemPreamble (2026-06-20)]
-Compaction (LLM-based)        compaction/compaction.ts        compact.go + loop.go    92  [was 80/90; +countTokensSilent no WARN spam]
-Branch summarization          compaction/branch-summar.ts     branch_summary.go       97  [was 92; +token-budget-aware truncation: truncateBranchMessages caps messages to min(contextWindow,8000)-2000 tokens, prepends omission note when dropped; 4 unit tests added]
+Message conversion            harness/messages.ts             compact.go + session.go  95  [design difference: pi converts at call time; kdeps stores in LLM-ready format; equivalent result]
+System prompt construction    harness/system-prompt.ts        loop.go + skill.go       99  [+Current date, +Skill.Hidden (disableModelInvocation parity) (2026-06-21)]
+Compaction (LLM-based)        compaction/compaction.ts        compact.go + loop.go    97  [was 80→90→92→97; +countTokensSilent, +split-turn granularity w/ user-role snap (2026-06-20)]
+Branch summarization          compaction/branch-summar.ts     branch_summary.go       97  [was 92; +token-budget-aware truncation: min(contextWindow,8000)-2000 tokens, omission note]
 Prompt templates              harness/prompt-templates.ts     prompt_template.go     100
-Session tree management       harness/session/session.ts      session_store.go        98  [was 90→95→98; +prunedBranch stash, /session branches, bi-directional goto, n-way multi-stash prunedBranches]
-Context overflow detection    agent-session.ts                overflow.go + loop.go   100
+Session tree management       harness/session/session.ts      session_store.go        98  [was 90→95→98; +prunedBranch stash, /session branches, bi-directional goto, n-way multi-stash]
+Context overflow detection    agent-session.ts                overflow.go + loop.go   100  [estimateSessionTokens + shouldAutoCompact; gap: none significant]
 git executor                  (new resource type)             executor/git/           100
 codeIntelligence executor     (new resource type)             executor/codeintelligence/ 100
 Domain structs (B1)           -                               domain/resource_git.go  100

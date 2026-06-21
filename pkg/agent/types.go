@@ -239,6 +239,16 @@ type AgentLoopConfig struct {
 	// GetFollowUpMessages returns messages to process after the agent would otherwise stop.
 	GetFollowUpMessages func() []AgentMessage
 
+	// SteeringMode controls how many queued steering messages are drained per turn.
+	// QueueModeOneAtATime (default, matches pi): inject one message per turn.
+	// QueueModeAll: inject all queued messages at once.
+	SteeringMode QueueMode
+
+	// FollowUpMode controls how many queued follow-up messages are drained per turn.
+	// QueueModeOneAtATime (default, matches pi): inject one message per turn.
+	// QueueModeAll: inject all queued messages at once.
+	FollowUpMode QueueMode
+
 	// ToolExecution controls sequential vs. parallel tool dispatch. Default: parallel.
 	ToolExecution ToolExecutionMode
 }

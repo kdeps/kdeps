@@ -965,15 +965,43 @@ func TestDefaultConvertToLLM_FiltersSystemMessages(t *testing.T) {
 // --- drainQueue ---
 
 func TestDrainQueue_NilFn(t *testing.T) {
-	result := drainQueue(nil)
+	result := drainQueue(nil, QueueModeAll)
 	assert.Nil(t, result)
 }
 
 func TestDrainQueue_WithFn(t *testing.T) {
 	result := drainQueue(func() []AgentMessage {
 		return []AgentMessage{{Role: RoleUser, Content: "q"}}
-	})
+	}, QueueModeAll)
 	assert.Len(t, result, 1)
+}
+
+func TestDrainQueue_OneAtATime(t *testing.T) {
+	msgs := []AgentMessage{
+		{Role: RoleUser, Content: "first"},
+		{Role: RoleUser, Content: "second"},
+	}
+	idx := 0
+	fn := func() []AgentMessage {
+		if idx >= len(msgs) {
+			return nil
+		}
+		batch := msgs[idx:]
+		idx = len(msgs)
+		return batch
+	}
+	result := drainQueue(fn, QueueModeOneAtATime)
+	require.Len(t, result, 1)
+	assert.Equal(t, "first", result[0].Content)
+}
+
+func TestDrainQueue_AllMode(t *testing.T) {
+	msgs := []AgentMessage{
+		{Role: RoleUser, Content: "a"},
+		{Role: RoleUser, Content: "b"},
+	}
+	result := drainQueue(func() []AgentMessage { return msgs }, QueueModeAll)
+	assert.Len(t, result, 2)
 }
 
 // --- launchToolCall: sequential tool inside parallel dispatch ---
