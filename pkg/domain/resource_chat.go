@@ -65,9 +65,9 @@ type ChatConfig struct {
 	JSONResponseKeys []string       `yaml:"jsonResponseKeys,omitempty"`
 	// JSONSchema constrains the response to a specific JSON object schema (implies jsonResponse).
 	// Not supported by Anthropic. Example: {"type":"object","properties":{"answer":{"type":"string"}}}
-	JSONSchema map[string]interface{} `yaml:"jsonSchema,omitempty"`
-	Streaming  bool                   `yaml:"streaming,omitempty"` // Stream tokens from LLM as they are generated
-	Timeout    string                 `yaml:"timeout,omitempty"`
+	JSONSchema map[string]any `yaml:"jsonSchema,omitempty"`
+	Streaming  bool           `yaml:"streaming,omitempty"` // Stream tokens from LLM as they are generated
+	Timeout    string         `yaml:"timeout,omitempty"`
 	// Thinking enables extended reasoning for models that support it
 	// (Anthropic claude-3.7+, OpenAI o-series, DeepSeek-R1).
 	Thinking *ThinkingConfig `yaml:"thinking,omitempty"`
@@ -173,6 +173,12 @@ type ChatConfig struct {
 	//   "regex_dict:key1=Pattern1,key2=Pattern2" - multi-field extraction, returns JSON map
 	//   "structured"   - extracts JSON from a ```json...``` fenced block
 	OutputParser string `yaml:"outputParser,omitempty"`
+	// GoogleCachedContent references a pre-created Google AI cached content resource by name
+	// (e.g. "cachedContents/xyz123"). When set, the cached content is passed to the model
+	// via WithCachedContent and reduces tokens for repeated large system prompts.
+	// Only applies to the Google AI backend. Use the Google AI API to pre-create content.
+	GoogleCachedContent string `yaml:"googleCachedContent,omitempty"`
+
 	// Advanced LLM parameters (may not be supported by all backends)
 	Temperature       *float64 `yaml:"temperature,omitempty"`       // Sampling temperature (0.0-2.0)
 	MaxTokens         *int     `yaml:"maxTokens,omitempty"`         // Maximum tokens to generate
@@ -223,16 +229,16 @@ type Tool struct {
 	Strict bool `yaml:"strict,omitempty"`
 	// Execute is a runtime-only direct dispatch function set by agent mode.
 	// When non-nil it takes priority over Script and MCP. Never serialized.
-	Execute func(args map[string]interface{}) (string, error) `yaml:"-" json:"-"`
+	Execute func(args map[string]any) (string, error) `yaml:"-" json:"-"`
 }
 
 // ToolParam represents a tool parameter.
 type ToolParam struct {
-	Type        string      `yaml:"type"`
-	Description string      `yaml:"description"`
-	Required    bool        `yaml:"required,omitempty"`
-	Enum        []string    `yaml:"enum,omitempty"`    // Allowed values for string type
-	Default     interface{} `yaml:"default,omitempty"` // Default value
+	Type        string   `yaml:"type"`
+	Description string   `yaml:"description"`
+	Required    bool     `yaml:"required,omitempty"`
+	Enum        []string `yaml:"enum,omitempty"`    // Allowed values for string type
+	Default     any      `yaml:"default,omitempty"` // Default value
 }
 
 // StreamedToolCall is a tool call returned from a streaming LLM response.

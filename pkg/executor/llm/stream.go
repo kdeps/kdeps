@@ -915,6 +915,9 @@ func buildStreamOpts(cfg *domain.ChatConfig, backend string, w io.Writer) []llms
 	if cfg.PromptCaching && backend == backendAnthropic {
 		opts = append(opts, llms.WithPromptCaching(true))
 	}
+	if cfg.GoogleCachedContent != "" && backend == backendGoogle {
+		opts = append(opts, lcgoogleai.WithCachedContent(cfg.GoogleCachedContent))
+	}
 	return opts
 }
 

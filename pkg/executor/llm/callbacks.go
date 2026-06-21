@@ -72,6 +72,10 @@ func (o *observedLLM) GenerateContent(
 		tokens := choice.GenerationInfo["CompletionTokens"]
 		debug.Log(fmt.Sprintf("llm.done: model=%s completion_tokens=%v stop_reason=%s tool_calls=%d",
 			o.model, tokens, choice.StopReason, len(choice.ToolCalls)))
+		if tu := llms.ExtractThinkingTokens(choice.GenerationInfo); tu != nil && tu.ThinkingTokens > 0 {
+			debug.Log(fmt.Sprintf("llm.thinking: model=%s thinking_tokens=%d budget_used=%d budget_alloc=%d",
+				o.model, tu.ThinkingTokens, tu.ThinkingBudgetUsed, tu.ThinkingBudgetAllocated))
+		}
 		for k, v := range choice.GenerationInfo {
 			debug.Log(fmt.Sprintf("llm.info: model=%s %s=%v", o.model, k, v))
 		}

@@ -18,7 +18,11 @@
 
 package agent
 
-import "os"
+import (
+	"os"
+
+	"github.com/tmc/langchaingo/llms"
+)
 
 // Context window sizes (tokens) for well-known model families.
 const (
@@ -242,14 +246,14 @@ var KnownCloudModels = []CloudModel{
 }
 
 // ModelSupportsThinking returns true when the model is known to support extended
-// thinking / reasoning. Returns false for unknown/local models.
+// thinking / reasoning. Falls back to langchaingo's heuristic for unknown models.
 func ModelSupportsThinking(modelID string) bool {
 	for _, m := range KnownCloudModels {
 		if m.ID == modelID {
 			return m.SupportsThinking
 		}
 	}
-	return false
+	return llms.IsReasoningModel(modelID)
 }
 
 // ModelContextWindow returns the context window size (in tokens) for a known
