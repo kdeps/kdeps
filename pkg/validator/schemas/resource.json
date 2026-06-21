@@ -293,11 +293,55 @@
         "prompt": {
           "type": "string"
         },
+        "messages": {
+          "type": "string"
+        },
         "scenario": {
-          "type": "array"
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "role": { "type": "string" },
+              "prompt": { "type": "string" },
+              "name": { "type": "string" },
+              "cacheControl": { "type": "string", "enum": ["ephemeral"] }
+            },
+            "required": ["role", "prompt"]
+          }
+        },
+        "fewShot": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "role": { "type": "string" },
+              "prompt": { "type": "string" },
+              "name": { "type": "string" },
+              "cacheControl": { "type": "string", "enum": ["ephemeral"] }
+            },
+            "required": ["role", "prompt"]
+          }
+        },
+        "fewShotSelectK": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "fewShotMaxTokens": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "fewShotEmbeddingModel": {
+          "type": "string"
+        },
+        "fewShotEmbeddingBackend": {
+          "type": "string"
         },
         "tools": {
           "type": "array"
+        },
+        "componentTools": {
+          "type": "array",
+          "items": { "type": "string" }
         },
         "files": {
           "type": "array",
@@ -314,11 +358,76 @@
             "type": "string"
           }
         },
+        "jsonSchema": {
+          "type": "object"
+        },
         "streaming": {
           "type": "boolean"
         },
         "timeout": {
           "type": "string"
+        },
+        "thinking": {
+          "type": "object",
+          "properties": {
+            "mode": {
+              "type": "string",
+              "enum": ["none", "minimal", "low", "medium", "high", "xhigh", "auto"]
+            },
+            "budgetTokens": { "type": "integer", "minimum": 0 },
+            "returnOutput": { "type": "boolean" },
+            "streamThinking": { "type": "boolean" },
+            "interleaveThinking": { "type": "boolean" }
+          }
+        },
+        "promptCaching": {
+          "type": "boolean"
+        },
+        "useCache": {
+          "type": "boolean"
+        },
+        "toolChoice": {
+          "type": "string"
+        },
+        "maxToolRounds": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "promptVars": {
+          "type": "object"
+        },
+        "retrieverContext": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "retrieverContextTopK": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "retrieverContextMaxTokens": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "goTemplate": {
+          "type": "boolean"
+        },
+        "chainOfThought": {
+          "type": "boolean"
+        },
+        "outputParser": {
+          "type": "string"
+        },
+        "chunkSize": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "chunkOverlap": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "chunkSplitter": {
+          "type": "string",
+          "enum": ["recursive", "token", "markdown"]
         },
         "temperature": {
           "type": "number",
@@ -334,6 +443,13 @@
           "minimum": 0,
           "maximum": 1
         },
+        "topK": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "seed": {
+          "type": "integer"
+        },
         "frequencyPenalty": {
           "type": "number",
           "minimum": -2,
@@ -343,6 +459,54 @@
           "type": "number",
           "minimum": -2,
           "maximum": 2
+        },
+        "repetitionPenalty": {
+          "type": "number",
+          "minimum": 0
+        },
+        "stopWords": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "candidateCount": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "n": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "minLength": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "maxLength": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "googleCachedContent": {
+          "type": "string"
+        },
+        "googleHarmThreshold": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 4
+        },
+        "googleCloudProject": {
+          "type": "string"
+        },
+        "googleCloudLocation": {
+          "type": "string"
+        },
+        "anthropicExtendedOutput": {
+          "type": "boolean"
+        },
+        "anthropicBetaHeaders": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "openAILegacyMaxTokens": {
+          "type": "boolean"
         }
       }
     },
