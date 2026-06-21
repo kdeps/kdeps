@@ -34,9 +34,11 @@ const (
 
 // ThinkingConfig controls extended reasoning/thinking for models that support it.
 type ThinkingConfig struct {
-	Mode         ThinkingMode `yaml:"mode,omitempty"`         // none | low | medium | high | auto
-	BudgetTokens int          `yaml:"budgetTokens,omitempty"` // explicit token budget (overrides Mode)
-	ReturnOutput bool         `yaml:"returnOutput,omitempty"` // include thinking text in action output
+	Mode               ThinkingMode `yaml:"mode,omitempty"`               // none | low | medium | high | auto
+	BudgetTokens       int          `yaml:"budgetTokens,omitempty"`       // explicit token budget (overrides Mode)
+	ReturnOutput       bool         `yaml:"returnOutput,omitempty"`       // include thinking text in action output
+	StreamThinking     bool         `yaml:"streamThinking,omitempty"`     // stream reasoning tokens in real-time via StreamingFunc
+	InterleaveThinking bool         `yaml:"interleaveThinking,omitempty"` // interleave thinking between tool calls (Anthropic)
 }
 
 type ChatConfig struct {

@@ -44,6 +44,53 @@ func TestKnownCloudModels_AllFieldsSet(t *testing.T) {
 		if m.EnvVar == "" {
 			t.Errorf("model %q has empty EnvVar", m.ID)
 		}
+		if m.ContextWindow == 0 {
+			t.Errorf("model %q has zero ContextWindow", m.ID)
+		}
+		if m.MaxOutputTokens == 0 {
+			t.Errorf("model %q has zero MaxOutputTokens", m.ID)
+		}
+	}
+}
+
+func TestModelMaxOutputTokens_KnownModel(t *testing.T) {
+	got := ModelMaxOutputTokens("claude-opus-4-8")
+	if got != outAnthropic128k {
+		t.Errorf("claude-opus-4-8 MaxOutputTokens: got %d, want %d", got, outAnthropic128k)
+	}
+}
+
+func TestModelMaxOutputTokens_UnknownModel(t *testing.T) {
+	if got := ModelMaxOutputTokens("llama3.2:3b"); got != 0 {
+		t.Errorf("expected 0 for unknown model, got %d", got)
+	}
+}
+
+func TestModelSupportsImages_KnownImageModel(t *testing.T) {
+	if !ModelSupportsImages("claude-opus-4-8") {
+		t.Error("claude-opus-4-8 should support images")
+	}
+	if !ModelSupportsImages("gpt-4o") {
+		t.Error("gpt-4o should support images")
+	}
+}
+
+func TestModelSupportsImages_TextOnlyModel(t *testing.T) {
+	if ModelSupportsImages("deepseek-chat") {
+		t.Error("deepseek-chat should not support images")
+	}
+}
+
+func TestModelSupportsImages_UnknownModel(t *testing.T) {
+	if ModelSupportsImages("llama3.2:3b") {
+		t.Error("unknown model should not support images")
+	}
+}
+
+func TestModelContextWindow_OpusHas1MContext(t *testing.T) {
+	got := ModelContextWindow("claude-opus-4-8")
+	if got != ctxAnthropic1M {
+		t.Errorf("claude-opus-4-8 context window: got %d, want %d", got, ctxAnthropic1M)
 	}
 }
 

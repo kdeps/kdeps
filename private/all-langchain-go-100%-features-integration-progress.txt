@@ -102,10 +102,12 @@ Prompt caching                   llms prompt_caching.go      [DONE]       100
   - ChatConfig field: PromptCaching bool
 Reasoning / thinking             llms reasoning.go           [DONE]       100
   - llms.WithThinking(&llms.ThinkingConfig{...})
-  - domain.ThinkingConfig{Mode, BudgetTokens, ReturnOutput}
+  - domain.ThinkingConfig{Mode, BudgetTokens, ReturnOutput, StreamThinking, InterleaveThinking}
   - Anthropic claude-3.7+, OpenAI o-series, DeepSeek-R1
-  - [GAP post-v0.1.14]: StreamingReasoningFunc for real-time thinking token streaming
-    (commit 8fea3de6 in langchaingo main; kdeps streams final content only)
+  - StreamThinking: streams reasoning tokens to w in real-time via llms.WithStreamingReasoningFunc
+    (2026-06-21; buildStreamingReasoningOpts in pkg/executor/llm/stream.go)
+  - InterleaveThinking: passed through to llms.ThinkingConfig.InterleaveThinking (Anthropic)
+  - When StreamThinking=true, post-stream <thinking> prepend is skipped (reasoning already in w)
 Token counting / utilization     llms count_tokens.go        [DONE]       100
   - llms.CountTokens(model, text) used in session.totalTokens() for budget trim
   - Also available in pkg/executor/llm/token_counter.go for router + auto-compact
@@ -749,6 +751,15 @@ Existing types extended:
                        StopWords all wired to langchaingo CallOptions
   file:         [DONE] outputs as Document via loader: pipeline
   http:         [DONE] httpClient: resource; also web_scraper built-in tool
+
+P16 additions (2026-06-21) - StreamThinking + InterleaveThinking implementation:
+  +ThinkingConfig.StreamThinking bool (yaml: streamThinking) - wire real-time reasoning streaming
+  +ThinkingConfig.InterleaveThinking bool (yaml: interleaveThinking) - interleaved thinking (Anthropic)
+  +buildStreamingReasoningOpts() in pkg/executor/llm/stream.go
+  +Both buildStreamOpts paths (StreamChat, streamChatOnce) guard <thinking> prepend by StreamThinking
+  +Tests: TestBuildThinkingOpts_StreamThinking, TestBuildThinkingOpts_InterleaveThinking,
+    TestBuildStreamingReasoningOpts_* (6 new tests in pkg/executor/llm/few_shot_test.go)
+  +[GAP post-v0.1.14] status cleared from T2 reasoning entry
 
 P14 additions (2026-06-20) - post-v0.1.14 main branch scan:
   +Scanned langchaingo main (4 commits since v0.1.14 released 2025-10-20)

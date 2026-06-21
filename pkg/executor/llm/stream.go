@@ -732,6 +732,7 @@ func buildStreamOpts(cfg *domain.ChatConfig, backend string, w io.Writer) []llms
 	opts = append(opts, buildSamplingOpts(cfg)...)
 	opts = append(opts, buildJSONOpts(cfg, backend)...)
 	opts = append(opts, buildThinkingOpts(cfg)...)
+	opts = append(opts, buildStreamingReasoningOpts(cfg, w)...)
 
 	if cfg.PromptCaching && backend == backendAnthropic {
 		opts = append(opts, llms.WithPromptCaching(true))
@@ -795,10 +796,32 @@ func buildThinkingOpts(cfg *domain.ChatConfig) []llms.CallOption {
 		return nil
 	}
 	return []llms.CallOption{llms.WithThinking(&llms.ThinkingConfig{
-		Mode:           llms.ThinkingMode(cfg.Thinking.Mode),
-		BudgetTokens:   cfg.Thinking.BudgetTokens,
-		ReturnThinking: cfg.Thinking.ReturnOutput,
+		Mode:               llms.ThinkingMode(cfg.Thinking.Mode),
+		BudgetTokens:       cfg.Thinking.BudgetTokens,
+		ReturnThinking:     cfg.Thinking.ReturnOutput,
+		StreamThinking:     cfg.Thinking.StreamThinking,
+		InterleaveThinking: cfg.Thinking.InterleaveThinking,
 	})}
+}
+
+// buildStreamingReasoningOpts adds llms.WithStreamingReasoningFunc when StreamThinking
+// is enabled. Reasoning chunks are written directly to w as they arrive, enabling
+// real-time display of thinking tokens during streaming (Anthropic, OpenAI o-series).
+// When StreamThinking is true, the post-stream <thinking> prepend is skipped to avoid
+// duplication (the content was already written to w inline).
+func buildStreamingReasoningOpts(cfg *domain.ChatConfig, w io.Writer) []llms.CallOption {
+	if cfg.Thinking == nil || cfg.Thinking.Mode == domain.ThinkingModeNone || !cfg.Thinking.StreamThinking {
+		return nil
+	}
+	return []llms.CallOption{
+		llms.WithStreamingReasoningFunc(func(_ context.Context, reasoningChunk, _ []byte) error {
+			if len(reasoningChunk) == 0 {
+				return nil
+			}
+			_, err := w.Write(reasoningChunk)
+			return err
+		}),
+	}
 }
 
 // StreamChat implements agent.Streamer using langchaingo.
@@ -837,7 +860,9 @@ func (e *Executor) StreamChat(
 	content := choice.Content
 
 	// When thinking is enabled and ReturnOutput is true, prepend the reasoning block.
-	if cfg.Thinking != nil && cfg.Thinking.ReturnOutput && choice.ReasoningContent != "" {
+	// Skip when StreamThinking is active: reasoning was already written to w inline.
+	if cfg.Thinking != nil && cfg.Thinking.ReturnOutput && !cfg.Thinking.StreamThinking &&
+		choice.ReasoningContent != "" {
 		content = "<thinking>\n" + choice.ReasoningContent + "\n</thinking>\n\n" + content
 	}
 
@@ -917,7 +942,8 @@ func (e *Executor) streamChatOnce(
 	choice := resp.Choices[0]
 	content := choice.Content
 
-	if cfg.Thinking != nil && cfg.Thinking.ReturnOutput && choice.ReasoningContent != "" {
+	if cfg.Thinking != nil && cfg.Thinking.ReturnOutput && !cfg.Thinking.StreamThinking &&
+		choice.ReasoningContent != "" {
 		content = "<thinking>\n" + choice.ReasoningContent + "\n</thinking>\n\n" + content
 	}
 

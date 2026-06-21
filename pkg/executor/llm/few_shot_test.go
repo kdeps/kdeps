@@ -818,6 +818,88 @@ func TestBuildThinkingOpts_Enabled(t *testing.T) {
 	assert.Len(t, opts, 1)
 }
 
+func TestBuildThinkingOpts_StreamThinking(t *testing.T) {
+	t.Parallel()
+	opts := buildThinkingOpts(&domain.ChatConfig{
+		Thinking: &domain.ThinkingConfig{Mode: domain.ThinkingModeHigh, StreamThinking: true},
+	})
+	assert.Len(t, opts, 1)
+}
+
+func TestBuildThinkingOpts_InterleaveThinking(t *testing.T) {
+	t.Parallel()
+	opts := buildThinkingOpts(&domain.ChatConfig{
+		Thinking: &domain.ThinkingConfig{Mode: domain.ThinkingModeMedium, InterleaveThinking: true},
+	})
+	assert.Len(t, opts, 1)
+}
+
+func TestBuildStreamingReasoningOpts_NilThinking(t *testing.T) {
+	t.Parallel()
+	var buf strings.Builder
+	opts := buildStreamingReasoningOpts(&domain.ChatConfig{}, &buf)
+	assert.Nil(t, opts)
+}
+
+func TestBuildStreamingReasoningOpts_ModeNone(t *testing.T) {
+	t.Parallel()
+	var buf strings.Builder
+	opts := buildStreamingReasoningOpts(&domain.ChatConfig{
+		Thinking: &domain.ThinkingConfig{Mode: domain.ThinkingModeNone},
+	}, &buf)
+	assert.Nil(t, opts)
+}
+
+func TestBuildStreamingReasoningOpts_StreamThinkingFalse(t *testing.T) {
+	t.Parallel()
+	var buf strings.Builder
+	opts := buildStreamingReasoningOpts(&domain.ChatConfig{
+		Thinking: &domain.ThinkingConfig{Mode: domain.ThinkingModeHigh, StreamThinking: false},
+	}, &buf)
+	assert.Nil(t, opts)
+}
+
+func TestBuildStreamingReasoningOpts_StreamThinkingTrue(t *testing.T) {
+	t.Parallel()
+	var buf strings.Builder
+	opts := buildStreamingReasoningOpts(&domain.ChatConfig{
+		Thinking: &domain.ThinkingConfig{Mode: domain.ThinkingModeHigh, StreamThinking: true},
+	}, &buf)
+	assert.Len(t, opts, 1)
+}
+
+func TestBuildStreamingReasoningOpts_WritesChunks(t *testing.T) {
+	t.Parallel()
+	var buf strings.Builder
+	opts := buildStreamingReasoningOpts(&domain.ChatConfig{
+		Thinking: &domain.ThinkingConfig{Mode: domain.ThinkingModeHigh, StreamThinking: true},
+	}, &buf)
+	require.Len(t, opts, 1)
+
+	var callOpts lc.CallOptions
+	opts[0](&callOpts)
+	require.NotNil(t, callOpts.StreamingReasoningFunc)
+
+	err := callOpts.StreamingReasoningFunc(t.Context(), []byte("thinking chunk"), []byte{})
+	require.NoError(t, err)
+	assert.Equal(t, "thinking chunk", buf.String())
+}
+
+func TestBuildStreamingReasoningOpts_EmptyChunkIsNoOp(t *testing.T) {
+	t.Parallel()
+	var buf strings.Builder
+	opts := buildStreamingReasoningOpts(&domain.ChatConfig{
+		Thinking: &domain.ThinkingConfig{Mode: domain.ThinkingModeHigh, StreamThinking: true},
+	}, &buf)
+	require.Len(t, opts, 1)
+	var callOpts lc.CallOptions
+	opts[0](&callOpts)
+
+	err := callOpts.StreamingReasoningFunc(t.Context(), []byte{}, []byte{})
+	require.NoError(t, err)
+	assert.Empty(t, buf.String())
+}
+
 func TestBuildRawHistoryMessages_UserAndAssistant(t *testing.T) {
 	t.Parallel()
 	histJSON := `[{"role":"user","content":"hello"},{"role":"assistant","content":"hi"}]`
