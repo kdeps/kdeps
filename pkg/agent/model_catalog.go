@@ -231,11 +231,13 @@ var KnownCloudModels = []CloudModel{
 	// Perplexity (online search)
 	{
 		ID: "llama-3.1-sonar-large-128k-online", Backend: "perplexity",
-		Desc: "with web search", EnvVar: "PERPLEXITY_API_KEY", ContextWindow: ctxPerplexity, MaxOutputTokens: outDefault,
+		Desc: "with web search", EnvVar: "PERPLEXITY_API_KEY",
+		ContextWindow: ctxPerplexity, MaxOutputTokens: outDefault,
 	},
 	{
 		ID: "llama-3.1-sonar-small-128k-online", Backend: "perplexity",
-		Desc: "fast with web search", EnvVar: "PERPLEXITY_API_KEY", ContextWindow: ctxPerplexity, MaxOutputTokens: outDefault,
+		Desc: "fast with web search", EnvVar: "PERPLEXITY_API_KEY",
+		ContextWindow: ctxPerplexity, MaxOutputTokens: outDefault,
 	},
 }
 
