@@ -80,7 +80,7 @@ func main() {
 }
 
 // tryRunEmbeddedPackage detects a prepackaged workflow appended to this binary and runs it.
-func tryRunEmbeddedPackage() (exitCode int, handled bool) {
+func tryRunEmbeddedPackage() (int, bool) {
 	execPath, err := osExecutableMain()
 	if err != nil || !cmd.HasEmbeddedPackage(execPath) {
 		return 0, false
