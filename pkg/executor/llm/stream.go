@@ -586,7 +586,12 @@ func buildScenarioMessages(
 		if formatHint != "" && i == len(scenario)-1 {
 			prompt = prompt + "\n\n" + formatHint
 		}
-		msgs = append(msgs, llms.TextParts(roleToMessageType(role), prompt))
+		if sc.CacheControl != "" {
+			part := llms.WithCacheControl(llms.TextContent{Text: prompt}, &llms.CacheControl{Type: sc.CacheControl})
+			msgs = append(msgs, llms.MessageContent{Role: roleToMessageType(role), Parts: []llms.ContentPart{part}})
+		} else {
+			msgs = append(msgs, llms.TextParts(roleToMessageType(role), prompt))
+		}
 	}
 	return msgs, injected
 }
@@ -923,10 +928,12 @@ func buildStreamOpts(cfg *domain.ChatConfig, backend string, w io.Writer) []llms
 	opts = append(opts, buildThinkingOpts(cfg)...)
 	opts = append(opts, buildStreamingReasoningOpts(cfg, w)...)
 
-	if cfg.PromptCaching && backend == backendAnthropic {
-		opts = append(opts, llms.WithPromptCaching(true))
-	}
 	if backend == backendAnthropic {
+		if cfg.PromptCaching {
+			// lcanthropic.WithPromptCaching adds the required "prompt-caching-2024-07-31" beta header.
+			// llms.WithPromptCaching is generic metadata not consumed by the Anthropic client.
+			opts = append(opts, lcanthropic.WithPromptCaching())
+		}
 		if cfg.AnthropicExtendedOutput {
 			opts = append(opts, lcanthropic.WithExtendedOutput())
 		}

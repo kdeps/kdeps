@@ -216,9 +216,10 @@ type ChatConfig struct {
 
 // ScenarioItem represents a chat scenario item.
 type ScenarioItem struct {
-	Role   string `yaml:"role"`
-	Prompt string `yaml:"prompt"`
-	Name   string `yaml:"name,omitempty"` // Optional name for the participant
+	Role         string `yaml:"role"`
+	Prompt       string `yaml:"prompt"`
+	Name         string `yaml:"name,omitempty"`         // Optional name for the participant
+	CacheControl string `yaml:"cacheControl,omitempty"` // "ephemeral" to enable Anthropic per-message caching
 }
 
 // MCPConfig configures an MCP (Model Context Protocol) server as a tool source.
