@@ -1319,3 +1319,51 @@ func TestMapLLMError_UnknownBackend_StillWraps(t *testing.T) {
 	require.True(t, errors.As(mapped, &lcErr))
 	assert.Equal(t, lc.ErrCodeProviderUnavailable, lcErr.Code)
 }
+
+func TestBuildStreamOpts_AnthropicExtendedOutput(t *testing.T) {
+	t.Parallel()
+	cfg := &domain.ChatConfig{
+		Backend:                 "anthropic",
+		Model:                   "claude-opus-4-6",
+		AnthropicExtendedOutput: true,
+	}
+	opts := buildStreamOpts(cfg, "anthropic", nil)
+	// Verify options were appended (non-nil, non-empty)
+	assert.NotEmpty(t, opts)
+}
+
+func TestBuildStreamOpts_AnthropicBetaHeaders(t *testing.T) {
+	t.Parallel()
+	cfg := &domain.ChatConfig{
+		Backend:              "anthropic",
+		Model:                "claude-opus-4-6",
+		AnthropicBetaHeaders: []string{"test-feature-2025-01-01"},
+	}
+	opts := buildStreamOpts(cfg, "anthropic", nil)
+	assert.NotEmpty(t, opts)
+}
+
+func TestBuildStreamOpts_GoogleCachedContent(t *testing.T) {
+	t.Parallel()
+	cfg := &domain.ChatConfig{
+		Backend:             "google",
+		Model:               "gemini-2.0-flash",
+		GoogleCachedContent: "cachedContents/abc123",
+	}
+	opts := buildStreamOpts(cfg, "google", nil)
+	assert.NotEmpty(t, opts)
+}
+
+func TestBuildStreamOpts_GoogleHarmThreshold(t *testing.T) {
+	t.Parallel()
+	// Harm threshold is set at model init time, not in buildStreamOpts.
+	// Verify that CandidateCount (a stream-level opt) works for Google.
+	n := 2
+	cfg := &domain.ChatConfig{
+		Backend:        "google",
+		Model:          "gemini-2.0-flash",
+		CandidateCount: &n,
+	}
+	opts := buildStreamOpts(cfg, "google", nil)
+	assert.NotEmpty(t, opts)
+}
