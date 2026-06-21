@@ -883,6 +883,7 @@ func convertTools(tools []domain.Tool) []llms.Tool {
 				Name:        t.Name,
 				Description: t.Description,
 				Parameters:  buildToolParameters(t.Parameters),
+				Strict:      t.Strict,
 			},
 		})
 	}
@@ -1001,6 +1002,24 @@ func buildStreamingReasoningOpts(cfg *domain.ChatConfig, w io.Writer) []llms.Cal
 	}
 }
 
+// mapLLMError classifies a raw LLM error into a structured llms.Error using the
+// langchaingo ErrorMapper. The backend name selects provider-specific matchers
+// (auth key messages, quota strings, etc.). Unknown backends fall back to the
+// generic mapper that matches HTTP status patterns and context errors.
+func mapLLMError(backend string, err error) error {
+	if err == nil {
+		return nil
+	}
+	switch backend {
+	case backendAnthropic:
+		return llms.AnthropicErrorMapper().Map(err)
+	case backendGoogle:
+		return llms.GoogleAIErrorMapper().Map(err)
+	default:
+		return llms.OpenAIErrorMapper().Map(err)
+	}
+}
+
 // StreamChat implements agent.Streamer using langchaingo.
 // Tokens are written to w as they arrive. Tool calls are returned for the caller to dispatch.
 // When cfg.ChunkSize > 0, the prompt is split into chunks and each is sent separately;
@@ -1027,7 +1046,7 @@ func (e *Executor) StreamChat(
 
 	resp, err := model.GenerateContent(ctx, messages, opts...)
 	if err != nil {
-		return "", nil, fmt.Errorf("stream: generate: %w", err)
+		return "", nil, fmt.Errorf("stream: generate: %w", mapLLMError(backend, err))
 	}
 
 	if len(resp.Choices) == 0 {

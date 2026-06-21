@@ -17,6 +17,7 @@
 package llm
 
 import (
+	"errors"
 	"strings"
 	"testing"
 
@@ -988,6 +989,18 @@ func TestConvertTools_BasicConversion(t *testing.T) {
 	assert.Equal(t, "calculator", lcTools[0].Function.Name)
 }
 
+func TestConvertTools_StrictField(t *testing.T) {
+	t.Parallel()
+	tools := []domain.Tool{
+		{Name: "strict_tool", Description: "Strict", Parameters: nil, Strict: true},
+		{Name: "lenient_tool", Description: "Lenient", Parameters: nil, Strict: false},
+	}
+	lcTools := convertTools(tools)
+	require.Len(t, lcTools, 2)
+	assert.True(t, lcTools[0].Function.Strict, "strict_tool should have Strict=true")
+	assert.False(t, lcTools[1].Function.Strict, "lenient_tool should have Strict=false")
+}
+
 func TestFileContentPart_HTTPUrl(t *testing.T) {
 	t.Parallel()
 	part, ok := fileContentPart("http://example.com/image.jpg")
@@ -1260,4 +1273,49 @@ func TestPrepareCfg_EmptyFewShot_ReturnsSameCfg(t *testing.T) {
 	}
 	result := prepareCfg(t.Context(), cfg)
 	assert.Same(t, cfg, result)
+}
+
+func TestMapLLMError_NilIsNil(t *testing.T) {
+	t.Parallel()
+	assert.NoError(t, mapLLMError("openai", nil))
+}
+
+func TestMapLLMError_OpenAI_AuthError(t *testing.T) {
+	t.Parallel()
+	raw := errors.New("invalid_api_key: provided key is invalid")
+	mapped := mapLLMError("openai", raw)
+	require.Error(t, mapped)
+	var lcErr *lc.Error
+	require.True(t, errors.As(mapped, &lcErr), "expected *llms.Error")
+	assert.Equal(t, lc.ErrCodeAuthentication, lcErr.Code)
+}
+
+func TestMapLLMError_Anthropic_RateLimit(t *testing.T) {
+	t.Parallel()
+	raw := errors.New("rate limit exceeded: too many requests")
+	mapped := mapLLMError("anthropic", raw)
+	require.Error(t, mapped)
+	var lcErr *lc.Error
+	require.True(t, errors.As(mapped, &lcErr))
+	assert.Equal(t, lc.ErrCodeRateLimit, lcErr.Code)
+}
+
+func TestMapLLMError_Google_ContentFilter(t *testing.T) {
+	t.Parallel()
+	raw := errors.New("SAFETY: content blocked by safety filter")
+	mapped := mapLLMError("google", raw)
+	require.Error(t, mapped)
+	var lcErr *lc.Error
+	require.True(t, errors.As(mapped, &lcErr))
+	assert.Equal(t, lc.ErrCodeContentFilter, lcErr.Code)
+}
+
+func TestMapLLMError_UnknownBackend_StillWraps(t *testing.T) {
+	t.Parallel()
+	raw := errors.New("service unavailable: 503")
+	mapped := mapLLMError("custom-provider", raw)
+	require.Error(t, mapped)
+	var lcErr *lc.Error
+	require.True(t, errors.As(mapped, &lcErr))
+	assert.Equal(t, lc.ErrCodeProviderUnavailable, lcErr.Code)
 }
