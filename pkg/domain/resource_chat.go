@@ -178,6 +178,21 @@ type ChatConfig struct {
 	// via WithCachedContent and reduces tokens for repeated large system prompts.
 	// Only applies to the Google AI backend. Use the Google AI API to pre-create content.
 	GoogleCachedContent string `yaml:"googleCachedContent,omitempty"`
+	// GoogleHarmThreshold sets the safety/harm content blocking threshold for Google AI.
+	// 0=unspecified(default), 1=low+above, 2=medium+above, 3=high-only, 4=none(block nothing).
+	// Only applies when backend="google". Defaults to HarmBlockOnlyHigh (3) per langchaingo.
+	GoogleHarmThreshold int `yaml:"googleHarmThreshold,omitempty"`
+	// GoogleCloudProject sets the GCP project ID for Vertex AI access (backend="google").
+	// When set alongside GoogleCloudLocation, requests go via Vertex AI instead of the direct API.
+	GoogleCloudProject string `yaml:"googleCloudProject,omitempty"`
+	// GoogleCloudLocation sets the GCP region for Vertex AI (e.g. "us-central1").
+	GoogleCloudLocation string `yaml:"googleCloudLocation,omitempty"`
+	// AnthropicExtendedOutput enables 128K token output for Claude 3.7+ via beta header.
+	// Only applies when backend="anthropic".
+	AnthropicExtendedOutput bool `yaml:"anthropicExtendedOutput,omitempty"`
+	// AnthropicBetaHeaders adds custom Anthropic beta feature headers (e.g. "new-feature-2025-01-01").
+	// Only applies when backend="anthropic".
+	AnthropicBetaHeaders []string `yaml:"anthropicBetaHeaders,omitempty"`
 
 	// Advanced LLM parameters (may not be supported by all backends)
 	Temperature       *float64 `yaml:"temperature,omitempty"`       // Sampling temperature (0.0-2.0)

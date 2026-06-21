@@ -104,10 +104,21 @@ func buildLangchainLLM(ctx context.Context, cfg *domain.ChatConfig) (llms.Model,
 
 	case backendGoogle:
 		apiKey := os.Getenv(providerAPIKeyEnvVar(backendGoogle))
-		model, err = lcgoogleai.New(ctx,
+		googleOpts := []lcgoogleai.Option{
 			lcgoogleai.WithAPIKey(apiKey),
 			lcgoogleai.WithDefaultModel(cfg.Model),
-		)
+		}
+		if cfg.GoogleHarmThreshold != 0 {
+			ht := lcgoogleai.HarmBlockThreshold(cfg.GoogleHarmThreshold)
+			googleOpts = append(googleOpts, lcgoogleai.WithHarmThreshold(ht))
+		}
+		if cfg.GoogleCloudProject != "" {
+			googleOpts = append(googleOpts, lcgoogleai.WithCloudProject(cfg.GoogleCloudProject))
+		}
+		if cfg.GoogleCloudLocation != "" {
+			googleOpts = append(googleOpts, lcgoogleai.WithCloudLocation(cfg.GoogleCloudLocation))
+		}
+		model, err = lcgoogleai.New(ctx, googleOpts...)
 
 	case backendHuggingFace:
 		apiKey := os.Getenv(providerAPIKeyEnvVar(backendHuggingFace))
@@ -914,6 +925,14 @@ func buildStreamOpts(cfg *domain.ChatConfig, backend string, w io.Writer) []llms
 
 	if cfg.PromptCaching && backend == backendAnthropic {
 		opts = append(opts, llms.WithPromptCaching(true))
+	}
+	if backend == backendAnthropic {
+		if cfg.AnthropicExtendedOutput {
+			opts = append(opts, lcanthropic.WithExtendedOutput())
+		}
+		for _, h := range cfg.AnthropicBetaHeaders {
+			opts = append(opts, lcanthropic.WithBetaHeader(h))
+		}
 	}
 	if cfg.GoogleCachedContent != "" && backend == backendGoogle {
 		opts = append(opts, lcgoogleai.WithCachedContent(cfg.GoogleCachedContent))
