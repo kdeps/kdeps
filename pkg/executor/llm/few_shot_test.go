@@ -1367,3 +1367,20 @@ func TestBuildStreamOpts_GoogleHarmThreshold(t *testing.T) {
 	opts := buildStreamOpts(cfg, "google", nil)
 	assert.NotEmpty(t, opts)
 }
+
+func TestBuildScenarioMessages_CacheControl(t *testing.T) {
+	t.Parallel()
+	scenario := []domain.ScenarioItem{
+		{Role: "system", Prompt: "You are helpful.", CacheControl: "ephemeral"},
+		{Role: "user", Prompt: "Hello"},
+	}
+	msgs, _ := buildScenarioMessages(scenario, nil, "", "", false)
+	require.Len(t, msgs, 2)
+	// First message should have a CachedContent part wrapping the text
+	require.Len(t, msgs[0].Parts, 1)
+	_, isCached := msgs[0].Parts[0].(lc.CachedContent)
+	assert.True(t, isCached, "expected CachedContent wrapper for cacheControl: ephemeral")
+	// Second message should be plain text
+	_, isText := msgs[1].Parts[0].(lc.TextContent)
+	assert.True(t, isText, "expected TextContent for no cacheControl")
+}
