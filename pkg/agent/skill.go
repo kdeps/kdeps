@@ -32,6 +32,9 @@ type Skill struct {
 	Description string
 	Content     string
 	Source      string
+	// Hidden excludes this skill from the model-visible system prompt block while
+	// still making it available for explicit invocation (mirrors pi's disableModelInvocation).
+	Hidden bool
 }
 
 // defaultSkillDirs returns the global and project-level skill directories.
@@ -141,6 +144,7 @@ func loadSkillFromFile(path string) *Skill {
 	// Parse YAML frontmatter (between --- markers)
 	name := ""
 	desc := ""
+	hidden := false
 	body := content
 
 	if strings.HasPrefix(strings.TrimSpace(content), "---") {
@@ -152,10 +156,13 @@ func loadSkillFromFile(path string) *Skill {
 
 			for _, line := range strings.Split(frontmatter, "\n") {
 				line = strings.TrimSpace(line)
-				if strings.HasPrefix(line, "name:") {
+				switch {
+				case strings.HasPrefix(line, "name:"):
 					name = strings.TrimSpace(line[5:])
-				} else if strings.HasPrefix(line, "description:") {
+				case strings.HasPrefix(line, "description:"):
 					desc = strings.TrimSpace(line[12:])
+				case strings.HasPrefix(line, "hidden:"):
+					hidden = strings.TrimSpace(line[7:]) == "true"
 				}
 			}
 		}
@@ -170,6 +177,7 @@ func loadSkillFromFile(path string) *Skill {
 		Description: desc,
 		Content:     body,
 		Source:      path,
+		Hidden:      hidden,
 	}
 }
 
@@ -178,15 +186,22 @@ Use the skill content when the user's task matches the skill description.
 When a skill references a relative path, resolve it against the skill directory.`
 
 // formatSkillsForPrompt formats skills as an XML <available_skills> block
-// for injection into the system prompt. Returns empty string when no skills.
+// for injection into the system prompt. Skills with Hidden=true are excluded.
+// Returns empty string when no visible skills exist.
 func formatSkillsForPrompt(skills []Skill) string {
-	if len(skills) == 0 {
+	visible := make([]Skill, 0, len(skills))
+	for _, sk := range skills {
+		if !sk.Hidden {
+			visible = append(visible, sk)
+		}
+	}
+	if len(visible) == 0 {
 		return ""
 	}
 	var sb strings.Builder
 	sb.WriteString(skillsSystemPromptPreamble)
 	sb.WriteString("\n\n<available_skills>\n")
-	for _, sk := range skills {
+	for _, sk := range visible {
 		fmt.Fprintf(&sb, "<skill name=\"%s\" source=\"%s\">\n", sk.Name, sk.Source)
 		if sk.Description != "" {
 			fmt.Fprintf(&sb, "  %s\n", sk.Description)

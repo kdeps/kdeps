@@ -1,6 +1,6 @@
 Pi -> kdeps LLM Loop Porting Progress
 ======================================
-Last updated: 2026-06-20
+Last updated: 2026-06-21
 Overall: ~100%
 
 Source: private/pi/
@@ -351,7 +351,7 @@ codeIntelligence executor     (new resource type)             executor/codeintel
 Domain structs (B1)           -                               domain/resource_git.go  100
 Engine wiring (B3)            -                               executor/engine_*.go    100
 
-Model capability metadata     model-registry.ts               model_catalog.go       90  [+SupportsThinking, +ContextWindow on CloudModel; /thinking warns non-supporting models; ModelContextWindow() for auto-compact hints]
+Model capability metadata     model-registry.ts               model_catalog.go      100  [+SupportsThinking, +ContextWindow, +SupportsImages, +MaxOutputTokens on CloudModel; claude-opus-4-6/7/8 corrected to 1M ctx; ModelMaxOutputTokens()/ModelSupportsImages() lookup fns; /thinking warns non-supporting models; ModelContextWindow() for auto-compact hints]
 Model selector UX            model-selector.ts               modelpicker.go         100
   - Single-column layout with ▸ cursor, dim tags, ✓ for current model
   - [cloud enabled] / [cloud] tags instead of backend name
@@ -359,4 +359,4 @@ Model selector UX            model-selector.ts               modelpicker.go     
   - Current model pre-selected and sorted to top of its group
   - Tab completion also uses [cloud enabled] for enabled cloud models
 
-OVERALL: ~99.8%
+OVERALL: ~99.9%
