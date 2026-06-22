@@ -507,6 +507,18 @@
         },
         "openAILegacyMaxTokens": {
           "type": "boolean"
+        },
+        "ollamaThink": {
+          "type": "boolean"
+        },
+        "ollamaKeepAlive": {
+          "type": "string"
+        },
+        "ollamaPullModel": {
+          "type": "boolean"
+        },
+        "ollamaPullTimeout": {
+          "type": "string"
         }
       }
     },
