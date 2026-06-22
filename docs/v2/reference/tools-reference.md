@@ -285,6 +285,32 @@ python:
 
 </div>
 
+## Built-In Agent Tools
+
+These tools are registered automatically in [agent mode](/modes/agent-loop-mode) when the relevant API key is configured. They are available to the LLM without any `tools:` block in your YAML.
+
+### Google AI Cache Tools
+
+Available when `google_api_key` is set in `~/.kdeps/config.yaml`. Use these to manage Google AI CachedContent resources -- pre-caching large context (documents, long system prompts) reduces latency and cost for repeated calls.
+
+| Tool | Description |
+|------|-------------|
+| `google_cache_create` | Create a Google AI CachedContent resource. Returns the cache name to use in `googleCachedContent` on a `chat:` resource. |
+| `google_cache_delete` | Delete a CachedContent resource by name. |
+| `google_cache_list` | List all cached content names in the current project. |
+
+**Typical flow:**
+
+```text
+1. Agent calls google_cache_create with a large document
+2. Google AI returns a CachedContent name (e.g. "cachedContents/abc123")
+3. Agent calls google_cache_list to confirm the cache exists
+4. Subsequent chat: resources reference the name via googleCachedContent
+5. Agent calls google_cache_delete when the cache is no longer needed
+```
+
+The cached content has a TTL set by Google AI (default 1 hour). Use `google_cache_delete` to remove it early and avoid storage charges.
+
 ## See Also
 
 - [Tools (Function Calling)](/concepts/tools) - Core tool definition and syntax

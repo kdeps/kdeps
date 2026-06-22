@@ -261,6 +261,91 @@ Counters are keyed by a fingerprint of the model list, so different route config
 
 kdeps supports local backends (Llamafile, GGUF/llama.cpp, Ollama) and any OpenAI-compatible API: OpenAI, Anthropic, Google, Mistral, Groq, Together AI, Perplexity, Cohere, DeepSeek, xAI (Grok), OpenRouter, and self-hosted solutions (vLLM, TGI, LocalAI, LlamaCpp). See [LLM Provider Reference](/reference/llm-providers) for per-provider config snippets and available model names.
 
+## Vertex AI (Google Cloud)
+
+Target Google's Vertex AI endpoint instead of the standard AI Studio endpoint by setting `googleCloudProject` and `googleCloudLocation` on the `chat:` resource. The backend in `config.yaml` stays `google`; the two resource-level fields route the call to the regional Vertex endpoint.
+
+```yaml
+# ~/.kdeps/config.yaml
+llm:
+  backend: google
+  google_api_key: ...   # or use Application Default Credentials (ADC)
+```
+
+```yaml
+# resources/example.yaml
+chat:
+  model: gemini-1.5-pro
+  googleCloudProject: my-gcp-project   # GCP project ID
+  googleCloudLocation: us-central1     # Vertex AI region
+  prompt: "{{ get('q') }}"
+```
+
+Vertex AI uses Application Default Credentials when no `google_api_key` is present. Run `gcloud auth application-default login` to authenticate locally.
+
+## Anthropic: Prompt Caching and Extended Output
+
+Anthropic-specific options are set per resource, not in `config.yaml`.
+
+### Prompt caching
+
+`promptCaching: true` adds the `anthropic-beta: prompt-caching-2024-07-31` header. Anthropic caches the first qualifying prefix of the prompt (system + long context). Reduces latency and cost on repeated long system prompts.
+
+```yaml
+# resources/example.yaml
+chat:
+  model: claude-sonnet-4-20250514
+  promptCaching: true
+  scenario:
+    - role: system
+      prompt: |
+        You are an expert assistant with access to the following reference material:
+        [... long document ...]
+      cacheControl: "ephemeral"   # mark this message as the cache boundary
+```
+
+### Extended output (128K tokens)
+
+`anthropicExtendedOutput: true` enables 128K output tokens and adds the `interleaved-thinking-2025-05-14` beta header automatically.
+
+```yaml
+# resources/example.yaml
+chat:
+  model: claude-sonnet-4-20250514
+  anthropicExtendedOutput: true
+  maxTokens: 16000
+  prompt: "{{ get('q') }}"
+```
+
+### Custom beta headers
+
+Pass arbitrary beta feature strings via `anthropicBetaHeaders`:
+
+```yaml
+# resources/example.yaml
+chat:
+  model: claude-sonnet-4-20250514
+  anthropicBetaHeaders:
+    - output-128k-2025-02-19
+    - interleaved-thinking-2025-05-14
+```
+
+## Ollama: Native Options
+
+Extra controls for the Ollama backend, set per resource.
+
+```yaml
+# resources/example.yaml
+chat:
+  prompt: "{{ get('q') }}"
+  ollamaThink: true          # enable extended thinking (requires a thinking-capable model)
+  ollamaKeepAlive: "5m"      # keep model in memory for 5 min after the request completes
+  ollamaPullModel: true      # pull the model automatically if it is not present
+  ollamaPullTimeout: "10m"   # how long to wait for the pull before failing
+```
+
+`ollamaKeepAlive` accepts Go duration strings: `"0"` unloads immediately; `"-1"` keeps the model loaded indefinitely; `"5m"`, `"1h"`, etc. set a timed expiry.
+
 ## Streaming (Ollama)
 
 Set `streaming: true` on a `chat:` resource to have Ollama stream the response as NDJSON chunks. KDeps accumulates all chunks internally and returns the same response shape as a non-streaming call.
