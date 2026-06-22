@@ -11,7 +11,7 @@ You don't need Docker or a workflow file to start. kdeps works at three levels o
 ```bash
 kdeps                            # open-source AI agent REPL, zero config
 kdeps --model llama3.2           # swap to any local or cloud model
-kdeps serve ./my-workflow/       # load your workflows as tools
+kdeps ./my-workflow/             # load your workflows as tools
 ```
 
 Works with any model: local llamafile (default, no API key), Ollama, or any cloud provider. See [Run Locally in 30 Seconds](/getting-started/local-agent).
@@ -42,6 +42,12 @@ Shipping AI into production means more than calling an API. You need determinist
 
 kdeps is an **AI appliance builder**. You define what the agent does in YAML, and it runs as a self-contained unit -- an HTTP API, a bot, a file processor -- without a human in the loop.
 
+## Deterministic by design
+
+Chat interfaces are deliberately open-ended. kdeps workflow mode is the opposite: inputs are declared, dependencies are explicit (`requires:`), and validations fire before any LLM is called. If the input is wrong, the workflow fails fast with a clear error instead of hallucinating a response.
+
+Same input always produces the same execution path. Output is reproducible, auditable, and safe to run unattended. That is what makes kdeps suitable for production -- not just demos.
+
 ## Two modes, one workflow file
 
 ```d2
@@ -58,12 +64,6 @@ A -> C
 Workflow mode is for production: inputs are validated, resources execute in a fixed order, output is predictable and auditable. Agent mode is for exploration: the LLM decides which workflows to call and in what order, with each workflow running as a complete pipeline.
 
 The same `workflow.yaml` works in both. You do not need to rewrite anything to switch.
-
-## Defined control flow
-
-Chat interfaces are deliberately open-ended. kdeps workflow mode is the opposite: inputs are declared, dependencies are explicit, and validations fire before any LLM is called. If the input is wrong, the workflow fails fast with a clear error instead of hallucinating a response.
-
-This is what makes workflow output reproducible, auditable, and safe to run unattended.
 
 ## Agencies
 
