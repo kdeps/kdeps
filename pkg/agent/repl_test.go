@@ -630,6 +630,127 @@ func TestReplCompleter_AtFile(t *testing.T) {
 	assert.Contains(t, found[0], "main.go")
 }
 
+func TestReplCompleter_SessionSubcommand(t *testing.T) {
+	loop := makeTestLoop(nil)
+	repl := NewREPL(loop)
+	defer repl.cancel()
+
+	c := &replCompleter{repl: repl}
+	// "/session " → completes subcommands
+	input := []rune("/session ")
+	results, length := c.Do(input, len(input))
+	assert.Equal(t, 0, length) // empty token
+	found := make([]string, 0, len(results))
+	for _, r := range results {
+		found = append(found, string(r))
+	}
+	assert.Contains(t, found, "list")
+	assert.Contains(t, found, "save")
+	assert.Contains(t, found, "load")
+	assert.Contains(t, found, "delete")
+	assert.Contains(t, found, "goto")
+	assert.Contains(t, found, "checkpoint")
+	assert.Contains(t, found, "branches")
+	assert.Contains(t, found, "import")
+}
+
+func TestReplCompleter_SessionSubcommandPartial(t *testing.T) {
+	loop := makeTestLoop(nil)
+	repl := NewREPL(loop)
+	defer repl.cancel()
+
+	c := &replCompleter{repl: repl}
+	// "/session lo" → "load"
+	input := []rune("/session lo")
+	results, length := c.Do(input, len(input))
+	assert.Equal(t, 2, length) // "lo"
+	found := make([]string, 0, len(results))
+	for _, r := range results {
+		found = append(found, string(r))
+	}
+	assert.Contains(t, found, "ad") // "lo"+"ad" = "load"
+}
+
+func TestReplCompleter_ThinkingModes(t *testing.T) {
+	loop := makeTestLoop(nil)
+	repl := NewREPL(loop)
+	defer repl.cancel()
+
+	c := &replCompleter{repl: repl}
+	// "/thinking " → all modes
+	input := []rune("/thinking ")
+	results, length := c.Do(input, len(input))
+	assert.Equal(t, 0, length)
+	found := make([]string, 0, len(results))
+	for _, r := range results {
+		found = append(found, string(r))
+	}
+	assert.Contains(t, found, "auto")
+	assert.Contains(t, found, "on")
+	assert.Contains(t, found, "off")
+	assert.Contains(t, found, "minimal")
+	assert.Contains(t, found, "xhigh")
+}
+
+func TestReplCompleter_ThinkingPartial(t *testing.T) {
+	loop := makeTestLoop(nil)
+	repl := NewREPL(loop)
+	defer repl.cancel()
+
+	c := &replCompleter{repl: repl}
+	// "/thinking au" → "to" (suffix for "auto")
+	input := []rune("/thinking au")
+	results, length := c.Do(input, len(input))
+	assert.Equal(t, 2, length)
+	found := make([]string, 0, len(results))
+	for _, r := range results {
+		found = append(found, string(r))
+	}
+	assert.Contains(t, found, "to")
+}
+
+func TestReplCompleter_SessionIDCompletion(t *testing.T) {
+	dir := t.TempDir()
+	store := NewSessionStore(dir)
+
+	loop := makeTestLoop(nil)
+	loop.store = store
+	loop.session.Append("hi", "hello")
+	repl := NewREPL(loop)
+	defer repl.cancel()
+
+	id, err := store.Save(loop.session)
+	require.NoError(t, err)
+
+	c := &replCompleter{repl: repl}
+	// "/session load " → should include saved session ID
+	input := []rune("/session load ")
+	results, length := c.Do(input, len(input))
+	assert.Equal(t, 0, length)
+	found := make([]string, 0, len(results))
+	for _, r := range results {
+		found = append(found, string(r))
+	}
+	assert.Contains(t, found, id)
+}
+
+func TestReplCompleter_SessionGotoCompletion(t *testing.T) {
+	loop := makeTestLoop(nil)
+	loop.session.Append("user turn 1", "assistant response 1")
+	loop.session.Append("user turn 2", "assistant response 2")
+
+	repl := NewREPL(loop)
+	defer repl.cancel()
+
+	c := &replCompleter{repl: repl}
+	// "/session goto " → should include user message IDs
+	input := []rune("/session goto ")
+	results, length := c.Do(input, len(input))
+	assert.Equal(t, 0, length)
+	// should have at least 2 entries (one per user turn)
+	assert.GreaterOrEqual(t, len(results), 2)
+}
+
 // --- allCommandNames ---
 
 func TestAllCommandNames_IncludesBuiltins(t *testing.T) {
