@@ -86,6 +86,7 @@ func TestBuiltinTools_ToLLMTools(t *testing.T) {
 	t.Setenv("PERPLEXITY_API_KEY", "")
 	t.Setenv("EXA_API_KEY", "")
 	t.Setenv("METAPHOR_API_KEY", "")
+	t.Setenv("GOOGLE_API_KEY", "")
 	reg := kdepstools.NewRegistry()
 	RegisterBuiltinTools(context.Background(), reg)
 
@@ -1986,4 +1987,43 @@ func TestWriteFile_NoPermission(t *testing.T) {
 	})
 	defer os.Chmod(tmpDir, 0o700)
 	assert.Error(t, err)
+}
+
+func TestRegisterGoogleCacheTools_NotRegisteredWithoutKey(t *testing.T) {
+	t.Setenv("GOOGLE_API_KEY", "")
+	reg := kdepstools.NewRegistry()
+	RegisterBuiltinTools(context.Background(), reg)
+	assert.Nil(t, reg.Get("google_cache_create"), "google_cache_create should not register without GOOGLE_API_KEY")
+	assert.Nil(t, reg.Get("google_cache_delete"), "google_cache_delete should not register without GOOGLE_API_KEY")
+	assert.Nil(t, reg.Get("google_cache_list"), "google_cache_list should not register without GOOGLE_API_KEY")
+}
+
+func TestRegisterGoogleCacheTools_RegisteredWithKey(t *testing.T) {
+	t.Setenv("GOOGLE_API_KEY", "test-key")
+	reg := kdepstools.NewRegistry()
+	RegisterBuiltinTools(context.Background(), reg)
+
+	for _, name := range []string{"google_cache_create", "google_cache_delete", "google_cache_list"} {
+		tool := reg.Get(name)
+		require.NotNil(t, tool, "%s should register when GOOGLE_API_KEY is set", name)
+		assert.NotEmpty(t, tool.Description)
+		assert.NotNil(t, tool.Execute)
+	}
+
+	create := reg.Get("google_cache_create")
+	require.NotNil(t, create.Parameters["model"])
+	require.NotNil(t, create.Parameters["content"])
+
+	_, err := create.Execute(map[string]any{"model": "", "content": "x"})
+	assert.Error(t, err, "google_cache_create should error on empty model")
+
+	_, err = create.Execute(map[string]any{"model": "gemini-2.0-flash", "content": ""})
+	assert.Error(t, err, "google_cache_create should error on empty content")
+
+	_, err = create.Execute(map[string]any{"model": "gemini-2.0-flash", "content": "x", "ttl": "bad-duration"})
+	assert.Error(t, err, "google_cache_create should error on invalid ttl")
+
+	del := reg.Get("google_cache_delete")
+	_, err = del.Execute(map[string]any{"name": ""})
+	assert.Error(t, err, "google_cache_delete should error on empty name")
 }
