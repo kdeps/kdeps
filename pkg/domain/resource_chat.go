@@ -18,6 +18,8 @@
 
 package domain
 
+import "io"
+
 // ThinkingMode controls the reasoning/thinking budget for models that support it.
 // Applies to Anthropic Claude 3.7+, OpenAI o-series, DeepSeek-R1, and similar.
 type ThinkingMode string
@@ -39,6 +41,10 @@ type ThinkingConfig struct {
 	ReturnOutput       bool         `yaml:"returnOutput,omitempty"`       // include thinking text in action output
 	StreamThinking     bool         `yaml:"streamThinking,omitempty"`     // stream reasoning tokens in real-time via StreamingFunc
 	InterleaveThinking bool         `yaml:"interleaveThinking,omitempty"` // interleave thinking between tool calls (Anthropic)
+	// ThinkingWriter, when set and StreamThinking is true, receives raw reasoning
+	// chunks directly instead of the default content writer. Used by the REPL to
+	// display thinking in real-time without mixing it with the buffered content stream.
+	ThinkingWriter io.Writer `yaml:"-"`
 }
 
 type ChatConfig struct {

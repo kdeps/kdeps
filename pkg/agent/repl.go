@@ -726,23 +726,32 @@ func expandFileRefs(input string) (string, []string) {
 	return strings.TrimSpace(text), files
 }
 
+// runStreaming handles the streaming path: buffers LLM tokens and renders with
+// markdown + thinking styling. Tool call display writes directly to stdout via
+// the ToolCallDisplay callback so it appears immediately.
+func (r *REPL) runStreaming(ctx context.Context, input string) (string, error) {
+	var buf strings.Builder
+	resp, err := r.loop.RunStreaming(ctx, input, &buf)
+	if err != nil {
+		return resp, err
+	}
+	// resp holds the processed final content (thinking prepended when
+	// ReturnOutput=true). buf holds raw final-round tokens.
+	content := resp
+	if content == "" {
+		content = strings.TrimSpace(buf.String())
+	}
+	if content != "" {
+		fmt.Fprint(os.Stdout, renderREPLOutput(content))
+	}
+	return resp, nil
+}
+
 // runWithThinking runs an agent turn, using streaming output when available.
 // In non-streaming mode it shows a deferred "thinking..." indicator.
 func (r *REPL) runWithThinking(ctx context.Context, input string) (string, error) {
-	// Streaming path: buffer tokens, then render with markdown + thinking styling.
 	if r.runFn == nil && r.loop.IsStreaming() {
-		var buf strings.Builder
-		resp, err := r.loop.RunStreaming(ctx, input, &buf)
-		if err == nil {
-			// Prefer resp (contains <thinking> blocks when ReturnOutput=true);
-			// fall back to buf if resp is empty (e.g. tool-only rounds).
-			content := resp
-			if content == "" {
-				content = buf.String()
-			}
-			fmt.Fprint(os.Stdout, renderREPLOutput(content))
-		}
-		return resp, err
+		return r.runStreaming(ctx, input)
 	}
 
 	// Non-streaming path: run in background and show "thinking..." after a delay.
@@ -816,8 +825,12 @@ func (r *REPL) Run() error {
 
 	hpath := historyPath()
 
-	// Wire up pi-style tool call display.
-	r.loop.config.ToolCallDisplay = renderToolCall
+	// Wire up tool call display: write directly to stdout so each call is visible
+	// immediately when the LLM invokes it, without waiting for the full response.
+	r.loop.config.ToolCallDisplay = func(name, args string) string {
+		fmt.Fprintf(os.Stdout, "\n%s", renderToolCall(name, args))
+		return ""
+	}
 
 	rl, err := readline.NewEx(&readline.Config{
 		Prompt:            r.dynamicPrompt(),

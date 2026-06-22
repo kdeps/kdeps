@@ -1086,12 +1086,16 @@ func buildStreamingReasoningOpts(cfg *domain.ChatConfig, w io.Writer) []llms.Cal
 	if cfg.Thinking == nil || cfg.Thinking.Mode == domain.ThinkingModeNone || !cfg.Thinking.StreamThinking {
 		return nil
 	}
+	dest := w
+	if cfg.Thinking.ThinkingWriter != nil {
+		dest = cfg.Thinking.ThinkingWriter
+	}
 	return []llms.CallOption{
 		llms.WithStreamingReasoningFunc(func(_ context.Context, reasoningChunk, _ []byte) error {
 			if len(reasoningChunk) == 0 {
 				return nil
 			}
-			_, err := w.Write(reasoningChunk)
+			_, err := dest.Write(reasoningChunk)
 			return err
 		}),
 	}
