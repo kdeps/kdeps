@@ -70,10 +70,11 @@ Hands-on guide covering deterministic pipelines, multi-agent orchestration, erro
 A workflow is a DAG of resources. Each step declares what it needs via `requires:` and runs in the correct order automatically.
 
 ```bash
-kdeps init my-agent      # scaffold a new workflow directory
+kdeps init my-agent         # scaffold a new workflow directory
 cd my-agent
-kdeps run .              # run locally - starts the API server
-kdeps run . --dev        # hot reload on file change
+kdeps run workflow.yaml     # run a single workflow file
+kdeps run .                 # run from directory (finds workflow.yaml automatically)
+kdeps run . --dev           # hot reload on file change
 ```
 
 See the full YAML example under [Workflow mode](#workflow-mode) below, or scaffold one with the [kdeps skill](#build-with-ai-assistance).
@@ -88,11 +89,12 @@ kdeps bundle package my-component/    # creates my-component-1.0.0.komponent
 kdeps bundle package my-agency/       # creates my-agency-1.0.0.kagency
 ```
 
-Recipients install and run them without needing the source:
+Recipients run them directly - no source needed:
 
 ```bash
-kdeps registry install my-agent-1.0.0.kdeps
-kdeps run my-agent/
+kdeps run my-agent-1.0.0.kdeps        # run a workflow package directly
+kdeps run my-agency-1.0.0.kagency     # run an agency package directly
+kdeps registry install my-component   # install a component from kdeps.io
 ```
 
 Publish to [kdeps.io](https://kdeps.io) for one-line install by the community:
