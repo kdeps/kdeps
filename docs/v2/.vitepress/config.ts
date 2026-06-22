@@ -53,7 +53,6 @@ export default defineConfig({
         items: [
           { text: 'Changelog', link: 'https://github.com/kdeps/kdeps/releases' },
           { text: 'Contributing', link: 'https://github.com/kdeps/kdeps/blob/main/CONTRIBUTING.md' },
-          { text: 'v1.0.0 (Legacy)', link: '/v1/' },
         ]
       }
     ],
