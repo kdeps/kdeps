@@ -37,7 +37,7 @@ E -> F
 
 ## Comparison with agent mode
 
-| | Workflow mode (`kdeps run`) | Agent mode (`kdeps serve`) |
+| | Workflow mode (`kdeps run`) | Agent mode (`kdeps [path]`) |
 |---|---|---|
 | Execution | DAG, deterministic | LLM loop, tool-driven |
 | Entry point | `metadata.targetActionId` | User prompt |

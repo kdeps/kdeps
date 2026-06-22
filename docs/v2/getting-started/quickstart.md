@@ -154,11 +154,11 @@ C -> D
 Run the workflow as a tool in an interactive LLM loop. The tool name is `my-agent` (from `metadata.name`). The LLM calls `my-agent`, the full pipeline executes, and the result comes back.
 
 ```bash
-# Serve the current project directory -- registers one tool named "my-agent"
-kdeps serve .
+# Load the current project directory -- registers one tool named "my-agent"
+kdeps .
 
 # Point at a folder to expose every workflow inside as separate tools
-kdeps serve ./agents/
+kdeps ./agents/
 ```
 
 The agent REPL starts. Type a prompt and the LLM calls your workflow tools as needed.

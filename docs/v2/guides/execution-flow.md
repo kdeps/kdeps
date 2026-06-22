@@ -191,7 +191,7 @@ See [Loop](/concepts/loop) for full details.
 
 ## Agent Mode Execution
 
-In agent mode (`kdeps serve`), the execution model differs:
+In agent mode (`kdeps [path]`), the execution model differs:
 
 1. Each workflow is registered as one tool (tool name = `metadata.name`)
 2. Each agency is registered as one tool (tool name = `agency.metadata.name`); internal agents are not exposed individually

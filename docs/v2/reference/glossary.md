@@ -8,7 +8,7 @@ Every kdeps term defined in one place. First mention of any term in other docs p
 A unique string identifier for a [resource](#resource) within a workflow. Used as the target for `requires` dependencies. Must be unique across all resources in the workflow. In [agent mode](#agent-mode), resources are not exposed as tools directly -- the whole workflow is the tool, named after `metadata.name`.
 
 ### agent
-An autonomous LLM-driven pipeline defined by `kind: Agent` in a workflow. Agents have tools, memory, and multi-step reasoning. Run with `kdeps serve`. See [Agent Mode](/modes/agent-loop-mode).
+An autonomous LLM-driven pipeline defined by `kind: Agent` in a workflow. Agents have tools, memory, and multi-step reasoning. Run with `kdeps [path]`. See [Agent Mode](/modes/agent-loop-mode).
 
 ### agency
 A pattern where one agent calls another agent as a sub-agent. The caller delegates a task, the callee runs autonomously, and the result is returned. Defined via the `agent:` action type. See [Agencies](/concepts/agency).

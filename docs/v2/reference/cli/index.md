@@ -36,7 +36,7 @@ kdeps run workflow.yaml
 | Command | Page | Description |
 |---|---|---|
 | `kdeps run` | [Dev Commands](/reference/cli/dev#kdeps-run) | Run a workflow locally |
-| `kdeps serve` | [Dev Commands](/reference/cli/dev#kdeps-serve) | Agent mode REPL |
+| `kdeps [path]` | [Dev Commands](/reference/cli/dev#kdeps-path-agent-repl) | Agent mode REPL |
 | `kdeps validate` | [Dev Commands](/reference/cli/dev#kdeps-validate) | Validate workflow config |
 | `kdeps new` | [Dev Commands](/reference/cli/dev#kdeps-new) | Scaffold a new agent |
 | `kdeps edit` | [Dev Commands](/reference/cli/dev#kdeps-edit) | Edit global config |

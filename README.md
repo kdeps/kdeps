@@ -70,7 +70,7 @@ Hands-on guide covering deterministic pipelines, multi-agent orchestration, erro
 A workflow is a DAG of resources. Each step declares what it needs via `requires:` and runs in the correct order automatically.
 
 ```bash
-kdeps init my-agent         # scaffold a new workflow directory
+kdeps new my-agent          # scaffold a new workflow directory
 cd my-agent
 kdeps run workflow.yaml     # run a single workflow file
 kdeps run .                 # run from directory (finds workflow.yaml automatically)
