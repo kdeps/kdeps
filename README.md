@@ -92,11 +92,15 @@ kdeps bundle package my-agency/       # creates my-agency-1.0.0.kagency
 Recipients run or install them directly - no source needed:
 
 ```bash
-kdeps run my-agent-1.0.0.kdeps              # run a workflow package directly
-kdeps run my-agency-1.0.0.kagency           # run an agency package directly
-kdeps registry install my-agent.kdeps       # install local .kdeps into agents/
-kdeps registry install my-comp.komponent    # install local .komponent into components/
-kdeps registry install my-component        # install by name from kdeps.io
+# Run a package file directly (no install step)
+kdeps run my-agent-1.0.0.kdeps
+kdeps run my-agency-1.0.0.kagency
+
+# Or install system-wide and run by name
+kdeps registry install my-agent.kdeps       # installs to ~/.kdeps/agents/my-agent/
+kdeps registry install my-comp.komponent    # installs to ~/.kdeps/components/my-comp/
+kdeps exec my-agent                         # run installed agent by name
+kdeps registry install my-agent            # install by name from kdeps.io
 ```
 
 Publish to [kdeps.io](https://kdeps.io) for one-line install by the community:
