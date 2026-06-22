@@ -997,6 +997,18 @@ func (r *REPL) Run() error {
 	fmt.Fprintln(os.Stdout, styleReplInfo.Render(statusLine))
 	sepWidth := max(lipgloss.Width(statusLine), replStatusWidth)
 	fmt.Fprintln(os.Stdout, styleReplDim.Render(strings.Repeat("─", sepWidth)))
+
+	// Stale branch check - warn when branch is behind upstream.
+	if staleCwd, cwdErr := os.Getwd(); cwdErr == nil {
+		if fr, _ := CheckBranchFreshness(staleCwd); fr.Freshness != BranchFresh && fr.Freshness != BranchUnknown {
+			msg := FormatStaleBranchWarning(fr)
+			if StaleBranchPolicyFromEnv() == StalePolicyBlock {
+				return fmt.Errorf("agent: startup blocked: %s", msg)
+			}
+			fmt.Fprintln(os.Stdout, styleReplInfo.Render("warning: "+msg))
+		}
+	}
+
 	return r.runLoop(rl)
 }
 
