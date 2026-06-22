@@ -346,36 +346,44 @@ func renderToolCall(name, args string) string {
 	return dim.Render("[") + tool.Render(name) + dim.Render(" -> ") + tool.Render(args) + dim.Render("]")
 }
 
+// ansiThinkingColor is a raw ANSI escape for muted gray, used to keep the thinking
+// color open across multiple streamed chunks without per-chunk lipgloss Render calls
+// (which would insert ANSI reset codes between tokens and cause double-spacing).
+const ansiThinkingColor = "\033[38;5;245m"
+
 // liveThinkingWriter streams reasoning/thinking tokens to stdout in real-time.
+// The gray color is opened once on the first Write and closed in Flush(), so
+// no per-chunk ANSI codes are injected between tokens.
 // Each round resets so a new "* thinking" header appears per tool-call round.
 type liveThinkingWriter struct {
 	started bool
 }
 
 // Write renders reasoning chunks to stdout as they arrive. The first chunk in
-// each round prints the styled "* thinking" header; subsequent chunks are
-// indented and gray.
+// each round prints the "* thinking" header and opens the gray color; subsequent
+// chunks are written raw with newlines indented.
 func (w *liveThinkingWriter) Write(p []byte) (int, error) {
 	if len(p) == 0 {
 		return 0, nil
 	}
 	if !w.started {
+		// Header uses lipgloss once (for correct color detection), then the
+		// color is left open for all subsequent chunk writes.
 		hdr := lipgloss.NewStyle().Foreground(lipgloss.Color(colorThinking)).Render("* thinking")
-		fmt.Fprintf(os.Stdout, "\n%s\n", hdr)
+		fmt.Fprintf(os.Stdout, "\n%s\n%s  ", hdr, ansiThinkingColor)
 		w.started = true
 	}
-	// Indent each line and render in muted gray.
-	style := lipgloss.NewStyle().Foreground(lipgloss.Color(colorThinking))
+	// Write raw text; replace internal newlines with indented newlines.
 	text := strings.ReplaceAll(strings.TrimRight(string(p), "\n"), "\n", "\n  ")
-	fmt.Fprintf(os.Stdout, "  %s", style.Render(text))
+	fmt.Fprint(os.Stdout, text)
 	return len(p), nil
 }
 
-// Flush closes the current thinking block with a trailing newline and resets
-// the writer so the next round starts a fresh "* thinking" header.
+// Flush closes the open gray color, adds a trailing newline, and resets the
+// writer so the next round starts a fresh "* thinking" header.
 func (w *liveThinkingWriter) Flush() {
 	if w.started {
-		fmt.Fprintln(os.Stdout)
+		fmt.Fprint(os.Stdout, "\033[0m\n")
 		w.started = false
 	}
 }
