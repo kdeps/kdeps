@@ -48,12 +48,12 @@ func TestHandleToolCalls_FollowUpError(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		calls++
 		if calls == 1 {
-			_ = json.NewEncoder(w).Encode(map[string]interface{}{
-				"message": map[string]interface{}{
-					"tool_calls": []interface{}{
-						map[string]interface{}{
+			_ = json.NewEncoder(w).Encode(map[string]any{
+				"message": map[string]any{
+					"tool_calls": []any{
+						map[string]any{
 							"id": "1",
-							"function": map[string]interface{}{
+							"function": map[string]any{
 								"name": "my_tool", "arguments": `{}`,
 							},
 						},
@@ -72,20 +72,20 @@ func TestHandleToolCalls_FollowUpError(t *testing.T) {
 	_, err = e.handleToolCalls(
 		ctx,
 		&domain.ChatConfig{},
-		[]domain.Tool{{Name: "my_tool", Execute: func(_ map[string]interface{}) (string, error) {
+		[]domain.Tool{{Name: "my_tool", Execute: func(_ map[string]any) (string, error) {
 			return "ok", nil
 		}}},
 		"m",
-		[]map[string]interface{}{{"role": "user", "content": "hi"}},
+		[]map[string]any{{"role": "user", "content": "hi"}},
 		ChatRequestConfig{},
 		&OllamaBackend{},
 		srv.URL,
-		map[string]interface{}{
-			"message": map[string]interface{}{
-				"tool_calls": []interface{}{
-					map[string]interface{}{
+		map[string]any{
+			"message": map[string]any{
+				"tool_calls": []any{
+					map[string]any{
 						"id": "1",
-						"function": map[string]interface{}{
+						"function": map[string]any{
 							"name": "my_tool", "arguments": `{}`,
 						},
 					},
@@ -108,11 +108,11 @@ func TestCallBackendWithFallback_ErrorAndRetryErr(t *testing.T) {
 	out := e.callBackendWithFallback(
 		&OllamaBackend{},
 		"http://localhost:11434",
-		map[string]interface{}{"model": "m"},
+		map[string]any{"model": "m"},
 		time.Second,
 		routes,
 		cfg,
-		[]map[string]interface{}{{"role": "user", "content": "hi"}},
+		[]map[string]any{{"role": "user", "content": "hi"}},
 		ChatRequestConfig{},
 	)
 	assert.Contains(t, out, "error")
@@ -145,11 +145,11 @@ func TestCallBackendWithFallback_RetryError(t *testing.T) {
 	out := e.callBackendWithFallback(
 		&OllamaBackend{},
 		"http://localhost:11434",
-		map[string]interface{}{"model": "m"},
+		map[string]any{"model": "m"},
 		time.Second,
 		routes,
 		cfg,
-		[]map[string]interface{}{{"role": "user", "content": "hi"}},
+		[]map[string]any{{"role": "user", "content": "hi"}},
 		ChatRequestConfig{},
 	)
 	assert.Contains(t, out, "error")
@@ -165,15 +165,15 @@ func TestHandleToolCalls_Error(t *testing.T) {
 		&domain.ChatConfig{},
 		nil,
 		"m",
-		[]map[string]interface{}{{"role": "user", "content": "hi"}},
+		[]map[string]any{{"role": "user", "content": "hi"}},
 		ChatRequestConfig{},
 		&htcBuildRequestErrorBackend{},
 		"http://localhost",
-		map[string]interface{}{"message": map[string]interface{}{
-			"tool_calls": []interface{}{
-				map[string]interface{}{
+		map[string]any{"message": map[string]any{
+			"tool_calls": []any{
+				map[string]any{
 					"id": "1",
-					"function": map[string]interface{}{
+					"function": map[string]any{
 						"name": "t", "arguments": `{}`,
 					},
 				},
@@ -291,16 +291,16 @@ func TestApplyLLMRouter_RoundRobinStrategy(t *testing.T) {
 func TestRetryFallbackRoutes_LoopsThroughRoutes(t *testing.T) {
 	// Server 1: returns error response
 	server1 := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		resp := map[string]interface{}{"error": "model temporarily unavailable"}
+		resp := map[string]any{"error": "model temporarily unavailable"}
 		_ = json.NewEncoder(w).Encode(resp)
 	}))
 	defer server1.Close()
 
 	// Server 2: returns success
 	server2 := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		resp := map[string]interface{}{
+		resp := map[string]any{
 			"model":   "llama3.2:1b",
-			"message": map[string]interface{}{"role": "assistant", "content": "fallback success"},
+			"message": map[string]any{"role": "assistant", "content": "fallback success"},
 			"done":    true,
 		}
 		_ = json.NewEncoder(w).Encode(resp)
@@ -316,13 +316,13 @@ func TestRetryFallbackRoutes_LoopsThroughRoutes(t *testing.T) {
 		{Model: "llama3.2:1b", Backend: "ollama", BaseURL: server2.URL, Priority: 2},
 	}
 
-	messages := []map[string]interface{}{
+	messages := []map[string]any{
 		{"role": "user", "content": "hello"},
 	}
 	requestConfig := ChatRequestConfig{
 		ContextLength: 4096,
 	}
-	response := map[string]interface{}{"error": "first backend failed"}
+	response := map[string]any{"error": "first backend failed"}
 
 	result, lastErr := e.retryFallbackRoutes(fallbackRoutes, cfg, messages, requestConfig, response, 5*time.Second)
 	assert.NoError(t, lastErr)
@@ -331,7 +331,7 @@ func TestRetryFallbackRoutes_LoopsThroughRoutes(t *testing.T) {
 	assert.Equal(t, "ollama", cfg.Backend)
 	assert.Equal(t, server2.URL, cfg.BaseURL)
 	// Response should be success from server2
-	msg, ok := result["message"].(map[string]interface{})
+	msg, ok := result["message"].(map[string]any)
 	require.True(t, ok)
 	assert.Equal(t, "fallback success", msg["content"])
 }
@@ -342,9 +342,9 @@ func TestRetryFallbackRoutes_SingleRouteReturnsEarly(t *testing.T) {
 	fallbackRoutes := []config.ModelEntry{
 		{Model: "llama3.2:1b", Priority: 0},
 	}
-	messages := []map[string]interface{}{}
+	messages := []map[string]any{}
 	requestConfig := ChatRequestConfig{}
-	response := map[string]interface{}{"error": "some error"}
+	response := map[string]any{"error": "some error"}
 
 	result, lastErr := e.retryFallbackRoutes(fallbackRoutes, cfg, messages, requestConfig, response, time.Second)
 	assert.NoError(t, lastErr)
@@ -361,11 +361,11 @@ func TestRetryFallbackRoutes_NilBackend(t *testing.T) {
 		{Model: "model-b", Backend: "nonexistent-backend", Priority: 2},
 	}
 
-	messages := []map[string]interface{}{
+	messages := []map[string]any{
 		{"role": "user", "content": "hello"},
 	}
 	requestConfig := ChatRequestConfig{}
-	response := map[string]interface{}{"error": "first call failed"}
+	response := map[string]any{"error": "first call failed"}
 
 	// The second backend does not exist in the registry, so fb == nil → continue (line 1557)
 	result, _ := e.retryFallbackRoutes(fallbackRoutes, cfg, messages, requestConfig, response, time.Second)
@@ -381,9 +381,9 @@ func TestRetryFallbackRoutes_CallBackendError(t *testing.T) {
 		{Model: "model-a", Backend: "ollama", BaseURL: "http://127.0.0.1:1", Priority: 1},
 	}
 
-	messages := []map[string]interface{}{}
+	messages := []map[string]any{}
 	requestConfig := ChatRequestConfig{}
-	response := map[string]interface{}{"error": "first failed"}
+	response := map[string]any{"error": "first failed"}
 
 	result, _ := e.retryFallbackRoutes(fallbackRoutes, cfg, messages, requestConfig, response, time.Millisecond)
 	assert.Contains(t, result, "error")
@@ -401,24 +401,24 @@ func TestHandleToolCalls_BuildRequestError(t *testing.T) {
 	tools := []domain.Tool{
 		{
 			Name: "my_tool",
-			Execute: func(_ map[string]interface{}) (string, error) {
+			Execute: func(_ map[string]any) (string, error) {
 				return "tool result", nil
 			},
 		},
 	}
 
-	messages := []map[string]interface{}{
+	messages := []map[string]any{
 		{"role": "user", "content": "test"},
 	}
 
-	response := map[string]interface{}{
-		"message": map[string]interface{}{
+	response := map[string]any{
+		"message": map[string]any{
 			"role":    "assistant",
 			"content": "",
-			"tool_calls": []interface{}{
-				map[string]interface{}{
+			"tool_calls": []any{
+				map[string]any{
 					"id": "call_1",
-					"function": map[string]interface{}{
+					"function": map[string]any{
 						"name":      "my_tool",
 						"arguments": `{}`,
 					},
@@ -445,7 +445,7 @@ func TestHandleToolCalls_CallBackendError(t *testing.T) {
 	server := httptest.NewServer(
 		http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 			w.WriteHeader(http.StatusInternalServerError)
-			_ = json.NewEncoder(w).Encode(map[string]interface{}{"error": "server error"})
+			_ = json.NewEncoder(w).Encode(map[string]any{"error": "server error"})
 		}),
 	)
 	defer server.Close()
@@ -459,24 +459,24 @@ func TestHandleToolCalls_CallBackendError(t *testing.T) {
 	tools := []domain.Tool{
 		{
 			Name: "my_tool",
-			Execute: func(_ map[string]interface{}) (string, error) {
+			Execute: func(_ map[string]any) (string, error) {
 				return "tool result", nil
 			},
 		},
 	}
 
-	messages := []map[string]interface{}{
+	messages := []map[string]any{
 		{"role": "user", "content": "test"},
 	}
 
-	response := map[string]interface{}{
-		"message": map[string]interface{}{
+	response := map[string]any{
+		"message": map[string]any{
 			"role":    "assistant",
 			"content": "",
-			"tool_calls": []interface{}{
-				map[string]interface{}{
+			"tool_calls": []any{
+				map[string]any{
 					"id": "call_1",
-					"function": map[string]interface{}{
+					"function": map[string]any{
 						"name":      "my_tool",
 						"arguments": `{}`,
 					},
@@ -505,7 +505,7 @@ func TestRetryFallbackRoutes_BreakOnSuccess(t *testing.T) {
 	// Server 1: always returns error.
 	errorServer := httptest.NewServer(
 		http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-			_ = json.NewEncoder(w).Encode(map[string]interface{}{"error": "first unavailable"})
+			_ = json.NewEncoder(w).Encode(map[string]any{"error": "first unavailable"})
 		}),
 	)
 	defer errorServer.Close()
@@ -513,9 +513,9 @@ func TestRetryFallbackRoutes_BreakOnSuccess(t *testing.T) {
 	// Server 2: always returns success.
 	successServer := httptest.NewServer(
 		http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-			_ = json.NewEncoder(w).Encode(map[string]interface{}{
+			_ = json.NewEncoder(w).Encode(map[string]any{
 				"model":   "llama3.2:1b",
-				"message": map[string]interface{}{"role": "assistant", "content": "fallback ok"},
+				"message": map[string]any{"role": "assistant", "content": "fallback ok"},
 				"done":    true,
 			})
 		}),
@@ -532,10 +532,10 @@ func TestRetryFallbackRoutes_BreakOnSuccess(t *testing.T) {
 		{Model: "model-c", Backend: "ollama", BaseURL: "http://127.0.0.1:1", Priority: 3},
 	}
 
-	messages := []map[string]interface{}{
+	messages := []map[string]any{
 		{"role": "user", "content": "hello"},
 	}
-	response := map[string]interface{}{"error": "first backend failed"}
+	response := map[string]any{"error": "first backend failed"}
 
 	result, lastErr := e.retryFallbackRoutes(
 		fallbackRoutes, cfg, messages, ChatRequestConfig{}, response, 5*time.Second,
@@ -543,7 +543,7 @@ func TestRetryFallbackRoutes_BreakOnSuccess(t *testing.T) {
 	assert.NoError(t, lastErr)
 
 	// Should have switched to server 2 (success).
-	msg, ok := result["message"].(map[string]interface{})
+	msg, ok := result["message"].(map[string]any)
 	require.True(t, ok)
 	assert.Equal(t, "fallback ok", msg["content"])
 }
@@ -564,8 +564,8 @@ func TestRetryFallbackRoutes_EmptyBackendAndBaseURL(t *testing.T) {
 		{Model: "model-b", Backend: "", Priority: 2},
 	}
 
-	messages := []map[string]interface{}{}
-	response := map[string]interface{}{"error": "first failed"}
+	messages := []map[string]any{}
+	response := map[string]any{"error": "first failed"}
 
 	result, lastErr := e.retryFallbackRoutes(
 		fallbackRoutes, cfg, messages, ChatRequestConfig{}, response, time.Millisecond,
@@ -588,8 +588,8 @@ func TestRetryFallbackRoutes_BuildRequestError(t *testing.T) {
 		{Model: "model-b", Backend: "mock-retry-build-error", Priority: 2},
 	}
 
-	messages := []map[string]interface{}{}
-	response := map[string]interface{}{"error": "first failed"}
+	messages := []map[string]any{}
+	response := map[string]any{"error": "first failed"}
 
 	result, _ := e.retryFallbackRoutes(
 		fallbackRoutes, cfg, messages, ChatRequestConfig{}, response, time.Second,
@@ -776,14 +776,14 @@ func newOpenAIMockServer(content string) *httptest.Server {
 			flusher, _ := w.(http.Flusher)
 
 			// Send content as a single delta chunk
-			chunk := map[string]interface{}{
+			chunk := map[string]any{
 				"id":     "chatcmpl-test",
 				"object": "chat.completion.chunk",
 				"model":  "test-model",
-				"choices": []map[string]interface{}{
+				"choices": []map[string]any{
 					{
 						"index": 0,
-						"delta": map[string]interface{}{
+						"delta": map[string]any{
 							"role":    "assistant",
 							"content": content,
 						},
@@ -798,14 +798,14 @@ func newOpenAIMockServer(content string) *httptest.Server {
 			}
 
 			// Send stop chunk
-			stopChunk := map[string]interface{}{
+			stopChunk := map[string]any{
 				"id":     "chatcmpl-test",
 				"object": "chat.completion.chunk",
 				"model":  "test-model",
-				"choices": []map[string]interface{}{
+				"choices": []map[string]any{
 					{
 						"index":         0,
-						"delta":         map[string]interface{}{},
+						"delta":         map[string]any{},
 						"finish_reason": "stop",
 					},
 				},
@@ -818,21 +818,21 @@ func newOpenAIMockServer(content string) *httptest.Server {
 			}
 		} else {
 			// Non-streaming response
-			resp := map[string]interface{}{
+			resp := map[string]any{
 				"id":     "chatcmpl-test",
 				"object": "chat.completion",
 				"model":  "test-model",
-				"choices": []map[string]interface{}{
+				"choices": []map[string]any{
 					{
 						"index": 0,
-						"message": map[string]interface{}{
+						"message": map[string]any{
 							"role":    "assistant",
 							"content": content,
 						},
 						"finish_reason": "stop",
 					},
 				},
-				"usage": map[string]interface{}{
+				"usage": map[string]any{
 					"prompt_tokens":     10,
 					"completion_tokens": 5,
 					"total_tokens":      15,
@@ -881,11 +881,11 @@ func TestStreamChat_Success_NoChunks(t *testing.T) {
 func TestStreamChat_EmptyChoices(t *testing.T) {
 	// Server returns empty choices array.
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		resp := map[string]interface{}{
+		resp := map[string]any{
 			"id":      "chatcmpl-empty",
 			"object":  "chat.completion",
 			"model":   "test-model",
-			"choices": []interface{}{},
+			"choices": []any{},
 		}
 		w.Header().Set("Content-Type", "application/json")
 		_ = json.NewEncoder(w).Encode(resp)
@@ -970,16 +970,16 @@ func TestBuildOpenAIResponseFormat_Nil_WhenNoSchema(t *testing.T) {
 }
 
 func TestBuildOpenAIResponseFormat_Nil_WhenEmptySchema(t *testing.T) {
-	cfg := &domain.ChatConfig{JSONSchema: map[string]interface{}{}}
+	cfg := &domain.ChatConfig{JSONSchema: map[string]any{}}
 	assert.Nil(t, buildOpenAIResponseFormat(cfg))
 }
 
 func TestBuildOpenAIResponseFormat_BasicSchema(t *testing.T) {
 	cfg := &domain.ChatConfig{
-		JSONSchema: map[string]interface{}{
+		JSONSchema: map[string]any{
 			"type": "object",
-			"properties": map[string]interface{}{
-				"answer": map[string]interface{}{"type": "string"},
+			"properties": map[string]any{
+				"answer": map[string]any{"type": "string"},
 			},
 		},
 	}
@@ -995,7 +995,7 @@ func TestBuildOpenAIResponseFormat_BasicSchema(t *testing.T) {
 
 func TestBuildOpenAIResponseFormat_TitleAsName(t *testing.T) {
 	cfg := &domain.ChatConfig{
-		JSONSchema: map[string]interface{}{
+		JSONSchema: map[string]any{
 			"title": "my_schema",
 			"type":  "object",
 		},
@@ -1007,7 +1007,7 @@ func TestBuildOpenAIResponseFormat_TitleAsName(t *testing.T) {
 
 func TestBuildJSONOpts_SchemaSkipsJSONMode(t *testing.T) {
 	cfg := &domain.ChatConfig{
-		JSONSchema: map[string]interface{}{"type": "object"},
+		JSONSchema: map[string]any{"type": "object"},
 	}
 	// JSONSchema with OpenAI-compat backend: no call options needed (schema is on constructor)
 	opts := buildJSONOpts(cfg, BackendFile)
@@ -1042,12 +1042,12 @@ func TestStreamChat_WithJSONSchema_OpenAICompat(t *testing.T) {
 		Backend: BackendFile,
 		BaseURL: srv.URL,
 		Prompt:  "what is 6*7",
-		JSONSchema: map[string]interface{}{
+		JSONSchema: map[string]any{
 			"type": "object",
-			"properties": map[string]interface{}{
-				"answer": map[string]interface{}{"type": "string"},
+			"properties": map[string]any{
+				"answer": map[string]any{"type": "string"},
 			},
-			"required": []interface{}{"answer"},
+			"required": []any{"answer"},
 		},
 	}
 	content, _, err := e.StreamChat(t.Context(), cfg, os.Stdout)
