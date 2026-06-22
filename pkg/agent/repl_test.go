@@ -660,7 +660,8 @@ func TestDynamicPrompt_ZeroTurns(t *testing.T) {
 
 	p := repl.dynamicPrompt()
 	assert.Contains(t, p, "test-model")
-	assert.NotContains(t, p, "|")
+	// Thinking mode (auto) is shown even at 0 turns.
+	assert.Contains(t, p, "auto")
 }
 
 func TestDynamicPrompt_WithTurns(t *testing.T) {
@@ -1867,7 +1868,8 @@ func TestCmdThinking_ShowDefault(t *testing.T) {
 	assert.NoError(t, err)
 	buf := make([]byte, 256)
 	n, _ := r.Read(buf)
-	assert.Contains(t, string(buf[:n]), "off")
+	// Default thinking is auto, not off.
+	assert.Contains(t, string(buf[:n]), "auto")
 }
 
 func TestCmdThinking_SetHigh(t *testing.T) {
@@ -1916,7 +1918,10 @@ func TestCmdThinking_InvalidMode(t *testing.T) {
 
 	err := repl.cmdThinking([]string{"bogus"})
 	assert.NoError(t, err)
-	assert.Nil(t, loop.Thinking()) // no change
+	// Invalid mode leaves thinking unchanged (still auto from NewREPL default).
+	cfg := loop.Thinking()
+	assert.NotNil(t, cfg)
+	assert.Equal(t, domain.ThinkingModeAuto, cfg.Mode)
 }
 
 func TestCmdThinking_AllModes(t *testing.T) {
