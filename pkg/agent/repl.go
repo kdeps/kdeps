@@ -224,10 +224,15 @@ func (r *REPL) SetModelPickerFn(fn func(filter string) (string, error)) {
 func (r *REPL) dynamicPrompt() string {
 	turns := r.loop.Session().TurnCount()
 	model := styleReplPrompt.Render(r.loop.config.Model)
-	if turns == 0 {
-		return styleReplDim.Render("[") + model + styleReplDim.Render("] > ")
+	dim := styleReplDim.Render
+	var suffix string
+	if thinking := r.loop.Thinking(); thinking != nil && thinking.Mode != domain.ThinkingModeNone {
+		suffix = dim("|") + styleReplMeta.Render(string(thinking.Mode))
 	}
-	return styleReplDim.Render("[") + model + styleReplDim.Render(fmt.Sprintf("|%d] > ", turns))
+	if turns == 0 {
+		return dim("[") + model + suffix + dim("] > ")
+	}
+	return dim("[") + model + dim(fmt.Sprintf("|%d", turns)) + suffix + dim("] > ")
 }
 
 // buildCompleter returns a custom AutoCompleter with fuzzy command matching
@@ -833,10 +838,16 @@ func (r *REPL) Run() error {
 
 	r.readlineInst = rl
 
-	// Banner
+	// Banner with cwd - matches pi's folder-aware header.
+	cwd, _ := os.Getwd()
+	if home, homeErr := os.UserHomeDir(); homeErr == nil {
+		if rel, relErr := filepath.Rel(home, cwd); relErr == nil && !strings.HasPrefix(rel, "..") {
+			cwd = "~/" + rel
+		}
+	}
 	fmt.Fprintln(os.Stdout, styleReplBanner.Render(
 		styleReplHeading.Render("kdeps agent")+
-			styleReplDim.Render("  ·  /help for commands  ·  Ctrl+D to exit"),
+			styleReplDim.Render("  "+cwd+"  ·  /help for commands  ·  Ctrl+D to exit"),
 	))
 	statusLine := r.providerStatusLine()
 	fmt.Fprintln(os.Stdout, styleReplInfo.Render(statusLine))
@@ -1633,7 +1644,7 @@ func (r *REPL) cmdThinking(args []string) error {
 			))
 		}
 		budget := thinkingBudgets[mode]
-		r.loop.SetThinking(&domain.ThinkingConfig{Mode: mode, BudgetTokens: budget})
+		r.loop.SetThinking(&domain.ThinkingConfig{Mode: mode, BudgetTokens: budget, ReturnOutput: true})
 		fmt.Fprintf(
 			os.Stdout,
 			"%s\n",
