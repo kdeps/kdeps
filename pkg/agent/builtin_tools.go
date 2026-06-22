@@ -40,6 +40,8 @@ import (
 	"github.com/kdeps/kdeps/v2/pkg/domain"
 	kdepstools "github.com/kdeps/kdeps/v2/pkg/tools"
 
+	lcllms "github.com/tmc/langchaingo/llms"
+	lcgoogleai "github.com/tmc/langchaingo/llms/googleai"
 	lcduckduckgo "github.com/tmc/langchaingo/tools/duckduckgo"
 	lcperplexity "github.com/tmc/langchaingo/tools/perplexity"
 	lcserpapi "github.com/tmc/langchaingo/tools/serpapi"
@@ -97,6 +99,7 @@ func RegisterBuiltinTools(ctx context.Context, reg *kdepstools.Registry) {
 	registerCohereRerank(ctx, reg)
 	registerVoyageAIRerank(ctx, reg)
 	registerJinaRerank(ctx, reg)
+	registerGoogleCacheTools(ctx, reg)
 }
 
 // registerCalculator registers a starlark-powered math expression evaluator.
@@ -1471,4 +1474,128 @@ func truncateBashOutput(out string) string {
 	shownLines := strings.Count(cutoff, "\n") + 1
 	return fmt.Sprintf("%s\n[Output truncated: %d bytes total, showing first %d/%d lines]",
 		cutoff, len(out), shownLines, totalLines)
+}
+
+// registerGoogleCacheTools registers google_cache_create, google_cache_delete, and
+// google_cache_list when GOOGLE_API_KEY is set. These wrap lcgoogleai.CachingHelper
+// to manage Google AI server-side cached content (pre-created caches referenced via
+// chat: googleCachedContent field).
+func registerGoogleCacheTools(ctx context.Context, reg *kdepstools.Registry) {
+	apiKey := os.Getenv("GOOGLE_API_KEY")
+	if apiKey == "" {
+		return
+	}
+	reg.Register(googleCacheCreateTool(ctx, apiKey))
+	reg.Register(googleCacheDeleteTool(ctx, apiKey))
+	reg.Register(googleCacheListTool(ctx, apiKey))
+}
+
+func googleCacheCreateTool(ctx context.Context, apiKey string) *kdepstools.Tool {
+	return &kdepstools.Tool{
+		Name:        "google_cache_create",
+		Description: "Create a Google AI server-side cached content entry from a text system prompt. Returns the cache name (e.g. 'cachedContents/xyz123') for use in chat: googleCachedContent. Only available when GOOGLE_API_KEY is set.",
+		Parameters: map[string]domain.ToolParam{
+			"model": {
+				Type:        "string",
+				Description: "Gemini model name (e.g. 'gemini-2.0-flash')",
+				Required:    true,
+			},
+			"content": {
+				Type:        "string",
+				Description: "Text to cache as a system prompt (must be >= 32K tokens for caching benefit)",
+				Required:    true,
+			},
+			"ttl": {
+				Type:        "string",
+				Description: "Cache TTL as a Go duration string (e.g. '1h', '30m'). Default: '1h'",
+				Required:    false,
+			},
+		},
+		Execute: func(args map[string]any) (string, error) {
+			model, _ := args["model"].(string)
+			if model == "" {
+				return "", errors.New("google_cache_create: model is required")
+			}
+			content, _ := args["content"].(string)
+			if content == "" {
+				return "", errors.New("google_cache_create: content is required")
+			}
+			ttlStr, _ := args["ttl"].(string)
+			if ttlStr == "" {
+				ttlStr = "1h"
+			}
+			ttl, parseErr := time.ParseDuration(ttlStr)
+			if parseErr != nil {
+				return "", fmt.Errorf("google_cache_create: invalid ttl %q: %w", ttlStr, parseErr)
+			}
+			helper, helperErr := lcgoogleai.NewCachingHelper(ctx, lcgoogleai.WithAPIKey(apiKey))
+			if helperErr != nil {
+				return "", fmt.Errorf("google_cache_create: init helper: %w", helperErr)
+			}
+			messages := []lcllms.MessageContent{
+				{
+					Role:  lcllms.ChatMessageTypeSystem,
+					Parts: []lcllms.ContentPart{lcllms.TextPart(content)},
+				},
+			}
+			cached, createErr := helper.CreateCachedContent(ctx, model, messages, ttl)
+			if createErr != nil {
+				return "", fmt.Errorf("google_cache_create: %w", createErr)
+			}
+			return cached.Name, nil
+		},
+	}
+}
+
+func googleCacheDeleteTool(ctx context.Context, apiKey string) *kdepstools.Tool {
+	return &kdepstools.Tool{
+		Name:        "google_cache_delete",
+		Description: "Delete a Google AI cached content entry by name. Only available when GOOGLE_API_KEY is set.",
+		Parameters: map[string]domain.ToolParam{
+			"name": {
+				Type:        "string",
+				Description: "The cached content name returned by google_cache_create (e.g. 'cachedContents/xyz123')",
+				Required:    true,
+			},
+		},
+		Execute: func(args map[string]any) (string, error) {
+			name, _ := args["name"].(string)
+			if name == "" {
+				return "", errors.New("google_cache_delete: name is required")
+			}
+			helper, helperErr := lcgoogleai.NewCachingHelper(ctx, lcgoogleai.WithAPIKey(apiKey))
+			if helperErr != nil {
+				return "", fmt.Errorf("google_cache_delete: init helper: %w", helperErr)
+			}
+			if delErr := helper.DeleteCachedContent(ctx, name); delErr != nil {
+				return "", fmt.Errorf("google_cache_delete: %w", delErr)
+			}
+			return "deleted", nil
+		},
+	}
+}
+
+func googleCacheListTool(ctx context.Context, apiKey string) *kdepstools.Tool {
+	return &kdepstools.Tool{
+		Name:        "google_cache_list",
+		Description: "List all Google AI cached content entries. Returns a JSON array of cache names. Only available when GOOGLE_API_KEY is set.",
+		Parameters:  map[string]domain.ToolParam{},
+		Execute: func(_ map[string]any) (string, error) {
+			helper, helperErr := lcgoogleai.NewCachingHelper(ctx, lcgoogleai.WithAPIKey(apiKey))
+			if helperErr != nil {
+				return "", fmt.Errorf("google_cache_list: init helper: %w", helperErr)
+			}
+			iter := helper.ListCachedContents(ctx)
+			var names []string
+			for {
+				cc, nextErr := iter.Next()
+				if nextErr != nil {
+					break // iterator.Done or real error; both stop iteration
+				}
+				names = append(names, cc.Name)
+			}
+			out, _ := json.Marshal(names)
+			return string(out), nil //nolint:nilerr // iterator.Done is not propagated by design
+		},
+	}
 }
