@@ -75,7 +75,7 @@ func TestBuiltinToolExecute_EmptyQuery(t *testing.T) {
 		tool := reg.Get(name)
 		require.NotNil(t, tool)
 
-		_, err := tool.Execute(map[string]interface{}{"query": ""})
+		_, err := tool.Execute(map[string]any{"query": ""})
 		assert.Error(t, err, "tool %q should return error for empty query", name)
 	}
 }
@@ -137,7 +137,7 @@ func TestRegisterBuiltinTools_SerpAPIRegisteredWithKey(t *testing.T) {
 	require.NotNil(t, tool, "serpapi_search should register when SERPAPI_API_KEY is set")
 	assert.NotEmpty(t, tool.Description)
 	// Execute with empty query should return an error.
-	_, err := tool.Execute(map[string]interface{}{"query": ""})
+	_, err := tool.Execute(map[string]any{"query": ""})
 	assert.Error(t, err)
 }
 
@@ -148,7 +148,7 @@ func TestRegisterBuiltinTools_PerplexityRegisteredWithKey(t *testing.T) {
 	tool := reg.Get("perplexity_search")
 	require.NotNil(t, tool, "perplexity_search should register when PERPLEXITY_API_KEY is set")
 	assert.NotEmpty(t, tool.Description)
-	_, err := tool.Execute(map[string]interface{}{"query": ""})
+	_, err := tool.Execute(map[string]any{"query": ""})
 	assert.Error(t, err)
 }
 
@@ -169,7 +169,7 @@ func TestRegisterBuiltinTools_ExaRegisteredWithExaKey(t *testing.T) {
 	require.NotNil(t, tool, "exa_search should register when EXA_API_KEY is set")
 	assert.NotEmpty(t, tool.Description)
 	assert.Contains(t, tool.Description, "Exa")
-	_, err := tool.Execute(map[string]interface{}{"query": ""})
+	_, err := tool.Execute(map[string]any{"query": ""})
 	assert.Error(t, err)
 }
 
@@ -199,7 +199,7 @@ func TestWebScraper_EmptyURL(t *testing.T) {
 	RegisterBuiltinTools(context.Background(), reg)
 	tool := reg.Get("web_scraper")
 	require.NotNil(t, tool)
-	_, err := tool.Execute(map[string]interface{}{"url": ""})
+	_, err := tool.Execute(map[string]any{"url": ""})
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "url is required")
 }
@@ -221,7 +221,7 @@ func TestCallExaSearch_MissingQuery(t *testing.T) {
 	RegisterBuiltinTools(context.Background(), reg)
 	tool := reg.Get("exa_search")
 	require.NotNil(t, tool)
-	_, err := tool.Execute(map[string]interface{}{})
+	_, err := tool.Execute(map[string]any{})
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "query is required")
 }
@@ -273,7 +273,7 @@ func TestSQLExecQuery_RejectsNonSelect(t *testing.T) {
 	RegisterBuiltinTools(context.Background(), reg)
 	tool := reg.Get("sql_query")
 	require.NotNil(t, tool)
-	_, err := tool.Execute(map[string]interface{}{"query": "DROP TABLE users"})
+	_, err := tool.Execute(map[string]any{"query": "DROP TABLE users"})
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "only SELECT/WITH queries are allowed")
 }
@@ -283,7 +283,7 @@ func TestSQLQuery_EmptyQuery(t *testing.T) {
 	RegisterBuiltinTools(context.Background(), reg)
 	tool := reg.Get("sql_query")
 	require.NotNil(t, tool)
-	_, err := tool.Execute(map[string]interface{}{"query": ""})
+	_, err := tool.Execute(map[string]any{"query": ""})
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "query is required")
 }
@@ -293,7 +293,7 @@ func TestSQLDescribeTable_MissingTable(t *testing.T) {
 	RegisterBuiltinTools(context.Background(), reg)
 	tool := reg.Get("sql_describe_table")
 	require.NotNil(t, tool)
-	_, err := tool.Execute(map[string]interface{}{"table": ""})
+	_, err := tool.Execute(map[string]any{"table": ""})
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "table is required")
 }
@@ -308,13 +308,13 @@ func TestSQLListTables_AlwaysRegistered(t *testing.T) {
 
 func TestSQLDBPath_UsesEnvFallback(t *testing.T) {
 	t.Setenv("KDEPS_SQL_DB_PATH", "/tmp/fallback.db")
-	p := sqlDBPath(map[string]interface{}{})
+	p := sqlDBPath(map[string]any{})
 	assert.Equal(t, "/tmp/fallback.db", p)
 }
 
 func TestSQLDBPath_ArgOverridesEnv(t *testing.T) {
 	t.Setenv("KDEPS_SQL_DB_PATH", "/tmp/fallback.db")
-	p := sqlDBPath(map[string]interface{}{"db_path": "/tmp/override.db"})
+	p := sqlDBPath(map[string]any{"db_path": "/tmp/override.db"})
 	assert.Equal(t, "/tmp/override.db", p)
 }
 
@@ -324,7 +324,7 @@ func TestSQLListTables_Tool_WithDBPath(t *testing.T) {
 	RegisterBuiltinTools(context.Background(), reg)
 	tool := reg.Get("sql_list_tables")
 	require.NotNil(t, tool)
-	result, err := tool.Execute(map[string]interface{}{"db_path": dbPath})
+	result, err := tool.Execute(map[string]any{"db_path": dbPath})
 	require.NoError(t, err)
 	assert.Contains(t, result, "users")
 }
@@ -336,7 +336,7 @@ func TestSQLQuery_Tool_WithDBPath(t *testing.T) {
 	RegisterBuiltinTools(context.Background(), reg)
 	tool := reg.Get("sql_query")
 	require.NotNil(t, tool)
-	result, err := tool.Execute(map[string]interface{}{
+	result, err := tool.Execute(map[string]any{
 		"query":   "SELECT name FROM users WHERE id=1",
 		"db_path": dbPath,
 	})
@@ -358,7 +358,7 @@ func TestSQLListTables_MissingDBPath(t *testing.T) {
 	RegisterBuiltinTools(context.Background(), reg)
 	tool := reg.Get("sql_list_tables")
 	require.NotNil(t, tool)
-	_, err := tool.Execute(map[string]interface{}{})
+	_, err := tool.Execute(map[string]any{})
 	assert.Error(t, err)
 }
 
@@ -372,13 +372,13 @@ func TestSQLTools_WithDBPath_IntegrationNoEnv(t *testing.T) {
 
 	listTool := reg.Get("sql_list_tables")
 	require.NotNil(t, listTool)
-	r1, err := listTool.Execute(map[string]interface{}{})
+	r1, err := listTool.Execute(map[string]any{})
 	require.NoError(t, err)
 	assert.Contains(t, r1, "users")
 
 	describeTool := reg.Get("sql_describe_table")
 	require.NotNil(t, describeTool)
-	r2, err := describeTool.Execute(map[string]interface{}{"table": "users"})
+	r2, err := describeTool.Execute(map[string]any{"table": "users"})
 	require.NoError(t, err)
 	assert.Contains(t, r2, "name")
 }
@@ -409,7 +409,7 @@ func TestZapierRunAction_MissingActionID(t *testing.T) {
 	RegisterBuiltinTools(context.Background(), reg)
 	tool := reg.Get("zapier_run_action")
 	require.NotNil(t, tool)
-	_, err := tool.Execute(map[string]interface{}{"action_id": "", "instructions": "do something"})
+	_, err := tool.Execute(map[string]any{"action_id": "", "instructions": "do something"})
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "action_id is required")
 }
@@ -420,7 +420,7 @@ func TestZapierRunAction_MissingInstructions(t *testing.T) {
 	RegisterBuiltinTools(context.Background(), reg)
 	tool := reg.Get("zapier_run_action")
 	require.NotNil(t, tool)
-	_, err := tool.Execute(map[string]interface{}{"action_id": "some-id", "instructions": ""})
+	_, err := tool.Execute(map[string]any{"action_id": "some-id", "instructions": ""})
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "instructions is required")
 }
@@ -477,7 +477,7 @@ func TestBashExec_MissingCommand(t *testing.T) {
 	RegisterBuiltinTools(context.Background(), reg)
 	tool := reg.Get("bash_exec")
 	require.NotNil(t, tool)
-	_, err := tool.Execute(map[string]interface{}{})
+	_, err := tool.Execute(map[string]any{})
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "command is required")
 }
@@ -488,7 +488,7 @@ func TestBashExec_RunsCommand(t *testing.T) {
 	RegisterBuiltinTools(context.Background(), reg)
 	tool := reg.Get("bash_exec")
 	require.NotNil(t, tool)
-	out, err := tool.Execute(map[string]interface{}{"command": "echo hello"})
+	out, err := tool.Execute(map[string]any{"command": "echo hello"})
 	require.NoError(t, err)
 	assert.Equal(t, "hello", out)
 }
@@ -499,7 +499,7 @@ func TestBashExec_FailingCommandReturnsError(t *testing.T) {
 	RegisterBuiltinTools(context.Background(), reg)
 	tool := reg.Get("bash_exec")
 	require.NotNil(t, tool)
-	_, err := tool.Execute(map[string]interface{}{"command": "exit 1"})
+	_, err := tool.Execute(map[string]any{"command": "exit 1"})
 	require.Error(t, err)
 }
 
@@ -523,7 +523,7 @@ func TestWolframAlpha_MissingQuery(t *testing.T) {
 	RegisterBuiltinTools(context.Background(), reg)
 	tool := reg.Get("wolfram_alpha")
 	require.NotNil(t, tool)
-	_, err := tool.Execute(map[string]interface{}{})
+	_, err := tool.Execute(map[string]any{})
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "query is required")
 }
@@ -568,21 +568,21 @@ func TestRegisterBuiltinTools_CohereRerankRegisteredWithKey(t *testing.T) {
 
 func TestParseRerankArgs_MissingQuery(t *testing.T) {
 	t.Parallel()
-	_, err := parseRerankArgs(map[string]interface{}{}, "rerank-v3.5")
+	_, err := parseRerankArgs(map[string]any{}, "rerank-v3.5")
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "query is required")
 }
 
 func TestParseRerankArgs_MissingDocuments(t *testing.T) {
 	t.Parallel()
-	_, err := parseRerankArgs(map[string]interface{}{"query": "hello"}, "rerank-v3.5")
+	_, err := parseRerankArgs(map[string]any{"query": "hello"}, "rerank-v3.5")
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "documents")
 }
 
 func TestParseRerankArgs_InvalidDocumentsJSON(t *testing.T) {
 	t.Parallel()
-	_, err := parseRerankArgs(map[string]interface{}{
+	_, err := parseRerankArgs(map[string]any{
 		"query":     "hello",
 		"documents": "not-json",
 	}, "rerank-v3.5")
@@ -592,7 +592,7 @@ func TestParseRerankArgs_InvalidDocumentsJSON(t *testing.T) {
 
 func TestParseRerankArgs_ValidArgs(t *testing.T) {
 	t.Parallel()
-	p, err := parseRerankArgs(map[string]interface{}{
+	p, err := parseRerankArgs(map[string]any{
 		"query":     "what is AI?",
 		"documents": `["doc1","doc2"]`,
 		"model":     "custom-model",
@@ -648,7 +648,7 @@ func TestCalculator_BasicArithmetic(t *testing.T) {
 	registerCalculator(reg)
 	tool := reg.Get("calculator")
 	require.NotNil(t, tool)
-	result, err := tool.Execute(map[string]interface{}{"expression": "2 + 2"})
+	result, err := tool.Execute(map[string]any{"expression": "2 + 2"})
 	require.NoError(t, err)
 	assert.Equal(t, "4", result)
 }
@@ -659,7 +659,7 @@ func TestCalculator_Multiplication(t *testing.T) {
 	registerCalculator(reg)
 	tool := reg.Get("calculator")
 	require.NotNil(t, tool)
-	result, err := tool.Execute(map[string]interface{}{"expression": "6 * 7"})
+	result, err := tool.Execute(map[string]any{"expression": "6 * 7"})
 	require.NoError(t, err)
 	assert.Equal(t, "42", result)
 }
@@ -670,7 +670,7 @@ func TestCalculator_MathFunction(t *testing.T) {
 	registerCalculator(reg)
 	tool := reg.Get("calculator")
 	require.NotNil(t, tool)
-	result, err := tool.Execute(map[string]interface{}{"expression": "pow(2, 10)"})
+	result, err := tool.Execute(map[string]any{"expression": "pow(2, 10)"})
 	require.NoError(t, err)
 	assert.Contains(t, result, "1024")
 }
@@ -681,7 +681,7 @@ func TestCalculator_EmptyExpression(t *testing.T) {
 	registerCalculator(reg)
 	tool := reg.Get("calculator")
 	require.NotNil(t, tool)
-	_, err := tool.Execute(map[string]interface{}{"expression": ""})
+	_, err := tool.Execute(map[string]any{"expression": ""})
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "expression is required")
 }
@@ -692,7 +692,7 @@ func TestCalculator_InvalidExpression(t *testing.T) {
 	registerCalculator(reg)
 	tool := reg.Get("calculator")
 	require.NotNil(t, tool)
-	result, err := tool.Execute(map[string]interface{}{"expression": "not a math expr !!!"})
+	result, err := tool.Execute(map[string]any{"expression": "not a math expr !!!"})
 	require.NoError(t, err)
 	assert.Contains(t, result, "error")
 }
@@ -1067,7 +1067,7 @@ func TestVoyageAIRerank_MissingQuery(t *testing.T) {
 	RegisterBuiltinTools(context.Background(), reg)
 	tool := reg.Get("voyageai_rerank")
 	require.NotNil(t, tool)
-	_, err := tool.Execute(map[string]interface{}{})
+	_, err := tool.Execute(map[string]any{})
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "query is required")
 }
@@ -1078,7 +1078,7 @@ func TestJinaRerank_MissingQuery(t *testing.T) {
 	RegisterBuiltinTools(context.Background(), reg)
 	tool := reg.Get("jina_rerank")
 	require.NotNil(t, tool)
-	_, err := tool.Execute(map[string]interface{}{})
+	_, err := tool.Execute(map[string]any{})
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "query is required")
 }
@@ -1089,7 +1089,7 @@ func TestCohereRerank_MissingQuery(t *testing.T) {
 	RegisterBuiltinTools(context.Background(), reg)
 	tool := reg.Get("cohere_rerank")
 	require.NotNil(t, tool)
-	_, err := tool.Execute(map[string]interface{}{})
+	_, err := tool.Execute(map[string]any{})
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "query is required")
 }
@@ -1110,7 +1110,7 @@ func TestCohereRerankExecute_CallsRerank(t *testing.T) {
 	RegisterBuiltinTools(context.Background(), reg)
 	tool := reg.Get("cohere_rerank")
 	require.NotNil(t, tool)
-	result, err := tool.Execute(map[string]interface{}{
+	result, err := tool.Execute(map[string]any{
 		"query":     "test",
 		"documents": `["doc1", "doc2"]`,
 	})
@@ -1134,7 +1134,7 @@ func TestVoyageAIRerankExecute_CallsRerank(t *testing.T) {
 	RegisterBuiltinTools(context.Background(), reg)
 	tool := reg.Get("voyageai_rerank")
 	require.NotNil(t, tool)
-	result, err := tool.Execute(map[string]interface{}{
+	result, err := tool.Execute(map[string]any{
 		"query":     "test",
 		"documents": `["doc1"]`,
 	})
@@ -1158,7 +1158,7 @@ func TestJinaRerankExecute_CallsRerank(t *testing.T) {
 	RegisterBuiltinTools(context.Background(), reg)
 	tool := reg.Get("jina_rerank")
 	require.NotNil(t, tool)
-	result, err := tool.Execute(map[string]interface{}{
+	result, err := tool.Execute(map[string]any{
 		"query":     "test",
 		"documents": `["doc1"]`,
 	})
@@ -1188,7 +1188,7 @@ func TestWebSearch_Execute_NonEmptyQuery(t *testing.T) {
 	tool := reg.Get("web_search")
 	require.NotNil(t, tool)
 	// Network call may fail in CI; we only need the return statement covered
-	_, _ = tool.Execute(map[string]interface{}{"query": "test coverage"})
+	_, _ = tool.Execute(map[string]any{"query": "test coverage"})
 }
 
 func TestWikipedia_Execute_NonEmptyQuery(t *testing.T) {
@@ -1197,7 +1197,7 @@ func TestWikipedia_Execute_NonEmptyQuery(t *testing.T) {
 	tool := reg.Get("wikipedia")
 	require.NotNil(t, tool)
 	// Network call may fail in CI; we only need the return statement covered
-	_, _ = tool.Execute(map[string]interface{}{"query": "Go programming language"})
+	_, _ = tool.Execute(map[string]any{"query": "Go programming language"})
 }
 
 func TestWebScraper_Execute_WithMockServer(t *testing.T) {
@@ -1211,7 +1211,7 @@ func TestWebScraper_Execute_WithMockServer(t *testing.T) {
 	RegisterBuiltinTools(context.Background(), reg)
 	tool := reg.Get("web_scraper")
 	require.NotNil(t, tool)
-	result, err := tool.Execute(map[string]interface{}{"url": srv.URL})
+	result, err := tool.Execute(map[string]any{"url": srv.URL})
 	require.NoError(t, err)
 	assert.Contains(t, result, "Hello world")
 }
@@ -1231,7 +1231,7 @@ func TestBashExec_ErrorWithStderr(t *testing.T) {
 	tool := reg.Get("bash_exec")
 	require.NotNil(t, tool)
 	// Command that writes to stderr and exits nonzero
-	_, err := tool.Execute(map[string]interface{}{"command": "echo 'err msg' >&2; exit 1"})
+	_, err := tool.Execute(map[string]any{"command": "echo 'err msg' >&2; exit 1"})
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "err msg")
 }
@@ -1243,7 +1243,7 @@ func TestBashExec_SuccessWithStderr(t *testing.T) {
 	tool := reg.Get("bash_exec")
 	require.NotNil(t, tool)
 	// Command that succeeds but writes to stderr
-	out, err := tool.Execute(map[string]interface{}{"command": "echo 'warning' >&2; echo 'output'"})
+	out, err := tool.Execute(map[string]any{"command": "echo 'warning' >&2; echo 'output'"})
 	require.NoError(t, err)
 	assert.Contains(t, out, "output")
 	assert.Contains(t, out, "warning")
@@ -1406,7 +1406,7 @@ func TestWolframAlpha_Execute_WithMockServer(t *testing.T) {
 	RegisterBuiltinTools(context.Background(), reg)
 	tool := reg.Get("wolfram_alpha")
 	require.NotNil(t, tool)
-	result, err := tool.Execute(map[string]interface{}{"query": "2+2"})
+	result, err := tool.Execute(map[string]any{"query": "2+2"})
 	require.NoError(t, err)
 	assert.Equal(t, "42", result)
 }
@@ -1564,7 +1564,7 @@ func TestCallCohereFormatReranker_DoRequestError(t *testing.T) {
 
 func TestParseRerankArgs_EmptyDocsArray(t *testing.T) {
 	t.Parallel()
-	_, err := parseRerankArgs(map[string]interface{}{
+	_, err := parseRerankArgs(map[string]any{
 		"query":     "hello",
 		"documents": "[]",
 	}, "model")
@@ -1599,7 +1599,7 @@ func TestExaSearch_ViaToolExecute(t *testing.T) {
 	RegisterBuiltinTools(context.Background(), reg)
 	tool := reg.Get("exa_search")
 	require.NotNil(t, tool)
-	result, err := tool.Execute(map[string]interface{}{"query": "test"})
+	result, err := tool.Execute(map[string]any{"query": "test"})
 	require.NoError(t, err)
 	assert.Contains(t, result, "Test")
 }
@@ -1620,7 +1620,7 @@ func TestZapierListActions_ViaToolExecute(t *testing.T) {
 	RegisterBuiltinTools(context.Background(), reg)
 	tool := reg.Get("zapier_list_actions")
 	require.NotNil(t, tool)
-	result, err := tool.Execute(map[string]interface{}{})
+	result, err := tool.Execute(map[string]any{})
 	require.NoError(t, err)
 	assert.Contains(t, result, "abc")
 }
@@ -1641,7 +1641,7 @@ func TestZapierRunAction_ViaToolExecute(t *testing.T) {
 	RegisterBuiltinTools(context.Background(), reg)
 	tool := reg.Get("zapier_run_action")
 	require.NotNil(t, tool)
-	result, err := tool.Execute(map[string]interface{}{"action_id": "act-id", "instructions": "do it"})
+	result, err := tool.Execute(map[string]any{"action_id": "act-id", "instructions": "do it"})
 	require.NoError(t, err)
 	assert.Contains(t, result, "ok")
 }
@@ -1680,7 +1680,7 @@ func TestReadFile_EmptyFilePath(t *testing.T) {
 	RegisterBuiltinTools(context.Background(), reg)
 	tool := reg.Get("read_file")
 	require.NotNil(t, tool)
-	_, err := tool.Execute(map[string]interface{}{"file_path": ""})
+	_, err := tool.Execute(map[string]any{"file_path": ""})
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "file_path is required")
 }
@@ -1690,7 +1690,7 @@ func TestReadFile_RelativePath(t *testing.T) {
 	RegisterBuiltinTools(context.Background(), reg)
 	tool := reg.Get("read_file")
 	require.NotNil(t, tool)
-	_, err := tool.Execute(map[string]interface{}{"file_path": "relative/path.txt"})
+	_, err := tool.Execute(map[string]any{"file_path": "relative/path.txt"})
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "absolute path required")
 }
@@ -1700,7 +1700,7 @@ func TestReadFile_NonExistentFile(t *testing.T) {
 	RegisterBuiltinTools(context.Background(), reg)
 	tool := reg.Get("read_file")
 	require.NotNil(t, tool)
-	_, err := tool.Execute(map[string]interface{}{"file_path": "/nonexistent/path/to/file.txt"})
+	_, err := tool.Execute(map[string]any{"file_path": "/nonexistent/path/to/file.txt"})
 	assert.Error(t, err)
 }
 
@@ -1709,7 +1709,7 @@ func TestReadFile_Directory(t *testing.T) {
 	RegisterBuiltinTools(context.Background(), reg)
 	tool := reg.Get("read_file")
 	require.NotNil(t, tool)
-	_, err := tool.Execute(map[string]interface{}{"file_path": "/tmp"})
+	_, err := tool.Execute(map[string]any{"file_path": "/tmp"})
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "is a directory")
 }
@@ -1729,7 +1729,7 @@ func TestReadFile_Success(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, tmpFile.Close())
 
-	result, err := tool.Execute(map[string]interface{}{"file_path": tmpFile.Name()})
+	result, err := tool.Execute(map[string]any{"file_path": tmpFile.Name()})
 	require.NoError(t, err)
 	assert.Equal(t, "line 1\nline 2\nline 3\nline 4\nline 5", result)
 }
@@ -1749,7 +1749,7 @@ func TestReadFile_WithOffset(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, tmpFile.Close())
 
-	result, err := tool.Execute(map[string]interface{}{
+	result, err := tool.Execute(map[string]any{
 		"file_path": tmpFile.Name(),
 		"offset":    float64(3),
 	})
@@ -1772,7 +1772,7 @@ func TestReadFile_WithOffsetAndLimit(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, tmpFile.Close())
 
-	result, err := tool.Execute(map[string]interface{}{
+	result, err := tool.Execute(map[string]any{
 		"file_path": tmpFile.Name(),
 		"offset":    float64(2),
 		"limit":     float64(2),
@@ -1795,7 +1795,7 @@ func TestReadFile_OffsetBeyondEOF(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, tmpFile.Close())
 
-	result, err := tool.Execute(map[string]interface{}{
+	result, err := tool.Execute(map[string]any{
 		"file_path": tmpFile.Name(),
 		"offset":    float64(100),
 	})
@@ -1817,7 +1817,7 @@ func TestReadFile_LimitBeyondEOF(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, tmpFile.Close())
 
-	result, err := tool.Execute(map[string]interface{}{
+	result, err := tool.Execute(map[string]any{
 		"file_path": tmpFile.Name(),
 		"offset":    float64(1),
 		"limit":     float64(100),
@@ -1837,7 +1837,7 @@ func TestReadFile_EmptyFile(t *testing.T) {
 	defer os.Remove(tmpFile.Name())
 	require.NoError(t, tmpFile.Close())
 
-	result, err := tool.Execute(map[string]interface{}{"file_path": tmpFile.Name()})
+	result, err := tool.Execute(map[string]any{"file_path": tmpFile.Name()})
 	require.NoError(t, err)
 	assert.Empty(t, result)
 }
@@ -1857,7 +1857,7 @@ func TestReadFile_MissingFileWritePermission(t *testing.T) {
 	require.NoError(t, os.Chmod(tmpFile.Name(), 0o000))
 	defer os.Remove(tmpFile.Name())
 
-	_, err = tool.Execute(map[string]interface{}{"file_path": tmpFile.Name()})
+	_, err = tool.Execute(map[string]any{"file_path": tmpFile.Name()})
 	require.NoError(t, os.Chmod(tmpFile.Name(), 0o644))
 	assert.Error(t, err)
 }
@@ -1895,7 +1895,7 @@ func TestWriteFile_EmptyFilePath(t *testing.T) {
 	RegisterBuiltinTools(context.Background(), reg)
 	tool := reg.Get("write_file")
 	require.NotNil(t, tool)
-	_, err := tool.Execute(map[string]interface{}{"file_path": "", "content": "data"})
+	_, err := tool.Execute(map[string]any{"file_path": "", "content": "data"})
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "file_path is required")
 }
@@ -1905,7 +1905,7 @@ func TestWriteFile_RelativePath(t *testing.T) {
 	RegisterBuiltinTools(context.Background(), reg)
 	tool := reg.Get("write_file")
 	require.NotNil(t, tool)
-	_, err := tool.Execute(map[string]interface{}{"file_path": "relative/path.txt", "content": "data"})
+	_, err := tool.Execute(map[string]any{"file_path": "relative/path.txt", "content": "data"})
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "absolute path required")
 }
@@ -1915,7 +1915,7 @@ func TestWriteFile_Directory(t *testing.T) {
 	RegisterBuiltinTools(context.Background(), reg)
 	tool := reg.Get("write_file")
 	require.NotNil(t, tool)
-	_, err := tool.Execute(map[string]interface{}{"file_path": "/tmp", "content": "data"})
+	_, err := tool.Execute(map[string]any{"file_path": "/tmp", "content": "data"})
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "is a directory")
 }
@@ -1932,7 +1932,7 @@ func TestWriteFile_CreateNewFile(t *testing.T) {
 	require.NoError(t, tmpFile.Close())
 	require.NoError(t, os.Remove(tmpPath))
 
-	result, err := tool.Execute(map[string]interface{}{
+	result, err := tool.Execute(map[string]any{
 		"file_path": tmpPath,
 		"content":   "hello world\n",
 	})
@@ -1958,7 +1958,7 @@ func TestWriteFile_OverwriteExistingFile(t *testing.T) {
 	require.NoError(t, tmpFile.Close())
 	defer os.Remove(tmpFile.Name())
 
-	result, err := tool.Execute(map[string]interface{}{
+	result, err := tool.Execute(map[string]any{
 		"file_path": tmpFile.Name(),
 		"content":   "overwritten\n",
 	})
@@ -1981,7 +1981,7 @@ func TestWriteFile_NoPermission(t *testing.T) {
 	require.NoError(t, os.Chmod(tmpDir, 0o500))
 	defer os.RemoveAll(tmpDir)
 
-	_, err = tool.Execute(map[string]interface{}{
+	_, err = tool.Execute(map[string]any{
 		"file_path": filepath.Join(tmpDir, "cant-write-here.txt"),
 		"content":   "data",
 	})
