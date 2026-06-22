@@ -847,6 +847,7 @@ func historyPath() string {
 // Run starts the REPL. It blocks until the user exits or an error occurs.
 func (r *REPL) Run() error {
 	defer r.cancel()
+	defer r.autoSaveOnExit()
 
 	hpath := historyPath()
 
@@ -1697,6 +1698,24 @@ func (r *REPL) cmdThinking(args []string) error {
 		fmt.Fprintln(os.Stdout, styleReplMeta.Render("Usage: /thinking [off|minimal|low|medium|high|xhigh|auto]"))
 	}
 	return nil
+}
+
+// autoSaveOnExit saves the session on REPL exit if there are turns and a store is configured.
+func (r *REPL) autoSaveOnExit() {
+	store := r.loop.Store()
+	if store == nil {
+		return
+	}
+	if r.loop.Session().TurnCount() == 0 {
+		return
+	}
+	id, err := store.SaveAs(r.loop.Session(), "", r.CurrentModel())
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "session auto-save failed: %v\n", err)
+		return
+	}
+	fmt.Fprintf(os.Stdout, "\n%s\n",
+		styleReplDim.Render("Session saved. Resume with: --resume "+id))
 }
 
 // cmdSession handles /session list|save [name]|load <id>|delete <id>.
