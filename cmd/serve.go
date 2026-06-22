@@ -84,6 +84,7 @@ func runAgentLoopCmd(path string, flags *agentLoopFlags) error {
 	eng := setupEngine(nil, flags.Debug)
 	llmAdapter := llm.NewAdapter(flags.BaseURL)
 
+	store := agent.NewSessionStore("")
 	cfg := agent.Config{
 		Model:        flags.Model,
 		Backend:      flags.Backend,
@@ -92,10 +93,10 @@ func runAgentLoopCmd(path string, flags *agentLoopFlags) error {
 		SkillPaths:   skillPaths,
 		Streamer:     llmAdapter,
 		ModelService: llm.NewModelService(nil),
+		Store:        store,
 	}
 
 	if flags.Resume != "" {
-		store := agent.NewSessionStore("")
 		saved, loadErr := store.Load(flags.Resume)
 		if loadErr != nil {
 			return fmt.Errorf("agent loop: failed to load session %q: %w", flags.Resume, loadErr)

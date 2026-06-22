@@ -1698,7 +1698,7 @@ func (r *REPL) cmdSession(args []string) error {
 	if store == nil {
 		fmt.Fprintln(
 			os.Stdout,
-			styleReplMeta.Render("Session store not configured. Pass --session-store to enable."),
+			styleReplMeta.Render("Session store not available."),
 		)
 		return nil
 	}
