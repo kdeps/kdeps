@@ -1385,6 +1385,16 @@ func TestBuildScenarioMessages_CacheControl(t *testing.T) {
 	assert.True(t, isText, "expected TextContent for no cacheControl")
 }
 
+func TestChatConfig_GoogleCredentialsFields(t *testing.T) {
+	t.Parallel()
+	cfg := domain.ChatConfig{
+		GoogleCredentialsJSON: `{"type":"service_account"}`,
+		GoogleCredentialsFile: "/path/to/key.json",
+	}
+	assert.Equal(t, `{"type":"service_account"}`, cfg.GoogleCredentialsJSON)
+	assert.Equal(t, "/path/to/key.json", cfg.GoogleCredentialsFile)
+}
+
 func TestBuildNativeOllamaLLM_ThinkActivatesNativePath(t *testing.T) {
 	t.Parallel()
 	cfg := &domain.ChatConfig{

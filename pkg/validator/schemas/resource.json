@@ -498,6 +498,12 @@
         "googleCloudLocation": {
           "type": "string"
         },
+        "googleCredentialsJSON": {
+          "type": "string"
+        },
+        "googleCredentialsFile": {
+          "type": "string"
+        },
         "anthropicExtendedOutput": {
           "type": "boolean"
         },

@@ -187,6 +187,14 @@ type ChatConfig struct {
 	GoogleCloudProject string `yaml:"googleCloudProject,omitempty"`
 	// GoogleCloudLocation sets the GCP region for Vertex AI (e.g. "us-central1").
 	GoogleCloudLocation string `yaml:"googleCloudLocation,omitempty"`
+	// GoogleCredentialsJSON provides GCP service account credentials as a raw JSON string.
+	// Alternative to GOOGLE_APPLICATION_CREDENTIALS env var for explicit credential injection.
+	// Only applies when backend="google".
+	GoogleCredentialsJSON string `yaml:"googleCredentialsJSON,omitempty"`
+	// GoogleCredentialsFile provides a path to a GCP service account JSON file.
+	// Alternative to GOOGLE_APPLICATION_CREDENTIALS env var.
+	// Only applies when backend="google".
+	GoogleCredentialsFile string `yaml:"googleCredentialsFile,omitempty"`
 	// AnthropicExtendedOutput enables 128K token output for Claude 3.7+ via beta header.
 	// Only applies when backend="anthropic".
 	AnthropicExtendedOutput bool `yaml:"anthropicExtendedOutput,omitempty"`
