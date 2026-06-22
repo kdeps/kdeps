@@ -14,7 +14,7 @@
           <h3>Two modes, one file</h3>
           <p>Workflow mode runs deterministic DAG pipelines via <code>kdeps run</code>. Agent mode starts an autonomous LLM loop via <code>kdeps serve</code>. Same <code>workflow.yaml</code> works in both.</p>
           <a href="/modes/workflow-mode" class="link">Workflow mode -></a>
-          <a href="/modes/agent-mode" class="link">Agent mode -></a>
+          <a href="/modes/agent-loop-mode" class="link">Agent mode -></a>
         </div>
 
         <div class="card">
