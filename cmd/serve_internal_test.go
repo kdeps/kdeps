@@ -23,6 +23,7 @@ import (
 	"path/filepath"
 	"testing"
 
+	xansi "github.com/charmbracelet/x/ansi"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -391,8 +392,11 @@ func TestRunREPL_NormalFlow(t *testing.T) {
 	out, _ := io.ReadAll(stdoutR)
 	output := string(out)
 
-	assert.Contains(t, output, "kdeps agent")
-	assert.Contains(t, output, "mock response")
+	// Strip ANSI codes before checking content since glamour renders
+	// markdown with per-word color spans that split string literals.
+	plain := xansi.Strip(output)
+	assert.Contains(t, plain, "kdeps agent")
+	assert.Contains(t, plain, "mock response")
 }
 
 // TestRunREPL_EmptyInput verifies that empty input lines are silently
