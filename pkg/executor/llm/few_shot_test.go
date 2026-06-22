@@ -1384,3 +1384,52 @@ func TestBuildScenarioMessages_CacheControl(t *testing.T) {
 	_, isText := msgs[1].Parts[0].(lc.TextContent)
 	assert.True(t, isText, "expected TextContent for no cacheControl")
 }
+
+func TestBuildNativeOllamaLLM_ThinkActivatesNativePath(t *testing.T) {
+	t.Parallel()
+	cfg := &domain.ChatConfig{
+		Backend:     "ollama",
+		Model:       "deepseek-r1",
+		OllamaThink: true,
+	}
+	// buildNativeOllamaLLM should return a model without error (no live Ollama needed for construction)
+	_, err := buildNativeOllamaLLM(cfg)
+	// Construction succeeds; actual LLM call would require a running Ollama server
+	assert.NoError(t, err, "buildNativeOllamaLLM should construct without a live server")
+}
+
+func TestBuildNativeOllamaLLM_KeepAlive(t *testing.T) {
+	t.Parallel()
+	cfg := &domain.ChatConfig{
+		Backend:         "ollama",
+		Model:           "llama3",
+		OllamaKeepAlive: "30m",
+	}
+	_, err := buildNativeOllamaLLM(cfg)
+	assert.NoError(t, err)
+}
+
+func TestBuildNativeOllamaLLM_PullModel(t *testing.T) {
+	t.Parallel()
+	cfg := &domain.ChatConfig{
+		Backend:           "ollama",
+		Model:             "llama3",
+		OllamaPullModel:   true,
+		OllamaPullTimeout: "5m",
+	}
+	_, err := buildNativeOllamaLLM(cfg)
+	assert.NoError(t, err)
+}
+
+func TestBuildNativeOllamaLLM_PullModel_InvalidTimeout(t *testing.T) {
+	t.Parallel()
+	cfg := &domain.ChatConfig{
+		Backend:           "ollama",
+		Model:             "llama3",
+		OllamaPullModel:   true,
+		OllamaPullTimeout: "not-a-duration",
+	}
+	_, err := buildNativeOllamaLLM(cfg)
+	// Invalid duration is silently ignored (no WithPullTimeout applied); construction still succeeds
+	assert.NoError(t, err)
+}

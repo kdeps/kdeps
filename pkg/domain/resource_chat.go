@@ -198,6 +198,17 @@ type ChatConfig struct {
 	// Only applies to OpenAI-compat backends.
 	OpenAILegacyMaxTokens bool `yaml:"openAILegacyMaxTokens,omitempty"`
 
+	// OllamaThink enables reasoning mode for Ollama models that support it (Ollama 0.9.0+, e.g. deepseek-r1).
+	// Activates the native Ollama path instead of the OpenAI-compat path.
+	OllamaThink bool `yaml:"ollamaThink,omitempty"`
+	// OllamaKeepAlive controls how long the model stays loaded in memory after a request.
+	// Accepts Go duration strings: "5m" (default), "-1" (indefinite), "0" (unload immediately).
+	OllamaKeepAlive string `yaml:"ollamaKeepAlive,omitempty"`
+	// OllamaPullModel enables automatic model pulling before use if the model is not available.
+	OllamaPullModel bool `yaml:"ollamaPullModel,omitempty"`
+	// OllamaPullTimeout sets the timeout for model pulling (e.g. "10m"). Only used when OllamaPullModel is true.
+	OllamaPullTimeout string `yaml:"ollamaPullTimeout,omitempty"`
+
 	// Advanced LLM parameters (may not be supported by all backends)
 	Temperature       *float64 `yaml:"temperature,omitempty"`       // Sampling temperature (0.0-2.0)
 	MaxTokens         *int     `yaml:"maxTokens,omitempty"`         // Maximum tokens to generate

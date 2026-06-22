@@ -33,6 +33,7 @@ import (
 	"sort"
 	"strings"
 	"text/template"
+	"time"
 
 	wx "github.com/IBM/watsonx-go/pkg/models"
 	lcemb "github.com/tmc/langchaingo/embeddings"
@@ -44,6 +45,7 @@ import (
 	lcgoogleai "github.com/tmc/langchaingo/llms/googleai"
 	lchuggingface "github.com/tmc/langchaingo/llms/huggingface"
 	lcmaritaca "github.com/tmc/langchaingo/llms/maritaca"
+	lcollama "github.com/tmc/langchaingo/llms/ollama"
 	lcopenai "github.com/tmc/langchaingo/llms/openai"
 	lcwatsonx "github.com/tmc/langchaingo/llms/watsonx"
 
@@ -163,6 +165,15 @@ func buildLangchainLLM(ctx context.Context, cfg *domain.ChatConfig) (llms.Model,
 			wx.WithWatsonxProjectID(os.Getenv("WATSONX_PROJECT_ID")),
 		)
 
+	case backendOllama:
+		// Use native Ollama path when Ollama-specific options are set;
+		// otherwise fall through to OpenAI-compat for full feature parity.
+		if cfg.OllamaThink || cfg.OllamaKeepAlive != "" || cfg.OllamaPullModel {
+			model, err = buildNativeOllamaLLM(cfg)
+		} else {
+			model, err = buildOpenAICompatLLM(cfg, backend)
+		}
+
 	default:
 		model, err = buildOpenAICompatLLM(cfg, backend)
 	}
@@ -205,6 +216,35 @@ func buildOpenAICompatLLM(cfg *domain.ChatConfig, backend string) (llms.Model, e
 	}
 
 	return lcopenai.New(opts...)
+}
+
+// buildNativeOllamaLLM constructs a native Ollama LLM when Ollama-specific options
+// (OllamaThink, OllamaKeepAlive, OllamaPullModel) are set. Falls back to the OpenAI-compat
+// path otherwise to preserve full feature parity for the common case.
+func buildNativeOllamaLLM(cfg *domain.ChatConfig) (llms.Model, error) {
+	serverURL := cfg.BaseURL
+	if serverURL == "" {
+		serverURL = defaultOllamaURL
+	}
+	opts := []lcollama.Option{
+		lcollama.WithServerURL(serverURL),
+		lcollama.WithModel(cfg.Model),
+	}
+	if cfg.OllamaThink {
+		opts = append(opts, lcollama.WithThink(true))
+	}
+	if cfg.OllamaKeepAlive != "" {
+		opts = append(opts, lcollama.WithKeepAlive(cfg.OllamaKeepAlive))
+	}
+	if cfg.OllamaPullModel {
+		opts = append(opts, lcollama.WithPullModel())
+		if cfg.OllamaPullTimeout != "" {
+			if d, parseErr := time.ParseDuration(cfg.OllamaPullTimeout); parseErr == nil && d > 0 {
+				opts = append(opts, lcollama.WithPullTimeout(d))
+			}
+		}
+	}
+	return lcollama.New(opts...)
 }
 
 // buildOpenAIResponseFormat constructs a ResponseFormat for strict JSON schema output
