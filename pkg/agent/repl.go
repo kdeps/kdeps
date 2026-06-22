@@ -255,6 +255,8 @@ type replCompleter struct {
 }
 
 // doAtFileCompletion handles @path completions using fd when available.
+// Returns suffixes (the untyped portion after prefix) so readline inserts only
+// what is missing — not the full path — avoiding the @@ double-prefix bug.
 func doAtFileCompletion(prefix string) ([][]rune, int) {
 	var completions []string
 	if fd := fdBinPath(); fd != "" {
@@ -262,11 +264,15 @@ func doAtFileCompletion(prefix string) ([][]rune, int) {
 	} else {
 		completions = filePathCompletions(prefix)
 	}
+	prefixRunes := []rune(prefix)
 	results := make([][]rune, 0, len(completions))
 	for _, p := range completions {
-		results = append(results, []rune("@"+p))
+		rp := []rune(p)
+		if len(rp) >= len(prefixRunes) {
+			results = append(results, rp[len(prefixRunes):])
+		}
 	}
-	return results, len([]rune("@" + prefix))
+	return results, len(prefixRunes)
 }
 
 // fuzzyRankStrings returns strings from candidates that fuzzy-match query, sorted by score.

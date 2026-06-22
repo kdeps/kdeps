@@ -619,15 +619,21 @@ func TestReplCompleter_AtFile(t *testing.T) {
 	defer repl.cancel()
 
 	c := &replCompleter{repl: repl}
-	token := "@" + dir + "/ma"
+	// Token = "@<dir>/ma"; prefix passed to doAtFileCompletion = "<dir>/ma".
+	// Returns suffix "in.go" (the untyped part) so readline inserts it after "@<dir>/ma"
+	// giving "@<dir>/main.go" — not "@@<dir>/main.go".
+	prefix := dir + "/ma"
+	token := "@" + prefix
 	results, length := c.Do([]rune(token), len([]rune(token)))
-	assert.Equal(t, len([]rune(token)), length)
+	// length = len(prefix), NOT len(token); the @ is already in the buffer, not counted
+	assert.Equal(t, len([]rune(prefix)), length)
 	found := make([]string, 0, len(results))
 	for _, r := range results {
 		found = append(found, string(r))
 	}
 	require.Len(t, found, 1)
-	assert.Contains(t, found[0], "main.go")
+	// result is the suffix only: "in.go" (not the full "@<dir>/main.go")
+	assert.Equal(t, "in.go", found[0])
 }
 
 func TestReplCompleter_SessionSubcommand(t *testing.T) {
