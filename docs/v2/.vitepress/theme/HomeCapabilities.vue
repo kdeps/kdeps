@@ -31,7 +31,7 @@ import agencySvg from './d2/cap-agency.svg?raw'
           <p>The LLM decides which resources to call and in what order. Every resource auto-registers as a tool. No wiring required.</p>
           <div class="diagram" v-html="agentSvg" />
           <div class="cmd"><span class="prompt">$</span> kdeps serve workflow.yaml</div>
-          <a href="/modes/agent-mode" class="learn">Learn more -></a>
+          <a href="/modes/agent-loop-mode" class="learn">Learn more -></a>
         </div>
 
         <div class="col">
