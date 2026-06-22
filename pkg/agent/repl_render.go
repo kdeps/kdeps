@@ -251,15 +251,145 @@ func terminalWidth() int {
 }
 
 // renderThinkingBlock renders thinking block content in gray italic pi style.
-// Shows a "* thinking" header followed by the indented thinking text.
+// Shows a "* thinking" header followed by the markdown-rendered thinking text.
+// Uses a muted gray style config so thinking content visually recedes from the main response.
 func renderThinkingBlock(content string) string {
 	content = strings.TrimSpace(content)
 	if content == "" {
 		return ""
 	}
 	label := styleThinkingLabel.Render("* thinking")
-	rendered := renderMarkdown(content)
+	rendered := renderThinkingMarkdown(content)
 	return label + "\n" + rendered + "\n"
+}
+
+// renderThinkingMarkdown renders markdown with a muted gray palette for thinking blocks.
+// Uses gray tones throughout to avoid teal-on-teal contrast issues with the main style.
+func renderThinkingMarkdown(text string) string {
+	if strings.TrimSpace(text) == "" {
+		return ""
+	}
+	r, err := glamour.NewTermRenderer(
+		glamour.WithStyles(thinkingStyleConfig()),
+		glamour.WithWordWrap(terminalWidth()),
+	)
+	if err != nil {
+		return text
+	}
+	out, err := r.Render(text)
+	if err != nil {
+		return text
+	}
+	return trimTrailingSpaces(out)
+}
+
+// thinkingStyleConfig returns a glamour StyleConfig using muted grays for thinking blocks.
+// All colors are gray-toned to ensure readability and visual separation from the main response.
+func thinkingStyleConfig() ansi.StyleConfig {
+	margin := func() *uint { u := uint(1); return &u }()
+	const (
+		textGray    = "#AAAAAA" // primary thinking text
+		dimGray     = "#777777" // secondary / muted
+		accentGray  = "#CCCCCC" // bold / emphasized
+		codeGray    = "#BBBBBB" // inline code
+		headingGray = "#CCCCCC" // headings
+	)
+	return ansi.StyleConfig{
+		Document: ansi.StyleBlock{
+			StylePrimitive: ansi.StylePrimitive{
+				BlockPrefix: "\n",
+				BlockSuffix: "\n",
+				Color:       strp(textGray),
+			},
+			Margin: margin,
+		},
+		BlockQuote: ansi.StyleBlock{
+			StylePrimitive: ansi.StylePrimitive{
+				Color:  strp(dimGray),
+				Italic: boolp(true),
+			},
+			Indent:      func() *uint { u := uint(1); return &u }(),
+			IndentToken: strp("| "),
+		},
+		Paragraph: ansi.StyleBlock{
+			StylePrimitive: ansi.StylePrimitive{Color: strp(textGray)},
+		},
+		List: ansi.StyleList{LevelIndent: defaultListLevelIndent},
+		Heading: ansi.StyleBlock{
+			StylePrimitive: ansi.StylePrimitive{
+				BlockSuffix: "\n",
+				Color:       strp(headingGray),
+				Bold:        boolp(true),
+			},
+		},
+		H1: ansi.StyleBlock{
+			StylePrimitive: ansi.StylePrimitive{
+				Color:     strp(accentGray),
+				Bold:      boolp(true),
+				Underline: boolp(true),
+			},
+		},
+		H2: ansi.StyleBlock{
+			StylePrimitive: ansi.StylePrimitive{Color: strp(accentGray), Bold: boolp(true)},
+		},
+		H3: ansi.StyleBlock{
+			StylePrimitive: ansi.StylePrimitive{Color: strp(headingGray), Italic: boolp(true)},
+		},
+		H4: ansi.StyleBlock{StylePrimitive: ansi.StylePrimitive{Color: strp(headingGray)}},
+		H5: ansi.StyleBlock{StylePrimitive: ansi.StylePrimitive{Color: strp(headingGray)}},
+		H6: ansi.StyleBlock{StylePrimitive: ansi.StylePrimitive{Color: strp(dimGray)}},
+		Emph: ansi.StylePrimitive{
+			Italic: boolp(true),
+			Color:  strp(textGray),
+		},
+		Strong: ansi.StylePrimitive{
+			Bold:  boolp(true),
+			Color: strp(accentGray),
+		},
+		Strikethrough: ansi.StylePrimitive{CrossedOut: boolp(true)},
+		HorizontalRule: ansi.StylePrimitive{
+			Color:  strp(dimGray),
+			Format: "\n--------\n",
+		},
+		Item: ansi.StylePrimitive{
+			BlockPrefix: "• ",
+			Color:       strp(textGray),
+		},
+		Enumeration: ansi.StylePrimitive{Color: strp(textGray)},
+		Task: ansi.StyleTask{
+			StylePrimitive: ansi.StylePrimitive{Color: strp(textGray)},
+			Ticked:         "[x] ",
+			Unticked:       "[ ] ",
+		},
+		Link: ansi.StylePrimitive{
+			Color:     strp(dimGray),
+			Underline: boolp(true),
+		},
+		LinkText:  ansi.StylePrimitive{Color: strp(textGray), Bold: boolp(true)},
+		Image:     ansi.StylePrimitive{Color: strp(dimGray), Underline: boolp(true)},
+		ImageText: ansi.StylePrimitive{Color: strp(dimGray), Format: "Image: {{.text}} ->"},
+		Code: ansi.StyleBlock{
+			StylePrimitive: ansi.StylePrimitive{
+				Prefix: "`",
+				Suffix: "`",
+				Color:  strp(codeGray),
+			},
+		},
+		CodeBlock: ansi.StyleCodeBlock{
+			StyleBlock: ansi.StyleBlock{
+				StylePrimitive: ansi.StylePrimitive{Color: strp(codeGray)},
+				Margin:         margin,
+			},
+		},
+		Table: ansi.StyleTable{
+			StyleBlock: ansi.StyleBlock{
+				StylePrimitive: ansi.StylePrimitive{Color: strp(textGray)},
+			},
+			CenterSeparator: strp("|"),
+			ColumnSeparator: strp("|"),
+			RowSeparator:    strp("-"),
+		},
+	}
 }
 
 // trimTrailingSpaces removes trailing whitespace from each line of s.
