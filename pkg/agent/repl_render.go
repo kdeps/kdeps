@@ -62,15 +62,10 @@ const (
 // thinkingRe matches <thinking>...</thinking> blocks (including multiline).
 var thinkingRe = regexp.MustCompile(`(?s)<thinking>(.*?)</thinking>`)
 
-//nolint:gochecknoglobals // lipgloss styles for thinking block rendering
-var (
-	styleThinkingLabel = lipgloss.NewStyle().
-				Foreground(lipgloss.Color(colorThinking)).
-				Italic(true)
-	styleThinkingBody = lipgloss.NewStyle().
-				Foreground(lipgloss.Color(colorThinking)).
-				Italic(true)
-)
+//nolint:gochecknoglobals // lipgloss style for thinking block header
+var styleThinkingLabel = lipgloss.NewStyle().
+	Foreground(lipgloss.Color(colorThinking)).
+	Italic(true)
 
 // replStyleConfig returns a glamour StyleConfig with pi-inspired colors.
 //
@@ -262,15 +257,9 @@ func renderThinkingBlock(content string) string {
 	if content == "" {
 		return ""
 	}
-	var sb strings.Builder
-	sb.WriteString(styleThinkingLabel.Render("* thinking"))
-	sb.WriteString("\n")
-	for _, line := range strings.Split(content, "\n") {
-		sb.WriteString(styleThinkingBody.Render("  " + line))
-		sb.WriteString("\n")
-	}
-	sb.WriteString("\n")
-	return sb.String()
+	label := styleThinkingLabel.Render("* thinking")
+	rendered := renderMarkdown(content)
+	return label + "\n" + rendered + "\n"
 }
 
 // trimTrailingSpaces removes trailing whitespace from each line of s.
@@ -346,44 +335,72 @@ func renderToolCall(name, args string) string {
 	return dim.Render("[") + tool.Render(name) + dim.Render(" -> ") + tool.Render(args) + dim.Render("]")
 }
 
-// ansiThinkingColor is a raw ANSI escape for muted gray, used to keep the thinking
-// color open across multiple streamed chunks without per-chunk lipgloss Render calls
-// (which would insert ANSI reset codes between tokens and cause double-spacing).
-const ansiThinkingColor = "\033[38;5;245m"
-
-// liveThinkingWriter streams reasoning/thinking tokens to stdout in real-time.
-// The gray color is opened once on the first Write and closed in Flush(), so
-// no per-chunk ANSI codes are injected between tokens.
-// Each round resets so a new "* thinking" header appears per tool-call round.
+// liveThinkingWriter streams reasoning tokens to stdout in real-time, then on
+// Flush() erases the raw output and replaces it with a markdown-rendered version.
+// This gives immediate token-by-token feedback during generation while still
+// delivering properly formatted markdown when each round completes.
 type liveThinkingWriter struct {
-	started bool
+	buf        strings.Builder // accumulates full content for markdown render
+	screenRows int             // screen rows consumed by raw output (for erase)
+	started    bool
 }
 
-// Write renders reasoning chunks to stdout as they arrive. The first chunk in
-// each round prints the "* thinking" header and opens the gray color; subsequent
-// chunks are written raw with newlines indented.
+// screenRowsForText counts how many terminal rows the text occupies, accounting
+// for word wrap at the terminal width. Used to erase the correct number of rows.
+func screenRowsForText(text string) int {
+	width := terminalWidth()
+	rows := 1
+	col := 0
+	for _, ch := range text {
+		if ch == '\n' {
+			rows++
+			col = 0
+		} else {
+			col++
+			if col >= width {
+				rows++
+				col = 0
+			}
+		}
+	}
+	return rows
+}
+
+// Write streams the raw chunk to stdout immediately for real-time feedback and
+// also buffers it for the markdown re-render on Flush().
 func (w *liveThinkingWriter) Write(p []byte) (int, error) {
 	if len(p) == 0 {
 		return 0, nil
 	}
+	_, _ = w.buf.Write(p)
 	if !w.started {
-		// Header uses lipgloss once (for correct color detection), then the
-		// color is left open for all subsequent chunk writes.
-		hdr := lipgloss.NewStyle().Foreground(lipgloss.Color(colorThinking)).Render("* thinking")
-		fmt.Fprintf(os.Stdout, "\n%s\n%s  ", hdr, ansiThinkingColor)
+		hdr := styleThinkingLabel.Render("* thinking")
+		fmt.Fprintf(os.Stdout, "\n%s\n  ", hdr)
+		w.screenRows = 2 // header line + indent start
 		w.started = true
 	}
-	// Write raw text; replace internal newlines with indented newlines.
+	// Stream raw text, indenting newlines for visual structure.
 	text := strings.ReplaceAll(strings.TrimRight(string(p), "\n"), "\n", "\n  ")
 	fmt.Fprint(os.Stdout, text)
+	w.screenRows += screenRowsForText(text)
 	return len(p), nil
 }
 
-// Flush closes the open gray color, adds a trailing newline, and resets the
-// writer so the next round starts a fresh "* thinking" header.
+// Flush erases the raw streamed output and replaces it with the markdown-rendered
+// thinking block, then resets the writer for the next round.
 func (w *liveThinkingWriter) Flush() {
-	if w.started {
-		fmt.Fprint(os.Stdout, "\033[0m\n")
-		w.started = false
+	content := w.buf.String()
+	w.buf.Reset()
+	if !w.started {
+		return
+	}
+	w.started = false
+	// Erase raw output: move cursor up screenRows lines then clear to end of screen.
+	if w.screenRows > 0 {
+		fmt.Fprintf(os.Stdout, "\033[%dA\033[J", w.screenRows)
+	}
+	w.screenRows = 0
+	if out := renderThinkingBlock(content); out != "" {
+		fmt.Fprint(os.Stdout, out)
 	}
 }
