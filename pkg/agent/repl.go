@@ -730,13 +730,31 @@ func expandFileRefs(input string) (string, []string) {
 // markdown + thinking styling. Tool call display writes directly to stdout via
 // the ToolCallDisplay callback so it appears immediately.
 func (r *REPL) runStreaming(ctx context.Context, input string) (string, error) {
+	// When StreamThinking is enabled, wire a live writer so reasoning tokens
+	// appear in real-time instead of being buffered until the round completes.
+	var thinkW *liveThinkingWriter
+	if t := r.loop.config.Thinking; t != nil && t.StreamThinking {
+		thinkW = &liveThinkingWriter{}
+		t.ThinkingWriter = thinkW
+		r.loop.config.OnRoundComplete = thinkW.Flush
+	}
+
 	var buf strings.Builder
 	resp, err := r.loop.RunStreaming(ctx, input, &buf)
+
+	// Flush any remaining thinking output from the final round.
+	if thinkW != nil {
+		thinkW.Flush()
+		r.loop.config.OnRoundComplete = nil
+		r.loop.config.Thinking.ThinkingWriter = nil
+	}
+
 	if err != nil {
 		return resp, err
 	}
-	// resp holds the processed final content (thinking prepended when
-	// ReturnOutput=true). buf holds raw final-round tokens.
+	// When StreamThinking=true, thinking was already written to stdout above;
+	// resp contains only the final text response (no <thinking> prepend).
+	// Otherwise, resp may contain <thinking> blocks from ReturnOutput=true.
 	content := resp
 	if content == "" {
 		content = strings.TrimSpace(buf.String())
@@ -1657,7 +1675,12 @@ func (r *REPL) cmdThinking(args []string) error {
 			))
 		}
 		budget := thinkingBudgets[mode]
-		r.loop.SetThinking(&domain.ThinkingConfig{Mode: mode, BudgetTokens: budget, ReturnOutput: true})
+		r.loop.SetThinking(&domain.ThinkingConfig{
+			Mode:           mode,
+			BudgetTokens:   budget,
+			ReturnOutput:   true,
+			StreamThinking: true, // stream reasoning tokens in real-time via liveThinkingWriter
+		})
 		fmt.Fprintf(
 			os.Stdout,
 			"%s\n",

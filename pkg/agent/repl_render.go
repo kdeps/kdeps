@@ -19,6 +19,8 @@
 package agent
 
 import (
+	"fmt"
+	"os"
 	"regexp"
 	"strings"
 
@@ -342,4 +344,38 @@ func renderToolCall(name, args string) string {
 		return dim.Render("[") + tool.Render(name) + dim.Render("]")
 	}
 	return dim.Render("[") + tool.Render(name) + dim.Render(" -> ") + tool.Render(args) + dim.Render("]")
+}
+
+// liveThinkingWriter streams reasoning/thinking tokens to stdout in real-time.
+// Each round resets so a new "* thinking" header appears per tool-call round.
+type liveThinkingWriter struct {
+	started bool
+}
+
+// Write renders reasoning chunks to stdout as they arrive. The first chunk in
+// each round prints the styled "* thinking" header; subsequent chunks are
+// indented and gray.
+func (w *liveThinkingWriter) Write(p []byte) (int, error) {
+	if len(p) == 0 {
+		return 0, nil
+	}
+	if !w.started {
+		hdr := lipgloss.NewStyle().Foreground(lipgloss.Color(colorThinking)).Render("* thinking")
+		fmt.Fprintf(os.Stdout, "\n%s\n", hdr)
+		w.started = true
+	}
+	// Indent each line and render in muted gray.
+	style := lipgloss.NewStyle().Foreground(lipgloss.Color(colorThinking))
+	text := strings.ReplaceAll(strings.TrimRight(string(p), "\n"), "\n", "\n  ")
+	fmt.Fprintf(os.Stdout, "  %s", style.Render(text))
+	return len(p), nil
+}
+
+// Flush closes the current thinking block with a trailing newline and resets
+// the writer so the next round starts a fresh "* thinking" header.
+func (w *liveThinkingWriter) Flush() {
+	if w.started {
+		fmt.Fprintln(os.Stdout)
+		w.started = false
+	}
 }

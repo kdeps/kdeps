@@ -99,6 +99,10 @@ type Config struct {
 	// display. When nil, a plain "[name → arg]" format is used. The REPL sets this
 	// to add lipgloss colors.
 	ToolCallDisplay func(name, args string) string
+	// OnRoundComplete, when set, is called after each StreamChat round completes
+	// (just before writing the tool call summary). Used by the REPL to flush
+	// the live thinking writer between rounds so each round gets a separate header.
+	OnRoundComplete func()
 	// Thinking configures extended reasoning/thinking for models that support it.
 	// nil or ThinkingModeNone disables thinking (default).
 	Thinking *domain.ThinkingConfig
@@ -399,6 +403,11 @@ func (l *Loop) runToolRounds(ctx context.Context, chatCfg *domain.ChatConfig, w 
 		}
 		if i == l.config.MaxToolRounds-1 {
 			break
+		}
+
+		// Notify caller that this round is complete (e.g. to flush live thinking display).
+		if l.config.OnRoundComplete != nil {
+			l.config.OnRoundComplete()
 		}
 
 		// Write a clean tool call summary instead of the raw JSON chunks.
