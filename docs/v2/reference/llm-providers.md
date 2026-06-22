@@ -68,6 +68,15 @@ settings:
     installOllama: true  # bake the ollama server into the image
 ```
 
+**Provider-specific resource options:**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `ollamaThink` | bool | Enable extended thinking (model must support it) |
+| `ollamaKeepAlive` | string | Keep model loaded after request (e.g. `"5m"`, `"-1"` = forever, `"0"` = unload immediately) |
+| `ollamaPullModel` | bool | Auto-pull model if not present locally |
+| `ollamaPullTimeout` | string | Timeout for model pull (e.g. `"10m"`) |
+
 ## Cloud Backends
 
 Any API that implements the OpenAI chat completions API works with kdeps.
@@ -88,6 +97,12 @@ llm:
 | `gpt-4-turbo` | GPT-4 Turbo |
 | `gpt-3.5-turbo` | Fast, cost-effective |
 
+**Provider-specific resource options:**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `openAILegacyMaxTokens` | bool | Send `max_tokens` instead of `max_completion_tokens` (for Azure and older-compat servers) |
+
 ### Anthropic (Claude)
 
 ```yaml
@@ -104,13 +119,24 @@ llm:
 | `claude-3-opus-20240229` | Most capable Claude 3 |
 | `claude-3-haiku-20240307` | Fast, efficient |
 
-### Google (Gemini)
+**Provider-specific resource options:**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `promptCaching` | bool | Add `prompt-caching-2024-07-31` beta header for server-side caching |
+| `anthropicExtendedOutput` | bool | Enable 128K output tokens (adds `interleaved-thinking-2025-05-14` header) |
+| `anthropicBetaHeaders` | list | Additional `anthropic-beta` header values |
+| `scenario[].cacheControl` | string | Set to `"ephemeral"` to mark a scenario message as a cache boundary |
+
+See [LLM Backends - Anthropic](/resources/llm-backends#anthropic-prompt-caching-and-extended-output) for examples.
+
+### Google (Gemini / Vertex AI)
 
 ```yaml
 # ~/.kdeps/config.yaml
 llm:
   backend: google
-  google_api_key: ...
+  google_api_key: ...   # AI Studio key; omit to use Application Default Credentials for Vertex AI
 ```
 
 | Model | Description |
@@ -118,6 +144,17 @@ llm:
 | `gemini-1.5-pro` | Latest Gemini Pro |
 | `gemini-1.5-flash` | Fast inference |
 | `gemini-pro` | Standard Gemini |
+
+**Vertex AI:** Set `googleCloudProject` and `googleCloudLocation` on the `chat:` resource to route to Vertex AI instead of AI Studio. See [LLM Backends - Vertex AI](/resources/llm-backends#vertex-ai-google-cloud).
+
+**Provider-specific resource options:**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `googleCachedContent` | string | Name of a Google AI CachedContent resource to attach |
+| `googleHarmThreshold` | int | Safety filter level: 0=default, 1=block-none, 2=block-few, 3=block-some, 4=block-most |
+| `googleCloudProject` | string | Vertex AI GCP project ID |
+| `googleCloudLocation` | string | Vertex AI region (e.g. `us-central1`) |
 
 ### Mistral
 

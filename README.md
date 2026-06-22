@@ -107,7 +107,9 @@ kdeps run workflow.yaml --dev    # hot reload
 
 **Resource types:** `chat`, `httpClient`, `python`, `exec`, `sql`, `email`, `scraper`, `browser`, `embedding`, `searchLocal`, `searchWeb`, `agent`, `component`, `file`, `git`, `codeIntelligence`, `loader`, `vectorStore`, `transcribe`
 
-**LLM providers:** OpenAI, Anthropic, Google (Gemini), DeepSeek, Groq, xAI, Mistral, Cohere, Together, Perplexity, OpenRouter, Bedrock (AWS), WatsonX (IBM), Cloudflare, HuggingFace, Maritaca, Ernie — plus Ollama, llamafile, and GGUF for local inference
+**LLM providers:** OpenAI, Anthropic, Google (Gemini / Vertex AI), DeepSeek, Groq, xAI, Mistral, Cohere, Together, Perplexity, OpenRouter, Bedrock (AWS), WatsonX (IBM), Cloudflare, HuggingFace, Maritaca, Ernie — plus Ollama, llamafile, and GGUF for local inference
+
+**Advanced LLM features:** chain-of-thought injection, semantic few-shot selection (embedding-based), Anthropic prompt caching + 128K extended output, Google AI cached content + Vertex AI, Ollama extended thinking, per-provider sampling controls (`candidateCount`, `minLength`, `maxLength`)
 
 **Embedding backends:** OpenAI, Google, HuggingFace, Jina, VoyageAI, Bedrock, Cybertron (local), Ollama
 
