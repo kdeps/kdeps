@@ -36,9 +36,10 @@
         </div>
 
         <div class="card">
-          <h3>Deploy anywhere</h3>
-          <p>Export as Docker image, Kubernetes manifests, bootable ISO, or a self-contained single binary. Same workflow, any target. No rewrites.</p>
-          <a href="/guides/deployment-guide" class="link">Deployment guide -></a>
+          <h3>Package and distribute</h3>
+          <p>Bundle workflows as <code>.kdeps</code>, components as <code>.komponent</code>, and agencies as <code>.kagency</code> files. Deploy as Docker, Kubernetes, ISO, or single binary. Publish to kdeps.io for one-line community install.</p>
+          <a href="/reference/cli/packaging" class="link">Packaging -></a>
+          <a href="/guides/deployment-guide" class="link">Deploy -></a>
         </div>
 
         <div class="card">
