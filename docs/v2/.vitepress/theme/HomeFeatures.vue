@@ -42,9 +42,9 @@
         </div>
 
         <div class="card">
-          <h3>Validate and iterate fast</h3>
-          <p><code>kdeps validate</code> checks schema, dependencies, and expressions before you ship. <code>kdeps run --dev</code> hot-reloads on every file change.</p>
-          <a href="/reference/cli/dev" class="link">CLI reference -></a>
+          <h3>Build with AI assistance</h3>
+          <p>Install the kdeps skill and ask Claude Code, Cursor, or any coding agent to scaffold workflows for you. It knows the full schema, all resource types, and kdeps.io packaging.</p>
+          <a href="/getting-started/agent-skills" class="link">Install the skill -></a>
         </div>
       </div>
     </div>

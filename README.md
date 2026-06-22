@@ -36,6 +36,18 @@ kdeps ./my-agent/               # load your workflow as tools for the agent
 
 Slash commands inside the REPL: `/model` switches models (opens a TUI picker if no argument), `/clear` resets context, `/help` shows all commands, `/exit` quits. Sessions persist under `~/.kdeps/sessions/` and resume with `--resume <session-id>`.
 
+## Build with AI assistance
+
+Use Claude Code, Cursor, or any coding agent to scaffold kdeps workflows:
+
+```bash
+npx skills add https://github.com/kdeps/skill --skill kdeps
+```
+
+Then ask your agent: *"create a kdeps workflow that summarizes a URL and returns JSON"* - it knows the full schema, resource types, and packaging format. Works with the global flag (`-g`) to install once for all projects.
+
+Docs: [kdeps.com/getting-started/agent-skills](https://kdeps.com/getting-started/agent-skills)
+
 ## Book
 
 [<img src="https://d2sofvawe08yqg.cloudfront.net/kdeps/s_hero?1779817160" alt="AI Appliances book cover" width="140" align="right" style="margin-left:16px">](https://leanpub.com/kdeps)
