@@ -10,7 +10,7 @@ Yes. kdeps is open source under the Apache 2.0 license. The CLI, engine, and all
 
 [Workflow mode](/modes/workflow-mode) (`kdeps run`) runs resources in a deterministic DAG order defined by [`requires`](/reference/glossary#requires) dependencies. You control exactly what runs and when.
 
-[Agent mode](/modes/agent-loop-mode) (`kdeps serve`) registers whole workflows and components as tools and lets an LLM decide which to invoke in response to user prompts. Workflow tools execute as a complete pipeline so all `requires:` dependencies resolve. Component tools run a single reusable component in isolation. Point at a single file or a folder -- folder mode exposes every workflow and agency found recursively, plus all their components.
+[Agent mode](/modes/agent-loop-mode) (`kdeps [path]`) registers whole workflows and components as tools and lets an LLM decide which to invoke in response to user prompts. Workflow tools execute as a complete pipeline so all `requires:` dependencies resolve. Component tools run a single reusable component in isolation. Point at a single file or a folder -- folder mode exposes every workflow and agency found recursively, plus all their components.
 
 Use workflow mode when you know the pipeline upfront. Use agent mode when you want an interactive, conversational interface.
 
@@ -60,7 +60,7 @@ Yes, via [agencies](/reference/glossary#agency). Use the `agent:` action type to
 
 ## Can I deploy kdeps as an API server?
 
-Yes. Run `kdeps serve ./my-agent/` for agent mode (registers the workflow as a tool by its `metadata.name`), or use `kdeps run` behind the built-in web server for workflow mode. See [Web Server Mode](/deployment/webserver).
+Yes. Run `kdeps ./my-agent/` for agent mode (registers the workflow as a tool by its `metadata.name`), or use `kdeps run` behind the built-in web server for workflow mode. See [Web Server Mode](/deployment/webserver).
 
 For production, use the [Docker](/deployment/docker) or [Kubernetes](/deployment/kubernetes) deployment options.
 

@@ -20,7 +20,7 @@ Works with any model: local llamafile (default, no API key), Ollama, or any clou
 
 ```bash
 kdeps run workflow.yaml          # run a workflow as a one-shot pipeline
-kdeps serve ./my-agent/          # serve it as tools in the agent REPL
+kdeps ./my-agent/                # load it as tools in the agent REPL
 ```
 
 One file describes inputs, resources, and outputs. Run it on your laptop or on a server - same file, same behavior. See [Quickstart](/getting-started/quickstart).
@@ -55,7 +55,7 @@ direction: right
 
 A: workflow.yaml
 B: "kdeps run\nworkflow mode\nDAG pipeline, deterministic\nships to production"
-C: "kdeps serve\nagent mode\ninteractive LLM loop\ntools on demand"
+C: "kdeps [path]\nagent mode\ninteractive LLM loop\ntools on demand"
 
 A -> B
 A -> C

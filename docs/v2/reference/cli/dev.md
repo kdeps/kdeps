@@ -1,6 +1,6 @@
 # Dev Commands
 
-Commands for local development: run, serve, validate, scaffold, configure, and diagnose.
+Commands for local development: run, agent REPL, validate, scaffold, configure, and diagnose.
 
 ## `kdeps run`
 
@@ -39,12 +39,12 @@ When `apiServer` is configured, kdeps refuses to start without `KDEPS_API_AUTH_T
 
 ---
 
-## `kdeps serve`
+## `kdeps [path]` (agent REPL)
 
-Start agent mode -- an interactive LLM loop where whole workflows and components are registered as callable tools. Pass a single file to expose one workflow tool plus its components, or a folder to expose every workflow and agency inside as separate tools along with all their components.
+Start agent mode -- an interactive LLM loop where whole workflows and components are registered as callable tools. Pass a path to expose workflows as tools, or omit it for a bare REPL with no workflow tools.
 
 ```bash
-kdeps serve <path> [flags]
+kdeps [path] [flags]
 ```
 
 **Flags:**
@@ -60,10 +60,11 @@ kdeps serve <path> [flags]
 **Examples:**
 
 ```bash
-kdeps serve ./my-agent/                                       # one tool: metadata.name
-kdeps serve ./agents/                                         # all workflows in folder
-kdeps serve ./my-agent/ --model mistral
-kdeps serve ./agents/ --system "You are a helpful assistant."
+kdeps                                                         # bare REPL, no workflow tools
+kdeps ./my-agent/                                             # one tool: metadata.name
+kdeps ./agents/                                               # all workflows in folder as tools
+kdeps ./my-agent/ --model mistral
+kdeps ./agents/ --system "You are a helpful assistant."
 ```
 
 See [Agent Mode](/modes/agent-loop-mode) for full details.

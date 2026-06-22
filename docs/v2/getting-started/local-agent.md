@@ -88,10 +88,10 @@ The `--backend` flag tells kdeps where to route the request. The `--model` flag 
 
 ## Load your own workflows as tools
 
-Once you have a workflow directory, pass it to `kdeps serve`:
+Once you have a workflow directory, pass it as an argument to `kdeps`:
 
 ```bash
-kdeps serve ./my-workflow/
+kdeps ./my-workflow/
 ```
 
 The REPL starts with your workflow registered as a callable tool. The LLM decides when to invoke it. This is [agent mode](/modes/agent-loop-mode) - the LLM drives, your workflows execute on demand.

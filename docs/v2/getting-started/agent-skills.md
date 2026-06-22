@@ -29,7 +29,7 @@ or agency.
 
 - Choosing between a component, workflow (agent), or agency
 - All 15 primary resource actions plus `apiResponse`
-- Workflow input (`api`, `bot`, `file`), `webServer`, session, and `kdeps serve`
+- Workflow input (`api`, `bot`, `file`), `webServer`, session, and agent REPL (`kdeps [path]`)
 - Expressions, validation, and error handling
 - **Registry-ready packaging** — every scaffold includes `kdeps.pkg.yaml` for
   [kdeps.io](https://kdeps.io) distribution
