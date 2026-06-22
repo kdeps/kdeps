@@ -27,10 +27,10 @@ import agencySvg from './d2/cap-agency.svg?raw'
 
         <div class="col">
           <div class="col-badge agent">agent</div>
-          <h3>Autonomous LLM loop</h3>
-          <p>The LLM decides which resources to call and in what order. Every resource auto-registers as a tool. No wiring required.</p>
+          <h3>Local AI agent</h3>
+          <p>Run <code>kdeps</code> for an instant AI REPL - fully offline with llamafile or Ollama, no API key needed. Load workflows as tools: the LLM decides what to call and when.</p>
           <div class="diagram" v-html="agentSvg" />
-          <div class="cmd"><span class="prompt">$</span> kdeps serve workflow.yaml</div>
+          <div class="cmd"><span class="prompt">$</span> kdeps</div>
           <a href="/modes/agent-loop-mode" class="learn">Learn more -></a>
         </div>
 

@@ -1,5 +1,11 @@
 # Quickstart
 
+Already have kdeps running? This quickstart shows you how to build your first workflow.
+
+New to kdeps? Start here: [Run locally in 30 seconds](/getting-started/local-agent)
+
+---
+
 Build a working LLM API in under five minutes.
 
 ## Prerequisites

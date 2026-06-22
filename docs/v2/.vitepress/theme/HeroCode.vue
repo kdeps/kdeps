@@ -12,7 +12,35 @@ const S = (v) => `<span class="s">${v}</span>`
 const N = (v) => `<span class="n">${v}</span>`
 const O = (v) => `<span class="o">${v}</span>`
 
+const T = (v) => `<span class="t">${v}</span>`
+const D = (v) => `<span class="d">${v}</span>`
+const P = (v) => `<span class="pr">${v}</span>`
+const R = (v) => `<span class="re">${v}</span>`
+
 const files = [
+  {
+    name: 'local agent',
+    html: [
+      `${P('$')} kdeps`,
+      ``,
+      `${D('kdeps v2.x.x  |  Local agent mode')}`,
+      `${D('Model: llama3.2 (Ollama)  |  Type /help for commands')}`,
+      ``,
+      `${T('>')} write a Go function that parses a CSV file`,
+      ``,
+      `${R('Sure. Here\'s an idiomatic Go CSV parser...')}`,
+      ``,
+      `${R('func ParseCSV(r io.Reader) ([][]string, error) {')}`,
+      `${R('    reader := csv.NewReader(r)')}`,
+      `${R('    return reader.ReadAll()')}`,
+      `${R('}')}`,
+      ``,
+      `${T('>')} /model claude-opus-4-8`,
+      `${D('Switched to claude-opus-4-8 (Anthropic)')}`,
+      ``,
+      `${T('>')}`,
+    ].join('\n'),
+  },
   {
     name: 'workflow.yaml',
     html: [
@@ -182,6 +210,10 @@ const files = [
 :deep(.s) { color: #FFD60A; }
 :deep(.n) { color: #FF9500; }
 :deep(.o) { color: var(--vp-c-brand-1); }
+:deep(.t) { color: var(--vp-c-brand-1); }
+:deep(.d) { color: rgba(200, 204, 232, 0.4); }
+:deep(.pr) { color: var(--vp-c-brand-1); user-select: none; }
+:deep(.re) { color: rgba(200, 204, 232, 0.75); }
 
 .terminal { padding: 10px 16px; background: rgba(0,0,0,0.25); }
 

@@ -2,6 +2,40 @@
 
 kdeps exists because most AI tooling is built for prototyping, not for running unattended in production.
 
+## Three ways to use kdeps
+
+You don't need Docker or a workflow file to start. kdeps works at three levels of investment:
+
+**1. Local AI agent** - run `kdeps` in your terminal right now
+
+```bash
+kdeps                            # open-source AI agent REPL, zero config
+kdeps --model llama3.2           # swap to any local or cloud model
+kdeps serve ./my-workflow/       # load your workflows as tools
+```
+
+Works with any model: local llamafile (default, no API key), Ollama, or any cloud provider. See [Run Locally in 30 Seconds](/getting-started/local-agent).
+
+**2. Workflow runner** - define what the agent does in YAML, run it locally or share it
+
+```bash
+kdeps run workflow.yaml          # run a workflow as a one-shot pipeline
+kdeps serve ./my-agent/          # serve it as tools in the agent REPL
+```
+
+One file describes inputs, resources, and outputs. Run it on your laptop or on a server - same file, same behavior. See [Quickstart](/getting-started/quickstart).
+
+**3. Production API** - deploy to Docker, Kubernetes, or a standalone binary
+
+```bash
+kdeps build                      # package workflow + model into a Docker image
+docker run -p 16395:16395 ...    # serve as an HTTP API
+```
+
+The workflow you ran locally becomes a self-contained deployable unit. See [Deployment Guide](/guides/deployment-guide).
+
+---
+
 ## The problem
 
 Shipping AI into production means more than calling an API. You need deterministic pipelines, typed inputs and outputs, dependency ordering, retries, validation, and the ability to deploy anywhere -- not a chat session that ends when the browser tab closes.
