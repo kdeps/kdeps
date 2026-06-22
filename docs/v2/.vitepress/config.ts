@@ -64,6 +64,8 @@ export default defineConfig({
           items: [
             { text: 'Why kdeps?', link: '/concepts/why-kdeps' },
             { text: 'Installation', link: '/getting-started/installation' },
+            { text: 'Run Locally', link: '/getting-started/local-agent' },
+            { text: 'Local Models', link: '/getting-started/local-models' },
             { text: 'Quickstart', link: '/getting-started/quickstart' },
             { text: 'Agent Skills', link: '/getting-started/agent-skills' },
           ]

@@ -6,33 +6,33 @@
   <section class="features-custom">
     <div class="container">
       <p class="section-eyebrow">why kdeps</p>
-      <h2 class="section-title">YAML replaces glue code</h2>
-      <p class="section-sub">No Python scripts, no wiring, no boilerplate.</p>
+      <h2 class="section-title">Local first, production ready</h2>
+      <p class="section-sub">Start on your laptop. Ship to any infra. No rewrites.</p>
 
       <div class="grid">
         <div class="card">
-          <h3>Two modes, one file</h3>
-          <p>Workflow mode runs deterministic DAG pipelines via <code>kdeps run</code>. Agent mode starts an autonomous LLM loop via <code>kdeps serve</code>. Same <code>workflow.yaml</code> works in both.</p>
-          <a href="/modes/workflow-mode" class="link">Workflow mode -></a>
+          <h3>Local AI agent</h3>
+          <p>Run <code>kdeps</code> and you are in an AI REPL. Use llamafile or Ollama for a fully offline, private coding agent - no API key, no cloud dependency, no setup.</p>
+          <a href="/getting-started/local-agent" class="link">Run locally -></a>
           <a href="/modes/agent-loop-mode" class="link">Agent mode -></a>
         </div>
 
         <div class="card">
+          <h3>Portable workflows</h3>
+          <p>Write a <code>workflow.yaml</code> once. Run it locally with <code>kdeps run</code>. Deploy as Docker, Kubernetes, or a binary when you are ready - same file, any target.</p>
+          <a href="/modes/workflow-mode" class="link">Workflow mode -></a>
+        </div>
+
+        <div class="card">
           <h3>Multi-agent agencies</h3>
-          <p>One agent calls another declaratively via the <code>agent:</code> resource type. Each runs independently — results flow back to the caller. Compose agents like functions.</p>
+          <p>One agent calls another declaratively via the <code>agent:</code> resource type. Each runs independently - results flow back to the caller. Compose agents like functions.</p>
           <a href="/concepts/agency" class="link">Agencies -></a>
         </div>
 
         <div class="card">
           <h3>Any backend, no lock-in</h3>
-          <p>Ollama, OpenAI, Anthropic, Groq, or any OpenAI-compatible endpoint. Switch backends in <code>~/.kdeps/config.yaml</code> without touching workflow files. Apache 2.0 license.</p>
+          <p>llamafile and Ollama work out of the box - no server install, no API key. Or use OpenAI, Anthropic, Groq, or any OpenAI-compatible endpoint. Apache 2.0 license.</p>
           <a href="/resources/llm-backends" class="link">LLM backends -></a>
-        </div>
-
-        <div class="card">
-          <h3>Component registry</h3>
-          <p>Install pre-built scraper, search, browser, and embedding components from the registry. Compose them into your workflow with <code>component:</code> and one line.</p>
-          <a href="https://kdeps.io" class="link">Browse registry -></a>
         </div>
 
         <div class="card">

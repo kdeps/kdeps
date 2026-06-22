@@ -12,7 +12,29 @@
 [![Registry](https://img.shields.io/badge/registry-kdeps.io-00E5FF)](https://kdeps.io)
 [![GitHub stars](https://img.shields.io/github/stars/kdeps/kdeps)](https://github.com/kdeps/kdeps/stargazers)
 
-Build and deploy AI agents in YAML. Two modes: **workflow** (DAG pipelines), **agent loop** (interactive LLM loop). Proud member of the [NVIDIA Inception](https://www.nvidia.com/en-us/startups/) program for AI startups.
+Run AI workflows locally. Or deploy them anywhere. Proud member of the [NVIDIA Inception](https://www.nvidia.com/en-us/startups/) program for AI startups.
+
+## Run in 30 seconds
+
+```bash
+# Install
+brew install kdeps/tap/kdeps
+# or
+curl -LsSf https://raw.githubusercontent.com/kdeps/kdeps/main/install.sh | sh
+
+# Run - you're in an AI REPL immediately
+kdeps
+```
+
+No API key needed if you have [Ollama](https://ollama.com) or [llamafile](https://github.com/Mozilla-Ocho/llamafile) installed. kdeps auto-detects local models and downloads them on first use.
+
+```bash
+kdeps --model llama3.2          # use any local Ollama model
+kdeps --model llama3.2:1b-q4   # or a specific GGUF quantization (auto-downloaded)
+kdeps ./my-agent/               # load your workflow as tools for the agent
+```
+
+Slash commands inside the REPL: `/model` switches models (opens a TUI picker if no argument), `/clear` resets context, `/help` shows all commands, `/exit` quits. Sessions persist under `~/.kdeps/sessions/` and resume with `--resume <session-id>`.
 
 ## Book
 
@@ -25,17 +47,20 @@ Hands-on guide covering deterministic pipelines, multi-agent orchestration, erro
 
 <br clear="right">
 
-## Install
+## Build your own workflow
+
+Once you're ready to build, write a `workflow.yaml`. A workflow is a DAG of resources - each step declares what it needs via `requires:` and runs in order.
+
+## Deploy anywhere
 
 ```bash
-curl -LsSf https://raw.githubusercontent.com/kdeps/kdeps/main/install.sh | sh
+kdeps bundle build          # Docker image
+kdeps bundle export iso     # bootable edge ISO
+kdeps bundle prepackage     # self-contained binary per arch
+kdeps export k8s            # Kubernetes manifests
 ```
 
-Or with Homebrew (macOS and Linux):
-
-```bash
-brew install kdeps/tap/kdeps
-```
+Full deployment guide: [kdeps.com/guides/deployment-guide](https://kdeps.com/guides/deployment-guide)
 
 ## Modes
 
@@ -219,15 +244,6 @@ Run an agency:
 
 ```bash
 kdeps run agency.yaml
-```
-
-## Build and deploy
-
-```bash
-kdeps bundle build          # Docker image
-kdeps bundle export iso     # bootable edge ISO
-kdeps bundle prepackage     # self-contained binary per arch
-kdeps export k8s            # Kubernetes manifests
 ```
 
 ## Registry
