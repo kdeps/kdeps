@@ -35,6 +35,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/tmc/langchaingo/llms"
+
 	"github.com/kdeps/kdeps/v2/pkg/config"
 	"github.com/kdeps/kdeps/v2/pkg/domain"
 	"github.com/kdeps/kdeps/v2/pkg/executor"
@@ -660,6 +662,59 @@ func TestBuildStreamOpts_AnthropicPromptCaching(t *testing.T) {
 	cfg := &domain.ChatConfig{Model: "m", Backend: backendAnthropic, PromptCaching: true}
 	opts := buildStreamOpts(cfg, backendAnthropic, os.Stdout)
 	assert.NotEmpty(t, opts)
+}
+
+func TestBuildStreamOpts_OpenAILegacyMaxTokens(t *testing.T) {
+	cfg := &domain.ChatConfig{Model: "m", Backend: "openai", OpenAILegacyMaxTokens: true}
+	opts := buildStreamOpts(cfg, "openai", os.Stdout)
+	assert.NotEmpty(t, opts)
+}
+
+func TestBuildStreamOpts_OpenAILegacyMaxTokens_SkippedForAnthropic(t *testing.T) {
+	before := &domain.ChatConfig{Model: "m", Backend: backendAnthropic}
+	after := &domain.ChatConfig{Model: "m", Backend: backendAnthropic, OpenAILegacyMaxTokens: true}
+	assert.Equal(t, len(buildStreamOpts(before, backendAnthropic, os.Stdout)),
+		len(buildStreamOpts(after, backendAnthropic, os.Stdout)))
+}
+
+func applyCallOpts(opts []llms.CallOption) llms.CallOptions {
+	var co llms.CallOptions
+	for _, o := range opts {
+		o(&co)
+	}
+	return co
+}
+
+func TestBuildSamplingOpts_CandidateCount(t *testing.T) {
+	n := 3
+	cfg := &domain.ChatConfig{CandidateCount: &n}
+	opts := buildSamplingOpts(cfg)
+	co := applyCallOpts(opts)
+	assert.Equal(t, 3, co.CandidateCount)
+}
+
+func TestBuildSamplingOpts_N(t *testing.T) {
+	n := 2
+	cfg := &domain.ChatConfig{N: &n}
+	opts := buildSamplingOpts(cfg)
+	co := applyCallOpts(opts)
+	assert.Equal(t, 2, co.N)
+}
+
+func TestBuildSamplingOpts_MinLength(t *testing.T) {
+	n := 10
+	cfg := &domain.ChatConfig{MinLength: &n}
+	opts := buildSamplingOpts(cfg)
+	co := applyCallOpts(opts)
+	assert.Equal(t, 10, co.MinLength)
+}
+
+func TestBuildSamplingOpts_MaxLength(t *testing.T) {
+	n := 512
+	cfg := &domain.ChatConfig{MaxLength: &n}
+	opts := buildSamplingOpts(cfg)
+	co := applyCallOpts(opts)
+	assert.Equal(t, 512, co.MaxLength)
 }
 
 func TestAdapter_StreamChat_FileBackendError(t *testing.T) {
