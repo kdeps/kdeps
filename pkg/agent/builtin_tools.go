@@ -21,7 +21,6 @@ package agent
 import (
 	"bytes"
 	"context"
-	"database/sql"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -33,21 +32,19 @@ import (
 	"strings"
 	"time"
 
-	"github.com/PuerkitoBio/goquery"
-	_ "github.com/mattn/go-sqlite3" // SQLite driver
-	"github.com/microcosm-cc/bluemonday"
-
 	"github.com/kdeps/kdeps/v2/pkg/domain"
 	kdepstools "github.com/kdeps/kdeps/v2/pkg/tools"
 
 	lcllms "github.com/tmc/langchaingo/llms"
 	lcgoogleai "github.com/tmc/langchaingo/llms/googleai"
+	lctools "github.com/tmc/langchaingo/tools"
 	lcduckduckgo "github.com/tmc/langchaingo/tools/duckduckgo"
 	lcperplexity "github.com/tmc/langchaingo/tools/perplexity"
+	lcscraper "github.com/tmc/langchaingo/tools/scraper"
 	lcserpapi "github.com/tmc/langchaingo/tools/serpapi"
+	lcsqldatabase "github.com/tmc/langchaingo/tools/sqldatabase"
+	_ "github.com/tmc/langchaingo/tools/sqldatabase/sqlite3" // registers sqlite3 engine + driver
 	lcwikipedia "github.com/tmc/langchaingo/tools/wikipedia"
-	"go.starlark.net/lib/math"
-	"go.starlark.net/starlark"
 )
 
 const (
@@ -87,7 +84,7 @@ func RegisterBuiltinTools(ctx context.Context, reg *kdepstools.Registry) {
 	registerSQLTools(ctx, reg)
 	registerBashExec(ctx, reg)
 	registerListFiles(reg)
-	registerCalculator(reg)
+	registerCalculator(ctx, reg)
 	registerReadFile(reg)
 	registerWriteFile(reg)
 	registerEditFile(reg)
@@ -102,9 +99,10 @@ func RegisterBuiltinTools(ctx context.Context, reg *kdepstools.Registry) {
 	registerGoogleCacheTools(ctx, reg)
 }
 
-// registerCalculator registers a starlark-powered math expression evaluator.
+// registerCalculator registers the langchain-go Calculator tool.
 // No API key required. Accepts any valid Starlark numeric expression.
-func registerCalculator(reg *kdepstools.Registry) {
+func registerCalculator(ctx context.Context, reg *kdepstools.Registry) {
+	calc := lctools.Calculator{}
 	reg.Register(&kdepstools.Tool{
 		Name:        "calculator",
 		Description: "Evaluate a mathematical expression and return the result. Accepts any valid numeric expression (e.g. '2 + 2', '3.14 * 10**2', 'sqrt(16)'). Powered by Starlark math evaluation.",
@@ -120,16 +118,7 @@ func registerCalculator(reg *kdepstools.Registry) {
 			if expr == "" {
 				return "", errors.New("calculator: expression is required")
 			}
-			v, err := starlark.Eval(
-				&starlark.Thread{Name: "calculator"},
-				"expr",
-				expr,
-				math.Module.Members,
-			)
-			if err != nil {
-				return fmt.Sprintf("error: %s", err.Error()), nil
-			}
-			return v.String(), nil
+			return calc.Call(ctx, expr)
 		},
 	})
 }
@@ -478,13 +467,16 @@ func registerWikipedia(ctx context.Context, reg *kdepstools.Registry) {
 	})
 }
 
-// registerWebScraper registers a URL scraping tool using goquery + bluemonday.
-// No API key required. Fetches the URL and returns sanitized text content.
-func registerWebScraper(_ context.Context, reg *kdepstools.Registry) {
-	policy := bluemonday.StrictPolicy()
+// registerWebScraper registers a URL scraping tool using langchain-go's colly-based scraper.
+// No API key required. Fetches the URL and returns structured page content.
+func registerWebScraper(ctx context.Context, reg *kdepstools.Registry) {
+	scraper, err := lcscraper.New()
+	if err != nil {
+		return
+	}
 	reg.Register(&kdepstools.Tool{
 		Name:        "web_scraper",
-		Description: "Fetch and extract readable text content from any web URL. Returns the cleaned text of the page without HTML tags, scripts, or styles. Use when you need to read a specific web page, article, or documentation URL.",
+		Description: "Fetch and extract readable text content from any web URL. Returns page title, headers, body content, and links. Use when you need to read a specific web page, article, or documentation URL.",
 		Parameters: map[string]domain.ToolParam{
 			"url": {
 				Type:        "string",
@@ -493,40 +485,13 @@ func registerWebScraper(_ context.Context, reg *kdepstools.Registry) {
 			},
 		},
 		Execute: func(args map[string]any) (string, error) {
-			url, _ := args["url"].(string)
-			if url == "" {
+			u, _ := args["url"].(string)
+			if u == "" {
 				return "", errors.New("web_scraper: url is required")
 			}
-			return scrapeURL(url, policy)
+			return scraper.Call(ctx, u)
 		},
 	})
-}
-
-func scrapeURL(url string, policy *bluemonday.Policy) (string, error) {
-	resp, err := http.Get(url) //nolint:gosec,noctx // G107: URL provided by agent, caller trusts it
-	if err != nil {
-		return "", fmt.Errorf("web_scraper: fetch %s: %w", url, err)
-	}
-	defer resp.Body.Close()
-	if resp.StatusCode != http.StatusOK {
-		return "", fmt.Errorf("web_scraper: HTTP %d for %s", resp.StatusCode, url)
-	}
-
-	doc, err := goquery.NewDocumentFromReader(resp.Body)
-	if err != nil {
-		return "", fmt.Errorf("web_scraper: parse %s: %w", url, err)
-	}
-
-	// Remove script/style nodes before extracting text.
-	doc.Find("script, style, noscript").Remove()
-
-	var sb strings.Builder
-	doc.Find("body").Each(func(_ int, sel *goquery.Selection) {
-		text := policy.Sanitize(sel.Text())
-		sb.WriteString(strings.TrimSpace(text))
-	})
-	result := strings.Join(strings.Fields(sb.String()), " ")
-	return result, nil
 }
 
 // registerSQLTools registers three tools for interacting with a SQLite database:
@@ -608,126 +573,75 @@ func sqlDBPath(args map[string]any) string {
 	return os.Getenv("KDEPS_SQL_DB_PATH")
 }
 
-func sqlOpenDB(dbPath string) (*sql.DB, error) {
+// sqlOpenEngine opens a read-only SQLite database using langchain-go's sqlite3 engine.
+func sqlOpenEngine(dbPath string) (lcsqldatabase.Engine, error) {
 	if dbPath == "" {
 		return nil, errors.New("sql tool: db_path is required (or set KDEPS_SQL_DB_PATH)")
 	}
-	db, openErr := sql.Open("sqlite3", dbPath+"?mode=ro")
-	if openErr != nil {
-		return nil, fmt.Errorf("sql tool: open %s: %w", dbPath, openErr)
+	engine, err := lcsqldatabase.NewSQLDatabaseWithDSN("sqlite3", dbPath+"?mode=ro", nil)
+	if err != nil {
+		return nil, fmt.Errorf("sql tool: open %s: %w", dbPath, err)
 	}
-	return db, nil
+	return engine.Engine, nil
 }
 
 func sqlListTables(dbPath string) (string, error) {
-	db, err := sqlOpenDB(dbPath)
+	engine, err := sqlOpenEngine(dbPath)
 	if err != nil {
 		return "", err
 	}
-	defer db.Close()
+	defer engine.Close()
 
-	rows, queryErr := db.QueryContext(
+	_, rows, queryErr := engine.Query(
 		context.Background(),
 		"SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' ORDER BY name",
 	)
 	if queryErr != nil {
 		return "", fmt.Errorf("sql_list_tables: %w", queryErr)
 	}
-	defer rows.Close()
-
-	var tables []string
-	for rows.Next() {
-		var name string
-		if scanErr := rows.Scan(&name); scanErr != nil {
-			continue
+	tables := make([]string, 0, len(rows))
+	for _, row := range rows {
+		if len(row) > 0 {
+			tables = append(tables, row[0])
 		}
-		tables = append(tables, name)
-	}
-	if rowsErr := rows.Err(); rowsErr != nil {
-		return "", fmt.Errorf("sql_list_tables: iterate: %w", rowsErr)
 	}
 	return strings.Join(tables, "\n"), nil
 }
 
 func sqlDescribeTable(dbPath, table string) (string, error) {
-	db, err := sqlOpenDB(dbPath)
+	engine, err := sqlOpenEngine(dbPath)
 	if err != nil {
 		return "", err
 	}
-	defer db.Close()
+	defer engine.Close()
 
-	rows, queryErr := db.QueryContext(context.Background(), "PRAGMA table_info("+table+")")
-	if queryErr != nil {
-		return "", fmt.Errorf("sql_describe_table: %w", queryErr)
+	// TableInfo returns the CREATE TABLE DDL which shows all columns, types, and constraints.
+	info, infoErr := engine.TableInfo(context.Background(), table)
+	if infoErr != nil {
+		return "", fmt.Errorf("sql_describe_table: %w", infoErr)
 	}
-	defer rows.Close()
-
-	var sb strings.Builder
-	fmt.Fprintf(&sb, "Table: %s\n", table)
-	for rows.Next() {
-		var cid int
-		var name, colType string
-		var notNull, pk int
-		var dflt any
-		if scanErr := rows.Scan(&cid, &name, &colType, &notNull, &dflt, &pk); scanErr != nil {
-			continue
-		}
-		pkMarker := ""
-		if pk > 0 {
-			pkMarker = " (PK)"
-		}
-		fmt.Fprintf(&sb, "  %s %s%s\n", name, colType, pkMarker)
-	}
-	if rowsErr := rows.Err(); rowsErr != nil {
-		return "", fmt.Errorf("sql_describe_table: iterate: %w", rowsErr)
-	}
-	return strings.TrimSpace(sb.String()), nil
+	return fmt.Sprintf("Table: %s\n%s", table, strings.TrimSpace(info)), nil
 }
 
 func sqlExecQuery(dbPath, query string) (string, error) {
-	db, err := sqlOpenDB(dbPath)
+	engine, err := sqlOpenEngine(dbPath)
 	if err != nil {
 		return "", err
 	}
-	defer db.Close()
+	defer engine.Close()
 
-	rows, queryErr := db.QueryContext(context.Background(), query)
+	cols, results, queryErr := engine.Query(context.Background(), query)
 	if queryErr != nil {
 		return "", fmt.Errorf("sql_query: %w", queryErr)
-	}
-	defer rows.Close()
-
-	cols, colsErr := rows.Columns()
-	if colsErr != nil {
-		return "", fmt.Errorf("sql_query: columns: %w", colsErr)
 	}
 
 	var sb strings.Builder
 	sb.WriteString(strings.Join(cols, "\t"))
 	sb.WriteByte('\n')
 
-	vals := make([]any, len(cols))
-	ptrs := make([]any, len(cols))
-	for i := range vals {
-		ptrs[i] = &vals[i]
-	}
-	for rows.Next() {
-		if scanErr := rows.Scan(ptrs...); scanErr != nil {
-			continue
-		}
-		parts := make([]string, len(cols))
-		for i, v := range vals {
-			if v == nil {
-				parts[i] = "NULL"
-			} else {
-				parts[i] = fmt.Sprintf("%v", v)
-			}
-		}
-		sb.WriteString(strings.Join(parts, "\t"))
+	for _, row := range results {
+		sb.WriteString(strings.Join(row, "\t"))
 		sb.WriteByte('\n')
-	}
-	if rowsErr := rows.Err(); rowsErr != nil {
-		return "", fmt.Errorf("sql_query: iterate: %w", rowsErr)
 	}
 	return strings.TrimSpace(sb.String()), nil
 }
