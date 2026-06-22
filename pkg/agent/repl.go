@@ -172,6 +172,13 @@ func NewREPL(loop *Loop) *REPL {
 			styleReplDim.Render("Summary: "+firstLine(summary)),
 		)
 	})
+	// Enable thinking in auto mode by default so reasoning models work out of the box.
+	loop.SetThinking(&domain.ThinkingConfig{
+		Mode:           domain.ThinkingModeAuto,
+		BudgetTokens:   replThinkingBudgetAuto,
+		ReturnOutput:   true,
+		StreamThinking: true,
+	})
 	return r
 }
 
