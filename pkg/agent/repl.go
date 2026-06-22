@@ -94,16 +94,14 @@ var builtinCmds = []string{
 
 //nolint:gochecknoglobals // lipgloss styles for REPL output
 var (
-	styleReplResponse = lipgloss.NewStyle().Foreground(lipgloss.Color("#CDD6F4"))
-	styleReplError    = lipgloss.NewStyle().Foreground(lipgloss.Color("#FF2D78")).Bold(true)
-	styleReplMeta     = lipgloss.NewStyle().Foreground(lipgloss.Color("#888888"))
-	styleReplHeading  = lipgloss.NewStyle().Foreground(lipgloss.Color("#00E5FF")).Bold(true)
-	styleReplSuccess  = lipgloss.NewStyle().Foreground(lipgloss.Color("#00FF87"))
-	styleReplToolCall = lipgloss.NewStyle().Foreground(lipgloss.Color("#FFD60A"))
-	styleReplPrompt   = lipgloss.NewStyle().Foreground(lipgloss.Color("#00E5FF")).Bold(true)
-	styleReplInfo     = lipgloss.NewStyle().Foreground(lipgloss.Color("#7AA2F7"))
-	styleReplDim      = lipgloss.NewStyle().Foreground(lipgloss.Color("#555555"))
-	styleReplBanner   = lipgloss.NewStyle().
+	styleReplError   = lipgloss.NewStyle().Foreground(lipgloss.Color("#FF2D78")).Bold(true)
+	styleReplMeta    = lipgloss.NewStyle().Foreground(lipgloss.Color("#888888"))
+	styleReplHeading = lipgloss.NewStyle().Foreground(lipgloss.Color("#00E5FF")).Bold(true)
+	styleReplSuccess = lipgloss.NewStyle().Foreground(lipgloss.Color("#00FF87"))
+	styleReplPrompt  = lipgloss.NewStyle().Foreground(lipgloss.Color("#00E5FF")).Bold(true)
+	styleReplInfo    = lipgloss.NewStyle().Foreground(lipgloss.Color("#7AA2F7"))
+	styleReplDim     = lipgloss.NewStyle().Foreground(lipgloss.Color("#555555"))
+	styleReplBanner  = lipgloss.NewStyle().
 				Foreground(lipgloss.Color("#CDD6F4")).
 				Border(lipgloss.NormalBorder(), false, false, true, false).
 				BorderForeground(lipgloss.Color("#333333"))
@@ -726,12 +724,18 @@ func expandFileRefs(input string) (string, []string) {
 // runWithThinking runs an agent turn, using streaming output when available.
 // In non-streaming mode it shows a deferred "thinking..." indicator.
 func (r *REPL) runWithThinking(ctx context.Context, input string) (string, error) {
-	// Streaming path: tokens appear on stdout in real-time; no thinking indicator needed.
+	// Streaming path: buffer tokens, then render with markdown + thinking styling.
 	if r.runFn == nil && r.loop.IsStreaming() {
-		resp, err := r.loop.RunStreaming(ctx, input, os.Stdout)
+		var buf strings.Builder
+		resp, err := r.loop.RunStreaming(ctx, input, &buf)
 		if err == nil {
-			// Ensure a newline after the streamed output.
-			fmt.Fprintln(os.Stdout)
+			// Prefer resp (contains <thinking> blocks when ReturnOutput=true);
+			// fall back to buf if resp is empty (e.g. tool-only rounds).
+			content := resp
+			if content == "" {
+				content = buf.String()
+			}
+			fmt.Fprint(os.Stdout, renderREPLOutput(content))
 		}
 		return resp, err
 	}
@@ -807,14 +811,8 @@ func (r *REPL) Run() error {
 
 	hpath := historyPath()
 
-	// Wire up colored tool call display.
-	r.loop.config.ToolCallDisplay = func(name, args string) string {
-		return styleReplDim.Render("[") +
-			styleReplToolCall.Render(name) +
-			styleReplDim.Render(" → ") +
-			styleReplToolCall.Render(args) +
-			styleReplDim.Render("]")
-	}
+	// Wire up pi-style tool call display.
+	r.loop.config.ToolCallDisplay = renderToolCall
 
 	rl, err := readline.NewEx(&readline.Config{
 		Prompt:            r.dynamicPrompt(),
@@ -913,9 +911,10 @@ func (r *REPL) processInput(input string) error {
 	if err != nil {
 		return err
 	}
-	// In streaming mode tokens were already written to stdout by runWithThinking.
+	// In streaming mode, output was already rendered and written to stdout.
+	// In non-streaming mode, render and print the full response now.
 	if resp != "" && (r.runFn != nil || !r.loop.IsStreaming()) {
-		fmt.Fprintln(os.Stdout, styleReplResponse.Render(resp))
+		fmt.Fprint(os.Stdout, renderREPLOutput(resp))
 	}
 	r.maybeHintCompact()
 	return nil
@@ -1507,7 +1506,7 @@ func (r *REPL) cmdInvokePrompt(pt *PromptTemplate, args []string) error {
 		return fmt.Errorf("prompt %s: %w", pt.Name, err)
 	}
 	if resp != "" {
-		fmt.Fprintln(os.Stdout, styleReplResponse.Render(resp))
+		fmt.Fprint(os.Stdout, renderREPLOutput(resp))
 	}
 	return nil
 }
@@ -1903,7 +1902,7 @@ func (r *REPL) cmdInvokeSkill(sk *Skill, extra []string) error {
 		return fmt.Errorf("skill %s: %w", sk.Name, err)
 	}
 	if resp != "" {
-		fmt.Fprintln(os.Stdout, styleReplResponse.Render(resp))
+		fmt.Fprint(os.Stdout, renderREPLOutput(resp))
 	}
 	return nil
 }
