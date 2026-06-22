@@ -100,6 +100,7 @@ func replStyleConfig() ansi.StyleConfig {
 		List: ansi.StyleList{
 			LevelIndent: defaultListLevelIndent,
 		},
+		// Headings: styled without # markers (pi-style - text only, colored).
 		Heading: ansi.StyleBlock{
 			StylePrimitive: ansi.StylePrimitive{
 				BlockSuffix: "\n",
@@ -109,40 +110,36 @@ func replStyleConfig() ansi.StyleConfig {
 		},
 		H1: ansi.StyleBlock{
 			StylePrimitive: ansi.StylePrimitive{
-				Prefix: "# ",
-				Color:  strp(colorHeading),
-				Bold:   boolp(true),
+				Color:     strp(colorHeading),
+				Bold:      boolp(true),
+				Underline: boolp(true),
 			},
 		},
 		H2: ansi.StyleBlock{
 			StylePrimitive: ansi.StylePrimitive{
-				Prefix: "## ",
-				Color:  strp(colorHeading),
-				Bold:   boolp(true),
+				Color: strp(colorHeading),
+				Bold:  boolp(true),
 			},
 		},
 		H3: ansi.StyleBlock{
 			StylePrimitive: ansi.StylePrimitive{
-				Prefix: "### ",
 				Color:  strp(colorHeading),
+				Italic: boolp(true),
 			},
 		},
 		H4: ansi.StyleBlock{
 			StylePrimitive: ansi.StylePrimitive{
-				Prefix: "#### ",
-				Color:  strp(colorHeading),
+				Color: strp(colorHeading),
 			},
 		},
 		H5: ansi.StyleBlock{
 			StylePrimitive: ansi.StylePrimitive{
-				Prefix: "##### ",
-				Color:  strp(colorHeading),
+				Color: strp(colorHeading),
 			},
 		},
 		H6: ansi.StyleBlock{
 			StylePrimitive: ansi.StylePrimitive{
-				Prefix: "###### ",
-				Color:  strp(colorHeading),
+				Color: strp(colorHeading),
 			},
 		},
 		Emph: ansi.StylePrimitive{
@@ -274,6 +271,16 @@ func renderThinkingBlock(content string) string {
 	return sb.String()
 }
 
+// trimTrailingSpaces removes trailing whitespace from each line of s.
+// Glamour's word-wrap can pad short lines to the wrap width; this strips that padding.
+func trimTrailingSpaces(s string) string {
+	lines := strings.Split(s, "\n")
+	for i, line := range lines {
+		lines[i] = strings.TrimRight(line, " \t")
+	}
+	return strings.Join(lines, "\n")
+}
+
 // renderMarkdown renders markdown text with the pi-inspired glamour theme.
 // Falls back to plain text if rendering fails.
 func renderMarkdown(text string) string {
@@ -291,7 +298,7 @@ func renderMarkdown(text string) string {
 	if err != nil {
 		return text
 	}
-	return out
+	return trimTrailingSpaces(out)
 }
 
 // renderREPLOutput renders a full LLM response for terminal display.
