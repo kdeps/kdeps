@@ -94,8 +94,8 @@ Recipients run or install them directly - no source needed:
 ```bash
 kdeps run my-agent-1.0.0.kdeps              # run a workflow package directly
 kdeps run my-agency-1.0.0.kagency           # run an agency package directly
-kdeps registry install ./my-agent.kdeps     # install local .kdeps into agents/
-kdeps registry install ./my-comp.komponent  # install local .komponent into components/
+kdeps registry install my-agent.kdeps       # install local .kdeps into agents/
+kdeps registry install my-comp.komponent    # install local .komponent into components/
 kdeps registry install my-component        # install by name from kdeps.io
 ```
 
