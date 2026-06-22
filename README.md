@@ -29,10 +29,16 @@ kdeps
 No API key needed if you have [Ollama](https://ollama.com) or [llamafile](https://github.com/Mozilla-Ocho/llamafile) installed. kdeps auto-detects local models and downloads them on first use.
 
 ```bash
-kdeps --model llama3.2          # use any local Ollama model
-kdeps --model llama3.2:1b-q4   # or a specific GGUF quantization (auto-downloaded)
-kdeps ./my-agent/               # load your workflow as tools for the agent
+kdeps --model llama3.2              # use any Ollama model
+kdeps --model llama3.2:1b-q4        # GGUF quantization - auto-downloaded from HuggingFace
+kdeps --model /path/to/model.gguf   # point directly at a local GGUF file
+kdeps ./my-agent/                   # load your workflow as tools for the agent
 ```
+
+**Local models** - three options, zero cloud dependency:
+- **Ollama** (`backend: ollama`) - managed model server, `ollama pull llama3.2` then `kdeps`
+- **llamafile** (`backend: file`) - model + server as a single binary, runs on any OS, no install
+- **GGUF** (`backend: gguf`) - raw GGUF files, point `llm.model_path` at a local file or let kdeps auto-download from HuggingFace using aria2c
 
 Slash commands inside the REPL: `/model` switches models (opens a TUI picker if no argument), `/clear` resets context, `/help` shows all commands, `/exit` quits. Sessions persist under `~/.kdeps/sessions/` and resume with `--resume <session-id>`.
 
@@ -61,7 +67,40 @@ Hands-on guide covering deterministic pipelines, multi-agent orchestration, erro
 
 ## Build your own workflow
 
-Once you're ready to build, write a `workflow.yaml`. A workflow is a DAG of resources - each step declares what it needs via `requires:` and runs in order.
+A workflow is a DAG of resources. Each step declares what it needs via `requires:` and runs in the correct order automatically.
+
+```bash
+kdeps init my-agent      # scaffold a new workflow directory
+cd my-agent
+kdeps run .              # run locally - starts the API server
+kdeps run . --dev        # hot reload on file change
+```
+
+See the full YAML example under [Workflow mode](#workflow-mode) below, or scaffold one with the [kdeps skill](#build-with-ai-assistance).
+
+## Distribute your agents
+
+Workflows, components, and agencies compile to portable package files:
+
+```bash
+kdeps bundle package my-agent/        # creates my-agent-1.0.0.kdeps
+kdeps bundle package my-component/    # creates my-component-1.0.0.komponent
+kdeps bundle package my-agency/       # creates my-agency-1.0.0.kagency
+```
+
+Recipients install and run them without needing the source:
+
+```bash
+kdeps registry install my-agent-1.0.0.kdeps
+kdeps run my-agent/
+```
+
+Publish to [kdeps.io](https://kdeps.io) for one-line install by the community:
+
+```bash
+kdeps registry verify .
+kdeps registry submit --tag v1.0.0
+```
 
 ## Deploy anywhere
 
