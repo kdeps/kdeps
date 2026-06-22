@@ -105,22 +105,7 @@ func buildLangchainLLM(ctx context.Context, cfg *domain.ChatConfig) (llms.Model,
 		)
 
 	case backendGoogle:
-		apiKey := os.Getenv(providerAPIKeyEnvVar(backendGoogle))
-		googleOpts := []lcgoogleai.Option{
-			lcgoogleai.WithAPIKey(apiKey),
-			lcgoogleai.WithDefaultModel(cfg.Model),
-		}
-		if cfg.GoogleHarmThreshold != 0 {
-			ht := lcgoogleai.HarmBlockThreshold(cfg.GoogleHarmThreshold)
-			googleOpts = append(googleOpts, lcgoogleai.WithHarmThreshold(ht))
-		}
-		if cfg.GoogleCloudProject != "" {
-			googleOpts = append(googleOpts, lcgoogleai.WithCloudProject(cfg.GoogleCloudProject))
-		}
-		if cfg.GoogleCloudLocation != "" {
-			googleOpts = append(googleOpts, lcgoogleai.WithCloudLocation(cfg.GoogleCloudLocation))
-		}
-		model, err = lcgoogleai.New(ctx, googleOpts...)
+		model, err = buildGoogleAILLM(ctx, cfg)
 
 	case backendHuggingFace:
 		apiKey := os.Getenv(providerAPIKeyEnvVar(backendHuggingFace))
@@ -245,6 +230,32 @@ func buildNativeOllamaLLM(cfg *domain.ChatConfig) (llms.Model, error) {
 		}
 	}
 	return lcollama.New(opts...)
+}
+
+// buildGoogleAILLM constructs a Google AI LLM with all provider-specific options.
+// Extracted from buildLangchainLLM to keep statement count within funlen limits.
+func buildGoogleAILLM(ctx context.Context, cfg *domain.ChatConfig) (llms.Model, error) {
+	googleOpts := []lcgoogleai.Option{
+		lcgoogleai.WithAPIKey(os.Getenv(providerAPIKeyEnvVar(backendGoogle))),
+		lcgoogleai.WithDefaultModel(cfg.Model),
+	}
+	if cfg.GoogleHarmThreshold != 0 {
+		ht := lcgoogleai.HarmBlockThreshold(cfg.GoogleHarmThreshold)
+		googleOpts = append(googleOpts, lcgoogleai.WithHarmThreshold(ht))
+	}
+	if cfg.GoogleCloudProject != "" {
+		googleOpts = append(googleOpts, lcgoogleai.WithCloudProject(cfg.GoogleCloudProject))
+	}
+	if cfg.GoogleCloudLocation != "" {
+		googleOpts = append(googleOpts, lcgoogleai.WithCloudLocation(cfg.GoogleCloudLocation))
+	}
+	if cfg.GoogleCredentialsJSON != "" {
+		googleOpts = append(googleOpts, lcgoogleai.WithCredentialsJSON([]byte(cfg.GoogleCredentialsJSON)))
+	}
+	if cfg.GoogleCredentialsFile != "" {
+		googleOpts = append(googleOpts, lcgoogleai.WithCredentialsFile(cfg.GoogleCredentialsFile))
+	}
+	return lcgoogleai.New(ctx, googleOpts...)
 }
 
 // buildOpenAIResponseFormat constructs a ResponseFormat for strict JSON schema output
