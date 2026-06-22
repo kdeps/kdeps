@@ -85,6 +85,9 @@ func runAgentLoopCmd(path string, flags *agentLoopFlags) error {
 	llmAdapter := llm.NewAdapter(flags.BaseURL)
 
 	store := agent.NewSessionStore("")
+	if cwd, cwdErr := os.Getwd(); cwdErr == nil {
+		store.SetCwd(cwd)
+	}
 	cfg := agent.Config{
 		Model:        flags.Model,
 		Backend:      flags.Backend,

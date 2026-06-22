@@ -41,9 +41,12 @@ type SessionMetadata struct {
 }
 
 // SessionStore persists conversation sessions as JSONL files.
+// When cwd is set, sessions are stored under basePath/<encoded-cwd>/ for
+// per-project isolation, matching pi's directory layout.
 type SessionStore struct {
 	mu       sync.Mutex
 	basePath string
+	cwd      string // optional; when set, sessions go into per-cwd subdirs
 }
 
 // sessionEntry is one line in a JSONL session file.
@@ -70,18 +73,45 @@ func NewSessionStore(basePath string) *SessionStore {
 	return &SessionStore{basePath: basePath}
 }
 
+// SetCwd configures per-project session isolation. When set, SaveAs stores
+// sessions under basePath/<encoded-cwd>/ and ListMeta returns only sessions
+// for that directory. Call with os.Getwd() at startup.
+func (s *SessionStore) SetCwd(cwd string) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.cwd = cwd
+}
+
+// encodeCwd converts an absolute path to a safe directory name component.
+// Example: "/Users/joel/Projects/foo" -> "--Users-joel-Projects-foo--".
+func encodeCwd(cwd string) string {
+	clean := strings.TrimLeft(cwd, "/\\")
+	clean = strings.NewReplacer("/", "-", "\\", "-", ":", "-").Replace(clean)
+	return "--" + clean + "--"
+}
+
+// sessionBasePath returns the directory where sessions are stored.
+// If cwd is configured, returns basePath/<encoded-cwd>/; otherwise basePath.
+func (s *SessionStore) sessionBasePath() string {
+	if s.cwd == "" {
+		return s.basePath
+	}
+	return filepath.Join(s.basePath, encodeCwd(s.cwd))
+}
+
 // SaveAs persists the session to a JSONL file with an optional name and model tag.
 // Returns the generated session ID. Accepts SessionReader so callers can work through interfaces.
 func (s *SessionStore) SaveAs(session SessionReader, name, model string) (string, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	if err := os.MkdirAll(s.basePath, 0750); err != nil {
+	dir := s.sessionBasePath()
+	if err := os.MkdirAll(dir, 0750); err != nil {
 		return "", fmt.Errorf("session store: failed to create dir: %w", err)
 	}
 
 	id := fmt.Sprintf("session-%d", time.Now().UnixNano())
-	path := filepath.Join(s.basePath, id+".jsonl")
+	path := filepath.Join(dir, id+".jsonl")
 
 	f, err := os.Create(path)
 	if err != nil {
@@ -121,12 +151,17 @@ func (s *SessionStore) Save(session SessionReader) (string, error) {
 	return s.SaveAs(session, "", "")
 }
 
-// Load loads a session from a JSONL file.
+// Load loads a session from a JSONL file by ID.
+// Searches the per-cwd subdir first, then falls back to basePath for sessions
+// saved without cwd set.
 func (s *SessionStore) Load(id string) (*Session, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	path := filepath.Join(s.basePath, id+".jsonl")
+	path := s.findSessionFileLocked(id)
+	if path == "" {
+		return nil, fmt.Errorf("session store: session %q not found", id)
+	}
 	f, err := os.Open(path)
 	if err != nil {
 		return nil, fmt.Errorf("session store: %w", err)
@@ -156,6 +191,23 @@ func (s *SessionStore) Load(id string) (*Session, error) {
 	return session, nil
 }
 
+// findSessionFileLocked returns the path to a session file by ID.
+// Checks the per-cwd subdir first, then falls back to basePath.
+// Must be called with s.mu held.
+func (s *SessionStore) findSessionFileLocked(id string) string {
+	if s.cwd != "" {
+		p := filepath.Join(s.sessionBasePath(), id+".jsonl")
+		if _, err := os.Stat(p); err == nil {
+			return p
+		}
+	}
+	p := filepath.Join(s.basePath, id+".jsonl")
+	if _, err := os.Stat(p); err == nil {
+		return p
+	}
+	return ""
+}
+
 // LoadMeta reads only the header line of a session file and returns its metadata.
 func (s *SessionStore) LoadMeta(id string) (*SessionMetadata, error) {
 	s.mu.Lock()
@@ -165,14 +217,77 @@ func (s *SessionStore) LoadMeta(id string) (*SessionMetadata, error) {
 }
 
 func (s *SessionStore) loadMetaLocked(id string) (*SessionMetadata, error) {
-	path := filepath.Join(s.basePath, id+".jsonl")
+	path := s.findSessionFileLocked(id)
+	if path == "" {
+		return nil, fmt.Errorf("session store: session %q not found", id)
+	}
+	return s.loadMetaFromPathLocked(path, id)
+}
+
+// ListMeta returns metadata for stored sessions, newest first.
+// When cwd is set, returns only sessions from that directory; otherwise
+// returns sessions from all per-cwd subdirs and the base dir.
+func (s *SessionStore) ListMeta() ([]SessionMetadata, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	dirs := s.listDirsLocked()
+	var metas []SessionMetadata
+	for _, dir := range dirs {
+		entries, err := os.ReadDir(dir)
+		if err != nil {
+			if os.IsNotExist(err) {
+				continue
+			}
+			return nil, err
+		}
+		for i := len(entries) - 1; i >= 0; i-- {
+			e := entries[i]
+			if e.IsDir() || filepath.Ext(e.Name()) != ".jsonl" {
+				continue
+			}
+			id := strings.TrimSuffix(e.Name(), ".jsonl")
+			meta, metaErr := s.loadMetaFromPathLocked(filepath.Join(dir, e.Name()), id)
+			if metaErr != nil {
+				continue // skip corrupt files
+			}
+			metas = append(metas, *meta)
+		}
+	}
+	return metas, nil
+}
+
+// listDirsLocked returns the directories to scan for sessions.
+// Must be called with s.mu held.
+func (s *SessionStore) listDirsLocked() []string {
+	if s.cwd != "" {
+		return []string{s.sessionBasePath()}
+	}
+	// No cwd: scan base dir for JSONL files and subdirs.
+	entries, err := os.ReadDir(s.basePath)
+	if err != nil {
+		return []string{s.basePath}
+	}
+	dirs := []string{s.basePath}
+	for _, e := range entries {
+		if e.IsDir() {
+			dirs = append(dirs, filepath.Join(s.basePath, e.Name()))
+		}
+	}
+	return dirs
+}
+
+// loadMetaFromPathLocked reads session metadata from an explicit path.
+// Must be called with s.mu held.
+func (s *SessionStore) loadMetaFromPathLocked(path, id string) (*SessionMetadata, error) {
 	f, err := os.Open(path)
 	if err != nil {
-		return nil, fmt.Errorf("session store: %w", err)
+		return nil, err
 	}
 	defer f.Close()
 
 	scanner := bufio.NewScanner(f)
+	scanner.Buffer(make([]byte, 1<<20), 1<<20) //nolint:mnd // 1 MiB max line
 	if !scanner.Scan() {
 		return nil, fmt.Errorf("session store: empty file for %s", id)
 	}
@@ -196,53 +311,18 @@ func (s *SessionStore) loadMetaLocked(id string) (*SessionMetadata, error) {
 	}, nil
 }
 
-// ListMeta returns metadata for all stored sessions, newest first.
-func (s *SessionStore) ListMeta() ([]SessionMetadata, error) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
-	entries, err := os.ReadDir(s.basePath)
-	if err != nil {
-		if os.IsNotExist(err) {
-			return nil, nil
-		}
-		return nil, err
-	}
-
-	var metas []SessionMetadata
-	for i := len(entries) - 1; i >= 0; i-- {
-		e := entries[i]
-		if e.IsDir() || filepath.Ext(e.Name()) != ".jsonl" {
-			continue
-		}
-		id := strings.TrimSuffix(e.Name(), ".jsonl")
-		meta, metaErr := s.loadMetaLocked(id)
-		if metaErr != nil {
-			continue // skip corrupt files
-		}
-		metas = append(metas, *meta)
-	}
-	return metas, nil
-}
-
 // List returns all stored session IDs.
 func (s *SessionStore) List() ([]string, error) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
-	entries, err := os.ReadDir(s.basePath)
+	metas, err := s.ListMeta()
 	if err != nil {
-		if os.IsNotExist(err) {
-			return nil, nil
-		}
 		return nil, err
 	}
-
-	var ids []string
-	for _, e := range entries {
-		if !e.IsDir() && filepath.Ext(e.Name()) == ".jsonl" {
-			ids = append(ids, strings.TrimSuffix(e.Name(), ".jsonl"))
-		}
+	if len(metas) == 0 {
+		return nil, nil
+	}
+	ids := make([]string, len(metas))
+	for i, m := range metas {
+		ids[i] = m.ID
 	}
 	return ids, nil
 }
@@ -252,7 +332,10 @@ func (s *SessionStore) Delete(id string) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	path := filepath.Join(s.basePath, id+".jsonl")
+	path := s.findSessionFileLocked(id)
+	if path == "" {
+		return fmt.Errorf("session store: session %q not found", id)
+	}
 	if err := os.Remove(path); err != nil {
 		return fmt.Errorf("session store: delete %s: %w", id, err)
 	}
