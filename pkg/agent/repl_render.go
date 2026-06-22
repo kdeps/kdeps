@@ -465,72 +465,33 @@ func renderToolCall(name, args string) string {
 	return dim.Render("[") + tool.Render(name) + dim.Render(" -> ") + tool.Render(args) + dim.Render("]")
 }
 
-// liveThinkingWriter streams reasoning tokens to stdout in real-time, then on
-// Flush() erases the raw output and replaces it with a markdown-rendered version.
-// This gives immediate token-by-token feedback during generation while still
-// delivering properly formatted markdown when each round completes.
+// liveThinkingWriter streams reasoning tokens to stdout in real-time using a
+// consistent gray color opened once on the first Write and closed in Flush().
+// Each round resets so a new "* thinking" header appears per tool-call round.
 type liveThinkingWriter struct {
-	buf        strings.Builder // accumulates full content for markdown render
-	screenRows int             // screen rows consumed by raw output (for erase)
-	started    bool
+	started bool
 }
 
-// screenRowsForText counts how many terminal rows the text occupies, accounting
-// for word wrap at the terminal width. Used to erase the correct number of rows.
-func screenRowsForText(text string) int {
-	width := terminalWidth()
-	rows := 1
-	col := 0
-	for _, ch := range text {
-		if ch == '\n' {
-			rows++
-			col = 0
-		} else {
-			col++
-			if col >= width {
-				rows++
-				col = 0
-			}
-		}
-	}
-	return rows
-}
-
-// Write streams the raw chunk to stdout immediately for real-time feedback and
-// also buffers it for the markdown re-render on Flush().
+// Write streams each chunk immediately to stdout. The gray ANSI color is opened
+// once on the first chunk so no per-chunk escape codes interrupt the text flow.
 func (w *liveThinkingWriter) Write(p []byte) (int, error) {
 	if len(p) == 0 {
 		return 0, nil
 	}
-	_, _ = w.buf.Write(p)
 	if !w.started {
 		hdr := styleThinkingLabel.Render("* thinking")
-		fmt.Fprintf(os.Stdout, "\n%s\n  ", hdr)
-		w.screenRows = 2 // header line + indent start
+		fmt.Fprintf(os.Stdout, "\n%s\n\033[38;5;245m  ", hdr)
 		w.started = true
 	}
-	// Stream raw text, indenting newlines for visual structure.
 	text := strings.ReplaceAll(strings.TrimRight(string(p), "\n"), "\n", "\n  ")
 	fmt.Fprint(os.Stdout, text)
-	w.screenRows += screenRowsForText(text)
 	return len(p), nil
 }
 
-// Flush erases the raw streamed output and replaces it with the markdown-rendered
-// thinking block, then resets the writer for the next round.
+// Flush closes the gray color and resets the writer for the next round.
 func (w *liveThinkingWriter) Flush() {
-	content := w.buf.String()
-	w.buf.Reset()
-	if !w.started {
-		return
-	}
-	w.started = false
-	// Erase raw output: move cursor up screenRows lines then clear to end of screen.
-	if w.screenRows > 0 {
-		fmt.Fprintf(os.Stdout, "\033[%dA\033[J", w.screenRows)
-	}
-	w.screenRows = 0
-	if out := renderThinkingBlock(content); out != "" {
-		fmt.Fprint(os.Stdout, out)
+	if w.started {
+		fmt.Fprint(os.Stdout, "\033[0m\n")
+		w.started = false
 	}
 }
