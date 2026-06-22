@@ -29,6 +29,7 @@ import (
 	"net/url"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -60,6 +61,11 @@ const (
 	asciiLastControlChar    = 0x1F      // last ASCII control char (non-printable)
 	unicodeInterlinearStart = 0xFFF9    // Unicode interlinear annotation (start)
 	unicodeInterlinearEnd   = 0xFFFB    // Unicode interlinear annotation (end)
+
+	ragDefaultTopK    = 5   // default number of RAG results
+	ragMaxTopK        = 32  // absolute cap on RAG top_k
+	ragTimeoutSeconds = 30  // RAG query timeout in seconds
+	binaryCheckBytes  = 512 // bytes to scan for binary detection
 )
 
 // URL variables (not consts) so tests can override them with httptest servers.
@@ -75,8 +81,8 @@ var (
 // RegisterBuiltinTools adds built-in tools (web_search, wikipedia, web_scraper, sql_*, bash_exec,
 // calculator and optional API-key tools: serpapi_search, perplexity_search, exa_search,
 // zapier_list_actions, zapier_run_action, wolfram_alpha, cohere_rerank, voyageai_rerank,
-// jina_rerank) to the registry. API-key tools are registered only when the corresponding
-// env var is set.
+// jina_rerank, retrieve_context) to the registry. API-key tools are registered only when the
+// corresponding env var is set.
 func RegisterBuiltinTools(ctx context.Context, reg *kdepstools.Registry) {
 	registerDuckDuckGo(ctx, reg)
 	registerWikipedia(ctx, reg)
@@ -97,6 +103,7 @@ func RegisterBuiltinTools(ctx context.Context, reg *kdepstools.Registry) {
 	registerVoyageAIRerank(ctx, reg)
 	registerJinaRerank(ctx, reg)
 	registerGoogleCacheTools(ctx, reg)
+	registerRetrieveContext(ctx, reg)
 }
 
 // registerCalculator registers the langchain-go Calculator tool.
@@ -161,6 +168,9 @@ func registerReadFile(reg *kdepstools.Registry) {
 }
 
 func readLocalFile(filePath string, args map[string]any) (string, error) {
+	if err := validateWorkspaceBoundary(filePath); err != nil {
+		return "", fmt.Errorf("read_file: %w", err)
+	}
 	info, err := os.Stat(filePath)
 	if err != nil {
 		return "", fmt.Errorf("read_file: stat %s: %w", filePath, err)
@@ -175,6 +185,9 @@ func readLocalFile(filePath string, args map[string]any) (string, error) {
 	data, err := os.ReadFile(filePath)
 	if err != nil {
 		return "", fmt.Errorf("read_file: read %s: %w", filePath, err)
+	}
+	if isBinaryContent(data) {
+		return "", fmt.Errorf("read_file: %s appears to be a binary file", filePath)
 	}
 
 	lines := strings.Split(string(data), "\n")
@@ -230,6 +243,9 @@ func registerWriteFile(reg *kdepstools.Registry) {
 			if !strings.HasPrefix(filePath, "/") {
 				return "", errors.New("write_file: absolute path required")
 			}
+			if err := validateWorkspaceBoundary(filePath); err != nil {
+				return "", fmt.Errorf("write_file: %w", err)
+			}
 			content, _ := args["content"].(string)
 			if len(content) > maxFileReadBytes {
 				return "", fmt.Errorf("write_file: content is %d bytes (max %d)", len(content), maxFileReadBytes)
@@ -277,6 +293,9 @@ func registerEditFile(reg *kdepstools.Registry) {
 			}
 			if !strings.HasPrefix(filePath, "/") {
 				return "", errors.New("edit_file: absolute path required")
+			}
+			if err := validateWorkspaceBoundary(filePath); err != nil {
+				return "", fmt.Errorf("edit_file: %w", err)
 			}
 			oldStr, _ := args["old_string"].(string)
 			newStr, _ := args["new_string"].(string)
@@ -946,6 +965,9 @@ func registerBashExec(_ context.Context, reg *kdepstools.Registry) {
 			if command == "" {
 				return "", errors.New("bash_exec: command is required")
 			}
+			if block, reason, _ := ValidateBashCommand(command, BashReadOnlyMode()); block {
+				return "", fmt.Errorf("bash_exec: blocked: %s", reason)
+			}
 			ctx, cancel := context.WithTimeout(context.Background(), builtinBashTimeout)
 			defer cancel()
 			cmd := exec.CommandContext(ctx, "bash", "-c", command)
@@ -1512,4 +1534,124 @@ func googleCacheListTool(ctx context.Context, apiKey string) *kdepstools.Tool {
 			return string(out), nil //nolint:nilerr // iterator.Done is not propagated by design
 		},
 	}
+}
+
+// registerRetrieveContext registers a semantic RAG retrieval tool when KDEPS_RAG_BASE_URL is set.
+// Posts {query, top_k} to <base_url>/v1/query and returns ranked text chunks.
+func registerRetrieveContext(ctx context.Context, reg *kdepstools.Registry) {
+	baseURL := os.Getenv("KDEPS_RAG_BASE_URL")
+	if baseURL == "" {
+		return
+	}
+	baseURL = strings.TrimRight(baseURL, "/")
+	reg.Register(&kdepstools.Tool{
+		Name: "retrieve_context",
+		Description: "Retrieve semantically relevant text chunks from the configured RAG index. " +
+			"Use for finding code, documentation, or notes related to a query before implementing or answering. " +
+			"Requires KDEPS_RAG_BASE_URL pointing to a compatible RAG service.",
+		Parameters: map[string]domain.ToolParam{
+			"query": {
+				Type:        "string",
+				Description: "The search query to find relevant context for",
+				Required:    true,
+			},
+			"top_k": {
+				Type: "number",
+				Description: fmt.Sprintf(
+					"Number of results to return (default: %d, max: %d)",
+					ragDefaultTopK, ragMaxTopK,
+				),
+			},
+		},
+		Execute: func(args map[string]any) (string, error) {
+			query, _ := args["query"].(string)
+			if query == "" {
+				return "", errors.New("retrieve_context: query is required")
+			}
+			topK := ragDefaultTopK
+			if v, ok := args["top_k"].(float64); ok && int(v) > 0 {
+				topK = int(v)
+			}
+			if topK > ragMaxTopK {
+				topK = ragMaxTopK
+			}
+			return callRetrieveContext(ctx, baseURL, query, topK)
+		},
+	})
+}
+
+func callRetrieveContext(ctx context.Context, baseURL, query string, topK int) (string, error) {
+	body, _ := json.Marshal(map[string]any{"query": query, "top_k": topK})
+	reqCtx, cancel := context.WithTimeout(ctx, ragTimeoutSeconds*time.Second)
+	defer cancel()
+	req, err := http.NewRequestWithContext(reqCtx, http.MethodPost, baseURL+"/v1/query", bytes.NewReader(body))
+	if err != nil {
+		return "", fmt.Errorf("retrieve_context: build request: %w", err)
+	}
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return "", fmt.Errorf("retrieve_context: request: %w", err)
+	}
+	defer resp.Body.Close()
+
+	respBody, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return "", fmt.Errorf("retrieve_context: read response: %w", err)
+	}
+	if resp.StatusCode != http.StatusOK {
+		return "", fmt.Errorf("retrieve_context: API error %d: %s", resp.StatusCode, string(respBody))
+	}
+
+	var result struct {
+		Results []struct {
+			Text   string  `json:"text"`
+			Score  float64 `json:"score"`
+			Source string  `json:"source"`
+		} `json:"results"`
+	}
+	if parseErr := json.Unmarshal(respBody, &result); parseErr != nil {
+		return string(respBody), nil
+	}
+
+	var sb strings.Builder
+	for i, r := range result.Results {
+		fmt.Fprintf(&sb, "[%d] score=%.3f source=%s\n%s\n", i+1, r.Score, r.Source, r.Text)
+		if i < len(result.Results)-1 {
+			sb.WriteString("---\n")
+		}
+	}
+	return strings.TrimSpace(sb.String()), nil
+}
+
+// isBinaryContent reports whether data appears to be binary by scanning for NUL bytes.
+func isBinaryContent(data []byte) bool {
+	check := data
+	if len(check) > binaryCheckBytes {
+		check = check[:binaryCheckBytes]
+	}
+	return bytes.IndexByte(check, 0) >= 0
+}
+
+// validateWorkspaceBoundary checks that path stays within KDEPS_WORKSPACE_ROOT when set.
+// Returns nil when no workspace root is configured (opt-in enforcement).
+func validateWorkspaceBoundary(path string) error {
+	root := os.Getenv("KDEPS_WORKSPACE_ROOT")
+	if root == "" {
+		return nil
+	}
+	canonical, err := filepath.EvalSymlinks(path)
+	if err != nil {
+		// Path may not exist yet (write_file creating new file); validate lexically.
+		canonical = filepath.Clean(path)
+	}
+	rootCanonical, err := filepath.EvalSymlinks(root)
+	if err != nil {
+		rootCanonical = filepath.Clean(root)
+	}
+	if !strings.HasPrefix(canonical, rootCanonical+string(filepath.Separator)) && canonical != rootCanonical {
+		return fmt.Errorf("path %s escapes workspace root %s", path, root)
+	}
+	return nil
 }
