@@ -303,9 +303,8 @@ func (c *replCompleter) Do(line []rune, pos int) ([][]rune, int) {
 		return doAtFileCompletion(token[1:])
 	}
 
-	// /command: fuzzy command completion ranked by score.
-	// Returns suffixes so readline displays same+suffix correctly (e.g. "/mo"+"del" = "/model").
-	if strings.HasPrefix(token, "/") && !strings.Contains(token, " ") {
+	// /command (no space typed yet): fuzzy command name completion.
+	if strings.HasPrefix(token, "/") {
 		query := strings.ToLower(strings.TrimPrefix(token, "/"))
 		names := c.repl.allCommandNames()
 		bare := make([]string, len(names))
@@ -323,15 +322,115 @@ func (c *replCompleter) Do(line []rune, pos int) ([][]rune, int) {
 		return results, tokenLen
 	}
 
-	// /model <arg>: suggest model names ranked by fuzzy score + tag match.
-	if lastSpace >= 0 && len(c.repl.modelNames) > 0 {
-		cmd := strings.ToLower(strings.TrimSpace(str[:lastSpace]))
-		if cmd == "/model" {
+	// Multi-word commands: dispatch based on the prefix before the current token.
+	if lastSpace >= 0 {
+		prefix := strings.ToLower(strings.TrimSpace(str[:lastSpace]))
+		switch {
+		case prefix == "/model" && len(c.repl.modelNames) > 0:
 			return c.repl.doModelCompletion(token, tokenLen)
+
+		case prefix == "/thinking":
+			return doSubcmdCompletion(token, tokenLen, []string{
+				"auto", "on", "off", "minimal", "low", "medium", "high", "xhigh",
+			})
+
+		case prefix == "/session":
+			return doSubcmdCompletion(token, tokenLen, []string{
+				"list", "save", "load", "delete", "import", "checkpoint", "goto", "branches",
+			})
+
+		case prefix == "/session load" || prefix == "/session delete":
+			return c.repl.doSessionIDCompletion(token, tokenLen)
+
+		case prefix == "/session goto":
+			return c.repl.doSessionGotoCompletion(token, tokenLen)
+
+		case prefix == "/session import":
+			return doAtFileCompletion(token)
 		}
 	}
 
 	return nil, 0
+}
+
+// doSubcmdCompletion returns fuzzy-matched subcommand completions as suffixes.
+func doSubcmdCompletion(token string, tokenLen int, options []string) ([][]rune, int) {
+	lower := strings.ToLower(token)
+	var matched []string
+	for _, o := range options {
+		if strings.HasPrefix(o, lower) {
+			matched = append(matched, o)
+		}
+	}
+	if len(matched) == 0 {
+		// fall back to fuzzy
+		matched = fuzzyRankStrings(lower, options)
+	}
+	results := make([][]rune, 0, len(matched))
+	for _, m := range matched {
+		if len([]rune(m)) >= tokenLen {
+			results = append(results, []rune(m)[tokenLen:])
+		}
+	}
+	return results, tokenLen
+}
+
+// doSessionIDCompletion returns session IDs from the store as completion candidates.
+func (r *REPL) doSessionIDCompletion(token string, tokenLen int) ([][]rune, int) {
+	store := r.loop.Store()
+	if store == nil {
+		return nil, 0
+	}
+	metas, err := store.ListMeta()
+	if err != nil || len(metas) == 0 {
+		return nil, 0
+	}
+	lower := strings.ToLower(token)
+	results := make([][]rune, 0, len(metas))
+	for _, m := range metas {
+		id := m.ID
+		if lower == "" || strings.HasPrefix(strings.ToLower(id), lower) {
+			if len([]rune(id)) >= tokenLen {
+				results = append(results, []rune(id)[tokenLen:])
+			}
+		}
+	}
+	return results, tokenLen
+}
+
+// doSessionGotoCompletion returns entry IDs from the current session as goto candidates.
+func (r *REPL) doSessionGotoCompletion(token string, tokenLen int) ([][]rune, int) {
+	msgs := r.loop.Session().RawMessages()
+	seen := make(map[int64]struct{})
+	var ids []int64
+	for _, m := range msgs {
+		if m.Role == RoleUser {
+			if _, ok := seen[m.ID]; !ok {
+				seen[m.ID] = struct{}{}
+				ids = append(ids, m.ID)
+			}
+		}
+	}
+	// Also include stashed branch entry IDs.
+	for _, b := range r.loop.Session().StashedBranches() {
+		for _, tid := range b.TurnIDs {
+			if _, ok := seen[tid]; !ok {
+				seen[tid] = struct{}{}
+				ids = append(ids, tid)
+			}
+		}
+	}
+	lower := strings.ToLower(token)
+	results := make([][]rune, 0, len(ids))
+	for _, id := range ids {
+		s := strconv.FormatInt(id, 10)
+		if lower == "" || strings.HasPrefix(s, lower) {
+			if len([]rune(s)) >= tokenLen {
+				results = append(results, []rune(s)[tokenLen:])
+			}
+		}
+	}
+	return results, tokenLen
 }
 
 // doModelCompletion handles tab completion for /model arguments.
