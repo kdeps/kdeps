@@ -18,8 +18,8 @@
         </div>
 
         <div class="card">
-          <h3>Portable workflows</h3>
-          <p>Write a <code>workflow.yaml</code> once. Run it locally with <code>kdeps run</code>. Deploy as Docker, Kubernetes, or a binary when you are ready - same file, any target.</p>
+          <h3>Deterministic pipelines</h3>
+          <p>Each resource declares its dependencies via <code>requires:</code> and runs in a fixed DAG order. Same input always produces the same execution path - auditable, testable, and safe to run unattended in production.</p>
           <a href="/modes/workflow-mode" class="link">Workflow mode -></a>
         </div>
 
@@ -36,10 +36,10 @@
         </div>
 
         <div class="card">
-          <h3>Package and distribute</h3>
-          <p>Bundle workflows as <code>.kdeps</code>, components as <code>.komponent</code>, and agencies as <code>.kagency</code> files. Deploy as Docker, Kubernetes, ISO, or single binary. Publish to kdeps.io for one-line community install.</p>
-          <a href="/reference/cli/packaging" class="link">Packaging -></a>
-          <a href="/guides/deployment-guide" class="link">Deploy -></a>
+          <h3>Deploy to production</h3>
+          <p>The workflow you run locally exports as a Docker image, Kubernetes manifests, bootable ISO, or self-contained binary. No rewrites, no re-configuration - ship the same file you tested on your laptop.</p>
+          <a href="/guides/deployment-guide" class="link">Deployment guide -></a>
+          <a href="/reference/cli/packaging" class="link">Package formats -></a>
         </div>
 
         <div class="card">

@@ -125,7 +125,7 @@ Full deployment guide: [kdeps.com/guides/deployment-guide](https://kdeps.com/gui
 
 ### Workflow mode
 
-DAG-deterministic request/response pipelines. Each resource declares its dependencies via `requires:` and runs in order. Supports API server, web server, file input, and bot input.
+DAG-deterministic pipelines. Each resource declares its dependencies via `requires:` and runs in a fixed order - same input always produces the same execution path. Inputs are validated before any LLM is called; failures are fast and explicit, not hallucinated. Supports API server, web server, file input, and bot input.
 
 ```
 POST /summarize  {"url": "..."}
