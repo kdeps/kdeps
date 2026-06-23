@@ -188,14 +188,3 @@ func languageIDFromPath(path string) string {
 		return ""
 	}
 }
-
-// shutdown closes all cached LSP servers.
-func (m *lspManager) shutdown() {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-
-	for key, client := range m.cache {
-		_ = client.close()
-		delete(m.cache, key)
-	}
-}

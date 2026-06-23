@@ -82,7 +82,7 @@ func (e *Executor) Execute(
 }
 
 // executeLSP dispatches an LSP operation.
-func (e *Executor) executeLSP(client *lspClient, config *domain.CodeIntelligenceConfig, langID string) (interface{}, error) {
+func (e *Executor) executeLSP(client *lspClient, config *domain.CodeIntelligenceConfig, _ string) (interface{}, error) {
 	switch config.Operation {
 	case domain.CodeIntOpSymbolSearch:
 		return e.lspSymbolSearch(client, config)
