@@ -19,6 +19,7 @@
 package agent
 
 import (
+	"bufio"
 	"bytes"
 	"context"
 	"errors"
@@ -35,6 +36,7 @@ import (
 
 	"github.com/charmbracelet/lipgloss"
 	"github.com/chzyer/readline"
+	"golang.org/x/term"
 
 	"github.com/kdeps/kdeps/v2/pkg/domain"
 	llm "github.com/kdeps/kdeps/v2/pkg/executor/llm"
@@ -149,6 +151,7 @@ type REPL struct {
 	modelRepos         map[string]string                   // model name -> HuggingFace repo id (e.g. "googleai/gemma4")
 	cloudModelBackends map[string]string                   // cloud model name -> backend name
 	modelPickerFn      func(filter string) (string, error) // TUI model picker; nil if unavailable
+	saveDefaultFn      func(model string) error            // persists default model; nil if unavailable
 	readlineInst       *readline.Instance                  // set during Run(); nil before/after
 	providerStatus     map[string]bool                     // backend -> API key set
 	onSettingsChange   OnSettingsChange
@@ -226,6 +229,12 @@ func (r *REPL) SetCloudModelBackends(backends map[string]string) {
 // SetProviderStatus registers which cloud backend providers have an API key set.
 func (r *REPL) SetProviderStatus(status map[string]bool) {
 	r.providerStatus = status
+}
+
+// SetSaveDefaultFn injects the function that persists a model name as the default.
+// Called by /model default <name>. When nil, /model default prints an error.
+func (r *REPL) SetSaveDefaultFn(fn func(string) error) {
+	r.saveDefaultFn = fn
 }
 
 // SetModelPickerFn injects a TUI model picker function. When set, /model with
@@ -928,7 +937,11 @@ func (r *REPL) runWithThinking(ctx context.Context, input string) (string, error
 			for {
 				select {
 				case <-tick.C:
-					fmt.Fprintf(os.Stdout, "\r  %s thinking", styleReplInfo.Render(spinFrames[i%len(spinFrames)]))
+					fmt.Fprintf(
+						os.Stdout,
+						"\r  %s thinking",
+						styleReplInfo.Render(spinFrames[i%len(spinFrames)]),
+					)
 					i++
 				case <-done:
 					return
@@ -1012,7 +1025,8 @@ func (r *REPL) Run() error {
 
 	// Stale branch check - warn when branch is behind upstream.
 	if staleCwd, cwdErr := os.Getwd(); cwdErr == nil {
-		if fr, _ := CheckBranchFreshness(staleCwd); fr.Freshness != BranchFresh && fr.Freshness != BranchUnknown {
+		if fr, _ := CheckBranchFreshness(staleCwd); fr.Freshness != BranchFresh &&
+			fr.Freshness != BranchUnknown {
 			msg := FormatStaleBranchWarning(fr)
 			if StaleBranchPolicyFromEnv() == StalePolicyBlock {
 				return fmt.Errorf("agent: startup blocked: %s", msg)
@@ -1142,7 +1156,8 @@ func (r *REPL) execBangCommand(cmd string, excludeFromContext bool) error {
 	}
 
 	// Inject into the session so the LLM sees command + output as context.
-	r.loop.Session().Append(strings.TrimRight(sb.String(), "\n"), "I see the shell command output above.")
+	r.loop.Session().
+		Append(strings.TrimRight(sb.String(), "\n"), "I see the shell command output above.")
 	return runErr
 }
 
@@ -1242,12 +1257,13 @@ func (r *REPL) cmdHelp() error {
 	dim := styleReplDim.Render
 	fmt.Fprintf(
 		os.Stdout,
-		"%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n\n%s\n\n%s\n",
+		"%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n\n%s\n\n%s\n",
 		heading("Available commands:"),
 		"  /help                    Show this help message",
 		"  /settings                Open the tool/skill selector and save selections",
 		"  /clear                   Clear the conversation history",
 		"  /model [name]            Show or set the LLM model",
+		"  /model default [name]    Show or save the default startup model",
 		"  /models                  List all available models with provider status",
 		"  /skills                  List loaded skills",
 		"  /prompts                 List loaded prompt templates",
@@ -1295,6 +1311,10 @@ func (r *REPL) cmdClear() error {
 var tagKeywords = []string{"gguf", "llamafile", "cloud", "enabled", "cached", "installed", "ollama"}
 
 func (r *REPL) cmdModel(args []string) error {
+	// /model default [name] -- show or set the persisted startup model.
+	if len(args) > 0 && args[0] == "default" {
+		return r.cmdModelDefault(args[1:])
+	}
 	if len(args) > 0 {
 		name := stripModelIndicators(args[0])
 		if r.isModelName(name) {
@@ -1321,6 +1341,39 @@ func (r *REPL) cmdModel(args []string) error {
 	// readline has yielded the terminal (ReadLine already returned), so
 	// bubbletea can take over directly without closing readline first.
 	return r.openPickerWithFilter("")
+}
+
+// cmdModelDefault handles /model default [name].
+// With no name: prints the current default from settings.
+// With a name: saves it as the new default and switches to it.
+func (r *REPL) cmdModelDefault(args []string) error {
+	if len(args) == 0 {
+		// Show current default.
+		if r.saveDefaultFn == nil {
+			fmt.Fprintln(os.Stdout, styleReplMeta.Render("No default persistence configured."))
+			return nil
+		}
+		// We can't read back the setting here without a getter, so show the active model.
+		fmt.Fprintf(os.Stdout, "%s\n%s\n",
+			styleReplHeading.Render("Default model"),
+			"  Use /model default <name> to set the startup model.",
+		)
+		return nil
+	}
+	name := stripModelIndicators(args[0])
+	if resolved := r.stripTagKeywordPrefix(name); r.isModelName(resolved) {
+		name = resolved
+	}
+	if r.saveDefaultFn != nil {
+		if err := r.saveDefaultFn(name); err != nil {
+			return fmt.Errorf("save default model: %w", err)
+		}
+	}
+	r.applyModelSwitch(name)
+	fmt.Fprintf(os.Stdout, "%s\n",
+		styleReplMeta.Render("Default model saved — will be used at next startup."),
+	)
+	return nil
 }
 
 func (r *REPL) isModelName(name string) bool {
@@ -1525,36 +1578,93 @@ var (
 	styleModelsCurrent = lipgloss.NewStyle().Foreground(lipgloss.Color("#FFD60A")).Bold(true)
 )
 
-// cmdModels prints all known cloud models grouped by backend with [READY]/[NO KEY] status,
-// followed by local models.
+// cmdModels collects all model lines into a buffer and displays them with pagination.
 func (r *REPL) cmdModels() error {
-	fmt.Fprintf(os.Stdout, "%s\n\n",
+	var buf strings.Builder
+	fmt.Fprintf(
+		&buf,
+		"%s\n\n",
 		styleReplHeading.Render("Available models  (use /model <id> to switch)"),
 	)
-	r.printCloudModels()
-	r.printLocalModels()
-	fmt.Fprintf(os.Stdout, "\n%s\n",
-		styleReplMeta.Render("* = downloaded locally  |  /model <id> to switch"),
+	r.collectCloudModels(&buf)
+	r.collectLocalModels(&buf)
+	fmt.Fprintf(
+		&buf,
+		"\n%s\n",
+		styleReplMeta.Render(
+			"* = downloaded locally  |  /model default <name> to set startup model  |  /model <id> to switch",
+		),
 	)
+
+	lines := strings.Split(strings.TrimRight(buf.String(), "\n"), "\n")
+	return r.pageLines(lines)
+}
+
+const (
+	pagerDefaultPageSize = 20
+	pagerHeaderReserve   = 3 // rows reserved for the pager prompt line + breathing room
+)
+
+// pageLines prints lines page by page using terminal height for page size.
+// If all lines fit on one screen they are printed directly without prompting.
+func (r *REPL) pageLines(lines []string) error {
+	_, termH, err := term.GetSize(int(os.Stdout.Fd()))
+	pageSize := pagerDefaultPageSize
+	if err == nil && termH > pagerHeaderReserve+1 {
+		pageSize = termH - pagerHeaderReserve
+	}
+
+	if len(lines) <= pageSize {
+		for _, l := range lines {
+			fmt.Fprintln(os.Stdout, l)
+		}
+		return nil
+	}
+
+	oldState, rawErr := term.MakeRaw(int(os.Stdin.Fd()))
+	restore := func() {
+		if rawErr == nil {
+			_ = term.Restore(int(os.Stdin.Fd()), oldState)
+		}
+	}
+	defer restore()
+
+	br := bufio.NewReader(os.Stdin)
+	for i, line := range lines {
+		fmt.Fprintln(os.Stdout, line)
+		if (i+1)%pageSize == 0 && i+1 < len(lines) {
+			remaining := len(lines) - i - 1
+			prompt := styleReplMeta.Render(
+				fmt.Sprintf("-- %d more -- (Enter/Space = next page, q = quit) --", remaining),
+			)
+			fmt.Fprint(os.Stdout, prompt)
+			b, _ := br.ReadByte()
+			fmt.Fprint(os.Stdout, "\r\033[K") // clear prompt line
+			if b == 'q' || b == 'Q' || b == 3 {
+				restore()
+				return nil
+			}
+		}
+	}
 	return nil
 }
 
-func (r *REPL) printCloudModels() {
+func (r *REPL) collectCloudModels(w io.Writer) {
 	currentModel := r.loop.config.Model
 	lastBackend := ""
 	for _, m := range KnownCloudModels {
 		ready := r.providerStatus[m.Backend]
 		if m.Backend != lastBackend {
-			r.printBackendHeader(m.Backend, m.EnvVar, ready, lastBackend != "")
+			r.writeBackendHeader(w, m.Backend, m.EnvVar, ready, lastBackend != "")
 			lastBackend = m.Backend
 		}
-		r.printCloudModelRow(m, currentModel, ready)
+		r.writeCloudModelRow(w, m, currentModel, ready)
 	}
 }
 
-func (r *REPL) printBackendHeader(backend, envVar string, ready, addBlank bool) {
+func (r *REPL) writeBackendHeader(w io.Writer, backend, envVar string, ready, addBlank bool) {
 	if addBlank {
-		fmt.Fprintln(os.Stdout)
+		fmt.Fprintln(w)
 	}
 	var statusLabel string
 	if ready {
@@ -1562,26 +1672,26 @@ func (r *REPL) printBackendHeader(backend, envVar string, ready, addBlank bool) 
 	} else {
 		statusLabel = styleModelsNoKey.Render("[NO KEY - set " + envVar + "]")
 	}
-	fmt.Fprintf(os.Stdout, "  %s  %s\n",
+	fmt.Fprintf(w, "  %s  %s\n",
 		styleReplHeading.Render(strings.ToUpper(backend)),
 		statusLabel,
 	)
 }
 
-func (r *REPL) printCloudModelRow(m CloudModel, currentModel string, ready bool) {
+func (r *REPL) writeCloudModelRow(w io.Writer, m CloudModel, currentModel string, ready bool) {
 	idField := fmt.Sprintf("%-*s", modelsIDWidth, m.ID)
 	isCurrent := m.ID == currentModel
 	switch {
 	case isCurrent:
-		fmt.Fprintf(os.Stdout, "  %s  %s  %s\n",
+		fmt.Fprintf(w, "  %s  %s  %s\n",
 			styleModelsCurrent.Render(idField),
 			styleReplMeta.Render(m.Desc),
 			styleModelsCurrent.Render("<-- current"),
 		)
 	case ready:
-		fmt.Fprintf(os.Stdout, "  %s  %s\n", idField, styleReplMeta.Render(m.Desc))
+		fmt.Fprintf(w, "  %s  %s\n", idField, styleReplMeta.Render(m.Desc))
 	default:
-		fmt.Fprintf(os.Stdout, "  %s  %s\n",
+		fmt.Fprintf(w, "  %s  %s\n",
 			styleModelsNoKey.Render(idField),
 			styleModelsNoKey.Render(m.Desc),
 		)
@@ -1598,7 +1708,7 @@ func isCloudModelID(name string) bool {
 	return false
 }
 
-func (r *REPL) printLocalModels() {
+func (r *REPL) collectLocalModels(w io.Writer) {
 	currentModel := r.loop.config.Model
 	var localNames []string
 	for _, name := range r.modelNames {
@@ -1609,15 +1719,15 @@ func (r *REPL) printLocalModels() {
 	if len(localNames) == 0 {
 		return
 	}
-	fmt.Fprintf(os.Stdout, "\n  %s\n",
+	fmt.Fprintf(w, "\n  %s\n",
 		styleReplHeading.Render("LOCAL  (ollama / llamafile / gguf)"),
 	)
 	for _, name := range localNames {
-		r.printLocalModelRow(name, currentModel)
+		r.writeLocalModelRow(w, name, currentModel)
 	}
 }
 
-func (r *REPL) printLocalModelRow(name, currentModel string) {
+func (r *REPL) writeLocalModelRow(w io.Writer, name, currentModel string) {
 	downloaded := r.downloadedModels[name]
 	marker := "  "
 	if downloaded {
@@ -1636,16 +1746,16 @@ func (r *REPL) printLocalModelRow(name, currentModel string) {
 
 	switch {
 	case isCurrent:
-		fmt.Fprintf(os.Stdout, "  %s%s%s  %s\n",
+		fmt.Fprintf(w, "  %s%s%s  %s\n",
 			marker,
 			styleModelsCurrent.Render(idField),
 			repo,
 			styleModelsCurrent.Render("<-- current"),
 		)
 	case downloaded:
-		fmt.Fprintf(os.Stdout, "  %s%s%s  %s\n", marker, idField, repo, styleReplMeta.Render("downloaded"))
+		fmt.Fprintf(w, "  %s%s%s  %s\n", marker, idField, repo, styleReplMeta.Render("downloaded"))
 	default:
-		fmt.Fprintf(os.Stdout, "  %s%s%s\n", marker, styleModelsNoKey.Render(idField), repo)
+		fmt.Fprintf(w, "  %s%s%s\n", marker, styleModelsNoKey.Render(idField), repo)
 	}
 }
 
@@ -1818,7 +1928,10 @@ func (r *REPL) cmdThinking(args []string) error {
 		domain.ThinkingModeAuto:
 		if !ModelSupportsThinking(r.loop.config.Model) {
 			fmt.Fprintln(os.Stdout, styleReplMeta.Render(
-				fmt.Sprintf("Warning: model %q may not support extended thinking.", r.loop.config.Model),
+				fmt.Sprintf(
+					"Warning: model %q may not support extended thinking.",
+					r.loop.config.Model,
+				),
 			))
 		}
 		budget := thinkingBudgets[mode]
@@ -1831,10 +1944,15 @@ func (r *REPL) cmdThinking(args []string) error {
 		fmt.Fprintf(
 			os.Stdout,
 			"%s\n",
-			styleReplMeta.Render(fmt.Sprintf("Thinking set to %s (budget %d tokens).", mode, budget)),
+			styleReplMeta.Render(
+				fmt.Sprintf("Thinking set to %s (budget %d tokens).", mode, budget),
+			),
 		)
 	default:
-		fmt.Fprintln(os.Stdout, styleReplMeta.Render("Usage: /thinking [off|minimal|low|medium|high|xhigh|auto]"))
+		fmt.Fprintln(
+			os.Stdout,
+			styleReplMeta.Render("Usage: /thinking [off|minimal|low|medium|high|xhigh|auto]"),
+		)
 	}
 	return nil
 }
@@ -1911,7 +2029,8 @@ func (r *REPL) cmdSession(args []string) error {
 		}
 		return r.cmdSessionGoto(args[1])
 	default:
-		fmt.Fprintf(os.Stdout,
+		fmt.Fprintf(
+			os.Stdout,
 			"Unknown /session subcommand: %s. Use list, save, load, delete, import, checkpoint, goto, or branches.\n",
 			sub,
 		)
@@ -1952,15 +2071,27 @@ func (r *REPL) cmdSessionBranches() error {
 	sess := r.loop.session
 	stashes := sess.StashedBranches()
 	if len(stashes) == 0 {
-		fmt.Fprintln(os.Stdout, styleReplMeta.Render("No stashed branches. Use /session goto to create a branch."))
+		fmt.Fprintln(
+			os.Stdout,
+			styleReplMeta.Render("No stashed branches. Use /session goto to create a branch."),
+		)
 		return nil
 	}
-	fmt.Fprintln(os.Stdout, styleReplHeading.Render(fmt.Sprintf("%d stashed branch(es):", len(stashes))))
+	fmt.Fprintln(
+		os.Stdout,
+		styleReplHeading.Render(fmt.Sprintf("%d stashed branch(es):", len(stashes))),
+	)
 	for i, snap := range stashes {
 		fmt.Fprintln(os.Stdout, styleReplMeta.Render(fmt.Sprintf(
-			"  branch %d: branched at entry %d, %d turn(s)", i+1, snap.BranchPoint, len(snap.TurnIDs),
+			"  branch %d: branched at entry %d, %d turn(s)",
+			i+1,
+			snap.BranchPoint,
+			len(snap.TurnIDs),
 		)))
-		fmt.Fprintln(os.Stdout, styleReplMeta.Render("  Entry IDs (use /session goto <id> to switch):"))
+		fmt.Fprintln(
+			os.Stdout,
+			styleReplMeta.Render("  Entry IDs (use /session goto <id> to switch):"),
+		)
 		for j, id := range snap.TurnIDs {
 			fmt.Fprintf(os.Stdout, "    turn %d: %d\n", j+1, id)
 		}
@@ -2094,7 +2225,10 @@ func (r *REPL) cmdEditor() error {
 	}
 	input := strings.TrimRight(string(data), "\n")
 	if input == "" {
-		fmt.Fprintln(os.Stdout, styleReplMeta.Render("(editor closed with empty content - nothing sent)"))
+		fmt.Fprintln(
+			os.Stdout,
+			styleReplMeta.Render("(editor closed with empty content - nothing sent)"),
+		)
 		return nil
 	}
 	fmt.Fprintln(os.Stdout, styleReplDim.Render("Submitting editor content..."))

@@ -88,8 +88,14 @@ func runAgentLoopCmd(path string, flags *agentLoopFlags) error {
 	if cwd, cwdErr := os.Getwd(); cwdErr == nil {
 		store.SetCwd(cwd)
 	}
+	// Use the persisted default model when no --model flag was given.
+	startModel := flags.Model
+	if startModel == "" && settings.DefaultModel != "" {
+		startModel = settings.DefaultModel
+	}
+
 	cfg := agent.Config{
-		Model:        flags.Model,
+		Model:        startModel,
 		Backend:      flags.Backend,
 		BaseURL:      flags.BaseURL,
 		SystemPrompt: flags.SystemPrompt,
@@ -108,7 +114,7 @@ func runAgentLoopCmd(path string, flags *agentLoopFlags) error {
 	}
 
 	// Start model download in background so it is ready before the first prompt.
-	prefetchModel(resolveAgentBackend(flags.Backend), flags.Model)
+	prefetchModel(resolveAgentBackend(flags.Backend), startModel)
 
 	loop := agent.New(eng, hostWorkflow, registry, cfg)
 	repl := agent.NewREPL(loop)
@@ -121,6 +127,9 @@ func runAgentLoopCmd(path string, flags *agentLoopFlags) error {
 	repl.SetModelRepos(buildModelRepos())
 	repl.SetCloudModelBackends(buildCloudBackends())
 	repl.SetProviderStatus(agent.BuildProviderStatus())
+
+	// Wire default-model persistence for /model default <name>.
+	repl.SetSaveDefaultFn(tui.SaveDefaultModel)
 
 	// Wire model picker TUI.
 	repl.SetModelPickerFn(buildModelPickerFn(repl))
