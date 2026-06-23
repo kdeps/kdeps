@@ -460,6 +460,7 @@ func buildModelPickerFn(repl *agent.REPL) func(filter string) (string, error) {
 		names := repl.ModelNames()
 		downloaded := repl.DownloadedModels()
 		types := repl.ModelTypes()
+		repos := repl.ModelRepos()
 		backends := repl.CloudModelBackends()
 		status := repl.ProviderStatus()
 		for _, name := range names {
@@ -471,6 +472,7 @@ func buildModelPickerFn(repl *agent.REPL) func(filter string) (string, error) {
 				Name:      name,
 				ModelType: types[name],
 				Backend:   backend,
+				Repo:      repos[name],
 				Cached:    downloaded[name],
 				Enabled:   enabled,
 			})

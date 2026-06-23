@@ -599,12 +599,17 @@ func (r *REPL) modelCompletionSuffixes(ranked []string, tokenLen int) [][]rune {
 // modelTag returns a display tag appended to the model name in tab completion.
 // Shows type and availability at a glance; stripped before applying the model switch.
 func modelTag(r *REPL, name string) string {
+	repo := r.modelRepos[name]
+	repoSuffix := ""
+	if repo != "" {
+		repoSuffix = " " + repo
+	}
 	if r.downloadedModels[name] {
 		switch r.modelTypes[name] {
 		case modelTypeLLamafile:
-			return " [llamafile cached]"
+			return " [llamafile cached" + repoSuffix + "]"
 		case modelTypeGGUF:
-			return " [gguf cached]"
+			return " [gguf cached" + repoSuffix + "]"
 		case modelTypeOllama:
 			return " [ollama]"
 		default:
@@ -613,9 +618,9 @@ func modelTag(r *REPL, name string) string {
 	}
 	switch r.modelTypes[name] {
 	case modelTypeLLamafile:
-		return " [llamafile]"
+		return " [llamafile" + repoSuffix + "]"
 	case modelTypeGGUF:
-		return " [gguf]"
+		return " [gguf" + repoSuffix + "]"
 	case modelTypeOllama:
 		return " [ollama]"
 	default:
@@ -2116,6 +2121,9 @@ func (r *REPL) cmdInvokeSkill(sk *Skill, extra []string) error {
 
 // ModelNames returns the model name suggestions for /model completion.
 func (r *REPL) ModelNames() []string { return r.modelNames }
+
+// ModelRepos returns the HuggingFace repo id map for llamafile/gguf models.
+func (r *REPL) ModelRepos() map[string]string { return r.modelRepos }
 
 // DownloadedModels returns the set of cached model aliases.
 func (r *REPL) DownloadedModels() map[string]bool { return r.downloadedModels }
