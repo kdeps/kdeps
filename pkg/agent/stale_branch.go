@@ -24,6 +24,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strconv"
 	"strings"
 )
@@ -74,9 +75,13 @@ func CheckBranchFreshness(cwd string) (BranchFreshnessResult, error) {
 	unknown := BranchFreshnessResult{Freshness: BranchUnknown}
 	ctx := context.Background()
 
+	// GIT_CEILING_DIRECTORIES stops git from traversing above cwd's parent,
+	// preventing it from discovering a .git repo in an ancestor directory.
+	ceiling := filepath.Dir(cwd)
 	run := func(args ...string) (string, error) {
 		cmd := exec.CommandContext(ctx, "git", args...)
 		cmd.Dir = cwd
+		cmd.Env = append(os.Environ(), "GIT_CEILING_DIRECTORIES="+ceiling)
 		var out bytes.Buffer
 		cmd.Stdout = &out
 		cmd.Stderr = nil
