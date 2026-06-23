@@ -16,6 +16,7 @@ type HFModelResult struct {
 	Downloads int
 	Likes     int
 	Tags      []string
+	Siblings  []HFFileEntry
 }
 
 type HFFileEntry struct {

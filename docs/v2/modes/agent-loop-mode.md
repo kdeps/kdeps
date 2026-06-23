@@ -23,8 +23,15 @@ Inside the REPL, type `/help` for the full list:
 |---------|-------------|
 | `/help` | Show available commands |
 | `/clear` | Summarize and clear the current conversation |
-| `/model [name]` | Show or switch LLM model mid-session |
+| `/model [name]` | Show or switch LLM model mid-session (tab-complete shows up to 10 suggestions) |
+| `/model default [name]` | Show or set the default startup model, persisted to `~/.kdeps/agent-loop-settings.yaml` |
 | `/models` | List all available models with provider status |
+| `/processes` | List running local model servers (llamafile/gguf) with PID, port, and health |
+| `/processes kill <model>` | Kill a running local model server and clean up its port file |
+| `/processes switch <model>` | Switch the active model to a running local server |
+| `/hff search <query>` | Search HuggingFace for GGUF repos (sorted by downloads) |
+| `/hff info <repo>` | List GGUF files and sizes available in a HuggingFace repo |
+| `/hff download <repo> [file]` | Download a GGUF from HuggingFace; auto-registers an alias for `/model` |
 | `/skills` | List loaded skills |
 | `/prompts` | List loaded prompt templates |
 | `/<skill-name> [prompt]` | Invoke a skill or prompt template directly |
@@ -39,6 +46,55 @@ Inside the REPL, type `/help` for the full list:
 | `/exit` | Exit the REPL |
 | `! <cmd>` | Run a shell command; result is added to LLM context |
 | `!! <cmd>` | Run a shell command without adding it to LLM context |
+
+## Local model management
+
+### Switching models
+
+`/model <name>` switches models mid-session. For local backends (`file`, `gguf`), the REPL downloads and starts the server if it isn't already running, then shows a progress display until the completions endpoint is accepting requests — the first prompt after the switch never gets a "network error" while weights load.
+
+```
+/model qwen3.5-4b                     # switch to a known alias
+/model default qwen3.5-4b             # save as default startup model
+/model default                        # show the current default
+```
+
+The default model is persisted to `~/.kdeps/agent-loop-settings.yaml` and loaded automatically at startup when `--model` is not passed.
+
+### Searching and downloading from HuggingFace
+
+`/hff` lets you discover and download GGUF models directly from within the REPL. Set `HF_TOKEN` in your environment to authenticate (required for gated models; increases rate limits for all requests).
+
+```bash
+# Search for GGUF repos by keyword (sorted by downloads)
+/hff search qwen3
+
+# List GGUF files and sizes inside a repo
+/hff info unsloth/Qwen2.5-VL-7B-Instruct-GGUF
+
+# Download a specific file — registers it as an alias in ~/.kdeps/gguf_versions.yaml
+/hff download unsloth/Qwen2.5-VL-7B-Instruct-GGUF Qwen2.5-VL-7B-Instruct-Q4_K_M.gguf
+
+# Switch to it immediately after download
+/model Qwen2.5-VL-7B-Instruct-Q4_K_M
+```
+
+`/hff download <repo>` without a filename shows the available files (same as `/hff info`). Downloaded files go to `~/.kdeps/models/` and the alias is the filename without the `.gguf` extension.
+
+### Managing running servers
+
+`/processes` shows all llamafile and llama-server processes started in the current session:
+
+```
+PID      PORT   BACKEND      MODEL                                STATUS
+12345    8080   gguf         Qwen2.5-VL-7B-Instruct-Q4_K_M       healthy
+12346    8081   file         phi4                                  loading
+```
+
+```
+/processes kill phi4           # send SIGKILL, remove port file
+/processes switch phi4         # set active model to an already-running server
+```
 
 ## Multimodal input
 

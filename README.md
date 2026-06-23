@@ -38,9 +38,9 @@ kdeps ./my-agent/                   # load your workflow as tools for the agent
 **Local models** - three options, zero cloud dependency:
 - **Ollama** (`backend: ollama`) - managed model server, `ollama pull llama3.2` then `kdeps`
 - **llamafile** (`backend: file`) - model + server as a single binary, runs on any OS, no install
-- **GGUF** (`backend: gguf`) - raw GGUF files, point `llm.model_path` at a local file or let kdeps auto-download from HuggingFace using aria2c
+- **GGUF** (`backend: gguf`) - raw GGUF files, point `llm.model_path` at a local file or auto-download from HuggingFace; use `/hff search <query>` and `/hff download <repo> <file>` to find and fetch models without leaving the REPL
 
-Slash commands inside the REPL: `/model` switches models (opens a TUI picker if no argument), `/clear` resets context, `/help` shows all commands, `/exit` quits. Sessions persist under `~/.kdeps/sessions/` and resume with `--resume <session-id>`.
+Slash commands inside the REPL: `/model` switches models (opens a TUI picker if no argument), `/model default <name>` saves a startup model to `~/.kdeps/agent-loop-settings.yaml`, `/processes` lists running local servers (sub-commands: `kill`, `switch`), `/hff search <query>` searches HuggingFace for GGUF models and `/hff download <repo> <file>` downloads and registers one, `/clear` resets context, `/help` shows all commands, `/exit` quits. Sessions persist under `~/.kdeps/sessions/` and resume with `--resume <session-id>`.
 
 ## Build with AI assistance
 
