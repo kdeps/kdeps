@@ -540,3 +540,57 @@ func TestList_SkipsNonJSONL(t *testing.T) {
 		t.Fatalf("expected 0 ids (non-.jsonl skipped), got %d", len(ids))
 	}
 }
+
+func TestImport_CopiesFile(t *testing.T) {
+	dir := t.TempDir()
+	store := NewSessionStore(dir)
+
+	srcDir := t.TempDir()
+	srcPath := srcDir + "/session.jsonl"
+	content := `{"type":"session_meta","ts":1000,"sessionId":"test","turns":0}` + "\n"
+	if err := os.WriteFile(srcPath, []byte(content), 0600); err != nil {
+		t.Fatal(err)
+	}
+
+	id, err := store.Import(srcPath)
+	if err != nil {
+		t.Fatalf("Import failed: %v", err)
+	}
+	if id == "" {
+		t.Fatal("expected non-empty session ID")
+	}
+	if _, statErr := os.Stat(filepath.Join(dir, id+".jsonl")); os.IsNotExist(statErr) {
+		t.Fatal("expected imported file to exist in store directory")
+	}
+}
+
+func TestImport_NonexistentSource(t *testing.T) {
+	dir := t.TempDir()
+	store := NewSessionStore(dir)
+
+	_, err := store.Import("/nonexistent-file")
+	if err == nil {
+		t.Fatal("expected error for nonexistent source file")
+	}
+}
+
+func TestImport_WithCwd(t *testing.T) {
+	dir := t.TempDir()
+	store := NewSessionStore(dir)
+	store.SetCwd("/tmp/project")
+
+	srcDir := t.TempDir()
+	srcPath := srcDir + "/session.jsonl"
+	content := `{"type":"session_meta","ts":1000,"sessionId":"test","turns":0}` + "\n"
+	if err := os.WriteFile(srcPath, []byte(content), 0600); err != nil {
+		t.Fatal(err)
+	}
+
+	id, err := store.Import(srcPath)
+	if err != nil {
+		t.Fatalf("Import failed with cwd set: %v", err)
+	}
+	if id == "" {
+		t.Fatal("expected non-empty session ID with cwd set")
+	}
+}

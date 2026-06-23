@@ -3476,3 +3476,354 @@ func TestStartLocalModelServer_LocalBackend_CallsService(t *testing.T) {
 // Ensure the import of httptest / llm is used.
 var _ = httptest.NewServer
 var _ = llm.BackendGGUF
+
+// --- modelTag ---
+
+func TestModelTag_CloudModel(t *testing.T) {
+	loop := makeTestLoop(nil)
+	repl := NewREPL(loop)
+	defer repl.cancel()
+	repl.SetCloudModelBackends(map[string]string{"mymodel": "openai"})
+	repl.SetProviderStatus(map[string]bool{"openai": false})
+	tag := modelTag(repl, "mymodel")
+	assert.Contains(t, tag, "cloud")
+}
+
+func TestModelTag_CloudEnabled(t *testing.T) {
+	loop := makeTestLoop(nil)
+	repl := NewREPL(loop)
+	defer repl.cancel()
+	repl.SetCloudModelBackends(map[string]string{"mymodel": "openai"})
+	repl.SetProviderStatus(map[string]bool{"openai": true})
+	tag := modelTag(repl, "mymodel")
+	assert.Contains(t, tag, "enabled")
+}
+
+func TestModelTag_CachedGGUF(t *testing.T) {
+	loop := makeTestLoop(nil)
+	repl := NewREPL(loop)
+	defer repl.cancel()
+	repl.SetDownloadedModels(map[string]bool{"my-model": true})
+	repl.SetModelTypes(map[string]string{"my-model": modelTypeGGUF})
+	tag := modelTag(repl, "my-model")
+	assert.Contains(t, tag, "cached")
+	assert.Contains(t, tag, "gguf")
+}
+
+func TestModelTag_CachedLlamafile(t *testing.T) {
+	loop := makeTestLoop(nil)
+	repl := NewREPL(loop)
+	defer repl.cancel()
+	repl.SetDownloadedModels(map[string]bool{"my-model": true})
+	repl.SetModelTypes(map[string]string{"my-model": modelTypeLLamafile})
+	tag := modelTag(repl, "my-model")
+	assert.Contains(t, tag, "cached")
+	assert.Contains(t, tag, "llamafile")
+}
+
+func TestModelTag_CachedOllama(t *testing.T) {
+	loop := makeTestLoop(nil)
+	repl := NewREPL(loop)
+	defer repl.cancel()
+	repl.SetDownloadedModels(map[string]bool{"my-model": true})
+	repl.SetModelTypes(map[string]string{"my-model": modelTypeOllama})
+	tag := modelTag(repl, "my-model")
+	assert.Contains(t, tag, "ollama")
+}
+
+func TestModelTag_LlamafileNotCached(t *testing.T) {
+	loop := makeTestLoop(nil)
+	repl := NewREPL(loop)
+	defer repl.cancel()
+	repl.SetModelTypes(map[string]string{"my-model": modelTypeLLamafile})
+	tag := modelTag(repl, "my-model")
+	assert.Contains(t, tag, "llamafile")
+	assert.NotContains(t, tag, "cached")
+}
+
+func TestModelTag_GGUFNotCached(t *testing.T) {
+	loop := makeTestLoop(nil)
+	repl := NewREPL(loop)
+	defer repl.cancel()
+	repl.SetModelTypes(map[string]string{"my-model": modelTypeGGUF})
+	tag := modelTag(repl, "my-model")
+	assert.Contains(t, tag, "gguf")
+	assert.NotContains(t, tag, "cached")
+}
+
+func TestModelTag_OllamaNotCached(t *testing.T) {
+	loop := makeTestLoop(nil)
+	repl := NewREPL(loop)
+	defer repl.cancel()
+	repl.SetModelTypes(map[string]string{"my-model": modelTypeOllama})
+	tag := modelTag(repl, "my-model")
+	assert.Contains(t, tag, "ollama")
+}
+
+func TestModelTag_WithRepo(t *testing.T) {
+	loop := makeTestLoop(nil)
+	repl := NewREPL(loop)
+	defer repl.cancel()
+	repl.SetModelTypes(map[string]string{"my-model": modelTypeGGUF})
+	repl.SetModelRepos(map[string]string{"my-model": "org/repo"})
+	tag := modelTag(repl, "my-model")
+	assert.Contains(t, tag, "org/repo")
+}
+
+// --- writeLocalModelRow ---
+
+func TestWriteLocalModelRow_Current(t *testing.T) {
+	loop := makeTestLoop(nil)
+	repl := NewREPL(loop)
+	defer repl.cancel()
+	repl.SetModelNames([]string{"current-model"})
+	repl.SetDownloadedModels(map[string]bool{"current-model": false})
+	var buf strings.Builder
+	repl.writeLocalModelRow(&buf, "current-model", "current-model")
+	assert.Contains(t, buf.String(), "current")
+}
+
+func TestWriteLocalModelRow_Downloaded(t *testing.T) {
+	loop := makeTestLoop(nil)
+	repl := NewREPL(loop)
+	defer repl.cancel()
+	repl.SetModelNames([]string{"dl-model"})
+	repl.SetDownloadedModels(map[string]bool{"dl-model": true})
+	var buf strings.Builder
+	repl.writeLocalModelRow(&buf, "dl-model", "other")
+	assert.Contains(t, buf.String(), "downloaded")
+}
+
+func TestWriteLocalModelRow_NotDownloaded(t *testing.T) {
+	loop := makeTestLoop(nil)
+	repl := NewREPL(loop)
+	defer repl.cancel()
+	repl.SetModelNames([]string{"plain-model"})
+	var buf strings.Builder
+	repl.writeLocalModelRow(&buf, "plain-model", "other")
+	assert.NotContains(t, buf.String(), "downloaded")
+}
+
+// --- liveThinkingWriter ---
+
+func TestLiveThinkingWriter_WriteEmpty(t *testing.T) {
+	w := &liveThinkingWriter{}
+	n, err := w.Write(nil)
+	assert.NoError(t, err)
+	assert.Zero(t, n)
+	assert.False(t, w.started)
+}
+
+func TestLiveThinkingWriter_WriteFlushCapturesOutput(t *testing.T) {
+	w := &liveThinkingWriter{}
+	r, pipeW, _ := os.Pipe()
+	orig := os.Stdout
+	os.Stdout = pipeW
+
+	n, err := w.Write([]byte("hello"))
+	assert.NoError(t, err)
+	assert.Equal(t, 5, n)
+	assert.True(t, w.started)
+
+	w.Flush()
+	assert.False(t, w.started)
+
+	pipeW.Close()
+	os.Stdout = orig
+	out, _ := io.ReadAll(r)
+	r.Close()
+	assert.Contains(t, string(out), "thinking")
+	assert.Contains(t, string(out), "hello")
+}
+
+func TestLiveThinkingWriter_FlushNotStarted(t *testing.T) {
+	w := &liveThinkingWriter{}
+	// Should not panic or write anything.
+	w.Flush()
+	assert.False(t, w.started)
+}
+
+func TestLiveThinkingWriter_MultipleWrites(t *testing.T) {
+	w := &liveThinkingWriter{}
+	r, pipeW, _ := os.Pipe()
+	orig := os.Stdout
+	os.Stdout = pipeW
+
+	_, _ = w.Write([]byte("chunk1"))
+	_, _ = w.Write([]byte(" chunk2"))
+	w.Flush()
+
+	pipeW.Close()
+	os.Stdout = orig
+	out, _ := io.ReadAll(r)
+	r.Close()
+	assert.Contains(t, string(out), "chunk1")
+	assert.Contains(t, string(out), "chunk2")
+}
+
+// --- cmdSessionBranches ---
+
+func TestCmdSessionBranches_Empty(t *testing.T) {
+	loop := makeTestLoop(nil)
+	session := NewSession(0)
+	loop.session = session
+	repl := NewREPL(loop)
+	defer repl.cancel()
+
+	err := repl.cmdSessionBranches()
+	assert.NoError(t, err)
+}
+
+func TestCmdSessionBranches_WithStash(t *testing.T) {
+	loop := makeTestLoop(nil)
+	session := NewSession(0)
+	session.Append("hello", "world")
+	// Branch (stash) by checkpointing and restoring to a previous point.
+	id := session.Checkpoint()
+	session.RestoreTo(id)
+	loop.session = session
+	repl := NewREPL(loop)
+	defer repl.cancel()
+
+	err := repl.cmdSessionBranches()
+	assert.NoError(t, err)
+}
+
+// --- cmdEditor ---
+
+func TestCmdEditor_CatMode(t *testing.T) {
+	t.Setenv("VISUAL", "cat")
+	t.Setenv("EDITOR", "")
+
+	loop := makeTestLoop(nil)
+	repl := NewREPL(loop)
+	defer repl.cancel()
+
+	// cat with no stdin writes nothing - should handle gracefully.
+	err := repl.cmdEditor()
+	// cat with no stdin produces an empty file, so it should return nil
+	// (prints "empty content" message).
+	assert.NoError(t, err)
+}
+
+func TestCmdEditor_FallbackToVi(t *testing.T) {
+	t.Setenv("VISUAL", "")
+	t.Setenv("EDITOR", "/nonexistent-editor-xyz")
+	loop := makeTestLoop(nil)
+	repl := NewREPL(loop)
+	defer repl.cancel()
+
+	err := repl.cmdEditor()
+	// Should attempt to run non-existent editor and return an error
+	assert.Error(t, err)
+}
+
+// --- autoSaveOnExit ---
+
+func TestAutoSaveOnExit_NoStore(t *testing.T) {
+	loop := makeTestLoop(nil)
+	repl := NewREPL(loop)
+	defer repl.cancel()
+
+	// Should not panic when store is nil.
+	repl.autoSaveOnExit()
+}
+
+func TestAutoSaveOnExit_NoTurns(t *testing.T) {
+	dir := t.TempDir()
+	store := NewSessionStore(dir)
+	loop := makeTestLoop(nil)
+	loop.store = store
+	repl := NewREPL(loop)
+	defer repl.cancel()
+
+	// Should not save when session has 0 turns.
+	repl.autoSaveOnExit()
+}
+
+func TestAutoSaveOnExit_SavesSession(t *testing.T) {
+	dir := t.TempDir()
+	store := NewSessionStore(dir)
+	loop := makeTestLoop(nil)
+	loop.session.Append("hi", "hello")
+	loop.store = store
+	repl := NewREPL(loop)
+	defer repl.cancel()
+
+	r, w, _ := os.Pipe()
+	orig := os.Stdout
+	os.Stdout = w
+
+	repl.autoSaveOnExit()
+
+	w.Close()
+	os.Stdout = orig
+	out, _ := io.ReadAll(r)
+	r.Close()
+
+	assert.Contains(t, string(out), "Session saved")
+}
+
+// --- cmdSessionImport ---
+
+func TestCmdSessionImport_FileNotFound(t *testing.T) {
+	dir := t.TempDir()
+	store := NewSessionStore(dir)
+	loop := makeTestLoop(nil)
+	loop.store = store
+	repl := NewREPL(loop)
+	defer repl.cancel()
+
+	err := repl.cmdSessionImport(store, "/nonexistent-file-xyz")
+	assert.NoError(t, err) // prints friendly message, not an error
+}
+
+func TestCmdSessionImport_Success(t *testing.T) {
+	dir := t.TempDir()
+	store := NewSessionStore(dir)
+	loop := makeTestLoop(nil)
+	loop.store = store
+	repl := NewREPL(loop)
+	defer repl.cancel()
+
+	// Create a valid session file to import.
+	srcDir := t.TempDir()
+	srcPath := srcDir + "/session.jsonl"
+	content := `{"type":"session_meta","ts":1000,"sessionId":"test","turns":0}` + "\n"
+	require.NoError(t, os.WriteFile(srcPath, []byte(content), 0600))
+
+	err := repl.cmdSessionImport(store, srcPath)
+	assert.NoError(t, err)
+}
+
+// --- cmdClear with existing turns ---
+
+func TestCmdClear_WithFewTurns(t *testing.T) {
+	loop := makeTestLoop(nil)
+	loop.session.Append("hi", "hello")
+	repl := NewREPL(loop)
+	defer repl.cancel()
+
+	err := repl.cmdClear()
+	assert.NoError(t, err)
+	assert.Zero(t, loop.session.TurnCount())
+}
+
+// --- historyPath with HOME set ---
+
+func TestHistoryPath_WithHome(t *testing.T) {
+	t.Setenv("HOME", "/custom/home")
+	path := historyPath()
+	assert.Contains(t, path, "/custom/home")
+	assert.Contains(t, path, ".kdeps")
+	assert.Contains(t, path, "repl_history")
+}
+
+// --- fdBinPath ---
+
+func TestFDBinPath_NotFound(t *testing.T) {
+	// PATH set to a directory without fd/fdfind.
+	t.Setenv("PATH", t.TempDir())
+	path := fdBinPath()
+	assert.Empty(t, path)
+}

@@ -21,8 +21,10 @@
 package llm
 
 import (
+	"context"
 	"log/slog"
 	"os"
+	"os/exec"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -43,4 +45,43 @@ func TestServeOllamaModel_NonEmptyHost(t *testing.T) {
 
 	// The function should have set OLLAMA_HOST when host != "".
 	assert.Equal(t, "127.0.0.1:11434", os.Getenv("OLLAMA_HOST"))
+}
+
+func TestListOllamaModels_Success(t *testing.T) {
+	orig := execCommandContext
+	t.Cleanup(func() { execCommandContext = orig })
+
+	execCommandContext = func(ctx context.Context, name string, args ...string) *exec.Cmd {
+		output := "NAME\tID\tSIZE\nllama3:latest\tabc123\t4.5GB\nqwen2:7b\tdef456\t3.2GB\n"
+		return exec.CommandContext(ctx, "echo", output)
+	}
+
+	models := ListOllamaModels()
+	require.Len(t, models, 2)
+	assert.Equal(t, "llama3:latest", models[0].Name)
+	assert.Equal(t, "qwen2:7b", models[1].Name)
+}
+
+func TestListOllamaModels_OllamaNotRunning(t *testing.T) {
+	orig := execCommandContext
+	t.Cleanup(func() { execCommandContext = orig })
+
+	execCommandContext = func(ctx context.Context, name string, args ...string) *exec.Cmd {
+		return exec.CommandContext(ctx, "false")
+	}
+
+	models := ListOllamaModels()
+	assert.Nil(t, models)
+}
+
+func TestListOllamaModels_HeaderOnly(t *testing.T) {
+	orig := execCommandContext
+	t.Cleanup(func() { execCommandContext = orig })
+
+	execCommandContext = func(ctx context.Context, name string, args ...string) *exec.Cmd {
+		return exec.CommandContext(ctx, "echo", "NAME	ID	SIZE")
+	}
+
+	models := ListOllamaModels()
+	assert.Empty(t, models)
 }

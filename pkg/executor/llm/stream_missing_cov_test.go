@@ -240,6 +240,127 @@ func TestBuildStreamingReasoningOpts_UsesThinkingWriter(t *testing.T) {
 	assert.Empty(t, mainBuf.String())
 }
 
+// ---- buildFewShotEmbedder ----
+
+func TestBuildFewShotEmbedder(t *testing.T) {
+	t.Setenv("OPENAI_API_KEY", "test-key")
+	embedder, err := buildFewShotEmbedder(t.Context(), "text-embedding-3-small", "openai", "")
+	require.NoError(t, err)
+	require.NotNil(t, embedder)
+}
+
+func TestBuildFewShotEmbedder_CustomBaseURL(t *testing.T) {
+	t.Setenv("OPENAI_API_KEY", "test-key")
+	embedder, err := buildFewShotEmbedder(t.Context(), "text-embedding-3-small", "openai", "http://localhost:9999/v1")
+	require.NoError(t, err)
+	require.NotNil(t, embedder)
+}
+
+// ---- buildUserMessage ----
+
+func TestBuildUserMessage_EmptyPromptWithFiles(t *testing.T) {
+	files := []string{"http://example.com/image.jpg"}
+	msg := buildUserMessage(llms.ChatMessageTypeHuman, "", files)
+	assert.Equal(t, llms.ChatMessageTypeHuman, msg.Role)
+	assert.Len(t, msg.Parts, 1)
+	_, isURL := msg.Parts[0].(llms.ImageURLContent)
+	assert.True(t, isURL, "file URL should produce ImageURLContent")
+}
+
+func TestBuildUserMessage_NonExistentFile(t *testing.T) {
+	msg := buildUserMessage(llms.ChatMessageTypeHuman, "hello", []string{"/nonexistent/file.png"})
+	assert.Equal(t, llms.ChatMessageTypeHuman, msg.Role)
+	assert.Len(t, msg.Parts, 1)
+	_, isText := msg.Parts[0].(llms.TextContent)
+	assert.True(t, isText, "nonexistent file should be skipped, only text remains")
+}
+
+// ---- prepareCfg ----
+
+func TestPrepareCfg_EmbedderBuildError_FallsBackToOriginal(t *testing.T) {
+	// Set up cfg with a backend that buildFewShotEmbedder will likely fail for
+	// due to missing env vars.
+	cfg := &domain.ChatConfig{
+		Prompt:                "hi",
+		FewShotEmbeddingModel: "text-embedding-3-small",
+		FewShotEmbeddingBackend: "unknown-nonexistent-backend",
+		FewShotSelectK:        2,
+		FewShot: []domain.ScenarioItem{
+			{Role: "user", Prompt: "hello"},
+			{Role: "assistant", Prompt: "hi"},
+		},
+	}
+	result := prepareCfg(t.Context(), cfg)
+	// Should return original cfg when embedder construction fails.
+	assert.Same(t, cfg, result)
+}
+
+func TestPrepareCfg_SelectByEmbedding_FallingBackToPool(t *testing.T) {
+	t.Setenv("OPENAI_API_KEY", "test-key")
+	cfg := &domain.ChatConfig{
+		Prompt:                  "translate hello",
+		FewShotEmbeddingModel:   "text-embedding-3-small",
+		FewShotEmbeddingBackend: "openai",
+		FewShotSelectK:          1,
+		FewShot: []domain.ScenarioItem{
+			{Role: "user", Prompt: "translate goodbye"},
+			{Role: "assistant", Prompt: "au revoir"},
+		},
+	}
+	_ = prepareCfg(t.Context(), cfg)
+	// embedder creation should succeed without panic.
+}
+
+// ---- buildGoogleAILLM ----
+
+func TestBuildGoogleAILLM_HarmThreshold(t *testing.T) {
+	t.Setenv("GOOGLE_API_KEY", "test-key")
+	cfg := &domain.ChatConfig{
+		Model:               "gemini-2.0-flash",
+		GoogleHarmThreshold: 3,
+	}
+	model, err := buildGoogleAILLM(t.Context(), cfg)
+	require.NoError(t, err)
+	require.NotNil(t, model)
+}
+
+func TestBuildGoogleAILLM_CloudProjectAndLocation(t *testing.T) {
+	t.Setenv("GOOGLE_API_KEY", "test-key")
+	cfg := &domain.ChatConfig{
+		Model:               "gemini-2.0-flash",
+		GoogleCloudProject:  "test-project",
+		GoogleCloudLocation: "us-central1",
+	}
+	model, err := buildGoogleAILLM(t.Context(), cfg)
+	require.NoError(t, err)
+	require.NotNil(t, model)
+}
+
+// ---- buildLangchainLLM ----
+
+func TestBuildLangchainLLM_Bedrock(t *testing.T) {
+	cfg := &domain.ChatConfig{
+		Backend: backendBedrock,
+		Model:   "amazon.titan-text-lite-v1",
+	}
+	model, err := buildLangchainLLM(t.Context(), cfg)
+	require.NoError(t, err)
+	require.NotNil(t, model)
+}
+
+func TestBuildLangchainLLM_OllamaNative(t *testing.T) {
+	cfg := &domain.ChatConfig{
+		Backend:         "ollama",
+		Model:           "deepseek-r1",
+		OllamaThink:     true,
+		OllamaKeepAlive: "30m",
+		OllamaPullModel: false,
+	}
+	model, err := buildLangchainLLM(t.Context(), cfg)
+	require.NoError(t, err)
+	require.NotNil(t, model)
+}
+
 func TestBuildStreamingReasoningOpts_EmptyChunkNoOp(t *testing.T) {
 	cfg := &domain.ChatConfig{
 		Thinking: &domain.ThinkingConfig{

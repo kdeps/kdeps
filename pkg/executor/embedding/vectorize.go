@@ -38,6 +38,9 @@ import (
 	"github.com/kdeps/kdeps/v2/pkg/domain"
 )
 
+//nolint:gochecknoglobals // test-replaceable
+var buildEmbedderFunc = buildEmbedder
+
 const (
 	backendGoogle      = "google"
 	backendOllamaLocal = "ollama"
@@ -57,7 +60,7 @@ func vectorizeInputs(ctx context.Context, cfg *domain.EmbeddingConfig) (map[stri
 		return nil, errors.New("embedding vectorize: no inputs provided")
 	}
 
-	embedder, err := buildEmbedder(ctx, cfg)
+	embedder, err := buildEmbedderFunc(ctx, cfg)
 	if err != nil {
 		return nil, err
 	}
@@ -86,7 +89,7 @@ func embedQuery(ctx context.Context, cfg *domain.EmbeddingConfig) (map[string]in
 		return nil, errors.New("embedding embed_query: text is required")
 	}
 
-	embedder, err := buildEmbedder(ctx, cfg)
+	embedder, err := buildEmbedderFunc(ctx, cfg)
 	if err != nil {
 		return nil, err
 	}

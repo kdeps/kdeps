@@ -294,3 +294,10 @@ func TestFindServeWorkflowFiles_WalkErr(t *testing.T) {
 	paths := findServeWorkflowFiles(f)
 	assert.Empty(t, paths)
 }
+
+func TestIsTerminal_RegularFile(t *testing.T) {
+	f, err := os.CreateTemp("", "test")
+	require.NoError(t, err)
+	defer os.Remove(f.Name())
+	assert.False(t, isTerminal(f))
+}
