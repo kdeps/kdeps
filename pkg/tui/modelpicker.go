@@ -25,6 +25,7 @@ type ModelEntry struct {
 	Name      string
 	ModelType string // "llamafile", "gguf", "ollama", "" (cloud)
 	Backend   string // cloud backend name (e.g. "deepseek"), or ""
+	Repo      string // HuggingFace repo id (e.g. "googleai/gemma4"), llamafile/gguf only
 	Cached    bool
 	Enabled   bool   // cloud API key is set
 	SizeGB    string // formatted size string, or ""
@@ -360,12 +361,16 @@ func (m modelPickerModel) renderRow(e ModelEntry, isCursor bool, width int) stri
 }
 
 func tagForEntry(e ModelEntry) string {
+	repoSuffix := ""
+	if e.Repo != "" {
+		repoSuffix = " " + e.Repo
+	}
 	if e.Cached {
 		switch e.ModelType {
 		case modelTypeLLamafile:
-			return "[llamafile installed]"
+			return "[llamafile installed" + repoSuffix + "]"
 		case modelTypeGGUF:
-			return "[gguf installed]"
+			return "[gguf installed" + repoSuffix + "]"
 		case modelTypeOllama:
 			return "[ollama installed]"
 		default:
@@ -374,9 +379,9 @@ func tagForEntry(e ModelEntry) string {
 	}
 	switch e.ModelType {
 	case modelTypeLLamafile:
-		return "[llamafile]"
+		return "[llamafile" + repoSuffix + "]"
 	case modelTypeGGUF:
-		return "[gguf]"
+		return "[gguf" + repoSuffix + "]"
 	case modelTypeOllama:
 		return "[ollama]"
 	default:
