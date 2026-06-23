@@ -89,7 +89,7 @@ const (
 
 //nolint:gochecknoglobals // command list must be package-level for completer
 var builtinCmds = []string{
-	"/help", "/settings", "/clear", "/model", "/models", "/processes",
+	"/help", "/settings", "/clear", "/model", "/models", "/processes", "/hff",
 	"/skills", "/prompts", "/compact", "/history", "/thinking", "/session",
 	"/editor", "/copy", "/reload", "/exit", "/quit",
 }
@@ -1238,6 +1238,8 @@ func (r *REPL) dispatchCommand(cmd string) error {
 		return r.cmdReload()
 	case "/processes":
 		return r.cmdProcesses(args)
+	case "/hff":
+		return r.cmdHFF(args)
 	case "/exit", "/quit":
 		r.cancel()
 		return nil
@@ -1259,7 +1261,7 @@ func (r *REPL) cmdHelp() error {
 	dim := styleReplDim.Render
 	fmt.Fprintf(
 		os.Stdout,
-		"%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n\n%s\n\n%s\n",
+		"%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n\n%s\n\n%s\n",
 		heading("Available commands:"),
 		"  /help                    Show this help message",
 		"  /settings                Open the tool/skill selector and save selections",
@@ -1270,6 +1272,9 @@ func (r *REPL) cmdHelp() error {
 		"  /processes               List running local model servers (llamafile/gguf)",
 		"  /processes kill <model>  Kill a running local model server",
 		"  /processes switch <model> Switch to a running local model server",
+		"  /hff search <query>      Search HuggingFace for GGUF models",
+		"  /hff info <repo>         List GGUF files available in a HuggingFace repo",
+		"  /hff download <repo> [file]  Download a GGUF file from HuggingFace",
 		"  /skills                  List loaded skills",
 		"  /prompts                 List loaded prompt templates",
 		"  /<skill-name> [..]      Invoke a loaded skill or prompt template by name",
@@ -2424,7 +2429,11 @@ func (r *REPL) cmdProcessesKill(svc llm.ModelServiceInterface, model string) err
 		return nil
 	}
 	if !svc.KillModel(backend, model) {
-		fmt.Fprintf(os.Stdout, "%s\n", styleModelsNoKey.Render("No running server found for: "+model))
+		fmt.Fprintf(
+			os.Stdout,
+			"%s\n",
+			styleModelsNoKey.Render("No running server found for: "+model),
+		)
 		return nil
 	}
 	if r.loop.config.BaseURL != "" && r.loop.config.Model == model {
@@ -2432,4 +2441,158 @@ func (r *REPL) cmdProcessesKill(svc llm.ModelServiceInterface, model string) err
 	}
 	fmt.Fprintf(os.Stdout, "%s\n", styleReplMeta.Render("Killed server for: "+model))
 	return nil
+}
+
+const (
+	hffSearchDefaultLimit = 20
+	hffInfoSepWidth       = 72
+	hffBytesPerGB         = 1 << 30
+	hffBytesPerMB         = 1 << 20
+)
+
+// cmdHFF dispatches /hff subcommands: search, info, download.
+func (r *REPL) cmdHFF(args []string) error {
+	if len(args) == 0 {
+		fmt.Fprintln(
+			os.Stdout,
+			styleReplMeta.Render(
+				"Usage: /hff search <query> | /hff info <repo> | /hff download <repo> [file]",
+			),
+		)
+		return nil
+	}
+	sub := strings.ToLower(args[0])
+	rest := args[1:]
+	switch sub {
+	case "search":
+		if len(rest) == 0 {
+			fmt.Fprintln(os.Stdout, styleModelsNoKey.Render("Usage: /hff search <query>"))
+			return nil
+		}
+		return r.cmdHFFSearch(strings.Join(rest, " "))
+	case "info":
+		if len(rest) == 0 {
+			fmt.Fprintln(os.Stdout, styleModelsNoKey.Render("Usage: /hff info <repo>"))
+			return nil
+		}
+		return r.cmdHFFInfo(rest[0])
+	case "download":
+		if len(rest) == 0 {
+			fmt.Fprintln(
+				os.Stdout,
+				styleModelsNoKey.Render("Usage: /hff download <repo> [filename]"),
+			)
+			return nil
+		}
+		repo := rest[0]
+		filename := ""
+		if len(rest) > 1 {
+			filename = rest[1]
+		}
+		return r.cmdHFFDownload(repo, filename)
+	default:
+		fmt.Fprintf(
+			os.Stdout,
+			"%s\n",
+			styleModelsNoKey.Render(
+				"Unknown /hff subcommand: "+sub+". Use search, info, or download.",
+			),
+		)
+		return nil
+	}
+}
+
+func (r *REPL) cmdHFFSearch(query string) error {
+	fmt.Fprintf(
+		os.Stdout,
+		"%s\n",
+		styleReplMeta.Render("Searching HuggingFace for GGUF: "+query+"..."),
+	)
+	results, err := llm.HFSearchGGUF(r.ctx, query, hffSearchDefaultLimit)
+	if err != nil {
+		fmt.Fprintf(os.Stdout, "%s\n", styleModelsNoKey.Render("Search failed: "+err.Error()))
+		return nil //nolint:nilerr // network error shown to user; don't terminate REPL
+	}
+	if len(results) == 0 {
+		fmt.Fprintln(os.Stdout, styleReplMeta.Render("No results found."))
+		return nil
+	}
+	var sb strings.Builder
+	fmt.Fprintf(&sb, "%-50s %10s %6s\n", "REPO", "DOWNLOADS", "LIKES")
+	fmt.Fprintf(&sb, "%s\n", strings.Repeat("-", hffInfoSepWidth))
+	for _, m := range results {
+		id := m.ID
+		if len(id) > 49 { //nolint:mnd // column width
+			id = id[:48] + "~"
+		}
+		fmt.Fprintf(&sb, "%-50s %10d %6d\n", id, m.Downloads, m.Likes)
+	}
+	fmt.Fprintf(
+		&sb,
+		"\n%s",
+		styleReplDim.Render(
+			"Use /hff info <repo> to list GGUF files, /hff download <repo> [file] to download.",
+		),
+	)
+	lines := strings.Split(strings.TrimRight(sb.String(), "\n"), "\n")
+	return r.pageLines(lines)
+}
+
+func (r *REPL) cmdHFFInfo(repoID string) error {
+	fmt.Fprintf(os.Stdout, "%s\n", styleReplMeta.Render("Fetching repo info: "+repoID+"..."))
+	info, err := llm.HFRepoFiles(r.ctx, repoID)
+	if err != nil {
+		fmt.Fprintf(os.Stdout, "%s\n", styleModelsNoKey.Render("Failed: "+err.Error()))
+		return nil //nolint:nilerr // network error shown to user; don't terminate REPL
+	}
+	ggufFiles := llm.HFGGUFFiles(info.Siblings)
+	if len(ggufFiles) == 0 {
+		fmt.Fprintln(os.Stdout, styleModelsNoKey.Render("No GGUF files found in "+repoID+"."))
+		return nil
+	}
+	var sb strings.Builder
+	fmt.Fprintf(&sb, "GGUF files in %s:\n", repoID)
+	fmt.Fprintf(&sb, "%s\n", strings.Repeat("-", hffInfoSepWidth))
+	fmt.Fprintf(&sb, "%-50s %10s\n", "FILE", "SIZE")
+	fmt.Fprintf(&sb, "%s\n", strings.Repeat("-", hffInfoSepWidth))
+	for _, f := range ggufFiles {
+		sizeStr := hffFormatSize(f.Size)
+		name := f.Filename
+		if len(name) > 49 { //nolint:mnd // column width
+			name = name[:48] + "~"
+		}
+		fmt.Fprintf(&sb, "%-50s %10s\n", name, sizeStr)
+	}
+	fmt.Fprintf(&sb, "\n%s",
+		styleReplDim.Render("Use /hff download "+repoID+" <filename> to download."))
+	lines := strings.Split(strings.TrimRight(sb.String(), "\n"), "\n")
+	return r.pageLines(lines)
+}
+
+func (r *REPL) cmdHFFDownload(repoID, filename string) error {
+	if filename == "" {
+		// Show files and prompt user to specify one.
+		return r.cmdHFFInfo(repoID)
+	}
+	fmt.Fprintf(os.Stdout, "%s\n",
+		styleReplMeta.Render("Downloading "+repoID+"/"+filename+" from HuggingFace..."))
+	dest, alias, err := llm.HFDownloadGGUF(r.ctx, repoID, filename, nil)
+	if err != nil {
+		fmt.Fprintf(os.Stdout, "%s\n", styleModelsNoKey.Render("Download failed: "+err.Error()))
+		return nil //nolint:nilerr // network error shown to user; don't terminate REPL
+	}
+	fmt.Fprintf(os.Stdout, "%s\n", styleReplMeta.Render(
+		"Downloaded: "+dest+"\nRegistered as: "+alias+
+			"\nUse /model "+alias+" to switch to it."))
+	return nil
+}
+
+func hffFormatSize(bytes int64) string {
+	if bytes <= 0 {
+		return "?"
+	}
+	if bytes >= hffBytesPerGB {
+		return fmt.Sprintf("%.1fGB", float64(bytes)/hffBytesPerGB)
+	}
+	return fmt.Sprintf("%.0fMB", float64(bytes)/hffBytesPerMB)
 }
