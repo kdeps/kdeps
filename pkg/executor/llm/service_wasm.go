@@ -205,4 +205,3 @@ func (a *Adapter) Execute(ctx *executor.ExecutionContext, config any) (any, erro
 	}
 	return a.executor.Execute(ctx, chatConfig)
 }
-

@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"strings"
 	"testing"
 
@@ -139,4 +140,110 @@ func TestHFRegisterGGUFEntry_AddsToRegistry(t *testing.T) {
 		}
 	}
 	assert.True(t, found, "registered entry not found in registry")
+}
+
+func TestHFRegisterGGUFEntry_UpdatesExisting(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	llm.ReloadGGUFRegistry()
+	t.Cleanup(func() { llm.ReloadGGUFRegistry() })
+
+	e1 := llm.GGUFEntry{Alias: "update-test", URL: "http://old", Filename: "old.gguf", Repo: "org/old"}
+	require.NoError(t, llm.HFRegisterGGUFEntry(e1))
+
+	e2 := llm.GGUFEntry{Alias: "update-test", URL: "http://new", Filename: "new.gguf", Repo: "org/new"}
+	require.NoError(t, llm.HFRegisterGGUFEntry(e2))
+
+	var found llm.GGUFEntry
+	for _, e := range llm.ListGGUFMappings() {
+		if e.Alias == "update-test" {
+			found = e
+		}
+	}
+	assert.Equal(t, "org/new", found.Repo)
+}
+
+func TestHFSearchGGUF_FallbackWithoutFilter(t *testing.T) {
+	fallbackResult := []llm.HFModelResult{
+		{
+			ID:        "cyankiwi/MyModel-GGUF",
+			Downloads: 10,
+			Likes:     1,
+			Siblings: []llm.HFFileEntry{
+				{Filename: "MyModel-Q4_K_M.gguf", Size: 1 << 30},
+			},
+		},
+		{
+			ID:       "cyankiwi/NoGGUF",
+			Siblings: []llm.HFFileEntry{{Filename: "model.bin", Size: 100}},
+		},
+	}
+	callCount := 0
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		callCount++
+		w.Header().Set("Content-Type", "application/json")
+		if strings.Contains(r.URL.RawQuery, "filter=gguf") {
+			_ = json.NewEncoder(w).Encode([]llm.HFModelResult{})
+			return
+		}
+		_ = json.NewEncoder(w).Encode(fallbackResult)
+	}))
+	defer srv.Close()
+
+	got, err := llm.HFSearchGGUFWithBase(context.Background(), srv.URL+"/api/models", "cyankiwi", 20)
+	require.NoError(t, err)
+	assert.Equal(t, 2, callCount, "expected two API calls (tagged + untagged)")
+	require.Len(t, got, 1, "only repos with .gguf siblings should be returned")
+	assert.Equal(t, "cyankiwi/MyModel-GGUF", got[0].ID)
+}
+
+func TestHFSearchGGUF_FallbackHTTPError(t *testing.T) {
+	callCount := 0
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		callCount++
+		if strings.Contains(r.URL.RawQuery, "filter=gguf") {
+			w.Header().Set("Content-Type", "application/json")
+			_ = json.NewEncoder(w).Encode([]llm.HFModelResult{})
+			return
+		}
+		w.WriteHeader(http.StatusInternalServerError)
+	}))
+	defer srv.Close()
+
+	got, err := llm.HFSearchGGUFWithBase(context.Background(), srv.URL+"/api/models", "cyankiwi", 20)
+	require.NoError(t, err)
+	assert.Empty(t, got)
+}
+
+// TestHFSearchGGUF_CancelledContext covers the HFSearchGGUF wrapper (calls WithBase).
+func TestHFSearchGGUF_CancelledContext(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	_, err := llm.HFSearchGGUF(ctx, "qwen", 5)
+	assert.Error(t, err) // network call fails on cancelled context
+}
+
+// TestHFRepoFiles_CancelledContext covers the HFRepoFiles wrapper.
+func TestHFRepoFiles_CancelledContext(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	_, err := llm.HFRepoFiles(ctx, "owner/repo")
+	assert.Error(t, err)
+}
+
+func TestHFDownloadGGUF_AlreadyExists(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	llm.ReloadGGUFRegistry()
+	t.Cleanup(func() { llm.ReloadGGUFRegistry() })
+
+	dir := t.TempDir()
+	t.Setenv("KDEPS_MODELS_DIR", dir)
+
+	filename := "AlreadyThere-Q4.gguf"
+	dest := dir + "/" + filename
+	require.NoError(t, os.WriteFile(dest, []byte("existing"), 0o600))
+
+	path, alias, err := llm.HFDownloadGGUF(context.Background(), "org/Repo", filename, nil)
+	require.NoError(t, err)
+	assert.Equal(t, dest, path)
+	assert.Equal(t, "AlreadyThere-Q4", alias)
 }

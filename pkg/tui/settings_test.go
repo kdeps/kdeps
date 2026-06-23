@@ -135,6 +135,98 @@ func TestSelectionFromSettings_SelectAll(t *testing.T) {
 	assert.Equal(t, "my-wf", sel.Workflows[0].Name)
 }
 
+func TestSaveDefaultModel(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+
+	require.NoError(t, SaveDefaultModel("llama3.2:1b"))
+
+	got, err := LoadSettings()
+	require.NoError(t, err)
+	assert.Equal(t, "llama3.2:1b", got.DefaultModel)
+}
+
+func TestSaveDefaultModel_UpdatesExisting(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+
+	require.NoError(t, SaveDefaultModel("first-model"))
+	require.NoError(t, SaveDefaultModel("second-model"))
+
+	got, err := LoadSettings()
+	require.NoError(t, err)
+	assert.Equal(t, "second-model", got.DefaultModel)
+	assert.True(t, got.SelectAll, "SelectAll should remain default when not explicitly set")
+}
+
+func TestSettings_Save_PreservesOtherFields(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+
+	s := Settings{
+		SelectAll:        false,
+		EnabledWorkflows: []string{"wf1"},
+		DefaultModel:     "mymodel",
+	}
+	require.NoError(t, s.Save())
+
+	got, err := LoadSettings()
+	require.NoError(t, err)
+	assert.Equal(t, "mymodel", got.DefaultModel)
+	assert.Equal(t, []string{"wf1"}, got.EnabledWorkflows)
+}
+
+func TestLoadSettings_ReadError(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+
+	// Create a directory at the settings path so ReadFile fails with "is a directory"
+	path := filepath.Join(home, ".kdeps", "agent-loop-settings.yaml")
+	require.NoError(t, os.MkdirAll(path, 0o750))
+
+	_, err := LoadSettings()
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "settings: read")
+}
+
+func TestSettings_Save_WriteError(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+
+	dir := filepath.Join(home, ".kdeps")
+	require.NoError(t, os.MkdirAll(dir, 0o750))
+	require.NoError(t, os.Chmod(dir, 0o500))
+	defer func() { _ = os.Chmod(dir, 0o750) }()
+
+	s := Settings{SelectAll: true}
+	err := s.Save()
+	assert.Error(t, err)
+}
+
+func TestSettings_Save_MkdirError(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+
+	// Place a file at ".kdeps" so MkdirAll fails (can't mkdir over a file).
+	conflict := filepath.Join(home, ".kdeps")
+	require.NoError(t, os.WriteFile(conflict, []byte("x"), 0o600))
+
+	s := Settings{SelectAll: true}
+	err := s.Save()
+	assert.Error(t, err)
+}
+
+func TestSaveDefaultModel_LoadError(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+
+	path := filepath.Join(home, ".kdeps", "agent-loop-settings.yaml")
+	require.NoError(t, os.MkdirAll(path, 0o750)) // dir at file path causes ReadFile to fail
+
+	err := SaveDefaultModel("any")
+	assert.Error(t, err)
+}
+
 func TestSelectionFromSettings_Filtered(t *testing.T) {
 	agentsDir := t.TempDir()
 	for _, name := range []string{"wf-a", "wf-b"} {

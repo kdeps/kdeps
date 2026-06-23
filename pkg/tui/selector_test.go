@@ -308,3 +308,51 @@ func TestAgentsDirFromEnv(t *testing.T) {
 	t.Setenv("KDEPS_AGENTS_DIR", "")
 	assert.Equal(t, "/home/user/.kdeps/agents", agentsDirFromEnv("/home/user"))
 }
+
+func TestModel_Update_NonKeyMsg(t *testing.T) {
+	m := newModel([numTabs][]Item{})
+	// Send a non-key message (e.g. WindowSizeMsg); should be a no-op.
+	out, cmd := m.Update(tea.WindowSizeMsg{Width: 80, Height: 24})
+	assert.Nil(t, cmd)
+	assert.False(t, out.(model).quitted)
+}
+
+func TestDiscoverAgentsDir_WorkflowYml(t *testing.T) {
+	agentsDir := t.TempDir()
+	setIsolatedDirs(t, agentsDir)
+
+	dir := filepath.Join(agentsDir, "my-wf-yml")
+	require.NoError(t, os.MkdirAll(dir, 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "workflow.yml"), []byte(""), 0o644))
+
+	items := discoverItems()
+	require.Len(t, items[tabWorkflows], 1)
+	assert.Equal(t, "my-wf-yml", items[tabWorkflows][0].Name)
+	assert.Equal(t, KindWorkflow, items[tabWorkflows][0].Kind)
+}
+
+func TestDiscoverAgentsDir_SkipsFiles(t *testing.T) {
+	agentsDir := t.TempDir()
+	setIsolatedDirs(t, agentsDir)
+
+	// Place a regular file (not dir) in the agents dir - should be skipped.
+	require.NoError(t, os.WriteFile(filepath.Join(agentsDir, "notadir.yaml"), []byte(""), 0o644))
+
+	items := discoverItems()
+	assert.Empty(t, items[tabWorkflows])
+	assert.Empty(t, items[tabAgencies])
+}
+
+func TestDiscoverComponentsDir_SkipsFiles(t *testing.T) {
+	agentsDir := t.TempDir()
+	compsDir := t.TempDir()
+	t.Setenv("KDEPS_AGENTS_DIR", agentsDir)
+	t.Setenv("KDEPS_COMPONENTS_DIR", compsDir)
+	t.Setenv("KDEPS_SKILL_DIRS", agentsDir)
+
+	// Place a regular file (not dir) in the components dir - should be skipped.
+	require.NoError(t, os.WriteFile(filepath.Join(compsDir, "notadir.yaml"), []byte(""), 0o644))
+
+	items := discoverItems()
+	assert.Empty(t, items[tabComponents])
+}

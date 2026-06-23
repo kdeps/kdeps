@@ -1606,3 +1606,113 @@ func TestEmitToolEnd_DebugLogging_WithError(t *testing.T) {
 	_, err := AgentLoop(ctx, []AgentMessage{{Role: RoleUser, Content: "hi"}}, agentCtx, cfg, noopSink)
 	assert.NoError(t, err)
 }
+
+// --- Agent accessor tests ---
+
+func TestAgent_ModelAccessors(t *testing.T) {
+	a := NewAgent(AgentOptions{Model: "claude-sonnet-4-6"})
+	assert.Equal(t, "claude-sonnet-4-6", a.Model())
+	a.SetModel("claude-opus-4-8")
+	assert.Equal(t, "claude-opus-4-8", a.Model())
+}
+
+func TestAgent_ThinkingModeAccessors(t *testing.T) {
+	a := NewAgent(AgentOptions{ThinkingMode: "extended"})
+	assert.Equal(t, "extended", a.ThinkingMode())
+	a.SetThinkingMode("none")
+	assert.Equal(t, "none", a.ThinkingMode())
+}
+
+func TestAgent_StateWithStreamingMessage(t *testing.T) {
+	a := NewAgent(AgentOptions{})
+	ctx := context.Background()
+
+	// Inject a streaming message via eventSink so State() returns it.
+	startMsg := AgentMessage{Role: RoleAssistant, Content: "hello"}
+	err := a.eventSink(ctx, AgentEvent{Type: EventMessageStart, Message: startMsg})
+	require.NoError(t, err)
+
+	s := a.State()
+	require.NotNil(t, s.StreamingMessage)
+	assert.Equal(t, "hello", s.StreamingMessage.Content)
+}
+
+func TestAgent_EventSink_ToolLifecycle(t *testing.T) {
+	a := NewAgent(AgentOptions{})
+	ctx := context.Background()
+
+	// EventToolStart registers a pending call.
+	err := a.eventSink(ctx, AgentEvent{Type: EventToolStart, ToolCallID: "call-1"})
+	require.NoError(t, err)
+	s := a.State()
+	assert.Contains(t, s.PendingToolCalls, "call-1")
+
+	// EventToolEnd removes it.
+	err = a.eventSink(ctx, AgentEvent{Type: EventToolEnd, ToolCallID: "call-1"})
+	require.NoError(t, err)
+	s = a.State()
+	assert.NotContains(t, s.PendingToolCalls, "call-1")
+}
+
+func TestAgent_EventSink_MessageEnd(t *testing.T) {
+	a := NewAgent(AgentOptions{})
+	ctx := context.Background()
+
+	msg := AgentMessage{Role: RoleAssistant, Content: "done", ErrorMessage: "oops"}
+	err := a.eventSink(ctx, AgentEvent{Type: EventMessageEnd, Message: msg})
+	require.NoError(t, err)
+
+	s := a.State()
+	require.Len(t, s.Messages, 1)
+	assert.Equal(t, "done", s.Messages[0].Content)
+}
+
+func TestAgent_EventSink_ListenerError(t *testing.T) {
+	a := NewAgent(AgentOptions{})
+	boom := errors.New("listener failure")
+	a.Subscribe(func(_ context.Context, _ AgentEvent) error { return boom })
+
+	err := a.eventSink(context.Background(), AgentEvent{Type: EventMessageStart,
+		Message: AgentMessage{Role: RoleAssistant}})
+	assert.ErrorIs(t, err, boom)
+}
+
+func TestAgent_LoopConfig_ApplyTurnUpdate(t *testing.T) {
+	a := NewAgent(AgentOptions{Model: "initial", ThinkingMode: "auto"})
+	cfg := a.loopConfig()
+
+	// Apply a turn update that changes model and thinking mode.
+	cfg.ApplyTurnUpdate(&AgentLoopTurnUpdate{Model: "updated", ThinkingMode: "extended"})
+	assert.Equal(t, "updated", a.Model())
+	assert.Equal(t, "extended", a.ThinkingMode())
+}
+
+func TestAgent_LoopConfig_ApplyTurnUpdate_EmptyFields(t *testing.T) {
+	a := NewAgent(AgentOptions{Model: "keep-me", ThinkingMode: "keep-mode"})
+	cfg := a.loopConfig()
+
+	// Empty update fields should not overwrite existing values.
+	cfg.ApplyTurnUpdate(&AgentLoopTurnUpdate{})
+	assert.Equal(t, "keep-me", a.Model())
+	assert.Equal(t, "keep-mode", a.ThinkingMode())
+}
+
+func TestAgent_LoopConfig_SteeringAndFollowUp(t *testing.T) {
+	a := NewAgent(AgentOptions{})
+	cfg := a.loopConfig()
+
+	// Steering queue starts empty.
+	assert.Empty(t, cfg.GetSteeringMessages())
+
+	// Enqueue a steering message and drain via cfg.
+	a.Steer(AgentMessage{Role: RoleUser, Content: "steer"})
+	msgs := cfg.GetSteeringMessages()
+	require.Len(t, msgs, 1)
+	assert.Equal(t, "steer", msgs[0].Content)
+
+	// Follow-up queue.
+	a.FollowUp(AgentMessage{Role: RoleUser, Content: "follow"})
+	follow := cfg.GetFollowUpMessages()
+	require.Len(t, follow, 1)
+	assert.Equal(t, "follow", follow[0].Content)
+}

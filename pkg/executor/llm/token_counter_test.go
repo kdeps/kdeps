@@ -15,8 +15,10 @@
 package llm
 
 import (
+	"fmt"
 	"testing"
 
+	tiktoken "github.com/pkoukk/tiktoken-go"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -65,4 +67,27 @@ func TestCountTokensFallback(t *testing.T) {
 	// With an invalid model, still returns a non-negative number.
 	count := CountTokens("", "some text to count")
 	assert.GreaterOrEqual(t, count, 0)
+}
+
+func TestApproximateTokenCount(t *testing.T) {
+	// Force fallback path by making tiktoken fail.
+	orig := tikTokenGetEncoding
+	tikTokenGetEncoding = func(string) (*tiktoken.Tiktoken, error) {
+		return nil, fmt.Errorf("forced failure")
+	}
+	defer func() { tikTokenGetEncoding = orig }()
+
+	text := "Hello, world!" // 13 chars / 4 = 3 tokens
+	count := CountTokens("any-model", text)
+	assert.Equal(t, 3, count)
+}
+
+func TestApproximateTokenCount_Empty(t *testing.T) {
+	orig := tikTokenGetEncoding
+	tikTokenGetEncoding = func(string) (*tiktoken.Tiktoken, error) {
+		return nil, fmt.Errorf("forced failure")
+	}
+	defer func() { tikTokenGetEncoding = orig }()
+
+	assert.Equal(t, 0, CountTokens("m", ""))
 }

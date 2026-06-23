@@ -709,3 +709,57 @@ func TestApplySettingsToRegistry_ErrorContinuePaths(t *testing.T) {
 	// SelectAll=true: discovers all items, registerServeTools fails on each -> continue paths covered.
 	applySettingsToRegistry(tui.Settings{SelectAll: true}, reg, flags, false)
 }
+
+// --- resolveStartModel ---
+
+func TestResolveStartModel_FlagsModelUsed(t *testing.T) {
+	flags := &agentLoopFlags{Model: "gpt-4o", Backend: "openai"}
+	settings := tui.Settings{}
+	m, b := resolveStartModel(flags, settings)
+	assert.Equal(t, "gpt-4o", m)
+	assert.Equal(t, "openai", b)
+}
+
+func TestResolveStartModel_FallsBackToDefault(t *testing.T) {
+	flags := &agentLoopFlags{Model: "", Backend: ""}
+	settings := tui.Settings{DefaultModel: "claude-sonnet-4-6"}
+	m, b := resolveStartModel(flags, settings)
+	assert.Equal(t, "claude-sonnet-4-6", m)
+	// Not a GGUF name, so backend stays empty.
+	assert.Equal(t, "", b)
+}
+
+func TestResolveStartModel_ExplicitBackendNotOverridden(t *testing.T) {
+	flags := &agentLoopFlags{Model: "mymodel.gguf", Backend: "llamafile"}
+	settings := tui.Settings{}
+	m, b := resolveStartModel(flags, settings)
+	assert.Equal(t, "mymodel.gguf", m)
+	// Explicit backend takes precedence even for a .gguf name.
+	assert.Equal(t, "llamafile", b)
+}
+
+func TestResolveStartModel_GGUFSuffixAutoSetsBackend(t *testing.T) {
+	// Use HOME isolation so registry reads don't interfere.
+	t.Setenv("HOME", t.TempDir())
+	flags := &agentLoopFlags{Model: "Llama-3.2-3B-Q4_K_M.gguf", Backend: ""}
+	settings := tui.Settings{}
+	m, b := resolveStartModel(flags, settings)
+	assert.Equal(t, "Llama-3.2-3B-Q4_K_M.gguf", m)
+	assert.Equal(t, "gguf", b)
+}
+
+func TestResolveStartModel_EmptyEverything(t *testing.T) {
+	flags := &agentLoopFlags{}
+	m, b := resolveStartModel(flags, tui.Settings{})
+	assert.Equal(t, "", m)
+	assert.Equal(t, "", b)
+}
+
+func TestResolveStartModel_DefaultModelGGUF(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	flags := &agentLoopFlags{}
+	settings := tui.Settings{DefaultModel: "my-model.gguf"}
+	m, b := resolveStartModel(flags, settings)
+	assert.Equal(t, "my-model.gguf", m)
+	assert.Equal(t, "gguf", b)
+}
