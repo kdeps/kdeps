@@ -40,7 +40,21 @@ type ModelServiceInterface interface {
 	DownloadModel(backend, model string) error
 	ServeModel(backend, model string, host string, port int) error
 	ServerURL(backend, model string) string
+	KillModel(backend, model string) bool
 }
+
+// LocalServerEntry is a no-op stub for WASM builds.
+type LocalServerEntry struct {
+	Model   string
+	Path    string
+	Backend string
+	Port    int
+	PID     int
+	Healthy bool
+}
+
+// ListLocalServers returns nil in WASM builds (no local servers).
+func ListLocalServers() []LocalServerEntry { return nil }
 
 func ollamaUnsupported(op string) error {
 	kdeps_debug.Log("enter: " + op)
@@ -69,6 +83,9 @@ func (s *ModelService) ServeModel(_, _ string, _ string, _ int) error {
 // ServerURL returns "" since local model servers are not available in WASM.
 func (s *ModelService) ServerURL(_, _ string) string { return "" }
 
+// KillModel is a no-op in WASM builds.
+func (s *ModelService) KillModel(_, _ string) bool { return false }
+
 // WaitForServerReady is a no-op in WASM builds.
 func WaitForServerReady(_ string) {}
 
@@ -87,6 +104,9 @@ func (m *MockModelService) ServeModel(_, _ string, _ string, _ int) error {
 
 // ServerURL returns "" for WASM.
 func (m *MockModelService) ServerURL(_, _ string) string { return "" }
+
+// KillModel is a no-op for WASM.
+func (m *MockModelService) KillModel(_, _ string) bool { return false }
 
 // ModelManager is a no-op stub for WASM builds.
 type ModelManager struct{}

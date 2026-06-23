@@ -2400,6 +2400,7 @@ func (m *mockModelService) ServeModel(_, _, _ string, _ int) error {
 	return nil
 }
 func (m *mockModelService) ServerURL(_, _ string) string { return m.url }
+func (m *mockModelService) KillModel(_, _ string) bool   { return false }
 
 func TestApplyConfigDefaults_ModelServiceAutoStart(t *testing.T) {
 	svc := &mockModelService{url: "http://localhost:9999"}

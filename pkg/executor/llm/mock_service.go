@@ -92,3 +92,6 @@ func (m *MockModelService) ServerURL(backend, model string) string {
 	}
 	return ""
 }
+
+// KillModel is a no-op mock for KillModel.
+func (m *MockModelService) KillModel(_, _ string) bool { return false }

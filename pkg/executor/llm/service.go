@@ -45,6 +45,9 @@ type ModelServiceInterface interface {
 	// ServerURL returns the base URL of a running local model server, or "" if
 	// the server is not running or the backend is not a local server type.
 	ServerURL(backend, model string) string
+	// KillModel kills the running server for the given backend + model.
+	// Returns true when a server was found and killed.
+	KillModel(backend, model string) bool
 }
 
 // ModelService handles model download and serving for different backends.
@@ -115,4 +118,92 @@ func WaitForServerReady(baseURL string) {
 		return
 	}
 	waitForCompletionsReadyFunc(baseURL)
+}
+
+// LocalServerEntry describes a running local model server.
+type LocalServerEntry struct {
+	Model   string // model name (e.g. "qwen2.5:7b-q2"), empty if unknown
+	Path    string // resolved binary/file path
+	Backend string // BackendFile or BackendGGUF
+	Port    int
+	PID     int
+	Healthy bool
+}
+
+// ListLocalServers returns all running llamafile and GGUF model servers
+// started by this process.
+func ListLocalServers() []LocalServerEntry {
+	var out []LocalServerEntry
+
+	servedLlamafilesMu.Lock()
+	for path, port := range servedLlamafiles {
+		pid := servedLlamafilePIDs[path]
+		out = append(out, LocalServerEntry{
+			Model:   servedLlamafileNames[path],
+			Path:    path,
+			Backend: BackendFile,
+			Port:    port,
+			PID:     pid,
+			Healthy: isHealthy(localServerURL(port)),
+		})
+	}
+	servedLlamafilesMu.Unlock()
+
+	servedGGUFsMu.Lock()
+	for path, port := range servedGGUFs {
+		pid := servedGGUFPIDs[path]
+		out = append(out, LocalServerEntry{
+			Model:   servedGGUFNames[path],
+			Path:    path,
+			Backend: BackendGGUF,
+			Port:    port,
+			PID:     pid,
+			Healthy: isHealthy(localServerURL(port)),
+		})
+	}
+	servedGGUFsMu.Unlock()
+
+	return out
+}
+
+// KillModel kills the running server for the given backend + model name.
+// Returns true when a server was found and killed, false when none was running.
+func (s *ModelService) KillModel(backend, model string) bool {
+	switch backend {
+	case BackendFile:
+		_, path, err := s.prepareLlamafile(model)
+		if err != nil {
+			return false
+		}
+		servedLlamafilesMu.Lock()
+		defer servedLlamafilesMu.Unlock()
+		pid, ok := servedLlamafilePIDs[path]
+		if !ok {
+			return false
+		}
+		killLocalProcess(pid)
+		removeServerPortFile(path)
+		delete(servedLlamafiles, path)
+		delete(servedLlamafilePIDs, path)
+		delete(servedLlamafileNames, path)
+		return true
+	case BackendGGUF:
+		_, path, err := s.prepareGGUF(model)
+		if err != nil {
+			return false
+		}
+		servedGGUFsMu.Lock()
+		defer servedGGUFsMu.Unlock()
+		pid, ok := servedGGUFPIDs[path]
+		if !ok {
+			return false
+		}
+		killLocalProcess(pid)
+		removeServerPortFile(path)
+		delete(servedGGUFs, path)
+		delete(servedGGUFPIDs, path)
+		delete(servedGGUFNames, path)
+		return true
+	}
+	return false
 }

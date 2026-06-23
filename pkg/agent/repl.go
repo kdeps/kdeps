@@ -89,7 +89,7 @@ const (
 
 //nolint:gochecknoglobals // command list must be package-level for completer
 var builtinCmds = []string{
-	"/help", "/settings", "/clear", "/model", "/models",
+	"/help", "/settings", "/clear", "/model", "/models", "/processes",
 	"/skills", "/prompts", "/compact", "/history", "/thinking", "/session",
 	"/editor", "/copy", "/reload", "/exit", "/quit",
 }
@@ -1236,6 +1236,8 @@ func (r *REPL) dispatchCommand(cmd string) error {
 		return r.cmdCopy()
 	case "/reload":
 		return r.cmdReload()
+	case "/processes":
+		return r.cmdProcesses(args)
 	case "/exit", "/quit":
 		r.cancel()
 		return nil
@@ -1257,7 +1259,7 @@ func (r *REPL) cmdHelp() error {
 	dim := styleReplDim.Render
 	fmt.Fprintf(
 		os.Stdout,
-		"%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n\n%s\n\n%s\n",
+		"%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n\n%s\n\n%s\n",
 		heading("Available commands:"),
 		"  /help                    Show this help message",
 		"  /settings                Open the tool/skill selector and save selections",
@@ -1265,6 +1267,9 @@ func (r *REPL) cmdHelp() error {
 		"  /model [name]            Show or set the LLM model",
 		"  /model default [name]    Show or save the default startup model",
 		"  /models                  List all available models with provider status",
+		"  /processes               List running local model servers (llamafile/gguf)",
+		"  /processes kill <model>  Kill a running local model server",
+		"  /processes switch <model> Switch to a running local model server",
 		"  /skills                  List loaded skills",
 		"  /prompts                 List loaded prompt templates",
 		"  /<skill-name> [..]      Invoke a loaded skill or prompt template by name",
@@ -2361,5 +2366,70 @@ func copyToClipboard(text string) error {
 func (r *REPL) cmdReload() error {
 	r.loop.Reload()
 	fmt.Fprintln(os.Stdout, styleReplMeta.Render("Reloaded skills and prompt templates from disk."))
+	return nil
+}
+
+const (
+	processesSubCmdArity = 2  // /processes <sub> <model> needs at least 2 args
+	processesSepWidth    = 74 // width of the header separator line
+)
+
+// cmdProcesses handles /processes [kill|switch] [model].
+func (r *REPL) cmdProcesses(args []string) error {
+	svc := r.loop.config.ModelService
+	if len(args) >= processesSubCmdArity {
+		sub := strings.ToLower(args[0])
+		model := args[1]
+		switch sub {
+		case "kill":
+			return r.cmdProcessesKill(svc, model)
+		case "switch":
+			r.applyModelSwitch(model)
+			return nil
+		}
+	}
+	return r.cmdProcessesList()
+}
+
+func (r *REPL) cmdProcessesList() error {
+	entries := llm.ListLocalServers()
+	if len(entries) == 0 {
+		fmt.Fprintln(os.Stdout, styleReplMeta.Render("No local model servers running."))
+		return nil
+	}
+	var sb strings.Builder
+	fmt.Fprintf(&sb, "%-8s %-6s %-12s %-36s %s\n",
+		"PID", "PORT", "BACKEND", "MODEL", "STATUS")
+	fmt.Fprintf(&sb, "%s\n", strings.Repeat("-", processesSepWidth))
+	for _, e := range entries {
+		status := "healthy"
+		if !e.Healthy {
+			status = "loading"
+		}
+		model := e.Model
+		if model == "" {
+			model = filepath.Base(e.Path)
+		}
+		fmt.Fprintf(&sb, "%-8d %-6d %-12s %-36s %s\n",
+			e.PID, e.Port, e.Backend, model, status)
+	}
+	lines := strings.Split(strings.TrimRight(sb.String(), "\n"), "\n")
+	return r.pageLines(lines)
+}
+
+func (r *REPL) cmdProcessesKill(svc llm.ModelServiceInterface, model string) error {
+	backend := r.loop.config.Backend
+	if svc == nil || (backend != llm.BackendFile && backend != llm.BackendGGUF) {
+		fmt.Fprintln(os.Stdout, styleModelsNoKey.Render("No local model service available."))
+		return nil
+	}
+	if !svc.KillModel(backend, model) {
+		fmt.Fprintf(os.Stdout, "%s\n", styleModelsNoKey.Render("No running server found for: "+model))
+		return nil
+	}
+	if r.loop.config.BaseURL != "" && r.loop.config.Model == model {
+		r.loop.config.BaseURL = ""
+	}
+	fmt.Fprintf(os.Stdout, "%s\n", styleReplMeta.Render("Killed server for: "+model))
 	return nil
 }

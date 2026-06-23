@@ -55,6 +55,11 @@ func (s *ModelService) serveLlamafileModel(model string, port int) error {
 		return err
 	}
 	_, err = mgr.Serve(path, port)
+	if err == nil {
+		servedLlamafilesMu.Lock()
+		servedLlamafileNames[path] = model
+		servedLlamafilesMu.Unlock()
+	}
 	return err
 }
 
