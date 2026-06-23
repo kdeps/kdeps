@@ -105,3 +105,14 @@ func (s *ModelService) ServerURL(backend, model string) string {
 		return ""
 	}
 }
+
+// WaitForServerReady blocks until the server at baseURL is ready to serve
+// completions. It is a no-op when baseURL is empty. Intended for callers
+// that start a local server and need to confirm readiness before forwarding
+// user requests (e.g. the REPL after /model switch).
+func WaitForServerReady(baseURL string) {
+	if baseURL == "" {
+		return
+	}
+	waitForCompletionsReadyFunc(baseURL)
+}

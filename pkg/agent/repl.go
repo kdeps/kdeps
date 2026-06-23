@@ -51,8 +51,8 @@ const (
 	replFileCompletionMax = 20
 	replAutoCompactEvery  = 25
 
-	replModelCompletionMax         = 500 // max model name suggestions for /model <tab> with a partial filter
-	replModelCompletionMaxNoFilter = 100 // cap when no partial typed (prioritized: cached > enabled-cloud > llamafile > gguf > ollama > cloud)
+	replModelCompletionMax         = 10 // max model name suggestions for /model <tab> with a partial filter
+	replModelCompletionMaxNoFilter = 10 // cap when no partial typed (prioritized: cached > enabled-cloud > llamafile > gguf > ollama > cloud)
 
 	// Default thinking token budgets per mode. These are explicit so langchaingo
 	// never falls back to CalculateThinkingBudget(mode, MaxTokens=0)=0 which
@@ -1535,9 +1535,14 @@ func parseParamB(s string) float64 {
 	return n
 }
 
-// startLocalModelServer downloads, starts, and registers the URL for a local
-// (file or gguf) model. No-op when ModelService is not set or the backend is
-// not a local type.
+const (
+	localServerPollInterval = 2 * time.Second
+	localServerPollTimeout  = 10 * time.Minute
+)
+
+// startLocalModelServer downloads, starts, and waits for readiness of a local
+// (file or gguf) model server. No-op when ModelService is not set or the
+// backend is not a local type. Blocks until the completions endpoint responds.
 func (r *REPL) startLocalModelServer(model string) {
 	svc := r.loop.config.ModelService
 	if svc == nil {
@@ -1547,11 +1552,41 @@ func (r *REPL) startLocalModelServer(model string) {
 	if backend != llm.BackendFile && backend != llm.BackendGGUF && backend != "ollama" {
 		return
 	}
+	fmt.Fprintf(os.Stdout, "\n%s\n", styleReplMeta.Render("Downloading/starting model server..."))
 	_ = svc.DownloadModel(backend, model)
 	_ = svc.ServeModel(backend, model, "", 0)
-	if url := svc.ServerURL(backend, model); url != "" {
-		r.loop.config.BaseURL = url
+
+	// ServeModel blocks until healthy/ready when it succeeds, but may time out
+	// for large models. Poll ServerURL until it returns a URL, then confirm the
+	// completions endpoint is accepting requests before returning to the REPL.
+	url := svc.ServerURL(backend, model)
+	if url == "" {
+		fmt.Fprintf(
+			os.Stdout,
+			"%s\n",
+			styleReplMeta.Render("Waiting for model server to be ready..."),
+		)
+		deadline := time.Now().Add(localServerPollTimeout)
+		for time.Now().Before(deadline) {
+			time.Sleep(localServerPollInterval)
+			url = svc.ServerURL(backend, model)
+			if url != "" {
+				break
+			}
+		}
 	}
+	if url == "" {
+		fmt.Fprintf(
+			os.Stdout,
+			"%s\n",
+			styleModelsNoKey.Render(
+				"Warning: model server did not start in time; requests may fail.",
+			),
+		)
+		return
+	}
+	r.loop.config.BaseURL = url
+	llm.WaitForServerReady(url)
 }
 
 // providerStatusLine returns a one-line summary of ready providers for the welcome banner.
