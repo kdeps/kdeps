@@ -39,11 +39,15 @@ func (r *DefaultRunner) Run(name string, args ...string) (string, string, error)
 // Executor performs code-intelligence operations.
 type Executor struct {
 	runner Runner
+	lsp    *lspManager
 }
 
 // NewExecutor creates a new codeIntelligence executor.
 func NewExecutor() *Executor {
-	return &Executor{runner: &DefaultRunner{}}
+	return &Executor{
+		runner: &DefaultRunner{},
+		lsp:    newLSPManager(),
+	}
 }
 
 // NewExecutorWithRunner creates a new executor with custom runner (for testing).
@@ -52,6 +56,7 @@ func NewExecutorWithRunner(runner Runner) *Executor {
 }
 
 // Execute dispatches to the appropriate code-intelligence operation.
+// Tries LSP first; falls back to rg if no LSP server is available.
 func (e *Executor) Execute(
 	_ *executor.ExecutionContext,
 	config *domain.CodeIntelligenceConfig,
@@ -60,19 +65,57 @@ func (e *Executor) Execute(
 		return nil, errors.New("codeIntelligence: operation is required")
 	}
 
+	// Try LSP first if we can detect a language server for this file.
+	langID := config.LanguageID
+	if langID == "" && config.Path != "" {
+		langID = languageIDFromPath(config.Path)
+	}
+	if e.lsp != nil && langID != "" {
+		client, err := e.lsp.getServer(langID, "", config.Path)
+		if err == nil {
+			return e.executeLSP(client, config, langID)
+		}
+		// LSP unavailable — fall through to rg.
+	}
+
+	return e.executeRG(config)
+}
+
+// executeLSP dispatches an LSP operation.
+func (e *Executor) executeLSP(client *lspClient, config *domain.CodeIntelligenceConfig, langID string) (interface{}, error) {
 	switch config.Operation {
 	case domain.CodeIntOpSymbolSearch:
-		return e.symbolSearch(config)
+		return e.lspSymbolSearch(client, config)
 	case domain.CodeIntOpDefinition:
-		return e.definition(config)
+		return e.lspDefinition(client, config)
 	case domain.CodeIntOpReferences:
-		return e.references(config)
+		return e.lspReferences(client, config)
 	case domain.CodeIntOpDocumentSymbols:
-		return e.documentSymbols(config)
+		return e.lspDocumentSymbols(client, config)
 	case domain.CodeIntOpHover:
-		return e.hover(config)
+		return e.lspHover(client, config)
 	case domain.CodeIntOpDiagnostics:
-		return e.diagnostics(config)
+		return e.lspDiagnostics(client, config)
+	default:
+		return nil, fmt.Errorf("codeIntelligence: unsupported operation %q", config.Operation)
+	}
+}
+
+// executeRG dispatches an rg-based operation (fallback).
+func (e *Executor) executeRG(config *domain.CodeIntelligenceConfig) (interface{}, error) {
+	switch config.Operation {
+	case domain.CodeIntOpSymbolSearch:
+		return e.rgSymbolSearch(config)
+	case domain.CodeIntOpDefinition:
+		return e.rgDefinition(config)
+	case domain.CodeIntOpReferences:
+		return e.rgReferences(config)
+	case domain.CodeIntOpDocumentSymbols:
+		return e.rgDocumentSymbols(config)
+	case domain.CodeIntOpHover:
+		return e.rgHover(config)
+	case domain.CodeIntOpDiagnostics:
+		return e.rgDiagnostics(config)
 	default:
 		return nil, fmt.Errorf("codeIntelligence: unsupported operation %q", config.Operation)
 	}
@@ -161,7 +204,7 @@ func (e *Executor) runRG(args []string) ([]rgMatch, error) {
 
 // --- Operations ---
 
-func (e *Executor) symbolSearch(config *domain.CodeIntelligenceConfig) (interface{}, error) {
+func (e *Executor) rgSymbolSearch(config *domain.CodeIntelligenceConfig) (interface{}, error) {
 	if config.Query == "" {
 		return nil, errors.New("codeIntelligence: query is required for symbolSearch")
 	}
@@ -191,7 +234,7 @@ func (e *Executor) symbolSearch(config *domain.CodeIntelligenceConfig) (interfac
 	}), nil
 }
 
-func (e *Executor) definition(config *domain.CodeIntelligenceConfig) (interface{}, error) {
+func (e *Executor) rgDefinition(config *domain.CodeIntelligenceConfig) (interface{}, error) {
 	if config.Symbol == "" {
 		return nil, errors.New("codeIntelligence: symbol is required for definition")
 	}
@@ -224,7 +267,7 @@ func (e *Executor) definition(config *domain.CodeIntelligenceConfig) (interface{
 	}), nil
 }
 
-func (e *Executor) references(config *domain.CodeIntelligenceConfig) (interface{}, error) {
+func (e *Executor) rgReferences(config *domain.CodeIntelligenceConfig) (interface{}, error) {
 	if config.Symbol == "" {
 		return nil, errors.New("codeIntelligence: symbol is required for references")
 	}
@@ -254,7 +297,7 @@ func (e *Executor) references(config *domain.CodeIntelligenceConfig) (interface{
 	}), nil
 }
 
-func (e *Executor) documentSymbols(config *domain.CodeIntelligenceConfig) (interface{}, error) {
+func (e *Executor) rgDocumentSymbols(config *domain.CodeIntelligenceConfig) (interface{}, error) {
 	if config.Path == "" {
 		return nil, errors.New("codeIntelligence: path is required for documentSymbols")
 	}
@@ -322,7 +365,7 @@ func (e *Executor) goDocumentSymbols(config *domain.CodeIntelligenceConfig) (int
 	}), nil
 }
 
-func (e *Executor) hover(config *domain.CodeIntelligenceConfig) (interface{}, error) {
+func (e *Executor) rgHover(config *domain.CodeIntelligenceConfig) (interface{}, error) {
 	if config.Path == "" {
 		return nil, errors.New("codeIntelligence: path is required for hover")
 	}
@@ -403,7 +446,7 @@ func (e *Executor) goVetDiagnostics(config *domain.CodeIntelligenceConfig) []map
 	return diagnostics
 }
 
-func (e *Executor) diagnostics(config *domain.CodeIntelligenceConfig) (interface{}, error) {
+func (e *Executor) rgDiagnostics(config *domain.CodeIntelligenceConfig) (interface{}, error) {
 	if config.Path == "" {
 		return nil, errors.New("codeIntelligence: path is required for diagnostics")
 	}
