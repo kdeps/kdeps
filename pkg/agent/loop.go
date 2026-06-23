@@ -202,12 +202,39 @@ func (l *Loop) PromptByName(name string) *PromptTemplate {
 }
 
 // detectDefaultModelAndBackend returns a compatible model+backend pair by
-// auto-detecting what's available: ollama (local) first, then the first cloud
-// model whose API key is set. Falls back to llama3.2 + file.
+// auto-detecting what's available, in priority order:
+//  1. llamafile (local executable)
+//  2. gguf (local GGUF model)
+//  3. ollama (local ollama)
+//  4. cloud (first model with API key set)
+//
+// Falls back to llama3.2 + file if nothing is available.
 func detectDefaultModelAndBackend() (model, backend string) {
+	// Priority 1: llamafile
+	if _, err := exec.LookPath("llamafile"); err == nil {
+		return "llamafile", executorLLM.BackendFile
+	}
+	// Priority 2: GGUF — check if any .gguf files exist in models dir
+	modelsDir := os.Getenv("KDEPS_MODELS_DIR")
+	if modelsDir == "" {
+		if home, err := os.UserHomeDir(); err == nil {
+			modelsDir = home + "/.kdeps/models"
+		}
+	}
+	if modelsDir != "" {
+		if entries, err := os.ReadDir(modelsDir); err == nil {
+			for _, e := range entries {
+				if !e.IsDir() && strings.HasSuffix(e.Name(), ".gguf") {
+					return strings.TrimSuffix(e.Name(), ".gguf"), executorLLM.BackendGGUF
+				}
+			}
+		}
+	}
+	// Priority 3: ollama
 	if _, err := exec.LookPath("ollama"); err == nil {
 		return "llama3.2", "ollama"
 	}
+	// Priority 4: cloud
 	for _, m := range KnownCloudModels {
 		if os.Getenv(m.EnvVar) != "" {
 			return m.ID, m.Backend
