@@ -1676,7 +1676,7 @@ func (r *REPL) pageLines(lines []string) error {
 
 	br := bufio.NewReader(os.Stdin)
 	for i, line := range lines {
-		fmt.Fprintln(os.Stdout, line)
+		fmt.Fprintf(os.Stdout, "%s\r\n", line) // raw mode: \n is LF-only, need explicit CR
 		if (i+1)%pageSize == 0 && i+1 < len(lines) {
 			remaining := len(lines) - i - 1
 			prompt := styleReplMeta.Render(

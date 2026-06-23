@@ -99,7 +99,34 @@ func HFSearchGGUFWithBase(ctx context.Context, apiModelsURL, query string, limit
 	if decErr := json.NewDecoder(resp.Body).Decode(&results); decErr != nil {
 		return nil, fmt.Errorf("hf search: decode: %w", decErr)
 	}
+	// If nothing matched the gguf tag, retry without the tag filter so authors
+	// whose repos contain GGUF files but lack the tag are still found.
+	if len(results) == 0 {
+		results = hfSearchWithoutFilter(ctx, apiModelsURL, params)
+	}
 	return results, nil
+}
+
+// hfSearchWithoutFilter retries a search without filter=gguf and returns only
+// repos that have at least one .gguf sibling.
+func hfSearchWithoutFilter(ctx context.Context, apiModelsURL string, params url.Values) []HFModelResult {
+	params.Del("filter")
+	resp, err := hfRequest(ctx, apiModelsURL+"?"+params.Encode())
+	if err != nil {
+		return nil
+	}
+	defer resp.Body.Close()
+	var all []HFModelResult
+	if decErr := json.NewDecoder(resp.Body).Decode(&all); decErr != nil {
+		return nil
+	}
+	var out []HFModelResult
+	for _, m := range all {
+		if len(HFGGUFFiles(m.Siblings)) > 0 {
+			out = append(out, m)
+		}
+	}
+	return out
 }
 
 // HFRepoFiles returns info about a HuggingFace repo including its file list.
