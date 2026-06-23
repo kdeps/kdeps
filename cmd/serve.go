@@ -88,15 +88,11 @@ func runAgentLoopCmd(path string, flags *agentLoopFlags) error {
 	if cwd, cwdErr := os.Getwd(); cwdErr == nil {
 		store.SetCwd(cwd)
 	}
-	// Use the persisted default model when no --model flag was given.
-	startModel := flags.Model
-	if startModel == "" && settings.DefaultModel != "" {
-		startModel = settings.DefaultModel
-	}
+	startModel, startBackend := resolveStartModel(flags, settings)
 
 	cfg := agent.Config{
 		Model:        startModel,
-		Backend:      flags.Backend,
+		Backend:      startBackend,
 		BaseURL:      flags.BaseURL,
 		SystemPrompt: flags.SystemPrompt,
 		SkillPaths:   skillPaths,
@@ -128,6 +124,14 @@ func runAgentLoopCmd(path string, flags *agentLoopFlags) error {
 	repl.SetCloudModelBackends(buildCloudBackends())
 	repl.SetProviderStatus(agent.BuildProviderStatus())
 
+	// Refresh in-memory model lists after /hff download registers a new GGUF.
+	repl.SetRefreshModelsFn(func() {
+		repl.SetModelNames(buildAllModelNames())
+		repl.SetModelTypes(buildModelTypes())
+		repl.SetModelRepos(buildModelRepos())
+		repl.SetDownloadedModels(llm.DownloadedModelAliases())
+	})
+
 	// Wire default-model persistence for /model default <name>.
 	repl.SetSaveDefaultFn(tui.SaveDefaultModel)
 
@@ -141,6 +145,21 @@ func runAgentLoopCmd(path string, flags *agentLoopFlags) error {
 
 	err = repl.Run()
 	return err
+}
+
+// resolveStartModel returns the model and backend to use at startup.
+// Falls back to settings.DefaultModel when --model is not given.
+// Auto-selects BackendGGUF when the model is a GGUF alias or path.
+func resolveStartModel(flags *agentLoopFlags, settings tui.Settings) (string, string) {
+	m := flags.Model
+	b := flags.Backend
+	if m == "" && settings.DefaultModel != "" {
+		m = settings.DefaultModel
+	}
+	if b == "" && agent.IsGGUFModelName(m) {
+		b = llm.BackendGGUF
+	}
+	return m, b
 }
 
 // resolveAgentBackend returns the effective LLM backend, applying the same
