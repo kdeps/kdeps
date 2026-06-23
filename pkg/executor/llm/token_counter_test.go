@@ -15,7 +15,7 @@
 package llm
 
 import (
-	"fmt"
+	"errors"
 	"testing"
 
 	tiktoken "github.com/pkoukk/tiktoken-go"
@@ -73,7 +73,7 @@ func TestApproximateTokenCount(t *testing.T) {
 	// Force fallback path by making tiktoken fail.
 	orig := tikTokenGetEncoding
 	tikTokenGetEncoding = func(string) (*tiktoken.Tiktoken, error) {
-		return nil, fmt.Errorf("forced failure")
+		return nil, errors.New("forced failure")
 	}
 	defer func() { tikTokenGetEncoding = orig }()
 
@@ -85,7 +85,7 @@ func TestApproximateTokenCount(t *testing.T) {
 func TestApproximateTokenCount_Empty(t *testing.T) {
 	orig := tikTokenGetEncoding
 	tikTokenGetEncoding = func(string) (*tiktoken.Tiktoken, error) {
-		return nil, fmt.Errorf("forced failure")
+		return nil, errors.New("forced failure")
 	}
 	defer func() { tikTokenGetEncoding = orig }()
 

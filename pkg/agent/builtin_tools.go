@@ -428,7 +428,8 @@ func registerListFiles(reg *kdepstools.Registry) {
 			var sb strings.Builder
 			fmt.Fprintf(&sb, "%s:\n", dirPath)
 			for _, e := range entries {
-				kind := "file"
+				const fileKind = "file"
+				kind := fileKind
 				if e.IsDir() {
 					kind = "dir"
 				}

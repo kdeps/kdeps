@@ -1478,7 +1478,7 @@ func (r *REPL) applyModelSwitch(model string) {
 			r.loop.config.Backend = llm.BackendGGUF
 			r.loop.config.BaseURL = ""
 		case modelTypeOllama:
-			r.loop.config.Backend = "ollama"
+			r.loop.config.Backend = modelTypeOllama
 			r.loop.config.BaseURL = ""
 		}
 	}
