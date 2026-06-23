@@ -2526,7 +2526,19 @@ func (r *REPL) cmdHFFSearch(query string) error {
 			id = id[:48] + "~"
 		}
 		fmt.Fprintf(&sb, "%-50s %10d %6d\n", id, m.Downloads, m.Likes)
-		for _, f := range llm.HFGGUFFiles(m.Siblings) {
+		ql := strings.ToLower(query)
+		ggufFiles := llm.HFGGUFFiles(m.Siblings)
+		// show files matching the query; if none match, show all (repo itself matched)
+		var matched []llm.HFFileEntry
+		for _, f := range ggufFiles {
+			if strings.Contains(strings.ToLower(f.Filename), ql) {
+				matched = append(matched, f)
+			}
+		}
+		if len(matched) == 0 {
+			matched = ggufFiles
+		}
+		for _, f := range matched {
 			name := f.Filename
 			if len(name) > 47 { //nolint:mnd // indent(2)+column width
 				name = name[:46] + "~"
