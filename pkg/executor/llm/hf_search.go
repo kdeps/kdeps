@@ -10,6 +10,7 @@ import (
 	stdhttp "net/http"
 	"net/url"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -197,17 +198,53 @@ func HFDownloadGGUF(ctx context.Context, repoID, filename string, logger *slog.L
 	return dest, alias, nil
 }
 
-// hfDownloadFile downloads a file, using the HF token when present.
+// hfDownloadFile downloads a file. aria2c is used when available for
+// multi-connection downloads; falls back to plain HTTP (with HF_TOKEN header
+// when set).
 func hfDownloadFile(
 	ctx context.Context,
 	downloadURL, filename, dest, dir string,
 	logger *slog.Logger,
 ) error {
-	if tok := os.Getenv(hfTokenEnvVar); tok != "" {
+	tok := os.Getenv(hfTokenEnvVar)
+	if aria2cPath, lookErr := exec.LookPath("aria2c"); lookErr == nil {
+		return hfDownloadAria2c(ctx, aria2cPath, downloadURL, dest, tok, logger)
+	}
+	if tok != "" {
 		return hfDownloadWithToken(ctx, downloadURL, dest, tok)
 	}
 	_, err := downloadModelFile(downloadURL, filename, dir, logger, AppFS)
 	return err
+}
+
+// hfDownloadAria2c downloads via aria2c with up to 8 parallel connections.
+func hfDownloadAria2c(
+	ctx context.Context,
+	aria2cPath, downloadURL, dest, token string,
+	logger *slog.Logger,
+) error {
+	args := []string{
+		"--max-connection-per-server=8",
+		"--split=8",
+		"--min-split-size=10M",
+		"--continue=true",
+		"--file-allocation=none",
+		"--console-log-level=warn",
+		"--dir=" + filepath.Dir(dest),
+		"--out=" + filepath.Base(dest),
+	}
+	if token != "" {
+		args = append(args, "--header=Authorization: Bearer "+token)
+	}
+	args = append(args, downloadURL)
+	logger.InfoContext(ctx, "hf: downloading via aria2c", "url", downloadURL, "dest", dest)
+	cmd := exec.CommandContext(ctx, aria2cPath, args...)
+	cmd.Stdout = os.Stderr // progress to stderr so REPL stdout stays clean
+	cmd.Stderr = os.Stderr
+	if err := cmd.Run(); err != nil {
+		return fmt.Errorf("aria2c: %w", err)
+	}
+	return nil
 }
 
 // hfDownloadWithToken downloads via HTTP with an Authorization header (for gated models).
