@@ -1573,8 +1573,8 @@ func TestPrintLocalModelRow_DownloadedAndCurrent(_ *testing.T) {
 	os.Stdout = w
 	defer func() { w.Close(); os.Stdout = origOut }()
 
-	repl.printLocalModelRow("llama2", "llama2")
-	repl.printLocalModelRow("codellama", "llama2")
+	repl.writeLocalModelRow(os.Stdout, "llama2", "llama2")
+	repl.writeLocalModelRow(os.Stdout, "codellama", "llama2")
 }
 
 // --- cmdPrompts ---

@@ -23,6 +23,20 @@ type Settings struct {
 	// When true, every newly discovered item is enabled by default.
 	// Stored as false only after the user has made explicit selections.
 	SelectAll bool `yaml:"select_all"`
+
+	// DefaultModel is the model used at startup when no --model flag is given.
+	// Set via /model default <name> in the REPL.
+	DefaultModel string `yaml:"default_model,omitempty"`
+}
+
+// SaveDefaultModel updates only the DefaultModel field and persists the settings file.
+func SaveDefaultModel(model string) error {
+	s, err := LoadSettings()
+	if err != nil {
+		return err
+	}
+	s.DefaultModel = model
+	return s.Save()
 }
 
 // DefaultSettings returns settings with all items selected by default.
