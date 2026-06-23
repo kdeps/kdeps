@@ -118,6 +118,7 @@ func runAgentLoopCmd(path string, flags *agentLoopFlags) error {
 	repl.SetModelNames(buildAllModelNames())
 	repl.SetDownloadedModels(llm.DownloadedModelAliases())
 	repl.SetModelTypes(buildModelTypes())
+	repl.SetModelRepos(buildModelRepos())
 	repl.SetCloudModelBackends(buildCloudBackends())
 	repl.SetProviderStatus(agent.BuildProviderStatus())
 
@@ -422,6 +423,23 @@ func buildModelTypes() map[string]string {
 		types[o.Name] = chatBackendOllama
 	}
 	return types
+}
+
+// buildModelRepos returns a map of model alias → HuggingFace repo id (e.g. "googleai/gemma4")
+// for llamafile and gguf models. Shown in /models next to each local model alias.
+func buildModelRepos() map[string]string {
+	repos := make(map[string]string)
+	for _, a := range llm.ListLlamafileMappings() {
+		if a.Repo != "" {
+			repos[a.Alias] = a.Repo
+		}
+	}
+	for _, a := range llm.ListGGUFMappings() {
+		if a.Repo != "" {
+			repos[a.Alias] = a.Repo
+		}
+	}
+	return repos
 }
 
 // buildCloudBackends returns a map from cloud model name → backend for /model
