@@ -2526,12 +2526,19 @@ func (r *REPL) cmdHFFSearch(query string) error {
 			id = id[:48] + "~"
 		}
 		fmt.Fprintf(&sb, "%-50s %10d %6d\n", id, m.Downloads, m.Likes)
+		for _, f := range llm.HFGGUFFiles(m.Siblings) {
+			name := f.Filename
+			if len(name) > 47 { //nolint:mnd // indent(2)+column width
+				name = name[:46] + "~"
+			}
+			fmt.Fprintf(&sb, "  %-48s %10s\n", name, hffFormatSize(f.Size))
+		}
 	}
 	fmt.Fprintf(
 		&sb,
 		"\n%s",
 		styleReplDim.Render(
-			"Use /hff info <repo> to list GGUF files, /hff download <repo> [file] to download.",
+			"Use /hff download <repo> <file> to download.",
 		),
 	)
 	lines := strings.Split(strings.TrimRight(sb.String(), "\n"), "\n")

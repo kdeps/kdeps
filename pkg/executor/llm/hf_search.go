@@ -28,11 +28,13 @@ const (
 )
 
 // HFModelResult is a single entry from the HuggingFace model search response.
+// Siblings is populated when the search is made with full=true.
 type HFModelResult struct {
-	ID        string   `json:"id"`
-	Downloads int      `json:"downloads"`
-	Likes     int      `json:"likes"`
-	Tags      []string `json:"tags"`
+	ID        string        `json:"id"`
+	Downloads int           `json:"downloads"`
+	Likes     int           `json:"likes"`
+	Tags      []string      `json:"tags"`
+	Siblings  []HFFileEntry `json:"siblings"`
 }
 
 // HFFileEntry is a single file inside a HuggingFace repo.
@@ -86,6 +88,7 @@ func HFSearchGGUFWithBase(ctx context.Context, apiModelsURL, query string, limit
 		"sort":      {"downloads"},
 		"direction": {"-1"},
 		"limit":     {strconv.Itoa(limit)},
+		"full":      {"true"}, // include siblings (file list) in each result
 	}
 	resp, err := hfRequest(ctx, apiModelsURL+"?"+params.Encode())
 	if err != nil {

@@ -54,24 +54,33 @@ func TestHFDownloadURL(t *testing.T) {
 
 func TestHFSearchGGUF_APIResponse(t *testing.T) {
 	results := []llm.HFModelResult{
-		{ID: "unsloth/Qwen2.5-VL-7B-Instruct-GGUF", Downloads: 50000, Likes: 300},
+		{
+			ID:        "unsloth/Qwen2.5-VL-7B-Instruct-GGUF",
+			Downloads: 50000,
+			Likes:     300,
+			Siblings: []llm.HFFileEntry{
+				{Filename: "Qwen2.5-VL-7B-Instruct-Q4_K_M.gguf", Size: 4 * 1024 * 1024 * 1024},
+				{Filename: "Qwen2.5-VL-7B-Instruct-Q2_K_M.gguf", Size: 2 * 1024 * 1024 * 1024},
+			},
+		},
 		{ID: "bartowski/Llama-3.2-3B-Instruct-GGUF", Downloads: 30000, Likes: 200},
 	}
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		assert.Contains(t, r.URL.RawQuery, "filter=gguf")
 		assert.Contains(t, r.URL.RawQuery, "search=qwen")
+		assert.Contains(t, r.URL.RawQuery, "full=true") // siblings requested
 		w.Header().Set("Content-Type", "application/json")
 		_ = json.NewEncoder(w).Encode(results)
 	}))
 	defer srv.Close()
-	// Inject via env override isn't possible directly, so call the internal
-	// search with a custom base URL. Use the exported search through a wrapper
-	// that redirects to the test server.
 	got, err := llm.HFSearchGGUFWithBase(context.Background(), srv.URL+"/api/models", "qwen", 5)
 	require.NoError(t, err)
 	require.Len(t, got, 2)
 	assert.Equal(t, "unsloth/Qwen2.5-VL-7B-Instruct-GGUF", got[0].ID)
 	assert.Equal(t, 50000, got[0].Downloads)
+	gguf := llm.HFGGUFFiles(got[0].Siblings)
+	require.Len(t, gguf, 2)
+	assert.Equal(t, "Qwen2.5-VL-7B-Instruct-Q4_K_M.gguf", gguf[0].Filename)
 }
 
 func TestHFRepoFiles_APIResponse(t *testing.T) {
