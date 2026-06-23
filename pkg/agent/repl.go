@@ -157,6 +157,7 @@ type REPL struct {
 	onSettingsChange   OnSettingsChange
 	tuiRunner          TUIRunner
 	runFn              func(context.Context, string) (string, error) // nil in production; injected in tests
+	refreshModelsFn    func()                                        // called after new model registered; nil if unset
 }
 
 // NewREPL creates a new REPL for the given agent loop.
@@ -212,6 +213,13 @@ func (r *REPL) SetDownloadedModels(downloaded map[string]bool) {
 // [type] tag and results are grouped: cached > llamafile > gguf > cloud.
 func (r *REPL) SetModelTypes(types map[string]string) {
 	r.modelTypes = types
+}
+
+// SetRefreshModelsFn registers a callback that rebuilds the in-memory model name
+// and type maps. Called after a new GGUF model is downloaded and registered so
+// that /model <alias> works immediately without restarting.
+func (r *REPL) SetRefreshModelsFn(fn func()) {
+	r.refreshModelsFn = fn
 }
 
 // SetModelRepos registers the HuggingFace repo id (e.g. "googleai/gemma4") for each
@@ -1424,6 +1432,22 @@ func (r *REPL) openPickerWithFilter(filter string) error {
 
 var modelTagRe = regexp.MustCompile(` \[[^\]]+\]$`)
 
+// IsGGUFModelName returns true when name looks like a GGUF file path or alias.
+// Checks the .gguf suffix first, then falls back to the local registry.
+func IsGGUFModelName(name string) bool {
+	if strings.HasSuffix(strings.ToLower(name), ".gguf") {
+		return true
+	}
+	for _, e := range llm.ListGGUFMappings() {
+		if e.Alias == name {
+			return true
+		}
+	}
+	return false
+}
+
+func isGGUFModel(name string) bool { return IsGGUFModelName(name) }
+
 // stripModelIndicators removes the " [tag]" suffix that /model tab completion
 // appends to model names (e.g. "llama3.2:1b [llamafile cached]" -> "llama3.2:1b").
 func stripModelIndicators(name string) string {
@@ -1444,7 +1468,12 @@ func (r *REPL) applyModelSwitch(model string) {
 		r.loop.config.Backend = backend
 		r.loop.config.BaseURL = ""
 	} else {
-		switch r.modelTypes[model] {
+		mt := r.modelTypes[model]
+		// Infer GGUF when not in modelTypes: .gguf suffix or resolvable via registry.
+		if mt == "" && isGGUFModel(model) {
+			mt = modelTypeGGUF
+		}
+		switch mt {
 		case modelTypeGGUF:
 			r.loop.config.Backend = llm.BackendGGUF
 			r.loop.config.BaseURL = ""
@@ -2599,6 +2628,9 @@ func (r *REPL) cmdHFFDownload(repoID, filename string) error {
 	if err != nil {
 		fmt.Fprintf(os.Stdout, "%s\n", styleModelsNoKey.Render("Download failed: "+err.Error()))
 		return nil //nolint:nilerr // network error shown to user; don't terminate REPL
+	}
+	if r.refreshModelsFn != nil {
+		r.refreshModelsFn()
 	}
 	fmt.Fprintf(os.Stdout, "%s\n", styleReplMeta.Render(
 		"Downloaded: "+dest+"\nRegistered as: "+alias+
