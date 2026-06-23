@@ -39,6 +39,7 @@ var ErrOllamaNotSupported = errors.New(
 type ModelServiceInterface interface {
 	DownloadModel(backend, model string) error
 	ServeModel(backend, model string, host string, port int) error
+	ServerURL(backend, model string) string
 }
 
 func ollamaUnsupported(op string) error {
@@ -65,6 +66,12 @@ func (s *ModelService) ServeModel(_, _ string, _ string, _ int) error {
 	return ollamaUnsupported("ServeModel")
 }
 
+// ServerURL returns "" since local model servers are not available in WASM.
+func (s *ModelService) ServerURL(_, _ string) string { return "" }
+
+// WaitForServerReady is a no-op in WASM builds.
+func WaitForServerReady(_ string) {}
+
 // MockModelService is a no-op mock for WASM builds.
 type MockModelService struct{}
 
@@ -77,6 +84,9 @@ func (m *MockModelService) DownloadModel(_, _ string) error {
 func (m *MockModelService) ServeModel(_, _ string, _ string, _ int) error {
 	return ollamaUnsupported("ServeModel")
 }
+
+// ServerURL returns "" for WASM.
+func (m *MockModelService) ServerURL(_, _ string) string { return "" }
 
 // ModelManager is a no-op stub for WASM builds.
 type ModelManager struct{}

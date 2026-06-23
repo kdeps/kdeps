@@ -2576,7 +2576,7 @@ func TestModelCompletionSuffixes_TruncatesToMax(t *testing.T) {
 	repl.downloadedModels = map[string]bool{}
 	repl.modelTypes = map[string]string{}
 
-	// Build > replModelCompletionMax (40) model names all matching an empty prefix.
+	// Build > replModelCompletionMax model names all matching an empty prefix.
 	names := make([]string, replModelCompletionMax+5)
 	for i := range names {
 		names[i] = fmt.Sprintf("model-%02d", i)
