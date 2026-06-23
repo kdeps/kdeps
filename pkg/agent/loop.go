@@ -201,26 +201,38 @@ func (l *Loop) PromptByName(name string) *PromptTemplate {
 	return nil
 }
 
-// detectDefaultBackend picks the best default backend: ollama if installed,
-// otherwise the first cloud backend with an API key set. Falls back to file.
-func detectDefaultBackend() string {
+// detectDefaultModelAndBackend returns a compatible model+backend pair by
+// auto-detecting what's available: ollama (local) first, then the first cloud
+// model whose API key is set. Falls back to llama3.2 + file.
+func detectDefaultModelAndBackend() (model, backend string) {
 	if _, err := exec.LookPath("ollama"); err == nil {
-		return "ollama"
+		return "llama3.2", "ollama"
 	}
 	for _, m := range KnownCloudModels {
 		if os.Getenv(m.EnvVar) != "" {
-			return m.Backend
+			return m.ID, m.Backend
 		}
 	}
-	return executorLLM.BackendFile
+	return "llama3.2", executorLLM.BackendFile
 }
 
 func applyConfigDefaults(cfg Config) Config {
 	if cfg.Model == "" {
-		cfg.Model = envOrDefault("KDEPS_AGENT_MODEL", "llama3.2")
+		cfg.Model = envOrDefault("KDEPS_AGENT_MODEL", "")
+		if cfg.Model == "" {
+			cfg.Model, _ = detectDefaultModelAndBackend()
+		}
 	}
 	if cfg.Backend == "" {
-		cfg.Backend = envOrDefault("KDEPS_AGENT_BACKEND", detectDefaultBackend())
+		cfg.Backend = envOrDefault("KDEPS_AGENT_BACKEND", "")
+		if cfg.Backend == "" {
+			if cfg.Model != "" {
+				cfg.Backend = BackendForModel(cfg.Model)
+			}
+			if cfg.Backend == "" {
+				_, cfg.Backend = detectDefaultModelAndBackend()
+			}
+		}
 	}
 	if cfg.BaseURL == "" {
 		cfg.BaseURL = os.Getenv("KDEPS_AGENT_BASE_URL")
