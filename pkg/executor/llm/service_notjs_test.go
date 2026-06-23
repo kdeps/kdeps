@@ -117,7 +117,7 @@ func TestModelService_ServerURL_Default(t *testing.T) {
 	assert.Equal(t, "", s.ServerURL("", "model"))
 }
 
-func TestWaitForServerReady_EmptyURL(t *testing.T) {
+func TestWaitForServerReady_EmptyURL(_ *testing.T) {
 	WaitForServerReady("")
 }
 
@@ -134,7 +134,7 @@ func TestWaitForServerReady_CallsOverride(t *testing.T) {
 	assert.True(t, called)
 }
 
-func TestListLocalServers_DoesNotPanic(t *testing.T) {
+func TestListLocalServers_DoesNotPanic(_ *testing.T) {
 	// Global state may have entries from other tests; just verify it doesn't panic.
 	_ = ListLocalServers()
 }

@@ -281,10 +281,10 @@ func TestPrepareCfg_EmbedderBuildError_FallsBackToOriginal(t *testing.T) {
 	// Set up cfg with a backend that buildFewShotEmbedder will likely fail for
 	// due to missing env vars.
 	cfg := &domain.ChatConfig{
-		Prompt:                "hi",
-		FewShotEmbeddingModel: "text-embedding-3-small",
+		Prompt:                  "hi",
+		FewShotEmbeddingModel:   "text-embedding-3-small",
 		FewShotEmbeddingBackend: "unknown-nonexistent-backend",
-		FewShotSelectK:        2,
+		FewShotSelectK:          2,
 		FewShot: []domain.ScenarioItem{
 			{Role: "user", Prompt: "hello"},
 			{Role: "assistant", Prompt: "hi"},

@@ -41,6 +41,7 @@ func TestSummarizeToolArgs(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			if got := summarizeToolArgs(tt.raw); got != tt.want {
 				t.Errorf("summarizeToolArgs(%q) = %q, want %q", tt.raw, got, tt.want)
 			}
@@ -103,6 +104,7 @@ func TestTrimTrailingSpaces(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			if got := trimTrailingSpaces(tt.input); got != tt.want {
 				t.Errorf("trimTrailingSpaces(%q) = %q, want %q", tt.input, got, tt.want)
 			}
@@ -266,8 +268,8 @@ func TestBoldTagKeyword(t *testing.T) {
 	}
 
 	// No match returns unchanged
-	if got := boldTagKeyword("hello", "world"); got != "hello" {
-		t.Errorf("expected unchanged tag for no match, got %q", got)
+	if result := boldTagKeyword("hello", "world"); result != "hello" {
+		t.Errorf("expected unchanged tag for no match, got %q", result)
 	}
 
 	// Case-insensitive match applies bold
@@ -299,14 +301,12 @@ func TestParseParamB_Empty(t *testing.T) {
 	}
 }
 
-
 func TestParseParamB_Invalid(t *testing.T) {
 	t.Parallel()
 	if got := parseParamB("invalid"); got != 0 {
 		t.Errorf("expected 0 for invalid, got %f", got)
 	}
 }
-
 
 func TestParseParamB_7B(t *testing.T) {
 	t.Parallel()

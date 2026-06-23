@@ -2736,7 +2736,7 @@ func TestSetSaveDefaultFn(t *testing.T) {
 	repl := NewREPL(loop)
 	defer repl.cancel()
 	called := false
-	repl.SetSaveDefaultFn(func(m string) error { called = true; return nil })
+	repl.SetSaveDefaultFn(func(_ string) error { called = true; return nil })
 	require.NotNil(t, repl.saveDefaultFn)
 	_ = repl.saveDefaultFn("m")
 	assert.True(t, called)
@@ -3374,7 +3374,7 @@ func TestCmdHFFDownload_WithFilename_NetworkError(t *testing.T) {
 
 func TestCmdHFFDownload_RefreshCalled_OnSuccess(t *testing.T) {
 	// Use a test HTTP server to serve a fake GGUF download
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusOK)
 		_, _ = w.Write([]byte("fake gguf content"))
 	}))
@@ -3431,7 +3431,7 @@ func TestCmdProcessesList_WithEntries_FormatsTable(t *testing.T) {
 
 // --- startLocalModelServer paths ---
 
-func TestStartLocalModelServer_NoService_NoOp(t *testing.T) {
+func TestStartLocalModelServer_NoService_NoOp(_ *testing.T) {
 	loop := makeTestLoop(nil)
 	repl := NewREPL(loop)
 	defer repl.cancel()
@@ -3720,7 +3720,7 @@ func TestCmdEditor_FallbackToVi(t *testing.T) {
 
 // --- autoSaveOnExit ---
 
-func TestAutoSaveOnExit_NoStore(t *testing.T) {
+func TestAutoSaveOnExit_NoStore(_ *testing.T) {
 	loop := makeTestLoop(nil)
 	repl := NewREPL(loop)
 	defer repl.cancel()

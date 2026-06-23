@@ -24,7 +24,6 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"strconv"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -65,7 +64,7 @@ func writeTestPDF(t *testing.T, dir, content string) string {
 	streamData := "BT\n/F1 24 Tf\n100 700 Td\n(" + content + ") Tj\nET\n"
 	off4 := b.Len()
 	b.WriteString("4 0 obj\n")
-	b.WriteString("<< /Length " + strconv.Itoa(len(streamData)) + " >>\n")
+	fmt.Fprintf(&b, "<< /Length %d >>\n", len(streamData))
 	b.WriteString("stream\n")
 	b.WriteString(streamData)
 	b.WriteString("endstream\n")
@@ -81,16 +80,16 @@ func writeTestPDF(t *testing.T, dir, content string) string {
 	xrefOffset := b.Len()
 	b.WriteString("xref\n")
 	b.WriteString("0 6\n")
-	b.WriteString(fmt.Sprintf("%010d 65535 f \n", 0))
-	b.WriteString(fmt.Sprintf("%010d 00000 n \n", off1))
-	b.WriteString(fmt.Sprintf("%010d 00000 n \n", off2))
-	b.WriteString(fmt.Sprintf("%010d 00000 n \n", off3))
-	b.WriteString(fmt.Sprintf("%010d 00000 n \n", off4))
-	b.WriteString(fmt.Sprintf("%010d 00000 n \n", off5))
+	fmt.Fprintf(&b, "%010d 65535 f \n", 0)
+	fmt.Fprintf(&b, "%010d 00000 n \n", off1)
+	fmt.Fprintf(&b, "%010d 00000 n \n", off2)
+	fmt.Fprintf(&b, "%010d 00000 n \n", off3)
+	fmt.Fprintf(&b, "%010d 00000 n \n", off4)
+	fmt.Fprintf(&b, "%010d 00000 n \n", off5)
 	b.WriteString("trailer\n")
 	b.WriteString("<< /Size 6 /Root 1 0 R >>\n")
 	b.WriteString("startxref\n")
-	b.WriteString(fmt.Sprintf("%d\n", xrefOffset))
+	fmt.Fprintf(&b, "%d\n", xrefOffset)
 	b.WriteString("%%EOF\n")
 
 	path := filepath.Join(dir, "test.pdf")
