@@ -146,6 +146,7 @@ type REPL struct {
 	modelNames         []string                            // suggestions for /model <tab>
 	downloadedModels   map[string]bool                     // set of already-downloaded model aliases
 	modelTypes         map[string]string                   // model name -> type (modelTypeLLamafile, modelTypeGGUF, ""=cloud)
+	modelRepos         map[string]string                   // model name -> HuggingFace repo id (e.g. "googleai/gemma4")
 	cloudModelBackends map[string]string                   // cloud model name -> backend name
 	modelPickerFn      func(filter string) (string, error) // TUI model picker; nil if unavailable
 	readlineInst       *readline.Instance                  // set during Run(); nil before/after
@@ -208,6 +209,12 @@ func (r *REPL) SetDownloadedModels(downloaded map[string]bool) {
 // [type] tag and results are grouped: cached > llamafile > gguf > cloud.
 func (r *REPL) SetModelTypes(types map[string]string) {
 	r.modelTypes = types
+}
+
+// SetModelRepos registers the HuggingFace repo id (e.g. "googleai/gemma4") for each
+// llamafile/gguf model alias. Shown in /models next to the alias.
+func (r *REPL) SetModelRepos(repos map[string]string) {
+	r.modelRepos = repos
 }
 
 // SetCloudModelBackends registers the backend for each cloud model name.
@@ -1613,17 +1620,27 @@ func (r *REPL) printLocalModelRow(name, currentModel string) {
 	}
 	idField := fmt.Sprintf("%-*s", modelsIDWidth, name)
 	isCurrent := name == currentModel
+
+	// Show HuggingFace repo id for llamafile/gguf models.
+	repo := ""
+	if t := r.modelTypes[name]; t == modelTypeLLamafile || t == modelTypeGGUF {
+		if r.modelRepos[name] != "" {
+			repo = "  " + styleReplMeta.Render(r.modelRepos[name])
+		}
+	}
+
 	switch {
 	case isCurrent:
-		fmt.Fprintf(os.Stdout, "  %s%s  %s\n",
+		fmt.Fprintf(os.Stdout, "  %s%s%s  %s\n",
 			marker,
 			styleModelsCurrent.Render(idField),
+			repo,
 			styleModelsCurrent.Render("<-- current"),
 		)
 	case downloaded:
-		fmt.Fprintf(os.Stdout, "  %s%s  %s\n", marker, idField, styleReplMeta.Render("downloaded"))
+		fmt.Fprintf(os.Stdout, "  %s%s%s  %s\n", marker, idField, repo, styleReplMeta.Render("downloaded"))
 	default:
-		fmt.Fprintf(os.Stdout, "  %s%s\n", marker, styleModelsNoKey.Render(idField))
+		fmt.Fprintf(os.Stdout, "  %s%s%s\n", marker, styleModelsNoKey.Render(idField), repo)
 	}
 }
 
