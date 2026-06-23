@@ -50,6 +50,11 @@ func (s *ModelService) serveGGUFModel(model string, port int) error {
 		return err
 	}
 	_, err = mgr.Serve(path, port)
+	if err == nil {
+		servedGGUFsMu.Lock()
+		servedGGUFNames[path] = model
+		servedGGUFsMu.Unlock()
+	}
 	return err
 }
 

@@ -43,9 +43,10 @@ import (
 //
 //nolint:gochecknoglobals // process-wide server registry
 var (
-	servedLlamafiles    = map[string]int{}
-	servedLlamafilePIDs = map[string]int{}
-	servedLlamafilesMu  sync.Mutex
+	servedLlamafiles     = map[string]int{}
+	servedLlamafilePIDs  = map[string]int{}
+	servedLlamafileNames = map[string]string{} // path → model name for display
+	servedLlamafilesMu   sync.Mutex
 )
 
 // shutdownOnce registers the signal handler exactly once across all servers.
@@ -76,6 +77,7 @@ func ShutdownLocalServers() {
 	}
 	servedLlamafilePIDs = map[string]int{}
 	servedLlamafiles = map[string]int{}
+	servedLlamafileNames = map[string]string{}
 	servedLlamafilesMu.Unlock()
 
 	servedGGUFsMu.Lock()
@@ -85,6 +87,7 @@ func ShutdownLocalServers() {
 	}
 	servedGGUFPIDs = map[string]int{}
 	servedGGUFs = map[string]int{}
+	servedGGUFNames = map[string]string{}
 	servedGGUFsMu.Unlock()
 }
 

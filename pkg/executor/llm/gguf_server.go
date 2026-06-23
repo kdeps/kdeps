@@ -46,9 +46,10 @@ var downloadHTTPClient = &http.Client{Timeout: 30 * time.Minute} //nolint:mnd //
 
 //nolint:gochecknoglobals // process-wide server registry
 var (
-	servedGGUFs    = map[string]int{}
-	servedGGUFPIDs = map[string]int{}
-	servedGGUFsMu  sync.Mutex
+	servedGGUFs     = map[string]int{}
+	servedGGUFPIDs  = map[string]int{}
+	servedGGUFNames = map[string]string{} // path → model name for display
+	servedGGUFsMu   sync.Mutex
 )
 
 //nolint:gochecknoglobals // test-replaceable hook
