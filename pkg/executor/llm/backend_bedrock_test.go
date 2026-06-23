@@ -117,3 +117,37 @@ func TestBedrockBackend_ParseResponse_InvalidJSON(t *testing.T) {
 	_, err := bb.ParseResponse(resp)
 	assert.Error(t, err)
 }
+
+func TestExtractBedrockOutputMessage_NoMessageKey(t *testing.T) {
+	result := map[string]interface{}{}
+	extractBedrockOutputMessage(result, map[string]interface{}{})
+	assert.Empty(t, result)
+}
+
+func TestExtractBedrockOutputMessage_EmptyContent(t *testing.T) {
+	result := map[string]interface{}{}
+	extractBedrockOutputMessage(result, map[string]interface{}{
+		"message": map[string]interface{}{
+			"role":    "assistant",
+			"content": []interface{}{},
+		},
+	})
+	assert.Equal(t, "assistant", result["role"])
+	_, hasContent := result["content"]
+	assert.False(t, hasContent)
+}
+
+func TestExtractBedrockOutputMessage_NonMapContentBlock(t *testing.T) {
+	result := map[string]interface{}{}
+	extractBedrockOutputMessage(result, map[string]interface{}{
+		"message": map[string]interface{}{
+			"role": "assistant",
+			"content": []interface{}{
+				"not a map",
+			},
+		},
+	})
+	assert.Equal(t, "assistant", result["role"])
+	_, hasContent := result["content"]
+	assert.False(t, hasContent)
+}

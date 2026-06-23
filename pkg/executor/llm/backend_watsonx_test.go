@@ -83,3 +83,26 @@ func TestWatsonXBackend_ParseResponse_NonOK(t *testing.T) {
 	_, err := wb.ParseResponse(resp)
 	assert.Error(t, err)
 }
+
+func TestWatsonXBackend_ChatEndpoint(t *testing.T) {
+	wb := &WatsonXBackend{}
+	result := wb.ChatEndpoint("https://us-south.ml.cloud.ibm.com")
+	assert.Equal(t, "https://us-south.ml.cloud.ibm.com/ml/v1/text/generation?version=2023-05-29", result)
+}
+
+func TestExtractWatsonXPrompt_EmptyMessages(t *testing.T) {
+	assert.Equal(t, "", extractWatsonXPrompt(nil))
+	assert.Equal(t, "", extractWatsonXPrompt([]map[string]interface{}{}))
+}
+
+func TestExtractWatsonXPrompt_NonStringContent(t *testing.T) {
+	messages := []map[string]interface{}{
+		{},
+	}
+	assert.Equal(t, "", extractWatsonXPrompt(messages))
+
+	messages = []map[string]interface{}{
+		{"content": 42},
+	}
+	assert.Equal(t, "", extractWatsonXPrompt(messages))
+}

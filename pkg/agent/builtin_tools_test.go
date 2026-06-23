@@ -2021,3 +2021,253 @@ func TestRegisterGoogleCacheTools_RegisteredWithKey(t *testing.T) {
 	_, err = del.Execute(map[string]any{"name": ""})
 	assert.Error(t, err, "google_cache_delete should error on empty name")
 }
+
+func TestColoredDiff(t *testing.T) {
+	t.Parallel()
+	got := coloredDiff("line1\nline2\n", "line1\nline3\n", "test.txt")
+	if !strings.Contains(got, "test.txt") {
+		t.Error("coloredDiff should include file path")
+	}
+	if !strings.Contains(got, "- line2") {
+		t.Error("coloredDiff should show removed line")
+	}
+	if !strings.Contains(got, "+ line3") {
+		t.Error("coloredDiff should show added line")
+	}
+}
+
+func TestColoredDiff_SameContent(t *testing.T) {
+	t.Parallel()
+	got := coloredDiff("hello", "hello", "f.txt")
+	if !strings.Contains(got, "f.txt") {
+		t.Error("coloredDiff should include file path even for identical content")
+	}
+}
+
+func TestColoredDiff_EmptyContent(t *testing.T) {
+	t.Parallel()
+	got := coloredDiff("", "", "e.txt")
+	if !strings.Contains(got, "e.txt") {
+		t.Error("coloredDiff with empty content should include file path")
+	}
+}
+
+func TestIsBinaryContent(t *testing.T) {
+	t.Parallel()
+	tests := []struct {
+		name string
+		data []byte
+		want bool
+	}{
+		{name: "empty", data: nil, want: false},
+		{name: "text", data: []byte("hello world"), want: false},
+		{name: "nul byte", data: []byte{0x00}, want: true},
+		{name: "nul in middle", data: []byte("hello\x00world"), want: true},
+		{name: "zip magic no nul", data: []byte("PK\x03\x04\x14\x00\x00\x00\x00\x00"), want: true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := isBinaryContent(tt.data); got != tt.want {
+				t.Errorf("isBinaryContent() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestRerankResultsToJSON_Empty(t *testing.T) {
+	t.Parallel()
+	got, err := rerankResultsToJSON(nil)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if got != "null" {
+		t.Errorf("expected 'null', got %s", got)
+	}
+}
+
+// --- registerEditFile execute closure ---
+
+func TestRegisterEditFile_Execute_MissingPath(t *testing.T) {
+	reg := kdepstools.NewRegistry()
+	registerEditFile(reg)
+	tool := reg.Get("edit_file")
+	require.NotNil(t, tool)
+	_, err := tool.Execute(map[string]any{"file_path": ""})
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "file_path is required")
+}
+
+func TestRegisterEditFile_Execute_RelativePath(t *testing.T) {
+	reg := kdepstools.NewRegistry()
+	registerEditFile(reg)
+	tool := reg.Get("edit_file")
+	require.NotNil(t, tool)
+	_, err := tool.Execute(map[string]any{"file_path": "relative/path", "old_string": "x", "new_string": "y"})
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "absolute path required")
+}
+
+func TestRegisterEditFile_Execute_OldEqualsNew(t *testing.T) {
+	tmpFile := filepath.Join(t.TempDir(), "test.txt")
+	require.NoError(t, os.WriteFile(tmpFile, []byte("hello world"), 0600))
+	reg := kdepstools.NewRegistry()
+	registerEditFile(reg)
+	tool := reg.Get("edit_file")
+	require.NotNil(t, tool)
+	_, err := tool.Execute(map[string]any{"file_path": tmpFile, "old_string": "hello", "new_string": "hello"})
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "identical")
+}
+
+func TestRegisterEditFile_Execute_OldStringNotFound(t *testing.T) {
+	tmpFile := filepath.Join(t.TempDir(), "test.txt")
+	require.NoError(t, os.WriteFile(tmpFile, []byte("hello world"), 0600))
+	reg := kdepstools.NewRegistry()
+	registerEditFile(reg)
+	tool := reg.Get("edit_file")
+	require.NotNil(t, tool)
+	_, err := tool.Execute(map[string]any{"file_path": tmpFile, "old_string": "nonexistent", "new_string": "replacement"})
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "not found")
+}
+
+func TestRegisterEditFile_Execute_Success(t *testing.T) {
+	tmpFile := filepath.Join(t.TempDir(), "test.txt")
+	require.NoError(t, os.WriteFile(tmpFile, []byte("hello world"), 0600))
+	reg := kdepstools.NewRegistry()
+	registerEditFile(reg)
+	tool := reg.Get("edit_file")
+	require.NotNil(t, tool)
+	result, err := tool.Execute(map[string]any{
+		"file_path":  tmpFile,
+		"old_string": "hello",
+		"new_string": "goodbye",
+	})
+	assert.NoError(t, err)
+	assert.Contains(t, result, "Edited")
+	data, _ := os.ReadFile(tmpFile)
+	assert.Equal(t, "goodbye world", string(data))
+}
+
+// --- registerListFiles execute closure ---
+
+func TestRegisterListFiles_Execute_MissingPath(t *testing.T) {
+	reg := kdepstools.NewRegistry()
+	registerListFiles(reg)
+	tool := reg.Get("list_files")
+	require.NotNil(t, tool)
+	_, err := tool.Execute(map[string]any{"path": ""})
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "path is required")
+}
+
+func TestRegisterListFiles_Execute_RelativePath(t *testing.T) {
+	reg := kdepstools.NewRegistry()
+	registerListFiles(reg)
+	tool := reg.Get("list_files")
+	require.NotNil(t, tool)
+	_, err := tool.Execute(map[string]any{"path": "relative/path"})
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "absolute path required")
+}
+
+func TestRegisterListFiles_Execute_Success(t *testing.T) {
+	dir := t.TempDir()
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "a.txt"), []byte("a"), 0600))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "b.txt"), []byte("b"), 0600))
+	reg := kdepstools.NewRegistry()
+	registerListFiles(reg)
+	tool := reg.Get("list_files")
+	require.NotNil(t, tool)
+	result, err := tool.Execute(map[string]any{"path": dir})
+	assert.NoError(t, err)
+	assert.Contains(t, result, "a.txt")
+	assert.Contains(t, result, "b.txt")
+}
+
+// --- callRetrieveContext ---
+
+func TestCallRetrieveContext_Success(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{
+			"results": [
+				{"text": "result text", "score": 0.95, "source": "doc1"}
+			]
+		}`))
+	}))
+	defer srv.Close()
+
+	result, err := callRetrieveContext(context.Background(), srv.URL, "test query", 5)
+	assert.NoError(t, err)
+	assert.Contains(t, result, "result text")
+	assert.Contains(t, result, "doc1")
+}
+
+func TestCallRetrieveContext_NonOKStatus(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusInternalServerError)
+		_, _ = w.Write([]byte("internal error"))
+	}))
+	defer srv.Close()
+
+	_, err := callRetrieveContext(context.Background(), srv.URL, "test query", 5)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "API error")
+}
+
+func TestCallRetrieveContext_EmptyQuery(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{"results": []}`))
+	}))
+	defer srv.Close()
+
+	result, err := callRetrieveContext(context.Background(), srv.URL, "", 5)
+	assert.NoError(t, err)
+	assert.Empty(t, result)
+}
+
+// --- registerRetrieveContext ---
+
+func TestRegisterRetrieveContext_NotRegisteredWithoutEnv(t *testing.T) {
+	t.Setenv("KDEPS_RAG_BASE_URL", "")
+	reg := kdepstools.NewRegistry()
+	RegisterBuiltinTools(context.Background(), reg)
+	assert.Nil(t, reg.Get("retrieve_context"))
+}
+
+func TestRegisterRetrieveContext_RegisteredWithEnv(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{"results":[{"text":"doc","score":1.0,"source":"test"}]}`))
+	}))
+	defer srv.Close()
+
+	t.Setenv("KDEPS_RAG_BASE_URL", srv.URL)
+	reg := kdepstools.NewRegistry()
+	RegisterBuiltinTools(context.Background(), reg)
+	tool := reg.Get("retrieve_context")
+	require.NotNil(t, tool)
+	assert.NotEmpty(t, tool.Description)
+	result, err := tool.Execute(map[string]any{"query": "test"})
+	assert.NoError(t, err)
+	assert.NotEmpty(t, result)
+}
+
+func TestRegisterRetrieveContext_Execute_EmptyQuery(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{"results":[]}`))
+	}))
+	defer srv.Close()
+
+	t.Setenv("KDEPS_RAG_BASE_URL", srv.URL)
+	reg := kdepstools.NewRegistry()
+	RegisterBuiltinTools(context.Background(), reg)
+	tool := reg.Get("retrieve_context")
+	require.NotNil(t, tool)
+	_, err := tool.Execute(map[string]any{"query": ""})
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "query is required")
+}

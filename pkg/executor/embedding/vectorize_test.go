@@ -20,12 +20,45 @@ package embedding
 
 import (
 	"context"
+	"encoding/json"
+	"errors"
+	"net/http"
+	"net/http/httptest"
 	"testing"
 
+	lcemb "github.com/tmc/langchaingo/embeddings"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/kdeps/kdeps/v2/pkg/domain"
+)
+
+// stub embedders for testing vectorizeInputs/embedQuery error paths.
+
+type errorEmbedder struct{}
+
+func (e *errorEmbedder) EmbedDocuments(_ context.Context, _ []string) ([][]float32, error) {
+	return nil, errors.New("stub: embed documents failed")
+}
+
+func (e *errorEmbedder) EmbedQuery(_ context.Context, _ string) ([]float32, error) {
+	return nil, errors.New("stub: embed query failed")
+}
+
+type successEmbedder struct{}
+
+func (e *successEmbedder) EmbedDocuments(_ context.Context, _ []string) ([][]float32, error) {
+	return [][]float32{{0.1, 0.2, 0.3}, {0.4, 0.5, 0.6}}, nil
+}
+
+func (e *successEmbedder) EmbedQuery(_ context.Context, _ string) ([]float32, error) {
+	return []float32{0.1, 0.2, 0.3}, nil
+}
+
+// compile-time check that stubs implement lcemb.Embedder
+var (
+	_ lcemb.Embedder = (*errorEmbedder)(nil)
+	_ lcemb.Embedder = (*successEmbedder)(nil)
 )
 
 func TestVectorizeInputs_NoInputs(t *testing.T) {
@@ -263,4 +296,227 @@ func TestBuildEmbedder_CohereUsesOpenAICompat(t *testing.T) {
 	emb, err := buildEmbedder(context.Background(), cfg)
 	require.NoError(t, err)
 	assert.NotNil(t, emb)
+}
+
+// --- buildGoogleEmbedder tests ---
+
+func TestBuildGoogleEmbedder_WithKey(t *testing.T) {
+	t.Setenv("GOOGLE_API_KEY", "test-google-key")
+	cfg := &domain.EmbeddingConfig{Model: "text-embedding-004"}
+	emb, err := buildGoogleEmbedder(context.Background(), cfg)
+	require.NoError(t, err)
+	assert.NotNil(t, emb)
+}
+
+// --- vectorizeInputs extended tests ---
+
+func TestVectorizeInputs_EmbedderBuildError(t *testing.T) {
+	// buildEmbedder should fail when model is empty.
+	cfg := &domain.EmbeddingConfig{
+		Inputs: []string{"text"},
+		Model:  "",
+	}
+	_, err := vectorizeInputs(context.Background(), cfg)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "model is required")
+}
+
+func TestVectorizeInputs_StubEmbedderError(t *testing.T) {
+	orig := buildEmbedderFunc
+	buildEmbedderFunc = func(_ context.Context, _ *domain.EmbeddingConfig) (lcemb.Embedder, error) {
+		return &errorEmbedder{}, nil
+	}
+	t.Cleanup(func() { buildEmbedderFunc = orig })
+
+	cfg := &domain.EmbeddingConfig{
+		Inputs: []string{"text"},
+		Model:  "test-model",
+	}
+	_, err := vectorizeInputs(context.Background(), cfg)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "embedding vectorize")
+	assert.Contains(t, err.Error(), "stub: embed documents failed")
+}
+
+func TestVectorizeInputs_Success(t *testing.T) {
+	orig := buildEmbedderFunc
+	buildEmbedderFunc = func(_ context.Context, _ *domain.EmbeddingConfig) (lcemb.Embedder, error) {
+		return &successEmbedder{}, nil
+	}
+	t.Cleanup(func() { buildEmbedderFunc = orig })
+
+	cfg := &domain.EmbeddingConfig{
+		Inputs: []string{"hello", "world"},
+		Model:  "test-model",
+	}
+	result, err := vectorizeInputs(context.Background(), cfg)
+	require.NoError(t, err)
+	assert.Equal(t, "test-model", result["model"])
+	assert.Equal(t, 2, result["count"])
+	assert.NotEmpty(t, result["vectors"])
+}
+
+// --- embedQuery extended tests ---
+
+func TestEmbedQuery_EmbedderBuildError(t *testing.T) {
+	cfg := &domain.EmbeddingConfig{
+		Text:  "query",
+		Model: "",
+	}
+	_, err := embedQuery(context.Background(), cfg)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "model is required")
+}
+
+func TestEmbedQuery_StubEmbedderError(t *testing.T) {
+	orig := buildEmbedderFunc
+	buildEmbedderFunc = func(_ context.Context, _ *domain.EmbeddingConfig) (lcemb.Embedder, error) {
+		return &errorEmbedder{}, nil
+	}
+	t.Cleanup(func() { buildEmbedderFunc = orig })
+
+	cfg := &domain.EmbeddingConfig{
+		Text:  "query",
+		Model: "test-model",
+	}
+	_, err := embedQuery(context.Background(), cfg)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "embedding embed_query")
+	assert.Contains(t, err.Error(), "stub: embed query failed")
+}
+
+func TestEmbedQuery_Success(t *testing.T) {
+	orig := buildEmbedderFunc
+	buildEmbedderFunc = func(_ context.Context, _ *domain.EmbeddingConfig) (lcemb.Embedder, error) {
+		return &successEmbedder{}, nil
+	}
+	t.Cleanup(func() { buildEmbedderFunc = orig })
+
+	cfg := &domain.EmbeddingConfig{
+		Text:  "query",
+		Model: "test-model",
+	}
+	result, err := embedQuery(context.Background(), cfg)
+	require.NoError(t, err)
+	assert.Equal(t, "test-model", result["model"])
+	assert.NotEmpty(t, result["vector"])
+}
+
+// --- providerEnvKey missing backend tests ---
+
+func TestProviderEnvKey_Mistral(t *testing.T) {
+	t.Parallel()
+	assert.Equal(t, "MISTRAL_API_KEY", providerEnvKey("mistral"))
+}
+
+func TestProviderEnvKey_DeepSeek(t *testing.T) {
+	t.Parallel()
+	assert.Equal(t, "DEEPSEEK_API_KEY", providerEnvKey("deepseek"))
+}
+
+func TestProviderEnvKey_OpenRouter(t *testing.T) {
+	t.Parallel()
+	assert.Equal(t, "OPENROUTER_API_KEY", providerEnvKey("openrouter"))
+}
+
+func TestProviderEnvKey_Together(t *testing.T) {
+	t.Parallel()
+	assert.Equal(t, "TOGETHERAI_API_KEY", providerEnvKey("together"))
+}
+
+// --- openAICompatBaseURL missing backend tests ---
+
+func TestOpenAICompatBaseURL_Groq(t *testing.T) {
+	t.Parallel()
+	assert.Equal(t, "https://api.groq.com/openai/v1", openAICompatBaseURL("groq"))
+}
+
+func TestOpenAICompatBaseURL_Mistral(t *testing.T) {
+	t.Parallel()
+	assert.Equal(t, "https://api.mistral.ai/v1", openAICompatBaseURL("mistral"))
+}
+
+func TestOpenAICompatBaseURL_DeepSeek(t *testing.T) {
+	t.Parallel()
+	assert.Equal(t, "https://api.deepseek.com/v1", openAICompatBaseURL("deepseek"))
+}
+
+func TestOpenAICompatBaseURL_OpenRouter(t *testing.T) {
+	t.Parallel()
+	assert.Equal(t, "https://openrouter.ai/api/v1", openAICompatBaseURL("openrouter"))
+}
+
+func TestOpenAICompatBaseURL_Together(t *testing.T) {
+	t.Parallel()
+	assert.Equal(t, "https://api.together.xyz/v1", openAICompatBaseURL("together"))
+}
+
+// --- Execute operation dispatch tests ---
+
+func TestExecute_VectorizeOperation(t *testing.T) {
+	orig := buildEmbedderFunc
+	buildEmbedderFunc = func(_ context.Context, _ *domain.EmbeddingConfig) (lcemb.Embedder, error) {
+		return &successEmbedder{}, nil
+	}
+	t.Cleanup(func() { buildEmbedderFunc = orig })
+
+	e := NewExecutor()
+	res, err := e.Execute(nil, &domain.EmbeddingConfig{
+		Operation: "vectorize",
+		Inputs:    []string{"test text"},
+		Model:     "test-model",
+	})
+	require.NoError(t, err)
+	m := res.(map[string]interface{})
+	assert.Equal(t, "test-model", m["model"])
+	assert.Equal(t, 2, m["count"])
+	assert.NotEmpty(t, m["vectors"])
+}
+
+func TestExecute_EmbedQueryOperation(t *testing.T) {
+	orig := buildEmbedderFunc
+	buildEmbedderFunc = func(_ context.Context, _ *domain.EmbeddingConfig) (lcemb.Embedder, error) {
+		return &successEmbedder{}, nil
+	}
+	t.Cleanup(func() { buildEmbedderFunc = orig })
+
+	e := NewExecutor()
+	res, err := e.Execute(nil, &domain.EmbeddingConfig{
+		Operation: "embed_query",
+		Text:      "test query",
+		Model:     "test-model",
+	})
+	require.NoError(t, err)
+	m := res.(map[string]interface{})
+	assert.Equal(t, "test-model", m["model"])
+	assert.NotEmpty(t, m["vector"])
+}
+
+func TestExecute_RerankOperation(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		resp := cohereRerankResponse{
+			Results: []cohereRerankItem{
+				{Index: 0, RelevanceScore: 0.95},
+			},
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(resp)
+	}))
+	defer srv.Close()
+
+	orig := cohereRerankEndpointVar
+	cohereRerankEndpointVar = srv.URL
+	t.Cleanup(func() { cohereRerankEndpointVar = orig })
+
+	t.Setenv("COHERE_API_KEY", "test-key")
+
+	e := NewExecutor()
+	res, err := e.Execute(nil, &domain.EmbeddingConfig{
+		Operation:       "rerank",
+		RerankQuery:     "test query",
+		RerankDocuments: []string{"doc1", "doc2"},
+	})
+	require.NoError(t, err)
+	m := res.(map[string]interface{})
+	assert.Equal(t, "rerank-v3.5", m["model"])
 }

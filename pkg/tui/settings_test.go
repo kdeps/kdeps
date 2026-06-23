@@ -245,3 +245,12 @@ func TestSelectionFromSettings_Filtered(t *testing.T) {
 	require.Len(t, sel.Workflows, 1)
 	assert.Equal(t, "wf-a", sel.Workflows[0].Name)
 }
+
+func TestSettingsPath_HomeDirError(t *testing.T) {
+	t.Setenv("HOME", "")
+
+	path, err := settingsPath()
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "settings: home dir")
+	assert.Empty(t, path)
+}

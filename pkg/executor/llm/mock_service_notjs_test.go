@@ -60,3 +60,17 @@ func TestMockModelService_CustomFunctions(t *testing.T) {
 	require.Error(t, svc.DownloadModel("ollama", "llama3"))
 	require.Error(t, svc.ServeModel("ollama", "llama3", "localhost", 11434))
 }
+
+func TestMockModelService_ServerURL(t *testing.T) {
+	svc := NewMockModelService()
+	assert.Equal(t, "", svc.ServerURL("file", "model"))
+
+	svc.ServerURLFunc = func(_, _ string) string { return "http://localhost:8080" }
+	assert.Equal(t, "http://localhost:8080", svc.ServerURL("file", "model"))
+}
+
+func TestMockModelService_KillModel(t *testing.T) {
+	svc := NewMockModelService()
+	assert.False(t, svc.KillModel("file", "model"))
+	assert.False(t, svc.KillModel("gguf", "model"))
+}

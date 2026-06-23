@@ -607,3 +607,17 @@ func TestLoop_IsStreaming_False(t *testing.T) {
 		t.Fatal("expected IsStreaming() = false when no streamer configured")
 	}
 }
+
+func TestLoop_Config(t *testing.T) {
+	t.Parallel()
+	cfg := agent.Config{Model: "gpt-4", MaxTurns: 10}
+	eng := newTestEngine("ok", nil)
+	reg := tools.NewRegistry()
+	loop := agent.New(eng, newTestWorkflow(), reg, cfg)
+	if loop.Config().Model != "gpt-4" {
+		t.Fatalf("expected Model=gpt-4, got %s", loop.Config().Model)
+	}
+	if loop.Config().MaxTurns != 10 {
+		t.Fatalf("expected MaxTurns=10, got %d", loop.Config().MaxTurns)
+	}
+}

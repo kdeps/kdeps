@@ -411,3 +411,44 @@ func TestRunModelPicker_EmptyEntries(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, "", result)
 }
+
+func TestTagForEntry(t *testing.T) {
+	tests := []struct {
+		name  string
+		entry ModelEntry
+		want  string
+	}{
+		// cached variants
+		{name: "cached_llamafile", entry: ModelEntry{Cached: true, ModelType: modelTypeLLamafile}, want: "[llamafile installed]"},
+		{name: "cached_gguf", entry: ModelEntry{Cached: true, ModelType: modelTypeGGUF}, want: "[gguf installed]"},
+		{name: "cached_ollama", entry: ModelEntry{Cached: true, ModelType: modelTypeOllama}, want: "[ollama installed]"},
+		{name: "cached_default", entry: ModelEntry{Cached: true}, want: "[installed]"},
+		// cached variants with repo suffix
+		{name: "cached_llamafile_repo", entry: ModelEntry{Cached: true, ModelType: modelTypeLLamafile, Repo: "org/model"}, want: "[llamafile installed org/model]"},
+		{name: "cached_gguf_repo", entry: ModelEntry{Cached: true, ModelType: modelTypeGGUF, Repo: "org/model"}, want: "[gguf installed org/model]"},
+		// non-cached llamafile and gguf
+		{name: "uncached_llamafile", entry: ModelEntry{ModelType: modelTypeLLamafile}, want: "[llamafile]"},
+		{name: "uncached_gguf", entry: ModelEntry{ModelType: modelTypeGGUF}, want: "[gguf]"},
+		{name: "uncached_ollama", entry: ModelEntry{ModelType: modelTypeOllama}, want: "[ollama]"},
+		// non-cached with repo suffix
+		{name: "uncached_llamafile_repo", entry: ModelEntry{ModelType: modelTypeLLamafile, Repo: "org/model"}, want: "[llamafile org/model]"},
+		{name: "uncached_gguf_repo", entry: ModelEntry{ModelType: modelTypeGGUF, Repo: "org/model"}, want: "[gguf org/model]"},
+		// cloud variants
+		{name: "cloud_enabled", entry: ModelEntry{Enabled: true}, want: "[cloud enabled]"},
+		{name: "cloud_disabled", entry: ModelEntry{}, want: "[cloud]"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := tagForEntry(tt.entry)
+			assert.Equal(t, tt.want, got)
+		})
+	}
+}
+
+func TestModelPickerModel_Update_KeyMsg(t *testing.T) {
+	m := newModelPickerModel([]ModelEntry{{Name: "llama"}}, "", "")
+	updated, cmd := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'l'}})
+	pm := updated.(modelPickerModel)
+	assert.Equal(t, "l", pm.filter)
+	assert.Nil(t, cmd)
+}
