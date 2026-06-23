@@ -20,8 +20,11 @@ import (
 	"fmt"
 
 	"github.com/kdeps/kdeps/v2/pkg/domain"
+	execEmbedding "github.com/kdeps/kdeps/v2/pkg/executor/embedding"
 	execHTTP "github.com/kdeps/kdeps/v2/pkg/executor/http"
+	execLoader "github.com/kdeps/kdeps/v2/pkg/executor/loader"
 	execSearch "github.com/kdeps/kdeps/v2/pkg/executor/searchlocal"
+	execTranscribe "github.com/kdeps/kdeps/v2/pkg/executor/transcribe"
 	kdepstools "github.com/kdeps/kdeps/v2/pkg/tools"
 )
 
@@ -30,6 +33,9 @@ import (
 func registerResourceTools(ctx context.Context, reg *kdepstools.Registry) {
 	registerHTTPTool(ctx, reg)
 	registerSearchLocalTool(ctx, reg)
+	registerTranscribeTool(ctx, reg)
+	registerLoaderTool(ctx, reg)
+	registerEmbeddingTools(ctx, reg)
 }
 
 // registerHTTPTool registers an HTTP request tool (http_request).
@@ -109,4 +115,144 @@ func registerSearchLocalTool(_ context.Context, reg *kdepstools.Registry) {
 			return string(out), nil
 		},
 	})
+}
+
+// registerTranscribeTool registers an audio transcription tool (transcribe_audio).
+func registerTranscribeTool(_ context.Context, reg *kdepstools.Registry) {
+	exec := execTranscribe.NewExecutor()
+
+	reg.Register(&kdepstools.Tool{
+		Name:        "transcribe_audio",
+		Description: "Transcribe an audio or video file to text using Whisper API. Supports mp3, mp4, mpeg, mpga, m4a, wav, webm. Returns the transcribed text. Requires: file (absolute path to audio file). Optional: model (default whisper-1), backend (openai, groq, local).",
+		Parameters: map[string]domain.ToolParam{
+			"file":    {Type: "string", Description: "Absolute path to the audio/video file to transcribe", Required: true},
+			"model":   {Type: "string", Description: "Transcription model. Default: whisper-1. Groq: whisper-large-v3"},
+			"backend": {Type: "string", Description: "API provider: openai (default), groq, or local"},
+		},
+		Execute: func(args map[string]any) (string, error) {
+			config := &domain.TranscribeConfig{}
+			if v, ok := args["file"].(string); ok {
+				config.File = v
+			}
+			if v, ok := args["model"].(string); ok {
+				config.Model = v
+			}
+			if v, ok := args["backend"].(string); ok {
+				config.Backend = v
+			}
+
+			result, err := exec.Execute(nil, config)
+			if err != nil {
+				return "", err
+			}
+			out, _ := json.MarshalIndent(result, "", "  ")
+			return string(out), nil
+		},
+	})
+}
+
+// registerLoaderTool registers a document loader tool (load_document).
+func registerLoaderTool(_ context.Context, reg *kdepstools.Registry) {
+	exec := execLoader.NewExecutor()
+
+	reg.Register(&kdepstools.Tool{
+		Name:        "load_document",
+		Description: "Load a document file and return its content as text. Supports PDF, CSV, HTML, and plain text files. Use for reading documents into the conversation for analysis or RAG pipelines. Returns document content with optional splitting into chunks. Requires: source (absolute file path). Optional: type (pdf, csv, html, text — auto-detected from extension), chunkSize (split into chunks of N characters).",
+		Parameters: map[string]domain.ToolParam{
+			"source":    {Type: "string", Description: "Absolute path to the document file", Required: true},
+			"type":      {Type: "string", Description: "Document type: pdf, csv, html, text. Auto-detected if omitted."},
+			"chunkSize": {Type: "number", Description: "Split into chunks of this many characters (for RAG). 0 = no splitting."},
+		},
+		Execute: func(args map[string]any) (string, error) {
+			config := &domain.LoaderConfig{}
+			if v, ok := args["source"].(string); ok {
+				config.Source = v
+			}
+			if v, ok := args["type"].(string); ok {
+				config.Type = v
+			}
+			if v, ok := args["chunkSize"].(float64); ok {
+				config.ChunkSize = int(v)
+			}
+
+			result, err := exec.Execute(nil, config)
+			if err != nil {
+				return "", err
+			}
+			out, _ := json.MarshalIndent(result, "", "  ")
+			return string(out), nil
+		},
+	})
+}
+
+// registerEmbeddingTools registers embedding tools (embedding_vectorize, embedding_search).
+func registerEmbeddingTools(_ context.Context, reg *kdepstools.Registry) {
+	exec := execEmbedding.NewExecutor()
+
+	embedTools := []struct {
+		name, desc, op string
+		params         map[string]domain.ToolParam
+	}{
+		{
+			name: "embedding_search",
+			desc: "Search for documents semantically similar to a query in the local embedding database. Returns ranked results with similarity scores. Requires: query (natural language search query), collection (name of the document collection). Optional: limit (max results, default 5).",
+			op:   "search",
+			params: map[string]domain.ToolParam{
+				"query":      {Type: "string", Description: "Natural language search query", Required: true},
+				"collection": {Type: "string", Description: "Name of the document collection to search", Required: true},
+				"limit":      {Type: "number", Description: "Maximum number of results. Default: 5"},
+			},
+		},
+		{
+			name: "embedding_vectorize",
+			desc: "Convert text into vector embeddings using an embedding model. Returns the embedding vectors. Use for indexing documents into the local embedding database or computing semantic similarity. Requires: texts (list of strings to embed). Optional: model, backend.",
+			op:   "vectorize",
+			params: map[string]domain.ToolParam{
+				"texts":   {Type: "array", Description: "List of text strings to convert to embeddings", Required: true},
+				"model":   {Type: "string", Description: "Embedding model, e.g. text-embedding-3-small"},
+				"backend": {Type: "string", Description: "Backend: openai, ollama, google"},
+			},
+		},
+	}
+
+	for _, et := range embedTools {
+		et := et
+		reg.Register(&kdepstools.Tool{
+			Name:        et.name,
+			Description: et.desc,
+			Parameters:  et.params,
+			Execute: func(args map[string]any) (string, error) {
+				config := &domain.EmbeddingConfig{
+					Operation: et.op,
+				}
+				if v, ok := args["query"].(string); ok {
+					config.Text = v
+				}
+				if v, ok := args["collection"].(string); ok {
+					config.Collection = v
+				}
+				if v, ok := args["limit"].(float64); ok {
+					config.Limit = int(v)
+				}
+				if v, ok := args["texts"].([]any); ok {
+					for _, t := range v {
+						config.Inputs = append(config.Inputs, fmt.Sprint(t))
+					}
+				}
+				if v, ok := args["model"].(string); ok {
+					config.Model = v
+				}
+				if v, ok := args["backend"].(string); ok {
+					config.Backend = v
+				}
+
+				result, err := exec.Execute(nil, config)
+				if err != nil {
+					return "", err
+				}
+				out, _ := json.MarshalIndent(result, "", "  ")
+				return string(out), nil
+			},
+		})
+	}
 }
