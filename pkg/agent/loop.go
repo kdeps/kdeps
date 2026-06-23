@@ -29,6 +29,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"os/exec"
 	"regexp"
 	"strings"
 	"time"
@@ -200,12 +201,26 @@ func (l *Loop) PromptByName(name string) *PromptTemplate {
 	return nil
 }
 
+// detectDefaultBackend picks the best default backend: ollama if installed,
+// otherwise the first cloud backend with an API key set. Falls back to file.
+func detectDefaultBackend() string {
+	if _, err := exec.LookPath("ollama"); err == nil {
+		return "ollama"
+	}
+	for _, m := range KnownCloudModels {
+		if os.Getenv(m.EnvVar) != "" {
+			return m.Backend
+		}
+	}
+	return executorLLM.BackendFile
+}
+
 func applyConfigDefaults(cfg Config) Config {
 	if cfg.Model == "" {
 		cfg.Model = envOrDefault("KDEPS_AGENT_MODEL", "llama3.2")
 	}
 	if cfg.Backend == "" {
-		cfg.Backend = envOrDefault("KDEPS_AGENT_BACKEND", "file")
+		cfg.Backend = envOrDefault("KDEPS_AGENT_BACKEND", detectDefaultBackend())
 	}
 	if cfg.BaseURL == "" {
 		cfg.BaseURL = os.Getenv("KDEPS_AGENT_BASE_URL")
@@ -532,22 +547,35 @@ func (l *Loop) dispatchStreamToolCall(tc domain.StreamedToolCall) string {
 // Guides the model to complete tasks efficiently using the available file and shell tools.
 const toolUseGuidance = `You are a coding agent. Complete the user's task using the tools provided.
 
-Core tools:
+File tools:
 - read_file — read local files (always use before editing)
 - edit_file — replace a string in a file (use for targeted edits; read the file first to find the exact text to replace)
 - write_file — create or overwrite entire files
-- bash_exec — run shell commands (git, build, test, lint, etc.)
 - list_files — discover project structure
+
+Code intelligence tools (prefer these for code analysis):
+- code_search — search for symbols across the codebase
+- code_definition — find where a symbol is defined (semantic, not grep)
+- code_references — find all usages of a symbol
+- code_symbols — list all functions/types/classes in a file
+- code_hover — get documentation for a symbol
+- code_diagnostics — get compiler/linter errors for a file
+- search_local — grep-like text search in files
+
+Other tools:
+- bash_exec — run shell commands (git, build, test, lint, etc.)
 - web_search, web_scraper, wikipedia — look up information online
+- http_request — make HTTP requests to APIs
 
 Rules:
 1. Complete the task. Read the target file, then IMMEDIATELY edit it. Do NOT explore unrelated files.
 2. For simple edits (changing values, fixing typos): read the file, then use edit_file with the exact old_string and new_string.
-3. For creating new files: use write_file.
-4. For shell commands: use bash_exec (git, build, test).
-5. One read + one edit is enough for most tasks. Do not read additional files unless the task explicitly requires it.
-6. For chat/conversation/greetings, respond directly without tools.
-7. If unsure, ask. Do not guess or invent.`
+3. For code exploration/questions: use code tools first (code_search, code_symbols, code_definition) — they are faster and more precise than reading files manually.
+4. For creating new files: use write_file.
+5. For shell commands: use bash_exec (git, build, test).
+6. One read + one edit is enough for most tasks. Do not read additional files unless the task explicitly requires it.
+7. For chat/conversation/greetings, respond directly without tools.
+8. If unsure, ask. Do not guess or invent.`
 
 // buildSystemPreamble constructs the system prompt preamble from skills,
 // instruction files, and the user-configured system prompt.
