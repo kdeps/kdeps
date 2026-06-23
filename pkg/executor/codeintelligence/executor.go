@@ -442,7 +442,7 @@ func inferKind(line string) string {
 		if strings.Contains(line, "(") {
 			return "method"
 		}
-		return "function"
+		return "function" //nolint:goconst // symbol kind label
 	case strings.HasPrefix(line, "type "):
 		if strings.Contains(line, "struct") {
 			return "struct"

@@ -675,6 +675,7 @@ func injectChainOfThought(msgs []llms.MessageContent) []llms.MessageContent {
 				updated = append(updated, p)
 			}
 		}
+		//nolint:gosec // range index is always within bounds
 		msgs[i] = llms.MessageContent{Role: m.Role, Parts: updated}
 		return msgs
 	}
