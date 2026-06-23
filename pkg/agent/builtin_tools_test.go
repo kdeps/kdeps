@@ -386,8 +386,16 @@ func TestRegisterBuiltinTools_ZapierNotRegisteredWithoutKey(t *testing.T) {
 	t.Setenv("ZAPIER_NLA_API_KEY", "")
 	reg := kdepstools.NewRegistry()
 	RegisterBuiltinTools(context.Background(), reg)
-	assert.Nil(t, reg.Get("zapier_list_actions"), "zapier_list_actions should not register without ZAPIER_NLA_API_KEY")
-	assert.Nil(t, reg.Get("zapier_run_action"), "zapier_run_action should not register without ZAPIER_NLA_API_KEY")
+	assert.Nil(
+		t,
+		reg.Get("zapier_list_actions"),
+		"zapier_list_actions should not register without ZAPIER_NLA_API_KEY",
+	)
+	assert.Nil(
+		t,
+		reg.Get("zapier_run_action"),
+		"zapier_run_action should not register without ZAPIER_NLA_API_KEY",
+	)
 }
 
 func TestRegisterBuiltinTools_ZapierRegisteredWithKey(t *testing.T) {
@@ -395,7 +403,11 @@ func TestRegisterBuiltinTools_ZapierRegisteredWithKey(t *testing.T) {
 	reg := kdepstools.NewRegistry()
 	RegisterBuiltinTools(context.Background(), reg)
 	listTool := reg.Get("zapier_list_actions")
-	require.NotNil(t, listTool, "zapier_list_actions should register when ZAPIER_NLA_API_KEY is set")
+	require.NotNil(
+		t,
+		listTool,
+		"zapier_list_actions should register when ZAPIER_NLA_API_KEY is set",
+	)
 	assert.NotEmpty(t, listTool.Description)
 	runTool := reg.Get("zapier_run_action")
 	require.NotNil(t, runTool, "zapier_run_action should register when ZAPIER_NLA_API_KEY is set")
@@ -460,14 +472,22 @@ func TestRegisterBuiltinTools_BashNotRegisteredWhenDisabled(t *testing.T) {
 	t.Setenv("KDEPS_ALLOW_BASH", "false")
 	reg := kdepstools.NewRegistry()
 	RegisterBuiltinTools(context.Background(), reg)
-	assert.Nil(t, reg.Get("bash_exec"), "bash_exec should not be registered when KDEPS_ALLOW_BASH=false")
+	assert.Nil(
+		t,
+		reg.Get("bash_exec"),
+		"bash_exec should not be registered when KDEPS_ALLOW_BASH=false",
+	)
 }
 
 func TestRegisterBuiltinTools_BashRegisteredWithEnv(t *testing.T) {
 	t.Setenv("KDEPS_ALLOW_BASH", "true")
 	reg := kdepstools.NewRegistry()
 	RegisterBuiltinTools(context.Background(), reg)
-	assert.NotNil(t, reg.Get("bash_exec"), "bash_exec should be registered with KDEPS_ALLOW_BASH=true")
+	assert.NotNil(
+		t,
+		reg.Get("bash_exec"),
+		"bash_exec should be registered with KDEPS_ALLOW_BASH=true",
+	)
 }
 
 func TestBashExec_MissingCommand(t *testing.T) {
@@ -506,14 +526,22 @@ func TestRegisterBuiltinTools_WolframNotRegisteredWithoutKey(t *testing.T) {
 	t.Setenv("WOLFRAM_APP_ID", "")
 	reg := kdepstools.NewRegistry()
 	RegisterBuiltinTools(context.Background(), reg)
-	assert.Nil(t, reg.Get("wolfram_alpha"), "wolfram_alpha should not be registered without WOLFRAM_APP_ID")
+	assert.Nil(
+		t,
+		reg.Get("wolfram_alpha"),
+		"wolfram_alpha should not be registered without WOLFRAM_APP_ID",
+	)
 }
 
 func TestRegisterBuiltinTools_WolframRegisteredWithKey(t *testing.T) {
 	t.Setenv("WOLFRAM_APP_ID", "test-app-id")
 	reg := kdepstools.NewRegistry()
 	RegisterBuiltinTools(context.Background(), reg)
-	assert.NotNil(t, reg.Get("wolfram_alpha"), "wolfram_alpha should be registered with WOLFRAM_APP_ID set")
+	assert.NotNil(
+		t,
+		reg.Get("wolfram_alpha"),
+		"wolfram_alpha should be registered with WOLFRAM_APP_ID set",
+	)
 }
 
 func TestWolframAlpha_MissingQuery(t *testing.T) {
@@ -715,7 +743,9 @@ func TestWebScraper_Success(t *testing.T) {
 func TestCallExaSearch_Success(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
-		_, _ = w.Write([]byte(`{"results":[{"title":"Test","url":"http://example.com","text":"hello"}]}`))
+		_, _ = w.Write(
+			[]byte(`{"results":[{"title":"Test","url":"http://example.com","text":"hello"}]}`),
+		)
 	}))
 	defer srv.Close()
 
@@ -859,7 +889,9 @@ func TestCallZapierRunAction_InvalidJSON(t *testing.T) {
 func TestCallCohereFormatReranker_Success(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
-		_, _ = w.Write([]byte(`{"results":[{"index":0,"relevance_score":0.95,"document":{"text":"doc1"}}]}`))
+		_, _ = w.Write(
+			[]byte(`{"results":[{"index":0,"relevance_score":0.95,"document":{"text":"doc1"}}]}`),
+		)
 	}))
 	defer srv.Close()
 
@@ -869,7 +901,13 @@ func TestCallCohereFormatReranker_Success(t *testing.T) {
 		model:     "rerank-v3.5",
 		topN:      1,
 	}
-	result, err := callCohereFormatReranker(context.Background(), "test-key", srv.URL, "cohere_rerank", p)
+	result, err := callCohereFormatReranker(
+		context.Background(),
+		"test-key",
+		srv.URL,
+		"cohere_rerank",
+		p,
+	)
 	require.NoError(t, err)
 	assert.Contains(t, result, "doc1")
 }
@@ -894,7 +932,13 @@ func TestCallCohereFormatReranker_InvalidJSON(t *testing.T) {
 	defer srv.Close()
 
 	p := rerankParams{query: "test", documents: []string{"doc1"}, model: "rerank-v3.5", topN: 1}
-	result, err := callCohereFormatReranker(context.Background(), "key", srv.URL, "cohere_rerank", p)
+	result, err := callCohereFormatReranker(
+		context.Background(),
+		"key",
+		srv.URL,
+		"cohere_rerank",
+		p,
+	)
 	require.NoError(t, err)
 	assert.Equal(t, "not-json", result)
 }
@@ -906,8 +950,19 @@ func TestCallCohereFormatReranker_NilDocument(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	p := rerankParams{query: "test", documents: []string{"fallback doc"}, model: "rerank-v3.5", topN: 1}
-	result, err := callCohereFormatReranker(context.Background(), "key", srv.URL, "cohere_rerank", p)
+	p := rerankParams{
+		query:     "test",
+		documents: []string{"fallback doc"},
+		model:     "rerank-v3.5",
+		topN:      1,
+	}
+	result, err := callCohereFormatReranker(
+		context.Background(),
+		"key",
+		srv.URL,
+		"cohere_rerank",
+		p,
+	)
 	require.NoError(t, err)
 	assert.Contains(t, result, "fallback doc")
 }
@@ -915,7 +970,9 @@ func TestCallCohereFormatReranker_NilDocument(t *testing.T) {
 func TestCallCohereRerank_UsesOverriddenURL(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
-		_, _ = w.Write([]byte(`{"results":[{"index":0,"relevance_score":0.9,"document":{"text":"doc1"}}]}`))
+		_, _ = w.Write(
+			[]byte(`{"results":[{"index":0,"relevance_score":0.9,"document":{"text":"doc1"}}]}`),
+		)
 	}))
 	defer srv.Close()
 
@@ -990,7 +1047,12 @@ func TestCallVoyageRerank_NilDocument(t *testing.T) {
 	voyageRerankURL = srv.URL
 	defer func() { voyageRerankURL = old }()
 
-	p := rerankParams{query: "test", documents: []string{"fallback doc"}, model: "rerank-2", topN: 1}
+	p := rerankParams{
+		query:     "test",
+		documents: []string{"fallback doc"},
+		model:     "rerank-2",
+		topN:      1,
+	}
 	result, err := callVoyageRerank(context.Background(), "key", p)
 	require.NoError(t, err)
 	assert.Contains(t, result, "fallback doc")
@@ -999,7 +1061,9 @@ func TestCallVoyageRerank_NilDocument(t *testing.T) {
 func TestCallJinaRerank_UsesOverriddenURL(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
-		_, _ = w.Write([]byte(`{"results":[{"index":0,"relevance_score":0.9,"document":{"text":"doc1"}}]}`))
+		_, _ = w.Write(
+			[]byte(`{"results":[{"index":0,"relevance_score":0.9,"document":{"text":"doc1"}}]}`),
+		)
 	}))
 	defer srv.Close()
 
@@ -1007,7 +1071,12 @@ func TestCallJinaRerank_UsesOverriddenURL(t *testing.T) {
 	jinaRerankURL = srv.URL
 	defer func() { jinaRerankURL = old }()
 
-	p := rerankParams{query: "test", documents: []string{"doc1"}, model: "jina-reranker-v2-base-multilingual", topN: 1}
+	p := rerankParams{
+		query:     "test",
+		documents: []string{"doc1"},
+		model:     "jina-reranker-v2-base-multilingual",
+		topN:      1,
+	}
 	result, err := callJinaRerank(context.Background(), "test-key", p)
 	require.NoError(t, err)
 	assert.Contains(t, result, "doc1")
@@ -1087,7 +1156,9 @@ func TestCohereRerank_MissingQuery(t *testing.T) {
 func TestCohereRerankExecute_CallsRerank(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
-		_, _ = w.Write([]byte(`{"results":[{"index":0,"relevance_score":0.9,"document":{"text":"doc1"}}]}`))
+		_, _ = w.Write(
+			[]byte(`{"results":[{"index":0,"relevance_score":0.9,"document":{"text":"doc1"}}]}`),
+		)
 	}))
 	defer srv.Close()
 
@@ -1135,7 +1206,9 @@ func TestVoyageAIRerankExecute_CallsRerank(t *testing.T) {
 func TestJinaRerankExecute_CallsRerank(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
-		_, _ = w.Write([]byte(`{"results":[{"index":0,"relevance_score":0.9,"document":{"text":"doc1"}}]}`))
+		_, _ = w.Write(
+			[]byte(`{"results":[{"index":0,"relevance_score":0.9,"document":{"text":"doc1"}}]}`),
+		)
 	}))
 	defer srv.Close()
 
@@ -1987,9 +2060,21 @@ func TestRegisterGoogleCacheTools_NotRegisteredWithoutKey(t *testing.T) {
 	t.Setenv("GOOGLE_API_KEY", "")
 	reg := kdepstools.NewRegistry()
 	RegisterBuiltinTools(context.Background(), reg)
-	assert.Nil(t, reg.Get("google_cache_create"), "google_cache_create should not register without GOOGLE_API_KEY")
-	assert.Nil(t, reg.Get("google_cache_delete"), "google_cache_delete should not register without GOOGLE_API_KEY")
-	assert.Nil(t, reg.Get("google_cache_list"), "google_cache_list should not register without GOOGLE_API_KEY")
+	assert.Nil(
+		t,
+		reg.Get("google_cache_create"),
+		"google_cache_create should not register without GOOGLE_API_KEY",
+	)
+	assert.Nil(
+		t,
+		reg.Get("google_cache_delete"),
+		"google_cache_delete should not register without GOOGLE_API_KEY",
+	)
+	assert.Nil(
+		t,
+		reg.Get("google_cache_list"),
+		"google_cache_list should not register without GOOGLE_API_KEY",
+	)
 }
 
 func TestRegisterGoogleCacheTools_RegisteredWithKey(t *testing.T) {
@@ -2014,7 +2099,9 @@ func TestRegisterGoogleCacheTools_RegisteredWithKey(t *testing.T) {
 	_, err = create.Execute(map[string]any{"model": "gemini-2.0-flash", "content": ""})
 	assert.Error(t, err, "google_cache_create should error on empty content")
 
-	_, err = create.Execute(map[string]any{"model": "gemini-2.0-flash", "content": "x", "ttl": "bad-duration"})
+	_, err = create.Execute(
+		map[string]any{"model": "gemini-2.0-flash", "content": "x", "ttl": "bad-duration"},
+	)
 	assert.Error(t, err, "google_cache_create should error on invalid ttl")
 
 	del := reg.Get("google_cache_delete")
@@ -2067,6 +2154,7 @@ func TestIsBinaryContent(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			if got := isBinaryContent(tt.data); got != tt.want {
 				t.Errorf("isBinaryContent() = %v, want %v", got, tt.want)
 			}
@@ -2102,7 +2190,9 @@ func TestRegisterEditFile_Execute_RelativePath(t *testing.T) {
 	registerEditFile(reg)
 	tool := reg.Get("edit_file")
 	require.NotNil(t, tool)
-	_, err := tool.Execute(map[string]any{"file_path": "relative/path", "old_string": "x", "new_string": "y"})
+	_, err := tool.Execute(
+		map[string]any{"file_path": "relative/path", "old_string": "x", "new_string": "y"},
+	)
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "absolute path required")
 }
@@ -2114,7 +2204,9 @@ func TestRegisterEditFile_Execute_OldEqualsNew(t *testing.T) {
 	registerEditFile(reg)
 	tool := reg.Get("edit_file")
 	require.NotNil(t, tool)
-	_, err := tool.Execute(map[string]any{"file_path": tmpFile, "old_string": "hello", "new_string": "hello"})
+	_, err := tool.Execute(
+		map[string]any{"file_path": tmpFile, "old_string": "hello", "new_string": "hello"},
+	)
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "identical")
 }
@@ -2126,7 +2218,13 @@ func TestRegisterEditFile_Execute_OldStringNotFound(t *testing.T) {
 	registerEditFile(reg)
 	tool := reg.Get("edit_file")
 	require.NotNil(t, tool)
-	_, err := tool.Execute(map[string]any{"file_path": tmpFile, "old_string": "nonexistent", "new_string": "replacement"})
+	_, err := tool.Execute(
+		map[string]any{
+			"file_path":  tmpFile,
+			"old_string": "nonexistent",
+			"new_string": "replacement",
+		},
+	)
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "not found")
 }

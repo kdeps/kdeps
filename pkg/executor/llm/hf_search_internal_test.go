@@ -60,7 +60,14 @@ func TestHFDownloadAria2c_Success(t *testing.T) {
 
 	dir := t.TempDir()
 	dest := dir + "/model.gguf"
-	err := hfDownloadAria2c(context.Background(), fakeAria2c, "http://example.com/m.gguf", dest, "", slog.Default())
+	err := hfDownloadAria2c(
+		context.Background(),
+		fakeAria2c,
+		"http://example.com/m.gguf",
+		dest,
+		"",
+		slog.Default(),
+	)
 	require.NoError(t, err)
 	_, statErr := os.Stat(dest)
 	assert.NoError(t, statErr)
@@ -74,7 +81,14 @@ func TestHFDownloadAria2c_WithToken(t *testing.T) {
 
 	dir := t.TempDir()
 	dest := dir + "/model.gguf"
-	err := hfDownloadAria2c(context.Background(), fakeAria2c, "http://example.com/m.gguf", dest, "mytoken", slog.Default())
+	err := hfDownloadAria2c(
+		context.Background(),
+		fakeAria2c,
+		"http://example.com/m.gguf",
+		dest,
+		"mytoken",
+		slog.Default(),
+	)
 	require.NoError(t, err)
 }
 
@@ -85,7 +99,14 @@ func TestHFDownloadAria2c_Failure(t *testing.T) {
 
 	dir := t.TempDir()
 	dest := dir + "/model.gguf"
-	err := hfDownloadAria2c(context.Background(), fakeAria2c, "http://x.com/m.gguf", dest, "", slog.Default())
+	err := hfDownloadAria2c(
+		context.Background(),
+		fakeAria2c,
+		"http://x.com/m.gguf",
+		dest,
+		"",
+		slog.Default(),
+	)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "aria2c")
 }
@@ -125,7 +146,14 @@ func TestHFDownloadFile_NoToken_NoAria2c(t *testing.T) {
 	dir := t.TempDir()
 	dest := dir + "/m.gguf"
 	// Non-routable address ensures fast failure.
-	_ = hfDownloadFile(context.Background(), "http://192.0.2.1/model.gguf", "m.gguf", dest, dir, slog.Default())
+	_ = hfDownloadFile(
+		context.Background(),
+		"http://192.0.2.1/model.gguf",
+		"m.gguf",
+		dest,
+		dir,
+		slog.Default(),
+	)
 }
 
 func TestHFSearchWithoutFilter_FiltersNonGGUF(t *testing.T) {

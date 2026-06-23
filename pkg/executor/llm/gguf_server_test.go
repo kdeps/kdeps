@@ -27,23 +27,17 @@ import (
 
 func TestDetectOSArch(t *testing.T) {
 	result := detectOSArch()
-	switch runtime.GOOS {
-	case "linux":
-		if runtime.GOARCH == "amd64" {
-			assert.Equal(t, "b4582-bin-ubuntu-x64", result)
-		} else if runtime.GOARCH == "arm64" {
-			assert.Equal(t, "b4582-bin-ubuntu-arm64", result)
-		}
-	case "darwin":
-		if runtime.GOARCH == "amd64" {
-			assert.Equal(t, "b4582-bin-macos-x64", result)
-		} else if runtime.GOARCH == "arm64" {
-			assert.Equal(t, "b4582-bin-macos-arm64", result)
-		}
-	case "windows":
-		if runtime.GOARCH == "amd64" {
-			assert.Equal(t, "b4582-bin-win-x64", result)
-		}
+	switch {
+	case runtime.GOOS == "linux" && runtime.GOARCH == "amd64":
+		assert.Equal(t, "b4582-bin-ubuntu-x64", result)
+	case runtime.GOOS == "linux" && runtime.GOARCH == "arm64":
+		assert.Equal(t, "b4582-bin-ubuntu-arm64", result)
+	case runtime.GOOS == "darwin" && runtime.GOARCH == "amd64":
+		assert.Equal(t, "b4582-bin-macos-x64", result)
+	case runtime.GOOS == "darwin" && runtime.GOARCH == "arm64":
+		assert.Equal(t, "b4582-bin-macos-arm64", result)
+	case runtime.GOOS == "windows" && runtime.GOARCH == "amd64":
+		assert.Equal(t, "b4582-bin-win-x64", result)
 	default:
 		assert.Equal(t, "", result)
 	}

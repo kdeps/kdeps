@@ -26,9 +26,9 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	lcemb "github.com/tmc/langchaingo/embeddings"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	lcemb "github.com/tmc/langchaingo/embeddings"
 
 	"github.com/kdeps/kdeps/v2/pkg/domain"
 )
@@ -55,7 +55,7 @@ func (e *successEmbedder) EmbedQuery(_ context.Context, _ string) ([]float32, er
 	return []float32{0.1, 0.2, 0.3}, nil
 }
 
-// compile-time check that stubs implement lcemb.Embedder
+// compile-time check that stubs implement lcemb.Embedder.
 var (
 	_ lcemb.Embedder = (*errorEmbedder)(nil)
 	_ lcemb.Embedder = (*successEmbedder)(nil)

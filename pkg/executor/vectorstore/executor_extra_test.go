@@ -145,7 +145,11 @@ func TestExecute_AddDocuments_WithWeaviate(t *testing.T) {
 			_, _ = w.Write([]byte(`[]`))
 		default:
 			w.WriteHeader(http.StatusOK)
-			_, _ = w.Write([]byte(`{"data":[{"embedding":[0.1,0.2,0.3],"index":0}],"model":"text-embedding-ada-002","usage":{"prompt_tokens":1,"total_tokens":1}}`))
+			_, _ = w.Write(
+				[]byte(
+					`{"data":[{"embedding":[0.1,0.2,0.3],"index":0}],"model":"text-embedding-ada-002","usage":{"prompt_tokens":1,"total_tokens":1}}`,
+				),
+			)
 		}
 	}))
 	defer srv.Close()
@@ -190,7 +194,11 @@ func TestExecute_SimilaritySearch_WithWeaviate(t *testing.T) {
 			_, _ = w.Write([]byte(respBody))
 		default:
 			w.WriteHeader(http.StatusOK)
-			_, _ = w.Write([]byte(`{"data":[{"embedding":[0.1,0.2,0.3],"index":0}],"model":"text-embedding-ada-002","usage":{"prompt_tokens":1,"total_tokens":1}}`))
+			_, _ = w.Write(
+				[]byte(
+					`{"data":[{"embedding":[0.1,0.2,0.3],"index":0}],"model":"text-embedding-ada-002","usage":{"prompt_tokens":1,"total_tokens":1}}`,
+				),
+			)
 		}
 	}))
 	defer srv.Close()
@@ -237,7 +245,11 @@ func TestExecute_SimilaritySearch_WithDefaultTopK(t *testing.T) {
 			_, _ = w.Write([]byte(respBody))
 		default:
 			w.WriteHeader(http.StatusOK)
-			_, _ = w.Write([]byte(`{"data":[{"embedding":[0.1,0.2,0.3],"index":0}],"model":"text-embedding-ada-002","usage":{"prompt_tokens":1,"total_tokens":1}}`))
+			_, _ = w.Write(
+				[]byte(
+					`{"data":[{"embedding":[0.1,0.2,0.3],"index":0}],"model":"text-embedding-ada-002","usage":{"prompt_tokens":1,"total_tokens":1}}`,
+				),
+			)
 		}
 	}))
 	defer srv.Close()

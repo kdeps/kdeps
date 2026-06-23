@@ -116,7 +116,7 @@ func TestApplyFuzzyMatchScore_FirstChar(t *testing.T) {
 	tRunes := []rune("abc")
 	score, cons := applyFuzzyMatchScore(0, 0, -1, 0, tRunes)
 	// Position 0 is also a word boundary (i==0), so word boundary bonus applies (score < 0).
-	assert.Equal(t, 1, cons) // consecutive incremented (lastMatch==i-1 when both are -1 and 0-1=-1)
+	assert.Equal(t, 1, cons)          // consecutive incremented (lastMatch==i-1 when both are -1 and 0-1=-1)
 	assert.Less(t, score, float64(0)) // word boundary bonus at pos 0
 }
 

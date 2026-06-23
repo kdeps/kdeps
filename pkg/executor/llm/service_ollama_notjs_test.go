@@ -51,7 +51,7 @@ func TestListOllamaModels_Success(t *testing.T) {
 	orig := execCommandContext
 	t.Cleanup(func() { execCommandContext = orig })
 
-	execCommandContext = func(ctx context.Context, name string, args ...string) *exec.Cmd {
+	execCommandContext = func(ctx context.Context, _ string, _ ...string) *exec.Cmd {
 		output := "NAME\tID\tSIZE\nllama3:latest\tabc123\t4.5GB\nqwen2:7b\tdef456\t3.2GB\n"
 		return exec.CommandContext(ctx, "echo", output)
 	}
@@ -66,7 +66,7 @@ func TestListOllamaModels_OllamaNotRunning(t *testing.T) {
 	orig := execCommandContext
 	t.Cleanup(func() { execCommandContext = orig })
 
-	execCommandContext = func(ctx context.Context, name string, args ...string) *exec.Cmd {
+	execCommandContext = func(ctx context.Context, _ string, _ ...string) *exec.Cmd {
 		return exec.CommandContext(ctx, "false")
 	}
 
@@ -78,7 +78,7 @@ func TestListOllamaModels_HeaderOnly(t *testing.T) {
 	orig := execCommandContext
 	t.Cleanup(func() { execCommandContext = orig })
 
-	execCommandContext = func(ctx context.Context, name string, args ...string) *exec.Cmd {
+	execCommandContext = func(ctx context.Context, _ string, _ ...string) *exec.Cmd {
 		return exec.CommandContext(ctx, "echo", "NAME	ID	SIZE")
 	}
 

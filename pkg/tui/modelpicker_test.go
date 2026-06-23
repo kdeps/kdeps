@@ -18,7 +18,11 @@ func TestEntryGroupOrder(t *testing.T) {
 	assert.Equal(t, groupOrderOllama, entryGroupOrder(ModelEntry{ModelType: modelTypeOllama}))
 	assert.Equal(t, groupOrderCloud, entryGroupOrder(ModelEntry{}))
 	// Cached beats ModelType
-	assert.Equal(t, groupOrderCached, entryGroupOrder(ModelEntry{Cached: true, ModelType: modelTypeGGUF}))
+	assert.Equal(
+		t,
+		groupOrderCached,
+		entryGroupOrder(ModelEntry{Cached: true, ModelType: modelTypeGGUF}),
+	)
 }
 
 func TestSortEntries_CurrentModelFirst(t *testing.T) {
@@ -419,20 +423,52 @@ func TestTagForEntry(t *testing.T) {
 		want  string
 	}{
 		// cached variants
-		{name: "cached_llamafile", entry: ModelEntry{Cached: true, ModelType: modelTypeLLamafile}, want: "[llamafile installed]"},
-		{name: "cached_gguf", entry: ModelEntry{Cached: true, ModelType: modelTypeGGUF}, want: "[gguf installed]"},
-		{name: "cached_ollama", entry: ModelEntry{Cached: true, ModelType: modelTypeOllama}, want: "[ollama installed]"},
+		{
+			name:  "cached_llamafile",
+			entry: ModelEntry{Cached: true, ModelType: modelTypeLLamafile},
+			want:  "[llamafile installed]",
+		},
+		{
+			name:  "cached_gguf",
+			entry: ModelEntry{Cached: true, ModelType: modelTypeGGUF},
+			want:  "[gguf installed]",
+		},
+		{
+			name:  "cached_ollama",
+			entry: ModelEntry{Cached: true, ModelType: modelTypeOllama},
+			want:  "[ollama installed]",
+		},
 		{name: "cached_default", entry: ModelEntry{Cached: true}, want: "[installed]"},
 		// cached variants with repo suffix
-		{name: "cached_llamafile_repo", entry: ModelEntry{Cached: true, ModelType: modelTypeLLamafile, Repo: "org/model"}, want: "[llamafile installed org/model]"},
-		{name: "cached_gguf_repo", entry: ModelEntry{Cached: true, ModelType: modelTypeGGUF, Repo: "org/model"}, want: "[gguf installed org/model]"},
+		{
+			name:  "cached_llamafile_repo",
+			entry: ModelEntry{Cached: true, ModelType: modelTypeLLamafile, Repo: "org/model"},
+			want:  "[llamafile installed org/model]",
+		},
+		{
+			name:  "cached_gguf_repo",
+			entry: ModelEntry{Cached: true, ModelType: modelTypeGGUF, Repo: "org/model"},
+			want:  "[gguf installed org/model]",
+		},
 		// non-cached llamafile and gguf
-		{name: "uncached_llamafile", entry: ModelEntry{ModelType: modelTypeLLamafile}, want: "[llamafile]"},
+		{
+			name:  "uncached_llamafile",
+			entry: ModelEntry{ModelType: modelTypeLLamafile},
+			want:  "[llamafile]",
+		},
 		{name: "uncached_gguf", entry: ModelEntry{ModelType: modelTypeGGUF}, want: "[gguf]"},
 		{name: "uncached_ollama", entry: ModelEntry{ModelType: modelTypeOllama}, want: "[ollama]"},
 		// non-cached with repo suffix
-		{name: "uncached_llamafile_repo", entry: ModelEntry{ModelType: modelTypeLLamafile, Repo: "org/model"}, want: "[llamafile org/model]"},
-		{name: "uncached_gguf_repo", entry: ModelEntry{ModelType: modelTypeGGUF, Repo: "org/model"}, want: "[gguf org/model]"},
+		{
+			name:  "uncached_llamafile_repo",
+			entry: ModelEntry{ModelType: modelTypeLLamafile, Repo: "org/model"},
+			want:  "[llamafile org/model]",
+		},
+		{
+			name:  "uncached_gguf_repo",
+			entry: ModelEntry{ModelType: modelTypeGGUF, Repo: "org/model"},
+			want:  "[gguf org/model]",
+		},
 		// cloud variants
 		{name: "cloud_enabled", entry: ModelEntry{Enabled: true}, want: "[cloud enabled]"},
 		{name: "cloud_disabled", entry: ModelEntry{}, want: "[cloud]"},
