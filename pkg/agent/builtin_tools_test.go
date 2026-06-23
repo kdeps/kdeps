@@ -94,8 +94,8 @@ func TestBuiltinTools_ToLLMTools(t *testing.T) {
 	assert.Len(
 		t,
 		llmTools,
-		12,
-		"twelve built-in tools should be convertible to LLM tools",
+		20,
+		"twenty built-in tools should be convertible to LLM tools",
 	)
 
 	for _, lt := range llmTools {

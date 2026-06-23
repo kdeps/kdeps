@@ -46,6 +46,8 @@ import (
 	lcsqldatabase "github.com/tmc/langchaingo/tools/sqldatabase"
 	_ "github.com/tmc/langchaingo/tools/sqldatabase/sqlite3" // registers sqlite3 engine + driver
 	lcwikipedia "github.com/tmc/langchaingo/tools/wikipedia"
+
+	codeintel "github.com/kdeps/kdeps/v2/pkg/executor/codeintelligence"
 )
 
 const (
@@ -104,6 +106,8 @@ func RegisterBuiltinTools(ctx context.Context, reg *kdepstools.Registry) {
 	registerJinaRerank(ctx, reg)
 	registerGoogleCacheTools(ctx, reg)
 	registerRetrieveContext(ctx, reg)
+	registerCodeIntelligenceTools(ctx, reg)
+	registerResourceTools(ctx, reg)
 }
 
 // registerCalculator registers the langchain-go Calculator tool.
@@ -1655,4 +1659,103 @@ func validateWorkspaceBoundary(path string) error {
 		return fmt.Errorf("path %s escapes workspace root %s", path, root)
 	}
 	return nil
+}
+
+// registerCodeIntelligenceTools registers LSP-powered code intelligence tools
+// (code_search, code_definition, code_references, code_symbols, code_hover, code_diagnostics).
+func registerCodeIntelligenceTools(_ context.Context, reg *kdepstools.Registry) {
+	exec := codeintel.NewExecutor()
+
+	type codeTool struct {
+		name, desc string
+		op         domain.CodeIntelligenceOperation
+		params     map[string]domain.ToolParam
+	}
+	tools := []codeTool{
+		{
+			name: "code_search",
+			desc: "Search for a symbol or pattern across the codebase. Use this first to locate symbols before using code_definition or code_references. Requires: query, path.",
+			op:   domain.CodeIntOpSymbolSearch,
+			params: map[string]domain.ToolParam{
+				"query": {Type: "string", Description: "Symbol name or search pattern", Required: true},
+				"path":  {Type: "string", Description: "File or directory to search (absolute path)", Required: true},
+			},
+		},
+		{
+			name: "code_definition",
+			desc: "Find the definition of a symbol using semantic analysis (LSP). Returns file and line. Requires: symbol, path.",
+			op:   domain.CodeIntOpDefinition,
+			params: map[string]domain.ToolParam{
+				"symbol": {Type: "string", Description: "Symbol name to find the definition of", Required: true},
+				"path":   {Type: "string", Description: "File containing the symbol reference (absolute path)", Required: true},
+			},
+		},
+		{
+			name: "code_references",
+			desc: "Find all references to a symbol across the codebase. Returns every file and line. Requires: symbol, path.",
+			op:   domain.CodeIntOpReferences,
+			params: map[string]domain.ToolParam{
+				"symbol": {Type: "string", Description: "Symbol name to find references for", Required: true},
+				"path":   {Type: "string", Description: "File containing one reference (absolute path)", Required: true},
+			},
+		},
+		{
+			name: "code_symbols",
+			desc: "List all symbols (functions, types, classes) in a file. Returns structured symbol info with nesting. Requires: path.",
+			op:   domain.CodeIntOpDocumentSymbols,
+			params: map[string]domain.ToolParam{
+				"path": {Type: "string", Description: "File to extract symbols from (absolute path)", Required: true},
+			},
+		},
+		{
+			name: "code_hover",
+			desc: "Get documentation and type info for a symbol. Returns doc comments and type signatures. Requires: symbol, path.",
+			op:   domain.CodeIntOpHover,
+			params: map[string]domain.ToolParam{
+				"symbol": {Type: "string", Description: "Symbol name to get documentation for", Required: true},
+				"path":   {Type: "string", Description: "File containing the symbol (absolute path)", Required: true},
+			},
+		},
+		{
+			name: "code_diagnostics",
+			desc: "Get compiler/linter diagnostics for a file. Returns errors, warnings, hints. Requires: path.",
+			op:   domain.CodeIntOpDiagnostics,
+			params: map[string]domain.ToolParam{
+				"path": {Type: "string", Description: "File to check (absolute path)", Required: true},
+			},
+		},
+	}
+
+	for _, ct := range tools {
+		ct := ct
+		reg.Register(&kdepstools.Tool{
+			Name:        ct.name,
+			Description: ct.desc,
+			Parameters:  ct.params,
+			Execute: func(args map[string]any) (string, error) {
+				config := &domain.CodeIntelligenceConfig{
+					Operation: ct.op,
+				}
+				if v, ok := args["query"].(string); ok {
+					config.Query = v
+				}
+				if v, ok := args["symbol"].(string); ok {
+					config.Symbol = v
+				}
+				if v, ok := args["path"].(string); ok {
+					config.Path = v
+				}
+
+				result, err := exec.Execute(nil, config)
+				if err != nil {
+					return "", err
+				}
+				out, err := json.MarshalIndent(result, "", "  ")
+				if err != nil {
+					return fmt.Sprintf("%v", result), nil
+				}
+				return string(out), nil
+			},
+		})
+	}
 }
