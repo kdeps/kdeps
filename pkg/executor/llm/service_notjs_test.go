@@ -122,11 +122,11 @@ func TestWaitForServerReady_EmptyURL(_ *testing.T) {
 }
 
 func TestWaitForServerReady_CallsOverride(t *testing.T) {
-	orig := waitForCompletionsReadyFunc
-	t.Cleanup(func() { waitForCompletionsReadyFunc = orig })
+	orig := WaitForCompletionsReadyFunc
+	t.Cleanup(func() { WaitForCompletionsReadyFunc = orig })
 
 	called := false
-	waitForCompletionsReadyFunc = func(url string) {
+	WaitForCompletionsReadyFunc = func(url string) {
 		called = true
 		assert.Equal(t, "http://127.0.0.1:8080", url)
 	}

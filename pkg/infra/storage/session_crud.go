@@ -237,8 +237,15 @@ func (s *SessionStorage) GetAll() (map[string]interface{}, error) {
 	return result, nil
 }
 
-// Close closes the database connection.
+// Close stops the cleanup goroutine and closes the database connection.
 func (s *SessionStorage) Close() error {
 	kdeps_debug.Log("enter: Close")
+	if s.stopCh != nil {
+		select {
+		case <-s.stopCh:
+		default:
+			close(s.stopCh)
+		}
+	}
 	return s.DB.Close()
 }

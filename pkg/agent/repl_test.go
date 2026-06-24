@@ -3460,6 +3460,10 @@ func TestStartLocalModelServer_LocalBackend_CallsService(t *testing.T) {
 	repl := NewREPL(loop)
 	defer repl.cancel()
 
+	origReady := llm.WaitForCompletionsReadyFunc
+	llm.WaitForCompletionsReadyFunc = func(_ string) {}
+	t.Cleanup(func() { llm.WaitForCompletionsReadyFunc = origReady })
+
 	origOut := os.Stdout
 	r, w, _ := os.Pipe()
 	os.Stdout = w
