@@ -472,6 +472,12 @@ linters:
       # G117: APIKey, Password, AccessToken are legitimate domain struct field names, not secrets
       - text: 'G117:'
         linters: [ gosec ]
+      # G120: ParseMultipartForm uses MaxMemory (32MB) — bounded constant, not unbounded
+      - text: 'G120:'
+        linters: [ gosec ]
+      # G124: newSessionCookie sets Secure/HttpOnly/SameSite; secure param is request-derived
+      - text: 'G124:'
+        linters: [ gosec ]
       # G702-G705: taint analysis false positives — the framework intentionally accepts
       # user-configured binaries, file paths, backend URLs, and renders user-provided data.
       - text: 'G702:'
