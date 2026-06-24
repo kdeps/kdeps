@@ -494,3 +494,127 @@ func TestJaccardSimilarity_OneEmptySet(t *testing.T) {
 	score := jaccardSimilarity(map[string]struct{}{}, map[string]struct{}{})
 	assert.Equal(t, 0.0, score)
 }
+
+// ---- mockEmbedder for selectFewShotByEmbedding tests ----
+
+type mockEmbedder struct {
+	embedFunc func(ctx context.Context, texts []string) ([][]float32, error)
+}
+
+func (m *mockEmbedder) EmbedDocuments(ctx context.Context, texts []string) ([][]float32, error) {
+	return m.embedFunc(ctx, texts)
+}
+
+func (m *mockEmbedder) EmbedQuery(_ context.Context, _ string) ([]float32, error) {
+	return nil, nil
+}
+
+// ---- selectFewShotByEmbedding with embedder ----
+
+func TestSelectFewShotByEmbedding_NoCandidatesWithEmbedder(t *testing.T) {
+	t.Parallel()
+	pool := []domain.ScenarioItem{
+		{Role: roleAssistant, Prompt: "hello"},
+	}
+	mock := &mockEmbedder{
+		embedFunc: func(_ context.Context, _ []string) ([][]float32, error) {
+			return nil, nil
+		},
+	}
+	result := selectFewShotByEmbedding(context.Background(), pool, "test", 1, mock)
+	assert.Len(t, result, 1)
+}
+
+func TestSelectFewShotByEmbedding_EmbedderError_FallsBack(t *testing.T) {
+	t.Parallel()
+	pool := []domain.ScenarioItem{
+		{Role: roleUser, Prompt: "hello"},
+	}
+	mock := &mockEmbedder{
+		embedFunc: func(_ context.Context, _ []string) ([][]float32, error) {
+			return nil, errors.New("embedding failed")
+		},
+	}
+	result := selectFewShotByEmbedding(context.Background(), pool, "test", 1, mock)
+	assert.Equal(t, pool, result)
+}
+
+func TestSelectFewShotByEmbedding_WrongLength_FallsBack(t *testing.T) {
+	t.Parallel()
+	pool := []domain.ScenarioItem{
+		{Role: roleUser, Prompt: "hello"},
+	}
+	mock := &mockEmbedder{
+		embedFunc: func(_ context.Context, texts []string) ([][]float32, error) {
+			return make([][]float32, len(texts)-1), nil
+		},
+	}
+	result := selectFewShotByEmbedding(context.Background(), pool, "test", 1, mock)
+	assert.Equal(t, pool, result)
+}
+
+func TestSelectFewShotByEmbedding_SelectsBySimilarity(t *testing.T) {
+	t.Parallel()
+	pool := []domain.ScenarioItem{
+		{Role: roleUser, Prompt: "translate hello"},
+		{Role: roleAssistant, Prompt: "bonjour"},
+		{Role: roleUser, Prompt: "weather report"},
+		{Role: roleAssistant, Prompt: "sunny"},
+	}
+	mock := &mockEmbedder{
+		embedFunc: func(_ context.Context, texts []string) ([][]float32, error) {
+			vecs := make([][]float32, len(texts))
+			for i := range texts {
+				switch i {
+				case 0, 1:
+					vecs[i] = []float32{1, 0} // prompt (0) or first candidate (1), same direction
+				default:
+					vecs[i] = []float32{0, 1} // orthogonal
+				}
+			}
+			return vecs, nil
+		},
+	}
+	result := selectFewShotByEmbedding(context.Background(), pool, "translate goodbye", 1, mock)
+	require.NotEmpty(t, result)
+	assert.Contains(t, result[0].Prompt, "translate")
+}
+
+// ---- buildFewShotEmbedder error path ----
+
+func TestBuildFewShotEmbedder_MissingToken_ReturnsError(t *testing.T) {
+	t.Setenv("SOME_UNKNOWN_BACKEND_API_KEY", "")
+	_, err := buildFewShotEmbedder(t.Context(), "text-embedding-3-small", "some-unknown-backend", "")
+	require.Error(t, err)
+}
+
+// ---- StreamChat non-chunked path (tests backend default line) ----
+
+func TestStreamChat_NonChunkedBackendDefault(t *testing.T) {
+	e := NewExecutor("")
+	var buf bytes.Buffer
+	cfg := &domain.ChatConfig{
+		Backend:   "",
+		Model:     "gpt-4o-mini",
+		Prompt:    "hello",
+		ChunkSize: 0,
+	}
+	_, _, err := e.StreamChat(t.Context(), cfg, &buf)
+	// GenerateContent will fail connecting to the file backend at 127.0.0.1:8080
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "stream:")
+}
+
+// StreamChat chunked path with empty backend to cover streamChatOnce backend default.
+func TestStreamChat_ChunkedEmptyBackend(t *testing.T) {
+	e := NewExecutor("")
+	var buf bytes.Buffer
+	cfg := &domain.ChatConfig{
+		Backend:   "",
+		Model:     "gpt-4o-mini",
+		Prompt:    "split this into chunks test",
+		ChunkSize: 5,
+	}
+	_, _, err := e.StreamChat(t.Context(), cfg, &buf)
+	require.Error(t, err)
+}
