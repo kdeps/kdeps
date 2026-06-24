@@ -19,20 +19,21 @@
 package http
 
 import (
+	"context"
 	"log/slog"
 	stdhttp "net/http"
 )
 
 func (s *Server) logMarshalFailure(r *stdhttp.Request, label string, err error) {
-	s.logger.Error("failed to marshal "+label, logKeyError, err, logKeyPath, requestPath(r))
+	s.logger.ErrorContext(r.Context(), "failed to marshal "+label, logKeyError, err, logKeyPath, requestPath(r))
 }
 
 func (s *Server) logResponseWriteFailure(path, label string, writeErr error) {
-	s.logger.Error(label, logKeyError, writeErr, logKeyPath, path)
+	s.logger.ErrorContext(context.Background(), label, logKeyError, writeErr, logKeyPath, path)
 }
 
 func (s *Server) logAPIResultDetected(r *stdhttp.Request, success bool) {
-	s.logger.Debug(
+	s.logger.DebugContext(r.Context(),
 		"detected API response resource result",
 		logKeyPath,
 		requestPath(r),
@@ -42,11 +43,11 @@ func (s *Server) logAPIResultDetected(r *stdhttp.Request, success bool) {
 }
 
 func (s *Server) logAPIResultFailure(r *stdhttp.Request) {
-	s.logger.Debug("API response indicated failure", logKeyPath, requestPath(r))
+	s.logger.DebugContext(r.Context(), "API response indicated failure", logKeyPath, requestPath(r))
 }
 
 func (s *Server) logSendingAPIResponse(r *stdhttp.Request, data interface{}) {
-	s.logger.Debug(
+	s.logger.DebugContext(r.Context(),
 		"sending API response",
 		logKeyPath,
 		requestPath(r),
@@ -56,7 +57,7 @@ func (s *Server) logSendingAPIResponse(r *stdhttp.Request, data interface{}) {
 }
 
 func (s *Server) logWritingRawAPIResponse(r *stdhttp.Request, size int, contentType string) {
-	s.logger.Debug(
+	s.logger.DebugContext(r.Context(),
 		"writing raw API response",
 		logKeyPath,
 		requestPath(r),
@@ -68,11 +69,11 @@ func (s *Server) logWritingRawAPIResponse(r *stdhttp.Request, size int, contentT
 }
 
 func (s *Server) logWritingAPIResponse(r *stdhttp.Request, size int) {
-	s.logger.Debug("writing API response", logKeyPath, requestPath(r), logKeySize, size)
+	s.logger.DebugContext(r.Context(), "writing API response", logKeyPath, requestPath(r), logKeySize, size)
 }
 
 func (s *Server) logAPIResponseWritten(r *stdhttp.Request, size int) {
-	s.logger.Debug(
+	s.logger.DebugContext(r.Context(),
 		"API response written and flushed successfully",
 		logKeyPath,
 		requestPath(r),
@@ -82,11 +83,11 @@ func (s *Server) logAPIResponseWritten(r *stdhttp.Request, size int) {
 }
 
 func (s *Server) logRegularResult(r *stdhttp.Request) {
-	s.logger.Debug("sending regular resource result", logKeyPath, requestPath(r))
+	s.logger.DebugContext(r.Context(), "sending regular resource result", logKeyPath, requestPath(r))
 }
 
 func (s *Server) logWorkflowExecutionFailure(r *stdhttp.Request, err error) {
-	s.logger.Error(
+	s.logger.ErrorContext(r.Context(),
 		"workflow execution failed",
 		logKeyError,
 		err,

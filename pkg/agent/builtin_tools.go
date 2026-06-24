@@ -1684,17 +1684,14 @@ func validateWorkspaceBoundary(path string) error {
 	return nil
 }
 
-// registerCodeIntelligenceTools registers LSP-powered code intelligence tools
-// (code_search, code_definition, code_references, code_symbols, code_hover, code_diagnostics).
-func registerCodeIntelligenceTools(_ context.Context, reg *kdepstools.Registry) {
-	exec := codeintel.NewExecutor()
+type codeToolDef struct {
+	name, desc string
+	op         domain.CodeIntelligenceOperation
+	params     map[string]domain.ToolParam
+}
 
-	type codeTool struct {
-		name, desc string
-		op         domain.CodeIntelligenceOperation
-		params     map[string]domain.ToolParam
-	}
-	tools := []codeTool{
+func codeIntelligenceToolDefs() []codeToolDef {
+	return []codeToolDef{
 		{
 			name: "code_search",
 			desc: "Search for a symbol or pattern across the codebase. Use this first to locate symbols before using code_definition or code_references. Requires: query, path.",
@@ -1788,8 +1785,14 @@ func registerCodeIntelligenceTools(_ context.Context, reg *kdepstools.Registry) 
 			},
 		},
 	}
+}
 
-	for _, ct := range tools {
+// registerCodeIntelligenceTools registers LSP-powered code intelligence tools
+// (code_search, code_definition, code_references, code_symbols, code_hover, code_diagnostics).
+func registerCodeIntelligenceTools(_ context.Context, reg *kdepstools.Registry) {
+	exec := codeintel.NewExecutor()
+
+	for _, ct := range codeIntelligenceToolDefs() {
 		reg.Register(&kdepstools.Tool{
 			Name:        ct.name,
 			Description: ct.desc,

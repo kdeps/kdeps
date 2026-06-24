@@ -9,7 +9,6 @@
 package http
 
 import (
-	"io"
 	"log/slog"
 	"testing"
 
@@ -19,14 +18,14 @@ import (
 )
 
 func TestLogReloadedWorkflow_NilWorkflow(t *testing.T) {
-	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
+	logger := slog.New(slog.DiscardHandler)
 	require.NotPanics(t, func() {
 		logReloadedWorkflow(&Server{logger: logger, Workflow: nil})
 	})
 }
 
 func TestLogReloadedWorkflow_WithDetail(t *testing.T) {
-	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
+	logger := slog.New(slog.DiscardHandler)
 	require.NotPanics(t, func() {
 		logReloadedWorkflow(&Server{
 			logger: logger,
