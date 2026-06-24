@@ -2899,3 +2899,256 @@ func TestValidateWorkspaceBoundary_NoRootSet(t *testing.T) {
 	err := validateWorkspaceBoundary("/any/path")
 	assert.NoError(t, err, "no workspace root means no boundary check")
 }
+
+// --- callWolframAlpha io.ReadAll error path ---
+
+func TestCallWolframAlpha_ReadError(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		conn, _, _ := w.(http.Hijacker).Hijack()
+		conn.Close()
+	}))
+	defer srv.Close()
+
+	old := wolframAlphaBaseURL
+	wolframAlphaBaseURL = srv.URL
+	defer func() { wolframAlphaBaseURL = old }()
+
+	_, err := callWolframAlpha(context.Background(), "app-id", "query")
+	assert.Error(t, err)
+}
+
+// --- callVoyageRerank io.ReadAll error path ---
+
+func TestCallVoyageRerank_ReadError(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		conn, _, _ := w.(http.Hijacker).Hijack()
+		conn.Close()
+	}))
+	defer srv.Close()
+
+	old := voyageRerankURL
+	voyageRerankURL = srv.URL
+	defer func() { voyageRerankURL = old }()
+
+	p := rerankParams{query: "test", documents: []string{"doc1"}, model: "rerank-2", topN: 1}
+	_, err := callVoyageRerank(context.Background(), "key", p)
+	assert.Error(t, err)
+}
+
+// --- callCohereFormatReranker io.ReadAll error path ---
+
+func TestCallCohereFormatReranker_ReadError(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		conn, _, _ := w.(http.Hijacker).Hijack()
+		conn.Close()
+	}))
+	defer srv.Close()
+
+	p := rerankParams{query: "test", documents: []string{"doc1"}, model: "rerank-v3.5", topN: 1}
+	_, err := callCohereFormatReranker(context.Background(), "key", srv.URL, "cohere_rerank", p)
+	assert.Error(t, err)
+}
+
+// --- callVoyageRerank with multiple results (exercises rerankResultsToJSON with larger data) ---
+
+func TestCallVoyageRerank_MultipleResults(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{
+			"data": [
+				{"index": 1, "relevance_score": 0.95, "document": "doc2"},
+				{"index": 0, "relevance_score": 0.85, "document": "doc1"},
+				{"index": 2, "relevance_score": 0.75, "document": "doc3"}
+			]
+		}`))
+	}))
+	defer srv.Close()
+
+	old := voyageRerankURL
+	voyageRerankURL = srv.URL
+	defer func() { voyageRerankURL = old }()
+
+	p := rerankParams{
+		query:     "test",
+		documents: []string{"doc1", "doc2", "doc3"},
+		model:     "rerank-2",
+		topN:      3,
+	}
+	result, err := callVoyageRerank(context.Background(), "test-key", p)
+	require.NoError(t, err)
+	assert.Contains(t, result, "doc1")
+	assert.Contains(t, result, "doc2")
+	assert.Contains(t, result, "doc3")
+	assert.Contains(t, result, "0.95")
+	assert.Contains(t, result, "0.85")
+	assert.Contains(t, result, "0.75")
+}
+
+// --- callCohereFormatReranker with nil document and out-of-range index ---
+
+func TestCallCohereFormatReranker_NilDocumentIndexOutOfRange(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{
+			"results": [
+				{"index": 99, "relevance_score": 0.9}
+			]
+		}`))
+	}))
+	defer srv.Close()
+
+	p := rerankParams{
+		query:     "test",
+		documents: []string{"only doc"},
+		model:     "rerank-v3.5",
+		topN:      1,
+	}
+	result, err := callCohereFormatReranker(context.Background(), "key", srv.URL, "cohere_rerank", p)
+	require.NoError(t, err)
+	// When document is nil and index is out of range, text should be empty string
+	assert.Contains(t, result, `"text": ""`)
+}
+
+// --- callRetrieveContext top_k edge cases ---
+
+func TestCallRetrieveContext_WithTopKInRange(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"results":[{"text":"doc","score":1.0,"source":"test"}]}`))
+	}))
+	defer srv.Close()
+
+	result, err := callRetrieveContext(context.Background(), srv.URL, "query", 3)
+	assert.NoError(t, err)
+	assert.Contains(t, result, "doc")
+}
+
+func TestCallRetrieveContext_ZeroTopK(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"results":[]}`))
+	}))
+	defer srv.Close()
+
+	result, err := callRetrieveContext(context.Background(), srv.URL, "query", 0)
+	assert.NoError(t, err)
+	assert.Empty(t, result)
+}
+
+// --- rerankResultsToJSON edge cases ---
+
+func TestRerankResultsToJSON_AllFields(t *testing.T) {
+	t.Parallel()
+	results := []rerankResult{
+		{Index: 0, Text: "zero score", Score: 0},
+		{Index: 1, Text: "negative score", Score: -0.5},
+		{Index: 2, Text: "high score", Score: 1.0},
+	}
+	got, err := rerankResultsToJSON(results)
+	require.NoError(t, err)
+	assert.Contains(t, got, "zero score")
+	assert.Contains(t, got, "negative score")
+	assert.Contains(t, got, "high score")
+	assert.Contains(t, got, "0")
+	assert.Contains(t, got, "-0.5")
+	assert.Contains(t, got, "1")
+}
+
+// --- googleCacheCreateTool execute closure arg validation ---
+
+func TestGoogleCacheCreateTool_Execute_MissingModel(t *testing.T) {
+	t.Setenv("GOOGLE_API_KEY", "test-key")
+	tool := googleCacheCreateTool(context.Background(), "test-key")
+	result, err := tool.Execute(map[string]any{
+		"content": "test content",
+	})
+	if err == nil {
+		t.Fatal("expected error for missing model")
+	}
+	if result != "" {
+		t.Errorf("expected empty result, got %q", result)
+	}
+	if !strings.Contains(err.Error(), "model is required") {
+		t.Errorf("expected 'model is required', got: %v", err)
+	}
+}
+
+func TestGoogleCacheCreateTool_Execute_MissingContent(t *testing.T) {
+	t.Setenv("GOOGLE_API_KEY", "test-key")
+	tool := googleCacheCreateTool(context.Background(), "test-key")
+	result, err := tool.Execute(map[string]any{
+		"model": "gemini-2.0-flash",
+	})
+	if err == nil {
+		t.Fatal("expected error for missing content")
+	}
+	if result != "" {
+		t.Errorf("expected empty result, got %q", result)
+	}
+	if !strings.Contains(err.Error(), "content is required") {
+		t.Errorf("expected 'content is required', got: %v", err)
+	}
+}
+
+func TestGoogleCacheCreateTool_Execute_InvalidTTL(t *testing.T) {
+	t.Setenv("GOOGLE_API_KEY", "test-key")
+	tool := googleCacheCreateTool(context.Background(), "test-key")
+	result, err := tool.Execute(map[string]any{
+		"model":   "gemini-2.0-flash",
+		"content": "test content",
+		"ttl":     "not-a-duration",
+	})
+	if err == nil {
+		t.Fatal("expected error for invalid TTL")
+	}
+	if result != "" {
+		t.Errorf("expected empty result, got %q", result)
+	}
+	if !strings.Contains(err.Error(), "invalid ttl") {
+		t.Errorf("expected 'invalid ttl', got: %v", err)
+	}
+}
+
+func TestGoogleCacheCreateTool_Execute_DefaultTTL(t *testing.T) {
+	t.Setenv("GOOGLE_API_KEY", "bad-key")
+	tool := googleCacheCreateTool(context.Background(), "bad-key")
+	result, err := tool.Execute(map[string]any{
+		"model":   "gemini-2.0-flash",
+		"content": "test content",
+	})
+	// TTL defaults to "1h", then init fails because API key is bad
+	if err == nil {
+		t.Fatal("expected error from helper init with bad key")
+	}
+	_ = result
+}
+
+// --- googleCacheDeleteTool execute closure arg validation ---
+
+func TestGoogleCacheDeleteTool_Execute_MissingName(t *testing.T) {
+	t.Setenv("GOOGLE_API_KEY", "test-key")
+	tool := googleCacheDeleteTool(context.Background(), "test-key")
+	result, err := tool.Execute(map[string]any{})
+	if err == nil {
+		t.Fatal("expected error for missing name")
+	}
+	if result != "" {
+		t.Errorf("expected empty result, got %q", result)
+	}
+}
+
+func TestGoogleCacheDeleteTool_Execute_InitError(t *testing.T) {
+	t.Setenv("GOOGLE_API_KEY", "bad-key")
+	tool := googleCacheDeleteTool(context.Background(), "bad-key")
+	result, err := tool.Execute(map[string]any{
+		"name": "cachedContents/test123",
+	})
+	// Init fails because API key is bad
+	if err == nil {
+		t.Fatal("expected error from helper init with bad key")
+	}
+	_ = result
+}

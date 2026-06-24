@@ -443,3 +443,54 @@ func TestBuildAIMessage_OnlyToolCalls(t *testing.T) {
 	require.NotNil(t, msg)
 	assert.Len(t, msg.Parts, 1)
 }
+
+// ---- jaccardSimilarity edge cases ----
+
+func TestJaccardSimilarity_SingleWords(t *testing.T) {
+	t.Parallel()
+	a := wordSet("hello")
+	b := wordSet("hello")
+	score := jaccardSimilarity(a, b)
+	assert.InDelta(t, 1.0, score, 0.001)
+
+	// Single word, no overlap
+	c := wordSet("hello")
+	d := wordSet("world")
+	score = jaccardSimilarity(c, d)
+	assert.Equal(t, 0.0, score)
+}
+
+func TestJaccardSimilarity_RepeatedWords(t *testing.T) {
+	t.Parallel()
+	// wordSet deduplicates repeated words, so "hello hello hello" = {"hello"}
+	a := wordSet("hello hello hello")
+	b := wordSet("hello world")
+	score := jaccardSimilarity(a, b)
+	// intersection = 1, union = 1 + 2 - 1 = 2
+	assert.InDelta(t, 0.5, score, 0.001)
+}
+
+func TestJaccardSimilarity_Subset(t *testing.T) {
+	t.Parallel()
+	// a is a proper subset of b
+	a := wordSet("hello world")
+	b := wordSet("hello world foo bar baz")
+	score := jaccardSimilarity(a, b)
+	// intersection = 2, union = 2 + 5 - 2 = 5
+	assert.InDelta(t, 0.4, score, 0.001)
+}
+
+func TestJaccardSimilarity_Superset(t *testing.T) {
+	t.Parallel()
+	// b is a proper subset of a
+	a := wordSet("hello world foo bar baz")
+	b := wordSet("hello world")
+	score := jaccardSimilarity(a, b)
+	assert.InDelta(t, 0.4, score, 0.001)
+}
+
+func TestJaccardSimilarity_OneEmptySet(t *testing.T) {
+	t.Parallel()
+	score := jaccardSimilarity(map[string]struct{}{}, map[string]struct{}{})
+	assert.Equal(t, 0.0, score)
+}
