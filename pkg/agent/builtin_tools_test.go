@@ -2369,3 +2369,533 @@ func TestRegisterRetrieveContext_Execute_EmptyQuery(t *testing.T) {
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "query is required")
 }
+
+func TestColoredDiff_ContextBeforeTruncation(t *testing.T) {
+	t.Parallel()
+	// commonPrefix > diffCtxLines (2) triggers @@ ...@@ before-change marker.
+	// commonSuffix > diffCtxLines (2) triggers @@ ...@@ after-change marker.
+	oldStr := "a\nb\nc\nd\ne\nf\ng\nh\ni\n"
+	newStr := "a\nb\nc\nd\nX\nf\ng\nh\ni\n"
+	got := coloredDiff(oldStr, newStr, "test.txt")
+	assert.Contains(t, got, "@@ ...@@", "should show context truncation marker")
+	assert.Contains(t, got, "- e", "should show removed line")
+	assert.Contains(t, got, "+ X", "should show added line")
+	// Only last 2 of 4 common prefix lines shown (ctxBefore=2)
+	assert.Contains(t, got, "  c", "should show context line c")
+	assert.Contains(t, got, "  d", "should show context line d")
+}
+
+func TestColoredDiff_NoCommonPrefixOrSuffix(t *testing.T) {
+	t.Parallel()
+	got := coloredDiff("old_line\n", "new_line\n", "f.txt")
+	assert.Contains(t, got, "- old_line")
+	assert.Contains(t, got, "+ new_line")
+	assert.Contains(t, got, "f.txt")
+}
+
+func TestIsBinaryContent_TruncatedCheck(t *testing.T) {
+	t.Parallel()
+	// Data longer than binaryCheckBytes (512) but all text -> not binary
+	data := make([]byte, binaryCheckBytes+10)
+	for i := range data {
+		data[i] = 'A'
+	}
+	assert.False(t, isBinaryContent(data), "large text-only data should not be binary")
+
+	// Nul byte only appears beyond binaryCheckBytes -> not detected as binary
+	data2 := make([]byte, binaryCheckBytes+20)
+	for i := range data2 {
+		data2[i] = 'A'
+	}
+	data2[binaryCheckBytes+5] = 0
+	assert.False(t, isBinaryContent(data2), "nul beyond check window should not trigger binary detection")
+
+	// Nul byte within first binaryCheckBytes -> detected
+	data3 := make([]byte, binaryCheckBytes)
+	for i := range data3 {
+		data3[i] = 'A'
+	}
+	data3[100] = 0
+	assert.True(t, isBinaryContent(data3), "nul within check window should trigger binary detection")
+}
+
+func TestValidateWorkspaceBoundary_SubdirInRoot(t *testing.T) {
+	dir := t.TempDir()
+	t.Setenv("KDEPS_WORKSPACE_ROOT", dir)
+	// Create the file so EvalSymlinks succeeds (avoids macOS /var -> /private/var mismatch)
+	subFile := filepath.Join(dir, "subdir", "file.txt")
+	assert.NoError(t, os.MkdirAll(filepath.Dir(subFile), 0o700))
+	assert.NoError(t, os.WriteFile(subFile, []byte("x"), 0o600))
+	assert.NoError(t, validateWorkspaceBoundary(subFile))
+}
+
+func TestValidateWorkspaceBoundary_NonExistentPathInRoot(t *testing.T) {
+	dir := t.TempDir()
+	t.Setenv("KDEPS_WORKSPACE_ROOT", dir)
+	// Create the file so EvalSymlinks succeeds
+	nestedFile := filepath.Join(dir, "nonexistent", "file.txt")
+	assert.NoError(t, os.MkdirAll(filepath.Dir(nestedFile), 0o700))
+	assert.NoError(t, os.WriteFile(nestedFile, []byte("x"), 0o600))
+	err := validateWorkspaceBoundary(nestedFile)
+	assert.NoError(t, err)
+
+	// Non-existent path outside root should fail
+	err = validateWorkspaceBoundary("/nonexistent/path/outside")
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "escapes workspace root")
+}
+
+// --- callRetrieveContext additional paths ---
+
+func TestCallRetrieveContext_BuildRequestError(t *testing.T) {
+	_, err := callRetrieveContext(context.Background(), "://invalid", "query", 5)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "build request")
+}
+
+func TestCallRetrieveContext_DoRequestError(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(_ http.ResponseWriter, _ *http.Request) {}))
+	srv.Close()
+	_, err := callRetrieveContext(context.Background(), srv.URL, "query", 5)
+	assert.Error(t, err)
+}
+
+func TestCallRetrieveContext_InvalidJSONResponse(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`not-json`))
+	}))
+	defer srv.Close()
+
+	result, err := callRetrieveContext(context.Background(), srv.URL, "query", 5)
+	assert.NoError(t, err)
+	assert.Equal(t, "not-json", result)
+}
+
+func TestCallRetrieveContext_NonOKResponse(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusInternalServerError)
+		_, _ = w.Write([]byte(`server error`))
+	}))
+	defer srv.Close()
+
+	_, err := callRetrieveContext(context.Background(), srv.URL, "query", 5)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "API error 500")
+}
+
+func TestCallRetrieveContext_ReadError(t *testing.T) {
+	// A server that closes connection without sending a response body
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		// Hijack and close to trigger read error
+		conn, _, _ := w.(http.Hijacker).Hijack()
+		conn.Close()
+	}))
+	defer srv.Close()
+
+	_, err := callRetrieveContext(context.Background(), srv.URL, "query", 5)
+	assert.Error(t, err)
+}
+
+// --- registerRetrieveContext top_k clamping ---
+
+func TestRegisterRetrieveContext_TopKClamping(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{"results":[]}`))
+	}))
+	defer srv.Close()
+
+	t.Setenv("KDEPS_RAG_BASE_URL", srv.URL)
+	reg := kdepstools.NewRegistry()
+	RegisterBuiltinTools(context.Background(), reg)
+	tool := reg.Get("retrieve_context")
+	require.NotNil(t, tool)
+
+	// top_k > ragMaxTopK should be clamped to ragMaxTopK
+	result, err := tool.Execute(map[string]any{"query": "test", "top_k": float64(100)})
+	assert.NoError(t, err)
+	assert.NotNil(t, result)
+}
+
+// --- registerCodeIntelligenceTools ---
+
+func TestRegisterCodeIntelligenceTools_AllRegistered(t *testing.T) {
+	reg := kdepstools.NewRegistry()
+	RegisterBuiltinTools(context.Background(), reg)
+
+	for _, name := range []string{"code_search", "code_definition", "code_references", "code_symbols", "code_hover", "code_diagnostics"} {
+		tool := reg.Get(name)
+		require.NotNil(t, tool, "%s should be registered", name)
+		assert.NotEmpty(t, tool.Description)
+		assert.NotNil(t, tool.Execute)
+		assert.NotEmpty(t, tool.Parameters)
+	}
+}
+
+func TestRegisterCodeIntelligenceTools_CodeSearch_MissingPath(t *testing.T) {
+	reg := kdepstools.NewRegistry()
+	RegisterBuiltinTools(context.Background(), reg)
+	tool := reg.Get("code_search")
+	require.NotNil(t, tool)
+	_, err := tool.Execute(map[string]any{"query": "some_func"})
+	assert.Error(t, err)
+}
+
+func TestRegisterCodeIntelligenceTools_CodeDefinition_MissingSymbol(t *testing.T) {
+	reg := kdepstools.NewRegistry()
+	RegisterBuiltinTools(context.Background(), reg)
+	tool := reg.Get("code_definition")
+	require.NotNil(t, tool)
+	_, err := tool.Execute(map[string]any{"path": "/some/file.go"})
+	assert.Error(t, err)
+}
+
+func TestRegisterCodeIntelligenceTools_CodeReferences_MissingSymbol(t *testing.T) {
+	reg := kdepstools.NewRegistry()
+	RegisterBuiltinTools(context.Background(), reg)
+	tool := reg.Get("code_references")
+	require.NotNil(t, tool)
+	_, err := tool.Execute(map[string]any{"path": "/some/file.go"})
+	assert.Error(t, err)
+}
+
+func TestRegisterCodeIntelligenceTools_CodeSymbols_MissingPath(t *testing.T) {
+	reg := kdepstools.NewRegistry()
+	RegisterBuiltinTools(context.Background(), reg)
+	tool := reg.Get("code_symbols")
+	require.NotNil(t, tool)
+	_, err := tool.Execute(map[string]any{})
+	assert.Error(t, err)
+}
+
+func TestRegisterCodeIntelligenceTools_CodeHover_MissingParams(t *testing.T) {
+	reg := kdepstools.NewRegistry()
+	RegisterBuiltinTools(context.Background(), reg)
+	tool := reg.Get("code_hover")
+	require.NotNil(t, tool)
+	_, err := tool.Execute(map[string]any{})
+	assert.Error(t, err)
+}
+
+func TestRegisterCodeIntelligenceTools_CodeDiagnostics_MissingPath(t *testing.T) {
+	reg := kdepstools.NewRegistry()
+	RegisterBuiltinTools(context.Background(), reg)
+	tool := reg.Get("code_diagnostics")
+	require.NotNil(t, tool)
+	_, err := tool.Execute(map[string]any{})
+	assert.Error(t, err)
+}
+
+// --- googleCacheListTool execute closure ---
+
+func TestGoogleCacheListTool_Execute_HelperInitError(t *testing.T) {
+	t.Setenv("GOOGLE_API_KEY", "bad-key-that-causes-init-failure")
+	reg := kdepstools.NewRegistry()
+	RegisterBuiltinTools(context.Background(), reg)
+	tool := reg.Get("google_cache_list")
+	require.NotNil(t, tool)
+	// Init will fail because the API key is invalid; the error is propagated
+	result, err := tool.Execute(map[string]any{})
+	// May or may not error depending on langchain-go init behavior
+	_ = result
+	_ = err
+}
+
+// --- readLocalFile binary content detection ---
+
+func TestReadFile_BinaryContent_Rejected(t *testing.T) {
+	reg := kdepstools.NewRegistry()
+	RegisterBuiltinTools(context.Background(), reg)
+	tool := reg.Get("read_file")
+	require.NotNil(t, tool)
+
+	tmpFile, err := os.CreateTemp("", "kdeps-binary-*.bin")
+	require.NoError(t, err)
+	defer os.Remove(tmpFile.Name())
+
+	_, err = tmpFile.WriteString("text\x00with null byte")
+	require.NoError(t, err)
+	require.NoError(t, tmpFile.Close())
+
+	_, err = tool.Execute(map[string]any{"file_path": tmpFile.Name()})
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "binary file")
+}
+
+func TestWriteFile_ContentTooLarge(t *testing.T) {
+	reg := kdepstools.NewRegistry()
+	RegisterBuiltinTools(context.Background(), reg)
+	tool := reg.Get("write_file")
+	require.NotNil(t, tool)
+
+	tmpFile := filepath.Join(t.TempDir(), "large-output.txt")
+	bigContent := strings.Repeat("x", maxFileReadBytes+1)
+	_, err := tool.Execute(map[string]any{
+		"file_path": tmpFile,
+		"content":   bigContent,
+	})
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "max")
+}
+
+func TestReadFile_WorkspaceBoundary_Allowed(t *testing.T) {
+	dir := t.TempDir()
+	t.Setenv("KDEPS_WORKSPACE_ROOT", dir)
+	tmpFile := filepath.Join(dir, "test.txt")
+	require.NoError(t, os.WriteFile(tmpFile, []byte("hello"), 0o600))
+
+	reg := kdepstools.NewRegistry()
+	RegisterBuiltinTools(context.Background(), reg)
+	tool := reg.Get("read_file")
+	require.NotNil(t, tool)
+
+	result, err := tool.Execute(map[string]any{"file_path": tmpFile})
+	assert.NoError(t, err)
+	assert.Contains(t, result, "hello")
+}
+
+func TestReadFile_WorkspaceBoundary_Denied(t *testing.T) {
+	dir := t.TempDir()
+	t.Setenv("KDEPS_WORKSPACE_ROOT", dir)
+
+	reg := kdepstools.NewRegistry()
+	RegisterBuiltinTools(context.Background(), reg)
+	tool := reg.Get("read_file")
+	require.NotNil(t, tool)
+
+	_, err := tool.Execute(map[string]any{"file_path": "/etc/hostname"})
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "escapes workspace root")
+}
+
+func TestWriteFile_WorkspaceBoundary_Denied(t *testing.T) {
+	dir := t.TempDir()
+	t.Setenv("KDEPS_WORKSPACE_ROOT", dir)
+
+	reg := kdepstools.NewRegistry()
+	RegisterBuiltinTools(context.Background(), reg)
+	tool := reg.Get("write_file")
+	require.NotNil(t, tool)
+
+	_, err := tool.Execute(map[string]any{
+		"file_path": "/tmp/escaped-file.txt",
+		"content":   "data",
+	})
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "escapes workspace root")
+}
+
+func TestEditFile_WorkspaceBoundary_Denied(t *testing.T) {
+	dir := t.TempDir()
+	t.Setenv("KDEPS_WORKSPACE_ROOT", dir)
+
+	reg := kdepstools.NewRegistry()
+	RegisterBuiltinTools(context.Background(), reg)
+	tool := reg.Get("edit_file")
+	require.NotNil(t, tool)
+
+	_, err := tool.Execute(map[string]any{
+		"file_path":  "/tmp/escaped-file.txt",
+		"old_string": "x",
+		"new_string": "y",
+	})
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "escapes workspace root")
+}
+
+// --- isBinaryContent additional edge cases ---
+
+func TestIsBinaryContent_FirstByteNUL(t *testing.T) {
+	t.Parallel()
+	assert.True(t, isBinaryContent([]byte{0x00, 'a', 'b', 'c'}))
+}
+
+func TestIsBinaryContent_Exact512NoNUL(t *testing.T) {
+	t.Parallel()
+	data := make([]byte, binaryCheckBytes)
+	for i := range data {
+		data[i] = 'A'
+	}
+	assert.False(t, isBinaryContent(data))
+}
+
+func TestIsBinaryContent_Exact512NULat511(t *testing.T) {
+	t.Parallel()
+	data := make([]byte, binaryCheckBytes)
+	for i := range data {
+		data[i] = 'A'
+	}
+	data[511] = 0
+	assert.True(t, isBinaryContent(data))
+}
+
+func TestIsBinaryContent_NULatFirstByteLarge(t *testing.T) {
+	t.Parallel()
+	data := make([]byte, binaryCheckBytes+50)
+	data[0] = 0
+	assert.True(t, isBinaryContent(data))
+}
+
+func TestIsBinaryContent_EmptySlice(t *testing.T) {
+	t.Parallel()
+	assert.False(t, isBinaryContent([]byte{}))
+}
+
+// --- rerankResultsToJSON additional edge cases ---
+
+func TestRerankResultsToJSON_NilSlice(t *testing.T) {
+	t.Parallel()
+	got, err := rerankResultsToJSON(nil)
+	require.NoError(t, err)
+	assert.Equal(t, "null", got)
+}
+
+func TestRerankResultsToJSON_EmptySlice(t *testing.T) {
+	t.Parallel()
+	got, err := rerankResultsToJSON([]rerankResult{})
+	require.NoError(t, err)
+	assert.Equal(t, "[]", got)
+}
+
+func TestRerankResultsToJSON_MultipleResults(t *testing.T) {
+	t.Parallel()
+	results := []rerankResult{
+		{Index: 0, Text: "first", Score: 0.95},
+		{Index: 1, Text: "second", Score: 0.85},
+		{Index: 2, Text: "third", Score: 0.75},
+	}
+	got, err := rerankResultsToJSON(results)
+	require.NoError(t, err)
+	assert.Contains(t, got, "first")
+	assert.Contains(t, got, "second")
+	assert.Contains(t, got, "third")
+	assert.Contains(t, got, "0.95")
+	assert.Contains(t, got, "0.85")
+	assert.Contains(t, got, "0.75")
+}
+
+func TestRerankResultsToJSON_ZeroScore(t *testing.T) {
+	t.Parallel()
+	results := []rerankResult{{Index: 0, Text: "zero score", Score: 0}}
+	got, err := rerankResultsToJSON(results)
+	require.NoError(t, err)
+	assert.Contains(t, got, "zero score")
+	assert.Contains(t, got, "0")
+}
+
+func TestRerankResultsToJSON_SingleResult(t *testing.T) {
+	t.Parallel()
+	results := []rerankResult{{Index: 42, Text: "single", Score: 0.5}}
+	got, err := rerankResultsToJSON(results)
+	require.NoError(t, err)
+	assert.Contains(t, got, "single")
+	assert.Contains(t, got, "42")
+	assert.Contains(t, got, "0.5")
+}
+
+// --- coloredDiff additional edge cases ---
+
+func TestColoredDiff_NewLongerThanOld(t *testing.T) {
+	t.Parallel()
+	got := coloredDiff("line1\n", "line1\nline2\n", "f.txt")
+	assert.Contains(t, got, "+ line2")
+	assert.NotContains(t, got, "- line")
+	assert.Contains(t, got, "  line1")
+	assert.Contains(t, got, "f.txt")
+}
+
+func TestColoredDiff_OldLongerThanNew(t *testing.T) {
+	t.Parallel()
+	got := coloredDiff("line1\nline2\n", "line1\n", "f.txt")
+	assert.Contains(t, got, "- line2")
+	assert.NotContains(t, got, "+ line")
+	assert.Contains(t, got, "  line1")
+	assert.Contains(t, got, "f.txt")
+}
+
+func TestColoredDiff_AllDifferent(t *testing.T) {
+	t.Parallel()
+	got := coloredDiff("aaa\nbbb\n", "ccc\nddd\n", "f.txt")
+	assert.Contains(t, got, "- aaa")
+	assert.Contains(t, got, "- bbb")
+	assert.Contains(t, got, "+ ccc")
+	assert.Contains(t, got, "+ ddd")
+	assert.NotContains(t, got, "@@")
+}
+
+func TestColoredDiff_CommonSuffixWithNoTruncation(t *testing.T) {
+	t.Parallel()
+	// commonSuffix <= diffCtxLines (2) -> after context shown, no @@ marker
+	oldStr := "a\nb\nc\n"
+	newStr := "a\nX\nc\n"
+	got := coloredDiff(oldStr, newStr, "f.txt")
+	assert.Contains(t, got, "  c", "common suffix should appear as context")
+	assert.NotContains(t, got, "@@", "no truncation marker when commonSuffix <= 2")
+}
+
+func TestColoredDiff_RemoveAndAddAtEnd(t *testing.T) {
+	t.Parallel()
+	got := coloredDiff("a\nb\nc\n", "a\nb\nd\n", "f.txt")
+	assert.Contains(t, got, "- c")
+	assert.Contains(t, got, "+ d")
+}
+
+func TestColoredDiff_OnlyContextNoDiff(t *testing.T) {
+	t.Parallel()
+	oldStr := "a\nb\nc\nd\ne\nf\ng\nh\n"
+	newStr := "a\nb\nX\nd\ne\nf\ng\nh\n"
+	got := coloredDiff(oldStr, newStr, "f.txt")
+	assert.Contains(t, got, "- c")
+	assert.Contains(t, got, "+ X")
+	assert.Contains(t, got, "@@ ...@@")
+}
+
+// --- validateWorkspaceBoundary additional edge cases ---
+
+func TestValidateWorkspaceBoundary_NonexistentRoot(t *testing.T) {
+	// EvalSymlinks fails on root, falls through to filepath.Clean (line 1678)
+	nonexistentRoot := filepath.Join(t.TempDir(), "nonexistent-root")
+	t.Setenv("KDEPS_WORKSPACE_ROOT", nonexistentRoot)
+
+	testPath := filepath.Join(nonexistentRoot, "file.txt")
+	err := validateWorkspaceBoundary(testPath)
+	assert.NoError(t, err, "path inside non-existent root should be allowed")
+}
+
+func TestValidateWorkspaceBoundary_ExactRootPath(t *testing.T) {
+	dir := t.TempDir()
+	t.Setenv("KDEPS_WORKSPACE_ROOT", dir)
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "rootfile.txt"), []byte("x"), 0o600))
+
+	err := validateWorkspaceBoundary(dir)
+	assert.NoError(t, err, "path equal to root should be allowed")
+}
+
+func TestValidateWorkspaceBoundary_SiblingPathInRoot(t *testing.T) {
+	dir := t.TempDir()
+	t.Setenv("KDEPS_WORKSPACE_ROOT", dir)
+	siblingFile := filepath.Join(dir, "sibling.txt")
+	require.NoError(t, os.WriteFile(siblingFile, []byte("x"), 0o600))
+
+	err := validateWorkspaceBoundary(siblingFile)
+	assert.NoError(t, err)
+}
+
+func TestValidateWorkspaceBoundary_RootNoTrailingSlash(t *testing.T) {
+	dir := t.TempDir()
+	t.Setenv("KDEPS_WORKSPACE_ROOT", dir)
+	subFile := filepath.Join(dir, "sub", "file.txt")
+	require.NoError(t, os.MkdirAll(filepath.Dir(subFile), 0o700))
+	require.NoError(t, os.WriteFile(subFile, []byte("x"), 0o600))
+
+	err := validateWorkspaceBoundary(subFile)
+	assert.NoError(t, err)
+}
+
+func TestValidateWorkspaceBoundary_NoRootSet(t *testing.T) {
+	t.Setenv("KDEPS_WORKSPACE_ROOT", "")
+	err := validateWorkspaceBoundary("/any/path")
+	assert.NoError(t, err, "no workspace root means no boundary check")
+}

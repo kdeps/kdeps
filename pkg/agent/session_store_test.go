@@ -22,6 +22,8 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
 )
 
 func TestNewSessionStore_DefaultPath(t *testing.T) {
@@ -453,6 +455,214 @@ func TestLoadMeta_EmptySessionID(t *testing.T) {
 	}
 }
 
+// --- encodeCwd ---
+
+func TestEncodeCwd_AbsolutePath(t *testing.T) {
+	result := encodeCwd("/Users/joel/Projects/foo")
+	assert.Equal(t, "--Users-joel-Projects-foo--", result)
+}
+
+func TestEncodeCwd_PathWithColons(t *testing.T) {
+	result := encodeCwd("C:\\Users\\foo")
+	assert.Equal(t, "--C--Users-foo--", result)
+}
+
+func TestEncodeCwd_RelativePath(t *testing.T) {
+	result := encodeCwd("relative/path")
+	assert.Equal(t, "--relative-path--", result)
+}
+
+func TestEncodeCwd_EmptyString(t *testing.T) {
+	result := encodeCwd("")
+	assert.Equal(t, "----", result)
+}
+
+func TestEncodeCwd_WindowsUNCPath(t *testing.T) {
+	result := encodeCwd("\\\\server\\share\\folder")
+	assert.Equal(t, "--server-share-folder--", result)
+}
+
+func TestEncodeCwd_PathWithBackslashes(t *testing.T) {
+	result := encodeCwd("\\foo\\bar\\baz")
+	assert.Equal(t, "--foo-bar-baz--", result)
+}
+
+// --- sessionBasePath with cwd ---
+
+func TestSessionBasePath_WithCwd(t *testing.T) {
+	dir := t.TempDir()
+	store := NewSessionStore(dir)
+	store.SetCwd("/some/project/path")
+	result := store.sessionBasePath()
+	assert.Equal(t, dir+"/--some-project-path--", result)
+}
+
+func TestSessionBasePath_WithoutCwd(t *testing.T) {
+	dir := t.TempDir()
+	store := NewSessionStore(dir)
+	result := store.sessionBasePath()
+	assert.Equal(t, dir, result)
+}
+
+// --- findSessionFileLocked with cwd ---
+
+func TestFindSessionFileLocked_WithCwd(t *testing.T) {
+	dir := t.TempDir()
+	store := NewSessionStore(dir)
+	store.SetCwd("/tmp/proj")
+
+	session := NewSession(0)
+	session.Append("q", "a")
+	id, err := store.Save(session)
+	if err != nil {
+		t.Fatalf("save failed: %v", err)
+	}
+
+	store.mu.Lock()
+	path := store.findSessionFileLocked(id)
+	store.mu.Unlock()
+
+	assert.Contains(t, path, id+".jsonl")
+	assert.FileExists(t, path)
+}
+
+func TestFindSessionFileLocked_WithCwdFallback(t *testing.T) {
+	dir := t.TempDir()
+	store := NewSessionStore(dir)
+	// Save a session without cwd
+	session := NewSession(0)
+	session.Append("q", "a")
+	id, err := store.Save(session)
+	if err != nil {
+		t.Fatalf("save failed: %v", err)
+	}
+	// Now set cwd and look for it - should fall back to basePath
+	store.SetCwd("/other/project")
+
+	store.mu.Lock()
+	path := store.findSessionFileLocked(id)
+	store.mu.Unlock()
+
+	assert.Contains(t, path, id+".jsonl")
+	assert.FileExists(t, path)
+}
+
+func TestFindSessionFileLocked_NotFound(t *testing.T) {
+	dir := t.TempDir()
+	store := NewSessionStore(dir)
+	store.SetCwd("/some/project")
+
+	store.mu.Lock()
+	path := store.findSessionFileLocked("nonexistent")
+	store.mu.Unlock()
+
+	assert.Empty(t, path)
+}
+
+// --- listDirsLocked with cwd ---
+
+func TestListDirsLocked_WithCwd(t *testing.T) {
+	dir := t.TempDir()
+	store := NewSessionStore(dir)
+	store.SetCwd("/my/project")
+
+	store.mu.Lock()
+	dirs := store.listDirsLocked()
+	store.mu.Unlock()
+
+	assert.Len(t, dirs, 1)
+	assert.Contains(t, dirs[0], "--my-project--")
+}
+
+func TestListDirsLocked_WithoutCwdIncludingSubdirs(t *testing.T) {
+	dir := t.TempDir()
+
+	// Create a subdirectory to simulate a cwd subdir
+	if err := os.MkdirAll(filepath.Join(dir, "--some-project--"), 0750); err != nil {
+		t.Fatal(err)
+	}
+
+	store := NewSessionStore(dir)
+	store.mu.Lock()
+	dirs := store.listDirsLocked()
+	store.mu.Unlock()
+
+	assert.GreaterOrEqual(t, len(dirs), 2) // base dir + subdir
+	assert.Equal(t, dir, dirs[0])
+}
+
+// --- SaveAs with cwd ---
+
+func TestSaveAs_WithCwd(t *testing.T) {
+	dir := t.TempDir()
+	store := NewSessionStore(dir)
+	store.SetCwd("/tmp/project")
+
+	session := NewSession(0)
+	session.Append("q", "a")
+
+	id, err := store.SaveAs(session, "my-session", "llama3.2")
+	if err != nil {
+		t.Fatalf("SaveAs with cwd failed: %v", err)
+	}
+	if id == "" {
+		t.Fatal("expected non-empty session ID")
+	}
+
+	// Load should find it
+	meta, err := store.LoadMeta(id)
+	if err != nil {
+		t.Fatalf("LoadMeta after SaveAs with cwd failed: %v", err)
+	}
+	assert.Equal(t, "my-session", meta.Name)
+	assert.Equal(t, "llama3.2", meta.Model)
+}
+
+func TestDelete_RemoveError(t *testing.T) {
+	dir := t.TempDir()
+	store := NewSessionStore(dir)
+
+	session := NewSession(0)
+	session.Append("x", "y")
+	id, saveErr := store.Save(session)
+	if saveErr != nil {
+		t.Fatalf("save failed: %v", saveErr)
+	}
+
+	// Make directory read-only so Remove fails
+	if chmodErr := os.Chmod(dir, 0555); chmodErr != nil {
+		t.Skip("cannot change permissions:", chmodErr)
+	}
+	t.Cleanup(func() { os.Chmod(dir, 0755) }) //nolint:errcheck
+
+	if delErr := store.Delete(id); delErr == nil {
+		t.Fatal("expected error when dir is read-only")
+	}
+}
+
+func TestImport_WriteError(t *testing.T) {
+	dir := t.TempDir()
+	store := NewSessionStore(dir)
+
+	srcDir := t.TempDir()
+	srcPath := filepath.Join(srcDir, "session.jsonl")
+	content := `{"type":"session_meta","ts":1000,"sessionId":"test","turns":0}` + "\n"
+	if err := os.WriteFile(srcPath, []byte(content), 0600); err != nil {
+		t.Fatal(err)
+	}
+
+	// Make store directory read-only so WriteFile fails
+	if err := os.Chmod(dir, 0555); err != nil {
+		t.Skip("cannot change permissions:", err)
+	}
+	t.Cleanup(func() { os.Chmod(dir, 0755) }) //nolint:errcheck
+
+	_, err := store.Import(srcPath)
+	if err == nil {
+		t.Fatal("expected error when store dir is read-only")
+	}
+}
+
 func TestListMeta_SkipsCorruptFile(t *testing.T) {
 	dir := t.TempDir()
 	store := NewSessionStore(dir)
@@ -592,5 +802,12 @@ func TestImport_WithCwd(t *testing.T) {
 	}
 	if id == "" {
 		t.Fatal("expected non-empty session ID with cwd set")
+	}
+}
+
+func TestEncodeCwd_LeadingSlashes(t *testing.T) {
+	result := encodeCwd("///leading/slashes")
+	if result != "--leading-slashes--" {
+		t.Fatalf("expected --leading-slashes--, got %q", result)
 	}
 }

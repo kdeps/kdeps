@@ -139,13 +139,19 @@ func TestHFDownloadFile_NoToken_NoAria2c(t *testing.T) {
 	t.Setenv("HF_TOKEN", "")
 	t.Setenv("PATH", t.TempDir()) // empty PATH so aria2c is not found
 
+	// Mock httpGet to fail fast instead of making a real HTTP call that hangs.
+	origHTTP := httpGet
+	httpGet = func(_ string) (*http.Response, error) {
+		return nil, http.ErrHandlerTimeout
+	}
+	t.Cleanup(func() { httpGet = origHTTP })
+
 	origFS := AppFS
 	AppFS = afero.NewOsFs()
 	defer func() { AppFS = origFS }()
 
 	dir := t.TempDir()
 	dest := dir + "/m.gguf"
-	// Non-routable address ensures fast failure.
 	_ = hfDownloadFile(
 		context.Background(),
 		"http://192.0.2.1/model.gguf",

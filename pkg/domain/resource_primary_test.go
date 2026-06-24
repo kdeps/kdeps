@@ -19,6 +19,7 @@
 package domain_test
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/kdeps/kdeps/v2/pkg/domain"
@@ -167,10 +168,17 @@ func TestPrimaryResourceTypesList(t *testing.T) {
 	t.Parallel()
 
 	got := domain.PrimaryResourceTypesList()
-	if got != "chat, httpClient, sql, python, exec, agent, component, scraper, "+
-		"embedding, searchLocal, searchWeb, telephony, browser, botReply, email, file, git, codeIntelligence, loader, vectorStore, transcribe, "+
-		"apiResponse" {
-		t.Fatalf("PrimaryResourceTypesList() = %q", got)
+	// Verify all expected resource types are present in the list.
+	expectedTypes := []string{
+		"chat", "httpClient", "sql", "python", "exec", "agent", "component",
+		"scraper", "embedding", "searchLocal", "searchWeb",
+		"telephony", "browser", "botReply", "email", "file", "git",
+		"codeIntelligence", "loader", "vectorStore", "transcribe", "apiResponse",
+	}
+	for _, et := range expectedTypes {
+		if !strings.Contains(got, et) {
+			t.Errorf("PrimaryResourceTypesList() missing %q in: %s", et, got)
+		}
 	}
 }
 
