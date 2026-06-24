@@ -170,6 +170,9 @@ func newMongoDBSessionStoreWithColl(client *mongo.Client, coll mongoCollection) 
 
 // Close disconnects the MongoDB client.
 func (s *MongoDBSessionStore) Close(ctx context.Context) error {
+	if s.client == nil {
+		return nil
+	}
 	return s.client.Disconnect(ctx)
 }
 
