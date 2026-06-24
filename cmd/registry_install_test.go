@@ -27,6 +27,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"io"
 	stdhttp "net/http"
 	"net/http/httptest"
 	"os"
@@ -1032,6 +1033,23 @@ func TestExtractFile_OpenFileError2(t *testing.T) {
 	err := extractFile(target, bytes.NewReader([]byte("data")))
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "create file")
+}
+
+// ---------------------------------------------------------------------------
+// extractFile — size limit exceeded
+// ---------------------------------------------------------------------------
+
+func TestExtractFile_SizeLimitExceeded(t *testing.T) {
+	origCopy := extractFileIOCopyFunc
+	t.Cleanup(func() { extractFileIOCopyFunc = origCopy })
+	extractFileIOCopyFunc = func(_ io.Writer, _ io.Reader) (int64, error) {
+		return maxExtractFileSize, nil
+	}
+
+	target := filepath.Join(t.TempDir(), "large-file.txt")
+	err := extractFile(target, bytes.NewReader([]byte("x")))
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "exceeds maximum allowed size")
 }
 
 // ---------------------------------------------------------------------------
