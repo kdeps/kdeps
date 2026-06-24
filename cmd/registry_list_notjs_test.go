@@ -99,3 +99,27 @@ func TestIsVersionedAgentDir_Pkl(t *testing.T) {
 	require.NoError(t, os.WriteFile(filepath.Join(verDir, "workflow.pkl"), []byte("pkl"), 0644))
 	assert.True(t, isVersionedAgentDir(filepath.Join(tmp, "agent")))
 }
+
+func TestIsInstalledAgentDir_WithWorkflow(t *testing.T) {
+	dir := t.TempDir()
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "workflow.yaml"), []byte("test"), 0600))
+	assert.True(t, isInstalledAgentDir(dir))
+}
+
+func TestIsInstalledAgentDir_WithAgency(t *testing.T) {
+	dir := t.TempDir()
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "agency.yaml"), []byte("test"), 0600))
+	assert.True(t, isInstalledAgentDir(dir))
+}
+
+func TestIsInstalledAgentDir_Versioned(t *testing.T) {
+	dir := t.TempDir()
+	sub := filepath.Join(dir, "v1.0.0")
+	require.NoError(t, os.MkdirAll(sub, 0750))
+	require.NoError(t, os.WriteFile(filepath.Join(sub, "workflow.yaml"), []byte("test"), 0600))
+	assert.True(t, isInstalledAgentDir(dir))
+}
+
+func TestIsInstalledAgentDir_Empty(t *testing.T) {
+	assert.False(t, isInstalledAgentDir(t.TempDir()))
+}

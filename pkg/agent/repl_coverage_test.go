@@ -379,3 +379,11 @@ func TestCmdEditor_FallbackWhenBothEmpty(t *testing.T) {
 }
 
 // --- helper: capture stdout ---
+
+func TestHistoryPath_ReturnsPath(t *testing.T) {
+	t.Setenv("HOME", "/test/home/user")
+	path := historyPath()
+	assert.Contains(t, path, ".kdeps")
+	assert.Contains(t, path, "history")
+	assert.Contains(t, path, "/test/home/user")
+}
