@@ -33,7 +33,88 @@ import (
 type MongoDBSessionStore struct {
 	mu     sync.Mutex
 	client *mongo.Client
-	coll   *mongo.Collection
+	coll   mongoCollection
+}
+
+// mongoCollection is a subset of *mongo.Collection used by MongoDBSessionStore.
+// Using an interface allows mocking in tests without a real MongoDB connection.
+type mongoCollection interface {
+	InsertOne(
+		ctx context.Context,
+		document interface{},
+		opts ...*options.InsertOneOptions,
+	) (*mongo.InsertOneResult, error)
+	FindOneDecode(ctx context.Context, filter interface{}, result interface{}, opts ...*options.FindOneOptions) error
+	FindAllDecode(ctx context.Context, filter interface{}, results interface{}, opts ...*options.FindOptions) error
+	FindIDsDecode(ctx context.Context, filter interface{}, ids *[]string, opts ...*options.FindOptions) error
+	DeleteOne(ctx context.Context, filter interface{}, opts ...*options.DeleteOptions) (*mongo.DeleteResult, error)
+}
+
+// realMongoColl wraps *mongo.Collection to implement mongoCollection.
+type realMongoColl struct {
+	coll *mongo.Collection
+}
+
+func (r *realMongoColl) InsertOne(
+	ctx context.Context,
+	document interface{},
+	opts ...*options.InsertOneOptions,
+) (*mongo.InsertOneResult, error) {
+	return r.coll.InsertOne(ctx, document, opts...)
+}
+
+func (r *realMongoColl) FindOneDecode(
+	ctx context.Context,
+	filter interface{},
+	result interface{},
+	opts ...*options.FindOneOptions,
+) error {
+	return r.coll.FindOne(ctx, filter, opts...).Decode(result)
+}
+
+func (r *realMongoColl) FindAllDecode(
+	ctx context.Context,
+	filter interface{},
+	results interface{},
+	opts ...*options.FindOptions,
+) error {
+	cursor, err := r.coll.Find(ctx, filter, opts...)
+	if err != nil {
+		return err
+	}
+	defer cursor.Close(ctx)
+	return cursor.All(ctx, results)
+}
+
+func (r *realMongoColl) FindIDsDecode(
+	ctx context.Context,
+	filter interface{},
+	ids *[]string,
+	opts ...*options.FindOptions,
+) error {
+	cursor, err := r.coll.Find(ctx, filter, opts...)
+	if err != nil {
+		return err
+	}
+	defer cursor.Close(ctx)
+	for cursor.Next(ctx) {
+		var doc struct {
+			ID string `bson:"_id"`
+		}
+		if decodeErr := cursor.Decode(&doc); decodeErr != nil {
+			continue
+		}
+		*ids = append(*ids, doc.ID)
+	}
+	return cursor.Err()
+}
+
+func (r *realMongoColl) DeleteOne(
+	ctx context.Context,
+	filter interface{},
+	opts ...*options.DeleteOptions,
+) (*mongo.DeleteResult, error) {
+	return r.coll.DeleteOne(ctx, filter, opts...)
 }
 
 // mongoSessionDoc is the BSON document stored for each session.
@@ -78,7 +159,13 @@ func NewMongoDBSessionStore(
 	}
 
 	coll := client.Database(dbName).Collection(collName)
-	return &MongoDBSessionStore{client: client, coll: coll}, nil
+	return &MongoDBSessionStore{client: client, coll: &realMongoColl{coll: coll}}, nil
+}
+
+// newMongoDBSessionStoreWithColl creates a MongoDBSessionStore with a mock collection.
+// Exported for testing only — production code should use NewMongoDBSessionStore.
+func newMongoDBSessionStoreWithColl(client *mongo.Client, coll mongoCollection) *MongoDBSessionStore {
+	return &MongoDBSessionStore{client: client, coll: coll}
 }
 
 // Close disconnects the MongoDB client.
@@ -127,8 +214,7 @@ func (s *MongoDBSessionStore) Load(id string) (*Session, error) {
 
 	ctx := context.Background()
 	var doc mongoSessionDoc
-	findErr := s.coll.FindOne(ctx, bson.M{"_id": id}).Decode(&doc)
-	if findErr != nil {
+	if findErr := s.coll.FindOneDecode(ctx, bson.M{"_id": id}, &doc); findErr != nil {
 		if errors.Is(findErr, mongo.ErrNoDocuments) {
 			return nil, fmt.Errorf("mongodb session store: session %q not found", id)
 		}
@@ -153,8 +239,7 @@ func (s *MongoDBSessionStore) LoadMeta(id string) (*SessionMetadata, error) {
 	ctx := context.Background()
 	opts := options.FindOne().SetProjection(bson.M{"messages": 0})
 	var doc mongoSessionDoc
-	findErr := s.coll.FindOne(ctx, bson.M{"_id": id}, opts).Decode(&doc)
-	if findErr != nil {
+	if findErr := s.coll.FindOneDecode(ctx, bson.M{"_id": id}, &doc, opts); findErr != nil {
 		if errors.Is(findErr, mongo.ErrNoDocuments) {
 			return nil, fmt.Errorf("mongodb session store: session %q not found", id)
 		}
@@ -179,28 +264,20 @@ func (s *MongoDBSessionStore) ListMeta() ([]SessionMetadata, error) {
 		SetProjection(bson.M{"messages": 0}).
 		SetSort(bson.D{{Key: "created_at", Value: -1}})
 
-	cursor, findErr := s.coll.Find(ctx, bson.M{}, findOpts)
-	if findErr != nil {
+	var docs []mongoSessionDoc
+	if findErr := s.coll.FindAllDecode(ctx, bson.M{}, &docs, findOpts); findErr != nil {
 		return nil, fmt.Errorf("mongodb session store: list meta: %w", findErr)
 	}
-	defer cursor.Close(ctx)
 
-	var metas []SessionMetadata
-	for cursor.Next(ctx) {
-		var doc mongoSessionDoc
-		if decodeErr := cursor.Decode(&doc); decodeErr != nil {
-			continue
-		}
-		metas = append(metas, SessionMetadata{
+	metas := make([]SessionMetadata, len(docs))
+	for i, doc := range docs {
+		metas[i] = SessionMetadata{
 			ID:        doc.ID,
 			Name:      doc.Name,
 			Model:     doc.Model,
 			Turns:     doc.Turns,
 			CreatedAt: doc.CreatedAt,
-		})
-	}
-	if cursorErr := cursor.Err(); cursorErr != nil {
-		return nil, fmt.Errorf("mongodb session store: list meta cursor: %w", cursorErr)
+		}
 	}
 	return metas, nil
 }
@@ -215,24 +292,9 @@ func (s *MongoDBSessionStore) List() ([]string, error) {
 		SetProjection(bson.M{"_id": 1}).
 		SetSort(bson.D{{Key: "created_at", Value: -1}})
 
-	cursor, findErr := s.coll.Find(ctx, bson.M{}, findOpts)
-	if findErr != nil {
-		return nil, fmt.Errorf("mongodb session store: list: %w", findErr)
-	}
-	defer cursor.Close(ctx)
-
 	var ids []string
-	for cursor.Next(ctx) {
-		var doc struct {
-			ID string `bson:"_id"`
-		}
-		if decodeErr := cursor.Decode(&doc); decodeErr != nil {
-			continue
-		}
-		ids = append(ids, doc.ID)
-	}
-	if cursorErr := cursor.Err(); cursorErr != nil {
-		return nil, fmt.Errorf("mongodb session store: list cursor: %w", cursorErr)
+	if findErr := s.coll.FindIDsDecode(ctx, bson.M{}, &ids, findOpts); findErr != nil {
+		return nil, fmt.Errorf("mongodb session store: list: %w", findErr)
 	}
 	return ids, nil
 }
@@ -273,24 +335,9 @@ func (s *MongoDBSessionStore) SearchSessions(text string) ([]string, error) {
 		SetProjection(bson.M{"_id": 1}).
 		SetSort(bson.D{{Key: "created_at", Value: -1}})
 
-	cursor, findErr := s.coll.Find(ctx, filter, findOpts)
-	if findErr != nil {
-		return nil, fmt.Errorf("mongodb session store: search: %w", findErr)
-	}
-	defer cursor.Close(ctx)
-
 	var ids []string
-	for cursor.Next(ctx) {
-		var doc struct {
-			ID string `bson:"_id"`
-		}
-		if decodeErr := cursor.Decode(&doc); decodeErr != nil {
-			continue
-		}
-		ids = append(ids, doc.ID)
-	}
-	if cursorErr := cursor.Err(); cursorErr != nil {
-		return nil, fmt.Errorf("mongodb session store: search cursor: %w", cursorErr)
+	if findErr := s.coll.FindIDsDecode(ctx, filter, &ids, findOpts); findErr != nil {
+		return nil, fmt.Errorf("mongodb session store: search: %w", findErr)
 	}
 	return ids, nil
 }
