@@ -228,7 +228,7 @@ func (e *Executor) lspDiagnostics(client *lspClient, config *domain.CodeIntellig
 	for _, item := range items {
 		if diag, ok := item.(map[string]interface{}); ok {
 			diagnostics = append(diagnostics, map[string]interface{}{
-				"message": fmt.Sprint(diag["message"]),
+				"message":  fmt.Sprint(diag["message"]),
 				"severity": fmt.Sprint(diag["severity"]),
 				"source":   fmt.Sprint(diag["source"]),
 			})

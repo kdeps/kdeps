@@ -46,8 +46,11 @@ func registerHTTPTool(_ context.Context, reg *kdepstools.Registry) {
 		Name:        "http_request",
 		Description: "Make an HTTP request to a URL. Returns response status, headers, and body. Use for calling APIs, fetching web content, or interacting with external services. Requires: url. Optional: method (default GET), headers, data (JSON body), timeout.",
 		Parameters: map[string]domain.ToolParam{
-			"url":     {Type: "string", Description: "The URL to request", Required: true},
-			"method":  {Type: "string", Description: "HTTP method: GET, POST, PUT, DELETE, PATCH. Default: GET"},
+			"url": {Type: "string", Description: "The URL to request", Required: true},
+			"method": {
+				Type:        "string",
+				Description: "HTTP method: GET, POST, PUT, DELETE, PATCH. Default: GET",
+			},
 			"headers": {Type: "object", Description: "HTTP headers as key-value pairs"},
 			"data":    {Type: "object", Description: "Request body as JSON (for POST/PUT/PATCH)"},
 			"timeout": {Type: "string", Description: "Request timeout, e.g. '30s'. Default: 30s"},
@@ -91,7 +94,11 @@ func registerSearchLocalTool(_ context.Context, reg *kdepstools.Registry) {
 		Name:        "search_local",
 		Description: "Search for text patterns in local files using ripgrep. Returns matching files with line numbers and content. Use for finding usages, patterns, or strings across the codebase. Requires: path (directory to search), query (search term). Optional: glob (file pattern).",
 		Parameters: map[string]domain.ToolParam{
-			"path":  {Type: "string", Description: "Directory to search in (absolute path)", Required: true},
+			"path": {
+				Type:        "string",
+				Description: "Directory to search in (absolute path)",
+				Required:    true,
+			},
 			"query": {Type: "string", Description: "Search term or regex pattern", Required: true},
 			"glob":  {Type: "string", Description: "File glob filter, e.g. '*.go', '*.py'"},
 		},
@@ -125,9 +132,19 @@ func registerTranscribeTool(_ context.Context, reg *kdepstools.Registry) {
 		Name:        "transcribe_audio",
 		Description: "Transcribe an audio or video file to text using Whisper API. Supports mp3, mp4, mpeg, mpga, m4a, wav, webm. Returns the transcribed text. Requires: file (absolute path to audio file). Optional: model (default whisper-1), backend (openai, groq, local).",
 		Parameters: map[string]domain.ToolParam{
-			"file":    {Type: "string", Description: "Absolute path to the audio/video file to transcribe", Required: true},
-			"model":   {Type: "string", Description: "Transcription model. Default: whisper-1. Groq: whisper-large-v3"},
-			"backend": {Type: "string", Description: "API provider: openai (default), groq, or local"},
+			"file": {
+				Type:        "string",
+				Description: "Absolute path to the audio/video file to transcribe",
+				Required:    true,
+			},
+			"model": {
+				Type:        "string",
+				Description: "Transcription model. Default: whisper-1. Groq: whisper-large-v3",
+			},
+			"backend": {
+				Type:        "string",
+				Description: "API provider: openai (default), groq, or local",
+			},
 		},
 		Execute: func(args map[string]any) (string, error) {
 			config := &domain.TranscribeConfig{}
@@ -159,9 +176,19 @@ func registerLoaderTool(_ context.Context, reg *kdepstools.Registry) {
 		Name:        "load_document",
 		Description: "Load a document file and return its content as text. Supports PDF, CSV, HTML, and plain text files. Use for reading documents into the conversation for analysis or RAG pipelines. Returns document content with optional splitting into chunks. Requires: source (absolute file path). Optional: type (pdf, csv, html, text — auto-detected from extension), chunkSize (split into chunks of N characters).",
 		Parameters: map[string]domain.ToolParam{
-			"source":    {Type: "string", Description: "Absolute path to the document file", Required: true},
-			"type":      {Type: "string", Description: "Document type: pdf, csv, html, text. Auto-detected if omitted."},
-			"chunkSize": {Type: "number", Description: "Split into chunks of this many characters (for RAG). 0 = no splitting."},
+			"source": {
+				Type:        "string",
+				Description: "Absolute path to the document file",
+				Required:    true,
+			},
+			"type": {
+				Type:        "string",
+				Description: "Document type: pdf, csv, html, text. Auto-detected if omitted.",
+			},
+			"chunkSize": {
+				Type:        "number",
+				Description: "Split into chunks of this many characters (for RAG). 0 = no splitting.",
+			},
 		},
 		Execute: func(args map[string]any) (string, error) {
 			config := &domain.LoaderConfig{}
@@ -198,9 +225,20 @@ func registerEmbeddingTools(_ context.Context, reg *kdepstools.Registry) {
 			desc: "Search for documents semantically similar to a query in the local embedding database. Returns ranked results with similarity scores. Requires: query (natural language search query), collection (name of the document collection). Optional: limit (max results, default 5).",
 			op:   "search",
 			params: map[string]domain.ToolParam{
-				"query":      {Type: "string", Description: "Natural language search query", Required: true},
-				"collection": {Type: "string", Description: "Name of the document collection to search", Required: true},
-				"limit":      {Type: "number", Description: "Maximum number of results. Default: 5"},
+				"query": {
+					Type:        "string",
+					Description: "Natural language search query",
+					Required:    true,
+				},
+				"collection": {
+					Type:        "string",
+					Description: "Name of the document collection to search",
+					Required:    true,
+				},
+				"limit": {
+					Type:        "number",
+					Description: "Maximum number of results. Default: 5",
+				},
 			},
 		},
 		{
@@ -208,8 +246,15 @@ func registerEmbeddingTools(_ context.Context, reg *kdepstools.Registry) {
 			desc: "Convert text into vector embeddings using an embedding model. Returns the embedding vectors. Use for indexing documents into the local embedding database or computing semantic similarity. Requires: texts (list of strings to embed). Optional: model, backend.",
 			op:   "vectorize",
 			params: map[string]domain.ToolParam{
-				"texts":   {Type: "array", Description: "List of text strings to convert to embeddings", Required: true},
-				"model":   {Type: "string", Description: "Embedding model, e.g. text-embedding-3-small"},
+				"texts": {
+					Type:        "array",
+					Description: "List of text strings to convert to embeddings",
+					Required:    true,
+				},
+				"model": {
+					Type:        "string",
+					Description: "Embedding model, e.g. text-embedding-3-small",
+				},
 				"backend": {Type: "string", Description: "Backend: openai, ollama, google"},
 			},
 		},
@@ -226,7 +271,10 @@ func registerEmbeddingTools(_ context.Context, reg *kdepstools.Registry) {
 }
 
 // makeEmbeddingExecute builds an Execute closure for embedding tools.
-func makeEmbeddingExecute(exec *execEmbedding.Executor, op string) func(map[string]any) (string, error) {
+func makeEmbeddingExecute(
+	exec *execEmbedding.Executor,
+	op string,
+) func(map[string]any) (string, error) {
 	return func(args map[string]any) (string, error) {
 		config := &domain.EmbeddingConfig{Operation: op}
 		if v, ok := args["query"].(string); ok {
@@ -257,4 +305,3 @@ func makeEmbeddingExecute(exec *execEmbedding.Executor, op string) func(map[stri
 		return string(out), nil
 	}
 }
-

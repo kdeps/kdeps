@@ -243,7 +243,7 @@ func autoStartLocalModel(cfg *Config) {
 	cfg.BaseURL = cfg.ModelService.ServerURL(cfg.Backend, cfg.Model)
 }
 
-func detectDefaultModelAndBackend() (model, backend string) {
+func detectDefaultModelAndBackend() (string, string) {
 	// Priority 1: llamafile
 	if _, err := exec.LookPath("llamafile"); err == nil {
 		return "llamafile", executorLLM.BackendFile
