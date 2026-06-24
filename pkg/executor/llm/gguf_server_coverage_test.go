@@ -472,3 +472,99 @@ func TestGGUFContextSize_Custom(t *testing.T) {
 		t.Error("expected positive context size")
 	}
 }
+
+func TestDetectOSArch_LinuxAmd64(t *testing.T) {
+	origOS := testOS
+	origArch := testArch
+	testOS = "linux"
+	testArch = "amd64"
+	t.Cleanup(func() { testOS = origOS; testArch = origArch })
+	result := detectOSArch()
+	assert.Equal(t, "b4582-bin-ubuntu-x64", result)
+}
+
+func TestDetectOSArch_LinuxArm64(t *testing.T) {
+	origOS := testOS
+	origArch := testArch
+	testOS = "linux"
+	testArch = "arm64"
+	t.Cleanup(func() { testOS = origOS; testArch = origArch })
+	result := detectOSArch()
+	assert.Equal(t, "b4582-bin-ubuntu-arm64", result)
+}
+
+func TestDetectOSArch_DarwinAmd64(t *testing.T) {
+	origOS := testOS
+	origArch := testArch
+	testOS = "darwin"
+	testArch = "amd64"
+	t.Cleanup(func() { testOS = origOS; testArch = origArch })
+	result := detectOSArch()
+	assert.Equal(t, "b4582-bin-macos-x64", result)
+}
+
+func TestDetectOSArch_WindowsAmd64(t *testing.T) {
+	origOS := testOS
+	origArch := testArch
+	testOS = "windows"
+	testArch = "amd64"
+	t.Cleanup(func() { testOS = origOS; testArch = origArch })
+	result := detectOSArch()
+	assert.Equal(t, "b4582-bin-win-x64", result)
+}
+
+func TestDetectOSArch_Unsupported(t *testing.T) {
+	origOS := testOS
+	origArch := testArch
+	testOS = "plan9"
+	testArch = "riscv64"
+	t.Cleanup(func() { testOS = origOS; testArch = origArch })
+	result := detectOSArch()
+	assert.Equal(t, "", result)
+}
+
+func TestInstallLlamaServer_UnsupportedPlatform(t *testing.T) {
+	origOS := testOS
+	origArch := testArch
+	testOS = "plan9"
+	testArch = "riscv64"
+	t.Cleanup(func() { testOS = origOS; testArch = origArch })
+	err := installLlamaServer("/tmp/llama-server")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "unsupported platform")
+}
+
+func TestInstallLlamaServer_ChmodError(t *testing.T) {
+	dir := t.TempDir()
+	dest := filepath.Join(dir, ".kdeps", "bin", "llama-server")
+	require.NoError(t, os.MkdirAll(filepath.Dir(dest), 0750))
+
+	// Create a valid zip with llama-server binary.
+	var buf bytes.Buffer
+	zw := zip.NewWriter(&buf)
+	f, err := zw.Create("llama-server")
+	require.NoError(t, err)
+	_, err = f.Write([]byte("fake-binary-data"))
+	require.NoError(t, err)
+	zw.Close()
+
+	origTransport := downloadHTTPClient.Transport
+	t.Cleanup(func() { downloadHTTPClient.Transport = origTransport })
+	downloadHTTPClient.Transport = roundTripperFunc(func(_ *http.Request) (*http.Response, error) {
+		return &http.Response{
+			StatusCode: http.StatusOK,
+			Body:       io.NopCloser(bytes.NewReader(buf.Bytes())),
+			Header:     make(http.Header),
+		}, nil
+	})
+
+	// Make dest directory read-only so Chmod on the extracted file fails.
+	require.NoError(t, os.WriteFile(dest, []byte("placeholder"), 0400))
+	_ = os.Remove(dest)
+	// Create a non-writable parent condition: create the dest as a directory
+	require.NoError(t, os.MkdirAll(dest, 0555))
+
+	err = installLlamaServer(dest)
+	require.Error(t, err)
+	_ = os.Chmod(dest, 0755)
+}

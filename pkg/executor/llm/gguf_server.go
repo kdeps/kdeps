@@ -196,25 +196,39 @@ func installLlamaServer(dest string) error {
 	return nil
 }
 
+//nolint:gochecknoglobals // test-replaceable hooks
+var (
+	testOS   string // test override for runtime.GOOS
+	testArch string // test override for runtime.GOARCH
+)
+
 func detectOSArch() string {
 	kdeps_debug.Log("enter: detectOSArch")
-	switch runtime.GOOS {
+	goos := runtime.GOOS
+	goarch := runtime.GOARCH
+	if testOS != "" {
+		goos = testOS
+	}
+	if testArch != "" {
+		goarch = testArch
+	}
+	switch goos {
 	case "linux":
-		if runtime.GOARCH == archAmd64 {
+		if goarch == archAmd64 {
 			return "b4582-bin-ubuntu-x64"
 		}
-		if runtime.GOARCH == archArm64 {
+		if goarch == archArm64 {
 			return "b4582-bin-ubuntu-arm64"
 		}
 	case "darwin":
-		if runtime.GOARCH == archAmd64 {
+		if goarch == archAmd64 {
 			return "b4582-bin-macos-x64"
 		}
-		if runtime.GOARCH == archArm64 {
+		if goarch == archArm64 {
 			return "b4582-bin-macos-arm64"
 		}
 	case "windows":
-		if runtime.GOARCH == archAmd64 {
+		if goarch == archAmd64 {
 			return "b4582-bin-win-x64"
 		}
 	}

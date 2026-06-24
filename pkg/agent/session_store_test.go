@@ -21,6 +21,7 @@ package agent
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -809,5 +810,65 @@ func TestEncodeCwd_LeadingSlashes(t *testing.T) {
 	result := encodeCwd("///leading/slashes")
 	if result != "--leading-slashes--" {
 		t.Fatalf("expected --leading-slashes--, got %q", result)
+	}
+}
+
+func TestLoad_ScannerError(t *testing.T) {
+	dir := t.TempDir()
+	store := NewSessionStore(dir)
+
+	// Create a file with a line longer than the 1 MiB scanner buffer.
+	// The scanner buffer is set to 1<<20, so 2 MiB of data should trigger it.
+	var buf strings.Builder
+	buf.WriteString(`{"type":"session_meta","ts":1000,"sessionId":"scanner-test","turns":0,"x":"`)
+	buf.WriteString(strings.Repeat("x", 2<<20))
+	buf.WriteString(`"}` + "\n")
+	path := filepath.Join(dir, "scanner-test.jsonl")
+	if err := os.WriteFile(path, []byte(buf.String()), 0600); err != nil {
+		t.Fatal(err)
+	}
+
+	_, err := store.Load("scanner-test")
+	if err == nil {
+		t.Fatal("expected scanner error for oversized line")
+	}
+}
+
+func TestWriteJSONLine_MarshalError(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "test.jsonl")
+	f, err := os.Create(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer f.Close()
+
+	// Passing a non-marshalable value (channel) should trigger json.Marshal error.
+	err = writeJSONLine(f, make(chan int))
+	if err == nil {
+		t.Fatal("expected json.Marshal error for channel value")
+	}
+}
+
+func TestImport_MkdirError(t *testing.T) {
+	// Use a path where the parent directory can't be created.
+	// Creating a file and using it as the base path causes MkdirAll to fail.
+	f, err := os.CreateTemp("", "import-not-a-dir-*")
+	if err != nil {
+		t.Fatal(err)
+	}
+	f.Close()
+	t.Cleanup(func() { os.Remove(f.Name()) })
+
+	store := NewSessionStore(filepath.Join(f.Name(), "subdir"))
+	srcDir := t.TempDir()
+	srcPath := filepath.Join(srcDir, "session.jsonl")
+	if wErr := os.WriteFile(srcPath, []byte("{}"), 0600); wErr != nil {
+		t.Fatal(wErr)
+	}
+
+	_, iErr := store.Import(srcPath)
+	if iErr == nil {
+		t.Fatal("expected MkdirAll error when base parent is a file")
 	}
 }

@@ -159,4 +159,6 @@ func TestBashSudoInner(t *testing.T) {
 	assert.Equal(t, "rm -rf /", bashSudoInner("sudo rm -rf /"))
 	assert.Equal(t, "ls -la", bashSudoInner("sudo -n ls -la"))
 	assert.Equal(t, "", bashSudoInner("ls -la"))
+	assert.Equal(t, "", bashSudoInner("sudo -k"))
+	assert.Equal(t, "", bashSudoInner("sudo -u -n"))
 }

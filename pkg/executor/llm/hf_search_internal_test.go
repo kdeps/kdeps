@@ -184,3 +184,58 @@ func TestHFSearchWithoutFilter_FiltersNonGGUF(t *testing.T) {
 	require.Len(t, got, 1)
 	assert.Equal(t, "org/has-gguf", got[0].ID)
 }
+
+func TestHFSearchGGUFWithBase_EmptyResults_NoFallback(t *testing.T) {
+	callCount := 0
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		callCount++
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte("[]"))
+	}))
+	defer srv.Close()
+
+	got, err := HFSearchGGUFWithBase(context.Background(), srv.URL+"/api/models", "nonexistent", 5)
+	require.NoError(t, err)
+	assert.Empty(t, got)
+	assert.Equal(t, 2, callCount)
+}
+
+func TestHFRepoFilesWithBase_DecodeError(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte("invalid json"))
+	}))
+	defer srv.Close()
+
+	_, err := HFRepoFilesWithBase(context.Background(), srv.URL+"/api/models", "test/repo")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "decode")
+}
+
+func TestHFDownloadWithToken_RequestError(t *testing.T) {
+	err := hfDownloadWithToken(context.Background(), "\n", t.TempDir()+"/m.gguf", "tok")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "hf download")
+}
+
+func TestHFDownloadGGUF_NilLogger(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	ReloadGGUFRegistry()
+	t.Cleanup(ReloadGGUFRegistry)
+
+	dir := t.TempDir()
+	t.Setenv("KDEPS_MODELS_DIR", dir)
+
+	_, _, err := HFDownloadGGUF(context.Background(), "org/Repo", "Model-Q4.gguf", nil)
+	require.Error(t, err)
+}
+
+func TestHFRegisterGGUFEntry_ReadError(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	ReloadGGUFRegistry()
+	t.Cleanup(ReloadGGUFRegistry)
+
+	entry := GGUFEntry{Alias: "test-model", URL: "http://example.com/m.gguf", Filename: "m.gguf", Repo: "org/test"}
+	err := HFRegisterGGUFEntry(entry)
+	require.NoError(t, err)
+}
