@@ -422,9 +422,17 @@ func TestStartGGUFServer_Success(t *testing.T) {
 
 func TestGGUFManager_Serve_FindFreePortError(t *testing.T) {
 	origListen := netListenConfigListen
-	t.Cleanup(func() { netListenConfigListen = origListen })
+	origDo := httpDefaultClientDo
+	t.Cleanup(func() {
+		netListenConfigListen = origListen
+		httpDefaultClientDo = origDo
+	})
 	netListenConfigListen = func(_ context.Context, _, _ string) (net.Listener, error) {
 		return nil, errors.New("no ports available")
+	}
+	// Prevent health check from finding a real running llama-server on the default port.
+	httpDefaultClientDo = func(_ *stdhttp.Request) (*stdhttp.Response, error) {
+		return nil, errors.New("health probe disabled")
 	}
 
 	path := "/fake/port-error.gguf"
