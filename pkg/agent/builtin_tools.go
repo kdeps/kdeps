@@ -119,7 +119,7 @@ func registerCalculator(ctx context.Context, reg *kdepstools.Registry) {
 		Description: "Evaluate a mathematical expression and return the result. Accepts any valid numeric expression (e.g. '2 + 2', '3.14 * 10**2', 'sqrt(16)'). Powered by Starlark math evaluation.",
 		Parameters: map[string]domain.ToolParam{
 			"expression": {
-				Type:        "string",
+				Type:        toolParamString,
 				Description: "The mathematical expression to evaluate",
 				Required:    true,
 			},
@@ -144,8 +144,8 @@ func registerReadFile(reg *kdepstools.Registry) {
 		Name:        "read_file",
 		Description: "Read a file from the local filesystem. Returns the file contents as text. Use for reading source code, configuration files, documentation, Makefiles, or any text-based file the agent needs to understand.",
 		Parameters: map[string]domain.ToolParam{
-			"file_path": {
-				Type:        "string",
+			toolParamFilePath: {
+				Type:        toolParamString,
 				Description: "Absolute path to the file to read",
 				Required:    true,
 			},
@@ -233,13 +233,13 @@ func registerWriteFile(reg *kdepstools.Registry) {
 		Name:        "write_file",
 		Description: "Write or overwrite a text file on the local filesystem. Creates a new file if it does not exist; overwrites existing files entirely. Use for creating or updating configuration files, source code, scripts, or any text-based file. Requires an absolute path.",
 		Parameters: map[string]domain.ToolParam{
-			"file_path": {
-				Type:        "string",
+			toolParamFilePath: {
+				Type:        toolParamString,
 				Description: "Absolute path to the file to write",
 				Required:    true,
 			},
-			"content": {
-				Type:        "string",
+			toolParamContent: {
+				Type:        toolParamString,
 				Description: "Text content to write to the file",
 				Required:    true,
 			},
@@ -283,18 +283,18 @@ func registerEditFile(reg *kdepstools.Registry) {
 		Name:        "edit_file",
 		Description: "Replace a string in a file with a new string. Reads the file, finds the exact old_string (must match exactly, including whitespace), and replaces it with new_string. Use for targeted edits without providing the entire file content. Requires an absolute path. The old_string must be unique in the file.",
 		Parameters: map[string]domain.ToolParam{
-			"file_path": {
-				Type:        "string",
+			toolParamFilePath: {
+				Type:        toolParamString,
 				Description: "Absolute path to the file to edit",
 				Required:    true,
 			},
 			"old_string": {
-				Type:        "string",
+				Type:        toolParamString,
 				Description: "The exact text to replace (must match exactly, including indentation)",
 				Required:    true,
 			},
 			"new_string": {
-				Type:        "string",
+				Type:        toolParamString,
 				Description: "The replacement text",
 				Required:    true,
 			},
@@ -425,7 +425,7 @@ func registerListFiles(reg *kdepstools.Registry) {
 		Description: "List files and directories in a given directory path. Returns names and types (file/dir). Use to discover project structure before reading or editing files. Requires an absolute path.",
 		Parameters: map[string]domain.ToolParam{
 			"path": {
-				Type:        "string",
+				Type:        toolParamString,
 				Description: "Absolute path to the directory to list",
 				Required:    true,
 			},
@@ -466,8 +466,8 @@ func registerDuckDuckGo(ctx context.Context, reg *kdepstools.Registry) {
 		Name:        "web_search",
 		Description: "Search the web using DuckDuckGo. Free, no API key required. Use for current events, facts, research, or anything needing an internet lookup. Input is a plain search query string.",
 		Parameters: map[string]domain.ToolParam{
-			"query": {
-				Type:        "string",
+			toolParamQuery: {
+				Type:        toolParamString,
 				Description: "The search query to look up",
 				Required:    true,
 			},
@@ -488,8 +488,8 @@ func registerWikipedia(ctx context.Context, reg *kdepstools.Registry) {
 		Name:        "wikipedia",
 		Description: "Look up information on Wikipedia. Use for general knowledge questions about people, places, companies, historical events, concepts, or any topic needing an encyclopedic answer. Input is a search query.",
 		Parameters: map[string]domain.ToolParam{
-			"query": {
-				Type:        "string",
+			toolParamQuery: {
+				Type:        toolParamString,
 				Description: "The topic or question to look up on Wikipedia",
 				Required:    true,
 			},
@@ -516,7 +516,7 @@ func registerWebScraper(ctx context.Context, reg *kdepstools.Registry) {
 		Description: "Fetch and extract readable text content from any web URL. Returns page title, headers, body content, and links. Use when you need to read a specific web page, article, or documentation URL.",
 		Parameters: map[string]domain.ToolParam{
 			"url": {
-				Type:        "string",
+				Type:        toolParamString,
 				Description: "The full URL (including https://) to fetch and extract text from",
 				Required:    true,
 			},
@@ -539,7 +539,7 @@ func registerWebScraper(ctx context.Context, reg *kdepstools.Registry) {
 // The db_path parameter selects the database file; defaults to KDEPS_SQL_DB_PATH env var.
 func registerSQLTools(_ context.Context, reg *kdepstools.Registry) {
 	dbPathParam := domain.ToolParam{
-		Type:        "string",
+		Type:        toolParamString,
 		Description: "Path to the SQLite database file. Defaults to KDEPS_SQL_DB_PATH environment variable.",
 		Required:    false,
 	}
@@ -561,7 +561,7 @@ func registerSQLTools(_ context.Context, reg *kdepstools.Registry) {
 		Description: "Return the schema (column names and types) for a table in a SQLite database. Use before writing queries to know the exact column names.",
 		Parameters: map[string]domain.ToolParam{
 			"table": {
-				Type:        "string",
+				Type:        toolParamString,
 				Description: "Name of the table to describe",
 				Required:    true,
 			},
@@ -581,8 +581,8 @@ func registerSQLTools(_ context.Context, reg *kdepstools.Registry) {
 		Name:        "sql_query",
 		Description: "Execute a SQL query against a SQLite database and return the results as formatted text. Use SELECT statements to retrieve data. Non-SELECT statements are rejected for safety.",
 		Parameters: map[string]domain.ToolParam{
-			"query": {
-				Type:        "string",
+			toolParamQuery: {
+				Type:        toolParamString,
 				Description: "The SQL SELECT statement to execute",
 				Required:    true,
 			},
@@ -696,8 +696,8 @@ func registerSerpAPI(ctx context.Context, reg *kdepstools.Registry) {
 		Name:        "serpapi_search",
 		Description: "Search Google via SerpAPI. Use for current events, news, and queries requiring fresh web results. Requires SERPAPI_API_KEY. Input is a plain search query string.",
 		Parameters: map[string]domain.ToolParam{
-			"query": {
-				Type:        "string",
+			toolParamQuery: {
+				Type:        toolParamString,
 				Description: "The search query to look up on Google",
 				Required:    true,
 			},
@@ -736,8 +736,8 @@ func registerExa(ctx context.Context, reg *kdepstools.Registry) {
 		Name:        "exa_search",
 		Description: "Search the web using Exa (formerly Metaphor) neural search. Finds highly relevant URLs and content using AI-powered link prediction. Best for research, finding authoritative sources, and content discovery. Requires EXA_API_KEY.",
 		Parameters: map[string]domain.ToolParam{
-			"query": {
-				Type:        "string",
+			toolParamQuery: {
+				Type:        toolParamString,
 				Description: "The search query or prompt to find relevant links for",
 				Required:    true,
 			},
@@ -754,8 +754,8 @@ func registerExa(ctx context.Context, reg *kdepstools.Registry) {
 
 func callExaSearch(ctx context.Context, apiKey, query string) (string, error) {
 	body, _ := json.Marshal(map[string]any{
-		"query":      query,
-		"numResults": exaDefaultNumResults,
+		toolParamQuery: query,
+		"numResults":   exaDefaultNumResults,
 	})
 	req, err := http.NewRequestWithContext(
 		ctx,
@@ -825,12 +825,12 @@ func registerZapierNLA(ctx context.Context, reg *kdepstools.Registry) {
 		Description: "Execute a Zapier NLA action by action ID with natural language instructions. First use zapier_list_actions to find available action IDs. Requires ZAPIER_NLA_API_KEY.",
 		Parameters: map[string]domain.ToolParam{
 			"action_id": {
-				Type:        "string",
+				Type:        toolParamString,
 				Description: "The Zapier NLA action ID to execute (from zapier_list_actions)",
 				Required:    true,
 			},
 			"instructions": {
-				Type:        "string",
+				Type:        toolParamString,
 				Description: "Natural language instructions describing what to do with this action",
 				Required:    true,
 			},
@@ -946,8 +946,8 @@ func registerPerplexity(ctx context.Context, reg *kdepstools.Registry) {
 		Name:        "perplexity_search",
 		Description: "Search the web using Perplexity AI. Provides cited, up-to-date answers from the internet. Requires PERPLEXITY_API_KEY. Input is a plain search query or question.",
 		Parameters: map[string]domain.ToolParam{
-			"query": {
-				Type:        "string",
+			toolParamQuery: {
+				Type:        toolParamString,
 				Description: "The search query or question to answer using Perplexity AI",
 				Required:    true,
 			},
@@ -973,7 +973,7 @@ func registerBashExec(_ context.Context, reg *kdepstools.Registry) {
 		Description: "Execute a bash shell command and return its output. Use for running scripts, checking system state (git status, ls, etc.), or performing file operations. Commands run with a 30-second timeout.",
 		Parameters: map[string]domain.ToolParam{
 			"command": {
-				Type:        "string",
+				Type:        toolParamString,
 				Description: "The bash command to execute",
 				Required:    true,
 			},
@@ -1020,8 +1020,8 @@ func registerWolframAlpha(ctx context.Context, reg *kdepstools.Registry) {
 		Name:        "wolfram_alpha",
 		Description: "Query Wolfram Alpha for factual computations, math, science, unit conversions, and data lookups. Returns a concise plain-text answer. Requires WOLFRAM_APP_ID.",
 		Parameters: map[string]domain.ToolParam{
-			"query": {
-				Type:        "string",
+			toolParamQuery: {
+				Type:        toolParamString,
 				Description: "The question or computation to evaluate (e.g. 'integral of x^2', 'population of France', '42 miles in km')",
 				Required:    true,
 			},
@@ -1128,18 +1128,18 @@ func registerCohereRerank(ctx context.Context, reg *kdepstools.Registry) {
 		return
 	}
 	rerankParams := map[string]domain.ToolParam{
-		"query": {
-			Type:        "string",
+		toolParamQuery: {
+			Type:        toolParamString,
 			Description: "The search query to rank documents against",
 			Required:    true,
 		},
 		"documents": {
-			Type:        "string",
+			Type:        toolParamString,
 			Description: `JSON array of document texts to rerank, e.g. ["doc1", "doc2"]`,
 			Required:    true,
 		},
 		"model": {
-			Type:        "string",
+			Type:        toolParamString,
 			Description: fmt.Sprintf("Cohere rerank model (default: %s)", defaultCohereRerank),
 		},
 		"top_n": {
@@ -1175,18 +1175,18 @@ func registerVoyageAIRerank(ctx context.Context, reg *kdepstools.Registry) {
 		return
 	}
 	rerankParams := map[string]domain.ToolParam{
-		"query": {
-			Type:        "string",
+		toolParamQuery: {
+			Type:        toolParamString,
 			Description: "The search query to rank documents against",
 			Required:    true,
 		},
 		"documents": {
-			Type:        "string",
+			Type:        toolParamString,
 			Description: `JSON array of document texts to rerank`,
 			Required:    true,
 		},
 		"model": {
-			Type:        "string",
+			Type:        toolParamString,
 			Description: fmt.Sprintf("VoyageAI rerank model (default: %s)", defaultVoyageRerank),
 		},
 		"top_n": {
@@ -1214,7 +1214,7 @@ func registerVoyageAIRerank(ctx context.Context, reg *kdepstools.Registry) {
 func callVoyageRerank(ctx context.Context, apiKey string, p rerankParams) (string, error) {
 	payload, _ := json.Marshal(map[string]any{
 		"model":            p.model,
-		"query":            p.query,
+		toolParamQuery:     p.query,
 		"documents":        p.documents,
 		"top_k":            p.topN,
 		"return_documents": true,
@@ -1278,18 +1278,18 @@ func registerJinaRerank(ctx context.Context, reg *kdepstools.Registry) {
 		return
 	}
 	rerankParams := map[string]domain.ToolParam{
-		"query": {
-			Type:        "string",
+		toolParamQuery: {
+			Type:        toolParamString,
 			Description: "The search query to rank documents against",
 			Required:    true,
 		},
 		"documents": {
-			Type:        "string",
+			Type:        toolParamString,
 			Description: `JSON array of document texts to rerank`,
 			Required:    true,
 		},
 		"model": {
-			Type:        "string",
+			Type:        toolParamString,
 			Description: fmt.Sprintf("Jina rerank model (default: %s)", defaultJinaRerank),
 		},
 		"top_n": {
@@ -1327,7 +1327,7 @@ func callCohereFormatReranker(
 ) (string, error) {
 	payload, _ := json.Marshal(map[string]any{
 		"model":            p.model,
-		"query":            p.query,
+		toolParamQuery:     p.query,
 		"documents":        p.documents,
 		"top_n":            p.topN,
 		"return_documents": true,
@@ -1450,17 +1450,17 @@ func googleCacheCreateTool(ctx context.Context, apiKey string) *kdepstools.Tool 
 		Description: "Create a Google AI server-side cached content entry from a text system prompt. Returns the cache name (e.g. 'cachedContents/xyz123') for use in chat: googleCachedContent. Only available when GOOGLE_API_KEY is set.",
 		Parameters: map[string]domain.ToolParam{
 			"model": {
-				Type:        "string",
+				Type:        toolParamString,
 				Description: "Gemini model name (e.g. 'gemini-2.0-flash')",
 				Required:    true,
 			},
-			"content": {
-				Type:        "string",
+			toolParamContent: {
+				Type:        toolParamString,
 				Description: "Text to cache as a system prompt (must be >= 32K tokens for caching benefit)",
 				Required:    true,
 			},
 			"ttl": {
-				Type:        "string",
+				Type:        toolParamString,
 				Description: "Cache TTL as a Go duration string (e.g. '1h', '30m'). Default: '1h'",
 				Required:    false,
 			},
@@ -1507,7 +1507,7 @@ func googleCacheDeleteTool(ctx context.Context, apiKey string) *kdepstools.Tool 
 		Description: "Delete a Google AI cached content entry by name. Only available when GOOGLE_API_KEY is set.",
 		Parameters: map[string]domain.ToolParam{
 			"name": {
-				Type:        "string",
+				Type:        toolParamString,
 				Description: "The cached content name returned by google_cache_create (e.g. 'cachedContents/xyz123')",
 				Required:    true,
 			},
@@ -1568,8 +1568,8 @@ func registerRetrieveContext(ctx context.Context, reg *kdepstools.Registry) {
 			"Use for finding code, documentation, or notes related to a query before implementing or answering. " +
 			"Requires KDEPS_RAG_BASE_URL pointing to a compatible RAG service.",
 		Parameters: map[string]domain.ToolParam{
-			"query": {
-				Type:        "string",
+			toolParamQuery: {
+				Type:        toolParamString,
 				Description: "The search query to find relevant context for",
 				Required:    true,
 			},
@@ -1599,7 +1599,7 @@ func registerRetrieveContext(ctx context.Context, reg *kdepstools.Registry) {
 }
 
 func callRetrieveContext(ctx context.Context, baseURL, query string, topK int) (string, error) {
-	body, _ := json.Marshal(map[string]any{"query": query, "top_k": topK})
+	body, _ := json.Marshal(map[string]any{toolParamQuery: query, "top_k": topK})
 	reqCtx, cancel := context.WithTimeout(ctx, ragTimeoutSeconds*time.Second)
 	defer cancel()
 	req, err := http.NewRequestWithContext(
@@ -1700,13 +1700,13 @@ func registerCodeIntelligenceTools(_ context.Context, reg *kdepstools.Registry) 
 			desc: "Search for a symbol or pattern across the codebase. Use this first to locate symbols before using code_definition or code_references. Requires: query, path.",
 			op:   domain.CodeIntOpSymbolSearch,
 			params: map[string]domain.ToolParam{
-				"query": {
-					Type:        "string",
+				toolParamQuery: {
+					Type:        toolParamString,
 					Description: "Symbol name or search pattern",
 					Required:    true,
 				},
 				"path": {
-					Type:        "string",
+					Type:        toolParamString,
 					Description: "File or directory to search (absolute path)",
 					Required:    true,
 				},
@@ -1718,12 +1718,12 @@ func registerCodeIntelligenceTools(_ context.Context, reg *kdepstools.Registry) 
 			op:   domain.CodeIntOpDefinition,
 			params: map[string]domain.ToolParam{
 				"symbol": {
-					Type:        "string",
+					Type:        toolParamString,
 					Description: "Symbol name to find the definition of",
 					Required:    true,
 				},
 				"path": {
-					Type:        "string",
+					Type:        toolParamString,
 					Description: "File containing the symbol reference (absolute path)",
 					Required:    true,
 				},
@@ -1735,12 +1735,12 @@ func registerCodeIntelligenceTools(_ context.Context, reg *kdepstools.Registry) 
 			op:   domain.CodeIntOpReferences,
 			params: map[string]domain.ToolParam{
 				"symbol": {
-					Type:        "string",
+					Type:        toolParamString,
 					Description: "Symbol name to find references for",
 					Required:    true,
 				},
 				"path": {
-					Type:        "string",
+					Type:        toolParamString,
 					Description: "File containing one reference (absolute path)",
 					Required:    true,
 				},
@@ -1752,7 +1752,7 @@ func registerCodeIntelligenceTools(_ context.Context, reg *kdepstools.Registry) 
 			op:   domain.CodeIntOpDocumentSymbols,
 			params: map[string]domain.ToolParam{
 				"path": {
-					Type:        "string",
+					Type:        toolParamString,
 					Description: "File to extract symbols from (absolute path)",
 					Required:    true,
 				},
@@ -1764,12 +1764,12 @@ func registerCodeIntelligenceTools(_ context.Context, reg *kdepstools.Registry) 
 			op:   domain.CodeIntOpHover,
 			params: map[string]domain.ToolParam{
 				"symbol": {
-					Type:        "string",
+					Type:        toolParamString,
 					Description: "Symbol name to get documentation for",
 					Required:    true,
 				},
 				"path": {
-					Type:        "string",
+					Type:        toolParamString,
 					Description: "File containing the symbol (absolute path)",
 					Required:    true,
 				},
@@ -1781,7 +1781,7 @@ func registerCodeIntelligenceTools(_ context.Context, reg *kdepstools.Registry) 
 			op:   domain.CodeIntOpDiagnostics,
 			params: map[string]domain.ToolParam{
 				"path": {
-					Type:        "string",
+					Type:        toolParamString,
 					Description: "File to check (absolute path)",
 					Required:    true,
 				},
@@ -1814,7 +1814,7 @@ func registerCodeIntelligenceTools(_ context.Context, reg *kdepstools.Registry) 
 				}
 				out, err := json.MarshalIndent(result, "", "  ")
 				if err != nil {
-					return fmt.Sprintf("%v", result), nil
+					return "", err
 				}
 				return string(out), nil
 			},

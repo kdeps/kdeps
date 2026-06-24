@@ -29,11 +29,11 @@ import (
 
 // parseHostPortFromURL parses host and port from a URL string.
 // Returns default values if URL is empty or invalid.
-// If defaultHost is empty, "localhost" is used as the default.
+// If defaultHost is empty, defaultLocalhost is used as the default.
 func parseHostPortFromURL(baseURL string, defaultHost string, defaultPort int) (string, int) {
 	kdeps_debug.Log("enter: parseHostPortFromURL")
 	if defaultHost == "" {
-		defaultHost = "localhost"
+		defaultHost = defaultLocalhost
 	}
 	if baseURL == "" {
 		return defaultHost, defaultPort

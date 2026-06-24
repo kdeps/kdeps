@@ -60,12 +60,12 @@ func filterIssuesBySeverity(issues []AnalysisIssue, severity string) []AnalysisI
 
 // HasErrors returns true if any issue has severity "error".
 func (wa *WorkflowAnalysis) HasErrors() bool {
-	return len(filterIssuesBySeverity(wa.Issues, "error")) > 0
+	return len(filterIssuesBySeverity(wa.Issues, severityError)) > 0
 }
 
 // Errors returns all error-severity issues.
 func (wa *WorkflowAnalysis) Errors() []AnalysisIssue {
-	return filterIssuesBySeverity(wa.Issues, "error")
+	return filterIssuesBySeverity(wa.Issues, severityError)
 }
 
 // Warnings returns all warning-severity issues.

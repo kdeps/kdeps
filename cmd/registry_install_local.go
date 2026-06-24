@@ -161,7 +161,7 @@ func downloadRegistryArchive(info *packageInfo, name, version string) (string, f
 func resolveRegistryManifest(archivePath, name, version string) *domain.KdepsPkg {
 	manifest, peekErr := peekManifest(archivePath)
 	if peekErr != nil || manifest == nil {
-		manifest = &domain.KdepsPkg{Name: name, Version: version, Type: "workflow"}
+		manifest = &domain.KdepsPkg{Name: name, Version: version, Type: manifestTypeWorkflow}
 	}
 	if manifest.Name == "" {
 		manifest.Name = name

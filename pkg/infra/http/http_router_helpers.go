@@ -72,12 +72,12 @@ type routerMethodRegistrar func(*Router, string, stdhttp.HandlerFunc)
 
 //nolint:gochecknoglobals // method name to registrar dispatch table
 var routerMethodRegistrars = map[string]routerMethodRegistrar{
-	"GET":     (*Router).GET,
-	"POST":    (*Router).POST,
-	"PUT":     (*Router).PUT,
-	"DELETE":  (*Router).DELETE,
-	"PATCH":   (*Router).PATCH,
-	"OPTIONS": (*Router).OPTIONS,
+	methodGet:     (*Router).GET,
+	methodPost:    (*Router).POST,
+	methodPut:     (*Router).PUT,
+	methodDelete:  (*Router).DELETE,
+	methodPatch:   (*Router).PATCH,
+	methodOptions: (*Router).OPTIONS,
 }
 
 func registerRouterMethod(router *Router, method, path string, handler stdhttp.HandlerFunc) {

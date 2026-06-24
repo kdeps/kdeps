@@ -22,6 +22,8 @@ import (
 	"sync"
 )
 
+const langPython = "python"
+
 // lspServerInfo describes a detected LSP server.
 type lspServerInfo struct {
 	bin  string
@@ -65,7 +67,7 @@ func (m *lspManager) getServer(languageID, workspaceRoot, filePath string) (*lsp
 	}
 
 	// Initialize the server with workspace capabilities.
-	if err := m.initialize(client, languageID, workspaceRoot, filePath); err != nil {
+	if err = m.initialize(client, languageID, workspaceRoot, filePath); err != nil {
 		client.close()
 		return nil, fmt.Errorf("lsp: initialize %s: %w", languageID, err)
 	}
@@ -84,7 +86,7 @@ func (m *lspManager) detectServer(languageID string) *lspServerInfo {
 		if m.lookup("gopls") {
 			return &lspServerInfo{bin: "gopls", args: []string{"serve", "-mode=stdio"}}
 		}
-	case "python": //nolint:goconst // language identifier
+	case langPython:
 		if m.lookup("pyright-langserver") {
 			return &lspServerInfo{bin: "pyright-langserver", args: []string{"--stdio"}}
 		}
@@ -149,7 +151,7 @@ func (m *lspManager) initialize(client *lspClient, languageID, workspaceRoot, fi
 // lspInitOptions returns language-specific initialization options.
 func lspInitOptions(languageID string) map[string]interface{} {
 	switch languageID {
-	case "python": //nolint:goconst // language identifier
+	case langPython:
 		return map[string]interface{}{
 			"typeCheckingMode": "basic",
 		}
@@ -169,7 +171,7 @@ func languageIDFromPath(path string) string {
 	case ".go":
 		return "go"
 	case ".py":
-		return "python"
+		return langPython
 	case ".rs":
 		return "rust"
 	case ".ts", ".tsx":

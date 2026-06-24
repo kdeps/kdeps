@@ -18,6 +18,14 @@
 
 package config
 
+const (
+	strategyTokenThreshold = "token_threshold"
+	strategyFallback       = "fallback"
+	strategyCostOptimized  = "cost_optimized"
+	strategyRoundRobin     = "round_robin"
+	providerOpenAI         = "openai"
+)
+
 //nolint:gochecknoglobals // read-only lookup tables for validation
 var (
 	knownTopLevelKeys = map[string]bool{
@@ -43,16 +51,16 @@ var (
 	}
 
 	validStrategies = map[string]bool{
-		"":                true,
-		"token_threshold": true,
-		"fallback":        true,
-		"cost_optimized":  true,
-		"round_robin":     true,
+		"":                     true,
+		strategyTokenThreshold: true,
+		strategyFallback:       true,
+		strategyCostOptimized:  true,
+		strategyRoundRobin:     true,
 	}
 
 	cloudProvidersList = []cloudProvider{
 		{
-			name: "openai", yamlKey: "openai_api_key", envVar: "OPENAI_API_KEY",
+			name: providerOpenAI, yamlKey: "openai_api_key", envVar: "OPENAI_API_KEY",
 			doctorSpotCheck: true,
 			field:           func(k *LLMKeys) *string { return &k.OpenAI },
 		},

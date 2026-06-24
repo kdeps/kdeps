@@ -177,8 +177,8 @@ func (s *Session) Append(userInput, assistantResponse string) {
 	uid := s.nextID()
 	aid := s.nextID()
 	s.messages = append(s.messages,
-		SessionMessage{Role: "user", Content: userInput, ID: uid, ParentID: parentID},
-		SessionMessage{Role: "assistant", Content: assistantResponse, ID: aid, ParentID: uid},
+		SessionMessage{Role: RoleUser, Content: userInput, ID: uid, ParentID: parentID},
+		SessionMessage{Role: RoleAssistant, Content: assistantResponse, ID: aid, ParentID: uid},
 	)
 
 	if s.maxTurns > 0 && len(s.messages)/sessionMsgsPer > s.maxTurns {
@@ -228,7 +228,7 @@ func (s *Session) BuildMessagesJSON() string {
 
 	// Build array of {role, content} objects.
 	// Special internal roles (compactionSummary, branchSummary) are sent as
-	// "user" so the LLM receives a valid role — matching pi's convertToLlm().
+	// RoleUser so the LLM receives a valid role — matching pi's convertToLlm().
 	var sb strings.Builder
 	sb.WriteByte('[')
 	for i, m := range s.messages {
@@ -239,7 +239,7 @@ func (s *Session) BuildMessagesJSON() string {
 		if role == RoleCompactionSummary || role == RoleBranchSummary {
 			role = RoleUser
 		}
-		fmt.Fprintf(&sb, `{"role":"%s","content":%s}`, role, jsonString(m.Content))
+		fmt.Fprintf(&sb, `{"role":"%s",toolParamContent:%s}`, role, jsonString(m.Content))
 	}
 	sb.WriteByte(']')
 	return sb.String()

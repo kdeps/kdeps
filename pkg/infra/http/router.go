@@ -50,32 +50,32 @@ func (r *Router) registerHTTPVerb(method, path string, handler stdhttp.HandlerFu
 
 // GET registers a GET route.
 func (r *Router) GET(path string, handler stdhttp.HandlerFunc) {
-	r.registerHTTPVerb("GET", path, handler)
+	r.registerHTTPVerb(methodGet, path, handler)
 }
 
 // POST registers a POST route.
 func (r *Router) POST(path string, handler stdhttp.HandlerFunc) {
-	r.registerHTTPVerb("POST", path, handler)
+	r.registerHTTPVerb(methodPost, path, handler)
 }
 
 // PUT registers a PUT route.
 func (r *Router) PUT(path string, handler stdhttp.HandlerFunc) {
-	r.registerHTTPVerb("PUT", path, handler)
+	r.registerHTTPVerb(methodPut, path, handler)
 }
 
 // DELETE registers a DELETE route.
 func (r *Router) DELETE(path string, handler stdhttp.HandlerFunc) {
-	r.registerHTTPVerb("DELETE", path, handler)
+	r.registerHTTPVerb(methodDelete, path, handler)
 }
 
 // PATCH registers a PATCH route.
 func (r *Router) PATCH(path string, handler stdhttp.HandlerFunc) {
-	r.registerHTTPVerb("PATCH", path, handler)
+	r.registerHTTPVerb(methodPatch, path, handler)
 }
 
 // OPTIONS registers an OPTIONS route.
 func (r *Router) OPTIONS(path string, handler stdhttp.HandlerFunc) {
-	r.registerHTTPVerb("OPTIONS", path, handler)
+	r.registerHTTPVerb(methodOptions, path, handler)
 }
 
 // register registers a route.

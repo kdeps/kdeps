@@ -38,7 +38,7 @@ func (e *Executor) retryFallbackRoutes(
 		return response, lastErr
 	}
 	for i := 1; i < len(fallbackRoutes); i++ {
-		if _, hasErr := response["error"]; !hasErr {
+		if _, hasErr := response[fieldError]; !hasErr {
 			break
 		}
 		route := &fallbackRoutes[i]
@@ -53,7 +53,7 @@ func (e *Executor) retryFallbackRoutes(
 		}
 		response, lastErr = e.callBackend(fb, fbURL, rb, timeout)
 		if lastErr != nil {
-			response = map[string]interface{}{"error": lastErr.Error()}
+			response = map[string]interface{}{fieldError: lastErr.Error()}
 		}
 	}
 	return response, lastErr

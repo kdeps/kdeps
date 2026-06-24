@@ -28,6 +28,11 @@ import (
 	"github.com/kdeps/kdeps/v2/pkg/domain"
 )
 
+const (
+	driverPostgres  = "postgres"
+	keyRowsAffected = "rowsAffected"
+)
+
 // driverPrefixes maps connection string prefixes to driver names; first match wins.
 //
 //nolint:gochecknoglobals // static lookup table
@@ -35,7 +40,7 @@ var driverPrefixes = []struct {
 	driver   string
 	prefixes []string
 }{
-	{"postgres", []string{"postgres"}},
+	{driverPostgres, []string{driverPostgres}},
 	{"mysql", []string{"mysql", "mariadb"}},
 	{"sqlite3", []string{"sqlite", "file:"}},
 	{"sqlserver", []string{"sqlserver", "mssql"}},
@@ -53,7 +58,7 @@ func (e *Executor) DetectDriver(connectionStr string) string {
 			}
 		}
 	}
-	return "postgres" // Default
+	return driverPostgres // Default
 }
 
 // ConfigurePool configures the database connection pool (exported for testing).

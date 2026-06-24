@@ -74,13 +74,13 @@ func (e *Executor) callBackendWithFallback(
 ) map[string]interface{} {
 	response, err := e.callBackend(backend, baseURL, requestBody, timeout)
 	if err != nil {
-		response = map[string]interface{}{"error": err.Error()}
+		response = map[string]interface{}{fieldError: err.Error()}
 	}
 
 	response, err = e.retryFallbackRoutes(
 		fallbackRoutes, cfg, messages, requestConfig, response, timeout,
 	)
-	if _, hasErr := response["error"]; hasErr && err != nil {
+	if _, hasErr := response[fieldError]; hasErr && err != nil {
 		return response
 	}
 	return response

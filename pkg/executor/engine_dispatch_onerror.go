@@ -70,8 +70,8 @@ func (e *Engine) handleOnErrorContinue(
 		"actionID", resource.ActionID)
 	return map[string]interface{}{
 		"_error": map[string]interface{}{
-			"message": lastErr.Error(),
-			"handled": true,
+			engineFieldMessage: lastErr.Error(),
+			"handled":          true,
 		},
 	}, nil
 }

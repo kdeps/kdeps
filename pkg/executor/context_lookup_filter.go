@@ -44,7 +44,7 @@ func (ctx *ExecutionContext) getFromBody(name string) (interface{}, error) {
 		return nil, errors.New("no body")
 	}
 
-	return ctx.GetFilteredValue(ctx.Request.Body, name, "body")
+	return ctx.GetFilteredValue(ctx.Request.Body, name, contextFieldBody)
 }
 
 // getFromQuery retrieves value from query parameters with filtering.

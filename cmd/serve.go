@@ -283,7 +283,7 @@ func newMinimalHostWorkflow() *domain.Workflow {
 		Kind:       "Workflow",
 		Metadata: domain.WorkflowMetadata{
 			Name:    "agent",
-			Version: "1.0.0",
+			Version: defaultVersion,
 		},
 	}
 }

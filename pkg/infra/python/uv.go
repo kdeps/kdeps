@@ -45,6 +45,10 @@ const (
 	UVTimeout = 5 * time.Minute
 	// IOToolsPythonVersion is the Python version used for I/O tool venvs.
 	IOToolsPythonVersion = "3.12"
+
+	uvFlagPython = "--python"
+	uvCmdInstall = "install"
+	uvCmdVenv    = "venv"
 )
 
 // userCacheDirFunc resolves the OS user cache directory. Overridable in tests.
@@ -149,7 +153,7 @@ func (m *Manager) EnsureVenv(
 	ctx, cancel := context.WithTimeout(context.Background(), UVTimeout)
 	defer cancel()
 
-	if err := runUVFunc(ctx, []string{"venv", "--python", pythonVersion, venvPath}, nil); err != nil {
+	if err := runUVFunc(ctx, []string{uvCmdVenv, uvFlagPython, pythonVersion, venvPath}, nil); err != nil {
 		return "", fmt.Errorf("failed to create venv: %w", err)
 	}
 
@@ -177,7 +181,7 @@ func (m *Manager) GetVenvName(
 	requirementsFile string,
 ) string {
 	kdeps_debug.Log("enter: GetVenvName")
-	parts := []string{"venv", pythonVersion}
+	parts := []string{uvCmdVenv, pythonVersion}
 	if requirementsFile != "" {
 		parts = append(parts, filepath.Base(requirementsFile))
 	} else if len(packages) > 0 {
@@ -196,7 +200,7 @@ func (m *Manager) InstallPackages(venvPath string, packages []string, extraArgs 
 		pythonPath = pythonExecutableCandidates(venvPath)[0]
 	}
 
-	args := append([]string{"pip", "install"}, packages...)
+	args := append([]string{"pip", uvCmdInstall}, packages...)
 	args = append(args, extraArgs...)
 
 	ctx, cancel := context.WithTimeout(context.Background(), UVTimeout)
@@ -221,7 +225,7 @@ func (m *Manager) InstallRequirements(venvPath string, requirementsFile string) 
 
 	if runErr := runUVFunc(
 		ctx,
-		[]string{"pip", "install", "-r", requirementsFile},
+		[]string{"pip", uvCmdInstall, "-r", requirementsFile},
 		uvVenvEnv(venvPath, pythonPath),
 	); runErr != nil {
 		return fmt.Errorf("requirements installation failed: %w", runErr)
@@ -241,7 +245,7 @@ func (m *Manager) InstallTool(binaryName, pkg string, extraArgs ...string) error
 	ctx, cancel := context.WithTimeout(context.Background(), UVTimeout)
 	defer cancel()
 
-	args := append([]string{"tool", "install", pkg}, extraArgs...)
+	args := append([]string{"tool", uvCmdInstall, pkg}, extraArgs...)
 	cmd := exec.CommandContext(ctx, "uv", args...)
 	if output, err := cmd.CombinedOutput(); err != nil {
 		return fmt.Errorf("uv tool install %s: %w\n%s", pkg, err, string(output))

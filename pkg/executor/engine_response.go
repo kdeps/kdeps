@@ -52,8 +52,8 @@ func (e *Engine) executeAPIResponse(
 	}
 
 	apiResponse := map[string]interface{}{
-		"success": successBool,
-		"data":    evaluatedResponse,
+		"success":        successBool,
+		contextFieldData: evaluatedResponse,
 	}
 
 	if metaMap := e.buildAPIResponseMeta(apiResponseConfig, env); len(metaMap) > 0 {

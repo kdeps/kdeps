@@ -162,7 +162,7 @@ func CloneTypeLabel(basename string) (string, bool) {
 	case slices.Contains(workflowFileNames(), basename):
 		return "agent", true
 	case slices.Contains(componentFileNames(), basename):
-		return "component", true
+		return string(KindComponent), true
 	default:
 		return "", false
 	}

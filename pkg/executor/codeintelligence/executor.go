@@ -216,21 +216,21 @@ func (e *Executor) rgSymbolSearch(config *domain.CodeIntelligenceConfig) (interf
 
 	matches, err := e.runRG(args)
 	if err != nil {
-		return result(false, map[string]interface{}{"error": err.Error()}), err
+		return result(false, map[string]interface{}{resultError: err.Error()}), err
 	}
 
 	var symbols []map[string]interface{}
 	for _, m := range matches {
 		symbols = append(symbols, map[string]interface{}{
-			"file":    m.Data.Path.Text,
-			"line":    m.Data.LineNumber,
-			"content": strings.TrimSpace(m.Data.Lines.Text),
+			"file":          m.Data.Path.Text,
+			"line":          m.Data.LineNumber,
+			ciResultContent: strings.TrimSpace(m.Data.Lines.Text),
 		})
 	}
 
 	return result(true, map[string]interface{}{
-		"symbols": symbols,
-		"count":   len(symbols),
+		"symbols":     symbols,
+		ciResultCount: len(symbols),
 	}), nil
 }
 
@@ -249,21 +249,21 @@ func (e *Executor) rgDefinition(config *domain.CodeIntelligenceConfig) (interfac
 
 	matches, err := e.runRG(args)
 	if err != nil {
-		return result(false, map[string]interface{}{"error": err.Error()}), err
+		return result(false, map[string]interface{}{resultError: err.Error()}), err
 	}
 
 	var defs []map[string]interface{}
 	for _, m := range matches {
 		defs = append(defs, map[string]interface{}{
-			"file":    m.Data.Path.Text,
-			"line":    m.Data.LineNumber,
-			"content": strings.TrimSpace(m.Data.Lines.Text),
+			"file":          m.Data.Path.Text,
+			"line":          m.Data.LineNumber,
+			ciResultContent: strings.TrimSpace(m.Data.Lines.Text),
 		})
 	}
 
 	return result(true, map[string]interface{}{
 		"definitions": defs,
-		"count":       len(defs),
+		ciResultCount: len(defs),
 	}), nil
 }
 
@@ -279,21 +279,21 @@ func (e *Executor) rgReferences(config *domain.CodeIntelligenceConfig) (interfac
 
 	matches, err := e.runRG(args)
 	if err != nil {
-		return result(false, map[string]interface{}{"error": err.Error()}), err
+		return result(false, map[string]interface{}{resultError: err.Error()}), err
 	}
 
 	var refs []map[string]interface{}
 	for _, m := range matches {
 		refs = append(refs, map[string]interface{}{
-			"file":    m.Data.Path.Text,
-			"line":    m.Data.LineNumber,
-			"content": strings.TrimSpace(m.Data.Lines.Text),
+			"file":          m.Data.Path.Text,
+			"line":          m.Data.LineNumber,
+			ciResultContent: strings.TrimSpace(m.Data.Lines.Text),
 		})
 	}
 
 	return result(true, map[string]interface{}{
-		"references": refs,
-		"count":      len(refs),
+		"references":  refs,
+		ciResultCount: len(refs),
 	}), nil
 }
 
@@ -316,23 +316,23 @@ func (e *Executor) rgDocumentSymbols(config *domain.CodeIntelligenceConfig) (int
 
 	matches, err := e.runRG(args)
 	if err != nil {
-		return result(false, map[string]interface{}{"error": err.Error()}), err
+		return result(false, map[string]interface{}{resultError: err.Error()}), err
 	}
 
 	var symbols []map[string]interface{}
 	for _, m := range matches {
 		symbols = append(symbols, map[string]interface{}{
-			"name":    extractSymbolName(m.Data.Lines.Text),
-			"kind":    inferKind(m.Data.Lines.Text),
-			"file":    m.Data.Path.Text,
-			"line":    m.Data.LineNumber,
-			"content": strings.TrimSpace(m.Data.Lines.Text),
+			"name":          extractSymbolName(m.Data.Lines.Text),
+			"kind":          inferKind(m.Data.Lines.Text),
+			"file":          m.Data.Path.Text,
+			"line":          m.Data.LineNumber,
+			ciResultContent: strings.TrimSpace(m.Data.Lines.Text),
 		})
 	}
 
 	return result(true, map[string]interface{}{
-		"symbols": symbols,
-		"count":   len(symbols),
+		"symbols":     symbols,
+		ciResultCount: len(symbols),
 	}), nil
 }
 
@@ -345,23 +345,23 @@ func (e *Executor) goDocumentSymbols(config *domain.CodeIntelligenceConfig) (int
 
 	matches, err := e.runRG(args)
 	if err != nil {
-		return result(false, map[string]interface{}{"error": err.Error()}), err
+		return result(false, map[string]interface{}{resultError: err.Error()}), err
 	}
 
 	var symbols []map[string]interface{}
 	for _, m := range matches {
 		symbols = append(symbols, map[string]interface{}{
-			"name":    extractSymbolName(m.Data.Lines.Text),
-			"kind":    inferKind(m.Data.Lines.Text),
-			"file":    m.Data.Path.Text,
-			"line":    m.Data.LineNumber,
-			"content": strings.TrimSpace(m.Data.Lines.Text),
+			"name":          extractSymbolName(m.Data.Lines.Text),
+			"kind":          inferKind(m.Data.Lines.Text),
+			"file":          m.Data.Path.Text,
+			"line":          m.Data.LineNumber,
+			ciResultContent: strings.TrimSpace(m.Data.Lines.Text),
 		})
 	}
 
 	return result(true, map[string]interface{}{
-		"symbols": symbols,
-		"count":   len(symbols),
+		"symbols":     symbols,
+		ciResultCount: len(symbols),
 	}), nil
 }
 
@@ -384,21 +384,21 @@ func (e *Executor) rgHover(config *domain.CodeIntelligenceConfig) (interface{}, 
 
 	matches, err := e.runRG(args)
 	if err != nil {
-		return result(false, map[string]interface{}{"error": err.Error()}), err
+		return result(false, map[string]interface{}{resultError: err.Error()}), err
 	}
 
 	var hoverInfo []map[string]interface{}
 	for _, m := range matches {
 		hoverInfo = append(hoverInfo, map[string]interface{}{
-			"file":    m.Data.Path.Text,
-			"line":    m.Data.LineNumber,
-			"content": strings.TrimSpace(m.Data.Lines.Text),
+			"file":          m.Data.Path.Text,
+			"line":          m.Data.LineNumber,
+			ciResultContent: strings.TrimSpace(m.Data.Lines.Text),
 		})
 	}
 
 	return result(true, map[string]interface{}{
-		"hover": hoverInfo,
-		"count": len(hoverInfo),
+		"hover":       hoverInfo,
+		ciResultCount: len(hoverInfo),
 	}), nil
 }
 
@@ -458,7 +458,7 @@ func (e *Executor) rgDiagnostics(config *domain.CodeIntelligenceConfig) (interfa
 
 	return result(true, map[string]interface{}{
 		"diagnostics": diagnostics,
-		"count":       len(diagnostics),
+		ciResultCount: len(diagnostics),
 	}), nil
 }
 

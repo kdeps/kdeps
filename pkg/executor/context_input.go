@@ -27,11 +27,11 @@ import (
 
 func (ctx *ExecutionContext) inputWithTypeHint(name, hint string) (interface{}, error) {
 	switch hint {
-	case "param", "query":
+	case storageTypeParam, "query":
 		return ctx.GetParam(name)
-	case "header":
+	case storageTypeHeader:
 		return ctx.GetHeader(name)
-	case "body", "data":
+	case contextFieldBody, contextFieldData:
 		return ctx.getBody(name)
 	default:
 		if field, ok := lookupInputProcessorFieldByHint(hint); ok {

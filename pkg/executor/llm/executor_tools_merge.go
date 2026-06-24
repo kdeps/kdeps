@@ -28,7 +28,7 @@ func (e *Executor) buildTools(tools []domain.Tool) []map[string]interface{} {
 	result := make([]map[string]interface{}, len(tools))
 	for i, tool := range tools {
 		functionMap := map[string]interface{}{
-			"name":        tool.Name,
+			fieldName:     tool.Name,
 			"description": tool.Description,
 		}
 
@@ -37,8 +37,8 @@ func (e *Executor) buildTools(tools []domain.Tool) []map[string]interface{} {
 		}
 
 		result[i] = map[string]interface{}{
-			"type":     "function",
-			"function": functionMap,
+			jsonFieldType: fieldFunction,
+			fieldFunction: functionMap,
 		}
 	}
 	return result
@@ -52,7 +52,7 @@ func (e *Executor) buildToolParameters(params map[string]domain.ToolParam) map[s
 
 	for name, param := range params {
 		properties[name] = map[string]interface{}{
-			"type":        param.Type,
+			jsonFieldType: param.Type,
 			"description": param.Description,
 		}
 		if param.Required {
@@ -61,9 +61,9 @@ func (e *Executor) buildToolParameters(params map[string]domain.ToolParam) map[s
 	}
 
 	return map[string]interface{}{
-		"type":       "object",
-		"properties": properties,
-		"required":   required,
+		jsonFieldType: "object",
+		"properties":  properties,
+		"required":    required,
 	}
 }
 

@@ -35,18 +35,18 @@ func (sv *SchemaValidator) IsEnumField(field string, schemaType string) bool {
 func schemaEnumMap() map[string][]interface{} {
 	httpMethods := domain.StandardHTTPMethodsEnum()
 	return map[string][]interface{}{
-		"run.chat.backend": {
+		enumKeyChatBackend: {
 			"file", "gguf",
 			"ollama", "openai", "anthropic", "google", "cohere", "mistral",
 			"together", "perplexity", "groq", "deepseek", "openrouter", "xai",
 			"bedrock",
 			"watsonx",
 		},
-		"run.httpClient.method": httpMethods,
-		"run.chat.contextLength": {
+		enumKeyHTTPMethod: httpMethods,
+		enumKeyContextLength: {
 			4096, 8192, 16384, 32768, 65536, 131072, 262144,
 		},
-		"run.sql.format":                    domain.SQLResultFormatsEnum(),
+		enumKeySQLFormat:                    domain.SQLResultFormatsEnum(),
 		"run.validations.methods":           httpMethods,
 		"settings.apiServer.routes.methods": httpMethods,
 		"routes.methods":                    httpMethods,
@@ -75,10 +75,10 @@ func lookupEnumByPath(field string, enumMap map[string][]interface{}, normalize 
 // lookupResourceSchemaEnums resolves short field names in resource schema context.
 func lookupResourceSchemaEnums(field string, enumMap map[string][]interface{}) []interface{} {
 	shortFieldEnums := map[string]string{
-		"backend":       "run.chat.backend",
-		"method":        "run.httpClient.method",
-		"contextLength": "run.chat.contextLength",
-		"format":        "run.sql.format",
+		"backend":       enumKeyChatBackend,
+		"method":        enumKeyHTTPMethod,
+		"contextLength": enumKeyContextLength,
+		"format":        enumKeySQLFormat,
 	}
 	if key, ok := shortFieldEnums[field]; ok {
 		return enumMap[key]
@@ -108,10 +108,10 @@ func lookupNestedFieldEnums(normalizedField string, enumMap map[string][]interfa
 		enumKey string
 	}
 	rules := []contextRule{
-		{"backend", "chat", "run.chat.backend"},
-		{"method", "httpClient", "run.httpClient.method"},
-		{"contextLength", "chat", "run.chat.contextLength"},
-		{"format", "sql", "run.sql.format"},
+		{"backend", resourceTypeChat, enumKeyChatBackend},
+		{"method", "httpClient", enumKeyHTTPMethod},
+		{"contextLength", resourceTypeChat, enumKeyContextLength},
+		{"format", "sql", enumKeySQLFormat},
 	}
 	for _, rule := range rules {
 		if lastPart == rule.part && strings.Contains(normalizedField, rule.context) {
@@ -132,7 +132,7 @@ func lookupNestedFieldEnums(normalizedField string, enumMap map[string][]interfa
 // getEnumValues extracts enum values for a field from the schema.
 func (sv *SchemaValidator) getEnumValues(field string, schemaType string) []interface{} {
 	kdeps_debug.Log("enter: getEnumValues")
-	if schemaType != "resource" && schemaType != "workflow" {
+	if schemaType != "resource" && schemaType != templateVarWorkflow {
 		return nil
 	}
 
@@ -145,7 +145,7 @@ func (sv *SchemaValidator) getEnumValues(field string, schemaType string) []inte
 			return values
 		}
 	}
-	if schemaType == "workflow" {
+	if schemaType == templateVarWorkflow {
 		if values := lookupWorkflowSchemaEnums(field, enumMap); values != nil {
 			return values
 		}

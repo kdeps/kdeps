@@ -48,20 +48,20 @@ func (e *Evaluator) formatValue(value interface{}) string {
 
 // validTypeHints contains the recognized storage type hints accepted by get().
 var validTypeHints = map[string]bool{ //nolint:gochecknoglobals // immutable lookup table, not mutable state
-	"item":     true,
-	"loop":     true,
-	"memory":   true,
-	"session":  true,
-	"output":   true,
-	"param":    true,
-	"query":    true,
-	"header":   true,
-	"file":     true,
-	"info":     true,
-	"data":     true,
-	"body":     true,
-	"filepath": true,
-	"filetype": true,
+	typeHintItem: true,
+	"loop":       true,
+	"memory":     true,
+	"session":    true,
+	"output":     true,
+	"param":      true,
+	"query":      true,
+	"header":     true,
+	"file":       true,
+	"info":       true,
+	"data":       true,
+	"body":       true,
+	"filepath":   true,
+	"filetype":   true,
 }
 
 // isValidTypeHint reports whether s is a recognized storage type hint for get().

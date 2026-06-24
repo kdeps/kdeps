@@ -64,7 +64,7 @@ func buildAgentTool(name, desc string, workflow *domain.Workflow, eng *executor.
 
 func agentToolParameters() map[string]domain.ToolParam {
 	return map[string]domain.ToolParam{
-		"input": {
+		toolsFieldInput: {
 			Type:        "string",
 			Description: "Input message or data forwarded to the agent.",
 			Required:    true,

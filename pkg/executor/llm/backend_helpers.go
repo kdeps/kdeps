@@ -32,9 +32,9 @@ func buildOpenAICompatRequest(
 	config ChatRequestConfig,
 ) map[string]interface{} {
 	req := map[string]interface{}{
-		"model":    model,
-		"messages": messages,
-		"stream":   config.Streaming,
+		jsonFieldModel:    model,
+		jsonFieldMessages: messages,
+		"stream":          config.Streaming,
 	}
 
 	if config.ContextLength > 0 {
@@ -43,7 +43,7 @@ func buildOpenAICompatRequest(
 
 	if config.JSONResponse {
 		req["response_format"] = map[string]interface{}{
-			"type": "json_object",
+			jsonFieldType: jsonResponseFormat,
 		}
 	}
 
@@ -135,9 +135,9 @@ func rawAPIKeyHeader(apiKey, envVar, headerName string) (string, string) {
 // assistantMessageResult builds the standard {message: {role, content}} response shape.
 func assistantMessageResult(content string) map[string]interface{} {
 	return map[string]interface{}{
-		"message": map[string]interface{}{
-			"role":    roleAssistant,
-			"content": content,
+		jsonFieldMessage: map[string]interface{}{
+			jsonFieldRole:    roleAssistant,
+			jsonFieldContent: content,
 		},
 	}
 }
@@ -145,12 +145,12 @@ func assistantMessageResult(content string) map[string]interface{} {
 // convertAnthropicResponse converts an Anthropic API response into the internal format.
 func convertAnthropicResponse(response map[string]interface{}) map[string]interface{} {
 	result := make(map[string]interface{})
-	if content, ok := response["content"].([]interface{}); ok && len(content) > 0 {
+	if content, ok := response[jsonFieldContent].([]interface{}); ok && len(content) > 0 {
 		if firstContent, okContent := content[0].(map[string]interface{}); okContent {
 			if text, okText := firstContent["text"].(string); okText {
-				result["message"] = map[string]interface{}{
-					"role":    roleAssistant,
-					"content": text,
+				result[jsonFieldMessage] = map[string]interface{}{
+					jsonFieldRole:    roleAssistant,
+					jsonFieldContent: text,
 				}
 			}
 		}

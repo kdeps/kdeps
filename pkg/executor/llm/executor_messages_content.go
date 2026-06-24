@@ -42,8 +42,8 @@ func (e *Executor) buildContent(
 	content := []interface{}{
 		// Text prompt
 		map[string]interface{}{
-			"type": "text",
-			"text": promptStr,
+			jsonFieldType: "text",
+			jsonFieldText: promptStr,
 		},
 	}
 
@@ -62,9 +62,9 @@ func (e *Executor) buildContent(
 		}
 
 		content = append(content, map[string]interface{}{
-			"type": "image_url",
+			jsonFieldType: "image_url",
 			"image_url": map[string]interface{}{
-				"url": imageData, // imageData already includes data URI format
+				jsonFieldURL: imageData, // imageData already includes data URI format
 			},
 		})
 	}

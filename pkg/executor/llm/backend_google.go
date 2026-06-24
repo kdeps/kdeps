@@ -31,7 +31,7 @@ type GoogleBackend struct{}
 
 func (b *GoogleBackend) Name() string {
 	kdeps_debug.Log("enter: Name")
-	return "google"
+	return backendGoogle
 }
 
 func (b *GoogleBackend) DefaultURL() string {
@@ -49,7 +49,7 @@ func (b *GoogleBackend) ChatEndpointWithKey(baseURL string, apiKey string) strin
 	kdeps_debug.Log("enter: ChatEndpointWithKey")
 	endpoint := fmt.Sprintf("%s/openai/chat/completions", baseURL)
 	// Google Gemini uses API key as query parameter.
-	apiKey = resolveAPIKey(apiKey, providerAPIKeyEnvVar("google"))
+	apiKey = resolveAPIKey(apiKey, providerAPIKeyEnvVar(backendGoogle))
 	if apiKey != "" {
 		parsedURL, err := url.Parse(endpoint)
 		if err == nil {
@@ -73,7 +73,7 @@ func (b *GoogleBackend) BuildRequest(
 
 func (b *GoogleBackend) ParseResponse(resp *stdhttp.Response) (map[string]interface{}, error) {
 	kdeps_debug.Log("enter: ParseResponse")
-	return parseOpenAICompatHTTPResponse(resp, "google")
+	return parseOpenAICompatHTTPResponse(resp, backendGoogle)
 }
 
 func (b *GoogleBackend) GetAPIKeyHeader(_ string) (string, string) {
@@ -83,4 +83,4 @@ func (b *GoogleBackend) GetAPIKeyHeader(_ string) (string, string) {
 	return "", ""
 }
 
-func (b *GoogleBackend) APIKeyEnvVar() string { return providerAPIKeyEnvVar("google") }
+func (b *GoogleBackend) APIKeyEnvVar() string { return providerAPIKeyEnvVar(backendGoogle) }

@@ -24,6 +24,13 @@ import (
 	"github.com/kdeps/kdeps/v2/pkg/domain"
 )
 
+const (
+	jsonTypeBoolean = "boolean"
+	jsonTypeInteger = "integer"
+	jsonTypeNumber  = "number"
+	jsonTypeString  = "string"
+)
+
 // FromStruct generates a map[string]domain.ToolParam from the exported fields
 // of a Go struct (or pointer to struct). Uses the following struct tags:
 //
@@ -45,7 +52,7 @@ func FromStruct(v interface{}) map[string]domain.ToolParam {
 	if t == nil {
 		return nil
 	}
-	if t.Kind() == reflect.Ptr {
+	if t.Kind() == reflect.Pointer {
 		t = t.Elem()
 	}
 	if t.Kind() != reflect.Struct {
@@ -99,18 +106,18 @@ func fieldName(f reflect.StructField) string {
 
 // goTypeToJSONType maps a reflect.Type to a JSON Schema type string.
 func goTypeToJSONType(t reflect.Type) string {
-	if t.Kind() == reflect.Ptr {
+	if t.Kind() == reflect.Pointer {
 		t = t.Elem()
 	}
 	switch t.Kind() { //nolint:exhaustive // only handle JSON-mapped kinds; default to "string"
 	case reflect.Bool:
-		return "boolean"
+		return jsonTypeBoolean
 	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64,
 		reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
-		return "integer"
+		return jsonTypeInteger
 	case reflect.Float32, reflect.Float64:
-		return "number"
+		return jsonTypeNumber
 	default:
-		return "string"
+		return jsonTypeString
 	}
 }

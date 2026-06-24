@@ -93,7 +93,7 @@ func evaluateAgentParams(
 func buildAgentRequestContext(params map[string]interface{}) *RequestContext {
 	kdeps_debug.Log("enter: buildAgentRequestContext")
 	return &RequestContext{
-		Method: "POST",
+		Method: httpMethodPost,
 		Body:   params,
 	}
 }

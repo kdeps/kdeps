@@ -178,8 +178,8 @@ func (e *Executor) deliverSMTPMessage(req *sendRequest, msg []byte) error {
 func formatSendResult(req *sendRequest) map[string]interface{} {
 	kdeps_debug.Log("enter: formatSendResult")
 	return map[string]interface{}{
-		"success":     true,
-		"action":      "send",
+		keySuccess:    true,
+		keyAction:     "send",
 		"from":        req.from,
 		"to":          req.to,
 		"cc":          req.cc,

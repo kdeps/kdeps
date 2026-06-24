@@ -34,16 +34,16 @@ func storageTypeHandlers() map[string]storageLookupHandler {
 		storageTypeMemory:  func(ctx *ExecutionContext, name string) (interface{}, error) { return ctx.getMemory(name) },
 		storageTypeSession: func(ctx *ExecutionContext, name string) (interface{}, error) { return ctx.getSession(name) },
 		"output":           func(ctx *ExecutionContext, name string) (interface{}, error) { return ctx.getOutput(name) },
-		"param":            func(ctx *ExecutionContext, name string) (interface{}, error) { return ctx.GetParam(name) },
-		"header":           func(ctx *ExecutionContext, name string) (interface{}, error) { return ctx.GetHeader(name) },
+		storageTypeParam:   func(ctx *ExecutionContext, name string) (interface{}, error) { return ctx.GetParam(name) },
+		storageTypeHeader:  func(ctx *ExecutionContext, name string) (interface{}, error) { return ctx.GetHeader(name) },
 		inputTypeFile:      lookupStorageFile,
-		"info":             func(ctx *ExecutionContext, name string) (interface{}, error) { return ctx.Info(name) },
-		"data":             func(ctx *ExecutionContext, name string) (interface{}, error) { return ctx.getBody(name) },
-		"body":             func(ctx *ExecutionContext, name string) (interface{}, error) { return ctx.getBody(name) },
-		"filepath": func(ctx *ExecutionContext, name string) (interface{}, error) {
+		storageTypeInfo:    func(ctx *ExecutionContext, name string) (interface{}, error) { return ctx.Info(name) },
+		contextFieldData:   func(ctx *ExecutionContext, name string) (interface{}, error) { return ctx.getBody(name) },
+		contextFieldBody:   func(ctx *ExecutionContext, name string) (interface{}, error) { return ctx.getBody(name) },
+		storageTypeFilepath: func(ctx *ExecutionContext, name string) (interface{}, error) {
 			return ctx.uploadedFileField(name, func(f *FileUpload) interface{} { return f.Path })
 		},
-		"filetype": func(ctx *ExecutionContext, name string) (interface{}, error) {
+		storageTypeFiletype: func(ctx *ExecutionContext, name string) (interface{}, error) {
 			return ctx.uploadedFileField(name, func(f *FileUpload) interface{} { return f.MimeType })
 		},
 	}

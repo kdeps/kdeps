@@ -69,19 +69,19 @@ const (
 
 //nolint:gochecknoglobals // provider base URLs are constant lookup table, not mutable state
 var langchainBaseURLs = map[string]string{
-	"openai":     "https://api.openai.com/v1",
-	"xai":        "https://api.x.ai/v1",
-	"groq":       "https://api.groq.com/openai/v1",
-	"mistral":    "https://api.mistral.ai/v1",
-	"deepseek":   "https://api.deepseek.com/v1",
-	"openrouter": "https://openrouter.ai/api/v1",
-	"together":   "https://api.together.xyz/v1",
-	"perplexity": "https://api.perplexity.ai",
-	"cohere":     "https://api.cohere.com/compatibility/v1",
-	"file":       "http://127.0.0.1:8080/v1",
-	"gguf":       "http://127.0.0.1:8081/v1",
-	"local":      "http://localhost:8080/v1",
-	"ollama":     "http://localhost:11434/v1",
+	backendOpenAI: "https://api.openai.com/v1",
+	"xai":         "https://api.x.ai/v1",
+	"groq":        "https://api.groq.com/openai/v1",
+	"mistral":     "https://api.mistral.ai/v1",
+	"deepseek":    "https://api.deepseek.com/v1",
+	"openrouter":  "https://openrouter.ai/api/v1",
+	"together":    "https://api.together.xyz/v1",
+	"perplexity":  "https://api.perplexity.ai",
+	"cohere":      "https://api.cohere.com/compatibility/v1",
+	"file":        "http://127.0.0.1:8080/v1",
+	"gguf":        "http://127.0.0.1:8081/v1",
+	"local":       "http://localhost:8080/v1",
+	backendOllama: "http://localhost:11434/v1",
 }
 
 // buildLangchainLLM constructs a langchaingo LLM from cfg, optionally wrapped
@@ -179,7 +179,7 @@ func buildOpenAICompatLLM(cfg *domain.ChatConfig, backend string) (llms.Model, e
 		if url, ok := langchainBaseURLs[backend]; ok {
 			baseURL = url
 		} else {
-			baseURL = langchainBaseURLs["openai"]
+			baseURL = langchainBaseURLs[backendOpenAI]
 		}
 	}
 
@@ -187,7 +187,7 @@ func buildOpenAICompatLLM(cfg *domain.ChatConfig, backend string) (llms.Model, e
 	// Local servers don't require auth.
 	if apiKey == "" && (backend == BackendFile || backend == BackendGGUF ||
 		backend == backendOllama || backend == "local") {
-		apiKey = "ollama"
+		apiKey = backendOllama
 	}
 
 	opts := []lcopenai.Option{
@@ -899,9 +899,9 @@ func parseToolCallParts(rawToolCalls any) []llms.ContentPart {
 
 func roleToMessageType(role string) llms.ChatMessageType {
 	switch role {
-	case "user", "human":
+	case roleUser, "human":
 		return llms.ChatMessageTypeHuman
-	case "assistant", "ai":
+	case roleAssistant, "ai":
 		return llms.ChatMessageTypeAI
 	case roleSystem:
 		return llms.ChatMessageTypeSystem
@@ -919,7 +919,7 @@ func buildToolParameters(params map[string]domain.ToolParam) map[string]any {
 
 	for name, p := range params {
 		prop := map[string]any{
-			"type":        p.Type,
+			jsonFieldType: p.Type,
 			"description": p.Description,
 		}
 		if len(p.Enum) > 0 {
@@ -932,8 +932,8 @@ func buildToolParameters(params map[string]domain.ToolParam) map[string]any {
 	}
 
 	schema := map[string]any{
-		"type":       "object",
-		"properties": properties,
+		jsonFieldType: "object",
+		"properties":  properties,
 	}
 	if len(required) > 0 {
 		schema["required"] = required
@@ -946,7 +946,7 @@ func convertTools(tools []domain.Tool) []llms.Tool {
 	result := make([]llms.Tool, 0, len(tools))
 	for _, t := range tools {
 		result = append(result, llms.Tool{
-			Type: "function",
+			Type: fieldFunction,
 			Function: &llms.FunctionDefinition{
 				Name:        t.Name,
 				Description: t.Description,

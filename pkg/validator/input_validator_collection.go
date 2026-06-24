@@ -56,7 +56,7 @@ func (v *InputValidator) ValidateArray(
 	if !ok {
 		return &domain.ValidationError{
 			Field:   rule.Field,
-			Type:    "type",
+			Type:    validationErrorType,
 			Message: "expected array",
 			Value:   value,
 		}

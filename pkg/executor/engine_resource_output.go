@@ -40,7 +40,7 @@ func (e *Engine) finalizeWorkflowOutput(
 
 	if resultMap, okMap := output.(map[string]interface{}); okMap {
 		if _, hasSuccess := resultMap["success"]; hasSuccess {
-			if data, hasData := resultMap["data"]; hasData {
+			if data, hasData := resultMap[contextFieldData]; hasData {
 				e.emitter.Emit(events.WorkflowCompleted(workflow.Metadata.Name))
 				return data, nil
 			}

@@ -106,7 +106,7 @@ func scanResourceExpressionRefs(
 			seen[ref] = true
 			issues = append(issues, AnalysisIssue{
 				ActionID: r.ActionID,
-				Severity: "error",
+				Severity: severityError,
 				Message:  fmt.Sprintf("expression references unknown actionId %q", ref),
 			})
 		}
@@ -151,7 +151,7 @@ func detectMissingComponentInputs(workflow *domain.Workflow) []AnalysisIssue {
 			if _, provided := cc.With[input.Name]; !provided {
 				issues = append(issues, AnalysisIssue{
 					ActionID: r.ActionID,
-					Severity: "error",
+					Severity: severityError,
 					Message: fmt.Sprintf(
 						"component %q requires input %q but it is not provided in 'with'",
 						cc.Name, input.Name,

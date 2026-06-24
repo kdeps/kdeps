@@ -23,6 +23,11 @@ import (
 	"github.com/kdeps/kdeps/v2/pkg/domain"
 )
 
+const (
+	keySuccess = "success"
+	keyAction  = "action"
+)
+
 // resolveMailbox returns the mailbox name with default fallback.
 func resolveMailbox(cfg *domain.EmailConfig) string {
 	kdeps_debug.Log("enter: resolveMailbox")
@@ -47,8 +52,8 @@ func resolveMailboxSettings(cfg *domain.EmailConfig) (string, int) {
 func formatFetchResult(action, mailbox string, msgs []EmailMessage) map[string]interface{} {
 	kdeps_debug.Log("enter: formatFetchResult")
 	return map[string]interface{}{
-		"success":  true,
-		"action":   action,
+		keySuccess: true,
+		keyAction:  action,
 		"mailbox":  mailbox,
 		"count":    len(msgs),
 		"messages": msgs,
@@ -62,10 +67,10 @@ func formatModifyResult(mailbox string, uids []uint32) map[string]interface{} {
 		uids = []uint32{}
 	}
 	return map[string]interface{}{
-		"success": true,
-		"action":  "modify",
-		"mailbox": mailbox,
-		"count":   len(uids),
-		"uids":    uids,
+		keySuccess: true,
+		keyAction:  "modify",
+		"mailbox":  mailbox,
+		"count":    len(uids),
+		"uids":     uids,
 	}
 }

@@ -24,6 +24,12 @@ import (
 	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
 )
 
+const (
+	BoolTrueString  = "true"
+	BoolFalseString = "false"
+	BoolYesString   = "yes"
+)
+
 // ParseBool parses a boolean from various types (bool, string, int).
 // Returns the boolean value and true if parsing succeeded.
 func ParseBool(v interface{}) (bool, bool) {
@@ -47,9 +53,9 @@ func ParseBool(v interface{}) (bool, bool) {
 func parseBoolFromString(val string) (bool, bool) {
 	lower := strings.ToLower(strings.TrimSpace(val))
 	switch lower {
-	case "true", "yes", "1", "on":
+	case BoolTrueString, BoolYesString, "1", "on":
 		return true, true
-	case "false", "no", "0", "off", "":
+	case BoolFalseString, "no", "0", "off", "":
 		return false, true
 	default:
 		return false, false

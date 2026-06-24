@@ -60,11 +60,11 @@ func (e *Executor) resolveMaxOutputBytes() int64 {
 // capLLMResponseContent checks the content field in a backend response map against
 // maxOutputBytes and returns an error when the limit is exceeded.
 func capLLMResponseContent(response map[string]interface{}, maxBytes int64) error {
-	message, okMsg := response["message"].(map[string]interface{})
+	message, okMsg := response[jsonFieldMessage].(map[string]interface{})
 	if !okMsg {
 		return nil
 	}
-	content, okContent := message["content"].(string)
+	content, okContent := message[jsonFieldContent].(string)
 	if !okContent {
 		return nil
 	}

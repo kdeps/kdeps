@@ -92,7 +92,7 @@ func validateTargetAction(doc wfDoc, resourceIDs map[string]bool) []string {
 // Validate checks a GeneratedWorkflow for structural correctness.
 // Returns a slice of human-readable error strings; empty means valid.
 func Validate(wf *GeneratedWorkflow) []string {
-	raw, ok := wf.Files["workflow.yaml"]
+	raw, ok := wf.Files[workflowYAMLFile]
 	if !ok {
 		return []string{"missing workflow.yaml"}
 	}
@@ -117,7 +117,7 @@ func Validate(wf *GeneratedWorkflow) []string {
 func collectResourceIDs(wf *GeneratedWorkflow, errs *[]string) map[string]bool {
 	ids := map[string]bool{}
 	for name, content := range wf.Files {
-		if name == "workflow.yaml" {
+		if name == workflowYAMLFile {
 			continue
 		}
 		validateResourceFile(name, content, ids, errs)

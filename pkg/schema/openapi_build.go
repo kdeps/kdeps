@@ -251,7 +251,7 @@ func buildRequestBody(upperMethod string, ov operationValidations) *OpenAPIReque
 	}
 
 	bodySchema := &OpenAPISchema{
-		Type:       "object",
+		Type:       schemaTypeObject,
 		Properties: ov.fieldSchemas,
 	}
 	if len(ov.requiredFields) > 0 {
@@ -263,7 +263,7 @@ func buildRequestBody(upperMethod string, ov operationValidations) *OpenAPIReque
 		// reflecting the server's real validation behaviour.
 		Required: len(ov.requiredFields) > 0,
 		Content: map[string]*OpenAPIMediaType{
-			"application/json": {Schema: bodySchema},
+			mediaTypeJSON: {Schema: bodySchema},
 		},
 	}
 }

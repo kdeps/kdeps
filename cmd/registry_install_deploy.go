@@ -149,7 +149,7 @@ func peekManifest(archivePath string) (*domain.KdepsPkg, error) {
 			return nil, fmt.Errorf("tar next: %w", nextErr)
 		}
 		base := filepath.Base(hdr.Name)
-		if base == "kdeps.pkg.yaml" || base == "kdeps.pkg.yml" {
+		if base == manifestFileName || base == "kdeps.pkg.yml" {
 			data, readErr := peekManifestReadAllFunc(io.LimitReader(tr, registryInstallManifestMaxSize))
 			if readErr != nil {
 				return nil, fmt.Errorf("read manifest: %w", readErr)

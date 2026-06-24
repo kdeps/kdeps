@@ -69,13 +69,13 @@ func New(
 	kdeps_debug.Log("enter: New")
 	logger = resolveBotLogger(logger)
 	switch platform {
-	case "discord":
+	case discordPlatform:
 		return newDiscordRunnerFromConfig(cfg, creds, logger)
-	case "slack":
+	case slackPlatform:
 		return newSlackRunnerFromConfig(cfg, creds, logger)
 	case "telegram":
 		return newTelegramRunnerFromConfig(cfg, creds, logger)
-	case "whatsapp":
+	case whatsAppPlatform:
 		return newWhatsAppRunnerFromConfig(cfg, creds, logger)
 	default:
 		return nil, fmt.Errorf("bot: unsupported platform: %s", platform)

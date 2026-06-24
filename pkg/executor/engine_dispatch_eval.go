@@ -30,8 +30,8 @@ import (
 // buildErrorObject constructs the error map exposed to onError expressions.
 func buildErrorObject(err error) map[string]interface{} {
 	errorObj := map[string]interface{}{
-		"message": err.Error(),
-		"type":    "execution_error",
+		engineFieldMessage: err.Error(),
+		"type":             "execution_error",
 	}
 	var appErr *domain.AppError
 	if errors.As(err, &appErr) {

@@ -37,7 +37,7 @@ func (e *Executor) lspSymbolSearch(client *lspClient, config *domain.CodeIntelli
 
 	var result []map[string]interface{}
 	if err := client.call("workspace/symbol", params, &result); err != nil {
-		return resultLSP(false, map[string]interface{}{"error": err.Error()}), err
+		return resultLSP(false, map[string]interface{}{resultError: err.Error()}), err
 	}
 
 	var symbols []map[string]interface{}
@@ -54,8 +54,8 @@ func (e *Executor) lspSymbolSearch(client *lspClient, config *domain.CodeIntelli
 	}
 
 	return resultLSP(true, map[string]interface{}{
-		"symbols": symbols,
-		"count":   len(symbols),
+		"symbols":     symbols,
+		ciResultCount: len(symbols),
 	}), nil
 }
 
@@ -65,7 +65,7 @@ func (e *Executor) lspDefinition(client *lspClient, config *domain.CodeIntellige
 	}
 
 	if err := e.lspEnsureDocument(client, config); err != nil {
-		return resultLSP(false, map[string]interface{}{"error": err.Error()}), err
+		return resultLSP(false, map[string]interface{}{resultError: err.Error()}), err
 	}
 
 	pos := e.findSymbolPosition(config)
@@ -79,7 +79,7 @@ func (e *Executor) lspDefinition(client *lspClient, config *domain.CodeIntellige
 
 	var locations []map[string]interface{}
 	if err := client.call("textDocument/definition", params, &locations); err != nil {
-		return resultLSP(false, map[string]interface{}{"error": err.Error()}), err
+		return resultLSP(false, map[string]interface{}{resultError: err.Error()}), err
 	}
 
 	var defs []map[string]interface{}
@@ -92,7 +92,7 @@ func (e *Executor) lspDefinition(client *lspClient, config *domain.CodeIntellige
 
 	return resultLSP(true, map[string]interface{}{
 		"definitions": defs,
-		"count":       len(defs),
+		ciResultCount: len(defs),
 	}), nil
 }
 
@@ -102,7 +102,7 @@ func (e *Executor) lspReferences(client *lspClient, config *domain.CodeIntellige
 	}
 
 	if err := e.lspEnsureDocument(client, config); err != nil {
-		return resultLSP(false, map[string]interface{}{"error": err.Error()}), err
+		return resultLSP(false, map[string]interface{}{resultError: err.Error()}), err
 	}
 
 	pos := e.findSymbolPosition(config)
@@ -119,7 +119,7 @@ func (e *Executor) lspReferences(client *lspClient, config *domain.CodeIntellige
 
 	var locations []map[string]interface{}
 	if err := client.call("textDocument/references", params, &locations); err != nil {
-		return resultLSP(false, map[string]interface{}{"error": err.Error()}), err
+		return resultLSP(false, map[string]interface{}{resultError: err.Error()}), err
 	}
 
 	var refs []map[string]interface{}
@@ -131,8 +131,8 @@ func (e *Executor) lspReferences(client *lspClient, config *domain.CodeIntellige
 	}
 
 	return resultLSP(true, map[string]interface{}{
-		"references": refs,
-		"count":      len(refs),
+		"references":  refs,
+		ciResultCount: len(refs),
 	}), nil
 }
 
@@ -142,7 +142,7 @@ func (e *Executor) lspDocumentSymbols(client *lspClient, config *domain.CodeInte
 	}
 
 	if err := e.lspEnsureDocument(client, config); err != nil {
-		return resultLSP(false, map[string]interface{}{"error": err.Error()}), err
+		return resultLSP(false, map[string]interface{}{resultError: err.Error()}), err
 	}
 
 	params := map[string]interface{}{
@@ -153,13 +153,13 @@ func (e *Executor) lspDocumentSymbols(client *lspClient, config *domain.CodeInte
 
 	var result interface{}
 	if err := client.call("textDocument/documentSymbol", params, &result); err != nil {
-		return resultLSP(false, map[string]interface{}{"error": err.Error()}), err
+		return resultLSP(false, map[string]interface{}{resultError: err.Error()}), err
 	}
 
 	symbols := flattenLSPDocumentSymbols(result)
 	return resultLSP(true, map[string]interface{}{
-		"symbols": symbols,
-		"count":   len(symbols),
+		"symbols":     symbols,
+		ciResultCount: len(symbols),
 	}), nil
 }
 
@@ -169,7 +169,7 @@ func (e *Executor) lspHover(client *lspClient, config *domain.CodeIntelligenceCo
 	}
 
 	if err := e.lspEnsureDocument(client, config); err != nil {
-		return resultLSP(false, map[string]interface{}{"error": err.Error()}), err
+		return resultLSP(false, map[string]interface{}{resultError: err.Error()}), err
 	}
 
 	pos := e.findSymbolPosition(config)
@@ -183,7 +183,7 @@ func (e *Executor) lspHover(client *lspClient, config *domain.CodeIntelligenceCo
 
 	var hover map[string]interface{}
 	if err := client.call("textDocument/hover", params, &hover); err != nil {
-		return resultLSP(false, map[string]interface{}{"error": err.Error()}), err
+		return resultLSP(false, map[string]interface{}{resultError: err.Error()}), err
 	}
 
 	contents := ""
@@ -209,7 +209,7 @@ func (e *Executor) lspDiagnostics(client *lspClient, config *domain.CodeIntellig
 	}
 
 	if err := e.lspEnsureDocument(client, config); err != nil {
-		return resultLSP(false, map[string]interface{}{"error": err.Error()}), err
+		return resultLSP(false, map[string]interface{}{resultError: err.Error()}), err
 	}
 
 	params := map[string]interface{}{
@@ -220,7 +220,7 @@ func (e *Executor) lspDiagnostics(client *lspClient, config *domain.CodeIntellig
 
 	var result map[string]interface{}
 	if err := client.call("textDocument/diagnostic", params, &result); err != nil {
-		return resultLSP(false, map[string]interface{}{"error": err.Error()}), err
+		return resultLSP(false, map[string]interface{}{resultError: err.Error()}), err
 	}
 
 	items, _ := result["items"].([]interface{})
@@ -237,7 +237,7 @@ func (e *Executor) lspDiagnostics(client *lspClient, config *domain.CodeIntellig
 
 	return resultLSP(true, map[string]interface{}{
 		"diagnostics": diagnostics,
-		"count":       len(diagnostics),
+		ciResultCount: len(diagnostics),
 	}), nil
 }
 
@@ -281,9 +281,9 @@ func filepathFromURI(uri string) string {
 }
 
 func lineFromPosition(r interface{}) int {
-	if rng, ok := r.(map[string]interface{}); ok {
-		if start, ok := rng["start"].(map[string]interface{}); ok {
-			if line, ok := start["line"].(float64); ok {
+	if rng, okRng := r.(map[string]interface{}); okRng {
+		if start, okStart := rng["start"].(map[string]interface{}); okStart {
+			if line, okLine := start["line"].(float64); okLine {
 				return int(line) + 1 // LSP uses 0-based lines
 			}
 		}
@@ -299,8 +299,8 @@ func flattenLSPDocumentSymbols(result interface{}) []map[string]interface{} {
 		return symbols
 	}
 	for _, item := range v {
-		sym, ok := item.(map[string]interface{})
-		if !ok {
+		sym, okSym := item.(map[string]interface{})
+		if !okSym {
 			continue
 		}
 		addSymbol := map[string]interface{}{
@@ -309,7 +309,7 @@ func flattenLSPDocumentSymbols(result interface{}) []map[string]interface{} {
 		}
 		symbols = append(symbols, addSymbol)
 
-		if children, ok := sym["children"]; ok {
+		if children, okChildren := sym["children"]; okChildren {
 			symbols = append(symbols, flattenLSPDocumentSymbols(children)...)
 		}
 	}

@@ -35,9 +35,9 @@ const ManifestFile = "kdeps.pkg.yaml"
 
 // validTypes lists the allowed package type values.
 var validTypes = map[string]struct{}{ //nolint:gochecknoglobals // package-level const map
-	"component": {},
-	"workflow":  {},
-	"agency":    {},
+	string(KindComponent): {},
+	"workflow":            {},
+	"agency":              {},
 }
 
 // Manifest describes a kdeps registry package.

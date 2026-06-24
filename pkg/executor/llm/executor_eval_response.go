@@ -32,12 +32,12 @@ func (e *Executor) parseJSONResponse(
 	keys []string,
 ) (interface{}, error) {
 	kdeps_debug.Log("enter: parseJSONResponse")
-	message, ok := response["message"].(map[string]interface{})
+	message, ok := response[jsonFieldMessage].(map[string]interface{})
 	if !ok {
 		return nil, errors.New("invalid response format: missing message")
 	}
 
-	content, ok := message["content"].(string)
+	content, ok := message[jsonFieldContent].(string)
 	if !ok {
 		return nil, errors.New("invalid response format: missing content")
 	}

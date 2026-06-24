@@ -57,8 +57,8 @@ func (e *Engine) executeInlineTelephony(
 // executeBrowser executes a browser automation resource.
 func (e *Engine) executeBrowser(resource *domain.Resource, ctx *ExecutionContext) (interface{}, error) {
 	return e.executeRegisteredResource(
-		resource, "browser", resource.Browser,
-		e.registry.GetBrowserExecutor, "browser", "executeBrowser", ctx,
+		resource, ExecutorBrowser, resource.Browser,
+		e.registry.GetBrowserExecutor, ExecutorBrowser, "executeBrowser", ctx,
 	)
 }
 
@@ -67,5 +67,5 @@ func (e *Engine) executeInlineBrowser(
 	config *domain.BrowserConfig,
 	ctx *ExecutionContext,
 ) (interface{}, error) {
-	return e.executeRegistered("executeInlineBrowser", e.registry.GetBrowserExecutor, "browser", ctx, config)
+	return e.executeRegistered("executeInlineBrowser", e.registry.GetBrowserExecutor, ExecutorBrowser, ctx, config)
 }

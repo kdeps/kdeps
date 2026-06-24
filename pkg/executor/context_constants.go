@@ -53,4 +53,25 @@ const (
 
 	// Input type name used in switch statements and form field names.
 	inputTypeFile = "file"
+
+	// Additional storage type names used in context lookups.
+	storageTypeParam    = "param"
+	storageTypeHeader   = "header"
+	storageTypeInfo     = "info"
+	storageTypeFilepath = "filepath"
+	storageTypeFiletype = "filetype"
+
+	// Context info field names.
+	ctxInfoMethod     = "method"
+	ctxInfoPath       = "path"
+	ctxInfoFiles      = "files"
+	ctxInfoName       = "name"
+	ctxInfoTranscript = "transcript"
+	ctxInfoMedia      = "media"
+
+	// File selection ordering.
+	fileSelectFirst = "first"
+
+	// Engine result/error field names.
+	engineFieldMessage = "message"
 )

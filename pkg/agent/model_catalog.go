@@ -60,7 +60,7 @@ const (
 // CloudModel describes a well-known cloud LLM model.
 type CloudModel struct {
 	ID               string // API model identifier, e.g. "claude-opus-4-8"
-	Backend          string // kdeps backend name, e.g. "anthropic"
+	Backend          string // kdeps backend name, e.g. toolParamAnthropic
 	Desc             string // short human label, e.g. "Opus 4.8 - most capable"
 	EnvVar           string // API key env var, e.g. "ANTHROPIC_API_KEY"
 	SupportsThinking bool   // true when the model supports extended thinking / reasoning
@@ -76,17 +76,17 @@ type CloudModel struct {
 var KnownCloudModels = []CloudModel{
 	// Anthropic — claude-opus-4-6/7/8 have 1M context window (pi models.generated.ts)
 	{
-		ID: "claude-opus-4-8", Backend: "anthropic", Desc: "most capable",
+		ID: "claude-opus-4-8", Backend: toolParamAnthropic, Desc: "most capable",
 		EnvVar: "ANTHROPIC_API_KEY", SupportsThinking: true, SupportsImages: true,
 		ContextWindow: ctxAnthropic1M, MaxOutputTokens: outAnthropic128k,
 	},
 	{
-		ID: "claude-sonnet-4-6", Backend: "anthropic", Desc: "balanced speed/intelligence",
+		ID: "claude-sonnet-4-6", Backend: toolParamAnthropic, Desc: "balanced speed/intelligence",
 		EnvVar: "ANTHROPIC_API_KEY", SupportsThinking: true, SupportsImages: true,
 		ContextWindow: ctxAnthropic1M, MaxOutputTokens: outAnthropic64k,
 	},
 	{
-		ID: "claude-haiku-4-5-20251001", Backend: "anthropic", Desc: "fast and lightweight",
+		ID: "claude-haiku-4-5-20251001", Backend: toolParamAnthropic, Desc: "fast and lightweight",
 		EnvVar: "ANTHROPIC_API_KEY", SupportsThinking: true, SupportsImages: true,
 		ContextWindow: ctxAnthropic200k, MaxOutputTokens: outAnthropic64k,
 	},
@@ -113,27 +113,27 @@ var KnownCloudModels = []CloudModel{
 	},
 	// OpenAI
 	{
-		ID: "gpt-4o", Backend: "openai", Desc: "flagship multimodal",
+		ID: modelGPT4o, Backend: toolParamOpenAI, Desc: "flagship multimodal",
 		EnvVar: "OPENAI_API_KEY", SupportsImages: true,
 		ContextWindow: ctxOpenAI128k, MaxOutputTokens: outOpenAI,
 	},
 	{
-		ID: "gpt-4o-mini", Backend: "openai", Desc: "fast and cheap",
+		ID: "gpt-4o-mini", Backend: toolParamOpenAI, Desc: "fast and cheap",
 		EnvVar: "OPENAI_API_KEY", SupportsImages: true,
 		ContextWindow: ctxOpenAI128k, MaxOutputTokens: outOpenAI,
 	},
 	{
-		ID: "o4-mini", Backend: "openai", Desc: "fast reasoning",
+		ID: "o4-mini", Backend: toolParamOpenAI, Desc: "fast reasoning",
 		EnvVar: "OPENAI_API_KEY", SupportsThinking: true, SupportsImages: true,
 		ContextWindow: ctxOpenAI200k, MaxOutputTokens: outOpenAI,
 	},
 	{
-		ID: "o3", Backend: "openai", Desc: "advanced reasoning",
+		ID: "o3", Backend: toolParamOpenAI, Desc: "advanced reasoning",
 		EnvVar: "OPENAI_API_KEY", SupportsThinking: true, SupportsImages: true,
 		ContextWindow: ctxOpenAI200k, MaxOutputTokens: outOpenAI,
 	},
 	{
-		ID: "o1", Backend: "openai", Desc: "reasoning",
+		ID: "o1", Backend: toolParamOpenAI, Desc: "reasoning",
 		EnvVar: "OPENAI_API_KEY", SupportsThinking: true,
 		ContextWindow: ctxOpenAI200k, MaxOutputTokens: outOpenAI,
 	},

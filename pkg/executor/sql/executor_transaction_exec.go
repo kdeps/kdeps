@@ -68,7 +68,7 @@ func (e *Executor) executeTransactionDML(
 	}
 
 	return map[string]interface{}{
-		"rowsAffected": rowsAffected,
-		"lastInsertID": lastInsertID,
+		keyRowsAffected: rowsAffected,
+		"lastInsertID":  lastInsertID,
 	}, nil
 }

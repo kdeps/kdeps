@@ -36,6 +36,9 @@ type Parser struct {
 const (
 	// MinAuthTokenLength is the minimum length considered for auth tokens.
 	MinAuthTokenLength = 8
+
+	accessorCount = "count"
+	typeHintItem  = "item"
 )
 
 // Function represents a built-in function.

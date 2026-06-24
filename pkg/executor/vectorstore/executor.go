@@ -46,7 +46,20 @@ import (
 	"github.com/kdeps/kdeps/v2/pkg/executor"
 )
 
-const providerBedrock = "bedrock"
+const (
+	providerBedrock     = "bedrock"
+	opAddDocuments      = "add_documents"
+	providerAzureAI     = "azureaisearch"
+	providerChroma      = "chroma"
+	providerDolt        = "dolt"
+	providerAlloyDB     = "alloydb"
+	providerGoogle      = "google"
+	providerGroq        = "groq"
+	backendOpenAICompat = "openai"
+	providerDeepSeek    = "deepseek"
+	providerCohere      = "cohere"
+	keyEmbeddings       = "embeddings"
+)
 
 // Executor runs vectorStore: resources.
 type Executor struct{}
@@ -67,7 +80,7 @@ func (e *Executor) Execute(
 	ctx := context.Background()
 
 	switch cfg.Operation {
-	case "add_documents":
+	case opAddDocuments:
 		return executeAddDocuments(ctx, cfg)
 	case "similarity_search":
 		return executeSimilaritySearch(ctx, cfg)
@@ -164,11 +177,11 @@ func buildStore(
 	}
 
 	switch cfg.Provider {
-	case "azureaisearch":
+	case providerAzureAI:
 		return buildAzureAISearchStore(ctx, cfg)
 	case providerBedrock:
 		return buildBedrockStore(ctx, cfg)
-	case "chroma":
+	case providerChroma:
 		return buildChromaStore(ctx, cfg)
 	case "pinecone":
 		return buildPineconeStore(ctx, cfg)
@@ -176,9 +189,9 @@ func buildStore(
 		return buildOpenSearchStore(ctx, cfg)
 	case "weaviate":
 		return buildWeaviateStore(ctx, cfg)
-	case "mariadb", "dolt", "mysql":
+	case "mariadb", providerDolt, "mysql":
 		return buildMySQLStore(ctx, cfg)
-	case "pgvector", "postgres", "postgresql", "alloydb", "cloudsql":
+	case "pgvector", "postgres", "postgresql", providerAlloyDB, "cloudsql":
 		return buildPostgresStore(ctx, cfg)
 	case "mongodb", "mongo":
 		return buildMongoStore(ctx, cfg)
@@ -328,7 +341,7 @@ func buildAzureAISearchStore(
 
 func buildEmbedder(ctx context.Context, cfg *domain.VectorStoreConfig) (lcemb.Embedder, error) {
 	switch cfg.EmbedBackend {
-	case "google":
+	case providerGoogle:
 		apiKey := os.Getenv("GOOGLE_API_KEY")
 		client, err := lcgoogleai.New(ctx,
 			lcgoogleai.WithAPIKey(apiKey),
@@ -403,21 +416,21 @@ func buildOpenAICompatEmbedder(cfg *domain.VectorStoreConfig) (lcemb.Embedder, e
 
 func providerEnvKey(backend string) string {
 	switch backend {
-	case "openai":
+	case backendOpenAICompat:
 		return "OPENAI_API_KEY"
-	case "google":
+	case providerGoogle:
 		return "GOOGLE_API_KEY"
-	case "groq":
+	case providerGroq:
 		return "GROQ_API_KEY"
 	case "mistral":
 		return "MISTRAL_API_KEY"
-	case "deepseek":
+	case providerDeepSeek:
 		return "DEEPSEEK_API_KEY"
 	case "openrouter":
 		return "OPENROUTER_API_KEY"
 	case "together":
 		return "TOGETHERAI_API_KEY"
-	case "cohere":
+	case providerCohere:
 		return "COHERE_API_KEY"
 	case "xai":
 		return "XAI_API_KEY"
@@ -430,16 +443,16 @@ func providerEnvKey(backend string) string {
 
 func openAICompatBaseURL(backend string) string {
 	urls := map[string]string{
-		"openai":     "https://api.openai.com/v1",
-		"ollama":     "http://localhost:11434/v1",
-		"groq":       "https://api.groq.com/openai/v1",
-		"mistral":    "https://api.mistral.ai/v1",
-		"deepseek":   "https://api.deepseek.com/v1",
-		"openrouter": "https://openrouter.ai/api/v1",
-		"together":   "https://api.together.xyz/v1",
-		"cohere":     "https://api.cohere.com/compatibility/v1",
-		"xai":        "https://api.x.ai/v1",
-		"perplexity": "https://api.perplexity.ai",
+		backendOpenAICompat: "https://api.openai.com/v1",
+		"ollama":            "http://localhost:11434/v1",
+		"groq":              "https://api.groq.com/openai/v1",
+		"mistral":           "https://api.mistral.ai/v1",
+		"deepseek":          "https://api.deepseek.com/v1",
+		"openrouter":        "https://openrouter.ai/api/v1",
+		"together":          "https://api.together.xyz/v1",
+		"cohere":            "https://api.cohere.com/compatibility/v1",
+		"xai":               "https://api.x.ai/v1",
+		"perplexity":        "https://api.perplexity.ai",
 	}
 	if u, ok := urls[backend]; ok {
 		return u

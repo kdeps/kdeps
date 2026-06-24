@@ -62,7 +62,7 @@ func RegisterFFormatTools(r *Registry) {
 	r.Register(fformatConvertFromJSONTool())
 }
 
-// fformatToolSpec describes one fformat tool: a fixed "input" string param
+// fformatToolSpec describes one fformat tool: a fixed toolsFieldInput string param
 // plus one format-selector param whose value is handed to run.
 type fformatToolSpec struct {
 	name      string
@@ -80,7 +80,7 @@ func newFFormatTool(spec fformatToolSpec) *Tool {
 		Name:        spec.name,
 		Description: spec.desc,
 		Parameters: map[string]domain.ToolParam{
-			"input": {
+			toolsFieldInput: {
 				Type:        "string",
 				Description: spec.inputDesc,
 				Required:    true,
@@ -93,7 +93,7 @@ func newFFormatTool(spec fformatToolSpec) *Tool {
 			},
 		},
 		Execute: func(args map[string]interface{}) (string, error) {
-			input, err := requireStringArg(args, "input", errInputNotString)
+			input, err := requireStringArg(args, toolsFieldInput, errInputNotString)
 			if err != nil {
 				return "", err
 			}

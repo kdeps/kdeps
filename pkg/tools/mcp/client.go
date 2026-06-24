@@ -150,7 +150,7 @@ func NewClientForTesting(stdin io.WriteCloser, stdout *bufio.Scanner) *Client {
 }
 
 func (c *Client) newRequest(method string, params interface{}, withID bool) jsonRPCRequest {
-	req := jsonRPCRequest{JSONRPC: "2.0", Method: method, Params: params}
+	req := jsonRPCRequest{JSONRPC: jsonRPCVersion, Method: method, Params: params}
 	if withID {
 		req.ID = c.nextID.Add(1)
 	}
@@ -190,7 +190,7 @@ func (c *Client) initialize() error {
 func extractTextContent(content []mcpContent) string {
 	var sb strings.Builder
 	for _, item := range content {
-		if item.Type == "text" {
+		if item.Type == mcpContentText {
 			sb.WriteString(item.Text)
 		}
 	}

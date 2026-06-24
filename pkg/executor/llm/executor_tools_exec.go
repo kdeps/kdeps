@@ -51,8 +51,8 @@ func (e *Executor) executeToolCalls(
 		if !exists {
 			results = append(results, map[string]interface{}{
 				"tool_call_id": toolCallID,
-				"name":         toolName,
-				"error":        fmt.Sprintf("tool '%s' not found", toolName),
+				fieldName:      toolName,
+				fieldError:     fmt.Sprintf("tool '%s' not found", toolName),
 			})
 			continue
 		}
@@ -61,16 +61,16 @@ func (e *Executor) executeToolCalls(
 		if execErr != nil {
 			results = append(results, map[string]interface{}{
 				"tool_call_id": toolCallID,
-				"name":         toolName,
-				"error":        execErr.Error(),
+				fieldName:      toolName,
+				fieldError:     execErr.Error(),
 			})
 			continue
 		}
 
 		results = append(results, map[string]interface{}{
-			"tool_call_id": toolCallID,
-			"name":         toolName,
-			"content":      result,
+			"tool_call_id":   toolCallID,
+			fieldName:        toolName,
+			jsonFieldContent: result,
 		})
 	}
 
@@ -83,11 +83,11 @@ func (e *Executor) executeToolCalls(
 }
 
 func parseToolCallFunction(toolCall map[string]interface{}) (string, string, interface{}, bool) {
-	function, okFunc := toolCall["function"].(map[string]interface{})
+	function, okFunc := toolCall[fieldFunction].(map[string]interface{})
 	if !okFunc {
 		return "", "", nil, false
 	}
-	toolName, okName := function["name"].(string)
+	toolName, okName := function[fieldName].(string)
 	if !okName {
 		return "", "", nil, false
 	}

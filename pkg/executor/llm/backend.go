@@ -24,6 +24,24 @@ const (
 	formatJSON          = "json"
 	headerAuthorization = "Authorization"
 	backendOllama       = "ollama"
+	defaultLocalhost    = "localhost"
+
+	// JSON request field names for LLM API requests.
+	jsonFieldModel     = "model"
+	jsonFieldMessages  = "messages"
+	jsonFieldMessage   = "message"
+	jsonFieldContent   = "content"
+	jsonFieldRole      = "role"
+	jsonFieldType      = "type"
+	jsonFieldText      = "text"
+	jsonFieldURL       = "url"
+	mediaTypePNG       = "image/png"
+	backendOpenAI      = "openai"
+	fieldName          = "name"
+	fieldError         = "error"
+	fieldFunction      = "function"
+	fieldToolCalls     = "tool_calls"
+	jsonResponseFormat = "json_object"
 )
 
 // Backend interface for different LLM backends.

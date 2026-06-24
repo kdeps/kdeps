@@ -154,7 +154,7 @@ func (l *Loop) buildReactChatConfig(
 
 	for _, s := range steps {
 		scenario = append(scenario, domain.ScenarioItem{
-			Role:   "assistant",
+			Role:   RoleAssistant,
 			Prompt: s.thought,
 		})
 		scenario = append(scenario, domain.ScenarioItem{
@@ -176,7 +176,7 @@ func (l *Loop) buildReactChatConfig(
 func (l *Loop) appendReactStep(cfg *domain.ChatConfig, step reactStep) *domain.ChatConfig {
 	updated := *cfg
 	updated.Scenario = append(updated.Scenario,
-		domain.ScenarioItem{Role: "assistant", Prompt: step.thought},
+		domain.ScenarioItem{Role: RoleAssistant, Prompt: step.thought},
 		domain.ScenarioItem{Role: "system", Prompt: "Observation: " + step.observation},
 	)
 	updated.Prompt = "" // already in scratchpad

@@ -68,10 +68,10 @@ func buildBotRunners(
 		name   string
 		nonNil bool
 	}{
-		{"discord", botCfg.Discord != nil},
-		{"slack", botCfg.Slack != nil},
+		{discordPlatform, botCfg.Discord != nil},
+		{slackPlatform, botCfg.Slack != nil},
 		{"telegram", botCfg.Telegram != nil},
-		{"whatsapp", botCfg.WhatsApp != nil},
+		{whatsAppPlatform, botCfg.WhatsApp != nil},
 	}
 
 	for _, p := range platforms {

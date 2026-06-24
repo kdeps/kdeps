@@ -91,9 +91,9 @@ func (e *Engine) formatInputValidationError(resourceID string, validateErr error
 		details := make([]map[string]interface{}, len(validationErrors.Errors))
 		for i, ve := range validationErrors.Errors {
 			details[i] = map[string]interface{}{
-				"field":   ve.Field,
-				"type":    ve.Type,
-				"message": ve.Message,
+				"field":            ve.Field,
+				"type":             ve.Type,
+				engineFieldMessage: ve.Message,
 			}
 			if ve.Value != nil {
 				details[i]["value"] = ve.Value
@@ -118,8 +118,8 @@ func (e *Engine) formatCustomValidationError(resourceID string, validateErr erro
 		details := make([]map[string]interface{}, len(validationErrors.Errors))
 		for i, ve := range validationErrors.Errors {
 			details[i] = map[string]interface{}{
-				"type":    ve.Type,
-				"message": ve.Message,
+				"type":             ve.Type,
+				engineFieldMessage: ve.Message,
 			}
 		}
 		return appErr.WithDetails("errors", details)

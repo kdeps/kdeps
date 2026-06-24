@@ -224,14 +224,14 @@ func buildVoyageAIEmbedder(cfg *domain.EmbeddingConfig) (lcemb.Embedder, error) 
 
 func openAICompatBaseURL(backend string) string {
 	urls := map[string]string{
-		"openai":           "https://api.openai.com/v1",
+		embeddingOpenAI:    "https://api.openai.com/v1",
 		backendOllamaLocal: "http://localhost:11434/v1",
 		"groq":             "https://api.groq.com/openai/v1",
 		"mistral":          "https://api.mistral.ai/v1",
 		"deepseek":         "https://api.deepseek.com/v1",
 		"openrouter":       "https://openrouter.ai/api/v1",
 		"together":         "https://api.together.xyz/v1",
-		"cohere":           "https://api.cohere.com/compatibility/v1",
+		embeddingCohere:    "https://api.cohere.com/compatibility/v1",
 		"xai":              "https://api.x.ai/v1",
 		"perplexity":       "https://api.perplexity.ai",
 	}
@@ -243,7 +243,7 @@ func openAICompatBaseURL(backend string) string {
 
 func providerEnvKey(backend string) string {
 	switch backend {
-	case "openai":
+	case embeddingOpenAI:
 		return "OPENAI_API_KEY"
 	case backendGoogle:
 		return "GOOGLE_API_KEY"
@@ -257,7 +257,7 @@ func providerEnvKey(backend string) string {
 		return "OPENROUTER_API_KEY"
 	case "together":
 		return "TOGETHERAI_API_KEY"
-	case "cohere":
+	case embeddingCohere:
 		return "COHERE_API_KEY"
 	case "xai":
 		return "XAI_API_KEY"
