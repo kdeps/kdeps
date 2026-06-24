@@ -164,7 +164,7 @@ func ResolvedGGUFURL(model string) string {
 }
 
 func cachedLlamaServerPath() string {
-	home, err := os.UserHomeDir()
+	home, err := userHomeDirFunc()
 	if err != nil {
 		return ""
 	}

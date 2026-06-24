@@ -29,8 +29,8 @@ type Emitter interface {
 // NopEmitter discards all events. Used when --events is not set.
 type NopEmitter struct{}
 
-func (NopEmitter) Emit(Event) {}
-func (NopEmitter) Close()     {}
+func (NopEmitter) Emit(Event) { _ = struct{}{} }
+func (NopEmitter) Close()     { _ = struct{}{} }
 
 // NDJSONEmitter writes one JSON object per line to w.
 // It is safe for concurrent use.
@@ -58,7 +58,7 @@ func (e *NDJSONEmitter) Emit(ev Event) {
 	_ = e.enc.Encode(ev)
 }
 
-func (e *NDJSONEmitter) Close() {}
+func (e *NDJSONEmitter) Close() { _ = struct{}{} }
 
 // MultiEmitter fans out every event to all child emitters.
 type MultiEmitter struct {

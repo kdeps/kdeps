@@ -347,9 +347,9 @@ func TestRegisterComponentTools_WithComponents(t *testing.T) {
 
 // newTestLoop creates a minimal agent.Loop backed by an engine whose Execute
 // method is stubbed via SetExecuteFunc. The stub returns (result, err).
-func newTestLoop(result interface{}, err error) *agent.Loop {
+func newTestLoop(result any, err error) *agent.Loop {
 	eng := executor.NewEngine(nil)
-	eng.SetExecuteFunc(func(_ *domain.Workflow, _ interface{}) (interface{}, error) {
+	eng.SetExecuteFunc(func(_ *domain.Workflow, _ any) (any, error) {
 		return result, err
 	})
 	wf := &domain.Workflow{
@@ -762,4 +762,95 @@ func TestResolveStartModel_DefaultModelGGUF(t *testing.T) {
 	m, b := resolveStartModel(flags, settings)
 	assert.Equal(t, "my-model.gguf", m)
 	assert.Equal(t, "gguf", b)
+}
+
+// --- isTerminal ---
+
+func TestIsTerminal_ClosedFileReturnsFalse(t *testing.T) {
+	f, err := os.CreateTemp("", "test")
+	require.NoError(t, err)
+	name := f.Name()
+	f.Close()
+	// Re-open by name, then close immediately so Stat() works but ModeCharDevice is false.
+	reopened, openErr := os.OpenFile(name, os.O_RDONLY, 0)
+	require.NoError(t, openErr)
+	defer reopened.Close()
+	assert.False(t, isTerminal(reopened))
+}
+
+func TestIsTerminal_StatErrorReturnsFalse(t *testing.T) {
+	// A closed file handle on some platforms returns EBADF from Stat().
+	f, err := os.CreateTemp("", "test")
+	require.NoError(t, err)
+	require.NoError(t, f.Close())
+	os.Remove(f.Name())
+	// f is closed; Stat() returns an error.
+	assert.False(t, isTerminal(f))
+}
+
+// --- buildTUIRunner ---
+
+func TestBuildTUIRunner_ReturnsClosure(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	registry := tools.NewRegistry()
+	flags := &agentLoopFlags{Debug: true}
+	fn := buildTUIRunner(registry, flags)
+	assert.NotNil(t, fn)
+	// Calling the closure will try to open a TUI, which fails in non-interactive mode.
+	// We just verify the function doesn't panic and returns expected behavior.
+	skillPaths, toolsChanged, err := fn()
+	// tui.Run() in CI/non-terminal returns an error or empty selection.
+	// Either way the function should handle it gracefully.
+	if err != nil {
+		assert.Empty(t, skillPaths)
+		assert.False(t, toolsChanged)
+	} else {
+		t.Logf("buildTUIRunner returned skills=%v, changed=%v", skillPaths, toolsChanged)
+	}
+}
+
+// --- buildModelPickerFn ---
+
+func TestBuildModelPickerFn_ReturnsClosure(t *testing.T) {
+	loop := newTestLoop("mock", nil)
+	repl := agent.NewREPL(loop)
+	fn := buildModelPickerFn(repl)
+	require.NotNil(t, fn)
+	// The closure should not panic when called with an empty filter
+	result, err := fn("")
+	// tui.RunModelPicker in CI/non-terminal may return an empty string or an error
+	if err != nil {
+		assert.Empty(t, result)
+	} else {
+		t.Logf("buildModelPickerFn returned %q", result)
+	}
+}
+
+func TestBuildModelPickerFn_WithModelData(t *testing.T) {
+	loop := newTestLoop("mock", nil)
+	repl := agent.NewREPL(loop)
+	repl.SetModelNames([]string{"gpt-4o", "claude-sonnet-4-6"})
+	repl.SetDownloadedModels(map[string]bool{"gpt-4o": true})
+	repl.SetModelTypes(map[string]string{"gpt-4o": "", "claude-sonnet-4-6": ""})
+	repl.SetModelRepos(map[string]string{})
+	repl.SetCloudModelBackends(map[string]string{"gpt-4o": "openai"})
+	repl.SetProviderStatus(map[string]bool{"openai": true})
+	fn := buildModelPickerFn(repl)
+	require.NotNil(t, fn)
+	result, err := fn("")
+	if err != nil {
+		assert.Empty(t, result)
+	} else {
+		t.Logf("buildModelPickerFn(data) returned %q", result)
+	}
+}
+
+// --- runAgentLoopCmd resume path ---
+
+func TestRunAgentLoopCmd_ResumeNotFound(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	err := runAgentLoopCmd("", &agentLoopFlags{Resume: "/nonexistent/session.json"})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "failed to load session")
 }

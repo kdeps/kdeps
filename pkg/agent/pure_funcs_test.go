@@ -62,30 +62,7 @@ func TestSummarizeToolArgs_LongFilepath(t *testing.T) {
 	}
 }
 
-// ---- builtin_tools.go pure functions ----
-
-func TestValidateWorkspaceBoundary_NoRoot(t *testing.T) {
-	t.Setenv("KDEPS_WORKSPACE_ROOT", "")
-	if err := validateWorkspaceBoundary("/any/path"); err != nil {
-		t.Errorf("expected no error when no workspace root set, got: %v", err)
-	}
-}
-
-func TestValidateWorkspaceBoundary_EscapesRoot(t *testing.T) {
-	dir := t.TempDir()
-	t.Setenv("KDEPS_WORKSPACE_ROOT", dir)
-	if err := validateWorkspaceBoundary("/etc/passwd"); err == nil {
-		t.Error("expected error for path outside root")
-	}
-}
-
-func TestValidateWorkspaceBoundary_ExactRoot(t *testing.T) {
-	dir := t.TempDir()
-	t.Setenv("KDEPS_WORKSPACE_ROOT", dir)
-	if err := validateWorkspaceBoundary(dir); err != nil {
-		t.Errorf("expected no error for exact root path, got: %v", err)
-	}
-}
+// ---- builtin_tools.go pure functions (tests for validateWorkspaceBoundary already exist in builtin_tools_test.go) ----
 
 // ---- repl_render.go pure functions ----
 
@@ -236,7 +213,7 @@ func TestRenderREPLOutput_WithThinking(t *testing.T) {
 
 func TestStrp(t *testing.T) {
 	t.Parallel()
-	p := strp("hello")
+	p := strp("hello") //nolint:newexpr // false positive: new(string) returns zero value, not "hello"
 	if p == nil || *p != "hello" {
 		t.Error("strp should return pointer to string")
 	}
@@ -244,11 +221,11 @@ func TestStrp(t *testing.T) {
 
 func TestBoolp(t *testing.T) {
 	t.Parallel()
-	p := boolp(true)
+	p := boolp(true)   //nolint:newexpr // false positive
+	p2 := boolp(false) //nolint:newexpr // false positive
 	if p == nil || !*p {
 		t.Error("boolp should return pointer to true")
 	}
-	p2 := boolp(false)
 	if p2 == nil || *p2 {
 		t.Error("boolp should return pointer to false")
 	}

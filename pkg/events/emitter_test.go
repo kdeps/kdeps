@@ -113,3 +113,62 @@ func TestNewMultiEmitter(t *testing.T) {
 	m.Emit(Event{Event: "nobody"})
 	m.Close()
 }
+
+// --- unexported helpers ---
+
+func TestNewNDJSONEncoder_Direct(t *testing.T) {
+	var buf bytes.Buffer
+	enc := newNDJSONEncoder(&buf)
+	assert.NotNil(t, enc)
+	ev := Event{Event: "direct-test", ActionID: "a1"}
+	assert.NoError(t, enc.Encode(ev))
+	assert.Contains(t, buf.String(), "direct-test")
+}
+
+func TestFanOutEmit_Nil(_ *testing.T) {
+	fanOutEmit(nil, Event{Event: "nil-test"})
+}
+
+func TestFanOutEmit_Empty(_ *testing.T) {
+	fanOutEmit([]Emitter{}, Event{Event: "empty-test"})
+}
+
+func TestFanOutEmit_Single(t *testing.T) {
+	ch := NewChanEmitter(1)
+	fanOutEmit([]Emitter{ch}, Event{Event: "single"})
+	ev := <-ch.C()
+	assert.Equal(t, EventName("single"), ev.Event)
+}
+
+func TestFanOutEmit_Multiple(t *testing.T) {
+	ch1 := NewChanEmitter(1)
+	ch2 := NewChanEmitter(1)
+	fanOutEmit([]Emitter{ch1, ch2}, Event{Event: "multi"})
+	assert.Equal(t, EventName("multi"), (<-ch1.C()).Event)
+	assert.Equal(t, EventName("multi"), (<-ch2.C()).Event)
+}
+
+func TestCloseEmitters_Nil(_ *testing.T) {
+	closeEmitters(nil)
+}
+
+func TestCloseEmitters_Empty(_ *testing.T) {
+	closeEmitters([]Emitter{})
+}
+
+func TestCloseEmitters_Single(t *testing.T) {
+	ch := NewChanEmitter(1)
+	closeEmitters([]Emitter{ch})
+	_, ok := <-ch.C()
+	assert.False(t, ok)
+}
+
+func TestCloseEmitters_Multiple(t *testing.T) {
+	ch1 := NewChanEmitter(1)
+	ch2 := NewChanEmitter(1)
+	closeEmitters([]Emitter{ch1, ch2})
+	_, ok1 := <-ch1.C()
+	assert.False(t, ok1)
+	_, ok2 := <-ch2.C()
+	assert.False(t, ok2)
+}

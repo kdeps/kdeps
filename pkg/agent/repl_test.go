@@ -2666,7 +2666,7 @@ func TestNewREPL_AutoCompactCallbackFires(t *testing.T) {
 	// Covers lines 140-147: the SetOnAutoCompact closure set by NewREPL fires
 	// when auto-compaction triggers during RunStreaming.
 	eng := executor.NewEngine(nil)
-	eng.SetExecuteFunc(func(wf *domain.Workflow, _ interface{}) (interface{}, error) {
+	eng.SetExecuteFunc(func(wf *domain.Workflow, _ any) (any, error) {
 		if len(wf.Resources) > 0 && wf.Resources[0].Chat.Prompt != "" {
 			return "compact summary", nil
 		}
@@ -2858,6 +2858,29 @@ func TestContextFromParams(t *testing.T) {
 	// falls through to 0. Test with param count derived indirectly via model name.
 	// Use a name that paramsForModel would return 0 for → contextFromParams returns 0.
 	assert.Equal(t, 0, contextFromParams("unknown-model-xyz"))
+}
+
+func TestContextFromParams_Thresholds(t *testing.T) {
+	tests := []struct {
+		name  string
+		model string
+		want  int
+	}{
+		{name: "1B_model", model: "llama3.2", want: contextLimit1B},
+		{name: "2B_model", model: "qwen3", want: contextLimit1B},
+		{name: "3B_model", model: "rocket3", want: contextLimit3B},
+		{name: "4B_model", model: "jan3.5", want: contextLimit3B},
+		{name: "7B_model", model: "mathstral7", want: contextLimit7B},
+		{name: "8B_model", model: "llama3.1", want: contextLimit7B},
+		{name: "27B_model", model: "qwopus3.6", want: contextLimit13B},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := contextFromParams(tt.model); got != tt.want {
+				t.Errorf("contextFromParams(%q) = %d, want %d", tt.model, got, tt.want)
+			}
+		})
+	}
 }
 
 // --- cmdModelDefault ---
@@ -3830,4 +3853,269 @@ func TestFDBinPath_NotFound(t *testing.T) {
 	t.Setenv("PATH", t.TempDir())
 	path := fdBinPath()
 	assert.Empty(t, path)
+}
+
+// --- paramsForModel ---
+
+func TestParamsForModel_KnownGGUF(t *testing.T) {
+	got := paramsForModel("qwopus3.6") // GGUF-only, params "27B"
+	assert.Equal(t, 27.0, got)
+}
+
+func TestParamsForModel_KnownLlamafile(t *testing.T) {
+	got := paramsForModel("llama3.2") // llamafile registry: params "1B"
+	assert.Equal(t, 1.0, got)
+}
+
+func TestParamsForModel_PrefersLlamafileOverGGUF(t *testing.T) {
+	// qwen2.5 exists in both registries; llamafile has 0.5B, GGUF has 7B.
+	// paramsForModel checks llamafile first so returns 0.5.
+	got := paramsForModel("qwen2.5")
+	assert.Equal(t, 0.5, got)
+}
+
+// --- prioritizeModelNames ---
+
+func TestPrioritizeModelNames_Empty(t *testing.T) {
+	loop := makeTestLoop(nil)
+	repl := NewREPL(loop)
+	defer repl.cancel()
+	result := repl.prioritizeModelNames(nil, 10)
+	assert.Empty(t, result)
+}
+
+func TestPrioritizeModelNames_AllTiers(t *testing.T) {
+	loop := makeTestLoop(nil)
+	repl := NewREPL(loop)
+	defer repl.cancel()
+	repl.downloadedModels = map[string]bool{"cached": true}
+	repl.cloudModelBackends = map[string]string{"enabled": "openai"}
+	repl.providerStatus = map[string]bool{"openai": true}
+	repl.modelTypes = map[string]string{
+		"llama-m":  modelTypeLLamafile,
+		"gguf-m":   modelTypeGGUF,
+		"ollama-m": modelTypeOllama,
+	}
+	names := []string{"plain", "cached", "enabled", "llama-m", "gguf-m", "ollama-m"}
+	result := repl.prioritizeModelNames(names, 10)
+	require.Len(t, result, 6)
+	assert.Equal(t, "cached", result[0])
+	assert.Equal(t, "enabled", result[1])
+	assert.Equal(t, "llama-m", result[2])
+	assert.Equal(t, "gguf-m", result[3])
+	assert.Equal(t, "ollama-m", result[4])
+	assert.Equal(t, "plain", result[5])
+}
+
+func TestPrioritizeModelNames_Truncated(t *testing.T) {
+	loop := makeTestLoop(nil)
+	repl := NewREPL(loop)
+	defer repl.cancel()
+	repl.downloadedModels = map[string]bool{"a": true, "b": true, "c": true}
+	result := repl.prioritizeModelNames([]string{"a", "b", "c", "d"}, 2)
+	require.Len(t, result, 2)
+	assert.Equal(t, []string{"a", "b"}, result)
+}
+
+func TestPrioritizeModelNames_DefaultCloudOnly(t *testing.T) {
+	loop := makeTestLoop(nil)
+	repl := NewREPL(loop)
+	defer repl.cancel()
+	result := repl.prioritizeModelNames([]string{"gpt4", "claude", "gemini"}, 10)
+	require.Len(t, result, 3)
+}
+
+// --- doModelCompletion ---
+
+func TestDoModelCompletion_EmptyToken(t *testing.T) {
+	loop := makeTestLoop(nil)
+	repl := NewREPL(loop)
+	defer repl.cancel()
+	repl.modelNames = []string{"llama3.2:1b", "llama3.2:3b", "qwen2.5"}
+
+	results, tokenLen := repl.doModelCompletion("", 0)
+	assert.Equal(t, 0, tokenLen)
+	assert.GreaterOrEqual(t, len(results), 1)
+}
+
+func TestDoModelCompletion_PrefixMatch(t *testing.T) {
+	loop := makeTestLoop(nil)
+	repl := NewREPL(loop)
+	defer repl.cancel()
+	repl.modelNames = []string{"llama3.2:1b", "llama3.2:3b", "qwen2.5"}
+	repl.downloadedModels = map[string]bool{"llama3.2:1b": true}
+
+	results, tokenLen := repl.doModelCompletion("llama", 5)
+	assert.Equal(t, 5, tokenLen)
+	found := make([]string, len(results))
+	for i, r := range results {
+		found[i] = string(r)
+	}
+	assert.Contains(t, found, "3.2:1b [cached]")
+	assert.Contains(t, found, "3.2:3b [cloud]")
+	assert.Len(t, results, 2)
+}
+
+func TestDoModelCompletion_NoMatch(t *testing.T) {
+	loop := makeTestLoop(nil)
+	repl := NewREPL(loop)
+	defer repl.cancel()
+	repl.modelNames = []string{"llama3.2:1b", "qwen2.5"}
+
+	results, tokenLen := repl.doModelCompletion("zzzzz", 5)
+	assert.Equal(t, 0, tokenLen)
+	assert.Empty(t, results)
+}
+
+// --- doSessionIDCompletion ---
+
+func TestDoSessionIDCompletion_NoStore(t *testing.T) {
+	loop := makeTestLoop(nil)
+	repl := NewREPL(loop)
+	defer repl.cancel()
+
+	results, tokenLen := repl.doSessionIDCompletion("", 0)
+	assert.Nil(t, results)
+	assert.Equal(t, 0, tokenLen)
+}
+
+func TestDoSessionIDCompletion_EmptyStore(t *testing.T) {
+	dir := t.TempDir()
+	store := NewSessionStore(dir)
+	loop := makeTestLoop(nil)
+	loop.store = store
+	repl := NewREPL(loop)
+	defer repl.cancel()
+
+	results, tokenLen := repl.doSessionIDCompletion("", 0)
+	assert.Nil(t, results)
+	assert.Equal(t, 0, tokenLen)
+}
+
+func TestDoSessionIDCompletion_WithMetas(t *testing.T) {
+	dir := t.TempDir()
+	content := `{"type":"session_meta","ts":1000,"sessionId":"session-test-id","turns":2}` + "\n"
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "session-test-id.jsonl"), []byte(content), 0600))
+	store := NewSessionStore(dir)
+	loop := makeTestLoop(nil)
+	loop.store = store
+	repl := NewREPL(loop)
+	defer repl.cancel()
+
+	results, tokenLen := repl.doSessionIDCompletion("", 0)
+	assert.Len(t, results, 1)
+	if len(results) > 0 {
+		assert.Equal(t, "session-test-id", string(results[0]))
+	}
+	assert.Equal(t, 0, tokenLen)
+}
+
+func TestDoSessionIDCompletion_TokenFilter(t *testing.T) {
+	dir := t.TempDir()
+	content := `{"type":"session_meta","ts":1000,"sessionId":"session-abc","turns":0}` + "\n"
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "session-abc.jsonl"), []byte(content), 0600))
+	store := NewSessionStore(dir)
+	loop := makeTestLoop(nil)
+	loop.store = store
+	repl := NewREPL(loop)
+	defer repl.cancel()
+
+	results, tokenLen := repl.doSessionIDCompletion("session-xyz", 12)
+	assert.Empty(t, results)
+	assert.Equal(t, 12, tokenLen)
+}
+
+// --- doSessionGotoCompletion ---
+
+func TestDoSessionGotoCompletion_NoMessages(t *testing.T) {
+	loop := makeTestLoop(nil)
+	repl := NewREPL(loop)
+	defer repl.cancel()
+
+	results, tokenLen := repl.doSessionGotoCompletion("", 0)
+	assert.Empty(t, results)
+	assert.Equal(t, 0, tokenLen)
+}
+
+func TestDoSessionGotoCompletion_WithMessages(t *testing.T) {
+	loop := makeTestLoop(nil)
+	loop.session.Append("first turn", "response 1")
+	loop.session.Append("second turn", "response 2")
+	repl := NewREPL(loop)
+	defer repl.cancel()
+
+	results, tokenLen := repl.doSessionGotoCompletion("", 0)
+	assert.GreaterOrEqual(t, len(results), 2)
+	assert.Equal(t, 0, tokenLen)
+}
+
+func TestDoSessionGotoCompletion_TokenFilter(t *testing.T) {
+	loop := makeTestLoop(nil)
+	loop.session.Append("hello", "world")
+	repl := NewREPL(loop)
+	defer repl.cancel()
+
+	results, tokenLen := repl.doSessionGotoCompletion("999999", 6)
+	assert.Empty(t, results)
+	assert.Equal(t, 6, tokenLen)
+}
+
+// --- writeCloudModelRow ---
+
+func TestWriteCloudModelRow_Current(t *testing.T) {
+	loop := makeTestLoop(nil)
+	repl := NewREPL(loop)
+	defer repl.cancel()
+	var buf strings.Builder
+	m := CloudModel{ID: "claude-opus-4-8", Backend: "anthropic", Desc: "most capable"}
+	repl.writeCloudModelRow(&buf, m, "claude-opus-4-8", true)
+	out := buf.String()
+	assert.Contains(t, out, "claude-opus-4-8")
+	assert.Contains(t, out, "current")
+}
+
+func TestWriteCloudModelRow_Ready(t *testing.T) {
+	loop := makeTestLoop(nil)
+	repl := NewREPL(loop)
+	defer repl.cancel()
+	var buf strings.Builder
+	m := CloudModel{ID: "claude-opus-4-8", Backend: "anthropic", Desc: "most capable"}
+	repl.writeCloudModelRow(&buf, m, "other-model", true)
+	out := buf.String()
+	assert.Contains(t, out, "most capable")
+	assert.NotContains(t, out, "current")
+}
+
+func TestWriteCloudModelRow_NotReady(t *testing.T) {
+	loop := makeTestLoop(nil)
+	repl := NewREPL(loop)
+	defer repl.cancel()
+	var buf strings.Builder
+	m := CloudModel{ID: "claude-opus-4-8", Backend: "anthropic", Desc: "most capable"}
+	repl.writeCloudModelRow(&buf, m, "other-model", false)
+	out := buf.String()
+	assert.NotContains(t, out, "current")
+}
+
+// --- writeLocalModelRow with repo ---
+
+func TestWriteLocalModelRow_WithRepo(t *testing.T) {
+	loop := makeTestLoop(nil)
+	repl := NewREPL(loop)
+	defer repl.cancel()
+	repl.modelRepos = map[string]string{"llama3.2": "meta/llama-3.2"}
+	repl.modelTypes = map[string]string{"llama3.2": modelTypeLLamafile}
+	var buf strings.Builder
+	repl.writeLocalModelRow(&buf, "llama3.2", "other")
+	assert.Contains(t, buf.String(), "meta/llama-3.2")
+}
+
+func TestWriteLocalModelRow_RepoGGUFNoURL(t *testing.T) {
+	loop := makeTestLoop(nil)
+	repl := NewREPL(loop)
+	defer repl.cancel()
+	repl.modelTypes = map[string]string{"gguf-model": modelTypeGGUF}
+	var buf strings.Builder
+	repl.writeLocalModelRow(&buf, "gguf-model", "other")
+	assert.NotContains(t, buf.String(), "huggingface")
 }
