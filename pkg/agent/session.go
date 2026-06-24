@@ -239,7 +239,7 @@ func (s *Session) BuildMessagesJSON() string {
 		if role == RoleCompactionSummary || role == RoleBranchSummary {
 			role = RoleUser
 		}
-		fmt.Fprintf(&sb, `{"role":"%s",toolParamContent:%s}`, role, jsonString(m.Content))
+		fmt.Fprintf(&sb, `{"role":"%s","content":%s}`, role, jsonString(m.Content))
 	}
 	sb.WriteByte(']')
 	return sb.String()
