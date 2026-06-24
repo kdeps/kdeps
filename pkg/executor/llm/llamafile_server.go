@@ -91,7 +91,8 @@ func ShutdownLocalServers() {
 	servedGGUFsMu.Unlock()
 }
 
-func killLocalProcess(pid int) {
+//nolint:gochecknoglobals // test-replaceable hook
+var killLocalProcess = func(pid int) {
 	proc, err := os.FindProcess(pid)
 	if err != nil {
 		return
@@ -157,8 +158,8 @@ func readServerPortFile(path string) int {
 	return p
 }
 
-// removeServerPortFile deletes the port state file when a server is shut down.
-func removeServerPortFile(path string) {
+//nolint:gochecknoglobals // test-replaceable hook
+var removeServerPortFile = func(path string) {
 	_ = os.Remove(serverPortFile(path))
 }
 
@@ -287,7 +288,8 @@ func waitForHealthy(serverURL string, port int, timeout time.Duration) error {
 	return fmt.Errorf("server did not become healthy within %s on port %d", timeout, port)
 }
 
-func isHealthy(baseURL string) bool {
+//nolint:gochecknoglobals // test-replaceable hook
+var isHealthy = func(baseURL string) bool {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	defer cancel()
 	req, err := stdhttp.NewRequestWithContext(ctx, stdhttp.MethodGet, baseURL+llamafileHealthPath, nil)

@@ -21,10 +21,15 @@
 package llm
 
 import (
+	"bytes"
 	"context"
 	"errors"
+	"io"
 	"log/slog"
+	"net/http"
+	"os"
 	"os/exec"
+	"path/filepath"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -227,4 +232,296 @@ func TestServerURL_BackendGGUF(t *testing.T) {
 	t.Setenv("KDEPS_MODELS_DIR", "/nonexistent/path-srv-gguf")
 	s := NewModelService(slog.Default())
 	assert.Equal(t, "", s.ServerURL(BackendGGUF, "test-model"))
+}
+
+func TestKillModel_BackendFile_Success(t *testing.T) {
+	dir := t.TempDir()
+	t.Setenv("KDEPS_MODELS_DIR", dir)
+
+	modelPath := filepath.Join(dir, "kill-test.llamafile")
+	require.NoError(t, os.WriteFile(modelPath, []byte("fake"), 0600))
+
+	servedLlamafilesMu.Lock()
+	servedLlamafiles[modelPath] = 8080
+	servedLlamafileNames[modelPath] = "kill-test.llamafile"
+	servedLlamafilePIDs[modelPath] = 99999
+	servedLlamafilesMu.Unlock()
+	t.Cleanup(func() {
+		servedLlamafilesMu.Lock()
+		delete(servedLlamafiles, modelPath)
+		delete(servedLlamafileNames, modelPath)
+		delete(servedLlamafilePIDs, modelPath)
+		servedLlamafilesMu.Unlock()
+	})
+
+	origKill := killLocalProcess
+	killLocalProcess = func(_ int) {}
+	t.Cleanup(func() { killLocalProcess = origKill })
+
+	origRemove := removeServerPortFile
+	removeServerPortFile = func(_ string) {}
+	t.Cleanup(func() { removeServerPortFile = origRemove })
+
+	s := NewModelService(slog.Default())
+	assert.True(t, s.KillModel(BackendFile, "kill-test.llamafile"))
+}
+
+func TestKillModel_BackendGGUF_Success(t *testing.T) {
+	dir := t.TempDir()
+	t.Setenv("KDEPS_MODELS_DIR", dir)
+
+	modelPath := filepath.Join(dir, "kill-test.gguf")
+	require.NoError(t, os.WriteFile(modelPath, []byte("fake"), 0600))
+
+	servedGGUFsMu.Lock()
+	servedGGUFs[modelPath] = 8081
+	servedGGUFNames[modelPath] = "kill-test.gguf"
+	servedGGUFPIDs[modelPath] = 99998
+	servedGGUFsMu.Unlock()
+	t.Cleanup(func() {
+		servedGGUFsMu.Lock()
+		delete(servedGGUFs, modelPath)
+		delete(servedGGUFNames, modelPath)
+		delete(servedGGUFPIDs, modelPath)
+		servedGGUFsMu.Unlock()
+	})
+
+	origKill := killLocalProcess
+	killLocalProcess = func(_ int) {}
+	t.Cleanup(func() { killLocalProcess = origKill })
+
+	origRemove := removeServerPortFile
+	removeServerPortFile = func(_ string) {}
+	t.Cleanup(func() { removeServerPortFile = origRemove })
+
+	s := NewModelService(slog.Default())
+	assert.True(t, s.KillModel(BackendGGUF, "kill-test.gguf"))
+}
+
+func TestGGUFServerURL_ModelPreparedNotRunning(t *testing.T) {
+	dir := t.TempDir()
+	t.Setenv("KDEPS_MODELS_DIR", dir)
+
+	modelName := "gguf-not-running"
+	modelPath := filepath.Join(dir, modelName)
+	require.NoError(t, os.WriteFile(modelPath, []byte("fake"), 0600))
+
+	s := NewModelService(slog.Default())
+	assert.Equal(t, "", s.ggufServerURL(modelName))
+}
+
+func TestGGUFServerURL_ModelPreparedAndRunning(t *testing.T) {
+	dir := t.TempDir()
+	t.Setenv("KDEPS_MODELS_DIR", dir)
+
+	modelName := "gguf-running"
+	modelPath := filepath.Join(dir, modelName)
+	require.NoError(t, os.WriteFile(modelPath, []byte("fake"), 0600))
+
+	servedGGUFsMu.Lock()
+	servedGGUFs[modelPath] = 19999
+	servedGGUFsMu.Unlock()
+	t.Cleanup(func() {
+		servedGGUFsMu.Lock()
+		delete(servedGGUFs, modelPath)
+		servedGGUFsMu.Unlock()
+	})
+
+	origDo := httpDefaultClientDo
+	t.Cleanup(func() { httpDefaultClientDo = origDo })
+	httpDefaultClientDo = func(_ *http.Request) (*http.Response, error) {
+		return &http.Response{
+			StatusCode: http.StatusOK,
+			Body:       io.NopCloser(bytes.NewReader(nil)),
+		}, nil
+	}
+
+	s := NewModelService(slog.Default())
+	result := s.ggufServerURL(modelName)
+	assert.Equal(t, "http://127.0.0.1:19999/v1", result)
+}
+
+func TestLlamafileServerURL_ModelPreparedNotRunning(t *testing.T) {
+	dir := t.TempDir()
+	t.Setenv("KDEPS_MODELS_DIR", dir)
+
+	modelName := "llamafile-not-running"
+	modelPath := filepath.Join(dir, modelName)
+	require.NoError(t, os.WriteFile(modelPath, []byte("fake"), 0755))
+
+	s := NewModelService(slog.Default())
+	assert.Equal(t, "", s.llamafileServerURL(modelName))
+}
+
+func TestLlamafileServerURL_ModelPreparedAndRunning(t *testing.T) {
+	dir := t.TempDir()
+	t.Setenv("KDEPS_MODELS_DIR", dir)
+
+	modelName := "llamafile-running"
+	modelPath := filepath.Join(dir, modelName)
+	require.NoError(t, os.WriteFile(modelPath, []byte("fake"), 0755))
+
+	servedLlamafilesMu.Lock()
+	servedLlamafiles[modelPath] = 19998
+	servedLlamafilesMu.Unlock()
+	t.Cleanup(func() {
+		servedLlamafilesMu.Lock()
+		delete(servedLlamafiles, modelPath)
+		servedLlamafilesMu.Unlock()
+	})
+
+	origDo := httpDefaultClientDo
+	t.Cleanup(func() { httpDefaultClientDo = origDo })
+	httpDefaultClientDo = func(_ *http.Request) (*http.Response, error) {
+		return &http.Response{
+			StatusCode: http.StatusOK,
+			Body:       io.NopCloser(bytes.NewReader(nil)),
+		}, nil
+	}
+
+	s := NewModelService(slog.Default())
+	result := s.llamafileServerURL(modelName)
+	assert.Equal(t, "http://127.0.0.1:19998/v1", result)
+}
+
+func TestServerURL_BackendFile_ModelPreparedNotRunning(t *testing.T) {
+	dir := t.TempDir()
+	t.Setenv("KDEPS_MODELS_DIR", dir)
+
+	modelName := "srv-file-not-running"
+	modelPath := filepath.Join(dir, modelName)
+	require.NoError(t, os.WriteFile(modelPath, []byte("fake"), 0755))
+
+	s := NewModelService(slog.Default())
+	assert.Equal(t, "", s.ServerURL(BackendFile, modelName))
+}
+
+func TestServerURL_BackendFile_ModelPreparedAndRunning(t *testing.T) {
+	dir := t.TempDir()
+	t.Setenv("KDEPS_MODELS_DIR", dir)
+
+	modelName := "srv-file-running"
+	modelPath := filepath.Join(dir, modelName)
+	require.NoError(t, os.WriteFile(modelPath, []byte("fake"), 0755))
+
+	servedLlamafilesMu.Lock()
+	servedLlamafiles[modelPath] = 19997
+	servedLlamafilesMu.Unlock()
+	t.Cleanup(func() {
+		servedLlamafilesMu.Lock()
+		delete(servedLlamafiles, modelPath)
+		servedLlamafilesMu.Unlock()
+	})
+
+	origDo := httpDefaultClientDo
+	t.Cleanup(func() { httpDefaultClientDo = origDo })
+	httpDefaultClientDo = func(_ *http.Request) (*http.Response, error) {
+		return &http.Response{
+			StatusCode: http.StatusOK,
+			Body:       io.NopCloser(bytes.NewReader(nil)),
+		}, nil
+	}
+
+	s := NewModelService(slog.Default())
+	result := s.ServerURL(BackendFile, modelName)
+	assert.Equal(t, "http://127.0.0.1:19997/v1", result)
+}
+
+func TestServerURL_BackendGGUF_ModelPreparedNotRunning(t *testing.T) {
+	dir := t.TempDir()
+	t.Setenv("KDEPS_MODELS_DIR", dir)
+
+	modelName := "srv-gguf-not-running"
+	modelPath := filepath.Join(dir, modelName)
+	require.NoError(t, os.WriteFile(modelPath, []byte("fake"), 0600))
+
+	s := NewModelService(slog.Default())
+	assert.Equal(t, "", s.ServerURL(BackendGGUF, modelName))
+}
+
+func TestServerURL_BackendGGUF_ModelPreparedAndRunning(t *testing.T) {
+	dir := t.TempDir()
+	t.Setenv("KDEPS_MODELS_DIR", dir)
+
+	modelName := "srv-gguf-running"
+	modelPath := filepath.Join(dir, modelName)
+	require.NoError(t, os.WriteFile(modelPath, []byte("fake"), 0600))
+
+	servedGGUFsMu.Lock()
+	servedGGUFs[modelPath] = 19996
+	servedGGUFsMu.Unlock()
+	t.Cleanup(func() {
+		servedGGUFsMu.Lock()
+		delete(servedGGUFs, modelPath)
+		servedGGUFsMu.Unlock()
+	})
+
+	origDo := httpDefaultClientDo
+	t.Cleanup(func() { httpDefaultClientDo = origDo })
+	httpDefaultClientDo = func(_ *http.Request) (*http.Response, error) {
+		return &http.Response{
+			StatusCode: http.StatusOK,
+			Body:       io.NopCloser(bytes.NewReader(nil)),
+		}, nil
+	}
+
+	s := NewModelService(slog.Default())
+	result := s.ServerURL(BackendGGUF, modelName)
+	assert.Equal(t, "http://127.0.0.1:19996/v1", result)
+}
+
+func TestGGUFServerURL_ModelRunning(t *testing.T) {
+	dir := t.TempDir()
+	t.Setenv("KDEPS_MODELS_DIR", dir)
+
+	modelPath := filepath.Join(dir, "running-test.gguf")
+	require.NoError(t, os.WriteFile(modelPath, []byte("fake"), 0600))
+
+	servedGGUFsMu.Lock()
+	servedGGUFs[modelPath] = 9090
+	servedGGUFNames[modelPath] = "running-test.gguf"
+	servedGGUFsMu.Unlock()
+	t.Cleanup(func() {
+		servedGGUFsMu.Lock()
+		delete(servedGGUFs, modelPath)
+		delete(servedGGUFNames, modelPath)
+		servedGGUFsMu.Unlock()
+	})
+
+	origHealthy := isHealthy
+	isHealthy = func(_ string) bool { return true }
+	t.Cleanup(func() { isHealthy = origHealthy })
+
+	s := NewModelService(slog.Default())
+	result := s.ggufServerURL("running-test.gguf")
+	assert.Contains(t, result, "9090")
+	assert.Contains(t, result, "/v1")
+}
+
+func TestLlamafileServerURL_ModelRunning(t *testing.T) {
+	dir := t.TempDir()
+	t.Setenv("KDEPS_MODELS_DIR", dir)
+
+	modelPath := filepath.Join(dir, "running-llama.llamafile")
+	require.NoError(t, os.WriteFile(modelPath, []byte("fake"), 0600))
+
+	servedLlamafilesMu.Lock()
+	servedLlamafiles[modelPath] = 9091
+	servedLlamafileNames[modelPath] = "running-llama.llamafile"
+	servedLlamafilesMu.Unlock()
+	t.Cleanup(func() {
+		servedLlamafilesMu.Lock()
+		delete(servedLlamafiles, modelPath)
+		delete(servedLlamafileNames, modelPath)
+		servedLlamafilesMu.Unlock()
+	})
+
+	origHealthy := isHealthy
+	isHealthy = func(_ string) bool { return true }
+	t.Cleanup(func() { isHealthy = origHealthy })
+
+	s := NewModelService(slog.Default())
+	result := s.llamafileServerURL("running-llama.llamafile")
+	assert.Contains(t, result, "9091")
+	assert.Contains(t, result, "/v1")
 }
