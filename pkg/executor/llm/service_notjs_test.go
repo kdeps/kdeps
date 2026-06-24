@@ -150,3 +150,81 @@ func TestGGUFServerURL_NoModelsDir(t *testing.T) {
 	s := NewModelService(slog.Default())
 	assert.Equal(t, "", s.ggufServerURL("test-model"))
 }
+
+func TestKillModel_UnknownBackend(t *testing.T) {
+	s := NewModelService(slog.Default())
+	assert.False(t, s.KillModel("unknown", "model"))
+}
+
+func TestKillModel_BackendFile_PrepareError(t *testing.T) {
+	t.Setenv("KDEPS_MODELS_DIR", "/nonexistent/path-kill-test")
+	s := NewModelService(slog.Default())
+	assert.False(t, s.KillModel(BackendFile, "nonexistent-model"))
+}
+
+func TestKillModel_BackendGGUF_PrepareError(t *testing.T) {
+	t.Setenv("KDEPS_MODELS_DIR", "/nonexistent/path-kill-test")
+	s := NewModelService(slog.Default())
+	assert.False(t, s.KillModel(BackendGGUF, "nonexistent-model"))
+}
+
+func TestKillModel_BackendFile_NotRunning(t *testing.T) {
+	// Register a model path in global state but no PID
+	path := "/tmp/test-model.llamafile"
+	servedLlamafilesMu.Lock()
+	servedLlamafiles[path] = 0
+	servedLlamafileNames[path] = "test"
+	delete(servedLlamafilePIDs, path)
+	servedLlamafilesMu.Unlock()
+	t.Cleanup(func() {
+		servedLlamafilesMu.Lock()
+		delete(servedLlamafiles, path)
+		delete(servedLlamafileNames, path)
+		servedLlamafilesMu.Unlock()
+	})
+
+	s := NewModelService(slog.Default())
+	assert.False(t, s.KillModel(BackendFile, "test"))
+}
+
+func TestKillModel_BackendGGUF_NotRunning(t *testing.T) {
+	path := "/tmp/test-model.gguf"
+	servedGGUFsMu.Lock()
+	servedGGUFs[path] = 0
+	servedGGUFNames[path] = "test"
+	delete(servedGGUFPIDs, path)
+	servedGGUFsMu.Unlock()
+	t.Cleanup(func() {
+		servedGGUFsMu.Lock()
+		delete(servedGGUFs, path)
+		delete(servedGGUFNames, path)
+		servedGGUFsMu.Unlock()
+	})
+
+	s := NewModelService(slog.Default())
+	assert.False(t, s.KillModel(BackendGGUF, "test"))
+}
+
+func TestGGUFServerURL_ModelNotPrepared(t *testing.T) {
+	t.Setenv("KDEPS_MODELS_DIR", "/nonexistent/path-gguf-url")
+	s := NewModelService(slog.Default())
+	assert.Equal(t, "", s.ggufServerURL("unknown-model"))
+}
+
+func TestLlamafileServerURL_ModelNotPrepared(t *testing.T) {
+	t.Setenv("KDEPS_MODELS_DIR", "/nonexistent/path-llamafile-url")
+	s := NewModelService(slog.Default())
+	assert.Equal(t, "", s.llamafileServerURL("unknown-model"))
+}
+
+func TestServerURL_BackendFile(t *testing.T) {
+	t.Setenv("KDEPS_MODELS_DIR", "/nonexistent/path-srv-file")
+	s := NewModelService(slog.Default())
+	assert.Equal(t, "", s.ServerURL(BackendFile, "test-model"))
+}
+
+func TestServerURL_BackendGGUF(t *testing.T) {
+	t.Setenv("KDEPS_MODELS_DIR", "/nonexistent/path-srv-gguf")
+	s := NewModelService(slog.Default())
+	assert.Equal(t, "", s.ServerURL(BackendGGUF, "test-model"))
+}
