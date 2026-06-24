@@ -313,3 +313,43 @@ func (s *infoStubLLM) GenerateContent(
 		},
 	}, nil
 }
+
+func TestKdepsLogHandler_GenerateContentEnd_ToolCallsAndInfo(t *testing.T) {
+	t.Setenv("KDEPS_DEBUG", "true")
+	defer t.Setenv("KDEPS_DEBUG", "")
+
+	h := KdepsLogHandler{}
+	ctx := context.Background()
+	res := &llms.ContentResponse{
+		Choices: []*llms.ContentChoice{
+			{
+				Content:    "tool call result",
+				StopReason: "tool_use",
+				ToolCalls: []llms.ToolCall{
+					{ID: "tc1", Type: "function", FunctionCall: &llms.FunctionCall{
+						Name: "search", Arguments: `{"q":"test"}`,
+					}},
+				},
+				GenerationInfo: map[string]any{
+					"CompletionTokens": 50,
+					"PromptTokens":     20,
+				},
+			},
+		},
+	}
+	h.HandleLLMGenerateContentEnd(ctx, res)
+}
+
+func TestObservedLLM_ErrorPath_DebugOff(t *testing.T) {
+	t.Setenv("KDEPS_DEBUG", "")
+	t.Setenv("KDEPS_INSTRUMENT", "")
+	t.Setenv("DEBUG", "")
+
+	errStub := &errorStubLLM{err: assert.AnError}
+	obs := &observedLLM{inner: errStub, model: "test-model"}
+	msgs := []llms.MessageContent{
+		llms.TextParts(llms.ChatMessageTypeHuman, "fail"),
+	}
+	_, err := obs.GenerateContent(context.Background(), msgs)
+	assert.ErrorIs(t, err, assert.AnError)
+}

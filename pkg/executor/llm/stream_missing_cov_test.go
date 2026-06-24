@@ -378,3 +378,68 @@ func TestBuildStreamingReasoningOpts_EmptyChunkNoOp(t *testing.T) {
 	require.NoError(t, err)
 	assert.Empty(t, buf.String())
 }
+
+// ---- cosineSimilarity ----
+
+func TestCosineSimilarity_ZeroDenom(t *testing.T) {
+	score := cosineSimilarity([]float32{0, 0, 0}, []float32{0, 0, 0})
+	assert.Equal(t, float64(0), score)
+}
+
+func TestCosineSimilarity_EmptyA(t *testing.T) {
+	score := cosineSimilarity(nil, []float32{1, 2})
+	assert.Equal(t, float64(0), score)
+}
+
+// ---- selectFewShotByEmbedding ----
+
+func TestSelectFewShotByEmbedding_NoCandidates(t *testing.T) {
+	result := selectFewShotByEmbedding(context.Background(),
+		[]domain.ScenarioItem{{Role: roleAssistant, Prompt: "hi"}}, "test", 1, nil)
+	assert.Len(t, result, 1)
+}
+
+func TestSelectFewShotByEmbedding_EmptyRole(t *testing.T) {
+	result := selectFewShotByEmbedding(context.Background(),
+		[]domain.ScenarioItem{{Role: "", Prompt: "hello"}}, "test", 1, nil)
+	assert.Len(t, result, 1)
+}
+
+func TestSelectFewShotByEmbedding_AppendsAssistantPair(t *testing.T) {
+	pool := []domain.ScenarioItem{
+		{Role: roleUser, Prompt: "hi"},
+		{Role: roleAssistant, Prompt: "hello"},
+	}
+	result := selectFewShotByEmbedding(context.Background(), pool, "test", 5, nil)
+	assert.Len(t, result, 2)
+}
+
+// ---- buildScenarioMessages ----
+
+func TestBuildScenarioMessages_RetrieverPreambleOnNonSystem(t *testing.T) {
+	scenario := []domain.ScenarioItem{
+		{Role: roleUser, Prompt: "hi"},
+	}
+	msgs, injected := buildScenarioMessages(scenario, nil, "ctx data", "", false)
+	require.Len(t, msgs, 1)
+	assert.False(t, injected)
+	assert.NotContains(t, msgs[0].Parts[0].(llms.TextContent).Text, "ctx data")
+}
+
+// ---- buildAIMessage ----
+
+func TestBuildAIMessage_WithContentAndToolCalls(t *testing.T) {
+	msg := buildAIMessage("hello", []map[string]any{
+		{"id": "c1", "type": "function", "function": map[string]any{"name": "fn", "arguments": "{}"}},
+	})
+	require.NotNil(t, msg)
+	assert.Len(t, msg.Parts, 2)
+}
+
+func TestBuildAIMessage_OnlyToolCalls(t *testing.T) {
+	msg := buildAIMessage("", []map[string]any{
+		{"id": "c1", "type": "function", "function": map[string]any{"name": "fn", "arguments": "{}"}},
+	})
+	require.NotNil(t, msg)
+	assert.Len(t, msg.Parts, 1)
+}

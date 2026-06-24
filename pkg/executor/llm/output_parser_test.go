@@ -222,3 +222,35 @@ func TestApplyOutputParser_RegexDict_InvalidPair_Skipped(t *testing.T) {
 	assert.Error(t, err)
 	assert.Equal(t, "data", out)
 }
+
+func TestApplyOutputParser_Combining_TrailingComma(t *testing.T) {
+	// Empty parser in list due to trailing comma should be skipped.
+	out, err := applyOutputParser("combining:boolean,", "true")
+	require.NoError(t, err)
+	assert.Equal(t, "true", out)
+}
+
+func TestApplyOutputParser_Combining_AllEmpty(t *testing.T) {
+	// All parsers in list are empty.
+	out, err := applyOutputParser("combining:, , ,", "data")
+	require.NoError(t, err)
+	assert.Equal(t, "data", out)
+}
+
+func TestOutputParserFormatInstructions_CombiningSingle(t *testing.T) {
+	// No comma - single parser name.
+	inst := outputParserFormatInstructions("combining:boolean")
+	assert.NotEmpty(t, inst)
+}
+
+func TestParseCombiningOutput_AllFail(t *testing.T) {
+	out, err := parseCombiningOutput("boolean,structured", "plain text")
+	assert.Error(t, err)
+	assert.Equal(t, "plain text", out)
+}
+
+func TestParseCombiningOutput_FirstSucceeds(t *testing.T) {
+	out, err := parseCombiningOutput("boolean,csv", "true")
+	require.NoError(t, err)
+	assert.Equal(t, "true", out)
+}

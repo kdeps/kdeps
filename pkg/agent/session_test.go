@@ -290,6 +290,34 @@ func TestRawMessagesWithOps_ReturnsCopies(t *testing.T) {
 // TestBuildMessagesJSON_SpecialRolesConvertedToUser verifies that
 // compactionSummary and branchSummary internal roles become "user"
 // in the JSON sent to the LLM (matching pi's convertToLlm behavior).
+func TestPreviousCompactionSummary_UnwrappedContent(t *testing.T) {
+	s := NewSession(0)
+	// Insert a compaction summary message without the standard prefix wrapper.
+	s.messages = append(s.messages,
+		SessionMessage{Role: RoleCompactionSummary, Content: "raw summary text without wrapper"},
+		SessionMessage{Role: RoleAssistant, Content: "ok"},
+	)
+	got := s.PreviousCompactionSummary()
+	if got != "raw summary text without wrapper" {
+		t.Fatalf("expected raw content, got %q", got)
+	}
+}
+
+func TestPreviousCompactionSummary_HasPrefixMissingSuffix(t *testing.T) {
+	s := NewSession(0)
+	// Content has prefix but no suffix -- should return the full text after CutPrefix is only
+	// partially successful.
+	wrapped := compactionSummaryPrefix + "summary text but no suffix"
+	s.messages = append(s.messages,
+		SessionMessage{Role: RoleCompactionSummary, Content: wrapped},
+		SessionMessage{Role: RoleAssistant, Content: "ok"},
+	)
+	got := s.PreviousCompactionSummary()
+	if got != wrapped {
+		t.Fatalf("expected full wrapped content, got %q", got)
+	}
+}
+
 func TestTrimByTokenBudget_DropsOldestTurns(t *testing.T) {
 	s := NewSession(0)
 	// Set a tiny budget so any content will exceed it.
@@ -599,5 +627,63 @@ func TestRestoreTo_BranchAfterGoto(t *testing.T) {
 	// Its parentID should be the ID of the assistant msg from turn1 (the restored tip).
 	if msgs[2].ParentID != cp {
 		t.Fatalf("expected parentID=%d (restored tip), got %d", cp, msgs[2].ParentID)
+	}
+}
+
+func TestBranchInfo_NoPrunedBranches(t *testing.T) {
+	s := NewSession(0)
+	point, turns := s.BranchInfo()
+	if point != 0 || turns != 0 {
+		t.Fatalf("expected (0,0) with no pruned branches, got (%d,%d)", point, turns)
+	}
+}
+
+func TestRestoreFromPruned_FileOpsNoOpBranch(t *testing.T) {
+	s := NewSession(0)
+	s.Append("turn1", "resp1")
+	cp1 := s.Checkpoint()
+	s.Append("turn2", "resp2")
+	cp2 := s.Checkpoint()
+
+	if !s.RestoreTo(cp1) {
+		t.Fatal("RestoreTo(cp1) failed")
+	}
+
+	if !s.RestoreTo(cp2) {
+		t.Fatal("RestoreTo(stashed cp2) failed")
+	}
+	if s.TurnCount() != 2 {
+		t.Fatalf("expected 2 turns after restore from pruned, got %d", s.TurnCount())
+	}
+}
+
+// TestRestoreFromPruned_FileOpsMoreThanNewTurns triggers the if-branch in
+// restoreFromPruned where newTurns < len(entry.ops). This happens when the
+// stashed branch has more file ops entries than the restored turn count.
+func TestRestoreFromPruned_FileOpsMoreThanNewTurns(t *testing.T) {
+	s := NewSession(0)
+	s.Append("t1", "r1")
+	s.RecordFileOps(nil, []string{"a.go"})
+	cp1 := s.Checkpoint()
+	s.Append("t2", "r2")
+	s.RecordFileOps(nil, []string{"b.go"})
+	cp2 := s.Checkpoint()
+	s.Append("t3", "r3")
+	s.RecordFileOps(nil, []string{"c.go"})
+
+	// Restore to cp1 (turn 1's assistant). This stashes turns 2-3 with 3 ops.
+	if !s.RestoreTo(cp1) {
+		t.Fatal("RestoreTo(cp1) failed")
+	}
+
+	// Restore to cp2 (turn 2's assistant) from the pruned branch.
+	// In the stash: cp2 is at index 3 (0-based: t1, r1, t2, r2, t3, r3).
+	// end = min((3/2+1)*2, 6) = 4, newTurns = 2, len(ops) = 3.
+	// 2 < 3 → TRUE → if-branch.
+	if !s.RestoreTo(cp2) {
+		t.Fatal("RestoreTo(cp2) from pruned failed")
+	}
+	if s.TurnCount() != 2 {
+		t.Fatalf("expected 2 turns (t1+t2), got %d", s.TurnCount())
 	}
 }

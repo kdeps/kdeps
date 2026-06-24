@@ -22,6 +22,8 @@ package llm
 
 import (
 	"errors"
+	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -88,4 +90,22 @@ func TestDownloadedModelAliases_HomeError(t *testing.T) {
 	userHomeDirFunc = func() (string, error) { return "", errors.New("no home") }
 	result := DownloadedModelAliases()
 	assert.Nil(t, result)
+}
+
+func TestDownloadedModelAliases_WithKnownAlias(t *testing.T) {
+	tmp := t.TempDir()
+	t.Setenv("KDEPS_MODELS_DIR", tmp)
+
+	// Get a known alias and its expected cache path.
+	url, ok := ResolveLlamafileAlias("llama3.2")
+	require.True(t, ok)
+
+	// Create a fake file at the expected cache location.
+	basename := filepath.Base(url)
+	fakePath := filepath.Join(tmp, basename)
+	require.NoError(t, os.WriteFile(fakePath, []byte("fake-model"), 0600))
+
+	result := DownloadedModelAliases()
+	assert.NotNil(t, result)
+	assert.True(t, result["llama3.2"], "llama3.2 should appear as downloaded")
 }

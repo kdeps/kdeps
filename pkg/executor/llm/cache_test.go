@@ -185,3 +185,22 @@ func TestCachedLLM_InnerError(t *testing.T) {
 	require.Error(t, err)
 	assert.ErrorIs(t, err, assert.AnError)
 }
+
+func TestCacheKey_StripsStreamingFunc(t *testing.T) {
+	ClearResponseCache()
+	defer ClearResponseCache()
+
+	msgs := []llms.MessageContent{
+		llms.TextParts(llms.ChatMessageTypeHuman, "cache-key-stream-test"),
+	}
+	opts := []llms.CallOption{llms.WithStreamingFunc(func(_ context.Context, _ []byte) error { return nil })}
+
+	key1, err := cacheKey(msgs, nil)
+	require.NoError(t, err)
+
+	key2, err := cacheKey(msgs, opts)
+	require.NoError(t, err)
+
+	// Both keys should be identical because streaming func is zeroed out.
+	assert.Equal(t, key1, key2)
+}
