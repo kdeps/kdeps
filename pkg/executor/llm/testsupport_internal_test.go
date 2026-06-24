@@ -9,13 +9,12 @@ package llm
 
 import (
 	"errors"
-	"io"
 	"log/slog"
 	"net"
 )
 
 func testLogger() *slog.Logger {
-	return slog.New(slog.NewTextHandler(io.Discard, nil))
+	return slog.New(slog.DiscardHandler)
 }
 
 type failingListener struct{}

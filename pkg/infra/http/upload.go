@@ -44,7 +44,7 @@ func NewUploadHandler(store domain.FileStore, maxFileSize int64) *UploadHandler 
 
 func (h *UploadHandler) HandleUpload(r *stdhttp.Request) ([]*domain.UploadedFile, error) {
 	debugEnter("HandleUpload")
-	if err := r.ParseMultipartForm(MaxMemory); err != nil {
+	if err := r.ParseMultipartForm(MaxMemory); err != nil { //nolint:gosec // MaxMemory is bounded to 32MB
 		return nil, uploadParseFormFailed(err)
 	}
 
