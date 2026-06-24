@@ -79,8 +79,8 @@ func (s *server) handleInitialize(id interface{}) response {
 			"protocolVersion": "2024-11-05",
 			"capabilities":    map[string]interface{}{},
 			"serverInfo": map[string]interface{}{
-				"name":    "test-server",
-				"version": "1.0",
+				jsonKeyNameTS: "test-server",
+				"version":     "1.0",
 			},
 		},
 	}
@@ -98,7 +98,7 @@ func (s *server) handleToolsList(id interface{}) response {
 					InputSchema: map[string]interface{}{
 						"type": "object",
 						"properties": map[string]interface{}{
-							"text": map[string]interface{}{"type": "string"},
+							jsonKeyTextTS: map[string]interface{}{"type": "string"},
 						},
 						"required": []string{"text"},
 					},

@@ -57,9 +57,9 @@ func (b *OllamaBackend) BuildRequest(
 ) (map[string]interface{}, error) {
 	kdeps_debug.Log("enter: BuildRequest")
 	req := map[string]interface{}{
-		"model":    model,
-		"messages": messages,
-		"stream":   config.Streaming,
+		jsonFieldModel:    model,
+		jsonFieldMessages: messages,
+		"stream":          config.Streaming,
 	}
 
 	if config.JSONResponse {
@@ -112,8 +112,8 @@ func parseOllamaStreamingResponse(body io.Reader) (map[string]interface{}, error
 		}
 
 		// Accumulate content from each chunk
-		if msg, ok := chunk["message"].(map[string]interface{}); ok {
-			if content, contentOk := msg["content"].(string); contentOk {
+		if msg, ok := chunk[jsonFieldMessage].(map[string]interface{}); ok {
+			if content, contentOk := msg[jsonFieldContent].(string); contentOk {
 				contentBuilder.WriteString(content)
 			}
 		}
@@ -126,14 +126,14 @@ func parseOllamaStreamingResponse(body io.Reader) (map[string]interface{}, error
 
 	// Build a response identical to the non-streaming format
 	result := map[string]interface{}{
-		"message": map[string]interface{}{
-			"role":    roleAssistant,
-			"content": contentBuilder.String(),
+		jsonFieldMessage: map[string]interface{}{
+			jsonFieldRole:    roleAssistant,
+			jsonFieldContent: contentBuilder.String(),
 		},
 	}
 	// Preserve top-level metadata from the last chunk (e.g. done, total_duration)
 	for k, v := range lastChunk {
-		if k != "message" {
+		if k != jsonFieldMessage {
 			result[k] = v
 		}
 	}

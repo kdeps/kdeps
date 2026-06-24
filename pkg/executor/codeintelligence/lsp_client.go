@@ -16,8 +16,8 @@ package codeintelligence
 
 import (
 	"bufio"
-	"encoding/json"
 	"context"
+	"encoding/json"
 	"fmt"
 	"io"
 	"os/exec"
@@ -27,6 +27,8 @@ import (
 	"sync/atomic"
 	"time"
 )
+
+const lspShutdownTimeout = 5 * time.Second
 
 // lspClient communicates with an LSP server via JSON-RPC 2.0 over stdio.
 type lspClient struct {
@@ -82,13 +84,13 @@ func startLSPClient(bin string, args []string) (*lspClient, error) {
 
 	stdout, err := cmd.StdoutPipe()
 	if err != nil {
-		stdin.Close()
+		_ = stdin.Close()
 		return nil, fmt.Errorf("lsp: stdout pipe: %w", err)
 	}
 
-	if err := cmd.Start(); err != nil {
-		stdin.Close()
-		stdout.Close()
+	if err = cmd.Start(); err != nil {
+		_ = stdin.Close()
+		_ = stdout.Close()
 		return nil, fmt.Errorf("lsp: start %s: %w", bin, err)
 	}
 
@@ -130,7 +132,7 @@ func (c *lspClient) call(method string, params, result interface{}) error {
 	}
 
 	if result != nil && resp.Result != nil {
-		if err := json.Unmarshal(resp.Result, result); err != nil {
+		if err = json.Unmarshal(resp.Result, result); err != nil {
 			return fmt.Errorf("lsp: unmarshal %s result: %w", method, err)
 		}
 	}
@@ -165,10 +167,10 @@ func (c *lspClient) write(msg interface{}) error {
 	}
 
 	header := fmt.Sprintf("Content-Length: %d\r\n\r\n", len(body))
-	if _, err := io.WriteString(c.stdin, header); err != nil {
+	if _, err = io.WriteString(c.stdin, header); err != nil {
 		return err
 	}
-	if _, err := c.stdin.Write(body); err != nil {
+	if _, err = c.stdin.Write(body); err != nil {
 		return err
 	}
 	return nil
@@ -183,7 +185,7 @@ func (c *lspClient) readResponse() (*lspResponse, error) {
 		}
 
 		var resp lspResponse
-		if err := json.Unmarshal(body, &resp); err != nil {
+		if err = json.Unmarshal(body, &resp); err != nil {
 			return nil, fmt.Errorf("lsp: parse response: %w", err)
 		}
 
@@ -216,13 +218,13 @@ func (c *lspClient) readMessage() ([]byte, error) {
 	}
 
 	// Read the blank line after header.
-	if _, err := c.stdout.ReadString('\n'); err != nil {
+	if _, err = c.stdout.ReadString('\n'); err != nil {
 		return nil, fmt.Errorf("read header separator: %w", err)
 	}
 
 	// Read the body.
 	body := make([]byte, length)
-	if _, err := io.ReadFull(c.stdout, body); err != nil {
+	if _, err = io.ReadFull(c.stdout, body); err != nil {
 		return nil, fmt.Errorf("read message body (%d bytes): %w", length, err)
 	}
 
@@ -230,7 +232,7 @@ func (c *lspClient) readMessage() ([]byte, error) {
 }
 
 // close shuts down the LSP server.
-func (c *lspClient) close() error {
+func (c *lspClient) close() {
 	_ = c.notify("shutdown", nil)
 	_ = c.notify("exit", nil)
 
@@ -240,10 +242,9 @@ func (c *lspClient) close() error {
 
 	select {
 	case <-done:
-	case <-time.After(5 * time.Second):
+	case <-time.After(lspShutdownTimeout):
 		_ = c.cmd.Process.Kill()
 	}
 
-	c.stdin.Close()
-	return nil
+	_ = c.stdin.Close()
 }

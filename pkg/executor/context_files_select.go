@@ -30,7 +30,7 @@ func (ctx *ExecutionContext) ApplySelector(
 ) (interface{}, error) {
 	kdeps_debug.Log("enter: ApplySelector")
 	switch selector {
-	case "first":
+	case fileSelectFirst:
 		if len(matches) > 0 {
 			return ReadFile(matches[0])
 		}

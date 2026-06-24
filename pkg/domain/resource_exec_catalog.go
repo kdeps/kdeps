@@ -54,10 +54,10 @@ func catalogResponseEntry(
 
 //nolint:gochecknoglobals // registry table
 var resourceExecCatalog = []ResourceExecCatalogEntry{
-	catalogEntry("chat",
+	catalogEntry(ResourceTypeChat,
 		func(r *Resource) bool { return r.Chat != nil },
 		func(a *ActionConfig) bool { return a.Chat != nil }),
-	catalogEntry("httpClient",
+	catalogEntry(ResourceTypeHTTPClient,
 		func(r *Resource) bool { return r.HTTPClient != nil },
 		func(a *ActionConfig) bool { return a.HTTPClient != nil }),
 	catalogEntry("sql",

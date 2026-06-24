@@ -54,8 +54,8 @@ func (e *Executor) buildMessages(
 	messages := make([]map[string]interface{}, 0, len(history))
 	messages = append(messages, history...)
 	messages = append(messages, map[string]interface{}{
-		"role":    role,
-		"content": content,
+		jsonFieldRole:    role,
+		jsonFieldContent: content,
 	})
 
 	// Build system prompt with JSON response instructions (v1 compatibility)
@@ -63,8 +63,8 @@ func (e *Executor) buildMessages(
 	if systemPrompt != "" {
 		messages = append([]map[string]interface{}{
 			{
-				"role":    roleSystem,
-				"content": systemPrompt,
+				jsonFieldRole:    roleSystem,
+				jsonFieldContent: systemPrompt,
 			},
 		}, messages...)
 	}

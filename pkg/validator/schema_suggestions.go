@@ -113,9 +113,9 @@ func (sv *SchemaValidator) getPatternSuggestion(field string) string {
 	kdeps_debug.Log("enter: getPatternSuggestion")
 	// Known patterns
 	patternMap := map[string]string{
-		"validations.routes":             "Must start with '/'. Example: '/api/users'",
-		"settings.apiServer.routes.path": "Must start with '/'. Example: '/api/users'",
-		"routes.path":                    "Must start with '/'. Example: '/api/users'",
+		"validations.routes":             routePatternSuggestion,
+		"settings.apiServer.routes.path": routePatternSuggestion,
+		"routes.path":                    routePatternSuggestion,
 	}
 
 	for key, suggestion := range patternMap {

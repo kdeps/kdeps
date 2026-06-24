@@ -54,7 +54,7 @@ func setupDockerBuilder(flags *BuildFlags) (*docker.Builder, error) {
 func setupDockerBuilderImpl(flags *BuildFlags) (*docker.Builder, error) {
 	kdeps_debug.Log("enter: setupDockerBuilder")
 	// Auto-select OS based on GPU type
-	selectedOS := "alpine"
+	selectedOS := defaultBaseImage
 	if flags.GPU != "" {
 		selectedOS = "ubuntu"
 	}

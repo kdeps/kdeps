@@ -94,10 +94,10 @@ func convertOpenAICompatResponse(resp map[string]interface{}) map[string]interfa
 	if message == nil {
 		return result
 	}
-	if content, ok := message["content"].(string); ok {
-		message["content"] = stripTrailingSpecialTokens(content)
+	if content, ok := message[jsonFieldContent].(string); ok {
+		message[jsonFieldContent] = stripTrailingSpecialTokens(content)
 	}
-	result["message"] = message
+	result[jsonFieldMessage] = message
 	return result
 }
 
@@ -111,7 +111,7 @@ func firstChoiceMessage(resp map[string]interface{}) map[string]interface{} {
 	if !ok {
 		return nil
 	}
-	message, ok := choice["message"].(map[string]interface{})
+	message, ok := choice[jsonFieldMessage].(map[string]interface{})
 	if !ok {
 		return nil
 	}

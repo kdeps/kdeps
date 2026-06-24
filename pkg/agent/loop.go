@@ -57,7 +57,7 @@ type Config struct {
 	BaseURL string
 	// SystemPrompt is injected as the first system message in every conversation.
 	SystemPrompt string
-	// Role is the chat role field (default: "user").
+	// Role is the chat role field (default: RoleUser).
 	Role string
 	// MaxTurns caps conversation history retained in the session (0 = unlimited).
 	MaxTurns int
@@ -217,16 +217,18 @@ func resolveModelAndBackend(model, backend string) (string, string) {
 			model, _ = detectDefaultModelAndBackend()
 		}
 	}
+	if backend != "" {
+		return model, backend
+	}
+	backend = envOrDefault("KDEPS_AGENT_BACKEND", "")
+	if backend != "" {
+		return model, backend
+	}
+	if model != "" {
+		backend = BackendForModel(model)
+	}
 	if backend == "" {
-		backend = envOrDefault("KDEPS_AGENT_BACKEND", "")
-		if backend == "" {
-			if model != "" {
-				backend = BackendForModel(model)
-			}
-			if backend == "" {
-				_, backend = detectDefaultModelAndBackend()
-			}
-		}
+		_, backend = detectDefaultModelAndBackend()
 	}
 	return model, backend
 }
@@ -507,7 +509,7 @@ func summarizeToolArgs(raw string) string {
 		return raw
 	}
 	// Prefer file_path, then query, then url, then expression, then first string value.
-	for _, key := range []string{"file_path", "query", "url", "expression", "command"} {
+	for _, key := range []string{toolParamFilePath, toolParamQuery, "url", "expression", "command"} {
 		if v, ok := m[key].(string); ok && v != "" {
 			if len(v) > toolArgMaxDisplay {
 				v = v[:toolArgMaxDisplay-3] + "..."
@@ -552,19 +554,19 @@ func (l *Loop) appendToolRoundTrip(
 		}
 	}
 	history = append(history, map[string]any{
-		"role":       "assistant",
-		"content":    assistantContent,
-		"tool_calls": tcJSON,
+		"role":           RoleAssistant,
+		toolParamContent: assistantContent,
+		"tool_calls":     tcJSON,
 	})
 
 	// Execute each tool and add tool result messages.
 	for _, tc := range toolCalls {
 		result := l.dispatchStreamToolCall(tc)
 		history = append(history, map[string]any{
-			"role":         "tool",
-			"tool_call_id": tc.ID,
-			"name":         tc.Name,
-			"content":      result,
+			"role":           "tool",
+			"tool_call_id":   tc.ID,
+			"name":           tc.Name,
+			toolParamContent: result,
 		})
 	}
 
@@ -741,7 +743,7 @@ func (l *Loop) buildSyntheticWorkflow(actionID string, chatCfg *domain.ChatConfi
 }
 
 // formatLoopResult extracts the text response from the engine result.
-// The LLM executor returns map[string]any{"message": {"content": "...", "role": "assistant"}};
+// The LLM executor returns map[string]any{"message": {toolParamContent: "...", "role": RoleAssistant}};
 // this function unwraps that structure instead of using fmt.Sprintf which produces garbled output.
 func formatLoopResult(result any) string {
 	if result == nil {
@@ -753,7 +755,7 @@ func formatLoopResult(result any) string {
 	if m, ok := result.(map[string]any); ok {
 		msg, msgOK := m["message"].(map[string]any)
 		if msgOK {
-			if content, contentOK := msg["content"].(string); contentOK {
+			if content, contentOK := msg[toolParamContent].(string); contentOK {
 				return stripContentToolCalls(content)
 			}
 		}

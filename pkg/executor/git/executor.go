@@ -136,7 +136,7 @@ func (e *Executor) status(config *domain.GitResourceConfig) (interface{}, error)
 	cmd := e.buildGitCmd(config, "status", "--porcelain", "-b")
 	stdout, stderr, exitCode, err := e.runner.Run(cmd)
 	if err != nil || exitCode != 0 {
-		return result(false, map[string]interface{}{"error": stderr}), fmt.Errorf("git status failed: %w", err)
+		return result(false, map[string]interface{}{resultError: stderr}), fmt.Errorf("git status failed: %w", err)
 	}
 
 	branch := ""
@@ -185,7 +185,7 @@ func (e *Executor) diff(config *domain.GitResourceConfig) (interface{}, error) {
 	cmd := e.buildGitCmd(config, args...)
 	stdout, stderr, exitCode, err := e.runner.Run(cmd)
 	if err != nil || exitCode != 0 {
-		return result(false, map[string]interface{}{"error": stderr}), fmt.Errorf("git diff failed: %w", err)
+		return result(false, map[string]interface{}{resultError: stderr}), fmt.Errorf("git diff failed: %w", err)
 	}
 
 	additions := strings.Count(stdout, "\n+") - strings.Count(stdout, "\n+++")
@@ -214,7 +214,7 @@ func (e *Executor) log(config *domain.GitResourceConfig) (interface{}, error) {
 	cmd := e.buildGitCmd(config, args...)
 	stdout, stderr, exitCode, err := e.runner.Run(cmd)
 	if err != nil || exitCode != 0 {
-		return result(false, map[string]interface{}{"error": stderr}), fmt.Errorf("git log failed: %w", err)
+		return result(false, map[string]interface{}{resultError: stderr}), fmt.Errorf("git log failed: %w", err)
 	}
 
 	var commits []map[string]interface{}
@@ -247,7 +247,7 @@ func (e *Executor) show(config *domain.GitResourceConfig) (interface{}, error) {
 	cmd := e.buildGitCmd(config, args...)
 	stdout, stderr, exitCode, err := e.runner.Run(cmd)
 	if err != nil || exitCode != 0 {
-		return result(false, map[string]interface{}{"error": stderr}), fmt.Errorf("git show failed: %w", err)
+		return result(false, map[string]interface{}{resultError: stderr}), fmt.Errorf("git show failed: %w", err)
 	}
 	return result(true, map[string]interface{}{"output": stdout}), nil
 }
@@ -256,7 +256,7 @@ func (e *Executor) branch(config *domain.GitResourceConfig) (interface{}, error)
 	cmd := e.buildGitCmd(config, "branch", "-a")
 	stdout, stderr, exitCode, err := e.runner.Run(cmd)
 	if err != nil || exitCode != 0 {
-		return result(false, map[string]interface{}{"error": stderr}), fmt.Errorf("git branch failed: %w", err)
+		return result(false, map[string]interface{}{resultError: stderr}), fmt.Errorf("git branch failed: %w", err)
 	}
 
 	var branches []map[string]interface{}
@@ -294,7 +294,7 @@ func (e *Executor) remote(config *domain.GitResourceConfig) (interface{}, error)
 	cmd := e.buildGitCmd(config, "remote", "-v")
 	stdout, stderr, exitCode, err := e.runner.Run(cmd)
 	if err != nil || exitCode != 0 {
-		return result(false, map[string]interface{}{"error": stderr}), fmt.Errorf("git remote failed: %w", err)
+		return result(false, map[string]interface{}{resultError: stderr}), fmt.Errorf("git remote failed: %w", err)
 	}
 
 	var remotes []map[string]interface{}
@@ -341,7 +341,7 @@ func (e *Executor) add(config *domain.GitResourceConfig) (interface{}, error) {
 	cmd := e.buildGitCmd(config, args...)
 	_, stderr, exitCode, err := e.runner.Run(cmd)
 	if err != nil || exitCode != 0 {
-		return result(false, map[string]interface{}{"error": stderr}), fmt.Errorf("git add failed: %w", err)
+		return result(false, map[string]interface{}{resultError: stderr}), fmt.Errorf("git add failed: %w", err)
 	}
 
 	return result(true, map[string]interface{}{"staged": true}), nil
@@ -363,8 +363,8 @@ func (e *Executor) commit(config *domain.GitResourceConfig) (interface{}, error)
 	_, stderr, exitCode, err := e.runner.Run(cmd)
 	if err != nil || exitCode != 0 {
 		return result(false, map[string]interface{}{
-			"error":   stderr,
-			"message": config.Message,
+			resultError: stderr,
+			"message":   config.Message,
 		}), fmt.Errorf("git commit failed: %w", err)
 	}
 
@@ -395,7 +395,7 @@ func (e *Executor) checkout(config *domain.GitResourceConfig) (interface{}, erro
 	cmd := e.buildGitCmd(config, args...)
 	_, stderr, exitCode, err := e.runner.Run(cmd)
 	if err != nil || exitCode != 0 {
-		return result(false, map[string]interface{}{"error": stderr}), fmt.Errorf("git checkout failed: %w", err)
+		return result(false, map[string]interface{}{resultError: stderr}), fmt.Errorf("git checkout failed: %w", err)
 	}
 
 	return result(true, map[string]interface{}{
@@ -416,7 +416,7 @@ func (e *Executor) init(config *domain.GitResourceConfig) (interface{}, error) {
 	cmd := e.buildGitCmd(config, "init")
 	_, stderr, exitCode, err := e.runner.Run(cmd)
 	if err != nil || exitCode != 0 {
-		return result(false, map[string]interface{}{"error": stderr}), fmt.Errorf("git init failed: %w", err)
+		return result(false, map[string]interface{}{resultError: stderr}), fmt.Errorf("git init failed: %w", err)
 	}
 
 	path := config.WorkingDir
@@ -449,7 +449,7 @@ func (e *Executor) cloneOp(config *domain.GitResourceConfig) (interface{}, error
 	cmd := e.buildGitCmd(config, args...)
 	_, stderr, exitCode, err := e.runner.Run(cmd)
 	if err != nil || exitCode != 0 {
-		return result(false, map[string]interface{}{"error": stderr}), fmt.Errorf("git clone failed: %w", err)
+		return result(false, map[string]interface{}{resultError: stderr}), fmt.Errorf("git clone failed: %w", err)
 	}
 
 	return result(true, map[string]interface{}{
@@ -475,7 +475,7 @@ func (e *Executor) pushOrPull(config *domain.GitResourceConfig, verb, doneKey st
 	cmd := e.buildGitCmd(config, args...)
 	_, stderr, exitCode, err := e.runner.Run(cmd)
 	if err != nil || exitCode != 0 {
-		return result(false, map[string]interface{}{"error": stderr}),
+		return result(false, map[string]interface{}{resultError: stderr}),
 			fmt.Errorf("git %s failed: %w", verb, err)
 	}
 

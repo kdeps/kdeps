@@ -265,7 +265,7 @@ func (s *MongoDBSessionStore) SearchSessions(text string) ([]string, error) {
 	filter := bson.M{
 		"messages": bson.M{
 			"$elemMatch": bson.M{
-				"content": bson.M{"$regex": escapeMongoRegex(text), "$options": "i"},
+				toolParamContent: bson.M{"$regex": escapeMongoRegex(text), "$options": "i"},
 			},
 		},
 	}

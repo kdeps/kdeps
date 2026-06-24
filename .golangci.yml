@@ -269,6 +269,11 @@ linters:
       # Default: 40
       statements: 50
 
+    goconst:
+      # Minimum occurrences of a string to trigger.
+      # Default: 3
+      min-occurrences: 15
+
     gochecksumtype:
       # Presence of `default` case in switch statements satisfies exhaustiveness, if all members are not listed.
       # Default: true

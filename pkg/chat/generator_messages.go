@@ -119,7 +119,7 @@ func (g *Generator) handleValidationFailure(
 func appendCorrection(messages []map[string]interface{}, reply, correction string) []map[string]interface{} {
 	return append(messages,
 		map[string]interface{}{"role": "assistant", "content": reply},
-		map[string]interface{}{"role": "user", "content": correction},
+		map[string]interface{}{"role": userRole, "content": correction},
 	)
 }
 
@@ -129,7 +129,7 @@ func parseFailureCorrection(reason string) string {
 You MUST output ONLY this exact structure — no prose, no extra text, no XML namespaces:
 
 <kdeps-workflow>
-<file name="workflow.yaml">
+<file name=workflowYAMLFile>
 apiVersion: kdeps.io/v1
 kind: Workflow
 metadata:

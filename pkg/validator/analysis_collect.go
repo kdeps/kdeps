@@ -25,15 +25,15 @@ import (
 )
 
 var builtinTemplateVars = map[string]bool{ //nolint:gochecknoglobals // compile-time constant lookup table
-	"request":  true,
-	"loop":     true,
-	"error":    true,
-	"item":     true,
-	"config":   true, // kdeps config object (config.llm.model, config.defaults.*)
-	"input":    true, // component input (input.items, input.*)
-	"workflow": true, // workflow metadata (workflow.metadata.name, etc.)
-	"data":     true, // HTTP/SQL response data field accessed via safe()
-	"r":        true, // common loop variable in search result iteration
+	"request":           true,
+	"loop":              true,
+	severityError:       true,
+	"item":              true,
+	"config":            true, // kdeps config object (config.llm.model, config.defaults.*)
+	"input":             true, // component input (input.items, input.*)
+	templateVarWorkflow: true, // workflow metadata (workflow.metadata.name, etc.)
+	"data":              true, // HTTP/SQL response data field accessed via safe()
+	"r":                 true, // common loop variable in search result iteration
 }
 
 // extractActionIDRefs extracts actionId tokens from a single expression string.

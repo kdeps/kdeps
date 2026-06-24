@@ -100,11 +100,11 @@ func addBasicRequestEnv(env map[string]interface{}, ctx *ExecutionContext) {
 	}
 	req := ctx.Request
 	env["request"] = map[string]interface{}{
-		"method":  req.Method,
-		"path":    req.Path,
-		"headers": req.Headers,
-		"query":   req.Query,
-		"body":    req.Body,
+		"method":         req.Method,
+		"path":           req.Path,
+		"headers":        req.Headers,
+		"query":          req.Query,
+		contextFieldBody: req.Body,
 	}
 }
 
@@ -150,13 +150,13 @@ func addRichRequestEnv(env map[string]interface{}, ctx *ExecutionContext) {
 	}
 	req := ctx.Request
 	env["request"] = map[string]interface{}{
-		"method":  req.Method,
-		"path":    req.Path,
-		"headers": req.Headers,
-		"query":   req.Query,
-		"body":    req.Body,
-		"IP":      req.IP,
-		"ID":      req.ID,
+		"method":         req.Method,
+		"path":           req.Path,
+		"headers":        req.Headers,
+		"query":          req.Query,
+		contextFieldBody: req.Body,
+		"IP":             req.IP,
+		"ID":             req.ID,
 		"file": func(name string) interface{} {
 			val, err := ctx.GetRequestFileContent(name)
 			if err != nil {
@@ -194,7 +194,7 @@ func addRichRequestEnv(env map[string]interface{}, ctx *ExecutionContext) {
 			val, _ := ctx.GetRequestFilesByType(mimeType)
 			return val
 		},
-		"data": func() interface{} {
+		contextFieldData: func() interface{} {
 			if req.Body != nil {
 				return req.Body
 			}

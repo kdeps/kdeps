@@ -39,12 +39,12 @@ func (s *Server) registerManagementRoute(
 
 func (s *Server) SetupManagementRoutes() {
 	debugEnter("SetupManagementRoutes")
-	s.registerManagementRoute("GET", "/status", s.HandleManagementStatus)
-	s.registerManagementRoute("GET", "/openapi", s.HandleManagementOpenAPI)
-	s.registerManagementRoute("GET", "/schema", s.HandleManagementSchema)
-	s.registerManagementRoute("PUT", "/workflow", s.HandleManagementUpdateWorkflow)
-	s.registerManagementRoute("PUT", "/package", s.HandleManagementUpdatePackage)
-	s.registerManagementRoute("POST", "/reload", s.HandleManagementReload)
+	s.registerManagementRoute(methodGet, "/status", s.HandleManagementStatus)
+	s.registerManagementRoute(methodGet, "/openapi", s.HandleManagementOpenAPI)
+	s.registerManagementRoute(methodGet, "/schema", s.HandleManagementSchema)
+	s.registerManagementRoute(methodPut, "/workflow", s.HandleManagementUpdateWorkflow)
+	s.registerManagementRoute(methodPut, "/package", s.HandleManagementUpdatePackage)
+	s.registerManagementRoute(methodPost, "/reload", s.HandleManagementReload)
 }
 
 // HandleManagementStatus returns the current workflow status.

@@ -44,7 +44,7 @@ func stripJinja2Ext(filename string) string {
 func handleJinja2SpecialCases(base string) string {
 	kdeps_debug.Log("enter: handleJinja2SpecialCases")
 	if base == "env.example" {
-		return ".env.example"
+		return jinja2EnvExamplePrefix
 	}
 	return base
 }

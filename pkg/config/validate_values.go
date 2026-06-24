@@ -31,7 +31,7 @@ func (c *Config) validateValues() []string {
 	// Strategy must be a known value.
 	if !validStrategies[c.LLM.Strategy] {
 		valid := []string{
-			"token_threshold", "fallback", "cost_optimized", "round_robin",
+			strategyTokenThreshold, strategyFallback, strategyCostOptimized, strategyRoundRobin,
 		}
 		warnings = append(warnings, fmt.Sprintf(
 			"llm.strategy %q is not a valid strategy — valid values: %s",

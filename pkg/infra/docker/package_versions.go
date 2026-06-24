@@ -34,6 +34,7 @@ const (
 	kdepsReleaseRepo  = "kdeps/kdeps"
 	ollamaReleaseRepo = "ollama/ollama"
 	uvReleaseRepo     = "astral-sh/uv"
+	versionLatest     = "latest"
 )
 
 // latestReleaseTagFunc fetches the latest release tag (semver without v) for a GitHub repo.
@@ -84,7 +85,7 @@ func resolvePackageVersions(
 
 func resolvePackageVersion(ctx context.Context, name, repo, pin string) (string, error) {
 	pin = strings.TrimSpace(pin)
-	if pin != "" && pin != "latest" {
+	if pin != "" && pin != versionLatest {
 		if err := validatePinnedVersion(name, pin); err != nil {
 			return "", err
 		}

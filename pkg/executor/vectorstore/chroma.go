@@ -145,10 +145,10 @@ func (s *chromaStore) AddDocuments(
 	}
 
 	payload, marshalErr := json.Marshal(map[string]interface{}{
-		"ids":        ids,
-		"embeddings": vectors,
-		"documents":  texts,
-		"metadatas":  metadatas,
+		"ids":         ids,
+		keyEmbeddings: vectors,
+		"documents":   texts,
+		"metadatas":   metadatas,
 	})
 	if marshalErr != nil {
 		return nil, fmt.Errorf("chroma: marshal add payload: %w", marshalErr)

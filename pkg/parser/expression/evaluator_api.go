@@ -37,12 +37,12 @@ func (e *Evaluator) apiItemAccessor(field string, fallback interface{}) func() i
 // buildItemObject creates the item accessor object for loop iteration context.
 func (e *Evaluator) buildItemObject() map[string]interface{} {
 	return map[string]interface{}{
-		"current": e.apiItemAccessor("current", nil),
-		"prev":    e.apiItemAccessor("prev", nil),
-		"next":    e.apiItemAccessor("next", nil),
-		"index":   e.apiItemAccessor("index", 0),
-		"count":   e.apiItemAccessor("count", 0),
-		"values":  e.apiItemAccessor("all", []interface{}{}),
+		"current":     e.apiItemAccessor("current", nil),
+		"prev":        e.apiItemAccessor("prev", nil),
+		"next":        e.apiItemAccessor("next", nil),
+		"index":       e.apiItemAccessor("index", 0),
+		accessorCount: e.apiItemAccessor(accessorCount, 0),
+		"values":      e.apiItemAccessor("all", []interface{}{}),
 	}
 }
 
@@ -60,9 +60,9 @@ func (e *Evaluator) apiLoopAccessor(field string, fallback interface{}) func() i
 // buildLoopObject creates the loop accessor object for loop iteration context.
 func (e *Evaluator) buildLoopObject() map[string]interface{} {
 	return map[string]interface{}{
-		"index":   e.apiLoopAccessor("index", 0),
-		"count":   e.apiLoopAccessor("count", 0),
-		"results": e.apiLoopAccessor("results", []interface{}{}),
+		"index":       e.apiLoopAccessor("index", 0),
+		accessorCount: e.apiLoopAccessor(accessorCount, 0),
+		"results":     e.apiLoopAccessor("results", []interface{}{}),
 	}
 }
 

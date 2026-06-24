@@ -34,7 +34,7 @@ func isNilConfig(v any) bool {
 	}
 	val := reflect.ValueOf(v)
 	switch val.Kind() { //nolint:exhaustive // IsNil only applies to reference kinds
-	case reflect.Ptr, reflect.Slice, reflect.Map, reflect.Interface, reflect.Chan, reflect.Func:
+	case reflect.Pointer, reflect.Slice, reflect.Map, reflect.Interface, reflect.Chan, reflect.Func:
 		return val.IsNil()
 	default:
 		return false

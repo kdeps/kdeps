@@ -45,6 +45,8 @@ const (
 	whatsAppPlatform           = "whatsapp"
 	whatsAppSigPrefixLen       = 7 // len("sha256=")
 	whatsAppReadHeaderTimeout  = 10 * time.Second
+	whatsAppMsgTypeText        = "text"
+	whatsAppMsgBodyKey         = "body"
 )
 
 //nolint:gochecknoglobals // test-replaceable
@@ -256,10 +258,10 @@ func (r *whatsAppRunner) Reply(ctx context.Context, chatID, text string) error {
 	url := fmt.Sprintf("%s/%s/messages", whatsAppAPIBase, r.phoneNumberID)
 
 	payload := map[string]interface{}{
-		"messaging_product": "whatsapp",
+		"messaging_product": whatsAppPlatform,
 		"to":                chatID,
-		"type":              "text",
-		"text":              map[string]string{"body": text},
+		"type":              whatsAppMsgTypeText,
+		whatsAppMsgTypeText: map[string]string{whatsAppMsgBodyKey: text},
 	}
 
 	data, err := whatsAppJSONMarshal(payload)

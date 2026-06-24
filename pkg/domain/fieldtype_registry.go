@@ -18,6 +18,11 @@
 
 package domain
 
+const (
+	schemaTypeString  = "string"
+	schemaFormatEmail = "email"
+)
+
 // FieldTypeConstraintGroup selects post-type validation rules for a field type.
 type FieldTypeConstraintGroup int
 
@@ -43,7 +48,7 @@ type FieldTypeEntry struct {
 //nolint:gochecknoglobals // registry table
 var fieldTypeRegistry = map[FieldType]FieldTypeEntry{
 	FieldTypeString: {
-		Schema:      FieldTypeSchemaSpec{Type: "string"},
+		Schema:      FieldTypeSchemaSpec{Type: schemaTypeString},
 		Constraints: FieldConstraintsString,
 	},
 	FieldTypeInteger: {
@@ -67,19 +72,19 @@ var fieldTypeRegistry = map[FieldType]FieldTypeEntry{
 		Constraints: FieldConstraintsNone,
 	},
 	FieldTypeEmail: {
-		Schema:      FieldTypeSchemaSpec{Type: "string", Format: "email"},
+		Schema:      FieldTypeSchemaSpec{Type: schemaTypeString, Format: schemaFormatEmail},
 		Constraints: FieldConstraintsString,
 	},
 	FieldTypeURL: {
-		Schema:      FieldTypeSchemaSpec{Type: "string", Format: "uri"},
+		Schema:      FieldTypeSchemaSpec{Type: schemaTypeString, Format: "uri"},
 		Constraints: FieldConstraintsString,
 	},
 	FieldTypeUUID: {
-		Schema:      FieldTypeSchemaSpec{Type: "string", Format: "uuid"},
+		Schema:      FieldTypeSchemaSpec{Type: schemaTypeString, Format: "uuid"},
 		Constraints: FieldConstraintsNone,
 	},
 	FieldTypeDate: {
-		Schema:      FieldTypeSchemaSpec{Type: "string", Format: "date"},
+		Schema:      FieldTypeSchemaSpec{Type: schemaTypeString, Format: "date"},
 		Constraints: FieldConstraintsNone,
 	},
 }

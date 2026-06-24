@@ -88,7 +88,7 @@ func (v *InputValidator) ValidateField(
 	if err := v.ValidateType(rule.Type, value); err != nil {
 		return &domain.ValidationError{
 			Field:   rule.Field,
-			Type:    "type",
+			Type:    validationErrorType,
 			Message: GetErrorMessage(rule.Message, err.Error()),
 			Value:   value,
 		}

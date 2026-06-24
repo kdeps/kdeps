@@ -34,11 +34,11 @@ func (ctx *ExecutionContext) GetHTTPResponseBody(actionID string) (interface{}, 
 
 	if outputMap, okMap := output.(map[string]interface{}); okMap {
 		// Check for data field first (parsed JSON takes precedence)
-		if data, okData := outputMap["data"]; okData {
+		if data, okData := outputMap[contextFieldData]; okData {
 			return data, nil
 		}
 		// Also check for body field (raw response)
-		if body, okBody := outputMap["body"].(string); okBody {
+		if body, okBody := outputMap[contextFieldBody].(string); okBody {
 			return body, nil
 		}
 	}

@@ -83,8 +83,8 @@ func (b *openAICompatBackend) APIKeyEnvVar() string {
 //nolint:gochecknoglobals // shared backend instances for OpenAI-compatible providers
 var (
 	defaultOpenAIBackend = newOpenAICompatBackend(openAICompatBackendConfig{
-		name: "openai", defaultURL: "https://api.openai.com",
-		endpointFmt: "%s/v1/chat/completions", envVar: providerAPIKeyEnvVar("openai"), apiName: "OpenAI",
+		name: backendOpenAI, defaultURL: "https://api.openai.com",
+		endpointFmt: "%s/v1/chat/completions", envVar: providerAPIKeyEnvVar(backendOpenAI), apiName: "OpenAI",
 	})
 	defaultMistralBackend = newOpenAICompatBackend(openAICompatBackendConfig{
 		name: "mistral", defaultURL: "https://api.mistral.ai",

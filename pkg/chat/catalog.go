@@ -130,7 +130,7 @@ func formatInputSummary(inp struct {
 
 func loadComponentMeta(dir string) (*componentMeta, bool) {
 	var meta componentMeta
-	for _, name := range []string{"component.yaml", "workflow.yaml"} {
+	for _, name := range []string{"component.yaml", workflowYAMLFile} {
 		data, readErr := afero.ReadFile(AppFS, filepath.Join(dir, name))
 		if readErr != nil {
 			continue

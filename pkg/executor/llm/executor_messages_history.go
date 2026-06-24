@@ -125,7 +125,7 @@ func historyMessage(item interface{}) (map[string]interface{}, error) {
 		return nil, fmt.Errorf("expected a {role, content} item, got %T", item)
 	}
 
-	role, err := historyField(fields, "role")
+	role, err := historyField(fields, jsonFieldRole)
 	if err != nil {
 		return nil, err
 	}
@@ -139,8 +139,8 @@ func historyMessage(item interface{}) (map[string]interface{}, error) {
 	}
 
 	return map[string]interface{}{
-		"role":    role,
-		"content": content,
+		jsonFieldRole:    role,
+		jsonFieldContent: content,
 	}, nil
 }
 
@@ -152,10 +152,10 @@ func historyField(fields map[string]interface{}, key string) (string, error) {
 	return value, nil
 }
 
-// historyContent reads the message text from "content", falling back to
+// historyContent reads the message text from jsonFieldContent, falling back to
 // "prompt" for symmetry with scenario items.
 func historyContent(fields map[string]interface{}) (string, error) {
-	if content, ok := fields["content"].(string); ok && content != "" {
+	if content, ok := fields[jsonFieldContent].(string); ok && content != "" {
 		return content, nil
 	}
 	return historyField(fields, "prompt")

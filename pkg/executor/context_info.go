@@ -33,12 +33,12 @@ type infoFieldHandler func(*ExecutionContext) (interface{}, error)
 var infoFieldHandlers = map[string]infoFieldHandler{
 	// Shorthand "method"/"path" return empty string when there is no request
 	// (for Get() compatibility); "request.method"/"request.path" error instead.
-	"method":               infoShorthandMethod,
-	"path":                 infoShorthandPath,
+	ctxInfoMethod:          infoShorthandMethod,
+	ctxInfoPath:            infoShorthandPath,
 	"request.method":       (*ExecutionContext).getRequestMethod,
 	"request.path":         (*ExecutionContext).getRequestPath,
 	"filecount":            (*ExecutionContext).getFileCount,
-	"files":                (*ExecutionContext).getFiles,
+	ctxInfoFiles:           (*ExecutionContext).getFiles,
 	"filenames":            infoFileNames,
 	"filetypes":            infoFileTypes,
 	"request.IP":           (*ExecutionContext).GetRequestIP,
@@ -52,7 +52,7 @@ var infoFieldHandlers = map[string]infoFieldHandler{
 	itemKeyPrev:            infoItemField(itemKeyPrev),
 	itemKeyNext:            infoItemField(itemKeyNext),
 	"workflow.name":        infoWorkflowName,
-	"name":                 infoWorkflowName,
+	ctxInfoName:            infoWorkflowName,
 	"workflow.version":     infoWorkflowVersion,
 	"version":              infoWorkflowVersion,
 	"workflow.description": infoWorkflowDescription,

@@ -52,8 +52,8 @@ func (b *BedrockBackend) BuildRequest(
 ) (map[string]interface{}, error) {
 	kdeps_debug.Log("enter: BuildRequest")
 	req := map[string]interface{}{
-		"modelId":  model,
-		"messages": messages,
+		"modelId":         model,
+		jsonFieldMessages: messages,
 	}
 
 	inferenceConfig := map[string]interface{}{}
@@ -66,7 +66,7 @@ func (b *BedrockBackend) BuildRequest(
 
 	if config.JSONResponse {
 		req["responseFormat"] = map[string]interface{}{
-			"type": "json_object",
+			jsonFieldType: jsonResponseFormat,
 		}
 	}
 
@@ -95,17 +95,17 @@ func (b *BedrockBackend) APIKeyEnvVar() string {
 }
 
 func extractBedrockOutputMessage(result map[string]interface{}, output map[string]interface{}) {
-	msg, okMsg := output["message"].(map[string]interface{})
+	msg, okMsg := output[jsonFieldMessage].(map[string]interface{})
 	if !okMsg {
 		return
 	}
-	result["role"] = msg["role"]
-	content, okCnt := msg["content"].([]interface{})
+	result[jsonFieldRole] = msg[jsonFieldRole]
+	content, okCnt := msg[jsonFieldContent].([]interface{})
 	if !okCnt || len(content) == 0 {
 		return
 	}
 	if block, okBlk := content[0].(map[string]interface{}); okBlk {
-		result["content"] = block["text"]
+		result[jsonFieldContent] = block["text"]
 	}
 }
 

@@ -75,16 +75,16 @@ func successResponse() *OpenAPIResponse {
 	return &OpenAPIResponse{
 		Description: "Successful response",
 		Content: map[string]*OpenAPIMediaType{
-			"application/json": {
+			mediaTypeJSON: {
 				Schema: &OpenAPISchema{
-					Type: "object",
+					Type: schemaTypeObject,
 					Properties: map[string]*OpenAPISchema{
 						"success": {Type: "boolean"},
 						// data accepts any JSON value; the type is intentionally omitted to allow
 						// any JSON type (string, number, object, array, null) as the payload.
 						"data": {Description: "Response payload; may be any JSON value"},
 						"meta": {
-							Type: "object",
+							Type: schemaTypeObject,
 							Properties: map[string]*OpenAPISchema{
 								"requestID": {Type: fieldTypeString},
 								"timestamp": {Type: fieldTypeString, Format: "date-time"},
@@ -106,22 +106,22 @@ func errorResponse() *OpenAPIResponse {
 	return &OpenAPIResponse{
 		Description: "Validation or request error",
 		Content: map[string]*OpenAPIMediaType{
-			"application/json": {
+			mediaTypeJSON: {
 				Schema: &OpenAPISchema{
-					Type: "object",
+					Type: schemaTypeObject,
 					Properties: map[string]*OpenAPISchema{
 						"success": {Type: "boolean"},
 						"error": {
-							Type: "object",
+							Type: schemaTypeObject,
 							Properties: map[string]*OpenAPISchema{
 								"code":       {Type: fieldTypeString},
 								"message":    {Type: fieldTypeString},
 								"resourceId": {Type: fieldTypeString},
-								"details":    {Type: "object"},
+								"details":    {Type: schemaTypeObject},
 							},
 						},
 						"meta": {
-							Type: "object",
+							Type: schemaTypeObject,
 							Properties: map[string]*OpenAPISchema{
 								"requestID": {Type: fieldTypeString},
 								"timestamp": {Type: fieldTypeString, Format: "date-time"},

@@ -247,7 +247,7 @@ func doctorSpotCheckEnvVars() []string {
 }
 
 func doctorCriticalEnvVars() []string {
-	critical := []string{"OLLAMA_HOST", "KDEPS_DEFAULT_BACKEND", "KDEPS_LLM_MODELS", "TZ"}
+	critical := []string{EnvOllamaHost, EnvDefaultBackend, EnvLLMModels, "TZ"}
 	return append(critical, doctorSpotCheckEnvVars()...)
 }
 

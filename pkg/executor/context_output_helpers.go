@@ -62,7 +62,7 @@ func extractLLMResponseFromMap(outputMap map[string]interface{}) interface{} {
 			return content
 		}
 	}
-	if data, ok := outputMap["data"]; ok {
+	if data, ok := outputMap[contextFieldData]; ok {
 		return data
 	}
 	return outputMap

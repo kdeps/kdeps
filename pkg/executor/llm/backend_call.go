@@ -78,7 +78,7 @@ func applyBackendAuthHeaders(req *stdhttp.Request, backend Backend, apiKey strin
 		req.Header.Set(headerName, keyValue)
 	}
 
-	if backend.Name() == "anthropic" {
+	if backend.Name() == backendAnthropic {
 		req.Header.Set("Anthropic-Version", "2023-06-01")
 	}
 }

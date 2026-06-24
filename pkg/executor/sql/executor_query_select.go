@@ -82,9 +82,9 @@ func (e *Executor) FormatSelectResults(
 			return results[0], nil
 		}
 		return map[string]interface{}{
-			"rowsAffected": int64(len(results)),
-			"data":         results,
-			"columns":      e.getColumnNames(results),
+			keyRowsAffected: int64(len(results)),
+			"data":          results,
+			"columns":       e.getColumnNames(results),
 		}, nil
 	}
 }

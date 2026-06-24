@@ -44,11 +44,11 @@ type TemplateData struct {
 func (t TemplateData) ToJinja2Data() map[string]interface{} {
 	kdeps_debug.Log("enter: ToJinja2Data")
 	data := map[string]interface{}{
-		"name":        t.Name,
-		"description": t.Description,
-		"version":     t.Version,
-		"port":        t.Port,
-		"resources":   t.Resources,
+		jinja2FieldName: t.Name,
+		"description":   t.Description,
+		"version":       t.Version,
+		"port":          t.Port,
+		"resources":     t.Resources,
 	}
 
 	// Add features

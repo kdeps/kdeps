@@ -27,18 +27,18 @@ import (
 )
 
 func jsonParseErrorFallback(response map[string]interface{}, parseErr error) (interface{}, bool) {
-	message, okMessage := response["message"].(map[string]interface{})
+	message, okMessage := response[jsonFieldMessage].(map[string]interface{})
 	if !okMessage {
 		return nil, false
 	}
-	content, okContent := message["content"].(string)
+	content, okContent := message[jsonFieldContent].(string)
 	if !okContent {
 		return nil, false
 	}
 	return map[string]interface{}{
-		"error":   "Failed to parse JSON response: " + parseErr.Error(),
-		"content": content,
-		"raw":     response,
+		fieldError:       "Failed to parse JSON response: " + parseErr.Error(),
+		jsonFieldContent: content,
+		"raw":            response,
 	}, true
 }
 

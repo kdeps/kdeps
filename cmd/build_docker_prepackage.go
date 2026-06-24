@@ -108,7 +108,7 @@ func createPrepackagedBinariesForDocker(
 ) (map[string]string, func()) {
 	kdeps_debug.Log("enter: createPrepackagedBinariesForDocker")
 	targets := []archTarget{
-		{GOOS: goosLinux, GOARCH: "amd64"},
+		{GOOS: goosLinux, GOARCH: goarchAmd64},
 		{GOOS: goosLinux, GOARCH: "arm64"},
 	}
 

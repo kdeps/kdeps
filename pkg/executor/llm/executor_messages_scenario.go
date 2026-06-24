@@ -49,11 +49,11 @@ func (e *Executor) buildScenarioMessages(
 		}
 
 		msg := map[string]interface{}{
-			"role":    scenarioRole,
-			"content": scenarioPrompt,
+			jsonFieldRole:    scenarioRole,
+			jsonFieldContent: scenarioPrompt,
 		}
 		if scenarioName != "" {
-			msg["name"] = scenarioName
+			msg[fieldName] = scenarioName
 		}
 		if scenarioRole == roleSystem {
 			beforeUser = append(beforeUser, msg)

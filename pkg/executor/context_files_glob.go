@@ -109,7 +109,7 @@ func (ctx *ExecutionContext) handleEmptyFilteredResults(
 		return 0, nil
 	case itemKeyAll:
 		return []interface{}{}, nil
-	case "first", "last":
+	case fileSelectFirst, "last":
 		return nil, fmt.Errorf("no files match MIME type %s for pattern: %s", mimeType, pattern)
 	default:
 		return []interface{}{}, nil

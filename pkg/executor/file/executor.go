@@ -41,6 +41,17 @@ const (
 	gosecFilePerm   os.FileMode = 0600
 	gosecDirPerm    os.FileMode = 0750
 	base64Encoding              = "base64"
+
+	keyError   = "error"
+	keyPath    = "path"
+	keyExists  = "exists"
+	keyContent = "content"
+	keySize    = "size"
+	keyDryRun  = "dryRun"
+	keyMode    = "mode"
+	keyDeleted = "deleted"
+	keySource  = "source"
+	keyDest    = "dest"
 )
 
 // Executor performs filesystem operations for KDeps resources.
@@ -95,11 +106,11 @@ func (e *Executor) read(config *domain.FileResourceConfig) (interface{}, error) 
 	data, readErr := os.ReadFile(config.Path)
 	if readErr != nil {
 		return result(false, map[string]interface{}{
-			"error":   readErr.Error(),
-			"path":    config.Path,
-			"exists":  false,
-			"content": "",
-			"size":    0,
+			keyError:   readErr.Error(),
+			keyPath:    config.Path,
+			keyExists:  false,
+			keyContent: "",
+			keySize:    0,
 		}), readErr
 	}
 
@@ -111,11 +122,11 @@ func (e *Executor) read(config *domain.FileResourceConfig) (interface{}, error) 
 	}
 
 	return result(true, map[string]interface{}{
-		"content":  content,
+		keyContent: content,
 		"encoding": encoding,
-		"path":     config.Path,
-		"exists":   true,
-		"size":     len(data),
+		keyPath:    config.Path,
+		keyExists:  true,
+		keySize:    len(data),
 		"lines":    strings.Split(content, "\n"),
 	}), nil
 }
@@ -134,20 +145,20 @@ func (e *Executor) write(config *domain.FileResourceConfig) (interface{}, error)
 	parent := filepath.Dir(config.Path)
 	if mkdirErr := os.MkdirAll(parent, gosecDirPerm); mkdirErr != nil {
 		return result(false, map[string]interface{}{
-			"error": mkdirErr.Error(),
-			"path":  config.Path,
+			keyError: mkdirErr.Error(),
+			keyPath:  config.Path,
 		}), fmt.Errorf("file: failed to create parent directory: %w", mkdirErr)
 	}
 
 	exists := fileExists(config.Path)
-	existingInfo := map[string]interface{}{"exists": exists}
+	existingInfo := map[string]interface{}{keyExists: exists}
 
 	if config.DryRun {
 		return result(true, map[string]interface{}{
-			"dryRun":  true,
-			"path":    config.Path,
-			"size":    len(content),
-			"exists":  exists,
+			keyDryRun: true,
+			keyPath:   config.Path,
+			keySize:   len(content),
+			keyExists: exists,
 			"written": false,
 		}), nil
 	}
@@ -156,8 +167,8 @@ func (e *Executor) write(config *domain.FileResourceConfig) (interface{}, error)
 		backupPath := config.Path + ".bak"
 		if cpErr := copyFile(config.Path, backupPath); cpErr != nil {
 			return result(false, map[string]interface{}{
-				"error": cpErr.Error(),
-				"path":  config.Path,
+				keyError: cpErr.Error(),
+				keyPath:  config.Path,
 			}), fmt.Errorf("file: failed to create backup: %w", cpErr)
 		}
 		existingInfo["backupPath"] = backupPath
@@ -166,17 +177,17 @@ func (e *Executor) write(config *domain.FileResourceConfig) (interface{}, error)
 	mode := defaultFileMode(config.Mode)
 	if writeErr := os.WriteFile(config.Path, []byte(content), mode); writeErr != nil {
 		return result(false, map[string]interface{}{
-			"error": writeErr.Error(),
-			"path":  config.Path,
+			keyError: writeErr.Error(),
+			keyPath:  config.Path,
 		}), fmt.Errorf("file: failed to write: %w", writeErr)
 	}
 
 	return result(true, map[string]interface{}{
-		"path":       config.Path,
-		"size":       len(content),
+		keyPath:      config.Path,
+		keySize:      len(content),
 		"written":    true,
-		"mode":       mode.String(),
-		"exists":     existingInfo["exists"],
+		keyMode:      mode.String(),
+		keyExists:    existingInfo["exists"],
 		"backup":     config.Backup && exists,
 		"backupPath": existingInfo["backupPath"],
 	}), nil
@@ -194,23 +205,23 @@ func (e *Executor) patch(config *domain.FileResourceConfig) (interface{}, error)
 	original, readErr := os.ReadFile(config.Path)
 	if readErr != nil {
 		return result(false, map[string]interface{}{
-			"error": readErr.Error(),
-			"path":  config.Path,
+			keyError: readErr.Error(),
+			keyPath:  config.Path,
 		}), fmt.Errorf("file: failed to read target file for patch: %w", readErr)
 	}
 
 	patched, patchErr := applyPatch(string(original), config.Patch)
 	if patchErr != nil {
 		return result(false, map[string]interface{}{
-			"error": patchErr.Error(),
-			"path":  config.Path,
+			keyError: patchErr.Error(),
+			keyPath:  config.Path,
 		}), fmt.Errorf("file: patch failed: %w", patchErr)
 	}
 
 	if config.DryRun {
 		return result(true, map[string]interface{}{
-			"dryRun":     true,
-			"path":       config.Path,
+			keyDryRun:    true,
+			keyPath:      config.Path,
 			"patched":    false,
 			"patchLines": strings.Count(config.Patch, "\n") + 1,
 		}), nil
@@ -220,7 +231,7 @@ func (e *Executor) patch(config *domain.FileResourceConfig) (interface{}, error)
 		backupPath := config.Path + ".bak"
 		if cpErr := copyFile(config.Path, backupPath); cpErr != nil {
 			return result(false, map[string]interface{}{
-				"error": cpErr.Error(),
+				keyError: cpErr.Error(),
 			}), fmt.Errorf("file: failed to create backup: %w", cpErr)
 		}
 	}
@@ -228,13 +239,13 @@ func (e *Executor) patch(config *domain.FileResourceConfig) (interface{}, error)
 	gosecFilePermDefault := gosecFilePerm
 	if writeErr := os.WriteFile(config.Path, []byte(patched), gosecFilePermDefault); writeErr != nil {
 		return result(false, map[string]interface{}{
-			"error": writeErr.Error(),
-			"path":  config.Path,
+			keyError: writeErr.Error(),
+			keyPath:  config.Path,
 		}), fmt.Errorf("file: failed to write patched file: %w", writeErr)
 	}
 
 	return result(true, map[string]interface{}{
-		"path":       config.Path,
+		keyPath:      config.Path,
 		"patched":    true,
 		"patchLines": strings.Count(config.Patch, "\n") + 1,
 	}), nil
@@ -249,8 +260,8 @@ func (e *Executor) list(config *domain.FileResourceConfig) (interface{}, error) 
 	info, statErr := os.Stat(config.Path)
 	if statErr != nil {
 		return result(false, map[string]interface{}{
-			"error": statErr.Error(),
-			"path":  config.Path,
+			keyError: statErr.Error(),
+			keyPath:  config.Path,
 		}), fmt.Errorf("file: cannot access path: %w", statErr)
 	}
 
@@ -260,7 +271,7 @@ func (e *Executor) list(config *domain.FileResourceConfig) (interface{}, error) 
 	}
 
 	return result(true, map[string]interface{}{
-		"path":    config.Path,
+		keyPath:   config.Path,
 		"entries": entries,
 		"count":   len(entries),
 	}), nil
@@ -274,30 +285,30 @@ func (e *Executor) deleteOp(config *domain.FileResourceConfig) (interface{}, err
 
 	if !fileExists(config.Path) {
 		return result(true, map[string]interface{}{
-			"path":    config.Path,
-			"deleted": false,
-			"reason":  "not_found",
+			keyPath:    config.Path,
+			keyDeleted: false,
+			"reason":   "not_found",
 		}), nil
 	}
 
 	if config.DryRun {
 		return result(true, map[string]interface{}{
-			"path":    config.Path,
-			"deleted": false,
-			"dryRun":  true,
+			keyPath:    config.Path,
+			keyDeleted: false,
+			keyDryRun:  true,
 		}), nil
 	}
 
 	if rmErr := os.RemoveAll(config.Path); rmErr != nil {
 		return result(false, map[string]interface{}{
-			"error": rmErr.Error(),
-			"path":  config.Path,
+			keyError: rmErr.Error(),
+			keyPath:  config.Path,
 		}), fmt.Errorf("file: failed to delete: %w", rmErr)
 	}
 
 	return result(true, map[string]interface{}{
-		"path":    config.Path,
-		"deleted": true,
+		keyPath:    config.Path,
+		keyDeleted: true,
 	}), nil
 }
 
@@ -308,7 +319,7 @@ func (e *Executor) exists(config *domain.FileResourceConfig) (interface{}, error
 	}
 
 	exists := fileExists(config.Path)
-	info := map[string]interface{}{"exists": exists, "path": config.Path}
+	info := map[string]interface{}{keyExists: exists, keyPath: config.Path}
 
 	if exists {
 		fi, statErr := os.Stat(config.Path)
@@ -331,24 +342,24 @@ func (e *Executor) mkdir(config *domain.FileResourceConfig) (interface{}, error)
 
 	if config.DryRun {
 		return result(true, map[string]interface{}{
-			"path":    config.Path,
+			keyPath:   config.Path,
 			"created": false,
-			"dryRun":  true,
+			keyDryRun: true,
 		}), nil
 	}
 
 	mode := defaultDirMode(config.Mode)
 	if mkdirErr := os.MkdirAll(config.Path, mode); mkdirErr != nil {
 		return result(false, map[string]interface{}{
-			"error": mkdirErr.Error(),
-			"path":  config.Path,
+			keyError: mkdirErr.Error(),
+			keyPath:  config.Path,
 		}), fmt.Errorf("file: failed to create directory: %w", mkdirErr)
 	}
 
 	return result(true, map[string]interface{}{
-		"path":    config.Path,
+		keyPath:   config.Path,
 		"created": true,
-		"mode":    mode.String(),
+		keyMode:   mode.String(),
 	}), nil
 }
 
@@ -363,43 +374,43 @@ func (e *Executor) copyOp(config *domain.FileResourceConfig) (interface{}, error
 
 	if config.DryRun {
 		return result(true, map[string]interface{}{
-			"source": config.Source,
-			"dest":   config.Path,
-			"copied": false,
-			"dryRun": true,
+			keySource: config.Source,
+			keyDest:   config.Path,
+			"copied":  false,
+			keyDryRun: true,
 		}), nil
 	}
 
 	srcInfo, statErr := os.Stat(config.Source)
 	if statErr != nil {
 		return result(false, map[string]interface{}{
-			"error":  statErr.Error(),
-			"source": config.Source,
+			keyError:  statErr.Error(),
+			keySource: config.Source,
 		}), fmt.Errorf("file: source not accessible: %w", statErr)
 	}
 
 	if srcInfo.IsDir() {
 		if cpErr := copyDir(config.Source, config.Path); cpErr != nil {
 			return result(false, map[string]interface{}{
-				"error":  cpErr.Error(),
-				"source": config.Source,
-				"dest":   config.Path,
+				keyError:  cpErr.Error(),
+				keySource: config.Source,
+				keyDest:   config.Path,
 			}), fmt.Errorf("file: failed to copy directory: %w", cpErr)
 		}
 	} else {
 		if cpErr := copyFile(config.Source, config.Path); cpErr != nil {
 			return result(false, map[string]interface{}{
-				"error":  cpErr.Error(),
-				"source": config.Source,
-				"dest":   config.Path,
+				keyError:  cpErr.Error(),
+				keySource: config.Source,
+				keyDest:   config.Path,
 			}), fmt.Errorf("file: failed to copy file: %w", cpErr)
 		}
 	}
 
 	return result(true, map[string]interface{}{
-		"source": config.Source,
-		"dest":   config.Path,
-		"copied": true,
+		keySource: config.Source,
+		keyDest:   config.Path,
+		"copied":  true,
 	}), nil
 }
 
@@ -414,32 +425,32 @@ func (e *Executor) move(config *domain.FileResourceConfig) (interface{}, error) 
 
 	if !fileExists(config.Source) {
 		return result(false, map[string]interface{}{
-			"error":  "source not found",
-			"source": config.Source,
+			keyError:  "source not found",
+			keySource: config.Source,
 		}), fmt.Errorf("file: source does not exist: %s", config.Source)
 	}
 
 	if config.DryRun {
 		return result(true, map[string]interface{}{
-			"source": config.Source,
-			"dest":   config.Path,
-			"moved":  false,
-			"dryRun": true,
+			keySource: config.Source,
+			keyDest:   config.Path,
+			"moved":   false,
+			keyDryRun: true,
 		}), nil
 	}
 
 	if renameErr := os.Rename(config.Source, config.Path); renameErr != nil {
 		return result(false, map[string]interface{}{
-			"error":  renameErr.Error(),
-			"source": config.Source,
-			"dest":   config.Path,
+			keyError:  renameErr.Error(),
+			keySource: config.Source,
+			keyDest:   config.Path,
 		}), fmt.Errorf("file: failed to move: %w", renameErr)
 	}
 
 	return result(true, map[string]interface{}{
-		"source": config.Source,
-		"dest":   config.Path,
-		"moved":  true,
+		keySource: config.Source,
+		keyDest:   config.Path,
+		"moved":   true,
 	}), nil
 }
 
@@ -456,18 +467,18 @@ func (e *Executor) append(config *domain.FileResourceConfig) (interface{}, error
 
 	if config.DryRun {
 		return result(true, map[string]interface{}{
-			"path":     config.Path,
-			"size":     len(content),
+			keyPath:    config.Path,
+			keySize:    len(content),
 			"appended": false,
-			"dryRun":   true,
+			keyDryRun:  true,
 		}), nil
 	}
 
 	f, openErr := os.OpenFile(config.Path, os.O_APPEND|os.O_CREATE|os.O_WRONLY, gosecFilePerm)
 	if openErr != nil {
 		return result(false, map[string]interface{}{
-			"error": openErr.Error(),
-			"path":  config.Path,
+			keyError: openErr.Error(),
+			keyPath:  config.Path,
 		}), fmt.Errorf("file: failed to append: %w", openErr)
 	}
 	defer f.Close()
@@ -475,15 +486,15 @@ func (e *Executor) append(config *domain.FileResourceConfig) (interface{}, error
 	n, writeErr := f.WriteString(content)
 	if writeErr != nil {
 		return result(false, map[string]interface{}{
-			"error": writeErr.Error(),
-			"path":  config.Path,
+			keyError: writeErr.Error(),
+			keyPath:  config.Path,
 		}), fmt.Errorf("file: failed to write append content: %w", writeErr)
 	}
 
 	return result(true, map[string]interface{}{
-		"path":     config.Path,
+		keyPath:    config.Path,
 		"appended": true,
-		"size":     n,
+		keySize:    n,
 	}), nil
 }
 
@@ -544,10 +555,10 @@ func fileExists(path string) bool {
 func fileEntry(path string, fi os.FileInfo) map[string]interface{} {
 	return map[string]interface{}{
 		"name":    fi.Name(),
-		"path":    path,
+		keyPath:   path,
 		"isDir":   fi.IsDir(),
-		"size":    fi.Size(),
-		"mode":    fi.Mode().String(),
+		keySize:   fi.Size(),
+		keyMode:   fi.Mode().String(),
 		"modTime": fi.ModTime().String(),
 	}
 }

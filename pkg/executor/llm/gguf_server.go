@@ -199,14 +199,14 @@ func installLlamaServer(dest string) error {
 func detectOSArch() string {
 	kdeps_debug.Log("enter: detectOSArch")
 	switch runtime.GOOS {
-	case "linux": //nolint:goconst // runtime.GOOS comparison values
+	case "linux":
 		if runtime.GOARCH == archAmd64 {
 			return "b4582-bin-ubuntu-x64"
 		}
 		if runtime.GOARCH == archArm64 {
 			return "b4582-bin-ubuntu-arm64"
 		}
-	case "darwin": //nolint:goconst // runtime.GOOS comparison values
+	case "darwin":
 		if runtime.GOARCH == archAmd64 {
 			return "b4582-bin-macos-x64"
 		}

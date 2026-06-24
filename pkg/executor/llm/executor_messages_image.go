@@ -117,7 +117,7 @@ func (e *Executor) detectImageMimeType(filePath string) (string, error) {
 	case ".jpg", ".jpeg":
 		return "image/jpeg", nil
 	case ".png":
-		return "image/png", nil
+		return mediaTypePNG, nil
 	case ".gif":
 		return "image/gif", nil
 	case ".webp":

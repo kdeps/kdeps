@@ -138,7 +138,7 @@ func (l *Loop) SummarizeBranch(_ context.Context) (string, error) {
 		Role:    l.config.Role,
 		Prompt:  prompt,
 		Scenario: []domain.ScenarioItem{
-			{Role: "system", Prompt: compactionSystemPrompt},
+			{Role: RoleSystem, Prompt: compactionSystemPrompt},
 		},
 		// No tools - branch summarization is a standalone call.
 	}

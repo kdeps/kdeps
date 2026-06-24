@@ -30,6 +30,17 @@ const (
 	ExecutorSearchWeb   = "searchWeb"
 	ExecutorTelephony   = "telephony"
 	ExecutorBrowser     = "browser"
+	ExecutorAgent       = "agent"
+	ExecutorChat        = "chat"
+	ExecutorComponent   = "component"
+
+	// contextFieldBody is the key for the request body in execution context maps.
+	contextFieldBody = "body"
+	// contextFieldData is the key for the response data in execution context maps.
+	contextFieldData = "data"
+
+	// httpMethodPost is the HTTP POST method string.
+	httpMethodPost      = "POST"
 	ExecutorBotReply    = "botReply"
 	ExecutorEmail       = "email"
 	ExecutorFile        = "file"
@@ -38,4 +49,5 @@ const (
 	ExecutorLoader      = "loader"
 	ExecutorVectorStore = "vectorStore"
 	ExecutorTranscribe  = "transcribe"
+	ExecutorAPIResponse = "apiResponse"
 )

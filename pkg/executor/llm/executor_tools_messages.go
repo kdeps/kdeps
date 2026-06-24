@@ -36,17 +36,17 @@ func (e *Executor) addToolResultsToMessages(
 	kdeps_debug.Log("enter: addToolResultsToMessages")
 	// Add assistant message with tool calls
 	messages = append(messages, map[string]interface{}{
-		"role":       roleAssistant,
-		"content":    "",
-		"tool_calls": toolCalls,
+		jsonFieldRole:    roleAssistant,
+		jsonFieldContent: "",
+		fieldToolCalls:   toolCalls,
 	})
 
 	// Add tool response messages
 	for _, result := range toolResults {
 		toolMessage := map[string]interface{}{
-			"role":         "tool",
-			"content":      formatToolResultContent(result),
-			"tool_call_id": result["tool_call_id"],
+			jsonFieldRole:    "tool",
+			jsonFieldContent: formatToolResultContent(result),
+			"tool_call_id":   result["tool_call_id"],
 		}
 		messages = append(messages, toolMessage)
 	}
@@ -55,10 +55,10 @@ func (e *Executor) addToolResultsToMessages(
 }
 
 func formatToolResultContent(result map[string]interface{}) string {
-	if errorMsg, okError := result["error"].(string); okError {
+	if errorMsg, okError := result[fieldError].(string); okError {
 		return fmt.Sprintf("Error: %s", errorMsg)
 	}
-	resultContent, okContent := result["content"]
+	resultContent, okContent := result[jsonFieldContent]
 	if !okContent {
 		return ""
 	}

@@ -54,7 +54,7 @@ func (ctx *ExecutionContext) GetUploadedFile(name string) (*FileUpload, error) {
 
 	// Handle common form field names that should return first file
 	// "file", "file[]", "files" - all return first uploaded file
-	if name == inputTypeFile || name == "file[]" || name == "files" {
+	if name == inputTypeFile || name == "file[]" || name == ctxInfoFiles {
 		return &ctx.Request.Files[0], nil
 	}
 

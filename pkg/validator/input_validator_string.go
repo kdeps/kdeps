@@ -35,7 +35,7 @@ func (v *InputValidator) validateString(
 	if !ok {
 		return &domain.ValidationError{
 			Field:   rule.Field,
-			Type:    "type",
+			Type:    validationErrorType,
 			Message: fmt.Sprintf("expected string, got %T", value),
 			Value:   value,
 		}

@@ -55,11 +55,11 @@ type archTarget struct {
 //
 //nolint:gochecknoglobals // immutable target list
 var allArchTargets = []archTarget{
-	{GOOS: goosLinux, GOARCH: "amd64"},
+	{GOOS: goosLinux, GOARCH: goarchAmd64},
 	{GOOS: goosLinux, GOARCH: "arm64"},
-	{GOOS: goosDarwin, GOARCH: "amd64"},
+	{GOOS: goosDarwin, GOARCH: goarchAmd64},
 	{GOOS: goosDarwin, GOARCH: "arm64"},
-	{GOOS: goosWindows, GOARCH: "amd64"},
+	{GOOS: goosWindows, GOARCH: goarchAmd64},
 }
 
 const (

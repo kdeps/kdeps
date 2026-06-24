@@ -81,8 +81,8 @@ func (e *Executor) executeQuery(
 		return nil, err
 	}
 	return map[string]interface{}{
-		"rowsAffected": rowsAffected,
-		"lastInsertID": lastInsertID,
-		"success":      true,
+		keyRowsAffected: rowsAffected,
+		"lastInsertID":  lastInsertID,
+		"success":       true,
 	}, nil
 }

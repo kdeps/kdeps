@@ -52,9 +52,9 @@ func (b *CohereBackend) BuildRequest(
 	chatHistory, finalMessage := b.buildCohereMessages(messages)
 
 	req := map[string]interface{}{
-		"model":        model,
-		"message":      finalMessage,
-		"chat_history": chatHistory,
+		jsonFieldModel:   model,
+		jsonFieldMessage: finalMessage,
+		"chat_history":   chatHistory,
 	}
 
 	if config.ContextLength > 0 {

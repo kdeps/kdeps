@@ -91,11 +91,11 @@ func (e *Executor) search(db *sql.DB, collection, query string, limit int) (inte
 		return nil, fmt.Errorf("embedding: rows iteration failed: %w", rowsErr)
 	}
 	return buildEmbeddingResult(map[string]interface{}{
-		"operation":  "search",
-		"collection": collection,
-		"query":      query,
-		"results":    matches,
-		"count":      len(matches),
+		"operation":       "search",
+		"collection":      collection,
+		embeddingQueryKey: query,
+		"results":         matches,
+		"count":           len(matches),
 	}), nil
 }
 

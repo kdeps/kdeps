@@ -20,6 +20,11 @@ package domain
 
 import "strings"
 
+const (
+	ResourceTypeChat       = "chat"
+	ResourceTypeHTTPClient = "httpClient"
+)
+
 // PrimaryResourceType identifies a mutually-exclusive primary execution block on a resource.
 // Order matches executor dispatch precedence.
 type PrimaryResourceType struct {
@@ -95,9 +100,9 @@ func PrimaryResourceEventName(r *Resource) string {
 
 func primaryResourceEventLabel(canonicalName string) string {
 	switch canonicalName {
-	case "chat":
+	case ResourceTypeChat:
 		return "llm"
-	case "httpClient":
+	case ResourceTypeHTTPClient:
 		return "http"
 	default:
 		return canonicalName

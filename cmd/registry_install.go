@@ -108,7 +108,7 @@ func inferManifestFromPath(path string) *domain.KdepsPkg {
 	case strings.HasSuffix(base, ".kagency"):
 		return &domain.KdepsPkg{Name: strings.TrimSuffix(base, ".kagency"), Type: "agency"}
 	default:
-		return &domain.KdepsPkg{Name: strings.TrimSuffix(base, ".kdeps"), Type: "workflow"}
+		return &domain.KdepsPkg{Name: strings.TrimSuffix(base, ".kdeps"), Type: manifestTypeWorkflow}
 	}
 }
 

@@ -29,14 +29,14 @@ type inputProcessorField struct {
 //nolint:gochecknoglobals // registry table
 var inputProcessorFields = []inputProcessorField{
 	{
-		keys:    []string{keyInputTranscript, "transcript"},
+		keys:    []string{keyInputTranscript, ctxInfoTranscript},
 		envKey:  keyInputTranscript,
 		getter:  func(ctx *ExecutionContext) string { return ctx.InputTranscript },
 		hints:   []string{"transcript"},
 		missing: "input transcript",
 	},
 	{
-		keys:    []string{keyInputMedia, "media"},
+		keys:    []string{keyInputMedia, ctxInfoMedia},
 		envKey:  keyInputMedia,
 		getter:  func(ctx *ExecutionContext) string { return ctx.InputMediaFile },
 		hints:   []string{"media"},

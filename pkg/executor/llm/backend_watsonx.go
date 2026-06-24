@@ -64,7 +64,7 @@ func (b *WatsonXBackend) BuildRequest(
 
 func extractWatsonXPrompt(messages []map[string]interface{}) string {
 	if len(messages) > 0 {
-		if content, ok := messages[len(messages)-1]["content"].(string); ok {
+		if content, ok := messages[len(messages)-1][jsonFieldContent].(string); ok {
 			return content
 		}
 	}
@@ -89,11 +89,11 @@ func (b *WatsonXBackend) APIKeyEnvVar() string { return providerAPIKeyEnvVar("wa
 
 func convertWatsonXResponse(response map[string]interface{}) map[string]interface{} {
 	result := map[string]interface{}{
-		"role": "assistant",
+		jsonFieldRole: roleAssistant,
 	}
 	if results, ok := response["results"].([]interface{}); ok && len(results) > 0 {
 		if r, okR := results[0].(map[string]interface{}); okR {
-			result["content"] = r["generated_text"]
+			result[jsonFieldContent] = r["generated_text"]
 			result["stop_reason"] = r["stop_reason"]
 		}
 	}

@@ -42,6 +42,7 @@ var (
 const (
 	defaultHostname = "kdeps"
 	defaultFormat   = "iso-efi"
+	formatRawBIOS   = "raw-bios"
 )
 
 // GetFormatExtension maps LinuxKit output formats to file extensions.
@@ -50,7 +51,7 @@ func GetFormatExtension(format string) string {
 	switch format {
 	case "iso-efi":
 		return ".iso"
-	case "raw-bios", "raw-efi":
+	case formatRawBIOS, "raw-efi":
 		return ".raw"
 	case "qcow2-bios", "qcow2-efi":
 		return ".qcow2"

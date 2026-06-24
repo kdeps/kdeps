@@ -30,7 +30,7 @@ type AnthropicBackend struct{}
 
 func (b *AnthropicBackend) Name() string {
 	kdeps_debug.Log("enter: Name")
-	return "anthropic"
+	return backendAnthropic
 }
 
 func (b *AnthropicBackend) DefaultURL() string {
@@ -50,8 +50,8 @@ func (b *AnthropicBackend) BuildRequest(
 ) (map[string]interface{}, error) {
 	kdeps_debug.Log("enter: BuildRequest")
 	req := map[string]interface{}{
-		"model":    model,
-		"messages": messages,
+		jsonFieldModel:    model,
+		jsonFieldMessages: messages,
 	}
 
 	if config.ContextLength > 0 {
@@ -63,7 +63,7 @@ func (b *AnthropicBackend) BuildRequest(
 	if config.JSONResponse {
 		// Note: Anthropic may require different handling for JSON responses
 		req["response_format"] = map[string]interface{}{
-			"type": "json_object",
+			jsonFieldType: jsonResponseFormat,
 		}
 	}
 
@@ -72,7 +72,7 @@ func (b *AnthropicBackend) BuildRequest(
 
 func (b *AnthropicBackend) ParseResponse(resp *stdhttp.Response) (map[string]interface{}, error) {
 	kdeps_debug.Log("enter: ParseResponse")
-	response, err := parseBackendJSONResponse(resp, "anthropic")
+	response, err := parseBackendJSONResponse(resp, backendAnthropic)
 	if err != nil {
 		return nil, err
 	}
@@ -83,7 +83,7 @@ func (b *AnthropicBackend) GetAPIKeyHeader(apiKey string) (string, string) {
 	kdeps_debug.Log("enter: GetAPIKeyHeader")
 	// Anthropic requires x-api-key header and anthropic-version header.
 	// The executor adds the version header separately via applyBackendAuthHeaders.
-	return rawAPIKeyHeader(apiKey, providerAPIKeyEnvVar("anthropic"), "x-api-key")
+	return rawAPIKeyHeader(apiKey, providerAPIKeyEnvVar(backendAnthropic), "x-api-key")
 }
 
-func (b *AnthropicBackend) APIKeyEnvVar() string { return providerAPIKeyEnvVar("anthropic") }
+func (b *AnthropicBackend) APIKeyEnvVar() string { return providerAPIKeyEnvVar(backendAnthropic) }

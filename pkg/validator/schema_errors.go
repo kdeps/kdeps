@@ -30,7 +30,7 @@ import (
 
 func (sv *SchemaValidator) isTypeError(errorType, descStr string) bool {
 	kdeps_debug.Log("enter: isTypeError")
-	return errorType == "type" || strings.Contains(descStr, "Invalid type") ||
+	return errorType == validationErrorType || strings.Contains(descStr, "Invalid type") ||
 		strings.Contains(descStr, "Expected:")
 }
 
@@ -96,7 +96,7 @@ func (sv *SchemaValidator) getFieldSuggestion(field, errorType, descStr, _ strin
 	normalizedField := sv.normalizeFieldPath(field)
 
 	// Type error suggestions - check both errorType and description
-	if errorType == "type" || strings.Contains(descStr, "Invalid type") ||
+	if errorType == validationErrorType || strings.Contains(descStr, "Invalid type") ||
 		strings.Contains(descStr, "Expected:") {
 		return sv.getTypeSuggestion(normalizedField, descStr)
 	}

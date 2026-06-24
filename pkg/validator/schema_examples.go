@@ -44,13 +44,13 @@ func (sv *SchemaValidator) getFieldExamples(field, expectedType string) string {
 
 		// HTTP fields
 		"run.httpClient.url":     `"https://api.example.com/users"`,
-		"run.httpClient.method":  `"GET", "POST", "PUT", "DELETE", or "PATCH"`,
+		enumKeyHTTPMethod:        `"GET", "POST", "PUT", "DELETE", or "PATCH"`,
 		"run.httpClient.timeout": `"10s"`,
 
 		// SQL fields
 		"run.sql.connection": `"postgresql://user:pass@localhost:5432/dbname"`,
 		"run.sql.query":      `"SELECT * FROM users WHERE id = $1"`,
-		"run.sql.format":     `"json", "csv", or "table"`,
+		enumKeySQLFormat:     `"json", "csv", or "table"`,
 
 		// Python fields
 		"run.python.script":     `"print('Hello, World!')"`,

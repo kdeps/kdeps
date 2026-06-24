@@ -35,6 +35,7 @@ import (
 const (
 	defaultTemplate = "api-service"
 	defaultPort     = 16395
+	defaultVersion  = "1.0.0"
 )
 
 // templatesNewGeneratorFunc creates project generators (overridable in tests).
@@ -140,7 +141,7 @@ func buildNewTemplateData(agentName string) templates.TemplateData {
 	return templates.TemplateData{
 		Name:        agentName,
 		Description: "AI agent powered by KDeps",
-		Version:     "1.0.0",
+		Version:     defaultVersion,
 		Port:        defaultPort,
 		Resources:   []string{"http-client", "llm", "response"},
 		Features:    make(map[string]bool),

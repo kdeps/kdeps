@@ -28,6 +28,12 @@ import (
 	"github.com/kdeps/kdeps/v2/pkg/infra/texttmpl"
 )
 
+const (
+	tmplDockerfile  = "dockerfile"
+	tmplEntrypoint  = "entrypoint"
+	tmplSupervisord = "supervisord"
+)
+
 // generateDockerfile generates a Dockerfile using templates.
 func (b *Builder) generateDockerfile(workflow *domain.Workflow) (string, error) {
 	kdeps_debug.Log("enter: generateDockerfile")
@@ -38,7 +44,7 @@ func (b *Builder) generateDockerfile(workflow *domain.Workflow) (string, error) 
 	if err != nil {
 		return "", err
 	}
-	return b.renderWorkflowTemplate("dockerfile", templateStr, workflow)
+	return b.renderWorkflowTemplate(tmplDockerfile, templateStr, workflow)
 }
 
 func resolveDockerfileTemplate(baseOS string) (string, error) {
@@ -58,13 +64,13 @@ func resolveDockerfileTemplate(baseOS string) (string, error) {
 // generateEntrypoint generates the entrypoint script.
 func (b *Builder) generateEntrypoint(workflow *domain.Workflow) (string, error) {
 	kdeps_debug.Log("enter: generateEntrypoint")
-	return b.renderHookedTemplate(GenerateEntrypointHook, "entrypoint", entrypointTemplate, workflow)
+	return b.renderHookedTemplate(GenerateEntrypointHook, tmplEntrypoint, entrypointTemplate, workflow)
 }
 
 // generateSupervisord generates the supervisord config.
 func (b *Builder) generateSupervisord(workflow *domain.Workflow) (string, error) {
 	kdeps_debug.Log("enter: generateSupervisord")
-	return b.renderHookedTemplate(GenerateSupervisordHook, "supervisord", supervisordTemplate, workflow)
+	return b.renderHookedTemplate(GenerateSupervisordHook, tmplSupervisord, supervisordTemplate, workflow)
 }
 
 // renderHookedTemplate runs the optional test hook before rendering a template.
@@ -104,11 +110,11 @@ func renderTemplate(name, templateStr string, data any) (string, error) {
 
 func parseTemplateError(name string, err error) error {
 	switch name {
-	case "dockerfile":
+	case tmplDockerfile:
 		return fmt.Errorf("failed to parse Dockerfile template: %w", err)
-	case "entrypoint":
+	case tmplEntrypoint:
 		return fmt.Errorf("failed to parse entrypoint template: %w", err)
-	case "supervisord":
+	case tmplSupervisord:
 		return fmt.Errorf("failed to parse supervisord template: %w", err)
 	default:
 		return fmt.Errorf("failed to parse %s template: %w", name, err)
@@ -117,11 +123,11 @@ func parseTemplateError(name string, err error) error {
 
 func renderTemplateError(name string, err error) error {
 	switch name {
-	case "dockerfile":
+	case tmplDockerfile:
 		return fmt.Errorf("failed to render Dockerfile: %w", err)
-	case "entrypoint":
+	case tmplEntrypoint:
 		return fmt.Errorf("failed to render entrypoint: %w", err)
-	case "supervisord":
+	case tmplSupervisord:
 		return fmt.Errorf("failed to render supervisord config: %w", err)
 	default:
 		return fmt.Errorf("failed to render %s: %w", name, err)

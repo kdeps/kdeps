@@ -38,8 +38,8 @@ func (b *CohereBackend) buildCohereMessages(
 	h := &cohereHistory{entries: make([]map[string]interface{}, 0)}
 
 	for _, msg := range messages {
-		role, _ := msg["role"].(string)
-		content := b.extractContent(msg["content"])
+		role, _ := msg[jsonFieldRole].(string)
+		content := b.extractContent(msg[jsonFieldContent])
 
 		switch role {
 		case roleUser:
@@ -79,8 +79,8 @@ func (b *CohereBackend) extractContent(contentRaw interface{}) string {
 // flushPending moves the pending user message into the history entries.
 func (h *cohereHistory) flushPending() {
 	h.entries = append(h.entries, map[string]interface{}{
-		"role":    "USER",
-		"message": h.pending,
+		jsonFieldRole:    "USER",
+		jsonFieldMessage: h.pending,
 	})
 }
 
@@ -107,8 +107,8 @@ func (h *cohereHistory) addAssistant(content string) {
 	}
 
 	h.entries = append(h.entries, map[string]interface{}{
-		"role":    "CHATBOT",
-		"message": content,
+		jsonFieldRole:    "CHATBOT",
+		jsonFieldMessage: content,
 	})
 	h.userCount = 0
 }
@@ -126,7 +126,7 @@ func (h *cohereHistory) finalMessage(messages []map[string]interface{}) string {
 	}
 
 	lastMsg := messages[len(messages)-1]
-	if lastRole, _ := lastMsg["role"].(string); lastRole != roleAssistant {
+	if lastRole, _ := lastMsg[jsonFieldRole].(string); lastRole != roleAssistant {
 		return ""
 	}
 

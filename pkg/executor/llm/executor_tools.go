@@ -27,13 +27,13 @@ func (e *Executor) extractToolCalls(
 	response map[string]interface{},
 ) ([]map[string]interface{}, bool) {
 	kdeps_debug.Log("enter: extractToolCalls")
-	message, ok := response["message"].(map[string]interface{})
+	message, ok := response[jsonFieldMessage].(map[string]interface{})
 	if !ok {
 		return nil, false
 	}
 
 	// Check for tool_calls array
-	toolCallsRaw, ok := message["tool_calls"]
+	toolCallsRaw, ok := message[fieldToolCalls]
 	if !ok {
 		return nil, false
 	}
