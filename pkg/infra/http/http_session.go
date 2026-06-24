@@ -29,7 +29,6 @@ import (
 const sessionCookieMaxAge = 3600
 
 func newSessionCookie(sessionID string, secure bool) *stdhttp.Cookie {
-	//nolint:gosec // secure is derived from request context — false on non-TLS is correct
 	return &stdhttp.Cookie{
 		Name:     SessionCookieName,
 		Value:    sessionID,
