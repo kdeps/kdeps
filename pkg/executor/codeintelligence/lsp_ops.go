@@ -42,10 +42,14 @@ func (e *Executor) lspSymbolSearch(client *lspClient, config *domain.CodeIntelli
 
 	var symbols []map[string]interface{}
 	for _, s := range result {
+		file := ""
+		if loc, ok := s["location"].(map[string]interface{}); ok {
+			file = filepathFromURI(fmt.Sprint(loc["uri"]))
+		}
 		symbols = append(symbols, map[string]interface{}{
 			"name": s["name"],
 			"kind": s["kind"],
-			"file": filepathFromURI(fmt.Sprint(s["location"].(map[string]interface{})["uri"])),
+			"file": file,
 		})
 	}
 
@@ -290,22 +294,23 @@ func lineFromPosition(r interface{}) int {
 func flattenLSPDocumentSymbols(result interface{}) []map[string]interface{} {
 	var symbols []map[string]interface{}
 
-	switch v := result.(type) {
-	case []interface{}:
-		for _, item := range v {
-			if sym, ok := item.(map[string]interface{}); ok {
-				addSymbol := map[string]interface{}{
-					"name": sym["name"],
-					"kind": sym["kind"],
-				}
-				symbols = append(symbols, addSymbol)
+	v, ok := result.([]interface{})
+	if !ok {
+		return symbols
+	}
+	for _, item := range v {
+		sym, ok := item.(map[string]interface{})
+		if !ok {
+			continue
+		}
+		addSymbol := map[string]interface{}{
+			"name": sym["name"],
+			"kind": sym["kind"],
+		}
+		symbols = append(symbols, addSymbol)
 
-				// Recurse into children.
-				if children, ok := sym["children"]; ok {
-					childSymbols := flattenLSPDocumentSymbols(children)
-					symbols = append(symbols, childSymbols...)
-				}
-			}
+		if children, ok := sym["children"]; ok {
+			symbols = append(symbols, flattenLSPDocumentSymbols(children)...)
 		}
 	}
 	return symbols

@@ -84,7 +84,7 @@ func (m *lspManager) detectServer(languageID string) *lspServerInfo {
 		if m.lookup("gopls") {
 			return &lspServerInfo{bin: "gopls", args: []string{"serve", "-mode=stdio"}}
 		}
-	case "python":
+	case "python": //nolint:goconst
 		if m.lookup("pyright-langserver") {
 			return &lspServerInfo{bin: "pyright-langserver", args: []string{"--stdio"}}
 		}
@@ -149,7 +149,7 @@ func (m *lspManager) initialize(client *lspClient, languageID, workspaceRoot, fi
 // lspInitOptions returns language-specific initialization options.
 func lspInitOptions(languageID string) map[string]interface{} {
 	switch languageID {
-	case "python":
+	case "python": //nolint:goconst
 		return map[string]interface{}{
 			"typeCheckingMode": "basic",
 		}

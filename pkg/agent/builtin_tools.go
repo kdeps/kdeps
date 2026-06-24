@@ -1727,7 +1727,6 @@ func registerCodeIntelligenceTools(_ context.Context, reg *kdepstools.Registry) 
 	}
 
 	for _, ct := range tools {
-		ct := ct
 		reg.Register(&kdepstools.Tool{
 			Name:        ct.name,
 			Description: ct.desc,
