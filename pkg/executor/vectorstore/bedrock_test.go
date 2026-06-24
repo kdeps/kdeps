@@ -20,10 +20,12 @@ package vectorstore
 
 import (
 	"context"
+	"errors"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"github.com/tmc/langchaingo/schema"
 
 	"github.com/kdeps/kdeps/v2/pkg/domain"
 )
@@ -81,4 +83,64 @@ func TestBuildEmbedder_Bedrock_WithModel(t *testing.T) {
 	emb, err := buildEmbedder(context.Background(), cfg)
 	require.NoError(t, err)
 	assert.NotNil(t, emb)
+}
+
+func TestBedrockStore_AddDocuments_Success(t *testing.T) {
+	expected := []string{"doc-1", "doc-2"}
+	mock := &mockVectorStore{addDocsResult: expected}
+	store := &bedrockStore{store: mock}
+
+	ctx := context.Background()
+	docs := []schema.Document{
+		{PageContent: "hello"},
+		{PageContent: "world"},
+	}
+	result, err := store.AddDocuments(ctx, docs)
+
+	assert.NoError(t, err)
+	assert.Equal(t, expected, result)
+}
+
+func TestBedrockStore_AddDocuments_Error(t *testing.T) {
+	expectedErr := errors.New("add failed")
+	mock := &mockVectorStore{addDocsErr: expectedErr}
+	store := &bedrockStore{store: mock}
+
+	ctx := context.Background()
+	docs := []schema.Document{{PageContent: "test"}}
+	result, err := store.AddDocuments(ctx, docs)
+
+	assert.Error(t, err)
+	assert.Equal(t, expectedErr, err)
+	assert.Nil(t, result)
+}
+
+func TestBedrockStore_SimilaritySearch_Success(t *testing.T) {
+	expected := []schema.Document{
+		{
+			PageContent: "result-a",
+			Metadata:    map[string]any{"source": "test"},
+		},
+	}
+	mock := &mockVectorStore{searchResult: expected}
+	store := &bedrockStore{store: mock}
+
+	ctx := context.Background()
+	result, err := store.SimilaritySearch(ctx, "query", 5)
+
+	assert.NoError(t, err)
+	assert.Equal(t, expected, result)
+}
+
+func TestBedrockStore_SimilaritySearch_Error(t *testing.T) {
+	expectedErr := errors.New("search failed")
+	mock := &mockVectorStore{searchErr: expectedErr}
+	store := &bedrockStore{store: mock}
+
+	ctx := context.Background()
+	result, err := store.SimilaritySearch(ctx, "query", 5)
+
+	assert.Error(t, err)
+	assert.Equal(t, expectedErr, err)
+	assert.Nil(t, result)
 }
