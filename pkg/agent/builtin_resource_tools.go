@@ -216,43 +216,45 @@ func registerEmbeddingTools(_ context.Context, reg *kdepstools.Registry) {
 	}
 
 	for _, et := range embedTools {
-		et := et
 		reg.Register(&kdepstools.Tool{
 			Name:        et.name,
 			Description: et.desc,
 			Parameters:  et.params,
-			Execute: func(args map[string]any) (string, error) {
-				config := &domain.EmbeddingConfig{
-					Operation: et.op,
-				}
-				if v, ok := args["query"].(string); ok {
-					config.Text = v
-				}
-				if v, ok := args["collection"].(string); ok {
-					config.Collection = v
-				}
-				if v, ok := args["limit"].(float64); ok {
-					config.Limit = int(v)
-				}
-				if v, ok := args["texts"].([]any); ok {
-					for _, t := range v {
-						config.Inputs = append(config.Inputs, fmt.Sprint(t))
-					}
-				}
-				if v, ok := args["model"].(string); ok {
-					config.Model = v
-				}
-				if v, ok := args["backend"].(string); ok {
-					config.Backend = v
-				}
-
-				result, err := exec.Execute(nil, config)
-				if err != nil {
-					return "", err
-				}
-				out, _ := json.MarshalIndent(result, "", "  ")
-				return string(out), nil
-			},
+			Execute:     makeEmbeddingExecute(exec, et.op),
 		})
 	}
 }
+
+// makeEmbeddingExecute builds an Execute closure for embedding tools.
+func makeEmbeddingExecute(exec *execEmbedding.Executor, op string) func(map[string]any) (string, error) {
+	return func(args map[string]any) (string, error) {
+		config := &domain.EmbeddingConfig{Operation: op}
+		if v, ok := args["query"].(string); ok {
+			config.Text = v
+		}
+		if v, ok := args["collection"].(string); ok {
+			config.Collection = v
+		}
+		if v, ok := args["limit"].(float64); ok {
+			config.Limit = int(v)
+		}
+		if v, ok := args["texts"].([]any); ok {
+			for _, t := range v {
+				config.Inputs = append(config.Inputs, fmt.Sprint(t))
+			}
+		}
+		if v, ok := args["model"].(string); ok {
+			config.Model = v
+		}
+		if v, ok := args["backend"].(string); ok {
+			config.Backend = v
+		}
+		result, err := exec.Execute(nil, config)
+		if err != nil {
+			return "", err
+		}
+		out, _ := json.MarshalIndent(result, "", "  ")
+		return string(out), nil
+	}
+}
+

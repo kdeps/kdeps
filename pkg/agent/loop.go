@@ -209,6 +209,40 @@ func (l *Loop) PromptByName(name string) *PromptTemplate {
 //  4. cloud (first model with API key set)
 //
 // Falls back to llama3.2 + file if nothing is available.
+
+func resolveModelAndBackend(model, backend string) (string, string) {
+	if model == "" {
+		model = envOrDefault("KDEPS_AGENT_MODEL", "")
+		if model == "" {
+			model, _ = detectDefaultModelAndBackend()
+		}
+	}
+	if backend == "" {
+		backend = envOrDefault("KDEPS_AGENT_BACKEND", "")
+		if backend == "" {
+			if model != "" {
+				backend = BackendForModel(model)
+			}
+			if backend == "" {
+				_, backend = detectDefaultModelAndBackend()
+			}
+		}
+	}
+	return model, backend
+}
+
+func autoStartLocalModel(cfg *Config) {
+	if cfg.BaseURL != "" || cfg.ModelService == nil {
+		return
+	}
+	if cfg.Backend != executorLLM.BackendFile && cfg.Backend != executorLLM.BackendGGUF {
+		return
+	}
+	_ = cfg.ModelService.DownloadModel(cfg.Backend, cfg.Model)
+	_ = cfg.ModelService.ServeModel(cfg.Backend, cfg.Model, "", 0)
+	cfg.BaseURL = cfg.ModelService.ServerURL(cfg.Backend, cfg.Model)
+}
+
 func detectDefaultModelAndBackend() (model, backend string) {
 	// Priority 1: llamafile
 	if _, err := exec.LookPath("llamafile"); err == nil {
@@ -232,7 +266,7 @@ func detectDefaultModelAndBackend() (model, backend string) {
 	}
 	// Priority 3: ollama
 	if _, err := exec.LookPath("ollama"); err == nil {
-		return "llama3.2", "ollama"
+		return defaultModelName, "ollama"
 	}
 	// Priority 4: cloud
 	for _, m := range KnownCloudModels {
@@ -240,39 +274,15 @@ func detectDefaultModelAndBackend() (model, backend string) {
 			return m.ID, m.Backend
 		}
 	}
-	return "llama3.2", executorLLM.BackendFile
+	return defaultModelName, executorLLM.BackendFile
 }
 
 func applyConfigDefaults(cfg Config) Config {
-	if cfg.Model == "" {
-		cfg.Model = envOrDefault("KDEPS_AGENT_MODEL", "")
-		if cfg.Model == "" {
-			cfg.Model, _ = detectDefaultModelAndBackend()
-		}
-	}
-	if cfg.Backend == "" {
-		cfg.Backend = envOrDefault("KDEPS_AGENT_BACKEND", "")
-		if cfg.Backend == "" {
-			if cfg.Model != "" {
-				cfg.Backend = BackendForModel(cfg.Model)
-			}
-			if cfg.Backend == "" {
-				_, cfg.Backend = detectDefaultModelAndBackend()
-			}
-		}
-	}
+	cfg.Model, cfg.Backend = resolveModelAndBackend(cfg.Model, cfg.Backend)
 	if cfg.BaseURL == "" {
 		cfg.BaseURL = os.Getenv("KDEPS_AGENT_BASE_URL")
 	}
-	// Auto-start the local model server when the backend is file/gguf and
-	// no explicit BaseURL was provided. This ensures the dynamic port is
-	// discovered at startup, not just on /model switches.
-	if cfg.BaseURL == "" && cfg.ModelService != nil &&
-		(cfg.Backend == executorLLM.BackendFile || cfg.Backend == executorLLM.BackendGGUF) {
-		_ = cfg.ModelService.DownloadModel(cfg.Backend, cfg.Model)
-		_ = cfg.ModelService.ServeModel(cfg.Backend, cfg.Model, "", 0)
-		cfg.BaseURL = cfg.ModelService.ServerURL(cfg.Backend, cfg.Model)
-	}
+	autoStartLocalModel(&cfg)
 	if cfg.Role == "" {
 		cfg.Role = RoleUser
 	}
@@ -302,6 +312,7 @@ const (
 	defaultMaxToolRounds        = 10
 	defaultAutoRetryMax         = 3
 	defaultAutoRetryBaseDelay   = 2 * time.Second
+	defaultModelName            = "llama3.2"
 )
 
 func envOrDefault(key, fallback string) string {
