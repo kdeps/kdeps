@@ -78,16 +78,16 @@ func TestWaitForCompletionsReady_ImmediateSuccess(t *testing.T) {
 
 func TestWaitForCompletionsReady_TimeoutExhausted(t *testing.T) {
 	orig := httpDefaultClientDo
-	origTimeout := waitForCompletionsReadyFunc
+	origTimeout := WaitForCompletionsReadyFunc
 	t.Cleanup(func() {
 		httpDefaultClientDo = orig
-		waitForCompletionsReadyFunc = origTimeout
+		WaitForCompletionsReadyFunc = origTimeout
 	})
 
 	// Make every request fail so we exhaust the deadline quickly by patching
 	// the function itself to use a very short timeout.
 	called := 0
-	waitForCompletionsReadyFunc = func(serverURL string) {
+	WaitForCompletionsReadyFunc = func(serverURL string) {
 		// Inline a tiny-timeout variant to avoid a 5-minute wait in tests.
 		const shortPoll = 5 * time.Millisecond
 		endpoint := serverURL + "/v1/chat/completions"
@@ -107,6 +107,6 @@ func TestWaitForCompletionsReady_TimeoutExhausted(t *testing.T) {
 		return nil, context.DeadlineExceeded
 	}
 
-	waitForCompletionsReadyFunc("http://127.0.0.1:1")
+	WaitForCompletionsReadyFunc("http://127.0.0.1:1")
 	assert.Greater(t, called, 0)
 }

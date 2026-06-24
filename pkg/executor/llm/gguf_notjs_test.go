@@ -163,18 +163,18 @@ func TestGGUFManager_Serve_AlreadyRunning(t *testing.T) {
 func TestGGUFManager_Serve_StartNew(t *testing.T) {
 	origStart := startGGUFServerFunc
 	origTimeout := ggufStartTimeoutFunc
-	origReady := waitForCompletionsReadyFunc
+	origReady := WaitForCompletionsReadyFunc
 	origDo := httpDefaultClientDo
 	t.Cleanup(func() {
 		startGGUFServerFunc = origStart
 		ggufStartTimeoutFunc = origTimeout
-		waitForCompletionsReadyFunc = origReady
+		WaitForCompletionsReadyFunc = origReady
 		httpDefaultClientDo = origDo
 	})
 
 	startGGUFServerFunc = func(_ string, _ int) (int, error) { return 0, nil }
 	ggufStartTimeoutFunc = func() time.Duration { return 10 * time.Millisecond }
-	waitForCompletionsReadyFunc = func(_ string) {}
+	WaitForCompletionsReadyFunc = func(_ string) {}
 
 	healthCalled := 0
 	httpDefaultClientDo = func(_ *stdhttp.Request) (*stdhttp.Response, error) {
@@ -469,18 +469,18 @@ func TestGGUFManager_Serve_WaitForHealthyError(t *testing.T) {
 func TestGGUFManager_Serve_FullSuccessViaStart(t *testing.T) {
 	origStart := startGGUFServerFunc
 	origTimeout := ggufStartTimeoutFunc
-	origReady := waitForCompletionsReadyFunc
+	origReady := WaitForCompletionsReadyFunc
 	origDo := httpDefaultClientDo
 	t.Cleanup(func() {
 		startGGUFServerFunc = origStart
 		ggufStartTimeoutFunc = origTimeout
-		waitForCompletionsReadyFunc = origReady
+		WaitForCompletionsReadyFunc = origReady
 		httpDefaultClientDo = origDo
 	})
 
 	startGGUFServerFunc = func(_ string, _ int) (int, error) { return 0, nil }
 	ggufStartTimeoutFunc = func() time.Duration { return 100 * time.Millisecond }
-	waitForCompletionsReadyFunc = func(_ string) {}
+	WaitForCompletionsReadyFunc = func(_ string) {}
 
 	calls := 0
 	httpDefaultClientDo = func(_ *stdhttp.Request) (*stdhttp.Response, error) {

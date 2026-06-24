@@ -117,7 +117,7 @@ func WaitForServerReady(baseURL string) {
 	if baseURL == "" {
 		return
 	}
-	waitForCompletionsReadyFunc(baseURL)
+	WaitForCompletionsReadyFunc(baseURL)
 }
 
 // LocalServerEntry describes a running local model server.

@@ -47,6 +47,7 @@ type SessionStorage struct {
 	DefaultTTL      time.Duration // Default TTL for sessions (0 = no expiration)
 	cleanupInterval time.Duration // cleanup ticker interval (5 min default)
 	ctx             context.Context
+	stopCh          chan struct{} // closed by Close() to stop cleanup goroutine
 }
 
 // NewSessionStorage creates a new session storage.

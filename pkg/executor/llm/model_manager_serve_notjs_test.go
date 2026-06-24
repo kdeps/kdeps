@@ -79,14 +79,14 @@ func TestServeGGUFModel_ResolveError(t *testing.T) {
 func TestServeGGUFModelIfNeeded_SetsBaseURL(t *testing.T) {
 	origStart := startGGUFServerFunc
 	origTimeout := ggufStartTimeoutFunc
-	origReady := waitForCompletionsReadyFunc
+	origReady := WaitForCompletionsReadyFunc
 	origDo := httpDefaultClientDo
 	origGet := httpGet
 	origFS := AppFS
 	t.Cleanup(func() {
 		startGGUFServerFunc = origStart
 		ggufStartTimeoutFunc = origTimeout
-		waitForCompletionsReadyFunc = origReady
+		WaitForCompletionsReadyFunc = origReady
 		httpDefaultClientDo = origDo
 		httpGet = origGet
 		AppFS = origFS
@@ -95,7 +95,7 @@ func TestServeGGUFModelIfNeeded_SetsBaseURL(t *testing.T) {
 	AppFS = afero.NewOsFs()
 	startGGUFServerFunc = func(_ string, _ int) (int, error) { return 0, nil }
 	ggufStartTimeoutFunc = func() time.Duration { return 10 * time.Millisecond }
-	waitForCompletionsReadyFunc = func(_ string) {}
+	WaitForCompletionsReadyFunc = func(_ string) {}
 	httpDefaultClientDo = func(_ *stdhttp.Request) (*stdhttp.Response, error) {
 		return &stdhttp.Response{
 			StatusCode: stdhttp.StatusOK,

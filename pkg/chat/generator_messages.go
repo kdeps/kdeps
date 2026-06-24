@@ -129,7 +129,7 @@ func parseFailureCorrection(reason string) string {
 You MUST output ONLY this exact structure — no prose, no extra text, no XML namespaces:
 
 <kdeps-workflow>
-<file name=workflowYAMLFile>
+<file name="workflow.yaml">
 apiVersion: kdeps.io/v1
 kind: Workflow
 metadata:

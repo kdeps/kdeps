@@ -133,6 +133,7 @@ func NewSessionStorageWithTTL(
 		DefaultTTL:      defaultTTL,
 		cleanupInterval: defaultCleanupInterval,
 		ctx:             context.Background(),
+		stopCh:          make(chan struct{}),
 	}
 
 	if initErr := storage.initSchema(); initErr != nil {
@@ -175,18 +176,22 @@ func (s *SessionStorage) cleanup() {
 	ticker := time.NewTicker(s.cleanupInterval)
 	defer ticker.Stop()
 
-	for range ticker.C {
-		s.mu.Lock()
-		now := time.Now().UnixMilli()
-		// Delete sessions that have expired (expires_at < now) or are NULL and older than 24h
-		_, _ = s.DB.ExecContext(
-			context.Background(),
-			`DELETE FROM sessions
-			 WHERE (expires_at IS NOT NULL AND expires_at < ?)
-			    OR (expires_at IS NULL AND created_at < ?)`,
-			now,
-			time.Now().Add(-24*time.Hour).UnixMilli(),
-		)
-		s.mu.Unlock()
+	for {
+		select {
+		case <-s.stopCh:
+			return
+		case <-ticker.C:
+			s.mu.Lock()
+			now := time.Now().UnixMilli()
+			_, _ = s.DB.ExecContext(
+				context.Background(),
+				`DELETE FROM sessions
+				 WHERE (expires_at IS NOT NULL AND expires_at < ?)
+				    OR (expires_at IS NULL AND created_at < ?)`,
+				now,
+				time.Now().Add(-24*time.Hour).UnixMilli(),
+			)
+			s.mu.Unlock()
+		}
 	}
 }

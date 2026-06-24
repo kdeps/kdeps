@@ -213,7 +213,7 @@ func serveLocalProcess(logger *slog.Logger, cfg localProcessConfig, path string,
 		return 0, healthErr
 	}
 	// Health OK means the process is up but the model may still be loading.
-	waitForCompletionsReadyFunc(serverURL)
+	WaitForCompletionsReadyFunc(serverURL)
 	logger.Info(cfg.label+" ready", "url", serverURL)
 	cfg.served[path] = port
 	if pid > 0 && cfg.pids != nil {
@@ -302,11 +302,11 @@ func isHealthy(baseURL string) bool {
 	return resp.StatusCode == stdhttp.StatusOK
 }
 
-// waitForCompletionsReadyFunc blocks until /v1/chat/completions responds
+// WaitForCompletionsReadyFunc blocks until /v1/chat/completions responds
 // (overridable in tests to avoid real HTTP calls).
 //
 //nolint:gochecknoglobals // test-replaceable hook
-var waitForCompletionsReadyFunc = waitForCompletionsReady
+var WaitForCompletionsReadyFunc = waitForCompletionsReady
 
 // waitForCompletionsReady polls the completions endpoint until the model
 // responds. The /health endpoint becomes OK while weights are still loading;
