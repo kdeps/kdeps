@@ -17,6 +17,7 @@ package codeintelligence
 import (
 	"bufio"
 	"encoding/json"
+	"context"
 	"fmt"
 	"io"
 	"os/exec"
@@ -71,7 +72,7 @@ type lspNotification struct {
 
 // startLSPClient starts an LSP server binary and returns a connected client.
 func startLSPClient(bin string, args []string) (*lspClient, error) {
-	cmd := exec.Command(bin, args...)
+	cmd := exec.CommandContext(context.Background(), bin, args...)
 	cmd.Stderr = nil // LSP servers use stderr for logging only
 
 	stdin, err := cmd.StdinPipe()

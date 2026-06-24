@@ -183,7 +183,12 @@ func readLocalFile(filePath string, args map[string]any) (string, error) {
 		return "", fmt.Errorf("read_file: %s is a directory", filePath)
 	}
 	if info.Size() > maxFileReadBytes {
-		return "", fmt.Errorf("read_file: %s is %d bytes (max %d)", filePath, info.Size(), maxFileReadBytes)
+		return "", fmt.Errorf(
+			"read_file: %s is %d bytes (max %d)",
+			filePath,
+			info.Size(),
+			maxFileReadBytes,
+		)
 	}
 
 	data, err := os.ReadFile(filePath)
@@ -252,7 +257,11 @@ func registerWriteFile(reg *kdepstools.Registry) {
 			}
 			content, _ := args["content"].(string)
 			if len(content) > maxFileReadBytes {
-				return "", fmt.Errorf("write_file: content is %d bytes (max %d)", len(content), maxFileReadBytes)
+				return "", fmt.Errorf(
+					"write_file: content is %d bytes (max %d)",
+					len(content),
+					maxFileReadBytes,
+				)
 			}
 			info, statErr := os.Stat(filePath)
 			if statErr == nil && info.IsDir() {
@@ -317,7 +326,11 @@ func registerEditFile(reg *kdepstools.Registry) {
 				return "", fmt.Errorf("edit_file: old_string not found in %s", filePath)
 			}
 			if count > 1 {
-				return "", fmt.Errorf("edit_file: old_string appears %d times in %s (must be unique)", count, filePath)
+				return "", fmt.Errorf(
+					"edit_file: old_string appears %d times in %s (must be unique)",
+					count,
+					filePath,
+				)
 			}
 			newContent := strings.Replace(content, oldStr, newStr, 1)
 			if werr := os.WriteFile(filePath, []byte(newContent), 0o600); werr != nil {
@@ -1589,7 +1602,12 @@ func callRetrieveContext(ctx context.Context, baseURL, query string, topK int) (
 	body, _ := json.Marshal(map[string]any{"query": query, "top_k": topK})
 	reqCtx, cancel := context.WithTimeout(ctx, ragTimeoutSeconds*time.Second)
 	defer cancel()
-	req, err := http.NewRequestWithContext(reqCtx, http.MethodPost, baseURL+"/v1/query", bytes.NewReader(body))
+	req, err := http.NewRequestWithContext(
+		reqCtx,
+		http.MethodPost,
+		baseURL+"/v1/query",
+		bytes.NewReader(body),
+	)
 	if err != nil {
 		return "", fmt.Errorf("retrieve_context: build request: %w", err)
 	}
@@ -1606,7 +1624,11 @@ func callRetrieveContext(ctx context.Context, baseURL, query string, topK int) (
 		return "", fmt.Errorf("retrieve_context: read response: %w", err)
 	}
 	if resp.StatusCode != http.StatusOK {
-		return "", fmt.Errorf("retrieve_context: API error %d: %s", resp.StatusCode, string(respBody))
+		return "", fmt.Errorf(
+			"retrieve_context: API error %d: %s",
+			resp.StatusCode,
+			string(respBody),
+		)
 	}
 
 	var result struct {
@@ -1655,7 +1677,8 @@ func validateWorkspaceBoundary(path string) error {
 	if err != nil {
 		rootCanonical = filepath.Clean(root)
 	}
-	if !strings.HasPrefix(canonical, rootCanonical+string(filepath.Separator)) && canonical != rootCanonical {
+	if !strings.HasPrefix(canonical, rootCanonical+string(filepath.Separator)) &&
+		canonical != rootCanonical {
 		return fmt.Errorf("path %s escapes workspace root %s", path, root)
 	}
 	return nil
@@ -1677,8 +1700,16 @@ func registerCodeIntelligenceTools(_ context.Context, reg *kdepstools.Registry) 
 			desc: "Search for a symbol or pattern across the codebase. Use this first to locate symbols before using code_definition or code_references. Requires: query, path.",
 			op:   domain.CodeIntOpSymbolSearch,
 			params: map[string]domain.ToolParam{
-				"query": {Type: "string", Description: "Symbol name or search pattern", Required: true},
-				"path":  {Type: "string", Description: "File or directory to search (absolute path)", Required: true},
+				"query": {
+					Type:        "string",
+					Description: "Symbol name or search pattern",
+					Required:    true,
+				},
+				"path": {
+					Type:        "string",
+					Description: "File or directory to search (absolute path)",
+					Required:    true,
+				},
 			},
 		},
 		{
@@ -1686,8 +1717,16 @@ func registerCodeIntelligenceTools(_ context.Context, reg *kdepstools.Registry) 
 			desc: "Find the definition of a symbol using semantic analysis (LSP). Returns file and line. Requires: symbol, path.",
 			op:   domain.CodeIntOpDefinition,
 			params: map[string]domain.ToolParam{
-				"symbol": {Type: "string", Description: "Symbol name to find the definition of", Required: true},
-				"path":   {Type: "string", Description: "File containing the symbol reference (absolute path)", Required: true},
+				"symbol": {
+					Type:        "string",
+					Description: "Symbol name to find the definition of",
+					Required:    true,
+				},
+				"path": {
+					Type:        "string",
+					Description: "File containing the symbol reference (absolute path)",
+					Required:    true,
+				},
 			},
 		},
 		{
@@ -1695,8 +1734,16 @@ func registerCodeIntelligenceTools(_ context.Context, reg *kdepstools.Registry) 
 			desc: "Find all references to a symbol across the codebase. Returns every file and line. Requires: symbol, path.",
 			op:   domain.CodeIntOpReferences,
 			params: map[string]domain.ToolParam{
-				"symbol": {Type: "string", Description: "Symbol name to find references for", Required: true},
-				"path":   {Type: "string", Description: "File containing one reference (absolute path)", Required: true},
+				"symbol": {
+					Type:        "string",
+					Description: "Symbol name to find references for",
+					Required:    true,
+				},
+				"path": {
+					Type:        "string",
+					Description: "File containing one reference (absolute path)",
+					Required:    true,
+				},
 			},
 		},
 		{
@@ -1704,7 +1751,11 @@ func registerCodeIntelligenceTools(_ context.Context, reg *kdepstools.Registry) 
 			desc: "List all symbols (functions, types, classes) in a file. Returns structured symbol info with nesting. Requires: path.",
 			op:   domain.CodeIntOpDocumentSymbols,
 			params: map[string]domain.ToolParam{
-				"path": {Type: "string", Description: "File to extract symbols from (absolute path)", Required: true},
+				"path": {
+					Type:        "string",
+					Description: "File to extract symbols from (absolute path)",
+					Required:    true,
+				},
 			},
 		},
 		{
@@ -1712,8 +1763,16 @@ func registerCodeIntelligenceTools(_ context.Context, reg *kdepstools.Registry) 
 			desc: "Get documentation and type info for a symbol. Returns doc comments and type signatures. Requires: symbol, path.",
 			op:   domain.CodeIntOpHover,
 			params: map[string]domain.ToolParam{
-				"symbol": {Type: "string", Description: "Symbol name to get documentation for", Required: true},
-				"path":   {Type: "string", Description: "File containing the symbol (absolute path)", Required: true},
+				"symbol": {
+					Type:        "string",
+					Description: "Symbol name to get documentation for",
+					Required:    true,
+				},
+				"path": {
+					Type:        "string",
+					Description: "File containing the symbol (absolute path)",
+					Required:    true,
+				},
 			},
 		},
 		{
@@ -1721,7 +1780,11 @@ func registerCodeIntelligenceTools(_ context.Context, reg *kdepstools.Registry) 
 			desc: "Get compiler/linter diagnostics for a file. Returns errors, warnings, hints. Requires: path.",
 			op:   domain.CodeIntOpDiagnostics,
 			params: map[string]domain.ToolParam{
-				"path": {Type: "string", Description: "File to check (absolute path)", Required: true},
+				"path": {
+					Type:        "string",
+					Description: "File to check (absolute path)",
+					Required:    true,
+				},
 			},
 		},
 	}
