@@ -130,3 +130,13 @@ func TestGGUFRegistry_MergeOverridesEmbedded(t *testing.T) {
 	require.True(t, ok)
 	assert.Equal(t, "https://override.example.com/qwen.gguf", url)
 }
+
+func TestGGUFCachedPath_BadBasename(t *testing.T) {
+	orig := ggufAliasMap
+	t.Cleanup(func() { ggufAliasMap = orig })
+	ggufAliasMap = map[string]string{
+		"bad-alias": "https://example.com/",
+	}
+	_, ok := GGUFCachedPath("bad-alias", "/models")
+	assert.False(t, ok)
+}
