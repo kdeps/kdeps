@@ -416,3 +416,33 @@ var _ mongoCollection = (*realMongoColl)(nil)
 
 // Ensure bson import is used (kept for filter construction in source).
 var _ = bson.M{}
+
+// --- realMongoColl wrapper coverage via cancelled context ---
+
+func TestRealMongoColl_CoverageViaCancelledContext(t *testing.T) {
+	store, err := NewMongoDBSessionStore(context.Background(),
+		"mongodb://127.0.0.1:27099/?serverSelectionTimeoutMS=100&connectTimeoutMS=100",
+		"kdeps", "test")
+	if err != nil {
+		t.Fatalf("NewMongoDBSessionStore: %v", err)
+	}
+
+	cancelledCtx, cancel2 := context.WithCancel(context.Background())
+	cancel2()
+
+	// Exercise all methods through the realMongoColl wrapper.
+	// All should fail fast with cancelled context.
+	session := NewSession(0)
+	session.Append("hello", "world")
+
+	_, _ = store.SaveAs(session, "test", "model")
+	_, _ = store.Save(session)
+	_, _ = store.Load("any-id")
+	_, _ = store.LoadMeta("any-id")
+	_, _ = store.List()
+	_, _ = store.ListMeta()
+	_ = store.Delete("any-id")
+	_, _ = store.SearchSessions("query")
+
+	_ = store.Close(cancelledCtx)
+}

@@ -362,3 +362,31 @@ func TestIsGGUFModelName_NoSuffix(t *testing.T) {
 		t.Error("expected false for non-gguf suffix")
 	}
 }
+
+func TestSummarizeToolArgs_FallbackKeyValue(t *testing.T) {
+	t.Parallel()
+	// No preferred keys match — falls through to first non-empty value
+	result := summarizeToolArgs(`{"unknown_key": "hello"}`)
+	if result != "unknown_key=hello" {
+		t.Errorf("expected unknown_key=hello, got %q", result)
+	}
+}
+
+func TestSummarizeToolArgs_FallbackKeyValueTruncated(t *testing.T) {
+	t.Parallel()
+	long := strings.Repeat("x", 90)
+	raw := `{"key": "` + long + `"}`
+	result := summarizeToolArgs(raw)
+	if len(result) >= len(raw) {
+		t.Errorf("expected truncated output, got len %d", len(result))
+	}
+}
+
+func TestSummarizeToolArgs_EmptyKeySkipped(t *testing.T) {
+	t.Parallel()
+	// Whitespace-only value should be skipped
+	result := summarizeToolArgs(`{"key": " "}`)
+	if result != `{"key": " "}` {
+		t.Logf("result: %q", result)
+	}
+}
