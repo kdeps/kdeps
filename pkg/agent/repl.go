@@ -1085,7 +1085,12 @@ func (r *REPL) runLoop(rl *readline.Instance) error {
 func (r *REPL) handleReadError(err error) (bool, error) {
 	switch {
 	case errors.Is(err, readline.ErrInterrupt):
-		return false, nil // Ctrl+C - continue
+		// Ctrl+C — cancel any running tool and reset the context.
+		r.cancel()
+		newCtx, newCancel := context.WithCancel(context.Background())
+		r.ctx = newCtx
+		r.cancel = newCancel
+		return false, nil
 	case errors.Is(err, io.EOF):
 		return true, nil
 	case err != nil:
