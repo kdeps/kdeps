@@ -113,6 +113,10 @@ type Config struct {
 	// AutoRetryBaseDelay is the initial backoff delay for auto-retry.
 	// Each retry doubles the delay. Default: 2s.
 	AutoRetryBaseDelay time.Duration
+	// CheckpointFn, when set, is called before each LLM call in runToolRounds
+	// to persist session state. On context overflow, the agent checks the last
+	// checkpoint to determine whether the task was already completed.
+	CheckpointFn func(SessionReadWriter)
 }
 
 // Loop drives a multi-turn agent conversation using the kdeps engine as the
@@ -439,12 +443,46 @@ func isTransientError(err error) bool {
 
 // compactAndRetry compacts session history and retries the streaming call once.
 // Called when runToolRounds returns an IsContextOverflowError.
+// Before compacting, checks whether the task was already completed in a prior turn.
 func (l *Loop) compactAndRetry(ctx context.Context, input string, w io.Writer) (string, error) {
+	// Check if the task was already completed before the overflow occurred.
+	// If the last assistant response indicates completion, return it immediately.
+	if l.session != nil && l.session.TurnCount() > 0 {
+		lastAssistant := l.session.LastAssistantContent()
+		if IsTaskCompleted(lastAssistant) {
+			fmt.Fprintf(
+				w,
+				"\n[Task completed before context overflow. Last response was %d chars]\n",
+				len(lastAssistant),
+			)
+			return lastAssistant, nil
+		}
+	}
+
 	if summary, compactErr := l.CompactWithLLM(ctx); compactErr == nil && summary != "" {
 		if l.onAutoCompact != nil {
 			l.onAutoCompact(summary)
 		}
+		// Inject checkpoint reference into the compacted context so the LLM
+		// knows where to resume from.
+		input = fmt.Sprintf(
+			"CONTEXT OVERFLOW RECOVERY. The conversation was too long and was compacted. "+
+				"Summary of previous work: %s\n\n"+
+				"Check if the original task is already completed. If YES, respond with the final status. "+
+				"If NO, continue from where you left off.\n\n"+
+				"Original request: %s",
+			summary, input,
+		)
+	} else {
+		// Compaction failed: inject a minimal continuation prompt.
+		input = fmt.Sprintf(
+			"CONTEXT OVERFLOW. Check if the task is already done. "+
+				"If YES, respond with final status. If NO, continue.\n\n"+
+				"Original request: %s",
+			input,
+		)
 	}
+
 	preamble := l.buildSystemPreamble()
 	cfg := l.buildChatConfig(input, preamble)
 	return l.runToolRounds(ctx, cfg, w)
@@ -454,8 +492,9 @@ func (l *Loop) compactAndRetry(ctx context.Context, input string, w io.Writer) (
 func (l *Loop) runToolRounds(ctx context.Context, chatCfg *domain.ChatConfig, w io.Writer) (string, error) {
 	var finalContent string
 	for i := range l.config.MaxToolRounds {
-		// Capture streamed output in a buffer so we can suppress raw tool-call JSON
-		// from reaching the terminal. Text-only responses are replayed to w below.
+		// Auto-checkpoint: save session state before each LLM call.
+		l.saveCheckpoint()
+
 		var roundBuf strings.Builder
 		content, toolCalls, err := l.streamer.StreamChat(ctx, chatCfg, &roundBuf)
 		if err != nil {
@@ -464,7 +503,6 @@ func (l *Loop) runToolRounds(ctx context.Context, chatCfg *domain.ChatConfig, w 
 		finalContent = content
 
 		if len(toolCalls) == 0 {
-			// Text-only response: replay the streamed content.
 			_, _ = io.WriteString(w, roundBuf.String())
 			break
 		}
@@ -472,12 +510,10 @@ func (l *Loop) runToolRounds(ctx context.Context, chatCfg *domain.ChatConfig, w 
 			break
 		}
 
-		// Notify caller that this round is complete (e.g. to flush live thinking display).
 		if l.config.OnRoundComplete != nil {
 			l.config.OnRoundComplete()
 		}
 
-		// Write a clean tool call summary instead of the raw JSON chunks.
 		for _, tc := range toolCalls {
 			argSummary := summarizeToolArgs(tc.Arguments)
 			line := fmt.Sprintf("[%s → %s]", tc.Name, argSummary)
@@ -491,6 +527,44 @@ func (l *Loop) runToolRounds(ctx context.Context, chatCfg *domain.ChatConfig, w 
 		chatCfg = l.appendToolRoundTrip(chatCfg, content, toolCalls)
 	}
 	return finalContent, nil
+}
+
+// saveCheckpoint persists the current session state so that on context
+// overflow the agent can detect completed work without losing progress.
+func (l *Loop) saveCheckpoint() {
+	if l.session == nil {
+		return
+	}
+	if l.config.CheckpointFn != nil {
+		l.config.CheckpointFn(l.session)
+	}
+}
+
+// IsTaskCompleted checks whether the last assistant response indicates the
+// task was finished. Matches common completion signals like "Done", "Fixed",
+// "Completed", "Pushed", "All tests pass".
+func IsTaskCompleted(response string) bool {
+	trimmed := strings.TrimSpace(response)
+	if trimmed == "" {
+		return false
+	}
+	indicators := []string{
+		"Done.", "Done!", "done.",
+		"Fixed.", "Fixed!", "fixed.",
+		"Completed.", "Completed!",
+		"Pushed.", "Pushed!",
+		"All tests pass", "all tests pass",
+		"All green", "all green",
+		"Task complete", "task complete",
+		"No issues", "0 issues",
+		"Build OK", "BUILD OK",
+	}
+	for _, indicator := range indicators {
+		if strings.Contains(trimmed, indicator) {
+			return true
+		}
+	}
+	return false
 }
 
 const toolArgMaxDisplay = 80 // max chars shown in tool call summary line
