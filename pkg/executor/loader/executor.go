@@ -21,6 +21,7 @@
 package loader
 
 import (
+	"context"
 	"encoding/csv"
 	"encoding/json"
 	"errors"
@@ -28,6 +29,7 @@ import (
 	"io"
 	"io/fs"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 
@@ -97,12 +99,19 @@ func loadDocuments(cfg *domain.LoaderConfig) ([]Document, error) {
 		return loadCSV(cfg.Source, cfg.Columns)
 	case "pdf":
 		return loadPDF(cfg.Source, cfg.Password)
+	case "pdf_pdftotext":
+		return loadPDFPopper(cfg.Source)
+	case "pdf_cpu":
+		return loadPDFCPU(cfg.Source)
 	case "directory":
 		return loadDirectory(cfg.Source)
 	case "notion":
 		return loadNotionDirectory(cfg.Source)
 	}
-	return nil, fmt.Errorf("loader: unknown type %q (use text, html, csv, pdf, directory, notion)", loaderType)
+	return nil, fmt.Errorf(
+		"loader: unknown type %q (use text, html, csv, pdf, pdf_pdftotext, pdf_cpu, directory, notion)",
+		loaderType,
+	)
 }
 
 func loadText(source string) ([]Document, error) {
@@ -278,6 +287,53 @@ func loadNotionDirectory(source string) ([]Document, error) {
 		})
 	}
 	return docs, nil
+}
+
+// loadPDFPopper extracts text from a PDF using the pdftotext command-line tool
+// (from poppler-utils). Falls back when pdftotext is not installed.
+func loadPDFPopper(source string) ([]Document, error) {
+	if _, lookErr := exec.LookPath("pdftotext"); lookErr != nil {
+		return nil, errors.New("loader pdf_pdftotext: pdftotext not found in PATH (install poppler-utils)")
+	}
+	tmpDir, dirErr := os.MkdirTemp("", "kdeps-pdf-*")
+	if dirErr != nil {
+		return nil, fmt.Errorf("loader pdf_pdftotext: temp dir: %w", dirErr)
+	}
+	defer os.RemoveAll(tmpDir)
+	tmpFile := filepath.Join(tmpDir, "output.txt")
+	cmd := exec.CommandContext(context.Background(), "pdftotext", "-layout", source, tmpFile)
+	output, cmdErr := cmd.CombinedOutput()
+	if cmdErr != nil {
+		return nil, fmt.Errorf("loader pdf_pdftotext: %w: %s", cmdErr, string(output))
+	}
+	data, readErr := os.ReadFile(tmpFile)
+	if readErr != nil {
+		return nil, fmt.Errorf("loader pdf_pdftotext: read output: %w", readErr)
+	}
+	return []Document{{Content: string(data), Metadata: map[string]interface{}{"parser": "pdftotext"}}}, nil
+}
+
+// loadPDFCPU extracts text from a PDF using the pdfcpu command-line tool.
+func loadPDFCPU(source string) ([]Document, error) {
+	if _, lookErr := exec.LookPath("pdfcpu"); lookErr != nil {
+		return nil, errors.New("loader pdf_cpu: pdfcpu not found in PATH (install pdfcpu)")
+	}
+	tmpDir, dirErr := os.MkdirTemp("", "kdeps-pdf-*")
+	if dirErr != nil {
+		return nil, fmt.Errorf("loader pdf_cpu: temp dir: %w", dirErr)
+	}
+	defer os.RemoveAll(tmpDir)
+	tmpFile := filepath.Join(tmpDir, "output.txt")
+	cmd := exec.CommandContext(context.Background(), "pdfcpu", "extract", "-mode", "text", source, tmpFile)
+	output, cmdErr := cmd.CombinedOutput()
+	if cmdErr != nil {
+		return nil, fmt.Errorf("loader pdf_cpu: %w: %s", cmdErr, string(output))
+	}
+	data, readErr := os.ReadFile(tmpFile)
+	if readErr != nil {
+		return nil, fmt.Errorf("loader pdf_cpu: read output: %w", readErr)
+	}
+	return []Document{{Content: string(data), Metadata: map[string]interface{}{"parser": "pdfcpu"}}}, nil
 }
 
 func splitDocuments(docs []Document, cfg *domain.LoaderConfig) ([]Document, error) {

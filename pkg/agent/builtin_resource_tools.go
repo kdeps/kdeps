@@ -174,7 +174,7 @@ func registerLoaderTool(_ context.Context, reg *kdepstools.Registry) {
 
 	reg.Register(&kdepstools.Tool{
 		Name:        "load_document",
-		Description: "Load a document file and return its content as text. Supports PDF, CSV, HTML, and plain text files. Use for reading documents into the conversation for analysis or RAG pipelines. Returns document content with optional splitting into chunks. Requires: source (absolute file path). Optional: type (pdf, csv, html, text — auto-detected from extension), chunkSize (split into chunks of N characters).",
+		Description: "Load a document file and return its content as text. Supports PDF (go-pdf, pdftotext, or pdfcpu), CSV, HTML, and plain text files. Use for reading documents into the conversation for analysis or RAG pipelines. Returns document content with optional splitting into chunks. Requires: source (absolute file path). Optional: type (pdf, csv, html, text — auto-detected from extension), chunkSize (split into chunks of N characters).",
 		Parameters: map[string]domain.ToolParam{
 			"source": {
 				Type:        toolParamString,
@@ -183,7 +183,7 @@ func registerLoaderTool(_ context.Context, reg *kdepstools.Registry) {
 			},
 			"type": {
 				Type:        toolParamString,
-				Description: "Document type: pdf, csv, html, text. Auto-detected if omitted.",
+				Description: "Document type: pdf, pdf_pdftotext, pdf_cpu, csv, html, text. Auto-detected if omitted. pdf=Go library, pdf_pdftotext=poppler CLI, pdf_cpu=pdfcpu CLI.",
 			},
 			"chunkSize": {
 				Type:        toolParamNumber,
