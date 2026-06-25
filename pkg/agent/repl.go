@@ -1503,9 +1503,13 @@ func (r *REPL) applyModelSwitch(model string) {
 }
 
 // contextLimitForModel returns the context window size for a model.
-// Cloud models get 128K. For local models, checks env vars first, then
-// derives from the model's parameter count, falling back to 4096.
+// Checks the per-model registry first, then cloud backend, then env vars,
+// then derives from parameter count, falling back to 4096.
 func (r *REPL) contextLimitForModel(model string) int {
+	// Check the per-model context window registry.
+	if ctx := ContextWindowForModel(model); ctx > 0 {
+		return ctx
+	}
 	if BackendForModel(model) != "" {
 		return contextLimitCloud
 	}

@@ -237,6 +237,7 @@ musl-binaries/
 /wasm
 *.backup
 *.ics
+*.pdf
 
 # Local refactor/split tooling scripts (not shipped)
 scripts/refactor-tooling/
