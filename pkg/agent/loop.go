@@ -567,6 +567,9 @@ func IsTaskCompleted(response string) bool {
 	return false
 }
 
+// ansiStripRe matches ANSI escape sequences for stripping from tool output.
+var ansiStripRe = regexp.MustCompile(`\[[0-9;]*[a-zA-Z]`)
+
 const toolArgMaxDisplay = 80 // max chars shown in tool call summary line
 
 // summarizeToolArgs extracts a short display label from tool call arguments JSON.
@@ -665,7 +668,7 @@ func (l *Loop) dispatchStreamToolCall(tc domain.StreamedToolCall, w io.Writer) s
 	start := time.Now()
 	if w != nil {
 		fmt.Fprintf(w, "\n")
-		tool.OutputWriter = w
+		tool.OutputWriter = &stripANSIWriter{w: w}
 		defer func() { tool.OutputWriter = nil }()
 	}
 	result, err := tool.Execute(args)
@@ -997,4 +1000,16 @@ func resolveAbsPaths(paths []string) []string {
 	out := make([]string, 0, len(paths))
 	out = append(out, paths...) // already absolute from selection
 	return out
+}
+
+// stripANSIWriter wraps an io.Writer and removes ANSI escape sequences.
+type stripANSIWriter struct{ w io.Writer }
+
+func (s *stripANSIWriter) Write(p []byte) (int, error) {
+	cleaned := ansiStripRe.ReplaceAll(p, nil)
+	if len(cleaned) == 0 {
+		return len(p), nil
+	}
+	_, err := s.w.Write(cleaned)
+	return len(p), err
 }

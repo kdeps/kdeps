@@ -737,9 +737,9 @@ func fuzzyMatch(needle, haystack string) bool {
 
 // resetTerminal restores the terminal to a clean state after the REPL exits.
 // Prevents corrupted/stuck terminals that require 'reset' to fix.
+// Uses full reset (\033c) which is equivalent to the 'reset' command.
 func resetTerminal() {
-	fmt.Fprint(os.Stdout, "\033[0m")   // reset all text attributes
-	fmt.Fprint(os.Stdout, "\033[?25h") // show cursor
+	fmt.Fprint(os.Stdout, "\033c") // full terminal reset (like 'reset' command)
 }
 
 // fdBinPath returns the path to the fd binary (fd or fdfind), or empty string.
