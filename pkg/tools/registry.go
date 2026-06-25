@@ -22,6 +22,8 @@
 package tools
 
 import (
+	"io"
+
 	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
 
 	"github.com/kdeps/kdeps/v2/pkg/domain"
@@ -37,6 +39,9 @@ type Tool struct {
 	Parameters map[string]domain.ToolParam
 	// Execute runs the tool with the given arguments and returns the result.
 	Execute func(arguments map[string]interface{}) (string, error)
+	// OutputWriter, when set, receives real-time stdout/stderr from the tool.
+	// Set by the agent loop before calling Execute; cleared after.
+	OutputWriter io.Writer
 }
 
 // Registry holds all registered tools.

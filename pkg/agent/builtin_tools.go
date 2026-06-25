@@ -968,7 +968,7 @@ func registerBashExec(_ context.Context, reg *kdepstools.Registry) {
 	if os.Getenv("KDEPS_ALLOW_BASH") == "false" {
 		return
 	}
-	reg.Register(&kdepstools.Tool{
+	tool := &kdepstools.Tool{
 		Name:        "bash_exec",
 		Description: "Execute a bash shell command and return its output. Use for running scripts, checking system state (git status, ls, etc.), or performing file operations. Commands run with a 30-second timeout.",
 		Parameters: map[string]domain.ToolParam{
@@ -978,35 +978,41 @@ func registerBashExec(_ context.Context, reg *kdepstools.Registry) {
 				Required:    true,
 			},
 		},
-		Execute: func(args map[string]any) (string, error) {
-			command, _ := args["command"].(string)
-			if command == "" {
-				return "", errors.New("bash_exec: command is required")
-			}
-			if block, reason, _ := ValidateBashCommand(command, BashReadOnlyMode()); block {
-				return "", fmt.Errorf("bash_exec: blocked: %s", reason)
-			}
-			ctx, cancel := context.WithTimeout(context.Background(), builtinBashTimeout)
-			defer cancel()
-			cmd := exec.CommandContext(ctx, "bash", "-c", command)
-			var stdout, stderr strings.Builder
+	}
+	tool.Execute = func(args map[string]any) (string, error) {
+		command, _ := args["command"].(string)
+		if command == "" {
+			return "", errors.New("bash_exec: command is required")
+		}
+		if block, reason, _ := ValidateBashCommand(command, BashReadOnlyMode()); block {
+			return "", fmt.Errorf("bash_exec: blocked: %s", reason)
+		}
+		ctx, cancel := context.WithTimeout(context.Background(), builtinBashTimeout)
+		defer cancel()
+		cmd := exec.CommandContext(ctx, "bash", "-c", command)
+		var stdout, stderr strings.Builder
+		if tool.OutputWriter != nil {
+			cmd.Stdout = io.MultiWriter(&stdout, tool.OutputWriter)
+			cmd.Stderr = io.MultiWriter(&stderr, tool.OutputWriter)
+		} else {
 			cmd.Stdout = &stdout
 			cmd.Stderr = &stderr
-			runErr := cmd.Run()
-			out := strings.TrimSpace(stdout.String())
-			errOut := strings.TrimSpace(stderr.String())
-			if runErr != nil {
-				if errOut != "" {
-					return "", fmt.Errorf("bash_exec: %w\nstderr: %s", runErr, errOut)
-				}
-				return "", fmt.Errorf("bash_exec: %w", runErr)
-			}
+		}
+		runErr := cmd.Run()
+		out := strings.TrimSpace(stdout.String())
+		errOut := strings.TrimSpace(stderr.String())
+		if runErr != nil {
 			if errOut != "" {
-				out += "\nstderr: " + errOut
+				return "", fmt.Errorf("bash_exec: %w\nstderr: %s", runErr, errOut)
 			}
-			return truncateBashOutput(out), nil
-		},
-	})
+			return "", fmt.Errorf("bash_exec: %w", runErr)
+		}
+		if errOut != "" {
+			out += "\nstderr: " + errOut
+		}
+		return truncateBashOutput(out), nil
+	}
+	reg.Register(tool)
 }
 
 // registerWolframAlpha registers the Wolfram Alpha short-answer API tool

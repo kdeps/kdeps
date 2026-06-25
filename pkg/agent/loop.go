@@ -664,7 +664,9 @@ func (l *Loop) dispatchStreamToolCall(tc domain.StreamedToolCall, w io.Writer) s
 	}
 	start := time.Now()
 	if w != nil {
-		fmt.Fprintf(w, "\n  ... running %s", tc.Name)
+		fmt.Fprintf(w, "\n")
+		tool.OutputWriter = w
+		defer func() { tool.OutputWriter = nil }()
 	}
 	result, err := tool.Execute(args)
 	if w != nil {
