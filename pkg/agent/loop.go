@@ -44,7 +44,11 @@ import (
 // Implementations write each token chunk to w as it arrives and return
 // the full accumulated response text along with any tool calls.
 type Streamer interface {
-	StreamChat(ctx context.Context, cfg *domain.ChatConfig, w io.Writer) (string, []domain.StreamedToolCall, error)
+	StreamChat(
+		ctx context.Context,
+		cfg *domain.ChatConfig,
+		w io.Writer,
+	) (string, []domain.StreamedToolCall, error)
 }
 
 // Config holds agent loop configuration.
@@ -340,7 +344,11 @@ func (l *Loop) Run(ctx context.Context, input string) (string, error) {
 	const actionID = "agent_loop_chat"
 
 	// Auto-compact before the LLM call when history exceeds the token threshold.
-	if msgs := l.session.RawMessages(); shouldAutoCompact(msgs, l.config.AutoCompactThreshold, l.config.Model) {
+	if msgs := l.session.RawMessages(); shouldAutoCompact(
+		msgs,
+		l.config.AutoCompactThreshold,
+		l.config.Model,
+	) {
 		if summary, err := l.CompactWithLLM(ctx); err == nil && summary != "" {
 			if l.onAutoCompact != nil {
 				l.onAutoCompact(summary)
@@ -377,7 +385,11 @@ func (l *Loop) IsStreaming() bool {
 // The caller should write a trailing newline after this returns if needed.
 func (l *Loop) RunStreaming(ctx context.Context, input string, w io.Writer) (string, error) {
 	// Auto-compact before the LLM call when history exceeds the token threshold.
-	if msgs := l.session.RawMessages(); shouldAutoCompact(msgs, l.config.AutoCompactThreshold, l.config.Model) {
+	if msgs := l.session.RawMessages(); shouldAutoCompact(
+		msgs,
+		l.config.AutoCompactThreshold,
+		l.config.Model,
+	) {
 		if summary, err := l.CompactWithLLM(ctx); err == nil && summary != "" {
 			if l.onAutoCompact != nil {
 				l.onAutoCompact(summary)
@@ -404,7 +416,11 @@ func (l *Loop) RunStreaming(ctx context.Context, input string, w io.Writer) (str
 // runWithRetry calls runToolRounds and retries on transient API errors
 // (overloaded, rate-limit, 5xx) with exponential backoff.
 // Context overflow errors pass through immediately for compactAndRetry handling.
-func (l *Loop) runWithRetry(ctx context.Context, chatCfg *domain.ChatConfig, w io.Writer) (string, error) {
+func (l *Loop) runWithRetry(
+	ctx context.Context,
+	chatCfg *domain.ChatConfig,
+	w io.Writer,
+) (string, error) {
 	var lastErr error
 	for attempt := range l.config.AutoRetryMax {
 		content, err := l.runToolRounds(ctx, chatCfg, w)
@@ -493,7 +509,11 @@ func (l *Loop) compactAndRetry(ctx context.Context, input string, w io.Writer) (
 }
 
 // runToolRounds drives the tool-call loop, returning the final content string.
-func (l *Loop) runToolRounds(ctx context.Context, chatCfg *domain.ChatConfig, w io.Writer) (string, error) {
+func (l *Loop) runToolRounds(
+	ctx context.Context,
+	chatCfg *domain.ChatConfig,
+	w io.Writer,
+) (string, error) {
 	var finalContent string
 	for i := range l.config.MaxToolRounds {
 		// Auto-checkpoint: save session state before each LLM call.
@@ -615,7 +635,10 @@ func summarizeToolArgs(raw string) string {
 // appendToolRoundTrip appends the assistant tool-call turn and tool results to
 // cfg.Messages and returns an updated ChatConfig ready for the next LLM call.
 func (l *Loop) appendToolRoundTrip(
-	cfg *domain.ChatConfig, assistantContent string, toolCalls []domain.StreamedToolCall, w io.Writer,
+	cfg *domain.ChatConfig,
+	assistantContent string,
+	toolCalls []domain.StreamedToolCall,
+	w io.Writer,
 ) *domain.ChatConfig {
 	var history []map[string]any
 	if cfg.Messages != "" {
@@ -670,29 +693,60 @@ func (l *Loop) dispatchStreamToolCall(tc domain.StreamedToolCall, w io.Writer) s
 		args = make(map[string]any)
 	}
 	start := time.Now()
-	// Use ToolOutputWriter for real-time display when set (interactive REPL);
-	// fall back to w (the LLM response buffer) otherwise.
-	outputW := w
-	if l.config.ToolOutputWriter != nil {
-		outputW = l.config.ToolOutputWriter
+
+	if termW := l.config.ToolOutputWriter; termW != nil {
+		return l.dispatchToTerminal(tool, tc.Name, args, termW, start)
 	}
-	if outputW != nil {
-		fmt.Fprintf(outputW, "\n")
-		tool.OutputWriter = &stripANSIWriter{w: outputW}
+
+	// Non-interactive path: write tool output directly into the LLM response buffer.
+	if w != nil {
+		tool.OutputWriter = &stripANSIWriter{w: w}
 		defer func() { tool.OutputWriter = nil }()
 	}
 	result, err := tool.Execute(args)
-	if outputW != nil {
-		elapsed := time.Since(start).Round(time.Millisecond)
-		if err != nil {
-			fmt.Fprintf(outputW, "\n  ... %s failed (%s): %v", tc.Name, elapsed, err)
-		} else {
-			fmt.Fprintf(outputW, "\n  ... %s done (%s)", tc.Name, elapsed)
-		}
-	}
 	if err != nil {
 		return fmt.Sprintf(`{"error":"%s"}`, err.Error())
 	}
+	return result
+}
+
+// dispatchToTerminal runs a tool in interactive REPL mode.
+// Tool output is buffered to a temp file to avoid interleaving with the LLM
+// streaming text or spinner, then printed as a clean block after the tool finishes.
+func (l *Loop) dispatchToTerminal(
+	tool *tools.Tool,
+	name string,
+	args map[string]any,
+	termW io.Writer,
+	start time.Time,
+) string {
+	f, err := os.CreateTemp("", "kdeps-tool-*.log")
+	if err == nil {
+		tool.OutputWriter = &stripANSIWriter{w: f}
+		defer func() {
+			tool.OutputWriter = nil
+			_ = f.Close()
+			_ = os.Remove(f.Name())
+		}()
+	}
+
+	result, execErr := tool.Execute(args)
+	elapsed := time.Since(start).Round(time.Millisecond)
+
+	if err == nil {
+		if _, seekErr := f.Seek(0, io.SeekStart); seekErr == nil {
+			data, _ := io.ReadAll(f)
+			if len(data) > 0 {
+				fmt.Fprintf(termW, "\n")
+				_, _ = termW.Write(data)
+			}
+		}
+	}
+	if execErr != nil {
+		fmt.Fprintf(termW, "\n  ... %s failed (%s): %v\n", name, elapsed, execErr)
+		return fmt.Sprintf(`{"error":"%s"}`, execErr.Error())
+	}
+	fmt.Fprintf(termW, "\n  ... %s done (%s)\n", name, elapsed)
 	return result
 }
 
@@ -750,7 +804,12 @@ func (l *Loop) buildSystemPreamble() string {
 		parts = append(parts, toolUseGuidance)
 		// Inject current date and working directory so the model has accurate temporal context.
 		now := time.Now()
-		dateStr := fmt.Sprintf("Current date: %d-%02d-%02d", now.Year(), int(now.Month()), now.Day())
+		dateStr := fmt.Sprintf(
+			"Current date: %d-%02d-%02d",
+			now.Year(),
+			int(now.Month()),
+			now.Day(),
+		)
 		if wd, err := os.Getwd(); err == nil && wd != "" {
 			parts = append(parts, dateStr+"\nWorking directory: "+wd+
 				"\n")
@@ -811,7 +870,10 @@ func (l *Loop) buildChatConfig(input, systemPreamble string) *domain.ChatConfig 
 	return chatCfg
 }
 
-func (l *Loop) buildSyntheticWorkflow(actionID string, chatCfg *domain.ChatConfig) *domain.Workflow {
+func (l *Loop) buildSyntheticWorkflow(
+	actionID string,
+	chatCfg *domain.ChatConfig,
+) *domain.Workflow {
 	return &domain.Workflow{
 		APIVersion: l.workflow.APIVersion,
 		Kind:       l.workflow.Kind,
