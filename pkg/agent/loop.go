@@ -524,7 +524,7 @@ func (l *Loop) runToolRounds(ctx context.Context, chatCfg *domain.ChatConfig, w 
 		}
 		fmt.Fprintln(w)
 
-		chatCfg = l.appendToolRoundTrip(chatCfg, content, toolCalls)
+		chatCfg = l.appendToolRoundTrip(chatCfg, content, toolCalls, w)
 	}
 	return finalContent, nil
 }
@@ -608,7 +608,7 @@ func summarizeToolArgs(raw string) string {
 // appendToolRoundTrip appends the assistant tool-call turn and tool results to
 // cfg.Messages and returns an updated ChatConfig ready for the next LLM call.
 func (l *Loop) appendToolRoundTrip(
-	cfg *domain.ChatConfig, assistantContent string, toolCalls []domain.StreamedToolCall,
+	cfg *domain.ChatConfig, assistantContent string, toolCalls []domain.StreamedToolCall, w io.Writer,
 ) *domain.ChatConfig {
 	var history []map[string]any
 	if cfg.Messages != "" {
@@ -635,7 +635,7 @@ func (l *Loop) appendToolRoundTrip(
 
 	// Execute each tool and add tool result messages.
 	for _, tc := range toolCalls {
-		result := l.dispatchStreamToolCall(tc)
+		result := l.dispatchStreamToolCall(tc, w)
 		history = append(history, map[string]any{
 			"role":           "tool",
 			"tool_call_id":   tc.ID,
@@ -653,7 +653,7 @@ func (l *Loop) appendToolRoundTrip(
 }
 
 // dispatchStreamToolCall executes a tool call from the streaming path.
-func (l *Loop) dispatchStreamToolCall(tc domain.StreamedToolCall) string {
+func (l *Loop) dispatchStreamToolCall(tc domain.StreamedToolCall, w io.Writer) string {
 	tool := l.registry.Get(tc.Name)
 	if tool == nil {
 		return fmt.Sprintf(`{"error":"tool %q not found"}`, tc.Name)
@@ -662,7 +662,19 @@ func (l *Loop) dispatchStreamToolCall(tc domain.StreamedToolCall) string {
 	if err := json.Unmarshal([]byte(tc.Arguments), &args); err != nil {
 		args = make(map[string]any)
 	}
+	start := time.Now()
+	if w != nil {
+		fmt.Fprintf(w, "\n  ... running %s", tc.Name)
+	}
 	result, err := tool.Execute(args)
+	if w != nil {
+		elapsed := time.Since(start).Round(time.Millisecond)
+		if err != nil {
+			fmt.Fprintf(w, "\n  ... %s failed (%s): %v", tc.Name, elapsed, err)
+		} else {
+			fmt.Fprintf(w, "\n  ... %s done (%s)", tc.Name, elapsed)
+		}
+	}
 	if err != nil {
 		return fmt.Sprintf(`{"error":"%s"}`, err.Error())
 	}
