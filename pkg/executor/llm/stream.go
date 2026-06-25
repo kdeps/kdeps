@@ -1079,27 +1079,87 @@ func buildThinkingOpts(cfg *domain.ChatConfig) []llms.CallOption {
 }
 
 // buildStreamingReasoningOpts adds llms.WithStreamingReasoningFunc when StreamThinking
-// is enabled. Reasoning chunks are written directly to w as they arrive, enabling
-// real-time display of thinking tokens during streaming (Anthropic, OpenAI o-series).
-// When StreamThinking is true, the post-stream <thinking> prepend is skipped to avoid
-// duplication (the content was already written to w inline).
+// is enabled. Reasoning chunks are buffered into cfg.Thinking.ThinkingBuf (if set)
+// instead of writing to w directly. The buffered content is rendered as markdown after
+// the GenerateContent call completes.
 func buildStreamingReasoningOpts(cfg *domain.ChatConfig, w io.Writer) []llms.CallOption {
 	if cfg.Thinking == nil || cfg.Thinking.Mode == domain.ThinkingModeNone || !cfg.Thinking.StreamThinking {
 		return nil
-	}
-	dest := w
-	if cfg.Thinking.ThinkingWriter != nil {
-		dest = cfg.Thinking.ThinkingWriter
 	}
 	return []llms.CallOption{
 		llms.WithStreamingReasoningFunc(func(_ context.Context, reasoningChunk, _ []byte) error {
 			if len(reasoningChunk) == 0 {
 				return nil
 			}
+			if cfg.Thinking != nil && cfg.Thinking.ThinkingBuf != nil {
+				if _, writeErr := cfg.Thinking.ThinkingBuf.Write(reasoningChunk); writeErr != nil {
+					return writeErr
+				}
+				return nil
+			}
+			dest := w
+			if cfg.Thinking != nil && cfg.Thinking.ThinkingWriter != nil {
+				dest = cfg.Thinking.ThinkingWriter
+			}
 			_, err := dest.Write(reasoningChunk)
 			return err
 		}),
 	}
+}
+
+// FlushThinkingBuf renders buffered thinking content to w as markdown and clears the buffer.
+func FlushThinkingBuf(cfg *domain.ChatConfig, w io.Writer) {
+	if cfg.Thinking == nil || cfg.Thinking.ThinkingBuf == nil {
+		return
+	}
+	buf, ok := cfg.Thinking.ThinkingBuf.(*bytes.Buffer)
+	if !ok || buf == nil {
+		return
+	}
+	content := buf.String()
+	buf.Reset()
+	if content == "" {
+		return
+	}
+	// Wrap in <thinking> tags if not already present, then render.
+	if !strings.Contains(content, "<thinking>") && !strings.Contains(content, "</thinking>") {
+		content = "<thinking>\n" + content + "\n</thinking>"
+	}
+	rendered := renderStreamThinking(content)
+	if rendered != "" {
+		_, _ = io.WriteString(w, rendered)
+	}
+}
+
+// renderStreamThinking renders thinking content for terminal display.
+// Uses the same gray italic style as the REPL renderer.
+func renderStreamThinking(content string) string {
+	content = strings.TrimSpace(content)
+	if content == "" {
+		return ""
+	}
+	// Strip <thinking> wrapper tags for display.
+	content = strings.TrimPrefix(content, "<thinking>")
+	content = strings.TrimPrefix(content, "<thinking>\n")
+	content = strings.TrimSuffix(content, "</thinking>")
+	content = strings.TrimSuffix(content, "\n</thinking>")
+	content = strings.TrimSpace(content)
+	if content == "" {
+		return ""
+	}
+	// Simple gray italic rendering without glamour (avoids dependency in llm package).
+	label := "\n* thinking\n"
+	indented := indentLines(content, "  ")
+	return label + indented + "\n"
+}
+
+// indentLines prefixes each line with the given indent string.
+func indentLines(s, indent string) string {
+	lines := strings.Split(s, "\n")
+	for i, line := range lines {
+		lines[i] = indent + line
+	}
+	return strings.Join(lines, "\n")
 }
 
 // mapLLMError classifies a raw LLM error into a structured llms.Error using the
@@ -1148,6 +1208,9 @@ func (e *Executor) StreamChat(
 	if err != nil {
 		return "", nil, fmt.Errorf("stream: generate: %w", mapLLMError(backend, err))
 	}
+
+	// Flush buffered thinking content as rendered markdown.
+	FlushThinkingBuf(cfg, w)
 
 	if len(resp.Choices) == 0 {
 		return "", nil, nil
