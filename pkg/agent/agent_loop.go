@@ -590,6 +590,8 @@ func collectParallelResults(
 			finalizedCalls = append(finalizedCalls, f)
 		case err := <-e.errCh:
 			return executedToolBatch{}, err
+		case <-ctx.Done():
+			return executedToolBatch{}, ctx.Err()
 		}
 	}
 
