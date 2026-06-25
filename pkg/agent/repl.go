@@ -29,6 +29,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"regexp"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -334,8 +335,8 @@ func (c *replCompleter) Do(line []rune, pos int) ([][]rune, int) {
 	}
 
 	// /command (no space typed yet): fuzzy command name completion.
-	if strings.HasPrefix(token, "/") {
-		query := strings.ToLower(strings.TrimPrefix(token, "/"))
+	if suffix, ok := strings.CutPrefix(token, "/"); ok {
+		query := strings.ToLower(suffix)
 		names := c.repl.allCommandNames()
 		bare := make([]string, len(names))
 		for i, n := range names {
@@ -735,11 +736,11 @@ func fuzzyMatch(needle, haystack string) bool {
 	return ok
 }
 
-// resetTerminal restores the terminal to a clean state after the REPL exits.
-// Prevents corrupted/stuck terminals that require 'reset' to fix.
-// Uses full reset (\033c) which is equivalent to the 'reset' command.
+// resetTerminal resets ANSI text attributes after the REPL exits.
+// Uses SGR reset only (\033[0m) to clear colors/bold without clearing the screen.
+// Full screen clear (\033c) is deliberately avoided — it destroys scrollback.
 func resetTerminal() {
-	fmt.Fprint(os.Stdout, "\033c") // full terminal reset (like 'reset' command)
+	fmt.Fprint(os.Stdout, "\033[0m") // reset text attributes; no screen clear
 }
 
 // fdBinPath returns the path to the fd binary (fd or fdfind), or empty string.
@@ -1003,6 +1004,8 @@ func (r *REPL) Run() error {
 		fmt.Fprintf(os.Stdout, "\n%s", renderToolCall(name, args))
 		return ""
 	}
+	// Route real-time tool stdout/stderr to the terminal instead of the LLM buffer.
+	r.loop.config.ToolOutputWriter = os.Stdout
 
 	rl, err := readline.NewEx(&readline.Config{
 		Prompt:            r.dynamicPrompt(),
@@ -1408,12 +1411,7 @@ func (r *REPL) cmdModelDefault(args []string) error {
 }
 
 func (r *REPL) isModelName(name string) bool {
-	for _, n := range r.modelNames {
-		if n == name {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(r.modelNames, name)
 }
 
 // stripTagKeywordPrefix tries to remove a leading tag keyword from name to

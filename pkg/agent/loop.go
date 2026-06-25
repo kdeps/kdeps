@@ -100,6 +100,10 @@ type Config struct {
 	// display. When nil, a plain "[name → arg]" format is used. The REPL sets this
 	// to add lipgloss colors.
 	ToolCallDisplay func(name, args string) string
+	// ToolOutputWriter, when set, receives real-time stdout/stderr from tool
+	// execution instead of the LLM response buffer. The REPL sets this to
+	// os.Stdout so tool output appears immediately rather than being buffered.
+	ToolOutputWriter io.Writer
 	// OnRoundComplete, when set, is called after each StreamChat round completes
 	// (just before writing the tool call summary). Used by the REPL to flush
 	// the live thinking writer between rounds so each round gets a separate header.
@@ -666,18 +670,24 @@ func (l *Loop) dispatchStreamToolCall(tc domain.StreamedToolCall, w io.Writer) s
 		args = make(map[string]any)
 	}
 	start := time.Now()
-	if w != nil {
-		fmt.Fprintf(w, "\n")
-		tool.OutputWriter = &stripANSIWriter{w: w}
+	// Use ToolOutputWriter for real-time display when set (interactive REPL);
+	// fall back to w (the LLM response buffer) otherwise.
+	outputW := w
+	if l.config.ToolOutputWriter != nil {
+		outputW = l.config.ToolOutputWriter
+	}
+	if outputW != nil {
+		fmt.Fprintf(outputW, "\n")
+		tool.OutputWriter = &stripANSIWriter{w: outputW}
 		defer func() { tool.OutputWriter = nil }()
 	}
 	result, err := tool.Execute(args)
-	if w != nil {
+	if outputW != nil {
 		elapsed := time.Since(start).Round(time.Millisecond)
 		if err != nil {
-			fmt.Fprintf(w, "\n  ... %s failed (%s): %v", tc.Name, elapsed, err)
+			fmt.Fprintf(outputW, "\n  ... %s failed (%s): %v", tc.Name, elapsed, err)
 		} else {
-			fmt.Fprintf(w, "\n  ... %s done (%s)", tc.Name, elapsed)
+			fmt.Fprintf(outputW, "\n  ... %s done (%s)", tc.Name, elapsed)
 		}
 	}
 	if err != nil {
