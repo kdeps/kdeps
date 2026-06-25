@@ -1011,7 +1011,10 @@ func (r *REPL) Run() error {
 		return ""
 	}
 	// Route real-time tool stdout/stderr to the terminal instead of the LLM buffer.
-	r.loop.config.ToolOutputWriter = os.Stdout
+	// Wrap in crlfWriter: readline holds the terminal in raw mode where \n is LF-only
+	// (cursor moves down but stays at the same column). Without \r before \n, each
+	// output line starts where the previous one ended, creating a rightward staircase.
+	r.loop.config.ToolOutputWriter = &crlfWriter{w: os.Stdout}
 
 	rl, err := readline.NewEx(&readline.Config{
 		Prompt:            r.dynamicPrompt(),
@@ -2698,4 +2701,20 @@ func hffFormatSize(bytes int64) string {
 		return fmt.Sprintf("%.1fGB", float64(bytes)/hffBytesPerGB)
 	}
 	return fmt.Sprintf("%.0fMB", float64(bytes)/hffBytesPerMB)
+}
+
+// crlfWriter converts \n to \r\n before writing to the terminal.
+// readline holds the terminal in raw mode where \n is a bare line feed (LF-only):
+// the cursor moves down one line but stays at the same column. Without the
+// carriage return (\r), each line of multi-line output starts one column further
+// right than the previous, creating a rightward staircase. crlfWriter ensures
+// every line break moves the cursor to column 0.
+type crlfWriter struct{ w io.Writer }
+
+func (c *crlfWriter) Write(p []byte) (int, error) {
+	out := bytes.ReplaceAll(p, []byte("\r\n"), []byte("\n"))  // normalise CRLF → LF
+	out = bytes.ReplaceAll(out, []byte("\r"), []byte("\n"))   // bare CR → LF
+	out = bytes.ReplaceAll(out, []byte("\n"), []byte("\r\n")) // LF → CRLF
+	_, err := c.w.Write(out)
+	return len(p), err
 }

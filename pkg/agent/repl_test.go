@@ -1,6 +1,7 @@
 package agent
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
@@ -4118,4 +4119,39 @@ func TestWriteLocalModelRow_RepoGGUFNoURL(t *testing.T) {
 	var buf strings.Builder
 	repl.writeLocalModelRow(&buf, "gguf-model", "other")
 	assert.NotContains(t, buf.String(), "huggingface")
+}
+
+// --- crlfWriter ---
+
+func TestCRLFWriter_LFBecomesLFCR(t *testing.T) {
+	var buf bytes.Buffer
+	w := &crlfWriter{w: &buf}
+	_, err := w.Write([]byte("line1\nline2\nline3"))
+	require.NoError(t, err)
+	assert.Equal(t, "line1\r\nline2\r\nline3", buf.String())
+}
+
+func TestCRLFWriter_CRLFNormalised(t *testing.T) {
+	var buf bytes.Buffer
+	w := &crlfWriter{w: &buf}
+	_, err := w.Write([]byte("a\r\nb\r\nc"))
+	require.NoError(t, err)
+	assert.Equal(t, "a\r\nb\r\nc", buf.String())
+}
+
+func TestCRLFWriter_BareCRBecomesLFCR(t *testing.T) {
+	var buf bytes.Buffer
+	w := &crlfWriter{w: &buf}
+	// bare \r (progress-overwrite style) becomes \r\n
+	_, err := w.Write([]byte("progress\rfinal\n"))
+	require.NoError(t, err)
+	assert.Equal(t, "progress\r\nfinal\r\n", buf.String())
+}
+
+func TestCRLFWriter_ReturnLenOfInput(t *testing.T) {
+	var buf bytes.Buffer
+	w := &crlfWriter{w: &buf}
+	n, err := w.Write([]byte("hello\n"))
+	require.NoError(t, err)
+	assert.Equal(t, 6, n) // returns len of original input, not converted
 }
