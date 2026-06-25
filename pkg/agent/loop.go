@@ -568,7 +568,7 @@ func IsTaskCompleted(response string) bool {
 }
 
 // ansiStripRe matches ANSI escape sequences for stripping from tool output.
-var ansiStripRe = regexp.MustCompile(`\[[0-9;]*[a-zA-Z]`)
+var ansiStripRe = regexp.MustCompile("\x1b\\[[0-9;]*[a-zA-Z]")
 
 const toolArgMaxDisplay = 80 // max chars shown in tool call summary line
 
