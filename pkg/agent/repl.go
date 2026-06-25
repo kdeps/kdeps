@@ -735,6 +735,13 @@ func fuzzyMatch(needle, haystack string) bool {
 	return ok
 }
 
+// resetTerminal restores the terminal to a clean state after the REPL exits.
+// Prevents corrupted/stuck terminals that require 'reset' to fix.
+func resetTerminal() {
+	fmt.Fprint(os.Stdout, "\033[0m")   // reset all text attributes
+	fmt.Fprint(os.Stdout, "\033[?25h") // show cursor
+}
+
 // fdBinPath returns the path to the fd binary (fd or fdfind), or empty string.
 func fdBinPath() string {
 	for _, name := range []string{"fd", "fdfind"} {
@@ -986,6 +993,7 @@ func historyPath() string {
 func (r *REPL) Run() error {
 	defer r.cancel()
 	defer r.autoSaveOnExit()
+	defer resetTerminal()
 
 	hpath := historyPath()
 
