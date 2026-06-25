@@ -23,6 +23,7 @@
 package agent
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -736,6 +737,11 @@ func (l *Loop) dispatchToTerminal(
 	if err == nil {
 		if _, seekErr := f.Seek(0, io.SeekStart); seekErr == nil {
 			data, _ := io.ReadAll(f)
+			// go test and similar tools use \r to overwrite progress lines in place.
+			// When replayed from a buffer those \r chars rewind the cursor and garble
+			// the display. Normalize \r\n -> \n and drop bare \r before printing.
+			data = bytes.ReplaceAll(data, []byte("\r\n"), []byte("\n"))
+			data = bytes.ReplaceAll(data, []byte("\r"), []byte("\n"))
 			if len(data) > 0 {
 				fmt.Fprintf(termW, "\n")
 				_, _ = termW.Write(data)
