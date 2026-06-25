@@ -9,7 +9,7 @@ import "strings"
 // Sourced from provider docs, OpenRouter, and litellm/model_prices_and_context_window.
 // When a model is not listed here, contextFromParams provides a parameter-based estimate.
 //
-//nolint:gochecknoglobals // read-only lookup table
+//nolint:gochecknoglobals,mnd // read-only lookup table; values are well-known published token limits
 var modelContextWindows = map[string]int{
 	// === OpenAI ===
 	"gpt-4o":                 128000,
