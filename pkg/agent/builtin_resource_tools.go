@@ -174,7 +174,7 @@ func registerLoaderTool(_ context.Context, reg *kdepstools.Registry) {
 
 	reg.Register(&kdepstools.Tool{
 		Name:        "load_document",
-		Description: "Load a document file and return its content as text. Supports PDF (go-pdf, pdftotext, or pdfcpu), CSV, HTML, and plain text files. Use for reading documents into the conversation for analysis or RAG pipelines. Returns document content with optional splitting into chunks. Requires: source (absolute file path). Optional: type (pdf, csv, html, text — auto-detected from extension), chunkSize (split into chunks of N characters).",
+		Description: "Load a document file and return its content as text. Supports PDF (go-pdf, pdftotext, pdfcpu), DOCX/EPUB/RTF/ODT (pandoc), HTML (goquery, lynx), CSV, text, directory, notion, markdown (textutil). Use for reading documents into the conversation for analysis or RAG pipelines. Returns document content with optional splitting into chunks. Requires: source (absolute file path). Optional: type (pdf, csv, html, text — auto-detected from extension), chunkSize (split into chunks of N characters).",
 		Parameters: map[string]domain.ToolParam{
 			"source": {
 				Type:        toolParamString,
@@ -183,7 +183,7 @@ func registerLoaderTool(_ context.Context, reg *kdepstools.Registry) {
 			},
 			"type": {
 				Type:        toolParamString,
-				Description: "Document type: pdf, pdf_pdftotext, pdf_cpu, csv, html, text. Auto-detected if omitted. pdf=Go library, pdf_pdftotext=poppler CLI, pdf_cpu=pdfcpu CLI.",
+				Description: "Document type: pdf, pdf_pdftotext, pdf_cpu, pandoc, docx, epub, rtf, odt, html, html_lynx, csv, text, textutil, directory, notion. Auto-detected if omitted. Auto-detected if omitted. pdf=Go lib, pdf_pdftotext=poppler, pdf_cpu=pdfcpu, pandoc=universal, docx/epub/rtf/odt=pandoc, html_lynx=lynx, textutil=macOS.",
 			},
 			"chunkSize": {
 				Type:        toolParamNumber,

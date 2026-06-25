@@ -103,13 +103,27 @@ func loadDocuments(cfg *domain.LoaderConfig) ([]Document, error) {
 		return loadPDFPopper(cfg.Source)
 	case "pdf_cpu":
 		return loadPDFCPU(cfg.Source)
+	case "html_lynx":
+		return loadHTMLLynx(cfg.Source)
+	case "pandoc":
+		return loadPandoc(cfg.Source)
+	case "docx":
+		return loadDOCX(cfg.Source)
+	case "epub":
+		return loadEPUB(cfg.Source)
+	case "rtf":
+		return loadRTF(cfg.Source)
+	case "odt":
+		return loadODT(cfg.Source)
+	case "textutil":
+		return loadTextutil(cfg.Source)
 	case "directory":
 		return loadDirectory(cfg.Source)
 	case "notion":
 		return loadNotionDirectory(cfg.Source)
 	}
 	return nil, fmt.Errorf(
-		"loader: unknown type %q (use text, html, csv, pdf, pdf_pdftotext, pdf_cpu, directory, notion)",
+		"loader: unknown type %q (use text, html, html_lynx, csv, pdf, pdf_pdftotext, pdf_cpu, pandoc, docx, epub, rtf, odt, textutil, directory, notion)",
 		loaderType,
 	)
 }
@@ -290,50 +304,97 @@ func loadNotionDirectory(source string) ([]Document, error) {
 }
 
 // loadPDFPopper extracts text from a PDF using the pdftotext command-line tool
-// (from poppler-utils). Falls back when pdftotext is not installed.
+// (from poppler-utils).
 func loadPDFPopper(source string) ([]Document, error) {
-	if _, lookErr := exec.LookPath("pdftotext"); lookErr != nil {
-		return nil, errors.New("loader pdf_pdftotext: pdftotext not found in PATH (install poppler-utils)")
-	}
-	tmpDir, dirErr := os.MkdirTemp("", "kdeps-pdf-*")
-	if dirErr != nil {
-		return nil, fmt.Errorf("loader pdf_pdftotext: temp dir: %w", dirErr)
-	}
-	defer os.RemoveAll(tmpDir)
-	tmpFile := filepath.Join(tmpDir, "output.txt")
-	cmd := exec.CommandContext(context.Background(), "pdftotext", "-layout", source, tmpFile)
-	output, cmdErr := cmd.CombinedOutput()
-	if cmdErr != nil {
-		return nil, fmt.Errorf("loader pdf_pdftotext: %w: %s", cmdErr, string(output))
-	}
-	data, readErr := os.ReadFile(tmpFile)
-	if readErr != nil {
-		return nil, fmt.Errorf("loader pdf_pdftotext: read output: %w", readErr)
-	}
-	return []Document{{Content: string(data), Metadata: map[string]interface{}{"parser": "pdftotext"}}}, nil
+	return runCLIToFile("pdf_pdftotext", "pdftotext", []string{"-layout"}, source)
 }
 
 // loadPDFCPU extracts text from a PDF using the pdfcpu command-line tool.
 func loadPDFCPU(source string) ([]Document, error) {
-	if _, lookErr := exec.LookPath("pdfcpu"); lookErr != nil {
-		return nil, errors.New("loader pdf_cpu: pdfcpu not found in PATH (install pdfcpu)")
+	return runCLIToFile("pdf_cpu", "pdfcpu", []string{"extract", "-mode", "text"}, source)
+}
+
+// ---- Alternative document parsers via CLI tools ----
+
+// runCLIToFile runs a CLI tool that writes output to a file, reads it back.
+// Used by pdf_pdftotext, pdf_cpu, textutil, and similar extractors.
+func runCLIToFile(label, bin string, args []string, source string) ([]Document, error) {
+	if _, lookErr := exec.LookPath(bin); lookErr != nil {
+		return nil, fmt.Errorf("loader %s: %s not found in PATH", label, bin)
 	}
-	tmpDir, dirErr := os.MkdirTemp("", "kdeps-pdf-*")
+	tmpDir, dirErr := os.MkdirTemp("", "kdeps-"+label+"-*")
 	if dirErr != nil {
-		return nil, fmt.Errorf("loader pdf_cpu: temp dir: %w", dirErr)
+		return nil, fmt.Errorf("loader %s: temp dir: %w", label, dirErr)
 	}
 	defer os.RemoveAll(tmpDir)
 	tmpFile := filepath.Join(tmpDir, "output.txt")
-	cmd := exec.CommandContext(context.Background(), "pdfcpu", "extract", "-mode", "text", source, tmpFile)
+	allArgs := make([]string, 0, len(args)+2) //nolint:mnd // capacity for source+tmpFile
+	allArgs = append(allArgs, args...)
+	allArgs = append(allArgs, source, tmpFile)
+	cmd := exec.CommandContext(context.Background(), bin, allArgs...)
 	output, cmdErr := cmd.CombinedOutput()
 	if cmdErr != nil {
-		return nil, fmt.Errorf("loader pdf_cpu: %w: %s", cmdErr, string(output))
+		return nil, fmt.Errorf("loader %s: %w: %s", label, cmdErr, string(output))
 	}
 	data, readErr := os.ReadFile(tmpFile)
 	if readErr != nil {
-		return nil, fmt.Errorf("loader pdf_cpu: read output: %w", readErr)
+		return nil, fmt.Errorf("loader %s: read output: %w", label, readErr)
 	}
-	return []Document{{Content: string(data), Metadata: map[string]interface{}{"parser": "pdfcpu"}}}, nil
+	return []Document{{Content: string(data), Metadata: map[string]interface{}{"parser": label}}}, nil
+}
+
+// loadPandoc converts any pandoc-supported format to plain text.
+// Supports: docx, epub, rtf, odt, latex, markdown, rst, org, and more.
+func loadPandoc(source string) ([]Document, error) {
+	if _, lookErr := exec.LookPath("pandoc"); lookErr != nil {
+		return nil, errors.New("loader pandoc: pandoc not found in PATH (install pandoc)")
+	}
+	cmd := exec.CommandContext(context.Background(), "pandoc", "--from", "auto", "--to", "plain", "--wrap=none", source)
+	output, cmdErr := cmd.CombinedOutput()
+	if cmdErr != nil {
+		return nil, fmt.Errorf("loader pandoc: %w: %s", cmdErr, string(output))
+	}
+	return []Document{{Content: string(output), Metadata: map[string]interface{}{"parser": "pandoc"}}}, nil
+}
+
+// loadDOCX extracts text from a .docx file via pandoc.
+func loadDOCX(source string) ([]Document, error) { return loadPandoc(source) }
+
+// loadEPUB extracts text from an .epub file via pandoc.
+func loadEPUB(source string) ([]Document, error) { return loadPandoc(source) }
+
+// loadRTF extracts text from an .rtf file. Tries pandoc first, then
+// textutil (macOS) as fallback.
+func loadRTF(source string) ([]Document, error) {
+	if _, lookErr := exec.LookPath("pandoc"); lookErr == nil {
+		return loadPandoc(source)
+	}
+	if _, lookErr := exec.LookPath("textutil"); lookErr == nil {
+		return loadTextutil(source)
+	}
+	return nil, errors.New("loader rtf: neither pandoc nor textutil found in PATH")
+}
+
+// loadODT extracts text from an .odt file via pandoc.
+func loadODT(source string) ([]Document, error) { return loadPandoc(source) }
+
+// loadTextutil extracts text using macOS textutil (supports .rtf, .doc, .webarchive).
+func loadTextutil(source string) ([]Document, error) {
+	return runCLIToFile("textutil", "textutil", []string{"-convert", "txt", "-output"}, source)
+}
+
+// loadHTMLLynx extracts text from HTML using lynx text browser (preserves
+// link references better than goquery).
+func loadHTMLLynx(source string) ([]Document, error) {
+	if _, lookErr := exec.LookPath("lynx"); lookErr != nil {
+		return nil, errors.New("loader html_lynx: lynx not found in PATH (install lynx)")
+	}
+	cmd := exec.CommandContext(context.Background(), "lynx", "-dump", "-nonumbers", source)
+	output, cmdErr := cmd.CombinedOutput()
+	if cmdErr != nil {
+		return nil, fmt.Errorf("loader html_lynx: %w: %s", cmdErr, string(output))
+	}
+	return []Document{{Content: string(output), Metadata: map[string]interface{}{"parser": "lynx"}}}, nil
 }
 
 func splitDocuments(docs []Document, cfg *domain.LoaderConfig) ([]Document, error) {
