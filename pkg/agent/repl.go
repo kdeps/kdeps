@@ -1229,8 +1229,12 @@ func (r *REPL) runPlain() {
 	buf := make([]byte, 4096) //nolint:mnd // 4 KiB read buffer
 
 	for {
+		// Check both contexts: loopCtx (for /exit) and ctx (for test cancellation).
+		// runPlain has no SIGINT replacement loop, so either cancellation means stop.
 		select {
 		case <-r.loopCtx.Done():
+			return
+		case <-r.ctx.Done():
 			return
 		default:
 		}
