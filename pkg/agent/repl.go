@@ -27,6 +27,7 @@ import (
 	"io"
 	"os"
 	"os/exec"
+	"os/signal"
 	"path/filepath"
 	"regexp"
 	"slices"
@@ -143,8 +144,10 @@ type TUIRunner func() (skillPaths []string, toolsChanged bool, err error)
 // REPL drives an interactive read-eval-print loop for the agent.
 type REPL struct {
 	loop               *Loop
-	ctx                context.Context
-	cancel             context.CancelFunc
+	loopCtx            context.Context    // loop lifetime; only /exit or EOF cancels this
+	loopCancel         context.CancelFunc // cancels loopCtx
+	ctx                context.Context    // per-turn; SIGINT or Ctrl+C cancels this
+	cancel             context.CancelFunc // cancels per-turn ctx
 	history            []string
 	modelNames         []string                            // suggestions for /model <tab>
 	downloadedModels   map[string]bool                     // set of already-downloaded model aliases
@@ -163,12 +166,15 @@ type REPL struct {
 
 // NewREPL creates a new REPL for the given agent loop.
 func NewREPL(loop *Loop) *REPL {
-	ctx, cancel := context.WithCancel(context.Background())
+	loopCtx, loopCancel := context.WithCancel(context.Background())
+	turnCtx, turnCancel := context.WithCancel(loopCtx)
 	r := &REPL{
-		loop:    loop,
-		ctx:     ctx,
-		cancel:  cancel,
-		history: make([]string, 0, replHistoryInitCap),
+		loop:       loop,
+		loopCtx:    loopCtx,
+		loopCancel: loopCancel,
+		ctx:        turnCtx,
+		cancel:     turnCancel,
+		history:    make([]string, 0, replHistoryInitCap),
 	}
 	loop.SetOnAutoCompact(func(summary string) {
 		fmt.Fprintf(os.Stdout, "\n%s\n%s\n\n",
@@ -992,7 +998,7 @@ func historyPath() string {
 
 // Run starts the REPL. It blocks until the user exits or an error occurs.
 func (r *REPL) Run() error {
-	defer r.cancel()
+	defer r.loopCancel()
 	defer r.autoSaveOnExit()
 	defer resetTerminal()
 
@@ -1059,9 +1065,34 @@ func (r *REPL) Run() error {
 
 // runLoop is the core readline event loop extracted for complexity budget.
 func (r *REPL) runLoop(rl *readline.Instance) error {
+	// SIGINT during tool/LLM execution cancels the current turn and returns to
+	// the prompt instead of killing the process (the default signal behavior).
+	sigCh := make(chan os.Signal, 1)
+	signal.Notify(sigCh, os.Interrupt)
+	defer signal.Stop(sigCh)
+
+	loopDone := make(chan struct{})
+	defer close(loopDone)
+
+	go func() {
+		for {
+			select {
+			case <-sigCh:
+				// Cancel the active turn and refresh for the next one.
+				r.cancel()
+				newCtx, newCancel := context.WithCancel(r.loopCtx)
+				r.ctx = newCtx //nolint:fatcontext // each SIGINT replaces (not extends) per-turn ctx
+				r.cancel = newCancel
+				fmt.Fprint(os.Stdout, "\n")
+			case <-loopDone:
+				return
+			}
+		}
+	}()
+
 	for {
 		select {
-		case <-r.ctx.Done():
+		case <-r.loopCtx.Done():
 			return nil
 		default:
 		}
@@ -1078,7 +1109,9 @@ func (r *REPL) runLoop(rl *readline.Instance) error {
 			continue
 		}
 		if procErr := r.processInput(input); procErr != nil {
-			fmt.Fprintln(os.Stderr, styleReplError.Render("error: "+procErr.Error()))
+			if !errors.Is(procErr, context.Canceled) {
+				fmt.Fprintln(os.Stderr, styleReplError.Render("error: "+procErr.Error()))
+			}
 		}
 	}
 }
@@ -1088,9 +1121,9 @@ func (r *REPL) runLoop(rl *readline.Instance) error {
 func (r *REPL) handleReadError(err error) (bool, error) {
 	switch {
 	case errors.Is(err, readline.ErrInterrupt):
-		// Ctrl+C — cancel any running tool and reset the context.
+		// Ctrl+C at prompt — cancel any lingering turn and refresh for the next one.
 		r.cancel()
-		newCtx, newCancel := context.WithCancel(context.Background())
+		newCtx, newCancel := context.WithCancel(r.loopCtx)
 		r.ctx = newCtx
 		r.cancel = newCancel
 		return false, nil
@@ -1197,7 +1230,7 @@ func (r *REPL) runPlain() {
 
 	for {
 		select {
-		case <-r.ctx.Done():
+		case <-r.loopCtx.Done():
 			return
 		default:
 		}
@@ -1265,7 +1298,7 @@ func (r *REPL) dispatchCommand(cmd string) error {
 	case "/hff":
 		return r.cmdHFF(args)
 	case "/exit", "/quit":
-		r.cancel()
+		r.loopCancel() // exit the loop; also cascades to cancel r.ctx (child of loopCtx)
 		return nil
 	default:
 		name := strings.TrimPrefix(command, "/")
