@@ -47,6 +47,9 @@ type SessionReader interface {
 	FileOps() []FileOpEntry
 	// StashedBranches returns snapshots of all branches stashed by RestoreTo.
 	StashedBranches() []BranchSnapshot
+	// LastAssistantContent returns the most recent assistant message content.
+	// Returns "" if no assistant message has been recorded.
+	LastAssistantContent() string
 }
 
 // SessionWriter is the write interface for a conversation session.
@@ -593,6 +596,18 @@ func (s *Session) StashedBranches() []BranchSnapshot {
 		result[ei] = snap
 	}
 	return result
+}
+
+// LastAssistantContent returns the most recent assistant message content.
+func (s *Session) LastAssistantContent() string {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	for i := len(s.messages) - 1; i >= 0; i-- {
+		if s.messages[i].Role == RoleAssistant {
+			return s.messages[i].Content
+		}
+	}
+	return ""
 }
 
 // FileOps returns a copy of the per-turn file operation log.
