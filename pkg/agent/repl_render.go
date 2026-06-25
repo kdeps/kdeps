@@ -62,6 +62,13 @@ const (
 // thinkingRe matches <thinking>...</thinking> blocks (including multiline).
 var thinkingRe = regexp.MustCompile(`(?s)<thinking>(.*?)</thinking>`)
 
+// mdThinkingRe matches markdown-style thinking blocks produced by some models.
+// Matches "* thinking" or "*thinking" followed by indented content on subsequent lines.
+// Stops at blank lines or tool call markers like "[tool_name".
+var mdThinkingRe = regexp.MustCompile(
+	`(?m)^\*\s*thinking\s*\n((?:(?:  |\t).*\n?)*)`,
+)
+
 //nolint:gochecknoglobals // lipgloss style for thinking block header
 var styleThinkingLabel = lipgloss.NewStyle().
 	Foreground(lipgloss.Color(colorThinking)).
@@ -423,8 +430,8 @@ func renderMarkdown(text string) string {
 }
 
 // renderREPLOutput renders a full LLM response for terminal display.
-// Thinking blocks (<thinking>...</thinking>) are extracted and shown in gray
-// italic above the main response. The remaining content is rendered as markdown.
+// Thinking blocks (<thinking>...</thinking> or markdown-style "* thinking") are
+// extracted and shown in gray italic above the main response.
 func renderREPLOutput(text string) string {
 	if text == "" {
 		return ""
@@ -432,7 +439,11 @@ func renderREPLOutput(text string) string {
 
 	var sb strings.Builder
 
+	// Try XML-style <thinking> tags first, then markdown-style "* thinking".
 	matches := thinkingRe.FindAllStringSubmatchIndex(text, -1)
+	if len(matches) == 0 {
+		matches = mdThinkingRe.FindAllStringSubmatchIndex(text, -1)
+	}
 	if len(matches) > 0 {
 		var body strings.Builder
 		last := 0

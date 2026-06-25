@@ -45,6 +45,9 @@ type ThinkingConfig struct {
 	// chunks directly instead of the default content writer. Used by the REPL to
 	// display thinking in real-time without mixing it with the buffered content stream.
 	ThinkingWriter io.Writer `yaml:"-"`
+	// ThinkingBuf, when set, accumulates reasoning chunks for batch rendering as
+	// markdown after the stream completes. When nil, chunks are written inline.
+	ThinkingBuf io.Writer `yaml:"-"`
 }
 
 type ChatConfig struct {
