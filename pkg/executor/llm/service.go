@@ -22,12 +22,12 @@ package llm
 
 import (
 	"fmt"
+	"log/slog"
 	"os"
 	"os/exec"
+	"sync"
 
 	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
-
-	"log/slog"
 )
 
 // DI variables — overridable for testing.
@@ -166,44 +166,55 @@ func ListLocalServers() []LocalServerEntry {
 	return out
 }
 
+// killModelRegistry holds the global state for a local model server backend.
+type killModelRegistry struct {
+	mu     *sync.Mutex
+	served map[string]int
+	pids   map[string]int
+	names  map[string]string
+}
+
 // KillModel kills the running server for the given backend + model name.
 // Returns true when a server was found and killed, false when none was running.
 func (s *ModelService) KillModel(backend, model string) bool {
+	var path string
+	var reg *killModelRegistry
+
 	switch backend {
 	case BackendFile:
-		_, path, err := s.prepareLlamafile(model)
+		_, p, err := s.prepareLlamafile(model)
 		if err != nil {
 			return false
 		}
-		servedLlamafilesMu.Lock()
-		defer servedLlamafilesMu.Unlock()
-		pid, ok := servedLlamafilePIDs[path]
-		if !ok {
-			return false
+		path = p
+		reg = &killModelRegistry{
+			mu: &servedLlamafilesMu, served: servedLlamafiles,
+			pids: servedLlamafilePIDs, names: servedLlamafileNames,
 		}
-		killLocalProcess(pid)
-		removeServerPortFile(path)
-		delete(servedLlamafiles, path)
-		delete(servedLlamafilePIDs, path)
-		delete(servedLlamafileNames, path)
-		return true
 	case BackendGGUF:
-		_, path, err := s.prepareGGUF(model)
+		_, p, err := s.prepareGGUF(model)
 		if err != nil {
 			return false
 		}
-		servedGGUFsMu.Lock()
-		defer servedGGUFsMu.Unlock()
-		pid, ok := servedGGUFPIDs[path]
-		if !ok {
-			return false
+		path = p
+		reg = &killModelRegistry{
+			mu: &servedGGUFsMu, served: servedGGUFs,
+			pids: servedGGUFPIDs, names: servedGGUFNames,
 		}
-		killLocalProcess(pid)
-		removeServerPortFile(path)
-		delete(servedGGUFs, path)
-		delete(servedGGUFPIDs, path)
-		delete(servedGGUFNames, path)
-		return true
+	default:
+		return false
 	}
-	return false
+
+	reg.mu.Lock()
+	defer reg.mu.Unlock()
+	pid, ok := reg.pids[path]
+	if !ok {
+		return false
+	}
+	killLocalProcess(pid)
+	removeServerPortFile(path)
+	delete(reg.served, path)
+	delete(reg.pids, path)
+	delete(reg.names, path)
+	return true
 }
