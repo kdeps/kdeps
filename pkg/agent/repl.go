@@ -1036,7 +1036,8 @@ func (r *REPL) Run() error {
 	// Wire up tool call display: write directly to stdout so each call is visible
 	// immediately when the LLM invokes it, without waiting for the full response.
 	r.loop.config.ToolCallDisplay = func(name, args string) string {
-		fmt.Fprintf(os.Stdout, "\n%s", renderToolCall(name, args))
+		// \r\n: raw mode requires CR before LF to reset cursor to column 0.
+		fmt.Fprintf(os.Stdout, "\r\n%s", renderToolCall(name, args))
 		return ""
 	}
 	// Route real-time tool stdout/stderr to the terminal instead of the LLM buffer.
@@ -1105,7 +1106,7 @@ func (r *REPL) handleSignalInterrupt(tc context.CancelFunc) {
 		r.ctx = newCtx
 		r.cancel = newCancel
 	}
-	fmt.Fprint(os.Stdout, "\n")
+	fmt.Fprint(os.Stdout, "\r\n")
 }
 
 // handleSignalSIGTSTP handles Ctrl+Z: backgrounds the running tool or suspends kdeps.
@@ -1120,7 +1121,7 @@ func (r *REPL) handleSignalSIGTSTP(sigCh chan os.Signal, bgCh chan struct{}) {
 		_ = syscall.Kill(0, syscall.SIGTSTP)
 		signal.Notify(sigCh, os.Interrupt, syscall.SIGTSTP)
 	}
-	fmt.Fprint(os.Stdout, "\n")
+	fmt.Fprint(os.Stdout, "\r\n")
 }
 
 // handleSignals processes OS signals in a goroutine.
