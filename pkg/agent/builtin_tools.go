@@ -31,6 +31,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"syscall"
 	"time"
 
 	"github.com/kdeps/kdeps/v2/pkg/domain"
@@ -90,6 +91,8 @@ func RegisterBuiltinTools(ctx context.Context, reg *kdepstools.Registry) {
 	registerWebScraper(ctx, reg)
 	registerSQLTools(ctx, reg)
 	registerBashExec(ctx, reg)
+	registerBashJobList(reg)
+	registerBashJobWait(reg)
 	registerListFiles(reg)
 	registerCalculator(ctx, reg)
 	registerReadFile(reg)
@@ -969,20 +972,8 @@ func bashExecCtx(args map[string]any) context.Context {
 	return context.Background()
 }
 
-// bashExecResult builds the return value for bash_exec after the command exits.
-// On context cancellation it returns partial stdout/stderr as a success so the LLM
-// receives what ran before the interrupt and can respond to the user's redirect.
-func bashExecResult(ctx context.Context, out, errOut string, runErr error) (string, error) {
-	if runErr != nil && errors.Is(ctx.Err(), context.Canceled) {
-		var parts []string
-		if out != "" {
-			parts = append(parts, out)
-		}
-		if errOut != "" {
-			parts = append(parts, "stderr: "+errOut)
-		}
-		return truncateBashOutput(strings.Join(append(parts, "[interrupted]"), "\n")), nil
-	}
+// bashExecResult builds the return value for a completed (non-cancelled) bash_exec.
+func bashExecResult(_ context.Context, out, errOut string, runErr error) (string, error) {
 	if runErr != nil {
 		if errOut != "" {
 			return "", fmt.Errorf("bash_exec: %w\nstderr: %s", runErr, errOut)
@@ -995,18 +986,30 @@ func bashExecResult(ctx context.Context, out, errOut string, runErr error) (stri
 	return truncateBashOutput(out), nil
 }
 
+// bashExecCancelResult returns partial output when the command was killed mid-run.
+// Returned as success (nil error) so the LLM sees what ran before the interrupt.
+func bashExecCancelResult(out, errOut string) (string, error) {
+	var parts []string
+	if out != "" {
+		parts = append(parts, out)
+	}
+	if errOut != "" {
+		parts = append(parts, "stderr: "+errOut)
+	}
+	return truncateBashOutput(strings.Join(append(parts, "[interrupted]"), "\n")), nil
+}
+
 // registerBashExec registers a bash command execution tool.
-// Runs arbitrary shell commands with no built-in timeout. The command runs until
-// completion or until the caller cancels via the _ctx arg (injected by the Loop
-// dispatcher from Config.ToolCtx). In the REPL, Ctrl+C cancels the running tool
-// only; partial output is returned so the LLM can handle the interruption.
+// Runs in its own process group so Ctrl+Z backgrounds only the tool (not kdeps).
+// Ctrl+C (via _ctx cancellation) kills the process and returns partial output.
+// Ctrl+Z (via _bg_ch signal) detaches the job; retrieve it with bash_job_wait.
 func registerBashExec(_ context.Context, reg *kdepstools.Registry) {
 	if os.Getenv("KDEPS_ALLOW_BASH") == "false" {
 		return
 	}
 	tool := &kdepstools.Tool{
 		Name:        "bash_exec",
-		Description: "Execute a bash shell command and return its output. Use for running scripts, checking system state (git status, ls, etc.), or performing file operations. The command runs until completion; the user can press Ctrl+C to interrupt it.",
+		Description: "Execute a bash shell command and return its output. Use for running scripts, checking system state (git status, ls, etc.), or performing file operations. Press Ctrl+C to interrupt (partial output returned to LLM); press Ctrl+Z to background (use bash_job_wait to retrieve output).",
 		Parameters: map[string]domain.ToolParam{
 			"command": {
 				Type:        toolParamString,
@@ -1024,7 +1027,13 @@ func registerBashExec(_ context.Context, reg *kdepstools.Registry) {
 			return "", fmt.Errorf("bash_exec: blocked: %s", reason)
 		}
 		ctx := bashExecCtx(args)
-		cmd := exec.CommandContext(ctx, "bash", "-c", command)
+		bgCh, _ := args["_bg_ch"].(<-chan struct{})
+
+		// Must use exec.Command (not CommandContext): we handle cancellation and
+		// backgrounding manually in the select below so the process survives
+		// beyond context cancellation when the user presses Ctrl+Z.
+		cmd := exec.Command("bash", "-c", command) //nolint:noctx // intentional: manual ctx handling below
+		cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
 		var stdout, stderr strings.Builder
 		if tool.OutputWriter != nil {
 			cmd.Stdout = io.MultiWriter(&stdout, tool.OutputWriter)
@@ -1033,10 +1042,84 @@ func registerBashExec(_ context.Context, reg *kdepstools.Registry) {
 			cmd.Stdout = &stdout
 			cmd.Stderr = &stderr
 		}
-		runErr := cmd.Run()
-		return bashExecResult(ctx, strings.TrimSpace(stdout.String()), strings.TrimSpace(stderr.String()), runErr)
+		if err := cmd.Start(); err != nil {
+			return "", fmt.Errorf("bash_exec: %w", err)
+		}
+
+		waitCh := make(chan error, 1)
+		go func() { waitCh <- cmd.Wait() }()
+
+		select {
+		case runErr := <-waitCh:
+			return bashExecResult(ctx, strings.TrimSpace(stdout.String()), strings.TrimSpace(stderr.String()), runErr)
+		case <-ctx.Done():
+			_ = cmd.Process.Kill()
+			<-waitCh
+			return bashExecCancelResult(strings.TrimSpace(stdout.String()), strings.TrimSpace(stderr.String()))
+		case <-bgCh:
+			jobID := bashJobRegistry.add(command, &stdout, &stderr, waitCh)
+			return fmt.Sprintf(`{"status":"backgrounded","job_id":%d}`, jobID), nil
+		}
 	}
 	reg.Register(tool)
+}
+
+// registerBashJobList registers the bash_job_list tool.
+// Lists background jobs started by bash_exec that were backgrounded via Ctrl+Z.
+func registerBashJobList(reg *kdepstools.Registry) {
+	reg.Register(&kdepstools.Tool{
+		Name:        "bash_job_list",
+		Description: "List background bash jobs started with bash_exec and backgrounded via Ctrl+Z. Shows job ID, status (running/done/failed), command, and elapsed time.",
+		Execute: func(_ map[string]any) (string, error) {
+			jobs := bashJobRegistry.listAll()
+			if len(jobs) == 0 {
+				return "No background jobs.", nil
+			}
+			var sb strings.Builder
+			for _, j := range jobs {
+				fmt.Fprintf(&sb, "%s\n", j.summary())
+			}
+			return strings.TrimSpace(sb.String()), nil
+		},
+	})
+}
+
+// registerBashJobWait registers the bash_job_wait tool.
+// Blocks until the background job completes, then returns its output.
+func registerBashJobWait(reg *kdepstools.Registry) {
+	reg.Register(&kdepstools.Tool{
+		Name:        "bash_job_wait",
+		Description: "Wait for a background bash job (from bash_exec backgrounded via Ctrl+Z) to complete and return its full output. Use the job_id from the bash_exec backgrounded result.",
+		Parameters: map[string]domain.ToolParam{
+			"job_id": {
+				Type:        "number",
+				Description: "Job ID returned by bash_exec when backgrounded",
+				Required:    true,
+			},
+		},
+		Execute: func(args map[string]any) (string, error) {
+			idF, ok := args["job_id"].(float64)
+			if !ok {
+				return "", errors.New("bash_job_wait: job_id is required")
+			}
+			id := int(idF)
+			job := bashJobRegistry.get(id)
+			if job == nil {
+				return "", fmt.Errorf("bash_job_wait: no job with id %d", id)
+			}
+			ctx := bashExecCtx(args)
+			select {
+			case <-job.done:
+			case <-ctx.Done():
+				return "", fmt.Errorf("bash_job_wait: cancelled while waiting for job %d", id)
+			}
+			bashJobRegistry.remove(id)
+			if job.err != nil {
+				return "", fmt.Errorf("bash_job_wait: job %d failed: %w", id, job.err)
+			}
+			return job.output, nil
+		},
+	})
 }
 
 // registerWolframAlpha registers the Wolfram Alpha short-answer API tool

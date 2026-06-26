@@ -132,6 +132,11 @@ type Config struct {
 	// this per-turn so Ctrl+C can interrupt a running tool without aborting the
 	// full agent turn.
 	ToolCtx context.Context
+	// ToolBgCh, when set, is injected as "_bg_ch" (receive-only) into each tool's
+	// args map. bash_exec listens on this channel; when it receives, the running
+	// command is detached as a background job and a job ID is returned immediately.
+	// The REPL sends to this channel when Ctrl+Z is pressed during tool execution.
+	ToolBgCh chan struct{}
 }
 
 // Loop drives a multi-turn agent conversation using the kdeps engine as the
@@ -706,6 +711,10 @@ func (l *Loop) dispatchStreamToolCall(tc domain.StreamedToolCall, w io.Writer) s
 	if l.config.ToolCtx != nil {
 		args["_ctx"] = l.config.ToolCtx
 	}
+	// Inject background channel so bash_exec can detach on Ctrl+Z.
+	if l.config.ToolBgCh != nil {
+		args["_bg_ch"] = (<-chan struct{})(l.config.ToolBgCh)
+	}
 
 	if termW := l.config.ToolOutputWriter; termW != nil {
 		return l.dispatchToTerminal(tool, tc.Name, args, termW, start)
@@ -763,6 +772,10 @@ func (l *Loop) dispatchToTerminal(
 	if execErr != nil {
 		fmt.Fprintf(termW, "\n  ... %s failed (%s): %v\n", name, elapsed, execErr)
 		return fmt.Sprintf(`{"error":"%s"}`, execErr.Error())
+	}
+	if strings.HasPrefix(result, `{"status":"backgrounded"`) {
+		fmt.Fprintf(termW, "\n  ... %s backgrounded [Ctrl+Z; use bash_job_wait to retrieve]\n", name)
+		return result
 	}
 	fmt.Fprintf(termW, "\n  ... %s done (%s)\n", name, elapsed)
 	return result

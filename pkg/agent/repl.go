@@ -35,6 +35,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"syscall"
 	"time"
 
 	"github.com/charmbracelet/lipgloss"
@@ -164,6 +165,7 @@ type REPL struct {
 	runFn              func(context.Context, string) (string, error) // nil in production; injected in tests
 	refreshModelsFn    func()                                        // called after new model registered; nil if unset
 	toolCancel         context.CancelFunc                            // cancels the currently running tool; nil when no tool is active
+	toolBgCh           chan struct{}                                 // backgrounds the running tool on send; nil when no tool is active
 	toolCancelMu       sync.Mutex
 }
 
@@ -895,16 +897,21 @@ func (r *REPL) runStreaming(ctx context.Context, input string) (string, error) {
 	// Ctrl+C during tool execution cancels this context only (killing the tool),
 	// while a second Ctrl+C cancels the full turn via r.ctx.
 	toolCtx, toolCancel := context.WithCancel(context.Background())
+	bgCh := make(chan struct{}, 1)
 	r.toolCancelMu.Lock()
 	r.toolCancel = toolCancel
+	r.toolBgCh = bgCh
 	r.toolCancelMu.Unlock()
 	r.loop.config.ToolCtx = toolCtx //nolint:fatcontext // stored in config for dispatcher injection, not for derivation
+	r.loop.config.ToolBgCh = bgCh
 	defer func() {
 		toolCancel()
 		r.toolCancelMu.Lock()
 		r.toolCancel = nil
+		r.toolBgCh = nil
 		r.toolCancelMu.Unlock()
 		r.loop.config.ToolCtx = nil //nolint:fatcontext // clearing config field, not deriving context
+		r.loop.config.ToolBgCh = nil
 	}()
 
 	// When StreamThinking is enabled, wire a live writer so reasoning tokens
@@ -1088,26 +1095,51 @@ func (r *REPL) Run() error {
 	return r.runLoop(rl)
 }
 
-// handleSIGINT processes OS interrupt signals in a goroutine.
-// First Ctrl+C while a tool is running cancels only the tool so the LLM can
-// handle the partial output. Second Ctrl+C (or Ctrl+C with no tool active)
-// cancels the full turn and refreshes the per-turn context.
-func (r *REPL) handleSIGINT(sigCh <-chan os.Signal, done <-chan struct{}) {
+// handleSignalInterrupt handles Ctrl+C: cancels the running tool or the full turn.
+func (r *REPL) handleSignalInterrupt(tc context.CancelFunc) {
+	if tc != nil {
+		tc()
+	} else {
+		r.cancel()
+		newCtx, newCancel := context.WithCancel(r.loopCtx)
+		r.ctx = newCtx
+		r.cancel = newCancel
+	}
+	fmt.Fprint(os.Stdout, "\n")
+}
+
+// handleSignalSIGTSTP handles Ctrl+Z: backgrounds the running tool or suspends kdeps.
+func (r *REPL) handleSignalSIGTSTP(sigCh chan os.Signal, bgCh chan struct{}) {
+	if bgCh != nil {
+		select {
+		case bgCh <- struct{}{}:
+		default:
+		}
+	} else {
+		signal.Stop(sigCh)
+		_ = syscall.Kill(0, syscall.SIGTSTP)
+		signal.Notify(sigCh, os.Interrupt, syscall.SIGTSTP)
+	}
+	fmt.Fprint(os.Stdout, "\n")
+}
+
+// handleSignals processes OS signals in a goroutine.
+//   - Ctrl+C (SIGINT): cancel tool or full turn.
+//   - Ctrl+Z (SIGTSTP): background tool or suspend kdeps.
+func (r *REPL) handleSignals(sigCh chan os.Signal, done <-chan struct{}) {
 	for {
 		select {
-		case <-sigCh:
+		case sig := <-sigCh:
 			r.toolCancelMu.Lock()
 			tc := r.toolCancel
+			bgCh := r.toolBgCh
 			r.toolCancelMu.Unlock()
-			if tc != nil {
-				tc()
-			} else {
-				r.cancel()
-				newCtx, newCancel := context.WithCancel(r.loopCtx)
-				r.ctx = newCtx
-				r.cancel = newCancel
+			switch sig {
+			case os.Interrupt:
+				r.handleSignalInterrupt(tc)
+			case syscall.SIGTSTP:
+				r.handleSignalSIGTSTP(sigCh, bgCh)
 			}
-			fmt.Fprint(os.Stdout, "\n")
 		case <-done:
 			return
 		}
@@ -1116,16 +1148,16 @@ func (r *REPL) handleSIGINT(sigCh <-chan os.Signal, done <-chan struct{}) {
 
 // runLoop is the core readline event loop extracted for complexity budget.
 func (r *REPL) runLoop(rl *readline.Instance) error {
-	// SIGINT during tool/LLM execution cancels the current turn and returns to
-	// the prompt instead of killing the process (the default signal behavior).
+	// SIGINT (Ctrl+C): cancel tool or full turn.
+	// SIGTSTP (Ctrl+Z): background tool or suspend kdeps.
 	sigCh := make(chan os.Signal, 1)
-	signal.Notify(sigCh, os.Interrupt)
+	signal.Notify(sigCh, os.Interrupt, syscall.SIGTSTP)
 	defer signal.Stop(sigCh)
 
 	loopDone := make(chan struct{})
 	defer close(loopDone)
 
-	go r.handleSIGINT(sigCh, loopDone)
+	go r.handleSignals(sigCh, loopDone)
 
 	for {
 		select {
