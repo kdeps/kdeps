@@ -718,3 +718,90 @@ func TestBuildRetrieverPreamble_MultipleChunksOrder(t *testing.T) {
 	assert.Contains(t, out, "second")
 	assert.Contains(t, out, "Retrieved context")
 }
+
+func TestBuildToolParameters_EmptyParams(t *testing.T) {
+	schema := buildToolParameters(nil)
+	assert.Equal(t, "object", schema["type"])
+	props, ok := schema["properties"].(map[string]any)
+	require.True(t, ok)
+	assert.Empty(t, props)
+	assert.Nil(t, schema["required"])
+}
+
+func TestBuildToolParameters_WithRequired(t *testing.T) {
+	params := map[string]domain.ToolParam{
+		"query": {Type: "string", Description: "search query", Required: true},
+	}
+	schema := buildToolParameters(params)
+	assert.Equal(t, "object", schema["type"])
+	req, ok := schema["required"].([]string)
+	require.True(t, ok)
+	assert.Contains(t, req, "query")
+}
+
+func TestBuildToolParameters_WithEnum(t *testing.T) {
+	params := map[string]domain.ToolParam{
+		"format": {Type: "string", Enum: []string{"json", "csv"}},
+	}
+	schema := buildToolParameters(params)
+	props := schema["properties"].(map[string]any)
+	formatProp := props["format"].(map[string]any)
+	assert.Equal(t, []string{"json", "csv"}, formatProp["enum"])
+}
+
+func TestFlushThinkingBuf_NilThinking(t *testing.T) {
+	cfg := &domain.ChatConfig{}
+	var buf bytes.Buffer
+	FlushThinkingBuf(cfg, &buf) // should not panic
+	assert.Empty(t, buf.String())
+}
+
+func TestFlushThinkingBuf_WithContent(t *testing.T) {
+	thinkBuf := bytes.NewBufferString("some thinking content")
+	cfg := &domain.ChatConfig{
+		Thinking: &domain.ThinkingConfig{ThinkingBuf: thinkBuf},
+	}
+	var out bytes.Buffer
+	FlushThinkingBuf(cfg, &out)
+	assert.Contains(t, out.String(), "thinking")
+}
+
+func TestFlushThinkingBuf_EmptyBuf(t *testing.T) {
+	thinkBuf := &bytes.Buffer{} // empty
+	cfg := &domain.ChatConfig{
+		Thinking: &domain.ThinkingConfig{ThinkingBuf: thinkBuf},
+	}
+	var out bytes.Buffer
+	FlushThinkingBuf(cfg, &out)
+	assert.Empty(t, out.String())
+}
+
+func TestFlushThinkingBuf_NotBytesBuffer(_ *testing.T) {
+	// ThinkingBuf is an io.Writer but not *bytes.Buffer — should return early
+	cfg := &domain.ChatConfig{
+		Thinking: &domain.ThinkingConfig{ThinkingBuf: os.Stdout},
+	}
+	var out bytes.Buffer
+	FlushThinkingBuf(cfg, &out) // should not panic, no output written to out
+}
+
+func TestCompressRetrieverContext_NoLimit(t *testing.T) {
+	chunks := []string{"a", "b"}
+	result := compressRetrieverContext(chunks, "prompt", 0)
+	assert.Equal(t, chunks, result)
+}
+
+func TestCompressRetrieverContext_Empty(t *testing.T) {
+	result := compressRetrieverContext(nil, "prompt", 3)
+	assert.Nil(t, result)
+}
+
+func TestCompressRetrieverContext_WithRanking(t *testing.T) {
+	chunks := []string{"hello world", "foo bar", "hello again"}
+	result := compressRetrieverContext(chunks, "hello", 2)
+	assert.Len(t, result, 2)
+	// Both "hello world" and "hello again" should rank over "foo bar"
+	for _, r := range result {
+		assert.Contains(t, r, "hello")
+	}
+}
