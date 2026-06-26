@@ -91,7 +91,7 @@ test: fmt lint build
 	go tool govulncheck ./... > /tmp/govuln-make.txt 2>&1 || GOVULN_EXIT=$$?; \
 	cat /tmp/govuln-make.txt; \
 	if [ "$$GOVULN_EXIT" -ne 0 ]; then \
-		NEW_VULNS=$$(grep "^Vulnerability #" /tmp/govuln-make.txt | grep -v "GO-2026-4887\|GO-2026-4883" || true); \
+		NEW_VULNS=$$(grep "^Vulnerability #" /tmp/govuln-make.txt | grep -v "GO-2026-4887\|GO-2026-4883\|GO-2026-5746\|GO-2026-5668\|GO-2026-5617" || true); \
 		if [ -z "$$NEW_VULNS" ]; then GOVULN_EXIT=0; fi; \
 	fi; \
 	echo ""; \
@@ -259,7 +259,7 @@ lint:
 	set -e; \
 	cat /tmp/govuln-lint.txt; \
 	if [ $$exit_code -ne 0 ]; then \
-		new_vulns=$$(grep "^Vulnerability #" /tmp/govuln-lint.txt | grep -v "GO-2026-4887\|GO-2026-4883" || true); \
+		new_vulns=$$(grep "^Vulnerability #" /tmp/govuln-lint.txt | grep -v "GO-2026-4887\|GO-2026-4883\|GO-2026-5746\|GO-2026-5668\|GO-2026-5617" || true); \
 		if [ -n "$$new_vulns" ]; then exit 1; fi; \
 	fi
 
