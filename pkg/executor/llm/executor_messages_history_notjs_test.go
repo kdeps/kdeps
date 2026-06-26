@@ -71,9 +71,9 @@ func TestBuildHistoryMessages_ExpressionArray(t *testing.T) {
 	t.Setenv("KDEPS_MEMORY_DB_PATH", filepath.Join(t.TempDir(), "memory.db"))
 	e := NewExecutor("")
 	ctx := historyTestContext(t)
-	require.NoError(t, ctx.Set("history", []interface{}{
-		map[string]interface{}{"role": "user", "content": "earlier question"},
-		map[string]interface{}{"role": "assistant", "prompt": "earlier answer"},
+	require.NoError(t, ctx.Set("history", []any{
+		map[string]any{"role": "user", "content": "earlier question"},
+		map[string]any{"role": "assistant", "prompt": "earlier answer"},
 	}))
 
 	messages, err := e.buildHistoryMessages(
@@ -148,7 +148,7 @@ func TestHistoryItems_Forms(t *testing.T) {
 	require.NoError(t, err)
 	assert.Nil(t, items)
 
-	items, err = historyItems([]map[string]interface{}{{"role": "user", "content": "hi"}})
+	items, err = historyItems([]map[string]any{{"role": "user", "content": "hi"}})
 	require.NoError(t, err)
 	assert.Len(t, items, 1)
 
@@ -192,6 +192,24 @@ func TestBuildMessages_HistoryError(t *testing.T) {
 	}
 
 	_, err := e.buildMessages(evaluator, ctx, config, "hi")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "JSON array")
+}
+
+func TestHistoryItemsFromJSON_Empty(t *testing.T) {
+	items, err := historyItemsFromJSON("")
+	require.NoError(t, err)
+	assert.Nil(t, items)
+}
+
+func TestHistoryItemsFromJSON_Valid(t *testing.T) {
+	items, err := historyItemsFromJSON(`[{"role":"user","content":"hi"}]`)
+	require.NoError(t, err)
+	require.Len(t, items, 1)
+}
+
+func TestHistoryItemsFromJSON_InvalidJSON(t *testing.T) {
+	_, err := historyItemsFromJSON("not json")
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "JSON array")
 }

@@ -356,3 +356,13 @@ func TestDiscoverComponentsDir_SkipsFiles(t *testing.T) {
 	items := discoverItems()
 	assert.Empty(t, items[tabComponents])
 }
+
+// TestDiscoverItems_HomeDirError covers the homeErr branch in discoverItems.
+// When HOME is unset, UserHomeDir fails and the function returns empty items.
+func TestDiscoverItems_HomeDirError(t *testing.T) {
+	t.Setenv("HOME", "")
+	items := discoverItems()
+	for _, tab := range items {
+		assert.Empty(t, tab)
+	}
+}

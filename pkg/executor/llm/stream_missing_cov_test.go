@@ -618,3 +618,95 @@ func TestStreamChat_ChunkedEmptyBackend(t *testing.T) {
 	_, _, err := e.StreamChat(t.Context(), cfg, &buf)
 	require.Error(t, err)
 }
+
+func TestRenderStreamThinking_Empty(t *testing.T) {
+	assert.Equal(t, "", renderStreamThinking(""))
+	assert.Equal(t, "", renderStreamThinking("   "))
+}
+
+func TestRenderStreamThinking_WithContent(t *testing.T) {
+	out := renderStreamThinking("hello")
+	assert.Contains(t, out, "thinking")
+	assert.Contains(t, out, "  hello")
+}
+
+func TestRenderStreamThinking_StripsTags(t *testing.T) {
+	out := renderStreamThinking("<thinking>inner</thinking>")
+	assert.NotContains(t, out, "<thinking>")
+	assert.Contains(t, out, "inner")
+}
+
+func TestRenderStreamThinking_TagsOnlyBecomesEmpty(t *testing.T) {
+	out := renderStreamThinking("<thinking></thinking>")
+	assert.Equal(t, "", out)
+}
+
+func TestIndentLines_SingleLine(t *testing.T) {
+	assert.Equal(t, "  hello", indentLines("hello", "  "))
+}
+
+func TestIndentLines_MultiLine(t *testing.T) {
+	assert.Equal(t, ">>a\n>>b", indentLines("a\nb", ">>"))
+}
+
+func TestRenderGoTemplate_EmptyText(t *testing.T) {
+	assert.Equal(t, "", renderGoTemplate("", map[string]string{"k": "v"}))
+}
+
+func TestRenderGoTemplate_NoVars(t *testing.T) {
+	assert.Equal(t, "hello", renderGoTemplate("hello", nil))
+}
+
+func TestRenderGoTemplate_Substitution(t *testing.T) {
+	out := renderGoTemplate("Hello {{index . \"name\"}}!", map[string]string{"name": "world"})
+	assert.Equal(t, "Hello world!", out)
+}
+
+func TestRenderGoTemplate_InvalidTemplate_FallsBack(t *testing.T) {
+	// "{{" without closing "}}" is invalid; should fall back to raw text
+	out := renderGoTemplate("{{invalid", map[string]string{"k": "v"})
+	assert.Equal(t, "{{invalid", out)
+}
+
+func TestJaccardSimilarity_EmptyInputs(t *testing.T) {
+	assert.InDelta(t, 0.0, jaccardSimilarity(nil, nil), 0.001)
+}
+
+func TestPruneFewShotByTokens_NoLimit(t *testing.T) {
+	pool := []domain.ScenarioItem{{Role: "user", Prompt: "hello"}}
+	result := pruneFewShotByTokens(pool, "gpt-4o-mini", 0)
+	assert.Equal(t, pool, result)
+}
+
+func TestPruneFewShotByTokens_Empty(t *testing.T) {
+	result := pruneFewShotByTokens(nil, "gpt-4o-mini", 100)
+	assert.Nil(t, result)
+}
+
+func TestPruneFewShotByTokens_WithBudget(t *testing.T) {
+	pool := []domain.ScenarioItem{
+		{Role: "user", Prompt: "hello"},
+		{Role: "assistant", Prompt: "world"},
+	}
+	// Large budget: keep all
+	result := pruneFewShotByTokens(pool, "gpt-4o-mini", 1000)
+	assert.Len(t, result, 2)
+}
+
+func TestPruneRetrieverContextByTokens_NoLimit(t *testing.T) {
+	chunks := []string{"chunk1", "chunk2"}
+	result := pruneRetrieverContextByTokens(chunks, "gpt-4o-mini", 0)
+	assert.Equal(t, chunks, result)
+}
+
+func TestPruneRetrieverContextByTokens_Empty(t *testing.T) {
+	result := pruneRetrieverContextByTokens(nil, "gpt-4o-mini", 100)
+	assert.Nil(t, result)
+}
+
+func TestPruneRetrieverContextByTokens_WithBudget(t *testing.T) {
+	chunks := []string{"hello", "world"}
+	// Very small budget: might truncate
+	result := pruneRetrieverContextByTokens(chunks, "gpt-4o-mini", 1000)
+	assert.NotEmpty(t, result)
+}

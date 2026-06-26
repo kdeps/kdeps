@@ -488,3 +488,37 @@ func TestModelPickerModel_Update_KeyMsg(t *testing.T) {
 	assert.Equal(t, "l", pm.filter)
 	assert.Nil(t, cmd)
 }
+
+// TestSortEntries_CurrentModelRetainsPosition covers the default branch in the
+// same-group sort: when a is the current model and b is not, less must be false
+// so a stays before b (no swap needed).
+func TestSortEntries_CurrentModelRetainsPosition(t *testing.T) {
+	// Two GGUF entries in the same group; "current" is already first.
+	// The insertion sort should NOT swap them (less = false for that pair).
+	entries := []ModelEntry{
+		{Name: "current", ModelType: modelTypeGGUF},
+		{Name: "other", ModelType: modelTypeGGUF},
+	}
+	sorted := sortEntries(entries, "current")
+	assert.Equal(t, "current", sorted[0].Name)
+	assert.Equal(t, "other", sorted[1].Name)
+}
+
+// TestViewFooter_NarrowWidth covers the gap < 1 clamp branch.
+// When width is very small the gap is forced to 1.
+func TestViewFooter_NarrowWidth(t *testing.T) {
+	m := newModelPickerModel([]ModelEntry{{Name: "a-very-long-model-name-that-exceeds-width"}}, "", "")
+	out := m.viewFooter(1) // inner = 1, gap will be < 1 → clamped to 1
+	assert.NotEmpty(t, out)
+}
+
+// TestRenderRow_NarrowWidth covers the maxNameW < 1 and padW < 1 clamp branches.
+// At width = 1 both clamps fire.
+func TestRenderRow_NarrowWidth(t *testing.T) {
+	m := newModelPickerModel([]ModelEntry{{Name: "my-model"}}, "my-model", "")
+	flat := m.flatFiltered()
+	require.NotEmpty(t, flat)
+	// width = 1: triggers both maxNameW < 1 and padW < 1
+	out := m.renderRow(flat[0], true, 1)
+	assert.NotEmpty(t, out)
+}

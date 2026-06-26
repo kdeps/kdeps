@@ -254,3 +254,22 @@ func TestSettingsPath_HomeDirError(t *testing.T) {
 	assert.Contains(t, err.Error(), "settings: home dir")
 	assert.Empty(t, path)
 }
+
+// TestLoadSettings_HomeDirError covers the settingsPath-error branch in LoadSettings.
+// When HOME is unset, UserHomeDir fails; LoadSettings must return DefaultSettings with nil error.
+func TestLoadSettings_HomeDirError(t *testing.T) {
+	t.Setenv("HOME", "")
+
+	s, err := LoadSettings()
+	assert.NoError(t, err) // non-fatal: silently uses defaults
+	assert.Equal(t, DefaultSettings(), s)
+}
+
+// TestSave_HomeDirError covers the settingsPath-error branch in Save.
+func TestSave_HomeDirError(t *testing.T) {
+	t.Setenv("HOME", "")
+
+	err := Settings{SelectAll: true}.Save()
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "settings: home dir")
+}
