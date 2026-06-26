@@ -363,17 +363,36 @@ func TestShouldAutoCompact_TooFewTurns(t *testing.T) {
 
 func TestShouldAutoCompact_BelowThreshold(t *testing.T) {
 	// Each message 100 chars = 25 tokens; 4 turns = 200 tokens total.
+	// Unknown model uses flat threshold path.
 	msgs := makeTurns(compactMinTurns)
-	if shouldAutoCompact(msgs, 500, "gpt-4o") {
+	if shouldAutoCompact(msgs, 500, "unknown-local-model") {
 		t.Fatal("expected false when below threshold")
 	}
 }
 
 func TestShouldAutoCompact_AboveThreshold(t *testing.T) {
-	// Very low threshold triggers immediately.
+	// Very low threshold triggers immediately (unknown model = flat path).
 	msgs := makeTurns(compactMinTurns)
-	if !shouldAutoCompact(msgs, 1, "gpt-4o") {
+	if !shouldAutoCompact(msgs, 1, "unknown-local-model") {
 		t.Fatal("expected true when above threshold")
+	}
+}
+
+func TestShouldAutoCompact_KnownModelBelowWindow(t *testing.T) {
+	// gpt-4o has 128k context; 4 turns of 100-char messages (~200 tokens total)
+	// is well below 128000-16384=111616, so should not compact.
+	msgs := makeTurns(compactMinTurns)
+	if shouldAutoCompact(msgs, defaultAutoCompactThreshold, "gpt-4o") {
+		t.Fatal("expected false: tiny history is far below gpt-4o window")
+	}
+}
+
+func TestShouldAutoCompact_KnownModelIgnoresFlatThreshold(t *testing.T) {
+	// Known model: the flat threshold (threshold=1) is ignored in favor of
+	// contextWindow-reserveTokens. Small history should NOT trigger.
+	msgs := makeTurns(compactMinTurns)
+	if shouldAutoCompact(msgs, 1, "gpt-4o") {
+		t.Fatal("expected false: known model uses window-based threshold, not flat=1")
 	}
 }
 
