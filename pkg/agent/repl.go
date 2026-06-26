@@ -915,7 +915,7 @@ func (r *REPL) runStreaming(ctx context.Context, input string) (string, error) {
 		content = strings.TrimSpace(buf.String())
 	}
 	if content != "" {
-		fmt.Fprint(os.Stdout, renderREPLOutput(content))
+		fmt.Fprint(os.Stdout, renderREPLOutput(content, thinkW != nil))
 	}
 	return resp, nil
 }
@@ -1167,7 +1167,7 @@ func (r *REPL) processInput(input string) error {
 	// In streaming mode, output was already rendered and written to stdout.
 	// In non-streaming mode, render and print the full response now.
 	if resp != "" && (r.runFn != nil || !r.loop.IsStreaming()) {
-		fmt.Fprint(os.Stdout, renderREPLOutput(resp))
+		fmt.Fprint(os.Stdout, renderREPLOutput(resp, false))
 	}
 	r.maybeHintCompact()
 	return nil
@@ -1934,7 +1934,7 @@ func (r *REPL) cmdInvokePrompt(pt *PromptTemplate, args []string) error {
 		return fmt.Errorf("prompt %s: %w", pt.Name, err)
 	}
 	if resp != "" {
-		fmt.Fprint(os.Stdout, renderREPLOutput(resp))
+		fmt.Fprint(os.Stdout, renderREPLOutput(resp, false))
 	}
 	return nil
 }
@@ -2377,7 +2377,7 @@ func (r *REPL) cmdInvokeSkill(sk *Skill, extra []string) error {
 		return fmt.Errorf("skill %s: %w", sk.Name, err)
 	}
 	if resp != "" {
-		fmt.Fprint(os.Stdout, renderREPLOutput(resp))
+		fmt.Fprint(os.Stdout, renderREPLOutput(resp, false))
 	}
 	return nil
 }
