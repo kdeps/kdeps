@@ -1314,6 +1314,29 @@ func TestBashExec_SuccessWithStderr(t *testing.T) {
 	assert.Contains(t, out, "warning")
 }
 
+func TestBashExec_CustomTimeout(t *testing.T) {
+	t.Setenv("KDEPS_ALLOW_BASH", "true")
+	reg := kdepstools.NewRegistry()
+	RegisterBuiltinTools(context.Background(), reg)
+	tool := reg.Get("bash_exec")
+	require.NotNil(t, tool)
+	// 5-second custom timeout - command finishes well within it
+	out, err := tool.Execute(map[string]any{"command": "echo hi", "timeout_seconds": float64(5)})
+	require.NoError(t, err)
+	assert.Equal(t, "hi", out)
+}
+
+func TestBashExec_TimeoutKillsLongCommand(t *testing.T) {
+	t.Setenv("KDEPS_ALLOW_BASH", "true")
+	reg := kdepstools.NewRegistry()
+	RegisterBuiltinTools(context.Background(), reg)
+	tool := reg.Get("bash_exec")
+	require.NotNil(t, tool)
+	// 1-second timeout on a 10-second sleep - should error
+	_, err := tool.Execute(map[string]any{"command": "sleep 10", "timeout_seconds": float64(1)})
+	require.Error(t, err)
+}
+
 func TestSQLExecQuery_InvalidSQL(t *testing.T) {
 	dir := t.TempDir()
 	dbPath := filepath.Join(dir, "test.db")
