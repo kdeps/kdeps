@@ -78,6 +78,24 @@ func TestTrimTrailingSpaces(t *testing.T) {
 		{name: "trailing spaces", input: "hello   \nworld  ", want: "hello\nworld"},
 		{name: "trailing tabs", input: "hello\t\t\nworld\t", want: "hello\nworld"},
 		{name: "mixed", input: "a  \t  \nb\t\t", want: "a\nb"},
+		// Glamour's MarginWriter pads lines with ANSI-styled spaces: each padding space
+		// is wrapped in \x1b[...m ... \x1b[0m. Plain TrimRight cannot strip these because
+		// it stops at the ANSI code bytes. The ANSI-aware regex must remove them.
+		{
+			name:  "ansi-coded trailing spaces",
+			input: "hello\x1b[38;2;205;214;243m \x1b[0m\x1b[38;2;205;214;243m \x1b[0m",
+			want:  "hello",
+		},
+		{
+			name:  "ansi-coded blank line (paragraph separator)",
+			input: "\x1b[38;2;205;214;243m \x1b[0m\x1b[38;2;205;214;243m \x1b[0m",
+			want:  "",
+		},
+		{
+			name:  "ansi reset at end stripped",
+			input: "hello\x1b[0m",
+			want:  "hello",
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
