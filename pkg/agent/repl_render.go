@@ -564,9 +564,10 @@ func (w *liveThinkingWriter) Write(p []byte) (int, error) {
 	}
 	if !w.started {
 		hdr := styleThinkingLabel.Render("* thinking")
-		// \r\033[K: go to absolute column 0, erase any leftover tool output on this line.
-		// \r\n: then open a fresh line. Raw mode: \n is LF-only, so \r is required.
-		fmt.Fprintf(os.Stdout, "\r\033[K\r\n%s\r\n\033[38;5;245m  ", hdr)
+		// \r\033[K: absolute col 0 + erase current line (removes leftover tool output).
+		// Print header on that same (now clean) line, then \r\n to the content line.
+		// No \r\n BEFORE the header — that would create a blank line above it.
+		fmt.Fprintf(os.Stdout, "\r\033[K%s\r\n\033[38;5;245m  ", hdr)
 		w.started = true
 	}
 	text := strings.ReplaceAll(strings.TrimRight(string(p), "\n"), "\n", "\r\n  ")
@@ -577,9 +578,10 @@ func (w *liveThinkingWriter) Write(p []byte) (int, error) {
 // Flush closes the gray color and resets the writer for the next round.
 func (w *liveThinkingWriter) Flush() {
 	if w.started {
-		// \033[0m: close any open color/style from the thinking stream.
-		// \r\033[K: erase any partial line, return to column 0.
-		fmt.Fprint(os.Stdout, "\033[0m\r\033[K\r\n")
+		// \033[0m: close any open color/style.
+		// \r\n: move to the next line. No \r\033[K here — that would erase the last
+		// visible thinking line. ToolCallDisplay will erase the blank line we create.
+		fmt.Fprint(os.Stdout, "\033[0m\r\n")
 		w.started = false
 	}
 }
