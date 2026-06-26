@@ -6,6 +6,7 @@ package agent
 import (
 	"context"
 	"os"
+	"slices"
 	"testing"
 	"time"
 )
@@ -28,6 +29,13 @@ func mongoTestConnect(t *testing.T) *MongoDBSessionStore {
 	store, err := NewMongoDBSessionStore(ctx, uri, "kdeps_test", "test_sessions")
 	if err != nil {
 		t.Skipf("Skipping: cannot connect to MongoDB: %v", err)
+	}
+	// Ping to verify the server is reachable before running tests.
+	pingCtx, pingCancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer pingCancel()
+	if pingErr := store.client.Ping(pingCtx, nil); pingErr != nil {
+		_ = store.Close(context.Background())
+		t.Skipf("Skipping: MongoDB not reachable: %v", pingErr)
 	}
 	return store
 }
@@ -123,14 +131,7 @@ func TestMongoDBSessionStore_FullCRUD(t *testing.T) {
 		if err != nil {
 			t.Fatalf("List failed: %v", err)
 		}
-		var found bool
-		for _, lid := range ids {
-			if lid == id {
-				found = true
-				break
-			}
-		}
-		if !found {
+		if !slices.Contains(ids, id) {
 			t.Error("expected saved session ID in List")
 		}
 	})
@@ -157,14 +158,7 @@ func TestMongoDBSessionStore_FullCRUD(t *testing.T) {
 		if err != nil {
 			t.Fatalf("SearchSessions failed: %v", err)
 		}
-		var found bool
-		for _, rid := range results {
-			if rid == id {
-				found = true
-				break
-			}
-		}
-		if !found {
+		if !slices.Contains(results, id) {
 			t.Error("expected to find session via SearchSessions")
 		}
 	})
