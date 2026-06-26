@@ -564,10 +564,11 @@ func (w *liveThinkingWriter) Write(p []byte) (int, error) {
 	}
 	if !w.started {
 		hdr := styleThinkingLabel.Render("* thinking")
-		fmt.Fprintf(os.Stdout, "\n%s\n\033[38;5;245m  ", hdr)
+		// \r\n: raw mode requires CR before LF to reset cursor to column 0.
+		fmt.Fprintf(os.Stdout, "\r\n%s\r\n\033[38;5;245m  ", hdr)
 		w.started = true
 	}
-	text := strings.ReplaceAll(strings.TrimRight(string(p), "\n"), "\n", "\n  ")
+	text := strings.ReplaceAll(strings.TrimRight(string(p), "\n"), "\n", "\r\n  ")
 	fmt.Fprint(os.Stdout, text)
 	return len(p), nil
 }
@@ -575,7 +576,7 @@ func (w *liveThinkingWriter) Write(p []byte) (int, error) {
 // Flush closes the gray color and resets the writer for the next round.
 func (w *liveThinkingWriter) Flush() {
 	if w.started {
-		fmt.Fprint(os.Stdout, "\033[0m\n")
+		fmt.Fprint(os.Stdout, "\033[0m\r\n")
 		w.started = false
 	}
 }
