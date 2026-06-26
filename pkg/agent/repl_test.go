@@ -4155,3 +4155,49 @@ func TestCRLFWriter_ReturnLenOfInput(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, 6, n) // returns len of original input, not converted
 }
+
+func makeTestLoopWithEngine(result any, engineErr error) *Loop {
+	eng := executor.NewEngine(nil)
+	eng.SetExecuteFunc(func(_ *domain.Workflow, _ any) (any, error) {
+		return result, engineErr
+	})
+	return &Loop{
+		config:  Config{Model: "test-model"},
+		session: NewSession(0),
+		engine:  eng,
+		workflow: &domain.Workflow{
+			APIVersion: "kdeps.io/v1",
+			Kind:       "Workflow",
+			Metadata:   domain.WorkflowMetadata{Name: "test", Version: "1.0.0"},
+		},
+	}
+}
+
+func TestCmdClear_WithManyTurns(t *testing.T) {
+	// Must have >= compactMinTurns (4) turns to trigger the summarize-branch path.
+	// Engine returns empty string so SummarizeBranch returns "".
+	loop := makeTestLoopWithEngine("", nil)
+	for range compactMinTurns + 1 {
+		loop.session.Append("user msg", "assistant reply")
+	}
+	repl := NewREPL(loop)
+	defer repl.cancel()
+
+	err := repl.cmdClear()
+	assert.NoError(t, err)
+	assert.Zero(t, loop.session.TurnCount())
+}
+
+func TestCmdClear_WithSummary(t *testing.T) {
+	// Engine returns non-empty summary, covering the summary-printing branch.
+	loop := makeTestLoopWithEngine("Branch summary text here.", nil)
+	for range compactMinTurns + 1 {
+		loop.session.Append("user msg", "assistant reply")
+	}
+	repl := NewREPL(loop)
+	defer repl.cancel()
+
+	err := repl.cmdClear()
+	assert.NoError(t, err)
+	assert.Zero(t, loop.session.TurnCount())
+}
