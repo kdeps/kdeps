@@ -53,7 +53,6 @@ import (
 const (
 	builtinDDGMaxResults    = 5
 	builtinUserAgent        = "kdeps/agent"
-	builtinBashTimeout      = 30 * time.Second // default when timeout_seconds not supplied
 	defaultCohereRerank     = "rerank-v3.5"
 	defaultVoyageRerank     = "rerank-2"
 	defaultJinaRerank       = "jina-reranker-v2-base-multilingual"
@@ -962,26 +961,57 @@ func registerPerplexity(ctx context.Context, reg *kdepstools.Registry) {
 	})
 }
 
+// bashExecCtx returns the context injected by the Loop dispatcher, or Background.
+func bashExecCtx(args map[string]any) context.Context {
+	if c, ok := args["_ctx"].(context.Context); ok && c != nil {
+		return c
+	}
+	return context.Background()
+}
+
+// bashExecResult builds the return value for bash_exec after the command exits.
+// On context cancellation it returns partial stdout/stderr as a success so the LLM
+// receives what ran before the interrupt and can respond to the user's redirect.
+func bashExecResult(ctx context.Context, out, errOut string, runErr error) (string, error) {
+	if runErr != nil && errors.Is(ctx.Err(), context.Canceled) {
+		var parts []string
+		if out != "" {
+			parts = append(parts, out)
+		}
+		if errOut != "" {
+			parts = append(parts, "stderr: "+errOut)
+		}
+		return truncateBashOutput(strings.Join(append(parts, "[interrupted]"), "\n")), nil
+	}
+	if runErr != nil {
+		if errOut != "" {
+			return "", fmt.Errorf("bash_exec: %w\nstderr: %s", runErr, errOut)
+		}
+		return "", fmt.Errorf("bash_exec: %w", runErr)
+	}
+	if errOut != "" {
+		out += "\nstderr: " + errOut
+	}
+	return truncateBashOutput(out), nil
+}
+
 // registerBashExec registers a bash command execution tool.
-// Runs arbitrary shell commands. An optional timeout parameter (seconds) lets the
-// LLM control the deadline; defaults to 30 seconds when omitted.
+// Runs arbitrary shell commands with no built-in timeout. The command runs until
+// completion or until the caller cancels via the _ctx arg (injected by the Loop
+// dispatcher from Config.ToolCtx). In the REPL, Ctrl+C cancels the running tool
+// only; partial output is returned so the LLM can handle the interruption.
 func registerBashExec(_ context.Context, reg *kdepstools.Registry) {
 	if os.Getenv("KDEPS_ALLOW_BASH") == "false" {
 		return
 	}
 	tool := &kdepstools.Tool{
 		Name:        "bash_exec",
-		Description: "Execute a bash shell command and return its output. Use for running scripts, checking system state (git status, ls, etc.), or performing file operations. Supply a timeout_seconds value for long-running commands (e.g. 600 for a 10-minute test run); defaults to 30 seconds.",
+		Description: "Execute a bash shell command and return its output. Use for running scripts, checking system state (git status, ls, etc.), or performing file operations. The command runs until completion; the user can press Ctrl+C to interrupt it.",
 		Parameters: map[string]domain.ToolParam{
 			"command": {
 				Type:        toolParamString,
 				Description: "The bash command to execute",
 				Required:    true,
-			},
-			"timeout_seconds": {
-				Type:        "number",
-				Description: "Timeout in seconds (optional, defaults to 30). Set higher for long-running commands such as test suites or builds.",
-				Required:    false,
 			},
 		},
 	}
@@ -993,12 +1023,7 @@ func registerBashExec(_ context.Context, reg *kdepstools.Registry) {
 		if block, reason, _ := ValidateBashCommand(command, BashReadOnlyMode()); block {
 			return "", fmt.Errorf("bash_exec: blocked: %s", reason)
 		}
-		timeout := builtinBashTimeout
-		if secs, ok := args["timeout_seconds"].(float64); ok && secs > 0 {
-			timeout = time.Duration(secs) * time.Second
-		}
-		ctx, cancel := context.WithTimeout(context.Background(), timeout)
-		defer cancel()
+		ctx := bashExecCtx(args)
 		cmd := exec.CommandContext(ctx, "bash", "-c", command)
 		var stdout, stderr strings.Builder
 		if tool.OutputWriter != nil {
@@ -1009,18 +1034,7 @@ func registerBashExec(_ context.Context, reg *kdepstools.Registry) {
 			cmd.Stderr = &stderr
 		}
 		runErr := cmd.Run()
-		out := strings.TrimSpace(stdout.String())
-		errOut := strings.TrimSpace(stderr.String())
-		if runErr != nil {
-			if errOut != "" {
-				return "", fmt.Errorf("bash_exec: %w\nstderr: %s", runErr, errOut)
-			}
-			return "", fmt.Errorf("bash_exec: %w", runErr)
-		}
-		if errOut != "" {
-			out += "\nstderr: " + errOut
-		}
-		return truncateBashOutput(out), nil
+		return bashExecResult(ctx, strings.TrimSpace(stdout.String()), strings.TrimSpace(stderr.String()), runErr)
 	}
 	reg.Register(tool)
 }

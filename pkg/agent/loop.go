@@ -126,6 +126,12 @@ type Config struct {
 	// to persist session state. On context overflow, the agent checks the last
 	// checkpoint to determine whether the task was already completed.
 	CheckpointFn func(SessionReadWriter)
+	// ToolCtx, when set, is injected as "_ctx" into each tool's args map before
+	// Execute is called. Tools that support cancellation (e.g. bash_exec) read
+	// this context and propagate cancellation to their subprocess. The REPL sets
+	// this per-turn so Ctrl+C can interrupt a running tool without aborting the
+	// full agent turn.
+	ToolCtx context.Context
 }
 
 // Loop drives a multi-turn agent conversation using the kdeps engine as the
@@ -694,6 +700,12 @@ func (l *Loop) dispatchStreamToolCall(tc domain.StreamedToolCall, w io.Writer) s
 		args = make(map[string]any)
 	}
 	start := time.Now()
+
+	// Inject execution context so cancellable tools (e.g. bash_exec) can be
+	// interrupted from outside without aborting the full agent turn.
+	if l.config.ToolCtx != nil {
+		args["_ctx"] = l.config.ToolCtx
+	}
 
 	if termW := l.config.ToolOutputWriter; termW != nil {
 		return l.dispatchToTerminal(tool, tc.Name, args, termW, start)
