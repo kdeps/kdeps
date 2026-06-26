@@ -123,6 +123,9 @@ func TestLlamafileManager_Resolve_BareFilename_NotCached(t *testing.T) {
 // --- Resolve: remote URL (download) ----------------------------------------
 
 func TestLlamafileManager_Resolve_RemoteURL(t *testing.T) {
+	cleanup := llm.SetDownloadWithResume(func(_, _, _ string) error { return errors.New("no aria2c in test") })
+	defer cleanup()
+
 	content := []byte("fake llamafile content")
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusOK)
@@ -179,6 +182,9 @@ func TestLlamafileManager_Resolve_RemoteURL_AlreadyCached(t *testing.T) {
 }
 
 func TestLlamafileManager_Resolve_RemoteURL_HTTPError(t *testing.T) {
+	cleanup := llm.SetDownloadWithResume(func(_, _, _ string) error { return errors.New("no aria2c in test") })
+	defer cleanup()
+
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusNotFound)
 	}))
