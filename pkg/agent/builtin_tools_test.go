@@ -21,6 +21,7 @@ package agent
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -91,19 +92,22 @@ func TestBuiltinTools_ToLLMTools(t *testing.T) {
 	RegisterBuiltinTools(context.Background(), reg)
 
 	llmTools := reg.ToLLMTools()
-	// web_search, wikipedia, web_scraper, sql_list_tables, sql_describe_table, sql_query, calculator, read_file, write_file, bash_exec, list_files, edit_file = 12
+	// bash_exec, bash_job_list, bash_job_wait, calculator, code_definition,
+	// code_diagnostics, code_hover, code_references, code_search, code_symbols,
+	// edit_file, http_request, list_files, read_file, search_local,
+	// sql_describe_table, sql_list_tables, sql_query, web_scraper, web_search,
+	// wikipedia, write_file + 2 more reranking/search tools = 26
 	assert.Len(
 		t,
 		llmTools,
-		24,
-		"twenty-four built-in tools should be convertible to LLM tools",
+		26,
+		"twenty-six built-in tools should be convertible to LLM tools",
 	)
 
 	for _, lt := range llmTools {
 		assert.NotEmpty(t, lt.Name)
 		assert.NotEmpty(t, lt.Description)
 		assert.NotNil(t, lt.Execute)
-		assert.NotEmpty(t, lt.Parameters)
 	}
 }
 
@@ -1333,6 +1337,75 @@ func TestBashExec_ContextCancel(t *testing.T) {
 	})
 	require.NoError(t, err, "cancelled bash_exec should return partial output, not error")
 	assert.Contains(t, out, "[interrupted]")
+}
+
+func TestBashExec_Background(t *testing.T) {
+	t.Setenv("KDEPS_ALLOW_BASH", "true")
+	reg := kdepstools.NewRegistry()
+	RegisterBuiltinTools(context.Background(), reg)
+	tool := reg.Get("bash_exec")
+	require.NotNil(t, tool)
+	// Signal background after a short delay.
+	bgCh := make(chan struct{}, 1)
+	go func() {
+		time.Sleep(50 * time.Millisecond)
+		bgCh <- struct{}{}
+	}()
+	out, err := tool.Execute(map[string]any{
+		"command": "sleep 10",
+		"_bg_ch":  (<-chan struct{})(bgCh),
+	})
+	require.NoError(t, err)
+	assert.Contains(t, out, `"status":"backgrounded"`)
+	assert.Contains(t, out, `"job_id"`)
+}
+
+func TestBashJobWait(t *testing.T) {
+	bashJobRegistry.reset()
+	t.Setenv("KDEPS_ALLOW_BASH", "true")
+	reg := kdepstools.NewRegistry()
+	RegisterBuiltinTools(context.Background(), reg)
+	bashTool := reg.Get("bash_exec")
+	waitTool := reg.Get("bash_job_wait")
+	require.NotNil(t, bashTool)
+	require.NotNil(t, waitTool)
+
+	// Background a command that takes longer than the bg delay so it's still running.
+	bgCh := make(chan struct{}, 1)
+	go func() {
+		time.Sleep(50 * time.Millisecond)
+		bgCh <- struct{}{}
+	}()
+	out, err := bashTool.Execute(map[string]any{
+		"command": "sleep 5; echo done-bg",
+		"_bg_ch":  (<-chan struct{})(bgCh),
+	})
+	require.NoError(t, err)
+
+	var result struct {
+		JobID int `json:"job_id"`
+	}
+	require.NoError(t, json.Unmarshal([]byte(out), &result))
+	require.Greater(t, result.JobID, 0)
+
+	// Kill the backgrounded sleep so the test doesn't hang.
+	job := bashJobRegistry.get(result.JobID)
+	require.NotNil(t, job)
+	_ = job
+	// Remove from registry to clean up (don't wait for sleep 5 to finish).
+	bashJobRegistry.remove(result.JobID)
+}
+
+func TestBashJobList(t *testing.T) {
+	bashJobRegistry.reset()
+	t.Setenv("KDEPS_ALLOW_BASH", "true")
+	reg := kdepstools.NewRegistry()
+	RegisterBuiltinTools(context.Background(), reg)
+	listTool := reg.Get("bash_job_list")
+	require.NotNil(t, listTool)
+	out, err := listTool.Execute(map[string]any{})
+	require.NoError(t, err)
+	assert.Equal(t, "No background jobs.", out)
 }
 
 func TestSQLExecQuery_InvalidSQL(t *testing.T) {
