@@ -34,6 +34,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/charmbracelet/lipgloss"
@@ -162,6 +163,8 @@ type REPL struct {
 	tuiRunner          TUIRunner
 	runFn              func(context.Context, string) (string, error) // nil in production; injected in tests
 	refreshModelsFn    func()                                        // called after new model registered; nil if unset
+	toolCancel         context.CancelFunc                            // cancels the currently running tool; nil when no tool is active
+	toolCancelMu       sync.Mutex
 }
 
 // NewREPL creates a new REPL for the given agent loop.
@@ -884,7 +887,26 @@ func expandFileRefs(input string) (string, []string) {
 // runStreaming handles the streaming path: buffers LLM tokens and renders with
 // markdown + thinking styling. Tool call display writes directly to stdout via
 // the ToolCallDisplay callback so it appears immediately.
+//
+// A per-tool context is created so Ctrl+C can interrupt a running tool without
+// aborting the full agent turn. The partial output is returned to the LLM.
 func (r *REPL) runStreaming(ctx context.Context, input string) (string, error) {
+	// Create a per-tool-execution context separate from the turn context.
+	// Ctrl+C during tool execution cancels this context only (killing the tool),
+	// while a second Ctrl+C cancels the full turn via r.ctx.
+	toolCtx, toolCancel := context.WithCancel(context.Background())
+	r.toolCancelMu.Lock()
+	r.toolCancel = toolCancel
+	r.toolCancelMu.Unlock()
+	r.loop.config.ToolCtx = toolCtx //nolint:fatcontext // stored in config for dispatcher injection, not for derivation
+	defer func() {
+		toolCancel()
+		r.toolCancelMu.Lock()
+		r.toolCancel = nil
+		r.toolCancelMu.Unlock()
+		r.loop.config.ToolCtx = nil //nolint:fatcontext // clearing config field, not deriving context
+	}()
+
 	// When StreamThinking is enabled, wire a live writer so reasoning tokens
 	// appear in real-time instead of being buffered until the round completes.
 	var thinkW *liveThinkingWriter
@@ -1066,6 +1088,32 @@ func (r *REPL) Run() error {
 	return r.runLoop(rl)
 }
 
+// handleSIGINT processes OS interrupt signals in a goroutine.
+// First Ctrl+C while a tool is running cancels only the tool so the LLM can
+// handle the partial output. Second Ctrl+C (or Ctrl+C with no tool active)
+// cancels the full turn and refreshes the per-turn context.
+func (r *REPL) handleSIGINT(sigCh <-chan os.Signal, done <-chan struct{}) {
+	for {
+		select {
+		case <-sigCh:
+			r.toolCancelMu.Lock()
+			tc := r.toolCancel
+			r.toolCancelMu.Unlock()
+			if tc != nil {
+				tc()
+			} else {
+				r.cancel()
+				newCtx, newCancel := context.WithCancel(r.loopCtx)
+				r.ctx = newCtx
+				r.cancel = newCancel
+			}
+			fmt.Fprint(os.Stdout, "\n")
+		case <-done:
+			return
+		}
+	}
+}
+
 // runLoop is the core readline event loop extracted for complexity budget.
 func (r *REPL) runLoop(rl *readline.Instance) error {
 	// SIGINT during tool/LLM execution cancels the current turn and returns to
@@ -1077,21 +1125,7 @@ func (r *REPL) runLoop(rl *readline.Instance) error {
 	loopDone := make(chan struct{})
 	defer close(loopDone)
 
-	go func() {
-		for {
-			select {
-			case <-sigCh:
-				// Cancel the active turn and refresh for the next one.
-				r.cancel()
-				newCtx, newCancel := context.WithCancel(r.loopCtx)
-				r.ctx = newCtx //nolint:fatcontext // each SIGINT replaces (not extends) per-turn ctx
-				r.cancel = newCancel
-				fmt.Fprint(os.Stdout, "\n")
-			case <-loopDone:
-				return
-			}
-		}
-	}()
+	go r.handleSIGINT(sigCh, loopDone)
 
 	for {
 		select {
@@ -1178,11 +1212,8 @@ func (r *REPL) processInput(input string) error {
 // the session so the LLM sees them as context. If true (!! prefix), the command
 // runs and prints to stdout but is NOT sent to the LLM.
 func (r *REPL) execBangCommand(cmd string, excludeFromContext bool) error {
-	ctx, cancel := context.WithTimeout(r.ctx, builtinBashTimeout)
-	defer cancel()
-
 	var outBuf, errBuf bytes.Buffer
-	shell := exec.CommandContext(ctx, "bash", "-c", cmd)
+	shell := exec.CommandContext(r.ctx, "bash", "-c", cmd)
 	// Tee stdout/stderr to terminal AND capture for LLM context.
 	shell.Stdout = io.MultiWriter(os.Stdout, &outBuf)
 	shell.Stderr = io.MultiWriter(os.Stderr, &errBuf)
