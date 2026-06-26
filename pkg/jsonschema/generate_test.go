@@ -124,6 +124,7 @@ func TestFromStruct_FallbackFieldName(t *testing.T) {
 
 func TestGoTypeToJSONType(t *testing.T) {
 	t.Parallel()
+	s := ""
 	cases := []struct {
 		typ  reflect.Type
 		want string
@@ -131,10 +132,20 @@ func TestGoTypeToJSONType(t *testing.T) {
 		{reflect.TypeOf(""), "string"},
 		{reflect.TypeOf(true), "boolean"},
 		{reflect.TypeOf(0), "integer"},
+		{reflect.TypeOf(int8(0)), "integer"},
+		{reflect.TypeOf(int16(0)), "integer"},
+		{reflect.TypeOf(int32(0)), "integer"},
 		{reflect.TypeOf(int64(0)), "integer"},
+		{reflect.TypeOf(uint(0)), "integer"},
+		{reflect.TypeOf(uint8(0)), "integer"},
+		{reflect.TypeOf(uint16(0)), "integer"},
+		{reflect.TypeOf(uint32(0)), "integer"},
+		{reflect.TypeOf(uint64(0)), "integer"},
 		{reflect.TypeOf(float32(0)), "number"},
 		{reflect.TypeOf(float64(0)), "number"},
 		{reflect.TypeOf([]byte{}), "string"},
+		// pointer types are dereferenced before mapping
+		{reflect.TypeOf(&s), "string"},
 	}
 	for _, c := range cases {
 		got := goTypeToJSONType(c.typ)
