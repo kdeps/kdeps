@@ -34,6 +34,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/spf13/afero"
 	"github.com/stretchr/testify/assert"
@@ -124,6 +125,10 @@ func TestResolveCachedModel_NotFound(t *testing.T) {
 func TestLlamafileServe_HealthTimeoutAfterStart(t *testing.T) {
 	origFS := AppFS
 	t.Cleanup(func() { AppFS = origFS })
+	// Use a 100ms timeout so waitForHealthy exits quickly instead of waiting 60s.
+	origTimeout := llamafileStartTimeoutFunc
+	llamafileStartTimeoutFunc = func() time.Duration { return 100 * time.Millisecond }
+	t.Cleanup(func() { llamafileStartTimeoutFunc = origTimeout })
 	dir := t.TempDir()
 	modelPath := filepath.Join(dir, "run.llamafile")
 	require.NoError(t, os.WriteFile(modelPath, []byte("#!/bin/sh\nexit 0\n"), 0755))
