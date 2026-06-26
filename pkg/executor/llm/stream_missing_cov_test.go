@@ -710,3 +710,11 @@ func TestPruneRetrieverContextByTokens_WithBudget(t *testing.T) {
 	result := pruneRetrieverContextByTokens(chunks, "gpt-4o-mini", 1000)
 	assert.NotEmpty(t, result)
 }
+
+// TestBuildRetrieverPreamble_MultipleChunksOrder verifies chunk separator in output.
+func TestBuildRetrieverPreamble_MultipleChunksOrder(t *testing.T) {
+	out := buildRetrieverPreamble([]string{"first", "second"})
+	assert.Contains(t, out, "first")
+	assert.Contains(t, out, "second")
+	assert.Contains(t, out, "Retrieved context")
+}

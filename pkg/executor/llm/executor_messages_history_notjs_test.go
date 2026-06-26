@@ -213,3 +213,64 @@ func TestHistoryItemsFromJSON_InvalidJSON(t *testing.T) {
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "JSON array")
 }
+
+func TestHistoryItems_Nil(t *testing.T) {
+	items, err := historyItems(nil)
+	require.NoError(t, err)
+	assert.Nil(t, items)
+}
+
+func TestHistoryItems_SliceInterface(t *testing.T) {
+	input := []any{map[string]any{"role": "user", "content": "hi"}}
+	items, err := historyItems(input)
+	require.NoError(t, err)
+	assert.Len(t, items, 1)
+}
+
+func TestHistoryItems_SliceMapString(t *testing.T) {
+	input := []map[string]any{{"role": "user", "content": "hi"}}
+	items, err := historyItems(input)
+	require.NoError(t, err)
+	assert.Len(t, items, 1)
+}
+
+func TestHistoryItems_String(t *testing.T) {
+	items, err := historyItems(`[{"role":"user","content":"hi"}]`)
+	require.NoError(t, err)
+	assert.Len(t, items, 1)
+}
+
+func TestHistoryItems_UnknownType(t *testing.T) {
+	_, err := historyItems(42)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "int")
+}
+
+func TestHistoryMessage_Valid(t *testing.T) {
+	msg, err := historyMessage(map[string]any{"role": "user", "content": "hello"})
+	require.NoError(t, err)
+	assert.Equal(t, "user", msg["role"])
+}
+
+func TestHistoryMessage_NotAMap(t *testing.T) {
+	_, err := historyMessage("not a map")
+	require.Error(t, err)
+}
+
+func TestHistoryMessage_UnsupportedRole(t *testing.T) {
+	_, err := historyMessage(map[string]any{"role": "alien", "content": "hello"})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "unsupported role")
+}
+
+func TestHistoryMessage_MissingRole(t *testing.T) {
+	_, err := historyMessage(map[string]any{"content": "hello"}) // no "role" key
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "role")
+}
+
+func TestHistoryMessage_MissingContent(t *testing.T) {
+	// role is valid but both content and prompt are missing
+	_, err := historyMessage(map[string]any{"role": "user"})
+	require.Error(t, err)
+}
