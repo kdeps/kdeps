@@ -28,6 +28,9 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+
 	"github.com/kdeps/kdeps/v2/pkg/domain"
 	"github.com/kdeps/kdeps/v2/pkg/executor"
 	"github.com/kdeps/kdeps/v2/pkg/tools"
@@ -94,7 +97,10 @@ func TestLoop_SessionPersistsAcrossTurns(t *testing.T) {
 		t.Fatal("expected non-empty Messages field on second turn")
 	}
 	if !strings.Contains(secondWF.Resources[0].Chat.Messages, "hello") {
-		t.Fatalf("expected previous input 'hello' in messages, got %q", secondWF.Resources[0].Chat.Messages)
+		t.Fatalf(
+			"expected previous input 'hello' in messages, got %q",
+			secondWF.Resources[0].Chat.Messages,
+		)
 	}
 }
 
@@ -274,7 +280,10 @@ func TestRunStreaming_StreamFinalOnly_FalseStreamsAll(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 	if !strings.Contains(buf.String(), "[echo") {
-		t.Errorf("tool call summary should be written when StreamFinalOnly=false, got %q", buf.String())
+		t.Errorf(
+			"tool call summary should be written when StreamFinalOnly=false, got %q",
+			buf.String(),
+		)
 	}
 }
 
@@ -369,7 +378,12 @@ func TestDispatchStreamToolCall_InvalidArgs(t *testing.T) {
 	ms := &mockStreamer{
 		responses: []mockStreamResponse{
 			// Tool call with invalid JSON args
-			{content: "tc", toolCalls: []domain.StreamedToolCall{{ID: "1", Name: "mytool", Arguments: "INVALID_JSON"}}},
+			{
+				content: "tc",
+				toolCalls: []domain.StreamedToolCall{
+					{ID: "1", Name: "mytool", Arguments: "INVALID_JSON"},
+				},
+			},
 			{content: "done", toolCalls: nil},
 		},
 	}
@@ -396,7 +410,12 @@ func TestDispatchStreamToolCall_ToolError(t *testing.T) {
 	})
 	ms := &mockStreamer{
 		responses: []mockStreamResponse{
-			{content: "tc", toolCalls: []domain.StreamedToolCall{{ID: "1", Name: "failing_tool", Arguments: "{}"}}},
+			{
+				content: "tc",
+				toolCalls: []domain.StreamedToolCall{
+					{ID: "1", Name: "failing_tool", Arguments: "{}"},
+				},
+			},
 			{content: "recovered", toolCalls: nil},
 		},
 	}
@@ -929,4 +948,102 @@ func TestRunStreaming_NonTransient_NoRetry(t *testing.T) {
 	if !strings.Contains(err.Error(), "invalid API key") {
 		t.Errorf("expected original error, got: %v", err)
 	}
+}
+
+// --- dispatchToTerminal ---
+
+func TestDispatchToTerminal_Success(t *testing.T) {
+	eng := executor.NewEngine(nil)
+	reg := tools.NewRegistry()
+	reg.Register(&tools.Tool{
+		Name:        "echo_tool",
+		Description: "echoes input",
+		Parameters:  map[string]domain.ToolParam{},
+		Execute: func(_ map[string]interface{}) (string, error) {
+			return "hello from tool", nil
+		},
+	})
+	var termBuf bytes.Buffer
+	loop := New(eng, newTestWorkflowForSession(), reg, Config{
+		Model:            "test",
+		ToolOutputWriter: &termBuf,
+	})
+	tc := domain.StreamedToolCall{ID: "1", Name: "echo_tool", Arguments: "{}"}
+	result := loop.dispatchStreamToolCall(tc, &bytes.Buffer{})
+	assert.Equal(t, "hello from tool", result)
+	assert.Contains(t, termBuf.String(), "echo_tool done")
+}
+
+func TestDispatchToTerminal_ToolError(t *testing.T) {
+	eng := executor.NewEngine(nil)
+	reg := tools.NewRegistry()
+	reg.Register(&tools.Tool{
+		Name:        "bad_tool",
+		Description: "always fails",
+		Parameters:  map[string]domain.ToolParam{},
+		Execute: func(_ map[string]interface{}) (string, error) {
+			return "", errors.New("boom")
+		},
+	})
+	var termBuf bytes.Buffer
+	loop := New(eng, newTestWorkflowForSession(), reg, Config{
+		Model:            "test",
+		ToolOutputWriter: &termBuf,
+	})
+	tc := domain.StreamedToolCall{ID: "1", Name: "bad_tool", Arguments: "{}"}
+	result := loop.dispatchStreamToolCall(tc, &bytes.Buffer{})
+	assert.Contains(t, result, "error")
+	assert.Contains(t, termBuf.String(), "bad_tool failed")
+}
+
+func TestDispatchToTerminal_ToolOutput(t *testing.T) {
+	eng := executor.NewEngine(nil)
+	reg := tools.NewRegistry()
+	reg.Register(&tools.Tool{
+		Name:        "output_tool",
+		Description: "writes output",
+		Parameters:  map[string]domain.ToolParam{},
+		Execute: func(_ map[string]interface{}) (string, error) {
+			return "done", nil
+		},
+		OutputWriter: nil,
+	})
+	var termBuf bytes.Buffer
+	loop := New(eng, newTestWorkflowForSession(), reg, Config{
+		Model:            "test",
+		ToolOutputWriter: &termBuf,
+	})
+	tc := domain.StreamedToolCall{ID: "1", Name: "output_tool", Arguments: "{}"}
+	result := loop.dispatchStreamToolCall(tc, &bytes.Buffer{})
+	assert.Equal(t, "done", result)
+}
+
+// --- stripANSIWriter ---
+
+func TestStripANSIWriter_StripsSequences(t *testing.T) {
+	var buf bytes.Buffer
+	w := &stripANSIWriter{w: &buf}
+	input := "\x1b[31mRED\x1b[0m plain"
+	n, err := w.Write([]byte(input))
+	require.NoError(t, err)
+	assert.Equal(t, len(input), n) // returns original input length
+	assert.Equal(t, "RED plain", buf.String())
+}
+
+func TestStripANSIWriter_AllANSI_ReturnsEmpty(t *testing.T) {
+	var buf bytes.Buffer
+	w := &stripANSIWriter{w: &buf}
+	// write that becomes empty after stripping - should not call inner Write
+	n, err := w.Write([]byte("\x1b[0m\x1b[1m"))
+	require.NoError(t, err)
+	assert.Equal(t, 8, n)
+	assert.Empty(t, buf.String())
+}
+
+func TestStripANSIWriter_PlainText_PassesThrough(t *testing.T) {
+	var buf bytes.Buffer
+	w := &stripANSIWriter{w: &buf}
+	_, err := w.Write([]byte("no ansi here"))
+	require.NoError(t, err)
+	assert.Equal(t, "no ansi here", buf.String())
 }

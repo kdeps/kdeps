@@ -187,6 +187,27 @@ func TestExtractTarFile_CopyNError(t *testing.T) {
 	assert.Contains(t, err.Error(), "failed to write file")
 }
 
+func TestExtractTarFile_Success(t *testing.T) {
+	dir := t.TempDir()
+	targetPath := filepath.Join(dir, "out.txt")
+
+	var buf bytes.Buffer
+	tw := tar.NewWriter(&buf)
+	require.NoError(t, tw.WriteHeader(&tar.Header{Name: "out.txt", Size: 5, Mode: 0o600}))
+	_, wErr := tw.Write([]byte("hello"))
+	require.NoError(t, wErr)
+	require.NoError(t, tw.Close())
+
+	tr := tar.NewReader(&buf)
+	hdr, nErr := tr.Next()
+	require.NoError(t, nErr)
+
+	err := extractTarFile(tr, hdr, targetPath)
+	require.NoError(t, err)
+	data, _ := os.ReadFile(targetPath)
+	assert.Equal(t, "hello", string(data))
+}
+
 func TestIsKdepsPackage_False(t *testing.T) {
 	assert.False(t, isKdepsPackage("file.txt"))
 	assert.False(t, isKdepsPackage("component.yaml"))

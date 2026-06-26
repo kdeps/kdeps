@@ -2277,6 +2277,28 @@ func TestInputValidator_ValidateArray_NilPointers(t *testing.T) {
 }
 
 // Helper functions.
+// TestValidateField_UnknownType covers the LookupFieldType !ok branch (returns nil).
+func TestValidateField_UnknownType(t *testing.T) {
+	v := validator.NewInputValidator()
+	rule := domain.FieldRule{
+		Field: "x",
+		Type:  domain.FieldType("__nonexistent_type__"),
+	}
+	err := v.ValidateField(rule, "anything")
+	assert.Nil(t, err)
+}
+
+// TestValidateField_ConstraintsNone covers FieldConstraintsNone (UUID, boolean, etc.).
+func TestValidateField_ConstraintsNone(t *testing.T) {
+	v := validator.NewInputValidator()
+	rule := domain.FieldRule{
+		Field: "id",
+		Type:  domain.FieldTypeUUID,
+	}
+	err := v.ValidateField(rule, "123e4567-e89b-12d3-a456-426614174000")
+	assert.Nil(t, err)
+}
+
 func intPtr(i int) *int {
 	return &i
 }
