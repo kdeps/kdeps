@@ -27,9 +27,10 @@ import (
 
 const (
 	compactKeepRecentTokens = 20000
-	compactMinTurns         = 4 // don't compact unless at least 4 turns exist
-	charsPerToken           = 4 // rough chars-per-token estimate for the fallback path
-	charsPerTokenRoundUp    = 3 // rounding offset for integer ceiling division
+	compactReserveTokens    = 16384 // tokens reserved for summary prompt + output
+	compactMinTurns         = 4     // don't compact unless at least 4 turns exist
+	charsPerToken           = 4     // rough chars-per-token estimate for the fallback path
+	charsPerTokenRoundUp    = 3     // rounding offset for integer ceiling division
 )
 
 // compactionSummaryPrefix / compactionSummarySuffix wrap the LLM-generated
@@ -229,7 +230,14 @@ func shouldAutoCompact(messages []SessionMessage, threshold int, modelHint strin
 	if len(messages) < sessionMsgsPer*compactMinTurns {
 		return false
 	}
-	return estimateSessionTokens(messages, modelHint) > threshold
+	estimated := estimateSessionTokens(messages, modelHint)
+	// When the model's context window is known, use contextWindow-reserveTokens
+	// as the trigger (pi parity). Fall back to the configured flat threshold
+	// for unknown/local models.
+	if ctxWindow := ContextWindowForModel(modelHint); ctxWindow > 0 {
+		return estimated > ctxWindow-compactReserveTokens
+	}
+	return estimated > threshold
 }
 
 // serializeConversation formats session messages as plain text for the
