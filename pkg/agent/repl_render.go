@@ -450,12 +450,18 @@ func thinkingStyleConfig() ansi.StyleConfig {
 	}
 }
 
-// trimTrailingSpaces removes trailing whitespace from each line of s.
-// Glamour's word-wrap can pad short lines to the wrap width; this strips that padding.
+// ansiTrailRe matches trailing ANSI escape sequences and whitespace at end of line.
+// Glamour's MarginWriter pads each line with ANSI-styled spaces
+// (\x1b[38;2;...m \x1b[0m per space), which strings.TrimRight cannot reach because
+// it stops at the ANSI code characters. This regex strips both.
+var ansiTrailRe = regexp.MustCompile(`(\x1b\[[0-9;]*m|[ \t])+$`)
+
+// trimTrailingSpaces removes trailing whitespace from each line of s, including
+// ANSI-coded spaces that glamour's padding writer inserts.
 func trimTrailingSpaces(s string) string {
 	lines := strings.Split(s, "\n")
 	for i, line := range lines {
-		lines[i] = strings.TrimRight(line, " \t")
+		lines[i] = ansiTrailRe.ReplaceAllString(line, "")
 	}
 	return strings.Join(lines, "\n")
 }
