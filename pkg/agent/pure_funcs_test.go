@@ -112,7 +112,7 @@ func TestRenderToolCall_NoArgs(t *testing.T) {
 }
 
 func TestRenderThinkingBlock_Empty(t *testing.T) {
-	t.Parallel()
+	// no Parallel: shares cached renderer
 	if got := renderThinkingBlock(""); got != "" {
 		t.Errorf("expected empty output for empty input, got %q", got)
 	}
@@ -122,7 +122,7 @@ func TestRenderThinkingBlock_Empty(t *testing.T) {
 }
 
 func TestRenderThinkingBlock_NonEmpty(t *testing.T) {
-	t.Parallel()
+	// no Parallel: shares cached renderer
 	got := renderThinkingBlock("hello world")
 	if got == "" {
 		t.Error("renderThinkingBlock should return non-empty output")
@@ -134,14 +134,14 @@ func TestRenderThinkingBlock_NonEmpty(t *testing.T) {
 }
 
 func TestRenderThinkingMarkdown_Empty(t *testing.T) {
-	t.Parallel()
+	// no Parallel: shares cached renderer
 	if got := renderThinkingMarkdown(""); got != "" {
 		t.Errorf("expected empty output for empty input, got %q", got)
 	}
 }
 
 func TestRenderThinkingMarkdown_NonEmpty(t *testing.T) {
-	t.Parallel()
+	// no Parallel: shares cached renderer
 	got := renderThinkingMarkdown("test")
 	if got == "" {
 		t.Error("renderThinkingMarkdown should return non-empty output")
@@ -168,7 +168,7 @@ func TestReplStyleConfig(t *testing.T) {
 }
 
 func TestRenderMarkdown_Empty(t *testing.T) {
-	t.Parallel()
+	// no Parallel: shares cached renderer
 	if got := renderMarkdown(""); got != "" {
 		t.Errorf("expected empty output for empty input, got %q", got)
 	}
@@ -178,7 +178,7 @@ func TestRenderMarkdown_Empty(t *testing.T) {
 }
 
 func TestRenderMarkdown_NonEmpty(t *testing.T) {
-	t.Parallel()
+	// no Parallel: shares cached renderer
 	got := renderMarkdown("hello world")
 	if got == "" {
 		t.Error("renderMarkdown should return non-empty output")
@@ -186,23 +186,23 @@ func TestRenderMarkdown_NonEmpty(t *testing.T) {
 }
 
 func TestRenderREPLOutput_Empty(t *testing.T) {
-	t.Parallel()
-	if got := renderREPLOutput(""); got != "" {
+	// no Parallel: shares cached renderer
+	if got := renderREPLOutput("", false); got != "" {
 		t.Errorf("expected empty output for empty input, got %q", got)
 	}
 }
 
 func TestRenderREPLOutput_Plain(t *testing.T) {
-	t.Parallel()
-	got := renderREPLOutput("hello world")
+	// no Parallel: shares cached renderer
+	got := renderREPLOutput("hello world", false)
 	if got == "" {
 		t.Error("renderREPLOutput should return non-empty output")
 	}
 }
 
 func TestRenderREPLOutput_WithThinking(t *testing.T) {
-	t.Parallel()
-	got := renderREPLOutput("<thinking>\nplanning\n</thinking>\nresponse")
+	// no Parallel: shares cached renderer with other tests
+	got := renderREPLOutput("<thinking>\nplanning\n</thinking>\nresponse", false)
 	if !strings.Contains(got, "response") {
 		t.Error("renderREPLOutput should include main response")
 	}
@@ -211,6 +211,154 @@ func TestRenderREPLOutput_WithThinking(t *testing.T) {
 	}
 }
 
+func TestRenderREPLOutput_SkipThinking_StripsXMLTags(t *testing.T) {
+	// no Parallel: shares cached renderer with other tests
+	got := renderREPLOutput("<thinking>\nplanning\n</thinking>\nresponse", true)
+	clean := ansiStripRe.ReplaceAllString(got, "")
+	clean = strings.TrimSpace(clean)
+	if strings.Contains(clean, "planning") {
+		t.Errorf("skipThinking=true should strip <thinking> block content, got %q", clean)
+	}
+	if !strings.Contains(clean, "response") {
+		t.Errorf("skipThinking=true should preserve main response, got %q", clean)
+	}
+}
+
+func TestRenderREPLOutput_SkipThinking_StripsMarkdownThinking(t *testing.T) {
+	// no Parallel: shares cached renderer with other tests
+	mdThinking := "* thinking\n  plan\n  execute\n\nresponse"
+	got := renderREPLOutput(mdThinking, true)
+	clean := ansiStripRe.ReplaceAllString(got, "")
+	clean = strings.TrimSpace(clean)
+	// "plan" and "execute" should NOT appear (stripped as thinking)
+	if strings.Contains(clean, "plan") || strings.Contains(clean, "execute") {
+		t.Errorf("skipThinking=true should strip markdown-style * thinking block, got %q", clean)
+	}
+	if !strings.Contains(clean, "response") {
+		t.Errorf("skipThinking=true should preserve main response, got %q", clean)
+	}
+}
+
+func TestRenderREPLOutput_NoThinking_WithSkip(t *testing.T) {
+	// no Parallel: shares cached renderer with other tests
+	got := renderREPLOutput("plain response", true)
+	// Glamour word-wraps to terminal width with ANSI-padded spaces.
+	// Strip ANSI and trim to check content.
+	clean := ansiStripRe.ReplaceAllString(got, "")
+	clean = strings.TrimSpace(clean)
+	if clean != "plain response" {
+		t.Errorf("skipThinking should render plain text response, got %q", clean)
+	}
+}
+
+func TestRenderREPLOutput_EmptyWithSkip(t *testing.T) {
+	// no Parallel: shares cached renderer with other tests
+	if got := renderREPLOutput("", true); got != "" {
+		t.Errorf("expected empty output for empty input with skipThinking=true, got %q", got)
+	}
+}
+
+func TestStripThinkingTags_XML(t *testing.T) {
+	// no Parallel: shares cached renderer with other tests
+	input := "<thinking>\nplanning\n</thinking>\nactual response"
+	got := stripThinkingTags(input)
+	if strings.Contains(got, "thinking") {
+		t.Error("stripThinkingTags should remove <thinking> tags")
+	}
+	if !strings.Contains(got, "actual response") {
+		t.Error("stripThinkingTags should preserve non-thinking content")
+	}
+	if strings.Contains(got, "planning") {
+		t.Error("stripThinkingTags should remove thinking content")
+	}
+}
+
+func TestStripThinkingTags_MarkdownStyle(t *testing.T) {
+	// no Parallel: shares cached renderer with other tests
+	input := "* thinking\n  plan\n  more plan\n\nactual response"
+	got := stripThinkingTags(input)
+	if strings.Contains(got, "plan") || strings.Contains(got, "more plan") {
+		t.Error("stripThinkingTags should remove markdown-style thinking")
+	}
+	if !strings.Contains(got, "actual response") {
+		t.Error("stripThinkingTags should preserve non-thinking content")
+	}
+}
+
+func TestStripThinkingTags_NoThinkingBlocks(t *testing.T) {
+	// no Parallel: shares cached renderer with other tests
+	input := "just a normal response"
+	got := stripThinkingTags(input)
+	if got != input {
+		t.Errorf("stripThinkingTags should return unchanged text when no thinking blocks present, got %q", got)
+	}
+}
+
+func TestStripThinkingTags_CollapseBlankLines(t *testing.T) {
+	// no Parallel: shares cached renderer with other tests
+	// After stripping thinking blocks, consecutive blank lines should collapse.
+	input := "<thinking>\nstuff\n</thinking>\n\n\n\nresponse"
+	got := stripThinkingTags(input)
+	if strings.Contains(got, "\n\n\n") {
+		t.Error("stripThinkingTags should collapse multiple consecutive blank lines")
+	}
+	if !strings.Contains(got, "response") {
+		t.Error("stripThinkingTags should preserve response after collapsing blanks")
+	}
+}
+
+// TestRendererCache_ReusesRenderer verifies getRenderer returns the same
+// instance on subsequent calls within the same terminal width. NOT parallel
+// since it reads the shared cachedRenderer global.
+func TestRendererCache_ReusesRenderer(t *testing.T) {
+	r1, err1 := getRenderer()
+	if err1 != nil || r1 == nil {
+		t.Fatal("getRenderer failed on first call")
+	}
+	r2, err2 := getRenderer()
+	if err2 != nil || r2 == nil {
+		t.Fatal("getRenderer failed on second call")
+	}
+	if r1 != r2 {
+		t.Error("getRenderer should return the same cached renderer instance")
+	}
+}
+
+// TestThinkingRendererCache_ReusesRenderer verifies getThinkingRenderer returns
+// the same instance on subsequent calls. NOT parallel — reads shared globals.
+func TestThinkingRendererCache_ReusesRenderer(t *testing.T) {
+	r1, err1 := getThinkingRenderer()
+	if err1 != nil || r1 == nil {
+		t.Fatal("getThinkingRenderer failed on first call")
+	}
+	r2, err2 := getThinkingRenderer()
+	if err2 != nil || r2 == nil {
+		t.Fatal("getThinkingRenderer failed on second call")
+	}
+	if r1 != r2 {
+		t.Error("getThinkingRenderer should return the same cached renderer instance")
+	}
+}
+
+// TestRendererCache_WidthChangeRecreates verifies the getRenderer cache
+// is re-created when the terminal width changes. This test does NOT mutate
+// the shared globals directly since other parallel tests may be reading them.
+func TestRendererCache_WidthChangeRecreates(t *testing.T) {
+	// Get the initial renderer (may be nil if not yet created).
+	r1, err1 := getRenderer()
+	if err1 != nil || r1 == nil {
+		t.Fatal("getRenderer failed")
+	}
+	// Verify the renderer was cached.
+	if cachedRenderer == nil {
+		t.Fatal("cachedRenderer should be set after getRenderer()")
+	}
+	// Verify the cached width matches the actual terminal width.
+	if cachedRendererWidth != terminalWidth() && cachedRendererWidth != defaultTermWidth {
+		t.Fatalf("cachedRendererWidth %d does not match terminal width %d or default %d",
+			cachedRendererWidth, terminalWidth(), defaultTermWidth)
+	}
+}
 func TestStrp(t *testing.T) {
 	t.Parallel()
 	p := strp("hello") //nolint:newexpr // false positive: new(string) returns zero value, not "hello"

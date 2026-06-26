@@ -23,12 +23,66 @@ import (
 	"os"
 	"regexp"
 	"strings"
+	"sync"
 
 	"github.com/charmbracelet/glamour"
 	"github.com/charmbracelet/glamour/ansi"
 	"github.com/charmbracelet/lipgloss"
 	"golang.org/x/term"
 )
+
+// cached glamour renderers — created once, recreated only on terminal resize.
+// Recreating glamour.NewTermRenderer on every call parses styles and re-initialises
+// chroma from scratch, which causes a visible flicker as each response is rendered.
+//
+//nolint:gochecknoglobals // cached renderers avoid re-parsing styles per call
+var (
+	cachedRenderer         *glamour.TermRenderer
+	cachedThinkingRenderer *glamour.TermRenderer
+	cachedRendererWidth    int
+	rendererMu             sync.Mutex
+)
+
+// getRenderer returns a cached glamour renderer for the main response style.
+// Recreates the renderer only when the terminal width has changed.
+func getRenderer() (*glamour.TermRenderer, error) {
+	w := terminalWidth()
+	rendererMu.Lock()
+	defer rendererMu.Unlock()
+	if cachedRenderer != nil && cachedRendererWidth == w {
+		return cachedRenderer, nil
+	}
+	r, err := glamour.NewTermRenderer(
+		glamour.WithStyles(replStyleConfig()),
+		glamour.WithWordWrap(w),
+	)
+	if err != nil {
+		return nil, err
+	}
+	cachedRenderer = r
+	cachedRendererWidth = w
+	return r, nil
+}
+
+// getThinkingRenderer returns a cached glamour renderer for thinking block style.
+func getThinkingRenderer() (*glamour.TermRenderer, error) {
+	w := terminalWidth()
+	rendererMu.Lock()
+	defer rendererMu.Unlock()
+	if cachedThinkingRenderer != nil && cachedRendererWidth == w {
+		return cachedThinkingRenderer, nil
+	}
+	r, err := glamour.NewTermRenderer(
+		glamour.WithStyles(thinkingStyleConfig()),
+		glamour.WithWordWrap(w),
+	)
+	if err != nil {
+		return nil, err
+	}
+	cachedThinkingRenderer = r
+	cachedRendererWidth = w
+	return r, nil
+}
 
 const (
 	defaultListLevelIndent = 2
@@ -276,10 +330,7 @@ func renderThinkingMarkdown(text string) string {
 	if strings.TrimSpace(text) == "" {
 		return ""
 	}
-	r, err := glamour.NewTermRenderer(
-		glamour.WithStyles(thinkingStyleConfig()),
-		glamour.WithWordWrap(terminalWidth()),
-	)
+	r, err := getThinkingRenderer()
 	if err != nil {
 		return text
 	}
@@ -415,10 +466,7 @@ func renderMarkdown(text string) string {
 	if strings.TrimSpace(text) == "" {
 		return ""
 	}
-	r, err := glamour.NewTermRenderer(
-		glamour.WithStyles(replStyleConfig()),
-		glamour.WithWordWrap(terminalWidth()),
-	)
+	r, err := getRenderer()
 	if err != nil {
 		return text
 	}
@@ -432,12 +480,17 @@ func renderMarkdown(text string) string {
 // renderREPLOutput renders a full LLM response for terminal display.
 // Thinking blocks (<thinking>...</thinking> or markdown-style "* thinking") are
 // extracted and shown in gray italic above the main response.
-func renderREPLOutput(text string) string {
+// When skipThinking is true (because thinking was already streamed live via
+// liveThinkingWriter), <thinking> blocks are stripped and only the main response
+// is rendered — preventing the double-display flicker.
+func renderREPLOutput(text string, skipThinking bool) string {
 	if text == "" {
 		return ""
 	}
 
-	var sb strings.Builder
+	if skipThinking {
+		text = stripThinkingTags(text)
+	}
 
 	// Try XML-style <thinking> tags first, then markdown-style "* thinking".
 	matches := thinkingRe.FindAllStringSubmatchIndex(text, -1)
@@ -445,6 +498,7 @@ func renderREPLOutput(text string) string {
 		matches = mdThinkingRe.FindAllStringSubmatchIndex(text, -1)
 	}
 	if len(matches) > 0 {
+		var sb strings.Builder
 		var body strings.Builder
 		last := 0
 		for _, loc := range matches {
@@ -457,12 +511,25 @@ func renderREPLOutput(text string) string {
 		if mainText != "" {
 			sb.WriteString(renderMarkdown(mainText))
 		}
-	} else {
-		sb.WriteString(renderMarkdown(text))
+		result := strings.TrimRight(sb.String(), "\n")
+		return result + "\n"
 	}
 
-	result := strings.TrimRight(sb.String(), "\n")
+	result := strings.TrimRight(renderMarkdown(text), "\n")
 	return result + "\n"
+}
+
+// stripThinkingTags removes <thinking>...</thinking> and markdown-style
+// "* thinking" blocks from text. Used when thinking was already streamed
+// live to avoid double-display.
+func stripThinkingTags(text string) string {
+	text = thinkingRe.ReplaceAllString(text, "")
+	text = mdThinkingRe.ReplaceAllString(text, "")
+	// Collapse multiple consecutive blank lines.
+	for strings.Contains(text, "\n\n\n") {
+		text = strings.ReplaceAll(text, "\n\n\n", "\n\n")
+	}
+	return strings.TrimSpace(text)
 }
 
 // renderToolCall returns a styled tool call display line.
