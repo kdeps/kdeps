@@ -53,7 +53,7 @@ import (
 const (
 	builtinDDGMaxResults    = 5
 	builtinUserAgent        = "kdeps/agent"
-	builtinBashTimeout      = 30 * time.Second
+	builtinBashTimeout      = 30 * time.Second // default when timeout_seconds not supplied
 	defaultCohereRerank     = "rerank-v3.5"
 	defaultVoyageRerank     = "rerank-2"
 	defaultJinaRerank       = "jina-reranker-v2-base-multilingual"
@@ -963,19 +963,25 @@ func registerPerplexity(ctx context.Context, reg *kdepstools.Registry) {
 }
 
 // registerBashExec registers a bash command execution tool.
-// Runs arbitrary shell commands with a 30-second timeout.
+// Runs arbitrary shell commands. An optional timeout parameter (seconds) lets the
+// LLM control the deadline; defaults to 30 seconds when omitted.
 func registerBashExec(_ context.Context, reg *kdepstools.Registry) {
 	if os.Getenv("KDEPS_ALLOW_BASH") == "false" {
 		return
 	}
 	tool := &kdepstools.Tool{
 		Name:        "bash_exec",
-		Description: "Execute a bash shell command and return its output. Use for running scripts, checking system state (git status, ls, etc.), or performing file operations. Commands run with a 30-second timeout.",
+		Description: "Execute a bash shell command and return its output. Use for running scripts, checking system state (git status, ls, etc.), or performing file operations. Supply a timeout_seconds value for long-running commands (e.g. 600 for a 10-minute test run); defaults to 30 seconds.",
 		Parameters: map[string]domain.ToolParam{
 			"command": {
 				Type:        toolParamString,
 				Description: "The bash command to execute",
 				Required:    true,
+			},
+			"timeout_seconds": {
+				Type:        "number",
+				Description: "Timeout in seconds (optional, defaults to 30). Set higher for long-running commands such as test suites or builds.",
+				Required:    false,
 			},
 		},
 	}
@@ -987,7 +993,11 @@ func registerBashExec(_ context.Context, reg *kdepstools.Registry) {
 		if block, reason, _ := ValidateBashCommand(command, BashReadOnlyMode()); block {
 			return "", fmt.Errorf("bash_exec: blocked: %s", reason)
 		}
-		ctx, cancel := context.WithTimeout(context.Background(), builtinBashTimeout)
+		timeout := builtinBashTimeout
+		if secs, ok := args["timeout_seconds"].(float64); ok && secs > 0 {
+			timeout = time.Duration(secs) * time.Second
+		}
+		ctx, cancel := context.WithTimeout(context.Background(), timeout)
 		defer cancel()
 		cmd := exec.CommandContext(ctx, "bash", "-c", command)
 		var stdout, stderr strings.Builder
