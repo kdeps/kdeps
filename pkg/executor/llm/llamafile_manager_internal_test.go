@@ -30,7 +30,16 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+func testSkipAria2c(t *testing.T) {
+	t.Helper()
+	origResume := downloadWithResumeFunc
+	t.Cleanup(func() { downloadWithResumeFunc = origResume })
+	downloadWithResumeFunc = func(_, _, _ string) error { return errors.New("no aria2c in test") }
+}
+
 func TestDownload_HTTPGetError(t *testing.T) {
+	testSkipAria2c(t)
+
 	origHTTP := httpGet
 	t.Cleanup(func() { httpGet = origHTTP })
 	httpGet = func(_ string) (*stdhttp.Response, error) {
@@ -47,6 +56,8 @@ func TestDownload_HTTPGetError(t *testing.T) {
 }
 
 func TestDownload_HTTPStatusError(t *testing.T) {
+	testSkipAria2c(t)
+
 	origHTTP := httpGet
 	t.Cleanup(func() { httpGet = origHTTP })
 	httpGet = func(_ string) (*stdhttp.Response, error) {
@@ -65,6 +76,8 @@ func TestDownload_HTTPStatusError(t *testing.T) {
 }
 
 func TestDownload_OpenFileError(t *testing.T) {
+	testSkipAria2c(t)
+
 	origFS := AppFS
 	t.Cleanup(func() { AppFS = origFS })
 	AppFS = afero.NewReadOnlyFs(afero.NewMemMapFs())

@@ -42,6 +42,10 @@ import (
 )
 
 func TestDownload_HTTPErrorStatus(t *testing.T) {
+	origResume := downloadWithResumeFunc
+	t.Cleanup(func() { downloadWithResumeFunc = origResume })
+	downloadWithResumeFunc = func(_, _, _ string) error { return errors.New("no aria2c in test") }
+
 	origHTTP := httpGet
 	t.Cleanup(func() { httpGet = origHTTP })
 	httpGet = func(_ string) (*stdhttp.Response, error) {
@@ -164,6 +168,10 @@ func TestModelService_PrepareLlamafile_MakeExecutableError(t *testing.T) {
 }
 
 func TestDownload_BasenameFallback(t *testing.T) {
+	origResume := downloadWithResumeFunc
+	t.Cleanup(func() { downloadWithResumeFunc = origResume })
+	downloadWithResumeFunc = func(_, _, _ string) error { return errors.New("no aria2c in test") }
+
 	origHTTP := httpGet
 	t.Cleanup(func() { httpGet = origHTTP })
 	httpGet = func(_ string) (*stdhttp.Response, error) {
@@ -242,6 +250,11 @@ func TestLlamafileServe_StartFail(t *testing.T) {
 	var port int
 	_, _ = fmt.Sscanf(strings.TrimPrefix(srv.URL, "http://127.0.0.1:"), "%d", &port)
 
+	// Use a 100ms health-check timeout so Serve fails fast instead of waiting 60s.
+	origTimeout := llamafileStartTimeoutFunc
+	llamafileStartTimeoutFunc = func() time.Duration { return 100 * time.Millisecond }
+	t.Cleanup(func() { llamafileStartTimeoutFunc = origTimeout })
+
 	origFS := AppFS
 	t.Cleanup(func() { AppFS = origFS })
 	mem := afero.NewMemMapFs()
@@ -256,6 +269,10 @@ func TestLlamafileServe_StartFail(t *testing.T) {
 }
 
 func TestDownload_WriteSuccess(t *testing.T) {
+	origResume := downloadWithResumeFunc
+	t.Cleanup(func() { downloadWithResumeFunc = origResume })
+	downloadWithResumeFunc = func(_, _, _ string) error { return errors.New("no aria2c in test") }
+
 	origHTTP := httpGet
 	t.Cleanup(func() { httpGet = origHTTP })
 

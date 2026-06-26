@@ -84,6 +84,11 @@ func TestGGUFManager_Resolve_RemoteURL(t *testing.T) {
 	}))
 	defer srv.Close()
 
+	// Skip aria2c so we fall through to httpGet.
+	origResume := downloadWithResumeFunc
+	t.Cleanup(func() { downloadWithResumeFunc = origResume })
+	downloadWithResumeFunc = func(_, _, _ string) error { return errors.New("no aria2c in test") }
+
 	origGet := httpGet
 	t.Cleanup(func() { httpGet = origGet })
 	httpGet = stdhttp.Get //nolint:noctx
@@ -103,6 +108,11 @@ func TestGGUFManager_Resolve_RemoteURL(t *testing.T) {
 func TestGGUFManager_Resolve_Alias(t *testing.T) {
 	ReloadGGUFRegistry()
 	t.Cleanup(ReloadGGUFRegistry)
+
+	// Prevent aria2c from actually downloading (skip to httpGet fallback).
+	origResume := downloadWithResumeFunc
+	t.Cleanup(func() { downloadWithResumeFunc = origResume })
+	downloadWithResumeFunc = func(_, _, _ string) error { return errors.New("no aria2c in test") }
 
 	origGet := httpGet
 	t.Cleanup(func() { httpGet = origGet })
@@ -200,6 +210,10 @@ func TestGGUFManager_Serve_StartNew(t *testing.T) {
 }
 
 func TestServiceGGUF_DownloadModel(t *testing.T) {
+	origResume := downloadWithResumeFunc
+	t.Cleanup(func() { downloadWithResumeFunc = origResume })
+	downloadWithResumeFunc = func(_, _, _ string) error { return errors.New("no aria2c in test") }
+
 	origGet := httpGet
 	t.Cleanup(func() { httpGet = origGet })
 	httpGet = func(_ string) (*stdhttp.Response, error) {
@@ -228,6 +242,10 @@ func TestServiceGGUF_DownloadModel_UnsupportedBackend(t *testing.T) {
 }
 
 func TestServiceGGUF_ServeModel_DownloadError(t *testing.T) {
+	origResume := downloadWithResumeFunc
+	t.Cleanup(func() { downloadWithResumeFunc = origResume })
+	downloadWithResumeFunc = func(_, _, _ string) error { return errors.New("no aria2c in test") }
+
 	origGet := httpGet
 	t.Cleanup(func() { httpGet = origGet })
 	httpGet = func(_ string) (*stdhttp.Response, error) {

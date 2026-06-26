@@ -15,6 +15,7 @@
 package llm_test
 
 import (
+	"errors"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -336,6 +337,10 @@ func TestLlamafileManager_Serve_AlreadyRunning(t *testing.T) {
 }
 
 func TestLlamafileManager_Serve_Port0_StartFail(t *testing.T) {
+	// Use 100ms health-poll timeout so the test fails fast instead of waiting 60s.
+	cleanup := llm.SetLlamafileStartTimeout(func() time.Duration { return 100 * time.Millisecond })
+	defer cleanup()
+
 	mgr, dir := newMgrWithDir(t)
 	// A non-executable binary format — exec.Command.Start fails with "exec format error".
 	bin := filepath.Join(dir, "model.llamafile")
@@ -397,6 +402,10 @@ func TestLlamafileManager_Serve_StartsAndBecomesHealthy(t *testing.T) {
 }
 
 func TestLlamafileManager_Serve_NotHealthy_StartFail(t *testing.T) {
+	// Use 100ms health-poll timeout so the test fails fast instead of waiting 60s.
+	cleanup := llm.SetLlamafileStartTimeout(func() time.Duration { return 100 * time.Millisecond })
+	defer cleanup()
+
 	// Server is up but returns 503 → isHealthy returns false → tries to start binary → fails.
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusServiceUnavailable)
@@ -419,6 +428,9 @@ func TestLlamafileManager_Serve_NotHealthy_StartFail(t *testing.T) {
 }
 
 func TestLlamafileManager_Download_HTTPError(t *testing.T) {
+	cleanup := llm.SetDownloadWithResume(func(_, _, _ string) error { return errors.New("no aria2c in test") })
+	defer cleanup()
+
 	mgr, _ := newMgrWithDir(t)
 	// Use an invalid hostname that will fail DNS resolution or connection.
 	_, err := mgr.Resolve("http://127.0.0.1:1/model.llamafile")
@@ -431,6 +443,9 @@ func TestLlamafileManager_Download_HTTPError(t *testing.T) {
 }
 
 func TestLlamafileManager_Download_HTTPErrorStatus(t *testing.T) {
+	cleanup := llm.SetDownloadWithResume(func(_, _, _ string) error { return errors.New("no aria2c in test") })
+	defer cleanup()
+
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusNotFound)
 	}))
@@ -447,6 +462,9 @@ func TestLlamafileManager_Download_HTTPErrorStatus(t *testing.T) {
 }
 
 func TestLlamafileManager_Download_HTTP500(t *testing.T) {
+	cleanup := llm.SetDownloadWithResume(func(_, _, _ string) error { return errors.New("no aria2c in test") })
+	defer cleanup()
+
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusInternalServerError)
 	}))
