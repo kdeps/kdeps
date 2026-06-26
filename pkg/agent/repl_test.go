@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -2760,7 +2761,9 @@ func TestModelRepos_CurrentModel(t *testing.T) {
 func TestIsGGUFModelName_Suffix(t *testing.T) {
 	assert.True(t, IsGGUFModelName("mymodel.gguf"))
 	assert.True(t, IsGGUFModelName("/path/to/mymodel.GGUF"))
-	assert.False(t, IsGGUFModelName("llama3.2"))
+	// "llama3.2" is in the embedded GGUF registry (both GGUF and llamafile). Use
+	// a clearly cloud-only name that will never appear in the GGUF registry.
+	assert.False(t, IsGGUFModelName("claude-opus-4-8"))
 	assert.False(t, IsGGUFModelName(""))
 }
 
@@ -4200,4 +4203,65 @@ func TestCmdClear_WithSummary(t *testing.T) {
 	err := repl.cmdClear()
 	assert.NoError(t, err)
 	assert.Zero(t, loop.session.TurnCount())
+}
+
+// --- detectDefaultModelAndBackend ---
+
+func TestDetectDefaultModelAndBackend_GGUFDir(t *testing.T) {
+	// Force Priority 2 (GGUF): create a models dir with a .gguf file.
+	dir := t.TempDir()
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "llama3.gguf"), []byte("fake"), 0o600))
+	t.Setenv("KDEPS_MODELS_DIR", dir)
+	// Block Priority 1 (llamafile) by ensuring it's not in this PATH.
+	t.Setenv("PATH", t.TempDir())
+
+	model, backend := detectDefaultModelAndBackend()
+	assert.Equal(t, "llama3", model)
+	assert.Equal(t, llm.BackendGGUF, backend)
+}
+
+func TestDetectDefaultModelAndBackend_CloudEnvVar(t *testing.T) {
+	// Block all local binaries.
+	t.Setenv("PATH", t.TempDir())
+	t.Setenv("KDEPS_MODELS_DIR", t.TempDir()) // empty dir, no .gguf
+	// Set a known cloud API key env var.
+	if len(KnownCloudModels) > 0 {
+		m := KnownCloudModels[0]
+		t.Setenv(m.EnvVar, "test-key")
+		model, backend := detectDefaultModelAndBackend()
+		assert.Equal(t, m.ID, model)
+		assert.Equal(t, m.Backend, backend)
+	}
+}
+
+func TestDetectDefaultModelAndBackend_FallbackDefault(t *testing.T) {
+	// Block everything so it falls through to the default.
+	t.Setenv("PATH", t.TempDir())
+	t.Setenv("KDEPS_MODELS_DIR", t.TempDir()) // empty dir
+	// Clear all cloud API key env vars.
+	for _, m := range KnownCloudModels {
+		t.Setenv(m.EnvVar, "")
+	}
+	model, backend := detectDefaultModelAndBackend()
+	assert.NotEmpty(t, model)
+	assert.NotEmpty(t, backend)
+}
+
+func TestDetectDefaultModelAndBackend_OllamaPath(t *testing.T) {
+	// Force Priority 3 (ollama): block llamafile and gguf but keep ollama in PATH.
+	t.Setenv("KDEPS_MODELS_DIR", t.TempDir()) // empty - no .gguf
+	// Use system PATH but ensure llamafile is absent (it's not installed here).
+	// ollama IS in the system PATH (/usr/local/bin/ollama).
+	if _, err := exec.LookPath("ollama"); err != nil {
+		t.Skip("ollama not in PATH")
+	}
+
+	// Need to block llamafile if it's present.
+	if _, err := exec.LookPath("llamafile"); err == nil {
+		t.Skip("llamafile is also in PATH, can't isolate ollama path")
+	}
+
+	model, backend := detectDefaultModelAndBackend()
+	assert.Equal(t, defaultModelName, model)
+	assert.Equal(t, "ollama", backend)
 }
