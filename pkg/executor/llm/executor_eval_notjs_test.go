@@ -24,6 +24,10 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+
+	"github.com/kdeps/kdeps/v2/pkg/domain"
+	"github.com/kdeps/kdeps/v2/pkg/executor"
 )
 
 func TestShouldTreatAsLiteral_AbsolutePath(t *testing.T) {
@@ -45,4 +49,15 @@ func TestShouldTreatAsLiteral_SlashNoExtOrSep(t *testing.T) {
 	assert.True(t, e.shouldTreatAsLiteral("/"))
 	// A plain word not starting with '/' or drive letter → false.
 	assert.False(t, e.shouldTreatAsLiteral("justword"))
+}
+
+func TestBuildEnvironment_ReturnsNonNilMap(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	e := NewExecutor("")
+	ctx, err := executor.NewExecutionContext(
+		&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}},
+	)
+	require.NoError(t, err)
+	env := e.buildEnvironment(ctx)
+	assert.NotNil(t, env)
 }
