@@ -769,15 +769,19 @@ func (l *Loop) dispatchToTerminal(
 			}
 		}
 	}
+	// \033[0m: reset any open ANSI colour/style left by tool output.
+	// \r\033[K: absolute column 0, erase partial line from garbled tool output.
+	// \n (→ \r\n via crlfWriter): fresh line at column 0.
+	const lineReset = "\033[0m\r\033[K"
 	if execErr != nil {
-		fmt.Fprintf(termW, "\n  ... %s failed (%s): %v\n", name, elapsed, execErr)
+		fmt.Fprintf(termW, "%s\n  ... %s failed (%s): %v\n", lineReset, name, elapsed, execErr)
 		return fmt.Sprintf(`{"error":"%s"}`, execErr.Error())
 	}
 	if strings.HasPrefix(result, `{"status":"backgrounded"`) {
-		fmt.Fprintf(termW, "\n  ... %s backgrounded [Ctrl+Z; use bash_job_wait to retrieve]\n", name)
+		fmt.Fprintf(termW, "%s\n  ... %s backgrounded [Ctrl+Z; use bash_job_wait to retrieve]\n", lineReset, name)
 		return result
 	}
-	fmt.Fprintf(termW, "\n  ... %s done (%s)\n", name, elapsed)
+	fmt.Fprintf(termW, "%s\n  ... %s done (%s)\n", lineReset, name, elapsed)
 	return result
 }
 

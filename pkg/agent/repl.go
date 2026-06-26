@@ -1036,8 +1036,9 @@ func (r *REPL) Run() error {
 	// Wire up tool call display: write directly to stdout so each call is visible
 	// immediately when the LLM invokes it, without waiting for the full response.
 	r.loop.config.ToolCallDisplay = func(name, args string) string {
-		// \r\n: raw mode requires CR before LF to reset cursor to column 0.
-		fmt.Fprintf(os.Stdout, "\r\n%s", renderToolCall(name, args))
+		// \r\033[K: absolute column 0 + erase any leftover tool output on the current line.
+		// \r\n: fresh line in raw mode (LF alone stays at the same column).
+		fmt.Fprintf(os.Stdout, "\r\033[K\r\n%s", renderToolCall(name, args))
 		return ""
 	}
 	// Route real-time tool stdout/stderr to the terminal instead of the LLM buffer.
