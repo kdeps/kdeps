@@ -42,6 +42,8 @@ func initLocalRepo(t *testing.T, remote string) string {
 	t.Helper()
 	dir := t.TempDir()
 	run(t, dir, "git", "clone", "-q", remote, ".")
+	// Ensure the branch is named "main" regardless of init.defaultBranch.
+	run(t, dir, "git", "checkout", "-b", "main")
 	run(t, dir, "git", "config", "user.email", "test@test.com")
 	run(t, dir, "git", "config", "user.name", "Test")
 	require.NoError(t, os.WriteFile(filepath.Join(dir, "README"), []byte("init\n"), 0600))
