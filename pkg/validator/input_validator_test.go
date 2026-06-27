@@ -2310,3 +2310,13 @@ func floatPtr(f float64) *float64 {
 func stringPtr(s string) *string {
 	return &s
 }
+
+func TestValidateField_UnknownType_ReturnsNil(t *testing.T) {
+	v := validator.NewInputValidator()
+	rule := domain.FieldRule{
+		Field: "nonexistent",
+		Type:  domain.FieldType("nonexistent-type-99999"),
+	}
+	err := v.ValidateField(rule, "any-value")
+	assert.Nil(t, err)
+}
