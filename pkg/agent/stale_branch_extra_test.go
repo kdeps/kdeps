@@ -28,11 +28,13 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// initBareRemote creates a bare git repo and returns its path.
+// initBareRemote creates a bare git repo with main as the default branch
+// and returns its path. --initial-branch=main ensures clones check out main,
+// not whatever the host machine has configured via init.defaultBranch.
 func initBareRemote(t *testing.T) string {
 	t.Helper()
 	dir := t.TempDir()
-	run(t, dir, "git", "init", "--bare", "-q")
+	run(t, dir, "git", "init", "--bare", "-q", "--initial-branch=main")
 	return dir
 }
 
@@ -43,6 +45,7 @@ func initLocalRepo(t *testing.T, remote string) string {
 	dir := t.TempDir()
 	run(t, dir, "git", "clone", "-q", remote, ".")
 	// Ensure the branch is named "main" regardless of init.defaultBranch.
+	// An empty clone has no local branch; checkout -b creates one.
 	run(t, dir, "git", "checkout", "-b", "main")
 	run(t, dir, "git", "config", "user.email", "test@test.com")
 	run(t, dir, "git", "config", "user.name", "Test")
@@ -55,6 +58,9 @@ func initLocalRepo(t *testing.T, remote string) string {
 
 func run(t *testing.T, dir string, name string, args ...string) {
 	t.Helper()
+	// Prepend -c init.defaultBranch=main so that git always uses "main" as
+	// the default branch name, regardless of the host machine's git config.
+	args = append([]string{"-c", "init.defaultBranch=main"}, args...)
 	cmd := exec.Command(name, args...)
 	cmd.Dir = dir
 	out, err := cmd.CombinedOutput()
