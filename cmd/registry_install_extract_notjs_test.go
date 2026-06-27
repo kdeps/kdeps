@@ -136,6 +136,18 @@ func TestExtractFileRegistry_CopyAtLimit(t *testing.T) {
 	assert.Contains(t, err.Error(), "exceeds maximum allowed size")
 }
 
+func TestExtractFileRegistry_CopyIOError(t *testing.T) {
+	orig := extractFileIOCopyFunc
+	t.Cleanup(func() { extractFileIOCopyFunc = orig })
+	extractFileIOCopyFunc = func(_ io.Writer, _ io.Reader) (int64, error) {
+		return 0, errors.New("i/o error during copy")
+	}
+	err := extractFile(filepath.Join(t.TempDir(), "f.txt"), bytes.NewReader([]byte("x")))
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "write file")
+	assert.Contains(t, err.Error(), "i/o error during copy")
+}
+
 func TestExtractRegularFile_Success(t *testing.T) {
 	target := filepath.Join(t.TempDir(), "f.txt")
 	err := extractRegularFile(
@@ -152,6 +164,16 @@ func TestSafeArchiveTarget_AbsAndRelErr(t *testing.T) {
 	}
 	_, _, err := safeArchiveTarget(string([]byte{0x00}), "f.txt")
 	require.Error(t, err)
+}
+
+// TestExtractFile_OpenFileTargetIsDir covers the os.OpenFile error branch in extractFile.
+// Passing a directory as target causes MkdirAll(Dir(target)) to succeed but
+// OpenFile(target) to fail with "is a directory".
+func TestExtractFile_OpenFileTargetIsDir(t *testing.T) {
+	target := t.TempDir() // target itself is a directory
+	err := extractFile(target, bytes.NewReader([]byte("data")))
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "create file")
 }
 
 func TestExtractArchive_TarNextAndMkdirErr(t *testing.T) {

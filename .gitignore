@@ -287,3 +287,4 @@ book
 .claude_tmp/
 __pycache__/
 pkg/executor/embedding/models/
+.tmp/

@@ -2589,3 +2589,70 @@ func TestBuild_GenerateDockerfileError(t *testing.T) {
 		t.Fatal("expected error for nonexistent base OS")
 	}
 }
+
+// TestBuilder_Build_SpaceReclaimedLogged covers the `else if spaceReclaimed > 0`
+// branch in Build (builder_core.go:147-149). The mock routes /build to a
+// success response and /images/prune to a non-zero SpaceReclaimed value.
+func TestBuilder_Build_SpaceReclaimedLogged(t *testing.T) {
+	tmpDir := t.TempDir()
+	require.NoError(t, os.WriteFile(
+		filepath.Join(tmpDir, "workflow.yaml"),
+		[]byte("metadata:\n  name: test\n"),
+		0644,
+	))
+	t.Chdir(tmpDir)
+
+	mockClient := newMockDockerClient(t, func(r *http.Request) (*http.Response, error) {
+		if strings.Contains(r.URL.Path, "prune") {
+			return jsonResponse(http.StatusOK, map[string]interface{}{
+				"ImagesDeleted":  []interface{}{},
+				"SpaceReclaimed": float64(1048576),
+			}), nil
+		}
+		// All other requests (build) return success.
+		return &http.Response{
+			StatusCode: http.StatusOK,
+			Body:       io.NopCloser(strings.NewReader(`{"stream":"build complete\n"}`)),
+			Proto:      "HTTP/1.1",
+			ProtoMajor: 1,
+			ProtoMinor: 1,
+		}, nil
+	})
+
+	builder := &docker.Builder{
+		BaseOS:   "alpine",
+		Client:   mockClient,
+		Compiler: &docker.DefaultCompiler{},
+	}
+	workflow := &domain.Workflow{
+		Metadata: domain.WorkflowMetadata{
+			Name:    "spacetest",
+			Version: "1.0.0",
+		},
+		Settings: domain.WorkflowSettings{
+			AgentSettings: domain.AgentSettings{
+				PythonVersion: "3.12",
+			},
+		},
+	}
+
+	imageName, err := builder.Build(workflow, "", false)
+	require.NoError(t, err)
+	assert.Equal(t, "spacetest:1.0.0", imageName)
+}
+
+// TestBuilder_GenerateDockerfile_ApplyImageProfileError directly calls
+// GenerateDockerfile (which calls applyImageProfile) on a builder whose
+// BaseOS is invalid, covering the error return at builder_templates.go:41.
+func TestBuilder_GenerateDockerfile_ApplyImageProfileError(t *testing.T) {
+	builder := &docker.Builder{BaseOS: "invalid-os-not-supported"}
+	workflow := &domain.Workflow{
+		Metadata: domain.WorkflowMetadata{
+			Name:    "test",
+			Version: "1.0.0",
+		},
+	}
+	_, err := builder.GenerateDockerfile(workflow)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "base OS")
+}
