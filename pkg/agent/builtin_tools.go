@@ -31,7 +31,6 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
-	"syscall"
 	"time"
 
 	"github.com/kdeps/kdeps/v2/pkg/domain"
@@ -1022,7 +1021,7 @@ func registerBashExec(_ context.Context, reg *kdepstools.Registry) {
 		// backgrounding manually in the select below so the process survives
 		// beyond context cancellation when the user presses Ctrl+Z.
 		cmd := exec.Command("bash", "-c", command) //nolint:noctx // intentional: manual ctx handling below
-		cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
+		setProcessGroup(cmd)
 		var stdout, stderr strings.Builder
 		if tool.OutputWriter != nil {
 			cmd.Stdout = io.MultiWriter(&stdout, tool.OutputWriter)

@@ -35,7 +35,6 @@ import (
 	"strconv"
 	"strings"
 	"sync"
-	"syscall"
 	"time"
 
 	"github.com/charmbracelet/lipgloss"
@@ -1119,8 +1118,8 @@ func (r *REPL) handleSignalSIGTSTP(sigCh chan os.Signal, bgCh chan struct{}) {
 		}
 	} else {
 		signal.Stop(sigCh)
-		_ = syscall.Kill(0, syscall.SIGTSTP)
-		signal.Notify(sigCh, os.Interrupt, syscall.SIGTSTP)
+		sendSIGTSTP()
+		notifySIGTSTP(sigCh)
 	}
 	fmt.Fprint(os.Stdout, "\r\n")
 }
@@ -1139,7 +1138,7 @@ func (r *REPL) handleSignals(sigCh chan os.Signal, done <-chan struct{}) {
 			switch sig {
 			case os.Interrupt:
 				r.handleSignalInterrupt(tc)
-			case syscall.SIGTSTP:
+			case sigTSTP:
 				r.handleSignalSIGTSTP(sigCh, bgCh)
 			}
 		case <-done:
@@ -1153,7 +1152,7 @@ func (r *REPL) runLoop(rl *readline.Instance) error {
 	// SIGINT (Ctrl+C): cancel tool or full turn.
 	// SIGTSTP (Ctrl+Z): background tool or suspend kdeps.
 	sigCh := make(chan os.Signal, 1)
-	signal.Notify(sigCh, os.Interrupt, syscall.SIGTSTP)
+	notifySIGTSTP(sigCh)
 	defer signal.Stop(sigCh)
 
 	loopDone := make(chan struct{})
