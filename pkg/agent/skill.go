@@ -24,6 +24,8 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
+
+	"github.com/spf13/afero"
 )
 
 // Skill represents a loaded skill from a SKILL.md file.
@@ -63,7 +65,7 @@ func loadSkillSlice(extraPaths []string) []Skill {
 
 	dirs := defaultSkillDirs()
 	for _, p := range extraPaths {
-		if info, err := os.Stat(p); err == nil && info.IsDir() {
+		if info, err := AppFS.Stat(p); err == nil && info.IsDir() {
 			dirs = append(dirs, p)
 		} else if err == nil && !info.IsDir() {
 			if sk := loadSkillFromFile(p); sk != nil {
@@ -89,7 +91,7 @@ func loadSkillSlice(extraPaths []string) []Skill {
 // A directory containing SKILL.md is a skill root (the dirname is the skill name).
 // Otherwise, individual .md files are treated as skills.
 func discoverSkillsInDir(root string) []Skill {
-	info, err := os.Stat(root)
+	info, err := AppFS.Stat(root)
 	if err != nil || !info.IsDir() {
 		return nil
 	}
@@ -98,7 +100,7 @@ func discoverSkillsInDir(root string) []Skill {
 
 	// Check if root itself has SKILL.md
 	skillPath := filepath.Join(root, "SKILL.md")
-	if _, statErr := os.Stat(skillPath); statErr == nil {
+	if _, statErr := AppFS.Stat(skillPath); statErr == nil {
 		if sk := loadSkillFromFile(skillPath); sk != nil {
 			skills = append(skills, *sk)
 		}
@@ -134,7 +136,7 @@ func discoverSkillsInDir(root string) []Skill {
 //
 //	Content body...
 func loadSkillFromFile(path string) *Skill {
-	data, err := os.ReadFile(path)
+	data, err := afero.ReadFile(AppFS, path)
 	if err != nil {
 		return nil
 	}

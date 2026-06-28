@@ -39,6 +39,7 @@ import (
 
 	"github.com/charmbracelet/lipgloss"
 	"github.com/chzyer/readline"
+	"github.com/spf13/afero"
 	"golang.org/x/term"
 
 	"github.com/kdeps/kdeps/v2/pkg/domain"
@@ -820,7 +821,7 @@ func filePathCompletions(prefix string) []string {
 	if searchDir == "" {
 		searchDir = "."
 	}
-	entries, err := os.ReadDir(searchDir)
+	entries, err := afero.ReadDir(AppFS, searchDir)
 	if err != nil {
 		return nil
 	}
@@ -870,13 +871,13 @@ func expandFileRefs(input string) (string, []string) {
 		}
 		ext := strings.ToLower(filepath.Ext(path))
 		if imageExts[ext] {
-			if _, err := os.Stat(path); err == nil {
+			if _, err := AppFS.Stat(path); err == nil {
 				files = append(files, path)
 				return "" // strip the @ref from the text; file goes to multimodal
 			}
 			return match
 		}
-		data, err := os.ReadFile(path)
+		data, err := afero.ReadFile(AppFS, path)
 		if err != nil {
 			return match
 		}
@@ -2371,7 +2372,7 @@ func (r *REPL) cmdSessionImport(store *SessionStore, path string) error {
 			expanded = filepath.Join(home, path[2:])
 		}
 	}
-	if _, statErr := os.Stat(expanded); statErr != nil {
+	if _, statErr := AppFS.Stat(expanded); statErr != nil {
 		fmt.Fprintln(os.Stdout, styleReplMeta.Render(fmt.Sprintf("File not found: %s", expanded)))
 		return nil //nolint:nilerr // user-facing message; stat error is not propagated
 	}
@@ -2402,7 +2403,7 @@ func (r *REPL) cmdEditor() error {
 	if closeErr := tmp.Close(); closeErr != nil {
 		return fmt.Errorf("editor: close temp file: %w", closeErr)
 	}
-	defer func() { _ = os.Remove(tmpPath) }()
+	defer func() { _ = AppFS.Remove(tmpPath) }()
 
 	cmd := exec.CommandContext(r.ctx, editor, tmpPath)
 	cmd.Stdin = os.Stdin
@@ -2412,7 +2413,7 @@ func (r *REPL) cmdEditor() error {
 		return fmt.Errorf("editor: %s exited with error: %w", editor, runErr)
 	}
 
-	data, readErr := os.ReadFile(tmpPath)
+	data, readErr := afero.ReadFile(AppFS, tmpPath)
 	if readErr != nil {
 		return fmt.Errorf("editor: read temp file: %w", readErr)
 	}

@@ -23,10 +23,15 @@ import (
 	"encoding/json"
 	"errors"
 
+	"github.com/spf13/afero"
+
 	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
 	"github.com/kdeps/kdeps/v2/pkg/domain"
 	"github.com/kdeps/kdeps/v2/pkg/executor"
 )
+
+//nolint:gochecknoglobals // afero filesystem abstraction; enables test injection
+var AppFS afero.Fs = afero.NewOsFs()
 
 // Executor executes local filesystem search resources.
 type Executor struct{}

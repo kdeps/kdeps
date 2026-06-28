@@ -33,9 +33,14 @@ import (
 
 	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
 
+	"github.com/spf13/afero"
+
 	"github.com/kdeps/kdeps/v2/pkg/domain"
 	"github.com/kdeps/kdeps/v2/pkg/executor"
 )
+
+//nolint:gochecknoglobals // afero filesystem abstraction; enables test injection
+var AppFS afero.Fs = afero.NewOsFs()
 
 // fileInput is the JSON structure that may be read from stdin in file mode.
 // All fields are optional: missing fields fall back to environment variables
@@ -153,7 +158,7 @@ func loadContentFromPath(inp fileInput) (fileInput, error) {
 	if inp.Content != "" || inp.Path == "" {
 		return inp, nil
 	}
-	fileData, readErr := os.ReadFile(inp.Path)
+	fileData, readErr := afero.ReadFile(AppFS, inp.Path)
 	if readErr != nil {
 		return inp, fmt.Errorf("read file %s: %w", inp.Path, readErr)
 	}

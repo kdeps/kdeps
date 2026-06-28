@@ -56,8 +56,12 @@ func TestExtractArchive_AndFileErrors(t *testing.T) {
 }
 
 func TestSafeArchiveTarget_AbsError(t *testing.T) {
-	_, _, err := safeArchiveTarget("\x00bad", "entry")
-	require.Error(t, err)
+	// Invalid destDir with a NUL byte: TargetAbs succeeds (filepath.Abs is string-only),
+	// but the result can't be validated as inside destDir, so SkipBadPaths=true silently
+	// skips the entry (ok=false) instead of returning an error.
+	_, ok, err := safeArchiveTarget("\x00bad", "entry")
+	require.NoError(t, err)
+	assert.False(t, ok)
 }
 
 func TestExtractArchive_NextError(t *testing.T) {
@@ -162,8 +166,10 @@ func TestSafeArchiveTarget_AbsAndRelErr(t *testing.T) {
 	if os.Getenv("GOOS") == "windows" {
 		t.Skip("path semantics differ on Windows")
 	}
-	_, _, err := safeArchiveTarget(string([]byte{0x00}), "f.txt")
-	require.Error(t, err)
+	// NUL-byte destDir: same as AbsError case — SkipBadPaths=true silently skips.
+	_, ok, err := safeArchiveTarget(string([]byte{0x00}), "f.txt")
+	require.NoError(t, err)
+	assert.False(t, ok)
 }
 
 // TestExtractFile_OpenFileTargetIsDir covers the os.OpenFile error branch in extractFile.

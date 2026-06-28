@@ -29,9 +29,14 @@ import (
 
 	playwright "github.com/playwright-community/playwright-go"
 
+	"github.com/spf13/afero"
+
 	"github.com/kdeps/kdeps/v2/pkg/domain"
 	"github.com/kdeps/kdeps/v2/pkg/executor"
 )
+
+//nolint:gochecknoglobals // afero filesystem abstraction; enables test injection
+var AppFS afero.Fs = afero.NewOsFs()
 
 const (
 	defaultBrowserTimeout = 30 * time.Second

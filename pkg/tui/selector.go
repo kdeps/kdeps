@@ -11,7 +11,11 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
+	"github.com/spf13/afero"
 )
+
+//nolint:gochecknoglobals // afero filesystem abstraction; enables test injection
+var AppFS afero.Fs = afero.NewOsFs()
 
 // ItemKind classifies a selectable item in the startup TUI.
 type ItemKind int
@@ -242,7 +246,7 @@ func discoverItems() [numTabs][]Item {
 }
 
 func discoverAgentsDir(agentsDir string, items *[numTabs][]Item) {
-	entries, _ := os.ReadDir(agentsDir)
+	entries, _ := afero.ReadDir(AppFS, agentsDir)
 	for _, e := range entries {
 		if !e.IsDir() {
 			continue
@@ -266,7 +270,7 @@ func discoverAgentsDir(agentsDir string, items *[numTabs][]Item) {
 }
 
 func discoverComponentsDir(compsDir string, items *[numTabs][]Item) {
-	entries, _ := os.ReadDir(compsDir)
+	entries, _ := afero.ReadDir(AppFS, compsDir)
 	for _, e := range entries {
 		if !e.IsDir() {
 			continue
@@ -322,7 +326,7 @@ func agentsDirFromEnv(home string) string {
 
 func hasFile(dir string, names ...string) bool {
 	for _, name := range names {
-		if _, err := os.Stat(filepath.Join(dir, name)); err == nil {
+		if _, err := AppFS.Stat(filepath.Join(dir, name)); err == nil {
 			return true
 		}
 	}

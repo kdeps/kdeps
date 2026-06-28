@@ -22,13 +22,17 @@ package manifest
 import (
 	"errors"
 	"fmt"
-	"os"
 	"path/filepath"
 
 	goyaml "gopkg.in/yaml.v3"
 
 	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
+
+	"github.com/spf13/afero"
 )
+
+//nolint:gochecknoglobals // afero filesystem abstraction; enables test injection
+var AppFS afero.Fs = afero.NewOsFs()
 
 // ManifestFile is the default name for a kdeps package manifest.
 const ManifestFile = "kdeps.pkg.yaml"
@@ -54,7 +58,7 @@ type Manifest struct {
 func Load(dir string) (*Manifest, error) {
 	kdeps_debug.Log("enter: Load")
 	path := filepath.Join(dir, ManifestFile)
-	data, err := os.ReadFile(path)
+	data, err := afero.ReadFile(AppFS, path)
 	if err != nil {
 		return nil, fmt.Errorf("read manifest %s: %w", path, err)
 	}

@@ -11,9 +11,9 @@
 package iso
 
 import (
-	"os"
-
 	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
+
+	"github.com/spf13/afero"
 )
 
 // mkimageRawBIOSImage is the Docker image used for assembling raw disk images.
@@ -159,5 +159,5 @@ func assembleScriptContent() string {
 
 func writeAssembleScript(path, _ string, _ bool) error {
 	kdeps_debug.Log("enter: writeAssembleScript")
-	return os.WriteFile(path, []byte(assembleScriptContent()), 0600)
+	return afero.WriteFile(AppFS, path, []byte(assembleScriptContent()), 0600)
 }

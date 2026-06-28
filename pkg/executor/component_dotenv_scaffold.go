@@ -20,9 +20,10 @@ package executor
 
 import (
 	"fmt"
-	"os"
 	"path/filepath"
 	"strings"
+
+	"github.com/spf13/afero"
 
 	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
 	"github.com/kdeps/kdeps/v2/pkg/domain"
@@ -65,7 +66,7 @@ func scaffoldDotEnv(comp *domain.Component, compDir string) (bool, error) {
 	writeDotEnvHeader(&sb, comp)
 	appendDotEnvVarLines(&sb, vars)
 
-	if err := os.WriteFile(dotEnvPath, []byte(sb.String()), 0o600); err != nil {
+	if err := afero.WriteFile(AppFS, dotEnvPath, []byte(sb.String()), 0o600); err != nil {
 		return false, fmt.Errorf("scaffold .env: %w", err)
 	}
 	return true, nil
@@ -80,7 +81,7 @@ func scaffoldReadme(comp *domain.Component, compDir string) (bool, error) {
 		return false, nil
 	}
 	content := buildReadmeContent(comp)
-	if err := os.WriteFile(readmePath, []byte(content), 0o644); err != nil { //nolint:gosec // README is world-readable
+	if err := afero.WriteFile(AppFS, readmePath, []byte(content), 0o644); err != nil {
 		return false, fmt.Errorf("scaffold README.md: %w", err)
 	}
 	return true, nil

@@ -19,9 +19,10 @@
 package http
 
 import (
-	"os"
 	"path/filepath"
 	"strings"
+
+	"github.com/spf13/afero"
 
 	"github.com/kdeps/kdeps/v2/pkg/manifest"
 )
@@ -44,7 +45,7 @@ func clearWorkflowResources(workflowPath string) {
 
 func clearResourcesDir(dir string) {
 	debugEnter("clearResourcesDir")
-	entries, err := os.ReadDir(dir)
+	entries, err := afero.ReadDir(AppFS, dir)
 	if err != nil {
 		return
 	}

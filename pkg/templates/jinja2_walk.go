@@ -24,7 +24,12 @@ import (
 	"path/filepath"
 
 	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
+
+	"github.com/spf13/afero"
 )
+
+//nolint:gochecknoglobals // afero filesystem abstraction; enables test injection
+var AppFS afero.Fs = afero.NewOsFs()
 
 // walkJinja2Template walks through template directory and generates files using Jinja2.
 func (g *Generator) walkJinja2Template(
@@ -60,7 +65,7 @@ func (g *Generator) processJinja2Directory(
 ) error {
 	kdeps_debug.Log("enter: processJinja2Directory")
 	targetDir := filepath.Join(outputDir, dirName)
-	if mkdirErr := os.MkdirAll(targetDir, 0750); mkdirErr != nil {
+	if mkdirErr := AppFS.MkdirAll(targetDir, 0750); mkdirErr != nil {
 		return mkdirErr
 	}
 
@@ -100,8 +105,7 @@ func (r *Jinja2Renderer) copyFileFromFS(sourcePath, targetPath string) error {
 	if err != nil {
 		return err
 	}
-	//nolint:gosec // G306: 0644 permissions needed for generated files to be readable
-	return os.WriteFile(targetPath, content, 0644)
+	return afero.WriteFile(AppFS, targetPath, content, 0644)
 }
 
 // generateJinja2File generates a single file from a Jinja2 template.
@@ -118,8 +122,7 @@ func (g *Generator) generateJinja2File(
 		return err
 	}
 
-	//nolint:gosec // G306: 0644 permissions needed for generated files to be readable by other processes
-	if writeErr := os.WriteFile(targetPath, []byte(rendered), 0644); writeErr != nil {
+	if writeErr := afero.WriteFile(AppFS, targetPath, []byte(rendered), 0644); writeErr != nil {
 		return fmt.Errorf("failed to write file: %w", writeErr)
 	}
 

@@ -19,6 +19,8 @@ import (
 	"strings"
 
 	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
+
+	"github.com/spf13/afero"
 )
 
 // buildRawBIOSWithImage is the internal implementation that supports thin builds.
@@ -61,7 +63,7 @@ func buildRawBIOSWithImage(
 // findKernelInitrd locates the kernel, initrd, and cmdline files in the build directory.
 func findKernelInitrd(dir string) (string, string, string, error) {
 	kdeps_debug.Log("enter: findKernelInitrd")
-	entries, err := os.ReadDir(dir)
+	entries, err := afero.ReadDir(AppFS, dir)
 	if err != nil {
 		return "", "", "", fmt.Errorf("failed to read build directory: %w", err)
 	}
@@ -101,7 +103,7 @@ func createRawBIOSWorkDir() (string, error) {
 	}
 
 	cacheDir := filepath.Join(home, ".cache", "kdeps")
-	if mkdirErr := os.MkdirAll(cacheDir, 0750); mkdirErr != nil {
+	if mkdirErr := AppFS.MkdirAll(cacheDir, 0750); mkdirErr != nil {
 		return "", fmt.Errorf("failed to create cache directory: %w", mkdirErr)
 	}
 
@@ -140,7 +142,7 @@ func exportDockerImageToWorkDir(
 		return nil
 	}
 	bootPath := filepath.Join(workDir, "boot.sh")
-	if writeErr := os.WriteFile(bootPath, []byte(bootScript), 0600); writeErr != nil {
+	if writeErr := afero.WriteFile(AppFS, bootPath, []byte(bootScript), 0600); writeErr != nil {
 		return fmt.Errorf("failed to write boot script: %w", writeErr)
 	}
 	return nil
@@ -177,7 +179,7 @@ func assembleRawBIOS(
 	if err != nil {
 		return err
 	}
-	defer os.RemoveAll(workDir)
+	defer AppFS.RemoveAll(workDir) //nolint:errcheck // cleanup-only deferred call
 
 	if copyErr := copyKernelArtifacts(workDir, kernelPath, initrdPath, cmdlinePath); copyErr != nil {
 		return copyErr

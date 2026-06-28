@@ -35,6 +35,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/spf13/afero"
+
 	"github.com/kdeps/kdeps/v2/pkg/domain"
 	"github.com/kdeps/kdeps/v2/pkg/executor"
 	executorLLM "github.com/kdeps/kdeps/v2/pkg/executor/llm"
@@ -282,7 +284,7 @@ func detectDefaultModelAndBackend() (string, string) {
 		}
 	}
 	if modelsDir != "" {
-		if entries, err := os.ReadDir(modelsDir); err == nil {
+		if entries, err := afero.ReadDir(AppFS, modelsDir); err == nil {
 			for _, e := range entries {
 				if !e.IsDir() && strings.HasSuffix(e.Name(), ".gguf") {
 					return strings.TrimSuffix(e.Name(), ".gguf"), executorLLM.BackendGGUF
@@ -738,7 +740,7 @@ func (l *Loop) dispatchToTerminal(
 		defer func() {
 			tool.OutputWriter = nil
 			_ = f.Close()
-			_ = os.Remove(f.Name())
+			_ = AppFS.Remove(f.Name())
 		}()
 	}
 

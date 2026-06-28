@@ -23,16 +23,17 @@ package iso
 import (
 	"context"
 	"fmt"
-	"os"
 	"path/filepath"
 	"strings"
 
 	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
+
+	"github.com/spf13/afero"
 )
 
 func ensureOutputDirectory(outputPath string) error {
 	outputDir := filepath.Dir(outputPath)
-	if mkdirErr := os.MkdirAll(outputDir, 0750); mkdirErr != nil {
+	if mkdirErr := AppFS.MkdirAll(outputDir, 0750); mkdirErr != nil {
 		return fmt.Errorf("failed to create output directory: %w", mkdirErr)
 	}
 	return nil
@@ -65,7 +66,7 @@ func (b *Builder) buildRawImage(
 // findLinuxKitOutput finds the output file produced by linuxkit build in the given directory.
 func findLinuxKitOutput(dir, format string) (string, error) {
 	kdeps_debug.Log("enter: findLinuxKitOutput")
-	entries, err := os.ReadDir(dir)
+	entries, err := afero.ReadDir(AppFS, dir)
 	if err != nil {
 		return "", fmt.Errorf("failed to read build output directory: %w", err)
 	}

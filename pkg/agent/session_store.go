@@ -27,7 +27,12 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/spf13/afero"
 )
+
+//nolint:gochecknoglobals // afero filesystem abstraction; enables test injection
+var AppFS afero.Fs = afero.NewOsFs()
 
 const sessionDir = ".kdeps/sessions"
 
@@ -106,14 +111,14 @@ func (s *SessionStore) SaveAs(session SessionReader, name, model string) (string
 	defer s.mu.Unlock()
 
 	dir := s.sessionBasePath()
-	if err := os.MkdirAll(dir, 0750); err != nil {
+	if err := AppFS.MkdirAll(dir, 0750); err != nil {
 		return "", fmt.Errorf("session store: failed to create dir: %w", err)
 	}
 
 	id := fmt.Sprintf("session-%d", time.Now().UnixNano())
 	path := filepath.Join(dir, id+".jsonl")
 
-	f, err := os.Create(path)
+	f, err := AppFS.Create(path)
 	if err != nil {
 		return "", fmt.Errorf("session store: failed to create file: %w", err)
 	}
@@ -162,7 +167,7 @@ func (s *SessionStore) Load(id string) (*Session, error) {
 	if path == "" {
 		return nil, fmt.Errorf("session store: session %q not found", id)
 	}
-	f, err := os.Open(path)
+	f, err := AppFS.Open(path)
 	if err != nil {
 		return nil, fmt.Errorf("session store: %w", err)
 	}
@@ -197,12 +202,12 @@ func (s *SessionStore) Load(id string) (*Session, error) {
 func (s *SessionStore) findSessionFileLocked(id string) string {
 	if s.cwd != "" {
 		p := filepath.Join(s.sessionBasePath(), id+".jsonl")
-		if _, err := os.Stat(p); err == nil {
+		if _, err := AppFS.Stat(p); err == nil {
 			return p
 		}
 	}
 	p := filepath.Join(s.basePath, id+".jsonl")
-	if _, err := os.Stat(p); err == nil {
+	if _, err := AppFS.Stat(p); err == nil {
 		return p
 	}
 	return ""
@@ -234,7 +239,7 @@ func (s *SessionStore) ListMeta() ([]SessionMetadata, error) {
 	dirs := s.listDirsLocked()
 	var metas []SessionMetadata
 	for _, dir := range dirs {
-		entries, err := os.ReadDir(dir)
+		entries, err := afero.ReadDir(AppFS, dir)
 		if err != nil {
 			if os.IsNotExist(err) {
 				continue
@@ -264,7 +269,7 @@ func (s *SessionStore) listDirsLocked() []string {
 		return []string{s.sessionBasePath()}
 	}
 	// No cwd: scan base dir for JSONL files and subdirs.
-	entries, err := os.ReadDir(s.basePath)
+	entries, err := afero.ReadDir(AppFS, s.basePath)
 	if err != nil {
 		return []string{s.basePath}
 	}
@@ -280,7 +285,7 @@ func (s *SessionStore) listDirsLocked() []string {
 // loadMetaFromPathLocked reads session metadata from an explicit path.
 // Must be called with s.mu held.
 func (s *SessionStore) loadMetaFromPathLocked(path, id string) (*SessionMetadata, error) {
-	f, err := os.Open(path)
+	f, err := AppFS.Open(path)
 	if err != nil {
 		return nil, err
 	}
@@ -336,7 +341,7 @@ func (s *SessionStore) Delete(id string) error {
 	if path == "" {
 		return fmt.Errorf("session store: session %q not found", id)
 	}
-	if err := os.Remove(path); err != nil {
+	if err := AppFS.Remove(path); err != nil {
 		return fmt.Errorf("session store: delete %s: %w", id, err)
 	}
 	return nil
@@ -348,24 +353,24 @@ func (s *SessionStore) Import(srcPath string) (string, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	if err := os.MkdirAll(s.basePath, 0750); err != nil {
+	if err := AppFS.MkdirAll(s.basePath, 0750); err != nil {
 		return "", fmt.Errorf("session store: failed to create dir: %w", err)
 	}
 
 	id := fmt.Sprintf("session-%d", time.Now().UnixNano())
 	dstPath := filepath.Join(s.basePath, id+".jsonl")
 
-	data, err := os.ReadFile(srcPath)
+	data, err := afero.ReadFile(AppFS, srcPath)
 	if err != nil {
 		return "", fmt.Errorf("session store: import read %s: %w", srcPath, err)
 	}
-	if writeErr := os.WriteFile(dstPath, data, 0600); writeErr != nil {
+	if writeErr := afero.WriteFile(AppFS, dstPath, data, 0600); writeErr != nil {
 		return "", fmt.Errorf("session store: import write: %w", writeErr)
 	}
 	return id, nil
 }
 
-func writeJSONLine(f *os.File, v interface{}) error {
+func writeJSONLine(f afero.File, v interface{}) error {
 	data, err := json.Marshal(v)
 	if err != nil {
 		return err

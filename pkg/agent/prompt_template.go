@@ -25,6 +25,8 @@ import (
 	"strconv"
 	"strings"
 	"unicode"
+
+	"github.com/spf13/afero"
 )
 
 const (
@@ -83,7 +85,7 @@ func loadPromptTemplateSlice(extraPaths []string) []PromptTemplate {
 
 // loadPromptTemplatesFromDir scans dir non-recursively for .md files.
 func loadPromptTemplatesFromDir(dir string) []PromptTemplate {
-	entries, err := os.ReadDir(dir)
+	entries, err := afero.ReadDir(AppFS, dir)
 	if err != nil {
 		return nil
 	}
@@ -103,7 +105,7 @@ func loadPromptTemplatesFromDir(dir string) []PromptTemplate {
 
 // loadPromptTemplateFromFile reads and parses one .md file as a prompt template.
 func loadPromptTemplateFromFile(path string) *PromptTemplate {
-	data, err := os.ReadFile(path)
+	data, err := afero.ReadFile(AppFS, path)
 	if err != nil {
 		return nil
 	}

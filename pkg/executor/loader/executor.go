@@ -36,12 +36,16 @@ import (
 	"github.com/PuerkitoBio/goquery"
 	"github.com/ledongthuc/pdf"
 	"github.com/microcosm-cc/bluemonday"
+	"github.com/spf13/afero"
 	"github.com/tmc/langchaingo/textsplitter"
 
 	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
 	"github.com/kdeps/kdeps/v2/pkg/domain"
 	"github.com/kdeps/kdeps/v2/pkg/executor"
 )
+
+//nolint:gochecknoglobals // afero filesystem abstraction; enables test injection
+var AppFS afero.Fs = afero.NewOsFs()
 
 // Document is a simple document type for loader output.
 type Document struct {
@@ -129,7 +133,7 @@ func loadDocuments(cfg *domain.LoaderConfig) ([]Document, error) {
 }
 
 func loadText(source string) ([]Document, error) {
-	data, err := os.ReadFile(source)
+	data, err := afero.ReadFile(AppFS, source)
 	if err != nil {
 		return nil, fmt.Errorf("loader text: read %s: %w", source, err)
 	}
@@ -222,7 +226,11 @@ func loadPDF(source, password string) ([]Document, error) {
 	var reader *pdf.Reader
 	if password != "" {
 		passwd := password
-		reader, err = pdf.NewReaderEncrypted(f, info.Size(), func() string { s := passwd; passwd = ""; return s })
+		reader, err = pdf.NewReaderEncrypted(
+			f,
+			info.Size(),
+			func() string { s := passwd; passwd = ""; return s },
+		)
 	} else {
 		reader, err = pdf.NewReader(f, info.Size())
 	}
@@ -260,7 +268,10 @@ func loadDirectory(source string) ([]Document, error) {
 		if err != nil || d.IsDir() {
 			return nil //nolint:nilerr // skip unreadable dirs/files; continue walk
 		}
-		data, rerr := os.ReadFile(path) //nolint:gosec // G122: path comes from WalkDir; user controls source root
+		data, rerr := afero.ReadFile(
+			AppFS,
+			path,
+		)
 		if rerr != nil {
 			return nil //nolint:nilerr // skip unreadable files; continue walk
 		}
@@ -280,7 +291,7 @@ func loadDirectory(source string) ([]Document, error) {
 // loadNotionDirectory loads all Notion-exported .md files from a directory.
 // Each .md file becomes one Document. Compatible with Notion's "Export as Markdown" format.
 func loadNotionDirectory(source string) ([]Document, error) {
-	entries, err := os.ReadDir(source)
+	entries, err := afero.ReadDir(AppFS, source)
 	if err != nil {
 		return nil, fmt.Errorf("loader notion: read %s: %w", source, err)
 	}
@@ -291,7 +302,7 @@ func loadNotionDirectory(source string) ([]Document, error) {
 			continue
 		}
 		path := filepath.Join(source, entry.Name())
-		data, rerr := os.ReadFile(path)
+		data, rerr := afero.ReadFile(AppFS, path)
 		if rerr != nil {
 			continue
 		}
@@ -326,7 +337,7 @@ func runCLIToFile(label, bin string, args []string, source string) ([]Document, 
 	if dirErr != nil {
 		return nil, fmt.Errorf("loader %s: temp dir: %w", label, dirErr)
 	}
-	defer os.RemoveAll(tmpDir)
+	defer AppFS.RemoveAll(tmpDir) //nolint:errcheck // cleanup-only deferred call
 	tmpFile := filepath.Join(tmpDir, "output.txt")
 	allArgs := make([]string, 0, len(args)+2) //nolint:mnd // capacity for source+tmpFile
 	allArgs = append(allArgs, args...)
@@ -336,11 +347,13 @@ func runCLIToFile(label, bin string, args []string, source string) ([]Document, 
 	if cmdErr != nil {
 		return nil, fmt.Errorf("loader %s: %w: %s", label, cmdErr, string(output))
 	}
-	data, readErr := os.ReadFile(tmpFile)
+	data, readErr := afero.ReadFile(AppFS, tmpFile)
 	if readErr != nil {
 		return nil, fmt.Errorf("loader %s: read output: %w", label, readErr)
 	}
-	return []Document{{Content: string(data), Metadata: map[string]interface{}{"parser": label}}}, nil
+	return []Document{
+		{Content: string(data), Metadata: map[string]interface{}{"parser": label}},
+	}, nil
 }
 
 // loadPandoc converts any pandoc-supported format to plain text.
@@ -349,12 +362,23 @@ func loadPandoc(source string) ([]Document, error) {
 	if _, lookErr := exec.LookPath("pandoc"); lookErr != nil {
 		return nil, errors.New("loader pandoc: pandoc not found in PATH (install pandoc)")
 	}
-	cmd := exec.CommandContext(context.Background(), "pandoc", "--from", "auto", "--to", "plain", "--wrap=none", source)
+	cmd := exec.CommandContext(
+		context.Background(),
+		"pandoc",
+		"--from",
+		"auto",
+		"--to",
+		"plain",
+		"--wrap=none",
+		source,
+	)
 	output, cmdErr := cmd.CombinedOutput()
 	if cmdErr != nil {
 		return nil, fmt.Errorf("loader pandoc: %w: %s", cmdErr, string(output))
 	}
-	return []Document{{Content: string(output), Metadata: map[string]interface{}{"parser": "pandoc"}}}, nil
+	return []Document{
+		{Content: string(output), Metadata: map[string]interface{}{"parser": "pandoc"}},
+	}, nil
 }
 
 // loadDOCX extracts text from a .docx file via pandoc.
@@ -394,7 +418,9 @@ func loadHTMLLynx(source string) ([]Document, error) {
 	if cmdErr != nil {
 		return nil, fmt.Errorf("loader html_lynx: %w: %s", cmdErr, string(output))
 	}
-	return []Document{{Content: string(output), Metadata: map[string]interface{}{"parser": "lynx"}}}, nil
+	return []Document{
+		{Content: string(output), Metadata: map[string]interface{}{"parser": "lynx"}},
+	}, nil
 }
 
 func splitDocuments(docs []Document, cfg *domain.LoaderConfig) ([]Document, error) {
@@ -416,7 +442,10 @@ func splitDocuments(docs []Document, cfg *domain.LoaderConfig) ([]Document, erro
 	case "token":
 		splitter = textsplitter.NewTokenSplitter(opts...)
 	default:
-		return nil, fmt.Errorf("loader: unknown chunkSplitter %q (use recursive, markdown, token)", cfg.ChunkSplitter)
+		return nil, fmt.Errorf(
+			"loader: unknown chunkSplitter %q (use recursive, markdown, token)",
+			cfg.ChunkSplitter,
+		)
 	}
 
 	var result []Document

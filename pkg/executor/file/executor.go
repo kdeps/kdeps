@@ -31,9 +31,15 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/spf13/afero"
+	"github.com/spf13/fileflow"
+
 	"github.com/kdeps/kdeps/v2/pkg/domain"
 	"github.com/kdeps/kdeps/v2/pkg/executor"
 )
+
+//nolint:gochecknoglobals // afero filesystem abstraction; enables test injection
+var AppFS afero.Fs = afero.NewOsFs()
 
 const (
 	defaultFilePerm os.FileMode = 0644
@@ -103,7 +109,7 @@ func (e *Executor) read(config *domain.FileResourceConfig) (interface{}, error) 
 		return nil, errors.New("file: path is required for read operation")
 	}
 
-	data, readErr := os.ReadFile(config.Path)
+	data, readErr := afero.ReadFile(AppFS, config.Path)
 	if readErr != nil {
 		return result(false, map[string]interface{}{
 			keyError:   readErr.Error(),
@@ -143,7 +149,7 @@ func (e *Executor) write(config *domain.FileResourceConfig) (interface{}, error)
 	}
 
 	parent := filepath.Dir(config.Path)
-	if mkdirErr := os.MkdirAll(parent, gosecDirPerm); mkdirErr != nil {
+	if mkdirErr := AppFS.MkdirAll(parent, gosecDirPerm); mkdirErr != nil {
 		return result(false, map[string]interface{}{
 			keyError: mkdirErr.Error(),
 			keyPath:  config.Path,
@@ -175,7 +181,7 @@ func (e *Executor) write(config *domain.FileResourceConfig) (interface{}, error)
 	}
 
 	mode := defaultFileMode(config.Mode)
-	if writeErr := os.WriteFile(config.Path, []byte(content), mode); writeErr != nil {
+	if writeErr := afero.WriteFile(AppFS, config.Path, []byte(content), mode); writeErr != nil {
 		return result(false, map[string]interface{}{
 			keyError: writeErr.Error(),
 			keyPath:  config.Path,
@@ -202,7 +208,7 @@ func (e *Executor) patch(config *domain.FileResourceConfig) (interface{}, error)
 		return nil, errors.New("file: patch content is required for patch operation")
 	}
 
-	original, readErr := os.ReadFile(config.Path)
+	original, readErr := afero.ReadFile(AppFS, config.Path)
 	if readErr != nil {
 		return result(false, map[string]interface{}{
 			keyError: readErr.Error(),
@@ -237,7 +243,7 @@ func (e *Executor) patch(config *domain.FileResourceConfig) (interface{}, error)
 	}
 
 	gosecFilePermDefault := gosecFilePerm
-	if writeErr := os.WriteFile(config.Path, []byte(patched), gosecFilePermDefault); writeErr != nil {
+	if writeErr := afero.WriteFile(AppFS, config.Path, []byte(patched), gosecFilePermDefault); writeErr != nil {
 		return result(false, map[string]interface{}{
 			keyError: writeErr.Error(),
 			keyPath:  config.Path,
@@ -257,7 +263,7 @@ func (e *Executor) list(config *domain.FileResourceConfig) (interface{}, error) 
 		return nil, errors.New("file: path is required for list operation")
 	}
 
-	info, statErr := os.Stat(config.Path)
+	info, statErr := AppFS.Stat(config.Path)
 	if statErr != nil {
 		return result(false, map[string]interface{}{
 			keyError: statErr.Error(),
@@ -299,7 +305,7 @@ func (e *Executor) deleteOp(config *domain.FileResourceConfig) (interface{}, err
 		}), nil
 	}
 
-	if rmErr := os.RemoveAll(config.Path); rmErr != nil {
+	if rmErr := AppFS.RemoveAll(config.Path); rmErr != nil {
 		return result(false, map[string]interface{}{
 			keyError: rmErr.Error(),
 			keyPath:  config.Path,
@@ -322,7 +328,7 @@ func (e *Executor) exists(config *domain.FileResourceConfig) (interface{}, error
 	info := map[string]interface{}{keyExists: exists, keyPath: config.Path}
 
 	if exists {
-		fi, statErr := os.Stat(config.Path)
+		fi, statErr := AppFS.Stat(config.Path)
 		if statErr == nil {
 			info["isDir"] = fi.IsDir()
 			info["size"] = fi.Size()
@@ -349,7 +355,7 @@ func (e *Executor) mkdir(config *domain.FileResourceConfig) (interface{}, error)
 	}
 
 	mode := defaultDirMode(config.Mode)
-	if mkdirErr := os.MkdirAll(config.Path, mode); mkdirErr != nil {
+	if mkdirErr := AppFS.MkdirAll(config.Path, mode); mkdirErr != nil {
 		return result(false, map[string]interface{}{
 			keyError: mkdirErr.Error(),
 			keyPath:  config.Path,
@@ -381,7 +387,7 @@ func (e *Executor) copyOp(config *domain.FileResourceConfig) (interface{}, error
 		}), nil
 	}
 
-	srcInfo, statErr := os.Stat(config.Source)
+	srcInfo, statErr := AppFS.Stat(config.Source)
 	if statErr != nil {
 		return result(false, map[string]interface{}{
 			keyError:  statErr.Error(),
@@ -439,7 +445,7 @@ func (e *Executor) move(config *domain.FileResourceConfig) (interface{}, error) 
 		}), nil
 	}
 
-	if renameErr := os.Rename(config.Source, config.Path); renameErr != nil {
+	if _, renameErr := fileflow.Move(config.Source, config.Path); renameErr != nil {
 		return result(false, map[string]interface{}{
 			keyError:  renameErr.Error(),
 			keySource: config.Source,
@@ -522,7 +528,7 @@ func listDirEntries(info os.FileInfo, config *domain.FileResourceConfig) ([]map[
 
 	for _, entry := range dirEntries {
 		fullPath := filepath.Join(config.Path, entry.Name())
-		fi, entryStatErr := os.Stat(fullPath)
+		fi, entryStatErr := AppFS.Stat(fullPath)
 		if entryStatErr != nil {
 			continue
 		}
@@ -548,7 +554,7 @@ func result(success bool, data map[string]interface{}) map[string]interface{} {
 }
 
 func fileExists(path string) bool {
-	_, err := os.Stat(path)
+	_, err := AppFS.Stat(path)
 	return err == nil
 }
 
@@ -593,7 +599,7 @@ func copyFile(src, dst string) error {
 	defer sourceFile.Close()
 
 	parent := filepath.Dir(dst)
-	if mkdirErr := os.MkdirAll(parent, gosecDirPerm); mkdirErr != nil {
+	if mkdirErr := AppFS.MkdirAll(parent, gosecDirPerm); mkdirErr != nil {
 		return mkdirErr
 	}
 
@@ -607,7 +613,7 @@ func copyFile(src, dst string) error {
 		return copyErr
 	}
 
-	srcInfo, statErr := os.Stat(src)
+	srcInfo, statErr := AppFS.Stat(src)
 	if statErr != nil {
 		return statErr
 	}
@@ -627,7 +633,7 @@ func copyDir(src, dst string) error {
 		targetPath := filepath.Join(dst, relPath)
 
 		if d.IsDir() {
-			return os.MkdirAll(targetPath, gosecDirPerm)
+			return AppFS.MkdirAll(targetPath, gosecDirPerm)
 		}
 
 		return copyFile(path, targetPath)

@@ -16,6 +16,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/spf13/pathologize"
 	"gopkg.in/yaml.v3"
 )
 
@@ -176,7 +177,7 @@ func HFDownloadGGUF(ctx context.Context, repoID, filename string, logger *slog.L
 		return "", "", err
 	}
 	downloadURL := HFDownloadURL(repoID, filename)
-	dest := filepath.Join(dir, filepath.Base(filename))
+	dest := filepath.Join(dir, pathologize.Clean(filepath.Base(filename)))
 
 	if _, statErr := AppFS.Stat(dest); statErr != nil {
 		if dlErr := hfDownloadFile(ctx, downloadURL, filename, dest, dir, logger); dlErr != nil {

@@ -19,8 +19,9 @@
 package llm
 
 import (
-	"os"
 	"path/filepath"
+
+	"github.com/spf13/afero"
 )
 
 // mergeByAlias merges two entry slices; local entries override embedded ones by alias.
@@ -63,13 +64,13 @@ func loadOrSeedLocalFile(localPath, defaultYAML string) ([]byte, bool) {
 	if localPath == "" {
 		return nil, false
 	}
-	if _, statErr := os.Stat(localPath); statErr != nil {
-		if mkdirErr := os.MkdirAll(filepath.Dir(localPath), 0750); mkdirErr == nil {
-			_ = os.WriteFile(localPath, []byte(defaultYAML), 0600)
+	if _, statErr := AppFS.Stat(localPath); statErr != nil {
+		if mkdirErr := AppFS.MkdirAll(filepath.Dir(localPath), 0750); mkdirErr == nil {
+			_ = afero.WriteFile(AppFS, localPath, []byte(defaultYAML), 0600)
 		}
 		return nil, false
 	}
-	raw, err := os.ReadFile(localPath)
+	raw, err := afero.ReadFile(AppFS, localPath)
 	if err != nil {
 		return nil, false
 	}

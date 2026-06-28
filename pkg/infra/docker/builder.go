@@ -135,7 +135,7 @@ func (c *DefaultCompiler) ExecuteCommand(
 
 func (c *DefaultCompiler) ReadFile(path string) ([]byte, error) {
 	kdeps_debug.Log("enter: ReadFile")
-	return os.ReadFile(path)
+	return afero.ReadFile(AppFS, path)
 }
 
 func (c *DefaultCompiler) WriteTarHeader(tw *tar.Writer, header *tar.Header) error {

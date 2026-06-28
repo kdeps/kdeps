@@ -23,6 +23,7 @@ import (
 	"path/filepath"
 
 	"github.com/spf13/afero"
+	"github.com/spf13/pathologize"
 )
 
 const (
@@ -56,7 +57,7 @@ func removeFileSilent(path string) {
 }
 
 func safeFilename(name string) string {
-	return filepath.Base(name)
+	return pathologize.Clean(filepath.Base(name))
 }
 
 func defaultUploadDir() string {
