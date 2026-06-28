@@ -769,10 +769,9 @@ func (l *Loop) dispatchToTerminal(
 			}
 		}
 	}
-	// \033[0m: reset any open ANSI colour/style left by tool output.
-	// \r\033[K: absolute column 0, erase partial line from garbled tool output.
-	// \n (→ \r\n via crlfWriter): fresh line at column 0.
-	const lineReset = "\033[0m\r\033[K"
+	// ansiReset+ansiClearLine: reset ANSI style + absolute column 0 + erase partial line
+	// from garbled tool output. \n (→ \r\n via crlfWriter) gives a fresh line at column 0.
+	const lineReset = ansiReset + ansiClearLine
 	if execErr != nil {
 		fmt.Fprintf(termW, "%s\n  ... %s failed (%s): %v\n", lineReset, name, elapsed, execErr)
 		return fmt.Sprintf(`{"error":"%s"}`, execErr.Error())

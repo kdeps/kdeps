@@ -515,7 +515,7 @@ func boldTagKeyword(tag, keyword string) string {
 	if idx < 0 {
 		return tag
 	}
-	return tag[:idx] + "\033[1m" + tag[idx:idx+len(keyword)] + "\033[0m" + tag[idx+len(keyword):]
+	return tag[:idx] + ansiBold + tag[idx:idx+len(keyword)] + ansiReset + tag[idx+len(keyword):]
 }
 
 // modelCompletionSuffixes builds the readline suffix list for /model completion.
@@ -751,7 +751,7 @@ func fuzzyMatch(needle, haystack string) bool {
 // Uses SGR reset only (\033[0m) to clear colors/bold without clearing the screen.
 // Full screen clear (\033c) is deliberately avoided — it destroys scrollback.
 func resetTerminal() {
-	fmt.Fprint(os.Stdout, "\033[0m") // reset text attributes; no screen clear
+	fmt.Fprint(os.Stdout, ansiReset) // reset text attributes; no screen clear
 }
 
 // fdBinPath returns the path to the fd binary (fd or fdfind), or empty string.
@@ -1001,7 +1001,7 @@ func (r *REPL) runWithThinking(ctx context.Context, input string) (string, error
 		}()
 		res := <-ch
 		close(done)
-		fmt.Fprint(os.Stdout, "\r\x1b[K")
+		fmt.Fprint(os.Stdout, ansiClearLine)
 		return res.resp, res.err
 	}
 }
@@ -1038,7 +1038,7 @@ func (r *REPL) Run() error {
 	r.loop.config.ToolCallDisplay = func(name, args string) string {
 		// \r\033[K: absolute col 0 + erase current line (Flush leaves a blank line here).
 		// Print header on that same clean line; \r\n after, not before — no extra blank line.
-		fmt.Fprintf(os.Stdout, "\r\033[K%s\r\n", renderToolCall(name, args))
+		fmt.Fprintf(os.Stdout, "%s%s\r\n", ansiClearLine, renderToolCall(name, args))
 		return ""
 	}
 	// Route real-time tool stdout/stderr to the terminal instead of the LLM buffer.
@@ -1833,7 +1833,7 @@ func (r *REPL) pageLines(lines []string) error {
 			)
 			fmt.Fprint(os.Stdout, prompt)
 			b, _ := br.ReadByte()
-			fmt.Fprint(os.Stdout, "\r\033[K") // clear prompt line
+			fmt.Fprint(os.Stdout, ansiClearLine) // clear prompt line
 			if b == 'q' || b == 'Q' || b == 3 {
 				restore()
 				return nil
