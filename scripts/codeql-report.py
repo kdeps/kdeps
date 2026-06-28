@@ -13,6 +13,13 @@ KNOWN_FALSE_POSITIVES = {
     ("go/reflected-xss", "pkg/infra/http/middleware.go"),
     # Session cookies are HTTP-only dev tokens; Secure is set when TLS is enabled.
     ("go/cookie-secure-not-set", "pkg/infra/http/http_session.go"),
+    # safeJoin validates every archive entry name: filepath.Clean normalizes the
+    # name, then it is rejected if it equals "..", has a "../" prefix, or is
+    # absolute. A second filepath.Rel check provides defense-in-depth. CodeQL
+    # cannot prove safety because the taint flows through the computed join
+    # result even after the name-level guards are applied.
+    ("go/zipslip", "pkg/archive/targz/extract.go"),
+    ("go/path-injection", "pkg/archive/targz/extract.go"),
 }
 
 # Workflow YAML intentionally supplies SQL, shell commands, and file paths at runtime.

@@ -34,7 +34,13 @@ func SafeJoin(destDir, name string) (string, error) {
 }
 
 func safeJoin(destDir, name string, hooks Hooks) (string, error) {
-	targetPath := filepath.Join(destDir, name)
+	// Sanitize the archive entry name before joining (zipslip guard):
+	// normalize separators and reject names that escape the destination.
+	cleanName := filepath.Clean(filepath.FromSlash(filepath.ToSlash(name)))
+	if cleanName == ".." || strings.HasPrefix(cleanName, ".."+string(os.PathSeparator)) || filepath.IsAbs(cleanName) {
+		return "", fmt.Errorf("invalid archive path: %s", name)
+	}
+	targetPath := filepath.Join(destDir, cleanName)
 	rel, relErr := hooks.FilepathRel(destDir, targetPath)
 	if relErr != nil || strings.HasPrefix(rel, "..") {
 		return "", fmt.Errorf("invalid archive path: %s", name)
@@ -55,8 +61,9 @@ func ResolveTarget(destDir, entryName string, opts Options) (string, bool, error
 		return path, false, nil
 	}
 
-	cleanName := filepath.Clean(entryName)
-	if cleanName == "." || cleanName == "" || filepath.IsAbs(cleanName) {
+	cleanName := filepath.Clean(filepath.FromSlash(filepath.ToSlash(entryName)))
+	if cleanName == "." || cleanName == "" || filepath.IsAbs(cleanName) ||
+		cleanName == ".." || strings.HasPrefix(cleanName, ".."+string(os.PathSeparator)) {
 		if opts.SkipBadPaths {
 			return "", true, nil
 		}
@@ -76,6 +83,15 @@ func ResolveTarget(destDir, entryName string, opts Options) (string, bool, error
 	absTarget, absErr := hooks.TargetAbs(target)
 	if absErr != nil {
 		return "", false, fmt.Errorf("resolve target path: %w", absErr)
+	}
+
+	// Explicit prefix guard (zipslip/path-injection sanitizer pattern)
+	cleanBase := filepath.Clean(baseDir)
+	if absTarget != cleanBase && !strings.HasPrefix(absTarget, cleanBase+string(os.PathSeparator)) {
+		if opts.SkipBadPaths {
+			return "", true, nil
+		}
+		return "", false, fmt.Errorf("invalid archive path: %s", entryName)
 	}
 
 	rel, relErr := hooks.FilepathRel(baseDir, absTarget)
