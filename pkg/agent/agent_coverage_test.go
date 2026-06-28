@@ -32,10 +32,11 @@ import (
 	"testing"
 	"time"
 
-	kdepstools "github.com/kdeps/kdeps/v2/pkg/tools"
 	_ "github.com/mattn/go-sqlite3"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	kdepstools "github.com/kdeps/kdeps/v2/pkg/tools"
 )
 
 // ---- bash_jobs.go ----
@@ -1173,7 +1174,7 @@ func TestCompactAndRetry_TaskCompleted(t *testing.T) {
 	assert.Contains(t, result, "Task completed")
 }
 
-func TestCompactAndRetry_NotCompleted(t *testing.T) {
+func TestCompactAndRetry_NotCompleted(_ *testing.T) {
 	// t.Setenv requires no t.Parallel()
 	// This branch hits CompactWithLLM which returns ("", nil) for a short session,
 	// then falls through to runToolRounds. With MaxToolRounds=0 (default in test),
