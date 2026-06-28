@@ -56,17 +56,6 @@ import (
 // Mirrors the langchaingo ConversationalAgent pattern of eliciting step-by-step reasoning.
 const chainOfThoughtInstruction = "Think step by step. Show your reasoning before giving your final answer."
 
-const (
-	backendAnthropic   = "anthropic"
-	backendGoogle      = "google"
-	backendHuggingFace = "huggingface"
-	backendCloudflare  = "cloudflare"
-	backendMaritaca    = "maritaca"
-	backendErnie       = "ernie"
-	backendBedrock     = "bedrock"
-	backendWatsonX     = "watsonx"
-)
-
 //nolint:gochecknoglobals // provider base URLs are constant lookup table, not mutable state
 var langchainBaseURLs = map[string]string{
 	backendOpenAI: "https://api.openai.com/v1",
