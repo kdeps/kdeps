@@ -56,15 +56,15 @@ func initLocalRepo(t *testing.T, remote string) string {
 	return dir
 }
 
-func run(t *testing.T, dir string, name string, args ...string) {
+func run(t *testing.T, dir string, _ string, args ...string) {
 	t.Helper()
 	// Prepend -c init.defaultBranch=main so that git always uses "main" as
 	// the default branch name, regardless of the host machine's git config.
 	args = append([]string{"-c", "init.defaultBranch=main"}, args...)
-	cmd := exec.Command(name, args...)
+	cmd := exec.Command("git", args...)
 	cmd.Dir = dir
 	out, err := cmd.CombinedOutput()
-	require.NoError(t, err, "command %q failed: %s", append([]string{name}, args...), string(out))
+	require.NoError(t, err, "command %q failed: %s", append([]string{"git"}, args...), string(out))
 }
 
 func TestCheckBranchFreshness_DetachedHEAD(t *testing.T) {

@@ -446,7 +446,7 @@ func (w *secondWriteFailsWriter) Write(p []byte) (int, error) {
 	return w.buf.Write(p)
 }
 
-func (secondWriteFailsWriter) Close() error { return nil }
+func (*secondWriteFailsWriter) Close() error { return nil }
 
 // TestLSPClient_Write_BodyWriteError covers the body write error path in write.
 func TestLSPClient_Write_BodyWriteError(t *testing.T) {
@@ -476,7 +476,7 @@ func TestLSPClient_ReadMessage_NoBlankLine(t *testing.T) {
 // countOpenFDs returns the number of currently open file descriptors (up to 2048).
 func countOpenFDs() int {
 	var count int
-	for i := 0; i < 2048; i++ {
+	for i := range 2048 {
 		var stat syscall.Stat_t
 		if err := syscall.Fstat(i, &stat); err == nil {
 			count++
@@ -539,10 +539,10 @@ func TestLSPClient_Close_Timeout(t *testing.T) {
 		_ = stdin.Close()
 		t.Fatalf("stdout pipe: %v", err)
 	}
-	if err := cmd.Start(); err != nil {
+	if startErr := cmd.Start(); startErr != nil {
 		_ = stdin.Close()
 		_ = stdout.Close()
-		t.Fatalf("failed to start sleep: %v", err)
+		t.Fatalf("failed to start sleep: %v", startErr)
 	}
 
 	c := &lspClient{
@@ -569,7 +569,7 @@ func TestLSPManager_GetServer_StartLSPError(t *testing.T) {
 
 	m := &lspManager{
 		cache:  make(map[string]*lspClient),
-		lookup: func(s string) bool { return true },
+		lookup: func(_ string) bool { return true },
 	}
 	_, err := m.getServer("go", "", "")
 	if err == nil {
@@ -592,7 +592,7 @@ func TestLSPManager_GetServer_InitializeError(t *testing.T) {
 
 	m := &lspManager{
 		cache:  make(map[string]*lspClient),
-		lookup: func(s string) bool { return true },
+		lookup: func(_ string) bool { return true },
 	}
 	_, err := m.getServer("go", "", "")
 	if err == nil {
@@ -637,7 +637,7 @@ func (w *failOnThirdWriteWriter) Write(p []byte) (int, error) {
 	return w.buf.Write(p)
 }
 
-func (failOnThirdWriteWriter) Close() error { return nil }
+func (*failOnThirdWriteWriter) Close() error { return nil }
 
 // TestLSPDefinition_CallError_WriteFails covers the client.call error path in lspDefinition.
 func TestLSPDefinition_CallError_WriteFails(t *testing.T) {

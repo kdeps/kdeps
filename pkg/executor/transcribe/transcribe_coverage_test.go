@@ -166,7 +166,7 @@ func TestCallTranscribeAPI_DoError(t *testing.T) {
 // TestCallTranscribeAPI_ReadResponseError covers the readErr branch
 // when io.ReadAll on the response body fails (line 187).
 func TestCallTranscribeAPI_ReadResponseError(t *testing.T) {
-	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		hj, ok := w.(http.Hijacker)
 		if !ok {
 			http.Error(w, "hijack not supported", http.StatusInternalServerError)

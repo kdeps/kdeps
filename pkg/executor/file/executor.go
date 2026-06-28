@@ -768,6 +768,7 @@ func applyHunk(origLines, hunkLines []string, oldStart, _ int) ([]string, []stri
 			if origPos >= len(remaining) {
 				return nil, nil, fmt.Errorf("patch context line out of range: %q", contextContent)
 			}
+			//nolint:gosec // bounds check at line 768 guarantees origPos is safe
 			if remaining[origPos] != contextContent {
 				return nil, nil, fmt.Errorf("patch context mismatch: expected %q, got %q",
 					contextContent, remaining[origPos])
