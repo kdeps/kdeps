@@ -616,29 +616,19 @@ func summarizeToolArgs(raw string) string {
 	}
 	var m map[string]any
 	if err := json.Unmarshal([]byte(raw), &m); err != nil {
-		if len(raw) > toolArgMaxDisplay {
-			return raw[:toolArgMaxDisplay-3] + "..."
-		}
-		return raw
+		return truncateEllipsis(raw, toolArgMaxDisplay)
 	}
 	// Prefer file_path, then query, then url, then expression, then first string value.
 	for _, key := range []string{toolParamFilePath, toolParamQuery, "url", "expression", "command"} {
 		if v, ok := m[key].(string); ok && v != "" {
-			if len(v) > toolArgMaxDisplay {
-				v = v[:toolArgMaxDisplay-3] + "..."
-			}
-			return v
+			return truncateEllipsis(v, toolArgMaxDisplay)
 		}
 	}
 	// Fallback: first non-empty value of any type.
 	for k, v := range m {
 		s := fmt.Sprintf("%v", v)
 		if s != "" && s != " " {
-			display := fmt.Sprintf("%s=%s", k, s)
-			if len(display) > toolArgMaxDisplay {
-				display = display[:toolArgMaxDisplay-3] + "..."
-			}
-			return display
+			return truncateEllipsis(fmt.Sprintf("%s=%s", k, s), toolArgMaxDisplay)
 		}
 	}
 	return raw

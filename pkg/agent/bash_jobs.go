@@ -102,10 +102,7 @@ func (j *bashJob) status() string {
 }
 
 func (j *bashJob) summary() string {
-	cmd := j.command
-	if len(cmd) > bashJobCmdMaxLen {
-		cmd = cmd[:bashJobCmdMaxLen-3] + "..."
-	}
+	cmd := truncateEllipsis(j.command, bashJobCmdMaxLen)
 	elapsed := time.Since(j.started).Round(time.Second)
 	return fmt.Sprintf("job %d [%s]: %s (started %s ago)", j.id, j.status(), cmd, elapsed)
 }
