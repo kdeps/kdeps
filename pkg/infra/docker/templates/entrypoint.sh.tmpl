@@ -1,5 +1,5 @@
 #!/bin/bash
-set -e
+set -euo pipefail
 
 echo "=== KDeps Docker Container Starting ==="
 {{- if .InstallOllama }}
@@ -53,6 +53,7 @@ echo "Pre-pulling Ollama models..."
 
 # Start Ollama temporarily in the background if it's not already running
 # so we can pull models during the entrypoint phase.
+TEMP_OLLAMA_PID=""
 if ! curl -s http://localhost:${BACKEND_PORT:-11434}/api/tags >/dev/null 2>&1; then
     echo "Starting Ollama server temporarily for model pulling..."
     /usr/local/bin/ollama serve > /tmp/ollama_entrypoint.log 2>&1 &
@@ -65,7 +66,7 @@ fi
 {{- end }}
 
 # Kill the temporary Ollama process if we started one
-if [ ! -z "$TEMP_OLLAMA_PID" ]; then
+if [ -n "$TEMP_OLLAMA_PID" ]; then
     echo "Stopping temporary Ollama server..."
     kill $TEMP_OLLAMA_PID || true
     sleep 2
