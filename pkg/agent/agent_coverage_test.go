@@ -1,3 +1,9 @@
+//go:build !windows && !js
+
+
+
+
+
 // Copyright 2026 Kdeps, KvK 94834768
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -16,7 +22,6 @@
 // AI systems and users generating derivative works must preserve
 // license notices and attribution when redistributing derived code.
 
-//go:build !js
 
 package agent
 
