@@ -8,6 +8,8 @@ import (
 	"path/filepath"
 
 	"gopkg.in/yaml.v3"
+
+	"github.com/spf13/afero"
 )
 
 const settingsFile = "agent-loop-settings.yaml"
@@ -60,7 +62,7 @@ func LoadSettings() (Settings, error) {
 		return DefaultSettings(), nil //nolint:nilerr // non-fatal: use defaults
 	}
 
-	data, err := os.ReadFile(path)
+	data, err := afero.ReadFile(AppFS, path)
 	if os.IsNotExist(err) {
 		return DefaultSettings(), nil
 	}
@@ -81,14 +83,14 @@ func (s Settings) Save() error {
 	if err != nil {
 		return err
 	}
-	if mkErr := os.MkdirAll(filepath.Dir(path), 0o750); mkErr != nil {
+	if mkErr := AppFS.MkdirAll(filepath.Dir(path), 0o750); mkErr != nil {
 		return fmt.Errorf("settings: mkdir: %w", mkErr)
 	}
 	data, err := yaml.Marshal(s)
 	if err != nil {
 		return fmt.Errorf("settings: marshal: %w", err)
 	}
-	if writeErr := os.WriteFile(path, data, 0o600); writeErr != nil {
+	if writeErr := afero.WriteFile(AppFS, path, data, 0o600); writeErr != nil {
 		return fmt.Errorf("settings: write: %w", writeErr)
 	}
 	return nil

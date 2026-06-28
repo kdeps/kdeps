@@ -24,6 +24,8 @@ import (
 	"sort"
 	"sync"
 
+	"github.com/spf13/afero"
+
 	"gopkg.in/yaml.v3"
 
 	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
@@ -137,10 +139,10 @@ func WriteLocalRegistry(entries []LlamafileEntry) error {
 	if localPath == "" {
 		localPath = "llamafile_versions.yaml"
 	}
-	if mkdirErr := os.MkdirAll(filepath.Dir(localPath), 0750); mkdirErr != nil {
+	if mkdirErr := AppFS.MkdirAll(filepath.Dir(localPath), 0750); mkdirErr != nil {
 		return mkdirErr
 	}
-	return os.WriteFile(localPath, raw, 0600)
+	return afero.WriteFile(AppFS, localPath, raw, 0600)
 }
 
 // ReloadRegistry forces a re-read of the registry on the next access.

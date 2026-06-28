@@ -20,6 +20,8 @@ import (
 	"path/filepath"
 	"runtime"
 
+	"github.com/spf13/fileflow"
+
 	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
 )
 
@@ -190,7 +192,7 @@ func downloadFile(ctx context.Context, url, dest string) error {
 		return err
 	}
 
-	if renameErr := os.Rename(tmpFile, dest); renameErr != nil {
+	if _, renameErr := fileflow.Move(tmpFile, dest); renameErr != nil {
 		_ = os.Remove(tmpFile)
 		return renameErr
 	}

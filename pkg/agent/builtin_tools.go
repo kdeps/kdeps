@@ -33,6 +33,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/spf13/afero"
+
 	"github.com/kdeps/kdeps/v2/pkg/domain"
 	kdepstools "github.com/kdeps/kdeps/v2/pkg/tools"
 
@@ -176,7 +178,7 @@ func readLocalFile(filePath string, args map[string]any) (string, error) {
 	if err := validateWorkspaceBoundary(filePath); err != nil {
 		return "", fmt.Errorf("read_file: %w", err)
 	}
-	info, err := os.Stat(filePath)
+	info, err := AppFS.Stat(filePath)
 	if err != nil {
 		return "", fmt.Errorf("read_file: stat %s: %w", filePath, err)
 	}
@@ -192,7 +194,7 @@ func readLocalFile(filePath string, args map[string]any) (string, error) {
 		)
 	}
 
-	data, err := os.ReadFile(filePath)
+	data, err := afero.ReadFile(AppFS, filePath)
 	if err != nil {
 		return "", fmt.Errorf("read_file: read %s: %w", filePath, err)
 	}
@@ -264,11 +266,11 @@ func registerWriteFile(reg *kdepstools.Registry) {
 					maxFileReadBytes,
 				)
 			}
-			info, statErr := os.Stat(filePath)
+			info, statErr := AppFS.Stat(filePath)
 			if statErr == nil && info.IsDir() {
 				return "", fmt.Errorf("write_file: %s is a directory", filePath)
 			}
-			if err := os.WriteFile(filePath, []byte(content), 0o600); err != nil {
+			if err := afero.WriteFile(AppFS, filePath, []byte(content), 0o600); err != nil {
 				return "", fmt.Errorf("write_file: write %s: %w", filePath, err)
 			}
 			return fmt.Sprintf("Wrote %d bytes to %s", len(content), filePath), nil
@@ -317,7 +319,7 @@ func registerEditFile(reg *kdepstools.Registry) {
 				return "", errors.New("edit_file: old_string and new_string are identical")
 			}
 
-			data, err := os.ReadFile(filePath)
+			data, err := afero.ReadFile(AppFS, filePath)
 			if err != nil {
 				return "", fmt.Errorf("edit_file: read %s: %w", filePath, err)
 			}
@@ -334,7 +336,7 @@ func registerEditFile(reg *kdepstools.Registry) {
 				)
 			}
 			newContent := strings.Replace(content, oldStr, newStr, 1)
-			if werr := os.WriteFile(filePath, []byte(newContent), 0o600); werr != nil {
+			if werr := afero.WriteFile(AppFS, filePath, []byte(newContent), 0o600); werr != nil {
 				return "", fmt.Errorf("edit_file: write %s: %w", filePath, werr)
 			}
 			diff := coloredDiff(oldStr, newStr, filePath)
@@ -429,7 +431,7 @@ func registerListFiles(reg *kdepstools.Registry) {
 			if !strings.HasPrefix(dirPath, "/") {
 				return "", errors.New("list_files: absolute path required")
 			}
-			entries, err := os.ReadDir(dirPath)
+			entries, err := afero.ReadDir(AppFS, dirPath)
 			if err != nil {
 				return "", fmt.Errorf("list_files: read %s: %w", dirPath, err)
 			}

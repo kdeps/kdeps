@@ -28,6 +28,8 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/spf13/afero"
+
 	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
 	"github.com/kdeps/kdeps/v2/pkg/executor"
 )
@@ -125,7 +127,7 @@ func (e *Executor) detectImageMimeType(filePath string) (string, error) {
 	}
 
 	// Try to detect from file content
-	fileData, readErr := os.ReadFile(filePath)
+	fileData, readErr := afero.ReadFile(AppFS, filePath)
 	if readErr != nil {
 		return "", fmt.Errorf("failed to read file for MIME detection: %w", readErr)
 	}
@@ -146,7 +148,7 @@ func (e *Executor) detectImageMimeType(filePath string) (string, error) {
 func (e *Executor) encodeFileToBase64(fullPath, mimeType string) (string, string, error) {
 	kdeps_debug.Log("enter: encodeFileToBase64")
 	// Read file from disk
-	fileData, err := os.ReadFile(fullPath)
+	fileData, err := afero.ReadFile(AppFS, fullPath)
 	if err != nil {
 		return "", "", fmt.Errorf("failed to read file %s: %w", fullPath, err)
 	}

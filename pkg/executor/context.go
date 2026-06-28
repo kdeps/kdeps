@@ -19,3 +19,8 @@
 // Package executor provides execution context and resource management for KDeps workflows.
 // It handles runtime state, data flow, and resource execution coordination.
 package executor
+
+import "github.com/spf13/afero"
+
+//nolint:gochecknoglobals // afero filesystem abstraction; enables test injection
+var AppFS afero.Fs = afero.NewOsFs()

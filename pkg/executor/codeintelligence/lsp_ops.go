@@ -17,9 +17,10 @@ package codeintelligence
 import (
 	"errors"
 	"fmt"
-	"os"
 	"path/filepath"
 	"strings"
+
+	"github.com/spf13/afero"
 
 	"github.com/kdeps/kdeps/v2/pkg/domain"
 )
@@ -246,7 +247,7 @@ func (e *Executor) lspEnsureDocument(client *lspClient, config *domain.CodeIntel
 	if config.Path == "" {
 		return nil
 	}
-	content, err := os.ReadFile(config.Path)
+	content, err := afero.ReadFile(AppFS, config.Path)
 	if err != nil {
 		return fmt.Errorf("lsp: read file %s: %w", config.Path, err)
 	}

@@ -22,6 +22,8 @@ import (
 	"strings"
 
 	"golang.org/x/term"
+
+	"github.com/spf13/afero"
 )
 
 //nolint:gochecknoglobals // test-replaceable
@@ -50,7 +52,7 @@ func Bootstrap(out *os.File) error {
 	if err != nil {
 		return nil //nolint:nilerr // non-fatal
 	}
-	if _, statErr := os.Stat(path); statErr == nil {
+	if _, statErr := AppFS.Stat(path); statErr == nil {
 		return nil // config already exists
 	}
 
@@ -145,13 +147,13 @@ func readSecret(fallback *bufio.Reader) (string, error) {
 // User-filled values are written uncommented; all other template
 // sections are appended as comments so users can discover them.
 func writeConfig(path string, cfg Config) error {
-	if mkdirErr := os.MkdirAll(dirOf(path), configDirPerm); mkdirErr != nil {
+	if mkdirErr := AppFS.MkdirAll(dirOf(path), configDirPerm); mkdirErr != nil {
 		return fmt.Errorf("create config dir: %w", mkdirErr)
 	}
 
 	userFields := buildUserFields(cfg)
 	content := userFields + "\n" + configOptionsReference()
-	return os.WriteFile(path, []byte(content), configFilePerm)
+	return afero.WriteFile(AppFS, path, []byte(content), configFilePerm)
 }
 
 // buildUserFields builds the YAML for fields the user set during bootstrap.

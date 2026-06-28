@@ -9,15 +9,19 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"os"
 	"os/exec"
 	"path/filepath"
 	"strconv"
 	"strings"
 
+	"github.com/spf13/afero"
+
 	"github.com/kdeps/kdeps/v2/pkg/domain"
 	"github.com/kdeps/kdeps/v2/pkg/executor"
 )
+
+//nolint:gochecknoglobals // afero filesystem abstraction; enables test injection
+var AppFS afero.Fs = afero.NewOsFs()
 
 // Runner runs rg commands (overridable for testing).
 type Runner interface {
@@ -515,14 +519,14 @@ func inferKind(line string) string {
 }
 
 func isGoDir(path string) bool {
-	info, err := os.Stat(path)
+	info, err := AppFS.Stat(path)
 	if err != nil {
 		return false
 	}
 	if !info.IsDir() {
 		return false
 	}
-	entries, err := os.ReadDir(path)
+	entries, err := afero.ReadDir(AppFS, path)
 	if err != nil {
 		return false
 	}

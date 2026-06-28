@@ -29,8 +29,14 @@ import (
 
 	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
 
+	"github.com/spf13/afero"
+	"github.com/spf13/fileflow"
+
 	"github.com/kdeps/kdeps/v2/pkg/domain"
 )
+
+//nolint:gochecknoglobals // afero filesystem abstraction; enables test injection
+var AppFS afero.Fs = afero.NewOsFs()
 
 //nolint:gochecknoglobals // test-replaceable
 var (
@@ -169,7 +175,7 @@ func (b *Builder) Build(
 	}
 
 	// Move to the desired output path
-	if renameErr := os.Rename(outputFile, outputPath); renameErr != nil {
+	if _, renameErr := fileflow.Move(outputFile, outputPath); renameErr != nil {
 		return fmt.Errorf("failed to move output to %s: %w", outputPath, renameErr)
 	}
 

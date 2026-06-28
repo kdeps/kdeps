@@ -24,6 +24,8 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+
+	"github.com/spf13/afero"
 )
 
 const (
@@ -77,12 +79,12 @@ func discoverInstructions(startDir string) string {
 	for {
 		for _, name := range candidates {
 			p := filepath.Join(dir, name)
-			info, err := os.Stat(p)
+			info, err := AppFS.Stat(p)
 			if err != nil || info.IsDir() {
 				continue
 			}
 
-			data, err := os.ReadFile(p)
+			data, err := afero.ReadFile(AppFS, p)
 			if err != nil {
 				continue
 			}

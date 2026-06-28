@@ -20,9 +20,10 @@ package config
 
 import (
 	"fmt"
-	"os"
 
 	"gopkg.in/yaml.v3"
+
+	"github.com/spf13/afero"
 
 	"github.com/kdeps/kdeps/v2/pkg/yamlutil"
 )
@@ -38,7 +39,7 @@ func (c *Config) Validate(agentsDir string) []string {
 		return warnings
 	}
 
-	data, err := os.ReadFile(path)
+	data, err := afero.ReadFile(AppFS, path)
 	if err != nil {
 		return warnings // file doesn't exist or unreadable, skip validation
 	}

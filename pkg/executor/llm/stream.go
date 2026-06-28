@@ -36,6 +36,7 @@ import (
 	"time"
 
 	wx "github.com/IBM/watsonx-go/pkg/models"
+	"github.com/spf13/afero"
 	lcemb "github.com/tmc/langchaingo/embeddings"
 	"github.com/tmc/langchaingo/llms"
 	lcanthropic "github.com/tmc/langchaingo/llms/anthropic"
@@ -785,7 +786,7 @@ func fileContentPart(f string) (llms.ContentPart, bool) {
 	if strings.HasPrefix(f, "http://") || strings.HasPrefix(f, "https://") {
 		return llms.ImageURLPart(f), true
 	}
-	data, err := os.ReadFile(f)
+	data, err := afero.ReadFile(AppFS, f)
 	if err != nil {
 		return nil, false
 	}

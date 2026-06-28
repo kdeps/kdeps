@@ -21,10 +21,11 @@ package browser
 import (
 	"errors"
 	"fmt"
-	"os"
 	"path/filepath"
 
 	playwright "github.com/playwright-community/playwright-go"
+
+	"github.com/spf13/afero"
 
 	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
 	"github.com/kdeps/kdeps/v2/pkg/domain"
@@ -62,7 +63,7 @@ func doUpload(
 	}
 	inputFiles := make([]playwright.InputFile, 0, len(action.Files))
 	for _, f := range action.Files {
-		data, readErr := os.ReadFile(f) // #nosec G304 -- trusted workflow-author config
+		data, readErr := afero.ReadFile(AppFS, f) // #nosec G304 -- trusted workflow-author config
 		if readErr != nil {
 			return fmt.Errorf("upload: could not read file %q: %w", f, readErr)
 		}

@@ -25,21 +25,23 @@ import (
 
 	"gopkg.in/yaml.v3"
 
+	"github.com/spf13/afero"
+
 	"github.com/kdeps/kdeps/v2/pkg/domain"
 )
 
 // fileExists reports whether a file exists at path.
 func fileExists(path string) bool {
-	_, err := os.Stat(path)
+	_, err := AppFS.Stat(path)
 	return err == nil
 }
 
 // loadInlineResource reads a single YAML resource file from resourcesDir when entry is a resource file.
-func loadInlineResource(resourcesDir string, entry os.DirEntry) *domain.Resource {
+func loadInlineResource(resourcesDir string, entry os.FileInfo) *domain.Resource {
 	if entry.IsDir() || !isResourceYAMLFile(entry.Name()) {
 		return nil
 	}
-	rData, readErr := os.ReadFile(filepath.Join(resourcesDir, entry.Name()))
+	rData, readErr := afero.ReadFile(AppFS, filepath.Join(resourcesDir, entry.Name()))
 	if readErr != nil {
 		return nil
 	}

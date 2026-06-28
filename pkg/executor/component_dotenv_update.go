@@ -25,6 +25,8 @@ import (
 
 	"gopkg.in/yaml.v3"
 
+	"github.com/spf13/afero"
+
 	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
 	"github.com/kdeps/kdeps/v2/pkg/domain"
 )
@@ -41,7 +43,7 @@ func ParseComponentForUpdate(data []byte, compDir string) (*domain.Component, er
 	comp.Dir = compDir
 
 	resourcesDir := filepath.Join(compDir, "resources")
-	entries, err := os.ReadDir(resourcesDir)
+	entries, err := afero.ReadDir(AppFS, resourcesDir)
 	if err != nil && !os.IsNotExist(err) {
 		return nil, fmt.Errorf("read resources dir: %w", err)
 	}

@@ -25,6 +25,7 @@ import (
 	"fmt"
 	"log/slog"
 	"net"
+
 	stdhttp "net/http"
 	"os"
 	"os/exec"
@@ -34,6 +35,8 @@ import (
 	"sync"
 	"syscall"
 	"time"
+
+	"github.com/spf13/afero"
 
 	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
 )
@@ -142,12 +145,12 @@ func serverPortFile(path string) string {
 
 // writeServerPortFile persists the port so other processes can reuse this server.
 func writeServerPortFile(path string, port int) {
-	_ = os.WriteFile(serverPortFile(path), []byte(strconv.Itoa(port)), 0600)
+	_ = afero.WriteFile(AppFS, serverPortFile(path), []byte(strconv.Itoa(port)), 0600)
 }
 
 // readServerPortFile returns the port stored in the state file, or 0 if missing/invalid.
 func readServerPortFile(path string) int {
-	data, err := os.ReadFile(serverPortFile(path))
+	data, err := afero.ReadFile(AppFS, serverPortFile(path))
 	if err != nil {
 		return 0
 	}
@@ -160,7 +163,7 @@ func readServerPortFile(path string) int {
 
 //nolint:gochecknoglobals // test-replaceable hook
 var removeServerPortFile = func(path string) {
-	_ = os.Remove(serverPortFile(path))
+	_ = AppFS.Remove(serverPortFile(path))
 }
 
 // serveLocalProcess is the shared Serve implementation for LlamafileManager and

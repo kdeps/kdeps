@@ -1264,13 +1264,18 @@ func TestMove_RenameError(t *testing.T) {
 	}
 
 	e := NewExecutor()
+	// fileflow.Move creates parent directories automatically, so this succeeds
+	// even when the destination directory doesn't pre-exist.
 	_, err := e.Execute(nil, &domain.FileResourceConfig{
 		Operation: domain.FileOpMove,
 		Source:    src,
 		Path:      dst,
 	})
-	if err == nil {
-		t.Fatal("expected error for rename to nonexistent dir")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if _, statErr := os.Stat(dst); statErr != nil {
+		t.Fatalf("expected dst to exist: %v", statErr)
 	}
 }
 

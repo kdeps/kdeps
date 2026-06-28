@@ -21,15 +21,16 @@ package searchlocal
 import (
 	"fmt"
 	"io/fs"
-	"os"
 	"path/filepath"
 	"strings"
+
+	"github.com/spf13/afero"
 
 	"github.com/kdeps/kdeps/v2/pkg/domain"
 )
 
 func contentMatchesQuery(path, query string) bool {
-	data, readErr := os.ReadFile(path) // path is walk-derived from caller-supplied root
+	data, readErr := afero.ReadFile(AppFS, path) // path is walk-derived from caller-supplied root
 	if readErr != nil {
 		return false
 	}

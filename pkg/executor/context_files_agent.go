@@ -21,11 +21,12 @@ package executor
 import (
 	"fmt"
 	"io/fs"
-	"os"
 	"path/filepath"
 	"strings"
 
 	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
+
+	"github.com/spf13/afero"
 )
 
 func (ctx *ExecutionContext) handleAgentData(pattern string, _ []string) (interface{}, error) {
@@ -98,7 +99,7 @@ func (ctx *ExecutionContext) IsFilePattern(name string) bool {
 func ReadFile(path string) (interface{}, error) {
 	kdeps_debug.Log("enter: ReadFile")
 	// Check if file exists.
-	info, err := os.Stat(path)
+	info, err := AppFS.Stat(path)
 	if err != nil {
 		return nil, fmt.Errorf("file not found: %s", path)
 	}
@@ -106,7 +107,7 @@ func ReadFile(path string) (interface{}, error) {
 	// Don't read directories.
 	if info.IsDir() {
 		// Return list of files in directory.
-		entries, entriesErr := os.ReadDir(path)
+		entries, entriesErr := afero.ReadDir(AppFS, path)
 		if entriesErr != nil {
 			return nil, entriesErr
 		}
@@ -120,7 +121,7 @@ func ReadFile(path string) (interface{}, error) {
 	}
 
 	// Read file content.
-	content, err := os.ReadFile(path)
+	content, err := afero.ReadFile(AppFS, path)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read file: %w", err)
 	}

@@ -27,6 +27,22 @@ import (
 	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
 )
 
+// hasPathEscape reports whether a cleaned path name escapes its parent directory.
+// Used by ResolveTarget (archive extraction) to reject absolute paths in entries.
+func hasPathEscape(cleanName string) bool {
+	return cleanName == ".." ||
+		strings.HasPrefix(cleanName, ".."+string(os.PathSeparator)) ||
+		filepath.IsAbs(cleanName)
+}
+
+// hasDotDotEscape reports whether a cleaned path name has ".." traversal.
+// Used by safeJoin, which relies on filepath.Join to handle absolute paths safely
+// (filepath.Join(dest, "/abs") concatenates and cleans, producing dest+"/abs").
+func hasDotDotEscape(cleanName string) bool {
+	return cleanName == ".." ||
+		strings.HasPrefix(cleanName, ".."+string(os.PathSeparator))
+}
+
 // SafeJoin joins name under destDir, rejecting paths that escape destDir.
 func SafeJoin(destDir, name string) (string, error) {
 	kdeps_debug.Log("enter: SafeJoin")
@@ -34,10 +50,11 @@ func SafeJoin(destDir, name string) (string, error) {
 }
 
 func safeJoin(destDir, name string, hooks Hooks) (string, error) {
-	// Sanitize the archive entry name before joining (zipslip guard):
-	// normalize separators and reject names that escape the destination.
-	cleanName := filepath.Clean(filepath.FromSlash(filepath.ToSlash(name)))
-	if cleanName == ".." || strings.HasPrefix(cleanName, ".."+string(os.PathSeparator)) || filepath.IsAbs(cleanName) {
+	// filepath.Clean normalizes separators and removes ".." segments for the guard check.
+	cleanName := filepath.Clean(name)
+	// Use hasDotDotEscape (not hasPathEscape) because filepath.Join handles
+	// absolute paths safely: filepath.Join(dest, "/abs") produces dest+"/abs".
+	if hasDotDotEscape(cleanName) {
 		return "", fmt.Errorf("invalid archive path: %s", name)
 	}
 	targetPath := filepath.Join(destDir, cleanName)
@@ -61,13 +78,16 @@ func ResolveTarget(destDir, entryName string, opts Options) (string, bool, error
 		return path, false, nil
 	}
 
-	cleanName := filepath.Clean(filepath.FromSlash(filepath.ToSlash(entryName)))
-	if cleanName == "." || cleanName == "" || filepath.IsAbs(cleanName) ||
-		cleanName == ".." || strings.HasPrefix(cleanName, ".."+string(os.PathSeparator)) {
+	badPath := func() (string, bool, error) {
 		if opts.SkipBadPaths {
 			return "", true, nil
 		}
 		return "", false, fmt.Errorf("invalid archive path: %s", entryName)
+	}
+
+	cleanName := filepath.Clean(entryName)
+	if cleanName == "." || cleanName == "" || hasPathEscape(cleanName) {
+		return badPath()
 	}
 
 	baseDir := destDir
@@ -85,24 +105,17 @@ func ResolveTarget(destDir, entryName string, opts Options) (string, bool, error
 		return "", false, fmt.Errorf("resolve target path: %w", absErr)
 	}
 
-	// Explicit prefix guard (zipslip/path-injection sanitizer pattern)
 	cleanBase := filepath.Clean(baseDir)
 	if absTarget != cleanBase && !strings.HasPrefix(absTarget, cleanBase+string(os.PathSeparator)) {
-		if opts.SkipBadPaths {
-			return "", true, nil
-		}
-		return "", false, fmt.Errorf("invalid archive path: %s", entryName)
+		return badPath()
 	}
 
 	rel, relErr := hooks.FilepathRel(baseDir, absTarget)
 	if relErr != nil {
 		return "", false, fmt.Errorf("validate target path: %w", relErr)
 	}
-	if rel == ".." || strings.HasPrefix(rel, ".."+string(os.PathSeparator)) || filepath.IsAbs(rel) {
-		if opts.SkipBadPaths {
-			return "", true, nil
-		}
-		return "", false, fmt.Errorf("invalid archive path: %s", entryName)
+	if hasPathEscape(rel) {
+		return badPath()
 	}
 	return absTarget, false, nil
 }
