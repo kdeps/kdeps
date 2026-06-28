@@ -291,7 +291,11 @@ func TestRgDocumentSymbols_RGError(t *testing.T) {
 func TestGoDocumentSymbols_WithMatches(t *testing.T) {
 	runner := &mockRunner{
 		entries: map[string]string{
-			`--json --line-number --sort path ^(func |type |var |const |struct |interface ) main.go`: rgMatchJSON("main.go", "func main() {}", 1),
+			`--json --line-number --sort path ^(func |type |var |const |struct |interface ) main.go`: rgMatchJSON(
+				"main.go",
+				"func main() {}",
+				1,
+			),
 		},
 	}
 	e := newTestExecutor(runner)
@@ -326,7 +330,11 @@ func TestRgHover_RGError(t *testing.T) {
 func TestRgHover_WithMatches(t *testing.T) {
 	runner := &mockRunner{
 		entries: map[string]string{
-			`--json --line-number -B 5 -A 2 ^(func |type |var |const )?testFunc /path`: rgMatchJSON("main.go", "func testFunc() {}", 10),
+			`--json --line-number -B 5 -A 2 ^(func |type |var |const )?testFunc /path`: rgMatchJSON(
+				"main.go",
+				"func testFunc() {}",
+				10,
+			),
 		},
 	}
 	e := newTestExecutor(runner)
@@ -751,4 +759,3 @@ func TestLSPDiagnostics_CallError_WriteFails(t *testing.T) {
 		t.Fatal("expected error from call failure")
 	}
 }
-
