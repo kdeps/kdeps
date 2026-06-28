@@ -53,10 +53,7 @@ func (r *jobRegistry) add(
 		runErr := <-waitCh
 		out := strings.TrimSpace(stdout.String())
 		errOut := strings.TrimSpace(stderr.String())
-		if errOut != "" {
-			out += "\nstderr: " + errOut
-		}
-		job.output = truncateBashOutput(out)
+		job.output = formatBashOutput(out, errOut)
 		job.err = runErr
 		close(job.done)
 	}()

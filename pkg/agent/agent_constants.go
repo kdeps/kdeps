@@ -18,6 +18,18 @@
 
 package agent
 
+// ANSI escape sequences shared across pkg/agent/.
+const (
+	ansiReset     = "\033[0m"        // SGR reset
+	ansiBold      = "\033[1m"        // SGR bold
+	ansiDim       = "\033[2m"        // SGR dim
+	ansiRed       = "\033[31m"       // SGR red foreground
+	ansiGreen     = "\033[32m"       // SGR green foreground
+	ansiCyan      = "\033[36m"       // SGR cyan foreground
+	ansiClearLine = "\r\033[K"       // carriage return + erase entire line
+	ansiGray      = "\033[38;5;245m" // 256-color gray foreground
+)
+
 const (
 	// Tool parameter type names (JSON Schema types).
 	toolParamString = "string"

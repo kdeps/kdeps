@@ -344,17 +344,7 @@ func registerEditFile(reg *kdepstools.Registry) {
 	})
 }
 
-// ANSI color codes for coloredDiff output.
-const (
-	ansiRed   = "\033[31m"
-	ansiGreen = "\033[32m"
-	ansiDim   = "\033[2m"
-	ansiReset = "\033[0m"
-	ansiBold  = "\033[1m"
-	ansiCyan  = "\033[36m"
-
-	diffCtxLines = 2 // context lines shown before/after a diff hunk
-)
+const diffCtxLines = 2 // context lines shown before/after a diff hunk in coloredDiff
 
 // coloredDiff returns a human-readable unified-style diff between old and new.
 func coloredDiff(oldStr, newStr, filePath string) string {
@@ -972,6 +962,15 @@ func bashExecCtx(args map[string]any) context.Context {
 	return context.Background()
 }
 
+// formatBashOutput appends stderr to stdout (when non-empty) and truncates.
+// Shared by bashExecResult, bashExecCancelResult, and background jobs.
+func formatBashOutput(out, errOut string) string {
+	if errOut != "" {
+		out += "\nstderr: " + errOut
+	}
+	return truncateBashOutput(out)
+}
+
 // bashExecResult builds the return value for a completed (non-cancelled) bash_exec.
 func bashExecResult(_ context.Context, out, errOut string, runErr error) (string, error) {
 	if runErr != nil {
@@ -980,23 +979,13 @@ func bashExecResult(_ context.Context, out, errOut string, runErr error) (string
 		}
 		return "", fmt.Errorf("bash_exec: %w", runErr)
 	}
-	if errOut != "" {
-		out += "\nstderr: " + errOut
-	}
-	return truncateBashOutput(out), nil
+	return formatBashOutput(out, errOut), nil
 }
 
 // bashExecCancelResult returns partial output when the command was killed mid-run.
 // Returned as success (nil error) so the LLM sees what ran before the interrupt.
 func bashExecCancelResult(out, errOut string) (string, error) {
-	var parts []string
-	if out != "" {
-		parts = append(parts, out)
-	}
-	if errOut != "" {
-		parts = append(parts, "stderr: "+errOut)
-	}
-	return truncateBashOutput(strings.Join(append(parts, "[interrupted]"), "\n")), nil
+	return formatBashOutput(out, errOut) + "\n[interrupted]", nil
 }
 
 // registerBashExec registers a bash command execution tool.
