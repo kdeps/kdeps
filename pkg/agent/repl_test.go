@@ -2876,7 +2876,7 @@ func TestContextFromParams_Thresholds(t *testing.T) {
 		{name: "4B_model", model: "jan3.5", want: contextLimit3B},
 		{name: "7B_model", model: "mathstral7", want: contextLimit7B},
 		{name: "8B_model", model: "llama3.1", want: contextLimit7B},
-		{name: "27B_model", model: "qwopus3.6", want: contextLimit13B},
+		{name: "27B_model", model: "qwen3.6", want: contextLimit13B},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -3862,7 +3862,7 @@ func TestFDBinPath_NotFound(t *testing.T) {
 // --- paramsForModel ---
 
 func TestParamsForModel_KnownGGUF(t *testing.T) {
-	got := paramsForModel("qwopus3.6") // GGUF-only, params "27B"
+	got := paramsForModel("qwen3.6") // GGUF-only, params "27B"
 	assert.Equal(t, 27.0, got)
 }
 
