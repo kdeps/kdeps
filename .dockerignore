@@ -118,3 +118,29 @@ Temporary Items
 .apdisk
 
 # End of https://www.toptal.com/developers/gitignore/api/goland,go,macos
+
+# Docker build context — prevent sensitive/internal files from leaking into images
+.git/
+.gitattributes
+.gitignore
+.gitmodules
+private/
+.tmp/
+.claude/
+codeql-db/
+*.kdeps
+*.tgz
+*.tar.gz
+*.zip
+
+# Development and testing artifacts
+coverage*.out
+.vscode/
+.cursor/
+
+# Documentation build artifacts (node_modules can be large)
+docs/v2/node_modules/
+kdeps-io/node_modules/
+
+# CI/CD
+.github/
