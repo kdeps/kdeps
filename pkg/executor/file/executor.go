@@ -60,6 +60,14 @@ const (
 	keyDest    = "dest"
 )
 
+// errResult returns result(false, {keyError, keyPath}) for path-scoped operation errors.
+func errResult(path string, err error) interface{} {
+	return result(false, map[string]interface{}{
+		keyError: err.Error(),
+		keyPath:  path,
+	})
+}
+
 // Executor performs filesystem operations for KDeps resources.
 type Executor struct{}
 
@@ -150,10 +158,7 @@ func (e *Executor) write(config *domain.FileResourceConfig) (interface{}, error)
 
 	parent := filepath.Dir(config.Path)
 	if mkdirErr := AppFS.MkdirAll(parent, gosecDirPerm); mkdirErr != nil {
-		return result(false, map[string]interface{}{
-			keyError: mkdirErr.Error(),
-			keyPath:  config.Path,
-		}), fmt.Errorf("file: failed to create parent directory: %w", mkdirErr)
+		return errResult(config.Path, mkdirErr), fmt.Errorf("file: failed to create parent directory: %w", mkdirErr)
 	}
 
 	exists := fileExists(config.Path)
@@ -172,20 +177,14 @@ func (e *Executor) write(config *domain.FileResourceConfig) (interface{}, error)
 	if config.Backup && exists {
 		backupPath := config.Path + ".bak"
 		if cpErr := copyFile(config.Path, backupPath); cpErr != nil {
-			return result(false, map[string]interface{}{
-				keyError: cpErr.Error(),
-				keyPath:  config.Path,
-			}), fmt.Errorf("file: failed to create backup: %w", cpErr)
+			return errResult(config.Path, cpErr), fmt.Errorf("file: failed to create backup: %w", cpErr)
 		}
 		existingInfo["backupPath"] = backupPath
 	}
 
 	mode := defaultFileMode(config.Mode)
 	if writeErr := afero.WriteFile(AppFS, config.Path, []byte(content), mode); writeErr != nil {
-		return result(false, map[string]interface{}{
-			keyError: writeErr.Error(),
-			keyPath:  config.Path,
-		}), fmt.Errorf("file: failed to write: %w", writeErr)
+		return errResult(config.Path, writeErr), fmt.Errorf("file: failed to write: %w", writeErr)
 	}
 
 	return result(true, map[string]interface{}{
@@ -210,18 +209,12 @@ func (e *Executor) patch(config *domain.FileResourceConfig) (interface{}, error)
 
 	original, readErr := afero.ReadFile(AppFS, config.Path)
 	if readErr != nil {
-		return result(false, map[string]interface{}{
-			keyError: readErr.Error(),
-			keyPath:  config.Path,
-		}), fmt.Errorf("file: failed to read target file for patch: %w", readErr)
+		return errResult(config.Path, readErr), fmt.Errorf("file: failed to read target file for patch: %w", readErr)
 	}
 
 	patched, patchErr := applyPatch(string(original), config.Patch)
 	if patchErr != nil {
-		return result(false, map[string]interface{}{
-			keyError: patchErr.Error(),
-			keyPath:  config.Path,
-		}), fmt.Errorf("file: patch failed: %w", patchErr)
+		return errResult(config.Path, patchErr), fmt.Errorf("file: patch failed: %w", patchErr)
 	}
 
 	if config.DryRun {
@@ -244,10 +237,7 @@ func (e *Executor) patch(config *domain.FileResourceConfig) (interface{}, error)
 
 	gosecFilePermDefault := gosecFilePerm
 	if writeErr := afero.WriteFile(AppFS, config.Path, []byte(patched), gosecFilePermDefault); writeErr != nil {
-		return result(false, map[string]interface{}{
-			keyError: writeErr.Error(),
-			keyPath:  config.Path,
-		}), fmt.Errorf("file: failed to write patched file: %w", writeErr)
+		return errResult(config.Path, writeErr), fmt.Errorf("file: failed to write patched file: %w", writeErr)
 	}
 
 	return result(true, map[string]interface{}{
@@ -265,10 +255,7 @@ func (e *Executor) list(config *domain.FileResourceConfig) (interface{}, error) 
 
 	info, statErr := AppFS.Stat(config.Path)
 	if statErr != nil {
-		return result(false, map[string]interface{}{
-			keyError: statErr.Error(),
-			keyPath:  config.Path,
-		}), fmt.Errorf("file: cannot access path: %w", statErr)
+		return errResult(config.Path, statErr), fmt.Errorf("file: cannot access path: %w", statErr)
 	}
 
 	entries, entriesErr := listDirEntries(info, config)
@@ -306,10 +293,7 @@ func (e *Executor) deleteOp(config *domain.FileResourceConfig) (interface{}, err
 	}
 
 	if rmErr := AppFS.RemoveAll(config.Path); rmErr != nil {
-		return result(false, map[string]interface{}{
-			keyError: rmErr.Error(),
-			keyPath:  config.Path,
-		}), fmt.Errorf("file: failed to delete: %w", rmErr)
+		return errResult(config.Path, rmErr), fmt.Errorf("file: failed to delete: %w", rmErr)
 	}
 
 	return result(true, map[string]interface{}{
@@ -356,10 +340,7 @@ func (e *Executor) mkdir(config *domain.FileResourceConfig) (interface{}, error)
 
 	mode := defaultDirMode(config.Mode)
 	if mkdirErr := AppFS.MkdirAll(config.Path, mode); mkdirErr != nil {
-		return result(false, map[string]interface{}{
-			keyError: mkdirErr.Error(),
-			keyPath:  config.Path,
-		}), fmt.Errorf("file: failed to create directory: %w", mkdirErr)
+		return errResult(config.Path, mkdirErr), fmt.Errorf("file: failed to create directory: %w", mkdirErr)
 	}
 
 	return result(true, map[string]interface{}{
@@ -482,19 +463,13 @@ func (e *Executor) append(config *domain.FileResourceConfig) (interface{}, error
 
 	f, openErr := os.OpenFile(config.Path, os.O_APPEND|os.O_CREATE|os.O_WRONLY, gosecFilePerm)
 	if openErr != nil {
-		return result(false, map[string]interface{}{
-			keyError: openErr.Error(),
-			keyPath:  config.Path,
-		}), fmt.Errorf("file: failed to append: %w", openErr)
+		return errResult(config.Path, openErr), fmt.Errorf("file: failed to append: %w", openErr)
 	}
 	defer f.Close()
 
 	n, writeErr := f.WriteString(content)
 	if writeErr != nil {
-		return result(false, map[string]interface{}{
-			keyError: writeErr.Error(),
-			keyPath:  config.Path,
-		}), fmt.Errorf("file: failed to write append content: %w", writeErr)
+		return errResult(config.Path, writeErr), fmt.Errorf("file: failed to write append content: %w", writeErr)
 	}
 
 	return result(true, map[string]interface{}{

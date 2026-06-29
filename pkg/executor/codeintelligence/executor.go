@@ -127,6 +127,36 @@ func (e *Executor) executeRG(config *domain.CodeIntelligenceConfig) (interface{}
 
 // --- helpers ---
 
+// matchesToLocations converts rg match results into the standard {file, line, content} shape
+// used by symbolSearch, definition, and references operations.
+func matchesToLocations(matches []rgMatch) []map[string]interface{} {
+	locs := make([]map[string]interface{}, 0, len(matches))
+	for _, m := range matches {
+		locs = append(locs, map[string]interface{}{
+			"file":          m.Data.Path.Text,
+			"line":          m.Data.LineNumber,
+			ciResultContent: strings.TrimSpace(m.Data.Lines.Text),
+		})
+	}
+	return locs
+}
+
+// symbolsFromMatches converts rg match results into the standard {name, kind, file, line, content}
+// shape used by documentSymbols operations.
+func symbolsFromMatches(matches []rgMatch) []map[string]interface{} {
+	syms := make([]map[string]interface{}, 0, len(matches))
+	for _, m := range matches {
+		syms = append(syms, map[string]interface{}{
+			"name":          extractSymbolName(m.Data.Lines.Text),
+			"kind":          inferKind(m.Data.Lines.Text),
+			"file":          m.Data.Path.Text,
+			"line":          m.Data.LineNumber,
+			ciResultContent: strings.TrimSpace(m.Data.Lines.Text),
+		})
+	}
+	return syms
+}
+
 func result(success bool, data map[string]interface{}) map[string]interface{} {
 	if data == nil {
 		data = map[string]interface{}{}
@@ -223,15 +253,7 @@ func (e *Executor) rgSymbolSearch(config *domain.CodeIntelligenceConfig) (interf
 		return result(false, map[string]interface{}{resultError: err.Error()}), err
 	}
 
-	var symbols []map[string]interface{}
-	for _, m := range matches {
-		symbols = append(symbols, map[string]interface{}{
-			"file":          m.Data.Path.Text,
-			"line":          m.Data.LineNumber,
-			ciResultContent: strings.TrimSpace(m.Data.Lines.Text),
-		})
-	}
-
+	symbols := matchesToLocations(matches)
 	return result(true, map[string]interface{}{
 		"symbols":     symbols,
 		ciResultCount: len(symbols),
@@ -256,15 +278,7 @@ func (e *Executor) rgDefinition(config *domain.CodeIntelligenceConfig) (interfac
 		return result(false, map[string]interface{}{resultError: err.Error()}), err
 	}
 
-	var defs []map[string]interface{}
-	for _, m := range matches {
-		defs = append(defs, map[string]interface{}{
-			"file":          m.Data.Path.Text,
-			"line":          m.Data.LineNumber,
-			ciResultContent: strings.TrimSpace(m.Data.Lines.Text),
-		})
-	}
-
+	defs := matchesToLocations(matches)
 	return result(true, map[string]interface{}{
 		"definitions": defs,
 		ciResultCount: len(defs),
@@ -286,15 +300,7 @@ func (e *Executor) rgReferences(config *domain.CodeIntelligenceConfig) (interfac
 		return result(false, map[string]interface{}{resultError: err.Error()}), err
 	}
 
-	var refs []map[string]interface{}
-	for _, m := range matches {
-		refs = append(refs, map[string]interface{}{
-			"file":          m.Data.Path.Text,
-			"line":          m.Data.LineNumber,
-			ciResultContent: strings.TrimSpace(m.Data.Lines.Text),
-		})
-	}
-
+	refs := matchesToLocations(matches)
 	return result(true, map[string]interface{}{
 		"references":  refs,
 		ciResultCount: len(refs),
@@ -323,17 +329,7 @@ func (e *Executor) rgDocumentSymbols(config *domain.CodeIntelligenceConfig) (int
 		return result(false, map[string]interface{}{resultError: err.Error()}), err
 	}
 
-	var symbols []map[string]interface{}
-	for _, m := range matches {
-		symbols = append(symbols, map[string]interface{}{
-			"name":          extractSymbolName(m.Data.Lines.Text),
-			"kind":          inferKind(m.Data.Lines.Text),
-			"file":          m.Data.Path.Text,
-			"line":          m.Data.LineNumber,
-			ciResultContent: strings.TrimSpace(m.Data.Lines.Text),
-		})
-	}
-
+	symbols := symbolsFromMatches(matches)
 	return result(true, map[string]interface{}{
 		"symbols":     symbols,
 		ciResultCount: len(symbols),
@@ -352,17 +348,7 @@ func (e *Executor) goDocumentSymbols(config *domain.CodeIntelligenceConfig) (int
 		return result(false, map[string]interface{}{resultError: err.Error()}), err
 	}
 
-	var symbols []map[string]interface{}
-	for _, m := range matches {
-		symbols = append(symbols, map[string]interface{}{
-			"name":          extractSymbolName(m.Data.Lines.Text),
-			"kind":          inferKind(m.Data.Lines.Text),
-			"file":          m.Data.Path.Text,
-			"line":          m.Data.LineNumber,
-			ciResultContent: strings.TrimSpace(m.Data.Lines.Text),
-		})
-	}
-
+	symbols := symbolsFromMatches(matches)
 	return result(true, map[string]interface{}{
 		"symbols":     symbols,
 		ciResultCount: len(symbols),

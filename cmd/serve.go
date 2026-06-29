@@ -28,6 +28,15 @@ var registerAgencyTargetParseFunc = ParseWorkflowFile
 // agentBackendFile is the default LLM backend (llamafile).
 const agentBackendFile = "file"
 
+// refreshREPLModelLists repopulates the four model lists on repl.
+// Called at startup and inside the SetRefreshModelsFn closure.
+func refreshREPLModelLists(repl *agent.REPL) {
+	repl.SetModelNames(buildAllModelNames())
+	repl.SetDownloadedModels(llm.DownloadedModelAliases())
+	repl.SetModelTypes(buildModelTypes())
+	repl.SetModelRepos(buildModelRepos())
+}
+
 // agentBackendGGUF is the llama.cpp/llama-server backend for GGUF model files.
 const agentBackendGGUF = "gguf"
 
@@ -117,20 +126,12 @@ func runAgentLoopCmd(path string, flags *agentLoopFlags) error {
 	defer llm.ShutdownLocalServers()
 
 	// Provide model name suggestions for /model <tab> completion.
-	repl.SetModelNames(buildAllModelNames())
-	repl.SetDownloadedModels(llm.DownloadedModelAliases())
-	repl.SetModelTypes(buildModelTypes())
-	repl.SetModelRepos(buildModelRepos())
+	refreshREPLModelLists(repl)
 	repl.SetCloudModelBackends(buildCloudBackends())
 	repl.SetProviderStatus(agent.BuildProviderStatus())
 
 	// Refresh in-memory model lists after /hff download registers a new GGUF.
-	repl.SetRefreshModelsFn(func() {
-		repl.SetModelNames(buildAllModelNames())
-		repl.SetModelTypes(buildModelTypes())
-		repl.SetModelRepos(buildModelRepos())
-		repl.SetDownloadedModels(llm.DownloadedModelAliases())
-	})
+	repl.SetRefreshModelsFn(func() { refreshREPLModelLists(repl) })
 
 	// Wire default-model persistence for /model default <name>.
 	repl.SetSaveDefaultFn(tui.SaveDefaultModel)
