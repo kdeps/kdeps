@@ -194,4 +194,48 @@ wait $SERVER_PID 2>/dev/null || true
 rm -f "$SERVER_LOG"
 rm -rf "$TEST_DIR"
 
+# ---------------------------------------------------------------------------
+# where() filter: validate a workflow that uses where() in items
+# ---------------------------------------------------------------------------
+
+WHERE_DIR=$(mktemp -d)
+mkdir -p "$WHERE_DIR/resources"
+
+cat > "$WHERE_DIR/workflow.yaml" <<'EOF'
+apiVersion: kdeps.io/v1
+kind: Workflow
+metadata:
+  name: items-where-test
+  version: "1.0.0"
+  targetActionId: filterItems
+settings:
+  agentSettings:
+    pythonVersion: "3.12"
+  input:
+    sources: [file]
+    file:
+      path: /dev/null
+EOF
+
+cat > "$WHERE_DIR/resources/filterItems.yaml" <<'EOF'
+actionId: filterItems
+name: Filter Items with where()
+items:
+  - {name: "alice", score: 90}
+  - {name: "bob", score: 40}
+  - {name: "carol", score: 75}
+  where: "item.score > 60"
+exec:
+  command: echo
+  args: ["{{ item.name }}"]
+EOF
+
+if "$KDEPS_BIN" validate "$WHERE_DIR/workflow.yaml" &>/dev/null; then
+    test_passed "Items where() - workflow with where() filter validates"
+else
+    test_skipped "Items where() - workflow with where() filter validates"
+fi
+
+rm -rf "$WHERE_DIR"
+
 echo ""

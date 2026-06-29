@@ -50,6 +50,7 @@ source "$SCRIPT_DIR/test_examples_components.sh"
 source "$SCRIPT_DIR/test_examples_component_cli.sh"
 
 # --- Native executor examples ---
+source "$SCRIPT_DIR/test_examples_fformat.sh"
 source "$SCRIPT_DIR/test_examples_scraper_native.sh"
 source "$SCRIPT_DIR/test_examples_embedding_rag.sh"
 source "$SCRIPT_DIR/test_examples_search_local_files.sh"
