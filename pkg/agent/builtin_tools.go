@@ -139,6 +139,19 @@ func registerCalculator(ctx context.Context, reg *kdepstools.Registry) {
 
 const maxFileReadBytes = 1 << 20 // 1 MB
 
+// requireAbsFilePath extracts the "file_path" arg, checks it is non-empty and
+// begins with "/" (absolute). Used by file-operating tools that share this guard.
+func requireAbsFilePath(toolName string, args map[string]any) (string, error) {
+	filePath, _ := args["file_path"].(string)
+	if filePath == "" {
+		return "", fmt.Errorf("%s: file_path is required", toolName)
+	}
+	if !strings.HasPrefix(filePath, "/") {
+		return "", fmt.Errorf("%s: absolute path required", toolName)
+	}
+	return filePath, nil
+}
+
 // registerReadFile registers a local file reading tool.
 // Reads text files from the filesystem. Accepts absolute paths only.
 // No API key required.
@@ -162,12 +175,9 @@ func registerReadFile(reg *kdepstools.Registry) {
 			},
 		},
 		Execute: func(args map[string]any) (string, error) {
-			filePath, _ := args["file_path"].(string)
-			if filePath == "" {
-				return "", errors.New("read_file: file_path is required")
-			}
-			if !strings.HasPrefix(filePath, "/") {
-				return "", errors.New("read_file: absolute path required")
+			filePath, err := requireAbsFilePath("read_file", args)
+			if err != nil {
+				return "", err
 			}
 			return readLocalFile(filePath, args)
 		},
@@ -248,14 +258,11 @@ func registerWriteFile(reg *kdepstools.Registry) {
 			},
 		},
 		Execute: func(args map[string]any) (string, error) {
-			filePath, _ := args["file_path"].(string)
-			if filePath == "" {
-				return "", errors.New("write_file: file_path is required")
+			filePath, err := requireAbsFilePath("write_file", args)
+			if err != nil {
+				return "", err
 			}
-			if !strings.HasPrefix(filePath, "/") {
-				return "", errors.New("write_file: absolute path required")
-			}
-			if err := validateWorkspaceBoundary(filePath); err != nil {
+			if err = validateWorkspaceBoundary(filePath); err != nil {
 				return "", fmt.Errorf("write_file: %w", err)
 			}
 			content, _ := args["content"].(string)
@@ -270,7 +277,7 @@ func registerWriteFile(reg *kdepstools.Registry) {
 			if statErr == nil && info.IsDir() {
 				return "", fmt.Errorf("write_file: %s is a directory", filePath)
 			}
-			if err := afero.WriteFile(AppFS, filePath, []byte(content), 0o600); err != nil {
+			if err = afero.WriteFile(AppFS, filePath, []byte(content), 0o600); err != nil {
 				return "", fmt.Errorf("write_file: write %s: %w", filePath, err)
 			}
 			return fmt.Sprintf("Wrote %d bytes to %s", len(content), filePath), nil
@@ -303,14 +310,11 @@ func registerEditFile(reg *kdepstools.Registry) {
 			},
 		},
 		Execute: func(args map[string]any) (string, error) {
-			filePath, _ := args["file_path"].(string)
-			if filePath == "" {
-				return "", errors.New("edit_file: file_path is required")
+			filePath, err := requireAbsFilePath("edit_file", args)
+			if err != nil {
+				return "", err
 			}
-			if !strings.HasPrefix(filePath, "/") {
-				return "", errors.New("edit_file: absolute path required")
-			}
-			if err := validateWorkspaceBoundary(filePath); err != nil {
+			if err = validateWorkspaceBoundary(filePath); err != nil {
 				return "", fmt.Errorf("edit_file: %w", err)
 			}
 			oldStr, _ := args["old_string"].(string)
