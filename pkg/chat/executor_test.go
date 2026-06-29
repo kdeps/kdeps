@@ -20,6 +20,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -52,6 +53,9 @@ func TestExecutor_ExportK8s_NoWorkflow(t *testing.T) {
 }
 
 func TestExecutor_Run_BinaryNotFound(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
 	out := &strings.Builder{}
 	exec := NewExecutor(out, out)
 	exec.KDepsBin = "/nonexistent/kdeps-binary"
@@ -63,7 +67,7 @@ func TestExecutor_Run_BinaryNotFound(t *testing.T) {
 		},
 	}
 
-	err := exec.Run(context.Background(), session)
+	err := exec.Run(ctx, session)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "failed")
 }
@@ -86,6 +90,9 @@ func TestNewExecutor_FallbackBin(t *testing.T) {
 }
 
 func TestExecutor_ExportK8s_BinaryNotFound(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
 	out := &strings.Builder{}
 	exec := NewExecutor(out, out)
 	exec.KDepsBin = "/nonexistent/kdeps-binary"
@@ -97,12 +104,15 @@ func TestExecutor_ExportK8s_BinaryNotFound(t *testing.T) {
 		},
 	}
 
-	err := exec.ExportK8s(context.Background(), session)
+	err := exec.ExportK8s(ctx, session)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "failed")
 }
 
 func TestExecutor_Run_Success(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
 	out := &strings.Builder{}
 	exec := NewExecutor(out, out)
 	exec.KDepsBin = writeTestScript(t, t.TempDir(), "kdeps-ok", "exit 0")
@@ -114,7 +124,7 @@ func TestExecutor_Run_Success(t *testing.T) {
 		},
 	}
 
-	err := exec.Run(context.Background(), session)
+	err := exec.Run(ctx, session)
 	require.NoError(t, err)
 }
 
@@ -160,6 +170,9 @@ func TestExecutor_Run_WriteWorkflowError(t *testing.T) {
 }
 
 func TestExecutor_ExportK8s_Success(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
 	out := &strings.Builder{}
 	exec := NewExecutor(out, out)
 	exec.KDepsBin = writeTestScript(t, t.TempDir(), "kdeps-ok", "exit 0")
@@ -171,6 +184,6 @@ func TestExecutor_ExportK8s_Success(t *testing.T) {
 		},
 	}
 
-	err := exec.ExportK8s(context.Background(), session)
+	err := exec.ExportK8s(ctx, session)
 	require.NoError(t, err)
 }
