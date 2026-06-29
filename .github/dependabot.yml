@@ -10,6 +10,8 @@ updates:
       - "go"
     commit-message:
       prefix: "chore(deps)"
+    ignore:
+      - dependency-name: "github.com/playwright-community/playwright-go"
 
   - package-ecosystem: "npm"
     directory: "/"
@@ -19,18 +21,6 @@ updates:
     labels:
       - "dependencies"
       - "npm"
-    commit-message:
-      prefix: "chore(deps)"
-
-  - package-ecosystem: "npm"
-    directory: "/kdeps-io"
-    schedule:
-      interval: "weekly"
-      day: "monday"
-    labels:
-      - "dependencies"
-      - "npm"
-      - "kdeps-io"
     commit-message:
       prefix: "chore(deps)"
 
