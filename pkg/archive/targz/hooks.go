@@ -44,7 +44,7 @@ func defaultHooks() Hooks {
 		FilepathRel: filepath.Rel,
 		IOCopyN:     io.CopyN,
 		IOCopy:      io.Copy,
-		FileClose:   func(f *os.File) error { return f.Close() },
+		FileClose:   (*os.File).Close,
 		MkdirAll:    os.MkdirAll,
 	}
 }

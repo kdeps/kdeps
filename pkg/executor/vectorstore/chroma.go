@@ -173,9 +173,9 @@ func (s *chromaStore) SimilaritySearch(
 	numDocuments int,
 	_ ...lcvectorstores.Option,
 ) ([]schema.Document, error) {
-	vector, embedErr := s.embedder.EmbedQuery(ctx, query)
+	vector, embedErr := embedQuery(ctx, s.embedder, "chroma", query)
 	if embedErr != nil {
-		return nil, fmt.Errorf("chroma similarity_search: embed query: %w", embedErr)
+		return nil, embedErr
 	}
 
 	collID, collErr := s.collectionID(ctx)
@@ -183,9 +183,7 @@ func (s *chromaStore) SimilaritySearch(
 		return nil, collErr
 	}
 
-	if numDocuments <= 0 {
-		numDocuments = 5
-	}
+	numDocuments = normalizeTopK(numDocuments)
 
 	payload, marshalErr := json.Marshal(map[string]interface{}{
 		"query_embeddings": [][]float32{vector},

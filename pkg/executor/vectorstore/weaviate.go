@@ -131,14 +131,12 @@ func (s *weaviateStore) SimilaritySearch(
 	numDocuments int,
 	_ ...lcvectorstores.Option,
 ) ([]schema.Document, error) {
-	vector, embedErr := s.embedder.EmbedQuery(ctx, query)
+	vector, embedErr := embedQuery(ctx, s.embedder, "weaviate", query)
 	if embedErr != nil {
-		return nil, fmt.Errorf("weaviate similarity_search: embed query: %w", embedErr)
+		return nil, embedErr
 	}
 
-	if numDocuments <= 0 {
-		numDocuments = 5
-	}
+	numDocuments = normalizeTopK(numDocuments)
 
 	// Build float64 slice for JSON serialization of the vector.
 	vectorJSON := make([]float64, len(vector))

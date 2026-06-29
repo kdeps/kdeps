@@ -57,6 +57,22 @@ import (
 // Mirrors the langchaingo ConversationalAgent pattern of eliciting step-by-step reasoning.
 const chainOfThoughtInstruction = "Think step by step. Show your reasoning before giving your final answer."
 
+// simpleTokenProviders maps backend names that need only a token + model to their constructors.
+// Adding a new provider of this shape only requires one entry here.
+//
+//nolint:gochecknoglobals // package-level constructor table; entries are never mutated at runtime
+var simpleTokenProviders = map[string]func(token, model string) (llms.Model, error){
+	backendAnthropic: func(token, model string) (llms.Model, error) {
+		return lcanthropic.New(lcanthropic.WithToken(token), lcanthropic.WithModel(model))
+	},
+	backendHuggingFace: func(token, model string) (llms.Model, error) {
+		return lchuggingface.New(lchuggingface.WithToken(token), lchuggingface.WithModel(model))
+	},
+	backendMaritaca: func(token, model string) (llms.Model, error) {
+		return lcmaritaca.New(lcmaritaca.WithToken(token), lcmaritaca.WithModel(model))
+	},
+}
+
 //nolint:gochecknoglobals // provider base URLs are constant lookup table, not mutable state
 var langchainBaseURLs = map[string]string{
 	backendOpenAI: "https://api.openai.com/v1",
@@ -86,71 +102,54 @@ func buildLangchainLLM(ctx context.Context, cfg *domain.ChatConfig) (llms.Model,
 		model llms.Model
 		err   error
 	)
-	switch backend {
-	case backendAnthropic:
-		apiKey := os.Getenv(providerAPIKeyEnvVar(backendAnthropic))
-		model, err = lcanthropic.New(
-			lcanthropic.WithToken(apiKey),
-			lcanthropic.WithModel(cfg.Model),
-		)
+	if builder, ok := simpleTokenProviders[backend]; ok {
+		model, err = builder(os.Getenv(providerAPIKeyEnvVar(backend)), cfg.Model)
+	} else {
+		switch backend {
+		case backendGoogle:
+			model, err = buildGoogleAILLM(ctx, cfg)
 
-	case backendGoogle:
-		model, err = buildGoogleAILLM(ctx, cfg)
+		case backendCloudflare:
+			token := os.Getenv(providerAPIKeyEnvVar(backendCloudflare))
+			accountID := os.Getenv("CLOUDFLARE_ACCOUNT_ID")
+			model, err = lccloudflare.New(
+				lccloudflare.WithToken(token),
+				lccloudflare.WithAccountID(accountID),
+				lccloudflare.WithModel(cfg.Model),
+			)
 
-	case backendHuggingFace:
-		apiKey := os.Getenv(providerAPIKeyEnvVar(backendHuggingFace))
-		model, err = lchuggingface.New(
-			lchuggingface.WithToken(apiKey),
-			lchuggingface.WithModel(cfg.Model),
-		)
+		case backendErnie:
+			apiKey := os.Getenv(providerAPIKeyEnvVar(backendErnie))
+			secretKey := os.Getenv("ERNIE_SECRET_KEY")
+			model, err = lcernie.New(
+				lcernie.WithAKSK(apiKey, secretKey),
+				lcernie.WithModel(cfg.Model),
+			)
 
-	case backendCloudflare:
-		token := os.Getenv(providerAPIKeyEnvVar(backendCloudflare))
-		accountID := os.Getenv("CLOUDFLARE_ACCOUNT_ID")
-		model, err = lccloudflare.New(
-			lccloudflare.WithToken(token),
-			lccloudflare.WithAccountID(accountID),
-			lccloudflare.WithModel(cfg.Model),
-		)
+		case backendBedrock:
+			model, err = lcbedrock.New(
+				lcbedrock.WithModel(cfg.Model),
+			)
 
-	case backendMaritaca:
-		apiKey := os.Getenv(providerAPIKeyEnvVar(backendMaritaca))
-		model, err = lcmaritaca.New(
-			lcmaritaca.WithToken(apiKey),
-			lcmaritaca.WithModel(cfg.Model),
-		)
+		case backendWatsonX:
+			model, err = lcwatsonx.New(
+				cfg.Model,
+				wx.WithWatsonxAPIKey(os.Getenv(providerAPIKeyEnvVar(backendWatsonX))),
+				wx.WithWatsonxProjectID(os.Getenv("WATSONX_PROJECT_ID")),
+			)
 
-	case backendErnie:
-		apiKey := os.Getenv(providerAPIKeyEnvVar(backendErnie))
-		secretKey := os.Getenv("ERNIE_SECRET_KEY")
-		model, err = lcernie.New(
-			lcernie.WithAKSK(apiKey, secretKey),
-			lcernie.WithModel(cfg.Model),
-		)
+		case backendOllama:
+			// Use native Ollama path when Ollama-specific options are set;
+			// otherwise fall through to OpenAI-compat for full feature parity.
+			if cfg.OllamaThink || cfg.OllamaKeepAlive != "" || cfg.OllamaPullModel {
+				model, err = buildNativeOllamaLLM(cfg)
+			} else {
+				model, err = buildOpenAICompatLLM(cfg, backend)
+			}
 
-	case backendBedrock:
-		model, err = lcbedrock.New(
-			lcbedrock.WithModel(cfg.Model),
-		)
-
-	case backendWatsonX:
-		model, err = lcwatsonx.New(
-			cfg.Model,
-			wx.WithWatsonxAPIKey(os.Getenv(providerAPIKeyEnvVar(backendWatsonX))),
-			wx.WithWatsonxProjectID(os.Getenv("WATSONX_PROJECT_ID")),
-		)
-
-	case backendOllama:
-		// Use native Ollama path when Ollama-specific options are set;
-		// otherwise fall through to OpenAI-compat for full feature parity.
-		if cfg.OllamaThink || cfg.OllamaKeepAlive != "" || cfg.OllamaPullModel {
-			model, err = buildNativeOllamaLLM(cfg)
-		} else {
+		default:
 			model, err = buildOpenAICompatLLM(cfg, backend)
 		}
-
-	default:
-		model, err = buildOpenAICompatLLM(cfg, backend)
 	}
 
 	if err != nil || model == nil {
