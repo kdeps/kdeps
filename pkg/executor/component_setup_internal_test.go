@@ -15,6 +15,7 @@
 package executor
 
 import (
+	"context"
 	"log/slog"
 	"os"
 	"path/filepath"
@@ -193,13 +194,15 @@ func TestRunCommand_Error(t *testing.T) {
 }
 
 func TestInstallComponentPythonPackages_Success(t *testing.T) {
+	origUV := pythonpkg.RunUVFunc
+	t.Cleanup(func() { pythonpkg.RunUVFunc = origUV })
+	pythonpkg.RunUVFunc = func(_ context.Context, _ []string, _ []string) error { return nil }
+
 	orig := pythonManagerFactory
 	t.Cleanup(func() { pythonManagerFactory = orig })
 	pythonManagerFactory = func(baseDir string) *pythonpkg.Manager {
 		return &pythonpkg.Manager{BaseDir: baseDir}
 	}
-	// Create a temp dir that won't work for venv creation — the test will exercise
-	// the code path even if EnsureVenv fails gracefully.
 	t.Setenv("HOME", t.TempDir())
 	e := &Engine{}
 	ctx := &ExecutionContext{
@@ -213,11 +216,14 @@ func TestInstallComponentPythonPackages_Success(t *testing.T) {
 			},
 		},
 	}
-	// This will attempt real venv creation — may fail but exercises the code path.
 	_ = e.installComponentPythonPackages([]string{"example-pkg"}, ctx)
 }
 
 func TestInstallComponentPythonPackages_DefaultVersion(t *testing.T) {
+	origUV := pythonpkg.RunUVFunc
+	t.Cleanup(func() { pythonpkg.RunUVFunc = origUV })
+	pythonpkg.RunUVFunc = func(_ context.Context, _ []string, _ []string) error { return nil }
+
 	orig := pythonManagerFactory
 	t.Cleanup(func() { pythonManagerFactory = orig })
 	pythonManagerFactory = func(baseDir string) *pythonpkg.Manager {
@@ -237,6 +243,10 @@ func TestInstallComponentPythonPackages_DefaultVersion(t *testing.T) {
 }
 
 func TestInstallComponentPythonPackages_WithRequirements(t *testing.T) {
+	origUV := pythonpkg.RunUVFunc
+	t.Cleanup(func() { pythonpkg.RunUVFunc = origUV })
+	pythonpkg.RunUVFunc = func(_ context.Context, _ []string, _ []string) error { return nil }
+
 	orig := pythonManagerFactory
 	t.Cleanup(func() { pythonManagerFactory = orig })
 	pythonManagerFactory = func(baseDir string) *pythonpkg.Manager {

@@ -55,20 +55,20 @@ func TestUvVenvEnv_IncludesPythonDir(t *testing.T) {
 }
 
 func TestRunUVFunc_NilEnv(t *testing.T) {
-	orig := runUVFunc
-	t.Cleanup(func() { runUVFunc = orig })
-	runUVFunc = func(_ context.Context, args []string, env []string) error {
+	orig := RunUVFunc
+	t.Cleanup(func() { RunUVFunc = orig })
+	RunUVFunc = func(_ context.Context, args []string, env []string) error {
 		assert.Nil(t, env)
 		assert.Equal(t, []string{"venv", "--python", "3.12", "/tmp/venv"}, args)
 		return nil
 	}
-	require.NoError(t, runUVFunc(context.Background(), []string{"venv", "--python", "3.12", "/tmp/venv"}, nil))
+	require.NoError(t, RunUVFunc(context.Background(), []string{"venv", "--python", "3.12", "/tmp/venv"}, nil))
 }
 
 func TestEnsureVenv_InstallsPackagesWithMockedUV(t *testing.T) {
-	orig := runUVFunc
-	t.Cleanup(func() { runUVFunc = orig })
-	runUVFunc = func(_ context.Context, args []string, _ []string) error {
+	orig := RunUVFunc
+	t.Cleanup(func() { RunUVFunc = orig })
+	RunUVFunc = func(_ context.Context, args []string, _ []string) error {
 		if args[0] == "venv" {
 			venvPath := args[len(args)-1]
 			bin := filepath.Join(venvPath, "bin")
@@ -86,9 +86,9 @@ func TestEnsureVenv_InstallsPackagesWithMockedUV(t *testing.T) {
 }
 
 func TestEnsureVenv_InstallsPackagesAndRequirementsWithMockedUV(t *testing.T) {
-	orig := runUVFunc
-	t.Cleanup(func() { runUVFunc = orig })
-	runUVFunc = func(_ context.Context, args []string, _ []string) error {
+	orig := RunUVFunc
+	t.Cleanup(func() { RunUVFunc = orig })
+	RunUVFunc = func(_ context.Context, args []string, _ []string) error {
 		if args[0] == "venv" {
 			venvPath := args[len(args)-1]
 			bin := filepath.Join(venvPath, "bin")
@@ -108,9 +108,9 @@ func TestEnsureVenv_InstallsPackagesAndRequirementsWithMockedUV(t *testing.T) {
 }
 
 func TestEnsureVenv_InstallPackagesError(t *testing.T) {
-	orig := runUVFunc
-	t.Cleanup(func() { runUVFunc = orig })
-	runUVFunc = func(_ context.Context, args []string, _ []string) error {
+	orig := RunUVFunc
+	t.Cleanup(func() { RunUVFunc = orig })
+	RunUVFunc = func(_ context.Context, args []string, _ []string) error {
 		if args[0] == "venv" {
 			venvPath := args[len(args)-1]
 			bin := filepath.Join(venvPath, "bin")
@@ -128,9 +128,9 @@ func TestEnsureVenv_InstallPackagesError(t *testing.T) {
 }
 
 func TestEnsureVenv_InstallRequirementsError(t *testing.T) {
-	orig := runUVFunc
-	t.Cleanup(func() { runUVFunc = orig })
-	runUVFunc = func(_ context.Context, args []string, _ []string) error {
+	orig := RunUVFunc
+	t.Cleanup(func() { RunUVFunc = orig })
+	RunUVFunc = func(_ context.Context, args []string, _ []string) error {
 		if args[0] == "venv" {
 			venvPath := args[len(args)-1]
 			bin := filepath.Join(venvPath, "bin")
@@ -150,9 +150,9 @@ func TestEnsureVenv_InstallRequirementsError(t *testing.T) {
 }
 
 func TestEnsureVenv_InstallsRequirementsWithMockedUV(t *testing.T) {
-	orig := runUVFunc
-	t.Cleanup(func() { runUVFunc = orig })
-	runUVFunc = func(_ context.Context, args []string, _ []string) error {
+	orig := RunUVFunc
+	t.Cleanup(func() { RunUVFunc = orig })
+	RunUVFunc = func(_ context.Context, args []string, _ []string) error {
 		if args[0] == "venv" {
 			venvPath := args[len(args)-1]
 			bin := filepath.Join(venvPath, "bin")

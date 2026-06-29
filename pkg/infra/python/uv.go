@@ -114,10 +114,11 @@ func uvVenvEnv(venvPath, pythonPath string) []string {
 	)
 }
 
-// runUVFunc runs uv with the given args and optional environment. Overridable in tests.
+// RunUVFunc runs uv with the given args and optional environment. Exported so
+// external test packages (e.g. pkg/executor) can replace it without invoking real uv.
 //
 //nolint:gochecknoglobals // test-replaceable
-var runUVFunc = func(ctx context.Context, args []string, env []string) error {
+var RunUVFunc = func(ctx context.Context, args []string, env []string) error {
 	cmd := exec.CommandContext(ctx, "uv", args...)
 	if env != nil {
 		cmd.Env = env
@@ -153,7 +154,7 @@ func (m *Manager) EnsureVenv(
 	ctx, cancel := context.WithTimeout(context.Background(), UVTimeout)
 	defer cancel()
 
-	if err := runUVFunc(ctx, []string{uvCmdVenv, uvFlagPython, pythonVersion, venvPath}, nil); err != nil {
+	if err := RunUVFunc(ctx, []string{uvCmdVenv, uvFlagPython, pythonVersion, venvPath}, nil); err != nil {
 		return "", fmt.Errorf("failed to create venv: %w", err)
 	}
 
@@ -206,7 +207,7 @@ func (m *Manager) InstallPackages(venvPath string, packages []string, extraArgs 
 	ctx, cancel := context.WithTimeout(context.Background(), UVTimeout)
 	defer cancel()
 
-	if runErr := runUVFunc(ctx, args, uvVenvEnv(venvPath, pythonPath)); runErr != nil {
+	if runErr := RunUVFunc(ctx, args, uvVenvEnv(venvPath, pythonPath)); runErr != nil {
 		return fmt.Errorf("package installation failed: %w", runErr)
 	}
 	return nil
@@ -223,7 +224,7 @@ func (m *Manager) InstallRequirements(venvPath string, requirementsFile string) 
 	ctx, cancel := context.WithTimeout(context.Background(), UVTimeout)
 	defer cancel()
 
-	if runErr := runUVFunc(
+	if runErr := RunUVFunc(
 		ctx,
 		[]string{"pip", uvCmdInstall, "-r", requirementsFile},
 		uvVenvEnv(venvPath, pythonPath),
