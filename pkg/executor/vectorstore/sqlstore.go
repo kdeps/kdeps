@@ -105,14 +105,12 @@ func (s *sqlStore) SimilaritySearch(
 		return nil, fmt.Errorf("%s similarity_search: ensure table: %w", s.tag, tableErr)
 	}
 
-	queryVec, embedErr := s.embedder.EmbedQuery(ctx, query)
+	queryVec, embedErr := embedQuery(ctx, s.embedder, s.tag, query)
 	if embedErr != nil {
-		return nil, fmt.Errorf("%s similarity_search: embed query: %w", s.tag, embedErr)
+		return nil, embedErr
 	}
 
-	if numDocuments <= 0 {
-		numDocuments = 5
-	}
+	numDocuments = normalizeTopK(numDocuments)
 
 	rows, queryErr := s.db.QueryContext(
 		ctx,

@@ -134,14 +134,12 @@ func (s *openSearchStore) SimilaritySearch(
 	numDocuments int,
 	_ ...lcvectorstores.Option,
 ) ([]schema.Document, error) {
-	vector, embedErr := s.embedder.EmbedQuery(ctx, query)
+	vector, embedErr := embedQuery(ctx, s.embedder, "opensearch", query)
 	if embedErr != nil {
-		return nil, fmt.Errorf("opensearch similarity_search: embed query: %w", embedErr)
+		return nil, embedErr
 	}
 
-	if numDocuments <= 0 {
-		numDocuments = 5
-	}
+	numDocuments = normalizeTopK(numDocuments)
 
 	payload, marshalErr := json.Marshal(map[string]interface{}{
 		"size": numDocuments,

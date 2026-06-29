@@ -125,14 +125,12 @@ func (s *mongoStore) SimilaritySearch(
 	numDocuments int,
 	_ ...lcvectorstores.Option,
 ) ([]schema.Document, error) {
-	queryVec, embedErr := s.embedder.EmbedQuery(ctx, query)
+	queryVec, embedErr := embedQuery(ctx, s.embedder, "mongodb", query)
 	if embedErr != nil {
-		return nil, fmt.Errorf("mongodb similarity_search: embed query: %w", embedErr)
+		return nil, embedErr
 	}
 
-	if numDocuments <= 0 {
-		numDocuments = 5
-	}
+	numDocuments = normalizeTopK(numDocuments)
 
 	cursor, findErr := s.coll.Find(ctx, bson.M{})
 	if findErr != nil {
