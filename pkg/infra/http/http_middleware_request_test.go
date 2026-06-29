@@ -68,11 +68,11 @@ func TestSessionMiddleware(t *testing.T) {
 		handler(w, req)
 	})
 
-	t.Run("handles missing cookie gracefully", func(t *testing.T) {
+	t.Run("generates new session ID when no cookie present", func(t *testing.T) {
 		middleware := http.SessionMiddleware()
 		handler := middleware(func(_ stdhttp.ResponseWriter, r *stdhttp.Request) {
 			sessionID := http.GetSessionID(r.Context())
-			assert.Empty(t, sessionID)
+			assert.NotEmpty(t, sessionID)
 		})
 
 		w := httptest.NewRecorder()
@@ -80,11 +80,11 @@ func TestSessionMiddleware(t *testing.T) {
 		handler(w, req)
 	})
 
-	t.Run("handles empty cookie value", func(t *testing.T) {
+	t.Run("generates new session ID when cookie value is empty", func(t *testing.T) {
 		middleware := http.SessionMiddleware()
 		handler := middleware(func(_ stdhttp.ResponseWriter, r *stdhttp.Request) {
 			sessionID := http.GetSessionID(r.Context())
-			assert.Empty(t, sessionID)
+			assert.NotEmpty(t, sessionID)
 		})
 
 		w := httptest.NewRecorder()

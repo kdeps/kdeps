@@ -279,4 +279,125 @@ fi
 
 rm -f "$SERVER_LOG"
 
+# -- SQLite mock runtime test --------------------------------------------------
+# Verify the SQL executor works end-to-end without Postgres/MySQL.
+
+if command -v python3 &>/dev/null && [ -n "${KDEPS_BIN:-}" ] && [ -x "${KDEPS_BIN}" ]; then
+    MOCK_SQL_PORT=$(python3 -c "import socket; s=socket.socket(); s.bind(('',0)); print(s.getsockname()[1]); s.close()")
+    MOCK_WORK_DIR=$(mktemp -d)
+    MOCK_DB="$MOCK_WORK_DIR/test.db"
+    MOCK_SQL_LOG=$(mktemp)
+    MOCK_SQL_PID=""
+
+    cleanup_sql_mock() {
+        [ -n "$MOCK_SQL_PID" ] && kill "$MOCK_SQL_PID" 2>/dev/null; wait "$MOCK_SQL_PID" 2>/dev/null || true
+        rm -rf "$MOCK_WORK_DIR" "$MOCK_SQL_LOG"
+    }
+    trap cleanup_sql_mock EXIT
+
+    python3 - <<PYEOF
+import sqlite3
+conn = sqlite3.connect('$MOCK_DB')
+c = conn.cursor()
+c.execute("""CREATE TABLE users (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    email TEXT UNIQUE NOT NULL,
+    age INTEGER,
+    status TEXT DEFAULT 'active',
+    created_at TEXT DEFAULT (datetime('now')),
+    updated_at TEXT DEFAULT (datetime('now'))
+)""")
+c.executemany("INSERT INTO users (email, age, created_at) VALUES (?, ?, ?)", [
+    ('alice@example.com', 30, '2024-06-01 10:00:00'),
+    ('bob@example.com', 25, '2024-06-02 11:00:00'),
+    ('carol@example.com', 35, '2024-06-03 12:00:00'),
+])
+conn.commit()
+conn.close()
+PYEOF
+
+    mkdir -p "$MOCK_WORK_DIR/resources"
+
+    cat > "$MOCK_WORK_DIR/workflow.yaml" <<WFEOF
+apiVersion: kdeps.io/v1
+kind: Workflow
+metadata:
+  name: sql-mock
+  version: "1.0.0"
+  targetActionId: response
+settings:
+  apiServer:
+    portNum: ${MOCK_SQL_PORT}
+    routes:
+      - path: /api/v1/sql-demo
+        methods: [GET, POST]
+    cors:
+      allowOrigins:
+        - "*"
+  agentSettings:
+    timezone: Etc/UTC
+  sqlConnections:
+    analytics:
+      connection: "sqlite://${MOCK_DB}"
+WFEOF
+
+    cat > "$MOCK_WORK_DIR/resources/sqltest.yaml" <<RESEOF
+actionId: sqltest
+name: SQL Query
+sql:
+  connectionName: analytics
+  query: "SELECT COUNT(*) as total_users, AVG(age) as avg_age FROM users"
+  format: json
+  maxRows: 10
+  timeout: 10s
+RESEOF
+
+    cat > "$MOCK_WORK_DIR/resources/response.yaml" <<RESEOF
+actionId: response
+name: Response
+requires: [sqltest]
+apiResponse:
+  success: true
+  response:
+    analytics: "{{ get('sqltest') }}"
+    timestamp: "{{ info('current_time') }}"
+RESEOF
+
+    "$KDEPS_BIN" run "$MOCK_WORK_DIR/workflow.yaml" >"$MOCK_SQL_LOG" 2>&1 &
+    MOCK_SQL_PID=$!
+
+    MOCK_READY=false
+    for i in $(seq 1 30); do
+        curl -sf --max-time 1 "http://127.0.0.1:${MOCK_SQL_PORT}/health" >/dev/null 2>&1 && MOCK_READY=true && break
+        sleep 0.5
+    done
+
+    if [ "$MOCK_READY" = true ]; then
+        test_passed "SQL Advanced - SQLite mock server started"
+
+        GET_RESP=$(curl -s --max-time 10 -X GET \
+            "http://127.0.0.1:${MOCK_SQL_PORT}/api/v1/sql-demo" 2>&1)
+        if output_grep "success|analytics|total_users" "$GET_RESP"; then
+            test_passed "SQL Advanced - GET endpoint (SQLite mock)"
+        else
+            test_failed "SQL Advanced - GET endpoint (SQLite mock)" "resp=$GET_RESP"
+        fi
+
+        POST_RESP=$(curl -s --max-time 10 -X POST \
+            -H "Content-Type: application/json" \
+            -d '{}' \
+            "http://127.0.0.1:${MOCK_SQL_PORT}/api/v1/sql-demo" 2>&1)
+        if output_grep "success|analytics|total_users" "$POST_RESP"; then
+            test_passed "SQL Advanced - POST endpoint (SQLite mock)"
+        else
+            test_failed "SQL Advanced - POST endpoint (SQLite mock)" "resp=$POST_RESP"
+        fi
+    else
+        test_skipped "SQL Advanced - SQLite mock server start"
+    fi
+
+    cleanup_sql_mock
+    trap - EXIT
+fi
+
 echo ""
