@@ -864,3 +864,46 @@ func TestSQLStore_SimilaritySearch_QueryErrorAfterEnsure(t *testing.T) {
 	_, err := store.SimilaritySearch(context.Background(), "query", 5)
 	require.Error(t, err)
 }
+
+// ---- normalizeTopK ----
+
+func TestNormalizeTopK_Positive(t *testing.T) {
+	assert.Equal(t, 10, normalizeTopK(10))
+}
+
+func TestNormalizeTopK_Zero(t *testing.T) {
+	assert.Equal(t, defaultTopK, normalizeTopK(0))
+}
+
+func TestNormalizeTopK_Negative(t *testing.T) {
+	assert.Equal(t, defaultTopK, normalizeTopK(-1))
+}
+
+// ---- embedQuery ----
+
+type stubEmbedder struct {
+	vec []float32
+	err error
+}
+
+func (s *stubEmbedder) EmbedDocuments(_ context.Context, _ []string) ([][]float32, error) {
+	return nil, nil
+}
+
+func (s *stubEmbedder) EmbedQuery(_ context.Context, _ string) ([]float32, error) {
+	return s.vec, s.err
+}
+
+func TestEmbedQuery_Success(t *testing.T) {
+	emb := &stubEmbedder{vec: []float32{0.1, 0.2, 0.3}}
+	vec, err := embedQuery(context.Background(), emb, "teststore", "hello")
+	require.NoError(t, err)
+	assert.Equal(t, []float32{0.1, 0.2, 0.3}, vec)
+}
+
+func TestEmbedQuery_Error(t *testing.T) {
+	emb := &stubEmbedder{err: errors.New("embed failed")}
+	_, err := embedQuery(context.Background(), emb, "teststore", "hello")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "teststore similarity_search: embed query")
+}

@@ -348,6 +348,27 @@ func TestBuildLangchainLLM_Bedrock(t *testing.T) {
 	require.NotNil(t, model)
 }
 
+func TestBuildLangchainLLM_SimpleTokenProviders(t *testing.T) {
+	backends := []struct {
+		name    string
+		envVar  string
+		backend string
+	}{
+		{name: "anthropic", envVar: "ANTHROPIC_API_KEY", backend: backendAnthropic},
+		{name: "huggingface", envVar: "HF_TOKEN", backend: backendHuggingFace},
+		{name: "maritaca", envVar: "MARITACA_API_KEY", backend: backendMaritaca},
+	}
+	for _, tc := range backends {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Setenv(tc.envVar, "test-token")
+			cfg := &domain.ChatConfig{Backend: tc.backend, Model: "test-model"}
+			model, err := buildLangchainLLM(t.Context(), cfg)
+			require.NoError(t, err)
+			require.NotNil(t, model)
+		})
+	}
+}
+
 func TestBuildLangchainLLM_OllamaNative(t *testing.T) {
 	cfg := &domain.ChatConfig{
 		Backend:         "ollama",
