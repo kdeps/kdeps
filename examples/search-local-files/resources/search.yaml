@@ -1,4 +1,5 @@
 actionId: search
+name: Search
 validations:
   methods: [POST]
   routes: [/search]

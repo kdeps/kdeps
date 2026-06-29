@@ -1,0 +1,21 @@
+apiVersion: kdeps.io/v1
+kind: Workflow
+
+metadata:
+  name: voice-assistant
+  description: Voice assistant that converts text to speech using a TTS component
+  version: "1.0.0"
+  targetActionId: speak
+
+settings:
+  apiServer:
+    portNum: 16405
+    routes:
+      - path: /api/v1/speak
+        methods: [POST]
+    cors:
+      allowOrigins:
+        - "*"
+
+  agentSettings:
+    timezone: Etc/UTC

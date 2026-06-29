@@ -1,4 +1,5 @@
 actionId: response
+name: Response
 requires: [search]
 apiResponse:
   success: true
