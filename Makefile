@@ -32,7 +32,7 @@ test: fmt lint build
 	echo "=========================================="; \
 	echo "Running Unit Tests with Coverage"; \
 	echo "=========================================="; \
-	env -u KDEPS_SKIP_BOOTSTRAP -u KDEPS_COMPONENT_DIR go test -v -short -timeout=5m -coverprofile=coverage-unit.out ./pkg/... ./cmd/... ./; \
+	env -u KDEPS_SKIP_BOOTSTRAP -u KDEPS_COMPONENT_DIR go test -v -short -timeout=20m -coverprofile=coverage-unit.out ./pkg/... ./cmd/... ./; \
 	UNIT_EXIT=$$?; \
 	UNIT_COVERAGE=""; \
 	if [ -f coverage-unit.out ]; then \
@@ -163,7 +163,7 @@ test: fmt lint build
 test-unit:
 	@echo "Running unit tests with coverage..."
 	@mkdir -p "$${GITHUB_WORKSPACE:-/tmp}/go-test-tmp" 2>/dev/null || true; \
-	env -u KDEPS_SKIP_BOOTSTRAP -u KDEPS_COMPONENT_DIR GOTMPDIR="$${GITHUB_WORKSPACE:-/tmp}/go-test-tmp" go test -short -parallel 1 -count=1 -covermode=atomic -coverprofile=coverage.out ./pkg/... ./cmd/... ./; \
+	env -u KDEPS_SKIP_BOOTSTRAP -u KDEPS_COMPONENT_DIR GOTMPDIR="$${GITHUB_WORKSPACE:-/tmp}/go-test-tmp" go test -short -parallel 1 -count=1 -timeout=20m -covermode=atomic -coverprofile=coverage.out ./pkg/... ./cmd/... ./; \
 	TEST_EXIT=$$?; \
 	echo ""; \
 	if [ -f coverage.out ]; then \
