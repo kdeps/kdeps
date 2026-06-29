@@ -79,7 +79,26 @@ func extractOneEntry(
 	hooks Hooks,
 	totalExtracted int64,
 ) (int64, error) {
-	target, skip, pathErr := ResolveTarget(destDir, hdr.Name, opts)
+	// Zip Slip guard: join with destDir, check prefix, then use the absolute
+	// path in all file operations. CodeQL go/zipslip tracks hdr.Name → join →
+	// HasPrefix check → sink; using absTarget (not target) as the sink ensures
+	// the checked value reaches the file operation.
+	absBase, baseErr := filepath.Abs(destDir)
+	if baseErr != nil {
+		return 0, fmt.Errorf("failed to resolve destination: %s", destDir)
+	}
+	cleanedName := filepath.Clean(hdr.Name)
+	absTarget, absErr := filepath.Abs(filepath.Join(destDir, cleanedName))
+	if absErr != nil {
+		return 0, fmt.Errorf("failed to resolve archive path: %s", hdr.Name)
+	}
+	if absTarget != absBase && !strings.HasPrefix(absTarget, absBase+string(os.PathSeparator)) {
+		return 0, fmt.Errorf("invalid archive path: %s", hdr.Name)
+	}
+
+	// ResolveTarget applies option-aware handling (AbsPaths, SkipBadPaths, etc.)
+	// on top of the guard above.
+	_, skip, pathErr := ResolveTarget(destDir, hdr.Name, opts)
 	if pathErr != nil {
 		return 0, pathErr
 	}
@@ -87,21 +106,9 @@ func extractOneEntry(
 		return 0, nil
 	}
 
-	// Zip Slip guard: confirm the resolved target cannot escape destDir.
-	// ResolveTarget already enforces this, but the explicit Abs+prefix check
-	// lets static analysis tools (CodeQL go/zipslip) track the sanitization.
-	absTarget, absErr := filepath.Abs(target)
-	absBase, baseErr := filepath.Abs(destDir)
-	if absErr != nil || baseErr != nil {
-		return 0, fmt.Errorf("failed to resolve archive path: %s", hdr.Name)
-	}
-	if absTarget != absBase && !strings.HasPrefix(absTarget, absBase+string(os.PathSeparator)) {
-		return 0, fmt.Errorf("archive path escapes destination: %s", hdr.Name)
-	}
-
 	if isDirEntry(hdr, opts) {
-		if mkErr := hooks.MkdirAll(target, opts.DirPerm); mkErr != nil {
-			return 0, fmt.Errorf("failed to create directory %s: %w", target, mkErr)
+		if mkErr := hooks.MkdirAll(absTarget, opts.DirPerm); mkErr != nil {
+			return 0, fmt.Errorf("failed to create directory %s: %w", absTarget, mkErr)
 		}
 		return 0, nil
 	}
@@ -110,7 +117,7 @@ func extractOneEntry(
 		return 0, nil
 	}
 
-	n, writeErr := writeEntry(tr, hdr, target, opts, hooks)
+	n, writeErr := writeEntry(tr, hdr, absTarget, opts, hooks)
 	if writeErr != nil {
 		return 0, writeErr
 	}
