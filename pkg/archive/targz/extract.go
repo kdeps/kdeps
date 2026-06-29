@@ -26,6 +26,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"strings"
 
 	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
 )
@@ -84,6 +85,18 @@ func extractOneEntry(
 	}
 	if skip {
 		return 0, nil
+	}
+
+	// Zip Slip guard: confirm the resolved target cannot escape destDir.
+	// ResolveTarget already enforces this, but the explicit Abs+prefix check
+	// lets static analysis tools (CodeQL go/zipslip) track the sanitization.
+	absTarget, absErr := filepath.Abs(target)
+	absBase, baseErr := filepath.Abs(destDir)
+	if absErr != nil || baseErr != nil {
+		return 0, fmt.Errorf("failed to resolve archive path: %s", hdr.Name)
+	}
+	if absTarget != absBase && !strings.HasPrefix(absTarget, absBase+string(os.PathSeparator)) {
+		return 0, fmt.Errorf("archive path escapes destination: %s", hdr.Name)
 	}
 
 	if isDirEntry(hdr, opts) {
