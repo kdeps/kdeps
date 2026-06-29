@@ -185,11 +185,11 @@ if command -v curl &> /dev/null; then
                 # 1. Session ID wasn't generated (new session)
                 # 2. Cookie wasn't set in response
                 # 3. Cookie file format is different
-                if [ -s "$TEST_DIR/cookies.txt" ]; then
-                    # File has content - log it for debugging
-                    test_skipped "Session - Session cookie (cookie file has content but no kdeps_session_id found)"
+                # Ignore libcurl header comments; check for actual cookie entries
+                if grep -v "^#" "$TEST_DIR/cookies.txt" 2>/dev/null | grep -q "[^[:space:]]"; then
+                    test_skipped "Session - Session cookie (cookie file has entries but no kdeps_session_id)"
                 else
-                    test_skipped "Session - Session cookie (cookie file is empty)"
+                    test_skipped "Session - Session cookie (server did not set session cookie)"
                 fi
             fi
         else

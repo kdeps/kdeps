@@ -151,6 +151,7 @@ cp "$EXAMPLE_DIR/resources/response.yaml" "$WORK_DIR/resources/"
 # search resource using mock DDG via KDEPS_DDG_URL env
 cat > "$WORK_DIR/resources/search.yaml" <<EOF
 actionId: search
+name: Web Search
 searchWeb:
   query: "{{ get('query', 'Go language') }}"
   provider: ddg

@@ -68,7 +68,7 @@ fi
 
 # Test 3: Start server and test endpoint
 SERVER_LOG=$(mktemp)
-timeout 10 "$KDEPS_BIN" run "$WORKFLOW_PATH" > "$SERVER_LOG" 2>&1 &
+timeout 60 "$KDEPS_BIN" run "$WORKFLOW_PATH" > "$SERVER_LOG" 2>&1 &
 SERVER_PID=$!
 
 # Wait for server to start

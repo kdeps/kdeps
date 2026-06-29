@@ -140,6 +140,7 @@ cp "$EXAMPLE_DIR/resources/response.yaml" "$WORK_DIR/resources/"
 # fetch resource pointing at mock
 cat > "$WORK_DIR/resources/fetch.yaml" <<EOF
 actionId: fetch
+name: Fetch Page
 scraper:
   url: "http://127.0.0.1:${MOCK_PORT}/"
   timeout: 10

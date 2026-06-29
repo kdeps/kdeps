@@ -63,7 +63,7 @@ test_passed "Inline Resources - Server startup"
 
 if command -v curl &> /dev/null; then
     RESP=$(curl -s -w "\n%{http_code}" -X POST -H "Content-Type: application/json" \
-        -d '{"input":"test"}' "http://127.0.0.1:$PORT$ENDPOINT" 2>/dev/null || echo -e "\n000")
+        -d '{"data":"test"}' "http://127.0.0.1:$PORT$ENDPOINT" 2>/dev/null || echo -e "\n000")
     STATUS=$(echo "$RESP" | tail -n 1)
     if [ "$STATUS" = "200" ] || [ "$STATUS" = "500" ]; then
         test_passed "Inline Resources - POST $ENDPOINT (responded)"

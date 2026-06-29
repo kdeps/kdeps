@@ -253,6 +253,18 @@ settings:
     timezone: Etc/UTC
 EOF
 
+cat > "$NO_TOKEN_DIR/resources/ping.yaml" << 'RESEOF'
+actionId: mgmtResource
+name: Ping
+
+restrictToHttpMethods: [GET]
+restrictToRoutes: [/api/v1/ping]
+apiResponse:
+  success: true
+  response:
+    pong: true
+RESEOF
+
 "$KDEPS_BIN" run "$NO_TOKEN_DIR" > "$NO_TOKEN_LOG" 2>&1 &
 NO_TOKEN_PID=$!
 

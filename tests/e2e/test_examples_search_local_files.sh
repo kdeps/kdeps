@@ -111,6 +111,7 @@ cp "$EXAMPLE_DIR/resources/response.yaml" "$WORK_DIR/resources/"
 # search resource pointing at the temp data dir
 cat > "$WORK_DIR/resources/search.yaml" <<EOF
 actionId: search
+name: Search
 validations:
   methods: [POST]
   routes: [/search]

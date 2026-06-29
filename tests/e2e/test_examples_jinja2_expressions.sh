@@ -39,7 +39,7 @@ done
 
 # Run kdeps directly against the .j2 workflow — PreprocessJ2Files renders
 # templates at startup so no pre-rendered workflow.yaml is needed.
-PORT=16395
+PORT=16397
 SERVER_LOG=$(mktemp)
 timeout 30 "$KDEPS_BIN" run "$WORKFLOW_J2" > "$SERVER_LOG" 2>&1 &
 SERVER_PID=$!

@@ -14,7 +14,7 @@ metadata:
 settings:
 
   apiServer:
-    portNum: 16395
+    portNum: 16396
     routes:
       - path: /api/v1/process
         methods: [POST]

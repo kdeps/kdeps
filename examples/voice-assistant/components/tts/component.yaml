@@ -1,0 +1,29 @@
+apiVersion: kdeps.io/v1
+kind: Component
+
+metadata:
+  name: tts
+  description: Text-to-speech synthesis for the voice assistant
+  version: "1.0.0"
+
+interface:
+  inputs:
+    - name: text
+      type: string
+      required: true
+      description: Text to convert to speech
+    - name: voice
+      type: string
+      required: false
+      default: alloy
+      description: Voice model (alloy, echo, fable, onyx, nova, shimmer)
+
+resources:
+  - actionId: speak
+    name: Speak
+    apiResponse:
+      success: true
+      response:
+        text: "{{ get('tts.text') }}"
+        voice: "{{ get('tts.voice', 'alloy') }}"
+        status: synthesized
