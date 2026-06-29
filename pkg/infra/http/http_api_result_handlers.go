@@ -127,6 +127,8 @@ func (s *Server) respondRegularResult(
 ) {
 	s.logRegularResult(r)
 
+	applySessionCookieIfPresent(w, r)
+
 	result = parseJSONStringPayload(result)
 	regularBytes, marshalErr := marshalSuccessResponse(result, requestResponseMeta(r))
 	if marshalErr != nil {

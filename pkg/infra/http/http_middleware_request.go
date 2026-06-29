@@ -41,15 +41,18 @@ func RequestIDMiddleware() func(stdhttp.HandlerFunc) stdhttp.HandlerFunc {
 	}
 }
 
-// SessionMiddleware reads session cookie and stores it in context.
+// SessionMiddleware reads or creates a session ID and stores it in context.
+// On first request (no cookie), a new UUID is generated and the response
+// will carry Set-Cookie: kdeps_session_id=<uuid>.
 func SessionMiddleware() func(stdhttp.HandlerFunc) stdhttp.HandlerFunc {
 	debugEnter("SessionMiddleware")
 	return func(next stdhttp.HandlerFunc) stdhttp.HandlerFunc {
 		return func(w stdhttp.ResponseWriter, r *stdhttp.Request) {
-			cookie, err := r.Cookie(SessionCookieName)
-			if err == nil && cookie.Value != "" {
-				r = r.WithContext(withSessionIDContext(r.Context(), cookie.Value))
+			sessionID := newRequestID()
+			if cookie, err := r.Cookie(SessionCookieName); err == nil && cookie.Value != "" {
+				sessionID = cookie.Value
 			}
+			r = r.WithContext(withSessionIDContext(r.Context(), sessionID))
 
 			next(w, r)
 		}
