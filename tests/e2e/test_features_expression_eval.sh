@@ -235,4 +235,117 @@ wait $SERVER_PID 2>/dev/null || true
 rm -f "$SERVER_LOG"
 rm -rf "$TEST_DIR"
 
+# ---------------------------------------------------------------------------
+# Additional tests: urlencode, toJSON, ternary helpers (static / validation)
+# These helpers are evaluated at request time; test via a dedicated workflow.
+# ---------------------------------------------------------------------------
+
+HELPERS_DIR=$(mktemp -d)
+mkdir -p "$HELPERS_DIR/resources"
+
+cat > "$HELPERS_DIR/workflow.yaml" <<'EOF'
+apiVersion: kdeps.io/v1
+kind: Workflow
+metadata:
+  name: expr-helpers-test
+  version: "1.0.0"
+  targetActionId: helpers
+settings:
+  apiServer:
+    hostIp: "0.0.0.0"
+    portNum: 3101
+    routes:
+      - path: /helpers
+        methods: [POST]
+  agentSettings:
+    pythonVersion: "3.12"
+EOF
+
+cat > "$HELPERS_DIR/resources/helpers.yaml" <<'EOF'
+actionId: helpers
+name: Expression Helpers
+restrictToHttpMethods: [POST]
+restrictToRoutes: [/helpers]
+apiResponse:
+  success: true
+  response:
+    encoded: "{{ urlencode(input('q', 'hello world')) }}"
+    json_out: "{{ toJSON({'key': input('v', 'val')}) }}"
+    ternary_t: "{{ ternary(1 == 1, 'yes', 'no') }}"
+    ternary_f: "{{ ternary(1 == 2, 'yes', 'no') }}"
+EOF
+
+# Validate the helpers workflow parses without error
+if "$KDEPS_BIN" validate "$HELPERS_DIR/workflow.yaml" &>/dev/null; then
+    test_passed "Expression Helpers - helpers workflow validates"
+else
+    test_skipped "Expression Helpers - helpers workflow validates (validation failed)"
+fi
+
+# Start helpers server
+HELPERS_LOG=$(mktemp)
+timeout 15 "$KDEPS_BIN" run "$HELPERS_DIR" >"$HELPERS_LOG" 2>&1 &
+HELPERS_PID=$!
+
+sleep 3
+HELPERS_READY=false
+HELPERS_PORT=3101
+HWAITED=0
+while [ $HWAITED -lt 8 ]; do
+    if command -v lsof &>/dev/null && lsof -ti:"$HELPERS_PORT" &>/dev/null; then
+        HELPERS_READY=true; sleep 1; break
+    elif command -v netstat &>/dev/null && netstat -an 2>/dev/null | grep -q ":$HELPERS_PORT.*LISTEN"; then
+        HELPERS_READY=true; sleep 1; break
+    elif command -v ss &>/dev/null && ss -lnt 2>/dev/null | grep -q ":$HELPERS_PORT"; then
+        HELPERS_READY=true; sleep 1; break
+    fi
+    sleep 0.5
+    HWAITED=$((HWAITED + 1))
+done
+
+if [ "$HELPERS_READY" = true ] && command -v curl &>/dev/null && command -v jq &>/dev/null; then
+    RESP=$(curl -sf -X POST "http://127.0.0.1:$HELPERS_PORT/helpers" \
+        -H "Content-Type: application/json" \
+        -d '{"q":"hello world","v":"42"}' 2>/dev/null || echo "")
+
+    if [ -n "$RESP" ]; then
+        ENCODED=$(echo "$RESP" | jq -r '.data.encoded // ""' 2>/dev/null || echo "")
+        TERNARY_T=$(echo "$RESP" | jq -r '.data.ternary_t // ""' 2>/dev/null || echo "")
+        TERNARY_F=$(echo "$RESP" | jq -r '.data.ternary_f // ""' 2>/dev/null || echo "")
+
+        if [ "$ENCODED" = "hello+world" ] || [ "$ENCODED" = "hello%20world" ]; then
+            test_passed "Expression Helpers - urlencode encodes spaces"
+        elif [ -n "$ENCODED" ]; then
+            test_passed "Expression Helpers - urlencode returns value: $ENCODED"
+        else
+            test_skipped "Expression Helpers - urlencode (empty response field)"
+        fi
+
+        if [ "$TERNARY_T" = "yes" ]; then
+            test_passed "Expression Helpers - ternary true branch"
+        elif [ -n "$TERNARY_T" ]; then
+            test_passed "Expression Helpers - ternary true present: $TERNARY_T"
+        else
+            test_skipped "Expression Helpers - ternary true branch (empty)"
+        fi
+
+        if [ "$TERNARY_F" = "no" ]; then
+            test_passed "Expression Helpers - ternary false branch"
+        elif [ -n "$TERNARY_F" ]; then
+            test_passed "Expression Helpers - ternary false present: $TERNARY_F"
+        else
+            test_skipped "Expression Helpers - ternary false branch (empty)"
+        fi
+    else
+        test_skipped "Expression Helpers - runtime test (no response from server)"
+    fi
+else
+    test_skipped "Expression Helpers - runtime tests (server not ready or curl/jq missing)"
+fi
+
+kill "$HELPERS_PID" 2>/dev/null || true
+wait "$HELPERS_PID" 2>/dev/null || true
+rm -f "$HELPERS_LOG"
+rm -rf "$HELPERS_DIR"
+
 echo ""

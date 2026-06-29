@@ -29,27 +29,11 @@
 
 set -uo pipefail
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "$SCRIPT_DIR/common.sh"
+
 echo ""
 echo "Testing kdeps registry uninstall and update..."
-
-# Resolve binary path (set by parent e2e.sh or use default build location).
-KDEPS_BIN="${KDEPS_BIN:-./kdeps}"
-
-PASS=0
-FAIL=0
-
-test_passed() {
-    PASS=$((PASS + 1))
-    echo "  PASS: $1"
-}
-
-test_failed() {
-    FAIL=$((FAIL + 1))
-    echo "  FAIL: $1"
-    if [ -n "${2:-}" ]; then
-        echo "        $2"
-    fi
-}
 
 # --- Test: uninstall --help shows usage ---
 OUTPUT=$("$KDEPS_BIN" registry uninstall --help 2>&1) || true
@@ -134,7 +118,3 @@ fi
 rm -rf "$AGENTS_DIR4"
 
 echo ""
-echo "Registry uninstall/update E2E: $PASS passed, $FAIL failed."
-echo ""
-
-[ $FAIL -eq 0 ]
