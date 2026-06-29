@@ -78,7 +78,10 @@ source "$SCRIPT_DIR/test_features_embedding_upsert.sh"
 source "$SCRIPT_DIR/test_features_events.sh"
 source "$SCRIPT_DIR/test_features_autopilot.sh"
 source "$SCRIPT_DIR/test_features_instrument.sh"
+source "$SCRIPT_DIR/test_features_browser.sh"
 source "$SCRIPT_DIR/test_native_search_local.sh"
+source "$SCRIPT_DIR/test_native_embedding.sh"
+source "$SCRIPT_DIR/test_native_scraper.sh"
 
 # CLI subcommand E2E tests
 source "$SCRIPT_DIR/test_bundle_export.sh"
