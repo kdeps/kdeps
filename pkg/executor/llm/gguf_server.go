@@ -89,28 +89,6 @@ func EnsureLlamaServerBinary() string {
 	return path
 }
 
-// ggufContextSize is the --ctx-size passed to llama-server. Override with
-// KDEPS_GGUF_CTX_SIZE or SetGGUFContextSize at runtime.
-//
-//nolint:gochecknoglobals // configurable via env + runtime
-var ggufContextSize = func() int {
-	const defaultCtxSize = 4096
-	if v := os.Getenv("KDEPS_GGUF_CTX_SIZE"); v != "" {
-		if n, err := strconv.Atoi(v); err == nil && n > 0 {
-			return n
-		}
-	}
-	return defaultCtxSize
-}()
-
-// SetGGUFContextSize overrides the --ctx-size used when starting llama-server.
-// Takes effect on the next server start (e.g. after KillModel + ServeModel).
-func SetGGUFContextSize(n int) {
-	if n > 0 {
-		ggufContextSize = n
-	}
-}
-
 //nolint:gochecknoglobals // test-replaceable hook
 var startGGUFServerFunc = startGGUFServer
 
@@ -138,7 +116,7 @@ func startGGUFServer(path string, port int) (int, error) {
 		"--model", path,
 		"--host", "127.0.0.1",
 		"--port", strconv.Itoa(port),
-		"--ctx-size", strconv.Itoa(ggufContextSize),
+		"--ctx-size", strconv.Itoa(localContextSize),
 		"--no-mmap",
 	)
 	cmd.Stdout = nil

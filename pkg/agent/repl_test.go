@@ -2824,7 +2824,7 @@ func TestHffFormatSize(t *testing.T) {
 // --- contextLimitForModel ---
 
 func TestContextLimitForModel_GGUF_EnvVar(t *testing.T) {
-	t.Setenv("KDEPS_GGUF_CTX_SIZE", "8192")
+	t.Setenv("KDEPS_CTX_SIZE", "8192")
 	loop := makeTestLoop(nil)
 	repl := NewREPL(loop)
 	defer repl.cancel()
@@ -2833,7 +2833,7 @@ func TestContextLimitForModel_GGUF_EnvVar(t *testing.T) {
 }
 
 func TestContextLimitForModel_Llamafile_EnvVar(t *testing.T) {
-	t.Setenv("KDEPS_LLAMAFILE_CTX_SIZE", "16384")
+	t.Setenv("KDEPS_CTX_SIZE", "16384")
 	loop := makeTestLoop(nil)
 	repl := NewREPL(loop)
 	defer repl.cancel()

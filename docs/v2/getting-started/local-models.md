@@ -159,7 +159,7 @@ Known GGUF aliases: `qwen3.5-4b`, `qwen3.5-8b`, `llama3.2-3b`, `llama3.1-8b`, `p
 
 Environment overrides:
 - `KDEPS_LLAMA_SERVER_BIN` - path to the `llama-server` binary
-- `KDEPS_GGUF_CTX_SIZE` - context window size
+- `KDEPS_CTX_SIZE` - context window size
 
 ---
 

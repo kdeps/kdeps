@@ -1637,17 +1637,11 @@ func (r *REPL) contextLimitForModel(model string) int {
 	if BackendForModel(model) != "" {
 		return contextLimitCloud
 	}
-	// Check per-backend env vars.
+	// Check shared local context size env var.
 	mt := r.modelTypes[model]
 	switch mt {
-	case modelTypeGGUF:
-		if v := os.Getenv("KDEPS_GGUF_CTX_SIZE"); v != "" {
-			if n, err := strconv.Atoi(v); err == nil && n > 0 {
-				return n
-			}
-		}
-	case modelTypeLLamafile:
-		if v := os.Getenv("KDEPS_LLAMAFILE_CTX_SIZE"); v != "" {
+	case modelTypeGGUF, modelTypeLLamafile:
+		if v := os.Getenv("KDEPS_CTX_SIZE"); v != "" {
 			if n, err := strconv.Atoi(v); err == nil && n > 0 {
 				return n
 			}
@@ -2573,21 +2567,11 @@ func (r *REPL) cmdContext(args []string) error {
 	model := r.loop.config.Model
 
 	switch backend {
-	case llm.BackendFile:
-		llm.SetLlamafileContextSize(n)
+	case llm.BackendFile, llm.BackendGGUF:
+		llm.SetLocalContextSize(n)
 		svc := r.loop.config.ModelService
 		if svc != nil {
-			msg := fmt.Sprintf("Restarting llamafile server with ctx-size=%d...", n)
-			fmt.Fprintf(os.Stdout, "%s\n", styleReplMeta.Render(msg))
-			svc.KillModel(backend, model)
-			_ = svc.ServeModel(backend, model, "", 0)
-			llm.WaitForServerReady(svc.ServerURL(backend, model))
-		}
-	case llm.BackendGGUF:
-		llm.SetGGUFContextSize(n)
-		svc := r.loop.config.ModelService
-		if svc != nil {
-			msg := fmt.Sprintf("Restarting llama-server with ctx-size=%d...", n)
+			msg := fmt.Sprintf("Restarting model server with ctx-size=%d...", n)
 			fmt.Fprintf(os.Stdout, "%s\n", styleReplMeta.Render(msg))
 			svc.KillModel(backend, model)
 			_ = svc.ServeModel(backend, model, "", 0)

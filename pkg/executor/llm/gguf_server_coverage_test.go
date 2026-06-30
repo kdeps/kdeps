@@ -457,19 +457,18 @@ func TestDownloadFile_InvalidRequest(t *testing.T) {
 	assert.Contains(t, err.Error(), "build download request")
 }
 
-func TestGGUFContextSize_Default(t *testing.T) {
-	t.Setenv("KDEPS_GGUF_CTX_SIZE", "")
-	if ggufContextSize <= 0 {
+func TestLocalContextSize_Default(t *testing.T) {
+	if localContextSize <= 0 {
 		t.Error("expected positive default context size")
 	}
 }
 
-func TestGGUFContextSize_Custom(t *testing.T) {
-	t.Setenv("KDEPS_GGUF_CTX_SIZE", "8192")
-	// Need to reset the package-level var which is set at init time
-	// This test verifies the env var is read
-	if ggufContextSize <= 0 {
-		t.Error("expected positive context size")
+func TestLocalContextSize_SetLocalContextSize(t *testing.T) {
+	orig := localContextSize
+	t.Cleanup(func() { localContextSize = orig })
+	SetLocalContextSize(8192)
+	if localContextSize != 8192 {
+		t.Errorf("expected 8192, got %d", localContextSize)
 	}
 }
 
