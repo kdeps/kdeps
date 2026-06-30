@@ -120,13 +120,9 @@ var atFileRefRe = regexp.MustCompile(`@(\S+)`)
 
 //nolint:gochecknoglobals // test-replaceable network function hooks
 var (
-	hfSearchFunc      = func(ctx context.Context, query string, limit int) ([]llm.HFModelResult, error) {
-		return llm.HFSearchGGUF(ctx, query, limit)
-	}
-	hfInfoFunc = func(ctx context.Context, repoID string) (llm.HFRepoInfo, error) {
-		return llm.HFRepoFiles(ctx, repoID)
-	}
-	listLocalServersFunc = llm.ListLocalServers
+	hfSearchFunc         func(ctx context.Context, query string, limit int) ([]llm.HFModelResult, error) = llm.HFSearchGGUF
+	hfInfoFunc           func(ctx context.Context, repoID string) (llm.HFRepoInfo, error)                = llm.HFRepoFiles
+	listLocalServersFunc                                                                                 = llm.ListLocalServers
 )
 
 const firstLineMax = 80

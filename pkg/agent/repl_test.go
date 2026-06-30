@@ -4419,8 +4419,21 @@ func TestCmdProcessesList_WithServers_RendersTable(t *testing.T) {
 	orig := listLocalServersFunc
 	listLocalServersFunc = func() []llm.LocalServerEntry {
 		return []llm.LocalServerEntry{
-			{Model: "qwen2-1b", Path: "/models/qwen2-1b.gguf", Backend: llm.BackendGGUF, Port: 8080, PID: 12345, Healthy: true},
-			{Path: "/models/phi3.gguf", Backend: llm.BackendFile, Port: 8081, PID: 12346, Healthy: false},
+			{
+				Model:   "qwen2-1b",
+				Path:    "/models/qwen2-1b.gguf",
+				Backend: llm.BackendGGUF,
+				Port:    8080,
+				PID:     12345,
+				Healthy: true,
+			},
+			{
+				Path:    "/models/phi3.gguf",
+				Backend: llm.BackendFile,
+				Port:    8081,
+				PID:     12346,
+				Healthy: false,
+			},
 		}
 	}
 	t.Cleanup(func() { listLocalServersFunc = orig })
