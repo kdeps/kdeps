@@ -122,8 +122,13 @@ var atFileRefRe = regexp.MustCompile(`@(\S+)`)
 var (
 	hfSearchFunc         func(ctx context.Context, query string, limit int) ([]llm.HFModelResult, error) = llm.HFSearchGGUF
 	hfInfoFunc           func(ctx context.Context, repoID string) (llm.HFRepoInfo, error)                = llm.HFRepoFiles
+	hfDownloadFunc       func(ctx context.Context, repoID, filename string) (string, string, error)      = hfDownloadAdapter
 	listLocalServersFunc                                                                                 = llm.ListLocalServers
 )
+
+func hfDownloadAdapter(ctx context.Context, repoID, filename string) (string, string, error) {
+	return llm.HFDownloadGGUF(ctx, repoID, filename, nil)
+}
 
 const firstLineMax = 80
 
@@ -2756,7 +2761,7 @@ func (r *REPL) cmdHFFDownload(repoID, filename string) error {
 	}
 	fmt.Fprintf(os.Stdout, "%s\n",
 		styleReplMeta.Render("Downloading "+repoID+"/"+filename+" from HuggingFace..."))
-	dest, alias, err := llm.HFDownloadGGUF(r.ctx, repoID, filename, nil)
+	dest, alias, err := hfDownloadFunc(r.ctx, repoID, filename)
 	if err != nil {
 		fmt.Fprintf(os.Stdout, "%s\n", styleModelsNoKey.Render("Download failed: "+err.Error()))
 		return nil //nolint:nilerr // network error shown to user; don't terminate REPL

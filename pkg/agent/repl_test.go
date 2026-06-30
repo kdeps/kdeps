@@ -4459,3 +4459,55 @@ func TestCmdProcessesList_WithServers_RendersTable(t *testing.T) {
 	assert.Contains(t, s, "healthy")
 	assert.Contains(t, s, "loading")
 }
+
+// --- cmdHFFDownload success path ---
+
+func TestCmdHFFDownload_Success_PrintsDestAndAlias(t *testing.T) {
+	orig := hfDownloadFunc
+	hfDownloadFunc = func(_ context.Context, _, _ string) (string, string, error) {
+		return "/models/qwen2-1b-q4.gguf", "qwen2-1b-q4", nil
+	}
+	t.Cleanup(func() { hfDownloadFunc = orig })
+
+	loop := makeTestLoop(nil)
+	repl := NewREPL(loop)
+	defer repl.cancel()
+
+	r, w, _ := os.Pipe()
+	origOut := os.Stdout
+	os.Stdout = w
+	err := repl.cmdHFFDownload("owner/qwen2-gguf", "qwen2-1b-q4.gguf")
+	w.Close()
+	os.Stdout = origOut
+	out, _ := io.ReadAll(r)
+	r.Close()
+
+	assert.NoError(t, err)
+	s := string(out)
+	assert.Contains(t, s, "/models/qwen2-1b-q4.gguf")
+	assert.Contains(t, s, "qwen2-1b-q4")
+}
+
+func TestCmdHFFDownload_Success_CallsRefreshModelsFn(t *testing.T) {
+	orig := hfDownloadFunc
+	hfDownloadFunc = func(_ context.Context, _, _ string) (string, string, error) {
+		return "/models/phi3.gguf", "phi3", nil
+	}
+	t.Cleanup(func() { hfDownloadFunc = orig })
+
+	refreshCalled := false
+	loop := makeTestLoop(nil)
+	repl := NewREPL(loop)
+	defer repl.cancel()
+	repl.refreshModelsFn = func() { refreshCalled = true }
+
+	origOut := os.Stdout
+	_, w, _ := os.Pipe()
+	os.Stdout = w
+	err := repl.cmdHFFDownload("owner/phi3-gguf", "phi3.gguf")
+	w.Close()
+	os.Stdout = origOut
+
+	assert.NoError(t, err)
+	assert.True(t, refreshCalled)
+}

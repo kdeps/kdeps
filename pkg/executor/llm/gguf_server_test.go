@@ -80,6 +80,20 @@ func TestEnsureLlamaServerBinary_ReturnsCachedPath(t *testing.T) {
 	assert.Equal(t, cachedBin, result)
 }
 
+// TestResolvedLlamafileURL_KnownModelNoServer covers the branches after a valid
+// modelsDir and a known registry alias: servedLlamafiles miss, no port file,
+// default port not listening → returns "".
+func TestResolvedLlamafileURL_KnownModelNoServer(t *testing.T) {
+	names := LlamafileAliasNames()
+	if len(names) == 0 {
+		t.Skip("no llamafile aliases in registry")
+	}
+	t.Setenv("KDEPS_MODELS_DIR", t.TempDir())
+	// None of the healthy checks can succeed (no server running in tests).
+	result := ResolvedLlamafileURL(names[0])
+	assert.Equal(t, "", result)
+}
+
 func TestEnsureLlamaServerBinary_UnsupportedPlatformReturnsEmpty(t *testing.T) {
 	tmp := t.TempDir()
 	t.Setenv("HOME", tmp)

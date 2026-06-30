@@ -50,6 +50,11 @@ import (
 	"github.com/kdeps/kdeps/v2/pkg/infra/logging"
 )
 
+//nolint:gochecknoglobals // test-replaceable factory hook
+var newModelServiceFunc = func() executorLLM.ModelServiceInterface {
+	return executorLLM.NewModelService(nil)
+}
+
 // StartHTTPServer starts the HTTP API server (exported for testing).
 func StartHTTPServer(
 	workflow *domain.Workflow,
@@ -123,7 +128,7 @@ func prefetchModel(backend, model string) {
 	if model == "" {
 		return
 	}
-	svc := executorLLM.NewModelService(nil)
+	svc := newModelServiceFunc()
 	if err := svc.DownloadModel(backend, model); err != nil {
 		return
 	}
