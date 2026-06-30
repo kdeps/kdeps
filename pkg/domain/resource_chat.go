@@ -225,6 +225,14 @@ type ChatConfig struct {
 	OllamaPullModel bool `yaml:"ollamaPullModel,omitempty"`
 	// OllamaPullTimeout sets the timeout for model pulling (e.g. "10m"). Only used when OllamaPullModel is true.
 	OllamaPullTimeout string `yaml:"ollamaPullTimeout,omitempty"`
+	// OllamaNumCtx sets the context window size for Ollama inference (num_ctx).
+	// Overrides the server default for this call only. 0 means use server default.
+	OllamaNumCtx int `yaml:"ollamaNumCtx,omitempty"`
+
+	// ContextSize overrides the context window (--ctx-size) for local backends
+	// (file, gguf) and num_ctx for Ollama. 0 means use the current session default.
+	// For file/gguf backends this restarts the model server with the new size.
+	ContextSize int `yaml:"contextSize,omitempty"`
 
 	// Advanced LLM parameters (may not be supported by all backends)
 	Temperature       *float64 `yaml:"temperature,omitempty"`       // Sampling temperature (0.0-2.0)

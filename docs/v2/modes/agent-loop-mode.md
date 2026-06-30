@@ -42,6 +42,8 @@ Inside the REPL, type `/help` for the full list:
 | `/editor` | Open current input in `$EDITOR` (ctrl+g) |
 | `/copy` | Copy last assistant response to clipboard |
 | `/reload` | Reload skills and prompt templates from disk |
+| `/context` | Show current context window size |
+| `/context <size>` | Set context window size (e.g. `32768` or `32k`); restarts local model servers with the new `--ctx-size` |
 | `/settings` | Open the tool/skill selector |
 | `/exit` | Exit the REPL |
 | `! <cmd>` | Run a shell command; result is added to LLM context |
@@ -95,6 +97,39 @@ PID      PORT   BACKEND      MODEL                                STATUS
 /model ps kill phi4           # send SIGKILL, remove port file
 /model ps switch phi4         # set active model to an already-running server
 ```
+
+## Context window size
+
+`/context` shows or changes the context window size for the current model. The effect depends on the backend:
+
+| Backend | Effect |
+|---------|--------|
+| `file` (llamafile) | Kills the running server and restarts it with `--ctx-size <n>` |
+| `gguf` (llama-server) | Kills the running server and restarts it with `--ctx-size <n>` |
+| `ollama` | Sets `num_ctx` on the next request - no restart needed |
+| Cloud (openai, anthropic, etc.) | No effect - context size is managed server-side |
+
+```
+/context              # show current size (e.g. "Context window: 4096 tokens")
+/context 32768        # set to 32K
+/context 128k         # shorthand - equivalent to 131072
+```
+
+You can also set the default at startup with the `KDEPS_GGUF_CTX_SIZE` (gguf) or `KDEPS_LLAMAFILE_CTX_SIZE` (file) environment variables.
+
+In resource YAML, set `contextSize:` on any `chat:` block to override per-call:
+
+```yaml
+resources:
+  - action: analyze
+    chat:
+      model: llama3.2
+      contextSize: 32768   # restarts the server with this size if backend is file/gguf
+      prompt: |
+        Summarize: $request.body.text
+```
+
+For Ollama only, `ollamaNumCtx:` is also accepted and takes precedence over `contextSize:`.
 
 ## Built-in tools
 

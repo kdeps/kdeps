@@ -93,7 +93,7 @@ const (
 
 //nolint:gochecknoglobals // command list must be package-level for completer
 var builtinCmds = []string{
-	"/help", "/settings", "/clear", "/model",
+	"/help", "/settings", "/clear", "/model", "/context",
 	"/skills", "/prompts", "/compact", "/history", "/thinking", "/session",
 	"/editor", "/copy", "/reload", "/exit", "/quit",
 }
@@ -1375,6 +1375,8 @@ func (r *REPL) dispatchCommand(cmd string) error {
 		return r.cmdCopy()
 	case "/reload":
 		return r.cmdReload()
+	case "/context":
+		return r.cmdContext(args)
 	case "/exit", "/quit":
 		r.loopCancel() // exit the loop; also cascades to cancel r.ctx (child of loopCtx)
 		return nil
@@ -1418,6 +1420,8 @@ func (r *REPL) cmdHelp() error {
 		"  /editor                            Open $EDITOR to compose a long prompt",
 		"  /copy                              Copy the last assistant response to the system clipboard",
 		"  /reload                            Reload skills, prompt templates, and instructions from disk",
+		"  /context                           Show current context window size",
+		"  /context <size>                    Set context window size (e.g. 32768 or 32k); restarts local servers",
 		"  ! <cmd>                            Run a shell command; result is added to LLM context",
 		"  !! <cmd>                           Run a shell command without adding it to LLM context",
 	}
@@ -2537,6 +2541,74 @@ func copyToClipboard(text string) error {
 func (r *REPL) cmdReload() error {
 	r.loop.Reload()
 	fmt.Fprintln(os.Stdout, styleReplMeta.Render("Reloaded skills and prompt templates from disk."))
+	return nil
+}
+
+// cmdContext shows or sets the context window size for the current model.
+// For local backends (file, gguf) the running server is killed and restarted
+// with the new --ctx-size. For Ollama the size is passed as num_ctx on the
+// next request. Cloud backends do not support a user-controlled context size.
+func (r *REPL) cmdContext(args []string) error {
+	if len(args) == 0 {
+		currentSize := r.contextLimitForModel(r.loop.config.Model)
+		fmt.Fprintf(os.Stdout, "%s\n", styleReplMeta.Render(fmt.Sprintf("Context window: %d tokens", currentSize)))
+		return nil
+	}
+
+	raw := strings.ToLower(strings.TrimSpace(args[0]))
+	// Accept shorthand: 32k → 32768, 128k → 131072, etc.
+	multiplier := 1
+	if strings.HasSuffix(raw, "k") {
+		multiplier = 1024
+		raw = strings.TrimSuffix(raw, "k")
+	}
+	n, _ := strconv.Atoi(raw)
+	if n <= 0 {
+		fmt.Fprintf(os.Stdout, "%s\n", styleReplError.Render("Usage: /context <size>  (e.g. 32768 or 32k)"))
+		return nil
+	}
+	n *= multiplier
+
+	backend := r.loop.config.Backend
+	model := r.loop.config.Model
+
+	switch backend {
+	case llm.BackendFile:
+		llm.SetLlamafileContextSize(n)
+		svc := r.loop.config.ModelService
+		if svc != nil {
+			msg := fmt.Sprintf("Restarting llamafile server with ctx-size=%d...", n)
+			fmt.Fprintf(os.Stdout, "%s\n", styleReplMeta.Render(msg))
+			svc.KillModel(backend, model)
+			_ = svc.ServeModel(backend, model, "", 0)
+			llm.WaitForServerReady(svc.ServerURL(backend, model))
+		}
+	case llm.BackendGGUF:
+		llm.SetGGUFContextSize(n)
+		svc := r.loop.config.ModelService
+		if svc != nil {
+			msg := fmt.Sprintf("Restarting llama-server with ctx-size=%d...", n)
+			fmt.Fprintf(os.Stdout, "%s\n", styleReplMeta.Render(msg))
+			svc.KillModel(backend, model)
+			_ = svc.ServeModel(backend, model, "", 0)
+			llm.WaitForServerReady(svc.ServerURL(backend, model))
+		}
+	case "ollama":
+		msg := fmt.Sprintf("Ollama num_ctx set to %d (applies to next request)", n)
+		fmt.Fprintf(os.Stdout, "%s\n", styleReplMeta.Render(msg))
+	default:
+		fmt.Fprintf(os.Stdout, "%s\n", styleReplMeta.Render("Context size is managed server-side for cloud backends."))
+		return nil
+	}
+
+	const contextHistoryFraction, contextHistoryDivisor = 3, 4
+	budget := n * contextHistoryFraction / contextHistoryDivisor
+	r.loop.config.CompactTokenBudget = budget
+	r.loop.config.AutoCompactThreshold = budget
+	r.loop.Session().SetTokenBudget(n, model)
+	r.loop.CompactIfNeeded(r.ctx)
+
+	fmt.Fprintf(os.Stdout, "%s\n", styleReplSuccess.Render(fmt.Sprintf("Context window set to %d tokens", n)))
 	return nil
 }
 

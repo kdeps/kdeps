@@ -52,6 +52,28 @@ var (
 	servedLlamafilesMu   sync.Mutex
 )
 
+// llamafileContextSize is the --ctx-size passed to llamafile servers.
+// Override with KDEPS_LLAMAFILE_CTX_SIZE or SetLlamafileContextSize at runtime.
+//
+//nolint:gochecknoglobals // configurable via env + runtime
+var llamafileContextSize = func() int {
+	const defaultCtxSize = 4096
+	if v := os.Getenv("KDEPS_LLAMAFILE_CTX_SIZE"); v != "" {
+		if n, err := strconv.Atoi(v); err == nil && n > 0 {
+			return n
+		}
+	}
+	return defaultCtxSize
+}()
+
+// SetLlamafileContextSize overrides the --ctx-size used when starting llamafile servers.
+// Takes effect on the next server start (e.g. after KillModel + ServeModel).
+func SetLlamafileContextSize(n int) {
+	if n > 0 {
+		llamafileContextSize = n
+	}
+}
+
 // shutdownOnce registers the signal handler exactly once across all servers.
 //
 //nolint:gochecknoglobals // process-wide one-time init
@@ -266,6 +288,7 @@ func startLlamafileServer(path string, port int) (int, error) {
 		"--host", "127.0.0.1",
 		"--port", strconv.Itoa(port),
 		"--nobrowser",
+		"--ctx-size", strconv.Itoa(llamafileContextSize),
 	)
 	// The server is detached and outlives the parent; it must not inherit
 	// stdout/stderr (holding those fds blocks `go test` and pipes long after

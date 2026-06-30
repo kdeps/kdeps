@@ -218,6 +218,13 @@ func buildNativeOllamaLLM(cfg *domain.ChatConfig) (llms.Model, error) {
 			}
 		}
 	}
+	numCtx := cfg.OllamaNumCtx
+	if numCtx == 0 {
+		numCtx = cfg.ContextSize
+	}
+	if numCtx > 0 {
+		opts = append(opts, lcollama.WithRunnerNumCtx(numCtx))
+	}
 	return lcollama.New(opts...)
 }
 
@@ -678,7 +685,17 @@ func injectChainOfThought(msgs []llms.MessageContent) []llms.MessageContent {
 // When FewShotEmbeddingModel is set and FewShotSelectK > 0, it pre-selects few-shot
 // examples via embedding cosine similarity and clears FewShotSelectK so the Jaccard
 // path in buildLangchainMessages is skipped.
+// When ContextSize > 0 and the backend is file or gguf, it updates the package-level
+// context size variable so the next server start uses the requested window.
 func prepareCfg(ctx context.Context, cfg *domain.ChatConfig) *domain.ChatConfig {
+	if cfg.ContextSize > 0 {
+		switch cfg.Backend {
+		case BackendFile:
+			SetLlamafileContextSize(cfg.ContextSize)
+		case BackendGGUF:
+			SetGGUFContextSize(cfg.ContextSize)
+		}
+	}
 	if cfg.FewShotEmbeddingModel == "" || cfg.FewShotSelectK <= 0 || len(cfg.FewShot) == 0 {
 		return cfg
 	}
