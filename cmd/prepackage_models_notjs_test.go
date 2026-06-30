@@ -165,3 +165,73 @@ func TestValidateKdepsInput_AcceptsKagency(t *testing.T) {
 	require.NoError(t, os.WriteFile(path, []byte("x"), 0o644))
 	require.NoError(t, validateKdepsInput(path))
 }
+
+func TestAugmentPackageWithModels_BundlesCachedGGUF(t *testing.T) {
+	tmp := t.TempDir()
+	modelsDir := filepath.Join(tmp, "models")
+	require.NoError(t, os.MkdirAll(modelsDir, 0o750))
+	require.NoError(t, os.WriteFile(filepath.Join(modelsDir, "fake-model.gguf"), []byte("fake gguf"), 0o644))
+	t.Setenv("KDEPS_MODELS_DIR", modelsDir)
+
+	archivePath := filepath.Join(tmp, "gguf-test-1.0.0.kdeps")
+	f, err := os.Create(archivePath)
+	require.NoError(t, err)
+	gz := gzip.NewWriter(f)
+	tw := tar.NewWriter(gz)
+	wf := []byte(`apiVersion: kdeps.io/v1
+kind: Workflow
+metadata:
+  name: gguf-test
+  version: "1.0.0"
+  targetActionId: respond
+settings: {}
+resources:
+  - actionId: chat
+    name: Chat
+    chat:
+      model: fake-model.gguf
+      prompt: hi
+  - actionId: respond
+    name: Respond
+    requires: [chat]
+    apiResponse:
+      success: true
+      response: ok
+`)
+	require.NoError(t, tw.WriteHeader(&tar.Header{Name: "workflow.yaml", Mode: 0o644, Size: int64(len(wf))}))
+	_, err = tw.Write(wf)
+	require.NoError(t, err)
+	require.NoError(t, tw.Close())
+	require.NoError(t, gz.Close())
+	require.NoError(t, f.Close())
+
+	augmented, cleanup, err := augmentPackageWithModels(archivePath)
+	require.NoError(t, err)
+	t.Cleanup(cleanup)
+
+	extracted, err := ExtractPackage(augmented)
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = os.RemoveAll(extracted) })
+
+	assert.FileExists(t, filepath.Join(extracted, "workflow.yaml"))
+	bundled := filepath.Join(extracted, BundledModelsDir, "fake-model.gguf")
+	require.FileExists(t, bundled)
+	content, err := os.ReadFile(bundled)
+	require.NoError(t, err)
+	assert.Equal(t, "fake gguf", string(content))
+}
+
+func TestResolveModelsToFiles_PrefersCachedLlamafileOverGGUF(t *testing.T) {
+	// When both a .llamafile and .gguf exist with the same stem, the llamafile wins
+	// (llamafile manager is tried first).
+	tmp := t.TempDir()
+	modelsDir := filepath.Join(tmp, "models")
+	require.NoError(t, os.MkdirAll(modelsDir, 0o750))
+	require.NoError(t, os.WriteFile(filepath.Join(modelsDir, "my-model.llamafile"), []byte("llama"), 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(modelsDir, "my-model.gguf"), []byte("gguf"), 0o644))
+	t.Setenv("KDEPS_MODELS_DIR", modelsDir)
+
+	resolved, err := resolveModelsToFiles([]string{"my-model.llamafile"})
+	require.NoError(t, err)
+	require.Contains(t, resolved, "my-model.llamafile")
+}

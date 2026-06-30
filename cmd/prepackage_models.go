@@ -37,18 +37,19 @@ import (
 )
 
 // BundledModelsDir is the reserved directory inside .kdeps/.kagency archives
-// that holds pre-baked llamafile models. At run time it becomes the llamafile
-// cache (KDEPS_MODELS_DIR), so model aliases resolve offline.
+// that holds pre-baked llamafile/GGUF models. At run time it becomes the
+// model cache (KDEPS_MODELS_DIR), so aliases resolve offline.
 const BundledModelsDir = ".kdeps-models"
 
-// bundledModelMode marks bundled llamafiles executable inside the archive.
+// bundledModelMode marks bundled model files executable inside the archive.
 const bundledModelMode = 0o755
 
 // augmentPackageWithModels produces a copy of the package archive with the
-// llamafiles for every literal chat model appended under BundledModelsDir.
-// Models are resolved through the llamafile registry (downloading into the
-// local cache when missing); models that cannot be resolved are skipped with
-// a warning so cloud-backend workflows keep working.
+// llamafile/GGUF models for every literal chat model appended under
+// BundledModelsDir. Models are resolved through the llamafile and GGUF
+// registries (downloading into the local cache when missing); models that
+// cannot be resolved are skipped with a warning so cloud-backend workflows
+// keep working.
 // Returns the augmented archive path and a cleanup function.
 func augmentPackageWithModels(packageFile string) (string, func(), error) {
 	kdeps_debug.Log("enter: augmentPackageWithModels")
@@ -69,7 +70,7 @@ func augmentPackageWithModels(packageFile string) (string, func(), error) {
 		return "", nil, err
 	}
 
-	fmt.Fprintf(os.Stdout, "Bundling %d llamafile model(s):\n", len(resolved))
+	fmt.Fprintf(os.Stdout, "Bundling %d model(s):\n", len(resolved))
 	for name := range resolved {
 		fmt.Fprintf(os.Stdout, "  + %s/%s\n", BundledModelsDir, name)
 	}
@@ -115,26 +116,35 @@ func collectPackageChatModels(dir string) []string {
 	return models
 }
 
-// resolveModelsToFiles resolves each model to a local llamafile (downloading
-// registry aliases and URLs into the cache when missing). Unresolvable models
-// are skipped with a warning. Returns archive basename -> local path.
+// resolveModelsToFiles resolves each model to a local llamafile or GGUF file
+// (downloading registry aliases and URLs into the cache when missing).
+// Resolution order: llamafile registry first, then GGUF registry. Unresolvable
+// models are skipped with a warning. Returns archive basename -> local path.
 func resolveModelsToFiles(models []string) (map[string]string, error) {
-	mgr, err := llm.NewLlamafileManager(nil)
-	if err != nil {
-		return nil, fmt.Errorf("llamafile cache unavailable: %w", err)
-	}
+	llamaMgr, llamaErr := llm.NewLlamafileManager(nil)
+	ggufMgr, ggufErr := llm.NewGGUFManager(nil)
 
 	resolved := make(map[string]string, len(models))
 	for _, model := range models {
-		path, resolveErr := mgr.Resolve(model)
-		if resolveErr != nil {
-			fmt.Fprintf(os.Stderr, "Warning: model %q not bundled: %v\n", model, resolveErr)
-			continue
+		if llamaErr == nil {
+			if path, err := llamaMgr.Resolve(model); err == nil {
+				resolved[filepath.Base(path)] = path
+				continue
+			}
 		}
-		resolved[filepath.Base(path)] = path
+		if ggufErr == nil {
+			if path, err := ggufMgr.Resolve(model); err == nil {
+				resolved[filepath.Base(path)] = path
+				continue
+			}
+		}
+		fmt.Fprintf(os.Stderr, "Warning: model %q not bundled: not found in llamafile or GGUF registry\n", model)
 	}
 	if len(resolved) == 0 {
-		return nil, fmt.Errorf("none of the chat models resolved to a llamafile: %v", models)
+		if llamaErr != nil && ggufErr != nil {
+			return nil, fmt.Errorf("model cache unavailable: llamafile: %v; gguf: %v", llamaErr, ggufErr)
+		}
+		return nil, fmt.Errorf("none of the chat models resolved to a llamafile or GGUF model: %v", models)
 	}
 	return resolved, nil
 }
@@ -224,9 +234,9 @@ func appendFileEntry(tarWriter *tar.Writer, entryName, filePath string) error {
 	return nil
 }
 
-// applyBundledModelsDir points the llamafile cache at the package's bundled
-// models when present, so registry aliases resolve offline. The process env
-// wins: an explicit KDEPS_MODELS_DIR is never overridden.
+// applyBundledModelsDir points the model cache at the package's bundled
+// models when present, so llamafile and GGUF registry aliases resolve offline.
+// The process env wins: an explicit KDEPS_MODELS_DIR is never overridden.
 func applyBundledModelsDir(packageDir string) {
 	bundled := filepath.Join(packageDir, BundledModelsDir)
 	if info, err := os.Stat(bundled); err != nil || !info.IsDir() {

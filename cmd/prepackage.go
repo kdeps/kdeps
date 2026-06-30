@@ -132,8 +132,8 @@ Examples:
   # Use a specific kdeps runtime version as the base
   kdeps prepackage myagent-1.0.0.kdeps --kdeps-version 2.0.1
 
-  # Pre-bake the chat models' llamafiles for fully offline execution
-  # (adds ~1.1 GB per model; the binary needs no network on first run)
+  # Pre-bake the chat models (llamafile or GGUF) for fully offline execution
+  # (adds ~1-4 GB per model; the binary needs no network on first run)
   kdeps prepackage myagent-1.0.0.kdeps --include-models
 
   # Agencies work the same way
@@ -162,7 +162,7 @@ Examples:
 		&flags.IncludeModels,
 		"include-models",
 		false,
-		"Pre-bake the chat models' llamafiles into the executable (offline-ready, large output)",
+		"Pre-bake chat models (llamafile or GGUF) into the executable (offline-ready, large output)",
 	)
 
 	return cmd

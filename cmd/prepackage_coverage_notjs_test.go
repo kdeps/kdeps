@@ -333,7 +333,7 @@ func TestResolveModelsToFiles_ManagerError(t *testing.T) {
 	t.Setenv("KDEPS_MODELS_DIR", "/dev/null/impossible")
 	_, err := resolveModelsToFiles([]string{"whatever.llamafile"})
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "llamafile cache unavailable")
+	assert.Contains(t, err.Error(), "model cache unavailable")
 }
 
 func TestAugmentPackageWithModels_WriteAugmentedArchiveError(t *testing.T) {
