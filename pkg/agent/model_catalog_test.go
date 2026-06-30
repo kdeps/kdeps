@@ -172,8 +172,8 @@ func TestProviderStatusLine_ContainsBrowseHint(t *testing.T) {
 	repl := &REPL{loop: &Loop{config: Config{}}}
 	repl.providerStatus = map[string]bool{}
 	line := repl.providerStatusLine()
-	if !strings.Contains(line, "/models") {
-		t.Errorf("expected '/models' hint in %q", line)
+	if !strings.Contains(line, "/model list") {
+		t.Errorf("expected '/model list' hint in %q", line)
 	}
 }
 

@@ -93,7 +93,7 @@ const (
 
 //nolint:gochecknoglobals // command list must be package-level for completer
 var builtinCmds = []string{
-	"/help", "/settings", "/clear", "/model", "/models", "/processes", "/hff",
+	"/help", "/settings", "/clear", "/model",
 	"/skills", "/prompts", "/compact", "/history", "/thinking", "/session",
 	"/editor", "/copy", "/reload", "/exit", "/quit",
 }
@@ -1343,8 +1343,6 @@ func (r *REPL) dispatchCommand(cmd string) error {
 		return r.cmdClear()
 	case "/model":
 		return r.cmdModel(args)
-	case "/models":
-		return r.cmdModels()
 	case "/skills":
 		return r.cmdSkills()
 	case "/prompts":
@@ -1365,10 +1363,6 @@ func (r *REPL) dispatchCommand(cmd string) error {
 		return r.cmdCopy()
 	case "/reload":
 		return r.cmdReload()
-	case "/processes":
-		return r.cmdProcesses(args)
-	case "/hff":
-		return r.cmdHFF(args)
 	case "/exit", "/quit":
 		r.loopCancel() // exit the loop; also cascades to cancel r.ctx (child of loopCtx)
 		return nil
@@ -1388,41 +1382,44 @@ func (r *REPL) dispatchCommand(cmd string) error {
 func (r *REPL) cmdHelp() error {
 	heading := styleReplHeading.Render
 	dim := styleReplDim.Render
-	fmt.Fprintf(
-		os.Stdout,
-		"%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n\n%s\n\n%s\n",
+	lines := []string{
 		heading("Available commands:"),
-		"  /help                    Show this help message",
-		"  /settings                Open the tool/skill selector and save selections",
-		"  /clear                   Clear the conversation history",
-		"  /model [name]            Show or set the LLM model",
-		"  /model default [name]    Show or save the default startup model",
-		"  /models                  List all available models with provider status",
-		"  /processes               List running local model servers (llamafile/gguf)",
-		"  /processes kill <model>  Kill a running local model server",
-		"  /processes switch <model> Switch to a running local model server",
-		"  /hff search <query>      Search HuggingFace for GGUF models",
-		"  /hff info <repo>         List GGUF files available in a HuggingFace repo",
-		"  /hff download <repo> [file]  Download a GGUF file from HuggingFace",
-		"  /skills                  List loaded skills",
-		"  /prompts                 List loaded prompt templates",
-		"  /<skill-name> [..]      Invoke a loaded skill or prompt template by name",
-		"  /compact                 Compact conversation history (keep recent turns)",
-		"  /history                 Show recent conversation turns",
+		"  /help                              Show this help message",
+		"  /settings                          Open the tool/skill selector and save selections",
+		"  /clear                             Clear the conversation history",
+		"  /model [name]                      Show or set the LLM model",
+		"  /model default [name]              Show or save the default startup model",
+		"  /model list                        List all available models with provider status",
+		"  /model ps                          List running local model servers (llamafile/gguf)",
+		"  /model ps kill <model>             Kill a running local model server",
+		"  /model ps switch <model>           Switch to a running local model server",
+		"  /model hff search <query>          Search HuggingFace for GGUF models",
+		"  /model hff info <repo>             List GGUF files available in a HuggingFace repo",
+		"  /model hff download <repo> [file]  Download a GGUF file from HuggingFace",
+		"  /skills                            List loaded skills",
+		"  /prompts                           List loaded prompt templates",
+		"  /<skill-name> [..]                Invoke a loaded skill or prompt template by name",
+		"  /compact                           Compact conversation history (keep recent turns)",
+		"  /history                           Show recent conversation turns",
 		"  /thinking [off|minimal|low|medium|high|xhigh|auto]  Show or set extended reasoning/thinking mode",
 		"  /session list|save|load|delete|import|checkpoint|goto  Manage saved sessions",
-		"  /editor                  Open $EDITOR to compose a long prompt",
-		"  /copy                    Copy the last assistant response to the system clipboard",
-		"  /reload                  Reload skills, prompt templates, and instructions from disk",
-		"  ! <cmd>                  Run a shell command; result is added to LLM context",
-		"  !! <cmd>                 Run a shell command without adding it to LLM context",
-		dim(
-			"Tips: @file.txt embeds text inline  |  @photo.png attaches image as multimodal input  |  @https://... attaches image URL",
-		),
-		dim(
-			"/exit, /quit, Ctrl+D to exit  |  Ctrl+C to cancel current line  |  Tab to complete commands",
-		),
-	)
+		"  /editor                            Open $EDITOR to compose a long prompt",
+		"  /copy                              Copy the last assistant response to the system clipboard",
+		"  /reload                            Reload skills, prompt templates, and instructions from disk",
+		"  ! <cmd>                            Run a shell command; result is added to LLM context",
+		"  !! <cmd>                           Run a shell command without adding it to LLM context",
+	}
+	for _, l := range lines {
+		fmt.Fprintln(os.Stdout, l)
+	}
+	fmt.Fprintln(os.Stdout)
+	fmt.Fprintln(os.Stdout, dim(
+		"Tips: @file.txt embeds text inline  |  @photo.png attaches image as multimodal input  |  @https://... attaches image URL",
+	))
+	fmt.Fprintln(os.Stdout)
+	fmt.Fprintln(os.Stdout, dim(
+		"/exit, /quit, Ctrl+D to exit  |  Ctrl+C to cancel current line  |  Tab to complete commands",
+	))
 	return nil
 }
 
@@ -1450,9 +1447,17 @@ func (r *REPL) cmdClear() error {
 var tagKeywords = []string{"gguf", "llamafile", "cloud", "enabled", "cached", "installed", "ollama"}
 
 func (r *REPL) cmdModel(args []string) error {
-	// /model default [name] -- show or set the persisted startup model.
-	if len(args) > 0 && args[0] == "default" {
-		return r.cmdModelDefault(args[1:])
+	if len(args) > 0 {
+		switch args[0] {
+		case "default":
+			return r.cmdModelDefault(args[1:])
+		case "list":
+			return r.cmdModels()
+		case "ps":
+			return r.cmdProcesses(args[1:])
+		case "hff":
+			return r.cmdHFF(args[1:])
+		}
 	}
 	if len(args) > 0 {
 		name := stripModelIndicators(args[0])
@@ -1758,9 +1763,9 @@ func (r *REPL) providerStatusLine() string {
 	}
 	sort.Strings(ready)
 	if len(ready) == 0 {
-		return "No cloud API keys set  |  /models to browse all"
+		return "No cloud API keys set  |  /model list to browse all"
 	}
-	return "Ready: " + strings.Join(ready, ", ") + "  |  /models to browse all"
+	return "Ready: " + strings.Join(ready, ", ") + "  |  /model list to browse all"
 }
 
 const modelsIDWidth = 46
@@ -2605,7 +2610,7 @@ func (r *REPL) cmdHFF(args []string) error {
 		fmt.Fprintln(
 			os.Stdout,
 			styleReplMeta.Render(
-				"Usage: /hff search <query> | /hff info <repo> | /hff download <repo> [file]",
+				"Usage: /model hff search <query> | /model hff info <repo> | /model hff download <repo> [file]",
 			),
 		)
 		return nil
@@ -2615,13 +2620,13 @@ func (r *REPL) cmdHFF(args []string) error {
 	switch sub {
 	case "search":
 		if len(rest) == 0 {
-			fmt.Fprintln(os.Stdout, styleModelsNoKey.Render("Usage: /hff search <query>"))
+			fmt.Fprintln(os.Stdout, styleModelsNoKey.Render("Usage: /model hff search <query>"))
 			return nil
 		}
 		return r.cmdHFFSearch(strings.Join(rest, " "))
 	case "info":
 		if len(rest) == 0 {
-			fmt.Fprintln(os.Stdout, styleModelsNoKey.Render("Usage: /hff info <repo>"))
+			fmt.Fprintln(os.Stdout, styleModelsNoKey.Render("Usage: /model hff info <repo>"))
 			return nil
 		}
 		return r.cmdHFFInfo(rest[0])
@@ -2629,7 +2634,7 @@ func (r *REPL) cmdHFF(args []string) error {
 		if len(rest) == 0 {
 			fmt.Fprintln(
 				os.Stdout,
-				styleModelsNoKey.Render("Usage: /hff download <repo> [filename]"),
+				styleModelsNoKey.Render("Usage: /model hff download <repo> [filename]"),
 			)
 			return nil
 		}
@@ -2644,7 +2649,7 @@ func (r *REPL) cmdHFF(args []string) error {
 			os.Stdout,
 			"%s\n",
 			styleModelsNoKey.Render(
-				"Unknown /hff subcommand: "+sub+". Use search, info, or download.",
+				"Unknown /model hff subcommand:"+sub+". Use search, info, or download.",
 			),
 		)
 		return nil
@@ -2699,7 +2704,7 @@ func (r *REPL) cmdHFFSearch(query string) error {
 		&sb,
 		"\n%s",
 		styleReplDim.Render(
-			"Use /hff download <repo> <file> to download.",
+			"Use /model hff download<repo> <file> to download.",
 		),
 	)
 	lines := strings.Split(strings.TrimRight(sb.String(), "\n"), "\n")
@@ -2732,7 +2737,7 @@ func (r *REPL) cmdHFFInfo(repoID string) error {
 		fmt.Fprintf(&sb, "%-50s %10s\n", name, sizeStr)
 	}
 	fmt.Fprintf(&sb, "\n%s",
-		styleReplDim.Render("Use /hff download "+repoID+" <filename> to download."))
+		styleReplDim.Render("Use /model hff download"+repoID+" <filename> to download."))
 	lines := strings.Split(strings.TrimRight(sb.String(), "\n"), "\n")
 	return r.pageLines(lines)
 }

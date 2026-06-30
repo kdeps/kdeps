@@ -45,10 +45,10 @@ func TestDispatchCommand_Processes(t *testing.T) {
 	defer repl.cancel()
 
 	out := testCaptureStdout(t, func() {
-		err := repl.dispatchCommand("/processes")
+		err := repl.dispatchCommand("/model ps")
 		assert.NoError(t, err)
 	})
-	// /processes with no args prints the list output.
+	// /model ps with no args prints the list output.
 	assert.Contains(t, out, "No local model servers")
 }
 
@@ -58,10 +58,10 @@ func TestDispatchCommand_HFF(t *testing.T) {
 	defer repl.cancel()
 
 	out := testCaptureStdout(t, func() {
-		err := repl.dispatchCommand("/hff")
+		err := repl.dispatchCommand("/model hff")
 		assert.NoError(t, err)
 	})
-	// /hff with no args prints usage.
+	// /model hff with no args prints usage.
 	assert.Contains(t, out, "Usage:")
 }
 

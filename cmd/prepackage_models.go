@@ -142,7 +142,7 @@ func resolveModelsToFiles(models []string) (map[string]string, error) {
 	}
 	if len(resolved) == 0 {
 		if llamaErr != nil && ggufErr != nil {
-			return nil, fmt.Errorf("model cache unavailable: llamafile: %v; gguf: %v", llamaErr, ggufErr)
+			return nil, fmt.Errorf("model cache unavailable: llamafile: %w; gguf: %w", llamaErr, ggufErr)
 		}
 		return nil, fmt.Errorf("none of the chat models resolved to a llamafile or GGUF model: %v", models)
 	}

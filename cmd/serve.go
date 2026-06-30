@@ -130,7 +130,7 @@ func runAgentLoopCmd(path string, flags *agentLoopFlags) error {
 	repl.SetCloudModelBackends(buildCloudBackends())
 	repl.SetProviderStatus(agent.BuildProviderStatus())
 
-	// Refresh in-memory model lists after /hff download registers a new GGUF.
+	// Refresh in-memory model lists after /model hff download registers a new GGUF.
 	repl.SetRefreshModelsFn(func() { refreshREPLModelLists(repl) })
 
 	// Wire default-model persistence for /model default <name>.

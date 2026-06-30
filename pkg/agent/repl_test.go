@@ -2612,7 +2612,7 @@ func TestModelCompletionSuffixes_SkipShortName(t *testing.T) {
 	}
 }
 
-// --- dispatchCommand routing for /models, /prompts ---
+// --- dispatchCommand routing for /model list, /prompts ---
 
 func TestDispatchCommand_Models(t *testing.T) {
 	loop := makeTestLoop(nil)
@@ -2622,7 +2622,7 @@ func TestDispatchCommand_Models(t *testing.T) {
 	_, w, _ := os.Pipe()
 	os.Stdout = w
 	defer func() { w.Close(); os.Stdout = origOut }()
-	assert.NoError(t, repl.dispatchCommand("/models"))
+	assert.NoError(t, repl.dispatchCommand("/model list"))
 }
 
 func TestDispatchCommand_Prompts(t *testing.T) {
@@ -3245,7 +3245,7 @@ func TestCmdHFF_UnknownSubcommand(t *testing.T) {
 	r.Close()
 
 	assert.NoError(t, err)
-	assert.Contains(t, string(out), "Unknown /hff subcommand")
+	assert.Contains(t, string(out), "Unknown /model hff subcommand")
 }
 
 func TestCmdHFF_Search_NoQuery(t *testing.T) {
@@ -3263,7 +3263,7 @@ func TestCmdHFF_Search_NoQuery(t *testing.T) {
 	r.Close()
 
 	assert.NoError(t, err)
-	assert.Contains(t, string(out), "Usage: /hff search")
+	assert.Contains(t, string(out), "Usage: /model hff search")
 }
 
 func TestCmdHFF_Info_NoRepo(t *testing.T) {
@@ -3281,7 +3281,7 @@ func TestCmdHFF_Info_NoRepo(t *testing.T) {
 	r.Close()
 
 	assert.NoError(t, err)
-	assert.Contains(t, string(out), "Usage: /hff info")
+	assert.Contains(t, string(out), "Usage: /model hff info")
 }
 
 func TestCmdHFF_Download_NoRepo(t *testing.T) {
@@ -3299,7 +3299,7 @@ func TestCmdHFF_Download_NoRepo(t *testing.T) {
 	r.Close()
 
 	assert.NoError(t, err)
-	assert.Contains(t, string(out), "Usage: /hff download")
+	assert.Contains(t, string(out), "Usage: /model hff download")
 }
 
 // --- cmdHFFSearch (error path — network unavailable) ---
