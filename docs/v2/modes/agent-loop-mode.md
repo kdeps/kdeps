@@ -96,6 +96,97 @@ PID      PORT   BACKEND      MODEL                                STATUS
 /model ps switch phi4         # set active model to an already-running server
 ```
 
+## Built-in tools
+
+The agent has access to a set of built-in tools that the LLM can call without any YAML configuration. Tools that require credentials are only registered when the relevant environment variable is set.
+
+### Shell execution
+
+`bash_exec` runs any shell command and streams output to the terminal. Two keyboard shortcuts change its behavior mid-run:
+
+| Key | Effect |
+|-----|--------|
+| `Ctrl+C` | Kill the process. Partial output is returned to the LLM as a success result so it can decide what to do next. |
+| `Ctrl+Z` | Detach the process as a background job. `bash_exec` immediately returns `{"status":"backgrounded","job_id":N}` to the LLM. |
+
+`Ctrl+Z` at the REPL prompt (no tool running) suspends kdeps normally (`fg` to resume).
+
+Background jobs are managed with two companion tools:
+
+| Tool | Description |
+|------|-------------|
+| `bash_job_list` | Show all background jobs with status (`running`/`done`/`failed`), elapsed time, and command |
+| `bash_job_wait` | Block until a job completes and return its full output. Pass `job_id` from the backgrounded result. |
+
+Set `KDEPS_ALLOW_BASH=false` to disable all three `bash_*` tools.
+
+### File operations
+
+Always available. No environment variables required.
+
+| Tool | Description |
+|------|-------------|
+| `read_file` | Read file contents |
+| `write_file` | Write or overwrite a file |
+| `edit_file` | Apply a unified diff to a file |
+| `list_files` | List directory contents |
+
+### Web and search
+
+| Tool | Required env var | Description |
+|------|-----------------|-------------|
+| `web_search` | (none -- uses DuckDuckGo) | Search the web |
+| `wikipedia` | (none) | Fetch a Wikipedia article |
+| `web_scraper` | (none) | Fetch and extract text from any URL |
+| `serpapi_search` | `SERPAPI_API_KEY` | Google search via SerpAPI |
+| `exa_search` | `EXA_API_KEY` or `METAPHOR_API_KEY` | Neural search via Exa |
+| `perplexity_search` | `PERPLEXITY_API_KEY` | Search via Perplexity |
+
+### Computation
+
+| Tool | Required env var | Description |
+|------|-----------------|-------------|
+| `calculator` | (none) | Evaluate math expressions |
+| `wolfram_alpha` | `WOLFRAM_APP_ID` | Wolfram Alpha queries |
+
+### Data and SQL
+
+| Tool | Required env var | Description |
+|------|-----------------|-------------|
+| `sql_list_tables` | `KDEPS_SQL_DB_PATH` or connection config | List tables in a database |
+| `sql_describe_table` | same | Describe a table's columns and types |
+| `sql_query` | same | Execute a SELECT query |
+
+### Embeddings and reranking
+
+| Tool | Required env var | Description |
+|------|-----------------|-------------|
+| `retrieve_context` | (none) | Semantic search over a local vector store |
+| `cohere_rerank` | `COHERE_API_KEY` | Rerank results using Cohere |
+| `voyageai_rerank` | `VOYAGEAI_API_KEY` | Rerank results using VoyageAI |
+| `jina_rerank` | `JINA_API_KEY` | Rerank results using Jina |
+
+### Actions and integrations
+
+| Tool | Required env var | Description |
+|------|-----------------|-------------|
+| `zapier_list_actions` | `ZAPIER_NLA_API_KEY` | List available Zapier NLA actions |
+| `zapier_run_action` | `ZAPIER_NLA_API_KEY` | Execute a Zapier NLA action |
+| `google_cache_create` | (Google credentials) | Create a Google AI cached content object |
+| `google_cache_list` | (Google credentials) | List Google AI cached content objects |
+| `google_cache_delete` | (Google credentials) | Delete a Google AI cached content object |
+
+### Resource-backed tools
+
+These always-on tools invoke the corresponding kdeps executor directly:
+
+| Tool | Description |
+|------|-------------|
+| `http_request` | Make an HTTP request (GET/POST/PUT/DELETE/PATCH) |
+| `search_local` | Search the local document index |
+| `transcribe_audio` | Transcribe an audio file |
+| `load_document` | Load and extract text from a document |
+
 ## Multimodal input
 
 Attach images and other binary files to your prompt using `@`:
