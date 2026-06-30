@@ -79,31 +79,30 @@ func extractOneEntry(
 	hooks Hooks,
 	totalExtracted int64,
 ) (int64, error) {
-	// Zip Slip guard: join with destDir, check prefix, then use the absolute
-	// path in all file operations. CodeQL go/zipslip tracks hdr.Name → join →
-	// HasPrefix check → sink; using absTarget (not target) as the sink ensures
-	// the checked value reaches the file operation.
-	absBase, baseErr := filepath.Abs(destDir)
-	if baseErr != nil {
-		return 0, fmt.Errorf("failed to resolve destination: %s", destDir)
-	}
-	cleanedName := filepath.Clean(hdr.Name)
-	absTarget, absErr := filepath.Abs(filepath.Join(destDir, cleanedName))
-	if absErr != nil {
-		return 0, fmt.Errorf("failed to resolve archive path: %s", hdr.Name)
-	}
-	if absTarget != absBase && !strings.HasPrefix(absTarget, absBase+string(os.PathSeparator)) {
-		return 0, fmt.Errorf("invalid archive path: %s", hdr.Name)
-	}
-
 	// ResolveTarget applies option-aware handling (AbsPaths, SkipBadPaths, etc.)
-	// on top of the guard above.
+	// and is the primary path sanitizer.
 	_, skip, pathErr := ResolveTarget(destDir, hdr.Name, opts)
 	if pathErr != nil {
 		return 0, pathErr
 	}
 	if skip {
 		return 0, nil
+	}
+
+	// Zip Slip guard: compute absTarget directly from destDir + hdr.Name so
+	// CodeQL go/zipslip can track the sanitization (source → join → HasPrefix
+	// guard → sink). File operations use absTarget, not the ResolveTarget return
+	// value, so the checked value reaches the sink.
+	absBase, baseErr := filepath.Abs(destDir)
+	if baseErr != nil {
+		return 0, fmt.Errorf("failed to resolve destination: %s", destDir)
+	}
+	absTarget, absErr := filepath.Abs(filepath.Join(destDir, filepath.Clean(hdr.Name)))
+	if absErr != nil {
+		return 0, fmt.Errorf("failed to resolve archive path: %s", hdr.Name)
+	}
+	if absTarget != absBase && !strings.HasPrefix(absTarget, absBase+string(os.PathSeparator)) {
+		return 0, fmt.Errorf("invalid archive path: %s", hdr.Name)
 	}
 
 	if isDirEntry(hdr, opts) {
