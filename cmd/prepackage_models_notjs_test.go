@@ -228,6 +228,18 @@ func TestLlamaServerBundleKey_HasBinPrefix(t *testing.T) {
 	assert.Contains(t, key, "bin")
 }
 
+func TestLlamaServerBundleKeyForOS_Windows(t *testing.T) {
+	key := llamaServerBundleKeyForOS("windows")
+	assert.Contains(t, key, "llama-server.exe")
+	assert.Contains(t, key, "bin")
+}
+
+func TestLlamaServerBundleKeyForOS_Linux(t *testing.T) {
+	key := llamaServerBundleKeyForOS("linux")
+	assert.Contains(t, key, "llama-server")
+	assert.NotContains(t, key, ".exe")
+}
+
 func TestBundleLlamaServerBinary_NoGGUF_ReturnsEmpty(t *testing.T) {
 	resolved := map[string]string{
 		"model.llamafile": "/some/path/model.llamafile",

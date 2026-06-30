@@ -267,7 +267,11 @@ func applyBundledModelsDir(packageDir string) {
 // llamaServerBundleKey returns the archive entry name (relative to BundledModelsDir)
 // used for the bundled llama-server binary.
 func llamaServerBundleKey() string {
-	if runtime.GOOS == goosWindows {
+	return llamaServerBundleKeyForOS(runtime.GOOS)
+}
+
+func llamaServerBundleKeyForOS(goos string) string {
+	if goos == goosWindows {
 		return filepath.Join("bin", "llama-server.exe")
 	}
 	return filepath.Join("bin", "llama-server")

@@ -118,6 +118,17 @@ const historyFileName = "repl_history"
 
 var atFileRefRe = regexp.MustCompile(`@(\S+)`)
 
+//nolint:gochecknoglobals // test-replaceable network function hooks
+var (
+	hfSearchFunc      = func(ctx context.Context, query string, limit int) ([]llm.HFModelResult, error) {
+		return llm.HFSearchGGUF(ctx, query, limit)
+	}
+	hfInfoFunc = func(ctx context.Context, repoID string) (llm.HFRepoInfo, error) {
+		return llm.HFRepoFiles(ctx, repoID)
+	}
+	listLocalServersFunc = llm.ListLocalServers
+)
+
 const firstLineMax = 80
 
 // firstLine returns the first non-empty line of s, truncated to firstLineMax chars.
@@ -2551,7 +2562,7 @@ func (r *REPL) cmdProcesses(args []string) error {
 }
 
 func (r *REPL) cmdProcessesList() error {
-	entries := llm.ListLocalServers()
+	entries := listLocalServersFunc()
 	if len(entries) == 0 {
 		fmt.Fprintln(os.Stdout, styleReplMeta.Render("No local model servers running."))
 		return nil
@@ -2662,7 +2673,7 @@ func (r *REPL) cmdHFFSearch(query string) error {
 		"%s\n",
 		styleReplMeta.Render("Searching HuggingFace for GGUF: "+query+"..."),
 	)
-	results, err := llm.HFSearchGGUF(r.ctx, query, hffSearchDefaultLimit)
+	results, err := hfSearchFunc(r.ctx, query, hffSearchDefaultLimit)
 	if err != nil {
 		fmt.Fprintf(os.Stdout, "%s\n", styleModelsNoKey.Render("Search failed: "+err.Error()))
 		return nil //nolint:nilerr // network error shown to user; don't terminate REPL
@@ -2713,7 +2724,7 @@ func (r *REPL) cmdHFFSearch(query string) error {
 
 func (r *REPL) cmdHFFInfo(repoID string) error {
 	fmt.Fprintf(os.Stdout, "%s\n", styleReplMeta.Render("Fetching repo info: "+repoID+"..."))
-	info, err := llm.HFRepoFiles(r.ctx, repoID)
+	info, err := hfInfoFunc(r.ctx, repoID)
 	if err != nil {
 		fmt.Fprintf(os.Stdout, "%s\n", styleModelsNoKey.Render("Failed: "+err.Error()))
 		return nil //nolint:nilerr // network error shown to user; don't terminate REPL

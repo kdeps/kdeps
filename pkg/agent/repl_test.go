@@ -4291,3 +4291,158 @@ func TestDetectDefaultModelAndBackend_OllamaPath(t *testing.T) {
 	assert.Equal(t, defaultModelName, model)
 	assert.Equal(t, "ollama", backend)
 }
+
+// --- cmdHFFSearch success path (table rendering) ---
+
+func TestCmdHFFSearch_WithResults_RendersTable(t *testing.T) {
+	orig := hfSearchFunc
+	hfSearchFunc = func(_ context.Context, _ string, _ int) ([]llm.HFModelResult, error) {
+		return []llm.HFModelResult{
+			{
+				ID:        "owner/qwen2-gguf",
+				Downloads: 12345,
+				Likes:     99,
+				Siblings: []llm.HFFileEntry{
+					{Filename: "qwen2-1b-q4.gguf", Size: 800 * 1024 * 1024},
+				},
+			},
+		}, nil
+	}
+	t.Cleanup(func() { hfSearchFunc = orig })
+
+	loop := makeTestLoop(nil)
+	repl := NewREPL(loop)
+	defer repl.cancel()
+
+	r, w, _ := os.Pipe()
+	origOut := os.Stdout
+	os.Stdout = w
+	err := repl.cmdHFFSearch("qwen")
+	w.Close()
+	os.Stdout = origOut
+	out, _ := io.ReadAll(r)
+	r.Close()
+
+	assert.NoError(t, err)
+	assert.Contains(t, string(out), "REPO")
+	assert.Contains(t, string(out), "owner/qwen2-gguf")
+	assert.Contains(t, string(out), "qwen2-1b-q4.gguf")
+}
+
+func TestCmdHFFSearch_NoResults(t *testing.T) {
+	orig := hfSearchFunc
+	hfSearchFunc = func(_ context.Context, _ string, _ int) ([]llm.HFModelResult, error) {
+		return nil, nil
+	}
+	t.Cleanup(func() { hfSearchFunc = orig })
+
+	loop := makeTestLoop(nil)
+	repl := NewREPL(loop)
+	defer repl.cancel()
+
+	r, w, _ := os.Pipe()
+	origOut := os.Stdout
+	os.Stdout = w
+	err := repl.cmdHFFSearch("nomatch")
+	w.Close()
+	os.Stdout = origOut
+	out, _ := io.ReadAll(r)
+	r.Close()
+
+	assert.NoError(t, err)
+	assert.Contains(t, string(out), "No results")
+}
+
+// --- cmdHFFInfo success path ---
+
+func TestCmdHFFInfo_WithGGUFFiles_RendersTable(t *testing.T) {
+	orig := hfInfoFunc
+	hfInfoFunc = func(_ context.Context, _ string) (llm.HFRepoInfo, error) {
+		return llm.HFRepoInfo{
+			ID: "owner/myrepo",
+			Siblings: []llm.HFFileEntry{
+				{Filename: "model-q4.gguf", Size: 500 * 1024 * 1024},
+				{Filename: "model-q8.gguf", Size: 900 * 1024 * 1024},
+			},
+		}, nil
+	}
+	t.Cleanup(func() { hfInfoFunc = orig })
+
+	loop := makeTestLoop(nil)
+	repl := NewREPL(loop)
+	defer repl.cancel()
+
+	r, w, _ := os.Pipe()
+	origOut := os.Stdout
+	os.Stdout = w
+	err := repl.cmdHFFInfo("owner/myrepo")
+	w.Close()
+	os.Stdout = origOut
+	out, _ := io.ReadAll(r)
+	r.Close()
+
+	assert.NoError(t, err)
+	assert.Contains(t, string(out), "FILE")
+	assert.Contains(t, string(out), "model-q4.gguf")
+}
+
+func TestCmdHFFInfo_NoGGUFFiles(t *testing.T) {
+	orig := hfInfoFunc
+	hfInfoFunc = func(_ context.Context, _ string) (llm.HFRepoInfo, error) {
+		return llm.HFRepoInfo{
+			ID:       "owner/nonggufrepo",
+			Siblings: []llm.HFFileEntry{{Filename: "README.md", Size: 1024}},
+		}, nil
+	}
+	t.Cleanup(func() { hfInfoFunc = orig })
+
+	loop := makeTestLoop(nil)
+	repl := NewREPL(loop)
+	defer repl.cancel()
+
+	r, w, _ := os.Pipe()
+	origOut := os.Stdout
+	os.Stdout = w
+	err := repl.cmdHFFInfo("owner/nonggufrepo")
+	w.Close()
+	os.Stdout = origOut
+	out, _ := io.ReadAll(r)
+	r.Close()
+
+	assert.NoError(t, err)
+	assert.Contains(t, string(out), "No GGUF files")
+}
+
+// --- cmdProcessesList table rendering path ---
+
+func TestCmdProcessesList_WithServers_RendersTable(t *testing.T) {
+	orig := listLocalServersFunc
+	listLocalServersFunc = func() []llm.LocalServerEntry {
+		return []llm.LocalServerEntry{
+			{Model: "qwen2-1b", Path: "/models/qwen2-1b.gguf", Backend: llm.BackendGGUF, Port: 8080, PID: 12345, Healthy: true},
+			{Path: "/models/phi3.gguf", Backend: llm.BackendFile, Port: 8081, PID: 12346, Healthy: false},
+		}
+	}
+	t.Cleanup(func() { listLocalServersFunc = orig })
+
+	loop := makeTestLoop(nil)
+	repl := NewREPL(loop)
+	defer repl.cancel()
+
+	r, w, _ := os.Pipe()
+	origOut := os.Stdout
+	os.Stdout = w
+	err := repl.cmdProcessesList()
+	w.Close()
+	os.Stdout = origOut
+	out, _ := io.ReadAll(r)
+	r.Close()
+
+	assert.NoError(t, err)
+	s := string(out)
+	assert.Contains(t, s, "PID")
+	assert.Contains(t, s, "PORT")
+	assert.Contains(t, s, "qwen2-1b")
+	assert.Contains(t, s, "healthy")
+	assert.Contains(t, s, "loading")
+}

@@ -387,3 +387,28 @@ func TestHistoryPath_ReturnsPath(t *testing.T) {
 	assert.Contains(t, path, "history")
 	assert.Contains(t, path, "/test/home/user")
 }
+
+func TestCmdHelp_PrintsCommands(t *testing.T) {
+	loop := makeTestLoop(nil)
+	repl := NewREPL(loop)
+	defer repl.cancel()
+
+	out := testCaptureStdout(t, func() {
+		err := repl.cmdHelp()
+		assert.NoError(t, err)
+	})
+	assert.Contains(t, out, "/help")
+	assert.Contains(t, out, "/model")
+}
+
+func TestDispatchCommand_ModelList(t *testing.T) {
+	loop := makeTestLoop(nil)
+	repl := NewREPL(loop)
+	defer repl.cancel()
+
+	out := testCaptureStdout(t, func() {
+		err := repl.dispatchCommand("/model list")
+		assert.NoError(t, err)
+	})
+	assert.NotEmpty(t, out)
+}
