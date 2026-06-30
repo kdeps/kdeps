@@ -79,6 +79,16 @@ func ensureLlamaServerBinary() string {
 	return cached
 }
 
+// EnsureLlamaServerBinary returns the path to a ready llama-server binary,
+// downloading and installing it if not already cached. Returns "" on unsupported platforms.
+func EnsureLlamaServerBinary() string {
+	path := ensureLlamaServerBinary()
+	if path == "llama-server" {
+		return "" // fallback sentinel means install failed
+	}
+	return path
+}
+
 // ggufContextSize is the --ctx-size passed to llama-server. Override with
 // KDEPS_GGUF_CTX_SIZE.
 //

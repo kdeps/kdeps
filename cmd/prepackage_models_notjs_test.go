@@ -221,6 +221,147 @@ resources:
 	assert.Equal(t, "fake gguf", string(content))
 }
 
+func TestLlamaServerBundleKey_HasBinPrefix(t *testing.T) {
+	key := llamaServerBundleKey()
+	assert.True(t, len(key) > 4, "key should not be empty")
+	assert.Contains(t, key, "llama-server")
+	assert.Contains(t, key, "bin")
+}
+
+func TestBundleLlamaServerBinary_NoGGUF_ReturnsEmpty(t *testing.T) {
+	resolved := map[string]string{
+		"model.llamafile": "/some/path/model.llamafile",
+	}
+	result := bundleLlamaServerBinary(resolved)
+	assert.Empty(t, result, "should return empty when no GGUF models present")
+}
+
+func TestBundleLlamaServerBinary_WithGGUF_ReturnsBinaryPath(t *testing.T) {
+	tmp := t.TempDir()
+	fakeBin := filepath.Join(tmp, "llama-server")
+	require.NoError(t, os.WriteFile(fakeBin, []byte("fake binary"), 0o755))
+
+	orig := ensureLlamaServerBinaryFn
+	ensureLlamaServerBinaryFn = func() string { return fakeBin }
+	t.Cleanup(func() { ensureLlamaServerBinaryFn = orig })
+
+	resolved := map[string]string{
+		"model.gguf": "/some/path/model.gguf",
+	}
+	result := bundleLlamaServerBinary(resolved)
+	assert.Equal(t, fakeBin, result)
+}
+
+func TestBundleLlamaServerBinary_WithGGUF_BinaryUnavailable(t *testing.T) {
+	orig := ensureLlamaServerBinaryFn
+	ensureLlamaServerBinaryFn = func() string { return "" }
+	t.Cleanup(func() { ensureLlamaServerBinaryFn = orig })
+
+	resolved := map[string]string{"model.gguf": "/path/model.gguf"}
+	result := bundleLlamaServerBinary(resolved)
+	assert.Empty(t, result, "should return empty when binary unavailable")
+}
+
+func TestApplyBundledModelsDir_SetsBundledLlamaServer(t *testing.T) {
+	require.NoError(t, os.Unsetenv("KDEPS_MODELS_DIR"))
+	require.NoError(t, os.Unsetenv("KDEPS_LLAMA_SERVER_BIN"))
+	t.Cleanup(func() {
+		_ = os.Unsetenv("KDEPS_MODELS_DIR")
+		_ = os.Unsetenv("KDEPS_LLAMA_SERVER_BIN")
+	})
+
+	tmp := t.TempDir()
+	bundled := filepath.Join(tmp, BundledModelsDir)
+	binDir := filepath.Join(bundled, "bin")
+	require.NoError(t, os.MkdirAll(binDir, 0o750))
+	binPath := filepath.Join(binDir, "llama-server")
+	require.NoError(t, os.WriteFile(binPath, []byte("fake"), 0o755))
+
+	applyBundledModelsDir(tmp)
+
+	assert.Equal(t, binPath, os.Getenv("KDEPS_LLAMA_SERVER_BIN"))
+}
+
+func TestApplyBundledModelsDir_RespectsExistingLlamaServerBin(t *testing.T) {
+	t.Setenv("KDEPS_LLAMA_SERVER_BIN", "/custom/llama-server")
+	require.NoError(t, os.Unsetenv("KDEPS_MODELS_DIR"))
+	t.Cleanup(func() { _ = os.Unsetenv("KDEPS_MODELS_DIR") })
+
+	tmp := t.TempDir()
+	bundled := filepath.Join(tmp, BundledModelsDir)
+	binDir := filepath.Join(bundled, "bin")
+	require.NoError(t, os.MkdirAll(binDir, 0o750))
+	require.NoError(t, os.WriteFile(filepath.Join(binDir, "llama-server"), []byte("fake"), 0o755))
+
+	applyBundledModelsDir(tmp)
+
+	assert.Equal(t, "/custom/llama-server", os.Getenv("KDEPS_LLAMA_SERVER_BIN"))
+}
+
+func TestAugmentPackageWithModels_BundlesLlamaServerWithGGUF(t *testing.T) {
+	tmp := t.TempDir()
+	modelsDir := filepath.Join(tmp, "models")
+	require.NoError(t, os.MkdirAll(modelsDir, 0o750))
+	require.NoError(t, os.WriteFile(filepath.Join(modelsDir, "fake-model.gguf"), []byte("fake gguf"), 0o644))
+	t.Setenv("KDEPS_MODELS_DIR", modelsDir)
+
+	fakeBin := filepath.Join(tmp, "llama-server")
+	require.NoError(t, os.WriteFile(fakeBin, []byte("fake server"), 0o755))
+	orig := ensureLlamaServerBinaryFn
+	ensureLlamaServerBinaryFn = func() string { return fakeBin }
+	t.Cleanup(func() { ensureLlamaServerBinaryFn = orig })
+
+	archivePath := filepath.Join(tmp, "gguf-llama-1.0.0.kdeps")
+	f, err := os.Create(archivePath)
+	require.NoError(t, err)
+	gz := gzip.NewWriter(f)
+	tw := tar.NewWriter(gz)
+	wf := []byte(`apiVersion: kdeps.io/v1
+kind: Workflow
+metadata:
+  name: gguf-llama
+  version: "1.0.0"
+  targetActionId: respond
+settings: {}
+resources:
+  - actionId: chat
+    name: Chat
+    chat:
+      model: fake-model.gguf
+      prompt: hi
+  - actionId: respond
+    name: Respond
+    requires: [chat]
+    apiResponse:
+      success: true
+      response: ok
+`)
+	require.NoError(t, tw.WriteHeader(&tar.Header{Name: "workflow.yaml", Mode: 0o644, Size: int64(len(wf))}))
+	_, err = tw.Write(wf)
+	require.NoError(t, err)
+	require.NoError(t, tw.Close())
+	require.NoError(t, gz.Close())
+	require.NoError(t, f.Close())
+
+	augmented, cleanup, err := augmentPackageWithModels(archivePath)
+	require.NoError(t, err)
+	t.Cleanup(cleanup)
+
+	extracted, err := ExtractPackage(augmented)
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = os.RemoveAll(extracted) })
+
+	// GGUF model must be present.
+	assert.FileExists(t, filepath.Join(extracted, BundledModelsDir, "fake-model.gguf"))
+
+	// llama-server binary must be present under bin/.
+	binEntry := filepath.Join(extracted, BundledModelsDir, llamaServerBundleKey())
+	require.FileExists(t, binEntry)
+	content, err := os.ReadFile(binEntry)
+	require.NoError(t, err)
+	assert.Equal(t, "fake server", string(content))
+}
+
 func TestResolveModelsToFiles_PrefersCachedLlamafileOverGGUF(t *testing.T) {
 	// When both a .llamafile and .gguf exist with the same stem, the llamafile wins
 	// (llamafile manager is tried first).

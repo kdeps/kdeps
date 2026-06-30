@@ -29,6 +29,8 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"runtime"
+	"strings"
 
 	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
 	"github.com/kdeps/kdeps/v2/pkg/domain"
@@ -68,6 +70,10 @@ func augmentPackageWithModels(packageFile string) (string, func(), error) {
 	resolved, err := resolveModelsToFiles(models)
 	if err != nil {
 		return "", nil, err
+	}
+
+	if binPath := bundleLlamaServerBinary(resolved); binPath != "" {
+		resolved[llamaServerBundleKey()] = binPath
 	}
 
 	fmt.Fprintf(os.Stdout, "Bundling %d model(s):\n", len(resolved))
@@ -242,10 +248,47 @@ func applyBundledModelsDir(packageDir string) {
 	if info, err := os.Stat(bundled); err != nil || !info.IsDir() {
 		return
 	}
-	if os.Getenv("KDEPS_MODELS_DIR") != "" {
-		return
+	if os.Getenv("KDEPS_MODELS_DIR") == "" {
+		if err := os.Setenv("KDEPS_MODELS_DIR", bundled); err == nil {
+			fmt.Fprintf(os.Stdout, "Bundled models: %s\n", bundled)
+		}
 	}
-	if err := os.Setenv("KDEPS_MODELS_DIR", bundled); err == nil {
-		fmt.Fprintf(os.Stdout, "Bundled models: %s\n", bundled)
+	if os.Getenv("KDEPS_LLAMA_SERVER_BIN") == "" {
+		binPath := filepath.Join(bundled, llamaServerBundleKey())
+		if _, statErr := os.Stat(binPath); statErr == nil {
+			_ = os.Chmod(binPath, bundledModelMode)
+			if setErr := os.Setenv("KDEPS_LLAMA_SERVER_BIN", binPath); setErr == nil {
+				fmt.Fprintf(os.Stdout, "Bundled llama-server: %s\n", binPath)
+			}
+		}
 	}
+}
+
+// llamaServerBundleKey returns the archive entry name (relative to BundledModelsDir)
+// used for the bundled llama-server binary.
+func llamaServerBundleKey() string {
+	if runtime.GOOS == goosWindows {
+		return filepath.Join("bin", "llama-server.exe")
+	}
+	return filepath.Join("bin", "llama-server")
+}
+
+//nolint:gochecknoglobals // test-replaceable hook
+var ensureLlamaServerBinaryFn = llm.EnsureLlamaServerBinary
+
+// bundleLlamaServerBinary returns the host llama-server binary path when any
+// GGUF model is present in resolved, otherwise returns "".
+func bundleLlamaServerBinary(resolved map[string]string) string {
+	for name := range resolved {
+		if strings.HasSuffix(strings.ToLower(name), ".gguf") {
+			binPath := ensureLlamaServerBinaryFn()
+			if binPath != "" {
+				fmt.Fprintf(os.Stdout, "Bundling llama-server: %s\n", binPath)
+			} else {
+				fmt.Fprintf(os.Stderr, "Warning: llama-server binary unavailable on this platform; skipping\n")
+			}
+			return binPath
+		}
+	}
+	return ""
 }
