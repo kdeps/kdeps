@@ -19,10 +19,13 @@
 package llm
 
 import (
+	"os"
+	"path/filepath"
 	"runtime"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestDetectOSArch(t *testing.T) {
@@ -58,5 +61,37 @@ func TestResolvedGGUFURL_NoModelsDir(t *testing.T) {
 func TestResolvedLlamafileURL_NoModelsDir(t *testing.T) {
 	t.Setenv("KDEPS_MODELS_DIR", "/nonexistent/path-test-llamafile")
 	result := ResolvedLlamafileURL("test-model")
+	assert.Equal(t, "", result)
+}
+
+// Regression: EnsureLlamaServerBinary was 0% covered after the llama-server
+// bundling feature (commit e735759d). These tests cover the cached-hit and
+// unsupported-platform paths without making network calls.
+
+func TestEnsureLlamaServerBinary_ReturnsCachedPath(t *testing.T) {
+	tmp := t.TempDir()
+	t.Setenv("HOME", tmp)
+	binDir := filepath.Join(tmp, ".kdeps", "bin")
+	require.NoError(t, os.MkdirAll(binDir, 0o750))
+	cachedBin := filepath.Join(binDir, "llama-server")
+	require.NoError(t, os.WriteFile(cachedBin, []byte("fake"), 0o755))
+
+	result := EnsureLlamaServerBinary()
+	assert.Equal(t, cachedBin, result)
+}
+
+func TestEnsureLlamaServerBinary_UnsupportedPlatformReturnsEmpty(t *testing.T) {
+	tmp := t.TempDir()
+	t.Setenv("HOME", tmp)
+	// Make the cached path absent so ensureLlamaServerBinary tries to install.
+	// Force an unsupported platform so installLlamaServer fails immediately
+	// (no network call — detectOSArch returns "" → "unsupported platform" error).
+	origOS := testOS
+	origArch := testArch
+	testOS = "unsupportedos"
+	testArch = "unsupportedarch"
+	t.Cleanup(func() { testOS = origOS; testArch = origArch })
+
+	result := EnsureLlamaServerBinary()
 	assert.Equal(t, "", result)
 }

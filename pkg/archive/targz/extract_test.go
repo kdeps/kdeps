@@ -89,6 +89,29 @@ func TestExtractTar_TraversalRejected(t *testing.T) {
 	assert.Contains(t, err.Error(), "invalid archive path")
 }
 
+// Regression: guard order fix (commit 06d74306) moved ResolveTarget before the
+// zipslip check so SkipBadPaths is honoured. Before the fix, the zipslip guard
+// ran first and returned an error even when SkipBadPaths=true.
+func TestExtractTar_TraversalSkippedWithRegistryOptions(t *testing.T) {
+	var buf bytes.Buffer
+	tw := tar.NewWriter(&buf)
+	require.NoError(t, tw.WriteHeader(&tar.Header{Name: "../outside.txt", Size: 1, Mode: 0o644}))
+	_, err := tw.Write([]byte("x"))
+	require.NoError(t, err)
+	// Add a valid entry to confirm extraction continues after the skipped bad path.
+	require.NoError(t, tw.WriteHeader(&tar.Header{Name: "valid.txt", Size: 2, Mode: 0o644}))
+	_, err = tw.Write([]byte("ok"))
+	require.NoError(t, err)
+	require.NoError(t, tw.Close())
+
+	dest := t.TempDir()
+	// RegistryOptions has SkipBadPaths=true — bad-path entries must be skipped,
+	// not cause an error.
+	require.NoError(t, targz.ExtractTar(tar.NewReader(&buf), dest, targz.RegistryOptions()))
+	assert.NoFileExists(t, filepath.Join(dest, "../outside.txt"))
+	assert.FileExists(t, filepath.Join(dest, "valid.txt"))
+}
+
 func TestExtractTar_FileSizeLimit(t *testing.T) {
 	var buf bytes.Buffer
 	tw := tar.NewWriter(&buf)

@@ -89,6 +89,9 @@ func (e *Executor) Execute(
 	config *domain.HTTPClientConfig,
 ) (interface{}, error) {
 	kdeps_debug.Log("enter: Execute")
+	if ctx == nil {
+		ctx = &executor.ExecutionContext{}
+	}
 	evaluator := expression.NewEvaluator(ctx.API)
 
 	proxy, auth := e.resolveConnectionAuth(ctx, config)

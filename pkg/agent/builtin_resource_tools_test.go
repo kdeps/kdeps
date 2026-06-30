@@ -82,6 +82,40 @@ func TestRegisterHTTPTool_Registered(t *testing.T) {
 	assert.Equal(t, toolParamString, tool.Parameters["timeout"].Type)
 }
 
+// Regression: registerHTTPTool Execute was 10% covered — only tool registration
+// was tested. The Execute arg-mapping paths (url, method, headers, data,
+// timeout) were completely uncovered. These tests exercise the arg-mapping code;
+// actual HTTP calls are expected to fail since no real server exists.
+
+func TestRegisterHTTPTool_Execute_MissingURL(t *testing.T) {
+	reg := kdepstools.NewRegistry()
+	registerHTTPTool(context.Background(), reg)
+	tool := reg.Get("http_request")
+	require.NotNil(t, tool)
+	// Empty URL causes the HTTP executor to error.
+	_, err := tool.Execute(map[string]any{})
+	assert.Error(t, err)
+}
+
+func TestRegisterHTTPTool_Execute_WithAllOptionalArgs(t *testing.T) {
+	reg := kdepstools.NewRegistry()
+	registerHTTPTool(context.Background(), reg)
+	tool := reg.Get("http_request")
+	require.NotNil(t, tool)
+	// All optional args reach the arg-mapping code; the executor wraps
+	// connection errors in a JSON body (not a Go error), so we expect success
+	// with an "error" field in the result.
+	out, err := tool.Execute(map[string]any{
+		"url":         "http://127.0.0.1:0/unreachable",
+		"method":      "POST",
+		"headers":     map[string]any{"X-Test": "1"},
+		toolParamData: map[string]any{"key": "val"},
+		"timeout":     "1s",
+	})
+	require.NoError(t, err)
+	assert.Contains(t, out, "error")
+}
+
 // --- registerSearchLocalTool ---
 
 func TestRegisterSearchLocalTool_Registered(t *testing.T) {

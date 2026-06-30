@@ -2625,6 +2625,32 @@ func TestDispatchCommand_Models(t *testing.T) {
 	assert.NoError(t, repl.dispatchCommand("/model list"))
 }
 
+// Regression: /model ps and /model hff were merged from separate /processes and
+// /hff top-level commands in refactor f1d9ee4c. These tests ensure routing
+// through /model <sub> still reaches the correct handler.
+func TestDispatchCommand_ModelPs(t *testing.T) {
+	loop := makeTestLoop(nil)
+	repl := NewREPL(loop)
+	defer repl.cancel()
+	origOut := os.Stdout
+	_, w, _ := os.Pipe()
+	os.Stdout = w
+	defer func() { w.Close(); os.Stdout = origOut }()
+	assert.NoError(t, repl.dispatchCommand("/model ps"))
+}
+
+func TestDispatchCommand_ModelHff(t *testing.T) {
+	loop := makeTestLoop(nil)
+	repl := NewREPL(loop)
+	defer repl.cancel()
+	origOut := os.Stdout
+	_, w, _ := os.Pipe()
+	os.Stdout = w
+	defer func() { w.Close(); os.Stdout = origOut }()
+	// No args prints usage — no error expected.
+	assert.NoError(t, repl.dispatchCommand("/model hff"))
+}
+
 func TestDispatchCommand_Prompts(t *testing.T) {
 	loop := makeTestLoop(nil)
 	loop.prompts = []PromptTemplate{{Name: "greet", Description: "Greet", Content: "Hello $1"}}

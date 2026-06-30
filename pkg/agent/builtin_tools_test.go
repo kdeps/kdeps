@@ -1408,6 +1408,31 @@ func TestBashJobList(t *testing.T) {
 	assert.Equal(t, "No background jobs.", out)
 }
 
+// Regression: registerBashJobList was 50% covered (only the empty-registry
+// branch). The with-entries branch (the for-loop summary path) was uncovered.
+func TestBashJobList_WithEntries(t *testing.T) {
+	bashJobRegistry.reset()
+	t.Cleanup(func() { bashJobRegistry.reset() })
+	t.Setenv("KDEPS_ALLOW_BASH", "true")
+
+	// Add a job that completes immediately via a closed channel.
+	waitCh := make(chan error, 1)
+	waitCh <- nil
+	var stdout, stderr strings.Builder
+	stdout.WriteString("output")
+	id := bashJobRegistry.add("echo hello", &stdout, &stderr, waitCh)
+	assert.Greater(t, id, 0)
+
+	reg := kdepstools.NewRegistry()
+	RegisterBuiltinTools(context.Background(), reg)
+	listTool := reg.Get("bash_job_list")
+	require.NotNil(t, listTool)
+	out, err := listTool.Execute(map[string]any{})
+	require.NoError(t, err)
+	assert.Contains(t, out, "job")
+	assert.Contains(t, out, "echo hello")
+}
+
 func TestSQLExecQuery_InvalidSQL(t *testing.T) {
 	dir := t.TempDir()
 	dbPath := filepath.Join(dir, "test.db")
