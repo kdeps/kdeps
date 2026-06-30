@@ -25,13 +25,13 @@ Inside the REPL, type `/help` for the full list:
 | `/clear` | Summarize and clear the current conversation |
 | `/model [name]` | Show or switch LLM model mid-session (tab-complete shows up to 10 suggestions) |
 | `/model default [name]` | Show or set the default startup model, persisted to `~/.kdeps/agent-loop-settings.yaml` |
-| `/models` | List all available models with provider status |
-| `/processes` | List running local model servers (llamafile/gguf) with PID, port, and health |
-| `/processes kill <model>` | Kill a running local model server and clean up its port file |
-| `/processes switch <model>` | Switch the active model to a running local server |
-| `/hff search <query>` | Search HuggingFace for GGUF repos (sorted by downloads) |
-| `/hff info <repo>` | List GGUF files and sizes available in a HuggingFace repo |
-| `/hff download <repo> [file]` | Download a GGUF from HuggingFace; auto-registers an alias for `/model` |
+| `/model list` | List all available models with provider status |
+| `/model ps` | List running local model servers (llamafile/gguf) with PID, port, and health |
+| `/model ps kill <model>` | Kill a running local model server and clean up its port file |
+| `/model ps switch <model>` | Switch the active model to a running local server |
+| `/model hff search <query>` | Search HuggingFace for GGUF repos (sorted by downloads) |
+| `/model hff info <repo>` | List GGUF files and sizes available in a HuggingFace repo |
+| `/model hff download <repo> [file]` | Download a GGUF from HuggingFace; auto-registers an alias for `/model` |
 | `/skills` | List loaded skills |
 | `/prompts` | List loaded prompt templates |
 | `/<skill-name> [prompt]` | Invoke a skill or prompt template directly |
@@ -63,27 +63,27 @@ The default model is persisted to `~/.kdeps/agent-loop-settings.yaml` and loaded
 
 ### Searching and downloading from HuggingFace
 
-`/hff` lets you discover and download GGUF models directly from within the REPL. Set `HF_TOKEN` in your environment to authenticate (required for gated models; increases rate limits for all requests).
+`/model hff` lets you discover and download GGUF models directly from within the REPL. Set `HF_TOKEN` in your environment to authenticate (required for gated models; increases rate limits for all requests).
 
 ```bash
 # Search for GGUF repos by keyword (sorted by downloads)
-/hff search qwen3
+/model hff search qwen3
 
 # List GGUF files and sizes inside a repo
-/hff info unsloth/Qwen2.5-VL-7B-Instruct-GGUF
+/model hff info unsloth/Qwen2.5-VL-7B-Instruct-GGUF
 
 # Download a specific file — registers it as an alias in ~/.kdeps/gguf_versions.yaml
-/hff download unsloth/Qwen2.5-VL-7B-Instruct-GGUF Qwen2.5-VL-7B-Instruct-Q4_K_M.gguf
+/model hff download unsloth/Qwen2.5-VL-7B-Instruct-GGUF Qwen2.5-VL-7B-Instruct-Q4_K_M.gguf
 
 # Switch to it immediately after download
 /model Qwen2.5-VL-7B-Instruct-Q4_K_M
 ```
 
-`/hff download <repo>` without a filename shows the available files (same as `/hff info`). Downloaded files go to `~/.kdeps/models/` and the alias is the filename without the `.gguf` extension.
+`/model hff download <repo>` without a filename shows the available files (same as `/model hff info`). Downloaded files go to `~/.kdeps/models/` and the alias is the filename without the `.gguf` extension.
 
 ### Managing running servers
 
-`/processes` shows all llamafile and llama-server processes started in the current session:
+`/model ps` shows all llamafile and llama-server processes started in the current session:
 
 ```
 PID      PORT   BACKEND      MODEL                                STATUS
@@ -92,8 +92,8 @@ PID      PORT   BACKEND      MODEL                                STATUS
 ```
 
 ```
-/processes kill phi4           # send SIGKILL, remove port file
-/processes switch phi4         # set active model to an already-running server
+/model ps kill phi4           # send SIGKILL, remove port file
+/model ps switch phi4         # set active model to an already-running server
 ```
 
 ## Multimodal input
