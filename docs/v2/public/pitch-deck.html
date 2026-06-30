@@ -1,0 +1,772 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="robots" content="noindex,nofollow">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>kdeps -- Pre-Seed Pitch Deck 2025</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=JetBrains+Mono:ital,wght@0,400;0,500;0,600;1,400&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg: #080c14;
+            --card: rgba(255,255,255,0.04);
+            --card-b: rgba(255,255,255,0.08);
+            --card-a: rgba(0,229,255,0.04);
+            --card-ab: rgba(0,229,255,0.16);
+            --t1: #E8EEFF;
+            --t2: #7A8499;
+            --t3: #3A4255;
+            --acc: #00E5FF;
+            --acc-dim: rgba(0,229,255,0.55);
+            --acc-glow: rgba(0,229,255,0.10);
+            --acc-glow2: rgba(0,229,255,0.22);
+            --ui: 'Space Grotesk', sans-serif;
+            --mono: 'JetBrains Mono', monospace;
+            --r: 2px;
+            --ts: clamp(2.2rem,5.5vw,4.5rem);
+            --h2: clamp(1.4rem,3vw,2.4rem);
+            --h3: clamp(0.95rem,1.8vw,1.3rem);
+            --body: clamp(0.72rem,1.25vw,0.95rem);
+            --sm: clamp(0.6rem,0.95vw,0.76rem);
+            --code: clamp(0.58rem,1vw,0.78rem);
+            --lbl: clamp(0.58rem,0.85vw,0.68rem);
+            --pad: clamp(1.5rem,4vw,4rem);
+            --gap: clamp(0.7rem,1.6vw,1.5rem);
+            --gsm: clamp(0.35rem,0.8vw,0.75rem);
+            --ease: cubic-bezier(0.16,1,0.3,1);
+            --dur: 0.55s;
+        }
+        *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+        html{height:100%;scroll-snap-type:y mandatory;scroll-behavior:smooth;overflow-x:hidden;}
+        body{font-family:var(--ui);background:var(--bg);color:var(--t1);height:100%;overflow-x:hidden;-webkit-font-smoothing:antialiased;}
+
+        /* ---- SLIDE SYSTEM ---- */
+        .slide{width:100vw;height:100vh;height:100dvh;overflow:hidden;scroll-snap-align:start;display:flex;flex-direction:column;position:relative;background:var(--bg);}
+        .si{flex:1;display:flex;flex-direction:column;justify-content:center;padding:var(--pad);max-height:100%;overflow:hidden;position:relative;z-index:1;}
+
+        /* ---- TYPE ---- */
+        .eye{font-family:var(--mono);font-size:var(--lbl);letter-spacing:.15em;text-transform:uppercase;color:var(--acc);margin-bottom:clamp(.4rem,1vw,.9rem);}
+        h1{font-size:var(--ts);font-weight:700;line-height:1.05;letter-spacing:-.03em;}
+        h2{font-size:var(--h2);font-weight:600;line-height:1.15;letter-spacing:-.025em;}
+        h3{font-size:var(--h3);font-weight:600;line-height:1.2;}
+        p,li{font-size:var(--body);line-height:1.6;color:var(--t2);}
+        .acc{color:var(--acc);}
+        .mono{font-family:var(--mono);font-size:var(--sm);color:var(--t3);letter-spacing:.05em;}
+
+        /* ---- CARDS ---- */
+        .card{background:var(--card);border:1px solid var(--card-b);border-radius:var(--r);padding:clamp(.7rem,1.4vw,1.4rem);}
+        .ca{background:var(--card-a);border-color:var(--card-ab);}
+        .badge{display:inline-flex;align-items:center;padding:.3em .75em;border:1px solid var(--card-ab);border-radius:var(--r);font-family:var(--mono);font-size:var(--sm);color:var(--acc);background:var(--acc-glow);}
+        .div{width:40px;height:2px;background:var(--acc);margin:clamp(.5rem,1.2vw,1.1rem) 0;}
+
+        /* ---- GRIDS ---- */
+        .g3{display:grid;grid-template-columns:repeat(3,1fr);gap:var(--gap);}
+        .g2{display:grid;grid-template-columns:1fr 1fr;gap:var(--gap);}
+
+        /* ---- CODE ---- */
+        .cb{background:#040711;border:1px solid rgba(255,255,255,.06);border-radius:var(--r);padding:clamp(.7rem,1.4vw,1.2rem);overflow:hidden;}
+        .cb pre{font-family:var(--mono);font-size:var(--code);line-height:1.65;color:#c9d1d9;overflow:hidden;white-space:pre;}
+        .ck{color:#58a6ff;}.cs{color:#a5d6ff;}.cc{color:#3d4451;}.ca2{color:#00E5FF;}
+
+        /* ---- COMPETITION TABLE ---- */
+        .ct{width:100%;border-collapse:collapse;margin-top:var(--gap);}
+        .ct th{font-family:var(--mono);font-size:var(--sm);font-weight:500;text-transform:uppercase;letter-spacing:.08em;color:var(--t2);padding:clamp(.35rem,.7vw,.65rem) clamp(.5rem,1vw,.9rem);text-align:left;border-bottom:1px solid var(--card-b);}
+        .ct th.hi{color:var(--acc);}
+        .ct td{font-size:var(--body);padding:clamp(.35rem,.7vw,.65rem) clamp(.5rem,1vw,.9rem);border-bottom:1px solid rgba(255,255,255,.04);color:var(--t2);}
+        .ct td:first-child{font-weight:500;color:var(--t1);}
+        .ct tr:last-child td{border-bottom:none;}
+        .ct .kc{background:rgba(0,229,255,.03);}
+        .yes{color:var(--acc);font-weight:600;}
+        .par{color:#F59E0B;}
+        .no{color:var(--t3);}
+
+        /* ---- FUND BARS ---- */
+        .fi{display:flex;align-items:center;gap:var(--gap);margin-top:var(--gsm);}
+        .fp{font-family:var(--mono);font-size:clamp(1.1rem,2.2vw,1.8rem);font-weight:700;color:var(--acc);min-width:clamp(2.8rem,4.5vw,4.5rem);line-height:1;}
+        .fbw{flex:1;height:3px;background:rgba(255,255,255,.06);border-radius:2px;overflow:hidden;max-width:280px;}
+        .fb{height:100%;background:var(--acc);border-radius:2px;transition:width 1s var(--ease) .4s;width:0;}
+        .slide.visible .fb{width:var(--pct);}
+
+        /* ---- MARKET CIRCLES ---- */
+        .mc{border-radius:50%;display:flex;flex-direction:column;align-items:center;justify-content:center;border:1px solid var(--card-b);}
+        .mc.tam{width:clamp(110px,17vw,190px);height:clamp(110px,17vw,190px);background:rgba(0,229,255,.06);border-color:rgba(0,229,255,.2);}
+        .mc.sam{width:clamp(82px,12vw,140px);height:clamp(82px,12vw,140px);background:rgba(0,229,255,.04);border-color:rgba(0,229,255,.14);}
+        .mc.som{width:clamp(60px,8vw,105px);height:clamp(60px,8vw,105px);background:rgba(0,229,255,.03);border-color:rgba(0,229,255,.1);}
+        .mcv{font-size:clamp(.85rem,1.8vw,1.5rem);font-weight:700;color:var(--acc);line-height:1;}
+        .mcl{font-family:var(--mono);font-size:clamp(.5rem,.85vw,.66rem);color:var(--t2);text-transform:uppercase;letter-spacing:.1em;margin-top:.2em;}
+
+        /* ---- MODE TAGS ---- */
+        .mw{display:inline-flex;padding:.2em .55em;border-radius:var(--r);font-family:var(--mono);font-size:var(--sm);background:rgba(0,229,255,.08);color:var(--acc);border:1px solid rgba(0,229,255,.2);}
+        .ma{display:inline-flex;padding:.2em .55em;border-radius:var(--r);font-family:var(--mono);font-size:var(--sm);background:rgba(168,85,247,.08);color:#c084fc;border:1px solid rgba(168,85,247,.2);}
+
+        /* ---- TEAM AVATAR ---- */
+        .av{width:clamp(38px,5vw,58px);height:clamp(38px,5vw,58px);border-radius:50%;background:var(--acc-glow);border:1px solid var(--card-ab);display:flex;align-items:center;justify-content:center;font-size:clamp(.9rem,1.6vw,1.3rem);font-weight:700;color:var(--acc);margin-bottom:var(--gsm);font-family:var(--mono);}
+
+        /* ---- LOGO BOX ---- */
+        .logo{width:clamp(38px,5.5vw,68px);height:clamp(38px,5.5vw,68px);background:var(--acc-glow);border:1px solid var(--card-ab);border-radius:var(--r);display:flex;align-items:center;justify-content:center;font-family:var(--mono);font-size:clamp(.9rem,1.8vw,1.5rem);font-weight:700;color:var(--acc);}
+
+        /* ---- BG DECORATIONS ---- */
+        .bg-grid{position:absolute;inset:0;background-image:linear-gradient(rgba(0,229,255,.02) 1px,transparent 1px),linear-gradient(90deg,rgba(0,229,255,.02) 1px,transparent 1px);background-size:clamp(28px,4.5vw,55px) clamp(28px,4.5vw,55px);z-index:0;pointer-events:none;}
+        .bg-glow{position:absolute;border-radius:50%;filter:blur(80px);pointer-events:none;z-index:0;}
+        .gc{background:rgba(0,229,255,.06);}
+        .gp{background:rgba(168,85,247,.05);}
+
+        /* ---- SLIDE NUM ---- */
+        .sn{position:absolute;bottom:var(--pad);left:var(--pad);font-family:var(--mono);font-size:var(--sm);color:var(--t3);z-index:2;}
+
+        /* ---- PROGRESS + DOTS ---- */
+        .pb{position:fixed;top:0;left:0;height:2px;background:var(--acc);transition:width .3s var(--ease);z-index:100;box-shadow:0 0 8px var(--acc-glow2);}
+        .nd{position:fixed;right:clamp(.6rem,1.5vw,1.2rem);top:50%;transform:translateY(-50%);display:flex;flex-direction:column;gap:5px;z-index:100;}
+        .dot{width:5px;height:5px;border-radius:50%;background:var(--t3);cursor:pointer;transition:background .2s,transform .2s;border:none;padding:0;}
+        .dot.active{background:var(--acc);transform:scale(1.5);}
+
+        /* ---- REVEAL ANIMATIONS ---- */
+        .rv{opacity:0;transform:translateY(18px);transition:opacity var(--dur) var(--ease),transform var(--dur) var(--ease);}
+        .slide.visible .rv{opacity:1;transform:translateY(0);}
+        .rv:nth-child(1){transition-delay:.05s;}.rv:nth-child(2){transition-delay:.12s;}
+        .rv:nth-child(3){transition-delay:.19s;}.rv:nth-child(4){transition-delay:.26s;}
+        .rv:nth-child(5){transition-delay:.33s;}.rv:nth-child(6){transition-delay:.4s;}
+        .rv:nth-child(7){transition-delay:.47s;}.rv:nth-child(8){transition-delay:.54s;}
+
+        /* ---- RESPONSIVE ---- */
+        @media(max-height:700px){:root{--pad:clamp(1.1rem,3vw,2.3rem);--gap:clamp(.55rem,1.3vw,1.1rem);--h2:clamp(1.2rem,2.5vw,1.9rem);--ts:clamp(1.7rem,4vw,3.2rem);}}
+        @media(max-height:600px){:root{--pad:clamp(.9rem,2.5vw,1.8rem);--gap:clamp(.45rem,1.1vw,.9rem);--body:clamp(.62rem,1.05vw,.8rem);} .nd{display:none;}}
+        @media(max-height:500px){:root{--pad:clamp(.7rem,2vw,1.4rem);} .bg-grid{display:none;}}
+        @media(max-width:768px){.g3{grid-template-columns:1fr;}.g2{grid-template-columns:1fr;}}
+
+        /* ---- PRINT / PDF ---- */
+        @media print{
+            @page{size:16in 9in landscape;margin:0;}
+            html{scroll-snap-type:none;height:auto;overflow:visible;}
+            body{height:auto;overflow:visible;}
+            .slide{height:100vh;page-break-after:always;break-after:page;overflow:hidden;}
+            .pb,.nd,.sn{display:none!important;}
+            .rv{opacity:1!important;transform:none!important;}
+            .fb{width:var(--pct)!important;}
+            h1 span,h2 span{filter:none!important;color:#00E5FF!important;}
+        }
+        @media(prefers-reduced-motion:reduce){.rv{transition:opacity .2s ease;transform:none;}html{scroll-behavior:auto;}}
+    </style>
+</head>
+<body>
+
+<div class="pb" id="pb"></div>
+<nav class="nd" id="nd" aria-label="Slide navigation"></nav>
+
+<!-- SLIDE 01: COVER -->
+<section class="slide" id="s1" data-slide="1">
+    <div class="bg-grid"></div>
+    <div class="bg-glow gc" style="width:480px;height:480px;top:-160px;right:-80px;"></div>
+    <div class="si">
+        <h1 class="rv" style="font-size:clamp(3rem,8vw,7rem);letter-spacing:-.04em;line-height:1;margin:0 0 clamp(.4rem,1vw,.8rem);"><span style="color:#00E5FF;filter:drop-shadow(0 0 6px #00E5FF) drop-shadow(0 0 18px rgba(0,229,255,.6));">k</span>deps</h1>
+        <p class="rv" style="font-size:clamp(1rem,2vw,1.5rem);color:var(--t2);max-width:520px;margin-bottom:clamp(1.2rem,2.5vw,2rem);">Build AI Agents in YAML. Run locally or deploy anywhere.</p>
+        <div class="rv" style="display:flex;gap:var(--gsm);flex-wrap:wrap;">
+            <span class="badge">NVIDIA Inception</span>
+            <span class="badge">Pre-Seed 2025</span>
+            <span class="badge">Open Source</span>
+        </div>
+        <div class="rv" style="position:absolute;bottom:var(--pad);right:var(--pad);text-align:right;">
+            <p class="mono">Joel Juliano &amp; Jane Juliano</p>
+            <p class="mono" style="margin-top:.3em;color:var(--acc-dim);">kdeps.com</p>
+        </div>
+    </div>
+    <div class="sn">01 / 15</div>
+</section>
+
+<!-- SLIDE 02: PROBLEM -->
+<section class="slide" id="s2" data-slide="2">
+    <div class="si">
+        <p class="eye rv">The Problem</p>
+        <h2 class="rv">Building AI agents is harder than it should be</h2>
+        <div class="g3 rv" style="margin-top:var(--gap);">
+            <div class="card">
+                <p style="font-family:var(--mono);font-size:clamp(1.3rem,3vw,2.5rem);font-weight:700;color:var(--acc);opacity:.3;line-height:1;margin-bottom:.5rem;">01</p>
+                <h3 style="margin-bottom:.4em;">Too Complex</h3>
+                <p>Requires deep Python expertise, complex orchestration libraries, and weeks of setup before shipping anything to production.</p>
+            </div>
+            <div class="card">
+                <p style="font-family:var(--mono);font-size:clamp(1.3rem,3vw,2.5rem);font-weight:700;color:var(--acc);opacity:.3;line-height:1;margin-bottom:.5rem;">02</p>
+                <h3 style="margin-bottom:.4em;">Cloud-Dependent</h3>
+                <p>Every inference call goes to a cloud API -- costs spiral, sensitive data leaves your infrastructure, and latency is unpredictable.</p>
+            </div>
+            <div class="card">
+                <p style="font-family:var(--mono);font-size:clamp(1.3rem,3vw,2.5rem);font-weight:700;color:var(--acc);opacity:.3;line-height:1;margin-bottom:.5rem;">03</p>
+                <h3 style="margin-bottom:.4em;">Vendor-Locked</h3>
+                <p>Switch from OpenAI to Anthropic? Rewrite your agent. Frameworks are tightly coupled to specific LLM providers and APIs.</p>
+            </div>
+        </div>
+        <div class="card rv" style="margin-top:var(--gap);display:flex;align-items:center;gap:var(--gap);">
+            <span class="mono" style="color:var(--acc);white-space:nowrap;">RESULT</span>
+            <p>Teams with real AI agent requirements -- privacy, cost, control -- are forced to build custom infrastructure from scratch or accept unacceptable trade-offs.</p>
+        </div>
+    </div>
+    <div class="sn">02 / 15</div>
+</section>
+
+<!-- SLIDE 03: SOLUTION -->
+<section class="slide" id="s3" data-slide="3">
+    <div class="bg-glow gc" style="width:360px;height:360px;bottom:-80px;left:-60px;"></div>
+    <div class="si">
+        <p class="eye rv">The Solution</p>
+        <h2 class="rv">AI agents in YAML.<br>Local-first. Deploy anywhere.</h2>
+        <div class="div rv"></div>
+        <p class="rv" style="max-width:580px;font-size:var(--h3);color:var(--t1);font-weight:400;line-height:1.5;">kdeps is an open-source AI agent orchestration framework. Describe your pipeline in YAML. kdeps handles execution, routing, packaging, and deployment -- from laptop to cloud to edge.</p>
+        <div class="g3 rv" style="margin-top:var(--gap);">
+            <div class="card ca">
+                <p class="mono" style="color:var(--acc);margin-bottom:.4em;">YAML-first</p>
+                <p>No Python. No boilerplate. Define agents the way you define infrastructure -- readable by any engineer on the team.</p>
+            </div>
+            <div class="card ca">
+                <p class="mono" style="color:var(--acc);margin-bottom:.4em;">Local-first</p>
+                <p>Full GPU-accelerated inference on your hardware. Zero cloud dependency. Data never leaves your infrastructure unless you choose.</p>
+            </div>
+            <div class="card ca">
+                <p class="mono" style="color:var(--acc);margin-bottom:.4em;">Portable</p>
+                <p>Compile agents to single .kdeps package files. Run them anywhere -- laptop, server, Docker, cloud, edge -- no environment setup.</p>
+            </div>
+        </div>
+    </div>
+    <div class="sn">03 / 15</div>
+</section>
+
+<!-- SLIDE 04: PRODUCT -->
+<section class="slide" id="s4" data-slide="4">
+    <div class="si">
+        <p class="eye rv">The Product</p>
+        <h2 class="rv">Two modes. One framework.</h2>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:var(--gap);margin-top:var(--gap);align-items:start;">
+            <div class="rv">
+                <div class="cb">
+                    <pre><span class="cc"># workflow.yaml</span>
+<span class="ck">resources</span>:
+  - <span class="ck">id</span>: <span class="cs">fetch</span>
+    <span class="ck">type</span>: <span class="cs">httpClient</span>
+    <span class="ck">httpClient</span>:
+      <span class="ck">url</span>: <span class="cs">"{{ .Input.url }}"</span>
+      <span class="ck">method</span>: <span class="cs">GET</span>
+
+  - <span class="ck">id</span>: <span class="cs">summarize</span>
+    <span class="ck">type</span>: <span class="cs">chat</span>
+    <span class="ck">requires</span>: [<span class="cs">fetch</span>]
+    <span class="ck">chat</span>:
+      <span class="ck">model</span>: <span class="cs">llama3.2</span>
+      <span class="ck">prompt</span>: |
+        <span class="cs">Summarize: {{ .fetch.response.body }}</span>
+
+<span class="cc"># runs offline. GPU-accelerated.</span>
+<span class="cc"># bundles to: summarizer-1.0.0.kdeps</span></pre>
+                </div>
+            </div>
+            <div class="rv" style="display:flex;flex-direction:column;gap:var(--gap);">
+                <div class="card">
+                    <span class="mw">Workflow Mode</span>
+                    <h3 style="margin-top:.4em;">Deterministic Pipelines</h3>
+                    <p style="margin-top:.4em;">DAG of typed resources -- HTTP client, chat, SQL, Python, bash, web scraper. Steps run in dependency order. Predictable, testable, auditable. Ideal for production pipelines.</p>
+                </div>
+                <div class="card">
+                    <span class="ma">Agent Loop Mode</span>
+                    <h3 style="margin-top:.4em;">Autonomous Agents</h3>
+                    <p style="margin-top:.4em;">Full LLM agent loop with tool use, conversation memory, multi-agent orchestration (agencies), and REPL. Your YAML workflows become tools the LLM decides to invoke.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="sn">04 / 15</div>
+</section>
+
+<!-- SLIDE 05: DIFFERENTIATORS -->
+<section class="slide" id="s5" data-slide="5">
+    <div class="si">
+        <p class="eye rv">Why kdeps</p>
+        <h2 class="rv">Built for how teams actually ship AI</h2>
+        <div style="display:flex;flex-direction:column;gap:var(--gsm);margin-top:var(--gap);">
+            <div class="card rv" style="display:flex;align-items:flex-start;gap:var(--gap);">
+                <span class="mono" style="color:var(--acc);min-width:1.4rem;">01</span>
+                <div><h3>YAML-first -- not Python-first</h3><p style="margin-top:.25em;">Any developer reads and writes kdeps workflows. No ML framework expertise required. Ops, DevOps, and backend engineers can own agent pipelines.</p></div>
+            </div>
+            <div class="card rv" style="display:flex;align-items:flex-start;gap:var(--gap);">
+                <span class="mono" style="color:var(--acc);min-width:1.4rem;">02</span>
+                <div><h3>Local GPU inference built-in</h3><p style="margin-top:.25em;">Ollama, llama.cpp (GGUF), llamafile -- all first-class backends. Run llama3.2 on an NVIDIA GPU with a single config field. No cloud required.</p></div>
+            </div>
+            <div class="card rv" style="display:flex;align-items:flex-start;gap:var(--gap);">
+                <span class="mono" style="color:var(--acc);min-width:1.4rem;">03</span>
+                <div><h3>Portable packaging -- like Docker for AI agents</h3><p style="margin-top:.25em;">Agents compile to .kdeps files. Share, install, and run them like binaries. No environment setup for recipients. Agents are versioned artifacts.</p></div>
+            </div>
+            <div class="card rv" style="display:flex;align-items:flex-start;gap:var(--gap);">
+                <span class="mono" style="color:var(--acc);min-width:1.4rem;">04</span>
+                <div><h3>Vendor-agnostic by design</h3><p style="margin-top:.25em;">Switch from OpenAI to Anthropic to a local model by changing one field. The same workflow runs on any provider. No rewrite required.</p></div>
+            </div>
+        </div>
+    </div>
+    <div class="sn">05 / 15</div>
+</section>
+
+<!-- SLIDE 06: MARKET -->
+<section class="slide" id="s6" data-slide="6">
+    <div class="bg-glow gc" style="width:320px;height:320px;top:-60px;right:40px;"></div>
+    <div class="si">
+        <p class="eye rv">Market Opportunity</p>
+        <h2 class="rv">AI infrastructure is the next platform shift</h2>
+        <div class="rv" style="display:flex;align-items:flex-end;justify-content:center;gap:clamp(1.5rem,4vw,4rem);margin-top:var(--gap);">
+            <div style="display:flex;flex-direction:column;align-items:center;gap:.7rem;">
+                <div class="mc tam"><span class="mcv">$50B+</span><span class="mcl">TAM</span></div>
+                <p class="mono" style="text-align:center;">AI Infrastructure<br>Market</p>
+            </div>
+            <div style="display:flex;flex-direction:column;align-items:center;gap:.7rem;">
+                <div class="mc sam"><span class="mcv">$8B</span><span class="mcl">SAM</span></div>
+                <p class="mono" style="text-align:center;">AI Developer<br>Tools &amp; MLOps</p>
+            </div>
+            <div style="display:flex;flex-direction:column;align-items:center;gap:.7rem;">
+                <div class="mc som"><span class="mcv">$500M</span><span class="mcl">SOM</span></div>
+                <p class="mono" style="text-align:center;">Local / Private<br>AI Deployment</p>
+            </div>
+        </div>
+        <div class="g3 rv" style="margin-top:var(--gap);">
+            <div class="card" style="text-align:center;">
+                <div style="font-size:var(--h3);font-weight:700;color:var(--acc);">40%+</div>
+                <p style="margin-top:.3em;">of enterprises cite data privacy as the #1 barrier to LLM adoption</p>
+            </div>
+            <div class="card" style="text-align:center;">
+                <div style="font-size:var(--h3);font-weight:700;color:var(--acc);">10x</div>
+                <p style="margin-top:.3em;">cost advantage of on-prem GPU inference vs. cloud API at scale</p>
+            </div>
+            <div class="card" style="text-align:center;">
+                <div style="font-size:var(--h3);font-weight:700;color:var(--acc);">&gt;60%</div>
+                <p style="margin-top:.3em;">of AI workloads projected to run on-prem or at the edge by 2027</p>
+            </div>
+        </div>
+    </div>
+    <div class="sn">06 / 15</div>
+</section>
+
+<!-- SLIDE 07: BUSINESS MODEL -->
+<section class="slide" id="s7" data-slide="7">
+    <div class="si">
+        <p class="eye rv">Business Model</p>
+        <h2 class="rv">Open-core with a managed SaaS layer</h2>
+        <div class="g2 rv" style="margin-top:var(--gap);max-width:900px;">
+            <div class="card" style="padding:clamp(1rem,2vw,1.75rem);">
+                <p class="mono" style="color:var(--t3);margin-bottom:.6em;">FREE -- OPEN SOURCE</p>
+                <h3>kdeps CLI</h3>
+                <div class="div" style="margin:.6em 0;"></div>
+                <ul style="list-style:none;display:flex;flex-direction:column;gap:.3em;">
+                    <li><p>Full framework: workflows, agents, agencies</p></li>
+                    <li><p>Local inference: Ollama, llamafile, GGUF</p></li>
+                    <li><p>Portable packaging (.kdeps, .kagency files)</p></li>
+                    <li><p>All LLM provider integrations</p></li>
+                    <li><p>Community registry access</p></li>
+                </ul>
+                <p class="mono" style="margin-top:.8em;color:var(--t3);">Homebrew / install.sh / GitHub</p>
+            </div>
+            <div class="card ca" style="padding:clamp(1rem,2vw,1.75rem);">
+                <p class="mono" style="color:var(--acc);margin-bottom:.6em;">PAID -- kdeps.io SaaS</p>
+                <h3>Managed Platform</h3>
+                <div class="div" style="margin:.6em 0;"></div>
+                <ul style="list-style:none;display:flex;flex-direction:column;gap:.3em;">
+                    <li><p>Hosted agent infrastructure</p></li>
+                    <li><p>Team workspaces + access controls</p></li>
+                    <li><p>Private package registry</p></li>
+                    <li><p>Monitoring, logs, observability</p></li>
+                    <li><p>Enterprise support + SLA</p></li>
+                </ul>
+                <p class="mono" style="margin-top:.8em;color:var(--acc-dim);">Per-seat + compute consumption</p>
+            </div>
+        </div>
+        <div class="card rv" style="margin-top:var(--gap);display:flex;align-items:center;gap:var(--gap);">
+            <span class="mono" style="color:var(--acc);white-space:nowrap;">FLYWHEEL</span>
+            <p>Open source drives developer adoption -- developers bring kdeps to their teams -- teams upgrade to kdeps.io for managed infrastructure, compliance, and private registries.</p>
+        </div>
+    </div>
+    <div class="sn">07 / 15</div>
+</section>
+
+<!-- SLIDE 08: TRACTION -->
+<section class="slide" id="s8" data-slide="8">
+    <div class="bg-glow gc" style="width:280px;height:280px;bottom:0;right:0;"></div>
+    <div class="si">
+        <p class="eye rv">Traction</p>
+        <h2 class="rv">Shipped, live, and recognized</h2>
+        <div class="g3 rv" style="margin-top:var(--gap);">
+            <div class="card ca">
+                <p class="mono" style="color:var(--acc);margin-bottom:.4em;">NVIDIA Inception</p>
+                <h3>Member</h3>
+                <p style="margin-top:.35em;">Accepted into NVIDIA's startup accelerator for AI companies. Direct access to NVIDIA engineering, co-marketing opportunities, and investor network.</p>
+            </div>
+            <div class="card">
+                <p class="mono" style="color:var(--acc);margin-bottom:.4em;">Product</p>
+                <h3>v2.0.6 Shipping</h3>
+                <p style="margin-top:.35em;">Publicly available via Homebrew and install script. macOS and Linux. 9 months of active development from v0 to a production-grade v2.0.</p>
+            </div>
+            <div class="card">
+                <p class="mono" style="color:var(--acc);margin-bottom:.4em;">Book</p>
+                <h3>"AI Appliances"</h3>
+                <p style="margin-top:.35em;">Free on Leanpub: "Build &amp; Deploy Autonomous AI Agents and Agencies in YAML." Hands-on guide driving developer awareness and top-of-funnel adoption.</p>
+            </div>
+        </div>
+        <div class="g2 rv" style="margin-top:var(--gap);">
+            <div class="card">
+                <p class="mono" style="color:var(--acc);margin-bottom:.35em;">Registry</p>
+                <p><strong style="color:var(--t1);">kdeps.io live</strong> -- public package registry for agent discovery, installation, and distribution. Foundation of the SaaS platform.</p>
+            </div>
+            <div class="card">
+                <p class="mono" style="color:var(--acc);margin-bottom:.35em;">AI Skills</p>
+                <p><strong style="color:var(--t1);">Claude Code + Cursor skill</strong> -- developers scaffold kdeps agents directly from their coding assistant. Reduces time-to-first-workflow dramatically.</p>
+            </div>
+        </div>
+    </div>
+    <div class="sn">08 / 15</div>
+</section>
+
+<!-- SLIDE 09: GO-TO-MARKET -->
+<section class="slide" id="s9" data-slide="9">
+    <div class="si">
+        <p class="eye rv">Go-to-Market</p>
+        <h2 class="rv">Bottom-up: developers first, teams second</h2>
+        <div class="g3 rv" style="margin-top:var(--gap);">
+            <div class="card">
+                <p class="mono" style="color:var(--acc);margin-bottom:.4em;">Phase 01</p>
+                <h3>Developer Adoption</h3>
+                <div class="div" style="margin:.5em 0;"></div>
+                <ul style="list-style:none;display:flex;flex-direction:column;gap:.3em;">
+                    <li><p>Open source + Homebrew distribution</p></li>
+                    <li><p>Book and docs-driven organic SEO</p></li>
+                    <li><p>Claude Code / Cursor skill integration</p></li>
+                    <li><p>NVIDIA Inception co-marketing</p></li>
+                </ul>
+            </div>
+            <div class="card">
+                <p class="mono" style="color:var(--acc);margin-bottom:.4em;">Phase 02</p>
+                <h3>Team Expansion</h3>
+                <div class="div" style="margin:.5em 0;"></div>
+                <ul style="list-style:none;display:flex;flex-direction:column;gap:.3em;">
+                    <li><p>Developers bring kdeps to their teams</p></li>
+                    <li><p>kdeps.io for collaboration features</p></li>
+                    <li><p>Private registry for internal agents</p></li>
+                    <li><p>Self-serve SaaS onboarding</p></li>
+                </ul>
+            </div>
+            <div class="card ca">
+                <p class="mono" style="color:var(--acc);margin-bottom:.4em;">Phase 03</p>
+                <h3>Enterprise</h3>
+                <div class="div" style="margin:.5em 0;"></div>
+                <ul style="list-style:none;display:flex;flex-direction:column;gap:.3em;">
+                    <li><p>On-prem + NVIDIA NIM backend</p></li>
+                    <li><p>Compliance and audit features</p></li>
+                    <li><p>SLA-backed enterprise support</p></li>
+                    <li><p>Professional services</p></li>
+                </ul>
+            </div>
+        </div>
+        <div class="card rv" style="margin-top:var(--gap);display:flex;align-items:center;gap:var(--gap);">
+            <span class="mono" style="color:var(--acc);white-space:nowrap;">KEY INSIGHT</span>
+            <p>Privacy requirements are the enterprise sales motion -- healthcare, financial services, and legal teams cannot send data to cloud APIs. kdeps local inference solves this with zero infrastructure negotiation.</p>
+        </div>
+    </div>
+    <div class="sn">09 / 15</div>
+</section>
+
+<!-- SLIDE 10: COMPETITION -->
+<section class="slide" id="s10" data-slide="10">
+    <div class="si">
+        <p class="eye rv">Competitive Landscape</p>
+        <h2 class="rv">The only YAML-native, local-first, portable framework</h2>
+        <div class="rv" style="overflow:hidden;margin-top:var(--gap);">
+            <table class="ct">
+                <thead>
+                    <tr>
+                        <th>Feature</th>
+                        <th class="hi kc">kdeps</th>
+                        <th>LangChain</th>
+                        <th>AutoGen</th>
+                        <th>CrewAI</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>YAML-first (no Python required)</td>
+                        <td class="yes kc">Yes</td><td class="no">No</td><td class="no">No</td><td class="no">No</td>
+                    </tr>
+                    <tr>
+                        <td>Local GPU inference built-in</td>
+                        <td class="yes kc">Yes</td><td class="par">Partial</td><td class="no">No</td><td class="no">No</td>
+                    </tr>
+                    <tr>
+                        <td>Portable packaging (.kdeps files)</td>
+                        <td class="yes kc">Yes</td><td class="no">No</td><td class="no">No</td><td class="no">No</td>
+                    </tr>
+                    <tr>
+                        <td>Vendor-agnostic (any LLM provider)</td>
+                        <td class="yes kc">Yes</td><td class="par">Partial</td><td class="par">Partial</td><td class="par">Partial</td>
+                    </tr>
+                    <tr>
+                        <td>Deterministic pipeline + agent loop</td>
+                        <td class="yes kc">Yes</td><td class="no">No</td><td class="no">No</td><td class="no">No</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+        <div class="card rv" style="margin-top:var(--gap);display:flex;align-items:center;gap:var(--gap);">
+            <span class="mono" style="color:var(--acc);white-space:nowrap;">POSITION</span>
+            <p>kdeps occupies the intersection of developer ergonomics (YAML), infrastructure requirements (local GPU, portability), and operational maturity (deterministic pipelines + autonomous agents). No existing framework covers all three.</p>
+        </div>
+    </div>
+    <div class="sn">10 / 15</div>
+</section>
+
+<!-- SLIDE 11: TEAM -->
+<section class="slide" id="s11" data-slide="11">
+    <div class="bg-glow gp" style="width:380px;height:380px;top:0;right:-80px;"></div>
+    <div class="si">
+        <p class="eye rv">The Team</p>
+        <h2 class="rv">Technical depth + operational execution</h2>
+        <div class="g2 rv" style="margin-top:var(--gap);max-width:860px;">
+            <div class="card ca" style="padding:clamp(1rem,2vw,1.75rem);">
+                <div class="av">J</div>
+                <h3>Joel Juliano</h3>
+                <p class="mono" style="color:var(--acc);margin:.25em 0;">Co-founder &amp; CTO</p>
+                <div class="div" style="margin:.6em 0;"></div>
+                <ul style="list-style:none;display:flex;flex-direction:column;gap:.3em;">
+                    <li><p>22 years engineering across government, infrastructure, and SaaS -- Europe, Asia, and the US</p></li>
+                    <li><p>Built kdeps solo from v0 to v2.0.6 -- CLI, runtime, packaging, registry, SaaS</p></li>
+                    <li><p>Author: "AI Appliances" (Leanpub, free)</p></li>
+                    <li><p>Based in the Netherlands</p></li>
+                </ul>
+                <p class="mono" style="margin-top:.7em;color:var(--t3);">linkedin.com/in/joeljuliano</p>
+            </div>
+            <div class="card" style="padding:clamp(1rem,2vw,1.75rem);">
+                <div class="av">J</div>
+                <h3>Jane Juliano</h3>
+                <p class="mono" style="color:var(--acc);margin:.25em 0;">Co-founder &amp; CEO</p>
+                <div class="div" style="margin:.6em 0;"></div>
+                <ul style="list-style:none;display:flex;flex-direction:column;gap:.3em;">
+                    <li><p>Customer operations background supporting Fortune 1000 accounts -- eBay, T-Mobile, Verizon, PayPal, JP Morgan</p></li>
+                    <li><p>International logistics and supply chain -- GXO Logistics, CEVA Freight (Schiphol)</p></li>
+                    <li><p>Owns GTM, customer success, and operations for kdeps</p></li>
+                    <li><p>Based in the Netherlands</p></li>
+                </ul>
+                <p class="mono" style="margin-top:.7em;color:var(--t3);">linkedin.com/in/heraldjane</p>
+            </div>
+        </div>
+        <div class="card rv" style="margin-top:var(--gap);display:flex;align-items:center;gap:var(--gap);">
+            <span class="mono" style="color:var(--acc);white-space:nowrap;">NEXT HIRE</span>
+            <p>Senior Go/infrastructure engineer to expand the engineering team from 1 to 2 and accelerate the kdeps.io SaaS roadmap.</p>
+        </div>
+    </div>
+    <div class="sn">11 / 15</div>
+</section>
+
+<!-- SLIDE 12: USE OF FUNDS -->
+<section class="slide" id="s12" data-slide="12">
+    <div class="si">
+        <p class="eye rv">Use of Funds</p>
+        <h2 class="rv">From framework to platform</h2>
+        <div style="display:flex;flex-direction:column;gap:var(--gap);margin-top:var(--gap);">
+            <div class="fi rv">
+                <div class="fp">40%</div>
+                <div style="flex:1;">
+                    <h3>Engineering Hire</h3>
+                    <p>First full-time hire: senior Go engineer. Team grows from 1 to 2. Accelerates kdeps.io SaaS roadmap and open source cadence.</p>
+                </div>
+                <div class="fbw"><div class="fb" style="--pct:40%;"></div></div>
+            </div>
+            <div class="fi rv">
+                <div class="fp">30%</div>
+                <div style="flex:1;">
+                    <h3>kdeps.io SaaS Platform</h3>
+                    <p>Team workspaces, private registry, monitoring, billing infrastructure, and enterprise authentication (SSO, SAML).</p>
+                </div>
+                <div class="fbw"><div class="fb" style="--pct:30%;"></div></div>
+            </div>
+            <div class="fi rv">
+                <div class="fp">20%</div>
+                <div style="flex:1;">
+                    <h3>NVIDIA NIM Integration</h3>
+                    <p>NVIDIA Inference Microservices backend. Enterprise GPU inference for on-prem deployments. NVIDIA Inception priority roadmap item.</p>
+                </div>
+                <div class="fbw"><div class="fb" style="--pct:20%;"></div></div>
+            </div>
+            <div class="fi rv">
+                <div class="fp">10%</div>
+                <div style="flex:1;">
+                    <h3>GTM &amp; Community</h3>
+                    <p>Developer relations, conference presence, documentation, and open source community growth programs.</p>
+                </div>
+                <div class="fbw"><div class="fb" style="--pct:10%;"></div></div>
+            </div>
+        </div>
+    </div>
+    <div class="sn">12 / 15</div>
+</section>
+
+<!-- SLIDE 13: THE ASK -->
+<section class="slide" id="s13" data-slide="13">
+    <div class="bg-glow gc" style="width:420px;height:420px;top:-80px;left:50%;transform:translateX(-50%);"></div>
+    <div class="si" style="align-items:center;text-align:center;">
+        <p class="eye rv">The Ask</p>
+        <h2 class="rv" style="font-size:var(--ts);max-width:660px;">Pre-seed round<br><span class="acc">$250K - $1M</span></h2>
+        <div class="div rv" style="margin-left:auto;margin-right:auto;"></div>
+        <p class="rv" style="max-width:520px;font-size:var(--h3);color:var(--t2);font-weight:400;line-height:1.5;">Seeking a lead investor and syndicate to close our first institutional round. Presented through NVIDIA Inception Capital Connect.</p>
+        <div class="g3 rv" style="margin-top:var(--gap);max-width:700px;text-align:left;">
+            <div class="card"><p class="mono" style="color:var(--acc);margin-bottom:.35em;">Round</p><h3>Pre-Seed</h3></div>
+            <div class="card"><p class="mono" style="color:var(--acc);margin-bottom:.35em;">Board Seat</p><h3>No</h3></div>
+            <div class="card"><p class="mono" style="color:var(--acc);margin-bottom:.35em;">Term Sheet</p><h3>Open</h3></div>
+        </div>
+        <p class="rv" style="margin-top:var(--gap);font-size:var(--sm);color:var(--t3);font-family:var(--mono);">Add proposed close date before final submission</p>
+    </div>
+    <div class="sn">13 / 15</div>
+</section>
+
+<!-- SLIDE 14: VISION -->
+<section class="slide" id="s14" data-slide="14">
+    <div class="si">
+        <p class="eye rv">Vision</p>
+        <h2 class="rv" style="max-width:720px;">The AI agent deployment layer<br>for every team, everywhere.</h2>
+        <div class="div rv"></div>
+        <p class="rv" style="max-width:580px;font-size:var(--h3);color:var(--t2);font-weight:400;line-height:1.5;">Today: developers use kdeps to build and ship AI agents in YAML. Tomorrow: every team that deploys software deploys AI agents the same way -- packaged, versioned, auditable, GPU-accelerated.</p>
+        <div class="g3 rv" style="margin-top:var(--gap);">
+            <div class="card">
+                <p class="mono" style="color:var(--acc);margin-bottom:.35em;">12 months</p>
+                <p>kdeps.io reaches first paid customers. NVIDIA NIM backend ships. Enterprise pilot programs begin.</p>
+            </div>
+            <div class="card">
+                <p class="mono" style="color:var(--acc);margin-bottom:.35em;">24 months</p>
+                <p>kdeps becomes the reference deployment layer for NVIDIA Inception AI companies. Series A readiness.</p>
+            </div>
+            <div class="card ca">
+                <p class="mono" style="color:var(--acc);margin-bottom:.35em;">36 months</p>
+                <p>Raise Series A. kdeps is the default way teams package and deploy AI agents -- the way Docker became the default way to ship software.</p>
+            </div>
+        </div>
+    </div>
+    <div class="sn">14 / 15</div>
+</section>
+
+<!-- SLIDE 15: CONTACT -->
+<section class="slide" id="s15" data-slide="15">
+    <div class="bg-grid"></div>
+    <div class="bg-glow gc" style="width:460px;height:460px;bottom:-130px;left:-80px;"></div>
+    <div class="si" style="align-items:center;text-align:center;">
+        <h2 class="rv" style="font-size:var(--ts);margin-bottom:clamp(.6rem,1.3vw,1rem);"><span style="color:#00E5FF;filter:drop-shadow(0 0 6px #00E5FF) drop-shadow(0 0 18px rgba(0,229,255,.6));">k</span>deps</h2>
+        <h2 class="rv" style="font-size:var(--h2);">Let's build together.</h2>
+        <div class="div rv" style="margin:clamp(.6rem,1.3vw,1rem) auto;"></div>
+        <div class="g2 rv" style="max-width:580px;margin-top:var(--gap);text-align:left;">
+            <div class="card">
+                <p class="mono" style="color:var(--t3);margin-bottom:.35em;">Co-founder &amp; CTO</p>
+                <h3>Joel Juliano</h3>
+                <p style="margin-top:.25em;">joel@kdeps.com</p>
+                <p class="mono" style="margin-top:.3em;color:var(--t3);">linkedin.com/in/joeljuliano</p>
+            </div>
+            <div class="card">
+                <p class="mono" style="color:var(--t3);margin-bottom:.35em;">Co-founder &amp; CEO</p>
+                <h3>Jane Juliano</h3>
+                <p style="margin-top:.25em;">jane@kdeps.com</p>
+                <p class="mono" style="margin-top:.3em;color:var(--t3);">linkedin.com/in/heraldjane</p>
+            </div>
+        </div>
+        <div class="rv" style="margin-top:var(--gap);display:flex;gap:var(--gsm);justify-content:center;flex-wrap:wrap;">
+            <span class="badge">kdeps.com</span>
+            <span class="badge">kdeps.io</span>
+            <span class="badge">github.com/kdeps/kdeps</span>
+            <span class="badge">NVIDIA Inception Member</span>
+        </div>
+    </div>
+    <div class="sn">15 / 15</div>
+</section>
+
+<script>
+class Deck {
+    constructor() {
+        this.slides = Array.from(document.querySelectorAll('.slide'));
+        this.total = this.slides.length;
+        this.cur = 0;
+        this.pb = document.getElementById('pb');
+        this.ndEl = document.getElementById('nd');
+        this.dots = [];
+        this.lastWheel = 0;
+        this.init();
+    }
+
+    init() {
+        this.buildDots();
+        this.observe();
+        this.bindKeys();
+        this.bindWheel();
+        this.bindTouch();
+        this.slides[0].classList.add('visible');
+        this.updateProgress(0);
+    }
+
+    buildDots() {
+        this.slides.forEach((_, i) => {
+            const d = document.createElement('button');
+            d.className = 'dot' + (i === 0 ? ' active' : '');
+            d.setAttribute('aria-label', 'Slide ' + (i + 1));
+            d.addEventListener('click', () => this.go(i));
+            this.ndEl.appendChild(d);
+            this.dots.push(d);
+        });
+    }
+
+    observe() {
+        const io = new IntersectionObserver(entries => {
+            entries.forEach(e => {
+                if (e.isIntersecting) {
+                    e.target.classList.add('visible');
+                    const i = this.slides.indexOf(e.target);
+                    if (i !== -1) { this.cur = i; this.updateProgress(i); this.updateDots(i); }
+                }
+            });
+        }, { threshold: 0.5 });
+        this.slides.forEach(s => io.observe(s));
+    }
+
+    bindKeys() {
+        document.addEventListener('keydown', e => {
+            if (e.key === 'ArrowDown' || e.key === 'ArrowRight' || e.key === ' ') { e.preventDefault(); this.go(Math.min(this.cur + 1, this.total - 1)); }
+            if (e.key === 'ArrowUp' || e.key === 'ArrowLeft') { e.preventDefault(); this.go(Math.max(this.cur - 1, 0)); }
+            if (e.key === 'Home') this.go(0);
+            if (e.key === 'End') this.go(this.total - 1);
+        });
+    }
+
+    bindWheel() {
+        document.addEventListener('wheel', e => {
+            const now = Date.now();
+            if (now - this.lastWheel < 900) return;
+            this.lastWheel = now;
+            if (e.deltaY > 0) this.go(Math.min(this.cur + 1, this.total - 1));
+            else this.go(Math.max(this.cur - 1, 0));
+        }, { passive: true });
+    }
+
+    bindTouch() {
+        let ty = 0;
+        document.addEventListener('touchstart', e => { ty = e.touches[0].clientY; }, { passive: true });
+        document.addEventListener('touchend', e => {
+            const dy = ty - e.changedTouches[0].clientY;
+            if (Math.abs(dy) < 40) return;
+            if (dy > 0) this.go(Math.min(this.cur + 1, this.total - 1));
+            else this.go(Math.max(this.cur - 1, 0));
+        }, { passive: true });
+    }
+
+    go(i) {
+        if (i < 0 || i >= this.total) return;
+        this.slides[i].scrollIntoView({ behavior: 'smooth' });
+    }
+
+    updateProgress(i) {
+        this.pb.style.width = (this.total > 1 ? (i / (this.total - 1)) * 100 : 100) + '%';
+    }
+
+    updateDots(i) {
+        this.dots.forEach((d, j) => d.classList.toggle('active', j === i));
+    }
+}
+
+document.addEventListener('DOMContentLoaded', () => new Deck());
+</script>
+</body>
+</html>

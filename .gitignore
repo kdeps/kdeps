@@ -227,6 +227,7 @@ local/
 *.kdeps
 *.pkl
 *.html
+!docs/v2/public/pitch-deck.html
 libssl*
 /kdeps-io
 claude-guides
