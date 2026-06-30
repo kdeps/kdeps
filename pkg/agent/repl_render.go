@@ -245,10 +245,9 @@ func replStyleConfig() ansi.StyleConfig {
 		},
 		Code: ansi.StyleBlock{
 			StylePrimitive: ansi.StylePrimitive{
-				Prefix:          "`",
-				Suffix:          "`",
-				Color:           strp(colorCode),
-				BackgroundColor: strp("#1A1A2E"),
+				Prefix: "`",
+				Suffix: "`",
+				Color:  strp(colorCode),
 			},
 		},
 		CodeBlock: ansi.StyleCodeBlock{
