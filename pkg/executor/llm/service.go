@@ -21,11 +21,14 @@
 package llm
 
 import (
+	"context"
 	"fmt"
 	"log/slog"
+	stdhttp "net/http"
 	"os"
 	"os/exec"
 	"sync"
+	"time"
 
 	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
 )
@@ -104,9 +107,43 @@ func (s *ModelService) ServerURL(backend, model string) string {
 		return s.llamafileServerURL(model)
 	case BackendGGUF:
 		return s.ggufServerURL(model)
+	case backendOllama:
+		return ollamaServerURL()
 	default:
 		return ""
 	}
+}
+
+// ollamaServerURL returns the base URL of the Ollama server if it is reachable,
+// honoring OLLAMA_HOST, or "" if not running.
+func ollamaServerURL() string {
+	url := defaultOllamaURL
+	if host := os.Getenv("OLLAMA_HOST"); host != "" {
+		url = host
+	}
+	if !isOllamaReachable(url) {
+		return ""
+	}
+	return url + "/v1"
+}
+
+// isOllamaReachable probes the Ollama root endpoint, which responds 200 once
+// the server is up (Ollama has no dedicated /health endpoint).
+//
+//nolint:gochecknoglobals // test-replaceable hook
+var isOllamaReachable = func(baseURL string) bool {
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	defer cancel()
+	req, err := stdhttp.NewRequestWithContext(ctx, stdhttp.MethodGet, baseURL, nil)
+	if err != nil {
+		return false
+	}
+	resp, err := stdhttp.DefaultClient.Do(req)
+	if err != nil {
+		return false
+	}
+	_ = resp.Body.Close()
+	return resp.StatusCode == stdhttp.StatusOK
 }
 
 // WaitForServerReady blocks until the server at baseURL is ready to serve

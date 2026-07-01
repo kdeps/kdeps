@@ -968,7 +968,52 @@ func (r *REPL) runStreaming(ctx context.Context, input string) (string, error) {
 	}
 
 	var buf strings.Builder
-	resp, err := r.loop.RunStreaming(ctx, input, &buf)
+
+	// Run in a goroutine so we can show a spinner if the model is slow to
+	// produce the first token (e.g. large-context prefill on a local CPU model).
+	type streamResult struct {
+		resp string
+		err  error
+	}
+	ch := make(chan streamResult, 1)
+	go func() {
+		resp, err := r.loop.RunStreaming(ctx, input, &buf)
+		ch <- streamResult{resp, err}
+	}()
+
+	timer := time.NewTimer(replThinkingDelay)
+	defer timer.Stop()
+
+	var sr streamResult
+	select {
+	case sr = <-ch:
+		// Response arrived before the spinner threshold -- nothing to clean up.
+	case <-timer.C:
+		// Only spin when thinking tokens are not already streaming live.
+		if thinkW == nil {
+			spinFrames := []string{"⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"}
+			done := make(chan struct{})
+			go func() {
+				tick := time.NewTicker(replTickerMs * time.Millisecond)
+				defer tick.Stop()
+				i := 0
+				for {
+					select {
+					case <-tick.C:
+						fmt.Fprintf(os.Stdout, "\r  %s generating", styleReplInfo.Render(spinFrames[i%len(spinFrames)]))
+						i++
+					case <-done:
+						return
+					}
+				}
+			}()
+			sr = <-ch
+			close(done)
+			fmt.Fprint(os.Stdout, ansiClearLine)
+		} else {
+			sr = <-ch
+		}
+	}
 
 	// Flush any remaining thinking output from the final round.
 	if thinkW != nil {
@@ -977,20 +1022,20 @@ func (r *REPL) runStreaming(ctx context.Context, input string) (string, error) {
 		r.loop.config.Thinking.ThinkingWriter = nil
 	}
 
-	if err != nil {
-		return resp, err
+	if sr.err != nil {
+		return sr.resp, sr.err
 	}
 	// When StreamThinking=true, thinking was already written to stdout above;
-	// resp contains only the final text response (no <thinking> prepend).
-	// Otherwise, resp may contain <thinking> blocks from ReturnOutput=true.
-	content := resp
+	// sr.resp contains only the final text response (no <thinking> prepend).
+	// Otherwise, sr.resp may contain <thinking> blocks from ReturnOutput=true.
+	content := sr.resp
 	if content == "" {
 		content = strings.TrimSpace(buf.String())
 	}
 	if content != "" {
 		fmt.Fprint(os.Stdout, renderREPLOutput(content, thinkW != nil))
 	}
-	return resp, nil
+	return sr.resp, nil
 }
 
 // runWithThinking runs an agent turn, using streaming output when available.

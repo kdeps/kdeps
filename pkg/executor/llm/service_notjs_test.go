@@ -92,6 +92,7 @@ func TestModelService_ServeOllamaModel_SetEnvError(t *testing.T) {
 }
 
 func TestModelService_ServeModel_OllamaCase(t *testing.T) {
+	t.Setenv("OLLAMA_HOST", "")
 	orig := execCommandContext
 	t.Cleanup(func() { execCommandContext = orig })
 	execCommandContext = func(ctx context.Context, _ string, args ...string) *exec.Cmd {
@@ -120,6 +121,38 @@ func TestModelService_ServerURL_Default(t *testing.T) {
 	assert.Equal(t, "", s.ServerURL("openai", "gpt-4"))
 	assert.Equal(t, "", s.ServerURL("anthropic", "claude-3"))
 	assert.Equal(t, "", s.ServerURL("", "model"))
+}
+
+func TestModelService_ServerURL_Ollama_Reachable(t *testing.T) {
+	t.Setenv("OLLAMA_HOST", "")
+	orig := isOllamaReachable
+	t.Cleanup(func() { isOllamaReachable = orig })
+	isOllamaReachable = func(_ string) bool { return true }
+
+	s := NewModelService(slog.Default())
+	assert.Equal(t, "http://localhost:11434/v1", s.ServerURL(backendOllama, "llama3.2:1b"))
+}
+
+func TestModelService_ServerURL_Ollama_NotReachable(t *testing.T) {
+	t.Setenv("OLLAMA_HOST", "")
+	orig := isOllamaReachable
+	t.Cleanup(func() { isOllamaReachable = orig })
+	isOllamaReachable = func(_ string) bool { return false }
+
+	s := NewModelService(slog.Default())
+	assert.Equal(t, "", s.ServerURL(backendOllama, "llama3.2:1b"))
+}
+
+func TestModelService_ServerURL_Ollama_HonorsOllamaHost(t *testing.T) {
+	orig := isOllamaReachable
+	t.Cleanup(func() { isOllamaReachable = orig })
+	var gotURL string
+	isOllamaReachable = func(url string) bool { gotURL = url; return true }
+	t.Setenv("OLLAMA_HOST", "http://127.0.0.1:9999")
+
+	s := NewModelService(slog.Default())
+	assert.Equal(t, "http://127.0.0.1:9999/v1", s.ServerURL(backendOllama, "llama3.2:1b"))
+	assert.Equal(t, "http://127.0.0.1:9999", gotURL)
 }
 
 func TestWaitForServerReady_EmptyURL(_ *testing.T) {
