@@ -222,6 +222,9 @@ func buildNativeOllamaLLM(cfg *domain.ChatConfig) (llms.Model, error) {
 	if numCtx == 0 {
 		numCtx = cfg.ContextSize
 	}
+	if numCtx == 0 {
+		numCtx = localContextSize
+	}
 	if numCtx > 0 {
 		opts = append(opts, lcollama.WithRunnerNumCtx(numCtx))
 	}
@@ -688,8 +691,11 @@ func injectChainOfThought(msgs []llms.MessageContent) []llms.MessageContent {
 // When ContextSize > 0 and the backend is file or gguf, it updates the package-level
 // context size variable so the next server start uses the requested window.
 func prepareCfg(ctx context.Context, cfg *domain.ChatConfig) *domain.ChatConfig {
-	if cfg.ContextSize > 0 && (cfg.Backend == BackendFile || cfg.Backend == BackendGGUF) {
-		SetLocalContextSize(cfg.ContextSize)
+	if cfg.ContextSize > 0 {
+		switch cfg.Backend {
+		case BackendFile, BackendGGUF:
+			SetLocalContextSize(cfg.ContextSize)
+		}
 	}
 	if cfg.FewShotEmbeddingModel == "" || cfg.FewShotSelectK <= 0 || len(cfg.FewShot) == 0 {
 		return cfg

@@ -128,6 +128,7 @@ func applyLLMEnv(keys LLMKeys) {
 		setIfUnset("KDEPS_LLM_MODELS", strings.Join(names, ","))
 	}
 	setIfUnset("KDEPS_MODELS_DIR", keys.ModelsDir)
+	setIntIfPos("KDEPS_CTX_SIZE", keys.CtxSize)
 	if keys.Aria2cFlags != "" {
 		setIfUnset("KDEPS_ARIA2C_FLAGS", keys.Aria2cFlags)
 	}

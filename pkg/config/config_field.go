@@ -57,6 +57,7 @@ var configEnvVarStatic = map[string]string{
 	"llm.base_url":            "KDEPS_LLM_BASE_URL",
 	"llm.models":              EnvLLMModels,
 	"llm.models_dir":          "KDEPS_MODELS_DIR",
+	"llm.ctx_size":            "KDEPS_CTX_SIZE",
 	"defaults.timezone":       "TZ",
 	"defaults.python_version": "KDEPS_PYTHON_VERSION",
 	"defaults.offline_mode":   "KDEPS_OFFLINE_MODE",
@@ -91,8 +92,7 @@ func configEnvVar(path string) (string, bool) {
 	if v, ok := configEnvVarStatic[path]; ok {
 		return v, true
 	}
-	if strings.HasPrefix(path, "llm.") {
-		keyField := strings.TrimPrefix(path, "llm.")
+	if keyField, ok := strings.CutPrefix(path, "llm."); ok {
 		for _, p := range cloudProvidersList {
 			if p.yamlKey == keyField {
 				return p.envVar, true

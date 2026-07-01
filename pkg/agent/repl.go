@@ -2549,16 +2549,24 @@ func (r *REPL) cmdContext(args []string) error {
 		return nil
 	}
 
+	const (
+		kibi = 1024
+		mebi = 1024 * kibi
+	)
 	raw := strings.ToLower(strings.TrimSpace(args[0]))
-	// Accept shorthand: 32k → 32768, 128k → 131072, etc.
+	// Accept shorthand: 32k/32K → 32768, 1m/1M → 1048576, etc.
 	multiplier := 1
-	if strings.HasSuffix(raw, "k") {
-		multiplier = 1024
+	switch {
+	case strings.HasSuffix(raw, "m"):
+		multiplier = mebi
+		raw = strings.TrimSuffix(raw, "m")
+	case strings.HasSuffix(raw, "k"):
+		multiplier = kibi
 		raw = strings.TrimSuffix(raw, "k")
 	}
 	n, _ := strconv.Atoi(raw)
 	if n <= 0 {
-		fmt.Fprintf(os.Stdout, "%s\n", styleReplError.Render("Usage: /context <size>  (e.g. 32768 or 32k)"))
+		fmt.Fprintf(os.Stdout, "%s\n", styleReplError.Render("Usage: /context <size>  (e.g. 32768, 32k, 1m)"))
 		return nil
 	}
 	n *= multiplier
@@ -2575,9 +2583,12 @@ func (r *REPL) cmdContext(args []string) error {
 			fmt.Fprintf(os.Stdout, "%s\n", styleReplMeta.Render(msg))
 			svc.KillModel(backend, model)
 			_ = svc.ServeModel(backend, model, "", 0)
-			llm.WaitForServerReady(svc.ServerURL(backend, model))
+			newURL := svc.ServerURL(backend, model)
+			llm.WaitForServerReady(newURL)
+			r.loop.config.BaseURL = newURL
 		}
 	case "ollama":
+		llm.SetLocalContextSize(n)
 		msg := fmt.Sprintf("Ollama num_ctx set to %d (applies to next request)", n)
 		fmt.Fprintf(os.Stdout, "%s\n", styleReplMeta.Render(msg))
 	default:

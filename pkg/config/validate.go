@@ -197,6 +197,7 @@ func buildKnownLLMKeys(list []cloudProvider) map[string]bool {
 		"strategy":    true,
 		"models":      true,
 		"models_dir":  true,
+		"ctx_size":    true,
 	}
 	for _, p := range list {
 		m[p.yamlKey] = true

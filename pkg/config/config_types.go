@@ -170,6 +170,11 @@ type LLMKeys struct {
 	// as JSON into KDEPS_LLM_ROUTER.
 	Models ModelList `yaml:"models,omitempty"`
 
+	// CtxSize sets the context window size (--ctx-size) for local model servers
+	// (llamafile and llama-server). Serialized to KDEPS_CTX_SIZE.
+	// 0 means use the compiled-in default (4096).
+	CtxSize int `yaml:"ctx_size,omitempty"`
+
 	// Llamafile (file backend) — local self-contained model binaries.
 	ModelsDir string `yaml:"models_dir"` // cache dir for downloaded llamafiles; default: ~/.kdeps/models
 
