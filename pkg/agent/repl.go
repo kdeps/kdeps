@@ -275,7 +275,7 @@ func (r *REPL) SetModelPickerFn(fn func(filter string) (string, error)) {
 	r.modelPickerFn = fn
 }
 
-// dynamicPrompt returns a prompt string showing model and turn count.
+// dynamicPrompt returns a prompt string showing model, turn count, and context usage.
 func (r *REPL) dynamicPrompt() string {
 	turns := r.loop.Session().TurnCount()
 	model := styleReplPrompt.Render(r.loop.config.Model)
@@ -284,10 +284,42 @@ func (r *REPL) dynamicPrompt() string {
 	if thinking := r.loop.Thinking(); thinking != nil && thinking.Mode != domain.ThinkingModeNone {
 		suffix = dim("|") + styleReplMeta.Render(string(thinking.Mode))
 	}
+	ctxStr := r.contextUsageStr()
+	if ctxStr != "" {
+		suffix += dim("|") + styleReplMeta.Render(ctxStr)
+	}
 	if turns == 0 {
 		return dim("[") + model + suffix + dim("] > ")
 	}
 	return dim("[") + model + dim(fmt.Sprintf("|%d", turns)) + suffix + dim("] > ")
+}
+
+// contextUsageStr returns a "used/total" token display string (e.g. "293k/512k").
+// Returns "" when there is no meaningful usage to show.
+func (r *REPL) contextUsageStr() string {
+	used := r.loop.Session().TotalTokens()
+	if used <= 0 {
+		return ""
+	}
+	total := r.contextLimitForModel(r.loop.config.Model)
+	return fmt.Sprintf("%s/%s", formatTokenCount(used), formatTokenCount(total))
+}
+
+// formatTokenCount renders a token count as a compact string:
+// values >= 1M use "Nm" (e.g. "1m"), >= 1K use "Nk" (e.g. "32k"), else plain digits.
+func formatTokenCount(n int) string {
+	const (
+		kibi = 1024
+		mebi = 1024 * kibi
+	)
+	switch {
+	case n >= mebi:
+		return fmt.Sprintf("%dm", n/mebi)
+	case n >= kibi:
+		return fmt.Sprintf("%dk", n/kibi)
+	default:
+		return strconv.Itoa(n)
+	}
 }
 
 // buildCompleter returns a custom AutoCompleter with fuzzy command matching
@@ -1462,6 +1494,41 @@ func (r *REPL) cmdClear() error {
 //nolint:gochecknoglobals // package-level lookup table, not mutable state
 var tagKeywords = []string{"gguf", "llamafile", "cloud", "enabled", "cached", "installed", "ollama"}
 
+// cmdModelWithName resolves and applies the given model name argument.
+func (r *REPL) cmdModelWithName(arg string) error {
+	name := stripModelIndicators(arg)
+	if r.isModelName(name) {
+		r.applyModelSwitch(name)
+		return nil
+	}
+	// Tag-only TAB completion (length=0) prepends the typed keyword to the
+	// model name. Recover the real model by stripping the keyword prefix.
+	if resolved := r.stripTagKeywordPrefix(name); r.isModelName(resolved) {
+		r.applyModelSwitch(resolved)
+		return nil
+	}
+	// Not a model name: treat as picker filter if available.
+	if r.modelPickerFn != nil {
+		return r.openPickerWithFilter(name)
+	}
+	// No picker: when model list is known, auto-switch to closest cached or enabled match.
+	if len(r.modelNames) > 0 {
+		if best := r.closestModelName(name); best != "" {
+			fmt.Fprintf(os.Stdout, "%s\n",
+				styleReplMeta.Render(fmt.Sprintf("No exact match for %q -- switching to closest: %s", name, best)),
+			)
+			r.applyModelSwitch(best)
+			return nil
+		}
+		msg := fmt.Sprintf("Unknown model %q -- use /model list or /model <tab> to see available models", name)
+		fmt.Fprintf(os.Stdout, "%s\n", styleReplError.Render(msg))
+		return nil
+	}
+	// No model list registered: apply directly (backward compat).
+	r.applyModelSwitch(name)
+	return nil
+}
+
 func (r *REPL) cmdModel(args []string) error {
 	if len(args) > 0 {
 		switch args[0] {
@@ -1476,23 +1543,7 @@ func (r *REPL) cmdModel(args []string) error {
 		}
 	}
 	if len(args) > 0 {
-		name := stripModelIndicators(args[0])
-		if r.isModelName(name) {
-			r.applyModelSwitch(name)
-			return nil
-		}
-		// Tag-only TAB completion (length=0) prepends the typed keyword to the
-		// model name. Recover the real model by stripping the keyword prefix.
-		if resolved := r.stripTagKeywordPrefix(name); r.isModelName(resolved) {
-			r.applyModelSwitch(resolved)
-			return nil
-		}
-		// Not a model name: treat as picker filter.
-		if r.modelPickerFn != nil {
-			return r.openPickerWithFilter(name)
-		}
-		r.applyModelSwitch(name)
-		return nil
+		return r.cmdModelWithName(args[0])
 	}
 	if r.modelPickerFn == nil {
 		fmt.Fprintln(os.Stdout, styleReplMeta.Render("Current model: "+r.loop.config.Model))
@@ -1538,6 +1589,31 @@ func (r *REPL) cmdModelDefault(args []string) error {
 
 func (r *REPL) isModelName(name string) bool {
 	return slices.Contains(r.modelNames, name)
+}
+
+// closestModelName returns the best fuzzy-matched model name for the given
+// query, preferring cached models first, then cloud-enabled models.
+// Returns "" when no fuzzy match exists at all.
+func (r *REPL) closestModelName(query string) string {
+	ranked := fuzzyRankStrings(query, r.modelNames)
+	// First pass: cached.
+	for _, n := range ranked {
+		if r.downloadedModels[n] {
+			return n
+		}
+	}
+	// Second pass: cloud-enabled.
+	for _, n := range ranked {
+		backend := r.cloudModelBackends[n]
+		if backend != "" && r.providerStatus[backend] {
+			return n
+		}
+	}
+	// Fallback: any fuzzy match.
+	if len(ranked) > 0 {
+		return ranked[0]
+	}
+	return ""
 }
 
 // stripTagKeywordPrefix tries to remove a leading tag keyword from name to
@@ -1611,6 +1687,9 @@ func (r *REPL) applyModelSwitch(model string) {
 			mt = modelTypeGGUF
 		}
 		switch mt {
+		case modelTypeLLamafile:
+			r.loop.config.Backend = llm.BackendFile
+			r.loop.config.BaseURL = ""
 		case modelTypeGGUF:
 			r.loop.config.Backend = llm.BackendGGUF
 			r.loop.config.BaseURL = ""
