@@ -33,6 +33,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"syscall"
 	"time"
 
@@ -57,15 +58,48 @@ var (
 //nolint:gochecknoglobals // process-wide one-time init
 var shutdownOnce sync.Once
 
+// interactiveSignalOwner is set by callers (e.g. the REPL) that already own
+// SIGINT handling and manage their own graceful shutdown, including calling
+// ShutdownLocalServers on their own exit path. When set, the process-wide
+// shutdown hook below ignores SIGINT (only SIGTERM kills local servers), so
+// that Ctrl+C used to cancel a single REPL turn doesn't also kill the running
+// local model server out from under an interactive session that isn't exiting.
+//
+//nolint:gochecknoglobals // process-wide one-time toggle
+var interactiveSignalOwner atomic.Bool
+
+// SetInteractiveSignalOwner tells the local-server shutdown hook that SIGINT
+// is already handled by an interactive caller (the REPL) which does not
+// terminate the process on Ctrl+C. Call once before starting any local model
+// server from an interactive context.
+func SetInteractiveSignalOwner(v bool) {
+	interactiveSignalOwner.Store(v)
+}
+
+// shouldShutdownOnSignal reports whether the given signal should trigger
+// ShutdownLocalServers. SIGINT is suppressed when an interactive caller (the
+// REPL) owns SIGINT handling and does not terminate the process on Ctrl+C;
+// SIGTERM always shuts down since nothing else repurposes it.
+func shouldShutdownOnSignal(sig os.Signal) bool {
+	return sig != syscall.SIGINT || !interactiveSignalOwner.Load()
+}
+
 // registerShutdownHookOnce sets up a SIGINT/SIGTERM handler that kills all tracked
-// local model servers when the process exits.
+// local model servers when the process exits. SIGINT is skipped when
+// SetInteractiveSignalOwner(true) has been called, since in that case Ctrl+C
+// does not terminate the process and the owning caller handles its own cleanup.
 func registerShutdownHookOnce() {
 	shutdownOnce.Do(func() {
 		go func() {
 			ch := make(chan os.Signal, 1)
 			signal.Notify(ch, syscall.SIGINT, syscall.SIGTERM)
-			<-ch
-			ShutdownLocalServers()
+			for sig := range ch {
+				if !shouldShutdownOnSignal(sig) {
+					continue
+				}
+				ShutdownLocalServers()
+				return
+			}
 		}()
 	})
 }
@@ -94,8 +128,7 @@ func ShutdownLocalServers() {
 	servedGGUFsMu.Unlock()
 }
 
-//nolint:gochecknoglobals // test-replaceable hook
-var killLocalProcess = func(pid int) {
+var killLocalProcess = func(pid int) { //nolint:gochecknoglobals // test-replaceable hook
 	proc, err := os.FindProcess(pid)
 	if err != nil {
 		return
@@ -161,8 +194,7 @@ func readServerPortFile(path string) int {
 	return p
 }
 
-//nolint:gochecknoglobals // test-replaceable hook
-var removeServerPortFile = func(path string) {
+var removeServerPortFile = func(path string) { //nolint:gochecknoglobals // test-replaceable hook
 	_ = AppFS.Remove(serverPortFile(path))
 }
 
@@ -242,19 +274,15 @@ func (m *LlamafileManager) Serve(path string, port int) (int, error) {
 }
 
 // startLlamafileServerFunc launches the server binary (overridable in tests).
-//
-//nolint:gochecknoglobals // test-replaceable hook
-var startLlamafileServerFunc = startLlamafileServer
+var startLlamafileServerFunc = startLlamafileServer //nolint:gochecknoglobals // test-replaceable hook
 
 // llamafileShell is the shell used to launch APE binaries (overridable in tests).
-//
-//nolint:gochecknoglobals // test-replaceable hook
-var llamafileShell = "/bin/sh"
+var llamafileShell = "/bin/sh" //nolint:gochecknoglobals // test-replaceable hook
 
 // llamafileStartTimeoutFunc returns the health-wait budget (overridable in tests).
-//
-//nolint:gochecknoglobals // test-replaceable hook
-var llamafileStartTimeoutFunc = func() time.Duration { return llamafileStartTimeout }
+var llamafileStartTimeoutFunc = func() time.Duration { //nolint:gochecknoglobals // test-replaceable hook
+	return llamafileStartTimeout
+}
 
 func startLlamafileServer(path string, port int) (int, error) {
 	ctx := context.Background()
@@ -292,8 +320,7 @@ func waitForHealthy(serverURL string, port int, timeout time.Duration) error {
 	return fmt.Errorf("server did not become healthy within %s on port %d", timeout, port)
 }
 
-//nolint:gochecknoglobals // test-replaceable hook
-var isHealthy = func(baseURL string) bool {
+var isHealthy = func(baseURL string) bool { //nolint:gochecknoglobals // test-replaceable hook
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	defer cancel()
 	req, err := stdhttp.NewRequestWithContext(ctx, stdhttp.MethodGet, baseURL+llamafileHealthPath, nil)
@@ -310,9 +337,7 @@ var isHealthy = func(baseURL string) bool {
 
 // WaitForCompletionsReadyFunc blocks until /v1/chat/completions responds
 // (overridable in tests to avoid real HTTP calls).
-//
-//nolint:gochecknoglobals // test-replaceable hook
-var WaitForCompletionsReadyFunc = waitForCompletionsReady
+var WaitForCompletionsReadyFunc = waitForCompletionsReady //nolint:gochecknoglobals // test-replaceable hook
 
 // waitForCompletionsReady polls the completions endpoint until the model
 // responds. The /health endpoint becomes OK while weights are still loading;

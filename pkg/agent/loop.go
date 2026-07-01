@@ -448,6 +448,7 @@ func (l *Loop) runWithRetry(
 		if attempt == l.config.AutoRetryMax-1 {
 			break
 		}
+		l.reconnectLocalModel(chatCfg)
 		delay := l.config.AutoRetryBaseDelay * (1 << attempt)
 		select {
 		case <-ctx.Done():
@@ -456,6 +457,28 @@ func (l *Loop) runWithRetry(
 		}
 	}
 	return "", lastErr
+}
+
+// reconnectLocalModel attempts to restart a local model server (file/gguf
+// backend) that has become unreachable, refreshing chatCfg.BaseURL to the
+// server's freshly resolved address so the next retry hits a live process.
+// No-op for cloud backends or when ModelService is unset. Errors are
+// swallowed — the outer retry loop's own transient-error check handles
+// reporting failure to the caller if reconnection didn't help.
+func (l *Loop) reconnectLocalModel(chatCfg *domain.ChatConfig) {
+	if l.config.ModelService == nil {
+		return
+	}
+	if l.config.Backend != executorLLM.BackendFile && l.config.Backend != executorLLM.BackendGGUF {
+		return
+	}
+	if err := l.config.ModelService.ServeModel(l.config.Backend, l.config.Model, "", 0); err != nil {
+		return
+	}
+	if url := l.config.ModelService.ServerURL(l.config.Backend, l.config.Model); url != "" {
+		chatCfg.BaseURL = url
+		l.config.BaseURL = url
+	}
 }
 
 // transientErrRe matches error strings from transient API failures: overloaded,

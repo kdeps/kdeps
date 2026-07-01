@@ -242,11 +242,12 @@ func (e *Executor) rgSymbolSearch(config *domain.CodeIntelligenceConfig) (interf
 	if config.Query == "" {
 		return nil, errors.New("codeIntelligence: query is required for symbolSearch")
 	}
+	if config.Path == "" {
+		return nil, errors.New("codeIntelligence: path is required for symbolSearch")
+	}
 
 	args := e.buildRGArgs(config, config.Query)
-	if config.Path != "" {
-		args = append(args, config.Path)
-	}
+	args = append(args, config.Path)
 
 	matches, err := e.runRG(args)
 	if err != nil {

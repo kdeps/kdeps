@@ -13,6 +13,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -805,6 +806,32 @@ func TestDynamicPrompt_WithTurns(t *testing.T) {
 	p := repl.dynamicPrompt()
 	assert.Contains(t, p, "test-model")
 	assert.Contains(t, p, "|")
+}
+
+// TestContextUsageStr_ReflectsLocalContextSizeChange pins the reported bug:
+// running /context <size> must update the "<consumed>/<this_context>" prompt
+// segment immediately, since /context calls llm.SetLocalContextSize without
+// switching models.
+func TestContextUsageStr_ReflectsLocalContextSizeChange(t *testing.T) {
+	origSize := llm.LocalContextSize()
+	t.Cleanup(func() { llm.SetLocalContextSize(origSize) })
+
+	loop := makeTestLoop(nil)
+	loop.config.Model = "llama3.2:1b-q4"
+	loop.session.Append("hi", "hello")
+	repl := NewREPL(loop)
+	defer repl.cancel()
+	repl.SetModelTypes(map[string]string{"llama3.2:1b-q4": modelTypeGGUF})
+
+	llm.SetLocalContextSize(4096)
+	before := repl.contextUsageStr()
+	assert.Contains(t, before, "/4k")
+
+	// Simulate /context 256k without switching models.
+	llm.SetLocalContextSize(262144)
+	after := repl.contextUsageStr()
+	assert.Contains(t, after, "/256k")
+	assert.NotEqual(t, before, after)
 }
 
 // --- buildCompleter ---
@@ -2823,8 +2850,11 @@ func TestHffFormatSize(t *testing.T) {
 
 // --- contextLimitForModel ---
 
-func TestContextLimitForModel_GGUF_EnvVar(t *testing.T) {
-	t.Setenv("KDEPS_CTX_SIZE", "8192")
+func TestContextLimitForModel_GGUF_LocalContextSize(t *testing.T) {
+	orig := llm.LocalContextSize()
+	t.Cleanup(func() { llm.SetLocalContextSize(orig) })
+	llm.SetLocalContextSize(8192)
+
 	loop := makeTestLoop(nil)
 	repl := NewREPL(loop)
 	defer repl.cancel()
@@ -2832,13 +2862,68 @@ func TestContextLimitForModel_GGUF_EnvVar(t *testing.T) {
 	assert.Equal(t, 8192, repl.contextLimitForModel("my-gguf"))
 }
 
-func TestContextLimitForModel_Llamafile_EnvVar(t *testing.T) {
-	t.Setenv("KDEPS_CTX_SIZE", "16384")
+func TestContextLimitForModel_Llamafile_LocalContextSize(t *testing.T) {
+	orig := llm.LocalContextSize()
+	t.Cleanup(func() { llm.SetLocalContextSize(orig) })
+	llm.SetLocalContextSize(16384)
+
 	loop := makeTestLoop(nil)
 	repl := NewREPL(loop)
 	defer repl.cancel()
 	repl.SetModelTypes(map[string]string{"my-llamafile": modelTypeLLamafile})
 	assert.Equal(t, 16384, repl.contextLimitForModel("my-llamafile"))
+}
+
+// TestContextLimitForModel_UpdatesAfterSetLocalContextSize pins the reported
+// regression: running /context <size> must be immediately reflected in the
+// REPL prompt's "<consumed>/<this_context>" display, not just at model-switch
+// time. contextLimitForModel is what backs that display (via contextUsageStr),
+// so it must re-read llm.LocalContextSize() on every call rather than caching
+// a stale env-var snapshot.
+func TestContextLimitForModel_UpdatesAfterSetLocalContextSize(t *testing.T) {
+	orig := llm.LocalContextSize()
+	t.Cleanup(func() { llm.SetLocalContextSize(orig) })
+
+	loop := makeTestLoop(nil)
+	repl := NewREPL(loop)
+	defer repl.cancel()
+	repl.SetModelTypes(map[string]string{"llama3.2:1b-q4": modelTypeGGUF})
+
+	llm.SetLocalContextSize(4096)
+	assert.Equal(t, 4096, repl.contextLimitForModel("llama3.2:1b-q4"))
+
+	// Simulate /context 256k: the very next call must reflect the new size
+	// without switching models or restarting the REPL.
+	llm.SetLocalContextSize(262144)
+	assert.Equal(t, 262144, repl.contextLimitForModel("llama3.2:1b-q4"))
+}
+
+// TestContextLimitForModel_OllamaUsesLocalContextSize covers the ollama model
+// type, which also has its context size controlled by /context (num_ctx).
+func TestContextLimitForModel_OllamaUsesLocalContextSize(t *testing.T) {
+	orig := llm.LocalContextSize()
+	t.Cleanup(func() { llm.SetLocalContextSize(orig) })
+	llm.SetLocalContextSize(32768)
+
+	loop := makeTestLoop(nil)
+	repl := NewREPL(loop)
+	defer repl.cancel()
+	repl.SetModelTypes(map[string]string{"llama3.2:1b": modelTypeOllama})
+	assert.Equal(t, 32768, repl.contextLimitForModel("llama3.2:1b"))
+}
+
+// TestContextLimitForModel_GGUFFilePath covers a raw .gguf file path that
+// isn't in the modelTypes registry map — isGGUFModel must still classify it
+// as local so it uses the live context size.
+func TestContextLimitForModel_GGUFFilePath(t *testing.T) {
+	orig := llm.LocalContextSize()
+	t.Cleanup(func() { llm.SetLocalContextSize(orig) })
+	llm.SetLocalContextSize(65536)
+
+	loop := makeTestLoop(nil)
+	repl := NewREPL(loop)
+	defer repl.cancel()
+	assert.Equal(t, 65536, repl.contextLimitForModel("/path/to/model.gguf"))
 }
 
 func TestContextLimitForModel_Default(t *testing.T) {
@@ -4510,4 +4595,134 @@ func TestCmdHFFDownload_Success_CallsRefreshModelsFn(t *testing.T) {
 
 	assert.NoError(t, err)
 	assert.True(t, refreshCalled)
+}
+
+// --- runStreaming spinner ---
+
+// delayedMockStreamer wraps mockStreamer but sleeps before returning so tests
+// can drive the spinner-threshold timer.
+type delayedMockStreamer struct {
+	delay time.Duration
+	inner mockStreamer
+}
+
+func (d *delayedMockStreamer) StreamChat(
+	ctx context.Context, cfg *domain.ChatConfig, w io.Writer,
+) (string, []domain.StreamedToolCall, error) {
+	select {
+	case <-time.After(d.delay):
+	case <-ctx.Done():
+		return "", nil, ctx.Err()
+	}
+	return d.inner.StreamChat(ctx, cfg, w)
+}
+
+// spinCap is a mutex-protected buffer used to capture spinnerOut writes in
+// tests without data races.
+type spinCap struct {
+	mu  sync.Mutex
+	buf bytes.Buffer
+}
+
+func (s *spinCap) Write(p []byte) (int, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.buf.Write(p)
+}
+
+func (s *spinCap) String() string {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.buf.String()
+}
+
+// setSpinnerCapture redirects spinnerOut to a thread-safe buffer and restores
+// it on test cleanup. Returns the buffer so callers can inspect spinner output.
+func setSpinnerCapture(t *testing.T) *spinCap {
+	t.Helper()
+	buf := &spinCap{}
+	orig := spinnerOut
+	spinnerOut = buf
+	t.Cleanup(func() { spinnerOut = orig })
+	return buf
+}
+
+// setFastSpinnerThreshold overrides replThinkingDelay to 20ms so the spinner
+// fires almost immediately, removing timing races in tests. Restores on cleanup.
+func setFastSpinnerThreshold(t *testing.T) {
+	t.Helper()
+	orig := replThinkingDelay
+	replThinkingDelay = 20 * time.Millisecond
+	t.Cleanup(func() { replThinkingDelay = orig })
+}
+
+// TestRunStreaming_ShowsSpinnerWhenSlow verifies that a "generating" indicator
+// appears when the streamer takes longer than replThinkingDelay.
+func TestRunStreaming_ShowsSpinnerWhenSlow(t *testing.T) {
+	setFastSpinnerThreshold(t)
+	spinBuf := setSpinnerCapture(t)
+
+	ms := &delayedMockStreamer{
+		delay: 300 * time.Millisecond, // well past the 20ms threshold
+		inner: mockStreamer{
+			responses: []mockStreamResponse{{content: "eventual response"}},
+		},
+	}
+	loop := newStreamingLoop(ms, 1)
+	repl := NewREPL(loop)
+	defer repl.cancel()
+
+	resp, err := repl.runWithThinking(context.Background(), "hello")
+
+	assert.NoError(t, err)
+	assert.Equal(t, "eventual response", resp)
+	assert.Contains(t, spinBuf.String(), "generating", "spinner text must appear for slow responses")
+}
+
+// TestRunStreaming_NoSpinnerForFastResponse verifies that no spinner is shown
+// when the streamer returns before the threshold.
+func TestRunStreaming_NoSpinnerForFastResponse(t *testing.T) {
+	setFastSpinnerThreshold(t)
+	spinBuf := setSpinnerCapture(t)
+
+	ms := &mockStreamer{
+		responses: []mockStreamResponse{{content: "quick response"}},
+	}
+	loop := newStreamingLoop(ms, 1)
+	repl := NewREPL(loop)
+	defer repl.cancel()
+
+	resp, err := repl.runWithThinking(context.Background(), "hello")
+
+	assert.NoError(t, err)
+	assert.Equal(t, "quick response", resp)
+	assert.NotContains(t, spinBuf.String(), "generating", "spinner must not appear for fast responses")
+}
+
+// TestRunStreaming_SpinnerClearedBeforeOutput verifies that the spinner escape
+// sequence (ansiClearLine) appears after "generating" frames, ensuring the
+// spinner line is erased after the last frame and before the response renders.
+func TestRunStreaming_SpinnerClearedBeforeOutput(t *testing.T) {
+	setFastSpinnerThreshold(t)
+	spinBuf := setSpinnerCapture(t)
+
+	ms := &delayedMockStreamer{
+		delay: 300 * time.Millisecond,
+		inner: mockStreamer{
+			responses: []mockStreamResponse{{content: "answer"}},
+		},
+	}
+	loop := newStreamingLoop(ms, 1)
+	repl := NewREPL(loop)
+	defer repl.cancel()
+
+	resp, _ := repl.runWithThinking(context.Background(), "hello")
+
+	assert.Equal(t, "answer", resp)
+	out := spinBuf.String()
+	spinnerIdx := strings.Index(out, "generating")
+	clearIdx := strings.Index(out, "\r\033[K")
+	require.GreaterOrEqual(t, spinnerIdx, 0, "spinner must appear")
+	require.GreaterOrEqual(t, clearIdx, 0, "clear-line escape must appear")
+	assert.Greater(t, clearIdx, spinnerIdx, "clear must come after spinner frames")
 }

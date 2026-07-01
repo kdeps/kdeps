@@ -778,7 +778,7 @@ func TestDetectOSArch_DarwinArm64(t *testing.T) {
 	testArch = "arm64"
 	t.Cleanup(func() { testOS = origOS; testArch = origArch })
 	result := detectOSArch()
-	assert.Equal(t, "b4582-bin-macos-arm64", result)
+	assert.Equal(t, "macos-arm64", result)
 }
 
 // ---- service.go: KillModel with unknown backend returns false ----

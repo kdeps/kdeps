@@ -47,3 +47,10 @@ func SetLocalContextSize(n int) {
 		localContextSize = n
 	}
 }
+
+// LocalContextSize returns the --ctx-size currently used for local model
+// servers (llamafile, llama-server/GGUF, and Ollama's num_ctx). Reflects the
+// most recent SetLocalContextSize call or the KDEPS_CTX_SIZE env var.
+func LocalContextSize() int {
+	return localContextSize
+}

@@ -57,6 +57,12 @@ type agentLoopFlags struct {
 // Discovered items from ~/.kdeps are registered according to persisted settings
 // (default: all enabled). Use /settings inside the REPL to change selections.
 func runAgentLoopCmd(path string, flags *agentLoopFlags) error {
+	// The REPL owns SIGINT (Ctrl+C cancels the current turn/tool without
+	// exiting); tell the llm package's local-server shutdown hook not to also
+	// kill the running local model server on every Ctrl+C. Graceful shutdown
+	// is instead handled by the deferred llm.ShutdownLocalServers() below.
+	llm.SetInteractiveSignalOwner(true)
+
 	registry := tools.NewRegistry()
 	tools.RegisterFFormatTools(registry)
 	agent.RegisterBuiltinTools(context.Background(), registry)

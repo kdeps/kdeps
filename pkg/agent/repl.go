@@ -46,12 +46,19 @@ import (
 	llm "github.com/kdeps/kdeps/v2/pkg/executor/llm"
 )
 
+//nolint:gochecknoglobals // overridable in tests for timing-sensitive spinner assertions
+var (
+	replThinkingDelay = 400 * time.Millisecond // delay before showing spinner
+	// spinnerOut is the writer for spinner frames and clear sequence. Defaults
+	// to os.Stdout; overridden in tests to capture spinner output without pipe races.
+	spinnerOut io.Writer = os.Stdout //nolint:gochecknoglobals // overridable in tests to capture spinner output
+)
+
 const (
 	replHistoryInitCap    = 100
 	sessionSubcmdArgMin   = 2 // minimum args for /session load|delete: subcommand + id
 	replPreviewMax        = 80
 	replLabelMod          = 2
-	replThinkingDelay     = 400 * time.Millisecond
 	replFileCompletionMax = 20
 	replAutoCompactEvery  = 25
 
@@ -989,29 +996,36 @@ func (r *REPL) runStreaming(ctx context.Context, input string) (string, error) {
 	case sr = <-ch:
 		// Response arrived before the spinner threshold -- nothing to clean up.
 	case <-timer.C:
-		// Only spin when thinking tokens are not already streaming live.
-		if thinkW == nil {
-			spinFrames := []string{"⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"}
-			done := make(chan struct{})
-			go func() {
-				tick := time.NewTicker(replTickerMs * time.Millisecond)
-				defer tick.Stop()
-				i := 0
-				for {
-					select {
-					case <-tick.C:
-						fmt.Fprintf(os.Stdout, "\r  %s generating", styleReplInfo.Render(spinFrames[i%len(spinFrames)]))
-						i++
-					case <-done:
-						return
-					}
+		// Show a spinner while waiting. If thinking tokens start streaming,
+		// liveThinkingWriter.Write already writes ansiClearLine before the
+		// thinking header, so the spinner line is cleared automatically.
+		spinFrames := []string{"⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"}
+		done := make(chan struct{})
+		var spinWg sync.WaitGroup
+		spinWg.Add(1)
+		capturedOut := spinnerOut // capture at goroutine creation time
+		go func() {
+			defer spinWg.Done()
+			tick := time.NewTicker(replTickerMs * time.Millisecond)
+			defer tick.Stop()
+			i := 0
+			for {
+				select {
+				case <-tick.C:
+					fmt.Fprintf(capturedOut, "\r  %s generating", styleReplInfo.Render(spinFrames[i%len(spinFrames)]))
+					i++
+				case <-done:
+					return
 				}
-			}()
-			sr = <-ch
-			close(done)
-			fmt.Fprint(os.Stdout, ansiClearLine)
-		} else {
-			sr = <-ch
+			}
+		}()
+		sr = <-ch
+		close(done)
+		spinWg.Wait() // ensure all spinner frames are flushed before clearing
+		// Only clear the spinner line when thinking hasn't already cleared it.
+		// liveThinkingWriter.Write writes ansiClearLine on its first chunk.
+		if thinkW == nil || !thinkW.started {
+			fmt.Fprint(capturedOut, ansiClearLine)
 		}
 	}
 
@@ -1751,9 +1765,18 @@ func (r *REPL) applyModelSwitch(model string) {
 }
 
 // contextLimitForModel returns the context window size for a model.
-// Checks the per-model registry first, then cloud backend, then env vars,
-// then derives from parameter count, falling back to 4096.
+// For local backends (llamafile, GGUF, Ollama) this is always the live
+// --ctx-size the running server was actually started with (see
+// llm.SetLocalContextSize / the /context command), since that value can
+// change at runtime and must stay in sync with what the prompt displays.
+// Otherwise checks the per-model registry, then cloud backend, then derives
+// from parameter count, falling back to 4096.
 func (r *REPL) contextLimitForModel(model string) int {
+	if r.isLocalModel(model) {
+		if n := llm.LocalContextSize(); n > 0 {
+			return n
+		}
+	}
 	// Check the per-model context window registry.
 	if ctx := ContextWindowForModel(model); ctx > 0 {
 		return ctx
@@ -1761,21 +1784,22 @@ func (r *REPL) contextLimitForModel(model string) int {
 	if BackendForModel(model) != "" {
 		return contextLimitCloud
 	}
-	// Check shared local context size env var.
-	mt := r.modelTypes[model]
-	switch mt {
-	case modelTypeGGUF, modelTypeLLamafile:
-		if v := os.Getenv("KDEPS_CTX_SIZE"); v != "" {
-			if n, err := strconv.Atoi(v); err == nil && n > 0 {
-				return n
-			}
-		}
-	}
 	// Derive from model parameter count (e.g., "7B" → 32768).
 	if n := contextFromParams(model); n > 0 {
 		return n
 	}
 	return contextLimitDefault
+}
+
+// isLocalModel reports whether model runs on a local server (llamafile,
+// GGUF, or Ollama) whose context size is controlled at runtime via /context
+// (llm.SetLocalContextSize), rather than a fixed per-model registry value.
+func (r *REPL) isLocalModel(model string) bool {
+	switch r.modelTypes[model] {
+	case modelTypeLLamafile, modelTypeGGUF, modelTypeOllama:
+		return true
+	}
+	return isGGUFModel(model)
 }
 
 // modelTypeForName returns the type tag for a model name from the REPL's

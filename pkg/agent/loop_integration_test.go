@@ -27,12 +27,14 @@ import (
 	"os"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/kdeps/kdeps/v2/pkg/domain"
 	"github.com/kdeps/kdeps/v2/pkg/executor"
+	llm "github.com/kdeps/kdeps/v2/pkg/executor/llm"
 	"github.com/kdeps/kdeps/v2/pkg/tools"
 )
 
@@ -843,6 +845,7 @@ type transientStreamer struct {
 	failCount int
 	calls     int
 	response  string
+	err       error // custom failure error; defaults to a 503 message when nil
 }
 
 func (t *transientStreamer) StreamChat(
@@ -850,6 +853,9 @@ func (t *transientStreamer) StreamChat(
 ) (string, []domain.StreamedToolCall, error) {
 	t.calls++
 	if t.calls <= t.failCount {
+		if t.err != nil {
+			return "", nil, t.err
+		}
 		return "", nil, errors.New("service unavailable: 503")
 	}
 	_, _ = io.WriteString(w, t.response)
@@ -950,6 +956,53 @@ func TestRunStreaming_NonTransient_NoRetry(t *testing.T) {
 	}
 }
 
+// TestRunStreaming_ReconnectsLocalModelOnTransientError verifies that when a
+// local (gguf/file) backend's server dies mid-session — the openai-compat
+// client returns "network error: failed to reach API server" — the retry
+// loop calls ModelService.ServeModel to restart it and refreshes
+// chatCfg.BaseURL to the newly served address before retrying.
+func TestRunStreaming_ReconnectsLocalModelOnTransientError(t *testing.T) {
+	ts := &transientStreamer{
+		failCount: 1,
+		response:  "hello after reconnect",
+		err: errors.New(
+			"agent loop stream: stream: generate: openai: unknown: network error: failed to reach API server",
+		),
+	}
+	svc := llm.NewMockModelService()
+	var served bool
+	svc.SetServeModelFunc(func(backend, model, _ string, _ int) error {
+		if backend == llm.BackendGGUF && model == "test-gguf" {
+			served = true
+		}
+		return nil
+	})
+	svc.ServerURLFunc = func(_, _ string) string {
+		if served {
+			return "http://127.0.0.1:9999"
+		}
+		return ""
+	}
+
+	loop := New(executor.NewEngine(nil), newTestWorkflowForSession(), tools.NewRegistry(), Config{
+		Model:              "test-gguf",
+		Backend:            llm.BackendGGUF,
+		BaseURL:            "http://127.0.0.1:1111", // stale/dead port
+		Streamer:           ts,
+		MaxToolRounds:      3,
+		AutoRetryMax:       3,
+		AutoRetryBaseDelay: 0,
+		ModelService:       svc,
+	})
+
+	var buf bytes.Buffer
+	result, err := loop.RunStreaming(context.Background(), "hello", &buf)
+	require.NoError(t, err)
+	assert.Equal(t, "hello after reconnect", result)
+	assert.True(t, served, "expected ServeModel to be called to restart the dead local server")
+	assert.Equal(t, "http://127.0.0.1:9999", loop.config.BaseURL, "expected BaseURL refreshed to reconnected server")
+}
+
 // --- dispatchToTerminal ---
 
 func TestDispatchToTerminal_Success(t *testing.T) {
@@ -1046,4 +1099,75 @@ func TestStripANSIWriter_PlainText_PassesThrough(t *testing.T) {
 	_, err := w.Write([]byte("no ansi here"))
 	require.NoError(t, err)
 	assert.Equal(t, "no ansi here", buf.String())
+}
+
+// --- Generating-spinner integration ---
+
+// slowStreamIntegration is a Streamer that sleeps past replThinkingDelay before
+// returning, simulating a local model doing a long prompt-prefill.
+type slowStreamIntegration struct {
+	delay    time.Duration
+	response string
+}
+
+func (s *slowStreamIntegration) StreamChat(
+	ctx context.Context, _ *domain.ChatConfig, w io.Writer,
+) (string, []domain.StreamedToolCall, error) {
+	select {
+	case <-time.After(s.delay):
+	case <-ctx.Done():
+		return "", nil, ctx.Err()
+	}
+	_, _ = io.WriteString(w, s.response)
+	return s.response, nil, nil
+}
+
+// TestREPL_GeneratingSpinner_Integration exercises the full path:
+//
+//	REPL.runWithThinking → runStreaming → Loop.RunStreaming → Streamer.StreamChat
+//
+// When the streamer takes longer than replThinkingDelay a "generating" indicator
+// must appear in spinnerOut. When it returns quickly, no indicator must appear.
+func TestREPL_GeneratingSpinner_Integration(t *testing.T) {
+	// Reduce the threshold so the spinner fires reliably in test environments
+	// without making tests slow. Restore on cleanup.
+	origDelay := replThinkingDelay
+	replThinkingDelay = 20 * time.Millisecond
+	t.Cleanup(func() { replThinkingDelay = origDelay })
+
+	t.Run("shows spinner when slow", func(t *testing.T) {
+		spinBuf := setSpinnerCapture(t)
+		streamer := &slowStreamIntegration{
+			delay:    300 * time.Millisecond,
+			response: "slow answer",
+		}
+		loop := newStreamingLoop(streamer, 1)
+		repl := NewREPL(loop)
+		defer repl.cancel()
+
+		resp, runErr := repl.runWithThinking(context.Background(), "hello")
+
+		require.NoError(t, runErr)
+		assert.Equal(t, "slow answer", resp)
+		assert.Contains(t, spinBuf.String(), "generating",
+			"spinner must appear when the model is slow to produce the first token")
+	})
+
+	t.Run("no spinner when fast", func(t *testing.T) {
+		spinBuf := setSpinnerCapture(t)
+		streamer := &slowStreamIntegration{
+			delay:    0,
+			response: "fast answer",
+		}
+		loop := newStreamingLoop(streamer, 1)
+		repl := NewREPL(loop)
+		defer repl.cancel()
+
+		resp, runErr := repl.runWithThinking(context.Background(), "hello")
+
+		require.NoError(t, runErr)
+		assert.Equal(t, "fast answer", resp)
+		assert.NotContains(t, spinBuf.String(), "generating",
+			"spinner must not appear when the model responds quickly")
+	})
 }

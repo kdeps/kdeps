@@ -276,5 +276,61 @@ else
     test_passed "REPL banner - no stale /models reference"
 fi
 
+# /context - no args shows current window size
+OUTPUT=$(_repl '/context')
+if output_grep_i "context window" "$OUTPUT"; then
+    test_passed "REPL /context (no args) - shows context window size"
+elif output_grep_i "panic|runtime error" "$OUTPUT"; then
+    test_failed "REPL /context (no args) - panicked" "Output: $OUTPUT"
+else
+    test_failed "REPL /context (no args) - expected 'context window'" "Output: $OUTPUT"
+fi
+
+# /context with invalid input shows usage error
+OUTPUT=$(_repl '/context notanumber')
+if output_grep_i "usage.*context|context.*size" "$OUTPUT"; then
+    test_passed "REPL /context invalid - shows usage error"
+elif output_grep_i "panic|runtime error" "$OUTPUT"; then
+    test_failed "REPL /context invalid - panicked" "Output: $OUTPUT"
+else
+    test_failed "REPL /context invalid - expected usage error" "Output: $OUTPUT"
+fi
+
+# /context with k suffix (32k -> 32768): no crash, prints context message
+OUTPUT=$(_repl '/context 32k')
+if output_grep_i "panic|runtime error" "$OUTPUT"; then
+    test_failed "REPL /context 32k - panicked" "Output: $OUTPUT"
+elif output_grep_i "context.*32768|context.*managed|context window" "$OUTPUT"; then
+    test_passed "REPL /context 32k - handled without crash"
+else
+    test_passed "REPL /context 32k - no crash"
+fi
+
+# /context with M suffix (1m -> 1048576): no crash
+OUTPUT=$(_repl '/context 1m')
+if output_grep_i "panic|runtime error" "$OUTPUT"; then
+    test_failed "REPL /context 1m - panicked" "Output: $OUTPUT"
+elif output_grep_i "context.*1048576|context.*managed|context window" "$OUTPUT"; then
+    test_passed "REPL /context 1m - M suffix handled without crash"
+else
+    test_passed "REPL /context 1m - no crash"
+fi
+
+# /context with uppercase K suffix
+OUTPUT=$(_repl '/context 64K')
+if output_grep_i "panic|runtime error" "$OUTPUT"; then
+    test_failed "REPL /context 64K - panicked" "Output: $OUTPUT"
+else
+    test_passed "REPL /context 64K - uppercase K suffix no crash"
+fi
+
+# /context with uppercase M suffix
+OUTPUT=$(_repl '/context 2M')
+if output_grep_i "panic|runtime error" "$OUTPUT"; then
+    test_failed "REPL /context 2M - panicked" "Output: $OUTPUT"
+else
+    test_passed "REPL /context 2M - uppercase M suffix no crash"
+fi
+
 echo ""
 echo "REPL subcommand E2E tests complete."

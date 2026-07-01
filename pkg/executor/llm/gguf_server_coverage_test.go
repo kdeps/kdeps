@@ -4,8 +4,10 @@
 package llm
 
 import (
+	"archive/tar"
 	"archive/zip"
 	"bytes"
+	"compress/gzip"
 	"errors"
 	"io"
 	"net/http"
@@ -22,6 +24,16 @@ type roundTripperFunc func(*http.Request) (*http.Response, error)
 
 func (f roundTripperFunc) RoundTrip(req *http.Request) (*http.Response, error) {
 	return f(req)
+}
+
+// stubLlamaServerAsset overrides resolveLlamaServerAssetFn to return a fixed
+// zip-suffixed URL without a real GitHub API call, restoring the original on
+// cleanup. Used by tests that only care about the download/extract steps.
+func stubLlamaServerAsset(t *testing.T, url string) {
+	t.Helper()
+	orig := resolveLlamaServerAssetFn
+	t.Cleanup(func() { resolveLlamaServerAssetFn = orig })
+	resolveLlamaServerAssetFn = func(string) (string, error) { return url, nil }
 }
 
 func TestGGufLlamaServerBinary_EnvVar(t *testing.T) {
@@ -138,6 +150,7 @@ func TestEnsureLlamaServerBinary_Cached(t *testing.T) {
 func TestEnsureLlamaServerBinary_InstallFallback(t *testing.T) {
 	dir := t.TempDir()
 	t.Setenv("HOME", dir)
+	stubLlamaServerAsset(t, "https://example.com/llama-server.zip")
 
 	// Mock HTTP client to make installLlamaServer fail
 	origTransport := downloadHTTPClient.Transport
@@ -215,6 +228,7 @@ func TestDownloadFile_CreateFileError(t *testing.T) {
 }
 
 func TestInstallLlamaServer_DownloadError(t *testing.T) {
+	stubLlamaServerAsset(t, "https://example.com/llama-server.zip")
 	origTransport := downloadHTTPClient.Transport
 	t.Cleanup(func() { downloadHTTPClient.Transport = origTransport })
 	downloadHTTPClient.Transport = roundTripperFunc(func(_ *http.Request) (*http.Response, error) {
@@ -229,6 +243,7 @@ func TestInstallLlamaServer_DownloadError(t *testing.T) {
 }
 
 func TestInstallLlamaServer_ExtractError(t *testing.T) {
+	stubLlamaServerAsset(t, "https://example.com/llama-server.zip")
 	origTransport := downloadHTTPClient.Transport
 	t.Cleanup(func() { downloadHTTPClient.Transport = origTransport })
 	downloadHTTPClient.Transport = roundTripperFunc(func(_ *http.Request) (*http.Response, error) {
@@ -249,6 +264,7 @@ func TestInstallLlamaServer_ExtractError(t *testing.T) {
 }
 
 func TestInstallLlamaServer_Success(t *testing.T) {
+	stubLlamaServerAsset(t, "https://example.com/llama-server.zip")
 	origTransport := downloadHTTPClient.Transport
 	t.Cleanup(func() { downloadHTTPClient.Transport = origTransport })
 
@@ -278,6 +294,12 @@ func TestInstallLlamaServer_Success(t *testing.T) {
 	data, err := os.ReadFile(dest)
 	require.NoError(t, err)
 	assert.Equal(t, "fake-llama-server-binary", string(data))
+
+	// Regression: the installed binary must be executable (0600 cannot be
+	// exec'd), or ServeModel's cmd.Start() fails with "permission denied".
+	info, err := os.Stat(dest)
+	require.NoError(t, err)
+	assert.NotZero(t, info.Mode().Perm()&0100, "installed llama-server binary must have owner-execute permission")
 }
 
 func TestResolvedGGUFURL_ModelNotInCache(t *testing.T) {
@@ -410,6 +432,7 @@ func TestCachedLlamaServerPath_HomeDirError(t *testing.T) {
 func TestEnsureLlamaServerBinary_InstallSuccess(t *testing.T) {
 	dir := t.TempDir()
 	t.Setenv("HOME", dir)
+	stubLlamaServerAsset(t, "https://example.com/llama-server.zip")
 
 	// Pre-create the parent dir so downloadFile's os.Create succeeds.
 	require.NoError(t, os.MkdirAll(filepath.Join(dir, ".kdeps", "bin"), 0750))
@@ -479,7 +502,7 @@ func TestDetectOSArch_LinuxAmd64(t *testing.T) {
 	testArch = "amd64"
 	t.Cleanup(func() { testOS = origOS; testArch = origArch })
 	result := detectOSArch()
-	assert.Equal(t, "b4582-bin-ubuntu-x64", result)
+	assert.Equal(t, "ubuntu-x64", result)
 }
 
 func TestDetectOSArch_LinuxArm64(t *testing.T) {
@@ -489,7 +512,7 @@ func TestDetectOSArch_LinuxArm64(t *testing.T) {
 	testArch = "arm64"
 	t.Cleanup(func() { testOS = origOS; testArch = origArch })
 	result := detectOSArch()
-	assert.Equal(t, "b4582-bin-ubuntu-arm64", result)
+	assert.Equal(t, "ubuntu-arm64", result)
 }
 
 func TestDetectOSArch_DarwinAmd64(t *testing.T) {
@@ -499,7 +522,7 @@ func TestDetectOSArch_DarwinAmd64(t *testing.T) {
 	testArch = "amd64"
 	t.Cleanup(func() { testOS = origOS; testArch = origArch })
 	result := detectOSArch()
-	assert.Equal(t, "b4582-bin-macos-x64", result)
+	assert.Equal(t, "macos-x64", result)
 }
 
 func TestDetectOSArch_WindowsAmd64(t *testing.T) {
@@ -509,7 +532,7 @@ func TestDetectOSArch_WindowsAmd64(t *testing.T) {
 	testArch = "amd64"
 	t.Cleanup(func() { testOS = origOS; testArch = origArch })
 	result := detectOSArch()
-	assert.Equal(t, "b4582-bin-win-x64", result)
+	assert.Equal(t, "win-cpu-x64", result)
 }
 
 func TestDetectOSArch_Unsupported(t *testing.T) {
@@ -534,6 +557,7 @@ func TestInstallLlamaServer_UnsupportedPlatform(t *testing.T) {
 }
 
 func TestInstallLlamaServer_ChmodError(t *testing.T) {
+	stubLlamaServerAsset(t, "https://example.com/llama-server.zip")
 	dir := t.TempDir()
 	dest := filepath.Join(dir, ".kdeps", "bin", "llama-server")
 	require.NoError(t, os.MkdirAll(filepath.Dir(dest), 0750))
@@ -566,4 +590,205 @@ func TestInstallLlamaServer_ChmodError(t *testing.T) {
 	err = installLlamaServer(dest)
 	require.Error(t, err)
 	_ = os.Chmod(dest, 0755)
+}
+
+// Regression coverage for the stale-build-tag bug: llama.cpp cuts new releases
+// under new build-number tags constantly, so resolveLlamaServerAsset must find
+// the current release's asset by OS/arch suffix rather than assuming a fixed
+// filename (which 404s the moment the tag rolls over).
+
+func mockGithubReleaseJSON(t *testing.T, body string) {
+	t.Helper()
+	origTransport := githubReleaseHTTPClient.Transport
+	t.Cleanup(func() { githubReleaseHTTPClient.Transport = origTransport })
+	githubReleaseHTTPClient.Transport = roundTripperFunc(func(_ *http.Request) (*http.Response, error) {
+		return &http.Response{
+			StatusCode: http.StatusOK,
+			Body:       io.NopCloser(bytes.NewReader([]byte(body))),
+			Header:     make(http.Header),
+		}, nil
+	})
+}
+
+const fakeLlamaCppReleaseJSON = `{
+  "assets": [
+    {"name": "llama-b9852-bin-macos-arm64.tar.gz", "browser_download_url": "https://example.com/llama-b9852-bin-macos-arm64.tar.gz"},
+    {"name": "llama-b9852-bin-macos-x64.tar.gz", "browser_download_url": "https://example.com/llama-b9852-bin-macos-x64.tar.gz"},
+    {"name": "llama-b9852-bin-ubuntu-x64.tar.gz", "browser_download_url": "https://example.com/llama-b9852-bin-ubuntu-x64.tar.gz"},
+    {"name": "llama-b9852-bin-ubuntu-arm64.tar.gz", "browser_download_url": "https://example.com/llama-b9852-bin-ubuntu-arm64.tar.gz"},
+    {"name": "llama-b9852-bin-win-cpu-x64.zip", "browser_download_url": "https://example.com/llama-b9852-bin-win-cpu-x64.zip"},
+    {"name": "llama-b9852-bin-win-cuda-12.4-x64.zip", "browser_download_url": "https://example.com/llama-b9852-bin-win-cuda-12.4-x64.zip"}
+  ]
+}`
+
+func TestResolveLlamaServerAsset_FindsMatchByOSArchSuffix(t *testing.T) {
+	mockGithubReleaseJSON(t, fakeLlamaCppReleaseJSON)
+
+	url, err := resolveLlamaServerAsset("macos-arm64")
+	require.NoError(t, err)
+	assert.Equal(t, "https://example.com/llama-b9852-bin-macos-arm64.tar.gz", url)
+}
+
+func TestResolveLlamaServerAsset_DoesNotDependOnBuildTag(t *testing.T) {
+	// A future release under a different build tag (e.g. b12345 instead of
+	// b9852) must still resolve correctly since matching is by suffix, not by
+	// a hardcoded tag.
+	mockGithubReleaseJSON(t, `{"assets": [
+		{"name": "llama-b12345-bin-ubuntu-x64.tar.gz", "browser_download_url": "https://example.com/future-ubuntu-x64.tar.gz"}
+	]}`)
+
+	url, err := resolveLlamaServerAsset("ubuntu-x64")
+	require.NoError(t, err)
+	assert.Equal(t, "https://example.com/future-ubuntu-x64.tar.gz", url)
+}
+
+func TestResolveLlamaServerAsset_WindowsPicksZip(t *testing.T) {
+	mockGithubReleaseJSON(t, fakeLlamaCppReleaseJSON)
+
+	url, err := resolveLlamaServerAsset("win-cpu-x64")
+	require.NoError(t, err)
+	assert.Equal(t, "https://example.com/llama-b9852-bin-win-cpu-x64.zip", url)
+}
+
+func TestResolveLlamaServerAsset_NoMatchingAsset(t *testing.T) {
+	mockGithubReleaseJSON(t, fakeLlamaCppReleaseJSON)
+
+	_, err := resolveLlamaServerAsset("freebsd-x64")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "no llama-server asset found")
+}
+
+func TestResolveLlamaServerAsset_HTTPTransportError(t *testing.T) {
+	origTransport := githubReleaseHTTPClient.Transport
+	t.Cleanup(func() { githubReleaseHTTPClient.Transport = origTransport })
+	githubReleaseHTTPClient.Transport = roundTripperFunc(func(_ *http.Request) (*http.Response, error) {
+		return nil, errors.New("connection refused")
+	})
+
+	_, err := resolveLlamaServerAsset("macos-arm64")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "fetch latest release")
+}
+
+func TestResolveLlamaServerAsset_Non200Status(t *testing.T) {
+	origTransport := githubReleaseHTTPClient.Transport
+	t.Cleanup(func() { githubReleaseHTTPClient.Transport = origTransport })
+	githubReleaseHTTPClient.Transport = roundTripperFunc(func(_ *http.Request) (*http.Response, error) {
+		return &http.Response{
+			StatusCode: http.StatusNotFound,
+			Body:       io.NopCloser(bytes.NewReader(nil)),
+			Header:     make(http.Header),
+		}, nil
+	})
+
+	_, err := resolveLlamaServerAsset("macos-arm64")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "fetch latest release returned 404")
+}
+
+func TestResolveLlamaServerAsset_InvalidJSON(t *testing.T) {
+	mockGithubReleaseJSON(t, "not json")
+
+	_, err := resolveLlamaServerAsset("macos-arm64")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "decode release")
+}
+
+// extractTarGzFile tests, mirroring the existing extractZipFile coverage.
+
+func writeTestTarGz(t *testing.T, files map[string]string) string {
+	t.Helper()
+	dir := t.TempDir()
+	tarGzPath := filepath.Join(dir, "test.tar.gz")
+
+	var buf bytes.Buffer
+	gz := gzip.NewWriter(&buf)
+	tw := tar.NewWriter(gz)
+	for name, content := range files {
+		hdr := &tar.Header{Name: name, Mode: 0600, Size: int64(len(content))}
+		require.NoError(t, tw.WriteHeader(hdr))
+		_, err := tw.Write([]byte(content))
+		require.NoError(t, err)
+	}
+	require.NoError(t, tw.Close())
+	require.NoError(t, gz.Close())
+	require.NoError(t, os.WriteFile(tarGzPath, buf.Bytes(), 0600))
+	return tarGzPath
+}
+
+func TestExtractTarGzFile_ValidArchive(t *testing.T) {
+	tarGzPath := writeTestTarGz(t, map[string]string{
+		"build/bin/llama-server": "fake-binary-content",
+	})
+	destDir := filepath.Join(filepath.Dir(tarGzPath), "extracted")
+
+	err := extractTarGzFile(tarGzPath, destDir)
+	require.NoError(t, err)
+
+	data, err := os.ReadFile(destDir)
+	require.NoError(t, err)
+	assert.Equal(t, "fake-binary-content", string(data))
+}
+
+func TestExtractTarGzFile_NoLlamaServerBinary(t *testing.T) {
+	tarGzPath := writeTestTarGz(t, map[string]string{
+		"some-other-file.txt": "not the binary",
+	})
+
+	err := extractTarGzFile(tarGzPath, filepath.Join(filepath.Dir(tarGzPath), "out"))
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "llama-server binary not found")
+}
+
+func TestExtractTarGzFile_MissingFile(t *testing.T) {
+	err := extractTarGzFile("/nonexistent/archive.tar.gz", t.TempDir())
+	require.Error(t, err)
+}
+
+func TestExtractTarGzFile_InvalidGzipContent(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "corrupt.tar.gz")
+	require.NoError(t, os.WriteFile(path, []byte("not-a-gzip-file"), 0600))
+
+	err := extractTarGzFile(path, filepath.Join(dir, "out"))
+	require.Error(t, err)
+}
+
+// TestInstallLlamaServer_TarGzSuccess pins the full non-Windows install path:
+// resolveLlamaServerAssetFn returns a .tar.gz asset, installLlamaServer must
+// extract it with extractTarGzFile (not extractZipFile) and leave the binary
+// executable.
+func TestInstallLlamaServer_TarGzSuccess(t *testing.T) {
+	stubLlamaServerAsset(t, "https://example.com/llama-server.tar.gz")
+
+	tarGzPath := writeTestTarGz(t, map[string]string{
+		"build/bin/llama-server": "fake-targz-binary",
+	})
+	archiveBytes, err := os.ReadFile(tarGzPath)
+	require.NoError(t, err)
+
+	origTransport := downloadHTTPClient.Transport
+	t.Cleanup(func() { downloadHTTPClient.Transport = origTransport })
+	downloadHTTPClient.Transport = roundTripperFunc(func(_ *http.Request) (*http.Response, error) {
+		return &http.Response{
+			StatusCode: http.StatusOK,
+			Body:       io.NopCloser(bytes.NewReader(archiveBytes)),
+			Header:     make(http.Header),
+		}, nil
+	})
+
+	dir := t.TempDir()
+	dest := filepath.Join(dir, ".kdeps", "bin", "llama-server")
+	require.NoError(t, os.MkdirAll(filepath.Dir(dest), 0750))
+
+	err = installLlamaServer(dest)
+	require.NoError(t, err)
+
+	data, err := os.ReadFile(dest)
+	require.NoError(t, err)
+	assert.Equal(t, "fake-targz-binary", string(data))
+
+	info, err := os.Stat(dest)
+	require.NoError(t, err)
+	assert.NotZero(t, info.Mode().Perm()&0100, "installed llama-server binary must have owner-execute permission")
 }

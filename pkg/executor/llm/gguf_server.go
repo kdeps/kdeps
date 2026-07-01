@@ -19,8 +19,11 @@
 package llm
 
 import (
+	"archive/tar"
 	"archive/zip"
+	"compress/gzip"
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -30,6 +33,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -167,29 +171,95 @@ func cachedLlamaServerPath() string {
 	return filepath.Join(home, ".kdeps", "bin", "llama-server")
 }
 
+// llamaServerExecutablePerm grants owner/group/other read+execute and owner
+// write, matching the standard mode for installed executables (e.g. 0755).
+const llamaServerExecutablePerm = 0755
+
 func installLlamaServer(dest string) error {
 	kdeps_debug.Log("enter: installLlamaServer")
 	osArch := detectOSArch()
 	if osArch == "" {
 		return errors.New("unsupported platform")
 	}
-	// GitHub releases for ggml-org/llama.cpp
-	url := fmt.Sprintf(
-		"https://github.com/ggml-org/llama.cpp/releases/latest/download/llama-%s.zip",
-		osArch,
-	)
-	zipPath := dest + ".zip"
-	if err := downloadFile(zipPath, url); err != nil {
-		return fmt.Errorf("download llama-server: %w", err)
+	assetURL, err := resolveLlamaServerAssetFn(osArch)
+	if err != nil {
+		return fmt.Errorf("resolve llama-server release asset: %w", err)
 	}
-	defer os.Remove(zipPath)
-	if err := extractZipFile(zipPath, dest); err != nil {
+	isZip := strings.HasSuffix(assetURL, ".zip")
+	archivePath := dest + ".tar.gz"
+	if isZip {
+		archivePath = dest + ".zip"
+	}
+	if dlErr := downloadFile(archivePath, assetURL); dlErr != nil {
+		return fmt.Errorf("download llama-server: %w", dlErr)
+	}
+	defer os.Remove(archivePath)
+	if isZip {
+		err = extractZipFile(archivePath, dest)
+	} else {
+		err = extractTarGzFile(archivePath, dest)
+	}
+	if err != nil {
 		return fmt.Errorf("extract llama-server: %w", err)
 	}
-	if err := os.Chmod(dest, 0600); err != nil {
-		return fmt.Errorf("chmod llama-server: %w", err)
+	if chmodErr := os.Chmod(dest, llamaServerExecutablePerm); chmodErr != nil {
+		return fmt.Errorf("chmod llama-server: %w", chmodErr)
 	}
 	return nil
+}
+
+const llamaCppLatestReleaseAPI = "https://api.github.com/repos/ggml-org/llama.cpp/releases/latest"
+
+//nolint:gochecknoglobals // test-replaceable HTTP client for the GitHub release API
+var githubReleaseHTTPClient = &http.Client{
+	Timeout: 30 * time.Second, //nolint:mnd // 30s is a standard GitHub API timeout
+}
+
+type githubReleaseAsset struct {
+	Name               string `json:"name"`
+	BrowserDownloadURL string `json:"browser_download_url"`
+}
+
+type githubRelease struct {
+	Assets []githubReleaseAsset `json:"assets"`
+}
+
+//nolint:gochecknoglobals // test-replaceable hook
+var resolveLlamaServerAssetFn = resolveLlamaServerAsset
+
+// resolveLlamaServerAsset finds the download URL for the current platform's
+// llama-server binary in the latest ggml-org/llama.cpp GitHub release. Assets
+// are matched by OS/arch suffix rather than a hardcoded build tag or filename,
+// since llama.cpp release build numbers (and archive extensions) change with
+// every release.
+func resolveLlamaServerAsset(osArch string) (string, error) {
+	req, err := http.NewRequestWithContext(context.Background(), http.MethodGet, llamaCppLatestReleaseAPI, nil)
+	if err != nil {
+		return "", fmt.Errorf("build release request: %w", err)
+	}
+	req.Header.Set("Accept", "application/vnd.github+json")
+	resp, err := githubReleaseHTTPClient.Do(req)
+	if err != nil {
+		return "", fmt.Errorf("fetch latest release: %w", err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		return "", fmt.Errorf("fetch latest release returned %d", resp.StatusCode)
+	}
+	var release githubRelease
+	if decErr := json.NewDecoder(resp.Body).Decode(&release); decErr != nil {
+		return "", fmt.Errorf("decode release: %w", decErr)
+	}
+	suffix := "-bin-" + osArch
+	for _, a := range release.Assets {
+		if !strings.HasPrefix(a.Name, "llama-") {
+			continue
+		}
+		if strings.HasSuffix(a.Name, suffix+".tar.gz") || strings.HasSuffix(a.Name, suffix+".zip") {
+			return a.BrowserDownloadURL, nil
+		}
+	}
+	return "", fmt.Errorf("no llama-server asset found for %s in latest release", osArch)
 }
 
 //nolint:gochecknoglobals // test-replaceable hooks
@@ -211,21 +281,21 @@ func detectOSArch() string {
 	switch goos {
 	case "linux":
 		if goarch == archAmd64 {
-			return "b4582-bin-ubuntu-x64"
+			return "ubuntu-x64"
 		}
 		if goarch == archArm64 {
-			return "b4582-bin-ubuntu-arm64"
+			return "ubuntu-arm64"
 		}
 	case "darwin":
 		if goarch == archAmd64 {
-			return "b4582-bin-macos-x64"
+			return "macos-x64"
 		}
 		if goarch == archArm64 {
-			return "b4582-bin-macos-arm64"
+			return "macos-arm64"
 		}
 	case "windows":
 		if goarch == archAmd64 {
-			return "b4582-bin-win-x64"
+			return "win-cpu-x64"
 		}
 	}
 	return ""
@@ -288,6 +358,56 @@ func extractZipFile(zipPath, destDir string) error {
 		//nolint:gosec // G110: binary is size-bounded by GitHub release; not user-controlled decompression
 		_, copyErr := io.Copy(out, rc)
 		_ = rc.Close()
+		if closeErr := out.Close(); closeErr != nil {
+			return closeErr
+		}
+		if copyErr != nil {
+			return copyErr
+		}
+		return nil
+	}
+	return errors.New("llama-server binary not found in archive")
+}
+
+// extractTarGzFile extracts the llama-server binary from a .tar.gz archive
+// (the format used by current macOS/Linux llama.cpp releases) into destDir.
+func extractTarGzFile(tarGzPath, destDir string) error {
+	kdeps_debug.Log("enter: extractTarGzFile")
+	f, err := os.Open(tarGzPath)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+	gz, err := gzip.NewReader(f)
+	if err != nil {
+		return err
+	}
+	defer gz.Close()
+	tr := tar.NewReader(gz)
+	for {
+		hdr, nextErr := tr.Next()
+		if errors.Is(nextErr, io.EOF) {
+			break
+		}
+		if nextErr != nil {
+			return nextErr
+		}
+		if hdr.Typeflag != tar.TypeReg {
+			continue
+		}
+		base := filepath.Base(hdr.Name)
+		if base != "llama-server" && base != "llama-server.exe" {
+			continue
+		}
+		if mkdirErr := os.MkdirAll(filepath.Dir(destDir), 0750); mkdirErr != nil {
+			return mkdirErr
+		}
+		out, outErr := os.OpenFile(destDir, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0600)
+		if outErr != nil {
+			return outErr
+		}
+		//nolint:gosec // G110: binary is size-bounded by GitHub release; not user-controlled decompression
+		_, copyErr := io.Copy(out, tr)
 		if closeErr := out.Close(); closeErr != nil {
 			return closeErr
 		}
