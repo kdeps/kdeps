@@ -2984,7 +2984,7 @@ func TestContextFromParams_Thresholds(t *testing.T) {
 		{name: "1B_model", model: "llama3.2", want: contextLimit1B},
 		{name: "2B_model", model: "qwen3", want: contextLimit1B},
 		{name: "3B_model", model: "rocket3", want: contextLimit3B},
-		{name: "4B_model", model: "jan3.5", want: contextLimit3B},
+		{name: "3B_model_alt", model: "starcoder2", want: contextLimit3B},
 		{name: "7B_model", model: "mathstral7", want: contextLimit7B},
 		{name: "8B_model", model: "llama3.1", want: contextLimit7B},
 		{name: "27B_model", model: "qwen3.6", want: contextLimit13B},
