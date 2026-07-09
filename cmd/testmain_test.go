@@ -32,6 +32,17 @@ func TestMain(m *testing.M) {
 	}
 	_ = os.Unsetenv("KDEPS_COMPONENT_DIR")
 	_ = os.Unsetenv("KDEPS_SKIP_BOOTSTRAP")
+	// Isolate config loading from the developer's real ~/.kdeps/config.yaml:
+	// any test that runs a workflow applies config values to the process env
+	// (setIfUnset, e.g. KDEPS_DEFAULT_BACKEND), which leaks into every later
+	// test and breaks model auto-detection in the REPL tests.
+	var cfgTmp string
+	if os.Getenv("KDEPS_CONFIG_PATH") == "" {
+		if tmp, err := os.MkdirTemp("", "kdeps-test-config"); err == nil {
+			cfgTmp = tmp
+			_ = os.Setenv("KDEPS_CONFIG_PATH", tmp+"/config.yaml")
+		}
+	}
 
 	orig := docker.LatestReleaseTagFunc()
 	docker.SetLatestReleaseTagFunc(func(_ context.Context, repo string) (string, error) {
@@ -49,5 +60,8 @@ func TestMain(m *testing.M) {
 
 	code := m.Run()
 	docker.SetLatestReleaseTagFunc(orig)
+	if cfgTmp != "" {
+		_ = os.RemoveAll(cfgTmp)
+	}
 	os.Exit(code)
 }

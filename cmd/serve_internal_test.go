@@ -466,12 +466,15 @@ func TestRunREPL_ErrorFromRun(t *testing.T) {
 		stderrR.Close()
 	}()
 
-	_, err = stdinW.WriteString("hello\n")
+	// Exit via /exit instead of closing stdin: readline's EOF handling races
+	// with buffered-line delivery, occasionally dropping "hello" when the
+	// pipe is closed immediately after writing (flaky under full-suite load).
+	_, err = stdinW.WriteString("hello\n/exit\n")
 	require.NoError(t, err)
-	stdinW.Close()
 
 	err = agent.NewREPL(loop).Run()
 	require.NoError(t, err)
+	stdinW.Close()
 
 	stdoutW.Close()
 	stderrW.Close()

@@ -1521,7 +1521,13 @@ func (r *REPL) runPlain() {
 			_ = r.dispatchCommand(line)
 			continue
 		}
-		resp, _ := runFn(r.ctx, line)
+		resp, runErr := runFn(r.ctx, line)
+		if runErr != nil && !errors.Is(runErr, context.Canceled) {
+			fmt.Fprintln(os.Stderr, styleReplError.Render("error: "+runErr.Error()))
+			if hint := r.contextSizeHint(runErr); hint != "" {
+				fmt.Fprintln(os.Stderr, styleReplMeta.Render(hint))
+			}
+		}
 		if resp != "" {
 			fmt.Fprintln(os.Stdout, resp)
 		}
