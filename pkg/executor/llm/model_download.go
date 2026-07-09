@@ -68,7 +68,7 @@ func downloadModelFile(
 		return dest, nil
 	}
 
-	logger.InfoContext(ctx, "downloading model", "url", rawURL, "dest", dest)
+	logger.DebugContext(ctx, "downloading model", "url", rawURL, "dest", dest)
 
 	if err := downloadWithResumeFunc(ctx, dest, rawURL); err != nil {
 		// A Ctrl+C / canceled download must abort, not silently restart via

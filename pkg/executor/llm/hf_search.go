@@ -179,7 +179,7 @@ func HFDownloadGGUF(ctx context.Context, repoID, filename string, logger *slog.L
 	downloadURL := HFDownloadURL(repoID, filename)
 	dest := filepath.Join(dir, pathologize.Clean(filepath.Base(filename)))
 
-	if _, statErr := AppFS.Stat(dest); statErr != nil {
+	if _, statErr := AppFS.Stat(dest); statErr != nil || isPartialDownload(AppFS, dest) {
 		if dlErr := hfDownloadFile(ctx, downloadURL, filename, dest, dir, logger); dlErr != nil {
 			return "", "", dlErr
 		}
