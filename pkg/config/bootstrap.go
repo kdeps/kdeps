@@ -226,6 +226,7 @@ func configureProvider(
 	}
 	p, ok := cloudProviders[chosenProvider]
 	if !ok {
+		cfg.LLM.Backend = chosenProvider // persist file/other non-cloud backends
 		return nil
 	}
 	w.printf("\n  Enter your %s API key (input hidden): ", chosenProvider)

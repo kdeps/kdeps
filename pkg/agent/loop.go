@@ -237,26 +237,48 @@ func (l *Loop) PromptByName(name string) *PromptTemplate {
 // Falls back to llama3.2 + file if nothing is available.
 
 func resolveModelAndBackend(model, backend string) (string, string) {
+	// Determine backend first: explicit flag/env overrides auto-detection.
+	backend = envOrDefault("KDEPS_AGENT_BACKEND", backend)
+	if backend == "" {
+		backend = os.Getenv("KDEPS_DEFAULT_BACKEND")
+	}
+	// Auto-detect model and/or backend when not explicitly configured.
 	if model == "" {
 		model = envOrDefault("KDEPS_AGENT_MODEL", "")
-		if model == "" {
-			model, _ = detectDefaultModelAndBackend()
-		}
 	}
-	if backend != "" {
-		return model, backend
-	}
-	backend = envOrDefault("KDEPS_AGENT_BACKEND", "")
-	if backend != "" {
-		return model, backend
-	}
-	if model != "" {
+	if model == "" && backend == "" {
+		model, backend = detectDefaultModelAndBackend()
+	} else if model == "" {
+		// Backend is explicit — try to find a matching default model.
+		model = defaultModelForBackend(backend)
+	} else if backend == "" {
 		backend = BackendForModel(model)
 	}
-	if backend == "" {
-		_, backend = detectDefaultModelAndBackend()
-	}
 	return model, backend
+}
+
+// defaultModelForBackend returns a sensible default model for the given backend.
+// Returns "" when no obvious default exists (the REPL will prompt the user to pick).
+func defaultModelForBackend(backend string) string {
+	switch backend {
+	case executorLLM.BackendFile:
+		return "" // needs llamafile binary — let user pick
+	case executorLLM.BackendGGUF:
+		return "" // needs .gguf files — let user pick
+	case "ollama":
+		if models := executorLLM.ListOllamaModels(); len(models) > 0 {
+			return models[0].Name
+		}
+		return "" // ollama has no models pulled
+	default:
+		// Cloud backend — return the first matching model from the catalog.
+		for _, m := range KnownCloudModels {
+			if m.Backend == backend && os.Getenv(m.EnvVar) != "" {
+				return m.ID
+			}
+		}
+		return ""
+	}
 }
 
 func autoStartLocalModel(cfg *Config) {
