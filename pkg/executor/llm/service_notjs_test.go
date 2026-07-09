@@ -43,7 +43,7 @@ func TestModelService_DownloadOllamaModel_Success(t *testing.T) {
 		return exec.CommandContext(ctx, "echo", "ok")
 	}
 	s := NewModelService(slog.Default())
-	require.NoError(t, s.downloadOllamaModel("m"))
+	require.NoError(t, s.downloadOllamaModel(context.Background(), "m"))
 }
 
 func TestModelService_ServeOllamaModel_SetenvWarn(t *testing.T) {
@@ -69,7 +69,7 @@ func TestModelService_DownloadOllamaModel_Error(t *testing.T) {
 		return exec.CommandContext(ctx, "false")
 	}
 	s := NewModelService(slog.Default())
-	err := s.downloadOllamaModel("m")
+	err := s.downloadOllamaModel(context.Background(), "m")
 	require.Error(t, err)
 }
 
@@ -102,7 +102,7 @@ func TestModelService_ServeModel_OllamaCase(t *testing.T) {
 		return exec.CommandContext(ctx, "echo", "ok")
 	}
 	s := NewModelService(nil)
-	err := s.ServeModel(backendOllama, "m", "127.0.0.1", 11434)
+	err := s.ServeModel(context.Background(), backendOllama, "m", "127.0.0.1", 11434)
 	require.NoError(t, err)
 }
 
@@ -113,7 +113,7 @@ func TestModelService_DownloadModel_OllamaCase(t *testing.T) {
 		return exec.CommandContext(ctx, "echo", "ok")
 	}
 	s := NewModelService(nil)
-	require.NoError(t, s.DownloadModel(backendOllama, "m"))
+	require.NoError(t, s.DownloadModel(context.Background(), backendOllama, "m"))
 }
 
 func TestModelService_ServerURL_Default(t *testing.T) {
@@ -156,7 +156,7 @@ func TestModelService_ServerURL_Ollama_HonorsOllamaHost(t *testing.T) {
 }
 
 func TestWaitForServerReady_EmptyURL(_ *testing.T) {
-	WaitForServerReady("")
+	WaitForServerReady(context.Background(), "")
 }
 
 func TestWaitForServerReady_CallsOverride(t *testing.T) {
@@ -164,11 +164,11 @@ func TestWaitForServerReady_CallsOverride(t *testing.T) {
 	t.Cleanup(func() { WaitForCompletionsReadyFunc = orig })
 
 	called := false
-	WaitForCompletionsReadyFunc = func(url string) {
+	WaitForCompletionsReadyFunc = func(_ context.Context, url string) {
 		called = true
 		assert.Equal(t, "http://127.0.0.1:8080", url)
 	}
-	WaitForServerReady("http://127.0.0.1:8080")
+	WaitForServerReady(context.Background(), "http://127.0.0.1:8080")
 	assert.True(t, called)
 }
 

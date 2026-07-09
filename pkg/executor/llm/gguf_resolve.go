@@ -19,6 +19,7 @@
 package llm
 
 import (
+	"context"
 	"fmt"
 	"path/filepath"
 	"strings"
@@ -27,15 +28,15 @@ import (
 )
 
 // Resolve returns the local filesystem path to the GGUF model file,
-// downloading or resolving as needed.
-func (m *GGUFManager) Resolve(model string) (string, error) {
+// downloading or resolving as needed. ctx cancels an in-flight download.
+func (m *GGUFManager) Resolve(ctx context.Context, model string) (string, error) {
 	kdeps_debug.Log("enter: GGUFManager.Resolve")
 
 	if IsRemoteModel(model) {
-		return m.download(model)
+		return m.download(ctx, model)
 	}
 	if url, ok := ResolveGGUFAlias(model); ok {
-		return m.download(url)
+		return m.download(ctx, url)
 	}
 	return m.resolveLocalModel(model)
 }
@@ -73,7 +74,7 @@ func (m *GGUFManager) resolveCachedModel(model string) (string, error) {
 	return cached, nil
 }
 
-func (m *GGUFManager) download(rawURL string) (string, error) {
+func (m *GGUFManager) download(ctx context.Context, rawURL string) (string, error) {
 	kdeps_debug.Log("enter: GGUFManager.download")
-	return downloadModelFile(rawURL, "model.gguf", m.modelsDir, m.logger, AppFS)
+	return downloadModelFile(ctx, rawURL, "model.gguf", m.modelsDir, m.logger, AppFS)
 }

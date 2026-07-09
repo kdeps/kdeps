@@ -1317,7 +1317,10 @@ func (r *REPL) processInput(input string) error {
 		return r.dispatchCommand(input)
 	}
 	if r.loop.config.Model == "" {
-		fmt.Fprintln(os.Stdout, styleReplMeta.Render("No model selected — use /model <name> to pick one, or /model list"))
+		fmt.Fprintln(
+			os.Stdout,
+			styleReplMeta.Render("No model selected — use /model <name> to pick one, or /model list"),
+		)
 		return nil
 	}
 
@@ -1869,7 +1872,8 @@ const (
 
 // startLocalModelServer downloads, starts, and waits for readiness of a local
 // (file or gguf) model server. No-op when ModelService is not set or the
-// backend is not a local type. Blocks until the completions endpoint responds.
+// backend is not a local type. Blocks until the completions endpoint responds
+// or Ctrl+C cancels the turn context.
 func (r *REPL) startLocalModelServer(model string) {
 	svc := r.loop.config.ModelService
 	if svc == nil {
@@ -1879,9 +1883,19 @@ func (r *REPL) startLocalModelServer(model string) {
 	if backend != llm.BackendFile && backend != llm.BackendGGUF && backend != "ollama" {
 		return
 	}
+	// Capture the turn context: Ctrl+C cancels it (and handleSignalInterrupt
+	// replaces r.ctx with a fresh one for the next prompt).
+	ctx := r.ctx
 	fmt.Fprintf(os.Stdout, "\n%s\n", styleReplMeta.Render("Downloading/starting model server..."))
-	_ = svc.DownloadModel(backend, model)
-	_ = svc.ServeModel(backend, model, "", 0)
+	if err := svc.DownloadModel(ctx, backend, model); err != nil && ctx.Err() != nil {
+		fmt.Fprintf(os.Stdout, "%s\n", styleReplMeta.Render("Model download canceled."))
+		return
+	}
+	_ = svc.ServeModel(ctx, backend, model, "", 0)
+	if ctx.Err() != nil {
+		fmt.Fprintf(os.Stdout, "%s\n", styleReplMeta.Render("Model server start canceled."))
+		return
+	}
 
 	// ServeModel blocks until healthy/ready when it succeeds, but may time out
 	// for large models. Poll ServerURL until it returns a URL, then confirm the
@@ -1895,7 +1909,12 @@ func (r *REPL) startLocalModelServer(model string) {
 		)
 		deadline := time.Now().Add(localServerPollTimeout)
 		for time.Now().Before(deadline) {
-			time.Sleep(localServerPollInterval)
+			select {
+			case <-ctx.Done():
+				fmt.Fprintf(os.Stdout, "%s\n", styleReplMeta.Render("Model server wait canceled."))
+				return
+			case <-time.After(localServerPollInterval):
+			}
 			url = svc.ServerURL(backend, model)
 			if url != "" {
 				break
@@ -1913,7 +1932,7 @@ func (r *REPL) startLocalModelServer(model string) {
 		return
 	}
 	r.loop.config.BaseURL = url
-	llm.WaitForServerReady(url)
+	llm.WaitForServerReady(ctx, url)
 }
 
 // providerStatusLine returns a one-line summary of ready providers for the welcome banner.
@@ -2735,9 +2754,9 @@ func (r *REPL) cmdContext(args []string) error {
 			msg := fmt.Sprintf("Restarting model server with ctx-size=%d...", n)
 			fmt.Fprintf(os.Stdout, "%s\n", styleReplMeta.Render(msg))
 			svc.KillModel(backend, model)
-			_ = svc.ServeModel(backend, model, "", 0)
+			_ = svc.ServeModel(r.ctx, backend, model, "", 0)
 			newURL := svc.ServerURL(backend, model)
-			llm.WaitForServerReady(newURL)
+			llm.WaitForServerReady(r.ctx, newURL)
 			r.loop.config.BaseURL = newURL
 		}
 	case "ollama":

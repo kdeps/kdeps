@@ -19,6 +19,7 @@
 package llm_test
 
 import (
+	"context"
 	"strings"
 	"testing"
 
@@ -61,7 +62,7 @@ func TestModelService_DownloadModel_SupportedBackends(t *testing.T) {
 		t.Run(tt.name, func(_ *testing.T) {
 			// Test that the method doesn't panic and returns some result
 			// (may succeed or fail depending on external tool availability)
-			err := service.DownloadModel(tt.backend, tt.model)
+			err := service.DownloadModel(context.Background(), tt.backend, tt.model)
 			// We don't assert on the error since it depends on external tool availability
 			// Just verify the method completes without panicking
 			_ = err // Just exercise the code path
@@ -80,7 +81,7 @@ func TestModelService_DownloadModel_UnsupportedBackend_Service(t *testing.T) {
 	logger := slog.New(slog.NewTextHandler(nil, nil))
 	service := llm.NewModelService(logger)
 
-	err := service.DownloadModel("unsupported-backend", "some-model")
+	err := service.DownloadModel(context.Background(), "unsupported-backend", "some-model")
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "unsupported backend")
 }
@@ -105,7 +106,7 @@ func TestModelService_ServeModel_SupportedBackends(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(_ *testing.T) {
 			// These will typically not error in test environment since they handle missing tools gracefully
-			err := service.ServeModel(tt.backend, tt.model, tt.host, tt.port)
+			err := service.ServeModel(context.Background(), tt.backend, tt.model, tt.host, tt.port)
 			// We don't assert on the error since it depends on external tool availability
 			// Just verify the method completes without panicking
 			_ = err // Just exercise the code path
@@ -117,7 +118,7 @@ func TestModelService_ServeModel_UnsupportedBackend_Service(t *testing.T) {
 	logger := slog.New(slog.NewTextHandler(nil, nil))
 	service := llm.NewModelService(logger)
 
-	err := service.ServeModel("unsupported-backend", "some-model", "localhost", 16395)
+	err := service.ServeModel(context.Background(), "unsupported-backend", "some-model", "localhost", 16395)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "unsupported backend")
 }
@@ -130,7 +131,7 @@ func TestDownloadOllamaModel_CommandNotFound(t *testing.T) {
 	service := llm.NewModelService(logger)
 
 	// Test that the method completes without panic - behavior depends on Ollama availability
-	err := service.DownloadModel("ollama", "llama2")
+	err := service.DownloadModel(context.Background(), "ollama", "llama2")
 	// If Ollama is available, it may succeed; if not, it will error
 	// The important thing is that it doesn't panic (nil pointer dereference)
 	t.Logf("DownloadModel completed without panic, err: %v", err)
@@ -144,7 +145,7 @@ func TestServeOllamaModel_AlreadyRunning(t *testing.T) {
 	service := llm.NewModelService(logger)
 
 	// This should not error even if Ollama is not available, as it handles the case gracefully
-	err := service.ServeModel("ollama", "llama2", "localhost", 11434)
+	err := service.ServeModel(context.Background(), "ollama", "llama2", "localhost", 11434)
 	// Should not error as it handles missing ollama gracefully
 	_ = err // Just exercise the code path
 }
@@ -155,13 +156,13 @@ func TestModelService_EdgeCases(t *testing.T) {
 	service := llm.NewModelService(logger)
 
 	t.Run("empty backend name", func(t *testing.T) {
-		err := service.DownloadModel("", "model")
+		err := service.DownloadModel(context.Background(), "", "model")
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "unsupported backend")
 	})
 
 	t.Run("empty model name", func(t *testing.T) {
-		err := service.DownloadModel("ollama", "")
+		err := service.DownloadModel(context.Background(), "ollama", "")
 		// May or may not error depending on implementation, but shouldn't panic
 		require.Error(t, err)
 	})
@@ -170,7 +171,7 @@ func TestModelService_EdgeCases(t *testing.T) {
 		if testing.Short() {
 			t.Skip("skipping test that may trigger Docker operations in short mode")
 		}
-		err := service.ServeModel("ollama", "llama2", "", 16395)
+		err := service.ServeModel(context.Background(), "ollama", "llama2", "", 16395)
 		// Should handle empty host gracefully
 		_ = err
 	})
@@ -179,7 +180,7 @@ func TestModelService_EdgeCases(t *testing.T) {
 		if testing.Short() {
 			t.Skip("skipping test that may trigger Docker operations in short mode")
 		}
-		err := service.ServeModel("ollama", "llama2", "localhost", 0)
+		err := service.ServeModel(context.Background(), "ollama", "llama2", "localhost", 0)
 		// Should handle zero port gracefully
 		_ = err
 	})
@@ -204,12 +205,12 @@ func TestModelService_ConcurrentAccess(t *testing.T) {
 	done := make(chan bool, 2)
 
 	go func() {
-		_ = service.DownloadModel("ollama", "llama2")
+		_ = service.DownloadModel(context.Background(), "ollama", "llama2")
 		done <- true
 	}()
 
 	go func() {
-		_ = service.ServeModel("ollama", "llama2", "localhost", 11434)
+		_ = service.ServeModel(context.Background(), "ollama", "llama2", "localhost", 11434)
 		done <- true
 	}()
 
@@ -227,7 +228,7 @@ func TestModelService_DownloadModel_File_CachedFile(t *testing.T) {
 	require.NoError(t, os.WriteFile(path, []byte("fake"), 0600))
 
 	svc := llm.NewModelService(nil)
-	err := svc.DownloadModel("file", "cached.llamafile")
+	err := svc.DownloadModel(context.Background(), "file", "cached.llamafile")
 	require.NoError(t, err)
 
 	// Should now be executable.
@@ -249,7 +250,7 @@ func TestModelService_DownloadModel_File_RemoteURL(t *testing.T) {
 
 	svc := llm.NewModelService(nil)
 	url := srv.URL + "/remote.llamafile"
-	err := svc.DownloadModel("file", url)
+	err := svc.DownloadModel(context.Background(), "file", url)
 	require.NoError(t, err)
 
 	// File should be downloaded and executable.
@@ -264,7 +265,7 @@ func TestModelService_DownloadModel_File_NotFound(t *testing.T) {
 	t.Setenv("KDEPS_MODELS_DIR", dir)
 
 	svc := llm.NewModelService(nil)
-	err := svc.DownloadModel("file", "missing.llamafile")
+	err := svc.DownloadModel(context.Background(), "file", "missing.llamafile")
 	assert.Error(t, err)
 }
 
@@ -288,7 +289,7 @@ func TestModelService_ServeModel_File_AlreadyRunning(t *testing.T) {
 	require.NoError(t, os.WriteFile(bin, []byte("#!/bin/sh\nsleep 9999"), 0750))
 
 	svc := llm.NewModelService(nil)
-	err := svc.ServeModel("file", "model.llamafile", "127.0.0.1", port)
+	err := svc.ServeModel(context.Background(), "file", "model.llamafile", "127.0.0.1", port)
 	require.NoError(t, err)
 }
 
@@ -297,13 +298,13 @@ func TestModelService_ServeModel_File_NotFound(t *testing.T) {
 	t.Setenv("KDEPS_MODELS_DIR", dir)
 
 	svc := llm.NewModelService(nil)
-	err := svc.ServeModel("file", "missing.llamafile", "127.0.0.1", 0)
+	err := svc.ServeModel(context.Background(), "file", "missing.llamafile", "127.0.0.1", 0)
 	assert.Error(t, err)
 }
 
 func TestServeModel_UnsupportedBackend(t *testing.T) {
 	svc := llm.NewModelService(nil)
-	err := svc.ServeModel("unknown-backend", "model", "127.0.0.1", 0)
+	err := svc.ServeModel(context.Background(), "unknown-backend", "model", "127.0.0.1", 0)
 	if err == nil || !strings.Contains(err.Error(), "unsupported backend") {
 		t.Fatalf("expected unsupported backend error, got: %v", err)
 	}

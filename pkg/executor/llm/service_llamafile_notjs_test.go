@@ -21,6 +21,7 @@
 package llm
 
 import (
+	"context"
 	"log/slog"
 	"testing"
 
@@ -30,7 +31,7 @@ import (
 
 func TestModelService_PrepareLlamafileErrors(t *testing.T) {
 	s := NewModelService(slog.Default())
-	_, _, err := s.prepareLlamafile("/nonexistent/model.llamafile")
+	_, _, err := s.prepareLlamafile(context.Background(), "/nonexistent/model.llamafile")
 	require.Error(t, err)
 }
 
@@ -40,7 +41,7 @@ func TestServeLlamafileModel_NewLlamafileManagerFailure(t *testing.T) {
 	t.Setenv("KDEPS_MODELS_DIR", "/dev/null/models-test")
 
 	s := &ModelService{logger: slog.Default()}
-	err := s.serveLlamafileModel("test.llamafile", 0)
+	err := s.serveLlamafileModel(context.Background(), "test.llamafile", 0)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "cannot create models directory")
 }

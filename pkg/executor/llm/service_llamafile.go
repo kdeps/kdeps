@@ -21,16 +21,18 @@
 package llm
 
 import (
+	"context"
+
 	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
 )
 
 // prepareLlamafile resolves a llamafile model path and ensures it is executable.
-func (s *ModelService) prepareLlamafile(model string) (*LlamafileManager, string, error) {
+func (s *ModelService) prepareLlamafile(ctx context.Context, model string) (*LlamafileManager, string, error) {
 	mgr, err := NewLlamafileManager(s.logger)
 	if err != nil {
 		return nil, "", err
 	}
-	path, err := mgr.Resolve(model)
+	path, err := mgr.Resolve(ctx, model)
 	if err != nil {
 		return nil, "", err
 	}
@@ -41,20 +43,20 @@ func (s *ModelService) prepareLlamafile(model string) (*LlamafileManager, string
 }
 
 // downloadLlamafileModel resolves and makes executable a llamafile binary.
-func (s *ModelService) downloadLlamafileModel(model string) error {
+func (s *ModelService) downloadLlamafileModel(ctx context.Context, model string) error {
 	kdeps_debug.Log("enter: downloadLlamafileModel")
-	_, _, err := s.prepareLlamafile(model)
+	_, _, err := s.prepareLlamafile(ctx, model)
 	return err
 }
 
 // serveLlamafileModel starts a llamafile binary as an OpenAI-compatible server.
-func (s *ModelService) serveLlamafileModel(model string, port int) error {
+func (s *ModelService) serveLlamafileModel(ctx context.Context, model string, port int) error {
 	kdeps_debug.Log("enter: serveLlamafileModel")
-	mgr, path, err := s.prepareLlamafile(model)
+	mgr, path, err := s.prepareLlamafile(ctx, model)
 	if err != nil {
 		return err
 	}
-	_, err = mgr.Serve(path, port)
+	_, err = mgr.Serve(ctx, path, port)
 	if err == nil {
 		servedLlamafilesMu.Lock()
 		servedLlamafileNames[path] = model
@@ -66,7 +68,7 @@ func (s *ModelService) serveLlamafileModel(model string, port int) error {
 // llamafileServerURL returns the base URL of a running llamafile server for the
 // given model, or "" if no server is running.
 func (s *ModelService) llamafileServerURL(model string) string {
-	_, path, err := s.prepareLlamafile(model)
+	_, path, err := s.prepareLlamafile(context.Background(), model)
 	if err != nil {
 		return ""
 	}

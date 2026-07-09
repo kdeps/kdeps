@@ -19,6 +19,7 @@
 package llm
 
 import (
+	"context"
 	"errors"
 	"io"
 	stdhttp "net/http"
@@ -34,7 +35,7 @@ func testSkipAria2c(t *testing.T) {
 	t.Helper()
 	origResume := downloadWithResumeFunc
 	t.Cleanup(func() { downloadWithResumeFunc = origResume })
-	downloadWithResumeFunc = func(_, _, _ string) error { return errors.New("no aria2c in test") }
+	downloadWithResumeFunc = func(_ context.Context, _, _ string) error { return errors.New("no aria2c in test") }
 }
 
 func TestDownload_HTTPGetError(t *testing.T) {
@@ -42,14 +43,14 @@ func TestDownload_HTTPGetError(t *testing.T) {
 
 	origHTTP := httpGet
 	t.Cleanup(func() { httpGet = origHTTP })
-	httpGet = func(_ string) (*stdhttp.Response, error) {
+	httpGet = func(_ context.Context, _ string) (*stdhttp.Response, error) {
 		return nil, errors.New("connection refused")
 	}
 
 	m, err := NewLlamafileManager(testLogger())
 	require.NoError(t, err)
 
-	_, err = m.download("https://example.com/model.llamafile")
+	_, err = m.download(context.Background(), "https://example.com/model.llamafile")
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "failed to download model from")
 	assert.Contains(t, err.Error(), "connection refused")
@@ -60,7 +61,7 @@ func TestDownload_HTTPStatusError(t *testing.T) {
 
 	origHTTP := httpGet
 	t.Cleanup(func() { httpGet = origHTTP })
-	httpGet = func(_ string) (*stdhttp.Response, error) {
+	httpGet = func(_ context.Context, _ string) (*stdhttp.Response, error) {
 		return &stdhttp.Response{
 			StatusCode: stdhttp.StatusNotFound,
 			Body:       io.NopCloser(strings.NewReader("")),
@@ -70,7 +71,7 @@ func TestDownload_HTTPStatusError(t *testing.T) {
 	m, err := NewLlamafileManager(testLogger())
 	require.NoError(t, err)
 
-	_, err = m.download("https://example.com/model.llamafile")
+	_, err = m.download(context.Background(), "https://example.com/model.llamafile")
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "download failed (HTTP 404)")
 }
@@ -84,7 +85,7 @@ func TestDownload_OpenFileError(t *testing.T) {
 
 	origHTTP := httpGet
 	t.Cleanup(func() { httpGet = origHTTP })
-	httpGet = func(_ string) (*stdhttp.Response, error) {
+	httpGet = func(_ context.Context, _ string) (*stdhttp.Response, error) {
 		return &stdhttp.Response{
 			StatusCode: stdhttp.StatusOK,
 			Body:       io.NopCloser(strings.NewReader("fake binary")),
@@ -94,7 +95,7 @@ func TestDownload_OpenFileError(t *testing.T) {
 	m, err := NewLlamafileManager(testLogger())
 	require.NoError(t, err)
 
-	_, err = m.download("https://example.com/model.llamafile")
+	_, err = m.download(context.Background(), "https://example.com/model.llamafile")
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "cannot create temp file")
 }
@@ -108,7 +109,7 @@ func TestDownload_AlreadyCached(t *testing.T) {
 
 	m := NewLlamafileManagerWithDir(testLogger(), ".")
 
-	dest, err := m.download("https://example.com/model.llamafile")
+	dest, err := m.download(context.Background(), "https://example.com/model.llamafile")
 	require.NoError(t, err)
 	assert.Contains(t, dest, "model.llamafile")
 }

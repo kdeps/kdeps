@@ -145,7 +145,7 @@ func TestServeLocalProcess_ReusesCrossProcessPort(t *testing.T) {
 		label:   "test",
 	}
 
-	got, err := serveLocalProcess(nil, cfg, modelPath, 0)
+	got, err := serveLocalProcess(context.Background(), nil, cfg, modelPath, 0)
 	require.NoError(t, err)
 	assert.Equal(t, port, got, "should reuse cross-process port")
 	assert.False(t, startCalled, "should not start a new server")

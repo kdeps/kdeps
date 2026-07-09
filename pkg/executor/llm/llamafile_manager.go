@@ -19,6 +19,7 @@
 package llm
 
 import (
+	"context"
 	"log/slog"
 	"net"
 	stdhttp "net/http"
@@ -44,7 +45,13 @@ const (
 var AppFS = afero.NewOsFs()
 
 //nolint:gochecknoglobals // test-replaceable
-var httpGet = stdhttp.Get
+var httpGet = func(ctx context.Context, url string) (*stdhttp.Response, error) {
+	req, err := stdhttp.NewRequestWithContext(ctx, stdhttp.MethodGet, url, nil)
+	if err != nil {
+		return nil, err
+	}
+	return stdhttp.DefaultClient.Do(req)
+}
 
 //nolint:gochecknoglobals // test-replaceable
 var httpDefaultClientDo = stdhttp.DefaultClient.Do

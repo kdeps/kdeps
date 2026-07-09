@@ -15,6 +15,7 @@
 package llm_test
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"net/http"
@@ -44,7 +45,7 @@ func TestLlamafileManager_Resolve_AbsolutePath(t *testing.T) {
 	if err := os.WriteFile(path, []byte("fake"), 0600); err != nil {
 		t.Fatal(err)
 	}
-	got, err := mgr.Resolve(path)
+	got, err := mgr.Resolve(context.Background(), path)
 	if err != nil {
 		t.Fatalf("Resolve: %v", err)
 	}
@@ -55,7 +56,7 @@ func TestLlamafileManager_Resolve_AbsolutePath(t *testing.T) {
 
 func TestLlamafileManager_Resolve_AbsolutePath_Missing(t *testing.T) {
 	mgr, _ := newMgrWithDir(t)
-	_, err := mgr.Resolve("/nonexistent/path/model.llamafile")
+	_, err := mgr.Resolve(context.Background(), "/nonexistent/path/model.llamafile")
 	if err == nil {
 		t.Error("expected error for missing absolute path")
 	}
@@ -78,7 +79,7 @@ func TestLlamafileManager_Resolve_RelativePath(t *testing.T) {
 	}
 	t.Cleanup(func() { _ = os.Chdir(origDir) })
 
-	got, err := mgr.Resolve("./model.llamafile")
+	got, err := mgr.Resolve(context.Background(), "./model.llamafile")
 	if err != nil {
 		t.Fatalf("Resolve: %v", err)
 	}
@@ -89,7 +90,7 @@ func TestLlamafileManager_Resolve_RelativePath(t *testing.T) {
 
 func TestLlamafileManager_Resolve_RelativePath_Missing(t *testing.T) {
 	mgr, _ := newMgrWithDir(t)
-	_, err := mgr.Resolve("./does-not-exist.llamafile")
+	_, err := mgr.Resolve(context.Background(), "./does-not-exist.llamafile")
 	if err == nil {
 		t.Error("expected error for missing relative path")
 	}
@@ -103,7 +104,7 @@ func TestLlamafileManager_Resolve_BareFilename_Cached(t *testing.T) {
 	if err := os.WriteFile(path, []byte("fake"), 0600); err != nil {
 		t.Fatal(err)
 	}
-	got, err := mgr.Resolve("model.llamafile")
+	got, err := mgr.Resolve(context.Background(), "model.llamafile")
 	if err != nil {
 		t.Fatalf("Resolve: %v", err)
 	}
@@ -114,7 +115,7 @@ func TestLlamafileManager_Resolve_BareFilename_Cached(t *testing.T) {
 
 func TestLlamafileManager_Resolve_BareFilename_NotCached(t *testing.T) {
 	mgr, _ := newMgrWithDir(t)
-	_, err := mgr.Resolve("missing.llamafile")
+	_, err := mgr.Resolve(context.Background(), "missing.llamafile")
 	if err == nil {
 		t.Error("expected error for uncached bare filename")
 	}
@@ -123,7 +124,9 @@ func TestLlamafileManager_Resolve_BareFilename_NotCached(t *testing.T) {
 // --- Resolve: remote URL (download) ----------------------------------------
 
 func TestLlamafileManager_Resolve_RemoteURL(t *testing.T) {
-	cleanup := llm.SetDownloadWithResume(func(_, _, _ string) error { return errors.New("no aria2c in test") })
+	cleanup := llm.SetDownloadWithResume(
+		func(_ context.Context, _, _ string) error { return errors.New("no aria2c in test") },
+	)
 	defer cleanup()
 
 	content := []byte("fake llamafile content")
@@ -135,7 +138,7 @@ func TestLlamafileManager_Resolve_RemoteURL(t *testing.T) {
 
 	mgr, dir := newMgrWithDir(t)
 	url := srv.URL + "/model.llamafile"
-	got, err := mgr.Resolve(url)
+	got, err := mgr.Resolve(context.Background(), url)
 	if err != nil {
 		t.Fatalf("Resolve: %v", err)
 	}
@@ -169,7 +172,7 @@ func TestLlamafileManager_Resolve_RemoteURL_AlreadyCached(t *testing.T) {
 	defer srv.Close()
 
 	url := srv.URL + "/model.llamafile"
-	got, err := mgr.Resolve(url)
+	got, err := mgr.Resolve(context.Background(), url)
 	if err != nil {
 		t.Fatalf("Resolve: %v", err)
 	}
@@ -182,7 +185,9 @@ func TestLlamafileManager_Resolve_RemoteURL_AlreadyCached(t *testing.T) {
 }
 
 func TestLlamafileManager_Resolve_RemoteURL_HTTPError(t *testing.T) {
-	cleanup := llm.SetDownloadWithResume(func(_, _, _ string) error { return errors.New("no aria2c in test") })
+	cleanup := llm.SetDownloadWithResume(
+		func(_ context.Context, _, _ string) error { return errors.New("no aria2c in test") },
+	)
 	defer cleanup()
 
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
@@ -191,7 +196,7 @@ func TestLlamafileManager_Resolve_RemoteURL_HTTPError(t *testing.T) {
 	defer srv.Close()
 
 	mgr, _ := newMgrWithDir(t)
-	_, err := mgr.Resolve(srv.URL + "/missing.llamafile")
+	_, err := mgr.Resolve(context.Background(), srv.URL+"/missing.llamafile")
 	if err == nil {
 		t.Error("expected error on HTTP 404")
 	}
@@ -302,7 +307,7 @@ func TestLlamafileManager_Download_TmpBlockedByDir(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	_, err := mgr.Resolve(url)
+	_, err := mgr.Resolve(context.Background(), url)
 	if err == nil {
 		t.Error("expected error when .tmp path is a directory")
 	}
@@ -333,7 +338,7 @@ func TestLlamafileManager_Serve_AlreadyRunning(t *testing.T) {
 	var port int
 	fmt.Sscanf(srv.URL, "http://127.0.0.1:%d", &port)
 
-	actualPort, err := mgr.Serve(bin, port)
+	actualPort, err := mgr.Serve(context.Background(), bin, port)
 	if err != nil {
 		t.Fatalf("Serve: %v", err)
 	}
@@ -355,7 +360,7 @@ func TestLlamafileManager_Serve_Port0_StartFail(t *testing.T) {
 	}
 	// port=0 → FindFreePort() is called inside Serve; nothing healthy on that port,
 	// so it tries to start the binary which immediately fails.
-	_, err := mgr.Serve(bin, 0)
+	_, err := mgr.Serve(context.Background(), bin, 0)
 	if err == nil {
 		t.Error("expected error when binary is not executable format")
 	}
@@ -398,7 +403,7 @@ func TestLlamafileManager_Serve_StartsAndBecomesHealthy(t *testing.T) {
 		close(healthReady)
 	}()
 
-	actualPort, err := mgr.Serve(bin, port)
+	actualPort, err := mgr.Serve(context.Background(), bin, port)
 	if err != nil {
 		t.Fatalf("Serve: %v", err)
 	}
@@ -427,19 +432,21 @@ func TestLlamafileManager_Serve_NotHealthy_StartFail(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	_, err := mgr.Serve(bin, port)
+	_, err := mgr.Serve(context.Background(), bin, port)
 	if err == nil {
 		t.Error("expected error when binary is not executable format")
 	}
 }
 
 func TestLlamafileManager_Download_HTTPError(t *testing.T) {
-	cleanup := llm.SetDownloadWithResume(func(_, _, _ string) error { return errors.New("no aria2c in test") })
+	cleanup := llm.SetDownloadWithResume(
+		func(_ context.Context, _, _ string) error { return errors.New("no aria2c in test") },
+	)
 	defer cleanup()
 
 	mgr, _ := newMgrWithDir(t)
 	// Use an invalid hostname that will fail DNS resolution or connection.
-	_, err := mgr.Resolve("http://127.0.0.1:1/model.llamafile")
+	_, err := mgr.Resolve(context.Background(), "http://127.0.0.1:1/model.llamafile")
 	if err == nil {
 		t.Skip("expected error but connection succeeded unexpectedly")
 	}
@@ -449,7 +456,9 @@ func TestLlamafileManager_Download_HTTPError(t *testing.T) {
 }
 
 func TestLlamafileManager_Download_HTTPErrorStatus(t *testing.T) {
-	cleanup := llm.SetDownloadWithResume(func(_, _, _ string) error { return errors.New("no aria2c in test") })
+	cleanup := llm.SetDownloadWithResume(
+		func(_ context.Context, _, _ string) error { return errors.New("no aria2c in test") },
+	)
 	defer cleanup()
 
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
@@ -458,7 +467,7 @@ func TestLlamafileManager_Download_HTTPErrorStatus(t *testing.T) {
 	defer srv.Close()
 
 	mgr, _ := newMgrWithDir(t)
-	_, err := mgr.Resolve(srv.URL + "/model.llamafile")
+	_, err := mgr.Resolve(context.Background(), srv.URL+"/model.llamafile")
 	if err == nil {
 		t.Fatal("expected error for HTTP 404")
 	}
@@ -468,7 +477,9 @@ func TestLlamafileManager_Download_HTTPErrorStatus(t *testing.T) {
 }
 
 func TestLlamafileManager_Download_HTTP500(t *testing.T) {
-	cleanup := llm.SetDownloadWithResume(func(_, _, _ string) error { return errors.New("no aria2c in test") })
+	cleanup := llm.SetDownloadWithResume(
+		func(_ context.Context, _, _ string) error { return errors.New("no aria2c in test") },
+	)
 	defer cleanup()
 
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
@@ -477,7 +488,7 @@ func TestLlamafileManager_Download_HTTP500(t *testing.T) {
 	defer srv.Close()
 
 	mgr, _ := newMgrWithDir(t)
-	_, err := mgr.Resolve(srv.URL + "/model.llamafile")
+	_, err := mgr.Resolve(context.Background(), srv.URL+"/model.llamafile")
 	if err == nil {
 		t.Fatal("expected error for HTTP 500")
 	}

@@ -19,6 +19,7 @@
 package llm
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"io"
@@ -29,16 +30,16 @@ import (
 	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
 )
 
-func (m *LlamafileManager) Resolve(model string) (string, error) {
+func (m *LlamafileManager) Resolve(ctx context.Context, model string) (string, error) {
 	kdeps_debug.Log("enter: LlamafileManager.Resolve")
 
 	if IsRemoteModel(model) {
-		return m.download(model)
+		return m.download(ctx, model)
 	}
 	// Check the alias table before falling through to local resolution.
 	// Known aliases are converted to their download URL and fetched/cached.
 	if url, ok := ResolveLlamafileAlias(model); ok {
-		return m.download(url)
+		return m.download(ctx, url)
 	}
 	return m.resolveLocalModel(model)
 }
@@ -83,9 +84,9 @@ func (m *LlamafileManager) resolveExistingPath(path, notFoundFmt string) (string
 	return path, nil
 }
 
-func (m *LlamafileManager) download(rawURL string) (string, error) {
+func (m *LlamafileManager) download(ctx context.Context, rawURL string) (string, error) {
 	kdeps_debug.Log("enter: LlamafileManager.download")
-	return downloadModelFile(rawURL, "model.llamafile", m.modelsDir, m.logger, AppFS)
+	return downloadModelFile(ctx, rawURL, "model.llamafile", m.modelsDir, m.logger, AppFS)
 }
 
 func writeDownloadToFile(dest string, body io.Reader) error {

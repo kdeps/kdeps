@@ -22,6 +22,7 @@ package llm
 
 import (
 	"bytes"
+	"context"
 	"io"
 	stdhttp "net/http"
 	"os"
@@ -95,14 +96,14 @@ func TestServeGGUFModelIfNeeded_SetsBaseURL(t *testing.T) {
 	AppFS = afero.NewOsFs()
 	startGGUFServerFunc = func(_ string, _ int) (int, error) { return 0, nil }
 	ggufStartTimeoutFunc = func() time.Duration { return 10 * time.Millisecond }
-	WaitForCompletionsReadyFunc = func(_ string) {}
+	WaitForCompletionsReadyFunc = func(_ context.Context, _ string) {}
 	httpDefaultClientDo = func(_ *stdhttp.Request) (*stdhttp.Response, error) {
 		return &stdhttp.Response{
 			StatusCode: stdhttp.StatusOK,
 			Body:       io.NopCloser(bytes.NewReader(nil)),
 		}, nil
 	}
-	httpGet = func(_ string) (*stdhttp.Response, error) {
+	httpGet = func(_ context.Context, _ string) (*stdhttp.Response, error) {
 		return &stdhttp.Response{
 			StatusCode:    stdhttp.StatusOK,
 			ContentLength: 4,

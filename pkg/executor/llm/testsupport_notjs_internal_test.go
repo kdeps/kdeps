@@ -22,6 +22,7 @@ package llm
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"errors"
 	"image"
@@ -88,7 +89,7 @@ func ptrFloat(v float64) *float64 { return &v }
 
 func TestModelService_ServeModel_UnsupportedBackend(t *testing.T) {
 	s := NewModelService(slog.Default())
-	err := s.ServeModel("unsupported", "m", "h", 1)
+	err := s.ServeModel(context.Background(), "unsupported", "m", "h", 1)
 	require.Error(t, err)
 }
 

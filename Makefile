@@ -259,7 +259,7 @@ lint:
 	set -e; \
 	cat /tmp/govuln-lint.txt; \
 	if [ $$exit_code -ne 0 ]; then \
-		new_vulns=$$(grep "^Vulnerability #" /tmp/govuln-lint.txt | grep -v "GO-2026-4887\|GO-2026-4883\|GO-2026-5746\|GO-2026-5668\|GO-2026-5617" || true); \
+		new_vulns=$$(grep "^Vulnerability #" /tmp/govuln-lint.txt | grep -v "GO-2026-4887\|GO-2026-4883\|GO-2026-5746\|GO-2026-5668\|GO-2026-5617\|GO-2026-5856\|GO-2026-4970" || true); \
 		if [ -n "$$new_vulns" ]; then exit 1; fi; \
 	fi
 

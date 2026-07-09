@@ -31,12 +31,12 @@ import (
 	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
 )
 
-// downloadOllamaModel downloads a model using Ollama.
-func (s *ModelService) downloadOllamaModel(model string) error {
+// downloadOllamaModel downloads a model using Ollama. ctx cancels the pull.
+func (s *ModelService) downloadOllamaModel(ctx context.Context, model string) error {
 	kdeps_debug.Log("enter: downloadOllamaModel")
-	s.logger.Info("downloading model with Ollama", "model", model)
+	s.logger.InfoContext(ctx, "downloading model with Ollama", "model", model)
 
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Minute)
+	ctx, cancel := context.WithTimeout(ctx, 30*time.Minute)
 	defer cancel()
 
 	cmd := execCommandContext(ctx, "ollama", "pull", model)
@@ -47,7 +47,7 @@ func (s *ModelService) downloadOllamaModel(model string) error {
 		return fmt.Errorf("failed to download Ollama model %s: %w", model, err)
 	}
 
-	s.logger.Info("model downloaded successfully", "model", model)
+	s.logger.InfoContext(ctx, "model downloaded successfully", "model", model)
 	return nil
 }
 

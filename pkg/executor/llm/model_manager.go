@@ -21,6 +21,7 @@
 package llm
 
 import (
+	"context"
 	"log/slog"
 	"os"
 
@@ -120,13 +121,13 @@ func (m *ModelManager) EnsureModel(config *domain.ChatConfig) error {
 }
 
 // DownloadModel downloads a model for the specified backend.
-func (m *ModelManager) DownloadModel(backend, model string) error {
+func (m *ModelManager) DownloadModel(ctx context.Context, backend, model string) error {
 	kdeps_debug.Log("enter: DownloadModel")
-	return m.service.DownloadModel(backend, model)
+	return m.service.DownloadModel(ctx, backend, model)
 }
 
 // ServeModel serves a model with the specified backend.
-func (m *ModelManager) ServeModel(backend, model string, host string, port int) error {
+func (m *ModelManager) ServeModel(ctx context.Context, backend, model string, host string, port int) error {
 	kdeps_debug.Log("enter: ServeModel")
-	return m.service.ServeModel(backend, model, host, port)
+	return m.service.ServeModel(ctx, backend, model, host, port)
 }

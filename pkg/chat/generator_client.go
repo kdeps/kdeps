@@ -55,14 +55,14 @@ var serveLlamafileForChat = func(model string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	path, err := mgr.Resolve(model)
+	path, err := mgr.Resolve(context.Background(), model)
 	if err != nil {
 		return "", err
 	}
 	if execErr := mgr.MakeExecutable(path); execErr != nil {
 		return "", execErr
 	}
-	port, err := mgr.Serve(path, 0)
+	port, err := mgr.Serve(context.Background(), path, 0)
 	if err != nil {
 		return "", err
 	}

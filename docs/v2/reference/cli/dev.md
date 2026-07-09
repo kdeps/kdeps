@@ -226,7 +226,7 @@ echo "list files in /tmp" | kdeps chat --no-execute
 
 ## `kdeps llamafile`
 
-Manage the local model registry. Covers **llamafile**, **GGUF** (llama.cpp), and **Ollama** models. Aliases like `llama3.2:1b` resolve to cached model files in `~/.kdeps/models/`; models are downloaded on first use with aria2c (fast parallel downloads with resume) or built-in HTTP.
+Manage the local model registry. Covers **llamafile**, **GGUF** (llama.cpp), and **Ollama** models. Aliases like `llama3.2:1b` resolve to cached model files in `~/.kdeps/models/`; models are downloaded on first use with aria2c (fast parallel downloads with resume) or built-in HTTP. Ctrl+C cancels an in-flight download immediately -- an interrupted aria2c download aborts instead of restarting via the HTTP fallback.
 
 ```bash
 kdeps llamafile list      # all known aliases (LF + GGUF + Ollama) with size, quant, and URL

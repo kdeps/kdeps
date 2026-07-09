@@ -21,6 +21,7 @@
 package llm
 
 import (
+	"context"
 	"errors"
 	"log/slog"
 
@@ -37,8 +38,8 @@ var ErrOllamaNotSupported = errors.New(
 
 // ModelServiceInterface defines the interface for model management services.
 type ModelServiceInterface interface {
-	DownloadModel(backend, model string) error
-	ServeModel(backend, model string, host string, port int) error
+	DownloadModel(ctx context.Context, backend, model string) error
+	ServeModel(ctx context.Context, backend, model string, host string, port int) error
 	ServerURL(backend, model string) string
 	KillModel(backend, model string) bool
 }
@@ -71,12 +72,12 @@ func NewModelService(_ *slog.Logger) *ModelService {
 }
 
 // DownloadModel returns an error since Ollama is not available in WASM.
-func (s *ModelService) DownloadModel(_, _ string) error {
+func (s *ModelService) DownloadModel(_ context.Context, _, _ string) error {
 	return ollamaUnsupported("DownloadModel")
 }
 
 // ServeModel returns an error since Ollama is not available in WASM.
-func (s *ModelService) ServeModel(_, _ string, _ string, _ int) error {
+func (s *ModelService) ServeModel(_ context.Context, _, _ string, _ string, _ int) error {
 	return ollamaUnsupported("ServeModel")
 }
 
@@ -87,18 +88,18 @@ func (s *ModelService) ServerURL(_, _ string) string { return "" }
 func (s *ModelService) KillModel(_, _ string) bool { return false }
 
 // WaitForServerReady is a no-op in WASM builds.
-func WaitForServerReady(_ string) {}
+func WaitForServerReady(_ context.Context, _ string) {}
 
 // MockModelService is a no-op mock for WASM builds.
 type MockModelService struct{}
 
 // DownloadModel is a no-op for WASM.
-func (m *MockModelService) DownloadModel(_, _ string) error {
+func (m *MockModelService) DownloadModel(_ context.Context, _, _ string) error {
 	return ollamaUnsupported("DownloadModel")
 }
 
 // ServeModel is a no-op for WASM.
-func (m *MockModelService) ServeModel(_, _ string, _ string, _ int) error {
+func (m *MockModelService) ServeModel(_ context.Context, _, _ string, _ string, _ int) error {
 	return ollamaUnsupported("ServeModel")
 }
 

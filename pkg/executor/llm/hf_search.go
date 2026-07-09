@@ -214,7 +214,7 @@ func hfDownloadFile(
 	if tok != "" {
 		return hfDownloadWithToken(ctx, downloadURL, dest, tok)
 	}
-	_, err := downloadModelFile(downloadURL, filename, dir, logger, AppFS)
+	_, err := downloadModelFile(ctx, downloadURL, filename, dir, logger, AppFS)
 	return err
 }
 

@@ -43,8 +43,11 @@ var osSetenv = os.Setenv
 
 // ModelServiceInterface defines the interface for model management services.
 type ModelServiceInterface interface {
-	DownloadModel(backend, model string) error
-	ServeModel(backend, model string, host string, port int) error
+	// DownloadModel downloads a model; ctx cancels an in-flight download.
+	DownloadModel(ctx context.Context, backend, model string) error
+	// ServeModel starts a local model server. ctx cancels the download/
+	// readiness wait only — the server process itself outlives ctx.
+	ServeModel(ctx context.Context, backend, model string, host string, port int) error
 	// ServerURL returns the base URL of a running local model server, or "" if
 	// the server is not running or the backend is not a local server type.
 	ServerURL(backend, model string) string
@@ -70,30 +73,30 @@ func NewModelService(logger *slog.Logger) *ModelService {
 }
 
 // DownloadModel downloads a model for the specified backend.
-func (s *ModelService) DownloadModel(backend, model string) error {
+func (s *ModelService) DownloadModel(ctx context.Context, backend, model string) error {
 	kdeps_debug.Log("enter: DownloadModel")
 	switch backend {
 	case backendOllama:
-		return s.downloadOllamaModel(model)
+		return s.downloadOllamaModel(ctx, model)
 	case BackendFile:
-		return s.downloadLlamafileModel(model)
+		return s.downloadLlamafileModel(ctx, model)
 	case BackendGGUF:
-		return s.downloadGGUFModel(model)
+		return s.downloadGGUFModel(ctx, model)
 	default:
 		return fmt.Errorf("unsupported backend for model download: %s", backend)
 	}
 }
 
 // ServeModel starts serving a model with the specified backend.
-func (s *ModelService) ServeModel(backend, model string, host string, port int) error {
+func (s *ModelService) ServeModel(ctx context.Context, backend, model string, host string, port int) error {
 	kdeps_debug.Log("enter: ServeModel")
 	switch backend {
 	case backendOllama:
 		return s.serveOllamaModel(model, host, port)
 	case BackendFile:
-		return s.serveLlamafileModel(model, port)
+		return s.serveLlamafileModel(ctx, model, port)
 	case BackendGGUF:
-		return s.serveGGUFModel(model, port)
+		return s.serveGGUFModel(ctx, model, port)
 	default:
 		return fmt.Errorf("unsupported backend for model serving: %s", backend)
 	}
@@ -147,14 +150,14 @@ var isOllamaReachable = func(baseURL string) bool {
 }
 
 // WaitForServerReady blocks until the server at baseURL is ready to serve
-// completions. It is a no-op when baseURL is empty. Intended for callers
-// that start a local server and need to confirm readiness before forwarding
-// user requests (e.g. the REPL after /model switch).
-func WaitForServerReady(baseURL string) {
+// completions or ctx is canceled. It is a no-op when baseURL is empty.
+// Intended for callers that start a local server and need to confirm
+// readiness before forwarding user requests (e.g. the REPL after /model switch).
+func WaitForServerReady(ctx context.Context, baseURL string) {
 	if baseURL == "" {
 		return
 	}
-	WaitForCompletionsReadyFunc(baseURL)
+	WaitForCompletionsReadyFunc(ctx, baseURL)
 }
 
 // LocalServerEntry describes a running local model server.
@@ -219,7 +222,7 @@ func (s *ModelService) KillModel(backend, model string) bool {
 
 	switch backend {
 	case BackendFile:
-		_, p, err := s.prepareLlamafile(model)
+		_, p, err := s.prepareLlamafile(context.Background(), model)
 		if err != nil {
 			return false
 		}
@@ -229,7 +232,7 @@ func (s *ModelService) KillModel(backend, model string) bool {
 			pids: servedLlamafilePIDs, names: servedLlamafileNames,
 		}
 	case BackendGGUF:
-		_, p, err := s.prepareGGUF(model)
+		_, p, err := s.prepareGGUF(context.Background(), model)
 		if err != nil {
 			return false
 		}

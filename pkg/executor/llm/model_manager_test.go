@@ -19,6 +19,7 @@
 package llm_test
 
 import (
+	"context"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -36,7 +37,7 @@ func TestModelManager_DownloadModel(t *testing.T) {
 
 	// Test that DownloadModel method exists and can be called
 	// In this environment, Ollama is available and can download models
-	err := manager.DownloadModel("ollama", "llama2")
+	err := manager.DownloadModel(context.Background(), "ollama", "llama2")
 
 	// The method should succeed when Ollama is available
 	assert.NoError(t, err)
@@ -52,7 +53,7 @@ func TestModelManager_ServeModel(t *testing.T) {
 
 	// Test that ServeModel method exists and can be called
 	// In this environment, Ollama server is already running
-	err := manager.ServeModel("ollama", "llama2", "localhost", 11434)
+	err := manager.ServeModel(context.Background(), "ollama", "llama2", "localhost", 11434)
 
 	// The method should succeed when server is already running
 	assert.NoError(t, err)

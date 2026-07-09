@@ -21,6 +21,7 @@
 package llm
 
 import (
+	"context"
 	"net"
 	"net/http"
 	"net/http/httptest"
@@ -63,7 +64,7 @@ func TestServe_ReusesRegisteredHealthyServer(t *testing.T) {
 	registerServedLlamafile(t, path, port)
 
 	m := NewLlamafileManagerWithDir(nil, t.TempDir())
-	got, serveErr := m.Serve(path, 0)
+	got, serveErr := m.Serve(context.Background(), path, 0)
 	require.NoError(t, serveErr)
 	assert.Equal(t, port, got, "Serve must return the already-running server's port")
 }
@@ -79,7 +80,7 @@ func TestServe_StaleRegistryEntryStartsNewServer(t *testing.T) {
 	registerServedLlamafile(t, path, 1)
 
 	m := NewLlamafileManagerWithDir(nil, t.TempDir())
-	_, err := m.Serve(path, 0)
+	_, err := m.Serve(context.Background(), path, 0)
 	require.Error(t, err, "stale registry entry must not be reused")
 }
 

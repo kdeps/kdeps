@@ -44,15 +44,15 @@ import (
 func TestDownload_HTTPErrorStatus(t *testing.T) {
 	origResume := downloadWithResumeFunc
 	t.Cleanup(func() { downloadWithResumeFunc = origResume })
-	downloadWithResumeFunc = func(_, _, _ string) error { return errors.New("no aria2c in test") }
+	downloadWithResumeFunc = func(_ context.Context, _, _ string) error { return errors.New("no aria2c in test") }
 
 	origHTTP := httpGet
 	t.Cleanup(func() { httpGet = origHTTP })
-	httpGet = func(_ string) (*stdhttp.Response, error) {
+	httpGet = func(_ context.Context, _ string) (*stdhttp.Response, error) {
 		return &stdhttp.Response{StatusCode: stdhttp.StatusNotFound, Body: io.NopCloser(strings.NewReader(""))}, nil
 	}
 	m := NewLlamafileManagerWithDir(testLogger(), t.TempDir())
-	_, err := m.download("https://example.com/missing.llamafile")
+	_, err := m.download(context.Background(), "https://example.com/missing.llamafile")
 	require.Error(t, err)
 }
 
@@ -61,7 +61,7 @@ func TestDownload_AlreadyCachedSkipsHTTP(t *testing.T) {
 	m := NewLlamafileManagerWithDir(testLogger(), dir)
 	cached := filepath.Join(dir, "cached.llamafile")
 	require.NoError(t, os.WriteFile(cached, []byte("bin"), 0750))
-	dest, err := m.download("https://example.com/cached.llamafile")
+	dest, err := m.download(context.Background(), "https://example.com/cached.llamafile")
 	require.NoError(t, err)
 	assert.Equal(t, cached, dest)
 }
@@ -104,7 +104,7 @@ func TestLlamafileServe_FindFreePortError(t *testing.T) {
 	require.NoError(t, afero.WriteFile(mem, "m.llamafile", []byte("bin"), 0755))
 	m, err := NewLlamafileManager(testLogger())
 	require.NoError(t, err)
-	_, err = m.Serve("m.llamafile", 0)
+	_, err = m.Serve(context.Background(), "m.llamafile", 0)
 	require.Error(t, err)
 }
 
@@ -137,7 +137,7 @@ func TestLlamafileServe_HealthTimeoutAfterStart(t *testing.T) {
 	modelPath := filepath.Join(dir, "run.llamafile")
 	require.NoError(t, os.WriteFile(modelPath, []byte("#!/bin/sh\nexit 0\n"), 0755))
 	m := NewLlamafileManagerWithDir(testLogger(), dir)
-	_, err := m.Serve(modelPath, 19998)
+	_, err := m.Serve(context.Background(), modelPath, 19998)
 	require.Error(t, err)
 }
 
@@ -163,25 +163,25 @@ func TestModelService_PrepareLlamafile_MakeExecutableError(t *testing.T) {
 	modelPath := filepath.Join(dir, "model.llamafile")
 	require.NoError(t, os.WriteFile(modelPath, []byte("data"), 0644))
 	s := NewModelService(slog.Default())
-	_, _, err := s.prepareLlamafile(modelPath)
+	_, _, err := s.prepareLlamafile(context.Background(), modelPath)
 	require.Error(t, err)
 }
 
 func TestDownload_BasenameFallback(t *testing.T) {
 	origResume := downloadWithResumeFunc
 	t.Cleanup(func() { downloadWithResumeFunc = origResume })
-	downloadWithResumeFunc = func(_, _, _ string) error { return errors.New("no aria2c in test") }
+	downloadWithResumeFunc = func(_ context.Context, _, _ string) error { return errors.New("no aria2c in test") }
 
 	origHTTP := httpGet
 	t.Cleanup(func() { httpGet = origHTTP })
-	httpGet = func(_ string) (*stdhttp.Response, error) {
+	httpGet = func(_ context.Context, _ string) (*stdhttp.Response, error) {
 		return &stdhttp.Response{
 			StatusCode: stdhttp.StatusOK,
 			Body:       io.NopCloser(bytes.NewReader([]byte("bin"))),
 		}, nil
 	}
 	m := NewLlamafileManagerWithDir(testLogger(), t.TempDir())
-	dest, err := m.download("/")
+	dest, err := m.download(context.Background(), "/")
 	require.NoError(t, err)
 	assert.Contains(t, dest, "model.llamafile")
 }
@@ -236,7 +236,7 @@ func TestLlamafileServe_AlreadyHealthy(t *testing.T) {
 
 	m, err := NewLlamafileManager(testLogger())
 	require.NoError(t, err)
-	actualPort, err := m.Serve(path, port)
+	actualPort, err := m.Serve(context.Background(), path, port)
 	require.NoError(t, err)
 	assert.Equal(t, port, actualPort)
 }
@@ -264,19 +264,19 @@ func TestLlamafileServe_StartFail(t *testing.T) {
 
 	m, err := NewLlamafileManager(testLogger())
 	require.NoError(t, err)
-	_, err = m.Serve(path, port)
+	_, err = m.Serve(context.Background(), path, port)
 	require.Error(t, err)
 }
 
 func TestDownload_WriteSuccess(t *testing.T) {
 	origResume := downloadWithResumeFunc
 	t.Cleanup(func() { downloadWithResumeFunc = origResume })
-	downloadWithResumeFunc = func(_, _, _ string) error { return errors.New("no aria2c in test") }
+	downloadWithResumeFunc = func(_ context.Context, _, _ string) error { return errors.New("no aria2c in test") }
 
 	origHTTP := httpGet
 	t.Cleanup(func() { httpGet = origHTTP })
 
-	httpGet = func(_ string) (*stdhttp.Response, error) {
+	httpGet = func(_ context.Context, _ string) (*stdhttp.Response, error) {
 		return &stdhttp.Response{
 			StatusCode: stdhttp.StatusOK,
 			Body:       io.NopCloser(bytes.NewReader([]byte("llamafile-binary"))),
@@ -284,7 +284,7 @@ func TestDownload_WriteSuccess(t *testing.T) {
 	}
 
 	m := NewLlamafileManagerWithDir(testLogger(), t.TempDir())
-	dest, err := m.download("https://example.com/newmodel.llamafile")
+	dest, err := m.download(context.Background(), "https://example.com/newmodel.llamafile")
 	require.NoError(t, err)
 	assert.Contains(t, dest, "newmodel.llamafile")
 }

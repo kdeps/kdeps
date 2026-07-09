@@ -21,6 +21,7 @@
 package llm
 
 import (
+	"context"
 	"errors"
 	"testing"
 
@@ -31,8 +32,8 @@ import (
 func TestModelManager_DownloadAndServeModel(t *testing.T) {
 	mock := NewMockModelService()
 	mgr := NewModelManagerFromServiceInterface(mock)
-	require.NoError(t, mgr.DownloadModel("ollama", "m"))
-	require.NoError(t, mgr.ServeModel("ollama", "m", "localhost", 11434))
+	require.NoError(t, mgr.DownloadModel(context.Background(), "ollama", "m"))
+	require.NoError(t, mgr.ServeModel(context.Background(), "ollama", "m", "localhost", 11434))
 }
 
 func TestDownloadModelIfOnline_ErrorLogged(_ *testing.T) {
@@ -45,8 +46,8 @@ func TestDownloadModelIfOnline_ErrorLogged(_ *testing.T) {
 func TestMockModelService_DefaultBehavior(t *testing.T) {
 	svc := NewMockModelService()
 	require.NotNil(t, svc)
-	assert.NoError(t, svc.DownloadModel("ollama", "llama3"))
-	assert.NoError(t, svc.ServeModel("ollama", "llama3", "localhost", 11434))
+	assert.NoError(t, svc.DownloadModel(context.Background(), "ollama", "llama3"))
+	assert.NoError(t, svc.ServeModel(context.Background(), "ollama", "llama3", "localhost", 11434))
 }
 
 func TestMockModelService_CustomFunctions(t *testing.T) {
@@ -57,8 +58,8 @@ func TestMockModelService_CustomFunctions(t *testing.T) {
 	svc.SetServeModelFunc(func(_, _, _ string, _ int) error {
 		return assert.AnError
 	})
-	require.Error(t, svc.DownloadModel("ollama", "llama3"))
-	require.Error(t, svc.ServeModel("ollama", "llama3", "localhost", 11434))
+	require.Error(t, svc.DownloadModel(context.Background(), "ollama", "llama3"))
+	require.Error(t, svc.ServeModel(context.Background(), "ollama", "llama3", "localhost", 11434))
 }
 
 func TestMockModelService_ServerURL(t *testing.T) {

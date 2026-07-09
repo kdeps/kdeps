@@ -21,7 +21,10 @@
 // Package llm exports internal test hooks for use by external test packages.
 package llm
 
-import "time"
+import (
+	"context"
+	"time"
+)
 
 // SetLlamafileStartTimeout replaces the startup health-poll timeout for tests.
 // Returns a cleanup function that restores the original.
@@ -33,7 +36,7 @@ func SetLlamafileStartTimeout(fn func() time.Duration) func() {
 
 // SetDownloadWithResume replaces the aria2c download function for tests.
 // Returns a cleanup function that restores the original.
-func SetDownloadWithResume(fn func(dest, url, basename string) error) func() {
+func SetDownloadWithResume(fn func(ctx context.Context, dest, url string) error) func() {
 	orig := downloadWithResumeFunc
 	downloadWithResumeFunc = fn
 	return func() { downloadWithResumeFunc = orig }

@@ -21,6 +21,7 @@
 package llm
 
 import (
+	"context"
 	"log/slog"
 
 	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
@@ -43,7 +44,7 @@ func NewMockModelService() *MockModelService {
 }
 
 // DownloadModel mocks the download model operation.
-func (m *MockModelService) DownloadModel(backend, model string) error {
+func (m *MockModelService) DownloadModel(_ context.Context, backend, model string) error {
 	kdeps_debug.Log("enter: DownloadModel")
 	return invokeDownloadModel(m, backend, model)
 }
@@ -57,7 +58,7 @@ func invokeDownloadModel(m *MockModelService, backend, model string) error {
 }
 
 // ServeModel mocks the serve model operation.
-func (m *MockModelService) ServeModel(backend, model string, host string, port int) error {
+func (m *MockModelService) ServeModel(_ context.Context, backend, model string, host string, port int) error {
 	kdeps_debug.Log("enter: ServeModel")
 	return invokeServeModel(m, backend, model, host, port)
 }

@@ -17,6 +17,7 @@
 package cmd
 
 import (
+	"context"
 	"errors"
 	"io"
 	"os"
@@ -609,13 +610,13 @@ func TestResolveAgentBackend_Default(t *testing.T) {
 
 func TestPrefetchModel_EmptyModel(_ *testing.T) {
 	// Empty model: should return without starting a goroutine (no panic).
-	prefetchModel("ollama", "")
+	prefetchModel(context.Background(), "ollama", "")
 }
 
 func TestPrefetchModel_NonEmpty(_ *testing.T) {
 	// Non-empty model: blocks until download fails (no real Ollama in test),
 	// but the function itself must not panic.
-	prefetchModel("ollama", "nonexistent-model-test-only")
+	prefetchModel(context.Background(), "ollama", "nonexistent-model-test-only")
 }
 
 // mockCmdSvc implements executorLLM.ModelServiceInterface for cmd-level tests.
@@ -624,10 +625,13 @@ type mockCmdSvc struct {
 	serveCalled bool
 }
 
-func (m *mockCmdSvc) DownloadModel(_, _ string) error        { return m.downloadErr }
-func (m *mockCmdSvc) ServeModel(_, _, _ string, _ int) error { m.serveCalled = true; return nil }
-func (m *mockCmdSvc) ServerURL(_, _ string) string           { return "" }
-func (m *mockCmdSvc) KillModel(_, _ string) bool             { return false }
+func (m *mockCmdSvc) DownloadModel(_ context.Context, _, _ string) error { return m.downloadErr }
+func (m *mockCmdSvc) ServeModel(_ context.Context, _, _, _ string, _ int) error {
+	m.serveCalled = true
+	return nil
+}
+func (m *mockCmdSvc) ServerURL(_, _ string) string { return "" }
+func (m *mockCmdSvc) KillModel(_, _ string) bool   { return false }
 
 func TestPrefetchModel_LocalBackend_CallsServeModel(t *testing.T) {
 	svc := &mockCmdSvc{}
@@ -635,7 +639,7 @@ func TestPrefetchModel_LocalBackend_CallsServeModel(t *testing.T) {
 	newModelServiceFunc = func() executorLLM.ModelServiceInterface { return svc }
 	t.Cleanup(func() { newModelServiceFunc = orig })
 
-	prefetchModel(agentBackendGGUF, "some-model")
+	prefetchModel(context.Background(), agentBackendGGUF, "some-model")
 	assert.True(t, svc.serveCalled)
 }
 
@@ -645,7 +649,7 @@ func TestPrefetchModel_LocalBackend_DownloadError_SkipsServe(t *testing.T) {
 	newModelServiceFunc = func() executorLLM.ModelServiceInterface { return svc }
 	t.Cleanup(func() { newModelServiceFunc = orig })
 
-	prefetchModel(agentBackendFile, "some-model")
+	prefetchModel(context.Background(), agentBackendFile, "some-model")
 	assert.False(t, svc.serveCalled)
 }
 

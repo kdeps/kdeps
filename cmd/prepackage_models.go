@@ -23,6 +23,7 @@ package cmd
 import (
 	"archive/tar"
 	"compress/gzip"
+	"context"
 	"errors"
 	"fmt"
 	"io"
@@ -133,13 +134,13 @@ func resolveModelsToFiles(models []string) (map[string]string, error) {
 	resolved := make(map[string]string, len(models))
 	for _, model := range models {
 		if llamaErr == nil {
-			if path, err := llamaMgr.Resolve(model); err == nil {
+			if path, err := llamaMgr.Resolve(context.Background(), model); err == nil {
 				resolved[filepath.Base(path)] = path
 				continue
 			}
 		}
 		if ggufErr == nil {
-			if path, err := ggufMgr.Resolve(model); err == nil {
+			if path, err := ggufMgr.Resolve(context.Background(), model); err == nil {
 				resolved[filepath.Base(path)] = path
 				continue
 			}

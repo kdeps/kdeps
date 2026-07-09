@@ -21,6 +21,7 @@
 package cmd
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -161,7 +162,7 @@ func warmupLlamafiles(workflow *domain.Workflow) {
 		return
 	}
 	for _, model := range domain.ChatModels(workflow) {
-		path, resolveErr := mgr.Resolve(model)
+		path, resolveErr := mgr.Resolve(context.Background(), model)
 		if resolveErr != nil {
 			fmt.Fprintf(os.Stdout, "  ! %s: %v\n", model, resolveErr)
 			continue

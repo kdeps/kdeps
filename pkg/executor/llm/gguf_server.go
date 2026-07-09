@@ -101,9 +101,9 @@ var ggufStartTimeoutFunc = func() time.Duration { return llamafileStartTimeout }
 
 // Serve starts a llama-server instance for the given .gguf model file (or
 // reuses one if already running). Returns the port the server is listening on.
-func (m *GGUFManager) Serve(path string, port int) (int, error) {
+func (m *GGUFManager) Serve(ctx context.Context, path string, port int) (int, error) {
 	kdeps_debug.Log("enter: GGUFManager.Serve")
-	return serveLocalProcess(m.logger, localProcessConfig{
+	return serveLocalProcess(ctx, m.logger, localProcessConfig{
 		mu:          &servedGGUFsMu,
 		served:      servedGGUFs,
 		pids:        servedGGUFPIDs,

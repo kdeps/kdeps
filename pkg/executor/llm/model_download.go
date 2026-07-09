@@ -33,11 +33,17 @@ import (
 	"github.com/spf13/pathologize"
 )
 
+// ErrDownloadInterrupted marks a download aborted by Ctrl+C or context
+// cancellation. downloadModelFile must not fall back to the plain HTTP
+// downloader when the accelerated download failed for this reason.
+var ErrDownloadInterrupted = errors.New("model download interrupted")
+
 // downloadModelFile downloads rawURL into modelsDir, using fallbackBasename
 // when the URL has no meaningful base name. Returns the local path.
 // Skips the download when the destination already exists in fs.
 // Prints a progress bar to progressOut while downloading.
 func downloadModelFile(
+	ctx context.Context,
 	rawURL string,
 	fallbackBasename string,
 	modelsDir string,
@@ -56,45 +62,66 @@ func downloadModelFile(
 	dest := filepath.Join(modelsDir, basename)
 
 	if _, err := fs.Stat(dest); err == nil {
-		logger.Debug("model already cached", "path", dest)
+		logger.DebugContext(ctx, "model already cached", "path", dest)
 		return dest, nil
 	}
 
-	logger.Info("downloading model", "url", rawURL, "dest", dest)
+	logger.InfoContext(ctx, "downloading model", "url", rawURL, "dest", dest)
 
-	if err := downloadWithResumeFunc(dest, rawURL, basename); err != nil {
-		logger.Debug("fast download failed, falling back to HTTP", "err", err)
-		// Fallback to simple HTTP GET.
-		resp, httpErr := httpGet(rawURL)
-		if httpErr != nil {
-			return "", fmt.Errorf("failed to download model from %s: %w", rawURL, httpErr)
+	if err := downloadWithResumeFunc(ctx, dest, rawURL); err != nil {
+		// A Ctrl+C / canceled download must abort, not silently restart via
+		// the plain HTTP downloader.
+		if ctx.Err() != nil || errors.Is(err, ErrDownloadInterrupted) {
+			return "", fmt.Errorf("download of %s: %w", rawURL, ErrDownloadInterrupted)
 		}
-		defer resp.Body.Close()
-		if resp.StatusCode != stdhttp.StatusOK {
-			return "", fmt.Errorf("download failed (HTTP %d) for %s", resp.StatusCode, rawURL)
-		}
-		body := newProgressReader(resp.Body, resp.ContentLength, basename)
-		if writeErr := writeDownloadToFile(dest, body); writeErr != nil {
-			return "", writeErr
+		logger.DebugContext(ctx, "fast download failed, falling back to HTTP", "err", err)
+		if fallbackErr := downloadViaHTTP(ctx, rawURL, dest, basename); fallbackErr != nil {
+			return "", fallbackErr
 		}
 	}
 
-	logger.Info("model downloaded", "path", dest)
+	logger.InfoContext(ctx, "model downloaded", "path", dest)
 	return dest, nil
+}
+
+// downloadViaHTTP is the plain HTTP fallback used when aria2c is unavailable
+// or failed for a reason other than an interrupt.
+func downloadViaHTTP(ctx context.Context, rawURL, dest, basename string) error {
+	resp, httpErr := httpGet(ctx, rawURL)
+	if httpErr != nil {
+		return fmt.Errorf("failed to download model from %s: %w", rawURL, httpErr)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != stdhttp.StatusOK {
+		return fmt.Errorf("download failed (HTTP %d) for %s", resp.StatusCode, rawURL)
+	}
+	body := newProgressReader(resp.Body, resp.ContentLength, basename)
+	if writeErr := writeDownloadToFile(dest, body); writeErr != nil {
+		if ctx.Err() != nil {
+			return fmt.Errorf("download of %s: %w", rawURL, ErrDownloadInterrupted)
+		}
+		return writeErr
+	}
+	return nil
 }
 
 // defaultAria2cFlags are used when KDEPS_ARIA2C_FLAGS is not set.
 const defaultAria2cFlags = "-c -x 16 -s 16 --console-log-level=warn"
+
+// aria2cExitUnfinished is aria2c's exit code when it was interrupted (Ctrl+C,
+// SIGINT/SIGTERM) with unfinished downloads in the queue.
+const aria2cExitUnfinished = 7
 
 //nolint:gochecknoglobals // test-replaceable
 var downloadWithResumeFunc = downloadWithResume
 
 // downloadWithResume tries to download url to dest using aria2c with resume
 // support and multi-connection acceleration. Returns nil on success. Returns
-// an error if aria2c fails or is not available (caller should fall back to
-// Go HTTP download). Aria2c flags can be configured via KDEPS_ARIA2C_FLAGS
+// ErrDownloadInterrupted when the download was canceled (ctx or Ctrl+C), or
+// another error if aria2c fails or is not available (caller should fall back
+// to Go HTTP download). Aria2c flags can be configured via KDEPS_ARIA2C_FLAGS
 // or the ~/.kdeps/config.yaml aria2c_flags field.
-func downloadWithResume(dest, url string, _ string) error {
+func downloadWithResume(ctx context.Context, dest, url string) error {
 	aria2c, err := exec.LookPath("aria2c")
 	if err != nil {
 		return errors.New("aria2c not found")
@@ -109,8 +136,27 @@ func downloadWithResume(dest, url string, _ string) error {
 		"-o", file,
 	}, strings.Fields(flags)...)
 	args = append(args, url)
-	cmd := exec.CommandContext(context.Background(), aria2c, args...)
+	cmd := exec.CommandContext(ctx, aria2c, args...)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
-	return cmd.Run()
+	runErr := cmd.Run()
+	if runErr == nil {
+		return nil
+	}
+	if ctx.Err() != nil || aria2cInterrupted(runErr) {
+		return errors.Join(ErrDownloadInterrupted, runErr)
+	}
+	return runErr
+}
+
+// aria2cInterrupted reports whether aria2c died from an interrupt: killed by
+// a signal (ExitCode -1) or exited with code 7, which aria2c reserves for
+// unfinished downloads after receiving SIGINT/SIGTERM.
+func aria2cInterrupted(err error) bool {
+	var exitErr *exec.ExitError
+	if !errors.As(err, &exitErr) {
+		return false
+	}
+	code := exitErr.ExitCode()
+	return code == -1 || code == aria2cExitUnfinished
 }

@@ -20,15 +20,19 @@
 
 package llm
 
-import kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
+import (
+	"context"
+
+	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
+)
 
 // prepareGGUF resolves a GGUF model path (downloading if needed).
-func (s *ModelService) prepareGGUF(model string) (*GGUFManager, string, error) {
+func (s *ModelService) prepareGGUF(ctx context.Context, model string) (*GGUFManager, string, error) {
 	mgr, err := NewGGUFManager(s.logger)
 	if err != nil {
 		return nil, "", err
 	}
-	path, err := mgr.Resolve(model)
+	path, err := mgr.Resolve(ctx, model)
 	if err != nil {
 		return nil, "", err
 	}
@@ -36,20 +40,20 @@ func (s *ModelService) prepareGGUF(model string) (*GGUFManager, string, error) {
 }
 
 // downloadGGUFModel resolves (and downloads if needed) a GGUF model file.
-func (s *ModelService) downloadGGUFModel(model string) error {
+func (s *ModelService) downloadGGUFModel(ctx context.Context, model string) error {
 	kdeps_debug.Log("enter: downloadGGUFModel")
-	_, _, err := s.prepareGGUF(model)
+	_, _, err := s.prepareGGUF(ctx, model)
 	return err
 }
 
 // serveGGUFModel resolves and starts a llama-server for the given GGUF model.
-func (s *ModelService) serveGGUFModel(model string, port int) error {
+func (s *ModelService) serveGGUFModel(ctx context.Context, model string, port int) error {
 	kdeps_debug.Log("enter: serveGGUFModel")
-	mgr, path, err := s.prepareGGUF(model)
+	mgr, path, err := s.prepareGGUF(ctx, model)
 	if err != nil {
 		return err
 	}
-	_, err = mgr.Serve(path, port)
+	_, err = mgr.Serve(ctx, path, port)
 	if err == nil {
 		servedGGUFsMu.Lock()
 		servedGGUFNames[path] = model
@@ -61,7 +65,7 @@ func (s *ModelService) serveGGUFModel(model string, port int) error {
 // ggufServerURL returns the base URL of a running llama-server (GGUF) for the
 // given model, or "" if no server is running.
 func (s *ModelService) ggufServerURL(model string) string {
-	_, path, err := s.prepareGGUF(model)
+	_, path, err := s.prepareGGUF(context.Background(), model)
 	if err != nil {
 		return ""
 	}

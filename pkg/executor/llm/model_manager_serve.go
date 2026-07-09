@@ -21,6 +21,7 @@
 package llm
 
 import (
+	"context"
 	"fmt"
 
 	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
@@ -38,7 +39,7 @@ func (m *ModelManager) downloadModelIfOnline(backend, model string) {
 		)
 		return
 	}
-	if err := m.service.DownloadModel(backend, model); err != nil {
+	if err := m.service.DownloadModel(context.Background(), backend, model); err != nil {
 		m.logger.Warn("model download failed or skipped", "backend", backend, "model", model, "error", err)
 	}
 }
@@ -55,7 +56,7 @@ func (m *ModelManager) serveFileModelIfNeeded(config *domain.ChatConfig, port in
 }
 
 func (m *ModelManager) serveBackendModel(backend, model, host string, port int) {
-	if err := m.service.ServeModel(backend, model, host, port); err != nil {
+	if err := m.service.ServeModel(context.Background(), backend, model, host, port); err != nil {
 		m.logger.Warn(
 			"model serving failed or skipped",
 			"backend",
@@ -85,11 +86,11 @@ func (m *ModelManager) serveGGUFModel(model string, port int) (int, error) {
 	if err != nil {
 		return 0, err
 	}
-	path, err := mgr.Resolve(model)
+	path, err := mgr.Resolve(context.Background(), model)
 	if err != nil {
 		return 0, err
 	}
-	return mgr.Serve(path, port)
+	return mgr.Serve(context.Background(), path, port)
 }
 
 // serveFileModel resolves, chmod+x, and serves a llamafile, returning the actual port.
@@ -99,12 +100,12 @@ func (m *ModelManager) serveFileModel(model string, port int) (int, error) {
 	if err != nil {
 		return 0, err
 	}
-	path, err := mgr.Resolve(model)
+	path, err := mgr.Resolve(context.Background(), model)
 	if err != nil {
 		return 0, err
 	}
 	if execErr := mgr.MakeExecutable(path); execErr != nil {
 		return 0, execErr
 	}
-	return mgr.Serve(path, port)
+	return mgr.Serve(context.Background(), path, port)
 }

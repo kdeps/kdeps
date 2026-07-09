@@ -199,7 +199,7 @@ kdeps run workflow.yaml --dev    # hot reload
 
 **Vector store providers:** Qdrant, Chroma, Pinecone, Weaviate, OpenSearch, pgvector, MongoDB, Redis, Azure AI Search, MariaDB, Dolt, Bedrock Knowledge Bases
 
-**Download acceleration:** aria2c with resume support, configurable via `llm.aria2c_flags` in config.yaml — falls back to built-in HTTP downloader if aria2c is not installed
+**Download acceleration:** aria2c with resume support, configurable via `llm.aria2c_flags` in config.yaml — falls back to built-in HTTP downloader if aria2c is not installed. Ctrl+C cancels an in-flight download immediately (no silent restart via the HTTP fallback)
 
 **Expressions:** `get('key')` reads request input, `output('actionId')` reads a prior step's result, `set('key', val)` stores state. All expressions are safe inside `{{ }}` — Jinja2 control flow (`{% if %}`, `{% for %}`) is also supported.
 

@@ -45,7 +45,7 @@ func TestFindFreePort_UnexpectedAddrType(t *testing.T) {
 }
 
 func TestWaitForHealthy_Timeout(t *testing.T) {
-	err := waitForHealthy("http://127.0.0.1:1", 1, 10*time.Millisecond)
+	err := waitForHealthy(context.Background(), "http://127.0.0.1:1", 1, 10*time.Millisecond)
 	require.Error(t, err)
 }
 
@@ -70,7 +70,7 @@ func TestWaitForCompletionsReady_ImmediateSuccess(t *testing.T) {
 	progressOut = out
 	t.Cleanup(func() { progressOut = origOut })
 
-	waitForCompletionsReady("http://127.0.0.1:1")
+	waitForCompletionsReady(context.Background(), "http://127.0.0.1:1")
 	// Should emit the loading line + trailing newline
 	assert.Contains(t, out.String(), "Loading model")
 	assert.True(t, len(out.String()) > 0)
@@ -87,7 +87,7 @@ func TestWaitForCompletionsReady_TimeoutExhausted(t *testing.T) {
 	// Make every request fail so we exhaust the deadline quickly by patching
 	// the function itself to use a very short timeout.
 	called := 0
-	WaitForCompletionsReadyFunc = func(serverURL string) {
+	WaitForCompletionsReadyFunc = func(_ context.Context, serverURL string) {
 		// Inline a tiny-timeout variant to avoid a 5-minute wait in tests.
 		const shortPoll = 5 * time.Millisecond
 		endpoint := serverURL + "/v1/chat/completions"
@@ -107,6 +107,6 @@ func TestWaitForCompletionsReady_TimeoutExhausted(t *testing.T) {
 		return nil, context.DeadlineExceeded
 	}
 
-	WaitForCompletionsReadyFunc("http://127.0.0.1:1")
+	WaitForCompletionsReadyFunc(context.Background(), "http://127.0.0.1:1")
 	assert.Greater(t, called, 0)
 }

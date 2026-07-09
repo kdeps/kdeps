@@ -246,12 +246,13 @@ func resolveModelAndBackend(model, backend string) (string, string) {
 	if model == "" {
 		model = envOrDefault("KDEPS_AGENT_MODEL", "")
 	}
-	if model == "" && backend == "" {
+	switch {
+	case model == "" && backend == "":
 		model, backend = detectDefaultModelAndBackend()
-	} else if model == "" {
+	case model == "":
 		// Backend is explicit — try to find a matching default model.
 		model = defaultModelForBackend(backend)
-	} else if backend == "" {
+	case backend == "":
 		backend = BackendForModel(model)
 	}
 	return model, backend
@@ -281,7 +282,7 @@ func defaultModelForBackend(backend string) string {
 	}
 }
 
-func autoStartLocalModel(cfg *Config) {
+func autoStartLocalModel(ctx context.Context, cfg *Config) {
 	if cfg.BaseURL != "" || cfg.ModelService == nil {
 		return
 	}
@@ -291,8 +292,8 @@ func autoStartLocalModel(cfg *Config) {
 	if cfg.Model == "" {
 		return
 	}
-	_ = cfg.ModelService.DownloadModel(cfg.Backend, cfg.Model)
-	_ = cfg.ModelService.ServeModel(cfg.Backend, cfg.Model, "", 0)
+	_ = cfg.ModelService.DownloadModel(ctx, cfg.Backend, cfg.Model)
+	_ = cfg.ModelService.ServeModel(ctx, cfg.Backend, cfg.Model, "", 0)
 	cfg.BaseURL = cfg.ModelService.ServerURL(cfg.Backend, cfg.Model)
 }
 
@@ -473,7 +474,7 @@ func (l *Loop) runWithRetry(
 		if attempt == l.config.AutoRetryMax-1 {
 			break
 		}
-		l.reconnectLocalModel(chatCfg)
+		l.reconnectLocalModel(ctx, chatCfg)
 		delay := l.config.AutoRetryBaseDelay * (1 << attempt)
 		select {
 		case <-ctx.Done():
@@ -490,14 +491,14 @@ func (l *Loop) runWithRetry(
 // No-op for cloud backends or when ModelService is unset. Errors are
 // swallowed — the outer retry loop's own transient-error check handles
 // reporting failure to the caller if reconnection didn't help.
-func (l *Loop) reconnectLocalModel(chatCfg *domain.ChatConfig) {
+func (l *Loop) reconnectLocalModel(ctx context.Context, chatCfg *domain.ChatConfig) {
 	if l.config.ModelService == nil {
 		return
 	}
 	if l.config.Backend != executorLLM.BackendFile && l.config.Backend != executorLLM.BackendGGUF {
 		return
 	}
-	if err := l.config.ModelService.ServeModel(l.config.Backend, l.config.Model, "", 0); err != nil {
+	if err := l.config.ModelService.ServeModel(ctx, l.config.Backend, l.config.Model, "", 0); err != nil {
 		return
 	}
 	if url := l.config.ModelService.ServerURL(l.config.Backend, l.config.Model); url != "" {

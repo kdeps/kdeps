@@ -2426,8 +2426,11 @@ type mockModelService struct {
 	url            string
 }
 
-func (m *mockModelService) DownloadModel(_, _ string) error { m.downloadCalled = true; return nil }
-func (m *mockModelService) ServeModel(_, _, _ string, _ int) error {
+func (m *mockModelService) DownloadModel(_ context.Context, _, _ string) error {
+	m.downloadCalled = true
+	return nil
+}
+func (m *mockModelService) ServeModel(_ context.Context, _, _, _ string, _ int) error {
 	m.serveCalled = true
 	return nil
 }
@@ -3314,10 +3317,12 @@ type mockKillModelService struct {
 	killResult bool
 }
 
-func (m *mockKillModelService) DownloadModel(_, _ string) error        { return nil }
-func (m *mockKillModelService) ServeModel(_, _, _ string, _ int) error { return nil }
-func (m *mockKillModelService) ServerURL(_, _ string) string           { return "" }
-func (m *mockKillModelService) KillModel(_, _ string) bool             { return m.killResult }
+func (m *mockKillModelService) DownloadModel(_ context.Context, _, _ string) error { return nil }
+func (m *mockKillModelService) ServeModel(_ context.Context, _, _, _ string, _ int) error {
+	return nil
+}
+func (m *mockKillModelService) ServerURL(_, _ string) string { return "" }
+func (m *mockKillModelService) KillModel(_, _ string) bool   { return m.killResult }
 
 // --- cmdHFF ---
 
@@ -3597,7 +3602,7 @@ func TestStartLocalModelServer_LocalBackend_CallsService(t *testing.T) {
 	defer repl.cancel()
 
 	origReady := llm.WaitForCompletionsReadyFunc
-	llm.WaitForCompletionsReadyFunc = func(_ string) {}
+	llm.WaitForCompletionsReadyFunc = func(_ context.Context, _ string) {}
 	t.Cleanup(func() { llm.WaitForCompletionsReadyFunc = origReady })
 
 	origOut := os.Stdout
@@ -3611,6 +3616,33 @@ func TestStartLocalModelServer_LocalBackend_CallsService(t *testing.T) {
 
 	assert.True(t, svc.downloadCalled)
 	assert.True(t, svc.serveCalled)
+}
+
+// TestStartLocalModelServer_CanceledCtx_ReturnsFast verifies Ctrl+C (a
+// canceled turn context) aborts the model start instead of polling for up to
+// 10 minutes waiting for a server URL.
+func TestStartLocalModelServer_CanceledCtx_ReturnsFast(t *testing.T) {
+	svc := &mockModelService{url: ""} // ServerURL stays empty -> poll loop
+	loop := makeTestLoop(nil)
+	loop.config.ModelService = svc
+	loop.config.Backend = llm.BackendGGUF
+	repl := NewREPL(loop)
+	defer repl.cancel()
+
+	repl.cancel() // simulate Ctrl+C before/while starting the server
+
+	origOut := os.Stdout
+	r, w, _ := os.Pipe()
+	os.Stdout = w
+	start := time.Now()
+	repl.startLocalModelServer("my-gguf-model")
+	elapsed := time.Since(start)
+	w.Close()
+	os.Stdout = origOut
+	io.Copy(io.Discard, r) //nolint:errcheck
+	r.Close()
+
+	assert.Less(t, elapsed, 2*time.Second)
 }
 
 // Ensure the import of httptest / llm is used.

@@ -2,10 +2,13 @@ package cmd
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io/fs"
 	"os"
+	"os/signal"
 	"path/filepath"
+	"syscall"
 
 	"github.com/kdeps/kdeps/v2/pkg/agent"
 	"github.com/kdeps/kdeps/v2/pkg/domain"
@@ -124,8 +127,18 @@ func runAgentLoopCmd(path string, flags *agentLoopFlags) error {
 		cfg.ResumeSession = saved
 	}
 
-	// Start model download in background so it is ready before the first prompt.
-	prefetchModel(resolveAgentBackend(flags.Backend), startModel)
+	// Prefetch the model so it is ready before the first prompt. Ctrl+C during
+	// this startup phase cancels the download/load and exits; the signal watch
+	// is released before repl.Run() so the REPL owns SIGINT afterwards.
+	prefetchCtx, stopPrefetchSignals := signal.NotifyContext(
+		context.Background(), os.Interrupt, syscall.SIGTERM,
+	)
+	prefetchModel(prefetchCtx, resolveAgentBackend(flags.Backend), startModel)
+	interrupted := prefetchCtx.Err() != nil
+	stopPrefetchSignals()
+	if interrupted {
+		return errors.New("agent loop: interrupted during model startup")
+	}
 
 	loop := agent.New(eng, hostWorkflow, registry, cfg)
 	repl := agent.NewREPL(loop)

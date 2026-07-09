@@ -50,7 +50,7 @@ func TestGGUFManager_Resolve_AbsPath(t *testing.T) {
 	f.Close()
 
 	mgr := NewGGUFManagerWithDir(nil, "/models")
-	got, err := mgr.Resolve(path)
+	got, err := mgr.Resolve(context.Background(), path)
 	require.NoError(t, err)
 	assert.Equal(t, path, got)
 }
@@ -65,14 +65,14 @@ func TestGGUFManager_Resolve_CacheHit(t *testing.T) {
 	require.NoError(t, afero.WriteFile(AppFS, cached, []byte("fake"), 0600))
 
 	mgr := NewGGUFManagerWithDir(nil, dir)
-	got, err := mgr.Resolve("model.gguf")
+	got, err := mgr.Resolve(context.Background(), "model.gguf")
 	require.NoError(t, err)
 	assert.Equal(t, cached, got)
 }
 
 func TestGGUFManager_Resolve_UnknownAlias_Error(t *testing.T) {
 	mgr := NewGGUFManagerWithDir(nil, t.TempDir())
-	_, err := mgr.Resolve("nonexistent-alias-xyz")
+	_, err := mgr.Resolve(context.Background(), "nonexistent-alias-xyz")
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "not found in cache")
 }
@@ -87,11 +87,11 @@ func TestGGUFManager_Resolve_RemoteURL(t *testing.T) {
 	// Skip aria2c so we fall through to httpGet.
 	origResume := downloadWithResumeFunc
 	t.Cleanup(func() { downloadWithResumeFunc = origResume })
-	downloadWithResumeFunc = func(_, _, _ string) error { return errors.New("no aria2c in test") }
+	downloadWithResumeFunc = func(_ context.Context, _, _ string) error { return errors.New("no aria2c in test") }
 
 	origGet := httpGet
 	t.Cleanup(func() { httpGet = origGet })
-	httpGet = stdhttp.Get //nolint:noctx
+	httpGet = func(_ context.Context, url string) (*stdhttp.Response, error) { return stdhttp.Get(url) } //nolint:noctx // test helper
 
 	origFS := AppFS
 	t.Cleanup(func() { AppFS = origFS })
@@ -99,7 +99,7 @@ func TestGGUFManager_Resolve_RemoteURL(t *testing.T) {
 
 	dir := t.TempDir()
 	mgr := NewGGUFManagerWithDir(nil, dir)
-	got, err := mgr.Resolve(srv.URL + "/mymodel.gguf")
+	got, err := mgr.Resolve(context.Background(), srv.URL+"/mymodel.gguf")
 	require.NoError(t, err)
 	assert.True(t, filepath.IsAbs(got))
 	assert.Contains(t, got, "mymodel.gguf")
@@ -112,11 +112,11 @@ func TestGGUFManager_Resolve_Alias(t *testing.T) {
 	// Prevent aria2c from actually downloading (skip to httpGet fallback).
 	origResume := downloadWithResumeFunc
 	t.Cleanup(func() { downloadWithResumeFunc = origResume })
-	downloadWithResumeFunc = func(_, _, _ string) error { return errors.New("no aria2c in test") }
+	downloadWithResumeFunc = func(_ context.Context, _, _ string) error { return errors.New("no aria2c in test") }
 
 	origGet := httpGet
 	t.Cleanup(func() { httpGet = origGet })
-	httpGet = func(_ string) (*stdhttp.Response, error) {
+	httpGet = func(_ context.Context, _ string) (*stdhttp.Response, error) {
 		return &stdhttp.Response{
 			StatusCode: stdhttp.StatusOK,
 			Body:       io.NopCloser(bytes.NewReader([]byte("GGUF"))),
@@ -129,7 +129,7 @@ func TestGGUFManager_Resolve_Alias(t *testing.T) {
 
 	dir := t.TempDir()
 	mgr := NewGGUFManagerWithDir(nil, dir)
-	got, err := mgr.Resolve("qwen3.5:4b")
+	got, err := mgr.Resolve(context.Background(), "qwen3.5:4b")
 	require.NoError(t, err)
 	assert.Contains(t, got, ".gguf")
 }
@@ -164,7 +164,7 @@ func TestGGUFManager_Serve_AlreadyRunning(t *testing.T) {
 	})
 
 	mgr := NewGGUFManagerWithDir(nil, t.TempDir())
-	port, err := mgr.Serve(path, 0)
+	port, err := mgr.Serve(context.Background(), path, 0)
 	require.NoError(t, err)
 	assert.Equal(t, 19999, port)
 	assert.False(t, startCalled, "should reuse existing server")
@@ -184,7 +184,7 @@ func TestGGUFManager_Serve_StartNew(t *testing.T) {
 
 	startGGUFServerFunc = func(_ string, _ int) (int, error) { return 0, nil }
 	ggufStartTimeoutFunc = func() time.Duration { return 10 * time.Millisecond }
-	WaitForCompletionsReadyFunc = func(_ string) {}
+	WaitForCompletionsReadyFunc = func(_ context.Context, _ string) {}
 
 	healthCalled := 0
 	httpDefaultClientDo = func(_ *stdhttp.Request) (*stdhttp.Response, error) {
@@ -203,7 +203,7 @@ func TestGGUFManager_Serve_StartNew(t *testing.T) {
 	})
 
 	mgr := NewGGUFManagerWithDir(nil, t.TempDir())
-	port, err := mgr.Serve(path, 0)
+	port, err := mgr.Serve(context.Background(), path, 0)
 	require.NoError(t, err)
 	assert.Greater(t, port, 0)
 	assert.Greater(t, healthCalled, 0)
@@ -212,11 +212,11 @@ func TestGGUFManager_Serve_StartNew(t *testing.T) {
 func TestServiceGGUF_DownloadModel(t *testing.T) {
 	origResume := downloadWithResumeFunc
 	t.Cleanup(func() { downloadWithResumeFunc = origResume })
-	downloadWithResumeFunc = func(_, _, _ string) error { return errors.New("no aria2c in test") }
+	downloadWithResumeFunc = func(_ context.Context, _, _ string) error { return errors.New("no aria2c in test") }
 
 	origGet := httpGet
 	t.Cleanup(func() { httpGet = origGet })
-	httpGet = func(_ string) (*stdhttp.Response, error) {
+	httpGet = func(_ context.Context, _ string) (*stdhttp.Response, error) {
 		return &stdhttp.Response{
 			StatusCode:    stdhttp.StatusOK,
 			ContentLength: 4,
@@ -230,13 +230,13 @@ func TestServiceGGUF_DownloadModel(t *testing.T) {
 
 	svc := NewModelService(nil)
 	// Use a URL so it skips alias resolution.
-	err := svc.DownloadModel("gguf", "http://example.com/mymodel.gguf")
+	err := svc.DownloadModel(context.Background(), "gguf", "http://example.com/mymodel.gguf")
 	require.NoError(t, err)
 }
 
 func TestServiceGGUF_DownloadModel_UnsupportedBackend(t *testing.T) {
 	svc := NewModelService(nil)
-	err := svc.DownloadModel("unknown-backend", "model")
+	err := svc.DownloadModel(context.Background(), "unknown-backend", "model")
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "unsupported backend")
 }
@@ -244,16 +244,16 @@ func TestServiceGGUF_DownloadModel_UnsupportedBackend(t *testing.T) {
 func TestServiceGGUF_ServeModel_DownloadError(t *testing.T) {
 	origResume := downloadWithResumeFunc
 	t.Cleanup(func() { downloadWithResumeFunc = origResume })
-	downloadWithResumeFunc = func(_, _, _ string) error { return errors.New("no aria2c in test") }
+	downloadWithResumeFunc = func(_ context.Context, _, _ string) error { return errors.New("no aria2c in test") }
 
 	origGet := httpGet
 	t.Cleanup(func() { httpGet = origGet })
-	httpGet = func(_ string) (*stdhttp.Response, error) {
+	httpGet = func(_ context.Context, _ string) (*stdhttp.Response, error) {
 		return nil, errors.New("network error")
 	}
 
 	svc := NewModelService(nil)
-	err := svc.ServeModel("gguf", "http://example.com/fail.gguf", "", 0)
+	err := svc.ServeModel(context.Background(), "gguf", "http://example.com/fail.gguf", "", 0)
 	require.Error(t, err)
 }
 
@@ -278,7 +278,7 @@ func TestGGUFManager_Resolve_RelativePath(t *testing.T) {
 	filepathAbsFunc = func(_ string) (string, error) { return target, nil }
 
 	mgr := NewGGUFManagerWithDir(nil, dir)
-	got, err := mgr.Resolve("./mymodel.gguf")
+	got, err := mgr.Resolve(context.Background(), "./mymodel.gguf")
 	require.NoError(t, err)
 	assert.Equal(t, target, got)
 }
@@ -291,7 +291,7 @@ func TestGGUFManager_Resolve_RelativePath_AbsError(t *testing.T) {
 	}
 
 	mgr := NewGGUFManagerWithDir(nil, t.TempDir())
-	_, err := mgr.Resolve("./bad.gguf")
+	_, err := mgr.Resolve(context.Background(), "./bad.gguf")
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "cannot resolve relative path")
 }
@@ -302,7 +302,7 @@ func TestGGUFManager_Resolve_AbsPath_NotFound(t *testing.T) {
 	AppFS = afero.NewMemMapFs()
 
 	mgr := NewGGUFManagerWithDir(nil, t.TempDir())
-	_, err := mgr.Resolve("/nonexistent/path/model.gguf")
+	_, err := mgr.Resolve(context.Background(), "/nonexistent/path/model.gguf")
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "gguf model not found at")
 }
@@ -328,7 +328,7 @@ func TestGGUFManager_Serve_StartError(t *testing.T) {
 	})
 
 	mgr := NewGGUFManagerWithDir(nil, t.TempDir())
-	_, err := mgr.Serve(path, 19998)
+	_, err := mgr.Serve(context.Background(), path, 19998)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "start failed")
 }
@@ -390,12 +390,12 @@ func TestModelDownload_SharedHelper_CacheHit(t *testing.T) {
 	// httpGet should not be called.
 	origGet := httpGet
 	t.Cleanup(func() { httpGet = origGet })
-	httpGet = func(_ string) (*stdhttp.Response, error) {
+	httpGet = func(_ context.Context, _ string) (*stdhttp.Response, error) {
 		t.Fatal("httpGet should not be called for cache hit")
 		return nil, nil
 	}
 
-	path, err := downloadModelFile("https://example.com/cached.gguf", "model.gguf", dir, nil, fs)
+	path, err := downloadModelFile(context.Background(), "https://example.com/cached.gguf", "model.gguf", dir, nil, fs)
 	require.NoError(t, err)
 	assert.Equal(t, dest, path)
 }
@@ -459,7 +459,7 @@ func TestGGUFManager_Serve_FindFreePortError(t *testing.T) {
 	servedGGUFsMu.Unlock()
 
 	mgr := NewGGUFManagerWithDir(nil, t.TempDir())
-	_, err := mgr.Serve(path, 0)
+	_, err := mgr.Serve(context.Background(), path, 0)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "cannot find free port")
 }
@@ -488,7 +488,7 @@ func TestGGUFManager_Serve_WaitForHealthyError(t *testing.T) {
 	})
 
 	mgr := NewGGUFManagerWithDir(nil, t.TempDir())
-	_, err := mgr.Serve(path, 29994)
+	_, err := mgr.Serve(context.Background(), path, 29994)
 	require.Error(t, err)
 }
 
@@ -506,7 +506,7 @@ func TestGGUFManager_Serve_FullSuccessViaStart(t *testing.T) {
 
 	startGGUFServerFunc = func(_ string, _ int) (int, error) { return 0, nil }
 	ggufStartTimeoutFunc = func() time.Duration { return 100 * time.Millisecond }
-	WaitForCompletionsReadyFunc = func(_ string) {}
+	WaitForCompletionsReadyFunc = func(_ context.Context, _ string) {}
 
 	calls := 0
 	httpDefaultClientDo = func(_ *stdhttp.Request) (*stdhttp.Response, error) {
@@ -528,7 +528,7 @@ func TestGGUFManager_Serve_FullSuccessViaStart(t *testing.T) {
 	})
 
 	mgr := NewGGUFManagerWithDir(nil, t.TempDir())
-	port, err := mgr.Serve(path, 29993)
+	port, err := mgr.Serve(context.Background(), path, 29993)
 	require.NoError(t, err)
 	assert.Equal(t, 29993, port)
 }
@@ -536,7 +536,7 @@ func TestGGUFManager_Serve_FullSuccessViaStart(t *testing.T) {
 func TestServiceGGUF_PrepareGGUF_NewManagerError(t *testing.T) {
 	t.Setenv("KDEPS_MODELS_DIR", "/dev/null/no-such-dir-xyz")
 	svc := NewModelService(nil)
-	err := svc.ServeModel("gguf", "any-model", "", 0)
+	err := svc.ServeModel(context.Background(), "gguf", "any-model", "", 0)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "cannot create models directory")
 }
@@ -571,6 +571,6 @@ func TestServiceGGUF_ServeModel_Success(t *testing.T) {
 	})
 
 	svc := NewModelService(nil)
-	err = svc.ServeModel("gguf", path, "", 0)
+	err = svc.ServeModel(context.Background(), "gguf", path, "", 0)
 	require.NoError(t, err)
 }

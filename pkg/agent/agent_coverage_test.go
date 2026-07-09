@@ -982,7 +982,7 @@ func TestAutoStartLocalModel_NilService(t *testing.T) {
 	t.Parallel()
 	cfg := &Config{ModelService: nil, BaseURL: ""}
 	// Must return without panic
-	autoStartLocalModel(cfg)
+	autoStartLocalModel(context.Background(), cfg)
 }
 
 func TestAutoStartLocalModel_NonLocalBackend(t *testing.T) {
@@ -992,7 +992,7 @@ func TestAutoStartLocalModel_NonLocalBackend(t *testing.T) {
 		BaseURL:      "http://localhost:8080",
 	}
 	// BaseURL is set, returns early
-	autoStartLocalModel(cfg)
+	autoStartLocalModel(context.Background(), cfg)
 }
 
 // ---- repl_render.go: renderMarkdown ----

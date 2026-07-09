@@ -141,7 +141,7 @@ func TestHFDownloadFile_NoToken_NoAria2c(t *testing.T) {
 
 	// Mock httpGet to fail fast instead of making a real HTTP call that hangs.
 	origHTTP := httpGet
-	httpGet = func(_ string) (*http.Response, error) {
+	httpGet = func(_ context.Context, _ string) (*http.Response, error) {
 		return nil, http.ErrHandlerTimeout
 	}
 	t.Cleanup(func() { httpGet = origHTTP })

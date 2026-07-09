@@ -21,6 +21,7 @@
 package cmd
 
 import (
+	"context"
 	"fmt"
 	"log/slog"
 	"os"
@@ -122,18 +123,19 @@ func newExecutorRegistry(logger *slog.Logger) *executor.Registry {
 // prefetchModel downloads and starts serving the model before entering the
 // system. For the file (llamafile) backend this also blocks until the model
 // weights are fully loaded so the first prompt is not delayed. Returns
-// immediately when the model is already cached/running or model is empty.
-// Errors are silently ignored — the executor retries on the first prompt.
-func prefetchModel(backend, model string) {
+// immediately when the model is already cached/running, model is empty, or
+// ctx is canceled (Ctrl+C during startup). Errors are silently ignored — the
+// executor retries on the first prompt.
+func prefetchModel(ctx context.Context, backend, model string) {
 	if model == "" {
 		return
 	}
 	svc := newModelServiceFunc()
-	if err := svc.DownloadModel(backend, model); err != nil {
+	if err := svc.DownloadModel(ctx, backend, model); err != nil {
 		return
 	}
 	if backend == agentBackendFile || backend == agentBackendGGUF {
-		_ = svc.ServeModel(backend, model, "", 0)
+		_ = svc.ServeModel(ctx, backend, model, "", 0)
 	}
 }
 

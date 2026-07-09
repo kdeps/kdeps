@@ -21,6 +21,7 @@
 package llm
 
 import (
+	"context"
 	"errors"
 	"net/http"
 	"net/http/httptest"
@@ -91,7 +92,7 @@ func TestResolve_AliasDownloads(t *testing.T) {
 
 	modelsDir := t.TempDir()
 	mgr := NewLlamafileManagerWithDir(nil, modelsDir)
-	path, err := mgr.Resolve("cov-alias")
+	path, err := mgr.Resolve(context.Background(), "cov-alias")
 	require.NoError(t, err)
 	assert.Equal(t, filepath.Join(modelsDir, "cov-alias-model.llamafile"), path)
 	assert.FileExists(t, path)
@@ -105,7 +106,7 @@ func TestServe_StartErrorBranch(t *testing.T) {
 	}
 
 	m := NewLlamafileManagerWithDir(nil, t.TempDir())
-	_, err := m.Serve("/nonexistent/start-error.llamafile", 0)
+	_, err := m.Serve(context.Background(), "/nonexistent/start-error.llamafile", 0)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "spawn failed")
 }
@@ -121,7 +122,7 @@ func TestServe_FixedPortHealthTimeout(t *testing.T) {
 	llamafileStartTimeoutFunc = func() time.Duration { return 10 * time.Millisecond }
 
 	m := NewLlamafileManagerWithDir(nil, t.TempDir())
-	_, err := m.Serve("/nonexistent/timeout.llamafile", 1)
+	_, err := m.Serve(context.Background(), "/nonexistent/timeout.llamafile", 1)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "did not become healthy")
 }
@@ -158,7 +159,7 @@ func TestServeModel_FileBackend(t *testing.T) {
 	svc := NewModelService(nil)
 	// The script exits immediately so the health wait times out: the file
 	// branch is exercised end to end without a real model.
-	err := svc.ServeModel(BackendFile, "svc.llamafile", "127.0.0.1", 0)
+	err := svc.ServeModel(context.Background(), BackendFile, "svc.llamafile", "127.0.0.1", 0)
 	require.Error(t, err)
 }
 
@@ -198,7 +199,7 @@ func TestUpdateRegistryFromRemote_WriteError(t *testing.T) {
 
 func TestServeModel_UnsupportedBackend(t *testing.T) {
 	svc := NewModelService(nil)
-	err := svc.ServeModel("unsupported-backend", "m", "127.0.0.1", 0)
+	err := svc.ServeModel(context.Background(), "unsupported-backend", "m", "127.0.0.1", 0)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "unsupported backend")
 }

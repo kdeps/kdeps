@@ -200,8 +200,11 @@ var removeServerPortFile = func(path string) { //nolint:gochecknoglobals // test
 
 // serveLocalProcess is the shared Serve implementation for LlamafileManager and
 // GGUFManager. It reuses an already-running server when possible, starts a new
-// one otherwise, and blocks until the model is fully ready.
-func serveLocalProcess(logger *slog.Logger, cfg localProcessConfig, path string, port int) (int, error) {
+// one otherwise, and blocks until the model is fully ready or ctx is canceled.
+// ctx bounds only the readiness waits; the server process itself outlives it.
+func serveLocalProcess(
+	ctx context.Context, logger *slog.Logger, cfg localProcessConfig, path string, port int,
+) (int, error) {
 	if logger == nil {
 		logger = slog.Default()
 	}
@@ -211,18 +214,21 @@ func serveLocalProcess(logger *slog.Logger, cfg localProcessConfig, path string,
 	// Reuse in-memory tracked server if still healthy.
 	if port == 0 {
 		if served, ok := cfg.served[path]; ok && isHealthy(localServerURL(served)) {
-			logger.Info(cfg.label+" already running", "url", localServerURL(served))
+			logger.InfoContext(ctx, cfg.label+" already running", "url", localServerURL(served))
 			return served, nil
 		}
 		// Check cross-process state file: another kdeps process may already serve this model.
 		if saved := readServerPortFile(path); saved != 0 && isHealthy(localServerURL(saved)) {
-			logger.Info(cfg.label+" already running (cross-process)", "url", localServerURL(saved))
+			logger.InfoContext(ctx, cfg.label+" already running (cross-process)", "url", localServerURL(saved))
 			cfg.served[path] = saved
 			return saved, nil
 		}
 		// Probe the backend's well-known port before allocating a random one.
 		if cfg.defaultPort != 0 && isHealthy(localServerURL(cfg.defaultPort)) {
-			logger.Info(cfg.label+" already running on default port", "url", localServerURL(cfg.defaultPort))
+			logger.InfoContext(
+				ctx, cfg.label+" already running on default port",
+				"url", localServerURL(cfg.defaultPort),
+			)
 			cfg.served[path] = cfg.defaultPort
 			return cfg.defaultPort, nil
 		}
@@ -235,22 +241,22 @@ func serveLocalProcess(logger *slog.Logger, cfg localProcessConfig, path string,
 
 	serverURL := localServerURL(port)
 	if isHealthy(serverURL) {
-		logger.Info(cfg.label+" already running", "url", serverURL)
+		logger.InfoContext(ctx, cfg.label+" already running", "url", serverURL)
 		cfg.served[path] = port
 		return port, nil
 	}
 
-	logger.Info("starting "+cfg.label, "path", path, "port", port)
+	logger.InfoContext(ctx, "starting "+cfg.label, "path", path, "port", port)
 	pid, startErr := cfg.startServer(path, port)
 	if startErr != nil {
 		return 0, startErr
 	}
-	if healthErr := waitForHealthy(serverURL, port, cfg.timeout()); healthErr != nil {
+	if healthErr := waitForHealthy(ctx, serverURL, port, cfg.timeout()); healthErr != nil {
 		return 0, healthErr
 	}
 	// Health OK means the process is up but the model may still be loading.
-	WaitForCompletionsReadyFunc(serverURL)
-	logger.Info(cfg.label+" ready", "url", serverURL)
+	WaitForCompletionsReadyFunc(ctx, serverURL)
+	logger.InfoContext(ctx, cfg.label+" ready", "url", serverURL)
 	cfg.served[path] = port
 	if pid > 0 && cfg.pids != nil {
 		cfg.pids[path] = pid
@@ -260,9 +266,9 @@ func serveLocalProcess(logger *slog.Logger, cfg localProcessConfig, path string,
 	return port, nil
 }
 
-func (m *LlamafileManager) Serve(path string, port int) (int, error) {
+func (m *LlamafileManager) Serve(ctx context.Context, path string, port int) (int, error) {
 	kdeps_debug.Log("enter: LlamafileManager.Serve")
-	return serveLocalProcess(m.logger, localProcessConfig{
+	return serveLocalProcess(ctx, m.logger, localProcessConfig{
 		mu:          &servedLlamafilesMu,
 		served:      servedLlamafiles,
 		pids:        servedLlamafilePIDs,
@@ -309,13 +315,17 @@ func startLlamafileServer(path string, port int) (int, error) {
 	return pid, nil
 }
 
-func waitForHealthy(serverURL string, port int, timeout time.Duration) error {
+func waitForHealthy(ctx context.Context, serverURL string, port int, timeout time.Duration) error {
 	deadline := time.Now().Add(timeout)
 	for time.Now().Before(deadline) {
 		if isHealthy(serverURL) {
 			return nil
 		}
-		time.Sleep(llamafileHealthPoll)
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-time.After(llamafileHealthPoll):
+		}
 	}
 	return fmt.Errorf("server did not become healthy within %s on port %d", timeout, port)
 }
@@ -340,9 +350,10 @@ var isHealthy = func(baseURL string) bool { //nolint:gochecknoglobals // test-re
 var WaitForCompletionsReadyFunc = waitForCompletionsReady //nolint:gochecknoglobals // test-replaceable hook
 
 // waitForCompletionsReady polls the completions endpoint until the model
-// responds. The /health endpoint becomes OK while weights are still loading;
-// this probe ensures the model is ready before the first real request.
-func waitForCompletionsReady(serverURL string) {
+// responds or ctx is canceled (Ctrl+C). The /health endpoint becomes OK while
+// weights are still loading; this probe ensures the model is ready before the
+// first real request.
+func waitForCompletionsReady(ctx context.Context, serverURL string) {
 	const (
 		probePollInterval = 500 * time.Millisecond
 		probeTimeout      = 5 * time.Minute
@@ -355,8 +366,8 @@ func waitForCompletionsReady(serverURL string) {
 	for time.Now().Before(deadline) {
 		elapsed := time.Since(start).Round(time.Second)
 		fmt.Fprintf(progressOut, "\r  Loading model...  (%s)", elapsed)
-		ctx, cancel := context.WithTimeout(context.Background(), probeReqTimeout)
-		req, err := stdhttp.NewRequestWithContext(ctx, stdhttp.MethodPost, endpoint, bytes.NewReader(body))
+		reqCtx, cancel := context.WithTimeout(ctx, probeReqTimeout)
+		req, err := stdhttp.NewRequestWithContext(reqCtx, stdhttp.MethodPost, endpoint, bytes.NewReader(body))
 		if err != nil {
 			cancel()
 			return
@@ -369,7 +380,12 @@ func waitForCompletionsReady(serverURL string) {
 			fmt.Fprintln(progressOut)
 			return
 		}
-		time.Sleep(probePollInterval)
+		select {
+		case <-ctx.Done():
+			fmt.Fprintln(progressOut)
+			return
+		case <-time.After(probePollInterval):
+		}
 	}
 	fmt.Fprintln(progressOut)
 }
