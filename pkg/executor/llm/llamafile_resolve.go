@@ -19,6 +19,7 @@
 package llm
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -61,8 +62,11 @@ func (m *LlamafileManager) resolveRelativeModel(model string) (string, error) {
 }
 
 func (m *LlamafileManager) resolveCachedModel(model string) (string, error) {
+	if model == "" {
+		return "", errors.New("model name is empty")
+	}
 	cached := filepath.Join(m.modelsDir, model)
-	if _, err := AppFS.Stat(cached); err != nil {
+	if info, err := AppFS.Stat(cached); err != nil || info.IsDir() {
 		known := LlamafileAliasNames()
 		return "", fmt.Errorf(
 			"llamafile %q not found in cache (%s); set model to a URL, full path, or one of: %v",

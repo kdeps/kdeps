@@ -163,6 +163,9 @@ func resolveStartModel(flags *agentLoopFlags, settings tui.Settings) (string, st
 	if m == "" && settings.DefaultModel != "" {
 		m = settings.DefaultModel
 	}
+	if b == "" {
+		b = os.Getenv("KDEPS_DEFAULT_BACKEND")
+	}
 	if b == "" && agent.IsGGUFModelName(m) {
 		b = llm.BackendGGUF
 	}

@@ -1313,6 +1313,10 @@ func (r *REPL) handleReadError(err error) (bool, error) {
 
 // processInput routes a non-empty input line to a command or LLM turn.
 func (r *REPL) processInput(input string) error {
+	if r.loop.config.Model == "" {
+		fmt.Fprintln(os.Stdout, styleReplMeta.Render("No model selected — use /model <name> to pick one, or /model list"))
+		return nil
+	}
 	if strings.HasPrefix(input, "/") {
 		return r.dispatchCommand(input)
 	}
