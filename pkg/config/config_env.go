@@ -30,7 +30,7 @@ func setIfUnset(key, value string) {
 	if value == "" {
 		return
 	}
-	if _, ok := os.LookupEnv(key); !ok {
+	if existing, ok := os.LookupEnv(key); !ok || existing == "" {
 		_ = os.Setenv(key, value)
 	}
 }
