@@ -180,13 +180,15 @@ func aria2cInterrupted(err error) bool {
 	return code == -1 || code == aria2cExitUnfinished
 }
 
-// aria2cNoiseFilter reduces aria2c console noise: multi-line exception dumps
-// are dropped and signed query strings are stripped from logged URIs, so a
-// transient per-connection error is one short line instead of a wall of
-// URL-encoded policy text. Progress readout lines pass through unchanged.
+// aria2cNoiseFilter reduces aria2c to a single in-place progress line.
+// When stdout is a pipe (as it is here), aria2c prints every progress update
+// on its own line and interleaves per-connection [ERROR]/Exception dumps that
+// are not actionable — the Go side already reports real failures. Only the
+// "[#gid …]" progress readout is kept, redrawn on one line via \r.
 type aria2cNoiseFilter struct {
-	w   io.Writer
-	buf []byte
+	w             io.Writer
+	buf           []byte
+	wroteProgress bool
 }
 
 func (f *aria2cNoiseFilter) Write(p []byte) (int, error) {
@@ -196,66 +198,49 @@ func (f *aria2cNoiseFilter) Write(p []byte) (int, error) {
 		if i < 0 {
 			break
 		}
-		line := make([]byte, i+1)
-		copy(line, f.buf[:i+1])
+		line := make([]byte, i)
+		copy(line, f.buf[:i])
 		f.buf = f.buf[i+1:]
-		if out := filterAria2cLine(line); len(out) > 0 {
-			if _, err := f.w.Write(out); err != nil {
-				return len(p), err
-			}
-			// Progress lines use \r (no \n) — flush immediately so the update
-			// is visible in real time even when stdout is captured by readline.
-			if len(out) > 0 && out[len(out)-1] == '\r' {
-				if syncer, ok := f.w.(interface{ Sync() error }); ok {
-					_ = syncer.Sync()
-				}
-			}
-		}
+		f.emitProgress(line)
 	}
 	return len(p), nil
 }
 
-// Flush writes any buffered trailing output (a final line without terminator).
-func (f *aria2cNoiseFilter) Flush() {
-	if len(f.buf) == 0 {
+// emitProgress redraws the progress readout in place; all other lines are dropped.
+func (f *aria2cNoiseFilter) emitProgress(line []byte) {
+	content := filterAria2cLine(line)
+	if len(content) == 0 {
 		return
 	}
-	if out := filterAria2cLine(f.buf); len(out) > 0 {
-		_, _ = f.w.Write(out)
+	// \r + clear-to-end redraws the same terminal line for every update.
+	_, _ = fmt.Fprintf(f.w, "\r%s\x1b[K", content)
+	f.wroteProgress = true
+	if syncer, ok := f.w.(interface{ Sync() error }); ok {
+		_ = syncer.Sync()
 	}
-	f.buf = nil
 }
 
-// filterAria2cLine returns the line to emit, or nil to drop it entirely.
+// Flush emits any buffered trailing progress and terminates the in-place
+// progress line so subsequent output starts on a fresh line.
+func (f *aria2cNoiseFilter) Flush() {
+	if len(f.buf) > 0 {
+		f.emitProgress(f.buf)
+		f.buf = nil
+	}
+	if f.wroteProgress {
+		_, _ = io.WriteString(f.w, "\n")
+		f.wroteProgress = false
+	}
+}
+
+// filterAria2cLine returns the progress readout content ("[#gid …]") for a
+// progress line, or nil for everything else: [ERROR]/[WARN]/[NOTICE] logs,
+// exception dumps, file-allocation notices, download-result tables. Real
+// failures surface through downloadWithResume's returned error instead.
 func filterAria2cLine(line []byte) []byte {
 	trimmed := strings.TrimSpace(string(line))
-	// Exception dumps: "Exception: [AbstractCommand.cc:351] errorCode=22 URI=…"
-	// and their "  -> [HttpSkipResponseCommand.cc:240] …" continuations.
-	if strings.HasPrefix(trimmed, "Exception:") || strings.HasPrefix(trimmed, "->") {
-		return nil
+	if strings.HasPrefix(trimmed, "[#") && strings.HasSuffix(trimmed, "]") {
+		return []byte(trimmed)
 	}
-	// Error lines: "[ERROR] CUID#N - Download aborted. URI=…" or
-	// "07/09 16:52:12 [ERROR] CUID#N - …". These are transient connection
-	// drops during multi-connection downloads — not actionable.
-	if strings.Contains(trimmed, "[ERROR]") {
-		return nil
-	}
-	// Pre-allocation progress: "[FileAlloc:#aff482 95MiB/2.1GiB(4%)]".
-	// These appear once per connection before real download — suppress.
-	if strings.Contains(trimmed, "[FileAlloc:") {
-		return nil
-	}
-	// Keep only progress lines (start with [#) or other non-noise output.
-	// Strip signed query strings from URIs (timestamps, [ERROR], etc.).
-	if idx := bytes.Index(line, []byte("URI=")); idx >= 0 {
-		if q := bytes.IndexByte(line[idx:], '?'); q >= 0 {
-			// Preserve the line terminator (last byte when \r or \n).
-			term := []byte{}
-			if last := line[len(line)-1]; last == '\r' || last == '\n' {
-				term = []byte{last}
-			}
-			return append(line[:idx+q:idx+q], term...)
-		}
-	}
-	return line
+	return nil
 }

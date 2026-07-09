@@ -27,6 +27,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -204,21 +205,62 @@ func TestDownloadModelFile_CompleteFileIsCached(t *testing.T) {
 	assert.Equal(t, "/models/m.gguf", path)
 }
 
-// TestFilterAria2cLine covers the console noise filter.
+// TestFilterAria2cLine covers the console noise filter: only the progress
+// readout survives; every log/error/summary line is dropped.
 func TestFilterAria2cLine(t *testing.T) {
 	drop := []string{
-		"Exception: [AbstractCommand.cc:351] errorCode=22 URI=https://x/y?sig=abc\n",
-		"  -> [HttpSkipResponseCommand.cc:240] errorCode=22 status=403\n",
-		"07/09 16:52:12 [ERROR] CUID#11 - Download aborted. URI=https://hf.co/m.llamafile?X=Y\n",
-		"[FileAlloc:#aff482 95MiB/2.1GiB(4%)]\n",
+		"Exception: [AbstractCommand.cc:351] errorCode=22 URI=https://x/y?sig=abc",
+		"  -> [HttpSkipResponseCommand.cc:240] errorCode=22 status=403",
+		"07/09 16:52:12 [ERROR] CUID#11 - Download aborted. URI=https://hf.co/m.llamafile?X=Y",
+		"[FileAlloc:#aff482 95MiB/2.1GiB(4%)]",
+		"07/09 17:19:20 [NOTICE] Download complete: /Users/x/.kdeps/models/m.gguf",
+		"Download Results:",
+		"gid   |stat|avg speed  |path/URI",
+		"======+====+===========+=======",
+		"98e27a|OK  |    52MiB/s|/Users/x/.kdeps/models/m.gguf",
+		"",
+		"[", // truncated progress fragment left over after Ctrl+C
 	}
 	for _, in := range drop {
 		assert.Nil(t, filterAria2cLine([]byte(in)), "should drop: %q", in)
 	}
 
-	// Progress readout passes through unchanged.
-	progress := "[#6e2da6 0.9GiB/1.3GiB(72%) CN:1 DL:13MiB ETA:27s]\r"
-	assert.Equal(t, progress, string(filterAria2cLine([]byte(progress))))
+	// Progress readout is kept (trimmed, no terminator).
+	progress := "[#6e2da6 0.9GiB/1.3GiB(72%) CN:1 DL:13MiB ETA:27s]"
+	assert.Equal(t, progress, string(filterAria2cLine([]byte(progress+"\r"))))
+}
+
+// TestAria2cNoiseFilter_SingleLine verifies the writer collapses aria2c's
+// multi-line pipe output into one in-place progress line plus a final newline.
+func TestAria2cNoiseFilter_SingleLine(t *testing.T) {
+	var out strings.Builder
+	f := &aria2cNoiseFilter{w: &out}
+
+	_, err := f.Write([]byte(
+		"07/09 17:19:07 [ERROR] CUID#14 - Download aborted. URI=https://hf.co/m.gguf\n" +
+			"\n" +
+			"[#98e27a 37MiB/770MiB(4%) CN:10 DL:41MiB ETA:17s]\n" +
+			"[#98e27a 89MiB/770MiB(11%) CN:10 DL:47MiB ETA:14s]\n",
+	))
+	require.NoError(t, err)
+	f.Flush()
+
+	assert.Equal(t,
+		"\r[#98e27a 37MiB/770MiB(4%) CN:10 DL:41MiB ETA:17s]\x1b[K"+
+			"\r[#98e27a 89MiB/770MiB(11%) CN:10 DL:47MiB ETA:14s]\x1b[K\n",
+		out.String(),
+	)
+}
+
+// TestAria2cNoiseFilter_NoProgressNoOutput verifies nothing at all is written
+// (not even the trailing newline) when aria2c produced only noise.
+func TestAria2cNoiseFilter_NoProgressNoOutput(t *testing.T) {
+	var out strings.Builder
+	f := &aria2cNoiseFilter{w: &out}
+	_, err := f.Write([]byte("07/09 [ERROR] CUID#1 - Download aborted. URI=x\nException: [A.cc:1]\n"))
+	require.NoError(t, err)
+	f.Flush()
+	assert.Empty(t, out.String())
 }
 
 // TestResolveCachedModel_PartialRejected verifies both managers refuse to
