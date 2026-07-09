@@ -4354,8 +4354,8 @@ func TestDetectDefaultModelAndBackend_FallbackDefault(t *testing.T) {
 		t.Setenv(m.EnvVar, "")
 	}
 	model, backend := detectDefaultModelAndBackend()
-	assert.NotEmpty(t, model)
-	assert.NotEmpty(t, backend)
+	assert.Empty(t, model)
+	assert.Empty(t, backend)
 }
 
 func TestDetectDefaultModelAndBackend_OllamaPath(t *testing.T) {

@@ -266,6 +266,9 @@ func autoStartLocalModel(cfg *Config) {
 	if cfg.Backend != executorLLM.BackendFile && cfg.Backend != executorLLM.BackendGGUF {
 		return
 	}
+	if cfg.Model == "" {
+		return
+	}
 	_ = cfg.ModelService.DownloadModel(cfg.Backend, cfg.Model)
 	_ = cfg.ModelService.ServeModel(cfg.Backend, cfg.Model, "", 0)
 	cfg.BaseURL = cfg.ModelService.ServerURL(cfg.Backend, cfg.Model)
@@ -302,7 +305,7 @@ func detectDefaultModelAndBackend() (string, string) {
 			return m.ID, m.Backend
 		}
 	}
-	return defaultModelName, executorLLM.BackendFile
+	return "", ""
 }
 
 func applyConfigDefaults(cfg Config) Config {

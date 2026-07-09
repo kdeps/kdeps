@@ -803,9 +803,9 @@ func TestDetectDefaultModelAndBackend_NeitherFound(t *testing.T) {
 	}
 
 	model, backend := detectDefaultModelAndBackend()
-	// Should fall back to defaultModelName and BackendFile
-	assert.Equal(t, defaultModelName, model)
-	assert.NotEmpty(t, backend)
+	// When nothing is available, returns empty — no auto-start of unusable model.
+	assert.Empty(t, model)
+	assert.Empty(t, backend)
 }
 
 func TestDetectDefaultModelAndBackend_CloudKeySet(t *testing.T) {
