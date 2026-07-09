@@ -163,11 +163,15 @@ func resolveStartModel(flags *agentLoopFlags, settings tui.Settings) (string, st
 	if m == "" && settings.DefaultModel != "" {
 		m = settings.DefaultModel
 	}
-	if b == "" {
-		b = os.Getenv("KDEPS_DEFAULT_BACKEND")
-	}
+	// .gguf suffix always means GGUF backend regardless of env vars.
 	if b == "" && agent.IsGGUFModelName(m) {
 		b = llm.BackendGGUF
+	}
+	// Use config/env backend as fallback.
+	if b == "" {
+		if v := os.Getenv("KDEPS_DEFAULT_BACKEND"); v != "" {
+			b = v
+		}
 	}
 	return m, b
 }

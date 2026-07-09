@@ -753,6 +753,7 @@ func TestResolveStartModel_FlagsModelUsed(t *testing.T) {
 }
 
 func TestResolveStartModel_FallsBackToDefault(t *testing.T) {
+	t.Setenv("KDEPS_DEFAULT_BACKEND", "")
 	flags := &agentLoopFlags{Model: "", Backend: ""}
 	settings := tui.Settings{DefaultModel: "claude-sonnet-4-6"}
 	m, b := resolveStartModel(flags, settings)
@@ -781,6 +782,7 @@ func TestResolveStartModel_GGUFSuffixAutoSetsBackend(t *testing.T) {
 }
 
 func TestResolveStartModel_EmptyEverything(t *testing.T) {
+	t.Setenv("KDEPS_DEFAULT_BACKEND", "")
 	flags := &agentLoopFlags{}
 	m, b := resolveStartModel(flags, tui.Settings{})
 	assert.Equal(t, "", m)
@@ -789,6 +791,7 @@ func TestResolveStartModel_EmptyEverything(t *testing.T) {
 
 func TestResolveStartModel_DefaultModelGGUF(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
+	t.Setenv("KDEPS_DEFAULT_BACKEND", "")
 	flags := &agentLoopFlags{}
 	settings := tui.Settings{DefaultModel: "my-model.gguf"}
 	m, b := resolveStartModel(flags, settings)

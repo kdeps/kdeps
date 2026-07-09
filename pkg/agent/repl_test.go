@@ -2434,22 +2434,20 @@ func (m *mockModelService) ServeModel(_, _, _ string, _ int) error {
 func (m *mockModelService) ServerURL(_, _ string) string { return m.url }
 func (m *mockModelService) KillModel(_, _ string) bool   { return false }
 
-func TestApplyConfigDefaults_ModelServiceAutoStart(t *testing.T) {
+func TestApplyConfigDefaults_ModelServiceDeferred(t *testing.T) {
 	svc := &mockModelService{url: "http://localhost:9999"}
 	cfg := applyConfigDefaults(Config{
 		Model:        "llama3.2",
 		Backend:      "file",
 		ModelService: svc,
-		// BaseURL intentionally empty to trigger auto-start
+		// autoStartLocalModel is deferred to after REPL init
+		// so signal handlers are active during downloads.
 	})
-	if !svc.downloadCalled {
-		t.Error("expected DownloadModel to be called")
+	if svc.downloadCalled || svc.serveCalled {
+		t.Error("expected ModelService NOT to be called during applyConfigDefaults")
 	}
-	if !svc.serveCalled {
-		t.Error("expected ServeModel to be called")
-	}
-	if cfg.BaseURL != "http://localhost:9999" {
-		t.Errorf("expected BaseURL=http://localhost:9999, got %q", cfg.BaseURL)
+	if cfg.BaseURL != "" {
+		t.Errorf("expected BaseURL to remain empty, got %q", cfg.BaseURL)
 	}
 }
 

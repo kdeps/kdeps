@@ -336,7 +336,6 @@ func applyConfigDefaults(cfg Config) Config {
 	if cfg.BaseURL == "" {
 		cfg.BaseURL = os.Getenv("KDEPS_AGENT_BASE_URL")
 	}
-	autoStartLocalModel(&cfg)
 	if cfg.Role == "" {
 		cfg.Role = RoleUser
 	}
