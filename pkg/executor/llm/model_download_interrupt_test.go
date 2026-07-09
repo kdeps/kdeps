@@ -209,15 +209,12 @@ func TestFilterAria2cLine(t *testing.T) {
 	drop := []string{
 		"Exception: [AbstractCommand.cc:351] errorCode=22 URI=https://x/y?sig=abc\n",
 		"  -> [HttpSkipResponseCommand.cc:240] errorCode=22 status=403\n",
+		"07/09 16:52:12 [ERROR] CUID#11 - Download aborted. URI=https://hf.co/m.llamafile?X=Y\n",
+		"[FileAlloc:#aff482 95MiB/2.1GiB(4%)]\n",
 	}
 	for _, in := range drop {
 		assert.Nil(t, filterAria2cLine([]byte(in)), "should drop: %q", in)
 	}
-
-	// Signed query strings are stripped from URI= lines.
-	errorLine := "07/09 [ERROR] CUID#9 - Download aborted. URI=https://hf.co/m.llamafile"
-	got := filterAria2cLine([]byte(errorLine + "?X-Sig=verylongpolicy\n"))
-	assert.Equal(t, errorLine+"\n", string(got))
 
 	// Progress readout passes through unchanged.
 	progress := "[#6e2da6 0.9GiB/1.3GiB(72%) CN:1 DL:13MiB ETA:27s]\r"

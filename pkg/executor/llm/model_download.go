@@ -234,7 +234,19 @@ func filterAria2cLine(line []byte) []byte {
 	if strings.HasPrefix(trimmed, "Exception:") || strings.HasPrefix(trimmed, "->") {
 		return nil
 	}
-	// Strip signed query strings from URIs ([ERROR] … URI=https://…?X-Xet-…).
+	// Error lines: "[ERROR] CUID#N - Download aborted. URI=…" or
+	// "07/09 16:52:12 [ERROR] CUID#N - …". These are transient connection
+	// drops during multi-connection downloads — not actionable.
+	if strings.Contains(trimmed, "[ERROR]") {
+		return nil
+	}
+	// Pre-allocation progress: "[FileAlloc:#aff482 95MiB/2.1GiB(4%)]".
+	// These appear once per connection before real download — suppress.
+	if strings.Contains(trimmed, "[FileAlloc:") {
+		return nil
+	}
+	// Keep only progress lines (start with [#) or other non-noise output.
+	// Strip signed query strings from URIs (timestamps, [ERROR], etc.).
 	if idx := bytes.Index(line, []byte("URI=")); idx >= 0 {
 		if q := bytes.IndexByte(line[idx:], '?'); q >= 0 {
 			// Preserve the line terminator (last byte when \r or \n).
