@@ -157,14 +157,14 @@ func DownloadedModelAliases() map[string]bool {
 	out := make(map[string]bool)
 	for _, alias := range LlamafileAliasNames() {
 		if p, ok := LlamafileCachedPath(alias, modelsDir); ok {
-			if _, statErr := os.Stat(p); statErr == nil {
+			if _, statErr := os.Stat(p); statErr == nil && !isPartialDownload(AppFS, p) {
 				out[alias] = true
 			}
 		}
 	}
 	for _, alias := range GGUFAliasNames() {
 		if p, ok := GGUFCachedPath(alias, modelsDir); ok {
-			if _, statErr := os.Stat(p); statErr == nil {
+			if _, statErr := os.Stat(p); statErr == nil && !isPartialDownload(AppFS, p) {
 				out[alias] = true
 			}
 		}

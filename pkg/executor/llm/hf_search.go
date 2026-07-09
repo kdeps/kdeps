@@ -240,9 +240,14 @@ func hfDownloadAria2c(
 	args = append(args, downloadURL)
 	logger.InfoContext(ctx, "hf: downloading via aria2c", "url", downloadURL, "dest", dest)
 	cmd := exec.CommandContext(ctx, aria2cPath, args...)
-	cmd.Stdout = os.Stderr // progress to stderr so REPL stdout stays clean
-	cmd.Stderr = os.Stderr
-	if err := cmd.Run(); err != nil {
+	outFilter := &aria2cNoiseFilter{w: os.Stdout} // progress bars to stdout
+	errFilter := &aria2cNoiseFilter{w: os.Stderr} // filtered errors to stderr
+	cmd.Stdout = outFilter
+	cmd.Stderr = errFilter
+	err := cmd.Run()
+	outFilter.Flush()
+	errFilter.Flush()
+	if err != nil {
 		return fmt.Errorf("aria2c: %w", err)
 	}
 	return nil

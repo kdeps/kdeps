@@ -160,6 +160,98 @@ func TestDownloadModelFile_GenericErrorStillFallsBack(t *testing.T) {
 	assert.True(t, httpCalled.Load(), "generic aria2c failure must fall back to HTTP")
 }
 
+// TestDownloadModelFile_PartialNotCached verifies a file with an aria2c
+// control file next to it is treated as incomplete: the download is resumed
+// instead of the truncated file being returned as cached.
+func TestDownloadModelFile_PartialNotCached(t *testing.T) {
+	fs := afero.NewMemMapFs()
+	require.NoError(t, afero.WriteFile(fs, "/models/m.gguf", []byte("partial"), 0o644))
+	require.NoError(t, afero.WriteFile(fs, "/models/m.gguf.aria2", []byte("ctl"), 0o644))
+
+	var resumeCalled atomic.Bool
+	origResume := downloadWithResumeFunc
+	t.Cleanup(func() { downloadWithResumeFunc = origResume })
+	downloadWithResumeFunc = func(_ context.Context, _, _ string) error {
+		resumeCalled.Store(true)
+		return nil
+	}
+
+	path, err := downloadModelFile(
+		context.Background(), "http://example.invalid/m.gguf", "m.gguf", "/models", nil, fs,
+	)
+	require.NoError(t, err)
+	assert.Equal(t, "/models/m.gguf", path)
+	assert.True(t, resumeCalled.Load(), "partial download must be resumed, not returned as cached")
+}
+
+// TestDownloadModelFile_CompleteFileIsCached keeps the skip-if-cached behavior
+// for files without an aria2c control file.
+func TestDownloadModelFile_CompleteFileIsCached(t *testing.T) {
+	fs := afero.NewMemMapFs()
+	require.NoError(t, afero.WriteFile(fs, "/models/m.gguf", []byte("full"), 0o644))
+
+	origResume := downloadWithResumeFunc
+	t.Cleanup(func() { downloadWithResumeFunc = origResume })
+	downloadWithResumeFunc = func(_ context.Context, _, _ string) error {
+		t.Fatal("cached complete file must not be re-downloaded")
+		return nil
+	}
+
+	path, err := downloadModelFile(
+		context.Background(), "http://example.invalid/m.gguf", "m.gguf", "/models", nil, fs,
+	)
+	require.NoError(t, err)
+	assert.Equal(t, "/models/m.gguf", path)
+}
+
+// TestFilterAria2cLine covers the console noise filter.
+func TestFilterAria2cLine(t *testing.T) {
+	drop := []string{
+		"Exception: [AbstractCommand.cc:351] errorCode=22 URI=https://x/y?sig=abc\n",
+		"  -> [HttpSkipResponseCommand.cc:240] errorCode=22 status=403\n",
+	}
+	for _, in := range drop {
+		assert.Nil(t, filterAria2cLine([]byte(in)), "should drop: %q", in)
+	}
+
+	// Signed query strings are stripped from URI= lines.
+	errorLine := "07/09 [ERROR] CUID#9 - Download aborted. URI=https://hf.co/m.llamafile"
+	got := filterAria2cLine([]byte(errorLine + "?X-Sig=verylongpolicy\n"))
+	assert.Equal(t, errorLine+"\n", string(got))
+
+	// Progress readout passes through unchanged.
+	progress := "[#6e2da6 0.9GiB/1.3GiB(72%) CN:1 DL:13MiB ETA:27s]\r"
+	assert.Equal(t, progress, string(filterAria2cLine([]byte(progress))))
+}
+
+// TestResolveCachedModel_PartialRejected verifies both managers refuse to
+// resolve an incomplete download as a usable local model.
+func TestResolveCachedModel_PartialRejected(t *testing.T) {
+	origFS := AppFS
+	t.Cleanup(func() { AppFS = origFS })
+	AppFS = afero.NewMemMapFs()
+	modelsDir := t.TempDir()
+	t.Setenv("KDEPS_MODELS_DIR", modelsDir)
+
+	llamaPath := filepath.Join(modelsDir, "broken.llamafile")
+	require.NoError(t, afero.WriteFile(AppFS, llamaPath, []byte("x"), 0o644))
+	require.NoError(t, afero.WriteFile(AppFS, llamaPath+".aria2", []byte("c"), 0o644))
+	lmgr, err := NewLlamafileManager(nil)
+	require.NoError(t, err)
+	_, err = lmgr.Resolve(context.Background(), "broken.llamafile")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "incomplete download")
+
+	ggufPath := filepath.Join(modelsDir, "broken.gguf")
+	require.NoError(t, afero.WriteFile(AppFS, ggufPath, []byte("x"), 0o644))
+	require.NoError(t, afero.WriteFile(AppFS, ggufPath+".aria2", []byte("c"), 0o644))
+	gmgr, err := NewGGUFManager(nil)
+	require.NoError(t, err)
+	_, err = gmgr.Resolve(context.Background(), "broken.gguf")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "incomplete download")
+}
+
 // TestWaitForCompletionsReady_CtxCanceled verifies the readiness probe stops
 // promptly when the context is canceled instead of polling for 5 minutes.
 func TestWaitForCompletionsReady_CtxCanceled(t *testing.T) {

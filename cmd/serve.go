@@ -2,12 +2,15 @@ package cmd
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io/fs"
 	"os"
+	"os/exec"
 	"os/signal"
 	"path/filepath"
+	"strings"
 	"syscall"
 
 	"github.com/kdeps/kdeps/v2/pkg/agent"
@@ -38,6 +41,59 @@ func refreshREPLModelLists(repl *agent.REPL) {
 	repl.SetDownloadedModels(llm.DownloadedModelAliases())
 	repl.SetModelTypes(buildModelTypes())
 	repl.SetModelRepos(buildModelRepos())
+}
+
+// runLlamaFit runs llmfit and populates the REPL's score maps.
+// Non-fatal: if llmfit is not installed or fails, scores are simply absent.
+// Synchronous at startup since llmfit returns in <1s; the scores should
+// be present before the user opens the model picker for the first time.
+func runLlamaFit(repl *agent.REPL) {
+	cmd := exec.Command("llmfit", "recommend", "--json", "--limit", "200")
+	out, err := cmd.Output()
+	if err != nil {
+	return
+	}
+	var result struct {
+		Models []struct {
+			Name      string  `json:"name"`
+			Score     float64 `json:"score"`
+			FitLevel  string  `json:"fit_level"`
+			GGUFSrcs  []struct {
+				Repo string `json:"repo"`
+			} `json:"gguf_sources"`
+		} `json:"models"`
+	}
+	if err := json.Unmarshal(out, &result); err != nil {
+		return
+	}
+	// Build repo -> (score, fitLevel) from gguf sources.
+	type scoreEntry struct {
+		score float64
+		fit   string
+	}
+	repoMap := make(map[string]scoreEntry)
+	for _, m := range result.Models {
+		for _, src := range m.GGUFSrcs {
+			repo := strings.ToLower(src.Repo)
+			if existing, ok := repoMap[repo]; !ok || m.Score > existing.score {
+				repoMap[repo] = scoreEntry{m.Score, m.FitLevel}
+			}
+		}
+	}
+	// Map each alias to its score via its HuggingFace repo.
+	scores := make(map[string]float64)
+	fitLevels := make(map[string]string)
+	for _, alias := range repl.ModelNames() {
+		repo := repl.ModelRepos()[alias]
+		if repo == "" {
+			continue
+		}
+		if entry, ok := repoMap[strings.ToLower(repo)]; ok {
+			scores[alias] = entry.score
+			fitLevels[alias] = entry.fit
+		}
+	}
+	repl.SetLlamaFitScores(scores, fitLevels)
 }
 
 // agentBackendGGUF is the llama.cpp/llama-server backend for GGUF model files.
@@ -146,6 +202,7 @@ func runAgentLoopCmd(path string, flags *agentLoopFlags) error {
 
 	// Provide model name suggestions for /model <tab> completion.
 	refreshREPLModelLists(repl)
+	runLlamaFit(repl)
 	repl.SetCloudModelBackends(buildCloudBackends())
 	repl.SetProviderStatus(agent.BuildProviderStatus())
 
@@ -468,10 +525,23 @@ func buildAllModelNames() []string {
 //	* = downloaded (any type, overrides)
 func buildModelTypes() map[string]string {
 	types := make(map[string]string)
+	// First pass: llamafile aliases.
 	for _, a := range llm.ListLlamafileMappings() {
 		types[a.Alias] = "llamafile"
 	}
+	// Second pass: GGUF aliases may overwrite. When an alias is in both
+	// registries, check what's actually on disk so the user sees the right
+	// type (e.g. "llamafile cached" vs "gguf cached").
+	modelsDir, dirErr := llm.DefaultModelsDir()
 	for _, a := range llm.ListGGUFMappings() {
+		if types[a.Alias] == "llamafile" && dirErr == nil {
+			if p, ok := llm.LlamafileCachedPath(a.Alias, modelsDir); ok {
+				if _, err := os.Stat(p); err == nil {
+					// The .llamafile file exists — keep "llamafile" type.
+					continue
+				}
+			}
+		}
 		types[a.Alias] = "gguf"
 	}
 	for _, o := range llm.ListOllamaModels() {
@@ -530,6 +600,8 @@ func buildModelPickerFn(repl *agent.REPL) func(filter string) (string, error) {
 				Repo:      repos[name],
 				Cached:    downloaded[name],
 				Enabled:   enabled,
+				Score:     repl.LlamaFitScore(name),
+				FitLevel:  repl.LlamaFitFitLevel(name),
 			})
 		}
 		return tui.RunModelPicker(entries, repl.CurrentModel(), filter)

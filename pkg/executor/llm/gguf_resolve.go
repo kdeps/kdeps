@@ -71,6 +71,12 @@ func (m *GGUFManager) resolveCachedModel(model string) (string, error) {
 			model, m.modelsDir, known,
 		)
 	}
+	if isPartialDownload(AppFS, cached) {
+		return "", fmt.Errorf(
+			"gguf model %q is an incomplete download (%s); re-run the download to resume it",
+			model, cached,
+		)
+	}
 	return cached, nil
 }
 

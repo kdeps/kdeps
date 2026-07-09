@@ -183,6 +183,8 @@ type REPL struct {
 	tuiRunner          TUIRunner
 	runFn              func(context.Context, string) (string, error) // nil in production; injected in tests
 	refreshModelsFn    func()                                        // called after new model registered; nil if unset
+	llmfitScore        map[string]float64                         // alias -> composite score from llmfit (0-100); nil when unavailable
+	llmfitFitLevel     map[string]string                          // alias -> fit level (Perfect/Good/Marginal/TooTight)
 	toolCancel         context.CancelFunc                            // cancels the currently running tool; nil when no tool is active
 	toolBgCh           chan struct{}                                 // backgrounds the running tool on send; nil when no tool is active
 	toolCancelMu       sync.Mutex
@@ -684,31 +686,51 @@ func modelTag(r *REPL, name string) string {
 	if repo != "" {
 		repoSuffix = " " + repo
 	}
+	// Build tag prefix: score + fit-level letter + leading space.
+	tagPrefix := " ["
+	if r.llmfitScore != nil {
+		if s, ok := r.llmfitScore[name]; ok && s > 0 {
+			level := ""
+			switch r.llmfitFitLevel[name] {
+			case "Perfect":
+				level = "P"
+			case "Good":
+				level = "G"
+			case "Marginal":
+				level = "M"
+			}
+			if level != "" {
+				tagPrefix = fmt.Sprintf(" [%.0f %s ", s, level)
+			} else {
+				tagPrefix = fmt.Sprintf(" [%.0f ", s)
+			}
+		}
+	}
 	if r.downloadedModels[name] {
 		switch r.modelTypes[name] {
 		case modelTypeLLamafile:
-			return " [llamafile cached" + repoSuffix + "]"
+			return tagPrefix + "llamafile cached" + repoSuffix + "]"
 		case modelTypeGGUF:
-			return " [gguf cached" + repoSuffix + "]"
+			return tagPrefix + "gguf cached" + repoSuffix + "]"
 		case modelTypeOllama:
-			return " [ollama]"
+			return tagPrefix + "ollama]"
 		default:
-			return " [cached]"
+			return tagPrefix + "cached]"
 		}
 	}
 	switch r.modelTypes[name] {
 	case modelTypeLLamafile:
-		return " [llamafile" + repoSuffix + "]"
+		return tagPrefix + "llamafile" + repoSuffix + "]"
 	case modelTypeGGUF:
-		return " [gguf" + repoSuffix + "]"
+		return tagPrefix + "gguf" + repoSuffix + "]"
 	case modelTypeOllama:
-		return " [ollama]"
+		return tagPrefix + "ollama]"
 	default:
 		backend := r.cloudModelBackends[name]
 		if backend != "" && r.providerStatus[backend] {
-			return " [cloud enabled]"
+			return tagPrefix + "cloud enabled]"
 		}
-		return " [cloud]"
+		return tagPrefix + "cloud]"
 	}
 }
 
@@ -1735,7 +1757,14 @@ func stripModelIndicators(name string) string {
 }
 
 // applyModelSwitch applies a model selection and prints a confirmation.
+// A Ctrl+C during the model download/start reverts to the previous model.
 func (r *REPL) applyModelSwitch(model string) {
+	prevModel := r.loop.config.Model
+	prevBackend := r.loop.config.Backend
+	prevBaseURL := r.loop.config.BaseURL
+	prevBudget := r.loop.config.CompactTokenBudget
+	prevThreshold := r.loop.config.AutoCompactThreshold
+
 	newLimit := r.contextLimitForModel(model)
 	const contextHistoryFraction, contextHistoryDivisor = 3, 4
 	budget := newLimit * contextHistoryFraction / contextHistoryDivisor
@@ -1765,7 +1794,19 @@ func (r *REPL) applyModelSwitch(model string) {
 			r.loop.config.BaseURL = ""
 		}
 	}
-	r.startLocalModelServer(model)
+	if err := r.startLocalModelServer(model); err != nil {
+		// Canceled: the new model never became usable — restore the old one.
+		r.loop.config.Model = prevModel
+		r.loop.config.Backend = prevBackend
+		r.loop.config.BaseURL = prevBaseURL
+		r.loop.config.CompactTokenBudget = prevBudget
+		r.loop.config.AutoCompactThreshold = prevThreshold
+		r.loop.Session().SetTokenBudget(r.contextLimitForModel(prevModel), prevModel)
+		fmt.Fprintf(os.Stdout, "\n%s\n\n",
+			styleReplMeta.Render(fmt.Sprintf("Model switch canceled — still on %s", prevModel)),
+		)
+		return
+	}
 	r.loop.Session().SetTokenBudget(newLimit, model)
 	fmt.Fprintf(os.Stdout, "\n%s\n\n",
 		styleReplSuccess.Render(fmt.Sprintf("Model set to %s", model)),
@@ -1873,28 +1914,31 @@ const (
 // startLocalModelServer downloads, starts, and waits for readiness of a local
 // (file or gguf) model server. No-op when ModelService is not set or the
 // backend is not a local type. Blocks until the completions endpoint responds
-// or Ctrl+C cancels the turn context.
-func (r *REPL) startLocalModelServer(model string) {
+// or Ctrl+C cancels the turn context. Returns context.Canceled when the user
+// interrupted the download/start so the caller can revert the model switch.
+func (r *REPL) startLocalModelServer(model string) error {
 	svc := r.loop.config.ModelService
 	if svc == nil {
-		return
+		return nil
 	}
 	backend := r.loop.config.Backend
 	if backend != llm.BackendFile && backend != llm.BackendGGUF && backend != "ollama" {
-		return
+		return nil
 	}
 	// Capture the turn context: Ctrl+C cancels it (and handleSignalInterrupt
 	// replaces r.ctx with a fresh one for the next prompt).
 	ctx := r.ctx
 	fmt.Fprintf(os.Stdout, "\n%s\n", styleReplMeta.Render("Downloading/starting model server..."))
 	if err := svc.DownloadModel(ctx, backend, model); err != nil && ctx.Err() != nil {
-		fmt.Fprintf(os.Stdout, "%s\n", styleReplMeta.Render("Model download canceled."))
-		return
+		fmt.Fprintf(os.Stdout, "%s\n", styleReplMeta.Render(
+			"Model download canceled (partial file kept; switching to it again resumes).",
+		))
+		return context.Canceled
 	}
 	_ = svc.ServeModel(ctx, backend, model, "", 0)
 	if ctx.Err() != nil {
 		fmt.Fprintf(os.Stdout, "%s\n", styleReplMeta.Render("Model server start canceled."))
-		return
+		return context.Canceled
 	}
 
 	// ServeModel blocks until healthy/ready when it succeeds, but may time out
@@ -1912,7 +1956,7 @@ func (r *REPL) startLocalModelServer(model string) {
 			select {
 			case <-ctx.Done():
 				fmt.Fprintf(os.Stdout, "%s\n", styleReplMeta.Render("Model server wait canceled."))
-				return
+				return context.Canceled
 			case <-time.After(localServerPollInterval):
 			}
 			url = svc.ServerURL(backend, model)
@@ -1929,10 +1973,11 @@ func (r *REPL) startLocalModelServer(model string) {
 				"Warning: model server did not start in time; requests may fail.",
 			),
 		)
-		return
+		return nil
 	}
 	r.loop.config.BaseURL = url
 	llm.WaitForServerReady(ctx, url)
+	return nil
 }
 
 // providerStatusLine returns a one-line summary of ready providers for the welcome banner.
@@ -2654,6 +2699,37 @@ func (r *REPL) ProviderStatus() map[string]bool { return r.providerStatus }
 
 // CurrentModel returns the active model name.
 func (r *REPL) CurrentModel() string { return r.loop.config.Model }
+// SetLlamaFitScores stores llmfit recommendation results indexed by model
+// alias. score is 0-100 composite; fitLevel is one of Perfect/Good/Marginal.
+func (r *REPL) SetLlamaFitScores(scores map[string]float64, fitLevels map[string]string) {
+	r.llmfitScore = scores
+	r.llmfitFitLevel = fitLevels
+}
+
+// LlamaFitScore returns the composite llmfit score (0-100) for the given
+// model alias, or 0 when no score is available.
+func (r *REPL) LlamaFitScore(alias string) float64 {
+	if r.llmfitScore == nil {
+		return 0
+	}
+	return r.llmfitScore[alias]
+}
+
+// LlamaFitFitLevel returns the llmfit fit level for the given model alias,
+// or "" when unavailable.
+func (r *REPL) LlamaFitFitLevel(alias string) string {
+	if r.llmfitFitLevel == nil {
+		return ""
+	}
+	return r.llmfitFitLevel[alias]
+}
+
+// LlamaFitScores returns the full llmfit scores map (alias -> score).
+func (r *REPL) LlamaFitScores() map[string]float64 { return r.llmfitScore }
+
+// LlamaFitFitLevels returns the full llmfit fit levels map (alias -> level).
+func (r *REPL) LlamaFitFitLevels() map[string]string { return r.llmfitFitLevel }
+
 
 // cmdCopy copies the last assistant response to the system clipboard.
 // Matches pi's /copy command. Uses pbcopy (macOS), xclip/xsel (Linux), or clip.exe (Windows).

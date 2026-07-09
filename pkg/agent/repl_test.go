@@ -3635,7 +3635,7 @@ func TestStartLocalModelServer_CanceledCtx_ReturnsFast(t *testing.T) {
 	r, w, _ := os.Pipe()
 	os.Stdout = w
 	start := time.Now()
-	repl.startLocalModelServer("my-gguf-model")
+	err := repl.startLocalModelServer("my-gguf-model")
 	elapsed := time.Since(start)
 	w.Close()
 	os.Stdout = origOut
@@ -3643,6 +3643,39 @@ func TestStartLocalModelServer_CanceledCtx_ReturnsFast(t *testing.T) {
 	r.Close()
 
 	assert.Less(t, elapsed, 2*time.Second)
+	assert.ErrorIs(t, err, context.Canceled)
+}
+
+// TestApplyModelSwitch_CanceledRevertsModel verifies that Ctrl+C during the
+// model download/start reverts to the previous model instead of announcing
+// the broken model as active.
+func TestApplyModelSwitch_CanceledRevertsModel(t *testing.T) {
+	svc := &mockModelService{url: ""}
+	loop := makeTestLoop(nil)
+	loop.config.ModelService = svc
+	loop.config.Model = "old-model"
+	loop.config.Backend = llm.BackendGGUF
+	loop.config.BaseURL = "http://old:1/v1"
+	repl := NewREPL(loop)
+	defer repl.cancel()
+	repl.modelTypes = map[string]string{"new-model": modelTypeGGUF}
+
+	repl.cancel() // simulate Ctrl+C during the switch
+
+	origOut := os.Stdout
+	r, w, _ := os.Pipe()
+	os.Stdout = w
+	repl.applyModelSwitch("new-model")
+	w.Close()
+	os.Stdout = origOut
+	outBytes, _ := io.ReadAll(r)
+	r.Close()
+
+	assert.Equal(t, "old-model", loop.config.Model)
+	assert.Equal(t, llm.BackendGGUF, loop.config.Backend)
+	assert.Equal(t, "http://old:1/v1", loop.config.BaseURL)
+	assert.Contains(t, string(outBytes), "Model switch canceled")
+	assert.NotContains(t, string(outBytes), "Model set to new-model")
 }
 
 // Ensure the import of httptest / llm is used.

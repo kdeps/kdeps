@@ -74,6 +74,12 @@ func (m *LlamafileManager) resolveCachedModel(model string) (string, error) {
 			model, m.modelsDir, known,
 		)
 	}
+	if isPartialDownload(AppFS, cached) {
+		return "", fmt.Errorf(
+			"llamafile %q is an incomplete download (%s); re-run the download to resume it",
+			model, cached,
+		)
+	}
 	return cached, nil
 }
 

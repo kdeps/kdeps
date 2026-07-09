@@ -19,9 +19,11 @@
 package llm
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"log/slog"
 	stdhttp "net/http"
 	"os"
@@ -61,7 +63,7 @@ func downloadModelFile(
 	}
 	dest := filepath.Join(modelsDir, basename)
 
-	if _, err := fs.Stat(dest); err == nil {
+	if _, err := fs.Stat(dest); err == nil && !isPartialDownload(fs, dest) {
 		logger.DebugContext(ctx, "model already cached", "path", dest)
 		return dest, nil
 	}
@@ -78,6 +80,9 @@ func downloadModelFile(
 		if fallbackErr := downloadViaHTTP(ctx, rawURL, dest, basename); fallbackErr != nil {
 			return "", fallbackErr
 		}
+		// The HTTP fallback wrote a complete file; drop any stale aria2c
+		// control file so the model is no longer considered partial.
+		_ = fs.Remove(dest + ".aria2")
 	}
 
 	logger.InfoContext(ctx, "model downloaded", "path", dest)
@@ -103,6 +108,16 @@ func downloadViaHTTP(ctx context.Context, rawURL, dest, basename string) error {
 		return writeErr
 	}
 	return nil
+}
+
+// isPartialDownload reports whether dest is an incomplete aria2c download.
+// aria2c keeps a <dest>.aria2 control file for the whole download and removes
+// it only on completion, so its presence means the model file is truncated
+// and must not be served or reported as cached. The partial file is kept so
+// the next download attempt resumes instead of starting over.
+func isPartialDownload(fs afero.Fs, dest string) bool {
+	_, err := fs.Stat(dest + ".aria2")
+	return err == nil
 }
 
 // defaultAria2cFlags are used when KDEPS_ARIA2C_FLAGS is not set.
@@ -137,9 +152,13 @@ func downloadWithResume(ctx context.Context, dest, url string) error {
 	}, strings.Fields(flags)...)
 	args = append(args, url)
 	cmd := exec.CommandContext(ctx, aria2c, args...)
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
+	outFilter := &aria2cNoiseFilter{w: os.Stdout}
+	errFilter := &aria2cNoiseFilter{w: os.Stderr}
+	cmd.Stdout = outFilter
+	cmd.Stderr = errFilter
 	runErr := cmd.Run()
+	outFilter.Flush()
+	errFilter.Flush()
 	if runErr == nil {
 		return nil
 	}
@@ -159,4 +178,65 @@ func aria2cInterrupted(err error) bool {
 	}
 	code := exitErr.ExitCode()
 	return code == -1 || code == aria2cExitUnfinished
+}
+
+// aria2cNoiseFilter reduces aria2c console noise: multi-line exception dumps
+// are dropped and signed query strings are stripped from logged URIs, so a
+// transient per-connection error is one short line instead of a wall of
+// URL-encoded policy text. Progress readout lines pass through unchanged.
+type aria2cNoiseFilter struct {
+	w   io.Writer
+	buf []byte
+}
+
+func (f *aria2cNoiseFilter) Write(p []byte) (int, error) {
+	f.buf = append(f.buf, p...)
+	for {
+		i := bytes.IndexAny(f.buf, "\r\n")
+		if i < 0 {
+			break
+		}
+		line := make([]byte, i+1)
+		copy(line, f.buf[:i+1])
+		f.buf = f.buf[i+1:]
+		if out := filterAria2cLine(line); len(out) > 0 {
+			if _, err := f.w.Write(out); err != nil {
+				return len(p), err
+			}
+		}
+	}
+	return len(p), nil
+}
+
+// Flush writes any buffered trailing output (a final line without terminator).
+func (f *aria2cNoiseFilter) Flush() {
+	if len(f.buf) == 0 {
+		return
+	}
+	if out := filterAria2cLine(f.buf); len(out) > 0 {
+		_, _ = f.w.Write(out)
+	}
+	f.buf = nil
+}
+
+// filterAria2cLine returns the line to emit, or nil to drop it entirely.
+func filterAria2cLine(line []byte) []byte {
+	trimmed := strings.TrimSpace(string(line))
+	// Exception dumps: "Exception: [AbstractCommand.cc:351] errorCode=22 URI=…"
+	// and their "  -> [HttpSkipResponseCommand.cc:240] …" continuations.
+	if strings.HasPrefix(trimmed, "Exception:") || strings.HasPrefix(trimmed, "->") {
+		return nil
+	}
+	// Strip signed query strings from URIs ([ERROR] … URI=https://…?X-Xet-…).
+	if idx := bytes.Index(line, []byte("URI=")); idx >= 0 {
+		if q := bytes.IndexByte(line[idx:], '?'); q >= 0 {
+			// Preserve the line terminator (last byte when \r or \n).
+			term := []byte{}
+			if last := line[len(line)-1]; last == '\r' || last == '\n' {
+				term = []byte{last}
+			}
+			return append(line[:idx+q:idx+q], term...)
+		}
+	}
+	return line
 }

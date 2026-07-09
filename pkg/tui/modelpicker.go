@@ -27,8 +27,10 @@ type ModelEntry struct {
 	Backend   string // cloud backend name (e.g. "deepseek"), or ""
 	Repo      string // HuggingFace repo id (e.g. "googleai/gemma4"), llamafile/gguf only
 	Cached    bool
-	Enabled   bool   // cloud API key is set
-	SizeGB    string // formatted size string, or ""
+	Enabled   bool      // cloud API key is set
+	SizeGB    string    // formatted size string, or ""
+	Score     float64   // llmfit composite score 0-100; 0 when unavailable
+	FitLevel  string    // llmfit fit level: "Perfect", "Good", "Marginal", or "" when unavailable
 }
 
 type modelPickerModel struct {
@@ -79,7 +81,8 @@ func entryGroupOrder(e ModelEntry) int {
 func sortEntries(entries []ModelEntry, currentModel string) []ModelEntry {
 	sorted := make([]ModelEntry, len(entries))
 	copy(sorted, entries)
-	// stable sort: current model first within its group, then alphabetical
+	// stable sort: within each group, llmfit score descending (if available),
+	// then current model first, then alphabetical.
 	type ranked struct {
 		entry ModelEntry
 		order int
@@ -96,13 +99,18 @@ func sortEntries(entries []ModelEntry, currentModel string) []ModelEntry {
 			if a.order == b.order {
 				aCurrent := a.entry.Name == currentModel
 				bCurrent := b.entry.Name == currentModel
-				switch {
-				case !aCurrent && bCurrent:
-					less = true
-				case aCurrent == bCurrent:
-					less = a.entry.Name > b.entry.Name
-				default:
-					less = false
+				// When neither is the current model, compare by score descending.
+				if !aCurrent && !bCurrent && a.entry.Score != 0 && b.entry.Score != 0 {
+					less = a.entry.Score < b.entry.Score
+				} else {
+					switch {
+					case !aCurrent && bCurrent:
+						less = true
+					case aCurrent == bCurrent:
+						less = a.entry.Name > b.entry.Name
+					default:
+						less = false
+					}
 				}
 			}
 			if less {
@@ -344,7 +352,8 @@ func (m modelPickerModel) renderRow(e ModelEntry, isCursor bool, width int) stri
 	if len(name) > maxNameW {
 		name = name[:maxNameW-1] + "…"
 	}
-	nameStr := name
+	nameStyle := styleForFitLevel(e.FitLevel)
+	nameStr := nameStyle.Render(name)
 	if isCursor {
 		nameStr = styleAccent.Bold(true).Render(name)
 	}
@@ -360,35 +369,67 @@ func (m modelPickerModel) renderRow(e ModelEntry, isCursor bool, width int) stri
 	return marker + nameStr + pad + tag + checkmark
 }
 
+// styleForFitLevel returns the lipgloss style for the given llmfit fit level.
+// Perfect = green, Good = cyan, Marginal = dim, unrecognized = default.
+func styleForFitLevel(level string) lipgloss.Style {
+	switch level {
+	case "Perfect":
+		return lipgloss.NewStyle().Foreground(lipgloss.Color("#00FF87"))
+	case "Good":
+		return lipgloss.NewStyle().Foreground(lipgloss.Color("#00E5FF"))
+	case "Marginal":
+		return lipgloss.NewStyle().Foreground(lipgloss.Color("#888888"))
+	default:
+		return lipgloss.NewStyle()
+	}
+}
+
 func tagForEntry(e ModelEntry) string {
 	repoSuffix := ""
 	if e.Repo != "" {
 		repoSuffix = " " + e.Repo
 	}
+	scoreTag := ""
+	if e.Score > 0 {
+		level := ""
+		switch e.FitLevel {
+		case "Perfect":
+			level = styleForFitLevel("Perfect").Render("P") + " " // green P
+		case "Good":
+			level = styleForFitLevel("Good").Render("G") + " "  // cyan G
+		case "Marginal":
+			level = styleForFitLevel("Marginal").Render("M") + " " // gray M
+		}
+		if e.FitLevel != "" {
+			scoreTag = fmt.Sprintf("%s%.0f ", level, e.Score)
+		} else {
+			scoreTag = fmt.Sprintf("%.0f ", e.Score)
+		}
+	}
 	if e.Cached {
 		switch e.ModelType {
 		case modelTypeLLamafile:
-			return "[llamafile installed" + repoSuffix + "]"
+			return scoreTag + "[llamafile installed" + repoSuffix + "]"
 		case modelTypeGGUF:
-			return "[gguf installed" + repoSuffix + "]"
+			return scoreTag + "[gguf installed" + repoSuffix + "]"
 		case modelTypeOllama:
-			return "[ollama installed]"
+			return scoreTag + "[ollama installed]"
 		default:
-			return "[installed]"
+			return scoreTag + "[installed]"
 		}
 	}
 	switch e.ModelType {
 	case modelTypeLLamafile:
-		return "[llamafile" + repoSuffix + "]"
+		return scoreTag + "[llamafile" + repoSuffix + "]"
 	case modelTypeGGUF:
-		return "[gguf" + repoSuffix + "]"
+		return scoreTag + "[gguf" + repoSuffix + "]"
 	case modelTypeOllama:
-		return "[ollama]"
+		return scoreTag + "[ollama]"
 	default:
 		if e.Enabled {
-			return "[cloud enabled]"
+			return scoreTag + "[cloud enabled]"
 		}
-		return "[cloud]"
+		return scoreTag + "[cloud]"
 	}
 }
 
