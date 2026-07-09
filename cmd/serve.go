@@ -140,6 +140,24 @@ func normalizeModelKey(id string) string {
 	return b.String()
 }
 
+// optionalToolNotices returns install suggestions for optional tools that
+// improve the agent experience but are not required. Only missing tools
+// produce a notice.
+func optionalToolNotices() []string {
+	var notices []string
+	if _, err := exec.LookPath("aria2c"); err != nil {
+		notices = append(notices,
+			"aria2c not installed — model downloads use the slower built-in downloader"+
+				" (brew install aria2)")
+	}
+	if _, err := exec.LookPath("llmfit"); err != nil {
+		notices = append(notices,
+			"llmfit not installed — /model can't show which models fit your hardware"+
+				" (brew install AlexsJones/llmfit/llmfit)")
+	}
+	return notices
+}
+
 // agentBackendGGUF is the llama.cpp/llama-server backend for GGUF model files.
 const agentBackendGGUF = "gguf"
 
@@ -244,11 +262,21 @@ func runAgentLoopCmd(path string, flags *agentLoopFlags) error {
 	repl := agent.NewREPL(loop)
 	defer llm.ShutdownLocalServers()
 
+	wireREPL(repl, registry, flags)
+
+	err = repl.Run()
+	return err
+}
+
+// wireREPL connects model lists, llmfit scores, pickers, and TUI runners to
+// a freshly created REPL.
+func wireREPL(repl *agent.REPL, registry *tools.Registry, flags *agentLoopFlags) {
 	// Provide model name suggestions for /model <tab> completion.
 	refreshREPLModelLists(repl)
 	runLlamaFit(repl)
 	repl.SetCloudModelBackends(buildCloudBackends())
 	repl.SetProviderStatus(agent.BuildProviderStatus())
+	repl.SetStartupNotices(optionalToolNotices())
 
 	// Refresh in-memory model lists after /model hff download registers a new GGUF.
 	repl.SetRefreshModelsFn(func() { refreshREPLModelLists(repl) })
@@ -263,9 +291,6 @@ func runAgentLoopCmd(path string, flags *agentLoopFlags) error {
 	if isTerminal(os.Stdout) && isTerminal(os.Stdin) {
 		repl.SetTUIRunner(buildTUIRunner(registry, flags))
 	}
-
-	err = repl.Run()
-	return err
 }
 
 // resolveStartModel returns the model and backend to use at startup.

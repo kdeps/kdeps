@@ -48,6 +48,23 @@ func TestScoreFuzzy_ExactMatch(t *testing.T) {
 	assert.Less(t, score, float64(0), "exact match should have negative score from bonus")
 }
 
+// TestFuzzyMatchEntries_FitLevelSearchable verifies the llmfit fit level is
+// part of the search text, so "perfect" / "tight" filter by hardware fit.
+func TestFuzzyMatchEntries_FitLevelSearchable(t *testing.T) {
+	entries := []ModelEntry{
+		{Name: "qwen2.5:0.5b", Score: 91, FitLevel: "Perfect"},
+		{Name: "mixtral:8x7b", Score: 12, FitLevel: "Too Tight"},
+	}
+
+	got := fuzzyMatchEntries(entries, "perfect")
+	require.NotEmpty(t, got)
+	assert.Equal(t, "qwen2.5:0.5b", got[0].Name)
+
+	got = fuzzyMatchEntries(entries, "tight")
+	require.NotEmpty(t, got)
+	assert.Equal(t, "mixtral:8x7b", got[0].Name)
+}
+
 func TestFuzzyScore_SwapDigitAlpha(t *testing.T) {
 	// "3b" direct match in "llama b3 model" fails (no '3' before 'b' in order),
 	// but the swap "b3" matches. The swap path should return ok=true.

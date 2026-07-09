@@ -689,6 +689,39 @@ func TestRunREPL_EOF(t *testing.T) {
 	assert.Contains(t, string(out), "kdeps agent")
 }
 
+// TestRunREPL_StartupNotices verifies optional-tool install suggestions are
+// printed under the banner.
+func TestRunREPL_StartupNotices(t *testing.T) {
+	loop := newTestLoop("unused", nil)
+
+	stdinR, stdinW, err := os.Pipe()
+	require.NoError(t, err)
+	stdoutR, stdoutW, err := os.Pipe()
+	require.NoError(t, err)
+
+	origStdin := os.Stdin
+	origStdout := os.Stdout
+	os.Stdin = stdinR
+	os.Stdout = stdoutW
+	defer func() {
+		os.Stdin = origStdin
+		os.Stdout = origStdout
+		stdinR.Close()
+		stdoutR.Close()
+	}()
+
+	stdinW.Close()
+
+	repl := agent.NewREPL(loop)
+	repl.SetStartupNotices([]string{"aria2c not installed — example notice"})
+	err = repl.Run()
+	require.NoError(t, err)
+
+	stdoutW.Close()
+	out, _ := io.ReadAll(stdoutR)
+	assert.Contains(t, xansi.Strip(string(out)), "tip: aria2c not installed — example notice")
+}
+
 // TestRunREPL_StdinClosed verifies that closing stdin causes a clean exit (no error).
 // The readline fallback (runPlain) treats all stdin errors as EOF and returns nil.
 func TestRunREPL_StdinClosed(t *testing.T) {

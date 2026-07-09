@@ -23,6 +23,8 @@ package tui
 import (
 	"math"
 	"strings"
+
+	"github.com/charmbracelet/x/ansi"
 )
 
 const (
@@ -53,7 +55,10 @@ func fuzzyMatchEntries(entries []ModelEntry, query string) []ModelEntry {
 	}
 	results := make([]scored, 0, len(entries))
 	for _, e := range entries {
-		searchText := strings.ToLower(e.Name + " " + tagForEntry(e))
+		// Include the llmfit fit level so queries like "perfect" or
+		// "too tight" filter by hardware fit; strip ANSI color codes from
+		// the rendered tag so escape sequences don't pollute matching.
+		searchText := strings.ToLower(e.Name + " " + e.FitLevel + " " + ansi.Strip(tagForEntry(e)))
 		total := 0.0
 		allMatch := true
 		for _, tok := range tokens {

@@ -79,3 +79,23 @@ func TestRunLlamaFit_NameBasedMatching(t *testing.T) {
 	assert.Equal(t, "Too Tight", repl.LlamaFitFitLevel("qwen2.5:1.5b"))
 	assert.Zero(t, repl.LlamaFitScore("no-repo-model"))
 }
+
+// TestOptionalToolNotices_MissingTools verifies install suggestions appear
+// when aria2c and llmfit are absent from PATH, and disappear when present.
+func TestOptionalToolNotices_MissingTools(t *testing.T) {
+	empty := t.TempDir()
+	t.Setenv("PATH", empty)
+
+	notices := optionalToolNotices()
+	require.Len(t, notices, 2)
+	assert.Contains(t, notices[0], "aria2c not installed")
+	assert.Contains(t, notices[0], "brew install aria2")
+	assert.Contains(t, notices[1], "llmfit not installed")
+	assert.Contains(t, notices[1], "brew install AlexsJones/llmfit/llmfit")
+
+	// With both tools present, no notices.
+	for _, tool := range []string{"aria2c", "llmfit"} {
+		require.NoError(t, os.WriteFile(filepath.Join(empty, tool), []byte("#!/bin/sh\n"), 0o755))
+	}
+	assert.Empty(t, optionalToolNotices())
+}

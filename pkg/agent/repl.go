@@ -179,6 +179,7 @@ type REPL struct {
 	saveDefaultFn      func(model string) error            // persists default model; nil if unavailable
 	readlineInst       *readline.Instance                  // set during Run(); nil before/after
 	providerStatus     map[string]bool                     // backend -> API key set
+	startupNotices     []string                            // printed dim under the banner (missing optional tools)
 	onSettingsChange   OnSettingsChange
 	tuiRunner          TUIRunner
 	runFn              func(context.Context, string) (string, error) // nil in production; injected in tests
@@ -272,6 +273,12 @@ func (r *REPL) SetProviderStatus(status map[string]bool) {
 	r.providerStatus = status
 }
 
+// SetStartupNotices registers informational lines printed dim under the
+// banner, e.g. install suggestions for missing optional tools.
+func (r *REPL) SetStartupNotices(notices []string) {
+	r.startupNotices = notices
+}
+
 // SetSaveDefaultFn injects the function that persists a model name as the default.
 // Called by /model default <name>. When nil, /model default prints an error.
 func (r *REPL) SetSaveDefaultFn(fn func(string) error) {
@@ -308,7 +315,8 @@ func (r *REPL) dynamicPrompt() string {
 	return dim("[") + model + dim(fmt.Sprintf("|%d", turns)) + suffix + dim("] > ")
 }
 
-// modelTypeTag returns a colored one-letter tag for the model's backend type.
+// modelTypeTag returns a colored tag naming the model's backend type
+// (llamafile, gguf, ollama, or the cloud backend name).
 // Returns "" when the model or type is unknown.
 func modelTypeTag(r *REPL, model string) string {
 	if model == "" || r.modelTypes == nil {
@@ -317,14 +325,14 @@ func modelTypeTag(r *REPL, model string) string {
 	mt := r.modelTypes[model]
 	switch mt {
 	case modelTypeLLamafile:
-		return styleModelsReady.Render("L")
+		return styleModelsReady.Render("llamafile")
 	case modelTypeGGUF:
-		return styleReplSuccess.Render("G")
+		return styleReplSuccess.Render("gguf")
 	case modelTypeOllama:
-		return styleReplMeta.Render("O")
+		return styleReplMeta.Render("ollama")
 	default:
-		if r.cloudModelBackends[model] != "" {
-			return styleReplDim.Render("C")
+		if backend := r.cloudModelBackends[model]; backend != "" {
+			return styleReplDim.Render(backend)
 		}
 		return ""
 	}
@@ -1235,6 +1243,11 @@ func (r *REPL) Run() error {
 	fmt.Fprintln(os.Stdout, styleReplInfo.Render(statusLine))
 	sepWidth := max(lipgloss.Width(statusLine), replStatusWidth)
 	fmt.Fprintln(os.Stdout, styleReplDim.Render(strings.Repeat("─", sepWidth)))
+
+	// Optional-tool notices (e.g. aria2c/llmfit missing) set by the caller.
+	for _, notice := range r.startupNotices {
+		fmt.Fprintln(os.Stdout, styleReplDim.Render("tip: "+notice))
+	}
 
 	// Stale branch check - warn when branch is behind upstream.
 	if staleCwd, cwdErr := os.Getwd(); cwdErr == nil {
