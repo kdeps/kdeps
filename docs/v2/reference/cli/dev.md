@@ -226,7 +226,9 @@ echo "list files in /tmp" | kdeps chat --no-execute
 
 ## `kdeps llamafile`
 
-Manage the local model registry. Covers **llamafile**, **GGUF** (llama.cpp), and **Ollama** models. Aliases like `llama3.2:1b` resolve to cached model files in `~/.kdeps/models/`; models are downloaded on first use with aria2c (fast parallel downloads with resume) or built-in HTTP. Ctrl+C cancels an in-flight download immediately -- an interrupted aria2c download aborts instead of restarting via the HTTP fallback.
+Manage the local model registry. Covers **llamafile**, **GGUF** (llama.cpp), and **Ollama** models. Aliases like `llama3.2:1b` resolve to cached model files in `~/.kdeps/models/`; models are downloaded on first use with aria2c (fast parallel downloads with resume) or built-in HTTP. Ctrl+C cancels an in-flight download immediately -- an interrupted aria2c download aborts instead of restarting via the HTTP fallback, and the partial file is kept so the next attempt resumes.
+
+When [llmfit](https://github.com/AlexsJones/llmfit) is installed, the agent REPL's `/model` picker shows a hardware-fit score (0-100) and level for each local model -- `P`(erfect), `G`(ood), `M`(arginal), or `T`(oo tight) -- based on your machine's RAM/VRAM, so you can tell before downloading whether a model will actually run.
 
 ```bash
 kdeps llamafile list      # all known aliases (LF + GGUF + Ollama) with size, quant, and URL

@@ -47,9 +47,12 @@ func refreshREPLModelLists(repl *agent.REPL) {
 // Non-fatal: if llmfit is not installed or fails, scores are simply absent.
 // Synchronous at startup since llmfit returns in <1s; the scores should
 // be present before the user opens the model picker for the first time.
+// "fit" (not "recommend") is used because it returns every model llmfit
+// knows including Too Tight ones — recommend cuts at min-fit=marginal,
+// leaving most catalog models unscored.
 func runLlamaFit(repl *agent.REPL) {
 	//nolint:noctx // llmfit is a local sub-second CLI call; no context needed.
-	cmd := exec.Command("llmfit", "recommend", "--json", "--limit", "200")
+	cmd := exec.Command("llmfit", "fit", "--json")
 	out, execErr := cmd.Output()
 	if execErr != nil {
 		return
@@ -67,21 +70,35 @@ func runLlamaFit(repl *agent.REPL) {
 	if unmarshalErr := json.Unmarshal(out, &result); unmarshalErr != nil {
 		return
 	}
-	// Build repo -> (score, fitLevel) from gguf sources.
+	// Index llmfit results two ways: by exact GGUF source repo, and by the
+	// normalized base model name. Most llmfit entries have no gguf_sources,
+	// and llmfit's "name" is the base repo (Qwen/Qwen2.5-1.5B-Instruct) while
+	// kdeps registry repos are quantizer repos (bartowski/…-GGUF), so exact
+	// repo matching alone leaves most aliases unscored.
 	type scoreEntry struct {
 		score float64
 		fit   string
 	}
 	repoMap := make(map[string]scoreEntry)
-	for _, m := range result.Models {
-		for _, src := range m.GGUFSrcs {
-			repo := strings.ToLower(src.Repo)
-			if existing, ok := repoMap[repo]; !ok || m.Score > existing.score {
-				repoMap[repo] = scoreEntry{m.Score, m.FitLevel}
-			}
+	nameMap := make(map[string]scoreEntry)
+	record := func(m map[string]scoreEntry, key string, e scoreEntry) {
+		if key == "" {
+			return
+		}
+		if existing, ok := m[key]; !ok || e.score > existing.score {
+			m[key] = e
 		}
 	}
-	// Map each alias to its score via its HuggingFace repo.
+	for _, m := range result.Models {
+		entry := scoreEntry{m.Score, m.FitLevel}
+		record(nameMap, normalizeModelKey(m.Name), entry)
+		for _, src := range m.GGUFSrcs {
+			record(repoMap, strings.ToLower(src.Repo), entry)
+			record(nameMap, normalizeModelKey(src.Repo), entry)
+		}
+	}
+	// Map each alias to its score via its HuggingFace repo: exact repo match
+	// first, then normalized base-name match.
 	scores := make(map[string]float64)
 	fitLevels := make(map[string]string)
 	for _, alias := range repl.ModelNames() {
@@ -89,12 +106,38 @@ func runLlamaFit(repl *agent.REPL) {
 		if repo == "" {
 			continue
 		}
-		if entry, ok := repoMap[strings.ToLower(repo)]; ok {
+		entry, ok := repoMap[strings.ToLower(repo)]
+		if !ok {
+			entry, ok = nameMap[normalizeModelKey(repo)]
+		}
+		if ok {
 			scores[alias] = entry.score
 			fitLevels[alias] = entry.fit
 		}
 	}
 	repl.SetLlamaFitScores(scores, fitLevels)
+}
+
+// normalizeModelKey reduces a HuggingFace repo id or model name to a
+// comparable key: the part after the owner, lowercased, with quantizer
+// suffixes ("-GGUF", "-llamafile") dropped and all non-alphanumerics removed.
+// "bartowski/Llama-3.2-1B-Instruct-GGUF", "unsloth/Llama-3.2-1B-Instruct-GGUF",
+// and "alpindale/Llama-3.2-1B-Instruct" all normalize to "llama321binstruct".
+func normalizeModelKey(id string) string {
+	if i := strings.LastIndex(id, "/"); i >= 0 {
+		id = id[i+1:]
+	}
+	id = strings.ToLower(id)
+	for _, suffix := range []string{"-gguf", "-llamafile", ".gguf", ".llamafile"} {
+		id = strings.TrimSuffix(id, suffix)
+	}
+	var b strings.Builder
+	for _, r := range id {
+		if (r >= 'a' && r <= 'z') || (r >= '0' && r <= '9') {
+			b.WriteRune(r)
+		}
+	}
+	return b.String()
 }
 
 // agentBackendGGUF is the llama.cpp/llama-server backend for GGUF model files.

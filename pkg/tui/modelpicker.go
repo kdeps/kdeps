@@ -373,7 +373,8 @@ func (m modelPickerModel) renderRow(e ModelEntry, isCursor bool, width int) stri
 }
 
 // styleForFitLevel returns the lipgloss style for the given llmfit fit level.
-// Perfect = green, Good = cyan, Marginal = dim, unrecognized = default.
+// Perfect = green, Good = cyan, Marginal = dim, Too Tight = pink,
+// unrecognized = default.
 func styleForFitLevel(level string) lipgloss.Style {
 	switch level {
 	case "Perfect":
@@ -382,6 +383,8 @@ func styleForFitLevel(level string) lipgloss.Style {
 		return lipgloss.NewStyle().Foreground(lipgloss.Color("#00E5FF"))
 	case "Marginal":
 		return lipgloss.NewStyle().Foreground(lipgloss.Color("#888888"))
+	case "Too Tight", "TooTight":
+		return lipgloss.NewStyle().Foreground(lipgloss.Color("#FF2D78"))
 	default:
 		return lipgloss.NewStyle()
 	}
@@ -402,6 +405,8 @@ func tagForEntry(e ModelEntry) string {
 			level = styleForFitLevel("Good").Render("G") + " " // cyan G
 		case "Marginal":
 			level = styleForFitLevel("Marginal").Render("M") + " " // gray M
+		case "Too Tight", "TooTight":
+			level = styleForFitLevel("Too Tight").Render("T") + " " // pink T
 		}
 		if e.FitLevel != "" {
 			scoreTag = fmt.Sprintf("%s%.0f ", level, e.Score)

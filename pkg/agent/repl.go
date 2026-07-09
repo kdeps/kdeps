@@ -725,6 +725,8 @@ func modelTag(r *REPL, name string) string {
 				level = "G"
 			case "Marginal":
 				level = "M"
+			case "Too Tight", "TooTight":
+				level = "T"
 			}
 			if level != "" {
 				tagPrefix = fmt.Sprintf(" [%.0f %s ", s, level)
@@ -1335,9 +1337,45 @@ func (r *REPL) runLoop(rl *readline.Instance) error {
 		if procErr := r.processInput(input); procErr != nil {
 			if !errors.Is(procErr, context.Canceled) {
 				fmt.Fprintln(os.Stderr, styleReplError.Render("error: "+procErr.Error()))
+				if hint := r.contextSizeHint(procErr); hint != "" {
+					fmt.Fprintln(os.Stderr, styleReplMeta.Render(hint))
+				}
 			}
 		}
 	}
+}
+
+// requestTokensRe extracts the request token count from local-server overflow
+// errors like "request (5759 tokens) exceeds the available context size (4096 tokens)".
+var requestTokensRe = regexp.MustCompile(`request \((\d+) tokens\)`)
+
+// contextSizeHint returns a /context suggestion when err is a context-window
+// overflow on a local backend (llamafile, GGUF, Ollama), where the window is
+// a live server setting the user can raise. Cloud backends manage context
+// server-side, so no hint is shown for them.
+func (r *REPL) contextSizeHint(err error) string {
+	switch r.loop.config.Backend {
+	case llm.BackendFile, llm.BackendGGUF, "ollama":
+	default:
+		return ""
+	}
+	if !IsContextOverflowError(err) {
+		return ""
+	}
+	// Suggest the next 4096 multiple with headroom above the failed request,
+	// falling back to a sensible default when the size isn't in the message.
+	suggested := 16384
+	if m := requestTokensRe.FindStringSubmatch(err.Error()); m != nil {
+		if n, convErr := strconv.Atoi(m[1]); convErr == nil {
+			const headroomFactor, contextStep = 2, 4096
+			suggested = (n*headroomFactor/contextStep + 1) * contextStep
+		}
+	}
+	return fmt.Sprintf(
+		"Tip: the model's context window is too small for this request. "+
+			"Raise it with /context %d, or /compact to shrink history.",
+		suggested,
+	)
 }
 
 // handleReadError classifies a readline error as stop/continue/fatal.

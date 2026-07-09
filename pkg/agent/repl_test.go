@@ -3678,6 +3678,54 @@ func TestApplyModelSwitch_CanceledRevertsModel(t *testing.T) {
 	assert.NotContains(t, string(outBytes), "Model set to new-model")
 }
 
+// --- contextSizeHint ---
+
+func TestContextSizeHint_LocalOverflowSuggestsSize(t *testing.T) {
+	loop := makeTestLoop(nil)
+	loop.config.Backend = llm.BackendGGUF
+	repl := NewREPL(loop)
+	defer repl.cancel()
+
+	err := errors.New(
+		"agent loop stream: stream: generate: openai: invalid_request: API returned " +
+			"unexpected status code: 400: request (5759 tokens) exceeds the available " +
+			"context size (4096 tokens), try increasing it",
+	)
+	hint := repl.contextSizeHint(err)
+	// 5759 tokens with 2x headroom rounds up to the next 4096 step: 12288.
+	assert.Contains(t, hint, "/context 12288")
+}
+
+func TestContextSizeHint_UnparsableSizeFallsBack(t *testing.T) {
+	loop := makeTestLoop(nil)
+	loop.config.Backend = llm.BackendFile
+	repl := NewREPL(loop)
+	defer repl.cancel()
+
+	hint := repl.contextSizeHint(errors.New("prompt is too long"))
+	assert.Contains(t, hint, "/context 16384")
+}
+
+func TestContextSizeHint_CloudBackendNoHint(t *testing.T) {
+	loop := makeTestLoop(nil)
+	loop.config.Backend = "anthropic"
+	repl := NewREPL(loop)
+	defer repl.cancel()
+
+	hint := repl.contextSizeHint(errors.New("prompt is too long"))
+	assert.Empty(t, hint)
+}
+
+func TestContextSizeHint_NonOverflowNoHint(t *testing.T) {
+	loop := makeTestLoop(nil)
+	loop.config.Backend = llm.BackendGGUF
+	repl := NewREPL(loop)
+	defer repl.cancel()
+
+	hint := repl.contextSizeHint(errors.New("connection refused"))
+	assert.Empty(t, hint)
+}
+
 // Ensure the import of httptest / llm is used.
 var _ = httptest.NewServer
 var _ = llm.BackendGGUF
