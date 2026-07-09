@@ -4359,7 +4359,10 @@ func TestDetectDefaultModelAndBackend_FallbackDefault(t *testing.T) {
 }
 
 func TestDetectDefaultModelAndBackend_OllamaPath(t *testing.T) {
-	// Force Priority 3 (ollama): block llamafile and gguf but keep ollama in PATH.
+	// Force Priority 4 (ollama): block llamafile, gguf, and cloud keys.
+	for _, m := range KnownCloudModels {
+		t.Setenv(m.EnvVar, "")
+	}
 	t.Setenv("KDEPS_MODELS_DIR", t.TempDir()) // empty - no .gguf
 	// Use system PATH but ensure llamafile is absent (it's not installed here).
 	// ollama IS in the system PATH (/usr/local/bin/ollama).

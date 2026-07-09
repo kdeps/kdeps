@@ -295,15 +295,16 @@ func detectDefaultModelAndBackend() (string, string) {
 			}
 		}
 	}
-	// Priority 3: ollama
-	if _, err := exec.LookPath("ollama"); err == nil {
-		return defaultModelName, "ollama"
-	}
-	// Priority 4: cloud
+	// Priority 3: cloud API keys (explicitly configured takes priority
+	// over a local ollama binary that may have no models pulled).
 	for _, m := range KnownCloudModels {
 		if os.Getenv(m.EnvVar) != "" {
 			return m.ID, m.Backend
 		}
+	}
+	// Priority 4: ollama
+	if _, err := exec.LookPath("ollama"); err == nil {
+		return defaultModelName, "ollama"
 	}
 	return "", ""
 }

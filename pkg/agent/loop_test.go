@@ -358,6 +358,7 @@ func TestLoop_Run_AutoCompact_Fires(t *testing.T) {
 
 	var autoCompactSummary string
 	loop := agent.New(eng, newTestWorkflow(), reg, agent.Config{
+		Model:                "test-model",
 		AutoCompactThreshold: 1,  // fire on first turn that exceeds 1 token
 		CompactTokenBudget:   10, // keep minimal recent context
 	})
