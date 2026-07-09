@@ -713,20 +713,20 @@ func modelTag(r *REPL, name string) string {
 	if repo != "" {
 		repoSuffix = " " + repo
 	}
-	// Build tag prefix: score + fit-level letter + leading space.
+	// Build tag prefix: score + spelled-out fit level + leading space.
 	tagPrefix := " ["
 	if r.llmfitScore != nil {
 		if s, ok := r.llmfitScore[name]; ok && s > 0 {
 			level := ""
 			switch r.llmfitFitLevel[name] {
 			case "Perfect":
-				level = "P"
+				level = "Perfect"
 			case "Good":
-				level = "G"
+				level = "Good"
 			case "Marginal":
-				level = "M"
+				level = "Marginal"
 			case "Too Tight", "TooTight":
-				level = "T"
+				level = "Too Tight"
 			}
 			if level != "" {
 				tagPrefix = fmt.Sprintf(" [%.0f %s ", s, level)

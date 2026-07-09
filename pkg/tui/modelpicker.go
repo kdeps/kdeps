@@ -400,13 +400,13 @@ func tagForEntry(e ModelEntry) string {
 		level := ""
 		switch e.FitLevel {
 		case "Perfect":
-			level = styleForFitLevel("Perfect").Render("P") + " " // green P
+			level = styleForFitLevel("Perfect").Render("Perfect") + " " // green
 		case "Good":
-			level = styleForFitLevel("Good").Render("G") + " " // cyan G
+			level = styleForFitLevel("Good").Render("Good") + " " // cyan
 		case "Marginal":
-			level = styleForFitLevel("Marginal").Render("M") + " " // gray M
+			level = styleForFitLevel("Marginal").Render("Marginal") + " " // gray
 		case "Too Tight", "TooTight":
-			level = styleForFitLevel("Too Tight").Render("T") + " " // pink T
+			level = styleForFitLevel("Too Tight").Render("Too Tight") + " " // pink
 		}
 		if e.FitLevel != "" {
 			scoreTag = fmt.Sprintf("%s%.0f ", level, e.Score)
