@@ -27,10 +27,10 @@ type ModelEntry struct {
 	Backend   string // cloud backend name (e.g. "deepseek"), or ""
 	Repo      string // HuggingFace repo id (e.g. "googleai/gemma4"), llamafile/gguf only
 	Cached    bool
-	Enabled   bool      // cloud API key is set
-	SizeGB    string    // formatted size string, or ""
-	Score     float64   // llmfit composite score 0-100; 0 when unavailable
-	FitLevel  string    // llmfit fit level: "Perfect", "Good", "Marginal", or "" when unavailable
+	Enabled   bool    // cloud API key is set
+	SizeGB    string  // formatted size string, or ""
+	Score     float64 // llmfit composite score 0-100; 0 when unavailable
+	FitLevel  string  // llmfit fit level: "Perfect", "Good", "Marginal", or "" when unavailable
 }
 
 type modelPickerModel struct {
@@ -78,42 +78,45 @@ func entryGroupOrder(e ModelEntry) int {
 	return groupOrderCloud
 }
 
+// rankedEntry pairs an entry with its group order for stable sorting.
+type rankedEntry struct {
+	entry ModelEntry
+	order int
+}
+
+// lessEntry returns true when a sorts before b in the model picker.
+// Order by group, then by llmfit score descending, then current model first,
+// then alphabetically by name.
+func lessEntry(a, b rankedEntry, currentModel string) bool {
+	if a.order != b.order {
+		return a.order > b.order
+	}
+	// Same group: compare by score descending.
+	if a.entry.Score != 0 && b.entry.Score != 0 && a.entry.Name != currentModel && b.entry.Name != currentModel {
+		return a.entry.Score < b.entry.Score
+	}
+	// Score tie or one has no score: current model first, then alphabetical.
+	if b.entry.Name == currentModel {
+		return true
+	}
+	if a.entry.Name == currentModel {
+		return false
+	}
+	return a.entry.Name > b.entry.Name
+}
+
 func sortEntries(entries []ModelEntry, currentModel string) []ModelEntry {
 	sorted := make([]ModelEntry, len(entries))
 	copy(sorted, entries)
-	// stable sort: within each group, llmfit score descending (if available),
-	// then current model first, then alphabetical.
-	type ranked struct {
-		entry ModelEntry
-		order int
-	}
-	ranks := make([]ranked, len(sorted))
+	ranks := make([]rankedEntry, len(sorted))
 	for i, e := range sorted {
-		ranks[i] = ranked{e, entryGroupOrder(e)}
+		ranks[i] = rankedEntry{e, entryGroupOrder(e)}
 	}
 	// insertion sort (stable, small N is fine)
 	for i := 1; i < len(ranks); i++ {
 		for j := i; j > 0; j-- {
 			a, b := ranks[j-1], ranks[j]
-			less := a.order > b.order
-			if a.order == b.order {
-				aCurrent := a.entry.Name == currentModel
-				bCurrent := b.entry.Name == currentModel
-				// When neither is the current model, compare by score descending.
-				if !aCurrent && !bCurrent && a.entry.Score != 0 && b.entry.Score != 0 {
-					less = a.entry.Score < b.entry.Score
-				} else {
-					switch {
-					case !aCurrent && bCurrent:
-						less = true
-					case aCurrent == bCurrent:
-						less = a.entry.Name > b.entry.Name
-					default:
-						less = false
-					}
-				}
-			}
-			if less {
+			if lessEntry(a, b, currentModel) {
 				ranks[j-1], ranks[j] = ranks[j], ranks[j-1]
 			} else {
 				break
@@ -396,7 +399,7 @@ func tagForEntry(e ModelEntry) string {
 		case "Perfect":
 			level = styleForFitLevel("Perfect").Render("P") + " " // green P
 		case "Good":
-			level = styleForFitLevel("Good").Render("G") + " "  // cyan G
+			level = styleForFitLevel("Good").Render("G") + " " // cyan G
 		case "Marginal":
 			level = styleForFitLevel("Marginal").Render("M") + " " // gray M
 		}

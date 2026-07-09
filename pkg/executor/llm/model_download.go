@@ -203,6 +203,13 @@ func (f *aria2cNoiseFilter) Write(p []byte) (int, error) {
 			if _, err := f.w.Write(out); err != nil {
 				return len(p), err
 			}
+			// Progress lines use \r (no \n) — flush immediately so the update
+			// is visible in real time even when stdout is captured by readline.
+			if len(out) > 0 && out[len(out)-1] == '\r' {
+				if syncer, ok := f.w.(interface{ Sync() error }); ok {
+					_ = syncer.Sync()
+				}
+			}
 		}
 	}
 	return len(p), nil

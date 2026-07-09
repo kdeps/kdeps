@@ -48,22 +48,23 @@ func refreshREPLModelLists(repl *agent.REPL) {
 // Synchronous at startup since llmfit returns in <1s; the scores should
 // be present before the user opens the model picker for the first time.
 func runLlamaFit(repl *agent.REPL) {
+	//nolint:noctx // llmfit is a local sub-second CLI call; no context needed.
 	cmd := exec.Command("llmfit", "recommend", "--json", "--limit", "200")
-	out, err := cmd.Output()
-	if err != nil {
-	return
+	out, execErr := cmd.Output()
+	if execErr != nil {
+		return
 	}
 	var result struct {
 		Models []struct {
-			Name      string  `json:"name"`
-			Score     float64 `json:"score"`
-			FitLevel  string  `json:"fit_level"`
-			GGUFSrcs  []struct {
+			Name     string  `json:"name"`
+			Score    float64 `json:"score"`
+			FitLevel string  `json:"fit_level"`
+			GGUFSrcs []struct {
 				Repo string `json:"repo"`
 			} `json:"gguf_sources"`
 		} `json:"models"`
 	}
-	if err := json.Unmarshal(out, &result); err != nil {
+	if unmarshalErr := json.Unmarshal(out, &result); unmarshalErr != nil {
 		return
 	}
 	// Build repo -> (score, fitLevel) from gguf sources.

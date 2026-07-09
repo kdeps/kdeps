@@ -183,8 +183,8 @@ type REPL struct {
 	tuiRunner          TUIRunner
 	runFn              func(context.Context, string) (string, error) // nil in production; injected in tests
 	refreshModelsFn    func()                                        // called after new model registered; nil if unset
-	llmfitScore        map[string]float64                         // alias -> composite score from llmfit (0-100); nil when unavailable
-	llmfitFitLevel     map[string]string                          // alias -> fit level (Perfect/Good/Marginal/TooTight)
+	llmfitScore        map[string]float64                            // alias -> composite score from llmfit (0-100); nil when unavailable
+	llmfitFitLevel     map[string]string                             // alias -> fit level (Perfect/Good/Marginal/TooTight)
 	toolCancel         context.CancelFunc                            // cancels the currently running tool; nil when no tool is active
 	toolBgCh           chan struct{}                                 // backgrounds the running tool on send; nil when no tool is active
 	toolCancelMu       sync.Mutex
@@ -289,9 +289,14 @@ func (r *REPL) dynamicPrompt() string {
 	turns := r.loop.Session().TurnCount()
 	model := styleReplPrompt.Render(r.loop.config.Model)
 	dim := styleReplDim.Render
+	// Model type tag: short colored label for the active backend.
+	typeTag := modelTypeTag(r, r.loop.config.Model)
 	var suffix string
+	if typeTag != "" {
+		suffix = dim("|") + typeTag
+	}
 	if thinking := r.loop.Thinking(); thinking != nil && thinking.Mode != domain.ThinkingModeNone {
-		suffix = dim("|") + styleReplMeta.Render(string(thinking.Mode))
+		suffix += dim("|") + styleReplMeta.Render(string(thinking.Mode))
 	}
 	ctxStr := r.contextUsageStr()
 	if ctxStr != "" {
@@ -301,6 +306,28 @@ func (r *REPL) dynamicPrompt() string {
 		return dim("[") + model + suffix + dim("] > ")
 	}
 	return dim("[") + model + dim(fmt.Sprintf("|%d", turns)) + suffix + dim("] > ")
+}
+
+// modelTypeTag returns a colored one-letter tag for the model's backend type.
+// Returns "" when the model or type is unknown.
+func modelTypeTag(r *REPL, model string) string {
+	if model == "" || r.modelTypes == nil {
+		return ""
+	}
+	mt := r.modelTypes[model]
+	switch mt {
+	case modelTypeLLamafile:
+		return styleModelsReady.Render("L")
+	case modelTypeGGUF:
+		return styleReplSuccess.Render("G")
+	case modelTypeOllama:
+		return styleReplMeta.Render("O")
+	default:
+		if r.cloudModelBackends[model] != "" {
+			return styleReplDim.Render("C")
+		}
+		return ""
+	}
 }
 
 // contextUsageStr returns a "used/total" token display string (e.g. "293k/512k").
@@ -2699,6 +2726,7 @@ func (r *REPL) ProviderStatus() map[string]bool { return r.providerStatus }
 
 // CurrentModel returns the active model name.
 func (r *REPL) CurrentModel() string { return r.loop.config.Model }
+
 // SetLlamaFitScores stores llmfit recommendation results indexed by model
 // alias. score is 0-100 composite; fitLevel is one of Perfect/Good/Marginal.
 func (r *REPL) SetLlamaFitScores(scores map[string]float64, fitLevels map[string]string) {
@@ -2729,7 +2757,6 @@ func (r *REPL) LlamaFitScores() map[string]float64 { return r.llmfitScore }
 
 // LlamaFitFitLevels returns the full llmfit fit levels map (alias -> level).
 func (r *REPL) LlamaFitFitLevels() map[string]string { return r.llmfitFitLevel }
-
 
 // cmdCopy copies the last assistant response to the system clipboard.
 // Matches pi's /copy command. Uses pbcopy (macOS), xclip/xsel (Linux), or clip.exe (Windows).
