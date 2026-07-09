@@ -121,7 +121,10 @@ func isPartialDownload(fs afero.Fs, dest string) bool {
 }
 
 // defaultAria2cFlags are used when KDEPS_ARIA2C_FLAGS is not set.
-const defaultAria2cFlags = "-c -x 16 -s 16 --console-log-level=warn"
+// --summary-interval=1 makes the progress readout update every second: with
+// stdout on a pipe (as here) aria2c only prints progress at this interval,
+// and its default is a full minute.
+const defaultAria2cFlags = "-c -x 16 -s 16 --console-log-level=warn --summary-interval=1"
 
 // aria2cExitUnfinished is aria2c's exit code when it was interrupted (Ctrl+C,
 // SIGINT/SIGTERM) with unfinished downloads in the queue.
@@ -150,6 +153,11 @@ func downloadWithResume(ctx context.Context, dest, url string) error {
 		"-d", dir,
 		"-o", file,
 	}, strings.Fields(flags)...)
+	// Keep per-second progress even under custom KDEPS_ARIA2C_FLAGS unless
+	// the user chose their own interval.
+	if !strings.Contains(flags, "--summary-interval") {
+		args = append(args, "--summary-interval=1")
+	}
 	args = append(args, url)
 	cmd := exec.CommandContext(ctx, aria2c, args...)
 	outFilter := &aria2cNoiseFilter{w: os.Stdout}

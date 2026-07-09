@@ -83,6 +83,32 @@ func TestDownloadWithResume_CtxCanceled(t *testing.T) {
 	assert.ErrorIs(t, err, ErrDownloadInterrupted)
 }
 
+// TestDownloadWithResume_SummaryInterval verifies per-second progress is
+// enforced unless the user's custom flags pick their own interval.
+func TestDownloadWithResume_SummaryInterval(t *testing.T) {
+	dir := t.TempDir()
+	argsFile := filepath.Join(dir, "args.txt")
+	fake := filepath.Join(dir, "aria2c")
+	require.NoError(t, os.WriteFile(fake,
+		[]byte("#!/bin/sh\necho \"$@\" > "+argsFile+"\n"), 0o755))
+	t.Setenv("PATH", dir+string(os.PathListSeparator)+os.Getenv("PATH"))
+
+	// Custom flags without an interval -> --summary-interval=1 appended.
+	t.Setenv("KDEPS_ARIA2C_FLAGS", "-x 4")
+	require.NoError(t, downloadWithResume(context.Background(), filepath.Join(dir, "m.gguf"), "http://x/m.gguf"))
+	args, err := os.ReadFile(argsFile)
+	require.NoError(t, err)
+	assert.Contains(t, string(args), "--summary-interval=1")
+
+	// User-chosen interval is respected, not overridden.
+	t.Setenv("KDEPS_ARIA2C_FLAGS", "-x 4 --summary-interval=5")
+	require.NoError(t, downloadWithResume(context.Background(), filepath.Join(dir, "m.gguf"), "http://x/m.gguf"))
+	args, err = os.ReadFile(argsFile)
+	require.NoError(t, err)
+	assert.Contains(t, string(args), "--summary-interval=5")
+	assert.NotContains(t, string(args), "--summary-interval=1")
+}
+
 // TestDownloadModelFile_InterruptedNoFallback verifies that an interrupted
 // aria2c download does NOT fall back to the plain HTTP downloader.
 func TestDownloadModelFile_InterruptedNoFallback(t *testing.T) {

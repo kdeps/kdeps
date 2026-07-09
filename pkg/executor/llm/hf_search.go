@@ -231,6 +231,7 @@ func hfDownloadAria2c(
 		"--continue=true",
 		"--file-allocation=none",
 		"--console-log-level=warn",
+		"--summary-interval=1", // per-second progress; pipe output defaults to 60s
 		"--dir=" + filepath.Dir(dest),
 		"--out=" + filepath.Base(dest),
 	}
