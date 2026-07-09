@@ -163,6 +163,7 @@ func buildUserFields(cfg Config) string {
 	lines = append(lines, "# Edit at any time. Explicit env vars always take precedence.")
 	lines = append(lines, "")
 	lines = append(lines, "llm:")
+	appendField(&lines, "  backend", cfg.LLM.Backend)
 	appendField(&lines, "  ollama_host", cfg.LLM.OllamaHost)
 	appendField(&lines, "  models_dir", cfg.LLM.ModelsDir)
 	for _, p := range cloudProvidersList {
