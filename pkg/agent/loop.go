@@ -242,6 +242,9 @@ func resolveModelAndBackend(model, backend string) (string, string) {
 	if backend == "" {
 		backend = os.Getenv("KDEPS_DEFAULT_BACKEND")
 	}
+	if backend != "" {
+		fmt.Fprintf(os.Stderr, "DEBUG: using env backend=%q model=%q\n", backend, model)
+	}
 	// Auto-detect model and/or backend when not explicitly configured.
 	if model == "" {
 		model = envOrDefault("KDEPS_AGENT_MODEL", "")
