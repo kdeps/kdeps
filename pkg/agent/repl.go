@@ -1200,15 +1200,16 @@ func (r *REPL) Run() error {
 	return r.runLoop(rl)
 }
 
-// handleSignalInterrupt handles Ctrl+C: cancels the running tool or the full turn.
+// handleSignalInterrupt handles Ctrl+C: cancels the running turn (LLM call)
+// and any in-progress tool. The turn context is always refreshed so the next
+// prompt works immediately.
 func (r *REPL) handleSignalInterrupt(tc context.CancelFunc) {
+	r.cancel()
+	newCtx, newCancel := context.WithCancel(r.loopCtx)
+	r.ctx = newCtx
+	r.cancel = newCancel
 	if tc != nil {
 		tc()
-	} else {
-		r.cancel()
-		newCtx, newCancel := context.WithCancel(r.loopCtx)
-		r.ctx = newCtx
-		r.cancel = newCancel
 	}
 	fmt.Fprint(os.Stdout, "\r\n")
 }
