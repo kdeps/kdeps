@@ -29,6 +29,11 @@ import (
 
 // ExecutionContext holds the runtime context for workflow execution.
 type ExecutionContext struct {
+	// Ctx is the root context for this execution. Derived from the engine's
+	// context so all I/O operations share a common cancel scope. Defaults to
+	// context.Background() when not explicitly set.
+	Ctx context.Context
+
 	// Workflow being executed.
 	Workflow *domain.Workflow
 

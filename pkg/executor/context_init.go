@@ -19,6 +19,7 @@
 package executor
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/kdeps/kdeps/v2/pkg/config"
@@ -50,6 +51,7 @@ func NewExecutionContext(
 	}
 
 	ctx := &ExecutionContext{
+		Ctx: context.Background(),
 		Workflow:        workflow,
 		Resources:       make(map[string]*domain.Resource),
 		Outputs:         make(map[string]interface{}),

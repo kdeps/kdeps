@@ -19,7 +19,6 @@
 package botreply
 
 import (
-	"context"
 	"errors"
 	"fmt"
 	"strings"
@@ -61,7 +60,7 @@ func (e *Executor) Execute(
 		return nil, sendErr
 	}
 
-	if sendErr := ctx.BotSend(context.Background(), text); sendErr != nil {
+	if sendErr := ctx.BotSend(ctx.Ctx, text); sendErr != nil {
 		return nil, fmt.Errorf("botreply executor: send failed: %w", sendErr)
 	}
 
