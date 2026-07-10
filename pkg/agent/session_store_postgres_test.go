@@ -93,6 +93,7 @@ func newSQLiteBackedPostgresStore(t *testing.T) *PostgresSessionStore {
 
 	return &PostgresSessionStore{
 		sql: sqlSessionStore{
+			ctx:          context.Background(),
 			db:           db,
 			sessTable:    "kdeps_sessions",
 			msgTable:     "kdeps_messages",

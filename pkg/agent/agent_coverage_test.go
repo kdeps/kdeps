@@ -578,6 +578,7 @@ func newBrokenSQLiteSessionStore(t *testing.T) (*sqlSessionStore, func()) {
 	require.NoError(t, err)
 
 	store := sqlSessionStore{
+		ctx:          context.Background(),
 		db:           db,
 		sessTable:    "sessions",
 		msgTable:     "messages",
@@ -638,6 +639,7 @@ func TestSQLSessionStore_SaveAs_InsertMsgError(t *testing.T) {
 	require.NoError(t, err)
 
 	store := sqlSessionStore{
+		ctx:          context.Background(),
 		db:           db,
 		sessTable:    "sessions",
 		msgTable:     "messages",
@@ -696,6 +698,7 @@ func TestSQLiteSessionStore_Migrate_ExecError(t *testing.T) {
 
 	store := &SQLiteSessionStore{
 		sql: sqlSessionStore{
+			ctx:          context.Background(),
 			db:           db,
 			sessTable:    "sessions",
 			msgTable:     "messages",
@@ -1381,6 +1384,7 @@ func TestSQLSessionStore_SaveAs_InsertSessionError(t *testing.T) {
 	require.NoError(t, err)
 
 	store := sqlSessionStore{
+		ctx:          context.Background(),
 		db:           db,
 		sessTable:    "sessions",
 		msgTable:     "messages",

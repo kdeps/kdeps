@@ -51,7 +51,7 @@ func NewExecutionContext(
 	}
 
 	ctx := &ExecutionContext{
-		Ctx: context.Background(),
+		Ctx:             context.Background(),
 		Workflow:        workflow,
 		Resources:       make(map[string]*domain.Resource),
 		Outputs:         make(map[string]interface{}),

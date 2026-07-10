@@ -226,6 +226,7 @@ func TestSessionStorage_InitSchema_IndexError(t *testing.T) {
 		SessionID:       "test",
 		DefaultTTL:      time.Hour,
 		cleanupInterval: 5 * time.Minute,
+		ctx:             context.Background(),
 	}
 	defer func() {
 		_ = roDB.Close()

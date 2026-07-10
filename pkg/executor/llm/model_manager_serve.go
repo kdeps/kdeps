@@ -30,7 +30,8 @@ import (
 
 func (m *ModelManager) downloadModelIfOnline(ctx context.Context, backend, model string) {
 	if m.offlineMode {
-		m.logger.Info(
+		m.logger.InfoContext(
+			ctx,
 			"offline mode enabled, skipping model download",
 			"backend",
 			backend,
@@ -40,14 +41,14 @@ func (m *ModelManager) downloadModelIfOnline(ctx context.Context, backend, model
 		return
 	}
 	if err := m.service.DownloadModel(ctx, backend, model); err != nil {
-		m.logger.Warn("model download failed or skipped", "backend", backend, "model", model, "error", err)
+		m.logger.WarnContext(ctx, "model download failed or skipped", "backend", backend, "model", model, "error", err)
 	}
 }
 
 func (m *ModelManager) serveFileModelIfNeeded(ctx context.Context, config *domain.ChatConfig, port int) {
 	actualPort, err := m.serveFileModel(ctx, config.Model, port)
 	if err != nil {
-		m.logger.Warn("llamafile serve failed", "model", config.Model, "error", err)
+		m.logger.WarnContext(ctx, "llamafile serve failed", "model", config.Model, "error", err)
 		return
 	}
 	if config.BaseURL == "" {
@@ -57,7 +58,8 @@ func (m *ModelManager) serveFileModelIfNeeded(ctx context.Context, config *domai
 
 func (m *ModelManager) serveBackendModel(ctx context.Context, backend, model, host string, port int) {
 	if err := m.service.ServeModel(ctx, backend, model, host, port); err != nil {
-		m.logger.Warn(
+		m.logger.WarnContext(
+			ctx,
 			"model serving failed or skipped",
 			"backend",
 			backend,
@@ -72,7 +74,7 @@ func (m *ModelManager) serveBackendModel(ctx context.Context, backend, model, ho
 func (m *ModelManager) serveGGUFModelIfNeeded(ctx context.Context, config *domain.ChatConfig, port int) {
 	actualPort, err := m.serveGGUFModel(ctx, config.Model, port)
 	if err != nil {
-		m.logger.Warn("llama-server serve failed", "model", config.Model, "error", err)
+		m.logger.WarnContext(ctx, "llama-server serve failed", "model", config.Model, "error", err)
 		return
 	}
 	if config.BaseURL == "" {

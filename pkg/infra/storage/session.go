@@ -35,7 +35,7 @@ const sqliteMemoryDSN = ":memory:"
 //nolint:gochecknoglobals // overridden in tests for fast cleanup
 var (
 	defaultCleanupInterval = 5 * time.Minute
-	sessionsSchemaMigrator = migrateSessionsSchema //nolint:unused // used via var reference
+	sessionsSchemaMigrator = migrateSessionsSchema
 )
 
 // SessionStorage provides per-session key-value storage using SQLite.

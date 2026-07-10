@@ -36,7 +36,6 @@ import (
 // Manager manages Python virtual environments using uv.
 type Manager struct {
 	BaseDir string
-	ctx     context.Context
 }
 
 const (

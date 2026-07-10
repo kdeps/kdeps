@@ -981,7 +981,7 @@ const (
 func toolCallCtxTimeout(
 	fallback context.Context, args map[string]any, d time.Duration,
 ) (context.Context, context.CancelFunc) {
-	return context.WithTimeout(toolCallCtx(fallback, args), d)
+	return context.WithTimeout(toolCallCtx(fallback, args), d) //nolint:gosec // cancel func is returned to the caller
 }
 
 // toolCallCtx returns the per-turn context injected by the Loop dispatcher

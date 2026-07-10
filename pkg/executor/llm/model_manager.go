@@ -48,7 +48,7 @@ func NewModelManager(logger *slog.Logger) *ModelManager {
 		service:     NewModelService(logger),
 		logger:      logger,
 		offlineMode: false,
-			ctx: context.Background(),
+		ctx:         context.Background(),
 	}
 }
 
@@ -62,7 +62,7 @@ func NewModelManagerWithOfflineMode(logger *slog.Logger, offlineMode bool) *Mode
 		service:     NewModelService(logger),
 		logger:      logger,
 		offlineMode: offlineMode,
-			ctx: context.Background(),
+		ctx:         context.Background(),
 	}
 }
 
@@ -72,7 +72,7 @@ func NewModelManagerFromService(service *ModelService) *ModelManager {
 	return &ModelManager{
 		service: service,
 		logger:  slog.Default(),
-			ctx: context.Background(),
+		ctx:     context.Background(),
 	}
 }
 
@@ -83,7 +83,7 @@ func NewModelManagerFromServiceInterface(service ModelServiceInterface) *ModelMa
 	return &ModelManager{
 		service: service,
 		logger:  slog.Default(),
-			ctx: context.Background(),
+		ctx:     context.Background(),
 	}
 }
 
