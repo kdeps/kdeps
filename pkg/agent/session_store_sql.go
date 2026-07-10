@@ -26,9 +26,10 @@ import (
 
 // sqlSessionStore is the shared implementation for SQL-backed session stores.
 // Driver-specific details (table names, placeholder style, search operator)
-// are injected at construction time.
+// are injected at construction time. ctx is the root context for all queries.
 type sqlSessionStore struct {
 	mu           sync.Mutex
+	ctx          context.Context
 	db           *sql.DB
 	sessTable    string // e.g. "sessions" or "kdeps_sessions"
 	msgTable     string // e.g. "messages" or "kdeps_messages"
@@ -42,7 +43,7 @@ func (s *sqlSessionStore) saveAs(session *Session, name, model string) (string, 
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	ctx := context.Background()
+	ctx := s.ctx
 	id := fmt.Sprintf("session-%d", time.Now().UnixNano())
 	now := time.Now().UnixMilli()
 
@@ -74,7 +75,7 @@ func (s *sqlSessionStore) load(id string) (*Session, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	ctx := context.Background()
+	ctx := s.ctx
 	q := fmt.Sprintf( //nolint:gosec // G201: table name is internal constant, not user input
 		`SELECT role, content FROM %s WHERE session_id = %s ORDER BY seq`, s.msgTable, s.ph,
 	)
@@ -102,7 +103,7 @@ func (s *sqlSessionStore) loadMeta(id string) (*SessionMetadata, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	ctx := context.Background()
+	ctx := s.ctx
 	q := fmt.Sprintf( //nolint:gosec // G201: table name is internal constant, not user input
 		`SELECT id, name, model, turns, created_at FROM %s WHERE id = %s`, s.sessTable, s.ph,
 	)
@@ -122,7 +123,7 @@ func (s *sqlSessionStore) listMeta() ([]SessionMetadata, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	ctx := context.Background()
+	ctx := s.ctx
 	q := fmt.Sprintf( //nolint:gosec // G201: table name is internal constant, not user input
 		`SELECT id, name, model, turns, created_at FROM %s ORDER BY created_at DESC`, s.sessTable,
 	)
@@ -147,7 +148,7 @@ func (s *sqlSessionStore) list() ([]string, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	ctx := context.Background()
+	ctx := s.ctx
 	q := fmt.Sprintf( //nolint:gosec // G201: table name is internal constant, not user input
 		`SELECT id FROM %s ORDER BY created_at DESC`, s.sessTable,
 	)
@@ -172,7 +173,7 @@ func (s *sqlSessionStore) delete(id string) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	ctx := context.Background()
+	ctx := s.ctx
 	q := fmt.Sprintf( //nolint:gosec // G201: table name is internal constant, not user input
 		`DELETE FROM %s WHERE id = %s`, s.sessTable, s.ph,
 	)
@@ -186,7 +187,7 @@ func (s *sqlSessionStore) searchSessions(text string) ([]string, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	ctx := context.Background()
+	ctx := s.ctx
 	q := fmt.Sprintf( //nolint:gosec // G201: table name is internal constant, not user input
 		`SELECT DISTINCT session_id FROM %s WHERE content %s %s ORDER BY session_id DESC`,
 		s.msgTable, s.searchLike, s.ph,

@@ -37,7 +37,7 @@ import (
 func TestSessionStorage_InitSchema_MigrateError(t *testing.T) {
 	orig := sessionsSchemaMigrator
 	t.Cleanup(func() { sessionsSchemaMigrator = orig })
-	sessionsSchemaMigrator = func(_ *sql.DB) error {
+	sessionsSchemaMigrator = func(_ context.Context, _ *sql.DB) error {
 		return errors.New("migration failed")
 	}
 

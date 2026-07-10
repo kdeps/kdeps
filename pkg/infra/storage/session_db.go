@@ -64,39 +64,39 @@ func openSessionDatabase(dbPath string) (*sql.DB, error) {
 	return db, nil
 }
 
-func migrateSessionsSchema(db *sql.DB) error {
+func migrateSessionsSchema(ctx context.Context, db *sql.DB) error {
 	var expiresAtCount int
 	err := db.QueryRowContext(
-		context.Background(),
+		ctx,
 		`SELECT COUNT(*) FROM pragma_table_info('sessions') WHERE name='expires_at'`,
 	).Scan(&expiresAtCount)
 	if err == nil && expiresAtCount == 0 {
-		_, _ = db.ExecContext(context.Background(), `ALTER TABLE sessions ADD COLUMN expires_at INTEGER`)
+		_, _ = db.ExecContext(ctx, `ALTER TABLE sessions ADD COLUMN expires_at INTEGER`)
 	}
 
 	var accessedAtCount int
 	err = db.QueryRowContext(
-		context.Background(),
+		ctx,
 		`SELECT COUNT(*) FROM pragma_table_info('sessions') WHERE name='accessed_at'`,
 	).Scan(&accessedAtCount)
 	if err == nil && accessedAtCount == 0 {
-		_, _ = db.ExecContext(context.Background(), `ALTER TABLE sessions ADD COLUMN accessed_at INTEGER`)
+		_, _ = db.ExecContext(ctx, `ALTER TABLE sessions ADD COLUMN accessed_at INTEGER`)
 		_, _ = db.ExecContext(
-			context.Background(),
+			ctx,
 			`UPDATE sessions SET accessed_at = created_at WHERE accessed_at IS NULL`,
 		)
 	}
 	return nil
 }
 
-func createSessionsIndexes(db *sql.DB) error {
+func createSessionsIndexes(ctx context.Context, db *sql.DB) error {
 	indexes := []string{
 		`CREATE INDEX IF NOT EXISTS idx_sessions_session_id ON sessions(session_id);`,
 		`CREATE INDEX IF NOT EXISTS idx_sessions_expires_at ON sessions(expires_at);`,
 		`CREATE INDEX IF NOT EXISTS idx_sessions_created_at ON sessions(created_at);`,
 	}
 	for _, idx := range indexes {
-		if _, execErr := db.ExecContext(context.Background(), idx); execErr != nil {
+		if _, execErr := db.ExecContext(ctx, idx); execErr != nil {
 			return fmt.Errorf("failed to create index: %w", execErr)
 		}
 	}
@@ -159,15 +159,15 @@ func (s *SessionStorage) initSchema() error {
 		PRIMARY KEY (session_id, key)
 	);
 	`
-	if _, err := s.DB.ExecContext(context.Background(), createTable); err != nil {
+	if _, err := s.DB.ExecContext(s.ctx, createTable); err != nil {
 		return fmt.Errorf("failed to create sessions table: %w", err)
 	}
 
-	if err := sessionsSchemaMigrator(s.DB); err != nil {
+	if err := sessionsSchemaMigrator(s.ctx, s.DB); err != nil {
 		return err
 	}
 
-	return createSessionsIndexes(s.DB)
+	return createSessionsIndexes(s.ctx, s.DB)
 }
 
 // cleanup removes expired sessions.

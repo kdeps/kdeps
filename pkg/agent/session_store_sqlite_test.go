@@ -17,6 +17,7 @@
 package agent
 
 import (
+	"context"
 	"os"
 	"path/filepath"
 	"strings"
@@ -26,7 +27,7 @@ import (
 func newTestSQLiteStore(t *testing.T) *SQLiteSessionStore {
 	t.Helper()
 	dir := t.TempDir()
-	store, err := NewSQLiteSessionStore(filepath.Join(dir, "test.db"))
+	store, err := NewSQLiteSessionStore(context.Background(), filepath.Join(dir, "test.db"))
 	if err != nil {
 		t.Fatalf("NewSQLiteSessionStore: %v", err)
 	}
@@ -194,7 +195,7 @@ func TestNewSQLiteSessionStore_DefaultPath(t *testing.T) {
 	dir := t.TempDir()
 	t.Setenv("HOME", dir)
 
-	store, err := NewSQLiteSessionStore("")
+	store, err := NewSQLiteSessionStore(context.Background(), "")
 	if err != nil {
 		t.Fatalf("NewSQLiteSessionStore with empty path: %v", err)
 	}
@@ -274,7 +275,7 @@ func TestNewSQLiteSessionStore_MkdirError(t *testing.T) {
 	if err := os.WriteFile(blocker, []byte("x"), 0600); err != nil {
 		t.Fatalf("WriteFile: %v", err)
 	}
-	_, err := NewSQLiteSessionStore(filepath.Join(blocker, "sessions.db"))
+	_, err := NewSQLiteSessionStore(context.Background(), filepath.Join(blocker, "sessions.db"))
 	if err == nil {
 		t.Fatal("expected error when mkdir fails")
 	}

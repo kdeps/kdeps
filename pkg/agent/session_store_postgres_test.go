@@ -15,6 +15,7 @@
 package agent
 
 import (
+	"context"
 	"database/sql"
 	"strings"
 	"testing"
@@ -26,7 +27,7 @@ import (
 
 func TestNewPostgresSessionStore_RequiresDSN(t *testing.T) {
 	t.Parallel()
-	_, err := NewPostgresSessionStore("")
+	_, err := NewPostgresSessionStore(context.Background(), "")
 	if err == nil {
 		t.Fatal("expected error for empty DSN")
 	}
@@ -38,7 +39,10 @@ func TestNewPostgresSessionStore_RequiresDSN(t *testing.T) {
 func TestNewPostgresSessionStore_InvalidDSN_FailsOnMigrate(t *testing.T) {
 	t.Parallel()
 	// A well-formed but unreachable DSN should fail at ping/migrate, not at Open.
-	_, err := NewPostgresSessionStore("postgres://invalid:invalid@127.0.0.1:15432/nodb?sslmode=disable")
+	_, err := NewPostgresSessionStore(
+		context.Background(),
+		"postgres://invalid:invalid@127.0.0.1:15432/nodb?sslmode=disable",
+	)
 	if err == nil {
 		t.Fatal("expected error for unreachable DSN")
 	}

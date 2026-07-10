@@ -19,6 +19,7 @@
 package agent
 
 import (
+	"context"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -74,7 +75,7 @@ func TestCheckBranchFreshness_DetachedHEAD(t *testing.T) {
 	// Detach HEAD.
 	run(t, local, "git", "checkout", "--detach", "HEAD")
 
-	result, err := CheckBranchFreshness(local)
+	result, err := CheckBranchFreshness(context.Background(), local)
 	assert.NoError(t, err)
 	assert.Equal(t, BranchUnknown, result.Freshness)
 }
@@ -89,7 +90,7 @@ func TestCheckBranchFreshness_NoUpstreamNoOriginMain(t *testing.T) {
 	run(t, dir, "git", "add", "f")
 	run(t, dir, "git", "commit", "-q", "-m", "first")
 
-	result, err := CheckBranchFreshness(dir)
+	result, err := CheckBranchFreshness(context.Background(), dir)
 	assert.NoError(t, err)
 	assert.Equal(t, BranchUnknown, result.Freshness)
 }
@@ -102,7 +103,7 @@ func TestCheckBranchFreshness_NoUpstream_OriginMainExists(t *testing.T) {
 	// Remove the upstream tracking config so @{upstream} fails, but origin/main still exists.
 	run(t, local, "git", "branch", "--unset-upstream")
 
-	result, err := CheckBranchFreshness(local)
+	result, err := CheckBranchFreshness(context.Background(), local)
 	assert.NoError(t, err)
 	// No local commits ahead of origin/main, so Fresh.
 	assert.Equal(t, BranchFresh, result.Freshness)
@@ -126,7 +127,7 @@ func TestCheckBranchFreshness_Stale(t *testing.T) {
 	// Fetch in local so it knows about the remote commit without merging.
 	run(t, local, "git", "fetch", "-q", "origin")
 
-	result, err := CheckBranchFreshness(local)
+	result, err := CheckBranchFreshness(context.Background(), local)
 	assert.NoError(t, err)
 	assert.Equal(t, BranchStale, result.Freshness)
 	assert.Greater(t, result.Behind, 0)
@@ -155,7 +156,7 @@ func TestCheckBranchFreshness_Diverged(t *testing.T) {
 	// Fetch remote state so rev-list can compare.
 	run(t, local, "git", "fetch", "-q", "origin")
 
-	result, err := CheckBranchFreshness(local)
+	result, err := CheckBranchFreshness(context.Background(), local)
 	assert.NoError(t, err)
 	assert.Equal(t, BranchDiverged, result.Freshness)
 	assert.Greater(t, result.Behind, 0)
@@ -178,7 +179,7 @@ func TestCheckBranchFreshness_CorruptedTrackingRef(t *testing.T) {
 	refPath := local + "/.git/refs/remotes/origin/main"
 	require.NoError(t, os.WriteFile(refPath, []byte("0000000000000000000000000000000000000000\n"), 0600))
 
-	result, err := CheckBranchFreshness(local)
+	result, err := CheckBranchFreshness(context.Background(), local)
 	assert.NoError(t, err)
 	assert.Equal(t, BranchUnknown, result.Freshness)
 }

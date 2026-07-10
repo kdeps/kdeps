@@ -19,6 +19,7 @@
 package agent
 
 import (
+	"context"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -76,14 +77,14 @@ func TestStaleBranchPolicyFromEnv(t *testing.T) {
 
 func TestCheckBranchFreshness_NonGitDir(t *testing.T) {
 	// A non-git directory should return BranchUnknown without error.
-	result, err := CheckBranchFreshness(t.TempDir())
+	result, err := CheckBranchFreshness(context.Background(), t.TempDir())
 	assert.NoError(t, err)
 	assert.Equal(t, BranchUnknown, result.Freshness)
 }
 
 func TestCheckBranchFreshness_GitRepo(t *testing.T) {
 	// The kdeps repo itself has a known git history.
-	result, err := CheckBranchFreshness(".")
+	result, err := CheckBranchFreshness(context.Background(), ".")
 	assert.NoError(t, err)
 	// We can't assert Fresh/Stale since it depends on remote state,
 	// but it should not panic and freshness must be a valid value.

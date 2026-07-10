@@ -254,7 +254,7 @@ func TestSaveCheckpoint_WithCheckpointFn(t *testing.T) {
 
 func TestHandleSignalInterrupt_WithTc(t *testing.T) {
 	loop := makeTestLoop(nil)
-	repl := NewREPL(loop)
+	repl := NewREPL(context.Background(), loop)
 	defer repl.cancel()
 
 	// When tc is non-nil, it should be called.
@@ -270,7 +270,7 @@ func TestHandleSignalInterrupt_WithTc(t *testing.T) {
 
 func TestHandleSignalInterrupt_WithNilTc(t *testing.T) {
 	loop := makeTestLoop(nil)
-	repl := NewREPL(loop)
+	repl := NewREPL(context.Background(), loop)
 	defer repl.cancel()
 
 	origCtx := repl.ctx
@@ -289,7 +289,7 @@ func TestHandleSignalInterrupt_WithNilTc(t *testing.T) {
 
 func TestHandleSignalSIGTSTP_WithBgCh(t *testing.T) {
 	loop := makeTestLoop(nil)
-	repl := NewREPL(loop)
+	repl := NewREPL(context.Background(), loop)
 	defer repl.cancel()
 
 	bgCh := make(chan struct{}, 1)
@@ -310,7 +310,7 @@ func TestHandleSignalSIGTSTP_WithBgCh(t *testing.T) {
 
 func TestHandleSignalSIGTSTP_WithBgCh_Full(t *testing.T) {
 	loop := makeTestLoop(nil)
-	repl := NewREPL(loop)
+	repl := NewREPL(context.Background(), loop)
 	defer repl.cancel()
 
 	// Full buffered channel - should hit the default case without blocking.
@@ -326,7 +326,7 @@ func TestHandleSignalSIGTSTP_WithBgCh_Full(t *testing.T) {
 
 func TestHandleSignals_ExitOnDone(t *testing.T) {
 	loop := makeTestLoop(nil)
-	repl := NewREPL(loop)
+	repl := NewREPL(context.Background(), loop)
 	defer repl.cancel()
 
 	sigCh := make(chan os.Signal, 1)
@@ -351,7 +351,7 @@ func TestHandleSignals_ExitOnDone(t *testing.T) {
 
 func TestHandleSignals_SIGINT(t *testing.T) {
 	loop := makeTestLoop(nil)
-	repl := NewREPL(loop)
+	repl := NewREPL(context.Background(), loop)
 	defer repl.cancel()
 
 	sigCh := make(chan os.Signal, 1)
@@ -370,7 +370,7 @@ func TestHandleSignals_SIGINT(t *testing.T) {
 
 func TestHandleSignals_SIGTSTP(t *testing.T) {
 	loop := makeTestLoop(nil)
-	repl := NewREPL(loop)
+	repl := NewREPL(context.Background(), loop)
 	defer repl.cancel()
 
 	sigCh := make(chan os.Signal, 1)
@@ -391,7 +391,7 @@ func TestHandleSignals_SIGTSTP(t *testing.T) {
 func TestCmdCompact_NoCompactionNeeded(t *testing.T) {
 	loop := makeTestLoop(nil)
 	// No LLM configured: CompactWithLLM will fail or return empty
-	repl := NewREPL(loop)
+	repl := NewREPL(context.Background(), loop)
 	defer repl.cancel()
 
 	// Use a mock runFn that returns empty summary to simulate "no compaction needed"
@@ -411,7 +411,7 @@ func TestCmdCompact_NoCompactionNeeded(t *testing.T) {
 
 func TestCmdHFF_NoArgs(t *testing.T) {
 	loop := makeTestLoop(nil)
-	repl := NewREPL(loop)
+	repl := NewREPL(context.Background(), loop)
 	defer repl.cancel()
 
 	out := testCaptureStdout(t, func() {
@@ -423,7 +423,7 @@ func TestCmdHFF_NoArgs(t *testing.T) {
 
 func TestCmdHFF_SearchEmptyRest(t *testing.T) {
 	loop := makeTestLoop(nil)
-	repl := NewREPL(loop)
+	repl := NewREPL(context.Background(), loop)
 	defer repl.cancel()
 
 	out := testCaptureStdout(t, func() {
@@ -435,7 +435,7 @@ func TestCmdHFF_SearchEmptyRest(t *testing.T) {
 
 func TestCmdHFF_InfoEmptyRest(t *testing.T) {
 	loop := makeTestLoop(nil)
-	repl := NewREPL(loop)
+	repl := NewREPL(context.Background(), loop)
 	defer repl.cancel()
 
 	out := testCaptureStdout(t, func() {
@@ -447,7 +447,7 @@ func TestCmdHFF_InfoEmptyRest(t *testing.T) {
 
 func TestCmdHFF_DownloadEmptyRest(t *testing.T) {
 	loop := makeTestLoop(nil)
-	repl := NewREPL(loop)
+	repl := NewREPL(context.Background(), loop)
 	defer repl.cancel()
 
 	out := testCaptureStdout(t, func() {
@@ -459,7 +459,7 @@ func TestCmdHFF_DownloadEmptyRest(t *testing.T) {
 
 func TestCmdHFF_SearchWithArgs_NetworkError(t *testing.T) {
 	loop := makeTestLoop(nil)
-	repl := NewREPL(loop)
+	repl := NewREPL(context.Background(), loop)
 	defer repl.cancel()
 
 	// Use a cancelled context so HFSearchGGUF returns an error immediately.
@@ -477,7 +477,7 @@ func TestCmdHFF_SearchWithArgs_NetworkError(t *testing.T) {
 
 func TestCmdHFF_InfoWithArgs_NetworkError(t *testing.T) {
 	loop := makeTestLoop(nil)
-	repl := NewREPL(loop)
+	repl := NewREPL(context.Background(), loop)
 	defer repl.cancel()
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -493,7 +493,7 @@ func TestCmdHFF_InfoWithArgs_NetworkError(t *testing.T) {
 
 func TestCmdHFF_DownloadWithArgs_NetworkError(t *testing.T) {
 	loop := makeTestLoop(nil)
-	repl := NewREPL(loop)
+	repl := NewREPL(context.Background(), loop)
 	defer repl.cancel()
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -509,7 +509,7 @@ func TestCmdHFF_DownloadWithArgs_NetworkError(t *testing.T) {
 
 func TestCmdHFF_DownloadNoFilename_NetworkError(t *testing.T) {
 	loop := makeTestLoop(nil)
-	repl := NewREPL(loop)
+	repl := NewREPL(context.Background(), loop)
 	defer repl.cancel()
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -529,7 +529,7 @@ func TestCmdHFF_DownloadNoFilename_NetworkError(t *testing.T) {
 func TestFilePathCompletionsFd_NoFdBin(t *testing.T) {
 	t.Parallel()
 	// With an empty fdBin path, exec will fail and we fall back to filePathCompletions.
-	results := filePathCompletionsFd(".", "/nonexistent-fd-binary-for-test")
+	results := filePathCompletionsFd(context.Background(), ".", "/nonexistent-fd-binary-for-test")
 	// Should not panic; results may be empty or contain some paths from fallback
 	_ = results
 }
@@ -538,13 +538,13 @@ func TestFilePathCompletionsFd_WithAbsolutePrefix(t *testing.T) {
 	t.Parallel()
 	tmpDir := t.TempDir()
 	// With a real path but nonexistent fd binary, falls back
-	results := filePathCompletionsFd(tmpDir+"/", "/nonexistent-fd-binary-for-test")
+	results := filePathCompletionsFd(context.Background(), tmpDir+"/", "/nonexistent-fd-binary-for-test")
 	_ = results
 }
 
 func TestFilePathCompletionsFd_WithHomeDirPrefix(t *testing.T) {
 	t.Parallel()
-	results := filePathCompletionsFd("~/", "/nonexistent-fd-binary-for-test")
+	results := filePathCompletionsFd(context.Background(), "~/", "/nonexistent-fd-binary-for-test")
 	_ = results
 }
 
@@ -884,7 +884,7 @@ func TestRegisterBashJobList_Empty(t *testing.T) {
 func TestRegisterBashJobWait_NoJobID(t *testing.T) {
 	t.Parallel()
 	reg := kdepstools.NewRegistry()
-	registerBashJobWait(reg)
+	registerBashJobWait(context.Background(), reg)
 
 	tool := reg.Get("bash_job_wait")
 	require.NotNil(t, tool)
@@ -897,7 +897,7 @@ func TestRegisterBashJobWait_NoJobID(t *testing.T) {
 func TestRegisterBashJobWait_NoSuchJob(t *testing.T) {
 	t.Parallel()
 	reg := kdepstools.NewRegistry()
-	registerBashJobWait(reg)
+	registerBashJobWait(context.Background(), reg)
 
 	tool := reg.Get("bash_job_wait")
 	require.NotNil(t, tool)
@@ -911,7 +911,7 @@ func TestRegisterBashJobWait_NoSuchJob(t *testing.T) {
 func TestRegisterBashJobWait_ValidJob(t *testing.T) {
 	t.Parallel()
 	reg := kdepstools.NewRegistry()
-	registerBashJobWait(reg)
+	registerBashJobWait(context.Background(), reg)
 
 	tool := reg.Get("bash_job_wait")
 	require.NotNil(t, tool)
@@ -1087,7 +1087,7 @@ func TestApplyPrepareNextTurn_ApplyTurnUpdate(t *testing.T) {
 
 func TestNewPostgresSessionStore_EmptyDSN(t *testing.T) {
 	t.Parallel()
-	_, err := NewPostgresSessionStore("")
+	_, err := NewPostgresSessionStore(context.Background(), "")
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "dsn is required")
 }
@@ -1115,7 +1115,7 @@ func TestFdBinPath_NotFound(t *testing.T) {
 
 func TestBashExecCtx_NoCtx(t *testing.T) {
 	t.Parallel()
-	ctx := bashExecCtx(map[string]any{})
+	ctx := bashExecCtx(context.Background(), map[string]any{})
 	assert.NotNil(t, ctx)
 	// Should return context.Background() which is not done
 	assert.NoError(t, ctx.Err())
@@ -1126,9 +1126,35 @@ func TestBashExecCtx_WithCtx(t *testing.T) {
 	cancelledCtx, cancel := context.WithCancel(context.Background())
 	cancel()
 
-	ctx := bashExecCtx(map[string]any{"_ctx": cancelledCtx})
+	ctx := bashExecCtx(context.Background(), map[string]any{"_ctx": cancelledCtx})
 	assert.NotNil(t, ctx)
 	assert.Error(t, ctx.Err())
+}
+
+// ---- builtin_tools.go: toolCallCtx / toolCallCtxTimeout ----
+
+func TestToolCallCtx_PrefersInjectedCtx(t *testing.T) {
+	t.Parallel()
+	canceled, cancel := context.WithCancel(context.Background())
+	cancel()
+	got := toolCallCtx(context.Background(), map[string]any{"_ctx": canceled})
+	assert.Error(t, got.Err(), "injected _ctx (canceled by Ctrl+C) must win")
+}
+
+func TestToolCallCtx_FallsBackToRegistrationCtx(t *testing.T) {
+	t.Parallel()
+	fallback, cancel := context.WithCancel(context.Background())
+	cancel()
+	got := toolCallCtx(fallback, map[string]any{})
+	assert.Error(t, got.Err())
+}
+
+func TestToolCallCtxTimeout_HasDeadline(t *testing.T) {
+	t.Parallel()
+	got, cancel := toolCallCtxTimeout(context.Background(), map[string]any{}, time.Minute)
+	defer cancel()
+	_, hasDeadline := got.Deadline()
+	assert.True(t, hasDeadline, "network tool contexts must carry a hard timeout")
 }
 
 // ---- builtin_tools.go: bashExecResult ----
@@ -1193,7 +1219,7 @@ func TestCompactAndRetry_NotCompleted(_ *testing.T) {
 
 func TestCmdHFF_InvalidSubcommand(t *testing.T) {
 	loop := makeTestLoop(nil)
-	repl := NewREPL(loop)
+	repl := NewREPL(context.Background(), loop)
 	defer repl.cancel()
 
 	out := testCaptureStdout(t, func() {

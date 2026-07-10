@@ -56,7 +56,8 @@ CREATE INDEX IF NOT EXISTS idx_messages_session ON messages(session_id, seq);`
 
 // NewSQLiteSessionStore opens (or creates) a SQLite session database at dbPath.
 // If dbPath is empty, uses ~/.kdeps/sessions/sessions.db.
-func NewSQLiteSessionStore(dbPath string) (*SQLiteSessionStore, error) {
+// ctx is the root context for all database operations.
+func NewSQLiteSessionStore(ctx context.Context, dbPath string) (*SQLiteSessionStore, error) {
 	if dbPath == "" {
 		home, _ := os.UserHomeDir()
 		if home != "" {
@@ -76,6 +77,7 @@ func NewSQLiteSessionStore(dbPath string) (*SQLiteSessionStore, error) {
 
 	store := &SQLiteSessionStore{
 		sql: sqlSessionStore{
+			ctx:          ctx,
 			db:           db,
 			sessTable:    "sessions",
 			msgTable:     "messages",
@@ -95,7 +97,7 @@ func NewSQLiteSessionStore(dbPath string) (*SQLiteSessionStore, error) {
 }
 
 func (s *SQLiteSessionStore) migrate() error {
-	ctx := context.Background()
+	ctx := s.sql.ctx
 	if _, err := s.sql.db.ExecContext(ctx, createSessionsSQL); err != nil {
 		return err
 	}

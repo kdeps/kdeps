@@ -71,9 +71,8 @@ type BranchFreshnessResult struct {
 // with its upstream tracking branch. Returns BranchUnknown when git is
 // unavailable, no remote is configured, or the upstream ref cannot be resolved.
 // Errors are only returned for genuine startup failures, not for missing remotes.
-func CheckBranchFreshness(cwd string) (BranchFreshnessResult, error) {
+func CheckBranchFreshness(ctx context.Context, cwd string) (BranchFreshnessResult, error) {
 	unknown := BranchFreshnessResult{Freshness: BranchUnknown}
-	ctx := context.Background()
 
 	// GIT_CEILING_DIRECTORIES stops git from traversing above cwd's parent,
 	// preventing it from discovering a .git repo in an ancestor directory.

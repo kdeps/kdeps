@@ -611,7 +611,12 @@ func (l *Loop) runToolRounds(
 		}
 		fmt.Fprintln(w)
 
-		chatCfg = l.appendToolRoundTrip(chatCfg, content, toolCalls, w)
+		chatCfg = l.appendToolRoundTrip(ctx, chatCfg, content, toolCalls, w)
+		// Ctrl+C during tool execution: stop the round loop instead of
+		// firing another LLM call that would fail on the canceled context.
+		if ctx.Err() != nil {
+			return finalContent, ctx.Err()
+		}
 	}
 	return finalContent, nil
 }
@@ -687,7 +692,9 @@ func summarizeToolArgs(raw string) string {
 
 // appendToolRoundTrip appends the assistant tool-call turn and tool results to
 // cfg.Messages and returns an updated ChatConfig ready for the next LLM call.
+// A canceled ctx (Ctrl+C) skips executing the remaining tools.
 func (l *Loop) appendToolRoundTrip(
+	ctx context.Context,
 	cfg *domain.ChatConfig,
 	assistantContent string,
 	toolCalls []domain.StreamedToolCall,
@@ -716,9 +723,13 @@ func (l *Loop) appendToolRoundTrip(
 		"tool_calls":     tcJSON,
 	})
 
-	// Execute each tool and add tool result messages.
+	// Execute each tool and add tool result messages. After a Ctrl+C the
+	// remaining tools are skipped with an interrupted marker instead of run.
 	for _, tc := range toolCalls {
-		result := l.dispatchStreamToolCall(tc, w)
+		result := `{"error":"interrupted by user"}`
+		if ctx.Err() == nil {
+			result = l.dispatchStreamToolCall(tc, w)
+		}
 		history = append(history, map[string]any{
 			"role":           "tool",
 			"tool_call_id":   tc.ID,

@@ -170,12 +170,14 @@ Always available. No environment variables required.
 
 | Tool | Required env var | Description |
 |------|-----------------|-------------|
-| `web_search` | (none -- uses DuckDuckGo) | Search the web |
-| `wikipedia` | (none) | Fetch a Wikipedia article |
-| `web_scraper` | (none) | Fetch and extract text from any URL |
-| `serpapi_search` | `SERPAPI_API_KEY` | Google search via SerpAPI |
+| `web_search` | (none -- uses DuckDuckGo) | Search the web (30s timeout) |
+| `wikipedia` | (none) | Fetch a Wikipedia article (30s timeout) |
+| `web_scraper` | (none) | Fetch and extract text from any URL (60s timeout) |
+| `serpapi_search` | `SERPAPI_API_KEY` | Google search via SerpAPI (30s timeout) |
 | `exa_search` | `EXA_API_KEY` or `METAPHOR_API_KEY` | Neural search via Exa |
-| `perplexity_search` | `PERPLEXITY_API_KEY` | Search via Perplexity |
+| `perplexity_search` | `PERPLEXITY_API_KEY` | Search via Perplexity (30s timeout) |
+
+Web and search tools carry a hard timeout so a hung remote endpoint cannot stall the turn. Ctrl+C during any tool call cancels the in-flight request immediately and skips the round's remaining tools.
 
 ### Computation
 

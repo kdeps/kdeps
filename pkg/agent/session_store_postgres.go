@@ -54,7 +54,8 @@ CREATE INDEX IF NOT EXISTS idx_kdeps_messages_session ON kdeps_messages(session_
 
 // NewPostgresSessionStore opens a PostgreSQL session database at dsn.
 // dsn is a standard PostgreSQL DSN, e.g. "postgres://user:pass@localhost/dbname".
-func NewPostgresSessionStore(dsn string) (*PostgresSessionStore, error) {
+// ctx is the root context for all database operations.
+func NewPostgresSessionStore(ctx context.Context, dsn string) (*PostgresSessionStore, error) {
 	if dsn == "" {
 		return nil, errors.New("postgres session store: dsn is required")
 	}
@@ -66,6 +67,7 @@ func NewPostgresSessionStore(dsn string) (*PostgresSessionStore, error) {
 
 	store := &PostgresSessionStore{
 		sql: sqlSessionStore{
+			ctx:          ctx,
 			db:           db,
 			sessTable:    "kdeps_sessions",
 			msgTable:     "kdeps_messages",
@@ -85,7 +87,7 @@ func NewPostgresSessionStore(dsn string) (*PostgresSessionStore, error) {
 }
 
 func (s *PostgresSessionStore) migrate() error {
-	ctx := context.Background()
+	ctx := s.sql.ctx
 	if _, err := s.sql.db.ExecContext(ctx, pgCreateSessionsSQL); err != nil {
 		return err
 	}

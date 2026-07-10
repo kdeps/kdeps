@@ -21,7 +21,6 @@
 package storage
 
 import (
-	"context"
 	"database/sql"
 	"encoding/json"
 	"fmt"
@@ -46,7 +45,7 @@ func (s *SessionStorage) Get(key string) (interface{}, bool) {
 	now := time.Now().UnixMilli()
 
 	err := s.DB.QueryRowContext(
-		context.Background(),
+		s.ctx,
 		`SELECT value, expires_at FROM sessions
 		 WHERE session_id = ? AND key = ?
 		   AND (expires_at IS NULL OR expires_at > ?)`,
@@ -102,7 +101,7 @@ func (s *SessionStorage) SetWithTTL(key string, value interface{}, ttl time.Dura
 		expires_at = excluded.expires_at
 	`
 	_, err = s.DB.ExecContext(
-		context.Background(),
+		s.ctx,
 		query,
 		s.SessionID,
 		key,
@@ -135,7 +134,7 @@ func (s *SessionStorage) TouchWithTTL(key string, ttl time.Duration) error {
 	WHERE session_id = ? AND key = ?
 	`
 	_, err := s.DB.ExecContext(
-		context.Background(),
+		s.ctx,
 		query,
 		now,
 		expiresAt,
@@ -153,7 +152,7 @@ func (s *SessionStorage) IsExpired(key string) (bool, error) {
 
 	var expiresAt sql.NullInt64
 	err := s.DB.QueryRowContext(
-		context.Background(),
+		s.ctx,
 		"SELECT expires_at FROM sessions WHERE session_id = ? AND key = ?",
 		s.SessionID, key,
 	).Scan(&expiresAt)
@@ -179,7 +178,7 @@ func (s *SessionStorage) Delete(key string) error {
 	defer s.mu.Unlock()
 
 	_, err := s.DB.ExecContext(
-		context.Background(),
+		s.ctx,
 		"DELETE FROM sessions WHERE session_id = ? AND key = ?",
 		s.SessionID,
 		key,
@@ -194,7 +193,7 @@ func (s *SessionStorage) Clear() error {
 	defer s.mu.Unlock()
 
 	_, err := s.DB.ExecContext(
-		context.Background(),
+		s.ctx,
 		"DELETE FROM sessions WHERE session_id = ?",
 		s.SessionID,
 	)

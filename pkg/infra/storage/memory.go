@@ -44,6 +44,7 @@ type MemoryStorage struct {
 	DB   *sql.DB
 	mu   sync.RWMutex
 	path string
+	ctx  context.Context
 }
 
 func resolveMemoryDBPath(dbPath string) string {
@@ -96,6 +97,7 @@ func NewMemoryStorage(dbPath string) (*MemoryStorage, error) {
 	storage := &MemoryStorage{
 		DB:   db,
 		path: dbPath,
+		ctx:  context.Background(),
 	}
 
 	if initErr := storage.initSchema(); initErr != nil {
@@ -118,7 +120,7 @@ func (m *MemoryStorage) initSchema() error {
 	
 	CREATE INDEX IF NOT EXISTS idx_memory_updated_at ON memory(updated_at);
 	`
-	_, err := m.DB.ExecContext(context.Background(), query)
+	_, err := m.DB.ExecContext(m.ctx, query)
 	return err
 }
 
@@ -129,7 +131,7 @@ func (m *MemoryStorage) Get(key string) (interface{}, bool) {
 	defer m.mu.RUnlock()
 
 	var valueStr string
-	err := m.DB.QueryRowContext(context.Background(), "SELECT value FROM memory WHERE key = ?", key).
+	err := m.DB.QueryRowContext(m.ctx, "SELECT value FROM memory WHERE key = ?", key).
 		Scan(&valueStr)
 	if err == sql.ErrNoRows {
 		return nil, false
@@ -159,7 +161,7 @@ func (m *MemoryStorage) Set(key string, value interface{}) error {
 		value = excluded.value,
 		updated_at = CURRENT_TIMESTAMP
 	`
-	_, err = m.DB.ExecContext(context.Background(), query, key, string(valueBytes))
+	_, err = m.DB.ExecContext(m.ctx, query, key, string(valueBytes))
 	return err
 }
 
@@ -169,7 +171,7 @@ func (m *MemoryStorage) Delete(key string) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
-	_, err := m.DB.ExecContext(context.Background(), "DELETE FROM memory WHERE key = ?", key)
+	_, err := m.DB.ExecContext(m.ctx, "DELETE FROM memory WHERE key = ?", key)
 	return err
 }
 

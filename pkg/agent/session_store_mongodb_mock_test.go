@@ -89,7 +89,7 @@ func (m *mockMongoColl) DeleteOne(
 }
 
 func newMockStore(coll *mockMongoColl) *MongoDBSessionStore {
-	return newMongoDBSessionStoreWithColl(nil, coll)
+	return newMongoDBSessionStoreWithColl(context.Background(), nil, coll)
 }
 
 func TestMongoDBSessionStore_SaveAs_MockSuccess(t *testing.T) {

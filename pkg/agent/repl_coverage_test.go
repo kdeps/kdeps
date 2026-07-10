@@ -15,7 +15,7 @@ import (
 
 func TestDispatchCommand_Session(t *testing.T) {
 	loop := makeTestLoop(nil)
-	repl := NewREPL(loop)
+	repl := NewREPL(context.Background(), loop)
 	defer repl.cancel()
 
 	// Store must be nil so the "store == nil" branch in cmdSession is hit.
@@ -28,7 +28,7 @@ func TestDispatchCommand_Session(t *testing.T) {
 
 func TestDispatchCommand_Editor(t *testing.T) {
 	loop := makeTestLoop(nil)
-	repl := NewREPL(loop)
+	repl := NewREPL(context.Background(), loop)
 	defer repl.cancel()
 
 	t.Setenv("VISUAL", "")
@@ -41,7 +41,7 @@ func TestDispatchCommand_Editor(t *testing.T) {
 
 func TestDispatchCommand_Processes(t *testing.T) {
 	loop := makeTestLoop(nil)
-	repl := NewREPL(loop)
+	repl := NewREPL(context.Background(), loop)
 	defer repl.cancel()
 
 	out := testCaptureStdout(t, func() {
@@ -54,7 +54,7 @@ func TestDispatchCommand_Processes(t *testing.T) {
 
 func TestDispatchCommand_HFF(t *testing.T) {
 	loop := makeTestLoop(nil)
-	repl := NewREPL(loop)
+	repl := NewREPL(context.Background(), loop)
 	defer repl.cancel()
 
 	out := testCaptureStdout(t, func() {
@@ -69,7 +69,7 @@ func TestDispatchCommand_PromptByName(t *testing.T) {
 	loop := makeTestLoop(nil)
 	// Register a prompt so the dispatch can find it.
 	loop.prompts = []PromptTemplate{{Name: "greet", Description: "greeting", Content: "hello"}}
-	repl := NewREPL(loop)
+	repl := NewREPL(context.Background(), loop)
 	defer repl.cancel()
 
 	// runFn intercepts the LLM call so it doesn't hit a real engine.
@@ -88,7 +88,7 @@ func TestDispatchCommand_PromptByName(t *testing.T) {
 
 func TestCmdModel_DefaultSubcommand(t *testing.T) {
 	loop := makeTestLoop(nil)
-	repl := NewREPL(loop)
+	repl := NewREPL(context.Background(), loop)
 	defer repl.cancel()
 
 	saved := ""
@@ -101,7 +101,7 @@ func TestCmdModel_DefaultSubcommand(t *testing.T) {
 
 func TestCmdModel_PickerWithFilter(t *testing.T) {
 	loop := makeTestLoop(nil)
-	repl := NewREPL(loop)
+	repl := NewREPL(context.Background(), loop)
 	defer repl.cancel()
 
 	repl.SetModelNames([]string{"llama3.2:1b", "gpt-4o"})
@@ -119,7 +119,7 @@ func TestCmdModel_PickerWithFilter(t *testing.T) {
 
 func TestCmdModel_PickerNoArgs(t *testing.T) {
 	loop := makeTestLoop(nil)
-	repl := NewREPL(loop)
+	repl := NewREPL(context.Background(), loop)
 	defer repl.cancel()
 
 	called := false
@@ -138,7 +138,7 @@ func TestCmdModel_PickerNoArgs(t *testing.T) {
 
 func TestCmdModelDefault_WithTagKeywordPrefix(t *testing.T) {
 	loop := makeTestLoop(nil)
-	repl := NewREPL(loop)
+	repl := NewREPL(context.Background(), loop)
 	defer repl.cancel()
 
 	repl.SetModelNames([]string{"my-model"})
@@ -161,7 +161,7 @@ func TestAutoSaveOnExit_SaveError(t *testing.T) {
 	loop.store = store
 	loop.session.Append("hi", "hello")
 
-	repl := NewREPL(loop)
+	repl := NewREPL(context.Background(), loop)
 	defer repl.cancel()
 
 	// Remove write permission on the store directory so SaveAs fails.
@@ -188,7 +188,7 @@ func TestCmdSession_ListSubcommand(t *testing.T) {
 	loop := makeTestLoop(nil)
 	store := NewSessionStore(t.TempDir())
 	loop.store = store
-	repl := NewREPL(loop)
+	repl := NewREPL(context.Background(), loop)
 	defer repl.cancel()
 
 	out := testCaptureStdout(t, func() {
@@ -202,7 +202,7 @@ func TestCmdSession_ImportSubcommand_MissingArg(t *testing.T) {
 	loop := makeTestLoop(nil)
 	store := NewSessionStore(t.TempDir())
 	loop.store = store
-	repl := NewREPL(loop)
+	repl := NewREPL(context.Background(), loop)
 	defer repl.cancel()
 
 	out := testCaptureStdout(t, func() {
@@ -216,7 +216,7 @@ func TestCmdSession_ImportSubcommand_Success(t *testing.T) {
 	loop := makeTestLoop(nil)
 	store := NewSessionStore(t.TempDir())
 	loop.store = store
-	repl := NewREPL(loop)
+	repl := NewREPL(context.Background(), loop)
 	defer repl.cancel()
 
 	// Create a valid session file to import.
@@ -236,7 +236,7 @@ func TestCmdSession_BranchesSubcommand(t *testing.T) {
 	loop := makeTestLoop(nil)
 	store := NewSessionStore(t.TempDir())
 	loop.store = store
-	repl := NewREPL(loop)
+	repl := NewREPL(context.Background(), loop)
 	defer repl.cancel()
 
 	out := testCaptureStdout(t, func() {
@@ -258,7 +258,7 @@ func TestCmdSessionBranches_WithStashesLoop(t *testing.T) {
 	session.RestoreTo(cp) // creates 1 stash
 
 	loop.session = session
-	repl := NewREPL(loop)
+	repl := NewREPL(context.Background(), loop)
 	defer repl.cancel()
 
 	out := testCaptureStdout(t, func() {
@@ -279,7 +279,7 @@ func TestCmdSessionList_StoreError(t *testing.T) {
 	dir := t.TempDir()
 	store := NewSessionStore(dir)
 	loop.store = store
-	repl := NewREPL(loop)
+	repl := NewREPL(context.Background(), loop)
 	defer repl.cancel()
 
 	// Remove the directory and create a regular file in its place so
@@ -300,7 +300,7 @@ func TestCmdSessionSave_StoreError(t *testing.T) {
 	loop := makeTestLoop(nil)
 	dir := t.TempDir()
 	store := NewSessionStore(dir)
-	repl := NewREPL(loop)
+	repl := NewREPL(context.Background(), loop)
 	defer repl.cancel()
 
 	// Remove write permission so SaveAs fails.
@@ -317,7 +317,7 @@ func TestCmdSessionSave_StoreError(t *testing.T) {
 func TestCmdSessionLoad_StoreError(t *testing.T) {
 	loop := makeTestLoop(nil)
 	store := NewSessionStore(t.TempDir())
-	repl := NewREPL(loop)
+	repl := NewREPL(context.Background(), loop)
 	defer repl.cancel()
 
 	err := repl.cmdSessionLoad(store, "nonexistent-id")
@@ -330,7 +330,7 @@ func TestCmdSessionLoad_StoreError(t *testing.T) {
 func TestCmdSessionImport_TildeExpansion(t *testing.T) {
 	loop := makeTestLoop(nil)
 	store := NewSessionStore(t.TempDir())
-	repl := NewREPL(loop)
+	repl := NewREPL(context.Background(), loop)
 	defer repl.cancel()
 
 	// /session import ~/nonexistent should expand to $HOME/nonexistent
@@ -346,7 +346,7 @@ func TestCmdSessionImport_ImportError(t *testing.T) {
 	dir := t.TempDir()
 	// Make the store dir read-only so Import's os.WriteFile fails.
 	store := NewSessionStore(dir)
-	repl := NewREPL(loop)
+	repl := NewREPL(context.Background(), loop)
 	defer repl.cancel()
 
 	require.NoError(t, os.Chmod(dir, 0500))
@@ -368,7 +368,7 @@ func TestCmdEditor_FallbackWhenBothEmpty(t *testing.T) {
 	t.Setenv("PATH", "")
 
 	loop := makeTestLoop(nil)
-	repl := NewREPL(loop)
+	repl := NewREPL(context.Background(), loop)
 	defer repl.cancel()
 
 	// Both env vars are empty, so editor should default to "vi".
@@ -390,7 +390,7 @@ func TestHistoryPath_ReturnsPath(t *testing.T) {
 
 func TestCmdHelp_PrintsCommands(t *testing.T) {
 	loop := makeTestLoop(nil)
-	repl := NewREPL(loop)
+	repl := NewREPL(context.Background(), loop)
 	defer repl.cancel()
 
 	out := testCaptureStdout(t, func() {
@@ -403,7 +403,7 @@ func TestCmdHelp_PrintsCommands(t *testing.T) {
 
 func TestDispatchCommand_ModelList(t *testing.T) {
 	loop := makeTestLoop(nil)
-	repl := NewREPL(loop)
+	repl := NewREPL(context.Background(), loop)
 	defer repl.cancel()
 
 	out := testCaptureStdout(t, func() {

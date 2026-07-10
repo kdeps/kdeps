@@ -241,7 +241,9 @@ func hfDownloadAria2c(
 	args = append(args, downloadURL)
 	logger.InfoContext(ctx, "hf: downloading via aria2c", "url", downloadURL, "dest", dest)
 	cmd := exec.CommandContext(ctx, aria2cPath, args...)
-	outFilter := &aria2cNoiseFilter{w: os.Stdout} // progress bars to stdout
+	// Route all output to stderr — readline manages stdout in raw mode and
+	// \r-based progress lines corrupt its display state.
+	outFilter := &aria2cNoiseFilter{w: os.Stderr} // progress bars to stderr
 	errFilter := &aria2cNoiseFilter{w: os.Stderr} // filtered errors to stderr
 	cmd.Stdout = outFilter
 	cmd.Stderr = errFilter

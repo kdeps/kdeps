@@ -21,6 +21,7 @@
 package cmd
 
 import (
+	"context"
 	"os"
 	"path/filepath"
 	"testing"
@@ -64,7 +65,7 @@ func TestRunLlamaFit_NameBasedMatching(t *testing.T) {
 	// the script's own `cat` still resolves.
 	t.Setenv("PATH", dir+string(os.PathListSeparator)+os.Getenv("PATH"))
 
-	repl := agent.NewREPL(agent.New(nil, nil, nil, agent.Config{Model: "m", Backend: "openai"}))
+	repl := agent.NewREPL(context.Background(), agent.New(nil, nil, nil, agent.Config{Model: "m", Backend: "openai"}))
 	repl.SetModelNames([]string{"llama3.2:1b-q4", "qwen2.5:1.5b", "no-repo-model"})
 	repl.SetModelRepos(map[string]string{
 		"llama3.2:1b-q4": "bartowski/Llama-3.2-1B-Instruct-GGUF", // name-based match

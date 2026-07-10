@@ -32,6 +32,7 @@ import (
 // Implements the same API as SQLiteSessionStore.
 type MongoDBSessionStore struct {
 	mu     sync.Mutex
+	ctx    context.Context
 	client *mongo.Client
 	coll   mongoCollection
 }
@@ -44,10 +45,29 @@ type mongoCollection interface {
 		document interface{},
 		opts ...*options.InsertOneOptions,
 	) (*mongo.InsertOneResult, error)
-	FindOneDecode(ctx context.Context, filter interface{}, result interface{}, opts ...*options.FindOneOptions) error
-	FindAllDecode(ctx context.Context, filter interface{}, results interface{}, opts ...*options.FindOptions) error
-	FindIDsDecode(ctx context.Context, filter interface{}, ids *[]string, opts ...*options.FindOptions) error
-	DeleteOne(ctx context.Context, filter interface{}, opts ...*options.DeleteOptions) (*mongo.DeleteResult, error)
+	FindOneDecode(
+		ctx context.Context,
+		filter interface{},
+		result interface{},
+		opts ...*options.FindOneOptions,
+	) error
+	FindAllDecode(
+		ctx context.Context,
+		filter interface{},
+		results interface{},
+		opts ...*options.FindOptions,
+	) error
+	FindIDsDecode(
+		ctx context.Context,
+		filter interface{},
+		ids *[]string,
+		opts ...*options.FindOptions,
+	) error
+	DeleteOne(
+		ctx context.Context,
+		filter interface{},
+		opts ...*options.DeleteOptions,
+	) (*mongo.DeleteResult, error)
 }
 
 // realMongoColl wraps *mongo.Collection to implement mongoCollection.
@@ -159,13 +179,17 @@ func NewMongoDBSessionStore(
 	}
 
 	coll := client.Database(dbName).Collection(collName)
-	return &MongoDBSessionStore{client: client, coll: &realMongoColl{coll: coll}}, nil
+	return &MongoDBSessionStore{ctx: ctx, client: client, coll: &realMongoColl{coll: coll}}, nil
 }
 
 // newMongoDBSessionStoreWithColl creates a MongoDBSessionStore with a mock collection.
 // Exported for testing only — production code should use NewMongoDBSessionStore.
-func newMongoDBSessionStoreWithColl(client *mongo.Client, coll mongoCollection) *MongoDBSessionStore {
-	return &MongoDBSessionStore{client: client, coll: coll}
+func newMongoDBSessionStoreWithColl(
+	ctx context.Context,
+	client *mongo.Client,
+	coll mongoCollection,
+) *MongoDBSessionStore {
+	return &MongoDBSessionStore{ctx: ctx, client: client, coll: coll}
 }
 
 // Close disconnects the MongoDB client.
@@ -198,7 +222,7 @@ func (s *MongoDBSessionStore) SaveAs(session *Session, name, model string) (stri
 		Messages:  mongoMsgs,
 	}
 
-	ctx := context.Background()
+	ctx := s.ctx
 	if _, insertErr := s.coll.InsertOne(ctx, doc); insertErr != nil {
 		return "", fmt.Errorf("mongodb session store: insert: %w", insertErr)
 	}
@@ -215,7 +239,7 @@ func (s *MongoDBSessionStore) Load(id string) (*Session, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	ctx := context.Background()
+	ctx := s.ctx
 	var doc mongoSessionDoc
 	if findErr := s.coll.FindOneDecode(ctx, bson.M{"_id": id}, &doc); findErr != nil {
 		if errors.Is(findErr, mongo.ErrNoDocuments) {
@@ -239,7 +263,7 @@ func (s *MongoDBSessionStore) LoadMeta(id string) (*SessionMetadata, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	ctx := context.Background()
+	ctx := s.ctx
 	opts := options.FindOne().SetProjection(bson.M{"messages": 0})
 	var doc mongoSessionDoc
 	if findErr := s.coll.FindOneDecode(ctx, bson.M{"_id": id}, &doc, opts); findErr != nil {
@@ -262,7 +286,7 @@ func (s *MongoDBSessionStore) ListMeta() ([]SessionMetadata, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	ctx := context.Background()
+	ctx := s.ctx
 	findOpts := options.Find().
 		SetProjection(bson.M{"messages": 0}).
 		SetSort(bson.D{{Key: "created_at", Value: -1}})
@@ -290,7 +314,7 @@ func (s *MongoDBSessionStore) List() ([]string, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	ctx := context.Background()
+	ctx := s.ctx
 	findOpts := options.Find().
 		SetProjection(bson.M{"_id": 1}).
 		SetSort(bson.D{{Key: "created_at", Value: -1}})
@@ -307,7 +331,7 @@ func (s *MongoDBSessionStore) Delete(id string) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	ctx := context.Background()
+	ctx := s.ctx
 	res, deleteErr := s.coll.DeleteOne(ctx, bson.M{"_id": id})
 	if deleteErr != nil {
 		return fmt.Errorf("mongodb session store: delete %s: %w", id, deleteErr)
@@ -324,7 +348,7 @@ func (s *MongoDBSessionStore) SearchSessions(text string) ([]string, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	ctx := context.Background()
+	ctx := s.ctx
 
 	// Use a regex filter on the messages.content field.
 	filter := bson.M{

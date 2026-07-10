@@ -72,7 +72,7 @@ func TestSkillByName_MultipleSkills(t *testing.T) {
 
 func TestDispatchCommand_UnknownNonSkill(t *testing.T) {
 	loop := makeTestLoop(nil)
-	repl := NewREPL(loop)
+	repl := NewREPL(context.Background(), loop)
 	defer repl.cancel()
 
 	// No skills loaded, /unknown-cmd should return nil (prints message, no error)
@@ -82,7 +82,7 @@ func TestDispatchCommand_UnknownNonSkill(t *testing.T) {
 
 func TestDispatchCommand_SkillNotFound_NoError(t *testing.T) {
 	loop := makeTestLoop([]Skill{{Name: "lint"}})
-	repl := NewREPL(loop)
+	repl := NewREPL(context.Background(), loop)
 	defer repl.cancel()
 
 	// /nope doesn't match any loaded skill
@@ -125,7 +125,7 @@ func TestReloadSkills(t *testing.T) {
 
 func TestSetTUIRunner(t *testing.T) {
 	loop := makeTestLoop(nil)
-	repl := NewREPL(loop)
+	repl := NewREPL(context.Background(), loop)
 	defer repl.cancel()
 
 	called := false
@@ -142,7 +142,7 @@ func TestSetTUIRunner(t *testing.T) {
 
 func TestSetOnSettingsChange(t *testing.T) {
 	loop := makeTestLoop(nil)
-	repl := NewREPL(loop)
+	repl := NewREPL(context.Background(), loop)
 	defer repl.cancel()
 
 	var gotPaths []string
@@ -162,7 +162,7 @@ func TestSetOnSettingsChange(t *testing.T) {
 
 func TestCmdSettings_NoRunner(t *testing.T) {
 	loop := makeTestLoop(nil)
-	repl := NewREPL(loop)
+	repl := NewREPL(context.Background(), loop)
 	defer repl.cancel()
 
 	// No TUI runner — should print a message and return nil
@@ -172,7 +172,7 @@ func TestCmdSettings_NoRunner(t *testing.T) {
 
 func TestCmdSettings_RunnerError(t *testing.T) {
 	loop := makeTestLoop(nil)
-	repl := NewREPL(loop)
+	repl := NewREPL(context.Background(), loop)
 	defer repl.cancel()
 
 	repl.SetTUIRunner(func() ([]string, bool, error) {
@@ -185,7 +185,7 @@ func TestCmdSettings_RunnerError(t *testing.T) {
 
 func TestDispatchCommand_Settings(t *testing.T) {
 	loop := makeTestLoop(nil)
-	repl := NewREPL(loop)
+	repl := NewREPL(context.Background(), loop)
 	defer repl.cancel()
 
 	err := repl.dispatchCommand("/settings")
@@ -282,7 +282,7 @@ func TestFuzzyRankStrings_RankedByScore(t *testing.T) {
 
 func TestSetModelNames(t *testing.T) {
 	loop := makeTestLoop(nil)
-	repl := NewREPL(loop)
+	repl := NewREPL(context.Background(), loop)
 	defer repl.cancel()
 	repl.SetModelNames([]string{"llama3.2:1b", "llama3.2:3b", "qwen3.5-4b"})
 	assert.Equal(t, []string{"llama3.2:1b", "llama3.2:3b", "qwen3.5-4b"}, repl.modelNames)
@@ -290,7 +290,7 @@ func TestSetModelNames(t *testing.T) {
 
 func TestReplCompleter_ModelArgCompletion(t *testing.T) {
 	loop := makeTestLoop(nil)
-	repl := NewREPL(loop)
+	repl := NewREPL(context.Background(), loop)
 	defer repl.cancel()
 	repl.SetModelNames([]string{"llama3.2:1b", "llama3.2:3b", "qwen3.5-4b"})
 	repl.SetDownloadedModels(map[string]bool{"llama3.2:1b": true})
@@ -310,7 +310,7 @@ func TestReplCompleter_ModelArgCompletion(t *testing.T) {
 
 func TestReplCompleter_ModelArgAllModels(t *testing.T) {
 	loop := makeTestLoop(nil)
-	repl := NewREPL(loop)
+	repl := NewREPL(context.Background(), loop)
 	defer repl.cancel()
 	repl.SetModelNames([]string{"llama3.2:1b", "llama3.2:3b"})
 
@@ -328,7 +328,7 @@ func TestReplCompleter_ModelArgAllModels(t *testing.T) {
 
 func TestReplCompleter_DownloadedModelMarker(t *testing.T) {
 	loop := makeTestLoop(nil)
-	repl := NewREPL(loop)
+	repl := NewREPL(context.Background(), loop)
 	defer repl.cancel()
 	repl.SetModelNames([]string{"llama3.2:1b", "llama3.2:3b", "qwen3.5-4b"})
 	repl.SetDownloadedModels(map[string]bool{"llama3.2:1b": true})
@@ -349,7 +349,7 @@ func TestReplCompleter_DownloadedModelMarker(t *testing.T) {
 
 func TestReplCompleter_DownloadedModelMarkerPartialToken(t *testing.T) {
 	loop := makeTestLoop(nil)
-	repl := NewREPL(loop)
+	repl := NewREPL(context.Background(), loop)
 	defer repl.cancel()
 	repl.SetModelNames([]string{"llama3.2:1b", "llama3.2:3b"})
 	repl.SetDownloadedModels(map[string]bool{"llama3.2:1b": true})
@@ -369,7 +369,7 @@ func TestReplCompleter_DownloadedModelMarkerPartialToken(t *testing.T) {
 
 func TestReplCompleter_EnabledCloudModelTag(t *testing.T) {
 	loop := makeTestLoop(nil)
-	repl := NewREPL(loop)
+	repl := NewREPL(context.Background(), loop)
 	defer repl.cancel()
 	repl.SetModelNames([]string{"gpt-4o", "deepseek-chat"})
 	repl.SetCloudModelBackends(map[string]string{"gpt-4o": "openai", "deepseek-chat": "deepseek"})
@@ -389,7 +389,7 @@ func TestReplCompleter_EnabledCloudModelTag(t *testing.T) {
 
 func TestReplCompleter_TagFilter_Enabled(t *testing.T) {
 	loop := makeTestLoop(nil)
-	repl := NewREPL(loop)
+	repl := NewREPL(context.Background(), loop)
 	defer repl.cancel()
 	repl.SetModelNames([]string{"gpt-4o", "gemini-2.5-flash", "llama3.2:1b"})
 	repl.SetCloudModelBackends(map[string]string{"gpt-4o": "openai", "gemini-2.5-flash": "gemini"})
@@ -416,7 +416,7 @@ func TestReplCompleter_TagFilter_Enabled(t *testing.T) {
 
 func TestReplCompleter_TagFilter_GGUF(t *testing.T) {
 	loop := makeTestLoop(nil)
-	repl := NewREPL(loop)
+	repl := NewREPL(context.Background(), loop)
 	defer repl.cancel()
 	repl.SetModelNames([]string{"llama3.2:1b", "gemini-2.5-flash"})
 	repl.SetModelTypes(map[string]string{"llama3.2:1b": "gguf"})
@@ -438,7 +438,7 @@ func TestReplCompleter_TagFilter_GGUF(t *testing.T) {
 
 func TestCmdModel_TagKeywordPrefix(t *testing.T) {
 	loop := makeTestLoop(nil)
-	repl := NewREPL(loop)
+	repl := NewREPL(context.Background(), loop)
 	defer repl.cancel()
 	repl.SetModelNames([]string{"gemma4:31b", "gpt-4o"})
 
@@ -451,7 +451,7 @@ func TestCmdModel_TagKeywordPrefix(t *testing.T) {
 
 func TestCmdModel_StripsStar(t *testing.T) {
 	loop := makeTestLoop(nil)
-	repl := NewREPL(loop)
+	repl := NewREPL(context.Background(), loop)
 	defer repl.cancel()
 
 	_ = repl.cmdModel([]string{"qwen2.5*:7b"})
@@ -460,7 +460,7 @@ func TestCmdModel_StripsStar(t *testing.T) {
 
 func TestCmdModel_StripsTagSuffix(t *testing.T) {
 	loop := makeTestLoop(nil)
-	repl := NewREPL(loop)
+	repl := NewREPL(context.Background(), loop)
 	defer repl.cancel()
 	// Register models so cmdModel treats them as known names (not filter queries).
 	repl.SetModelNames([]string{"llama3.2:1b", "deepseek-chat"})
@@ -573,7 +573,7 @@ func TestFilePathCompletions_BadDir(t *testing.T) {
 
 func TestReplCompleter_SlashCommand(t *testing.T) {
 	loop := makeTestLoop(nil)
-	repl := NewREPL(loop)
+	repl := NewREPL(context.Background(), loop)
 	defer repl.cancel()
 
 	c := &replCompleter{repl: repl}
@@ -590,7 +590,7 @@ func TestReplCompleter_SlashCommand(t *testing.T) {
 
 func TestReplCompleter_SlashSkill(t *testing.T) {
 	loop := makeTestLoop([]Skill{{Name: "review", Description: "code review"}})
-	repl := NewREPL(loop)
+	repl := NewREPL(context.Background(), loop)
 	defer repl.cancel()
 
 	c := &replCompleter{repl: repl}
@@ -606,7 +606,7 @@ func TestReplCompleter_SlashSkill(t *testing.T) {
 
 func TestReplCompleter_NoSlash(t *testing.T) {
 	loop := makeTestLoop(nil)
-	repl := NewREPL(loop)
+	repl := NewREPL(context.Background(), loop)
 	defer repl.cancel()
 
 	c := &replCompleter{repl: repl}
@@ -621,7 +621,7 @@ func TestReplCompleter_AtFile(t *testing.T) {
 	require.NoError(t, os.WriteFile(filepath.Join(dir, "main.go"), []byte(""), 0o644))
 
 	loop := makeTestLoop(nil)
-	repl := NewREPL(loop)
+	repl := NewREPL(context.Background(), loop)
 	defer repl.cancel()
 
 	c := &replCompleter{repl: repl}
@@ -644,7 +644,7 @@ func TestReplCompleter_AtFile(t *testing.T) {
 
 func TestReplCompleter_SessionSubcommand(t *testing.T) {
 	loop := makeTestLoop(nil)
-	repl := NewREPL(loop)
+	repl := NewREPL(context.Background(), loop)
 	defer repl.cancel()
 
 	c := &replCompleter{repl: repl}
@@ -668,7 +668,7 @@ func TestReplCompleter_SessionSubcommand(t *testing.T) {
 
 func TestReplCompleter_SessionSubcommandPartial(t *testing.T) {
 	loop := makeTestLoop(nil)
-	repl := NewREPL(loop)
+	repl := NewREPL(context.Background(), loop)
 	defer repl.cancel()
 
 	c := &replCompleter{repl: repl}
@@ -685,7 +685,7 @@ func TestReplCompleter_SessionSubcommandPartial(t *testing.T) {
 
 func TestReplCompleter_ThinkingModes(t *testing.T) {
 	loop := makeTestLoop(nil)
-	repl := NewREPL(loop)
+	repl := NewREPL(context.Background(), loop)
 	defer repl.cancel()
 
 	c := &replCompleter{repl: repl}
@@ -706,7 +706,7 @@ func TestReplCompleter_ThinkingModes(t *testing.T) {
 
 func TestReplCompleter_ThinkingPartial(t *testing.T) {
 	loop := makeTestLoop(nil)
-	repl := NewREPL(loop)
+	repl := NewREPL(context.Background(), loop)
 	defer repl.cancel()
 
 	c := &replCompleter{repl: repl}
@@ -728,7 +728,7 @@ func TestReplCompleter_SessionIDCompletion(t *testing.T) {
 	loop := makeTestLoop(nil)
 	loop.store = store
 	loop.session.Append("hi", "hello")
-	repl := NewREPL(loop)
+	repl := NewREPL(context.Background(), loop)
 	defer repl.cancel()
 
 	id, err := store.Save(loop.session)
@@ -751,7 +751,7 @@ func TestReplCompleter_SessionGotoCompletion(t *testing.T) {
 	loop.session.Append("user turn 1", "assistant response 1")
 	loop.session.Append("user turn 2", "assistant response 2")
 
-	repl := NewREPL(loop)
+	repl := NewREPL(context.Background(), loop)
 	defer repl.cancel()
 
 	c := &replCompleter{repl: repl}
@@ -767,7 +767,7 @@ func TestReplCompleter_SessionGotoCompletion(t *testing.T) {
 
 func TestAllCommandNames_IncludesBuiltins(t *testing.T) {
 	loop := makeTestLoop(nil)
-	repl := NewREPL(loop)
+	repl := NewREPL(context.Background(), loop)
 	defer repl.cancel()
 
 	names := repl.allCommandNames()
@@ -777,7 +777,7 @@ func TestAllCommandNames_IncludesBuiltins(t *testing.T) {
 
 func TestAllCommandNames_IncludesSkills(t *testing.T) {
 	loop := makeTestLoop([]Skill{{Name: "lint"}})
-	repl := NewREPL(loop)
+	repl := NewREPL(context.Background(), loop)
 	defer repl.cancel()
 
 	names := repl.allCommandNames()
@@ -788,7 +788,7 @@ func TestAllCommandNames_IncludesSkills(t *testing.T) {
 
 func TestDynamicPrompt_ZeroTurns(t *testing.T) {
 	loop := makeTestLoop(nil)
-	repl := NewREPL(loop)
+	repl := NewREPL(context.Background(), loop)
 	defer repl.cancel()
 
 	p := repl.dynamicPrompt()
@@ -800,7 +800,7 @@ func TestDynamicPrompt_ZeroTurns(t *testing.T) {
 func TestDynamicPrompt_WithTurns(t *testing.T) {
 	loop := makeTestLoop(nil)
 	loop.session.Append("hi", "hello")
-	repl := NewREPL(loop)
+	repl := NewREPL(context.Background(), loop)
 	defer repl.cancel()
 
 	p := repl.dynamicPrompt()
@@ -819,7 +819,7 @@ func TestContextUsageStr_ReflectsLocalContextSizeChange(t *testing.T) {
 	loop := makeTestLoop(nil)
 	loop.config.Model = "llama3.2:1b-q4"
 	loop.session.Append("hi", "hello")
-	repl := NewREPL(loop)
+	repl := NewREPL(context.Background(), loop)
 	defer repl.cancel()
 	repl.SetModelTypes(map[string]string{"llama3.2:1b-q4": modelTypeGGUF})
 
@@ -838,7 +838,7 @@ func TestContextUsageStr_ReflectsLocalContextSizeChange(t *testing.T) {
 
 func TestBuildCompleter_ReturnsNonNil(t *testing.T) {
 	loop := makeTestLoop(nil)
-	repl := NewREPL(loop)
+	repl := NewREPL(context.Background(), loop)
 	defer repl.cancel()
 
 	c := repl.buildCompleter()
@@ -849,7 +849,7 @@ func TestBuildCompleter_ReturnsNonNil(t *testing.T) {
 
 func TestHandleReadError_Nil(t *testing.T) {
 	loop := makeTestLoop(nil)
-	repl := NewREPL(loop)
+	repl := NewREPL(context.Background(), loop)
 	defer repl.cancel()
 
 	stop, err := repl.handleReadError(nil)
@@ -859,7 +859,7 @@ func TestHandleReadError_Nil(t *testing.T) {
 
 func TestHandleReadError_EOF(t *testing.T) {
 	loop := makeTestLoop(nil)
-	repl := NewREPL(loop)
+	repl := NewREPL(context.Background(), loop)
 	defer repl.cancel()
 
 	stop, err := repl.handleReadError(io.EOF)
@@ -869,7 +869,7 @@ func TestHandleReadError_EOF(t *testing.T) {
 
 func TestHandleReadError_Interrupt(t *testing.T) {
 	loop := makeTestLoop(nil)
-	repl := NewREPL(loop)
+	repl := NewREPL(context.Background(), loop)
 	defer repl.cancel()
 
 	stop, err := repl.handleReadError(readline.ErrInterrupt)
@@ -879,7 +879,7 @@ func TestHandleReadError_Interrupt(t *testing.T) {
 
 func TestHandleReadError_OtherError(t *testing.T) {
 	loop := makeTestLoop(nil)
-	repl := NewREPL(loop)
+	repl := NewREPL(context.Background(), loop)
 	defer repl.cancel()
 
 	sentinel := errors.New("terminal closed")
@@ -892,7 +892,7 @@ func TestHandleReadError_OtherError(t *testing.T) {
 
 func TestProcessInput_Command(t *testing.T) {
 	loop := makeTestLoop(nil)
-	repl := NewREPL(loop)
+	repl := NewREPL(context.Background(), loop)
 	defer repl.cancel()
 
 	// /help is a command - should route to cmdHelp, no error
@@ -902,7 +902,7 @@ func TestProcessInput_Command(t *testing.T) {
 
 func TestProcessInput_TextMessage(t *testing.T) {
 	loop := makeTestLoop(nil)
-	repl := NewREPL(loop)
+	repl := NewREPL(context.Background(), loop)
 	defer repl.cancel()
 
 	repl.runFn = func(_ context.Context, _ string) (string, error) {
@@ -915,7 +915,7 @@ func TestProcessInput_TextMessage(t *testing.T) {
 
 func TestProcessInput_RunError(t *testing.T) {
 	loop := makeTestLoop(nil)
-	repl := NewREPL(loop)
+	repl := NewREPL(context.Background(), loop)
 	defer repl.cancel()
 
 	repl.runFn = func(_ context.Context, _ string) (string, error) {
@@ -927,7 +927,7 @@ func TestProcessInput_RunError(t *testing.T) {
 
 func TestProcessInput_EmptyResponse(t *testing.T) {
 	loop := makeTestLoop(nil)
-	repl := NewREPL(loop)
+	repl := NewREPL(context.Background(), loop)
 	defer repl.cancel()
 
 	repl.runFn = func(_ context.Context, _ string) (string, error) {
@@ -941,7 +941,7 @@ func TestProcessInput_EmptyResponse(t *testing.T) {
 
 func TestRunWithThinking_Success(t *testing.T) {
 	loop := makeTestLoop(nil)
-	repl := NewREPL(loop)
+	repl := NewREPL(context.Background(), loop)
 	defer repl.cancel()
 
 	repl.runFn = func(_ context.Context, _ string) (string, error) {
@@ -954,7 +954,7 @@ func TestRunWithThinking_Success(t *testing.T) {
 
 func TestRunWithThinking_SlowResponse(t *testing.T) {
 	loop := makeTestLoop(nil)
-	repl := NewREPL(loop)
+	repl := NewREPL(context.Background(), loop)
 	defer repl.cancel()
 
 	repl.runFn = func(_ context.Context, _ string) (string, error) {
@@ -968,7 +968,7 @@ func TestRunWithThinking_SlowResponse(t *testing.T) {
 
 func TestRunWithThinking_Error(t *testing.T) {
 	loop := makeTestLoop(nil)
-	repl := NewREPL(loop)
+	repl := NewREPL(context.Background(), loop)
 	defer repl.cancel()
 
 	repl.runFn = func(_ context.Context, _ string) (string, error) {
@@ -982,7 +982,7 @@ func TestRunWithThinking_Error(t *testing.T) {
 
 func TestMaybeHintCompact_NoHint(_ *testing.T) {
 	loop := makeTestLoop(nil)
-	repl := NewREPL(loop)
+	repl := NewREPL(context.Background(), loop)
 	defer repl.cancel()
 
 	// 0 turns - no hint (no panic)
@@ -994,7 +994,7 @@ func TestMaybeHintCompact_AtThreshold(_ *testing.T) {
 	for range replAutoCompactEvery {
 		loop.session.Append("q", "a")
 	}
-	repl := NewREPL(loop)
+	repl := NewREPL(context.Background(), loop)
 	defer repl.cancel()
 
 	// exactly 25 turns - hint fires (no panic)
@@ -1005,7 +1005,7 @@ func TestMaybeHintCompact_AtThreshold(_ *testing.T) {
 
 func TestCmdHelp(t *testing.T) {
 	loop := makeTestLoop(nil)
-	repl := NewREPL(loop)
+	repl := NewREPL(context.Background(), loop)
 	defer repl.cancel()
 
 	err := repl.cmdHelp()
@@ -1017,7 +1017,7 @@ func TestCmdHelp(t *testing.T) {
 func TestCmdClear(t *testing.T) {
 	loop := makeTestLoop(nil)
 	loop.session.Append("hi", "hello")
-	repl := NewREPL(loop)
+	repl := NewREPL(context.Background(), loop)
 	defer repl.cancel()
 
 	err := repl.cmdClear()
@@ -1029,7 +1029,7 @@ func TestCmdClear(t *testing.T) {
 
 func TestCmdModel_Show(t *testing.T) {
 	loop := makeTestLoop(nil)
-	repl := NewREPL(loop)
+	repl := NewREPL(context.Background(), loop)
 	defer repl.cancel()
 
 	err := repl.cmdModel(nil)
@@ -1038,7 +1038,7 @@ func TestCmdModel_Show(t *testing.T) {
 
 func TestCmdModel_Set(t *testing.T) {
 	loop := makeTestLoop(nil)
-	repl := NewREPL(loop)
+	repl := NewREPL(context.Background(), loop)
 	defer repl.cancel()
 
 	err := repl.cmdModel([]string{"gpt-4"})
@@ -1050,7 +1050,7 @@ func TestCmdModel_Set(t *testing.T) {
 
 func TestCmdSkills_Empty(t *testing.T) {
 	loop := makeTestLoop(nil)
-	repl := NewREPL(loop)
+	repl := NewREPL(context.Background(), loop)
 	defer repl.cancel()
 
 	err := repl.cmdSkills()
@@ -1062,7 +1062,7 @@ func TestCmdSkills_WithSkills(t *testing.T) {
 		{Name: "lint", Description: "run linter"},
 		{Name: "review", Source: "review.md"},
 	})
-	repl := NewREPL(loop)
+	repl := NewREPL(context.Background(), loop)
 	defer repl.cancel()
 
 	err := repl.cmdSkills()
@@ -1073,7 +1073,7 @@ func TestCmdSkills_WithSkills(t *testing.T) {
 
 func TestCmdCompact_NoHistory(t *testing.T) {
 	loop := makeTestLoop(nil)
-	repl := NewREPL(loop)
+	repl := NewREPL(context.Background(), loop)
 	defer repl.cancel()
 
 	err := repl.cmdCompact()
@@ -1093,7 +1093,7 @@ func TestCmdCompact_WithHistory(t *testing.T) {
 		{Role: "user", Content: "q3"}, {Role: "assistant", Content: "a3"},
 	})
 
-	repl := NewREPL(loop)
+	repl := NewREPL(context.Background(), loop)
 	defer repl.cancel()
 
 	err := repl.cmdCompact()
@@ -1104,7 +1104,7 @@ func TestCmdCompact_WithHistory(t *testing.T) {
 
 func TestCmdHistory_Empty(t *testing.T) {
 	loop := makeTestLoop(nil)
-	repl := NewREPL(loop)
+	repl := NewREPL(context.Background(), loop)
 	defer repl.cancel()
 
 	err := repl.cmdHistory()
@@ -1114,7 +1114,7 @@ func TestCmdHistory_Empty(t *testing.T) {
 func TestCmdHistory_WithMessages(t *testing.T) {
 	loop := makeTestLoop(nil)
 	loop.session.Append("hello", "world")
-	repl := NewREPL(loop)
+	repl := NewREPL(context.Background(), loop)
 	defer repl.cancel()
 
 	err := repl.cmdHistory()
@@ -1128,7 +1128,7 @@ func TestCmdHistory_LongMessage(t *testing.T) {
 		long[i] = 'x'
 	}
 	loop.session.Append(string(long), "short")
-	repl := NewREPL(loop)
+	repl := NewREPL(context.Background(), loop)
 	defer repl.cancel()
 
 	err := repl.cmdHistory()
@@ -1139,7 +1139,7 @@ func TestCmdHistory_LongMessage(t *testing.T) {
 
 func TestDispatchCommand_Help(t *testing.T) {
 	loop := makeTestLoop(nil)
-	repl := NewREPL(loop)
+	repl := NewREPL(context.Background(), loop)
 	defer repl.cancel()
 
 	err := repl.dispatchCommand("/help")
@@ -1148,7 +1148,7 @@ func TestDispatchCommand_Help(t *testing.T) {
 
 func TestDispatchCommand_Clear(t *testing.T) {
 	loop := makeTestLoop(nil)
-	repl := NewREPL(loop)
+	repl := NewREPL(context.Background(), loop)
 	defer repl.cancel()
 
 	err := repl.dispatchCommand("/clear")
@@ -1157,7 +1157,7 @@ func TestDispatchCommand_Clear(t *testing.T) {
 
 func TestDispatchCommand_ModelShow(t *testing.T) {
 	loop := makeTestLoop(nil)
-	repl := NewREPL(loop)
+	repl := NewREPL(context.Background(), loop)
 	defer repl.cancel()
 
 	err := repl.dispatchCommand("/model")
@@ -1166,7 +1166,7 @@ func TestDispatchCommand_ModelShow(t *testing.T) {
 
 func TestDispatchCommand_ModelSet(t *testing.T) {
 	loop := makeTestLoop(nil)
-	repl := NewREPL(loop)
+	repl := NewREPL(context.Background(), loop)
 	defer repl.cancel()
 
 	err := repl.dispatchCommand("/model claude-3")
@@ -1176,7 +1176,7 @@ func TestDispatchCommand_ModelSet(t *testing.T) {
 
 func TestDispatchCommand_Skills(t *testing.T) {
 	loop := makeTestLoop(nil)
-	repl := NewREPL(loop)
+	repl := NewREPL(context.Background(), loop)
 	defer repl.cancel()
 
 	err := repl.dispatchCommand("/skills")
@@ -1185,7 +1185,7 @@ func TestDispatchCommand_Skills(t *testing.T) {
 
 func TestDispatchCommand_Compact(t *testing.T) {
 	loop := makeTestLoop(nil)
-	repl := NewREPL(loop)
+	repl := NewREPL(context.Background(), loop)
 	defer repl.cancel()
 
 	err := repl.dispatchCommand("/compact")
@@ -1194,7 +1194,7 @@ func TestDispatchCommand_Compact(t *testing.T) {
 
 func TestDispatchCommand_History(t *testing.T) {
 	loop := makeTestLoop(nil)
-	repl := NewREPL(loop)
+	repl := NewREPL(context.Background(), loop)
 	defer repl.cancel()
 
 	err := repl.dispatchCommand("/history")
@@ -1203,7 +1203,7 @@ func TestDispatchCommand_History(t *testing.T) {
 
 func TestDispatchCommand_Exit(t *testing.T) {
 	loop := makeTestLoop(nil)
-	repl := NewREPL(loop)
+	repl := NewREPL(context.Background(), loop)
 	defer repl.cancel()
 
 	err := repl.dispatchCommand("/exit")
@@ -1212,7 +1212,7 @@ func TestDispatchCommand_Exit(t *testing.T) {
 
 func TestDispatchCommand_Quit(t *testing.T) {
 	loop := makeTestLoop(nil)
-	repl := NewREPL(loop)
+	repl := NewREPL(context.Background(), loop)
 	defer repl.cancel()
 
 	err := repl.dispatchCommand("/quit")
@@ -1221,7 +1221,7 @@ func TestDispatchCommand_Quit(t *testing.T) {
 
 func TestDispatchCommand_InvokeSkill(t *testing.T) {
 	loop := makeTestLoop([]Skill{{Name: "lint", Content: "Run linter."}})
-	repl := NewREPL(loop)
+	repl := NewREPL(context.Background(), loop)
 	defer repl.cancel()
 	repl.runFn = func(_ context.Context, _ string) (string, error) {
 		return "lint output", nil
@@ -1237,7 +1237,7 @@ func TestDispatchCommand_InvokeSkill(t *testing.T) {
 
 func TestCmdInvokeSkill_NoExtra(t *testing.T) {
 	loop := makeTestLoop(nil)
-	repl := NewREPL(loop)
+	repl := NewREPL(context.Background(), loop)
 	defer repl.cancel()
 	repl.runFn = func(_ context.Context, prompt string) (string, error) {
 		return "ok: " + prompt, nil
@@ -1250,7 +1250,7 @@ func TestCmdInvokeSkill_NoExtra(t *testing.T) {
 
 func TestCmdInvokeSkill_WithExtra(t *testing.T) {
 	loop := makeTestLoop(nil)
-	repl := NewREPL(loop)
+	repl := NewREPL(context.Background(), loop)
 	defer repl.cancel()
 	repl.runFn = func(_ context.Context, prompt string) (string, error) {
 		return prompt, nil
@@ -1263,7 +1263,7 @@ func TestCmdInvokeSkill_WithExtra(t *testing.T) {
 
 func TestCmdInvokeSkill_Error(t *testing.T) {
 	loop := makeTestLoop(nil)
-	repl := NewREPL(loop)
+	repl := NewREPL(context.Background(), loop)
 	defer repl.cancel()
 	repl.runFn = func(_ context.Context, _ string) (string, error) {
 		return "", errors.New("llm down")
@@ -1277,7 +1277,7 @@ func TestCmdInvokeSkill_Error(t *testing.T) {
 
 func TestCmdInvokeSkill_EmptyResponse(t *testing.T) {
 	loop := makeTestLoop(nil)
-	repl := NewREPL(loop)
+	repl := NewREPL(context.Background(), loop)
 	defer repl.cancel()
 	repl.runFn = func(_ context.Context, _ string) (string, error) {
 		return "", nil
@@ -1292,7 +1292,7 @@ func TestCmdInvokeSkill_EmptyResponse(t *testing.T) {
 
 func TestRunPlain_EOF(t *testing.T) {
 	loop := makeTestLoop(nil)
-	repl := NewREPL(loop)
+	repl := NewREPL(context.Background(), loop)
 	defer repl.cancel()
 
 	// pipe that immediately closes - runPlain should return on EOF
@@ -1310,7 +1310,7 @@ func TestRunPlain_EOF(t *testing.T) {
 
 func TestRunPlain_WithCommand(t *testing.T) {
 	loop := makeTestLoop(nil)
-	repl := NewREPL(loop)
+	repl := NewREPL(context.Background(), loop)
 	defer repl.cancel()
 
 	pr, pw, err := os.Pipe()
@@ -1327,7 +1327,7 @@ func TestRunPlain_WithCommand(t *testing.T) {
 
 func TestRunPlain_WithMessage(t *testing.T) {
 	loop := makeTestLoop(nil)
-	repl := NewREPL(loop)
+	repl := NewREPL(context.Background(), loop)
 	defer repl.cancel()
 	repl.runFn = func(_ context.Context, _ string) (string, error) {
 		return "reply", nil
@@ -1347,7 +1347,7 @@ func TestRunPlain_WithMessage(t *testing.T) {
 
 func TestRunPlain_ContextCancel(_ *testing.T) {
 	loop := makeTestLoop(nil)
-	repl := NewREPL(loop)
+	repl := NewREPL(context.Background(), loop)
 
 	// cancel before runPlain - should exit immediately
 	repl.cancel()
@@ -1388,7 +1388,7 @@ func TestRun_ExitsOnEOF(t *testing.T) {
 	}()
 
 	loop := makeTestLoop(nil)
-	repl := NewREPL(loop)
+	repl := NewREPL(context.Background(), loop)
 	rerr := repl.Run()
 	assert.NoError(t, rerr)
 }
@@ -1416,7 +1416,7 @@ func TestRun_EmptyLineIgnored(t *testing.T) {
 	}()
 
 	loop := makeTestLoop(nil)
-	repl := NewREPL(loop)
+	repl := NewREPL(context.Background(), loop)
 	rerr := repl.Run()
 	assert.NoError(t, rerr)
 }
@@ -1443,7 +1443,7 @@ func TestRun_ProcessInputError(t *testing.T) {
 	}()
 
 	loop := makeTestLoop(nil)
-	repl := NewREPL(loop)
+	repl := NewREPL(context.Background(), loop)
 	repl.runFn = func(_ context.Context, _ string) (string, error) {
 		return "", errors.New("llm error")
 	}
@@ -1473,7 +1473,7 @@ func TestRun_ProcessesMessage(t *testing.T) {
 	}()
 
 	loop := makeTestLoop(nil)
-	repl := NewREPL(loop)
+	repl := NewREPL(context.Background(), loop)
 	repl.runFn = func(_ context.Context, _ string) (string, error) {
 		return "agent reply", nil
 	}
@@ -1526,7 +1526,7 @@ func TestFirstLine_Empty(t *testing.T) {
 
 func TestSetProviderStatus(t *testing.T) {
 	loop := makeTestLoop(nil)
-	repl := NewREPL(loop)
+	repl := NewREPL(context.Background(), loop)
 	defer repl.cancel()
 	repl.SetProviderStatus(map[string]bool{"openai": true, "anthropic": false})
 	assert.True(t, repl.providerStatus["openai"])
@@ -1537,7 +1537,7 @@ func TestSetProviderStatus(t *testing.T) {
 
 func TestFilePathCompletionsFd_NoBinary(t *testing.T) {
 	// "nonexistent-fd-binary-xyz" won't be found - falls back to filePathCompletions
-	results := filePathCompletionsFd("./", "nonexistent-fd-binary-xyz")
+	results := filePathCompletionsFd(context.Background(), "./", "nonexistent-fd-binary-xyz")
 	// Returns either an empty slice or file results from fallback; must not panic.
 	assert.NotNil(t, results)
 }
@@ -1546,7 +1546,7 @@ func TestFilePathCompletionsFd_NoBinary(t *testing.T) {
 
 func TestCmdModels_NoLocalModels(t *testing.T) {
 	loop := makeTestLoop(nil)
-	repl := NewREPL(loop)
+	repl := NewREPL(context.Background(), loop)
 	defer repl.cancel()
 
 	// Redirect stdout to avoid cluttering test output
@@ -1565,7 +1565,7 @@ func TestCmdModels_NoLocalModels(t *testing.T) {
 func TestCmdModels_WithLocalModel(t *testing.T) {
 	loop := makeTestLoop(nil)
 	loop.config.Model = "llama2"
-	repl := NewREPL(loop)
+	repl := NewREPL(context.Background(), loop)
 	defer repl.cancel()
 	repl.modelNames = []string{"llama2", "codellama"}
 
@@ -1580,7 +1580,7 @@ func TestCmdModels_WithLocalModel(t *testing.T) {
 
 func TestCmdModels_WithProviderStatus(t *testing.T) {
 	loop := makeTestLoop(nil)
-	repl := NewREPL(loop)
+	repl := NewREPL(context.Background(), loop)
 	defer repl.cancel()
 	repl.SetProviderStatus(map[string]bool{"openai": true, "anthropic": false})
 
@@ -1596,7 +1596,7 @@ func TestCmdModels_WithProviderStatus(t *testing.T) {
 func TestPrintLocalModelRow_DownloadedAndCurrent(_ *testing.T) {
 	loop := makeTestLoop(nil)
 	loop.config.Model = "llama2"
-	repl := NewREPL(loop)
+	repl := NewREPL(context.Background(), loop)
 	defer repl.cancel()
 	repl.downloadedModels = map[string]bool{"llama2": true}
 
@@ -1613,7 +1613,7 @@ func TestPrintLocalModelRow_DownloadedAndCurrent(_ *testing.T) {
 
 func TestCmdPrompts_NoPrompts(t *testing.T) {
 	loop := makeTestLoop(nil)
-	repl := NewREPL(loop)
+	repl := NewREPL(context.Background(), loop)
 	defer repl.cancel()
 
 	origOut := os.Stdout
@@ -1631,7 +1631,7 @@ func TestCmdPrompts_WithPrompts(t *testing.T) {
 		{Name: "review", Description: "Code review", Content: "Review this: {{.}}"},
 		{Name: "explain", ArgumentHint: "topic", Content: "Explain: {{.}}"},
 	}
-	repl := NewREPL(loop)
+	repl := NewREPL(context.Background(), loop)
 	defer repl.cancel()
 
 	origOut := os.Stdout
@@ -1647,7 +1647,7 @@ func TestCmdPrompts_WithPrompts(t *testing.T) {
 
 func TestCmdInvokePrompt_Success(t *testing.T) {
 	loop := makeTestLoop(nil)
-	repl := NewREPL(loop)
+	repl := NewREPL(context.Background(), loop)
 	defer repl.cancel()
 	repl.runFn = func(_ context.Context, _ string) (string, error) {
 		return "response text", nil
@@ -1665,7 +1665,7 @@ func TestCmdInvokePrompt_Success(t *testing.T) {
 
 func TestCmdInvokePrompt_Error(t *testing.T) {
 	loop := makeTestLoop(nil)
-	repl := NewREPL(loop)
+	repl := NewREPL(context.Background(), loop)
 	defer repl.cancel()
 	repl.runFn = func(_ context.Context, _ string) (string, error) {
 		return "", errors.New("LLM error")
@@ -1680,7 +1680,7 @@ func TestCmdInvokePrompt_Error(t *testing.T) {
 
 func TestCmdSession_NoStore(t *testing.T) {
 	loop := makeTestLoop(nil)
-	repl := NewREPL(loop)
+	repl := NewREPL(context.Background(), loop)
 	defer repl.cancel()
 
 	origOut := os.Stdout
@@ -1695,7 +1695,7 @@ func TestCmdSession_NoStore(t *testing.T) {
 func TestCmdSession_UnknownSubcommand(t *testing.T) {
 	loop := makeTestLoop(nil)
 	loop.store = NewSessionStore(t.TempDir())
-	repl := NewREPL(loop)
+	repl := NewREPL(context.Background(), loop)
 	repl.loop.store = loop.store
 	defer repl.cancel()
 
@@ -1711,7 +1711,7 @@ func TestCmdSession_UnknownSubcommand(t *testing.T) {
 func TestCmdSessionList_Empty(t *testing.T) {
 	loop := makeTestLoop(nil)
 	store := NewSessionStore(t.TempDir())
-	repl := NewREPL(loop)
+	repl := NewREPL(context.Background(), loop)
 	defer repl.cancel()
 
 	origOut := os.Stdout
@@ -1726,7 +1726,7 @@ func TestCmdSessionList_Empty(t *testing.T) {
 func TestCmdSessionSave_Success(t *testing.T) {
 	loop := makeTestLoop(nil)
 	store := NewSessionStore(t.TempDir())
-	repl := NewREPL(loop)
+	repl := NewREPL(context.Background(), loop)
 	defer repl.cancel()
 
 	origOut := os.Stdout
@@ -1741,7 +1741,7 @@ func TestCmdSessionSave_Success(t *testing.T) {
 func TestCmdSessionList_WithSessions(t *testing.T) {
 	loop := makeTestLoop(nil)
 	store := NewSessionStore(t.TempDir())
-	repl := NewREPL(loop)
+	repl := NewREPL(context.Background(), loop)
 	defer repl.cancel()
 
 	// Save a session first
@@ -1758,7 +1758,7 @@ func TestCmdSessionList_WithSessions(t *testing.T) {
 func TestCmdSessionLoadDelete(t *testing.T) {
 	loop := makeTestLoop(nil)
 	store := NewSessionStore(t.TempDir())
-	repl := NewREPL(loop)
+	repl := NewREPL(context.Background(), loop)
 	defer repl.cancel()
 
 	origOut := os.Stdout
@@ -1780,7 +1780,7 @@ func TestCmdSessionLoadDelete(t *testing.T) {
 func TestCmdSession_SaveSubcommand(t *testing.T) {
 	loop := makeTestLoop(nil)
 	loop.store = NewSessionStore(t.TempDir())
-	repl := NewREPL(loop)
+	repl := NewREPL(context.Background(), loop)
 	repl.loop.store = loop.store
 	defer repl.cancel()
 
@@ -1796,7 +1796,7 @@ func TestCmdSession_SaveSubcommand(t *testing.T) {
 func TestCmdSession_LoadMissingArg(t *testing.T) {
 	loop := makeTestLoop(nil)
 	loop.store = NewSessionStore(t.TempDir())
-	repl := NewREPL(loop)
+	repl := NewREPL(context.Background(), loop)
 	repl.loop.store = loop.store
 	defer repl.cancel()
 
@@ -1812,7 +1812,7 @@ func TestCmdSession_LoadMissingArg(t *testing.T) {
 func TestCmdSession_DeleteMissingArg(t *testing.T) {
 	loop := makeTestLoop(nil)
 	loop.store = NewSessionStore(t.TempDir())
-	repl := NewREPL(loop)
+	repl := NewREPL(context.Background(), loop)
 	repl.loop.store = loop.store
 	defer repl.cancel()
 
@@ -1830,7 +1830,7 @@ func TestCmdSession_LoadViaDispatcher(t *testing.T) {
 	loop := makeTestLoop(nil)
 	store := NewSessionStore(t.TempDir())
 	loop.store = store
-	repl := NewREPL(loop)
+	repl := NewREPL(context.Background(), loop)
 	defer repl.cancel()
 
 	origOut := os.Stdout
@@ -1850,7 +1850,7 @@ func TestCmdSession_DeleteViaDispatcher(t *testing.T) {
 	loop := makeTestLoop(nil)
 	store := NewSessionStore(t.TempDir())
 	loop.store = store
-	repl := NewREPL(loop)
+	repl := NewREPL(context.Background(), loop)
 	defer repl.cancel()
 
 	origOut := os.Stdout
@@ -1869,7 +1869,7 @@ func TestCmdSession_GotoSuccess(t *testing.T) {
 	// Tests the goto success path including the return nil after RestoreTo succeeds
 	loop := makeTestLoop(nil)
 	loop.store = NewSessionStore(t.TempDir())
-	repl := NewREPL(loop)
+	repl := NewREPL(context.Background(), loop)
 	defer repl.cancel()
 
 	origOut := os.Stdout
@@ -1890,7 +1890,7 @@ func TestCmdSession_GotoNotFound(t *testing.T) {
 	// Tests the !RestoreTo path in goto (ID not found)
 	loop := makeTestLoop(nil)
 	loop.store = NewSessionStore(t.TempDir())
-	repl := NewREPL(loop)
+	repl := NewREPL(context.Background(), loop)
 	defer repl.cancel()
 
 	origOut := os.Stdout
@@ -1906,7 +1906,7 @@ func TestCmdSessionList_UnnamedAndNoModel(t *testing.T) {
 	// Tests the name=="" and model=="" fallback paths in cmdSessionList
 	loop := makeTestLoop(nil)
 	store := NewSessionStore(t.TempDir())
-	repl := NewREPL(loop)
+	repl := NewREPL(context.Background(), loop)
 	defer repl.cancel()
 	origOut := os.Stdout
 	_, w, _ := os.Pipe()
@@ -1925,7 +1925,7 @@ func TestCmdSessionSave_WithName(t *testing.T) {
 	// Tests the name!="" path in cmdSessionSave (appends (name) to message)
 	loop := makeTestLoop(nil)
 	store := NewSessionStore(t.TempDir())
-	repl := NewREPL(loop)
+	repl := NewREPL(context.Background(), loop)
 	defer repl.cancel()
 	origOut := os.Stdout
 	_, w, _ := os.Pipe()
@@ -1940,7 +1940,7 @@ func TestCmdSessionDelete_NotFound(t *testing.T) {
 	// Tests the err!=nil path in cmdSessionDelete
 	loop := makeTestLoop(nil)
 	store := NewSessionStore(t.TempDir())
-	repl := NewREPL(loop)
+	repl := NewREPL(context.Background(), loop)
 	defer repl.cancel()
 	origOut := os.Stdout
 	_, w, _ := os.Pipe()
@@ -1955,7 +1955,7 @@ func TestCmdSession_CheckpointEmpty(t *testing.T) {
 	// Tests checkpoint with no messages (id==0 path)
 	loop := makeTestLoop(nil)
 	loop.store = NewSessionStore(t.TempDir())
-	repl := NewREPL(loop)
+	repl := NewREPL(context.Background(), loop)
 	defer repl.cancel()
 	origOut := os.Stdout
 	_, w, _ := os.Pipe()
@@ -1970,7 +1970,7 @@ func TestCmdSession_CheckpointWithMessages(t *testing.T) {
 	// Tests checkpoint with messages (id>0 path, return nil)
 	loop := makeTestLoop(nil)
 	loop.store = NewSessionStore(t.TempDir())
-	repl := NewREPL(loop)
+	repl := NewREPL(context.Background(), loop)
 	defer repl.cancel()
 	origOut := os.Stdout
 	_, w, _ := os.Pipe()
@@ -1985,7 +1985,7 @@ func TestCmdSession_CheckpointWithMessages(t *testing.T) {
 func TestCmdSession_GotoMissingArg(t *testing.T) {
 	loop := makeTestLoop(nil)
 	loop.store = NewSessionStore(t.TempDir())
-	repl := NewREPL(loop)
+	repl := NewREPL(context.Background(), loop)
 	defer repl.cancel()
 	origOut := os.Stdout
 	_, w, _ := os.Pipe()
@@ -1999,7 +1999,7 @@ func TestCmdSession_GotoMissingArg(t *testing.T) {
 func TestCmdSession_GotoInvalidID(t *testing.T) {
 	loop := makeTestLoop(nil)
 	loop.store = NewSessionStore(t.TempDir())
-	repl := NewREPL(loop)
+	repl := NewREPL(context.Background(), loop)
 	defer repl.cancel()
 	origOut := os.Stdout
 	_, w, _ := os.Pipe()
@@ -2014,7 +2014,7 @@ func TestCmdSession_GotoInvalidID(t *testing.T) {
 
 func TestCmdThinking_ShowDefault(t *testing.T) {
 	loop := makeTestLoop(nil)
-	repl := NewREPL(loop)
+	repl := NewREPL(context.Background(), loop)
 	defer repl.cancel()
 
 	r, w, _ := os.Pipe()
@@ -2033,7 +2033,7 @@ func TestCmdThinking_ShowDefault(t *testing.T) {
 
 func TestCmdThinking_SetHigh(t *testing.T) {
 	loop := makeTestLoop(nil)
-	repl := NewREPL(loop)
+	repl := NewREPL(context.Background(), loop)
 	defer repl.cancel()
 
 	origOut := os.Stdout
@@ -2052,7 +2052,7 @@ func TestCmdThinking_SetHigh(t *testing.T) {
 func TestCmdThinking_SetOff(t *testing.T) {
 	loop := makeTestLoop(nil)
 	loop.SetThinking(&domain.ThinkingConfig{Mode: domain.ThinkingModeHigh})
-	repl := NewREPL(loop)
+	repl := NewREPL(context.Background(), loop)
 	defer repl.cancel()
 
 	origOut := os.Stdout
@@ -2067,7 +2067,7 @@ func TestCmdThinking_SetOff(t *testing.T) {
 
 func TestCmdThinking_InvalidMode(t *testing.T) {
 	loop := makeTestLoop(nil)
-	repl := NewREPL(loop)
+	repl := NewREPL(context.Background(), loop)
 	defer repl.cancel()
 
 	origOut := os.Stdout
@@ -2092,7 +2092,7 @@ func TestCmdThinking_AllModes(t *testing.T) {
 	}
 	for _, mode := range modes {
 		loop := makeTestLoop(nil)
-		repl := NewREPL(loop)
+		repl := NewREPL(context.Background(), loop)
 
 		origOut := os.Stdout
 		_, w2, _ := os.Pipe()
@@ -2112,7 +2112,7 @@ func TestCmdThinking_AllModes(t *testing.T) {
 
 func TestDispatchCommand_Thinking(t *testing.T) {
 	loop := makeTestLoop(nil)
-	repl := NewREPL(loop)
+	repl := NewREPL(context.Background(), loop)
 	defer repl.cancel()
 
 	origOut := os.Stdout
@@ -2146,7 +2146,7 @@ func TestCmdSessionLoad_RestoresModel(t *testing.T) {
 	loop := makeTestLoop(nil)
 	loop.config.Model = "initial-model"
 	store := NewSessionStore(t.TempDir())
-	repl := NewREPL(loop)
+	repl := NewREPL(context.Background(), loop)
 	defer repl.cancel()
 
 	origOut := os.Stdout
@@ -2171,7 +2171,7 @@ func TestCmdSessionLoad_NoModelInMeta(t *testing.T) {
 	loop := makeTestLoop(nil)
 	loop.config.Model = "current-model"
 	store := NewSessionStore(t.TempDir())
-	repl := NewREPL(loop)
+	repl := NewREPL(context.Background(), loop)
 	defer repl.cancel()
 
 	origOut := os.Stdout
@@ -2210,7 +2210,7 @@ func testCaptureStdout(_ *testing.T, fn func()) string {
 
 func TestCmdCopy_NoSession(t *testing.T) {
 	loop := makeTestLoop(nil)
-	repl := NewREPL(loop)
+	repl := NewREPL(context.Background(), loop)
 	out := testCaptureStdout(t, func() {
 		err := repl.cmdCopy()
 		require.NoError(t, err)
@@ -2221,7 +2221,7 @@ func TestCmdCopy_NoSession(t *testing.T) {
 func TestCmdCopy_HasResponse(t *testing.T) {
 	loop := makeTestLoop(nil)
 	loop.session.Append("hello", "world response")
-	repl := NewREPL(loop)
+	repl := NewREPL(context.Background(), loop)
 
 	// copyToClipboard may fail in test env; cmdCopy just prints error, no return error
 	out := testCaptureStdout(t, func() {
@@ -2234,7 +2234,7 @@ func TestCmdCopy_HasResponse(t *testing.T) {
 
 func TestDispatchCommand_Copy(t *testing.T) {
 	loop := makeTestLoop(nil)
-	repl := NewREPL(loop)
+	repl := NewREPL(context.Background(), loop)
 	out := testCaptureStdout(t, func() {
 		_ = repl.dispatchCommand("/copy")
 	})
@@ -2243,7 +2243,7 @@ func TestDispatchCommand_Copy(t *testing.T) {
 
 func TestDispatchCommand_Reload(t *testing.T) {
 	loop := makeTestLoop(nil)
-	repl := NewREPL(loop)
+	repl := NewREPL(context.Background(), loop)
 	out := testCaptureStdout(t, func() {
 		err := repl.dispatchCommand("/reload")
 		require.NoError(t, err)
@@ -2255,7 +2255,7 @@ func TestDispatchCommand_Reload(t *testing.T) {
 
 func TestCmdReload_NoSkillPaths(t *testing.T) {
 	loop := makeTestLoop([]Skill{{Name: "mypkg", Description: "d", Content: "c"}})
-	repl := NewREPL(loop)
+	repl := NewREPL(context.Background(), loop)
 	// With no skill paths configured, reload should not clear the existing skills.
 	err := repl.cmdReload()
 	require.NoError(t, err)
@@ -2316,7 +2316,7 @@ func TestLoopReload_WithPromptPaths(t *testing.T) {
 
 func TestProcessInput_BangCommand_InjectsContext(t *testing.T) {
 	loop := makeTestLoop(nil)
-	repl := NewREPL(loop)
+	repl := NewREPL(context.Background(), loop)
 	defer repl.cancel()
 
 	// ! echo hello should run and inject into session
@@ -2330,7 +2330,7 @@ func TestProcessInput_BangCommand_InjectsContext(t *testing.T) {
 
 func TestProcessInput_DoubleBang_DoesNotInjectContext(t *testing.T) {
 	loop := makeTestLoop(nil)
-	repl := NewREPL(loop)
+	repl := NewREPL(context.Background(), loop)
 	defer repl.cancel()
 
 	// !! echo hello should run but NOT inject into session
@@ -2341,7 +2341,7 @@ func TestProcessInput_DoubleBang_DoesNotInjectContext(t *testing.T) {
 
 func TestProcessInput_BangEmpty_Passthrough(t *testing.T) {
 	loop := makeTestLoop(nil)
-	repl := NewREPL(loop)
+	repl := NewREPL(context.Background(), loop)
 	defer repl.cancel()
 
 	// A lone "!" (no command) should not be treated as a bang command.
@@ -2359,7 +2359,7 @@ func TestProcessInput_BangEmpty_Passthrough(t *testing.T) {
 
 func TestExecBangCommand_NonZeroExit_ErrorInContext(t *testing.T) {
 	loop := makeTestLoop(nil)
-	repl := NewREPL(loop)
+	repl := NewREPL(context.Background(), loop)
 	defer repl.cancel()
 
 	// A command that exits non-zero; should still inject with exit code
@@ -2371,7 +2371,7 @@ func TestExecBangCommand_NonZeroExit_ErrorInContext(t *testing.T) {
 
 func TestExecBangCommand_ExcludeFromContext(t *testing.T) {
 	loop := makeTestLoop(nil)
-	repl := NewREPL(loop)
+	repl := NewREPL(context.Background(), loop)
 	defer repl.cancel()
 
 	err := repl.execBangCommand("echo quiet", true)
@@ -2383,7 +2383,7 @@ func TestExecBangCommand_ExcludeFromContext(t *testing.T) {
 func TestREPL_ModelPickerAccessors(t *testing.T) {
 	// Tests the simple accessor methods that return model picker state
 	loop := makeTestLoop(nil)
-	repl := NewREPL(loop)
+	repl := NewREPL(context.Background(), loop)
 	defer repl.cancel()
 
 	// Set values manually (mimics what refreshModels() would do)
@@ -2403,7 +2403,7 @@ func TestREPL_ModelPickerAccessors(t *testing.T) {
 func TestExecBangCommand_NonExitError_ContextCancel(t *testing.T) {
 	// Tests the errMsg = runErr.Error() path (non-ExitError, e.g. context canceled).
 	loop := makeTestLoop(nil)
-	repl := NewREPL(loop)
+	repl := NewREPL(context.Background(), loop)
 	// Cancel the context immediately so the bash command fails with context error,
 	// not with *exec.ExitError.
 	repl.cancel()
@@ -2533,7 +2533,7 @@ func TestBuildSystemPreamble_SmallContext_NoSystemPrompt(t *testing.T) {
 
 func TestSetModelTypes(t *testing.T) {
 	loop := makeTestLoop(nil)
-	repl := NewREPL(loop)
+	repl := NewREPL(context.Background(), loop)
 	defer repl.cancel()
 	types := map[string]string{"llama3.2": modelTypeLLamafile, "codellama": modelTypeGGUF}
 	repl.SetModelTypes(types)
@@ -2544,7 +2544,7 @@ func TestSetModelTypes(t *testing.T) {
 
 func TestSetCloudModelBackends(t *testing.T) {
 	loop := makeTestLoop(nil)
-	repl := NewREPL(loop)
+	repl := NewREPL(context.Background(), loop)
 	defer repl.cancel()
 	backends := map[string]string{"gpt-4o": "openai", "claude-3-5-sonnet": "anthropic"}
 	repl.SetCloudModelBackends(backends)
@@ -2555,7 +2555,7 @@ func TestSetCloudModelBackends(t *testing.T) {
 
 func TestSetModelPickerFn(t *testing.T) {
 	loop := makeTestLoop(nil)
-	repl := NewREPL(loop)
+	repl := NewREPL(context.Background(), loop)
 	defer repl.cancel()
 	called := false
 	fn := func(_ string) (string, error) { called = true; return "llama3.2", nil }
@@ -2574,7 +2574,7 @@ func TestSetModelPickerFn(t *testing.T) {
 func TestAllCommandNames_WithPrompts(t *testing.T) {
 	loop := makeTestLoop(nil)
 	loop.prompts = []PromptTemplate{{Name: "summarize"}, {Name: "review"}}
-	repl := NewREPL(loop)
+	repl := NewREPL(context.Background(), loop)
 	defer repl.cancel()
 	names := repl.allCommandNames()
 	assert.Contains(t, names, "/summarize")
@@ -2586,7 +2586,7 @@ func TestAllCommandNames_WithPrompts(t *testing.T) {
 func TestModelCompletionSuffixes_LocalTypes(t *testing.T) {
 	// Covers the llamafile/gguf/ollama/cloud switch cases in modelCompletionSuffixes.
 	loop := makeTestLoop(nil)
-	repl := NewREPL(loop)
+	repl := NewREPL(context.Background(), loop)
 	defer repl.cancel()
 	repl.modelTypes = map[string]string{
 		"llama3.2":   modelTypeLLamafile,
@@ -2605,7 +2605,7 @@ func TestModelCompletionSuffixes_LocalTypes(t *testing.T) {
 func TestModelCompletionSuffixes_TruncatesToMax(t *testing.T) {
 	// Covers the len(ranked) > replModelCompletionMax truncation path.
 	loop := makeTestLoop(nil)
-	repl := NewREPL(loop)
+	repl := NewREPL(context.Background(), loop)
 	defer repl.cancel()
 	repl.downloadedModels = map[string]bool{}
 	repl.modelTypes = map[string]string{}
@@ -2630,7 +2630,7 @@ func TestModelCompletionSuffixes_TruncatesToMax(t *testing.T) {
 func TestModelCompletionSuffixes_SkipShortName(t *testing.T) {
 	// Model names shorter than tokenLen are skipped (can't produce a valid suffix).
 	loop := makeTestLoop(nil)
-	repl := NewREPL(loop)
+	repl := NewREPL(context.Background(), loop)
 	defer repl.cancel()
 	repl.downloadedModels = map[string]bool{}
 	repl.modelTypes = map[string]string{}
@@ -2644,7 +2644,7 @@ func TestModelCompletionSuffixes_SkipShortName(t *testing.T) {
 
 func TestDispatchCommand_Models(t *testing.T) {
 	loop := makeTestLoop(nil)
-	repl := NewREPL(loop)
+	repl := NewREPL(context.Background(), loop)
 	defer repl.cancel()
 	origOut := os.Stdout
 	_, w, _ := os.Pipe()
@@ -2658,7 +2658,7 @@ func TestDispatchCommand_Models(t *testing.T) {
 // through /model <sub> still reaches the correct handler.
 func TestDispatchCommand_ModelPs(t *testing.T) {
 	loop := makeTestLoop(nil)
-	repl := NewREPL(loop)
+	repl := NewREPL(context.Background(), loop)
 	defer repl.cancel()
 	origOut := os.Stdout
 	_, w, _ := os.Pipe()
@@ -2669,7 +2669,7 @@ func TestDispatchCommand_ModelPs(t *testing.T) {
 
 func TestDispatchCommand_ModelHff(t *testing.T) {
 	loop := makeTestLoop(nil)
-	repl := NewREPL(loop)
+	repl := NewREPL(context.Background(), loop)
 	defer repl.cancel()
 	origOut := os.Stdout
 	_, w, _ := os.Pipe()
@@ -2682,7 +2682,7 @@ func TestDispatchCommand_ModelHff(t *testing.T) {
 func TestDispatchCommand_Prompts(t *testing.T) {
 	loop := makeTestLoop(nil)
 	loop.prompts = []PromptTemplate{{Name: "greet", Description: "Greet", Content: "Hello $1"}}
-	repl := NewREPL(loop)
+	repl := NewREPL(context.Background(), loop)
 	defer repl.cancel()
 	origOut := os.Stdout
 	_, w, _ := os.Pipe()
@@ -2699,7 +2699,7 @@ func TestRunWithThinking_StreamingPath(t *testing.T) {
 		responses: []mockStreamResponse{{content: "streamed response"}},
 	}
 	loop := newStreamingLoop(ms, 5)
-	repl := NewREPL(loop)
+	repl := NewREPL(context.Background(), loop)
 	defer repl.cancel()
 
 	// runFn is nil by default; IsStreaming() returns true because loop.streamer is set.
@@ -2740,7 +2740,7 @@ func TestNewREPL_AutoCompactCallbackFires(t *testing.T) {
 		MaxToolRounds:        3,
 	})
 	// NewREPL installs its own onAutoCompact callback that prints to stdout.
-	repl := NewREPL(loop)
+	repl := NewREPL(context.Background(), loop)
 	defer repl.cancel()
 
 	// Seed enough turns to trigger auto-compact.
@@ -2765,7 +2765,7 @@ func TestNewREPL_AutoCompactCallbackFires(t *testing.T) {
 
 func TestSetRefreshModelsFn(t *testing.T) {
 	loop := makeTestLoop(nil)
-	repl := NewREPL(loop)
+	repl := NewREPL(context.Background(), loop)
 	defer repl.cancel()
 	called := false
 	repl.SetRefreshModelsFn(func() { called = true })
@@ -2778,7 +2778,7 @@ func TestSetRefreshModelsFn(t *testing.T) {
 
 func TestSetModelRepos(t *testing.T) {
 	loop := makeTestLoop(nil)
-	repl := NewREPL(loop)
+	repl := NewREPL(context.Background(), loop)
 	defer repl.cancel()
 	repos := map[string]string{"my-model": "owner/repo"}
 	repl.SetModelRepos(repos)
@@ -2789,7 +2789,7 @@ func TestSetModelRepos(t *testing.T) {
 
 func TestSetSaveDefaultFn(t *testing.T) {
 	loop := makeTestLoop(nil)
-	repl := NewREPL(loop)
+	repl := NewREPL(context.Background(), loop)
 	defer repl.cancel()
 	called := false
 	repl.SetSaveDefaultFn(func(_ string) error { called = true; return nil })
@@ -2802,7 +2802,7 @@ func TestSetSaveDefaultFn(t *testing.T) {
 
 func TestModelRepos_CurrentModel(t *testing.T) {
 	loop := makeTestLoop(nil)
-	repl := NewREPL(loop)
+	repl := NewREPL(context.Background(), loop)
 	defer repl.cancel()
 	repos := map[string]string{"m": "r/r"}
 	repl.SetModelRepos(repos)
@@ -2857,7 +2857,7 @@ func TestContextLimitForModel_GGUF_LocalContextSize(t *testing.T) {
 	llm.SetLocalContextSize(8192)
 
 	loop := makeTestLoop(nil)
-	repl := NewREPL(loop)
+	repl := NewREPL(context.Background(), loop)
 	defer repl.cancel()
 	repl.SetModelTypes(map[string]string{"my-gguf": modelTypeGGUF})
 	assert.Equal(t, 8192, repl.contextLimitForModel("my-gguf"))
@@ -2869,7 +2869,7 @@ func TestContextLimitForModel_Llamafile_LocalContextSize(t *testing.T) {
 	llm.SetLocalContextSize(16384)
 
 	loop := makeTestLoop(nil)
-	repl := NewREPL(loop)
+	repl := NewREPL(context.Background(), loop)
 	defer repl.cancel()
 	repl.SetModelTypes(map[string]string{"my-llamafile": modelTypeLLamafile})
 	assert.Equal(t, 16384, repl.contextLimitForModel("my-llamafile"))
@@ -2886,7 +2886,7 @@ func TestContextLimitForModel_UpdatesAfterSetLocalContextSize(t *testing.T) {
 	t.Cleanup(func() { llm.SetLocalContextSize(orig) })
 
 	loop := makeTestLoop(nil)
-	repl := NewREPL(loop)
+	repl := NewREPL(context.Background(), loop)
 	defer repl.cancel()
 	repl.SetModelTypes(map[string]string{"llama3.2:1b-q4": modelTypeGGUF})
 
@@ -2907,7 +2907,7 @@ func TestContextLimitForModel_OllamaUsesLocalContextSize(t *testing.T) {
 	llm.SetLocalContextSize(32768)
 
 	loop := makeTestLoop(nil)
-	repl := NewREPL(loop)
+	repl := NewREPL(context.Background(), loop)
 	defer repl.cancel()
 	repl.SetModelTypes(map[string]string{"llama3.2:1b": modelTypeOllama})
 	assert.Equal(t, 32768, repl.contextLimitForModel("llama3.2:1b"))
@@ -2922,14 +2922,14 @@ func TestContextLimitForModel_GGUFFilePath(t *testing.T) {
 	llm.SetLocalContextSize(65536)
 
 	loop := makeTestLoop(nil)
-	repl := NewREPL(loop)
+	repl := NewREPL(context.Background(), loop)
 	defer repl.cancel()
 	assert.Equal(t, 65536, repl.contextLimitForModel("/path/to/model.gguf"))
 }
 
 func TestContextLimitForModel_Default(t *testing.T) {
 	loop := makeTestLoop(nil)
-	repl := NewREPL(loop)
+	repl := NewREPL(context.Background(), loop)
 	defer repl.cancel()
 	// No env vars, no registry match — returns contextLimitDefault
 	assert.Equal(t, contextLimitDefault, repl.contextLimitForModel("unknown-local"))
@@ -2937,7 +2937,7 @@ func TestContextLimitForModel_Default(t *testing.T) {
 
 func TestContextLimitForModel_CloudModel(t *testing.T) {
 	loop := makeTestLoop(nil)
-	repl := NewREPL(loop)
+	repl := NewREPL(context.Background(), loop)
 	defer repl.cancel()
 	// Cloud models (those BackendForModel returns non-empty) get contextLimitCloud
 	// Use a known cloud model ID from the KnownCloudModels list
@@ -3003,7 +3003,7 @@ func TestContextFromParams_Thresholds(t *testing.T) {
 
 func TestCmdModelDefault_NoArgs_NoSaveFn(t *testing.T) {
 	loop := makeTestLoop(nil)
-	repl := NewREPL(loop)
+	repl := NewREPL(context.Background(), loop)
 	defer repl.cancel()
 
 	origOut := os.Stdout
@@ -3020,7 +3020,7 @@ func TestCmdModelDefault_NoArgs_NoSaveFn(t *testing.T) {
 
 func TestCmdModelDefault_NoArgs_WithSaveFn(t *testing.T) {
 	loop := makeTestLoop(nil)
-	repl := NewREPL(loop)
+	repl := NewREPL(context.Background(), loop)
 	defer repl.cancel()
 	repl.SetSaveDefaultFn(func(_ string) error { return nil })
 
@@ -3038,7 +3038,7 @@ func TestCmdModelDefault_NoArgs_WithSaveFn(t *testing.T) {
 
 func TestCmdModelDefault_WithName_SaveFnCalled(t *testing.T) {
 	loop := makeTestLoop(nil)
-	repl := NewREPL(loop)
+	repl := NewREPL(context.Background(), loop)
 	defer repl.cancel()
 	saved := ""
 	repl.SetSaveDefaultFn(func(m string) error { saved = m; return nil })
@@ -3058,7 +3058,7 @@ func TestCmdModelDefault_WithName_SaveFnCalled(t *testing.T) {
 
 func TestCmdModelDefault_SaveFnError(t *testing.T) {
 	loop := makeTestLoop(nil)
-	repl := NewREPL(loop)
+	repl := NewREPL(context.Background(), loop)
 	defer repl.cancel()
 	repl.SetSaveDefaultFn(func(_ string) error { return errors.New("disk full") })
 
@@ -3078,7 +3078,7 @@ func TestCmdModelDefault_SaveFnError(t *testing.T) {
 
 func TestOpenPickerWithFilter_ReturnsModel(t *testing.T) {
 	loop := makeTestLoop(nil)
-	repl := NewREPL(loop)
+	repl := NewREPL(context.Background(), loop)
 	defer repl.cancel()
 	repl.SetModelPickerFn(func(_ string) (string, error) { return "llama3.2", nil })
 
@@ -3097,7 +3097,7 @@ func TestOpenPickerWithFilter_ReturnsModel(t *testing.T) {
 
 func TestOpenPickerWithFilter_EmptyModel(t *testing.T) {
 	loop := makeTestLoop(nil)
-	repl := NewREPL(loop)
+	repl := NewREPL(context.Background(), loop)
 	defer repl.cancel()
 	repl.SetModelPickerFn(func(_ string) (string, error) { return "", nil })
 	err := repl.openPickerWithFilter("filter")
@@ -3107,7 +3107,7 @@ func TestOpenPickerWithFilter_EmptyModel(t *testing.T) {
 
 func TestOpenPickerWithFilter_Error(t *testing.T) {
 	loop := makeTestLoop(nil)
-	repl := NewREPL(loop)
+	repl := NewREPL(context.Background(), loop)
 	defer repl.cancel()
 	repl.SetModelPickerFn(func(_ string) (string, error) { return "", errors.New("picker error") })
 	err := repl.openPickerWithFilter("")
@@ -3119,7 +3119,7 @@ func TestOpenPickerWithFilter_Error(t *testing.T) {
 func TestApplyModelSwitch_GGUFSuffix_SetsBackend(t *testing.T) {
 	loop := makeTestLoop(nil)
 	loop.config.Backend = "ollama" // start with different backend
-	repl := NewREPL(loop)
+	repl := NewREPL(context.Background(), loop)
 	defer repl.cancel()
 	// model name ends with .gguf → should set BackendGGUF
 	origOut := os.Stdout
@@ -3137,7 +3137,7 @@ func TestApplyModelSwitch_GGUFSuffix_SetsBackend(t *testing.T) {
 func TestApplyModelSwitch_OllamaType_SetsBackend(t *testing.T) {
 	loop := makeTestLoop(nil)
 	loop.config.Backend = "file"
-	repl := NewREPL(loop)
+	repl := NewREPL(context.Background(), loop)
 	defer repl.cancel()
 	repl.SetModelTypes(map[string]string{"ollama-model": modelTypeOllama})
 
@@ -3156,7 +3156,7 @@ func TestApplyModelSwitch_OllamaType_SetsBackend(t *testing.T) {
 func TestApplyModelSwitch_GGUFType_SetsBackend(t *testing.T) {
 	loop := makeTestLoop(nil)
 	loop.config.Backend = "file"
-	repl := NewREPL(loop)
+	repl := NewREPL(context.Background(), loop)
 	defer repl.cancel()
 	repl.SetModelTypes(map[string]string{"gguf-model": modelTypeGGUF})
 
@@ -3176,7 +3176,7 @@ func TestApplyModelSwitch_GGUFType_SetsBackend(t *testing.T) {
 
 func TestPageLines_FewLines_PrintsAll(t *testing.T) {
 	loop := makeTestLoop(nil)
-	repl := NewREPL(loop)
+	repl := NewREPL(context.Background(), loop)
 	defer repl.cancel()
 
 	origOut := os.Stdout
@@ -3197,7 +3197,7 @@ func TestPageLines_FewLines_PrintsAll(t *testing.T) {
 
 func TestPageLines_Empty(t *testing.T) {
 	loop := makeTestLoop(nil)
-	repl := NewREPL(loop)
+	repl := NewREPL(context.Background(), loop)
 	defer repl.cancel()
 
 	origOut := os.Stdout
@@ -3216,7 +3216,7 @@ func TestPageLines_Empty(t *testing.T) {
 
 func TestCmdProcesses_List_NoServers(t *testing.T) {
 	loop := makeTestLoop(nil)
-	repl := NewREPL(loop)
+	repl := NewREPL(context.Background(), loop)
 	defer repl.cancel()
 
 	origOut := os.Stdout
@@ -3234,7 +3234,7 @@ func TestCmdProcesses_List_NoServers(t *testing.T) {
 
 func TestCmdProcesses_Switch(t *testing.T) {
 	loop := makeTestLoop(nil)
-	repl := NewREPL(loop)
+	repl := NewREPL(context.Background(), loop)
 	defer repl.cancel()
 
 	origOut := os.Stdout
@@ -3252,7 +3252,7 @@ func TestCmdProcesses_Switch(t *testing.T) {
 
 func TestCmdProcesses_Kill_NoService(t *testing.T) {
 	loop := makeTestLoop(nil)
-	repl := NewREPL(loop)
+	repl := NewREPL(context.Background(), loop)
 	defer repl.cancel()
 
 	origOut := os.Stdout
@@ -3272,7 +3272,7 @@ func TestCmdProcesses_Kill_WithService_NotFound(t *testing.T) {
 	loop := makeTestLoop(nil)
 	loop.config.ModelService = &mockModelService{url: ""}
 	loop.config.Backend = llm.BackendGGUF
-	repl := NewREPL(loop)
+	repl := NewREPL(context.Background(), loop)
 	defer repl.cancel()
 
 	origOut := os.Stdout
@@ -3295,7 +3295,7 @@ func TestCmdProcesses_Kill_WithService_Success(t *testing.T) {
 	loop.config.Backend = llm.BackendGGUF
 	loop.config.Model = "my-model"
 	loop.config.BaseURL = "http://localhost:9999/v1"
-	repl := NewREPL(loop)
+	repl := NewREPL(context.Background(), loop)
 	defer repl.cancel()
 
 	origOut := os.Stdout
@@ -3328,7 +3328,7 @@ func (m *mockKillModelService) KillModel(_, _ string) bool   { return m.killResu
 
 func TestCmdHFF_NoArgs_PrintsUsage(t *testing.T) {
 	loop := makeTestLoop(nil)
-	repl := NewREPL(loop)
+	repl := NewREPL(context.Background(), loop)
 	defer repl.cancel()
 
 	origOut := os.Stdout
@@ -3346,7 +3346,7 @@ func TestCmdHFF_NoArgs_PrintsUsage(t *testing.T) {
 
 func TestCmdHFF_UnknownSubcommand(t *testing.T) {
 	loop := makeTestLoop(nil)
-	repl := NewREPL(loop)
+	repl := NewREPL(context.Background(), loop)
 	defer repl.cancel()
 
 	origOut := os.Stdout
@@ -3364,7 +3364,7 @@ func TestCmdHFF_UnknownSubcommand(t *testing.T) {
 
 func TestCmdHFF_Search_NoQuery(t *testing.T) {
 	loop := makeTestLoop(nil)
-	repl := NewREPL(loop)
+	repl := NewREPL(context.Background(), loop)
 	defer repl.cancel()
 
 	origOut := os.Stdout
@@ -3382,7 +3382,7 @@ func TestCmdHFF_Search_NoQuery(t *testing.T) {
 
 func TestCmdHFF_Info_NoRepo(t *testing.T) {
 	loop := makeTestLoop(nil)
-	repl := NewREPL(loop)
+	repl := NewREPL(context.Background(), loop)
 	defer repl.cancel()
 
 	origOut := os.Stdout
@@ -3400,7 +3400,7 @@ func TestCmdHFF_Info_NoRepo(t *testing.T) {
 
 func TestCmdHFF_Download_NoRepo(t *testing.T) {
 	loop := makeTestLoop(nil)
-	repl := NewREPL(loop)
+	repl := NewREPL(context.Background(), loop)
 	defer repl.cancel()
 
 	origOut := os.Stdout
@@ -3420,7 +3420,7 @@ func TestCmdHFF_Download_NoRepo(t *testing.T) {
 
 func TestCmdHFFSearch_NetworkError_DoesNotPropagate(t *testing.T) {
 	loop := makeTestLoop(nil)
-	repl := NewREPL(loop)
+	repl := NewREPL(context.Background(), loop)
 	defer repl.cancel()
 	// Point the context to a cancelled context so HFSearchGGUF fails immediately.
 	ctx, cancel := context.WithCancel(context.Background())
@@ -3445,7 +3445,7 @@ func TestCmdHFFSearch_NetworkError_DoesNotPropagate(t *testing.T) {
 
 func TestCmdHFFInfo_NetworkError_DoesNotPropagate(t *testing.T) {
 	loop := makeTestLoop(nil)
-	repl := NewREPL(loop)
+	repl := NewREPL(context.Background(), loop)
 	defer repl.cancel()
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
@@ -3468,7 +3468,7 @@ func TestCmdHFFInfo_NetworkError_DoesNotPropagate(t *testing.T) {
 
 func TestCmdHFFDownload_NoFilename_CallsInfo(t *testing.T) {
 	loop := makeTestLoop(nil)
-	repl := NewREPL(loop)
+	repl := NewREPL(context.Background(), loop)
 	defer repl.cancel()
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
@@ -3492,7 +3492,7 @@ func TestCmdHFFDownload_NoFilename_CallsInfo(t *testing.T) {
 
 func TestCmdHFFDownload_WithFilename_NetworkError(t *testing.T) {
 	loop := makeTestLoop(nil)
-	repl := NewREPL(loop)
+	repl := NewREPL(context.Background(), loop)
 	defer repl.cancel()
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
@@ -3527,7 +3527,7 @@ func TestCmdHFFDownload_RefreshCalled_OnSuccess(t *testing.T) {
 	llm.ReloadGGUFRegistry()
 
 	loop := makeTestLoop(nil)
-	repl := NewREPL(loop)
+	repl := NewREPL(context.Background(), loop)
 	defer repl.cancel()
 
 	refreshCalled := false
@@ -3550,7 +3550,7 @@ func TestCmdProcessesList_WithEntries_FormatsTable(t *testing.T) {
 	// This test validates the header format when entries slice is non-nil via
 	// the pageLines path. We reach the same output by verifying the empty case.
 	loop := makeTestLoop(nil)
-	repl := NewREPL(loop)
+	repl := NewREPL(context.Background(), loop)
 	defer repl.cancel()
 
 	origOut := os.Stdout
@@ -3574,7 +3574,7 @@ func TestCmdProcessesList_WithEntries_FormatsTable(t *testing.T) {
 
 func TestStartLocalModelServer_NoService_NoOp(_ *testing.T) {
 	loop := makeTestLoop(nil)
-	repl := NewREPL(loop)
+	repl := NewREPL(context.Background(), loop)
 	defer repl.cancel()
 	// Should return immediately with no panic when ModelService is nil
 	repl.startLocalModelServer("some-model")
@@ -3584,7 +3584,7 @@ func TestStartLocalModelServer_UnknownBackend_NoOp(t *testing.T) {
 	loop := makeTestLoop(nil)
 	loop.config.ModelService = &mockModelService{}
 	loop.config.Backend = "anthropic" // not a local backend
-	repl := NewREPL(loop)
+	repl := NewREPL(context.Background(), loop)
 	defer repl.cancel()
 	// Should return immediately without calling download/serve
 	svc := loop.config.ModelService.(*mockModelService)
@@ -3598,7 +3598,7 @@ func TestStartLocalModelServer_LocalBackend_CallsService(t *testing.T) {
 	loop := makeTestLoop(nil)
 	loop.config.ModelService = svc
 	loop.config.Backend = llm.BackendGGUF
-	repl := NewREPL(loop)
+	repl := NewREPL(context.Background(), loop)
 	defer repl.cancel()
 
 	origReady := llm.WaitForCompletionsReadyFunc
@@ -3626,7 +3626,7 @@ func TestStartLocalModelServer_CanceledCtx_ReturnsFast(t *testing.T) {
 	loop := makeTestLoop(nil)
 	loop.config.ModelService = svc
 	loop.config.Backend = llm.BackendGGUF
-	repl := NewREPL(loop)
+	repl := NewREPL(context.Background(), loop)
 	defer repl.cancel()
 
 	repl.cancel() // simulate Ctrl+C before/while starting the server
@@ -3656,7 +3656,7 @@ func TestApplyModelSwitch_CanceledRevertsModel(t *testing.T) {
 	loop.config.Model = "old-model"
 	loop.config.Backend = llm.BackendGGUF
 	loop.config.BaseURL = "http://old:1/v1"
-	repl := NewREPL(loop)
+	repl := NewREPL(context.Background(), loop)
 	defer repl.cancel()
 	repl.modelTypes = map[string]string{"new-model": modelTypeGGUF}
 
@@ -3683,7 +3683,7 @@ func TestApplyModelSwitch_CanceledRevertsModel(t *testing.T) {
 func TestContextSizeHint_LocalOverflowSuggestsSize(t *testing.T) {
 	loop := makeTestLoop(nil)
 	loop.config.Backend = llm.BackendGGUF
-	repl := NewREPL(loop)
+	repl := NewREPL(context.Background(), loop)
 	defer repl.cancel()
 
 	err := errors.New(
@@ -3699,7 +3699,7 @@ func TestContextSizeHint_LocalOverflowSuggestsSize(t *testing.T) {
 func TestContextSizeHint_UnparsableSizeFallsBack(t *testing.T) {
 	loop := makeTestLoop(nil)
 	loop.config.Backend = llm.BackendFile
-	repl := NewREPL(loop)
+	repl := NewREPL(context.Background(), loop)
 	defer repl.cancel()
 
 	hint := repl.contextSizeHint(errors.New("prompt is too long"))
@@ -3709,7 +3709,7 @@ func TestContextSizeHint_UnparsableSizeFallsBack(t *testing.T) {
 func TestContextSizeHint_CloudBackendNoHint(t *testing.T) {
 	loop := makeTestLoop(nil)
 	loop.config.Backend = "anthropic"
-	repl := NewREPL(loop)
+	repl := NewREPL(context.Background(), loop)
 	defer repl.cancel()
 
 	hint := repl.contextSizeHint(errors.New("prompt is too long"))
@@ -3719,7 +3719,7 @@ func TestContextSizeHint_CloudBackendNoHint(t *testing.T) {
 func TestContextSizeHint_NonOverflowNoHint(t *testing.T) {
 	loop := makeTestLoop(nil)
 	loop.config.Backend = llm.BackendGGUF
-	repl := NewREPL(loop)
+	repl := NewREPL(context.Background(), loop)
 	defer repl.cancel()
 
 	hint := repl.contextSizeHint(errors.New("connection refused"))
@@ -3734,7 +3734,7 @@ var _ = llm.BackendGGUF
 
 func TestModelTag_CloudModel(t *testing.T) {
 	loop := makeTestLoop(nil)
-	repl := NewREPL(loop)
+	repl := NewREPL(context.Background(), loop)
 	defer repl.cancel()
 	repl.SetCloudModelBackends(map[string]string{"mymodel": "openai"})
 	repl.SetProviderStatus(map[string]bool{"openai": false})
@@ -3744,7 +3744,7 @@ func TestModelTag_CloudModel(t *testing.T) {
 
 func TestModelTag_CloudEnabled(t *testing.T) {
 	loop := makeTestLoop(nil)
-	repl := NewREPL(loop)
+	repl := NewREPL(context.Background(), loop)
 	defer repl.cancel()
 	repl.SetCloudModelBackends(map[string]string{"mymodel": "openai"})
 	repl.SetProviderStatus(map[string]bool{"openai": true})
@@ -3754,7 +3754,7 @@ func TestModelTag_CloudEnabled(t *testing.T) {
 
 func TestModelTag_CachedGGUF(t *testing.T) {
 	loop := makeTestLoop(nil)
-	repl := NewREPL(loop)
+	repl := NewREPL(context.Background(), loop)
 	defer repl.cancel()
 	repl.SetDownloadedModels(map[string]bool{"my-model": true})
 	repl.SetModelTypes(map[string]string{"my-model": modelTypeGGUF})
@@ -3765,7 +3765,7 @@ func TestModelTag_CachedGGUF(t *testing.T) {
 
 func TestModelTag_CachedLlamafile(t *testing.T) {
 	loop := makeTestLoop(nil)
-	repl := NewREPL(loop)
+	repl := NewREPL(context.Background(), loop)
 	defer repl.cancel()
 	repl.SetDownloadedModels(map[string]bool{"my-model": true})
 	repl.SetModelTypes(map[string]string{"my-model": modelTypeLLamafile})
@@ -3776,7 +3776,7 @@ func TestModelTag_CachedLlamafile(t *testing.T) {
 
 func TestModelTag_CachedOllama(t *testing.T) {
 	loop := makeTestLoop(nil)
-	repl := NewREPL(loop)
+	repl := NewREPL(context.Background(), loop)
 	defer repl.cancel()
 	repl.SetDownloadedModels(map[string]bool{"my-model": true})
 	repl.SetModelTypes(map[string]string{"my-model": modelTypeOllama})
@@ -3786,7 +3786,7 @@ func TestModelTag_CachedOllama(t *testing.T) {
 
 func TestModelTag_LlamafileNotCached(t *testing.T) {
 	loop := makeTestLoop(nil)
-	repl := NewREPL(loop)
+	repl := NewREPL(context.Background(), loop)
 	defer repl.cancel()
 	repl.SetModelTypes(map[string]string{"my-model": modelTypeLLamafile})
 	tag := modelTag(repl, "my-model")
@@ -3796,7 +3796,7 @@ func TestModelTag_LlamafileNotCached(t *testing.T) {
 
 func TestModelTag_GGUFNotCached(t *testing.T) {
 	loop := makeTestLoop(nil)
-	repl := NewREPL(loop)
+	repl := NewREPL(context.Background(), loop)
 	defer repl.cancel()
 	repl.SetModelTypes(map[string]string{"my-model": modelTypeGGUF})
 	tag := modelTag(repl, "my-model")
@@ -3806,7 +3806,7 @@ func TestModelTag_GGUFNotCached(t *testing.T) {
 
 func TestModelTag_OllamaNotCached(t *testing.T) {
 	loop := makeTestLoop(nil)
-	repl := NewREPL(loop)
+	repl := NewREPL(context.Background(), loop)
 	defer repl.cancel()
 	repl.SetModelTypes(map[string]string{"my-model": modelTypeOllama})
 	tag := modelTag(repl, "my-model")
@@ -3815,7 +3815,7 @@ func TestModelTag_OllamaNotCached(t *testing.T) {
 
 func TestModelTag_WithRepo(t *testing.T) {
 	loop := makeTestLoop(nil)
-	repl := NewREPL(loop)
+	repl := NewREPL(context.Background(), loop)
 	defer repl.cancel()
 	repl.SetModelTypes(map[string]string{"my-model": modelTypeGGUF})
 	repl.SetModelRepos(map[string]string{"my-model": "org/repo"})
@@ -3827,7 +3827,7 @@ func TestModelTag_WithRepo(t *testing.T) {
 
 func TestWriteLocalModelRow_Current(t *testing.T) {
 	loop := makeTestLoop(nil)
-	repl := NewREPL(loop)
+	repl := NewREPL(context.Background(), loop)
 	defer repl.cancel()
 	repl.SetModelNames([]string{"current-model"})
 	repl.SetDownloadedModels(map[string]bool{"current-model": false})
@@ -3838,7 +3838,7 @@ func TestWriteLocalModelRow_Current(t *testing.T) {
 
 func TestWriteLocalModelRow_Downloaded(t *testing.T) {
 	loop := makeTestLoop(nil)
-	repl := NewREPL(loop)
+	repl := NewREPL(context.Background(), loop)
 	defer repl.cancel()
 	repl.SetModelNames([]string{"dl-model"})
 	repl.SetDownloadedModels(map[string]bool{"dl-model": true})
@@ -3849,7 +3849,7 @@ func TestWriteLocalModelRow_Downloaded(t *testing.T) {
 
 func TestWriteLocalModelRow_NotDownloaded(t *testing.T) {
 	loop := makeTestLoop(nil)
-	repl := NewREPL(loop)
+	repl := NewREPL(context.Background(), loop)
 	defer repl.cancel()
 	repl.SetModelNames([]string{"plain-model"})
 	var buf strings.Builder
@@ -3920,7 +3920,7 @@ func TestCmdSessionBranches_Empty(t *testing.T) {
 	loop := makeTestLoop(nil)
 	session := NewSession(0)
 	loop.session = session
-	repl := NewREPL(loop)
+	repl := NewREPL(context.Background(), loop)
 	defer repl.cancel()
 
 	err := repl.cmdSessionBranches()
@@ -3935,7 +3935,7 @@ func TestCmdSessionBranches_WithStash(t *testing.T) {
 	id := session.Checkpoint()
 	session.RestoreTo(id)
 	loop.session = session
-	repl := NewREPL(loop)
+	repl := NewREPL(context.Background(), loop)
 	defer repl.cancel()
 
 	err := repl.cmdSessionBranches()
@@ -3949,7 +3949,7 @@ func TestCmdEditor_CatMode(t *testing.T) {
 	t.Setenv("EDITOR", "")
 
 	loop := makeTestLoop(nil)
-	repl := NewREPL(loop)
+	repl := NewREPL(context.Background(), loop)
 	defer repl.cancel()
 
 	// cat with no stdin writes nothing - should handle gracefully.
@@ -3963,7 +3963,7 @@ func TestCmdEditor_FallbackToVi(t *testing.T) {
 	t.Setenv("VISUAL", "")
 	t.Setenv("EDITOR", "/nonexistent-editor-xyz")
 	loop := makeTestLoop(nil)
-	repl := NewREPL(loop)
+	repl := NewREPL(context.Background(), loop)
 	defer repl.cancel()
 
 	err := repl.cmdEditor()
@@ -3975,7 +3975,7 @@ func TestCmdEditor_FallbackToVi(t *testing.T) {
 
 func TestAutoSaveOnExit_NoStore(_ *testing.T) {
 	loop := makeTestLoop(nil)
-	repl := NewREPL(loop)
+	repl := NewREPL(context.Background(), loop)
 	defer repl.cancel()
 
 	// Should not panic when store is nil.
@@ -3987,7 +3987,7 @@ func TestAutoSaveOnExit_NoTurns(t *testing.T) {
 	store := NewSessionStore(dir)
 	loop := makeTestLoop(nil)
 	loop.store = store
-	repl := NewREPL(loop)
+	repl := NewREPL(context.Background(), loop)
 	defer repl.cancel()
 
 	// Should not save when session has 0 turns.
@@ -4000,7 +4000,7 @@ func TestAutoSaveOnExit_SavesSession(t *testing.T) {
 	loop := makeTestLoop(nil)
 	loop.session.Append("hi", "hello")
 	loop.store = store
-	repl := NewREPL(loop)
+	repl := NewREPL(context.Background(), loop)
 	defer repl.cancel()
 
 	r, w, _ := os.Pipe()
@@ -4024,7 +4024,7 @@ func TestCmdSessionImport_FileNotFound(t *testing.T) {
 	store := NewSessionStore(dir)
 	loop := makeTestLoop(nil)
 	loop.store = store
-	repl := NewREPL(loop)
+	repl := NewREPL(context.Background(), loop)
 	defer repl.cancel()
 
 	err := repl.cmdSessionImport(store, "/nonexistent-file-xyz")
@@ -4036,7 +4036,7 @@ func TestCmdSessionImport_Success(t *testing.T) {
 	store := NewSessionStore(dir)
 	loop := makeTestLoop(nil)
 	loop.store = store
-	repl := NewREPL(loop)
+	repl := NewREPL(context.Background(), loop)
 	defer repl.cancel()
 
 	// Create a valid session file to import.
@@ -4054,7 +4054,7 @@ func TestCmdSessionImport_Success(t *testing.T) {
 func TestCmdClear_WithFewTurns(t *testing.T) {
 	loop := makeTestLoop(nil)
 	loop.session.Append("hi", "hello")
-	repl := NewREPL(loop)
+	repl := NewREPL(context.Background(), loop)
 	defer repl.cancel()
 
 	err := repl.cmdClear()
@@ -4104,7 +4104,7 @@ func TestParamsForModel_PrefersLlamafileOverGGUF(t *testing.T) {
 
 func TestPrioritizeModelNames_Empty(t *testing.T) {
 	loop := makeTestLoop(nil)
-	repl := NewREPL(loop)
+	repl := NewREPL(context.Background(), loop)
 	defer repl.cancel()
 	result := repl.prioritizeModelNames(nil, 10)
 	assert.Empty(t, result)
@@ -4112,7 +4112,7 @@ func TestPrioritizeModelNames_Empty(t *testing.T) {
 
 func TestPrioritizeModelNames_AllTiers(t *testing.T) {
 	loop := makeTestLoop(nil)
-	repl := NewREPL(loop)
+	repl := NewREPL(context.Background(), loop)
 	defer repl.cancel()
 	repl.downloadedModels = map[string]bool{"cached": true}
 	repl.cloudModelBackends = map[string]string{"enabled": "openai"}
@@ -4135,7 +4135,7 @@ func TestPrioritizeModelNames_AllTiers(t *testing.T) {
 
 func TestPrioritizeModelNames_Truncated(t *testing.T) {
 	loop := makeTestLoop(nil)
-	repl := NewREPL(loop)
+	repl := NewREPL(context.Background(), loop)
 	defer repl.cancel()
 	repl.downloadedModels = map[string]bool{"a": true, "b": true, "c": true}
 	result := repl.prioritizeModelNames([]string{"a", "b", "c", "d"}, 2)
@@ -4145,7 +4145,7 @@ func TestPrioritizeModelNames_Truncated(t *testing.T) {
 
 func TestPrioritizeModelNames_DefaultCloudOnly(t *testing.T) {
 	loop := makeTestLoop(nil)
-	repl := NewREPL(loop)
+	repl := NewREPL(context.Background(), loop)
 	defer repl.cancel()
 	result := repl.prioritizeModelNames([]string{"gpt4", "claude", "gemini"}, 10)
 	require.Len(t, result, 3)
@@ -4155,7 +4155,7 @@ func TestPrioritizeModelNames_DefaultCloudOnly(t *testing.T) {
 
 func TestDoModelCompletion_EmptyToken(t *testing.T) {
 	loop := makeTestLoop(nil)
-	repl := NewREPL(loop)
+	repl := NewREPL(context.Background(), loop)
 	defer repl.cancel()
 	repl.modelNames = []string{"llama3.2:1b", "llama3.2:3b", "qwen2.5"}
 
@@ -4166,7 +4166,7 @@ func TestDoModelCompletion_EmptyToken(t *testing.T) {
 
 func TestDoModelCompletion_PrefixMatch(t *testing.T) {
 	loop := makeTestLoop(nil)
-	repl := NewREPL(loop)
+	repl := NewREPL(context.Background(), loop)
 	defer repl.cancel()
 	repl.modelNames = []string{"llama3.2:1b", "llama3.2:3b", "qwen2.5"}
 	repl.downloadedModels = map[string]bool{"llama3.2:1b": true}
@@ -4184,7 +4184,7 @@ func TestDoModelCompletion_PrefixMatch(t *testing.T) {
 
 func TestDoModelCompletion_NoMatch(t *testing.T) {
 	loop := makeTestLoop(nil)
-	repl := NewREPL(loop)
+	repl := NewREPL(context.Background(), loop)
 	defer repl.cancel()
 	repl.modelNames = []string{"llama3.2:1b", "qwen2.5"}
 
@@ -4197,7 +4197,7 @@ func TestDoModelCompletion_NoMatch(t *testing.T) {
 
 func TestDoSessionIDCompletion_NoStore(t *testing.T) {
 	loop := makeTestLoop(nil)
-	repl := NewREPL(loop)
+	repl := NewREPL(context.Background(), loop)
 	defer repl.cancel()
 
 	results, tokenLen := repl.doSessionIDCompletion("", 0)
@@ -4210,7 +4210,7 @@ func TestDoSessionIDCompletion_EmptyStore(t *testing.T) {
 	store := NewSessionStore(dir)
 	loop := makeTestLoop(nil)
 	loop.store = store
-	repl := NewREPL(loop)
+	repl := NewREPL(context.Background(), loop)
 	defer repl.cancel()
 
 	results, tokenLen := repl.doSessionIDCompletion("", 0)
@@ -4225,7 +4225,7 @@ func TestDoSessionIDCompletion_WithMetas(t *testing.T) {
 	store := NewSessionStore(dir)
 	loop := makeTestLoop(nil)
 	loop.store = store
-	repl := NewREPL(loop)
+	repl := NewREPL(context.Background(), loop)
 	defer repl.cancel()
 
 	results, tokenLen := repl.doSessionIDCompletion("", 0)
@@ -4243,7 +4243,7 @@ func TestDoSessionIDCompletion_TokenFilter(t *testing.T) {
 	store := NewSessionStore(dir)
 	loop := makeTestLoop(nil)
 	loop.store = store
-	repl := NewREPL(loop)
+	repl := NewREPL(context.Background(), loop)
 	defer repl.cancel()
 
 	results, tokenLen := repl.doSessionIDCompletion("session-xyz", 12)
@@ -4255,7 +4255,7 @@ func TestDoSessionIDCompletion_TokenFilter(t *testing.T) {
 
 func TestDoSessionGotoCompletion_NoMessages(t *testing.T) {
 	loop := makeTestLoop(nil)
-	repl := NewREPL(loop)
+	repl := NewREPL(context.Background(), loop)
 	defer repl.cancel()
 
 	results, tokenLen := repl.doSessionGotoCompletion("", 0)
@@ -4267,7 +4267,7 @@ func TestDoSessionGotoCompletion_WithMessages(t *testing.T) {
 	loop := makeTestLoop(nil)
 	loop.session.Append("first turn", "response 1")
 	loop.session.Append("second turn", "response 2")
-	repl := NewREPL(loop)
+	repl := NewREPL(context.Background(), loop)
 	defer repl.cancel()
 
 	results, tokenLen := repl.doSessionGotoCompletion("", 0)
@@ -4278,7 +4278,7 @@ func TestDoSessionGotoCompletion_WithMessages(t *testing.T) {
 func TestDoSessionGotoCompletion_TokenFilter(t *testing.T) {
 	loop := makeTestLoop(nil)
 	loop.session.Append("hello", "world")
-	repl := NewREPL(loop)
+	repl := NewREPL(context.Background(), loop)
 	defer repl.cancel()
 
 	results, tokenLen := repl.doSessionGotoCompletion("999999", 6)
@@ -4290,7 +4290,7 @@ func TestDoSessionGotoCompletion_TokenFilter(t *testing.T) {
 
 func TestWriteCloudModelRow_Current(t *testing.T) {
 	loop := makeTestLoop(nil)
-	repl := NewREPL(loop)
+	repl := NewREPL(context.Background(), loop)
 	defer repl.cancel()
 	var buf strings.Builder
 	m := CloudModel{ID: "claude-opus-4-8", Backend: "anthropic", Desc: "most capable"}
@@ -4302,7 +4302,7 @@ func TestWriteCloudModelRow_Current(t *testing.T) {
 
 func TestWriteCloudModelRow_Ready(t *testing.T) {
 	loop := makeTestLoop(nil)
-	repl := NewREPL(loop)
+	repl := NewREPL(context.Background(), loop)
 	defer repl.cancel()
 	var buf strings.Builder
 	m := CloudModel{ID: "claude-opus-4-8", Backend: "anthropic", Desc: "most capable"}
@@ -4314,7 +4314,7 @@ func TestWriteCloudModelRow_Ready(t *testing.T) {
 
 func TestWriteCloudModelRow_NotReady(t *testing.T) {
 	loop := makeTestLoop(nil)
-	repl := NewREPL(loop)
+	repl := NewREPL(context.Background(), loop)
 	defer repl.cancel()
 	var buf strings.Builder
 	m := CloudModel{ID: "claude-opus-4-8", Backend: "anthropic", Desc: "most capable"}
@@ -4327,7 +4327,7 @@ func TestWriteCloudModelRow_NotReady(t *testing.T) {
 
 func TestWriteLocalModelRow_WithRepo(t *testing.T) {
 	loop := makeTestLoop(nil)
-	repl := NewREPL(loop)
+	repl := NewREPL(context.Background(), loop)
 	defer repl.cancel()
 	repl.modelRepos = map[string]string{"llama3.2": "meta/llama-3.2"}
 	repl.modelTypes = map[string]string{"llama3.2": modelTypeLLamafile}
@@ -4338,7 +4338,7 @@ func TestWriteLocalModelRow_WithRepo(t *testing.T) {
 
 func TestWriteLocalModelRow_RepoGGUFNoURL(t *testing.T) {
 	loop := makeTestLoop(nil)
-	repl := NewREPL(loop)
+	repl := NewREPL(context.Background(), loop)
 	defer repl.cancel()
 	repl.modelTypes = map[string]string{"gguf-model": modelTypeGGUF}
 	var buf strings.Builder
@@ -4405,7 +4405,7 @@ func TestCmdClear_WithManyTurns(t *testing.T) {
 	for range compactMinTurns + 1 {
 		loop.session.Append("user msg", "assistant reply")
 	}
-	repl := NewREPL(loop)
+	repl := NewREPL(context.Background(), loop)
 	defer repl.cancel()
 
 	err := repl.cmdClear()
@@ -4419,7 +4419,7 @@ func TestCmdClear_WithSummary(t *testing.T) {
 	for range compactMinTurns + 1 {
 		loop.session.Append("user msg", "assistant reply")
 	}
-	repl := NewREPL(loop)
+	repl := NewREPL(context.Background(), loop)
 	defer repl.cancel()
 
 	err := repl.cmdClear()
@@ -4510,7 +4510,7 @@ func TestCmdHFFSearch_WithResults_RendersTable(t *testing.T) {
 	t.Cleanup(func() { hfSearchFunc = orig })
 
 	loop := makeTestLoop(nil)
-	repl := NewREPL(loop)
+	repl := NewREPL(context.Background(), loop)
 	defer repl.cancel()
 
 	r, w, _ := os.Pipe()
@@ -4536,7 +4536,7 @@ func TestCmdHFFSearch_NoResults(t *testing.T) {
 	t.Cleanup(func() { hfSearchFunc = orig })
 
 	loop := makeTestLoop(nil)
-	repl := NewREPL(loop)
+	repl := NewREPL(context.Background(), loop)
 	defer repl.cancel()
 
 	r, w, _ := os.Pipe()
@@ -4568,7 +4568,7 @@ func TestCmdHFFInfo_WithGGUFFiles_RendersTable(t *testing.T) {
 	t.Cleanup(func() { hfInfoFunc = orig })
 
 	loop := makeTestLoop(nil)
-	repl := NewREPL(loop)
+	repl := NewREPL(context.Background(), loop)
 	defer repl.cancel()
 
 	r, w, _ := os.Pipe()
@@ -4596,7 +4596,7 @@ func TestCmdHFFInfo_NoGGUFFiles(t *testing.T) {
 	t.Cleanup(func() { hfInfoFunc = orig })
 
 	loop := makeTestLoop(nil)
-	repl := NewREPL(loop)
+	repl := NewREPL(context.Background(), loop)
 	defer repl.cancel()
 
 	r, w, _ := os.Pipe()
@@ -4638,7 +4638,7 @@ func TestCmdProcessesList_WithServers_RendersTable(t *testing.T) {
 	t.Cleanup(func() { listLocalServersFunc = orig })
 
 	loop := makeTestLoop(nil)
-	repl := NewREPL(loop)
+	repl := NewREPL(context.Background(), loop)
 	defer repl.cancel()
 
 	r, w, _ := os.Pipe()
@@ -4669,7 +4669,7 @@ func TestCmdHFFDownload_Success_PrintsDestAndAlias(t *testing.T) {
 	t.Cleanup(func() { hfDownloadFunc = orig })
 
 	loop := makeTestLoop(nil)
-	repl := NewREPL(loop)
+	repl := NewREPL(context.Background(), loop)
 	defer repl.cancel()
 
 	r, w, _ := os.Pipe()
@@ -4696,7 +4696,7 @@ func TestCmdHFFDownload_Success_CallsRefreshModelsFn(t *testing.T) {
 
 	refreshCalled := false
 	loop := makeTestLoop(nil)
-	repl := NewREPL(loop)
+	repl := NewREPL(context.Background(), loop)
 	defer repl.cancel()
 	repl.refreshModelsFn = func() { refreshCalled = true }
 
@@ -4783,7 +4783,7 @@ func TestRunStreaming_ShowsSpinnerWhenSlow(t *testing.T) {
 		},
 	}
 	loop := newStreamingLoop(ms, 1)
-	repl := NewREPL(loop)
+	repl := NewREPL(context.Background(), loop)
 	defer repl.cancel()
 
 	resp, err := repl.runWithThinking(context.Background(), "hello")
@@ -4803,7 +4803,7 @@ func TestRunStreaming_NoSpinnerForFastResponse(t *testing.T) {
 		responses: []mockStreamResponse{{content: "quick response"}},
 	}
 	loop := newStreamingLoop(ms, 1)
-	repl := NewREPL(loop)
+	repl := NewREPL(context.Background(), loop)
 	defer repl.cancel()
 
 	resp, err := repl.runWithThinking(context.Background(), "hello")
@@ -4827,7 +4827,7 @@ func TestRunStreaming_SpinnerClearedBeforeOutput(t *testing.T) {
 		},
 	}
 	loop := newStreamingLoop(ms, 1)
-	repl := NewREPL(loop)
+	repl := NewREPL(context.Background(), loop)
 	defer repl.cancel()
 
 	resp, _ := repl.runWithThinking(context.Background(), "hello")

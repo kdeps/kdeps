@@ -178,6 +178,11 @@ type agentLoopFlags struct {
 // Discovered items from ~/.kdeps are registered according to persisted settings
 // (default: all enabled). Use /settings inside the REPL to change selections.
 func runAgentLoopCmd(path string, flags *agentLoopFlags) error {
+	// Single root context for the entire agent loop session lifetime.
+	// All derived contexts (REPL, model prefetch, tool execution) derive from this.
+	rootCtx, rootCancel := context.WithCancel(context.Background())
+	defer rootCancel()
+
 	// The REPL owns SIGINT (Ctrl+C cancels the current turn/tool without
 	// exiting); tell the llm package's local-server shutdown hook not to also
 	// kill the running local model server on every Ctrl+C. Graceful shutdown
@@ -186,7 +191,7 @@ func runAgentLoopCmd(path string, flags *agentLoopFlags) error {
 
 	registry := tools.NewRegistry()
 	tools.RegisterFFormatTools(registry)
-	agent.RegisterBuiltinTools(context.Background(), registry)
+	agent.RegisterBuiltinTools(rootCtx, registry)
 
 	var (
 		hostWorkflow *domain.Workflow
@@ -249,7 +254,7 @@ func runAgentLoopCmd(path string, flags *agentLoopFlags) error {
 	// this startup phase cancels the download/load and exits; the signal watch
 	// is released before repl.Run() so the REPL owns SIGINT afterwards.
 	prefetchCtx, stopPrefetchSignals := signal.NotifyContext(
-		context.Background(), os.Interrupt, syscall.SIGTERM,
+		rootCtx, os.Interrupt, syscall.SIGTERM,
 	)
 	prefetchModel(prefetchCtx, resolveAgentBackend(flags.Backend), startModel)
 	interrupted := prefetchCtx.Err() != nil
@@ -259,7 +264,7 @@ func runAgentLoopCmd(path string, flags *agentLoopFlags) error {
 	}
 
 	loop := agent.New(eng, hostWorkflow, registry, cfg)
-	repl := agent.NewREPL(loop)
+	repl := agent.NewREPL(rootCtx, loop)
 	defer llm.ShutdownLocalServers()
 
 	wireREPL(repl, registry, flags)

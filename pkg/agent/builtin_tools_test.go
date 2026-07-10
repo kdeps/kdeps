@@ -249,14 +249,14 @@ func makeTestSQLiteDB(t *testing.T) string {
 
 func TestSQLListTables_ReturnsTableNames(t *testing.T) {
 	dbPath := makeTestSQLiteDB(t)
-	result, err := sqlListTables(dbPath)
+	result, err := sqlListTables(context.Background(), dbPath)
 	require.NoError(t, err)
 	assert.Contains(t, result, "users")
 }
 
 func TestSQLDescribeTable_ReturnsSchema(t *testing.T) {
 	dbPath := makeTestSQLiteDB(t)
-	result, err := sqlDescribeTable(dbPath, "users")
+	result, err := sqlDescribeTable(context.Background(), dbPath, "users")
 	require.NoError(t, err)
 	assert.Contains(t, result, "users")
 	assert.Contains(t, result, "id")
@@ -266,7 +266,7 @@ func TestSQLDescribeTable_ReturnsSchema(t *testing.T) {
 
 func TestSQLExecQuery_ReturnsRows(t *testing.T) {
 	dbPath := makeTestSQLiteDB(t)
-	result, err := sqlExecQuery(dbPath, "SELECT id, name FROM users ORDER BY id")
+	result, err := sqlExecQuery(context.Background(), dbPath, "SELECT id, name FROM users ORDER BY id")
 	require.NoError(t, err)
 	assert.Contains(t, result, "Alice")
 	assert.Contains(t, result, "Bob")
@@ -1445,7 +1445,7 @@ func TestSQLExecQuery_InvalidSQL(t *testing.T) {
 	require.NoError(t, db.Close())
 
 	// Test NULL value handling in sqlExecQuery: LC sqlite3 engine returns empty string for NULL.
-	result, err := sqlExecQuery(dbPath, "SELECT id, val, nullable FROM t")
+	result, err := sqlExecQuery(context.Background(), dbPath, "SELECT id, val, nullable FROM t")
 	require.NoError(t, err)
 	assert.Contains(t, result, "id")
 	assert.Contains(t, result, "val")
@@ -1460,7 +1460,7 @@ func TestSQLExecQuery_BadSQL(t *testing.T) {
 	require.NoError(t, db.Close())
 
 	// Bad SQL triggers query error path
-	_, err = sqlExecQuery(dbPath, "SELECT * FROM nonexistent_table_xyz")
+	_, err = sqlExecQuery(context.Background(), dbPath, "SELECT * FROM nonexistent_table_xyz")
 	require.Error(t, err)
 }
 
@@ -1567,13 +1567,13 @@ func TestVoyageRerank_NonOKStatus(t *testing.T) {
 
 func TestSQLListTables_NoDB(t *testing.T) {
 	// Covers sqlListTables db open error path.
-	_, err := sqlListTables("")
+	_, err := sqlListTables(context.Background(), "")
 	require.Error(t, err)
 }
 
 func TestSQLDescribeTable_NoDB(t *testing.T) {
 	// sqlDescribeTable fails with invalid db path.
-	_, err := sqlDescribeTable("", "test_table")
+	_, err := sqlDescribeTable(context.Background(), "", "test_table")
 	require.Error(t, err)
 }
 
@@ -1654,7 +1654,7 @@ func TestSQLListTables_QueryError(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "corrupt.db")
 	require.NoError(t, os.WriteFile(path, []byte("not a sqlite database"), 0o600))
-	_, err := sqlListTables(path)
+	_, err := sqlListTables(context.Background(), path)
 	require.Error(t, err)
 }
 
@@ -1662,13 +1662,13 @@ func TestSQLDescribeTable_QueryError(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "corrupt.db")
 	require.NoError(t, os.WriteFile(path, []byte("not a sqlite database"), 0o600))
-	_, err := sqlDescribeTable(path, "users")
+	_, err := sqlDescribeTable(context.Background(), path, "users")
 	require.Error(t, err)
 }
 
 func TestSQLExecQuery_OpenError(t *testing.T) {
 	// Empty dbPath triggers sqlOpenDB error, covering the err != nil branch in sqlExecQuery.
-	_, err := sqlExecQuery("", "SELECT 1")
+	_, err := sqlExecQuery(context.Background(), "", "SELECT 1")
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "db_path is required")
 }

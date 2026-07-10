@@ -160,7 +160,10 @@ func downloadWithResume(ctx context.Context, dest, url string) error {
 	}
 	args = append(args, url)
 	cmd := exec.CommandContext(ctx, aria2c, args...)
-	outFilter := &aria2cNoiseFilter{w: os.Stdout}
+	// Route all output to stderr. Readline manages stdout in raw mode and
+	// \r-based progress lines corrupt its display state; stderr is not
+	// touched by readline and the progress remains visible in the terminal.
+	outFilter := &aria2cNoiseFilter{w: os.Stderr}
 	errFilter := &aria2cNoiseFilter{w: os.Stderr}
 	cmd.Stdout = outFilter
 	cmd.Stderr = errFilter

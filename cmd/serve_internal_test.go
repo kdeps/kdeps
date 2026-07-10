@@ -387,7 +387,7 @@ func TestRunREPL_NormalFlow(t *testing.T) {
 	require.NoError(t, err)
 	stdinW.Close()
 
-	err = agent.NewREPL(loop).Run()
+	err = agent.NewREPL(context.Background(), loop).Run()
 	require.NoError(t, err)
 
 	stdoutW.Close()
@@ -427,7 +427,7 @@ func TestRunREPL_EmptyInput(t *testing.T) {
 	require.NoError(t, err)
 	stdinW.Close()
 
-	err = agent.NewREPL(loop).Run()
+	err = agent.NewREPL(context.Background(), loop).Run()
 	require.NoError(t, err)
 
 	stdoutW.Close()
@@ -472,7 +472,7 @@ func TestRunREPL_ErrorFromRun(t *testing.T) {
 	_, err = stdinW.WriteString("hello\n/exit\n")
 	require.NoError(t, err)
 
-	err = agent.NewREPL(loop).Run()
+	err = agent.NewREPL(context.Background(), loop).Run()
 	require.NoError(t, err)
 	stdinW.Close()
 
@@ -680,7 +680,7 @@ func TestRunREPL_EOF(t *testing.T) {
 	// Close write end immediately -- no input at all.
 	stdinW.Close()
 
-	err = agent.NewREPL(loop).Run()
+	err = agent.NewREPL(context.Background(), loop).Run()
 	require.NoError(t, err)
 
 	stdoutW.Close()
@@ -712,7 +712,7 @@ func TestRunREPL_StartupNotices(t *testing.T) {
 
 	stdinW.Close()
 
-	repl := agent.NewREPL(loop)
+	repl := agent.NewREPL(context.Background(), loop)
 	repl.SetStartupNotices([]string{"aria2c not installed — example notice"})
 	err = repl.Run()
 	require.NoError(t, err)
@@ -748,7 +748,7 @@ func TestRunREPL_StdinClosed(t *testing.T) {
 	stdinR.Close()
 
 	// The REPL exits cleanly; stdin errors in the fallback path are not propagated.
-	err = agent.NewREPL(loop).Run()
+	err = agent.NewREPL(context.Background(), loop).Run()
 	require.NoError(t, err)
 
 	stdoutW.Close()
@@ -889,7 +889,7 @@ func TestBuildTUIRunner_ReturnsClosure(t *testing.T) {
 
 func TestBuildModelPickerFn_ReturnsClosure(t *testing.T) {
 	loop := newTestLoop("mock", nil)
-	repl := agent.NewREPL(loop)
+	repl := agent.NewREPL(context.Background(), loop)
 	fn := buildModelPickerFn(repl)
 	require.NotNil(t, fn)
 	// The closure should not panic when called with an empty filter
@@ -904,7 +904,7 @@ func TestBuildModelPickerFn_ReturnsClosure(t *testing.T) {
 
 func TestBuildModelPickerFn_WithModelData(t *testing.T) {
 	loop := newTestLoop("mock", nil)
-	repl := agent.NewREPL(loop)
+	repl := agent.NewREPL(context.Background(), loop)
 	repl.SetModelNames([]string{"gpt-4o", "claude-sonnet-4-6"})
 	repl.SetDownloadedModels(map[string]bool{"gpt-4o": true})
 	repl.SetModelTypes(map[string]string{"gpt-4o": "", "claude-sonnet-4-6": ""})

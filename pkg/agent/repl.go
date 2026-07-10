@@ -51,7 +51,7 @@ var (
 	replThinkingDelay = 400 * time.Millisecond // delay before showing spinner
 	// spinnerOut is the writer for spinner frames and clear sequence. Defaults
 	// to os.Stdout; overridden in tests to capture spinner output without pipe races.
-	spinnerOut io.Writer = os.Stdout //nolint:gochecknoglobals // overridable in tests to capture spinner output
+	spinnerOut io.Writer = os.Stderr //nolint:gochecknoglobals // overridable in tests to capture spinner output; stderr avoids \r corruption of streaming stdout
 )
 
 const (
@@ -191,9 +191,10 @@ type REPL struct {
 	toolCancelMu       sync.Mutex
 }
 
-// NewREPL creates a new REPL for the given agent loop.
-func NewREPL(loop *Loop) *REPL {
-	loopCtx, loopCancel := context.WithCancel(context.Background())
+// NewREPL creates a new REPL for the given agent loop, deriving its context
+// tree from rootCtx (the single root for the entire session).
+func NewREPL(rootCtx context.Context, loop *Loop) *REPL {
+	loopCtx, loopCancel := context.WithCancel(rootCtx)
 	turnCtx, turnCancel := context.WithCancel(loopCtx)
 	r := &REPL{
 		loop:       loop,
@@ -381,10 +382,10 @@ type replCompleter struct {
 // doAtFileCompletion handles @path completions using fd when available.
 // Returns suffixes (the untyped portion after prefix) so readline inserts only
 // what is missing — not the full path — avoiding the @@ double-prefix bug.
-func doAtFileCompletion(prefix string) ([][]rune, int) {
+func doAtFileCompletion(ctx context.Context, prefix string) ([][]rune, int) {
 	var completions []string
 	if fd := fdBinPath(); fd != "" {
-		completions = filePathCompletionsFd(prefix, fd)
+		completions = filePathCompletionsFd(ctx, prefix, fd)
 	} else {
 		completions = filePathCompletions(prefix)
 	}
@@ -430,7 +431,7 @@ func (c *replCompleter) Do(line []rune, pos int) ([][]rune, int) {
 
 	// @file: fuzzy file completion; uses fd for deep search when available.
 	if strings.HasPrefix(token, "@") {
-		return doAtFileCompletion(token[1:])
+		return doAtFileCompletion(c.repl.loopCtx, token[1:])
 	}
 
 	// /command (no space typed yet): fuzzy command name completion.
@@ -476,7 +477,7 @@ func (c *replCompleter) Do(line []rune, pos int) ([][]rune, int) {
 			return c.repl.doSessionGotoCompletion(token, tokenLen)
 
 		case prefix == "/session import":
-			return doAtFileCompletion(token)
+			return doAtFileCompletion(c.repl.loopCtx, token)
 		}
 	}
 
@@ -876,8 +877,8 @@ func fdBinPath() string {
 
 // filePathCompletionsFd uses the fd binary for fast deep fuzzy file search.
 // Falls back to filePathCompletions on error.
-func filePathCompletionsFd(prefix, fdBin string) []string {
-	ctx, cancel := context.WithTimeout(context.Background(), fuzzyFdTimeout)
+func filePathCompletionsFd(ctx context.Context, prefix, fdBin string) []string {
+	ctx, cancel := context.WithTimeout(ctx, fuzzyFdTimeout)
 	defer cancel()
 
 	searchDir := "."
@@ -1006,7 +1007,8 @@ func (r *REPL) runStreaming(ctx context.Context, input string) (string, error) {
 	// Create a per-tool-execution context separate from the turn context.
 	// Ctrl+C during tool execution cancels this context only (killing the tool),
 	// while a second Ctrl+C cancels the full turn via r.ctx.
-	toolCtx, toolCancel := context.WithCancel(context.Background())
+	// Derives from loopCtx so loop shutdown also kills in-flight tools.
+	toolCtx, toolCancel := context.WithCancel(r.loopCtx)
 	bgCh := make(chan struct{}, 1)
 	r.toolCancelMu.Lock()
 	r.toolCancel = toolCancel
@@ -1251,7 +1253,7 @@ func (r *REPL) Run() error {
 
 	// Stale branch check - warn when branch is behind upstream.
 	if staleCwd, cwdErr := os.Getwd(); cwdErr == nil {
-		if fr, _ := CheckBranchFreshness(staleCwd); fr.Freshness != BranchFresh &&
+		if fr, _ := CheckBranchFreshness(r.loopCtx, staleCwd); fr.Freshness != BranchFresh &&
 			fr.Freshness != BranchUnknown {
 			msg := FormatStaleBranchWarning(fr)
 			if StaleBranchPolicyFromEnv() == StalePolicyBlock {
@@ -2833,7 +2835,7 @@ func (r *REPL) cmdCopy() error {
 		)
 		return nil
 	}
-	if clipErr := copyToClipboard(last); clipErr != nil {
+	if clipErr := copyToClipboard(r.loopCtx, last); clipErr != nil {
 		// Display clipboard errors but don't propagate them to the REPL dispatch loop.
 		fmt.Fprintf(os.Stdout, "%s\n", styleReplError.Render("Copy failed: "+clipErr.Error()))
 	} else {
@@ -2843,14 +2845,13 @@ func (r *REPL) cmdCopy() error {
 }
 
 // copyToClipboard writes text to the OS clipboard via the platform clipboard command.
-func copyToClipboard(text string) error {
+func copyToClipboard(ctx context.Context, text string) error {
 	cmds := [][]string{
 		{"pbcopy"},                           // macOS
 		{"xclip", "-selection", "clipboard"}, // Linux (xclip)
 		{"xsel", "--clipboard", "--input"},   // Linux (xsel)
 		{"clip"},                             // Windows
 	}
-	ctx := context.Background()
 	for _, argv := range cmds {
 		//nolint:gosec // controlled command list; argv comes from the hardcoded cmds table above
 		cmd := exec.CommandContext(ctx, argv[0], argv[1:]...)

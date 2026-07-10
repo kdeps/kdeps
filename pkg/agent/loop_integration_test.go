@@ -401,6 +401,65 @@ func TestDispatchStreamToolCall_InvalidArgs(t *testing.T) {
 	}
 }
 
+// TestRunStreaming_CtxCanceledDuringTool verifies Ctrl+C mid-tool stops the
+// round loop: the second tool is skipped with an interrupted marker and no
+// further LLM round fires.
+func TestRunStreaming_CtxCanceledDuringTool(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+
+	eng := executor.NewEngine(nil)
+	reg := tools.NewRegistry()
+	var secondToolRan bool
+	reg.Register(&tools.Tool{
+		Name:        "cancel_tool",
+		Description: "cancels the turn while running (simulates Ctrl+C)",
+		Parameters:  map[string]domain.ToolParam{},
+		Execute: func(_ map[string]interface{}) (string, error) {
+			cancel()
+			return "partial", nil
+		},
+	})
+	reg.Register(&tools.Tool{
+		Name:        "second_tool",
+		Description: "must not run after cancellation",
+		Parameters:  map[string]domain.ToolParam{},
+		Execute: func(_ map[string]interface{}) (string, error) {
+			secondToolRan = true
+			return "ran", nil
+		},
+	})
+
+	ms := &mockStreamer{
+		responses: []mockStreamResponse{
+			{
+				content: "tc",
+				toolCalls: []domain.StreamedToolCall{
+					{ID: "1", Name: "cancel_tool", Arguments: "{}"},
+					{ID: "2", Name: "second_tool", Arguments: "{}"},
+				},
+			},
+			{content: "must not reach the second LLM round", toolCalls: nil},
+		},
+	}
+	loop := New(eng, newTestWorkflowForSession(), reg, Config{
+		Model:         "test",
+		Streamer:      ms,
+		MaxToolRounds: 3,
+	})
+
+	var buf bytes.Buffer
+	_, err := loop.RunStreaming(ctx, "go", &buf)
+	if err == nil {
+		t.Fatal("expected context.Canceled error")
+	}
+	if !errors.Is(err, context.Canceled) {
+		t.Fatalf("expected context.Canceled, got: %v", err)
+	}
+	if secondToolRan {
+		t.Fatal("second tool must be skipped after cancellation")
+	}
+}
+
 func TestDispatchStreamToolCall_ToolError(t *testing.T) {
 	eng := executor.NewEngine(nil)
 	reg := tools.NewRegistry()
@@ -1142,7 +1201,7 @@ func TestREPL_GeneratingSpinner_Integration(t *testing.T) {
 			response: "slow answer",
 		}
 		loop := newStreamingLoop(streamer, 1)
-		repl := NewREPL(loop)
+		repl := NewREPL(context.Background(), loop)
 		defer repl.cancel()
 
 		resp, runErr := repl.runWithThinking(context.Background(), "hello")
@@ -1160,7 +1219,7 @@ func TestREPL_GeneratingSpinner_Integration(t *testing.T) {
 			response: "fast answer",
 		}
 		loop := newStreamingLoop(streamer, 1)
-		repl := NewREPL(loop)
+		repl := NewREPL(context.Background(), loop)
 		defer repl.cancel()
 
 		resp, runErr := repl.runWithThinking(context.Background(), "hello")

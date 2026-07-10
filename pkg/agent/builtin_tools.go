@@ -93,7 +93,7 @@ func RegisterBuiltinTools(ctx context.Context, reg *kdepstools.Registry) {
 	registerSQLTools(ctx, reg)
 	registerBashExec(ctx, reg)
 	registerBashJobList(reg)
-	registerBashJobWait(reg)
+	registerBashJobWait(ctx, reg)
 	registerListFiles(reg)
 	registerCalculator(ctx, reg)
 	registerReadFile(reg)
@@ -132,7 +132,7 @@ func registerCalculator(ctx context.Context, reg *kdepstools.Registry) {
 			if expr == "" {
 				return "", errors.New("calculator: expression is required")
 			}
-			return calc.Call(ctx, expr)
+			return calc.Call(toolCallCtx(ctx, args), expr)
 		},
 	})
 }
@@ -474,7 +474,9 @@ func registerDuckDuckGo(ctx context.Context, reg *kdepstools.Registry) {
 			if query == "" {
 				return "", errors.New("web_search: query is required")
 			}
-			return ddg.Call(ctx, query)
+			callCtx, cancel := toolCallCtxTimeout(ctx, args, builtinSearchTimeout)
+			defer cancel()
+			return ddg.Call(callCtx, query)
 		},
 	})
 }
@@ -496,7 +498,9 @@ func registerWikipedia(ctx context.Context, reg *kdepstools.Registry) {
 			if query == "" {
 				return "", errors.New("wikipedia: query is required")
 			}
-			return wiki.Call(ctx, query)
+			callCtx, cancel := toolCallCtxTimeout(ctx, args, builtinSearchTimeout)
+			defer cancel()
+			return wiki.Call(callCtx, query)
 		},
 	})
 }
@@ -523,7 +527,9 @@ func registerWebScraper(ctx context.Context, reg *kdepstools.Registry) {
 			if u == "" {
 				return "", errors.New("web_scraper: url is required")
 			}
-			return scraper.Call(ctx, u)
+			callCtx, cancel := toolCallCtxTimeout(ctx, args, builtinScrapeTimeout)
+			defer cancel()
+			return scraper.Call(callCtx, u)
 		},
 	})
 }
@@ -534,7 +540,7 @@ func registerWebScraper(ctx context.Context, reg *kdepstools.Registry) {
 //   - sql_query: executes a read-only SQL statement and returns results as text
 //
 // The db_path parameter selects the database file; defaults to KDEPS_SQL_DB_PATH env var.
-func registerSQLTools(_ context.Context, reg *kdepstools.Registry) {
+func registerSQLTools(ctx context.Context, reg *kdepstools.Registry) {
 	dbPathParam := domain.ToolParam{
 		Type:        toolParamString,
 		Description: "Path to the SQLite database file. Defaults to KDEPS_SQL_DB_PATH environment variable.",
@@ -549,7 +555,7 @@ func registerSQLTools(_ context.Context, reg *kdepstools.Registry) {
 		},
 		Execute: func(args map[string]any) (string, error) {
 			dbPath := sqlDBPath(args)
-			return sqlListTables(dbPath)
+			return sqlListTables(toolCallCtx(ctx, args), dbPath)
 		},
 	})
 
@@ -570,7 +576,7 @@ func registerSQLTools(_ context.Context, reg *kdepstools.Registry) {
 				return "", errors.New("sql_describe_table: table is required")
 			}
 			dbPath := sqlDBPath(args)
-			return sqlDescribeTable(dbPath, table)
+			return sqlDescribeTable(toolCallCtx(ctx, args), dbPath, table)
 		},
 	})
 
@@ -595,7 +601,7 @@ func registerSQLTools(_ context.Context, reg *kdepstools.Registry) {
 				return "", errors.New("sql_query: only SELECT/WITH queries are allowed")
 			}
 			dbPath := sqlDBPath(args)
-			return sqlExecQuery(dbPath, query)
+			return sqlExecQuery(toolCallCtx(ctx, args), dbPath, query)
 		},
 	})
 }
@@ -619,7 +625,7 @@ func sqlOpenEngine(dbPath string) (lcsqldatabase.Engine, error) {
 	return engine.Engine, nil
 }
 
-func sqlListTables(dbPath string) (string, error) {
+func sqlListTables(ctx context.Context, dbPath string) (string, error) {
 	engine, err := sqlOpenEngine(dbPath)
 	if err != nil {
 		return "", err
@@ -627,7 +633,7 @@ func sqlListTables(dbPath string) (string, error) {
 	defer engine.Close()
 
 	_, rows, queryErr := engine.Query(
-		context.Background(),
+		ctx,
 		"SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' ORDER BY name",
 	)
 	if queryErr != nil {
@@ -642,7 +648,7 @@ func sqlListTables(dbPath string) (string, error) {
 	return strings.Join(tables, "\n"), nil
 }
 
-func sqlDescribeTable(dbPath, table string) (string, error) {
+func sqlDescribeTable(ctx context.Context, dbPath, table string) (string, error) {
 	engine, err := sqlOpenEngine(dbPath)
 	if err != nil {
 		return "", err
@@ -650,21 +656,21 @@ func sqlDescribeTable(dbPath, table string) (string, error) {
 	defer engine.Close()
 
 	// TableInfo returns the CREATE TABLE DDL which shows all columns, types, and constraints.
-	info, infoErr := engine.TableInfo(context.Background(), table)
+	info, infoErr := engine.TableInfo(ctx, table)
 	if infoErr != nil {
 		return "", fmt.Errorf("sql_describe_table: %w", infoErr)
 	}
 	return fmt.Sprintf("Table: %s\n%s", table, strings.TrimSpace(info)), nil
 }
 
-func sqlExecQuery(dbPath, query string) (string, error) {
+func sqlExecQuery(ctx context.Context, dbPath, query string) (string, error) {
 	engine, err := sqlOpenEngine(dbPath)
 	if err != nil {
 		return "", err
 	}
 	defer engine.Close()
 
-	cols, results, queryErr := engine.Query(context.Background(), query)
+	cols, results, queryErr := engine.Query(ctx, query)
 	if queryErr != nil {
 		return "", fmt.Errorf("sql_query: %w", queryErr)
 	}
@@ -704,7 +710,9 @@ func registerSerpAPI(ctx context.Context, reg *kdepstools.Registry) {
 			if query == "" {
 				return "", errors.New("serpapi_search: query is required")
 			}
-			return tool.Call(ctx, query)
+			callCtx, cancel := toolCallCtxTimeout(ctx, args, builtinSearchTimeout)
+			defer cancel()
+			return tool.Call(callCtx, query)
 		},
 	})
 }
@@ -954,17 +962,48 @@ func registerPerplexity(ctx context.Context, reg *kdepstools.Registry) {
 			if query == "" {
 				return "", errors.New("perplexity_search: query is required")
 			}
-			return tool.Call(ctx, query)
+			callCtx, cancel := toolCallCtxTimeout(ctx, args, builtinSearchTimeout)
+			defer cancel()
+			return tool.Call(callCtx, query)
 		},
 	})
 }
 
-// bashExecCtx returns the context injected by the Loop dispatcher, or Background.
-func bashExecCtx(args map[string]any) context.Context {
+// Network tool timeouts: a hung remote endpoint must not stall the agent
+// turn indefinitely (Ctrl+C still cancels earlier via the injected _ctx).
+const (
+	builtinSearchTimeout = 30 * time.Second
+	builtinScrapeTimeout = 60 * time.Second
+)
+
+// toolCallCtxTimeout bounds toolCallCtx with a hard timeout so a hung
+// network call cannot stall the agent turn indefinitely.
+func toolCallCtxTimeout(
+	fallback context.Context, args map[string]any, d time.Duration,
+) (context.Context, context.CancelFunc) {
+	return context.WithTimeout(toolCallCtx(fallback, args), d)
+}
+
+// toolCallCtx returns the per-turn context injected by the Loop dispatcher
+// ("_ctx", canceled by Ctrl+C), falling back to the registration context.
+// Every tool that performs I/O should use this so an in-flight call aborts
+// immediately when the user interrupts the turn.
+// context.Background() is used as a last-resort sentinel — it is only
+// reached when both _ctx and fallback are missing (programming error).
+func toolCallCtx(fallback context.Context, args map[string]any) context.Context {
 	if c, ok := args["_ctx"].(context.Context); ok && c != nil {
 		return c
 	}
+	if fallback != nil {
+		return fallback
+	}
 	return context.Background()
+}
+
+// bashExecCtx returns the context injected by the Loop dispatcher (preferred),
+// falling back to fallback when _ctx is not in args.
+func bashExecCtx(fallback context.Context, args map[string]any) context.Context {
+	return toolCallCtx(fallback, args)
 }
 
 // formatBashOutput appends stderr to stdout (when non-empty) and truncates.
@@ -997,7 +1036,7 @@ func bashExecCancelResult(out, errOut string) (string, error) {
 // Runs in its own process group so Ctrl+Z backgrounds only the tool (not kdeps).
 // Ctrl+C (via _ctx cancellation) kills the process and returns partial output.
 // Ctrl+Z (via _bg_ch signal) detaches the job; retrieve it with bash_job_wait.
-func registerBashExec(_ context.Context, reg *kdepstools.Registry) {
+func registerBashExec(ctx context.Context, reg *kdepstools.Registry) {
 	if os.Getenv("KDEPS_ALLOW_BASH") == "false" {
 		return
 	}
@@ -1020,13 +1059,17 @@ func registerBashExec(_ context.Context, reg *kdepstools.Registry) {
 		if block, reason, _ := ValidateBashCommand(command, BashReadOnlyMode()); block {
 			return "", fmt.Errorf("bash_exec: blocked: %s", reason)
 		}
-		ctx := bashExecCtx(args)
+		toolCtx := bashExecCtx(ctx, args)
 		bgCh, _ := args["_bg_ch"].(<-chan struct{})
 
 		// Must use exec.Command (not CommandContext): we handle cancellation and
 		// backgrounding manually in the select below so the process survives
 		// beyond context cancellation when the user presses Ctrl+Z.
-		cmd := exec.Command("bash", "-c", command) //nolint:noctx // intentional: manual ctx handling below
+		cmd := exec.Command( //nolint:noctx // intentional: manual ctx handling below
+			"bash",
+			"-c",
+			command,
+		)
 		setProcessGroup(cmd)
 		var stdout, stderr strings.Builder
 		if tool.OutputWriter != nil {
@@ -1045,11 +1088,19 @@ func registerBashExec(_ context.Context, reg *kdepstools.Registry) {
 
 		select {
 		case runErr := <-waitCh:
-			return bashExecResult(ctx, strings.TrimSpace(stdout.String()), strings.TrimSpace(stderr.String()), runErr)
-		case <-ctx.Done():
+			return bashExecResult(
+				toolCtx,
+				strings.TrimSpace(stdout.String()),
+				strings.TrimSpace(stderr.String()),
+				runErr,
+			)
+		case <-toolCtx.Done():
 			_ = cmd.Process.Kill()
 			<-waitCh
-			return bashExecCancelResult(strings.TrimSpace(stdout.String()), strings.TrimSpace(stderr.String()))
+			return bashExecCancelResult(
+				strings.TrimSpace(stdout.String()),
+				strings.TrimSpace(stderr.String()),
+			)
 		case <-bgCh:
 			jobID := bashJobRegistry.add(command, &stdout, &stderr, waitCh)
 			return fmt.Sprintf(`{"status":"backgrounded","job_id":%d}`, jobID), nil
@@ -1080,7 +1131,7 @@ func registerBashJobList(reg *kdepstools.Registry) {
 
 // registerBashJobWait registers the bash_job_wait tool.
 // Blocks until the background job completes, then returns its output.
-func registerBashJobWait(reg *kdepstools.Registry) {
+func registerBashJobWait(ctx context.Context, reg *kdepstools.Registry) {
 	reg.Register(&kdepstools.Tool{
 		Name:        "bash_job_wait",
 		Description: "Wait for a background bash job (from bash_exec backgrounded via Ctrl+Z) to complete and return its full output. Use the job_id from the bash_exec backgrounded result.",
@@ -1101,10 +1152,10 @@ func registerBashJobWait(reg *kdepstools.Registry) {
 			if job == nil {
 				return "", fmt.Errorf("bash_job_wait: no job with id %d", id)
 			}
-			ctx := bashExecCtx(args)
+			toolCtx := bashExecCtx(ctx, args)
 			select {
 			case <-job.done:
-			case <-ctx.Done():
+			case <-toolCtx.Done():
 				return "", fmt.Errorf("bash_job_wait: cancelled while waiting for job %d", id)
 			}
 			bashJobRegistry.remove(id)
