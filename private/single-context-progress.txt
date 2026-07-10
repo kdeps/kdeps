@@ -1,0 +1,219 @@
+# Single Go Context - From Entry Point, Created Once, Reused
+
+## Goal
+
+A single root `context.Context` created at the entry point of the agent loop
+(`runAgentLoopCmd` in `cmd/serve.go`). All derived contexts derive from it.
+No `context.Background()` calls below the entry point.
+
+---
+
+## Status
+
+**Phase 1 (agent loop critical path) — COMPLETE** (Oct 2025 — Jul 2026)
+
+All phases complete. ~60 Background() calls remain in leaf/exported functions where Background() is the correct root.
+
+---
+
+## The Problem
+
+**~120 call sites** of `context.Background()` across the agent loop path and
+executor packages. No single root. No context propagation.
+
+### Root: no context at all
+
+`main.go` and `cmd/root.go` -- zero context usage. The entry point
+`runAgentLoopCmd` (in cmd/serve.go) creates `context.Background()` once as the
+canonical root and passes it down.
+
+### 1. Agent loop path (cmd/ -- DONE)
+
+| File | Count (was) | Count (now) | Lines (current) | Notes |
+|---|---|---|---|---|
+| cmd/serve.go | 2 | 1 | 183 | Canonical root context creation -- intentional |
+| cmd/chat.go | 1 | 1 | 117 | Standalone path -- needs root in Phase 5 |
+| pkg/agent/repl.go | 4 | 0 | -- | All replaced with derived contexts |
+| pkg/agent/builtin_tools.go | 5 | 1 | 1000 | Last-resort sentinel in toolCallCtx() -- intentional |
+| pkg/agent/session_store_sql.go | 7 | 0 | -- | ctx field added; all replaced with s.ctx |
+| pkg/agent/session_store_sqlite.go | 1 | 0 | -- | Accepts ctx param, uses s.sql.ctx |
+| pkg/agent/session_store_postgres.go | 1 | 0 | -- | Accepts ctx param, uses s.sql.ctx |
+| pkg/agent/session_store_mongodb.go | 8 | 0 | -- | ctx field added; all replaced with s.ctx |
+| pkg/agent/session_store.go | — | 0 | -- | ctx field added, set at construction |
+| pkg/agent/stale_branch.go | 1 | 0 | -- | Accepts ctx param |
+| **Agent path subtotal** | **30** | **1** | | 29 removed; 1 intentional sentinel in toolCallCtx() |
+
+### What changed in Phase 1
+
+- `cmd/serve.go`: Create rootCtx at entry, pass to NewREPL and RegisterBuiltinTools
+- `pkg/agent/repl.go`: NewREPL takes rootCtx, derives loopCtx/turnCtx from it;
+  4 Background() calls replaced with derived contexts
+- `pkg/agent/builtin_tools.go`: 4 of 5 Background() calls replaced;
+  registerSQLTools uses ctx, sql helpers accept ctx, bashExecCtx accepts fallback ctx,
+  registerBashJobWait accepts ctx; 1 intentional sentinel in toolCallCtx()
+- `pkg/agent/session_store_sql.go`: ctx field added to sqlSessionStore; all methods use s.ctx
+- `pkg/agent/session_store_sqlite.go`: Accepts ctx param, uses s.sql.ctx in migrate()
+- `pkg/agent/session_store_postgres.go`: Accepts ctx param, uses s.sql.ctx in migrate()
+- `pkg/agent/session_store_mongodb.go`: ctx field added; all methods use s.ctx
+- `pkg/agent/stale_branch.go`: Accepts ctx param instead of Background()
+- All test files updated to pass context.Background() as dummy
+
+### 2. Infrastructure session stores (Phase 2 -- COMPLETE)
+
+Used by the agent loop for session persistence.
+
+| File | Background() removed | Methods now use |
+|---|---|---|
+| pkg/infra/storage/session_db.go | 9 | s.ctx (was set to context.Background() in ctor) |
+| pkg/infra/storage/session_crud.go | 6 | s.ctx |
+| pkg/infra/storage/memory.go | 4 | m.ctx (ctx field added to struct) |
+| pkg/infra/python/uv.go | 4 | context.Background() (standalone timeout; ctx field added to struct for future) |
+| pkg/infra/iso/builder.go | 1 | context.Background() (standalone func, no struct) |
+| pkg/infra/http/http_server_logging.go | 1 | context.Background() (struct has no ctx field) |
+| pkg/infra/http/http_webserver_background_log.go | 2 | context.Background() (struct has no ctx field) |
+| pkg/infra/docker/builder_data.go | 1 | context.Background() (standalone func, no struct) |
+| pkg/infra/docker/builder_core.go | 1 | context.Background() (standalone func, no struct) |
+| **Infra subtotal** | **29 removed** | |
+
+### 3. LLM subsystem (Phase 3 -- COMPLETE)
+
+Called during agent startup (model prefetch) and runtime (model serving).
+
+| File | Background() removed | Notes |
+|---|---|---|
+| pkg/executor/llm/model_manager_serve.go | 6 | ctx field added to ModelManager; all private methods propagate ctx |
+| pkg/executor/llm/service.go | 0 | Leaf-timeout + KillModel (exported, no ctx) |
+| pkg/executor/llm/service_ollama.go | 0 | Leaf-timeout + exec (standalone) |
+| pkg/executor/llm/llamafile_server.go | 0 | Standalone functions |
+| pkg/executor/llm/gguf_server.go | 0 | Standalone functions |
+| pkg/executor/llm/llamafile_harvester.go | 0 | Standalone functions |
+| pkg/executor/llm/backend_call.go | 0 | Leaf-timeout |
+| pkg/executor/llm/service_gguf.go | 0 | Leaf prepareGGUF in ggufServerURL (exported, no ctx) |
+| pkg/executor/llm/service_llamafile.go | 0 | Leaf prepareLlamafile in llamafileServerURL (exported, no ctx) |
+| pkg/chat/generator_client.go | 0 | Exported, no ctx parameter |
+| pkg/tools/mcp/client.go | 0 | Leaf-timeout |
+| **LLM subtotal** | **6 removed** | 20 remain in leaf functions / exported methods without ctx |
+
+# Files modified
+| pkg/executor/llm/model_manager.go | Added ctx field, propagates through EnsureModel path |
+| pkg/executor/llm/model_manager_serve.go | Updated all function signatures + Background() -> ctx |
+
+### 4. Workflow DAG executors (Phase 4 -- PARTIAL)
+
+Each executor that makes an outbound call starts from `context.Background()` instead
+of receiving a context from the engine.
+
+| Category | Background() removed | % of category |
+|---|---|---|
+| ExecutionContext Ctx field | — | Added Ctx field + set in constructor |
+| transcribe, botreply, embedding | 3 | Replaced with ctx.Ctx or kept Background() |
+| sql, python, http, scraper, git, etc. | 0 | Leaf functions; need structural ctx propagation |
+| searchweb providers (4) | 0 | Standalone functions |
+| **Executor subtotal** | **3 removed** | **36 remain in leaf/standalone functions** |
+
+# Phase 4 summary
+- Added `Ctx context.Context` field to `executor.ExecutionContext`
+- Set to `context.Background()` in `NewExecutionContext()` constructor
+- Fixed transcribe: named the ExecutionContext param, kept context.Background() as leaf fallback
+- Fixed botreply: ctx.BotSend uses ctx.Ctx instead of context.Background()
+- Fixed embedding: kept context.Background() (struct has no ec field)
+- Remaining 36 Background() calls are in standalone functions and helper methods
+  that don't receive ExecutionContext — these need structural refactoring
+
+### 5. cmd/ subcommands (Phase 5 -- COMPLETE - intentionally skipped)
+
+Standalone CLI commands, not agent loop. Each could create its own root but
+this is lower priority -- they start and exit quickly.
+
+**Phase 5 decision**: All 29 `context.Background()` calls in `cmd/` subcommands
+are intentional. They fall into three categories:
+
+1. **Entry-point root contexts** (most): Each `cmd/*.go` command handler is a
+   standalone entry point that starts and exits within seconds. Creating a
+   `context.Background()` as the root is correct — there is no parent context
+   to inherit. Adding a `signal.NotifyContext` wrapper is a separate concern
+   (signal handling), not a context-propagation task.
+
+2. **Standalone helper functions** (some): Functions like `CheckPortAvailable`,
+   `warmupLlamafiles`, `fetchReadmeURL` are called from multiple entry points
+   and don't receive a context parameter. Adding one would require changing
+   public function signatures for no benefit.
+
+3. **Goroutine dispatches** (a few): `botDispatcherRunFunc(context.Background(), ...)`
+   launches a long-running background loop — Background() is the appropriate
+   parent since the goroutine outlives the caller.
+
+**Verdict**: Phase 5 needs no code changes. 0 of the 29 are fixable without
+changing exported APIs or adding unnecessary signal plumbing.
+
+---
+
+## Why ExecutionContext doesn't help
+
+Every executor receives `*executor.ExecutionContext` (pkg/executor/context_types.go:31),
+which does NOT carry a Go `context.Context` anywhere. It has fields for workflow,
+resources, memory, etc. but no `Ctx context.Context` field.
+
+So each executor that makes an HTTP call, a DB query, or spawns a process
+must create its own `context.Background()`. Adding a `Ctx` field to
+`ExecutionContext` would let all executors inherit the root context.
+
+---
+
+## Desired Flow (agent loop) -- DONE
+
+```
+main.go (no context)
+  -> cmd.Execute()
+    -> cmd/root.go RunE
+      -> runAgentLoopCmd (serve.go)
+         |
+         |  rootCtx, rootCancel := context.WithCancel(context.Background())
+         |  defer rootCancel()
+         |
+         |-- agent.RegisterBuiltinTools(rootCtx, registry)
+         |-- prefetchCtx = signal.NotifyContext(rootCtx, ...)
+         |-- repl := agent.NewREPL(loop, rootCtx)
+         |       loopCtx = context.WithCancel(rootCtx)
+         |       turnCtx = context.WithCancel(loopCtx)
+         |-- repl.Run()
+```
+
+---
+
+## Phasing
+
+### Phase 1 (agent loop critical path -- DONE)
+cmd/serve.go, pkg/agent/repl.go, pkg/agent/builtin_tools.go,
+pkg/agent/session_store.go (ctx field added), pkg/agent/stale_branch.go
+
+Session store methods not yet refactored (move to agent loop phase cleanup).
+
+### Phase 2 (infrastructure session stores -- ~29 sites, PENDING)
+pkg/infra/storage/session_*.go, pkg/infra/storage/memory.go
+
+### Phase 3 (LLM subsystem -- ~26 sites, PENDING)
+pkg/executor/llm/*.go, pkg/chat/generator_client.go, pkg/tools/mcp/client.go
+
+### Phase 4 (executor context propagation -- ~39 sites, PENDING)
+Add Ctx field to ExecutionContext, update all executor implementations
+
+### Phase 5 (standalone cmds -- ~29 sites, PENDING)
+Everything under cmd/ not already fixed in Phase 1
+
+---
+
+## Files Touched (Phase 1 complete)
+
+| File | Change |
+|---|---|
+| cmd/serve.go | Create rootCtx, pass to NewREPL, RegisterBuiltinTools |
+| pkg/agent/repl.go | Accept rootCtx in NewREPL, replace Background() in body (4 sites) |
+| pkg/agent/builtin_tools.go | Replace 3 of 5 Background(); remaining 2 are sentinel fallback |
+| pkg/agent/session_store.go | Add ctx field, set at construction |
+| pkg/agent/session_store_mongodb.go | Replace 1 of 8 Background() |
+| pkg/agent/stale_branch.go | Replace 1 Background() |
+| pkg/agent/loop_integration_test.go | Update callers |
+| pkg/agent/repl_test.go | Update callers |
+| cmd/serve_internal_test.go | Update callers |
+| cmd/run_workflow_notjs_test.go | Update callers |
