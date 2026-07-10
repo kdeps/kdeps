@@ -24,6 +24,7 @@ import (
 	"regexp"
 	"strings"
 	"sync"
+	"sync/atomic"
 
 	"github.com/charmbracelet/glamour"
 	"github.com/charmbracelet/glamour/ansi"
@@ -553,6 +554,9 @@ func renderToolCall(name, args string) string {
 // Each round resets so a new "* thinking" header appears per tool-call round.
 type liveThinkingWriter struct {
 	started bool
+	// active is read by the REPL spinner goroutine: while thinking text owns
+	// the current terminal line, spinner frames must not be drawn over it.
+	active atomic.Bool
 }
 
 // Write streams each chunk immediately to stdout. The gray ANSI color is opened
@@ -561,6 +565,7 @@ func (w *liveThinkingWriter) Write(p []byte) (int, error) {
 	if len(p) == 0 {
 		return 0, nil
 	}
+	w.active.Store(true)
 	if !w.started {
 		hdr := styleThinkingLabel.Render("* thinking")
 		// \r\033[K: absolute col 0 + erase current line (removes leftover tool output).
@@ -583,4 +588,5 @@ func (w *liveThinkingWriter) Flush() {
 		fmt.Fprint(os.Stdout, ansiReset+"\r\n")
 		w.started = false
 	}
+	w.active.Store(false)
 }

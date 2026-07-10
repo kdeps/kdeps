@@ -4813,6 +4813,81 @@ func TestRunStreaming_NoSpinnerForFastResponse(t *testing.T) {
 	assert.NotContains(t, spinBuf.String(), "generating", "spinner must not appear for fast responses")
 }
 
+// thinkingMockStreamer writes a reasoning chunk to the configured
+// ThinkingWriter as soon as streaming begins, then stalls long enough for
+// several spinner ticks before returning content.
+type thinkingMockStreamer struct {
+	loop  *Loop // set after construction; ThinkingWriter is read at call time
+	stall time.Duration
+	inner mockStreamer
+}
+
+func (m *thinkingMockStreamer) StreamChat(
+	ctx context.Context, cfg *domain.ChatConfig, w io.Writer,
+) (string, []domain.StreamedToolCall, error) {
+	if tw := m.loop.config.Thinking.ThinkingWriter; tw != nil {
+		_, _ = tw.Write([]byte("pondering the answer"))
+	}
+	select {
+	case <-time.After(m.stall):
+	case <-ctx.Done():
+		return "", nil, ctx.Err()
+	}
+	return m.inner.StreamChat(ctx, cfg, w)
+}
+
+// TestRunStreaming_NoSpinnerFramesWhileThinkingStreams verifies that spinner
+// frames are suppressed while thinking tokens own the terminal line; a frame
+// drawn mid-thinking overwrites the line head and leaves a garbled tail
+// ("generating <thinking fragment>").
+func TestRunStreaming_NoSpinnerFramesWhileThinkingStreams(t *testing.T) {
+	setFastSpinnerThreshold(t)
+	spinBuf := setSpinnerCapture(t)
+
+	ms := &thinkingMockStreamer{
+		stall: 300 * time.Millisecond,
+		inner: mockStreamer{responses: []mockStreamResponse{{content: "answer"}}},
+	}
+	loop := newStreamingLoop(ms, 1)
+	loop.config.Thinking = &domain.ThinkingConfig{StreamThinking: true}
+	ms.loop = loop
+	repl := NewREPL(context.Background(), loop)
+	defer repl.cancel()
+
+	// Silence the thinking header/content that liveThinkingWriter prints.
+	origOut := os.Stdout
+	_, w, _ := os.Pipe()
+	os.Stdout = w
+	resp, err := repl.runWithThinking(context.Background(), "hello")
+	w.Close()
+	os.Stdout = origOut
+
+	assert.NoError(t, err)
+	assert.Equal(t, "answer", resp)
+	assert.NotContains(t, spinBuf.String(), "generating",
+		"spinner frames must not be drawn while thinking is streaming")
+}
+
+// TestLiveThinkingWriter_ActiveLifecycle verifies the active flag the spinner
+// reads: set on Write, cleared on Flush.
+func TestLiveThinkingWriter_ActiveLifecycle(t *testing.T) {
+	origOut := os.Stdout
+	_, w, _ := os.Pipe()
+	os.Stdout = w
+	defer func() {
+		w.Close()
+		os.Stdout = origOut
+	}()
+
+	tw := &liveThinkingWriter{}
+	assert.False(t, tw.active.Load())
+	_, err := tw.Write([]byte("chunk"))
+	require.NoError(t, err)
+	assert.True(t, tw.active.Load())
+	tw.Flush()
+	assert.False(t, tw.active.Load())
+}
+
 // TestRunStreaming_SpinnerClearedBeforeOutput verifies that the spinner escape
 // sequence (ansiClearLine) appears after "generating" frames, ensuring the
 // spinner line is erased after the last frame and before the response renders.

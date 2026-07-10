@@ -997,6 +997,32 @@ func expandFileRefs(input string) (string, []string) {
 	return strings.TrimSpace(text), files
 }
 
+// drawSpinnerFrames renders "generating" frames to out until done is closed.
+// Frames are skipped while thinking text is streaming: it owns the current
+// terminal line, and drawing over it would overwrite the line head and leave
+// the tail as garbage ("generating <thinking fragment>").
+func drawSpinnerFrames(out io.Writer, thinkW *liveThinkingWriter, done <-chan struct{}) {
+	spinFrames := []string{"⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"}
+	tick := time.NewTicker(replTickerMs * time.Millisecond)
+	defer tick.Stop()
+	i := 0
+	for {
+		select {
+		case <-tick.C:
+			if thinkW != nil && thinkW.active.Load() {
+				continue
+			}
+			// \033[K erases anything right of the frame so a longer leftover
+			// line can never bleed past "generating".
+			frame := styleReplInfo.Render(spinFrames[i%len(spinFrames)])
+			fmt.Fprintf(out, "\r  %s generating\033[K", frame)
+			i++
+		case <-done:
+			return
+		}
+	}
+}
+
 // runStreaming handles the streaming path: buffers LLM tokens and renders with
 // markdown + thinking styling. Tool call display writes directly to stdout via
 // the ToolCallDisplay callback so it appears immediately.
@@ -1060,25 +1086,13 @@ func (r *REPL) runStreaming(ctx context.Context, input string) (string, error) {
 		// Show a spinner while waiting. If thinking tokens start streaming,
 		// liveThinkingWriter.Write already writes ansiClearLine before the
 		// thinking header, so the spinner line is cleared automatically.
-		spinFrames := []string{"⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"}
 		done := make(chan struct{})
 		var spinWg sync.WaitGroup
 		spinWg.Add(1)
 		capturedOut := spinnerOut // capture at goroutine creation time
 		go func() {
 			defer spinWg.Done()
-			tick := time.NewTicker(replTickerMs * time.Millisecond)
-			defer tick.Stop()
-			i := 0
-			for {
-				select {
-				case <-tick.C:
-					fmt.Fprintf(capturedOut, "\r  %s generating", styleReplInfo.Render(spinFrames[i%len(spinFrames)]))
-					i++
-				case <-done:
-					return
-				}
-			}
+			drawSpinnerFrames(capturedOut, thinkW, done)
 		}()
 		sr = <-ch
 		close(done)
