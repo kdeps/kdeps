@@ -705,6 +705,16 @@ func (l *Loop) appendToolRoundTrip(
 		_ = json.Unmarshal([]byte(cfg.Messages), &history)
 	}
 
+	// The current user input rides in cfg.Prompt on the first round; move it
+	// into history before appending the assistant turn, otherwise later rounds
+	// (Prompt cleared below) would answer the previous turn's question.
+	if cfg.Prompt != "" {
+		history = append(history, map[string]any{
+			"role":           RoleUser,
+			toolParamContent: cfg.Prompt,
+		})
+	}
+
 	// Build tool_calls JSON for the assistant turn.
 	tcJSON := make([]map[string]any, len(toolCalls))
 	for i, tc := range toolCalls {

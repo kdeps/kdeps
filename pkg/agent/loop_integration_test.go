@@ -21,6 +21,7 @@ package agent
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -193,6 +194,61 @@ func TestRunStreaming_MaxRoundsExhausted(t *testing.T) {
 	if ms.callCount != 3 {
 		t.Errorf("expected exactly 3 StreamChat calls, got %d", ms.callCount)
 	}
+}
+
+// cfgRecordingStreamer wraps mockStreamer and snapshots the ChatConfig of
+// every StreamChat call so tests can assert on what each round sends.
+type cfgRecordingStreamer struct {
+	inner mockStreamer
+	cfgs  []domain.ChatConfig
+}
+
+func (c *cfgRecordingStreamer) StreamChat(
+	ctx context.Context, cfg *domain.ChatConfig, w io.Writer,
+) (string, []domain.StreamedToolCall, error) {
+	c.cfgs = append(c.cfgs, *cfg)
+	return c.inner.StreamChat(ctx, cfg, w)
+}
+
+// TestRunStreaming_CurrentPromptKeptAfterToolRound is the regression test for
+// the agent answering the previous turn's question after a tool round: the
+// current user input rode in cfg.Prompt and was dropped when
+// appendToolRoundTrip cleared Prompt without moving it into Messages.
+func TestRunStreaming_CurrentPromptKeptAfterToolRound(t *testing.T) {
+	const input = "what is the current news today?"
+	toolCall := domain.StreamedToolCall{ID: "1", Name: "noop", Arguments: "{}"}
+	ms := &cfgRecordingStreamer{
+		inner: mockStreamer{
+			responses: []mockStreamResponse{
+				{content: "searching", toolCalls: []domain.StreamedToolCall{toolCall}},
+				{content: "final answer", toolCalls: nil},
+			},
+		},
+	}
+	loop := newStreamingLoop(ms, 10)
+	var buf bytes.Buffer
+	_, err := loop.RunStreaming(context.Background(), input, &buf)
+	require.NoError(t, err)
+	require.Len(t, ms.cfgs, 2)
+
+	// Round 1 carries the input as the live prompt.
+	assert.Equal(t, input, ms.cfgs[0].Prompt)
+
+	// Round 2 clears Prompt, so the input must now be a user message in
+	// Messages or the LLM only sees history ending at the previous turn.
+	round2 := ms.cfgs[1]
+	assert.Empty(t, round2.Prompt)
+	var history []map[string]any
+	require.NoError(t, json.Unmarshal([]byte(round2.Messages), &history))
+	found := false
+	for _, m := range history {
+		if m["role"] == RoleUser && m["content"] == input {
+			found = true
+			break
+		}
+	}
+	assert.True(t, found,
+		"round 2 messages must include the current user input; got %s", round2.Messages)
 }
 
 // TestRunStreaming_StopsEarlyMidway verifies that when tool calls stop before
