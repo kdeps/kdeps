@@ -21,6 +21,7 @@
 package llm
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -132,7 +133,7 @@ func TestServeFileModelIfNeeded_SetsBaseURLFromHealthyPort(t *testing.T) {
 
 	mgr := NewModelManagerFromServiceInterface(NewMockModelService())
 	cfg := &domain.ChatConfig{Model: modelPath, Backend: BackendFile}
-	mgr.serveFileModelIfNeeded(cfg, port)
+	mgr.serveFileModelIfNeeded(context.Background(), cfg, port)
 	assert.Contains(t, cfg.BaseURL, "127.0.0.1")
 }
 

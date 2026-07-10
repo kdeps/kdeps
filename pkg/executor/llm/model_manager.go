@@ -35,6 +35,7 @@ type ModelManager struct {
 	service     ModelServiceInterface
 	logger      *slog.Logger
 	offlineMode bool
+	ctx         context.Context
 }
 
 // NewModelManager creates a new model manager.
@@ -47,6 +48,7 @@ func NewModelManager(logger *slog.Logger) *ModelManager {
 		service:     NewModelService(logger),
 		logger:      logger,
 		offlineMode: false,
+			ctx: context.Background(),
 	}
 }
 
@@ -60,6 +62,7 @@ func NewModelManagerWithOfflineMode(logger *slog.Logger, offlineMode bool) *Mode
 		service:     NewModelService(logger),
 		logger:      logger,
 		offlineMode: offlineMode,
+			ctx: context.Background(),
 	}
 }
 
@@ -69,6 +72,7 @@ func NewModelManagerFromService(service *ModelService) *ModelManager {
 	return &ModelManager{
 		service: service,
 		logger:  slog.Default(),
+			ctx: context.Background(),
 	}
 }
 
@@ -79,6 +83,7 @@ func NewModelManagerFromServiceInterface(service ModelServiceInterface) *ModelMa
 	return &ModelManager{
 		service: service,
 		logger:  slog.Default(),
+			ctx: context.Background(),
 	}
 }
 
@@ -91,6 +96,7 @@ func (m *ModelManager) SetOfflineMode(offline bool) {
 // EnsureModel ensures a model is downloaded and served for the given chat configuration.
 // This method is called automatically before LLM execution if model manager is configured.
 func (m *ModelManager) EnsureModel(config *domain.ChatConfig) error {
+	ctx := m.ctx
 	kdeps_debug.Log("enter: EnsureModel")
 	backend := resolveBackend(config)
 	host, port := resolveModelHostPort(config, backend)
@@ -101,8 +107,8 @@ func (m *ModelManager) EnsureModel(config *domain.ChatConfig) error {
 		if config.BaseURL != "" || os.Getenv("KDEPS_LLM_BASE_URL") != "" {
 			return nil
 		}
-		m.downloadModelIfOnline(backend, config.Model)
-		m.serveFileModelIfNeeded(config, port)
+		m.downloadModelIfOnline(ctx, backend, config.Model)
+		m.serveFileModelIfNeeded(ctx, config, port)
 		return nil
 	}
 
@@ -110,13 +116,13 @@ func (m *ModelManager) EnsureModel(config *domain.ChatConfig) error {
 		if config.BaseURL != "" || os.Getenv("KDEPS_LLM_BASE_URL") != "" {
 			return nil
 		}
-		m.downloadModelIfOnline(backend, config.Model)
-		m.serveGGUFModelIfNeeded(config, port)
+		m.downloadModelIfOnline(ctx, backend, config.Model)
+		m.serveGGUFModelIfNeeded(ctx, config, port)
 		return nil
 	}
 
-	m.downloadModelIfOnline(backend, config.Model)
-	m.serveBackendModel(backend, config.Model, host, port)
+	m.downloadModelIfOnline(ctx, backend, config.Model)
+	m.serveBackendModel(ctx, backend, config.Model, host, port)
 	return nil
 }
 

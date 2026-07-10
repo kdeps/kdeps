@@ -116,7 +116,7 @@ func TestServeFileModel_MakeExecutableFail(t *testing.T) {
 	path := "ro.llamafile"
 	require.NoError(t, afero.WriteFile(mem, path, []byte("data"), 0444))
 	mgr := NewModelManagerFromServiceInterface(NewMockModelService())
-	_, err := mgr.serveFileModel(path, 18082)
+	_, err := mgr.serveFileModel(context.Background(), path, 18082)
 	require.Error(t, err)
 }
 
@@ -150,7 +150,7 @@ func TestServeFileModel_MakeExecutableErrorPath(t *testing.T) {
 	modelPath := filepath.Join(dir, "model.llamafile")
 	require.NoError(t, os.WriteFile(modelPath, []byte("data"), 0644))
 	mgr := NewModelManagerFromServiceInterface(NewMockModelService())
-	_, err := mgr.serveFileModel(modelPath, 0)
+	_, err := mgr.serveFileModel(context.Background(), modelPath, 0)
 	require.Error(t, err)
 }
 
@@ -192,7 +192,7 @@ func TestServeFileModel_MakeExecutableError(t *testing.T) {
 	AppFS = afero.NewReadOnlyFs(afero.NewMemMapFs())
 
 	mgr := NewModelManagerFromServiceInterface(NewMockModelService())
-	_, err := mgr.serveFileModel("missing.llamafile", 0)
+	_, err := mgr.serveFileModel(context.Background(), "missing.llamafile", 0)
 	require.Error(t, err)
 }
 

@@ -43,7 +43,7 @@ func TestServeFileModel_NewLlamafileManagerFailure(t *testing.T) {
 	t.Setenv("KDEPS_MODELS_DIR", "/dev/null/models-test")
 
 	m := NewModelManager(nil)
-	_, err := m.serveFileModel("test.llamafile", 0)
+	_, err := m.serveFileModel(context.Background(), "test.llamafile", 0)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "cannot create models directory")
 }
@@ -52,7 +52,7 @@ func TestServeGGUFModel_NewGGUFManagerFailure(t *testing.T) {
 	t.Setenv("KDEPS_MODELS_DIR", "/dev/null/models-test")
 
 	m := NewModelManager(nil)
-	_, err := m.serveGGUFModel("test.gguf", 0)
+	_, err := m.serveGGUFModel(context.Background(), "test.gguf", 0)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "cannot create models directory")
 }
@@ -62,7 +62,7 @@ func TestServeGGUFModelIfNeeded_Error(t *testing.T) {
 
 	m := NewModelManager(nil)
 	config := &domainpkg.ChatConfig{Model: "test.gguf"}
-	m.serveGGUFModelIfNeeded(config, 0)
+	m.serveGGUFModelIfNeeded(context.Background(), config, 0)
 	// On error, BaseURL stays empty
 	assert.Empty(t, config.BaseURL)
 }
@@ -72,7 +72,7 @@ func TestServeGGUFModel_ResolveError(t *testing.T) {
 	t.Setenv("KDEPS_MODELS_DIR", dir)
 
 	m := NewModelManager(nil)
-	_, err := m.serveGGUFModel("nonexistent-alias-xyz-abc", 0)
+	_, err := m.serveGGUFModel(context.Background(), "nonexistent-alias-xyz-abc", 0)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "not found in cache")
 }
@@ -119,7 +119,7 @@ func TestServeGGUFModelIfNeeded_SetsBaseURL(t *testing.T) {
 
 	m := NewModelManager(nil)
 	config := &domainpkg.ChatConfig{Model: modelPath}
-	m.serveGGUFModelIfNeeded(config, 0)
+	m.serveGGUFModelIfNeeded(context.Background(), config, 0)
 	assert.NotEmpty(t, config.BaseURL)
 	assert.Contains(t, config.BaseURL, "127.0.0.1")
 }

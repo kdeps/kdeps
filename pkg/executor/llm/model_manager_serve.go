@@ -28,7 +28,7 @@ import (
 	"github.com/kdeps/kdeps/v2/pkg/domain"
 )
 
-func (m *ModelManager) downloadModelIfOnline(backend, model string) {
+func (m *ModelManager) downloadModelIfOnline(ctx context.Context, backend, model string) {
 	if m.offlineMode {
 		m.logger.Info(
 			"offline mode enabled, skipping model download",
@@ -39,13 +39,13 @@ func (m *ModelManager) downloadModelIfOnline(backend, model string) {
 		)
 		return
 	}
-	if err := m.service.DownloadModel(context.Background(), backend, model); err != nil {
+	if err := m.service.DownloadModel(ctx, backend, model); err != nil {
 		m.logger.Warn("model download failed or skipped", "backend", backend, "model", model, "error", err)
 	}
 }
 
-func (m *ModelManager) serveFileModelIfNeeded(config *domain.ChatConfig, port int) {
-	actualPort, err := m.serveFileModel(config.Model, port)
+func (m *ModelManager) serveFileModelIfNeeded(ctx context.Context, config *domain.ChatConfig, port int) {
+	actualPort, err := m.serveFileModel(ctx, config.Model, port)
 	if err != nil {
 		m.logger.Warn("llamafile serve failed", "model", config.Model, "error", err)
 		return
@@ -55,8 +55,8 @@ func (m *ModelManager) serveFileModelIfNeeded(config *domain.ChatConfig, port in
 	}
 }
 
-func (m *ModelManager) serveBackendModel(backend, model, host string, port int) {
-	if err := m.service.ServeModel(context.Background(), backend, model, host, port); err != nil {
+func (m *ModelManager) serveBackendModel(ctx context.Context, backend, model, host string, port int) {
+	if err := m.service.ServeModel(ctx, backend, model, host, port); err != nil {
 		m.logger.Warn(
 			"model serving failed or skipped",
 			"backend",
@@ -69,8 +69,8 @@ func (m *ModelManager) serveBackendModel(backend, model, host string, port int) 
 	}
 }
 
-func (m *ModelManager) serveGGUFModelIfNeeded(config *domain.ChatConfig, port int) {
-	actualPort, err := m.serveGGUFModel(config.Model, port)
+func (m *ModelManager) serveGGUFModelIfNeeded(ctx context.Context, config *domain.ChatConfig, port int) {
+	actualPort, err := m.serveGGUFModel(ctx, config.Model, port)
 	if err != nil {
 		m.logger.Warn("llama-server serve failed", "model", config.Model, "error", err)
 		return
@@ -80,32 +80,32 @@ func (m *ModelManager) serveGGUFModelIfNeeded(config *domain.ChatConfig, port in
 	}
 }
 
-func (m *ModelManager) serveGGUFModel(model string, port int) (int, error) {
+func (m *ModelManager) serveGGUFModel(ctx context.Context, model string, port int) (int, error) {
 	kdeps_debug.Log("enter: serveGGUFModel")
 	mgr, err := NewGGUFManager(m.logger)
 	if err != nil {
 		return 0, err
 	}
-	path, err := mgr.Resolve(context.Background(), model)
+	path, err := mgr.Resolve(ctx, model)
 	if err != nil {
 		return 0, err
 	}
-	return mgr.Serve(context.Background(), path, port)
+	return mgr.Serve(ctx, path, port)
 }
 
 // serveFileModel resolves, chmod+x, and serves a llamafile, returning the actual port.
-func (m *ModelManager) serveFileModel(model string, port int) (int, error) {
+func (m *ModelManager) serveFileModel(ctx context.Context, model string, port int) (int, error) {
 	kdeps_debug.Log("enter: serveFileModel")
 	mgr, err := NewLlamafileManager(m.logger)
 	if err != nil {
 		return 0, err
 	}
-	path, err := mgr.Resolve(context.Background(), model)
+	path, err := mgr.Resolve(ctx, model)
 	if err != nil {
 		return 0, err
 	}
 	if execErr := mgr.MakeExecutable(path); execErr != nil {
 		return 0, execErr
 	}
-	return mgr.Serve(context.Background(), path, port)
+	return mgr.Serve(ctx, path, port)
 }

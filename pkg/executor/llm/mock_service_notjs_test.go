@@ -40,7 +40,7 @@ func TestDownloadModelIfOnline_ErrorLogged(_ *testing.T) {
 	mock := NewMockModelService()
 	mock.DownloadModelFunc = func(_, _ string) error { return errors.New("dl fail") }
 	mgr := NewModelManagerFromServiceInterface(mock)
-	mgr.downloadModelIfOnline("ollama", "m")
+	mgr.downloadModelIfOnline(context.Background(), "ollama", "m")
 }
 
 func TestMockModelService_DefaultBehavior(t *testing.T) {
