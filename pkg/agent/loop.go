@@ -33,6 +33,8 @@ import (
 	"os/exec"
 	"regexp"
 	"strings"
+	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/spf13/afero"
@@ -163,6 +165,9 @@ type Loop struct {
 	store         *SessionStore // optional persistence
 	streamer      Streamer      // optional streaming LLM caller
 	pendingFiles  []string      // per-turn image/file attachments; cleared after buildChatConfig
+	// toolDisplayActive is read by the REPL spinner: while a running tool's
+	// monitor line owns the terminal, spinner frames must not overwrite it.
+	toolDisplayActive atomic.Bool
 }
 
 // New creates a new Loop. cfg fields with zero values fall back to env vars and
@@ -871,7 +876,10 @@ func toolErrorJSON(err error) string {
 
 // dispatchToTerminal runs a tool in interactive REPL mode.
 // Tool output is buffered to a temp file to avoid interleaving with the LLM
-// streaming text or spinner, then printed as a clean block after the tool finishes.
+// streaming text or spinner, then printed as a clean block after the tool
+// finishes. While the tool runs, a monitor line updates every second with the
+// elapsed time and the most recent output line, so a long-running command
+// (e.g. a full test suite via bash_exec) is visibly alive instead of silent.
 func (l *Loop) dispatchToTerminal(
 	tool *tools.Tool,
 	name string,
@@ -879,9 +887,10 @@ func (l *Loop) dispatchToTerminal(
 	termW io.Writer,
 	start time.Time,
 ) string {
+	tracker := &lastLineTracker{}
 	f, err := os.CreateTemp("", "kdeps-tool-*.log")
 	if err == nil {
-		tool.OutputWriter = &stripANSIWriter{w: f}
+		tool.OutputWriter = &stripANSIWriter{w: io.MultiWriter(f, tracker)}
 		defer func() {
 			tool.OutputWriter = nil
 			_ = f.Close()
@@ -889,7 +898,21 @@ func (l *Loop) dispatchToTerminal(
 		}()
 	}
 
+	// The monitor owns the terminal line while the tool runs; the REPL
+	// spinner reads toolDisplayActive and stays away.
+	l.toolDisplayActive.Store(true)
+	stopMon := make(chan struct{})
+	var monWg sync.WaitGroup
+	monWg.Add(1)
+	go func() {
+		defer monWg.Done()
+		runToolMonitor(termW, name, tracker, start, stopMon)
+	}()
+
 	result, execErr := tool.Execute(args)
+	close(stopMon)
+	monWg.Wait()
+	l.toolDisplayActive.Store(false)
 	elapsed := time.Since(start).Round(time.Millisecond)
 
 	if err == nil {

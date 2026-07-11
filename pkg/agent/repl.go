@@ -1004,10 +1004,11 @@ func expandFileRefs(input string) (string, []string) {
 }
 
 // drawSpinnerFrames renders "generating" frames to out until done is closed.
-// Frames are skipped while thinking text is streaming: it owns the current
-// terminal line, and drawing over it would overwrite the line head and leave
-// the tail as garbage ("generating <thinking fragment>").
-func drawSpinnerFrames(out io.Writer, thinkW *liveThinkingWriter, done <-chan struct{}) {
+// Frames are skipped while skip() reports the terminal line is owned by
+// someone else (streaming thinking text or a running tool's monitor line):
+// drawing over it would overwrite the line head and leave the tail as
+// garbage ("generating <thinking fragment>").
+func drawSpinnerFrames(out io.Writer, skip func() bool, done <-chan struct{}) {
 	spinFrames := []string{"⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"}
 	tick := time.NewTicker(replTickerMs * time.Millisecond)
 	defer tick.Stop()
@@ -1015,7 +1016,7 @@ func drawSpinnerFrames(out io.Writer, thinkW *liveThinkingWriter, done <-chan st
 	for {
 		select {
 		case <-tick.C:
-			if thinkW != nil && thinkW.active.Load() {
+			if skip != nil && skip() {
 				continue
 			}
 			// \033[K erases anything right of the frame so a longer leftover
@@ -1098,7 +1099,10 @@ func (r *REPL) runStreaming(ctx context.Context, input string) (string, error) {
 		capturedOut := spinnerOut // capture at goroutine creation time
 		go func() {
 			defer spinWg.Done()
-			drawSpinnerFrames(capturedOut, thinkW, done)
+			drawSpinnerFrames(capturedOut, func() bool {
+				return (thinkW != nil && thinkW.active.Load()) ||
+					r.loop.toolDisplayActive.Load()
+			}, done)
 		}()
 		sr = <-ch
 		close(done)
