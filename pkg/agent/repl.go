@@ -1761,7 +1761,7 @@ func (r *REPL) cmdModel(args []string) error {
 //
 //nolint:gochecknoglobals // immutable command metadata
 var toolSettingNames = []string{
-	"rounds", "retries", "retry-delay",
+	"rounds", "retries", "retry-delay", "stall-timeout",
 	"compact-threshold", "compact-budget", "max-turns", "history-tokens",
 }
 
@@ -1795,6 +1795,7 @@ func (r *REPL) printToolSettings() {
 		{"rounds", fmt.Sprintf("%d  (max tool-call rounds per turn)", cfg.MaxToolRounds)},
 		{"retries", fmt.Sprintf("%d  (auto-retries on transient API errors)", cfg.AutoRetryMax)},
 		{"retry-delay", fmt.Sprintf("%s  (initial retry backoff, doubles per retry)", cfg.AutoRetryBaseDelay)},
+		{"stall-timeout", fmt.Sprintf("%s  (kill a tool after this much silence, 0 = off)", cfg.ToolStallTimeout)},
 		{"compact-threshold", fmt.Sprintf("%d  (tokens; auto-compact trigger, 0 = off)", cfg.AutoCompactThreshold)},
 		{"compact-budget", fmt.Sprintf("%d  (tokens kept after compaction)", cfg.CompactTokenBudget)},
 		{"max-turns", fmt.Sprintf("%d  (history turns retained, 0 = unlimited)", cfg.MaxTurns)},
@@ -1836,6 +1837,18 @@ var toolSettingAppliers = map[string]func(cfg *Config, value string) (string, st
 		}
 		cfg.AutoRetryBaseDelay = d
 		return fmt.Sprintf("Auto-retry base delay set to %s", d), ""
+	},
+	"stall-timeout": func(cfg *Config, v string) (string, string) {
+		if v == "0" {
+			cfg.ToolStallTimeout = -1 // negative disables; 0 would re-apply the default
+			return "Tool stall detection disabled", ""
+		}
+		d, err := time.ParseDuration(v)
+		if err != nil || d <= 0 {
+			return "", "stall-timeout must be a duration (e.g. 10m, 90s) or 0 to disable"
+		}
+		cfg.ToolStallTimeout = d
+		return fmt.Sprintf("Tool stall timeout set to %s of silence", d), ""
 	},
 	"compact-threshold": func(cfg *Config, v string) (string, string) {
 		n := parseTokenCount(v)

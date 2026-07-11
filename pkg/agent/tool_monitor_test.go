@@ -19,6 +19,7 @@
 package agent
 
 import (
+	"context"
 	"strings"
 	"testing"
 	"time"
@@ -32,7 +33,7 @@ import (
 )
 
 func TestLastLineTracker(t *testing.T) {
-	tr := &lastLineTracker{}
+	tr := newLastLineTracker(time.Now())
 
 	_, err := tr.Write([]byte("first line\nsecond "))
 	require.NoError(t, err)
@@ -55,10 +56,18 @@ func TestLastLineTracker(t *testing.T) {
 }
 
 func TestLastLineTracker_PartialOnly(t *testing.T) {
-	tr := &lastLineTracker{}
+	tr := newLastLineTracker(time.Now())
 	_, err := tr.Write([]byte("no newline yet"))
 	require.NoError(t, err)
 	assert.Equal(t, "no newline yet", tr.Last())
+}
+
+func TestLastLineTracker_Silence(t *testing.T) {
+	tr := newLastLineTracker(time.Now().Add(-time.Hour))
+	assert.GreaterOrEqual(t, tr.Silence(), time.Hour, "silence measured from start when no output yet")
+	_, err := tr.Write([]byte("alive\n"))
+	require.NoError(t, err)
+	assert.Less(t, tr.Silence(), time.Second, "a write resets the silence clock")
 }
 
 // TestDispatchToTerminal_MonitorLine verifies a long-running tool shows a
@@ -97,6 +106,81 @@ func TestDispatchToTerminal_MonitorLine(t *testing.T) {
 	assert.Contains(t, out, "slow_tool done (", "completion line must still appear")
 	assert.True(t, flagDuringRun, "toolDisplayActive must be held while the tool runs")
 	assert.False(t, loop.toolDisplayActive.Load(), "flag must clear after the tool finishes")
+}
+
+// TestDispatchToTerminal_StallKillsHungTool verifies a tool that produces no
+// output past ToolStallTimeout has its context canceled and returns a
+// structured error telling the LLM the command hung.
+func TestDispatchToTerminal_StallKillsHungTool(t *testing.T) {
+	eng := executor.NewEngine(nil)
+	reg := tools.NewRegistry()
+	reg.Register(&tools.Tool{
+		Name:        "hung_tool",
+		Description: "blocks until its context is canceled",
+		Parameters:  map[string]domain.ToolParam{},
+		Execute: func(args map[string]any) (string, error) {
+			ctx, _ := args["_ctx"].(context.Context)
+			select {
+			case <-ctx.Done():
+				return "", ctx.Err()
+			case <-time.After(30 * time.Second):
+				return "should never get here", nil
+			}
+		},
+	})
+	var termBuf strings.Builder
+	loop := New(eng, newTestWorkflowForSession(), reg, Config{
+		Model:            "test",
+		Streamer:         &mockStreamer{},
+		ToolOutputWriter: &termBuf,
+		ToolCtx:          context.Background(),
+		ToolStallTimeout: toolMonitorInterval + 200*time.Millisecond,
+	})
+
+	start := time.Now()
+	result := loop.dispatchStreamToolCall(
+		domain.StreamedToolCall{ID: "1", Name: "hung_tool", Arguments: "{}"}, nil)
+
+	assert.Less(t, time.Since(start), 10*time.Second, "hung tool must be killed, not waited out")
+	assert.Contains(t, result, "tool killed")
+	assert.Contains(t, result, "no output")
+	assert.Contains(t, termBuf.String(), "killed after")
+}
+
+// TestDispatchToTerminal_HealthyToolNotStallKilled verifies a tool that keeps
+// producing output is never treated as stalled even past the timeout.
+func TestDispatchToTerminal_HealthyToolNotStallKilled(t *testing.T) {
+	eng := executor.NewEngine(nil)
+	reg := tools.NewRegistry()
+	var loop *Loop
+	reg.Register(&tools.Tool{
+		Name:        "chatty_tool",
+		Description: "prints regularly for longer than the stall timeout",
+		Parameters:  map[string]domain.ToolParam{},
+		Execute: func(_ map[string]any) (string, error) {
+			for range 4 {
+				time.Sleep(400 * time.Millisecond)
+				if loop.registry.Get("chatty_tool").OutputWriter != nil {
+					_, _ = loop.registry.Get("chatty_tool").OutputWriter.Write([]byte("tick\n"))
+				}
+			}
+			return "chatty done", nil
+		},
+	})
+	var termBuf strings.Builder
+	loop = New(eng, newTestWorkflowForSession(), reg, Config{
+		Model:            "test",
+		Streamer:         &mockStreamer{},
+		ToolOutputWriter: &termBuf,
+		ToolCtx:          context.Background(),
+		ToolStallTimeout: 1200 * time.Millisecond, // shorter than total runtime, longer than gaps
+	})
+
+	result := loop.dispatchStreamToolCall(
+		domain.StreamedToolCall{ID: "1", Name: "chatty_tool", Arguments: "{}"}, nil)
+
+	assert.Equal(t, "chatty done", result, "regular output must keep the tool alive")
+	assert.NotContains(t, termBuf.String(), "killed after")
 }
 
 // TestDrawSpinnerFrames_SkipSuppressesOutput verifies the spinner draws

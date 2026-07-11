@@ -146,6 +146,10 @@ type Config struct {
 	// (no restrictions). "read-only" allows only read operations;
 	// "workspace-write" adds file writes and command execution.
 	PermissionMode PermissionMode
+	// ToolStallTimeout kills a running tool after this much time with no
+	// output (silence-based, not wall-clock). 0 applies the default (10m);
+	// negative disables stall detection.
+	ToolStallTimeout time.Duration
 }
 
 // Loop drives a multi-turn agent conversation using the kdeps engine as the
@@ -368,6 +372,9 @@ func applyConfigDefaults(cfg Config) Config {
 	if cfg.AutoRetryBaseDelay == 0 {
 		cfg.AutoRetryBaseDelay = defaultAutoRetryBaseDelay
 	}
+	if cfg.ToolStallTimeout == 0 {
+		cfg.ToolStallTimeout = defaultToolStallTimeout
+	}
 	return cfg
 }
 
@@ -379,7 +386,11 @@ const (
 	defaultMaxToolRounds      = 50
 	defaultAutoRetryMax       = 3
 	defaultAutoRetryBaseDelay = 2 * time.Second
-	defaultModelName          = "llama3.2"
+	// defaultToolStallTimeout kills a running tool after this much time with
+	// no output at all. Silence-based, not wall-clock: a long build that
+	// keeps printing never trips it.
+	defaultToolStallTimeout = 10 * time.Minute
+	defaultModelName        = "llama3.2"
 )
 
 func envOrDefault(key, fallback string) string {
@@ -887,7 +898,7 @@ func (l *Loop) dispatchToTerminal(
 	termW io.Writer,
 	start time.Time,
 ) string {
-	tracker := &lastLineTracker{}
+	tracker := newLastLineTracker(start)
 	f, err := os.CreateTemp("", "kdeps-tool-*.log")
 	if err == nil {
 		tool.OutputWriter = &stripANSIWriter{w: io.MultiWriter(f, tracker)}
@@ -898,6 +909,21 @@ func (l *Loop) dispatchToTerminal(
 		}()
 	}
 
+	// Stall kill: wrap the tool context so the monitor can cancel a hung
+	// command (no output past ToolStallTimeout). Cancellable tools (e.g.
+	// bash_exec) read "_ctx" and kill their subprocess on cancellation.
+	var stalled atomic.Bool
+	onStall := func() {}
+	if base, ok := args["_ctx"].(context.Context); ok && base != nil && l.config.ToolStallTimeout > 0 {
+		stallCtx, stallCancel := context.WithCancel(base)
+		defer stallCancel()
+		args["_ctx"] = stallCtx
+		onStall = func() {
+			stalled.Store(true)
+			stallCancel()
+		}
+	}
+
 	// The monitor owns the terminal line while the tool runs; the REPL
 	// spinner reads toolDisplayActive and stays away.
 	l.toolDisplayActive.Store(true)
@@ -906,7 +932,7 @@ func (l *Loop) dispatchToTerminal(
 	monWg.Add(1)
 	go func() {
 		defer monWg.Done()
-		runToolMonitor(termW, name, tracker, start, stopMon)
+		runToolMonitor(termW, name, tracker, start, l.config.ToolStallTimeout, onStall, stopMon)
 	}()
 
 	result, execErr := tool.Execute(args)
@@ -914,6 +940,16 @@ func (l *Loop) dispatchToTerminal(
 	monWg.Wait()
 	l.toolDisplayActive.Store(false)
 	elapsed := time.Since(start).Round(time.Millisecond)
+
+	if stalled.Load() {
+		const lineReset = ansiReset + ansiClearLine
+		fmt.Fprintf(termW, "%s\n  ... %s killed after %s with no output for %s\n",
+			lineReset, name, elapsed, l.config.ToolStallTimeout)
+		return toolErrorJSON(fmt.Errorf(
+			"tool killed: no output for %s (command appears hung). "+
+				"Retry with a narrower or more verbose command, or run it "+
+				"in the background", l.config.ToolStallTimeout))
+	}
 
 	if err == nil {
 		if _, seekErr := f.Seek(0, io.SeekStart); seekErr == nil {

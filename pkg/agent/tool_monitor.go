@@ -31,19 +31,29 @@ const (
 	toolMonitorInterval = time.Second
 	// toolMonitorTailLen caps the "last output line" shown on the status line.
 	toolMonitorTailLen = 60
+	// toolStallWarnAfter is how long a tool may be silent before the monitor
+	// line starts showing a "no output" warning.
+	toolStallWarnAfter = 2 * time.Minute
 )
 
-// lastLineTracker tees tool output and remembers the most recent non-empty
-// line, so the tool monitor can show what a long-running command is doing.
+// lastLineTracker tees tool output, remembering the most recent non-empty
+// line and when output last moved, so the tool monitor can show what a
+// long-running command is doing and detect a stall.
 type lastLineTracker struct {
-	mu      sync.Mutex
-	partial string
-	last    string
+	mu        sync.Mutex
+	partial   string
+	last      string
+	lastWrite time.Time
+}
+
+func newLastLineTracker(start time.Time) *lastLineTracker {
+	return &lastLineTracker{lastWrite: start}
 }
 
 func (t *lastLineTracker) Write(p []byte) (int, error) {
 	t.mu.Lock()
 	defer t.mu.Unlock()
+	t.lastWrite = time.Now()
 	text := t.partial + string(p)
 	// Treat \r like \n: progress-style output rewrites lines in place.
 	text = strings.ReplaceAll(text, "\r", "\n")
@@ -69,32 +79,57 @@ func (t *lastLineTracker) Last() string {
 	return t.last
 }
 
+// Silence returns how long the tool has produced no output.
+func (t *lastLineTracker) Silence() time.Duration {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	return time.Since(t.lastWrite)
+}
+
 // runToolMonitor redraws a status line for a running tool every
 // toolMonitorInterval until stop is closed: spinner frame, tool name,
-// elapsed time, and the tool's most recent output line. The caller clears
-// the line after the tool finishes.
+// elapsed time, and the tool's most recent output line. When the tool is
+// silent past toolStallWarnAfter the line warns; past stallTimeout (when
+// positive) onStall is invoked exactly once — the dispatcher uses it to
+// cancel the tool's context and kill a hung command. The caller clears the
+// line after the tool finishes.
 func runToolMonitor(
 	w io.Writer,
 	name string,
 	tracker *lastLineTracker,
 	start time.Time,
+	stallTimeout time.Duration,
+	onStall func(),
 	stop <-chan struct{},
 ) {
 	frames := []string{"⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"}
 	tick := time.NewTicker(toolMonitorInterval)
 	defer tick.Stop()
 	i := 0
+	stalled := false
 	for {
 		select {
 		case <-tick.C:
 			elapsed := time.Since(start).Round(time.Second)
-			tail := ""
-			if last := tracker.Last(); last != "" {
-				tail = " · " + truncateEllipsis(last, toolMonitorTailLen)
+			silence := tracker.Silence()
+			status := ""
+			switch {
+			case stallTimeout > 0 && silence >= stallTimeout && !stalled:
+				stalled = true
+				status = " · stalled — killing"
+				if onStall != nil {
+					onStall()
+				}
+			case stalled:
+				status = " · stalled — killing"
+			case silence >= toolStallWarnAfter:
+				status = fmt.Sprintf(" · no output for %s", silence.Round(time.Second))
+			case tracker.Last() != "":
+				status = " · " + truncateEllipsis(tracker.Last(), toolMonitorTailLen)
 			}
 			// \033[K erases leftovers when the new line is shorter.
 			fmt.Fprintf(w, "\r  %s %s running (%s)%s\033[K",
-				styleReplInfo.Render(frames[i%len(frames)]), name, elapsed, tail)
+				styleReplInfo.Render(frames[i%len(frames)]), name, elapsed, status)
 			i++
 		case <-stop:
 			return
