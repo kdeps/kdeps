@@ -848,15 +848,27 @@ func (l *Loop) closeToolCallLine(termW io.Writer, msg string) {
 	}
 }
 
+// rawTerminalWriter unwraps crlfWriter for cursor-control writes. Monitor
+// frames drive the cursor with a bare \r to redraw in place; crlfWriter
+// rewrites bare \r into a newline, which would stack one frame line per tick.
+func rawTerminalWriter(w io.Writer) io.Writer {
+	if cw, ok := w.(*crlfWriter); ok {
+		return cw.w
+	}
+	return w
+}
+
 // printToolCompletion writes the end-of-tool summary: attached to the still
 // open call line when sameLine ("[name → args] ... done (3ms)"), on its own
-// line below the tool's output otherwise.
-func printToolCompletion(termW io.Writer, name, msg string, sameLine bool) {
+// line below the tool's output otherwise. rawW receives the line-erase
+// control sequence so the last monitor frame is replaced, not kept.
+func printToolCompletion(termW, rawW io.Writer, name, msg string, sameLine bool) {
 	if sameLine {
 		fmt.Fprintf(termW, " ... %s\n", msg)
 		return
 	}
-	fmt.Fprintf(termW, "%s\n  ... %s %s\n", ansiReset+ansiClearLine, name, msg)
+	fmt.Fprint(rawW, ansiReset+ansiClearLine)
+	fmt.Fprintf(termW, "  ... %s %s\n", name, msg)
 }
 
 // printBufferedToolOutput replays the tool's buffered output block to the
@@ -989,14 +1001,17 @@ func (l *Loop) dispatchToTerminal(
 
 	// The monitor owns the terminal line while the tool runs; the REPL
 	// spinner reads toolDisplayActive and stays away. Its first frame closes
-	// an open "[name → args]" line so it never draws over it.
+	// an open "[name → args]" line so it never draws over it. Frames go to
+	// the raw terminal writer: crlfWriter would turn their \r into a newline
+	// and stack one frame line per tick.
+	rawW := rawTerminalWriter(termW)
 	l.toolDisplayActive.Store(true)
 	stopMon := make(chan struct{})
 	var monWg sync.WaitGroup
 	monWg.Add(1)
 	go func() {
 		defer monWg.Done()
-		runToolMonitor(termW, name, tracker, start, l.config.ToolStallTimeout, onStall, func() {
+		runToolMonitor(rawW, name, tracker, start, l.config.ToolStallTimeout, onStall, func() {
 			if l.toolLineOpen.CompareAndSwap(true, false) {
 				fmt.Fprint(termW, "\n")
 			}
@@ -1011,9 +1026,9 @@ func (l *Loop) dispatchToTerminal(
 
 	if stalled.Load() {
 		// A stall implies the monitor drew frames, so the call line is closed.
-		const lineReset = ansiReset + ansiClearLine
-		fmt.Fprintf(termW, "%s\n  ... %s killed after %s with no output for %s\n",
-			lineReset, name, elapsed, l.config.ToolStallTimeout)
+		fmt.Fprint(rawW, ansiReset+ansiClearLine)
+		fmt.Fprintf(termW, "  ... %s killed after %s with no output for %s\n",
+			name, elapsed, l.config.ToolStallTimeout)
 		return toolErrorJSON(fmt.Errorf(
 			"tool killed: no output for %s (command appears hung). "+
 				"Retry with a narrower or more verbose command, or run it "+
@@ -1031,16 +1046,16 @@ func (l *Loop) dispatchToTerminal(
 	case execErr != nil:
 		// Truncate: provider failures can embed entire HTML pages (e.g. a
 		// CAPTCHA challenge) that would flood the terminal and the LLM context.
-		printToolCompletion(termW, name,
+		printToolCompletion(termW, rawW, name,
 			fmt.Sprintf("failed (%s): %s", elapsed, truncateEllipsis(execErr.Error(), toolErrorMaxLen)),
 			sameLine)
 		return toolErrorJSON(execErr)
 	case strings.HasPrefix(result, `{"status":"backgrounded"`):
-		printToolCompletion(termW, name,
+		printToolCompletion(termW, rawW, name,
 			"backgrounded [Ctrl+Z; use bash_job_wait to retrieve]", sameLine)
 		return result
 	default:
-		printToolCompletion(termW, name, fmt.Sprintf("done (%s)", elapsed), sameLine)
+		printToolCompletion(termW, rawW, name, fmt.Sprintf("done (%s)", elapsed), sameLine)
 		return result
 	}
 }

@@ -20,6 +20,7 @@ package agent
 
 import (
 	"context"
+	"io"
 	"strings"
 	"testing"
 	"time"
@@ -136,6 +137,47 @@ func TestDispatchToTerminal_SameLineDoneForFastTool(t *testing.T) {
 	assert.True(t, strings.HasPrefix(out, " ... done ("),
 		"completion must attach to the open call line, got %q", out)
 	assert.False(t, loop.toolLineOpen.Load(), "line must be closed after completion")
+}
+
+// TestDispatchToTerminal_FramesRewriteInPlaceThroughCrlfWriter is the
+// regression test for monitor frames stacking one line per tick: crlfWriter
+// rewrites bare \r into a newline, so frames must bypass it and reach the
+// raw terminal writer.
+func TestDispatchToTerminal_FramesRewriteInPlaceThroughCrlfWriter(t *testing.T) {
+	eng := executor.NewEngine(nil)
+	reg := tools.NewRegistry()
+	reg.Register(&tools.Tool{
+		Name:        "quiet_slow_tool",
+		Description: "sleeps across several monitor ticks with no output",
+		Parameters:  map[string]domain.ToolParam{},
+		Execute: func(_ map[string]any) (string, error) {
+			time.Sleep(2*toolMonitorInterval + 500*time.Millisecond)
+			return "ok", nil
+		},
+	})
+	var under strings.Builder
+	loop := New(eng, newTestWorkflowForSession(), reg, Config{
+		Model:            "test",
+		Streamer:         &mockStreamer{},
+		ToolOutputWriter: &crlfWriter{w: &under},
+	})
+
+	result := loop.dispatchStreamToolCall(
+		domain.StreamedToolCall{ID: "1", Name: "quiet_slow_tool", Arguments: "{}"}, nil)
+
+	require.Equal(t, "ok", result)
+	out := under.String()
+	require.GreaterOrEqual(t, strings.Count(out, "running ("), 2,
+		"expected at least two monitor frames")
+	assert.LessOrEqual(t, strings.Count(out, "\n"), 3,
+		"frames must redraw in place, not stack one line per tick: %q", out)
+}
+
+func TestRawTerminalWriter_UnwrapsCrlfWriter(t *testing.T) {
+	var buf strings.Builder
+	cw := &crlfWriter{w: &buf}
+	assert.Equal(t, io.Writer(&buf), rawTerminalWriter(cw))
+	assert.Equal(t, io.Writer(&buf), rawTerminalWriter(&buf))
 }
 
 // TestDispatchToTerminal_StallKillsHungTool verifies a tool that produces no
