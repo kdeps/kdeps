@@ -1101,7 +1101,8 @@ func (r *REPL) runStreaming(ctx context.Context, input string) (string, error) {
 			defer spinWg.Done()
 			drawSpinnerFrames(capturedOut, func() bool {
 				return (thinkW != nil && thinkW.active.Load()) ||
-					r.loop.toolDisplayActive.Load()
+					r.loop.toolDisplayActive.Load() ||
+					r.loop.toolLineOpen.Load()
 			}, done)
 		}()
 		sr = <-ch
@@ -1225,8 +1226,10 @@ func (r *REPL) Run() error {
 	// immediately when the LLM invokes it, without waiting for the full response.
 	r.loop.config.ToolCallDisplay = func(name, args string) string {
 		// \r\033[K: absolute col 0 + erase current line (Flush leaves a blank line here).
-		// Print header on that same clean line; \r\n after, not before — no extra blank line.
-		fmt.Fprintf(os.Stdout, "%s%s\r\n", ansiClearLine, renderToolCall(name, args))
+		// No trailing newline: the line stays open so a fast, silent tool can
+		// attach " ... done (3ms)" to it; the monitor or output closes it.
+		fmt.Fprintf(os.Stdout, "%s%s", ansiClearLine, renderToolCall(name, args))
+		r.loop.toolLineOpen.Store(true)
 		return ""
 	}
 	// Route real-time tool stdout/stderr to the terminal instead of the LLM buffer.

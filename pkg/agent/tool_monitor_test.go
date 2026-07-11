@@ -108,6 +108,36 @@ func TestDispatchToTerminal_MonitorLine(t *testing.T) {
 	assert.False(t, loop.toolDisplayActive.Load(), "flag must clear after the tool finishes")
 }
 
+// TestDispatchToTerminal_SameLineDoneForFastTool verifies a fast, silent tool
+// attaches its completion to the open "[name -> args]" call line instead of
+// printing a detached "... done" line below blank lines.
+func TestDispatchToTerminal_SameLineDoneForFastTool(t *testing.T) {
+	eng := executor.NewEngine(nil)
+	reg := tools.NewRegistry()
+	reg.Register(&tools.Tool{
+		Name:        "fast_tool",
+		Description: "returns instantly with no output",
+		Parameters:  map[string]domain.ToolParam{},
+		Execute:     func(_ map[string]any) (string, error) { return "ok", nil },
+	})
+	var termBuf strings.Builder
+	loop := New(eng, newTestWorkflowForSession(), reg, Config{
+		Model:            "test",
+		Streamer:         &mockStreamer{},
+		ToolOutputWriter: &termBuf,
+	})
+	loop.toolLineOpen.Store(true) // as the REPL's ToolCallDisplay leaves it
+
+	result := loop.dispatchStreamToolCall(
+		domain.StreamedToolCall{ID: "1", Name: "fast_tool", Arguments: "{}"}, nil)
+
+	assert.Equal(t, "ok", result)
+	out := termBuf.String()
+	assert.True(t, strings.HasPrefix(out, " ... done ("),
+		"completion must attach to the open call line, got %q", out)
+	assert.False(t, loop.toolLineOpen.Load(), "line must be closed after completion")
+}
+
 // TestDispatchToTerminal_StallKillsHungTool verifies a tool that produces no
 // output past ToolStallTimeout has its context canceled and returns a
 // structured error telling the LLM the command hung.

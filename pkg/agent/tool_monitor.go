@@ -100,6 +100,7 @@ func runToolMonitor(
 	start time.Time,
 	stallTimeout time.Duration,
 	onStall func(),
+	beforeFirstDraw func(),
 	stop <-chan struct{},
 ) {
 	frames := []string{"⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"}
@@ -110,6 +111,9 @@ func runToolMonitor(
 	for {
 		select {
 		case <-tick.C:
+			if i == 0 && beforeFirstDraw != nil {
+				beforeFirstDraw()
+			}
 			elapsed := time.Since(start).Round(time.Second)
 			silence := tracker.Silence()
 			status := ""

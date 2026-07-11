@@ -172,6 +172,10 @@ type Loop struct {
 	// toolDisplayActive is read by the REPL spinner: while a running tool's
 	// monitor line owns the terminal, spinner frames must not overwrite it.
 	toolDisplayActive atomic.Bool
+	// toolLineOpen is true while a "[name → args]" call line awaits its
+	// same-line completion suffix. The spinner must not draw over it; the
+	// monitor's first frame or output printing closes it.
+	toolLineOpen atomic.Bool
 }
 
 // New creates a new Loop. cfg fields with zero values fall back to env vars and
@@ -636,16 +640,6 @@ func (l *Loop) runToolRounds(
 			l.config.OnRoundComplete()
 		}
 
-		for _, tc := range toolCalls {
-			argSummary := summarizeToolArgs(tc.Arguments)
-			line := fmt.Sprintf("[%s → %s]", tc.Name, argSummary)
-			if l.config.ToolCallDisplay != nil {
-				line = l.config.ToolCallDisplay(tc.Name, argSummary)
-			}
-			fmt.Fprintf(w, "\n%s", line)
-		}
-		fmt.Fprintln(w)
-
 		chatCfg = l.appendToolRoundTrip(ctx, chatCfg, content, toolCalls, w)
 		// Ctrl+C during tool execution: stop the round loop instead of
 		// firing another LLM call that would fail on the canceled context.
@@ -808,9 +802,12 @@ func (l *Loop) appendToolRoundTrip(
 
 	// Execute each tool and add tool result messages. After a Ctrl+C the
 	// remaining tools are skipped with an interrupted marker instead of run.
+	// Each tool's call line is displayed right before it runs so its
+	// completion can attach to the same line.
 	for _, tc := range toolCalls {
 		result := `{"error":"interrupted by user"}`
 		if ctx.Err() == nil {
+			l.displayToolCall(tc, w)
 			result = l.dispatchStreamToolCall(tc, w)
 		}
 		history = append(history, map[string]any{
@@ -829,10 +826,73 @@ func (l *Loop) appendToolRoundTrip(
 	return &updated
 }
 
+// displayToolCall prints the "[name → args]" line for a tool about to run.
+// In the REPL (ToolCallDisplay set) the line is left open — no trailing
+// newline — so a fast, silent tool can attach " ... done (3ms)" to the same
+// line; the tool monitor or output printing closes the line otherwise.
+func (l *Loop) displayToolCall(tc domain.StreamedToolCall, w io.Writer) {
+	argSummary := summarizeToolArgs(tc.Arguments)
+	if l.config.ToolCallDisplay != nil {
+		_ = l.config.ToolCallDisplay(tc.Name, argSummary)
+		return
+	}
+	fmt.Fprintf(w, "\n[%s → %s]\n", tc.Name, argSummary)
+}
+
+// closeToolCallLine finishes an open tool-call line with msg on the same line
+// (" ... done (3ms)"). No-op when something else (monitor frame, output
+// block) already closed the line.
+func (l *Loop) closeToolCallLine(termW io.Writer, msg string) {
+	if l.toolLineOpen.CompareAndSwap(true, false) {
+		fmt.Fprintf(termW, " %s\n", msg)
+	}
+}
+
+// printToolCompletion writes the end-of-tool summary: attached to the still
+// open call line when sameLine ("[name → args] ... done (3ms)"), on its own
+// line below the tool's output otherwise.
+func printToolCompletion(termW io.Writer, name, msg string, sameLine bool) {
+	if sameLine {
+		fmt.Fprintf(termW, " ... %s\n", msg)
+		return
+	}
+	fmt.Fprintf(termW, "%s\n  ... %s %s\n", ansiReset+ansiClearLine, name, msg)
+}
+
+// printBufferedToolOutput replays the tool's buffered output block to the
+// terminal. Returns the updated sameLine state: false once anything printed,
+// because the call line can no longer take a same-line completion suffix.
+func printBufferedToolOutput(f *os.File, termW io.Writer, sameLine bool) bool {
+	if f == nil {
+		return sameLine
+	}
+	if _, err := f.Seek(0, io.SeekStart); err != nil {
+		return sameLine
+	}
+	data, _ := io.ReadAll(f)
+	// go test and similar tools use \r to overwrite progress lines in place.
+	// When replayed from a buffer those \r chars rewind the cursor and garble
+	// the display. Normalize \r\n -> \n and drop bare \r before printing.
+	data = bytes.ReplaceAll(data, []byte("\r\n"), []byte("\n"))
+	data = bytes.ReplaceAll(data, []byte("\r"), []byte("\n"))
+	if len(data) == 0 {
+		return sameLine
+	}
+	if sameLine {
+		fmt.Fprint(termW, "\n") // close the open call line first
+	}
+	fmt.Fprintf(termW, "\n")
+	_, _ = termW.Write(data)
+	return false
+}
+
 // dispatchStreamToolCall executes a tool call from the streaming path.
 func (l *Loop) dispatchStreamToolCall(tc domain.StreamedToolCall, w io.Writer) string {
 	tool := l.registry.Get(tc.Name)
 	if tool == nil {
+		if termW := l.config.ToolOutputWriter; termW != nil {
+			l.closeToolCallLine(termW, "... failed: tool not found")
+		}
 		return fmt.Sprintf(`{"error":"tool %q not found"}`, tc.Name)
 	}
 
@@ -840,6 +900,9 @@ func (l *Loop) dispatchStreamToolCall(tc domain.StreamedToolCall, w io.Writer) s
 	// An empty config mode falls back to KDEPS_PERMISSION_MODE inside the
 	// enforcer, so env-only configuration works too.
 	if allowed, reason := NewPermissionEnforcer(l.config.PermissionMode).Allow(tc.Name); !allowed {
+		if termW := l.config.ToolOutputWriter; termW != nil {
+			l.closeToolCallLine(termW, "... blocked: permission denied")
+		}
 		return toolErrorJSON(errors.New("permission denied: " + reason))
 	}
 
@@ -925,14 +988,19 @@ func (l *Loop) dispatchToTerminal(
 	}
 
 	// The monitor owns the terminal line while the tool runs; the REPL
-	// spinner reads toolDisplayActive and stays away.
+	// spinner reads toolDisplayActive and stays away. Its first frame closes
+	// an open "[name → args]" line so it never draws over it.
 	l.toolDisplayActive.Store(true)
 	stopMon := make(chan struct{})
 	var monWg sync.WaitGroup
 	monWg.Add(1)
 	go func() {
 		defer monWg.Done()
-		runToolMonitor(termW, name, tracker, start, l.config.ToolStallTimeout, onStall, stopMon)
+		runToolMonitor(termW, name, tracker, start, l.config.ToolStallTimeout, onStall, func() {
+			if l.toolLineOpen.CompareAndSwap(true, false) {
+				fmt.Fprint(termW, "\n")
+			}
+		}, stopMon)
 	}()
 
 	result, execErr := tool.Execute(args)
@@ -942,6 +1010,7 @@ func (l *Loop) dispatchToTerminal(
 	elapsed := time.Since(start).Round(time.Millisecond)
 
 	if stalled.Load() {
+		// A stall implies the monitor drew frames, so the call line is closed.
 		const lineReset = ansiReset + ansiClearLine
 		fmt.Fprintf(termW, "%s\n  ... %s killed after %s with no output for %s\n",
 			lineReset, name, elapsed, l.config.ToolStallTimeout)
@@ -951,36 +1020,29 @@ func (l *Loop) dispatchToTerminal(
 				"in the background", l.config.ToolStallTimeout))
 	}
 
+	// sameLine: nothing (monitor frame, output) closed the call line, so the
+	// completion can attach to it: "[edit_file -> path] ... done (3ms)".
+	sameLine := l.toolLineOpen.CompareAndSwap(true, false)
 	if err == nil {
-		if _, seekErr := f.Seek(0, io.SeekStart); seekErr == nil {
-			data, _ := io.ReadAll(f)
-			// go test and similar tools use \r to overwrite progress lines in place.
-			// When replayed from a buffer those \r chars rewind the cursor and garble
-			// the display. Normalize \r\n -> \n and drop bare \r before printing.
-			data = bytes.ReplaceAll(data, []byte("\r\n"), []byte("\n"))
-			data = bytes.ReplaceAll(data, []byte("\r"), []byte("\n"))
-			if len(data) > 0 {
-				fmt.Fprintf(termW, "\n")
-				_, _ = termW.Write(data)
-			}
-		}
+		sameLine = printBufferedToolOutput(f, termW, sameLine)
 	}
-	// ansiReset+ansiClearLine: reset ANSI style + absolute column 0 + erase partial line
-	// from garbled tool output. \n (→ \r\n via crlfWriter) gives a fresh line at column 0.
-	const lineReset = ansiReset + ansiClearLine
-	if execErr != nil {
+
+	switch {
+	case execErr != nil:
 		// Truncate: provider failures can embed entire HTML pages (e.g. a
 		// CAPTCHA challenge) that would flood the terminal and the LLM context.
-		fmt.Fprintf(termW, "%s\n  ... %s failed (%s): %s\n",
-			lineReset, name, elapsed, truncateEllipsis(execErr.Error(), toolErrorMaxLen))
+		printToolCompletion(termW, name,
+			fmt.Sprintf("failed (%s): %s", elapsed, truncateEllipsis(execErr.Error(), toolErrorMaxLen)),
+			sameLine)
 		return toolErrorJSON(execErr)
-	}
-	if strings.HasPrefix(result, `{"status":"backgrounded"`) {
-		fmt.Fprintf(termW, "%s\n  ... %s backgrounded [Ctrl+Z; use bash_job_wait to retrieve]\n", lineReset, name)
+	case strings.HasPrefix(result, `{"status":"backgrounded"`):
+		printToolCompletion(termW, name,
+			"backgrounded [Ctrl+Z; use bash_job_wait to retrieve]", sameLine)
+		return result
+	default:
+		printToolCompletion(termW, name, fmt.Sprintf("done (%s)", elapsed), sameLine)
 		return result
 	}
-	fmt.Fprintf(termW, "%s\n  ... %s done (%s)\n", lineReset, name, elapsed)
-	return result
 }
 
 // toolUseGuidance is injected into the system preamble when tools are registered.
