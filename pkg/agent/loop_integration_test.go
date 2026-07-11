@@ -251,6 +251,48 @@ func TestRunStreaming_CurrentPromptKeptAfterToolRound(t *testing.T) {
 		"round 2 messages must include the current user input; got %s", round2.Messages)
 }
 
+// TestRunStreaming_LastRoundForcesAnswerWithoutTools is the regression test
+// for a turn ending with no visible output: when the model was still
+// requesting tools on the final allowed round, the loop broke out on a
+// tool-call round whose content is empty with reasoning models. The last
+// round must instead be sent without tools so the model produces text.
+func TestRunStreaming_LastRoundForcesAnswerWithoutTools(t *testing.T) {
+	toolCall := domain.StreamedToolCall{ID: "1", Name: "calc", Arguments: "{}"}
+	ms := &cfgRecordingStreamer{
+		inner: mockStreamer{
+			responses: []mockStreamResponse{
+				{content: "", toolCalls: []domain.StreamedToolCall{toolCall}},
+				{content: "", toolCalls: []domain.StreamedToolCall{toolCall}},
+				{content: "forced final answer", toolCalls: nil},
+			},
+		},
+	}
+	eng := executor.NewEngine(nil)
+	reg := tools.NewRegistry()
+	reg.Register(&tools.Tool{
+		Name:        "calc",
+		Description: "calculator",
+		Parameters:  map[string]domain.ToolParam{},
+		Execute:     func(_ map[string]any) (string, error) { return "42", nil },
+	})
+	loop := New(eng, newTestWorkflowForSession(), reg, Config{
+		Model:         "test",
+		Streamer:      ms,
+		MaxToolRounds: 3,
+	})
+	var buf bytes.Buffer
+	result, err := loop.RunStreaming(context.Background(), "news", &buf)
+	require.NoError(t, err)
+
+	require.Len(t, ms.cfgs, 3)
+	assert.NotEmpty(t, ms.cfgs[0].Tools, "non-final rounds keep tools")
+	assert.NotEmpty(t, ms.cfgs[1].Tools, "non-final rounds keep tools")
+	assert.Empty(t, ms.cfgs[2].Tools, "final round must be sent without tools")
+	assert.Equal(t, "forced final answer", result)
+	assert.Contains(t, buf.String(), "forced final answer",
+		"the forced answer must be streamed to the output writer")
+}
+
 // TestRunStreaming_StopsEarlyMidway verifies that when tool calls stop before
 // MaxToolRounds the loop exits after the clean round.
 func TestRunStreaming_StopsEarlyMidway(t *testing.T) {

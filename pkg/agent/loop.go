@@ -582,6 +582,16 @@ func (l *Loop) runToolRounds(
 		// Auto-checkpoint: save session state before each LLM call.
 		l.saveCheckpoint()
 
+		// Last allowed round: remove the tools so the model must produce a
+		// text answer. Breaking out on a tool-call round instead would end
+		// the turn with no visible output (tool-call rounds usually have
+		// empty content with reasoning models).
+		if i == l.config.MaxToolRounds-1 && len(chatCfg.Tools) > 0 {
+			capCfg := *chatCfg
+			capCfg.Tools = nil
+			chatCfg = &capCfg
+		}
+
 		var roundBuf strings.Builder
 		content, toolCalls, err := l.streamer.StreamChat(ctx, chatCfg, &roundBuf)
 		if err != nil {
@@ -591,9 +601,6 @@ func (l *Loop) runToolRounds(
 
 		if len(toolCalls) == 0 {
 			_, _ = io.WriteString(w, roundBuf.String())
-			break
-		}
-		if i == l.config.MaxToolRounds-1 {
 			break
 		}
 
