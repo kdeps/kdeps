@@ -1513,6 +1513,30 @@ func (r *REPL) processInput(input string) error {
 // message for a full agent turn, so the model responds to the result (and can
 // act on it, e.g. fix a failing lint). If true (!! prefix), the command runs
 // and prints to stdout but is NOT sent to the LLM.
+// withCookedTerminal exits readline raw mode for the duration of fn so a
+// child process on this terminal gets normal signal handling: Ctrl+C sends
+// SIGINT to the foreground process group instead of feeding a literal ^C
+// byte into the child's stdin (which made "! make test" uninterruptible).
+// SIGINT is swallowed in-process while fn runs — the child receives it and
+// dies; the REPL survives and restores raw mode. Reports whether an
+// interrupt arrived while fn ran.
+func (r *REPL) withCookedTerminal(fn func() error) (interrupted bool, err error) {
+	if r.readlineInst != nil {
+		_ = r.readlineInst.Terminal.ExitRawMode()
+		defer func() { _ = r.readlineInst.Terminal.EnterRawMode() }()
+	}
+	sigCh := make(chan os.Signal, 1)
+	signal.Notify(sigCh, os.Interrupt)
+	defer signal.Stop(sigCh)
+	err = fn()
+	select {
+	case <-sigCh:
+		return true, err
+	default:
+		return false, err
+	}
+}
+
 func (r *REPL) execBangCommand(cmd string, excludeFromContext bool) error {
 	start := time.Now()
 	tracker := newLastLineTracker(start)
@@ -1535,10 +1559,17 @@ func (r *REPL) execBangCommand(cmd string, excludeFromContext bool) error {
 		runQuietMonitor(mw, "! "+truncateEllipsis(cmd, toolArgMaxDisplay), start, stopMon)
 	}()
 
-	runErr := shell.Run()
+	interrupted, runErr := r.withCookedTerminal(shell.Run)
 	close(stopMon)
 	monWg.Wait()
 
+	if interrupted {
+		// The user took control back; do not fire a turn over partial output.
+		fmt.Fprintf(os.Stdout, "%s\n",
+			styleReplMeta.Render(fmt.Sprintf("(interrupted after %s - output not sent to the model)",
+				time.Since(start).Round(time.Second))))
+		return nil
+	}
 	if excludeFromContext {
 		return runErr
 	}
