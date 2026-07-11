@@ -54,4 +54,9 @@ const (
 	toolParamAnthropic = "anthropic"
 	modelGPT4o         = "gpt-4o"
 	toolParamOpenAI    = "openai"
+
+	// Tool names used across multiple files.
+	toolNameBashExec = "bash_exec"
 )
+
+const toolNameSet = "set"
