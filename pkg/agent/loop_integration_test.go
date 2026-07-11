@@ -302,7 +302,11 @@ func TestCommitTrailer(t *testing.T) {
 		{"file", "phi4", "Co-Authored-By: kdeps (llamafile - phi4) <noreply@kdeps.com>"},
 		{"gguf", "qwen3", "Co-Authored-By: kdeps (GGUF - qwen3) <noreply@kdeps.com>"},
 		{"ollama", "llama3.2", "Co-Authored-By: kdeps (Ollama - llama3.2) <noreply@kdeps.com>"},
-		{"deepseek", "deepseek-reasoner", "Co-Authored-By: kdeps (Cloud/deepseek - deepseek-reasoner) <noreply@kdeps.com>"},
+		{
+			"deepseek",
+			"deepseek-reasoner",
+			"Co-Authored-By: kdeps (Cloud/deepseek - deepseek-reasoner) <noreply@kdeps.com>",
+		},
 		{"", "gpt-4o", "Co-Authored-By: kdeps (Cloud - gpt-4o) <noreply@kdeps.com>"},
 	}
 	for _, c := range cases {
