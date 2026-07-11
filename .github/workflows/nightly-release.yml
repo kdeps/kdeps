@@ -8,6 +8,7 @@ on:
 
 permissions:
   contents: write
+  id-token: write # keyless cosign signing (Sigstore OIDC)
   packages: write
 
 concurrency:
@@ -203,6 +204,10 @@ jobs:
           if [ -n "$(git status --porcelain)" ]; then
             git status --porcelain
           fi
+
+      - name: Install syft and cosign (SBOM + signing)
+        if: steps.should_release.outputs.should_release == 'true'
+        run: brew install syft cosign
 
       - name: Release with GoReleaser
         if: steps.should_release.outputs.should_release == 'true'

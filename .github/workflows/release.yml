@@ -9,6 +9,7 @@ on:
 permissions:
   contents: write
   packages: write
+  id-token: write # keyless cosign signing (Sigstore OIDC)
 
 jobs:
   release:
@@ -33,6 +34,9 @@ jobs:
       - name: Get macOS SDK path
         id: macos_sdk
         run: echo "path=$(xcrun --show-sdk-path)" >> $GITHUB_OUTPUT
+
+      - name: Install syft and cosign (SBOM + signing)
+        run: brew install syft cosign
 
       - name: Release with GoReleaser
         uses: goreleaser/goreleaser-action@5daf1e915a5f0af01ddbcd89a43b8061ff4f1a89 # v7

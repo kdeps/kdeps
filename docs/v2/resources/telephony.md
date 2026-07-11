@@ -109,7 +109,7 @@ telephony:
 
 </div>
 
-Telephony fields are static -- <span v-pre>`{{ }}`</span> templates inside them (e.g. a dynamic `say:`) are not interpolated. To return dynamic content (such as an LLM answer) to the caller, include it in the `apiResponse` and have your provider glue render it.
+Content fields are template-interpolated: <span v-pre>`say: "{{ get('answerLLM') }}"`</span> speaks the resolved output of a prior resource (also works in `voice`, `audio`, `grammar`, `grammarUrl`, `to`, `from`, `reason`, and `headers` values). Menu handler expressions (`onNoMatch`, `onNoInput`, `onFailure`, `matches[].expr`) are match-time expressions, not templates.
 
 ## IVR Menu Example
 

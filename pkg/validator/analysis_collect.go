@@ -34,6 +34,14 @@ var builtinTemplateVars = map[string]bool{ //nolint:gochecknoglobals // compile-
 	templateVarWorkflow: true, // workflow metadata (workflow.metadata.name, etc.)
 	"data":              true, // HTTP/SQL response data field accessed via safe()
 	"r":                 true, // common loop variable in search result iteration
+	// Eval-env accessor namespaces (pkg/executor/eval_env_profile.go). Without
+	// these, expressions like {{ telephony.speech() }} fail validation with
+	// "unknown actionId".
+	"telephony":       true, // telephony session accessors (speech(), digits(), ...)
+	"http":            true, // http accessor env
+	"outputs":         true, // raw outputs map
+	"inputTranscript": true, // transcribed input text
+	"inputMedia":      true, // input media file path
 }
 
 // extractActionIDRefs extracts actionId tokens from a single expression string.

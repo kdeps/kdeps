@@ -15,6 +15,7 @@
 package telephony_test
 
 import (
+	"fmt"
 	"strings"
 	"testing"
 
@@ -69,6 +70,67 @@ func TestExecSayText(t *testing.T) {
 	twiml := s.TwiML()
 	if !strings.Contains(twiml, "<Say>Hello caller</Say>") {
 		t.Errorf("expected Say in TwiML, got: %s", twiml)
+	}
+}
+
+// TestExecSayInterpolatesTemplates verifies telephony config fields are
+// template-interpolated: {{ get('answerLLM') }} in say: must speak the
+// resolved output, not the literal template string (kdeps/kdeps#459 gap 1).
+func TestExecSayInterpolatesTemplates(t *testing.T) {
+	e := newExec()
+	ctx := newTestCtx(nil)
+	ctx.Outputs = map[string]any{"answerLLM": "The answer is 42"}
+	ctx.API = &domain.UnifiedAPI{
+		Get: func(name string, _ ...string) (any, error) {
+			if v, ok := ctx.Outputs[name]; ok {
+				return v, nil
+			}
+			return nil, fmt.Errorf("no output %q", name)
+		},
+	}
+	_, err := e.Execute(ctx, &domain.TelephonyActionConfig{
+		Action: telephony.ActionSay,
+		Say:    "{{ get('answerLLM') }}",
+	})
+	if err != nil {
+		t.Fatalf("say: %v", err)
+	}
+	s := ctx.Items[telephony.SessionKey].(*telephony.Session)
+	twiml := s.TwiML()
+	if !strings.Contains(twiml, "The answer is 42") {
+		t.Errorf("expected interpolated output in TwiML, got: %s", twiml)
+	}
+	if strings.Contains(twiml, "{{") {
+		t.Errorf("literal template leaked into TwiML: %s", twiml)
+	}
+}
+
+// TestExecDialInterpolatesToAndHeaders verifies list and map fields are
+// interpolated too.
+func TestExecDialInterpolatesToAndHeaders(t *testing.T) {
+	e := newExec()
+	ctx := newTestCtx(nil)
+	ctx.Outputs = map[string]any{"agentNumber": "tel:+15551234567"}
+	ctx.API = &domain.UnifiedAPI{
+		Get: func(name string, _ ...string) (any, error) {
+			if v, ok := ctx.Outputs[name]; ok {
+				return v, nil
+			}
+			return nil, fmt.Errorf("no output %q", name)
+		},
+	}
+	_, err := e.Execute(ctx, &domain.TelephonyActionConfig{
+		Action:  telephony.ActionDial,
+		To:      []string{"{{ get('agentNumber') }}"},
+		Headers: map[string]string{"X-Route": "{{ get('agentNumber') }}"},
+	})
+	if err != nil {
+		t.Fatalf("dial: %v", err)
+	}
+	s := ctx.Items[telephony.SessionKey].(*telephony.Session)
+	twiml := s.TwiML()
+	if !strings.Contains(twiml, "+15551234567") {
+		t.Errorf("expected interpolated dial target in TwiML, got: %s", twiml)
 	}
 }
 

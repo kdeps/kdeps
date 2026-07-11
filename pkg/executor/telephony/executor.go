@@ -26,6 +26,7 @@ import (
 
 	"github.com/kdeps/kdeps/v2/pkg/domain"
 	"github.com/kdeps/kdeps/v2/pkg/executor"
+	"github.com/kdeps/kdeps/v2/pkg/parser/expression"
 )
 
 // Action constants for the telephony resource.
@@ -54,6 +55,53 @@ const SessionKey = "_telephony_session"
 // ExecutionContext.Items[SessionKey].
 type Executor struct{}
 
+// resolveConfig returns a copy of cfg with its content-bearing string fields
+// template-interpolated ({{ get('answerLLM') }} etc.), matching the chat,
+// exec, and httpClient executors. Menu handler expressions (onNoMatch,
+// onNoInput, onFailure, matches[].expr) are match-time expressions and are
+// deliberately not pre-interpolated here.
+func resolveConfig(
+	ctx *executor.ExecutionContext,
+	cfg *domain.TelephonyActionConfig,
+) (*domain.TelephonyActionConfig, error) {
+	if ctx == nil {
+		return cfg, nil
+	}
+	evaluator := expression.NewEvaluator(ctx.API)
+	env := executor.BuildEvalEnv(ctx, executor.EvalEnvEngine)
+	eval := func(s string) (string, error) {
+		return executor.EvaluateStringOrLiteral(evaluator, env, s, executor.StringLiteralOptions{})
+	}
+
+	out := *cfg
+	var err error
+	for _, field := range []*string{
+		&out.Say, &out.Voice, &out.Audio, &out.Grammar,
+		&out.GrammarURL, &out.From, &out.Reason,
+	} {
+		if *field, err = eval(*field); err != nil {
+			return nil, fmt.Errorf("telephony: interpolate: %w", err)
+		}
+	}
+	if len(cfg.To) > 0 {
+		out.To = make([]string, len(cfg.To))
+		for i, v := range cfg.To {
+			if out.To[i], err = eval(v); err != nil {
+				return nil, fmt.Errorf("telephony: interpolate to[%d]: %w", i, err)
+			}
+		}
+	}
+	if len(cfg.Headers) > 0 {
+		out.Headers = make(map[string]string, len(cfg.Headers))
+		for k, v := range cfg.Headers {
+			if out.Headers[k], err = eval(v); err != nil {
+				return nil, fmt.Errorf("telephony: interpolate header %q: %w", k, err)
+			}
+		}
+	}
+	return &out, nil
+}
+
 // NewExecutor returns a new Executor.
 func NewExecutor() *Executor {
 	kdeps_debug.Log("enter: telephony.NewExecutor")
@@ -70,6 +118,11 @@ func (e *Executor) Execute(
 	kdeps_debug.Log("enter: telephony.Execute")
 	if cfg == nil {
 		return nil, errors.New("telephony: nil config")
+	}
+
+	cfg, err := resolveConfig(ctx, cfg)
+	if err != nil {
+		return nil, err
 	}
 
 	session := getOrCreateSession(ctx)

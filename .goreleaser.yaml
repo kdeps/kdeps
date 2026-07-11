@@ -68,6 +68,26 @@ release:
     - glob: kdeps.wasm
     - glob: wasm_exec.js
 
+# SPDX SBOM per archive (syft). Consumers can audit exactly which modules
+# ship in each release artifact.
+sboms:
+  - artifacts: archive
+
+# Keyless cosign signature over the checksum file (Sigstore OIDC via the
+# workflow's id-token permission). Verifying checksums.txt against the
+# .sig/.pem pair transitively verifies every artifact hash in it.
+signs:
+  - cmd: cosign
+    artifacts: checksum
+    certificate: "${artifact}.pem"
+    output: true
+    args:
+      - sign-blob
+      - --output-certificate=${certificate}
+      - --output-signature=${signature}
+      - ${artifact}
+      - --yes
+
 archives:
   - id: default
     formats:
