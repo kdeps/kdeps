@@ -103,7 +103,7 @@ var toolRequiredPermission = map[string]PermissionMode{
 	"bash_job_list":       PermissionReadOnly,
 
 	// Workspace-write tools
-	"bash_exec":           PermissionWorkspaceWrite,
+	toolNameBashExec:      PermissionWorkspaceWrite,
 	"write_file":          PermissionWorkspaceWrite,
 	"edit_file":           PermissionWorkspaceWrite,
 	"bash_job_wait":       PermissionWorkspaceWrite,
