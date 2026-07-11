@@ -448,7 +448,7 @@ func (l *Loop) RunStreaming(ctx context.Context, input string, w io.Writer) (str
 	systemPreamble := l.buildSystemPreamble()
 	chatCfg := l.buildChatConfig(input, systemPreamble)
 
-	finalContent, err := l.runWithRetry(ctx, chatCfg, w)
+	finalContent, err := l.runToolRounds(ctx, chatCfg, w)
 	if err != nil && IsContextOverflowError(err) {
 		finalContent, err = l.compactAndRetry(ctx, input, w)
 	}
@@ -461,22 +461,25 @@ func (l *Loop) RunStreaming(ctx context.Context, input string, w io.Writer) (str
 	return response, nil
 }
 
-// runWithRetry calls runToolRounds and retries on transient API errors
-// (overloaded, rate-limit, 5xx) with exponential backoff.
-// Context overflow errors pass through immediately for compactAndRetry handling.
-func (l *Loop) runWithRetry(
+// streamChatWithRetry calls the streamer, retrying transient API errors
+// (connection resets, overloads, 5xx) with exponential backoff. Retrying at
+// the round level preserves the tool rounds already completed this turn — a
+// dropped stream at round 30 must not discard the accumulated conversation.
+// Context overflow errors pass through immediately for compactAndRetry.
+func (l *Loop) streamChatWithRetry(
 	ctx context.Context,
 	chatCfg *domain.ChatConfig,
-	w io.Writer,
-) (string, error) {
+	buf *strings.Builder,
+) (string, []domain.StreamedToolCall, error) {
 	var lastErr error
 	for attempt := range l.config.AutoRetryMax {
-		content, err := l.runToolRounds(ctx, chatCfg, w)
+		buf.Reset() // discard partial output from a failed attempt
+		content, toolCalls, err := l.streamer.StreamChat(ctx, chatCfg, buf)
 		if err == nil {
-			return content, nil
+			return content, toolCalls, nil
 		}
 		if !isTransientError(err) || IsContextOverflowError(err) {
-			return "", err
+			return "", nil, err
 		}
 		lastErr = err
 		if attempt == l.config.AutoRetryMax-1 {
@@ -486,11 +489,11 @@ func (l *Loop) runWithRetry(
 		delay := l.config.AutoRetryBaseDelay * (1 << attempt)
 		select {
 		case <-ctx.Done():
-			return "", ctx.Err()
+			return "", nil, ctx.Err()
 		case <-time.After(delay):
 		}
 	}
-	return "", lastErr
+	return "", nil, lastErr
 }
 
 // reconnectLocalModel attempts to restart a local model server (file/gguf
@@ -521,6 +524,7 @@ var transientErrRe = regexp.MustCompile(
 	`(?i)overloaded|provider.?returned.?error|rate.?limit|too many requests` +
 		`|429|500|502|503|504|service.?unavailable|server.?error|internal.?error` +
 		`|network.?error|connection.?error|connection.?refused|connection.?lost` +
+		`|connection.?reset|broken.?pipe|unexpected.?eof|error reading streaming` +
 		`|fetch failed|upstream.?connect|socket hang up|timed?.?out|timeout|terminated`,
 )
 
@@ -601,7 +605,7 @@ func (l *Loop) runToolRounds(
 		}
 
 		var roundBuf strings.Builder
-		content, toolCalls, err := l.streamer.StreamChat(ctx, chatCfg, &roundBuf)
+		content, toolCalls, err := l.streamChatWithRetry(ctx, chatCfg, &roundBuf)
 		if err != nil {
 			return "", fmt.Errorf("agent loop stream: %w", err)
 		}

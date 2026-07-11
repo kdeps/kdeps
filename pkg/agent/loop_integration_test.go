@@ -1127,6 +1127,10 @@ func TestIsTransientError(t *testing.T) {
 		{"500 Internal Server Error", true},
 		{"connection refused", true},
 		{"timed out", true},
+		{"read tcp 192.168.1.1:52983->3.173.21.63:443: read: connection reset by peer", true},
+		{"write: broken pipe", true},
+		{"unexpected EOF", true},
+		{"openai: unknown: error reading streaming response", true},
 		{"context deadline exceeded", false},
 		{"not found", false},
 		{"invalid input", false},
@@ -1185,6 +1189,56 @@ func TestRunStreaming_AutoRetry_ExhaustedReturnsError(t *testing.T) {
 	if !strings.Contains(err.Error(), "overloaded_error") {
 		t.Errorf("expected original error in result, got: %v", err)
 	}
+}
+
+// midTurnDropStreamer performs a tool round, then fails once with a dropped
+// stream, then succeeds. It records the Messages of every call so the test
+// can assert the retry kept the accumulated tool-round context.
+type midTurnDropStreamer struct {
+	calls    int
+	messages []string
+}
+
+func (m *midTurnDropStreamer) StreamChat(
+	_ context.Context, cfg *domain.ChatConfig, w io.Writer,
+) (string, []domain.StreamedToolCall, error) {
+	m.calls++
+	m.messages = append(m.messages, cfg.Messages)
+	switch m.calls {
+	case 1:
+		return "", []domain.StreamedToolCall{{ID: "1", Name: "noop", Arguments: "{}"}}, nil
+	case 2:
+		_, _ = io.WriteString(w, "partial garbage before the drop")
+		return "", nil, errors.New("read tcp 10.0.0.1:1->2.2.2.2:443: read: connection reset by peer")
+	default:
+		_, _ = io.WriteString(w, "recovered answer")
+		return "recovered answer", nil, nil
+	}
+}
+
+// TestRunStreaming_MidTurnDropRetriesRound is the regression test for a
+// dropped stream mid-turn aborting the whole task: the retry must happen at
+// the round level, preserving completed tool rounds, and partial output from
+// the failed attempt must not leak into the response.
+func TestRunStreaming_MidTurnDropRetriesRound(t *testing.T) {
+	ms := &midTurnDropStreamer{}
+	loop := New(executor.NewEngine(nil), newTestWorkflowForSession(), tools.NewRegistry(), Config{
+		Model:              "test",
+		Streamer:           ms,
+		MaxToolRounds:      5,
+		AutoRetryMax:       3,
+		AutoRetryBaseDelay: 0,
+	})
+
+	var buf bytes.Buffer
+	result, err := loop.RunStreaming(context.Background(), "implement phase 2", &buf)
+	require.NoError(t, err, "a transient mid-turn drop must be retried, not fatal")
+	assert.Equal(t, "recovered answer", result)
+	require.Equal(t, 3, ms.calls, "tool round + failed attempt + retry")
+	assert.Equal(t, ms.messages[1], ms.messages[2],
+		"the retry must resend the same accumulated context, not restart the turn")
+	assert.NotContains(t, buf.String(), "partial garbage",
+		"partial output from the failed attempt must be discarded")
 }
 
 func TestRunStreaming_NonTransient_NoRetry(t *testing.T) {
