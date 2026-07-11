@@ -35,6 +35,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/charmbracelet/lipgloss"
@@ -1518,23 +1519,49 @@ func (r *REPL) processInput(input string) error {
 // SIGINT to the foreground process group instead of feeding a literal ^C
 // byte into the child's stdin (which made "! make test" uninterruptible).
 // SIGINT is swallowed in-process while fn runs — the child receives it and
-// dies; the REPL survives and restores raw mode. Reports whether an
+// dies; the REPL survives and restores raw mode. Ctrl+Z (SIGTSTP) would
+// silently suspend the child — it looked like a 30-minute hang — so
+// onSuspend is invoked to resume it and explain. Reports whether an
 // interrupt arrived while fn ran.
-func (r *REPL) withCookedTerminal(fn func() error) (bool, error) {
+func (r *REPL) withCookedTerminal(fn func() error, onSuspend func()) (bool, error) {
 	if r.readlineInst != nil {
 		_ = r.readlineInst.Terminal.ExitRawMode()
 		defer func() { _ = r.readlineInst.Terminal.EnterRawMode() }()
 	}
-	sigCh := make(chan os.Signal, 1)
-	signal.Notify(sigCh, os.Interrupt)
+	const sigChBuffer = 2 // one slot each for a pending SIGINT and SIGTSTP
+	sigCh := make(chan os.Signal, sigChBuffer)
+	notifySIGTSTP(sigCh) // Interrupt + SIGTSTP (Interrupt-only on Windows)
 	defer signal.Stop(sigCh)
+
+	var interrupted atomic.Bool
+	stopWatch := make(chan struct{})
+	var wg sync.WaitGroup
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		for {
+			select {
+			case sig := <-sigCh:
+				if sig == os.Interrupt {
+					// The child dies via the process group; just record it.
+					interrupted.Store(true)
+					continue
+				}
+				// SIGTSTP: catching it keeps the REPL running; resume the
+				// stopped child so the command continues.
+				if onSuspend != nil {
+					onSuspend()
+				}
+			case <-stopWatch:
+				return
+			}
+		}
+	}()
+
 	err := fn()
-	select {
-	case <-sigCh:
-		return true, err
-	default:
-		return false, err
-	}
+	close(stopWatch)
+	wg.Wait()
+	return interrupted.Load(), err
 }
 
 func (r *REPL) execBangCommand(cmd string, excludeFromContext bool) error {
@@ -1559,7 +1586,11 @@ func (r *REPL) execBangCommand(cmd string, excludeFromContext bool) error {
 		runQuietMonitor(mw, "! "+truncateEllipsis(cmd, toolArgMaxDisplay), start, stopMon)
 	}()
 
-	interrupted, runErr := r.withCookedTerminal(shell.Run)
+	interrupted, runErr := r.withCookedTerminal(shell.Run, func() {
+		resumeProcess(shell.Process)
+		fmt.Fprintf(os.Stdout, "\n%s\n", styleReplMeta.Render(
+			"(Ctrl+Z backgrounding applies to agent tools, not ! commands - resumed; Ctrl+C to kill)"))
+	})
 	close(stopMon)
 	monWg.Wait()
 

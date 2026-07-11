@@ -38,3 +38,6 @@ func sendSIGTSTP() {}
 func notifySIGTSTP(sigCh chan<- os.Signal) {
 	signal.Notify(sigCh, os.Interrupt)
 }
+
+// resumeProcess is a no-op on Windows (SIGCONT is a Unix signal).
+func resumeProcess(_ *os.Process) {}

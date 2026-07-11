@@ -41,6 +41,13 @@ func sendSIGTSTP() {
 	_ = syscall.Kill(0, syscall.SIGTSTP)
 }
 
+// resumeProcess sends SIGCONT to p, undoing a terminal-delivered SIGTSTP.
+func resumeProcess(p *os.Process) {
+	if p != nil {
+		_ = p.Signal(syscall.SIGCONT)
+	}
+}
+
 // notifySIGTSTP registers SIGTSTP (and SIGINT) with the signal channel so the
 // REPL can handle Ctrl+Z for backgrounding tools and Ctrl+C for cancellation.
 func notifySIGTSTP(sigCh chan<- os.Signal) {

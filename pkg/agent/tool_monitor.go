@@ -132,7 +132,10 @@ func (m *monitoredWriter) clearFrame() {
 
 // runQuietMonitor draws "label running (elapsed)" frames only while the
 // stream has been silent for at least a tick — live output takes priority
-// and erases the frame via monitoredWriter. It clears the frame on stop.
+// and erases the frame via monitoredWriter. Prolonged silence adds a
+// stall warning with a Ctrl+C hint: bang commands may legitimately wait on
+// stdin, so unlike tools they are never auto-killed, only flagged. It
+// clears the frame on stop.
 func runQuietMonitor(mw *monitoredWriter, label string, start time.Time, stop <-chan struct{}) {
 	frames := []string{"⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"}
 	tick := time.NewTicker(toolMonitorInterval)
@@ -141,13 +144,18 @@ func runQuietMonitor(mw *monitoredWriter, label string, start time.Time, stop <-
 	for {
 		select {
 		case <-tick.C:
-			if mw.track.Silence() < toolMonitorInterval {
+			silence := mw.track.Silence()
+			if silence < toolMonitorInterval {
 				i++
 				continue // output is flowing; it speaks for itself
 			}
+			warn := ""
+			if silence >= toolStallWarnAfter {
+				warn = fmt.Sprintf(" · no output for %s (Ctrl+C to kill)", silence.Round(time.Second))
+			}
 			elapsed := time.Since(start).Round(time.Second)
-			mw.drawFrame(fmt.Sprintf("\r  %s %s running (%s)\033[K",
-				styleReplInfo.Render(frames[i%len(frames)]), label, elapsed))
+			mw.drawFrame(fmt.Sprintf("\r  %s %s running (%s)%s\033[K",
+				styleReplInfo.Render(frames[i%len(frames)]), label, elapsed, warn))
 			i++
 		case <-stop:
 			mw.clearFrame()

@@ -2408,6 +2408,21 @@ func TestExecBangCommand_NonZeroExit_ErrorInContext(t *testing.T) {
 	assert.Contains(t, captured, "Exit code: 1")
 }
 
+func TestWithCookedTerminal_NoSignalPassthrough(t *testing.T) {
+	loop := makeTestLoop(nil)
+	repl := NewREPL(context.Background(), loop)
+	defer repl.cancel()
+
+	suspendCalled := false
+	interrupted, err := repl.withCookedTerminal(
+		func() error { return errors.New("boom") },
+		func() { suspendCalled = true },
+	)
+	assert.False(t, interrupted, "no Ctrl+C was sent")
+	assert.EqualError(t, err, "boom", "fn error passes through")
+	assert.False(t, suspendCalled, "no Ctrl+Z was sent")
+}
+
 func TestExecBangCommand_ExcludeFromContext(t *testing.T) {
 	loop := makeTestLoop(nil)
 	repl := NewREPL(context.Background(), loop)
