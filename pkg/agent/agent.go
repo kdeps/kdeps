@@ -102,6 +102,12 @@ type AgentOptions struct {
 	SteeringMode        QueueMode
 	FollowUpMode        QueueMode
 	ToolExecution       ToolExecutionMode
+	// PermissionMode restricts which tools the agent is allowed to call.
+	// Empty falls back to KDEPS_PERMISSION_MODE, then "danger-full-access"
+	// (no restrictions). "read-only" allows only read operations;
+	// "workspace-write" adds file writes and command execution. When set and
+	// no custom BeforeToolCall is provided, a default enforcer is installed.
+	PermissionMode PermissionMode
 }
 
 // Agent is the stateful wrapper around the low-level agent loop.
@@ -178,6 +184,19 @@ func NewAgent(opts AgentOptions) *Agent {
 		PrepareNextTurn:     opts.PrepareNextTurn,
 		ToolExecution:       toolExec,
 	}
+
+	// Install default permission enforcer when mode is set and no custom hook exists.
+	if opts.PermissionMode != "" && opts.BeforeToolCall == nil {
+		enf := NewPermissionEnforcer(opts.PermissionMode)
+		a.BeforeToolCall = func(_ context.Context, btc BeforeToolCallContext) (*BeforeToolCallResult, error) {
+			allowed, reason := enf.Allow(btc.ToolCall.Name)
+			if !allowed {
+				return &BeforeToolCallResult{Block: true, Reason: reason}, nil
+			}
+			return &BeforeToolCallResult{Block: false}, nil
+		}
+	}
+
 	a.state.systemPrompt = opts.SystemPrompt
 	a.state.model = opts.Model
 	a.state.thinkingMode = opts.ThinkingMode

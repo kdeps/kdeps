@@ -183,6 +183,18 @@ Web and search tools carry a hard timeout so a hung remote endpoint cannot stall
 
 Tools marked "cached" memoize successful results for the lifetime of the agent process: repeating the same query or URL returns the cached copy instantly instead of refetching. Failed and empty lookups are not cached, so they are retried on the next call. `wolfram_alpha` results are cached the same way.
 
+### Permission modes
+
+Set `KDEPS_PERMISSION_MODE` to restrict which tools the agent may call:
+
+```bash
+KDEPS_PERMISSION_MODE=read-only ./kdeps          # reads, searches, lookups only
+KDEPS_PERMISSION_MODE=workspace-write ./kdeps    # adds file writes and bash_exec
+KDEPS_PERMISSION_MODE=danger-full-access ./kdeps # no restrictions (default)
+```
+
+Blocked calls return a `permission denied` tool error to the model, which explains the restriction instead of executing. Tools not in the built-in policy - including workflow, component, and agency tools - require `workspace-write`, so `read-only` blocks anything that could mutate state.
+
 ### Computation
 
 | Tool | Required env var | Description |

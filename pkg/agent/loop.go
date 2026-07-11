@@ -139,6 +139,11 @@ type Config struct {
 	// command is detached as a background job and a job ID is returned immediately.
 	// The REPL sends to this channel when Ctrl+Z is pressed during tool execution.
 	ToolBgCh chan struct{}
+	// PermissionMode restricts which tools the agent is allowed to call.
+	// Empty falls back to KDEPS_PERMISSION_MODE, then "danger-full-access"
+	// (no restrictions). "read-only" allows only read operations;
+	// "workspace-write" adds file writes and command execution.
+	PermissionMode PermissionMode
 }
 
 // Loop drives a multi-turn agent conversation using the kdeps engine as the
@@ -581,6 +586,7 @@ func (l *Loop) runToolRounds(
 	w io.Writer,
 ) (string, error) {
 	var finalContent string
+	capped := false
 	for i := range l.config.MaxToolRounds {
 		// Auto-checkpoint: save session state before each LLM call.
 		l.saveCheckpoint()
@@ -588,17 +594,10 @@ func (l *Loop) runToolRounds(
 		// Last allowed round: remove the tools so the model must produce a
 		// text answer. Breaking out on a tool-call round instead would end
 		// the turn with no visible output (tool-call rounds usually have
-		// empty content with reasoning models). The prompt tells the model
-		// why the tools disappeared — without it, some models emit raw
-		// tool-call markup as text instead of answering.
-		if i == l.config.MaxToolRounds-1 && len(chatCfg.Tools) > 0 {
-			capCfg := *chatCfg
-			capCfg.Tools = nil
-			capCfg.Prompt = "Tool budget exhausted. Answer the user's question now " +
-				"using only the information already gathered. Do not attempt any more " +
-				"tool calls and do not emit tool-call markup. If work remains, describe " +
-				"in plain text exactly what remains to be done."
-			chatCfg = &capCfg
+		// empty content with reasoning models).
+		if i == l.config.MaxToolRounds-1 {
+			capped = i > 0
+			chatCfg = forceAnswerConfig(chatCfg)
 		}
 
 		var roundBuf strings.Builder
@@ -634,7 +633,41 @@ func (l *Loop) runToolRounds(
 			return finalContent, ctx.Err()
 		}
 	}
+	// Reasoning models sometimes put the forced final answer entirely into
+	// thinking tokens and return empty content; without this notice the turn
+	// would end in silence with partial work in place.
+	if capped && strings.TrimSpace(stripContentToolCalls(finalContent)) == "" {
+		finalContent = l.budgetExhaustedNotice(w)
+	}
 	return finalContent, nil
+}
+
+// forceAnswerConfig returns a copy of cfg with tools removed and a prompt
+// telling the model why: without the explanation, some models emit raw
+// tool-call markup as text instead of answering. No-op when cfg has no tools.
+func forceAnswerConfig(cfg *domain.ChatConfig) *domain.ChatConfig {
+	if len(cfg.Tools) == 0 {
+		return cfg
+	}
+	capCfg := *cfg
+	capCfg.Tools = nil
+	capCfg.Prompt = "Tool budget exhausted. Answer the user's question now " +
+		"using only the information already gathered. Do not attempt any more " +
+		"tool calls and do not emit tool-call markup. If work remains, describe " +
+		"in plain text exactly what remains to be done."
+	return &capCfg
+}
+
+// budgetExhaustedNotice writes and returns the message shown when a turn hits
+// the tool round cap without producing any visible answer.
+func (l *Loop) budgetExhaustedNotice(w io.Writer) string {
+	notice := fmt.Sprintf(
+		"Tool budget of %d rounds exhausted before the task finished. "+
+			"Partial work may be in place. Raise the budget with "+
+			"/model tool set rounds <n> and ask me to continue.",
+		l.config.MaxToolRounds)
+	_, _ = io.WriteString(w, notice)
+	return notice
 }
 
 // saveCheckpoint persists the current session state so that on context
@@ -782,6 +815,14 @@ func (l *Loop) dispatchStreamToolCall(tc domain.StreamedToolCall, w io.Writer) s
 	if tool == nil {
 		return fmt.Sprintf(`{"error":"tool %q not found"}`, tc.Name)
 	}
+
+	// Permission check: block tools that don't meet the current mode.
+	// An empty config mode falls back to KDEPS_PERMISSION_MODE inside the
+	// enforcer, so env-only configuration works too.
+	if allowed, reason := NewPermissionEnforcer(l.config.PermissionMode).Allow(tc.Name); !allowed {
+		return toolErrorJSON(errors.New("permission denied: " + reason))
+	}
+
 	var args map[string]any
 	if err := json.Unmarshal([]byte(tc.Arguments), &args); err != nil {
 		args = make(map[string]any)
@@ -900,7 +941,9 @@ CRITICAL:
 3. Do NOT explore first. Act first. Discover only when necessary.
 4. Two tools max per turn.
 5. Report what was done, then STOP. No thinking out loud about next steps.
-6. Chat/greetings: respond directly, zero tools.`
+6. Chat/greetings: respond directly, zero tools.
+7. NEVER re-read a file you already read this turn - its contents are still
+   in this conversation. Re-reading wastes your limited tool budget.`
 
 // buildSystemPreamble constructs the system prompt preamble from skills,
 // instruction files, and the user-configured system prompt.
