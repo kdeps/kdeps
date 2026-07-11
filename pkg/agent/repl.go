@@ -458,7 +458,7 @@ func (c *replCompleter) Do(line []rune, pos int) ([][]rune, int) {
 		prefix := strings.ToLower(strings.TrimSpace(str[:lastSpace]))
 		switch {
 		case prefix == "/model tool":
-			return doSubcmdCompletion(token, tokenLen, []string{"list", "set"})
+			return doSubcmdCompletion(token, tokenLen, []string{"list", toolNameSet})
 
 		case prefix == "/model tool set":
 			return doSubcmdCompletion(token, tokenLen, toolSettingNames)
@@ -1003,6 +1003,28 @@ func expandFileRefs(input string) (string, []string) {
 	return strings.TrimSpace(text), files
 }
 
+// expandFileRefsMonitored runs expandFileRefs under a quiet status line, so
+// reading large @file refs shows liveness ("@file refs running (3s)")
+// instead of a silent pause. Inputs without @ skip the monitor entirely.
+func expandFileRefsMonitored(input string) (string, []string) {
+	if !strings.Contains(input, "@") {
+		return input, nil
+	}
+	start := time.Now()
+	mw := newMonitoredWriter(os.Stdout, newLastLineTracker(start))
+	stop := make(chan struct{})
+	var wg sync.WaitGroup
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		runQuietMonitor(mw, "@file refs", start, stop)
+	}()
+	expanded, files := expandFileRefs(input)
+	close(stop)
+	wg.Wait()
+	return expanded, files
+}
+
 // drawSpinnerFrames renders "generating" frames to out until done is closed.
 // Frames are skipped while skip() reports the terminal line is owned by
 // someone else (streaming thinking text or a running tool's monitor line):
@@ -1463,7 +1485,7 @@ func (r *REPL) processInput(input string) error {
 		}
 	}
 
-	expanded, imgFiles := expandFileRefs(input)
+	expanded, imgFiles := expandFileRefsMonitored(input)
 	if len(imgFiles) > 0 {
 		r.loop.SetPendingFiles(imgFiles)
 		// An image-only message ("@shot.png") leaves the prompt empty and
@@ -1492,14 +1514,30 @@ func (r *REPL) processInput(input string) error {
 // act on it, e.g. fix a failing lint). If true (!! prefix), the command runs
 // and prints to stdout but is NOT sent to the LLM.
 func (r *REPL) execBangCommand(cmd string, excludeFromContext bool) error {
+	start := time.Now()
+	tracker := newLastLineTracker(start)
+	// monitoredWriter coordinates live output with the status line: frames
+	// draw only during silent stretches and are erased before real output.
+	mw := newMonitoredWriter(os.Stdout, tracker)
+
 	var outBuf, errBuf bytes.Buffer
 	shell := exec.CommandContext(r.ctx, "bash", "-c", cmd)
 	// Tee stdout/stderr to terminal AND capture for LLM context.
-	shell.Stdout = io.MultiWriter(os.Stdout, &outBuf)
-	shell.Stderr = io.MultiWriter(os.Stderr, &errBuf)
+	shell.Stdout = io.MultiWriter(mw, &outBuf)
+	shell.Stderr = io.MultiWriter(mw, &errBuf)
 	shell.Stdin = os.Stdin
 
+	stopMon := make(chan struct{})
+	var monWg sync.WaitGroup
+	monWg.Add(1)
+	go func() {
+		defer monWg.Done()
+		runQuietMonitor(mw, "! "+truncateEllipsis(cmd, toolArgMaxDisplay), start, stopMon)
+	}()
+
 	runErr := shell.Run()
+	close(stopMon)
+	monWg.Wait()
 
 	if excludeFromContext {
 		return runErr

@@ -22,6 +22,7 @@ import (
 	"context"
 	"io"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -171,6 +172,41 @@ func TestDispatchToTerminal_FramesRewriteInPlaceThroughCrlfWriter(t *testing.T) 
 		"expected at least two monitor frames")
 	assert.LessOrEqual(t, strings.Count(out, "\n"), 3,
 		"frames must redraw in place, not stack one line per tick: %q", out)
+}
+
+// TestRunQuietMonitor_DrawsOnSilenceAndYieldsToOutput verifies the ! command
+// monitor: frames appear during silent stretches, and real output erases the
+// frame before printing so the two never collide on one line.
+func TestRunQuietMonitor_DrawsOnSilenceAndYieldsToOutput(t *testing.T) {
+	var buf strings.Builder
+	tracker := newLastLineTracker(time.Now())
+	mw := newMonitoredWriter(&buf, tracker)
+	stop := make(chan struct{})
+	var wg sync.WaitGroup
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		runQuietMonitor(mw, "! make lint", time.Now(), stop)
+	}()
+
+	time.Sleep(toolMonitorInterval + 500*time.Millisecond) // silent: frame must draw
+	_, err := mw.Write([]byte("real output\n"))
+	require.NoError(t, err)
+	close(stop)
+	wg.Wait()
+
+	out := buf.String()
+	assert.Contains(t, out, "! make lint running (", "frame must draw during silence")
+	outIdx := strings.Index(out, "real output")
+	require.GreaterOrEqual(t, outIdx, 0)
+	assert.Contains(t, out[:outIdx], "\r\033[K",
+		"the frame must be erased before real output prints")
+}
+
+func TestExpandFileRefsMonitored_PassthroughWithoutAt(t *testing.T) {
+	expanded, files := expandFileRefsMonitored("no refs here")
+	assert.Equal(t, "no refs here", expanded)
+	assert.Empty(t, files)
 }
 
 func TestRawTerminalWriter_UnwrapsCrlfWriter(t *testing.T) {

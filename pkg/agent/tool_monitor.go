@@ -86,6 +86,76 @@ func (t *lastLineTracker) Silence() time.Duration {
 	return time.Since(t.lastWrite)
 }
 
+// monitoredWriter forwards live output to the terminal while coordinating
+// with a status-line monitor: a drawn frame is erased before any real output
+// so the two never collide on one line. Used by ! shell commands, whose
+// output streams directly instead of being buffered like tool output.
+type monitoredWriter struct {
+	mu    sync.Mutex
+	dst   io.Writer
+	frame bool // a monitor frame currently owns the terminal line
+	track *lastLineTracker
+}
+
+func newMonitoredWriter(dst io.Writer, track *lastLineTracker) *monitoredWriter {
+	return &monitoredWriter{dst: dst, track: track}
+}
+
+func (m *monitoredWriter) Write(p []byte) (int, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if m.frame {
+		_, _ = io.WriteString(m.dst, "\r\033[K")
+		m.frame = false
+	}
+	_, _ = m.track.Write(p)
+	return m.dst.Write(p)
+}
+
+// drawFrame writes a status frame and marks the line as frame-owned.
+func (m *monitoredWriter) drawFrame(s string) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	_, _ = io.WriteString(m.dst, s)
+	m.frame = true
+}
+
+// clearFrame erases a drawn frame, if any.
+func (m *monitoredWriter) clearFrame() {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if m.frame {
+		_, _ = io.WriteString(m.dst, "\r\033[K")
+		m.frame = false
+	}
+}
+
+// runQuietMonitor draws "label running (elapsed)" frames only while the
+// stream has been silent for at least a tick — live output takes priority
+// and erases the frame via monitoredWriter. It clears the frame on stop.
+func runQuietMonitor(mw *monitoredWriter, label string, start time.Time, stop <-chan struct{}) {
+	frames := []string{"⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"}
+	tick := time.NewTicker(toolMonitorInterval)
+	defer tick.Stop()
+	i := 0
+	for {
+		select {
+		case <-tick.C:
+			if mw.track.Silence() < toolMonitorInterval {
+				i++
+				continue // output is flowing; it speaks for itself
+			}
+			elapsed := time.Since(start).Round(time.Second)
+			mw.drawFrame(fmt.Sprintf("\r  %s %s running (%s)\033[K",
+				styleReplInfo.Render(frames[i%len(frames)]), label, elapsed))
+			i++
+		case <-stop:
+			mw.clearFrame()
+			return
+		}
+	}
+}
+
 // runToolMonitor redraws a status line for a running tool every
 // toolMonitorInterval until stop is closed: spinner frame, tool name,
 // elapsed time, and the tool's most recent output line. When the tool is
