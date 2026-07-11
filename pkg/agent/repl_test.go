@@ -2312,20 +2312,47 @@ func TestLoopReload_WithPromptPaths(t *testing.T) {
 	}
 }
 
-// --- bang command (! and !!) ---
+// TestProcessInput_ImageOnlyMessageKeepsPrompt verifies an image-only input
+// ("@shot.png") still sends a non-empty prompt: some models will not answer
+// a message whose text is empty.
+func TestProcessInput_ImageOnlyMessageKeepsPrompt(t *testing.T) {
+	dir := t.TempDir()
+	img := filepath.Join(dir, "shot.png")
+	require.NoError(t, os.WriteFile(img, []byte("\x89PNG fake"), 0o644))
 
-func TestProcessInput_BangCommand_InjectsContext(t *testing.T) {
 	loop := makeTestLoop(nil)
 	repl := NewREPL(context.Background(), loop)
 	defer repl.cancel()
 
-	// ! echo hello should run and inject into session
+	var captured string
+	repl.runFn = func(_ context.Context, input string) (string, error) {
+		captured = input
+		return "described", nil
+	}
+	err := repl.processInput("@" + img)
+	require.NoError(t, err)
+	assert.NotEmpty(t, captured, "image-only message must not produce an empty prompt")
+	assert.Contains(t, captured, "shot.png")
+}
+
+// --- bang command (! and !!) ---
+
+func TestProcessInput_BangCommand_RunsTurnWithOutput(t *testing.T) {
+	loop := makeTestLoop(nil)
+	repl := NewREPL(context.Background(), loop)
+	defer repl.cancel()
+
+	// ! echo hello runs the command, then runs an agent turn whose message
+	// carries the command and its output so the model responds to it.
+	var captured string
+	repl.runFn = func(_ context.Context, input string) (string, error) {
+		captured = input
+		return "looks good", nil
+	}
 	err := repl.processInput("! echo hello")
 	require.NoError(t, err)
-	// Session should have 1 turn (the injected bash result)
-	assert.Equal(t, 1, loop.Session().TurnCount())
-	msgs := loop.Session().Messages()
-	assert.Contains(t, msgs[0].Content, "Ran `echo hello`")
+	assert.Contains(t, captured, "Ran `echo hello`")
+	assert.Contains(t, captured, "hello")
 }
 
 func TestProcessInput_DoubleBang_DoesNotInjectContext(t *testing.T) {
@@ -2333,10 +2360,16 @@ func TestProcessInput_DoubleBang_DoesNotInjectContext(t *testing.T) {
 	repl := NewREPL(context.Background(), loop)
 	defer repl.cancel()
 
-	// !! echo hello should run but NOT inject into session
+	// !! echo hello should run but neither reach the LLM nor the session.
+	called := false
+	repl.runFn = func(_ context.Context, _ string) (string, error) {
+		called = true
+		return "", nil
+	}
 	err := repl.processInput("!! echo hello")
 	require.NoError(t, err)
 	assert.Equal(t, 0, loop.Session().TurnCount())
+	assert.False(t, called, "!! must not trigger an LLM turn")
 }
 
 func TestProcessInput_BangEmpty_Passthrough(t *testing.T) {
@@ -2362,11 +2395,17 @@ func TestExecBangCommand_NonZeroExit_ErrorInContext(t *testing.T) {
 	repl := NewREPL(context.Background(), loop)
 	defer repl.cancel()
 
-	// A command that exits non-zero; should still inject with exit code
-	_ = repl.execBangCommand("exit 1", false)
-	assert.Equal(t, 1, loop.Session().TurnCount())
-	msgs := loop.Session().Messages()
-	assert.Contains(t, msgs[0].Content, "exit 1")
+	// A non-zero exit is part of the message, not a REPL error: the turn
+	// still runs and the exit code reaches the model.
+	var captured string
+	repl.runFn = func(_ context.Context, input string) (string, error) {
+		captured = input
+		return "", nil
+	}
+	err := repl.execBangCommand("exit 1", false)
+	require.NoError(t, err)
+	assert.Contains(t, captured, "Ran `exit 1`")
+	assert.Contains(t, captured, "Exit code: 1")
 }
 
 func TestExecBangCommand_ExcludeFromContext(t *testing.T) {
@@ -2401,20 +2440,16 @@ func TestREPL_ModelPickerAccessors(t *testing.T) {
 }
 
 func TestExecBangCommand_NonExitError_ContextCancel(t *testing.T) {
-	// Tests the errMsg = runErr.Error() path (non-ExitError, e.g. context canceled).
+	// A canceled context kills the shell command; the follow-up turn then
+	// surfaces the cancellation as an error.
 	loop := makeTestLoop(nil)
 	repl := NewREPL(context.Background(), loop)
-	// Cancel the context immediately so the bash command fails with context error,
-	// not with *exec.ExitError.
+	repl.runFn = func(ctx context.Context, _ string) (string, error) {
+		return "", ctx.Err()
+	}
 	repl.cancel()
 	err := repl.execBangCommand("sleep 10", false)
-	// Should return a non-nil error (context canceled or killed).
 	assert.Error(t, err)
-	// The error message should appear in the injected context message.
-	if loop.Session().TurnCount() > 0 {
-		msgs := loop.Session().Messages()
-		assert.Contains(t, msgs[0].Content, "sleep 10")
-	}
 }
 
 // --- applyConfigDefaults ModelService auto-start ---

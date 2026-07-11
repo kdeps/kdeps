@@ -48,8 +48,8 @@ Inside the REPL, type `/help` for the full list:
 | `/context <size>` | Set context window size (e.g. `32768` or `32k`); restarts local model servers with the new `--ctx-size` |
 | `/settings` | Open the tool/skill selector |
 | `/exit` | Exit the REPL |
-| `! <cmd>` | Run a shell command; result is added to LLM context |
-| `!! <cmd>` | Run a shell command without adding it to LLM context |
+| `! <cmd>` | Run a shell command; the output becomes an agent turn - the model responds and can act on it (e.g. `!make lint` -> the model fixes the findings) |
+| `!! <cmd>` | Run a shell command silently - no LLM turn, nothing added to context |
 
 ## Local model management
 
@@ -198,6 +198,99 @@ KDEPS_PERMISSION_MODE=danger-full-access ./kdeps # no restrictions (default)
 ```
 
 Blocked calls return a `permission denied` tool error to the model, which explains the restriction instead of executing. Tools not in the built-in policy - including workflow, component, and agency tools - require `workspace-write`, so `read-only` blocks anything that could mutate state.
+
+### Lean mode
+
+`KDEPS_LEAN_MODE` further restricts the tool surface for CI/automation. When enabled, the agent has no `bash_exec`, `web_search`, `web_scraper`, `wikipedia`, `http_request`, or any external API tools:
+
+```bash
+KDEPS_LEAN_MODE=true ./kdeps
+```
+
+Tools available in lean mode: `read_file`, `write_file`, `edit_file`, `list_files`, `code_search`, `code_definition`, `code_references`, `code_symbols`, `code_hover`, `code_diagnostics`, `search_local`, `load_document`, `calculator`, `embedding_vectorize`, `embedding_search`, `transcribe_audio`.
+
+### Agent presets
+
+`KDEPS_AGENT_PRESET` combines lean mode with a permission mode in one flag for common workflows:
+
+```bash
+KDEPS_AGENT_PRESET=audit       # read-only, lean tools
+KDEPS_AGENT_PRESET=explain     # read-only, lean tools
+KDEPS_AGENT_PRESET=implement   # workspace-write, lean tools
+```
+
+| Preset | Permission mode | Tool set |
+|--------|----------------|----------|
+| `audit` | ReadOnly | Lean (no bash, no network) |
+| `explain` | ReadOnly | Lean (no bash, no network) |
+| `implement` | WorkspaceWrite | Lean + file writes |
+
+`IsLeanOrPreseted()` returns `true` when either `KDEPS_LEAN_MODE` or `KDEPS_AGENT_PRESET` is set.
+
+## Agent registries
+
+The agent loop maintains three in-memory registries for lifecycle management:
+
+### TaskRegistry
+
+Tracks every task created by the agent loop. Each task has a unique ID (`task-N`), status (`created` -> `running` -> `completed`/`failed`/`stopped`), description, prompt, and an append-only output and message transcript. Tasks can be assigned to a team and carry a heartbeat for stall detection.
+
+| Method | Description |
+|--------|-------------|
+| `Create(prompt, description)` | Create a new task in `created` state |
+| `Get(taskID)` | Look up a task by ID |
+| `List()` | All tasks, newest first |
+| `ListByStatus(status)` | Filter by status |
+| `SetStatus(taskID, status)` | Transition to a new status |
+| `Stop(taskID)` | Set status to `stopped` |
+| `AppendOutput(taskID, text)` | Append to task output |
+| `AppendMessage(taskID, msg)` | Append to message transcript |
+| `AssignTeam(taskID, teamID)` | Attach a team |
+| `UpdateHeartbeat(taskID, alive)` | Record lane aliveness |
+| `StalledTasks(stalledAfter)` | Running tasks with stale heartbeats |
+| `Delete(taskID)` | Remove a task from the registry |
+
+### TeamRegistry
+
+Groups tasks for multi-agent coordination. Each team has a name, a list of task IDs, and a status (`created` -> `running` -> `completed` -> `deleted`).
+
+| Method | Description |
+|--------|-------------|
+| `Create(name)` | Create a new team |
+| `Get(teamID)` | Look up a team by ID |
+| `List()` | All teams |
+| `AddTask(teamID, taskID)` | Assign a task to a team |
+| `SetStatus(teamID, status)` | Update team status |
+| `Delete(teamID)` | Mark as deleted |
+
+### CronRegistry
+
+Schedules recurring task creation. Each cron job stores a cron expression, prompt/description templates, an optional max-run cap, and tracks last/next run times. The `Tick()` method returns jobs due to fire at a given time.
+
+| Method | Description |
+|--------|-------------|
+| `Create(name, expression, prompt, desc)` | Create a new cron job |
+| `Get(cronID)` | Look up a job by ID |
+| `List()` | All jobs |
+| `Pause(cronID)` / `Resume(cronID)` | Lifecycle control |
+| `Delete(cronID)` | Mark as deleted |
+| `MarkRun(cronID, nextRun)` | Record a firing |
+| `Tick(now)` | Jobs due to fire at `now` |
+
+## Approval tokens
+
+When a tool call is denied by the permission mode, the agent can request a one-time exception via an approval token. Tokens let the user grant time-limited, scoped overrides for specific tool+action combinations without relaxing the overall permission mode.
+
+The approval lifecycle:
+
+1. **Request** -- the agent calls `Request(scope, ttl)` to create a `pending` token for a specific tool+action
+2. **Grant** -- the user approves via `Grant(tokenID, actor, sessionID, reason)`; the token transitions to `granted`
+3. **Consume** -- the before-tool-call hook calls `Consume(tokenID, now)` for a one-time exception
+4. **Expire / Revoke** -- stale tokens auto-expire or the user revokes them
+
+Token scope matching is flexible -- an empty `Action` in the scope acts as a wildcard. `FindMatchingGranted(toolName, action, now)` finds a pre-granted token matching the current tool call.
+
+Tokens are stored in `GlobalApprovalTokenRegistry`, a concurrency-safe in-memory singleton.
 
 ### Computation
 

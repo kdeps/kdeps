@@ -1466,6 +1466,11 @@ func (r *REPL) processInput(input string) error {
 	expanded, imgFiles := expandFileRefs(input)
 	if len(imgFiles) > 0 {
 		r.loop.SetPendingFiles(imgFiles)
+		// An image-only message ("@shot.png") leaves the prompt empty and
+		// some models won't answer it; keep the @ref text as the prompt.
+		if expanded == "" {
+			expanded = input
+		}
 	}
 	r.history = append(r.history, input)
 	resp, err := r.runWithThinking(r.ctx, expanded)
@@ -1482,9 +1487,10 @@ func (r *REPL) processInput(input string) error {
 }
 
 // execBangCommand executes a shell command via the ! prefix.
-// If excludeFromContext is false, the command and its output are injected into
-// the session so the LLM sees them as context. If true (!! prefix), the command
-// runs and prints to stdout but is NOT sent to the LLM.
+// If excludeFromContext is false, the command and its output become the
+// message for a full agent turn, so the model responds to the result (and can
+// act on it, e.g. fix a failing lint). If true (!! prefix), the command runs
+// and prints to stdout but is NOT sent to the LLM.
 func (r *REPL) execBangCommand(cmd string, excludeFromContext bool) error {
 	var outBuf, errBuf bytes.Buffer
 	shell := exec.CommandContext(r.ctx, "bash", "-c", cmd)
@@ -1520,10 +1526,18 @@ func (r *REPL) execBangCommand(cmd string, excludeFromContext bool) error {
 		fmt.Fprintf(&sb, "Exit code: %d\n", exitCode)
 	}
 
-	// Inject into the session so the LLM sees command + output as context.
-	r.loop.Session().
-		Append(strings.TrimRight(sb.String(), "\n"), "I see the shell command output above.")
-	return runErr
+	// Run a full agent turn with the command + output as the message: the
+	// model responds to the result instead of silently absorbing it. A
+	// non-zero exit code is part of the message, not a REPL error.
+	resp, err := r.runWithThinking(r.ctx, strings.TrimRight(sb.String(), "\n"))
+	if err != nil {
+		return err
+	}
+	if resp != "" && (r.runFn != nil || !r.loop.IsStreaming()) {
+		fmt.Fprint(os.Stdout, renderREPLOutput(resp, false))
+	}
+	r.maybeHintCompact()
+	return nil
 }
 
 // runPlain is a fallback REPL for non-TTY environments (pipes, tests).
@@ -1658,8 +1672,8 @@ func (r *REPL) cmdHelp() error {
 		"  /reload                            Reload skills, prompt templates, and instructions from disk",
 		"  /context                           Show current context window size",
 		"  /context <size>                    Set context window size (e.g. 32768 or 32k); restarts local servers",
-		"  ! <cmd>                            Run a shell command; result is added to LLM context",
-		"  !! <cmd>                           Run a shell command without adding it to LLM context",
+		"  ! <cmd>                            Run a shell command; the output becomes an agent turn (the model responds)",
+		"  !! <cmd>                           Run a shell command silently - no LLM turn, nothing added to context",
 	}
 	for _, l := range lines {
 		fmt.Fprintln(os.Stdout, l)
