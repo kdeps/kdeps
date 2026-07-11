@@ -87,9 +87,10 @@ var (
 // jina_rerank, retrieve_context) to the registry. API-key tools are registered only when the
 // corresponding env var is set.
 func RegisterBuiltinTools(ctx context.Context, reg *kdepstools.Registry) {
-	registerDuckDuckGo(ctx, reg)
-	registerWikipedia(ctx, reg)
-	registerWebScraper(ctx, reg)
+	webCache := newWebToolCache()
+	registerDuckDuckGo(ctx, reg, webCache)
+	registerWikipedia(ctx, reg, webCache)
+	registerWebScraper(ctx, reg, webCache)
 	registerSQLTools(ctx, reg)
 	registerBashExec(ctx, reg)
 	registerBashJobList(reg)
@@ -99,11 +100,11 @@ func RegisterBuiltinTools(ctx context.Context, reg *kdepstools.Registry) {
 	registerReadFile(reg)
 	registerWriteFile(reg)
 	registerEditFile(reg)
-	registerSerpAPI(ctx, reg)
-	registerPerplexity(ctx, reg)
-	registerExa(ctx, reg)
+	registerSerpAPI(ctx, reg, webCache)
+	registerPerplexity(ctx, reg, webCache)
+	registerExa(ctx, reg, webCache)
 	registerZapierNLA(ctx, reg)
-	registerWolframAlpha(ctx, reg)
+	registerWolframAlpha(ctx, reg, webCache)
 	registerCohereRerank(ctx, reg)
 	registerVoyageAIRerank(ctx, reg)
 	registerJinaRerank(ctx, reg)
@@ -454,60 +455,78 @@ func registerListFiles(reg *kdepstools.Registry) {
 	})
 }
 
-func registerDuckDuckGo(ctx context.Context, reg *kdepstools.Registry) {
+// queryCaller is the langchaingo tool shape shared by the single-query
+// search/lookup tools.
+type queryCaller interface {
+	Call(ctx context.Context, input string) (string, error)
+}
+
+// registerCachedQueryTool registers a tool that takes a single required query
+// string, runs it through tool.Call with the standard search timeout, and
+// caches successful results.
+func registerCachedQueryTool(
+	ctx context.Context,
+	reg *kdepstools.Registry,
+	cache *webToolCache,
+	tool queryCaller,
+	name, description, paramDesc string,
+) {
+	reg.Register(&kdepstools.Tool{
+		Name:        name,
+		Description: description,
+		Parameters: map[string]domain.ToolParam{
+			toolParamQuery: {
+				Type:        toolParamString,
+				Description: paramDesc,
+				Required:    true,
+			},
+		},
+		Execute: func(args map[string]any) (string, error) {
+			query, _ := args[toolParamQuery].(string)
+			if query == "" {
+				return "", errors.New(name + ": query is required")
+			}
+			return cache.call(name+":"+query, func() (string, error) {
+				callCtx, cancel := toolCallCtxTimeout(ctx, args, builtinSearchTimeout)
+				defer cancel()
+				return tool.Call(callCtx, query)
+			})
+		},
+	})
+}
+
+func registerDuckDuckGo(ctx context.Context, reg *kdepstools.Registry, cache *webToolCache) {
 	ddg, err := lcduckduckgo.New(builtinDDGMaxResults, builtinUserAgent)
 	if err != nil {
 		return
 	}
-	reg.Register(&kdepstools.Tool{
-		Name:        "web_search",
-		Description: "Search the web using DuckDuckGo. Free, no API key required. Use for current events, facts, research, or anything needing an internet lookup. Input is a plain search query string.",
-		Parameters: map[string]domain.ToolParam{
-			toolParamQuery: {
-				Type:        toolParamString,
-				Description: "The search query to look up",
-				Required:    true,
-			},
-		},
-		Execute: func(args map[string]any) (string, error) {
-			query, _ := args["query"].(string)
-			if query == "" {
-				return "", errors.New("web_search: query is required")
-			}
-			callCtx, cancel := toolCallCtxTimeout(ctx, args, builtinSearchTimeout)
-			defer cancel()
-			return ddg.Call(callCtx, query)
-		},
-	})
+	registerCachedQueryTool(
+		ctx,
+		reg,
+		cache,
+		ddg,
+		"web_search",
+		"Search the web using DuckDuckGo. Free, no API key required. Use for current events, facts, research, or anything needing an internet lookup. Input is a plain search query string.",
+		"The search query to look up",
+	)
 }
 
-func registerWikipedia(ctx context.Context, reg *kdepstools.Registry) {
+func registerWikipedia(ctx context.Context, reg *kdepstools.Registry, cache *webToolCache) {
 	wiki := lcwikipedia.New(builtinUserAgent)
-	reg.Register(&kdepstools.Tool{
-		Name:        "wikipedia",
-		Description: "Look up information on Wikipedia. Use for general knowledge questions about people, places, companies, historical events, concepts, or any topic needing an encyclopedic answer. Input is a search query.",
-		Parameters: map[string]domain.ToolParam{
-			toolParamQuery: {
-				Type:        toolParamString,
-				Description: "The topic or question to look up on Wikipedia",
-				Required:    true,
-			},
-		},
-		Execute: func(args map[string]any) (string, error) {
-			query, _ := args["query"].(string)
-			if query == "" {
-				return "", errors.New("wikipedia: query is required")
-			}
-			callCtx, cancel := toolCallCtxTimeout(ctx, args, builtinSearchTimeout)
-			defer cancel()
-			return wiki.Call(callCtx, query)
-		},
-	})
+	registerCachedQueryTool(
+		ctx,
+		reg,
+		cache,
+		wiki,
+		"wikipedia",
+		"Look up information on Wikipedia. Use for general knowledge questions about people, places, companies, historical events, concepts, or any topic needing an encyclopedic answer. Input is a search query.",
+		"The topic or question to look up on Wikipedia",
+	)
 }
 
 // registerWebScraper registers a URL scraping tool using langchain-go's colly-based scraper.
 // No API key required. Fetches the URL and returns structured page content.
-func registerWebScraper(ctx context.Context, reg *kdepstools.Registry) {
+func registerWebScraper(ctx context.Context, reg *kdepstools.Registry, cache *webToolCache) {
 	scraper, err := lcscraper.New()
 	if err != nil {
 		return
@@ -527,9 +546,11 @@ func registerWebScraper(ctx context.Context, reg *kdepstools.Registry) {
 			if u == "" {
 				return "", errors.New("web_scraper: url is required")
 			}
-			callCtx, cancel := toolCallCtxTimeout(ctx, args, builtinScrapeTimeout)
-			defer cancel()
-			return scraper.Call(callCtx, u)
+			return cache.call("web_scraper:"+u, func() (string, error) {
+				callCtx, cancel := toolCallCtxTimeout(ctx, args, builtinScrapeTimeout)
+				defer cancel()
+				return scraper.Call(callCtx, u)
+			})
 		},
 	})
 }
@@ -687,7 +708,7 @@ func sqlExecQuery(ctx context.Context, dbPath, query string) (string, error) {
 }
 
 // registerSerpAPI registers Google Search via SerpAPI when SERPAPI_API_KEY is set.
-func registerSerpAPI(ctx context.Context, reg *kdepstools.Registry) {
+func registerSerpAPI(ctx context.Context, reg *kdepstools.Registry, cache *webToolCache) {
 	if os.Getenv("SERPAPI_API_KEY") == "" {
 		return
 	}
@@ -695,26 +716,15 @@ func registerSerpAPI(ctx context.Context, reg *kdepstools.Registry) {
 	if err != nil {
 		return
 	}
-	reg.Register(&kdepstools.Tool{
-		Name:        "serpapi_search",
-		Description: "Search Google via SerpAPI. Use for current events, news, and queries requiring fresh web results. Requires SERPAPI_API_KEY. Input is a plain search query string.",
-		Parameters: map[string]domain.ToolParam{
-			toolParamQuery: {
-				Type:        toolParamString,
-				Description: "The search query to look up on Google",
-				Required:    true,
-			},
-		},
-		Execute: func(args map[string]any) (string, error) {
-			query, _ := args["query"].(string)
-			if query == "" {
-				return "", errors.New("serpapi_search: query is required")
-			}
-			callCtx, cancel := toolCallCtxTimeout(ctx, args, builtinSearchTimeout)
-			defer cancel()
-			return tool.Call(callCtx, query)
-		},
-	})
+	registerCachedQueryTool(
+		ctx,
+		reg,
+		cache,
+		tool,
+		"serpapi_search",
+		"Search Google via SerpAPI. Use for current events, news, and queries requiring fresh web results. Requires SERPAPI_API_KEY. Input is a plain search query string.",
+		"The search query to look up on Google",
+	)
 }
 
 const (
@@ -729,7 +739,7 @@ var (
 
 // registerExa registers the Exa (formerly Metaphor) neural search tool when EXA_API_KEY is set.
 // Exa finds the most relevant URLs for a search query using link-prediction neural search.
-func registerExa(ctx context.Context, reg *kdepstools.Registry) {
+func registerExa(ctx context.Context, reg *kdepstools.Registry, cache *webToolCache) {
 	apiKey := os.Getenv("EXA_API_KEY")
 	if apiKey == "" {
 		apiKey = os.Getenv("METAPHOR_API_KEY")
@@ -752,7 +762,9 @@ func registerExa(ctx context.Context, reg *kdepstools.Registry) {
 			if query == "" {
 				return "", errors.New("exa_search: query is required")
 			}
-			return callExaSearch(ctx, apiKey, query)
+			return cache.call("exa_search:"+query, func() (string, error) {
+				return callExaSearch(ctx, apiKey, query)
+			})
 		},
 	})
 }
@@ -939,7 +951,7 @@ func callZapierRunAction(
 }
 
 // registerPerplexity registers the Perplexity AI search tool when PERPLEXITY_API_KEY is set.
-func registerPerplexity(ctx context.Context, reg *kdepstools.Registry) {
+func registerPerplexity(ctx context.Context, reg *kdepstools.Registry, cache *webToolCache) {
 	if os.Getenv("PERPLEXITY_API_KEY") == "" {
 		return
 	}
@@ -947,26 +959,15 @@ func registerPerplexity(ctx context.Context, reg *kdepstools.Registry) {
 	if err != nil {
 		return
 	}
-	reg.Register(&kdepstools.Tool{
-		Name:        "perplexity_search",
-		Description: "Search the web using Perplexity AI. Provides cited, up-to-date answers from the internet. Requires PERPLEXITY_API_KEY. Input is a plain search query or question.",
-		Parameters: map[string]domain.ToolParam{
-			toolParamQuery: {
-				Type:        toolParamString,
-				Description: "The search query or question to answer using Perplexity AI",
-				Required:    true,
-			},
-		},
-		Execute: func(args map[string]any) (string, error) {
-			query, _ := args["query"].(string)
-			if query == "" {
-				return "", errors.New("perplexity_search: query is required")
-			}
-			callCtx, cancel := toolCallCtxTimeout(ctx, args, builtinSearchTimeout)
-			defer cancel()
-			return tool.Call(callCtx, query)
-		},
-	})
+	registerCachedQueryTool(
+		ctx,
+		reg,
+		cache,
+		tool,
+		"perplexity_search",
+		"Search the web using Perplexity AI. Provides cited, up-to-date answers from the internet. Requires PERPLEXITY_API_KEY. Input is a plain search query or question.",
+		"The search query or question to answer using Perplexity AI",
+	)
 }
 
 // Network tool timeouts: a hung remote endpoint must not stall the agent
@@ -1169,7 +1170,7 @@ func registerBashJobWait(ctx context.Context, reg *kdepstools.Registry) {
 
 // registerWolframAlpha registers the Wolfram Alpha short-answer API tool
 // when WOLFRAM_APP_ID is set.
-func registerWolframAlpha(ctx context.Context, reg *kdepstools.Registry) {
+func registerWolframAlpha(ctx context.Context, reg *kdepstools.Registry, cache *webToolCache) {
 	appID := os.Getenv("WOLFRAM_APP_ID")
 	if appID == "" {
 		return
@@ -1189,7 +1190,9 @@ func registerWolframAlpha(ctx context.Context, reg *kdepstools.Registry) {
 			if query == "" {
 				return "", errors.New("wolfram_alpha: query is required")
 			}
-			return callWolframAlpha(ctx, appID, query)
+			return cache.call("wolfram_alpha:"+query, func() (string, error) {
+				return callWolframAlpha(ctx, appID, query)
+			})
 		},
 	})
 }

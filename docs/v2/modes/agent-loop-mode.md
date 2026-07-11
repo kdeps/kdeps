@@ -170,14 +170,16 @@ Always available. No environment variables required.
 
 | Tool | Required env var | Description |
 |------|-----------------|-------------|
-| `web_search` | (none -- uses DuckDuckGo) | Search the web (30s timeout) |
-| `wikipedia` | (none) | Fetch a Wikipedia article (30s timeout) |
-| `web_scraper` | (none) | Fetch and extract text from any URL (60s timeout) |
-| `serpapi_search` | `SERPAPI_API_KEY` | Google search via SerpAPI (30s timeout) |
-| `exa_search` | `EXA_API_KEY` or `METAPHOR_API_KEY` | Neural search via Exa |
-| `perplexity_search` | `PERPLEXITY_API_KEY` | Search via Perplexity (30s timeout) |
+| `web_search` | (none -- uses DuckDuckGo) | Search the web (30s timeout, cached) |
+| `wikipedia` | (none) | Fetch a Wikipedia article (30s timeout, cached) |
+| `web_scraper` | (none) | Fetch and extract text from any URL (60s timeout, cached) |
+| `serpapi_search` | `SERPAPI_API_KEY` | Google search via SerpAPI (30s timeout, cached) |
+| `exa_search` | `EXA_API_KEY` or `METAPHOR_API_KEY` | Neural search via Exa (cached) |
+| `perplexity_search` | `PERPLEXITY_API_KEY` | Search via Perplexity (30s timeout, cached) |
 
 Web and search tools carry a hard timeout so a hung remote endpoint cannot stall the turn. Ctrl+C during any tool call cancels the in-flight request immediately and skips the round's remaining tools.
+
+Tools marked "cached" memoize successful results for the lifetime of the agent process: repeating the same query or URL returns the cached copy instantly instead of refetching. Failed and empty lookups are not cached, so they are retried on the next call. `wolfram_alpha` results are cached the same way.
 
 ### Computation
 
