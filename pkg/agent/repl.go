@@ -1520,7 +1520,7 @@ func (r *REPL) processInput(input string) error {
 // SIGINT is swallowed in-process while fn runs — the child receives it and
 // dies; the REPL survives and restores raw mode. Reports whether an
 // interrupt arrived while fn ran.
-func (r *REPL) withCookedTerminal(fn func() error) (interrupted bool, err error) {
+func (r *REPL) withCookedTerminal(fn func() error) (bool, error) {
 	if r.readlineInst != nil {
 		_ = r.readlineInst.Terminal.ExitRawMode()
 		defer func() { _ = r.readlineInst.Terminal.EnterRawMode() }()
@@ -1528,7 +1528,7 @@ func (r *REPL) withCookedTerminal(fn func() error) (interrupted bool, err error)
 	sigCh := make(chan os.Signal, 1)
 	signal.Notify(sigCh, os.Interrupt)
 	defer signal.Stop(sigCh)
-	err = fn()
+	err := fn()
 	select {
 	case <-sigCh:
 		return true, err
