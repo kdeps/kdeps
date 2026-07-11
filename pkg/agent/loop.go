@@ -93,7 +93,7 @@ type Config struct {
 	// RunStreaming() instead of the engine path for interactive turns.
 	Streamer Streamer
 	// MaxToolRounds caps how many tool-call/result round trips RunStreaming
-	// will perform in a single turn. 0 means unlimited (default: 10).
+	// will perform in a single turn. 0 applies the default (50).
 	MaxToolRounds int
 	// ModelService is used by the REPL to auto-start local model servers
 	// (file/gguf backends) when the user switches to a local model via /model.
@@ -363,10 +363,13 @@ func applyConfigDefaults(cfg Config) Config {
 
 const (
 	defaultAutoCompactThreshold = 40000
-	defaultMaxToolRounds        = 10
-	defaultAutoRetryMax         = 3
-	defaultAutoRetryBaseDelay   = 2 * time.Second
-	defaultModelName            = "llama3.2"
+	// defaultMaxToolRounds bounds tool-call round trips per turn. Coding
+	// tasks routinely need dozens of rounds (explore, read, edit, test);
+	// hitting the cap mid-task forces a text answer and loses the work.
+	defaultMaxToolRounds      = 50
+	defaultAutoRetryMax       = 3
+	defaultAutoRetryBaseDelay = 2 * time.Second
+	defaultModelName          = "llama3.2"
 )
 
 func envOrDefault(key, fallback string) string {
@@ -592,7 +595,9 @@ func (l *Loop) runToolRounds(
 			capCfg := *chatCfg
 			capCfg.Tools = nil
 			capCfg.Prompt = "Tool budget exhausted. Answer the user's question now " +
-				"using only the information already gathered. Do not attempt any more tool calls."
+				"using only the information already gathered. Do not attempt any more " +
+				"tool calls and do not emit tool-call markup. If work remains, describe " +
+				"in plain text exactly what remains to be done."
 			chatCfg = &capCfg
 		}
 
@@ -1039,15 +1044,27 @@ func formatLoopResult(result any) string {
 	return ""
 }
 
+// dsmlBlockRe matches a DeepSeek DSML tool-call span leaked into text content
+// (fullwidth-bar delimited tags), including everything between the first
+// opening and last closing tool_calls tag.
+var dsmlBlockRe = regexp.MustCompile(`(?s)<｜+\s*DSML\s*｜+tool_calls>.*</｜+\s*DSML\s*｜+tool_calls>`)
+
+// dsmlTagRe matches a stray DSML tag left behind when a leaked block is
+// truncated or malformed.
+var dsmlTagRe = regexp.MustCompile(`</?｜+\s*DSML\s*｜+[^>]*>`)
+
 // stripContentToolCalls removes model-generated tool call noise from content.
 // Handles JSON array tool calls (small models putting tool_calls in content
 // field) and DeepSeek DSML markup (leaked when the model emits a tool call as
-// text, e.g. after the tool budget removed its tools).
+// text, e.g. after the tool budget removed its tools). Prose surrounding a
+// leaked DSML block is preserved.
 func stripContentToolCalls(content string) string {
-	trimmed := strings.TrimSpace(content)
-	if strings.HasPrefix(trimmed, "<｜") && strings.Contains(trimmed, "DSML") {
-		return "" // content is leaked tool-call markup, not a text response
+	if strings.Contains(content, "DSML") && strings.Contains(content, "｜") {
+		content = dsmlBlockRe.ReplaceAllString(content, "")
+		content = dsmlTagRe.ReplaceAllString(content, "")
+		content = strings.TrimSpace(content)
 	}
+	trimmed := strings.TrimSpace(content)
 	if !strings.HasPrefix(trimmed, "[") {
 		return content
 	}

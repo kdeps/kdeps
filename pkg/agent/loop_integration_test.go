@@ -629,6 +629,28 @@ func TestStripContentToolCalls_DSMLMarkup(t *testing.T) {
 	assert.Equal(t, "a normal answer", stripContentToolCalls("a normal answer"))
 }
 
+// TestStripContentToolCalls_DSMLEmbeddedInProse verifies that prose around a
+// leaked DSML block survives while the block itself is removed - the model
+// often writes a plan first and then leaks the tool call.
+func TestStripContentToolCalls_DSMLEmbeddedInProse(t *testing.T) {
+	content := "I have enough context. Let me create MINE-01.\n\n" +
+		"The architecture is clear.\n\n" +
+		`<｜｜DSML｜｜tool_calls> <｜｜DSML｜｜invoke name="write_file"> ` +
+		`<｜｜DSML｜｜parameter name="file_path" string="true">/tmp/x.go</｜｜DSML｜｜parameter> ` +
+		`</｜｜DSML｜｜invoke> </｜｜DSML｜｜tool_calls>`
+	got := stripContentToolCalls(content)
+	assert.Contains(t, got, "I have enough context")
+	assert.Contains(t, got, "The architecture is clear")
+	assert.NotContains(t, got, "DSML")
+	assert.NotContains(t, got, "write_file")
+
+	// A stray tag without a full block is also removed.
+	stray := "answer text <｜｜DSML｜｜invoke name=\"x\"> tail"
+	got = stripContentToolCalls(stray)
+	assert.NotContains(t, got, "DSML")
+	assert.Contains(t, got, "answer text")
+}
+
 // TestRunToolRounds_FinalRoundCarriesBudgetPrompt verifies the forced final
 // round tells the model why its tools disappeared.
 func TestRunToolRounds_FinalRoundCarriesBudgetPrompt(t *testing.T) {
