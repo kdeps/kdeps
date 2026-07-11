@@ -2999,6 +2999,107 @@ func TestContextFromParams_Thresholds(t *testing.T) {
 	}
 }
 
+// --- cmdModelTool ---
+
+// captureStdout redirects os.Stdout for fn and returns what it printed.
+func captureStdout(t *testing.T, fn func()) string {
+	t.Helper()
+	origOut := os.Stdout
+	r, w, _ := os.Pipe()
+	os.Stdout = w
+	fn()
+	w.Close()
+	os.Stdout = origOut
+	data, _ := io.ReadAll(r)
+	r.Close()
+	return string(data)
+}
+
+func TestCmdModelTool_ListShowsSettings(t *testing.T) {
+	loop := makeTestLoop(nil)
+	repl := NewREPL(context.Background(), loop)
+	defer repl.cancel()
+
+	out := captureStdout(t, func() { _ = repl.cmdModelTool(nil) })
+	for _, name := range toolSettingNames {
+		assert.Contains(t, out, name)
+	}
+}
+
+func TestCmdModelTool_SetRounds(t *testing.T) {
+	loop := makeTestLoop(nil)
+	repl := NewREPL(context.Background(), loop)
+	defer repl.cancel()
+
+	out := captureStdout(t, func() {
+		_ = repl.cmdModelTool([]string{"set", "rounds", "80"})
+	})
+	assert.Contains(t, out, "80")
+	assert.Equal(t, 80, loop.config.MaxToolRounds)
+}
+
+func TestCmdModelTool_SetTokenSettingsWithSuffix(t *testing.T) {
+	loop := makeTestLoop(nil)
+	repl := NewREPL(context.Background(), loop)
+	defer repl.cancel()
+
+	captureStdout(t, func() {
+		_ = repl.cmdModelTool([]string{"set", "compact-threshold", "40k"})
+		_ = repl.cmdModelTool([]string{"set", "compact-budget", "20k"})
+		_ = repl.cmdModelTool([]string{"set", "history-tokens", "32k"})
+		_ = repl.cmdModelTool([]string{"set", "retry-delay", "5s"})
+		_ = repl.cmdModelTool([]string{"set", "retries", "5"})
+		_ = repl.cmdModelTool([]string{"set", "max-turns", "12"})
+	})
+	assert.Equal(t, 40*1024, loop.config.AutoCompactThreshold)
+	assert.Equal(t, 20*1024, loop.config.CompactTokenBudget)
+	assert.Equal(t, 32*1024, loop.config.MaxHistoryTokens)
+	assert.Equal(t, 5*time.Second, loop.config.AutoRetryBaseDelay)
+	assert.Equal(t, 5, loop.config.AutoRetryMax)
+	assert.Equal(t, 12, loop.config.MaxTurns)
+}
+
+func TestCmdModelTool_ZeroDisablesCompactThreshold(t *testing.T) {
+	loop := makeTestLoop(nil)
+	repl := NewREPL(context.Background(), loop)
+	defer repl.cancel()
+
+	captureStdout(t, func() {
+		_ = repl.cmdModelTool([]string{"set", "compact-threshold", "0"})
+	})
+	assert.Equal(t, 0, loop.config.AutoCompactThreshold)
+}
+
+func TestCmdModelTool_InvalidInputsRejected(t *testing.T) {
+	loop := makeTestLoop(nil)
+	repl := NewREPL(context.Background(), loop)
+	defer repl.cancel()
+	before := loop.config.MaxToolRounds
+
+	out := captureStdout(t, func() {
+		_ = repl.cmdModelTool([]string{"set", "rounds", "-3"})
+		_ = repl.cmdModelTool([]string{"set", "rounds", "abc"})
+		_ = repl.cmdModelTool([]string{"set", "retry-delay", "fast"})
+		_ = repl.cmdModelTool([]string{"set", "nonsense", "1"})
+		_ = repl.cmdModelTool([]string{"set", "rounds"}) // missing value
+		_ = repl.cmdModelTool([]string{"bogus"})
+	})
+	assert.Equal(t, before, loop.config.MaxToolRounds, "invalid input must not change settings")
+	assert.Contains(t, out, "Unknown setting")
+	assert.Contains(t, out, "Usage: /model tool set")
+	assert.Contains(t, out, "Unknown /model tool subcommand")
+}
+
+func TestParseTokenCount(t *testing.T) {
+	assert.Equal(t, 32768, parseTokenCount("32k"))
+	assert.Equal(t, 32768, parseTokenCount("32K"))
+	assert.Equal(t, 1048576, parseTokenCount("1m"))
+	assert.Equal(t, 4096, parseTokenCount("4096"))
+	assert.Equal(t, 0, parseTokenCount("0"))
+	assert.Equal(t, 0, parseTokenCount("-5k"))
+	assert.Equal(t, 0, parseTokenCount("abc"))
+}
+
 // --- cmdModelDefault ---
 
 func TestCmdModelDefault_NoArgs_NoSaveFn(t *testing.T) {

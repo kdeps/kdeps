@@ -457,6 +457,12 @@ func (c *replCompleter) Do(line []rune, pos int) ([][]rune, int) {
 	if lastSpace >= 0 {
 		prefix := strings.ToLower(strings.TrimSpace(str[:lastSpace]))
 		switch {
+		case prefix == "/model tool":
+			return doSubcmdCompletion(token, tokenLen, []string{"list", "set"})
+
+		case prefix == "/model tool set":
+			return doSubcmdCompletion(token, tokenLen, toolSettingNames)
+
 		case prefix == "/model" && len(c.repl.modelNames) > 0:
 			return c.repl.doModelCompletion(token, tokenLen)
 
@@ -1631,6 +1637,8 @@ func (r *REPL) cmdHelp() error {
 		"  /model hff search <query>          Search HuggingFace for GGUF models",
 		"  /model hff info <repo>             List GGUF files available in a HuggingFace repo",
 		"  /model hff download <repo> [file]  Download a GGUF file from HuggingFace",
+		"  /model tool [list]                 Show agent loop settings (tool rounds, retries, compaction)",
+		"  /model tool set <setting> <value>  Change a setting for this session (e.g. rounds 80, retry-delay 5s)",
 		"  /skills                            List loaded skills",
 		"  /prompts                           List loaded prompt templates",
 		"  /<skill-name> [..]                Invoke a loaded skill or prompt template by name",
@@ -1729,6 +1737,8 @@ func (r *REPL) cmdModel(args []string) error {
 			return r.cmdProcesses(args[1:])
 		case "hff":
 			return r.cmdHFF(args[1:])
+		case "tool":
+			return r.cmdModelTool(args[1:])
 		}
 	}
 	if len(args) > 0 {
@@ -1741,6 +1751,136 @@ func (r *REPL) cmdModel(args []string) error {
 	// readline has yielded the terminal (ReadLine already returned), so
 	// bubbletea can take over directly without closing readline first.
 	return r.openPickerWithFilter("")
+}
+
+// toolSettingNames lists the /model tool settings in display order.
+//
+//nolint:gochecknoglobals // immutable command metadata
+var toolSettingNames = []string{
+	"rounds", "retries", "retry-delay",
+	"compact-threshold", "compact-budget", "max-turns", "history-tokens",
+}
+
+// cmdModelTool handles /model tool [list | set <setting> <value>].
+// It exposes the agent loop's per-turn knobs at runtime; changes apply to the
+// next turn and last for the session.
+func (r *REPL) cmdModelTool(args []string) error {
+	if len(args) == 0 || args[0] == "list" {
+		r.printToolSettings()
+		return nil
+	}
+	if args[0] != "set" {
+		fmt.Fprintf(os.Stdout, "%s\n",
+			styleReplError.Render("Unknown /model tool subcommand: "+args[0]+". Use list or set <setting> <value>."))
+		return nil
+	}
+	const setArity = 3 // set <setting> <value>
+	if len(args) < setArity {
+		fmt.Fprintf(os.Stdout, "%s\n",
+			styleReplError.Render("Usage: /model tool set <setting> <value>  (see /model tool list)"))
+		return nil
+	}
+	r.setToolSetting(strings.ToLower(args[1]), args[2])
+	return nil
+}
+
+// printToolSettings prints every tunable with its current value.
+func (r *REPL) printToolSettings() {
+	cfg := &r.loop.config
+	rows := [][2]string{
+		{"rounds", fmt.Sprintf("%d  (max tool-call rounds per turn)", cfg.MaxToolRounds)},
+		{"retries", fmt.Sprintf("%d  (auto-retries on transient API errors)", cfg.AutoRetryMax)},
+		{"retry-delay", fmt.Sprintf("%s  (initial retry backoff, doubles per retry)", cfg.AutoRetryBaseDelay)},
+		{"compact-threshold", fmt.Sprintf("%d  (tokens; auto-compact trigger, 0 = off)", cfg.AutoCompactThreshold)},
+		{"compact-budget", fmt.Sprintf("%d  (tokens kept after compaction)", cfg.CompactTokenBudget)},
+		{"max-turns", fmt.Sprintf("%d  (history turns retained, 0 = unlimited)", cfg.MaxTurns)},
+		{"history-tokens", fmt.Sprintf("%d  (history token cap, 0 = unlimited)", cfg.MaxHistoryTokens)},
+	}
+	fmt.Fprintln(os.Stdout, styleReplMeta.Render("Agent loop settings (/model tool set <setting> <value>):"))
+	for _, row := range rows {
+		fmt.Fprintf(os.Stdout, "  %-18s %s\n", row[0], styleReplMeta.Render(row[1]))
+	}
+}
+
+// toolSettingAppliers parses and applies each /model tool setting. An applier
+// returns (successMsg, "") on success or ("", errMsg) on invalid input.
+// Token-count settings accept k/m suffixes (32k, 1m); retry-delay accepts a
+// Go duration (2s, 500ms).
+//
+//nolint:gochecknoglobals // immutable command metadata
+var toolSettingAppliers = map[string]func(cfg *Config, value string) (string, string){
+	"rounds": func(cfg *Config, v string) (string, string) {
+		n, err := strconv.Atoi(v)
+		if err != nil || n <= 0 {
+			return "", "rounds must be a positive integer"
+		}
+		cfg.MaxToolRounds = n
+		return fmt.Sprintf("Max tool rounds set to %d", n), ""
+	},
+	"retries": func(cfg *Config, v string) (string, string) {
+		n, err := strconv.Atoi(v)
+		if err != nil || n < 0 {
+			return "", "retries must be a non-negative integer"
+		}
+		cfg.AutoRetryMax = n
+		return fmt.Sprintf("Auto-retry max set to %d", n), ""
+	},
+	"retry-delay": func(cfg *Config, v string) (string, string) {
+		d, err := time.ParseDuration(v)
+		if err != nil || d <= 0 {
+			return "", "retry-delay must be a positive duration (e.g. 2s, 500ms)"
+		}
+		cfg.AutoRetryBaseDelay = d
+		return fmt.Sprintf("Auto-retry base delay set to %s", d), ""
+	},
+	"compact-threshold": func(cfg *Config, v string) (string, string) {
+		n := parseTokenCount(v)
+		if n <= 0 && v != "0" {
+			return "", "compact-threshold must be a token count (e.g. 40000, 40k) or 0 to disable"
+		}
+		cfg.AutoCompactThreshold = n
+		return fmt.Sprintf("Auto-compact threshold set to %d tokens", n), ""
+	},
+	"compact-budget": func(cfg *Config, v string) (string, string) {
+		n := parseTokenCount(v)
+		if n <= 0 {
+			return "", "compact-budget must be a positive token count (e.g. 20000, 20k)"
+		}
+		cfg.CompactTokenBudget = n
+		return fmt.Sprintf("Compact token budget set to %d tokens", n), ""
+	},
+	"max-turns": func(cfg *Config, v string) (string, string) {
+		n, err := strconv.Atoi(v)
+		if err != nil || n < 0 {
+			return "", "max-turns must be a non-negative integer (0 = unlimited)"
+		}
+		cfg.MaxTurns = n
+		return fmt.Sprintf("Max history turns set to %d", n), ""
+	},
+	"history-tokens": func(cfg *Config, v string) (string, string) {
+		n := parseTokenCount(v)
+		if n <= 0 && v != "0" {
+			return "", "history-tokens must be a token count (e.g. 32k) or 0 for unlimited"
+		}
+		cfg.MaxHistoryTokens = n
+		return fmt.Sprintf("History token cap set to %d", n), ""
+	},
+}
+
+// setToolSetting applies value to the named setting via toolSettingAppliers.
+func (r *REPL) setToolSetting(name, value string) {
+	apply, found := toolSettingAppliers[name]
+	if !found {
+		fmt.Fprintf(os.Stdout, "%s\n", styleReplError.Render(
+			"Unknown setting: "+name+". Valid: "+strings.Join(toolSettingNames, ", ")))
+		return
+	}
+	msg, errMsg := apply(&r.loop.config, value)
+	if errMsg != "" {
+		fmt.Fprintf(os.Stdout, "%s\n", styleReplError.Render(errMsg))
+		return
+	}
+	fmt.Fprintf(os.Stdout, "%s\n", styleReplSuccess.Render(msg+" (applies from the next turn)"))
 }
 
 // cmdModelDefault handles /model default [name].
@@ -2885,23 +3025,14 @@ func (r *REPL) cmdReload() error {
 	return nil
 }
 
-// cmdContext shows or sets the context window size for the current model.
-// For local backends (file, gguf) the running server is killed and restarted
-// with the new --ctx-size. For Ollama the size is passed as num_ctx on the
-// next request. Cloud backends do not support a user-controlled context size.
-func (r *REPL) cmdContext(args []string) error {
-	if len(args) == 0 {
-		currentSize := r.contextLimitForModel(r.loop.config.Model)
-		fmt.Fprintf(os.Stdout, "%s\n", styleReplMeta.Render(fmt.Sprintf("Context window: %d tokens", currentSize)))
-		return nil
-	}
-
+// parseTokenCount parses a count with an optional k/K or m/M binary suffix
+// (32k -> 32768, 1m -> 1048576). Returns 0 on invalid or non-positive input.
+func parseTokenCount(s string) int {
 	const (
 		kibi = 1024
 		mebi = 1024 * kibi
 	)
-	raw := strings.ToLower(strings.TrimSpace(args[0]))
-	// Accept shorthand: 32k/32K → 32768, 1m/1M → 1048576, etc.
+	raw := strings.ToLower(strings.TrimSpace(s))
 	multiplier := 1
 	switch {
 	case strings.HasSuffix(raw, "m"):
@@ -2913,10 +3044,27 @@ func (r *REPL) cmdContext(args []string) error {
 	}
 	n, _ := strconv.Atoi(raw)
 	if n <= 0 {
+		return 0
+	}
+	return n * multiplier
+}
+
+// cmdContext shows or sets the context window size for the current model.
+// For local backends (file, gguf) the running server is killed and restarted
+// with the new --ctx-size. For Ollama the size is passed as num_ctx on the
+// next request. Cloud backends do not support a user-controlled context size.
+func (r *REPL) cmdContext(args []string) error {
+	if len(args) == 0 {
+		currentSize := r.contextLimitForModel(r.loop.config.Model)
+		fmt.Fprintf(os.Stdout, "%s\n", styleReplMeta.Render(fmt.Sprintf("Context window: %d tokens", currentSize)))
+		return nil
+	}
+
+	n := parseTokenCount(args[0])
+	if n <= 0 {
 		fmt.Fprintf(os.Stdout, "%s\n", styleReplError.Render("Usage: /context <size>  (e.g. 32768, 32k, 1m)"))
 		return nil
 	}
-	n *= multiplier
 
 	backend := r.loop.config.Backend
 	model := r.loop.config.Model
