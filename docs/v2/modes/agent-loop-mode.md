@@ -199,6 +199,18 @@ KDEPS_PERMISSION_MODE=danger-full-access ./kdeps # no restrictions (default)
 
 Blocked calls return a `permission denied` tool error to the model, which explains the restriction instead of executing. Tools not in the built-in policy - including workflow, component, and agency tools - require `workspace-write`, so `read-only` blocks anything that could mutate state.
 
+### Git commit attribution
+
+Commits the agent creates carry a co-author trailer naming kdeps, the backend kind, and the model that wrote them:
+
+```text
+Co-Authored-By: kdeps (Cloud/deepseek - deepseek-reasoner) <noreply@kdeps.com>
+Co-Authored-By: kdeps (GGUF - qwen3) <noreply@kdeps.com>
+Co-Authored-By: kdeps (Ollama - llama3.2) <noreply@kdeps.com>
+```
+
+The trailer follows the active model, so `/model` switches are reflected in subsequent commits.
+
 ### Lean mode
 
 `KDEPS_LEAN_MODE` further restricts the tool surface for CI/automation. When enabled, the agent has no `bash_exec`, `web_search`, `web_scraper`, `wikipedia`, `http_request`, or any external API tools:

@@ -293,6 +293,45 @@ func TestRunStreaming_LastRoundForcesAnswerWithoutTools(t *testing.T) {
 		"the forced answer must be streamed to the output writer")
 }
 
+// TestCommitTrailer verifies the git co-author trailer names the backend kind
+// and current model.
+func TestCommitTrailer(t *testing.T) {
+	cases := []struct {
+		backend, model, want string
+	}{
+		{"file", "phi4", "Co-Authored-By: kdeps (llamafile - phi4) <noreply@kdeps.com>"},
+		{"gguf", "qwen3", "Co-Authored-By: kdeps (GGUF - qwen3) <noreply@kdeps.com>"},
+		{"ollama", "llama3.2", "Co-Authored-By: kdeps (Ollama - llama3.2) <noreply@kdeps.com>"},
+		{"deepseek", "deepseek-reasoner", "Co-Authored-By: kdeps (Cloud/deepseek - deepseek-reasoner) <noreply@kdeps.com>"},
+		{"", "gpt-4o", "Co-Authored-By: kdeps (Cloud - gpt-4o) <noreply@kdeps.com>"},
+	}
+	for _, c := range cases {
+		l := &Loop{config: Config{Backend: c.backend, Model: c.model}}
+		assert.Equal(t, c.want, l.commitTrailer())
+	}
+}
+
+// TestBuildSystemPreamble_ContainsCommitTrailer verifies the preamble
+// instructs the model to co-author its git commits.
+func TestBuildSystemPreamble_ContainsCommitTrailer(t *testing.T) {
+	eng := executor.NewEngine(nil)
+	reg := tools.NewRegistry()
+	reg.Register(&tools.Tool{
+		Name:        "calc",
+		Description: "calculator",
+		Parameters:  map[string]domain.ToolParam{},
+		Execute:     func(_ map[string]any) (string, error) { return "42", nil },
+	})
+	loop := New(eng, newTestWorkflowForSession(), reg, Config{
+		Model:    "deepseek-reasoner",
+		Backend:  "deepseek",
+		Streamer: &mockStreamer{},
+	})
+	preamble := loop.buildSystemPreamble()
+	assert.Contains(t, preamble, "Co-Authored-By: kdeps (Cloud/deepseek - deepseek-reasoner) <noreply@kdeps.com>")
+	assert.Contains(t, preamble, "git commit")
+}
+
 // TestRunStreaming_StopsEarlyMidway verifies that when tool calls stop before
 // MaxToolRounds the loop exits after the clean round.
 func TestRunStreaming_StopsEarlyMidway(t *testing.T) {
