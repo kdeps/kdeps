@@ -591,6 +591,78 @@ func TestDispatchStreamToolCall_ToolError(t *testing.T) {
 	_ = result
 }
 
+// TestDispatchStreamToolCall_ErrorTruncated verifies that a huge provider
+// error (e.g. an embedded CAPTCHA HTML page) is truncated before being shown
+// and fed back to the LLM, and that the error result is valid JSON.
+func TestDispatchStreamToolCall_ErrorTruncated(t *testing.T) {
+	hugeErr := strings.Repeat("<html>duck challenge</html>", 400) // ~10KB
+	eng := executor.NewEngine(nil)
+	reg := tools.NewRegistry()
+	reg.Register(&tools.Tool{
+		Name:        "failing_tool",
+		Description: "tool that fails with a huge error",
+		Parameters:  map[string]domain.ToolParam{},
+		Execute:     func(_ map[string]any) (string, error) { return "", errors.New(hugeErr) },
+	})
+	loop := New(eng, newTestWorkflowForSession(), reg, Config{Model: "test", Streamer: &mockStreamer{}})
+
+	var buf bytes.Buffer
+	result := loop.dispatchStreamToolCall(
+		domain.StreamedToolCall{ID: "1", Name: "failing_tool", Arguments: "{}"}, &buf)
+
+	var parsed map[string]string
+	require.NoError(t, json.Unmarshal([]byte(result), &parsed),
+		"error result must be valid JSON even when the error contains quotes")
+	assert.LessOrEqual(t, len(parsed["error"]), toolErrorMaxLen+10,
+		"error text fed to the LLM must be truncated")
+	assert.LessOrEqual(t, len(buf.String()), toolErrorMaxLen+200,
+		"terminal output must be truncated")
+}
+
+// TestStripContentToolCalls_DSMLMarkup verifies DeepSeek tool-call markup
+// leaked as text content is stripped instead of rendered as the answer.
+func TestStripContentToolCalls_DSMLMarkup(t *testing.T) {
+	leak := `<｜｜DSML｜｜tool_calls> <｜｜DSML｜｜invoke name="http_request"> ` +
+		`<｜｜DSML｜｜parameter name="url" string="true">https://apnews.com/</｜｜DSML｜｜parameter> ` +
+		`</｜｜DSML｜｜invoke> </｜｜DSML｜｜tool_calls>`
+	assert.Empty(t, stripContentToolCalls(leak))
+	assert.Equal(t, "a normal answer", stripContentToolCalls("a normal answer"))
+}
+
+// TestRunToolRounds_FinalRoundCarriesBudgetPrompt verifies the forced final
+// round tells the model why its tools disappeared.
+func TestRunToolRounds_FinalRoundCarriesBudgetPrompt(t *testing.T) {
+	toolCall := domain.StreamedToolCall{ID: "1", Name: "calc", Arguments: "{}"}
+	ms := &cfgRecordingStreamer{
+		inner: mockStreamer{
+			responses: []mockStreamResponse{
+				{content: "", toolCalls: []domain.StreamedToolCall{toolCall}},
+				{content: "best-effort answer", toolCalls: nil},
+			},
+		},
+	}
+	eng := executor.NewEngine(nil)
+	reg := tools.NewRegistry()
+	reg.Register(&tools.Tool{
+		Name:        "calc",
+		Description: "calculator",
+		Parameters:  map[string]domain.ToolParam{},
+		Execute:     func(_ map[string]any) (string, error) { return "42", nil },
+	})
+	loop := New(eng, newTestWorkflowForSession(), reg, Config{
+		Model:         "test",
+		Streamer:      ms,
+		MaxToolRounds: 2,
+	})
+	var buf bytes.Buffer
+	result, err := loop.RunStreaming(context.Background(), "news", &buf)
+	require.NoError(t, err)
+	require.Len(t, ms.cfgs, 2)
+	assert.Empty(t, ms.cfgs[1].Tools)
+	assert.Contains(t, ms.cfgs[1].Prompt, "Tool budget exhausted")
+	assert.Equal(t, "best-effort answer", result)
+}
+
 func TestStripContentToolCalls_JSONArray(t *testing.T) {
 	// Content that is a JSON array with "name" key - should be stripped
 	ms := &mockStreamer{

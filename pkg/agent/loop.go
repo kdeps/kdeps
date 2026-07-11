@@ -585,10 +585,14 @@ func (l *Loop) runToolRounds(
 		// Last allowed round: remove the tools so the model must produce a
 		// text answer. Breaking out on a tool-call round instead would end
 		// the turn with no visible output (tool-call rounds usually have
-		// empty content with reasoning models).
+		// empty content with reasoning models). The prompt tells the model
+		// why the tools disappeared — without it, some models emit raw
+		// tool-call markup as text instead of answering.
 		if i == l.config.MaxToolRounds-1 && len(chatCfg.Tools) > 0 {
 			capCfg := *chatCfg
 			capCfg.Tools = nil
+			capCfg.Prompt = "Tool budget exhausted. Answer the user's question now " +
+				"using only the information already gathered. Do not attempt any more tool calls."
 			chatCfg = &capCfg
 		}
 
@@ -670,6 +674,10 @@ func IsTaskCompleted(response string) bool {
 var ansiStripRe = regexp.MustCompile("\x1b\\[[0-9;]*[a-zA-Z]")
 
 const toolArgMaxDisplay = 80 // max chars shown in tool call summary line
+
+// toolErrorMaxLen caps tool failure text for display and for the error result
+// fed back to the LLM. Provider errors can embed whole HTML pages.
+const toolErrorMaxLen = 500
 
 // summarizeToolArgs extracts a short display label from tool call arguments JSON.
 // Returns the first non-empty string value, or the raw JSON if nothing else works.
@@ -796,9 +804,19 @@ func (l *Loop) dispatchStreamToolCall(tc domain.StreamedToolCall, w io.Writer) s
 	}
 	result, err := tool.Execute(args)
 	if err != nil {
-		return fmt.Sprintf(`{"error":"%s"}`, err.Error())
+		return toolErrorJSON(err)
 	}
 	return result
+}
+
+// toolErrorJSON formats a tool failure as a JSON error result, truncated so a
+// provider error embedding a whole HTML page cannot flood the LLM context.
+func toolErrorJSON(err error) string {
+	b, mErr := json.Marshal(map[string]string{"error": truncateEllipsis(err.Error(), toolErrorMaxLen)})
+	if mErr != nil {
+		return `{"error":"tool failed"}`
+	}
+	return string(b)
 }
 
 // dispatchToTerminal runs a tool in interactive REPL mode.
@@ -842,8 +860,11 @@ func (l *Loop) dispatchToTerminal(
 	// from garbled tool output. \n (→ \r\n via crlfWriter) gives a fresh line at column 0.
 	const lineReset = ansiReset + ansiClearLine
 	if execErr != nil {
-		fmt.Fprintf(termW, "%s\n  ... %s failed (%s): %v\n", lineReset, name, elapsed, execErr)
-		return fmt.Sprintf(`{"error":"%s"}`, execErr.Error())
+		// Truncate: provider failures can embed entire HTML pages (e.g. a
+		// CAPTCHA challenge) that would flood the terminal and the LLM context.
+		fmt.Fprintf(termW, "%s\n  ... %s failed (%s): %s\n",
+			lineReset, name, elapsed, truncateEllipsis(execErr.Error(), toolErrorMaxLen))
+		return toolErrorJSON(execErr)
 	}
 	if strings.HasPrefix(result, `{"status":"backgrounded"`) {
 		fmt.Fprintf(termW, "%s\n  ... %s backgrounded [Ctrl+Z; use bash_job_wait to retrieve]\n", lineReset, name)
@@ -1019,9 +1040,14 @@ func formatLoopResult(result any) string {
 }
 
 // stripContentToolCalls removes model-generated tool call noise from content.
-// Handles JSON array tool calls (small models putting tool_calls in content field).
+// Handles JSON array tool calls (small models putting tool_calls in content
+// field) and DeepSeek DSML markup (leaked when the model emits a tool call as
+// text, e.g. after the tool budget removed its tools).
 func stripContentToolCalls(content string) string {
 	trimmed := strings.TrimSpace(content)
+	if strings.HasPrefix(trimmed, "<｜") && strings.Contains(trimmed, "DSML") {
+		return "" // content is leaked tool-call markup, not a text response
+	}
 	if !strings.HasPrefix(trimmed, "[") {
 		return content
 	}

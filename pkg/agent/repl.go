@@ -1119,7 +1119,7 @@ func (r *REPL) runStreaming(ctx context.Context, input string) (string, error) {
 	// Otherwise, sr.resp may contain <thinking> blocks from ReturnOutput=true.
 	content := sr.resp
 	if content == "" {
-		content = strings.TrimSpace(buf.String())
+		content = strings.TrimSpace(stripContentToolCalls(buf.String()))
 	}
 	if content != "" {
 		fmt.Fprint(os.Stdout, renderREPLOutput(content, thinkW != nil))
