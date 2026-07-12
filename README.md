@@ -325,6 +325,49 @@ git clone https://github.com/kdeps/skill ~/.claude/skills/kdeps
 
 Docs: [kdeps.com/getting-started/agent-skills](https://kdeps.com/getting-started/agent-skills)
 
+## Lean mode & presets
+
+Restrict the agent tool surface for CI and automation:
+
+```bash
+# Lean mode -- no bash, no network tools
+KDEPS_LEAN_MODE=true kdeps ./my-agent/
+
+# Agent presets -- combines lean mode + permission mode
+KDEPS_AGENT_PRESET=audit       kdeps ./my-agent/    # read-only, lean tools
+KDEPS_AGENT_PRESET=explain     kdeps ./my-agent/    # read-only, lean tools
+KDEPS_AGENT_PRESET=implement   kdeps ./my-agent/    # workspace-write, lean tools
+```
+
+Tools available in lean mode: file operations (`read_file`, `write_file`, `edit_file`, `list_files`), code intelligence (`code_search`, `code_definition`, `code_references`, `code_symbols`, `code_hover`, `code_diagnostics`, `search_local`), document loading (`load_document`), computation (`calculator`), embeddings (`embedding_vectorize`, `embedding_search`), and transcription (`transcribe_audio`). Everything else -- `bash_exec`, `web_search`, `web_scraper`, `wikipedia`, `http_request` -- is excluded.
+
+## Agent registries
+
+The agent loop maintains three in-memory registries for task, team, and cron lifecycle management:
+
+- **TaskRegistry** -- tracks every task (`task-N`) with status lifecycle (`created` -> `running` -> `completed`/`failed`/`stopped`), output transcripts, heartbeat-based stall detection, and team assignment
+- **TeamRegistry** -- groups tasks for multi-agent coordination with `AddTask`, `SetStatus`, `Delete`
+- **CronRegistry** -- scheduled task creation via cron expressions. Cron jobs fire automatically from a background goroutine in `kdeps serve` — no manual polling needed. Manage with `cron_create`, `cron_list`, `cron_pause`, `cron_resume`, `cron_delete`.
+
+All three are concurrency-safe singletons.
+
+## Approval tokens
+
+When a tool call is denied by the permission mode, the agent can request a one-time exception via an approval token with a TTL. The approval lifecycle:
+
+1. Agent attempts a blocked tool call (e.g. `bash_exec` in `read-only` mode)
+2. Agent calls `approval_request(tool="bash_exec", action="rm -rf /tmp/cache")` -- creates a `pending` token
+3. Agent calls `approval_list` to show you the pending token
+4. You run `/run approval_grant token_id=apt-1`
+5. Agent retries -- `BeforeToolCall` finds the granted token via `FindMatchingGranted`, consumes it, and lets the call proceed
+
+| Tool | Description |
+|------|-------------|
+| `approval_request` | Create a pending token for a tool+action scope |
+| `approval_grant` | Grant a pending token |
+| `approval_list` | List all tokens with status |
+| `approval_revoke` | Revoke a granted or pending token |
+
 ## Global config
 
 ```bash

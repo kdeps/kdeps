@@ -190,6 +190,33 @@ env:
         key: OPENAI_API_KEY
 ```
 
+## Request Body Size Preflight
+
+The agent loop checks the estimated request body size before every LLM API call. Providers with strict payload caps (e.g. DashScope at 6 MB) silently reject oversized requests -- the preflight catches this before the call is made, returning an actionable error message.
+
+**This check runs automatically in both agent paths** (`kdeps serve` and the engine-based `Loop.Run()`). No code changes needed -- configure your backend and the preflight runs.
+
+| Backend | Limit |
+|---------|-------|
+| `dashscope` | 6 MB |
+| `xai` | 50 MB |
+| `openai` | 100 MB |
+| (all others) | No known limit |
+
+If the estimated size exceeds the provider's limit, the call is blocked with a clear error:
+
+```
+request body size ~5.5 MB exceeds dashscope limit of 6.0 MB
+(reduce context window, trim conversation history, or switch models)
+```
+
+At startup, kdeps warns about backends with limits under 10 MB:
+
+```
+WARN backend "dashscope" has a 6.0 MB request body limit --
+     reduce MaxHistoryTokens if you hit payload errors
+```
+
 ## Resource Output Caps
 
 Four environment variables limit how many bytes executor resources return to the workflow engine. Set them in `agentSettings.env`.

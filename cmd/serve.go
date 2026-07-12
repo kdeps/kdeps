@@ -12,6 +12,7 @@ import (
 	"path/filepath"
 	"strings"
 	"syscall"
+	"time"
 
 	"github.com/kdeps/kdeps/v2/pkg/agent"
 	"github.com/kdeps/kdeps/v2/pkg/domain"
@@ -19,6 +20,7 @@ import (
 	"github.com/kdeps/kdeps/v2/pkg/executor/llm"
 	"github.com/kdeps/kdeps/v2/pkg/tools"
 	"github.com/kdeps/kdeps/v2/pkg/tui"
+	"github.com/robfig/cron/v3"
 )
 
 // filepathAbsAgentLoopFunc resolves agent loop paths (overridable in tests).
@@ -158,6 +160,33 @@ func optionalToolNotices() []string {
 	return notices
 }
 
+// runCronScheduler polls the cron registry every 60s and creates tasks for
+// due cron jobs. Runs in a background goroutine; returns when ctx is cancelled.
+func runCronScheduler(ctx context.Context) {
+	ticker := time.NewTicker(60 * time.Second)
+	defer ticker.Stop()
+	// Use robfig/cron/v3 for NextRun calculation.
+	parser := cron.NewParser(cron.Minute | cron.Hour | cron.Dom | cron.Month | cron.Dow)
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case now := <-ticker.C:
+			due := agent.GlobalCronRegistry.Tick(now)
+			for _, c := range due {
+				_ = agent.GlobalTaskRegistry.Create(
+					c.TaskPrompt, c.TaskDescription,
+				)
+				var nextRun time.Time
+				if sched, parseErr := parser.Parse(c.Expression); parseErr == nil {
+					nextRun = sched.Next(now)
+				}
+				agent.GlobalCronRegistry.MarkRun(c.CronID, nextRun)
+			}
+		}
+	}
+}
+
 // agentBackendGGUF is the llama.cpp/llama-server backend for GGUF model files.
 const agentBackendGGUF = "gguf"
 
@@ -191,7 +220,12 @@ func runAgentLoopCmd(path string, flags *agentLoopFlags) error {
 
 	registry := tools.NewRegistry()
 	tools.RegisterFFormatTools(registry)
-	agent.RegisterBuiltinTools(rootCtx, registry)
+
+	// Lean mode: KDEPS_LEAN_MODE=1 removes bash/network tools, reducing the
+	// tool surface for CI/automation use cases.
+	// KDEPS_AGENT_PRESET=audit|explain|implement automatically selects a
+	// permission mode and filters tools accordingly.
+	initLeanTools(rootCtx, registry)
 
 	var (
 		hostWorkflow *domain.Workflow
@@ -269,6 +303,12 @@ func runAgentLoopCmd(path string, flags *agentLoopFlags) error {
 
 	wireREPL(repl, registry, flags)
 
+	// Start cron background scheduler: polls every 60s for due cron jobs.
+	// Each due job creates a task and advances its NextRun.
+	ctx, cancelCron := context.WithCancel(rootCtx)
+	defer cancelCron()
+	go runCronScheduler(ctx)
+
 	err = repl.Run()
 	return err
 }
@@ -281,7 +321,10 @@ func wireREPL(repl *agent.REPL, registry *tools.Registry, flags *agentLoopFlags)
 	runLlamaFit(repl)
 	repl.SetCloudModelBackends(buildCloudBackends())
 	repl.SetProviderStatus(agent.BuildProviderStatus())
-	repl.SetStartupNotices(optionalToolNotices())
+	// Merge optional-tool notices + preflight warnings for low-limit backends.
+	notices := optionalToolNotices()
+	notices = append(notices, agent.RequestSizePreflightWarnings()...)
+	repl.SetStartupNotices(notices)
 
 	// Refresh in-memory model lists after /model hff download registers a new GGUF.
 	repl.SetRefreshModelsFn(func() { refreshREPLModelLists(repl) })
@@ -446,6 +489,32 @@ func newMinimalHostWorkflow() *domain.Workflow {
 	}
 }
 
+// initLeanTools handles tool registration with lean/preset mode filtering.
+func initLeanTools(ctx context.Context, reg *tools.Registry) {
+	if !agent.ResolveLeanMode() && !agent.IsLeanOrPreseted() {
+		agent.RegisterBuiltinTools(ctx, reg)
+		return
+	}
+	agent.RegisterBuiltinTools(ctx, reg)
+	mode, applied := agent.ApplyPresetIfConfigured(reg)
+	if !applied {
+		// Lean mode without a preset: restrict tools but keep default permission.
+		allTools := reg.List()
+		kept := agent.LeanModeToolFilter(extractToolNames(allTools))
+		keptSet := make(map[string]bool, len(kept))
+		for _, n := range kept {
+			keptSet[n] = true
+		}
+		for _, t := range allTools {
+			if !keptSet[t.Name] {
+				reg.Unregister(t.Name)
+			}
+		}
+		return
+	}
+	_ = mode // permission mode applied; consumed below
+}
+
 // registerComponentTools registers each component from wf as a callable tool.
 func registerComponentTools(registry *tools.Registry, wf *domain.Workflow, eng *executor.Engine) {
 	if len(wf.Components) == 0 {
@@ -537,6 +606,15 @@ func selectionsEqual(a, b tui.Selection) bool {
 	return namesEqual(a.Workflows, b.Workflows) &&
 		namesEqual(a.Agencies, b.Agencies) &&
 		namesEqual(a.Components, b.Components)
+}
+
+// extractToolNames returns the Name field from each tool in the slice.
+func extractToolNames(tools []*tools.Tool) []string {
+	names := make([]string, len(tools))
+	for i, t := range tools {
+		names[i] = t.Name
+	}
+	return names
 }
 
 func namesEqual(a, b []tui.Item) bool {

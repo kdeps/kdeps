@@ -69,6 +69,11 @@ func (r *Registry) Get(name string) *Tool {
 	return r.tools[name]
 }
 
+// Unregister removes a tool by name. No-op if the tool doesn't exist.
+func (r *Registry) Unregister(name string) {
+	delete(r.tools, name)
+}
+
 // List returns all registered tools.
 func (r *Registry) List() []*Tool {
 	kdeps_debug.Log("enter: List")

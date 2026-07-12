@@ -428,6 +428,22 @@ func (l *Loop) Run(ctx context.Context, input string) (string, error) {
 	systemPreamble := l.buildSystemPreamble()
 
 	chatCfg := l.buildChatConfig(input, systemPreamble)
+
+	// Request body size preflight: check before sending to the engine's LLM call.
+	// The engine path (vs runToolRounds) does not have its own preflight check.
+	if backendName := l.config.Backend; backendName != "" {
+		var systemTexts []string
+		for _, s := range chatCfg.Scenario {
+			systemTexts = append(systemTexts, s.Prompt)
+		}
+		preflightTokenCount := EstimateTokenCountFromStrings(
+			append(systemTexts, chatCfg.Prompt, chatCfg.Messages)...,
+		)
+		if err := CheckRequestBodySizePreflight(backendName, preflightTokenCount, 1); err != nil {
+			return "", err
+		}
+	}
+
 	single := l.buildSyntheticWorkflow(actionID, chatCfg)
 
 	result, err := l.engine.Execute(single, nil)
@@ -609,6 +625,24 @@ func (l *Loop) runToolRounds(
 	chatCfg *domain.ChatConfig,
 	w io.Writer,
 ) (string, error) {
+	// Request body size preflight: estimate payload size before the first LLM
+	// call. Providers like DashScope/kimi have strict limits (6 MB) and will
+	// silently 400 if exceeded.
+	if backendName := l.config.Backend; backendName != "" {
+		// Extract system prompt text from Scenario items (ChatConfig has no
+		// dedicated System field — system prompts live in Scenario as role="system" items).
+		var systemTexts []string
+		for _, s := range chatCfg.Scenario {
+			systemTexts = append(systemTexts, s.Prompt)
+		}
+		preflightTokenCount := EstimateTokenCountFromStrings(
+			append(systemTexts, chatCfg.Prompt, chatCfg.Messages)...,
+		)
+		if err := CheckRequestBodySizePreflight(backendName, preflightTokenCount, 1); err != nil {
+			return "", err
+		}
+	}
+
 	var finalContent string
 	capped := false
 	for i := range l.config.MaxToolRounds {

@@ -189,6 +189,14 @@ func NewAgent(opts AgentOptions) *Agent {
 	if opts.PermissionMode != "" && opts.BeforeToolCall == nil {
 		enf := NewPermissionEnforcer(opts.PermissionMode)
 		a.BeforeToolCall = func(_ context.Context, btc BeforeToolCallContext) (*BeforeToolCallResult, error) {
+			// Check approval tokens first: a pre-granted token bypasses the
+			// permission check for this specific tool call.
+			now := time.Now()
+			if token := GlobalApprovalTokenRegistry.FindMatchingGranted(btc.ToolCall.Name, "", now); token != nil {
+				// Consume the token so it can only be used once.
+				_ = GlobalApprovalTokenRegistry.Consume(token.TokenID, now)
+				return &BeforeToolCallResult{Block: false}, nil
+			}
 			allowed, reason := enf.Allow(btc.ToolCall.Name)
 			if !allowed {
 				return &BeforeToolCallResult{Block: true, Reason: reason}, nil

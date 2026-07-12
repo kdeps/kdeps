@@ -279,32 +279,53 @@ Groups tasks for multi-agent coordination. Each team has a name, a list of task 
 
 ### CronRegistry
 
-Schedules recurring task creation. Each cron job stores a cron expression, prompt/description templates, an optional max-run cap, and tracks last/next run times. The `Tick()` method returns jobs due to fire at a given time.
+Schedules recurring task creation from the `kdeps serve` process. Each cron job stores a cron expression, prompt/description templates, and tracks last/next run times. **Cron jobs fire automatically** — the server starts a background goroutine that calls `Tick()` every 60 seconds and creates tasks for any due jobs.
 
-| Method | Description |
-|--------|-------------|
-| `Create(name, expression, prompt, desc)` | Create a new cron job |
-| `Get(cronID)` | Look up a job by ID |
-| `List()` | All jobs |
-| `Pause(cronID)` / `Resume(cronID)` | Lifecycle control |
-| `Delete(cronID)` | Mark as deleted |
-| `MarkRun(cronID, nextRun)` | Record a firing |
-| `Tick(now)` | Jobs due to fire at `now` |
+| CLI tool | Description |
+|----------|-------------|
+| `cron_create` | Create a new cron job with expression, prompt, and description |
+| `cron_list` | List all cron jobs with status, last/next run times |
+| `cron_pause` / `cron_resume` | Pause or resume a cron job |
+| `cron_delete` | Delete a cron job |
+
+No manual polling or goroutine setup needed. Start `kdeps serve path/to/agent/` and cron runs in the background.
 
 ## Approval tokens
 
-When a tool call is denied by the permission mode, the agent can request a one-time exception via an approval token. Tokens let the user grant time-limited, scoped overrides for specific tool+action combinations without relaxing the overall permission mode.
+When a tool call is denied by the permission mode, the agent can request a one-time exception via an approval token. Tokens let you grant scoped overrides for specific tool+action combinations without relaxing the overall permission mode.
 
-The approval lifecycle:
+### How it works in practice
 
-1. **Request** -- the agent calls `Request(scope, ttl)` to create a `pending` token for a specific tool+action
-2. **Grant** -- the user approves via `Grant(tokenID, actor, sessionID, reason)`; the token transitions to `granted`
-3. **Consume** -- the before-tool-call hook calls `Consume(tokenID, now)` for a one-time exception
-4. **Expire / Revoke** -- stale tokens auto-expire or the user revokes them
+1. You run with `KDEPS_PERMISSION_MODE=read-only`
+2. The agent attempts a write operation (e.g. `bash_exec rm -rf /tmp/cache`)
+3. `PermissionEnforcer` blocks the call
+4. The agent calls `approval_request(tool=bash_exec, action="rm -rf /tmp/cache")` — creates a `pending` token with scope `{ToolName:"bash_exec", Action:"rm -rf /tmp/cache"}`
+5. The agent calls `approval_list` to show you the pending token:
+   ```
+   Pending approval:
+     apt-1: tool=bash_exec action="rm -rf /tmp/cache" status=pending
+   ```
+6. You run `/run approval_grant token_id=apt-1`
+7. The agent retries the tool call — `BeforeToolCall` finds the granted token via `FindMatchingGranted`, consumes it (one-time use), and lets the call proceed
 
-Token scope matching is flexible -- an empty `Action` in the scope acts as a wildcard. `FindMatchingGranted(toolName, action, now)` finds a pre-granted token matching the current tool call.
+### CLI tools
 
-Tokens are stored in `GlobalApprovalTokenRegistry`, a concurrency-safe in-memory singleton.
+| Tool | Description |
+|------|-------------|
+| `approval_request` | Create a pending token for a specific tool+action scope |
+| `approval_grant` | Grant a pending token (user approves) |
+| `approval_list` | List all tokens with status |
+| `approval_revoke` | Revoke a granted or pending token |
+
+### Lifecycle
+
+- **Pending** — created by the agent when a tool call is denied, waiting for your approval
+- **Granted** — you approved the exception via `approval_grant`
+- **Consumed** — the token was used for one tool call and is now spent
+- **Expired** — TTL elapsed without being consumed (default 5 minutes)
+- **Revoked** — manually revoked via `approval_revoke`
+
+Scope matching supports wildcards: an empty `Action` matches any action. `FindMatchingGranted(toolName, action, now)` is called automatically in the `BeforeToolCall` hook — you never call it directly.
 
 ### Computation
 

@@ -31,6 +31,7 @@ require (
 	github.com/nikolalohinski/gonja/v2 v2.8.0
 	github.com/pkoukk/tiktoken-go v0.1.8
 	github.com/playwright-community/playwright-go v0.5700.1
+	github.com/robfig/cron/v3 v3.0.1
 	github.com/sijms/go-ora/v2 v2.9.0
 	github.com/slack-go/slack v0.27.0
 	github.com/spf13/afero v1.15.0

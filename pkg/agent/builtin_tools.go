@@ -112,6 +112,7 @@ func RegisterBuiltinTools(ctx context.Context, reg *kdepstools.Registry) {
 	registerRetrieveContext(ctx, reg)
 	registerCodeIntelligenceTools(ctx, reg)
 	registerResourceTools(ctx, reg)
+	registerTaskTeamTools(reg)
 }
 
 // registerCalculator registers the langchain-go Calculator tool.
@@ -982,7 +983,7 @@ const (
 func toolCallCtxTimeout(
 	fallback context.Context, args map[string]any, d time.Duration,
 ) (context.Context, context.CancelFunc) {
-	return context.WithTimeout(toolCallCtx(fallback, args), d) //nolint:gosec // cancel func is returned to the caller
+	return context.WithTimeout(toolCallCtx(fallback, args), d)
 }
 
 // toolCallCtx returns the per-turn context injected by the Loop dispatcher
@@ -1042,7 +1043,7 @@ func registerBashExec(ctx context.Context, reg *kdepstools.Registry) {
 		return
 	}
 	tool := &kdepstools.Tool{
-		Name:        "bash_exec",
+		Name:        toolNameBashExec,
 		Description: "Execute a bash shell command and return its output. Use for running scripts, checking system state (git status, ls, etc.), or performing file operations. Press Ctrl+C to interrupt (partial output returned to LLM); press Ctrl+Z to background (use bash_job_wait to retrieve output).",
 		Parameters: map[string]domain.ToolParam{
 			"command": {
