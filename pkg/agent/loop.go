@@ -1188,24 +1188,9 @@ func (l *Loop) buildSystemPreamble() string {
 }
 
 // commitTrailer returns the Co-Authored-By line for git commits made by the
-// agent, naming the backend kind and the current model, e.g.
-// "Co-Authored-By: kdeps (Cloud/deepseek - deepseek-reasoner) <noreply@kdeps.com>".
-// Built at preamble time so /model switches are reflected immediately.
+// agent.
 func (l *Loop) commitTrailer() string {
-	var kind string
-	switch backend := l.config.Backend; backend {
-	case executorLLM.BackendFile:
-		kind = "llamafile"
-	case executorLLM.BackendGGUF:
-		kind = "GGUF"
-	case "ollama":
-		kind = "Ollama"
-	case "":
-		kind = "Cloud"
-	default:
-		kind = "Cloud/" + backend
-	}
-	return fmt.Sprintf("Co-Authored-By: kdeps (%s - %s) <noreply@kdeps.com>", kind, l.config.Model)
+	return "Co-Authored-By: kdeps <noreply@kdeps.com>"
 }
 
 func (l *Loop) buildChatConfig(input, systemPreamble string) *domain.ChatConfig {

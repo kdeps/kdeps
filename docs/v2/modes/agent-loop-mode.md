@@ -203,15 +203,11 @@ Blocked calls return a `permission denied` tool error to the model, which explai
 
 ### Git commit attribution
 
-Commits the agent creates carry a co-author trailer naming kdeps, the backend kind, and the model that wrote them:
+Commits the agent creates carry a co-author trailer naming kdeps:
 
 ```text
-Co-Authored-By: kdeps (Cloud/deepseek - deepseek-reasoner) <noreply@kdeps.com>
-Co-Authored-By: kdeps (GGUF - qwen3) <noreply@kdeps.com>
-Co-Authored-By: kdeps (Ollama - llama3.2) <noreply@kdeps.com>
+Co-Authored-By: kdeps <noreply@kdeps.com>
 ```
-
-The trailer follows the active model, so `/model` switches are reflected in subsequent commits.
 
 ### Lean mode
 

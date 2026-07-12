@@ -299,15 +299,15 @@ func TestCommitTrailer(t *testing.T) {
 	cases := []struct {
 		backend, model, want string
 	}{
-		{"file", "phi4", "Co-Authored-By: kdeps (llamafile - phi4) <noreply@kdeps.com>"},
-		{"gguf", "qwen3", "Co-Authored-By: kdeps (GGUF - qwen3) <noreply@kdeps.com>"},
-		{"ollama", "llama3.2", "Co-Authored-By: kdeps (Ollama - llama3.2) <noreply@kdeps.com>"},
+		{"file", "phi4", "Co-Authored-By: kdeps <noreply@kdeps.com>"},
+		{"gguf", "qwen3", "Co-Authored-By: kdeps <noreply@kdeps.com>"},
+		{"ollama", "llama3.2", "Co-Authored-By: kdeps <noreply@kdeps.com>"},
 		{
 			"deepseek",
 			"deepseek-reasoner",
-			"Co-Authored-By: kdeps (Cloud/deepseek - deepseek-reasoner) <noreply@kdeps.com>",
+			"Co-Authored-By: kdeps <noreply@kdeps.com>",
 		},
-		{"", "gpt-4o", "Co-Authored-By: kdeps (Cloud - gpt-4o) <noreply@kdeps.com>"},
+		{"", "gpt-4o", "Co-Authored-By: kdeps <noreply@kdeps.com>"},
 	}
 	for _, c := range cases {
 		l := &Loop{config: Config{Backend: c.backend, Model: c.model}}
@@ -332,7 +332,7 @@ func TestBuildSystemPreamble_ContainsCommitTrailer(t *testing.T) {
 		Streamer: &mockStreamer{},
 	})
 	preamble := loop.buildSystemPreamble()
-	assert.Contains(t, preamble, "Co-Authored-By: kdeps (Cloud/deepseek - deepseek-reasoner) <noreply@kdeps.com>")
+	assert.Contains(t, preamble, "Co-Authored-By: kdeps <noreply@kdeps.com>")
 	assert.Contains(t, preamble, "git commit")
 }
 
