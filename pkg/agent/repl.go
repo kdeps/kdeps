@@ -179,6 +179,8 @@ type REPL struct {
 	modelPickerFn      func(filter string) (string, error) // TUI model picker; nil if unavailable
 	saveDefaultFn      func(model string) error            // persists default model; nil if unavailable
 	readlineInst       *readline.Instance                  // set during Run(); nil before/after
+	rebuiltReadline    *readline.Instance                  // set when withCookedTerminal recreated the instance
+	historyPath        string                              // readline history file; enables rebuild
 	providerStatus     map[string]bool                     // backend -> API key set
 	startupNotices     []string                            // printed dim under the banner (missing optional tools)
 	onSettingsChange   OnSettingsChange
@@ -1261,22 +1263,17 @@ func (r *REPL) Run() error {
 	// output line starts where the previous one ended, creating a rightward staircase.
 	r.loop.config.ToolOutputWriter = &crlfWriter{w: os.Stdout}
 
-	rl, err := readline.NewEx(&readline.Config{
-		Prompt:            r.dynamicPrompt(),
-		HistoryLimit:      replHistoryMax,
-		HistoryFile:       hpath,
-		HistorySearchFold: true,
-		AutoComplete:      r.buildCompleter(),
-		InterruptPrompt:   "(interrupt - Ctrl+D to quit)",
-		EOFPrompt:         "exit",
-		Stdin:             os.Stdin,
-		Stdout:            os.Stdout,
-	})
+	r.historyPath = hpath
+	rl, err := r.newReadline()
 	if err != nil {
 		r.runPlain()
 		return nil
 	}
-	defer rl.Close()
+	defer func() {
+		if r.readlineInst != nil {
+			_ = r.readlineInst.Close()
+		}
+	}()
 
 	r.readlineInst = rl
 
@@ -1407,6 +1404,12 @@ func (r *REPL) runLoop(rl *readline.Instance) error {
 				}
 			}
 		}
+		// A ! command may have torn down and rebuilt readline to give its
+		// child a cooked terminal; switch to the fresh instance.
+		if r.rebuiltReadline != nil {
+			rl = r.rebuiltReadline
+			r.rebuiltReadline = nil
+		}
 	}
 }
 
@@ -1514,20 +1517,44 @@ func (r *REPL) processInput(input string) error {
 // message for a full agent turn, so the model responds to the result (and can
 // act on it, e.g. fix a failing lint). If true (!! prefix), the command runs
 // and prints to stdout but is NOT sent to the LLM.
-// withCookedTerminal exits readline raw mode for the duration of fn so a
-// child process on this terminal gets normal signal handling: Ctrl+C sends
-// SIGINT to the foreground process group instead of feeding a literal ^C
-// byte into the child's stdin (which made "! make test" uninterruptible).
-// SIGINT is swallowed in-process while fn runs — the child receives it and
-// dies; the REPL survives and restores raw mode. Ctrl+Z (SIGTSTP) would
-// silently suspend the child — it looked like a 30-minute hang — so
-// onSuspend is invoked to resume it and explain. Reports whether an
-// interrupt arrived while fn ran.
+// newReadline builds a readline instance from the REPL's current config. It
+// is used both for the initial prompt and to rebuild after withCookedTerminal
+// tears readline down for a child process.
+func (r *REPL) newReadline() (*readline.Instance, error) {
+	return readline.NewEx(&readline.Config{
+		Prompt:            r.dynamicPrompt(),
+		HistoryLimit:      replHistoryMax,
+		HistoryFile:       r.historyPath,
+		HistorySearchFold: true,
+		AutoComplete:      r.buildCompleter(),
+		InterruptPrompt:   "(interrupt - Ctrl+D to quit)",
+		EOFPrompt:         "exit",
+		Stdin:             os.Stdin,
+		Stdout:            os.Stdout,
+	})
+}
+
+// withCookedTerminal fully closes readline for the duration of fn, then
+// rebuilds it. This is the only reliable way to hand a child process a cooked
+// terminal: readline's background reader goroutine holds the tty in raw mode
+// (ISIG off), so merely calling ExitRawMode does not stick — Ctrl+C stays a
+// swallowed byte and never becomes a SIGINT, which is why "! make test" ran
+// uninterruptibly for hours. With readline closed, the tty returns to cooked
+// mode: Ctrl+C sends SIGINT to the foreground process group (killing the
+// child), Ctrl+Z would suspend it. onSuspend is invoked on Ctrl+Z to resume
+// the child and explain. Reports whether an interrupt arrived while fn ran.
 func (r *REPL) withCookedTerminal(fn func() error, onSuspend func()) (bool, error) {
 	if r.readlineInst != nil {
-		_ = r.readlineInst.Terminal.ExitRawMode()
-		defer func() { _ = r.readlineInst.Terminal.EnterRawMode() }()
+		_ = r.readlineInst.Close() // stops the ioloop, restores cooked tty
+		r.readlineInst = nil
+		defer func() {
+			if rl, err := r.newReadline(); err == nil {
+				r.readlineInst = rl
+				r.rebuiltReadline = rl // hand the fresh instance back to runLoop
+			}
+		}()
 	}
+
 	const sigChBuffer = 2 // one slot each for a pending SIGINT and SIGTSTP
 	sigCh := make(chan os.Signal, sigChBuffer)
 	notifySIGTSTP(sigCh) // Interrupt + SIGTSTP (Interrupt-only on Windows)
@@ -1543,12 +1570,11 @@ func (r *REPL) withCookedTerminal(fn func() error, onSuspend func()) (bool, erro
 			select {
 			case sig := <-sigCh:
 				if sig == os.Interrupt {
-					// The child dies via the process group; just record it.
+					// The tty already delivered SIGINT to the child's process
+					// group; just record that it happened.
 					interrupted.Store(true)
 					continue
 				}
-				// SIGTSTP: catching it keeps the REPL running; resume the
-				// stopped child so the command continues.
 				if onSuspend != nil {
 					onSuspend()
 				}
