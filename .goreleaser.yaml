@@ -75,16 +75,23 @@ sboms:
 
 # Keyless cosign signature over the checksum file (Sigstore OIDC via the
 # workflow's id-token permission). Verifying checksums.txt against the
-# .sig/.pem pair transitively verifies every artifact hash in it.
+# .cosign.bundle transitively verifies every artifact hash in it.
+# cosign 2.6+ signs to a self-contained bundle (cert + signature + tlog
+# entry); verify with:
+#   cosign verify-blob --new-bundle-format \
+#     --bundle checksums.txt.cosign.bundle \
+#     --certificate-identity-regexp 'github.com/kdeps/kdeps' \
+#     --certificate-oidc-issuer https://token.actions.githubusercontent.com \
+#     checksums.txt
 signs:
   - cmd: cosign
     artifacts: checksum
-    certificate: "${artifact}.pem"
+    signature: "${artifact}.cosign.bundle"
     output: true
     args:
       - sign-blob
-      - --output-certificate=${certificate}
-      - --output-signature=${signature}
+      - --new-bundle-format
+      - --bundle=${signature}
       - ${artifact}
       - --yes
 
