@@ -64,15 +64,18 @@ func notifySIGTSTP(sigCh chan<- os.Signal) {
 // next prompt. Re-enabling ISIG makes the kernel deliver SIGINT immediately,
 // which the REPL signal handler catches and routes to context cancellation.
 // Returns a restore function that reverts the terminal to the prior state.
+// ioctlReadTermios/ioctlWriteTermios are the platform-specific ioctl requests
+// for reading and writing the terminal state; they are defined per-OS (see
+// process_termios_*.go) because the constant names differ between Linux and BSD.
 func withTerminalSignals(fd int) func() {
-	old, err := unix.IoctlGetTermios(fd, unix.TIOCGETA)
+	old, err := unix.IoctlGetTermios(fd, ioctlReadTermios)
 	if err != nil {
 		return func() {}
 	}
 	newt := *old
 	newt.Lflag |= unix.ISIG
-	_ = unix.IoctlSetTermios(fd, unix.TIOCSETA, &newt)
+	_ = unix.IoctlSetTermios(fd, ioctlWriteTermios, &newt)
 	return func() {
-		_ = unix.IoctlSetTermios(fd, unix.TIOCSETA, old)
+		_ = unix.IoctlSetTermios(fd, ioctlWriteTermios, old)
 	}
 }
