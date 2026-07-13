@@ -197,6 +197,14 @@ type REPL struct {
 	toolCancel         context.CancelFunc                            // cancels the currently running tool; nil when no tool is active
 	toolBgCh           chan struct{}                                 // backgrounds the running tool on send; nil when no tool is active
 	toolCancelMu       sync.Mutex
+
+	// Paste detection: when the user pastes multiple lines, we accumulate
+	// them into a single prompt line instead of submitting each line separately.
+	pasteBuf    []rune       // accumulated pasted content
+	pasteCount  int          // number of lines pasted
+	pasteTimer  *time.Timer  // debounce timer; fires when paste input stops
+	pasteMode   bool         // true while accumulating a paste
+	pasteLastNt time.Time    // timestamp of the last \n seen
 }
 
 // NewREPL creates a new REPL for the given agent loop, deriving its context
@@ -1146,13 +1154,20 @@ func drawSpinnerFrames(out io.Writer, skip func() bool, done <-chan struct{}) {
 // markdown + thinking styling. Tool call display writes directly to stdout via
 // the ToolCallDisplay callback so it appears immediately.
 //
-// A per-tool context is created so Ctrl+C can interrupt a running tool without
-// aborting the full agent turn. The partial output is returned to the LLM.
+// Ctrl+C (SIGINT) cancels both the running tool and the turn context so the
+// entire agent turn aborts. Readline normally holds the terminal in raw mode
+// (ISIG off) so its line editor can intercept ^C as a character; we re-enable
+// ISIG for the duration of this call so the kernel delivers SIGINT immediately,
+// which the REPL signal handler routes to context cancellation.
 func (r *REPL) runStreaming(ctx context.Context, input string) (string, error) {
-	// Create a per-tool-execution context separate from the turn context.
-	// Ctrl+C during tool execution cancels this context only (killing the tool),
-	// while a second Ctrl+C cancels the full turn via r.ctx.
-	// Derives from loopCtx so loop shutdown also kills in-flight tools.
+	// Re-enable ISIG during LLM streaming and tool execution so ^C generates
+	// SIGINT. Readline's raw mode has ISIG off — without this, ^C bytes are
+	// buffered by the terminal until the next Readline() prompt and never
+	// reach filterToolInterrupt during tool execution.
+	defer withTerminalSignals(int(os.Stdin.Fd()))()
+
+	// Per-tool context derived from loopCtx so tools can be cancelled
+	// independently and loop shutdown kills in-flight tools.
 	toolCtx, toolCancel := context.WithCancel(r.loopCtx)
 	bgCh := make(chan struct{}, 1)
 	r.toolCancelMu.Lock()
@@ -1479,6 +1494,14 @@ func (r *REPL) runLoop(rl *readline.Instance) error {
 			return err
 		}
 
+		// If we were in paste mode, the readline buffer only has the last
+		// line's characters (newlines were swallowed). Replace with the
+		// accumulated paste buffer which has all the newlines.
+		if r.pasteBuf != nil {
+			line = string(r.pasteBuf)
+			r.pasteBuf = nil
+		}
+
 		input := strings.TrimSpace(line)
 		if input == "" {
 			continue
@@ -1615,7 +1638,57 @@ func (r *REPL) processInput(input string) error {
 // so it does not disturb the input line. When no tool is running, everything
 // passes through so normal line editing (including Ctrl+C to clear the line)
 // works unchanged.
+//
+// Paste detection: when \n (CharEnter/CharCtrlJ) arrives within 100ms of the
+// previous \n, we're in a paste. The \n is swallowed so readline doesn't
+// submit the line — the buffer accumulates all pasted content. A Painter
+// shows "[Pasted +N lines]" instead of the raw buffer. When the debounce
+// timer fires (no more input for 200ms), the display updates. When the user
+// presses Enter for real (after debounce), the accumulated buffer is submitted.
 func (r *REPL) filterToolInterrupt(rn rune) (rune, bool) {
+	// Paste detection: rapid \n means paste.
+	if rn == readline.CharEnter || rn == readline.CharCtrlJ {
+		now := time.Now()
+		if !r.pasteLastNt.IsZero() && now.Sub(r.pasteLastNt) < 100*time.Millisecond {
+			// Rapid \n — this is a paste. Swallow the \n so readline
+			// doesn't submit the line. The buffer accumulates.
+			r.pasteCount++
+			r.pasteLastNt = now
+			if r.pasteTimer == nil {
+				r.pasteTimer = time.AfterFunc(200*time.Millisecond, r.pasteFlush)
+			} else {
+				r.pasteTimer.Reset(200 * time.Millisecond)
+			}
+			r.pasteMode = true
+			return rn, false // swallow: don't submit
+		}
+		r.pasteLastNt = now
+		// If we were in paste mode and this is a real Enter (after debounce),
+		// submit the accumulated buffer.
+		if r.pasteMode {
+			r.pasteMode = false
+			r.pasteCount = 0
+			r.pasteBuf = nil
+			if r.pasteTimer != nil {
+				r.pasteTimer.Stop()
+			}
+			// Return the original \n so readline submits the line.
+			return rn, true
+		}
+		return rn, true
+	}
+
+	// Non-\n rune while in paste mode: accumulate into pasteBuf.
+	if r.pasteMode {
+		r.pasteBuf = append(r.pasteBuf, rn)
+		// Reset the debounce timer on any input.
+		if r.pasteTimer != nil {
+			r.pasteTimer.Reset(200 * time.Millisecond)
+		}
+		return rn, false // swallow: keep accumulating
+	}
+
+	// Tool interrupt handling (Ctrl+C / Ctrl+Z).
 	if rn != readline.CharInterrupt && rn != readline.CharCtrlZ {
 		return rn, true
 	}
@@ -1639,6 +1712,32 @@ func (r *REPL) filterToolInterrupt(rn rune) (rune, bool) {
 	return rn, false // swallow: the tool handled it
 }
 
+// pasteFlush is called by the debounce timer when paste input stops.
+// It resets the paste timer and leaves pasteMode=true so the Painter
+// continues to show the paste summary. The next real Enter will submit.
+func (r *REPL) pasteFlush() {
+	r.pasteMode = true // keep showing the paste summary
+}
+
+// pastePainter returns a readline Painter that shows "[Pasted +N lines]"
+// instead of the raw buffer content when in paste mode.
+func (r *REPL) pastePainter() readline.Painter {
+	return &pastePainter{r: r}
+}
+
+// pastePainter implements readline.Painter for paste mode display.
+type pastePainter struct {
+	r *REPL
+}
+
+func (p *pastePainter) Paint(line []rune, pos int) []rune {
+	if p.r.pasteMode && p.r.pasteCount > 0 {
+		label := fmt.Sprintf("[Pasted +%d lines]", p.r.pasteCount)
+		return []rune(label)
+	}
+	return line
+}
+
 // newReadline builds a readline instance from the REPL's current config. It
 // is used both for the initial prompt and to rebuild after withCookedTerminal
 // tears readline down for a child process.
@@ -1654,6 +1753,7 @@ func (r *REPL) newReadline() (*readline.Instance, error) {
 		Stdin:               os.Stdin,
 		Stdout:              os.Stdout,
 		FuncFilterInputRune: r.filterToolInterrupt,
+		Painter:             r.pastePainter(),
 	})
 }
 

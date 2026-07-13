@@ -25,6 +25,8 @@ import (
 	"os/exec"
 	"os/signal"
 	"syscall"
+
+	"golang.org/x/sys/unix"
 )
 
 // sigTSTP is the SIGTSTP signal (Ctrl+Z). Only available on Unix.
@@ -52,4 +54,25 @@ func resumeProcess(p *os.Process) {
 // REPL can handle Ctrl+Z for backgrounding tools and Ctrl+C for cancellation.
 func notifySIGTSTP(sigCh chan<- os.Signal) {
 	signal.Notify(sigCh, os.Interrupt, syscall.SIGTSTP)
+}
+
+// withTerminalSignals re-enables ISIG on the terminal so ^C generates SIGINT
+// instead of being delivered as a raw byte. Readline puts the terminal in raw
+// mode (ISIG off) so its line editor can intercept ^C as a character.
+// During tool execution and LLM streaming (runStreaming), readline is not
+// actively reading, so ^C bytes are buffered and never processed until the
+// next prompt. Re-enabling ISIG makes the kernel deliver SIGINT immediately,
+// which the REPL signal handler catches and routes to context cancellation.
+// Returns a restore function that reverts the terminal to the prior state.
+func withTerminalSignals(fd int) func() {
+	old, err := unix.IoctlGetTermios(fd, unix.TIOCGETA)
+	if err != nil {
+		return func() {}
+	}
+	newt := *old
+	newt.Lflag |= unix.ISIG
+	_ = unix.IoctlSetTermios(fd, unix.TIOCSETA, &newt)
+	return func() {
+		_ = unix.IoctlSetTermios(fd, unix.TIOCSETA, old)
+	}
 }

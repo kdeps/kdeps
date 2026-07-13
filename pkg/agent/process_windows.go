@@ -41,3 +41,6 @@ func notifySIGTSTP(sigCh chan<- os.Signal) {
 
 // resumeProcess is a no-op on Windows (SIGCONT is a Unix signal).
 func resumeProcess(_ *os.Process) {}
+
+// withTerminalSignals is a no-op on Windows (no ISIG termios flag).
+func withTerminalSignals(_ int) func() { return func() {} }
