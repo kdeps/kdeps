@@ -91,7 +91,20 @@
      stroke="#21262D"
      stroke-width="2"
      id="circle4" />
-  <!-- Glowing 'k' -->
+  <!-- Solid 'k' (crisp outline at small sizes) -->
+  <text
+     x="60"
+     y="94.359375"
+     font-family="'SF Mono', 'JetBrains Mono', 'Fira Code', monospace"
+     font-size="56"
+     font-weight="700"
+     fill="#0D1117"
+     stroke="#00E5FF"
+     stroke-width="3"
+     text-anchor="middle"
+     id="text4-solid"
+     style="font-style:normal;font-variant:normal;font-weight:bold;font-stretch:normal;font-size:96px;font-family:Arial;-inkscape-font-specification:'Arial Bold'">k</text>
+  <!-- Glowing 'k' (on top of solid) -->
   <text
      x="60"
      y="94.359375"
