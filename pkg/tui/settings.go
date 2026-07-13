@@ -34,6 +34,11 @@ type Settings struct {
 	// via "/model <base-url>". Downloaded .gguf/.llamafile URLs persist in
 	// their own version registries; only network endpoints live here.
 	CustomOpenAIModels []CustomOpenAIModel `yaml:"custom_openai_models,omitempty"`
+
+	// FavoriteModels are models the user starred via "/model favorite <name>".
+	// They are surfaced first in "/model" and "/model <tab>" and persist across
+	// sessions.
+	FavoriteModels []string `yaml:"favorite_models,omitempty"`
 }
 
 // CustomOpenAIModel is a user-registered OpenAI-compatible endpoint. No API
@@ -72,6 +77,26 @@ func SaveDefaultModel(model string) error {
 		return err
 	}
 	s.DefaultModel = model
+	return s.Save()
+}
+
+// SetFavoriteModel adds (fav=true) or removes (fav=false) a model from the
+// persisted favorites list and saves the settings file.
+func SetFavoriteModel(name string, fav bool) error {
+	s, err := LoadSettings()
+	if err != nil {
+		return err
+	}
+	out := s.FavoriteModels[:0]
+	for _, m := range s.FavoriteModels {
+		if m != name {
+			out = append(out, m)
+		}
+	}
+	if fav {
+		out = append(out, name)
+	}
+	s.FavoriteModels = out
 	return s.Save()
 }
 

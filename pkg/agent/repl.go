@@ -189,6 +189,8 @@ type REPL struct {
 	refreshModelsFn    func()                                        // called after new model registered; nil if unset
 	customEndpoints    map[string]string                             // alias -> OpenAI-compatible base URL for user-registered endpoints
 	saveCustomEndpoint func(alias, baseURL string) error             // persists a custom endpoint; nil disables persistence
+	favorites          map[string]bool                               // starred model names, surfaced first in /model
+	saveFavorite       func(name string, fav bool) error             // persists a favorite toggle; nil disables persistence
 	llmfitScore        map[string]float64                            // alias -> composite score from llmfit (0-100); nil when unavailable
 	llmfitFitLevel     map[string]string                             // alias -> fit level (Perfect/Good/Marginal/TooTight)
 	toolCancel         context.CancelFunc                            // cancels the currently running tool; nil when no tool is active
@@ -740,18 +742,28 @@ func (r *REPL) buildOrderedSuffixes(ordered []string, tokenLen int) [][]rune {
 // enabled or cached, it falls back to the top-n models by llmfit score so the
 // list is still useful on a fresh setup. Returns names in display order.
 func (r *REPL) defaultModelCompletions(n int) []string {
-	var cached, enabled []string
+	seen := make(map[string]bool)
+	var favorite, cached, enabled []string
 	for _, name := range r.modelNames {
 		switch {
+		case r.favorites[name]:
+			favorite = append(favorite, name)
+			seen[name] = true
 		case r.downloadedModels[name]:
 			cached = append(cached, name)
 		case r.cloudModelBackends[name] != "" && r.providerStatus[r.cloudModelBackends[name]]:
 			enabled = append(enabled, name)
 		}
 	}
-	primary := make([]string, 0, len(cached)+len(enabled))
-	primary = append(primary, cached...)
-	primary = append(primary, enabled...)
+	// Favorites first, then cached, then enabled - each shown once.
+	primary := make([]string, 0, len(favorite)+len(cached)+len(enabled))
+	primary = append(primary, favorite...)
+	for _, n := range append(cached, enabled...) {
+		if !seen[n] {
+			seen[n] = true
+			primary = append(primary, n)
+		}
+	}
 	if len(primary) > 0 {
 		if len(primary) > n {
 			primary = primary[:n]
@@ -800,6 +812,9 @@ func modelTag(r *REPL, name string) string {
 	repoSuffix := ""
 	if repo != "" {
 		repoSuffix = " " + repo
+	}
+	if r.favorites[name] {
+		repoSuffix += " ★" // ★ marks a favorited model
 	}
 	// Build tag prefix: score + spelled-out fit level + leading space.
 	tagPrefix := " ["
@@ -1887,6 +1902,8 @@ func (r *REPL) cmdHelp() error {
 		"  /model hff search <query>          Search HuggingFace for GGUF models",
 		"  /model hff info <repo>             List GGUF files available in a HuggingFace repo",
 		"  /model hff download <repo> [file]  Download a GGUF file from HuggingFace",
+		"  /model <url>                       Register a .gguf/.llamafile URL or OpenAI-compatible endpoint",
+		"  /model favorite <name>             Star a model (shown first in /model, persists); unfavorite to remove",
 		"  /model tool [list]                 Show agent loop settings (tool rounds, retries, compaction)",
 		"  /model tool set <setting> <value>  Change a setting for this session (e.g. rounds 80, retry-delay 5s)",
 		"  /skills                            List loaded skills",
@@ -1990,6 +2007,7 @@ func (r *REPL) handleCustomModelURL(arg string) bool {
 	if kind == kindNotURL || alias == "" {
 		return false
 	}
+	alias = r.uniqueModelAlias(alias)
 	switch kind {
 	case kindGGUFURL, kindLlamafileURL:
 		label := "GGUF"
@@ -1999,7 +2017,7 @@ func (r *REPL) handleCustomModelURL(arg string) bool {
 		}
 		fmt.Fprintf(os.Stdout, "%s\n",
 			styleReplMeta.Render("Downloading "+label+" model from "+arg+" ..."))
-		got, err := reg(r.ctx, arg, nil)
+		got, err := reg(r.ctx, arg, alias, nil)
 		if err != nil {
 			fmt.Fprintf(os.Stdout, "%s\n", styleReplError.Render("Registration failed: "+err.Error()))
 			return true // handled: error shown, don't fall through to model resolution
@@ -2008,15 +2026,33 @@ func (r *REPL) handleCustomModelURL(arg string) bool {
 		if r.refreshModelsFn != nil {
 			r.refreshModelsFn() // repopulate lists from the updated registry
 		}
+		fmt.Fprintf(os.Stdout, "%s\n",
+			styleReplMeta.Render("Registered as "+alias+" -- use /model "+alias+" next time."))
 	case kindOpenAICompatURL:
 		r.registerCustomEndpoint(alias, arg)
 		fmt.Fprintf(os.Stdout, "%s\n",
-			styleReplMeta.Render("Registered OpenAI-compatible endpoint "+alias+" -> "+arg))
+			styleReplMeta.Render("Registered OpenAI-compatible endpoint "+alias+" -> "+arg+
+				" -- use /model "+alias+" next time."))
 	case kindNotURL:
 		return false
 	}
 	r.applyModelSwitch(alias)
 	return true
+}
+
+// uniqueModelAlias returns base unchanged when no model already uses it, or
+// base with a "-2", "-3", ... suffix so re-registering a similar URL never
+// silently overwrites an existing model.
+func (r *REPL) uniqueModelAlias(base string) string {
+	if !r.isModelName(base) {
+		return base
+	}
+	for i := 2; ; i++ {
+		candidate := fmt.Sprintf("%s-%d", base, i)
+		if !r.isModelName(candidate) {
+			return candidate
+		}
+	}
 }
 
 // registerCustomEndpoint records a custom OpenAI-compatible endpoint for the
@@ -2055,6 +2091,54 @@ func (r *REPL) SetCustomEndpoints(endpoints map[string]string, save func(alias, 
 	}
 }
 
+// SetFavorites seeds starred models loaded at startup and wires the persistence
+// hook for /model favorite.
+func (r *REPL) SetFavorites(names []string, save func(name string, fav bool) error) {
+	r.saveFavorite = save
+	if r.favorites == nil {
+		r.favorites = make(map[string]bool, len(names))
+	}
+	for _, n := range names {
+		r.favorites[n] = true
+		if !r.isModelName(n) {
+			r.modelNames = append(r.modelNames, n) // keep a favorited model selectable
+		}
+	}
+}
+
+// cmdModelFavorite handles "/model favorite <name>" and
+// "/model unfavorite <name>", persisting the change.
+func (r *REPL) cmdModelFavorite(name string, fav bool) error {
+	name = strings.TrimSpace(name)
+	if name == "" {
+		fmt.Fprintf(os.Stdout, "%s\n", styleReplError.Render("Usage: /model favorite <model-name>"))
+		return nil
+	}
+	if r.favorites == nil {
+		r.favorites = make(map[string]bool)
+	}
+	if fav {
+		r.favorites[name] = true
+		if !r.isModelName(name) {
+			r.modelNames = append(r.modelNames, name)
+		}
+	} else {
+		delete(r.favorites, name)
+	}
+	if r.saveFavorite != nil {
+		if err := r.saveFavorite(name, fav); err != nil {
+			fmt.Fprintf(os.Stdout, "%s\n",
+				styleReplMeta.Render("(could not persist favorite: "+err.Error()+")"))
+		}
+	}
+	verb := "Favorited"
+	if !fav {
+		verb = "Unfavorited"
+	}
+	fmt.Fprintf(os.Stdout, "%s\n", styleReplSuccess.Render(verb+" "+name))
+	return nil
+}
+
 func (r *REPL) cmdModel(args []string) error {
 	if len(args) > 0 {
 		switch args[0] {
@@ -2068,6 +2152,10 @@ func (r *REPL) cmdModel(args []string) error {
 			return r.cmdHFF(args[1:])
 		case "tool":
 			return r.cmdModelTool(args[1:])
+		case "favorite", "fav", "star":
+			return r.cmdModelFavorite(strings.Join(args[1:], " "), true)
+		case "unfavorite", "unfav", "unstar":
+			return r.cmdModelFavorite(strings.Join(args[1:], " "), false)
 		}
 	}
 	if len(args) > 0 {

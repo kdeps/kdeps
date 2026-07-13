@@ -38,20 +38,30 @@ const (
 // aliasSanitizeRe replaces runs of characters that are unsafe in a model alias.
 var aliasSanitizeRe = regexp.MustCompile(`[^a-zA-Z0-9._-]+`)
 
+// Alias prefixes make a registered model's ID easy to recall and type next
+// time: "gguf-...", "llamafile-...", "api-...".
+const (
+	aliasPrefixGGUF      = "gguf-"
+	aliasPrefixLlamafile = "llamafile-"
+	aliasPrefixAPI       = "api-"
+)
+
 // classifyModelArg decides whether arg is a registerable model URL and, if so,
-// which kind and the alias to register it under. A .gguf/.llamafile suffix
-// wins regardless of scheme (they may be file:// or https://). Any other
-// http(s) URL is treated as an OpenAI-compatible base URL.
+// which kind and the (kind-prefixed) alias to register it under. A
+// .gguf/.llamafile suffix wins regardless of scheme (they may be file:// or
+// https://). Any other http(s) URL is treated as an OpenAI-compatible base URL.
 func classifyModelArg(arg string) (customModelKind, string) {
 	s := strings.TrimSpace(arg)
 	lower := strings.ToLower(s)
 	switch {
 	case strings.HasSuffix(lower, ".gguf"):
-		return kindGGUFURL, sanitizeAlias(strings.TrimSuffix(path.Base(s), path.Ext(s)))
+		base := sanitizeAlias(strings.TrimSuffix(path.Base(s), path.Ext(s)))
+		return kindGGUFURL, aliasPrefixGGUF + base
 	case strings.HasSuffix(lower, ".llamafile"):
-		return kindLlamafileURL, sanitizeAlias(strings.TrimSuffix(path.Base(s), path.Ext(s)))
+		base := sanitizeAlias(strings.TrimSuffix(path.Base(s), path.Ext(s)))
+		return kindLlamafileURL, aliasPrefixLlamafile + base
 	case strings.HasPrefix(lower, "http://"), strings.HasPrefix(lower, "https://"):
-		return kindOpenAICompatURL, aliasFromEndpoint(s)
+		return kindOpenAICompatURL, aliasPrefixAPI + aliasFromEndpoint(s)
 	default:
 		return kindNotURL, ""
 	}

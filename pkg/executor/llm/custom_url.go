@@ -31,29 +31,30 @@ import (
 )
 
 // RegisterGGUFURL downloads a direct .gguf URL to the models directory and
-// records an alias -> URL mapping in the local gguf registry so the model is
-// selectable and servable. Returns the derived alias. Idempotent: an already
-// downloaded file is not re-fetched.
-func RegisterGGUFURL(ctx context.Context, url string, logger *slog.Logger) (string, error) {
-	return registerURLModel(ctx, url, ".gguf", func(alias, url, filename string) error {
+// records alias -> URL in the local gguf registry so the model is selectable
+// and servable. When alias is empty it is derived from the filename. Returns
+// the alias used. Idempotent: an already downloaded file is not re-fetched.
+func RegisterGGUFURL(ctx context.Context, url, alias string, logger *slog.Logger) (string, error) {
+	return registerURLModel(ctx, url, alias, ".gguf", func(alias, url, filename string) error {
 		return HFRegisterGGUFEntry(GGUFEntry{Alias: alias, URL: url, Filename: filename})
 	}, logger)
 }
 
 // RegisterLlamafileURL downloads a direct .llamafile URL to the models
-// directory and records an alias -> URL mapping in the local llamafile
-// registry. Returns the derived alias.
-func RegisterLlamafileURL(ctx context.Context, url string, logger *slog.Logger) (string, error) {
-	return registerURLModel(ctx, url, ".llamafile", func(alias, url, _ string) error {
+// directory and records alias -> URL in the local llamafile registry. When
+// alias is empty it is derived from the filename. Returns the alias used.
+func RegisterLlamafileURL(ctx context.Context, url, alias string, logger *slog.Logger) (string, error) {
+	return registerURLModel(ctx, url, alias, ".llamafile", func(alias, url, _ string) error {
 		return registerLlamafileEntry(LlamafileEntry{Alias: alias, URL: url})
 	}, logger)
 }
 
 // registerURLModel downloads url (expected to end in wantExt) into the models
-// dir and calls register with the derived alias, url, and filename.
+// dir and calls register with alias (derived from the filename when empty),
+// url, and filename.
 func registerURLModel(
 	ctx context.Context,
-	url, wantExt string,
+	url, alias, wantExt string,
 	register func(alias, url, filename string) error,
 	logger *slog.Logger,
 ) (string, error) {
@@ -74,7 +75,9 @@ func registerURLModel(
 			return "", fmt.Errorf("download %s: %w", url, dlErr)
 		}
 	}
-	alias := AliasFromModelFilename(filename)
+	if alias == "" {
+		alias = AliasFromModelFilename(filename)
+	}
 	if regErr := register(alias, url, filename); regErr != nil {
 		return "", fmt.Errorf("register %q: %w", alias, regErr)
 	}

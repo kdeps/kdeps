@@ -339,6 +339,7 @@ func wireREPL(repl *agent.REPL, registry *tools.Registry, flags *agentLoopFlags)
 			endpoints[m.Alias] = m.BaseURL
 		}
 		repl.SetCustomEndpoints(endpoints, tui.AddCustomOpenAIModel)
+		repl.SetFavorites(s.FavoriteModels, tui.SetFavoriteModel)
 	}
 
 	// Wire default-model persistence for /model default <name>.

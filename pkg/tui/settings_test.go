@@ -166,6 +166,24 @@ func TestAddCustomOpenAIModel(t *testing.T) {
 	assert.Equal(t, "https://api.together.xyz/v1", byAlias["together"])
 }
 
+func TestSetFavoriteModel(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+
+	require.NoError(t, SetFavoriteModel("gpt-4o", true))
+	require.NoError(t, SetFavoriteModel("llama3.2:1b", true))
+	require.NoError(t, SetFavoriteModel("gpt-4o", true)) // idempotent add
+
+	got, err := LoadSettings()
+	require.NoError(t, err)
+	assert.ElementsMatch(t, []string{"gpt-4o", "llama3.2:1b"}, got.FavoriteModels)
+
+	require.NoError(t, SetFavoriteModel("gpt-4o", false))
+	got, err = LoadSettings()
+	require.NoError(t, err)
+	assert.Equal(t, []string{"llama3.2:1b"}, got.FavoriteModels)
+}
+
 func TestSaveDefaultModel_UpdatesExisting(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)

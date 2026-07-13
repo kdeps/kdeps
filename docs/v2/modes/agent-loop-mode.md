@@ -79,10 +79,30 @@ The default model is persisted to `~/.kdeps/agent-loop-settings.yaml` and loaded
 /model https://api.together.xyz/v1       # a hosted compat provider
 ```
 
+Each registered model gets a memorable, kind-prefixed ID so it's easy to recall and retype next time:
+
+- `.gguf` URL -> `gguf-<filename>` (e.g. `gguf-Qwen2.5-7B-Q4_K_M`)
+- `.llamafile` URL -> `llamafile-<filename>`
+- OpenAI-compatible endpoint -> `api-<host>` (e.g. `api-localhost-1234`)
+
+A collision with an existing model gets the next free `-2`, `-3`, ... suffix, so re-registering never overwrites.
+
 Registered models persist and keep appearing in `/model` and `/model <tab>`:
 
 - `.gguf` / `.llamafile` URLs are added to `~/.kdeps/gguf_versions.yaml` / `llamafile_versions.yaml` (downloaded on registration).
 - OpenAI-compatible endpoints are saved to `~/.kdeps/agent-loop-settings.yaml`. No API key is stored; if the endpoint needs one, set `OPENAI_API_KEY` (or `KDEPS_CUSTOM_API_KEY`) in your environment.
+
+### Favorite models
+
+Star models you use often so they lead the `/model` and `/model <tab>` lists and persist across sessions:
+
+```bash
+/model favorite gpt-4o          # star it (also: /model fav, /model star)
+/model favorite gguf-my-model
+/model unfavorite gpt-4o        # remove the star (also: /model unfav)
+```
+
+Favorites are saved to `~/.kdeps/agent-loop-settings.yaml`, shown first (marked `★`) with no text typed, and remain selectable even if the model is a cloud model or a not-yet-downloaded alias.
 
 ### Searching and downloading from HuggingFace
 

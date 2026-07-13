@@ -55,11 +55,11 @@ func HFDownloadGGUF(_ context.Context, _, _ string, _ *slog.Logger) (string, str
 
 func HFRegisterGGUFEntry(_ GGUFEntry) error { return ErrHFNotSupported }
 
-func RegisterGGUFURL(_ context.Context, _ string, _ *slog.Logger) (string, error) {
+func RegisterGGUFURL(_ context.Context, _, _ string, _ *slog.Logger) (string, error) {
 	return "", ErrHFNotSupported
 }
 
-func RegisterLlamafileURL(_ context.Context, _ string, _ *slog.Logger) (string, error) {
+func RegisterLlamafileURL(_ context.Context, _, _ string, _ *slog.Logger) (string, error) {
 	return "", ErrHFNotSupported
 }
 
