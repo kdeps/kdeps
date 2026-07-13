@@ -104,7 +104,7 @@ func TestFormatBytes(t *testing.T) {
 }
 
 func TestRequestSizePreflightWarnings(t *testing.T) {
-	warnings := requestSizePreflightWarnings()
+	warnings := RequestSizePreflightWarnings()
 	require.GreaterOrEqual(t, len(warnings), 1)
 	assert.Contains(t, warnings[0], "dashscope")
 	// xai limit is 50 MB — above the 10 MB threshold, so no warning
