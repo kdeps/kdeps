@@ -299,6 +299,10 @@ type ToolParam struct {
 	Required    bool     `yaml:"required,omitempty"`
 	Enum        []string `yaml:"enum,omitempty"`    // Allowed values for string type
 	Default     any      `yaml:"default,omitempty"` // Default value
+	// ItemsType is the JSON Schema type of array elements (e.g. "string").
+	// Required by strict providers (Google Gemini) for any "array" parameter;
+	// defaults to "string" when a param is an array and this is empty.
+	ItemsType string `yaml:"itemsType,omitempty"`
 }
 
 // StreamedToolCall is a tool call returned from a streaming LLM response.

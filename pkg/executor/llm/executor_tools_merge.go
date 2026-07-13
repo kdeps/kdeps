@@ -51,10 +51,23 @@ func (e *Executor) buildToolParameters(params map[string]domain.ToolParam) map[s
 	required := make([]string, 0)
 
 	for name, param := range params {
-		properties[name] = map[string]interface{}{
+		prop := map[string]interface{}{
 			jsonFieldType: param.Type,
 			"description": param.Description,
 		}
+		if len(param.Enum) > 0 {
+			prop["enum"] = param.Enum
+		}
+		// Array params must carry an items schema for strict providers
+		// (Google Gemini); default the element type to string.
+		if param.Type == "array" {
+			itemsType := param.ItemsType
+			if itemsType == "" {
+				itemsType = "string"
+			}
+			prop["items"] = map[string]interface{}{jsonFieldType: itemsType}
+		}
+		properties[name] = prop
 		if param.Required {
 			required = append(required, name)
 		}

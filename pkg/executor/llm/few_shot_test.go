@@ -692,6 +692,30 @@ func TestBuildScenarioMessages_EmptyPromptSkipped(t *testing.T) {
 	assert.Equal(t, lc.ChatMessageTypeHuman, msgs[0].Role)
 }
 
+// TestBuildToolParameters_ArrayEmitsItems verifies array params carry an
+// items schema. Google Gemini and Vertex AI reject the tool otherwise
+// ("parameters.properties[texts].items: missing field").
+func TestBuildToolParameters_ArrayEmitsItems(t *testing.T) {
+	t.Parallel()
+	params := map[string]domain.ToolParam{
+		"texts":   {Type: "array", Description: "list of strings", Required: true},
+		"vectors": {Type: "array", Description: "list of numbers", ItemsType: "number"},
+	}
+	schema := buildToolParameters(params)
+	props, ok := schema["properties"].(map[string]any)
+	require.True(t, ok)
+
+	texts, ok := props["texts"].(map[string]any)
+	require.True(t, ok)
+	items, ok := texts["items"].(map[string]any)
+	require.True(t, ok, "array param must have items")
+	assert.Equal(t, "string", items["type"], "default element type is string")
+
+	vectors := props["vectors"].(map[string]any)
+	vitems := vectors["items"].(map[string]any)
+	assert.Equal(t, "number", vitems["type"], "explicit ItemsType is honored")
+}
+
 func TestBuildToolParameters_RequiredAndEnum(t *testing.T) {
 	t.Parallel()
 	params := map[string]domain.ToolParam{

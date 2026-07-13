@@ -932,6 +932,16 @@ func buildToolParameters(params map[string]domain.ToolParam) map[string]any {
 		if len(p.Enum) > 0 {
 			prop["enum"] = p.Enum
 		}
+		// Array params must declare an items schema. Strict providers
+		// (Google Gemini) reject the tool otherwise. Default element type to
+		// string, which covers every current array param (lists of strings).
+		if p.Type == "array" {
+			itemsType := p.ItemsType
+			if itemsType == "" {
+				itemsType = "string"
+			}
+			prop["items"] = map[string]any{jsonFieldType: itemsType}
+		}
 		properties[name] = prop
 		if p.Required {
 			required = append(required, name)
