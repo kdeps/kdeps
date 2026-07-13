@@ -1,0 +1,50 @@
+name: Cleanup
+
+on:
+  schedule:
+    # Run every Sunday at 3 AM UTC to stay under the 0.5 GB Actions storage limit
+    - cron: '7 3 * * 0'
+  workflow_dispatch:
+
+permissions:
+  actions: write
+  contents: read
+
+jobs:
+  cleanup:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Delete old artifacts (keep latest N per type)
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          # Per-type keep counts: name -> max to retain
+          declare -A KEEP
+          KEEP["github-pages"]=1
+          KEEP["coverage-out"]=5
+          KEEP["kdeps-linux-amd64-musl"]=3
+          KEEP["kdeps-linux-arm64-musl"]=3
+          KEEP["kdeps-darwin-amd64"]=3
+          KEEP["kdeps-darwin-arm64"]=3
+          KEEP["kdeps-windows-amd64"]=3
+          KEEP["kdeps"]=3
+
+          gh api repos/${{ github.repository }}/actions/artifacts --paginate \
+            --jq '.artifacts[] | "\(.name) \(.id)"' \
+          | sort -k1,1 -k2,2rn \
+          > /tmp/artifacts_sorted.txt
+
+          prev=""
+          kept=0
+          while read name id; do
+            if [ "$name" != "$prev" ]; then
+              kept=0
+              prev="$name"
+            fi
+            max="${KEEP[$name]:-1}"
+            if [ "$kept" -ge "$max" ]; then
+              echo "Deleting $name #$id"
+              gh api -X DELETE "repos/${{ github.repository }}/actions/artifacts/$id" || true
+            fi
+            kept=$((kept + 1))
+          done < /tmp/artifacts_sorted.txt
