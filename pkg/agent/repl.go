@@ -191,6 +191,7 @@ type REPL struct {
 	saveCustomEndpoint func(alias, baseURL string) error             // persists a custom endpoint; nil disables persistence
 	favorites          map[string]bool                               // starred model names, surfaced first in /model
 	saveFavorite       func(name string, fav bool) error             // persists a favorite toggle; nil disables persistence
+	turnAlert          turnAlert                                     // rings the terminal when a long turn finishes
 	llmfitScore        map[string]float64                            // alias -> composite score from llmfit (0-100); nil when unavailable
 	llmfitFitLevel     map[string]string                             // alias -> fit level (Perfect/Good/Marginal/TooTight)
 	toolCancel         context.CancelFunc                            // cancels the currently running tool; nil when no tool is active
@@ -210,6 +211,7 @@ func NewREPL(rootCtx context.Context, loop *Loop) *REPL {
 		ctx:        turnCtx,
 		cancel:     turnCancel,
 		history:    make([]string, 0, replHistoryInitCap),
+		turnAlert:  resolveTurnAlert(),
 	}
 	loop.SetOnAutoCompact(func(summary string) {
 		fmt.Fprintf(os.Stdout, "\n%s\n%s\n\n",
@@ -1584,6 +1586,7 @@ func (r *REPL) processInput(input string) error {
 		}
 	}
 	r.history = append(r.history, input)
+	turnStart := time.Now()
 	resp, err := r.runWithThinking(r.ctx, expanded)
 	if err != nil {
 		return err
@@ -1593,6 +1596,8 @@ func (r *REPL) processInput(input string) error {
 	if resp != "" && (r.runFn != nil || !r.loop.IsStreaming()) {
 		fmt.Fprint(os.Stdout, renderREPLOutput(resp, false))
 	}
+	// Alert an away user that a long turn is done (terminal bell + OSC 9).
+	r.turnAlert.alert(os.Stdout, time.Since(turnStart), "kdeps: response ready")
 	r.maybeHintCompact()
 	return nil
 }

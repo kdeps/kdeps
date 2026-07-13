@@ -172,6 +172,20 @@ resources:
 
 For Ollama only, `ollamaNumCtx:` is also accepted and takes precedence over `contextSize:`.
 
+## Turn-complete alert
+
+When a turn takes a while (a long research loop, a slow local model), the REPL rings the terminal and posts a desktop notification once the response is ready, so you can step away and come back when it beeps:
+
+- The terminal **bell** marks the tab/window as having activity in most terminals, tmux, and screen.
+- An **OSC 9** desktop notification (`kdeps: response ready`) appears in terminals that support it (iTerm2, WezTerm, kitty); it is silently ignored elsewhere.
+
+Only turns longer than a threshold alert, so quick replies stay quiet.
+
+| Env var | Effect |
+|---------|--------|
+| `KDEPS_NOTIFY=off` | Disable the alert entirely |
+| `KDEPS_NOTIFY_MIN=<dur>` | Minimum turn duration to alert (default `10s`; `0` = every turn) |
+
 ## Built-in tools
 
 The agent has access to a set of built-in tools that the LLM can call without any YAML configuration. Tools that require credentials are only registered when the relevant environment variable is set.
