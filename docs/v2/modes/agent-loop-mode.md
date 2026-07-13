@@ -164,8 +164,10 @@ Aliases whose target tool is not registered (e.g. a credential-gated search) are
 
 | Key | Effect |
 |-----|--------|
-| `Ctrl+C` | Kill the process. Partial output is returned to the LLM as a success result so it can decide what to do next. |
+| `Ctrl+C` | Cancel the running tool. Partial output is returned to the LLM as a result so it can decide what to do next. Works for any built-in tool, not only `bash_exec`. |
 | `Ctrl+Z` | Detach the process as a background job. `bash_exec` immediately returns `{"status":"backgrounded","job_id":N}` to the LLM. |
+
+Ctrl+C is read directly from the terminal while a tool runs, so it cancels even long-running tools (e.g. a slow `search_local` or `web_scraper`) - the REPL does not rely on the terminal delivering a signal.
 
 `Ctrl+Z` at the REPL prompt (no tool running) suspends kdeps normally (`fg` to resume).
 

@@ -2408,6 +2408,47 @@ func TestExecBangCommand_NonZeroExit_ErrorInContext(t *testing.T) {
 	assert.Contains(t, captured, "Exit code: 1")
 }
 
+func TestFilterToolInterrupt(t *testing.T) {
+	loop := makeTestLoop(nil)
+	repl := NewREPL(context.Background(), loop)
+	defer repl.cancel()
+
+	// No tool active: control runes pass through so line editing is normal.
+	if _, process := repl.filterToolInterrupt(readline.CharInterrupt); !process {
+		t.Error("Ctrl+C with no tool active must pass through to readline")
+	}
+	if _, process := repl.filterToolInterrupt('a'); !process {
+		t.Error("ordinary runes must always pass through")
+	}
+
+	// Tool active: Ctrl+C cancels the tool and is swallowed.
+	canceled := false
+	repl.toolCancelMu.Lock()
+	repl.toolCancel = func() { canceled = true }
+	repl.toolCancelMu.Unlock()
+	if _, process := repl.filterToolInterrupt(readline.CharInterrupt); process {
+		t.Error("Ctrl+C during a tool must be swallowed")
+	}
+	if !canceled {
+		t.Error("Ctrl+C during a tool must cancel it")
+	}
+
+	// Tool active with a background channel: Ctrl+Z backgrounds it.
+	repl.toolCancelMu.Lock()
+	repl.toolCancel = func() {}
+	bg := make(chan struct{}, 1)
+	repl.toolBgCh = bg
+	repl.toolCancelMu.Unlock()
+	if _, process := repl.filterToolInterrupt(readline.CharCtrlZ); process {
+		t.Error("Ctrl+Z during a tool must be swallowed")
+	}
+	select {
+	case <-bg:
+	default:
+		t.Error("Ctrl+Z during a tool must signal the background channel")
+	}
+}
+
 func TestWithCookedTerminal_NoSignalPassthrough(t *testing.T) {
 	loop := makeTestLoop(nil)
 	repl := NewREPL(context.Background(), loop)

@@ -1517,20 +1517,53 @@ func (r *REPL) processInput(input string) error {
 // message for a full agent turn, so the model responds to the result (and can
 // act on it, e.g. fix a failing lint). If true (!! prefix), the command runs
 // and prints to stdout but is NOT sent to the LLM.
+// filterToolInterrupt intercepts Ctrl+C and Ctrl+Z from readline's continuous
+// input reader while a tool is running. In raw mode the terminal does not turn
+// Ctrl+C into a SIGINT, so the signal-based path never fires during tool
+// execution; this reads the control rune directly instead and cancels (Ctrl+C)
+// or backgrounds (Ctrl+Z) the tool. Returns process=false to swallow the rune
+// so it does not disturb the input line. When no tool is running, everything
+// passes through so normal line editing (including Ctrl+C to clear the line)
+// works unchanged.
+func (r *REPL) filterToolInterrupt(rn rune) (rune, bool) {
+	if rn != readline.CharInterrupt && rn != readline.CharCtrlZ {
+		return rn, true
+	}
+	r.toolCancelMu.Lock()
+	tc := r.toolCancel
+	bgCh := r.toolBgCh
+	r.toolCancelMu.Unlock()
+	if tc == nil && bgCh == nil {
+		return rn, true // no tool active: let readline handle it normally
+	}
+	if rn == readline.CharInterrupt {
+		if tc != nil {
+			tc()
+		}
+	} else if bgCh != nil {
+		select {
+		case bgCh <- struct{}{}:
+		default:
+		}
+	}
+	return rn, false // swallow: the tool handled it
+}
+
 // newReadline builds a readline instance from the REPL's current config. It
 // is used both for the initial prompt and to rebuild after withCookedTerminal
 // tears readline down for a child process.
 func (r *REPL) newReadline() (*readline.Instance, error) {
 	return readline.NewEx(&readline.Config{
-		Prompt:            r.dynamicPrompt(),
-		HistoryLimit:      replHistoryMax,
-		HistoryFile:       r.historyPath,
-		HistorySearchFold: true,
-		AutoComplete:      r.buildCompleter(),
-		InterruptPrompt:   "(interrupt - Ctrl+D to quit)",
-		EOFPrompt:         "exit",
-		Stdin:             os.Stdin,
-		Stdout:            os.Stdout,
+		Prompt:              r.dynamicPrompt(),
+		HistoryLimit:        replHistoryMax,
+		HistoryFile:         r.historyPath,
+		HistorySearchFold:   true,
+		AutoComplete:        r.buildCompleter(),
+		InterruptPrompt:     "(interrupt - Ctrl+D to quit)",
+		EOFPrompt:           "exit",
+		Stdin:               os.Stdin,
+		Stdout:              os.Stdout,
+		FuncFilterInputRune: r.filterToolInterrupt,
 	})
 }
 
