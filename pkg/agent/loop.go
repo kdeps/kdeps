@@ -95,7 +95,10 @@ type Config struct {
 	// RunStreaming() instead of the engine path for interactive turns.
 	Streamer Streamer
 	// MaxToolRounds caps how many tool-call/result round trips RunStreaming
-	// will perform in a single turn. 0 applies the default (50).
+	// will perform in a single turn. At construction, 0 applies the default
+	// (50) via applyConfigDefaults. Set to 0 at runtime (e.g. via
+	// "/model tool set rounds 0") for unlimited rounds - the turn then runs
+	// until the model stops calling tools or is interrupted with Ctrl+C.
 	MaxToolRounds int
 	// ModelService is used by the REPL to auto-start local model servers
 	// (file/gguf backends) when the user switches to a local model via /model.
@@ -645,7 +648,11 @@ func (l *Loop) runToolRounds(
 
 	var finalContent string
 	capped := false
-	for i := range l.config.MaxToolRounds {
+	// MaxToolRounds <= 0 means unlimited: run until the model stops calling
+	// tools or the turn is canceled (Ctrl+C). With no cap there is no forced
+	// final answer.
+	unlimited := l.config.MaxToolRounds <= 0
+	for i := 0; unlimited || i < l.config.MaxToolRounds; i++ {
 		// Auto-checkpoint: save session state before each LLM call.
 		l.saveCheckpoint()
 
@@ -653,7 +660,7 @@ func (l *Loop) runToolRounds(
 		// text answer. Breaking out on a tool-call round instead would end
 		// the turn with no visible output (tool-call rounds usually have
 		// empty content with reasoning models).
-		if i == l.config.MaxToolRounds-1 {
+		if !unlimited && i == l.config.MaxToolRounds-1 {
 			capped = i > 0
 			chatCfg = forceAnswerConfig(chatCfg)
 		}

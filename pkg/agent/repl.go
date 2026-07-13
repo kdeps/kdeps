@@ -580,8 +580,11 @@ func (r *REPL) doSessionGotoCompletion(token string, tokenLen int) ([][]rune, in
 // cmdModel handles the resulting concatenated arg via stripTagKeywordPrefix.
 func (r *REPL) doModelCompletion(token string, tokenLen int) ([][]rune, int) {
 	if token == "" {
-		ranked := r.prioritizeModelNames(r.modelNames, replModelCompletionMaxNoFilter)
-		return r.modelCompletionSuffixes(ranked, 0), 0
+		// Show enabled + cached first; fall back to top llmfit when none.
+		// buildOrderedSuffixes preserves this order (cached, then enabled, or
+		// the llmfit ranking) rather than regrouping by type.
+		ranked := r.defaultModelCompletions(replModelCompletionMaxNoFilter)
+		return r.buildOrderedSuffixes(ranked, 0), 0
 	}
 	matched, isPrefix := r.modelNamesMatchingToken(strings.ToLower(token))
 	if len(matched) > replModelCompletionMax {
@@ -707,6 +710,12 @@ func (r *REPL) modelCompletionSuffixes(ranked []string, tokenLen int) [][]rune {
 	ordered = append(ordered, ollama...)
 	ordered = append(ordered, cloud...)
 
+	return r.buildOrderedSuffixes(ordered, tokenLen)
+}
+
+// buildOrderedSuffixes turns an already-ordered model list into readline
+// completion suffixes (name[tokenLen:] + tag), preserving the given order.
+func (r *REPL) buildOrderedSuffixes(ordered []string, tokenLen int) [][]rune {
 	results := make([][]rune, 0, len(ordered))
 	for _, n := range ordered {
 		nr := []rune(n)
@@ -721,6 +730,65 @@ func (r *REPL) modelCompletionSuffixes(ranked []string, tokenLen int) [][]rune {
 		results = append(results, suffix)
 	}
 	return results
+}
+
+// defaultModelCompletions selects the models shown on "/model <tab>" with no
+// text typed: the enabled and cached models (downloaded local models, plus
+// cloud models whose provider key is set), cached first. When none are
+// enabled or cached, it falls back to the top-n models by llmfit score so the
+// list is still useful on a fresh setup. Returns names in display order.
+func (r *REPL) defaultModelCompletions(n int) []string {
+	var cached, enabled []string
+	for _, name := range r.modelNames {
+		switch {
+		case r.downloadedModels[name]:
+			cached = append(cached, name)
+		case r.cloudModelBackends[name] != "" && r.providerStatus[r.cloudModelBackends[name]]:
+			enabled = append(enabled, name)
+		}
+	}
+	primary := make([]string, 0, len(cached)+len(enabled))
+	primary = append(primary, cached...)
+	primary = append(primary, enabled...)
+	if len(primary) > 0 {
+		if len(primary) > n {
+			primary = primary[:n]
+		}
+		return primary
+	}
+	return r.topModelsByLLMFit(n)
+}
+
+// topModelsByLLMFit returns up to n unique model names ranked by descending
+// llmfit score. Models without a score are excluded. Ties break by name for
+// deterministic output.
+func (r *REPL) topModelsByLLMFit(n int) []string {
+	if len(r.llmfitScore) == 0 {
+		// No scores available: fall back to a broad prioritized cross-section.
+		return r.prioritizeModelNames(r.modelNames, n)
+	}
+	seen := make(map[string]bool, len(r.modelNames))
+	scored := make([]string, 0, len(r.modelNames))
+	for _, name := range r.modelNames {
+		if seen[name] {
+			continue
+		}
+		if s, ok := r.llmfitScore[name]; ok && s > 0 {
+			seen[name] = true
+			scored = append(scored, name)
+		}
+	}
+	sort.Slice(scored, func(i, j int) bool {
+		si, sj := r.llmfitScore[scored[i]], r.llmfitScore[scored[j]]
+		if si != sj {
+			return si > sj
+		}
+		return scored[i] < scored[j]
+	})
+	if len(scored) > n {
+		scored = scored[:n]
+	}
+	return scored
 }
 
 // modelTag returns a display tag appended to the model name in tab completion.
@@ -1968,7 +2036,7 @@ func (r *REPL) cmdModelTool(args []string) error {
 func (r *REPL) printToolSettings() {
 	cfg := &r.loop.config
 	rows := [][2]string{
-		{"rounds", fmt.Sprintf("%d  (max tool-call rounds per turn)", cfg.MaxToolRounds)},
+		{"rounds", fmt.Sprintf("%d  (max tool-call rounds per turn, 0 = unlimited)", cfg.MaxToolRounds)},
 		{"retries", fmt.Sprintf("%d  (auto-retries on transient API errors)", cfg.AutoRetryMax)},
 		{"retry-delay", fmt.Sprintf("%s  (initial retry backoff, doubles per retry)", cfg.AutoRetryBaseDelay)},
 		{"stall-timeout", fmt.Sprintf("%s  (kill a tool after this much silence, 0 = off)", cfg.ToolStallTimeout)},
@@ -1992,10 +2060,13 @@ func (r *REPL) printToolSettings() {
 var toolSettingAppliers = map[string]func(cfg *Config, value string) (string, string){
 	"rounds": func(cfg *Config, v string) (string, string) {
 		n, err := strconv.Atoi(v)
-		if err != nil || n <= 0 {
-			return "", "rounds must be a positive integer"
+		if err != nil || n < 0 {
+			return "", "rounds must be a non-negative integer (0 = unlimited)"
 		}
 		cfg.MaxToolRounds = n
+		if n == 0 {
+			return "Max tool rounds set to unlimited (Ctrl+C to stop a runaway turn)", ""
+		}
 		return fmt.Sprintf("Max tool rounds set to %d", n), ""
 	},
 	"retries": func(cfg *Config, v string) (string, string) {

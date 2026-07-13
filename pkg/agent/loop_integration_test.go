@@ -172,6 +172,29 @@ func TestRunStreaming_NaturalEarlyStop(t *testing.T) {
 // TestRunStreaming_MaxRoundsExhausted verifies that when tool calls keep coming
 // the loop stops at MaxToolRounds and returns the last non-empty content (not "").
 // This is the regression test for the early-stopping bug.
+// TestRunStreaming_UnlimitedRounds verifies MaxToolRounds == 0 means no cap:
+// the loop keeps going until the model stops calling tools, past what any
+// finite cap would allow, with no forced-answer round.
+func TestRunStreaming_UnlimitedRounds(t *testing.T) {
+	toolCall := domain.StreamedToolCall{ID: "1", Name: "noop", Arguments: "{}"}
+	responses := make([]mockStreamResponse, 0, 61)
+	for range 60 { // more than the default cap of 50
+		responses = append(responses, mockStreamResponse{
+			content: "", toolCalls: []domain.StreamedToolCall{toolCall},
+		})
+	}
+	responses = append(responses, mockStreamResponse{content: "finally done", toolCalls: nil})
+	ms := &mockStreamer{responses: responses}
+	loop := newStreamingLoop(ms, 0) // 0 = unlimited
+	loop.config.MaxToolRounds = 0   // ensure not defaulted
+
+	var buf bytes.Buffer
+	result, err := loop.RunStreaming(context.Background(), "go", &buf)
+	require.NoError(t, err)
+	assert.Equal(t, "finally done", result)
+	assert.Equal(t, 61, ms.callCount, "unlimited must run all 61 rounds")
+}
+
 func TestRunStreaming_MaxRoundsExhausted(t *testing.T) {
 	toolCall := domain.StreamedToolCall{ID: "1", Name: "noop", Arguments: "{}"}
 	ms := &mockStreamer{

@@ -33,7 +33,7 @@ Inside the REPL, type `/help` for the full list:
 | `/model hff info <repo>` | List GGUF files and sizes available in a HuggingFace repo |
 | `/model hff download <repo> [file]` | Download a GGUF from HuggingFace; auto-registers an alias for `/model` |
 | `/model tool [list]` | Show agent loop settings: tool rounds, retries, retry delay, compaction, history caps |
-| `/model tool set <setting> <value>` | Change a setting for this session, e.g. `set rounds 80`, `set compact-threshold 40k`, `set retry-delay 5s` |
+| `/model tool set <setting> <value>` | Change a setting for this session, e.g. `set rounds 80` (`0` = unlimited), `set compact-threshold 40k`, `set retry-delay 5s` |
 | `/skills` | List loaded skills |
 | `/prompts` | List loaded prompt templates |
 | `/<skill-name> [prompt]` | Invoke a skill or prompt template directly |

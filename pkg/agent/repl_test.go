@@ -334,17 +334,16 @@ func TestReplCompleter_DownloadedModelMarker(t *testing.T) {
 	repl.SetDownloadedModels(map[string]bool{"llama3.2:1b": true})
 
 	c := &replCompleter{repl: repl}
-	// Cached model sorts first; all entries have [tag] suffix.
+	// With no text typed, only enabled+cached models are shown: the one
+	// cached local model, not the uncached cloud models.
 	input := []rune("/model ")
 	results, _ := c.Do(input, len(input))
-	assert.Len(t, results, 3)
 	found := make([]string, 0, len(results))
 	for _, r := range results {
 		found = append(found, string(r))
 	}
-	assert.Contains(t, found, "llama3.2:1b [cached]")
-	assert.Contains(t, found, "llama3.2:3b [cloud]")
-	assert.Contains(t, found, "qwen3.5-4b [cloud]")
+	assert.Equal(t, []string{"llama3.2:1b [cached]"}, found)
+	assert.NotContains(t, found, "llama3.2:3b [cloud]")
 }
 
 func TestReplCompleter_DownloadedModelMarkerPartialToken(t *testing.T) {
@@ -382,9 +381,10 @@ func TestReplCompleter_EnabledCloudModelTag(t *testing.T) {
 	for _, r := range results {
 		found = append(found, string(r))
 	}
-	// Enabled cloud provider shows [cloud enabled]; disabled shows [cloud].
-	assert.Contains(t, found, "gpt-4o [cloud enabled]")
-	assert.Contains(t, found, "deepseek-chat [cloud]")
+	// With no text typed, only the enabled provider's model appears; the
+	// disabled-provider model is hidden until the user types a filter.
+	assert.Equal(t, []string{"gpt-4o [cloud enabled]"}, found)
+	assert.NotContains(t, found, "deepseek-chat [cloud]")
 }
 
 func TestReplCompleter_TagFilter_Enabled(t *testing.T) {
@@ -3129,6 +3129,25 @@ func TestCmdModelTool_SetRounds(t *testing.T) {
 	assert.Equal(t, 80, loop.config.MaxToolRounds)
 }
 
+func TestCmdModelTool_SetRoundsUnlimited(t *testing.T) {
+	loop := makeTestLoop(nil)
+	repl := NewREPL(context.Background(), loop)
+	defer repl.cancel()
+
+	out := captureStdout(t, func() {
+		_ = repl.cmdModelTool([]string{"set", "rounds", "0"})
+	})
+	assert.Contains(t, out, "unlimited")
+	assert.Equal(t, 0, loop.config.MaxToolRounds)
+
+	// Negative is still rejected.
+	before := loop.config.MaxToolRounds
+	captureStdout(t, func() {
+		_ = repl.cmdModelTool([]string{"set", "rounds", "-1"})
+	})
+	assert.Equal(t, before, loop.config.MaxToolRounds)
+}
+
 func TestCmdModelTool_SetTokenSettingsWithSuffix(t *testing.T) {
 	loop := makeTestLoop(nil)
 	repl := NewREPL(context.Background(), loop)
@@ -4341,6 +4360,56 @@ func TestPrioritizeModelNames_DefaultCloudOnly(t *testing.T) {
 	defer repl.cancel()
 	result := repl.prioritizeModelNames([]string{"gpt4", "claude", "gemini"}, 10)
 	require.Len(t, result, 3)
+}
+
+func TestDefaultModelCompletions_OnlyEnabledAndCached(t *testing.T) {
+	loop := makeTestLoop(nil)
+	repl := NewREPL(context.Background(), loop)
+	defer repl.cancel()
+	repl.modelNames = []string{"plain", "cached", "enabled", "llama-m", "gguf-m"}
+	repl.downloadedModels = map[string]bool{"cached": true}
+	repl.cloudModelBackends = map[string]string{"enabled": "openai"}
+	repl.providerStatus = map[string]bool{"openai": true}
+	repl.modelTypes = map[string]string{"llama-m": modelTypeLLamafile, "gguf-m": modelTypeGGUF}
+
+	got := repl.defaultModelCompletions(10)
+	// Only cached + enabled - uncached local/cloud models are excluded.
+	assert.Equal(t, []string{"cached", "enabled"}, got)
+}
+
+func TestDefaultModelCompletions_FallsBackToLLMFit(t *testing.T) {
+	loop := makeTestLoop(nil)
+	repl := NewREPL(context.Background(), loop)
+	defer repl.cancel()
+	repl.modelNames = []string{"a", "b", "c", "d"}
+	// Nothing downloaded or enabled.
+	repl.llmfitScore = map[string]float64{"a": 40, "b": 90, "c": 70, "d": 0}
+
+	got := repl.defaultModelCompletions(2)
+	// Top-2 by score, descending; d (score 0) excluded.
+	assert.Equal(t, []string{"b", "c"}, got)
+}
+
+func TestTopModelsByLLMFit_TieBreaksByName(t *testing.T) {
+	loop := makeTestLoop(nil)
+	repl := NewREPL(context.Background(), loop)
+	defer repl.cancel()
+	repl.modelNames = []string{"zeta", "alpha", "mid"}
+	repl.llmfitScore = map[string]float64{"zeta": 80, "alpha": 80, "mid": 50}
+
+	got := repl.topModelsByLLMFit(10)
+	assert.Equal(t, []string{"alpha", "zeta", "mid"}, got, "equal scores break by name")
+}
+
+func TestTopModelsByLLMFit_NoScoresFallsBackToPrioritized(t *testing.T) {
+	loop := makeTestLoop(nil)
+	repl := NewREPL(context.Background(), loop)
+	defer repl.cancel()
+	repl.modelNames = []string{"x", "y"}
+	repl.downloadedModels = map[string]bool{"y": true}
+	// llmfitScore nil.
+	got := repl.topModelsByLLMFit(10)
+	assert.Equal(t, "y", got[0], "with no scores, cached model still leads")
 }
 
 // --- doModelCompletion ---
