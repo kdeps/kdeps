@@ -35,6 +35,8 @@ const (
 
 	pasteStartMarker = "\x1b[200~"
 	pasteEndMarker   = "\x1b[201~"
+
+	escByte = 0x1b // ESC: leads every terminal escape sequence, including paste markers
 )
 
 // bracketedPasteReader wraps the terminal's stdin and rewrites bracketed-paste
@@ -102,7 +104,7 @@ func (b *bracketedPasteReader) transform(in []byte) {
 		b.pending = b.pending[:0]
 	}
 	for i := 0; i < len(data); {
-		if data[i] == 0x1b { // ESC: possible paste marker
+		if data[i] == escByte { // possible paste marker
 			adv, wait := b.handleMarker(data[i:])
 			if wait {
 				b.pending = append(b.pending[:0], data[i:]...) // decide once more bytes arrive
@@ -120,7 +122,7 @@ func (b *bracketedPasteReader) transform(in []byte) {
 
 // handleMarker inspects an ESC-led run. It returns the number of bytes consumed
 // by a complete marker (0 if none) and whether it needs more bytes to decide.
-func (b *bracketedPasteReader) handleMarker(rest []byte) (adv int, wait bool) {
+func (b *bracketedPasteReader) handleMarker(rest []byte) (int, bool) {
 	switch {
 	case markerMatch(rest, pasteStartMarker):
 		b.inPaste, b.lastCR = true, false
@@ -172,7 +174,7 @@ func markerMatch(s []byte, marker string) bool {
 	if len(s) < len(marker) {
 		return false
 	}
-	for i := 0; i < len(marker); i++ {
+	for i := range len(marker) {
 		if s[i] != marker[i] {
 			return false
 		}

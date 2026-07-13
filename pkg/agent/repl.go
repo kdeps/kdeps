@@ -1703,7 +1703,7 @@ type pastePainter struct {
 	r *REPL
 }
 
-func (p *pastePainter) Paint(line []rune, pos int) []rune {
+func (p *pastePainter) Paint(line []rune, _ int) []rune {
 	if p.r.pasteMode && p.r.pasteCount > 0 {
 		label := fmt.Sprintf("[Pasted +%d lines]", p.r.pasteCount)
 		return []rune(label)
