@@ -137,6 +137,27 @@ For Ollama only, `ollamaNumCtx:` is also accepted and takes precedence over `con
 
 The agent has access to a set of built-in tools that the LLM can call without any YAML configuration. Tools that require credentials are only registered when the relevant environment variable is set.
 
+### Tool name aliases
+
+Models trained on other agent frameworks or shell habits often call tools by familiar names. Those names are aliased to the real built-in tool, so a call to `grep` runs `search_local`, `cat` runs `read_file`, `bash` runs `bash_exec`, and so on. Aliases are resolved on dispatch and do **not** appear in the advertised tool list (no duplicates for the model to choose between). Common synonym parameter keys are normalized too - `grep`'s `pattern` maps to `search_local`'s `query`, `cat`'s `path` maps to `read_file`'s `file_path`.
+
+| Canonical tool | Example aliases |
+|----------------|-----------------|
+| `search_local` | `grep`, `rg`, `ripgrep`, `ag`, `search`, `search_file`, `find_in_files` |
+| `read_file` | `cat`, `read`, `open`, `view`, `head`, `tail` |
+| `write_file` | `write`, `create`, `create_file`, `save`, `touch` |
+| `edit_file` | `edit`, `str_replace`, `replace`, `apply_patch`, `sed` |
+| `list_files` | `ls`, `dir`, `list`, `tree`, `find`, `glob` |
+| `bash_exec` | `bash`, `sh`, `shell`, `exec`, `run`, `cmd`, `terminal` |
+| `web_search` | `google`, `web`, `search_web`, `duckduckgo` |
+| `web_scraper` | `scrape`, `fetch`, `curl`, `wget`, `browse`, `read_url` |
+| `http_request` | `http`, `request`, `api`, `rest` |
+| `calculator` | `calc`, `compute`, `eval`, `math` |
+| `code_definition` / `code_references` | `go_to_definition`, `find_references`, `usages` |
+| `sql_query` / `sql_list_tables` | `sql`, `select`, `list_tables`, `describe_table` |
+
+Aliases whose target tool is not registered (e.g. a credential-gated search) are simply not created.
+
 ### Shell execution
 
 `bash_exec` runs any shell command and streams output to the terminal. Two keyboard shortcuts change its behavior mid-run:

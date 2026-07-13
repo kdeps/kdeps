@@ -942,10 +942,14 @@ func (l *Loop) dispatchStreamToolCall(tc domain.StreamedToolCall, w io.Writer) s
 		return fmt.Sprintf(`{"error":"tool %q not found"}`, tc.Name)
 	}
 
+	// Resolve any alias (grep -> search_local) to the real tool name so the
+	// permission check, param normalization, and display all use it.
+	canonical := l.registry.ResolveAlias(tc.Name)
+
 	// Permission check: block tools that don't meet the current mode.
 	// An empty config mode falls back to KDEPS_PERMISSION_MODE inside the
 	// enforcer, so env-only configuration works too.
-	if allowed, reason := NewPermissionEnforcer(l.config.PermissionMode).Allow(tc.Name); !allowed {
+	if allowed, reason := NewPermissionEnforcer(l.config.PermissionMode).Allow(canonical); !allowed {
 		if termW := l.config.ToolOutputWriter; termW != nil {
 			l.closeToolCallLine(termW, "... blocked: permission denied")
 		}
@@ -956,6 +960,8 @@ func (l *Loop) dispatchStreamToolCall(tc domain.StreamedToolCall, w io.Writer) s
 	if err := json.Unmarshal([]byte(tc.Arguments), &args); err != nil {
 		args = make(map[string]any)
 	}
+	// Rewrite synonym param keys (grep's "pattern" -> search_local's "query").
+	normalizeToolArgs(canonical, args)
 	start := time.Now()
 
 	// Inject execution context so cancellable tools (e.g. bash_exec) can be
