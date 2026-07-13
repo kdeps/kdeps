@@ -14,13 +14,14 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/robfig/cron/v3"
+
 	"github.com/kdeps/kdeps/v2/pkg/agent"
 	"github.com/kdeps/kdeps/v2/pkg/domain"
 	"github.com/kdeps/kdeps/v2/pkg/executor"
 	"github.com/kdeps/kdeps/v2/pkg/executor/llm"
 	"github.com/kdeps/kdeps/v2/pkg/tools"
 	"github.com/kdeps/kdeps/v2/pkg/tui"
-	"github.com/robfig/cron/v3"
 )
 
 // filepathAbsAgentLoopFunc resolves agent loop paths (overridable in tests).
@@ -163,7 +164,8 @@ func optionalToolNotices() []string {
 // runCronScheduler polls the cron registry every 60s and creates tasks for
 // due cron jobs. Runs in a background goroutine; returns when ctx is cancelled.
 func runCronScheduler(ctx context.Context) {
-	ticker := time.NewTicker(60 * time.Second)
+	const cronTickInterval = 60 * time.Second
+	ticker := time.NewTicker(cronTickInterval)
 	defer ticker.Stop()
 	// Use robfig/cron/v3 for NextRun calculation.
 	parser := cron.NewParser(cron.Minute | cron.Hour | cron.Dom | cron.Month | cron.Dow)

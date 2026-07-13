@@ -233,13 +233,12 @@ func TestApprovalTokenRegistry_Consume_NotGranted(t *testing.T) {
 }
 
 func TestApprovalTokenRegistry_Consume_Expired(t *testing.T) {
-	now := time.Date(2026, 7, 11, 12, 0, 0, 0, time.UTC)
 	r := NewApprovalTokenRegistry()
 	tok := r.Request(ApprovalScope{ToolName: "bash_exec"}, 1*time.Hour)
 	r.Grant(tok.TokenID, "u", "s", "ok")
 
-	// Advance time past expiry
-	late := now.Add(2 * time.Hour)
+	// A time strictly past the token's real expiry (Request uses time.Now()).
+	late := tok.ExpiresAt.Add(time.Hour)
 	assert.False(t, r.Consume(tok.TokenID, late))
 	assert.Equal(t, TokenExpired, r.Get(tok.TokenID).Status)
 }
@@ -322,13 +321,12 @@ func TestApprovalTokenRegistry_FindMatchingGranted_NoMatch(t *testing.T) {
 }
 
 func TestApprovalTokenRegistry_FindMatchingGranted_Expired(t *testing.T) {
-	now := time.Date(2026, 7, 11, 12, 0, 0, 0, time.UTC)
 	r := NewApprovalTokenRegistry()
 
 	tok := r.Request(ApprovalScope{ToolName: "bash_exec"}, 1*time.Hour)
 	r.Grant(tok.TokenID, "u", "s", "ok")
 
-	late := now.Add(2 * time.Hour)
+	late := tok.ExpiresAt.Add(time.Hour)
 	assert.Nil(t, r.FindMatchingGranted("bash_exec", "", late))
 }
 

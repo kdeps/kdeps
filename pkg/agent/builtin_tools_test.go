@@ -92,17 +92,27 @@ func TestBuiltinTools_ToLLMTools(t *testing.T) {
 	RegisterBuiltinTools(context.Background(), reg)
 
 	llmTools := reg.ToLLMTools()
-	// bash_exec, bash_job_list, bash_job_wait, calculator, code_definition,
-	// code_diagnostics, code_hover, code_references, code_search, code_symbols,
-	// edit_file, http_request, list_files, read_file, search_local,
-	// sql_describe_table, sql_list_tables, sql_query, web_scraper, web_search,
-	// wikipedia, write_file + 2 more reranking/search tools = 26
-	assert.Len(
-		t,
-		llmTools,
-		26,
-		"twenty-six built-in tools should be convertible to LLM tools",
-	)
+	// The exact count grows as tools are added; assert the core no-key tools
+	// are all present rather than a brittle magic number. Aliases must NOT
+	// appear here (they resolve on dispatch, not in the advertised list).
+	names := make(map[string]bool, len(llmTools))
+	for _, lt := range llmTools {
+		names[lt.Name] = true
+	}
+	coreTools := []string{
+		"bash_exec", "bash_job_list", "bash_job_wait", "calculator",
+		"code_definition", "code_diagnostics", "code_hover", "code_references",
+		"code_search", "code_symbols", "edit_file", "http_request",
+		"list_files", "read_file", "search_local", "sql_describe_table",
+		"sql_list_tables", "sql_query", "web_scraper", "web_search",
+		"wikipedia", "write_file",
+	}
+	for _, name := range coreTools {
+		assert.Truef(t, names[name], "core built-in tool %q must be registered", name)
+	}
+	assert.GreaterOrEqual(t, len(llmTools), len(coreTools),
+		"at least the core built-in tools should be present")
+	assert.False(t, names["grep"], "aliases must not be advertised as tools")
 
 	for _, lt := range llmTools {
 		assert.NotEmpty(t, lt.Name)

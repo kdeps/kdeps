@@ -47,6 +47,9 @@ const (
 	xaiMaxBytes            = 52_428_800  // 50 MB
 	openaiMaxBytes         = 104_857_600 // 100 MB
 	smallProviderThreshold = 10_000_000  // 10 MB
+	// avgBytesPerToken approximates UTF-8 bytes per token for English
+	// technical text (1 token ≈ 4 bytes).
+	avgBytesPerToken = 4
 )
 
 // EstimateRequestSizeBytes estimates the request body size from token count
@@ -54,7 +57,6 @@ const (
 // Average token ~= 4 bytes in UTF-8, plus ~100 bytes overhead per message
 // for JSON framing.
 func EstimateRequestSizeBytes(tokenCount int, messageCount int) int64 {
-	const avgBytesPerToken = 4
 	const overheadPerMessage = 100
 	return int64(tokenCount)*avgBytesPerToken + int64(messageCount)*overheadPerMessage
 }
@@ -120,8 +122,7 @@ func EstimateTokenCountFromStrings(strs ...string) int {
 	for _, s := range strs {
 		totalLen += len(s)
 	}
-	// Average token ~= 4 bytes in technical English text.
-	return totalLen / 4
+	return totalLen / avgBytesPerToken
 }
 
 // Re-export encoding/json for callers convenience.
