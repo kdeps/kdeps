@@ -186,6 +186,10 @@ Only turns longer than a threshold alert, so quick replies stay quiet.
 | `KDEPS_NOTIFY=off` | Disable the alert entirely |
 | `KDEPS_NOTIFY_MIN=<dur>` | Minimum turn duration to alert (default `10s`; `0` = every turn) |
 
+## Pasting multiple lines
+
+Paste a block of text and the REPL treats it as **one prompt**, not one turn per line. The prompt shows `[Pasted +N lines]` while the block sits on the input line; press Enter once to submit the whole thing (the embedded newlines are preserved). This uses the terminal's bracketed-paste mode, so it works in any modern terminal, tmux, and screen. You can keep typing after a paste before submitting.
+
 ## Built-in tools
 
 The agent has access to a set of built-in tools that the LLM can call without any YAML configuration. Tools that require credentials are only registered when the relevant environment variable is set.

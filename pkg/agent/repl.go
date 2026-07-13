@@ -198,13 +198,11 @@ type REPL struct {
 	toolBgCh           chan struct{}                                 // backgrounds the running tool on send; nil when no tool is active
 	toolCancelMu       sync.Mutex
 
-	// Paste detection: when the user pastes multiple lines, we accumulate
-	// them into a single prompt line instead of submitting each line separately.
-	pasteBuf    []rune       // accumulated pasted content
-	pasteCount  int          // number of lines pasted
-	pasteTimer  *time.Timer  // debounce timer; fires when paste input stops
-	pasteMode   bool         // true while accumulating a paste
-	pasteLastNt time.Time    // timestamp of the last \n seen
+	// Bracketed paste: a multi-line paste arrives wrapped in ESC[200~/ESC[201~
+	// (see bracketedPasteReader), lands as one edit line, and submits as a single
+	// prompt. These drive the "[Pasted +N lines]" Painter while it accumulates.
+	pasteCount int  // number of pasted lines in the current paste
+	pasteMode  bool // true while a paste is on the edit line
 }
 
 // NewREPL creates a new REPL for the given agent loop, deriving its context
@@ -966,7 +964,8 @@ func fuzzyMatch(needle, haystack string) bool {
 // Uses SGR reset only (\033[0m) to clear colors/bold without clearing the screen.
 // Full screen clear (\033c) is deliberately avoided — it destroys scrollback.
 func resetTerminal() {
-	fmt.Fprint(os.Stdout, ansiReset) // reset text attributes; no screen clear
+	fmt.Fprint(os.Stdout, ansiDisableBracketedPaste) // leave paste mode off
+	fmt.Fprint(os.Stdout, ansiReset)                 // reset text attributes; no screen clear
 }
 
 // fdBinPath returns the path to the fd binary (fd or fdfind), or empty string.
@@ -1232,13 +1231,22 @@ func (r *REPL) runStreaming(ctx context.Context, input string) (string, error) {
 					r.loop.toolLineOpen.Load()
 			}, done)
 		}()
-		sr = <-ch
+		// Wait for the LLM goroutine or context cancellation (^C).
+		// langchaingo HTTP requests may not abort immediately on
+		// context cancellation, so we must not block forever on ch.
+		select {
+		case sr = <-ch:
+		case <-ctx.Done():
+		}
 		close(done)
 		spinWg.Wait() // ensure all spinner frames are flushed before clearing
-		// Only clear the spinner line when thinking hasn't already cleared it.
-		// liveThinkingWriter.Write writes ansiClearLine on its first chunk.
-		if thinkW == nil || !thinkW.started {
+		// Clear the spinner line when ^C cancelled the context or when
+		// thinking hasn't already cleared it.
+		if ctx.Err() != nil || thinkW == nil || !thinkW.started {
 			fmt.Fprint(capturedOut, ansiClearLine)
+		}
+		if ctx.Err() != nil {
+			return "", ctx.Err()
 		}
 	}
 
@@ -1378,6 +1386,7 @@ func (r *REPL) Run() error {
 	}()
 
 	r.readlineInst = rl
+	fmt.Fprint(os.Stdout, ansiEnableBracketedPaste) // treat multi-line pastes as one prompt
 
 	// Banner with cwd - matches pi's folder-aware header.
 	cwd, _ := os.Getwd()
@@ -1494,13 +1503,14 @@ func (r *REPL) runLoop(rl *readline.Instance) error {
 			return err
 		}
 
-		// If we were in paste mode, the readline buffer only has the last
-		// line's characters (newlines were swallowed). Replace with the
-		// accumulated paste buffer which has all the newlines.
-		if r.pasteBuf != nil {
-			line = string(r.pasteBuf)
-			r.pasteBuf = nil
+		// A bracketed paste kept its embedded newlines as sentinel runes so the
+		// whole paste stayed on one edit line. Restore them to real newlines now
+		// that the user has submitted, so it reaches the LLM as one prompt.
+		if strings.ContainsRune(line, pasteSentinel) {
+			line = strings.ReplaceAll(line, string(pasteSentinel), "\n")
 		}
+		r.pasteMode = false
+		r.pasteCount = 0
 
 		input := strings.TrimSpace(line)
 		if input == "" {
@@ -1639,55 +1649,9 @@ func (r *REPL) processInput(input string) error {
 // passes through so normal line editing (including Ctrl+C to clear the line)
 // works unchanged.
 //
-// Paste detection: when \n (CharEnter/CharCtrlJ) arrives within 100ms of the
-// previous \n, we're in a paste. The \n is swallowed so readline doesn't
-// submit the line — the buffer accumulates all pasted content. A Painter
-// shows "[Pasted +N lines]" instead of the raw buffer. When the debounce
-// timer fires (no more input for 200ms), the display updates. When the user
-// presses Enter for real (after debounce), the accumulated buffer is submitted.
+// Paste is handled upstream by bracketedPasteReader (multi-line pastes arrive
+// as one edit line), so this filter only concerns itself with tool interrupts.
 func (r *REPL) filterToolInterrupt(rn rune) (rune, bool) {
-	// Paste detection: rapid \n means paste.
-	if rn == readline.CharEnter || rn == readline.CharCtrlJ {
-		now := time.Now()
-		if !r.pasteLastNt.IsZero() && now.Sub(r.pasteLastNt) < 100*time.Millisecond {
-			// Rapid \n — this is a paste. Swallow the \n so readline
-			// doesn't submit the line. The buffer accumulates.
-			r.pasteCount++
-			r.pasteLastNt = now
-			if r.pasteTimer == nil {
-				r.pasteTimer = time.AfterFunc(200*time.Millisecond, r.pasteFlush)
-			} else {
-				r.pasteTimer.Reset(200 * time.Millisecond)
-			}
-			r.pasteMode = true
-			return rn, false // swallow: don't submit
-		}
-		r.pasteLastNt = now
-		// If we were in paste mode and this is a real Enter (after debounce),
-		// submit the accumulated buffer.
-		if r.pasteMode {
-			r.pasteMode = false
-			r.pasteCount = 0
-			r.pasteBuf = nil
-			if r.pasteTimer != nil {
-				r.pasteTimer.Stop()
-			}
-			// Return the original \n so readline submits the line.
-			return rn, true
-		}
-		return rn, true
-	}
-
-	// Non-\n rune while in paste mode: accumulate into pasteBuf.
-	if r.pasteMode {
-		r.pasteBuf = append(r.pasteBuf, rn)
-		// Reset the debounce timer on any input.
-		if r.pasteTimer != nil {
-			r.pasteTimer.Reset(200 * time.Millisecond)
-		}
-		return rn, false // swallow: keep accumulating
-	}
-
 	// Tool interrupt handling (Ctrl+C / Ctrl+Z).
 	if rn != readline.CharInterrupt && rn != readline.CharCtrlZ {
 		return rn, true
@@ -1712,11 +1676,20 @@ func (r *REPL) filterToolInterrupt(rn rune) (rune, bool) {
 	return rn, false // swallow: the tool handled it
 }
 
-// pasteFlush is called by the debounce timer when paste input stops.
-// It resets the paste timer and leaves pasteMode=true so the Painter
-// continues to show the paste summary. The next real Enter will submit.
-func (r *REPL) pasteFlush() {
-	r.pasteMode = true // keep showing the paste summary
+// onPasteState is invoked by bracketedPasteReader as a paste is decoded. A
+// start marker (active, addLines==0) resets the counter; each embedded newline
+// (active, addLines==1) bumps it. pasteMode stays set until Enter submits so the
+// Painter keeps showing "[Pasted +N lines]" for the whole paste.
+func (r *REPL) onPasteState(active bool, addLines int) {
+	if !active {
+		return
+	}
+	r.pasteMode = true
+	if addLines == 0 {
+		r.pasteCount = 0
+	} else {
+		r.pasteCount += addLines
+	}
 }
 
 // pastePainter returns a readline Painter that shows "[Pasted +N lines]"
@@ -1750,7 +1723,7 @@ func (r *REPL) newReadline() (*readline.Instance, error) {
 		AutoComplete:        r.buildCompleter(),
 		InterruptPrompt:     "(interrupt - Ctrl+D to quit)",
 		EOFPrompt:           "exit",
-		Stdin:               os.Stdin,
+		Stdin:               newBracketedPasteReader(os.Stdin, r.onPasteState),
 		Stdout:              os.Stdout,
 		FuncFilterInputRune: r.filterToolInterrupt,
 		Painter:             r.pastePainter(),
@@ -1774,6 +1747,9 @@ func (r *REPL) withCookedTerminal(fn func() error, onSuspend func()) (bool, erro
 			if rl, err := r.newReadline(); err == nil {
 				r.readlineInst = rl
 				r.rebuiltReadline = rl // hand the fresh instance back to runLoop
+				// A child (vim, less, ...) may have disabled bracketed paste;
+				// restore it for the rebuilt prompt.
+				fmt.Fprint(os.Stdout, ansiEnableBracketedPaste)
 			}
 		}()
 	}
