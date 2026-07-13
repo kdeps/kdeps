@@ -331,6 +331,16 @@ func wireREPL(repl *agent.REPL, registry *tools.Registry, flags *agentLoopFlags)
 	// Refresh in-memory model lists after /model hff download registers a new GGUF.
 	repl.SetRefreshModelsFn(func() { refreshREPLModelLists(repl) })
 
+	// Load persisted custom OpenAI-compatible endpoints and let new ones
+	// registered via "/model <base-url>" persist back.
+	if s, err := tui.LoadSettings(); err == nil {
+		endpoints := make(map[string]string, len(s.CustomOpenAIModels))
+		for _, m := range s.CustomOpenAIModels {
+			endpoints[m.Alias] = m.BaseURL
+		}
+		repl.SetCustomEndpoints(endpoints, tui.AddCustomOpenAIModel)
+	}
+
 	// Wire default-model persistence for /model default <name>.
 	repl.SetSaveDefaultFn(tui.SaveDefaultModel)
 

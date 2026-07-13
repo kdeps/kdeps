@@ -65,6 +65,25 @@ Inside the REPL, type `/help` for the full list:
 
 The default model is persisted to `~/.kdeps/agent-loop-settings.yaml` and loaded automatically at startup when `--model` is not passed.
 
+### Registering a model by URL
+
+`/model <url>` registers a custom model and switches to it. The URL kind is detected automatically:
+
+```bash
+# Direct GGUF or llamafile file - downloaded immediately, then served locally
+/model https://huggingface.co/user/repo/resolve/main/Qwen2.5-7B-Q4_K_M.gguf
+/model https://example.com/rocket-3b.Q4_K_M.llamafile
+
+# Any other http(s) URL is treated as an OpenAI-compatible endpoint
+/model http://localhost:1234/v1          # LM Studio / llama.cpp server
+/model https://api.together.xyz/v1       # a hosted compat provider
+```
+
+Registered models persist and keep appearing in `/model` and `/model <tab>`:
+
+- `.gguf` / `.llamafile` URLs are added to `~/.kdeps/gguf_versions.yaml` / `llamafile_versions.yaml` (downloaded on registration).
+- OpenAI-compatible endpoints are saved to `~/.kdeps/agent-loop-settings.yaml`. No API key is stored; if the endpoint needs one, set `OPENAI_API_KEY` (or `KDEPS_CUSTOM_API_KEY`) in your environment.
+
 ### Searching and downloading from HuggingFace
 
 `/model hff` lets you discover and download GGUF models directly from within the REPL. Set `HF_TOKEN` in your environment to authenticate (required for gated models; increases rate limits for all requests).

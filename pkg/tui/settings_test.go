@@ -146,6 +146,26 @@ func TestSaveDefaultModel(t *testing.T) {
 	assert.Equal(t, "llama3.2:1b", got.DefaultModel)
 }
 
+func TestAddCustomOpenAIModel(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+
+	require.NoError(t, AddCustomOpenAIModel("localhost-1234", "http://localhost:1234/v1"))
+	require.NoError(t, AddCustomOpenAIModel("together", "https://api.together.xyz/v1"))
+	// Same alias updates in place, not appends.
+	require.NoError(t, AddCustomOpenAIModel("localhost-1234", "http://localhost:8080/v1"))
+
+	got, err := LoadSettings()
+	require.NoError(t, err)
+	require.Len(t, got.CustomOpenAIModels, 2)
+	byAlias := map[string]string{}
+	for _, m := range got.CustomOpenAIModels {
+		byAlias[m.Alias] = m.BaseURL
+	}
+	assert.Equal(t, "http://localhost:8080/v1", byAlias["localhost-1234"])
+	assert.Equal(t, "https://api.together.xyz/v1", byAlias["together"])
+}
+
 func TestSaveDefaultModel_UpdatesExisting(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)

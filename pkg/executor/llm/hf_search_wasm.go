@@ -54,3 +54,28 @@ func HFDownloadGGUF(_ context.Context, _, _ string, _ *slog.Logger) (string, str
 }
 
 func HFRegisterGGUFEntry(_ GGUFEntry) error { return ErrHFNotSupported }
+
+func RegisterGGUFURL(_ context.Context, _ string, _ *slog.Logger) (string, error) {
+	return "", ErrHFNotSupported
+}
+
+func RegisterLlamafileURL(_ context.Context, _ string, _ *slog.Logger) (string, error) {
+	return "", ErrHFNotSupported
+}
+
+// AliasFromModelFilename mirrors the non-wasm build so callers compile.
+func AliasFromModelFilename(filename string) string {
+	if i := lastIndexByte(filename, '.'); i > 0 {
+		return filename[:i]
+	}
+	return filename
+}
+
+func lastIndexByte(s string, b byte) int {
+	for i := len(s) - 1; i >= 0; i-- {
+		if s[i] == b {
+			return i
+		}
+	}
+	return -1
+}

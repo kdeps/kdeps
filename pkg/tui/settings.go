@@ -29,6 +29,40 @@ type Settings struct {
 	// DefaultModel is the model used at startup when no --model flag is given.
 	// Set via /model default <name> in the REPL.
 	DefaultModel string `yaml:"default_model,omitempty"`
+
+	// CustomOpenAIModels are user-added OpenAI-compatible endpoints registered
+	// via "/model <base-url>". Downloaded .gguf/.llamafile URLs persist in
+	// their own version registries; only network endpoints live here.
+	CustomOpenAIModels []CustomOpenAIModel `yaml:"custom_openai_models,omitempty"`
+}
+
+// CustomOpenAIModel is a user-registered OpenAI-compatible endpoint. No API
+// key is stored; the client uses OPENAI_API_KEY / KDEPS_CUSTOM_API_KEY from
+// the environment when the endpoint requires one.
+type CustomOpenAIModel struct {
+	Alias   string `yaml:"alias"`
+	BaseURL string `yaml:"base_url"`
+}
+
+// AddCustomOpenAIModel adds or replaces a custom OpenAI-compatible endpoint by
+// alias and persists the settings file.
+func AddCustomOpenAIModel(alias, baseURL string) error {
+	s, err := LoadSettings()
+	if err != nil {
+		return err
+	}
+	replaced := false
+	for i := range s.CustomOpenAIModels {
+		if s.CustomOpenAIModels[i].Alias == alias {
+			s.CustomOpenAIModels[i].BaseURL = baseURL
+			replaced = true
+			break
+		}
+	}
+	if !replaced {
+		s.CustomOpenAIModels = append(s.CustomOpenAIModels, CustomOpenAIModel{Alias: alias, BaseURL: baseURL})
+	}
+	return s.Save()
 }
 
 // SaveDefaultModel updates only the DefaultModel field and persists the settings file.

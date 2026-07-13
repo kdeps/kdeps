@@ -187,6 +187,8 @@ type REPL struct {
 	tuiRunner          TUIRunner
 	runFn              func(context.Context, string) (string, error) // nil in production; injected in tests
 	refreshModelsFn    func()                                        // called after new model registered; nil if unset
+	customEndpoints    map[string]string                             // alias -> OpenAI-compatible base URL for user-registered endpoints
+	saveCustomEndpoint func(alias, baseURL string) error             // persists a custom endpoint; nil disables persistence
 	llmfitScore        map[string]float64                            // alias -> composite score from llmfit (0-100); nil when unavailable
 	llmfitFitLevel     map[string]string                             // alias -> fit level (Perfect/Good/Marginal/TooTight)
 	toolCancel         context.CancelFunc                            // cancels the currently running tool; nil when no tool is active
@@ -1941,6 +1943,10 @@ var tagKeywords = []string{"gguf", "llamafile", "cloud", "enabled", "cached", "i
 
 // cmdModelWithName resolves and applies the given model name argument.
 func (r *REPL) cmdModelWithName(arg string) error {
+	// A URL argument registers a custom model/endpoint before switching.
+	if r.handleCustomModelURL(arg) {
+		return nil
+	}
 	name := stripModelIndicators(arg)
 	if r.isModelName(name) {
 		r.applyModelSwitch(name)
@@ -1972,6 +1978,81 @@ func (r *REPL) cmdModelWithName(arg string) error {
 	// No model list registered: apply directly (backward compat).
 	r.applyModelSwitch(name)
 	return nil
+}
+
+// handleCustomModelURL registers a "/model <url>" argument as a custom model.
+// A .gguf/.llamafile URL is downloaded immediately and added to the local
+// registry; an OpenAI-compatible base URL is persisted and its endpoint
+// recorded. Returns true when arg was a URL (handled), false otherwise so the
+// caller falls through to normal model resolution.
+func (r *REPL) handleCustomModelURL(arg string) bool {
+	kind, alias := classifyModelArg(arg)
+	if kind == kindNotURL || alias == "" {
+		return false
+	}
+	switch kind {
+	case kindGGUFURL, kindLlamafileURL:
+		label := "GGUF"
+		reg := llm.RegisterGGUFURL
+		if kind == kindLlamafileURL {
+			label, reg = "llamafile", llm.RegisterLlamafileURL
+		}
+		fmt.Fprintf(os.Stdout, "%s\n",
+			styleReplMeta.Render("Downloading "+label+" model from "+arg+" ..."))
+		got, err := reg(r.ctx, arg, nil)
+		if err != nil {
+			fmt.Fprintf(os.Stdout, "%s\n", styleReplError.Render("Registration failed: "+err.Error()))
+			return true // handled: error shown, don't fall through to model resolution
+		}
+		alias = got
+		if r.refreshModelsFn != nil {
+			r.refreshModelsFn() // repopulate lists from the updated registry
+		}
+	case kindOpenAICompatURL:
+		r.registerCustomEndpoint(alias, arg)
+		fmt.Fprintf(os.Stdout, "%s\n",
+			styleReplMeta.Render("Registered OpenAI-compatible endpoint "+alias+" -> "+arg))
+	case kindNotURL:
+		return false
+	}
+	r.applyModelSwitch(alias)
+	return true
+}
+
+// registerCustomEndpoint records a custom OpenAI-compatible endpoint for the
+// session (so applyModelSwitch can set its base URL), adds it to the model
+// lists, and persists it when a save hook is set.
+func (r *REPL) registerCustomEndpoint(alias, baseURL string) {
+	if r.customEndpoints == nil {
+		r.customEndpoints = make(map[string]string)
+	}
+	r.customEndpoints[alias] = baseURL
+	if !r.isModelName(alias) {
+		r.modelNames = append(r.modelNames, alias)
+	}
+	if r.cloudModelBackends == nil {
+		r.cloudModelBackends = make(map[string]string)
+	}
+	r.cloudModelBackends[alias] = "openai"
+	if r.providerStatus == nil {
+		r.providerStatus = make(map[string]bool)
+	}
+	r.providerStatus["openai"] = true // treat the endpoint as enabled so it shows in /model
+	if r.saveCustomEndpoint != nil {
+		if err := r.saveCustomEndpoint(alias, baseURL); err != nil {
+			fmt.Fprintf(os.Stdout, "%s\n",
+				styleReplMeta.Render("(could not persist endpoint: "+err.Error()+")"))
+		}
+	}
+}
+
+// SetCustomEndpoints seeds custom OpenAI-compatible endpoints loaded at
+// startup so they are selectable and switchable without re-registration.
+func (r *REPL) SetCustomEndpoints(endpoints map[string]string, save func(alias, baseURL string) error) {
+	r.saveCustomEndpoint = save
+	for alias, baseURL := range endpoints {
+		r.registerCustomEndpoint(alias, baseURL)
+	}
 }
 
 func (r *REPL) cmdModel(args []string) error {
@@ -2277,7 +2358,11 @@ func (r *REPL) applyModelSwitch(model string) {
 	r.loop.Session().SetTokenBudget(newLimit, model)
 	r.loop.CompactIfNeeded(r.ctx)
 	r.loop.config.Model = model
-	if backend := BackendForModel(model); backend != "" {
+	if baseURL, ok := r.customEndpoints[model]; ok {
+		// User-registered OpenAI-compatible endpoint: talk to its base URL.
+		r.loop.config.Backend = "openai"
+		r.loop.config.BaseURL = baseURL
+	} else if backend := BackendForModel(model); backend != "" {
 		r.loop.config.Backend = backend
 		r.loop.config.BaseURL = ""
 	} else {
