@@ -211,6 +211,12 @@ func TestBuildBedrockEmbedder_FailsWithoutAWSConfig(t *testing.T) {
 }
 
 func TestBuildCybertronEmbedder_ConstructsSuccessfully(t *testing.T) {
+	// Cybertron downloads the model from HuggingFace on construction. The
+	// download has no timeout, so in CI (slow/blocked egress) it hangs the whole
+	// suite instead of failing fast. Skip under -short (CI); still runs locally.
+	if testing.Short() {
+		t.Skip("skipping: requires a HuggingFace model download")
+	}
 	// Cybertron downloads models to disk; use a temp dir to avoid polluting the repo.
 	t.Setenv("CYBERTRON_MODELS_DIR", t.TempDir())
 	cfg := &domain.EmbeddingConfig{
@@ -226,6 +232,9 @@ func TestBuildCybertronEmbedder_ConstructsSuccessfully(t *testing.T) {
 }
 
 func TestBuildEmbedder_RoutesCybertron(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping: requires a HuggingFace model download")
+	}
 	t.Setenv("CYBERTRON_MODELS_DIR", t.TempDir())
 	cfg := &domain.EmbeddingConfig{Model: "BAAI/bge-small-en-v1.5", Backend: backendCybertron}
 	emb, err := buildEmbedder(context.Background(), cfg)
