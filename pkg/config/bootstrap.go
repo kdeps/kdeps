@@ -61,6 +61,9 @@ func Bootstrap(out *os.File) error {
 		return Scaffold()
 	}
 
+	// Heal a terminal a prior program left in raw mode, so the prompt below
+	// reads a line normally instead of echoing "^M"/"^C" on every key.
+	sanitizeTerminal(int(os.Stdin.Fd()))
 	reader := bufio.NewReader(os.Stdin)
 	return bootstrapInteractive(out, reader, path)
 }
