@@ -30,9 +30,7 @@ import (
 	"sync"
 	"time"
 
-	kartDomain "github.com/kdeps/kartographer/graph/domain"
-	kartInfra "github.com/kdeps/kartographer/graph/infrastructure"
-	kartUC "github.com/kdeps/kartographer/graph/usecase"
+	// graph types inlined from github.com/kdeps/kartographer (see graph.go)
 )
 
 const (
@@ -433,7 +431,7 @@ func (m *MemoryStore) BuildDependencyMap() map[string][]string {
 	return deps
 }
 
-// stringWriter captures domain.OutputWriter.WriteLine calls to a buffer.
+// stringWriter captures graphOutputWriter.WriteLine calls to a buffer.
 type stringWriter struct {
 	buf   *strings.Builder
 	lines int
@@ -448,7 +446,7 @@ func (w *stringWriter) WriteLine(content string) {
 }
 
 // FormatGraphForPrompt returns the memory relationship graph as text suitable for
-// LLM prompt injection. Uses Kartographer for graph traversal and path formatting.
+// LLM prompt injection. Uses inlined graph traversal (see graph.go).
 // Format: "A -> B -> D\nA -> C -> D". Returns empty string when no relationships exist.
 func (m *MemoryStore) FormatGraphForPrompt(maxTokens int) string {
 	deps := m.BuildDependencyMap()
@@ -456,11 +454,11 @@ func (m *MemoryStore) FormatGraphForPrompt(maxTokens int) string {
 		return ""
 	}
 
-	repo := kartInfra.NewInMemoryGraphRepository(deps)
-	formatter := kartInfra.NewArrowPathFormatter()
+	repo := newInMemoryGraphRepository(deps)
+	formatter := newArrowPathFormatter()
 	writer := &stringWriter{buf: &strings.Builder{}}
-	pathSvc := kartUC.NewPathService(formatter, writer)
-	depSvc := kartUC.NewDependencyService(repo, pathSvc)
+	pathSvc := newGraphPathService(formatter, writer)
+	depSvc := newGraphDependencyService(repo, pathSvc)
 
 	// Traverse each node to build complete graph output.
 	for key := range deps {
@@ -495,11 +493,11 @@ func (m *MemoryStore) FormatGraphNode(key string) string {
 		return ""
 	}
 
-	repo := kartInfra.NewInMemoryGraphRepository(deps)
-	formatter := kartInfra.NewArrowPathFormatter()
+	repo := newInMemoryGraphRepository(deps)
+	formatter := newArrowPathFormatter()
 	writer := &stringWriter{buf: &strings.Builder{}}
-	pathSvc := kartUC.NewPathService(formatter, writer)
-	depSvc := kartUC.NewDependencyService(repo, pathSvc)
+	pathSvc := newGraphPathService(formatter, writer)
+	depSvc := newGraphDependencyService(repo, pathSvc)
 
 	depSvc.TraverseGraph(key)
 
@@ -526,7 +524,7 @@ func (m *MemoryStore) FormatGraphNode(key string) string {
 	if revDeps := depSvc.ListReverseDependencies(key); len(revDeps) > 0 {
 		sb.WriteString("<reverse-dependencies>\n")
 		for _, dep := range revDeps {
-			path := kartDomain.NewPath([]string{dep, key}, "forward")
+			path := &graphPath{Nodes: []string{dep, key}, Direction: "forward"}
 			revWriter.WriteLine(formatter.FormatPath(path))
 		}
 		if revWriter.lines > 0 {

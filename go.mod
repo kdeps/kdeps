@@ -50,11 +50,6 @@ require (
 )
 
 require (
-	github.com/charmbracelet/log v0.4.0 // indirect
-	github.com/go-logfmt/logfmt v0.6.0 // indirect
-)
-
-require (
 	cloud.google.com/go v0.123.0 // indirect
 	cloud.google.com/go/ai v0.7.0 // indirect
 	cloud.google.com/go/aiplatform v1.125.0 // indirect
@@ -137,7 +132,6 @@ require (
 	github.com/gorilla/css v1.0.1 // indirect
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
 	github.com/json-iterator/go v1.1.12 // indirect
-	github.com/kdeps/kartographer v0.0.0
 	github.com/kennygrant/sanitize v1.2.4 // indirect
 	github.com/klauspost/compress v1.18.6 // indirect
 	github.com/klauspost/cpuid/v2 v2.3.0 // indirect
@@ -228,5 +222,3 @@ exclude (
 	github.com/google/generative-ai-go v0.20.0
 	github.com/google/generative-ai-go v0.20.1
 )
-
-replace github.com/kdeps/kartographer v0.0.0 => ../kartographer
