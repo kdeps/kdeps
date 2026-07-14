@@ -265,6 +265,12 @@ func runAgentLoopCmd(path string, flags *agentLoopFlags) error {
 	if cwd, cwdErr := os.Getwd(); cwdErr == nil {
 		store.SetCwd(cwd)
 	}
+
+	memStore := agent.NewMemoryStore("")
+	if cwd, cwdErr := os.Getwd(); cwdErr == nil {
+		memStore.SetCwd(cwd)
+	}
+
 	startModel, startBackend := resolveStartModel(flags, settings)
 
 	cfg := agent.Config{
@@ -276,6 +282,7 @@ func runAgentLoopCmd(path string, flags *agentLoopFlags) error {
 		Streamer:     llmAdapter,
 		ModelService: llm.NewModelService(nil),
 		Store:        store,
+		MemoryStore:  memStore,
 	}
 
 	if flags.Resume != "" {

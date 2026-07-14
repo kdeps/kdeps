@@ -202,6 +202,10 @@ var toolNameAliases = map[string]string{
 	"rag":             "retrieve_context",
 	"context_search":  "retrieve_context",
 	"semantic_search": "retrieve_context",
+	"remember":        "memory_save",
+	"memorize":        "memory_save",
+	"recall":          "memory_search",
+	"forget":          "memory_delete",
 }
 
 // toolParamAliases maps a canonical tool name to synonym parameter keys a

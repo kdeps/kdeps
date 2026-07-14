@@ -113,6 +113,7 @@ func RegisterBuiltinTools(ctx context.Context, reg *kdepstools.Registry) {
 	registerCodeIntelligenceTools(ctx, reg)
 	registerResourceTools(ctx, reg)
 	registerTaskTeamTools(reg)
+	registerMemoryTools(reg)
 	// After all tools exist, map familiar names (grep, cat, ls, ...) to them.
 	registerToolAliases(reg)
 }
@@ -1988,4 +1989,123 @@ func registerCodeIntelligenceTools(_ context.Context, reg *kdepstools.Registry) 
 			},
 		})
 	}
+}
+
+// registerMemoryTools registers LLM-callable tools for persistent memory.
+// Tools use the package-level memoryStoreInstance set during Loop construction.
+func registerMemoryTools(reg *kdepstools.Registry) {
+	// memory_save: create or update a memory entry.
+	reg.Register(&kdepstools.Tool{
+		Name:        "memory_save",
+		Description: "Save a fact to persistent memory. The memory is injected into every LLM call automatically. Use for project conventions, user preferences, key decisions, or any information that should persist across sessions. Keys should be short and descriptive.",
+		Parameters: map[string]domain.ToolParam{
+			"key": {
+				Type:        toolParamString,
+				Description: "Short, descriptive key for this memory entry",
+				Required:    true,
+			},
+			"value": {
+				Type:        toolParamString,
+				Description: "The fact or information to remember",
+				Required:    true,
+			},
+		},
+		Execute: func(args map[string]any) (string, error) {
+			if memoryStoreInstance == nil {
+				return "", errors.New("memory_save: memory store is not configured")
+			}
+			key, _ := args["key"].(string)
+			value, _ := args["value"].(string)
+			if key == "" {
+				return "", errors.New("memory_save: key is required")
+			}
+			if value == "" {
+				return "", errors.New("memory_save: value is required")
+			}
+			if err := memoryStoreInstance.Set(key, value); err != nil {
+				return "", fmt.Errorf("memory_save: %w", err)
+			}
+			return fmt.Sprintf("Saved memory entry %q (%d bytes)", key, len(value)), nil
+		},
+	})
+
+	// memory_search: find memory entries matching a query.
+	reg.Register(&kdepstools.Tool{
+		Name:        "memory_search",
+		Description: "Search persistent memory for entries matching a query. Returns matching key-value pairs. Use to recall previously saved facts, preferences, or decisions.",
+		Parameters: map[string]domain.ToolParam{
+			toolParamQuery: {
+				Type:        toolParamString,
+				Description: "Search query — matches against memory keys and values (case-insensitive substring)",
+				Required:    true,
+			},
+		},
+		Execute: func(args map[string]any) (string, error) {
+			if memoryStoreInstance == nil {
+				return "", errors.New("memory_search: memory store is not configured")
+			}
+			query, _ := args[toolParamQuery].(string)
+			if query == "" {
+				return "", errors.New("memory_search: query is required")
+			}
+			results := memoryStoreInstance.Search(query)
+			if len(results) == 0 {
+				return "No memory entries found.", nil
+			}
+			var sb strings.Builder
+			sb.WriteString(fmt.Sprintf("Found %d memory entries:\n", len(results)))
+			for _, entry := range results {
+				fmt.Fprintf(&sb, "- %s: %s\n", entry.Key, entry.Value)
+			}
+			return sb.String(), nil
+		},
+	})
+
+	// memory_delete: remove a memory entry.
+	reg.Register(&kdepstools.Tool{
+		Name:        "memory_delete",
+		Description: "Delete a memory entry by key. Use to remove outdated or incorrect facts from persistent memory.",
+		Parameters: map[string]domain.ToolParam{
+			"key": {
+				Type:        toolParamString,
+				Description: "Key of the memory entry to delete",
+				Required:    true,
+			},
+		},
+		Execute: func(args map[string]any) (string, error) {
+			if memoryStoreInstance == nil {
+				return "", errors.New("memory_delete: memory store is not configured")
+			}
+			key, _ := args["key"].(string)
+			if key == "" {
+				return "", errors.New("memory_delete: key is required")
+			}
+			if err := memoryStoreInstance.Delete(key); err != nil {
+				return "", fmt.Errorf("memory_delete: %w", err)
+			}
+			return fmt.Sprintf("Deleted memory entry %q.", key), nil
+		},
+	})
+
+	// memory_list: list all memory keys.
+	reg.Register(&kdepstools.Tool{
+		Name:        "memory_list",
+		Description: "List all keys in persistent memory. Returns key names only — use memory_search to find entries by content.",
+		Parameters:  map[string]domain.ToolParam{},
+		Execute: func(_ map[string]any) (string, error) {
+			if memoryStoreInstance == nil {
+				return "", errors.New("memory_list: memory store is not configured")
+			}
+			entries := memoryStoreInstance.List()
+			if len(entries) == 0 {
+				return "No memory entries.", nil
+			}
+			var sb strings.Builder
+			sb.WriteString(fmt.Sprintf("%d memory entries:\n", len(entries)))
+			for _, entry := range entries {
+				fmt.Fprintf(&sb, "- %s\n", entry.Key)
+			}
+			return sb.String(), nil
+		},
+	})
 }

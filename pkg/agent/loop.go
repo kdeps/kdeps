@@ -91,6 +91,9 @@ type Config struct {
 	PromptPaths []string
 	// Store is an optional session store for /session save|load|list|delete commands.
 	Store *SessionStore
+	// MemoryStore is an optional persistent memory store for LLM-accessible
+	// memory tools. Nil when not configured.
+	MemoryStore *MemoryStore
 	// Streamer enables streaming output in the REPL. When set, Run() uses
 	// RunStreaming() instead of the engine path for interactive turns.
 	Streamer Streamer
@@ -170,6 +173,7 @@ type Loop struct {
 	prompts       []PromptTemplate // loaded prompt templates
 	onAutoCompact func(summary string)
 	store         *SessionStore // optional persistence
+	memoryStore   *MemoryStore  // optional memory persistence
 	streamer      Streamer      // optional streaming LLM caller
 	pendingFiles  []string      // per-turn image/file attachments; cleared after buildChatConfig
 	// toolDisplayActive is read by the REPL spinner: while a running tool's
@@ -198,7 +202,7 @@ func New(eng *executor.Engine, workflow *domain.Workflow, reg *tools.Registry, c
 		session = s
 	}
 
-	return &Loop{
+	l := &Loop{
 		engine:    eng,
 		registry:  reg,
 		workflow:  workflow,
@@ -208,13 +212,26 @@ func New(eng *executor.Engine, workflow *domain.Workflow, reg *tools.Registry, c
 		skillList: skillSlice,
 		prompts:   loadPromptTemplateSlice(cfg.PromptPaths),
 		store:     cfg.Store,
+		memoryStore: cfg.MemoryStore,
 		streamer:  cfg.Streamer,
 	}
+
+	if cfg.MemoryStore != nil {
+		memoryStoreInstance = cfg.MemoryStore
+		_ = cfg.MemoryStore.Load()
+	}
+
+	return l
 }
 
 // Store returns the session store, or nil if none was configured.
 func (l *Loop) Store() *SessionStore {
 	return l.store
+}
+
+// MemoryStore returns the memory store, or nil if none was configured.
+func (l *Loop) MemoryStore() *MemoryStore {
+	return l.memoryStore
 }
 
 // Thinking returns the current thinking config (nil = disabled).
@@ -459,6 +476,11 @@ func (l *Loop) Run(ctx context.Context, input string) (string, error) {
 	// Preserve conversation history
 	l.session.Append(input, response)
 
+	// Auto-extract facts from the turn into persistent memory.
+	if l.memoryStore != nil {
+		l.memoryStore.ExtractTurn(input, response)
+	}
+
 	return response, nil
 }
 
@@ -497,6 +519,12 @@ func (l *Loop) RunStreaming(ctx context.Context, input string, w io.Writer) (str
 
 	response := stripContentToolCalls(finalContent)
 	l.session.Append(input, response)
+
+	// Auto-extract facts from the turn into persistent memory.
+	if l.memoryStore != nil {
+		l.memoryStore.ExtractTurn(input, response)
+	}
+
 	return response, nil
 }
 
@@ -965,7 +993,10 @@ func (l *Loop) dispatchStreamToolCall(tc domain.StreamedToolCall, w io.Writer) s
 
 	var args map[string]any
 	if err := json.Unmarshal([]byte(tc.Arguments), &args); err != nil {
-		args = make(map[string]any)
+		if errMsg := summarizeToolArgs(tc.Arguments); errMsg != "" {
+			return toolErrorJSON(fmt.Errorf("invalid tool call arguments JSON: %s — %w", errMsg, err))
+		}
+		return toolErrorJSON(fmt.Errorf("invalid tool call arguments JSON: %w", err))
 	}
 	// Rewrite synonym param keys (grep's "pattern" -> search_local's "query").
 	normalizeToolArgs(canonical, args)
@@ -992,7 +1023,13 @@ func (l *Loop) dispatchStreamToolCall(tc domain.StreamedToolCall, w io.Writer) s
 	}
 	result, err := tool.Execute(args)
 	if err != nil {
+		if l.memoryStore != nil {
+			l.memoryStore.ExtractToolResult(tc.Name, err.Error())
+		}
 		return toolErrorJSON(err)
+	}
+	if l.memoryStore != nil {
+		l.memoryStore.ExtractToolResult(tc.Name, result)
 	}
 	return result
 }
@@ -1066,6 +1103,14 @@ func (l *Loop) dispatchToTerminal(
 	}()
 
 	result, execErr := tool.Execute(args)
+	// Auto-extract memory from tool results.
+	if l.memoryStore != nil {
+		if execErr != nil {
+			l.memoryStore.ExtractToolResult(name, execErr.Error())
+		} else {
+			l.memoryStore.ExtractToolResult(name, result)
+		}
+	}
 	close(stopMon)
 	monWg.Wait()
 	l.toolDisplayActive.Store(false)
@@ -1182,6 +1227,19 @@ func (l *Loop) buildSystemPreamble() string {
 	}
 	if l.config.SystemPrompt != "" {
 		parts = append(parts, l.config.SystemPrompt)
+	}
+	// Inject persistent memory so the LLM sees known facts on every turn.
+	if l.memoryStore != nil {
+		// Rule #1: check memory before acting.
+		parts = append(parts,
+			"Rule #1 — Check memory first. Before taking ANY action, use memory_search "+
+				"and memory_list to see what is already known about the task. Memory contains "+
+				"persistent facts, previous tool call results, and past actions. Every tool "+
+				"call automatically creates a memory entry — use them to avoid redundant work. "+
+				"To persist a fact, write [MEMORY: key] value on its own line.")
+		if memPrompt := l.memoryStore.FormatForPrompt(500); memPrompt != "" {
+			parts = append(parts, memPrompt)
+		}
 	}
 
 	preamble := strings.Join(parts, "\n\n")
@@ -1401,6 +1459,13 @@ func (l *Loop) CompactWithLLM(_ context.Context) (string, error) {
 	}
 
 	l.session.CompactWith(summary, toKeep, compactedTurns)
+
+	// Auto-capture structured sections into persistent memory so the LLM
+	// retains key decisions and critical context across compaction cycles.
+	if l.memoryStore != nil {
+		l.memoryStore.AutoCapture(summary)
+	}
+
 	return summary, nil
 }
 
