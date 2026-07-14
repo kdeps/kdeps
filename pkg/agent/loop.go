@@ -1237,6 +1237,14 @@ func (l *Loop) buildSystemPreamble() string {
 				"persistent facts, previous tool call results, and past actions. Every tool "+
 				"call automatically creates a memory entry — use them to avoid redundant work. "+
 				"To persist a fact, write [MEMORY: key] value on its own line.")
+		// Rule #2: progressively save memory entries.
+		parts = append(parts,
+			"Rule #2 — Save memory progressively. Every few turns, pause to save "+
+				"important facts, decisions, and progress using memory_save or "+
+				"[MEMORY: key] value. Ask: what will be useful to remember next session? "+
+				"Save goals as 'prompt:*', decisions as 'decision:*', progress as "+
+				"'progress:*', and results as 'result:*'. Entries auto-link into a graph "+
+				"showing the workflow chain from prompt → tool calls → results → status.")
 		if memPrompt := l.memoryStore.FormatForPrompt(500); memPrompt != "" {
 			parts = append(parts, memPrompt)
 		}

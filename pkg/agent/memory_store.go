@@ -982,6 +982,37 @@ func inferType(key string) string {
 // AutoCapture parses a compaction summary and saves structured sections to the
 // MemoryStore. Extracts "## Key Decisions" and "## Critical Context" sections.
 // Returns the number of entries captured. No-op when cwd has not been set.
+// checkpointSummaryKey is the memory key for compaction checkpoint snapshots.
+const checkpointSummaryKey = "checkpoint:summary"
+
+// extractSectionText returns the text content of a markdown section by header name.
+func extractSectionText(summary, header string) string {
+	start := strings.Index(summary, header)
+	if start < 0 {
+		return ""
+	}
+	body := summary[start+len(header):]
+	if end := strings.Index(body, "\n## "); end >= 0 {
+		body = body[:end]
+	}
+	return strings.TrimSpace(body)
+}
+
+// buildCheckpointText condenses a compaction summary into a brief checkpoint
+// containing all available sections.
+func buildCheckpointText(summary string) string {
+	var parts []string
+	for _, header := range []string{
+		"## Goal", "## Progress", "## Key Decisions", "## Critical Context",
+	} {
+		if text := extractSectionText(summary, header); text != "" {
+			label := strings.TrimPrefix(header, "## ")
+			parts = append(parts, label+": "+strings.ReplaceAll(text, "\n", " "))
+		}
+	}
+	return strings.Join(parts, " | ")
+}
+
 func (m *MemoryStore) AutoCapture(summary string) int {
 	if m.path == "" || summary == "" {
 		return 0
@@ -991,6 +1022,25 @@ func (m *MemoryStore) AutoCapture(summary string) int {
 	var captured int
 
 	m.mu.Lock()
+
+	// 1. Save a checkpoint summary snapshot — a condensed view of Goal + Progress.
+	if checkpointText := buildCheckpointText(summary); checkpointText != "" {
+		entry := MemoryEntry{
+			Key: checkpointSummaryKey, Value: checkpointText,
+			Type: memTypeStatus, CreatedAt: now, UpdatedAt: now,
+		}
+		if existing, ok := m.entries[checkpointSummaryKey]; ok {
+			entry.CreatedAt = existing.CreatedAt
+			// Auto-link to the parent type.
+			if parentKey := m.findParentKey(memTypeStatus); parentKey != "" {
+				entry.References = append(existing.References, parentKey)
+			}
+		}
+		m.entries[checkpointSummaryKey] = entry
+		captured++
+	}
+
+	// 2. Extract individual entries from Key Decisions and Critical Context.
 	for _, section := range []string{"## Key Decisions", "## Critical Context"} {
 		for _, entry := range autoCaptureSection(summary, section) {
 			// Preserve original CreatedAt on overwrite.

@@ -215,6 +215,19 @@ Models trained on other agent frameworks or shell habits often call tools by fam
 
 Aliases whose target tool is not registered (e.g. a credential-gated search) are simply not created.
 
+### Memory tools
+
+Always available. No environment variables required.
+
+| Tool | Description |
+|------|-------------|
+| `memory_save` | Save a fact to persistent memory. Injected into every LLM call automatically. |
+| `memory_search` | Search memory entries by key or value (case-insensitive substring). |
+| `memory_delete` | Remove a memory entry by key. |
+| `memory_list` | List all stored memory keys. |
+
+Memory is stored per-project at `~/.kdeps/memory/<encoded-cwd>/memory.jsonl`. Facts persist across sessions and are auto-extracted from every turn — the agent can write `[MEMORY: key] value` on its own line to persist a fact without calling `memory_save`. See [Persistent Memory](/concepts/memory) for details.
+
 ### Shell execution
 
 `bash_exec` runs any shell command and streams output to the terminal. Two keyboard shortcuts change its behavior mid-run:

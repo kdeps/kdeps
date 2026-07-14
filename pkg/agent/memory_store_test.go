@@ -735,7 +735,7 @@ Build a memory system.
 `
 
 	captured := store.AutoCapture(summary)
-	assert.Equal(t, 2, captured)
+	assert.Equal(t, 3, captured) // checkpoint + 2 decisions
 
 	e1, ok := store.Get("use_jsonl")
 	require.True(t, ok)
@@ -760,7 +760,7 @@ func TestAutoCapture_CriticalContext(t *testing.T) {
 `
 
 	captured := store.AutoCapture(summary)
-	assert.Equal(t, 2, captured)
+	assert.Equal(t, 3, captured) // checkpoint + 2 context entries
 
 	e, ok := store.Get("api_endpoint")
 	require.True(t, ok)
@@ -787,7 +787,12 @@ Just a goal, no decisions.
 ### Done
 - [x] Something
 `
-	assert.Equal(t, 0, store.AutoCapture(summary))
+	assert.Equal(t, 1, store.AutoCapture(summary)) // checkpoint only
+
+	// Verify the checkpoint entry exists.
+	e, ok := store.Get(checkpointSummaryKey)
+	assert.True(t, ok)
+	assert.Contains(t, e.Value, "Just a goal")
 }
 
 func TestAutoCapture_DuplicateKeys(t *testing.T) {
@@ -799,7 +804,7 @@ func TestAutoCapture_DuplicateKeys(t *testing.T) {
 	summary1 := `## Key Decisions
 - **language**: Go
 `
-	assert.Equal(t, 1, store.AutoCapture(summary1))
+	assert.Equal(t, 2, store.AutoCapture(summary1)) // checkpoint + 1 decision
 	e1, _ := store.Get("language")
 	assert.Equal(t, "Go", e1.Value)
 
@@ -807,7 +812,7 @@ func TestAutoCapture_DuplicateKeys(t *testing.T) {
 	summary2 := `## Key Decisions
 - **language**: Go 1.26 with new features
 `
-	assert.Equal(t, 1, store.AutoCapture(summary2))
+	assert.Equal(t, 2, store.AutoCapture(summary2)) // checkpoint + 1 decision
 	e2, _ := store.Get("language")
 	assert.Equal(t, "Go 1.26 with new features", e2.Value)
 	assert.Equal(t, e1.CreatedAt, e2.CreatedAt)           // preserved
@@ -822,7 +827,7 @@ func TestAutoCapture_SkipsNone(t *testing.T) {
 	summary := `## Critical Context
 - (none)
 `
-	assert.Equal(t, 0, store.AutoCapture(summary))
+	assert.Equal(t, 1, store.AutoCapture(summary)) // checkpoint only, bullet skipped
 }
 
 func TestAutoCapture_Integration(t *testing.T) {
@@ -861,10 +866,10 @@ Build an omnipresent memory system for kdeps.
 `
 
 	captured := store.AutoCapture(summary)
-	assert.Equal(t, 5, captured) // 3 decisions + 2 context
+	assert.Equal(t, 6, captured) // checkpoint + 3 decisions + 2 context
 
 	// Verify entries exist.
-	for _, key := range []string{"memory_backend", "graph_library", "auto_capture_source", "project_structure", "test_count"} {
+	for _, key := range []string{"checkpoint:summary", "memory_backend", "graph_library", "auto_capture_source", "project_structure", "test_count"} {
 		_, ok := store.Get(key)
 		assert.True(t, ok, "expected key %q to exist", key)
 	}

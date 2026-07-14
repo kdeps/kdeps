@@ -1542,3 +1542,154 @@ func TestREPL_GeneratingSpinner_Integration(t *testing.T) {
 			"spinner must not appear when the model responds quickly")
 	})
 }
+
+// TestRunStreaming_MemoryTools_SaveSearch verifies that memory_save and
+// memory_search tools work end-to-end through RunStreaming with a mock
+// streamer that simulates the LLM calling them.
+func TestRunStreaming_MemoryTools_SaveSearch(t *testing.T) {
+	store := setupMemoryStoreForTools(t)
+
+	// Tool call payloads
+	saveArgs := `{"key":"project_language","value":"Go"}`
+	searchArgs := `{"query":"project"}`
+	saveTC := domain.StreamedToolCall{ID: "1", Name: "memory_save", Arguments: saveArgs}
+	searchTC := domain.StreamedToolCall{ID: "2", Name: "memory_search", Arguments: searchArgs}
+
+	ms := &mockStreamer{
+		responses: []mockStreamResponse{
+			{content: "saved", toolCalls: []domain.StreamedToolCall{saveTC}},
+			{content: "found", toolCalls: []domain.StreamedToolCall{searchTC}},
+			{content: "the project language is Go", toolCalls: nil},
+		},
+	}
+
+	eng := executor.NewEngine(nil)
+	reg := tools.NewRegistry()
+	registerMemoryTools(reg)
+
+	loop := New(eng, newTestWorkflowForSession(), reg, Config{
+		Model:         "test",
+		Streamer:      ms,
+		MaxToolRounds: 5,
+		MemoryStore:   store,
+	})
+
+	var buf bytes.Buffer
+	result, err := loop.RunStreaming(context.Background(), "save that the project language is Go and then search for it", &buf)
+	require.NoError(t, err)
+	assert.Equal(t, "the project language is Go", result)
+
+	// Verify the fact was actually persisted in the store
+	entry, ok := store.Get("project_language")
+	require.True(t, ok, "memory_save should have persisted the fact")
+	assert.Equal(t, "Go", entry.Value)
+}
+
+// TestRunStreaming_MemoryTools_Delete verifies memory_delete works through
+// RunStreaming: save a fact, then delete it, then verify it's gone.
+func TestRunStreaming_MemoryTools_Delete(t *testing.T) {
+	store := setupMemoryStoreForTools(t)
+
+	// Pre-seed a fact
+	require.NoError(t, store.Set("temp_key", "temp_value"))
+
+	saveArgs := `{"key":"another_key","value":"another_value"}`
+	deleteArgs := `{"key":"temp_key"}`
+	saveTC := domain.StreamedToolCall{ID: "1", Name: "memory_save", Arguments: saveArgs}
+	deleteTC := domain.StreamedToolCall{ID: "2", Name: "memory_delete", Arguments: deleteArgs}
+
+	ms := &mockStreamer{
+		responses: []mockStreamResponse{
+			{content: "saved", toolCalls: []domain.StreamedToolCall{saveTC}},
+			{content: "deleted", toolCalls: []domain.StreamedToolCall{deleteTC}},
+			{content: "done", toolCalls: nil},
+		},
+	}
+
+	eng := executor.NewEngine(nil)
+	reg := tools.NewRegistry()
+	registerMemoryTools(reg)
+
+	loop := New(eng, newTestWorkflowForSession(), reg, Config{
+		Model:         "test",
+		Streamer:      ms,
+		MaxToolRounds: 5,
+		MemoryStore:   store,
+	})
+
+	var buf bytes.Buffer
+	_, err := loop.RunStreaming(context.Background(), "save another key and delete temp_key", &buf)
+	require.NoError(t, err)
+
+	// temp_key should be deleted
+	_, ok := store.Get("temp_key")
+	assert.False(t, ok, "memory_delete should have removed temp_key")
+
+	// another_key should still exist
+	entry, ok := store.Get("another_key")
+	require.True(t, ok)
+	assert.Equal(t, "another_value", entry.Value)
+}
+
+// TestRunStreaming_MemoryTools_List verifies memory_list works through
+// RunStreaming: save multiple facts, then list them.
+func TestRunStreaming_MemoryTools_List(t *testing.T) {
+	store := setupMemoryStoreForTools(t)
+
+	require.NoError(t, store.Set("key_a", "value_a"))
+	require.NoError(t, store.Set("key_b", "value_b"))
+
+	listTC := domain.StreamedToolCall{ID: "1", Name: "memory_list", Arguments: "{}"}
+
+	ms := &mockStreamer{
+		responses: []mockStreamResponse{
+			{content: "listing", toolCalls: []domain.StreamedToolCall{listTC}},
+			{content: "key_a, key_b", toolCalls: nil},
+		},
+	}
+
+	eng := executor.NewEngine(nil)
+	reg := tools.NewRegistry()
+	registerMemoryTools(reg)
+
+	loop := New(eng, newTestWorkflowForSession(), reg, Config{
+		Model:         "test",
+		Streamer:      ms,
+		MaxToolRounds: 5,
+		MemoryStore:   store,
+	})
+
+	var buf bytes.Buffer
+	result, err := loop.RunStreaming(context.Background(), "list all memory entries", &buf)
+	require.NoError(t, err)
+	assert.Equal(t, "key_a, key_b", result)
+}
+
+// TestRunStreaming_MemoryTools_NoStore verifies memory tools gracefully
+// handle a nil MemoryStore (no crash, clear error message).
+func TestRunStreaming_MemoryTools_NoStore(t *testing.T) {
+	saveTC := domain.StreamedToolCall{ID: "1", Name: "memory_save", Arguments: `{"key":"x","value":"y"}`}
+
+	ms := &mockStreamer{
+		responses: []mockStreamResponse{
+			{content: "", toolCalls: []domain.StreamedToolCall{saveTC}},
+			{content: "recovered", toolCalls: nil},
+		},
+	}
+
+	eng := executor.NewEngine(nil)
+	reg := tools.NewRegistry()
+	registerMemoryTools(reg)
+
+	loop := New(eng, newTestWorkflowForSession(), reg, Config{
+		Model:         "test",
+		Streamer:      ms,
+		MaxToolRounds: 5,
+		// MemoryStore intentionally nil
+	})
+
+	var buf bytes.Buffer
+	_, err := loop.RunStreaming(context.Background(), "save x", &buf)
+	require.NoError(t, err)
+	// Should not crash — tool returns an error result, loop recovers
+}
