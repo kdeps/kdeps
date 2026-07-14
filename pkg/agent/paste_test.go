@@ -28,7 +28,8 @@ import (
 )
 
 // readAll drains a bracketedPasteReader with a small buffer to exercise the
-// cross-Read buffering and pending-marker paths.
+// cross-Read buffering and pending-marker paths. It returns the bytes handed to
+// readline (paste bodies are NOT here — they go to onContent).
 func readAll(t *testing.T, r io.Reader) string {
 	t.Helper()
 	var sb strings.Builder
@@ -44,84 +45,87 @@ func readAll(t *testing.T, r io.Reader) string {
 	return sb.String()
 }
 
-func TestBracketedPaste_MultiLineBecomesOneLine(t *testing.T) {
+func TestBracketedPaste_BodyKeptOutOfBand(t *testing.T) {
 	sentinel := string(pasteSentinel)
 	cases := []struct {
-		name string
-		in   string
-		want string // sentinel marks preserved newlines
+		name        string
+		in          string
+		wantToRL    string   // bytes handed to readline
+		wantContent []string // bodies delivered to onContent, in order
 	}{
 		{
-			name: "three lines pasted",
-			in:   "\x1b[200~line one\nline two\nline three\x1b[201~",
-			want: "line one" + sentinel + "line two" + sentinel + "line three",
+			name:        "three lines yield one sentinel; body out of band",
+			in:          "\x1b[200~line one\nline two\nline three\x1b[201~",
+			wantToRL:    sentinel,
+			wantContent: []string{"line one\nline two\nline three"},
 		},
 		{
-			name: "crlf collapses to one sentinel",
-			in:   "\x1b[200~a\r\nb\x1b[201~",
-			want: "a" + sentinel + "b",
+			name:        "crlf collapses to one newline in the body",
+			in:          "\x1b[200~a\r\nb\x1b[201~",
+			wantToRL:    sentinel,
+			wantContent: []string{"a\nb"},
 		},
 		{
-			name: "trailing newline inside paste kept as sentinel (no submit)",
-			in:   "\x1b[200~a\nb\n\x1b[201~",
-			want: "a" + sentinel + "b" + sentinel,
+			name:        "typing around a paste is preserved; paste is one sentinel",
+			in:          "x\x1b[200~pasted\nlines\x1b[201~y\n",
+			wantToRL:    "x" + sentinel + "y\n",
+			wantContent: []string{"pasted\nlines"},
 		},
 		{
-			name: "typing after a paste then real Enter submits",
-			in:   "\x1b[200~pasted\nlines\x1b[201~ and typed\n",
-			want: "pasted" + sentinel + "lines and typed\n",
+			name:        "two pastes yield two sentinels and two bodies",
+			in:          "\x1b[200~one\x1b[201~\x1b[200~two\x1b[201~",
+			wantToRL:    sentinel + sentinel,
+			wantContent: []string{"one", "two"},
 		},
 		{
-			name: "no paste markers pass through untouched",
-			in:   "just typing\nmore\n",
-			want: "just typing\nmore\n",
-		},
-		{
-			name: "newlines outside a paste are left alone",
-			in:   "\x1b[200~x\x1b[201~\ny\n",
-			want: "x\ny\n",
+			name:        "no markers pass through untouched, no content",
+			in:          "just typing\nmore\n",
+			wantToRL:    "just typing\nmore\n",
+			wantContent: nil,
 		},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			r := newBracketedPasteReader(strings.NewReader(c.in), nil)
-			assert.Equal(t, c.want, readAll(t, r))
+			var got []string
+			r := newBracketedPasteReader(strings.NewReader(c.in), nil,
+				func(content string) { got = append(got, content) })
+			assert.Equal(t, c.wantToRL, readAll(t, r), "bytes to readline")
+			assert.Equal(t, c.wantContent, got, "paste bodies to onContent")
 		})
 	}
 }
 
 func TestBracketedPaste_MarkerSplitAcrossReads(t *testing.T) {
-	// The start marker is split so it must be reassembled from pending bytes.
+	// Both markers are split so they must be reassembled from pending bytes.
 	pieces := []string{"\x1b[2", "00~a\nb", "\x1b[20", "1~"}
-	r := newBracketedPasteReader(&chunkReader{chunks: pieces}, nil)
-	assert.Equal(t, "a"+string(pasteSentinel)+"b", readAll(t, r))
+	var got []string
+	r := newBracketedPasteReader(&chunkReader{chunks: pieces}, nil,
+		func(content string) { got = append(got, content) })
+	assert.Equal(t, string(pasteSentinel), readAll(t, r))
+	assert.Equal(t, []string{"a\nb"}, got)
 }
 
 func TestBracketedPaste_OnPasteCounts(t *testing.T) {
 	var starts, lines int
-	var ended bool
 	cb := func(active bool, addLines int) {
 		switch {
 		case active && addLines == 0:
 			starts++
 		case active:
 			lines += addLines
-		default:
-			ended = true
 		}
 	}
 	r := newBracketedPasteReader(
-		strings.NewReader("\x1b[200~a\nb\r\nc\x1b[201~"), cb)
+		strings.NewReader("\x1b[200~a\nb\r\nc\x1b[201~"), cb, nil)
 	_ = readAll(t, r)
 	assert.Equal(t, 1, starts, "one paste start")
 	assert.Equal(t, 2, lines, "two embedded newlines (\\r\\n counted once)")
-	assert.True(t, ended, "end marker reported")
 }
 
 func TestBracketedPaste_LoneEscPassesThrough(t *testing.T) {
 	// A bare ESC that never completes a marker must still be emitted (e.g. an
 	// arrow-key sequence typed normally).
-	r := newBracketedPasteReader(strings.NewReader("\x1b[A"), nil)
+	r := newBracketedPasteReader(strings.NewReader("\x1b[A"), nil, nil)
 	assert.Equal(t, "\x1b[A", readAll(t, r))
 }
 

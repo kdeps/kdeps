@@ -202,8 +202,9 @@ type REPL struct {
 	// Bracketed paste: a multi-line paste arrives wrapped in ESC[200~/ESC[201~
 	// (see bracketedPasteReader), lands as one edit line, and submits as a single
 	// prompt. These drive the "[Pasted +N lines]" Painter while it accumulates.
-	pasteCount int  // number of pasted lines in the current paste
-	pasteMode  bool // true while a paste is on the edit line
+	pasteCount    int      // number of pasted lines in the current paste
+	pasteMode     bool     // true while a paste is on the edit line
+	pasteContents []string // full body of each pending paste; a sentinel in the edit line marks where each belongs
 
 	// termSnap is the terminal's cooked mode captured before readline switches
 	// it to raw, restored on a termination signal so the tty never leaks in raw
@@ -1551,12 +1552,14 @@ func (r *REPL) runLoop(rl *readline.Instance) error {
 			return err
 		}
 
-		// A bracketed paste kept its embedded newlines as sentinel runes so the
-		// whole paste stayed on one edit line. Restore them to real newlines now
-		// that the user has submitted, so it reaches the LLM as one prompt.
-		if strings.ContainsRune(line, pasteSentinel) {
-			line = strings.ReplaceAll(line, string(pasteSentinel), "\n")
+		// Each pasted block was held as a single sentinel rune in the edit line
+		// (its real body kept out of band). Substitute each sentinel with its
+		// queued body, in order, so the paste reaches the LLM intact as one
+		// prompt while any text typed around it is preserved.
+		for _, body := range r.pasteContents {
+			line = strings.Replace(line, string(pasteSentinel), body, 1)
 		}
+		r.pasteContents = nil
 		r.pasteMode = false
 		r.pasteCount = 0
 
@@ -1636,35 +1639,28 @@ func (r *REPL) handleReadError(err error) (bool, error) {
 
 // processInput routes a non-empty input line to a command or LLM turn.
 func (r *REPL) processInput(input string) error {
-	// Single-line only: slash commands and bang commands are typed, not pasted.
-	// Multi-line input (pasted text) always goes to the LLM as literal content.
-	if !strings.Contains(input, "\n") {
-		if strings.HasPrefix(input, "/") {
-			return r.dispatchCommand(input)
-		}
-		if r.loop.config.Model == "" {
-			fmt.Fprintln(
-				os.Stdout,
-				styleReplMeta.Render("No model selected — use /model <name> to pick one, or /model list"),
-			)
-			return nil
-		}
-
-		// ! cmd  — run shell command, inject result as LLM context (pi's bang command)
-		// !! cmd — run shell command, print output but do NOT inject into LLM context
-		if strings.HasPrefix(input, "!") {
-			excludeFromContext := strings.HasPrefix(input, "!!")
-			cmd := strings.TrimSpace(strings.TrimPrefix(strings.TrimPrefix(input, "!!"), "!"))
-			if cmd != "" {
-				return r.execBangCommand(cmd, excludeFromContext)
-			}
-		}
-	} else if r.loop.config.Model == "" {
+	// Slash and bang commands are typed on one line; pasted multi-line input is
+	// always literal content for the LLM. Slash commands run without a model, so
+	// dispatch them before the model check.
+	singleLine := !strings.Contains(input, "\n")
+	if singleLine && strings.HasPrefix(input, "/") {
+		return r.dispatchCommand(input)
+	}
+	if r.loop.config.Model == "" {
 		fmt.Fprintln(
 			os.Stdout,
 			styleReplMeta.Render("No model selected — use /model <name> to pick one, or /model list"),
 		)
 		return nil
+	}
+	// ! cmd  — run shell command, inject result as LLM context (pi's bang command)
+	// !! cmd — run shell command, print output but do NOT inject into LLM context
+	if singleLine && strings.HasPrefix(input, "!") {
+		excludeFromContext := strings.HasPrefix(input, "!!")
+		cmd := strings.TrimSpace(strings.TrimPrefix(strings.TrimPrefix(input, "!!"), "!"))
+		if cmd != "" {
+			return r.execBangCommand(cmd, excludeFromContext)
+		}
 	}
 
 	expanded, imgFiles := expandFileRefsMonitored(input)
@@ -1750,6 +1746,14 @@ func (r *REPL) onPasteState(active bool, addLines int) {
 	}
 }
 
+// onPasteContent queues the full body of a completed paste. The edit line holds
+// one sentinel rune per paste (see bracketedPasteReader); on submit each
+// sentinel is replaced by the matching queued body, in order, so the readline
+// buffer never carries the large content and the screen is not redrawn.
+func (r *REPL) onPasteContent(content string) {
+	r.pasteContents = append(r.pasteContents, content)
+}
+
 // pastePainter returns a readline Painter that shows "[Pasted +N lines]"
 // instead of the raw buffer content when in paste mode.
 func (r *REPL) pastePainter() readline.Painter {
@@ -1781,7 +1785,7 @@ func (r *REPL) newReadline() (*readline.Instance, error) {
 		AutoComplete:        r.buildCompleter(),
 		InterruptPrompt:     "(interrupt - Ctrl+D to quit)",
 		EOFPrompt:           "exit",
-		Stdin:               newBracketedPasteReader(os.Stdin, r.onPasteState),
+		Stdin:               newBracketedPasteReader(os.Stdin, r.onPasteState, r.onPasteContent),
 		Stdout:              os.Stdout,
 		FuncFilterInputRune: r.filterToolInterrupt,
 		Painter:             r.pastePainter(),

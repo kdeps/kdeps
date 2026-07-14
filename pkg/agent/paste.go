@@ -27,10 +27,12 @@ const (
 	ansiEnableBracketedPaste  = "\033[?2004h"
 	ansiDisableBracketedPaste = "\033[?2004l"
 
-	// pasteSentinel replaces newlines that occur *inside* a paste. chzyer's
-	// readline self-inserts this rune (rune 30 is not a defined edit key), so
-	// the whole paste stays on one edit line and never auto-submits. The REPL
-	// restores it to '\n' when the user finally presses Enter.
+	// pasteSentinel is the single placeholder rune handed to readline for an
+	// entire paste. The real (possibly huge, multi-line) content is accumulated
+	// out of band and substituted back on submit, so readline's edit buffer holds
+	// just one rune per paste. Putting the whole paste in the buffer instead makes
+	// readline render a very long wrapped line and clear rows on every redraw.
+	// Rune 30 is not a defined readline edit key, so it is self-inserted.
 	pasteSentinel = '\x1e'
 
 	pasteStartMarker = "\x1b[200~"
@@ -43,23 +45,30 @@ const (
 // markers before chzyer/readline parses the byte stream. readline consumes ESC
 // sequences inside its own terminal loop, so a downstream FuncFilterInputRune
 // never sees the paste markers — intercepting at the byte source is the only
-// reliable hook. Inside a paste, embedded CR/LF become a sentinel rune so the
-// paste lands as a single edit line; everything else passes through untouched.
+// reliable hook. The paste body is accumulated here (never handed to readline);
+// at the end marker one sentinel rune is emitted and onContent is invoked with
+// the full text, so readline's buffer stays tiny while the REPL keeps the data.
 type bracketedPasteReader struct {
-	src     io.Reader
-	onPaste func(active bool, addLines int) // reports paste state to the REPL (for the Painter)
+	src       io.Reader
+	onPaste   func(active bool, addLines int) // reports paste state to the REPL (for the Painter)
+	onContent func(content string)            // hands the full paste body to the REPL on the end marker
 
 	pending []byte // partial ESC-marker bytes carried across Read calls
 	out     []byte // transformed bytes ready to hand to readline
 	off     int    // read cursor into out
 	inPaste bool
-	lastCR  bool // previous in-paste byte was '\r' (to collapse \r\n)
+	lastCR  bool   // previous in-paste byte was '\r' (to collapse \r\n)
+	content []byte // accumulated body of the current paste
 	err     error
 }
 
-// newBracketedPasteReader wraps src. onPaste may be nil.
-func newBracketedPasteReader(src io.Reader, onPaste func(active bool, addLines int)) *bracketedPasteReader {
-	return &bracketedPasteReader{src: src, onPaste: onPaste}
+// newBracketedPasteReader wraps src. onPaste and onContent may be nil.
+func newBracketedPasteReader(
+	src io.Reader,
+	onPaste func(active bool, addLines int),
+	onContent func(content string),
+) *bracketedPasteReader {
+	return &bracketedPasteReader{src: src, onPaste: onPaste, onContent: onContent}
 }
 
 // Close is a no-op: the wrapper never owns os.Stdin, and readline closes its
@@ -126,11 +135,15 @@ func (b *bracketedPasteReader) handleMarker(rest []byte) (int, bool) {
 	switch {
 	case markerMatch(rest, pasteStartMarker):
 		b.inPaste, b.lastCR = true, false
+		b.content = b.content[:0]
 		b.notify(true, 0)
 		return len(pasteStartMarker), false
 	case markerMatch(rest, pasteEndMarker):
 		b.inPaste, b.lastCR = false, false
-		b.notify(false, 0)
+		if b.onContent != nil {
+			b.onContent(string(b.content))
+		}
+		b.out = append(b.out, byte(pasteSentinel)) // one placeholder for the whole paste
 		return len(pasteEndMarker), false
 	case markerPrefix(rest):
 		return 0, true
@@ -138,8 +151,9 @@ func (b *bracketedPasteReader) handleMarker(rest []byte) (int, bool) {
 	return 0, false
 }
 
-// emit writes one source byte to the output, rewriting in-paste newlines to the
-// sentinel rune (collapsing \r\n) so the paste stays on a single edit line.
+// emit consumes one source byte. Outside a paste it passes through to readline;
+// inside a paste it accumulates into the body (collapsing \r\n) and emits
+// nothing, so readline never sees the (possibly huge) content.
 func (b *bracketedPasteReader) emit(c byte) {
 	if !b.inPaste {
 		b.out = append(b.out, c)
@@ -147,18 +161,18 @@ func (b *bracketedPasteReader) emit(c byte) {
 	}
 	switch c {
 	case '\r':
-		b.out = append(b.out, byte(pasteSentinel))
+		b.content = append(b.content, '\n')
 		b.lastCR = true
 		b.notify(true, 1)
 	case '\n':
 		if b.lastCR { // collapse \r\n into one newline
 			b.lastCR = false
 		} else {
-			b.out = append(b.out, byte(pasteSentinel))
+			b.content = append(b.content, '\n')
 			b.notify(true, 1)
 		}
 	default:
-		b.out = append(b.out, c)
+		b.content = append(b.content, c)
 		b.lastCR = false
 	}
 }
