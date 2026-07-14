@@ -25,6 +25,32 @@ jobs:
           fetch-depth: 0
           token: ${{ secrets.RELEASE_TOKEN }}
 
+      - name: Prune old nightly releases
+        # Delete nightly releases and their tags older than NIGHTLY_KEEP_DAYS so
+        # the Releases page and tag list stay manageable. Only touches tags that
+        # contain "-nightly<YYYYMMDD...>"; stable vX.Y.Z releases are never
+        # matched. Runs every night, independent of whether a release is cut.
+        env:
+          GH_TOKEN: ${{ secrets.RELEASE_TOKEN }}
+          NIGHTLY_KEEP_DAYS: "14"
+        run: |
+          CUTOFF=$(date -u -v-${NIGHTLY_KEEP_DAYS}d +%Y%m%d 2>/dev/null \
+            || date -u -d "${NIGHTLY_KEEP_DAYS} days ago" +%Y%m%d)
+          echo "Pruning nightly releases with date stamp before $CUTOFF"
+          gh release list --repo "$GITHUB_REPOSITORY" --limit 1000 \
+            --json tagName -q '.[].tagName' | while read -r TAG; do
+            case "$TAG" in
+              *-nightly*) ;;
+              *) continue ;;
+            esac
+            STAMP=$(printf '%s' "$TAG" | sed -n 's/.*-nightly\([0-9]\{8\}\).*/\1/p')
+            [ -z "$STAMP" ] && continue
+            if [ "$STAMP" -lt "$CUTOFF" ]; then
+              echo "Deleting $TAG (stamp $STAMP)"
+              gh release delete "$TAG" --repo "$GITHUB_REPOSITORY" --yes --cleanup-tag || true
+            fi
+          done
+
       - name: Set up Go
         uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6
         with:
