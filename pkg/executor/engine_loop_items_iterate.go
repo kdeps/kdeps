@@ -53,7 +53,7 @@ func (e *Engine) executeItemsIteration(
 			e.logger.Debug("Executing resource for item",
 				"actionID", resource.ActionID,
 				"index", i,
-				"item", ctx.Items["item"])
+				"item", redactValue(ctx.Items["item"]))
 		}
 
 		result, err := e.ExecuteResource(resource, ctx)
@@ -64,7 +64,7 @@ func (e *Engine) executeItemsIteration(
 			e.logger.Debug("Item execution result",
 				"actionID", resource.ActionID,
 				"index", i,
-				"result", result)
+				"result", redactValue(result))
 		}
 		if result == nil {
 			continue

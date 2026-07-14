@@ -100,7 +100,7 @@ func (e *Engine) runWorkflowResource(
 	ctx.SetOutput(resource.ActionID, output)
 	e.logger.Info("Resource completed",
 		"actionID", resource.ActionID,
-		"output", output)
+		"output", redactValue(output))
 	e.emitter.Emit(events.ResourceCompleted(
 		workflow.Metadata.Name, resource.ActionID, resourceTypeName(resource),
 	))

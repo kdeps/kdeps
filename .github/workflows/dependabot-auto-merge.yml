@@ -27,6 +27,8 @@ jobs:
         env:
           PR_URL: ${{ github.event.pull_request.html_url }}
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        # Approving twice (on a later synchronize) is a harmless no-op error.
+        continue-on-error: true
 
       - name: Auto-merge patch and minor updates
         if: |
@@ -36,6 +38,11 @@ jobs:
         env:
           PR_URL: ${{ github.event.pull_request.html_url }}
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        # Enabling auto-merge fails while the PR is transiently "unstable"
+        # (checks still running or a non-required check red). GitHub re-runs this
+        # workflow on the next synchronize, so tolerate the transient failure
+        # instead of marking the run red; the merge still happens once checks pass.
+        continue-on-error: true
 
       - name: Label major updates for manual review
         if: steps.metadata.outputs.update-type == 'version-update:semver-major'

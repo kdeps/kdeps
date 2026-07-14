@@ -95,14 +95,13 @@ func TestDownloadFile_RenameError(t *testing.T) {
 		t.Fatalf("failed to create dest dir: %v", err)
 	}
 
-	// downloadFile writes to dest.tmp, then tries to rename to dest.
-	// Since dest is a directory, the rename on Unix returns EISDIR.
+	// downloadFile writes to dest.tmp, then moves it onto dest. Because dest is
+	// an existing directory, the move cannot succeed and must return an error.
+	// The exact message is an implementation detail of the move library (it has
+	// changed across versions), so assert only that the failure surfaces.
 	err := downloadFile(t.Context(), ts.URL, dest)
 	if err == nil {
 		t.Fatal("expected error when dest is a directory, got nil")
-	}
-	if !strings.Contains(err.Error(), "rename") {
-		t.Errorf("expected rename error, got: %v", err)
 	}
 }
 

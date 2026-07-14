@@ -59,7 +59,7 @@ func (e *Engine) logItemEvaluation(index int, expression string, itemValue inter
 		"index", index,
 		"expression", expression,
 		"type", reflect.TypeOf(itemValue).String(),
-		"value", itemValue)
+		"value", redactValue(itemValue))
 }
 
 // expandEvaluatedItem appends a single item or expands a slice into evaluatedItems.
@@ -87,7 +87,7 @@ func (e *Engine) expandEvaluatedItem(
 			e.logger.Debug("Expanded item",
 				"parent_index", parentIndex,
 				"item_index", j,
-				"value", arrayItem)
+				"value", redactValue(arrayItem))
 		}
 		evaluatedItems = append(evaluatedItems, arrayItem)
 	}
