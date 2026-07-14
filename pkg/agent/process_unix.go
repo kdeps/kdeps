@@ -56,6 +56,35 @@ func notifySIGTSTP(sigCh chan<- os.Signal) {
 	signal.Notify(sigCh, os.Interrupt, syscall.SIGTSTP)
 }
 
+// termSnapshot holds a saved terminal mode so it can be restored on exit.
+type termSnapshot = unix.Termios
+
+// snapshotTerminal captures the terminal's current mode (the cooked state before
+// readline switches it to raw). Returns nil if fd is not a terminal.
+func snapshotTerminal(fd int) *termSnapshot {
+	t, err := unix.IoctlGetTermios(fd, ioctlReadTermios)
+	if err != nil {
+		return nil
+	}
+	return t
+}
+
+// restoreTerminalState puts the terminal back into the saved mode. It is safe to
+// call from a signal handler: readline's deferred Close does not run when the
+// process is killed by a signal, so without this a SIGTERM/SIGHUP would leave
+// the tty in raw mode (ICRNL off), making the shell echo "^M" on Enter.
+func restoreTerminalState(fd int, s *termSnapshot) {
+	if s != nil {
+		_ = unix.IoctlSetTermios(fd, ioctlWriteTermios, s)
+	}
+}
+
+// notifyTermination registers the signals that should trigger a clean shutdown
+// with terminal restoration (terminal close, kill, service stop).
+func notifyTermination(sigCh chan<- os.Signal) {
+	signal.Notify(sigCh, syscall.SIGTERM, syscall.SIGHUP)
+}
+
 // withTerminalSignals re-enables ISIG on the terminal so ^C generates SIGINT
 // instead of being delivered as a raw byte. Readline puts the terminal in raw
 // mode (ISIG off) so its line editor can intercept ^C as a character.

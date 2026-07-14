@@ -36,6 +36,7 @@ import (
 	"strings"
 	"sync"
 	"sync/atomic"
+	"syscall"
 	"time"
 
 	"github.com/charmbracelet/lipgloss"
@@ -203,6 +204,11 @@ type REPL struct {
 	// prompt. These drive the "[Pasted +N lines]" Painter while it accumulates.
 	pasteCount int  // number of pasted lines in the current paste
 	pasteMode  bool // true while a paste is on the edit line
+
+	// termSnap is the terminal's cooked mode captured before readline switches
+	// it to raw, restored on a termination signal so the tty never leaks in raw
+	// mode (which makes the shell echo "^M" on Enter).
+	termSnap *termSnapshot
 }
 
 // NewREPL creates a new REPL for the given agent loop, deriving its context
@@ -1374,6 +1380,9 @@ func (r *REPL) Run() error {
 	r.loop.config.ToolOutputWriter = &crlfWriter{w: os.Stdout}
 
 	r.historyPath = hpath
+	// Capture the cooked terminal mode before readline switches it to raw, so a
+	// termination signal can restore it (deferred cleanup does not run then).
+	r.termSnap = snapshotTerminal(int(os.Stdin.Fd()))
 	rl, err := r.newReadline()
 	if err != nil {
 		r.runPlain()
@@ -1453,9 +1462,42 @@ func (r *REPL) handleSignalSIGTSTP(sigCh chan os.Signal, bgCh chan struct{}) {
 	fmt.Fprint(os.Stdout, "\r\n")
 }
 
+// signalExitBase is the conventional shell exit-code offset for signal deaths
+// (128 + signal number, e.g. 143 for SIGTERM).
+const signalExitBase = 128
+
+// shutdownGrace bounds the best-effort local-server shutdown on signal exit so a
+// stuck server cannot keep the process alive after the terminal is restored.
+const shutdownGrace = 2 * time.Second
+
+// restoreTerminalAndExit restores the cooked terminal mode, disables bracketed
+// paste, and exits. It runs when a termination signal (SIGTERM/SIGHUP) arrives,
+// because Go's deferred cleanup (readline.Close, resetTerminal) does not run on
+// a signal-induced exit and would otherwise leave the tty in raw mode.
+func (r *REPL) restoreTerminalAndExit(sig os.Signal) {
+	// Critical and non-blocking: restore cooked mode via ioctl first, so the tty
+	// is sane no matter what happens next.
+	restoreTerminalState(int(os.Stdin.Fd()), r.termSnap)
+	// Best-effort cleanup that could block (a tty write when the reader is gone,
+	// a stuck model server) runs in the background; we exit after a bounded grace
+	// regardless, so nothing can keep the process — and its restored terminal —
+	// hanging around.
+	go func() {
+		fmt.Fprint(os.Stdout, ansiDisableBracketedPaste+"\r\n")
+		llm.ShutdownLocalServers()
+	}()
+	code := signalExitBase + int(syscall.SIGTERM)
+	if s, ok := sig.(syscall.Signal); ok {
+		code = signalExitBase + int(s)
+	}
+	time.Sleep(shutdownGrace)
+	os.Exit(code)
+}
+
 // handleSignals processes OS signals in a goroutine.
 //   - Ctrl+C (SIGINT): cancel tool or full turn.
 //   - Ctrl+Z (SIGTSTP): background tool or suspend kdeps.
+//   - SIGTERM/SIGHUP: restore the terminal and exit.
 func (r *REPL) handleSignals(sigCh chan os.Signal, done <-chan struct{}) {
 	for {
 		select {
@@ -1469,6 +1511,11 @@ func (r *REPL) handleSignals(sigCh chan os.Signal, done <-chan struct{}) {
 				r.handleSignalInterrupt(tc)
 			case sigTSTP:
 				r.handleSignalSIGTSTP(sigCh, bgCh)
+			default:
+				// SIGTERM / SIGHUP: readline's deferred restore will not run on a
+				// signal-induced exit, so restore the tty here before quitting to
+				// avoid leaving it in raw mode ("^M" on Enter in the next program).
+				r.restoreTerminalAndExit(sig)
 			}
 		case <-done:
 			return
@@ -1482,6 +1529,7 @@ func (r *REPL) runLoop(rl *readline.Instance) error {
 	// SIGTSTP (Ctrl+Z): background tool or suspend kdeps.
 	sigCh := make(chan os.Signal, 1)
 	notifySIGTSTP(sigCh)
+	notifyTermination(sigCh) // SIGTERM/SIGHUP: restore the tty before exiting
 	defer signal.Stop(sigCh)
 
 	loopDone := make(chan struct{})
@@ -1588,25 +1636,35 @@ func (r *REPL) handleReadError(err error) (bool, error) {
 
 // processInput routes a non-empty input line to a command or LLM turn.
 func (r *REPL) processInput(input string) error {
-	if strings.HasPrefix(input, "/") {
-		return r.dispatchCommand(input)
-	}
-	if r.loop.config.Model == "" {
+	// Single-line only: slash commands and bang commands are typed, not pasted.
+	// Multi-line input (pasted text) always goes to the LLM as literal content.
+	if !strings.Contains(input, "\n") {
+		if strings.HasPrefix(input, "/") {
+			return r.dispatchCommand(input)
+		}
+		if r.loop.config.Model == "" {
+			fmt.Fprintln(
+				os.Stdout,
+				styleReplMeta.Render("No model selected — use /model <name> to pick one, or /model list"),
+			)
+			return nil
+		}
+
+		// ! cmd  — run shell command, inject result as LLM context (pi's bang command)
+		// !! cmd — run shell command, print output but do NOT inject into LLM context
+		if strings.HasPrefix(input, "!") {
+			excludeFromContext := strings.HasPrefix(input, "!!")
+			cmd := strings.TrimSpace(strings.TrimPrefix(strings.TrimPrefix(input, "!!"), "!"))
+			if cmd != "" {
+				return r.execBangCommand(cmd, excludeFromContext)
+			}
+		}
+	} else if r.loop.config.Model == "" {
 		fmt.Fprintln(
 			os.Stdout,
 			styleReplMeta.Render("No model selected — use /model <name> to pick one, or /model list"),
 		)
 		return nil
-	}
-
-	// ! cmd  — run shell command, inject result as LLM context (pi's bang command)
-	// !! cmd — run shell command, print output but do NOT inject into LLM context
-	if strings.HasPrefix(input, "!") {
-		excludeFromContext := strings.HasPrefix(input, "!!")
-		cmd := strings.TrimSpace(strings.TrimPrefix(strings.TrimPrefix(input, "!!"), "!"))
-		if cmd != "" {
-			return r.execBangCommand(cmd, excludeFromContext)
-		}
 	}
 
 	expanded, imgFiles := expandFileRefsMonitored(input)

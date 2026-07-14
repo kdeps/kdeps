@@ -44,3 +44,17 @@ func resumeProcess(_ *os.Process) {}
 
 // withTerminalSignals is a no-op on Windows (no ISIG termios flag).
 func withTerminalSignals(_ int) func() { return func() {} }
+
+// termSnapshot is an empty placeholder on Windows (no termios).
+type termSnapshot = struct{}
+
+// snapshotTerminal is a no-op on Windows.
+func snapshotTerminal(_ int) *termSnapshot { return nil }
+
+// restoreTerminalState is a no-op on Windows.
+func restoreTerminalState(_ int, _ *termSnapshot) {}
+
+// notifyTermination registers SIGTERM for clean shutdown on Windows.
+func notifyTermination(sigCh chan<- os.Signal) {
+	signal.Notify(sigCh, syscall.SIGTERM)
+}

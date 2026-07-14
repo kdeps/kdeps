@@ -38,10 +38,8 @@ func redactValue(v any) string {
 		return fmt.Sprintf("[]byte(len=%d)", len(t))
 	}
 	rv := reflect.ValueOf(v)
-	switch rv.Kind() {
-	case reflect.Slice, reflect.Array, reflect.Map:
+	if k := rv.Kind(); k == reflect.Slice || k == reflect.Array || k == reflect.Map {
 		return fmt.Sprintf("%T(len=%d)", v, rv.Len())
-	default:
-		return fmt.Sprintf("%T", v)
 	}
+	return fmt.Sprintf("%T", v)
 }
