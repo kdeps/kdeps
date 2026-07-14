@@ -36,7 +36,7 @@ require (
 	github.com/slack-go/slack v0.27.0
 	github.com/spf13/afero v1.15.0
 	github.com/spf13/cobra v1.10.2
-	github.com/spf13/fileflow v0.0.0-20260609143555-4ad4d1024283
+	github.com/spf13/fileflow v0.1.0
 	github.com/spf13/pathologize v1.1.0
 	github.com/stretchr/testify v1.11.1
 	github.com/tmc/langchaingo v0.1.14
