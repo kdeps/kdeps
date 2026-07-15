@@ -491,3 +491,6 @@ linters:
       # G115: uintptr→int conversion for os.Stdin.Fd() is idiomatic for terminal detection.
       - text: 'G115:'
         linters: [ gosec ]
+      # Vendored flatted — not our code, not our responsibility
+      - path: 'kdeps-io/node_modules/flatted/'
+        linters: [ cyclop, exhaustive, funlen, gocognit, gocyclo, govet, intrange, nestif, nilnil ]

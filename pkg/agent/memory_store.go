@@ -835,14 +835,16 @@ func toolResultKey(toolName, result string) string {
 //
 //nolint:gochecknoglobals // lookup table, not mutable state
 var toolMemoryWorthy = map[string]bool{
-	"write_file":     true,
-	"edit_file":      true,
-	toolNameBashExec: true,
-	"sql_query":      true,
-	"http_request":   true,
-	"web_search":     true,
-	"web_scraper":    true,
-	"wikipedia":      true,
+	toolNameWriteFile:   true,
+	toolNameEditFile:    true,
+	toolNameBashExec:    true,
+	toolNameReadFile:    true,
+	toolNameSearchLocal: true,
+	"sql_query":         true,
+	"http_request":      true,
+	"web_search":        true,
+	"web_scraper":       true,
+	"wikipedia":         true,
 }
 
 // isToolMemoryWorthy returns true if a tool's results should be auto-captured.
