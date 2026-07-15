@@ -78,7 +78,6 @@ func RunEmbeddedPackage(ver, commit, execPath string) int {
 	os.Args = []string{ //nolint:reassign // intentional override for command dispatch
 		origArgs[0],
 		"run",
-		"--memory",
 		tmpPath,
 	} // inject args for embedded package dispatch
 	defer func() { os.Args = origArgs }() //nolint:reassign // restore original args on exit; intentional restore
