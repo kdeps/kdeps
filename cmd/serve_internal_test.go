@@ -596,17 +596,17 @@ func TestResolveSkillPaths_AbsolutePassthrough(t *testing.T) {
 // --- resolveAgentBackend ---
 
 func TestResolveAgentBackend_FromFlag(t *testing.T) {
-	assert.Equal(t, "ollama", resolveAgentBackend("ollama"))
+	assert.Equal(t, "ollama", resolveAgentBackend("ollama", ""))
 }
 
 func TestResolveAgentBackend_FromEnv(t *testing.T) {
 	t.Setenv("KDEPS_DEFAULT_BACKEND", "vllm")
-	assert.Equal(t, "vllm", resolveAgentBackend(""))
+	assert.Equal(t, "vllm", resolveAgentBackend("", ""))
 }
 
 func TestResolveAgentBackend_Default(t *testing.T) {
 	t.Setenv("KDEPS_DEFAULT_BACKEND", "")
-	assert.Equal(t, agentBackendFile, resolveAgentBackend(""))
+	assert.Equal(t, agentBackendFile, resolveAgentBackend("", ""))
 }
 
 // --- prefetchModel ---

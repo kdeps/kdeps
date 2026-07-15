@@ -229,26 +229,9 @@ func runAgentLoopCmd(path string, flags *agentLoopFlags) error {
 	// permission mode and filters tools accordingly.
 	initLeanTools(rootCtx, registry)
 
-	var (
-		hostWorkflow *domain.Workflow
-		err          error
-	)
-
-	if path != "" {
-		absPath, absErr := filepathAbsAgentLoopFunc(path)
-		if absErr != nil {
-			return fmt.Errorf("agent loop: invalid path %q: %w", path, absErr)
-		}
-		info, statErr := os.Stat(absPath)
-		if statErr != nil {
-			return fmt.Errorf("agent loop: path not found %q: %w", path, statErr)
-		}
-		hostWorkflow, err = loadAndRegisterAll(absPath, info.IsDir(), registry, flags.Debug)
-		if err != nil {
-			return err
-		}
-	} else {
-		hostWorkflow = newMinimalHostWorkflow()
+	hostWorkflow, err := resolveHostWorkflow(path, registry, flags)
+	if err != nil {
+		return err
 	}
 
 	// Load persisted settings and register discovered items accordingly.
@@ -269,6 +252,7 @@ func runAgentLoopCmd(path string, flags *agentLoopFlags) error {
 	memStore := agent.NewMemoryStore("")
 	if cwd, cwdErr := os.Getwd(); cwdErr == nil {
 		memStore.SetCwd(cwd)
+		_ = memStore.Load()
 	}
 
 	startModel, startBackend := resolveStartModel(flags, settings)
@@ -285,6 +269,12 @@ func runAgentLoopCmd(path string, flags *agentLoopFlags) error {
 		MemoryStore:  memStore,
 	}
 
+	// Restore full LLM config from persistent session memory. Only sets fields
+	// the user hasn't explicitly overridden via CLI flags.
+	if flags.Model == "" && flags.Backend == "" && flags.BaseURL == "" {
+		agent.RestoreSessionConfig(memStore, &cfg)
+	}
+
 	if flags.Resume != "" {
 		saved, loadErr := store.Load(flags.Resume)
 		if loadErr != nil {
@@ -299,7 +289,7 @@ func runAgentLoopCmd(path string, flags *agentLoopFlags) error {
 	prefetchCtx, stopPrefetchSignals := signal.NotifyContext(
 		rootCtx, os.Interrupt, syscall.SIGTERM,
 	)
-	prefetchModel(prefetchCtx, resolveAgentBackend(flags.Backend), startModel)
+	prefetchModel(prefetchCtx, resolveAgentBackend(flags.Backend, startModel), startModel)
 	interrupted := prefetchCtx.Err() != nil
 	stopPrefetchSignals()
 	if interrupted {
@@ -320,6 +310,22 @@ func runAgentLoopCmd(path string, flags *agentLoopFlags) error {
 
 	err = repl.Run()
 	return err
+}
+
+// resolveHostWorkflow loads and registers the workflow/agency at the given path.
+func resolveHostWorkflow(path string, registry *tools.Registry, flags *agentLoopFlags) (*domain.Workflow, error) {
+	if path == "" {
+		return newMinimalHostWorkflow(), nil
+	}
+	absPath, absErr := filepathAbsAgentLoopFunc(path)
+	if absErr != nil {
+		return nil, fmt.Errorf("agent loop: invalid path %q: %w", path, absErr)
+	}
+	info, statErr := os.Stat(absPath)
+	if statErr != nil {
+		return nil, fmt.Errorf("agent loop: path not found %q: %w", path, statErr)
+	}
+	return loadAndRegisterAll(absPath, info.IsDir(), registry, flags.Debug)
 }
 
 // wireREPL connects model lists, llmfit scores, pickers, and TUI runners to
@@ -380,17 +386,27 @@ func resolveStartModel(flags *agentLoopFlags, settings tui.Settings) (string, st
 			b = v
 		}
 	}
+	// Resolve backend from model name when nothing else is set (e.g., model
+	// restored from memory on resume).
+	if b == "" {
+		if backend := agent.BackendForModel(m); backend != "" {
+			b = backend
+		}
+	}
 	return m, b
 }
 
 // resolveAgentBackend returns the effective LLM backend, applying the same
-// fallback order as the LLM executor: flag -> env var -> "file" (llamafile).
-func resolveAgentBackend(flagBackend string) string {
+// fallback order as the LLM executor: flag -> env var -> model catalog -> "file" (llamafile).
+func resolveAgentBackend(flagBackend, model string) string {
 	if flagBackend != "" {
 		return flagBackend
 	}
 	if env := os.Getenv("KDEPS_DEFAULT_BACKEND"); env != "" {
 		return env
+	}
+	if backend := agent.BackendForModel(model); backend != "" {
+		return backend
 	}
 	return agentBackendFile
 }

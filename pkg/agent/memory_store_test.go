@@ -88,8 +88,8 @@ func TestMemoryStore_Set_Overwrite(t *testing.T) {
 	second, _ := store.Get("key")
 
 	assert.Equal(t, "v2", second.Value)
-	assert.Equal(t, first.CreatedAt, second.CreatedAt)                   // unchanged
-	assert.GreaterOrEqual(t, second.UpdatedAt, first.UpdatedAt)          // updated
+	assert.Equal(t, first.CreatedAt, second.CreatedAt)          // unchanged
+	assert.GreaterOrEqual(t, second.UpdatedAt, first.UpdatedAt) // updated
 }
 
 func TestMemoryStore_Delete(t *testing.T) {
@@ -304,7 +304,7 @@ func TestMemoryStore_ConcurrentAccess(t *testing.T) {
 	var wg sync.WaitGroup
 	for i := range 20 {
 		wg.Add(1)
-		go func(n int) {
+		go func(_ int) {
 			defer wg.Done()
 			_ = store.Set("concurrent_key", "value")
 			store.Get("concurrent_key")
@@ -815,8 +815,8 @@ func TestAutoCapture_DuplicateKeys(t *testing.T) {
 	assert.Equal(t, 2, store.AutoCapture(summary2)) // checkpoint + 1 decision
 	e2, _ := store.Get("language")
 	assert.Equal(t, "Go 1.26 with new features", e2.Value)
-	assert.Equal(t, e1.CreatedAt, e2.CreatedAt)           // preserved
-	assert.GreaterOrEqual(t, e2.UpdatedAt, e1.UpdatedAt)   // updated
+	assert.Equal(t, e1.CreatedAt, e2.CreatedAt)          // preserved
+	assert.GreaterOrEqual(t, e2.UpdatedAt, e1.UpdatedAt) // updated
 }
 
 func TestAutoCapture_SkipsNone(t *testing.T) {

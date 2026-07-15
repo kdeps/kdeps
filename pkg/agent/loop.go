@@ -203,22 +203,31 @@ func New(eng *executor.Engine, workflow *domain.Workflow, reg *tools.Registry, c
 	}
 
 	l := &Loop{
-		engine:    eng,
-		registry:  reg,
-		workflow:  workflow,
-		config:    cfg,
-		session:   session,
-		skills:    formatSkillsForPrompt(skillSlice),
-		skillList: skillSlice,
-		prompts:   loadPromptTemplateSlice(cfg.PromptPaths),
-		store:     cfg.Store,
+		engine:      eng,
+		registry:    reg,
+		workflow:    workflow,
+		config:      cfg,
+		session:     session,
+		skills:      formatSkillsForPrompt(skillSlice),
+		skillList:   skillSlice,
+		prompts:     loadPromptTemplateSlice(cfg.PromptPaths),
+		store:       cfg.Store,
 		memoryStore: cfg.MemoryStore,
-		streamer:  cfg.Streamer,
+		streamer:    cfg.Streamer,
 	}
 
 	if cfg.MemoryStore != nil {
 		memoryStoreInstance = cfg.MemoryStore
 		_ = cfg.MemoryStore.Load()
+
+		if wd, err := os.Getwd(); err == nil && wd != "" {
+			label := "started"
+			if cfg.ResumeSession != nil {
+				label = "resumed"
+			}
+			_ = cfg.MemoryStore.Set("session:"+label, wd)
+		}
+		l.saveSessionConfig()
 	}
 
 	return l
@@ -232,6 +241,52 @@ func (l *Loop) Store() *SessionStore {
 // MemoryStore returns the memory store, or nil if none was configured.
 func (l *Loop) MemoryStore() *MemoryStore {
 	return l.memoryStore
+}
+
+// sessionConfigJSON is the serialized LLM config persisted to memory.
+type sessionConfigJSON struct {
+	Model   string `json:"model,omitempty"`
+	Backend string `json:"backend,omitempty"`
+	BaseURL string `json:"base_url,omitempty"`
+}
+
+// saveSessionConfig persists the full LLM config to memory.
+func (l *Loop) saveSessionConfig() {
+	if l.memoryStore == nil {
+		return
+	}
+	sc := sessionConfigJSON{
+		Model:   l.config.Model,
+		Backend: l.config.Backend,
+		BaseURL: l.config.BaseURL,
+	}
+	if data, err := json.Marshal(sc); err == nil {
+		_ = l.memoryStore.Set("session:config", string(data))
+	}
+}
+
+// RestoreSessionConfig applies saved LLM config from memory to a Config pointer.
+func RestoreSessionConfig(ms *MemoryStore, cfg *Config) {
+	if ms == nil {
+		return
+	}
+	entry, ok := ms.Get("session:config")
+	if !ok {
+		return
+	}
+	var sc sessionConfigJSON
+	if err := json.Unmarshal([]byte(entry.Value), &sc); err != nil {
+		return
+	}
+	if sc.Model != "" {
+		cfg.Model = sc.Model
+	}
+	if sc.Backend != "" {
+		cfg.Backend = sc.Backend
+	}
+	if sc.BaseURL != "" {
+		cfg.BaseURL = sc.BaseURL
+	}
 }
 
 // Thinking returns the current thinking config (nil = disabled).
@@ -811,7 +866,7 @@ func summarizeToolArgs(raw string) string {
 		return truncateEllipsis(raw, toolArgMaxDisplay)
 	}
 	// Prefer file_path, then query, then url, then expression, then first string value.
-	for _, key := range []string{toolParamFilePath, toolParamQuery, "url", "expression", "command"} {
+	for _, key := range []string{toolParamFilePath, toolParamQuery, toolParamURL, toolParamExpression, toolParamCommand} {
 		if v, ok := m[key].(string); ok && v != "" {
 			return truncateEllipsis(v, toolArgMaxDisplay)
 		}
@@ -1182,13 +1237,7 @@ CRITICAL:
 // For small-context models (< 8K), non-essential parts are dropped to
 // leave room for the actual conversation.
 func (l *Loop) buildSystemPreamble() string {
-	limit := l.config.CompactTokenBudget
-	if limit <= 0 {
-		limit = l.config.AutoCompactThreshold
-	}
-	if limit <= 0 {
-		limit = 40000
-	}
+	limit := l.preambleLimit()
 	var parts []string
 
 	if l.skills != "" {
@@ -1206,46 +1255,16 @@ func (l *Loop) buildSystemPreamble() string {
 	}
 	if l.registry != nil && len(l.registry.List()) > 0 {
 		parts = append(parts, toolUseGuidance)
-		// Git attribution: commits made by the agent carry a co-author
-		// trailer naming kdeps and the model that wrote them.
-		parts = append(parts, "When you create a git commit, end the commit message with "+
-			"exactly this trailer on its own line:\n"+l.commitTrailer())
-		// Inject current date and working directory so the model has accurate temporal context.
-		now := time.Now()
-		dateStr := fmt.Sprintf(
-			"Current date: %d-%02d-%02d",
-			now.Year(),
-			int(now.Month()),
-			now.Day(),
-		)
-		if wd, err := os.Getwd(); err == nil && wd != "" {
-			parts = append(parts, dateStr+"\nWorking directory: "+wd+
-				"\n")
-		} else {
-			parts = append(parts, dateStr)
-		}
+		parts = append(parts, l.commitTrailerPreamble())
+		parts = append(parts, l.dateAndWDPreamble())
 	}
 	if l.config.SystemPrompt != "" {
 		parts = append(parts, l.config.SystemPrompt)
 	}
 	// Inject persistent memory so the LLM sees known facts on every turn.
 	if l.memoryStore != nil {
-		// Rule #1: check memory before acting.
-		parts = append(parts,
-			"Rule #1 — Check memory first. Before taking ANY action, use memory_search "+
-				"and memory_list to see what is already known about the task. Memory contains "+
-				"persistent facts, previous tool call results, and past actions. Every tool "+
-				"call automatically creates a memory entry — use them to avoid redundant work. "+
-				"To persist a fact, write [MEMORY: key] value on its own line.")
-		// Rule #2: progressively save memory entries.
-		parts = append(parts,
-			"Rule #2 — Save memory progressively. Every few turns, pause to save "+
-				"important facts, decisions, and progress using memory_save or "+
-				"[MEMORY: key] value. Ask: what will be useful to remember next session? "+
-				"Save goals as 'prompt:*', decisions as 'decision:*', progress as "+
-				"'progress:*', and results as 'result:*'. Entries auto-link into a graph "+
-				"showing the workflow chain from prompt → tool calls → results → status.")
-		if memPrompt := l.memoryStore.FormatForPrompt(500); memPrompt != "" {
+		parts = append(parts, l.memoryRulesPreamble()...)
+		if memPrompt := l.memoryStore.FormatForPrompt(memoryPromptLimit); memPrompt != "" {
 			parts = append(parts, memPrompt)
 		}
 	}
@@ -1264,6 +1283,56 @@ func (l *Loop) buildSystemPreamble() string {
 		}
 	}
 	return preamble
+}
+
+// preambleLimit returns the effective compact token budget for the preamble.
+func (l *Loop) preambleLimit() int {
+	limit := l.config.CompactTokenBudget
+	if limit <= 0 {
+		limit = l.config.AutoCompactThreshold
+	}
+	if limit <= 0 {
+		limit = 40000
+	}
+	return limit
+}
+
+// commitTrailerPreamble returns the git commit trailer instruction.
+func (l *Loop) commitTrailerPreamble() string {
+	return "When you create a git commit, end the commit message with " +
+		"exactly this trailer on its own line:\n" + l.commitTrailer()
+}
+
+// dateAndWDPreamble returns the current date and working directory string.
+func (l *Loop) dateAndWDPreamble() string {
+	now := time.Now()
+	dateStr := fmt.Sprintf(
+		"Current date: %d-%02d-%02d",
+		now.Year(),
+		int(now.Month()),
+		now.Day(),
+	)
+	if wd, err := os.Getwd(); err == nil && wd != "" {
+		return dateStr + "\nWorking directory: " + wd + "\n"
+	}
+	return dateStr
+}
+
+// memoryRulesPreamble returns the memory-related system prompt rules.
+func (l *Loop) memoryRulesPreamble() []string {
+	return []string{
+		"Rule #1 — Check memory first. Before taking ANY action, use memory_search " +
+			"and memory_list to see what is already known about the task. Memory contains " +
+			"persistent facts, previous tool call results, and past actions. Every tool " +
+			"call automatically creates a memory entry — use them to avoid redundant work. " +
+			"To persist a fact, write [MEMORY: key] value on its own line.",
+		"Rule #2 — Save memory progressively. Every few turns, pause to save " +
+			"important facts, decisions, and progress using memory_save or " +
+			"[MEMORY: key] value. Ask: what will be useful to remember next session? " +
+			"Save goals as 'prompt:*', decisions as 'decision:*', progress as " +
+			"'progress:*', and results as 'result:*'. Entries auto-link into a graph " +
+			"showing the workflow chain from prompt → tool calls → results → status.",
+	}
 }
 
 // commitTrailer returns the Co-Authored-By line for git commits made by the

@@ -670,7 +670,12 @@ func TestDispatchStreamToolCall_ErrorTruncated(t *testing.T) {
 		Parameters:  map[string]domain.ToolParam{},
 		Execute:     func(_ map[string]any) (string, error) { return "", errors.New(hugeErr) },
 	})
-	loop := New(eng, newTestWorkflowForSession(), reg, Config{Model: "test", Streamer: &mockStreamer{}})
+	loop := New(
+		eng,
+		newTestWorkflowForSession(),
+		reg,
+		Config{Model: "test", Streamer: &mockStreamer{}},
+	)
 
 	var buf bytes.Buffer
 	result := loop.dispatchStreamToolCall(
@@ -1275,7 +1280,9 @@ func (m *midTurnDropStreamer) StreamChat(
 		return "", []domain.StreamedToolCall{{ID: "1", Name: "noop", Arguments: "{}"}}, nil
 	case 2:
 		_, _ = io.WriteString(w, "partial garbage before the drop")
-		return "", nil, errors.New("read tcp 10.0.0.1:1->2.2.2.2:443: read: connection reset by peer")
+		return "", nil, errors.New(
+			"read tcp 10.0.0.1:1->2.2.2.2:443: read: connection reset by peer",
+		)
 	default:
 		_, _ = io.WriteString(w, "recovered answer")
 		return "recovered answer", nil, nil
@@ -1371,7 +1378,12 @@ func TestRunStreaming_ReconnectsLocalModelOnTransientError(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, "hello after reconnect", result)
 	assert.True(t, served, "expected ServeModel to be called to restart the dead local server")
-	assert.Equal(t, "http://127.0.0.1:9999", loop.config.BaseURL, "expected BaseURL refreshed to reconnected server")
+	assert.Equal(
+		t,
+		"http://127.0.0.1:9999",
+		loop.config.BaseURL,
+		"expected BaseURL refreshed to reconnected server",
+	)
 }
 
 // --- dispatchToTerminal ---
@@ -1575,7 +1587,11 @@ func TestRunStreaming_MemoryTools_SaveSearch(t *testing.T) {
 	})
 
 	var buf bytes.Buffer
-	result, err := loop.RunStreaming(context.Background(), "save that the project language is Go and then search for it", &buf)
+	result, err := loop.RunStreaming(
+		context.Background(),
+		"save that the project language is Go and then search for it",
+		&buf,
+	)
 	require.NoError(t, err)
 	assert.Equal(t, "the project language is Go", result)
 
@@ -1668,7 +1684,11 @@ func TestRunStreaming_MemoryTools_List(t *testing.T) {
 // TestRunStreaming_MemoryTools_NoStore verifies memory tools gracefully
 // handle a nil MemoryStore (no crash, clear error message).
 func TestRunStreaming_MemoryTools_NoStore(t *testing.T) {
-	saveTC := domain.StreamedToolCall{ID: "1", Name: "memory_save", Arguments: `{"key":"x","value":"y"}`}
+	saveTC := domain.StreamedToolCall{
+		ID:        "1",
+		Name:      "memory_save",
+		Arguments: `{"key":"x","value":"y"}`,
+	}
 
 	ms := &mockStreamer{
 		responses: []mockStreamResponse{

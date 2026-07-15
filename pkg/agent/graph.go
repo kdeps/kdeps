@@ -22,12 +22,6 @@ package agent
 
 import "strings"
 
-// graphNode represents a node in the dependency graph.
-type graphNode struct {
-	ID           string
-	Dependencies []string
-}
-
 // graphPath represents a path through the dependency graph.
 type graphPath struct {
 	Nodes     []string

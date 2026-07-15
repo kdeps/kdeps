@@ -91,7 +91,7 @@ func registerSearchLocalTool(_ context.Context, reg *kdepstools.Registry) {
 	exec := execSearch.NewExecutor()
 
 	reg.Register(&kdepstools.Tool{
-		Name:        "search_local",
+		Name:        toolNameSearchLocal,
 		Description: "Search for text patterns in local files using ripgrep. Returns matching files with line numbers and content. Use for finding usages, patterns, or strings across the codebase. Requires: path (directory to search), query (search term). Optional: glob (file pattern).",
 		Parameters: map[string]domain.ToolParam{
 			toolParamPath: {

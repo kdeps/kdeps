@@ -1766,9 +1766,19 @@ type pastePainter struct {
 }
 
 func (p *pastePainter) Paint(line []rune, _ int) []rune {
-	if p.r.pasteMode && p.r.pasteCount > 0 {
-		label := fmt.Sprintf("[Pasted +%d lines]", p.r.pasteCount)
-		return []rune(label)
+	if p.r.pasteMode {
+		if p.r.pasteCount > 0 {
+			return []rune(fmt.Sprintf("[Pasted +%d lines]", p.r.pasteCount))
+		}
+		// Single-line paste: show a preview of the content.
+		if len(p.r.pasteContents) > 0 {
+			preview := p.r.pasteContents[len(p.r.pasteContents)-1]
+			if len(preview) > previewMaxLen {
+				preview = preview[:previewMaxLen] + "..."
+			}
+			return []rune("[Paste] " + preview)
+		}
+		return []rune("[Paste]")
 	}
 	return line
 }
@@ -2212,7 +2222,7 @@ func (r *REPL) registerCustomEndpoint(alias, baseURL string) {
 	if r.cloudModelBackends == nil {
 		r.cloudModelBackends = make(map[string]string)
 	}
-	r.cloudModelBackends[alias] = "openai"
+	r.cloudModelBackends[alias] = toolParamOpenAI
 	if r.providerStatus == nil {
 		r.providerStatus = make(map[string]bool)
 	}
@@ -2329,7 +2339,7 @@ func (r *REPL) cmdModelTool(args []string) error {
 		r.printToolSettings()
 		return nil
 	}
-	if args[0] != "set" {
+	if args[0] != toolNameSet {
 		fmt.Fprintf(os.Stdout, "%s\n",
 			styleReplError.Render("Unknown /model tool subcommand: "+args[0]+". Use list or set <setting> <value>."))
 		return nil
@@ -2591,7 +2601,7 @@ func (r *REPL) applyModelSwitch(model string) {
 	r.loop.config.Model = model
 	if baseURL, ok := r.customEndpoints[model]; ok {
 		// User-registered OpenAI-compatible endpoint: talk to its base URL.
-		r.loop.config.Backend = "openai"
+		r.loop.config.Backend = toolParamOpenAI
 		r.loop.config.BaseURL = baseURL
 	} else if backend := BackendForModel(model); backend != "" {
 		r.loop.config.Backend = backend
@@ -2628,6 +2638,8 @@ func (r *REPL) applyModelSwitch(model string) {
 		return
 	}
 	r.loop.Session().SetTokenBudget(newLimit, model)
+	// Persist full LLM config so it's restored on next run.
+	r.loop.saveSessionConfig()
 	fmt.Fprintf(os.Stdout, "\n%s\n\n",
 		styleReplSuccess.Render(fmt.Sprintf("Model set to %s", model)),
 	)
@@ -3400,6 +3412,16 @@ func (r *REPL) cmdSessionLoad(store *SessionStore, id string) error {
 	if meta, metaErr := store.LoadMeta(id); metaErr == nil && meta.Model != "" {
 		r.loop.config.Model = meta.Model
 	}
+	// Save current working directory and full LLM config to memory.
+	if ms := r.loop.MemoryStore(); ms != nil {
+		if wd, wdErr := os.Getwd(); wdErr == nil && wd != "" {
+			_ = ms.Set("session:resumed", wd)
+		}
+		// Persist current model/backend/baseURL so the resumed session's
+		// config survives across restarts.
+		r.loop.saveSessionConfig()
+	}
+
 	fmt.Fprintln(os.Stdout, styleReplMeta.Render(fmt.Sprintf(
 		"Session %s loaded (%d turns).", id, r.loop.session.TurnCount(),
 	)))

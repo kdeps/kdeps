@@ -12,7 +12,7 @@ import "strings"
 //nolint:gochecknoglobals,mnd // read-only lookup table; values are well-known published token limits
 var modelContextWindows = map[string]int{
 	// === OpenAI ===
-	"gpt-4o":                 128000,
+	modelGPT4o:               128000,
 	"gpt-4o-mini":            128000,
 	"gpt-4o-2024-08-06":      128000,
 	"gpt-4o-2024-05-13":      128000,
@@ -95,7 +95,7 @@ var modelContextWindows = map[string]int{
 	// === Cohere ===
 	"command-r-plus": 128000,
 	"command-r":      128000,
-	"command":        4096,
+	toolParamCommand: 4096,
 	"command-light":  4096,
 
 	// === xAI / Grok ===

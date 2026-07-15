@@ -123,7 +123,7 @@ func RegisterBuiltinTools(ctx context.Context, reg *kdepstools.Registry) {
 func registerCalculator(ctx context.Context, reg *kdepstools.Registry) {
 	calc := lctools.Calculator{}
 	reg.Register(&kdepstools.Tool{
-		Name:        "calculator",
+		Name:        toolNameCalculator,
 		Description: "Evaluate a mathematical expression and return the result. Accepts any valid numeric expression (e.g. '2 + 2', '3.14 * 10**2', 'sqrt(16)'). Powered by Starlark math evaluation.",
 		Parameters: map[string]domain.ToolParam{
 			"expression": {
@@ -162,7 +162,7 @@ func requireAbsFilePath(toolName string, args map[string]any) (string, error) {
 // No API key required.
 func registerReadFile(reg *kdepstools.Registry) {
 	reg.Register(&kdepstools.Tool{
-		Name:        "read_file",
+		Name:        toolNameReadFile,
 		Description: "Read a file from the local filesystem. Returns the file contents as text. Use for reading source code, configuration files, documentation, Makefiles, or any text-based file the agent needs to understand.",
 		Parameters: map[string]domain.ToolParam{
 			toolParamFilePath: {
@@ -248,7 +248,7 @@ func readLocalFile(filePath string, args map[string]any) (string, error) {
 // No API key required.
 func registerWriteFile(reg *kdepstools.Registry) {
 	reg.Register(&kdepstools.Tool{
-		Name:        "write_file",
+		Name:        toolNameWriteFile,
 		Description: "Write or overwrite a text file on the local filesystem. Creates a new file if it does not exist; overwrites existing files entirely. Use for creating or updating configuration files, source code, scripts, or any text-based file. Requires an absolute path.",
 		Parameters: map[string]domain.ToolParam{
 			toolParamFilePath: {
@@ -295,7 +295,7 @@ func registerWriteFile(reg *kdepstools.Registry) {
 // No API key required.
 func registerEditFile(reg *kdepstools.Registry) {
 	reg.Register(&kdepstools.Tool{
-		Name:        "edit_file",
+		Name:        toolNameEditFile,
 		Description: "Replace a string in a file with a new string. Reads the file, finds the exact old_string (must match exactly, including whitespace), and replaces it with new_string. Use for targeted edits without providing the entire file content. Requires an absolute path. The old_string must be unique in the file.",
 		Parameters: map[string]domain.ToolParam{
 			toolParamFilePath: {
@@ -423,10 +423,10 @@ func coloredDiff(oldStr, newStr, filePath string) string {
 // Lists files and directories at a given path. No API key required.
 func registerListFiles(reg *kdepstools.Registry) {
 	reg.Register(&kdepstools.Tool{
-		Name:        "list_files",
+		Name:        toolNameListFiles,
 		Description: "List files and directories in a given directory path. Returns names and types (file/dir). Use to discover project structure before reading or editing files. Requires an absolute path.",
 		Parameters: map[string]domain.ToolParam{
-			"path": {
+			toolParamPath: {
 				Type:        toolParamString,
 				Description: "Absolute path to the directory to list",
 				Required:    true,
@@ -536,7 +536,7 @@ func registerWebScraper(ctx context.Context, reg *kdepstools.Registry, cache *we
 		return
 	}
 	reg.Register(&kdepstools.Tool{
-		Name:        "web_scraper",
+		Name:        toolNameWebScraper,
 		Description: "Fetch and extract readable text content from any web URL. Returns page title, headers, body content, and links. Use when you need to read a specific web page, article, or documentation URL.",
 		Parameters: map[string]domain.ToolParam{
 			"url": {
@@ -986,7 +986,6 @@ const (
 func toolCallCtxTimeout(
 	fallback context.Context, args map[string]any, d time.Duration,
 ) (context.Context, context.CancelFunc) {
-	//nolint:gosec // the cancel func is returned to and invoked by the caller
 	return context.WithTimeout(toolCallCtx(fallback, args), d)
 }
 
@@ -1050,7 +1049,7 @@ func registerBashExec(ctx context.Context, reg *kdepstools.Registry) {
 		Name:        toolNameBashExec,
 		Description: "Execute a bash shell command and return its output. Use for running scripts, checking system state (git status, ls, etc.), or performing file operations. Press Ctrl+C to interrupt (partial output returned to LLM); press Ctrl+Z to background (use bash_job_wait to retrieve output).",
 		Parameters: map[string]domain.ToolParam{
-			"command": {
+			toolParamCommand: {
 				Type:        toolParamString,
 				Description: "The bash command to execute",
 				Required:    true,
@@ -1868,7 +1867,7 @@ func codeIntelligenceToolDefs() []codeToolDef {
 					Description: "Symbol name or search pattern",
 					Required:    true,
 				},
-				"path": {
+				toolParamPath: {
 					Type:        toolParamString,
 					Description: "File or directory to search (absolute path)",
 					Required:    true,
@@ -1994,7 +1993,13 @@ func registerCodeIntelligenceTools(_ context.Context, reg *kdepstools.Registry) 
 // registerMemoryTools registers LLM-callable tools for persistent memory.
 // Tools use the package-level memoryStoreInstance set during Loop construction.
 func registerMemoryTools(reg *kdepstools.Registry) {
-	// memory_save: create or update a memory entry.
+	registerMemorySaveTool(reg)
+	registerMemorySearchTool(reg)
+	registerMemoryDeleteTool(reg)
+	registerMemoryListTool(reg)
+}
+
+func registerMemorySaveTool(reg *kdepstools.Registry) {
 	reg.Register(&kdepstools.Tool{
 		Name:        "memory_save",
 		Description: "Save a fact to persistent memory. The memory is injected into every LLM call automatically. Use for project conventions, user preferences, key decisions, or any information that should persist across sessions. Keys should be short and descriptive.",
@@ -2028,8 +2033,9 @@ func registerMemoryTools(reg *kdepstools.Registry) {
 			return fmt.Sprintf("Saved memory entry %q (%d bytes)", key, len(value)), nil
 		},
 	})
+}
 
-	// memory_search: find memory entries matching a query.
+func registerMemorySearchTool(reg *kdepstools.Registry) {
 	reg.Register(&kdepstools.Tool{
 		Name:        "memory_search",
 		Description: "Search persistent memory for entries matching a query. Returns matching key-value pairs. Use to recall previously saved facts, preferences, or decisions.",
@@ -2053,15 +2059,16 @@ func registerMemoryTools(reg *kdepstools.Registry) {
 				return "No memory entries found.", nil
 			}
 			var sb strings.Builder
-			sb.WriteString(fmt.Sprintf("Found %d memory entries:\n", len(results)))
+			fmt.Fprintf(&sb, "Found %d memory entries:\n", len(results))
 			for _, entry := range results {
 				fmt.Fprintf(&sb, "- %s: %s\n", entry.Key, entry.Value)
 			}
 			return sb.String(), nil
 		},
 	})
+}
 
-	// memory_delete: remove a memory entry.
+func registerMemoryDeleteTool(reg *kdepstools.Registry) {
 	reg.Register(&kdepstools.Tool{
 		Name:        "memory_delete",
 		Description: "Delete a memory entry by key. Use to remove outdated or incorrect facts from persistent memory.",
@@ -2086,8 +2093,9 @@ func registerMemoryTools(reg *kdepstools.Registry) {
 			return fmt.Sprintf("Deleted memory entry %q.", key), nil
 		},
 	})
+}
 
-	// memory_list: list all memory keys.
+func registerMemoryListTool(reg *kdepstools.Registry) {
 	reg.Register(&kdepstools.Tool{
 		Name:        "memory_list",
 		Description: "List all keys in persistent memory. Returns key names only — use memory_search to find entries by content.",
@@ -2101,7 +2109,7 @@ func registerMemoryTools(reg *kdepstools.Registry) {
 				return "No memory entries.", nil
 			}
 			var sb strings.Builder
-			sb.WriteString(fmt.Sprintf("%d memory entries:\n", len(entries)))
+			fmt.Fprintf(&sb, "%d memory entries:\n", len(entries))
 			for _, entry := range entries {
 				fmt.Fprintf(&sb, "- %s\n", entry.Key)
 			}

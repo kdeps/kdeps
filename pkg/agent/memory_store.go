@@ -29,15 +29,23 @@ import (
 	"strings"
 	"sync"
 	"time"
-
-	// graph types inlined from github.com/kdeps/kartographer (see graph.go)
+	// graph types inlined from github.com/kdeps/kartographer (see graph.go).
 )
 
 const (
-	memoryDir        = ".kdeps/memory"
-	memoryFileName   = "memory.jsonl"
-	memoryMaxLine    = 1 << 20 // 1 MiB max line
-	memoryMaxTokens  = 2000   // default max tokens for prompt injection
+	memoryDir       = ".kdeps/memory"
+	memoryFileName  = "memory.jsonl"
+	memoryMaxLine   = 1 << 20 // 1 MiB max line
+	memoryMaxTokens = 2000    // default max tokens for prompt injection
+
+	// Memory formatting constants.
+	memoryHalfDivisor     = 2   // split token budget between entries and graph
+	memoryXMLOverhead     = 30  // bytes per entry for XML tags in prompt
+	memoryMaxKeyLength    = 80  // max chars for a memory key
+	memoryMaxFirstLine    = 40  // max chars for tool result first line
+	memoryMaxDerivedKey   = 30  // max chars for derived tool result key
+	memoryMaxValuePreview = 300 // max chars for value preview in search results
+	memoryPromptTokens    = 500 // default tokens for memory prompt injection
 )
 
 // memoryStoreInstance is set during Loop construction so memory tools
@@ -78,10 +86,10 @@ const (
 // MemoryStore persists per-project memory as a JSONL file.
 // Entries are cached in memory for fast access and written through on mutation.
 type MemoryStore struct {
-	mu      sync.RWMutex
-	basePath string              // root directory for memory files
-	path    string              // resolved path to the JSONL file (empty until SetCwd)
-	entries map[string]MemoryEntry // key → entry
+	mu       sync.RWMutex
+	basePath string                 // root directory for memory files
+	path     string                 // resolved path to the JSONL file (empty until SetCwd)
+	entries  map[string]MemoryEntry // key → entry
 }
 
 // NewMemoryStore creates a memory store rooted at basePath.
@@ -181,7 +189,7 @@ func (m *MemoryStore) Save() error {
 	var writeErr error
 	for _, entry := range entries {
 		if writeErr = enc.Encode(entry); writeErr != nil {
-			f.Close()
+			_ = f.Close()
 			_ = AppFS.Remove(tmpPath)
 			return fmt.Errorf("memory store: write: %w", writeErr)
 		}
@@ -314,7 +322,7 @@ func (m *MemoryStore) SetRelation(key, relatedKey string) error {
 		m.mu.Unlock()
 		return fmt.Errorf("memory store: key %q not found", key)
 	}
-	if _, ok := m.entries[relatedKey]; !ok {
+	if _, exists := m.entries[relatedKey]; !exists {
 		m.mu.Unlock()
 		return fmt.Errorf("memory store: related key %q not found", relatedKey)
 	}
@@ -471,7 +479,7 @@ func (m *MemoryStore) FormatGraphForPrompt(maxTokens int) string {
 
 	output := writer.buf.String()
 	if maxTokens <= 0 {
-		maxTokens = memoryMaxTokens / 2 // half for entries, half for graph
+		maxTokens = memoryMaxTokens / memoryHalfDivisor // half for entries, half for graph
 	}
 	maxBytes := maxTokens * charsPerToken
 	if len(output) > maxBytes {
@@ -568,7 +576,7 @@ func (m *MemoryStore) FormatForPrompt(maxTokens int) string {
 	keep := make(map[string]bool, len(entries))
 	used := 0
 	for i := len(byAge) - 1; i >= 0; i-- {
-		entryBytes := len(byAge[i].Key) + len(byAge[i].Value) + 30 // 30 for XML tags
+		entryBytes := len(byAge[i].Key) + len(byAge[i].Value) + memoryXMLOverhead
 		if used+entryBytes > maxBytes && len(keep) > 0 {
 			continue
 		}
@@ -630,20 +638,20 @@ func sanitizeMemoryKey(raw string) string {
 		}
 		return -1
 	}, key)
-	if len(key) > 80 {
-		key = key[:80]
+	if len(key) > memoryMaxKeyLength {
+		key = key[:memoryMaxKeyLength]
 	}
 	return key
 }
 
 // parseBulletLine extracts a key and value from a markdown bullet line.
 // Bullets look like "- **key**: value" or "- value".
-func parseBulletLine(line string) (key, value string) {
+func parseBulletLine(line string) (string, string) {
 	content := strings.TrimPrefix(strings.TrimSpace(line), "- ")
 	content = strings.TrimSpace(content)
 	content = strings.ReplaceAll(content, "**", "")
 
-	key, value = content, content
+	key, value := content, content
 	if idx := strings.Index(content, ": "); idx >= 0 {
 		key = strings.TrimSpace(content[:idx])
 		value = strings.TrimSpace(content[idx+2:])
@@ -679,7 +687,7 @@ func autoCaptureSection(summary, header string) []MemoryEntry {
 	return entries
 }
 
-// memoryMarkerRe matches explicit memory markers: [MEMORY: key] value
+// memoryMarkerRe matches explicit memory markers: [MEMORY: key] value.
 var memoryMarkerRe = regexp.MustCompile(`\[MEMORY:\s*([^\]]+)\]\s*(.+)`)
 
 // extractTurnFacts uses heuristics to pull facts from a turn without an LLM call.
@@ -690,7 +698,17 @@ func extractTurnFacts(userInput, assistantResponse string) []MemoryEntry {
 	var entries []MemoryEntry
 	seen := make(map[string]bool)
 
-	// 1. Explicit [MEMORY: key] value markers — highest priority.
+	entries = append(entries, extractMemoryMarkers(text, now, seen)...)
+	entries = append(entries, extractKeyValueLines(text, now, seen)...)
+	entries = append(entries, extractActionSentence(assistantResponse, now, seen)...)
+	entries = append(entries, extractFileReferences(assistantResponse, now, seen)...)
+
+	return entries
+}
+
+// extractMemoryMarkers finds [MEMORY: key] value markers in text.
+func extractMemoryMarkers(text string, now int64, seen map[string]bool) []MemoryEntry {
+	var entries []MemoryEntry
 	for _, match := range memoryMarkerRe.FindAllStringSubmatch(text, -1) {
 		key := strings.TrimSpace(match[1])
 		value := strings.TrimSpace(match[2])
@@ -702,8 +720,12 @@ func extractTurnFacts(userInput, assistantResponse string) []MemoryEntry {
 			Key: key, Value: value, CreatedAt: now, UpdatedAt: now,
 		})
 	}
+	return entries
+}
 
-	// 2. KEY: value lines (colon-separated, single line, not markdown).
+// extractKeyValueLines finds KEY: value lines (colon-separated, single line).
+func extractKeyValueLines(text string, now int64, seen map[string]bool) []MemoryEntry {
+	var entries []MemoryEntry
 	keyValRe := regexp.MustCompile(`(?m)^([A-Z][A-Z_]{2,40}):\s*(.+)$`)
 	for _, match := range keyValRe.FindAllStringSubmatch(text, -1) {
 		key := strings.ToLower(strings.TrimSpace(match[1]))
@@ -716,52 +738,66 @@ func extractTurnFacts(userInput, assistantResponse string) []MemoryEntry {
 			Key: key, Value: value, CreatedAt: now, UpdatedAt: now,
 		})
 	}
-
-	// 3. Action sentences in assistant responses: "Added/Fixed/Changed/... description"
-	// Captures the first such sentence as "last_action".
-	if !seen["last_action"] {
-		actionRe := regexp.MustCompile(
-			`(?i)(Added|Fixed|Changed|Updated|Created|Removed|Deleted|Set|Configured|Installed|Built|Deployed|Refactored|Migrated|Patched|Resolved)\s+(.+)`,
-		)
-		for _, line := range strings.Split(assistantResponse, "\n") {
-			match := actionRe.FindStringSubmatch(strings.TrimSpace(line))
-			if match == nil {
-				continue
-			}
-			action := strings.TrimSpace(match[2])
-			// Trim trailing punctuation and markdown.
-			action = strings.TrimRight(action, ".!;:`*_")
-			if len(action) < 5 || len(action) > 200 {
-				continue
-			}
-			seen["last_action"] = true
-			entries = append(entries, MemoryEntry{
-				Key: "last_action", Value: action,
-				CreatedAt: now, UpdatedAt: now,
-			})
-			break // first action sentence only
-		}
-	}
-
-	// 4. File references: capture what files were affected.
-	if !seen["last_files"] {
-		fileRe := regexp.MustCompile(`(?:Edited|Modified|Created|Read|Wrote)\s+(?:file\s+)?` + "`" + `?([~/.][^\s` + "`" + `]+)` + "`" + `?`)
-		var files []string
-		for _, match := range fileRe.FindAllStringSubmatch(assistantResponse, -1) {
-			if len(match) > 1 {
-				files = append(files, match[1])
-			}
-		}
-		if len(files) > 0 {
-			seen["last_files"] = true
-			entries = append(entries, MemoryEntry{
-				Key: "last_files", Value: strings.Join(files, ", "),
-				CreatedAt: now, UpdatedAt: now,
-			})
-		}
-	}
-
 	return entries
+}
+
+// extractActionSentence captures the first action sentence as "last_action".
+func extractActionSentence(
+	assistantResponse string,
+	now int64,
+	seen map[string]bool,
+) []MemoryEntry {
+	if seen["last_action"] {
+		return nil
+	}
+	actionRe := regexp.MustCompile(
+		`(?i)(Added|Fixed|Changed|Updated|Created|Removed|Deleted|Set|Configured|Installed|Built|Deployed|Refactored|Migrated|Patched|Resolved)\s+(.+)`,
+	)
+	for _, line := range strings.Split(assistantResponse, "\n") {
+		match := actionRe.FindStringSubmatch(strings.TrimSpace(line))
+		if match == nil {
+			continue
+		}
+		action := strings.TrimSpace(match[2])
+		action = strings.TrimRight(action, ".!;:`*_")
+		if len(action) < 5 || len(action) > 200 {
+			continue
+		}
+		seen["last_action"] = true
+		return []MemoryEntry{{
+			Key: "last_action", Value: action,
+			CreatedAt: now, UpdatedAt: now,
+		}}
+	}
+	return nil
+}
+
+// extractFileReferences captures file paths mentioned in the assistant response.
+func extractFileReferences(
+	assistantResponse string,
+	now int64,
+	seen map[string]bool,
+) []MemoryEntry {
+	if seen["last_files"] {
+		return nil
+	}
+	fileRe := regexp.MustCompile(
+		`(?:Edited|Modified|Created|Read|Wrote)\s+(?:file\s+)?` + "`" + `?([~/.][^\s` + "`" + `]+)` + "`" + `?`,
+	)
+	var files []string
+	for _, match := range fileRe.FindAllStringSubmatch(assistantResponse, -1) {
+		if len(match) > 1 {
+			files = append(files, match[1])
+		}
+	}
+	if len(files) > 0 {
+		seen["last_files"] = true
+		return []MemoryEntry{{
+			Key: "last_files", Value: strings.Join(files, ", "),
+			CreatedAt: now, UpdatedAt: now,
+		}}
+	}
+	return nil
 }
 
 // toolResultKey derives a stable memory key from a tool name and its output.
@@ -773,8 +809,8 @@ func toolResultKey(toolName, result string) string {
 		firstLine = result[:idx]
 	}
 	firstLine = strings.TrimSpace(firstLine)
-	if len(firstLine) > 40 {
-		firstLine = firstLine[:40]
+	if len(firstLine) > memoryMaxFirstLine {
+		firstLine = firstLine[:memoryMaxFirstLine]
 	}
 	// Sanitize: lowercase, replace non-alphanumeric with underscores.
 	key := strings.ToLower(firstLine)
@@ -785,8 +821,8 @@ func toolResultKey(toolName, result string) string {
 		return '_'
 	}, key)
 	key = strings.Trim(key, "_")
-	if len(key) > 30 {
-		key = key[:30]
+	if len(key) > memoryMaxDerivedKey {
+		key = key[:memoryMaxDerivedKey]
 	}
 	if key == "" {
 		key = "output"
@@ -794,10 +830,33 @@ func toolResultKey(toolName, result string) string {
 	return "tool:" + toolName + ":" + key
 }
 
-// ExtractToolResult saves a tool call result to memory. Every tool call creates
-// at least one entry so the LLM can correlate tool usage with memory entries.
-// Also scans for explicit [MEMORY: key] markers in the output.
+// toolMemoryWorthy returns true for tool types whose results are worth remembering.
+// Read-only lookups and ephemeral commands produce noise, not facts.
+//
+//nolint:gochecknoglobals // lookup table, not mutable state
+var toolMemoryWorthy = map[string]bool{
+	"write_file":     true,
+	"edit_file":      true,
+	toolNameBashExec: true,
+	"sql_query":      true,
+	"http_request":   true,
+	"web_search":     true,
+	"web_scraper":    true,
+	"wikipedia":      true,
+}
+
+// isToolMemoryWorthy returns true if a tool's results should be auto-captured.
+func isToolMemoryWorthy(toolName string) bool {
+	return toolMemoryWorthy[toolName]
+}
+
+// ExtractToolResult saves a tool call result to memory. Only captures results
+// from write/exec/search tools — read-only lookups are filtered out to avoid
+// memory bloat from hundreds of tool-call artifact entries.
 func (m *MemoryStore) ExtractToolResult(toolName, result string) int {
+	if !isToolMemoryWorthy(toolName) {
+		return 0
+	}
 	if m.path == "" || result == "" {
 		return 0
 	}
@@ -807,15 +866,35 @@ func (m *MemoryStore) ExtractToolResult(toolName, result string) int {
 
 	// 1. Always save the tool result itself as a memory entry.
 	value := result
-	if len(value) > 300 {
-		value = value[:300]
+	if len(value) > memoryMaxValuePreview {
+		value = value[:memoryMaxValuePreview]
 	}
 	entries = append(entries, MemoryEntry{
 		Key:       toolResultKey(toolName, result),
 		Value:     value,
+		Type:      memTypeToolResult,
 		CreatedAt: now,
 		UpdatedAt: now,
 	})
+
+	// Prune old tool-call entries of the same type to cap memory bloat.
+	// Keep the 20 most recent per tool; delete the oldest.
+	const toolResultCap = 20
+	prefix := "tool:" + toolName + ":"
+	var toolKeys []string
+	for k := range m.entries {
+		if strings.HasPrefix(k, prefix) {
+			toolKeys = append(toolKeys, k)
+		}
+	}
+	if len(toolKeys) > toolResultCap {
+		sort.Slice(toolKeys, func(i, j int) bool {
+			return m.entries[toolKeys[i]].UpdatedAt < m.entries[toolKeys[j]].UpdatedAt
+		})
+		for _, k := range toolKeys[:len(toolKeys)-toolResultCap] {
+			delete(m.entries, k)
+		}
+	}
 
 	// 2. Also scan for explicit [MEMORY: key] markers.
 	entries = append(entries, extractTurnFacts(toolName, result)...)
@@ -836,7 +915,7 @@ func (m *MemoryStore) ExtractTurn(userInput, assistantResponse string) int {
 // parentType maps each entry type to the type it should depend on in the graph.
 // Creates a DAG where tool_results depend on the prompt/progress that spawned them,
 // results depend on tool_results, and status depends on results.
-var parentType = map[string]string{
+var parentType = map[string]string{ //nolint:gochecknoglobals // static DAG mapping from entry type to parent type
 	memTypePrompt:     "",              // root — no parent
 	memTypePurpose:    memTypePrompt,   // purpose depends on prompt
 	memTypeProgress:   memTypeResult,   // progress depends on results
@@ -881,6 +960,26 @@ func (m *MemoryStore) findParentKey(childType string) string {
 	return fallbackKey
 }
 
+// resolveLinkTarget determines the correct link target for a new entry.
+// Prefers the intra-batch previous key, then falls back to the type-based parent.
+// Tool results skip batch chaining so they fan out from a single parent rather
+// than forming a flat chronological chain.
+func (m *MemoryStore) resolveLinkTarget(entryType, batchPrevKey, entryKey string) string {
+	linkTarget := m.findParentKey(entryType)
+	if batchPrevKey != "" && entryType != memTypeToolResult {
+		linkTarget = batchPrevKey
+	}
+	if linkTarget == "" || linkTarget == entryKey {
+		return ""
+	}
+	for _, ref := range m.entries[entryKey].References {
+		if ref == linkTarget {
+			return ""
+		}
+	}
+	return linkTarget
+}
+
 // saveEntries persists extracted entries to the store, auto-assigns types,
 // and auto-links entries into a type-based dependency graph so the LLM
 // can see how tool calls relate to prompts, results, and progress.
@@ -894,13 +993,11 @@ func (m *MemoryStore) saveEntries(entries []MemoryEntry) int {
 
 	m.mu.Lock()
 
-	// Track new keys so intra-batch entries chain to each other correctly.
 	var batchPrevKey string
 
 	for i := range entries {
 		entry := &entries[i]
 
-		// Auto-assign type based on key pattern.
 		if entry.Type == "" {
 			entry.Type = inferType(entry.Key)
 		}
@@ -910,24 +1007,9 @@ func (m *MemoryStore) saveEntries(entries []MemoryEntry) int {
 			entry.References = existing.References
 		} else {
 			entry.CreatedAt = now
-			// Auto-link: find the parent entry by type (e.g. tool_result → progress,
-			// result → tool_result). Intra-batch entries chain to the previous
-			// batch entry so they form a coherent sub-graph.
-			linkTarget := m.findParentKey(entry.Type)
-			if batchPrevKey != "" {
-				linkTarget = batchPrevKey
-			}
-			if linkTarget != "" && linkTarget != entry.Key {
-				hasRef := false
-				for _, ref := range entry.References {
-					if ref == linkTarget {
-						hasRef = true
-						break
-					}
-				}
-				if !hasRef {
-					entry.References = append(entry.References, linkTarget)
-				}
+			linkTarget := m.resolveLinkTarget(entry.Type, batchPrevKey, entry.Key)
+			if linkTarget != "" {
+				entry.References = append(entry.References, linkTarget)
 			}
 		}
 		entry.UpdatedAt = now
@@ -944,37 +1026,45 @@ func (m *MemoryStore) saveEntries(entries []MemoryEntry) int {
 }
 
 // inferType assigns a memory entry type based on its key pattern.
-func inferType(key string) string {
-	switch {
-	case strings.HasPrefix(key, "tool:"):
-		return memTypeToolResult
-	case key == "last_action":
-		return memTypeAction
-	case key == "last_files":
-		return memTypeFile
-	case strings.Contains(key, "prompt") || strings.Contains(key, "goal") || strings.Contains(key, "task"):
-		return memTypePrompt
-	case strings.Contains(key, "purpose") || strings.Contains(key, "why") || strings.Contains(key, "reason"):
-		return memTypePurpose
-	case strings.Contains(key, "progress") || strings.Contains(key, "wip") || strings.Contains(key, "in_progress"):
-		return memTypeProgress
-	case strings.Contains(key, "status") || strings.Contains(key, "state"):
-		return memTypeStatus
-	case strings.Contains(key, "decision") || strings.Contains(key, "decided"):
-		return memTypeDecision
-	case strings.Contains(key, "preference") || strings.Contains(key, "prefer") || strings.Contains(key, "like"):
-		return memTypePreference
-	case strings.Contains(key, "error") || strings.Contains(key, "fail") || strings.Contains(key, "bug"):
-		return memTypeError
-	case strings.Contains(key, "file") || strings.Contains(key, "path") || strings.Contains(key, "dir"):
-		return memTypeFile
-	case strings.Contains(key, "context") || strings.Contains(key, "env") || strings.Contains(key, "config"):
-		return memTypeContext
-	case strings.Contains(key, "result") || strings.Contains(key, "output") || strings.Contains(key, "done"):
-		return memTypeResult
-	default:
-		return memTypeNote
+// typeRule maps a key pattern (prefix or substring) to a memory entry type.
+type typeRule struct {
+	Match func(key string) bool
+	Type  string
+}
+
+var typeRules = []typeRule{ //nolint:gochecknoglobals // static lookup table for inferType
+	{func(k string) bool { return strings.HasPrefix(k, "tool:") }, memTypeToolResult},
+	{func(k string) bool { return k == "last_action" }, memTypeAction},
+	{func(k string) bool { return k == "last_files" }, memTypeFile},
+	{func(k string) bool { return containsAny(k, "prompt", "goal", "task") }, memTypePrompt},
+	{func(k string) bool { return containsAny(k, "purpose", "why", "reason") }, memTypePurpose},
+	{func(k string) bool { return containsAny(k, "progress", "wip", "in_progress") }, memTypeProgress},
+	{func(k string) bool { return containsAny(k, "status", "state") }, memTypeStatus},
+	{func(k string) bool { return containsAny(k, "decision", "decided") }, memTypeDecision},
+	{func(k string) bool { return containsAny(k, "preference", "prefer", "like") }, memTypePreference},
+	{func(k string) bool { return containsAny(k, "error", "fail", "bug") }, memTypeError},
+	{func(k string) bool { return containsAny(k, "file", "path", "dir") }, memTypeFile},
+	{func(k string) bool { return containsAny(k, "context", "env", "config") }, memTypeContext},
+	{func(k string) bool { return containsAny(k, "result", "output", "done") }, memTypeResult},
+}
+
+// containsAny reports whether s contains any of the given substrings.
+func containsAny(s string, substrs ...string) bool {
+	for _, sub := range substrs {
+		if strings.Contains(s, sub) {
+			return true
+		}
 	}
+	return false
+}
+
+func inferType(key string) string {
+	for _, rule := range typeRules {
+		if rule.Match(key) {
+			return rule.Type
+		}
+	}
+	return memTypeNote
 }
 
 // AutoCapture parses a compaction summary and saves structured sections to the
@@ -1031,7 +1121,8 @@ func (m *MemoryStore) AutoCapture(summary string) int {
 			entry.CreatedAt = existing.CreatedAt
 			// Auto-link to the parent type.
 			if parentKey := m.findParentKey(memTypeStatus); parentKey != "" {
-				entry.References = append(existing.References, parentKey)
+				entry.References = append([]string{}, existing.References...)
+				entry.References = append(entry.References, parentKey)
 			}
 		}
 		m.entries[checkpointSummaryKey] = entry

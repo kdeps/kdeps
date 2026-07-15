@@ -72,19 +72,19 @@ func permissionLevel(m PermissionMode) int {
 //nolint:gochecknoglobals // immutable policy lookup
 var toolRequiredPermission = map[string]PermissionMode{
 	// Read-only tools
-	"calculator":          PermissionReadOnly,
-	"read_file":           PermissionReadOnly,
-	"list_files":          PermissionReadOnly,
+	toolNameCalculator:    PermissionReadOnly,
+	toolNameReadFile:      PermissionReadOnly,
+	toolNameListFiles:     PermissionReadOnly,
 	"code_search":         PermissionReadOnly,
 	"code_definition":     PermissionReadOnly,
 	"code_references":     PermissionReadOnly,
 	"code_hover":          PermissionReadOnly,
 	"code_diagnostics":    PermissionReadOnly,
 	"code_symbols":        PermissionReadOnly,
-	"web_search":          PermissionReadOnly,
-	"web_scraper":         PermissionReadOnly,
+	toolNameWebSearch:     PermissionReadOnly,
+	toolNameWebScraper:    PermissionReadOnly,
 	"wikipedia":           PermissionReadOnly,
-	"search_local":        PermissionReadOnly,
+	toolNameSearchLocal:   PermissionReadOnly,
 	"load_document":       PermissionReadOnly,
 	"transcribe_audio":    PermissionReadOnly,
 	"sql_query":           PermissionReadOnly, // read-only statements enforced by the tool
@@ -104,8 +104,8 @@ var toolRequiredPermission = map[string]PermissionMode{
 
 	// Workspace-write tools
 	toolNameBashExec:      PermissionWorkspaceWrite,
-	"write_file":          PermissionWorkspaceWrite,
-	"edit_file":           PermissionWorkspaceWrite,
+	toolNameWriteFile:     PermissionWorkspaceWrite,
+	toolNameEditFile:      PermissionWorkspaceWrite,
 	"bash_job_wait":       PermissionWorkspaceWrite,
 	"http_request":        PermissionWorkspaceWrite, // can POST/mutate remote state
 	"zapier_run_action":   PermissionWorkspaceWrite,

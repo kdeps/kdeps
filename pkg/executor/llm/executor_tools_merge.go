@@ -63,7 +63,7 @@ func (e *Executor) buildToolParameters(params map[string]domain.ToolParam) map[s
 		if param.Type == "array" {
 			itemsType := param.ItemsType
 			if itemsType == "" {
-				itemsType = "string"
+				itemsType = jsonFieldTypeString
 			}
 			prop["items"] = map[string]interface{}{jsonFieldType: itemsType}
 		}

@@ -44,6 +44,7 @@ const (
 	toolParamOffset     = "offset"
 	toolParamContent    = "content"
 	toolParamModel      = "model"
+	toolParamCommand    = "command"
 
 	// Bash validation.
 	bashValidationKill = "kill"
@@ -56,7 +57,24 @@ const (
 	toolParamOpenAI    = "openai"
 
 	// Tool names used across multiple files.
-	toolNameBashExec = "bash_exec"
+	toolNameBashExec    = "bash_exec"
+	toolNameCalculator  = "calculator"
+	toolNameReadFile    = "read_file"
+	toolNameWriteFile   = "write_file"
+	toolNameEditFile    = "edit_file"
+	toolNameListFiles   = "list_files"
+	toolNameWebScraper  = "web_scraper"
+	toolNameWebSearch   = "web_search"
+	toolNameSearchLocal = "search_local"
 )
 
 const toolNameSet = "set"
+
+// Tool parameter field names (additional).
+const toolParamURL = "url"
+
+// Memory prompt constants.
+const memoryPromptLimit = 500
+
+// Preview truncation constants.
+const previewMaxLen = 60

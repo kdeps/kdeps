@@ -938,7 +938,7 @@ func buildToolParameters(params map[string]domain.ToolParam) map[string]any {
 		if p.Type == "array" {
 			itemsType := p.ItemsType
 			if itemsType == "" {
-				itemsType = "string"
+				itemsType = jsonFieldTypeString
 			}
 			prop["items"] = map[string]any{jsonFieldType: itemsType}
 		}
