@@ -27,15 +27,19 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"bufio"
 	"fmt"
 	"io"
 	"os"
 	"os/exec"
 	"regexp"
+	"strconv"
 	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
+
+	"golang.org/x/term"
 
 	"github.com/spf13/afero"
 
@@ -103,6 +107,14 @@ type Config struct {
 	// "/model tool set rounds 0") for unlimited rounds - the turn then runs
 	// until the model stops calling tools or is interrupted with Ctrl+C.
 	MaxToolRounds int
+	// AutoToolAllocation, when true, automatically increases MaxToolRounds
+	// when the budget is nearly exhausted and the task is not yet finished.
+	// The increase amount is controlled by AutoToolAllocationIncrement.
+	// When false (default), the user is prompted interactively.
+	AutoToolAllocation bool
+	// AutoToolAllocationIncrement is the number of rounds to add when
+	// auto-tool-allocation triggers. Default: 100.
+	AutoToolAllocationIncrement int
 	// ModelService is used by the REPL to auto-start local model servers
 	// (file/gguf backends) when the user switches to a local model via /model.
 	// May be nil — auto-start is skipped if not set.
@@ -156,6 +168,14 @@ type Config struct {
 	// output (silence-based, not wall-clock). 0 applies the default (10m);
 	// negative disables stall detection.
 	ToolStallTimeout time.Duration
+	// AutoStallAllocation, when true, automatically increases ToolStallTimeout
+	// when a tool is about to be killed for stalling. The increase amount is
+	// controlled by AutoStallAllocationIncrement. When false (default), the
+	// user is prompted interactively.
+	AutoStallAllocation bool
+	// AutoStallAllocationIncrement is the duration to add to ToolStallTimeout
+	// when auto-stall-allocation triggers. Default: 5m.
+	AutoStallAllocationIncrement time.Duration
 }
 
 // Loop drives a multi-turn agent conversation using the kdeps engine as the
@@ -454,6 +474,9 @@ func applyConfigDefaults(cfg Config) Config {
 	if cfg.ToolStallTimeout == 0 {
 		cfg.ToolStallTimeout = defaultToolStallTimeout
 	}
+	if cfg.AutoStallAllocationIncrement <= 0 {
+		cfg.AutoStallAllocationIncrement = defaultAutoStallAllocationIncrement
+	}
 	return cfg
 }
 
@@ -469,6 +492,7 @@ const (
 	// no output at all. Silence-based, not wall-clock: a long build that
 	// keeps printing never trips it.
 	defaultToolStallTimeout = 10 * time.Minute
+	defaultAutoStallAllocationIncrement = 5 * time.Minute
 	defaultModelName        = "llama3.2"
 )
 
@@ -749,6 +773,14 @@ func (l *Loop) runToolRounds(
 		// Auto-checkpoint: save session state before each LLM call.
 		l.saveCheckpoint()
 
+		// Warn the user when the tool budget is nearly exhausted (last 3 rounds)
+		// and the task is not yet finished. Present interactive options to
+		// increase the budget, set a new number, or do nothing.
+		if !unlimited && i >= l.config.MaxToolRounds-3 && i < l.config.MaxToolRounds-1 {
+			remaining := l.config.MaxToolRounds - i
+			l.promptBudgetOptions(w, remaining)
+		}
+
 		// Last allowed round: remove the tools so the model must produce a
 		// text answer. Breaking out on a tool-call round instead would end
 		// the turn with no visible output (tool-call rounds usually have
@@ -807,15 +839,210 @@ func forceAnswerConfig(cfg *domain.ChatConfig) *domain.ChatConfig {
 }
 
 // budgetExhaustedNotice writes and returns the message shown when a turn hits
-// the tool round cap without producing any visible answer.
+// the tool round cap without producing any visible answer. Presents interactive
+// options to increase the budget, set a new number, or do nothing.
 func (l *Loop) budgetExhaustedNotice(w io.Writer) string {
 	notice := fmt.Sprintf(
-		"Tool budget of %d rounds exhausted before the task finished. "+
-			"Partial work may be in place. Raise the budget with "+
-			"/model tool set rounds <n> and ask me to continue.",
+		"\nTool budget of %d rounds exhausted before the task finished. "+
+			"Partial work may be in place.\n\n",
 		l.config.MaxToolRounds)
 	_, _ = io.WriteString(w, notice)
+	l.promptBudgetOptions(w, 0)
 	return notice
+}
+
+// promptBudgetOptions presents interactive options when the tool budget is
+// low or exhausted. Reads a single key from stdin and applies the choice
+// in real time:
+//
+//	i — increase budget by 100
+//	c — prompt for a specific new budget number
+//	g — ignore, continue with current budget
+//
+// When AutoToolAllocation is enabled, the budget is increased automatically
+// without prompting.
+func (l *Loop) promptBudgetOptions(w io.Writer, remaining int) {
+	// Auto-tool allocation: increase budget automatically without prompting.
+	if l.config.AutoToolAllocation {
+		increment := l.config.AutoToolAllocationIncrement
+		if increment <= 0 {
+			increment = 100
+		}
+		l.config.MaxToolRounds += increment
+		if remaining > 0 {
+			fmt.Fprintf(w, "\n[Auto-tool allocation: budget increased by %d. "+
+				"New budget: %d rounds. %d round(s) remaining.]\n",
+				increment, l.config.MaxToolRounds, remaining+increment)
+		} else {
+			fmt.Fprintf(w, "\n[Auto-tool allocation: budget increased by %d. "+
+				"New budget: %d rounds.]\n",
+				increment, l.config.MaxToolRounds)
+		}
+		return
+	}
+
+	if remaining > 0 {
+		fmt.Fprintf(w, "\n[Tool budget: %d round(s) remaining. "+
+			"If the task is not finished:\n", remaining)
+	} else {
+		fmt.Fprintf(w, "[Tool budget exhausted.\n")
+	}
+	fmt.Fprintf(w, "  (i)ncrease budget by 100\n"+
+		"  (c)hange budget (enter a new number)\n"+
+		"  (g)nore (continue with current budget)\n\n"+
+		"Enter choice (i/c/g): ")
+
+	oldState, err := term.MakeRaw(int(os.Stdin.Fd()))
+	if err != nil {
+		// Can't read raw input; fall back to printing the suggestion.
+		suggested := l.config.MaxToolRounds + 20
+		fmt.Fprintf(w, "\n(Can't read interactive input. "+
+			"Use: /model tool set rounds %d)\n", suggested)
+		return
+	}
+	defer func() { _ = term.Restore(int(os.Stdin.Fd()), oldState) }()
+
+	br := bufio.NewReader(os.Stdin)
+	b, err := br.ReadByte()
+	if err != nil {
+		return
+	}
+
+	// Clear the prompt line.
+	fmt.Fprint(w, "\r\033[K")
+
+	switch b {
+	case '1', 'i', 'I':
+		l.config.MaxToolRounds += 100
+		fmt.Fprintf(w, "Budget increased by 100. New budget: %d rounds.\n",
+			l.config.MaxToolRounds)
+	case '2', 'c', 'C':
+		// Restore terminal for numeric input.
+		_ = term.Restore(int(os.Stdin.Fd()), oldState)
+		fmt.Fprint(w, "Enter new budget (0 = unlimited): ")
+		var input string
+		for {
+			line, err := br.ReadString('\n')
+			if err != nil {
+				return
+			}
+			input = strings.TrimSpace(line)
+			if input != "" {
+				break
+			}
+		}
+		n, parseErr := strconv.Atoi(input)
+		if parseErr != nil || n < 0 {
+			fmt.Fprintf(w, "Invalid number '%s'. Budget unchanged (%d rounds).\n",
+				input, l.config.MaxToolRounds)
+		} else {
+			l.config.MaxToolRounds = n
+			if n == 0 {
+				fmt.Fprint(w, "Budget set to unlimited.\n")
+			} else {
+				fmt.Fprintf(w, "Budget set to %d rounds.\n", n)
+			}
+		}
+		// Re-enter raw mode for the caller's loop.
+		oldState, _ = term.MakeRaw(int(os.Stdin.Fd()))
+	case '3', 'g', 'G':
+		fmt.Fprint(w, "Continuing with current budget.\n")
+	default:
+		fmt.Fprint(w, "Continuing with current budget.\n")
+	}
+}
+
+// promptStallOptions presents interactive options when a tool is about to be
+// killed for stalling (no output for ToolStallTimeout). Reads a single key
+// from stdin and applies the choice in real time:
+//
+//	i — increase stall timeout by the increment (default 5m)
+//	c — prompt for a specific new stall timeout in minutes
+//	g — ignore, kill the tool as scheduled
+//
+// Returns true if the timeout was increased (caller should retry the tool),
+// false if the tool should be killed.
+func (l *Loop) promptStallOptions(w io.Writer, toolName string, elapsed time.Duration) bool {
+	// Auto-stall allocation: increase timeout automatically without prompting.
+	if l.config.AutoStallAllocation {
+		increment := l.config.AutoStallAllocationIncrement
+		if increment <= 0 {
+			increment = defaultAutoStallAllocationIncrement
+		}
+		l.config.ToolStallTimeout += increment
+		fmt.Fprintf(w, "\n[Auto-stall allocation: stall timeout increased by %s. "+
+			"New timeout: %s.]\n", increment, l.config.ToolStallTimeout)
+		return true
+	}
+
+	fmt.Fprintf(w, "\n[Tool %q has had no output for %s (stall timeout: %s).\n",
+		toolName, elapsed.Round(time.Second), l.config.ToolStallTimeout)
+	fmt.Fprintf(w, "  (i)ncrease stall timeout by %s\n"+
+		"  (c)hange stall timeout (enter minutes)\n"+
+		"  (g)nore (kill the tool)\n\n"+
+		"Enter choice (i/c/g): ",
+		l.config.AutoStallAllocationIncrement)
+
+	oldState, err := term.MakeRaw(int(os.Stdin.Fd()))
+	if err != nil {
+		fmt.Fprintf(w, "\n(Can't read interactive input. "+
+			"Use: /model tool set stall-timeout %s)\n", l.config.ToolStallTimeout+5*time.Minute)
+		return false
+	}
+	defer func() { _ = term.Restore(int(os.Stdin.Fd()), oldState) }()
+
+	br := bufio.NewReader(os.Stdin)
+	b, err := br.ReadByte()
+	if err != nil {
+		return false
+	}
+
+	// Clear the prompt line.
+	fmt.Fprint(w, "\r\033[K")
+
+	switch b {
+	case '1', 'i', 'I':
+		l.config.ToolStallTimeout += l.config.AutoStallAllocationIncrement
+		fmt.Fprintf(w, "Stall timeout increased by %s. New timeout: %s.\n",
+			l.config.AutoStallAllocationIncrement, l.config.ToolStallTimeout)
+		return true
+	case '2', 'c', 'C':
+		_ = term.Restore(int(os.Stdin.Fd()), oldState)
+		fmt.Fprint(w, "Enter new stall timeout in minutes (0 = no timeout): ")
+		var input string
+		for {
+			line, err := br.ReadString('\n')
+			if err != nil {
+				return false
+			}
+			input = strings.TrimSpace(line)
+			if input != "" {
+				break
+			}
+		}
+		n, parseErr := strconv.Atoi(input)
+		if parseErr != nil || n < 0 {
+			fmt.Fprintf(w, "Invalid number '%s'. Timeout unchanged (%s).\n",
+				input, l.config.ToolStallTimeout)
+			return false
+		}
+		if n == 0 {
+			l.config.ToolStallTimeout = -1 // negative disables stall detection
+			fmt.Fprint(w, "Stall timeout disabled.\n")
+		} else {
+			l.config.ToolStallTimeout = time.Duration(n) * time.Minute
+			fmt.Fprintf(w, "Stall timeout set to %s.\n", l.config.ToolStallTimeout)
+		}
+		// Re-enter raw mode for the caller's loop.
+		_, _ = term.MakeRaw(int(os.Stdin.Fd()))
+		return true
+	case '3', 'g', 'G':
+		fmt.Fprint(w, "Killing stalled tool.\n")
+		return false
+	default:
+		fmt.Fprint(w, "Killing stalled tool.\n")
+		return false
+	}
 }
 
 // saveCheckpoint persists the current session state so that on context
@@ -1184,12 +1411,79 @@ func (l *Loop) dispatchToTerminal(
 	if stalled.Load() {
 		// A stall implies the monitor drew frames, so the call line is closed.
 		fmt.Fprint(rawW, ansiReset+ansiClearLine)
-		fmt.Fprintf(termW, "  ... %s killed after %s with no output for %s\n",
+		fmt.Fprintf(termW, "  ... %s stalled after %s with no output for %s\n",
 			name, elapsed, l.config.ToolStallTimeout)
-		return toolErrorJSON(fmt.Errorf(
-			"tool killed: no output for %s (command appears hung). "+
-				"Retry with a narrower or more verbose command, or run it "+
-				"in the background", l.config.ToolStallTimeout))
+
+		// Present interactive stall options. If the user increases the timeout,
+		// retry the tool execution with the new timeout.
+		if l.promptStallOptions(termW, name, elapsed) {
+			// Reset stall state and retry with the new timeout.
+			stalled.Store(false)
+			start = time.Now()
+			tracker = newLastLineTracker(start)
+
+			// Create a new temp file for the retry.
+			if f2, err2 := os.CreateTemp("", "kdeps-tool-*.log"); err2 == nil {
+				tool.OutputWriter = &stripANSIWriter{w: io.MultiWriter(f2, tracker)}
+				defer func() {
+					tool.OutputWriter = nil
+					_ = f2.Close()
+					_ = AppFS.Remove(f2.Name())
+				}()
+			}
+
+			// Set up a new stall context for the retry.
+			if base, ok := args["_ctx"].(context.Context); ok && base != nil && l.config.ToolStallTimeout > 0 {
+				stallCtx, stallCancel := context.WithCancel(base)
+				defer stallCancel()
+				args["_ctx"] = stallCtx
+				onStall = func() {
+					stalled.Store(true)
+					stallCancel()
+				}
+			}
+
+			// Run the monitor again for the retry.
+			l.toolDisplayActive.Store(true)
+			stopMon = make(chan struct{})
+			monWg.Add(1)
+			go func() {
+				defer monWg.Done()
+				runToolMonitor(rawW, name, tracker, start, l.config.ToolStallTimeout, onStall, func() {
+					if l.toolLineOpen.CompareAndSwap(true, false) {
+						fmt.Fprint(termW, "\n")
+					}
+				}, stopMon)
+			}()
+
+			result, execErr = tool.Execute(args)
+			if l.memoryStore != nil {
+				if execErr != nil {
+					l.memoryStore.ExtractToolResult(name, execErr.Error())
+				} else {
+					l.memoryStore.ExtractToolResult(name, result)
+				}
+			}
+			close(stopMon)
+			monWg.Wait()
+			l.toolDisplayActive.Store(false)
+			elapsed = time.Since(start).Round(time.Millisecond)
+
+			if stalled.Load() {
+				fmt.Fprint(rawW, ansiReset+ansiClearLine)
+				fmt.Fprintf(termW, "  ... %s killed after retry with no output for %s\n",
+					name, l.config.ToolStallTimeout)
+				return toolErrorJSON(fmt.Errorf(
+					"tool killed: no output for %s (command appears hung). "+
+						"Retry with a narrower or more verbose command, or run it "+
+						"in the background", l.config.ToolStallTimeout))
+			}
+		} else {
+			return toolErrorJSON(fmt.Errorf(
+				"tool killed: no output for %s (command appears hung). "+
+					"Retry with a narrower or more verbose command, or run it "+
+					"in the background", l.config.ToolStallTimeout))
+		}
 	}
 
 	// sameLine: nothing (monitor frame, output) closed the call line, so the
