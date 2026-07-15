@@ -534,6 +534,11 @@ func (l *Loop) Run(ctx context.Context, input string) (string, error) {
 	// Auto-extract facts from the turn into persistent memory.
 	if l.memoryStore != nil {
 		l.memoryStore.ExtractTurn(input, response)
+		// Mechanical memory_save: persist a structured turn record so the
+		// next model (after a switch) knows what happened this turn.
+		now := time.Now().Format(time.RFC3339)
+		summary := fmt.Sprintf("turn at %s | input: %.200s | response: %.200s", now, input, response)
+		_ = l.memoryStore.Set("turn:last", summary)
 	}
 
 	return response, nil
@@ -578,6 +583,11 @@ func (l *Loop) RunStreaming(ctx context.Context, input string, w io.Writer) (str
 	// Auto-extract facts from the turn into persistent memory.
 	if l.memoryStore != nil {
 		l.memoryStore.ExtractTurn(input, response)
+		// Mechanical memory_save: persist a structured turn record so the
+		// next model (after a switch) knows what happened this turn.
+		now := time.Now().Format(time.RFC3339)
+		summary := fmt.Sprintf("turn at %s | input: %.200s | response: %.200s", now, input, response)
+		_ = l.memoryStore.Set("turn:last", summary)
 	}
 
 	return response, nil
@@ -1213,6 +1223,15 @@ const toolUseGuidance = `You are a coding agent. Use the FEWEST tools possible. 
 
 UNIVERSAL RULE: Never ask clarifying questions. Infer the user's intent from context and act immediately.
 
+MEMORY TOOLS:
+- memory_search — Call BEFORE every read_file, edit_file, write_file, or any action
+  to check if previous work already produced what you need.
+- memory_save — Call to persist facts, decisions, and progress during the turn.
+
+NOTE: memory_list is called automatically by the system at the start of every turn.
+NOTE: memory_save is called automatically by the system after every turn.
+You do not need to call these yourself unless you want to save intermediate state.
+
 Before ANY tool call:
 - Infer what the user wants from conversation history, working directory, and project context.
 - Assume the broadest reasonable scope. Vague requests imply the whole project.
@@ -1240,6 +1259,24 @@ func (l *Loop) buildSystemPreamble() string {
 	limit := l.preambleLimit()
 	var parts []string
 
+	// MANDATORY MEMORY RULES go FIRST — before skills, instructions, or any
+	// other content. The LLM must see these before anything else.
+	if l.memoryStore != nil {
+		parts = append(parts, l.memoryRulesPreamble()...)
+		if memPrompt := l.memoryStore.FormatForPrompt(memoryPromptLimit); memPrompt != "" {
+			parts = append(parts, memPrompt)
+		}
+		// Mechanical memory_list: inject the current key list so the LLM
+		// knows what's stored without having to call memory_list itself.
+		if keys := l.memoryStore.List(); len(keys) > 0 {
+			var keyNames []string
+			for _, e := range keys {
+				keyNames = append(keyNames, e.Key)
+			}
+			parts = append(parts, "<memory-keys>\n"+strings.Join(keyNames, "\n")+"\n</memory-keys>")
+		}
+	}
+
 	if l.skills != "" {
 		parts = append(parts, l.skills)
 	}
@@ -1260,13 +1297,6 @@ func (l *Loop) buildSystemPreamble() string {
 	}
 	if l.config.SystemPrompt != "" {
 		parts = append(parts, l.config.SystemPrompt)
-	}
-	// Inject persistent memory so the LLM sees known facts on every turn.
-	if l.memoryStore != nil {
-		parts = append(parts, l.memoryRulesPreamble()...)
-		if memPrompt := l.memoryStore.FormatForPrompt(memoryPromptLimit); memPrompt != "" {
-			parts = append(parts, memPrompt)
-		}
 	}
 
 	preamble := strings.Join(parts, "\n\n")
@@ -1319,19 +1349,40 @@ func (l *Loop) dateAndWDPreamble() string {
 }
 
 // memoryRulesPreamble returns the memory-related system prompt rules.
+// These are mandatory directives, not suggestions. The LLM MUST follow them.
 func (l *Loop) memoryRulesPreamble() []string {
 	return []string{
-		"Rule #1 — Check memory first. Before taking ANY action, use memory_search " +
-			"and memory_list to see what is already known about the task. Memory contains " +
-			"persistent facts, previous tool call results, and past actions. Every tool " +
-			"call automatically creates a memory entry — use them to avoid redundant work. " +
-			"To persist a fact, write [MEMORY: key] value on its own line.",
-		"Rule #2 — Save memory progressively. Every few turns, pause to save " +
-			"important facts, decisions, and progress using memory_save or " +
-			"[MEMORY: key] value. Ask: what will be useful to remember next session? " +
+		"MANDATORY RULE #1 — Check memory before every action. " +
+			"Before taking ANY action, call memory_search and memory_list to see " +
+			"what is already known about the task. Memory contains persistent facts, " +
+			"previous tool call results, and past actions. Every tool call automatically " +
+			"creates a memory entry — use them to avoid redundant work. " +
+			"FAILURE TO CHECK MEMORY FIRST IS A BUG. " +
+			"To persist a fact, write [MEMORY: key] value on its own line. " +
+			"WHY THIS EXISTS: kdeps is a multi-model system. When the orchestrator " +
+			"switches from one LLM to another (e.g. Sonnet -> Haiku -> Gemini), the " +
+			"conversation context is DESTROYED. The new model starts with ZERO knowledge " +
+			"of what happened before. Memory is the ONLY mechanism that survives a " +
+			"model switch. If you skip the memory check, the new model is flying blind — " +
+			"it will repeat work, overwrite state, and break the pipeline. " +
+			"This is not a suggestion. It is the single most important reliability " +
+			"mechanism in the system. Treat it like a parachute: check before every jump.",
+		"MANDATORY RULE #2 — Save memory after every turn. " +
+			"After every LLM response, save important facts, decisions, and progress " +
+			"using memory_save or [MEMORY: key] value. " +
+			"Ask: what will be useful to remember next session? " +
 			"Save goals as 'prompt:*', decisions as 'decision:*', progress as " +
-			"'progress:*', and results as 'result:*'. Entries auto-link into a graph " +
-			"showing the workflow chain from prompt → tool calls → results → status.",
+			"'progress:*', and results as 'result:*'. " +
+			"FAILURE TO SAVE MEMORY AFTER A TURN IS A BUG. " +
+			"Entries auto-link into a graph showing the workflow chain " +
+			"from prompt -> tool calls -> results -> status. " +
+			"WHY THIS EXISTS: Every turn could be the LAST turn before a model switch. " +
+			"You do not know when the orchestrator will rotate models. If you haven't " +
+			"saved your state, that work is GONE — the next model will have no record " +
+			"of what you did, what you decided, or what comes next. " +
+			"Save after every turn, every time, without exception. " +
+			"The cost of one extra save is negligible. The cost of a lost turn is " +
+			"a corrupted pipeline and hours of debugging.",
 	}
 }
 

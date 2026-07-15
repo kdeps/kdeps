@@ -1422,16 +1422,14 @@ func TestRegisterResourceTools_AllToolsAccessible(t *testing.T) {
 
 func TestBashExecCancelResult_OnlyOut(t *testing.T) {
 	t.Parallel()
-	result, err := bashExecCancelResult("some output", "")
-	assert.NoError(t, err)
+	result := bashExecCancelResult("some output", "")
 	assert.Contains(t, result, "some output")
 	assert.Contains(t, result, "[interrupted]")
 }
 
 func TestBashExecCancelResult_OnlyErr(t *testing.T) {
 	t.Parallel()
-	result, err := bashExecCancelResult("", "error detail")
-	assert.NoError(t, err)
+	result := bashExecCancelResult("", "error detail")
 	assert.Contains(t, result, "stderr:")
 	assert.Contains(t, result, "error detail")
 	assert.Contains(t, result, "[interrupted]")
@@ -1439,8 +1437,7 @@ func TestBashExecCancelResult_OnlyErr(t *testing.T) {
 
 func TestBashExecCancelResult_Both(t *testing.T) {
 	t.Parallel()
-	result, err := bashExecCancelResult("stdout line", "stderr line")
-	assert.NoError(t, err)
+	result := bashExecCancelResult("stdout line", "stderr line")
 	assert.Contains(t, result, "stdout line")
 	assert.Contains(t, result, "stderr:")
 	assert.Contains(t, result, "stderr line")

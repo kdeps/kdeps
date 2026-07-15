@@ -54,6 +54,12 @@ func snapshotTerminal(_ int) *termSnapshot { return nil }
 // restoreTerminalState is a no-op on Windows.
 func restoreTerminalState(_ int, _ *termSnapshot) {}
 
+// makeForeground is a no-op on Windows (no process group foreground semantics).
+func makeForeground(_ *exec.Cmd) int { return 0 }
+
+// restoreForeground is a no-op on Windows.
+func restoreForeground(_ int) {}
+
 // notifyTermination registers SIGTERM for clean shutdown on Windows.
 func notifyTermination(sigCh chan<- os.Signal) {
 	signal.Notify(sigCh, syscall.SIGTERM)

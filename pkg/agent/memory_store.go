@@ -37,6 +37,7 @@ const (
 	memoryFileName  = "memory.jsonl"
 	memoryMaxLine   = 1 << 20 // 1 MiB max line
 	memoryMaxTokens = 2000    // default max tokens for prompt injection
+	maxValueLength  = 500     // max characters for a single memory value
 
 	// Memory formatting constants.
 	memoryHalfDivisor     = 2   // split token budget between entries and graph
@@ -702,8 +703,76 @@ func extractTurnFacts(userInput, assistantResponse string) []MemoryEntry {
 	entries = append(entries, extractKeyValueLines(text, now, seen)...)
 	entries = append(entries, extractActionSentence(assistantResponse, now, seen)...)
 	entries = append(entries, extractFileReferences(assistantResponse, now, seen)...)
+	entries = append(entries, extractStructuredSections(assistantResponse, now, seen)...)
+	entries = append(entries, extractToolResults(assistantResponse, now, seen)...)
 
 	return entries
+}
+
+// extractStructuredSections captures ## Key Decisions, ## Progress, ## Status,
+// and similar structured markdown sections from the assistant response.
+func extractStructuredSections(response string, now int64, seen map[string]bool) []MemoryEntry {
+	var entries []MemoryEntry
+
+	sections := map[string]string{
+		"## Key Decisions": "decision",
+		"## Progress":      "progress",
+		"## Status":        "status",
+		"## Result":        "result",
+		"## Summary":       "result",
+		"## Context":       "context",
+		"## Goal":          "prompt",
+	}
+
+	for header, keyPrefix := range sections {
+		body := extractSectionText(response, header)
+		if body == "" || len(body) < 10 {
+			continue
+		}
+		// Truncate long values.
+		value := body
+		if len(value) > maxValueLength {
+			value = value[:maxValueLength]
+		}
+		key := keyPrefix + ":" + slugify(header)
+		if seen[key] {
+			continue
+		}
+		seen[key] = true
+		entries = append(entries, MemoryEntry{
+			Key: key, Value: value, CreatedAt: now, UpdatedAt: now,
+		})
+	}
+
+	return entries
+}
+
+// extractToolResults captures tool: prefixed entries from tool call results
+// embedded in the assistant response (e.g. "tool:bash_exec: ...").
+func extractToolResults(response string, now int64, seen map[string]bool) []MemoryEntry {
+	var entries []MemoryEntry
+	toolRe := regexp.MustCompile(`(?m)^(tool:[a-z_]+):\s*(.+)$`)
+	for _, match := range toolRe.FindAllStringSubmatch(response, -1) {
+		key := strings.TrimSpace(match[1])
+		value := strings.TrimSpace(match[2])
+		if key == "" || value == "" || seen[key] || len(value) > 500 {
+			continue
+		}
+		seen[key] = true
+		entries = append(entries, MemoryEntry{
+			Key: key, Value: value, CreatedAt: now, UpdatedAt: now,
+		})
+	}
+	return entries
+}
+
+// slugify converts a markdown header to a short slug key.
+func slugify(header string) string {
+	s := strings.TrimPrefix(header, "## ")
+	s = strings.ToLower(s)
+	s = strings.ReplaceAll(s, " ", "-")
+	s = strings.ReplaceAll(s, "_", "-")
+	return s
 }
 
 // extractMemoryMarkers finds [MEMORY: key] value markers in text.

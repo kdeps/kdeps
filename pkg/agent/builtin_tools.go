@@ -1033,8 +1033,8 @@ func bashExecResult(_ context.Context, out, errOut string, runErr error) (string
 
 // bashExecCancelResult returns partial output when the command was killed mid-run.
 // Returned as success (nil error) so the LLM sees what ran before the interrupt.
-func bashExecCancelResult(out, errOut string) (string, error) {
-	return formatBashOutput(out, errOut) + "\n[interrupted]", nil
+func bashExecCancelResult(out, errOut string) string {
+	return formatBashOutput(out, errOut) + "\n[interrupted]"
 }
 
 // registerBashExec registers a bash command execution tool.
@@ -1088,6 +1088,11 @@ func registerBashExec(ctx context.Context, reg *kdepstools.Registry) {
 			return "", fmt.Errorf("bash_exec: %w", err)
 		}
 
+		// Put the child in the terminal foreground so it can write to stdout
+		// without being suspended by SIGTTOU.
+		prevFG := makeForeground(cmd)
+		defer restoreForeground(prevFG)
+
 		waitCh := make(chan error, 1)
 		go func() { waitCh <- cmd.Wait() }()
 
@@ -1105,7 +1110,7 @@ func registerBashExec(ctx context.Context, reg *kdepstools.Registry) {
 			return bashExecCancelResult(
 				strings.TrimSpace(stdout.String()),
 				strings.TrimSpace(stderr.String()),
-			)
+			), nil
 		case <-bgCh:
 			jobID := bashJobRegistry.add(command, &stdout, &stderr, waitCh)
 			return fmt.Sprintf(`{"status":"backgrounded","job_id":%d}`, jobID), nil
@@ -2105,13 +2110,20 @@ func registerMemoryListTool(reg *kdepstools.Registry) {
 				return "", errors.New("memory_list: memory store is not configured")
 			}
 			entries := memoryStoreInstance.List()
-			if len(entries) == 0 {
-				return "No memory entries.", nil
-			}
 			var sb strings.Builder
-			fmt.Fprintf(&sb, "%d memory entries:\n", len(entries))
-			for _, entry := range entries {
-				fmt.Fprintf(&sb, "- %s\n", entry.Key)
+			if len(entries) == 0 {
+				fmt.Fprint(&sb, "No memory entries.")
+			} else {
+				fmt.Fprintf(&sb, "%d memory entries:\n", len(entries))
+				for _, entry := range entries {
+					fmt.Fprintf(&sb, "- %s\n", entry.Key)
+				}
+			}
+			// Append the relationship graph so the agent can trace workflow chains.
+			graph := memoryStoreInstance.FormatGraphForPrompt(0)
+			if graph != "" {
+				sb.WriteByte('\n')
+				sb.WriteString(graph)
 			}
 			return sb.String(), nil
 		},

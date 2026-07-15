@@ -110,6 +110,12 @@ func (l *Loop) RunReact(ctx context.Context, input string, w io.Writer) (string,
 	}
 
 	l.session.Append(input, finalAnswer)
+
+	// Auto-extract facts from the turn into persistent memory.
+	if l.memoryStore != nil {
+		l.memoryStore.ExtractTurn(input, finalAnswer)
+	}
+
 	return finalAnswer, nil
 }
 

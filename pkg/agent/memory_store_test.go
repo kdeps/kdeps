@@ -692,6 +692,7 @@ func TestMemoryTools_List(t *testing.T) {
 
 	require.NoError(t, store.Set("a", "one"))
 	require.NoError(t, store.Set("b", "two"))
+	require.NoError(t, store.SetRelation("a", "b"))
 
 	listTool := reg.Get("memory_list")
 	require.NotNil(t, listTool)
@@ -701,6 +702,29 @@ func TestMemoryTools_List(t *testing.T) {
 	assert.Contains(t, result, "2 memory entries")
 	assert.Contains(t, result, "a")
 	assert.Contains(t, result, "b")
+	// Graph should be included.
+	assert.Contains(t, result, "<memory-graph>")
+	assert.Contains(t, result, "</memory-graph>")
+	assert.Contains(t, result, "->")
+}
+
+func TestMemoryTools_List_NoGraph(t *testing.T) {
+	store := setupMemoryStoreForTools(t)
+	reg := kdepstools.NewRegistry()
+	registerMemoryTools(reg)
+
+	// Use keys that won't auto-link: same type (note) with no parent type,
+	// and the fallback only links to the most recent entry. Setting a single
+	// entry with no prior entries means no link target exists.
+	require.NoError(t, store.Set("x", "one"))
+
+	listTool := reg.Get("memory_list")
+	require.NotNil(t, listTool)
+
+	result, err := listTool.Execute(nil)
+	require.NoError(t, err)
+	assert.Contains(t, result, "1 memory entr")
+	assert.NotContains(t, result, "<memory-graph>")
 }
 
 func TestMemoryStore_InstanceVar(t *testing.T) {
@@ -998,4 +1022,90 @@ func TestExtractTurn_OverwriteAcrossTurns(t *testing.T) {
 	e2, _ := store.Get("version")
 	assert.Equal(t, "2.0", e2.Value)
 	assert.Equal(t, e1.CreatedAt, e2.CreatedAt)
+}
+
+// --- extractStructuredSections tests ---
+
+func TestExtractTurn_StructuredSections(t *testing.T) {
+	store := setupMemoryStoreForTools(t)
+
+	assistant := `## Key Decisions
+Use langchain-go for all LLM calls instead of native implementations.
+
+## Progress
+Completed the memory graph feature. Added graph rendering to memory_list.
+
+## Status
+All tests passing. Ready for review.`
+
+	captured := store.ExtractTurn("user input", assistant)
+	assert.GreaterOrEqual(t, captured, 3) // at least 3 structured sections; may also capture action sentence
+
+	val, ok := store.Get("decision:key-decisions")
+	assert.True(t, ok)
+	assert.Contains(t, val.Value, "langchain-go")
+
+	val, ok = store.Get("progress:progress")
+	assert.True(t, ok)
+	assert.Contains(t, val.Value, "memory graph")
+
+	val, ok = store.Get("status:status")
+	assert.True(t, ok)
+	assert.Contains(t, val.Value, "All tests passing")
+}
+
+func TestExtractTurn_StructuredSections_Empty(t *testing.T) {
+	store := setupMemoryStoreForTools(t)
+	assert.Equal(t, 0, store.ExtractTurn("hello", "just a normal response"))
+}
+
+func TestExtractTurn_StructuredSections_TooShort(t *testing.T) {
+	store := setupMemoryStoreForTools(t)
+	assert.Equal(t, 0, store.ExtractTurn("hello", "## Status\nok"))
+}
+
+// --- extractToolResults tests ---
+
+func TestExtractTurn_ToolResults(t *testing.T) {
+	store := setupMemoryStoreForTools(t)
+
+	assistant := `tool:bash_exec: ok  	github.com/kdeps/kdeps/v2/pkg/agent	0.911s
+tool:read_file: read memory_store.go (35683 bytes)`
+
+	captured := store.ExtractTurn("run tests", assistant)
+	assert.Equal(t, 2, captured)
+
+	val, ok := store.Get("tool:bash_exec")
+	assert.True(t, ok)
+	assert.Contains(t, val.Value, "0.911s")
+
+	val, ok = store.Get("tool:read_file")
+	assert.True(t, ok)
+	assert.Contains(t, val.Value, "memory_store.go")
+}
+
+func TestExtractTurn_ToolResults_Empty(t *testing.T) {
+	store := setupMemoryStoreForTools(t)
+	assert.Equal(t, 0, store.ExtractTurn("hello", "no tool results here"))
+}
+
+// --- RunReact memory extraction test ---
+
+func TestRunReact_ExtractTurn(t *testing.T) {
+	store := setupMemoryStoreForTools(t)
+
+	// Simulate what RunReact does: session.Append + ExtractTurn
+	store.ExtractTurn("what models can I run?", `## Result
+llmfit recommends Llama 3.1 8B for this hardware.
+
+## Key Decisions
+Use Q5_K_M quantization for best quality/speed tradeoff.`)
+
+	val, ok := store.Get("result:result")
+	assert.True(t, ok)
+	assert.Contains(t, val.Value, "Llama 3.1")
+
+	val, ok = store.Get("decision:key-decisions")
+	assert.True(t, ok)
+	assert.Contains(t, val.Value, "Q5_K_M")
 }
