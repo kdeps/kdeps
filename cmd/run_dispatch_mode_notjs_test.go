@@ -61,7 +61,7 @@ func TestDispatchExecution_AllModesViaHooks(t *testing.T) {
 	}
 	for _, tc := range modes {
 		t.Run(tc.name, func(t *testing.T) {
-			require.NoError(t, dispatchExecution(tc.wf, tmp, false, false, "", false))
+			require.NoError(t, dispatchExecution(tc.wf, tmp, false, false, "", false, false))
 		})
 	}
 }
@@ -76,7 +76,7 @@ func TestDispatchExecution_BotAndFileModes(t *testing.T) {
 			},
 		},
 	}
-	require.Error(t, dispatchExecution(botWF, t.TempDir(), false, false, "", false))
+	require.Error(t, dispatchExecution(botWF, t.TempDir(), false, false, "", false, false))
 
 	fileWF := &domain.Workflow{
 		Metadata:  domain.WorkflowMetadata{Name: "file", TargetActionID: "act"},
@@ -85,7 +85,7 @@ func TestDispatchExecution_BotAndFileModes(t *testing.T) {
 	}
 	inputFile := filepath.Join(t.TempDir(), "input.txt")
 	require.NoError(t, os.WriteFile(inputFile, []byte("hello"), 0644))
-	require.NoError(t, dispatchExecution(fileWF, t.TempDir(), false, false, inputFile, false))
+	require.NoError(t, dispatchExecution(fileWF, t.TempDir(), false, false, inputFile, false, false))
 }
 
 func TestDispatchExecution_PublicWrapper(t *testing.T) {
@@ -93,7 +93,7 @@ func TestDispatchExecution_PublicWrapper(t *testing.T) {
 		Metadata:  domain.WorkflowMetadata{Name: "s", TargetActionID: "act"},
 		Resources: []*domain.Resource{{ActionID: "act", APIResponse: &domain.APIResponseConfig{Success: true}}},
 	}
-	require.NoError(t, dispatchExecution(wf, t.TempDir(), false, false, "", false))
+	require.NoError(t, dispatchExecution(wf, t.TempDir(), false, false, "", false, false))
 }
 
 func TestDispatchExecution_SingleRunMode(t *testing.T) {
@@ -101,5 +101,14 @@ func TestDispatchExecution_SingleRunMode(t *testing.T) {
 		Metadata:  domain.WorkflowMetadata{Name: "s", TargetActionID: "act"},
 		Resources: []*domain.Resource{{ActionID: "act", APIResponse: &domain.APIResponseConfig{Success: true}}},
 	}
-	require.NoError(t, dispatchExecution(wf, t.TempDir(), false, false, "", false))
+	require.NoError(t, dispatchExecution(wf, t.TempDir(), false, false, "", false, false))
+}
+
+func TestDispatchExecution_WithMemory(t *testing.T) {
+	stubDispatchHooks(t)
+	wf := &domain.Workflow{
+		Metadata:  domain.WorkflowMetadata{Name: "mem", TargetActionID: "act"},
+		Resources: []*domain.Resource{{ActionID: "act", APIResponse: &domain.APIResponseConfig{Success: true}}},
+	}
+	require.NoError(t, dispatchExecution(wf, t.TempDir(), false, false, "", false, true))
 }

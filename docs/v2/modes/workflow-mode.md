@@ -147,6 +147,56 @@ settings:
 
 See [Input Sources](../concepts/input-sources) for full configuration.
 
+## Agent Memory (`--memory`)
+
+Workflow mode can use the same persistent memory facilities as agent mode. Pass `--memory` to enable:
+
+```bash
+kdeps run workflow.yaml --memory
+kdeps exec my-agent --memory
+```
+
+When enabled, four expression functions become available in resource YAML:
+
+| Function | Description |
+|---|---|
+| `memory_save(key, value)` | Save a key-value pair to persistent memory |
+| `memory_search(query)` | Search memory entries by content (returns JSON array) |
+| `memory_list()` | List all memory keys |
+| `memory_delete(key)` | Delete a memory entry by key |
+
+Memory persists across workflow runs in `~/.kdeps/memory/`. Use it to carry state between invocations:
+
+<div v-pre>
+
+```yaml
+# resources/llm.yaml
+actionId: llm
+before:
+  - memory_save('last_query', get('q'))
+chat:
+  model: llama3.2:1b
+  prompt: |
+    Previous context: {{ memory_search('user preference') }}
+    Answer: {{ get('q') }}
+```
+
+</div>
+
+```yaml
+# resources/response.yaml
+actionId: response
+requires: [llm]
+before:
+  - memory_save('last_response', get('llm'))
+apiResponse:
+  success: true
+  response:
+    answer: get('llm')
+```
+
+Memory entries are automatically linked into a relationship graph showing the chain from prompt to tool calls to results.
+
 ## See Also
 
 - [Workflow Configuration](../configuration/workflow) - Full `workflow.yaml` reference

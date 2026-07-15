@@ -65,6 +65,16 @@ func (e *Engine) SetNewExecutionContextForAgency(agentPaths map[string]string) {
 			return nil, err
 		}
 		ctx.AgentPaths = agentPaths
+		ctx.AgentMemoryStore = e.agentMemoryStore
 		return ctx, nil
 	}
+}
+
+// SetAgentMemoryStore configures the agent's persistent memory store on this engine.
+// When set, every ExecutionContext created by this engine will carry the store,
+// making memory_save, memory_search, memory_list, and memory_delete expression
+// functions available in workflow resources.
+func (e *Engine) SetAgentMemoryStore(ms AgentMemoryStore) {
+	kdeps_debug.Log("enter: SetAgentMemoryStore")
+	e.agentMemoryStore = ms
 }

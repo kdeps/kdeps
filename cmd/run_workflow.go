@@ -203,12 +203,15 @@ func ExecuteWorkflowStepsWithFlags(cmd *cobra.Command, workflowPath string, flag
 	fmt.Fprintln(os.Stdout, "\n[5/5] Starting execution...")
 	if flags.Interactive {
 		eng := setupEngine(workflow, debugMode)
+		if flags.Memory {
+			eng = setupEngineWithMemory(eng, workflow, debugMode)
+		}
 		return startInteractiveMode(eng, workflow, workflowPath, flags, debugMode)
 	}
 	return dispatchExecution(
 		workflow, workflowPath,
 		flags.DevMode, debugMode,
-		flags.FileArg, flags.Events,
+		flags.FileArg, flags.Events, flags.Memory,
 	)
 }
 

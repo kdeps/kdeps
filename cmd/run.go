@@ -50,6 +50,7 @@ type RunFlags struct {
 	FileArg     string // --file: path to the file to process (file input source only; overrides stdin/KDEPS_FILE_PATH/config)
 	Events      bool   // --events: emit structured NDJSON execution events to stderr
 	Interactive bool   // --interactive: force interactive LLM REPL for any workflow/agency regardless of configured input source
+	Memory      bool   // --memory: enable agent memory store in workflow mode
 }
 
 func newRunCmd() *cobra.Command {
@@ -110,6 +111,12 @@ Examples:
 		&flags.Interactive, "interactive", false,
 		"Run the workflow as normal and simultaneously open an interactive LLM REPL in the terminal. "+
 			"Lets you invoke the workflow, tools, and components interactively alongside the running agent or agency.",
+	)
+	runCmd.Flags().BoolVar(
+		&flags.Memory, "memory", false,
+		"Enable agent memory store in workflow mode. "+
+			"Workflow resources can use memory_save, memory_search, memory_list, and memory_delete "+
+			"expression functions to persist and query facts across runs.",
 	)
 
 	return runCmd

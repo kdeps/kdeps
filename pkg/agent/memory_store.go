@@ -51,9 +51,26 @@ const (
 
 // memoryStoreInstance is set during Loop construction so memory tools
 // can access the store without a Loop reference. Nil when unconfigured.
+// Lazy-initialized on first use in workflow mode where no Loop exists.
 //
 //nolint:gochecknoglobals // process-wide singleton; one per agent process
 var memoryStoreInstance *MemoryStore
+
+// GetOrCreateMemoryStore returns the singleton MemoryStore, creating it lazily
+// with per-project isolation on first access. Used by memory tools so they
+// work in both agent mode (where Loop sets it) and workflow mode (lazy init).
+func GetOrCreateMemoryStore() *MemoryStore {
+	if memoryStoreInstance != nil {
+		return memoryStoreInstance
+	}
+	ms := NewMemoryStore("")
+	if wd, err := os.Getwd(); err == nil && wd != "" {
+		ms.SetCwd(wd)
+		_ = ms.Load()
+	}
+	memoryStoreInstance = ms
+	return ms
+}
 
 // MemoryEntry is a single persistent memory fact.
 type MemoryEntry struct {

@@ -54,21 +54,29 @@ func dispatchExecution(
 	devMode, debugMode bool,
 	fileArg string,
 	eventsEnabled bool,
+	memoryEnabled bool,
 ) error {
 	kdeps_debug.Log("enter: dispatchExecution")
+
+	// Create the engine, optionally with agent memory store.
+	eng := setupEngine(workflow, debugMode)
+	if memoryEnabled {
+		eng = setupEngineWithMemory(eng, workflow, debugMode)
+	}
+
 	switch executionModeForFunc(workflow) {
 	case execModeBothServers:
-		return execBothServersFn(workflow, workflowPath, devMode, debugMode)
+		return execBothServersWithEngineFn(eng, workflow, workflowPath, devMode, debugMode)
 	case execModeWebServer:
-		return execWebServerFn(workflow, workflowPath, devMode)
+		return execWebServerWithEngineFn(workflow, workflowPath, devMode)
 	case execModeAPIServer:
-		return execHTTPServerFn(workflow, workflowPath, devMode, debugMode)
+		return execHTTPServerWithEngineFn(eng, workflow, workflowPath, devMode, debugMode)
 	case execModeBot:
-		return execBotRunnersFn(workflow, debugMode)
+		return execBotRunnersWithEngineFn(eng, workflow, debugMode)
 	case execModeFile:
-		return execFileRunnerFn(workflow, debugMode, fileArg, eventsEnabled)
+		return execFileRunnerWithEngineFn(eng, workflow, debugMode, fileArg)
 	case execModeSingleRun:
-		return execSingleRunFn(workflow)
+		return execSingleRunWithEngineFn(eng, workflow)
 	}
 	return nil
 }

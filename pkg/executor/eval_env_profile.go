@@ -91,7 +91,34 @@ func buildEngineEvalEnv(ctx *ExecutionContext) map[string]interface{} {
 	addRichRequestEnv(env, ctx)
 	env["item"] = buildItemAccessorEnv(ctx, false)
 	addProcessorInputEnv(env, ctx)
+	addMemoryFunctions(env, ctx)
 	return env
+}
+
+// addMemoryFunctions registers memory_save, memory_search, memory_list, and
+// memory_delete expression functions when the agent's MemoryStore is configured.
+// These let workflow resources read and write persistent memory across runs.
+func addMemoryFunctions(env map[string]interface{}, ctx *ExecutionContext) {
+	if ctx.AgentMemoryStore == nil {
+		return
+	}
+	ms := ctx.AgentMemoryStore
+
+	env["memory_save"] = func(key, value string) bool {
+		return ms.Set(key, value) == nil
+	}
+
+	env["memory_search"] = func(query string) []AgentMemoryEntry {
+		return ms.Search(query)
+	}
+
+	env["memory_list"] = func() []AgentMemoryEntry {
+		return ms.List()
+	}
+
+	env["memory_delete"] = func(key string) bool {
+		return ms.Delete(key) == nil
+	}
 }
 
 func addBasicRequestEnv(env map[string]interface{}, ctx *ExecutionContext) {

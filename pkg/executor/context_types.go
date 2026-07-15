@@ -105,6 +105,13 @@ type ExecutionContext struct {
 	// Priority for env() lookups: scoped os env > plain os env > .env file.
 	componentDotEnv map[string]map[string]string
 
+	// AgentMemoryStore is the agent's persistent memory store (JSONL-backed
+	// with graph relationships, auto-capture, and turn extraction). Set by
+	// the workflow runner when --memory is enabled. Nil when not configured.
+	// Workflow resources access it via memory_save, memory_search, memory_list,
+	// and memory_delete expression functions.
+	AgentMemoryStore AgentMemoryStore
+
 	// Config holds the loaded ~/.kdeps/config.yaml values.
 	Config *config.Config
 

@@ -46,7 +46,7 @@ import (
 func TestDispatchExecution_DefaultNil(t *testing.T) {
 	stubDispatchHooks(t)
 	executionModeForFunc = func(_ *domain.Workflow) executionMode { return executionMode(99) }
-	require.NoError(t, dispatchExecution(&domain.Workflow{}, t.TempDir(), false, false, "", false))
+	require.NoError(t, dispatchExecution(&domain.Workflow{}, t.TempDir(), false, false, "", false, false))
 }
 
 func TestDispatchExecutionWithEngine_DefaultNil_Complete(t *testing.T) {
@@ -956,7 +956,7 @@ func TestDispatchExecution_APIServerShutdown(t *testing.T) {
 			APIResponse: &domain.APIResponseConfig{Success: true},
 		}},
 	}
-	require.NoError(t, dispatchExecution(wf, t.TempDir(), false, false, "", false))
+	require.NoError(t, dispatchExecution(wf, t.TempDir(), false, false, "", false, false))
 }
 
 func TestStartInteractiveMode_SingleRun(t *testing.T) {

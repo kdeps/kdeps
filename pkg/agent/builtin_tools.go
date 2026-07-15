@@ -113,7 +113,6 @@ func RegisterBuiltinTools(ctx context.Context, reg *kdepstools.Registry) {
 	registerCodeIntelligenceTools(ctx, reg)
 	registerResourceTools(ctx, reg)
 	registerTaskTeamTools(reg)
-	registerMemoryTools(reg)
 	// After all tools exist, map familiar names (grep, cat, ls, ...) to them.
 	registerToolAliases(reg)
 }

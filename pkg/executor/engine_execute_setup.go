@@ -55,7 +55,8 @@ func (e *Engine) ensureNewExecutionContextFactory() {
 	}
 }
 
-// setupExecutionContext wires request data, resources, and file input into the execution context.
+// setupExecutionContext wires request data, resources, file input, and agent
+// memory store into the execution context.
 func (e *Engine) setupExecutionContext(
 	ctx *ExecutionContext,
 	workflow *domain.Workflow,
@@ -72,6 +73,7 @@ func (e *Engine) setupExecutionContext(
 		ctx.Resources[resource.ActionID] = resource
 	}
 	e.propagateFileInput(ctx, workflow, reqCtx)
+	ctx.AgentMemoryStore = e.agentMemoryStore
 }
 
 // propagateFileInput copies file content and path from the request body into context fields.

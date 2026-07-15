@@ -31,6 +31,7 @@ import (
 // registerResourceTools registers all resource-based tools (HTTP, SearchLocal, etc.)
 // that an LLM agent can use without needing a workflow YAML file.
 func registerResourceTools(ctx context.Context, reg *kdepstools.Registry) {
+	registerMemoryTools(reg) // memory works in both agent and workflow modes
 	registerHTTPTool(ctx, reg)
 	registerSearchLocalTool(ctx, reg)
 	registerTranscribeTool(ctx, reg)

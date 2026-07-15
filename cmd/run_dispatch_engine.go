@@ -49,6 +49,7 @@ import (
 	executorTranscribe "github.com/kdeps/kdeps/v2/pkg/executor/transcribe"
 	executorVectorStore "github.com/kdeps/kdeps/v2/pkg/executor/vectorstore"
 	"github.com/kdeps/kdeps/v2/pkg/infra/logging"
+	agentMemory "github.com/kdeps/kdeps/v2/pkg/agent"
 )
 
 //nolint:gochecknoglobals // test-replaceable factory hook
@@ -91,6 +92,20 @@ func setupEngine(_ *domain.Workflow, debugMode bool) *executor.Engine {
 	engine.SetDebugMode(debugMode)
 	engine.SetRegistry(newExecutorRegistry(logger))
 	return engine
+}
+
+// setupEngineWithMemory creates an engine with the agent memory store enabled.
+// The memory store is backed by a JSONL file under ~/.kdeps/memory/<cwd-hash>/.
+// When memory is enabled, workflow resources can use memory_save, memory_search,
+// memory_list, and memory_delete expression functions.
+func setupEngineWithMemory(eng *executor.Engine, _ *domain.Workflow, debugMode bool) *executor.Engine {
+	kdeps_debug.Log("enter: setupEngineWithMemory")
+	ms := agentMemory.GetOrCreateMemoryStore()
+	eng.SetAgentMemoryStore(NewMemoryStoreAdapter(ms))
+	if debugMode {
+		fmt.Fprintln(os.Stdout, "  ✓ Agent memory store enabled")
+	}
+	return eng
 }
 
 // newExecutorRegistry creates an executor registry with all adapters wired up.

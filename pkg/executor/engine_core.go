@@ -47,6 +47,11 @@ type Engine struct {
 	debugMode           bool
 	emitter             events.Emitter
 	componentSetupCache sync.Map // keyed by component name, value struct{}{}
+	// agentMemoryStore is the agent's persistent memory store (JSONL-backed
+	// with graph relationships, auto-capture, and turn extraction). Set by
+	// the workflow runner when --memory is enabled. Nil when not configured.
+	// Propagated to every ExecutionContext created by this engine.
+	agentMemoryStore AgentMemoryStore
 }
 
 type inputValidator interface {

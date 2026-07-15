@@ -61,6 +61,7 @@ Examples:
 	cmd.Flags().StringVar(&flags.FileArg, "file", "", "Path to input file (file-source agents only)")
 	cmd.Flags().BoolVar(&flags.Events, "events", false, "Emit structured NDJSON events to stderr")
 	cmd.Flags().BoolVar(&flags.Interactive, "interactive", false, "Force interactive LLM REPL")
+	cmd.Flags().BoolVar(&flags.Memory, "memory", false, "Enable agent memory store in workflow mode")
 	cmd.Flags().Bool("debug", false, "Enable debug logging")
 	return cmd
 }
