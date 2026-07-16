@@ -104,7 +104,7 @@ Request-scoped key/value storage. Values set with `set('key', value, 'memory')` 
 Project-scoped persistent storage for the agent loop. Facts are stored as JSONL at `~/.kdeps/memory/<encoded-cwd>/memory.jsonl` and survive across sessions. The agent has four built-in tools (`memory_save`, `memory_search`, `memory_delete`, `memory_list`) for interacting with persistent memory. Facts are auto-extracted from every turn and injected into the LLM's system prompt. See [Persistent Memory](/concepts/memory).
 
 ### memory graph
-A directed graph of memory entries built from their `References` fields. Entries are auto-linked by type (e.g. `tool_result` depends on `progress`, `result` depends on `tool_result`). The graph is injected into the LLM prompt as a `<memory-graph>` block so the model can trace relationships between facts.
+A directed graph of memory entries built from their `References` fields. Entries are auto-linked by type (e.g. `tool_result` depends on `progress`, `result` depends on `tool_result`). The graph is inlined into the `<memory>` block — entries in causal order (parents before children), each showing its `<- parent` edge — so the model can trace relationships between facts without a separate diagram.
 Request-scoped key/value storage. Values set with `set('key', value, 'memory')` persist for the duration of a single request and are accessible via `get('key', 'memory')`. Cleared when the request completes.
 
 ## O

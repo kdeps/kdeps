@@ -6,7 +6,7 @@ Persistent memory lets the agent store and recall facts across sessions. Unlike 
 
 Memory is stored as a JSONL file at `~/.kdeps/memory/<encoded-cwd>/memory.jsonl`. Each entry has a key, value, type, timestamps, and optional references to other entries for graph-based relationship tracking.
 
-The memory store is injected into every LLM call automatically. The agent sees a `<memory>` block in its system prompt containing known facts, plus a `<memory-graph>` block showing how entries relate to each other.
+The memory store is injected into every LLM call automatically as a single graph-ordered `<memory>` block in the system prompt: entries appear in causal order (a parent always before the children that reference it), each value is shown inline with its parent edges, and the newest unfinished task is flagged so a model resuming after an orchestrator model switch knows exactly where to continue.
 
 ## Built-in memory tools
 
@@ -142,25 +142,24 @@ prompt → purpose → progress → tool_result → result → status
                             action, error, file, decision, fact, note
 ```
 
-The graph is injected into the LLM prompt as a `<memory-graph>` block, showing how entries relate:
-
-```
-<memory-graph>
-project_name -> tool:bash_exec:main
-project_name -> tool:bash_exec:main -> tool:bash_exec:fafdc304_fix__sanitize_the_ter
-</memory-graph>
-```
-
-This lets the LLM trace dependencies between facts — for example, seeing that a `tool_result` was produced by a specific `prompt`, or that a `decision` was informed by a `result`.
+Rather than a separate diagram, the graph is **inlined into the `<memory>` block**: entries are ordered so each parent comes before the children that reference it, and every entry shows its parent edge with `<- parent`. The LLM reads the workflow as one chain instead of cross-referencing a separate arrow list.
 
 ## Prompt injection
 
-On every turn, the memory store injects two blocks into the system prompt:
+On every turn the memory store injects one graph-ordered `<memory>` block. Entries are ordered topologically (parents first), each carries its value and parent edge inline, the newest unfinished `progress`/`result`/`status` entry is marked `<== RESUME`, and that node's downstream (reverse) dependencies are listed:
 
-1. **`<memory>`** — the most recent entries, sorted by recency, truncated to ~500 tokens
-2. **`<memory-graph>`** — relationship paths between entries, truncated to ~250 tokens
+```
+<memory>
+Legend: the workflow chain in causal order (parents before children). "key [type]: value";
+"<- P" means this entry was derived from / references P; "<== RESUME" marks where an
+unfinished task should continue.
+prompt:build [prompt]: Add /users endpoint
+tool:write_users [tool_result]: wrote handlers/users.go  <- prompt:build
+result:build [result]: compiles; tests pending  <- tool:write_users  <== RESUME
+</memory>
+```
 
-The agent also receives a rule: "Check memory first. Before taking ANY action, use `memory_search` and `memory_list` to see what is already known about the task."
+The block is truncated to a token budget, dropping the oldest entries first; edges to dropped entries are omitted so no arrow dangles. The agent also receives a rule: "Check memory first. Before taking ANY action, use `memory_search` and `memory_list` to see what is already known about the task."
 
 ## Compaction integration
 
@@ -170,6 +169,24 @@ When the agent runs `/compact` (summarizes and clears conversation history), the
 - `## Critical Context` — saved as `context` type entries
 
 This preserves important information across compaction boundaries.
+
+## Checkpoint summaries
+
+After every compaction, a `checkpoint:summary` entry is saved containing the condensed Goal, Progress, Key Decisions, and Critical Context sections. This provides a running project snapshot that persists across sessions.
+
+## Session persistence
+
+The agent's full LLM config (model, backend, base URL) is saved to `session:config` on startup and after every `/model` switch. On the next run, the config is restored automatically — you pick up right where you left off.
+
+Additionally, the working directory is saved on start (`session:started`) and resume (`session:resumed`) so the agent always knows where it is.
+
+## Workflow mode
+
+Memory tools work in both agent mode and workflow mode. In workflow mode, the store is lazy-initialized on first use via `GetOrCreateMemoryStore()`. No Loop required — memory is available to any resource or tool.
+
+## Tool result filtering
+
+To prevent memory bloat, only write/exec/search tools produce memory entries. Read-only lookups (`read_file`, `list_files`, `search_local`) are filtered out. Each tool type is capped at 20 entries — the oldest are auto-deleted when the cap is reached.
 
 ## Configuration
 

@@ -341,6 +341,35 @@ KDEPS_AGENT_PRESET=implement   kdeps ./my-agent/    # workspace-write, lean tool
 
 Tools available in lean mode: file operations (`read_file`, `write_file`, `edit_file`, `list_files`), code intelligence (`code_search`, `code_definition`, `code_references`, `code_symbols`, `code_hover`, `code_diagnostics`, `search_local`), document loading (`load_document`), computation (`calculator`), embeddings (`embedding_vectorize`, `embedding_search`), and transcription (`transcribe_audio`). Everything else -- `bash_exec`, `web_search`, `web_scraper`, `wikipedia`, `http_request` -- is excluded.
 
+## Persistent memory
+
+The agent automatically remembers facts across sessions. Memory is stored as JSONL at `~/.kdeps/memory/` with per-project isolation. No YAML configuration needed — enabled by default.
+
+**Automatic capture:**
+- Every tool call result is saved as a memory entry (write/exec/search tools)
+- `[MEMORY: key] value` markers in any response are captured
+- Action sentences and file references extracted from each turn
+- Compaction summaries auto-captured as checkpoint entries
+- Entries auto-link into a type-based dependency graph
+
+**LLM-callable tools:**
+| Tool | Description |
+|------|-------------|
+| `memory_save` | Save a fact with key and value |
+| `memory_search` | Search entries by key or value (case-insensitive) |
+| `memory_delete` | Remove an entry by key |
+| `memory_list` | List all stored keys |
+
+**Graph:** Entries form a directed graph (`prompt -> purpose -> progress -> tool_result -> result -> status`) inlined into the `<memory>` block on every LLM call — entries in causal order, each showing its `<- parent` edge, with the current unfinished task flagged `<== RESUME`. The LLM can trace how facts relate and where to continue.
+
+**Persistence:** Model, backend, and base URL are saved on `/model` switch and restored on next run. Working directory saved on start and resume.
+
+Read the full docs: [Persistent Memory](https://kdeps.com/concepts/memory)
+
+## Tool budget and stall timeout
+
+The agent loop tracks a tool budget (`MaxToolRounds`) and stall timeout. Auto-allocation is enabled by default — budgets increase automatically without interactive prompts. Tunable via `/model tool set rounds <n>` and `/model tool set stall-timeout <dur>`.
+
 ## Agent registries
 
 The agent loop maintains three in-memory registries for task, team, and cron lifecycle management:
