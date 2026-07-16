@@ -880,6 +880,24 @@ func TestStatusIsDone_Negation(t *testing.T) {
 	}
 }
 
+func TestStatusIsDone_ConcludedWork(t *testing.T) {
+	// W: work that is concluded but not "completed" still ends the resume trail.
+	for _, v := range []string{"cancelled", "task abandoned", "wontfix", "won't fix this"} {
+		assert.Truef(t, statusIsDone(v), "%q should read as concluded", v)
+	}
+}
+
+func TestErrorIsResolved_ReopenedAndConcluded(t *testing.T) {
+	// W: not-resolved markers win over a bare "fixed" substring.
+	assert.False(t, errorIsResolved("reopened: earlier fix did not hold"), "reopened is not resolved")
+	assert.False(t, errorIsResolved("not fixed yet"), "'not fixed' is not resolved")
+	assert.False(t, errorIsResolved("still failing on CI"), "'still failing' is not resolved")
+	// Concluded-but-not-fixed errors read as resolved (won't be acted on).
+	assert.True(t, errorIsResolved("wontfix - working as intended"), "wontfix reads as resolved")
+	assert.True(t, errorIsResolved("cancelled"), "cancelled reads as resolved")
+	assert.True(t, errorIsResolved("closed"), "existing resolved word still works")
+}
+
 func TestFocusMatches(t *testing.T) {
 	entries := []MemoryEntry{
 		{Key: "decision:auth", Value: "use JWT tokens", UpdatedAt: 3},

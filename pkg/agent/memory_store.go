@@ -1055,10 +1055,22 @@ func newestErrorKey(entries []MemoryEntry) string {
 }
 
 // errorIsResolved reports whether an error entry's value reads as already handled,
-// so a fixed failure is not resurfaced as an active hazard.
+// so a fixed failure is not resurfaced as an active hazard. Not-resolved markers
+// win first (W), so "reopened" / "not fixed" are never mistaken for resolution by a
+// bare substring (e.g. "not fixed" contains "fixed").
 func errorIsResolved(value string) bool {
 	v := strings.ToLower(value)
-	for _, m := range []string{"resolved", "fixed", "closed", "no longer", "not an issue", "works now"} {
+	for _, neg := range []string{
+		"reopened", "not fixed", "not resolved", "still failing", "still broken", "regressed",
+	} {
+		if strings.Contains(v, neg) {
+			return false
+		}
+	}
+	for _, m := range []string{
+		"resolved", "fixed", "closed", "no longer", "not an issue", "works now",
+		"wontfix", "won't fix", "cancelled", "canceled", "abandoned",
+	} {
 		if strings.Contains(v, m) {
 			return true
 		}
@@ -1083,7 +1095,10 @@ func statusIsDone(value string) bool {
 			return false
 		}
 	}
-	for _, done := range []string{"done", "complete", "finished", "success", "shipped", "merged"} {
+	for _, done := range []string{
+		"done", "complete", "finished", "success", "shipped", "merged",
+		"cancelled", "canceled", "abandoned", "wontfix", "won't fix", // concluded, won't continue (W)
+	} {
 		if strings.Contains(v, done) {
 			return true
 		}
