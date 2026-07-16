@@ -1054,16 +1054,29 @@ func newestErrorKey(entries []MemoryEntry) string {
 	return best
 }
 
+// markerHit reports whether value contains marker at a word boundary (X): a
+// single-word marker matches only a whole token or an inflection of it ("complete"
+// -> "completed", but "done" not inside "undone"/"condone"); a multi-word or
+// punctuated phrase falls back to substring (phrases don't embed inside other
+// words). tokens is the pre-split word set of value.
+func markerHit(value string, tokens map[string]bool, marker string) bool {
+	if strings.ContainsAny(marker, " -'") {
+		return strings.Contains(value, marker)
+	}
+	return prefixInSet(tokens, marker)
+}
+
 // errorIsResolved reports whether an error entry's value reads as already handled,
 // so a fixed failure is not resurfaced as an active hazard. Not-resolved markers
-// win first (W), so "reopened" / "not fixed" are never mistaken for resolution by a
-// bare substring (e.g. "not fixed" contains "fixed").
+// win first (W), so "reopened" / "not fixed" are never mistaken for resolution.
+// Matching is word-boundary based (X): "fixed" does not match inside "prefixed".
 func errorIsResolved(value string) bool {
 	v := strings.ToLower(value)
+	toks := wordTokens(v)
 	for _, neg := range []string{
 		"reopened", "not fixed", "not resolved", "still failing", "still broken", "regressed",
 	} {
-		if strings.Contains(v, neg) {
+		if markerHit(v, toks, neg) {
 			return false
 		}
 	}
@@ -1071,7 +1084,7 @@ func errorIsResolved(value string) bool {
 		"resolved", "fixed", "closed", "no longer", "not an issue", "works now",
 		"wontfix", "won't fix", "cancelled", "canceled", "abandoned",
 	} {
-		if strings.Contains(v, m) {
+		if markerHit(v, toks, m) {
 			return true
 		}
 	}
@@ -1082,16 +1095,18 @@ func isResumableType(t string) bool {
 	return t == memTypeProgress || t == memTypeResult || t == memTypeStatus
 }
 
-// statusIsDone reports whether a value reads as completed work.
+// statusIsDone reports whether a value reads as completed work. Not-done markers
+// win, so "not done" / "incomplete" / "in progress" are never mistaken for
+// completion. Matching is word-boundary based (X): "done" does not match inside
+// "undone"/"condone", nor "blocked" inside "unblocked".
 func statusIsDone(value string) bool {
 	v := strings.ToLower(value)
-	// Not-done markers win, so "not done" / "incomplete" / "in progress" are never
-	// mistaken for completion by a bare substring match.
+	toks := wordTokens(v)
 	for _, neg := range []string{
 		"not done", "not complete", "not finished", "incomplete", "unfinished",
 		"in progress", "in-progress", "pending", "todo", "to do", "wip", "blocked", "failed",
 	} {
-		if strings.Contains(v, neg) {
+		if markerHit(v, toks, neg) {
 			return false
 		}
 	}
@@ -1099,7 +1114,7 @@ func statusIsDone(value string) bool {
 		"done", "complete", "finished", "success", "shipped", "merged",
 		"cancelled", "canceled", "abandoned", "wontfix", "won't fix", // concluded, won't continue (W)
 	} {
-		if strings.Contains(v, done) {
+		if markerHit(v, toks, done) {
 			return true
 		}
 	}

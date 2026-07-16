@@ -887,6 +887,22 @@ func TestStatusIsDone_ConcludedWork(t *testing.T) {
 	}
 }
 
+func TestStatusIsDone_WordBoundary(t *testing.T) {
+	// X: a done marker inside a larger word must not trigger.
+	assert.False(t, statusIsDone("we condone this approach"), "'condone' is not 'done'")
+	assert.False(t, statusIsDone("left this undone"), "'undone' is not 'done'")
+	assert.False(t, statusIsDone("unblocked but still working"), "'unblocked' is not the 'blocked' marker")
+	// Inflections still count.
+	assert.True(t, statusIsDone("build completed"), "'completed' still reads as done")
+	assert.True(t, statusIsDone("finished the migration"), "whole-word marker still matches")
+}
+
+func TestErrorIsResolved_WordBoundary(t *testing.T) {
+	// X: "fixed" inside "prefixed" is not a resolution.
+	assert.False(t, errorIsResolved("prefixed the route handler"), "'prefixed' does not mean fixed")
+	assert.True(t, errorIsResolved("fixed in build 4"), "whole-word 'fixed' still resolves")
+}
+
 func TestErrorIsResolved_ReopenedAndConcluded(t *testing.T) {
 	// W: not-resolved markers win over a bare "fixed" substring.
 	assert.False(t, errorIsResolved("reopened: earlier fix did not hold"), "reopened is not resolved")
