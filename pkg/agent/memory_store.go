@@ -1000,7 +1000,7 @@ func writeGraphEntry(sb *strings.Builder, e MemoryEntry, keep map[string]bool, r
 		fmt.Fprintf(sb, " [%s]", e.Type)
 	}
 	sb.WriteString(": ")
-	sb.WriteString(xmlEscape(e.Value))
+	sb.WriteString(xmlEscape(flattenValue(e.Value)))
 
 	var parents []string
 	for _, r := range e.References {
@@ -1018,6 +1018,24 @@ func writeGraphEntry(sb *strings.Builder, e MemoryEntry, keep map[string]bool, r
 		sb.WriteString("  <== RESUME")
 	}
 	sb.WriteByte('\n')
+}
+
+// flattenValue collapses embedded newlines (and their surrounding whitespace) to a
+// " / " separator so each rendered entry stays exactly one line (P). The legend
+// promises one entry per line, parents before children; a multiline value (tool
+// output, a captured section) would otherwise break that reading. The stored value
+// is untouched — this is render-only.
+func flattenValue(s string) string {
+	if !strings.ContainsAny(s, "\n\r") {
+		return s
+	}
+	var parts []string
+	for _, ln := range strings.FieldsFunc(s, func(r rune) bool { return r == '\n' || r == '\r' }) {
+		if ln = strings.TrimSpace(ln); ln != "" {
+			parts = append(parts, ln)
+		}
+	}
+	return strings.Join(parts, " / ")
 }
 
 // truncationMarker signals a value was cut, so a cold model treats it as a

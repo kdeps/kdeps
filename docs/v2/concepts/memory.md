@@ -142,7 +142,7 @@ prompt → purpose → progress → tool_result → result → status
                             action, error, file, decision, fact, note
 ```
 
-Rather than a separate diagram, the graph is **inlined into the `<memory>` block**: entries are ordered so each parent comes before the children that reference it, and every entry shows its parent edge with `<- parent`. The LLM reads the workflow as one chain instead of cross-referencing a separate arrow list.
+Rather than a separate diagram, the graph is **inlined into the `<memory>` block**: entries are ordered so each parent comes before the children that reference it, and every entry shows its parent edge with `<- parent`. The LLM reads the workflow as one chain instead of cross-referencing a separate arrow list. Each entry is rendered on exactly one line — a multiline value (tool output, a captured section) has its newlines collapsed to ` / ` so it never breaks the one-entry-per-line reading.
 
 ## Prompt injection
 

@@ -760,6 +760,25 @@ func TestTruncateValue(t *testing.T) {
 		"a long value carries the truncation marker")
 }
 
+func TestFlattenValue(t *testing.T) {
+	assert.Equal(t, "one line", flattenValue("one line"), "single line unchanged")
+	assert.Equal(t, "a / b / c", flattenValue("a\nb\nc"), "newlines become separators")
+	assert.Equal(t, "a / b", flattenValue("  a  \n\n  b  \n"), "blank lines dropped, trimmed")
+	assert.Equal(t, "x / y", flattenValue("x\r\ny"), "CRLF handled")
+}
+
+func TestMemoryStore_FormatForPrompt_FlattensMultilineValue(t *testing.T) {
+	dir := t.TempDir()
+	store := NewMemoryStore(dir)
+	store.SetCwd("/Users/test/Projects/foo")
+
+	require.NoError(t, store.Set("result:run", "step 1 ok\nstep 2 ok\nstep 3 pending"))
+	out := store.FormatForPrompt(1000, "")
+
+	assert.Contains(t, out, "step 1 ok / step 2 ok / step 3 pending", "value rendered on one line")
+	assert.NotContains(t, out, "step 1 ok\nstep 2", "no embedded newline splits the entry")
+}
+
 func TestTruncateValue_RuneSafe(t *testing.T) {
 	// "世" is 3 bytes; a limit landing mid-rune must back off to a boundary.
 	s := strings.Repeat("世", 10) // 30 bytes
