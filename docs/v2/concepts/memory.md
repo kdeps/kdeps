@@ -150,7 +150,7 @@ On every turn the memory store injects one graph-ordered `<memory>` block: a leg
 
 ```
 <memory>
-Legend: workflow chain, parents before children. "key [type]: value"; "<- P" = derived from P; "<== RESUME" = continue here.
+Legend: workflow chain, parents before children. "key [type]: value"; "<- P" = derived from P; "(same as K)" = repeats K's fact; "<== RESUME" = continue here.
 map: 1 prompt, 1 tool_result, 1 result | resume: result:build (2m ago)
 prompt:build [prompt]: Add /users endpoint
 tool:write_users [tool_result]: wrote handlers/users.go  <- prompt:build

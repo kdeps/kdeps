@@ -568,7 +568,7 @@ func (m *MemoryStore) FormatGraphNode(key string) string {
 // memoryGraphLegend explains the unified graph-ordered layout so the model can
 // read memory as one causal chain instead of joining three separate blocks.
 const memoryGraphLegend = `Legend: workflow chain, parents before children. ` +
-	`"key [type]: value"; "<- P" = derived from P; "<== RESUME" = continue here.`
+	`"key [type]: value"; "<- P" = derived from P; "(same as K)" = repeats K's fact; "<== RESUME" = continue here.`
 
 // FormatForPrompt renders memory as a single graph-ordered block for the system
 // prompt. Entries are ordered topologically via the kartographer dependency

@@ -690,9 +690,10 @@ func TestMemoryStore_FormatForPrompt_FlagsDuplicateValues(t *testing.T) {
 	require.NoError(t, store.Set("context:endpoint", "the service base URL is  https://api.example.com  "))
 
 	out := store.FormatForPrompt(1000, "")
-	// The later-rendered copy is flagged as the same fact; exactly one flag appears.
-	assert.Equal(t, 1, strings.Count(out, "(same as "),
-		"the duplicate fact is flagged once, not both copies")
+	// The later-rendered copy points back at the first; only one copy is flagged.
+	// (Assert on real keys, not the substring "(same as " which the legend also uses.)
+	assert.Contains(t, out, "(same as fact:api_url)", "the second copy is flagged as the same fact")
+	assert.NotContains(t, out, "(same as context:endpoint)", "the first copy is not flagged")
 }
 
 func TestMemoryStore_FormatForPrompt_ShortValuesNotFlaggedAsDup(t *testing.T) {
@@ -705,7 +706,16 @@ func TestMemoryStore_FormatForPrompt_ShortValuesNotFlaggedAsDup(t *testing.T) {
 	require.NoError(t, store.Set("status:b", "done"))
 
 	out := store.FormatForPrompt(1000, "")
-	assert.NotContains(t, out, "(same as ", "short common values are not treated as duplicates")
+	// No entry-level flag (the legend's own "(same as K)" is not an entry flag).
+	assert.NotContains(t, out, "(same as status", "short common values are not treated as duplicates")
+}
+
+func TestMemoryGraphLegend_DocumentsRenderTokens(t *testing.T) {
+	// Q: every annotation token the render can emit is explained in the legend, so
+	// a cold model never meets an undefined marker.
+	assert.Contains(t, memoryGraphLegend, "<- P", "parent-edge token documented")
+	assert.Contains(t, memoryGraphLegend, "(same as K)", "duplicate-fact token documented")
+	assert.Contains(t, memoryGraphLegend, "<== RESUME", "resume token documented")
 }
 
 func TestNormalizeValue(t *testing.T) {
