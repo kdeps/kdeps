@@ -926,6 +926,31 @@ func TestFocusMatches_WordBoundary(t *testing.T) {
 	assert.NotContains(t, got, "note:finance", "api does not match 'capital'/'rapid' substrings")
 }
 
+func TestFocusMatches_RanksStrongMatchesFirst(t *testing.T) {
+	// An old but strong match (focus terms in the key, two tokens) must not be
+	// crowded out of the cap by many recent weak (single value-token) matches.
+	entries := []MemoryEntry{
+		{Key: "result:auth_tokens", Value: "issued", UpdatedAt: 1},
+	}
+	for i := range memoryFocusMax + 2 {
+		entries = append(entries, MemoryEntry{
+			Key: "note:n" + string(rune('a'+i)), Value: "mentions auth once",
+			UpdatedAt: int64(100 + i),
+		})
+	}
+	got := focusMatches(entries, "auth tokens")
+	assert.Contains(t, got, "result:auth_tokens", "older strong key+multi-token match survives the cap")
+	assert.LessOrEqual(t, len(got), memoryFocusMax, "capped at memoryFocusMax")
+}
+
+func TestFocusScore(t *testing.T) {
+	toks := []string{"auth", "tokens"}
+	key := focusScore(MemoryEntry{Key: "result:auth_tokens", Value: "issued"}, toks)
+	val := focusScore(MemoryEntry{Key: "note:x", Value: "auth only"}, toks)
+	assert.Greater(t, key, val, "key + multi-token match outscores a single value match")
+	assert.Equal(t, 0, focusScore(MemoryEntry{Key: "note:y", Value: "nothing here"}, toks), "no match scores zero")
+}
+
 func TestWordTokens(t *testing.T) {
 	set := wordTokens("result:api_wiring wired REST")
 	assert.True(t, set["api"] && set["wiring"] && set["result"] && set["rest"],

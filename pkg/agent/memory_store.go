@@ -779,37 +779,63 @@ var memoryStopwords = map[string]bool{
 // matching (R). Length 3 admits technical terms; 2-char words are too noisy.
 const memoryMinTokenLen = 3
 
-// focusMatches returns up to max keys whose key or value mentions a significant
-// word from focus (the current prompt), newest first. Empty when focus is empty.
+// focusKeyWeight is how much a focus token matching the entry's key counts versus
+// matching its value (T): the key names the concept, so a key hit is the stronger
+// signal.
+const focusKeyWeight = 2
+
+// focusScore rates how strongly an entry answers the focus tokens (T): each token
+// scores once, weighted higher on a key match than a value match. Word-boundary
+// matched (S) via wordTokens/prefixInSet. Zero means no match.
+func focusScore(e MemoryEntry, toks []string) int {
+	keyTok := wordTokens(e.Key)
+	valTok := wordTokens(e.Value)
+	score := 0
+	for _, t := range toks {
+		switch {
+		case prefixInSet(keyTok, t):
+			score += focusKeyWeight
+		case prefixInSet(valTok, t):
+			score++
+		}
+	}
+	return score
+}
+
+// focusMatches returns up to memoryFocusMax keys most relevant to focus (the
+// current prompt), strongest match first (T), recency breaking ties. Matching is
+// word-boundary based (S). Empty when focus is empty or nothing matches.
 func focusMatches(entries []MemoryEntry, focus string) []string {
 	toks := significantTokens(focus)
 	if len(toks) == 0 {
 		return nil
 	}
-	sorted := make([]MemoryEntry, len(entries))
-	copy(sorted, entries)
-	sort.Slice(sorted, func(i, j int) bool { return sorted[i].UpdatedAt > sorted[j].UpdatedAt })
+	type scored struct {
+		key     string
+		score   int
+		updated int64
+	}
+	var cands []scored
+	for _, e := range entries {
+		if s := focusScore(e, toks); s > 0 {
+			cands = append(cands, scored{e.Key, s, e.UpdatedAt})
+		}
+	}
+	// Strongest match first; most recent breaks ties, so an older but stronger
+	// (key / multi-token) match is not crowded out of the cap by recent weak hits.
+	sort.Slice(cands, func(i, j int) bool {
+		if cands[i].score != cands[j].score {
+			return cands[i].score > cands[j].score
+		}
+		return cands[i].updated > cands[j].updated
+	})
 
 	var out []string
-	for _, e := range sorted {
+	for _, c := range cands {
 		if len(out) >= memoryFocusMax {
 			break
 		}
-		// S: match a focus token only at a word boundary — as a whole token or the
-		// start of one ("token" -> "tokens", "api" -> "api_wiring") — never as a
-		// mid-word substring ("api" inside "capital"/"rapid"), which would waste
-		// force-keep slots under a tight budget.
-		hay := wordTokens(e.Key + " " + e.Value)
-		matched := false
-		for _, t := range toks {
-			if prefixInSet(hay, t) {
-				matched = true
-				break
-			}
-		}
-		if matched {
-			out = append(out, e.Key)
-		}
+		out = append(out, c.key)
 	}
 	return out
 }
