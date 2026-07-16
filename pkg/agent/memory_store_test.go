@@ -525,14 +525,59 @@ func TestMemoryStore_FormatForPrompt_WithGraph(t *testing.T) {
 
 	require.NoError(t, store.Set("a", "Node A"))
 	require.NoError(t, store.Set("b", "Node B"))
-	require.NoError(t, store.SetRelation("a", "b"))
+	require.NoError(t, store.SetRelation("a", "b")) // a references (is derived from) b
 
 	output := store.FormatForPrompt(500)
 	assert.Contains(t, output, "<memory>")
 	assert.Contains(t, output, "</memory>")
-	// Graph section should be appended.
-	assert.Contains(t, output, "<memory-graph>")
-	assert.Contains(t, output, "</memory-graph>")
+	assert.Contains(t, output, "Legend:", "unified render carries a legend")
+	// The graph is inlined per entry as a parent edge, not a separate block.
+	assert.Contains(t, output, "<- b", "child a shows its parent edge to b")
+	assert.NotContains(t, output, "<memory-graph>", "graph is inlined, not a separate block")
+	// Topological order: the parent (b) precedes the child (a).
+	assert.Less(t, strings.Index(output, "Node B"), strings.Index(output, "Node A"),
+		"parent b must be rendered before child a")
+}
+
+func TestMemoryStore_FormatForPrompt_CausalOrderAndResume(t *testing.T) {
+	dir := t.TempDir()
+	store := NewMemoryStore(dir)
+	store.SetCwd("/Users/test/Projects/foo")
+
+	require.NoError(t, store.Set("prompt:build", "Add /users endpoint"))
+	require.NoError(t, store.Set("tool:write_users", "wrote handlers/users.go"))
+	require.NoError(t, store.Set("result:build", "compiles; tests pending"))
+	require.NoError(t, store.SetRelation("tool:write_users", "prompt:build"))
+	require.NoError(t, store.SetRelation("result:build", "tool:write_users"))
+
+	out := store.FormatForPrompt(1000)
+
+	// Causal (topological) order: prompt -> tool -> result.
+	ip := strings.Index(out, "prompt:build")
+	it := strings.Index(out, "tool:write_users")
+	ir := strings.Index(out, "result:build")
+	require.True(t, ip >= 0 && it >= 0 && ir >= 0, "all keys present")
+	assert.Less(t, ip, it, "prompt before tool")
+	assert.Less(t, it, ir, "tool before result")
+
+	// Types shown inline and parent edges inlined (the graph, not a separate block).
+	assert.Contains(t, out, "[prompt]")
+	assert.Contains(t, out, "[result]")
+	assert.Contains(t, out, "<- prompt:build")
+	assert.Contains(t, out, "<- tool:write_users")
+
+	// The unfinished result is flagged as the resume point.
+	assert.Contains(t, out, "<== RESUME\n", "resume marker on an entry line")
+}
+
+func TestMemoryStore_FormatForPrompt_ResumeSkipsDone(t *testing.T) {
+	dir := t.TempDir()
+	store := NewMemoryStore(dir)
+	store.SetCwd("/Users/test/Projects/foo")
+
+	require.NoError(t, store.Set("result:build", "all tests pass, done"))
+	out := store.FormatForPrompt(1000)
+	assert.NotContains(t, out, "<== RESUME\n", "a completed result is not a resume point")
 }
 
 func TestMemoryStore_BuildDependencyMap_NoCwd(t *testing.T) {

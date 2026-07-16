@@ -563,11 +563,20 @@ func (m *MemoryStore) FormatGraphNode(key string) string {
 	return sb.String()
 }
 
-// FormatForPrompt returns memory entries formatted as an XML block suitable for
-// injection into the system prompt. Entries are sorted by key. The output is
-// truncated to approximately maxTokens * 4 bytes (chars-per-token estimate),
-// dropping the oldest entries first. Returns empty string when no entries exist
-// or cwd has not been set.
+// memoryGraphLegend explains the unified graph-ordered layout so the model can
+// read memory as one causal chain instead of joining three separate blocks.
+const memoryGraphLegend = `Legend: the workflow chain in causal order (parents before children). ` +
+	`Each line is "key [type]: value"; "<- P" means this entry was derived from / references P; ` +
+	`"<== RESUME" marks where an unfinished task should continue.`
+
+// FormatForPrompt renders memory as a single graph-ordered block for the system
+// prompt. Entries are ordered topologically via the kartographer dependency
+// graph (a parent always precedes the children that reference it), each value is
+// shown inline with its parent edges, the newest unfinished progress/result node
+// is flagged RESUME, and its downstream (reverse) dependencies are listed. The
+// block is truncated to ~maxTokens*4 bytes, dropping the oldest entries first;
+// edges to dropped entries are omitted so no arrow dangles. Returns "" when there
+// are no entries or cwd is unset.
 func (m *MemoryStore) FormatForPrompt(maxTokens int) string {
 	entries := m.List()
 	if len(entries) == 0 {
@@ -577,20 +586,42 @@ func (m *MemoryStore) FormatForPrompt(maxTokens int) string {
 		maxTokens = memoryMaxTokens
 	}
 
-	maxBytes := maxTokens * charsPerToken
+	keep := selectKeptEntries(entries, maxTokens*charsPerToken)
+	if len(keep) == 0 {
+		return ""
+	}
+	byKey := make(map[string]MemoryEntry, len(entries))
+	for _, e := range entries {
+		byKey[e.Key] = e
+	}
+	ordered := m.topoOrder(entries, keep)
+	resume := resumeKey(ordered, byKey)
 
 	var sb strings.Builder
 	sb.WriteString("<memory>\n")
+	sb.WriteString(memoryGraphLegend)
+	sb.WriteByte('\n')
+	for _, key := range ordered {
+		writeGraphEntry(&sb, byKey[key], keep, key == resume)
+	}
+	if resume != "" {
+		if down := m.keptReverseDeps(resume, keep); len(down) > 0 {
+			fmt.Fprintf(&sb, "downstream of %s: %s\n", resume, strings.Join(down, ", "))
+		}
+	}
+	sb.WriteString("</memory>")
+	return sb.String()
+}
 
-	// Drop oldest entries by UpdatedAt when the block would exceed maxBytes.
-	// Sort by UpdatedAt ascending temporarily.
+// selectKeptEntries returns the set of keys to render: newest entries first
+// (by UpdatedAt) until maxBytes is reached, always keeping at least one. This is
+// the single source of truth for truncation, so the graph edges rendered against
+// it can never point at a dropped entry.
+func selectKeptEntries(entries []MemoryEntry, maxBytes int) map[string]bool {
 	byAge := make([]MemoryEntry, len(entries))
 	copy(byAge, entries)
-	sort.Slice(byAge, func(i, j int) bool {
-		return byAge[i].UpdatedAt < byAge[j].UpdatedAt
-	})
+	sort.Slice(byAge, func(i, j int) bool { return byAge[i].UpdatedAt < byAge[j].UpdatedAt })
 
-	// Build a set of keys to keep (newest entries first, up to byte budget).
 	keep := make(map[string]bool, len(entries))
 	used := 0
 	for i := len(byAge) - 1; i >= 0; i-- {
@@ -601,31 +632,122 @@ func (m *MemoryStore) FormatForPrompt(maxTokens int) string {
 		keep[byAge[i].Key] = true
 		used += entryBytes
 	}
+	return keep
+}
 
-	// Write entries in sorted-by-key order, but only those in keep.
-	wrote := 0
+// topoOrder returns the kept keys in causal order (parents before children) via
+// the kartographer dependency stack. Nodes the stack does not reach (isolated
+// entries) are appended in key order.
+func (m *MemoryStore) topoOrder(entries []MemoryEntry, keep map[string]bool) []string {
+	nodes := make([]string, 0, len(keep))
 	for _, e := range entries {
-		if !keep[e.Key] {
+		if keep[e.Key] {
+			nodes = append(nodes, e.Key)
+		}
+	}
+	sort.Strings(nodes)
+
+	deps := m.BuildDependencyMap()
+	if len(deps) == 0 {
+		return nodes
+	}
+	depSvc := newDepService(deps)
+
+	order := make([]string, 0, len(nodes))
+	seen := make(map[string]bool, len(nodes))
+	for _, node := range nodes {
+		for _, n := range depSvc.BuildDependencyStack(node) {
+			if keep[n] && !seen[n] {
+				seen[n] = true
+				order = append(order, n)
+			}
+		}
+	}
+	for _, node := range nodes {
+		if !seen[node] {
+			seen[node] = true
+			order = append(order, node)
+		}
+	}
+	return order
+}
+
+// keptReverseDeps returns the entries that reference key (its downstream/children)
+// that are still in the kept set, using the kartographer reverse-dependency view.
+func (m *MemoryStore) keptReverseDeps(key string, keep map[string]bool) []string {
+	deps := m.BuildDependencyMap()
+	if len(deps) == 0 {
+		return nil
+	}
+	var out []string
+	for _, r := range newDepService(deps).ListReverseDependencies(key) {
+		if keep[r] {
+			out = append(out, r)
+		}
+	}
+	sort.Strings(out)
+	return out
+}
+
+// newDepService wires the kartographer dependency service over a dependency map.
+func newDepService(deps map[string][]string) graphDependencyService {
+	repo := newInMemoryGraphRepository(deps)
+	pathSvc := newGraphPathService(newArrowPathFormatter(), &stringWriter{buf: &strings.Builder{}})
+	return newGraphDependencyService(repo, pathSvc)
+}
+
+// resumeKey picks the node a cold model should continue from: the most recently
+// updated progress/result/status entry that is not marked done. Returns "" when
+// none qualifies.
+func resumeKey(ordered []string, byKey map[string]MemoryEntry) string {
+	best := ""
+	var bestTime int64
+	for _, k := range ordered {
+		e := byKey[k]
+		if !isResumableType(e.Type) || statusIsDone(e.Value) {
 			continue
 		}
-		fmt.Fprintf(&sb, `<entry key=%s>%s</entry>`,
-			jsonString(e.Key), xmlEscape(e.Value))
-		sb.WriteByte('\n')
-		wrote++
+		if best == "" || e.UpdatedAt >= bestTime {
+			best, bestTime = k, e.UpdatedAt
+		}
 	}
+	return best
+}
 
-	sb.WriteString("</memory>")
+func isResumableType(t string) bool {
+	return t == memTypeProgress || t == memTypeResult || t == memTypeStatus
+}
 
-	// Append graph section when relationships exist.
-	if graph := m.FormatGraphForPrompt(maxTokens); graph != "" {
-		sb.WriteByte('\n')
-		sb.WriteString(graph)
+// statusIsDone reports whether a value reads as completed work.
+func statusIsDone(value string) bool {
+	v := strings.ToLower(value)
+	return strings.Contains(v, "done") || strings.Contains(v, "complete") ||
+		strings.Contains(v, "finished") || strings.Contains(v, "success")
+}
+
+// writeGraphEntry renders one entry as "key [type]: value <- parents [<== RESUME]".
+// Parent edges are limited to nodes still in keep so no arrow dangles.
+func writeGraphEntry(sb *strings.Builder, e MemoryEntry, keep map[string]bool, resume bool) {
+	sb.WriteString(e.Key)
+	if e.Type != "" {
+		fmt.Fprintf(sb, " [%s]", e.Type)
 	}
+	sb.WriteString(": ")
+	sb.WriteString(xmlEscape(e.Value))
 
-	if wrote == 0 {
-		return ""
+	var parents []string
+	for _, r := range e.References {
+		if keep[r] {
+			parents = append(parents, r)
+		}
 	}
-	return sb.String()
+	if len(parents) > 0 {
+		fmt.Fprintf(sb, "  <- %s", strings.Join(parents, ", "))
+	}
+	if resume {
+		sb.WriteString("  <== RESUME")
+	}
+	sb.WriteByte('\n')
 }
 
 // xmlEscape escapes a string for inclusion in XML text content.
