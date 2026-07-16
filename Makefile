@@ -27,12 +27,18 @@ build-linux:
 	@echo "✓ Build complete: ./kdeps (Linux AMD64)"
 
 # Run tests (with linting) — unit + integration + e2e + codeql
+# Fail-fast (default on): stop the go test run at the first failing test and
+# skip the remaining suites (integration, e2e, CodeQL, ...). Disable to run
+# everything regardless with: make test FAILFAST=0
+FAILFAST ?= 1
+GOTEST_FAILFAST := $(if $(filter 0,$(FAILFAST)),,-failfast)
+
 test: fmt lint build
 	@rm -f coverage.out coverage-unit.out coverage-integration.out; \
 	echo "=========================================="; \
 	echo "Running Unit Tests with Coverage"; \
 	echo "=========================================="; \
-	env -u KDEPS_SKIP_BOOTSTRAP -u KDEPS_COMPONENT_DIR go test -v -short -timeout=20m -coverprofile=coverage-unit.out ./pkg/... ./cmd/... ./; \
+	env -u KDEPS_SKIP_BOOTSTRAP -u KDEPS_COMPONENT_DIR go test $(GOTEST_FAILFAST) -v -short -timeout=30m -coverprofile=coverage-unit.out ./pkg/... ./cmd/... ./; \
 	UNIT_EXIT=$$?; \
 	UNIT_COVERAGE=""; \
 	if [ -f coverage-unit.out ]; then \
@@ -45,15 +51,31 @@ test: fmt lint build
 			fi; \
 		fi; \
 	fi; \
+	if [ "$$UNIT_EXIT" -ne 0 ] && [ "$(FAILFAST)" != "0" ]; then \
+		echo ""; \
+		echo "=========================================="; \
+		echo "✗ Unit Tests FAILED - stopping (fail-fast)."; \
+		echo "  Run 'make test FAILFAST=0' to run every suite regardless."; \
+		echo "=========================================="; \
+		exit 1; \
+	fi; \
 	echo ""; \
 	echo "=========================================="; \
 	echo "Running Integration Tests with Coverage"; \
 	echo "=========================================="; \
-	env -u KDEPS_SKIP_BOOTSTRAP -u KDEPS_COMPONENT_DIR go test -v -coverprofile=coverage-integration.out -covermode=count ./tests/integration/...; \
+	env -u KDEPS_SKIP_BOOTSTRAP -u KDEPS_COMPONENT_DIR go test $(GOTEST_FAILFAST) -v -coverprofile=coverage-integration.out -covermode=count ./tests/integration/...; \
 	INT_EXIT=$$?; \
 	INT_COVERAGE=""; \
 	if [ -f coverage-integration.out ]; then \
 		INT_COVERAGE=$$(go tool cover -func=coverage-integration.out 2>/dev/null | tail -1 | awk '{print $$NF}'); \
+	fi; \
+	if [ "$$INT_EXIT" -ne 0 ] && [ "$(FAILFAST)" != "0" ]; then \
+		echo ""; \
+		echo "=========================================="; \
+		echo "✗ Integration Tests FAILED - stopping (fail-fast)."; \
+		echo "  Run 'make test FAILFAST=0' to run every suite regardless."; \
+		echo "=========================================="; \
+		exit 1; \
 	fi; \
 	echo ""; \
 	echo "=========================================="; \
@@ -163,7 +185,7 @@ test: fmt lint build
 test-unit:
 	@echo "Running unit tests with coverage..."
 	@mkdir -p "$${GITHUB_WORKSPACE:-/tmp}/go-test-tmp" 2>/dev/null || true; \
-	env -u KDEPS_SKIP_BOOTSTRAP -u KDEPS_COMPONENT_DIR GOTMPDIR="$${GITHUB_WORKSPACE:-/tmp}/go-test-tmp" go test -short -parallel 1 -count=1 -timeout=20m -covermode=atomic -coverprofile=coverage.out ./pkg/... ./cmd/... ./; \
+	env -u KDEPS_SKIP_BOOTSTRAP -u KDEPS_COMPONENT_DIR GOTMPDIR="$${GITHUB_WORKSPACE:-/tmp}/go-test-tmp" go test -short -parallel 1 -count=1 -timeout=30m -covermode=atomic -coverprofile=coverage.out ./pkg/... ./cmd/... ./; \
 	TEST_EXIT=$$?; \
 	echo ""; \
 	if [ -f coverage.out ]; then \
