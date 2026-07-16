@@ -552,13 +552,17 @@ func TestMemoryStore_FormatForPrompt_CausalOrderAndResume(t *testing.T) {
 
 	out := store.FormatForPrompt(1000)
 
-	// Causal (topological) order: prompt -> tool -> result.
-	ip := strings.Index(out, "prompt:build")
-	it := strings.Index(out, "tool:write_users")
-	ir := strings.Index(out, "result:build")
-	require.True(t, ip >= 0 && it >= 0 && ir >= 0, "all keys present")
+	// Causal (topological) order: prompt -> tool -> result. Match the entry lines
+	// ("key [type]:"), not the orientation summary which also names the keys.
+	ip := strings.Index(out, "prompt:build [")
+	it := strings.Index(out, "tool:write_users [")
+	ir := strings.Index(out, "result:build [")
+	require.True(t, ip >= 0 && it >= 0 && ir >= 0, "all entry lines present")
 	assert.Less(t, ip, it, "prompt before tool")
 	assert.Less(t, it, ir, "tool before result")
+
+	// F: orientation summary lists the entry types.
+	assert.Contains(t, out, "map: ")
 
 	// Types shown inline and parent edges inlined (the graph, not a separate block).
 	assert.Contains(t, out, "[prompt]")
@@ -578,6 +582,46 @@ func TestMemoryStore_FormatForPrompt_ResumeSkipsDone(t *testing.T) {
 	require.NoError(t, store.Set("result:build", "all tests pass, done"))
 	out := store.FormatForPrompt(1000)
 	assert.NotContains(t, out, "<== RESUME\n", "a completed result is not a resume point")
+}
+
+func TestSelectKeptEntries_PriorityAlwaysKept(t *testing.T) {
+	entries := []MemoryEntry{
+		{Key: "old1", Value: strings.Repeat("x", 100), UpdatedAt: 1},
+		{Key: "old2", Value: strings.Repeat("x", 100), UpdatedAt: 2},
+		{Key: "active", Value: "go", UpdatedAt: 3},
+	}
+	// Tiny budget: the priority (active) entry is kept even though it and the big
+	// old entries far exceed it; the old entries drop.
+	keep := selectKeptEntries(entries, 20, map[string]bool{"active": true})
+	assert.True(t, keep["active"], "priority entry is always kept, past the budget")
+	assert.False(t, keep["old1"], "unrelated entries drop under a tiny budget")
+	assert.False(t, keep["old2"], "unrelated entries drop under a tiny budget")
+}
+
+func TestSelectKeptEntries_NoPriorityFillsNewestFirst(t *testing.T) {
+	entries := []MemoryEntry{
+		{Key: "oldest", Value: "a", UpdatedAt: 1},
+		{Key: "newest", Value: "b", UpdatedAt: 3},
+		{Key: "mid", Value: "c", UpdatedAt: 2},
+	}
+	keep := selectKeptEntries(entries, 1000, nil)
+	assert.Len(t, keep, 3, "all fit under a generous budget")
+}
+
+func TestAncestryChain_BoundedAndNearestFirst(t *testing.T) {
+	// A long auto-linked chain n0 -> n1 -> ... -> n20 (each references the prev).
+	byKey := map[string]MemoryEntry{}
+	for i := range 21 {
+		e := MemoryEntry{Key: "n" + string(rune('a'+i))}
+		if i > 0 {
+			e.References = []string{"n" + string(rune('a'+i-1))}
+		}
+		byKey[e.Key] = e
+	}
+	set := ancestryChain("nu", byKey) // start near the end
+	assert.LessOrEqual(t, len(set), memoryActiveChainMax, "chain is bounded")
+	assert.True(t, set["nu"], "includes the active node")
+	assert.True(t, set["nt"], "includes the nearest parent")
 }
 
 func TestMemoryStore_BuildDependencyMap_NoCwd(t *testing.T) {

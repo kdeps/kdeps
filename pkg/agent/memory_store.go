@@ -565,9 +565,8 @@ func (m *MemoryStore) FormatGraphNode(key string) string {
 
 // memoryGraphLegend explains the unified graph-ordered layout so the model can
 // read memory as one causal chain instead of joining three separate blocks.
-const memoryGraphLegend = `Legend: the workflow chain in causal order (parents before children). ` +
-	`Each line is "key [type]: value"; "<- P" means this entry was derived from / references P; ` +
-	`"<== RESUME" marks where an unfinished task should continue.`
+const memoryGraphLegend = `Legend: workflow chain, parents before children. ` +
+	`"key [type]: value"; "<- P" = derived from P; "<== RESUME" = continue here.`
 
 // FormatForPrompt renders memory as a single graph-ordered block for the system
 // prompt. Entries are ordered topologically via the kartographer dependency
@@ -586,21 +585,31 @@ func (m *MemoryStore) FormatForPrompt(maxTokens int) string {
 		maxTokens = memoryMaxTokens
 	}
 
-	keep := selectKeptEntries(entries, maxTokens*charsPerToken)
-	if len(keep) == 0 {
-		return ""
-	}
 	byKey := make(map[string]MemoryEntry, len(entries))
 	for _, e := range entries {
 		byKey[e.Key] = e
 	}
+	// E: the current task chain (the resume node and its transitive parents) is
+	// always kept, so a large memory never truncates away where we are and how we
+	// got here; unrelated/older entries drop first.
+	resume := resumeKeyFrom(entries)
+	priority := ancestryChain(resume, byKey)
+
+	keep := selectKeptEntries(entries, maxTokens*charsPerToken, priority)
+	if len(keep) == 0 {
+		return ""
+	}
 	ordered := m.topoOrder(entries, keep)
-	resume := resumeKey(ordered, byKey)
 
 	var sb strings.Builder
 	sb.WriteString("<memory>\n")
 	sb.WriteString(memoryGraphLegend)
 	sb.WriteByte('\n')
+	// F: one-line orientation map so the model sees the shape at a glance.
+	if summary := typeSummary(ordered, byKey, resume); summary != "" {
+		sb.WriteString(summary)
+		sb.WriteByte('\n')
+	}
 	for _, key := range ordered {
 		writeGraphEntry(&sb, byKey[key], keep, key == resume)
 	}
@@ -613,24 +622,42 @@ func (m *MemoryStore) FormatForPrompt(maxTokens int) string {
 	return sb.String()
 }
 
-// selectKeptEntries returns the set of keys to render: newest entries first
-// (by UpdatedAt) until maxBytes is reached, always keeping at least one. This is
-// the single source of truth for truncation, so the graph edges rendered against
-// it can never point at a dropped entry.
-func selectKeptEntries(entries []MemoryEntry, maxBytes int) map[string]bool {
+// selectKeptEntries returns the set of keys to render. Priority keys (the active
+// task chain) are always kept; the remaining byte budget is filled with the
+// newest other entries. It is the single source of truth for truncation, so the
+// graph edges rendered against it can never point at a dropped entry.
+func selectKeptEntries(entries []MemoryEntry, maxBytes int, priority map[string]bool) map[string]bool {
+	byKey := make(map[string]MemoryEntry, len(entries))
+	for _, e := range entries {
+		byKey[e.Key] = e
+	}
+	keep := make(map[string]bool, len(entries))
+	used := 0
+	entryBytes := func(e MemoryEntry) int {
+		return len(e.Key) + len(e.Value) + memoryXMLOverhead
+	}
+	// Always keep the active chain, even past the budget — losing it is worse
+	// than overshooting a soft token estimate.
+	for k := range priority {
+		if e, ok := byKey[k]; ok && !keep[k] {
+			keep[k] = true
+			used += entryBytes(e)
+		}
+	}
+	// Fill the rest with newest-first.
 	byAge := make([]MemoryEntry, len(entries))
 	copy(byAge, entries)
 	sort.Slice(byAge, func(i, j int) bool { return byAge[i].UpdatedAt < byAge[j].UpdatedAt })
-
-	keep := make(map[string]bool, len(entries))
-	used := 0
 	for i := len(byAge) - 1; i >= 0; i-- {
-		entryBytes := len(byAge[i].Key) + len(byAge[i].Value) + memoryXMLOverhead
-		if used+entryBytes > maxBytes && len(keep) > 0 {
+		if keep[byAge[i].Key] {
+			continue
+		}
+		b := entryBytes(byAge[i])
+		if used+b > maxBytes && len(keep) > 0 {
 			continue
 		}
 		keep[byAge[i].Key] = true
-		used += entryBytes
+		used += b
 	}
 	return keep
 }
@@ -696,22 +723,86 @@ func newDepService(deps map[string][]string) graphDependencyService {
 	return newGraphDependencyService(repo, pathSvc)
 }
 
-// resumeKey picks the node a cold model should continue from: the most recently
-// updated progress/result/status entry that is not marked done. Returns "" when
-// none qualifies.
-func resumeKey(ordered []string, byKey map[string]MemoryEntry) string {
+// resumeKeyFrom picks the node a cold model should continue from: the most
+// recently updated progress/result/status entry that is not marked done, chosen
+// across all entries (before truncation) so the active task can be prioritized.
+// Returns "" when none qualifies.
+func resumeKeyFrom(entries []MemoryEntry) string {
 	best := ""
 	var bestTime int64
-	for _, k := range ordered {
-		e := byKey[k]
+	for _, e := range entries {
 		if !isResumableType(e.Type) || statusIsDone(e.Value) {
 			continue
 		}
 		if best == "" || e.UpdatedAt >= bestTime {
-			best, bestTime = k, e.UpdatedAt
+			best, bestTime = e.Key, e.UpdatedAt
 		}
 	}
 	return best
+}
+
+// memoryActiveChainMax bounds how many entries the active task chain force-keeps.
+// Because entries auto-link into one long chain, keeping the *entire* ancestry
+// would defeat truncation; the nearest few ancestors are the useful context.
+const memoryActiveChainMax = 8
+
+// ancestryChain returns key plus its nearest transitive parents (References), up
+// to memoryActiveChainMax entries, breadth-first (closest ancestors first), so
+// the current task's immediate provenance is preserved through truncation without
+// dragging in the whole session history. Empty when key is "".
+func ancestryChain(key string, byKey map[string]MemoryEntry) map[string]bool {
+	set := make(map[string]bool)
+	if key == "" {
+		return set
+	}
+	queue := []string{key}
+	for len(queue) > 0 && len(set) < memoryActiveChainMax {
+		k := queue[0]
+		queue = queue[1:]
+		if set[k] {
+			continue
+		}
+		e, ok := byKey[k]
+		if !ok {
+			continue
+		}
+		set[k] = true
+		for _, p := range e.References {
+			if !set[p] {
+				queue = append(queue, p)
+			}
+		}
+	}
+	return set
+}
+
+// typeSummary returns a one-line orientation map of the rendered entries by type,
+// e.g. "map: 1 prompt, 2 tool_result, 1 result | resume: result:build".
+func typeSummary(ordered []string, byKey map[string]MemoryEntry, resume string) string {
+	if len(ordered) == 0 {
+		return ""
+	}
+	counts := make(map[string]int)
+	var seenOrder []string
+	for _, k := range ordered {
+		t := byKey[k].Type
+		if t == "" {
+			t = memTypeNote
+		}
+		if counts[t] == 0 {
+			seenOrder = append(seenOrder, t)
+		}
+		counts[t]++
+	}
+	parts := make([]string, 0, len(seenOrder))
+	for _, t := range seenOrder {
+		parts = append(parts, fmt.Sprintf("%d %s", counts[t], t))
+	}
+	line := "map: " + strings.Join(parts, ", ")
+	if resume != "" {
+		line += " | resume: " + resume
+	}
+	return line
 }
 
 func isResumableType(t string) bool {
