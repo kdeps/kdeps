@@ -2875,7 +2875,10 @@ func (r *REPL) pageLines(lines []string) error {
 		pageSize = termH - pagerHeaderReserve
 	}
 
-	if len(lines) <= pageSize {
+	// Only page interactively in the REPL. Outside it (tests, pipes, non-TTY),
+	// print everything directly — a term.MakeRaw + stdin read here would grab the
+	// controlling terminal of a test runner and leave it in raw mode.
+	if len(lines) <= pageSize || !r.loop.config.InteractiveTTY {
 		for _, l := range lines {
 			fmt.Fprintln(os.Stdout, l)
 		}
