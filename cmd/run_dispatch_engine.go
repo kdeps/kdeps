@@ -26,6 +26,7 @@ import (
 	"log/slog"
 	"os"
 
+	agentMemory "github.com/kdeps/kdeps/v2/pkg/agent"
 	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
 	"github.com/kdeps/kdeps/v2/pkg/domain"
 	"github.com/kdeps/kdeps/v2/pkg/executor"
@@ -49,7 +50,6 @@ import (
 	executorTranscribe "github.com/kdeps/kdeps/v2/pkg/executor/transcribe"
 	executorVectorStore "github.com/kdeps/kdeps/v2/pkg/executor/vectorstore"
 	"github.com/kdeps/kdeps/v2/pkg/infra/logging"
-	agentMemory "github.com/kdeps/kdeps/v2/pkg/agent"
 )
 
 //nolint:gochecknoglobals // test-replaceable factory hook

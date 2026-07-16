@@ -32,8 +32,8 @@ Inside the REPL, type `/help` for the full list:
 | `/model hff search <query>` | Search HuggingFace for GGUF repos (sorted by downloads) |
 | `/model hff info <repo>` | List GGUF files and sizes available in a HuggingFace repo |
 | `/model hff download <repo> [file]` | Download a GGUF from HuggingFace; auto-registers an alias for `/model` |
-| `/model tool [list]` | Show agent loop settings: tool rounds, retries, retry delay, compaction, history caps |
-| `/model tool set <setting> <value>` | Change a setting for this session, e.g. `set rounds 80` (`0` = unlimited), `set compact-threshold 40k`, `set retry-delay 5s` |
+| `/model tool [list]` | Show agent loop settings: tool rounds, retries, retry delay, compaction, history caps, stall timeout, auto-allocation |
+| `/model tool set <setting> <value>` | Change a setting for this session, e.g. `set rounds 80` (`0` = unlimited), `set compact-threshold 40k`, `set retry-delay 5s`, `set stall-timeout 5m` |
 | `/skills` | List loaded skills |
 | `/prompts` | List loaded prompt templates |
 | `/<skill-name> [prompt]` | Invoke a skill or prompt template directly |
@@ -279,6 +279,8 @@ While a tool runs, the REPL shows a live monitor line - `⠴ bash_exec running (
 The same status line covers `! <cmd>` / `!! <cmd>` shell commands and `@file` ref expansion: while a bang command is silent the line shows `⠴ ! make lint running (57s)`, and any real output erases the status line first so the two never collide.
 
 The monitor also detects hung tools. Staleness is measured by *silence*, not wall-clock time - a long build that keeps printing never trips it. After 2 minutes without output the line warns (`no output for 3m20s`); after the stall timeout (default 10 minutes of silence, tune with `/model tool set stall-timeout 5m`, `0` disables) the tool is killed and the model receives a structured error explaining the hang so it can retry with a narrower or more verbose command, or run it in the background.
+
+When a tool stalls, the REPL presents interactive options: `(i)ncrease` the stall timeout (adds the auto-allocation increment, default 5m), `(c)hange` to a specific timeout in minutes, or `(g)nore` to kill the tool. When `AutoStallAllocation` is enabled in config, the timeout increases automatically without prompting.
 
 Tools marked "cached" memoize successful results for the lifetime of the agent process: repeating the same query or URL returns the cached copy instantly instead of refetching. Failed and empty lookups are not cached, so they are retried on the next call. `wolfram_alpha` results are cached the same way.
 
@@ -561,6 +563,14 @@ Session IDs are shown at the start of each run.
 ### Auto-retry
 
 Transient LLM errors (HTTP 429, 5xx, network timeouts) are automatically retried up to 3 times with exponential backoff (2s, 4s, 8s). Context-overflow and authentication errors are not retried.
+
+### Tool budget and stall timeout
+
+The agent loop tracks a tool budget (`MaxToolRounds`) that limits how many tool calls the agent can make per turn. When the budget is nearly exhausted, the REPL presents interactive options: `(i)ncrease` the budget (adds 100 rounds), `(c)hange` to a specific number (`0` = unlimited), or `(g)nore` to continue with the current budget. When `AutoToolAllocation` is enabled in config, the budget increases automatically without prompting.
+
+Similarly, when a tool stalls (no output for the stall timeout duration), the REPL presents: `(i)ncrease` the stall timeout (adds the auto-allocation increment, default 5m), `(c)hange` to a specific timeout in minutes, or `(g)nore` to kill the tool. When `AutoStallAllocation` is enabled, the timeout increases automatically.
+
+Both settings can also be tuned with `/model tool set rounds <n>` and `/model tool set stall-timeout <dur>`.
 
 ## Single workflow vs folder
 

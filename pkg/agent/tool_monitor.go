@@ -33,7 +33,7 @@ const (
 	toolMonitorTailLen = 60
 	// toolStallWarnAfter is how long a tool may be silent before the monitor
 	// line starts showing a "no output" warning.
-	toolStallWarnAfter = 2 * time.Minute
+	toolStallWarnAfter = 5 * time.Minute // half of default 10m stall timeout
 )
 
 // lastLineTracker tees tool output, remembering the most recent non-empty

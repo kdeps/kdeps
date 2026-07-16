@@ -34,27 +34,27 @@ const sigTSTP = syscall.SIGTSTP
 
 // setProcessGroup configures cmd to start in its own process group so that
 // Ctrl+Z backgrounds only the child process, not the kdeps REPL itself.
+// Also ignores SIGTTOU/SIGTTIN so the child won't be suspended when it's
+// temporarily not in the foreground (e.g., before makeForeground runs).
 func setProcessGroup(cmd *exec.Cmd) {
 	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
 }
 
 // makeForeground puts the child's process group in the terminal foreground so it
 // can write to stdout/stderr without being suspended by SIGTTOU. Call after
-// cmd.Start(). Returns the previous foreground group for restoration.
+// cmd.Start(). When Setpgid is set, the child's PGID equals its PID.
 func makeForeground(cmd *exec.Cmd) int {
-	pgid, err := syscall.Getpgid(cmd.Process.Pid)
-	if err != nil {
-		return 0
-	}
-	prev, _ := unix.IoctlGetInt(0, unix.TIOCGPGRP)
-	_ = unix.IoctlSetInt(0, unix.TIOCSPGRP, pgid)
+	tfd := int(os.Stdin.Fd())
+	prev, _ := unix.IoctlGetInt(tfd, unix.TIOCGPGRP)
+	// Child's PGID = its PID when Setpgid is true (it becomes group leader).
+	_ = unix.IoctlSetInt(tfd, unix.TIOCSPGRP, cmd.Process.Pid)
 	return prev
 }
 
 // restoreForeground returns the terminal foreground to the given process group.
 func restoreForeground(pgid int) {
 	if pgid != 0 {
-		_ = unix.IoctlSetInt(0, unix.TIOCSPGRP, pgid)
+		_ = unix.IoctlSetInt(int(os.Stdin.Fd()), unix.TIOCSPGRP, pgid)
 	}
 }
 

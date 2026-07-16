@@ -53,7 +53,7 @@ func dispatchExecution(
 	workflowPath string,
 	devMode, debugMode bool,
 	fileArg string,
-	eventsEnabled bool,
+	_ bool,
 	memoryEnabled bool,
 ) error {
 	kdeps_debug.Log("enter: dispatchExecution")

@@ -140,7 +140,7 @@ func (f *fakeMemoryStore) List() []AgentMemoryEntry {
 	return entries
 }
 
-func (f *fakeMemoryStore) Search(query string) []AgentMemoryEntry {
+func (f *fakeMemoryStore) Search(_ string) []AgentMemoryEntry {
 	var entries []AgentMemoryEntry
 	for k, v := range f.data {
 		entries = append(entries, AgentMemoryEntry{Key: k, Value: v})

@@ -18,6 +18,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strings"
 
 	"github.com/kdeps/kdeps/v2/pkg/domain"
 	execEmbedding "github.com/kdeps/kdeps/v2/pkg/executor/embedding"
@@ -120,6 +121,21 @@ func registerSearchLocalTool(_ context.Context, reg *kdepstools.Registry) {
 				return "", err
 			}
 			out, _ := json.MarshalIndent(result, "", "  ")
+
+			// Also search memory so the LLM gets relevant context alongside
+			// file search results without a separate tool call.
+			if ms := GetOrCreateMemoryStore(); ms != nil {
+				if memResults := ms.Search(config.Query); len(memResults) > 0 {
+					var sb strings.Builder
+					sb.Write(out)
+					sb.WriteString("\n\n--- memory ---\n")
+					for _, entry := range memResults {
+						fmt.Fprintf(&sb, "%s: %s\n", entry.Key, entry.Value)
+					}
+					return sb.String(), nil
+				}
+			}
+
 			return string(out), nil
 		},
 	})

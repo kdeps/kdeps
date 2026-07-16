@@ -45,10 +45,10 @@ type AgentMemoryStore interface {
 // AgentMemoryEntry is a single persistent memory fact, mirroring
 // agent.MemoryEntry but without the import dependency.
 type AgentMemoryEntry struct {
-	Key       string   `json:"key"`
-	Value     string   `json:"value"`
-	Namespace string   `json:"namespace,omitempty"`
-	Type      string   `json:"type,omitempty"`
-	CreatedAt int64    `json:"createdAt"`
-	UpdatedAt int64    `json:"updatedAt"`
+	Key       string `json:"key"`
+	Value     string `json:"value"`
+	Namespace string `json:"namespace,omitempty"`
+	Type      string `json:"type,omitempty"`
+	CreatedAt int64  `json:"createdAt"`
+	UpdatedAt int64  `json:"updatedAt"`
 }
