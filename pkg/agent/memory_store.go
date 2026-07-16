@@ -1431,23 +1431,41 @@ func (m *MemoryStore) AutoCapture(summary string) int {
 	}
 
 	// 2. Extract individual entries from Key Decisions and Critical Context.
-	for _, section := range []string{"## Key Decisions", "## Critical Context"} {
-		for _, entry := range autoCaptureSection(summary, section) {
-			// Preserve original CreatedAt on overwrite.
-			if existing, ok := m.entries[entry.Key]; ok {
-				entry.CreatedAt = existing.CreatedAt
-			} else {
-				entry.CreatedAt = now
-			}
-			entry.UpdatedAt = now
-			m.entries[entry.Key] = entry
-			captured++
-		}
-	}
+	captured += m.captureSections(summary, now)
 	m.mu.Unlock()
 
 	if captured > 0 {
 		_ = m.Save()
+	}
+	return captured
+}
+
+// captureSections saves the Key Decisions and Critical Context entries from a
+// compaction summary, linking each to the checkpoint it came from (H). The
+// caller must hold m.mu. Returns the number of entries saved.
+func (m *MemoryStore) captureSections(summary string, now int64) int {
+	_, haveCheckpoint := m.entries[checkpointSummaryKey]
+	captured := 0
+	for _, section := range []string{"## Key Decisions", "## Critical Context"} {
+		for _, entry := range autoCaptureSection(summary, section) {
+			// Preserve original CreatedAt and links on overwrite.
+			if existing, ok := m.entries[entry.Key]; ok {
+				entry.CreatedAt = existing.CreatedAt
+				if len(entry.References) == 0 {
+					entry.References = existing.References
+				}
+			} else {
+				entry.CreatedAt = now
+			}
+			entry.UpdatedAt = now
+			// Link the captured decision/context to the checkpoint so it connects
+			// into the graph instead of floating as an orphan.
+			if len(entry.References) == 0 && haveCheckpoint && entry.Key != checkpointSummaryKey {
+				entry.References = []string{checkpointSummaryKey}
+			}
+			m.entries[entry.Key] = entry
+			captured++
+		}
 	}
 	return captured
 }

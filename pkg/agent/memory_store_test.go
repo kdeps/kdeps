@@ -932,6 +932,27 @@ func TestAutoCapture_DuplicateKeys(t *testing.T) {
 	assert.GreaterOrEqual(t, e2.UpdatedAt, e1.UpdatedAt) // updated
 }
 
+func TestAutoCapture_LinksCapturedEntriesToCheckpoint(t *testing.T) {
+	dir := t.TempDir()
+	store := NewMemoryStore(dir)
+	store.SetCwd("/Users/test/Projects/foo")
+
+	summary := `## Goal
+Ship the feature.
+
+## Key Decisions
+- **language**: Go
+`
+	require.Positive(t, store.AutoCapture(summary))
+
+	// The captured decision links to the checkpoint it came from, so it is part
+	// of the graph rather than an orphan.
+	e, ok := store.Get("language")
+	require.True(t, ok)
+	assert.Contains(t, e.References, checkpointSummaryKey,
+		"captured decision references its checkpoint")
+}
+
 func TestAutoCapture_SkipsNone(t *testing.T) {
 	dir := t.TempDir()
 	store := NewMemoryStore(dir)
