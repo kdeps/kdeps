@@ -373,6 +373,15 @@ func TestHandleSignals_SIGTSTP(t *testing.T) {
 	repl := NewREPL(context.Background(), loop)
 	defer repl.cancel()
 
+	// A running tool is present, so SIGTSTP backgrounds the tool (sends on
+	// toolBgCh). Without this, the handler would take the "suspend kdeps" path and
+	// call syscall.Kill(0, SIGTSTP), stopping the whole `go test`/`make test`
+	// process group — which is not something a unit test may do.
+	bgCh := make(chan struct{}, 1)
+	repl.toolCancelMu.Lock()
+	repl.toolBgCh = bgCh
+	repl.toolCancelMu.Unlock()
+
 	sigCh := make(chan os.Signal, 1)
 	done := make(chan struct{})
 
@@ -383,6 +392,13 @@ func TestHandleSignals_SIGTSTP(t *testing.T) {
 		time.Sleep(50 * time.Millisecond)
 	})
 	close(done)
+
+	select {
+	case <-bgCh:
+		// expected: SIGTSTP backgrounded the running tool
+	default:
+		t.Error("expected SIGTSTP to signal toolBgCh")
+	}
 	_ = out
 }
 
