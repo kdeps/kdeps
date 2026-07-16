@@ -1313,7 +1313,7 @@ func TestBuildSystemPreamble_Basic(t *testing.T) {
 	loop := &Loop{
 		config: Config{Model: "test-model"},
 	}
-	preamble := loop.buildSystemPreamble()
+	preamble := loop.buildSystemPreamble("")
 	// Should not be empty even with no skills or instructions
 	_ = preamble
 }
@@ -1324,7 +1324,7 @@ func TestBuildSystemPreamble_IncludesSkills(t *testing.T) {
 		config: Config{Model: "test-model"},
 		skills: "custom skill content",
 	}
-	preamble := loop.buildSystemPreamble()
+	preamble := loop.buildSystemPreamble("")
 	assert.Contains(t, preamble, "custom skill content")
 }
 

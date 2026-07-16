@@ -2569,7 +2569,7 @@ func TestBuildSystemPreamble_ZeroBudgetUsesAutoCompactThreshold(t *testing.T) {
 	loop.config.CompactTokenBudget = 0
 	loop.config.AutoCompactThreshold = 20000
 	// Should not panic and should return an empty preamble (no skills/prompt/tools)
-	preamble := loop.buildSystemPreamble()
+	preamble := loop.buildSystemPreamble("")
 	assert.Empty(t, preamble)
 }
 
@@ -2578,7 +2578,7 @@ func TestBuildSystemPreamble_BothZeroFallsBackTo40000(t *testing.T) {
 	// Both zero: final fallback to 40000
 	loop.config.CompactTokenBudget = 0
 	loop.config.AutoCompactThreshold = 0
-	preamble := loop.buildSystemPreamble()
+	preamble := loop.buildSystemPreamble("")
 	assert.Empty(t, preamble) // no skills/prompt/tools set
 }
 
@@ -2590,7 +2590,7 @@ func TestBuildSystemPreamble_SmallContext_StripsSkills(t *testing.T) {
 	loop.config.CompactTokenBudget = 4096 // < smallContext (8192)
 	loop.config.SystemPrompt = "you are a helpful assistant"
 
-	preamble := loop.buildSystemPreamble()
+	preamble := loop.buildSystemPreamble("")
 
 	// Skills should be stripped when context window is tiny
 	assert.NotContains(t, preamble, "LARGE SKILL BLOCK")
@@ -2603,7 +2603,7 @@ func TestBuildSystemPreamble_NormalContext_IncludesSkills(t *testing.T) {
 	loop.skills = "MY SKILL CONTENT"
 	loop.config.CompactTokenBudget = 40000
 
-	preamble := loop.buildSystemPreamble()
+	preamble := loop.buildSystemPreamble("")
 
 	assert.Contains(t, preamble, "MY SKILL CONTENT")
 }
@@ -2614,7 +2614,7 @@ func TestBuildSystemPreamble_SmallContext_NoSystemPrompt(t *testing.T) {
 	loop.config.CompactTokenBudget = 4096
 	loop.config.SystemPrompt = ""
 
-	preamble := loop.buildSystemPreamble()
+	preamble := loop.buildSystemPreamble("")
 
 	// Only tool guidance when no system prompt and small context
 	assert.NotContains(t, preamble, "SKILL")

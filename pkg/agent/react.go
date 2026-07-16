@@ -133,7 +133,7 @@ func (l *Loop) buildReactSystemPreamble() string {
 
 	base := fmt.Sprintf(reactSystemTemplate, descs.String(), names.String())
 
-	extra := l.buildSystemPreamble()
+	extra := l.buildSystemPreamble("")
 	if extra != "" {
 		return extra + "\n\n" + base
 	}

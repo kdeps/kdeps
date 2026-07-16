@@ -537,7 +537,7 @@ func (l *Loop) Run(ctx context.Context, input string) (string, error) {
 	}
 
 	// Build system prompt preamble: skills + instructions + user system prompt
-	systemPreamble := l.buildSystemPreamble()
+	systemPreamble := l.buildSystemPreamble(input)
 
 	chatCfg := l.buildChatConfig(input, systemPreamble)
 
@@ -603,7 +603,7 @@ func (l *Loop) RunStreaming(ctx context.Context, input string, w io.Writer) (str
 		}
 	}
 
-	systemPreamble := l.buildSystemPreamble()
+	systemPreamble := l.buildSystemPreamble(input)
 	chatCfg := l.buildChatConfig(input, systemPreamble)
 
 	finalContent, err := l.runToolRounds(ctx, chatCfg, w)
@@ -747,7 +747,7 @@ func (l *Loop) compactAndRetry(ctx context.Context, input string, w io.Writer) (
 		)
 	}
 
-	preamble := l.buildSystemPreamble()
+	preamble := l.buildSystemPreamble(input)
 	cfg := l.buildChatConfig(input, preamble)
 	return l.runToolRounds(ctx, cfg, w)
 }
@@ -1530,7 +1530,7 @@ CRITICAL:
 // leave room for the actual conversation.
 //
 //nolint:gocognit
-func (l *Loop) buildSystemPreamble() string {
+func (l *Loop) buildSystemPreamble(focus string) string {
 	limit := l.preambleLimit()
 	var parts []string
 
@@ -1538,7 +1538,7 @@ func (l *Loop) buildSystemPreamble() string {
 	// other content. The LLM must see these before anything else.
 	if l.memoryStore != nil {
 		parts = append(parts, l.memoryRulesPreamble()...)
-		if memPrompt := l.memoryStore.FormatForPrompt(memoryPromptLimit); memPrompt != "" {
+		if memPrompt := l.memoryStore.FormatForPrompt(memoryPromptLimit, focus); memPrompt != "" {
 			parts = append(parts, memPrompt)
 		}
 		// Mechanical memory_list: inject the current key list so the LLM

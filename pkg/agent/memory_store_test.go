@@ -234,7 +234,7 @@ func TestMemoryStore_NoCwd_NoOps(t *testing.T) {
 	assert.Nil(t, store.List())
 	assert.Nil(t, store.Search("anything"))
 	assert.Equal(t, 0, store.Len())
-	assert.Equal(t, "", store.FormatForPrompt(100))
+	assert.Equal(t, "", store.FormatForPrompt(100, ""))
 }
 
 func TestMemoryStore_FormatForPrompt(t *testing.T) {
@@ -245,7 +245,7 @@ func TestMemoryStore_FormatForPrompt(t *testing.T) {
 	require.NoError(t, store.Set("project_name", "kdeps"))
 	require.NoError(t, store.Set("language", "Go"))
 
-	output := store.FormatForPrompt(100)
+	output := store.FormatForPrompt(100, "")
 	assert.Contains(t, output, "<memory>")
 	assert.Contains(t, output, "</memory>")
 	assert.Contains(t, output, "project_name")
@@ -259,7 +259,7 @@ func TestMemoryStore_FormatForPrompt_Empty(t *testing.T) {
 	store := NewMemoryStore(dir)
 	store.SetCwd("/Users/test/Projects/foo")
 
-	assert.Equal(t, "", store.FormatForPrompt(100))
+	assert.Equal(t, "", store.FormatForPrompt(100, ""))
 }
 
 func TestMemoryStore_FormatForPrompt_XMLEscape(t *testing.T) {
@@ -269,7 +269,7 @@ func TestMemoryStore_FormatForPrompt_XMLEscape(t *testing.T) {
 
 	require.NoError(t, store.Set("test", "value <with> &amp; chars"))
 
-	output := store.FormatForPrompt(1000)
+	output := store.FormatForPrompt(1000, "")
 	assert.Contains(t, output, "&lt;with&gt;")
 	assert.Contains(t, output, "&amp;amp;")
 }
@@ -288,7 +288,7 @@ func TestMemoryStore_FormatForPrompt_Truncation(t *testing.T) {
 	}
 
 	// With a tiny token budget, only a few entries should be included.
-	output := store.FormatForPrompt(5) // ~20 bytes
+	output := store.FormatForPrompt(5, "") // ~20 bytes
 	require.NotEmpty(t, output)
 	assert.Contains(t, output, "<memory>")
 	assert.Contains(t, output, "</memory>")
@@ -527,7 +527,7 @@ func TestMemoryStore_FormatForPrompt_WithGraph(t *testing.T) {
 	require.NoError(t, store.Set("b", "Node B"))
 	require.NoError(t, store.SetRelation("a", "b")) // a references (is derived from) b
 
-	output := store.FormatForPrompt(500)
+	output := store.FormatForPrompt(500, "")
 	assert.Contains(t, output, "<memory>")
 	assert.Contains(t, output, "</memory>")
 	assert.Contains(t, output, "Legend:", "unified render carries a legend")
@@ -550,7 +550,7 @@ func TestMemoryStore_FormatForPrompt_CausalOrderAndResume(t *testing.T) {
 	require.NoError(t, store.SetRelation("tool:write_users", "prompt:build"))
 	require.NoError(t, store.SetRelation("result:build", "tool:write_users"))
 
-	out := store.FormatForPrompt(1000)
+	out := store.FormatForPrompt(1000, "")
 
 	// Causal (topological) order: prompt -> tool -> result. Match the entry lines
 	// ("key [type]:"), not the orientation summary which also names the keys.
@@ -580,7 +580,7 @@ func TestMemoryStore_FormatForPrompt_ResumeSkipsDone(t *testing.T) {
 	store.SetCwd("/Users/test/Projects/foo")
 
 	require.NoError(t, store.Set("result:build", "all tests pass, done"))
-	out := store.FormatForPrompt(1000)
+	out := store.FormatForPrompt(1000, "")
 	assert.NotContains(t, out, "<== RESUME\n", "a completed result is not a resume point")
 }
 
@@ -622,6 +622,45 @@ func TestAncestryChain_BoundedAndNearestFirst(t *testing.T) {
 	assert.LessOrEqual(t, len(set), memoryActiveChainMax, "chain is bounded")
 	assert.True(t, set["nu"], "includes the active node")
 	assert.True(t, set["nt"], "includes the nearest parent")
+}
+
+func TestStatusIsDone_Negation(t *testing.T) {
+	done := []string{"all tests pass, done", "complete", "shipped to prod", "merged"}
+	notDone := []string{"not done yet", "incomplete", "in progress, 3/5", "pending review", "todo: wire it"}
+	for _, v := range done {
+		assert.Truef(t, statusIsDone(v), "%q should read as done", v)
+	}
+	for _, v := range notDone {
+		assert.Falsef(t, statusIsDone(v), "%q should NOT read as done", v)
+	}
+}
+
+func TestFocusMatches(t *testing.T) {
+	entries := []MemoryEntry{
+		{Key: "decision:auth", Value: "use JWT tokens", UpdatedAt: 3},
+		{Key: "note:unrelated", Value: "the weather is nice", UpdatedAt: 2},
+		{Key: "result:db", Value: "postgres schema migrated", UpdatedAt: 1},
+	}
+	got := focusMatches(entries, "which token approach did we pick?")
+	assert.Contains(t, got, "decision:auth", "matches value 'tokens' on prompt word 'token'")
+	assert.NotContains(t, got, "note:unrelated")
+	assert.Nil(t, focusMatches(entries, ""), "empty focus matches nothing")
+	assert.Nil(t, focusMatches(entries, "the a of to"), "only stopwords/short words match nothing")
+}
+
+func TestMemoryStore_FormatForPrompt_FocusSurvivesTruncation(t *testing.T) {
+	dir := t.TempDir()
+	store := NewMemoryStore(dir)
+	store.SetCwd("/Users/test/Projects/foo")
+
+	for i := range 20 {
+		require.NoError(t, store.Set("note:filler_"+string(rune('a'+i)), strings.Repeat("x", 100)))
+	}
+	require.NoError(t, store.Set("decision:payments", "use Stripe for billing"))
+
+	// Tiny budget, but the entry relevant to the prompt is kept (I).
+	out := store.FormatForPrompt(30, "which billing provider did we pick?")
+	assert.Contains(t, out, "decision:payments [", "prompt-relevant entry survives truncation")
 }
 
 func TestMemoryStore_BuildDependencyMap_NoCwd(t *testing.T) {

@@ -576,7 +576,7 @@ const memoryGraphLegend = `Legend: workflow chain, parents before children. ` +
 // block is truncated to ~maxTokens*4 bytes, dropping the oldest entries first;
 // edges to dropped entries are omitted so no arrow dangles. Returns "" when there
 // are no entries or cwd is unset.
-func (m *MemoryStore) FormatForPrompt(maxTokens int) string {
+func (m *MemoryStore) FormatForPrompt(maxTokens int, focus string) string {
 	entries := m.List()
 	if len(entries) == 0 {
 		return ""
@@ -594,6 +594,13 @@ func (m *MemoryStore) FormatForPrompt(maxTokens int) string {
 	// got here; unrelated/older entries drop first.
 	resume := resumeKeyFrom(entries)
 	priority := ancestryChain(resume, byKey)
+	// I: also keep entries (and their chains) relevant to the current prompt, so
+	// memory about the question being asked survives truncation.
+	for _, key := range focusMatches(entries, focus) {
+		for k := range ancestryChain(key, byKey) {
+			priority[k] = true
+		}
+	}
 
 	keep := selectKeptEntries(entries, maxTokens*charsPerToken, priority)
 	if len(keep) == 0 {
@@ -723,6 +730,61 @@ func newDepService(deps map[string][]string) graphDependencyService {
 	return newGraphDependencyService(repo, pathSvc)
 }
 
+// memoryFocusMax bounds how many prompt-relevant entries are force-kept.
+const memoryFocusMax = 5
+
+// memoryStopwords are common words ignored when matching a prompt to memory.
+//
+//nolint:gochecknoglobals // static lookup table
+var memoryStopwords = map[string]bool{
+	"the": true, "this": true, "that": true, "with": true, "from": true, "have": true,
+	"what": true, "when": true, "where": true, "which": true, "would": true, "could": true,
+	"should": true, "about": true, "your": true, "please": true, "into": true, "then": true,
+}
+
+// focusMatches returns up to max keys whose key or value mentions a significant
+// word from focus (the current prompt), newest first. Empty when focus is empty.
+func focusMatches(entries []MemoryEntry, focus string) []string {
+	toks := significantTokens(focus)
+	if len(toks) == 0 {
+		return nil
+	}
+	sorted := make([]MemoryEntry, len(entries))
+	copy(sorted, entries)
+	sort.Slice(sorted, func(i, j int) bool { return sorted[i].UpdatedAt > sorted[j].UpdatedAt })
+
+	var out []string
+	for _, e := range sorted {
+		if len(out) >= memoryFocusMax {
+			break
+		}
+		hay := strings.ToLower(e.Key + " " + e.Value)
+		for _, t := range toks {
+			if strings.Contains(hay, t) {
+				out = append(out, e.Key)
+				break
+			}
+		}
+	}
+	return out
+}
+
+// significantTokens returns the lowercase words of s that are long enough and not
+// stopwords, for loose prompt-to-memory matching.
+func significantTokens(s string) []string {
+	if s == "" {
+		return nil
+	}
+	var out []string
+	for _, w := range strings.Fields(strings.ToLower(s)) {
+		w = strings.Trim(w, ".,!?;:\"'()[]{}<>")
+		if len(w) >= 4 && !memoryStopwords[w] {
+			out = append(out, w)
+		}
+	}
+	return out
+}
+
 // resumeKeyFrom picks the node a cold model should continue from: the most
 // recently updated progress/result/status entry that is not marked done, chosen
 // across all entries (before truncation) so the active task can be prioritized.
@@ -812,8 +874,22 @@ func isResumableType(t string) bool {
 // statusIsDone reports whether a value reads as completed work.
 func statusIsDone(value string) bool {
 	v := strings.ToLower(value)
-	return strings.Contains(v, "done") || strings.Contains(v, "complete") ||
-		strings.Contains(v, "finished") || strings.Contains(v, "success")
+	// Not-done markers win, so "not done" / "incomplete" / "in progress" are never
+	// mistaken for completion by a bare substring match.
+	for _, neg := range []string{
+		"not done", "not complete", "not finished", "incomplete", "unfinished",
+		"in progress", "in-progress", "pending", "todo", "to do", "wip", "blocked", "failed",
+	} {
+		if strings.Contains(v, neg) {
+			return false
+		}
+	}
+	for _, done := range []string{"done", "complete", "finished", "success", "shipped", "merged"} {
+		if strings.Contains(v, done) {
+			return true
+		}
+	}
+	return false
 }
 
 // writeGraphEntry renders one entry as "key [type]: value <- parents [<== RESUME]".

@@ -354,7 +354,7 @@ func TestBuildSystemPreamble_ContainsCommitTrailer(t *testing.T) {
 		Backend:  "deepseek",
 		Streamer: &mockStreamer{},
 	})
-	preamble := loop.buildSystemPreamble()
+	preamble := loop.buildSystemPreamble("")
 	assert.Contains(t, preamble, "Co-Authored-By: kdeps <noreply@kdeps.com>")
 	assert.Contains(t, preamble, "git commit")
 }
