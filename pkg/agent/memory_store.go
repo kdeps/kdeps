@@ -756,14 +756,28 @@ func newDepService(deps map[string][]string) graphDependencyService {
 // memoryFocusMax bounds how many prompt-relevant entries are force-kept.
 const memoryFocusMax = 5
 
-// memoryStopwords are common words ignored when matching a prompt to memory.
+// memoryStopwords are common words ignored when matching a prompt to memory. The
+// 3-char entries matter because significantTokens now accepts length-3 tokens (R)
+// to catch technical terms like "api"/"sql"/"css"/"git" — without these, common
+// short English words would match everything and defeat focus.
 //
 //nolint:gochecknoglobals // static lookup table
 var memoryStopwords = map[string]bool{
-	"the": true, "this": true, "that": true, "with": true, "from": true, "have": true,
+	// 4+ char noise.
+	"this": true, "that": true, "with": true, "from": true, "have": true,
 	"what": true, "when": true, "where": true, "which": true, "would": true, "could": true,
 	"should": true, "about": true, "your": true, "please": true, "into": true, "then": true,
+	// 3-char noise (admitted by the length-3 bound; technical 3-char terms are absent).
+	"the": true, "and": true, "for": true, "are": true, "was": true, "you": true,
+	"can": true, "how": true, "why": true, "who": true, "has": true, "had": true,
+	"but": true, "not": true, "its": true, "out": true, "all": true, "any": true,
+	"one": true, "two": true, "now": true, "see": true, "off": true, "per": true,
+	"via": true, "let": true, "did": true, "our": true, "yes": true, "too": true,
 }
+
+// memoryMinTokenLen is the shortest prompt word treated as significant for focus
+// matching (R). Length 3 admits technical terms; 2-char words are too noisy.
+const memoryMinTokenLen = 3
 
 // focusMatches returns up to max keys whose key or value mentions a significant
 // word from focus (the current prompt), newest first. Empty when focus is empty.
@@ -801,7 +815,7 @@ func significantTokens(s string) []string {
 	var out []string
 	for _, w := range strings.Fields(strings.ToLower(s)) {
 		w = strings.Trim(w, ".,!?;:\"'()[]{}<>")
-		if len(w) >= 4 && !memoryStopwords[w] {
+		if len(w) >= memoryMinTokenLen && !memoryStopwords[w] {
 			out = append(out, w)
 		}
 	}

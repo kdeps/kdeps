@@ -893,6 +893,28 @@ func TestFocusMatches(t *testing.T) {
 	assert.Nil(t, focusMatches(entries, "the a of to"), "only stopwords/short words match nothing")
 }
 
+func TestSignificantTokens_ShortTechnicalTerms(t *testing.T) {
+	// R: 3-char technical terms are significant; common 3-char English is not.
+	toks := significantTokens("fix the api and css bug")
+	assert.Contains(t, toks, "api", "3-char technical term kept")
+	assert.Contains(t, toks, "css", "3-char technical term kept")
+	assert.Contains(t, toks, "fix", "3-char dev verb kept")
+	assert.NotContains(t, toks, "the", "3-char stopword dropped")
+	assert.NotContains(t, toks, "and", "3-char stopword dropped")
+	// 2-char words remain excluded (too noisy).
+	assert.NotContains(t, significantTokens("go to db"), "db", "2-char token excluded")
+}
+
+func TestFocusMatches_ShortTerm(t *testing.T) {
+	entries := []MemoryEntry{
+		{Key: "result:api_wiring", Value: "wired the REST handlers", UpdatedAt: 2},
+		{Key: "note:lunch", Value: "had a sandwich", UpdatedAt: 1},
+	}
+	got := focusMatches(entries, "check the api handlers")
+	assert.Contains(t, got, "result:api_wiring", "3-char prompt term 'api' now matches focus (R)")
+	assert.NotContains(t, got, "note:lunch")
+}
+
 func TestMemoryStore_FormatForPrompt_FocusSurvivesTruncation(t *testing.T) {
 	dir := t.TempDir()
 	store := NewMemoryStore(dir)

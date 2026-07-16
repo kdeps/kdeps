@@ -160,7 +160,7 @@ result:build [result]: compiles; tests pending  <- tool:write_users  <== RESUME
 
 The `(2m ago)` hint on the resume target is a coarse relative age (`just now` / `Nm` / `Nh` / `Nd ago`). A model resuming after an orchestrator model switch uses it to judge whether the resume point is still fresh or likely stale enough to re-verify before continuing.
 
-The block is truncated to a token budget. Truncation is prioritized, not just oldest-first: the **active task chain** (the resume node and its nearest ancestors), entries **relevant to the current prompt**, and the **newest unresolved error** are always kept, so a large memory never drops where you are, what you just asked about, or a failure you should not repeat — unrelated older entries drop first. Edges to dropped entries are omitted so no arrow dangles.
+The block is truncated to a token budget. Truncation is prioritized, not just oldest-first: the **active task chain** (the resume node and its nearest ancestors), entries **relevant to the current prompt** (matched on significant prompt words, including 3-character technical terms like `api`, `sql`, or `git`), and the **newest unresolved error** are always kept, so a large memory never drops where you are, what you just asked about, or a failure you should not repeat — unrelated older entries drop first. Edges to dropped entries are omitted so no arrow dangles.
 
 The orientation map also names the most recent unresolved `error` entry (e.g. `| error: error:migration`) so a resuming model is reminded of a known failure up front. An error whose value reads as handled (`resolved`, `fixed`, `closed`, ...) is not surfaced.
 
