@@ -951,6 +951,23 @@ func TestFocusScore(t *testing.T) {
 	assert.Equal(t, 0, focusScore(MemoryEntry{Key: "note:y", Value: "nothing here"}, toks), "no match scores zero")
 }
 
+func TestFocusScore_StructuralOutranksNote(t *testing.T) {
+	toks := []string{"auth"}
+	structural := focusScore(MemoryEntry{Key: "result:x", Value: "auth wired", Type: memTypeResult}, toks)
+	note := focusScore(MemoryEntry{Key: "note:y", Value: "auth mentioned", Type: memTypeNote}, toks)
+	assert.Greater(t, structural, note, "structural match outranks a note mention on equal tokens (U)")
+}
+
+func TestFocusMatches_StructuralBeatsRecentNote(t *testing.T) {
+	entries := []MemoryEntry{
+		{Key: "note:recent", Value: "touches billing", Type: memTypeNote, UpdatedAt: 100},
+		{Key: "decision:pay", Value: "billing via Stripe", Type: memTypeDecision, UpdatedAt: 1},
+	}
+	got := focusMatches(entries, "billing setup")
+	require.NotEmpty(t, got)
+	assert.Equal(t, "decision:pay", got[0], "older structural match ranks before the newer note (U)")
+}
+
 func TestWordTokens(t *testing.T) {
 	set := wordTokens("result:api_wiring wired REST")
 	assert.True(t, set["api"] && set["wiring"] && set["result"] && set["rest"],

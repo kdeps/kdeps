@@ -784,9 +784,15 @@ const memoryMinTokenLen = 3
 // signal.
 const focusKeyWeight = 2
 
+// focusStructuralBonus lifts a matching structural entry above a low-signal
+// note/fact that merely mentions the same term (U).
+const focusStructuralBonus = 1
+
 // focusScore rates how strongly an entry answers the focus tokens (T): each token
 // scores once, weighted higher on a key match than a value match. Word-boundary
-// matched (S) via wordTokens/prefixInSet. Zero means no match.
+// matched (S) via wordTokens/prefixInSet. A matching structural (non note/fact)
+// entry gets a small bonus so a genuine result/decision outranks a passing mention
+// in a note (U). Zero means no match.
 func focusScore(e MemoryEntry, toks []string) int {
 	keyTok := wordTokens(e.Key)
 	valTok := wordTokens(e.Value)
@@ -798,6 +804,9 @@ func focusScore(e MemoryEntry, toks []string) int {
 		case prefixInSet(valTok, t):
 			score++
 		}
+	}
+	if score > 0 && e.Type != "" && !memoryLowSignalTypes[e.Type] {
+		score += focusStructuralBonus
 	}
 	return score
 }
