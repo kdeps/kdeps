@@ -25,6 +25,7 @@ import (
 	"strings"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/spf13/afero"
 	"github.com/stretchr/testify/assert"
@@ -572,6 +573,40 @@ func TestMemoryStore_FormatForPrompt_CausalOrderAndResume(t *testing.T) {
 
 	// The unfinished result is flagged as the resume point.
 	assert.Contains(t, out, "<== RESUME\n", "resume marker on an entry line")
+}
+
+func TestMemoryStore_FormatForPrompt_ResumeShowsRelativeAge(t *testing.T) {
+	dir := t.TempDir()
+	store := NewMemoryStore(dir)
+	store.SetCwd("/Users/test/Projects/foo")
+
+	require.NoError(t, store.Set("result:build", "compiles; tests pending"))
+
+	// Pin the clock 3 hours after the entry's UpdatedAt so the age is deterministic.
+	entry, ok := store.Get("result:build")
+	require.True(t, ok)
+	fixed := time.UnixMilli(entry.UpdatedAt).Add(3 * time.Hour)
+	orig := memoryNow
+	memoryNow = func() time.Time { return fixed }
+	defer func() { memoryNow = orig }()
+
+	out := store.FormatForPrompt(1000, "")
+	assert.Contains(t, out, "resume: result:build (3h ago)",
+		"orientation map shows the resume point's relative age (J)")
+}
+
+func TestFormatRelativeAge(t *testing.T) {
+	cases := map[int64]string{
+		0:                       "just now",
+		30 * 1000:               "just now",
+		5 * 60 * 1000:           "5m ago",
+		2 * 60 * 60 * 1000:      "2h ago",
+		3 * 24 * 60 * 60 * 1000: "3d ago",
+		-1000:                   "just now",
+	}
+	for delta, want := range cases {
+		assert.Equalf(t, want, formatRelativeAge(delta), "delta=%dms", delta)
+	}
 }
 
 func TestMemoryStore_FormatForPrompt_ResumeSkipsDone(t *testing.T) {

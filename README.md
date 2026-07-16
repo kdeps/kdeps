@@ -360,7 +360,7 @@ The agent automatically remembers facts across sessions. Memory is stored as JSO
 | `memory_delete` | Remove an entry by key |
 | `memory_list` | List all stored keys |
 
-**Graph:** Entries form a directed graph (`prompt -> purpose -> progress -> tool_result -> result -> status`) inlined into the `<memory>` block on every LLM call — entries in causal order, each showing its `<- parent` edge, with the current unfinished task flagged `<== RESUME`. The LLM can trace how facts relate and where to continue.
+**Graph:** Entries form a directed graph (`prompt -> purpose -> progress -> tool_result -> result -> status`) inlined into the `<memory>` block on every LLM call — entries in causal order, each showing its `<- parent` edge, with the current unfinished task flagged `<== RESUME` and its relative age (e.g. `resume: result:build (2m ago)`) so a cold model can tell if the resume point is fresh or stale. The LLM can trace how facts relate and where to continue.
 
 **Persistence:** Model, backend, and base URL are saved on `/model` switch and restored on next run. Working directory saved on start and resume.
 

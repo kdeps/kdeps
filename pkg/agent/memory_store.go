@@ -47,6 +47,7 @@ const (
 	memoryMaxDerivedKey   = 30  // max chars for derived tool result key
 	memoryMaxValuePreview = 300 // max chars for value preview in search results
 	memoryPromptTokens    = 500 // default tokens for memory prompt injection
+	hoursPerDay           = 24  // for relative-age (J) day rollup
 )
 
 // memoryStoreInstance is set during Loop construction so memory tools
@@ -613,7 +614,8 @@ func (m *MemoryStore) FormatForPrompt(maxTokens int, focus string) string {
 	sb.WriteString(memoryGraphLegend)
 	sb.WriteByte('\n')
 	// F: one-line orientation map so the model sees the shape at a glance.
-	if summary := typeSummary(ordered, byKey, resume); summary != "" {
+	// J: the map's resume target carries a relative-age hint from the current wall clock.
+	if summary := typeSummary(ordered, byKey, resume, memoryNow().UnixMilli()); summary != "" {
 		sb.WriteString(summary)
 		sb.WriteByte('\n')
 	}
@@ -838,9 +840,37 @@ func ancestryChain(key string, byKey map[string]MemoryEntry) map[string]bool {
 	return set
 }
 
+// memoryNow returns the current wall-clock time. It is a package var so tests can
+// pin it for deterministic relative-age (J) output.
+//
+//nolint:gochecknoglobals // test seam for relative-age rendering
+var memoryNow = time.Now
+
+// formatRelativeAge renders a millisecond delta as a coarse, human relative age
+// ("just now", "2m ago", "3h ago", "5d ago"). A cold model resuming after a model
+// switch uses this to judge whether the resume point is still fresh or likely stale.
+func formatRelativeAge(deltaMillis int64) string {
+	if deltaMillis < 0 {
+		deltaMillis = 0
+	}
+	d := time.Duration(deltaMillis) * time.Millisecond
+	switch {
+	case d < time.Minute:
+		return "just now"
+	case d < time.Hour:
+		return fmt.Sprintf("%dm ago", int(d.Minutes()))
+	case d < hoursPerDay*time.Hour:
+		return fmt.Sprintf("%dh ago", int(d.Hours()))
+	default:
+		return fmt.Sprintf("%dd ago", int(d.Hours()/hoursPerDay))
+	}
+}
+
 // typeSummary returns a one-line orientation map of the rendered entries by type,
-// e.g. "map: 1 prompt, 2 tool_result, 1 result | resume: result:build".
-func typeSummary(ordered []string, byKey map[string]MemoryEntry, resume string) string {
+// e.g. "map: 1 prompt, 2 tool_result, 1 result | resume: result:build (2m ago)".
+// The resume target carries a relative-age hint (J) so a cold model can tell at a
+// glance whether the point it should continue from is recent or stale.
+func typeSummary(ordered []string, byKey map[string]MemoryEntry, resume string, nowMs int64) string {
 	if len(ordered) == 0 {
 		return ""
 	}
@@ -863,6 +893,9 @@ func typeSummary(ordered []string, byKey map[string]MemoryEntry, resume string) 
 	line := "map: " + strings.Join(parts, ", ")
 	if resume != "" {
 		line += " | resume: " + resume
+		if e, ok := byKey[resume]; ok && e.UpdatedAt > 0 {
+			line += " (" + formatRelativeAge(nowMs-e.UpdatedAt) + ")"
+		}
 	}
 	return line
 }
