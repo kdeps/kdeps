@@ -907,6 +907,16 @@ func (l *Loop) promptBudgetOptions(w io.Writer, remaining int) {
 		"  (c)ontinue with current budget\n\n"+
 		"Enter choice (i/c): ")
 
+	if !l.config.InteractiveTTY {
+		// Non-interactive (tests, pipes, `make test`): never read the controlling
+		// terminal — a background read gets the process group stopped (SIGTTIN),
+		// which is why `make test` was suspending. Print the override and continue.
+		const toolRoundBuffer = 20
+		fmt.Fprintf(w, "\n(Non-interactive: use /model tool set rounds %d to raise the budget.)\n",
+			l.config.MaxToolRounds+toolRoundBuffer)
+		return
+	}
+
 	oldState, err := term.MakeRaw(int(os.Stdin.Fd()))
 	if err != nil {
 		// Can't read raw input; fall back to printing the suggestion.
@@ -968,6 +978,14 @@ func (l *Loop) promptStallOptions(w io.Writer, toolName string, elapsed time.Dur
 		"  (k)ill the tool\n\n"+
 		"Enter choice (i/k): ",
 		l.config.AutoStallAllocationIncrement)
+
+	if !l.config.InteractiveTTY {
+		// Non-interactive: never read the controlling terminal (SIGTTIN would stop
+		// the process group, suspending `make test`). Keep the tool scheduled to die.
+		fmt.Fprintf(w, "\n(Non-interactive: use /model tool set stall-timeout %s.)\n",
+			l.config.ToolStallTimeout+5*time.Minute)
+		return false
+	}
 
 	oldState, err := term.MakeRaw(int(os.Stdin.Fd()))
 	if err != nil {
