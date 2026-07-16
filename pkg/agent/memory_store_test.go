@@ -751,6 +751,34 @@ func TestNewestErrorKey_And_Resolved(t *testing.T) {
 	assert.Empty(t, newestErrorKey(nil))
 }
 
+func TestTruncateValue(t *testing.T) {
+	assert.Equal(t, "short", truncateValue("short", 10), "under the limit is unchanged")
+	assert.Equal(t, "abcde", truncateValue("abcde", 5), "exactly at the limit is unchanged")
+	assert.Equal(t, "abcde...", truncateValue("abcdefghij", 5), "over the limit is cut and marked")
+	assert.True(t, strings.HasSuffix(truncateValue(strings.Repeat("x", 100), 20), "..."),
+		"a long value carries the truncation marker")
+}
+
+func TestMemoryStore_ExtractToolResult_MarksTruncation(t *testing.T) {
+	dir := t.TempDir()
+	store := NewMemoryStore(dir)
+	store.SetCwd("/Users/test/Projects/foo")
+
+	// A worthy tool with an over-preview-length result is stored truncated + marked.
+	store.ExtractToolResult(toolNameBashExec, strings.Repeat("y", memoryMaxValuePreview+50))
+
+	var toolVal string
+	for _, e := range store.List() {
+		if e.Type == memTypeToolResult {
+			toolVal = e.Value
+			break
+		}
+	}
+	require.NotEmpty(t, toolVal, "a tool_result entry was stored")
+	assert.True(t, strings.HasSuffix(toolVal, "..."), "the cut tool result is marked as a fragment")
+	assert.LessOrEqual(t, len(toolVal), memoryMaxValuePreview+len("..."), "value capped near the preview limit")
+}
+
 func TestMemoryStore_FormatForPrompt_ResumeSkipsDone(t *testing.T) {
 	dir := t.TempDir()
 	store := NewMemoryStore(dir)

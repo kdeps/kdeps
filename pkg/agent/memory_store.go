@@ -1019,6 +1019,19 @@ func writeGraphEntry(sb *strings.Builder, e MemoryEntry, keep map[string]bool, r
 	sb.WriteByte('\n')
 }
 
+// truncationMarker signals a value was cut, so a cold model treats it as a
+// fragment rather than the complete fact (N).
+const truncationMarker = "..."
+
+// truncateValue caps a value at limit characters, appending truncationMarker when
+// it cuts, so the stored fact never silently masquerades as complete.
+func truncateValue(s string, limit int) string {
+	if len(s) <= limit {
+		return s
+	}
+	return s[:limit] + truncationMarker
+}
+
 // xmlEscape escapes a string for inclusion in XML text content.
 func xmlEscape(s string) string {
 	var sb strings.Builder
@@ -1137,11 +1150,8 @@ func extractStructuredSections(response string, now int64, seen map[string]bool)
 		if body == "" || len(body) < 10 {
 			continue
 		}
-		// Truncate long values.
-		value := body
-		if len(value) > maxValueLength {
-			value = value[:maxValueLength]
-		}
+		// Truncate long values, marking the cut so the fragment isn't read as whole (N).
+		value := truncateValue(body, maxValueLength)
 		key := keyPrefix + ":" + slugify(header)
 		if seen[key] {
 			continue
@@ -1343,11 +1353,8 @@ func (m *MemoryStore) ExtractToolResult(toolName, result string) int {
 	now := time.Now().UnixMilli()
 	var entries []MemoryEntry
 
-	// 1. Always save the tool result itself as a memory entry.
-	value := result
-	if len(value) > memoryMaxValuePreview {
-		value = value[:memoryMaxValuePreview]
-	}
+	// 1. Always save the tool result itself as a memory entry, marking any cut (N).
+	value := truncateValue(result, memoryMaxValuePreview)
 	entries = append(entries, MemoryEntry{
 		Key:       toolResultKey(toolName, result),
 		Value:     value,

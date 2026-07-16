@@ -193,7 +193,7 @@ Memory tools work in both agent mode and workflow mode. In workflow mode, the st
 
 ## Tool result filtering
 
-To prevent memory bloat, only write/exec/search tools produce memory entries. Read-only lookups (`read_file`, `list_files`, `search_local`) are filtered out. Each tool type is capped at 20 entries — the oldest are auto-deleted when the cap is reached.
+To prevent memory bloat, only write/exec/search tools produce memory entries. Read-only lookups (`read_file`, `list_files`, `search_local`) are filtered out. Each tool type is capped at 20 entries — the oldest are auto-deleted when the cap is reached. A tool result (or any captured section) longer than its store limit is cut and marked with a trailing `...`, so a model reads it as a fragment rather than mistaking a mid-text cut for the complete output.
 
 Auto-extracted **low-signal** entries (types `note` and `fact`) are also globally capped at 50 combined — the noisiest, least-structural entries that accumulate fastest over a long-lived project. When the cap is exceeded, the oldest are pruned on write. Structural entries (`prompt`, `purpose`, `progress`, `result`, `status`, `decision`, `context`, `tool_result`, ...) are never pruned by this cap, so the workflow chain and resume point are always preserved.
 
