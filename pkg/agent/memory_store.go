@@ -1054,14 +1054,24 @@ func newestErrorKey(entries []MemoryEntry) string {
 	return best
 }
 
+// shortMarkerLen is the longest single-word marker matched by exact token rather
+// than prefix (Y): a 3-char marker like "wip" would otherwise prefix-match
+// unrelated words ("wiped", "wiper"), whereas longer markers benefit from
+// inflection matching ("complete" -> "completed").
+const shortMarkerLen = 3
+
 // markerHit reports whether value contains marker at a word boundary (X): a
-// single-word marker matches only a whole token or an inflection of it ("complete"
-// -> "completed", but "done" not inside "undone"/"condone"); a multi-word or
-// punctuated phrase falls back to substring (phrases don't embed inside other
-// words). tokens is the pre-split word set of value.
+// single-word marker matches a whole token, and — when long enough (Y) — an
+// inflection of it ("complete" -> "completed", but "done" not inside "undone" and
+// "wip" not inside "wiped"); a multi-word or punctuated phrase falls back to
+// substring (phrases don't embed inside other words). tokens is the pre-split word
+// set of value.
 func markerHit(value string, tokens map[string]bool, marker string) bool {
 	if strings.ContainsAny(marker, " -'") {
 		return strings.Contains(value, marker)
+	}
+	if len(marker) <= shortMarkerLen {
+		return tokens[marker]
 	}
 	return prefixInSet(tokens, marker)
 }

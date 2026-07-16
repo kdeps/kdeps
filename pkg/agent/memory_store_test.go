@@ -897,6 +897,13 @@ func TestStatusIsDone_WordBoundary(t *testing.T) {
 	assert.True(t, statusIsDone("finished the migration"), "whole-word marker still matches")
 }
 
+func TestStatusIsDone_ShortMarkerExact(t *testing.T) {
+	// Y: the short marker "wip" matches only the whole token, not "wiped"/"wiper".
+	assert.False(t, statusIsDone("wip on the parser"), "'wip' marks work in progress")
+	assert.True(t, statusIsDone("wiped the cache, done"), "'wiped' must not trigger the 'wip' guard")
+	assert.True(t, statusIsDone("swiper deployed, shipped"), "'swiper' is not 'wip'")
+}
+
 func TestErrorIsResolved_WordBoundary(t *testing.T) {
 	// X: "fixed" inside "prefixed" is not a resolution.
 	assert.False(t, errorIsResolved("prefixed the route handler"), "'prefixed' does not mean fixed")
