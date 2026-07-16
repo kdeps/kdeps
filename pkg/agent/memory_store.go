@@ -795,15 +795,48 @@ func focusMatches(entries []MemoryEntry, focus string) []string {
 		if len(out) >= memoryFocusMax {
 			break
 		}
-		hay := strings.ToLower(e.Key + " " + e.Value)
+		// S: match a focus token only at a word boundary — as a whole token or the
+		// start of one ("token" -> "tokens", "api" -> "api_wiring") — never as a
+		// mid-word substring ("api" inside "capital"/"rapid"), which would waste
+		// force-keep slots under a tight budget.
+		hay := wordTokens(e.Key + " " + e.Value)
+		matched := false
 		for _, t := range toks {
-			if strings.Contains(hay, t) {
-				out = append(out, e.Key)
+			if prefixInSet(hay, t) {
+				matched = true
 				break
 			}
 		}
+		if matched {
+			out = append(out, e.Key)
+		}
 	}
 	return out
+}
+
+// wordTokens splits s into the set of its lowercase [a-z0-9] runs, so focus
+// matching is word/segment-boundary based: punctuation, underscores, and colons
+// (as in memory keys like "result:api_wiring") all delimit tokens.
+func wordTokens(s string) map[string]bool {
+	set := make(map[string]bool)
+	for _, w := range strings.FieldsFunc(strings.ToLower(s), func(r rune) bool {
+		return (r < 'a' || r > 'z') && (r < '0' || r > '9')
+	}) {
+		set[w] = true
+	}
+	return set
+}
+
+// prefixInSet reports whether any token in set equals prefix or begins with it, so
+// a focus term matches its own plural/inflection at a word boundary but not a
+// mid-word substring.
+func prefixInSet(set map[string]bool, prefix string) bool {
+	for w := range set {
+		if strings.HasPrefix(w, prefix) {
+			return true
+		}
+	}
+	return false
 }
 
 // significantTokens returns the lowercase words of s that are long enough and not

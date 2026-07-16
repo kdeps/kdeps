@@ -915,6 +915,24 @@ func TestFocusMatches_ShortTerm(t *testing.T) {
 	assert.NotContains(t, got, "note:lunch")
 }
 
+func TestFocusMatches_WordBoundary(t *testing.T) {
+	entries := []MemoryEntry{
+		{Key: "note:finance", Value: "capital gains and rapid growth", UpdatedAt: 2},
+		{Key: "result:api_wiring", Value: "REST done", UpdatedAt: 1},
+	}
+	got := focusMatches(entries, "wire the api")
+	// "api" matches the "api" segment of the key, not the "api" inside "capital"/"rapid".
+	assert.Contains(t, got, "result:api_wiring", "matches api as a whole key segment (S)")
+	assert.NotContains(t, got, "note:finance", "api does not match 'capital'/'rapid' substrings")
+}
+
+func TestWordTokens(t *testing.T) {
+	set := wordTokens("result:api_wiring wired REST")
+	assert.True(t, set["api"] && set["wiring"] && set["result"] && set["rest"],
+		"key/value split into whole tokens on punctuation and underscores")
+	assert.False(t, set["api_wiring"], "underscore delimits, not part of a token")
+}
+
 func TestMemoryStore_FormatForPrompt_FocusSurvivesTruncation(t *testing.T) {
 	dir := t.TempDir()
 	store := NewMemoryStore(dir)
