@@ -27,6 +27,7 @@ import (
 	"sync"
 	"testing"
 	"time"
+	"unicode/utf8"
 
 	"github.com/spf13/afero"
 	"github.com/stretchr/testify/assert"
@@ -757,6 +758,16 @@ func TestTruncateValue(t *testing.T) {
 	assert.Equal(t, "abcde...", truncateValue("abcdefghij", 5), "over the limit is cut and marked")
 	assert.True(t, strings.HasSuffix(truncateValue(strings.Repeat("x", 100), 20), "..."),
 		"a long value carries the truncation marker")
+}
+
+func TestTruncateValue_RuneSafe(t *testing.T) {
+	// "世" is 3 bytes; a limit landing mid-rune must back off to a boundary.
+	s := strings.Repeat("世", 10) // 30 bytes
+	got := truncateValue(s, 10)  // byte 10 is a continuation byte (mid 4th rune)
+	body := strings.TrimSuffix(got, "...")
+	assert.True(t, utf8.ValidString(body), "no multibyte rune is split at the cut")
+	assert.True(t, strings.HasSuffix(got, "..."), "cut value is marked")
+	assert.Equal(t, strings.Repeat("世", 3)+"...", got, "backed off to the 9-byte boundary")
 }
 
 func TestMemoryStore_ExtractToolResult_MarksTruncation(t *testing.T) {

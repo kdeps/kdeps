@@ -29,6 +29,7 @@ import (
 	"strings"
 	"sync"
 	"time"
+	"unicode/utf8"
 	// graph types inlined from github.com/kdeps/kartographer (see graph.go).
 )
 
@@ -1023,13 +1024,19 @@ func writeGraphEntry(sb *strings.Builder, e MemoryEntry, keep map[string]bool, r
 // fragment rather than the complete fact (N).
 const truncationMarker = "..."
 
-// truncateValue caps a value at limit characters, appending truncationMarker when
-// it cuts, so the stored fact never silently masquerades as complete.
+// truncateValue caps a value at limit bytes, appending truncationMarker when it
+// cuts, so the stored fact never silently masquerades as complete. The cut is
+// backed off to the nearest rune boundary (O) so a multibyte character is never
+// split — the render (xmlEscape) would otherwise emit a replacement char mid-fact.
 func truncateValue(s string, limit int) string {
 	if len(s) <= limit {
 		return s
 	}
-	return s[:limit] + truncationMarker
+	cut := limit
+	for cut > 0 && !utf8.RuneStart(s[cut]) {
+		cut--
+	}
+	return s[:cut] + truncationMarker
 }
 
 // xmlEscape escapes a string for inclusion in XML text content.
