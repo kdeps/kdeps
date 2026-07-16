@@ -146,20 +146,19 @@ Rather than a separate diagram, the graph is **inlined into the `<memory>` block
 
 ## Prompt injection
 
-On every turn the memory store injects one graph-ordered `<memory>` block. Entries are ordered topologically (parents first), each carries its value and parent edge inline, the newest unfinished `progress`/`result`/`status` entry is marked `<== RESUME`, and that node's downstream (reverse) dependencies are listed:
+On every turn the memory store injects one graph-ordered `<memory>` block: a legend, a one-line orientation map (entry counts by type + the resume target), the entries in topological order (parents first) with their values and `<- parent` edges inline, the newest unfinished `progress`/`result`/`status` entry marked `<== RESUME`, and that node's downstream (reverse) dependencies:
 
 ```
 <memory>
-Legend: the workflow chain in causal order (parents before children). "key [type]: value";
-"<- P" means this entry was derived from / references P; "<== RESUME" marks where an
-unfinished task should continue.
+Legend: workflow chain, parents before children. "key [type]: value"; "<- P" = derived from P; "<== RESUME" = continue here.
+map: 1 prompt, 1 tool_result, 1 result | resume: result:build
 prompt:build [prompt]: Add /users endpoint
 tool:write_users [tool_result]: wrote handlers/users.go  <- prompt:build
 result:build [result]: compiles; tests pending  <- tool:write_users  <== RESUME
 </memory>
 ```
 
-The block is truncated to a token budget, dropping the oldest entries first; edges to dropped entries are omitted so no arrow dangles. The agent also receives a rule: "Check memory first. Before taking ANY action, use `memory_search` and `memory_list` to see what is already known about the task."
+The block is truncated to a token budget. Truncation is prioritized, not just oldest-first: the **active task chain** (the resume node and its nearest ancestors) and entries **relevant to the current prompt** are always kept, so a large memory never drops where you are or what you just asked about — unrelated older entries drop first. Edges to dropped entries are omitted so no arrow dangles. The agent also receives a rule: "Check memory first. Before taking ANY action, use `memory_search` and `memory_list` to see what is already known about the task."
 
 ## Compaction integration
 
