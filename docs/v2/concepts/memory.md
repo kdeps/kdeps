@@ -160,7 +160,9 @@ result:build [result]: compiles; tests pending  <- tool:write_users  <== RESUME
 
 The `(2m ago)` hint on the resume target is a coarse relative age (`just now` / `Nm` / `Nh` / `Nd ago`). A model resuming after an orchestrator model switch uses it to judge whether the resume point is still fresh or likely stale enough to re-verify before continuing.
 
-The block is truncated to a token budget. Truncation is prioritized, not just oldest-first: the **active task chain** (the resume node and its nearest ancestors) and entries **relevant to the current prompt** are always kept, so a large memory never drops where you are or what you just asked about — unrelated older entries drop first. Edges to dropped entries are omitted so no arrow dangles.
+The block is truncated to a token budget. Truncation is prioritized, not just oldest-first: the **active task chain** (the resume node and its nearest ancestors), entries **relevant to the current prompt**, and the **newest unresolved error** are always kept, so a large memory never drops where you are, what you just asked about, or a failure you should not repeat — unrelated older entries drop first. Edges to dropped entries are omitted so no arrow dangles.
+
+The orientation map also names the most recent unresolved `error` entry (e.g. `| error: error:migration`) so a resuming model is reminded of a known failure up front. An error whose value reads as handled (`resolved`, `fixed`, `closed`, ...) is not surfaced.
 
 When two entries carry the same fact (compared case- and whitespace-insensitively), the later one is flagged `(same as <first-key>)` instead of being repeated as if it were independent evidence — so a cold model reads the fact once and treats the rest as copies (possibly stale), not corroboration. Nothing is dropped by this flag, so graph edges stay intact; short common values (e.g. `done`) are never flagged.
 

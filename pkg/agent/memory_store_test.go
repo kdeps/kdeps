@@ -712,6 +712,45 @@ func TestNormalizeValue(t *testing.T) {
 	assert.Equal(t, normalizeValue("A  b\tC"), normalizeValue("a b c"))
 }
 
+func TestMemoryStore_FormatForPrompt_SurfacesUnresolvedError(t *testing.T) {
+	dir := t.TempDir()
+	store := NewMemoryStore(dir)
+	store.SetCwd("/Users/test/Projects/foo")
+
+	// Bury an unresolved error under many filler notes, then use a tiny budget.
+	require.NoError(t, store.Set("error:migration", "migrate step 3 panics on nil column"))
+	for i := range 20 {
+		require.NoError(t, store.Set("note:filler_"+string(rune('a'+i)), strings.Repeat("x", 100)))
+	}
+
+	out := store.FormatForPrompt(40, "")
+	assert.Contains(t, out, "| error: error:migration", "orientation map names the unresolved error")
+	assert.Contains(t, out, "error:migration [error]:", "the error entry survives truncation (M)")
+}
+
+func TestMemoryStore_FormatForPrompt_ResolvedErrorNotSurfaced(t *testing.T) {
+	dir := t.TempDir()
+	store := NewMemoryStore(dir)
+	store.SetCwd("/Users/test/Projects/foo")
+
+	require.NoError(t, store.Set("error:oldbug", "resolved: was a stale cache, fixed in build 4"))
+	out := store.FormatForPrompt(1000, "")
+	assert.NotContains(t, out, "| error:", "a resolved error is not surfaced as an active hazard")
+}
+
+func TestNewestErrorKey_And_Resolved(t *testing.T) {
+	entries := []MemoryEntry{
+		{Key: "error:a", Type: memTypeError, Value: "boom", UpdatedAt: 1},
+		{Key: "error:b", Type: memTypeError, Value: "kaboom", UpdatedAt: 3},
+		{Key: "error:c", Type: memTypeError, Value: "resolved now", UpdatedAt: 5},
+		{Key: "result:x", Type: memTypeResult, Value: "ok", UpdatedAt: 4},
+	}
+	assert.Equal(t, "error:b", newestErrorKey(entries), "newest unresolved error wins; resolved skipped")
+	assert.True(t, errorIsResolved("Fixed in latest commit"))
+	assert.False(t, errorIsResolved("still failing"))
+	assert.Empty(t, newestErrorKey(nil))
+}
+
 func TestMemoryStore_FormatForPrompt_ResumeSkipsDone(t *testing.T) {
 	dir := t.TempDir()
 	store := NewMemoryStore(dir)

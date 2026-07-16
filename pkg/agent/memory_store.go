@@ -602,6 +602,12 @@ func (m *MemoryStore) FormatForPrompt(maxTokens int, focus string) string {
 			priority[k] = true
 		}
 	}
+	// M: keep the newest unresolved error (and its chain) so a resuming model is
+	// reminded of a failure it should not repeat, even under a tight budget.
+	lastErr := newestErrorKey(entries)
+	for k := range ancestryChain(lastErr, byKey) {
+		priority[k] = true
+	}
 
 	keep := selectKeptEntries(entries, maxTokens*charsPerToken, priority)
 	if len(keep) == 0 {
@@ -615,7 +621,7 @@ func (m *MemoryStore) FormatForPrompt(maxTokens int, focus string) string {
 	sb.WriteByte('\n')
 	// F: one-line orientation map so the model sees the shape at a glance.
 	// J: the map's resume target carries a relative-age hint from the current wall clock.
-	if summary := typeSummary(ordered, byKey, resume, memoryNow().UnixMilli()); summary != "" {
+	if summary := typeSummary(ordered, byKey, resume, lastErr, memoryNow().UnixMilli()); summary != "" {
 		sb.WriteString(summary)
 		sb.WriteByte('\n')
 	}
@@ -883,8 +889,9 @@ func formatRelativeAge(deltaMillis int64) string {
 // typeSummary returns a one-line orientation map of the rendered entries by type,
 // e.g. "map: 1 prompt, 2 tool_result, 1 result | resume: result:build (2m ago)".
 // The resume target carries a relative-age hint (J) so a cold model can tell at a
-// glance whether the point it should continue from is recent or stale.
-func typeSummary(ordered []string, byKey map[string]MemoryEntry, resume string, nowMs int64) string {
+// glance whether the point it should continue from is recent or stale, and any
+// unresolved error (M) is named so a known failure isn't repeated.
+func typeSummary(ordered []string, byKey map[string]MemoryEntry, resume, lastErr string, nowMs int64) string {
 	if len(ordered) == 0 {
 		return ""
 	}
@@ -911,7 +918,39 @@ func typeSummary(ordered []string, byKey map[string]MemoryEntry, resume string, 
 			line += " (" + formatRelativeAge(nowMs-e.UpdatedAt) + ")"
 		}
 	}
+	if lastErr != "" {
+		line += " | error: " + lastErr
+	}
 	return line
+}
+
+// newestErrorKey returns the most recently updated error entry that does not read
+// as resolved (M), so a resuming model is reminded of a failure it should not
+// repeat. Returns "" when none qualifies.
+func newestErrorKey(entries []MemoryEntry) string {
+	best := ""
+	var bestTime int64
+	for _, e := range entries {
+		if e.Type != memTypeError || errorIsResolved(e.Value) {
+			continue
+		}
+		if best == "" || e.UpdatedAt >= bestTime {
+			best, bestTime = e.Key, e.UpdatedAt
+		}
+	}
+	return best
+}
+
+// errorIsResolved reports whether an error entry's value reads as already handled,
+// so a fixed failure is not resurfaced as an active hazard.
+func errorIsResolved(value string) bool {
+	v := strings.ToLower(value)
+	for _, m := range []string{"resolved", "fixed", "closed", "no longer", "not an issue", "works now"} {
+		if strings.Contains(v, m) {
+			return true
+		}
+	}
+	return false
 }
 
 func isResumableType(t string) bool {
