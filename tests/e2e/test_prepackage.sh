@@ -216,12 +216,8 @@ test_prepackage_include_models() {
     tmp_out="$(mktemp -d)"
     models_dir="$(mktemp -d)"
 
-    # Seed the llamafile cache with a fake model (bare-filename resolution). Use
-    # 512 KiB of incompressible random data, not a 21-byte string: the size-fallback
-    # assertion below compares the with-models binary against a no-models build, and
-    # a tiny (or compressible) model left that delta inside build noise, making the
-    # test flaky. An incompressible model guarantees an unambiguous size increase.
-    head -c 524288 /dev/urandom > "$models_dir/e2e-fake.llamafile"
+    # Seed the llamafile cache with a small fake model (bare-filename resolution).
+    printf 'fake llamafile binary' > "$models_dir/e2e-fake.llamafile"
     chmod +x "$models_dir/e2e-fake.llamafile"
 
     if ! "$KDEPS_BIN" bundle package "$workflow_dir" --output "$tmp_out" &>/dev/null; then
@@ -244,7 +240,10 @@ test_prepackage_include_models() {
     fi
 
     local bin_file
-    bin_file="$(find "$tmp_out" -name "e2e-chat-agent-*" -type f | head -1)"
+    # $tmp_out also holds the .kdeps package (from bundle package above), which the
+    # "e2e-chat-agent-*" glob would otherwise match -- picking the ~400-byte package
+    # instead of the prepackaged binary and flipping the size assertion. Exclude it.
+    bin_file="$(find "$tmp_out" -name "e2e-chat-agent-*" -type f ! -name "*.kdeps" | head -1)"
     if [ -z "$bin_file" ]; then
         test_failed "$test_name" "No binary produced"
     elif strings "$bin_file" 2>/dev/null | grep -q "kdeps-models" || \
@@ -258,7 +257,7 @@ test_prepackage_include_models() {
         nomodels_out="$(mktemp -d)"
         KDEPS_MODELS_DIR="$models_dir" "$KDEPS_BIN" bundle prepackage "$pkg_file" \
             --arch "$goos-$goarch" --output "$nomodels_out" &>/dev/null
-        nomodels_bin="$(find "$nomodels_out" -name "e2e-chat-agent-*" -type f | head -1)"
+        nomodels_bin="$(find "$nomodels_out" -name "e2e-chat-agent-*" -type f ! -name "*.kdeps" | head -1)"
         bin_size="$(stat -f%z "$bin_file" 2>/dev/null || stat -c%s "$bin_file")"
         if [ -n "$nomodels_bin" ]; then
             base_size="$(stat -f%z "$nomodels_bin" 2>/dev/null || stat -c%s "$nomodels_bin")"
