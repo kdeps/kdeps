@@ -247,15 +247,25 @@ test_prepackage_include_models() {
          tar -tzf <(tail -c +$(( $(stat -f%z "$KDEPS_BIN" 2>/dev/null || stat -c%s "$KDEPS_BIN") )) "$bin_file" 2>/dev/null) 2>/dev/null | grep -q ".kdeps-models/e2e-fake.llamafile"; then
         test_passed "$test_name"
     else
-        # Fallback assertion: the binary must be larger than the base runtime
-        # by at least the model size (archives the model verbatim).
-        local base_size bin_size
-        base_size="$(stat -f%z "$KDEPS_BIN" 2>/dev/null || stat -c%s "$KDEPS_BIN")"
+        # Fallback assertion: a --include-models binary must be larger than the
+        # same-runtime binary built WITHOUT models (comparing against $KDEPS_BIN is
+        # wrong — the prepackage runtime differs in size from the local test binary).
+        local nomodels_out nomodels_bin base_size bin_size
+        nomodels_out="$(mktemp -d)"
+        KDEPS_MODELS_DIR="$models_dir" "$KDEPS_BIN" bundle prepackage "$pkg_file" \
+            --arch "$goos-$goarch" --output "$nomodels_out" &>/dev/null
+        nomodels_bin="$(find "$nomodels_out" -name "e2e-chat-agent-*" -type f | head -1)"
         bin_size="$(stat -f%z "$bin_file" 2>/dev/null || stat -c%s "$bin_file")"
+        if [ -n "$nomodels_bin" ]; then
+            base_size="$(stat -f%z "$nomodels_bin" 2>/dev/null || stat -c%s "$nomodels_bin")"
+        else
+            base_size="$(stat -f%z "$KDEPS_BIN" 2>/dev/null || stat -c%s "$KDEPS_BIN")"
+        fi
+        rm -rf "$nomodels_out"
         if [ "$bin_size" -gt "$base_size" ]; then
             test_passed "$test_name"
         else
-            test_failed "$test_name" "binary not larger than base runtime"
+            test_failed "$test_name" "binary ($bin_size) not larger than no-models build ($base_size)"
         fi
     fi
 

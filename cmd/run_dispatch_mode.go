@@ -21,8 +21,11 @@
 package cmd
 
 import (
+	"os"
+
 	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
 	"github.com/kdeps/kdeps/v2/pkg/domain"
+	"github.com/kdeps/kdeps/v2/pkg/events"
 )
 
 func executionModeFor(workflow *domain.Workflow) executionMode {
@@ -53,7 +56,7 @@ func dispatchExecution(
 	workflowPath string,
 	devMode, debugMode bool,
 	fileArg string,
-	_ bool,
+	eventsEnabled bool,
 	memoryEnabled bool,
 ) error {
 	kdeps_debug.Log("enter: dispatchExecution")
@@ -62,6 +65,11 @@ func dispatchExecution(
 	eng := setupEngine(workflow, debugMode)
 	if memoryEnabled {
 		eng = setupEngineWithMemory(eng, workflow, debugMode)
+	}
+	// Wire the NDJSON event emitter to stderr when --events is set, for every
+	// execution mode (this centralized dispatch replaced the per-runner wiring).
+	if eventsEnabled {
+		eng.SetEmitter(events.NewNDJSONEmitter(os.Stderr))
 	}
 
 	switch executionModeForFunc(workflow) {
