@@ -24,6 +24,7 @@ import (
 	"os"
 
 	"github.com/charmbracelet/glamour"
+	"github.com/muesli/termenv"
 	"golang.org/x/term"
 )
 
@@ -62,9 +63,14 @@ func renderMarkdown(content string) string {
 }
 
 // newMarkdownRenderer builds a glamour renderer sized for the current terminal.
+// WithColorProfile detects the terminal's real color depth so the palette is
+// downsampled to what it can display; glamour otherwise defaults to 24-bit
+// TrueColor, whose escapes a 256-color terminal drops — collapsing every color to
+// the default foreground so the output looks gray.
 func newMarkdownRenderer() (*glamour.TermRenderer, error) {
 	return glamour.NewTermRenderer(
 		glamour.WithAutoStyle(),
+		glamour.WithColorProfile(termenv.ColorProfile()),
 		glamour.WithWordWrap(terminalMarkdownWidth()),
 	)
 }

@@ -95,6 +95,27 @@ func TestBracketedPaste_BodyKeptOutOfBand(t *testing.T) {
 	}
 }
 
+func TestPastePainter_PreservesLineAroundPaste(t *testing.T) {
+	var p pastePainter
+	// Text typed before and after a paste must survive rendering, and the paste's
+	// sentinel becomes exactly one visible marker rune.
+	line := []rune("before " + string(pasteSentinel) + " after")
+	out := p.Paint(line, len(line))
+	require.Len(t, out, len(line), "render length equals buffer length so the cursor stays aligned")
+	assert.Equal(t, "before "+string(pasteMarker)+" after", string(out),
+		"surrounding text is shown verbatim; only the sentinel becomes the marker")
+
+	// A line with no paste is rendered unchanged.
+	plain := []rune("hello world")
+	assert.Equal(t, "hello world", string(p.Paint(plain, 0)))
+
+	// Two pastes -> two markers, still one-for-one.
+	two := []rune(string(pasteSentinel) + "x" + string(pasteSentinel))
+	got := p.Paint(two, len(two))
+	require.Len(t, got, 3)
+	assert.Equal(t, string(pasteMarker)+"x"+string(pasteMarker), string(got))
+}
+
 func TestBracketedPaste_MarkerSplitAcrossReads(t *testing.T) {
 	// Both markers are split so they must be reassembled from pending bytes.
 	pieces := []string{"\x1b[2", "00~a\nb", "\x1b[20", "1~"}

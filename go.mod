@@ -28,6 +28,7 @@ require (
 	github.com/lib/pq v1.12.3
 	github.com/mattn/go-sqlite3 v1.14.48
 	github.com/microcosm-cc/bluemonday v1.0.27
+	github.com/muesli/termenv v0.16.0
 	github.com/nikolalohinski/gonja/v2 v2.8.0
 	github.com/pkoukk/tiktoken-go v0.1.8
 	github.com/playwright-community/playwright-go v0.5700.1
@@ -149,7 +150,6 @@ require (
 	github.com/muesli/ansi v0.0.0-20230316100256-276c6243b2f6 // indirect
 	github.com/muesli/cancelreader v0.2.2 // indirect
 	github.com/muesli/reflow v0.3.0 // indirect
-	github.com/muesli/termenv v0.16.0 // indirect
 	github.com/nlpodyssey/cybertron v0.2.1 // indirect
 	github.com/nlpodyssey/gopickle v0.3.0 // indirect
 	github.com/nlpodyssey/gotokenizers v0.2.0 // indirect

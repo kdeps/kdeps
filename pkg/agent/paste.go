@@ -32,8 +32,14 @@ const (
 	// out of band and substituted back on submit, so readline's edit buffer holds
 	// just one rune per paste. Putting the whole paste in the buffer instead makes
 	// readline render a very long wrapped line and clear rows on every redraw.
-	// Rune 30 is not a defined readline edit key, so it is self-inserted.
-	pasteSentinel = '\x1e'
+	//
+	// U+FFFC OBJECT REPLACEMENT CHARACTER: a printable, display-width-1 rune that
+	// stands in for an embedded object. Width 1 is what keeps readline's cursor
+	// math correct so the arrow keys, Ctrl+A and Ctrl+E work around a paste — a
+	// control rune (the previous '\x1e') has an ambiguous display width, which
+	// desynced the drawn cursor from the edit position. It is also self-inserted
+	// (not an edit key) and vanishingly unlikely to appear in typed input.
+	pasteSentinel = '￼'
 
 	pasteStartMarker = "\x1b[200~"
 	pasteEndMarker   = "\x1b[201~"
@@ -143,7 +149,9 @@ func (b *bracketedPasteReader) handleMarker(rest []byte) (int, bool) {
 		if b.onContent != nil {
 			b.onContent(string(b.content))
 		}
-		b.out = append(b.out, byte(pasteSentinel)) // one placeholder for the whole paste
+		// One placeholder for the whole paste. The sentinel is a multi-byte rune, so
+		// emit its UTF-8 encoding; readline decodes it back to a single edit rune.
+		b.out = append(b.out, []byte(string(pasteSentinel))...)
 		return len(pasteEndMarker), false
 	case markerPrefix(rest):
 		return 0, true

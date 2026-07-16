@@ -4125,6 +4125,30 @@ func TestLiveThinkingWriter_MultipleWrites(t *testing.T) {
 	assert.Contains(t, string(out), "chunk2")
 }
 
+func TestLiveThinkingWriter_RepaintsInPlace(t *testing.T) {
+	w := &liveThinkingWriter{}
+	r, pipeW, _ := os.Pipe()
+	orig := os.Stdout
+	os.Stdout = pipeW
+
+	// Two chunks: the second repaint must move the cursor up over the first
+	// render and clear it before reprinting the whole accumulated buffer.
+	_, _ = w.Write([]byte("first line\n"))
+	firstRows := w.prevRows
+	_, _ = w.Write([]byte("second line\n"))
+	w.Flush()
+
+	pipeW.Close()
+	os.Stdout = orig
+	out, _ := io.ReadAll(r)
+	r.Close()
+	s := string(out)
+	assert.Positive(t, firstRows, "first write records rendered row count")
+	assert.Contains(t, s, "\033[0J", "repaint clears the previous block downward")
+	assert.Contains(t, s, "first line")
+	assert.Contains(t, s, "second line")
+}
+
 // --- cmdSessionBranches ---
 
 func TestCmdSessionBranches_Empty(t *testing.T) {

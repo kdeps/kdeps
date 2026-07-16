@@ -200,10 +200,9 @@ type REPL struct {
 	toolCancelMu       sync.Mutex
 
 	// Bracketed paste: a multi-line paste arrives wrapped in ESC[200~/ESC[201~
-	// (see bracketedPasteReader), lands as one edit line, and submits as a single
-	// prompt. These drive the "[Pasted +N lines]" Painter while it accumulates.
-	pasteCount    int      // number of pasted lines in the current paste
-	pasteMode     bool     // true while a paste is on the edit line
+	// (see bracketedPasteReader) and lands as a single sentinel rune on the edit
+	// line, so it can be navigated and edited like any other character before it
+	// submits as one prompt.
 	pasteContents []string // full body of each pending paste; a sentinel in the edit line marks where each belongs
 
 	// termSnap is the terminal's cooked mode captured before readline switches
@@ -1567,8 +1566,6 @@ func (r *REPL) runLoop(rl *readline.Instance) error {
 			line = strings.Replace(line, string(pasteSentinel), body, 1)
 		}
 		r.pasteContents = nil
-		r.pasteMode = false
-		r.pasteCount = 0
 
 		input := strings.TrimSpace(line)
 		if input == "" {
@@ -1737,22 +1734,6 @@ func (r *REPL) filterToolInterrupt(rn rune) (rune, bool) {
 	return rn, false // swallow: the tool handled it
 }
 
-// onPasteState is invoked by bracketedPasteReader as a paste is decoded. A
-// start marker (active, addLines==0) resets the counter; each embedded newline
-// (active, addLines==1) bumps it. pasteMode stays set until Enter submits so the
-// Painter keeps showing "[Pasted +N lines]" for the whole paste.
-func (r *REPL) onPasteState(active bool, addLines int) {
-	if !active {
-		return
-	}
-	r.pasteMode = true
-	if addLines == 0 {
-		r.pasteCount = 0
-	} else {
-		r.pasteCount += addLines
-	}
-}
-
 // onPasteContent queues the full body of a completed paste. The edit line holds
 // one sentinel rune per paste (see bracketedPasteReader); on submit each
 // sentinel is replaced by the matching queued body, in order, so the readline
@@ -1761,33 +1742,36 @@ func (r *REPL) onPasteContent(content string) {
 	r.pasteContents = append(r.pasteContents, content)
 }
 
-// pastePainter returns a readline Painter that shows "[Pasted +N lines]"
-// instead of the raw buffer content when in paste mode.
+// pasteMarker is the visible glyph shown in place of a paste's sentinel rune. It
+// is exactly one display column wide, matching the sentinel, so the render stays
+// width-aligned with the edit buffer and the cursor tracks correctly.
+const pasteMarker = '▧'
+
+// pastePainter returns a readline Painter that renders each paste as a single
+// visible marker inline with the rest of the edit line.
 func (r *REPL) pastePainter() readline.Painter {
-	return &pastePainter{r: r}
+	return pastePainter{}
 }
 
-// pastePainter implements readline.Painter for paste mode display.
-type pastePainter struct {
-	r *REPL
-}
+// pastePainter implements readline.Painter. It shows the actual edit line and
+// only swaps each paste sentinel rune for a visible marker glyph, one-for-one.
+// Keeping the rendered length equal to the buffer length is what lets the arrow
+// keys, Ctrl+A and Ctrl+E move the cursor correctly around a paste, and lets the
+// user type text before or after it and see what they typed — the old painter
+// replaced the whole line with a fixed "[Pasted +N lines]" summary of a
+// different length, which desynced the cursor and hid the surrounding text.
+type pastePainter struct{}
 
-func (p *pastePainter) Paint(line []rune, _ int) []rune {
-	if p.r.pasteMode {
-		if p.r.pasteCount > 0 {
-			return []rune(fmt.Sprintf("[Pasted +%d lines]", p.r.pasteCount))
+func (pastePainter) Paint(line []rune, _ int) []rune {
+	out := make([]rune, len(line))
+	for i, r := range line {
+		if r == pasteSentinel {
+			out[i] = pasteMarker
+		} else {
+			out[i] = r
 		}
-		// Single-line paste: show a preview of the content.
-		if len(p.r.pasteContents) > 0 {
-			preview := p.r.pasteContents[len(p.r.pasteContents)-1]
-			if len(preview) > previewMaxLen {
-				preview = preview[:previewMaxLen] + "..."
-			}
-			return []rune("[Paste] " + preview)
-		}
-		return []rune("[Paste]")
 	}
-	return line
+	return out
 }
 
 // newReadline builds a readline instance from the REPL's current config. It
@@ -1802,7 +1786,7 @@ func (r *REPL) newReadline() (*readline.Instance, error) {
 		AutoComplete:        r.buildCompleter(),
 		InterruptPrompt:     "(interrupt - Ctrl+D to quit)",
 		EOFPrompt:           "exit",
-		Stdin:               newBracketedPasteReader(os.Stdin, r.onPasteState, r.onPasteContent),
+		Stdin:               newBracketedPasteReader(os.Stdin, nil, r.onPasteContent),
 		Stdout:              os.Stdout,
 		FuncFilterInputRune: r.filterToolInterrupt,
 		Painter:             r.pastePainter(),

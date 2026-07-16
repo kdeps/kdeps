@@ -17,6 +17,8 @@ package agent
 import (
 	"strings"
 	"testing"
+
+	"github.com/muesli/termenv"
 )
 
 // ---- loop.go pure functions ----
@@ -145,10 +147,36 @@ func TestRenderThinkingBlock_NonEmpty(t *testing.T) {
 	if got == "" {
 		t.Error("renderThinkingBlock should return non-empty output")
 	}
-	// Should contain ANSI-styled thinking label
-	if !strings.Contains(got, "\x1b") {
-		t.Error("renderThinkingBlock should include ANSI styling")
+	// ANSI styling is TTY-dependent (see TestRenderMarkdown_EmitsANSIWhenColorSupported);
+	// here just assert the content renders through.
+	clean := ansiStripRe.ReplaceAllString(got, "")
+	if !strings.Contains(clean, "thinking") || !strings.Contains(clean, "hello world") {
+		t.Errorf("renderThinkingBlock should include the label and content, got %q", clean)
 	}
+}
+
+func TestRenderMarkdown_EmitsANSIWhenColorSupported(t *testing.T) {
+	// no Parallel: mutates the shared color-profile seam and renderer cache.
+	orig := replColorProfile
+	replColorProfile = func() termenv.Profile { return termenv.TrueColor }
+	resetRenderCache()
+	t.Cleanup(func() {
+		replColorProfile = orig
+		resetRenderCache()
+	})
+
+	got := renderMarkdown("# Heading\n\nbody **bold**")
+	if !strings.Contains(got, "\x1b") {
+		t.Error("with a color-capable profile, rendered markdown must include ANSI styling")
+	}
+}
+
+// resetRenderCache clears the width-keyed renderer cache so the next render
+// rebuilds with the current color-profile seam.
+func resetRenderCache() {
+	rendererMu.Lock()
+	cachedRenderer, cachedThinkingRenderer = nil, nil
+	rendererMu.Unlock()
 }
 
 func TestRenderThinkingMarkdown_Empty(t *testing.T) {
@@ -221,11 +249,12 @@ func TestRenderREPLOutput_Plain(t *testing.T) {
 func TestRenderREPLOutput_WithThinking(t *testing.T) {
 	// no Parallel: shares cached renderer with other tests
 	got := renderREPLOutput("<thinking>\nplanning\n</thinking>\nresponse", false)
-	if !strings.Contains(got, "response") {
+	clean := ansiStripRe.ReplaceAllString(got, "")
+	if !strings.Contains(clean, "response") {
 		t.Error("renderREPLOutput should include main response")
 	}
-	if !strings.Contains(got, "\x1b") {
-		t.Error("renderREPLOutput should include thinking block with ANSI styling")
+	if !strings.Contains(clean, "planning") {
+		t.Error("renderREPLOutput should include the thinking block content")
 	}
 }
 

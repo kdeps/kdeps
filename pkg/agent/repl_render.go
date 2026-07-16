@@ -29,8 +29,22 @@ import (
 	"github.com/charmbracelet/glamour"
 	"github.com/charmbracelet/glamour/ansi"
 	"github.com/charmbracelet/lipgloss"
+	"github.com/muesli/termenv"
 	"golang.org/x/term"
 )
+
+// replColorProfile detects the terminal's actual color capability so glamour
+// downsamples the palette to what the terminal can display. glamour defaults to
+// termenv.TrueColor, which emits 24-bit color escapes; a terminal without
+// truecolor support (e.g. macOS Terminal.app, a 256-color terminal) drops those
+// escapes, so every color collapses to the default foreground and the whole
+// response looks gray. Detecting the profile makes glamour approximate each color
+// with the nearest one the terminal can render instead. It is a package var so
+// tests can pin a profile — under `go test` there is no TTY, so detection yields
+// Ascii (no color) and colored output would otherwise be untestable.
+//
+//nolint:gochecknoglobals // test seam for terminal color detection
+var replColorProfile = termenv.ColorProfile
 
 // cached glamour renderers — created once, recreated only on terminal resize.
 // Recreating glamour.NewTermRenderer on every call parses styles and re-initialises
@@ -55,6 +69,7 @@ func getRenderer() (*glamour.TermRenderer, error) {
 	}
 	r, err := glamour.NewTermRenderer(
 		glamour.WithStyles(replStyleConfig()),
+		glamour.WithColorProfile(replColorProfile()),
 		glamour.WithWordWrap(w),
 	)
 	if err != nil {
@@ -75,6 +90,7 @@ func getThinkingRenderer() (*glamour.TermRenderer, error) {
 	}
 	r, err := glamour.NewTermRenderer(
 		glamour.WithStyles(thinkingStyleConfig()),
+		glamour.WithColorProfile(replColorProfile()),
 		glamour.WithWordWrap(w),
 	)
 	if err != nil {
@@ -549,18 +565,24 @@ func renderToolCall(name, args string) string {
 	return dim.Render("[") + tool.Render(name) + dim.Render(" -> ") + tool.Render(args) + dim.Render("]")
 }
 
-// liveThinkingWriter streams reasoning tokens to stdout in real-time using a
-// consistent gray color opened once on the first Write and closed in Flush().
-// Each round resets so a new "* thinking" header appears per tool-call round.
+// liveThinkingWriter streams reasoning tokens to stdout in real-time and renders
+// them as markdown. It uses the full-re-render-per-chunk model: the whole
+// accumulated buffer is re-rendered with glamour on every chunk and drawn in
+// place (cursor up over the previous render, clear downward, reprint). A fixed
+// "* thinking" header sits above the redrawn block; each round resets so a new
+// header appears per tool-call round.
 type liveThinkingWriter struct {
-	started bool
+	started  bool
+	buf      strings.Builder // accumulated raw thinking markdown
+	prevRows int             // terminal rows the last rendered block occupied
 	// active is read by the REPL spinner goroutine: while thinking text owns
 	// the current terminal line, spinner frames must not be drawn over it.
 	active atomic.Bool
 }
 
-// Write streams each chunk immediately to stdout. The gray ANSI color is opened
-// once on the first chunk so no per-chunk escape codes interrupt the text flow.
+// Write appends the chunk and repaints the rendered block. Rendering markdown on
+// every chunk costs a glamour parse per chunk, which is fine for interactive
+// reasoning; the visible tradeoff is that the block is fully redrawn each time.
 func (w *liveThinkingWriter) Write(p []byte) (int, error) {
 	if len(p) == 0 {
 		return 0, nil
@@ -568,25 +590,49 @@ func (w *liveThinkingWriter) Write(p []byte) (int, error) {
 	w.active.Store(true)
 	if !w.started {
 		hdr := styleThinkingLabel.Render("* thinking")
-		// \r\033[K: absolute col 0 + erase current line (removes leftover tool output).
-		// Print header on that same (now clean) line, then \r\n to the content line.
-		// No \r\n BEFORE the header — that would create a blank line above it.
-		fmt.Fprintf(os.Stdout, "%s%s\r\n%s  ", ansiClearLine, hdr, ansiGray)
+		// \r\033[K clears any leftover tool/spinner text on the current line; the
+		// header then sits on that clean line and the redrawn block starts below.
+		fmt.Fprintf(os.Stdout, "%s%s\r\n", ansiClearLine, hdr)
 		w.started = true
 	}
-	text := strings.ReplaceAll(strings.TrimRight(string(p), "\n"), "\n", "\r\n  ")
-	fmt.Fprint(os.Stdout, text)
+	w.buf.Write(p)
+	w.repaint()
 	return len(p), nil
 }
 
-// Flush closes the gray color and resets the writer for the next round.
+// repaint re-renders the whole accumulated buffer as markdown and draws it over
+// the previous render. It moves the cursor to the top of the prior block, clears
+// downward, and reprints. This only tracks correctly while the block fits on
+// screen: once it is taller than the terminal, the top scrolls out of reach and
+// the cursor-up math cannot return to it (the inherent limit of re-rendering).
+func (w *liveThinkingWriter) repaint() {
+	rendered := renderThinkingMarkdown(strings.TrimRight(w.buf.String(), "\n"))
+	rendered = strings.Trim(rendered, "\n") // drop the document's leading/trailing blank lines
+	if rendered == "" {
+		return
+	}
+	rendered = strings.ReplaceAll(rendered, "\n", "\r\n") // raw mode needs \r\n
+	rows := strings.Count(rendered, "\r\n") + 1
+
+	var sb strings.Builder
+	sb.WriteString("\r") // column 0 of the current (last-rendered) line
+	if w.prevRows > 1 {
+		fmt.Fprintf(&sb, "\033[%dA", w.prevRows-1) // up to the first rendered line
+	}
+	sb.WriteString("\033[0J") // erase the old block from here downward
+	sb.WriteString(rendered)
+	fmt.Fprint(os.Stdout, sb.String())
+	w.prevRows = rows
+}
+
+// Flush closes the block, moving to a fresh line below it, and resets for the
+// next round.
 func (w *liveThinkingWriter) Flush() {
 	if w.started {
-		// \033[0m: close any open color/style.
-		// \r\n: move to the next line. No \r\033[K here — that would erase the last
-		// visible thinking line. ToolCallDisplay will erase the blank line we create.
 		fmt.Fprint(os.Stdout, ansiReset+"\r\n")
 		w.started = false
+		w.buf.Reset()
+		w.prevRows = 0
 	}
 	w.active.Store(false)
 }
