@@ -241,6 +241,8 @@ kdeps --resume <session-id>        # continue a previous conversation
 
 The agent reads from stdin (REPL with slash commands: `/help`, `/clear`, `/model`, `/skills`, `/history`, `/exit`) and runs until you exit. Sessions are persisted as JSONL under `~/.kdeps/sessions/` and can be resumed with `--resume`. Workflows, agencies, and installed components are available as tools without any extra wiring.
 
+Responses render as color markdown with syntax-highlighted code, auto-detecting the terminal's color depth (truecolor / 256-color / none) so colors don't collapse to gray on terminals without 24-bit color; streamed reasoning (`/thinking`) renders as live markdown, updating in place. A pasted block collapses to a single `▧` marker you can edit around with the arrow keys or `Ctrl+A`/`Ctrl+E` — type before or after it and submit once; the marker expands back to the full paste, sent as one prompt.
+
 `/model` with no arguments opens an interactive TUI model picker with search, type-to-filter, and visual tags for local vs cloud models. When [llmfit](https://github.com/AlexsJones/llmfit) is installed, each local model also shows a hardware-fit score (0-100) and level — Perfect, Good, Marginal, or Too Tight — so you can pick a model your machine can actually run; the fit level is searchable in the picker (type `perfect` or `tight`). When aria2c or llmfit is missing, the REPL prints an install tip at startup. `/model <name>` switches models and auto-starts local servers for llamafile, GGUF, and Ollama models. Model downloads use aria2c for fast parallel downloads with resume support. Local model servers are automatically cleaned up on exit. If a request exceeds the local server's context window, the REPL suggests the `/context <size>` fix.
 
 ```bash

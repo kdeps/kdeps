@@ -188,7 +188,15 @@ Only turns longer than a threshold alert, so quick replies stay quiet.
 
 ## Pasting multiple lines
 
-Paste a block of text and the REPL treats it as **one prompt**, not one turn per line. The prompt shows `[Pasted +N lines]` while the block sits on the input line; press Enter once to submit the whole thing (the embedded newlines are preserved). This uses the terminal's bracketed-paste mode, so it works in any modern terminal, tmux, and screen. You can keep typing after a paste before submitting.
+Paste a block of text and the REPL treats it as **one prompt**, not one turn per line. The whole block collapses to a single `▧` marker on the input line (its full content is kept off-screen so a large paste never redraws the terminal); press Enter once to submit and the marker is replaced by the full pasted text, with embedded newlines preserved. This uses the terminal's bracketed-paste mode, so it works in any modern terminal, tmux, and screen.
+
+Because the paste is a single character on the edit line, you can **edit around it**: use the arrow keys (or `Ctrl+A` / `Ctrl+E` for line start/end) to move before or after the `▧` and type text there — for example paste a stack trace and type `why does this happen: ` in front of it, then submit. Everything you type around the marker is preserved and sent with the paste as one prompt.
+
+## Response rendering
+
+The REPL renders the model's markdown responses — headings, bold, lists, tables, and syntax-highlighted code blocks — in color. It **auto-detects the terminal's color depth** (truecolor, 256-color, or none) and downsamples the palette to match, so colors render correctly on terminals without 24-bit color (e.g. macOS Terminal.app) instead of collapsing to gray. Output piped to a file is left uncolored.
+
+When extended reasoning is enabled (`/thinking`), the streamed reasoning is rendered as **live markdown**, updating in place as tokens arrive, shown in muted gray beneath a `* thinking` header so it stays visually distinct from the final answer.
 
 ## Built-in tools
 
