@@ -483,13 +483,12 @@ func applyConfigDefaults(cfg Config) Config {
 	if cfg.AutoStallAllocationIncrement <= 0 {
 		cfg.AutoStallAllocationIncrement = defaultAutoStallAllocationIncrement
 	}
-	// Auto-allocate by default so the agent never blocks on an interactive
-	// prompt. Can still be disabled via /model tool set auto-stall off.
-	cfg.AutoStallAllocation = true
-	cfg.AutoToolAllocation = true
 	if cfg.AutoToolAllocationIncrement <= 0 {
 		cfg.AutoToolAllocationIncrement = defaultAutoToolAllocationIncrement
 	}
+	// NOTE: auto stall/tool allocation is enabled only by the interactive REPL
+	// (repl.Run), not here — library and test callers keep the deterministic
+	// budget-exhaustion behavior instead of silently raising the budget.
 	return cfg
 }
 
@@ -860,8 +859,8 @@ func forceAnswerConfig(cfg *domain.ChatConfig) *domain.ChatConfig {
 func (l *Loop) budgetExhaustedNotice(w io.Writer) string {
 	notice := fmt.Sprintf(
 		"\nTool budget of %d rounds exhausted before the task finished. "+
-			"Partial work may be in place.\n\n",
-		l.config.MaxToolRounds)
+			"Partial work may be in place. Raise it with: /model tool set rounds %d\n\n",
+		l.config.MaxToolRounds, l.config.MaxToolRounds+defaultAutoToolAllocationIncrement)
 	_, _ = io.WriteString(w, notice)
 	l.promptBudgetOptions(w, 0)
 	return notice

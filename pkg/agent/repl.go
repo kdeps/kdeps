@@ -1382,6 +1382,10 @@ func (r *REPL) Run() error {
 	// Mark this as the interactive REPL so bash_exec may hand the controlling
 	// terminal to a child (see Config.InteractiveTTY). Never set outside the REPL.
 	r.loop.config.InteractiveTTY = true
+	// Auto-raise the tool/stall budgets in interactive use so a long session
+	// never blocks on a prompt; library/test callers keep budget exhaustion.
+	r.loop.config.AutoToolAllocation = true
+	r.loop.config.AutoStallAllocation = true
 
 	r.historyPath = hpath
 	// Capture the cooked terminal mode before readline switches it to raw, so a

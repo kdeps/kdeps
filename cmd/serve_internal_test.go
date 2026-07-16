@@ -798,8 +798,8 @@ func TestResolveStartModel_FallsBackToDefault(t *testing.T) {
 	settings := tui.Settings{DefaultModel: "claude-sonnet-4-6"}
 	m, b := resolveStartModel(flags, settings)
 	assert.Equal(t, "claude-sonnet-4-6", m)
-	// Not a GGUF name, so backend stays empty.
-	assert.Equal(t, "", b)
+	// Backend is inferred from the model name (claude -> anthropic).
+	assert.Equal(t, "anthropic", b)
 }
 
 func TestResolveStartModel_ExplicitBackendNotOverridden(t *testing.T) {

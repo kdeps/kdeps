@@ -252,7 +252,9 @@ func TestDispatchToTerminal_StallKillsHungTool(t *testing.T) {
 	assert.Less(t, time.Since(start), 10*time.Second, "hung tool must be killed, not waited out")
 	assert.Contains(t, result, "tool killed")
 	assert.Contains(t, result, "no output")
-	assert.Contains(t, termBuf.String(), "killed after")
+	// Non-interactive (no auto-stall, not a REPL): the tool is killed on the first
+	// stall; the monitor reports the stall before the kill.
+	assert.Contains(t, termBuf.String(), "stalled")
 }
 
 // TestDispatchToTerminal_HealthyToolNotStallKilled verifies a tool that keeps

@@ -39,6 +39,7 @@ var canonicalToolNames = map[string]bool{
 	"code_symbols": true, "code_diagnostics": true, "code_search": true,
 	"sql_query": true, "sql_list_tables": true, "sql_describe_table": true,
 	"load_document": true, "transcribe_audio": true, "retrieve_context": true,
+	"memory_save": true, "memory_search": true, "memory_delete": true, "memory_list": true,
 }
 
 func TestToolNameAliases_AllTargetsAreRealTools(t *testing.T) {
