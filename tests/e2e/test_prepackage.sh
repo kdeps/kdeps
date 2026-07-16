@@ -216,8 +216,12 @@ test_prepackage_include_models() {
     tmp_out="$(mktemp -d)"
     models_dir="$(mktemp -d)"
 
-    # Seed the llamafile cache with a small fake model (bare-filename resolution).
-    printf 'fake llamafile binary' > "$models_dir/e2e-fake.llamafile"
+    # Seed the llamafile cache with a fake model (bare-filename resolution). Use
+    # 512 KiB of incompressible random data, not a 21-byte string: the size-fallback
+    # assertion below compares the with-models binary against a no-models build, and
+    # a tiny (or compressible) model left that delta inside build noise, making the
+    # test flaky. An incompressible model guarantees an unambiguous size increase.
+    head -c 524288 /dev/urandom > "$models_dir/e2e-fake.llamafile"
     chmod +x "$models_dir/e2e-fake.llamafile"
 
     if ! "$KDEPS_BIN" bundle package "$workflow_dir" --output "$tmp_out" &>/dev/null; then

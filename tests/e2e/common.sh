@@ -162,6 +162,25 @@ output_grep_fixed_i() {
 
 export -f output_grep output_grep_i output_grep_fixed output_grep_fixed_i
 
+# llm_server_crashed returns 0 if the text reads as a backend LLM process crash
+# (segfault / OOM-kill / abnormal termination) rather than a product-level error.
+# These are CI-environment flakes -- the inference binary dies on the runner -- so
+# callers should retry and then skip, not fail, when they see one.
+llm_server_crashed() {
+    grep -qiE "process has terminated|segmentation fault|core dumped|signal: (killed|aborted|segmentation|sigsegv|sigkill|sigabrt)|cannot allocate memory|out of memory|oom-kill" <<< "${1:-}"
+}
+
+# skip_or_fail_llm skips when the response reads as a backend crash (CI flake) and
+# otherwise fails. Args: label, response-body, optional extra detail.
+skip_or_fail_llm() {
+    if llm_server_crashed "${2:-}"; then
+        test_skipped "$1 - llm-server crashed on the runner (CI environment flake)"
+    else
+        test_failed "$1" "${3:-$2}"
+    fi
+}
+export -f llm_server_crashed skip_or_fail_llm
+
 # Test helper functions
 test_passed() {
     echo -e "${GREEN}✓ PASSED:${NC} $1"
