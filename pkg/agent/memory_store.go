@@ -890,19 +890,49 @@ func significantTokens(s string) []string {
 	return out
 }
 
+// Resume tiebreak ranks (V): higher wins when timestamps are equal. Active work is
+// the most natural place to continue, then current state, then a pending outcome.
+const (
+	resumeRankProgress = 3
+	resumeRankStatus   = 2
+	resumeRankResult   = 1
+	resumeRankNone     = 0
+)
+
+// resumeTypeRank orders resumable types when two candidates share a timestamp (V).
+func resumeTypeRank(t string) int {
+	switch t {
+	case memTypeProgress:
+		return resumeRankProgress
+	case memTypeStatus:
+		return resumeRankStatus
+	case memTypeResult:
+		return resumeRankResult
+	default:
+		return resumeRankNone
+	}
+}
+
 // resumeKeyFrom picks the node a cold model should continue from: the most
 // recently updated progress/result/status entry that is not marked done, chosen
 // across all entries (before truncation) so the active task can be prioritized.
-// Returns "" when none qualifies.
+// Ties (equal timestamp) break deterministically by type rank then key (V), so the
+// choice never depends on map/iteration order. Returns "" when none qualifies.
 func resumeKeyFrom(entries []MemoryEntry) string {
 	best := ""
 	var bestTime int64
+	var bestRank int
 	for _, e := range entries {
 		if !isResumableType(e.Type) || statusIsDone(e.Value) {
 			continue
 		}
-		if best == "" || e.UpdatedAt >= bestTime {
-			best, bestTime = e.Key, e.UpdatedAt
+		rank := resumeTypeRank(e.Type)
+		better := best == "" ||
+			e.UpdatedAt > bestTime ||
+			(e.UpdatedAt == bestTime && rank > bestRank) ||
+			(e.UpdatedAt == bestTime && rank == bestRank && e.Key < best)
+		if better {
+			best, bestTime, bestRank = e.Key, e.UpdatedAt, rank
 		}
 	}
 	return best

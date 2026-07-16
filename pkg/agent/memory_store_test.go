@@ -968,6 +968,22 @@ func TestFocusMatches_StructuralBeatsRecentNote(t *testing.T) {
 	assert.Equal(t, "decision:pay", got[0], "older structural match ranks before the newer note (U)")
 }
 
+func TestResumeKeyFrom_DeterministicTiebreak(t *testing.T) {
+	entries := []MemoryEntry{
+		{Key: "result:z", Type: memTypeResult, Value: "pending", UpdatedAt: 5},
+		{Key: "progress:a", Type: memTypeProgress, Value: "step 2", UpdatedAt: 5},
+		{Key: "progress:b", Type: memTypeProgress, Value: "step 3", UpdatedAt: 5},
+	}
+	// Equal timestamps: progress outranks result; among progress, smallest key wins.
+	assert.Equal(t, "progress:a", resumeKeyFrom(entries))
+	// Order-independent: reversing input yields the same resume point.
+	rev := []MemoryEntry{entries[2], entries[1], entries[0]}
+	assert.Equal(t, "progress:a", resumeKeyFrom(rev))
+	// A strictly newer entry always wins regardless of type rank.
+	entries = append(entries, MemoryEntry{Key: "result:new", Type: memTypeResult, Value: "pending", UpdatedAt: 9})
+	assert.Equal(t, "result:new", resumeKeyFrom(entries))
+}
+
 func TestWordTokens(t *testing.T) {
 	set := wordTokens("result:api_wiring wired REST")
 	assert.True(t, set["api"] && set["wiring"] && set["result"] && set["rest"],
