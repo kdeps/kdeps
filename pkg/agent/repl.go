@@ -1379,6 +1379,9 @@ func (r *REPL) Run() error {
 	// (cursor moves down but stays at the same column). Without \r before \n, each
 	// output line starts where the previous one ended, creating a rightward staircase.
 	r.loop.config.ToolOutputWriter = &crlfWriter{w: os.Stdout}
+	// Mark this as the interactive REPL so bash_exec may hand the controlling
+	// terminal to a child (see Config.InteractiveTTY). Never set outside the REPL.
+	r.loop.config.InteractiveTTY = true
 
 	r.historyPath = hpath
 	// Capture the cooked terminal mode before readline switches it to raw, so a

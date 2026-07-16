@@ -1087,10 +1087,14 @@ func registerBashExec(ctx context.Context, reg *kdepstools.Registry) {
 			return "", fmt.Errorf("bash_exec: %w", err)
 		}
 
-		// Put the child in the terminal foreground so it can write to stdout
-		// without being suspended by SIGTTOU.
-		prevFG := makeForeground(cmd)
-		defer restoreForeground(prevFG)
+		// Put the child in the terminal foreground so an interactive child that
+		// reads stdin isn't stopped by SIGTTIN. Only in the interactive REPL:
+		// grabbing the tty from a test harness or non-interactive caller running
+		// on a real terminal would stop that process group instead.
+		if interactive, _ := args["_interactive"].(bool); interactive {
+			prevFG := makeForeground(cmd)
+			defer restoreForeground(prevFG)
+		}
 
 		waitCh := make(chan error, 1)
 		go func() { waitCh <- cmd.Wait() }()

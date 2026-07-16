@@ -23,17 +23,16 @@
 package agent
 
 import (
+	"bufio"
 	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
-	"bufio"
 	"fmt"
 	"io"
 	"os"
 	"os/exec"
 	"regexp"
-	"strconv"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -159,6 +158,13 @@ type Config struct {
 	// command is detached as a background job and a job ID is returned immediately.
 	// The REPL sends to this channel when Ctrl+Z is pressed during tool execution.
 	ToolBgCh chan struct{}
+	// InteractiveTTY is set only by the interactive REPL (repl.Run). It is
+	// injected as "_interactive" into each tool's args. bash_exec uses it to
+	// decide whether to hand the controlling terminal to its child: doing so
+	// unconditionally would move the tty foreground away from a test harness or
+	// non-interactive caller running on a real terminal and get that process
+	// group stopped (SIGTTIN/SIGTTOU) — e.g. `make test` suspending itself.
+	InteractiveTTY bool
 	// PermissionMode restricts which tools the agent is allowed to call.
 	// Empty falls back to KDEPS_PERMISSION_MODE, then "danger-full-access"
 	// (no restrictions). "read-only" allows only read operations;
@@ -477,6 +483,13 @@ func applyConfigDefaults(cfg Config) Config {
 	if cfg.AutoStallAllocationIncrement <= 0 {
 		cfg.AutoStallAllocationIncrement = defaultAutoStallAllocationIncrement
 	}
+	// Auto-allocate by default so the agent never blocks on an interactive
+	// prompt. Can still be disabled via /model tool set auto-stall off.
+	cfg.AutoStallAllocation = true
+	cfg.AutoToolAllocation = true
+	if cfg.AutoToolAllocationIncrement <= 0 {
+		cfg.AutoToolAllocationIncrement = defaultAutoToolAllocationIncrement
+	}
 	return cfg
 }
 
@@ -491,9 +504,10 @@ const (
 	// defaultToolStallTimeout kills a running tool after this much time with
 	// no output at all. Silence-based, not wall-clock: a long build that
 	// keeps printing never trips it.
-	defaultToolStallTimeout = 10 * time.Minute
+	defaultToolStallTimeout             = 10 * time.Minute
 	defaultAutoStallAllocationIncrement = 5 * time.Minute
-	defaultModelName        = "llama3.2"
+	defaultAutoToolAllocationIncrement  = 100
+	defaultModelName                    = "llama3.2"
 )
 
 func envOrDefault(key, fallback string) string {
@@ -740,6 +754,8 @@ func (l *Loop) compactAndRetry(ctx context.Context, input string, w io.Writer) (
 }
 
 // runToolRounds drives the tool-call loop, returning the final content string.
+//
+//nolint:gocognit
 func (l *Loop) runToolRounds(
 	ctx context.Context,
 	chatCfg *domain.ChatConfig,
@@ -773,10 +789,10 @@ func (l *Loop) runToolRounds(
 		// Auto-checkpoint: save session state before each LLM call.
 		l.saveCheckpoint()
 
-		// Warn the user when the tool budget is nearly exhausted (last 3 rounds)
-		// and the task is not yet finished. Present interactive options to
-		// increase the budget, set a new number, or do nothing.
-		if !unlimited && i >= l.config.MaxToolRounds-3 && i < l.config.MaxToolRounds-1 {
+		// Warn at half the tool budget so the user has time to react before
+		// the turn is capped. Present interactive options to increase the
+		// budget, set a new number, or do nothing.
+		if !unlimited && i == l.config.MaxToolRounds/2 {
 			remaining := l.config.MaxToolRounds - i
 			l.promptBudgetOptions(w, remaining)
 		}
@@ -888,14 +904,14 @@ func (l *Loop) promptBudgetOptions(w io.Writer, remaining int) {
 		fmt.Fprintf(w, "[Tool budget exhausted.\n")
 	}
 	fmt.Fprintf(w, "  (i)ncrease budget by 100\n"+
-		"  (c)hange budget (enter a new number)\n"+
-		"  (g)nore (continue with current budget)\n\n"+
-		"Enter choice (i/c/g): ")
+		"  (c)ontinue with current budget\n\n"+
+		"Enter choice (i/c): ")
 
 	oldState, err := term.MakeRaw(int(os.Stdin.Fd()))
 	if err != nil {
 		// Can't read raw input; fall back to printing the suggestion.
-		suggested := l.config.MaxToolRounds + 20
+		const toolRoundBuffer = 20
+		suggested := l.config.MaxToolRounds + toolRoundBuffer
 		fmt.Fprintf(w, "\n(Can't read interactive input. "+
 			"Use: /model tool set rounds %d)\n", suggested)
 		return
@@ -916,36 +932,7 @@ func (l *Loop) promptBudgetOptions(w io.Writer, remaining int) {
 		l.config.MaxToolRounds += 100
 		fmt.Fprintf(w, "Budget increased by 100. New budget: %d rounds.\n",
 			l.config.MaxToolRounds)
-	case '2', 'c', 'C':
-		// Restore terminal for numeric input.
-		_ = term.Restore(int(os.Stdin.Fd()), oldState)
-		fmt.Fprint(w, "Enter new budget (0 = unlimited): ")
-		var input string
-		for {
-			line, err := br.ReadString('\n')
-			if err != nil {
-				return
-			}
-			input = strings.TrimSpace(line)
-			if input != "" {
-				break
-			}
-		}
-		n, parseErr := strconv.Atoi(input)
-		if parseErr != nil || n < 0 {
-			fmt.Fprintf(w, "Invalid number '%s'. Budget unchanged (%d rounds).\n",
-				input, l.config.MaxToolRounds)
-		} else {
-			l.config.MaxToolRounds = n
-			if n == 0 {
-				fmt.Fprint(w, "Budget set to unlimited.\n")
-			} else {
-				fmt.Fprintf(w, "Budget set to %d rounds.\n", n)
-			}
-		}
-		// Re-enter raw mode for the caller's loop.
-		oldState, _ = term.MakeRaw(int(os.Stdin.Fd()))
-	case '3', 'g', 'G':
+	case 'g', 'G', 'c', 'C':
 		fmt.Fprint(w, "Continuing with current budget.\n")
 	default:
 		fmt.Fprint(w, "Continuing with current budget.\n")
@@ -978,9 +965,8 @@ func (l *Loop) promptStallOptions(w io.Writer, toolName string, elapsed time.Dur
 	fmt.Fprintf(w, "\n[Tool %q has had no output for %s (stall timeout: %s).\n",
 		toolName, elapsed.Round(time.Second), l.config.ToolStallTimeout)
 	fmt.Fprintf(w, "  (i)ncrease stall timeout by %s\n"+
-		"  (c)hange stall timeout (enter minutes)\n"+
-		"  (g)nore (kill the tool)\n\n"+
-		"Enter choice (i/c/g): ",
+		"  (k)ill the tool\n\n"+
+		"Enter choice (i/k): ",
 		l.config.AutoStallAllocationIncrement)
 
 	oldState, err := term.MakeRaw(int(os.Stdin.Fd()))
@@ -1006,37 +992,7 @@ func (l *Loop) promptStallOptions(w io.Writer, toolName string, elapsed time.Dur
 		fmt.Fprintf(w, "Stall timeout increased by %s. New timeout: %s.\n",
 			l.config.AutoStallAllocationIncrement, l.config.ToolStallTimeout)
 		return true
-	case '2', 'c', 'C':
-		_ = term.Restore(int(os.Stdin.Fd()), oldState)
-		fmt.Fprint(w, "Enter new stall timeout in minutes (0 = no timeout): ")
-		var input string
-		for {
-			line, err := br.ReadString('\n')
-			if err != nil {
-				return false
-			}
-			input = strings.TrimSpace(line)
-			if input != "" {
-				break
-			}
-		}
-		n, parseErr := strconv.Atoi(input)
-		if parseErr != nil || n < 0 {
-			fmt.Fprintf(w, "Invalid number '%s'. Timeout unchanged (%s).\n",
-				input, l.config.ToolStallTimeout)
-			return false
-		}
-		if n == 0 {
-			l.config.ToolStallTimeout = -1 // negative disables stall detection
-			fmt.Fprint(w, "Stall timeout disabled.\n")
-		} else {
-			l.config.ToolStallTimeout = time.Duration(n) * time.Minute
-			fmt.Fprintf(w, "Stall timeout set to %s.\n", l.config.ToolStallTimeout)
-		}
-		// Re-enter raw mode for the caller's loop.
-		_, _ = term.MakeRaw(int(os.Stdin.Fd()))
-		return true
-	case '3', 'g', 'G':
+	case 'g', 'G', 'k', 'K':
 		fmt.Fprint(w, "Killing stalled tool.\n")
 		return false
 	default:
@@ -1303,6 +1259,10 @@ func (l *Loop) dispatchStreamToolCall(tc domain.StreamedToolCall, w io.Writer) s
 	if l.config.ToolBgCh != nil {
 		args["_bg_ch"] = (<-chan struct{})(l.config.ToolBgCh)
 	}
+	// Only the interactive REPL may grab the controlling terminal for a child.
+	if l.config.InteractiveTTY {
+		args["_interactive"] = true
+	}
 
 	if termW := l.config.ToolOutputWriter; termW != nil {
 		return l.dispatchToTerminal(tool, tc.Name, args, termW, start)
@@ -1342,6 +1302,8 @@ func toolErrorJSON(err error) string {
 // finishes. While the tool runs, a monitor line updates every second with the
 // elapsed time and the most recent output line, so a long-running command
 // (e.g. a full test suite via bash_exec) is visibly alive instead of silent.
+//
+//nolint:funlen,gocognit,nestif // complex dispatch with stall retry logic
 func (l *Loop) dispatchToTerminal(
 	tool *tools.Tool,
 	name string,
@@ -1549,6 +1511,8 @@ CRITICAL:
 // instruction files, and the user-configured system prompt.
 // For small-context models (< 8K), non-essential parts are dropped to
 // leave room for the actual conversation.
+//
+//nolint:gocognit
 func (l *Loop) buildSystemPreamble() string {
 	limit := l.preambleLimit()
 	var parts []string
