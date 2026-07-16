@@ -679,6 +679,39 @@ func TestMemoryStore_SaveEntries_LowSignalCap(t *testing.T) {
 	assert.True(t, ok, "structural result survives low-signal pruning")
 }
 
+func TestMemoryStore_FormatForPrompt_FlagsDuplicateValues(t *testing.T) {
+	dir := t.TempDir()
+	store := NewMemoryStore(dir)
+	store.SetCwd("/Users/test/Projects/foo")
+
+	// Two substantive entries carrying the same fact (cosmetically different).
+	require.NoError(t, store.Set("fact:api_url", "The service base URL is https://api.example.com"))
+	require.NoError(t, store.Set("context:endpoint", "the service base URL is  https://api.example.com  "))
+
+	out := store.FormatForPrompt(1000, "")
+	// The later-rendered copy is flagged as the same fact; exactly one flag appears.
+	assert.Equal(t, 1, strings.Count(out, "(same as "),
+		"the duplicate fact is flagged once, not both copies")
+}
+
+func TestMemoryStore_FormatForPrompt_ShortValuesNotFlaggedAsDup(t *testing.T) {
+	dir := t.TempDir()
+	store := NewMemoryStore(dir)
+	store.SetCwd("/Users/test/Projects/foo")
+
+	// Short common values recur legitimately and must not be flagged.
+	require.NoError(t, store.Set("status:a", "done"))
+	require.NoError(t, store.Set("status:b", "done"))
+
+	out := store.FormatForPrompt(1000, "")
+	assert.NotContains(t, out, "(same as ", "short common values are not treated as duplicates")
+}
+
+func TestNormalizeValue(t *testing.T) {
+	assert.Equal(t, "the base url", normalizeValue("  The   Base   URL  "))
+	assert.Equal(t, normalizeValue("A  b\tC"), normalizeValue("a b c"))
+}
+
 func TestMemoryStore_FormatForPrompt_ResumeSkipsDone(t *testing.T) {
 	dir := t.TempDir()
 	store := NewMemoryStore(dir)

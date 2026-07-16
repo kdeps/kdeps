@@ -619,8 +619,22 @@ func (m *MemoryStore) FormatForPrompt(maxTokens int, focus string) string {
 		sb.WriteString(summary)
 		sb.WriteByte('\n')
 	}
+	// L: flag entries whose value repeats one already rendered, so a cold model
+	// reads the fact once and knows the rest are the same (possibly-stale) copy
+	// rather than independent evidence. Flag only — nothing is dropped, so graph
+	// edges stay intact.
+	seenValue := make(map[string]string, len(ordered))
 	for _, key := range ordered {
-		writeGraphEntry(&sb, byKey[key], keep, key == resume)
+		e := byKey[key]
+		dupOf := ""
+		if norm := normalizeValue(e.Value); len(norm) >= minDupValueLen {
+			if first, ok := seenValue[norm]; ok && first != key {
+				dupOf = first
+			} else {
+				seenValue[norm] = key
+			}
+		}
+		writeGraphEntry(&sb, e, keep, key == resume, dupOf)
 	}
 	if resume != "" {
 		if down := m.keptReverseDeps(resume, keep); len(down) > 0 {
@@ -925,9 +939,22 @@ func statusIsDone(value string) bool {
 	return false
 }
 
-// writeGraphEntry renders one entry as "key [type]: value <- parents [<== RESUME]".
-// Parent edges are limited to nodes still in keep so no arrow dangles.
-func writeGraphEntry(sb *strings.Builder, e MemoryEntry, keep map[string]bool, resume bool) {
+// minDupValueLen is the shortest normalized value worth flagging as a duplicate
+// (L). Below it, values like "done" or "ok" recur legitimately across entries and
+// flagging them would be noise, not signal.
+const minDupValueLen = 12
+
+// normalizeValue folds a value for duplicate comparison: lowercased, trimmed, with
+// runs of whitespace collapsed to a single space, so cosmetically different copies
+// of the same fact compare equal.
+func normalizeValue(s string) string {
+	return strings.ToLower(strings.Join(strings.Fields(s), " "))
+}
+
+// writeGraphEntry renders one entry as "key [type]: value <- parents [(same as K)] [<== RESUME]".
+// Parent edges are limited to nodes still in keep so no arrow dangles. dupOf, when
+// set, names an earlier entry with the same value (L). RESUME stays last on the line.
+func writeGraphEntry(sb *strings.Builder, e MemoryEntry, keep map[string]bool, resume bool, dupOf string) {
 	sb.WriteString(e.Key)
 	if e.Type != "" {
 		fmt.Fprintf(sb, " [%s]", e.Type)
@@ -943,6 +970,9 @@ func writeGraphEntry(sb *strings.Builder, e MemoryEntry, keep map[string]bool, r
 	}
 	if len(parents) > 0 {
 		fmt.Fprintf(sb, "  <- %s", strings.Join(parents, ", "))
+	}
+	if dupOf != "" {
+		fmt.Fprintf(sb, "  (same as %s)", dupOf)
 	}
 	if resume {
 		sb.WriteString("  <== RESUME")
