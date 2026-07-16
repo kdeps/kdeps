@@ -189,6 +189,8 @@ Memory tools work in both agent mode and workflow mode. In workflow mode, the st
 
 To prevent memory bloat, only write/exec/search tools produce memory entries. Read-only lookups (`read_file`, `list_files`, `search_local`) are filtered out. Each tool type is capped at 20 entries — the oldest are auto-deleted when the cap is reached.
 
+Auto-extracted **low-signal** entries (types `note` and `fact`) are also globally capped at 50 combined — the noisiest, least-structural entries that accumulate fastest over a long-lived project. When the cap is exceeded, the oldest are pruned on write. Structural entries (`prompt`, `purpose`, `progress`, `result`, `status`, `decision`, `context`, `tool_result`, ...) are never pruned by this cap, so the workflow chain and resume point are always preserved.
+
 ## Configuration
 
 Memory is enabled by default when the agent loop starts. No YAML configuration is needed. The store is created at `~/.kdeps/memory/<encoded-cwd>/memory.jsonl` where `<encoded-cwd>` is a sanitized version of the current working directory path.

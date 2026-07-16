@@ -20,6 +20,7 @@ package agent
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -607,6 +608,75 @@ func TestFormatRelativeAge(t *testing.T) {
 	for delta, want := range cases {
 		assert.Equalf(t, want, formatRelativeAge(delta), "delta=%dms", delta)
 	}
+}
+
+func TestMemoryStore_PruneLowSignal(t *testing.T) {
+	dir := t.TempDir()
+	store := NewMemoryStore(dir)
+	store.SetCwd("/Users/test/Projects/foo")
+
+	// Seed distinct ages so "oldest pruned" is deterministic. A structural entry
+	// with the oldest timestamp of all must still survive.
+	store.entries["result:build"] = MemoryEntry{
+		Key: "result:build", Value: "compiles; tests pending",
+		Type: memTypeResult, UpdatedAt: 0,
+	}
+	total := memoryLowSignalCap + 10
+	for i := range total {
+		key := fmt.Sprintf("note:n%03d", i)
+		store.entries[key] = MemoryEntry{
+			Key: key, Value: "misc", Type: memTypeNote, UpdatedAt: int64(i + 1),
+		}
+	}
+
+	pruned := store.pruneLowSignal()
+	assert.Equal(t, 10, pruned, "exactly the overflow is pruned")
+
+	noteCount := 0
+	for _, e := range store.entries {
+		if e.Type == memTypeNote {
+			noteCount++
+		}
+	}
+	assert.Equal(t, memoryLowSignalCap, noteCount, "notes capped at the limit")
+
+	_, keptNew := store.Get(fmt.Sprintf("note:n%03d", total-1))
+	assert.True(t, keptNew, "newest note retained")
+	_, keptOld := store.Get("note:n000")
+	assert.False(t, keptOld, "oldest note pruned")
+
+	_, ok := store.Get("result:build")
+	assert.True(t, ok, "structural result survives low-signal pruning despite oldest age")
+
+	// Below the cap, nothing is pruned.
+	assert.Equal(t, 0, store.pruneLowSignal(), "no-op when at or under the cap")
+}
+
+func TestMemoryStore_SaveEntries_LowSignalCap(t *testing.T) {
+	dir := t.TempDir()
+	store := NewMemoryStore(dir)
+	store.SetCwd("/Users/test/Projects/foo")
+
+	require.NoError(t, store.Set("result:build", "compiles; tests pending"))
+
+	entries := make([]MemoryEntry, 0, memoryLowSignalCap+10)
+	for i := range memoryLowSignalCap + 10 {
+		entries = append(entries, MemoryEntry{
+			Key: fmt.Sprintf("note:n%03d", i), Value: "misc", Type: memTypeNote,
+		})
+	}
+	store.saveEntries(entries)
+
+	noteCount := 0
+	for _, e := range store.List() {
+		if e.Type == memTypeNote {
+			noteCount++
+		}
+	}
+	assert.LessOrEqual(t, noteCount, memoryLowSignalCap, "note entries capped through the write path")
+
+	_, ok := store.Get("result:build")
+	assert.True(t, ok, "structural result survives low-signal pruning")
 }
 
 func TestMemoryStore_FormatForPrompt_ResumeSkipsDone(t *testing.T) {

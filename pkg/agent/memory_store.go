@@ -1390,6 +1390,45 @@ func (m *MemoryStore) resolveLinkTarget(entryType, batchPrevKey, entryKey string
 	return linkTarget
 }
 
+// memoryLowSignalCap bounds how many low-signal (note/fact) auto-extracted entries
+// are retained (K). These accumulate fastest and carry the least structural value,
+// so the oldest beyond the cap are pruned to keep the store and the injected prompt
+// from bloating over long-lived projects. Structural types (prompt/purpose/progress/
+// result/status/decision/context/tool_result/...) are never pruned here.
+const memoryLowSignalCap = 50
+
+// memoryLowSignalTypes are the auto-extracted types eligible for global retention
+// pruning. Deliberately narrow — only the noisiest, least-structural types.
+//
+//nolint:gochecknoglobals // static set
+var memoryLowSignalTypes = map[string]bool{
+	memTypeNote: true,
+	memTypeFact: true,
+}
+
+// pruneLowSignal deletes the oldest low-signal (note/fact) entries beyond
+// memoryLowSignalCap. The caller must hold m.mu. Returns the number pruned.
+func (m *MemoryStore) pruneLowSignal() int {
+	var keys []string
+	for k, e := range m.entries {
+		if memoryLowSignalTypes[e.Type] {
+			keys = append(keys, k)
+		}
+	}
+	if len(keys) <= memoryLowSignalCap {
+		return 0
+	}
+	sort.Slice(keys, func(i, j int) bool {
+		return m.entries[keys[i]].UpdatedAt < m.entries[keys[j]].UpdatedAt
+	})
+	pruned := 0
+	for _, k := range keys[:len(keys)-memoryLowSignalCap] {
+		delete(m.entries, k)
+		pruned++
+	}
+	return pruned
+}
+
 // saveEntries persists extracted entries to the store, auto-assigns types,
 // and auto-links entries into a type-based dependency graph so the LLM
 // can see how tool calls relate to prompts, results, and progress.
@@ -1427,6 +1466,8 @@ func (m *MemoryStore) saveEntries(entries []MemoryEntry) int {
 		batchPrevKey = entry.Key
 		captured++
 	}
+	// K: bound growth of the noisiest low-signal types after the batch is applied.
+	m.pruneLowSignal()
 	m.mu.Unlock()
 
 	if captured > 0 {
