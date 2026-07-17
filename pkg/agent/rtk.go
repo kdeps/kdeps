@@ -35,11 +35,22 @@ import (
 // This applies to agent loop mode only. Workflow mode exec resources must keep
 // their raw output: pipelines parse it downstream and depend on it being stable.
 
-const (
-	// rtkProbeTimeout bounds the one-time identity probe.
-	rtkProbeTimeout = 2 * time.Second
-	// rtkRewriteTimeout bounds each per-command rewrite.
+// Timeouts are deliberately asymmetric, and are variables so tests that spawn a
+// real subprocess can raise them instead of racing a wall clock.
+//
+//nolint:gochecknoglobals // test seam; production never mutates these
+var (
+	// rtkProbeTimeout bounds the one-time identity probe. Generous on purpose:
+	// the result is cached for the life of the process, so a probe that times
+	// out merely because the machine was busy would silently disable rtk for
+	// the whole session. It costs at most this once, on the first bash_exec.
+	rtkProbeTimeout = 5 * time.Second
+	// rtkRewriteTimeout bounds each per-command rewrite. Tight on purpose: this
+	// one is paid on every command, so it must not make the agent feel slow.
 	rtkRewriteTimeout = 2 * time.Second
+)
+
+const (
 	// rtkWaitDelay caps how long we wait for rtk's output pipes to close after
 	// its deadline passes. Killing rtk does not reap any grandchildren that
 	// inherited the pipe, and Output() reads to EOF, so without this a wedged

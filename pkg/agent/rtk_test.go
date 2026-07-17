@@ -39,6 +39,22 @@ func fakeRTK(t *testing.T, body string) {
 	}
 	t.Setenv("PATH", dir)
 	resetRTKProbe(t)
+	// These tests spawn a real shell. Under `make test` every package runs at
+	// once and a spawn can take seconds, which is enough to blow the production
+	// budget and fail (or pass) for reasons unrelated to the code under test.
+	// Tests asserting a timeout must set their own deadline.
+	setRTKTimeouts(t, 30*time.Second)
+}
+
+// setRTKTimeouts overrides the probe/rewrite deadlines for one test and restores
+// them afterwards.
+func setRTKTimeouts(t *testing.T, d time.Duration) {
+	t.Helper()
+	oldProbe, oldRewrite := rtkProbeTimeout, rtkRewriteTimeout
+	rtkProbeTimeout, rtkRewriteTimeout = d, d
+	t.Cleanup(func() {
+		rtkProbeTimeout, rtkRewriteTimeout = oldProbe, oldRewrite
+	})
 }
 
 // resetRTKProbe clears the memoized probe result, and restores it afterwards so
@@ -204,6 +220,8 @@ func TestRTKRewrite_HangingBinaryDoesNotBlock(t *testing.T) {
 	// Absolute path: fakeRTK replaces PATH with the temp dir, so a bare `sleep`
 	// would fail to resolve and exit 127 without ever exercising the timeout.
 	fakeRTK(t, `/bin/sleep 30`)
+	// This test wants the deadline to fire, so undo fakeRTK's generous override.
+	setRTKTimeouts(t, 2*time.Second)
 	start := time.Now()
 	done := make(chan struct{})
 	go func() {
