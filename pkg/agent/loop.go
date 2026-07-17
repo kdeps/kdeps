@@ -785,6 +785,7 @@ func (l *Loop) runToolRounds(
 
 	var finalContent string
 	capped := false
+	nudged := false
 	// MaxToolRounds <= 0 means unlimited: run until the model stops calling
 	// tools or the turn is canceled (Ctrl+C). With no cap there is no forced
 	// final answer.
@@ -818,6 +819,16 @@ func (l *Loop) runToolRounds(
 		finalContent = content
 
 		if len(toolCalls) == 0 {
+			// A round with neither a tool call nor text is a silent no-op.
+			// Reasoning models do this: the decision ("let me check memory
+			// first") stays in thinking tokens and never becomes a call, so
+			// breaking here would return the user to the prompt with nothing
+			// at all. Nudge once for a concrete action before giving up.
+			if !nudged && strings.TrimSpace(stripContentToolCalls(content)) == "" {
+				nudged = true
+				chatCfg = nudgeForActionConfig(chatCfg)
+				continue
+			}
 			_, _ = io.WriteString(w, roundBuf.String())
 			break
 		}
@@ -833,13 +844,46 @@ func (l *Loop) runToolRounds(
 			return finalContent, ctx.Err()
 		}
 	}
-	// Reasoning models sometimes put the forced final answer entirely into
-	// thinking tokens and return empty content; without this notice the turn
-	// would end in silence with partial work in place.
-	if capped && strings.TrimSpace(stripContentToolCalls(finalContent)) == "" {
-		finalContent = l.budgetExhaustedNotice(w)
+	// A turn must never end in silence. Reasoning models sometimes put an
+	// entire round into thinking tokens and return empty content: on a capped
+	// round that loses the forced final answer, and otherwise it means the
+	// model stalled even after the nudge above.
+	if strings.TrimSpace(stripContentToolCalls(finalContent)) == "" {
+		if capped {
+			finalContent = l.budgetExhaustedNotice(w)
+		} else {
+			finalContent = l.silentTurnNotice(w)
+		}
 	}
 	return finalContent, nil
+}
+
+// nudgeForActionConfig returns a copy of cfg asking the model to commit to an
+// action after a round that produced neither a tool call nor an answer. Tools
+// stay registered: the goal is to get the call the model already decided on in
+// its reasoning, not to force a text answer.
+//
+// The note is appended rather than replacing cfg.Prompt, because on the first
+// round the user's question still rides in Prompt — appendToolRoundTrip only
+// moves it into history once a tool call happens. Replacing it here would nudge
+// the model with the question thrown away.
+func nudgeForActionConfig(cfg *domain.ChatConfig) *domain.ChatConfig {
+	nudgeCfg := *cfg
+	note := "Your previous response contained no tool call and no answer. " +
+		"If you intended to call a tool, call it now. Otherwise, answer directly " +
+		"in plain text. Do not reply with reasoning alone."
+	nudgeCfg.Prompt = strings.TrimSpace(cfg.Prompt + "\n\n" + note)
+	return &nudgeCfg
+}
+
+// silentTurnNotice writes and returns the message shown when the model ends a
+// turn with no answer and no tool call even after being nudged. Returning empty
+// content would drop the user back at the prompt with no sign of what happened.
+func (l *Loop) silentTurnNotice(w io.Writer) string {
+	notice := "\nThe model ended the turn without answering or calling a tool - " +
+		"its response was reasoning only. Try rephrasing, or switch models with /model.\n\n"
+	_, _ = io.WriteString(w, notice)
+	return notice
 }
 
 // forceAnswerConfig returns a copy of cfg with tools removed and a prompt
@@ -1521,35 +1565,50 @@ func (l *Loop) dispatchToTerminal(
 // Guides the model to complete tasks efficiently using the available file and shell tools.
 const toolUseGuidance = `You are a coding agent. Use the FEWEST tools possible. One tool per turn is ideal.
 
-UNIVERSAL RULE: Never ask clarifying questions. Infer the user's intent from context and act immediately.
-
 MEMORY TOOLS:
 - memory_search — Call BEFORE every read_file, edit_file, write_file, or any action
   to check if previous work already produced what you need.
 - memory_save — Call to persist facts, decisions, and progress during the turn.
 
-NOTE: memory_list is called automatically by the system at the start of every turn.
-NOTE: memory_save is called automatically by the system after every turn.
-You do not need to call these yourself unless you want to save intermediate state.
-
-Before ANY tool call:
-- Infer what the user wants from conversation history, working directory, and project context.
-- Assume the broadest reasonable scope. Vague requests imply the whole project.
-- Do NOT ask "which file?", "which package?", "what scope?". Just act on everything relevant.
+NOTE: memory_list and memory_save run automatically each turn. Call them yourself
+only to save intermediate state.
 
 File tools: read_file, edit_file, write_file, list_files
 Code tools: code_search, code_definition, code_references, code_symbols, code_hover, code_diagnostics, search_local
 Other tools: bash_exec, web_search, web_scraper, wikipedia, http_request
 
-CRITICAL:
-1. NEVER ask clarifying questions. Infer. Act.
-2. Assume maximum scope. Ambiguous = everything.
-3. Do NOT explore first. Act first. Discover only when necessary.
-4. Two tools max per turn.
-5. Report what was done, then STOP. No thinking out loud about next steps.
-6. Chat/greetings: respond directly, zero tools.
-7. NEVER re-read a file you already read this turn - its contents are still
-   in this conversation. Re-reading wastes your limited tool budget.`
+SCOPE — read broadly, change narrowly:
+1. Never ask "which file?", "which package?", "what scope?". Infer the target from
+   context and act. A vague request implies the whole project, not one file.
+2. Read whatever you need to be correct. Reading is cheap; a wrong edit is not.
+   But do not wander: every read should answer a specific question.
+3. Change only what was asked. Do not add features, refactor surrounding code, or
+   create files the request did not call for.
+
+ACCURACY:
+4. Never state anything about code you have not read. Read it first, then answer.
+5. Never invent file paths, function names, or API signatures. Look them up.
+6. If you do not know, say "I don't know". Guessing confidently is the worst outcome.
+7. Verify your work ran. A passing test proves nothing if it never reached the code
+   you changed. Report failures as failures; never call unverified work done.
+
+HONESTY:
+8. Answer first. No praise, no validating the user before responding.
+9. If the user is wrong, say so plainly and give the correction.
+10. Do not abandon a correct answer because the user pushed back. Change it only
+    when you are given a reason, not pressure.
+
+CODE:
+11. Return the simplest solution that works. No speculative abstractions.
+12. Comment only what the code cannot say itself. Never comment unchanged code.
+
+OUTPUT:
+13. Answer on line 1. No preamble, no restating the request, no hollow closing.
+14. Report what was done, then STOP. No thinking out loud about next steps.
+15. Chat/greetings: respond directly, zero tools.
+16. Two tools max per turn.
+17. NEVER re-read a file you already read this turn - its contents are still
+    in this conversation. Re-reading wastes your limited tool budget.`
 
 // buildSystemPreamble constructs the system prompt preamble from skills,
 // instruction files, and the user-configured system prompt.

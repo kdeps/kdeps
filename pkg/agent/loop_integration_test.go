@@ -1713,3 +1713,96 @@ func TestRunStreaming_MemoryTools_NoStore(t *testing.T) {
 	require.NoError(t, err)
 	// Should not crash — tool returns an error result, loop recovers
 }
+
+// TestRunStreaming_SilentRoundIsNudged reproduces the reasoning-model stall:
+// deepseek-reasoner decided in its thinking to check memory, emitted no tool
+// call and no content, and the turn ended in silence back at the REPL prompt.
+func TestRunStreaming_SilentRoundIsNudged(t *testing.T) {
+	const input = "what next steps need to be done on this project?"
+	ms := &cfgRecordingStreamer{
+		inner: mockStreamer{
+			responses: []mockStreamResponse{
+				// Round 1: reasoning only — no tool call, no content.
+				{content: "", toolCalls: nil},
+				// Round 2: the nudge lands and the model answers.
+				{content: "next steps are X and Y", toolCalls: nil},
+			},
+		},
+	}
+	loop := newStreamingLoop(ms, 10)
+	var buf bytes.Buffer
+	got, err := loop.RunStreaming(context.Background(), input, &buf)
+	require.NoError(t, err)
+
+	require.Len(t, ms.cfgs, 2, "a silent round must be nudged, not returned as-is")
+	assert.Equal(t, "next steps are X and Y", got)
+	assert.NotContains(t, got, "without answering", "a real answer must not be replaced by the notice")
+}
+
+// The nudge must not cost the user their question. On the first round the input
+// rides in cfg.Prompt (appendToolRoundTrip only moves it into Messages once a
+// tool call happens), so a nudge that replaced Prompt would ask the model to
+// act with nothing to act on.
+func TestRunStreaming_NudgePreservesUserQuestion(t *testing.T) {
+	const input = "what next steps need to be done on this project?"
+	ms := &cfgRecordingStreamer{
+		inner: mockStreamer{
+			responses: []mockStreamResponse{
+				{content: "", toolCalls: nil},
+				{content: "answer", toolCalls: nil},
+			},
+		},
+	}
+	loop := newStreamingLoop(ms, 10)
+	var buf bytes.Buffer
+	_, err := loop.RunStreaming(context.Background(), input, &buf)
+	require.NoError(t, err)
+	require.Len(t, ms.cfgs, 2)
+
+	nudgeRound := ms.cfgs[1]
+	assert.Contains(t, nudgeRound.Prompt, input, "nudge discarded the user's question")
+	assert.Contains(t, nudgeRound.Prompt, "no tool call and no answer", "nudge text missing")
+}
+
+// After the nudge the model may still emit a tool call — that is the whole
+// point, since the intent was already in its reasoning.
+func TestRunStreaming_NudgeRecoversToolCall(t *testing.T) {
+	toolCall := domain.StreamedToolCall{ID: "1", Name: "noop", Arguments: "{}"}
+	ms := &cfgRecordingStreamer{
+		inner: mockStreamer{
+			responses: []mockStreamResponse{
+				{content: "", toolCalls: nil},
+				{content: "", toolCalls: []domain.StreamedToolCall{toolCall}},
+				{content: "done", toolCalls: nil},
+			},
+		},
+	}
+	loop := newStreamingLoop(ms, 10)
+	var buf bytes.Buffer
+	got, err := loop.RunStreaming(context.Background(), "do the thing", &buf)
+	require.NoError(t, err)
+	assert.Equal(t, "done", got)
+	require.Len(t, ms.cfgs, 3, "nudge should recover the tool call and continue")
+}
+
+// A model that stays silent even after the nudge must not nudge forever, and
+// must not return the user to the prompt with nothing.
+func TestRunStreaming_PersistentSilenceEmitsNoticeOnce(t *testing.T) {
+	ms := &cfgRecordingStreamer{
+		inner: mockStreamer{
+			responses: []mockStreamResponse{
+				{content: "", toolCalls: nil},
+				{content: "", toolCalls: nil},
+			},
+		},
+	}
+	loop := newStreamingLoop(ms, 10)
+	var buf bytes.Buffer
+	got, err := loop.RunStreaming(context.Background(), "hello", &buf)
+	require.NoError(t, err)
+
+	assert.Len(t, ms.cfgs, 2, "must nudge exactly once, not loop")
+	assert.NotEmpty(t, strings.TrimSpace(got), "turn must never end in silence")
+	assert.Contains(t, got, "without answering or calling a tool")
+	assert.Contains(t, buf.String(), "without answering or calling a tool", "notice must reach the user")
+}
