@@ -1023,6 +1023,9 @@ const (
 func toolCallCtxTimeout(
 	fallback context.Context, args map[string]any, d time.Duration,
 ) (context.Context, context.CancelFunc) {
+	// G118 false positive: the CancelFunc is returned to the caller, which owns
+	// calling it. Both call sites defer cancel() immediately.
+	//nolint:gosec // cancel is returned, not dropped
 	return context.WithTimeout(toolCallCtx(fallback, args), d)
 }
 
