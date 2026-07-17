@@ -1750,7 +1750,52 @@ func (l *Loop) memoryRulesPreamble() []string {
 // commitTrailer returns the Co-Authored-By line for git commits made by the
 // agent.
 func (l *Loop) commitTrailer() string {
-	return "Co-Authored-By: kdeps <noreply@kdeps.com>"
+	return "Co-Authored-By: " + commitAuthor(l.config.Backend, l.config.Model) +
+		" <noreply@kdeps.com>"
+}
+
+// commitAuthor renders the trailer's author as "kdeps (<model>)". Naming the
+// model matters because switching models mid-session is normal here, so "kdeps"
+// alone loses which one actually wrote the commit. Falls back to bare "kdeps"
+// when no model is configured.
+func commitAuthor(backend, model string) string {
+	if id := modelIdentity(backend, model); id != "" {
+		return "kdeps (" + id + ")"
+	}
+	return "kdeps"
+}
+
+// modelIdentity names a model as "<namespace>/<model>" or "<model> <runtime>".
+//
+// Backend already encodes the runtime: applyModelSelection maps llamafile to
+// BackendFile, GGUF to BackendGGUF, ollama to "ollama", and cloud models to
+// their provider, so nothing extra needs plumbing here.
+//
+// Local llamafile and GGUF models already carry their HuggingFace namespace in
+// the model name, so the runtime is appended rather than prefixed -- the same
+// repo is often published as both, and the name alone cannot tell them apart.
+func modelIdentity(backend, model string) string {
+	model = strings.TrimSpace(model)
+	backend = strings.TrimSpace(backend)
+	if model == "" {
+		return ""
+	}
+	switch backend {
+	case executorLLM.BackendFile:
+		return model + " llamafile"
+	case executorLLM.BackendGGUF:
+		return model + " gguf"
+	case "":
+		return model
+	default:
+		// Ollama and cloud providers namespace the model: "ollama/llama3.1",
+		// "deepseek/deepseek-reasoner". Guard against a model that already
+		// carries its backend so it does not become "ollama/ollama/llama3.1".
+		if strings.HasPrefix(model, backend+"/") {
+			return model
+		}
+		return backend + "/" + model
+	}
 }
 
 func (l *Loop) buildChatConfig(input, systemPreamble string) *domain.ChatConfig {

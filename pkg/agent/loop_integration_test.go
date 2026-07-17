@@ -317,24 +317,60 @@ func TestRunStreaming_LastRoundForcesAnswerWithoutTools(t *testing.T) {
 }
 
 // TestCommitTrailer verifies the git co-author trailer names the backend kind
-// and current model.
+// and current model. Switching models mid-session is normal in kdeps, so a bare
+// "kdeps" author loses which model actually wrote the commit.
 func TestCommitTrailer(t *testing.T) {
 	cases := []struct {
-		backend, model, want string
+		name, backend, model, want string
 	}{
-		{"file", "phi4", "Co-Authored-By: kdeps <noreply@kdeps.com>"},
-		{"gguf", "qwen3", "Co-Authored-By: kdeps <noreply@kdeps.com>"},
-		{"ollama", "llama3.2", "Co-Authored-By: kdeps <noreply@kdeps.com>"},
 		{
-			"deepseek",
-			"deepseek-reasoner",
-			"Co-Authored-By: kdeps <noreply@kdeps.com>",
+			// llamafile and gguf share the HF repo name, so only the runtime
+			// suffix tells the two apart.
+			name:    "llamafile keeps its HF namespace and names the runtime",
+			backend: llm.BackendFile, model: "hfuser/gemma4-2-9b",
+			want: "Co-Authored-By: kdeps (hfuser/gemma4-2-9b llamafile) <noreply@kdeps.com>",
 		},
-		{"", "gpt-4o", "Co-Authored-By: kdeps <noreply@kdeps.com>"},
+		{
+			name:    "gguf",
+			backend: llm.BackendGGUF, model: "hfuser/gemma4-2-9b",
+			want: "Co-Authored-By: kdeps (hfuser/gemma4-2-9b gguf) <noreply@kdeps.com>",
+		},
+		{
+			name:    "ollama namespaces the model",
+			backend: "ollama", model: "llama3.2",
+			want: "Co-Authored-By: kdeps (ollama/llama3.2) <noreply@kdeps.com>",
+		},
+		{
+			name:    "cloud provider namespaces the model",
+			backend: "deepseek", model: "deepseek-reasoner",
+			want: "Co-Authored-By: kdeps (deepseek/deepseek-reasoner) <noreply@kdeps.com>",
+		},
+		{
+			name:    "openai",
+			backend: "openai", model: "gpt-4o-mini",
+			want: "Co-Authored-By: kdeps (openai/gpt-4o-mini) <noreply@kdeps.com>",
+		},
+		{
+			name:    "model already carrying its backend is not doubled",
+			backend: "ollama", model: "ollama/llama3.1",
+			want: "Co-Authored-By: kdeps (ollama/llama3.1) <noreply@kdeps.com>",
+		},
+		{
+			name:    "no backend falls back to the bare model",
+			backend: "", model: "gpt-4o",
+			want: "Co-Authored-By: kdeps (gpt-4o) <noreply@kdeps.com>",
+		},
+		{
+			name:    "no model at all keeps the plain trailer",
+			backend: "", model: "",
+			want: "Co-Authored-By: kdeps <noreply@kdeps.com>",
+		},
 	}
 	for _, c := range cases {
-		l := &Loop{config: Config{Backend: c.backend, Model: c.model}}
-		assert.Equal(t, c.want, l.commitTrailer())
+		t.Run(c.name, func(t *testing.T) {
+			l := &Loop{config: Config{Backend: c.backend, Model: c.model}}
+			assert.Equal(t, c.want, l.commitTrailer())
+		})
 	}
 }
 
@@ -355,7 +391,10 @@ func TestBuildSystemPreamble_ContainsCommitTrailer(t *testing.T) {
 		Streamer: &mockStreamer{},
 	})
 	preamble := loop.buildSystemPreamble("")
-	assert.Contains(t, preamble, "Co-Authored-By: kdeps <noreply@kdeps.com>")
+	// The preamble must carry the same trailer commitTrailer() produces, model
+	// and all — otherwise the agent is told to write a different one.
+	assert.Contains(t, preamble,
+		"Co-Authored-By: kdeps (deepseek/deepseek-reasoner) <noreply@kdeps.com>")
 	assert.Contains(t, preamble, "git commit")
 }
 

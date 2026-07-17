@@ -347,11 +347,25 @@ Blocked calls return a `permission denied` tool error to the model, which explai
 
 ### Git commit attribution
 
-Commits the agent creates carry a co-author trailer naming kdeps:
+Commits the agent creates carry a co-author trailer naming kdeps and the model that wrote them. Switching models mid-session with `/model` is normal, so the trailer records which one was actually driving:
 
 ```text
-Co-Authored-By: kdeps <noreply@kdeps.com>
+Co-Authored-By: kdeps (deepseek/deepseek-reasoner) <noreply@kdeps.com>
 ```
+
+How the model is named depends on where it runs:
+
+| Model | Trailer |
+|-------|---------|
+| Cloud provider | `kdeps (deepseek/deepseek-reasoner) <noreply@kdeps.com>` |
+| Cloud provider | `kdeps (openai/gpt-4o-mini) <noreply@kdeps.com>` |
+| Ollama | `kdeps (ollama/llama3.2) <noreply@kdeps.com>` |
+| llamafile | `kdeps (hfuser/gemma4-2-9b llamafile) <noreply@kdeps.com>` |
+| GGUF | `kdeps (hfuser/gemma4-2-9b gguf) <noreply@kdeps.com>` |
+
+Cloud and Ollama models are namespaced by their provider (`provider/model`). Local llamafile and GGUF models already carry their HuggingFace namespace in the name, so the runtime is appended instead — the same repo is often published as both, and the name alone cannot tell them apart.
+
+With no model configured, the trailer falls back to `Co-Authored-By: kdeps <noreply@kdeps.com>`.
 
 ### Lean mode
 
