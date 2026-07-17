@@ -2376,6 +2376,55 @@ func TestRegisterEditFile_Execute_Success(t *testing.T) {
 	assert.Equal(t, "goodbye world", string(data))
 }
 
+func TestRegisterEditFile_Execute_WritesColoredDiffToOutput(t *testing.T) {
+	tmpFile := filepath.Join(t.TempDir(), "test.txt")
+	require.NoError(t, os.WriteFile(tmpFile, []byte("hello world"), 0600))
+	reg := kdepstools.NewRegistry()
+	registerEditFile(reg)
+	tool := reg.Get("edit_file")
+	require.NotNil(t, tool)
+	var buf strings.Builder
+	tool.OutputWriter = &buf
+	result, err := tool.Execute(map[string]any{
+		"file_path":  tmpFile,
+		"old_string": "hello",
+		"new_string": "goodbye",
+	})
+	require.NoError(t, err)
+	diff := buf.String()
+	assert.Contains(t, diff, "- hello", "diff shows the removed line")
+	assert.Contains(t, diff, "+ goodbye", "diff shows the added line")
+	assert.Contains(t, diff, ansiGreen, "additions are colored")
+	assert.Contains(t, diff, ansiRed, "deletions are colored")
+	// The colored diff goes to the terminal, not the model's result.
+	assert.NotContains(t, result, "\x1b", "LLM result carries no ANSI escapes")
+}
+
+func TestRegisterWriteFile_Execute_WritesColoredDiffToOutput(t *testing.T) {
+	tmpFile := filepath.Join(t.TempDir(), "w.txt")
+	require.NoError(t, os.WriteFile(tmpFile, []byte("old line\n"), 0600))
+	reg := kdepstools.NewRegistry()
+	registerWriteFile(reg)
+	tool := reg.Get("write_file")
+	require.NotNil(t, tool)
+	var buf strings.Builder
+	tool.OutputWriter = &buf
+	result, err := tool.Execute(map[string]any{
+		"file_path": tmpFile,
+		"content":   "new line\n",
+	})
+	require.NoError(t, err)
+	diff := buf.String()
+	assert.Contains(t, diff, "- old line", "diff shows the prior content")
+	assert.Contains(t, diff, "+ new line", "diff shows the new content")
+	assert.Contains(t, result, "Wrote")
+	assert.NotContains(t, result, "\x1b", "LLM result carries no ANSI escapes")
+}
+
+func TestWriteToolDiff_NilWriterNoPanic(_ *testing.T) {
+	writeToolDiff(nil, "a", "b", "f.txt") // non-interactive: no writer, must not panic
+}
+
 // --- registerListFiles execute closure ---
 
 func TestRegisterListFiles_Execute_MissingPath(t *testing.T) {

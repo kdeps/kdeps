@@ -269,6 +269,8 @@ Always available. No environment variables required.
 | `edit_file` | Apply a unified diff to a file |
 | `list_files` | List directory contents |
 
+`write_file` and `edit_file` print a **colored diff** of what changed under the tool call - removed lines in red, added lines in green, with a couple of context lines - so you can see every change the agent makes at a glance. Large diffs (e.g. writing a whole new file) are capped. The diff is shown in the terminal only; the model receives a concise result, not the ANSI-colored text.
+
 ### Web and search
 
 | Tool | Required env var | Description |

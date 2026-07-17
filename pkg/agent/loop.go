@@ -1337,7 +1337,14 @@ func (l *Loop) dispatchToTerminal(
 	}
 	f, err := os.CreateTemp("", "kdeps-tool-*.log")
 	if err == nil {
-		tool.OutputWriter = &stripANSIWriter{w: io.MultiWriter(f, tracker)}
+		sink := io.MultiWriter(f, tracker)
+		// Diff tools (write_file/edit_file) emit ANSI-colored diffs meant for the
+		// terminal; keep their colors. Other tool output is ANSI-stripped so raw
+		// escapes from subprocesses don't garble the replayed block.
+		if !isDiffTool(name) {
+			sink = &stripANSIWriter{w: sink}
+		}
+		tool.OutputWriter = sink
 		defer func() {
 			tool.OutputWriter = nil
 			_ = f.Close()

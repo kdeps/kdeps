@@ -246,7 +246,7 @@ func readLocalFile(filePath string, args map[string]any) (string, error) {
 // Creates or overwrites text files on the filesystem. Accepts absolute paths only.
 // No API key required.
 func registerWriteFile(reg *kdepstools.Registry) {
-	reg.Register(&kdepstools.Tool{
+	tool := &kdepstools.Tool{
 		Name:        toolNameWriteFile,
 		Description: "Write or overwrite a text file on the local filesystem. Creates a new file if it does not exist; overwrites existing files entirely. Use for creating or updating configuration files, source code, scripts, or any text-based file. Requires an absolute path.",
 		Parameters: map[string]domain.ToolParam{
@@ -261,39 +261,47 @@ func registerWriteFile(reg *kdepstools.Registry) {
 				Required:    true,
 			},
 		},
-		Execute: func(args map[string]any) (string, error) {
-			filePath, err := requireAbsFilePath("write_file", args)
-			if err != nil {
-				return "", err
-			}
-			if err = validateWorkspaceBoundary(filePath); err != nil {
-				return "", fmt.Errorf("write_file: %w", err)
-			}
-			content, _ := args["content"].(string)
-			if len(content) > maxFileReadBytes {
-				return "", fmt.Errorf(
-					"write_file: content is %d bytes (max %d)",
-					len(content),
-					maxFileReadBytes,
-				)
-			}
-			info, statErr := AppFS.Stat(filePath)
-			if statErr == nil && info.IsDir() {
-				return "", fmt.Errorf("write_file: %s is a directory", filePath)
-			}
-			if err = afero.WriteFile(AppFS, filePath, []byte(content), 0o600); err != nil {
-				return "", fmt.Errorf("write_file: write %s: %w", filePath, err)
-			}
-			return fmt.Sprintf("Wrote %d bytes to %s", len(content), filePath), nil
-		},
-	})
+	}
+	tool.Execute = func(args map[string]any) (string, error) {
+		filePath, err := requireAbsFilePath("write_file", args)
+		if err != nil {
+			return "", err
+		}
+		if err = validateWorkspaceBoundary(filePath); err != nil {
+			return "", fmt.Errorf("write_file: %w", err)
+		}
+		content, _ := args["content"].(string)
+		if len(content) > maxFileReadBytes {
+			return "", fmt.Errorf(
+				"write_file: content is %d bytes (max %d)",
+				len(content),
+				maxFileReadBytes,
+			)
+		}
+		info, statErr := AppFS.Stat(filePath)
+		if statErr == nil && info.IsDir() {
+			return "", fmt.Errorf("write_file: %s is a directory", filePath)
+		}
+		// Read the prior content (empty for a new file) so the terminal can show a
+		// diff of what changed.
+		var oldContent string
+		if prev, rerr := afero.ReadFile(AppFS, filePath); rerr == nil {
+			oldContent = string(prev)
+		}
+		if err = afero.WriteFile(AppFS, filePath, []byte(content), 0o600); err != nil {
+			return "", fmt.Errorf("write_file: write %s: %w", filePath, err)
+		}
+		writeToolDiff(tool.OutputWriter, oldContent, content, filePath)
+		return fmt.Sprintf("Wrote %d bytes to %s", len(content), filePath), nil
+	}
+	reg.Register(tool)
 }
 
 // registerEditFile registers a targeted file editing tool using exact string replacement.
 // Reads the file, finds old_string, replaces it with new_string, and writes the result.
 // No API key required.
 func registerEditFile(reg *kdepstools.Registry) {
-	reg.Register(&kdepstools.Tool{
+	tool := &kdepstools.Tool{
 		Name:        toolNameEditFile,
 		Description: "Replace a string in a file with a new string. Reads the file, finds the exact old_string (must match exactly, including whitespace), and replaces it with new_string. Use for targeted edits without providing the entire file content. Requires an absolute path. The old_string must be unique in the file.",
 		Parameters: map[string]domain.ToolParam{
@@ -313,44 +321,74 @@ func registerEditFile(reg *kdepstools.Registry) {
 				Required:    true,
 			},
 		},
-		Execute: func(args map[string]any) (string, error) {
-			filePath, err := requireAbsFilePath("edit_file", args)
-			if err != nil {
-				return "", err
-			}
-			if err = validateWorkspaceBoundary(filePath); err != nil {
-				return "", fmt.Errorf("edit_file: %w", err)
-			}
-			oldStr, _ := args["old_string"].(string)
-			newStr, _ := args["new_string"].(string)
-			if oldStr == newStr {
-				return "", errors.New("edit_file: old_string and new_string are identical")
-			}
+	}
+	tool.Execute = func(args map[string]any) (string, error) {
+		filePath, err := requireAbsFilePath("edit_file", args)
+		if err != nil {
+			return "", err
+		}
+		if err = validateWorkspaceBoundary(filePath); err != nil {
+			return "", fmt.Errorf("edit_file: %w", err)
+		}
+		oldStr, _ := args["old_string"].(string)
+		newStr, _ := args["new_string"].(string)
+		if oldStr == newStr {
+			return "", errors.New("edit_file: old_string and new_string are identical")
+		}
 
-			data, err := afero.ReadFile(AppFS, filePath)
-			if err != nil {
-				return "", fmt.Errorf("edit_file: read %s: %w", filePath, err)
-			}
-			content := string(data)
-			count := strings.Count(content, oldStr)
-			if count == 0 {
-				return "", fmt.Errorf("edit_file: old_string not found in %s", filePath)
-			}
-			if count > 1 {
-				return "", fmt.Errorf(
-					"edit_file: old_string appears %d times in %s (must be unique)",
-					count,
-					filePath,
-				)
-			}
-			newContent := strings.Replace(content, oldStr, newStr, 1)
-			if werr := afero.WriteFile(AppFS, filePath, []byte(newContent), 0o600); werr != nil {
-				return "", fmt.Errorf("edit_file: write %s: %w", filePath, werr)
-			}
-			diff := coloredDiff(oldStr, newStr, filePath)
-			return fmt.Sprintf("Edited %s (%d bytes)\n%s", filePath, len(newContent), diff), nil
-		},
-	})
+		data, err := afero.ReadFile(AppFS, filePath)
+		if err != nil {
+			return "", fmt.Errorf("edit_file: read %s: %w", filePath, err)
+		}
+		content := string(data)
+		count := strings.Count(content, oldStr)
+		if count == 0 {
+			return "", fmt.Errorf("edit_file: old_string not found in %s", filePath)
+		}
+		if count > 1 {
+			return "", fmt.Errorf(
+				"edit_file: old_string appears %d times in %s (must be unique)",
+				count,
+				filePath,
+			)
+		}
+		newContent := strings.Replace(content, oldStr, newStr, 1)
+		if werr := afero.WriteFile(AppFS, filePath, []byte(newContent), 0o600); werr != nil {
+			return "", fmt.Errorf("edit_file: write %s: %w", filePath, werr)
+		}
+		// Show the colored diff of the changed region in the terminal; keep the
+		// model's result concise (ANSI escapes must not pollute the LLM context).
+		writeToolDiff(tool.OutputWriter, oldStr, newStr, filePath)
+		return fmt.Sprintf("Edited %s (%d bytes)", filePath, len(newContent)), nil
+	}
+	reg.Register(tool)
+}
+
+// diffMaxLines caps how many diff lines reach the terminal, so overwriting a large
+// file (or writing a big new one) does not flood the display.
+const diffMaxLines = 120
+
+// isDiffTool reports whether a tool emits an ANSI-colored diff to its live output
+// that must reach the terminal with colors intact (not ANSI-stripped like other
+// tool output).
+func isDiffTool(name string) bool {
+	return name == toolNameWriteFile || name == toolNameEditFile
+}
+
+// writeToolDiff renders a colored, size-capped diff of a file change to the tool's
+// live output, which the REPL prints as a block under the tool call. No-op when w
+// is nil (non-interactive callers get no diff and a concise result).
+func writeToolDiff(w io.Writer, oldStr, newStr, path string) {
+	if w == nil {
+		return
+	}
+	lines := strings.Split(coloredDiff(oldStr, newStr, path), "\n")
+	if len(lines) > diffMaxLines {
+		omitted := len(lines) - diffMaxLines
+		lines = append(lines[:diffMaxLines],
+			fmt.Sprintf("%s... (%d more lines)%s", ansiDim, omitted, ansiReset))
+	}
+	fmt.Fprintln(w, strings.Join(lines, "\n"))
 }
 
 const diffCtxLines = 2 // context lines shown before/after a diff hunk in coloredDiff
