@@ -265,15 +265,40 @@ codeql: codeql-db
 		echo "⚠ CodeQL not installed - skipping (install: brew install codeql)"; \
 	fi
 
-# Run linter
-lint:
-	@echo "Running linter (golangci-lint $(GOLANGCI_VERSION))..."
-	@if command -v golangci-lint >/dev/null 2>&1; then \
-		golangci-lint run --config=.golangci.yml ./cmd/... ./pkg/... ./tests/...; \
-	else \
-		echo "Warning: golangci-lint not found in PATH. Skipping linter."; \
-		echo "Install $(GOLANGCI_VERSION) with: curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/$(GOLANGCI_VERSION)/install.sh | sh -s -- -b \$$(go env GOPATH)/bin $(GOLANGCI_VERSION)"; \
+# golangci-lint pinned to .golangci-lint-version, cached in ./bin (gitignored).
+# CI installs the same pin, so local and CI lint identically. Using whatever
+# golangci-lint is on PATH would silently lint with a different version -- a
+# newer one drops false positives the pin still raises, and vice versa.
+GOLANGCI_BIN := $(CURDIR)/bin/golangci-lint
+
+# Ensure the pinned golangci-lint is present in ./bin, installing it if the
+# cached binary is missing or the wrong version. Fails loudly rather than
+# falling back to PATH: a silent version mismatch is the bug this replaced.
+#
+# The final version gate is load-bearing, not defensive noise: `curl | sh`
+# returns sh's exit status, so a curl 404 is masked and install "succeeds"
+# while leaving a stale binary in ./bin. Re-checking the version after install
+# is the only reliable way to catch that -- and any other install failure.
+.PHONY: golangci-lint-bin
+golangci-lint-bin:
+	@want="$$(echo '$(GOLANGCI_VERSION)' | sed 's/^v//')"; \
+	have="$$('$(GOLANGCI_BIN)' version --short 2>/dev/null || true)"; \
+	if [ "$$have" != "$$want" ]; then \
+		echo "Installing golangci-lint $(GOLANGCI_VERSION) into ./bin..."; \
+		curl -sSfL "https://raw.githubusercontent.com/golangci/golangci-lint/$(GOLANGCI_VERSION)/install.sh" \
+			| sh -s -- -b "$(CURDIR)/bin" "$(GOLANGCI_VERSION)" >/dev/null 2>&1 || true; \
+	fi; \
+	got="$$('$(GOLANGCI_BIN)' version --short 2>/dev/null || true)"; \
+	if [ "$$got" != "$$want" ]; then \
+		echo "Error: golangci-lint in ./bin is '$$got' but '$$want' is pinned in .golangci-lint-version."; \
+		echo "Install it manually: curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/$(GOLANGCI_VERSION)/install.sh | sh -s -- -b $(CURDIR)/bin $(GOLANGCI_VERSION)"; \
+		exit 1; \
 	fi
+
+# Run linter
+lint: golangci-lint-bin
+	@echo "Running linter (golangci-lint $(GOLANGCI_VERSION))..."
+	@'$(GOLANGCI_BIN)' run --timeout=10m --config=.golangci.yml ./cmd/... ./pkg/... ./tests/...
 	@echo "Running govulncheck..."
 	@set +e; \
 	go tool govulncheck ./... > /tmp/govuln-lint.txt 2>&1; \
