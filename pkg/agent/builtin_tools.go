@@ -1104,13 +1104,22 @@ func registerBashExec(ctx context.Context, reg *kdepstools.Registry) {
 		toolCtx := bashExecCtx(ctx, args)
 		bgCh, _ := args["_bg_ch"].(<-chan struct{})
 
+		// Route through rtk when available to cut output tokens. Validation above
+		// runs on the original command; `command` itself stays untouched so the
+		// job registry and any user-facing display show what was actually asked
+		// for, not the rtk-prefixed form.
+		runCommand := command
+		if rewritten, ok := rtkRewrite(toolCtx, command); ok {
+			runCommand = rewritten
+		}
+
 		// Must use exec.Command (not CommandContext): we handle cancellation and
 		// backgrounding manually in the select below so the process survives
 		// beyond context cancellation when the user presses Ctrl+Z.
 		cmd := exec.Command( //nolint:noctx // intentional: manual ctx handling below
 			"bash",
 			"-c",
-			command,
+			runCommand,
 		)
 		setProcessGroup(cmd)
 		var stdout, stderr strings.Builder

@@ -250,9 +250,12 @@ kdeps llamafile list               # list all LF + GGUF + Ollama models
 kdeps llamafile update             # refresh from HuggingFace
 ```
 
+When [rtk](https://github.com/rtk-ai/rtk) is installed (`brew install rtk`), `bash_exec` routes commands through it automatically, compressing output by up to 90% before it reaches the LLM — `git status` runs as `rtk git status` and costs a fraction of the tokens. Nothing to configure, and nothing breaks without it: if rtk is missing or has no compression for a command, the original runs unchanged. rtk never blocks execution and never affects kdeps's own permission checks. Agent mode only — workflow `exec` resources keep raw output. Set `KDEPS_RTK=off` to opt out. See [Agent loop mode](docs/v2/modes/agent-loop-mode.md#token-savings-with-rtk-optional).
+
 ```
 KDEPS_AGENT_MODEL=claude-3-5-sonnet   # override model via env
 KDEPS_AGENT_BACKEND=anthropic
+KDEPS_RTK=off                         # disable rtk output compression
 ```
 
 ## Agencies
