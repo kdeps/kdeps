@@ -500,7 +500,9 @@ Scope matching supports wildcards: an empty `Action` matches any action. `FindMa
 
 | Tool | Required env var | Description |
 |------|-----------------|-------------|
-| `retrieve_context` | (none) | Semantic search over a local vector store |
+| `embedding_vectorize` | (none) | Convert text to embeddings and index it in the local embedding DB |
+| `embedding_search` | (none) | Semantic search over the local embedding DB |
+| `retrieve_context` | `KDEPS_RAG_BASE_URL` | Retrieve chunks from a remote RAG endpoint (only registered when the URL is set) |
 | `cohere_rerank` | `COHERE_API_KEY` | Rerank results using Cohere |
 | `voyageai_rerank` | `VOYAGEAI_API_KEY` | Rerank results using VoyageAI |
 | `jina_rerank` | `JINA_API_KEY` | Rerank results using Jina |
