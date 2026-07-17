@@ -36,6 +36,32 @@ const (
 	toolStallWarnAfter = 5 * time.Minute // half of default 10m stall timeout
 )
 
+// hintArgKeys is the priority order for deriving a monitor hint from a tool's
+// arguments: the primary thing it acts on (a command, URL, query, path, ...).
+//
+//nolint:gochecknoglobals // static lookup order
+var hintArgKeys = []string{
+	toolParamCommand, toolParamURL, toolParamQuery, toolParamExpression,
+	toolParamPath, toolParamFilePath,
+	"db_path", "table", "symbol", "instructions", "name",
+}
+
+// toolArgHint returns a short one-line description of what a tool is about to act
+// on, derived from its arguments, so the running-tool monitor shows what every
+// tool is doing — not just bash_exec, which streams live output. Whitespace is
+// collapsed to a single line; the monitor truncates it. Empty when no meaningful
+// string argument is present.
+func toolArgHint(args map[string]any) string {
+	for _, k := range hintArgKeys {
+		if v, ok := args[k].(string); ok {
+			if s := strings.Join(strings.Fields(v), " "); s != "" {
+				return s
+			}
+		}
+	}
+	return ""
+}
+
 // lastLineTracker tees tool output, remembering the most recent non-empty
 // line and when output last moved, so the tool monitor can show what a
 // long-running command is doing and detect a stall.

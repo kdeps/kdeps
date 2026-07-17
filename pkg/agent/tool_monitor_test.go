@@ -34,6 +34,18 @@ import (
 	"github.com/kdeps/kdeps/v2/pkg/tools"
 )
 
+func TestToolArgHint(t *testing.T) {
+	assert.Equal(t, "echo hi", toolArgHint(map[string]any{toolParamCommand: "echo hi"}))
+	assert.Equal(t, "https://example.com", toolArgHint(map[string]any{toolParamURL: "https://example.com"}))
+	// Priority order: command wins over url.
+	assert.Equal(t, "ls", toolArgHint(map[string]any{toolParamCommand: "ls", toolParamURL: "http://x"}))
+	// Whitespace and newlines collapse to a single line.
+	assert.Equal(t, "SELECT * FROM t", toolArgHint(map[string]any{toolParamQuery: "SELECT *\n  FROM t"}))
+	// No meaningful string argument.
+	assert.Empty(t, toolArgHint(map[string]any{"limit": 5}))
+	assert.Empty(t, toolArgHint(map[string]any{}))
+}
+
 func TestLastLineTracker(t *testing.T) {
 	tr := newLastLineTracker(time.Now())
 

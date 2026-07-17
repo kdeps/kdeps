@@ -1329,6 +1329,12 @@ func (l *Loop) dispatchToTerminal(
 	start time.Time,
 ) string {
 	tracker := newLastLineTracker(start)
+	// Seed the monitor with what the tool is acting on (URL, query, path, ...) so
+	// every tool — not just bash_exec, which streams real output — shows a
+	// meaningful "running · <target>" line. bash_exec's live output overwrites it.
+	if hint := toolArgHint(args); hint != "" {
+		_, _ = io.WriteString(tracker, hint+"\n")
+	}
 	f, err := os.CreateTemp("", "kdeps-tool-*.log")
 	if err == nil {
 		tool.OutputWriter = &stripANSIWriter{w: io.MultiWriter(f, tracker)}
@@ -1400,6 +1406,9 @@ func (l *Loop) dispatchToTerminal(
 			stalled.Store(false)
 			start = time.Now()
 			tracker = newLastLineTracker(start)
+			if hint := toolArgHint(args); hint != "" {
+				_, _ = io.WriteString(tracker, hint+"\n")
+			}
 
 			// Create a new temp file for the retry.
 			if f2, err2 := os.CreateTemp("", "kdeps-tool-*.log"); err2 == nil {
