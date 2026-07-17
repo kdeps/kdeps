@@ -91,7 +91,7 @@ func getThinkingRenderer() (*glamour.TermRenderer, error) {
 	r, err := glamour.NewTermRenderer(
 		glamour.WithStyles(thinkingStyleConfig()),
 		glamour.WithColorProfile(replColorProfile()),
-		glamour.WithWordWrap(w),
+		glamour.WithWordWrap(thinkingWrapWidth(w)), // leave room for the gutter
 	)
 	if err != nil {
 		return nil, err
@@ -144,6 +144,41 @@ var mdThinkingRe = regexp.MustCompile(
 var styleThinkingLabel = lipgloss.NewStyle().
 	Foreground(lipgloss.Color(colorThinking)).
 	Italic(true)
+
+// thinkingGutter is the dim left border drawn on every rendered thinking line so
+// the whole block reads as a distinct aside from the response — even when the
+// reasoning is plain prose with no markdown for glamour to format.
+const (
+	thinkingGutter      = "│ "
+	thinkingGutterWidth = 2 // display columns of thinkingGutter
+)
+
+//nolint:gochecknoglobals // lipgloss style for the thinking gutter
+var styleThinkingGutter = lipgloss.NewStyle().Foreground(lipgloss.Color(colorMuted))
+
+// withThinkingGutter prefixes each line of already-rendered thinking with the dim
+// gutter. The line count is unchanged, so a caller redrawing the block in place
+// keeps its cursor math correct.
+func withThinkingGutter(s string) string {
+	if s == "" {
+		return s
+	}
+	gut := styleThinkingGutter.Render(thinkingGutter)
+	lines := strings.Split(s, "\n")
+	for i, ln := range lines {
+		lines[i] = gut + ln
+	}
+	return strings.Join(lines, "\n")
+}
+
+// thinkingWrapWidth reserves room for the gutter so gutter+content fits w columns.
+func thinkingWrapWidth(w int) int {
+	const minWrap = 20
+	if ww := w - thinkingGutterWidth; ww >= minWrap {
+		return ww
+	}
+	return minWrap
+}
 
 // replStyleConfig returns a glamour StyleConfig with pi-inspired colors.
 //
@@ -261,10 +296,10 @@ func replStyleConfig() ansi.StyleConfig {
 			Format: "Image: {{.text}} ->",
 		},
 		Code: ansi.StyleBlock{
+			// No backtick prefix/suffix: inline code is shown by color, not literal
+			// "`...`", which reads as unrendered markdown.
 			StylePrimitive: ansi.StylePrimitive{
-				Prefix: "`",
-				Suffix: "`",
-				Color:  strp(colorCode),
+				Color: strp(colorCode),
 			},
 		},
 		CodeBlock: ansi.StyleCodeBlock{
@@ -336,7 +371,8 @@ func renderThinkingBlock(content string) string {
 		return ""
 	}
 	label := styleThinkingLabel.Render("* thinking")
-	rendered := renderThinkingMarkdown(content)
+	// Trim glamour's leading/trailing blank lines so the gutter has no empty rows.
+	rendered := withThinkingGutter(strings.Trim(renderThinkingMarkdown(content), "\n"))
 	return label + "\n" + rendered + "\n"
 }
 
@@ -443,10 +479,12 @@ func thinkingStyleConfig() ansi.StyleConfig {
 		Image:     ansi.StylePrimitive{Color: strp(dimGray), Underline: boolp(true)},
 		ImageText: ansi.StylePrimitive{Color: strp(dimGray), Format: "Image: {{.text}} ->"},
 		Code: ansi.StyleBlock{
+			// No backtick prefix/suffix: inline code shows by color, not literal
+			// "`...`" (which looks unrendered). Italic keeps it distinct in the
+			// otherwise monochrome thinking palette.
 			StylePrimitive: ansi.StylePrimitive{
-				Prefix: "`",
-				Suffix: "`",
 				Color:  strp(codeGray),
+				Italic: boolp(true),
 			},
 		},
 		CodeBlock: ansi.StyleCodeBlock{
@@ -611,6 +649,7 @@ func (w *liveThinkingWriter) repaint() {
 	if rendered == "" {
 		return
 	}
+	rendered = withThinkingGutter(rendered)               // dim left border per line (same line count)
 	rendered = strings.ReplaceAll(rendered, "\n", "\r\n") // raw mode needs \r\n
 	rows := strings.Count(rendered, "\r\n") + 1
 

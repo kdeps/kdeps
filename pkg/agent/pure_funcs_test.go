@@ -179,6 +179,26 @@ func resetRenderCache() {
 	rendererMu.Unlock()
 }
 
+func TestWithThinkingGutter(t *testing.T) {
+	// Every line gets the dim gutter; the line count is preserved (cursor-safe).
+	out := ansiStripRe.ReplaceAllString(withThinkingGutter("a\nb\nc"), "")
+	if out != "│ a\n│ b\n│ c" {
+		t.Errorf("gutter: got %q, want %q", out, "│ a\n│ b\n│ c")
+	}
+	if withThinkingGutter("") != "" {
+		t.Error("empty input should stay empty")
+	}
+}
+
+func TestThinkingWrapWidth(t *testing.T) {
+	if got := thinkingWrapWidth(100); got != 100-thinkingGutterWidth {
+		t.Errorf("wrap(100)=%d want %d", got, 100-thinkingGutterWidth)
+	}
+	if got := thinkingWrapWidth(5); got != 20 {
+		t.Errorf("wrap(5)=%d want 20 (floor)", got)
+	}
+}
+
 func TestRenderThinkingMarkdown_Empty(t *testing.T) {
 	// no Parallel: shares cached renderer
 	if got := renderThinkingMarkdown(""); got != "" {
