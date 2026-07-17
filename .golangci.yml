@@ -472,6 +472,13 @@ linters:
       # G117: APIKey, Password, AccessToken are legitimate domain struct field names, not secrets
       - text: 'G117:'
         linters: [ gosec ]
+      # G118: toolCallCtxTimeout returns the CancelFunc to its caller, which defers it
+      # immediately at both call sites. Only the pinned 2.11.1 gosec flags this; newer
+      # versions fixed the false positive, so a //nolint would be reported as unused by
+      # nolintlint locally. Path-scoped: real cancel leaks elsewhere must still fail.
+      - text: 'G118:'
+        linters: [ gosec ]
+        path: 'pkg/agent/builtin_tools\.go'
       # G120: ParseMultipartForm uses MaxMemory (32MB) — bounded constant, not unbounded
       - text: 'G120:'
         linters: [ gosec ]
