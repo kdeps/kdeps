@@ -33,7 +33,7 @@ Inside the REPL, type `/help` for the full list:
 | `/model hff info <repo>` | List GGUF files and sizes available in a HuggingFace repo |
 | `/model hff download <repo> [file]` | Download a GGUF from HuggingFace; auto-registers an alias for `/model` |
 | `/model tool [list]` | Show agent loop settings: tool rounds, retries, retry delay, compaction, history caps, stall timeout, auto-allocation |
-| `/model tool set <setting> <value>` | Change a setting for this session, e.g. `set rounds 80` (`0` = unlimited), `set compact-threshold 40k`, `set retry-delay 5s`, `set stall-timeout 5m` |
+| `/model tool set <setting> <value>` | Change a setting, e.g. `set rounds 80` (`0` = unlimited), `set compact-threshold 40k`, `set retry-delay 5s`, `set stall-timeout 5m`, `set autokill on`. Settings are **persisted** to `~/.kdeps/agent-loop-settings.yaml` and restored next session |
 | `/skills` | List loaded skills |
 | `/prompts` | List loaded prompt templates |
 | `/<skill-name> [prompt]` | Invoke a skill or prompt template directly |
@@ -292,7 +292,14 @@ The same status line covers `! <cmd>` / `!! <cmd>` shell commands and `@file` re
 
 The monitor also detects hung tools. Staleness is measured by *silence*, not wall-clock time - a long build that keeps printing never trips it. After 2 minutes without output the line warns (`no output for 3m20s`); after the stall timeout (default 10 minutes of silence, tune with `/model tool set stall-timeout 5m`, `0` disables) the tool is killed and the model receives a structured error explaining the hang so it can retry with a narrower or more verbose command, or run it in the background.
 
-When a tool stalls, the REPL presents interactive options: `(i)ncrease` the stall timeout (adds the auto-allocation increment, default 5m), `(c)hange` to a specific timeout in minutes, or `(g)nore` to kill the tool. When `AutoStallAllocation` is enabled in config, the timeout increases automatically without prompting.
+When a tool stalls, the default is **auto-increase**: the stall timeout is bumped by the increment (default 5m) and the bump is announced (`[Auto-stall allocation: stall timeout increased by 5m. New timeout: 15m.]`), so a long silent-but-alive command keeps running without a prompt. This is on by default.
+
+Two other modes are available via `/model tool set autokill <on|off>` (autokill and auto-increase are mutually exclusive — enabling one disables the other):
+
+- `autokill on` — a stalled tool is **killed** at the stall timeout (no increase, no prompt), and the model gets a structured error so it can retry differently.
+- `autokill off` — the default auto-increase-and-announce behavior.
+
+To be prompted interactively instead, turn both off in config; the REPL then offers `(i)ncrease` / `(k)ill` when a tool stalls.
 
 Tools marked "cached" memoize successful results for the lifetime of the agent process: repeating the same query or URL returns the cached copy instantly instead of refetching. Failed and empty lookups are not cached, so they are retried on the next call. `wolfram_alpha` results are cached the same way.
 
@@ -580,7 +587,7 @@ Transient LLM errors (HTTP 429, 5xx, network timeouts) are automatically retried
 
 The agent loop tracks a tool budget (`MaxToolRounds`) that limits how many tool calls the agent can make per turn. When the budget is nearly exhausted, the REPL presents interactive options: `(i)ncrease` the budget (adds 100 rounds), `(c)hange` to a specific number (`0` = unlimited), or `(g)nore` to continue with the current budget. When `AutoToolAllocation` is enabled in config, the budget increases automatically without prompting.
 
-Similarly, when a tool stalls (no output for the stall timeout duration), the REPL presents: `(i)ncrease` the stall timeout (adds the auto-allocation increment, default 5m), `(c)hange` to a specific timeout in minutes, or `(g)nore` to kill the tool. When `AutoStallAllocation` is enabled, the timeout increases automatically.
+Similarly, when a tool stalls (no output for the stall timeout duration), the default is to **auto-increase** the timeout by the increment (default 5m) and announce it. Set `/model tool set autokill on` to **kill** a stalled tool at the timeout instead (mutually exclusive with auto-increase). Both are shown by `/model tool`. `AutoToolAllocation` (budget) and `AutoStallAllocation` (stall time) are independent and both on by default.
 
 Both settings can also be tuned with `/model tool set rounds <n>` and `/model tool set stall-timeout <dur>`.
 

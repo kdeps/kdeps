@@ -272,7 +272,8 @@ func replStyleConfig() ansi.StyleConfig {
 			Color:       strp(colorBullet),
 		},
 		Enumeration: ansi.StylePrimitive{
-			Color: strp(colorBullet),
+			Color:  strp(colorBullet),
+			Format: "{{.text}}. ",
 		},
 		Task: ansi.StyleTask{
 			StylePrimitive: ansi.StylePrimitive{Color: strp(colorText)},
@@ -465,7 +466,7 @@ func thinkingStyleConfig() ansi.StyleConfig {
 			BlockPrefix: "• ",
 			Color:       strp(textGray),
 		},
-		Enumeration: ansi.StylePrimitive{Color: strp(textGray)},
+		Enumeration: ansi.StylePrimitive{Color: strp(textGray), Format: "{{.text}}. "},
 		Task: ansi.StyleTask{
 			StylePrimitive: ansi.StylePrimitive{Color: strp(textGray)},
 			Ticked:         "[x] ",

@@ -39,6 +39,39 @@ type Settings struct {
 	// They are surfaced first in "/model" and "/model <tab>" and persist across
 	// sessions.
 	FavoriteModels []string `yaml:"favorite_models,omitempty"`
+
+	// AgentLoop persists the /model tool settings (rounds, stall timeout, autokill,
+	// retries, compaction, history caps). nil means "never customized — use
+	// built-in defaults".
+	AgentLoop *AgentLoopTuning `yaml:"agent_loop,omitempty"`
+}
+
+// AgentLoopTuning is the persisted form of the /model tool settings. Durations
+// are strings (e.g. "10m"); ToolStallTimeout is "off" when stall detection is
+// disabled. Field order and types match agent.ToolTuning so the two convert
+// directly.
+type AgentLoopTuning struct {
+	MaxToolRounds        int    `yaml:"max_tool_rounds"`
+	AutoRetryMax         int    `yaml:"auto_retry_max"`
+	AutoRetryBaseDelay   string `yaml:"auto_retry_base_delay"`
+	ToolStallTimeout     string `yaml:"tool_stall_timeout"`
+	AutoStallKill        bool   `yaml:"auto_stall_kill"`
+	AutoStallAllocation  bool   `yaml:"auto_stall_allocation"`
+	AutoCompactThreshold int    `yaml:"auto_compact_threshold"`
+	CompactTokenBudget   int    `yaml:"compact_token_budget"`
+	MaxTurns             int    `yaml:"max_turns"`
+	MaxHistoryTokens     int    `yaml:"max_history_tokens"`
+}
+
+// SaveAgentLoopTuning persists the agent-loop tool settings, preserving the rest
+// of the settings file.
+func SaveAgentLoopTuning(t AgentLoopTuning) error {
+	s, err := LoadSettings()
+	if err != nil {
+		return err
+	}
+	s.AgentLoop = &t
+	return s.Save()
 }
 
 // CustomOpenAIModel is a user-registered OpenAI-compatible endpoint. No API

@@ -1023,7 +1023,6 @@ const (
 func toolCallCtxTimeout(
 	fallback context.Context, args map[string]any, d time.Duration,
 ) (context.Context, context.CancelFunc) {
-	//nolint:gosec // G118: the CancelFunc is returned to and owned by the caller.
 	return context.WithTimeout(toolCallCtx(fallback, args), d)
 }
 

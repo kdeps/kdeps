@@ -179,6 +179,8 @@ type REPL struct {
 	cloudModelBackends map[string]string                   // cloud model name -> backend name
 	modelPickerFn      func(filter string) (string, error) // TUI model picker; nil if unavailable
 	saveDefaultFn      func(model string) error            // persists default model; nil if unavailable
+	saveTuningFn       func(ToolTuning) error              // persists /model tool settings; nil if unavailable
+	persistedTuning    *ToolTuning                         // loaded at startup, applied in Run(); nil if none
 	readlineInst       *readline.Instance                  // set during Run(); nil before/after
 	rebuiltReadline    *readline.Instance                  // set when withCookedTerminal recreated the instance
 	historyPath        string                              // readline history file; enables rebuild
@@ -1385,6 +1387,11 @@ func (r *REPL) Run() error {
 	// never blocks on a prompt; library/test callers keep budget exhaustion.
 	r.loop.config.AutoToolAllocation = true
 	r.loop.config.AutoStallAllocation = true
+	// Apply persisted /model tool settings on top of the defaults, so a saved
+	// "autokill on" (which disables auto-stall) survives across sessions.
+	if r.persistedTuning != nil {
+		r.applyToolTuning(*r.persistedTuning)
+	}
 
 	r.historyPath = hpath
 	// Capture the cooked terminal mode before readline switches it to raw, so a
@@ -2345,6 +2352,27 @@ func (r *REPL) cmdModelTool(args []string) error {
 	return nil
 }
 
+// parseOnOff parses an on/off (or true/false, yes/no, 1/0) toggle. The second
+// return is false when the value is not recognized.
+func parseOnOff(v string) (bool, bool) {
+	switch strings.ToLower(strings.TrimSpace(v)) {
+	case "on", "true", "yes", "1", "enable", "enabled":
+		return true, true
+	case "off", "false", "no", "0", "disable", "disabled":
+		return false, true
+	default:
+		return false, false
+	}
+}
+
+// onOff renders a bool as "on"/"off" for settings display.
+func onOff(b bool) string {
+	if b {
+		return "on"
+	}
+	return "off"
+}
+
 // printToolSettings prints every tunable with its current value.
 func (r *REPL) printToolSettings() {
 	cfg := &r.loop.config
@@ -2353,6 +2381,9 @@ func (r *REPL) printToolSettings() {
 		{"retries", fmt.Sprintf("%d  (auto-retries on transient API errors)", cfg.AutoRetryMax)},
 		{"retry-delay", fmt.Sprintf("%s  (initial retry backoff, doubles per retry)", cfg.AutoRetryBaseDelay)},
 		{"stall-timeout", fmt.Sprintf("%s  (kill a tool after this much silence, 0 = off)", cfg.ToolStallTimeout)},
+		{"autokill", fmt.Sprintf(
+			"%s  (on = kill a stalled tool; off = auto-increase its timeout)",
+			onOff(cfg.AutoStallKill))},
 		{"compact-threshold", fmt.Sprintf("%d  (tokens; auto-compact trigger, 0 = off)", cfg.AutoCompactThreshold)},
 		{"compact-budget", fmt.Sprintf("%d  (tokens kept after compaction)", cfg.CompactTokenBudget)},
 		{"max-turns", fmt.Sprintf("%d  (history turns retained, 0 = unlimited)", cfg.MaxTurns)},
@@ -2410,6 +2441,21 @@ var toolSettingAppliers = map[string]func(cfg *Config, value string) (string, st
 		cfg.ToolStallTimeout = d
 		return fmt.Sprintf("Tool stall timeout set to %s of silence", d), ""
 	},
+	"autokill": func(cfg *Config, v string) (string, string) {
+		on, ok := parseOnOff(v)
+		if !ok {
+			return "", "autokill must be on or off"
+		}
+		cfg.AutoStallKill = on
+		// Autokill and auto-increase are mutually exclusive: enabling one disables
+		// the other.
+		if on {
+			cfg.AutoStallAllocation = false
+			return "Autokill on — a stalled tool is killed at the stall timeout (auto-increase off)", ""
+		}
+		cfg.AutoStallAllocation = true
+		return "Autokill off — a stalled tool's timeout auto-increases and is announced", ""
+	},
 	"compact-threshold": func(cfg *Config, v string) (string, string) {
 		n := parseTokenCount(v)
 		if n <= 0 && v != "0" {
@@ -2457,7 +2503,13 @@ func (r *REPL) setToolSetting(name, value string) {
 		fmt.Fprintf(os.Stdout, "%s\n", styleReplError.Render(errMsg))
 		return
 	}
-	fmt.Fprintf(os.Stdout, "%s\n", styleReplSuccess.Render(msg+" (applies from the next turn)"))
+	// Persist the change so it survives across sessions.
+	if r.saveTuningFn != nil {
+		if err := r.saveTuningFn(r.toolTuningSnapshot()); err != nil {
+			fmt.Fprintf(os.Stdout, "%s\n", styleReplMeta.Render("(could not persist setting: "+err.Error()+")"))
+		}
+	}
+	fmt.Fprintf(os.Stdout, "%s\n", styleReplSuccess.Render(msg+" (saved; applies from the next turn)"))
 }
 
 // cmdModelDefault handles /model default [name].

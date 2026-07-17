@@ -358,6 +358,16 @@ func wireREPL(repl *agent.REPL, registry *tools.Registry, flags *agentLoopFlags)
 	// Wire default-model persistence for /model default <name>.
 	repl.SetSaveDefaultFn(tui.SaveDefaultModel)
 
+	// Persist /model tool settings across sessions, and apply any saved ones at
+	// startup. tui.AgentLoopTuning and agent.ToolTuning have identical fields, so
+	// they convert directly.
+	repl.SetSaveTuningFn(func(t agent.ToolTuning) error {
+		return tui.SaveAgentLoopTuning(tui.AgentLoopTuning(t))
+	})
+	if s, err := tui.LoadSettings(); err == nil && s.AgentLoop != nil {
+		repl.SetPersistedTuning(agent.ToolTuning(*s.AgentLoop))
+	}
+
 	// Wire model picker TUI.
 	repl.SetModelPickerFn(buildModelPickerFn(repl))
 

@@ -182,6 +182,11 @@ type Config struct {
 	// AutoStallAllocationIncrement is the duration to add to ToolStallTimeout
 	// when auto-stall-allocation triggers. Default: 5m.
 	AutoStallAllocationIncrement time.Duration
+	// AutoStallKill, when true, kills a stalled tool at the stall timeout instead
+	// of increasing it or prompting. It is mutually exclusive with
+	// AutoStallAllocation: enabling one disables the other. When both are false,
+	// the user is prompted interactively.
+	AutoStallKill bool
 }
 
 // Loop drives a multi-turn agent conversation using the kdeps engine as the
@@ -959,6 +964,12 @@ func (l *Loop) promptBudgetOptions(w io.Writer, remaining int) {
 // Returns true if the timeout was increased (caller should retry the tool),
 // false if the tool should be killed.
 func (l *Loop) promptStallOptions(w io.Writer, toolName string, elapsed time.Duration) bool {
+	// Autokill: kill the stalled tool at the timeout, no prompt, no increase.
+	if l.config.AutoStallKill {
+		fmt.Fprintf(w, "\n[autokill: tool %q had no output for %s (stall timeout %s) — killed.]\n",
+			toolName, elapsed.Round(time.Second), l.config.ToolStallTimeout)
+		return false
+	}
 	// Auto-stall allocation: increase timeout automatically without prompting.
 	if l.config.AutoStallAllocation {
 		increment := l.config.AutoStallAllocationIncrement

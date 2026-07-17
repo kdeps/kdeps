@@ -159,6 +159,7 @@ func TestRunChat_InvalidSession(t *testing.T) {
 func TestRunChat_OllamaHostEnv(t *testing.T) {
 	tmp := t.TempDir()
 	t.Setenv("HOME", tmp)
+	t.Setenv("KDEPS_DEFAULT_BACKEND", "")
 	t.Setenv("OLLAMA_HOST", "http://ollama.internal:11434")
 
 	output, err := runChatWithPipe(t, &ChatFlags{}, "/quit\n")
