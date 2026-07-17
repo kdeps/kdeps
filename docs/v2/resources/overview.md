@@ -89,6 +89,9 @@ These executors are compiled into the `kdeps` binary and require no installation
 | `file` | Filesystem operations | Read, write, patch, list, delete, copy, move files and directories |
 | `git` | Version control | Status, diff, log, commit, branch, push, pull operations |
 | `codeIntelligence` | Code navigation | Symbol search, definitions, references, diagnostics via ripgrep |
+| `loader` | Document loading | Load PDF, HTML, CSV, text, or a directory into text chunks for RAG |
+| `vectorStore` | Vector database | Add and similarity-search documents across Qdrant, Chroma, Pinecone, pgvector, and more |
+| `transcribe` | Speech-to-text | Whisper transcription via OpenAI, Groq, or a local backend |
 | `apiResponse` | API response | Return data to the HTTP caller |
 
 ### Registry components (installable via `kdeps registry install`)
