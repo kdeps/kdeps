@@ -439,6 +439,8 @@ agents:
 
 Config is validated on load. Warnings go to stderr for unknown keys, missing API keys, invalid durations, and agent profiles that don't match any installed workflow.
 
+**Interactive connection setup:** when a workflow, component, or agency references a named connection (`smtp_connections`, `imap_connections`, `sql_connections`, `http_connections`, `search_connections`) that is missing from `~/.kdeps/config.yaml`, `kdeps run` prompts for it at startup and saves it back to `config.yaml` (existing content and comments preserved). This is interactive-only — when stdin is not a terminal (CI, pipes), the prompt is skipped and the usual "connection not found" error surfaces at execution time.
+
 ## Security
 
 When `apiServer` is configured, authentication is required. Set the token via `KDEPS_API_AUTH_TOKEN` or `api_auth_token` in `~/.kdeps/config.yaml` (never in `workflow.yaml`). Clients send `Authorization: Bearer <token>` or `X-Api-Key: <token>`. `/health` is exempt. `/_kdeps/*` management routes use `KDEPS_MANAGEMENT_TOKEN`.

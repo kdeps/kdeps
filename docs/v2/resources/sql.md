@@ -49,6 +49,8 @@ sql_connections:
     connection: "postgres://user:pass@analytics-db:5432/analytics"
 ```
 
+If `connectionName` refers to a connection missing from `config.yaml`, `kdeps run` prompts for the DSN at startup and saves it (interactive terminals only; skipped in CI/pipes, where the "connection not found" error surfaces instead). See [Interactive setup on first run](../resources/email.md#interactive-setup-on-first-run).
+
 `workflow.yaml` - pool config:
 
 ```yaml

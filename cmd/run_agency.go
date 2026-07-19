@@ -91,6 +91,10 @@ func ExecuteAgencyStepsWithFlags(cmd *cobra.Command, agencyPath string, flags *R
 	}
 	printAgencyAgentIndex(agencyDir, agency, agentNameMap)
 
+	if connErr := ensureAgencyConnections(agentNameMap); connErr != nil {
+		return connErr
+	}
+
 	fmt.Fprintln(os.Stdout, "\n[3/3] Executing entry point agent...")
 	return executeAgencyEntryPoint(cmd, targetWorkflowPath, agentNameMap, flags)
 }

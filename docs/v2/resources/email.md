@@ -40,6 +40,23 @@ imap_connections:
     tls: true
 ```
 
+### Interactive setup on first run
+
+If a resource references a connection that is missing from `~/.kdeps/config.yaml`, `kdeps run` prompts for its fields at startup (before the server starts) and saves them back to `config.yaml` — so you never have to hand-edit the file to get going:
+
+```text
+Connection "inbox" (imap) is referenced but not configured.
+Enter its details to save them to ~/.kdeps/config.yaml.
+  Host: imap.gmail.com
+  Port [993]:
+  Username: me@gmail.com
+  Password (input hidden): ****
+  Use TLS? [Y/n]: y
+  ✓ Saved imap connection "inbox" to ~/.kdeps/config.yaml
+```
+
+This is interactive-only: when stdin is not a terminal (CI, pipes), kdeps skips the prompt and the usual "connection not found" error surfaces at execution time. The same applies to `sql_connections`, `http_connections`, and `search_connections`. Existing content and comments in `config.yaml` are preserved.
+
 ## Sending Email
 
 <div v-pre>
