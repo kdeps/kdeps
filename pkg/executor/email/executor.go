@@ -121,9 +121,13 @@ func (e *Executor) Execute(
 		return e.executeSearch(ctx, cfg)
 	case domain.EmailActionModify:
 		return e.executeModify(ctx, cfg)
+	case domain.EmailActionList:
+		return e.executeList(ctx, cfg)
+	case domain.EmailActionDelete:
+		return e.executeDelete(ctx, cfg)
 	default:
 		return nil, fmt.Errorf(
-			"email executor: unknown action %q (must be send, read, search, or modify)",
+			"email executor: unknown action %q (must be send, read, search, modify, list, or delete)",
 			action,
 		)
 	}

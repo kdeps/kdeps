@@ -19,7 +19,10 @@
 package email
 
 import (
+	"errors"
 	"fmt"
+	"slices"
+	"strings"
 
 	"github.com/emersion/go-imap/v2"
 
@@ -48,6 +51,113 @@ func (e *Executor) executeRead(
 
 	e.logger.Info("email read", "mailbox", mailbox, "count", len(msgs))
 	return formatFetchResult("read", mailbox, msgs), nil
+}
+
+func (e *Executor) executeList(
+	ctx *executor.ExecutionContext,
+	cfg *domain.EmailConfig,
+) (interface{}, error) {
+	kdeps_debug.Log("enter: executeList")
+	c, err := e.dialIMAP(ctx, cfg)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = c.Logout().Wait() }()
+
+	data, err := c.List("", "*", nil).Collect()
+	if err != nil {
+		return nil, fmt.Errorf("email executor: list: %w", err)
+	}
+
+	folders := make([]string, 0, len(data))
+	for _, d := range data {
+		if d == nil || d.Mailbox == "" {
+			continue
+		}
+		// Skip non-selectable containers (e.g. Gmail's "[Gmail]" parent).
+		if hasNoSelectAttr(d.Attrs) {
+			continue
+		}
+		folders = append(folders, d.Mailbox)
+	}
+
+	e.logger.Info("email list", "count", len(folders))
+	return map[string]interface{}{
+		"success": true,
+		"action":  "list",
+		"count":   len(folders),
+		"folders": folders,
+	}, nil
+}
+
+func hasNoSelectAttr(attrs []imap.MailboxAttr) bool {
+	return slices.Contains(attrs, imap.MailboxAttrNoSelect)
+}
+
+// isNonexistentMailbox reports whether an IMAP error carries the RFC 5530
+// NONEXISTENT response code (matched on the code, not on any mailbox name text).
+func isNonexistentMailbox(err error) bool {
+	var imapErr *imap.Error
+	if errors.As(err, &imapErr) {
+		return imapErr.Code == imap.ResponseCodeNonExistent
+	}
+	return false
+}
+
+// resolveMailboxEval interpolates cfg.Mailbox and defaults to INBOX when empty.
+func resolveMailboxEval(cfg *domain.EmailConfig, ev evalFn) (string, error) {
+	if cfg.Mailbox == "" {
+		return defaultMailbox, nil
+	}
+	m, err := ev(cfg.Mailbox)
+	if err != nil {
+		return "", fmt.Errorf("evaluate mailbox: %w", err)
+	}
+	m = strings.TrimSpace(m)
+	if m == "" {
+		return defaultMailbox, nil
+	}
+	return m, nil
+}
+
+func (e *Executor) executeDelete(
+	ctx *executor.ExecutionContext,
+	cfg *domain.EmailConfig,
+) (interface{}, error) {
+	kdeps_debug.Log("enter: executeDelete")
+	ev := e.makeEvaluator(ctx)
+
+	if cfg.Mailbox == "" {
+		return nil, errors.New("email executor: delete: mailbox is required")
+	}
+	mailbox, err := resolveMailboxEval(cfg, ev)
+	if err != nil {
+		return nil, fmt.Errorf("email executor: delete: %w", err)
+	}
+	// Never delete the inbox or a server system container.
+	if strings.EqualFold(mailbox, defaultMailbox) || strings.HasPrefix(mailbox, "[Gmail]") {
+		return nil, fmt.Errorf("email executor: delete: refusing to delete protected mailbox %q", mailbox)
+	}
+
+	c, err := e.dialIMAP(ctx, cfg)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = c.Logout().Wait() }()
+
+	if delErr := c.Delete(mailbox).Wait(); delErr != nil {
+		// Already gone - treat as success so re-running a cleanup plan is idempotent.
+		if !isNonexistentMailbox(delErr) {
+			return nil, fmt.Errorf("email executor: delete %q: %w", mailbox, delErr)
+		}
+	}
+
+	e.logger.Info("email delete", "mailbox", mailbox)
+	return map[string]interface{}{
+		"success": true,
+		"action":  "delete",
+		"mailbox": mailbox,
+	}, nil
 }
 
 func (e *Executor) executeSearch(
@@ -91,9 +201,17 @@ func (e *Executor) executeModify(
 	}
 	defer func() { _ = c.Logout().Wait() }()
 
-	mailbox := resolveMailbox(cfg)
+	mailbox, err := resolveMailboxEval(cfg, ev)
+	if err != nil {
+		return nil, fmt.Errorf("email executor: modify: %w", err)
+	}
 
 	if _, selErr := c.Select(mailbox, &imap.SelectOptions{ReadOnly: false}).Wait(); selErr != nil {
+		// A missing source mailbox means there is nothing to modify/move - treat
+		// as a no-op so batch label ops stay idempotent when re-run.
+		if isNonexistentMailbox(selErr) {
+			return formatModifyResult(mailbox, nil), nil
+		}
 		return nil, fmt.Errorf("email executor: modify: select %q: %w", mailbox, selErr)
 	}
 
@@ -105,7 +223,7 @@ func (e *Executor) executeModify(
 		return formatModifyResult(mailbox, nil), nil
 	}
 
-	if modErr := applyModifyOperations(c, cfg.Modify, uidSet, e.logger); modErr != nil {
+	if modErr := applyModifyOperations(c, cfg.Modify, uidSet, ev, e.logger); modErr != nil {
 		return nil, modErr
 	}
 

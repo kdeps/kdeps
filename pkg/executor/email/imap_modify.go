@@ -35,6 +35,7 @@ func applyModifyOperations(
 	c *imapclient.Client,
 	mod domain.EmailModifyConfig,
 	uidSet imap.UIDSet,
+	ev evalFn,
 	logger *slog.Logger,
 ) error {
 	kdeps_debug.Log("enter: applyModifyOperations")
@@ -43,8 +44,16 @@ func applyModifyOperations(
 	applyFlagStore(c, uidSet, imap.FlagDeleted, mod.MarkDeleted, logger)
 
 	if mod.MoveTo != "" {
-		if _, moveErr := c.Move(uidSet, mod.MoveTo).Wait(); moveErr != nil {
-			return fmt.Errorf("email executor: modify: move to %q: %w", mod.MoveTo, moveErr)
+		moveTo, err := ev(mod.MoveTo)
+		if err != nil {
+			return fmt.Errorf("email executor: modify: evaluate moveTo: %w", err)
+		}
+		moveTo = strings.TrimSpace(moveTo)
+		if moveTo == "" {
+			return errors.New("email executor: modify: moveTo evaluated to empty")
+		}
+		if moveErr := moveToMailbox(c, uidSet, moveTo); moveErr != nil {
+			return fmt.Errorf("email executor: modify: move to %q: %w", moveTo, moveErr)
 		}
 	}
 
@@ -55,6 +64,46 @@ func applyModifyOperations(
 		}
 	}
 	return nil
+}
+
+// moveToMailbox moves uidSet to mailbox, creating the mailbox and retrying once
+// if the server rejects the move because the target does not exist (IMAP returns
+// NO [TRYCREATE], e.g. Gmail when a label is missing).
+func moveToMailbox(c *imapclient.Client, uidSet imap.UIDSet, mailbox string) error {
+	kdeps_debug.Log("enter: moveToMailbox")
+	if _, err := c.Move(uidSet, mailbox).Wait(); err == nil {
+		return nil
+	}
+
+	// The move failed - the target may not exist, or exist under a different case
+	// (Gmail labels are case-insensitive to create but exact-match to move to).
+	// Prefer an existing mailbox that matches case-insensitively; otherwise create.
+	target := mailbox
+	if existing, ok := findMailboxCI(c, mailbox); ok {
+		target = existing
+	} else {
+		_ = c.Create(mailbox, nil).Wait()
+	}
+	if _, err := c.Move(uidSet, target).Wait(); err != nil {
+		return err
+	}
+	return nil
+}
+
+// findMailboxCI returns the server's actual name for a mailbox matching name
+// case-insensitively, so a proposed folder like "utilities" resolves to an
+// existing "Utilities" instead of failing or creating a duplicate.
+func findMailboxCI(c *imapclient.Client, name string) (string, bool) {
+	data, err := c.List("", "*", nil).Collect()
+	if err != nil {
+		return "", false
+	}
+	for _, d := range data {
+		if d != nil && strings.EqualFold(d.Mailbox, name) {
+			return d.Mailbox, true
+		}
+	}
+	return "", false
 }
 
 // resolveModifyUIDs returns the target UID set for a modify operation.

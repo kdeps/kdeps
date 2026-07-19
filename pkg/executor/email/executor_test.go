@@ -2247,7 +2247,8 @@ func TestApplyModifyOperations_ExpungeError(t *testing.T) {
 		return errors.New("expunge failed")
 	}
 
-	err := applyModifyOperations(&imapclient.Client{}, domain.EmailModifyConfig{Expunge: true}, nil, nil)
+	err := applyModifyOperations(&imapclient.Client{}, domain.EmailModifyConfig{Expunge: true}, nil,
+		func(s string) (string, error) { return s, nil }, nil)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "expunge")
 }

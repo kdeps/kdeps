@@ -19,7 +19,9 @@
 package email
 
 import (
+	"bufio"
 	"fmt"
+	"net/textproto"
 	"strings"
 	"time"
 
@@ -37,26 +39,86 @@ func bufToMessages(bufs []*imapclient.FetchMessageBuffer) []EmailMessage {
 			UID:  uint32(m.UID),
 			Seen: hasFlagSeen(m.Flags),
 		}
-		if m.Envelope != nil {
-			msg.MsgID = m.Envelope.MessageID
-			msg.Subject = m.Envelope.Subject
-			if !m.Envelope.Date.IsZero() {
-				msg.Date = m.Envelope.Date.UTC().Format(time.RFC3339)
-			}
-			if len(m.Envelope.From) > 0 {
-				msg.From = formatAddress(m.Envelope.From[0])
-			}
-			if len(m.Envelope.To) > 0 {
-				msg.To = formatAddress(m.Envelope.To[0])
-			}
-		}
-		for _, bs := range m.BodySection {
-			msg.Body = strings.TrimSpace(string(bs.Bytes))
-			break
-		}
+		applyEnvelope(&msg, m.Envelope)
+		applyBodySections(&msg, m.BodySection)
 		result = append(result, msg)
 	}
 	return result
+}
+
+// applyEnvelope copies IMAP envelope fields onto msg.
+func applyEnvelope(msg *EmailMessage, env *imap.Envelope) {
+	if env == nil {
+		return
+	}
+	msg.MsgID = env.MessageID
+	msg.Subject = env.Subject
+	if !env.Date.IsZero() {
+		msg.Date = env.Date.UTC().Format(time.RFC3339)
+	}
+	if len(env.From) > 0 {
+		msg.From = formatAddress(env.From[0])
+	}
+	if len(env.To) > 0 {
+		msg.To = formatAddress(env.To[0])
+	}
+}
+
+// applyBodySections fills the body from the TEXT section and unsubscribe fields
+// from the fetched header section.
+func applyBodySections(msg *EmailMessage, sections []imapclient.FetchBodySectionBuffer) {
+	for _, bs := range sections {
+		if bs.Section != nil && bs.Section.Specifier == imap.PartSpecifierHeader {
+			parseUnsubscribe(msg, string(bs.Bytes))
+			continue
+		}
+		if msg.Body == "" {
+			msg.Body = strings.TrimSpace(string(bs.Bytes))
+		}
+	}
+}
+
+// parseUnsubscribe fills the unsubscribe fields from a raw header block
+// containing List-Unsubscribe / List-Unsubscribe-Post.
+func parseUnsubscribe(msg *EmailMessage, raw string) {
+	kdeps_debug.Log("enter: parseUnsubscribe")
+	raw = strings.TrimSpace(raw)
+	if raw == "" {
+		return
+	}
+	tp := textproto.NewReader(bufio.NewReader(strings.NewReader(raw + "\r\n\r\n")))
+	hdr, err := tp.ReadMIMEHeader()
+	if err != nil && len(hdr) == 0 {
+		return
+	}
+	msg.ListUnsubscribe = hdr.Get("List-Unsubscribe")
+	for _, entry := range parseAngleList(msg.ListUnsubscribe) {
+		low := strings.ToLower(entry)
+		switch {
+		case strings.HasPrefix(low, "http") && msg.UnsubscribeURL == "":
+			msg.UnsubscribeURL = entry
+		case strings.HasPrefix(low, "mailto:") && msg.UnsubscribeMailto == "":
+			msg.UnsubscribeMailto = entry
+		}
+	}
+	if strings.Contains(strings.ToLower(hdr.Get("List-Unsubscribe-Post")), "one-click") {
+		msg.UnsubscribeOneClick = true
+	}
+}
+
+// parseAngleList splits a List-Unsubscribe value like "<https://...>, <mailto:...>"
+// into its bare URI entries.
+func parseAngleList(s string) []string {
+	var out []string
+	for _, part := range strings.Split(s, ",") {
+		part = strings.TrimSpace(part)
+		part = strings.TrimPrefix(part, "<")
+		part = strings.TrimSuffix(part, ">")
+		if part = strings.TrimSpace(part); part != "" {
+			out = append(out, part)
+		}
+	}
+	return out
 }
 
 func markMessagesRead(c *imapclient.Client, msgs []EmailMessage) {

@@ -686,14 +686,18 @@ func TestIntegration_IMAP_Modify_MoveTo(t *testing.T) {
 func TestIntegration_IMAP_Modify_NonexistentMailbox(t *testing.T) {
 	fi := startFakeIMAP(t, nil)
 
-	_, err := newAdapter().Execute(newExecCtxWithIMAP(t, fi.imapConfig()), &domain.EmailConfig{
+	// Modifying a missing mailbox is an idempotent no-op (nothing to move),
+	// not an error - so re-running a batch label cleanup does not crash.
+	result, err := newAdapter().Execute(newExecCtxWithIMAP(t, fi.imapConfig()), &domain.EmailConfig{
 		Action:         domain.EmailActionModify,
 		IMAPConnection: "test",
 		Mailbox:        "NONEXISTENT",
 		UIDs:           []string{"1"},
 	})
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "select")
+	require.NoError(t, err)
+	m, ok := result.(map[string]interface{})
+	require.True(t, ok)
+	assert.Equal(t, true, m["success"])
 }
 
 func TestIntegration_IMAP_Modify_MoveTo_Nonexistent(t *testing.T) {

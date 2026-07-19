@@ -40,6 +40,13 @@ type EmailMessage struct {
 	Date    string `json:"date,omitempty"`
 	Body    string `json:"body,omitempty"`
 	Seen    bool   `json:"seen"`
+
+	// Unsubscribe metadata parsed from the List-Unsubscribe header (RFC 2369)
+	// and List-Unsubscribe-Post (RFC 8058). Empty when the message has none.
+	ListUnsubscribe     string `json:"listUnsubscribe,omitempty"`
+	UnsubscribeURL      string `json:"unsubscribeUrl,omitempty"`
+	UnsubscribeMailto   string `json:"unsubscribeMailto,omitempty"`
+	UnsubscribeOneClick bool   `json:"unsubscribeOneClick,omitempty"`
 }
 
 //nolint:gochecknoglobals // read-only shared fetch options; allocating per-call would be wasteful.
@@ -49,6 +56,11 @@ var fetchBodyOpts = &imap.FetchOptions{
 	Envelope: true,
 	BodySection: []*imap.FetchItemBodySection{
 		{Specifier: imap.PartSpecifierText, Peek: true},
+		{
+			Specifier:    imap.PartSpecifierHeader,
+			HeaderFields: []string{"List-Unsubscribe", "List-Unsubscribe-Post"},
+			Peek:         true,
+		},
 	},
 }
 

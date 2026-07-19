@@ -54,4 +54,6 @@ const (
 	EmailActionRead   EmailAction = "read"
 	EmailActionSearch EmailAction = "search"
 	EmailActionModify EmailAction = "modify"
+	EmailActionList   EmailAction = "list"
+	EmailActionDelete EmailAction = "delete"
 )
