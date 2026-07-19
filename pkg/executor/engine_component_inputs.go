@@ -20,8 +20,10 @@ package executor
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/kdeps/kdeps/v2/pkg/domain"
+	"github.com/kdeps/kdeps/v2/pkg/parser/expression"
 )
 
 // validateComponentInputs checks required inputs and warns on unknown keys.
@@ -80,15 +82,38 @@ func (e *Engine) buildInjectedInputs(
 	return injected
 }
 
-// injectComponentInputs writes each input into ctx under both caller-scoped and component-scoped keys.
+// injectComponentInputs writes each input into ctx under both caller-scoped and
+// component-scoped keys. Each with: value is evaluated against the caller's
+// context first, so a component receives the resolved value (e.g. "hello")
+// rather than the raw template ("{{ get('q') }}"). This does not rely on the
+// interpolator re-scanning substituted output.
 func (e *Engine) injectComponentInputs(
 	injected map[string]interface{},
 	callerID, componentName string,
 	ctx *ExecutionContext,
 ) {
+	_ = e.ensureResponseEvaluator(ctx)
+	env := e.buildEvaluationEnvironment(ctx)
 	for key, val := range injected {
-		strVal := fmt.Sprintf("%v", val)
+		strVal := e.resolveComponentInput(fmt.Sprintf("%v", val), env)
 		_ = ctx.Set(callerID+"."+key, strVal)
 		_ = ctx.Set(componentName+"."+key, strVal)
 	}
+}
+
+// resolveComponentInput evaluates a with: value's {{ }} expressions, returning
+// the original string unchanged when it has no interpolation or fails to parse.
+func (e *Engine) resolveComponentInput(s string, env map[string]interface{}) string {
+	if e.evaluator == nil || !strings.Contains(s, "{{") {
+		return s
+	}
+	expr, err := expression.NewParser().Parse(s)
+	if err != nil {
+		return s
+	}
+	val, evalErr := e.evaluator.Evaluate(expr, env)
+	if evalErr != nil {
+		return s
+	}
+	return fmt.Sprintf("%v", val)
 }
