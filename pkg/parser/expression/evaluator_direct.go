@@ -110,38 +110,48 @@ func (e *Evaluator) evaluateSingleInterpolation(
 	return value, true, nil
 }
 
-// evaluateMultipleInterpolations processes a template with multiple {{ }} blocks.
+// evaluateMultipleInterpolations processes a template with multiple {{ }} blocks
+// in a single left-to-right pass. Substituted values are appended to the output
+// and never re-scanned, so {{ }} sequences that appear inside untrusted data
+// (e.g. an email body or scraped page) are treated as literal text, not as
+// further kdeps expressions. Re-scanning substituted output would let untrusted
+// content inject expressions into the template (see the newsletter Handlebars
+// case).
 func (e *Evaluator) evaluateMultipleInterpolations(
 	template string,
 	env map[string]interface{},
 ) (string, error) {
 	kdeps_debug.Log("enter: evaluateMultipleInterpolations")
-	result := template
 
-	// Find all {{ }} blocks.
+	var b strings.Builder
+	rest := template
+
 	for {
-		start := strings.Index(result, "{{")
-		if start == -1 {
+		// Literal text before the opening braces is copied verbatim.
+		before, afterOpen, found := strings.Cut(rest, "{{")
+		b.WriteString(before)
+		if !found {
 			break
 		}
 
-		end := strings.Index(result[start:], "}}")
-		if end == -1 {
+		// Match the closing braces within the remaining template only.
+		exprStr, tail, closed := strings.Cut(afterOpen, "}}")
+		if !closed {
 			return "", errors.New("unclosed interpolation: missing }}")
 		}
-		end += start + 2 //nolint:mnd // closing brackets length
 
-		// Extract and evaluate expression between {{ }}.
-		exprStr := strings.TrimSpace(result[start+2 : end-2])
-		valueStr, err := e.evaluateAndFormatExpression(exprStr, env)
+		valueStr, err := e.evaluateAndFormatExpression(strings.TrimSpace(exprStr), env)
 		if err != nil {
 			return "", err
 		}
+		b.WriteString(valueStr)
 
-		result = result[:start] + valueStr + result[end:]
+		// Continue from after the closing braces in the original template. The
+		// just-written value is intentionally excluded from further scanning.
+		rest = tail
 	}
 
-	return result, nil
+	return b.String(), nil
 }
 
 // evaluateAndFormatExpression evaluates an expression and formats it as a string.
