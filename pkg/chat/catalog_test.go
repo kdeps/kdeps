@@ -132,43 +132,7 @@ func TestScanComponentDir_NoYAML(t *testing.T) {
 	assert.Nil(t, entry)
 }
 
-func TestCollectComponentDirs_Contrib(t *testing.T) {
-	prevDir, err := os.Getwd()
-	require.NoError(t, err)
-	defer func() { _ = os.Chdir(prevDir) }()
-
-	base := t.TempDir()
-	contribDir := filepath.Join(base, "contrib", "components")
-	require.NoError(t, os.MkdirAll(contribDir, 0o755))
-	require.NoError(t, os.WriteFile(
-		filepath.Join(contribDir, "component.yaml"),
-		[]byte("metadata:\n  name: contrib-tool\n  version: 1.0.0\n"),
-		0o644,
-	))
-	require.NoError(t, os.Chdir(base))
-
-	t.Setenv("KDEPS_COMPONENT_DIR", "") // clear so home path is used
-	dirs := collectComponentDirs()
-
-	found := false
-	for _, d := range dirs {
-		if strings.HasSuffix(d, "contrib/components") {
-			found = true
-			break
-		}
-	}
-	assert.True(t, found, "contrib/components should be in the result")
-}
-
-func TestCollectComponentDirs_GetwdError(t *testing.T) {
-	orig, err := os.Getwd()
-	require.NoError(t, err)
-	defer func() { _ = os.Chdir(orig) }()
-
-	tmp := t.TempDir()
-	require.NoError(t, os.Chdir(tmp))
-	require.NoError(t, os.Remove(tmp))
-
+func TestCollectComponentDirs_EnvDir(t *testing.T) {
 	t.Setenv("KDEPS_COMPONENT_DIR", "/some/path")
 	dirs := collectComponentDirs()
 	assert.Contains(t, dirs, "/some/path")
@@ -232,38 +196,6 @@ func TestScanCatalog_SkipNoNameYAML(t *testing.T) {
 	entries := ScanCatalog()
 	require.Len(t, entries, 1)
 	assert.Equal(t, "real-tool", entries[0].Name)
-}
-
-func TestScanCatalog_DedupAcrossDirs(t *testing.T) {
-	tmp := t.TempDir()
-	t.Setenv("KDEPS_COMPONENT_DIR", filepath.Join(tmp, "env-dir"))
-	require.NoError(t, os.MkdirAll(filepath.Join(tmp, "env-dir"), 0o755))
-
-	orig, err := os.Getwd()
-	require.NoError(t, err)
-	defer func() { _ = os.Chdir(orig) }()
-
-	contribBase := filepath.Join(tmp, "project")
-	require.NoError(t, os.MkdirAll(filepath.Join(contribBase, "contrib", "components"), 0o755))
-	require.NoError(t, os.Chdir(contribBase))
-
-	commonYAML := "metadata:\n  name: shared-tool\n  version: 1.0.0\n"
-
-	for _, sub := range []string{
-		filepath.Join(tmp, "env-dir"),
-		filepath.Join(contribBase, "contrib", "components"),
-	} {
-		compDir := filepath.Join(sub, "shared-tool")
-		require.NoError(t, os.MkdirAll(compDir, 0o755))
-		require.NoError(
-			t,
-			os.WriteFile(filepath.Join(compDir, "component.yaml"), []byte(commonYAML), 0o644),
-		)
-	}
-
-	entries := ScanCatalog()
-	require.Len(t, entries, 1)
-	assert.Equal(t, "shared-tool", entries[0].Name)
 }
 
 func TestScanComponentDir_WorkflowFallback(t *testing.T) {

@@ -233,11 +233,11 @@ else
         test_failed "input-component - workflow validates" "Validation failed for $IC_WF"
     fi
 
-    # T26: collect resource calls built-in input component
+    # T26: collect resource calls example input component
     if grep -q "name: input" "$IC_RES1" 2>/dev/null; then
-        test_passed "input-component - collect resource calls built-in 'input' component"
+        test_passed "input-component - collect resource calls example "input" component"
     else
-        test_failed "input-component - collect resource calls built-in 'input' component" "name: input not found in $IC_RES1"
+        test_failed "input-component - collect resource calls example "input" component" "name: input not found in $IC_RES1"
     fi
 
     # T27: collect resource passes query slot
@@ -254,20 +254,20 @@ else
         test_failed "input-component - answer resource uses output('collectInputs')" "output('collectInputs') not found in $IC_RES2"
     fi
 
-    # T29: contrib input component exists
-    BUILTIN_INPUT="$PROJECT_ROOT/contrib/components/input/component.yaml"
+    # T29: example input component exists
+    BUILTIN_INPUT="$PROJECT_ROOT/tests/e2e/examples/components/input/component.yaml"
     if [ -f "$BUILTIN_INPUT" ]; then
-        test_passed "input-component - contrib/components/input/component.yaml exists"
+        test_passed "input-component - tests/e2e/examples/components/input/component.yaml exists"
     else
-        test_failed "input-component - contrib/components/input/component.yaml exists" "File not found: $BUILTIN_INPUT"
+        test_failed "input-component - tests/e2e/examples/components/input/component.yaml exists" "File not found: $BUILTIN_INPUT"
     fi
 
-    # T30: contrib input component declares input slots
+    # T30: example input component declares input slots
     SLOT_COUNT=$(grep -c "^    - name:" "$BUILTIN_INPUT" 2>/dev/null || echo 0)
     if [ "$SLOT_COUNT" -ge 14 ]; then
-        test_passed "input-component - contrib component has >= 14 input slots"
+        test_passed "input-component - example component has >= 14 input slots"
     else
-        test_failed "input-component - contrib component has >= 14 input slots" "Found $SLOT_COUNT slots, expected >= 14"
+        test_failed "input-component - example component has >= 14 input slots" "Found $SLOT_COUNT slots, expected >= 14"
     fi
 fi
 

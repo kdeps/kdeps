@@ -56,9 +56,10 @@ find_example_dir() {
     fi
 }
 
-# Make contrib components available to all E2E tests without requiring
-# global installation. contrib/ holds the reference component library.
-export KDEPS_COMPONENT_DIR="${PROJECT_ROOT}/contrib/components"
+# Make the example components available to all E2E tests without requiring a
+# global install. tests/e2e/examples/components holds example components used
+# only for testing — they are not shipped as built-ins.
+export KDEPS_COMPONENT_DIR="${PROJECT_ROOT}/tests/e2e/examples/components"
 
 # Prevent Bootstrap from blocking on stdin when tests override HOME to a
 # temp directory that has no ~/.kdeps/config.yaml.

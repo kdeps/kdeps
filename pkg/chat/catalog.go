@@ -28,9 +28,6 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-//nolint:gochecknoglobals // test-replaceable
-var osGetwd = os.Getwd
-
 // ComponentEntry holds the minimal metadata extracted from a component for the catalog.
 type ComponentEntry struct {
 	Name        string
@@ -59,7 +56,6 @@ type componentMeta struct {
 // ScanCatalog scans all known component directories and returns a catalog.
 // Directories scanned (in order):
 //  1. $KDEPS_COMPONENT_DIR or ~/.kdeps/components/
-//  2. contrib/components/ (relative to working dir, for development)
 func ScanCatalog() []ComponentEntry {
 	dirs := collectComponentDirs()
 	seen := map[string]bool{}
@@ -97,15 +93,6 @@ func collectComponentDirs() []string {
 		dirs = append(dirs, d)
 	} else if home, homeErr := osUserHomeDir(); homeErr == nil {
 		dirs = append(dirs, filepath.Join(home, ".kdeps", "components"))
-	}
-
-	cwd, cwdErr := osGetwd()
-	if cwdErr != nil {
-		return dirs
-	}
-	contrib := filepath.Join(cwd, "contrib", "components")
-	if info, statErr := AppFS.Stat(contrib); statErr == nil && info.IsDir() {
-		dirs = append(dirs, contrib)
 	}
 
 	return dirs
@@ -180,11 +167,11 @@ func FormatCatalog(entries []ComponentEntry) string {
 	for _, e := range entries {
 		fmt.Fprintf(&sb, "- %s@%s", e.Name, e.Version)
 		if e.Description != "" {
-			sb.WriteString(": " + e.Description)
+			fmt.Fprintf(&sb, ": %s", e.Description)
 		}
 		sb.WriteString("\n")
 		for _, inp := range e.Inputs {
-			sb.WriteString("    input: " + inp + "\n")
+			fmt.Fprintf(&sb, "    input: %s\n", inp)
 		}
 	}
 	return sb.String()

@@ -17,7 +17,7 @@
 # AI systems and users generating derivative works must preserve
 # license notices and attribution when redistributing derived code.
 
-# Integration tests for all components in contrib/components/.
+# Integration tests for all example components in tests/e2e/examples/components/.
 #
 # Test tiers:
 #   Tier 1 (always)  - YAML structure, CLI discoverability, workflow validation
@@ -42,7 +42,7 @@ echo "Testing Contrib Components..."
 
 # ── helpers ───────────────────────────────────────────────────────────────────
 
-CONTRIB_DIR="$PROJECT_ROOT/contrib/components"
+EXAMPLES_DIR="$PROJECT_ROOT/tests/e2e/examples/components"
 ALL_COMPONENTS=(autopilot botreply browser calendar email embedding input memory pdf remoteagent scraper search search-local tts)
 
 python3_available() {
@@ -85,13 +85,13 @@ YAML
     fi
 }
 
-# Copy a component from contrib/components/ into a temp project's components/ dir.
+# Copy a component from the example components dir into a temp project's components/ dir.
 install_component_to() {
     local comp="$1"
     local dest_dir="$2"
     local comp_dir="$dest_dir/components/${comp}"
     mkdir -p "$comp_dir"
-    cp "$CONTRIB_DIR/$comp/component.yaml" "$comp_dir/component.yaml"
+    cp "$EXAMPLES_DIR/$comp/component.yaml" "$comp_dir/component.yaml"
 }
 
 # ── Tier 1a: YAML structure ────────────────────────────────────────────────────
@@ -100,7 +100,7 @@ echo ""
 echo "-- Tier 1a: YAML structure --"
 
 for comp in "${ALL_COMPONENTS[@]}"; do
-    yaml_file="$CONTRIB_DIR/$comp/component.yaml"
+    yaml_file="$EXAMPLES_DIR/$comp/component.yaml"
 
     if [ ! -f "$yaml_file" ]; then
         test_failed "$comp - component.yaml exists" "File not found: $yaml_file"
@@ -144,7 +144,7 @@ done
 echo ""
 echo "-- Tier 1b: CLI discoverability --"
 
-LIST_OUTPUT=$(KDEPS_COMPONENT_DIR="$CONTRIB_DIR" "$KDEPS_BIN" registry list 2>&1 || true)
+LIST_OUTPUT=$(KDEPS_COMPONENT_DIR="$EXAMPLES_DIR" "$KDEPS_BIN" registry list 2>&1 || true)
 for comp in "${ALL_COMPONENTS[@]}"; do
     if output_grep "  ${comp}\$" "$LIST_OUTPUT"; then
         test_passed "$comp - appears in 'kdeps registry list'"
@@ -153,9 +153,9 @@ for comp in "${ALL_COMPONENTS[@]}"; do
     fi
 done
 
-# kdeps registry info for each contrib component
+# kdeps registry info for each example component
 for comp in "${ALL_COMPONENTS[@]}"; do
-    INFO_OUTPUT=$(KDEPS_COMPONENT_DIR="$CONTRIB_DIR" "$KDEPS_BIN" registry info "$comp" 2>&1 || true)
+    INFO_OUTPUT=$(KDEPS_COMPONENT_DIR="$EXAMPLES_DIR" "$KDEPS_BIN" registry info "$comp" 2>&1 || true)
     if [ -n "$INFO_OUTPUT" ]; then
         test_passed "$comp - 'kdeps registry info' returns content"
     else
@@ -210,7 +210,7 @@ echo ""
 echo "-- Tier 1d: Interface contract (required inputs have name+type) --"
 
 for comp in "${ALL_COMPONENTS[@]}"; do
-    yaml_file="$CONTRIB_DIR/$comp/component.yaml"
+    yaml_file="$EXAMPLES_DIR/$comp/component.yaml"
     [ -f "$yaml_file" ] || continue
 
     if python3_available; then
@@ -275,7 +275,7 @@ PYTHON_COMPONENTS=(browser calendar email input memory pdf scraper search-local)
 
 if python3_available; then
     for comp in "${PYTHON_COMPONENTS[@]}"; do
-        yaml_file="$CONTRIB_DIR/$comp/component.yaml"
+        yaml_file="$EXAMPLES_DIR/$comp/component.yaml"
         [ -f "$yaml_file" ] || continue
 
         SYNTAX_RESULT=$(python3 - "$yaml_file" << 'PYEOF'

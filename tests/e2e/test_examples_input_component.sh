@@ -18,7 +18,7 @@
 # license notices and attribution when redistributing derived code.
 
 # E2E tests for examples/input-component
-# Tests structure, validation, and built-in input component usage.
+# Tests structure, validation, and example input component usage.
 
 set -uo pipefail
 
@@ -59,11 +59,11 @@ else
         test_failed "input-component - targetActionId is response" "targetActionId: response not found in $IC_WF"
     fi
 
-    # Test 5: collect resource calls built-in input component
+    # Test 5: collect resource calls example input component
     if grep -q "name: input" "$IC_DIR/resources/01-collect.yaml" 2>/dev/null; then
-        test_passed "input-component - collect resource calls built-in input component"
+        test_passed "input-component - collect resource calls example input component"
     else
-        test_failed "input-component - collect resource calls built-in input component" "name: input not found in 01-collect.yaml"
+        test_failed "input-component - collect resource calls example input component" "name: input not found in 01-collect.yaml"
     fi
 
     # Test 6: collect resource passes query slot

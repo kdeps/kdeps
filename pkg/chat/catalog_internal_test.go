@@ -25,14 +25,9 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestCollectComponentDirs_DIGetwdError(t *testing.T) {
-	orig := osGetwd
-	t.Cleanup(func() { osGetwd = orig })
-	osGetwd = func() (string, error) {
-		return "", errors.New("no cwd")
-	}
+func TestCollectComponentDirs_NoEnvNoHome(t *testing.T) {
+	t.Setenv("KDEPS_COMPONENT_DIR", "")
 
-	// With home dir also unavailable, should return empty
 	origHome := osUserHomeDir
 	t.Cleanup(func() { osUserHomeDir = origHome })
 	osUserHomeDir = func() (string, error) { return "", errors.New("no home") }
