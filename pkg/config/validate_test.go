@@ -81,6 +81,35 @@ bad_key: true
 	assert.True(t, found, "expected warning about unknown top-level key bad_key, got: %v", warnings)
 }
 
+func TestValidate_ConnectionKeys_NotFlagged(t *testing.T) {
+	dir := t.TempDir()
+	writeTempConfig(t, dir, `
+smtp_connections:
+  default:
+    host: smtp.example.com
+imap_connections:
+  inbox:
+    host: imap.example.com
+sql_connections:
+  main:
+    connection: postgres://x
+http_connections:
+  api:
+    proxy: ""
+search_connections:
+  brave:
+    key: abc
+bot_connections:
+  discord:
+    token: xyz
+api_auth_token: secret
+`)
+	cfg := loadCfg(t)
+	for _, w := range cfg.Validate("") {
+		assert.NotContains(t, w, "unknown top-level key", "unexpected top-level warning: %s", w)
+	}
+}
+
 func TestValidate_UnknownLLMKey(t *testing.T) {
 	dir := t.TempDir()
 	writeTempConfig(t, dir, `

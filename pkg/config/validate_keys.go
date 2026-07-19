@@ -73,7 +73,7 @@ func validateUnknownKeys(data []byte) []string {
 	for _, k := range topUnknown {
 		warnings = append(warnings, fmt.Sprintf(
 			"unknown top-level key %q — check for typos "+
-				"(valid keys: llm, defaults, resource_defaults, agents)", k))
+				"(valid keys: llm, defaults, resource_defaults, *_connections, api_auth_token, agents)", k))
 	}
 
 	// Check sub-keys of each known section.
