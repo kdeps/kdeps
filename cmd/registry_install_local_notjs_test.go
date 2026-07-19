@@ -57,9 +57,33 @@ func TestInstallLocalFile_ExpandError(t *testing.T) {
 	require.Error(t, err)
 }
 
-func TestResolveRegistryManifest_Fallback(t *testing.T) {
-	m := resolveRegistryManifest("/no/manifest", "pkg", "1.0")
-	assert.Equal(t, "pkg", m.Name)
+func TestFindPackageDir(t *testing.T) {
+	root := t.TempDir()
+	// A monorepo-style layout with two packages in separate subdirs.
+	for _, p := range []struct{ dir, name, typ string }{
+		{"components/alpha", "kdeps-alpha", "component"},
+		{"workflows/beta", "kdeps-beta", "workflow"},
+	} {
+		d := filepath.Join(root, p.dir)
+		require.NoError(t, os.MkdirAll(d, 0o750))
+		manifest := "name: " + p.name + "\nversion: \"1.0.0\"\ntype: " + p.typ + "\n"
+		require.NoError(t, os.WriteFile(filepath.Join(d, "kdeps.pkg.yaml"), []byte(manifest), 0o600))
+	}
+
+	// Matches the requested package by name, not the first one found.
+	dir, m, err := findPackageDir(root, "kdeps-beta")
+	require.NoError(t, err)
+	assert.Equal(t, "kdeps-beta", m.Name)
+	assert.Equal(t, "workflow", m.Type)
+	assert.Equal(t, filepath.Join(root, "workflows/beta"), dir)
+
+	// Unknown package name is an error.
+	_, _, err = findPackageDir(root, "kdeps-missing")
+	require.Error(t, err)
+
+	// Empty wantName is ambiguous when multiple packages exist.
+	_, _, err = findPackageDir(root, "")
+	require.Error(t, err)
 }
 
 func TestDoRegistryInstall_DownloadError(t *testing.T) {

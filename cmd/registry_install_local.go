@@ -31,7 +31,6 @@ import (
 	"github.com/spf13/cobra"
 
 	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
-	"github.com/kdeps/kdeps/v2/pkg/domain"
 )
 
 // installLocalFile installs a package from a local archive path.
@@ -48,13 +47,22 @@ func installLocalFile(cmd *cobra.Command, path string) error {
 		return fmt.Errorf("local file %q: %w", path, err)
 	}
 
-	manifest, _ := peekManifest(path)
-	if manifest == nil {
+	tmpDir, cleanup, err := extractToTempDir(path)
+	if err != nil {
+		return err
+	}
+	defer cleanup()
+
+	srcDir, manifest, findErr := findPackageDir(tmpDir, "")
+	if findErr != nil {
+		// No manifest in the archive: install the whole tree, inferring identity
+		// from the filename.
+		srcDir = tmpDir
 		manifest = inferManifestFromPath(path)
 	}
 
 	fmt.Fprintf(cmd.OutOrStdout(), "Installing from local file: %s\n", path)
-	return installByManifestType(cmd, manifest, path, manifest.Version)
+	return installByManifestType(cmd, manifest, srcDir, manifest.Version)
 }
 
 // parseRegistryPackageRef splits a package@version reference into name and version.
@@ -157,18 +165,6 @@ func downloadRegistryArchive(info *packageInfo, name, version string) (string, f
 	return archivePath, cleanup, nil
 }
 
-// resolveRegistryManifest returns the manifest for a downloaded registry archive.
-func resolveRegistryManifest(archivePath, name, version string) *domain.KdepsPkg {
-	manifest, peekErr := peekManifest(archivePath)
-	if peekErr != nil || manifest == nil {
-		manifest = &domain.KdepsPkg{Name: name, Version: version, Type: manifestTypeWorkflow}
-	}
-	if manifest.Name == "" {
-		manifest.Name = name
-	}
-	return manifest
-}
-
 func doRegistryInstall(cmd *cobra.Command, pkg, baseURL string) error {
 	kdeps_debug.Log("enter: doRegistryInstall")
 
@@ -197,6 +193,23 @@ func doRegistryInstall(cmd *cobra.Command, pkg, baseURL string) error {
 	}
 	defer cleanup()
 
-	manifest := resolveRegistryManifest(archivePath, name, version)
-	return installByManifestType(cmd, manifest, archivePath, version)
+	tmpDir, tmpCleanup, err := extractToTempDir(archivePath)
+	if err != nil {
+		return err
+	}
+	defer tmpCleanup()
+
+	// The registry tarball may be a whole-repo (monorepo) archive; locate the
+	// requested package's own directory rather than the first manifest found.
+	srcDir, manifest, err := findPackageDir(tmpDir, name)
+	if err != nil {
+		return err
+	}
+	// The registry API is authoritative for the package's identity and type.
+	manifest.Name = name
+	manifest.Version = version
+	if info.Type != "" {
+		manifest.Type = info.Type
+	}
+	return installByManifestType(cmd, manifest, srcDir, version)
 }

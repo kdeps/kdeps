@@ -26,6 +26,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"io/fs"
 	"os"
 	"path/filepath"
 
@@ -36,8 +37,8 @@ import (
 	kdepsmanifest "github.com/kdeps/kdeps/v2/pkg/manifest"
 )
 
-// installWorkflowOrAgency extracts into ~/.kdeps/agents/<name>/ (like a home-local install).
-func installWorkflowOrAgency(cmd *cobra.Command, manifest *domain.KdepsPkg, archivePath, version string) error {
+// installWorkflowOrAgency copies the staged package into ~/.kdeps/agents/<name>/.
+func installWorkflowOrAgency(cmd *cobra.Command, manifest *domain.KdepsPkg, srcDir, version string) error {
 	kdeps_debug.Log("enter: installWorkflowOrAgency")
 	agentsDir, err := kdepsAgentsDir()
 	if err != nil {
@@ -52,8 +53,8 @@ func installWorkflowOrAgency(cmd *cobra.Command, manifest *domain.KdepsPkg, arch
 		return fmt.Errorf("agent %q is already installed at %s; remove it first to reinstall", manifest.Name, destDir)
 	}
 
-	if extractErr := extractArchive(archivePath, destDir); extractErr != nil {
-		return extractErr
+	if copyErr := copyDir(srcDir, destDir); copyErr != nil {
+		return fmt.Errorf("install into %s: %w", destDir, copyErr)
 	}
 
 	w := cmd.OutOrStdout()
@@ -86,8 +87,8 @@ func kdepsAgentsDir() (string, error) {
 	return filepath.Join(home, ".kdeps", "agents"), nil
 }
 
-// installRegistryComponent installs the archive into the components directory.
-func installRegistryComponent(cmd *cobra.Command, manifest *domain.KdepsPkg, archivePath, version string) error {
+// installRegistryComponent copies the staged package into the components directory.
+func installRegistryComponent(cmd *cobra.Command, manifest *domain.KdepsPkg, srcDir, version string) error {
 	kdeps_debug.Log("enter: installRegistryComponent")
 	compDir, err := componentInstallDir()
 	if err != nil {
@@ -103,8 +104,8 @@ func installRegistryComponent(cmd *cobra.Command, manifest *domain.KdepsPkg, arc
 	}
 
 	destDir := filepath.Join(compDir, manifest.Name)
-	if extractErr := extractArchive(archivePath, destDir); extractErr != nil {
-		return extractErr
+	if copyErr := copyDir(srcDir, destDir); copyErr != nil {
+		return fmt.Errorf("install into %s: %w", destDir, copyErr)
 	}
 
 	w := cmd.OutOrStdout()
@@ -158,4 +159,72 @@ func peekManifest(archivePath string) (*domain.KdepsPkg, error) {
 		}
 	}
 	return nil, nil //nolint:nilnil // nil manifest means no kdeps.pkg.yaml found; caller handles this
+}
+
+// extractToTempDir extracts the whole archive into a fresh temp directory and
+// returns it with a cleanup func.
+func extractToTempDir(archivePath string) (string, func(), error) {
+	kdeps_debug.Log("enter: extractToTempDir")
+	tmp, err := osMkdirTempInstallFunc("", "kdeps-install-*")
+	if err != nil {
+		return "", nil, fmt.Errorf("create temp dir: %w", err)
+	}
+	cleanup := func() { _ = os.RemoveAll(tmp) }
+	if extractErr := extractArchive(archivePath, tmp); extractErr != nil {
+		cleanup()
+		return "", nil, extractErr
+	}
+	return tmp, cleanup, nil
+}
+
+// findPackageDir locates, within root, the directory of the package whose
+// manifest name matches wantName. When wantName is empty it returns the sole
+// package. Handles monorepo archives (e.g. a whole-repo GitHub tarball) that
+// contain many kdeps.pkg.yaml manifests.
+func findPackageDir(root, wantName string) (string, *domain.KdepsPkg, error) {
+	kdeps_debug.Log("enter: findPackageDir")
+	var matchDir, firstDir string
+	var matchManifest, firstManifest *domain.KdepsPkg
+	count := 0
+
+	walkErr := filepath.WalkDir(root, func(p string, d fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		if d.IsDir() || (d.Name() != manifestFileName && d.Name() != "kdeps.pkg.yml") {
+			return nil
+		}
+		data, readErr := os.ReadFile(p) //nolint:gosec // p is under the extracted temp root
+		if readErr != nil {
+			return nil //nolint:nilerr // skip an unreadable manifest, keep scanning
+		}
+		m, parseErr := domain.ParseKdepsPkgFromBytes(data)
+		if parseErr != nil || m == nil {
+			return nil //nolint:nilerr // skip an invalid manifest, keep scanning
+		}
+		count++
+		if count == 1 {
+			firstDir, firstManifest = filepath.Dir(p), m
+		}
+		if wantName != "" && m.Name == wantName {
+			matchDir, matchManifest = filepath.Dir(p), m
+			return fs.SkipAll
+		}
+		return nil
+	})
+	if walkErr != nil {
+		return "", nil, fmt.Errorf("scan archive: %w", walkErr)
+	}
+	switch {
+	case matchManifest != nil:
+		return matchDir, matchManifest, nil
+	case count == 1:
+		return firstDir, firstManifest, nil
+	case wantName != "":
+		return "", nil, fmt.Errorf("package %q not found in archive", wantName)
+	case count == 0:
+		return "", nil, errors.New("archive contains no kdeps.pkg.yaml manifest")
+	default:
+		return "", nil, errors.New("archive contains multiple packages; install a specific one")
+	}
 }

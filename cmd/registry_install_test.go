@@ -382,15 +382,15 @@ func TestInstallWorkflowOrAgency_Success(t *testing.T) {
 	agentsDir := t.TempDir()
 	t.Setenv("KDEPS_AGENTS_DIR", agentsDir)
 
-	archiveData := testWorkflowArchive(t, "new-agent")
-	archivePath := filepath.Join(t.TempDir(), "new-agent.kdeps")
-	require.NoError(t, os.WriteFile(archivePath, archiveData, 0600))
+	srcDir := t.TempDir()
+	require.NoError(t, os.WriteFile(filepath.Join(srcDir, "workflow.yaml"),
+		[]byte("apiVersion: kdeps.io/v1\nkind: Workflow\n"), 0600))
 
-	pkg := peekManifestFromBytes(t, archiveData)
+	pkg := &domain.KdepsPkg{Name: "new-agent", Type: "workflow", Version: "1.0.0"}
 	var buf bytes.Buffer
 	cmd := &cobra.Command{}
 	cmd.SetOut(&buf)
-	err := installWorkflowOrAgency(cmd, pkg, archivePath, "1.0.0")
+	err := installWorkflowOrAgency(cmd, pkg, srcDir, "1.0.0")
 	require.NoError(t, err)
 
 	destDir := filepath.Join(agentsDir, "new-agent")
@@ -954,18 +954,15 @@ func TestDownloadArchive_CreateFileError(t *testing.T) {
 // installWorkflowOrAgency — extractArchive error (corrupt archive)
 // ---------------------------------------------------------------------------
 
-func TestInstallWorkflowOrAgency_ExtractError(t *testing.T) {
+func TestInstallWorkflowOrAgency_CopyError(t *testing.T) {
 	agentsDir := t.TempDir()
 	t.Setenv("KDEPS_AGENTS_DIR", agentsDir)
 
-	// Write a corrupt archive.
-	archivePath := filepath.Join(t.TempDir(), "bad.kdeps")
-	require.NoError(t, os.WriteFile(archivePath, []byte("not-valid-gzip"), 0600))
-
+	// Source dir does not exist -> copy fails.
 	pkg := &domain.KdepsPkg{Name: "extract-err-agent", Version: "1.0.0", Type: "workflow"}
 
 	c := &cobra.Command{}
-	err := installWorkflowOrAgency(c, pkg, archivePath, "1.0.0")
+	err := installWorkflowOrAgency(c, pkg, filepath.Join(t.TempDir(), "does-not-exist"), "1.0.0")
 	require.Error(t, err)
 }
 
@@ -994,7 +991,7 @@ func TestInstallWorkflowOrAgency_AlreadyInstalled2(t *testing.T) {
 // installRegistryComponent — extractArchive error (corrupt archive)
 // ---------------------------------------------------------------------------
 
-func TestInstallRegistryComponent_ExtractError(t *testing.T) {
+func TestInstallRegistryComponent_CopyError(t *testing.T) {
 	compDir := t.TempDir()
 	t.Setenv("KDEPS_COMPONENT_DIR", compDir)
 
@@ -1004,14 +1001,11 @@ func TestInstallRegistryComponent_ExtractError(t *testing.T) {
 	require.NoError(t, os.Chdir(workDir))
 	t.Cleanup(func() { _ = os.Chdir(orig) })
 
-	// Write a corrupt archive.
-	archivePath := filepath.Join(t.TempDir(), "bad.komponent")
-	require.NoError(t, os.WriteFile(archivePath, []byte("not-valid-gzip"), 0600))
-
+	// Source dir does not exist -> copy fails.
 	pkg := &domain.KdepsPkg{Name: "bad-comp", Version: "1.0.0", Type: "component"}
 
 	c := &cobra.Command{}
-	err := installRegistryComponent(c, pkg, archivePath, "1.0.0")
+	err := installRegistryComponent(c, pkg, filepath.Join(t.TempDir(), "does-not-exist"), "1.0.0")
 	require.Error(t, err)
 }
 
