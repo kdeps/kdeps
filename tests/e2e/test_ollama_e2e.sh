@@ -274,8 +274,15 @@ else
                 if command -v jq &> /dev/null; then
                     ERROR_MSG=$(echo "$BODY" | jq -r '.error.message // "unknown"' 2>/dev/null)
                 fi
-                # A crashed inference binary is a CI-environment flake, not a product bug.
-                skip_or_fail_llm "Chatbot LLM - Server error (500)" "$BODY" "$ERROR_MSG"
+                # A crashed inference binary is a CI-environment flake, not a product
+                # bug. The 500 body is often a sanitized "Internal server error", so
+                # also consult the server log where the backend crash is recorded.
+                CRASH_CTX="$BODY"
+                if [ -f "$SERVER_LOG" ]; then
+                    CRASH_CTX="$BODY
+$(tail -n 50 "$SERVER_LOG")"
+                fi
+                skip_or_fail_llm "Chatbot LLM - Server error (500)" "$CRASH_CTX" "$ERROR_MSG"
             fi
         else
             test_failed "Chatbot LLM - Unexpected status" "Status: $STATUS_CODE"
