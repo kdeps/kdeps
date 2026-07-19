@@ -143,11 +143,7 @@ func printPackageDetail(cmd *cobra.Command, ref string, pkg *registry.PackageDet
 		fmt.Fprintf(w, "Homepage:    %s\n", pkg.Homepage)
 	}
 	if len(pkg.Versions) > 0 {
-		vs := make([]string, len(pkg.Versions))
-		for i, v := range pkg.Versions {
-			vs[i] = v.Version
-		}
-		fmt.Fprintf(w, "Versions:    %s\n", strings.Join(vs, ", "))
+		fmt.Fprintf(w, "Versions:    %s\n", strings.Join(pkg.Versions, ", "))
 	}
 	fmt.Fprintf(w, "Updated:     %s\n", pkg.UpdatedAt)
 	printPackageReadme(w, ref, pkg)

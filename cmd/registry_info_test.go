@@ -86,7 +86,7 @@ func TestDoRegistryInfo_RegistrySuccess(t *testing.T) {
 			"downloadsCount": 42,
 			"tags":           []string{"ai", "test"},
 			"homepage":       "https://example.com",
-			"versions":       []map[string]string{{"version": "1.0.0"}},
+			"versions":       []string{"1.0.0"},
 			"updatedAt":      "2026-01-01",
 		}
 		_ = json.NewEncoder(w).Encode(resp)

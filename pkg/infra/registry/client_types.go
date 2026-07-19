@@ -63,19 +63,19 @@ type PackageVersion struct {
 
 // PackageDetail represents detailed package information.
 type PackageDetail struct {
-	Name        string           `json:"name"`
-	Version     string           `json:"latestVersion"`
-	Type        string           `json:"type"`
-	Description string           `json:"description"`
-	Author      string           `json:"authorName"`
-	License     string           `json:"license"`
-	Tags        []string         `json:"tags"`
-	Homepage    string           `json:"homepage"`
-	Downloads   int              `json:"downloadsCount"`
-	Readme      string           `json:"readme"`
-	Versions    []PackageVersion `json:"versions"`
-	CreatedAt   string           `json:"createdAt"`
-	UpdatedAt   string           `json:"updatedAt"`
+	Name        string   `json:"name"`
+	Version     string   `json:"latestVersion"`
+	Type        string   `json:"type"`
+	Description string   `json:"description"`
+	Author      string   `json:"authorName"`
+	License     string   `json:"license"`
+	Tags        []string `json:"tags"`
+	Homepage    string   `json:"homepage"`
+	Downloads   int      `json:"downloadsCount"`
+	Readme      string   `json:"readme"`
+	Versions    []string `json:"versions"`
+	CreatedAt   string   `json:"createdAt"`
+	UpdatedAt   string   `json:"updatedAt"`
 }
 
 // PublishResponse represents the publish API response.
