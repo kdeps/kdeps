@@ -25,6 +25,7 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/kdeps/kdeps/v2/pkg/agent"
 	"github.com/kdeps/kdeps/v2/pkg/config"
 	"github.com/kdeps/kdeps/v2/pkg/domain"
 )
@@ -35,22 +36,15 @@ type connRef struct {
 	name string
 }
 
-// ensureWorkflowConnections prompts for and persists any named connection a
-// workflow references but that is missing from config.yaml. It is a no-op when
-// stdin is not a terminal — the "connection not found" error then surfaces at
-// execution time, exactly as before.
-func ensureWorkflowConnections(workflows ...*domain.Workflow) error {
-	seen := map[connRef]bool{}
-	var refs []connRef
-	for _, wf := range workflows {
-		for _, r := range referencedConnections(wf) {
-			if !seen[r] {
-				seen[r] = true
-				refs = append(refs, r)
-			}
-		}
-	}
-	if len(refs) == 0 {
+// ensureWorkflowRuntimeConfig prompts for and persists any runtime configuration
+// a workflow needs but that is missing from config.yaml: named connections
+// (smtp/imap/sql/http/search), cloud LLM API keys implied by the chat models,
+// and the apiServer auth token. It is a no-op when stdin is not a terminal —
+// the usual "not found" errors then surface at execution time, exactly as
+// before.
+func ensureWorkflowRuntimeConfig(workflows ...*domain.Workflow) error {
+	refs, modelBackends, needsToken := scanWorkflows(workflows)
+	if len(refs) == 0 && len(modelBackends) == 0 && !needsToken {
 		return nil
 	}
 
@@ -59,28 +53,45 @@ func ensureWorkflowConnections(workflows ...*domain.Workflow) error {
 		cfg = &config.Config{}
 	}
 
-	var missing []connRef
-	for _, r := range refs {
-		if !config.HasConnection(cfg, r.kind, r.name) {
-			missing = append(missing, r)
-		}
+	missingConns := filterMissingConnections(cfg, refs)
+	missingKeys := filterMissingLLMKeys(cfg, modelBackends)
+	setBackend := !config.DefaultBackendConfigured(cfg) && len(modelBackends) == 1
+	missingToken := needsToken && !config.HasAPIToken(cfg)
+
+	if len(missingConns) == 0 && len(missingKeys) == 0 && !setBackend && !missingToken {
+		return nil
 	}
-	if len(missing) == 0 || !config.CanPromptForConnections() {
+	if !config.CanPromptForConnections() {
 		return nil
 	}
 
 	reader := bufio.NewReader(os.Stdin)
-	for _, r := range missing {
+	for _, r := range missingConns {
 		if promptErr := config.PromptAndSaveConnection(r.kind, r.name, os.Stdout, reader); promptErr != nil {
 			return fmt.Errorf("configure %s connection %q: %w", r.kind, r.name, promptErr)
+		}
+	}
+	for _, backend := range missingKeys {
+		if _, promptErr := config.PromptAndSaveLLMKey(backend, os.Stdout, reader); promptErr != nil {
+			return fmt.Errorf("configure %s API key: %w", backend, promptErr)
+		}
+	}
+	if setBackend {
+		if backendErr := config.SaveDefaultBackend(modelBackends[0]); backendErr != nil {
+			return fmt.Errorf("set default backend %q: %w", modelBackends[0], backendErr)
+		}
+	}
+	if missingToken {
+		if _, promptErr := config.PromptAndSaveAPIToken(os.Stdout, reader); promptErr != nil {
+			return fmt.Errorf("configure api auth token: %w", promptErr)
 		}
 	}
 	return nil
 }
 
-// ensureAgencyConnections scans every agent workflow in an agency and prompts
-// for any missing referenced connections before execution.
-func ensureAgencyConnections(agentNameMap map[string]string) error {
+// ensureAgencyRuntimeConfig scans every agent workflow in an agency and prompts
+// for any missing runtime configuration before execution.
+func ensureAgencyRuntimeConfig(agentNameMap map[string]string) error {
 	var wfs []*domain.Workflow
 	for _, path := range agentNameMap {
 		wf, err := ParseWorkflowFile(path)
@@ -89,33 +100,99 @@ func ensureAgencyConnections(agentNameMap map[string]string) error {
 		}
 		wfs = append(wfs, wf)
 	}
-	return ensureWorkflowConnections(wfs...)
+	return ensureWorkflowRuntimeConfig(wfs...)
 }
 
-// referencedConnections returns the named connections a workflow's resources
-// reference (primary action plus before/after action lists), deduplicated.
+// scanWorkflows aggregates the connections, cloud LLM backends, and apiServer
+// requirement across a set of workflows.
+func scanWorkflows(workflows []*domain.Workflow) ([]connRef, []string, bool) {
+	seenRef := map[connRef]bool{}
+	seenBackend := map[string]bool{}
+	var refs []connRef
+	var modelBackends []string
+	needsToken := false
+	for _, wf := range workflows {
+		if wf == nil {
+			continue
+		}
+		wfRefs, wfBackends := referencedConnectionsAndBackends(wf)
+		for _, r := range wfRefs {
+			if !seenRef[r] {
+				seenRef[r] = true
+				refs = append(refs, r)
+			}
+		}
+		for _, b := range wfBackends {
+			if !seenBackend[b] {
+				seenBackend[b] = true
+				modelBackends = append(modelBackends, b)
+			}
+		}
+		if wf.Settings.APIServer != nil {
+			needsToken = true
+		}
+	}
+	return refs, modelBackends, needsToken
+}
+
+// filterMissingConnections returns the referenced connections absent from cfg.
+func filterMissingConnections(cfg *config.Config, refs []connRef) []connRef {
+	var missing []connRef
+	for _, r := range refs {
+		if !config.HasConnection(cfg, r.kind, r.name) {
+			missing = append(missing, r)
+		}
+	}
+	return missing
+}
+
+// filterMissingLLMKeys returns the cloud backends whose API key is absent from
+// cfg and the environment.
+func filterMissingLLMKeys(cfg *config.Config, backends []string) []string {
+	var missing []string
+	for _, b := range backends {
+		if !config.HasLLMKey(cfg, b) {
+			missing = append(missing, b)
+		}
+	}
+	return missing
+}
+
+// referencedConnections returns just the named connections a workflow
+// references. Retained for callers that only need connections.
+func referencedConnections(wf *domain.Workflow) []connRef {
+	refs, _ := referencedConnectionsAndBackends(wf)
+	return refs
+}
+
+// referencedConnectionsAndBackends returns the named connections a workflow's
+// resources reference (primary action plus before/after action lists) and the
+// distinct cloud LLM backends implied by their chat models, deduplicated.
 // Components resolve at execution time, so the resources of any component the
 // workflow calls via a `component:` action are scanned too.
-func referencedConnections(wf *domain.Workflow) []connRef {
+func referencedConnectionsAndBackends(wf *domain.Workflow) ([]connRef, []string) {
 	if wf == nil {
-		return nil
+		return nil, nil
 	}
-	c := &connCollector{seen: map[connRef]bool{}, used: map[string]bool{}}
+	c := &connCollector{seen: map[connRef]bool{}, used: map[string]bool{}, seenBackend: map[string]bool{}}
 	c.scanList(wf.Resources)
 	for name := range c.used {
 		if comp := wf.Components[name]; comp != nil {
 			c.scanList(comp.Resources)
 		}
 	}
-	return c.refs
+	return c.refs, c.backends
 }
 
-// connCollector accumulates deduplicated connection references and the set of
-// component names the scanned resources call.
+// connCollector accumulates deduplicated connection references, cloud LLM
+// backends implied by chat models, and the set of component names the scanned
+// resources call.
 type connCollector struct {
-	seen map[connRef]bool
-	used map[string]bool
-	refs []connRef
+	seen        map[connRef]bool
+	used        map[string]bool
+	seenBackend map[string]bool
+	refs        []connRef
+	backends    []string
 }
 
 func (c *connCollector) add(kind, name string) {
@@ -129,32 +206,46 @@ func (c *connCollector) add(kind, name string) {
 	}
 }
 
+// addModel records the cloud backend implied by a chat model, if any.
+func (c *connCollector) addModel(model string) {
+	backend := agent.BackendForModel(model)
+	if backend == "" || c.seenBackend[backend] {
+		return
+	}
+	c.seenBackend[backend] = true
+	c.backends = append(c.backends, backend)
+}
+
 func (c *connCollector) scanList(resources []*domain.Resource) {
 	for _, res := range resources {
 		if res == nil {
 			continue
 		}
-		c.scanAction(res.HTTPClient, res.SQL, res.SearchWeb, res.Email, res.Component)
+		c.scanAction(res.Chat, res.HTTPClient, res.SQL, res.SearchWeb, res.Email, res.Component)
 		for i := range res.Before {
 			a := res.Before[i]
-			c.scanAction(a.HTTPClient, a.SQL, a.SearchWeb, a.Email, a.Component)
+			c.scanAction(a.Chat, a.HTTPClient, a.SQL, a.SearchWeb, a.Email, a.Component)
 		}
 		for i := range res.After {
 			a := res.After[i]
-			c.scanAction(a.HTTPClient, a.SQL, a.SearchWeb, a.Email, a.Component)
+			c.scanAction(a.Chat, a.HTTPClient, a.SQL, a.SearchWeb, a.Email, a.Component)
 		}
 	}
 }
 
-// scanAction registers the connection names carried by an action's
-// connection-bearing config blocks and records any component it calls.
+// scanAction registers the connection names and cloud model backend carried by
+// an action's config blocks and records any component it calls.
 func (c *connCollector) scanAction(
+	chat *domain.ChatConfig,
 	http *domain.HTTPClientConfig,
 	sql *domain.SQLConfig,
 	searchWeb *domain.SearchWebConfig,
 	email *domain.EmailConfig,
 	component *domain.ComponentCallConfig,
 ) {
+	if chat != nil {
+		c.addModel(chat.Model)
+	}
 	if http != nil {
 		c.add(config.ConnKindHTTP, http.ConnectionName)
 	}

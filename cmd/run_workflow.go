@@ -193,7 +193,7 @@ func ExecuteWorkflowStepsWithFlags(cmd *cobra.Command, workflowPath string, flag
 	if validateErr := validateWorkflowStep(workflow); validateErr != nil {
 		return validateErr
 	}
-	if connErr := ensureWorkflowConnections(workflow); connErr != nil {
+	if connErr := ensureWorkflowRuntimeConfig(workflow); connErr != nil {
 		return connErr
 	}
 	if setupErr := setupEnvironmentStep(workflow); setupErr != nil {

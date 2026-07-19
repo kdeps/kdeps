@@ -91,7 +91,7 @@ func ExecuteAgencyStepsWithFlags(cmd *cobra.Command, agencyPath string, flags *R
 	}
 	printAgencyAgentIndex(agencyDir, agency, agentNameMap)
 
-	if connErr := ensureAgencyConnections(agentNameMap); connErr != nil {
+	if connErr := ensureAgencyRuntimeConfig(agentNameMap); connErr != nil {
 		return connErr
 	}
 

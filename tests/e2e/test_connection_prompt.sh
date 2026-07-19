@@ -115,5 +115,54 @@ else
     test_passed "Present connection - resolved from config.yaml (no not-found error)"
 fi
 
+# --- Test 3: apiServer without a token, non-interactive ----------------------
+# A missing api_auth_token must NOT be fabricated when stdin is not a terminal.
+PORT=$(( 20000 + RANDOM % 20000 ))
+mkdir -p "$WORK/api"
+cat > "$WORK/api/workflow.yaml" << EOF
+apiVersion: kdeps.io/v1
+kind: Workflow
+metadata:
+  name: conn-preflight-api
+  version: "1.0.0"
+  targetActionId: resp
+settings:
+  apiServer:
+    hostIp: "127.0.0.1"
+    portNum: $PORT
+    routes:
+      - path: /ping
+        methods: [GET]
+  agentSettings:
+    timezone: UTC
+resources:
+  - actionId: resp
+    name: Resp
+    apiResponse:
+      success: true
+      response:
+        ok: true
+EOF
+
+CFG3="$WORK/config-notoken.yaml"
+cat > "$CFG3" << 'EOF'
+llm:
+  backend: ollama
+  ollama_host: http://localhost:11434
+EOF
+BEFORE3=$(shasum "$CFG3" | awk '{print $1}')
+
+# Server mode runs until the timeout kills it; we only care that the pre-flight
+# did not prompt (hang) or fabricate a token.
+timeout 12 env KDEPS_CONFIG_PATH="$CFG3" KDEPS_SKIP_BOOTSTRAP=1 KDEPS_API_AUTH_TOKEN= \
+    "$KDEPS_BIN" run "$WORK/api/workflow.yaml" < /dev/null > /dev/null 2>&1
+AFTER3=$(shasum "$CFG3" | awk '{print $1}')
+
+if [ "$BEFORE3" = "$AFTER3" ]; then
+    test_passed "Missing api token - config.yaml left unmodified (no fabrication)"
+else
+    test_failed "Missing api token - config.yaml was modified without a prompt"
+fi
+
 echo ""
 echo "Connection resolution E2E: done"

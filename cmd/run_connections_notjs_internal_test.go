@@ -82,7 +82,45 @@ func TestReferencedConnections_Empty(t *testing.T) {
 	assert.Nil(t, referencedConnections(&domain.Workflow{}))
 }
 
-// ensureWorkflowConnections must be a safe no-op when there is nothing missing
+func TestReferencedConnectionsAndBackends_CloudModel(t *testing.T) {
+	wf := &domain.Workflow{
+		Resources: []*domain.Resource{
+			{ActionID: "triage", Chat: &domain.ChatConfig{Model: "deepseek-chat"}},
+			{ActionID: "draft", Chat: &domain.ChatConfig{Model: "deepseek-chat"}}, // dup backend
+			{ActionID: "local", Chat: &domain.ChatConfig{Model: "llama3.2:1b"}},   // local, no backend
+		},
+	}
+	_, backends := referencedConnectionsAndBackends(wf)
+	assert.Equal(t, []string{"deepseek"}, backends)
+}
+
+func TestScanWorkflows_NeedsToken(t *testing.T) {
+	withAPI := &domain.Workflow{
+		Settings: domain.WorkflowSettings{APIServer: &domain.APIServerConfig{}},
+	}
+	noAPI := &domain.Workflow{}
+
+	_, _, needsToken := scanWorkflows([]*domain.Workflow{withAPI})
+	assert.True(t, needsToken)
+
+	_, _, needsToken2 := scanWorkflows([]*domain.Workflow{noAPI})
+	assert.False(t, needsToken2)
+}
+
+// A missing cloud API key / api token in a non-terminal run must be a safe
+// no-op (never blocks on stdin).
+func TestEnsureWorkflowRuntimeConfig_CloudNoTerminal(t *testing.T) {
+	t.Setenv("KDEPS_CONFIG_PATH", t.TempDir()+"/config.yaml")
+	t.Setenv("DEEPSEEK_API_KEY", "")
+	t.Setenv("KDEPS_API_AUTH_TOKEN", "")
+	wf := &domain.Workflow{
+		Settings:  domain.WorkflowSettings{APIServer: &domain.APIServerConfig{}},
+		Resources: []*domain.Resource{{ActionID: "c", Chat: &domain.ChatConfig{Model: "deepseek-chat"}}},
+	}
+	require.NoError(t, ensureWorkflowRuntimeConfig(wf))
+}
+
+// ensureWorkflowRuntimeConfig must be a safe no-op when there is nothing missing
 // or when stdin is not a terminal (the test environment), never blocking on a
 // read.
 func TestEnsureWorkflowConnections_NoTerminalNoPrompt(t *testing.T) {
@@ -92,9 +130,9 @@ func TestEnsureWorkflowConnections_NoTerminalNoPrompt(t *testing.T) {
 			{ActionID: "q", SQL: &domain.SQLConfig{ConnectionName: "missing-db"}},
 		},
 	}
-	require.NoError(t, ensureWorkflowConnections(wf))
+	require.NoError(t, ensureWorkflowRuntimeConfig(wf))
 }
 
 func TestEnsureWorkflowConnections_NoRefs(t *testing.T) {
-	require.NoError(t, ensureWorkflowConnections(&domain.Workflow{}))
+	require.NoError(t, ensureWorkflowRuntimeConfig(&domain.Workflow{}))
 }

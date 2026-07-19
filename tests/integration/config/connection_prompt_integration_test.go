@@ -21,6 +21,7 @@ package config_test
 import (
 	"bufio"
 	"bytes"
+	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -66,4 +67,40 @@ func TestPromptAndSaveConnection_AppendsWithoutClobbering(t *testing.T) {
 	require.NoError(t, err)
 	assert.True(t, config.HasConnection(cfg, config.ConnKindSMTP, "out"))
 	assert.True(t, config.HasConnection(cfg, config.ConnKindIMAP, "in"))
+}
+
+// A missing cloud LLM key prompted at run time must be written to config.yaml
+// (and exported) so the chat resource can authenticate.
+func TestPromptAndSaveLLMKey_RoundTrip(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "config.yaml")
+	t.Setenv("KDEPS_CONFIG_PATH", path)
+	t.Setenv("DEEPSEEK_API_KEY", "")
+
+	var out bytes.Buffer
+	saved, err := config.PromptAndSaveLLMKey("deepseek", &out,
+		bufio.NewReader(strings.NewReader("sk-deepseek-rt\n")))
+	require.NoError(t, err)
+	require.True(t, saved)
+
+	cfg, err := config.LoadStruct()
+	require.NoError(t, err)
+	assert.True(t, config.HasLLMKey(cfg, "deepseek"))
+	assert.Equal(t, "sk-deepseek-rt", os.Getenv("DEEPSEEK_API_KEY"))
+}
+
+// A missing apiServer token prompted at run time must be written to config.yaml.
+func TestPromptAndSaveAPIToken_RoundTrip(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "config.yaml")
+	t.Setenv("KDEPS_CONFIG_PATH", path)
+	t.Setenv("KDEPS_API_AUTH_TOKEN", "")
+
+	var out bytes.Buffer
+	token, err := config.PromptAndSaveAPIToken(&out,
+		bufio.NewReader(strings.NewReader("integration-token\n")))
+	require.NoError(t, err)
+	assert.Equal(t, "integration-token", token)
+
+	cfg, err := config.LoadStruct()
+	require.NoError(t, err)
+	assert.True(t, config.HasAPIToken(cfg))
 }

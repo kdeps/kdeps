@@ -228,10 +228,10 @@ func promptSecret(w *fmtWriter, in *bufio.Reader, label string) (string, error) 
 	return strings.TrimSpace(secret), err
 }
 
-// injectConnection adds/overwrites config.yaml's <topKey>.<name> entry with
-// value, preserving all other content and comments via a yaml.Node round-trip.
-// When the file does not exist, a new minimal file is created.
-func injectConnection(path, topKey, name string, value any) error {
+// editConfigFile applies edit to config.yaml's top-level mapping node,
+// preserving all other content and comments via a yaml.Node round-trip. When
+// the file does not exist, a new minimal file is created.
+func editConfigFile(path string, edit func(doc *yaml.Node)) error {
 	var root yaml.Node
 	if data, err := afero.ReadFile(AppFS, path); err == nil {
 		if unmarshalErr := yaml.Unmarshal(data, &root); unmarshalErr != nil {
@@ -239,15 +239,7 @@ func injectConnection(path, topKey, name string, value any) error {
 		}
 	}
 
-	doc := ensureMappingDocument(&root)
-
-	valueNode, err := nodeFromValue(value)
-	if err != nil {
-		return err
-	}
-
-	section := findOrCreateMapEntry(doc, topKey)
-	setMapEntry(section, name, valueNode)
+	edit(ensureMappingDocument(&root))
 
 	out, err := yaml.Marshal(&root)
 	if err != nil {
@@ -257,6 +249,36 @@ func injectConnection(path, topKey, name string, value any) error {
 		return fmt.Errorf("create config dir: %w", mkErr)
 	}
 	return afero.WriteFile(AppFS, path, out, configFilePerm)
+}
+
+// injectConnection adds/overwrites config.yaml's <topKey>.<name> mapping entry.
+func injectConnection(path, topKey, name string, value any) error {
+	valueNode, err := nodeFromValue(value)
+	if err != nil {
+		return err
+	}
+	return editConfigFile(path, func(doc *yaml.Node) {
+		setMapEntry(findOrCreateMapEntry(doc, topKey), name, valueNode)
+	})
+}
+
+// injectNestedScalar sets config.yaml's <topKey>.<key> to a string scalar.
+func injectNestedScalar(path, topKey, key, value string) error {
+	return editConfigFile(path, func(doc *yaml.Node) {
+		setMapEntry(findOrCreateMapEntry(doc, topKey), key, scalarNode(value))
+	})
+}
+
+// injectTopLevelScalar sets config.yaml's top-level <key> to a string scalar.
+func injectTopLevelScalar(path, key, value string) error {
+	return editConfigFile(path, func(doc *yaml.Node) {
+		setMapEntry(doc, key, scalarNode(value))
+	})
+}
+
+// scalarNode builds a double-quoted string scalar node.
+func scalarNode(v string) *yaml.Node {
+	return &yaml.Node{Kind: yaml.ScalarNode, Tag: "!!str", Value: v, Style: yaml.DoubleQuotedStyle}
 }
 
 // ensureMappingDocument returns the top-level mapping node of a document,
