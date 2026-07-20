@@ -161,3 +161,19 @@ func TestResolveAPIToken_Missing(t *testing.T) {
 	assert.True(t, resolveAPIToken(&config.Config{}, true))
 	assert.False(t, resolveAPIToken(&config.Config{}, false)) // apiServer not configured
 }
+
+// A connection present via env vars must not be reported as missing (no prompt).
+func TestResolveConnections_EnvNotMissing(t *testing.T) {
+	t.Setenv("KDEPS_SQL_CONNECTIONS_MAIN_CONNECTION", "env-dsn")
+	cfg := &config.Config{
+		SQLConnections: map[string]config.SQLConnectionConfig{"main": {Connection: "env-dsn"}},
+	}
+	missing := resolveConnections(cfg, []connRef{{config.ConnKindSQL, "main"}})
+	assert.Empty(t, missing)
+}
+
+func TestResolveConnections_Missing(t *testing.T) {
+	t.Setenv("KDEPS_SQL_CONNECTIONS_MAIN_CONNECTION", "")
+	missing := resolveConnections(&config.Config{}, []connRef{{config.ConnKindSQL, "main"}})
+	assert.Equal(t, []connRef{{config.ConnKindSQL, "main"}}, missing)
+}

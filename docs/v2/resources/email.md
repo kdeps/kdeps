@@ -59,6 +59,39 @@ This is interactive-only: when stdin is not a terminal (CI, pipes), kdeps skips 
 
 Values already provided by an environment variable (e.g. `DEEPSEEK_API_KEY`, `KDEPS_API_AUTH_TOKEN`) are never prompted for and never written to `config.yaml`; kdeps prints a notice that it is using the value from the environment.
 
+### Set connections via environment variables
+
+Every named connection can be supplied entirely from the environment — no `config.yaml` entry needed — using the convention `KDEPS_<KIND>_CONNECTIONS_<NAME>_<FIELD>`. The name is matched case-insensitively and used lowercased, so reference it in lowercase in resources (`connectionName: default`, `smtpConnection: alerts`). Env values win over `config.yaml`, per field:
+
+```bash
+# smtp_connections.alerts
+export KDEPS_SMTP_CONNECTIONS_ALERTS_HOST=smtp.gmail.com
+export KDEPS_SMTP_CONNECTIONS_ALERTS_PORT=587
+export KDEPS_SMTP_CONNECTIONS_ALERTS_USERNAME=bot@example.com
+export KDEPS_SMTP_CONNECTIONS_ALERTS_PASSWORD=app-password
+export KDEPS_SMTP_CONNECTIONS_ALERTS_TLS=true
+
+# imap_connections.inbox  (same fields; plus INSECURE_SKIP_VERIFY)
+export KDEPS_IMAP_CONNECTIONS_INBOX_HOST=imap.gmail.com
+
+# sql_connections.main
+export KDEPS_SQL_CONNECTIONS_MAIN_CONNECTION="postgres://user:pass@host/db"
+
+# search_connections.web
+export KDEPS_SEARCH_CONNECTIONS_WEB_API_KEY=sk-...
+
+# http_connections.api  (PROXY, or AUTH_TYPE / AUTH_USERNAME / AUTH_PASSWORD /
+#                         AUTH_TOKEN / AUTH_KEY / AUTH_VALUE)
+export KDEPS_HTTP_CONNECTIONS_API_AUTH_TYPE=bearer
+export KDEPS_HTTP_CONNECTIONS_API_AUTH_TOKEN=tok-123
+
+# bot_connections (fixed platforms)
+export KDEPS_BOT_CONNECTIONS_SLACK_BOT_TOKEN=xoxb-...
+export KDEPS_BOT_CONNECTIONS_DISCORD_BOT_TOKEN=...
+```
+
+Env-supplied connections are picked up automatically at run time (not prompted, not written to `config.yaml`); kdeps prints a notice that it is using the connection from the environment. This is the CI-friendly way to inject connection secrets.
+
 ## Sending Email
 
 <div v-pre>

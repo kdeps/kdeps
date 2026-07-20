@@ -69,6 +69,26 @@ func TestPromptAndSaveConnection_AppendsWithoutClobbering(t *testing.T) {
 	assert.True(t, config.HasConnection(cfg, config.ConnKindIMAP, "in"))
 }
 
+// A named connection supplied entirely via environment variables must load
+// into the Config struct so executors and the pre-flight see it.
+func TestConnectionEnvOverride_RoundTrip(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "config.yaml")
+	t.Setenv("KDEPS_CONFIG_PATH", path)
+	t.Setenv("KDEPS_SMTP_CONNECTIONS_ALERTS_HOST", "smtp.example.com")
+	t.Setenv("KDEPS_SMTP_CONNECTIONS_ALERTS_PORT", "465")
+	t.Setenv("KDEPS_SMTP_CONNECTIONS_ALERTS_USERNAME", "bot@example.com")
+	t.Setenv("KDEPS_SMTP_CONNECTIONS_ALERTS_PASSWORD", "s3cret")
+	t.Setenv("KDEPS_SMTP_CONNECTIONS_ALERTS_TLS", "true")
+
+	cfg, err := config.LoadStruct()
+	require.NoError(t, err)
+	require.True(t, config.HasConnection(cfg, config.ConnKindSMTP, "alerts"))
+	assert.Equal(t, "smtp.example.com", cfg.SMTPConnections["alerts"].Host)
+	assert.Equal(t, 465, cfg.SMTPConnections["alerts"].Port)
+	assert.Equal(t, "s3cret", cfg.SMTPConnections["alerts"].Password)
+	assert.True(t, config.ConnectionInEnv(config.ConnKindSMTP, "alerts"))
+}
+
 // A missing cloud LLM key prompted at run time must be written to config.yaml
 // (and exported) so the chat resource can authenticate.
 func TestPromptAndSaveLLMKey_RoundTrip(t *testing.T) {

@@ -53,7 +53,7 @@ func ensureWorkflowRuntimeConfig(workflows ...*domain.Workflow) error {
 		cfg = &config.Config{}
 	}
 
-	missingConns := filterMissingConnections(cfg, refs)
+	missingConns := resolveConnections(cfg, refs)
 	missingKeys := resolveLLMKeys(cfg, modelBackends)
 	setBackend := !config.DefaultBackendConfigured(cfg) && len(modelBackends) == 1
 	missingToken := resolveAPIToken(cfg, needsToken)
@@ -135,12 +135,20 @@ func scanWorkflows(workflows []*domain.Workflow) ([]connRef, []string, bool) {
 	return refs, modelBackends, needsToken
 }
 
-// filterMissingConnections returns the referenced connections absent from cfg.
-func filterMissingConnections(cfg *config.Config, refs []connRef) []connRef {
+// resolveConnections returns the referenced connections that still need a
+// prompt. Connections present in config.yaml pass silently; connections
+// supplied by environment variables are announced (not prompted, not re-saved).
+func resolveConnections(cfg *config.Config, refs []connRef) []connRef {
 	var missing []connRef
 	for _, r := range refs {
 		if !config.HasConnection(cfg, r.kind, r.name) {
 			missing = append(missing, r)
+			continue
+		}
+		if config.ConnectionInEnv(r.kind, r.name) {
+			fmt.Fprintf(os.Stdout,
+				"  ✓ %s connection %q detected in environment — using it, not saving to config.yaml\n",
+				r.kind, r.name)
 		}
 	}
 	return missing

@@ -115,6 +115,26 @@ else
     test_passed "Present connection - resolved from config.yaml (no not-found error)"
 fi
 
+# --- Test 2b: connection supplied entirely via env vars ----------------------
+# The workflow references sql connection "missingdb"; provide it from the env.
+OUT2B=$(timeout 60 env KDEPS_CONFIG_PATH="$CFG" KDEPS_SKIP_BOOTSTRAP=1 \
+    KDEPS_SQL_CONNECTIONS_MISSINGDB_CONNECTION="file::memory:?cache=shared" \
+    "$KDEPS_BIN" run "$WORK/agent/workflow.yaml" --file /dev/null < /dev/null 2>&1)
+
+if output_grep "not found in config.yaml sql_connections" "$OUT2B"; then
+    test_failed "Env connection - not resolved from environment" \
+        "$(printf '%s' "$OUT2B" | tr '\n' ' ' | cut -c1-300)"
+else
+    test_passed "Env connection - resolved from environment (no not-found error)"
+fi
+
+if output_grep "detected in environment" "$OUT2B"; then
+    test_passed "Env connection - announced as coming from the environment"
+else
+    test_failed "Env connection - expected 'detected in environment' notice" \
+        "$(printf '%s' "$OUT2B" | tr '\n' ' ' | cut -c1-300)"
+fi
+
 # --- Test 3: apiServer without a token, non-interactive ----------------------
 # A missing api_auth_token must NOT be fabricated when stdin is not a terminal.
 PORT=$(( 20000 + RANDOM % 20000 ))

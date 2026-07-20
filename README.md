@@ -455,6 +455,8 @@ This is interactive-only — when stdin is not a terminal (CI, pipes), prompts a
 
 Values already supplied by an environment variable (e.g. `DEEPSEEK_API_KEY`, `KDEPS_API_AUTH_TOKEN`) are **not** prompted for and **not** written to `config.yaml` — kdeps prints a notice that the value is being used from the environment.
 
+**Everything is env-overridable.** Named connections can be supplied entirely from the environment with the convention `KDEPS_<KIND>_CONNECTIONS_<NAME>_<FIELD>` (e.g. `KDEPS_SQL_CONNECTIONS_MAIN_CONNECTION`, `KDEPS_SMTP_CONNECTIONS_ALERTS_HOST`) — no `config.yaml` entry needed. Env values win per field; connection names are lowercased. See the [connections env-var reference](https://kdeps.com/resources/email.html#set-connections-via-environment-variables).
+
 ## Security
 
 When `apiServer` is configured, authentication is required. Set the token via `KDEPS_API_AUTH_TOKEN` or `api_auth_token` in `~/.kdeps/config.yaml` (never in `workflow.yaml`). Clients send `Authorization: Bearer <token>` or `X-Api-Key: <token>`. `/health` is exempt. `/_kdeps/*` management routes use `KDEPS_MANAGEMENT_TOKEN`.

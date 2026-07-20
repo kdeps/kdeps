@@ -159,22 +159,28 @@ func knownConfigEnvVars() []string {
 	return vars
 }
 
-// load reads and parses config.yaml without applying env vars.
+// load reads and parses config.yaml, then overlays connection values supplied
+// via environment variables. Env overrides apply even when config.yaml is
+// absent, so connections can be provided entirely from the environment.
 func load() (*Config, error) {
+	cfg := &Config{}
+
 	path, err := Path()
 	if err != nil {
-		return &Config{}, nil //nolint:nilerr // home dir failure is non-fatal
+		applyConnectionEnvOverrides(cfg)
+		return cfg, nil //nolint:nilerr // home dir failure is non-fatal
 	}
 	data, err := afero.ReadFile(AppFS, path)
-	if errors.Is(err, os.ErrNotExist) {
-		return &Config{}, nil
-	}
-	if err != nil {
+	switch {
+	case errors.Is(err, os.ErrNotExist):
+		// no file — env-only config
+	case err != nil:
 		return nil, fmt.Errorf("read %s: %w", path, err)
+	default:
+		if unmarshalErr := yaml.Unmarshal(data, cfg); unmarshalErr != nil {
+			return nil, fmt.Errorf("parse %s: %w", path, unmarshalErr)
+		}
 	}
-	var cfg Config
-	if unmarshalErr := yaml.Unmarshal(data, &cfg); unmarshalErr != nil {
-		return nil, fmt.Errorf("parse %s: %w", path, unmarshalErr)
-	}
-	return &cfg, nil
+	applyConnectionEnvOverrides(cfg)
+	return cfg, nil
 }
