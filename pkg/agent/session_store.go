@@ -186,7 +186,7 @@ func (s *SessionStore) Load(id string) (*Session, error) {
 		found = true
 		var entries []sessionEntry
 		if json.Unmarshal(data, &entries) != nil {
-			return nil //nolint:nilerr
+			return nil //nolint:nilerr // corrupt entry in bbolt, skip
 		}
 		for _, e := range entries {
 			if e.Type == "message" && e.Role != "" {
@@ -221,7 +221,7 @@ func (s *SessionStore) loadMetaLocked(id string) (*SessionMetadata, error) {
 		}
 		var entries []sessionEntry
 		if json.Unmarshal(data, &entries) != nil || len(entries) == 0 {
-			return nil //nolint:nilerr
+			return nil //nolint:nilerr // corrupt entry in bbolt, skip
 		}
 		e := entries[0]
 		if e.Type != "session_meta" {
@@ -404,7 +404,7 @@ func loadMetaFromJSONL(path, id string) (*SessionMetadata, error) {
 	defer f.Close()
 
 	var firstLine []byte
-	buf := make([]byte, 4096) //nolint:mnd
+	buf := make([]byte, 4096) //nolint:mnd // read buffer for JSONL header
 	n, _ := f.Read(buf)
 	for i := range n {
 		if buf[i] == '\n' {

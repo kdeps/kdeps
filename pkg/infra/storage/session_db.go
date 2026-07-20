@@ -23,6 +23,7 @@ package storage
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -353,7 +354,7 @@ func (s *SessionStorage) GetAll() (map[string]interface{}, error) {
 		for k, v := c.Seek(prefix); k != nil && len(k) >= len(prefix) && string(k[:len(prefix)]) == string(prefix); k, v = c.Next() {
 			var entry sessionEntry
 			if json.Unmarshal(v, &entry) != nil {
-				return fmt.Errorf("failed to scan row")
+				return errors.New("failed to scan row")
 			}
 			if entry.ExpiresAt > 0 && now > entry.ExpiresAt {
 				continue

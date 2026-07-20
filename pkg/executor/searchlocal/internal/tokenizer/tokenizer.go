@@ -44,7 +44,7 @@ func NewTokenizer() *Tokenizer {
 	}
 
 	return &Tokenizer{
-		minWordLength: 2,
+		minWordLength: 2, //nolint:mnd // minimum token length
 		stopWords:     stopWords,
 		wordPattern:   regexp.MustCompile(`\w+`),
 	}
