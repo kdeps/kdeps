@@ -49,31 +49,6 @@ func TestParseOnOff(t *testing.T) {
 	assert.False(t, ok, "unknown value not recognized")
 }
 
-func TestToolSetting_Autokill_MutualExclusion(t *testing.T) {
-	cfg := &Config{AutoStallAllocation: true}
-	msg, errMsg := toolSettingAppliers["autokill"](cfg, "on")
-	assert.Empty(t, errMsg)
-	assert.Contains(t, msg, "Autokill on")
-	assert.True(t, cfg.AutoStallKill)
-	assert.False(t, cfg.AutoStallAllocation, "autokill on disables auto-increase")
-
-	_, errMsg = toolSettingAppliers["autokill"](cfg, "off")
-	assert.Empty(t, errMsg)
-	assert.False(t, cfg.AutoStallKill)
-	assert.True(t, cfg.AutoStallAllocation, "autokill off re-enables auto-increase")
-
-	_, errMsg = toolSettingAppliers["autokill"](cfg, "bogus")
-	assert.NotEmpty(t, errMsg, "invalid value rejected")
-}
-
-func TestPromptStallOptions_Autokill(t *testing.T) {
-	l := &Loop{config: Config{AutoStallKill: true, ToolStallTimeout: 10 * time.Minute}}
-	var buf strings.Builder
-	retry := l.promptStallOptions(&buf, "bash_exec", 10*time.Minute)
-	assert.False(t, retry, "autokill kills, does not retry")
-	assert.Contains(t, buf.String(), "autokill")
-}
-
 func TestToolArgHint(t *testing.T) {
 	assert.Equal(t, "echo hi", toolArgHint(map[string]any{toolParamCommand: "echo hi"}))
 	assert.Equal(t, "https://example.com", toolArgHint(map[string]any{toolParamURL: "https://example.com"}))
@@ -361,21 +336,17 @@ func TestDrawSpinnerFrames_SkipSuppressesOutput(t *testing.T) {
 func TestToolTuning_SnapshotApplyRoundTrip(t *testing.T) {
 	r := &REPL{loop: &Loop{config: Config{
 		MaxToolRounds: 80, AutoRetryMax: 3, AutoRetryBaseDelay: 2 * time.Second,
-		ToolStallTimeout: 15 * time.Minute, AutoStallKill: true, AutoStallAllocation: false,
+		ToolStallTimeout: 15 * time.Minute,
 		AutoCompactThreshold: 40000, CompactTokenBudget: 8000, MaxTurns: 50, MaxHistoryTokens: 100000,
 	}}}
 	snap := r.toolTuningSnapshot()
 	assert.Equal(t, 80, snap.MaxToolRounds)
 	assert.Equal(t, "15m0s", snap.ToolStallTimeout)
-	assert.True(t, snap.AutoStallKill)
-	assert.False(t, snap.AutoStallAllocation)
 
 	r2 := &REPL{loop: &Loop{config: Config{}}}
 	r2.applyToolTuning(snap)
 	assert.Equal(t, 80, r2.loop.config.MaxToolRounds)
 	assert.Equal(t, 15*time.Minute, r2.loop.config.ToolStallTimeout)
-	assert.True(t, r2.loop.config.AutoStallKill)
-	assert.False(t, r2.loop.config.AutoStallAllocation)
 }
 
 func TestToolTuning_StallOffRoundTrip(t *testing.T) {

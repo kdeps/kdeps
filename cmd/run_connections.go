@@ -62,6 +62,7 @@ func ensureWorkflowRuntimeConfig(workflows ...*domain.Workflow) error {
 		return nil
 	}
 	if !config.CanPromptForConnections() {
+		printMissingConnectionEnvVars(missingConns, missingKeys, setBackend, missingToken, modelBackends)
 		return nil
 	}
 
@@ -205,7 +206,9 @@ func referencedConnections(wf *domain.Workflow) []connRef {
 // resources reference (primary action plus before/after action lists) and the
 // distinct cloud LLM backends implied by their chat models, deduplicated.
 // Components resolve at execution time, so the resources of any component the
-// workflow calls via a `component:` action are scanned too.
+// workflow calls via a `component:` action are scanned too. Bot connections
+// are inferred from the workflow's settings.input.bot config, not from
+// resource-level connectionName fields.
 func referencedConnectionsAndBackends(wf *domain.Workflow) ([]connRef, []string) {
 	if wf == nil {
 		return nil, nil
@@ -217,7 +220,65 @@ func referencedConnectionsAndBackends(wf *domain.Workflow) ([]connRef, []string)
 			c.scanList(comp.Resources)
 		}
 	}
+	// Scan settings.input.bot for bot platform connections.
+	if wf.Settings.Input != nil && wf.Settings.Input.Bot != nil {
+		c.scanBotConfig(wf.Settings.Input.Bot)
+	}
 	return c.refs, c.backends
+}
+
+// printMissingConnectionEnvVars prints the environment variables to set for
+// each missing connection, key, and token when running in non-interactive mode.
+func printMissingConnectionEnvVars(
+	missingConns []connRef,
+	missingKeys []string,
+	setBackend bool,
+	missingToken bool,
+	modelBackends []string,
+) {
+	if len(missingConns) == 0 && len(missingKeys) == 0 && !setBackend && !missingToken {
+		return
+	}
+
+	fmt.Fprint(os.Stderr, "\n--- Missing runtime configuration ---\n")
+	fmt.Fprint(os.Stderr, "Set these environment variables or run 'kdeps env' to generate them:\n\n")
+
+	for _, r := range missingConns {
+		fields := config.ConnectionEnvFields(nil, r.kind, r.name)
+		if len(fields) == 0 {
+			continue
+		}
+		fmt.Fprintf(os.Stderr, "# %s connection %q\n", r.kind, r.name)
+		for _, f := range fields {
+			if f.Secret {
+				fmt.Fprintf(os.Stderr, "export %s=<secret>\n", f.Name)
+			} else {
+				fmt.Fprintf(os.Stderr, "export %s=%s\n", f.Name, f.Default)
+			}
+		}
+		fmt.Fprintln(os.Stderr)
+	}
+
+	for _, b := range missingKeys {
+		_, envVar := config.LLMKeySource(nil, b)
+		if envVar == "" {
+			continue
+		}
+		fmt.Fprintf(os.Stderr, "# %s API key\n", b)
+		fmt.Fprintf(os.Stderr, "export %s=<api-key>\n\n", envVar)
+	}
+
+	if setBackend && len(modelBackends) == 1 {
+		fmt.Fprintf(os.Stderr, "# default model backend\n")
+		fmt.Fprintf(os.Stderr, "export KDEPS_MODEL_DEFAULT_BACKEND=%s\n\n", modelBackends[0])
+	}
+
+	if missingToken {
+		fmt.Fprint(os.Stderr, "# api server auth token\n")
+		fmt.Fprint(os.Stderr, "export KDEPS_API_AUTH_TOKEN=<token>\n\n")
+	}
+
+	fmt.Fprintln(os.Stderr, "---")
 }
 
 // connCollector accumulates deduplicated connection references, cloud LLM
@@ -266,6 +327,23 @@ func (c *connCollector) scanList(resources []*domain.Resource) {
 			a := res.After[i]
 			c.scanAction(a.Chat, a.HTTPClient, a.SQL, a.SearchWeb, a.Email, a.Component)
 		}
+	}
+}
+
+// scanBotConfig registers each bot platform referenced in a workflow's input
+// bot config as a "bot" connection reference.
+func (c *connCollector) scanBotConfig(botCfg *domain.BotConfig) {
+	if botCfg.Discord != nil {
+		c.add(config.ConnKindBot, "discord")
+	}
+	if botCfg.Slack != nil {
+		c.add(config.ConnKindBot, "slack")
+	}
+	if botCfg.Telegram != nil {
+		c.add(config.ConnKindBot, "telegram")
+	}
+	if botCfg.WhatsApp != nil {
+		c.add(config.ConnKindBot, "whatsapp")
 	}
 }
 

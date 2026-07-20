@@ -21,46 +21,42 @@
 package storage
 
 import (
-	"database/sql"
 	"errors"
+	"os"
 	"testing"
 	"time"
 
-	_ "github.com/mattn/go-sqlite3"
+	bolt "go.etcd.io/bbolt"
+
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
-// TestNewMemoryStorage_EnvDBPath verifies that KDEPS_MEMORY_DB_PATH env var
-// is used when an empty path is passed to NewMemoryStorage.
 func TestEnsureMemoryDBDirectory_RootPaths(t *testing.T) {
 	require.NoError(t, ensureMemoryDBDirectory(":memory:"))
 	require.NoError(t, ensureMemoryDBDirectory("local.db"))
 	require.NoError(t, ensureMemoryDBDirectory("/memory.db"))
 }
 
-// TestNewMemoryStorage_SQLOpenError verifies the error path when sql.Open fails.
-func TestNewMemoryStorage_SQLOpenError(t *testing.T) {
-	origSQLOpen := sqlOpen
-	sqlOpen = func(_, _ string) (*sql.DB, error) {
-		return nil, errors.New("mock sql open error")
+func TestNewMemoryStorage_BoltOpenError(t *testing.T) {
+	origBoltOpen := boltOpen
+	boltOpen = func(_ string, _ os.FileMode, _ *bolt.Options) (*bolt.DB, error) {
+		return nil, errors.New("mock bolt open error")
 	}
-	defer func() { sqlOpen = origSQLOpen }()
+	t.Cleanup(func() { boltOpen = origBoltOpen })
 
-	s, err := NewMemoryStorage(":memory:")
+	s, err := NewMemoryStorage(t.TempDir() + "/nonexistent/test.db")
 	require.Error(t, err)
 	assert.Nil(t, s)
 	assert.Contains(t, err.Error(), "failed to open database")
 }
 
-// TestNewSessionStorageWithTTL_SQLOpenError verifies the error path in
-// NewSessionStorageWithTTL when sql.Open fails.
-func TestNewSessionStorageWithTTL_SQLOpenError(t *testing.T) {
-	origSQLOpen := sqlOpen
-	sqlOpen = func(_, _ string) (*sql.DB, error) {
-		return nil, errors.New("mock sql open error")
+func TestNewSessionStorageWithTTL_BoltOpenError(t *testing.T) {
+	origBoltOpen := boltOpen
+	boltOpen = func(_ string, _ os.FileMode, _ *bolt.Options) (*bolt.DB, error) {
+		return nil, errors.New("mock bolt open error")
 	}
-	defer func() { sqlOpen = origSQLOpen }()
+	t.Cleanup(func() { boltOpen = origBoltOpen })
 
 	s, err := NewSessionStorageWithTTL(sqliteMemoryDSN, "test", time.Hour)
 	require.Error(t, err)

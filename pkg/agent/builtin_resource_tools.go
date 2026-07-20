@@ -89,8 +89,13 @@ func registerHTTPTool(_ context.Context, reg *kdepstools.Registry) {
 }
 
 // registerSearchLocalTool registers a local file search tool (search_local).
+// On registration, it automatically indexes the current working directory
+// so that subsequent searches can use the persistent inverted index.
 func registerSearchLocalTool(_ context.Context, reg *kdepstools.Registry) {
 	exec := execSearch.NewExecutor()
+
+	// Index the current working directory on startup.
+	exec.StartIndex("")
 
 	reg.Register(&kdepstools.Tool{
 		Name:        toolNameSearchLocal,

@@ -289,3 +289,4 @@ book
 __pycache__/
 pkg/executor/embedding/models/
 .tmp/
+ai-email-client

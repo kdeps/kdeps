@@ -19,7 +19,6 @@
 package storage_test
 
 import (
-	"database/sql"
 	"os"
 	"path/filepath"
 	"testing"
@@ -27,6 +26,8 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	bolt "go.etcd.io/bbolt"
 
 	"github.com/kdeps/kdeps/v2/pkg/infra/storage"
 )
@@ -163,16 +164,12 @@ func TestSessionStorage_Get_JSONUnmarshalFallback(t *testing.T) {
 		_ = storage.Close()
 	}()
 
-	// Manually insert invalid JSON to test fallback to string
-	_, err = storage.DB.Exec(
-		"INSERT INTO sessions (session_id, key, value, created_at) VALUES (?, ?, ?, ?)",
-		"test-session",
-		"invalid_json",
-		"{invalid json",
-		time.Now().UnixMilli(),
-	)
-	require.NoError(t, err)
-
+		// Manually insert invalid JSON via bbolt
+		err = storage.DB.Update(func(tx *bolt.Tx) error {
+			raw := []byte(`{"value":"{invalid json","created_at":1,"accessed_at":1}`)
+			return tx.Bucket([]byte("sessions")).Put([]byte("test-session:invalid_json"), raw)
+		})
+		require.NoError(t, err)
 	// Get should return the invalid JSON as a string
 	value, exists := storage.Get("invalid_json")
 	assert.True(t, exists)
@@ -221,52 +218,31 @@ func TestSessionStorage_SetWithTTL_NegativeTTL(t *testing.T) {
 	assert.Equal(t, "value", value)
 }
 
-func TestSessionStorage_InitSchema_Migration(t *testing.T) {
+func TestSessionStorage_PreExistingDB(t *testing.T) {
 	tmpDir := t.TempDir()
 	dbPath := filepath.Join(tmpDir, "test.db")
 
-	// Create a database with old schema (missing expires_at and accessed_at columns)
-	db, err := sql.Open("sqlite3", dbPath)
+	db, err := bolt.Open(dbPath, 0600, nil)
 	require.NoError(t, err)
-
-	// Create table with old schema (missing expires_at and accessed_at)
-	_, err = db.Exec(`
-		CREATE TABLE sessions (
-			session_id TEXT NOT NULL,
-			key TEXT NOT NULL,
-			value TEXT NOT NULL,
-			created_at INTEGER NOT NULL DEFAULT (strftime('%s', 'now') * 1000),
-			PRIMARY KEY (session_id, key)
-		);
-	`)
-	require.NoError(t, err)
-
-	// Insert some test data
-	_, err = db.Exec(`
-		INSERT INTO sessions (session_id, key, value, created_at)
-		VALUES (?, ?, ?, ?)`,
-		"old-session", "test-key", "test-value", time.Now().UnixMilli())
-	require.NoError(t, err)
-
+	_ = db.Update(func(tx *bolt.Tx) error {
+		b, _ := tx.CreateBucketIfNotExists([]byte("sessions"))
+		raw := []byte(`{"value":"\"test-value\"","created_at":1,"accessed_at":1}`)
+		return b.Put([]byte("old-session:test-key"), raw)
+	})
 	_ = db.Close()
 
-	// Now create SessionStorage - this should trigger the migration logic
-	storage, err := storage.NewSessionStorage(dbPath, "old-session")
+	store, err := storage.NewSessionStorage(dbPath, "old-session")
 	require.NoError(t, err)
-	defer func() {
-		_ = storage.Close()
-	}()
+	defer func() { _ = store.Close() }()
 
-	// Verify the data is still accessible after migration
-	value, exists := storage.Get("test-key")
+	value, exists := store.Get("test-key")
 	assert.True(t, exists)
 	assert.Equal(t, "test-value", value)
 
-	// Test that new columns work
-	err = storage.SetWithTTL("new-key", "new-value", time.Hour)
+	err = store.SetWithTTL("new-key", "new-value", time.Hour)
 	require.NoError(t, err)
 
-	value, exists = storage.Get("new-key")
+	value, exists = store.Get("new-key")
 	assert.True(t, exists)
 	assert.Equal(t, "new-value", value)
 }
@@ -482,15 +458,12 @@ func TestSessionStorage_GetAll_InvalidJSON(t *testing.T) {
 		_ = storage.Close()
 	}()
 
-	// Manually insert invalid JSON
-	_, err = storage.DB.Exec(
-		"INSERT INTO sessions (session_id, key, value, created_at) VALUES (?, ?, ?, ?)",
-		"test-session",
-		"invalid_json",
-		"{invalid json",
-		time.Now().UnixMilli(),
-	)
-	require.NoError(t, err)
+		// Manually insert invalid JSON via bbolt
+		err = storage.DB.Update(func(tx *bolt.Tx) error {
+			raw := []byte(`{"value":"{invalid json","created_at":1,"accessed_at":1}`)
+			return tx.Bucket([]byte("sessions")).Put([]byte("test-session:invalid_json"), raw)
+		})
+		require.NoError(t, err)
 
 	// GetAll should return invalid JSON as string
 	all, err := storage.GetAll()

@@ -21,30 +21,33 @@
 package storage
 
 import (
-	"context"
-	"database/sql"
 	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
 	"sync"
+	"time"
+
+	bolt "go.etcd.io/bbolt"
 
 	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
-
-	_ "github.com/mattn/go-sqlite3" // SQLite driver for database connectivity
 )
 
-// sqlOpen is a test hook for database/sql.Open.
+// boltOpen is a test hook for bolt.Open.
 //
 //nolint:gochecknoglobals // overridden in tests to inject Open errors
-var sqlOpen = sql.Open
+var boltOpen = bolt.Open
 
-// MemoryStorage provides persistent key-value storage using SQLite.
+// MemoryBucket is the bbolt bucket name for the memory store.
+//
+//nolint:gochecknoglobals // exported for test access
+var MemoryBucket = []byte("memory")
+
+// MemoryStorage provides persistent key-value storage using bbolt.
 type MemoryStorage struct {
-	DB   *sql.DB
+	DB   *bolt.DB
 	mu   sync.RWMutex
 	path string
-	ctx  context.Context
 }
 
 func resolveMemoryDBPath(dbPath string) string {
@@ -67,9 +70,29 @@ func ensureMemoryDBDirectory(dbPath string) error {
 	}
 	dir := filepath.Dir(dbPath)
 	if dir == "." || dir == "/" {
+		// "." means file will be created in cwd — ensure the dir exists.
 		return nil
 	}
 	return os.MkdirAll(dir, 0750)
+}
+
+func effectiveMemoryPath(dbPath string) (string, error) {
+	if dbPath == ":memory:" {
+		f, err := os.CreateTemp("", "kdeps-memory-*.db")
+		if err != nil {
+			return "", fmt.Errorf("failed to create temp file: %w", err)
+		}
+		path := f.Name()
+		_ = f.Close()
+		return path, nil
+	}
+	return dbPath, nil
+}
+
+type memoryEntry struct {
+	Value     string `json:"value"`
+	CreatedAt int64  `json:"created_at"`
+	UpdatedAt int64  `json:"updated_at"`
 }
 
 func decodeMemoryValue(valueStr string) interface{} {
@@ -85,43 +108,31 @@ func NewMemoryStorage(dbPath string) (*MemoryStorage, error) {
 	kdeps_debug.Log("enter: NewMemoryStorage")
 	dbPath = resolveMemoryDBPath(dbPath)
 
+	effectivePath, pathErr := effectiveMemoryPath(dbPath)
+	if pathErr != nil {
+		return nil, pathErr
+	}
+	dbPath = effectivePath
+
 	if err := ensureMemoryDBDirectory(dbPath); err != nil {
 		return nil, fmt.Errorf("failed to create directory: %w", err)
 	}
 
-	db, err := sqlOpen("sqlite3", dbPath+"?_journal_mode=WAL")
+	db, err := boltOpen(dbPath, 0600, nil) //nolint:mnd // DB file permissions
 	if err != nil {
 		return nil, fmt.Errorf("failed to open database: %w", err)
 	}
 
-	storage := &MemoryStorage{
-		DB:   db,
-		path: dbPath,
-		ctx:  context.Background(),
+	// Create bucket on first open.
+	if bucketErr := db.Update(func(tx *bolt.Tx) error {
+		_, cerr := tx.CreateBucketIfNotExists(MemoryBucket)
+		return cerr
+	}); bucketErr != nil {
+		_ = db.Close()
+		return nil, fmt.Errorf("failed to initialize schema: %w", bucketErr)
 	}
 
-	if initErr := storage.initSchema(); initErr != nil {
-		return nil, fmt.Errorf("failed to initialize schema: %w", initErr)
-	}
-
-	return storage, nil
-}
-
-// initSchema initializes the database schema.
-func (m *MemoryStorage) initSchema() error {
-	kdeps_debug.Log("enter: initSchema")
-	query := `
-	CREATE TABLE IF NOT EXISTS memory (
-		key TEXT PRIMARY KEY,
-		value TEXT NOT NULL,
-		created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-		updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
-	);
-	
-	CREATE INDEX IF NOT EXISTS idx_memory_updated_at ON memory(updated_at);
-	`
-	_, err := m.DB.ExecContext(m.ctx, query)
-	return err
+	return &MemoryStorage{DB: db, path: dbPath}, nil
 }
 
 // Get retrieves a value from memory.
@@ -130,17 +141,18 @@ func (m *MemoryStorage) Get(key string) (interface{}, bool) {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 
-	var valueStr string
-	err := m.DB.QueryRowContext(m.ctx, "SELECT value FROM memory WHERE key = ?", key).
-		Scan(&valueStr)
-	if err == sql.ErrNoRows {
+	var entry memoryEntry
+	err := m.DB.View(func(tx *bolt.Tx) error {
+		data := tx.Bucket(MemoryBucket).Get([]byte(key))
+		if data == nil {
+			return nil
+		}
+		return json.Unmarshal(data, &entry)
+	})
+	if err != nil || entry.Value == "" {
 		return nil, false
 	}
-	if err != nil {
-		return nil, false
-	}
-
-	return decodeMemoryValue(valueStr), true
+	return decodeMemoryValue(entry.Value), true
 }
 
 // Set stores a value in memory.
@@ -154,15 +166,32 @@ func (m *MemoryStorage) Set(key string, value interface{}) error {
 		return fmt.Errorf("failed to marshal value: %w", err)
 	}
 
-	query := `
-	INSERT INTO memory (key, value, updated_at)
-	VALUES (?, ?, CURRENT_TIMESTAMP)
-	ON CONFLICT(key) DO UPDATE SET
-		value = excluded.value,
-		updated_at = CURRENT_TIMESTAMP
-	`
-	_, err = m.DB.ExecContext(m.ctx, query, key, string(valueBytes))
-	return err
+	now := time.Now().Unix()
+	entry := memoryEntry{
+		Value:     string(valueBytes),
+		CreatedAt: now,
+		UpdatedAt: now,
+	}
+
+	// Preserve CreatedAt for existing entries.
+	_ = m.DB.View(func(tx *bolt.Tx) error {
+		if data := tx.Bucket(MemoryBucket).Get([]byte(key)); data != nil {
+			var old memoryEntry
+			if json.Unmarshal(data, &old) == nil && old.CreatedAt > 0 {
+				entry.CreatedAt = old.CreatedAt
+			}
+		}
+		return nil
+	})
+
+	entryBytes, err := json.Marshal(entry)
+	if err != nil {
+		return fmt.Errorf("failed to marshal entry: %w", err)
+	}
+
+	return m.DB.Update(func(tx *bolt.Tx) error {
+		return tx.Bucket(MemoryBucket).Put([]byte(key), entryBytes)
+	})
 }
 
 // Delete removes a value from memory.
@@ -171,8 +200,9 @@ func (m *MemoryStorage) Delete(key string) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
-	_, err := m.DB.ExecContext(m.ctx, "DELETE FROM memory WHERE key = ?", key)
-	return err
+	return m.DB.Update(func(tx *bolt.Tx) error {
+		return tx.Bucket(MemoryBucket).Delete([]byte(key))
+	})
 }
 
 // Close closes the database connection.

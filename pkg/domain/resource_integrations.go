@@ -120,6 +120,21 @@ type SearchLocalConfig struct {
 	Query string `yaml:"query,omitempty"`
 	Glob  string `yaml:"glob,omitempty"`
 	Limit int    `yaml:"limit,omitempty"` // 0 = unlimited
+
+	// Index controls whether to build/use an inverted index.
+	// When true, the executor builds a persistent TF-IDF inverted index
+	// from the directory and uses it for ranked search results.
+	// When false (default), uses the existing filepath.WalkDir approach.
+	Index bool `yaml:"index,omitempty"`
+
+	// Fuzzy enables fuzzy (Levenshtein distance) matching when Index is true.
+	// MaxDistance controls the maximum edit distance for fuzzy matching (default: 2).
+	Fuzzy        bool `yaml:"fuzzy,omitempty"`
+	MaxDistance  int  `yaml:"maxDistance,omitempty"`
+
+	// IndexDBPath is the path to the index database file.
+	// Defaults to "<path>/.kdeps/index.db" when Index is true.
+	IndexDBPath string `yaml:"indexDBPath,omitempty"`
 }
 
 // SearchWebConfig represents web search configuration.

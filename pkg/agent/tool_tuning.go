@@ -29,8 +29,6 @@ type ToolTuning struct {
 	AutoRetryMax         int
 	AutoRetryBaseDelay   string
 	ToolStallTimeout     string
-	AutoStallKill        bool
-	AutoStallAllocation  bool
 	AutoCompactThreshold int
 	CompactTokenBudget   int
 	MaxTurns             int
@@ -49,8 +47,6 @@ func (r *REPL) toolTuningSnapshot() ToolTuning {
 		AutoRetryMax:         c.AutoRetryMax,
 		AutoRetryBaseDelay:   c.AutoRetryBaseDelay.String(),
 		ToolStallTimeout:     stall,
-		AutoStallKill:        c.AutoStallKill,
-		AutoStallAllocation:  c.AutoStallAllocation,
 		AutoCompactThreshold: c.AutoCompactThreshold,
 		CompactTokenBudget:   c.CompactTokenBudget,
 		MaxTurns:             c.MaxTurns,
@@ -59,8 +55,7 @@ func (r *REPL) toolTuningSnapshot() ToolTuning {
 }
 
 // applyToolTuning applies persisted tool settings to the loop config. Called from
-// Run after the interactive auto-allocation defaults are set, so persisted values
-// (including "autokill on", which turns auto-stall off) win over those defaults.
+// Run so persisted values win over built-in defaults.
 func (r *REPL) applyToolTuning(t ToolTuning) {
 	c := &r.loop.config
 	c.MaxToolRounds = t.MaxToolRounds
@@ -78,8 +73,6 @@ func (r *REPL) applyToolTuning(t ToolTuning) {
 			c.ToolStallTimeout = d
 		}
 	}
-	c.AutoStallKill = t.AutoStallKill
-	c.AutoStallAllocation = t.AutoStallAllocation
 	c.AutoCompactThreshold = t.AutoCompactThreshold
 	c.CompactTokenBudget = t.CompactTokenBudget
 	c.MaxTurns = t.MaxTurns

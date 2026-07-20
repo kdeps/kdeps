@@ -55,8 +55,6 @@ type AgentLoopTuning struct {
 	AutoRetryMax         int    `yaml:"auto_retry_max"`
 	AutoRetryBaseDelay   string `yaml:"auto_retry_base_delay"`
 	ToolStallTimeout     string `yaml:"tool_stall_timeout"`
-	AutoStallKill        bool   `yaml:"auto_stall_kill"`
-	AutoStallAllocation  bool   `yaml:"auto_stall_allocation"`
 	AutoCompactThreshold int    `yaml:"auto_compact_threshold"`
 	CompactTokenBudget   int    `yaml:"compact_token_budget"`
 	MaxTurns             int    `yaml:"max_turns"`

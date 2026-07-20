@@ -23,9 +23,10 @@ package storage
 
 import (
 	"context"
-	"database/sql"
 	"sync"
 	"time"
+
+	bolt "go.etcd.io/bbolt"
 
 	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
 )
@@ -33,21 +34,21 @@ import (
 const sqliteMemoryDSN = ":memory:"
 
 //nolint:gochecknoglobals // overridden in tests for fast cleanup
-var (
-	defaultCleanupInterval = 5 * time.Minute
-	sessionsSchemaMigrator = migrateSessionsSchema
-)
+var defaultCleanupInterval = 5 * time.Minute
 
-// SessionStorage provides per-session key-value storage using SQLite.
+// SessionsBucket is the bbolt bucket name for the session store.
+var SessionsBucket = []byte("sessions")
+
+// SessionStorage provides per-session key-value storage using bbolt.
 type SessionStorage struct {
-	DB              *sql.DB
+	DB              *bolt.DB
 	mu              sync.RWMutex
 	path            string
 	SessionID       string
-	DefaultTTL      time.Duration // Default TTL for sessions (0 = no expiration)
-	cleanupInterval time.Duration // cleanup ticker interval (5 min default)
+	DefaultTTL      time.Duration
+	cleanupInterval time.Duration
 	ctx             context.Context
-	stopCh          chan struct{} // closed by Close() to stop cleanup goroutine
+	stopCh          chan struct{}
 }
 
 // NewSessionStorage creates a new session storage.

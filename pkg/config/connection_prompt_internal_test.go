@@ -36,16 +36,27 @@ func TestHasConnection(t *testing.T) {
 		SQLConnections:    map[string]SQLConnectionConfig{"db": {Connection: "dsn"}},
 		HTTPConnections:   map[string]HTTPConnectionConfig{"api": {}},
 		SearchConnections: map[string]SearchConnectionConfig{"web": {APIKey: "k"}},
+		BotConnections: &BotConnectionConfig{
+			Discord:  &DiscordConnectionConfig{BotToken: "dt"},
+			Slack:    &SlackConnectionConfig{BotToken: "st", AppToken: "at"},
+			Telegram: &TelegramConnectionConfig{BotToken: "tt"},
+			WhatsApp: &WhatsAppConnectionConfig{PhoneNumberID: "id", AccessToken: "tok"},
+		},
 	}
 	assert.True(t, HasConnection(cfg, ConnKindSMTP, "mail"))
 	assert.True(t, HasConnection(cfg, ConnKindIMAP, "inbox"))
 	assert.True(t, HasConnection(cfg, ConnKindSQL, "db"))
 	assert.True(t, HasConnection(cfg, ConnKindHTTP, "api"))
 	assert.True(t, HasConnection(cfg, ConnKindSearch, "web"))
+	assert.True(t, HasConnection(cfg, ConnKindBot, "discord"))
+	assert.True(t, HasConnection(cfg, ConnKindBot, "slack"))
+	assert.True(t, HasConnection(cfg, ConnKindBot, "telegram"))
+	assert.True(t, HasConnection(cfg, ConnKindBot, "whatsapp"))
 
 	assert.False(t, HasConnection(cfg, ConnKindSMTP, "missing"))
 	assert.False(t, HasConnection(cfg, "unknown", "mail"))
 	assert.False(t, HasConnection(nil, ConnKindSMTP, "mail"))
+	assert.False(t, HasConnection(cfg, ConnKindBot, "nostromo"))
 }
 
 func TestInjectConnection_NewFile(t *testing.T) {

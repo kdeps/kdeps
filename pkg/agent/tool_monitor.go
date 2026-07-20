@@ -19,11 +19,15 @@
 package agent
 
 import (
+	"bufio"
 	"fmt"
 	"io"
+	"os"
 	"strings"
 	"sync"
 	"time"
+
+	"golang.org/x/term"
 )
 
 const (
@@ -194,9 +198,9 @@ func runQuietMonitor(mw *monitoredWriter, label string, start time.Time, stop <-
 // toolMonitorInterval until stop is closed: spinner frame, tool name,
 // elapsed time, and the tool's most recent output line. When the tool is
 // silent past toolStallWarnAfter the line warns; past stallTimeout (when
-// positive) onStall is invoked exactly once — the dispatcher uses it to
-// cancel the tool's context and kill a hung command. The caller clears the
-// line after the tool finishes.
+// positive) the monitor prints a non-blocking kill hint and starts reading
+// stdin for a 'k' keypress. If 'k' is pressed, onStall is invoked to cancel
+// the tool's context. The caller clears the line after the tool finishes.
 func runToolMonitor(
 	w io.Writer,
 	name string,
@@ -212,6 +216,7 @@ func runToolMonitor(
 	defer tick.Stop()
 	i := 0
 	stalled := false
+	killCh := make(chan struct{}, 1)
 	for {
 		select {
 		case <-tick.C:
@@ -224,12 +229,51 @@ func runToolMonitor(
 			switch {
 			case stallTimeout > 0 && silence >= stallTimeout && !stalled:
 				stalled = true
-				status = " · stalled — killing"
-				if onStall != nil {
-					onStall()
+				// In headless/non-TTY mode (tests, CI, library use), auto-kill
+				// immediately. In interactive mode, wait for 'k' keypress.
+				if !term.IsTerminal(int(os.Stdin.Fd())) {
+					status = " · stalled — killing"
+					if onStall != nil {
+						onStall()
+					}
+				} else {
+					status = " · stalled — press 'k' to kill"
+					go func() {
+						oldState, err := term.MakeRaw(int(os.Stdin.Fd()))
+						if err != nil {
+							return
+						}
+						defer func() { _ = term.Restore(int(os.Stdin.Fd()), oldState) }()
+						br := bufio.NewReader(os.Stdin)
+						for {
+							b, err := br.ReadByte()
+							if err != nil {
+								return
+							}
+							if b == 'k' || b == 'K' {
+								select {
+								case killCh <- struct{}{}:
+								default:
+								}
+								return
+							}
+						}
+					}()
 				}
 			case stalled:
-				status = " · stalled — killing"
+				if !term.IsTerminal(int(os.Stdin.Fd())) {
+					status = " · stalled — killing"
+				} else {
+					select {
+					case <-killCh:
+						status = " · stalled — killing"
+						if onStall != nil {
+							onStall()
+						}
+					default:
+						status = " · stalled — press 'k' to kill"
+					}
+				}
 			case silence >= toolStallWarnAfter:
 				status = fmt.Sprintf(" · no output for %s", silence.Round(time.Second))
 			case tracker.Last() != "":
@@ -239,6 +283,13 @@ func runToolMonitor(
 			fmt.Fprintf(w, "\r  %s %s running (%s)%s\033[K",
 				styleReplInfo.Render(frames[i%len(frames)]), name, elapsed, status)
 			i++
+		case <-killCh:
+			// Kill was requested between ticks.
+			if onStall != nil {
+				onStall()
+			}
+			fmt.Fprintf(w, "\r  %s %s running (%s) · stalled — killing\033[K",
+				styleReplInfo.Render(frames[i%len(frames)]), name, time.Since(start).Round(time.Second))
 		case <-stop:
 			return
 		}

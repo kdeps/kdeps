@@ -22,12 +22,13 @@ package storage
 
 import (
 	"context"
-	"database/sql"
 	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
 	"time"
+
+	bolt "go.etcd.io/bbolt"
 
 	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
 )
@@ -46,61 +47,27 @@ func normalizeSessionID(sessionID string) string {
 	return sessionID
 }
 
-func openSessionDatabase(dbPath string) (*sql.DB, error) {
-	if dbPath != sqliteMemoryDSN {
-		if err := os.MkdirAll(filepath.Dir(dbPath), 0750); err != nil {
-			return nil, fmt.Errorf("failed to create directory: %w", err)
+func sessionDBPath(dbPath string) (string, error) {
+	if dbPath == sqliteMemoryDSN || dbPath == "" {
+		f, err := os.CreateTemp("", "kdeps-session-*.db")
+		if err != nil {
+			return "", fmt.Errorf("failed to create temp file: %w", err)
 		}
+		path := f.Name()
+		_ = f.Close()
+		return path, nil
 	}
-
-	dsn := dbPath
-	if dbPath != sqliteMemoryDSN {
-		dsn = dbPath + "?_journal_mode=WAL"
+	if err := os.MkdirAll(filepath.Dir(dbPath), 0750); err != nil {
+		return "", fmt.Errorf("failed to create directory: %w", err)
 	}
-	db, err := sqlOpen("sqlite3", dsn)
-	if err != nil {
-		return nil, fmt.Errorf("failed to open database: %w", err)
-	}
-	return db, nil
+	return dbPath, nil
 }
 
-func migrateSessionsSchema(ctx context.Context, db *sql.DB) error {
-	var expiresAtCount int
-	err := db.QueryRowContext(
-		ctx,
-		`SELECT COUNT(*) FROM pragma_table_info('sessions') WHERE name='expires_at'`,
-	).Scan(&expiresAtCount)
-	if err == nil && expiresAtCount == 0 {
-		_, _ = db.ExecContext(ctx, `ALTER TABLE sessions ADD COLUMN expires_at INTEGER`)
-	}
-
-	var accessedAtCount int
-	err = db.QueryRowContext(
-		ctx,
-		`SELECT COUNT(*) FROM pragma_table_info('sessions') WHERE name='accessed_at'`,
-	).Scan(&accessedAtCount)
-	if err == nil && accessedAtCount == 0 {
-		_, _ = db.ExecContext(ctx, `ALTER TABLE sessions ADD COLUMN accessed_at INTEGER`)
-		_, _ = db.ExecContext(
-			ctx,
-			`UPDATE sessions SET accessed_at = created_at WHERE accessed_at IS NULL`,
-		)
-	}
-	return nil
-}
-
-func createSessionsIndexes(ctx context.Context, db *sql.DB) error {
-	indexes := []string{
-		`CREATE INDEX IF NOT EXISTS idx_sessions_session_id ON sessions(session_id);`,
-		`CREATE INDEX IF NOT EXISTS idx_sessions_expires_at ON sessions(expires_at);`,
-		`CREATE INDEX IF NOT EXISTS idx_sessions_created_at ON sessions(created_at);`,
-	}
-	for _, idx := range indexes {
-		if _, execErr := db.ExecContext(ctx, idx); execErr != nil {
-			return fmt.Errorf("failed to create index: %w", execErr)
-		}
-	}
-	return nil
+type sessionEntry struct {
+	Value      string `json:"value"`
+	CreatedAt  int64  `json:"created_at"`
+	AccessedAt int64  `json:"accessed_at"`
+	ExpiresAt  int64  `json:"expires_at,omitempty"`
 }
 
 func decodeStoredValue(valueStr string) interface{} {
@@ -109,6 +76,10 @@ func decodeStoredValue(valueStr string) interface{} {
 		return valueStr
 	}
 	return value
+}
+
+func sessionKey(sessionID, key string) []byte {
+	return []byte(sessionID + ":" + key)
 }
 
 // NewSessionStorageWithTTL creates a new session storage with TTL.
@@ -121,9 +92,23 @@ func NewSessionStorageWithTTL(
 	dbPath = normalizeSessionDBPath(dbPath)
 	sessionID = normalizeSessionID(sessionID)
 
-	db, err := openSessionDatabase(dbPath)
+	effectivePath, err := sessionDBPath(dbPath)
 	if err != nil {
 		return nil, err
+	}
+
+	db, err := boltOpen(effectivePath, 0600, nil) //nolint:mnd // DB file permissions
+	if err != nil {
+		return nil, fmt.Errorf("failed to open database: %w", err)
+	}
+
+	// Create bucket on first open.
+	if bucketErr := db.Update(func(tx *bolt.Tx) error {
+		_, cerr := tx.CreateBucketIfNotExists(SessionsBucket)
+		return cerr
+	}); bucketErr != nil {
+		_ = db.Close()
+		return nil, fmt.Errorf("failed to initialize schema: %w", bucketErr)
 	}
 
 	storage := &SessionStorage{
@@ -136,38 +121,9 @@ func NewSessionStorageWithTTL(
 		stopCh:          make(chan struct{}),
 	}
 
-	if initErr := storage.initSchema(); initErr != nil {
-		return nil, fmt.Errorf("failed to initialize schema: %w", initErr)
-	}
-
 	go storage.cleanup()
 
 	return storage, nil
-}
-
-// initSchema initializes the database schema.
-func (s *SessionStorage) initSchema() error {
-	kdeps_debug.Log("enter: initSchema")
-	createTable := `
-	CREATE TABLE IF NOT EXISTS sessions (
-		session_id TEXT NOT NULL,
-		key TEXT NOT NULL,
-		value TEXT NOT NULL,
-		created_at INTEGER NOT NULL DEFAULT (strftime('%s', 'now') * 1000),
-		accessed_at INTEGER NOT NULL DEFAULT (strftime('%s', 'now') * 1000),
-		expires_at INTEGER,
-		PRIMARY KEY (session_id, key)
-	);
-	`
-	if _, err := s.DB.ExecContext(s.ctx, createTable); err != nil {
-		return fmt.Errorf("failed to create sessions table: %w", err)
-	}
-
-	if err := sessionsSchemaMigrator(s.ctx, s.DB); err != nil {
-		return err
-	}
-
-	return createSessionsIndexes(s.ctx, s.DB)
 }
 
 // cleanup removes expired sessions.
@@ -183,15 +139,246 @@ func (s *SessionStorage) cleanup() {
 		case <-ticker.C:
 			s.mu.Lock()
 			now := time.Now().UnixMilli()
-			_, _ = s.DB.ExecContext(
-				context.Background(),
-				`DELETE FROM sessions
-				 WHERE (expires_at IS NOT NULL AND expires_at < ?)
-				    OR (expires_at IS NULL AND created_at < ?)`,
-				now,
-				time.Now().Add(-24*time.Hour).UnixMilli(),
-			)
+			cutoff := time.Now().Add(-24 * time.Hour).UnixMilli()
+			_ = s.DB.Update(func(tx *bolt.Tx) error {
+				b := tx.Bucket(SessionsBucket)
+				c := b.Cursor()
+				for k, v := c.First(); k != nil; k, v = c.Next() {
+					var entry sessionEntry
+					if json.Unmarshal(v, &entry) != nil {
+						continue
+					}
+					if (entry.ExpiresAt > 0 && now > entry.ExpiresAt) ||
+						(entry.ExpiresAt == 0 && entry.CreatedAt < cutoff) {
+						_ = b.Delete(k)
+					}
+				}
+				return nil
+			})
 			s.mu.Unlock()
 		}
 	}
+}
+
+// Get retrieves a value from session storage.
+func (s *SessionStorage) Get(key string) (interface{}, bool) {
+	kdeps_debug.Log("enter: Get")
+	s.mu.RLock()
+	var valueStr string
+	var expiresAt int64
+	now := time.Now().UnixMilli()
+
+	_ = s.DB.View(func(tx *bolt.Tx) error {
+		data := tx.Bucket(SessionsBucket).Get(sessionKey(s.SessionID, key))
+		if data == nil {
+			return nil
+		}
+		var entry sessionEntry
+		if json.Unmarshal(data, &entry) != nil {
+			return nil //nolint:nilerr // corrupt/invalid entry, skip
+		}
+		if entry.ExpiresAt > 0 && now > entry.ExpiresAt {
+			return nil
+		}
+		valueStr = entry.Value
+		expiresAt = entry.ExpiresAt
+		return nil
+	})
+	s.mu.RUnlock()
+
+	if valueStr == "" {
+		return nil, false
+	}
+
+	if s.DefaultTTL > 0 {
+		_ = s.Touch(key)
+	}
+
+	_ = expiresAt // keep for interface compat
+	return decodeStoredValue(valueStr), true
+}
+
+// Set stores a value in session storage.
+func (s *SessionStorage) Set(key string, value interface{}) error {
+	kdeps_debug.Log("enter: Set")
+	return s.SetWithTTL(key, value, s.DefaultTTL)
+}
+
+// SetWithTTL stores a value with a specific TTL.
+func (s *SessionStorage) SetWithTTL(key string, value interface{}, ttl time.Duration) error {
+	kdeps_debug.Log("enter: SetWithTTL")
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	valueBytes, jsonErr := json.Marshal(value)
+	if jsonErr != nil {
+		return fmt.Errorf("failed to marshal value: %w", jsonErr)
+	}
+
+	now := time.Now().UnixMilli()
+	entry := sessionEntry{
+		Value:      string(valueBytes),
+		CreatedAt:  now,
+		AccessedAt: now,
+	}
+	if ttl > 0 {
+		entry.ExpiresAt = time.Now().Add(ttl).UnixMilli()
+	}
+
+	// Preserve CreatedAt for existing entries.
+	sk := sessionKey(s.SessionID, key)
+	_ = s.DB.View(func(tx *bolt.Tx) error {
+		if data := tx.Bucket(SessionsBucket).Get(sk); data != nil {
+			var old sessionEntry
+			if json.Unmarshal(data, &old) == nil && old.CreatedAt > 0 {
+				entry.CreatedAt = old.CreatedAt
+			}
+		}
+		return nil
+	})
+
+	entryBytes, jsonErr := json.Marshal(entry)
+	if jsonErr != nil {
+		return fmt.Errorf("failed to marshal entry: %w", jsonErr)
+	}
+
+	return s.DB.Update(func(tx *bolt.Tx) error {
+		return tx.Bucket(SessionsBucket).Put(sk, entryBytes)
+	})
+}
+
+// Touch updates the accessed_at timestamp and extends expiration.
+func (s *SessionStorage) Touch(key string) error {
+	kdeps_debug.Log("enter: Touch")
+	return s.TouchWithTTL(key, s.DefaultTTL)
+}
+
+// TouchWithTTL updates the accessed_at timestamp and extends expiration.
+func (s *SessionStorage) TouchWithTTL(key string, ttl time.Duration) error {
+	kdeps_debug.Log("enter: TouchWithTTL")
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	sk := sessionKey(s.SessionID, key)
+	return s.DB.Update(func(tx *bolt.Tx) error {
+		data := tx.Bucket(SessionsBucket).Get(sk)
+		if data == nil {
+			return nil
+		}
+		var entry sessionEntry
+		if json.Unmarshal(data, &entry) != nil {
+			return nil //nolint:nilerr // corrupt/invalid entry, skip
+		}
+		entry.AccessedAt = time.Now().UnixMilli()
+		if ttl > 0 {
+			entry.ExpiresAt = time.Now().Add(ttl).UnixMilli()
+		}
+		entryBytes, err := json.Marshal(entry)
+		if err != nil {
+			return err
+		}
+		return tx.Bucket(SessionsBucket).Put(sk, entryBytes)
+	})
+}
+
+// IsExpired checks if a session key has expired.
+func (s *SessionStorage) IsExpired(key string) (bool, error) {
+	kdeps_debug.Log("enter: IsExpired")
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	var expired bool
+	viewErr := s.DB.View(func(tx *bolt.Tx) error {
+		data := tx.Bucket(SessionsBucket).Get(sessionKey(s.SessionID, key))
+		if data == nil {
+			expired = true
+			return nil
+		}
+		var entry sessionEntry
+		if json.Unmarshal(data, &entry) != nil {
+			expired = true
+			return nil //nolint:nilerr // corrupt/invalid entry, skip
+		}
+		if entry.ExpiresAt == 0 {
+			expired = false
+		} else {
+			expired = time.Now().UnixMilli() > entry.ExpiresAt
+		}
+		return nil
+	})
+	return expired, viewErr
+}
+
+// Delete removes a value from session storage.
+func (s *SessionStorage) Delete(key string) error {
+	kdeps_debug.Log("enter: Delete")
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	return s.DB.Update(func(tx *bolt.Tx) error {
+		return tx.Bucket(SessionsBucket).Delete(sessionKey(s.SessionID, key))
+	})
+}
+
+// Clear clears all data for this session.
+func (s *SessionStorage) Clear() error {
+	kdeps_debug.Log("enter: Clear")
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	prefix := []byte(s.SessionID + ":")
+	return s.DB.Update(func(tx *bolt.Tx) error {
+		b := tx.Bucket(SessionsBucket)
+		c := b.Cursor()
+		for k, _ := c.Seek(prefix); k != nil && len(k) >= len(prefix) && string(k[:len(prefix)]) == string(prefix); k, _ = c.Next() {
+			_ = b.Delete(k)
+		}
+		return nil
+	})
+}
+
+// GetAll retrieves all key-value pairs for this session.
+func (s *SessionStorage) GetAll() (map[string]interface{}, error) {
+	kdeps_debug.Log("enter: GetAll")
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	now := time.Now().UnixMilli()
+	prefix := []byte(s.SessionID + ":")
+	result := make(map[string]interface{})
+
+	scanErr := s.DB.View(func(tx *bolt.Tx) error {
+		b := tx.Bucket(SessionsBucket)
+		c := b.Cursor()
+		for k, v := c.Seek(prefix); k != nil && len(k) >= len(prefix) && string(k[:len(prefix)]) == string(prefix); k, v = c.Next() {
+			var entry sessionEntry
+			if json.Unmarshal(v, &entry) != nil {
+				return fmt.Errorf("failed to scan row")
+			}
+			if entry.ExpiresAt > 0 && now > entry.ExpiresAt {
+				continue
+			}
+			entryKey := string(k[len(prefix):])
+			result[entryKey] = decodeStoredValue(entry.Value)
+		}
+		return nil
+	})
+	if scanErr != nil {
+		return nil, scanErr
+	}
+
+	return result, nil
+}
+
+// Close stops the cleanup goroutine and closes the database.
+func (s *SessionStorage) Close() error {
+	kdeps_debug.Log("enter: Close")
+	if s.stopCh != nil {
+		select {
+		case <-s.stopCh:
+		default:
+			close(s.stopCh)
+		}
+	}
+	return s.DB.Close()
 }

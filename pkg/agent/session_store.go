@@ -19,7 +19,6 @@
 package agent
 
 import (
-	"bufio"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -28,11 +27,16 @@ import (
 	"sync"
 	"time"
 
+	bolt "go.etcd.io/bbolt"
+
 	"github.com/spf13/afero"
 )
 
-//nolint:gochecknoglobals // afero filesystem abstraction; enables test injection
-var AppFS afero.Fs = afero.NewOsFs()
+//nolint:gochecknoglobals // afero + bbolt bucket names
+var (
+	AppFS               afero.Fs = afero.NewOsFs()
+	agentSessionBucket           = []byte("agent_sessions")
+)
 
 const sessionDir = ".kdeps/sessions"
 
@@ -45,16 +49,18 @@ type SessionMetadata struct {
 	CreatedAt int64  `json:"createdAt"`
 }
 
-// SessionStore persists conversation sessions as JSONL files.
+// SessionStore persists conversation sessions in a bbolt database.
 // When cwd is set, sessions are stored under basePath/<encoded-cwd>/ for
-// per-project isolation, matching pi's directory layout.
+// per-project isolation.
 type SessionStore struct {
 	mu       sync.Mutex
 	basePath string
-	cwd      string // optional; when set, sessions go into per-cwd subdirs
+	cwd      string
+	db       *bolt.DB
+	dbPath   string
 }
 
-// sessionEntry is one line in a JSONL session file.
+// sessionEntry is one entry in a serialized session.
 type sessionEntry struct {
 	Type      string `json:"type"`
 	Timestamp int64  `json:"ts"`
@@ -78,25 +84,45 @@ func NewSessionStore(basePath string) *SessionStore {
 	return &SessionStore{basePath: basePath}
 }
 
-// SetCwd configures per-project session isolation. When set, SaveAs stores
-// sessions under basePath/<encoded-cwd>/ and ListMeta returns only sessions
-// for that directory. Call with os.Getwd() at startup.
+// SetCwd configures per-project session isolation. Call with os.Getwd() at startup.
 func (s *SessionStore) SetCwd(cwd string) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	if s.db != nil {
+		_ = s.db.Close()
+		s.db = nil
+	}
 	s.cwd = cwd
 }
 
-// encodeCwd converts an absolute path to a safe directory name component.
-// Example: "/Users/joel/Projects/foo" -> "--Users-joel-Projects-foo--".
+func (s *SessionStore) getDB() (*bolt.DB, error) {
+	if s.db != nil {
+		return s.db, nil
+	}
+	dir := s.sessionBasePath()
+	dbPath := filepath.Join(dir, "sessions.bolt")
+	if err := AppFS.MkdirAll(dir, 0750); err != nil {
+		return nil, fmt.Errorf("session store: mkdir: %w", err)
+	}
+	db, err := bolt.Open(dbPath, 0600, nil) //nolint:mnd // DB file permissions
+	if err != nil {
+		return nil, fmt.Errorf("session store: open db: %w", err)
+	}
+	_ = db.Update(func(tx *bolt.Tx) error {
+		_, _ = tx.CreateBucketIfNotExists(agentSessionBucket)
+		return nil
+	})
+	s.db = db
+	s.dbPath = dbPath
+	return db, nil
+}
+
 func encodeCwd(cwd string) string {
 	clean := strings.TrimLeft(cwd, "/\\")
 	clean = strings.NewReplacer("/", "-", "\\", "-", ":", "-").Replace(clean)
 	return "--" + clean + "--"
 }
 
-// sessionBasePath returns the directory where sessions are stored.
-// If cwd is configured, returns basePath/<encoded-cwd>/; otherwise basePath.
 func (s *SessionStore) sessionBasePath() string {
 	if s.cwd == "" {
 		return s.basePath
@@ -104,219 +130,158 @@ func (s *SessionStore) sessionBasePath() string {
 	return filepath.Join(s.basePath, encodeCwd(s.cwd))
 }
 
-// SaveAs persists the session to a JSONL file with an optional name and model tag.
-// Returns the generated session ID. Accepts SessionReader so callers can work through interfaces.
+// SaveAs persists the session to bbolt.
 func (s *SessionStore) SaveAs(session SessionReader, name, model string) (string, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	dir := s.sessionBasePath()
-	if err := AppFS.MkdirAll(dir, 0750); err != nil {
-		return "", fmt.Errorf("session store: failed to create dir: %w", err)
+	db, err := s.getDB()
+	if err != nil {
+		return "", err
 	}
 
 	id := fmt.Sprintf("session-%d", time.Now().UnixNano())
-	path := filepath.Join(dir, id+".jsonl")
+	now := time.Now().UnixMilli()
 
-	f, err := AppFS.Create(path)
-	if err != nil {
-		return "", fmt.Errorf("session store: failed to create file: %w", err)
-	}
-	defer f.Close()
-
-	meta := sessionEntry{
-		Type:      "session_meta",
-		Timestamp: time.Now().UnixMilli(),
-		SessionID: id,
-		Name:      name,
-		Model:     model,
-		Turns:     session.TurnCount(),
-	}
-	if metaErr := writeJSONLine(f, meta); metaErr != nil {
-		return "", metaErr
-	}
-
+	entries := []sessionEntry{{
+		Type: "session_meta", Timestamp: now, SessionID: id,
+		Name: name, Model: model, Turns: session.TurnCount(),
+	}}
 	for _, m := range session.Messages() {
-		entry := sessionEntry{
-			Type:      "message",
-			Timestamp: time.Now().UnixMilli(),
-			Role:      m.Role,
-			Content:   m.Content,
-		}
-		if writeErr := writeJSONLine(f, entry); writeErr != nil {
-			return "", writeErr
-		}
+		entries = append(entries, sessionEntry{
+			Type: "message", Timestamp: now, Role: m.Role, Content: m.Content,
+		})
 	}
 
-	return id, nil
+	data, jsonErr := json.Marshal(entries)
+	if jsonErr != nil {
+		return "", fmt.Errorf("session store: marshal: %w", jsonErr)
+	}
+	return id, db.Update(func(tx *bolt.Tx) error {
+		return tx.Bucket(agentSessionBucket).Put([]byte(id), data)
+	})
 }
 
-// Save persists the session without a name or model tag.
 func (s *SessionStore) Save(session SessionReader) (string, error) {
 	return s.SaveAs(session, "", "")
 }
 
-// Load loads a session from a JSONL file by ID.
-// Searches the per-cwd subdir first, then falls back to basePath for sessions
-// saved without cwd set.
+// Load loads a session from bbolt by ID.
 func (s *SessionStore) Load(id string) (*Session, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	path := s.findSessionFileLocked(id)
-	if path == "" {
-		return nil, fmt.Errorf("session store: session %q not found", id)
-	}
-	f, err := AppFS.Open(path)
+	db, err := s.getDB()
 	if err != nil {
-		return nil, fmt.Errorf("session store: %w", err)
+		return nil, err
 	}
-	defer f.Close()
 
 	session := NewSession(0)
-	scanner := bufio.NewScanner(f)
-	scanner.Buffer(make([]byte, 1<<20), 1<<20) //nolint:mnd // 1 MiB max line
-
-	for scanner.Scan() {
-		var entry sessionEntry
-		if jsonErr := json.Unmarshal(scanner.Bytes(), &entry); jsonErr != nil {
-			continue
+	found := false
+	_ = db.View(func(tx *bolt.Tx) error {
+		data := tx.Bucket(agentSessionBucket).Get([]byte(id))
+		if data == nil {
+			return nil
 		}
-		if entry.Type == "message" && entry.Role != "" {
-			session.messages = append(session.messages, SessionMessage{
-				Role:    entry.Role,
-				Content: entry.Content,
-			})
+		found = true
+		var entries []sessionEntry
+		if json.Unmarshal(data, &entries) != nil {
+			return nil //nolint:nilerr
 		}
+		for _, e := range entries {
+			if e.Type == "message" && e.Role != "" {
+				session.messages = append(session.messages, SessionMessage{Role: e.Role, Content: e.Content})
+			}
+		}
+		return nil
+	})
+	if !found {
+		return nil, fmt.Errorf("session store: session %q not found", id)
 	}
-	if scanErr := scanner.Err(); scanErr != nil {
-		return nil, fmt.Errorf("session store: read error: %w", scanErr)
-	}
-
 	return session, nil
 }
 
-// findSessionFileLocked returns the path to a session file by ID.
-// Checks the per-cwd subdir first, then falls back to basePath.
-// Must be called with s.mu held.
-func (s *SessionStore) findSessionFileLocked(id string) string {
-	if s.cwd != "" {
-		p := filepath.Join(s.sessionBasePath(), id+".jsonl")
-		if _, err := AppFS.Stat(p); err == nil {
-			return p
-		}
-	}
-	p := filepath.Join(s.basePath, id+".jsonl")
-	if _, err := AppFS.Stat(p); err == nil {
-		return p
-	}
-	return ""
-}
-
-// LoadMeta reads only the header line of a session file and returns its metadata.
+// LoadMeta returns metadata for a single session by ID.
 func (s *SessionStore) LoadMeta(id string) (*SessionMetadata, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-
 	return s.loadMetaLocked(id)
 }
 
 func (s *SessionStore) loadMetaLocked(id string) (*SessionMetadata, error) {
-	path := s.findSessionFileLocked(id)
-	if path == "" {
+	db, err := s.getDB()
+	if err != nil {
+		return nil, err
+	}
+	var meta *SessionMetadata
+	_ = db.View(func(tx *bolt.Tx) error {
+		data := tx.Bucket(agentSessionBucket).Get([]byte(id))
+		if data == nil {
+			return nil
+		}
+		var entries []sessionEntry
+		if json.Unmarshal(data, &entries) != nil || len(entries) == 0 {
+			return nil //nolint:nilerr
+		}
+		e := entries[0]
+		if e.Type != "session_meta" {
+			return nil
+		}
+		sid := e.SessionID
+		if sid == "" {
+			sid = id
+		}
+		meta = &SessionMetadata{ID: sid, Name: e.Name, Model: e.Model, Turns: e.Turns, CreatedAt: e.Timestamp}
+		return nil
+	})
+	if meta == nil {
 		return nil, fmt.Errorf("session store: session %q not found", id)
 	}
-	return s.loadMetaFromPathLocked(path, id)
+	return meta, nil
 }
 
-// ListMeta returns metadata for stored sessions, newest first.
-// When cwd is set, returns only sessions from that directory; otherwise
-// returns sessions from all per-cwd subdirs and the base dir.
+// ListMeta returns metadata for all sessions, newest first.
 func (s *SessionStore) ListMeta() ([]SessionMetadata, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	dirs := s.listDirsLocked()
+	db, err := s.getDB()
+	if err != nil {
+		return nil, err
+	}
+
 	var metas []SessionMetadata
-	for _, dir := range dirs {
-		entries, err := afero.ReadDir(AppFS, dir)
-		if err != nil {
-			if os.IsNotExist(err) {
+	_ = db.View(func(tx *bolt.Tx) error {
+		c := tx.Bucket(agentSessionBucket).Cursor()
+		for k, v := c.First(); k != nil; k, v = c.Next() {
+			var entries []sessionEntry
+			if json.Unmarshal(v, &entries) != nil || len(entries) == 0 {
 				continue
 			}
-			return nil, err
+			e := entries[0]
+			if e.Type != "session_meta" {
+				continue
+			}
+			sid := e.SessionID
+			if sid == "" {
+				sid = string(k)
+			}
+			metas = append(metas, SessionMetadata{ID: sid, Name: e.Name, Model: e.Model, Turns: e.Turns, CreatedAt: e.Timestamp})
 		}
-		for i := len(entries) - 1; i >= 0; i-- {
-			e := entries[i]
-			if e.IsDir() || filepath.Ext(e.Name()) != ".jsonl" {
-				continue
+		return nil
+	})
+
+	// Sort newest first by CreatedAt
+	for i := 0; i < len(metas); i++ {
+		for j := i + 1; j < len(metas); j++ {
+			if metas[j].CreatedAt > metas[i].CreatedAt {
+				metas[i], metas[j] = metas[j], metas[i]
 			}
-			id := strings.TrimSuffix(e.Name(), ".jsonl")
-			meta, metaErr := s.loadMetaFromPathLocked(filepath.Join(dir, e.Name()), id)
-			if metaErr != nil {
-				continue // skip corrupt files
-			}
-			metas = append(metas, *meta)
 		}
 	}
 	return metas, nil
 }
 
-// listDirsLocked returns the directories to scan for sessions.
-// Must be called with s.mu held.
-func (s *SessionStore) listDirsLocked() []string {
-	if s.cwd != "" {
-		return []string{s.sessionBasePath()}
-	}
-	// No cwd: scan base dir for JSONL files and subdirs.
-	entries, err := afero.ReadDir(AppFS, s.basePath)
-	if err != nil {
-		return []string{s.basePath}
-	}
-	dirs := []string{s.basePath}
-	for _, e := range entries {
-		if e.IsDir() {
-			dirs = append(dirs, filepath.Join(s.basePath, e.Name()))
-		}
-	}
-	return dirs
-}
-
-// loadMetaFromPathLocked reads session metadata from an explicit path.
-// Must be called with s.mu held.
-func (s *SessionStore) loadMetaFromPathLocked(path, id string) (*SessionMetadata, error) {
-	f, err := AppFS.Open(path)
-	if err != nil {
-		return nil, err
-	}
-	defer f.Close()
-
-	scanner := bufio.NewScanner(f)
-	scanner.Buffer(make([]byte, 1<<20), 1<<20) //nolint:mnd // 1 MiB max line
-	if !scanner.Scan() {
-		return nil, fmt.Errorf("session store: empty file for %s", id)
-	}
-	var entry sessionEntry
-	if jsonErr := json.Unmarshal(scanner.Bytes(), &entry); jsonErr != nil {
-		return nil, fmt.Errorf("session store: bad header in %s: %w", id, jsonErr)
-	}
-	if entry.Type != "session_meta" {
-		return nil, fmt.Errorf("session store: unexpected first entry type %q in %s", entry.Type, id)
-	}
-	sid := entry.SessionID
-	if sid == "" {
-		sid = id
-	}
-	return &SessionMetadata{
-		ID:        sid,
-		Name:      entry.Name,
-		Model:     entry.Model,
-		Turns:     entry.Turns,
-		CreatedAt: entry.Timestamp,
-	}, nil
-}
-
-// List returns all stored session IDs.
 func (s *SessionStore) List() ([]string, error) {
 	metas, err := s.ListMeta()
 	if err != nil {
@@ -332,42 +297,140 @@ func (s *SessionStore) List() ([]string, error) {
 	return ids, nil
 }
 
-// Delete removes a stored session file.
+// Delete removes a stored session.
 func (s *SessionStore) Delete(id string) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	path := s.findSessionFileLocked(id)
-	if path == "" {
-		return fmt.Errorf("session store: session %q not found", id)
+	db, err := s.getDB()
+	if err != nil {
+		return err
 	}
-	if err := AppFS.Remove(path); err != nil {
-		return fmt.Errorf("session store: delete %s: %w", id, err)
-	}
-	return nil
+	return db.Update(func(tx *bolt.Tx) error {
+		if tx.Bucket(agentSessionBucket).Get([]byte(id)) == nil {
+			return fmt.Errorf("session store: session %q not found", id)
+		}
+		return tx.Bucket(agentSessionBucket).Delete([]byte(id))
+	})
 }
 
-// Import copies a JSONL session file from an arbitrary path into the store
-// directory and returns the new session ID. Mirrors pi's importFromJsonl().
+// Import copies a JSONL session file from an arbitrary path into the store.
 func (s *SessionStore) Import(srcPath string) (string, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	if err := AppFS.MkdirAll(s.basePath, 0750); err != nil {
-		return "", fmt.Errorf("session store: failed to create dir: %w", err)
+	db, err := s.getDB()
+	if err != nil {
+		return "", err
+	}
+
+	data, readErr := afero.ReadFile(AppFS, srcPath)
+	if readErr != nil {
+		return "", fmt.Errorf("session store: import read %s: %w", srcPath, readErr)
 	}
 
 	id := fmt.Sprintf("session-%d", time.Now().UnixNano())
-	dstPath := filepath.Join(s.basePath, id+".jsonl")
+	return id, db.Update(func(tx *bolt.Tx) error {
+		return tx.Bucket(agentSessionBucket).Put([]byte(id), data)
+	})
+}
 
-	data, err := afero.ReadFile(AppFS, srcPath)
+// --- Legacy helpers for test compatibility ---
+
+func (s *SessionStore) findSessionFileLocked(id string) string {
+	db, err := s.getDB()
 	if err != nil {
-		return "", fmt.Errorf("session store: import read %s: %w", srcPath, err)
+		return ""
 	}
-	if writeErr := afero.WriteFile(AppFS, dstPath, data, 0600); writeErr != nil {
-		return "", fmt.Errorf("session store: import write: %w", writeErr)
+	found := false
+	_ = db.View(func(tx *bolt.Tx) error {
+		if tx.Bucket(agentSessionBucket).Get([]byte(id)) != nil {
+			found = true
+		}
+		return nil
+	})
+	if found {
+		return id
 	}
-	return id, nil
+	// Fall back to checking basePath for legacy JSONL files.
+	p := filepath.Join(s.basePath, id+".jsonl")
+	if _, err := AppFS.Stat(p); err == nil {
+		return p
+	}
+	return ""
+}
+
+func (s *SessionStore) listDirsLocked() []string {
+	return []string{s.sessionBasePath()}
+}
+
+func (s *SessionStore) loadMetaFromPathLocked(path, id string) (*SessionMetadata, error) {
+	// Try bbolt first.
+	db, dbErr := s.getDB()
+	if dbErr == nil {
+		var meta *SessionMetadata
+		_ = db.View(func(tx *bolt.Tx) error { //nolint:nilerr
+			data := tx.Bucket(agentSessionBucket).Get([]byte(id))
+			if data == nil {
+				return nil
+			}
+			var entries []sessionEntry
+			if json.Unmarshal(data, &entries) != nil || len(entries) == 0 {
+				return nil
+			}
+			e := entries[0]
+			if e.Type != "session_meta" {
+				return nil
+			}
+			sid := e.SessionID
+			if sid == "" {
+				sid = id
+			}
+			meta = &SessionMetadata{ID: sid, Name: e.Name, Model: e.Model, Turns: e.Turns, CreatedAt: e.Timestamp}
+			return nil
+		})
+		if meta != nil {
+			return meta, nil
+		}
+	}
+
+	// Fall back to legacy JSONL file support.
+	f, err := AppFS.Open(path)
+	if err != nil {
+		return nil, fmt.Errorf("session store: session %q not found", id)
+	}
+	defer f.Close()
+
+	var firstLine []byte
+	buf := make([]byte, 4096)
+	n, _ := f.Read(buf)
+	if n > 0 {
+		for i := 0; i < n; i++ {
+			if buf[i] == '\n' {
+				firstLine = buf[:i]
+				break
+			}
+		}
+		if firstLine == nil {
+			firstLine = buf[:n]
+		}
+	}
+
+	if len(firstLine) == 0 {
+		return nil, fmt.Errorf("session store: empty file for %s", id)
+	}
+	var entry sessionEntry
+	if json.Unmarshal(firstLine, &entry) != nil {
+		return nil, fmt.Errorf("session store: bad header in %s", id)
+	}
+	if entry.Type != "session_meta" {
+		return nil, fmt.Errorf("session store: unexpected first entry type %q in %s", entry.Type, id)
+	}
+	sid := entry.SessionID
+	if sid == "" {
+		sid = id
+	}
+	return &SessionMetadata{ID: sid, Name: entry.Name, Model: entry.Model, Turns: entry.Turns, CreatedAt: entry.Timestamp}, nil
 }
 
 func writeJSONLine(f afero.File, v interface{}) error {
@@ -378,4 +441,16 @@ func writeJSONLine(f afero.File, v interface{}) error {
 	data = append(data, '\n')
 	_, err = f.Write(data)
 	return err
+}
+
+// Close closes the bbolt database.
+func (s *SessionStore) Close() error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.db != nil {
+		err := s.db.Close()
+		s.db = nil
+		return err
+	}
+	return nil
 }

@@ -82,6 +82,52 @@ func TestReferencedConnections_Empty(t *testing.T) {
 	assert.Nil(t, referencedConnections(&domain.Workflow{}))
 }
 
+func TestReferencedConnections_BotPlatforms(t *testing.T) {
+	wf := &domain.Workflow{
+		Settings: domain.WorkflowSettings{
+			Input: &domain.InputConfig{
+				Sources: []string{"bot"},
+				Bot: &domain.BotConfig{
+					Discord:  &domain.DiscordConfig{GuildID: "123"},
+					Telegram: &domain.TelegramConfig{PollIntervalSeconds: 1},
+					WhatsApp: &domain.WhatsAppConfig{WebhookPort: 16396},
+					// Slack deliberately omitted.
+				},
+			},
+		},
+	}
+
+	refs := referencedConnections(wf)
+
+	assert.Contains(t, refs, connRef{config.ConnKindBot, "discord"})
+	assert.Contains(t, refs, connRef{config.ConnKindBot, "telegram"})
+	assert.Contains(t, refs, connRef{config.ConnKindBot, "whatsapp"})
+	assert.NotContains(t, refs, connRef{config.ConnKindBot, "slack"})
+}
+
+func TestReferencedConnections_BotNilInput(t *testing.T) {
+	// Input is nil — no panic.
+	refs := referencedConnections(&domain.Workflow{
+		Settings: domain.WorkflowSettings{
+			Input: nil,
+		},
+	})
+	assert.Empty(t, refs)
+}
+
+func TestReferencedConnections_BotNilConfig(t *testing.T) {
+	// Bot config is nil — no panic.
+	refs := referencedConnections(&domain.Workflow{
+		Settings: domain.WorkflowSettings{
+			Input: &domain.InputConfig{
+				Sources: []string{"bot"},
+				Bot:     nil,
+			},
+		},
+	})
+	assert.Empty(t, refs)
+}
+
 func TestReferencedConnectionsAndBackends_CloudModel(t *testing.T) {
 	wf := &domain.Workflow{
 		Resources: []*domain.Resource{

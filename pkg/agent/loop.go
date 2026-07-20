@@ -174,19 +174,6 @@ type Config struct {
 	// output (silence-based, not wall-clock). 0 applies the default (10m);
 	// negative disables stall detection.
 	ToolStallTimeout time.Duration
-	// AutoStallAllocation, when true, automatically increases ToolStallTimeout
-	// when a tool is about to be killed for stalling. The increase amount is
-	// controlled by AutoStallAllocationIncrement. When false (default), the
-	// user is prompted interactively.
-	AutoStallAllocation bool
-	// AutoStallAllocationIncrement is the duration to add to ToolStallTimeout
-	// when auto-stall-allocation triggers. Default: 5m.
-	AutoStallAllocationIncrement time.Duration
-	// AutoStallKill, when true, kills a stalled tool at the stall timeout instead
-	// of increasing it or prompting. It is mutually exclusive with
-	// AutoStallAllocation: enabling one disables the other. When both are false,
-	// the user is prompted interactively.
-	AutoStallKill bool
 }
 
 // Loop drives a multi-turn agent conversation using the kdeps engine as the
@@ -485,9 +472,6 @@ func applyConfigDefaults(cfg Config) Config {
 	if cfg.ToolStallTimeout == 0 {
 		cfg.ToolStallTimeout = defaultToolStallTimeout
 	}
-	if cfg.AutoStallAllocationIncrement <= 0 {
-		cfg.AutoStallAllocationIncrement = defaultAutoStallAllocationIncrement
-	}
 	if cfg.AutoToolAllocationIncrement <= 0 {
 		cfg.AutoToolAllocationIncrement = defaultAutoToolAllocationIncrement
 	}
@@ -509,7 +493,6 @@ const (
 	// no output at all. Silence-based, not wall-clock: a long build that
 	// keeps printing never trips it.
 	defaultToolStallTimeout             = 10 * time.Minute
-	defaultAutoStallAllocationIncrement = 5 * time.Minute
 	defaultAutoToolAllocationIncrement  = 100
 	defaultModelName                    = "llama3.2"
 )
@@ -997,80 +980,15 @@ func (l *Loop) promptBudgetOptions(w io.Writer, remaining int) {
 	}
 }
 
-// promptStallOptions presents interactive options when a tool is about to be
-// killed for stalling (no output for ToolStallTimeout). Reads a single key
-// from stdin and applies the choice in real time:
-//
-//	i — increase stall timeout by the increment (default 5m)
-//	c — prompt for a specific new stall timeout in minutes
-//	g — ignore, kill the tool as scheduled
-//
-// Returns true if the timeout was increased (caller should retry the tool),
-// false if the tool should be killed.
+// promptStallOptions prints a non-blocking stall notice when a tool has had
+// no output for the stall timeout. The tool continues running; the user may
+// press 'k' to kill it. Returns false (no retry) — the caller should kill
+// the tool.
 func (l *Loop) promptStallOptions(w io.Writer, toolName string, elapsed time.Duration) bool {
-	// Autokill: kill the stalled tool at the timeout, no prompt, no increase.
-	if l.config.AutoStallKill {
-		fmt.Fprintf(w, "\n[autokill: tool %q had no output for %s (stall timeout %s) — killed.]\n",
-			toolName, elapsed.Round(time.Second), l.config.ToolStallTimeout)
-		return false
-	}
-	// Auto-stall allocation: increase timeout automatically without prompting.
-	if l.config.AutoStallAllocation {
-		increment := l.config.AutoStallAllocationIncrement
-		if increment <= 0 {
-			increment = defaultAutoStallAllocationIncrement
-		}
-		l.config.ToolStallTimeout += increment
-		fmt.Fprintf(w, "\n[Auto-stall allocation: stall timeout increased by %s. "+
-			"New timeout: %s.]\n", increment, l.config.ToolStallTimeout)
-		return true
-	}
-
-	fmt.Fprintf(w, "\n[Tool %q has had no output for %s (stall timeout: %s).\n",
+	fmt.Fprintf(w, "\n[Tool %q had no output for %s (stall timeout: %s).\n",
 		toolName, elapsed.Round(time.Second), l.config.ToolStallTimeout)
-	fmt.Fprintf(w, "  (i)ncrease stall timeout by %s\n"+
-		"  (k)ill the tool\n\n"+
-		"Enter choice (i/k): ",
-		l.config.AutoStallAllocationIncrement)
-
-	if !l.config.InteractiveTTY {
-		// Non-interactive: never read the controlling terminal (SIGTTIN would stop
-		// the process group, suspending `make test`). Keep the tool scheduled to die.
-		fmt.Fprintf(w, "\n(Non-interactive: use /model tool set stall-timeout %s.)\n",
-			l.config.ToolStallTimeout+5*time.Minute)
-		return false
-	}
-
-	oldState, err := term.MakeRaw(int(os.Stdin.Fd()))
-	if err != nil {
-		fmt.Fprintf(w, "\n(Can't read interactive input. "+
-			"Use: /model tool set stall-timeout %s)\n", l.config.ToolStallTimeout+5*time.Minute)
-		return false
-	}
-	defer func() { _ = term.Restore(int(os.Stdin.Fd()), oldState) }()
-
-	br := bufio.NewReader(os.Stdin)
-	b, err := br.ReadByte()
-	if err != nil {
-		return false
-	}
-
-	// Clear the prompt line.
-	fmt.Fprint(w, "\r\033[K")
-
-	switch b {
-	case '1', 'i', 'I':
-		l.config.ToolStallTimeout += l.config.AutoStallAllocationIncrement
-		fmt.Fprintf(w, "Stall timeout increased by %s. New timeout: %s.\n",
-			l.config.AutoStallAllocationIncrement, l.config.ToolStallTimeout)
-		return true
-	case 'g', 'G', 'k', 'K':
-		fmt.Fprint(w, "Killing stalled tool.\n")
-		return false
-	default:
-		fmt.Fprint(w, "Killing stalled tool.\n")
-		return false
-	}
+	fmt.Fprintf(w, " Press 'k' to kill the tool (non-blocking — tool continues running).]\n")
+	return false
 }
 
 // saveCheckpoint persists the current session state so that on context
@@ -1383,6 +1301,8 @@ func (l *Loop) dispatchToTerminal(
 	termW io.Writer,
 	start time.Time,
 ) string {
+	startTotal := start // preserved for total elapsed time across retries
+	var stalled atomic.Bool
 	tracker := newLastLineTracker(start)
 	// Seed the monitor with what the tool is acting on (URL, query, path, ...) so
 	// every tool — not just bash_exec, which streams real output — shows a
@@ -1391,7 +1311,9 @@ func (l *Loop) dispatchToTerminal(
 		_, _ = io.WriteString(tracker, hint+"\n")
 	}
 	f, err := os.CreateTemp("", "kdeps-tool-*.log")
+	var toolLogPath string
 	if err == nil {
+		toolLogPath = f.Name()
 		sink := io.MultiWriter(f, tracker)
 		// Diff tools (write_file/edit_file) emit ANSI-colored diffs meant for the
 		// terminal; keep their colors. Other tool output is ANSI-stripped so raw
@@ -1403,14 +1325,16 @@ func (l *Loop) dispatchToTerminal(
 		defer func() {
 			tool.OutputWriter = nil
 			_ = f.Close()
-			_ = AppFS.Remove(f.Name())
+			// Preserve the log on stall-kill so the LLM can inspect partial output.
+			if !stalled.Load() {
+				_ = AppFS.Remove(f.Name())
+			}
 		}()
 	}
 
 	// Stall kill: wrap the tool context so the monitor can cancel a hung
 	// command (no output past ToolStallTimeout). Cancellable tools (e.g.
 	// bash_exec) read "_ctx" and kill their subprocess on cancellation.
-	var stalled atomic.Bool
 	onStall := func() {}
 	if base, ok := args["_ctx"].(context.Context); ok && base != nil && l.config.ToolStallTimeout > 0 {
 		stallCtx, stallCancel := context.WithCancel(base)
@@ -1461,79 +1385,19 @@ func (l *Loop) dispatchToTerminal(
 		fmt.Fprintf(termW, "  ... %s stalled after %s with no output for %s\n",
 			name, elapsed, l.config.ToolStallTimeout)
 
-		// Present interactive stall options. If the user increases the timeout,
-		// retry the tool execution with the new timeout.
-		if l.promptStallOptions(termW, name, elapsed) {
-			// Reset stall state and retry with the new timeout.
-			stalled.Store(false)
-			start = time.Now()
-			tracker = newLastLineTracker(start)
-			if hint := toolArgHint(args); hint != "" {
-				_, _ = io.WriteString(tracker, hint+"\n")
-			}
+		// Print the non-blocking stall notice. The monitor goroutine handles
+		// stdin for 'k' keypresses; the tool keeps running until killed.
+		l.promptStallOptions(termW, name, elapsed)
 
-			// Create a new temp file for the retry.
-			if f2, err2 := os.CreateTemp("", "kdeps-tool-*.log"); err2 == nil {
-				tool.OutputWriter = &stripANSIWriter{w: io.MultiWriter(f2, tracker)}
-				defer func() {
-					tool.OutputWriter = nil
-					_ = f2.Close()
-					_ = AppFS.Remove(f2.Name())
-				}()
-			}
-
-			// Set up a new stall context for the retry.
-			if base, ok := args["_ctx"].(context.Context); ok && base != nil && l.config.ToolStallTimeout > 0 {
-				stallCtx, stallCancel := context.WithCancel(base)
-				defer stallCancel()
-				args["_ctx"] = stallCtx
-				onStall = func() {
-					stalled.Store(true)
-					stallCancel()
-				}
-			}
-
-			// Run the monitor again for the retry.
-			l.toolDisplayActive.Store(true)
-			stopMon = make(chan struct{})
-			monWg.Add(1)
-			go func() {
-				defer monWg.Done()
-				runToolMonitor(rawW, name, tracker, start, l.config.ToolStallTimeout, onStall, func() {
-					if l.toolLineOpen.CompareAndSwap(true, false) {
-						fmt.Fprint(termW, "\n")
-					}
-				}, stopMon)
-			}()
-
-			result, execErr = tool.Execute(args)
-			if l.memoryStore != nil {
-				if execErr != nil {
-					l.memoryStore.ExtractToolResult(name, execErr.Error())
-				} else {
-					l.memoryStore.ExtractToolResult(name, result)
-				}
-			}
-			close(stopMon)
-			monWg.Wait()
-			l.toolDisplayActive.Store(false)
-			elapsed = time.Since(start).Round(time.Millisecond)
-
-			if stalled.Load() {
-				fmt.Fprint(rawW, ansiReset+ansiClearLine)
-				fmt.Fprintf(termW, "  ... %s killed after retry with no output for %s\n",
-					name, l.config.ToolStallTimeout)
-				return toolErrorJSON(fmt.Errorf(
-					"tool killed: no output for %s (command appears hung). "+
-						"Retry with a narrower or more verbose command, or run it "+
-						"in the background", l.config.ToolStallTimeout))
-			}
-		} else {
-			return toolErrorJSON(fmt.Errorf(
-				"tool killed: no output for %s (command appears hung). "+
-					"Retry with a narrower or more verbose command, or run it "+
-					"in the background", l.config.ToolStallTimeout))
-		}
+		elapsedTotal := time.Since(startTotal).Round(time.Second)
+		fmt.Fprintf(termW, "\n  Tool ran for %s with no output. Log saved at: %s\n",
+			elapsedTotal, toolLogPath)
+		fmt.Fprintf(termW, "  Investigate the log to fix the issue, then retry the command.\n")
+		return toolErrorJSON(fmt.Errorf(
+			"tool killed after %s: no output for stall timeout %s (command appears hung). "+
+				"Partial output saved to %s. Investigate and fix any issues before retrying. "+
+				"Use /model tool set stall-timeout to adjust the timeout if needed",
+			elapsedTotal, l.config.ToolStallTimeout, toolLogPath))
 	}
 
 	// sameLine: nothing (monitor frame, output) closed the call line, so the

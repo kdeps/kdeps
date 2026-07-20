@@ -31,5 +31,5 @@ type Adapter = executor.TypedAdapter[domain.SearchLocalConfig]
 // NewAdapter creates a new searchlocal executor adapter.
 func NewAdapter() *Adapter {
 	kdeps_debug.Log("enter: NewAdapter")
-	return executor.NewTypedAdapter[domain.SearchLocalConfig]("searchLocal", NewExecutor())
+	return executor.NewTypedAdapter("searchLocal", NewExecutor())
 }

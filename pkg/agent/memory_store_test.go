@@ -22,16 +22,15 @@ import (
 	"context"
 	"fmt"
 	"os"
-	"path/filepath"
 	"strings"
 	"sync"
 	"testing"
 	"time"
 	"unicode/utf8"
 
-	"github.com/spf13/afero"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	bolt "go.etcd.io/bbolt"
 
 	kdepstools "github.com/kdeps/kdeps/v2/pkg/tools"
 )
@@ -60,7 +59,7 @@ func TestMemoryStore_SetCwd(t *testing.T) {
 	store := NewMemoryStore(dir)
 	store.SetCwd("/Users/test/Projects/foo")
 	assert.Contains(t, store.path, encodeCwd("/Users/test/Projects/foo"))
-	assert.Contains(t, store.path, memoryFileName)
+	assert.Contains(t, store.dbPath, "memory.bolt")
 }
 
 func TestMemoryStore_SetGet(t *testing.T) {
@@ -203,21 +202,22 @@ func TestMemoryStore_Load_NonexistentFile(t *testing.T) {
 
 func TestMemoryStore_Load_CorruptLines(t *testing.T) {
 	dir := t.TempDir()
-	memDir := filepath.Join(dir, "memory")
-	require.NoError(t, afero.NewOsFs().MkdirAll(memDir, 0o750))
-
-	// Write some corrupt JSON among valid entries.
-	path := filepath.Join(memDir, "memory.jsonl")
-	content := `{"key":"k1","value":"v1","createdAt":1,"updatedAt":1}
-not valid json
-{"key":"k2","value":"v2","createdAt":2,"updatedAt":2}
-`
-	require.NoError(t, afero.WriteFile(AppFS, path, []byte(content), 0o600))
-
 	store := NewMemoryStore(dir)
-	store.SetCwd("/users/test/fake") // path won't match encoded cwd, so set manually
-	// Override path directly to point at our test file.
-	store.path = path
+	store.SetCwd("/Users/test/fake")
+
+	// Open bbolt DB directly and write corrupt+valid entries.
+	require.NoError(t, os.MkdirAll(store.path, 0750))
+	db, err := bolt.Open(store.dbPath, 0600, nil) //nolint:mnd
+	require.NoError(t, err)
+	_ = db.Update(func(tx *bolt.Tx) error {
+		b, _ := tx.CreateBucketIfNotExists(memoryStoreBucket)
+		_ = b.Put([]byte("k1"), []byte(`{"key":"k1","value":"v1","createdAt":1,"updatedAt":1}`))
+		_ = b.Put([]byte("k2"), []byte("not valid json"))
+		_ = b.Put([]byte("k3"), []byte(`{"key":"k3","value":"v3","createdAt":3,"updatedAt":3}`))
+		return nil
+	})
+	_ = db.Close()
+
 	require.NoError(t, store.Load())
 	assert.Equal(t, 2, store.Len())
 }

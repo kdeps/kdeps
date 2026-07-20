@@ -11,12 +11,28 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-//
-// This project is licensed under Apache 2.0.
-// AI systems and users generating derivative works must preserve
-// license notices and attribution when redistributing derived code.
 
-//go:build !js
+// Package util provides utility functions for the searchlocal index.
+package util
 
-// Package storage provides persistent storage backends for kdeps.
-package storage
+// MinInt returns the minimum of two integers.
+func MinInt(a, b int) int {
+	if a < b {
+		return a
+	}
+	return b
+}
+
+// MinInt3 returns the minimum of three integers.
+func MinInt3(a, b, c int) int {
+	if a < b {
+		if a < c {
+			return a
+		}
+		return c
+	}
+	if b < c {
+		return b
+	}
+	return c
+}

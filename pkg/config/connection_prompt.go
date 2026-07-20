@@ -38,6 +38,7 @@ const (
 	ConnKindSQL    = "sql"
 	ConnKindHTTP   = "http"
 	ConnKindSearch = "search"
+	ConnKindBot    = "bot"
 )
 
 // connKindTopKey maps a connection kind to its config.yaml top-level key.
@@ -47,6 +48,7 @@ var connKindTopKey = map[string]string{ //nolint:gochecknoglobals // static look
 	ConnKindSQL:    "sql_connections",
 	ConnKindHTTP:   "http_connections",
 	ConnKindSearch: "search_connections",
+	ConnKindBot:    "bot_connections",
 }
 
 // HasConnection reports whether cfg already defines a named connection of kind.
@@ -70,6 +72,8 @@ func HasConnection(cfg *Config, kind, name string) bool {
 	case ConnKindSearch:
 		_, ok := cfg.SearchConnections[name]
 		return ok
+	case ConnKindBot:
+		return hasBotConnection(cfg, name)
 	default:
 		return false
 	}
@@ -80,6 +84,26 @@ func HasConnection(cfg *Config, kind, name string) bool {
 // preserving the "connection not found" error at execution time.
 func CanPromptForConnections() bool {
 	return isStdinTerminal()
+}
+
+// hasBotConnection reports whether the named platform has a BotConnectionConfig
+// entry. Valid platform names: discord, slack, telegram, whatsapp.
+func hasBotConnection(cfg *Config, platform string) bool {
+	if cfg == nil || cfg.BotConnections == nil {
+		return false
+	}
+	switch platform {
+	case "discord":
+		return cfg.BotConnections.Discord != nil
+	case "slack":
+		return cfg.BotConnections.Slack != nil
+	case "telegram":
+		return cfg.BotConnections.Telegram != nil
+	case "whatsapp":
+		return cfg.BotConnections.WhatsApp != nil
+	default:
+		return false
+	}
 }
 
 // PromptAndSaveConnection interactively asks for the fields of a missing
@@ -133,6 +157,8 @@ func promptConnectionValue(
 		return SearchConnectionConfig{APIKey: key}, nil
 	case ConnKindHTTP:
 		return promptHTTPConnection(w, out, in)
+	case ConnKindBot:
+		return promptBotConnection(w, out, in)
 	default:
 		return nil, fmt.Errorf("unknown connection kind %q", kind)
 	}
@@ -189,6 +215,59 @@ func promptHTTPConnection(
 		cfg.Proxy = proxy
 	}
 	return cfg, nil
+}
+
+// promptBotConnection interactively collects the fields for a bot platform,
+// returning a BotConnectionConfig that wraps the platform's config struct.
+func promptBotConnection(
+	w *fmtWriter, out io.StringWriter, in *bufio.Reader,
+) (any, error) {
+	platform := strings.ToLower(promptLine(out, in,
+		"  Platform [discord/slack/telegram/whatsapp]: ", ""))
+
+	switch platform {
+	case "discord":
+		token, err := promptSecret(w, in, "  Discord bot token")
+		if err != nil {
+			return nil, err
+		}
+		return BotConnectionConfig{Discord: &DiscordConnectionConfig{BotToken: token}}, nil
+	case "telegram":
+		token, err := promptSecret(w, in, "  Telegram bot token")
+		if err != nil {
+			return nil, err
+		}
+		return BotConnectionConfig{Telegram: &TelegramConnectionConfig{BotToken: token}}, nil
+	case "slack":
+		token, err := promptSecret(w, in, "  Slack bot token (xoxb-)")
+		if err != nil {
+			return nil, err
+		}
+		appToken := promptLine(out, in, "  Slack app token (xapp-, optional): ", "")
+		signingSecret, _ := promptSecret(w, in, "  Slack signing secret (optional)")
+		slack := &SlackConnectionConfig{BotToken: token}
+		if appToken != "" {
+			slack.AppToken = appToken
+		}
+		if signingSecret != "" {
+			slack.SigningSecret = signingSecret
+		}
+		return BotConnectionConfig{Slack: slack}, nil
+	case "whatsapp":
+		phoneNumberID := promptLine(out, in, "  WhatsApp Phone Number ID: ", "")
+		accessToken, err := promptSecret(w, in, "  WhatsApp Access Token")
+		if err != nil {
+			return nil, err
+		}
+		webhookSecret, _ := promptSecret(w, in, "  WhatsApp Webhook Secret (optional)")
+		wa := &WhatsAppConnectionConfig{PhoneNumberID: phoneNumberID, AccessToken: accessToken}
+		if webhookSecret != "" {
+			wa.WebhookSecret = webhookSecret
+		}
+		return BotConnectionConfig{WhatsApp: wa}, nil
+	default:
+		return nil, fmt.Errorf("unknown bot platform %q", platform)
+	}
 }
 
 // promptPort reads a port number, falling back to def on blank or invalid input.

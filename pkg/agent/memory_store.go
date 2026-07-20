@@ -19,7 +19,6 @@
 package agent
 
 import (
-	"bufio"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -30,6 +29,8 @@ import (
 	"sync"
 	"time"
 	"unicode/utf8"
+
+	bolt "go.etcd.io/bbolt"
 	// graph types inlined from github.com/kdeps/kartographer (see graph.go).
 )
 
@@ -103,13 +104,18 @@ const (
 	memTypeNote       = "note"
 )
 
-// MemoryStore persists per-project memory as a JSONL file.
+//nolint:gochecknoglobals // bbolt bucket name
+var memoryStoreBucket = []byte("agent_memory")
+
+// MemoryStore persists per-project memory using bbolt.
 // Entries are cached in memory for fast access and written through on mutation.
 type MemoryStore struct {
 	mu       sync.RWMutex
 	basePath string                 // root directory for memory files
-	path     string                 // resolved path to the JSONL file (empty until SetCwd)
-	entries  map[string]MemoryEntry // key → entry
+	path     string                 // resolved path (empty until SetCwd)
+	dbPath   string                 // bbolt database path
+	db       *bolt.DB               // bbolt database handle
+	entries  map[string]MemoryEntry // key -> entry (in-memory cache)
 }
 
 // NewMemoryStore creates a memory store rooted at basePath.
@@ -128,15 +134,45 @@ func NewMemoryStore(basePath string) *MemoryStore {
 }
 
 // SetCwd configures per-project memory isolation. When set, memory is stored
-// under basePath/<encoded-cwd>/memory.jsonl. Call with os.Getwd() at startup.
+// under basePath/<encoded-cwd>/memory.bolt. Call with os.Getwd() at startup.
 func (m *MemoryStore) SetCwd(cwd string) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	m.path = filepath.Join(m.basePath, encodeCwd(cwd), memoryFileName)
+	// Close previous DB if any.
+	if m.db != nil {
+		_ = m.db.Close()
+		m.db = nil
+	}
+	m.path = filepath.Join(m.basePath, encodeCwd(cwd))
+	m.dbPath = filepath.Join(m.path, "memory.bolt")
 }
 
-// Load reads the memory JSONL file and populates the entries map.
-// Returns nil if the file does not exist (empty memory is not an error).
+// getOrOpenDB returns the bbolt database, opening it if needed.
+func (m *MemoryStore) getOrOpenDB() (*bolt.DB, error) {
+	if m.db != nil {
+		return m.db, nil
+	}
+	if m.dbPath == "" {
+		return nil, nil //nolint:nilnil // path not set yet
+	}
+	dir := filepath.Dir(m.dbPath)
+	if err := os.MkdirAll(dir, 0750); err != nil {
+		return nil, fmt.Errorf("memory store: mkdir: %w", err)
+	}
+	db, err := bolt.Open(m.dbPath, 0600, nil) //nolint:mnd // DB file permissions
+	if err != nil {
+		return nil, fmt.Errorf("memory store: open db: %w", err)
+	}
+	_ = db.Update(func(tx *bolt.Tx) error {
+		_, _ = tx.CreateBucketIfNotExists(memoryStoreBucket)
+		return nil
+	})
+	m.db = db
+	return db, nil
+}
+
+// Load reads memory entries from bbolt and populates the in-memory cache.
+// Returns nil if the database does not exist (empty memory is not an error).
 func (m *MemoryStore) Load() error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -145,85 +181,73 @@ func (m *MemoryStore) Load() error {
 		return nil
 	}
 
-	f, err := AppFS.Open(m.path)
+	db, err := m.getOrOpenDB()
 	if err != nil {
-		if os.IsNotExist(err) {
+		return err
+	}
+
+	return db.View(func(tx *bolt.Tx) error {
+		b := tx.Bucket(memoryStoreBucket)
+		if b == nil {
 			return nil
 		}
-		return fmt.Errorf("memory store: open: %w", err)
-	}
-	defer f.Close()
-
-	scanner := bufio.NewScanner(f)
-	scanner.Buffer(make([]byte, memoryMaxLine), memoryMaxLine)
-
-	for scanner.Scan() {
-		var entry MemoryEntry
-		if jsonErr := json.Unmarshal(scanner.Bytes(), &entry); jsonErr != nil {
-			continue // skip corrupt lines
+		c := b.Cursor()
+		for k, v := c.First(); k != nil; k, v = c.Next() {
+			var entry MemoryEntry
+			if json.Unmarshal(v, &entry) != nil {
+				continue
+			}
+			if entry.Key == "" {
+				continue
+			}
+			m.entries[entry.Key] = entry
 		}
-		if entry.Key == "" {
-			continue
-		}
-		m.entries[entry.Key] = entry
-	}
-	if scanErr := scanner.Err(); scanErr != nil {
-		return fmt.Errorf("memory store: read error: %w", scanErr)
-	}
-	return nil
+		return nil
+	})
 }
 
-// Save persists all entries to the JSONL file.
-// Uses atomic write: write to temp file, then rename.
+// Save persists all entries from the in-memory cache to bbolt.
 func (m *MemoryStore) Save() error {
 	m.mu.RLock()
-	path := m.path
-	if path == "" {
-		m.mu.RUnlock()
-		return nil
-	}
-	// Copy entries under read lock so we can release it before I/O.
 	entries := make([]MemoryEntry, 0, len(m.entries))
 	for _, e := range m.entries {
 		entries = append(entries, e)
 	}
 	m.mu.RUnlock()
 
-	// Sort by key for deterministic output.
-	sort.Slice(entries, func(i, j int) bool {
-		return entries[i].Key < entries[j].Key
-	})
-
-	dir := filepath.Dir(path)
-	if err := AppFS.MkdirAll(dir, 0o750); err != nil {
-		return fmt.Errorf("memory store: failed to create dir: %w", err)
+	if len(entries) == 0 {
+		return nil
 	}
 
-	tmpPath := path + ".tmp"
-	f, err := AppFS.Create(tmpPath)
+	db, err := m.getOrOpenDB()
 	if err != nil {
-		return fmt.Errorf("memory store: failed to create file: %w", err)
+		return err
 	}
 
-	enc := json.NewEncoder(f)
-	var writeErr error
-	for _, entry := range entries {
-		if writeErr = enc.Encode(entry); writeErr != nil {
-			_ = f.Close()
-			_ = AppFS.Remove(tmpPath)
-			return fmt.Errorf("memory store: write: %w", writeErr)
+	return db.Update(func(tx *bolt.Tx) error {
+		b := tx.Bucket(memoryStoreBucket)
+		for _, entry := range entries {
+			data, jsonErr := json.Marshal(entry)
+			if jsonErr != nil {
+				return jsonErr
+			}
+			if putErr := b.Put([]byte(entry.Key), data); putErr != nil {
+				return putErr
+			}
 		}
-	}
-	if closeErr := f.Close(); closeErr != nil {
-		_ = AppFS.Remove(tmpPath)
-		return fmt.Errorf("memory store: close: %w", closeErr)
-	}
+		return nil
+	})
+}
 
-	if renameErr := AppFS.Rename(tmpPath, path); renameErr != nil {
-		_ = AppFS.Remove(tmpPath)
-		return fmt.Errorf("memory store: rename: %w", renameErr)
+// Close closes the bbolt database.
+func (m *MemoryStore) Close() error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if m.db != nil {
+		err := m.db.Close()
+		m.db = nil
+		return err
 	}
-
 	return nil
 }
 

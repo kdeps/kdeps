@@ -1383,12 +1383,9 @@ func (r *REPL) Run() error {
 	// Mark this as the interactive REPL so bash_exec may hand the controlling
 	// terminal to a child (see Config.InteractiveTTY). Never set outside the REPL.
 	r.loop.config.InteractiveTTY = true
-	// Auto-raise the tool/stall budgets in interactive use so a long session
+	// Auto-raise the tool budget in interactive use so a long session
 	// never blocks on a prompt; library/test callers keep budget exhaustion.
 	r.loop.config.AutoToolAllocation = true
-	r.loop.config.AutoStallAllocation = true
-	// Apply persisted /model tool settings on top of the defaults, so a saved
-	// "autokill on" (which disables auto-stall) survives across sessions.
 	if r.persistedTuning != nil {
 		r.applyToolTuning(*r.persistedTuning)
 	}
@@ -2380,10 +2377,7 @@ func (r *REPL) printToolSettings() {
 		{"rounds", fmt.Sprintf("%d  (max tool-call rounds per turn, 0 = unlimited)", cfg.MaxToolRounds)},
 		{"retries", fmt.Sprintf("%d  (auto-retries on transient API errors)", cfg.AutoRetryMax)},
 		{"retry-delay", fmt.Sprintf("%s  (initial retry backoff, doubles per retry)", cfg.AutoRetryBaseDelay)},
-		{"stall-timeout", fmt.Sprintf("%s  (kill a tool after this much silence, 0 = off)", cfg.ToolStallTimeout)},
-		{"autokill", fmt.Sprintf(
-			"%s  (on = kill a stalled tool; off = auto-increase its timeout)",
-			onOff(cfg.AutoStallKill))},
+		{"stall-timeout", fmt.Sprintf("%s  (kill a tool after this much silence, set 0 to disable)", cfg.ToolStallTimeout)},
 		{"compact-threshold", fmt.Sprintf("%d  (tokens; auto-compact trigger, 0 = off)", cfg.AutoCompactThreshold)},
 		{"compact-budget", fmt.Sprintf("%d  (tokens kept after compaction)", cfg.CompactTokenBudget)},
 		{"max-turns", fmt.Sprintf("%d  (history turns retained, 0 = unlimited)", cfg.MaxTurns)},
@@ -2440,21 +2434,6 @@ var toolSettingAppliers = map[string]func(cfg *Config, value string) (string, st
 		}
 		cfg.ToolStallTimeout = d
 		return fmt.Sprintf("Tool stall timeout set to %s of silence", d), ""
-	},
-	"autokill": func(cfg *Config, v string) (string, string) {
-		on, ok := parseOnOff(v)
-		if !ok {
-			return "", "autokill must be on or off"
-		}
-		cfg.AutoStallKill = on
-		// Autokill and auto-increase are mutually exclusive: enabling one disables
-		// the other.
-		if on {
-			cfg.AutoStallAllocation = false
-			return "Autokill on — a stalled tool is killed at the stall timeout (auto-increase off)", ""
-		}
-		cfg.AutoStallAllocation = true
-		return "Autokill off — a stalled tool's timeout auto-increases and is announced", ""
 	},
 	"compact-threshold": func(cfg *Config, v string) (string, string) {
 		n := parseTokenCount(v)

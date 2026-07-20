@@ -71,6 +71,159 @@ func applyConnectionEnvOverrides(cfg *Config) {
 	}
 }
 
+// ConnEnvField describes one environment variable for a named connection,
+// used to generate env templates.
+type ConnEnvField struct {
+	Name    string // full env var, e.g. KDEPS_SMTP_CONNECTIONS_DEFAULT_HOST
+	Value   string // current value when a Config is supplied, else ""
+	Default string // suggested default for a blank template
+	Secret  bool   // password/token/DSN — left blank in templates
+}
+
+// ConnectionEnvFields returns the environment variables for a named connection
+// of the given kind, in a sensible order. When cfg is non-nil, each field's
+// current value is filled from it.
+func ConnectionEnvFields(cfg *Config, kind, name string) []ConnEnvField {
+	prefix, ok := connKindEnvPrefix[kind]
+	if !ok {
+		return nil
+	}
+	base := prefix + strings.ToUpper(name) + "_"
+	mk := func(field, def string, secret bool, val string) ConnEnvField {
+		return ConnEnvField{Name: base + field, Default: def, Secret: secret, Value: val}
+	}
+	switch kind {
+	case ConnKindSMTP:
+		c := lookupSMTP(cfg, name)
+		return []ConnEnvField{
+			mk("HOST", "", false, c.Host),
+			mk("PORT", "587", false, portStr(c.Port)),
+			mk("USERNAME", "", false, c.Username),
+			mk("PASSWORD", "", true, c.Password),
+			mk("TLS", "false", false, boolStr(c.TLS)),
+		}
+	case ConnKindIMAP:
+		c := lookupIMAP(cfg, name)
+		return []ConnEnvField{
+			mk("HOST", "", false, c.Host),
+			mk("PORT", "993", false, portStr(c.Port)),
+			mk("USERNAME", "", false, c.Username),
+			mk("PASSWORD", "", true, c.Password),
+			mk("TLS", "true", false, boolStr(c.TLS)),
+		}
+	case ConnKindSQL:
+		val := ""
+		if cfg != nil {
+			val = cfg.SQLConnections[name].Connection
+		}
+		return []ConnEnvField{mk("CONNECTION", "", true, val)}
+	case ConnKindSearch:
+		val := ""
+		if cfg != nil {
+			val = cfg.SearchConnections[name].APIKey
+		}
+		return []ConnEnvField{mk("API_KEY", "", true, val)}
+	case ConnKindHTTP:
+		return httpEnvFields(cfg, name, mk)
+	case ConnKindBot:
+		return botEnvFields(cfg, name, prefix, mk)
+	default:
+		return nil
+	}
+}
+
+func botEnvFields(cfg *Config, platform, prefix string, mk func(field, def string, secret bool, val string) ConnEnvField) []ConnEnvField {
+	switch platform {
+	case "discord":
+		val := ""
+		if cfg != nil && cfg.BotConnections != nil && cfg.BotConnections.Discord != nil {
+			val = cfg.BotConnections.Discord.BotToken
+		}
+		return []ConnEnvField{mk("BOT_TOKEN", "", true, val)}
+	case "telegram":
+		val := ""
+		if cfg != nil && cfg.BotConnections != nil && cfg.BotConnections.Telegram != nil {
+			val = cfg.BotConnections.Telegram.BotToken
+		}
+		return []ConnEnvField{mk("BOT_TOKEN", "", true, val)}
+	case "slack":
+		var botToken, appToken, signingSecret string
+		if cfg != nil && cfg.BotConnections != nil && cfg.BotConnections.Slack != nil {
+			botToken = cfg.BotConnections.Slack.BotToken
+			appToken = cfg.BotConnections.Slack.AppToken
+			signingSecret = cfg.BotConnections.Slack.SigningSecret
+		}
+		return []ConnEnvField{
+			mk("BOT_TOKEN", "", true, botToken),
+			mk("APP_TOKEN", "", true, appToken),
+			mk("SIGNING_SECRET", "", true, signingSecret),
+		}
+	case "whatsapp":
+		var phoneNumberID, accessToken, webhookSecret string
+		if cfg != nil && cfg.BotConnections != nil && cfg.BotConnections.WhatsApp != nil {
+			phoneNumberID = cfg.BotConnections.WhatsApp.PhoneNumberID
+			accessToken = cfg.BotConnections.WhatsApp.AccessToken
+			webhookSecret = cfg.BotConnections.WhatsApp.WebhookSecret
+		}
+		return []ConnEnvField{
+			mk("PHONE_NUMBER_ID", "", false, phoneNumberID),
+			mk("ACCESS_TOKEN", "", true, accessToken),
+			mk("WEBHOOK_SECRET", "", true, webhookSecret),
+		}
+	default:
+		return nil
+	}
+}
+
+func httpEnvFields(cfg *Config, name string, mk func(field, def string, secret bool, val string) ConnEnvField) []ConnEnvField {
+	var auth HTTPAuthConfig
+	proxy := ""
+	if cfg != nil {
+		c := cfg.HTTPConnections[name]
+		proxy = c.Proxy
+		if c.Auth != nil {
+			auth = *c.Auth
+		}
+	}
+	return []ConnEnvField{
+		mk("PROXY", "", false, proxy),
+		mk("AUTH_TYPE", "", false, auth.Type),
+		mk("AUTH_USERNAME", "", false, auth.Username),
+		mk("AUTH_PASSWORD", "", true, auth.Password),
+		mk("AUTH_TOKEN", "", true, auth.Token),
+		mk("AUTH_KEY", "", false, auth.Key),
+		mk("AUTH_VALUE", "", true, auth.Value),
+	}
+}
+
+func lookupSMTP(cfg *Config, name string) SMTPConnectionConfig {
+	if cfg != nil {
+		return cfg.SMTPConnections[name]
+	}
+	return SMTPConnectionConfig{}
+}
+
+func lookupIMAP(cfg *Config, name string) IMAPConnectionConfig {
+	if cfg != nil {
+		return cfg.IMAPConnections[name]
+	}
+	return IMAPConnectionConfig{}
+}
+
+func portStr(p int) string {
+	if p == 0 {
+		return ""
+	}
+	return strconv.Itoa(p)
+}
+
+func boolStr(b bool) string {
+	if b {
+		return "true"
+	}
+	return ""
+}
+
 // connKindEnvPrefix maps a connection kind to its env var prefix.
 //
 //nolint:gochecknoglobals // static lookup
@@ -80,6 +233,7 @@ var connKindEnvPrefix = map[string]string{
 	ConnKindSQL:    envPrefixSQL,
 	ConnKindSearch: envPrefixSearch,
 	ConnKindHTTP:   envPrefixHTTP,
+	ConnKindBot:    envPrefixBot,
 }
 
 // ConnectionInEnv reports whether any environment variable supplies a field of

@@ -55,6 +55,9 @@ func TestApplyConnectionEnvOverrides_SQLSearchHTTPBot(t *testing.T) {
 	t.Setenv("KDEPS_HTTP_CONNECTIONS_API_AUTH_TYPE", "bearer")
 	t.Setenv("KDEPS_HTTP_CONNECTIONS_API_AUTH_TOKEN", "tok-123")
 	t.Setenv("KDEPS_BOT_CONNECTIONS_SLACK_BOT_TOKEN", "xoxb-1")
+	t.Setenv("KDEPS_BOT_CONNECTIONS_TELEGRAM_BOT_TOKEN", "123:abc")
+	t.Setenv("KDEPS_BOT_CONNECTIONS_WHATSAPP_PHONE_NUMBER_ID", "123456")
+	t.Setenv("KDEPS_BOT_CONNECTIONS_WHATSAPP_ACCESS_TOKEN", "wa-tok")
 
 	cfg := &Config{}
 	applyConnectionEnvOverrides(cfg)
@@ -68,6 +71,13 @@ func TestApplyConnectionEnvOverrides_SQLSearchHTTPBot(t *testing.T) {
 	}
 	if assert.NotNil(t, cfg.BotConnections) && assert.NotNil(t, cfg.BotConnections.Slack) {
 		assert.Equal(t, "xoxb-1", cfg.BotConnections.Slack.BotToken)
+	}
+	if assert.NotNil(t, cfg.BotConnections) && assert.NotNil(t, cfg.BotConnections.Telegram) {
+		assert.Equal(t, "123:abc", cfg.BotConnections.Telegram.BotToken)
+	}
+	if assert.NotNil(t, cfg.BotConnections) && assert.NotNil(t, cfg.BotConnections.WhatsApp) {
+		assert.Equal(t, "123456", cfg.BotConnections.WhatsApp.PhoneNumberID)
+		assert.Equal(t, "wa-tok", cfg.BotConnections.WhatsApp.AccessToken)
 	}
 }
 
@@ -114,4 +124,111 @@ func TestParseBoolEnv(t *testing.T) {
 	for _, v := range []string{"0", "false", "no", "off", ""} {
 		assert.Falsef(t, parseBoolEnv(v), "value %q", v)
 	}
+}
+
+func TestConnectionEnvFieldsSMTP(t *testing.T) {
+	cfg := &Config{SMTPConnections: map[string]SMTPConnectionConfig{
+		"mail": {Host: "smtp.example.com", Port: 465, Username: "u", Password: "p", TLS: true},
+	}}
+	fields := ConnectionEnvFields(cfg, ConnKindSMTP, "mail")
+	assert.Len(t, fields, 5)
+	assert.Equal(t, "KDEPS_SMTP_CONNECTIONS_MAIL_HOST", fields[0].Name)
+	assert.Equal(t, "smtp.example.com", fields[0].Value)
+	assert.False(t, fields[0].Secret)
+	assert.Equal(t, "KDEPS_SMTP_CONNECTIONS_MAIL_PASSWORD", fields[3].Name)
+	assert.Equal(t, "p", fields[3].Value)
+	assert.True(t, fields[3].Secret)
+	assert.Equal(t, "465", fields[1].Value) // portStr
+}
+
+func TestConnectionEnvFieldsSQL(t *testing.T) {
+	cfg := &Config{SQLConnections: map[string]SQLConnectionConfig{
+		"db": {Connection: "postgres://u:p@h/db"},
+	}}
+	fields := ConnectionEnvFields(cfg, ConnKindSQL, "db")
+	assert.Len(t, fields, 1)
+	assert.Equal(t, "KDEPS_SQL_CONNECTIONS_DB_CONNECTION", fields[0].Name)
+	assert.True(t, fields[0].Secret)
+}
+
+func TestConnectionEnvFieldsSearch(t *testing.T) {
+	cfg := &Config{SearchConnections: map[string]SearchConnectionConfig{
+		"web": {APIKey: "sk-abc"},
+	}}
+	fields := ConnectionEnvFields(cfg, ConnKindSearch, "web")
+	assert.Len(t, fields, 1)
+	assert.Equal(t, "KDEPS_SEARCH_CONNECTIONS_WEB_API_KEY", fields[0].Name)
+	assert.Equal(t, "sk-abc", fields[0].Value)
+	assert.True(t, fields[0].Secret)
+}
+
+func TestConnectionEnvFieldsHTTP(t *testing.T) {
+	cfg := &Config{HTTPConnections: map[string]HTTPConnectionConfig{
+		"api": {Proxy: "http://proxy:8080", Auth: &HTTPAuthConfig{
+			Type: "bearer", Token: "tok-123",
+		}},
+	}}
+	fields := ConnectionEnvFields(cfg, ConnKindHTTP, "api")
+	assert.Len(t, fields, 7)
+	assert.Equal(t, "KDEPS_HTTP_CONNECTIONS_API_PROXY", fields[0].Name)
+	assert.Equal(t, "http://proxy:8080", fields[0].Value)
+	assert.False(t, fields[0].Secret)
+	assert.Equal(t, "KDEPS_HTTP_CONNECTIONS_API_AUTH_TOKEN", fields[4].Name)
+	assert.Equal(t, "tok-123", fields[4].Value)
+	assert.True(t, fields[4].Secret)
+}
+
+func TestConnectionEnvFieldsBotDiscord(t *testing.T) {
+	cfg := &Config{BotConnections: &BotConnectionConfig{
+		Discord: &DiscordConnectionConfig{BotToken: "discord-tok"},
+	}}
+	fields := ConnectionEnvFields(cfg, ConnKindBot, "discord")
+	assert.Len(t, fields, 1)
+	assert.Equal(t, "KDEPS_BOT_CONNECTIONS_DISCORD_BOT_TOKEN", fields[0].Name)
+	assert.Equal(t, "discord-tok", fields[0].Value)
+	assert.True(t, fields[0].Secret)
+}
+
+func TestConnectionEnvFieldsBotSlack(t *testing.T) {
+	cfg := &Config{BotConnections: &BotConnectionConfig{
+		Slack: &SlackConnectionConfig{BotToken: "xoxb-1", AppToken: "xapp-2"},
+	}}
+	fields := ConnectionEnvFields(cfg, ConnKindBot, "slack")
+	assert.Len(t, fields, 3)
+	assert.Equal(t, "KDEPS_BOT_CONNECTIONS_SLACK_BOT_TOKEN", fields[0].Name)
+	assert.Equal(t, "xoxb-1", fields[0].Value)
+	assert.Equal(t, "KDEPS_BOT_CONNECTIONS_SLACK_APP_TOKEN", fields[1].Name)
+	assert.Equal(t, "xapp-2", fields[1].Value)
+	assert.Equal(t, "KDEPS_BOT_CONNECTIONS_SLACK_SIGNING_SECRET", fields[2].Name)
+}
+
+func TestConnectionEnvFieldsBotTelegram(t *testing.T) {
+	fields := ConnectionEnvFields(nil, ConnKindBot, "telegram")
+	assert.Len(t, fields, 1)
+	assert.Equal(t, "KDEPS_BOT_CONNECTIONS_TELEGRAM_BOT_TOKEN", fields[0].Name)
+	assert.Equal(t, "", fields[0].Value)
+	assert.True(t, fields[0].Secret)
+}
+
+func TestConnectionEnvFieldsBotWhatsApp(t *testing.T) {
+	cfg := &Config{BotConnections: &BotConnectionConfig{
+		WhatsApp: &WhatsAppConnectionConfig{PhoneNumberID: "pid", AccessToken: "at", WebhookSecret: "ws"},
+	}}
+	fields := ConnectionEnvFields(cfg, ConnKindBot, "whatsapp")
+	assert.Len(t, fields, 3)
+	assert.Equal(t, "KDEPS_BOT_CONNECTIONS_WHATSAPP_PHONE_NUMBER_ID", fields[0].Name)
+	assert.Equal(t, "pid", fields[0].Value)
+	assert.False(t, fields[0].Secret)
+	assert.Equal(t, "KDEPS_BOT_CONNECTIONS_WHATSAPP_ACCESS_TOKEN", fields[1].Name)
+	assert.Equal(t, "at", fields[1].Value)
+	assert.True(t, fields[1].Secret)
+	assert.Equal(t, "KDEPS_BOT_CONNECTIONS_WHATSAPP_WEBHOOK_SECRET", fields[2].Name)
+}
+
+func TestConnectionEnvFieldsUnknownKind(t *testing.T) {
+	assert.Nil(t, ConnectionEnvFields(nil, "bogus", "x"))
+}
+
+func TestConnectionEnvFieldsUnknownBot(t *testing.T) {
+	assert.Nil(t, ConnectionEnvFields(nil, ConnKindBot, "nostromo"))
 }

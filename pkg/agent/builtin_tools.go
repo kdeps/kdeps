@@ -36,6 +36,7 @@ import (
 	"github.com/spf13/afero"
 
 	"github.com/kdeps/kdeps/v2/pkg/domain"
+	execSearch "github.com/kdeps/kdeps/v2/pkg/executor/searchlocal"
 	kdepstools "github.com/kdeps/kdeps/v2/pkg/tools"
 
 	lcllms "github.com/tmc/langchaingo/llms"
@@ -2110,15 +2111,32 @@ func registerMemorySearchTool(reg *kdepstools.Registry) {
 				return "", errors.New("memory_search: query is required")
 			}
 			results := memoryStoreInstance.Search(query)
-			if len(results) == 0 {
+			if len(results) > 0 {
+				var sb strings.Builder
+				fmt.Fprintf(&sb, "Found %d memory entries:\n", len(results))
+				for _, entry := range results {
+					fmt.Fprintf(&sb, "- %s: %s\n", entry.Key, entry.Value)
+				}
+				return sb.String(), nil
+			}
+
+			// No memory results — fall back to local file search.
+			wd, err := os.Getwd()
+			if err != nil {
 				return "No memory entries found.", nil
 			}
-			var sb strings.Builder
-			fmt.Fprintf(&sb, "Found %d memory entries:\n", len(results))
-			for _, entry := range results {
-				fmt.Fprintf(&sb, "- %s: %s\n", entry.Key, entry.Value)
+			exec := execSearch.NewExecutor()
+			exec.StartIndex(wd)
+			searchResult, searchErr := exec.Execute(nil, &domain.SearchLocalConfig{
+				Path:  wd,
+				Query: query,
+				Index: true,
+			})
+			if searchErr != nil {
+				return "No memory entries found.", nil
 			}
-			return sb.String(), nil
+			out, _ := json.MarshalIndent(searchResult, "", "  ")
+			return fmt.Sprintf("No memory entries found. Results found in local file search:\n%s", string(out)), nil
 		},
 	})
 }

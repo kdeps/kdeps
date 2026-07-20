@@ -207,6 +207,7 @@ func addDevelopCommands(rootCmd *cobra.Command) {
 	addCommandToGroup(rootCmd, groupDevelop, newEditCmd())
 	addCommandToGroup(rootCmd, groupDevelop, newValidateCmd())
 	addCommandToGroup(rootCmd, groupDevelop, newRunCmd())
+	addCommandToGroup(rootCmd, groupDevelop, newEnvCmd())
 	addCommandToGroup(rootCmd, groupDevelop, newChatCmd())
 	addCommandToGroup(rootCmd, groupDevelop, newDoctorCmd())
 	addCommandToGroup(rootCmd, groupDevelop, newLlamafileCmd())
