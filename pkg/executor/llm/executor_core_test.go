@@ -483,7 +483,11 @@ func TestExecutor_Execute_InvalidJSONResponse(t *testing.T) {
 }
 
 func TestExecutor_Execute_MissingModel(t *testing.T) {
+	// A non-file backend with no model and no configured models list cannot
+	// guess a model, so it must error rather than default to a llamafile.
 	t.Setenv("KDEPS_DEFAULT_BACKEND", "ollama")
+	t.Setenv("KDEPS_LLM_MODELS", "")
+	t.Setenv("KDEPS_LLM_ROUTER", "")
 	llmExecutor := llm.NewExecutor("http://localhost:11434")
 	ctx, err := executor.NewExecutionContext(
 		&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}},
@@ -497,7 +501,7 @@ func TestExecutor_Execute_MissingModel(t *testing.T) {
 
 	_, err = llmExecutor.Execute(ctx, config)
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "model is required")
+	assert.Contains(t, err.Error(), "no model configured")
 }
 
 func TestExecutor_Execute_MissingPrompt(t *testing.T) {

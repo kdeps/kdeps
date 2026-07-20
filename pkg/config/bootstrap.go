@@ -24,6 +24,7 @@ import (
 	"golang.org/x/term"
 
 	"github.com/spf13/afero"
+	"gopkg.in/yaml.v3"
 )
 
 //nolint:gochecknoglobals // test-replaceable
@@ -68,6 +69,31 @@ func Bootstrap(out *os.File) error {
 	return bootstrapInteractive(out, reader, path)
 }
 
+// backendChoice describes one entry in the bootstrap backend-type menu.
+type backendChoice struct {
+	kind  string // file | gguf | cloud | ollama | router
+	label string
+	desc  string
+}
+
+// backendChoices are the LLM backend types offered during bootstrap, in order.
+//
+//nolint:gochecknoglobals // static menu
+var backendChoices = []backendChoice{
+	{fileBackendStr, "llamafile", "local, self-contained, no server install (recommended)"},
+	{ggufBackendStr, "gguf", "local GGUF models via llama.cpp"},
+	{"cloud", "cloud", "OpenAI, Anthropic, DeepSeek, Groq, xAI, ... (needs an API key)"},
+	{ollamaBackendStr, "ollama", "connect to an Ollama server"},
+	{"router", "router", "route across multiple models by strategy (advanced)"},
+}
+
+// routerStrategies are the selectable LLM router strategies, in menu order.
+//
+//nolint:gochecknoglobals // static menu
+var routerStrategies = []string{
+	strategyFallback, strategyRoundRobin, strategyTokenThreshold, strategyCostOptimized,
+}
+
 // bootstrapInteractive runs the interactive setup wizard.
 // Separated from Bootstrap so it can be tested without a real TTY.
 func bootstrapInteractive(out io.StringWriter, reader *bufio.Reader, path string) error {
@@ -77,11 +103,9 @@ func bootstrapInteractive(out io.StringWriter, reader *bufio.Reader, path string
 	w.println("  Welcome to kdeps!")
 	w.println("  No configuration found. Let's set up ~/.kdeps/config.yaml.")
 	w.println("")
-
-	// --- LLM provider selection ---
-	w.println("  Which LLM provider do you want to use?")
-	for i, p := range providerNames() {
-		w.printf("    [%d] %s\n", i+1, p)
+	w.println("  How should kdeps run language models?")
+	for i, bt := range backendChoices {
+		w.printf("    [%d] %-10s %s\n", i+1, bt.label, bt.desc)
 	}
 	w.println("    [0] Skip (configure later)")
 	w.println("")
@@ -89,12 +113,8 @@ func bootstrapInteractive(out io.StringWriter, reader *bufio.Reader, path string
 	choice := promptLine(out, reader, "  Enter number [1]: ", "1")
 
 	var cfg Config
-	chosenProvider := resolveProviderChoice(choice)
-
-	if chosenProvider != "" {
-		if err := configureProvider(out, reader, w, &cfg, chosenProvider); err != nil {
-			return err
-		}
+	if err := configureBackendChoice(out, reader, w, &cfg, choice); err != nil {
+		return err
 	}
 
 	if writeErr := writeConfig(path, cfg); writeErr != nil {
@@ -103,11 +123,123 @@ func bootstrapInteractive(out io.StringWriter, reader *bufio.Reader, path string
 
 	w.println("")
 	w.printf("  ✓ Configuration written to %s\n", path)
-	w.println("  You can edit it at any time to add more providers or change settings.")
+	w.println("  You can edit it at any time to change models or backends.")
 	w.println("")
 
 	applyEnv(cfg)
 	return nil
+}
+
+// configureBackendChoice dispatches on the backend-type menu number.
+func configureBackendChoice(
+	out io.StringWriter, reader *bufio.Reader, w *fmtWriter, cfg *Config, choice string,
+) error {
+	idx := 0
+	if _, err := fmt.Sscanf(choice, "%d", &idx); err != nil || idx < 1 || idx > len(backendChoices) {
+		return nil //nolint:nilerr // invalid/blank menu input means "skip", not an error
+	}
+	switch backendChoices[idx-1].kind {
+	case fileBackendStr:
+		configureLlamafile(out, reader, cfg)
+	case ggufBackendStr:
+		configureGGUF(out, reader, cfg)
+	case "cloud":
+		return configureCloud(out, reader, w, cfg)
+	case ollamaBackendStr:
+		configureOllama(out, reader, cfg)
+	case "router":
+		configureRouter(out, reader, w, cfg)
+	}
+	return nil
+}
+
+// configureLlamafile sets the local file backend and a default model.
+func configureLlamafile(out io.StringWriter, reader *bufio.Reader, cfg *Config) {
+	cfg.LLM.Backend = fileBackendStr
+	model := promptLine(out, reader, "  Default model [llama3.2:1b]: ", "llama3.2:1b")
+	setDefaultModel(cfg, model)
+}
+
+// configureGGUF sets the gguf backend and an optional default model.
+func configureGGUF(out io.StringWriter, reader *bufio.Reader, cfg *Config) {
+	cfg.LLM.Backend = ggufBackendStr
+	model := promptLine(out, reader, "  Default GGUF model alias or path (blank to set per resource): ", "")
+	setDefaultModel(cfg, model)
+}
+
+// configureCloud picks a cloud provider, its API key, and an optional model.
+func configureCloud(out io.StringWriter, reader *bufio.Reader, w *fmtWriter, cfg *Config) error {
+	w.println("")
+	w.println("  Which cloud provider?")
+	for i, p := range cloudProvidersList {
+		w.printf("    [%d] %s\n", i+1, p.name)
+	}
+	choice := promptLine(out, reader, "  Enter number [1]: ", "1")
+	idx := 1
+	if _, err := fmt.Sscanf(choice, "%d", &idx); err != nil || idx < 1 || idx > len(cloudProvidersList) {
+		idx = 1
+	}
+	p := cloudProvidersList[idx-1]
+	cfg.LLM.Backend = p.name
+
+	w.printf("\n  Enter your %s API key (input hidden): ", p.name)
+	apiKey, readErr := readSecretFunc(reader)
+	w.println("")
+	if readErr != nil {
+		return readErr
+	}
+	if strings.TrimSpace(apiKey) != "" {
+		p.setOnConfig(cfg, strings.TrimSpace(apiKey))
+	}
+
+	model := promptLine(out, reader, "  Default model (blank to set per resource): ", "")
+	setDefaultModel(cfg, model)
+	return nil
+}
+
+// configureOllama sets the ollama backend, host, and an optional model.
+func configureOllama(out io.StringWriter, reader *bufio.Reader, cfg *Config) {
+	cfg.LLM.Backend = ollamaBackendStr
+	host := promptLine(out, reader, "  Ollama host URL [http://localhost:11434]: ", "http://localhost:11434")
+	if strings.TrimSpace(host) != "" {
+		cfg.LLM.OllamaHost = strings.TrimSpace(host)
+	}
+	model := promptLine(out, reader, "  Default model (e.g. llama3.2, blank to set per resource): ", "")
+	setDefaultModel(cfg, model)
+}
+
+// configureRouter collects the models to route across and a strategy.
+func configureRouter(out io.StringWriter, reader *bufio.Reader, w *fmtWriter, cfg *Config) {
+	w.println("")
+	w.println("  Router: add the models to route across (blank model name to finish).")
+	for {
+		model := promptLine(out, reader, "  Model name (blank to finish): ", "")
+		if model == "" {
+			break
+		}
+		backend := promptLine(out, reader, "    Backend (blank to auto-detect from model): ", "")
+		cfg.LLM.Models = append(cfg.LLM.Models, ModelEntry{Model: model, Backend: backend})
+	}
+	if len(cfg.LLM.Models) == 0 {
+		return
+	}
+	w.println("  Routing strategy:")
+	for i, s := range routerStrategies {
+		w.printf("    [%d] %s\n", i+1, s)
+	}
+	choice := promptLine(out, reader, "  Enter number [1]: ", "1")
+	idx := 1
+	if _, err := fmt.Sscanf(choice, "%d", &idx); err != nil || idx < 1 || idx > len(routerStrategies) {
+		idx = 1
+	}
+	cfg.LLM.Strategy = routerStrategies[idx-1]
+}
+
+// setDefaultModel records a single default model so resources may omit `model:`.
+func setDefaultModel(cfg *Config, model string) {
+	if strings.TrimSpace(model) != "" {
+		cfg.LLM.Models = ModelList{{Model: strings.TrimSpace(model)}}
+	}
 }
 
 // fmtWriter wraps a WriteString-capable writer for fmt calls.
@@ -172,6 +304,7 @@ func buildUserFields(cfg Config) string {
 	for _, p := range cloudProvidersList {
 		appendField(&lines, "  "+p.yamlKey, p.getKey(cfg.LLM))
 	}
+	appendModelsAndStrategy(&lines, cfg.LLM)
 	if cfg.Defaults.Timezone != "" || cfg.Defaults.PythonVersion != "" {
 		lines = append(lines, "defaults:")
 		appendField(&lines, "  timezone", cfg.Defaults.Timezone)
@@ -190,6 +323,24 @@ func appendField(lines *[]string, key, value string) {
 	}
 }
 
+// appendModelsAndStrategy serializes llm.strategy and llm.models (a list) under
+// the already-emitted `llm:` block.
+func appendModelsAndStrategy(lines *[]string, llm LLMKeys) {
+	if llm.Strategy != "" {
+		*lines = append(*lines, "  strategy: "+yamlQuote(llm.Strategy))
+	}
+	if len(llm.Models) == 0 {
+		return
+	}
+	data, err := yaml.Marshal(map[string]ModelList{"models": llm.Models})
+	if err != nil {
+		return
+	}
+	for _, ln := range strings.Split(strings.TrimRight(string(data), "\n"), "\n") {
+		*lines = append(*lines, "  "+ln)
+	}
+}
+
 func yamlQuote(s string) string {
 	// Wrap in double quotes and escape any existing quotes.
 	return `"` + strings.ReplaceAll(s, `"`, `\"`) + `"`
@@ -202,45 +353,4 @@ func dirOf(path string) string {
 		}
 	}
 	return "."
-}
-
-// resolveProviderChoice maps a numeric menu selection to a provider name.
-// Returns "" when the user skips (choice "0") or enters an invalid number.
-func resolveProviderChoice(choice string) string {
-	if choice == "0" {
-		return ""
-	}
-	idx := 0
-	if _, scanErr := fmt.Sscanf(choice, "%d", &idx); scanErr != nil || idx < 1 || idx > len(providerNames()) {
-		return ""
-	}
-	return providerNames()[idx-1]
-}
-
-// configureProvider handles interactive setup for one provider (ollama or online).
-func configureProvider(
-	out io.StringWriter, reader *bufio.Reader, w *fmtWriter, cfg *Config, chosenProvider string,
-) error {
-	if chosenProvider == ollamaBackendStr {
-		hostRaw := promptLine(out, reader, "  Ollama host URL [http://localhost:11434]: ", "http://localhost:11434")
-		if strings.TrimSpace(hostRaw) != "" {
-			cfg.LLM.OllamaHost = strings.TrimSpace(hostRaw)
-		}
-		return nil
-	}
-	p, ok := cloudProviders[chosenProvider]
-	if !ok {
-		cfg.LLM.Backend = chosenProvider // persist file/other non-cloud backends
-		return nil
-	}
-	w.printf("\n  Enter your %s API key (input hidden): ", chosenProvider)
-	apiKey, readErr := readSecretFunc(reader)
-	w.println("")
-	if readErr != nil {
-		return readErr
-	}
-	if strings.TrimSpace(apiKey) != "" {
-		p.setOnConfig(cfg, strings.TrimSpace(apiKey))
-	}
-	return nil
 }

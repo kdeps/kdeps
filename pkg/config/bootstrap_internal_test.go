@@ -95,8 +95,8 @@ func (tw *testWriter) WriteString(s string) (int, error) { return tw.Builder.Wri
 func TestBootstrapInteractive_OllamaDefaultHost(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "config.yaml")
-	// Input: choose "1" (ollama), accept default host
-	input := "2\n\n"
+	// Input: choose "4" (ollama), accept default host, no default model
+	input := "4\n\n\n"
 	reader := bufio.NewReader(strings.NewReader(input))
 	var out testWriter
 	require.NoError(t, bootstrapInteractive(&out, reader, path))
@@ -110,8 +110,8 @@ func TestBootstrapInteractive_OllamaDefaultHost(t *testing.T) {
 func TestBootstrapInteractive_OllamaCustomHost(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "config.yaml")
-	// Input: choose "1" (ollama), custom host
-	input := "2\nhttp://myserver:11434\n"
+	// Input: choose "4" (ollama), custom host, no default model
+	input := "4\nhttp://myserver:11434\n\n"
 	reader := bufio.NewReader(strings.NewReader(input))
 	var out testWriter
 	require.NoError(t, bootstrapInteractive(&out, reader, path))
@@ -126,8 +126,9 @@ func TestBootstrapInteractive_OnlineProvider(t *testing.T) {
 	p := primaryCloudProvider()
 	dir := t.TempDir()
 	path := filepath.Join(dir, "config.yaml")
-	// Menu index 3 = first cloud provider after file + ollama.
-	input := "3\nsk-mykey\n"
+	// Menu index 3 = cloud. Sub-pick defaults to the first cloud provider,
+	// then the API key, then a blank default model.
+	input := "3\n\nsk-mykey\n\n"
 	reader := bufio.NewReader(strings.NewReader(input))
 	var out testWriter
 	require.NoError(t, bootstrapInteractive(&out, reader, path))
@@ -519,22 +520,58 @@ func TestGetDefaults_ParseError(t *testing.T) {
 	assert.Contains(t, err.Error(), "parse embedded defaults.yml")
 }
 
-func TestConfigureProvider_UnknownProvider(t *testing.T) {
+func TestConfigureBackendChoice_InvalidIsNoop(t *testing.T) {
 	reader := bufio.NewReader(strings.NewReader(""))
 	var out testWriter
 	cfg := &Config{}
-	err := configureProvider(&out, reader, &fmtWriter{w: &out}, cfg, "not-a-provider")
-	require.NoError(t, err)
+	require.NoError(t, configureBackendChoice(&out, reader, &fmtWriter{w: &out}, cfg, "99"))
+	assert.Empty(t, cfg.LLM.Backend)
+	require.NoError(t, configureBackendChoice(&out, reader, &fmtWriter{w: &out}, cfg, "0"))
+	assert.Empty(t, cfg.LLM.Backend)
 }
 
-func TestBootstrapInteractive_ConfigureProviderError(t *testing.T) {
+func TestConfigureLlamafile(t *testing.T) {
+	reader := bufio.NewReader(strings.NewReader("\n")) // accept default model
+	var out testWriter
+	cfg := &Config{}
+	require.NoError(t, configureBackendChoice(&out, reader, &fmtWriter{w: &out}, cfg, "1"))
+	assert.Equal(t, fileBackendStr, cfg.LLM.Backend)
+	require.Len(t, cfg.LLM.Models, 1)
+	assert.Equal(t, "llama3.2:1b", cfg.LLM.Models[0].Model)
+}
+
+func TestConfigureGGUF(t *testing.T) {
+	reader := bufio.NewReader(strings.NewReader("qwen3.5-4b\n"))
+	var out testWriter
+	cfg := &Config{}
+	require.NoError(t, configureBackendChoice(&out, reader, &fmtWriter{w: &out}, cfg, "2"))
+	assert.Equal(t, ggufBackendStr, cfg.LLM.Backend)
+	require.Len(t, cfg.LLM.Models, 1)
+	assert.Equal(t, "qwen3.5-4b", cfg.LLM.Models[0].Model)
+}
+
+func TestConfigureRouter(t *testing.T) {
+	// two models then blank to finish, then strategy "2" (round_robin)
+	reader := bufio.NewReader(strings.NewReader(
+		"deepseek-chat\ndeepseek\ngpt-4o\nopenai\n\n2\n"))
+	var out testWriter
+	cfg := &Config{}
+	require.NoError(t, configureBackendChoice(&out, reader, &fmtWriter{w: &out}, cfg, "5"))
+	require.Len(t, cfg.LLM.Models, 2)
+	assert.Equal(t, "deepseek-chat", cfg.LLM.Models[0].Model)
+	assert.Equal(t, "deepseek", cfg.LLM.Models[0].Backend)
+	assert.Equal(t, strategyRoundRobin, cfg.LLM.Strategy)
+}
+
+func TestBootstrapInteractive_CloudKeyReadError(t *testing.T) {
 	origReadSecret := readSecretFunc
 	t.Cleanup(func() { readSecretFunc = origReadSecret })
 	readSecretFunc = func(_ *bufio.Reader) (string, error) {
 		return "", errors.New("secret read failed")
 	}
 
-	reader := bufio.NewReader(strings.NewReader("3\n"))
+	// "3" = cloud, blank provider sub-pick, then the (failing) key read.
+	reader := bufio.NewReader(strings.NewReader("3\n\n"))
 	var out testWriter
 	err := bootstrapInteractive(&out, reader, "/tmp/test-config.yaml")
 	require.Error(t, err)

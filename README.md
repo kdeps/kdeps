@@ -404,6 +404,12 @@ When a tool call is denied by the permission mode, the agent can request a one-t
 
 ## Global config
 
+On the first run in a terminal with no config, an interactive wizard asks how to
+run models - **llamafile**, **gguf**, **cloud** (pick a provider + API key),
+**ollama**, or **router** (multi-model routing by strategy) - and writes
+`~/.kdeps/config.yaml` for you. Non-interactive runs get a commented template
+instead. Re-run it by deleting the file, or edit directly:
+
 ```bash
 kdeps edit    # opens ~/.kdeps/config.yaml
 kdeps doctor  # check config, LLM backend, Python, installed agents

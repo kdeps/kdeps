@@ -625,9 +625,6 @@ func TestExecutor_Execute_ResolveAndBuildErrors(t *testing.T) {
 	ctx, err := executor.NewExecutionContext(&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "t"}})
 	require.NoError(t, err)
 
-	_, err = e.Execute(ctx, &domain.ChatConfig{Model: "", Prompt: "p"})
-	require.Error(t, err)
-
 	_, _, _, err = e.resolveModelForExecution(nil, ctx, &domain.ChatConfig{Model: "{{ x }}", Prompt: "p"})
 	require.Error(t, err)
 }

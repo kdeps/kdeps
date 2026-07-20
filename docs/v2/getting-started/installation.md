@@ -81,6 +81,33 @@ kdeps llamafile list      # see all known model aliases
 kdeps llamafile update    # refresh the registry from HuggingFace
 ```
 
+## First-run setup
+
+The first time you run kdeps in a terminal with no `~/.kdeps/config.yaml`, an
+interactive wizard asks how you want to run language models and writes the
+config for you:
+
+```text
+  How should kdeps run language models?
+    [1] llamafile  local, self-contained, no server install (recommended)
+    [2] gguf       local GGUF models via llama.cpp
+    [3] cloud      OpenAI, Anthropic, DeepSeek, Groq, xAI, ... (needs an API key)
+    [4] ollama     connect to an Ollama server
+    [5] router     route across multiple models by strategy (advanced)
+    [0] Skip (configure later)
+```
+
+Each choice fills in the matching `llm:` fields:
+
+- **llamafile / gguf** — sets `backend` and a default model.
+- **cloud** — sets `backend`, prompts for the provider's API key, and stores it under `llm.<provider>_api_key`.
+- **ollama** — sets `backend: ollama` and the host URL.
+- **router** — collects the models to route across and a strategy (`fallback`, `round_robin`, `token_threshold`, `cost_optimized`), written as `llm.models` + `llm.strategy`.
+
+In non-interactive environments (CI, pipes) kdeps skips the wizard and writes a
+fully commented template instead. Re-run the wizard any time by removing
+`~/.kdeps/config.yaml`, or edit it directly with `kdeps edit`.
+
 ## Ollama (Optional)
 
 To use [Ollama](https://ollama.ai/) instead of the default llamafile backend:

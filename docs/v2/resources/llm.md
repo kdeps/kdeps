@@ -34,6 +34,18 @@ Set `model: router` to delegate model selection to the router configured in `~/.
 
 If a `chat` resource uses a cloud model (e.g. `model: deepseek-chat`) whose provider API key is missing from `config.yaml`, `kdeps run` prompts for the key at startup, saves `llm.<provider>_api_key`, and — when no default backend is set — points `llm.backend` at that provider so the model routes correctly. This is interactive-only; in CI/pipes the prompt is skipped. See [Interactive setup on first run](email.md#interactive-setup-on-first-run).
 
+### Model resolution order
+
+`model:` is optional. When omitted, kdeps resolves it in this order:
+
+```text
+resource model:  ->  config router (llm.models + strategy)  ->  first llm.models entry  ->  built-in llama3.2:1b (file backend)
+```
+
+- A resource with an explicit `model:` always wins.
+- Omit `model:` to inherit the machine default: the LLM router if `llm.strategy` is set, otherwise the first entry in `llm.models`, otherwise the built-in `llama3.2:1b` served by the local file backend.
+- A cloud/gguf/ollama backend with **no** model and **no** `llm.models` errors at run time, because kdeps will not guess a model that backend cannot serve — set `model:` on the resource or `llm.models` in `config.yaml`.
+
 ## Basic Usage
 
 <div v-pre>

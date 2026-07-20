@@ -27,6 +27,8 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/kdeps/kdeps/v2/pkg/domain"
+	"github.com/kdeps/kdeps/v2/pkg/executor"
+	"github.com/kdeps/kdeps/v2/pkg/parser/expression"
 )
 
 func TestApplyRouterModel_Success(t *testing.T) {
@@ -41,4 +43,66 @@ func TestApplyRouterModel_Success(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, "gpt-4", model)
 	assert.Nil(t, routes)
+}
+
+func TestDefaultModelWhenEmpty(t *testing.T) {
+	// Router configured -> delegate to router.
+	t.Setenv("KDEPS_LLM_ROUTER", `{"strategy":"fallback","models":[{"model":"m"}]}`)
+	t.Setenv("KDEPS_LLM_MODELS", "")
+	t.Setenv("KDEPS_DEFAULT_BACKEND", "")
+	m, ok := defaultModelWhenEmpty()
+	assert.True(t, ok)
+	assert.Equal(t, "router", m)
+
+	// No router, but a config models allowlist -> first model.
+	t.Setenv("KDEPS_LLM_ROUTER", "")
+	t.Setenv("KDEPS_LLM_MODELS", "deepseek-chat,gpt-4o")
+	m, ok = defaultModelWhenEmpty()
+	assert.True(t, ok)
+	assert.Equal(t, "deepseek-chat", m)
+
+	// Nothing configured, local/file backend -> built-in default.
+	t.Setenv("KDEPS_LLM_MODELS", "")
+	t.Setenv("KDEPS_DEFAULT_BACKEND", "")
+	m, ok = defaultModelWhenEmpty()
+	assert.True(t, ok)
+	assert.Equal(t, defaultBuiltinModel, m)
+
+	t.Setenv("KDEPS_DEFAULT_BACKEND", BackendFile)
+	m, ok = defaultModelWhenEmpty()
+	assert.True(t, ok)
+	assert.Equal(t, defaultBuiltinModel, m)
+
+	// Cloud backend with no model configured -> cannot guess.
+	t.Setenv("KDEPS_DEFAULT_BACKEND", "deepseek")
+	_, ok = defaultModelWhenEmpty()
+	assert.False(t, ok)
+}
+
+func TestResolveModelForExecution_EmptyModelFallsBack(t *testing.T) {
+	t.Setenv("KDEPS_LLM_ROUTER", "")
+	t.Setenv("KDEPS_LLM_MODELS", "my-model")
+	t.Setenv("KDEPS_DEFAULT_BACKEND", "")
+	e := NewExecutor("")
+	ctx, err := executor.NewExecutionContext(&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "t"}})
+	require.NoError(t, err)
+
+	model, _, _, err := e.resolveModelForExecution(
+		expression.NewEvaluator(ctx.API), ctx, &domain.ChatConfig{Model: "", Prompt: "p"})
+	require.NoError(t, err)
+	assert.Equal(t, "my-model", model)
+}
+
+func TestResolveModelForExecution_EmptyModelCloudErrors(t *testing.T) {
+	t.Setenv("KDEPS_LLM_ROUTER", "")
+	t.Setenv("KDEPS_LLM_MODELS", "")
+	t.Setenv("KDEPS_DEFAULT_BACKEND", "deepseek")
+	e := NewExecutor("")
+	ctx, err := executor.NewExecutionContext(&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "t"}})
+	require.NoError(t, err)
+
+	_, _, _, err = e.resolveModelForExecution(
+		expression.NewEvaluator(ctx.API), ctx, &domain.ChatConfig{Model: "", Prompt: "p"})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "no model configured")
 }

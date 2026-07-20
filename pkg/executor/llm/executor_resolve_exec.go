@@ -20,6 +20,8 @@ package llm
 
 import (
 	"fmt"
+	"os"
+	"strings"
 	"time"
 
 	kdepsconfig "github.com/kdeps/kdeps/v2/pkg/config"
@@ -27,6 +29,33 @@ import (
 	"github.com/kdeps/kdeps/v2/pkg/executor"
 	"github.com/kdeps/kdeps/v2/pkg/parser/expression"
 )
+
+// defaultBuiltinModel is the zero-config default: a small llamafile served by
+// the local file backend, downloaded on first use.
+const defaultBuiltinModel = "llama3.2:1b"
+
+// defaultModelWhenEmpty resolves the model for a chat resource that omits
+// `model:`. Order: config router (KDEPS_LLM_ROUTER) -> first config model
+// (KDEPS_LLM_MODELS) -> the built-in llamafile default when the backend is
+// local (file). Returns ("", false) when a cloud/gguf/ollama backend is set but
+// no model is configured, so the caller can emit a clear error rather than
+// guess a model the backend cannot serve.
+func defaultModelWhenEmpty() (string, bool) {
+	if os.Getenv("KDEPS_LLM_ROUTER") != "" {
+		return "router", true
+	}
+	if allowed := allowedModelsFromEnv(); len(allowed) > 0 {
+		if first := strings.TrimSpace(allowed[0]); first != "" {
+			return first, true
+		}
+	}
+	switch os.Getenv("KDEPS_DEFAULT_BACKEND") {
+	case "", BackendFile:
+		return defaultBuiltinModel, true
+	default:
+		return "", false
+	}
+}
 
 func (e *Executor) resolveModelForExecution(
 	evaluator *expression.Evaluator,
@@ -38,8 +67,13 @@ func (e *Executor) resolveModelForExecution(
 		return "", "", nil, fmt.Errorf("failed to evaluate model: %w", err)
 	}
 	if modelStr == "" {
-		return "", "", nil, domain.NewError(domain.ErrCodeInvalidResource,
-			"model is required in resource chat config — set model: <name> or model: router in run.chat", nil)
+		fallback, ok := defaultModelWhenEmpty()
+		if !ok {
+			return "", "", nil, domain.NewError(domain.ErrCodeInvalidResource,
+				"no model configured for backend "+os.Getenv("KDEPS_DEFAULT_BACKEND")+
+					": set model: <name> in the resource, or llm.models in ~/.kdeps/config.yaml", nil)
+		}
+		modelStr = fallback
 	}
 
 	promptStr, err := e.evaluateStringOrLiteral(evaluator, ctx, resolvedConfig.Prompt)
@@ -65,16 +99,16 @@ func (e *Executor) resolveModelForExecution(
 func (e *Executor) callBackendWithFallback(
 	backend Backend,
 	baseURL string,
-	requestBody map[string]interface{},
+	requestBody map[string]any,
 	timeout time.Duration,
 	fallbackRoutes []kdepsconfig.ModelEntry,
 	cfg *domain.ChatConfig,
-	messages []map[string]interface{},
+	messages []map[string]any,
 	requestConfig ChatRequestConfig,
-) map[string]interface{} {
+) map[string]any {
 	response, err := e.callBackend(backend, baseURL, requestBody, timeout)
 	if err != nil {
-		response = map[string]interface{}{fieldError: err.Error()}
+		response = map[string]any{fieldError: err.Error()}
 	}
 
 	response, err = e.retryFallbackRoutes(
@@ -88,10 +122,10 @@ func (e *Executor) callBackendWithFallback(
 
 // formatExecuteResult applies output caps and optional JSON response parsing.
 func (e *Executor) formatExecuteResult(
-	response map[string]interface{},
+	response map[string]any,
 	config *domain.ChatConfig,
 	maxOutputBytes int64,
-) (interface{}, error) {
+) (any, error) {
 	if maxOutputBytes > 0 {
 		if capErr := capLLMResponseContent(response, maxOutputBytes); capErr != nil {
 			return nil, capErr

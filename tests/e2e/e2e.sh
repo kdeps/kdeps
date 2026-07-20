@@ -106,6 +106,7 @@ source "$SCRIPT_DIR/test_install_exec.sh"
 source "$SCRIPT_DIR/test_global_config.sh"
 source "$SCRIPT_DIR/test_config_validation.sh"
 source "$SCRIPT_DIR/test_connection_prompt.sh"
+source "$SCRIPT_DIR/test_model_resolution.sh"
 source "$SCRIPT_DIR/test_doctor.sh"
 source "$SCRIPT_DIR/test_component_version_pinning.sh"
 
