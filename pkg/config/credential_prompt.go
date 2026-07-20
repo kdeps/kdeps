@@ -27,11 +27,52 @@ import (
 	"os"
 )
 
+// CredentialSource says where a required value was found.
+type CredentialSource int
+
+const (
+	// SourceMissing means the value is not set in config.yaml or the environment.
+	SourceMissing CredentialSource = iota
+	// SourceConfig means the value is set in config.yaml.
+	SourceConfig
+	// SourceEnv means the value is provided by an environment variable.
+	SourceEnv
+)
+
 // IsCloudBackend reports whether backend is a cloud LLM provider that needs an
 // API key (as opposed to a local backend like file/gguf/ollama).
 func IsCloudBackend(backend string) bool {
 	_, ok := cloudProviders[backend]
 	return ok
+}
+
+// LLMKeySource reports where a cloud backend's API key comes from and the name
+// of its environment variable. A non-cloud backend needs no key and reports
+// SourceConfig with an empty var. config.yaml takes precedence over the env.
+func LLMKeySource(cfg *Config, backend string) (CredentialSource, string) {
+	p, ok := cloudProviders[backend]
+	if !ok {
+		return SourceConfig, ""
+	}
+	if cfg != nil && p.getKey(cfg.LLM) != "" {
+		return SourceConfig, p.envVar
+	}
+	if os.Getenv(p.envVar) != "" {
+		return SourceEnv, p.envVar
+	}
+	return SourceMissing, p.envVar
+}
+
+// APITokenSource reports where the apiServer auth token comes from. config.yaml
+// takes precedence over KDEPS_API_AUTH_TOKEN.
+func APITokenSource(cfg *Config) CredentialSource {
+	if cfg != nil && cfg.APIAuthToken != "" {
+		return SourceConfig
+	}
+	if os.Getenv("KDEPS_API_AUTH_TOKEN") != "" {
+		return SourceEnv
+	}
+	return SourceMissing
 }
 
 // HasLLMKey reports whether a cloud backend's API key is available, in either

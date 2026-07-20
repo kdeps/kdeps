@@ -164,5 +164,26 @@ else
     test_failed "Missing api token - config.yaml was modified without a prompt"
 fi
 
+# --- Test 4: api token supplied via env var ----------------------------------
+# When KDEPS_API_AUTH_TOKEN is set, kdeps must announce it and NOT re-save it.
+BEFORE4=$(shasum "$CFG3" | awk '{print $1}')
+OUT4=$(timeout 12 env KDEPS_CONFIG_PATH="$CFG3" KDEPS_SKIP_BOOTSTRAP=1 \
+    KDEPS_API_AUTH_TOKEN=env-supplied-token \
+    "$KDEPS_BIN" run "$WORK/api/workflow.yaml" < /dev/null 2>&1)
+AFTER4=$(shasum "$CFG3" | awk '{print $1}')
+
+if output_grep "detected in environment" "$OUT4"; then
+    test_passed "Env api token - announced as coming from the environment"
+else
+    test_failed "Env api token - expected 'detected in environment' notice" \
+        "$(printf '%s' "$OUT4" | tr '\n' ' ' | cut -c1-300)"
+fi
+
+if [ "$BEFORE4" = "$AFTER4" ]; then
+    test_passed "Env api token - config.yaml left unmodified (env value not re-saved)"
+else
+    test_failed "Env api token - config.yaml was modified despite env-supplied token"
+fi
+
 echo ""
 echo "Connection resolution E2E: done"

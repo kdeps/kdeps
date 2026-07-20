@@ -54,9 +54,9 @@ func ensureWorkflowRuntimeConfig(workflows ...*domain.Workflow) error {
 	}
 
 	missingConns := filterMissingConnections(cfg, refs)
-	missingKeys := filterMissingLLMKeys(cfg, modelBackends)
+	missingKeys := resolveLLMKeys(cfg, modelBackends)
 	setBackend := !config.DefaultBackendConfigured(cfg) && len(modelBackends) == 1
-	missingToken := needsToken && !config.HasAPIToken(cfg)
+	missingToken := resolveAPIToken(cfg, needsToken)
 
 	if len(missingConns) == 0 && len(missingKeys) == 0 && !setBackend && !missingToken {
 		return nil
@@ -146,16 +146,44 @@ func filterMissingConnections(cfg *config.Config, refs []connRef) []connRef {
 	return missing
 }
 
-// filterMissingLLMKeys returns the cloud backends whose API key is absent from
-// cfg and the environment.
-func filterMissingLLMKeys(cfg *config.Config, backends []string) []string {
+// resolveLLMKeys returns the cloud backends whose API key must still be prompted
+// for. Keys already present in config.yaml pass silently; keys supplied by an
+// environment variable are announced (not prompted, not re-saved).
+func resolveLLMKeys(cfg *config.Config, backends []string) []string {
 	var missing []string
 	for _, b := range backends {
-		if !config.HasLLMKey(cfg, b) {
+		switch src, envVar := config.LLMKeySource(cfg, b); src {
+		case config.SourceEnv:
+			fmt.Fprintf(os.Stdout,
+				"  ✓ %s API key detected in environment (%s) — using it, not saving to config.yaml\n",
+				b, envVar)
+		case config.SourceMissing:
 			missing = append(missing, b)
+		case config.SourceConfig:
+			// already in config.yaml — nothing to say
 		}
 	}
 	return missing
+}
+
+// resolveAPIToken reports whether the apiServer auth token still needs a prompt.
+// A token supplied by KDEPS_API_AUTH_TOKEN is announced, not prompted.
+func resolveAPIToken(cfg *config.Config, needsToken bool) bool {
+	if !needsToken {
+		return false
+	}
+	switch config.APITokenSource(cfg) {
+	case config.SourceEnv:
+		fmt.Fprintln(os.Stdout,
+			"  ✓ api auth token detected in environment (KDEPS_API_AUTH_TOKEN) — using it, not saving to config.yaml")
+		return false
+	case config.SourceMissing:
+		return true
+	case config.SourceConfig:
+		return false
+	default:
+		return false
+	}
 }
 
 // referencedConnections returns just the named connections a workflow

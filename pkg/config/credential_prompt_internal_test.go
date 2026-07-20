@@ -67,6 +67,38 @@ func TestHasAPIToken(t *testing.T) {
 	assert.True(t, HasAPIToken(&Config{}))
 }
 
+func TestLLMKeySource(t *testing.T) {
+	t.Setenv("DEEPSEEK_API_KEY", "")
+	cfg := &Config{LLM: LLMKeys{OpenAI: "sk-openai"}}
+
+	src, envVar := LLMKeySource(cfg, "openai")
+	assert.Equal(t, SourceConfig, src)
+	assert.Equal(t, "OPENAI_API_KEY", envVar)
+
+	src, envVar = LLMKeySource(cfg, "deepseek")
+	assert.Equal(t, SourceMissing, src)
+	assert.Equal(t, "DEEPSEEK_API_KEY", envVar)
+
+	t.Setenv("DEEPSEEK_API_KEY", "sk-env")
+	src, _ = LLMKeySource(cfg, "deepseek")
+	assert.Equal(t, SourceEnv, src)
+
+	// Non-cloud backend needs no key.
+	src, _ = LLMKeySource(cfg, "file")
+	assert.Equal(t, SourceConfig, src)
+}
+
+func TestAPITokenSource(t *testing.T) {
+	t.Setenv("KDEPS_API_AUTH_TOKEN", "")
+	assert.Equal(t, SourceMissing, APITokenSource(&Config{}))
+	assert.Equal(t, SourceConfig, APITokenSource(&Config{APIAuthToken: "tok"}))
+
+	t.Setenv("KDEPS_API_AUTH_TOKEN", "env-tok")
+	assert.Equal(t, SourceEnv, APITokenSource(&Config{}))
+	// config still wins over env.
+	assert.Equal(t, SourceConfig, APITokenSource(&Config{APIAuthToken: "tok"}))
+}
+
 func TestPromptAndSaveLLMKey(t *testing.T) {
 	origFS := AppFS
 	origTerm := isStdinTerminal

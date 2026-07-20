@@ -57,6 +57,8 @@ Enter its details to save them to ~/.kdeps/config.yaml.
 
 This is interactive-only: when stdin is not a terminal (CI, pipes), kdeps skips the prompt and the usual "connection not found" error surfaces at execution time. The same applies to `sql_connections`, `http_connections`, and `search_connections`, plus cloud LLM API keys (when a `chat` resource uses a cloud model whose key is missing) and the `api_auth_token` (when `apiServer` is configured). Existing content and comments in `config.yaml` are preserved.
 
+Values already provided by an environment variable (e.g. `DEEPSEEK_API_KEY`, `KDEPS_API_AUTH_TOKEN`) are never prompted for and never written to `config.yaml`; kdeps prints a notice that it is using the value from the environment.
+
 ## Sending Email
 
 <div v-pre>

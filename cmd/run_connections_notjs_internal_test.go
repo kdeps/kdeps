@@ -136,3 +136,28 @@ func TestEnsureWorkflowConnections_NoTerminalNoPrompt(t *testing.T) {
 func TestEnsureWorkflowConnections_NoRefs(t *testing.T) {
 	require.NoError(t, ensureWorkflowRuntimeConfig(&domain.Workflow{}))
 }
+
+// An LLM key present via env var must not be reported as missing (no prompt).
+func TestResolveLLMKeys_EnvNotMissing(t *testing.T) {
+	t.Setenv("DEEPSEEK_API_KEY", "sk-env")
+	missing := resolveLLMKeys(&config.Config{}, []string{"deepseek"})
+	assert.Empty(t, missing)
+}
+
+func TestResolveLLMKeys_Missing(t *testing.T) {
+	t.Setenv("DEEPSEEK_API_KEY", "")
+	missing := resolveLLMKeys(&config.Config{}, []string{"deepseek"})
+	assert.Equal(t, []string{"deepseek"}, missing)
+}
+
+// An api token present via env var must not be reported as needing a prompt.
+func TestResolveAPIToken_EnvNotMissing(t *testing.T) {
+	t.Setenv("KDEPS_API_AUTH_TOKEN", "env-tok")
+	assert.False(t, resolveAPIToken(&config.Config{}, true))
+}
+
+func TestResolveAPIToken_Missing(t *testing.T) {
+	t.Setenv("KDEPS_API_AUTH_TOKEN", "")
+	assert.True(t, resolveAPIToken(&config.Config{}, true))
+	assert.False(t, resolveAPIToken(&config.Config{}, false)) // apiServer not configured
+}

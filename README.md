@@ -453,6 +453,8 @@ Config is validated on load. Warnings go to stderr for unknown keys, missing API
 
 This is interactive-only — when stdin is not a terminal (CI, pipes), prompts are skipped and the usual "not found" / "missing token" errors surface as before.
 
+Values already supplied by an environment variable (e.g. `DEEPSEEK_API_KEY`, `KDEPS_API_AUTH_TOKEN`) are **not** prompted for and **not** written to `config.yaml` — kdeps prints a notice that the value is being used from the environment.
+
 ## Security
 
 When `apiServer` is configured, authentication is required. Set the token via `KDEPS_API_AUTH_TOKEN` or `api_auth_token` in `~/.kdeps/config.yaml` (never in `workflow.yaml`). Clients send `Authorization: Bearer <token>` or `X-Api-Key: <token>`. `/health` is exempt. `/_kdeps/*` management routes use `KDEPS_MANAGEMENT_TOKEN`.
