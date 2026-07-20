@@ -175,7 +175,10 @@ func botEnvFields(cfg *Config, platform, prefix string, mk func(field, def strin
 	}
 }
 
-func httpEnvFields(cfg *Config, name string, mk func(field, def string, secret bool, val string) ConnEnvField) []ConnEnvField {
+func httpEnvFields(
+	cfg *Config, name string,
+	mk func(field, def string, secret bool, val string) ConnEnvField,
+) []ConnEnvField {
 	var auth HTTPAuthConfig
 	proxy := ""
 	if cfg != nil {

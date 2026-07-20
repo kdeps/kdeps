@@ -1293,7 +1293,7 @@ func toolErrorJSON(err error) string {
 // elapsed time and the most recent output line, so a long-running command
 // (e.g. a full test suite via bash_exec) is visibly alive instead of silent.
 //
-//nolint:funlen,gocognit,nestif // complex dispatch with stall retry logic
+//nolint:funlen,nestif // complex dispatch with stall retry logic
 func (l *Loop) dispatchToTerminal(
 	tool *tools.Tool,
 	name string,

@@ -194,13 +194,38 @@ func runQuietMonitor(mw *monitoredWriter, label string, start time.Time, stop <-
 	}
 }
 
+// startStdinKillReader reads stdin for 'k' and signals killCh.
+func startStdinKillReader(killCh chan<- struct{}) {
+	go func() {
+		oldState, err := term.MakeRaw(int(os.Stdin.Fd()))
+		if err != nil {
+			return
+		}
+		defer func() { _ = term.Restore(int(os.Stdin.Fd()), oldState) }()
+		br := bufio.NewReader(os.Stdin)
+		for {
+			b, readErr := br.ReadByte()
+			if readErr != nil {
+				return
+			}
+			if b == 'k' || b == 'K' {
+				select {
+				case killCh <- struct{}{}:
+				default:
+				}
+				return
+			}
+		}
+	}()
+}
+
+// isHeadless reports whether the process is non-interactive (no TTY).
+func isHeadless() bool {
+	return !term.IsTerminal(int(os.Stdin.Fd()))
+}
+
 // runToolMonitor redraws a status line for a running tool every
-// toolMonitorInterval until stop is closed: spinner frame, tool name,
-// elapsed time, and the tool's most recent output line. When the tool is
-// silent past toolStallWarnAfter the line warns; past stallTimeout (when
-// positive) the monitor prints a non-blocking kill hint and starts reading
-// stdin for a 'k' keypress. If 'k' is pressed, onStall is invoked to cancel
-// the tool's context. The caller clears the line after the tool finishes.
+// toolMonitorInterval until stop is closed.
 func runToolMonitor(
 	w io.Writer,
 	name string,
@@ -225,66 +250,14 @@ func runToolMonitor(
 			}
 			elapsed := time.Since(start).Round(time.Second)
 			silence := tracker.Silence()
-			status := ""
-			switch {
-			case stallTimeout > 0 && silence >= stallTimeout && !stalled:
+			status := monitorStatus(stallTimeout, silence, stalled, onStall, killCh, tracker)
+			if !stalled && stallTimeout > 0 && silence >= stallTimeout {
 				stalled = true
-				// In headless/non-TTY mode (tests, CI, library use), auto-kill
-				// immediately. In interactive mode, wait for 'k' keypress.
-				if !term.IsTerminal(int(os.Stdin.Fd())) {
-					status = " · stalled — killing"
-					if onStall != nil {
-						onStall()
-					}
-				} else {
-					status = " · stalled — press 'k' to kill"
-					go func() {
-						oldState, err := term.MakeRaw(int(os.Stdin.Fd()))
-						if err != nil {
-							return
-						}
-						defer func() { _ = term.Restore(int(os.Stdin.Fd()), oldState) }()
-						br := bufio.NewReader(os.Stdin)
-						for {
-							b, err := br.ReadByte()
-							if err != nil {
-								return
-							}
-							if b == 'k' || b == 'K' {
-								select {
-								case killCh <- struct{}{}:
-								default:
-								}
-								return
-							}
-						}
-					}()
-				}
-			case stalled:
-				if !term.IsTerminal(int(os.Stdin.Fd())) {
-					status = " · stalled — killing"
-				} else {
-					select {
-					case <-killCh:
-						status = " · stalled — killing"
-						if onStall != nil {
-							onStall()
-						}
-					default:
-						status = " · stalled — press 'k' to kill"
-					}
-				}
-			case silence >= toolStallWarnAfter:
-				status = fmt.Sprintf(" · no output for %s", silence.Round(time.Second))
-			case tracker.Last() != "":
-				status = " · " + truncateEllipsis(tracker.Last(), toolMonitorTailLen)
 			}
-			// \033[K erases leftovers when the new line is shorter.
 			fmt.Fprintf(w, "\r  %s %s running (%s)%s\033[K",
 				styleReplInfo.Render(frames[i%len(frames)]), name, elapsed, status)
 			i++
 		case <-killCh:
-			// Kill was requested between ticks.
 			if onStall != nil {
 				onStall()
 			}
@@ -293,5 +266,46 @@ func runToolMonitor(
 		case <-stop:
 			return
 		}
+	}
+}
+
+// monitorStatus returns the status string for the current tick.
+func monitorStatus(
+	stallTimeout time.Duration,
+	silence time.Duration,
+	stalled bool,
+	onStall func(),
+	killCh chan struct{},
+	tracker *lastLineTracker,
+) string {
+	switch {
+	case stallTimeout > 0 && silence >= stallTimeout && !stalled:
+		if isHeadless() {
+			if onStall != nil {
+				onStall()
+			}
+			return " · stalled — killing"
+		}
+		startStdinKillReader(killCh)
+		return " · stalled — press 'k' to kill"
+	case stalled:
+		if isHeadless() {
+			return " · stalled — killing"
+		}
+		select {
+		case <-killCh:
+			if onStall != nil {
+				onStall()
+			}
+			return " · stalled — killing"
+		default:
+			return " · stalled — press 'k' to kill"
+		}
+	case silence >= toolStallWarnAfter:
+		return fmt.Sprintf(" · no output for %s", silence.Round(time.Second))
+	case tracker.Last() != "":
+		return " · " + truncateEllipsis(tracker.Last(), toolMonitorTailLen)
+	default:
+		return ""
 	}
 }

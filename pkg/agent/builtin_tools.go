@@ -2123,7 +2123,7 @@ func registerMemorySearchTool(reg *kdepstools.Registry) {
 			// No memory results — fall back to local file search.
 			wd, err := os.Getwd()
 			if err != nil {
-				return "No memory entries found.", nil
+				return "No memory entries found.", nil //nolint:nilerr
 			}
 			exec := execSearch.NewExecutor()
 			exec.StartIndex(wd)
@@ -2133,7 +2133,7 @@ func registerMemorySearchTool(reg *kdepstools.Registry) {
 				Index: true,
 			})
 			if searchErr != nil {
-				return "No memory entries found.", nil
+				return "No memory entries found.", nil //nolint:nilerr
 			}
 			out, _ := json.MarshalIndent(searchResult, "", "  ")
 			return fmt.Sprintf("No memory entries found. Results found in local file search:\n%s", string(out)), nil

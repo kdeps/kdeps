@@ -2377,7 +2377,9 @@ func (r *REPL) printToolSettings() {
 		{"rounds", fmt.Sprintf("%d  (max tool-call rounds per turn, 0 = unlimited)", cfg.MaxToolRounds)},
 		{"retries", fmt.Sprintf("%d  (auto-retries on transient API errors)", cfg.AutoRetryMax)},
 		{"retry-delay", fmt.Sprintf("%s  (initial retry backoff, doubles per retry)", cfg.AutoRetryBaseDelay)},
-		{"stall-timeout", fmt.Sprintf("%s  (kill a tool after this much silence, set 0 to disable)", cfg.ToolStallTimeout)},
+		{"stall-timeout", fmt.Sprintf(
+			"%s  (kill a tool after this much silence, set 0 to disable)",
+			cfg.ToolStallTimeout)},
 		{"compact-threshold", fmt.Sprintf("%d  (tokens; auto-compact trigger, 0 = off)", cfg.AutoCompactThreshold)},
 		{"compact-budget", fmt.Sprintf("%d  (tokens kept after compaction)", cfg.CompactTokenBudget)},
 		{"max-turns", fmt.Sprintf("%d  (history turns retained, 0 = unlimited)", cfg.MaxTurns)},
