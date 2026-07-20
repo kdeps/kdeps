@@ -2362,14 +2362,6 @@ func parseOnOff(v string) (bool, bool) {
 	}
 }
 
-// onOff renders a bool as "on"/"off" for settings display.
-func onOff(b bool) string {
-	if b {
-		return "on"
-	}
-	return "off"
-}
-
 // printToolSettings prints every tunable with its current value.
 func (r *REPL) printToolSettings() {
 	cfg := &r.loop.config

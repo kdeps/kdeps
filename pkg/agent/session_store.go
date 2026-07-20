@@ -373,14 +373,14 @@ func (s *SessionStore) loadMetaFromBolt(id string) *SessionMetadata {
 		return nil
 	}
 	var meta *SessionMetadata
-	_ = db.View(func(tx *bolt.Tx) error { //nolint:nilerr
+	_ = db.View(func(tx *bolt.Tx) error {
 		data := tx.Bucket(agentSessionBucket).Get([]byte(id))
 		if data == nil {
 			return nil
 		}
 		var entries []sessionEntry
-		if json.Unmarshal(data, &entries) != nil || len(entries) == 0 { //nolint:nilerr
-			return nil
+		if err := json.Unmarshal(data, &entries); err != nil || len(entries) == 0 {
+			return nil //nolint:nilerr // corrupt entry, skip
 		}
 		e := entries[0]
 		if e.Type != "session_meta" {
@@ -429,9 +429,13 @@ func loadMetaFromJSONL(path, id string) (*SessionMetadata, error) {
 	if sid == "" {
 		sid = id
 	}
-	return &SessionMetadata{ID: sid, Name: entry.Name, Model: entry.Model, Turns: entry.Turns, CreatedAt: entry.Timestamp}, nil
+	return &SessionMetadata{
+		ID: sid, Name: entry.Name, Model: entry.Model,
+		Turns: entry.Turns, CreatedAt: entry.Timestamp,
+	}, nil
 }
 
+//nolint:unparam // legacy compat — called via loadMetaLocked which discards the path result
 func (s *SessionStore) loadMetaFromPathLocked(path, id string) (*SessionMetadata, error) {
 	if meta := s.loadMetaFromBolt(id); meta != nil {
 		return meta, nil

@@ -132,7 +132,10 @@ func ConnectionEnvFields(cfg *Config, kind, name string) []ConnEnvField {
 	}
 }
 
-func botEnvFields(cfg *Config, platform, _ string, mk func(field, def string, secret bool, val string) ConnEnvField) []ConnEnvField {
+func botEnvFields(
+	cfg *Config, platform, _ string,
+	mk func(field, def string, secret bool, val string) ConnEnvField,
+) []ConnEnvField {
 	switch platform {
 	case "discord":
 		val := ""
