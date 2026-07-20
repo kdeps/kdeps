@@ -358,8 +358,8 @@ github.com/muesli/termenv v0.16.0 h1:S5AlUN9dENB57rsbnkPyfdGuWIlkmzJjbFf0Tf5FWUc
 github.com/muesli/termenv v0.16.0/go.mod h1:ZRfOIKPFDYQoDFF4Olj7/QJbW60Ol/kL1pU3VfY/Cnk=
 github.com/nikolalohinski/gonja v1.5.3 h1:GsA+EEaZDZPGJ8JtpeGN78jidhOlxeJROpqMT9fTj9c=
 github.com/nikolalohinski/gonja v1.5.3/go.mod h1:RmjwxNiXAEqcq1HeK5SSMmqFJvKOfTfXhkJv6YBtPa4=
-github.com/nikolalohinski/gonja/v2 v2.8.0 h1:kOQv887+yMXcaSZjbfa5MMlfHVTpCIcTd8yh+liGmhQ=
-github.com/nikolalohinski/gonja/v2 v2.8.0/go.mod h1:UIzXPVuOsr5h7dZ5DUbqk3/Z7oFA/NLGQGMjqT4L2aU=
+github.com/nikolalohinski/gonja/v2 v2.9.0 h1:QICtNWj0siM3PF5xUjVod/l+C9XnGfI+wrfSIBGKQ6o=
+github.com/nikolalohinski/gonja/v2 v2.9.0/go.mod h1:UIzXPVuOsr5h7dZ5DUbqk3/Z7oFA/NLGQGMjqT4L2aU=
 github.com/nlpodyssey/cybertron v0.2.1 h1:zBvzmjP6Teq3u8yiHuLoUPxan6ZDRq/32GpV6Ep8X08=
 github.com/nlpodyssey/cybertron v0.2.1/go.mod h1:Vg9PeB8EkOTAgSKQ68B3hhKUGmB6Vs734dBdCyE4SVM=
 github.com/nlpodyssey/gopickle v0.3.0 h1:BLUE5gxFLyyNOPzlXxt6GoHEMMxD0qhsE4p0CIQyoLw=
