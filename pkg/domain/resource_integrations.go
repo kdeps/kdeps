@@ -129,8 +129,8 @@ type SearchLocalConfig struct {
 
 	// Fuzzy enables fuzzy (Levenshtein distance) matching when Index is true.
 	// MaxDistance controls the maximum edit distance for fuzzy matching (default: 2).
-	Fuzzy        bool `yaml:"fuzzy,omitempty"`
-	MaxDistance  int  `yaml:"maxDistance,omitempty"`
+	Fuzzy       bool `yaml:"fuzzy,omitempty"`
+	MaxDistance int  `yaml:"maxDistance,omitempty"`
 
 	// IndexDBPath is the path to the index database file.
 	// Defaults to "<path>/.kdeps/index.db" when Index is true.

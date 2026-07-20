@@ -37,6 +37,7 @@ const sqliteMemoryDSN = ":memory:"
 var defaultCleanupInterval = 5 * time.Minute
 
 // SessionsBucket is the bbolt bucket name for the session store.
+//nolint:gochecknoglobals // bbolt bucket name, exported for test access
 var SessionsBucket = []byte("sessions")
 
 // SessionStorage provides per-session key-value storage using bbolt.

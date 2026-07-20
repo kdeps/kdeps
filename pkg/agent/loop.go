@@ -492,9 +492,9 @@ const (
 	// defaultToolStallTimeout kills a running tool after this much time with
 	// no output at all. Silence-based, not wall-clock: a long build that
 	// keeps printing never trips it.
-	defaultToolStallTimeout             = 10 * time.Minute
-	defaultAutoToolAllocationIncrement  = 100
-	defaultModelName                    = "llama3.2"
+	defaultToolStallTimeout            = 10 * time.Minute
+	defaultAutoToolAllocationIncrement = 100
+	defaultModelName                   = "llama3.2"
 )
 
 func envOrDefault(key, fallback string) string {

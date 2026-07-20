@@ -34,8 +34,8 @@ import (
 
 //nolint:gochecknoglobals // afero + bbolt bucket names
 var (
-	AppFS               afero.Fs = afero.NewOsFs()
-	agentSessionBucket           = []byte("agent_sessions")
+	AppFS              afero.Fs = afero.NewOsFs()
+	agentSessionBucket          = []byte("agent_sessions")
 )
 
 const sessionDir = ".kdeps/sessions"
@@ -364,37 +364,36 @@ func (s *SessionStore) listDirsLocked() []string {
 	return []string{s.sessionBasePath()}
 }
 
-func (s *SessionStore) loadMetaFromPathLocked(path, id string) (*SessionMetadata, error) {
-	// Try bbolt first.
+func (s *SessionStore) loadMetaFromBolt(id string) *SessionMetadata {
 	db, dbErr := s.getDB()
-	if dbErr == nil {
-		var meta *SessionMetadata
-		_ = db.View(func(tx *bolt.Tx) error { //nolint:nilerr
-			data := tx.Bucket(agentSessionBucket).Get([]byte(id))
-			if data == nil {
-				return nil
-			}
-			var entries []sessionEntry
-			if json.Unmarshal(data, &entries) != nil || len(entries) == 0 {
-				return nil
-			}
-			e := entries[0]
-			if e.Type != "session_meta" {
-				return nil
-			}
-			sid := e.SessionID
-			if sid == "" {
-				sid = id
-			}
-			meta = &SessionMetadata{ID: sid, Name: e.Name, Model: e.Model, Turns: e.Turns, CreatedAt: e.Timestamp}
-			return nil
-		})
-		if meta != nil {
-			return meta, nil
-		}
+	if dbErr != nil {
+		return nil
 	}
+	var meta *SessionMetadata
+	_ = db.View(func(tx *bolt.Tx) error { //nolint:nilerr
+		data := tx.Bucket(agentSessionBucket).Get([]byte(id))
+		if data == nil {
+			return nil
+		}
+		var entries []sessionEntry
+		if json.Unmarshal(data, &entries) != nil || len(entries) == 0 {
+			return nil
+		}
+		e := entries[0]
+		if e.Type != "session_meta" {
+			return nil
+		}
+		sid := e.SessionID
+		if sid == "" {
+			sid = id
+		}
+		meta = &SessionMetadata{ID: sid, Name: e.Name, Model: e.Model, Turns: e.Turns, CreatedAt: e.Timestamp}
+		return nil
+	})
+	return meta
+}
 
-	// Fall back to legacy JSONL file support.
+func loadMetaFromJSONL(path, id string) (*SessionMetadata, error) {
 	f, err := AppFS.Open(path)
 	if err != nil {
 		return nil, fmt.Errorf("session store: session %q not found", id)
@@ -402,20 +401,17 @@ func (s *SessionStore) loadMetaFromPathLocked(path, id string) (*SessionMetadata
 	defer f.Close()
 
 	var firstLine []byte
-	buf := make([]byte, 4096)
+	buf := make([]byte, 4096) //nolint:mnd
 	n, _ := f.Read(buf)
-	if n > 0 {
-		for i := 0; i < n; i++ {
-			if buf[i] == '\n' {
-				firstLine = buf[:i]
-				break
-			}
-		}
-		if firstLine == nil {
-			firstLine = buf[:n]
+	for i := 0; i < n; i++ {
+		if buf[i] == '\n' {
+			firstLine = buf[:i]
+			break
 		}
 	}
-
+	if firstLine == nil {
+		firstLine = buf[:n]
+	}
 	if len(firstLine) == 0 {
 		return nil, fmt.Errorf("session store: empty file for %s", id)
 	}
@@ -431,6 +427,13 @@ func (s *SessionStore) loadMetaFromPathLocked(path, id string) (*SessionMetadata
 		sid = id
 	}
 	return &SessionMetadata{ID: sid, Name: entry.Name, Model: entry.Model, Turns: entry.Turns, CreatedAt: entry.Timestamp}, nil
+}
+
+func (s *SessionStore) loadMetaFromPathLocked(path, id string) (*SessionMetadata, error) {
+	if meta := s.loadMetaFromBolt(id); meta != nil {
+		return meta, nil
+	}
+	return loadMetaFromJSONL(path, id)
 }
 
 func writeJSONLine(f afero.File, v interface{}) error {

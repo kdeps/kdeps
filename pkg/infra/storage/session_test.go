@@ -164,12 +164,12 @@ func TestSessionStorage_Get_JSONUnmarshalFallback(t *testing.T) {
 		_ = storage.Close()
 	}()
 
-		// Manually insert invalid JSON via bbolt
-		err = storage.DB.Update(func(tx *bolt.Tx) error {
-			raw := []byte(`{"value":"{invalid json","created_at":1,"accessed_at":1}`)
-			return tx.Bucket([]byte("sessions")).Put([]byte("test-session:invalid_json"), raw)
-		})
-		require.NoError(t, err)
+	// Manually insert invalid JSON via bbolt
+	err = storage.DB.Update(func(tx *bolt.Tx) error {
+		raw := []byte(`{"value":"{invalid json","created_at":1,"accessed_at":1}`)
+		return tx.Bucket([]byte("sessions")).Put([]byte("test-session:invalid_json"), raw)
+	})
+	require.NoError(t, err)
 	// Get should return the invalid JSON as a string
 	value, exists := storage.Get("invalid_json")
 	assert.True(t, exists)
@@ -458,12 +458,12 @@ func TestSessionStorage_GetAll_InvalidJSON(t *testing.T) {
 		_ = storage.Close()
 	}()
 
-		// Manually insert invalid JSON via bbolt
-		err = storage.DB.Update(func(tx *bolt.Tx) error {
-			raw := []byte(`{"value":"{invalid json","created_at":1,"accessed_at":1}`)
-			return tx.Bucket([]byte("sessions")).Put([]byte("test-session:invalid_json"), raw)
-		})
-		require.NoError(t, err)
+	// Manually insert invalid JSON via bbolt
+	err = storage.DB.Update(func(tx *bolt.Tx) error {
+		raw := []byte(`{"value":"{invalid json","created_at":1,"accessed_at":1}`)
+		return tx.Bucket([]byte("sessions")).Put([]byte("test-session:invalid_json"), raw)
+	})
+	require.NoError(t, err)
 
 	// GetAll should return invalid JSON as string
 	all, err := storage.GetAll()

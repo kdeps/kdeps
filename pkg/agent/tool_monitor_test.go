@@ -336,7 +336,7 @@ func TestDrawSpinnerFrames_SkipSuppressesOutput(t *testing.T) {
 func TestToolTuning_SnapshotApplyRoundTrip(t *testing.T) {
 	r := &REPL{loop: &Loop{config: Config{
 		MaxToolRounds: 80, AutoRetryMax: 3, AutoRetryBaseDelay: 2 * time.Second,
-		ToolStallTimeout: 15 * time.Minute,
+		ToolStallTimeout:     15 * time.Minute,
 		AutoCompactThreshold: 40000, CompactTokenBudget: 8000, MaxTurns: 50, MaxHistoryTokens: 100000,
 	}}}
 	snap := r.toolTuningSnapshot()
