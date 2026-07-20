@@ -83,7 +83,9 @@ func TestNewSessionStorageWithTTL_InitSchemaError(t *testing.T) {
 	s, err := NewSessionStorageWithTTL(dbPath, "test", time.Hour)
 	require.Error(t, err)
 	assert.Nil(t, s)
-	assert.True(t, strings.Contains(err.Error(), "failed to initialize schema") || strings.Contains(err.Error(), "failed to open database"))
+	assert.True(t,
+		strings.Contains(err.Error(), "failed to initialize schema") ||
+			strings.Contains(err.Error(), "failed to open database"))
 }
 
 func TestSessionStorage_GetAll_ScanError(t *testing.T) {
@@ -121,7 +123,9 @@ func TestSessionStorage_InitSchema_TableError(t *testing.T) {
 	s, err := NewSessionStorageWithTTL(dbPath, "test", time.Hour)
 	require.Error(t, err)
 	assert.Nil(t, s)
-	assert.True(t, strings.Contains(err.Error(), "failed to initialize schema") || strings.Contains(err.Error(), "failed to open database"))
+	assert.True(t,
+		strings.Contains(err.Error(), "failed to initialize schema") ||
+			strings.Contains(err.Error(), "failed to open database"))
 }
 
 func TestSessionStorage_CorruptEntry(t *testing.T) {

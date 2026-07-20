@@ -266,7 +266,10 @@ func (s *SessionStore) ListMeta() ([]SessionMetadata, error) {
 			if sid == "" {
 				sid = string(k)
 			}
-			metas = append(metas, SessionMetadata{ID: sid, Name: e.Name, Model: e.Model, Turns: e.Turns, CreatedAt: e.Timestamp})
+			metas = append(metas, SessionMetadata{
+				ID: sid, Name: e.Name, Model: e.Model,
+				Turns: e.Turns, CreatedAt: e.Timestamp,
+			})
 		}
 		return nil
 	})
@@ -354,7 +357,7 @@ func (s *SessionStore) findSessionFileLocked(id string) string {
 	}
 	// Fall back to checking basePath for legacy JSONL files.
 	p := filepath.Join(s.basePath, id+".jsonl")
-	if _, err := AppFS.Stat(p); err == nil {
+	if _, statErr := AppFS.Stat(p); statErr == nil {
 		return p
 	}
 	return ""
@@ -376,7 +379,7 @@ func (s *SessionStore) loadMetaFromBolt(id string) *SessionMetadata {
 			return nil
 		}
 		var entries []sessionEntry
-		if json.Unmarshal(data, &entries) != nil || len(entries) == 0 {
+		if json.Unmarshal(data, &entries) != nil || len(entries) == 0 { //nolint:nilerr
 			return nil
 		}
 		e := entries[0]
@@ -403,7 +406,7 @@ func loadMetaFromJSONL(path, id string) (*SessionMetadata, error) {
 	var firstLine []byte
 	buf := make([]byte, 4096) //nolint:mnd
 	n, _ := f.Read(buf)
-	for i := 0; i < n; i++ {
+	for i := range n {
 		if buf[i] == '\n' {
 			firstLine = buf[:i]
 			break
