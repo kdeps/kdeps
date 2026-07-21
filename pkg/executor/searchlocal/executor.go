@@ -397,16 +397,21 @@ func (e *Executor) executeIndexed(config *domain.SearchLocalConfig) (interface{}
 	}
 	defer idx.Close()
 
-	indexedCount, walkErr := e.walkIndex(config.Path, config.Glob, idx)
-	if walkErr != nil {
-		return nil, fmt.Errorf("searchLocal: index walk failed: %w", walkErr)
+	// Only walk/index if the DB is empty — avoid catastrophic O(N*M) re-index.
+	stats := idx.GetStats()
+	indexedCount := stats.DocumentCount
+	if indexedCount == 0 {
+		var walkErr error
+		indexedCount, walkErr = e.walkIndex(config.Path, config.Glob, idx)
+		if walkErr != nil {
+			return nil, fmt.Errorf("searchLocal: index walk failed: %w", walkErr)
+		}
+		kdeps_debug.Log(fmt.Sprintf("searchLocal: indexed %d files", indexedCount))
 	}
-
-	kdeps_debug.Log(fmt.Sprintf("searchLocal: indexed %d files", indexedCount))
+	stats = idx.GetStats()
 
 	// If no query, return index stats
 	if config.Query == "" {
-		stats := idx.GetStats()
 		return buildSearchResult(config.Path, []map[string]interface{}{
 			{
 				"indexedFiles": indexedCount,

@@ -128,12 +128,19 @@ func (idx *InvertedIndex) BatchAddDocuments(docs []DocWithTokens) {
 		termsB := tx.Bucket(bucketTerms)
 		docsB := tx.Bucket(bucketDocs)
 
+		// Collect docIDs that need old postings removed.
+		removeSet := make(map[string]bool, len(prepped))
 		for _, dt := range prepped {
-			// Remove old document if it exists.
 			if oldData := docsB.Get([]byte(dt.doc.ID)); oldData != nil {
-				idx.removeDocumentInTx(tx, dt.doc.ID)
+				removeSet[dt.doc.ID] = true
 			}
+		}
+		// Single pass over all terms to remove old postings for all docs in the batch.
+		if len(removeSet) > 0 {
+			idx.batchRemoveDocsInTx(tx, removeSet)
+		}
 
+		for _, dt := range prepped {
 			// Store the document.
 			var docBuf bytes.Buffer
 			if err := gob.NewEncoder(&docBuf).Encode(dt.doc); err != nil {
@@ -162,15 +169,16 @@ func (idx *InvertedIndex) BatchAddDocuments(docs []DocWithTokens) {
 	})
 }
 
-// removeDocumentInTx removes a document from the index within a transaction.
-func (idx *InvertedIndex) removeDocumentInTx(tx *bolt.Tx, docID string) {
+// batchRemoveDocsInTx removes multiple documents from the index within a single
+// transaction by making one pass over all terms — O(terms) instead of O(docs * terms).
+func (idx *InvertedIndex) batchRemoveDocsInTx(tx *bolt.Tx, docIDs map[string]bool) {
 	termsB := tx.Bucket(bucketTerms)
 	c := termsB.Cursor()
 	for k, v := c.First(); k != nil; k, v = c.Next() {
 		postings := decodePostings(v)
 		filtered := make([]Posting, 0, len(postings))
 		for _, p := range postings {
-			if p.DocID != docID {
+			if !docIDs[p.DocID] {
 				filtered = append(filtered, p)
 			}
 		}
