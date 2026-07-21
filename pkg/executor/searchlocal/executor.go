@@ -57,39 +57,6 @@ func indexDBPath(dir string) string {
 	return filepath.Join(dir, ".kdeps", "index.db")
 }
 
-// indexFile adds a single file to the inverted index. Returns true if the file was indexed.
-func (e *Executor) indexFile(p string, d os.DirEntry, tok *tokenizer.Tokenizer, idx *index.InvertedIndex) bool {
-	content, readErr := os.ReadFile(p)
-	if readErr != nil {
-		return false
-	}
-
-	info, statErr := d.Info()
-	if statErr != nil {
-		return false
-	}
-
-	docID := fmt.Sprintf("%x", p)
-	tokens := tok.Tokenize(string(content))
-	tokenStrings := make([]string, len(tokens))
-	positions := make([]int, len(tokens))
-	for i, token := range tokens {
-		tokenStrings[i] = token.Text
-		positions[i] = token.Position
-	}
-
-	doc := &index.Document{
-		ID:      docID,
-		Path:    p,
-		Content: string(content),
-		ModTime: info.ModTime().Unix(),
-		Size:    info.Size(),
-	}
-
-	idx.AddDocument(doc, tokenStrings, positions)
-	return true
-}
-
 // skipWalkEntry returns true if the walk entry should be skipped.
 func skipWalkEntry(d os.DirEntry) bool {
 	if len(d.Name()) == 0 {
@@ -98,12 +65,26 @@ func skipWalkEntry(d os.DirEntry) bool {
 	return d.Name()[0] == '.'
 }
 
+// indexBatchSize is how many files are collected before flushing to bbolt
+// in a single transaction. Larger batches = fewer transactions = faster indexing.
+const indexBatchSize = 500
+
 // walkIndex walks the directory tree and adds documents to the index.
+// Files are batched into groups of indexBatchSize for a single bbolt transaction.
 // If glob is non-empty, only files matching the glob pattern are indexed.
 // Progress is written to ProgressWriter every 100 files.
 func (e *Executor) walkIndex(root string, glob string, idx *index.InvertedIndex) (int, error) {
 	tok := tokenizer.NewTokenizer()
 	indexedCount := 0
+	batch := make([]index.DocWithTokens, 0, indexBatchSize)
+
+	flushBatch := func() {
+		if len(batch) == 0 {
+			return
+		}
+		idx.BatchAddDocuments(batch)
+		batch = batch[:0]
+	}
 
 	walkErr := filepath.WalkDir(root, func(p string, d os.DirEntry, err error) error {
 		if err != nil {
@@ -125,15 +106,53 @@ func (e *Executor) walkIndex(root string, glob string, idx *index.InvertedIndex)
 			}
 		}
 
-		if e.indexFile(p, d, tok, idx) {
+		if doc, tokens, positions := e.prepareDoc(p, d, tok); doc != nil {
+			batch = append(batch, index.DocWithTokens{Doc: doc, Tokens: tokens, Positions: positions})
 			indexedCount++
+
+			if len(batch) >= indexBatchSize {
+				flushBatch()
+			}
 			if indexedCount%100 == 0 {
 				fmt.Fprintf(ProgressWriter, "\rsearchLocal: indexed %d files ...", indexedCount)
 			}
 		}
 		return nil
 	})
+	flushBatch() // final flush
 	return indexedCount, walkErr
+}
+
+// prepareDoc reads and tokenizes a file, returning a ready-to-index document or nil.
+func (e *Executor) prepareDoc(
+	p string, d os.DirEntry, tok *tokenizer.Tokenizer,
+) (*index.Document, []string, []int) {
+	content, readErr := os.ReadFile(p)
+	if readErr != nil {
+		return nil, nil, nil
+	}
+
+	info, statErr := d.Info()
+	if statErr != nil {
+		return nil, nil, nil
+	}
+
+	docID := fmt.Sprintf("%x", p)
+	tokens := tok.Tokenize(string(content))
+	tokenStrings := make([]string, len(tokens))
+	positions := make([]int, len(tokens))
+	for i, token := range tokens {
+		tokenStrings[i] = token.Text
+		positions[i] = token.Position
+	}
+
+	return &index.Document{
+		ID:      docID,
+		Path:    p,
+		Content: string(content),
+		ModTime: info.ModTime().Unix(),
+		Size:    info.Size(),
+	}, tokenStrings, positions
 }
 
 // openOrCreateIndex opens an existing bbolt index or creates a new one,

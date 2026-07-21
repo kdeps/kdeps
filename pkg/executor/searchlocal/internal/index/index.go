@@ -90,43 +90,75 @@ func (idx *InvertedIndex) DBPath() string {
 	return idx.dbPath
 }
 
+// DocWithTokens is a pending document to be indexed.
+type DocWithTokens struct {
+	Doc       *Document
+	Tokens    []string
+	Positions []int
+}
+
 // AddDocument adds or updates a document in the index.
 func (idx *InvertedIndex) AddDocument(doc *Document, tokens []string, positions []int) {
-	termFreq := make(map[string]int)
-	termPositions := make(map[string][]int)
-	for i, token := range tokens {
-		termFreq[token]++
-		termPositions[token] = append(termPositions[token], positions[i])
+	idx.BatchAddDocuments([]DocWithTokens{{Doc: doc, Tokens: tokens, Positions: positions}})
+}
+
+// BatchAddDocuments adds multiple documents in a single bbolt transaction.
+func (idx *InvertedIndex) BatchAddDocuments(docs []DocWithTokens) {
+	if len(docs) == 0 {
+		return
+	}
+
+	// Pre-compute term frequencies and positions for each document.
+	type docTerms struct {
+		doc      *Document
+		termFreq map[string]int
+		termPos  map[string][]int
+	}
+	prepped := make([]docTerms, len(docs))
+	for i, d := range docs {
+		dt := docTerms{doc: d.Doc, termFreq: make(map[string]int), termPos: make(map[string][]int)}
+		for j, token := range d.Tokens {
+			dt.termFreq[token]++
+			dt.termPos[token] = append(dt.termPos[token], d.Positions[j])
+		}
+		prepped[i] = dt
 	}
 
 	_ = idx.db.Update(func(tx *bolt.Tx) error {
-		// Remove old document if it exists.
-		if oldData := tx.Bucket(bucketDocs).Get([]byte(doc.ID)); oldData != nil {
-			idx.removeDocumentInTx(tx, doc.ID)
-		}
-
-		// Store the document.
-		var docBuf bytes.Buffer
-		if err := gob.NewEncoder(&docBuf).Encode(doc); err != nil {
-			return err
-		}
-		if err := tx.Bucket(bucketDocs).Put([]byte(doc.ID), docBuf.Bytes()); err != nil {
-			return err
-		}
-
-		// Update term postings.
 		termsB := tx.Bucket(bucketTerms)
-		for term, freq := range termFreq {
-			p := Posting{DocID: doc.ID, Frequency: freq, Positions: termPositions[term]}
-			postings := readPostings(termsB, term)
-			postings = append(postings, p)
-			if err := writePostings(termsB, term, postings); err != nil {
+		docsB := tx.Bucket(bucketDocs)
+
+		for _, dt := range prepped {
+			// Remove old document if it exists.
+			if oldData := docsB.Get([]byte(dt.doc.ID)); oldData != nil {
+				idx.removeDocumentInTx(tx, dt.doc.ID)
+			}
+
+			// Store the document.
+			var docBuf bytes.Buffer
+			if err := gob.NewEncoder(&docBuf).Encode(dt.doc); err != nil {
+				return err
+			}
+			if err := docsB.Put([]byte(dt.doc.ID), docBuf.Bytes()); err != nil {
+				return err
+			}
+
+			// Update term postings.
+			for term, freq := range dt.termFreq {
+				p := Posting{DocID: dt.doc.ID, Frequency: freq, Positions: dt.termPos[term]}
+				postings := readPostings(termsB, term)
+				postings = append(postings, p)
+				if err := writePostings(termsB, term, postings); err != nil {
+					return err
+				}
+			}
+
+			// Increment doc count.
+			if err := incDocCount(tx, 1); err != nil {
 				return err
 			}
 		}
-
-		// Increment doc count.
-		return incDocCount(tx, 1)
+		return nil
 	})
 }
 
