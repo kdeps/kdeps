@@ -137,21 +137,30 @@ func (e *Executor) walkIndex(root string, glob string, idx *index.InvertedIndex)
 }
 
 // openOrCreateIndex opens an existing bbolt index or creates a new one,
-// ensuring the parent directory exists. Returns the index and whether it
-// already existed (true = existing, false = newly created / empty).
+// ensuring the parent directory exists. If the file exists but is not a
+// valid bbolt database (e.g. a leftover gob-format index or corrupted file),
+// it is removed and a fresh database is created. Returns the index and
+// whether a valid database already existed.
 func openOrCreateIndex(dbPath string) (*index.InvertedIndex, bool, error) {
-	existed := fileExists(dbPath)
-	if !existed {
-		dir := filepath.Dir(dbPath)
-		if err := os.MkdirAll(dir, 0750); err != nil {
-			return nil, false, err
-		}
-	}
-	idx, err := index.NewInvertedIndex(dbPath)
-	if err != nil {
+	dir := filepath.Dir(dbPath)
+	if err := os.MkdirAll(dir, 0750); err != nil {
 		return nil, false, err
 	}
-	return idx, existed, nil
+
+	existed := fileExists(dbPath)
+
+	idx, err := index.NewInvertedIndex(dbPath)
+	if err == nil {
+		return idx, existed, nil
+	}
+
+	// Remove the invalid/corrupt file and create a fresh database.
+	_ = os.Remove(dbPath)
+	idx, createErr := index.NewInvertedIndex(dbPath)
+	if createErr != nil {
+		return nil, false, createErr
+	}
+	return idx, false, nil
 }
 
 func fileExists(path string) bool {

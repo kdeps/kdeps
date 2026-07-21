@@ -141,13 +141,21 @@ func TestOpenOrCreateIndex_CorruptDB(t *testing.T) {
 	dir := t.TempDir()
 	dbPath := filepath.Join(dir, ".kdeps", "index.db")
 
-	// Write a non-bbolt file
+	// Write a non-bbolt file (e.g. old gob-format index).
 	require.NoError(t, os.MkdirAll(filepath.Dir(dbPath), 0750))
 	require.NoError(t, os.WriteFile(dbPath, []byte("not a bbolt database"), 0600))
 
-	// bbolt should detect the invalid file and fail
-	_, _, err := openOrCreateIndex(dbPath)
-	assert.Error(t, err)
+	// Should auto-delete the corrupt file and recreate.
+	idx, existed, err := openOrCreateIndex(dbPath)
+	require.NoError(t, err)
+	assert.False(t, existed)
+	idx.Close()
+
+	// Verify the file is now a valid bbolt DB.
+	idx2, existed2, err := openOrCreateIndex(dbPath)
+	require.NoError(t, err)
+	assert.True(t, existed2)
+	idx2.Close()
 }
 
 func TestStartIndex_Progress(t *testing.T) {
