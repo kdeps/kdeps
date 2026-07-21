@@ -27,6 +27,8 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"runtime"
+	"sync"
 
 	"github.com/spf13/afero"
 
@@ -65,30 +67,67 @@ func skipWalkEntry(d os.DirEntry) bool {
 	return d.Name()[0] == '.'
 }
 
-// indexBatchSize is how many files are collected before flushing to bbolt
-// in a single transaction. Larger batches = fewer transactions = faster indexing.
+// indexBatchSize is how many files are collected before flushing to bbolt.
 const indexBatchSize = 500
 
-// walkIndex walks the directory tree and adds documents to the index.
-// Files are batched into groups of indexBatchSize for a single bbolt transaction.
-// If glob is non-empty, only files matching the glob pattern are indexed.
-// Progress is written to ProgressWriter every 100 files.
-func (e *Executor) walkIndex(root string, glob string, idx *index.InvertedIndex) (int, error) {
-	tok := tokenizer.NewTokenizer()
-	indexedCount := 0
-	batch := make([]index.DocWithTokens, 0, indexBatchSize)
+// indexWorkers is the number of parallel file readers. Defaults to GOMAXPROCS.
+var indexWorkers = runtime.GOMAXPROCS(0) //nolint:gochecknoglobals
 
-	flushBatch := func() {
-		if len(batch) == 0 {
-			return
+// fileJob is a file to be read and indexed by a worker.
+type fileJob struct {
+	path string
+	d    os.DirEntry
+}
+
+// walkIndex walks the directory tree and adds documents to the index.
+// File reading and tokenization runs in parallel across indexWorkers goroutines;
+// bbolt writes are serialized in a single goroutine, batched every indexBatchSize.
+func (e *Executor) walkIndex(root string, glob string, idx *index.InvertedIndex) (int, error) {
+	jobs := make(chan fileJob, indexBatchSize)
+	results := make(chan index.DocWithTokens, indexBatchSize)
+	done := make(chan error, 1)
+
+	// Single writer: batches results and flushes to bbolt.
+	var indexedCount int
+	go func() {
+		batch := make([]index.DocWithTokens, 0, indexBatchSize)
+		for doc := range results {
+			batch = append(batch, doc)
+			indexedCount++
+			if len(batch) >= indexBatchSize {
+				idx.BatchAddDocuments(batch)
+				batch = batch[:0]
+			}
+			if indexedCount%100 == 0 {
+				fmt.Fprintf(ProgressWriter, "\rsearchLocal: indexed %d files ...", indexedCount)
+			}
 		}
-		idx.BatchAddDocuments(batch)
-		batch = batch[:0]
+		// Final flush.
+		if len(batch) > 0 {
+			idx.BatchAddDocuments(batch)
+		}
+		done <- nil
+	}()
+
+	// Worker pool: reads and tokenizes files in parallel.
+	var wg sync.WaitGroup
+	for range indexWorkers {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			tok := tokenizer.NewTokenizer()
+			for job := range jobs {
+				if doc, tokens, positions := e.prepareDoc(job.path, job.d, tok); doc != nil {
+					results <- index.DocWithTokens{Doc: doc, Tokens: tokens, Positions: positions}
+				}
+			}
+		}()
 	}
 
+	// Walk the directory tree and feed jobs.
 	walkErr := filepath.WalkDir(root, func(p string, d os.DirEntry, err error) error {
 		if err != nil {
-			return nil //nolint:nilerr // skip entries with access errors
+			return nil //nolint:nilerr
 		}
 		if d.IsDir() {
 			if skipWalkEntry(d) {
@@ -102,24 +141,17 @@ func (e *Executor) walkIndex(root string, glob string, idx *index.InvertedIndex)
 		if glob != "" {
 			matched, matchErr := filepath.Match(glob, d.Name())
 			if matchErr != nil || !matched {
-				return nil //nolint:nilerr // skip on glob match error
+				return nil //nolint:nilerr
 			}
 		}
-
-		if doc, tokens, positions := e.prepareDoc(p, d, tok); doc != nil {
-			batch = append(batch, index.DocWithTokens{Doc: doc, Tokens: tokens, Positions: positions})
-			indexedCount++
-
-			if len(batch) >= indexBatchSize {
-				flushBatch()
-			}
-			if indexedCount%100 == 0 {
-				fmt.Fprintf(ProgressWriter, "\rsearchLocal: indexed %d files ...", indexedCount)
-			}
-		}
+		jobs <- fileJob{path: p, d: d}
 		return nil
 	})
-	flushBatch() // final flush
+	close(jobs)
+	wg.Wait()
+	close(results)
+	<-done
+
 	return indexedCount, walkErr
 }
 
