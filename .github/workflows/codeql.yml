@@ -37,13 +37,13 @@ jobs:
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
 
       - name: Initialize CodeQL
-        uses: github/codeql-action/init@v3
+        uses: github/codeql-action/init@703b9949c65fcfced30e2f9f41569c4adfcb657f # v3.36.3
         with:
           languages: go
           build-mode: autobuild
           config-file: .github/codeql/codeql-config.yml
 
       - name: Perform CodeQL Analysis
-        uses: github/codeql-action/analyze@v3
+        uses: github/codeql-action/analyze@703b9949c65fcfced30e2f9f41569c4adfcb657f # v3.36.3
         with:
           category: "/language:go"
