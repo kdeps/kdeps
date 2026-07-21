@@ -28,6 +28,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"strings"
 	"sync"
 
 	"github.com/spf13/afero"
@@ -409,6 +410,63 @@ func (e *Executor) StartIndex(path string) {
 	kdeps_debug.Log(fmt.Sprintf("searchLocal: indexed %d files in %s", indexedCount, path))
 }
 
+// snippetContext is the number of characters of context around a query match.
+const snippetContext = 120
+
+// generateSnippet reads a file and returns a snippet of context around the first
+// occurrence of query. Returns empty string if the file can't be read or the
+// query isn't found (keeps results compact but meaningful for the LLM).
+func generateSnippet(filePath, query string) string {
+	f, err := os.Open(filePath)
+	if err != nil {
+		return ""
+	}
+	defer f.Close()
+
+	// Read up to 512 KiB — enough to find the query in any text file.
+	const maxRead = 512 << 10
+	buf := make([]byte, maxRead)
+	n, _ := io.ReadFull(f, buf)
+	if n == 0 {
+		return ""
+	}
+	content := string(buf[:n])
+	lower := strings.ToLower(content)
+	queryLower := strings.ToLower(query)
+
+	idx := strings.Index(lower, queryLower)
+	if idx < 0 {
+		// Query not found in content (token mismatch). Return first ~200 chars.
+		end := len(content)
+		if end > snippetContext*2 {
+			end = snippetContext * 2
+		}
+		if end < len(content) {
+			return content[:end] + "..."
+		}
+		return content[:end]
+	}
+
+	start := idx - snippetContext
+	if start < 0 {
+		start = 0
+	}
+	end := idx + len(query) + snippetContext
+	if end > len(content) {
+		end = len(content)
+	}
+
+	var sb strings.Builder
+	if start > 0 {
+		sb.WriteString("...")
+	}
+	sb.WriteString(content[start:end])
+	if end < len(content) {
+		sb.WriteString("...")
+	}
+	return sb.String()
+}
+
 func buildSearchResult(path string, results []map[string]interface{}) map[string]interface{} {
 	if results == nil {
 		results = []map[string]interface{}{}
@@ -520,6 +578,7 @@ func (e *Executor) executeIndexed(config *domain.SearchLocalConfig) (interface{}
 			"isDir":      false,
 			"score":      r.Score,
 			"matchCount": r.MatchCount,
+			"snippet":    generateSnippet(r.Document.Path, config.Query),
 		})
 	}
 

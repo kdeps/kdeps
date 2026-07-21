@@ -69,12 +69,16 @@ func (e *Executor) walkEntry(
 		return nil //nolint:nilerr // skip files whose stat fails
 	}
 
-	*results = append(*results, map[string]interface{}{
+	result := map[string]interface{}{
 		"path":  path,
 		"name":  d.Name(),
 		"size":  info.Size(),
 		"isDir": false,
-	})
+	}
+	if config.Query != "" {
+		result["snippet"] = generateSnippet(path, config.Query)
+	}
+	*results = append(*results, result)
 
 	if config.Limit > 0 && len(*results) >= config.Limit {
 		*limitHit = true
