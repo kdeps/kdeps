@@ -204,7 +204,7 @@ func TestStartIndex_ExistingIndex(t *testing.T) {
 
 	e.StartIndex(dir)
 	output := buf2.String()
-	assert.Contains(t, output, "index already exists")
+	assert.NotContains(t, output, "indexing") // fast path, no re-index
 
 	_, err := os.Stat(dbPath)
 	require.NoError(t, err)

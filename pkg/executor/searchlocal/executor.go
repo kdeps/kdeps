@@ -384,9 +384,7 @@ func (e *Executor) StartIndex(path string) {
 		// Check if the existing index already has documents.
 		stats := idx.GetStats()
 		if stats.DocumentCount > 0 {
-			kdeps_debug.Log("searchLocal: loaded existing index from " + dbPath)
-			fmt.Fprintf(ProgressWriter, "searchLocal: index already exists at %s (%d docs)\n",
-				dbPath, stats.DocumentCount)
+			kdeps_debug.Log("searchLocal: loaded existing index from " + dbPath + fmt.Sprintf(" (%d docs)", stats.DocumentCount))
 			return
 		}
 		kdeps_debug.Log("searchLocal: rebuilding index (empty)")
