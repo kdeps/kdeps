@@ -133,7 +133,10 @@ func skipWalkEntry(d os.DirEntry) bool {
 }
 
 // indexBatchSize is how many files are collected before flushing to bbolt.
-const indexBatchSize = 500
+const indexBatchSize = 2000
+
+// maxFileSize is the largest file (bytes) we will read and index.
+const maxFileSize = 1 << 20 // 1 MiB
 
 // indexWorkers is the number of parallel file readers. Defaults to GOMAXPROCS.
 var indexWorkers = runtime.GOMAXPROCS(0) //nolint:gochecknoglobals
@@ -221,16 +224,20 @@ func (e *Executor) walkIndex(root string, glob string, idx *index.InvertedIndex)
 }
 
 // prepareDoc reads and tokenizes a file, returning a ready-to-index document or nil.
+// Files larger than maxFileSize are skipped.
 func (e *Executor) prepareDoc(
 	p string, d os.DirEntry, tok *tokenizer.Tokenizer,
 ) (*index.Document, []string, []int) {
-	content, readErr := os.ReadFile(p)
-	if readErr != nil {
+	info, statErr := d.Info()
+	if statErr != nil {
+		return nil, nil, nil
+	}
+	if info.Size() > maxFileSize {
 		return nil, nil, nil
 	}
 
-	info, statErr := d.Info()
-	if statErr != nil {
+	content, readErr := os.ReadFile(p)
+	if readErr != nil {
 		return nil, nil, nil
 	}
 
@@ -246,7 +253,6 @@ func (e *Executor) prepareDoc(
 	return &index.Document{
 		ID:      docID,
 		Path:    p,
-		Content: string(content),
 		ModTime: info.ModTime().Unix(),
 		Size:    info.Size(),
 	}, tokenStrings, positions

@@ -36,10 +36,10 @@ var (
 )
 
 // Document represents an indexed document.
+// Content is intentionally not stored — it is never read from the index.
 type Document struct {
 	ID      string
 	Path    string
-	Content string
 	ModTime int64
 	Size    int64
 }
