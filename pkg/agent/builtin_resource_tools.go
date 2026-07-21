@@ -99,7 +99,7 @@ func registerSearchLocalTool(_ context.Context, reg *kdepstools.Registry) {
 
 	reg.Register(&kdepstools.Tool{
 		Name:        toolNameSearchLocal,
-		Description: "Search for text patterns in local files using ripgrep. Returns matching files with line numbers and content. Use for finding usages, patterns, or strings across the codebase. Requires: path (directory to search), query (search term). Optional: glob (file pattern).",
+		Description: "Search for text patterns in local files using ripgrep. Returns matching files with line numbers and content. Use for finding usages, patterns, or strings across the codebase. Requires: path (directory to search), query (search term). Optional: glob (file pattern), limit (max results, default 3).",
 		Parameters: map[string]domain.ToolParam{
 			toolParamPath: {
 				Type:        toolParamString,
@@ -108,6 +108,7 @@ func registerSearchLocalTool(_ context.Context, reg *kdepstools.Registry) {
 			},
 			toolParamQuery: {Type: toolParamString, Description: "Search term or regex pattern", Required: true},
 			"glob":         {Type: toolParamString, Description: "File glob filter, e.g. '*.go', '*.py'"},
+			"limit":        {Type: toolParamNumber, Description: "Maximum number of results. Default: 3"},
 		},
 		Execute: func(args map[string]any) (string, error) {
 			config := &domain.SearchLocalConfig{}
@@ -119,6 +120,11 @@ func registerSearchLocalTool(_ context.Context, reg *kdepstools.Registry) {
 			}
 			if v, ok := args["glob"].(string); ok {
 				config.Glob = v
+			}
+			if v, ok := args["limit"].(float64); ok && v > 0 {
+				config.Limit = int(v)
+			} else {
+				config.Limit = 3 // default to top 3
 			}
 
 			result, err := exec.Execute(nil, config)
