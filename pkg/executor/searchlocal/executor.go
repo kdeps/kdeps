@@ -465,6 +465,111 @@ func generateSnippet(filePath, query string) string {
 	return sb.String()
 }
 
+// IndexFile indexes a single file into the CWD's search index. It opens the
+// index DB, reads the file, tokenizes it, and closes the DB. If the index
+// doesn't exist yet, it is created. Errors are silent (best-effort).
+func (e *Executor) IndexFile(path string) {
+	wd, err := os.Getwd()
+	if err != nil {
+		return
+	}
+	dbPath := indexDBPath(wd)
+	idx, _, openErr := openOrCreateIndex(dbPath)
+	if openErr != nil {
+		return
+	}
+	defer idx.Close()
+
+	info, statErr := os.Stat(path)
+	if statErr != nil || info.IsDir() || info.Size() > maxFileSize {
+		return
+	}
+	if !isIndexableExt(filepath.Base(path)) {
+		return
+	}
+
+	content, readErr := os.ReadFile(path)
+	if readErr != nil {
+		return
+	}
+
+	docID := fmt.Sprintf("%x", path)
+	tok := tokenizer.NewTokenizer()
+	tokens := tok.Tokenize(string(content))
+	tokenStrings := make([]string, len(tokens))
+	positions := make([]int, len(tokens))
+	for i, token := range tokens {
+		tokenStrings[i] = token.Text
+		positions[i] = token.Position
+	}
+
+	idx.BatchAddDocuments([]index.DocWithTokens{{
+		Doc: &index.Document{
+			ID:      docID,
+			Path:    path,
+			ModTime: info.ModTime().Unix(),
+			Size:    info.Size(),
+		},
+		Tokens:    tokenStrings,
+		Positions: positions,
+	}})
+}
+
+// IndexFiles indexes multiple files into the CWD's search index in a single batch.
+func (e *Executor) IndexFiles(paths []string) {
+	wd, err := os.Getwd()
+	if err != nil {
+		return
+	}
+	dbPath := indexDBPath(wd)
+	idx, _, openErr := openOrCreateIndex(dbPath)
+	if openErr != nil {
+		return
+	}
+	defer idx.Close()
+
+	tok := tokenizer.NewTokenizer()
+	docs := make([]index.DocWithTokens, 0, len(paths))
+	for _, path := range paths {
+		info, statErr := os.Stat(path)
+		if statErr != nil || info.IsDir() || info.Size() > maxFileSize {
+			continue
+		}
+		if !isIndexableExt(filepath.Base(path)) {
+			continue
+		}
+
+		content, readErr := os.ReadFile(path)
+		if readErr != nil {
+			continue
+		}
+
+		docID := fmt.Sprintf("%x", path)
+		tokens := tok.Tokenize(string(content))
+		tokenStrings := make([]string, len(tokens))
+		positions := make([]int, len(tokens))
+		for i, token := range tokens {
+			tokenStrings[i] = token.Text
+			positions[i] = token.Position
+		}
+
+		docs = append(docs, index.DocWithTokens{
+			Doc: &index.Document{
+				ID:      docID,
+				Path:    path,
+				ModTime: info.ModTime().Unix(),
+				Size:    info.Size(),
+			},
+			Tokens:    tokenStrings,
+			Positions: positions,
+		})
+	}
+
+	if len(docs) > 0 {
+		idx.BatchAddDocuments(docs)
+	}
+}
+
 func buildSearchResult(path string, results []map[string]interface{}) map[string]interface{} {
 	if results == nil {
 		results = []map[string]interface{}{}

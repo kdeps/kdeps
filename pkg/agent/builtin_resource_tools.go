@@ -18,6 +18,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"os"
 	"strings"
 
 	"github.com/kdeps/kdeps/v2/pkg/domain"
@@ -89,13 +90,12 @@ func registerHTTPTool(_ context.Context, reg *kdepstools.Registry) {
 }
 
 // registerSearchLocalTool registers a local file search tool (search_local).
-// On registration, it automatically indexes the current working directory
-// so that subsequent searches can use the persistent inverted index.
+// Indexing is deferred to first use. Run '/search index' to build the
+// inverted index for faster ranked searches.
 func registerSearchLocalTool(_ context.Context, reg *kdepstools.Registry) {
 	exec := execSearch.NewExecutor()
 
-	// Index the current working directory on startup.
-	exec.StartIndex("")
+	fmt.Fprintln(os.Stderr, "searchLocal: files auto-indexed on read/search — /search index for full pre-index")
 
 	reg.Register(&kdepstools.Tool{
 		Name:        toolNameSearchLocal,
@@ -125,6 +125,22 @@ func registerSearchLocalTool(_ context.Context, reg *kdepstools.Registry) {
 			if err != nil {
 				return "", err
 			}
+
+			// Lazily index result files into the search index.
+			if rm, ok := result.(map[string]interface{}); ok {
+				if results, ok := rm["results"].([]map[string]interface{}); ok {
+					paths := make([]string, 0, len(results))
+					for _, r := range results {
+						if p, ok := r["path"].(string); ok {
+							paths = append(paths, p)
+						}
+					}
+					if len(paths) > 0 {
+						go exec.IndexFiles(paths)
+					}
+				}
+			}
+
 			out, _ := json.MarshalIndent(result, "", "  ")
 
 			// Also search memory so the LLM gets relevant context alongside

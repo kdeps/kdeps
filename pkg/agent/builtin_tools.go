@@ -217,6 +217,9 @@ func readLocalFile(filePath string, args map[string]any) (string, error) {
 		return "", fmt.Errorf("read_file: %s appears to be a binary file", filePath)
 	}
 
+	// Lazily index every file that's read into the search index.
+	go execSearch.NewExecutor().IndexFile(filePath)
+
 	lines := strings.Split(string(data), "\n")
 	// File ending with \n produces a trailing empty element; drop it.
 	if len(lines) > 0 && lines[len(lines)-1] == "" {
@@ -2126,7 +2129,6 @@ func registerMemorySearchTool(reg *kdepstools.Registry) {
 				return "No memory entries found.", nil //nolint:nilerr // fallback when cwd fails
 			}
 			exec := execSearch.NewExecutor()
-			exec.StartIndex(wd)
 			searchResult, searchErr := exec.Execute(nil, &domain.SearchLocalConfig{
 				Path:  wd,
 				Query: query,

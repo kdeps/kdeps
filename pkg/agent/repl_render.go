@@ -570,13 +570,13 @@ func renderREPLOutput(text string, skipThinking bool) string {
 		body.WriteString(text[last:])
 		mainText := strings.TrimSpace(body.String())
 		if mainText != "" {
-			sb.WriteString(renderMarkdown(mainText))
+			sb.WriteString(renderMarkdown(dedent(mainText)))
 		}
 		result := strings.TrimRight(sb.String(), "\n")
 		return result + "\n"
 	}
 
-	result := strings.TrimRight(renderMarkdown(text), "\n")
+	result := strings.TrimRight(renderMarkdown(dedent(text)), "\n")
 	return result + "\n"
 }
 
@@ -667,6 +667,33 @@ func (w *liveThinkingWriter) repaint() {
 
 // Flush closes the block, moving to a fresh line below it, and resets for the
 // next round.
+// dedent fixes the LLM "staircase" effect where output lines have progressively
+// increasing and excessive leading whitespace. Lines with >=8 leading spaces get
+// their leading whitespace stripped to a max of 4. Lines with 0-7 spaces are left
+// untouched (preserves intentional markdown indentation).
+func dedent(text string) string {
+	lines := strings.Split(text, "\n")
+	fixed := false
+	for i, line := range lines {
+		if strings.TrimSpace(line) == "" {
+			continue
+		}
+		indent := len(line) - len(strings.TrimLeft(line, " \t"))
+		if indent >= 8 {
+			// Cap excessive indentation: preserve up to 4 leading spaces.
+			if indent > 4 {
+				indent = 4
+			}
+			lines[i] = strings.Repeat(" ", indent) + strings.TrimLeft(line, " \t")
+			fixed = true
+		}
+	}
+	if !fixed {
+		return text
+	}
+	return strings.Join(lines, "\n")
+}
+
 func (w *liveThinkingWriter) Flush() {
 	if w.started {
 		fmt.Fprint(os.Stdout, ansiReset+"\r\n")

@@ -46,6 +46,7 @@ import (
 
 	"github.com/kdeps/kdeps/v2/pkg/domain"
 	llm "github.com/kdeps/kdeps/v2/pkg/executor/llm"
+	execSearch "github.com/kdeps/kdeps/v2/pkg/executor/searchlocal"
 )
 
 //nolint:gochecknoglobals // overridable in tests for timing-sensitive spinner assertions
@@ -2015,6 +2016,8 @@ func (r *REPL) dispatchCommand(cmd string) error {
 		return r.cmdCopy()
 	case "/reload":
 		return r.cmdReload()
+	case "/search":
+		return r.cmdSearch(args)
 	case "/context":
 		return r.cmdContext(args)
 	case "/exit", "/quit":
@@ -3668,6 +3671,73 @@ func parseTokenCount(s string) int {
 		return 0
 	}
 	return n * multiplier
+}
+
+// cmdSearch handles /search commands.
+//   /search index  — build the inverted index for the CWD
+//   /search <term> — search the indexed directory and feed results to the LLM
+func (r *REPL) cmdSearch(args []string) error {
+	exec := execSearch.NewExecutor()
+	wd, err := os.Getwd()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "search: getwd failed: %v\n", err)
+		return nil
+	}
+
+	if len(args) == 0 {
+		fmt.Fprintf(os.Stderr, "Usage: /search index   or   /search <query>\n")
+		return nil
+	}
+
+	if args[0] == "index" {
+		exec.StartIndex(wd)
+		return nil
+	}
+
+	// Search mode: run indexed search and inject results.
+	query := strings.Join(args, " ")
+	cfg := &domain.SearchLocalConfig{Path: wd, Query: query, Index: true}
+	result, searchErr := exec.Execute(nil, cfg)
+	if searchErr != nil {
+		fmt.Fprintf(os.Stderr, "search: %v\n", searchErr)
+		return nil
+	}
+
+	resultMap, ok := result.(map[string]interface{})
+	if !ok {
+		fmt.Fprintf(os.Stderr, "search: unexpected result type\n")
+		return nil
+	}
+
+	results, _ := resultMap["results"].([]map[string]interface{})
+	count, _ := resultMap["count"].(int)
+
+	if count == 0 {
+		fmt.Fprintf(os.Stderr, "search: no results for %q\n", query)
+		return nil
+	}
+
+	heading := styleReplHeading.Render
+	dim := styleReplDim.Render
+
+	// Print results to the terminal.
+	fmt.Fprintf(os.Stdout, "\n%s\n", heading(fmt.Sprintf("Search results for %q (%d files):", query, count)))
+	for i, r := range results {
+		path, _ := r["path"].(string)
+		score, _ := r["score"].(float64)
+		matchCount, _ := r["matchCount"].(int)
+		snippet, _ := r["snippet"].(string)
+		display := filepath.Base(path)
+		fmt.Fprintf(os.Stdout, "  %d. %s  %s\n", i+1, display, dim(fmt.Sprintf("[match=%d score=%.2f]", matchCount, score)))
+		if snippet != "" {
+			fmt.Fprintf(os.Stdout, "     %s\n", dim(snippet))
+		}
+	}
+
+	// Results are printed above — the next prompt lets the LLM see and use them.
+	fmt.Fprintln(os.Stdout)
+
+	return nil
 }
 
 // cmdContext shows or sets the context window size for the current model.
