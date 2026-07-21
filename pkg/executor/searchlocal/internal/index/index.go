@@ -160,9 +160,11 @@ func (idx *InvertedIndex) BatchAddDocuments(docs []DocWithTokens) {
 				}
 			}
 
-			// Increment doc count.
-			if err := incDocCount(tx, 1); err != nil {
-				return err
+			// Only increment doc count for genuinely new documents.
+			if !removeSet[dt.doc.ID] {
+				if err := incDocCount(tx, 1); err != nil {
+					return err
+				}
 			}
 		}
 		return nil
@@ -297,6 +299,57 @@ func (idx *InvertedIndex) FuzzySearch(queryTerms []string, maxDistance int) []Se
 		terms = append(terms, t)
 	}
 	return idx.Search(terms)
+}
+
+// LookupModTime returns the stored ModTime for a docID, or 0 if the document
+// does not exist in the index. Used for incremental indexing to skip unchanged files.
+func (idx *InvertedIndex) LookupModTime(docID string) int64 {
+	var mtime int64
+	_ = idx.db.View(func(tx *bolt.Tx) error {
+		docsB := tx.Bucket(bucketDocs)
+		if doc := resolveDoc(docsB, docID); doc != nil {
+			mtime = doc.ModTime
+		}
+		return nil
+	})
+	return mtime
+}
+
+// PurgeDocs removes all documents whose docIDs are NOT in keepDocIDs.
+// Returns the number of documents removed. Used after incremental walks to
+// clean up indexed entries for deleted files.
+func (idx *InvertedIndex) PurgeDocs(keepDocIDs map[string]bool) int {
+	var staleDocIDs []string
+	_ = idx.db.View(func(tx *bolt.Tx) error {
+		c := tx.Bucket(bucketDocs).Cursor()
+		for k, _ := c.First(); k != nil; k, _ = c.Next() {
+			docID := string(k)
+			if !keepDocIDs[docID] {
+				staleDocIDs = append(staleDocIDs, docID)
+			}
+		}
+		return nil
+	})
+	if len(staleDocIDs) == 0 {
+		return 0
+	}
+
+	removeSet := make(map[string]bool, len(staleDocIDs))
+	for _, id := range staleDocIDs {
+		removeSet[id] = true
+	}
+
+	_ = idx.db.Update(func(tx *bolt.Tx) error {
+		idx.batchRemoveDocsInTx(tx, removeSet)
+		// Delete from docs bucket and decrement count.
+		docsB := tx.Bucket(bucketDocs)
+		for id := range removeSet {
+			_ = docsB.Delete([]byte(id))
+		}
+		return incDocCount(tx, -len(removeSet))
+	})
+
+	return len(staleDocIDs)
 }
 
 // GetStats returns index statistics.

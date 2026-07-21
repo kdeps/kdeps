@@ -346,6 +346,7 @@ func TestStartIndex_BinariesSkipped(t *testing.T) {
 
 	require.NoError(t, os.WriteFile(filepath.Join(dir, "readable.txt"), []byte("hello world"), 0600))
 	require.NoError(t, os.WriteFile(filepath.Join(dir, "binary.bin"), []byte{0, 1, 2, 3}, 0600))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "image.png"), []byte{0, 1, 2, 3}, 0600))
 
 	var buf bytes.Buffer
 	oldWriter := ProgressWriter
@@ -356,7 +357,7 @@ func TestStartIndex_BinariesSkipped(t *testing.T) {
 	e.StartIndex(dir)
 
 	output := buf.String()
-	assert.Contains(t, output, "2 files")
+	assert.Contains(t, output, "1 files") // only .txt; .bin and .png are not in indexableExtensions
 }
 
 func TestIndexPersistsAcrossSessions(t *testing.T) {
@@ -421,4 +422,127 @@ func TestIndexSearchResultsPersisted(t *testing.T) {
 	// No match
 	results = idx.Search([]string{"zzzznomatch"})
 	assert.Empty(t, results)
+}
+
+func TestWalkIndex_IncrementalSkipsUnchanged(t *testing.T) {
+	dir := t.TempDir()
+	dbPath := filepath.Join(dir, ".kdeps", "index.db")
+
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "a.txt"), []byte("hello"), 0600))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "b.txt"), []byte("world"), 0600))
+
+	idx, _, err := openOrCreateIndex(dbPath)
+	require.NoError(t, err)
+	defer idx.Close()
+
+	var buf bytes.Buffer
+	oldWriter := ProgressWriter
+	ProgressWriter = &buf
+	t.Cleanup(func() { ProgressWriter = oldWriter })
+
+	e := NewExecutor()
+	// First walk: indexes both files.
+	count, err := e.walkIndex(dir, "", idx)
+	require.NoError(t, err)
+	assert.Equal(t, 2, count)
+
+	// Second walk: both files unchanged — skipped via ModTime match.
+	buf.Reset()
+	count, err = e.walkIndex(dir, "", idx)
+	require.NoError(t, err)
+	assert.Equal(t, 0, count) // nothing indexed; everything skipped incrementally
+
+	stats := idx.GetStats()
+	assert.Equal(t, 2, stats.DocumentCount)
+}
+
+func TestWalkIndex_IncrementalDetectsModified(t *testing.T) {
+	dir := t.TempDir()
+	dbPath := filepath.Join(dir, ".kdeps", "index.db")
+
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "a.txt"), []byte("hello"), 0600))
+
+	idx, _, err := openOrCreateIndex(dbPath)
+	require.NoError(t, err)
+	defer idx.Close()
+
+	var buf bytes.Buffer
+	oldWriter := ProgressWriter
+	ProgressWriter = &buf
+	t.Cleanup(func() { ProgressWriter = oldWriter })
+
+	e := NewExecutor()
+	count, err := e.walkIndex(dir, "", idx)
+	require.NoError(t, err)
+	assert.Equal(t, 1, count)
+
+	// Modify file — walkIndex should re-index it (ModTime changed).
+	// Sleep to ensure ModTime resolution (>1s since we use .Unix()).
+	buf.Reset()
+	time.Sleep(1500 * time.Millisecond)
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "a.txt"), []byte("hello world"), 0600))
+	count, err = e.walkIndex(dir, "", idx)
+	require.NoError(t, err)
+	assert.Equal(t, 1, count) // re-indexed fresh
+
+	results := idx.Search([]string{"world"})
+	assert.Len(t, results, 1)
+}
+
+func TestWalkIndex_IncrementalCleansUpDeleted(t *testing.T) {
+	dir := t.TempDir()
+	dbPath := filepath.Join(dir, ".kdeps", "index.db")
+
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "a.txt"), []byte("hello"), 0600))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "b.txt"), []byte("world"), 0600))
+
+	idx, _, err := openOrCreateIndex(dbPath)
+	require.NoError(t, err)
+	defer idx.Close()
+
+	var buf bytes.Buffer
+	oldWriter := ProgressWriter
+	ProgressWriter = &buf
+	t.Cleanup(func() { ProgressWriter = oldWriter })
+
+	e := NewExecutor()
+	count, err := e.walkIndex(dir, "", idx)
+	require.NoError(t, err)
+	assert.Equal(t, 2, count)
+
+	// Delete a.txt — walkIndex should remove it from the index.
+	buf.Reset()
+	require.NoError(t, os.Remove(filepath.Join(dir, "a.txt")))
+	count, err = e.walkIndex(dir, "", idx)
+	require.NoError(t, err)
+	assert.Equal(t, 0, count) // no new files indexed
+	output := buf.String()
+	assert.Contains(t, output, "removed 1 stale doc")
+
+	stats := idx.GetStats()
+	assert.Equal(t, 1, stats.DocumentCount)
+	results := idx.Search([]string{"hello"})
+	assert.Empty(t, results)
+	results = idx.Search([]string{"world"})
+	assert.Len(t, results, 1)
+}
+
+func TestIndexableExtensions(t *testing.T) {
+	dir := t.TempDir()
+
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "main.go"), []byte("package main"), 0600))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "Makefile"), []byte("all:"), 0600))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "data.bin"), []byte{0, 1, 2, 3}, 0600))
+
+	var buf bytes.Buffer
+	oldWriter := ProgressWriter
+	ProgressWriter = &buf
+	t.Cleanup(func() { ProgressWriter = oldWriter })
+
+	e := NewExecutor()
+	e.StartIndex(dir)
+
+	output := buf.String()
+	// main.go (.go is indexable) and Makefile (no extension — indexable)
+	assert.Contains(t, output, "2 files")
 }

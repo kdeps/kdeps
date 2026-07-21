@@ -133,6 +133,32 @@ func skipWalkEntry(d os.DirEntry) bool {
 }
 
 // indexBatchSize is how many files are collected before flushing to bbolt.
+// indexableExtensions are file extensions that are indexed in index mode.
+// Files without an extension (e.g. Makefile, README) are always indexed.
+//
+//nolint:gochecknoglobals // static lookup table
+var indexableExtensions = map[string]bool{
+	".go": true, ".py": true, ".js": true, ".ts": true, ".tsx": true, ".jsx": true,
+	".java": true, ".c": true, ".cpp": true, ".cc": true, ".h": true, ".hpp": true,
+	".rs": true, ".rb": true, ".php": true, ".sh": true, ".bash": true, ".zsh": true,
+	".yml": true, ".yaml": true, ".json": true, ".xml": true, ".toml": true,
+	".ini": true, ".cfg": true, ".conf": true, ".envrc": true,
+	".md": true, ".txt": true, ".rst": true, ".adoc": true,
+	".html": true, ".css": true, ".scss": true, ".less": true, ".svg": true,
+	".sql": true, ".proto": true, ".graphql": true, ".prisma": true,
+	".dart": true, ".swift": true, ".kt": true, ".kts": true,
+	".scala": true, ".clj": true, ".cljs": true, ".ex": true, ".exs": true, ".erl": true,
+	".lua": true, ".zig": true, ".nim": true, ".vue": true, ".svelte": true,
+	".tf": true, ".hcl": true, ".nix": true, ".dhall": true,
+}
+
+// isIndexableExt returns true if the file extension is indexable.
+// Files without an extension (e.g. Makefile, README) are considered indexable.
+func isIndexableExt(name string) bool {
+	ext := filepath.Ext(name)
+	return ext == "" || indexableExtensions[ext]
+}
+
 const indexBatchSize = 2000
 
 // maxFileSize is the largest file (bytes) we will read and index.
@@ -150,10 +176,15 @@ type fileJob struct {
 // walkIndex walks the directory tree and adds documents to the index.
 // File reading and tokenization runs in parallel across indexWorkers goroutines;
 // bbolt writes are serialized in a single goroutine, batched every indexBatchSize.
+// Incremental: files with unchanged ModTime are skipped; deleted files are purged.
 func (e *Executor) walkIndex(root string, glob string, idx *index.InvertedIndex) (int, error) {
 	jobs := make(chan fileJob, indexBatchSize)
 	results := make(chan index.DocWithTokens, indexBatchSize)
 	done := make(chan error, 1)
+
+	// Track seen docIDs for stale-document cleanup after the walk.
+	seenDocIDs := make(map[string]bool)
+	var seenMu sync.Mutex
 
 	// Single writer: batches results and flushes to bbolt.
 	var indexedCount int
@@ -170,7 +201,6 @@ func (e *Executor) walkIndex(root string, glob string, idx *index.InvertedIndex)
 				fmt.Fprintf(ProgressWriter, "\rsearchLocal: indexed %d files ...", indexedCount)
 			}
 		}
-		// Final flush.
 		if len(batch) > 0 {
 			idx.BatchAddDocuments(batch)
 		}
@@ -193,6 +223,7 @@ func (e *Executor) walkIndex(root string, glob string, idx *index.InvertedIndex)
 	}
 
 	// Walk the directory tree and feed jobs.
+	var skippedIncremental int
 	walkErr := filepath.WalkDir(root, func(p string, d os.DirEntry, err error) error {
 		if err != nil {
 			return nil //nolint:nilerr
@@ -206,12 +237,34 @@ func (e *Executor) walkIndex(root string, glob string, idx *index.InvertedIndex)
 		if skipWalkEntry(d) {
 			return nil
 		}
+		if !isIndexableExt(d.Name()) {
+			return nil
+		}
 		if glob != "" {
 			matched, matchErr := filepath.Match(glob, d.Name())
 			if matchErr != nil || !matched {
 				return nil //nolint:nilerr
 			}
 		}
+
+		docID := fmt.Sprintf("%x", p)
+		seenMu.Lock()
+		seenDocIDs[docID] = true
+		seenMu.Unlock()
+
+		// Incremental: skip files whose ModTime hasn't changed.
+		info, statErr := d.Info()
+		if statErr != nil {
+			return nil //nolint:nilerr
+		}
+		if info.ModTime().Unix() == idx.LookupModTime(docID) {
+			skippedIncremental++
+			if skippedIncremental%1000 == 0 {
+				fmt.Fprintf(ProgressWriter, "\rsearchLocal: %d files unchanged, skipped ...", skippedIncremental)
+			}
+			return nil
+		}
+
 		jobs <- fileJob{path: p, d: d}
 		return nil
 	})
@@ -219,6 +272,12 @@ func (e *Executor) walkIndex(root string, glob string, idx *index.InvertedIndex)
 	wg.Wait()
 	close(results)
 	<-done
+
+	// Clean up stale documents (files that were deleted since last index).
+	staleRemoved := idx.PurgeDocs(seenDocIDs)
+	if staleRemoved > 0 {
+		fmt.Fprintf(ProgressWriter, "\rsearchLocal: removed %d stale docs from index\n", staleRemoved)
+	}
 
 	return indexedCount, walkErr
 }
