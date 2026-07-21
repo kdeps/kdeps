@@ -59,12 +59,77 @@ func indexDBPath(dir string) string {
 	return filepath.Join(dir, ".kdeps", "index.db")
 }
 
+// noIndexDirs are directory names that are never indexed.
+//
+//nolint:gochecknoglobals // static lookup table
+var noIndexDirs = map[string]bool{
+	// Version control
+	".git": true,
+	".hg":  true,
+	".svn": true,
+
+	// JavaScript / TypeScript
+	"node_modules":     true,
+	"bower_components": true,
+	".next":            true,
+	".nuxt":            true,
+	".output":          true,
+	".turbo":           true,
+	".parcel-cache":    true,
+	".svelte-kit":      true,
+	".angular":         true,
+	".yarn":            true,
+
+	// Python
+	"__pycache__":        true,
+	".venv":              true,
+	"venv":               true,
+	".env":               true,
+	"env":                true,
+	".tox":               true,
+	".mypy_cache":        true,
+	".pytest_cache":      true,
+	".ruff_cache":        true,
+	"site-packages":      true,
+	"dist-packages":      true,
+	".eggs":              true,
+	"eggs":               true,
+	"pip-wheel-metadata": true,
+
+	// Go
+	"vendor": true,
+
+	// Rust / Java / C++ / C#
+	"target": true,
+	"dist":   true,
+	"build":  true,
+	"obj":    true,
+	"bin":    true,
+
+	// Infrastructure / IaC
+	".terraform":  true,
+	".serverless": true,
+	"cdk.out":     true,
+
+	// Coverage / test artifacts
+	"coverage":      true,
+	"__snapshots__": true,
+
+	// Misc cache / temp
+	".cache": true,
+	"tmp":    true,
+	"temp":   true,
+}
+
 // skipWalkEntry returns true if the walk entry should be skipped.
 func skipWalkEntry(d os.DirEntry) bool {
 	if len(d.Name()) == 0 {
 		return true
 	}
-	return d.Name()[0] == '.'
+	if d.Name()[0] == '.' {
+		return true
+	}
+	return noIndexDirs[d.Name()]
 }
 
 // indexBatchSize is how many files are collected before flushing to bbolt.
