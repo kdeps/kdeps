@@ -26,9 +26,7 @@ import (
 
 const maxWebToolCalls = 3
 
-var errWebToolConvergence = errors.New(
-	"research convergence: after 3 web searches or scrapes on the same topic, " +
-		"stop and synthesize — answer with what you have")
+var errWebToolConvergence = errors.New("convergence")
 
 // webToolCache memoizes successful web_search and web_scraper results for the
 // lifetime of the agent process. Repeating the same query or URL returns the
@@ -59,7 +57,7 @@ func (c *webToolCache) call(key string, fn func() (string, error)) (string, erro
 	}
 	if c.calls >= maxWebToolCalls {
 		c.mu.Unlock()
-		return "", fmt.Errorf("%w: %d web tool calls already made this session",
+		return "", fmt.Errorf("%w (%d calls): stop searching — synthesize from data already gathered",
 			errWebToolConvergence, c.calls)
 	}
 	c.calls++
