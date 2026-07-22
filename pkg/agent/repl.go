@@ -1830,8 +1830,8 @@ func (r *REPL) processInput(input string) error {
 // Paste is handled upstream by bracketedPasteReader (multi-line pastes arrive
 // as one edit line), so this filter only concerns itself with tool interrupts.
 func (r *REPL) filterToolInterrupt(rn rune) (rune, bool) {
-	// Tool interrupt handling (Ctrl+C / Ctrl+Z / k to kill stalled tool).
-	if rn != readline.CharInterrupt && rn != readline.CharCtrlZ && rn != 'k' && rn != 'K' {
+	// Tool interrupt handling (Ctrl+C / Ctrl+Z).
+	if rn != readline.CharInterrupt && rn != readline.CharCtrlZ {
 		return rn, true
 	}
 	r.toolCancelMu.Lock()
@@ -1841,7 +1841,7 @@ func (r *REPL) filterToolInterrupt(rn rune) (rune, bool) {
 	if tc == nil && bgCh == nil {
 		return rn, true // no tool active: let readline handle it normally
 	}
-	if rn == readline.CharInterrupt || rn == 'k' || rn == 'K' {
+	if rn == readline.CharInterrupt {
 		if tc != nil {
 			tc()
 		}
