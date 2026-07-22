@@ -1589,6 +1589,9 @@ func (l *Loop) buildSystemPreamble(focus string) string {
 	}
 	if l.registry != nil && len(l.registry.List()) > 0 {
 		parts = append(parts, toolUseGuidance)
+		if toolPrompt := l.registry.ToolPrompt(); toolPrompt != "" {
+			parts = append(parts, toolPrompt)
+		}
 		parts = append(parts, l.commitTrailerPreamble())
 		parts = append(parts, l.dateAndWDPreamble())
 	}

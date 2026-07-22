@@ -22,7 +22,9 @@
 package tools
 
 import (
+	"fmt"
 	"io"
+	"strings"
 
 	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
 
@@ -130,6 +132,31 @@ func (r *Registry) ToLLMTools() []domain.Tool {
 		result = append(result, convertToDomainTool(t))
 	}
 	return result
+}
+
+// ToolPrompt returns a formatted prompt block describing every registered tool
+// so the LLM knows what tools are available and how to use them. Injected into
+// the system preamble so even models without native tool-calling support can
+// request tools via structured output.
+func (r *Registry) ToolPrompt() string {
+	tools := r.List()
+	if len(tools) == 0 {
+		return ""
+	}
+	var sb strings.Builder
+	sb.WriteString("<available_tools>\n")
+	for _, t := range tools {
+		fmt.Fprintf(&sb, "  %s: %s\n", t.Name, t.Description)
+		for pname, p := range t.Parameters {
+			req := ""
+			if p.Required {
+				req = " (required)"
+			}
+			fmt.Fprintf(&sb, "    - %s: %s%s\n", pname, p.Description, req)
+		}
+	}
+	sb.WriteString("</available_tools>")
+	return sb.String()
 }
 
 func convertToDomainTool(t *Tool) domain.Tool {
