@@ -38,15 +38,15 @@ func newEnvCmd() *cobra.Command {
 
 	envCmd := &cobra.Command{
 		Use:   "env [workflow.yaml | package.kdeps | agency.kagency]",
-		Short: "Print env exports for all referenced connections and run",
+		Short: "Print shell env exports for referenced connections without running",
 		Long: `Print a shell script with environment variable exports for every
-connection referenced by the workflow or agency, then execute it.
+connection referenced by the workflow or agency. Does NOT run the workflow.
 
-Use this to generate a .env file or to see which env vars are needed:
+Use this to set up environment variables before running:
 
-  kdeps env workflow.yaml
+  eval "$(kdeps env workflow.yaml)"
   kdeps env workflow.yaml > env.sh && source env.sh
-  kdeps env my-agency.kagency --dev`,
+  kdeps env my-agency.kagency`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return RunEnvWithFlags(cmd, args, flags)
@@ -77,7 +77,7 @@ Use this to generate a .env file or to see which env vars are needed:
 }
 
 // RunEnvWithFlags executes the env command with injected flags.
-func RunEnvWithFlags(cmd *cobra.Command, args []string, flags *RunFlags) error {
+func RunEnvWithFlags(_ *cobra.Command, args []string, _ *RunFlags) error {
 	kdeps_debug.Log("enter: RunEnvWithFlags")
 	inputPath := args[0]
 
@@ -96,15 +96,16 @@ func RunEnvWithFlags(cmd *cobra.Command, args []string, flags *RunFlags) error {
 		return parseErr
 	}
 
-	// Print env exports for all referenced connections
+	// Print env exports for all referenced connections to stdout so the
+	// output is a valid shell script suitable for eval.
 	printEnvExports(workflow)
-
-	// Execute normally
-	return ExecuteWorkflowStepsWithFlags(cmd, workflowPath, flags)
+	return nil
 }
 
 // printEnvExports prints a shell script fragment that exports environment
 // variables for every connection referenced by the workflow or agency.
+// Export lines go to stdout so the output is a valid shell script suitable
+// for eval; header comments go to stderr so they do not interfere.
 func printEnvExports(wf *domain.Workflow) {
 	if wf == nil {
 		return
@@ -147,9 +148,9 @@ func printConnectionEnvExports(cfg *config.Config, refs []connRef) {
 				val = f.Default
 			}
 			if f.Secret && val == "" {
-				fmt.Fprintf(os.Stderr, "export %s=\n", f.Name)
+				fmt.Fprintf(os.Stdout, "export %s=\n", f.Name)
 			} else {
-				fmt.Fprintf(os.Stderr, "export %s=%s\n", f.Name, val)
+				fmt.Fprintf(os.Stdout, "export %s=%s\n", f.Name, val)
 			}
 		}
 	}
@@ -162,7 +163,7 @@ func printLLMKeyEnvExports(cfg *config.Config, modelBackends []string) {
 			continue
 		}
 		fmt.Fprintf(os.Stderr, "\n# %s API key\n", b)
-		fmt.Fprintf(os.Stderr, "export %s=\n", envVar)
+		fmt.Fprintf(os.Stdout, "export %s=\n", envVar)
 	}
 }
 
@@ -171,5 +172,5 @@ func printAuthTokenEnvExport(needsToken bool) {
 		return
 	}
 	fmt.Fprint(os.Stderr, "\n# api server auth token\n")
-	fmt.Fprint(os.Stderr, "export KDEPS_API_AUTH_TOKEN=\n")
+	fmt.Fprint(os.Stdout, "export KDEPS_API_AUTH_TOKEN=\n")
 }
