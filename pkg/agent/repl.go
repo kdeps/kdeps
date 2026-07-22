@@ -381,6 +381,12 @@ func (r *REPL) tokenCounterStr() string {
 	if calls, max := BashConvergenceCalls(); max > 0 && calls > 0 {
 		parts = append(parts, fmt.Sprintf("sh:%d/%d", calls, max))
 	}
+	if calls, max := FileConvergenceCalls(); max > 0 && calls > 0 {
+		parts = append(parts, fmt.Sprintf("file:%d/%d", calls, max))
+	}
+	if calls, max := CodeConvergenceCalls(); max > 0 && calls > 0 {
+		parts = append(parts, fmt.Sprintf("src:%d/%d", calls, max))
+	}
 	if r.loop.memoryStore != nil {
 		if n := r.loop.memoryStore.Len(); n > 0 {
 			parts = append(parts, fmt.Sprintf("mem:%d", n))
@@ -3807,6 +3813,22 @@ func (r *REPL) cmdKartographer() error {
 		fmt.Fprintf(os.Stdout, "  %s   %s execute, cache result\n", pipe, arrow)
 	}
 	fmt.Fprintf(os.Stdout, "  %s maxBashToolCalls=%d\n\n", end, shmax)
+
+	// File reads
+	fcalls, fmax := FileConvergenceCalls()
+	fmt.Fprintln(os.Stdout, meta("file"))
+	fmt.Fprintf(os.Stdout, "  %s read_file / list_files %s trackFileCall()\n", tee, arrow)
+	fmt.Fprintf(os.Stdout, "  %s   %s path cached? %s return cached\n", pipe, arrow, arrow)
+	fmt.Fprintf(os.Stdout, "  %s   %s calls++ (now %d/%d)\n", pipe, arrow, fcalls, fmax)
+	fmt.Fprintf(os.Stdout, "  %s maxFileToolCalls=%d\n\n", end, fmax)
+
+	// Code search
+	ccalls, cmax := CodeConvergenceCalls()
+	fmt.Fprintln(os.Stdout, meta("code"))
+	fmt.Fprintf(os.Stdout, "  %s search_local / code_search %s trackCodeCall()\n", tee, arrow)
+	fmt.Fprintf(os.Stdout, "  %s   %s query cached? %s return cached\n", pipe, arrow, arrow)
+	fmt.Fprintf(os.Stdout, "  %s   %s calls++ (now %d/%d)\n", pipe, arrow, ccalls, cmax)
+	fmt.Fprintf(os.Stdout, "  %s maxCodeToolCalls=%d\n\n", end, cmax)
 
 	// Compaction
 	turns := r.loop.Session().TurnCount()

@@ -111,7 +111,10 @@ func registerSearchLocalTool(_ context.Context, reg *kdepstools.Registry) {
 			"limit":        {Type: toolParamNumber, Description: "Maximum number of results. Default: 3"},
 		},
 		Execute: func(args map[string]any) (string, error) {
-			return executeSearchLocal(exec, args)
+			query, _ := args[toolParamQuery].(string)
+			return trackCodeCall(query, func() (string, error) {
+				return executeSearchLocal(exec, args)
+			})
 		},
 	})
 }

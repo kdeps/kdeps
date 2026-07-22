@@ -190,7 +190,9 @@ func registerReadFile(reg *kdepstools.Registry) {
 			if err != nil {
 				return "", err
 			}
-			return readLocalFile(filePath, args)
+			return trackFileCall(filePath, func() (string, error) {
+				return readLocalFile(filePath, args)
+			})
 		},
 	})
 }
@@ -499,6 +501,7 @@ func registerListFiles(reg *kdepstools.Registry) {
 			if err != nil {
 				return "", fmt.Errorf("list_files: read %s: %w", dirPath, err)
 			}
+			return trackFileCall(dirPath, func() (string, error) {
 			var sb strings.Builder
 			fmt.Fprintf(&sb, "%s:\n", dirPath)
 			for _, e := range entries {
@@ -510,6 +513,7 @@ func registerListFiles(reg *kdepstools.Registry) {
 				fmt.Fprintf(&sb, "  [%s] %s\n", kind, e.Name())
 			}
 			return strings.TrimSpace(sb.String()), nil
+			})
 		},
 	})
 }
