@@ -375,16 +375,16 @@ func (r *REPL) tokenCounterStr() string {
 	in := r.tokenCounter.InputTokens()
 	out := r.tokenCounter.OutputTokens()
 	parts := []string{"in:" + formatCompactCount(in), "out:" + formatCompactCount(out)}
-	if calls, max := WebConvergenceCalls(); max > 0 && calls > 0 {
+	if calls, max := WebConvergenceCalls(); max > 0 {
 		parts = append(parts, fmt.Sprintf("web:%d/%d", calls, max))
 	}
-	if calls, max := BashConvergenceCalls(); max > 0 && calls > 0 {
+	if calls, max := BashConvergenceCalls(); max > 0 {
 		parts = append(parts, fmt.Sprintf("sh:%d/%d", calls, max))
 	}
-	if calls, max := FileConvergenceCalls(); max > 0 && calls > 0 {
+	if calls, max := FileConvergenceCalls(); max > 0 {
 		parts = append(parts, fmt.Sprintf("file:%d/%d", calls, max))
 	}
-	if calls, max := CodeConvergenceCalls(); max > 0 && calls > 0 {
+	if calls, max := CodeConvergenceCalls(); max > 0 {
 		parts = append(parts, fmt.Sprintf("src:%d/%d", calls, max))
 	}
 	if r.loop.memoryStore != nil {
