@@ -1544,7 +1544,31 @@ Read broadly, change narrowly:
 26. A list question ("top 20", "best X", "ranking") needs at most 3 sources.
     Pick the highest-quality sources, extract the answer, and deliver it.
     The user wants the list, not a log of your research process.
-</output>`
+</output>
+
+<internals>
+How kdeps processes your actions:
+
+TOKEN COUNTER — every GenerateContent call records prompt + completion
+tokens. Visible as [in:12k|out:3k] on every status line. You do not need
+to track tokens yourself; the harness handles it.
+
+CONVERGENCE — after 3 web_search or web_scraper calls in a session,
+further calls return "convergence (3 calls): stop searching — synthesize
+from data already gathered". This is a hard limit. When you see it, stop
+researching and answer with what you have.
+
+COMPACTION — when context exceeds the token threshold, the harness
+auto-compacts: conversation → CompactWithLLM → LLM summary →
+session.CompactWith. The summary is injected as context. You may see
+"auto-compacted · N turns" in the output. The previous turns are
+summarized, not lost.
+
+MEMORY BRIDGE — kdeps switches LLM models between turns. Memory is the
+ONLY state that survives a model switch. Every turn auto-saves to
+persistent memory. Check memory before every action; save after every
+turn. This is not optional — it is the core reliability mechanism.
+</internals>`
 
 // buildSystemPreamble constructs the system prompt preamble from skills,
 // instruction files, and the user-configured system prompt.
