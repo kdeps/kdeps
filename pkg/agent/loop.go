@@ -1792,11 +1792,29 @@ func formatLoopResult(result any) string {
 	if s, ok := result.(string); ok {
 		return stripContentToolCalls(s)
 	}
-	if m, ok := result.(map[string]any); ok {
-		msg, msgOK := m["message"].(map[string]any)
-		if msgOK {
-			if content, contentOK := msg[toolParamContent].(string); contentOK {
-				return stripContentToolCalls(content)
+	m, isMap := result.(map[string]any)
+	if !isMap {
+		return ""
+	}
+	// Standard path: {"message": {"content": "...", "role": "assistant"}}
+	if msg, msgOK := m["message"].(map[string]any); msgOK {
+		if content, contentOK := msg[toolParamContent].(string); contentOK {
+			return stripContentToolCalls(content)
+		}
+	}
+	// Fallback: scan nested maps for content-like fields.
+	contentKeys := []string{toolParamContent, "text", "response", "output"}
+	for _, v := range m {
+		inner, innerOK := v.(map[string]any)
+		if !innerOK {
+			if s, strOK := v.(string); strOK && s != "" {
+				return stripContentToolCalls(s)
+			}
+			continue
+		}
+		for _, key := range contentKeys {
+			if s, strOK := inner[key].(string); strOK && s != "" {
+				return stripContentToolCalls(s)
 			}
 		}
 	}
@@ -1916,6 +1934,11 @@ func (l *Loop) CompactWithLLM(_ context.Context) (string, error) {
 
 	summary := formatLoopResult(result)
 	if summary == "" {
+		// LLM returned empty or unusable response — fall back to truncation.
+		fallback := l.session.Compact()
+		if fallback != "" {
+			return fallback, nil
+		}
 		return "", errors.New("compaction produced empty summary")
 	}
 
