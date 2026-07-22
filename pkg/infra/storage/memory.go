@@ -25,7 +25,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"strings"
 	"sync"
 	"time"
 
@@ -51,6 +50,14 @@ type MemoryStorage struct {
 	path string
 }
 
+// openStores caches opened MemoryStorage instances keyed by resolved path.
+// bbolt uses flock per-file, so sharing the *bolt.DB handle within a process
+// avoids "resource temporarily unavailable" errors when multiple callers
+// open the same path.
+//
+//nolint:gochecknoglobals // singleton cache for bbolt handle sharing
+var openStores sync.Map
+
 func resolveMemoryDBPath(dbPath string) string {
 	if dbPath != "" {
 		return dbPath
@@ -62,30 +69,7 @@ func resolveMemoryDBPath(dbPath string) string {
 	if homeErr != nil {
 		homeDir = "."
 	}
-	defaultPath := filepath.Join(homeDir, ".kdeps", "memory.db")
-
-	// Under go test, use a unique temp file so parallel test suites don't
-	// contend on the same bbolt file lock. bbolt serializes concurrent
-	// goroutines within a single process, but its flock blocks other
-	// processes — each parallel test suite is a separate process.
-	if isTestBinary(os.Args[0]) {
-		f, err := os.CreateTemp("", "kdeps-memory-*.db")
-		if err != nil {
-			return defaultPath
-		}
-		path := f.Name()
-		_ = f.Close()
-		return path
-	}
-	return defaultPath
-}
-
-// isTestBinary reports whether the current binary is a test binary.
-// go test compiles test binaries with a ".test" suffix; Delve debug
-// binaries contain "__debug_bin" in their path.
-func isTestBinary(name string) bool {
-	return strings.HasSuffix(name, ".test") ||
-		strings.Contains(name, "__debug_bin")
+	return filepath.Join(homeDir, ".kdeps", "memory.db")
 }
 
 func ensureMemoryDBDirectory(dbPath string) error {
@@ -127,7 +111,9 @@ func decodeMemoryValue(valueStr string) interface{} {
 	return value
 }
 
-// NewMemoryStorage creates a new memory storage.
+// NewMemoryStorage creates or returns a shared memory storage for the given path.
+// Multiple calls with the same resolved path return the same *MemoryStorage,
+// sharing the underlying bbolt handle to avoid flock contention.
 func NewMemoryStorage(dbPath string) (*MemoryStorage, error) {
 	kdeps_debug.Log("enter: NewMemoryStorage")
 	dbPath = resolveMemoryDBPath(dbPath)
@@ -137,6 +123,11 @@ func NewMemoryStorage(dbPath string) (*MemoryStorage, error) {
 		return nil, pathErr
 	}
 	dbPath = effectivePath
+
+	// Check for an existing open store for this path.
+	if existing, ok := openStores.Load(dbPath); ok {
+		return existing.(*MemoryStorage), nil
+	}
 
 	if err := ensureMemoryDBDirectory(dbPath); err != nil {
 		return nil, fmt.Errorf("failed to create directory: %w", err)
@@ -156,7 +147,9 @@ func NewMemoryStorage(dbPath string) (*MemoryStorage, error) {
 		return nil, fmt.Errorf("failed to initialize schema: %w", bucketErr)
 	}
 
-	return &MemoryStorage{DB: db, path: dbPath}, nil
+	store := &MemoryStorage{DB: db, path: dbPath}
+	openStores.Store(dbPath, store)
+	return store, nil
 }
 
 // Get retrieves a value from memory.
