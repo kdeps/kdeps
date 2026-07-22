@@ -237,8 +237,9 @@ func NewREPL(rootCtx context.Context, loop *Loop) *REPL {
 		loopCancel: loopCancel,
 		ctx:        turnCtx,
 		cancel:     turnCancel,
-		history:    make([]string, 0, replHistoryInitCap),
-		turnAlert:  resolveTurnAlert(),
+		history:      make([]string, 0, replHistoryInitCap),
+		turnAlert:    resolveTurnAlert(),
+		tokenCounter: &TokenCounter{},
 	}
 	loop.SetOnAutoCompact(func(summary string) {
 		fmt.Fprintf(os.Stdout, "\n%s\n%s\n\n",
