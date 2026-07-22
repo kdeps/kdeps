@@ -206,8 +206,8 @@ type REPL struct {
 	// (see bracketedPasteReader) and lands as a single sentinel rune on the edit
 	// line, so it can be navigated and edited like any other character before it
 	// submits as one prompt.
-	pasteContents []string // full body of each pending paste
-	tokenCounter       *TokenCounter // cumulative token usage across the session; a sentinel in the edit line marks where each belongs
+	pasteContents []string      // full body of each pending paste
+	tokenCounter  *TokenCounter // cumulative token usage across the session; a sentinel in the edit line marks where each belongs
 
 	// termSnap is the terminal's cooked mode captured before readline switches
 	// it to raw, restored on a termination signal so the tty never leaks in raw
@@ -232,11 +232,11 @@ func NewREPL(rootCtx context.Context, loop *Loop) *REPL {
 		}
 	})
 	r := &REPL{
-		loop:       loop,
-		loopCtx:    loopCtx,
-		loopCancel: loopCancel,
-		ctx:        turnCtx,
-		cancel:     turnCancel,
+		loop:         loop,
+		loopCtx:      loopCtx,
+		loopCancel:   loopCancel,
+		ctx:          turnCtx,
+		cancel:       turnCancel,
 		history:      make([]string, 0, replHistoryInitCap),
 		turnAlert:    resolveTurnAlert(),
 		tokenCounter: &TokenCounter{},
@@ -338,12 +338,16 @@ type TokenCounter struct {
 
 // AddInput adds n input tokens to the cumulative count.
 func (tc *TokenCounter) AddInput(n int64) {
-	if n > 0 { tc.inputTokens.Add(n) }
+	if n > 0 {
+		tc.inputTokens.Add(n)
+	}
 }
 
 // AddOutput adds n output tokens to the cumulative count.
 func (tc *TokenCounter) AddOutput(n int64) {
-	if n > 0 { tc.outputTokens.Add(n) }
+	if n > 0 {
+		tc.outputTokens.Add(n)
+	}
 }
 
 // InputTokens returns the cumulative input token count.
@@ -361,7 +365,9 @@ func (tc *TokenCounter) Reset() {
 // syncTokenCounter reads the latest cache record from GlobalPromptCacheStats
 // and updates the REPL token counter. Called after every LLM call.
 func (r *REPL) syncTokenCounter() {
-	if r.tokenCounter == nil { return }
+	if r.tokenCounter == nil {
+		return
+	}
 	if last := GlobalPromptCacheStats.LastRecord(); last != nil {
 		r.tokenCounter.AddInput(last.InputTokens)
 		r.tokenCounter.AddOutput(last.OutputTokens)
@@ -371,7 +377,9 @@ func (r *REPL) syncTokenCounter() {
 // tokenCounterStr returns a compact left-side status bar showing cumulative
 // token usage: "in:12.4k|out:3.2k". Always returns a value.
 func (r *REPL) tokenCounterStr() string {
-	if r.tokenCounter == nil { return "" }
+	if r.tokenCounter == nil {
+		return ""
+	}
 	in := r.tokenCounter.InputTokens()
 	out := r.tokenCounter.OutputTokens()
 	parts := []string{"in:" + formatCompactCount(in), "out:" + formatCompactCount(out)}
@@ -412,36 +420,22 @@ func (r *REPL) modeline() string {
 	meta := styleReplMeta.Render
 	bold := styleReplPrompt.Render
 
-	// Left: model + context usage.
-	left := bold(r.loop.config.Model)
+	var parts []string
+	parts = append(parts, bold(r.loop.config.Model))
 	if ctxStr := r.contextUsageStr(); ctxStr != "" {
-		left += dim(" · ") + meta(ctxStr)
+		parts = append(parts, meta(ctxStr))
 	}
-
-	// Right: token I/O and memory count.
-	var right []string
 	tc := r.tokenCounter
 	if tc != nil {
-		in, out := tc.InputTokens(), tc.OutputTokens()
-		right = append(right, fmt.Sprintf("in:%s", formatCompactCount(in)))
-		right = append(right, fmt.Sprintf("out:%s", formatCompactCount(out)))
+		parts = append(parts, meta("in:"+formatCompactCount(tc.InputTokens())))
+		parts = append(parts, meta("out:"+formatCompactCount(tc.OutputTokens())))
 	}
 	if r.loop.memoryStore != nil {
 		if n := r.loop.memoryStore.Len(); n > 0 {
-			right = append(right, fmt.Sprintf("mem:%d", n))
+			parts = append(parts, meta(fmt.Sprintf("mem:%d", n)))
 		}
 	}
-	rightStr := meta(strings.Join(right, "  "))
-
-	// Fill between left and right.
-	w := terminalWidth()
-	lw := lipgloss.Width(left)
-	rw := lipgloss.Width(rightStr)
-	fill := w - lw - rw - 2
-	if fill < 1 {
-		fill = 1
-	}
-	return left + "  " + dim(strings.Repeat(" ", fill)) + rightStr
+	return strings.Join(parts, dim(" · "))
 }
 
 // modelTypeTag returns a colored tag naming the model's backend type
@@ -2587,25 +2581,33 @@ var toolSettingAppliers = map[string]func(cfg *Config, value string) (string, st
 	},
 	"web-limit": func(cfg *Config, v string) (string, string) {
 		n, err := strconv.Atoi(v)
-		if err != nil || n < 0 { return "", "web-limit must be a non-negative integer (0=unlimited)" }
+		if err != nil || n < 0 {
+			return "", "web-limit must be a non-negative integer (0=unlimited)"
+		}
 		cfg.WebLimit = n
 		return fmt.Sprintf("Web call limit set to %d per request", n), ""
 	},
 	"bash-limit": func(cfg *Config, v string) (string, string) {
 		n, err := strconv.Atoi(v)
-		if err != nil || n < 0 { return "", "bash-limit must be a non-negative integer (0=unlimited)" }
+		if err != nil || n < 0 {
+			return "", "bash-limit must be a non-negative integer (0=unlimited)"
+		}
 		cfg.BashLimit = n
 		return fmt.Sprintf("Bash call limit set to %d per request", n), ""
 	},
 	"file-limit": func(cfg *Config, v string) (string, string) {
 		n, err := strconv.Atoi(v)
-		if err != nil || n < 0 { return "", "file-limit must be a non-negative integer (0=unlimited)" }
+		if err != nil || n < 0 {
+			return "", "file-limit must be a non-negative integer (0=unlimited)"
+		}
 		cfg.FileLimit = n
 		return fmt.Sprintf("File read limit set to %d per request", n), ""
 	},
 	"code-limit": func(cfg *Config, v string) (string, string) {
 		n, err := strconv.Atoi(v)
-		if err != nil || n < 0 { return "", "code-limit must be a non-negative integer (0=unlimited)" }
+		if err != nil || n < 0 {
+			return "", "code-limit must be a non-negative integer (0=unlimited)"
+		}
 		cfg.CodeLimit = n
 		return fmt.Sprintf("Code search limit set to %d per request", n), ""
 	},
@@ -3822,6 +3824,7 @@ func parseTokenCount(s string) int {
 //
 //	/search index  — build the inverted index for the CWD
 //	/search <term> — search the indexed directory and feed results to the LLM
+//
 // cmdKartographer renders a live map of kdeps internal data-flow pipelines.
 func (r *REPL) cmdKartographer() error {
 	heading := styleReplHeading.Render
