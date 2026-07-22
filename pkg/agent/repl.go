@@ -415,7 +415,7 @@ func (r *REPL) modeline() string {
 	// Left: model, turns, context.
 	turns := r.loop.Session().TurnCount()
 	left := bold(r.loop.config.Model)
-	left += dim(fmt.Sprintf(" · %dt", turns))
+	left += dim(fmt.Sprintf(" · %d turns", turns))
 	if ctxStr := r.contextUsageStr(); ctxStr != "" {
 		left += dim(" · ") + meta(ctxStr)
 	}
