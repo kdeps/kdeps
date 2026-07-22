@@ -59,6 +59,10 @@ type AgentLoopTuning struct {
 	CompactTokenBudget   int    `yaml:"compact_token_budget"`
 	MaxTurns             int    `yaml:"max_turns"`
 	MaxHistoryTokens     int    `yaml:"max_history_tokens"`
+	WebLimit             int    `yaml:"web_limit"`
+	BashLimit            int    `yaml:"bash_limit"`
+	FileLimit            int    `yaml:"file_limit"`
+	CodeLimit            int    `yaml:"code_limit"`
 }
 
 // SaveAgentLoopTuning persists the agent-loop tool settings, preserving the rest

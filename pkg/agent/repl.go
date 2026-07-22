@@ -1758,8 +1758,9 @@ func (r *REPL) handleReadError(err error) (bool, error) {
 
 // processInput routes a non-empty input line to a command or LLM turn.
 func (r *REPL) processInput(input string) error {
-	// Reset convergence counters per user request.
+	// Reset convergence counters and apply configured limits per user request.
 	ResetConvergence()
+	SetConvergenceLimits(r.loop.config.WebLimit, r.loop.config.BashLimit, r.loop.config.FileLimit, r.loop.config.CodeLimit)
 
 	// Slash and bang commands are typed on one line; pasted multi-line input is
 	// always literal content for the LLM. Slash commands run without a model, so
@@ -2444,6 +2445,7 @@ func (r *REPL) cmdModel(args []string) error {
 var toolSettingNames = []string{
 	"rounds", "retries", "retry-delay", "stall-timeout",
 	"compact-threshold", "compact-budget", "max-turns", "history-tokens",
+	"web-limit", "bash-limit", "file-limit", "code-limit",
 }
 
 // cmdModelTool handles /model tool [list | set <setting> <value>].
@@ -2496,6 +2498,10 @@ func (r *REPL) printToolSettings() {
 		{"compact-budget", fmt.Sprintf("%d  (tokens kept after compaction)", cfg.CompactTokenBudget)},
 		{"max-turns", fmt.Sprintf("%d  (history turns retained, 0 = unlimited)", cfg.MaxTurns)},
 		{"history-tokens", fmt.Sprintf("%d  (history token cap, 0 = unlimited)", cfg.MaxHistoryTokens)},
+		{"web-limit", fmt.Sprintf("%d  (max web_search/web_scraper per request, 0=unlimited)", cfg.WebLimit)},
+		{"bash-limit", fmt.Sprintf("%d  (max bash_exec per request, 0=unlimited)", cfg.BashLimit)},
+		{"file-limit", fmt.Sprintf("%d  (max read_file/list_files per request, 0=unlimited)", cfg.FileLimit)},
+		{"code-limit", fmt.Sprintf("%d  (max search_local/code_search per request, 0=unlimited)", cfg.CodeLimit)},
 	}
 	fmt.Fprintln(os.Stdout, styleReplMeta.Render("Agent loop settings (/model tool set <setting> <value>):"))
 	for _, row := range rows {
@@ -2580,6 +2586,30 @@ var toolSettingAppliers = map[string]func(cfg *Config, value string) (string, st
 		}
 		cfg.MaxHistoryTokens = n
 		return fmt.Sprintf("History token cap set to %d", n), ""
+	},
+	"web-limit": func(cfg *Config, v string) (string, string) {
+		n, err := strconv.Atoi(v)
+		if err != nil || n < 0 { return "", "web-limit must be a non-negative integer (0=unlimited)" }
+		cfg.WebLimit = n
+		return fmt.Sprintf("Web call limit set to %d per request", n), ""
+	},
+	"bash-limit": func(cfg *Config, v string) (string, string) {
+		n, err := strconv.Atoi(v)
+		if err != nil || n < 0 { return "", "bash-limit must be a non-negative integer (0=unlimited)" }
+		cfg.BashLimit = n
+		return fmt.Sprintf("Bash call limit set to %d per request", n), ""
+	},
+	"file-limit": func(cfg *Config, v string) (string, string) {
+		n, err := strconv.Atoi(v)
+		if err != nil || n < 0 { return "", "file-limit must be a non-negative integer (0=unlimited)" }
+		cfg.FileLimit = n
+		return fmt.Sprintf("File read limit set to %d per request", n), ""
+	},
+	"code-limit": func(cfg *Config, v string) (string, string) {
+		n, err := strconv.Atoi(v)
+		if err != nil || n < 0 { return "", "code-limit must be a non-negative integer (0=unlimited)" }
+		cfg.CodeLimit = n
+		return fmt.Sprintf("Code search limit set to %d per request", n), ""
 	},
 }
 

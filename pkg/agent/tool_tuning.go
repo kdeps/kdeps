@@ -33,6 +33,10 @@ type ToolTuning struct {
 	CompactTokenBudget   int
 	MaxTurns             int
 	MaxHistoryTokens     int
+	WebLimit             int // max web_search/web_scraper calls per request (0=default 3)
+	BashLimit            int // max bash_exec calls per request (0=default 25)
+	FileLimit            int // max read_file/list_files calls per request (0=default 40)
+	CodeLimit            int // max search_local/code_search calls per request (0=default 15)
 }
 
 // toolTuningSnapshot captures the current tool settings for persistence.
@@ -51,6 +55,10 @@ func (r *REPL) toolTuningSnapshot() ToolTuning {
 		CompactTokenBudget:   c.CompactTokenBudget,
 		MaxTurns:             c.MaxTurns,
 		MaxHistoryTokens:     c.MaxHistoryTokens,
+		WebLimit:             c.WebLimit,
+		BashLimit:            c.BashLimit,
+		FileLimit:            c.FileLimit,
+		CodeLimit:            c.CodeLimit,
 	}
 }
 
@@ -77,6 +85,10 @@ func (r *REPL) applyToolTuning(t ToolTuning) {
 	c.CompactTokenBudget = t.CompactTokenBudget
 	c.MaxTurns = t.MaxTurns
 	c.MaxHistoryTokens = t.MaxHistoryTokens
+	c.WebLimit = t.WebLimit
+	c.BashLimit = t.BashLimit
+	c.FileLimit = t.FileLimit
+	c.CodeLimit = t.CodeLimit
 }
 
 // SetPersistedTuning stores tool settings loaded from disk; they are applied when

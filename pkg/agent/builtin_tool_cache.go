@@ -101,6 +101,27 @@ func (c *convergenceCache) reset() {
 	c.mu.Unlock()
 }
 
+func SetConvergenceLimits(web, bash, file, code int) {
+	if web > 0 {
+		globalWebCache.setMax(web)
+	}
+	if bash > 0 {
+		globalBashCache.setMax(bash)
+	}
+	if file > 0 {
+		globalFileCache.setMax(file)
+	}
+	if code > 0 {
+		globalCodeCache.setMax(code)
+	}
+}
+
+func (c *convergenceCache) setMax(m int) {
+	c.mu.Lock()
+	c.max = m
+	c.mu.Unlock()
+}
+
 func ResetConvergence() {
 	globalWebCache.reset()
 	globalBashCache.reset()

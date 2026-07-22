@@ -174,6 +174,14 @@ type Config struct {
 	// output (silence-based, not wall-clock). 0 applies the default (10m);
 	// negative disables stall detection.
 	ToolStallTimeout time.Duration
+	// WebLimit caps web_search/web_scraper calls per user request (0=default 3).
+	WebLimit int
+	// BashLimit caps bash_exec calls per user request (0=default 25).
+	BashLimit int
+	// FileLimit caps read_file/list_files calls per user request (0=default 40).
+	FileLimit int
+	// CodeLimit caps search_local/code_search calls per user request (0=default 15).
+	CodeLimit int
 }
 
 // Loop drives a multi-turn agent conversation using the kdeps engine as the
