@@ -101,11 +101,11 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case "shift+tab":
 		m.tab = (m.tab + numTabs - 1) % numTabs
 		m.cursor = 0
-	case "up", "k":
+	case "up":
 		if m.cursor > 0 {
 			m.cursor--
 		}
-	case "down", "j":
+	case "down":
 		if m.cursor < len(m.tabs[m.tab])-1 {
 			m.cursor++
 		}

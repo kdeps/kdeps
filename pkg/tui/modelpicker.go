@@ -193,13 +193,13 @@ func (m modelPickerModel) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			m.quitted = true
 			return m, tea.Quit
 		}
-	case "up", "k":
+	case "up":
 		if m.cursor > 0 {
 			m.cursor--
 		} else if total > 0 {
 			m.cursor = total - 1
 		}
-	case "down", "j":
+	case "down":
 		if m.cursor < total-1 {
 			m.cursor++
 		} else {
@@ -237,7 +237,7 @@ func (m modelPickerModel) View() string {
 func (m modelPickerModel) viewHeader(inner int) string {
 	sep := styleDim.Render(strings.Repeat("─", inner))
 	title := styleAccent.Bold(true).Render("Model Picker")
-	hint := styleDim.Render("type to filter  ↑↓/jk  enter select  esc cancel")
+	hint := styleDim.Render("type to filter  ↑↓  enter select  esc cancel")
 	filterPrompt := styleAccent.Render("> ")
 	filterText := m.filter
 	if filterText == "" {
