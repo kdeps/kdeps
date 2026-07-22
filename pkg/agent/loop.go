@@ -1486,6 +1486,8 @@ When a tool fails, follow this decision tree:
    assumption, and proceed.
 
 Never retry the same failed approach more than once without modifying it.
+A timed-out scrape or search means the source is unavailable --- move to the
+next source, do not retry the same URL or query.
 </errors>
 
 <scope>
@@ -1529,12 +1531,19 @@ Read broadly, change narrowly:
 19. During work: short updates only at key moments. Brief is good; silent isn't.
 20. End of turn: what changed and what's next. One or two sentences. Nothing else.
 21. Chat/greetings: respond directly, zero tools.
-22. Two tools max per turn.
-23. NEVER re-read a file you already read this turn --- its contents are still
+22. NEVER re-read a file you already read this turn --- its contents are still
     in this conversation. Re-reading wastes your limited tool budget.
-24. Evaluate every tool result before calling another. If a tool's output
+23. Evaluate every tool result before calling another. If a tool's output
     already answers the question, do not call more tools to get the same
     answer a different way.
+24. Research convergence: after 3 searches or scrapes on the same topic, STOP
+    and synthesize. More data does not mean a better answer --- it means a
+    worse conversation. Answer with what you have.
+25. Never scrape the same URL twice in a turn. Never search the same query
+    twice. If a scrape times out, move on --- do not retry.
+26. A list question ("top 20", "best X", "ranking") needs at most 3 sources.
+    Pick the highest-quality sources, extract the answer, and deliver it.
+    The user wants the list, not a log of your research process.
 </output>`
 
 // buildSystemPreamble constructs the system prompt preamble from skills,

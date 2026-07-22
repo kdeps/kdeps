@@ -126,7 +126,9 @@ func NewMemoryStorage(dbPath string) (*MemoryStorage, error) {
 
 	// Check for an existing open store for this path.
 	if existing, ok := openStores.Load(dbPath); ok {
-		return existing.(*MemoryStorage), nil
+		if store, typeOK := existing.(*MemoryStorage); typeOK {
+			return store, nil
+		}
 	}
 
 	if err := ensureMemoryDBDirectory(dbPath); err != nil {
