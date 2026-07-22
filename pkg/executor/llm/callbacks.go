@@ -67,6 +67,11 @@ func (o *observedLLM) GenerateContent(
 		return nil, err
 	}
 
+	// Record token usage for the REPL token counter.
+	if resp != nil && len(resp.Choices) > 0 {
+		recordTokenUsage(resp)
+	}
+
 	if debug.Enabled() && resp != nil && len(resp.Choices) > 0 {
 		choice := resp.Choices[0]
 		tokens := choice.GenerationInfo["CompletionTokens"]

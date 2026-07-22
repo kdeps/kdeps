@@ -1226,9 +1226,6 @@ func (e *Executor) StreamChat(
 		return "", nil, fmt.Errorf("stream: generate: %w", mapLLMError(backend, err))
 	}
 
-	// Record token usage for the REPL token counter.
-	recordTokenUsage(resp)
-
 	// Flush buffered thinking content as rendered markdown.
 	FlushThinkingBuf(cfg, w)
 
