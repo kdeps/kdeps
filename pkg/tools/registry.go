@@ -44,6 +44,19 @@ type Tool struct {
 	// OutputWriter, when set, receives real-time stdout/stderr from the tool.
 	// Set by the agent loop before calling Execute; cleared after.
 	OutputWriter io.Writer
+
+	// Category groups related tools (e.g. "file", "search", "web", "shell", "code").
+	// Shown as a section header in the dynamic tool prompt.
+	Category string
+	// Constraints describe limits, gotchas, and anti-patterns for this tool.
+	// E.g. "max 2000 lines", "never re-read files already in context",
+	// "must use absolute paths". Shown inline in the tool prompt.
+	Constraints string
+	// OutputFormat describes what the tool returns to the LLM.
+	// E.g. "plain text", "JSON object", "color diff", "HTML page as markdown".
+	OutputFormat string
+	// SeeAlso lists related tool names. Shown as "See also: a, b".
+	SeeAlso string
 }
 
 // Registry holds all registered tools.
@@ -138,25 +151,81 @@ func (r *Registry) ToLLMTools() []domain.Tool {
 // so the LLM knows what tools are available and how to use them. Injected into
 // the system preamble so even models without native tool-calling support can
 // request tools via structured output.
+//
+// Tools are grouped by Category (file, search, web, shell, code, other) and
+// each entry includes name, description, parameters, constraints, output format,
+// and related tools when populated.
 func (r *Registry) ToolPrompt() string {
 	tools := r.List()
 	if len(tools) == 0 {
 		return ""
 	}
+
+	// Group by category for readable sections.
+	categories := []string{"file", "search", "web", "shell", "code"}
+	byCategory := make(map[string][]*Tool)
+	var uncategorized []*Tool
+	for _, t := range tools {
+		switch t.Category {
+		case "file", "search", "web", "shell", "code":
+			byCategory[t.Category] = append(byCategory[t.Category], t)
+		default:
+			uncategorized = append(uncategorized, t)
+		}
+	}
+
+	categoryLabels := map[string]string{
+		"file":   "File Operations",
+		"search": "Code Search & Navigation",
+		"web":    "Web & External Data",
+		"shell":  "Shell & System",
+		"code":   "Code Modification",
+	}
+
 	var sb strings.Builder
 	sb.WriteString("<available_tools>\n")
-	for _, t := range tools {
-		fmt.Fprintf(&sb, "  %s: %s\n", t.Name, t.Description)
+
+	for _, cat := range categories {
+		group := byCategory[cat]
+		if len(group) == 0 {
+			continue
+		}
+		fmt.Fprintf(&sb, "\n## %s\n", categoryLabels[cat])
+		for _, t := range group {
+			writeToolEntry(&sb, t)
+		}
+	}
+	if len(uncategorized) > 0 {
+		sb.WriteString("\n## Other\n")
+		for _, t := range uncategorized {
+			writeToolEntry(&sb, t)
+		}
+	}
+	sb.WriteString("</available_tools>")
+	return sb.String()
+}
+
+func writeToolEntry(sb *strings.Builder, t *Tool) {
+	fmt.Fprintf(sb, "- **%s**: %s\n", t.Name, t.Description)
+	if t.Constraints != "" {
+		fmt.Fprintf(sb, "  Constraints: %s\n", t.Constraints)
+	}
+	if t.OutputFormat != "" {
+		fmt.Fprintf(sb, "  Returns: %s\n", t.OutputFormat)
+	}
+	if len(t.Parameters) > 0 {
+		sb.WriteString("  Parameters:\n")
 		for pname, p := range t.Parameters {
 			req := ""
 			if p.Required {
 				req = " (required)"
 			}
-			fmt.Fprintf(&sb, "    - %s: %s%s\n", pname, p.Description, req)
+			fmt.Fprintf(sb, "    - `%s`: %s%s\n", pname, p.Description, req)
 		}
 	}
-	sb.WriteString("</available_tools>")
-	return sb.String()
+	if t.SeeAlso != "" {
+		fmt.Fprintf(sb, "  See also: %s\n", t.SeeAlso)
+	}
 }
 
 func convertToDomainTool(t *Tool) domain.Tool {

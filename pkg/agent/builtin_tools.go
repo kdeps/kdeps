@@ -162,8 +162,12 @@ func requireAbsFilePath(toolName string, args map[string]any) (string, error) {
 // No API key required.
 func registerReadFile(reg *kdepstools.Registry) {
 	reg.Register(&kdepstools.Tool{
-		Name:        toolNameReadFile,
-		Description: "Read a file from the local filesystem. Returns the file contents as text. Use for reading source code, configuration files, documentation, Makefiles, or any text-based file the agent needs to understand.",
+		Name:         toolNameReadFile,
+		Description:  "Read a file from the local filesystem. Returns the file contents as text. Use for reading source code, configuration files, documentation, Makefiles, or any text-based file the agent needs to understand.",
+		Category:     "file",
+		OutputFormat: "plain text with line numbers",
+		Constraints:  "max ~2000 lines per read; use offset/limit for large files; must use absolute path; never re-read a file already in this conversation",
+		SeeAlso:      "list_files, search_local, edit_file",
 		Parameters: map[string]domain.ToolParam{
 			toolParamFilePath: {
 				Type:        toolParamString,
@@ -251,8 +255,12 @@ func readLocalFile(filePath string, args map[string]any) (string, error) {
 // No API key required.
 func registerWriteFile(reg *kdepstools.Registry) {
 	tool := &kdepstools.Tool{
-		Name:        toolNameWriteFile,
-		Description: "Write or overwrite a text file on the local filesystem. Creates a new file if it does not exist; overwrites existing files entirely. Use for creating or updating configuration files, source code, scripts, or any text-based file. Requires an absolute path.",
+		Name:         toolNameWriteFile,
+		Description:  "Write or overwrite a text file on the local filesystem. Creates a new file if it does not exist; overwrites existing files entirely. Use for creating or updating configuration files, source code, scripts, or any text-based file. Requires an absolute path.",
+		Category:     "file",
+		OutputFormat: "confirmation message with bytes written",
+		Constraints:  "overwrites entire file — use edit_file for targeted changes; must use absolute path",
+		SeeAlso:      "edit_file, read_file",
 		Parameters: map[string]domain.ToolParam{
 			toolParamFilePath: {
 				Type:        toolParamString,
@@ -306,8 +314,12 @@ func registerWriteFile(reg *kdepstools.Registry) {
 // No API key required.
 func registerEditFile(reg *kdepstools.Registry) {
 	tool := &kdepstools.Tool{
-		Name:        toolNameEditFile,
-		Description: "Replace a string in a file with a new string. Reads the file, finds the exact old_string (must match exactly, including whitespace), and replaces it with new_string. Use for targeted edits without providing the entire file content. Requires an absolute path. The old_string must be unique in the file.",
+		Name:         toolNameEditFile,
+		Description:  "Replace a string in a file with a new string. Reads the file, finds the exact old_string (must match exactly, including whitespace), and replaces it with new_string. Use for targeted edits without providing the entire file content. Requires an absolute path. The old_string must be unique in the file.",
+		Category:     "code",
+		OutputFormat: "color diff of the change",
+		Constraints:  "old_string must match exactly (whitespace, indentation); must be unique in the file; must read file before editing; use replace_all=true for multiple occurrences",
+		SeeAlso:      "write_file, read_file",
 		Parameters: map[string]domain.ToolParam{
 			toolParamFilePath: {
 				Type:        toolParamString,
@@ -515,10 +527,15 @@ func registerCachedQueryTool(
 	cache *webToolCache,
 	tool queryCaller,
 	name, description, paramDesc string,
+	category, outputFormat, constraints, seeAlso string,
 ) {
 	reg.Register(&kdepstools.Tool{
-		Name:        name,
-		Description: description,
+		Name:         name,
+		Description:  description,
+		Category:     category,
+		OutputFormat: outputFormat,
+		Constraints:  constraints,
+		SeeAlso:      seeAlso,
 		Parameters: map[string]domain.ToolParam{
 			toolParamQuery: {
 				Type:        toolParamString,
@@ -553,6 +570,10 @@ func registerDuckDuckGo(ctx context.Context, reg *kdepstools.Registry, cache *we
 		"web_search",
 		"Search the web using DuckDuckGo. Free, no API key required. Use for current events, facts, research, or anything needing an internet lookup. Input is a plain search query string.",
 		"The search query to look up",
+		"web",
+		"JSON with title, url, and snippet per result",
+		"limit searches to 3 per topic; never repeat the same query; US-only results",
+		"web_scraper, wikipedia",
 	)
 }
 
@@ -566,6 +587,10 @@ func registerWikipedia(ctx context.Context, reg *kdepstools.Registry, cache *web
 		"wikipedia",
 		"Look up information on Wikipedia. Use for general knowledge questions about people, places, companies, historical events, concepts, or any topic needing an encyclopedic answer. Input is a search query.",
 		"The topic or question to look up on Wikipedia",
+		"web",
+		"plain text encyclopedia article",
+		"good for general knowledge; not for real-time/current information",
+		"web_search, web_scraper",
 	)
 }
 
@@ -577,8 +602,12 @@ func registerWebScraper(ctx context.Context, reg *kdepstools.Registry, cache *we
 		return
 	}
 	reg.Register(&kdepstools.Tool{
-		Name:        toolNameWebScraper,
-		Description: "Fetch and extract readable text content from any web URL. Returns page title, headers, body content, and links. Use when you need to read a specific web page, article, or documentation URL.",
+		Name:         toolNameWebScraper,
+		Description:  "Fetch and extract readable text content from any web URL. Returns page title, headers, body content, and links. Use when you need to read a specific web page, article, or documentation URL.",
+		Category:     "web",
+		OutputFormat: "HTML page converted to markdown text",
+		Constraints:  "60s timeout; never scrape the same URL twice in a turn; fails on authenticated/private URLs; may be blocked by some sites",
+		SeeAlso:      "web_search, wikipedia, http_request",
 		Parameters: map[string]domain.ToolParam{
 			"url": {
 				Type:        toolParamString,
@@ -769,6 +798,10 @@ func registerSerpAPI(ctx context.Context, reg *kdepstools.Registry, cache *webTo
 		"serpapi_search",
 		"Search Google via SerpAPI. Use for current events, news, and queries requiring fresh web results. Requires SERPAPI_API_KEY. Input is a plain search query string.",
 		"The search query to look up on Google",
+		"web",
+		"JSON search results with title, url, snippet",
+		"requires SERPAPI_API_KEY; use only when web_search results are stale",
+		"web_search, web_scraper",
 	)
 }
 
@@ -1012,6 +1045,10 @@ func registerPerplexity(ctx context.Context, reg *kdepstools.Registry, cache *we
 		"perplexity_search",
 		"Search the web using Perplexity AI. Provides cited, up-to-date answers from the internet. Requires PERPLEXITY_API_KEY. Input is a plain search query or question.",
 		"The search query or question to answer using Perplexity AI",
+		"web",
+		"AI-generated answer with citations",
+		"requires PERPLEXITY_API_KEY; slower and more expensive than web_search; use sparingly",
+		"web_search, web_scraper",
 	)
 }
 
@@ -1087,8 +1124,12 @@ func registerBashExec(ctx context.Context, reg *kdepstools.Registry) {
 		return
 	}
 	tool := &kdepstools.Tool{
-		Name:        toolNameBashExec,
-		Description: "Execute a bash shell command and return its output. Use for running scripts, checking system state (git status, ls, etc.), or performing file operations. Press Ctrl+C to interrupt (partial output returned to LLM); press Ctrl+Z to background (use bash_job_wait to retrieve output).",
+		Name:         toolNameBashExec,
+		Description:  "Execute a bash shell command and return its output. Use for running scripts, checking system state (git status, ls, etc.), or performing file operations. Press Ctrl+C to interrupt (partial output returned to LLM); press Ctrl+Z to background (use bash_job_wait to retrieve output).",
+		Category:     "shell",
+		OutputFormat: "plain text (stdout + optional stderr), truncated to 2000 lines",
+		Constraints:  "prefer dedicated tools over bash for file reads, searches, and edits; long-running commands show a progress spinner; cwd persists between calls",
+		SeeAlso:      "read_file, search_local, edit_file, write_file",
 		Parameters: map[string]domain.ToolParam{
 			toolParamCommand: {
 				Type:        toolParamString,
