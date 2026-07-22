@@ -206,7 +206,8 @@ type REPL struct {
 	// (see bracketedPasteReader) and lands as a single sentinel rune on the edit
 	// line, so it can be navigated and edited like any other character before it
 	// submits as one prompt.
-	pasteContents []string // full body of each pending paste; a sentinel in the edit line marks where each belongs
+	pasteContents []string // full body of each pending paste
+	tokenCounter       *TokenCounter // cumulative token usage across the session; a sentinel in the edit line marks where each belongs
 
 	// termSnap is the terminal's cooked mode captured before readline switches
 	// it to raw, restored on a termination signal so the tty never leaks in raw
@@ -327,8 +328,59 @@ func (r *REPL) SetModelPickerFn(fn func(filter string) (string, error)) {
 	r.modelPickerFn = fn
 }
 
+// TokenCounter tracks cumulative token usage across the session.
+// Updated after every LLM call via syncTokenCounter.
+type TokenCounter struct {
+	inputTokens  atomic.Int64
+	outputTokens atomic.Int64
+}
+
+// AddInput adds n input tokens to the cumulative count.
+func (tc *TokenCounter) AddInput(n int64) {
+	if n > 0 { tc.inputTokens.Add(n) }
+}
+
+// AddOutput adds n output tokens to the cumulative count.
+func (tc *TokenCounter) AddOutput(n int64) {
+	if n > 0 { tc.outputTokens.Add(n) }
+}
+
+// InputTokens returns the cumulative input token count.
+func (tc *TokenCounter) InputTokens() int64 { return tc.inputTokens.Load() }
+
+// OutputTokens returns the cumulative output token count.
+func (tc *TokenCounter) OutputTokens() int64 { return tc.outputTokens.Load() }
+
+// Reset clears both counters.
+func (tc *TokenCounter) Reset() {
+	tc.inputTokens.Store(0)
+	tc.outputTokens.Store(0)
+}
+
+// syncTokenCounter reads the latest cache record from GlobalPromptCacheStats
+// and updates the REPL token counter. Called after every LLM call.
+func (r *REPL) syncTokenCounter() {
+	if r.tokenCounter == nil { return }
+	if last := GlobalPromptCacheStats.LastRecord(); last != nil {
+		r.tokenCounter.AddInput(last.InputTokens)
+		r.tokenCounter.AddOutput(last.OutputTokens)
+	}
+}
+
+// tokenCounterStr returns a compact left-side status bar showing cumulative
+// token usage: "in:12.4k|out:3.2k". Always returns a value.
+func (r *REPL) tokenCounterStr() string {
+	if r.tokenCounter == nil { return "" }
+	in := r.tokenCounter.InputTokens()
+	out := r.tokenCounter.OutputTokens()
+	return styleReplDim.Render("[") +
+		styleReplMeta.Render("in:"+formatCompactCount(in)+"|out:"+formatCompactCount(out)) +
+		styleReplDim.Render("] ")
+}
+
 // dynamicPrompt returns a prompt string showing model, turn count, and context usage.
 func (r *REPL) dynamicPrompt() string {
+	tcStr := r.tokenCounterStr()
 	turns := r.loop.Session().TurnCount()
 	model := styleReplPrompt.Render(r.loop.config.Model)
 	dim := styleReplDim.Render
@@ -346,9 +398,9 @@ func (r *REPL) dynamicPrompt() string {
 		suffix += dim("|") + styleReplMeta.Render(ctxStr)
 	}
 	if turns == 0 {
-		return dim("[") + model + suffix + dim("] > ")
+		return tcStr + dim("[") + model + suffix + dim("] > ")
 	}
-	return dim("[") + model + dim(fmt.Sprintf("|%d", turns)) + suffix + dim("] > ")
+	return tcStr + dim("[") + model + dim(fmt.Sprintf("|%d", turns)) + suffix + dim("] > ")
 }
 
 // modelTypeTag returns a colored tag naming the model's backend type
@@ -1280,6 +1332,7 @@ func (r *REPL) runStreaming(ctx context.Context, input string) (string, error) {
 	if sr.err != nil {
 		return sr.resp, sr.err
 	}
+	r.syncTokenCounter()
 	// When StreamThinking=true, thinking was already written to stdout above;
 	// sr.resp contains only the final text response (no <thinking> prepend).
 	// Otherwise, sr.resp may contain <thinking> blocks from ReturnOutput=true.
@@ -1320,6 +1373,7 @@ func (r *REPL) runWithThinking(ctx context.Context, input string) (string, error
 
 	select {
 	case res := <-ch:
+		r.syncTokenCounter()
 		return res.resp, res.err
 	case <-timer.C:
 		// Animated spinner while waiting for LLM response.
@@ -1347,6 +1401,7 @@ func (r *REPL) runWithThinking(ctx context.Context, input string) (string, error
 		res := <-ch
 		close(done)
 		fmt.Fprint(os.Stdout, ansiClearLine)
+		r.syncTokenCounter()
 		return res.resp, res.err
 	}
 }
@@ -1699,6 +1754,7 @@ func (r *REPL) processInput(input string) error {
 	if err != nil {
 		return err
 	}
+	r.syncTokenCounter()
 	// In streaming mode, output was already rendered and written to stdout.
 	// In non-streaming mode, render and print the full response now.
 	if resp != "" && (r.runFn != nil || !r.loop.IsStreaming()) {
@@ -1938,6 +1994,7 @@ func (r *REPL) execBangCommand(cmd string, excludeFromContext bool) error {
 	if err != nil {
 		return err
 	}
+	r.syncTokenCounter()
 	if resp != "" && (r.runFn != nil || !r.loop.IsStreaming()) {
 		fmt.Fprint(os.Stdout, renderREPLOutput(resp, false))
 	}

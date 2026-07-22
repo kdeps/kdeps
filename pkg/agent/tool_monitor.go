@@ -225,21 +225,14 @@ func isHeadless() bool {
 }
 
 // compactTokenStatus returns a compact token counter string for the monitor
-// and spinner lines (e.g. "[in:12k|out:3k] "). Returns empty when no tokens.
+// and spinner lines (e.g. "[in:12k|out:3k] "). Always returns a value,
+// starting at "[in:0|out:0] " so the counter is omnipresent.
 func compactTokenStatus() string {
 	in := GlobalPromptCacheStats.TotalInputTokens()
 	out := GlobalPromptCacheStats.TotalOutputTokens()
-	if in <= 0 && out <= 0 {
-		return ""
-	}
-	var parts []string
-	if in > 0 {
-		parts = append(parts, "in:"+formatCompactCount(in))
-	}
-	if out > 0 {
-		parts = append(parts, "out:"+formatCompactCount(out))
-	}
-	return styleReplDim.Render("[") + styleReplMeta.Render(strings.Join(parts, "|")) + styleReplDim.Render("] ")
+	return styleReplDim.Render("[") +
+		styleReplMeta.Render("in:"+formatCompactCount(in)+"|out:"+formatCompactCount(out)) +
+		styleReplDim.Render("] ")
 }
 
 // formatCompactCount formats a count as a compact string (e.g. "12.4k", "1.2m").
