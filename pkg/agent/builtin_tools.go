@@ -90,7 +90,7 @@ var (
 var webCache *webToolCache
 
 func RegisterBuiltinTools(ctx context.Context, reg *kdepstools.Registry) {
-	webCache = newWebToolCache()
+	webCache = globalWebCache
 	registerDuckDuckGo(ctx, reg, webCache)
 	registerWikipedia(ctx, reg, webCache)
 	registerWebScraper(ctx, reg, webCache)
