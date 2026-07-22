@@ -23,7 +23,6 @@ package llm
 import (
 	"context"
 	"fmt"
-	"os"
 	"strings"
 
 	lccallbacks "github.com/tmc/langchaingo/callbacks"
@@ -68,11 +67,6 @@ func (o *observedLLM) GenerateContent(
 		return nil, err
 	}
 
-	// Record token usage for the REPL token counter.
-	if resp != nil && len(resp.Choices) > 0 {
-		recordTokenUsage(resp)
-	}
-	fmt.Fprintf(os.Stderr, "[token-cb] model=%s choices=%d\n", o.model, len(resp.Choices))
 
 	if debug.Enabled() && resp != nil && len(resp.Choices) > 0 {
 		choice := resp.Choices[0]

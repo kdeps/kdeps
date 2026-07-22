@@ -502,17 +502,17 @@ func registerListFiles(reg *kdepstools.Registry) {
 				return "", fmt.Errorf("list_files: read %s: %w", dirPath, err)
 			}
 			return trackFileCall(dirPath, func() (string, error) {
-			var sb strings.Builder
-			fmt.Fprintf(&sb, "%s:\n", dirPath)
-			for _, e := range entries {
-				const fileKind = "file"
-				kind := fileKind
-				if e.IsDir() {
-					kind = "dir"
+				var sb strings.Builder
+				fmt.Fprintf(&sb, "%s:\n", dirPath)
+				for _, e := range entries {
+					const fileKind = "file"
+					kind := fileKind
+					if e.IsDir() {
+						kind = "dir"
+					}
+					fmt.Fprintf(&sb, "  [%s] %s\n", kind, e.Name())
 				}
-				fmt.Fprintf(&sb, "  [%s] %s\n", kind, e.Name())
-			}
-			return strings.TrimSpace(sb.String()), nil
+				return strings.TrimSpace(sb.String()), nil
 			})
 		},
 	})

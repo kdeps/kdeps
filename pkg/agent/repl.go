@@ -215,7 +215,6 @@ type REPL struct {
 	termSnap *termSnapshot
 }
 
-
 // NewREPL creates a new REPL for the given agent loop, deriving its context
 // tree from rootCtx (the single root for the entire session).
 func NewREPL(rootCtx context.Context, loop *Loop) *REPL {
@@ -3814,6 +3813,7 @@ func parseTokenCount(s string) int {
 //	/search <term> — search the indexed directory and feed results to the LLM
 //
 // cmdKartographer renders a live map of kdeps internal data-flow pipelines.
+
 func (r *REPL) cmdKartographer() error {
 	heading := styleReplHeading.Render
 	meta := styleReplMeta.Render
@@ -3836,46 +3836,38 @@ func (r *REPL) cmdKartographer() error {
 	fmt.Fprintf(os.Stdout, "  %s   %s compactTokenStatus / tokenCounterStr\n", pipe, arrow)
 	fmt.Fprintf(os.Stdout, "  %s [in:%s|out:%s]\n\n", end, formatCompactCount(in), formatCompactCount(out))
 
-	// Convergence
-	calls, max := WebConvergenceCalls()
+	// Convergence pipelines
+	wc, wm := WebConvergenceCalls()
 	fmt.Fprintln(os.Stdout, meta("converge"))
 	fmt.Fprintf(os.Stdout, "  %s web_search / web_scraper %s webToolCache.call()\n", tee, arrow)
-	fmt.Fprintf(os.Stdout, "  %s   %s calls++ (now %d/%d)\n", pipe, arrow, calls, max)
-	if calls >= max {
-		fmt.Fprintf(os.Stdout, "  %s   %s LIMIT REACHED %s convergence error\n", pipe, arrow, arrow)
-	} else {
-		fmt.Fprintf(os.Stdout, "  %s   %s execute tool, cache result\n", pipe, arrow)
-	}
+	fmt.Fprintf(os.Stdout, "  %s   %s calls++ (now %d/%d)\n", pipe, arrow, wc, wm)
+	if wc >= wm { fmt.Fprintf(os.Stdout, "  %s   %s LIMIT REACHED %s convergence error\n", pipe, arrow, arrow)
+	} else { fmt.Fprintf(os.Stdout, "  %s   %s execute, cache result\n", pipe, arrow) }
 	fmt.Fprintf(os.Stdout, "  %s system prompt <output> rule 24 (soft guidance)\n\n", end)
 
-	// Shell convergence
-	shcalls, shmax := BashConvergenceCalls()
+	bc, bm := BashConvergenceCalls()
 	fmt.Fprintln(os.Stdout, meta("shell"))
 	fmt.Fprintf(os.Stdout, "  %s bash_exec %s trackBashCall()\n", tee, arrow)
-	fmt.Fprintf(os.Stdout, "  %s   %s command cached? %s return cached\n", pipe, arrow, arrow)
-	fmt.Fprintf(os.Stdout, "  %s   %s calls++ (now %d/%d)\n", pipe, arrow, shcalls, shmax)
-	if shcalls >= shmax {
-		fmt.Fprintf(os.Stdout, "  %s   %s LIMIT REACHED %s convergence error\n", pipe, arrow, arrow)
-	} else {
-		fmt.Fprintf(os.Stdout, "  %s   %s execute, cache result\n", pipe, arrow)
-	}
-	fmt.Fprintf(os.Stdout, "  %s maxBashToolCalls=%d\n\n", end, shmax)
+	fmt.Fprintf(os.Stdout, "  %s   %s calls++ (now %d/%d)\n", pipe, arrow, bc, bm)
+	if bc >= bm { fmt.Fprintf(os.Stdout, "  %s   %s LIMIT REACHED %s convergence error\n", pipe, arrow, arrow)
+	} else { fmt.Fprintf(os.Stdout, "  %s   %s execute, cache result\n", pipe, arrow) }
+	fmt.Fprintf(os.Stdout, "  %s maxBashToolCalls=%d\n\n", end, bm)
 
-	// File reads
-	fcalls, fmax := FileConvergenceCalls()
+	fc, fm := FileConvergenceCalls()
 	fmt.Fprintln(os.Stdout, meta("file"))
 	fmt.Fprintf(os.Stdout, "  %s read_file / list_files %s trackFileCall()\n", tee, arrow)
-	fmt.Fprintf(os.Stdout, "  %s   %s path cached? %s return cached\n", pipe, arrow, arrow)
-	fmt.Fprintf(os.Stdout, "  %s   %s calls++ (now %d/%d)\n", pipe, arrow, fcalls, fmax)
-	fmt.Fprintf(os.Stdout, "  %s maxFileToolCalls=%d\n\n", end, fmax)
+	fmt.Fprintf(os.Stdout, "  %s   %s calls++ (now %d/%d)\n", pipe, arrow, fc, fm)
+	if fc >= fm { fmt.Fprintf(os.Stdout, "  %s   %s LIMIT REACHED %s convergence error\n", pipe, arrow, arrow)
+	} else { fmt.Fprintf(os.Stdout, "  %s   %s execute, cache result\n", pipe, arrow) }
+	fmt.Fprintf(os.Stdout, "  %s maxFileToolCalls=%d\n\n", end, fm)
 
-	// Code search
-	ccalls, cmax := CodeConvergenceCalls()
+	cc, cm := CodeConvergenceCalls()
 	fmt.Fprintln(os.Stdout, meta("code"))
 	fmt.Fprintf(os.Stdout, "  %s search_local / code_search %s trackCodeCall()\n", tee, arrow)
-	fmt.Fprintf(os.Stdout, "  %s   %s query cached? %s return cached\n", pipe, arrow, arrow)
-	fmt.Fprintf(os.Stdout, "  %s   %s calls++ (now %d/%d)\n", pipe, arrow, ccalls, cmax)
-	fmt.Fprintf(os.Stdout, "  %s maxCodeToolCalls=%d\n\n", end, cmax)
+	fmt.Fprintf(os.Stdout, "  %s   %s calls++ (now %d/%d)\n", pipe, arrow, cc, cm)
+	if cc >= cm { fmt.Fprintf(os.Stdout, "  %s   %s LIMIT REACHED %s convergence error\n", pipe, arrow, arrow)
+	} else { fmt.Fprintf(os.Stdout, "  %s   %s execute, cache result\n", pipe, arrow) }
+	fmt.Fprintf(os.Stdout, "  %s maxCodeToolCalls=%d\n\n", end, cm)
 
 	// Compaction
 	turns := r.loop.Session().TurnCount()
