@@ -224,6 +224,36 @@ func isHeadless() bool {
 	return !term.IsTerminal(int(os.Stdin.Fd()))
 }
 
+// compactTokenStatus returns a compact token counter string for the monitor
+// and spinner lines (e.g. "[in:12k|out:3k] "). Returns empty when no tokens.
+func compactTokenStatus() string {
+	in := GlobalPromptCacheStats.TotalInputTokens()
+	out := GlobalPromptCacheStats.TotalOutputTokens()
+	if in <= 0 && out <= 0 {
+		return ""
+	}
+	var parts []string
+	if in > 0 {
+		parts = append(parts, "in:"+formatCompactCount(in))
+	}
+	if out > 0 {
+		parts = append(parts, "out:"+formatCompactCount(out))
+	}
+	return styleReplDim.Render("[") + styleReplMeta.Render(strings.Join(parts, "|")) + styleReplDim.Render("] ")
+}
+
+// formatCompactCount formats a count as a compact string (e.g. "12.4k", "1.2m").
+func formatCompactCount(n int64) string {
+	switch {
+	case n >= 1_000_000:
+		return fmt.Sprintf("%.1fm", float64(n)/1_000_000)
+	case n >= 1_000:
+		return fmt.Sprintf("%.1fk", float64(n)/1_000)
+	default:
+		return fmt.Sprintf("%d", n)
+	}
+}
+
 // runToolMonitor redraws a status line for a running tool every
 // toolMonitorInterval until stop is closed.
 func runToolMonitor(

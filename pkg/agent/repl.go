@@ -1318,13 +1318,14 @@ func (r *REPL) runWithThinking(ctx context.Context, input string) (string, error
 			tick := time.NewTicker(replTickerMs * time.Millisecond)
 			defer tick.Stop()
 			i := 0
+			tcStr := compactTokenStatus()
 			for {
 				select {
 				case <-tick.C:
 					fmt.Fprintf(
 						os.Stdout,
-						"\r  %s thinking",
-						styleReplInfo.Render(spinFrames[i%len(spinFrames)]),
+						"\r%s  %s thinking",
+						tcStr, styleReplInfo.Render(spinFrames[i%len(spinFrames)]),
 					)
 					i++
 				case <-done:
