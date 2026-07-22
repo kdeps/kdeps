@@ -18,7 +18,6 @@
 package agent
 
 import (
-	"errors"
 	"fmt"
 	"strings"
 	"sync"
@@ -27,105 +26,101 @@ import (
 const (
 	maxWebToolCalls  = 3
 	maxBashToolCalls = 10
+	maxFileToolCalls = 20
+	maxCodeToolCalls = 10
 )
 
-var (
-	errWebToolConvergence  = errors.New("convergence")
-	errBashToolConvergence = errors.New("convergence")
-)
-
-// webToolCache memoizes successful web_search and web_scraper results for the
-// lifetime of the agent process. Repeating the same query or URL returns the
-// cached copy instead of refetching. Errors and empty results are never
-// cached, so a failed or empty lookup is retried on the next invocation.
-// After maxWebToolCalls distinct web tool invocations, subsequent calls return
-// a convergence error to prevent the model from looping on the same topic.
-type webToolCache struct {
+// convergenceCache tracks distinct tool calls and enforces a session limit.
+// Used by web, bash, file, and code search tools.
+type convergenceCache struct {
 	mu    sync.Mutex
-	m     map[string]string
+	m     map[string]string // key → cached result
 	calls int
+	max   int
+	msg   string // error suffix on limit reached
 }
 
-func newWebToolCache() *webToolCache {
-	return &webToolCache{m: make(map[string]string)}
-}
-
-// WebConvergenceCalls returns the number of distinct web tool calls made
-// this session. Used by the kartographer status line.
-func WebConvergenceCalls() (calls, max int) {
-	if webCache == nil { return 0, 0 }
-	webCache.mu.Lock()
-	defer webCache.mu.Unlock()
-	return webCache.calls, maxWebToolCalls
-}
-
-// call returns the cached result for key when present; otherwise it invokes
-// fn and caches the result only when it succeeded with non-empty content.
-// After maxWebToolCalls distinct (non-cached) invocations, subsequent calls
-// return a convergence error.
-func (c *webToolCache) call(key string, fn func() (string, error)) (string, error) {
+func (c *convergenceCache) get(key string) (string, bool) {
 	c.mu.Lock()
-	cached, ok := c.m[key]
-	if ok {
+	if cached, ok := c.m[key]; ok {
 		c.mu.Unlock()
-		return cached, nil
+		return cached, true
 	}
-	if c.calls >= maxWebToolCalls {
+	if c.calls >= c.max {
 		c.mu.Unlock()
-		return "", fmt.Errorf("%w (%d calls): stop searching — synthesize from data already gathered",
-			errWebToolConvergence, c.calls)
+		return "", false
 	}
 	c.calls++
-	c.mu.Unlock()
+	c.mu.Unlock() // release before fn runs
+	return "", false
+}
 
+func (c *convergenceCache) put(key, result string) {
+	c.mu.Lock()
+	c.m[key] = result
+	c.mu.Unlock()
+}
+
+func (c *convergenceCache) count() (calls, max int) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	return c.calls, c.max
+}
+
+// trackCall runs fn, caching results by key. Returns cached result on repeats.
+// After max distinct keys, returns a convergence error.
+func (c *convergenceCache) trackCall(key string, fn func() (string, error)) (string, error) {
+	cached, ok := c.get(key)
+	if ok {
+		return cached, nil
+	}
+	if c.calls >= c.max {
+		c.mu.Lock()
+		n := c.calls
+		c.mu.Unlock()
+		return "", fmt.Errorf("convergence (%d calls): %s", n, c.msg)
+	}
 	result, err := fn()
 	if err == nil && strings.TrimSpace(result) != "" {
-		c.mu.Lock()
-		c.m[key] = result
-		c.mu.Unlock()
+		c.put(key, result)
 	}
 	return result, err
 }
 
-// ── Bash command convergence ──
+var (
+	globalWebCache  = &convergenceCache{m: make(map[string]string), max: maxWebToolCalls, msg: "stop searching — synthesize from data already gathered"}
+	globalBashCache = &convergenceCache{m: make(map[string]string), max: maxBashToolCalls, msg: "too many distinct shell commands — consolidate your approach"}
+	globalFileCache = &convergenceCache{m: make(map[string]string), max: maxFileToolCalls, msg: "too many file reads — consolidate your approach"}
+	globalCodeCache = &convergenceCache{m: make(map[string]string), max: maxCodeToolCalls, msg: "too many code searches — narrow your query"}
+)
 
-// bashCallCache tracks distinct bash_exec commands and enforces a session
-// call limit to prevent shell command loops.
-type bashCallCache struct {
-	mu    sync.Mutex
-	m     map[string]string
-	calls int
+func WebConvergenceCalls() (calls, max int)  { return globalWebCache.count() }
+func BashConvergenceCalls() (calls, max int) { return globalBashCache.count() }
+func FileConvergenceCalls() (calls, max int) { return globalFileCache.count() }
+func CodeConvergenceCalls() (calls, max int) { return globalCodeCache.count() }
+
+// Backward-compat: webToolCache type alias for existing references in builtin_tools.go.
+// All caches now use the generic convergenceCache above.
+type webToolCache = convergenceCache
+
+func newWebToolCache() *webToolCache {
+	return &webToolCache{m: make(map[string]string), max: maxWebToolCalls, msg: "stop searching — synthesize from data already gathered"}
 }
 
-var globalBashCache = &bashCallCache{m: make(map[string]string)}
-
-func BashConvergenceCalls() (calls, max int) {
-	globalBashCache.mu.Lock()
-	defer globalBashCache.mu.Unlock()
-	return globalBashCache.calls, maxBashToolCalls
+// call is the legacy method name used by web tool registration.
+func (c *convergenceCache) call(key string, fn func() (string, error)) (string, error) {
+	return c.trackCall(key, fn)
 }
 
 func trackBashCall(command string, fn func() (string, error)) (string, error) {
-	c := globalBashCache
-	c.mu.Lock()
-	if cached, ok := c.m[command]; ok {
-		c.mu.Unlock()
-		return cached, nil
-	}
-	if c.calls >= maxBashToolCalls {
-		c.mu.Unlock()
-		return "", fmt.Errorf("%w (%d calls): too many distinct shell commands — consolidate your approach",
-			errBashToolConvergence, c.calls)
-	}
-	c.calls++
-	c.mu.Unlock()
+	return globalBashCache.trackCall(command, fn)
+}
 
-	result, err := fn()
-	if err == nil && strings.TrimSpace(result) != "" {
-		c.mu.Lock()
-		c.m[command] = result
-		c.mu.Unlock()
-	}
-	return result, err
+func trackFileCall(path string, fn func() (string, error)) (string, error) {
+	return globalFileCache.trackCall(path, fn)
+}
+
+func trackCodeCall(query string, fn func() (string, error)) (string, error) {
+	return globalCodeCache.trackCall(query, fn)
 }
 
