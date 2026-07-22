@@ -373,8 +373,17 @@ func (r *REPL) tokenCounterStr() string {
 	if r.tokenCounter == nil { return "" }
 	in := r.tokenCounter.InputTokens()
 	out := r.tokenCounter.OutputTokens()
+	parts := []string{"in:" + formatCompactCount(in), "out:" + formatCompactCount(out)}
+	if calls, max := WebConvergenceCalls(); max > 0 {
+		parts = append(parts, fmt.Sprintf("web:%d/%d", calls, max))
+	}
+	if r.loop.memoryStore != nil {
+		if n := r.loop.memoryStore.Len(); n > 0 {
+			parts = append(parts, fmt.Sprintf("mem:%d", n))
+		}
+	}
 	return styleReplDim.Render("[") +
-		styleReplMeta.Render("in:"+formatCompactCount(in)+"|out:"+formatCompactCount(out)) +
+		styleReplMeta.Render(strings.Join(parts, "|")) +
 		styleReplDim.Render("] ")
 }
 

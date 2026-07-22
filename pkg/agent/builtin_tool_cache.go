@@ -44,6 +44,15 @@ func newWebToolCache() *webToolCache {
 	return &webToolCache{m: make(map[string]string)}
 }
 
+// WebConvergenceCalls returns the number of distinct web tool calls made
+// this session. Used by the kartographer status line.
+func WebConvergenceCalls() (calls, max int) {
+	if webCache == nil { return 0, 0 }
+	webCache.mu.Lock()
+	defer webCache.mu.Unlock()
+	return webCache.calls, maxWebToolCalls
+}
+
 // call returns the cached result for key when present; otherwise it invokes
 // fn and caches the result only when it succeeded with non-empty content.
 // After maxWebToolCalls distinct (non-cached) invocations, subsequent calls

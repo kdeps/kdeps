@@ -230,8 +230,12 @@ func isHeadless() bool {
 func compactTokenStatus() string {
 	in := GlobalPromptCacheStats.TotalInputTokens()
 	out := GlobalPromptCacheStats.TotalOutputTokens()
+	parts := []string{"in:" + formatCompactCount(in), "out:" + formatCompactCount(out)}
+	if calls, max := WebConvergenceCalls(); max > 0 {
+		parts = append(parts, fmt.Sprintf("web:%d/%d", calls, max))
+	}
 	return styleReplDim.Render("[") +
-		styleReplMeta.Render("in:"+formatCompactCount(in)+"|out:"+formatCompactCount(out)) +
+		styleReplMeta.Render(strings.Join(parts, "|")) +
 		styleReplDim.Render("] ")
 }
 

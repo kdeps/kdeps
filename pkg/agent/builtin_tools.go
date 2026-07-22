@@ -87,8 +87,10 @@ var (
 // zapier_list_actions, zapier_run_action, wolfram_alpha, cohere_rerank, voyageai_rerank,
 // jina_rerank, retrieve_context) to the registry. API-key tools are registered only when the
 // corresponding env var is set.
+var webCache *webToolCache
+
 func RegisterBuiltinTools(ctx context.Context, reg *kdepstools.Registry) {
-	webCache := newWebToolCache()
+	webCache = newWebToolCache()
 	registerDuckDuckGo(ctx, reg, webCache)
 	registerWikipedia(ctx, reg, webCache)
 	registerWebScraper(ctx, reg, webCache)
