@@ -1349,12 +1349,15 @@ func (e *Executor) streamChatOnce(
 // TokenRecorder is an optional hook called after every GenerateContent call
 // with the input and output token counts extracted from GenerationInfo.
 // Set by the agent layer to feed the REPL token counter.
-var TokenRecorder func(inputTokens, outputTokens int64)
+// TokenInputs and TokenOutputs are cumulative token counts updated by
+// recordTokenUsage after every GenerateContent call. Read by the agent
+// layer for the REPL token counter.
+var TokenInputs, TokenOutputs int64
 
-// recordTokenUsage extracts token counts from a GenerateContent response and
-// feeds them to TokenRecorder if set.
+// recordTokenUsage extracts token counts from a GenerateContent response
+// and accumulates them into the exported TokenInputs/TokenOutputs counters.
 func recordTokenUsage(resp *llms.ContentResponse) {
-	if TokenRecorder == nil || resp == nil || len(resp.Choices) == 0 {
+	if resp == nil || len(resp.Choices) == 0 {
 		return
 	}
 	info := resp.Choices[0].GenerationInfo
@@ -1382,8 +1385,10 @@ func recordTokenUsage(resp *llms.ContentResponse) {
 	if outputs == 0 {
 		outputs = extract("OutputTokens")
 	}
-	if inputs > 0 || outputs > 0 {
-		TokenRecorder(inputs, outputs)
+	if inputs > 0 {
+		TokenInputs += inputs
+	}
+	if outputs > 0 {
+		TokenOutputs += outputs
 	}
 }
-

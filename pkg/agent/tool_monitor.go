@@ -26,6 +26,8 @@ import (
 	"time"
 
 	"golang.org/x/term"
+
+	llm "github.com/kdeps/kdeps/v2/pkg/executor/llm"
 )
 
 const (
@@ -202,8 +204,8 @@ func isHeadless() bool {
 // and spinner lines (e.g. "[in:12k|out:3k] "). Always returns a value,
 // starting at "[in:0|out:0] " so the counter is omnipresent.
 func compactTokenStatus() string {
-	in := GlobalPromptCacheStats.TotalInputTokens()
-	out := GlobalPromptCacheStats.TotalOutputTokens()
+	in := llm.TokenInputs
+	out := llm.TokenOutputs
 	parts := []string{"in:" + formatCompactCount(in), "out:" + formatCompactCount(out)}
 	if calls, max := WebConvergenceCalls(); max > 0 && calls > 0 {
 		parts = append(parts, fmt.Sprintf("web:%d/%d", calls, max))

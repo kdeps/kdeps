@@ -215,22 +215,12 @@ type REPL struct {
 	termSnap *termSnapshot
 }
 
-// registerTokenRecorderOnce ensures the LLM TokenRecorder hook is set
-// exactly once, even if multiple REPLs are created.
-var registerTokenRecorderOnce sync.Once
 
 // NewREPL creates a new REPL for the given agent loop, deriving its context
 // tree from rootCtx (the single root for the entire session).
 func NewREPL(rootCtx context.Context, loop *Loop) *REPL {
 	loopCtx, loopCancel := context.WithCancel(rootCtx)
 	turnCtx, turnCancel := context.WithCancel(loopCtx)
-	// Wire the LLM token recorder so the REPL token counter updates
-	// after every GenerateContent call.
-	registerTokenRecorderOnce.Do(func() {
-		llm.TokenRecorder = func(in, out int64) {
-			GlobalPromptCacheStats.RecordCacheUsageFromTokens(in, out)
-		}
-	})
 	r := &REPL{
 		loop:         loop,
 		loopCtx:      loopCtx,
@@ -380,9 +370,7 @@ func (r *REPL) tokenCounterStr() string {
 	if r.tokenCounter == nil {
 		return ""
 	}
-	in := r.tokenCounter.InputTokens()
-	out := r.tokenCounter.OutputTokens()
-	parts := []string{"in:" + formatCompactCount(in), "out:" + formatCompactCount(out)}
+	parts := []string{"in:" + formatCompactCount(llm.TokenInputs), "out:" + formatCompactCount(llm.TokenOutputs)}
 	if calls, max := WebConvergenceCalls(); max > 0 {
 		parts = append(parts, fmt.Sprintf("web:%d/%d", calls, max))
 	}
@@ -427,8 +415,8 @@ func (r *REPL) modeline() string {
 	}
 	tc := r.tokenCounter
 	if tc != nil {
-		parts = append(parts, meta("in:"+formatCompactCount(tc.InputTokens())))
-		parts = append(parts, meta("out:"+formatCompactCount(tc.OutputTokens())))
+		parts = append(parts, meta("in:"+formatCompactCount(llm.TokenInputs)))
+		parts = append(parts, meta("out:"+formatCompactCount(llm.TokenOutputs)))
 	}
 	if r.loop.memoryStore != nil {
 		if n := r.loop.memoryStore.Len(); n > 0 {
