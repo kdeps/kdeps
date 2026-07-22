@@ -1148,6 +1148,18 @@ func registerBashExec(ctx context.Context, reg *kdepstools.Registry) {
 		if block, reason, _ := ValidateBashCommand(command, BashReadOnlyMode()); block {
 			return "", fmt.Errorf("bash_exec: blocked: %s", reason)
 		}
+
+		// Convergence: track distinct bash commands, cache repeats.
+		// The original command (before rtk rewriting) is the cache key.
+		bashTracked, bashTrackErr := trackBashCall(command, func() (string, error) {
+			return "", nil // placeholder; actual result cached below
+		})
+		if bashTrackErr != nil {
+			return "", bashTrackErr // limit reached
+		}
+		if bashTracked != "" {
+			return bashTracked, nil // cached repeat
+		}
 		toolCtx := bashExecCtx(ctx, args)
 		bgCh, _ := args["_bg_ch"].(<-chan struct{})
 
@@ -1195,12 +1207,17 @@ func registerBashExec(ctx context.Context, reg *kdepstools.Registry) {
 
 		select {
 		case runErr := <-waitCh:
-			return bashExecResult(
+			result, resErr := bashExecResult(
 				toolCtx,
 				strings.TrimSpace(stdout.String()),
 				strings.TrimSpace(stderr.String()),
 				runErr,
 			)
+			// Cache non-error results in the bash call tracker.
+			if resErr == nil && result != "" {
+				trackBashCall(command, func() (string, error) { return result, nil })
+			}
+			return result, resErr
 		case <-toolCtx.Done():
 			_ = cmd.Process.Kill()
 			<-waitCh

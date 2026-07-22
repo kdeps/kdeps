@@ -24,9 +24,15 @@ import (
 	"sync"
 )
 
-const maxWebToolCalls = 3
+const (
+	maxWebToolCalls  = 3
+	maxBashToolCalls = 10
+)
 
-var errWebToolConvergence = errors.New("convergence")
+var (
+	errWebToolConvergence  = errors.New("convergence")
+	errBashToolConvergence = errors.New("convergence")
+)
 
 // webToolCache memoizes successful web_search and web_scraper results for the
 // lifetime of the agent process. Repeating the same query or URL returns the
@@ -80,3 +86,46 @@ func (c *webToolCache) call(key string, fn func() (string, error)) (string, erro
 	}
 	return result, err
 }
+
+// ── Bash command convergence ──
+
+// bashCallCache tracks distinct bash_exec commands and enforces a session
+// call limit to prevent shell command loops.
+type bashCallCache struct {
+	mu    sync.Mutex
+	m     map[string]string
+	calls int
+}
+
+var globalBashCache = &bashCallCache{m: make(map[string]string)}
+
+func BashConvergenceCalls() (calls, max int) {
+	globalBashCache.mu.Lock()
+	defer globalBashCache.mu.Unlock()
+	return globalBashCache.calls, maxBashToolCalls
+}
+
+func trackBashCall(command string, fn func() (string, error)) (string, error) {
+	c := globalBashCache
+	c.mu.Lock()
+	if cached, ok := c.m[command]; ok {
+		c.mu.Unlock()
+		return cached, nil
+	}
+	if c.calls >= maxBashToolCalls {
+		c.mu.Unlock()
+		return "", fmt.Errorf("%w (%d calls): too many distinct shell commands — consolidate your approach",
+			errBashToolConvergence, c.calls)
+	}
+	c.calls++
+	c.mu.Unlock()
+
+	result, err := fn()
+	if err == nil && strings.TrimSpace(result) != "" {
+		c.mu.Lock()
+		c.m[command] = result
+		c.mu.Unlock()
+	}
+	return result, err
+}
+

@@ -232,8 +232,11 @@ func compactTokenStatus() string {
 	in := GlobalPromptCacheStats.TotalInputTokens()
 	out := GlobalPromptCacheStats.TotalOutputTokens()
 	parts := []string{"in:" + formatCompactCount(in), "out:" + formatCompactCount(out)}
-	if calls, max := WebConvergenceCalls(); max > 0 {
+	if calls, max := WebConvergenceCalls(); max > 0 && calls > 0 {
 		parts = append(parts, fmt.Sprintf("web:%d/%d", calls, max))
+	}
+	if calls, max := BashConvergenceCalls(); max > 0 && calls > 0 {
+		parts = append(parts, fmt.Sprintf("sh:%d/%d", calls, max))
 	}
 	return styleReplDim.Render("[") +
 		styleReplMeta.Render(strings.Join(parts, "|")) +

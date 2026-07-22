@@ -375,8 +375,11 @@ func (r *REPL) tokenCounterStr() string {
 	in := r.tokenCounter.InputTokens()
 	out := r.tokenCounter.OutputTokens()
 	parts := []string{"in:" + formatCompactCount(in), "out:" + formatCompactCount(out)}
-	if calls, max := WebConvergenceCalls(); max > 0 {
+	if calls, max := WebConvergenceCalls(); max > 0 && calls > 0 {
 		parts = append(parts, fmt.Sprintf("web:%d/%d", calls, max))
+	}
+	if calls, max := BashConvergenceCalls(); max > 0 && calls > 0 {
+		parts = append(parts, fmt.Sprintf("sh:%d/%d", calls, max))
 	}
 	if r.loop.memoryStore != nil {
 		if n := r.loop.memoryStore.Len(); n > 0 {
@@ -3791,6 +3794,19 @@ func (r *REPL) cmdKartographer() error {
 		fmt.Fprintf(os.Stdout, "  %s   %s execute tool, cache result\n", pipe, arrow)
 	}
 	fmt.Fprintf(os.Stdout, "  %s system prompt <output> rule 24 (soft guidance)\n\n", end)
+
+	// Shell convergence
+	shcalls, shmax := BashConvergenceCalls()
+	fmt.Fprintln(os.Stdout, meta("shell"))
+	fmt.Fprintf(os.Stdout, "  %s bash_exec %s trackBashCall()\n", tee, arrow)
+	fmt.Fprintf(os.Stdout, "  %s   %s command cached? %s return cached\n", pipe, arrow, arrow)
+	fmt.Fprintf(os.Stdout, "  %s   %s calls++ (now %d/%d)\n", pipe, arrow, shcalls, shmax)
+	if shcalls >= shmax {
+		fmt.Fprintf(os.Stdout, "  %s   %s LIMIT REACHED %s convergence error\n", pipe, arrow, arrow)
+	} else {
+		fmt.Fprintf(os.Stdout, "  %s   %s execute, cache result\n", pipe, arrow)
+	}
+	fmt.Fprintf(os.Stdout, "  %s maxBashToolCalls=%d\n\n", end, shmax)
 
 	// Compaction
 	turns := r.loop.Session().TurnCount()
