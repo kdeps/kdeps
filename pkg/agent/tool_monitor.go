@@ -241,6 +241,7 @@ func runToolMonitor(
 	defer tick.Stop()
 	i := 0
 	stalled := false
+	killReaderStarted := false
 	killCh := make(chan struct{}, 1)
 	for {
 		select {
@@ -250,7 +251,7 @@ func runToolMonitor(
 			}
 			elapsed := time.Since(start).Round(time.Second)
 			silence := tracker.Silence()
-			status := monitorStatus(stallTimeout, silence, stalled, onStall, killCh, tracker)
+			status := monitorStatus(stallTimeout, silence, stalled, onStall, killCh, tracker, &killReaderStarted)
 			if !stalled && stallTimeout > 0 && silence >= stallTimeout {
 				stalled = true
 			}
@@ -277,6 +278,7 @@ func monitorStatus(
 	onStall func(),
 	killCh chan struct{},
 	tracker *lastLineTracker,
+	killReaderStarted *bool,
 ) string {
 	switch {
 	case stallTimeout > 0 && silence >= stallTimeout && !stalled:
@@ -286,7 +288,10 @@ func monitorStatus(
 			}
 			return " · stalled — killing"
 		}
-		startStdinKillReader(killCh)
+		if !*killReaderStarted {
+			startStdinKillReader(killCh)
+			*killReaderStarted = true
+		}
 		return " · stalled — press 'k' to kill"
 	case stalled:
 		if isHeadless() {
@@ -302,7 +307,14 @@ func monitorStatus(
 			return " · stalled — press 'k' to kill"
 		}
 	case silence >= toolStallWarnAfter:
-		return fmt.Sprintf(" · no output for %s", silence.Round(time.Second))
+		if isHeadless() {
+			return fmt.Sprintf(" · no output for %s", silence.Round(time.Second))
+		}
+		if !*killReaderStarted {
+			startStdinKillReader(killCh)
+			*killReaderStarted = true
+		}
+		return fmt.Sprintf(" · no output for %s · press 'k' to kill", silence.Round(time.Second))
 	case tracker.Last() != "":
 		return " · " + truncateEllipsis(tracker.Last(), toolMonitorTailLen)
 	default:

@@ -820,7 +820,7 @@ func (l *Loop) runToolRounds(
 			l.config.OnRoundComplete()
 		}
 
-		chatCfg = l.appendToolRoundTrip(ctx, chatCfg, content, toolCalls, w)
+		chatCfg = l.appendToolRoundTrip(ctx, chatCfg, content, toolCalls[:1], w)
 		// Ctrl+C during tool execution: stop the round loop instead of
 		// firing another LLM call that would fail on the canceled context.
 		if ctx.Err() != nil {
