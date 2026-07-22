@@ -19,10 +19,8 @@
 package agent
 
 import (
-	"bufio"
 	"fmt"
 	"io"
-	"os"
 	"strings"
 	"sync"
 	"time"
@@ -195,34 +193,9 @@ func runQuietMonitor(mw *monitoredWriter, label string, start time.Time, stop <-
 	}
 }
 
-// startStdinKillReader reads stdin for 'k' and signals killCh.
-func startStdinKillReader(killCh chan<- struct{}) {
-	go func() {
-		oldState, err := term.MakeRaw(int(os.Stdin.Fd()))
-		if err != nil {
-			return
-		}
-		defer func() { _ = term.Restore(int(os.Stdin.Fd()), oldState) }()
-		br := bufio.NewReader(os.Stdin)
-		for {
-			b, readErr := br.ReadByte()
-			if readErr != nil {
-				return
-			}
-			if b == 'k' || b == 'K' {
-				select {
-				case killCh <- struct{}{}:
-				default:
-				}
-				return
-			}
-		}
-	}()
-}
-
 // isHeadless reports whether the process is non-interactive (no TTY).
 func isHeadless() bool {
-	return !term.IsTerminal(int(os.Stdin.Fd()))
+	return !term.IsTerminal(int(0)) //nolint:mnd // stdin is fd 0
 }
 
 // compactTokenStatus returns a compact token counter string for the monitor
@@ -262,7 +235,9 @@ func formatCompactCount(n int64) string {
 }
 
 // runToolMonitor redraws a status line for a running tool every
-// toolMonitorInterval until stop is closed.
+// toolMonitorInterval until stop is closed. The 'k' key kills a stalled
+// tool — handled by the REPL's filterToolInterrupt via readline, so no
+// separate stdin goroutine is needed.
 func runToolMonitor(
 	w io.Writer,
 	name string,
@@ -278,8 +253,6 @@ func runToolMonitor(
 	defer tick.Stop()
 	i := 0
 	stalled := false
-	killReaderStarted := false
-	killCh := make(chan struct{}, 1)
 	for {
 		tcStr := compactTokenStatus()
 		select {
@@ -289,19 +262,13 @@ func runToolMonitor(
 			}
 			elapsed := time.Since(start).Round(time.Second)
 			silence := tracker.Silence()
-			status := monitorStatus(stallTimeout, silence, stalled, onStall, killCh, tracker, &killReaderStarted)
+			status := monitorStatus(stallTimeout, silence, stalled, onStall, tracker)
 			if !stalled && stallTimeout > 0 && silence >= stallTimeout {
 				stalled = true
 			}
 			fmt.Fprintf(w, "\r%s  %s %s running (%s)%s\033[K",
 				tcStr, styleReplInfo.Render(frames[i%len(frames)]), name, elapsed, status)
 			i++
-		case <-killCh:
-			if onStall != nil {
-				onStall()
-			}
-			fmt.Fprintf(w, "\r%s  %s %s running (%s) · stalled — killing\033[K",
-				tcStr, styleReplInfo.Render(frames[i%len(frames)]), name, time.Since(start).Round(time.Second))
 		case <-stop:
 			return
 		}
@@ -309,14 +276,13 @@ func runToolMonitor(
 }
 
 // monitorStatus returns the status string for the current tick.
+// 'k' key handling is done by the REPL's readline filter, not here.
 func monitorStatus(
 	stallTimeout time.Duration,
 	silence time.Duration,
 	stalled bool,
 	onStall func(),
-	killCh chan struct{},
 	tracker *lastLineTracker,
-	killReaderStarted *bool,
 ) string {
 	switch {
 	case stallTimeout > 0 && silence >= stallTimeout && !stalled:
@@ -326,31 +292,15 @@ func monitorStatus(
 			}
 			return " · stalled — killing"
 		}
-		if !*killReaderStarted {
-			startStdinKillReader(killCh)
-			*killReaderStarted = true
-		}
 		return " · stalled — press 'k' to kill"
 	case stalled:
 		if isHeadless() {
 			return " · stalled — killing"
 		}
-		select {
-		case <-killCh:
-			if onStall != nil {
-				onStall()
-			}
-			return " · stalled — killing"
-		default:
-			return " · stalled — press 'k' to kill"
-		}
+		return " · stalled — press 'k' to kill"
 	case silence >= toolStallWarnAfter:
 		if isHeadless() {
 			return fmt.Sprintf(" · no output for %s", silence.Round(time.Second))
-		}
-		if !*killReaderStarted {
-			startStdinKillReader(killCh)
-			*killReaderStarted = true
 		}
 		return fmt.Sprintf(" · no output for %s · press 'k' to kill", silence.Round(time.Second))
 	case tracker.Last() != "":
