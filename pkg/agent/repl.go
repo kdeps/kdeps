@@ -399,27 +399,47 @@ func (r *REPL) tokenCounterStr() string {
 
 // dynamicPrompt returns a prompt string showing model, turn count, and context usage.
 func (r *REPL) dynamicPrompt() string {
+	return styleReplPrompt.Render("> ")
+}
+
+// modeline returns a single-line kartographer status bar rendered above
+// every prompt. It is independent of tool output — always visible when the
+// REPL is waiting for input.
+func (r *REPL) modeline() string {
+	dim := styleReplDim.Render
+	meta := styleReplMeta.Render
+
+	// Left side: kartographer pipeline status.
 	tcStr := r.tokenCounterStr()
+
+	// Right side: model, turns, backend, mode, context.
 	turns := r.loop.Session().TurnCount()
 	model := styleReplPrompt.Render(r.loop.config.Model)
-	dim := styleReplDim.Render
-	// Model type tag: short colored label for the active backend.
 	typeTag := modelTypeTag(r, r.loop.config.Model)
-	var suffix string
+	var right string
 	if typeTag != "" {
-		suffix = dim("|") + typeTag
+		right = model + dim("|") + typeTag
+	} else {
+		right = model
 	}
 	if thinking := r.loop.Thinking(); thinking != nil && thinking.Mode != domain.ThinkingModeNone {
-		suffix += dim("|") + styleReplMeta.Render(string(thinking.Mode))
+		right += dim("|") + meta(string(thinking.Mode))
 	}
-	ctxStr := r.contextUsageStr()
-	if ctxStr != "" {
-		suffix += dim("|") + styleReplMeta.Render(ctxStr)
+	right += dim(fmt.Sprintf("|%dt", turns))
+	if ctxStr := r.contextUsageStr(); ctxStr != "" {
+		right += dim("|") + meta(ctxStr)
 	}
-	if turns == 0 {
-		return tcStr + dim("[") + model + suffix + dim("] > ")
+
+	// Build a single modeline with left status and right model info,
+	// separated by enough dashes to fill the terminal width.
+	left := strings.TrimRight(tcStr, " ")
+	right = " " + right + " "
+	w := terminalWidth()
+	fill := w - lipgloss.Width(left) - lipgloss.Width(right)
+	if fill < 1 {
+		fill = 1
 	}
-	return tcStr + dim("[") + model + dim(fmt.Sprintf("|%d", turns)) + suffix + dim("] > ")
+	return dim(left + strings.Repeat("─", fill)) + dim(right)
 }
 
 // modelTypeTag returns a colored tag naming the model's backend type
@@ -1641,6 +1661,7 @@ func (r *REPL) runLoop(rl *readline.Instance) error {
 		default:
 		}
 
+		fmt.Fprint(os.Stdout, ansiClearLine+r.modeline()+"\r\n")
 		rl.SetPrompt(r.dynamicPrompt())
 		line, readErr := rl.Readline()
 
