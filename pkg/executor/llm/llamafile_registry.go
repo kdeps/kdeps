@@ -22,7 +22,6 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
-	"sync"
 
 	"github.com/spf13/afero"
 
@@ -54,7 +53,7 @@ type llamafileVersions struct {
 
 //nolint:gochecknoglobals // process-wide registry cache, loaded once
 var (
-	llamafileRegistryOnce sync.Once
+	llamafileRegistryLoaded bool
 	llamafileRegistryData *llamafileVersions
 	llamafileAliasMap     map[string]string // alias → URL
 )
@@ -117,7 +116,9 @@ func parseLlamafileYAML(raw []byte) *llamafileVersions {
 }
 
 func ensureRegistryLoaded() {
-	llamafileRegistryOnce.Do(loadLlamafileRegistry)
+	if llamafileRegistryLoaded { return }
+	llamafileRegistryLoaded = true
+	loadLlamafileRegistry()
 }
 
 // WriteLocalRegistry writes the given entries to ~/.kdeps/llamafile_versions.yaml.
@@ -148,7 +149,8 @@ func WriteLocalRegistry(entries []LlamafileEntry) error {
 // ReloadRegistry forces a re-read of the registry on the next access.
 // Used after an update.
 func ReloadRegistry() {
-	llamafileRegistryOnce = sync.Once{}
+	llamafileRegistryLoaded = false
+	ensureRegistryLoaded()
 }
 
 // ResolveLlamafileAlias looks up a model alias in the llamafile registry and

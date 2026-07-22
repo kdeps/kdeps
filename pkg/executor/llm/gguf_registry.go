@@ -21,7 +21,6 @@ package llm
 import (
 	"path/filepath"
 	"sort"
-	"sync"
 
 	"gopkg.in/yaml.v3"
 
@@ -48,7 +47,7 @@ type ggufVersions struct {
 
 //nolint:gochecknoglobals // process-wide registry cache, loaded once
 var (
-	ggufRegistryOnce sync.Once
+	ggufRegistryLoaded bool
 	ggufRegistryData *ggufVersions
 	ggufAliasMap     map[string]string
 )
@@ -104,7 +103,11 @@ func parseGGUFYAML(raw []byte) *ggufVersions {
 }
 
 func ensureGGUFRegistryLoaded() {
-	ggufRegistryOnce.Do(loadGGUFRegistry)
+	if ggufRegistryLoaded {
+		return
+	}
+	ggufRegistryLoaded = true
+	loadGGUFRegistry()
 }
 
 func ResolveGGUFAlias(model string) (string, bool) {
@@ -149,5 +152,6 @@ func GGUFRegistryVersion() int {
 }
 
 func ReloadGGUFRegistry() {
-	ggufRegistryOnce = sync.Once{}
+	ggufRegistryLoaded = false
+	ensureGGUFRegistryLoaded()
 }

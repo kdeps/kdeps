@@ -40,6 +40,9 @@ const agentBackendFile = "file"
 // refreshREPLModelLists repopulates the four model lists on repl.
 // Called at startup and inside the SetRefreshModelsFn closure.
 func refreshREPLModelLists(repl *agent.REPL) {
+	// Refresh registries to pick up any embedded data changes since last build.
+	llm.ReloadGGUFRegistry()
+	llm.ReloadRegistry()
 	repl.SetModelNames(buildAllModelNames())
 	repl.SetDownloadedModels(llm.DownloadedModelAliases())
 	repl.SetModelTypes(buildModelTypes())
