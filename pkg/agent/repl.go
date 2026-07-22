@@ -405,41 +405,57 @@ func (r *REPL) dynamicPrompt() string {
 // modeline returns a single-line kartographer status bar rendered above
 // every prompt. It is independent of tool output — always visible when the
 // REPL is waiting for input.
+// modeline returns a one-line status bar: model info on the left,
+// active pipeline metrics on the right. Rendered before every prompt.
 func (r *REPL) modeline() string {
 	dim := styleReplDim.Render
 	meta := styleReplMeta.Render
+	bold := styleReplPrompt.Render
 
-	// Left side: kartographer pipeline status.
-	tcStr := r.tokenCounterStr()
-
-	// Right side: model, turns, backend, mode, context.
+	// Left: model, turns, context.
 	turns := r.loop.Session().TurnCount()
-	model := styleReplPrompt.Render(r.loop.config.Model)
-	typeTag := modelTypeTag(r, r.loop.config.Model)
-	var right string
-	if typeTag != "" {
-		right = model + dim("|") + typeTag
-	} else {
-		right = model
-	}
-	if thinking := r.loop.Thinking(); thinking != nil && thinking.Mode != domain.ThinkingModeNone {
-		right += dim("|") + meta(string(thinking.Mode))
-	}
-	right += dim(fmt.Sprintf("|%dt", turns))
+	left := bold(r.loop.config.Model)
+	left += dim(fmt.Sprintf(" · %dt", turns))
 	if ctxStr := r.contextUsageStr(); ctxStr != "" {
-		right += dim("|") + meta(ctxStr)
+		left += dim(" · ") + meta(ctxStr)
 	}
 
-	// Build a single modeline with left status and right model info,
-	// separated by enough dashes to fill the terminal width.
-	left := strings.TrimRight(tcStr, " ")
-	right = " " + right + " "
+	// Right: only active pipeline metrics (hide zeros except in/out).
+	var right []string
+	tc := r.tokenCounter
+	if tc != nil {
+		in, out := tc.InputTokens(), tc.OutputTokens()
+		right = append(right, fmt.Sprintf("in:%s", formatCompactCount(in)))
+		right = append(right, fmt.Sprintf("out:%s", formatCompactCount(out)))
+	}
+	if calls, max := WebConvergenceCalls(); max > 0 && calls > 0 {
+		right = append(right, fmt.Sprintf("web:%d/%d", calls, max))
+	}
+	if calls, max := BashConvergenceCalls(); max > 0 && calls > 0 {
+		right = append(right, fmt.Sprintf("sh:%d/%d", calls, max))
+	}
+	if calls, max := FileConvergenceCalls(); max > 0 && calls > 0 {
+		right = append(right, fmt.Sprintf("file:%d/%d", calls, max))
+	}
+	if calls, max := CodeConvergenceCalls(); max > 0 && calls > 0 {
+		right = append(right, fmt.Sprintf("src:%d/%d", calls, max))
+	}
+	if r.loop.memoryStore != nil {
+		if n := r.loop.memoryStore.Len(); n > 0 {
+			right = append(right, fmt.Sprintf("mem:%d", n))
+		}
+	}
+	rightStr := meta(strings.Join(right, "  "))
+
+	// Fill between left and right.
 	w := terminalWidth()
-	fill := w - lipgloss.Width(left) - lipgloss.Width(right)
+	lw := lipgloss.Width(left)
+	rw := lipgloss.Width(rightStr)
+	fill := w - lw - rw - 2
 	if fill < 1 {
 		fill = 1
 	}
-	return dim(left + strings.Repeat("─", fill)) + dim(right)
+	return left + "  " + dim(strings.Repeat(" ", fill)) + rightStr
 }
 
 // modelTypeTag returns a colored tag naming the model's backend type
