@@ -1758,6 +1758,9 @@ func (r *REPL) handleReadError(err error) (bool, error) {
 
 // processInput routes a non-empty input line to a command or LLM turn.
 func (r *REPL) processInput(input string) error {
+	// Reset convergence counters per user request.
+	ResetConvergence()
+
 	// Slash and bang commands are typed on one line; pasted multi-line input is
 	// always literal content for the LLM. Slash commands run without a model, so
 	// dispatch them before the model check.

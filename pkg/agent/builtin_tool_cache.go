@@ -94,6 +94,20 @@ var (
 	globalCodeCache = &convergenceCache{m: make(map[string]string), max: maxCodeToolCalls, msg: "ALL code searches blocked — narrow your approach and work with existing results"}
 )
 
+func (c *convergenceCache) reset() {
+	c.mu.Lock()
+	c.m = make(map[string]string)
+	c.calls = 0
+	c.mu.Unlock()
+}
+
+func ResetConvergence() {
+	globalWebCache.reset()
+	globalBashCache.reset()
+	globalFileCache.reset()
+	globalCodeCache.reset()
+}
+
 func WebConvergenceCalls() (calls, max int)  { return globalWebCache.count() }
 func BashConvergenceCalls() (calls, max int) { return globalBashCache.count() }
 func FileConvergenceCalls() (calls, max int) { return globalFileCache.count() }
