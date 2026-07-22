@@ -88,10 +88,10 @@ func (c *convergenceCache) trackCall(key string, fn func() (string, error)) (str
 }
 
 var (
-	globalWebCache  = &convergenceCache{m: make(map[string]string), max: maxWebToolCalls, msg: "stop searching — synthesize from data already gathered"}
-	globalBashCache = &convergenceCache{m: make(map[string]string), max: maxBashToolCalls, msg: "too many distinct shell commands — consolidate your approach"}
-	globalFileCache = &convergenceCache{m: make(map[string]string), max: maxFileToolCalls, msg: "too many file reads — consolidate your approach"}
-	globalCodeCache = &convergenceCache{m: make(map[string]string), max: maxCodeToolCalls, msg: "too many code searches — narrow your query"}
+	globalWebCache  = &convergenceCache{m: make(map[string]string), max: maxWebToolCalls, msg: "ALL web/search calls blocked — do NOT retry with different queries. Synthesize your answer NOW from the data you already have."}
+	globalBashCache = &convergenceCache{m: make(map[string]string), max: maxBashToolCalls, msg: "ALL shell commands blocked — consolidate your approach and continue without bash_exec"}
+	globalFileCache = &convergenceCache{m: make(map[string]string), max: maxFileToolCalls, msg: "ALL file reads blocked — work with what you have already read"}
+	globalCodeCache = &convergenceCache{m: make(map[string]string), max: maxCodeToolCalls, msg: "ALL code searches blocked — narrow your approach and work with existing results"}
 )
 
 func WebConvergenceCalls() (calls, max int)  { return globalWebCache.count() }

@@ -1553,10 +1553,12 @@ TOKEN COUNTER — every GenerateContent call records prompt + completion
 tokens. Visible as [in:12k|out:3k] on every status line. You do not need
 to track tokens yourself; the harness handles it.
 
-CONVERGENCE — after 3 web_search or web_scraper calls in a session,
-further calls return "convergence (3 calls): stop searching — synthesize
-from data already gathered". This is a hard limit. When you see it, stop
-researching and answer with what you have.
+CONVERGENCE — after 3 web calls, ALL web_search, web_scraper, wikipedia,
+serpapi, and perplexity calls are BLOCKED for the rest of the session.
+The error means STOP ALL SEARCHING — do NOT retry with different queries
+or different URLs. It is not a per-query failure; it is a session-wide
+hard block. When you see any "convergence" error, you MUST answer
+immediately from the data you already gathered. No exceptions.
 
 COMPACTION — when context exceeds the token threshold, the harness
 auto-compacts: conversation → CompactWithLLM → LLM summary →
