@@ -25,6 +25,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 	"time"
 
@@ -57,11 +58,34 @@ func resolveMemoryDBPath(dbPath string) string {
 	if envPath := os.Getenv("KDEPS_MEMORY_DB_PATH"); envPath != "" {
 		return envPath
 	}
-	homeDir, err := os.UserHomeDir()
-	if err != nil {
+	homeDir, homeErr := os.UserHomeDir()
+	if homeErr != nil {
 		homeDir = "."
 	}
-	return filepath.Join(homeDir, ".kdeps", "memory.db")
+	defaultPath := filepath.Join(homeDir, ".kdeps", "memory.db")
+
+	// Under go test, use a unique temp file so parallel test suites don't
+	// contend on the same bbolt file lock. bbolt serializes concurrent
+	// goroutines within a single process, but its flock blocks other
+	// processes — each parallel test suite is a separate process.
+	if isTestBinary(os.Args[0]) {
+		f, err := os.CreateTemp("", "kdeps-memory-*.db")
+		if err != nil {
+			return defaultPath
+		}
+		path := f.Name()
+		_ = f.Close()
+		return path
+	}
+	return defaultPath
+}
+
+// isTestBinary reports whether the current binary is a test binary.
+// go test compiles test binaries with a ".test" suffix; Delve debug
+// binaries contain "__debug_bin" in their path.
+func isTestBinary(name string) bool {
+	return strings.HasSuffix(name, ".test") ||
+		strings.Contains(name, "__debug_bin")
 }
 
 func ensureMemoryDBDirectory(dbPath string) error {
