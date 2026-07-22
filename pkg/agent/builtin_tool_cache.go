@@ -25,9 +25,9 @@ import (
 
 const (
 	maxWebToolCalls  = 3
-	maxBashToolCalls = 10
-	maxFileToolCalls = 20
-	maxCodeToolCalls = 10
+	maxBashToolCalls = 25
+	maxFileToolCalls = 40
+	maxCodeToolCalls = 15
 )
 
 // convergenceCache tracks distinct tool calls and enforces a session limit.
