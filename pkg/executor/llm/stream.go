@@ -1390,6 +1390,4 @@ func recordTokenUsage(resp *llms.ContentResponse) {
 	}
 	TokenInputs += inputs
 	TokenOutputs += outputs
-	// Debug: always print so we can verify the hook fires.
-	fmt.Fprintf(os.Stderr, "\n[token] in=%d out=%d (total: in=%d out=%d)\n", inputs, outputs, TokenInputs, TokenOutputs)
 }
