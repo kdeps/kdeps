@@ -294,17 +294,17 @@ func monitorStatus(
 			}
 			return " · stalled — killing"
 		}
-		return " · stalled — press 'k' kill tool, ^C cancel turn"
+		return " · stalled — press ^C to cancel turn"
 	case stalled:
 		if isHeadless() {
 			return " · stalled — killing"
 		}
-		return " · stalled — press 'k' kill tool, ^C cancel turn"
+		return " · stalled — press ^C to cancel turn"
 	case silence >= toolStallWarnAfter:
 		if isHeadless() {
 			return fmt.Sprintf(" · no output for %s", silence.Round(time.Second))
 		}
-		return fmt.Sprintf(" · no output for %s · press 'k' kill tool, ^C cancel turn", silence.Round(time.Second))
+		return fmt.Sprintf(" · no output for %s · press ^C to cancel turn", silence.Round(time.Second))
 	case tracker.Last() != "":
 		return " · " + truncateEllipsis(tracker.Last(), toolMonitorTailLen)
 	default:
