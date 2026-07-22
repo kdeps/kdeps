@@ -1226,6 +1226,9 @@ func (e *Executor) StreamChat(
 		return "", nil, fmt.Errorf("stream: generate: %w", mapLLMError(backend, err))
 	}
 
+	// Record token usage for the REPL token counter.
+	recordTokenUsage(resp)
+
 	// Flush buffered thinking content as rendered markdown.
 	FlushThinkingBuf(cfg, w)
 
@@ -1345,3 +1348,45 @@ func (e *Executor) streamChatOnce(
 
 	return content, toolCalls, nil
 }
+
+// TokenRecorder is an optional hook called after every GenerateContent call
+// with the input and output token counts extracted from GenerationInfo.
+// Set by the agent layer to feed the REPL token counter.
+var TokenRecorder func(inputTokens, outputTokens int64)
+
+// recordTokenUsage extracts token counts from a GenerateContent response and
+// feeds them to TokenRecorder if set.
+func recordTokenUsage(resp *llms.ContentResponse) {
+	if TokenRecorder == nil || resp == nil || len(resp.Choices) == 0 {
+		return
+	}
+	info := resp.Choices[0].GenerationInfo
+	if info == nil {
+		return
+	}
+	extract := func(key string) int64 {
+		if v, ok := info[key]; ok {
+			switch n := v.(type) {
+			case int:
+				return int64(n)
+			case int64:
+				return n
+			case float64:
+				return int64(n)
+			}
+		}
+		return 0
+	}
+	inputs := extract("PromptTokens")
+	if inputs == 0 {
+		inputs = extract("InputTokens")
+	}
+	outputs := extract("CompletionTokens")
+	if outputs == 0 {
+		outputs = extract("OutputTokens")
+	}
+	if inputs > 0 || outputs > 0 {
+		TokenRecorder(inputs, outputs)
+	}
+}
+

@@ -1,6 +1,5 @@
 # kdeps
 
-[![NVIDIA Inception](https://img.shields.io/badge/NVIDIA-Inception-76B900?logo=nvidia&logoColor=white)](https://www.nvidia.com/en-us/startups/)
 [![Build and Test](https://github.com/kdeps/kdeps/actions/workflows/build-test.yml/badge.svg?branch=main)](https://github.com/kdeps/kdeps/actions/workflows/build-test.yml)
 [![Coverage](https://codecov.io/gh/kdeps/kdeps/branch/main/graph/badge.svg)](https://codecov.io/gh/kdeps/kdeps)
 [![Release](https://img.shields.io/github/v/tag/kdeps/kdeps?sort=semver&label=release)](https://github.com/kdeps/kdeps/releases)
@@ -12,47 +11,9 @@
 [![Registry](https://img.shields.io/badge/registry-kdeps.io-00E5FF)](https://kdeps.io)
 [![GitHub stars](https://img.shields.io/github/stars/kdeps/kdeps)](https://github.com/kdeps/kdeps/stargazers)
 
-Run AI workflows locally. Or deploy them anywhere. Proud member of the [NVIDIA Inception](https://www.nvidia.com/en-us/startups/) program for AI startups.
+Build and deploy AI agents in YAML. Two modes: **workflow** (DAG pipelines), **agent** (autonomous LLM loop).
 
-## Run in 30 seconds
-
-```bash
-# Install
-brew install kdeps/tap/kdeps
-# or
-curl -LsSf https://raw.githubusercontent.com/kdeps/kdeps/main/install.sh | sh
-
-# Run - you're in an AI REPL immediately
-kdeps
-```
-
-No API key needed if you have [Ollama](https://ollama.com) or [llamafile](https://github.com/Mozilla-Ocho/llamafile) installed. kdeps auto-detects local models and downloads them on first use.
-
-```bash
-kdeps --model llama3.2              # use any Ollama model
-kdeps --model llama3.2:1b-q4        # GGUF quantization - auto-downloaded from HuggingFace
-kdeps --model /path/to/model.gguf   # point directly at a local GGUF file
-kdeps ./my-agent/                   # load your workflow as tools for the agent
-```
-
-**Local models** - three options, zero cloud dependency:
-- **Ollama** (`backend: ollama`) - managed model server, `ollama pull llama3.2` then `kdeps`
-- **llamafile** (`backend: file`) - model + server as a single binary, runs on any OS, no install
-- **GGUF** (`backend: gguf`) - raw GGUF files, point `llm.model_path` at a local file or auto-download from HuggingFace; use `/model hff search <query>` and `/model hff download <repo> <file>` to find and fetch models without leaving the REPL
-
-Slash commands inside the REPL: `/model` switches models (opens a TUI picker if no argument), `/model default <name>` saves a startup model to `~/.kdeps/agent-loop-settings.yaml`, `/model ps` lists running local servers (sub-commands: `kill`, `switch`), `/model hff search <query>` searches HuggingFace for GGUF models and `/model hff download <repo> <file>` downloads and registers one, `/clear` resets context, `/help` shows all commands, `/exit` quits. Sessions persist under `~/.kdeps/sessions/` and resume with `--resume <session-id>`.
-
-## Build with AI assistance
-
-Use Claude Code, Cursor, or any coding agent to scaffold kdeps workflows:
-
-```bash
-npx skills add https://github.com/kdeps/skill --skill kdeps
-```
-
-Then ask your agent: *"create a kdeps workflow that summarizes a URL and returns JSON"* - it knows the full schema, resource types, and packaging format. Works with the global flag (`-g`) to install once for all projects.
-
-Docs: [kdeps.com/getting-started/agent-skills](https://kdeps.com/getting-started/agent-skills)
+> **Highly experimental.** APIs, schemas, and CLI flags change without notice. Not for production. [Report issues](https://github.com/kdeps/kdeps/issues).
 
 ## Book
 
@@ -65,67 +26,23 @@ Hands-on guide covering deterministic pipelines, multi-agent orchestration, erro
 
 <br clear="right">
 
-## Build your own workflow
-
-A workflow is a DAG of resources. Each step declares what it needs via `requires:` and runs in the correct order automatically.
+## Install
 
 ```bash
-kdeps new my-agent          # scaffold a new workflow directory
-cd my-agent
-kdeps run workflow.yaml     # run a single workflow file
-kdeps run .                 # run from directory (finds workflow.yaml automatically)
-kdeps run . --dev           # hot reload on file change
+curl -LsSf https://raw.githubusercontent.com/kdeps/kdeps/main/install.sh | sh
 ```
 
-See the full YAML example under [Workflow mode](#workflow-mode) below, or scaffold one with the [kdeps skill](#build-with-ai-assistance).
-
-## Distribute your agents
-
-Workflows, components, and agencies compile to portable package files:
+Or with Homebrew (macOS and Linux):
 
 ```bash
-kdeps bundle package my-agent/        # creates my-agent-1.0.0.kdeps
-kdeps bundle package my-component/    # creates my-component-1.0.0.komponent
-kdeps bundle package my-agency/       # creates my-agency-1.0.0.kagency
+brew install kdeps/tap/kdeps
 ```
-
-Recipients run or install them directly - no source needed:
-
-```bash
-# Run a package file directly (no install step)
-kdeps run my-agent-1.0.0.kdeps
-kdeps run my-agency-1.0.0.kagency
-
-# Or install system-wide and run by name
-kdeps registry install my-agent.kdeps       # installs to ~/.kdeps/agents/my-agent/
-kdeps registry install my-comp.komponent    # installs to ~/.kdeps/components/my-comp/
-kdeps exec my-agent                         # run installed agent by name
-kdeps registry install my-agent            # install by name from kdeps.io
-```
-
-Publish to [kdeps.io](https://kdeps.io) for one-line install by the community:
-
-```bash
-kdeps registry verify .
-kdeps registry submit --tag v1.0.0
-```
-
-## Deploy anywhere
-
-```bash
-kdeps bundle build          # Docker image
-kdeps bundle export iso     # bootable edge ISO
-kdeps bundle prepackage     # self-contained binary per arch
-kdeps export k8s            # Kubernetes manifests
-```
-
-Full deployment guide: [kdeps.com/guides/deployment-guide](https://kdeps.com/guides/deployment-guide)
 
 ## Modes
 
 ### Workflow mode
 
-DAG-deterministic pipelines. Each resource declares its dependencies via `requires:` and runs in a fixed order - same input always produces the same execution path. Inputs are validated before any LLM is called; failures are fast and explicit, not hallucinated. Supports API server, web server, file input, and bot input.
+DAG-deterministic request/response pipelines. Each resource declares its dependencies via `requires:` and runs in order. Supports API server, web server, file input, and bot input.
 
 ```
 POST /summarize  {"url": "..."}
@@ -159,29 +76,25 @@ settings:
       - path: /summarize
         methods: [POST]
   agentSettings:
-    timezone: Etc/UTC
+    installOllama: true
 ```
 
 ```yaml
 # resources/fetch.yaml
 actionId: fetch
-name: Fetch Page
 httpClient:
   method: GET
   url: "{{ get('url') }}"
   timeout: 10s
-```
 
-```yaml
-# resources/respond.yaml
+---
 actionId: respond
-name: Summarize and Respond
 requires: [fetch]
 chat:
-  model: llama3.2:1b  # local llamafile, auto-downloaded on first run - no LLM server needed
+  model: llama3.2:1b
   prompt: "Summarize this page: {{ output('fetch').body }}"
 apiResponse:
-  response: "{{ output('respond').message.content }}"  # the model's reply text
+  response: "{{ output('respond') }}"
 ```
 
 ```bash
@@ -189,23 +102,13 @@ kdeps run workflow.yaml          # local, instant startup
 kdeps run workflow.yaml --dev    # hot reload
 ```
 
-**Resource types:** `chat`, `httpClient`, `python`, `exec`, `sql`, `email`, `scraper`, `browser`, `embedding`, `searchLocal`, `searchWeb`, `agent`, `component`, `file`, `git`, `codeIntelligence`, `loader`, `vectorStore`, `transcribe`
-
-**LLM providers:** OpenAI, Anthropic, Google (Gemini / Vertex AI), DeepSeek, Groq, xAI, Mistral, Cohere, Together, Perplexity, OpenRouter, Bedrock (AWS), WatsonX (IBM), Cloudflare, HuggingFace, Maritaca, Ernie — plus Ollama, llamafile, and GGUF for local inference
-
-**Advanced LLM features:** chain-of-thought injection, semantic few-shot selection (embedding-based), Anthropic prompt caching + 128K extended output, Google AI cached content + Vertex AI, Ollama extended thinking, per-provider sampling controls (`candidateCount`, `minLength`, `maxLength`)
-
-**Embedding backends:** OpenAI, Google, HuggingFace, Jina, VoyageAI, Bedrock, Cybertron (local), Ollama
-
-**Vector store providers:** Qdrant, Chroma, Pinecone, Weaviate, OpenSearch, pgvector, MongoDB, Redis, Azure AI Search, MariaDB, Dolt, Bedrock Knowledge Bases
-
-**Download acceleration:** aria2c with resume support, configurable via `llm.aria2c_flags` in config.yaml — falls back to built-in HTTP downloader if aria2c is not installed. Ctrl+C cancels an in-flight download immediately (no silent restart via the HTTP fallback)
+**Resource types:** `chat`, `httpClient`, `python`, `exec`, `sql`, `email`, `scraper`, `browser`, `embedding`, `searchLocal`, `searchWeb`, `agent`, `component`
 
 **Expressions:** `get('key')` reads request input, `output('actionId')` reads a prior step's result, `set('key', val)` stores state. All expressions are safe inside `{{ }}` — Jinja2 control flow (`{% if %}`, `{% for %}`) is also supported.
 
 ### Agent mode
 
-Autonomous LLM loop. Each workflow is registered as a callable tool, named after its `metadata.name` -- the LLM decides which tools to call, in what order, to complete the task. Calling a tool runs that workflow's full pipeline, so every `requires:` dependency resolves correctly. Agencies and installed components become tools too; individual resources are never exposed directly.
+Autonomous LLM loop. Every resource in the workflow is auto-registered as a callable tool -- the LLM decides which tools to call, in what order, to complete the task.
 
 ```
 stdin prompt
@@ -215,11 +118,11 @@ stdin prompt
 |  LLM                |  plans steps, picks tools
 +---------------------+
       |
-      +-- call tool: summarizer    -->  runs that workflow's full DAG
+      +-- call tool: httpClient  -->  fetch URL
       |
-      +-- call tool: research-bot  -->  runs another workflow
+      +-- call tool: python      -->  process data
       |
-      +-- call tool: scraper       -->  runs an installed component
+      +-- call tool: sql         -->  query database
       |
       v
 +---------------------+
@@ -231,31 +134,15 @@ stdin prompt
 ```
 
 ```bash
-kdeps                              # model-only REPL, no workflows
-kdeps ./my-agent/                  # one workflow = one tool
-kdeps ./agents/                    # folder = every workflow inside becomes a tool
-kdeps ./my-agent/ --model llama3.2 --system "You are a DevOps assistant."
-kdeps --skill ~/.kdeps/skills/     # load skill files into the agent
-kdeps --resume <session-id>        # continue a previous conversation
+kdeps serve workflow.yaml
+kdeps serve workflow.yaml --model llama3.2 --system "You are a DevOps assistant."
 ```
 
-The agent reads from stdin (REPL with slash commands: `/help`, `/clear`, `/model`, `/skills`, `/history`, `/exit`) and runs until you exit. Sessions are persisted as JSONL under `~/.kdeps/sessions/` and can be resumed with `--resume`. Workflows, agencies, and installed components are available as tools without any extra wiring.
-
-Responses render as color markdown with syntax-highlighted code, auto-detecting the terminal's color depth (truecolor / 256-color / none) so colors don't collapse to gray on terminals without 24-bit color; streamed reasoning (`/thinking`) renders as live markdown, updating in place. A pasted block collapses to a single `▧` marker you can edit around with the arrow keys or `Ctrl+A`/`Ctrl+E` — type before or after it and submit once; the marker expands back to the full paste, sent as one prompt.
-
-`/model` with no arguments opens an interactive TUI model picker with search, type-to-filter, and visual tags for local vs cloud models. When [llmfit](https://github.com/AlexsJones/llmfit) is installed, each local model also shows a hardware-fit score (0-100) and level — Perfect, Good, Marginal, or Too Tight — so you can pick a model your machine can actually run; the fit level is searchable in the picker (type `perfect` or `tight`). When aria2c or llmfit is missing, the REPL prints an install tip at startup. `/model <name>` switches models and auto-starts local servers for llamafile, GGUF, and Ollama models. Model downloads use aria2c for fast parallel downloads with resume support. Local model servers are automatically cleaned up on exit. If a request exceeds the local server's context window, the REPL suggests the `/context <size>` fix.
-
-```bash
-kdeps llamafile list               # list all LF + GGUF + Ollama models
-kdeps llamafile update             # refresh from HuggingFace
-```
-
-When [rtk](https://github.com/rtk-ai/rtk) is installed (`brew install rtk`), `bash_exec` routes commands through it automatically, compressing output by up to 90% before it reaches the LLM — `git status` runs as `rtk git status` and costs a fraction of the tokens. Nothing to configure, and nothing breaks without it: if rtk is missing or has no compression for a command, the original runs unchanged. rtk never blocks execution and never affects kdeps's own permission checks. Agent mode only — workflow `exec` resources keep raw output. Set `KDEPS_RTK=off` to opt out. See [Agent loop mode](docs/v2/modes/agent-loop-mode.md#token-savings-with-rtk-optional).
+The agent reads from stdin and runs until you exit. All resource types (http, python, exec, sql, ...) are available as tools without any extra wiring.
 
 ```
 KDEPS_AGENT_MODEL=claude-3-5-sonnet   # override model via env
 KDEPS_AGENT_BACKEND=anthropic
-KDEPS_RTK=off                         # disable rtk output compression
 ```
 
 ## Agencies
@@ -282,19 +169,16 @@ POST /run-marketing-pipeline
 The orchestrating workflow calls each agent in order using `agent:`:
 
 ```yaml
-# resources/draft.yaml
+# resources/pipeline.yaml
+
 actionId: draft
-name: Draft Post
 agent:
   name: content-writer        # runs agents/content-writer/workflow.yaml
   params:
     topic: "{{ get('topic') }}"  # passed as get('topic') inside that agent
-```
 
-```yaml
-# resources/publish.yaml
+---
 actionId: publish
-name: Publish Post
 requires: [draft]
 agent:
   name: cms-publisher         # runs agents/cms-publisher/workflow.yaml
@@ -308,6 +192,15 @@ Run an agency:
 
 ```bash
 kdeps run agency.yaml
+```
+
+## Build and deploy
+
+```bash
+kdeps bundle build          # Docker image
+kdeps bundle export iso     # bootable edge ISO
+kdeps bundle prepackage     # self-contained binary per arch
+kdeps export k8s            # Kubernetes manifests
 ```
 
 ## Registry
@@ -330,95 +223,17 @@ git clone https://github.com/kdeps/skill ~/.claude/skills/kdeps
 
 Docs: [kdeps.com/getting-started/agent-skills](https://kdeps.com/getting-started/agent-skills)
 
-## Lean mode & presets
-
-Restrict the agent tool surface for CI and automation:
-
-```bash
-# Lean mode -- no bash, no network tools
-KDEPS_LEAN_MODE=true kdeps ./my-agent/
-
-# Agent presets -- combines lean mode + permission mode
-KDEPS_AGENT_PRESET=audit       kdeps ./my-agent/    # read-only, lean tools
-KDEPS_AGENT_PRESET=explain     kdeps ./my-agent/    # read-only, lean tools
-KDEPS_AGENT_PRESET=implement   kdeps ./my-agent/    # workspace-write, lean tools
-```
-
-Tools available in lean mode: file operations (`read_file`, `write_file`, `edit_file`, `list_files`), code intelligence (`code_search`, `code_definition`, `code_references`, `code_symbols`, `code_hover`, `code_diagnostics`, `search_local`), document loading (`load_document`), computation (`calculator`), embeddings (`embedding_vectorize`, `embedding_search`), and transcription (`transcribe_audio`). Everything else -- `bash_exec`, `web_search`, `web_scraper`, `wikipedia`, `http_request` -- is excluded.
-
-## Persistent memory
-
-The agent automatically remembers facts across sessions. Memory is stored as JSONL at `~/.kdeps/memory/` with per-project isolation. No YAML configuration needed — enabled by default.
-
-**Automatic capture:**
-- Every tool call result is saved as a memory entry (write/exec/search tools)
-- `[MEMORY: key] value` markers in any response are captured
-- Action sentences and file references extracted from each turn
-- Compaction summaries auto-captured as checkpoint entries
-- Entries auto-link into a type-based dependency graph
-
-**LLM-callable tools:**
-| Tool | Description |
-|------|-------------|
-| `memory_save` | Save a fact with key and value |
-| `memory_search` | Search entries by key or value (case-insensitive) |
-| `memory_delete` | Remove an entry by key |
-| `memory_list` | List all stored keys |
-
-**Graph:** Entries form a directed graph (`prompt -> purpose -> progress -> tool_result -> result -> status`) inlined into the `<memory>` block on every LLM call — entries in causal order, each showing its `<- parent` edge, with the current unfinished task flagged `<== RESUME` and its relative age (e.g. `resume: result:build (2m ago)`) so a cold model can tell if the resume point is fresh or stale. The LLM can trace how facts relate and where to continue.
-
-**Persistence:** Model, backend, and base URL are saved on `/model` switch and restored on next run. Working directory saved on start and resume.
-
-Read the full docs: [Persistent Memory](https://kdeps.com/concepts/memory)
-
-## Tool budget and stall timeout
-
-The agent loop tracks a tool budget (`MaxToolRounds`) and stall timeout. Auto-allocation is enabled by default — budgets increase automatically without interactive prompts. Tunable via `/model tool set rounds <n>` and `/model tool set stall-timeout <dur>`.
-
-## Agent registries
-
-The agent loop maintains three in-memory registries for task, team, and cron lifecycle management:
-
-- **TaskRegistry** -- tracks every task (`task-N`) with status lifecycle (`created` -> `running` -> `completed`/`failed`/`stopped`), output transcripts, heartbeat-based stall detection, and team assignment
-- **TeamRegistry** -- groups tasks for multi-agent coordination with `AddTask`, `SetStatus`, `Delete`
-- **CronRegistry** -- scheduled task creation via cron expressions. Cron jobs fire automatically from a background goroutine in `kdeps serve` — no manual polling needed. Manage with `cron_create`, `cron_list`, `cron_pause`, `cron_resume`, `cron_delete`.
-
-All three are concurrency-safe singletons.
-
-## Approval tokens
-
-When a tool call is denied by the permission mode, the agent can request a one-time exception via an approval token with a TTL. The approval lifecycle:
-
-1. Agent attempts a blocked tool call (e.g. `bash_exec` in `read-only` mode)
-2. Agent calls `approval_request(tool="bash_exec", action="rm -rf /tmp/cache")` -- creates a `pending` token
-3. Agent calls `approval_list` to show you the pending token
-4. You run `/run approval_grant token_id=apt-1`
-5. Agent retries -- `BeforeToolCall` finds the granted token via `FindMatchingGranted`, consumes it, and lets the call proceed
-
-| Tool | Description |
-|------|-------------|
-| `approval_request` | Create a pending token for a tool+action scope |
-| `approval_grant` | Grant a pending token |
-| `approval_list` | List all tokens with status |
-| `approval_revoke` | Revoke a granted or pending token |
-
 ## Global config
-
-On the first run in a terminal with no config, an interactive wizard asks how to
-run models - **llamafile**, **gguf**, **cloud** (pick a provider + API key),
-**ollama**, or **router** (multi-model routing by strategy) - and writes
-`~/.kdeps/config.yaml` for you. Non-interactive runs get a commented template
-instead. Re-run it by deleting the file, or edit directly:
 
 ```bash
 kdeps edit    # opens ~/.kdeps/config.yaml
-kdeps doctor  # check config, LLM backend, Python, installed agents
+kdeps doctor  # check config, Ollama, Python, installed agents
 ```
 
 ```yaml
 # ~/.kdeps/config.yaml
 llm:
-  backend: file             # default: local llamafile, no server install. Also: gguf, ollama, openai, anthropic, groq, xai, openrouter, ...
+  backend: ollama           # ollama, openai, anthropic, groq, ...
   openai_api_key: sk-...    # only needed for the relevant backend
 
 defaults:
@@ -444,18 +259,6 @@ agents:
 ```
 
 Config is validated on load. Warnings go to stderr for unknown keys, missing API keys, invalid durations, and agent profiles that don't match any installed workflow.
-
-**Interactive setup on first run:** when a workflow, component, or agency needs configuration that is missing from `~/.kdeps/config.yaml`, `kdeps run` prompts for it at startup and saves it back (existing content and comments preserved):
-
-- **Named connections** — `smtp_connections`, `imap_connections`, `sql_connections`, `http_connections`, `search_connections`.
-- **Cloud LLM API keys** — when a `chat` resource uses a cloud model (e.g. `model: deepseek-chat`) whose provider key is missing, kdeps prompts for it, saves `llm.<provider>_api_key`, and — if no default backend is set — points `llm.backend` at that provider so the model routes correctly.
-- **apiServer auth token** — when `settings.apiServer` is configured and no token is set, kdeps prompts for `api_auth_token` (blank auto-generates a random one).
-
-This is interactive-only — when stdin is not a terminal (CI, pipes), prompts are skipped and the usual "not found" / "missing token" errors surface as before.
-
-Values already supplied by an environment variable (e.g. `DEEPSEEK_API_KEY`, `KDEPS_API_AUTH_TOKEN`) are **not** prompted for and **not** written to `config.yaml` — kdeps prints a notice that the value is being used from the environment.
-
-**Everything is env-overridable.** Named connections can be supplied entirely from the environment with the convention `KDEPS_<KIND>_CONNECTIONS_<NAME>_<FIELD>` (e.g. `KDEPS_SQL_CONNECTIONS_MAIN_CONNECTION`, `KDEPS_SMTP_CONNECTIONS_ALERTS_HOST`) — no `config.yaml` entry needed. Env values win per field; connection names are lowercased. See the [connections env-var reference](https://kdeps.com/resources/email.html#set-connections-via-environment-variables).
 
 ## Security
 

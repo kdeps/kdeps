@@ -214,11 +214,22 @@ type REPL struct {
 	termSnap *termSnapshot
 }
 
+// registerTokenRecorderOnce ensures the LLM TokenRecorder hook is set
+// exactly once, even if multiple REPLs are created.
+var registerTokenRecorderOnce sync.Once
+
 // NewREPL creates a new REPL for the given agent loop, deriving its context
 // tree from rootCtx (the single root for the entire session).
 func NewREPL(rootCtx context.Context, loop *Loop) *REPL {
 	loopCtx, loopCancel := context.WithCancel(rootCtx)
 	turnCtx, turnCancel := context.WithCancel(loopCtx)
+	// Wire the LLM token recorder so the REPL token counter updates
+	// after every GenerateContent call.
+	registerTokenRecorderOnce.Do(func() {
+		llm.TokenRecorder = func(in, out int64) {
+			GlobalPromptCacheStats.RecordCacheUsageFromTokens(in, out)
+		}
+	})
 	r := &REPL{
 		loop:       loop,
 		loopCtx:    loopCtx,
