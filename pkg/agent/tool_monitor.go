@@ -172,6 +172,7 @@ func runQuietMonitor(mw *monitoredWriter, label string, start time.Time, stop <-
 	defer tick.Stop()
 	i := 0
 	for {
+		tcStr := compactTokenStatus()
 		select {
 		case <-tick.C:
 			silence := mw.track.Silence()
@@ -184,8 +185,8 @@ func runQuietMonitor(mw *monitoredWriter, label string, start time.Time, stop <-
 				warn = fmt.Sprintf(" · no output for %s (Ctrl+C to kill)", silence.Round(time.Second))
 			}
 			elapsed := time.Since(start).Round(time.Second)
-			mw.drawFrame(fmt.Sprintf("\r  %s %s running (%s)%s\033[K",
-				styleReplInfo.Render(frames[i%len(frames)]), label, elapsed, warn))
+			mw.drawFrame(fmt.Sprintf("\r%s  %s %s running (%s)%s\033[K",
+				tcStr, styleReplInfo.Render(frames[i%len(frames)]), label, elapsed, warn))
 			i++
 		case <-stop:
 			mw.clearFrame()
@@ -271,6 +272,7 @@ func runToolMonitor(
 	killReaderStarted := false
 	killCh := make(chan struct{}, 1)
 	for {
+		tcStr := compactTokenStatus()
 		select {
 		case <-tick.C:
 			if i == 0 && beforeFirstDraw != nil {
@@ -282,15 +284,15 @@ func runToolMonitor(
 			if !stalled && stallTimeout > 0 && silence >= stallTimeout {
 				stalled = true
 			}
-			fmt.Fprintf(w, "\r  %s %s running (%s)%s\033[K",
-				styleReplInfo.Render(frames[i%len(frames)]), name, elapsed, status)
+			fmt.Fprintf(w, "\r%s  %s %s running (%s)%s\033[K",
+				tcStr, styleReplInfo.Render(frames[i%len(frames)]), name, elapsed, status)
 			i++
 		case <-killCh:
 			if onStall != nil {
 				onStall()
 			}
-			fmt.Fprintf(w, "\r  %s %s running (%s) · stalled — killing\033[K",
-				styleReplInfo.Render(frames[i%len(frames)]), name, time.Since(start).Round(time.Second))
+			fmt.Fprintf(w, "\r%s  %s %s running (%s) · stalled — killing\033[K",
+				tcStr, styleReplInfo.Render(frames[i%len(frames)]), name, time.Since(start).Round(time.Second))
 		case <-stop:
 			return
 		}

@@ -1213,16 +1213,15 @@ func drawSpinnerFrames(out io.Writer, skip func() bool, done <-chan struct{}) {
 	tick := time.NewTicker(replTickerMs * time.Millisecond)
 	defer tick.Stop()
 	i := 0
+	tcStr := compactTokenStatus()
 	for {
 		select {
 		case <-tick.C:
 			if skip != nil && skip() {
 				continue
 			}
-			// \033[K erases anything right of the frame so a longer leftover
-			// line can never bleed past "generating".
 			frame := styleReplInfo.Render(spinFrames[i%len(spinFrames)])
-			fmt.Fprintf(out, "\r  %s generating\033[K", frame)
+			fmt.Fprintf(out, "\r%s  %s generating\033[K", tcStr, frame)
 			i++
 		case <-done:
 			return
