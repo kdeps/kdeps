@@ -420,25 +420,13 @@ func (r *REPL) modeline() string {
 		left += dim(" · ") + meta(ctxStr)
 	}
 
-	// Right: only active pipeline metrics (hide zeros except in/out).
+	// Right: token I/O and memory count.
 	var right []string
 	tc := r.tokenCounter
 	if tc != nil {
 		in, out := tc.InputTokens(), tc.OutputTokens()
 		right = append(right, fmt.Sprintf("in:%s", formatCompactCount(in)))
 		right = append(right, fmt.Sprintf("out:%s", formatCompactCount(out)))
-	}
-	if calls, max := WebConvergenceCalls(); max > 0 && calls > 0 {
-		right = append(right, fmt.Sprintf("web:%d/%d", calls, max))
-	}
-	if calls, max := BashConvergenceCalls(); max > 0 && calls > 0 {
-		right = append(right, fmt.Sprintf("sh:%d/%d", calls, max))
-	}
-	if calls, max := FileConvergenceCalls(); max > 0 && calls > 0 {
-		right = append(right, fmt.Sprintf("file:%d/%d", calls, max))
-	}
-	if calls, max := CodeConvergenceCalls(); max > 0 && calls > 0 {
-		right = append(right, fmt.Sprintf("src:%d/%d", calls, max))
 	}
 	if r.loop.memoryStore != nil {
 		if n := r.loop.memoryStore.Len(); n > 0 {
