@@ -412,10 +412,8 @@ func (r *REPL) modeline() string {
 	meta := styleReplMeta.Render
 	bold := styleReplPrompt.Render
 
-	// Left: model, turns, context.
-	turns := r.loop.Session().TurnCount()
+	// Left: model + context usage.
 	left := bold(r.loop.config.Model)
-	left += dim(fmt.Sprintf(" · %d turns", turns))
 	if ctxStr := r.contextUsageStr(); ctxStr != "" {
 		left += dim(" · ") + meta(ctxStr)
 	}
