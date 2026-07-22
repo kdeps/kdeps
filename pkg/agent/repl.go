@@ -3675,8 +3675,9 @@ func parseTokenCount(s string) int {
 }
 
 // cmdSearch handles /search commands.
-//   /search index  — build the inverted index for the CWD
-//   /search <term> — search the indexed directory and feed results to the LLM
+//
+//	/search index  — build the inverted index for the CWD
+//	/search <term> — search the indexed directory and feed results to the LLM
 func (r *REPL) cmdSearch(args []string) error {
 	exec := execSearch.NewExecutor()
 	wd, err := os.Getwd()
@@ -3691,7 +3692,12 @@ func (r *REPL) cmdSearch(args []string) error {
 	}
 
 	if args[0] == "index" {
-		exec.StartIndex(wd)
+		count := exec.StartIndex(wd)
+		if count > 0 {
+			fmt.Fprintf(os.Stdout, "search: indexed %d files\n", count)
+		} else {
+			fmt.Fprintf(os.Stdout, "search: index is up to date\n")
+		}
 		return nil
 	}
 
@@ -3729,7 +3735,8 @@ func (r *REPL) cmdSearch(args []string) error {
 		matchCount, _ := r["matchCount"].(int)
 		snippet, _ := r["snippet"].(string)
 		display := filepath.Base(path)
-		fmt.Fprintf(os.Stdout, "  %d. %s  %s\n", i+1, display, dim(fmt.Sprintf("[match=%d score=%.2f]", matchCount, score)))
+		fmt.Fprintf(os.Stdout, "  %d. %s  %s\n", i+1, display,
+			dim(fmt.Sprintf("[match=%d score=%.2f]", matchCount, score)))
 		if snippet != "" {
 			fmt.Fprintf(os.Stdout, "     %s\n", dim(snippet))
 		}

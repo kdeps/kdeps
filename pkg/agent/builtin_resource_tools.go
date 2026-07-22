@@ -111,59 +111,7 @@ func registerSearchLocalTool(_ context.Context, reg *kdepstools.Registry) {
 			"limit":        {Type: toolParamNumber, Description: "Maximum number of results. Default: 3"},
 		},
 		Execute: func(args map[string]any) (string, error) {
-			config := &domain.SearchLocalConfig{}
-			if v, ok := args[toolParamPath].(string); ok {
-				config.Path = v
-			}
-			if v, ok := args[toolParamQuery].(string); ok {
-				config.Query = v
-			}
-			if v, ok := args["glob"].(string); ok {
-				config.Glob = v
-			}
-			if v, ok := args["limit"].(float64); ok && v > 0 {
-				config.Limit = int(v)
-			} else {
-				config.Limit = 3 // default to top 3
-			}
-
-			result, err := exec.Execute(nil, config)
-			if err != nil {
-				return "", err
-			}
-
-			// Lazily index result files into the search index.
-			if rm, ok := result.(map[string]interface{}); ok {
-				if results, ok := rm["results"].([]map[string]interface{}); ok {
-					paths := make([]string, 0, len(results))
-					for _, r := range results {
-						if p, ok := r["path"].(string); ok {
-							paths = append(paths, p)
-						}
-					}
-					if len(paths) > 0 {
-						go exec.IndexFiles(paths)
-					}
-				}
-			}
-
-			out, _ := json.MarshalIndent(result, "", "  ")
-
-			// Also search memory so the LLM gets relevant context alongside
-			// file search results without a separate tool call.
-			if ms := GetOrCreateMemoryStore(); ms != nil {
-				if memResults := ms.Search(config.Query); len(memResults) > 0 {
-					var sb strings.Builder
-					sb.Write(out)
-					sb.WriteString("\n\n--- memory ---\n")
-					for _, entry := range memResults {
-						fmt.Fprintf(&sb, "%s: %s\n", entry.Key, entry.Value)
-					}
-					return sb.String(), nil
-				}
-			}
-
-			return string(out), nil
+			return executeSearchLocal(exec, args)
 		},
 	})
 }
@@ -312,6 +260,71 @@ func registerEmbeddingTools(_ context.Context, reg *kdepstools.Registry) {
 			Execute:     makeEmbeddingExecute(exec, et.op),
 		})
 	}
+}
+
+// extractResultPaths extracts file paths from search results.
+func extractResultPaths(results []map[string]interface{}) []string {
+	paths := make([]string, 0, len(results))
+	for _, r := range results {
+		if p, ok := r["path"].(string); ok {
+			paths = append(paths, p)
+		}
+	}
+	return paths
+}
+
+// executeSearchLocal runs a search_local tool execution.
+func executeSearchLocal(exec *execSearch.Executor, args map[string]any) (string, error) {
+	config := &domain.SearchLocalConfig{}
+	if v, ok := args[toolParamPath].(string); ok {
+		config.Path = v
+	}
+	if v, ok := args[toolParamQuery].(string); ok {
+		config.Query = v
+	}
+	if v, ok := args["glob"].(string); ok {
+		config.Glob = v
+	}
+	if v, ok := args["limit"].(float64); ok && v > 0 {
+		config.Limit = int(v)
+	} else {
+		config.Limit = 3
+	}
+
+	result, err := exec.Execute(nil, config)
+	if err != nil {
+		return "", err
+	}
+
+	// Lazily index result files into the search index.
+	rm, rmOK := result.(map[string]interface{})
+	if rmOK {
+		results, resultsOK := rm["results"].([]map[string]interface{})
+		if resultsOK {
+			paths := extractResultPaths(results)
+			if len(paths) > 0 {
+				go exec.IndexFiles(paths)
+			}
+		}
+	}
+
+	out, _ := json.MarshalIndent(result, "", "  ")
+
+	// Also search memory so the LLM gets relevant context alongside
+	// file search results without a separate tool call.
+	if ms := GetOrCreateMemoryStore(); ms != nil {
+		if memResults := ms.Search(config.Query); len(memResults) > 0 {
+			var sb strings.Builder
+			sb.Write(out)
+			sb.WriteString("\n\n--- memory ---\n")
+			for _, entry := range memResults {
+				fmt.Fprintf(&sb, "%s: %s\n", entry.Key, entry.Value)
+			}
+			return sb.String(), nil
+		}
+	}
+
+	return string(out), nil
 }
 
 // makeEmbeddingExecute builds an Execute closure for embedding tools.

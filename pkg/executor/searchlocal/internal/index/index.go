@@ -108,12 +108,28 @@ func (idx *InvertedIndex) BatchAddDocuments(docs []DocWithTokens) {
 		return
 	}
 
-	// Pre-compute term frequencies and positions for each document.
-	type docTerms struct {
-		doc      *Document
-		termFreq map[string]int
-		termPos  map[string][]int
-	}
+	prepped := prepareDocTerms(docs)
+
+	_ = idx.db.Update(func(tx *bolt.Tx) error {
+		termsB := tx.Bucket(bucketTerms)
+		docsB := tx.Bucket(bucketDocs)
+
+		removeSet := collectExistingDocIDs(docsB, prepped)
+		if len(removeSet) > 0 {
+			idx.batchRemoveDocsInTx(tx, removeSet)
+		}
+
+		for _, dt := range prepped {
+			if err := writeDocAndPostings(docsB, termsB, tx.Bucket(bucketMeta), dt, removeSet); err != nil {
+				return err
+			}
+		}
+		return nil
+	})
+}
+
+// prepareDocTerms pre-computes term frequencies and positions for each document.
+func prepareDocTerms(docs []DocWithTokens) []docTerms {
 	prepped := make([]docTerms, len(docs))
 	for i, d := range docs {
 		dt := docTerms{doc: d.Doc, termFreq: make(map[string]int), termPos: make(map[string][]int)}
@@ -123,52 +139,50 @@ func (idx *InvertedIndex) BatchAddDocuments(docs []DocWithTokens) {
 		}
 		prepped[i] = dt
 	}
+	return prepped
+}
 
-	_ = idx.db.Update(func(tx *bolt.Tx) error {
-		termsB := tx.Bucket(bucketTerms)
-		docsB := tx.Bucket(bucketDocs)
-
-		// Collect docIDs that need old postings removed.
-		removeSet := make(map[string]bool, len(prepped))
-		for _, dt := range prepped {
-			if oldData := docsB.Get([]byte(dt.doc.ID)); oldData != nil {
-				removeSet[dt.doc.ID] = true
-			}
+// collectExistingDocIDs returns the set of docIDs that already exist in the index.
+func collectExistingDocIDs(docsB *bolt.Bucket, prepped []docTerms) map[string]bool {
+	removeSet := make(map[string]bool, len(prepped))
+	for _, dt := range prepped {
+		if oldData := docsB.Get([]byte(dt.doc.ID)); oldData != nil {
+			removeSet[dt.doc.ID] = true
 		}
-		// Single pass over all terms to remove old postings for all docs in the batch.
-		if len(removeSet) > 0 {
-			idx.batchRemoveDocsInTx(tx, removeSet)
+	}
+	return removeSet
+}
+
+// writeDocAndPostings stores a document and its term postings in the index.
+func writeDocAndPostings(docsB, termsB, metaB *bolt.Bucket, dt docTerms, removeSet map[string]bool) error {
+	var docBuf bytes.Buffer
+	if err := gob.NewEncoder(&docBuf).Encode(dt.doc); err != nil {
+		return err
+	}
+	if err := docsB.Put([]byte(dt.doc.ID), docBuf.Bytes()); err != nil {
+		return err
+	}
+
+	for term, freq := range dt.termFreq {
+		p := Posting{DocID: dt.doc.ID, Frequency: freq, Positions: dt.termPos[term]}
+		postings := readPostings(termsB, term)
+		postings = append(postings, p)
+		if err := writePostings(termsB, term, postings); err != nil {
+			return err
 		}
+	}
 
-		for _, dt := range prepped {
-			// Store the document.
-			var docBuf bytes.Buffer
-			if err := gob.NewEncoder(&docBuf).Encode(dt.doc); err != nil {
-				return err
-			}
-			if err := docsB.Put([]byte(dt.doc.ID), docBuf.Bytes()); err != nil {
-				return err
-			}
+	if !removeSet[dt.doc.ID] {
+		return incDocCount(metaB, 1)
+	}
+	return nil
+}
 
-			// Update term postings.
-			for term, freq := range dt.termFreq {
-				p := Posting{DocID: dt.doc.ID, Frequency: freq, Positions: dt.termPos[term]}
-				postings := readPostings(termsB, term)
-				postings = append(postings, p)
-				if err := writePostings(termsB, term, postings); err != nil {
-					return err
-				}
-			}
-
-			// Only increment doc count for genuinely new documents.
-			if !removeSet[dt.doc.ID] {
-				if err := incDocCount(tx, 1); err != nil {
-					return err
-				}
-			}
-		}
-		return nil
-	})
+// docTerms holds pre-computed term data for a document.
+type docTerms struct {
+	doc      *Document
+	termFreq map[string]int
+	termPos  map[string][]int
 }
 
 // batchRemoveDocsInTx removes multiple documents from the index within a single
@@ -197,7 +211,8 @@ func (idx *InvertedIndex) batchRemoveDocsInTx(tx *bolt.Tx, docIDs map[string]boo
 
 // scoreDocs computes TF-IDF scores for query terms against the index.
 func (idx *InvertedIndex) scoreDocs(tx *bolt.Tx, queryTerms []string) (map[string]float64, map[string]int) {
-	docCount := readDocCount(tx)
+	metaB := tx.Bucket(bucketMeta)
+	docCount := readDocCount(metaB)
 	docScores := make(map[string]float64)
 	docMatches := make(map[string]int)
 	termsB := tx.Bucket(bucketTerms)
@@ -346,7 +361,7 @@ func (idx *InvertedIndex) PurgeDocs(keepDocIDs map[string]bool) int {
 		for id := range removeSet {
 			_ = docsB.Delete([]byte(id))
 		}
-		return incDocCount(tx, -len(removeSet))
+		return incDocCount(tx.Bucket(bucketMeta), -len(removeSet))
 	})
 
 	return len(staleDocIDs)
@@ -356,7 +371,7 @@ func (idx *InvertedIndex) PurgeDocs(keepDocIDs map[string]bool) int {
 func (idx *InvertedIndex) GetStats() Stats {
 	var s Stats
 	_ = idx.db.View(func(tx *bolt.Tx) error {
-		s.DocumentCount = readDocCount(tx)
+		s.DocumentCount = readDocCount(tx.Bucket(bucketMeta))
 		s.TermCount = tx.Bucket(bucketTerms).Stats().KeyN
 		return nil
 	})
@@ -403,8 +418,8 @@ func writePostings(b *bolt.Bucket, term string, p []Posting) error {
 	return b.Put([]byte(term), buf.Bytes())
 }
 
-func readDocCount(tx *bolt.Tx) int {
-	data := tx.Bucket(bucketMeta).Get(keyDocCount)
+func readDocCount(metaB *bolt.Bucket) int {
+	data := metaB.Get(keyDocCount)
 	if data == nil {
 		return 0
 	}
@@ -415,13 +430,13 @@ func readDocCount(tx *bolt.Tx) int {
 	return count
 }
 
-func incDocCount(tx *bolt.Tx, delta int) error {
-	current := readDocCount(tx)
+func incDocCount(metaB *bolt.Bucket, delta int) error {
+	current := readDocCount(metaB)
 	var buf bytes.Buffer
 	if err := gob.NewEncoder(&buf).Encode(current + delta); err != nil {
 		return err
 	}
-	return tx.Bucket(bucketMeta).Put(keyDocCount, buf.Bytes())
+	return metaB.Put(keyDocCount, buf.Bytes())
 }
 
 func calculateIDF(docFreq, docCount int) float64 {

@@ -672,6 +672,10 @@ func (w *liveThinkingWriter) repaint() {
 // their leading whitespace stripped to a max of 4. Lines with 0-7 spaces are left
 // untouched (preserves intentional markdown indentation).
 func dedent(text string) string {
+	const (
+		maxIndentThreshold = 8
+		maxIndentCap       = 4
+	)
 	lines := strings.Split(text, "\n")
 	fixed := false
 	for i, line := range lines {
@@ -679,10 +683,10 @@ func dedent(text string) string {
 			continue
 		}
 		indent := len(line) - len(strings.TrimLeft(line, " \t"))
-		if indent >= 8 {
+		if indent >= maxIndentThreshold {
 			// Cap excessive indentation: preserve up to 4 leading spaces.
-			if indent > 4 {
-				indent = 4
+			if indent > maxIndentCap {
+				indent = maxIndentCap
 			}
 			lines[i] = strings.Repeat(" ", indent) + strings.TrimLeft(line, " \t")
 			fixed = true

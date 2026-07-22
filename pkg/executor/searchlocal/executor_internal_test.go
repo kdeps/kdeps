@@ -202,9 +202,11 @@ func TestStartIndex_ExistingIndex(t *testing.T) {
 	ProgressWriter = &buf2
 	t.Cleanup(func() { ProgressWriter = oldWriter })
 
-	e.StartIndex(dir)
+	count := e.StartIndex(dir)
 	output := buf2.String()
-	assert.NotContains(t, output, "indexing") // fast path, no re-index
+	assert.Equal(t, 0, count, "no new files to index on second call")
+	assert.Contains(t, output, "indexing") // always walks, but skips unchanged files
+	assert.Contains(t, output, "no files indexed")
 
 	_, err := os.Stat(dbPath)
 	require.NoError(t, err)

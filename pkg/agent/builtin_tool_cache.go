@@ -18,17 +18,28 @@
 package agent
 
 import (
+	"errors"
+	"fmt"
 	"strings"
 	"sync"
 )
+
+const maxWebToolCalls = 3
+
+var errWebToolConvergence = errors.New(
+	"research convergence: after 3 web searches or scrapes on the same topic, " +
+		"stop and synthesize — answer with what you have")
 
 // webToolCache memoizes successful web_search and web_scraper results for the
 // lifetime of the agent process. Repeating the same query or URL returns the
 // cached copy instead of refetching. Errors and empty results are never
 // cached, so a failed or empty lookup is retried on the next invocation.
+// After maxWebToolCalls distinct web tool invocations, subsequent calls return
+// a convergence error to prevent the model from looping on the same topic.
 type webToolCache struct {
-	mu sync.Mutex
-	m  map[string]string
+	mu    sync.Mutex
+	m     map[string]string
+	calls int
 }
 
 func newWebToolCache() *webToolCache {
@@ -37,13 +48,23 @@ func newWebToolCache() *webToolCache {
 
 // call returns the cached result for key when present; otherwise it invokes
 // fn and caches the result only when it succeeded with non-empty content.
+// After maxWebToolCalls distinct (non-cached) invocations, subsequent calls
+// return a convergence error.
 func (c *webToolCache) call(key string, fn func() (string, error)) (string, error) {
 	c.mu.Lock()
 	cached, ok := c.m[key]
-	c.mu.Unlock()
 	if ok {
+		c.mu.Unlock()
 		return cached, nil
 	}
+	if c.calls >= maxWebToolCalls {
+		c.mu.Unlock()
+		return "", fmt.Errorf("%w: %d web tool calls already made this session",
+			errWebToolConvergence, c.calls)
+	}
+	c.calls++
+	c.mu.Unlock()
+
 	result, err := fn()
 	if err == nil && strings.TrimSpace(result) != "" {
 		c.mu.Lock()

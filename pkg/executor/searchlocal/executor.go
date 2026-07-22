@@ -166,7 +166,7 @@ const indexBatchSize = 2000
 const maxFileSize = 1 << 20 // 1 MiB
 
 // indexWorkers is the number of parallel file readers. Defaults to GOMAXPROCS.
-var indexWorkers = runtime.GOMAXPROCS(0) //nolint:gochecknoglobals
+var indexWorkers = runtime.GOMAXPROCS(0) //nolint:gochecknoglobals // parallel file readers
 
 // fileJob is a file to be read and indexed by a worker.
 type fileJob struct {
@@ -225,50 +225,8 @@ func (e *Executor) walkIndex(root string, glob string, idx *index.InvertedIndex)
 
 	// Walk the directory tree and feed jobs.
 	var skippedIncremental int
-	walkErr := filepath.WalkDir(root, func(p string, d os.DirEntry, err error) error {
-		if err != nil {
-			return nil //nolint:nilerr
-		}
-		if d.IsDir() {
-			if skipWalkEntry(d) {
-				return fs.SkipDir
-			}
-			return nil
-		}
-		if skipWalkEntry(d) {
-			return nil
-		}
-		if !isIndexableExt(d.Name()) {
-			return nil
-		}
-		if glob != "" {
-			matched, matchErr := filepath.Match(glob, d.Name())
-			if matchErr != nil || !matched {
-				return nil //nolint:nilerr
-			}
-		}
-
-		docID := fmt.Sprintf("%x", p)
-		seenMu.Lock()
-		seenDocIDs[docID] = true
-		seenMu.Unlock()
-
-		// Incremental: skip files whose ModTime hasn't changed.
-		info, statErr := d.Info()
-		if statErr != nil {
-			return nil //nolint:nilerr
-		}
-		if info.ModTime().Unix() == idx.LookupModTime(docID) {
-			skippedIncremental++
-			if skippedIncremental%1000 == 0 {
-				fmt.Fprintf(ProgressWriter, "\rsearchLocal: %d files unchanged, skipped ...", skippedIncremental)
-			}
-			return nil
-		}
-
-		jobs <- fileJob{path: p, d: d}
-		return nil
-	})
+	walkErr := filepath.WalkDir(root,
+		e.makeWalkCallback(root, glob, idx, jobs, &seenDocIDs, &seenMu, &skippedIncremental))
 	close(jobs)
 	wg.Wait()
 	close(results)
@@ -281,6 +239,73 @@ func (e *Executor) walkIndex(root string, glob string, idx *index.InvertedIndex)
 	}
 
 	return indexedCount, walkErr
+}
+
+// walkCallback is the signature for filepath.WalkDir callbacks.
+type walkCallback = func(string, os.DirEntry, error) error
+
+// makeWalkCallback returns a WalkDir callback that feeds indexable files into the jobs channel.
+func (e *Executor) makeWalkCallback(
+	_ string, glob string, idx *index.InvertedIndex,
+	jobs chan<- fileJob,
+	seenDocIDs *map[string]bool, seenMu *sync.Mutex,
+	skippedIncremental *int,
+) walkCallback {
+	return func(p string, d os.DirEntry, err error) error {
+		if err != nil {
+			return nil //nolint:nilerr // skip unreadable entries during walk
+		}
+		if d.IsDir() {
+			if skipWalkEntry(d) {
+				return fs.SkipDir
+			}
+			return nil
+		}
+		if skipWalkEntry(d) || !isIndexableExt(d.Name()) {
+			return nil
+		}
+		if !matchGlob(glob, d.Name()) {
+			return nil
+		}
+
+		docID := fmt.Sprintf("%x", p)
+		seenMu.Lock()
+		(*seenDocIDs)[docID] = true
+		seenMu.Unlock()
+
+		if e.skipUnchanged(d, docID, idx, skippedIncremental) {
+			return nil
+		}
+
+		jobs <- fileJob{path: p, d: d}
+		return nil
+	}
+}
+
+// matchGlob returns true if the filename matches the glob pattern.
+// An empty glob matches everything.
+func matchGlob(glob, name string) bool {
+	if glob == "" {
+		return true
+	}
+	matched, err := filepath.Match(glob, name)
+	return err == nil && matched
+}
+
+// skipUnchanged returns true if the file's ModTime matches the index, meaning it hasn't changed.
+func (e *Executor) skipUnchanged(d os.DirEntry, docID string, idx *index.InvertedIndex, skippedIncremental *int) bool {
+	info, statErr := d.Info()
+	if statErr != nil {
+		return true
+	}
+	if info.ModTime().Unix() == idx.LookupModTime(docID) {
+		*skippedIncremental++
+		if *skippedIncremental%1000 == 0 {
+			fmt.Fprintf(ProgressWriter, "\rsearchLocal: %d files unchanged, skipped ...", *skippedIncremental)
+		}
+		return true
+	}
+	return false
 }
 
 // prepareDoc reads and tokenizes a file, returning a ready-to-index document or nil.
@@ -350,16 +375,16 @@ func fileExists(path string) bool {
 	return err == nil
 }
 
-// StartIndex builds an inverted index of the given directory on startup.
-// It is called once when the search_local tool is registered so that
-// subsequent indexed searches are fast. The index is persisted to disk
-// at <path>/.kdeps/index.db (bbolt format).
-func (e *Executor) StartIndex(path string) {
+// StartIndex builds or updates an inverted index of the given directory.
+// It is called when the user runs '/search index'. Only changed files
+// (different ModTime) are re-indexed; unchanged files are skipped.
+// Returns the number of files indexed (new or changed).
+func (e *Executor) StartIndex(path string) int {
 	if path == "" {
 		wd, err := os.Getwd()
 		if err != nil {
 			kdeps_debug.Log("searchLocal: StartIndex: getwd failed: " + err.Error())
-			return
+			return 0
 		}
 		path = wd
 	}
@@ -368,7 +393,7 @@ func (e *Executor) StartIndex(path string) {
 	if _, statErr := os.Stat(path); statErr != nil {
 		fmt.Fprintf(ProgressWriter, "searchLocal: indexing %s ...\n", path)
 		fmt.Fprintf(ProgressWriter, "searchLocal: no files indexed in %s\n", path)
-		return
+		return 0
 	}
 
 	dbPath := indexDBPath(path)
@@ -376,18 +401,18 @@ func (e *Executor) StartIndex(path string) {
 	if err != nil {
 		kdeps_debug.Log("searchLocal: failed to open index: " + err.Error())
 		fmt.Fprintf(ProgressWriter, "searchLocal: failed to open index: %v\n", err)
-		return
+		return 0
 	}
 	defer idx.Close()
 
 	if existed {
-		// Check if the existing index already has documents.
 		stats := idx.GetStats()
 		if stats.DocumentCount > 0 {
-			kdeps_debug.Log("searchLocal: loaded existing index from " + dbPath + fmt.Sprintf(" (%d docs)", stats.DocumentCount))
-			return
+			kdeps_debug.Log("searchLocal: updating existing index from " +
+				dbPath + fmt.Sprintf(" (%d docs)", stats.DocumentCount))
+		} else {
+			kdeps_debug.Log("searchLocal: rebuilding index (empty)")
 		}
-		kdeps_debug.Log("searchLocal: rebuilding index (empty)")
 	}
 
 	fmt.Fprintf(ProgressWriter, "searchLocal: indexing %s ...\n", path)
@@ -395,21 +420,25 @@ func (e *Executor) StartIndex(path string) {
 	indexedCount, walkErr := e.walkIndex(path, "", idx)
 	if walkErr != nil {
 		fmt.Fprintf(ProgressWriter, "searchLocal: walk failed: %v\n", walkErr)
-		return
+		return indexedCount
 	}
 
 	if indexedCount == 0 {
 		fmt.Fprintf(ProgressWriter, "searchLocal: no files indexed in %s\n", path)
 		kdeps_debug.Log(fmt.Sprintf("searchLocal: indexed 0 files in %s", path))
-		return
+		return 0
 	}
 
 	fmt.Fprintf(ProgressWriter, "searchLocal: index saved to %s (%d files)\n", dbPath, indexedCount)
 	kdeps_debug.Log(fmt.Sprintf("searchLocal: indexed %d files in %s", indexedCount, path))
+	return indexedCount
 }
 
 // snippetContext is the number of characters of context around a query match.
 const snippetContext = 120
+
+// snippetMaxPreview is the max characters for a fallback snippet when query is not found.
+const snippetMaxPreview = snippetContext * 2
 
 // generateSnippet reads a file and returns a snippet of context around the first
 // occurrence of query. Returns empty string if the file can't be read or the
@@ -436,8 +465,8 @@ func generateSnippet(filePath, query string) string {
 	if idx < 0 {
 		// Query not found in content (token mismatch). Return first ~200 chars.
 		end := len(content)
-		if end > snippetContext*2 {
-			end = snippetContext * 2
+		if end > snippetMaxPreview {
+			end = snippetMaxPreview
 		}
 		if end < len(content) {
 			return content[:end] + "..."
