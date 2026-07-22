@@ -76,6 +76,21 @@ def yaml_str(value):
 # Quantizations that are too large to be useful defaults; never harvested.
 SKIP_QUANT_MARKERS = (".BF16", "-BF16", ".F16", "-F16", ".F32", "-F32")
 
+# Chinese AI labs to include in the daily GGUF harvest.
+# Each entry is (name_filter, search_query) — name_filter is a case-insensitive
+# substring matched against modelId; search_query finds GGUF variants on HF.
+CHINESE_AI_LABS = [
+    ("deepseek", "deepseek gguf"),
+    ("qwen", "qwen gguf"),
+    ("yi-", "yi gguf"),
+    ("glm", "glm gguf"),
+    ("internlm", "internlm gguf"),
+    ("kimi", "kimi gguf"),
+    ("step-", "stepfun gguf"),
+    ("hunyuan", "hunyuan gguf"),
+    ("bge", "bge gguf"),
+]
+
 GGUF_QUANT_RE = re.compile(r"[.-](Q\d+(?:_[A-Z0-9]+)*)\.gguf$")
 QUANT_RE = re.compile(r"[.-](Q\d+(?:_[A-Z0-9]+)*)\.llamafile$")
 FAMILY_RE = re.compile(r"^([A-Za-z]+)[-_.]?v?(\d+(?:\.\d+)?)")
@@ -296,6 +311,8 @@ def main():
                         help="Include non-mozilla-ai models")
     parser.add_argument("--gguf", action="store_true",
                         help="Also harvest GGUF models from HuggingFace")
+    parser.add_argument("--chinese-labs", action="store_true",
+                        help="Include Chinese AI labs (DeepSeek, Qwen, Yi, GLM, InternLM, etc.) in GGUF harvest")
     args = parser.parse_args()
 
     if args.output:
@@ -327,6 +344,27 @@ def main():
         gguf_models.sort(key=lambda m: m.downloads or 0, reverse=True)
         gguf_primary = [m for m in gguf_models]
         gguf_entries, _ = _harvest_by_extension(gguf_primary, api, args, ".gguf", GGUF_QUANT_RE, parse_gguf_name)
+
+        # ── Chinese AI labs GGUF harvest ──
+        if args.chinese_labs:
+            seen_repos = set()
+            for e in gguf_entries:
+                seen_repos.add(e["repo"])
+            for name_filter, query in CHINESE_AI_LABS:
+                try:
+                    lab_models = list(api.list_models(search=query, sort="downloads", limit=50))
+                    lab_models.sort(key=lambda m: m.downloads or 0, reverse=True)
+                    lab_filtered = [m for m in lab_models if name_filter in m.modelId.lower()]
+                    print(f"  {name_filter}: {len(lab_models)} search results, {len(lab_filtered)} after name filter")
+                    if lab_filtered:
+                        lab_entries, _ = _harvest_by_extension(lab_filtered, api, args, ".gguf", GGUF_QUANT_RE, parse_gguf_name)
+                        for e in lab_entries:
+                            if e["repo"] not in seen_repos:
+                                seen_repos.add(e["repo"])
+                                gguf_entries.append(e)
+                                print(f"    + {e['alias']} ({e['repo']})")
+                except Exception as ex:
+                    print(f"  {name_filter}: FAILED — {ex}")
 
     # ── Build the YAML string ──
     yaml_lines = [
