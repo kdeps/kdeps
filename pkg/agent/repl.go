@@ -2098,6 +2098,8 @@ func (r *REPL) dispatchCommand(cmd string) error {
 		return r.cmdSearch(args)
 	case "/context":
 		return r.cmdContext(args)
+	case "/kartographer":
+		return r.cmdKartographer()
 	case "/exit", "/quit":
 		r.loopCancel() // exit the loop; also cascades to cancel r.ctx (child of loopCtx)
 		return nil
@@ -3755,6 +3757,67 @@ func parseTokenCount(s string) int {
 //
 //	/search index  — build the inverted index for the CWD
 //	/search <term> — search the indexed directory and feed results to the LLM
+// cmdKartographer renders a live map of kdeps internal data-flow pipelines.
+func (r *REPL) cmdKartographer() error {
+	heading := styleReplHeading.Render
+	meta := styleReplMeta.Render
+	dim := styleReplDim.Render
+	pipe := dim("│")
+	tee := dim("├─")
+	end := dim("└─")
+	arrow := dim("→")
+
+	fmt.Fprintln(os.Stdout, heading("kdeps internal pipelines"))
+	fmt.Fprintln(os.Stdout, dim(strings.Repeat("─", 68)))
+
+	// Token counter
+	in := GlobalPromptCacheStats.TotalInputTokens()
+	out := GlobalPromptCacheStats.TotalOutputTokens()
+	fmt.Fprintln(os.Stdout, meta("token"))
+	fmt.Fprintf(os.Stdout, "  %s GenerateContent %s recordTokenUsage %s TokenRecorder\n", tee, arrow, arrow)
+	fmt.Fprintf(os.Stdout, "  %s   %s GlobalPromptCacheStats.RecordCacheUsageFromTokens\n", pipe, arrow)
+	fmt.Fprintf(os.Stdout, "  %s   %s syncTokenCounter %s TokenCounter\n", pipe, arrow, arrow)
+	fmt.Fprintf(os.Stdout, "  %s   %s compactTokenStatus / tokenCounterStr\n", pipe, arrow)
+	fmt.Fprintf(os.Stdout, "  %s [in:%s|out:%s]\n\n", end, formatCompactCount(in), formatCompactCount(out))
+
+	// Convergence
+	calls, max := WebConvergenceCalls()
+	fmt.Fprintln(os.Stdout, meta("converge"))
+	fmt.Fprintf(os.Stdout, "  %s web_search / web_scraper %s webToolCache.call()\n", tee, arrow)
+	fmt.Fprintf(os.Stdout, "  %s   %s calls++ (now %d/%d)\n", pipe, arrow, calls, max)
+	if calls >= max {
+		fmt.Fprintf(os.Stdout, "  %s   %s LIMIT REACHED %s convergence error\n", pipe, arrow, arrow)
+	} else {
+		fmt.Fprintf(os.Stdout, "  %s   %s execute tool, cache result\n", pipe, arrow)
+	}
+	fmt.Fprintf(os.Stdout, "  %s system prompt <output> rule 24 (soft guidance)\n\n", end)
+
+	// Compaction
+	turns := r.loop.Session().TurnCount()
+	threshold := r.loop.config.AutoCompactThreshold
+	fmt.Fprintln(os.Stdout, meta("compact"))
+	fmt.Fprintf(os.Stdout, "  %s shouldAutoCompact() checks token threshold\n", tee)
+	fmt.Fprintf(os.Stdout, "  %s   %s CompactWithLLM() %s buildSyntheticWorkflow\n", pipe, arrow, arrow)
+	fmt.Fprintf(os.Stdout, "  %s   %s engine.Execute(synthetic) %s LLM summary\n", pipe, arrow, arrow)
+	fmt.Fprintf(os.Stdout, "  %s   %s formatLoopResult() extracts text\n", pipe, arrow)
+	fmt.Fprintf(os.Stdout, "  %s   %s session.CompactWith(summary, toKeep)\n", pipe, arrow)
+	fmt.Fprintf(os.Stdout, "  %s   %s Fallback: session.Compact() truncation\n", pipe, arrow)
+	fmt.Fprintf(os.Stdout, "  %s %d turns (threshold: %d)\n\n", end, turns, threshold)
+
+	// Memory bridge
+	fmt.Fprintln(os.Stdout, meta("memory"))
+	fmt.Fprintf(os.Stdout, "  %s memory_search / memory_list before every action\n", tee)
+	fmt.Fprintf(os.Stdout, "  %s   %s RunStreaming %s memoryStore.ExtractTurn()\n", pipe, arrow, arrow)
+	fmt.Fprintf(os.Stdout, "  %s   %s CompactWithLLM %s memoryStore.AutoCapture()\n", pipe, arrow, arrow)
+	fmt.Fprintf(os.Stdout, "  %s   %s dispatchToTerminal %s ExtractToolResult()\n", pipe, arrow, arrow)
+	if r.loop.memoryStore != nil {
+		fmt.Fprintf(os.Stdout, "  %s %d entries saved this session\n\n", end, r.loop.memoryStore.Len())
+	} else {
+		fmt.Fprintf(os.Stdout, "  %s (no memory store)\n\n", end)
+	}
+	return nil
+}
+
 func (r *REPL) cmdSearch(args []string) error {
 	exec := execSearch.NewExecutor()
 	wd, err := os.Getwd()
