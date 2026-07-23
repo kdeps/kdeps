@@ -72,8 +72,7 @@ const turoTimeout = 5 * time.Second
 //
 //nolint:gochecknoglobals // static lookup set
 var turoValidLevels = map[string]bool{
-	"lite": true, "full": true, "ultra": true,
-	"wenyan": true, "wenyan-all": true, "ultra-wenyan": true,
+	"lite": true, "full": true, "ultra": true, "wenyan": true,
 }
 
 func turoInit() {

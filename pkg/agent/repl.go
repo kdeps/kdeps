@@ -2133,7 +2133,7 @@ func (r *REPL) cmdHelp() error {
 		"  /reload                            Reload skills, prompt templates, and instructions from disk",
 		"  /context                           Show current context window size",
 		"  /context <size>                    Set context window size (e.g. 32768 or 32k); restarts local servers",
-		"  /turo [on|off|lite|full|ultra|wenyan|ultra-wenyan|filler/synonyms/gloss on|off] Show or set the turo prompt reducer; turo only",
+		"  /turo [on|off|lite|full|ultra|wenyan|filler/synonyms/gloss on|off] Show or set the turo prompt reducer; turo only",
 		"  ! <cmd>                            Run a shell command; the output becomes an agent turn (the model responds)",
 		"  !! <cmd>                           Run a shell command silently - no LLM turn, nothing added to context",
 	}
@@ -3874,7 +3874,7 @@ func (r *REPL) printConvergence(section, toolLine string, calls, limit int, foot
 //
 //	/turo                        show status
 //	/turo on | off               enable/disable reduction at runtime
-//	/turo lite|full|ultra|wenyan|wenyan-all|ultra-wenyan  set compression level
+//	/turo lite|full|ultra|wenyan          set compression level
 //	/turo filler|synonyms|gloss on|off  toggle a lossy pipeline stage
 func (r *REPL) cmdTuro(args []string) error {
 	if !turoAvailable(r.ctx) {
@@ -3895,7 +3895,7 @@ func (r *REPL) cmdTuro(args []string) error {
 	case "off":
 		SetTuroRuntimeOff(true)
 		fmt.Fprintln(os.Stdout, styleReplMeta.Render("turo off — content is sent to the LLM unreduced"))
-	case "lite", "full", "ultra", "wenyan", "wenyan-all", "ultra-wenyan":
+	case "lite", "full", "ultra", "wenyan":
 		SetTuroLevel(arg)
 		fmt.Fprintf(os.Stdout, "%s\n", styleReplSuccess.Render("turo level: "+arg))
 	case "filler", "synonyms", "gloss":
@@ -3916,7 +3916,7 @@ func (r *REPL) cmdTuro(args []string) error {
 		fmt.Fprintf(os.Stdout, "%s\n", styleReplSuccess.Render("turo "+arg+": "+state))
 	default:
 		fmt.Fprintln(os.Stderr, styleReplError.Render(
-			"Usage: /turo [on|off|lite|full|ultra|wenyan|wenyan-all|ultra-wenyan|filler on|off|synonyms on|off|gloss on|off]"))
+			"Usage: /turo [on|off|lite|full|ultra|wenyan|filler on|off|synonyms on|off|gloss on|off]"))
 	}
 	return nil
 }
