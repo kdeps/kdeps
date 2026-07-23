@@ -3895,6 +3895,7 @@ func (r *REPL) cmdTuro(args []string) error {
 		fmt.Fprintln(os.Stdout, styleReplMeta.Render("turo off — content is sent to the LLM unreduced"))
 	case "lite", "full", "ultra", "wenyan":
 		SetTuroLevel(arg)
+		SetTuroRuntimeOff(false) // choosing a level re-enables turo
 		fmt.Fprintf(os.Stdout, "%s\n", styleReplSuccess.Render("turo level: "+arg))
 	case "filler", "synonyms", "gloss":
 		if len(args) == 1 { // stage given without an on/off value
