@@ -393,12 +393,10 @@ func (r *REPL) modeline() string {
 			parts = append(parts, meta(fmt.Sprintf("mem:%d", n)))
 		}
 	}
-	if turoAvailable(r.ctx) {
-		if TuroRuntimeOff() {
-			parts = append(parts, dim("turo:off"))
-		} else {
-			parts = append(parts, styleReplSuccess.Render("turo:"+TuroLevel()))
-		}
+	if !turoAvailable(r.ctx) || TuroRuntimeOff() {
+		parts = append(parts, dim("turo:off"))
+	} else {
+		parts = append(parts, styleReplSuccess.Render("turo:"+TuroLevel()))
 	}
 	return strings.Join(parts, dim(" · "))
 }
