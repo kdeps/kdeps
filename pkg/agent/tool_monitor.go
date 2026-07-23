@@ -21,6 +21,8 @@ package agent
 import (
 	"fmt"
 	"io"
+	"os"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -197,7 +199,7 @@ func runQuietMonitor(mw *monitoredWriter, label string, start time.Time, stop <-
 
 // isHeadless reports whether the process is non-interactive (no TTY).
 func isHeadless() bool {
-	return !term.IsTerminal(int(0)) //nolint:mnd // stdin is fd 0
+	return !term.IsTerminal(int(os.Stdin.Fd()))
 }
 
 // compactTokenStatus returns a compact token counter string for the monitor
@@ -207,32 +209,37 @@ func compactTokenStatus() string {
 	in := llm.TokenInputs
 	out := llm.TokenOutputs
 	parts := []string{"in:" + formatCompactCount(in), "out:" + formatCompactCount(out)}
-	if calls, max := WebConvergenceCalls(); max > 0 && calls > 0 {
-		parts = append(parts, fmt.Sprintf("web:%d/%d", calls, max))
+	if calls, limit := WebConvergenceCalls(); limit > 0 && calls > 0 {
+		parts = append(parts, fmt.Sprintf("web:%d/%d", calls, limit))
 	}
-	if calls, max := BashConvergenceCalls(); max > 0 && calls > 0 {
-		parts = append(parts, fmt.Sprintf("sh:%d/%d", calls, max))
+	if calls, limit := BashConvergenceCalls(); limit > 0 && calls > 0 {
+		parts = append(parts, fmt.Sprintf("sh:%d/%d", calls, limit))
 	}
-	if calls, max := FileConvergenceCalls(); max > 0 && calls > 0 {
-		parts = append(parts, fmt.Sprintf("file:%d/%d", calls, max))
+	if calls, limit := FileConvergenceCalls(); limit > 0 && calls > 0 {
+		parts = append(parts, fmt.Sprintf("file:%d/%d", calls, limit))
 	}
-	if calls, max := CodeConvergenceCalls(); max > 0 && calls > 0 {
-		parts = append(parts, fmt.Sprintf("src:%d/%d", calls, max))
+	if calls, limit := CodeConvergenceCalls(); limit > 0 && calls > 0 {
+		parts = append(parts, fmt.Sprintf("src:%d/%d", calls, limit))
 	}
 	return styleReplDim.Render("[") +
 		styleReplMeta.Render(strings.Join(parts, "|")) +
 		styleReplDim.Render("] ")
 }
 
+const (
+	countMillion  = 1_000_000
+	countThousand = 1_000
+)
+
 // formatCompactCount formats a count as a compact string (e.g. "12.4k", "1.2m").
 func formatCompactCount(n int64) string {
 	switch {
-	case n >= 1_000_000:
-		return fmt.Sprintf("%.1fm", float64(n)/1_000_000)
-	case n >= 1_000:
-		return fmt.Sprintf("%.1fk", float64(n)/1_000)
+	case n >= countMillion:
+		return fmt.Sprintf("%.1fm", float64(n)/countMillion)
+	case n >= countThousand:
+		return fmt.Sprintf("%.1fk", float64(n)/countThousand)
 	default:
-		return fmt.Sprintf("%d", n)
+		return strconv.FormatInt(n, 10)
 	}
 }
 

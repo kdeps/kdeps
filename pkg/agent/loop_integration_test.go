@@ -26,6 +26,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -107,7 +108,122 @@ func TestLoop_SessionPersistsAcrossTurns(t *testing.T) {
 	}
 }
 
+func TestLoop_SystemPreambleBuiltOnceAndCached(t *testing.T) {
+	tmp := t.TempDir()
+	t.Setenv("HOME", tmp)
+	t.Chdir(tmp)
+
+	var capturedWorkflows []*domain.Workflow
+	eng := executor.NewEngine(nil)
+	eng.SetExecuteFunc(func(wf *domain.Workflow, _ interface{}) (interface{}, error) {
+		capturedWorkflows = append(capturedWorkflows, wf)
+		return "ok", nil
+	})
+	reg := tools.NewRegistry()
+	loop := New(eng, newTestWorkflowForSession(), reg, Config{Model: "test", SystemPrompt: "RULES"})
+
+	if _, err := loop.Run(context.Background(), "hello"); err != nil {
+		t.Fatalf("turn 1: %v", err)
+	}
+	if _, err := loop.Run(context.Background(), "world"); err != nil {
+		t.Fatalf("turn 2: %v", err)
+	}
+	if len(capturedWorkflows) < 2 {
+		t.Fatalf("expected 2 captured workflows, got %d", len(capturedWorkflows))
+	}
+
+	sys := func(wf *domain.Workflow) domain.ScenarioItem {
+		sc := wf.Resources[0].Chat.Scenario
+		if len(sc) == 0 {
+			t.Fatal("expected a system scenario item")
+		}
+		return sc[0]
+	}
+	first, second := sys(capturedWorkflows[0]), sys(capturedWorkflows[1])
+	if first.Prompt != second.Prompt {
+		t.Fatalf("system preamble changed across turns:\nturn1: %q\nturn2: %q", first.Prompt, second.Prompt)
+	}
+	if first.CacheControl != "ephemeral" {
+		t.Fatalf("expected ephemeral cache control on system prompt, got %q", first.CacheControl)
+	}
+
+	// InvalidateSystemPreamble forces a rebuild reflecting a config change.
+	// Assert via inequality rather than substring: the preamble flows through
+	// turo (when installed) which rewrites prose, so an exact match is fragile.
+	loop.config.SystemPrompt = "RULES-CHANGED"
+	loop.InvalidateSystemPreamble()
+	if _, err := loop.Run(context.Background(), "again"); err != nil {
+		t.Fatalf("turn 3: %v", err)
+	}
+	third := sys(capturedWorkflows[2])
+	if third.Prompt == first.Prompt {
+		t.Fatalf("expected preamble to rebuild after invalidate, but it was unchanged: %q", third.Prompt)
+	}
+}
+
+// TestLoop_ModelSwitchResendsSystemAndHistory verifies that after a model
+// switch (new model + InvalidateSystemPreamble), the first request to the new
+// model carries the rebuilt system prompt AND the full prior conversation
+// history. Backends are stateless per call, so the new model must receive both.
+func TestLoop_ModelSwitchResendsSystemAndHistory(t *testing.T) {
+	tmp := t.TempDir()
+	t.Setenv("HOME", tmp)
+	t.Chdir(tmp)
+
+	var capturedWorkflows []*domain.Workflow
+	eng := executor.NewEngine(nil)
+	eng.SetExecuteFunc(func(wf *domain.Workflow, _ interface{}) (interface{}, error) {
+		capturedWorkflows = append(capturedWorkflows, wf)
+		return "ok", nil
+	})
+	loop := New(eng, newTestWorkflowForSession(), tools.NewRegistry(),
+		Config{Model: "model-a", SystemPrompt: "RULES-A"})
+
+	if _, err := loop.Run(context.Background(), "hello"); err != nil {
+		t.Fatalf("turn 1: %v", err)
+	}
+	beforeSwitch := capturedWorkflows[0].Resources[0].Chat
+	if len(beforeSwitch.Scenario) == 0 {
+		t.Fatal("expected a system scenario item on turn 1")
+	}
+
+	// Simulate a /model switch: change model + system prompt, invalidate preamble.
+	loop.config.Model = "model-b"
+	loop.config.SystemPrompt = "RULES-B"
+	loop.InvalidateSystemPreamble()
+
+	if _, err := loop.Run(context.Background(), "world"); err != nil {
+		t.Fatalf("turn 2: %v", err)
+	}
+	if len(capturedWorkflows) < 2 {
+		t.Fatalf("expected 2 captured workflows, got %d", len(capturedWorkflows))
+	}
+
+	afterSwitch := capturedWorkflows[1].Resources[0].Chat
+	// New model on the request.
+	if afterSwitch.Model != "model-b" {
+		t.Fatalf("expected new model 'model-b' on request, got %q", afterSwitch.Model)
+	}
+	// System prompt rebuilt for the new model (inequality — turo may rewrite text).
+	if len(afterSwitch.Scenario) == 0 {
+		t.Fatal("expected a system scenario item after switch")
+	}
+	if afterSwitch.Scenario[0].Prompt == beforeSwitch.Scenario[0].Prompt {
+		t.Fatal("expected system prompt to rebuild on model switch, but it was unchanged")
+	}
+	// Full prior history resent to the stateless new model (raw input, not turo-reduced).
+	if !strings.Contains(afterSwitch.Messages, "hello") {
+		t.Fatalf("expected prior history 'hello' resent to new model, got %q", afterSwitch.Messages)
+	}
+}
+
 func TestLoop_SkillsInjected(t *testing.T) {
+	// Isolate HOME/CWD so real skill dirs (~/.kdeps/skills, ~/.agents/skills)
+	// on the dev machine don't leak into the test and make it non-hermetic.
+	tmp := t.TempDir()
+	t.Setenv("HOME", tmp)
+	t.Chdir(tmp)
+
 	reg := tools.NewRegistry()
 	loop := New(nil, newTestWorkflowForSession(), reg, Config{Model: "test"})
 	if loop.Skills() != "" {
@@ -176,9 +292,15 @@ func TestRunStreaming_NaturalEarlyStop(t *testing.T) {
 // the loop keeps going until the model stops calling tools, past what any
 // finite cap would allow, with no forced-answer round.
 func TestRunStreaming_UnlimitedRounds(t *testing.T) {
-	toolCall := domain.StreamedToolCall{ID: "1", Name: "noop", Arguments: "{}"}
 	responses := make([]mockStreamResponse, 0, 61)
-	for range 60 { // more than the default cap of 50
+	for i := range 60 { // more than the default cap of 50
+		// Distinct arguments per round: identical calls would trip the
+		// repeat-block guard (maxIdenticalToolCalls) before 60 rounds.
+		toolCall := domain.StreamedToolCall{
+			ID:        strconv.Itoa(i),
+			Name:      "noop",
+			Arguments: fmt.Sprintf(`{"i":%d}`, i),
+		}
 		responses = append(responses, mockStreamResponse{
 			content: "", toolCalls: []domain.StreamedToolCall{toolCall},
 		})
@@ -216,6 +338,30 @@ func TestRunStreaming_MaxRoundsExhausted(t *testing.T) {
 	}
 	if ms.callCount != 3 {
 		t.Errorf("expected exactly 3 StreamChat calls, got %d", ms.callCount)
+	}
+}
+
+func TestRunStreaming_BreaksRepeatBlockLoop(t *testing.T) {
+	// Model re-issues the identical tool call every round (the pasted bug: a
+	// tool blocked by convergence, retried forever). The loop must break.
+	toolCall := domain.StreamedToolCall{ID: "1", Name: "bash_exec", Arguments: `{"command":"echo hello"}`}
+	responses := make([]mockStreamResponse, 0, 20)
+	for range 20 {
+		responses = append(responses, mockStreamResponse{
+			content: "", toolCalls: []domain.StreamedToolCall{toolCall},
+		})
+	}
+	ms := &mockStreamer{responses: responses}
+	loop := newStreamingLoop(ms, 0) // unlimited rounds — only the guard can stop it
+
+	var buf bytes.Buffer
+	result, err := loop.RunStreaming(context.Background(), "go", &buf)
+	require.NoError(t, err)
+	if ms.callCount != maxIdenticalToolCalls {
+		t.Fatalf("expected loop to break after %d identical calls, got %d", maxIdenticalToolCalls, ms.callCount)
+	}
+	if !strings.Contains(result, "repeated the same") {
+		t.Fatalf("expected stuck-loop notice, got %q", result)
 	}
 }
 

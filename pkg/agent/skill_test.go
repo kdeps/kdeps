@@ -112,6 +112,11 @@ func TestDiscoverSkillsInDir_SubdirSkills(t *testing.T) {
 }
 
 func TestLoadSkills_MissingDir(t *testing.T) {
+	// Isolate HOME/CWD so real skill dirs on the dev machine
+	// (~/.kdeps/skills, ~/.agents/skills) do not leak into this test.
+	t.Setenv("HOME", t.TempDir())
+	t.Chdir(t.TempDir())
+
 	result := loadSkills([]string{"/nonexistent"})
 	if result != "" {
 		t.Fatalf("expected empty for missing dirs, got %q", result)
@@ -169,6 +174,10 @@ func TestLoadSkillSlice_FileExtraPath(t *testing.T) {
 }
 
 func TestLoadSkillSlice_DuplicateSkillName(t *testing.T) {
+	// Isolate HOME/CWD so real machine skill dirs don't inflate the count.
+	t.Setenv("HOME", t.TempDir())
+	t.Chdir(t.TempDir())
+
 	// Two file paths with the same skill name: the second should be deduped.
 	dir := t.TempDir()
 	content := "---\nname: dup-skill\n---\n\nContent."

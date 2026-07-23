@@ -104,3 +104,86 @@ func TestWebToolCache_ConcurrentAccess(t *testing.T) {
 	}
 	wg.Wait()
 }
+
+func newTestCache(maxCalls int) *convergenceCache {
+	return &convergenceCache{
+		m:    make(map[string]string),
+		seen: make(map[string]struct{}),
+		max:  maxCalls,
+		msg:  "blocked",
+	}
+}
+
+func okFn(out string) func() (string, error) {
+	return func() (string, error) { return out, nil }
+}
+
+func TestConvergenceCache_DistinctCommandsCount(t *testing.T) {
+	c := newTestCache(5)
+	_, _ = c.trackCall("a", okFn("ra"))
+	_, _ = c.trackCall("b", okFn("rb"))
+	if calls, _ := c.count(); calls != 2 {
+		t.Fatalf("expected 2 distinct calls counted, got %d", calls)
+	}
+}
+
+func TestConvergenceCache_CachedRepeatsDoNotCount(t *testing.T) {
+	c := newTestCache(5)
+	_, _ = c.trackCall("a", okFn("ra"))
+	for range 5 {
+		out, err := c.trackCall("a", okFn("SHOULD-NOT-RUN"))
+		if err != nil || out != "ra" {
+			t.Fatalf("expected cached result 'ra', got %q err=%v", out, err)
+		}
+	}
+	if calls, _ := c.count(); calls != 1 {
+		t.Fatalf("repeats must not consume budget; expected 1 call, got %d", calls)
+	}
+}
+
+func TestConvergenceCache_FailedRepeatDoesNotDrainBudget(t *testing.T) {
+	c := newTestCache(5)
+	_, err := c.trackCall("f", func() (string, error) { return "", errors.New("boom") })
+	if err == nil {
+		t.Fatal("expected error from failing command")
+	}
+	if calls, _ := c.count(); calls != 1 {
+		t.Fatalf("expected 1 call after first failure, got %d", calls)
+	}
+	ranAgain := false
+	_, _ = c.trackCall("f", func() (string, error) {
+		ranAgain = true
+		return "", errors.New("boom")
+	})
+	if !ranAgain {
+		t.Fatal("expected a previously-attempted command to re-run")
+	}
+	if calls, _ := c.count(); calls != 1 {
+		t.Fatalf("failed repeat must not consume budget; expected 1 call, got %d", calls)
+	}
+}
+
+func TestConvergenceCache_NewCommandBlockedAtLimit(t *testing.T) {
+	c := newTestCache(2)
+	_, _ = c.trackCall("a", okFn("ra"))
+	_, _ = c.trackCall("b", okFn("rb"))
+	if _, err := c.trackCall("c", okFn("rc")); err == nil {
+		t.Fatal("expected third distinct command to be blocked at the limit")
+	}
+}
+
+func TestConvergenceCache_SeenCommandNotBlockedAtLimit(t *testing.T) {
+	c := newTestCache(2)
+	_, _ = c.trackCall("a", func() (string, error) { return "", errors.New("x") })
+	_, _ = c.trackCall("b", okFn("rb"))
+	ranAgain := false
+	if _, err := c.trackCall("a", func() (string, error) {
+		ranAgain = true
+		return "ra", nil
+	}); err != nil {
+		t.Fatalf("previously-attempted command should not be blocked, got %v", err)
+	}
+	if !ranAgain {
+		t.Fatal("expected the seen command to re-run despite the budget being full")
+	}
+}

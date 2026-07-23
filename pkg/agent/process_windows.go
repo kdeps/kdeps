@@ -31,6 +31,13 @@ const sigTSTP = syscall.SIGINT
 // setProcessGroup is a no-op on Windows (no process group semantics).
 func setProcessGroup(_ *exec.Cmd) {}
 
+// killProcessGroup kills the process on Windows (no process-group semantics).
+func killProcessGroup(cmd *exec.Cmd) {
+	if cmd != nil && cmd.Process != nil {
+		_ = cmd.Process.Kill()
+	}
+}
+
 // sendSIGTSTP is a no-op on Windows (SIGTSTP is a Unix signal).
 func sendSIGTSTP() {}
 

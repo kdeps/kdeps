@@ -363,35 +363,6 @@ func (r *REPL) syncTokenCounter() {
 	}
 }
 
-// tokenCounterStr returns a compact left-side status bar showing cumulative
-// token usage: "in:12.4k|out:3.2k". Always returns a value.
-func (r *REPL) tokenCounterStr() string {
-	if r.tokenCounter == nil {
-		return ""
-	}
-	parts := []string{"in:" + formatCompactCount(llm.TokenInputs), "out:" + formatCompactCount(llm.TokenOutputs)}
-	if calls, max := WebConvergenceCalls(); max > 0 {
-		parts = append(parts, fmt.Sprintf("web:%d/%d", calls, max))
-	}
-	if calls, max := BashConvergenceCalls(); max > 0 {
-		parts = append(parts, fmt.Sprintf("sh:%d/%d", calls, max))
-	}
-	if calls, max := FileConvergenceCalls(); max > 0 {
-		parts = append(parts, fmt.Sprintf("file:%d/%d", calls, max))
-	}
-	if calls, max := CodeConvergenceCalls(); max > 0 {
-		parts = append(parts, fmt.Sprintf("src:%d/%d", calls, max))
-	}
-	if r.loop.memoryStore != nil {
-		if n := r.loop.memoryStore.Len(); n > 0 {
-			parts = append(parts, fmt.Sprintf("mem:%d", n))
-		}
-	}
-	return styleReplDim.Render("[") +
-		styleReplMeta.Render(strings.Join(parts, "|")) +
-		styleReplDim.Render("] ")
-}
-
 // dynamicPrompt returns a prompt string showing model, turn count, and context usage.
 func (r *REPL) dynamicPrompt() string {
 	return styleReplPrompt.Render("> ")
@@ -422,30 +393,19 @@ func (r *REPL) modeline() string {
 			parts = append(parts, meta(fmt.Sprintf("mem:%d", n)))
 		}
 	}
-	return strings.Join(parts, dim(" · "))
-}
-
-// modelTypeTag returns a colored tag naming the model's backend type
-// (llamafile, gguf, ollama, or the cloud backend name).
-// Returns "" when the model or type is unknown.
-func modelTypeTag(r *REPL, model string) string {
-	if model == "" || r.modelTypes == nil {
-		return ""
-	}
-	mt := r.modelTypes[model]
-	switch mt {
-	case modelTypeLLamafile:
-		return styleModelsReady.Render("llamafile")
-	case modelTypeGGUF:
-		return styleReplSuccess.Render("gguf")
-	case modelTypeOllama:
-		return styleReplMeta.Render("ollama")
-	default:
-		if backend := r.cloudModelBackends[model]; backend != "" {
-			return styleReplDim.Render(backend)
+	if turoAvailable(r.ctx) {
+		switch {
+		case TuroRuntimeOff():
+			parts = append(parts, dim("turo:off"))
+		case TuroLevel() == "ultra":
+			parts = append(parts, styleReplSuccess.Render("turo:ultra"))
+		case TuroLevel() == "lite":
+			parts = append(parts, meta("turo:lite"))
+		default:
+			parts = append(parts, meta("turo"))
 		}
-		return ""
 	}
+	return strings.Join(parts, dim(" · "))
 }
 
 // contextUsageStr returns a "used/total" token display string (e.g. "293k/512k").
@@ -1739,7 +1699,12 @@ func (r *REPL) handleReadError(err error) (bool, error) {
 func (r *REPL) processInput(input string) error {
 	// Reset convergence counters and apply configured limits per user request.
 	ResetConvergence()
-	SetConvergenceLimits(r.loop.config.WebLimit, r.loop.config.BashLimit, r.loop.config.FileLimit, r.loop.config.CodeLimit)
+	SetConvergenceLimits(
+		r.loop.config.WebLimit,
+		r.loop.config.BashLimit,
+		r.loop.config.FileLimit,
+		r.loop.config.CodeLimit,
+	)
 
 	// Slash and bang commands are typed on one line; pasted multi-line input is
 	// always literal content for the LLM. Slash commands run without a model, so
@@ -2117,6 +2082,8 @@ func (r *REPL) dispatchCommand(cmd string) error {
 		return r.cmdContext(args)
 	case "/kartographer":
 		return r.cmdKartographer()
+	case "/turo":
+		return r.cmdTuro(args)
 	case "/exit", "/quit":
 		r.loopCancel() // exit the loop; also cascades to cancel r.ctx (child of loopCtx)
 		return nil
@@ -2166,6 +2133,7 @@ func (r *REPL) cmdHelp() error {
 		"  /reload                            Reload skills, prompt templates, and instructions from disk",
 		"  /context                           Show current context window size",
 		"  /context <size>                    Set context window size (e.g. 32768 or 32k); restarts local servers",
+		"  /turo [on|off|lite|full|ultra|<n>] Show or set the turo prompt reducer (level or max-depth); turo only",
 		"  ! <cmd>                            Run a shell command; the output becomes an agent turn (the model responds)",
 		"  !! <cmd>                           Run a shell command silently - no LLM turn, nothing added to context",
 	}
@@ -2791,6 +2759,9 @@ func (r *REPL) applyModelSwitch(model string) {
 		return
 	}
 	r.loop.Session().SetTokenBudget(newLimit, model)
+	// New model: rebuild the frozen system preamble so the commit trailer names
+	// the model now in use instead of the previous one.
+	r.loop.InvalidateSystemPreamble()
 	// Persist full LLM config so it's restored on next run.
 	r.loop.saveSessionConfig()
 	fmt.Fprintf(os.Stdout, "\n%s\n\n",
@@ -3567,6 +3538,7 @@ func (r *REPL) cmdSessionLoad(store *SessionStore, id string) error {
 	// Restore model from saved session metadata if available.
 	if meta, metaErr := store.LoadMeta(id); metaErr == nil && meta.Model != "" {
 		r.loop.config.Model = meta.Model
+		r.loop.InvalidateSystemPreamble()
 	}
 	// Save current working directory and full LLM config to memory.
 	if ms := r.loop.MemoryStore(); ms != nil {
@@ -3823,8 +3795,9 @@ func (r *REPL) cmdKartographer() error {
 	end := dim("└─")
 	arrow := dim("→")
 
+	const ruleWidth = 68
 	fmt.Fprintln(os.Stdout, heading("kdeps internal pipelines"))
-	fmt.Fprintln(os.Stdout, dim(strings.Repeat("─", 68)))
+	fmt.Fprintln(os.Stdout, dim(strings.Repeat("─", ruleWidth)))
 
 	// Token counter
 	in := GlobalPromptCacheStats.TotalInputTokens()
@@ -3833,41 +3806,22 @@ func (r *REPL) cmdKartographer() error {
 	fmt.Fprintf(os.Stdout, "  %s GenerateContent %s recordTokenUsage %s TokenRecorder\n", tee, arrow, arrow)
 	fmt.Fprintf(os.Stdout, "  %s   %s GlobalPromptCacheStats.RecordCacheUsageFromTokens\n", pipe, arrow)
 	fmt.Fprintf(os.Stdout, "  %s   %s syncTokenCounter %s TokenCounter\n", pipe, arrow, arrow)
-	fmt.Fprintf(os.Stdout, "  %s   %s compactTokenStatus / tokenCounterStr\n", pipe, arrow)
+	fmt.Fprintf(os.Stdout, "  %s   %s compactTokenStatus\n", pipe, arrow)
 	fmt.Fprintf(os.Stdout, "  %s [in:%s|out:%s]\n\n", end, formatCompactCount(in), formatCompactCount(out))
 
 	// Convergence pipelines
 	wc, wm := WebConvergenceCalls()
-	fmt.Fprintln(os.Stdout, meta("converge"))
-	fmt.Fprintf(os.Stdout, "  %s web_search / web_scraper %s webToolCache.call()\n", tee, arrow)
-	fmt.Fprintf(os.Stdout, "  %s   %s calls++ (now %d/%d)\n", pipe, arrow, wc, wm)
-	if wc >= wm { fmt.Fprintf(os.Stdout, "  %s   %s LIMIT REACHED %s convergence error\n", pipe, arrow, arrow)
-	} else { fmt.Fprintf(os.Stdout, "  %s   %s execute, cache result\n", pipe, arrow) }
-	fmt.Fprintf(os.Stdout, "  %s system prompt <output> rule 24 (soft guidance)\n\n", end)
-
+	r.printConvergence("converge", "web_search / web_scraper %s webToolCache.call()", wc, wm,
+		"system prompt <output> rule 24 (soft guidance)")
 	bc, bm := BashConvergenceCalls()
-	fmt.Fprintln(os.Stdout, meta("shell"))
-	fmt.Fprintf(os.Stdout, "  %s bash_exec %s trackBashCall()\n", tee, arrow)
-	fmt.Fprintf(os.Stdout, "  %s   %s calls++ (now %d/%d)\n", pipe, arrow, bc, bm)
-	if bc >= bm { fmt.Fprintf(os.Stdout, "  %s   %s LIMIT REACHED %s convergence error\n", pipe, arrow, arrow)
-	} else { fmt.Fprintf(os.Stdout, "  %s   %s execute, cache result\n", pipe, arrow) }
-	fmt.Fprintf(os.Stdout, "  %s maxBashToolCalls=%d\n\n", end, bm)
-
+	r.printConvergence("shell", "bash_exec %s trackBashCall()", bc, bm,
+		fmt.Sprintf("maxBashToolCalls=%d", bm))
 	fc, fm := FileConvergenceCalls()
-	fmt.Fprintln(os.Stdout, meta("file"))
-	fmt.Fprintf(os.Stdout, "  %s read_file / list_files %s trackFileCall()\n", tee, arrow)
-	fmt.Fprintf(os.Stdout, "  %s   %s calls++ (now %d/%d)\n", pipe, arrow, fc, fm)
-	if fc >= fm { fmt.Fprintf(os.Stdout, "  %s   %s LIMIT REACHED %s convergence error\n", pipe, arrow, arrow)
-	} else { fmt.Fprintf(os.Stdout, "  %s   %s execute, cache result\n", pipe, arrow) }
-	fmt.Fprintf(os.Stdout, "  %s maxFileToolCalls=%d\n\n", end, fm)
-
+	r.printConvergence("file", "read_file / list_files %s trackFileCall()", fc, fm,
+		fmt.Sprintf("maxFileToolCalls=%d", fm))
 	cc, cm := CodeConvergenceCalls()
-	fmt.Fprintln(os.Stdout, meta("code"))
-	fmt.Fprintf(os.Stdout, "  %s search_local / code_search %s trackCodeCall()\n", tee, arrow)
-	fmt.Fprintf(os.Stdout, "  %s   %s calls++ (now %d/%d)\n", pipe, arrow, cc, cm)
-	if cc >= cm { fmt.Fprintf(os.Stdout, "  %s   %s LIMIT REACHED %s convergence error\n", pipe, arrow, arrow)
-	} else { fmt.Fprintf(os.Stdout, "  %s   %s execute, cache result\n", pipe, arrow) }
-	fmt.Fprintf(os.Stdout, "  %s maxCodeToolCalls=%d\n\n", end, cm)
+	r.printConvergence("code", "search_local / code_search %s trackCodeCall()", cc, cm,
+		fmt.Sprintf("maxCodeToolCalls=%d", cm))
 
 	// Compaction
 	turns := r.loop.Session().TurnCount()
@@ -3891,6 +3845,101 @@ func (r *REPL) cmdKartographer() error {
 		fmt.Fprintf(os.Stdout, "  %s %d entries saved this session\n\n", end, r.loop.memoryStore.Len())
 	} else {
 		fmt.Fprintf(os.Stdout, "  %s (no memory store)\n\n", end)
+	}
+	return nil
+}
+
+// printConvergence renders one convergence-pipeline block for cmdKartographer.
+// toolLine embeds a single %s for the arrow; footer is the trailing summary line.
+func (r *REPL) printConvergence(section, toolLine string, calls, limit int, footer string) {
+	meta := styleReplMeta.Render
+	dim := styleReplDim.Render
+	pipe := dim("│")
+	tee := dim("├─")
+	end := dim("└─")
+	arrow := dim("→")
+
+	fmt.Fprintln(os.Stdout, meta(section))
+	fmt.Fprintf(os.Stdout, "  %s "+toolLine+"\n", tee, arrow)
+	fmt.Fprintf(os.Stdout, "  %s   %s calls++ (now %d/%d)\n", pipe, arrow, calls, limit)
+	if calls >= limit {
+		fmt.Fprintf(os.Stdout, "  %s   %s LIMIT REACHED %s convergence error\n", pipe, arrow, arrow)
+	} else {
+		fmt.Fprintf(os.Stdout, "  %s   %s execute, cache result\n", pipe, arrow)
+	}
+	fmt.Fprintf(os.Stdout, "  %s %s\n\n", end, footer)
+}
+
+// cmdTuro shows or changes the turo reducer settings:
+//
+//	/turo                 show status
+//	/turo on | off        enable/disable reduction at runtime
+//	/turo lite|full|ultra set compression level
+//	/turo <n>             set max transitive edge depth (0 = unlimited)
+func (r *REPL) cmdTuro(args []string) error {
+	if !turoAvailable(r.ctx) {
+		fmt.Fprintln(os.Stdout, styleReplMeta.Render(
+			"turo is not installed. Install github.com/kdeps/turo to enable prompt reduction."))
+		return nil
+	}
+
+	if len(args) == 0 {
+		return r.printTuroStatus()
+	}
+
+	arg := strings.ToLower(strings.TrimSpace(args[0]))
+	switch arg {
+	case "on":
+		SetTuroRuntimeOff(false)
+		fmt.Fprintln(os.Stdout, styleReplSuccess.Render("turo on"))
+	case "off":
+		SetTuroRuntimeOff(true)
+		fmt.Fprintln(os.Stdout, styleReplMeta.Render("turo off — content is sent to the LLM unreduced"))
+	case "lite", "full", "ultra":
+		SetTuroLevel(arg)
+		fmt.Fprintf(os.Stdout, "%s\n", styleReplSuccess.Render("turo level: "+arg))
+	default:
+		depth, ok := parseNonNegInt(arg)
+		if !ok {
+			fmt.Fprintln(os.Stderr, styleReplError.Render(
+				"Usage: /turo [on|off|lite|full|ultra|<max-depth>]"))
+			return nil
+		}
+		SetTuroMaxDepth(depth)
+		if depth == 0 {
+			fmt.Fprintln(os.Stdout, styleReplSuccess.Render("turo max-depth: 0 (unlimited)"))
+		} else {
+			fmt.Fprintf(os.Stdout, "%s\n", styleReplSuccess.Render(fmt.Sprintf("turo max-depth: %d", depth)))
+		}
+	}
+	return nil
+}
+
+// parseNonNegInt parses s as a non-negative integer, returning false when it is
+// not a valid number or is negative.
+func parseNonNegInt(s string) (int, bool) {
+	n, err := strconv.Atoi(s)
+	if err != nil || n < 0 {
+		return 0, false
+	}
+	return n, true
+}
+
+// printTuroStatus prints the current turo settings.
+func (r *REPL) printTuroStatus() error {
+	meta := styleReplMeta.Render
+	state := "on"
+	if TuroRuntimeOff() {
+		state = "off"
+	}
+	fmt.Fprintln(os.Stdout, styleReplHeading.Render("turo"))
+	fmt.Fprintf(os.Stdout, "  %s %s\n", meta("state:"), state)
+	fmt.Fprintf(os.Stdout, "  %s %s\n", meta("level:"), TuroLevel())
+	depth := TuroMaxDepth()
+	if depth == 0 {
+		fmt.Fprintf(os.Stdout, "  %s 0 (unlimited)\n", meta("max-depth:"))
+	} else {
+		fmt.Fprintf(os.Stdout, "  %s %d\n", meta("max-depth:"), depth)
 	}
 	return nil
 }

@@ -1349,6 +1349,38 @@ func TestBashExec_ContextCancel(t *testing.T) {
 	assert.Contains(t, out, "[interrupted]")
 }
 
+func TestBashExec_ContextCancelKillsChildren(t *testing.T) {
+	t.Setenv("KDEPS_ALLOW_BASH", "true")
+	// Disable rtk so the command runs as written (no wrapper process in the way).
+	t.Setenv("KDEPS_RTK", "off")
+	reg := kdepstools.NewRegistry()
+	RegisterBuiltinTools(context.Background(), reg)
+	tool := reg.Get("bash_exec")
+	require.NotNil(t, tool)
+
+	marker := filepath.Join(t.TempDir(), "child-marker")
+	// bash stays the parent; the sleep+touch runs as a child in its process
+	// group. If cancel only killed bash, the orphaned child would create the
+	// marker. killProcessGroup must take the whole group down.
+	ctx, cancel := context.WithCancel(context.Background())
+	go func() {
+		time.Sleep(100 * time.Millisecond)
+		cancel()
+	}()
+	out, err := tool.Execute(map[string]any{
+		"command": "sleep 1 && touch " + marker,
+		"_ctx":    ctx,
+	})
+	require.NoError(t, err)
+	assert.Contains(t, out, "[interrupted]")
+
+	// Wait past the child's sleep; the marker must never appear.
+	time.Sleep(1500 * time.Millisecond)
+	if _, statErr := os.Stat(marker); statErr == nil {
+		t.Fatal("child process survived cancellation: marker file was created")
+	}
+}
+
 func TestBashExec_Background(t *testing.T) {
 	t.Setenv("KDEPS_ALLOW_BASH", "true")
 	reg := kdepstools.NewRegistry()

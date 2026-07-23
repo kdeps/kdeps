@@ -46,10 +46,42 @@ Inside the REPL, type `/help` for the full list:
 | `/reload` | Reload skills and prompt templates from disk |
 | `/context` | Show current context window size |
 | `/context <size>` | Set context window size (e.g. `32768` or `32k`); restarts local model servers with the new `--ctx-size` |
+| `/turo` | Show turo reducer status (state, level, max-depth). Only available when the `turo` binary is on `PATH` |
+| `/turo on\|off` | Enable or disable prompt reduction at runtime |
+| `/turo lite\|full\|ultra` | Set the turo compression level |
+| `/turo <max-depth>` | Set the max transitive edge depth (`0` = unlimited) |
 | `/settings` | Open the tool/skill selector |
 | `/exit` | Exit the REPL |
 | `! <cmd>` | Run a shell command; the output becomes an agent turn - the model responds and can act on it (e.g. `!make lint` -> the model fixes the findings) |
 | `!! <cmd>` | Run a shell command silently - no LLM turn, nothing added to context |
+
+## Prompt reduction (turo)
+
+`turo` is an optional token reducer. When the `turo` binary is on `PATH`, kdeps pipes everything it sends to the LLM through it first - system preamble, your input, tool results, and conversation history - converting prose to a compact edge graph. Code, file paths, and identifiers are preserved verbatim; articles, prepositions, and filler are dropped. Applies to agent mode only.
+
+```text
+system preamble + input + tool results + history  ->  turo  ->  LLM
+```
+
+Turo is entirely optional: if the binary is not installed, kdeps sends everything unreduced and the `/turo` command reports that it is unavailable.
+
+Control it at runtime with `/turo`:
+
+```
+/turo                # show status: state, level, max-depth
+/turo off            # send content unreduced (disable)
+/turo on             # re-enable
+/turo ultra          # set compression level: lite | full | ultra
+/turo 4              # cap transitive edge depth (0 = unlimited)
+```
+
+Install-time controls via environment variables:
+
+```yaml
+TURO_LEVEL: ultra    # default compression level (lite, full, ultra)
+KDEPS_TURO: "off"    # disable turo entirely (also TURO_DISABLED=1)
+KDEPS_TURO_PATH: /custom/path/to/turo  # override binary discovery
+```
 
 ## Local model management
 
@@ -569,6 +601,8 @@ Skills are discovered from:
 - Paths passed with `--skill` (explicit, repeatable)
 
 Invoke a skill from the REPL with `/<skill-name>` or `/<skill-name> extra context here`.
+
+**Progressive disclosure (token cost):** the system prompt lists only each skill's name and description - never the full body. Skill instructions are re-sent on every LLM call as part of the system prompt, so embedding full bodies for a large skill set would burn tokens every turn. Instead, the agent calls the built-in `load_skill` tool with a skill name to pull that skill's full instructions on demand, only when a task actually needs it.
 
 ## Prompt templates
 

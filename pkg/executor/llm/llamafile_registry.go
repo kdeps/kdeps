@@ -54,8 +54,8 @@ type llamafileVersions struct {
 //nolint:gochecknoglobals // process-wide registry cache, loaded once
 var (
 	llamafileRegistryLoaded bool
-	llamafileRegistryData *llamafileVersions
-	llamafileAliasMap     map[string]string // alias → URL
+	llamafileRegistryData   *llamafileVersions
+	llamafileAliasMap       map[string]string // alias → URL
 )
 
 // localRegistryPath returns the path to the user's local registry override.
@@ -116,7 +116,9 @@ func parseLlamafileYAML(raw []byte) *llamafileVersions {
 }
 
 func ensureRegistryLoaded() {
-	if llamafileRegistryLoaded { return }
+	if llamafileRegistryLoaded {
+		return
+	}
 	llamafileRegistryLoaded = true
 	loadLlamafileRegistry()
 }

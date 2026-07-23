@@ -67,7 +67,6 @@ func (o *observedLLM) GenerateContent(
 		return nil, err
 	}
 
-
 	if debug.Enabled() && resp != nil && len(resp.Choices) > 0 {
 		choice := resp.Choices[0]
 		tokens := choice.GenerationInfo["CompletionTokens"]

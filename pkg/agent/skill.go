@@ -45,6 +45,8 @@ func defaultSkillDirs() []string {
 	dirs := []string{}
 	if home != "" {
 		dirs = append(dirs, filepath.Join(home, ".kdeps", "skills"))
+		// Standard npx skills install path.
+		dirs = append(dirs, filepath.Join(home, ".agents", "skills"))
 	}
 	if cwd, err := os.Getwd(); err == nil {
 		dirs = append(dirs, filepath.Join(cwd, ".kdeps", "skills"))
@@ -184,7 +186,9 @@ func loadSkillFromFile(path string) *Skill {
 }
 
 const skillsSystemPromptPreamble = `The following skills provide specialized instructions for specific tasks.
-Use the skill content when the user's task matches the skill description.
+Each entry lists the skill name and what it does. When the user's task matches a
+skill, call the load_skill tool with that skill name to fetch its full
+instructions, then follow them. Do not guess a skill's contents from its name.
 When a skill references a relative path, resolve it against the skill directory.`
 
 // formatSkillsForPrompt formats skills as an XML <available_skills> block
@@ -204,12 +208,13 @@ func formatSkillsForPrompt(skills []Skill) string {
 	sb.WriteString(skillsSystemPromptPreamble)
 	sb.WriteString("\n\n<available_skills>\n")
 	for _, sk := range visible {
-		fmt.Fprintf(&sb, "<skill name=\"%s\" source=\"%s\">\n", sk.Name, sk.Source)
-		if sk.Description != "" {
-			fmt.Fprintf(&sb, "  %s\n", sk.Description)
+		// Names + descriptions only. Full content is loaded on demand via the
+		// load_skill tool, so it is not re-sent in the system prompt every turn.
+		desc := strings.TrimSpace(sk.Description)
+		if desc == "" {
+			desc = "(no description)"
 		}
-		fmt.Fprintf(&sb, "  %s\n", strings.TrimSpace(sk.Content))
-		sb.WriteString("</skill>\n")
+		fmt.Fprintf(&sb, "<skill name=%q source=%q>%s</skill>\n", sk.Name, sk.Source, desc)
 	}
 	sb.WriteString("</available_skills>")
 	return sb.String()

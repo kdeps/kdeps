@@ -248,6 +248,35 @@ func (s *Session) BuildMessagesJSON() string {
 	return sb.String()
 }
 
+// BuildMessagesJSONReduced is BuildMessagesJSON with each message's content
+// passed through transform before serialization. Used to route conversation
+// history through turo without mutating stored (display-facing) messages.
+func (s *Session) BuildMessagesJSONReduced(transform func(string) string) string {
+	if transform == nil {
+		return s.BuildMessagesJSON()
+	}
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	if len(s.messages) == 0 {
+		return ""
+	}
+	var sb strings.Builder
+	sb.WriteByte('[')
+	for i, m := range s.messages {
+		if i > 0 {
+			sb.WriteByte(',')
+		}
+		role := m.Role
+		if role == RoleCompactionSummary || role == RoleBranchSummary {
+			role = RoleUser
+		}
+		fmt.Fprintf(&sb, `{"role":"%s","content":%s}`, role, jsonString(transform(m.Content)))
+	}
+	sb.WriteByte(']')
+	return sb.String()
+}
+
 // TurnCount returns the number of complete user-assistant turns.
 func (s *Session) TurnCount() int {
 	s.mu.RLock()

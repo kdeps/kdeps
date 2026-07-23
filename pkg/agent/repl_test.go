@@ -530,7 +530,7 @@ func TestSetPendingFiles_ClearedAfterBuildChatConfig(t *testing.T) {
 	assert.Equal(t, []string{"/tmp/img.png"}, loop.pendingFiles)
 
 	// buildChatConfig should consume and clear pendingFiles
-	cfg := loop.buildChatConfig("hello", "")
+	cfg := loop.buildChatConfig(context.Background(), "hello", "")
 	assert.Equal(t, []string{"/tmp/img.png"}, cfg.Files)
 	assert.Nil(t, loop.pendingFiles)
 }
@@ -2132,13 +2132,13 @@ func TestBuildChatConfig_ThinkingPropagated(t *testing.T) {
 	thinking := &domain.ThinkingConfig{Mode: domain.ThinkingModeHigh, BudgetTokens: 1024}
 	loop.SetThinking(thinking)
 
-	cfg := loop.buildChatConfig("hello", "")
+	cfg := loop.buildChatConfig(context.Background(), "hello", "")
 	assert.Equal(t, thinking, cfg.Thinking)
 }
 
 func TestBuildChatConfig_NoThinkingByDefault(t *testing.T) {
 	loop := makeTestLoop(nil)
-	cfg := loop.buildChatConfig("hello", "")
+	cfg := loop.buildChatConfig(context.Background(), "hello", "")
 	assert.Nil(t, cfg.Thinking)
 }
 

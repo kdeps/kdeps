@@ -202,6 +202,11 @@ type Loop struct {
 	memoryStore   *MemoryStore  // optional memory persistence
 	streamer      Streamer      // optional streaming LLM caller
 	pendingFiles  []string      // per-turn image/file attachments; cleared after buildChatConfig
+	// systemPreamble is built once on the first turn and reused verbatim on every
+	// subsequent turn. Keeping it byte-identical lets provider prompt caches hit
+	// on the system prefix instead of re-billing the full preamble each turn.
+	systemPreamble      string
+	systemPreambleBuilt bool
 	// toolDisplayActive is read by the REPL spinner: while a running tool's
 	// monitor line owns the terminal, spinner frames must not overwrite it.
 	toolDisplayActive atomic.Bool
@@ -242,6 +247,8 @@ func New(eng *executor.Engine, workflow *domain.Workflow, reg *tools.Registry, c
 		streamer:    cfg.Streamer,
 	}
 
+	l.registerSkillLoader()
+
 	if cfg.MemoryStore != nil {
 		memoryStoreInstance = cfg.MemoryStore
 		_ = cfg.MemoryStore.Load()
@@ -257,6 +264,53 @@ func New(eng *executor.Engine, workflow *domain.Workflow, reg *tools.Registry, c
 	}
 
 	return l
+}
+
+// registerSkillLoader registers the load_skill tool so the LLM can fetch a
+// skill's full instructions on demand. This keeps skill bodies out of the
+// system prompt (which is re-sent every turn) and loads them only when a task
+// actually needs one. The closure captures l, so it always sees the current
+// skill list even after ReloadSkills.
+func (l *Loop) registerSkillLoader() {
+	if l.registry == nil {
+		return
+	}
+	hasVisible := false
+	for _, sk := range l.skillList {
+		if !sk.Hidden {
+			hasVisible = true
+			break
+		}
+	}
+	if !hasVisible {
+		return
+	}
+	l.registry.Register(&tools.Tool{
+		Name: "load_skill",
+		Description: "Load the full instructions for a named skill. Call this when the " +
+			"user's task matches one of the skills listed in <available_skills>. Returns " +
+			"the skill's complete instructions to follow.",
+		Category:     "agent",
+		OutputFormat: "the skill's full instruction text",
+		Parameters: map[string]domain.ToolParam{
+			"name": {
+				Type:        "string",
+				Description: "The exact skill name from <available_skills>",
+				Required:    true,
+			},
+		},
+		Execute: func(args map[string]any) (string, error) {
+			name, _ := args["name"].(string)
+			if name == "" {
+				return "", errors.New("load_skill: name is required")
+			}
+			sk := l.SkillByName(name)
+			if sk == nil {
+				return "", fmt.Errorf("load_skill: no skill named %q", name)
+			}
+			return sk.Content, nil
+		},
+	})
 }
 
 // Store returns the session store, or nil if none was configured.
@@ -490,7 +544,7 @@ func applyConfigDefaults(cfg Config) Config {
 }
 
 const (
-	defaultAutoCompactThreshold = 40000
+	defaultAutoCompactThreshold = 30000
 	// defaultMaxToolRounds bounds tool-call round trips per turn. Coding
 	// tasks routinely need dozens of rounds (explore, read, edit, test);
 	// hitting the cap mid-task forces a text answer and loses the work.
@@ -503,6 +557,9 @@ const (
 	defaultToolStallTimeout            = 10 * time.Minute
 	defaultAutoToolAllocationIncrement = 100
 	defaultModelName                   = "llama3.2"
+	// maxIdenticalToolCalls is how many times in a row the model may issue the
+	// exact same tool call before the turn is ended as a stuck loop.
+	maxIdenticalToolCalls = 3
 )
 
 func envOrDefault(key, fallback string) string {
@@ -532,10 +589,12 @@ func (l *Loop) Run(ctx context.Context, input string) (string, error) {
 		}
 	}
 
-	// Build system prompt preamble: skills + instructions + user system prompt
-	systemPreamble := l.buildSystemPreamble(input)
+	// Build system prompt preamble: skills + instructions + user system prompt.
+	// Built once on the first turn, then reused verbatim so the system prefix
+	// stays cache-hittable on subsequent turns.
+	systemPreamble := l.cachedSystemPreamble(input)
 
-	chatCfg := l.buildChatConfig(input, systemPreamble)
+	chatCfg := l.buildChatConfig(ctx, input, systemPreamble)
 
 	// Request body size preflight: check before sending to the engine's LLM call.
 	// The engine path (vs runToolRounds) does not have its own preflight check.
@@ -599,8 +658,8 @@ func (l *Loop) RunStreaming(ctx context.Context, input string, w io.Writer) (str
 		}
 	}
 
-	systemPreamble := l.buildSystemPreamble(input)
-	chatCfg := l.buildChatConfig(input, systemPreamble)
+	systemPreamble := l.cachedSystemPreamble(input)
+	chatCfg := l.buildChatConfig(ctx, input, systemPreamble)
 
 	finalContent, err := l.runToolRounds(ctx, chatCfg, w)
 	if err != nil && IsContextOverflowError(err) {
@@ -743,8 +802,8 @@ func (l *Loop) compactAndRetry(ctx context.Context, input string, w io.Writer) (
 		)
 	}
 
-	preamble := l.buildSystemPreamble(input)
-	cfg := l.buildChatConfig(input, preamble)
+	preamble := l.cachedSystemPreamble(input)
+	cfg := l.buildChatConfig(ctx, input, preamble)
 	return l.runToolRounds(ctx, cfg, w)
 }
 
@@ -777,6 +836,12 @@ func (l *Loop) runToolRounds(
 	var finalContent string
 	capped := false
 	nudged := false
+	// Repeat-block loop guard: a model that re-issues the exact same tool call
+	// every round (common once a tool is blocked by convergence or keeps
+	// failing) makes no progress. Track consecutive identical calls and break
+	// the turn after too many.
+	var lastToolSig string
+	identicalRepeats := 0
 	// MaxToolRounds <= 0 means unlimited: run until the model stops calling
 	// tools or the turn is canceled (Ctrl+C). With no cap there is no forced
 	// final answer.
@@ -821,6 +886,20 @@ func (l *Loop) runToolRounds(
 				continue
 			}
 			_, _ = io.WriteString(w, roundBuf.String())
+			break
+		}
+
+		// Detect a model stuck re-issuing the same tool call. The loop
+		// dispatches toolCalls[0], so track that signature.
+		sig := toolCalls[0].Name + "\x00" + toolCalls[0].Arguments
+		if sig == lastToolSig {
+			identicalRepeats++
+		} else {
+			identicalRepeats = 1
+			lastToolSig = sig
+		}
+		if identicalRepeats >= maxIdenticalToolCalls {
+			finalContent = l.stuckLoopNotice(w, toolCalls[0].Name)
 			break
 		}
 
@@ -873,6 +952,20 @@ func nudgeForActionConfig(cfg *domain.ChatConfig) *domain.ChatConfig {
 func (l *Loop) silentTurnNotice(w io.Writer) string {
 	notice := "\nThe model ended the turn without answering or calling a tool - " +
 		"its response was reasoning only. Try rephrasing, or switch models with /model.\n\n"
+	_, _ = io.WriteString(w, notice)
+	return notice
+}
+
+// stuckLoopNotice writes and returns the message shown when the model is broken
+// out of a repeat-block loop: it issued the same tool call too many times in a
+// row (usually because the tool was blocked by convergence or kept failing) and
+// made no progress. Ending the turn beats spinning on the same call forever.
+func (l *Loop) stuckLoopNotice(w io.Writer, toolName string) string {
+	notice := fmt.Sprintf(
+		"\nThe model repeated the same %q tool call %d times without making "+
+			"progress - ending the turn. The tool was likely blocked or kept "+
+			"failing. Try rephrasing, or switch models with /model.\n\n",
+		toolName, maxIdenticalToolCalls)
 	_, _ = io.WriteString(w, notice)
 	return notice
 }
@@ -1046,6 +1139,12 @@ const toolArgMaxDisplay = 80 // max chars shown in tool call summary line
 // fed back to the LLM. Provider errors can embed whole HTML pages.
 const toolErrorMaxLen = 500
 
+// maxToolResultBytes caps any single tool result fed back to the LLM. bash_exec
+// truncates its own output, but other tools (searches, scrapers, workflow/agency
+// calls) can return arbitrarily large payloads. Without a uniform cap they pile
+// into history and get re-sent every round, burning millions of input tokens.
+const maxToolResultBytes = 16 * 1024 // 16 KB (~4k tokens) per tool result
+
 // summarizeToolArgs extracts a short display label from tool call arguments JSON.
 // Returns the first non-empty string value, or the raw JSON if nothing else works.
 func summarizeToolArgs(raw string) string {
@@ -1129,7 +1228,7 @@ func (l *Loop) appendToolRoundTrip(
 			"role":           "tool",
 			"tool_call_id":   tc.ID,
 			"name":           tc.Name,
-			toolParamContent: result,
+			toolParamContent: turoReduce(ctx, capToolResult(result)),
 		})
 	}
 
@@ -1282,6 +1381,21 @@ func (l *Loop) dispatchStreamToolCall(tc domain.StreamedToolCall, w io.Writer) s
 		l.memoryStore.ExtractToolResult(tc.Name, result)
 	}
 	return result
+}
+
+// capToolResult truncates an oversized tool result to maxToolResultBytes on a
+// line boundary, appending a marker. Keeps a single tool call from flooding the
+// LLM context (and every subsequent round's re-sent history).
+func capToolResult(result string) string {
+	if len(result) <= maxToolResultBytes {
+		return result
+	}
+	cutoff := result[:maxToolResultBytes]
+	if idx := strings.LastIndexByte(cutoff, '\n'); idx > 0 {
+		cutoff = cutoff[:idx]
+	}
+	return fmt.Sprintf("%s\n[tool result truncated: %d bytes total, showing first %d]",
+		cutoff, len(result), len(cutoff))
 }
 
 // toolErrorJSON formats a tool failure as a JSON error result, truncated so a
@@ -1580,6 +1694,27 @@ persistent memory. Check memory before every action; save after every
 turn. This is not optional — it is the core reliability mechanism.
 </internals>`
 
+// InvalidateSystemPreamble forces the next turn to rebuild the system preamble.
+// Call after a runtime change that the preamble embeds (model switch, which
+// renames the commit trailer author) so the cached prefix does not go stale.
+func (l *Loop) InvalidateSystemPreamble() {
+	l.systemPreambleBuilt = false
+	l.systemPreamble = ""
+}
+
+// cachedSystemPreamble returns the system preamble, building it once on the
+// first turn and reusing the identical string thereafter. Re-sending a stable
+// system prefix every turn is what lets provider prompt caches hit it instead
+// of re-billing skills, instructions, and memory rules on each turn.
+func (l *Loop) cachedSystemPreamble(focus string) string {
+	if l.systemPreambleBuilt {
+		return l.systemPreamble
+	}
+	l.systemPreamble = l.buildSystemPreamble(focus)
+	l.systemPreambleBuilt = true
+	return l.systemPreamble
+}
+
 // buildSystemPreamble constructs the system prompt preamble from skills,
 // instruction files, and the user-configured system prompt.
 // For small-context models (< 8K), non-essential parts are dropped to
@@ -1632,7 +1767,6 @@ func (l *Loop) buildSystemPreamble(focus string) string {
 	if l.config.SystemPrompt != "" {
 		parts = append(parts, l.config.SystemPrompt)
 	}
-
 	preamble := strings.Join(parts, "\n\n")
 	// For models with very small context windows, keep only tool guidance
 	// and strip large skill blocks that would cause immediate overflow.
@@ -1646,6 +1780,7 @@ func (l *Loop) buildSystemPreamble(focus string) string {
 			preamble = essential
 		}
 	}
+	preamble = turoReduce(context.Background(), preamble)
 	return preamble
 }
 
@@ -1771,7 +1906,7 @@ func modelIdentity(backend, model string) string {
 	}
 }
 
-func (l *Loop) buildChatConfig(input, systemPreamble string) *domain.ChatConfig {
+func (l *Loop) buildChatConfig(ctx context.Context, input, systemPreamble string) *domain.ChatConfig {
 	var tools []domain.Tool
 	if l.registry != nil {
 		tools = l.registry.ToLLMTools()
@@ -1783,25 +1918,48 @@ func (l *Loop) buildChatConfig(input, systemPreamble string) *domain.ChatConfig 
 		Backend:  l.config.Backend,
 		BaseURL:  l.config.BaseURL,
 		Role:     l.config.Role,
-		Prompt:   input,
+		Prompt:   turoReduce(ctx, input),
 		Files:    files,
 		Tools:    tools,
 		Thinking: l.config.Thinking,
 	}
 
-	// Inject conversation history as the messages field
-	if history := l.session.BuildMessagesJSON(); history != "" {
+	// Inject conversation history as the messages field. When turo is active,
+	// route each message's content through it (cached, so only new messages
+	// spawn turo) so history reaches the LLM in the same reduced form as the
+	// system preamble, input, and tool results.
+	if history := l.historyMessages(ctx); history != "" {
 		chatCfg.Messages = history
 	}
 
-	// Inject system preamble as scenario (prepended before history)
+	// Inject system preamble as scenario (prepended before history). The preamble
+	// is built once and reused, so mark it ephemeral: providers that support
+	// prompt caching (Anthropic) cache the system prefix across turns.
 	if systemPreamble != "" {
 		chatCfg.Scenario = []domain.ScenarioItem{
-			{Role: "system", Prompt: systemPreamble},
+			{Role: "system", Prompt: systemPreamble, CacheControl: "ephemeral"},
 		}
 	}
 
 	return chatCfg
+}
+
+// historyMessages returns the conversation history JSON, routing each message
+// through turo when active. Falls back to the plain history for session
+// implementations that do not support reduced serialization.
+func (l *Loop) historyMessages(ctx context.Context) string {
+	if !turoActive(ctx) {
+		return l.session.BuildMessagesJSON()
+	}
+	reducer, ok := l.session.(interface {
+		BuildMessagesJSONReduced(func(string) string) string
+	})
+	if !ok {
+		return l.session.BuildMessagesJSON()
+	}
+	return reducer.BuildMessagesJSONReduced(func(s string) string {
+		return turoReduceCached(ctx, s)
+	})
 }
 
 func (l *Loop) buildSyntheticWorkflow(
@@ -1920,7 +2078,7 @@ func (l *Loop) Config() Config { return l.config }
 // CompactWithLLM summarizes old conversation turns using the LLM and replaces
 // them with a structured summary, keeping recent turns intact. It returns the
 // summary text. Falls back to truncation-only Compact() if the LLM call fails.
-func (l *Loop) CompactWithLLM(_ context.Context) (string, error) {
+func (l *Loop) CompactWithLLM(ctx context.Context) (string, error) {
 	msgs := l.session.RawMessages()
 	if len(msgs) == 0 {
 		return "", nil
@@ -1960,9 +2118,9 @@ func (l *Loop) CompactWithLLM(_ context.Context) (string, error) {
 		Backend: l.config.Backend,
 		BaseURL: l.config.BaseURL,
 		Role:    l.config.Role,
-		Prompt:  prompt,
+		Prompt:  turoReduce(ctx, prompt),
 		Scenario: []domain.ScenarioItem{
-			{Role: "system", Prompt: compactionSystemPrompt},
+			{Role: "system", Prompt: turoReduce(ctx, compactionSystemPrompt)},
 		},
 		// No tools - compaction is a standalone summarization call.
 	}
@@ -2024,6 +2182,8 @@ func (l *Loop) ReloadSkills(skillPaths []string) {
 	l.skillList = slice
 	l.skills = formatSkillsForPrompt(slice)
 	l.config.SkillPaths = skillPaths
+	l.registerSkillLoader()      // (re)register load_skill for the new skill set
+	l.InvalidateSystemPreamble() // rebuild the cached preamble with the new skill list
 }
 
 // SetPendingFiles sets files to attach to the next LLM call as multimodal content.
@@ -2040,10 +2200,12 @@ func (l *Loop) Reload() {
 		slice := loadSkillSlice(resolveAbsPaths(l.config.SkillPaths))
 		l.skillList = slice
 		l.skills = formatSkillsForPrompt(slice)
+		l.registerSkillLoader()
 	}
 	if len(l.config.PromptPaths) > 0 {
 		l.prompts = loadPromptTemplateSlice(l.config.PromptPaths)
 	}
+	l.InvalidateSystemPreamble()
 }
 
 func resolveAbsPaths(paths []string) []string {

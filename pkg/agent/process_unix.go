@@ -40,6 +40,22 @@ func setProcessGroup(cmd *exec.Cmd) {
 	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
 }
 
+// killProcessGroup kills the entire process group led by cmd, not just the
+// direct child. bash_exec starts commands with Setpgid, so a command like
+// `find /` (or an rtk-wrapped command) runs children inside that group; killing
+// only cmd.Process would orphan them and they would keep running after Ctrl+C.
+// Sending SIGKILL to the negative PID targets every process in the group.
+func killProcessGroup(cmd *exec.Cmd) {
+	if cmd == nil || cmd.Process == nil {
+		return
+	}
+	pid := cmd.Process.Pid
+	if err := syscall.Kill(-pid, syscall.SIGKILL); err != nil {
+		// Group kill failed (e.g. child never became a leader): kill the child.
+		_ = cmd.Process.Kill()
+	}
+}
+
 // makeForeground puts the child's process group in the terminal foreground so it
 // can write to stdout/stderr without being suspended by SIGTTOU. Call after
 // cmd.Start(). When Setpgid is set, the child's PGID equals its PID.

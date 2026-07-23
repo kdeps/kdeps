@@ -1227,7 +1227,7 @@ func (e *Executor) StreamChat(
 	}
 
 	// Record token usage for the REPL token counter.
-	recordTokenUsage(resp)
+	recIn, recOut := recordTokenUsage(resp)
 
 	// Flush buffered thinking content as rendered markdown.
 	FlushThinkingBuf(cfg, w)
@@ -1238,6 +1238,14 @@ func (e *Executor) StreamChat(
 
 	choice := resp.Choices[0]
 	content := choice.Content
+
+	// Streaming responses from local servers (llamafile/gguf) usually carry no
+	// usage in GenerationInfo, leaving the counter at 0/0. Estimate from the
+	// request messages and the response content so the counter still moves.
+	if recIn == 0 && recOut == 0 {
+		TokenInputs += estimateMessageTokens(cfg.Model, messages)
+		TokenOutputs += int64(CountTokens(cfg.Model, choice.Content))
+	}
 
 	// When thinking is enabled and ReturnOutput is true, prepend the reasoning block.
 	// Skip when StreamThinking is active: reasoning was already written to w inline.
@@ -1355,17 +1363,24 @@ func (e *Executor) streamChatOnce(
 // TokenInputs and TokenOutputs are cumulative token counts updated by
 // recordTokenUsage after every GenerateContent call. Read by the agent
 // layer for the REPL token counter.
-var TokenInputs, TokenOutputs int64
+//
+//nolint:gochecknoglobals // cumulative session token counters read by the agent REPL
+var (
+	TokenInputs  int64
+	TokenOutputs int64
+)
 
-// recordTokenUsage extracts token counts from a GenerateContent response
-// and accumulates them into the exported TokenInputs/TokenOutputs counters.
-func recordTokenUsage(resp *llms.ContentResponse) {
+// recordTokenUsage extracts token counts from a GenerateContent response and
+// accumulates them into the exported TokenInputs/TokenOutputs counters. It
+// returns the amounts recorded so the caller can fall back to estimation when
+// the backend reported no usage (common for streaming local servers).
+func recordTokenUsage(resp *llms.ContentResponse) (int64, int64) {
 	if resp == nil || len(resp.Choices) == 0 {
-		return
+		return 0, 0
 	}
 	info := resp.Choices[0].GenerationInfo
 	if info == nil {
-		return
+		return 0, 0
 	}
 	extract := func(key string) int64 {
 		if v, ok := info[key]; ok {
@@ -1390,4 +1405,20 @@ func recordTokenUsage(resp *llms.ContentResponse) {
 	}
 	TokenInputs += inputs
 	TokenOutputs += outputs
+	return inputs, outputs
+}
+
+// estimateMessageTokens sums the token count of every text part in messages.
+// Used to keep the REPL token counter moving when a backend returns no usage.
+func estimateMessageTokens(model string, messages []llms.MessageContent) int64 {
+	var sb strings.Builder
+	for _, m := range messages {
+		for _, p := range m.Parts {
+			if tc, ok := p.(llms.TextContent); ok {
+				sb.WriteString(tc.Text)
+				sb.WriteByte('\n')
+			}
+		}
+	}
+	return int64(CountTokens(model, sb.String()))
 }

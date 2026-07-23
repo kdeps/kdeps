@@ -87,6 +87,8 @@ var (
 // zapier_list_actions, zapier_run_action, wolfram_alpha, cohere_rerank, voyageai_rerank,
 // jina_rerank, retrieve_context) to the registry. API-key tools are registered only when the
 // corresponding env var is set.
+//
+//nolint:gochecknoglobals // shared web convergence cache bound at registration time
 var webCache *webToolCache
 
 func RegisterBuiltinTools(ctx context.Context, reg *kdepstools.Registry) {
@@ -533,12 +535,12 @@ func registerCachedQueryTool(
 	cache *webToolCache,
 	tool queryCaller,
 	name, description, paramDesc string,
-	category, outputFormat, constraints, seeAlso string,
+	outputFormat, constraints, seeAlso string,
 ) {
 	reg.Register(&kdepstools.Tool{
 		Name:         name,
 		Description:  description,
-		Category:     category,
+		Category:     "web",
 		OutputFormat: outputFormat,
 		Constraints:  constraints,
 		SeeAlso:      seeAlso,
@@ -576,7 +578,6 @@ func registerDuckDuckGo(ctx context.Context, reg *kdepstools.Registry, cache *we
 		"web_search",
 		"Search the web using DuckDuckGo. Free, no API key required. Use for current events, facts, research, or anything needing an internet lookup. Input is a plain search query string.",
 		"The search query to look up",
-		"web",
 		"JSON with title, url, and snippet per result",
 		"limit searches to 3 per topic; never repeat the same query; US-only results",
 		"web_scraper, wikipedia",
@@ -593,7 +594,6 @@ func registerWikipedia(ctx context.Context, reg *kdepstools.Registry, cache *web
 		"wikipedia",
 		"Look up information on Wikipedia. Use for general knowledge questions about people, places, companies, historical events, concepts, or any topic needing an encyclopedic answer. Input is a search query.",
 		"The topic or question to look up on Wikipedia",
-		"web",
 		"plain text encyclopedia article",
 		"good for general knowledge; not for real-time/current information",
 		"web_search, web_scraper",
@@ -804,7 +804,6 @@ func registerSerpAPI(ctx context.Context, reg *kdepstools.Registry, cache *webTo
 		"serpapi_search",
 		"Search Google via SerpAPI. Use for current events, news, and queries requiring fresh web results. Requires SERPAPI_API_KEY. Input is a plain search query string.",
 		"The search query to look up on Google",
-		"web",
 		"JSON search results with title, url, snippet",
 		"requires SERPAPI_API_KEY; use only when web_search results are stale",
 		"web_search, web_scraper",
@@ -1051,7 +1050,6 @@ func registerPerplexity(ctx context.Context, reg *kdepstools.Registry, cache *we
 		"perplexity_search",
 		"Search the web using Perplexity AI. Provides cited, up-to-date answers from the internet. Requires PERPLEXITY_API_KEY. Input is a plain search query or question.",
 		"The search query or question to answer using Perplexity AI",
-		"web",
 		"AI-generated answer with citations",
 		"requires PERPLEXITY_API_KEY; slower and more expensive than web_search; use sparingly",
 		"web_search, web_scraper",
@@ -1164,77 +1162,83 @@ func registerBashExec(ctx context.Context, reg *kdepstools.Registry) {
 		if bashTracked != "" {
 			return bashTracked, nil // cached repeat
 		}
-		toolCtx := bashExecCtx(ctx, args)
-		bgCh, _ := args["_bg_ch"].(<-chan struct{})
-
-		// Route through rtk when available to cut output tokens. Validation above
-		// runs on the original command; `command` itself stays untouched so the
-		// job registry and any user-facing display show what was actually asked
-		// for, not the rtk-prefixed form.
-		runCommand := command
-		if rewritten, ok := rtkRewrite(toolCtx, command); ok {
-			runCommand = rewritten
-		}
-
-		// Must use exec.Command (not CommandContext): we handle cancellation and
-		// backgrounding manually in the select below so the process survives
-		// beyond context cancellation when the user presses Ctrl+Z.
-		cmd := exec.Command( //nolint:noctx // intentional: manual ctx handling below
-			"bash",
-			"-c",
-			runCommand,
-		)
-		setProcessGroup(cmd)
-		var stdout, stderr strings.Builder
-		if tool.OutputWriter != nil {
-			cmd.Stdout = io.MultiWriter(&stdout, tool.OutputWriter)
-			cmd.Stderr = io.MultiWriter(&stderr, tool.OutputWriter)
-		} else {
-			cmd.Stdout = &stdout
-			cmd.Stderr = &stderr
-		}
-		if err := cmd.Start(); err != nil {
-			return "", fmt.Errorf("bash_exec: %w", err)
-		}
-
-		// Put the child in the terminal foreground so an interactive child that
-		// reads stdin isn't stopped by SIGTTIN. Only in the interactive REPL:
-		// grabbing the tty from a test harness or non-interactive caller running
-		// on a real terminal would stop that process group instead.
-		if interactive, _ := args["_interactive"].(bool); interactive {
-			prevFG := makeForeground(cmd)
-			defer restoreForeground(prevFG)
-		}
-
-		waitCh := make(chan error, 1)
-		go func() { waitCh <- cmd.Wait() }()
-
-		select {
-		case runErr := <-waitCh:
-			result, resErr := bashExecResult(
-				toolCtx,
-				strings.TrimSpace(stdout.String()),
-				strings.TrimSpace(stderr.String()),
-				runErr,
-			)
-			// Cache non-error results in the bash call tracker.
-			if resErr == nil && result != "" {
-				trackBashCall(command, func() (string, error) { return result, nil })
-			}
-			return result, resErr
-		case <-toolCtx.Done():
-			_ = cmd.Process.Kill()
-			<-waitCh
-			return bashExecCancelResult(
-				strings.TrimSpace(stdout.String()),
-				strings.TrimSpace(stderr.String()),
-			), nil
-		case <-bgCh:
-			jobID := bashJobRegistry.add(command, &stdout, &stderr, waitCh)
-			return fmt.Sprintf(`{"status":"backgrounded","job_id":%d}`, jobID), nil
-		}
+		return runBashExec(ctx, tool, command, args)
 	}
 	reg.Register(tool)
+}
+
+// runBashExec executes a validated bash command, handling rtk rewriting,
+// foreground/background job control, cancellation, and result caching.
+func runBashExec(ctx context.Context, tool *kdepstools.Tool, command string, args map[string]any) (string, error) {
+	toolCtx := bashExecCtx(ctx, args)
+	bgCh, _ := args["_bg_ch"].(<-chan struct{})
+
+	// Route through rtk when available to cut output tokens. Validation above
+	// runs on the original command; `command` itself stays untouched so the
+	// job registry and any user-facing display show what was actually asked
+	// for, not the rtk-prefixed form.
+	runCommand := command
+	if rewritten, ok := rtkRewrite(toolCtx, command); ok {
+		runCommand = rewritten
+	}
+
+	// Must use exec.Command (not CommandContext): we handle cancellation and
+	// backgrounding manually in the select below so the process survives
+	// beyond context cancellation when the user presses Ctrl+Z.
+	cmd := exec.Command( //nolint:noctx // intentional: manual ctx handling below
+		"bash",
+		"-c",
+		runCommand,
+	)
+	setProcessGroup(cmd)
+	var stdout, stderr strings.Builder
+	if tool.OutputWriter != nil {
+		cmd.Stdout = io.MultiWriter(&stdout, tool.OutputWriter)
+		cmd.Stderr = io.MultiWriter(&stderr, tool.OutputWriter)
+	} else {
+		cmd.Stdout = &stdout
+		cmd.Stderr = &stderr
+	}
+	if err := cmd.Start(); err != nil {
+		return "", fmt.Errorf("bash_exec: %w", err)
+	}
+
+	// Put the child in the terminal foreground so an interactive child that
+	// reads stdin isn't stopped by SIGTTIN. Only in the interactive REPL:
+	// grabbing the tty from a test harness or non-interactive caller running
+	// on a real terminal would stop that process group instead.
+	if interactive, _ := args["_interactive"].(bool); interactive {
+		prevFG := makeForeground(cmd)
+		defer restoreForeground(prevFG)
+	}
+
+	waitCh := make(chan error, 1)
+	go func() { waitCh <- cmd.Wait() }()
+
+	select {
+	case runErr := <-waitCh:
+		result, resErr := bashExecResult(
+			toolCtx,
+			strings.TrimSpace(stdout.String()),
+			strings.TrimSpace(stderr.String()),
+			runErr,
+		)
+		// Cache non-error results in the bash call tracker.
+		if resErr == nil && result != "" {
+			_, _ = trackBashCall(command, func() (string, error) { return result, nil })
+		}
+		return result, resErr
+	case <-toolCtx.Done():
+		killProcessGroup(cmd) // kill the whole group so children (find, rtk-wrapped cmds) die too
+		<-waitCh
+		return bashExecCancelResult(
+			strings.TrimSpace(stdout.String()),
+			strings.TrimSpace(stderr.String()),
+		), nil
+	case <-bgCh:
+		jobID := bashJobRegistry.add(command, &stdout, &stderr, waitCh)
+		return fmt.Sprintf(`{"status":"backgrounded","job_id":%d}`, jobID), nil
+	}
 }
 
 // registerBashJobList registers the bash_job_list tool.

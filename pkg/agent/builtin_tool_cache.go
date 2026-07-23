@@ -32,71 +32,89 @@ const (
 
 // convergenceCache tracks distinct tool calls and enforces a session limit.
 // Used by web, bash, file, and code search tools.
+//
+// Only the FIRST attempt of a distinct key consumes the budget. A repeat of a
+// key already attempted (whether it succeeded or failed) never counts again and
+// is never blocked — it re-runs (or serves the cached success). This keeps a
+// model that re-issues the same command from draining the budget and lets a
+// legitimate re-run (e.g. `go build` after a fix) through. The budget only caps
+// how many DISTINCT commands a turn may introduce.
 type convergenceCache struct {
 	mu    sync.Mutex
-	m     map[string]string // key → cached result
+	m     map[string]string   // key → cached successful result
+	seen  map[string]struct{} // keys ever attempted (for distinct-count dedupe)
 	calls int
 	max   int
 	msg   string // error suffix on limit reached
 }
 
-func (c *convergenceCache) get(key string) (string, bool) {
-	c.mu.Lock()
-	if cached, ok := c.m[key]; ok {
-		c.mu.Unlock()
-		return cached, true
-	}
-	if c.calls >= c.max {
-		c.mu.Unlock()
-		return "", false
-	}
-	c.calls++
-	c.mu.Unlock() // release before fn runs
-	return "", false
-}
-
-func (c *convergenceCache) put(key, result string) {
-	c.mu.Lock()
-	c.m[key] = result
-	c.mu.Unlock()
-}
-
-func (c *convergenceCache) count() (calls, max int) {
+func (c *convergenceCache) count() (int, int) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	return c.calls, c.max
 }
 
-// trackCall runs fn, caching results by key. Returns cached result on repeats.
-// After max distinct keys, returns a convergence error.
+// trackCall runs fn, caching successful results by key. A cached key returns its
+// stored result. A new distinct key consumes one unit of budget (or is blocked
+// once the budget is exhausted). A previously attempted key re-runs without
+// consuming budget and without being blocked.
 func (c *convergenceCache) trackCall(key string, fn func() (string, error)) (string, error) {
-	cached, ok := c.get(key)
-	if ok {
-		return cached, nil
-	}
-	if c.calls >= c.max {
-		c.mu.Lock()
-		n := c.calls
+	c.mu.Lock()
+	if cached, ok := c.m[key]; ok {
 		c.mu.Unlock()
-		return "", fmt.Errorf("convergence (%d calls): %s", n, c.msg)
+		return cached, nil // cached success — free repeat
 	}
+	if _, attempted := c.seen[key]; !attempted {
+		if c.calls >= c.max {
+			n := c.calls
+			c.mu.Unlock()
+			return "", fmt.Errorf("convergence (%d calls): %s", n, c.msg)
+		}
+		c.calls++
+		if c.seen == nil {
+			c.seen = make(map[string]struct{})
+		}
+		c.seen[key] = struct{}{}
+	}
+	c.mu.Unlock()
+
 	result, err := fn()
 	if err == nil && strings.TrimSpace(result) != "" {
-		c.put(key, result)
+		c.mu.Lock()
+		c.m[key] = result
+		c.mu.Unlock()
 	}
 	return result, err
 }
 
+//nolint:gochecknoglobals,lll // process-wide convergence limiters shared across all tool registrations
 var (
-	globalWebCache  = &convergenceCache{m: make(map[string]string), max: maxWebToolCalls, msg: "ALL web/search calls blocked — do NOT retry with different queries. Synthesize your answer NOW from the data you already have."}
-	globalBashCache = &convergenceCache{m: make(map[string]string), max: maxBashToolCalls, msg: "ALL shell commands blocked — consolidate your approach and continue without bash_exec"}
-	globalFileCache = &convergenceCache{m: make(map[string]string), max: maxFileToolCalls, msg: "ALL file reads blocked — work with what you have already read"}
-	globalCodeCache = &convergenceCache{m: make(map[string]string), max: maxCodeToolCalls, msg: "ALL code searches blocked — narrow your approach and work with existing results"}
+	globalWebCache = &convergenceCache{
+		m:   make(map[string]string),
+		max: maxWebToolCalls,
+		msg: "ALL web/search calls blocked — do NOT retry with different queries. Synthesize your answer NOW from the data you already have.",
+	}
+	globalBashCache = &convergenceCache{
+		m:   make(map[string]string),
+		max: maxBashToolCalls,
+		msg: "ALL shell commands blocked — consolidate your approach and continue without bash_exec",
+	}
+	globalFileCache = &convergenceCache{
+		m:   make(map[string]string),
+		max: maxFileToolCalls,
+		msg: "ALL file reads blocked — work with what you have already read",
+	}
+	globalCodeCache = &convergenceCache{
+		m:   make(map[string]string),
+		max: maxCodeToolCalls,
+		msg: "ALL code searches blocked — narrow your approach and work with existing results",
+	}
 )
 
 func (c *convergenceCache) reset() {
 	c.mu.Lock()
 	c.m = make(map[string]string)
+	c.seen = make(map[string]struct{})
 	c.calls = 0
 	c.mu.Unlock()
 }
@@ -129,17 +147,21 @@ func ResetConvergence() {
 	globalCodeCache.reset()
 }
 
-func WebConvergenceCalls() (calls, max int)  { return globalWebCache.count() }
-func BashConvergenceCalls() (calls, max int) { return globalBashCache.count() }
-func FileConvergenceCalls() (calls, max int) { return globalFileCache.count() }
-func CodeConvergenceCalls() (calls, max int) { return globalCodeCache.count() }
+func WebConvergenceCalls() (int, int)  { return globalWebCache.count() }
+func BashConvergenceCalls() (int, int) { return globalBashCache.count() }
+func FileConvergenceCalls() (int, int) { return globalFileCache.count() }
+func CodeConvergenceCalls() (int, int) { return globalCodeCache.count() }
 
 // Backward-compat: webToolCache type alias for existing references in builtin_tools.go.
 // All caches now use the generic convergenceCache above.
 type webToolCache = convergenceCache
 
 func newWebToolCache() *webToolCache {
-	return &webToolCache{m: make(map[string]string), max: maxWebToolCalls, msg: "stop searching — synthesize from data already gathered"}
+	return &webToolCache{
+		m:   make(map[string]string),
+		max: maxWebToolCalls,
+		msg: "stop searching — synthesize from data already gathered",
+	}
 }
 
 // call is the legacy method name used by web tool registration.
@@ -158,4 +180,3 @@ func trackFileCall(path string, fn func() (string, error)) (string, error) {
 func trackCodeCall(query string, fn func() (string, error)) (string, error) {
 	return globalCodeCache.trackCall(query, fn)
 }
-

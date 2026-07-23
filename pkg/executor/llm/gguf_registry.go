@@ -48,8 +48,8 @@ type ggufVersions struct {
 //nolint:gochecknoglobals // process-wide registry cache, loaded once
 var (
 	ggufRegistryLoaded bool
-	ggufRegistryData *ggufVersions
-	ggufAliasMap     map[string]string
+	ggufRegistryData   *ggufVersions
+	ggufAliasMap       map[string]string
 )
 
 func localGGUFRegistryPath() string {
