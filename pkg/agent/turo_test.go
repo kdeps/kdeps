@@ -53,12 +53,11 @@ func TestMain(m *testing.M) {
 func resetTuroState(t *testing.T) {
 	t.Helper()
 	turoState.mu.Lock()
-	prevLevel, prevMaxDepth, prevOff, prevInit := turoState.level, turoState.maxDepth, turoState.off, turoState.init
+	prevLevel, prevOff, prevInit := turoState.level, turoState.off, turoState.init
 	turoState.mu.Unlock()
 	t.Cleanup(func() {
 		turoState.mu.Lock()
 		turoState.level = prevLevel
-		turoState.maxDepth = prevMaxDepth
 		turoState.off = prevOff
 		turoState.init = prevInit
 		turoState.mu.Unlock()
@@ -86,19 +85,6 @@ func TestTuroLevel_DefaultAndSet(t *testing.T) {
 	}
 	if got := TuroLevel(); got != "lite" {
 		t.Fatalf("invalid level should not change state, got %q", got)
-	}
-}
-
-func TestTuroMaxDepth_SetAndClamp(t *testing.T) {
-	resetTuroState(t)
-
-	SetTuroMaxDepth(5)
-	if got := TuroMaxDepth(); got != 5 {
-		t.Fatalf("expected max-depth 5, got %d", got)
-	}
-	SetTuroMaxDepth(-3)
-	if got := TuroMaxDepth(); got != 0 {
-		t.Fatalf("negative max-depth should clamp to 0, got %d", got)
 	}
 }
 

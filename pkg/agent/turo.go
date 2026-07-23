@@ -22,7 +22,6 @@ import (
 	"context"
 	"os"
 	"os/exec"
-	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -43,22 +42,21 @@ var (
 )
 
 // turoState holds the runtime turo settings mutated by the /turo command.
-// level/maxDepth are the flags passed to the turo binary; off is a runtime
-// override that disables reduction even when the binary is installed.
+// level is the flag passed to the turo binary; off is a runtime override that
+// disables reduction even when the binary is installed.
 type turoSettings struct {
-	mu       sync.Mutex
-	level    string
-	maxDepth int
-	off      bool
-	init     bool
+	mu    sync.Mutex
+	level string
+	off   bool
+	init  bool
 }
 
 //nolint:gochecknoglobals // process-wide runtime settings for the turo reducer
 var turoState turoSettings
 
 // turoReduceCache memoizes reductions by raw input so unchanged history messages
-// are not re-piped through turo on every turn. Cleared when a setting changes,
-// since level/max-depth alter the output.
+// are not re-piped through turo on every turn. Cleared when the level changes,
+// since the level alters the output.
 //
 //nolint:gochecknoglobals // process-wide reduction memo
 var turoReduceCache sync.Map
@@ -104,24 +102,6 @@ func SetTuroLevel(level string) bool {
 	turoState.mu.Unlock()
 	turoReduceCache.Clear()
 	return true
-}
-
-// TuroMaxDepth returns the max transitive edge depth (0 = unlimited).
-func TuroMaxDepth() int {
-	turoState.mu.Lock()
-	defer turoState.mu.Unlock()
-	return turoState.maxDepth
-}
-
-// SetTuroMaxDepth sets the max transitive edge depth (0 = unlimited).
-func SetTuroMaxDepth(depth int) {
-	if depth < 0 {
-		depth = 0
-	}
-	turoState.mu.Lock()
-	turoState.maxDepth = depth
-	turoState.mu.Unlock()
-	turoReduceCache.Clear()
 }
 
 // TuroRuntimeOff reports whether the /turo off override is active.
@@ -173,25 +153,21 @@ func probeTuro() (bool, string) {
 	return true, path
 }
 
-// turoReduce pipes text through turo and returns the graph output.
-// Returns the input unchanged on any failure — turo is optional.
+// turoReduce pipes text through turo and returns the reduced content-word
+// output. Returns the input unchanged on any failure — turo is optional.
 func turoReduce(ctx context.Context, text string) string {
 	if !turoActive(ctx) || turoPath == "" || text == "" {
 		return text
 	}
 	turoInit()
 	turoState.mu.Lock()
-	level, maxDepth := turoState.level, turoState.maxDepth
+	level := turoState.level
 	turoState.mu.Unlock()
 
 	runCtx, cancel := context.WithTimeout(ctx, turoTimeout)
 	defer cancel()
 
-	args := []string{"-level", level}
-	if maxDepth > 0 {
-		args = append(args, "-max-depth", strconv.Itoa(maxDepth))
-	}
-	cmd := exec.CommandContext(runCtx, turoPath, args...)
+	cmd := exec.CommandContext(runCtx, turoPath, "-level", level)
 	cmd.Stdin = strings.NewReader(text)
 	cmd.Dir = "/"
 	out, err := cmd.Output()

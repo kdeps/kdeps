@@ -2133,7 +2133,7 @@ func (r *REPL) cmdHelp() error {
 		"  /reload                            Reload skills, prompt templates, and instructions from disk",
 		"  /context                           Show current context window size",
 		"  /context <size>                    Set context window size (e.g. 32768 or 32k); restarts local servers",
-		"  /turo [on|off|lite|full|ultra|<n>] Show or set the turo prompt reducer (level or max-depth); turo only",
+		"  /turo [on|off|lite|full|ultra]     Show or set the turo prompt reducer level; turo only",
 		"  ! <cmd>                            Run a shell command; the output becomes an agent turn (the model responds)",
 		"  !! <cmd>                           Run a shell command silently - no LLM turn, nothing added to context",
 	}
@@ -3875,7 +3875,6 @@ func (r *REPL) printConvergence(section, toolLine string, calls, limit int, foot
 //	/turo                 show status
 //	/turo on | off        enable/disable reduction at runtime
 //	/turo lite|full|ultra set compression level
-//	/turo <n>             set max transitive edge depth (0 = unlimited)
 func (r *REPL) cmdTuro(args []string) error {
 	if !turoAvailable(r.ctx) {
 		fmt.Fprintln(os.Stdout, styleReplMeta.Render(
@@ -3899,30 +3898,10 @@ func (r *REPL) cmdTuro(args []string) error {
 		SetTuroLevel(arg)
 		fmt.Fprintf(os.Stdout, "%s\n", styleReplSuccess.Render("turo level: "+arg))
 	default:
-		depth, ok := parseNonNegInt(arg)
-		if !ok {
-			fmt.Fprintln(os.Stderr, styleReplError.Render(
-				"Usage: /turo [on|off|lite|full|ultra|<max-depth>]"))
-			return nil
-		}
-		SetTuroMaxDepth(depth)
-		if depth == 0 {
-			fmt.Fprintln(os.Stdout, styleReplSuccess.Render("turo max-depth: 0 (unlimited)"))
-		} else {
-			fmt.Fprintf(os.Stdout, "%s\n", styleReplSuccess.Render(fmt.Sprintf("turo max-depth: %d", depth)))
-		}
+		fmt.Fprintln(os.Stderr, styleReplError.Render(
+			"Usage: /turo [on|off|lite|full|ultra]"))
 	}
 	return nil
-}
-
-// parseNonNegInt parses s as a non-negative integer, returning false when it is
-// not a valid number or is negative.
-func parseNonNegInt(s string) (int, bool) {
-	n, err := strconv.Atoi(s)
-	if err != nil || n < 0 {
-		return 0, false
-	}
-	return n, true
 }
 
 // printTuroStatus prints the current turo settings.
@@ -3935,12 +3914,6 @@ func (r *REPL) printTuroStatus() error {
 	fmt.Fprintln(os.Stdout, styleReplHeading.Render("turo"))
 	fmt.Fprintf(os.Stdout, "  %s %s\n", meta("state:"), state)
 	fmt.Fprintf(os.Stdout, "  %s %s\n", meta("level:"), TuroLevel())
-	depth := TuroMaxDepth()
-	if depth == 0 {
-		fmt.Fprintf(os.Stdout, "  %s 0 (unlimited)\n", meta("max-depth:"))
-	} else {
-		fmt.Fprintf(os.Stdout, "  %s %d\n", meta("max-depth:"), depth)
-	}
 	return nil
 }
 
