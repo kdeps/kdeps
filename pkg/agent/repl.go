@@ -397,12 +397,10 @@ func (r *REPL) modeline() string {
 		switch {
 		case TuroRuntimeOff():
 			parts = append(parts, dim("turo:off"))
-		case TuroLevel() == "ultra":
-			parts = append(parts, styleReplSuccess.Render("turo:ultra"))
-		case TuroLevel() == "lite":
-			parts = append(parts, meta("turo:lite"))
+		case TuroLevel() == "ultra" || TuroLevel() == "wenyan":
+			parts = append(parts, styleReplSuccess.Render("turo:"+TuroLevel()))
 		default:
-			parts = append(parts, meta("turo"))
+			parts = append(parts, meta("turo:"+TuroLevel()))
 		}
 	}
 	return strings.Join(parts, dim(" · "))
