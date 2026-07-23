@@ -105,7 +105,7 @@ const (
 var builtinCmds = []string{
 	"/help", "/settings", "/clear", "/model", "/context",
 	"/skills", "/prompts", "/compact", "/history", "/thinking", "/session",
-	"/editor", "/copy", "/reload", "/exit", "/quit",
+	"/editor", "/copy", "/reload", "/permission", "/exit", "/quit",
 }
 
 //nolint:gochecknoglobals // lipgloss styles for REPL output
@@ -2077,20 +2077,28 @@ func (r *REPL) dispatchCommand(cmd string) error {
 		return r.cmdKartographer()
 	case "/turo":
 		return r.cmdTuro(args)
+	case "/permission", "/permissions":
+		return r.cmdPermission(args)
 	case "/exit", "/quit":
 		r.loopCancel() // exit the loop; also cascades to cancel r.ctx (child of loopCtx)
 		return nil
 	default:
-		name := strings.TrimPrefix(command, "/")
-		if sk := r.loop.SkillByName(name); sk != nil {
-			return r.cmdInvokeSkill(sk, args)
-		}
-		if pt := r.loop.PromptByName(name); pt != nil {
-			return r.cmdInvokePrompt(pt, args)
-		}
-		fmt.Fprintf(os.Stdout, "Unknown command: %s. Type /help for available commands.\n", command)
-		return nil
+		return r.dispatchUnknownCommand(command, args)
 	}
+}
+
+// dispatchUnknownCommand handles a slash command that is not a REPL built-in: it
+// tries a matching skill, then a prompt, and finally reports it as unknown.
+func (r *REPL) dispatchUnknownCommand(command string, args []string) error {
+	name := strings.TrimPrefix(command, "/")
+	if sk := r.loop.SkillByName(name); sk != nil {
+		return r.cmdInvokeSkill(sk, args)
+	}
+	if pt := r.loop.PromptByName(name); pt != nil {
+		return r.cmdInvokePrompt(pt, args)
+	}
+	fmt.Fprintf(os.Stdout, "Unknown command: %s. Type /help for available commands.\n", command)
+	return nil
 }
 
 func (r *REPL) cmdHelp() error {
@@ -3265,6 +3273,36 @@ func (r *REPL) cmdSettings() error {
 
 // cmdThinking handles /thinking [off|low|medium|high|auto].
 // Without args it shows the current thinking mode.
+// cmdPermission shows or sets the tool permission mode for the session.
+// With no args it prints the current mode; with an arg it switches modes.
+// Valid modes: read-only, workspace-write, danger-full-access, ask.
+func (r *REPL) cmdPermission(args []string) error {
+	current := r.loop.config.PermissionMode
+	if current == "" {
+		current = resolvePermissionMode()
+	}
+	if len(args) == 0 {
+		fmt.Fprintln(os.Stdout, styleReplMeta.Render(fmt.Sprintf(
+			"Permission mode: %s\n"+
+				"  read-only          reads/searches only; writes and commands blocked\n"+
+				"  workspace-write    reads plus file writes and command execution\n"+
+				"  danger-full-access no restrictions (default)\n"+
+				"  ask                prompt before each mutating tool (allow once/always/deny)",
+			current)))
+		return nil
+	}
+	mode := PermissionMode(strings.ToLower(strings.TrimSpace(args[0])))
+	switch mode {
+	case PermissionReadOnly, PermissionWorkspaceWrite, PermissionDangerFullAccess, PermissionAsk:
+		r.loop.config.PermissionMode = mode
+		fmt.Fprintln(os.Stdout, styleReplMeta.Render("Permission mode: "+string(mode)))
+	default:
+		fmt.Fprintln(os.Stdout, styleReplMeta.Render(fmt.Sprintf(
+			"Unknown mode %q. Valid: read-only, workspace-write, danger-full-access, ask.", args[0])))
+	}
+	return nil
+}
+
 func (r *REPL) cmdThinking(args []string) error {
 	if len(args) == 0 {
 		cur := r.loop.Thinking()

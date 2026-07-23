@@ -40,6 +40,15 @@ const (
 	// PermissionDangerFullAccess allows all operations with no restrictions.
 	// Equivalent to running without the permission system. This is the default.
 	PermissionDangerFullAccess PermissionMode = "danger-full-access"
+
+	// PermissionAsk allows read-only tools freely, but prompts the user before
+	// each mutating tool call (allow once / allow always / deny). "Allow always"
+	// mints a session-scoped approval token (see approval_tokens.go) so the same
+	// tool is not re-prompted. It requires an interactive terminal; the loop's
+	// streaming gate handles the prompting. On non-interactive paths there is no
+	// way to prompt, so Allow treats ask as read-only-only (mutating denied), and
+	// the loop falls back to the static env mode instead.
+	PermissionAsk PermissionMode = "ask"
 )
 
 // Numeric ranks for mode comparison. Unknown modes rank below read-only,
@@ -60,6 +69,11 @@ func permissionLevel(m PermissionMode) int {
 		return levelWorkspaceWrite
 	case PermissionDangerFullAccess:
 		return levelFullAccess
+	case PermissionAsk:
+		// ask is an interactive policy, not a static rank; it never reaches the
+		// numeric ladder (the loop gate intercepts it). Rank it as unknown so any
+		// accidental comparison denies rather than allows.
+		return levelUnknownMode
 	default:
 		return levelUnknownMode
 	}
@@ -113,6 +127,16 @@ var toolRequiredPermission = map[string]PermissionMode{
 	"google_cache_delete": PermissionWorkspaceWrite,
 }
 
+// requiredPermission returns the minimum permission mode a tool needs. Tools not
+// in the policy map (including workflow/component/agency tools) default to
+// workspace-write, since they may mutate state.
+func requiredPermission(toolName string) PermissionMode {
+	if req, ok := toolRequiredPermission[toolName]; ok {
+		return req
+	}
+	return PermissionWorkspaceWrite
+}
+
 // PermissionEnforcer checks whether a tool call is allowed in the current
 // permission mode.
 type PermissionEnforcer struct {
@@ -133,11 +157,22 @@ func NewPermissionEnforcer(mode PermissionMode) *PermissionEnforcer {
 func resolvePermissionMode() PermissionMode {
 	raw := PermissionMode(strings.ToLower(strings.TrimSpace(os.Getenv("KDEPS_PERMISSION_MODE"))))
 	switch raw {
-	case PermissionReadOnly, PermissionWorkspaceWrite, PermissionDangerFullAccess:
+	case PermissionReadOnly, PermissionWorkspaceWrite, PermissionDangerFullAccess, PermissionAsk:
 		return raw
 	default:
 		return PermissionDangerFullAccess
 	}
+}
+
+// resolveStaticFallbackMode resolves the static mode to use when ask mode is
+// active but no interactive terminal is available to prompt. It reads
+// KDEPS_PERMISSION_MODE like resolvePermissionMode, but maps ask (and any
+// empty/unknown value) to danger-full-access so headless runs never block.
+func resolveStaticFallbackMode() PermissionMode {
+	if m := resolvePermissionMode(); m != PermissionAsk {
+		return m
+	}
+	return PermissionDangerFullAccess
 }
 
 // Mode returns the current permission mode.
@@ -149,11 +184,19 @@ func (e *PermissionEnforcer) Allow(toolName string) (bool, string) {
 	if e.mode == PermissionDangerFullAccess {
 		return true, ""
 	}
-	required, ok := toolRequiredPermission[toolName]
-	if !ok {
-		// Unknown tools (including workflow tools) may mutate state.
-		required = PermissionWorkspaceWrite
+	// Ask mode has no way to prompt on this path (the loop's interactive gate
+	// handles prompting before calling Allow). Treat it as read-only-only:
+	// read-only tools pass, mutating tools are denied.
+	if e.mode == PermissionAsk {
+		if requiredPermission(toolName) == PermissionReadOnly {
+			return true, ""
+		}
+		return false, fmt.Sprintf(
+			"tool %q requires interactive approval in mode %q, which is unavailable here",
+			toolName, e.mode,
+		)
 	}
+	required := requiredPermission(toolName)
 	if permissionLevel(e.mode) >= permissionLevel(required) {
 		return true, ""
 	}

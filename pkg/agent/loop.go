@@ -975,20 +975,74 @@ func (l *Loop) stuckLoopNotice(w io.Writer, toolName string) string {
 	return notice
 }
 
+// maxForceAnswerDigestBytes bounds how much gathered tool output is inlined
+// into the forced-answer prompt, so a run of large scrapes cannot blow the
+// context window on the final synthesis turn.
+const maxForceAnswerDigestBytes = 12 * 1024
+
 // forceAnswerConfig returns a copy of cfg with tools removed and a prompt
 // telling the model why: without the explanation, some models emit raw
 // tool-call markup as text instead of answering. No-op when cfg has no tools.
+//
+// Stripping Tools leaves the history carrying assistant tool_calls and tool
+// results with no matching tool schema; OpenAI-compatible providers can then
+// drop that tool-role history, so the model would answer blind. To guarantee
+// the gathered research reaches the model, the tool results are also inlined
+// into the prompt as plain text (bounded by maxForceAnswerDigestBytes).
 func forceAnswerConfig(cfg *domain.ChatConfig) *domain.ChatConfig {
 	if len(cfg.Tools) == 0 {
 		return cfg
 	}
 	capCfg := *cfg
 	capCfg.Tools = nil
-	capCfg.Prompt = "Tool budget exhausted. Answer the user's question now " +
+	prompt := "Tool budget exhausted. Answer the user's question now " +
 		"using only the information already gathered. Do not attempt any more " +
 		"tool calls and do not emit tool-call markup. If work remains, describe " +
 		"in plain text exactly what remains to be done."
+	if digest := gatheredToolDigest(cfg.Messages, maxForceAnswerDigestBytes); digest != "" {
+		prompt += "\n\n=== Information gathered so far ===\n" + digest
+	}
+	capCfg.Prompt = prompt
 	return &capCfg
+}
+
+// gatheredToolDigest extracts the tool-result contents from the history JSON
+// and joins them into a plain-text block, skipping convergence-block notices
+// (which carry no research). The result is truncated to maxBytes. Returns ""
+// when there is nothing usable to inline.
+func gatheredToolDigest(historyJSON string, maxBytes int) string {
+	if historyJSON == "" {
+		return ""
+	}
+	var history []map[string]any
+	if err := json.Unmarshal([]byte(historyJSON), &history); err != nil {
+		return ""
+	}
+	var b strings.Builder
+	for _, h := range history {
+		if role, _ := h["role"].(string); role != "tool" {
+			continue
+		}
+		content, _ := h[toolParamContent].(string)
+		content = strings.TrimSpace(content)
+		if content == "" || isConvergenceBlocked(content) {
+			continue
+		}
+		name, _ := h["name"].(string)
+		if name != "" {
+			fmt.Fprintf(&b, "[%s]\n", name)
+		}
+		b.WriteString(content)
+		b.WriteString("\n\n")
+		if b.Len() >= maxBytes {
+			break
+		}
+	}
+	out := strings.TrimSpace(b.String())
+	if len(out) > maxBytes {
+		out = out[:maxBytes] + "\n...[truncated]"
+	}
+	return out
 }
 
 // budgetExhaustedNotice writes and returns the message shown when a turn hits
@@ -1355,6 +1409,69 @@ func printBufferedToolOutput(f *os.File, termW io.Writer, sameLine bool) bool {
 	return false
 }
 
+// checkToolPermission decides whether a tool call may proceed under the current
+// permission mode. It returns (denyReason, blocked). For static modes it defers
+// to PermissionEnforcer. For ask mode it allows read-only tools, honors a
+// previously granted session token, and otherwise prompts the user on an
+// interactive terminal (allow once / allow always / deny); "allow always" mints
+// a session-scoped approval token. On a non-interactive path ask falls back to
+// the static env mode so headless runs never block.
+func (l *Loop) checkToolPermission(canonical, rawArgs string) (string, bool) {
+	mode := l.config.PermissionMode
+	if mode == "" {
+		mode = resolvePermissionMode()
+	}
+
+	if mode == PermissionAsk {
+		if denyReason, blocked, resolved := l.resolveAskPermission(canonical, rawArgs); resolved {
+			return denyReason, blocked
+		}
+		// No terminal to prompt on: fall back to the static env mode.
+		mode = resolveStaticFallbackMode()
+	}
+
+	if allowed, reason := NewPermissionEnforcer(mode).Allow(canonical); !allowed {
+		return "permission denied: " + reason, true
+	}
+	return "", false
+}
+
+// resolveAskPermission applies PermissionAsk to a single tool call. It returns
+// (denyReason, blocked, resolved). resolved is false only when there is no
+// interactive terminal to prompt on, signalling the caller to fall back to the
+// static env mode. Read-only tools and tools covered by a prior "allow always"
+// grant pass without prompting; otherwise the user is prompted, and "allow
+// always" mints a reusable session token.
+func (l *Loop) resolveAskPermission(canonical, rawArgs string) (string, bool, bool) {
+	if requiredPermission(canonical) == PermissionReadOnly {
+		return "", false, true
+	}
+	// FindMatchingGranted does not consume, so one grant is reusable all session.
+	if tok := GlobalApprovalTokenRegistry.FindMatchingGranted(canonical, "", time.Now()); tok != nil {
+		return "", false, true
+	}
+	if !l.config.InteractiveTTY {
+		return "", false, false
+	}
+	w := l.config.ToolOutputWriter
+	if w == nil {
+		w = os.Stdout
+	}
+	switch l.promptToolApproval(w, canonical, rawArgs) {
+	case approveOnce:
+		return "", false, true
+	case approveAlways:
+		t := GlobalApprovalTokenRegistry.Request(ApprovalScope{ToolName: canonical}, 0)
+		GlobalApprovalTokenRegistry.Grant(t.TokenID, "user", "", "interactive allow-always")
+		return "", false, true
+	case approveDeny:
+		return "permission denied by user", true, true
+	}
+	// Unreachable: promptToolApproval only yields the three decisions above.
+	// Fail closed if that ever changes.
+	return "permission denied by user", true, true
+}
+
 // dispatchStreamToolCall executes a tool call from the streaming path.
 func (l *Loop) dispatchStreamToolCall(tc domain.StreamedToolCall, w io.Writer) string {
 	tool := l.registry.Get(tc.Name)
@@ -1372,11 +1489,11 @@ func (l *Loop) dispatchStreamToolCall(tc domain.StreamedToolCall, w io.Writer) s
 	// Permission check: block tools that don't meet the current mode.
 	// An empty config mode falls back to KDEPS_PERMISSION_MODE inside the
 	// enforcer, so env-only configuration works too.
-	if allowed, reason := NewPermissionEnforcer(l.config.PermissionMode).Allow(canonical); !allowed {
+	if denyReason, blocked := l.checkToolPermission(canonical, tc.Arguments); blocked {
 		if termW := l.config.ToolOutputWriter; termW != nil {
 			l.closeToolCallLine(termW, "... blocked: permission denied")
 		}
-		return toolErrorJSON(errors.New("permission denied: " + reason))
+		return toolErrorJSON(errors.New(denyReason))
 	}
 
 	var args map[string]any
