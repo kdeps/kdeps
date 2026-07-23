@@ -219,22 +219,22 @@ func TestHandleKey_Up_Wraps(t *testing.T) {
 	assert.Equal(t, 1, pm.cursor)
 }
 
-func TestHandleKey_j_Down(t *testing.T) {
+// j and k are typed into the filter, not treated as vim navigation — the
+// picker is a text filter, so letters must reach the query.
+func TestHandleKey_j_TypesToFilter(t *testing.T) {
 	entries := []ModelEntry{{Name: "a"}, {Name: "b"}}
 	m := newModelPickerModel(entries, "", "")
-	m.cursor = 0
 	updated, _ := m.handleKey(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'j'}})
 	pm := updated.(modelPickerModel)
-	assert.Equal(t, 1, pm.cursor)
+	assert.Equal(t, "j", pm.filter)
 }
 
-func TestHandleKey_k_Up(t *testing.T) {
+func TestHandleKey_k_TypesToFilter(t *testing.T) {
 	entries := []ModelEntry{{Name: "a"}, {Name: "b"}}
 	m := newModelPickerModel(entries, "", "")
-	m.cursor = 1
 	updated, _ := m.handleKey(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'k'}})
 	pm := updated.(modelPickerModel)
-	assert.Equal(t, 0, pm.cursor)
+	assert.Equal(t, "k", pm.filter)
 }
 
 func TestHandleKey_Backspace(t *testing.T) {
