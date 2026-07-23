@@ -2575,11 +2575,7 @@ func (r *REPL) setToolSetting(name, value string) {
 		return
 	}
 	// Persist the change so it survives across sessions.
-	if r.saveTuningFn != nil {
-		if err := r.saveTuningFn(r.toolTuningSnapshot()); err != nil {
-			fmt.Fprintf(os.Stdout, "%s\n", styleReplMeta.Render("(could not persist setting: "+err.Error()+")"))
-		}
-	}
+	r.persistTuning()
 	fmt.Fprintf(os.Stdout, "%s\n", styleReplSuccess.Render(msg+" (saved; applies from the next turn)"))
 }
 
@@ -3911,7 +3907,9 @@ func (r *REPL) cmdTuro(args []string) error {
 	default:
 		fmt.Fprintln(os.Stderr, styleReplError.Render(
 			"Usage: /turo [on|off|lite|full|ultra|wenyan|filler on|off|synonyms on|off|gloss on|off]"))
+		return nil
 	}
+	r.persistTuning() // survive across sessions
 	return nil
 }
 

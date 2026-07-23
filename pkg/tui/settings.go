@@ -63,6 +63,11 @@ type AgentLoopTuning struct {
 	BashLimit            int    `yaml:"bash_limit"`
 	FileLimit            int    `yaml:"file_limit"`
 	CodeLimit            int    `yaml:"code_limit"`
+	TuroLevel            string `yaml:"turo_level,omitempty"`
+	TuroOff              bool   `yaml:"turo_off,omitempty"`
+	TuroFiller           bool   `yaml:"turo_filler"`
+	TuroSynonyms         bool   `yaml:"turo_synonyms"`
+	TuroGloss            bool   `yaml:"turo_gloss"`
 }
 
 // SaveAgentLoopTuning persists the agent-loop tool settings, preserving the rest

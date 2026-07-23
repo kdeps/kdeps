@@ -167,3 +167,34 @@ func TestBuildMessagesJSONReduced_AppliesTransform(t *testing.T) {
 		t.Fatal("nil transform should equal BuildMessagesJSON")
 	}
 }
+
+func TestToolTuning_TuroPersistRoundTrip(t *testing.T) {
+	resetTuroState(t)
+	r := &REPL{loop: &Loop{config: Config{}}}
+
+	SetTuroLevel("wenyan")
+	SetTuroRuntimeOff(true)
+	SetTuroStage("gloss", false)
+	snap := r.toolTuningSnapshot()
+	if snap.TuroLevel != "wenyan" || !snap.TuroOff || snap.TuroGloss {
+		t.Fatalf("snapshot did not capture turo state: %+v", snap)
+	}
+
+	// Change state, then restore from the snapshot.
+	SetTuroLevel("ultra")
+	SetTuroRuntimeOff(false)
+	SetTuroStage("gloss", true)
+	r.applyToolTuning(snap)
+	if TuroLevel() != "wenyan" || !TuroRuntimeOff() || TuroStage("gloss") {
+		t.Fatalf("apply did not restore turo state: level=%s off=%v gloss=%v",
+			TuroLevel(), TuroRuntimeOff(), TuroStage("gloss"))
+	}
+
+	// An empty TuroLevel (never configured) must not clobber defaults.
+	resetTuroState(t)
+	SetTuroStage("filler", true)
+	r.applyToolTuning(ToolTuning{TuroLevel: ""})
+	if !TuroStage("filler") {
+		t.Fatal("empty TuroLevel should leave turo defaults untouched")
+	}
+}

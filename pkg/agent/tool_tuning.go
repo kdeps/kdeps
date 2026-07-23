@@ -18,7 +18,11 @@
 
 package agent
 
-import "time"
+import (
+	"fmt"
+	"os"
+	"time"
+)
 
 // ToolTuning is a persistable snapshot of the /model tool settings so they
 // survive across sessions. Durations are strings ("10m"); ToolStallTimeout is
@@ -37,6 +41,12 @@ type ToolTuning struct {
 	BashLimit            int // max bash_exec calls per request (0=default 25)
 	FileLimit            int // max read_file/list_files calls per request (0=default 40)
 	CodeLimit            int // max search_local/code_search calls per request (0=default 15)
+	// turo reducer state (empty TuroLevel means turo was never configured).
+	TuroLevel    string
+	TuroOff      bool
+	TuroFiller   bool
+	TuroSynonyms bool
+	TuroGloss    bool
 }
 
 // toolTuningSnapshot captures the current tool settings for persistence.
@@ -59,6 +69,11 @@ func (r *REPL) toolTuningSnapshot() ToolTuning {
 		BashLimit:            c.BashLimit,
 		FileLimit:            c.FileLimit,
 		CodeLimit:            c.CodeLimit,
+		TuroLevel:            TuroLevel(),
+		TuroOff:              TuroRuntimeOff(),
+		TuroFiller:           TuroStage("filler"),
+		TuroSynonyms:         TuroStage("synonyms"),
+		TuroGloss:            TuroStage("gloss"),
 	}
 }
 
@@ -89,12 +104,32 @@ func (r *REPL) applyToolTuning(t ToolTuning) {
 	c.BashLimit = t.BashLimit
 	c.FileLimit = t.FileLimit
 	c.CodeLimit = t.CodeLimit
+	// Restore turo state only when it was persisted (level set); otherwise keep
+	// the built-in defaults so the stage flags are not clobbered to off.
+	if t.TuroLevel != "" {
+		SetTuroLevel(t.TuroLevel)
+		SetTuroRuntimeOff(t.TuroOff)
+		SetTuroStage("filler", t.TuroFiller)
+		SetTuroStage("synonyms", t.TuroSynonyms)
+		SetTuroStage("gloss", t.TuroGloss)
+	}
 }
 
 // SetPersistedTuning stores tool settings loaded from disk; they are applied when
 // Run starts. Called by cmd wiring at startup.
 func (r *REPL) SetPersistedTuning(t ToolTuning) {
 	r.persistedTuning = &t
+}
+
+// persistTuning saves the current tool + turo settings so they survive across
+// sessions. A no-op when no save function is wired (non-interactive use).
+func (r *REPL) persistTuning() {
+	if r.saveTuningFn == nil {
+		return
+	}
+	if err := r.saveTuningFn(r.toolTuningSnapshot()); err != nil {
+		fmt.Fprintf(os.Stdout, "%s\n", styleReplMeta.Render("(could not persist setting: "+err.Error()+")"))
+	}
 }
 
 // SetSaveTuningFn injects the function that persists tool settings whenever
