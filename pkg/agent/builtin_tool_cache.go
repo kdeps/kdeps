@@ -24,7 +24,11 @@ import (
 )
 
 const (
-	maxWebToolCalls  = 3
+	// maxWebToolCalls caps DISTINCT web_search + web_scraper calls per turn.
+	// The two share this budget, so it must leave room for a search plus a few
+	// source fetches; 3 exhausted on a single search+scrape+refine. Runaway
+	// research is now bounded by the force-answer-on-convergence stop instead.
+	maxWebToolCalls  = 5
 	maxBashToolCalls = 25
 	maxFileToolCalls = 40
 	maxCodeToolCalls = 15

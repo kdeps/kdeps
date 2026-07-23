@@ -187,3 +187,25 @@ func TestConvergenceCache_SeenCommandNotBlockedAtLimit(t *testing.T) {
 		t.Fatal("expected the seen command to re-run despite the budget being full")
 	}
 }
+
+func TestIsConvergenceBlocked(t *testing.T) {
+	blocked := []string{
+		`{"error":"convergence (3 calls): ALL web/search calls blocked — do NOT retry"}`,
+		"convergence (5 calls): ALL shell commands blocked",
+	}
+	for _, s := range blocked {
+		if !isConvergenceBlocked(s) {
+			t.Errorf("expected blocked: %q", s)
+		}
+	}
+	notBlocked := []string{
+		`{"result":"ok"}`,
+		"convergence happened but not the marker",
+		"",
+	}
+	for _, s := range notBlocked {
+		if isConvergenceBlocked(s) {
+			t.Errorf("expected not blocked: %q", s)
+		}
+	}
+}

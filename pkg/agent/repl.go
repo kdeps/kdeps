@@ -2445,10 +2445,10 @@ func (r *REPL) printToolSettings() {
 		{"compact-budget", fmt.Sprintf("%d  (tokens kept after compaction)", cfg.CompactTokenBudget)},
 		{"max-turns", fmt.Sprintf("%d  (history turns retained, 0 = unlimited)", cfg.MaxTurns)},
 		{"history-tokens", fmt.Sprintf("%d  (history token cap, 0 = unlimited)", cfg.MaxHistoryTokens)},
-		{"web-limit", fmt.Sprintf("%d  (max web_search/web_scraper per request, 0=unlimited)", cfg.WebLimit)},
-		{"bash-limit", fmt.Sprintf("%d  (max bash_exec per request, 0=unlimited)", cfg.BashLimit)},
-		{"file-limit", fmt.Sprintf("%d  (max read_file/list_files per request, 0=unlimited)", cfg.FileLimit)},
-		{"code-limit", fmt.Sprintf("%d  (max search_local/code_search per request, 0=unlimited)", cfg.CodeLimit)},
+		{"web-limit", fmt.Sprintf("%d  (max web_search/web_scraper per request, 0=default 5)", cfg.WebLimit)},
+		{"bash-limit", fmt.Sprintf("%d  (max bash_exec per request, 0=default 25)", cfg.BashLimit)},
+		{"file-limit", fmt.Sprintf("%d  (max read_file/list_files per request, 0=default 40)", cfg.FileLimit)},
+		{"code-limit", fmt.Sprintf("%d  (max search_local/code_search per request, 0=default 15)", cfg.CodeLimit)},
 	}
 	fmt.Fprintln(os.Stdout, styleReplMeta.Render("Agent loop settings (/model tool set <setting> <value>):"))
 	for _, row := range rows {
@@ -3899,7 +3899,7 @@ func (r *REPL) cmdTuro(args []string) error {
 		SetTuroLevel(arg)
 		fmt.Fprintf(os.Stdout, "%s\n", styleReplSuccess.Render("turo level: "+arg))
 	case "filler", "synonyms", "gloss":
-		if len(args) < 2 {
+		if len(args) == 1 { // stage given without an on/off value
 			fmt.Fprintf(os.Stderr, "%s\n", styleReplError.Render("Usage: /turo "+arg+" on|off"))
 			return nil
 		}

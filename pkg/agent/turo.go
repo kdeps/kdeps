@@ -81,7 +81,7 @@ func turoInit() {
 	}
 	lvl := strings.ToLower(strings.TrimSpace(os.Getenv("TURO_LEVEL")))
 	if !turoValidLevels[lvl] {
-		lvl = "full"
+		lvl = "ultra"
 	}
 	turoState.level = lvl
 	// Stages default on (matching the turo binary); env can pre-disable them.

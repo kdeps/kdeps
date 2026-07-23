@@ -222,14 +222,17 @@ func validateSearchRoot(path string) error {
 	}
 	abs, err := filepath.Abs(path)
 	if err != nil {
-		return nil // let rg handle a genuinely malformed path
+		abs = path // Abs only fails if the cwd is unavailable; check the raw path
 	}
 	clean := filepath.Clean(abs)
 	if forbiddenSearchRoots[clean] {
 		return fmt.Errorf("codeIntelligence: refusing to search system directory %q — pass a project path", clean)
 	}
 	if home, herr := os.UserHomeDir(); herr == nil && home != "" && clean == filepath.Clean(home) {
-		return fmt.Errorf("codeIntelligence: refusing to search the entire home directory %q — pass a project subdirectory", clean)
+		return fmt.Errorf(
+			"codeIntelligence: refusing to search the entire home directory %q — pass a project subdirectory",
+			clean,
+		)
 	}
 	return nil
 }
@@ -254,22 +257,27 @@ func (e *Executor) buildRGArgs(config *domain.CodeIntelligenceConfig, extra ...s
 	return args
 }
 
+// ripgrep exit codes: 1 = no matches, 2 = a recoverable error occurred during
+// the search (e.g. an unreadable path) but results were still produced.
+const (
+	rgExitNoMatch = 1
+	rgExitPartial = 2
+)
+
 func (e *Executor) runRG(args []string) ([]rgMatch, error) {
 	stdout, stderr, err := e.runner.Run("rg", args...)
 	if err != nil {
 		var exitErr *exec.ExitError
-		if errors.As(err, &exitErr) {
-			switch exitErr.ExitCode() {
-			case 1:
-				// no matches found — not a real error
-				return nil, nil
-			case 2:
-				// partial errors (some paths unreadable) — rg still searched the
-				// rest; use whatever it managed to output rather than failing.
-			default:
-				return nil, e.rgError(stderr, err)
-			}
-		} else {
+		if !errors.As(err, &exitErr) {
+			return nil, e.rgError(stderr, err)
+		}
+		switch exitErr.ExitCode() {
+		case rgExitNoMatch:
+			return nil, nil
+		case rgExitPartial:
+			// Some paths were unreadable, but rg searched the rest; fall through
+			// and use whatever it output rather than failing the whole call.
+		default:
 			return nil, e.rgError(stderr, err)
 		}
 	}

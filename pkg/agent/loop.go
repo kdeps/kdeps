@@ -174,7 +174,7 @@ type Config struct {
 	// output (silence-based, not wall-clock). 0 applies the default (10m);
 	// negative disables stall detection.
 	ToolStallTimeout time.Duration
-	// WebLimit caps web_search/web_scraper calls per user request (0=default 3).
+	// WebLimit caps web_search/web_scraper calls per user request (0=default 5).
 	WebLimit int
 	// BashLimit caps bash_exec calls per user request (0=default 25).
 	BashLimit int
@@ -560,6 +560,13 @@ const (
 	// maxIdenticalToolCalls is how many times in a row the model may issue the
 	// exact same tool call before the turn is ended as a stuck loop.
 	maxIdenticalToolCalls = 3
+	// maxConvergenceBlocks is how many consecutive rounds may end in a
+	// convergence-blocked tool call before the loop force-answers. Once a
+	// budget is exhausted the model often keeps trying different queries; a
+	// single blocked round is enough to force synthesis (the round cap alone
+	// misses this in unlimited mode). Applies to every convergence-limited
+	// tool category (web, bash, file, code) — they share the block marker.
+	maxConvergenceBlocks = 1
 )
 
 func envOrDefault(key, fallback string) string {
@@ -842,6 +849,8 @@ func (l *Loop) runToolRounds(
 	// the turn after too many.
 	var lastToolSig string
 	identicalRepeats := 0
+	convergenceBlocks := 0
+	forcedFinal := false
 	// MaxToolRounds <= 0 means unlimited: run until the model stops calling
 	// tools or the turn is canceled (Ctrl+C). With no cap there is no forced
 	// final answer.
@@ -891,13 +900,7 @@ func (l *Loop) runToolRounds(
 
 		// Detect a model stuck re-issuing the same tool call. The loop
 		// dispatches toolCalls[0], so track that signature.
-		sig := toolCalls[0].Name + "\x00" + toolCalls[0].Arguments
-		if sig == lastToolSig {
-			identicalRepeats++
-		} else {
-			identicalRepeats = 1
-			lastToolSig = sig
-		}
+		identicalRepeats, lastToolSig = trackRepeat(toolCalls[0], lastToolSig, identicalRepeats)
 		if identicalRepeats >= maxIdenticalToolCalls {
 			finalContent = l.stuckLoopNotice(w, toolCalls[0].Name)
 			break
@@ -907,12 +910,14 @@ func (l *Loop) runToolRounds(
 			l.config.OnRoundComplete()
 		}
 
-		chatCfg = l.appendToolRoundTrip(ctx, chatCfg, content, toolCalls[:1], w)
+		var blocked bool
+		chatCfg, blocked = l.appendToolRoundTrip(ctx, chatCfg, content, toolCalls[:1], w)
 		// Ctrl+C during tool execution: stop the round loop instead of
 		// firing another LLM call that would fail on the canceled context.
 		if ctx.Err() != nil {
 			return finalContent, ctx.Err()
 		}
+		chatCfg, convergenceBlocks, forcedFinal = convergenceStop(chatCfg, blocked, convergenceBlocks, forcedFinal)
 	}
 	// A turn must never end in silence. Reasoning models sometimes put an
 	// entire round into thinking tokens and return empty content: on a capped
@@ -1174,13 +1179,48 @@ func summarizeToolArgs(raw string) string {
 // appendToolRoundTrip appends the assistant tool-call turn and tool results to
 // cfg.Messages and returns an updated ChatConfig ready for the next LLM call.
 // A canceled ctx (Ctrl+C) skips executing the remaining tools.
+// isConvergenceBlocked reports whether a tool result is a convergence-limit
+// rejection (the tool was not run because its budget was exhausted).
+func isConvergenceBlocked(result string) bool {
+	return strings.Contains(result, "convergence (") && strings.Contains(result, "calls)")
+}
+
+// trackRepeat updates the consecutive-identical-tool-call counter. It returns
+// the new repeat count and the signature of the current call.
+func trackRepeat(tc domain.StreamedToolCall, lastSig string, repeats int) (int, string) {
+	sig := tc.Name + "\x00" + tc.Arguments
+	if sig == lastSig {
+		return repeats + 1, sig
+	}
+	return 1, sig
+}
+
+// convergenceStop implements the forceful stop: once a tool budget is exhausted
+// the model tends to keep flailing with new queries that are all blocked. After
+// maxConvergenceBlocks consecutive blocked rounds it strips every tool and
+// forces a text answer (the next round has no tools, so the loop ends). Returns
+// the possibly tool-stripped config, the updated consecutive-block count, and
+// whether the final answer has now been forced.
+func convergenceStop(cfg *domain.ChatConfig, blocked bool, blocks int, forced bool) (*domain.ChatConfig, int, bool) {
+	if blocked {
+		blocks++
+	} else {
+		blocks = 0
+	}
+	if blocks >= maxConvergenceBlocks && !forced {
+		return forceAnswerConfig(cfg), blocks, true
+	}
+	return cfg, blocks, forced
+}
+
 func (l *Loop) appendToolRoundTrip(
 	ctx context.Context,
 	cfg *domain.ChatConfig,
 	assistantContent string,
 	toolCalls []domain.StreamedToolCall,
 	w io.Writer,
-) *domain.ChatConfig {
+) (*domain.ChatConfig, bool) {
+	blocked := false
 	var history []map[string]any
 	if cfg.Messages != "" {
 		_ = json.Unmarshal([]byte(cfg.Messages), &history)
@@ -1224,6 +1264,9 @@ func (l *Loop) appendToolRoundTrip(
 			l.displayToolCall(tc, w)
 			result = l.dispatchStreamToolCall(tc, w)
 		}
+		if isConvergenceBlocked(result) {
+			blocked = true
+		}
 		history = append(history, map[string]any{
 			"role":           "tool",
 			"tool_call_id":   tc.ID,
@@ -1237,7 +1280,7 @@ func (l *Loop) appendToolRoundTrip(
 		updated.Messages = string(b)
 		updated.Prompt = "" // already in history
 	}
-	return &updated
+	return &updated, blocked
 }
 
 // displayToolCall prints the "[name → args]" line for a tool about to run.
@@ -1781,6 +1824,10 @@ func (l *Loop) buildSystemPreamble(focus string) string {
 		}
 	}
 	preamble = turoReduce(context.Background(), preamble)
+	// Prepend the current date verbatim (after reduction, so it is never
+	// mangled) so the model can reason about "today", recent events, and
+	// relative dates. Captured when the preamble is first built for the session.
+	preamble = "Today's date is " + time.Now().Format("Monday, 2006-01-02") + ".\n\n" + preamble
 	return preamble
 }
 

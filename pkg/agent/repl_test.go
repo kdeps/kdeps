@@ -2568,9 +2568,19 @@ func TestBuildSystemPreamble_ZeroBudgetUsesAutoCompactThreshold(t *testing.T) {
 	// CompactTokenBudget=0 -> falls through to AutoCompactThreshold
 	loop.config.CompactTokenBudget = 0
 	loop.config.AutoCompactThreshold = 20000
-	// Should not panic and should return an empty preamble (no skills/prompt/tools)
+	// Should not panic; with no skills/prompt/tools the only content is the
+	// always-present date line.
 	preamble := loop.buildSystemPreamble("")
-	assert.Empty(t, preamble)
+	assert.Contains(t, preamble, "Today's date is")
+	assert.Empty(t, preambleBeyondDate(preamble))
+}
+
+// preambleBeyondDate returns the preamble content after the leading date line.
+func preambleBeyondDate(preamble string) string {
+	if _, rest, found := strings.Cut(preamble, "\n\n"); found {
+		return strings.TrimSpace(rest)
+	}
+	return ""
 }
 
 func TestBuildSystemPreamble_BothZeroFallsBackTo40000(t *testing.T) {
@@ -2579,7 +2589,7 @@ func TestBuildSystemPreamble_BothZeroFallsBackTo40000(t *testing.T) {
 	loop.config.CompactTokenBudget = 0
 	loop.config.AutoCompactThreshold = 0
 	preamble := loop.buildSystemPreamble("")
-	assert.Empty(t, preamble) // no skills/prompt/tools set
+	assert.Empty(t, preambleBeyondDate(preamble)) // no skills/prompt/tools set
 }
 
 // --- buildSystemPreamble small-context path ---
