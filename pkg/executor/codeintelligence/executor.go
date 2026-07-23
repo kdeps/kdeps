@@ -9,6 +9,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"os"
 	"os/exec"
 	"path/filepath"
 	"strconv"
@@ -67,6 +68,9 @@ func (e *Executor) Execute(
 ) (interface{}, error) {
 	if config.Operation == "" {
 		return nil, errors.New("codeIntelligence: operation is required")
+	}
+	if err := validateSearchRoot(config.Path); err != nil {
+		return result(false, map[string]interface{}{resultError: err.Error()}), err
 	}
 
 	// Try LSP first if we can detect a language server for this file.
@@ -187,8 +191,53 @@ type rgMatch struct {
 	} `json:"data"`
 }
 
+// rgError classifies a non-recoverable rg failure.
+func (e *Executor) rgError(stderr string, err error) error {
+	if strings.Contains(stderr, "executable file not found") || strings.Contains(err.Error(), "not found") {
+		return errors.New(
+			"ripgrep (rg) is not installed. Install it with: brew install ripgrep (macOS) or apt install ripgrep (Linux)",
+		)
+	}
+	if strings.TrimSpace(stderr) == "" {
+		return fmt.Errorf("rg failed: %w", err)
+	}
+	return fmt.Errorf("rg failed: %s", strings.TrimSpace(stderr))
+}
+
+// forbiddenSearchRoots are directories code_search must never recurse: walking
+// them is slow and hits unreadable system paths (/dev/fd, caches).
+//
+//nolint:gochecknoglobals // static denylist
+var forbiddenSearchRoots = map[string]bool{
+	"/": true, "/dev": true, "/proc": true, "/sys": true,
+	"/private": true, "/System": true, "/Library": true, "/usr": true,
+	"/etc": true, "/var": true, "/bin": true, "/opt": true,
+}
+
+// validateSearchRoot rejects filesystem roots and system directories so a
+// stray or over-broad path never turns code_search into a whole-disk walk.
+func validateSearchRoot(path string) error {
+	if strings.TrimSpace(path) == "" {
+		return nil
+	}
+	abs, err := filepath.Abs(path)
+	if err != nil {
+		return nil // let rg handle a genuinely malformed path
+	}
+	clean := filepath.Clean(abs)
+	if forbiddenSearchRoots[clean] {
+		return fmt.Errorf("codeIntelligence: refusing to search system directory %q — pass a project path", clean)
+	}
+	if home, herr := os.UserHomeDir(); herr == nil && home != "" && clean == filepath.Clean(home) {
+		return fmt.Errorf("codeIntelligence: refusing to search the entire home directory %q — pass a project subdirectory", clean)
+	}
+	return nil
+}
+
 func (e *Executor) buildRGArgs(config *domain.CodeIntelligenceConfig, extra ...string) []string {
-	args := []string{"--json", "--line-number"}
+	// --no-messages: don't fail on unreadable paths (permission denied, bad
+	// inherited descriptors under /dev/fd) — skip them and keep searching.
+	args := []string{"--json", "--line-number", "--no-messages"}
 	if config.Context > 0 {
 		args = append(args, "-C", strconv.Itoa(config.Context))
 	}
@@ -208,18 +257,21 @@ func (e *Executor) buildRGArgs(config *domain.CodeIntelligenceConfig, extra ...s
 func (e *Executor) runRG(args []string) ([]rgMatch, error) {
 	stdout, stderr, err := e.runner.Run("rg", args...)
 	if err != nil {
-		// rg exits with code 1 when no matches found — that's not a real error
 		var exitErr *exec.ExitError
-		if errors.As(err, &exitErr) && exitErr.ExitCode() == 1 {
-			return nil, nil
+		if errors.As(err, &exitErr) {
+			switch exitErr.ExitCode() {
+			case 1:
+				// no matches found — not a real error
+				return nil, nil
+			case 2:
+				// partial errors (some paths unreadable) — rg still searched the
+				// rest; use whatever it managed to output rather than failing.
+			default:
+				return nil, e.rgError(stderr, err)
+			}
+		} else {
+			return nil, e.rgError(stderr, err)
 		}
-		// Check if rg is not installed
-		if strings.Contains(stderr, "executable file not found") || strings.Contains(err.Error(), "not found") {
-			return nil, errors.New(
-				"ripgrep (rg) is not installed. Install it with: brew install ripgrep (macOS) or apt install ripgrep (Linux)",
-			)
-		}
-		return nil, fmt.Errorf("rg failed: %s", stderr)
 	}
 
 	var matches []rgMatch

@@ -21,7 +21,15 @@ type mockRunner struct {
 }
 
 func (r *mockRunner) Run(_ string, args ...string) (string, string, error) {
-	key := strings.Join(args, " ")
+	// --no-messages is an implementation detail (suppresses unreadable-path
+	// errors); ignore it when matching fixtures.
+	filtered := make([]string, 0, len(args))
+	for _, a := range args {
+		if a != "--no-messages" {
+			filtered = append(filtered, a)
+		}
+	}
+	key := strings.Join(filtered, " ")
 	if out, ok := r.entries[key]; ok {
 		return out, "", nil
 	}
@@ -632,4 +640,35 @@ func TestRGNotInstalled(t *testing.T) {
 		t.Fatal("expected error when rg not found")
 	}
 	_ = res
+}
+
+func TestValidateSearchRoot(t *testing.T) {
+	home, _ := os.UserHomeDir()
+	bad := []string{"/", "/dev", "/Library", "/usr", "/etc"}
+	if home != "" {
+		bad = append(bad, home)
+	}
+	for _, p := range bad {
+		if err := validateSearchRoot(p); err == nil {
+			t.Errorf("validateSearchRoot(%q) = nil, want error", p)
+		}
+	}
+	ok := []string{"", ".", filepath.Join(os.TempDir(), "proj"), "/tmp/some/project"}
+	for _, p := range ok {
+		if err := validateSearchRoot(p); err != nil {
+			t.Errorf("validateSearchRoot(%q) = %v, want nil", p, err)
+		}
+	}
+}
+
+func TestExecute_RejectsSystemRoot(t *testing.T) {
+	e := newTestExecutor(&mockRunner{})
+	cfg := &domain.CodeIntelligenceConfig{
+		Operation: domain.CodeIntOpSymbolSearch,
+		Query:     "anything",
+		Path:      "/",
+	}
+	if _, err := e.Execute(nil, cfg); err == nil {
+		t.Fatal("Execute with Path=/ should be rejected")
+	}
 }
