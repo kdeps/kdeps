@@ -2133,7 +2133,7 @@ func (r *REPL) cmdHelp() error {
 		"  /reload                            Reload skills, prompt templates, and instructions from disk",
 		"  /context                           Show current context window size",
 		"  /context <size>                    Set context window size (e.g. 32768 or 32k); restarts local servers",
-		"  /turo [on|off|lite|full|ultra]     Show or set the turo prompt reducer level; turo only",
+		"  /turo [on|off|lite|full|ultra|filler/synonyms/gloss on|off] Show or set the turo prompt reducer; turo only",
 		"  ! <cmd>                            Run a shell command; the output becomes an agent turn (the model responds)",
 		"  !! <cmd>                           Run a shell command silently - no LLM turn, nothing added to context",
 	}
@@ -3872,9 +3872,10 @@ func (r *REPL) printConvergence(section, toolLine string, calls, limit int, foot
 
 // cmdTuro shows or changes the turo reducer settings:
 //
-//	/turo                 show status
-//	/turo on | off        enable/disable reduction at runtime
-//	/turo lite|full|ultra set compression level
+//	/turo                        show status
+//	/turo on | off               enable/disable reduction at runtime
+//	/turo lite|full|ultra        set compression level
+//	/turo filler|synonyms|gloss on|off  toggle a lossy pipeline stage
 func (r *REPL) cmdTuro(args []string) error {
 	if !turoAvailable(r.ctx) {
 		fmt.Fprintln(os.Stdout, styleReplMeta.Render(
@@ -3897,9 +3898,25 @@ func (r *REPL) cmdTuro(args []string) error {
 	case "lite", "full", "ultra":
 		SetTuroLevel(arg)
 		fmt.Fprintf(os.Stdout, "%s\n", styleReplSuccess.Render("turo level: "+arg))
+	case "filler", "synonyms", "gloss":
+		if len(args) < 2 {
+			fmt.Fprintf(os.Stderr, "%s\n", styleReplError.Render("Usage: /turo "+arg+" on|off"))
+			return nil
+		}
+		on, ok := parseOnOff(args[1])
+		if !ok {
+			fmt.Fprintf(os.Stderr, "%s\n", styleReplError.Render("Usage: /turo "+arg+" on|off"))
+			return nil
+		}
+		SetTuroStage(arg, on)
+		state := "off"
+		if on {
+			state = "on"
+		}
+		fmt.Fprintf(os.Stdout, "%s\n", styleReplSuccess.Render("turo "+arg+": "+state))
 	default:
 		fmt.Fprintln(os.Stderr, styleReplError.Render(
-			"Usage: /turo [on|off|lite|full|ultra]"))
+			"Usage: /turo [on|off|lite|full|ultra|filler on|off|synonyms on|off|gloss on|off]"))
 	}
 	return nil
 }
@@ -3911,9 +3928,18 @@ func (r *REPL) printTuroStatus() error {
 	if TuroRuntimeOff() {
 		state = "off"
 	}
+	onOff := func(b bool) string {
+		if b {
+			return "on"
+		}
+		return "off"
+	}
 	fmt.Fprintln(os.Stdout, styleReplHeading.Render("turo"))
 	fmt.Fprintf(os.Stdout, "  %s %s\n", meta("state:"), state)
 	fmt.Fprintf(os.Stdout, "  %s %s\n", meta("level:"), TuroLevel())
+	fmt.Fprintf(os.Stdout, "  %s %s\n", meta("filler:"), onOff(TuroStage("filler")))
+	fmt.Fprintf(os.Stdout, "  %s %s\n", meta("synonyms:"), onOff(TuroStage("synonyms")))
+	fmt.Fprintf(os.Stdout, "  %s %s\n", meta("gloss:"), onOff(TuroStage("gloss")))
 	return nil
 }
 

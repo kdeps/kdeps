@@ -76,10 +76,12 @@ Turo is entirely optional: if the binary is not installed, kdeps sends everythin
 Control it at runtime with `/turo`:
 
 ```
-/turo                # show status: state, level
+/turo                # show status: state, level, and stage toggles
 /turo off            # send content unreduced (disable)
 /turo on             # re-enable
 /turo ultra          # set compression level: lite | full | ultra
+/turo gloss off      # disable a lossy stage: filler | synonyms | gloss
+/turo synonyms on    # re-enable a stage
 ```
 
 Install-time controls via environment variables:

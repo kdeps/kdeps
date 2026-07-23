@@ -20,6 +20,7 @@ package agent
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"os/exec"
 	"strings"
@@ -42,13 +43,17 @@ var (
 )
 
 // turoState holds the runtime turo settings mutated by the /turo command.
-// level is the flag passed to the turo binary; off is a runtime override that
-// disables reduction even when the binary is installed.
+// level is passed to the turo binary; filler/synonyms/gloss toggle its pipeline
+// stages (all on by default); off is a runtime override that disables reduction
+// even when the binary is installed.
 type turoSettings struct {
-	mu    sync.Mutex
-	level string
-	off   bool
-	init  bool
+	mu       sync.Mutex
+	level    string
+	filler   bool
+	synonyms bool
+	gloss    bool
+	off      bool
+	init     bool
 }
 
 //nolint:gochecknoglobals // process-wide runtime settings for the turo reducer
@@ -79,7 +84,20 @@ func turoInit() {
 		lvl = "full"
 	}
 	turoState.level = lvl
+	// Stages default on (matching the turo binary); env can pre-disable them.
+	turoState.filler = !turoEnvOff("TURO_FILLER")
+	turoState.synonyms = !turoEnvOff("TURO_SYNONYMS")
+	turoState.gloss = !turoEnvOff("TURO_GLOSS")
 	turoState.init = true
+}
+
+// turoEnvOff reports whether an environment variable is set to a falsey value.
+func turoEnvOff(name string) bool {
+	switch strings.ToLower(strings.TrimSpace(os.Getenv(name))) {
+	case "0", "false", "no", "off":
+		return true
+	}
+	return false
 }
 
 // TuroLevel returns the active compression level (lite, full, ultra).
@@ -99,6 +117,49 @@ func SetTuroLevel(level string) bool {
 	turoInit()
 	turoState.mu.Lock()
 	turoState.level = level
+	turoState.mu.Unlock()
+	turoReduceCache.Clear()
+	return true
+}
+
+// turoValidStages are the pipeline stages toggled by /turo <stage> on|off.
+//
+//nolint:gochecknoglobals // static lookup set
+var turoValidStages = map[string]bool{"filler": true, "synonyms": true, "gloss": true}
+
+// TuroStage reports whether a pipeline stage is enabled. Unknown stages report
+// false.
+func TuroStage(name string) bool {
+	turoInit()
+	turoState.mu.Lock()
+	defer turoState.mu.Unlock()
+	switch name {
+	case "filler":
+		return turoState.filler
+	case "synonyms":
+		return turoState.synonyms
+	case "gloss":
+		return turoState.gloss
+	}
+	return false
+}
+
+// SetTuroStage enables or disables a pipeline stage. Returns false for an
+// unknown stage.
+func SetTuroStage(name string, on bool) bool {
+	if !turoValidStages[name] {
+		return false
+	}
+	turoInit()
+	turoState.mu.Lock()
+	switch name {
+	case "filler":
+		turoState.filler = on
+	case "synonyms":
+		turoState.synonyms = on
+	case "gloss":
+		turoState.gloss = on
+	}
 	turoState.mu.Unlock()
 	turoReduceCache.Clear()
 	return true
@@ -161,13 +222,18 @@ func turoReduce(ctx context.Context, text string) string {
 	}
 	turoInit()
 	turoState.mu.Lock()
-	level := turoState.level
+	level, filler, synonyms, gloss := turoState.level, turoState.filler, turoState.synonyms, turoState.gloss
 	turoState.mu.Unlock()
 
 	runCtx, cancel := context.WithTimeout(ctx, turoTimeout)
 	defer cancel()
 
-	cmd := exec.CommandContext(runCtx, turoPath, "-level", level)
+	cmd := exec.CommandContext(runCtx, turoPath,
+		"-level", level,
+		fmt.Sprintf("-filler=%t", filler),
+		fmt.Sprintf("-synonyms=%t", synonyms),
+		fmt.Sprintf("-gloss=%t", gloss),
+	)
 	cmd.Stdin = strings.NewReader(text)
 	cmd.Dir = "/"
 	out, err := cmd.Output()

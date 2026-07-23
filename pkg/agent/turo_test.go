@@ -53,13 +53,13 @@ func TestMain(m *testing.M) {
 func resetTuroState(t *testing.T) {
 	t.Helper()
 	turoState.mu.Lock()
-	prevLevel, prevOff, prevInit := turoState.level, turoState.off, turoState.init
+	pLevel, pFiller, pSyn, pGloss, pOff, pInit :=
+		turoState.level, turoState.filler, turoState.synonyms, turoState.gloss, turoState.off, turoState.init
 	turoState.mu.Unlock()
 	t.Cleanup(func() {
 		turoState.mu.Lock()
-		turoState.level = prevLevel
-		turoState.off = prevOff
-		turoState.init = prevInit
+		turoState.level, turoState.filler, turoState.synonyms, turoState.gloss, turoState.off, turoState.init =
+			pLevel, pFiller, pSyn, pGloss, pOff, pInit
 		turoState.mu.Unlock()
 		turoReduceCache.Clear()
 	})
@@ -98,6 +98,31 @@ func TestTuroRuntimeOff_Toggle(t *testing.T) {
 	SetTuroRuntimeOff(false)
 	if TuroRuntimeOff() {
 		t.Fatal("expected runtime on")
+	}
+}
+
+func TestTuroStage_ToggleAndUnknown(t *testing.T) {
+	resetTuroState(t)
+
+	for _, stage := range []string{"filler", "synonyms", "gloss"} {
+		if !SetTuroStage(stage, false) {
+			t.Fatalf("SetTuroStage(%q, false) returned false", stage)
+		}
+		if TuroStage(stage) {
+			t.Fatalf("%s should be off", stage)
+		}
+		if !SetTuroStage(stage, true) {
+			t.Fatalf("SetTuroStage(%q, true) returned false", stage)
+		}
+		if !TuroStage(stage) {
+			t.Fatalf("%s should be on", stage)
+		}
+	}
+	if SetTuroStage("bogus", true) {
+		t.Fatal("SetTuroStage accepted an unknown stage")
+	}
+	if TuroStage("bogus") {
+		t.Fatal("TuroStage reported an unknown stage as on")
 	}
 }
 
