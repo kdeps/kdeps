@@ -68,6 +68,7 @@ type AgentLoopTuning struct {
 	TuroFiller           bool   `yaml:"turo_filler"`
 	TuroSynonyms         bool   `yaml:"turo_synonyms"`
 	TuroGloss            bool   `yaml:"turo_gloss"`
+	TuroArrows           bool   `yaml:"turo_arrows,omitempty"`
 }
 
 // SaveAgentLoopTuning persists the agent-loop tool settings, preserving the rest

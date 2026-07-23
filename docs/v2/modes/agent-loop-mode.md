@@ -69,7 +69,11 @@ turo runs a four-stage pipeline, all on by default, repeating until the output s
 3. **Gloss swap** - replaces words with the shortest defining word from their dictionary definition (`approach` -> `come`). The lossiest stage.
 4. **Reduction** - keeps content words by part of speech, deduplicates, and (ultra) collapses inflections by lemma.
 
-Stages 2-4 are lossy - they change wording, not just drop filler - so agent context sent to the model is compressed but no longer verbatim prose. Disable individual stages with the `TURO_*` environment variables below, or turn turo off entirely.
+One extra stage is **opt-in** (off by default):
+
+- **Arrows** - replaces multi-word causal/sequential connectives (`leads to`, `results in`, `gives rise to`) with a single `->` token (`cache miss leads to slow query` -> `cache miss -> slow query`). Only multi-word phrases qualify, so it always saves at least one token. Enable with `/turo arrows on` or `TURO_ARROWS=on`.
+
+Stages 2-4 and arrows are lossy - they change wording, not just drop filler - so agent context sent to the model is compressed but no longer verbatim prose. Disable individual stages with the `TURO_*` environment variables below, or turn turo off entirely.
 
 Turo is entirely optional: if the binary is not installed, kdeps sends everything unreduced and the `/turo` command reports that it is unavailable.
 
@@ -83,6 +87,7 @@ Control it at runtime with `/turo`:
 /turo wenyan         # ultra reduction + swap words for Classical Chinese chars (CJK-tokenizer models only)
 /turo gloss off      # disable a lossy stage: filler | synonyms | gloss
 /turo synonyms on    # re-enable a stage
+/turo arrows on      # enable the opt-in arrow stage (connective phrases -> "->")
 ```
 
 Install-time controls via environment variables:
@@ -92,6 +97,7 @@ TURO_LEVEL: ultra    # default compression level (lite, full, ultra)
 TURO_FILLER: "off"   # skip stage 1 (filler deletion)
 TURO_SYNONYMS: "off" # skip stage 2 (synonym swap) - keeps wording closer to source
 TURO_GLOSS: "off"    # skip stage 3 (gloss swap) - the lossiest stage
+TURO_ARROWS: "on"    # enable the opt-in arrow stage (connective phrases -> "->")
 KDEPS_TURO: "off"    # disable turo entirely (also TURO_DISABLED=1)
 KDEPS_TURO_PATH: /custom/path/to/turo  # override binary discovery
 ```

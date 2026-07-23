@@ -3888,7 +3888,7 @@ func (r *REPL) cmdTuro(args []string) error {
 		SetTuroLevel(arg)
 		SetTuroRuntimeOff(false) // choosing a level re-enables turo
 		fmt.Fprintf(os.Stdout, "%s\n", styleReplSuccess.Render("turo level: "+arg))
-	case "filler", "synonyms", "gloss":
+	case "filler", "synonyms", "gloss", "arrows":
 		if len(args) == 1 { // stage given without an on/off value
 			fmt.Fprintf(os.Stderr, "%s\n", styleReplError.Render("Usage: /turo "+arg+" on|off"))
 			return nil
@@ -3906,7 +3906,7 @@ func (r *REPL) cmdTuro(args []string) error {
 		fmt.Fprintf(os.Stdout, "%s\n", styleReplSuccess.Render("turo "+arg+": "+state))
 	default:
 		fmt.Fprintln(os.Stderr, styleReplError.Render(
-			"Usage: /turo [on|off|lite|full|ultra|wenyan|filler on|off|synonyms on|off|gloss on|off]"))
+			"Usage: /turo [on|off|lite|full|ultra|wenyan|filler on|off|synonyms on|off|gloss on|off|arrows on|off]"))
 		return nil
 	}
 	r.persistTuning() // survive across sessions
@@ -3932,6 +3932,7 @@ func (r *REPL) printTuroStatus() error {
 	fmt.Fprintf(os.Stdout, "  %s %s\n", meta("filler:"), onOff(TuroStage("filler")))
 	fmt.Fprintf(os.Stdout, "  %s %s\n", meta("synonyms:"), onOff(TuroStage("synonyms")))
 	fmt.Fprintf(os.Stdout, "  %s %s\n", meta("gloss:"), onOff(TuroStage("gloss")))
+	fmt.Fprintf(os.Stdout, "  %s %s\n", meta("arrows:"), onOff(TuroStage("arrows")))
 	return nil
 }
 

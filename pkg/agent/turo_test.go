@@ -53,13 +53,13 @@ func TestMain(m *testing.M) {
 func resetTuroState(t *testing.T) {
 	t.Helper()
 	turoState.mu.Lock()
-	pLevel, pFiller, pSyn, pGloss, pOff, pInit :=
-		turoState.level, turoState.filler, turoState.synonyms, turoState.gloss, turoState.off, turoState.init
+	pLevel, pFiller, pSyn, pGloss, pArrows, pOff, pInit :=
+		turoState.level, turoState.filler, turoState.synonyms, turoState.gloss, turoState.arrows, turoState.off, turoState.init
 	turoState.mu.Unlock()
 	t.Cleanup(func() {
 		turoState.mu.Lock()
-		turoState.level, turoState.filler, turoState.synonyms, turoState.gloss, turoState.off, turoState.init =
-			pLevel, pFiller, pSyn, pGloss, pOff, pInit
+		turoState.level, turoState.filler, turoState.synonyms, turoState.gloss, turoState.arrows, turoState.off, turoState.init =
+			pLevel, pFiller, pSyn, pGloss, pArrows, pOff, pInit
 		turoState.mu.Unlock()
 		turoReduceCache.Clear()
 	})
@@ -104,7 +104,7 @@ func TestTuroRuntimeOff_Toggle(t *testing.T) {
 func TestTuroStage_ToggleAndUnknown(t *testing.T) {
 	resetTuroState(t)
 
-	for _, stage := range []string{"filler", "synonyms", "gloss"} {
+	for _, stage := range []string{"filler", "synonyms", "gloss", "arrows"} {
 		if !SetTuroStage(stage, false) {
 			t.Fatalf("SetTuroStage(%q, false) returned false", stage)
 		}
@@ -175,8 +175,9 @@ func TestToolTuning_TuroPersistRoundTrip(t *testing.T) {
 	SetTuroLevel("wenyan")
 	SetTuroRuntimeOff(true)
 	SetTuroStage("gloss", false)
+	SetTuroStage("arrows", true)
 	snap := r.toolTuningSnapshot()
-	if snap.TuroLevel != "wenyan" || !snap.TuroOff || snap.TuroGloss {
+	if snap.TuroLevel != "wenyan" || !snap.TuroOff || snap.TuroGloss || !snap.TuroArrows {
 		t.Fatalf("snapshot did not capture turo state: %+v", snap)
 	}
 
@@ -184,10 +185,11 @@ func TestToolTuning_TuroPersistRoundTrip(t *testing.T) {
 	SetTuroLevel("ultra")
 	SetTuroRuntimeOff(false)
 	SetTuroStage("gloss", true)
+	SetTuroStage("arrows", false)
 	r.applyToolTuning(snap)
-	if TuroLevel() != "wenyan" || !TuroRuntimeOff() || TuroStage("gloss") {
-		t.Fatalf("apply did not restore turo state: level=%s off=%v gloss=%v",
-			TuroLevel(), TuroRuntimeOff(), TuroStage("gloss"))
+	if TuroLevel() != "wenyan" || !TuroRuntimeOff() || TuroStage("gloss") || !TuroStage("arrows") {
+		t.Fatalf("apply did not restore turo state: level=%s off=%v gloss=%v arrows=%v",
+			TuroLevel(), TuroRuntimeOff(), TuroStage("gloss"), TuroStage("arrows"))
 	}
 
 	// An empty TuroLevel (never configured) must not clobber defaults.
