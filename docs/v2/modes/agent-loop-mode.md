@@ -56,11 +56,20 @@ Inside the REPL, type `/help` for the full list:
 
 ## Prompt reduction (turo)
 
-`turo` is an optional token reducer. When the `turo` binary is on `PATH`, kdeps pipes everything it sends to the LLM through it first - system preamble, your input, tool results, and conversation history - reducing prose to its deduplicated content words (nouns, verbs, adjectives) in reading order. Code, file paths, and identifiers are preserved verbatim; articles, prepositions, filler, and repeated words are dropped. If a reduction is not smaller than the input, the original passes through unchanged. Applies to agent mode only.
+`turo` is an optional token reducer. When the `turo` binary is on `PATH`, kdeps pipes everything it sends to the LLM through it first - system preamble, your input, tool results, and conversation history. Code, file paths, and identifiers are preserved verbatim. If a reduction is not smaller than the input, the original passes through unchanged. Applies to agent mode only.
 
 ```text
 system preamble + input + tool results + history  ->  turo  ->  LLM
 ```
+
+turo runs a four-stage pipeline, all on by default, repeating until the output stops shrinking:
+
+1. **Filler deletion** - strips pleasantries, hedges, leaders, and articles (`please`, `I think`, `of course`).
+2. **Synonym swap** - replaces words with a fewer-token WordNet synonym (`utilize` -> `use`).
+3. **Gloss swap** - replaces words with the shortest defining word from their dictionary definition (`approach` -> `come`). The lossiest stage.
+4. **Reduction** - keeps content words by part of speech, deduplicates, and (ultra) collapses inflections by lemma.
+
+Stages 2-4 are lossy - they change wording, not just drop filler - so agent context sent to the model is compressed but no longer verbatim prose. Disable individual stages with the `TURO_*` environment variables below, or turn turo off entirely.
 
 Turo is entirely optional: if the binary is not installed, kdeps sends everything unreduced and the `/turo` command reports that it is unavailable.
 
@@ -77,9 +86,14 @@ Install-time controls via environment variables:
 
 ```yaml
 TURO_LEVEL: ultra    # default compression level (lite, full, ultra)
+TURO_FILLER: "off"   # skip stage 1 (filler deletion)
+TURO_SYNONYMS: "off" # skip stage 2 (synonym swap) - keeps wording closer to source
+TURO_GLOSS: "off"    # skip stage 3 (gloss swap) - the lossiest stage
 KDEPS_TURO: "off"    # disable turo entirely (also TURO_DISABLED=1)
 KDEPS_TURO_PATH: /custom/path/to/turo  # override binary discovery
 ```
+
+To keep agent context faithful (drop filler only, no wording changes), set `TURO_SYNONYMS=off` and `TURO_GLOSS=off`.
 
 ## Local model management
 
