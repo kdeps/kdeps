@@ -71,7 +71,10 @@ const turoTimeout = 5 * time.Second
 // turoValidLevels are the compression levels accepted by the turo binary.
 //
 //nolint:gochecknoglobals // static lookup set
-var turoValidLevels = map[string]bool{"lite": true, "full": true, "ultra": true}
+var turoValidLevels = map[string]bool{
+	"lite": true, "full": true, "ultra": true,
+	"wenyan": true, "wenyan-all": true, "ultra-wenyan": true,
+}
 
 func turoInit() {
 	turoState.mu.Lock()

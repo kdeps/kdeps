@@ -79,7 +79,8 @@ Control it at runtime with `/turo`:
 /turo                # show status: state, level, and stage toggles
 /turo off            # send content unreduced (disable)
 /turo on             # re-enable
-/turo ultra          # set compression level: lite | full | ultra
+/turo ultra          # set level: lite | full | ultra | wenyan | wenyan-all | ultra-wenyan
+/turo ultra-wenyan   # ultra + swap words for Classical Chinese chars (CJK-tokenizer models only)
 /turo gloss off      # disable a lossy stage: filler | synonyms | gloss
 /turo synonyms on    # re-enable a stage
 ```
