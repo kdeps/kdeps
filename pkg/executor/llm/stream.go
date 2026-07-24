@@ -185,6 +185,13 @@ func buildOpenAICompatLLM(cfg *domain.ChatConfig, backend string) (llms.Model, e
 		lcopenai.WithBaseURL(baseURL),
 	}
 
+	// Backends that require reasoning_content to be replayed get a transport
+	// that injects it into the outgoing request, since langchaingo cannot carry
+	// the field on a message.
+	if backendRequiresReasoningEcho(backend) {
+		opts = append(opts, lcopenai.WithHTTPClient(newReasoningEchoClient(nil)))
+	}
+
 	if rf := buildOpenAIResponseFormat(cfg); rf != nil {
 		opts = append(opts, lcopenai.WithResponseFormat(rf))
 	}
@@ -845,8 +852,9 @@ func buildHistoryMessages(historyJSON string) []llms.MessageContent {
 			})
 		case llms.ChatMessageTypeAI:
 			if m := buildAIMessage(content, h["tool_calls"]); m != nil {
-				reasoning, _ := h["reasoning_content"].(string)
-				attachReasoning(m, reasoning)
+				// reasoning_content rides on the request context (see
+				// attachReasoningEcho) and is injected by the transport, since
+				// llms.MessageContent has no field to carry it.
 				msgs = append(msgs, *m)
 			}
 		default:
@@ -854,31 +862,6 @@ func buildHistoryMessages(historyJSON string) []llms.MessageContent {
 		}
 	}
 	return msgs
-}
-
-// ReasoningEchoSupported reports whether an assistant turn's reasoning_content
-// can be sent back to the provider.
-//
-// It is false today: langchaingo's llms.MessageContent carries only Role and
-// Parts, and the MessageContent -> ChatMessage conversion in llms/openai never
-// populates ChatMessage.ReasoningContent, even though that field exists on the
-// wire struct and is parsed from responses. kdeps captures and stores the
-// reasoning regardless, so the only change needed once langchaingo can carry it
-// is here and in attachReasoning.
-func ReasoningEchoSupported() bool { return false }
-
-// attachReasoning replays an assistant turn's reasoning_content on the outgoing
-// message. DeepSeek-family models reject a thinking-mode conversation whose
-// assistant turns omit it.
-//
-// This is the single wiring point for that echo. It is currently a no-op
-// because the message type has nowhere to put the value; when langchaingo gains
-// the field, set it here and flip ReasoningEchoSupported.
-func attachReasoning(msg *llms.MessageContent, reasoning string) {
-	if msg == nil || reasoning == "" || !ReasoningEchoSupported() {
-		return
-	}
-	// msg.ReasoningContent = reasoning
 }
 
 // buildAIMessage constructs an AI MessageContent with optional tool call parts.
@@ -1248,6 +1231,7 @@ func (e *Executor) StreamChat(
 	messages := buildLangchainMessages(cfg)
 	opts := buildStreamOpts(cfg, backend, w)
 
+	ctx = attachReasoningEcho(ctx, backend, cfg)
 	resp, err := model.GenerateContent(ctx, messages, opts...)
 	if err != nil {
 		return "", nil, fmt.Errorf("stream: generate: %w", mapLLMError(backend, err))
@@ -1352,6 +1336,7 @@ func (e *Executor) streamChatOnce(
 	messages := buildLangchainMessages(cfg)
 	opts := buildStreamOpts(cfg, backend, w)
 
+	ctx = attachReasoningEcho(ctx, backend, cfg)
 	resp, err := model.GenerateContent(ctx, messages, opts...)
 	if err != nil {
 		return "", nil, fmt.Errorf("stream: generate: %w", err)

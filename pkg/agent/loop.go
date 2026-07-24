@@ -2253,14 +2253,6 @@ func (l *Loop) buildChatConfig(ctx context.Context, input, systemPreamble string
 	}
 	files := l.pendingFiles
 	l.pendingFiles = nil // consume; clear for next turn
-	// Backends that demand reasoning_content be replayed cannot be driven in
-	// thinking mode from here: the outgoing message type has nowhere to carry
-	// it, so the second tool round would 400. Drop it rather than fail mid-turn.
-	thinking := l.config.Thinking
-	if thinking != nil && ThinkingRequiresEcho(l.config.Backend) {
-		thinking = nil
-	}
-
 	chatCfg := &domain.ChatConfig{
 		Model:    l.config.Model,
 		Backend:  l.config.Backend,
@@ -2269,7 +2261,7 @@ func (l *Loop) buildChatConfig(ctx context.Context, input, systemPreamble string
 		Prompt:   input,
 		Files:    files,
 		Tools:    tools,
-		Thinking: thinking,
+		Thinking: l.config.Thinking,
 	}
 
 	// Inject conversation history as the messages field. When turo is active,
