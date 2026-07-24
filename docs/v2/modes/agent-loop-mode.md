@@ -49,10 +49,61 @@ Inside the REPL, type `/help` for the full list:
 | `/turo` | Show turo reducer status (state, level). Only available when the `turo` binary is on `PATH` |
 | `/turo on\|off` | Enable or disable prompt reduction at runtime |
 | `/turo lite\|full\|ultra` | Set the turo compression level |
+| `/goal` | Show the active goal's task list and status |
+| `/goal new <text>` | Replace the active goal with a new plan |
+| `/goal skip` | Abandon the active task and advance to the next |
+| `/goal clear` | Drop the active goal |
 | `/settings` | Open the tool/skill selector |
 | `/exit` | Exit the REPL |
 | `! <cmd>` | Run a shell command; the output becomes an agent turn - the model responds and can act on it (e.g. `!make lint` -> the model fixes the findings) |
 | `!! <cmd>` | Run a shell command silently - no LLM turn, nothing added to context |
+
+## Goal-directed execution
+
+Every prompt becomes an explicit task list that Go code drives to completion. The
+loop walks a cursor through the list that only ever moves forward, so a model
+cannot circle back over finished work or stall on a task until a budget expires.
+
+```text
+prompt -> decompose into tasks -> [task 1] -> [task 2] -> ... -> answer
+                                     ^ only the active task is in scope
+```
+
+**How a task is settled.** The model cannot finish a task by saying so in prose.
+It calls one of two tools and the code validates the id against the active task:
+
+- `task_complete{id, summary}` - the objective is met; advance.
+- `task_fail{id, reason}` - it cannot be done; advance anyway with the reason recorded.
+
+If a turn ends with a text answer instead of either call, the loop settles the
+active task from that text and continues with the next one.
+
+**When a task stops producing.** A round is unproductive when every tool result
+is an error, a convergence block, or a byte-identical repeat. Consecutive
+unproductive rounds escalate:
+
+1. Re-anchor - restate the active task and the settled ones ("do not redo these").
+2. Narrow - drop the tools that keep failing.
+3. Force-close - strip tools and demand the task be closed with what was gathered.
+4. Fail forward - mark the task failed and advance the cursor.
+
+Because step 4 always advances, a goal terminates instead of stalling. Work from a
+settled task is also refused if reissued, so finished tasks are never re-run.
+
+The plan persists in the memory store, so it survives a `/model` switch and later
+turns continue the same goal.
+
+```
+/goal                # show the plan and each task's status
+/goal new <text>     # replace the active goal
+/goal skip           # abandon the active task and move to the next
+/goal clear          # drop the goal entirely
+```
+
+The modeline shows `task:2/5` while a goal is active. Enforcement is on in the
+interactive REPL; library and test callers keep the plain round loop. Tuning:
+`TaskRoundBudget` (default 25 rounds per task) and `MaxUnproductiveRounds`
+(default 3).
 
 ## Prompt reduction (turo)
 

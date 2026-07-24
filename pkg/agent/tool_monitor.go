@@ -227,13 +227,20 @@ func compactTokenStatus() string {
 }
 
 const (
+	countTrillion = 1_000_000_000_000
+	countBillion  = 1_000_000_000
 	countMillion  = 1_000_000
 	countThousand = 1_000
 )
 
-// formatCompactCount formats a count as a compact string (e.g. "12.4k", "1.2m").
+// formatCompactCount formats a count as a compact string (e.g. "12.4k", "1.2m",
+// "3.4b", "1.1t").
 func formatCompactCount(n int64) string {
 	switch {
+	case n >= countTrillion:
+		return fmt.Sprintf("%.1ft", float64(n)/countTrillion)
+	case n >= countBillion:
+		return fmt.Sprintf("%.1fb", float64(n)/countBillion)
 	case n >= countMillion:
 		return fmt.Sprintf("%.1fm", float64(n)/countMillion)
 	case n >= countThousand:

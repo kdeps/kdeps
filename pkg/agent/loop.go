@@ -183,6 +183,17 @@ type Config struct {
 	FileLimit int
 	// CodeLimit caps search_local/code_search calls per user request (0=default 15).
 	CodeLimit int
+	// GoalEnforcement decomposes each prompt into a task list and drives the
+	// loop through it, refusing to revisit settled tasks and failing a task
+	// forward when it stops producing progress. Disable to get the plain
+	// round loop back.
+	GoalEnforcement bool
+	// TaskRoundBudget caps tool rounds spent on a single task before it is
+	// force-closed (0=default 25).
+	TaskRoundBudget int
+	// MaxUnproductiveRounds is how many consecutive rounds may produce nothing
+	// new before the task is force-closed (0=default 3).
+	MaxUnproductiveRounds int
 }
 
 // Loop drives a multi-turn agent conversation using the kdeps engine as the
@@ -202,7 +213,13 @@ type Loop struct {
 	store         *SessionStore // optional persistence
 	memoryStore   *MemoryStore  // optional memory persistence
 	streamer      Streamer      // optional streaming LLM caller
-	pendingFiles  []string      // per-turn image/file attachments; cleared after buildChatConfig
+	// enforcer drives the active goal's task state machine. Set per turn when
+	// GoalEnforcement is on; nil means the plain round loop.
+	enforcer *goalEnforcer
+	// goalToolsRegistered guards the lazy registration of task_complete /
+	// task_fail, which happens on the first enforced turn.
+	goalToolsRegistered bool
+	pendingFiles        []string // per-turn image/file attachments; cleared after buildChatConfig
 	// systemPreamble is built once on the first turn and reused verbatim on every
 	// subsequent turn. Keeping it byte-identical lets provider prompt caches hit
 	// on the system prefix instead of re-billing the full preamble each turn.
@@ -538,6 +555,12 @@ func applyConfigDefaults(cfg Config) Config {
 	if cfg.AutoToolAllocationIncrement <= 0 {
 		cfg.AutoToolAllocationIncrement = defaultAutoToolAllocationIncrement
 	}
+	if cfg.TaskRoundBudget <= 0 {
+		cfg.TaskRoundBudget = defaultTaskRoundBudget
+	}
+	if cfg.MaxUnproductiveRounds <= 0 {
+		cfg.MaxUnproductiveRounds = defaultMaxUnproductiveRounds
+	}
 	// NOTE: auto stall/tool allocation is enabled only by the interactive REPL
 	// (repl.Run), not here — library and test callers keep the deterministic
 	// budget-exhaustion behavior instead of silently raising the budget.
@@ -549,7 +572,7 @@ const (
 	// defaultMaxToolRounds bounds tool-call round trips per turn. Coding
 	// tasks routinely need many rounds (explore, read, edit, test, repeat);
 	// hitting the cap mid-task forces a text answer and loses context.
-	defaultMaxToolRounds = 200
+	defaultMaxToolRounds      = 200
 	defaultAutoRetryMax       = 3
 	defaultAutoRetryBaseDelay = 2 * time.Second
 	// defaultToolStallTimeout kills a running tool after this much time with
@@ -568,6 +591,14 @@ const (
 	// misses this in unlimited mode). Applies to every convergence-limited
 	// tool category (web, bash, file, code) — they share the block marker.
 	maxConvergenceBlocks = 1
+	// defaultTaskRoundBudget caps tool rounds spent on one task before it is
+	// force-closed. Generous enough for a real subtask, small enough that a
+	// wedged task cannot consume the whole turn.
+	defaultTaskRoundBudget = 25
+	// defaultMaxUnproductiveRounds is how many consecutive rounds may produce
+	// nothing new (no fresh tool result, no state change) before the task is
+	// force-closed and then failed forward.
+	defaultMaxUnproductiveRounds = 3
 )
 
 func envOrDefault(key, fallback string) string {
@@ -668,6 +699,12 @@ func (l *Loop) RunStreaming(ctx context.Context, input string, w io.Writer) (str
 
 	systemPreamble := l.cachedSystemPreamble(input)
 	chatCfg := l.buildChatConfig(ctx, input, systemPreamble)
+
+	// Goal-directed execution: decompose the prompt (or resume the stored plan)
+	// and attach the active-task directive before the first round.
+	if directive := l.beginGoal(ctx, input, w); directive != "" {
+		chatCfg = withGoalDirective(chatCfg, directive)
+	}
 
 	finalContent, err := l.runToolRounds(ctx, chatCfg, w)
 	if err != nil && IsContextOverflowError(err) {
@@ -823,22 +860,8 @@ func (l *Loop) runToolRounds(
 	chatCfg *domain.ChatConfig,
 	w io.Writer,
 ) (string, error) {
-	// Request body size preflight: estimate payload size before the first LLM
-	// call. Providers like DashScope/kimi have strict limits (6 MB) and will
-	// silently 400 if exceeded.
-	if backendName := l.config.Backend; backendName != "" {
-		// Extract system prompt text from Scenario items (ChatConfig has no
-		// dedicated System field — system prompts live in Scenario as role="system" items).
-		var systemTexts []string
-		for _, s := range chatCfg.Scenario {
-			systemTexts = append(systemTexts, s.Prompt)
-		}
-		preflightTokenCount := EstimateTokenCountFromStrings(
-			append(systemTexts, chatCfg.Prompt, chatCfg.Messages)...,
-		)
-		if err := CheckRequestBodySizePreflight(backendName, preflightTokenCount, 1); err != nil {
-			return "", err
-		}
+	if err := l.preflightRequestSize(chatCfg); err != nil {
+		return "", err
 	}
 
 	var finalContent string
@@ -885,17 +908,11 @@ func (l *Loop) runToolRounds(
 		finalContent = content
 
 		if len(toolCalls) == 0 {
-			// A round with neither a tool call nor text is a silent no-op.
-			// Reasoning models do this: the decision ("let me check memory
-			// first") stays in thinking tokens and never becomes a call, so
-			// breaking here would return the user to the prompt with nothing
-			// at all. Nudge once for a concrete action before giving up.
-			if !nudged && strings.TrimSpace(stripContentToolCalls(content)) == "" {
-				nudged = true
-				chatCfg = nudgeForActionConfig(chatCfg)
+			next, nextNudged, keepGoing := l.handleTextOnlyRound(chatCfg, content, roundBuf.String(), nudged, w)
+			chatCfg, nudged = next, nextNudged
+			if keepGoing {
 				continue
 			}
-			_, _ = io.WriteString(w, roundBuf.String())
 			break
 		}
 
@@ -911,14 +928,23 @@ func (l *Loop) runToolRounds(
 			l.config.OnRoundComplete()
 		}
 
-		var blocked bool
-		chatCfg, blocked = l.appendToolRoundTrip(ctx, chatCfg, content, toolCalls[:1], w)
+		var outcome roundOutcome
+		chatCfg, outcome = l.appendToolRoundTrip(ctx, chatCfg, content, toolCalls[:1], w)
 		// Ctrl+C during tool execution: stop the round loop instead of
 		// firing another LLM call that would fail on the canceled context.
 		if ctx.Err() != nil {
 			return finalContent, ctx.Err()
 		}
-		chatCfg, convergenceBlocks, forcedFinal = convergenceStop(chatCfg, blocked, convergenceBlocks, forcedFinal)
+		// Goal enforcement runs before the convergence guard: it can advance the
+		// cursor past a wedged task, which is a better outcome than force-
+		// answering the whole turn.
+		l.enforceGoalProgress(&chatCfg, outcome, w)
+		chatCfg, convergenceBlocks, forcedFinal = convergenceStop(
+			chatCfg,
+			outcome.blocked,
+			convergenceBlocks,
+			forcedFinal,
+		)
 	}
 	// A turn must never end in silence. Reasoning models sometimes put an
 	// entire round into thinking tokens and return empty content: on a capped
@@ -1303,14 +1329,68 @@ func convergenceStop(cfg *domain.ChatConfig, blocked bool, blocks int, forced bo
 	return cfg, blocks, forced
 }
 
+// preflightRequestSize estimates the payload size before the first LLM call.
+// Providers like DashScope/kimi have strict limits (6 MB) and silently 400 when
+// exceeded, so an oversized request is rejected locally with a clear error.
+func (l *Loop) preflightRequestSize(chatCfg *domain.ChatConfig) error {
+	backendName := l.config.Backend
+	if backendName == "" {
+		return nil
+	}
+	// System prompt text lives in Scenario items (ChatConfig has no dedicated
+	// System field — system prompts are role="system" scenario entries).
+	systemTexts := make([]string, 0, len(chatCfg.Scenario))
+	for _, s := range chatCfg.Scenario {
+		systemTexts = append(systemTexts, s.Prompt)
+	}
+	tokenCount := EstimateTokenCountFromStrings(
+		append(systemTexts, chatCfg.Prompt, chatCfg.Messages)...,
+	)
+	return CheckRequestBodySizePreflight(backendName, tokenCount, 1)
+}
+
+// handleTextOnlyRound processes a round the model ended without calling a tool.
+// It returns the config for the next round, the updated nudge flag, and whether
+// the loop should keep going.
+//
+// A silent round (no text either) is nudged once for a concrete action. A round
+// with text settles the active task; when later tasks remain the turn continues
+// on the next one rather than stopping with the plan unfinished.
+func (l *Loop) handleTextOnlyRound(
+	chatCfg *domain.ChatConfig,
+	content, buffered string,
+	nudged bool,
+	w io.Writer,
+) (*domain.ChatConfig, bool, bool) {
+	if !nudged && strings.TrimSpace(stripContentToolCalls(content)) == "" {
+		return nudgeForActionConfig(chatCfg), true, true
+	}
+	_, _ = io.WriteString(w, buffered)
+	if l.settleActiveFromText(content, w) {
+		return withGoalDirective(chatCfg, l.enforcer.directive()), false, true
+	}
+	return chatCfg, nudged, false
+}
+
+// roundOutcome reports what a tool round actually accomplished, so goal
+// enforcement can tell real progress from spinning in place.
+type roundOutcome struct {
+	// blocked is true when a convergence budget rejected a call.
+	blocked bool
+	// productive is true when at least one call returned new, usable content.
+	productive bool
+	// advanced is true when the task state machine moved (task_complete/fail).
+	advanced bool
+}
+
 func (l *Loop) appendToolRoundTrip(
 	ctx context.Context,
 	cfg *domain.ChatConfig,
 	assistantContent string,
 	toolCalls []domain.StreamedToolCall,
 	w io.Writer,
-) (*domain.ChatConfig, bool) {
-	blocked := false
+) (*domain.ChatConfig, roundOutcome) {
+	var outcome roundOutcome
 	var history []map[string]any
 	if cfg.Messages != "" {
 		_ = json.Unmarshal([]byte(cfg.Messages), &history)
@@ -1350,12 +1430,30 @@ func (l *Loop) appendToolRoundTrip(
 	// completion can attach to the same line.
 	for _, tc := range toolCalls {
 		result := `{"error":"interrupted by user"}`
-		if ctx.Err() == nil {
-			l.displayToolCall(tc, w)
-			result = l.dispatchStreamToolCall(tc, w)
+		switch {
+		case ctx.Err() != nil:
+			// Ctrl+C: skip the remaining tools.
+		default:
+			// A call that repeats work from an already-settled task is refused
+			// rather than run, so the loop cannot re-litigate finished tasks.
+			if refusal, refused := l.enforcer.refuseBacktrack(tc.Name, tc.Arguments); refused {
+				l.displayToolCall(tc, w)
+				l.closeToolCallLine(w, "refused (task already complete)")
+				result = refusal
+			} else {
+				l.displayToolCall(tc, w)
+				result = l.dispatchStreamToolCall(tc, w)
+				l.enforcer.recordCall(tc.Name, tc.Arguments)
+			}
 		}
 		if isConvergenceBlocked(result) {
-			blocked = true
+			outcome.blocked = true
+		}
+		if l.enforcer.observeResult(tc.Name, result) {
+			outcome.productive = true
+		}
+		if isTaskStateTool(tc.Name) && !strings.HasPrefix(strings.TrimSpace(result), `{"error"`) {
+			outcome.advanced = true
 		}
 		history = append(history, map[string]any{
 			"role":           "tool",
@@ -1370,7 +1468,12 @@ func (l *Loop) appendToolRoundTrip(
 		updated.Messages = string(b)
 		updated.Prompt = "" // already in history
 	}
-	return &updated, blocked
+	return &updated, outcome
+}
+
+// isTaskStateTool reports whether a tool call advances the goal state machine.
+func isTaskStateTool(name string) bool {
+	return name == toolNameTaskComplete || name == toolNameTaskFail
 }
 
 // displayToolCall prints the "[name → args]" line for a tool about to run.

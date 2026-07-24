@@ -65,6 +65,12 @@ const (
 	toolNameWebScraper  = "web_scraper"
 	toolNameWebSearch   = "web_search"
 	toolNameSearchLocal = "search_local"
+
+	// Goal-directed execution: the only tools that may advance the task state
+	// machine. Code validates the id against the active task, so the model
+	// cannot settle a task by claiming completion in prose.
+	toolNameTaskComplete = "task_complete"
+	toolNameTaskFail     = "task_fail"
 )
 
 const toolNameSet = "set"

@@ -393,6 +393,10 @@ func (r *REPL) modeline() string {
 			parts = append(parts, meta(fmt.Sprintf("mem:%d", n)))
 		}
 	}
+	if goal := r.loop.ActiveGoal(); goal != nil && !goal.Complete() {
+		settled, total := goal.Progress()
+		parts = append(parts, meta(fmt.Sprintf("task:%d/%d", settled+1, total)))
+	}
 	if !turoAvailable(r.ctx) || TuroRuntimeOff() {
 		parts = append(parts, dim("turo:off"))
 	} else {
@@ -1432,6 +1436,10 @@ func (r *REPL) Run() error {
 	// Auto-raise the tool budget in interactive use so a long session
 	// never blocks on a prompt; library/test callers keep budget exhaustion.
 	r.loop.config.AutoToolAllocation = true
+	// Drive interactive turns through the goal/task state machine so the model
+	// advances instead of circling. Enabled here for the same reason as the
+	// budget: library and test callers keep the plain round loop.
+	r.loop.config.GoalEnforcement = true
 	if r.persistedTuning != nil {
 		r.applyToolTuning(*r.persistedTuning)
 	}
@@ -2081,6 +2089,8 @@ func (r *REPL) dispatchCommand(cmd string) error {
 		return r.cmdKartographer()
 	case "/turo":
 		return r.cmdTuro(args)
+	case "/goal":
+		return r.cmdGoal(args)
 	case "/permission", "/permissions":
 		return r.cmdPermission(args)
 	case "/exit", "/quit":
@@ -3952,6 +3962,45 @@ func (r *REPL) cmdTuro(args []string) error {
 		return nil
 	}
 	r.persistTuning() // survive across sessions
+	return nil
+}
+
+// cmdGoal inspects and steers the active goal: the task list the loop is being
+// driven through.
+func (r *REPL) cmdGoal(args []string) error {
+	if len(args) == 0 {
+		goal := r.loop.ActiveGoal()
+		if goal == nil {
+			fmt.Fprintln(os.Stdout, styleReplMeta.Render("no active goal"))
+			return nil
+		}
+		fmt.Fprint(os.Stdout, goal.Summary())
+		return nil
+	}
+
+	switch args[0] {
+	case "new":
+		text := strings.TrimSpace(strings.Join(args[1:], " "))
+		if text == "" {
+			fmt.Fprintln(os.Stderr, styleReplError.Render("Usage: /goal new <what to accomplish>"))
+			return nil
+		}
+		goal := r.loop.SetGoal(r.ctx, text)
+		fmt.Fprint(os.Stdout, goal.Summary())
+	case "clear":
+		r.loop.ClearGoal()
+		fmt.Fprintln(os.Stdout, styleReplSuccess.Render("goal cleared"))
+	case "skip":
+		next := r.loop.SkipActiveTask()
+		if next == nil {
+			fmt.Fprintln(os.Stdout, styleReplMeta.Render("no task to skip — the goal is complete"))
+			return nil
+		}
+		fmt.Fprintf(os.Stdout, "%s\n", styleReplSuccess.Render(
+			fmt.Sprintf("skipped — active task is now %d: %s", next.ID, next.Desc)))
+	default:
+		fmt.Fprintln(os.Stderr, styleReplError.Render("Usage: /goal [new <text>|skip|clear]"))
+	}
 	return nil
 }
 
