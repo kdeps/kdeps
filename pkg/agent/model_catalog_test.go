@@ -223,3 +223,19 @@ func TestModelSupportsThinking_UnknownLocal(t *testing.T) {
 		t.Error("expected unknown local model not to support thinking")
 	}
 }
+
+// DeepSeek rejects a thinking-mode conversation that does not replay
+// reasoning_content, which kdeps cannot send, so thinking must be suppressed
+// for that backend rather than failing on the second tool round.
+func TestThinkingRequiresEcho(t *testing.T) {
+	for _, backend := range []string{"deepseek", "DeepSeek", " deepseek "} {
+		if !ThinkingRequiresEcho(backend) {
+			t.Errorf("%q should require reasoning_content echo", backend)
+		}
+	}
+	for _, backend := range []string{"openai", "anthropic", "ollama", ""} {
+		if ThinkingRequiresEcho(backend) {
+			t.Errorf("%q should not require reasoning_content echo", backend)
+		}
+	}
+}

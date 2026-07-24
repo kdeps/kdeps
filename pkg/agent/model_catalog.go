@@ -20,6 +20,7 @@ package agent
 
 import (
 	"os"
+	"strings"
 
 	"github.com/tmc/langchaingo/llms"
 )
@@ -256,6 +257,20 @@ func ModelSupportsThinking(modelID string) bool {
 		}
 	}
 	return llms.IsReasoningModel(modelID)
+}
+
+// ThinkingRequiresEcho reports whether a backend rejects a conversation that
+// does not replay the assistant's reasoning_content back to it.
+//
+// DeepSeek does: in thinking mode every assistant turn must carry the
+// reasoning_content it produced, or the next request fails with "The
+// reasoning_content in the thinking mode must be passed back to the API".
+// langchaingo's llms.MessageContent has no field for it and the OpenAI
+// conversion never sets it on outgoing messages, so kdeps cannot satisfy that
+// contract — thinking is therefore refused for these backends instead of
+// failing on the second tool round.
+func ThinkingRequiresEcho(backend string) bool {
+	return strings.EqualFold(strings.TrimSpace(backend), "deepseek")
 }
 
 // ModelContextWindow returns the context window size (in tokens) for a known

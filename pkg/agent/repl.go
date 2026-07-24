@@ -3363,6 +3363,16 @@ func (r *REPL) cmdThinking(args []string) error {
 		domain.ThinkingModeHigh,
 		domain.ThinkingModeXHigh,
 		domain.ThinkingModeAuto:
+		if ThinkingRequiresEcho(r.loop.config.Backend) {
+			// Enabling it would break the next tool round: the backend requires
+			// every assistant turn to replay its reasoning_content, which the
+			// outgoing message type cannot carry.
+			fmt.Fprintln(os.Stderr, styleReplError.Render(fmt.Sprintf(
+				"%s requires reasoning_content to be replayed on every turn, which kdeps cannot send — "+
+					"thinking stays off for %q.",
+				r.loop.config.Backend, r.loop.config.Model)))
+			return nil
+		}
 		if !ModelSupportsThinking(r.loop.config.Model) {
 			fmt.Fprintln(os.Stdout, styleReplMeta.Render(
 				fmt.Sprintf(
