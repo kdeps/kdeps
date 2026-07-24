@@ -105,6 +105,22 @@ interactive REPL; library and test callers keep the plain round loop. Tuning:
 `TaskRoundBudget` (default 25 rounds per task) and `MaxUnproductiveRounds`
 (default 3).
 
+### Adaptive tool budgets
+
+The per-category caps (`web`, `bash`, `file`, `code`) start at their configured
+values and then follow measured yield — the share of distinct calls that returned
+something new. The model is never asked to forecast a budget: at plan time it has
+seen no results, and a self-granted limit would be exactly the kind of state the
+task machine refuses to trust.
+
+- A category still returning new content as it approaches its cap is **extended**
+  (up to 3x its starting value).
+- A category mostly returning blocks, errors, or duplicates is **cut** to just
+  above the calls already made, so the turn stops sinking calls into it.
+
+Adjustments need at least 4 distinct calls in the category, never drop below work
+already done, and are reported as `[goal] web budget → 30`.
+
 ## Prompt reduction (turo)
 
 `turo` is an optional token reducer. When the `turo` binary is on `PATH`, kdeps pipes everything it sends to the LLM through it first - system preamble, your input, tool results, and conversation history. Code, file paths, and identifiers are preserved verbatim. If a reduction is not smaller than the input, the original passes through unchanged. Applies to agent mode only.

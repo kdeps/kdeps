@@ -63,6 +63,11 @@ type goalEnforcer struct {
 	// blockedTools are tool names whose results were errors or convergence
 	// blocks this task; the narrow step removes them.
 	blockedTools map[string]bool
+	// budget re-sizes the per-category tool caps from measured yield.
+	budget *budgetTuner
+	// budgetNote holds a pending "category budget → N" message to surface at
+	// the end of the round.
+	budgetNote string
 }
 
 func newGoalEnforcer(goal *Goal, store *MemoryStore, maxUnproductive, taskBudget int) *goalEnforcer {
@@ -80,6 +85,7 @@ func newGoalEnforcer(goal *Goal, store *MemoryStore, maxUnproductive, taskBudget
 		seenResults:     make(map[string]bool),
 		completedSigs:   make(map[string]int),
 		blockedTools:    make(map[string]bool),
+		budget:          newBudgetTuner(),
 	}
 }
 
@@ -120,11 +126,35 @@ func (e *goalEnforcer) recordCall(name, args string) {
 }
 
 // observeResult folds one tool result into the progress signal, reporting
-// whether it counts as new work.
+// whether it counts as new work. The same signal drives the adaptive tool
+// budget, so a category that keeps paying off earns more room and one that
+// keeps failing is cut short.
 func (e *goalEnforcer) observeResult(toolName, result string) bool {
 	if e == nil {
 		return true
 	}
+	productive := e.resultIsNew(toolName, result)
+	if newMax, changed := e.budget.record(toolName, productive); changed {
+		// Held for the end of the round: a silently moving limit should still
+		// be visible to the user.
+		e.budgetNote = fmt.Sprintf("%s budget → %d", categoryName(categoryForTool(toolName)), newMax)
+	}
+	return productive
+}
+
+// takeBudgetNote returns and clears the pending budget-change message.
+func (e *goalEnforcer) takeBudgetNote() string {
+	if e == nil || e.budgetNote == "" {
+		return ""
+	}
+	note := e.budgetNote
+	e.budgetNote = ""
+	return note
+}
+
+// resultIsNew reports whether a tool result carries content not already seen in
+// this task.
+func (e *goalEnforcer) resultIsNew(toolName, result string) bool {
 	trimmed := strings.TrimSpace(result)
 	if trimmed == "" {
 		return false
@@ -409,6 +439,10 @@ func (l *Loop) enforceGoalProgress(cfg **domain.ChatConfig, outcome roundOutcome
 		return
 	}
 	e.goal.RecordRound()
+
+	if note := e.takeBudgetNote(); note != "" {
+		l.reportGoalEvent(w, note)
+	}
 
 	level := e.endRound(outcome.productive, outcome.advanced)
 	if level == escalateFailForward {
