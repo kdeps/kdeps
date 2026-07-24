@@ -18,6 +18,7 @@ import (
 	"encoding/json"
 	"strings"
 	"testing"
+	"unicode/utf8"
 
 	"github.com/kdeps/kdeps/v2/pkg/domain"
 )
@@ -99,6 +100,60 @@ func TestGatheredToolDigest_Truncates(t *testing.T) {
 	}
 	if !strings.HasSuffix(digest, "[truncated]") {
 		t.Fatal("expected truncation marker")
+	}
+}
+
+// Over budget, the newest results win: a late page scrape carries more of the
+// answer than the first search snippets.
+func TestGatheredToolDigest_KeepsMostRecent(t *testing.T) {
+	filler := strings.Repeat("o", 400)
+	history := toolHistory(t, []map[string]any{
+		{"role": "tool", "name": "web_search", toolParamContent: "OLDEST " + filler},
+		{"role": "tool", "name": "web_search", toolParamContent: "MIDDLE " + filler},
+		{"role": "tool", "name": "web_scraper", toolParamContent: "NEWEST " + filler},
+	})
+	digest := gatheredToolDigest(history, 600) // fits roughly one result
+
+	if !strings.Contains(digest, "NEWEST") {
+		t.Fatalf("most recent result must be kept:\n%s", digest)
+	}
+	if strings.Contains(digest, "OLDEST") {
+		t.Fatalf("oldest result should be dropped when over budget:\n%s", digest)
+	}
+}
+
+// The last result is kept even when it alone blows the budget (then truncated).
+func TestGatheredToolDigest_KeepsLastEvenIfOversized(t *testing.T) {
+	history := toolHistory(t, []map[string]any{
+		{"role": "tool", "name": "web_scraper", toolParamContent: strings.Repeat("z", 5000)},
+	})
+	if d := gatheredToolDigest(history, 100); d == "" {
+		t.Fatal("an oversized sole result must still be inlined (truncated), not dropped")
+	}
+}
+
+// Truncation must not split a UTF-8 rune — scraped CJK/accented text would
+// otherwise become invalid UTF-8 in the prompt.
+func TestGatheredToolDigest_TruncatesOnRuneBoundary(t *testing.T) {
+	history := toolHistory(t, []map[string]any{
+		{"role": "tool", "name": "web_scraper", toolParamContent: strings.Repeat("世界", 2000)},
+	})
+	digest := gatheredToolDigest(history, 501) // odd budget: lands mid-rune
+	if !utf8.ValidString(digest) {
+		t.Fatalf("digest must remain valid UTF-8 after truncation")
+	}
+}
+
+func TestTruncateAtRune(t *testing.T) {
+	if got := truncateAtRune("hello", 100); got != "hello" {
+		t.Fatalf("under budget should pass through, got %q", got)
+	}
+	got := truncateAtRune(strings.Repeat("世", 10), 7) // 世 = 3 bytes; 7 lands mid-rune
+	if !utf8.ValidString(got) {
+		t.Fatalf("truncation split a rune: %q", got)
+	}
+	if !strings.HasSuffix(got, "[truncated]") {
+		t.Fatalf("expected truncation marker, got %q", got)
 	}
 }
 

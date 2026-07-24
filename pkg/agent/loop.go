@@ -37,6 +37,7 @@ import (
 	"sync"
 	"sync/atomic"
 	"time"
+	"unicode/utf8"
 
 	"golang.org/x/term"
 
@@ -980,6 +981,10 @@ func (l *Loop) stuckLoopNotice(w io.Writer, toolName string) string {
 // context window on the final synthesis turn.
 const maxForceAnswerDigestBytes = 12 * 1024
 
+// digestEntryOverhead approximates the per-result framing added by
+// gatheredToolDigest: the "[name]\n" brackets plus the trailing blank line.
+const digestEntryOverhead = 4
+
 // forceAnswerConfig returns a copy of cfg with tools removed and a prompt
 // telling the model why: without the explanation, some models emit raw
 // tool-call markup as text instead of answering. No-op when cfg has no tools.
@@ -1008,8 +1013,9 @@ func forceAnswerConfig(cfg *domain.ChatConfig) *domain.ChatConfig {
 
 // gatheredToolDigest extracts the tool-result contents from the history JSON
 // and joins them into a plain-text block, skipping convergence-block notices
-// (which carry no research). The result is truncated to maxBytes. Returns ""
-// when there is nothing usable to inline.
+// (which carry no research). When the results exceed maxBytes the most recent
+// ones are kept: later calls (a page scrape) carry more of the answer than the
+// first search snippets. Returns "" when there is nothing usable to inline.
 func gatheredToolDigest(historyJSON string, maxBytes int) string {
 	if historyJSON == "" {
 		return ""
@@ -1018,7 +1024,9 @@ func gatheredToolDigest(historyJSON string, maxBytes int) string {
 	if err := json.Unmarshal([]byte(historyJSON), &history); err != nil {
 		return ""
 	}
-	var b strings.Builder
+
+	type toolResult struct{ name, content string }
+	var results []toolResult
 	for _, h := range history {
 		if role, _ := h["role"].(string); role != "tool" {
 			continue
@@ -1029,20 +1037,46 @@ func gatheredToolDigest(historyJSON string, maxBytes int) string {
 			continue
 		}
 		name, _ := h["name"].(string)
-		if name != "" {
-			fmt.Fprintf(&b, "[%s]\n", name)
-		}
-		b.WriteString(content)
-		b.WriteString("\n\n")
-		if b.Len() >= maxBytes {
+		results = append(results, toolResult{name: name, content: content})
+	}
+	if len(results) == 0 {
+		return ""
+	}
+
+	// Choose the newest results that fit by walking backwards; the last result
+	// is always kept even if it alone exceeds the budget (it is then truncated).
+	start, total := 0, 0
+	for i := len(results) - 1; i >= 0; i-- {
+		size := len(results[i].name) + len(results[i].content) + digestEntryOverhead
+		if total+size > maxBytes && i != len(results)-1 {
+			start = i + 1
 			break
 		}
+		total += size
 	}
-	out := strings.TrimSpace(b.String())
-	if len(out) > maxBytes {
-		out = out[:maxBytes] + "\n...[truncated]"
+
+	var b strings.Builder
+	for _, r := range results[start:] {
+		if r.name != "" {
+			fmt.Fprintf(&b, "[%s]\n", r.name)
+		}
+		b.WriteString(r.content)
+		b.WriteString("\n\n")
 	}
-	return out
+	return truncateAtRune(strings.TrimSpace(b.String()), maxBytes)
+}
+
+// truncateAtRune caps s at maxBytes without splitting a UTF-8 rune, so scraped
+// non-ASCII text (CJK, accents, emoji) never becomes invalid UTF-8 in the prompt.
+func truncateAtRune(s string, maxBytes int) string {
+	if len(s) <= maxBytes {
+		return s
+	}
+	cut := maxBytes
+	for cut > 0 && !utf8.RuneStart(s[cut]) {
+		cut--
+	}
+	return s[:cut] + "\n...[truncated]"
 }
 
 // budgetExhaustedNotice writes and returns the message shown when a turn hits
