@@ -2149,6 +2149,10 @@ func (r *REPL) cmdHelp() error {
 		"  /context                           Show current context window size",
 		"  /context <size>                    Set context window size (e.g. 32768 or 32k); restarts local servers",
 		"  /turo [on|off|lite|full|ultra|wenyan|filler/synonyms/gloss on|off] Show or set the turo prompt reducer; turo only",
+		"  /goal                              Show the active goal's task list and progress",
+		"  /goal new <text>                   Replace the active goal with a new plan",
+		"  /goal skip                         Abandon the active task and move to the next",
+		"  /goal clear                        Drop the active goal (stops task enforcement)",
 		"  ! <cmd>                            Run a shell command; the output becomes an agent turn (the model responds)",
 		"  !! <cmd>                           Run a shell command silently - no LLM turn, nothing added to context",
 	}
@@ -3978,10 +3982,13 @@ func (r *REPL) cmdGoal(args []string) error {
 	if len(args) == 0 {
 		goal := r.loop.ActiveGoal()
 		if goal == nil {
-			fmt.Fprintln(os.Stdout, styleReplMeta.Render("no active goal"))
+			fmt.Fprintln(os.Stdout, styleReplMeta.Render(
+				"no active goal — the next prompt starts one"))
 			return nil
 		}
 		fmt.Fprint(os.Stdout, goal.Summary())
+		fmt.Fprintln(os.Stdout, styleReplDim.Render(
+			"/goal skip abandons the active task · /goal clear drops the goal · /goal new <text> replaces it"))
 		return nil
 	}
 

@@ -300,6 +300,29 @@ func TestSettleActiveFromText_NoEnforcerIsNoop(t *testing.T) {
 	}
 }
 
+// A goal outlives the turn that created it, so resuming one must say what it is
+// and how to get rid of it rather than silently steering the next prompt.
+func TestResumeNotice(t *testing.T) {
+	g := NewGoal("build the auth API", []string{"write handler", "add tests"})
+	g.Advance(GoalTaskDone, "handler written")
+
+	notice := resumeNotice(g)
+	for _, want := range []string{
+		"resuming goal", "build the auth API", "task 2/2", "add tests",
+		"/goal skip", "/goal clear",
+	} {
+		if !strings.Contains(notice, want) {
+			t.Fatalf("resume notice must mention %q:\n%s", want, notice)
+		}
+	}
+}
+
+func TestResumeNotice_NilGoal(t *testing.T) {
+	if resumeNotice(nil) != "" {
+		t.Fatal("a nil goal has nothing to resume")
+	}
+}
+
 func TestStripTools(t *testing.T) {
 	cfg := &domain.ChatConfig{Tools: []domain.Tool{{Name: toolNameWebSearch}}}
 	if got := stripTools(cfg); len(got.Tools) != 0 {

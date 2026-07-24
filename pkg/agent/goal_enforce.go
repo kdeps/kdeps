@@ -414,17 +414,39 @@ func (l *Loop) beginGoal(ctx context.Context, input string, w io.Writer) string 
 	l.registerGoalTools()
 
 	goal := loadGoal(l.memoryStore)
-	if goal == nil || goal.Complete() {
+	switch {
+	case goal == nil || goal.Complete():
 		goal = planGoal(ctx, l, input)
 		saveGoal(l.memoryStore, goal)
 		if _, total := goal.Progress(); total > 1 {
-			l.reportGoalEvent(w, fmt.Sprintf("plan: %d tasks", total))
+			l.reportGoalEvent(w, fmt.Sprintf("plan: %d tasks — /goal to inspect, /goal clear to drop", total))
 		}
+	default:
+		l.reportGoalEvent(w, resumeNotice(goal))
 	}
 
 	l.enforcer = newGoalEnforcer(goal, l.memoryStore,
 		l.config.MaxUnproductiveRounds, l.config.TaskRoundBudget)
 	return l.enforcer.directive()
+}
+
+// resumeNotice describes a goal picked up from a previous turn or session.
+//
+// A goal outlives the request that created it, so a stale one would otherwise
+// silently steer the next prompt. The notice names it and states both exits.
+func resumeNotice(g *Goal) string {
+	if g == nil {
+		return ""
+	}
+	settled, total := g.Progress()
+	active := g.Active()
+	desc := ""
+	if active != nil {
+		desc = ": " + active.Desc
+	}
+	return fmt.Sprintf(
+		"resuming goal %q — task %d/%d%s. /goal skip moves on, /goal clear drops it",
+		firstLine(g.Text), settled+1, total, desc)
 }
 
 // SetGoal replaces the active goal with a plan for text, used by /goal new.
