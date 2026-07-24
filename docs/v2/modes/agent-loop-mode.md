@@ -69,9 +69,9 @@ turo runs a four-stage pipeline, all on by default, repeating until the output s
 3. **Gloss swap** - replaces words with the shortest defining word from their dictionary definition (`approach` -> `come`). The lossiest stage.
 4. **Reduction** - keeps content words by part of speech, deduplicates, and (ultra) collapses inflections by lemma.
 
-One extra stage is **opt-in** (off by default):
+One more stage runs before reduction, also on by default:
 
-- **Arrows** - replaces multi-word causal/sequential connectives (`leads to`, `results in`, `gives rise to`) with a single `->` token (`cache miss leads to slow query` -> `cache miss -> slow query`). Only multi-word phrases qualify, so it always saves at least one token. Enable with `/turo arrows on` or `TURO_ARROWS=on`.
+- **Arrows** - replaces multi-word causal/sequential connectives (`leads to`, `results in`, `gives rise to`) with a single `->` token (`cache miss leads to slow query` -> `cache miss -> slow query`). Only multi-word phrases qualify, so it always saves at least one token. Disable with `/turo arrows off` or `TURO_ARROWS=off`.
 
 Stages 2-4 and arrows are lossy - they change wording, not just drop filler - so agent context sent to the model is compressed but no longer verbatim prose. Disable individual stages with the `TURO_*` environment variables below, or turn turo off entirely.
 
@@ -85,9 +85,9 @@ Control it at runtime with `/turo`:
 /turo on             # re-enable
 /turo ultra          # set level: lite | full | ultra | wenyan
 /turo wenyan         # ultra reduction + swap words for Classical Chinese chars (CJK-tokenizer models only)
-/turo gloss off      # disable a lossy stage: filler | synonyms | gloss
+/turo gloss off      # disable a lossy stage: filler | synonyms | gloss | arrows
 /turo synonyms on    # re-enable a stage
-/turo arrows on      # enable the opt-in arrow stage (connective phrases -> "->")
+/turo arrows off     # disable the arrow stage (connective phrases -> "->")
 ```
 
 Install-time controls via environment variables:
@@ -97,7 +97,7 @@ TURO_LEVEL: ultra    # default compression level (lite, full, ultra)
 TURO_FILLER: "off"   # skip stage 1 (filler deletion)
 TURO_SYNONYMS: "off" # skip stage 2 (synonym swap) - keeps wording closer to source
 TURO_GLOSS: "off"    # skip stage 3 (gloss swap) - the lossiest stage
-TURO_ARROWS: "on"    # enable the opt-in arrow stage (connective phrases -> "->")
+TURO_ARROWS: "off"   # skip the arrow stage (connective phrases -> "->")
 KDEPS_TURO: "off"    # disable turo entirely (also TURO_DISABLED=1)
 KDEPS_TURO_PATH: /custom/path/to/turo  # override binary discovery
 ```

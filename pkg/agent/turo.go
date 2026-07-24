@@ -91,7 +91,7 @@ func turoInit() {
 	turoState.filler = !turoEnvOff("TURO_FILLER")
 	turoState.synonyms = !turoEnvOff("TURO_SYNONYMS")
 	turoState.gloss = !turoEnvOff("TURO_GLOSS")
-	turoState.arrows = turoEnvOn("TURO_ARROWS") // off by default: only when explicitly enabled
+	turoState.arrows = !turoEnvOff("TURO_ARROWS") // on by default (matches the turo binary)
 	turoState.init = true
 }
 
@@ -99,15 +99,6 @@ func turoInit() {
 func turoEnvOff(name string) bool {
 	switch strings.ToLower(strings.TrimSpace(os.Getenv(name))) {
 	case "0", "false", "no", "off":
-		return true
-	}
-	return false
-}
-
-// turoEnvOn reports whether an environment variable is set to a truthy value.
-func turoEnvOn(name string) bool {
-	switch strings.ToLower(strings.TrimSpace(os.Getenv(name))) {
-	case "1", "true", "yes", "on":
 		return true
 	}
 	return false
