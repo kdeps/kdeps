@@ -30,6 +30,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
 
@@ -149,7 +150,8 @@ func registerCalculator(ctx context.Context, reg *kdepstools.Registry) {
 const maxFileReadBytes = 1 << 20 // 1 MB
 
 // requireAbsFilePath extracts the "file_path" arg, checks it is non-empty and
-// begins with "/" (absolute). Used by file-operating tools that share this guard.
+// begins with "/" (absolute), and rejects root-directory targets. Used by
+// file-operating tools that share this guard.
 func requireAbsFilePath(toolName string, args map[string]any) (string, error) {
 	filePath, _ := args["file_path"].(string)
 	if filePath == "" {
@@ -157,6 +159,9 @@ func requireAbsFilePath(toolName string, args map[string]any) (string, error) {
 	}
 	if !strings.HasPrefix(filePath, "/") {
 		return "", fmt.Errorf("%s: absolute path required", toolName)
+	}
+	if err := ValidateRootPath(filePath); err != nil {
+		return "", fmt.Errorf("%s: %w", toolName, err)
 	}
 	return filePath, nil
 }
@@ -246,7 +251,16 @@ func readLocalFile(filePath string, args map[string]any) (string, error) {
 		endLine = min(startLine+int(v), totalLines)
 	}
 
-	out := strings.Join(lines[startLine:endLine], "\n")
+	// Build output with line numbers (cat -n style) so the LLM can reference
+	// exact positions.
+	shown := lines[startLine:endLine]
+	var sb strings.Builder
+	digitWidth := len(strconv.Itoa(startLine + len(shown)))
+	for i, line := range shown {
+		ln := startLine + i + 1
+		fmt.Fprintf(&sb, "%*d\t%s\n", digitWidth, ln, line)
+	}
+	out := strings.TrimSuffix(sb.String(), "\n")
 
 	shownLines := endLine - startLine
 	if shownLines > 0 && shownLines < totalLines {
@@ -498,6 +512,9 @@ func registerListFiles(reg *kdepstools.Registry) {
 			}
 			if !strings.HasPrefix(dirPath, "/") {
 				return "", errors.New("list_files: absolute path required")
+			}
+			if err := ValidateRootPath(dirPath); err != nil {
+				return "", fmt.Errorf("list_files: %w", err)
 			}
 			entries, err := afero.ReadDir(AppFS, dirPath)
 			if err != nil {
@@ -2101,6 +2118,9 @@ func registerCodeIntelligenceTools(_ context.Context, reg *kdepstools.Registry) 
 				}
 				if v, ok := args["path"].(string); ok {
 					config.Path = v
+					if err := ValidateRootPath(v); err != nil {
+						return "", fmt.Errorf("%s: %w", ct.name, err)
+					}
 				}
 
 				result, err := exec.Execute(nil, config)

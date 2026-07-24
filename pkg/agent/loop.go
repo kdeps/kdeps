@@ -547,9 +547,9 @@ func applyConfigDefaults(cfg Config) Config {
 const (
 	defaultAutoCompactThreshold = 30000
 	// defaultMaxToolRounds bounds tool-call round trips per turn. Coding
-	// tasks routinely need dozens of rounds (explore, read, edit, test);
-	// hitting the cap mid-task forces a text answer and loses the work.
-	defaultMaxToolRounds      = 50
+	// tasks routinely need many rounds (explore, read, edit, test, repeat);
+	// hitting the cap mid-task forces a text answer and loses context.
+	defaultMaxToolRounds = 200
 	defaultAutoRetryMax       = 3
 	defaultAutoRetryBaseDelay = 2 * time.Second
 	// defaultToolStallTimeout kills a running tool after this much time with
