@@ -63,3 +63,31 @@ func TestNewSessionStorageWithTTL_BoltOpenError(t *testing.T) {
 	assert.Nil(t, s)
 	assert.Contains(t, err.Error(), "failed to open database")
 }
+
+// A shared store that is closed must not be handed back to the next opener:
+// after Close the cache entry is evicted, so NewMemoryStorage reopens a live
+// handle instead of returning a dead one that fails "database not open".
+func TestNewMemoryStorage_ReopensAfterClose(t *testing.T) {
+	path := t.TempDir() + "/shared.db"
+
+	first, err := NewMemoryStorage(path)
+	if err != nil {
+		t.Fatalf("first open: %v", err)
+	}
+	if closeErr := first.Close(); closeErr != nil {
+		t.Fatalf("close: %v", closeErr)
+	}
+
+	second, reopenErr := NewMemoryStorage(path)
+	if reopenErr != nil {
+		t.Fatalf("reopen after close: %v", reopenErr)
+	}
+	t.Cleanup(func() { _ = second.Close() })
+
+	if second == first {
+		t.Fatal("expected a fresh store after the cached one was closed")
+	}
+	if setErr := second.Set("k", "v"); setErr != nil {
+		t.Fatalf("reopened store must be usable, got: %v", setErr)
+	}
+}

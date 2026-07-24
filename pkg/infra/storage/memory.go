@@ -227,5 +227,9 @@ func (m *MemoryStorage) Delete(key string) error {
 // Close closes the database connection.
 func (m *MemoryStorage) Close() error {
 	kdeps_debug.Log("enter: Close")
+	// Evict from the shared cache before closing: otherwise the next
+	// NewMemoryStorage for this path returns this now-closed handle and its
+	// operations fail with "database not open".
+	openStores.Delete(m.path)
 	return m.DB.Close()
 }
