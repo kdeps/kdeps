@@ -65,8 +65,8 @@ var modelContextWindows = map[string]int{
 	"gemma-2-9b":            8192,
 
 	// === DeepSeek ===
-	"deepseek-reasoner": 65536,
-	"deepseek-chat":     65536,
+	"deepseek-v4-pro":   65536,
+	"deepseek-v4-flash": 65536,
 	"deepseek-coder":    65536,
 	"deepseek-v3":       65536,
 	"deepseek-r1":       65536,

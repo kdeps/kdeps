@@ -3077,28 +3077,39 @@ func TestContextFromParams(t *testing.T) {
 	assert.Equal(t, 0, contextFromParams("unknown-model-xyz"))
 }
 
+// The thresholds are tested against parameter counts directly. Going through a
+// model name would depend on the llamafile/GGUF registry, whose aliases change
+// with the nightly harvester and can be mutated by other tests in this package.
 func TestContextFromParams_Thresholds(t *testing.T) {
 	tests := []struct {
-		name  string
-		model string
-		want  int
+		name   string
+		params float64
+		want   int
 	}{
-		{name: "1B_model", model: "llama3.2", want: contextLimit1B},
-		// qwen3 is a registry alias for an 8B model, so it lands in the 7B tier
-		// rather than being read as "3" from the name.
-		{name: "8B_registry_alias", model: "qwen3", want: contextLimit7B},
-		{name: "3B_model", model: "rocket3", want: contextLimit3B},
-		{name: "3B_model_alt", model: "ministral3", want: contextLimit3B},
-		{name: "7B_model", model: "mathstral7", want: contextLimit7B},
-		{name: "8B_model", model: "llama3.1", want: contextLimit7B},
-		{name: "27B_model", model: "qwen3.6", want: contextLimit13B},
+		{name: "unknown", params: 0, want: 0},
+		{name: "1B", params: 1, want: contextLimit1B},
+		{name: "2B_below_3B_tier", params: 2, want: contextLimit1B},
+		{name: "3B", params: 3, want: contextLimit3B},
+		{name: "7B", params: 7, want: contextLimit7B},
+		{name: "8B", params: 8, want: contextLimit7B},
+		{name: "13B", params: 13, want: contextLimit13B},
+		{name: "27B", params: 27, want: contextLimit13B},
+		{name: "30B", params: 30, want: contextLimitGGUF},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := contextFromParams(tt.model); got != tt.want {
-				t.Errorf("contextFromParams(%q) = %d, want %d", tt.model, got, tt.want)
+			if got := contextForParamCount(tt.params); got != tt.want {
+				t.Errorf("contextForParamCount(%v) = %d, want %d", tt.params, got, tt.want)
 			}
 		})
+	}
+}
+
+// contextFromParams delegates to the threshold table after resolving the name.
+func TestContextFromParams_ResolvesModelName(t *testing.T) {
+	model := "llama3.2"
+	if got, want := contextFromParams(model), contextForParamCount(paramsForModel(model)); got != want {
+		t.Fatalf("contextFromParams(%q) = %d, want %d", model, got, want)
 	}
 }
 

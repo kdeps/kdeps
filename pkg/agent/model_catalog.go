@@ -166,14 +166,16 @@ var KnownCloudModels = []CloudModel{
 		ContextWindow:   ctxGrok,
 		MaxOutputTokens: outDefault,
 	},
-	// DeepSeek
+	// DeepSeek. The API rejects the retired deepseek-chat / deepseek-reasoner
+	// names outright ("The supported API model names are deepseek-v4-pro or
+	// deepseek-v4-flash"), so only the V4 names are offered.
 	{
-		ID: "deepseek-chat", Backend: "deepseek", Desc: "balanced",
+		ID: "deepseek-v4-pro", Backend: "deepseek", Desc: "flagship",
 		EnvVar: "DEEPSEEK_API_KEY", ContextWindow: ctxDeepSeek, MaxOutputTokens: outAnthropic8k,
 	},
 	{
-		ID: "deepseek-reasoner", Backend: "deepseek", Desc: "R1 reasoning model",
-		EnvVar: "DEEPSEEK_API_KEY", SupportsThinking: true, ContextWindow: ctxDeepSeek, MaxOutputTokens: outAnthropic8k,
+		ID: "deepseek-v4-flash", Backend: "deepseek", Desc: "fast",
+		EnvVar: "DEEPSEEK_API_KEY", ContextWindow: ctxDeepSeek, MaxOutputTokens: outAnthropic8k,
 	},
 	// Groq (fast inference)
 	{

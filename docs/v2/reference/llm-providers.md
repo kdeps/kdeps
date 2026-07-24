@@ -251,7 +251,8 @@ llm:
 
 | Model | Description |
 |-------|-------------|
-| `deepseek-chat` | General chat |
+| `deepseek-v4-pro` | Flagship |
+| `deepseek-v4-flash` | Fast |
 | `deepseek-coder` | Code generation |
 
 ### xAI (Grok)

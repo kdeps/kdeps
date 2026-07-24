@@ -178,7 +178,7 @@ func TestProviderStatusLine_ContainsBrowseHint(t *testing.T) {
 }
 
 func TestBackendForModel_KnownModel(t *testing.T) {
-	backend := BackendForModel("deepseek-chat")
+	backend := BackendForModel("deepseek-v4-pro")
 	if backend != "deepseek" {
 		t.Errorf("expected deepseek, got %q", backend)
 	}

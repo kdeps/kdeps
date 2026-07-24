@@ -107,7 +107,12 @@ func (l *Loop) settleTask(args map[string]any, status GoalTaskStatus) (string, e
 		return "", fmt.Errorf("id is required (the active task is %d)", active.ID)
 	}
 	if id != active.ID {
-		return "", fmt.Errorf("task %d is not active — the active task is %d: %s", id, active.ID, active.Desc)
+		// Settling a task other than the active one — reaching back to reopen
+		// finished work or skipping ahead — is a rule violation, not a typo.
+		strikes := e.recordViolation("")
+		return "", fmt.Errorf(
+			"REFUSED: task %d is not active — the active task is %d: %s. Strike %d — %s",
+			id, active.ID, active.Desc, strikes, penaltyNotice(strikes))
 	}
 
 	note, _ := args["summary"].(string)

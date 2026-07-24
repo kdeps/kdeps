@@ -1430,21 +1430,8 @@ func (l *Loop) appendToolRoundTrip(
 	// completion can attach to the same line.
 	for _, tc := range toolCalls {
 		result := `{"error":"interrupted by user"}`
-		switch {
-		case ctx.Err() != nil:
-			// Ctrl+C: skip the remaining tools.
-		default:
-			// A call that repeats work from an already-settled task is refused
-			// rather than run, so the loop cannot re-litigate finished tasks.
-			if refusal, refused := l.enforcer.refuseBacktrack(tc.Name, tc.Arguments); refused {
-				l.displayToolCall(tc, w)
-				l.closeToolCallLine(w, "refused (task already complete)")
-				result = refusal
-			} else {
-				l.displayToolCall(tc, w)
-				result = l.dispatchStreamToolCall(tc, w)
-				l.enforcer.recordCall(tc.Name, tc.Arguments)
-			}
+		if ctx.Err() == nil { // Ctrl+C skips the remaining tools
+			result = l.dispatchOrRefuse(tc, w)
 		}
 		if isConvergenceBlocked(result) {
 			outcome.blocked = true
@@ -1469,6 +1456,25 @@ func (l *Loop) appendToolRoundTrip(
 		updated.Prompt = "" // already in history
 	}
 	return &updated, outcome
+}
+
+// dispatchOrRefuse runs a tool call unless it breaks a goal rule: repeating work
+// from a settled task, or doing anything other than closing the task once it is
+// under force-close. A refusal is returned as the tool's result and costs the
+// task a strike, so the rules carry a consequence instead of being advisory.
+func (l *Loop) dispatchOrRefuse(tc domain.StreamedToolCall, w io.Writer) string {
+	refusal, refused := l.enforcer.refuseBacktrack(tc.Name, tc.Arguments)
+	if !refused {
+		refusal, refused = l.enforcer.refuseOffTask(tc.Name)
+	}
+	l.displayToolCall(tc, w)
+	if refused {
+		l.closeToolCallLine(w, "refused (goal rule)")
+		return refusal
+	}
+	result := l.dispatchStreamToolCall(tc, w)
+	l.enforcer.recordCall(tc.Name, tc.Arguments)
+	return result
 }
 
 // isTaskStateTool reports whether a tool call advances the goal state machine.

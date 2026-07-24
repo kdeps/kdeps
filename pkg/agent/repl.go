@@ -2824,7 +2824,14 @@ func (r *REPL) isLocalModel(model string) bool {
 // contextFromParams derives a reasonable context window size from a model's
 // parameter count string (e.g. "7B" → 32768). Returns 0 if unknown.
 func contextFromParams(model string) int {
-	params := paramsForModel(model)
+	return contextForParamCount(paramsForModel(model))
+}
+
+// contextForParamCount maps a parameter count in billions to a context window.
+// Kept separate from model-name resolution so the thresholds can be verified
+// without depending on the model registry, whose contents change with the
+// nightly harvester.
+func contextForParamCount(params float64) int {
 	switch {
 	case params >= paramsThreshold30B:
 		return contextLimitGGUF

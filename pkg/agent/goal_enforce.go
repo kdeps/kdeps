@@ -68,6 +68,9 @@ type goalEnforcer struct {
 	// budgetNote holds a pending "category budget → N" message to surface at
 	// the end of the round.
 	budgetNote string
+	// strikes counts goal-rule violations against the active task. Reset when
+	// the cursor advances.
+	strikes int
 }
 
 func newGoalEnforcer(goal *Goal, store *MemoryStore, maxUnproductive, taskBudget int) *goalEnforcer {
@@ -89,13 +92,58 @@ func newGoalEnforcer(goal *Goal, store *MemoryStore, maxUnproductive, taskBudget
 	}
 }
 
-// toolCallSignature is the identity of a tool call, matching the format used by
-// trackRepeat so both mechanisms agree on what "the same call" means.
-func toolCallSignature(name, args string) string { return name + "\x00" + args }
+// toolCallSignature is the identity of a tool call. Arguments are normalized —
+// lowercased with whitespace collapsed — so re-running settled work with cosmetic
+// edits to the query counts as the same call rather than slipping past the ban.
+func toolCallSignature(name, args string) string {
+	return name + "\x00" + strings.ToLower(strings.Join(strings.Fields(args), " "))
+}
+
+// Penalty thresholds. Violations are counted per task and reset when the cursor
+// advances, so a fresh task starts with a clean slate.
+const (
+	// penaltyBanTool bans the offending tool for the rest of the task.
+	penaltyBanTool = 2
+	// penaltyForceClose strips every tool and demands the task be closed.
+	penaltyForceClose = 3
+	// penaltyFailForward abandons the task and advances.
+	penaltyFailForward = 4
+)
+
+// recordViolation counts a disobeyed goal rule against the active task and
+// returns the running strike count. Violations are what make the rules binding:
+// each one bans a tool, then forces the task closed, then fails it forward.
+func (e *goalEnforcer) recordViolation(tool string) int {
+	if e == nil {
+		return 0
+	}
+	e.strikes++
+	if e.strikes >= penaltyBanTool && tool != "" {
+		// Second strike onward: the tool used to break the rule is withdrawn
+		// for the remainder of this task.
+		e.blockedTools[tool] = true
+	}
+	return e.strikes
+}
+
+// penaltyNotice describes the consequence attached to a strike count so the
+// refusal states the cost rather than just saying no.
+func penaltyNotice(strikes int) string {
+	switch {
+	case strikes >= penaltyFailForward:
+		return "This task is now abandoned and the goal moves on."
+	case strikes >= penaltyForceClose:
+		return "Tools are now withdrawn for this task; close it with task_complete or task_fail."
+	case strikes >= penaltyBanTool:
+		return "That tool is now withdrawn for the rest of this task."
+	default:
+		return "Repeat violations withdraw the tool, then end the task."
+	}
+}
 
 // refuseBacktrack reports whether a call repeats work from an already-settled
-// task. Returning a refusal result instead of executing is what physically stops
-// the loop from re-litigating finished work.
+// task. Returning a refusal instead of executing is what physically stops the
+// loop from re-litigating finished work; the strike makes repeating it costly.
 func (e *goalEnforcer) refuseBacktrack(name, args string) (string, bool) {
 	if e == nil || e.goal == nil {
 		return "", false
@@ -108,12 +156,31 @@ func (e *goalEnforcer) refuseBacktrack(name, args string) (string, bool) {
 	if active == nil {
 		return "", false
 	}
+	strikes := e.recordViolation(name)
 	return fmt.Sprintf(
-		`{"error":"task %d already completed this exact call — do not repeat it. The active task is %d: %s. Work on task %d, then call task_complete."}`,
-		taskID,
-		active.ID,
-		active.Desc,
-		active.ID,
+		`{"error":"REFUSED: task %d already ran this call and is settled. The active task is %d: %s. Strike %d — %s"}`,
+		taskID, active.ID, active.Desc, strikes, penaltyNotice(strikes),
+	), true
+}
+
+// refuseOffTask reports whether a tool call must be refused because the task is
+// under force-close: once the budget is spent only the task-state tools remain
+// legal, so the model cannot keep working past the limit.
+func (e *goalEnforcer) refuseOffTask(name string) (string, bool) {
+	if e == nil || e.goal == nil || e.strikes < penaltyForceClose {
+		return "", false
+	}
+	if isTaskStateTool(name) {
+		return "", false
+	}
+	active := e.goal.Active()
+	if active == nil {
+		return "", false
+	}
+	strikes := e.recordViolation(name)
+	return fmt.Sprintf(
+		`{"error":"REFUSED: task %d is closing — only task_complete and task_fail are accepted now. Strike %d — %s"}`,
+		active.ID, strikes, penaltyNotice(strikes),
 	), true
 }
 
@@ -181,6 +248,14 @@ func (e *goalEnforcer) endRound(productive, advanced bool) int {
 		e.resetTask()
 		return escalateNone
 	}
+	// Violations outrank productivity: a task that keeps breaking the rules is
+	// closed and abandoned even if its calls happen to return content.
+	switch {
+	case e.strikes >= penaltyFailForward:
+		return escalateFailForward
+	case e.strikes >= penaltyForceClose:
+		return escalateForceClose
+	}
 	if productive {
 		e.unproductive = 0
 		return escalateNone
@@ -220,6 +295,7 @@ func (e *goalEnforcer) resetTask() {
 	}
 	e.taskSigs = nil
 	e.unproductive = 0
+	e.strikes = 0 // a new task starts with a clean record
 	e.seenResults = make(map[string]bool)
 	e.blockedTools = make(map[string]bool)
 }
@@ -257,10 +333,20 @@ func (e *goalEnforcer) directive() string {
 		}
 	}
 	fmt.Fprintf(&b, `
-Work ONLY on task %d. When it is finished call task_complete with id %d and a
-one-line summary. If it cannot be finished, call task_fail with id %d and the
-reason — do not retry indefinitely and do not return to earlier tasks.`,
-		active.ID, active.ID, active.ID)
+RULES (enforced in code, not advisory):
+1. Work ONLY on task %d. Calls belonging to a settled task are REFUSED.
+2. Close task %d with task_complete(id=%d, summary) the moment it is met.
+3. If it cannot be met, call task_fail(id=%d, reason) and move on — do not retry
+   the same approach.
+4. Settling any task other than %d is REFUSED.
+
+Each refusal is a strike against this task: the second withdraws the tool you
+misused, the third withdraws every tool, the fourth abandons the task and the
+goal continues without it.`,
+		active.ID, active.ID, active.ID, active.ID, active.ID)
+	if e.strikes > 0 {
+		fmt.Fprintf(&b, "\n\nStrikes against this task: %d. %s", e.strikes, penaltyNotice(e.strikes))
+	}
 	return b.String()
 }
 

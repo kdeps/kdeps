@@ -103,11 +103,97 @@ func TestEnforcer_RefusesBacktrack(t *testing.T) {
 	if !refused {
 		t.Fatal("a call from a settled task must be refused")
 	}
-	if !strings.Contains(msg, "already completed") {
+	if !strings.Contains(msg, "REFUSED") || !strings.Contains(msg, "settled") {
 		t.Fatalf("refusal should explain itself, got %q", msg)
 	}
 	if _, other := e.refuseBacktrack(toolNameWebSearch, `{"query":"different"}`); other {
 		t.Fatal("an unrelated call must still be allowed")
+	}
+}
+
+// Cosmetic edits to the arguments must not get settled work past the ban.
+func TestEnforcer_BacktrackIgnoresArgumentCosmetics(t *testing.T) {
+	e := testEnforcer(t, "a", "b")
+	e.recordCall(toolNameWebSearch, `{"query":"World News"}`)
+	e.goal.Advance(GoalTaskDone, "done")
+	e.resetTask()
+
+	if _, refused := e.refuseBacktrack(toolNameWebSearch, `{"query":"world   news"}`); !refused {
+		t.Fatal("a whitespace/case variant of settled work must still be refused")
+	}
+}
+
+// Violations must cost something: tool withdrawn, then all tools, then the task.
+func TestEnforcer_PenaltyLadder(t *testing.T) {
+	e := testEnforcer(t, "a", "b")
+	e.recordCall(toolNameWebSearch, `{"query":"x"}`)
+	e.goal.Advance(GoalTaskDone, "done")
+	e.resetTask()
+
+	// Strike 1: refused, nothing withdrawn yet.
+	msg, _ := e.refuseBacktrack(toolNameWebSearch, `{"query":"x"}`)
+	if !strings.Contains(msg, "Strike 1") {
+		t.Fatalf("first violation should be reported as a strike: %q", msg)
+	}
+	if e.blockedTools[toolNameWebSearch] {
+		t.Fatal("a single strike should not withdraw the tool yet")
+	}
+
+	// Strike 2: the misused tool is withdrawn for this task.
+	_, _ = e.refuseBacktrack(toolNameWebSearch, `{"query":"x"}`)
+	if !e.blockedTools[toolNameWebSearch] {
+		t.Fatal("second strike must withdraw the offending tool")
+	}
+
+	// Strike 3: force-close — only the task-state tools remain legal.
+	_, _ = e.refuseBacktrack(toolNameWebSearch, `{"query":"x"}`)
+	if lvl := e.endRound(true, false); lvl != escalateForceClose {
+		t.Fatalf("third strike must force-close even on a productive round, got %d", lvl)
+	}
+	if _, refused := e.refuseOffTask(toolNameBashExec); !refused {
+		t.Fatal("under force-close, ordinary tools must be refused")
+	}
+	if _, refused := e.refuseOffTask(toolNameTaskComplete); refused {
+		t.Fatal("task_complete must always remain available to close the task")
+	}
+}
+
+func TestEnforcer_StrikesFailTaskForward(t *testing.T) {
+	e := testEnforcer(t, "a", "b")
+	for range penaltyFailForward {
+		e.recordViolation(toolNameWebSearch)
+	}
+	if lvl := e.endRound(true, false); lvl != escalateFailForward {
+		t.Fatalf("a task that keeps violating must be abandoned, got %d", lvl)
+	}
+}
+
+// Advancing wipes the record so a new task is not punished for the last one.
+func TestEnforcer_StrikesResetOnAdvance(t *testing.T) {
+	e := testEnforcer(t, "a", "b")
+	e.recordViolation(toolNameWebSearch)
+	e.recordViolation(toolNameWebSearch)
+	if e.strikes != 2 {
+		t.Fatalf("expected 2 strikes, got %d", e.strikes)
+	}
+	e.goal.Advance(GoalTaskDone, "done")
+	e.resetTask()
+	if e.strikes != 0 {
+		t.Fatalf("a new task must start clean, got %d strikes", e.strikes)
+	}
+	if e.blockedTools[toolNameWebSearch] {
+		t.Fatal("tool bans must not carry into the next task")
+	}
+}
+
+func TestEnforcer_DirectiveStatesRulesAndStrikes(t *testing.T) {
+	e := testEnforcer(t, "a", "b")
+	if d := e.directive(); !strings.Contains(d, "RULES") || !strings.Contains(d, "REFUSED") {
+		t.Fatalf("directive must state the rules up front:\n%s", d)
+	}
+	e.recordViolation(toolNameWebSearch)
+	if d := e.directive(); !strings.Contains(d, "Strikes against this task: 1") {
+		t.Fatalf("directive must report the running strike count:\n%s", d)
 	}
 }
 
