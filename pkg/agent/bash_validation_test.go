@@ -162,3 +162,102 @@ func TestBashSudoInner(t *testing.T) {
 	assert.Equal(t, "", bashSudoInner("sudo -k"))
 	assert.Equal(t, "", bashSudoInner("sudo -u -n"))
 }
+
+func TestRootPathAllowed(t *testing.T) {
+	require.NoError(t, os.Unsetenv("KDEPS_ALLOW_ROOT"))
+	assert.False(t, RootPathAllowed())
+
+	t.Setenv("KDEPS_ALLOW_ROOT", "true")
+	assert.True(t, RootPathAllowed())
+
+	t.Setenv("KDEPS_ALLOW_ROOT", "TRUE")
+	assert.True(t, RootPathAllowed())
+
+	t.Setenv("KDEPS_ALLOW_ROOT", "false")
+	assert.False(t, RootPathAllowed())
+}
+
+func TestValidateRootPath_RejectsRoot(t *testing.T) {
+	require.NoError(t, os.Unsetenv("KDEPS_ALLOW_ROOT"))
+
+	err := ValidateRootPath("/")
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "root directory '/' is blocked")
+}
+
+func TestValidateRootPath_RejectsDoubleSlash(t *testing.T) {
+	require.NoError(t, os.Unsetenv("KDEPS_ALLOW_ROOT"))
+
+	err := ValidateRootPath("//")
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "root directory '/' is blocked")
+}
+
+func TestValidateRootPath_AllowsSubdirectory(t *testing.T) {
+	require.NoError(t, os.Unsetenv("KDEPS_ALLOW_ROOT"))
+
+	assert.NoError(t, ValidateRootPath("/tmp"))
+	assert.NoError(t, ValidateRootPath("/Users"))
+	assert.NoError(t, ValidateRootPath("/etc/hosts"))
+}
+
+func TestValidateRootPath_AllowsRootWhenAuthorized(t *testing.T) {
+	t.Setenv("KDEPS_ALLOW_ROOT", "true")
+
+	assert.NoError(t, ValidateRootPath("/"))
+	assert.NoError(t, ValidateRootPath("//"))
+	assert.NoError(t, ValidateRootPath("/tmp"))
+}
+
+func TestDetectRootTarget_BlocksRoot(t *testing.T) {
+	require.NoError(t, os.Unsetenv("KDEPS_ALLOW_ROOT"))
+
+	tests := []string{
+		"ls /",
+		"cat /",
+		"cd /",
+		"rm -rf /",
+		"find /",
+		"ls  /",
+		`ls "/"`,
+		`ls '/'`,
+	}
+	for _, cmd := range tests {
+		assert.True(t, detectRootTarget(cmd), "cmd=%q should be detected as root target", cmd)
+	}
+}
+
+func TestDetectRootTarget_AllowsSubdirectories(t *testing.T) {
+	tests := []string{
+		"ls /tmp",
+		"cat /etc/hosts",
+		"rm -rf /tmp/testdir",
+		"find /Users",
+		"ls /var/log",
+		"dd if=/dev/zero of=file bs=1M",
+		"mkfs /dev/sda",
+		"fdisk /dev/sda",
+		"sudo ls /etc",
+	}
+	for _, cmd := range tests {
+		assert.False(t, detectRootTarget(cmd), "cmd=%q should NOT be detected as root target", cmd)
+	}
+}
+
+func TestValidateBashCommand_BlocksRootTarget(t *testing.T) {
+	require.NoError(t, os.Unsetenv("KDEPS_ALLOW_ROOT"))
+
+	block, reason, _ := ValidateBashCommand("ls /", false)
+	assert.True(t, block)
+	assert.Contains(t, reason, "root directory '/'")
+}
+
+func TestValidateBashCommand_AllowsRootWhenAuthorized(t *testing.T) {
+	t.Setenv("KDEPS_ALLOW_ROOT", "true")
+
+	block, _, _ := ValidateBashCommand("ls /", false)
+	assert.False(t, block)
+
+	block, _, _ = ValidateBashCommand("rm -rf /", false)
+	assert.False(t, block)
+}

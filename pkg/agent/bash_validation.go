@@ -19,7 +19,10 @@
 package agent
 
 import (
+	"errors"
+	"fmt"
 	"os"
+	"path/filepath"
 	"strings"
 )
 
@@ -97,11 +100,17 @@ var bashWriteRedirections = []string{">|", ">> ", "> "}
 //
 // When readOnly is true, commands that write to the filesystem or modify system
 // state are blocked. Destructive commands (e.g. rm -rf) emit a warning in all modes.
+// Commands targeting "/" (root directory) are always blocked unless KDEPS_ALLOW_ROOT=true.
 //
 // Returns blocked bool, blockReason string, warnMessage string.
 // blocked=true means the command must not execute; blockReason explains why.
 // warnMessage non-empty means the command is risky but allowed.
 func ValidateBashCommand(command string, readOnly bool) (bool, string, string) {
+	if !RootPathAllowed() {
+		if detectRootTarget(command) {
+			return true, "command targets root directory '/' (set KDEPS_ALLOW_ROOT=true to permit)", ""
+		}
+	}
 	if readOnly {
 		if blocked, reason := validateReadOnly(command); blocked {
 			return true, reason, ""
@@ -149,9 +158,74 @@ func detectDestructive(command string) string {
 	return ""
 }
 
+// detectRootTarget checks whether a bash command attempts to operate on "/" (root
+// directory) directly. Only blocks when an argument is exactly "/" — subdirectories
+// like /etc or /tmp are not blocked by this check. Returns true when "/" is found
+// as a command argument (not as a prefix of a longer path).
+func detectRootTarget(command string) bool {
+	trimmed := strings.TrimSpace(command)
+
+	// Walk through command fields looking for an argument that is exactly "/".
+	fields := strings.Fields(trimmed)
+	for i, f := range fields {
+		if i == 0 {
+			continue // skip command name itself
+		}
+		// Skip flags/options and their values.
+		if strings.HasPrefix(f, "-") {
+			continue
+		}
+		// Skip key=value assignments.
+		if strings.Contains(f, "=") && !strings.HasPrefix(f, "/") {
+			continue
+		}
+		// Strip surrounding quotes.
+		arg := strings.Trim(f, "'\"")
+		// Match exact "/" argument.
+		if arg == "/" {
+			return true
+		}
+	}
+
+	return false
+}
+
 // BashReadOnlyMode reports whether KDEPS_BASH_MODE=read-only is set.
 func BashReadOnlyMode() bool {
 	return strings.EqualFold(strings.TrimSpace(os.Getenv("KDEPS_BASH_MODE")), "read-only")
+}
+
+// RootPathAllowed reports whether explicit root-directory authorization is granted.
+// Set KDEPS_ALLOW_ROOT=true to permit tool operations on "/" and system directories.
+func RootPathAllowed() bool {
+	return strings.EqualFold(strings.TrimSpace(os.Getenv("KDEPS_ALLOW_ROOT")), "true")
+}
+
+// ValidateRootPath blocks operations targeting "/" (root directory).
+// Returns nil when path is safe or KDEPS_ALLOW_ROOT=true.
+// The path "//" and any path that resolves to "/" via symlinks are also blocked.
+func ValidateRootPath(path string) error {
+	if RootPathAllowed() {
+		return nil
+	}
+
+	clean := filepath.Clean(path)
+	if clean == string(filepath.Separator) {
+		return errors.New("operation on root directory '/' is blocked (set KDEPS_ALLOW_ROOT=true to permit)")
+	}
+
+	// Resolve symlinks to catch paths that indirectly point to /.
+	resolved, err := filepath.EvalSymlinks(path)
+	if err == nil {
+		if filepath.Clean(resolved) == string(filepath.Separator) {
+			return fmt.Errorf(
+				"path %q resolves to root directory '/' — blocked (set KDEPS_ALLOW_ROOT=true to permit)",
+				path,
+			)
+		}
+	}
+
+	return nil
 }
 
 // bashFirstCommand extracts the first command word, skipping leading env var assignments.

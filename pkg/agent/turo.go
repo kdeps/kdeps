@@ -320,15 +320,21 @@ func totalTuroSavings() int {
 
 // turo savings cache — re-reading gain.jsonl on every modeline render is
 // wasteful; cache for 60 seconds.
+//
+//nolint:gochecknoglobals // process-wide savings cache + per-session baseline
 var (
-	turoSavingsMu     sync.Mutex
-	turoSavingsCached int
-	turoSavingsAt     time.Time
+	turoSavingsMu           sync.Mutex
+	turoSavingsCached       int
+	turoSavingsAt           time.Time
+	turoSessionStartSet     bool
+	turoSessionStartSavings int
 )
 
-// TuroTokensSaved returns the total tokens saved according to the turo binary's
-// gain log. Result is cached for 60 seconds to avoid re-reading on every
-// status-line render.
+// TuroTokensSaved returns the tokens saved during the current session according
+// to the turo binary's gain log. On first call it captures the cumulative total
+// as the session baseline; subsequent calls return (current - baseline) so the
+// modeline shows only per-session savings. Result is cached for 60 seconds to
+// avoid re-reading on every status-line render.
 func TuroTokensSaved() int {
 	turoSavingsMu.Lock()
 	defer turoSavingsMu.Unlock()
@@ -336,7 +342,15 @@ func TuroTokensSaved() int {
 		return turoSavingsCached
 	}
 	n := totalTuroSavings()
-	turoSavingsCached = n
+	if !turoSessionStartSet {
+		turoSessionStartSavings = n
+		turoSessionStartSet = true
+	}
+	session := n - turoSessionStartSavings
+	if session < 0 {
+		session = 0
+	}
+	turoSavingsCached = session
 	turoSavingsAt = time.Now()
-	return n
+	return session
 }

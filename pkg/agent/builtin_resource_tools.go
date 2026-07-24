@@ -145,6 +145,9 @@ func registerTranscribeTool(_ context.Context, reg *kdepstools.Registry) {
 			config := &domain.TranscribeConfig{}
 			if v, ok := args["file"].(string); ok {
 				config.File = v
+				if err := ValidateRootPath(v); err != nil {
+					return "", fmt.Errorf("transcribe_audio: %w", err)
+				}
 			}
 			if v, ok := args[toolParamModel].(string); ok {
 				config.Model = v
@@ -189,6 +192,9 @@ func registerLoaderTool(_ context.Context, reg *kdepstools.Registry) {
 			config := &domain.LoaderConfig{}
 			if v, ok := args["source"].(string); ok {
 				config.Source = v
+				if err := ValidateRootPath(v); err != nil {
+					return "", fmt.Errorf("load_document: %w", err)
+				}
 			}
 			if v, ok := args["type"].(string); ok {
 				config.Type = v
@@ -277,10 +283,15 @@ func extractResultPaths(results []map[string]interface{}) []string {
 }
 
 // executeSearchLocal runs a search_local tool execution.
+//
+//nolint:gocognit // flat sequence of optional-arg extractions, not nested logic
 func executeSearchLocal(exec *execSearch.Executor, args map[string]any) (string, error) {
 	config := &domain.SearchLocalConfig{}
 	if v, ok := args[toolParamPath].(string); ok {
 		config.Path = v
+		if err := ValidateRootPath(v); err != nil {
+			return "", fmt.Errorf("search_local: %w", err)
+		}
 	}
 	if v, ok := args[toolParamQuery].(string); ok {
 		config.Query = v

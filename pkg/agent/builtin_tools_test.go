@@ -1959,7 +1959,7 @@ func TestReadFile_Success(t *testing.T) {
 
 	result, err := tool.Execute(map[string]any{"file_path": tmpFile.Name()})
 	require.NoError(t, err)
-	assert.Equal(t, "line 1\nline 2\nline 3\nline 4\nline 5", result)
+	assert.Equal(t, "1\tline 1\n2\tline 2\n3\tline 3\n4\tline 4\n5\tline 5", result)
 }
 
 func TestReadFile_WithOffset(t *testing.T) {
@@ -1982,7 +1982,7 @@ func TestReadFile_WithOffset(t *testing.T) {
 		"offset":    float64(3),
 	})
 	require.NoError(t, err)
-	assert.Equal(t, "line 3\nline 4\nline 5\n[3/5 lines shown]", result)
+	assert.Equal(t, "3\tline 3\n4\tline 4\n5\tline 5\n[3/5 lines shown]", result)
 }
 
 func TestReadFile_WithOffsetAndLimit(t *testing.T) {
@@ -2006,7 +2006,7 @@ func TestReadFile_WithOffsetAndLimit(t *testing.T) {
 		"limit":     float64(2),
 	})
 	require.NoError(t, err)
-	assert.Equal(t, "line 2\nline 3\n[2/5 lines shown]", result)
+	assert.Equal(t, "2\tline 2\n3\tline 3\n[2/5 lines shown]", result)
 }
 
 func TestReadFile_OffsetBeyondEOF(t *testing.T) {
@@ -2051,7 +2051,7 @@ func TestReadFile_LimitBeyondEOF(t *testing.T) {
 		"limit":     float64(100),
 	})
 	require.NoError(t, err)
-	assert.Equal(t, "line 1\nline 2", result)
+	assert.Equal(t, "1\tline 1\n2\tline 2", result)
 }
 
 func TestReadFile_EmptyFile(t *testing.T) {
