@@ -76,9 +76,9 @@ func TestSave_FileCreated(t *testing.T) {
 		t.Fatalf("save failed: %v", err)
 	}
 
-	path := filepath.Join(dir, id+".jsonl")
-	if _, statErr := os.Stat(path); os.IsNotExist(statErr) {
-		t.Fatal("expected session file to exist")
+	// Sessions are persisted in the bbolt store, not as JSONL files on disk.
+	if _, loadErr := store.Load(id); loadErr != nil {
+		t.Fatalf("saved session should be loadable: %v", loadErr)
 	}
 }
 
@@ -441,18 +441,26 @@ func TestLoadMeta_WrongType(t *testing.T) {
 func TestLoadMeta_EmptySessionID(t *testing.T) {
 	dir := t.TempDir()
 	store := NewSessionStore(dir)
-	// Write a valid session_meta with no sessionId field - uses the file id as fallback.
+	// A source whose session_meta carries no sessionId: the import assigns one,
+	// and LoadMeta reports that id with the rest of the metadata intact.
 	path := filepath.Join(dir, "no-session-id.jsonl")
 	metaJSON := `{"type":"session_meta","ts":1000,"name":"x","model":"m","turns":0}` + "\n"
 	if err := os.WriteFile(path, []byte(metaJSON), 0600); err != nil {
 		t.Fatal(err)
 	}
-	meta, err := store.LoadMeta("no-session-id")
+	id, importErr := store.Import(path)
+	if importErr != nil {
+		t.Fatalf("import failed: %v", importErr)
+	}
+	meta, err := store.LoadMeta(id)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if meta.ID != "no-session-id" {
-		t.Fatalf("expected ID=no-session-id, got %q", meta.ID)
+	if meta.ID != id {
+		t.Fatalf("expected ID=%s, got %q", id, meta.ID)
+	}
+	if meta.Name != "x" || meta.Model != "m" {
+		t.Fatalf("metadata not preserved: %+v", meta)
 	}
 }
 
@@ -520,32 +528,37 @@ func TestFindSessionFileLocked_WithCwd(t *testing.T) {
 	}
 
 	store.mu.Lock()
-	path := store.findSessionFileLocked(id)
+	found := store.findSessionFileLocked(id)
 	store.mu.Unlock()
 
-	assert.Contains(t, path, id+".jsonl")
-	assert.FileExists(t, path)
+	// Sessions live in the per-project bbolt store; the lookup resolves to the
+	// session id, not a JSONL path.
+	assert.Equal(t, id, found)
 }
 
-func TestFindSessionFileLocked_WithCwdFallback(t *testing.T) {
+// Sessions are stored per-project in a bbolt database, so switching cwd
+// switches to a different store: a session saved under the base scope is not
+// visible from another project.
+func TestFindSessionFileLocked_CwdIsolatesSessions(t *testing.T) {
 	dir := t.TempDir()
 	store := NewSessionStore(dir)
-	// Save a session without cwd
 	session := NewSession(0)
 	session.Append("q", "a")
 	id, err := store.Save(session)
 	if err != nil {
 		t.Fatalf("save failed: %v", err)
 	}
-	// Now set cwd and look for it - should fall back to basePath
-	store.SetCwd("/other/project")
 
 	store.mu.Lock()
-	path := store.findSessionFileLocked(id)
+	found := store.findSessionFileLocked(id)
 	store.mu.Unlock()
+	assert.Equal(t, id, found, "session should be found in the store it was saved to")
 
-	assert.Contains(t, path, id+".jsonl")
-	assert.FileExists(t, path)
+	store.SetCwd("/other/project")
+	store.mu.Lock()
+	other := store.findSessionFileLocked(id)
+	store.mu.Unlock()
+	assert.Empty(t, other, "another project must not see this project's session")
 }
 
 func TestFindSessionFileLocked_NotFound(t *testing.T) {
@@ -575,21 +588,17 @@ func TestListDirsLocked_WithCwd(t *testing.T) {
 	assert.Contains(t, dirs[0], "--my-project--")
 }
 
-func TestListDirsLocked_WithoutCwdIncludingSubdirs(t *testing.T) {
+func TestListDirsLocked_WithoutCwd(t *testing.T) {
 	dir := t.TempDir()
-
-	// Create a subdirectory to simulate a cwd subdir
-	if err := os.MkdirAll(filepath.Join(dir, "--some-project--"), 0750); err != nil {
-		t.Fatal(err)
-	}
-
 	store := NewSessionStore(dir)
+
 	store.mu.Lock()
 	dirs := store.listDirsLocked()
 	store.mu.Unlock()
 
-	assert.GreaterOrEqual(t, len(dirs), 2) // base dir + subdir
-	assert.Equal(t, dir, dirs[0])
+	// One bbolt store per scope: with no cwd set that is exactly the base path,
+	// so sibling project directories are not scanned.
+	assert.Equal(t, []string{dir}, dirs)
 }
 
 // --- SaveAs with cwd ---
@@ -630,14 +639,13 @@ func TestDelete_RemoveError(t *testing.T) {
 		t.Fatalf("save failed: %v", saveErr)
 	}
 
-	// Make directory read-only so Remove fails
-	if chmodErr := os.Chmod(dir, 0555); chmodErr != nil {
-		t.Skip("cannot change permissions:", chmodErr)
+	// Sessions live in bbolt, not as files: deleting a stored session succeeds,
+	// and deleting one that is not in the store reports not-found.
+	if delErr := store.Delete(id); delErr != nil {
+		t.Fatalf("deleting a stored session should succeed: %v", delErr)
 	}
-	t.Cleanup(func() { os.Chmod(dir, 0755) }) //nolint:errcheck
-
 	if delErr := store.Delete(id); delErr == nil {
-		t.Fatal("expected error when dir is read-only")
+		t.Fatal("expected an error deleting a session that is no longer stored")
 	}
 }
 
@@ -719,7 +727,7 @@ func TestListMeta_UnreadableDir(t *testing.T) {
 func TestLoad_IgnoresBadJSONLine(t *testing.T) {
 	dir := t.TempDir()
 	store := NewSessionStore(dir)
-	// Write a file with a bad JSON line interspersed.
+	// Import normalizes a JSONL file into the store, skipping unparsable lines.
 	content := `{"type":"session_meta","ts":1000,"sessionId":"x","turns":0}` + "\n" +
 		`not-valid-json` + "\n" +
 		`{"type":"message","role":"user","content":"hello"}` + "\n"
@@ -727,11 +735,16 @@ func TestLoad_IgnoresBadJSONLine(t *testing.T) {
 	if err := os.WriteFile(path, []byte(content), 0600); err != nil {
 		t.Fatal(err)
 	}
-	session, err := store.Load("x")
+	id, importErr := store.Import(path)
+	if importErr != nil {
+		t.Fatalf("import failed: %v", importErr)
+	}
+	session, err := store.Load(id)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	// Only the valid message line should be loaded.
+	// The bad line is dropped and the meta entry is not a message, so only the
+	// single valid message survives.
 	if len(session.messages) != 1 {
 		t.Fatalf("expected 1 message, got %d", len(session.messages))
 	}
@@ -770,8 +783,15 @@ func TestImport_CopiesFile(t *testing.T) {
 	if id == "" {
 		t.Fatal("expected non-empty session ID")
 	}
-	if _, statErr := os.Stat(filepath.Join(dir, id+".jsonl")); os.IsNotExist(statErr) {
-		t.Fatal("expected imported file to exist in store directory")
+	// Sessions live in the bbolt store, not as JSONL files on disk: the import
+	// is done when the id is listed and loadable.
+	ids, listErr := store.List()
+	if listErr != nil {
+		t.Fatalf("List failed: %v", listErr)
+	}
+	assert.Contains(t, ids, id, "imported session should be listed in the store")
+	if _, loadErr := store.Load(id); loadErr != nil {
+		t.Fatalf("imported session should be loadable: %v", loadErr)
 	}
 }
 

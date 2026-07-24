@@ -20,6 +20,7 @@ package agent
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -333,9 +334,52 @@ func (s *SessionStore) Import(srcPath string) (string, error) {
 	}
 
 	id := fmt.Sprintf("session-%d", time.Now().UnixNano())
+
+	// The store holds each session as a JSON array of entries (see SaveAs);
+	// source files are newline-delimited. Storing the raw bytes would leave the
+	// session unreadable by Load and invisible to ListMeta, so normalize first.
+	entries, parseErr := parseSessionEntries(data, id)
+	if parseErr != nil {
+		return "", parseErr
+	}
+	encoded, jsonErr := json.Marshal(entries)
+	if jsonErr != nil {
+		return "", fmt.Errorf("session store: import marshal: %w", jsonErr)
+	}
 	return id, db.Update(func(tx *bolt.Tx) error {
-		return tx.Bucket(agentSessionBucket).Put([]byte(id), data)
+		return tx.Bucket(agentSessionBucket).Put([]byte(id), encoded)
 	})
+}
+
+// parseSessionEntries decodes a session file into entries, accepting either the
+// stored JSON-array form or newline-delimited JSON. The leading session_meta is
+// repointed at id so List and Load resolve the imported session under its new
+// key.
+func parseSessionEntries(data []byte, id string) ([]sessionEntry, error) {
+	var entries []sessionEntry
+	if json.Unmarshal(data, &entries) != nil || len(entries) == 0 {
+		entries = nil
+		for _, line := range strings.Split(string(data), "\n") {
+			line = strings.TrimSpace(line)
+			if line == "" {
+				continue
+			}
+			var e sessionEntry
+			if json.Unmarshal([]byte(line), &e) != nil {
+				continue // skip unparsable lines rather than failing the import
+			}
+			entries = append(entries, e)
+		}
+	}
+	if len(entries) == 0 {
+		return nil, errors.New("session store: import: no session entries in source")
+	}
+	if entries[0].Type == "session_meta" {
+		entries[0].SessionID = id
+		return entries, nil
+	}
+	meta := sessionEntry{Type: "session_meta", Timestamp: time.Now().UnixMilli(), SessionID: id}
+	return append([]sessionEntry{meta}, entries...), nil
 }
 
 // --- Legacy helpers for test compatibility ---

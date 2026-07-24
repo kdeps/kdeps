@@ -791,10 +791,10 @@ func TestDynamicPrompt_ZeroTurns(t *testing.T) {
 	repl := NewREPL(context.Background(), loop)
 	defer repl.cancel()
 
-	p := repl.dynamicPrompt()
-	assert.Contains(t, p, "test-model")
-	// Thinking mode (auto) is shown even at 0 turns.
-	assert.Contains(t, p, "auto")
+	// Status moved out of the prompt: dynamicPrompt is just the caret and the
+	// model/metrics live in the modeline rendered above it.
+	assert.Contains(t, repl.dynamicPrompt(), ">")
+	assert.Contains(t, repl.modeline(), "test-model")
 }
 
 func TestDynamicPrompt_WithTurns(t *testing.T) {
@@ -803,9 +803,9 @@ func TestDynamicPrompt_WithTurns(t *testing.T) {
 	repl := NewREPL(context.Background(), loop)
 	defer repl.cancel()
 
-	p := repl.dynamicPrompt()
-	assert.Contains(t, p, "test-model")
-	assert.Contains(t, p, "|")
+	m := repl.modeline()
+	assert.Contains(t, m, "test-model")
+	assert.Contains(t, m, "·", "modeline segments are separated by a middle dot")
 }
 
 // TestContextUsageStr_ReflectsLocalContextSizeChange pins the reported bug:
@@ -3084,7 +3084,9 @@ func TestContextFromParams_Thresholds(t *testing.T) {
 		want  int
 	}{
 		{name: "1B_model", model: "llama3.2", want: contextLimit1B},
-		{name: "2B_model", model: "qwen3", want: contextLimit1B},
+		// qwen3 is a registry alias for an 8B model, so it lands in the 7B tier
+		// rather than being read as "3" from the name.
+		{name: "8B_registry_alias", model: "qwen3", want: contextLimit7B},
 		{name: "3B_model", model: "rocket3", want: contextLimit3B},
 		{name: "3B_model_alt", model: "ministral3", want: contextLimit3B},
 		{name: "7B_model", model: "mathstral7", want: contextLimit7B},
@@ -4515,9 +4517,13 @@ func TestDoSessionIDCompletion_EmptyStore(t *testing.T) {
 
 func TestDoSessionIDCompletion_WithMetas(t *testing.T) {
 	dir := t.TempDir()
-	content := `{"type":"session_meta","ts":1000,"sessionId":"session-test-id","turns":2}` + "\n"
-	require.NoError(t, os.WriteFile(filepath.Join(dir, "session-test-id.jsonl"), []byte(content), 0600))
 	store := NewSessionStore(dir)
+	// Seed the bbolt store; an empty token completes to every stored id.
+	sess := NewSession(0)
+	sess.Append("q", "a")
+	id, saveErr := store.Save(sess)
+	require.NoError(t, saveErr)
+
 	loop := makeTestLoop(nil)
 	loop.store = store
 	repl := NewREPL(context.Background(), loop)
@@ -4526,21 +4532,27 @@ func TestDoSessionIDCompletion_WithMetas(t *testing.T) {
 	results, tokenLen := repl.doSessionIDCompletion("", 0)
 	assert.Len(t, results, 1)
 	if len(results) > 0 {
-		assert.Equal(t, "session-test-id", string(results[0]))
+		assert.Equal(t, id, string(results[0]))
 	}
 	assert.Equal(t, 0, tokenLen)
 }
 
 func TestDoSessionIDCompletion_TokenFilter(t *testing.T) {
 	dir := t.TempDir()
-	content := `{"type":"session_meta","ts":1000,"sessionId":"session-abc","turns":0}` + "\n"
-	require.NoError(t, os.WriteFile(filepath.Join(dir, "session-abc.jsonl"), []byte(content), 0600))
 	store := NewSessionStore(dir)
+	// Completions come from the bbolt store, so seed it with a real session
+	// rather than writing a JSONL file.
+	sess := NewSession(0)
+	sess.Append("q", "a")
+	_, saveErr := store.Save(sess)
+	require.NoError(t, saveErr)
+
 	loop := makeTestLoop(nil)
 	loop.store = store
 	repl := NewREPL(context.Background(), loop)
 	defer repl.cancel()
 
+	// A token matching no stored id yields no completions but keeps the length.
 	results, tokenLen := repl.doSessionIDCompletion("session-xyz", 12)
 	assert.Empty(t, results)
 	assert.Equal(t, 12, tokenLen)

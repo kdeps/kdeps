@@ -107,14 +107,18 @@ const (
 //nolint:gochecknoglobals // bbolt bucket name
 var memoryStoreBucket = []byte("agent_memory")
 
+// dbOpenTimeout bounds bbolt's exclusive-lock acquisition so an accidental
+// concurrent open on the same file fails fast instead of hanging forever.
+const dbOpenTimeout = 5 * time.Second
+
 // MemoryStore persists per-project memory using bbolt.
 // Entries are cached in memory for fast access and written through on mutation.
 type MemoryStore struct {
 	mu       sync.RWMutex
+	dbMu     sync.Mutex             // guards db open/close, held independently of mu
 	basePath string                 // root directory for memory files
 	path     string                 // resolved path (empty until SetCwd)
 	dbPath   string                 // bbolt database path
-	db       *bolt.DB               // bbolt database handle
 	entries  map[string]MemoryEntry // key -> entry (in-memory cache)
 }
 
@@ -138,20 +142,15 @@ func NewMemoryStore(basePath string) *MemoryStore {
 func (m *MemoryStore) SetCwd(cwd string) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	// Close previous DB if any.
-	if m.db != nil {
-		_ = m.db.Close()
-		m.db = nil
-	}
 	m.path = filepath.Join(m.basePath, encodeCwd(cwd))
 	m.dbPath = filepath.Join(m.path, "memory.bolt")
 }
 
-// getOrOpenDB returns the bbolt database, opening it if needed.
-func (m *MemoryStore) getOrOpenDB() (*bolt.DB, error) {
-	if m.db != nil {
-		return m.db, nil
-	}
+// openDB opens a fresh bbolt handle for the current dbPath with the bucket
+// ensured. bbolt takes an exclusive file lock; the Timeout turns an accidental
+// concurrent open on the same path into a fast error instead of an unbounded
+// hang. Callers must Close the returned handle.
+func (m *MemoryStore) openDB() (*bolt.DB, error) {
 	if m.dbPath == "" {
 		return nil, nil //nolint:nilnil // path not set yet
 	}
@@ -159,16 +158,34 @@ func (m *MemoryStore) getOrOpenDB() (*bolt.DB, error) {
 	if err := os.MkdirAll(dir, 0750); err != nil {
 		return nil, fmt.Errorf("memory store: mkdir: %w", err)
 	}
-	db, err := bolt.Open(m.dbPath, 0600, nil) //nolint:mnd // DB file permissions
+	db, err := bolt.Open(m.dbPath, 0600, &bolt.Options{Timeout: dbOpenTimeout}) //nolint:mnd // DB file permissions
 	if err != nil {
 		return nil, fmt.Errorf("memory store: open db: %w", err)
 	}
-	_ = db.Update(func(tx *bolt.Tx) error {
-		_, _ = tx.CreateBucketIfNotExists(memoryStoreBucket)
-		return nil
-	})
-	m.db = db
+	if bucketErr := db.Update(func(tx *bolt.Tx) error {
+		_, e := tx.CreateBucketIfNotExists(memoryStoreBucket)
+		return e
+	}); bucketErr != nil {
+		_ = db.Close()
+		return nil, fmt.Errorf("memory store: init bucket: %w", bucketErr)
+	}
 	return db, nil
+}
+
+// withDB opens the database, runs fn, then closes it — serialized by dbMu so
+// concurrent callers never race two exclusive opens on the same file (the source
+// of the earlier deadlock). No handle is held between operations, so a second
+// MemoryStore on the same path (a reload) can always open it. dbMu is separate
+// from mu so a caller already holding mu (Load) does not self-deadlock.
+func (m *MemoryStore) withDB(fn func(*bolt.DB) error) error {
+	m.dbMu.Lock()
+	defer m.dbMu.Unlock()
+	db, err := m.openDB()
+	if err != nil || db == nil {
+		return err
+	}
+	defer func() { _ = db.Close() }()
+	return fn(db)
 }
 
 // Load reads memory entries from bbolt and populates the in-memory cache.
@@ -181,28 +198,25 @@ func (m *MemoryStore) Load() error {
 		return nil
 	}
 
-	db, err := m.getOrOpenDB()
-	if err != nil {
-		return err
-	}
-
-	return db.View(func(tx *bolt.Tx) error {
-		b := tx.Bucket(memoryStoreBucket)
-		if b == nil {
+	return m.withDB(func(db *bolt.DB) error {
+		return db.View(func(tx *bolt.Tx) error {
+			b := tx.Bucket(memoryStoreBucket)
+			if b == nil {
+				return nil
+			}
+			c := b.Cursor()
+			for k, v := c.First(); k != nil; k, v = c.Next() {
+				var entry MemoryEntry
+				if json.Unmarshal(v, &entry) != nil {
+					continue
+				}
+				if entry.Key == "" {
+					continue
+				}
+				m.entries[entry.Key] = entry
+			}
 			return nil
-		}
-		c := b.Cursor()
-		for k, v := c.First(); k != nil; k, v = c.Next() {
-			var entry MemoryEntry
-			if json.Unmarshal(v, &entry) != nil {
-				continue
-			}
-			if entry.Key == "" {
-				continue
-			}
-			m.entries[entry.Key] = entry
-		}
-		return nil
+		})
 	})
 }
 
@@ -219,35 +233,26 @@ func (m *MemoryStore) Save() error {
 		return nil
 	}
 
-	db, err := m.getOrOpenDB()
-	if err != nil {
-		return err
-	}
-
-	return db.Update(func(tx *bolt.Tx) error {
-		b := tx.Bucket(memoryStoreBucket)
-		for _, entry := range entries {
-			data, jsonErr := json.Marshal(entry)
-			if jsonErr != nil {
-				return jsonErr
+	return m.withDB(func(db *bolt.DB) error {
+		return db.Update(func(tx *bolt.Tx) error {
+			b := tx.Bucket(memoryStoreBucket)
+			for _, entry := range entries {
+				data, jsonErr := json.Marshal(entry)
+				if jsonErr != nil {
+					return jsonErr
+				}
+				if putErr := b.Put([]byte(entry.Key), data); putErr != nil {
+					return putErr
+				}
 			}
-			if putErr := b.Put([]byte(entry.Key), data); putErr != nil {
-				return putErr
-			}
-		}
-		return nil
+			return nil
+		})
 	})
 }
 
-// Close closes the bbolt database.
+// Close is retained for API compatibility. No bbolt handle is held between
+// operations (withDB opens and closes per call), so there is nothing to release.
 func (m *MemoryStore) Close() error {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-	if m.db != nil {
-		err := m.db.Close()
-		m.db = nil
-		return err
-	}
 	return nil
 }
 
