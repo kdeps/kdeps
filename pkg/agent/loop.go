@@ -945,9 +945,10 @@ func (l *Loop) runToolRounds(
 // the model with the question thrown away.
 func nudgeForActionConfig(cfg *domain.ChatConfig) *domain.ChatConfig {
 	nudgeCfg := *cfg
-	note := "Your previous response contained no tool call and no answer. " +
-		"If you intended to call a tool, call it now. Otherwise, answer directly " +
-		"in plain text. Do not reply with reasoning alone."
+	note := turoReduce(context.Background(),
+		"Your previous response contained no tool call and no answer. "+
+			"If you intended to call a tool, call it now. Otherwise, answer directly "+
+			"in plain text. Do not reply with reasoning alone.")
 	nudgeCfg.Prompt = strings.TrimSpace(cfg.Prompt + "\n\n" + note)
 	return &nudgeCfg
 }
@@ -1000,10 +1001,11 @@ func forceAnswerConfig(cfg *domain.ChatConfig) *domain.ChatConfig {
 	}
 	capCfg := *cfg
 	capCfg.Tools = nil
-	prompt := "Tool budget exhausted. Answer the user's question now " +
-		"using only the information already gathered. Do not attempt any more " +
-		"tool calls and do not emit tool-call markup. If work remains, describe " +
-		"in plain text exactly what remains to be done."
+	prompt := turoReduce(context.Background(),
+		"Tool budget exhausted. Answer the user's question now "+
+			"using only the information already gathered. Do not attempt any more "+
+			"tool calls and do not emit tool-call markup. If work remains, describe "+
+			"in plain text exactly what remains to be done.")
 	if digest := gatheredToolDigest(cfg.Messages, maxForceAnswerDigestBytes); digest != "" {
 		prompt += "\n\n=== Information gathered so far ===\n" + digest
 	}
@@ -2116,7 +2118,7 @@ func (l *Loop) buildChatConfig(ctx context.Context, input, systemPreamble string
 		Backend:  l.config.Backend,
 		BaseURL:  l.config.BaseURL,
 		Role:     l.config.Role,
-		Prompt:   turoReduce(ctx, input),
+		Prompt:   input,
 		Files:    files,
 		Tools:    tools,
 		Thinking: l.config.Thinking,

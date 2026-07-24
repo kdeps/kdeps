@@ -133,7 +133,7 @@ func (l *Loop) buildReactSystemPreamble() string {
 		names.WriteString(t.Name)
 	}
 
-	base := fmt.Sprintf(reactSystemTemplate, descs.String(), names.String())
+	base := turoReduce(context.Background(), fmt.Sprintf(reactSystemTemplate, descs.String(), names.String()))
 
 	extra := l.buildSystemPreamble("")
 	if extra != "" {

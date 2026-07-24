@@ -128,7 +128,8 @@ func (l *Loop) SummarizeBranch(_ context.Context) (string, error) {
 	msgs, fileOps = truncateBranchMessages(msgs, fileOps, l.config.Model, tokenBudget)
 
 	conversationText := serializeConversation(msgs, fileOps)
-	prompt := "<conversation>\n" + conversationText + "\n</conversation>\n\n" + branchSummaryPrompt
+	prompt := "<conversation>\n" + conversationText + "\n</conversation>\n\n" +
+		turoReduce(context.Background(), branchSummaryPrompt)
 
 	const branchActionID = "agent_loop_branch_summary"
 	chatCfg := &domain.ChatConfig{
