@@ -17,6 +17,8 @@ package agent
 import (
 	"strings"
 	"testing"
+
+	"github.com/kdeps/kdeps/v2/pkg/domain"
 )
 
 func loopWithGoal(descs ...string) *Loop {
@@ -122,5 +124,26 @@ func TestIsTaskStateTool(t *testing.T) {
 	}
 	if isTaskStateTool(toolNameWebSearch) {
 		t.Fatal("ordinary tools must not count as state transitions")
+	}
+}
+
+// Reasoning capture: DeepSeek-family models require an assistant turn's
+// reasoning_content to be replayed, so the loop must record it per turn and
+// hand it over exactly once.
+func TestLoop_ReasoningCaptureAndTake(t *testing.T) {
+	l := &Loop{}
+	cfg := &domain.ChatConfig{}
+	l.captureReasoning(cfg)
+	if cfg.ReasoningOut == nil {
+		t.Fatal("chat config must expose a reasoning sink")
+	}
+
+	*cfg.ReasoningOut = "step-by-step reasoning"
+	if got := l.takeReasoning(); got != "step-by-step reasoning" {
+		t.Fatalf("takeReasoning() = %q", got)
+	}
+	// Consumed: a second turn must not inherit the previous turn's reasoning.
+	if got := l.takeReasoning(); got != "" {
+		t.Fatalf("reasoning should be cleared after being taken, got %q", got)
 	}
 }

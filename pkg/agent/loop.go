@@ -219,7 +219,10 @@ type Loop struct {
 	// goalToolsRegistered guards the lazy registration of task_complete /
 	// task_fail, which happens on the first enforced turn.
 	goalToolsRegistered bool
-	pendingFiles        []string // per-turn image/file attachments; cleared after buildChatConfig
+	// lastReasoning holds the reasoning_content from the most recent LLM call
+	// until it is attached to that turn's assistant message.
+	lastReasoning string
+	pendingFiles  []string // per-turn image/file attachments; cleared after buildChatConfig
 	// systemPreamble is built once on the first turn and reused verbatim on every
 	// subsequent turn. Keeping it byte-identical lets provider prompt caches hit
 	// on the system prefix instead of re-billing the full preamble each turn.
@@ -863,6 +866,7 @@ func (l *Loop) runToolRounds(
 	if err := l.preflightRequestSize(chatCfg); err != nil {
 		return "", err
 	}
+	l.captureReasoning(chatCfg)
 
 	var finalContent string
 	capped := false
@@ -1329,6 +1333,26 @@ func convergenceStop(cfg *domain.ChatConfig, blocked bool, blocks int, forced bo
 	return cfg, blocks, forced
 }
 
+// reasoningContentKey is the history field holding an assistant turn's
+// reasoning, matching the provider wire name.
+const reasoningContentKey = "reasoning_content"
+
+// captureReasoning points the chat config at the loop's reasoning slot so each
+// call records the assistant turn's reasoning_content.
+func (l *Loop) captureReasoning(cfg *domain.ChatConfig) {
+	if cfg != nil {
+		cfg.ReasoningOut = &l.lastReasoning
+	}
+}
+
+// takeReasoning returns and clears the reasoning captured by the last call, so
+// it is attached to exactly one assistant turn.
+func (l *Loop) takeReasoning() string {
+	r := l.lastReasoning
+	l.lastReasoning = ""
+	return r
+}
+
 // preflightRequestSize estimates the payload size before the first LLM call.
 // Providers like DashScope/kimi have strict limits (6 MB) and silently 400 when
 // exceeded, so an oversized request is rejected locally with a clear error.
@@ -1418,11 +1442,18 @@ func (l *Loop) appendToolRoundTrip(
 			},
 		}
 	}
-	history = append(history, map[string]any{
+	assistant := map[string]any{
 		"role":           RoleAssistant,
 		toolParamContent: assistantContent,
 		"tool_calls":     tcJSON,
-	})
+	}
+	// Carry the turn's reasoning alongside its content. DeepSeek-family models
+	// reject a thinking-mode conversation whose assistant turns do not replay
+	// the reasoning_content they produced.
+	if reasoning := l.takeReasoning(); reasoning != "" {
+		assistant[reasoningContentKey] = reasoning
+	}
+	history = append(history, assistant)
 
 	// Execute each tool and add tool result messages. After a Ctrl+C the
 	// remaining tools are skipped with an interrupted marker instead of run.

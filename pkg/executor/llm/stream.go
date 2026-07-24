@@ -845,6 +845,8 @@ func buildHistoryMessages(historyJSON string) []llms.MessageContent {
 			})
 		case llms.ChatMessageTypeAI:
 			if m := buildAIMessage(content, h["tool_calls"]); m != nil {
+				reasoning, _ := h["reasoning_content"].(string)
+				attachReasoning(m, reasoning)
 				msgs = append(msgs, *m)
 			}
 		default:
@@ -852,6 +854,31 @@ func buildHistoryMessages(historyJSON string) []llms.MessageContent {
 		}
 	}
 	return msgs
+}
+
+// ReasoningEchoSupported reports whether an assistant turn's reasoning_content
+// can be sent back to the provider.
+//
+// It is false today: langchaingo's llms.MessageContent carries only Role and
+// Parts, and the MessageContent -> ChatMessage conversion in llms/openai never
+// populates ChatMessage.ReasoningContent, even though that field exists on the
+// wire struct and is parsed from responses. kdeps captures and stores the
+// reasoning regardless, so the only change needed once langchaingo can carry it
+// is here and in attachReasoning.
+func ReasoningEchoSupported() bool { return false }
+
+// attachReasoning replays an assistant turn's reasoning_content on the outgoing
+// message. DeepSeek-family models reject a thinking-mode conversation whose
+// assistant turns omit it.
+//
+// This is the single wiring point for that echo. It is currently a no-op
+// because the message type has nowhere to put the value; when langchaingo gains
+// the field, set it here and flip ReasoningEchoSupported.
+func attachReasoning(msg *llms.MessageContent, reasoning string) {
+	if msg == nil || reasoning == "" || !ReasoningEchoSupported() {
+		return
+	}
+	// msg.ReasoningContent = reasoning
 }
 
 // buildAIMessage constructs an AI MessageContent with optional tool call parts.
@@ -1249,6 +1276,12 @@ func (e *Executor) StreamChat(
 
 	// When thinking is enabled and ReturnOutput is true, prepend the reasoning block.
 	// Skip when StreamThinking is active: reasoning was already written to w inline.
+	if cfg.ReasoningOut != nil {
+		// Captured separately from content: providers that require the reasoning
+		// to be replayed need it as its own field, not embedded in the text.
+		*cfg.ReasoningOut = choice.ReasoningContent
+	}
+
 	if cfg.Thinking != nil && cfg.Thinking.ReturnOutput && !cfg.Thinking.StreamThinking &&
 		choice.ReasoningContent != "" {
 		content = "<thinking>\n" + choice.ReasoningContent + "\n</thinking>\n\n" + content
@@ -1330,6 +1363,12 @@ func (e *Executor) streamChatOnce(
 
 	choice := resp.Choices[0]
 	content := choice.Content
+
+	if cfg.ReasoningOut != nil {
+		// Captured separately from content: providers that require the reasoning
+		// to be replayed need it as its own field, not embedded in the text.
+		*cfg.ReasoningOut = choice.ReasoningContent
+	}
 
 	if cfg.Thinking != nil && cfg.Thinking.ReturnOutput && !cfg.Thinking.StreamThinking &&
 		choice.ReasoningContent != "" {

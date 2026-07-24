@@ -56,6 +56,13 @@ type ChatConfig struct {
 	// Backend and BaseURL are runtime fields set by the LLM router or env vars.
 	Backend string `yaml:"-"`
 	BaseURL string `yaml:"-"`
+	// ReasoningOut, when non-nil, receives the assistant turn's
+	// reasoning_content after the call. Runtime-only output field.
+	//
+	// Providers in the DeepSeek family require that reasoning to be replayed on
+	// every subsequent assistant turn, so it has to be carried alongside the
+	// content rather than folded into it.
+	ReasoningOut *string `yaml:"-"`
 
 	ContextLength int    `yaml:"contextLength,omitempty"` // Context length in tokens: 4096, 8192, 16384, 32768, 65536, 131072, 262144 (default: 4096)
 	Role          string `yaml:"role"`
