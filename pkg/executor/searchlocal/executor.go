@@ -309,7 +309,8 @@ func (e *Executor) skipUnchanged(d os.DirEntry, docID string, idx *index.Inverte
 }
 
 // prepareDoc reads and tokenizes a file, returning a ready-to-index document or nil.
-// Files larger than maxFileSize are skipped.
+// Files larger than maxFileSize are skipped. The first ~240 chars of content are
+// captured as a preview so snippet generation never re-reads files from disk.
 func (e *Executor) prepareDoc(
 	p string, d os.DirEntry, tok *tokenizer.Tokenizer,
 ) (*index.Document, []string, []int) {
@@ -335,11 +336,18 @@ func (e *Executor) prepareDoc(
 		positions[i] = token.Position
 	}
 
+	preview := content
+	const previewMax = 240
+	if len(preview) > previewMax {
+		preview = preview[:previewMax]
+	}
+
 	return &index.Document{
 		ID:      docID,
 		Path:    p,
 		ModTime: info.ModTime().Unix(),
 		Size:    info.Size(),
+		Preview: string(preview),
 	}, tokenStrings, positions
 }
 
@@ -482,6 +490,20 @@ func generateSnippet(filePath, query string) string {
 	if end > len(content) {
 		end = len(content)
 	}
+	// Defend against Unicode case-expansion: strings.ToLower may produce a
+	// longer byte string than the original content, so idx (from lower) can
+	// point past content's bounds after start/end clamping. Fall back to a
+	// preview when indices are inverted or start exceeds content length.
+	if start >= len(content) || end < start {
+		previewEnd := len(content)
+		if previewEnd > snippetMaxPreview {
+			previewEnd = snippetMaxPreview
+		}
+		if previewEnd < len(content) {
+			return content[:previewEnd] + "..."
+		}
+		return content[:previewEnd]
+	}
 
 	var sb strings.Builder
 	if start > 0 {
@@ -532,12 +554,19 @@ func (e *Executor) IndexFile(path string) {
 		positions[i] = token.Position
 	}
 
+	preview := content
+	const previewMax = 240
+	if len(preview) > previewMax {
+		preview = preview[:previewMax]
+	}
+
 	idx.BatchAddDocuments([]index.DocWithTokens{{
 		Doc: &index.Document{
 			ID:      docID,
 			Path:    path,
 			ModTime: info.ModTime().Unix(),
 			Size:    info.Size(),
+			Preview: string(preview),
 		},
 		Tokens:    tokenStrings,
 		Positions: positions,
@@ -582,19 +611,23 @@ func (e *Executor) IndexFiles(paths []string) {
 			positions[i] = token.Position
 		}
 
+		preview := content
+		const previewMax = 240
+		if len(preview) > previewMax {
+			preview = preview[:previewMax]
+		}
+
 		docs = append(docs, index.DocWithTokens{
 			Doc: &index.Document{
 				ID:      docID,
 				Path:    path,
 				ModTime: info.ModTime().Unix(),
 				Size:    info.Size(),
+				Preview: string(preview),
 			},
 			Tokens:    tokenStrings,
 			Positions: positions,
 		})
-	}
-
-	if len(docs) > 0 {
 		idx.BatchAddDocuments(docs)
 	}
 }
@@ -703,6 +736,11 @@ func (e *Executor) executeIndexed(config *domain.SearchLocalConfig) (interface{}
 
 	output := make([]map[string]interface{}, 0, limit)
 	for _, r := range results[:limit] {
+		snippet := r.Document.Preview
+		// Fall back to file read only when the index predates the Preview field.
+		if snippet == "" {
+			snippet = generateSnippet(r.Document.Path, config.Query)
+		}
 		output = append(output, map[string]interface{}{
 			"path":       r.Document.Path,
 			"name":       filepath.Base(r.Document.Path),
@@ -710,7 +748,7 @@ func (e *Executor) executeIndexed(config *domain.SearchLocalConfig) (interface{}
 			"isDir":      false,
 			"score":      r.Score,
 			"matchCount": r.MatchCount,
-			"snippet":    generateSnippet(r.Document.Path, config.Query),
+			"snippet":    snippet,
 		})
 	}
 

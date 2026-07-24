@@ -36,12 +36,13 @@ var (
 )
 
 // Document represents an indexed document.
-// Content is intentionally not stored — it is never read from the index.
+// Preview stores the first ~240 chars of content so snippets never re-read files from disk.
 type Document struct {
 	ID      string
 	Path    string
 	ModTime int64
 	Size    int64
+	Preview string
 }
 
 // Posting represents a document that contains a term.
@@ -248,32 +249,25 @@ func resolveDoc(docsB *bolt.Bucket, docID string) *Document {
 func (idx *InvertedIndex) Search(queryTerms []string) []SearchResult {
 	docScores := make(map[string]float64)
 	docMatches := make(map[string]int)
+	var results []SearchResult
 
 	_ = idx.db.View(func(tx *bolt.Tx) error {
 		docScores, docMatches = idx.scoreDocs(tx, queryTerms)
-		// Prune scores for documents that no longer exist.
 		docsB := tx.Bucket(bucketDocs)
-		for docID := range docScores {
-			if resolveDoc(docsB, docID) == nil {
-				delete(docScores, docID)
-				delete(docMatches, docID)
-			}
-		}
-		return nil
-	})
-
-	results := make([]SearchResult, 0, len(docScores))
-	_ = idx.db.View(func(tx *bolt.Tx) error {
-		docsB := tx.Bucket(bucketDocs)
+		// Build results in a single pass: score, validate, resolve.
+		results = make([]SearchResult, 0, len(docScores))
 		for docID, score := range docScores {
-			if doc := resolveDoc(docsB, docID); doc != nil {
-				results = append(results, SearchResult{
-					Document:   doc,
-					Score:      score,
-					MatchCount: docMatches[docID],
-					QueryTerms: len(queryTerms),
-				})
+			doc := resolveDoc(docsB, docID)
+			if doc == nil {
+				delete(docMatches, docID)
+				continue
 			}
+			results = append(results, SearchResult{
+				Document:   doc,
+				Score:      score,
+				MatchCount: docMatches[docID],
+				QueryTerms: len(queryTerms),
+			})
 		}
 		return nil
 	})
@@ -301,7 +295,7 @@ func (idx *InvertedIndex) FuzzySearch(queryTerms []string, maxDistance int) []Se
 		for k, _ := c.First(); k != nil; k, _ = c.Next() {
 			indexTerm := string(k)
 			for _, qt := range queryTerms {
-				if levenshteinDistance(qt, indexTerm) <= maxDistance {
+				if levenshteinDistance(qt, indexTerm, maxDistance) <= maxDistance {
 					expandedTerms[indexTerm] = true
 				}
 			}
@@ -446,8 +440,10 @@ func calculateIDF(docFreq, docCount int) float64 {
 	return math.Log(float64(docCount) / float64(docFreq))
 }
 
-// levenshteinDistance calculates the edit distance between two strings.
-func levenshteinDistance(s1, s2 string) int {
+// levenshteinDistance calculates the edit distance between two strings, bounded
+// by maxDist. Returns a value > maxDist immediately when the length difference
+// alone exceeds maxDist, avoiding the full O(L1*L2) computation.
+func levenshteinDistance(s1, s2 string, maxDist int) int {
 	if s1 == s2 {
 		return 0
 	}
@@ -456,6 +452,15 @@ func levenshteinDistance(s1, s2 string) int {
 	}
 	if len(s2) == 0 {
 		return len(s1)
+	}
+
+	// Early bailout: length difference alone exceeds max distance.
+	diff := len(s1) - len(s2)
+	if diff < 0 {
+		diff = -diff
+	}
+	if diff > maxDist {
+		return maxDist + 1
 	}
 
 	prev := make([]int, len(s2)+1)
