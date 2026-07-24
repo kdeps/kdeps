@@ -396,7 +396,11 @@ func (r *REPL) modeline() string {
 	if !turoAvailable(r.ctx) || TuroRuntimeOff() {
 		parts = append(parts, dim("turo:off"))
 	} else {
-		parts = append(parts, styleReplSuccess.Render("turo:"+TuroLevel()))
+		label := "turo:" + TuroLevel()
+		if saved := TuroTokensSaved(); saved > 0 {
+			label += " (" + formatCompactCount(int64(saved)) + " saved)"
+		}
+		parts = append(parts, styleReplSuccess.Render(label))
 	}
 	return strings.Join(parts, dim(" · "))
 }

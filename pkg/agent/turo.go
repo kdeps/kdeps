@@ -19,10 +19,13 @@
 package agent
 
 import (
+	"bufio"
 	"context"
+	"encoding/json"
 	"fmt"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 	"sync"
 	"time"
@@ -271,4 +274,69 @@ func turoReduceCached(ctx context.Context, text string) string {
 	reduced := turoReduce(ctx, text)
 	turoReduceCache.Store(text, reduced)
 	return reduced
+}
+
+// --- turo gain integration: read the turo binary's token savings log ---
+
+// turoGainPath resolves the gain.jsonl path using the same precedence as the
+// turo binary: TURO_HOME, then OS config dir, then ~/.turo.
+func turoGainPath() string {
+	if d := os.Getenv("TURO_HOME"); d != "" {
+		return filepath.Join(d, "gain.jsonl")
+	}
+	if d, err := os.UserConfigDir(); err == nil && d != "" {
+		return filepath.Join(d, "turo", "gain.jsonl")
+	}
+	home, _ := os.UserHomeDir()
+	return filepath.Join(home, ".turo", "gain.jsonl")
+}
+
+// totalTuroSavings reads gain.jsonl and sums (before - after) across every
+// recorded reduction. Returns 0 on any error — analytics must not break the REPL.
+func totalTuroSavings() int {
+	f, err := os.Open(turoGainPath())
+	if err != nil {
+		return 0
+	}
+	defer func() { _ = f.Close() }()
+	var total int
+	sc := bufio.NewScanner(f)
+	for sc.Scan() {
+		line := strings.TrimSpace(sc.Text())
+		if line == "" {
+			continue
+		}
+		var e struct {
+			Before int `json:"before"`
+			After  int `json:"after"`
+		}
+		if json.Unmarshal([]byte(line), &e) == nil {
+			total += e.Before - e.After
+		}
+	}
+	_ = sc.Err()
+	return total
+}
+
+// turo savings cache — re-reading gain.jsonl on every modeline render is
+// wasteful; cache for 60 seconds.
+var (
+	turoSavingsMu     sync.Mutex
+	turoSavingsCached int
+	turoSavingsAt     time.Time
+)
+
+// TuroTokensSaved returns the total tokens saved according to the turo binary's
+// gain log. Result is cached for 60 seconds to avoid re-reading on every
+// status-line render.
+func TuroTokensSaved() int {
+	turoSavingsMu.Lock()
+	defer turoSavingsMu.Unlock()
+	if time.Since(turoSavingsAt) < 60*time.Second {
+		return turoSavingsCached
+	}
+	n := totalTuroSavings()
+	turoSavingsCached = n
+	turoSavingsAt = time.Now()
+	return n
 }
