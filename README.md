@@ -15,16 +15,30 @@ Build and deploy AI agents in YAML. Two modes: **workflow** (DAG pipelines), **a
 
 > **Highly experimental.** APIs, schemas, and CLI flags change without notice. Not for production. [Report issues](https://github.com/kdeps/kdeps/issues).
 
-## Book
+## Run the agent
 
-[<img src="https://d2sofvawe08yqg.cloudfront.net/kdeps/s_hero?1779817160" alt="AI Appliances book cover" width="140" align="right" style="margin-left:16px">](https://leanpub.com/kdeps)
+An autonomous LLM agent in your terminal. It plans, calls tools (web search, http, python, exec, sql, bash, file ops), keeps memory across turns, and drives every prompt to a finished result. Point it at a folder and each workflow inside becomes a callable tool.
 
-**[AI Appliances - Build & Deploy Autonomous AI Agents and Agencies in YAML](https://leanpub.com/kdeps)**
-Free. PDF, EPUB, and web.
+```bash
+kdeps                              # model-only REPL (no tools)
+kdeps ./my-agent/                  # one workflow = one tool
+kdeps ./agents/                    # every workflow in the folder = a tool
+kdeps --model deepseek-v4-flash --system "You are a DevOps assistant."
+kdeps --resume <session-id>        # continue a saved session
+```
 
-Hands-on guide covering deterministic pipelines, multi-agent orchestration, error handling, and vendor-agnostic deployment - the production challenges most AI frameworks leave to you.
+```text
+kdeps agent  ~/Projects/acme  ·  /help for commands  ·  Ctrl+D to exit
+──────────────────────────────────────────────────────────────
+deepseek-v4-flash · 2.1k/64k · mem:231 · task:2/5 · turo:ultra
+> ship the release notes for v0.4
+[web_search -> v0.4 changelog] ... done (0.8s)
+[read_file -> CHANGELOG.md] ... done
+[goal] task 2 done — continuing with task 3: draft notes
+...
+```
 
-<br clear="right">
+Every prompt becomes a task plan the agent is driven through to completion — no circling, no dead stops. Runtime controls: `/goal` steer the plan, `/model` switch models mid-session, `/turo` tune the token reducer, `/thinking` toggle reasoning. Set a cloud key (`DEEPSEEK_API_KEY`, `ANTHROPIC_API_KEY`, ...) or run a local model — kdeps downloads and serves it for you.
 
 ## Install
 
@@ -37,6 +51,17 @@ Or with Homebrew (macOS and Linux):
 ```bash
 brew install kdeps/tap/kdeps
 ```
+
+## Book
+
+[<img src="https://d2sofvawe08yqg.cloudfront.net/kdeps/s_hero?1779817160" alt="AI Appliances book cover" width="140" align="right" style="margin-left:16px">](https://leanpub.com/kdeps)
+
+**[AI Appliances - Build & Deploy Autonomous AI Agents and Agencies in YAML](https://leanpub.com/kdeps)**
+Free. PDF, EPUB, and web.
+
+Hands-on guide covering deterministic pipelines, multi-agent orchestration, error handling, and vendor-agnostic deployment - the production challenges most AI frameworks leave to you.
+
+<br clear="right">
 
 ## Modes
 
@@ -134,15 +159,15 @@ stdin prompt
 ```
 
 ```bash
-kdeps serve workflow.yaml
-kdeps serve workflow.yaml --model llama3.2 --system "You are a DevOps assistant."
+kdeps ./my-agent/
+kdeps ./my-agent/ --model llama3.2 --system "You are a DevOps assistant."
 ```
 
-The agent reads from stdin and runs until you exit. All resource types (http, python, exec, sql, ...) are available as tools without any extra wiring.
+The agent runs as an interactive REPL until you exit (Ctrl+D). All resource types (http, python, exec, sql, ...) plus built-in tools (web search, bash, file ops) are available without any extra wiring. See [Run the agent](#run-the-agent) for the full REPL.
 
 ```
-KDEPS_AGENT_MODEL=claude-3-5-sonnet   # override model via env
-KDEPS_AGENT_BACKEND=anthropic
+KDEPS_AGENT_MODEL=deepseek-v4-flash   # override model via env
+KDEPS_AGENT_BACKEND=deepseek
 ```
 
 ## Agencies
