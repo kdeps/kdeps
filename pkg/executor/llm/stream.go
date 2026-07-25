@@ -987,9 +987,16 @@ func convertTools(tools []domain.Tool) []llms.Tool {
 
 // buildStreamOpts assembles the langchaingo CallOption slice for a streaming call.
 func buildStreamOpts(cfg *domain.ChatConfig, backend string, w io.Writer) []llms.CallOption {
+	// Local servers stream the chat template's stop token as ordinary text.
+	// Filter it out of the live output; the returned content is stripped
+	// separately in streamChatOnce.
+	chunkOut := w
+	if backend == BackendFile || backend == BackendGGUF {
+		chunkOut = &stopTokenFilterWriter{w: w}
+	}
 	opts := []llms.CallOption{
 		llms.WithStreamingFunc(func(_ context.Context, chunk []byte) error {
-			_, _ = w.Write(chunk)
+			_, _ = chunkOut.Write(chunk)
 			return nil
 		}),
 	}
@@ -1248,7 +1255,11 @@ func (e *Executor) StreamChat(
 	}
 
 	choice := resp.Choices[0]
-	content := choice.Content
+	// Local servers (llamafile/gguf) emit the chat template's stop token as part
+	// of the streamed text. The non-streaming path strips it in
+	// convertOpenAICompatResponse; do the same here so it never reaches the
+	// terminal or the saved session history.
+	content := stripTrailingSpecialTokens(choice.Content)
 
 	// Streaming responses from local servers (llamafile/gguf) usually carry no
 	// usage in GenerationInfo, leaving the counter at 0/0. Estimate from the
@@ -1347,7 +1358,7 @@ func (e *Executor) streamChatOnce(
 	}
 
 	choice := resp.Choices[0]
-	content := choice.Content
+	content := stripTrailingSpecialTokens(choice.Content)
 
 	if cfg.ReasoningOut != nil {
 		// Captured separately from content: providers that require the reasoning

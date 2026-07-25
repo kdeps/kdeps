@@ -20,6 +20,7 @@ package llm
 
 import (
 	"fmt"
+	"io"
 	stdhttp "net/http"
 	"os"
 	"strings"
@@ -137,6 +138,52 @@ func stripTrailingSpecialTokens(content string) string {
 		}
 	}
 	return trimmed
+}
+
+// stopTokenFilterWriter removes chat-template stop markers from a live token
+// stream before they reach the terminal.
+//
+// Local servers stream the stop marker as ordinary text, so it would otherwise
+// be printed verbatim (for example "hello<|eot_id|>"). A marker can also arrive
+// split across two chunks, so the tail that could still grow into one is held
+// back until the next write proves it is not.
+type stopTokenFilterWriter struct {
+	w       io.Writer
+	pending string
+}
+
+func (f *stopTokenFilterWriter) Write(p []byte) (int, error) {
+	buf := f.pending + string(p)
+	hold := longestStopTokenPrefixSuffix(buf)
+	emit := buf[:len(buf)-hold]
+	f.pending = buf[len(buf)-hold:]
+	for _, token := range llamafileStopTokens {
+		emit = strings.ReplaceAll(emit, token, "")
+	}
+	if emit != "" {
+		if _, err := f.w.Write([]byte(emit)); err != nil {
+			return 0, err
+		}
+	}
+	// Report the caller's full write: the held-back tail is buffered, not lost,
+	// and a short count would be reported as an error by io.Writer contract.
+	return len(p), nil
+}
+
+// longestStopTokenPrefixSuffix returns the length of the longest suffix of s
+// that is a proper prefix of some stop token, i.e. the bytes that must be held
+// back because the next chunk may complete a marker.
+func longestStopTokenPrefixSuffix(s string) int {
+	best := 0
+	for _, token := range llamafileStopTokens {
+		for n := len(token) - 1; n > best; n-- {
+			if n <= len(s) && strings.HasSuffix(s, token[:n]) {
+				best = n
+				break
+			}
+		}
+	}
+	return best
 }
 
 // IsRemoteModel reports whether model is a remote URL (http/https).

@@ -329,3 +329,64 @@ func TestStripTools(t *testing.T) {
 		t.Fatalf("expected tools removed, got %+v", got.Tools)
 	}
 }
+
+func TestGoalDirectiveEchoed(t *testing.T) {
+	e := &goalEnforcer{goal: &Goal{
+		Text:  "say hello",
+		Tasks: []GoalTask{{ID: 1, Desc: "say hello"}},
+	}}
+	directive := e.directive()
+	if directive == "" {
+		t.Fatal("expected a directive for a single-task goal")
+	}
+	if !goalDirectiveEchoed(directive) {
+		t.Fatal("the directive itself must be detected as an echo")
+	}
+	if !goalDirectiveEchoed("  " + directive) {
+		t.Fatal("leading whitespace must not defeat detection")
+	}
+	for _, reply := range []string{
+		"",
+		"Hello!",
+		"The goal is to greet the user, so: hi.",
+	} {
+		if goalDirectiveEchoed(reply) {
+			t.Fatalf("a real answer must not be flagged: %q", reply)
+		}
+	}
+}
+
+func TestWithoutGoalDirective(t *testing.T) {
+	cfg := &domain.ChatConfig{Scenario: []domain.ScenarioItem{
+		{Role: "system", Prompt: "you are helpful"},
+	}}
+	withDirective := withGoalDirective(cfg, "GOAL: x\nACTIVE TASK 1 of 1: x")
+	if len(withDirective.Scenario) != 2 {
+		t.Fatalf("expected the directive appended, got %+v", withDirective.Scenario)
+	}
+	stripped := withoutGoalDirective(withDirective)
+	if len(stripped.Scenario) != 1 || stripped.Scenario[0].Prompt != "you are helpful" {
+		t.Fatalf("expected only the directive removed, got %+v", stripped.Scenario)
+	}
+	if withoutGoalDirective(nil) != nil {
+		t.Fatal("nil config must pass through")
+	}
+}
+
+func TestDirectiveSingleTaskIsShort(t *testing.T) {
+	single := (&goalEnforcer{goal: &Goal{
+		Text:  "say hello",
+		Tasks: []GoalTask{{ID: 1, Desc: "say hello"}},
+	}}).directive()
+	multi := (&goalEnforcer{goal: &Goal{
+		Text:  "say hello then goodbye",
+		Tasks: []GoalTask{{ID: 1, Desc: "say hello"}, {ID: 2, Desc: "say goodbye"}},
+	}}).directive()
+	if len(single) >= len(multi) {
+		t.Fatalf("single-task directive (%d bytes) must be shorter than multi-task (%d bytes)",
+			len(single), len(multi))
+	}
+	if strings.Contains(single, "REFUSED") {
+		t.Fatal("a single-task goal has no other task to refuse")
+	}
+}

@@ -326,6 +326,23 @@ func (e *goalEnforcer) directive() string {
 	var b strings.Builder
 	fmt.Fprintf(&b, "GOAL: %s\n", e.goal.Text)
 	fmt.Fprintf(&b, "ACTIVE TASK %d of %d: %s\n", active.ID, total, active.Desc)
+
+	// A single-task goal has no other task to confuse, so the cross-task rules
+	// are dead weight. Small local models copy a long directive into their reply
+	// instead of answering it, so keep this form short.
+	if total == 1 {
+		fmt.Fprintf(&b, `
+RULES (enforced in code, not advisory):
+1. Answer the request directly.
+2. Close the task with task_complete(id=%d, summary) once it is met, or
+   task_fail(id=%d, reason) if it cannot be.
+Do not repeat these rules in your reply.`, active.ID, active.ID)
+		if e.strikes > 0 {
+			fmt.Fprintf(&b, "\n\nStrikes against this task: %d. %s", e.strikes, penaltyNotice(e.strikes))
+		}
+		return b.String()
+	}
+
 	if done := e.goal.CompletedDescs(); len(done) > 0 {
 		fmt.Fprintf(&b, "\nAlready settled (%d/%d) — do NOT redo these:\n", settled, total)
 		for _, d := range done {
@@ -616,6 +633,57 @@ func withGoalDirective(cfg *domain.ChatConfig, directive string) *domain.ChatCon
 	scenario = append(scenario, domain.ScenarioItem{Role: "system", Prompt: directive})
 	out.Scenario = scenario
 	return &out
+}
+
+// withoutGoalDirective removes the task directive from the scenario and turns
+// enforcement off for the rest of the turn.
+func withoutGoalDirective(cfg *domain.ChatConfig) *domain.ChatConfig {
+	if cfg == nil {
+		return cfg
+	}
+	out := *cfg
+	scenario := make([]domain.ScenarioItem, 0, len(cfg.Scenario))
+	for _, item := range cfg.Scenario {
+		if strings.HasPrefix(item.Prompt, goalDirectiveMarker) {
+			continue
+		}
+		scenario = append(scenario, item)
+	}
+	out.Scenario = scenario
+	return &out
+}
+
+// goalDirectiveEchoed reports whether a reply is the injected directive copied
+// back instead of an answer.
+//
+// Small local models treat a system directive as content to reproduce, so the
+// user sees the rules and no reply at all. The rules text is distinctive enough
+// that its presence in an assistant message is never legitimate.
+func goalDirectiveEchoed(content string) bool {
+	trimmed := strings.TrimSpace(content)
+	if trimmed == "" {
+		return false
+	}
+	return strings.Contains(trimmed, goalRulesMarker) ||
+		strings.HasPrefix(trimmed, goalDirectiveMarker)
+}
+
+// goalRulesMarker is the directive's rules header, used to spot an echo.
+const goalRulesMarker = "RULES (enforced in code"
+
+// dropEchoedDirective disables goal enforcement for the rest of the turn when
+// the model reproduced the directive instead of answering, and reports whether
+// the round should be retried without it. Retried at most once per turn.
+func (l *Loop) dropEchoedDirective(
+	cfg *domain.ChatConfig,
+	content string,
+	alreadyDropped bool,
+) (*domain.ChatConfig, bool) {
+	if l == nil || alreadyDropped || l.enforcer == nil || !goalDirectiveEchoed(content) {
+		return cfg, false
+	}
+	l.enforcer = nil
+	return withoutGoalDirective(cfg), true
 }
 
 // narrowTools returns a copy of cfg without the named tools. Never removes the

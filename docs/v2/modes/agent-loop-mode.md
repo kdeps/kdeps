@@ -107,6 +107,12 @@ interactive REPL; library and test callers keep the plain round loop. Tuning:
 `TaskRoundBudget` (default 25 rounds per task) and `MaxUnproductiveRounds`
 (default 3).
 
+Small local models sometimes copy the task directive into their reply instead of
+acting on it, which would leave the turn with no answer. When that happens the
+directive is removed, enforcement is turned off for the rest of the turn, and the
+round is retried once as a plain round. The modeline drops `task:n/m` for that
+turn.
+
 ### Adaptive tool budgets
 
 The per-category caps (`web`, `bash`, `file`, `code`) start at their configured

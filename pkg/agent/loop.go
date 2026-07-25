@@ -870,6 +870,7 @@ func (l *Loop) runToolRounds(
 
 	var finalContent string
 	capped := false
+	directiveDropped := false
 	nudged := false
 	// Repeat-block loop guard: a model that re-issues the exact same tool call
 	// every round (common once a tool is blocked by convergence or keeps
@@ -908,6 +909,13 @@ func (l *Loop) runToolRounds(
 		content, toolCalls, err := l.streamChatWithRetry(ctx, chatCfg, &roundBuf)
 		if err != nil {
 			return "", fmt.Errorf("agent loop stream: %w", err)
+		}
+		// A model that copies the goal directive back instead of answering it
+		// leaves the turn with no reply at all. Drop the directive, stop
+		// enforcing, and redo the round as a plain one.
+		if next, retry := l.dropEchoedDirective(chatCfg, content, directiveDropped); retry {
+			chatCfg, directiveDropped = next, true
+			continue
 		}
 		finalContent = content
 
