@@ -5233,3 +5233,29 @@ func TestRunStreaming_SpinnerClearedBeforeOutput(t *testing.T) {
 	require.GreaterOrEqual(t, clearIdx, 0, "clear-line escape must appear")
 	assert.Greater(t, clearIdx, spinnerIdx, "clear must come after spinner frames")
 }
+
+func TestPrintResumedGoal_ShowsGoalAndCommands(t *testing.T) {
+	loop := makeTestLoop(nil)
+	loop.config.GoalEnforcement = true
+	loop.enforcer = newGoalEnforcer(NewGoal("ship the release", []string{"write notes", "tag it"}), nil, 3, 25)
+	repl := NewREPL(context.Background(), loop)
+	defer repl.cancel()
+
+	out := captureStdout(t, func() { repl.printResumedGoal() })
+
+	for _, want := range []string{"Resuming goal", "ship the release", "write notes", "/goal", "/goal clear"} {
+		if !strings.Contains(out, want) {
+			t.Fatalf("startup goal banner must mention %q:\n%s", want, out)
+		}
+	}
+}
+
+func TestPrintResumedGoal_SilentWhenNoGoal(t *testing.T) {
+	loop := makeTestLoop(nil)
+	repl := NewREPL(context.Background(), loop)
+	defer repl.cancel()
+
+	if out := captureStdout(t, func() { repl.printResumedGoal() }); out != "" {
+		t.Fatalf("no goal should print nothing, got %q", out)
+	}
+}

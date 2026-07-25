@@ -1483,6 +1483,11 @@ func (r *REPL) Run() error {
 		fmt.Fprintln(os.Stdout, styleReplDim.Render("tip: "+notice))
 	}
 
+	// A goal persists across sessions, so one may be carried over from a
+	// previous run. Show it up front with how to steer or drop it, rather than
+	// silently resuming it on the next prompt.
+	r.printResumedGoal()
+
 	// Stale branch check - warn when branch is behind upstream.
 	if staleCwd, cwdErr := os.Getwd(); cwdErr == nil {
 		if fr, _ := CheckBranchFreshness(r.loopCtx, staleCwd); fr.Freshness != BranchFresh &&
@@ -2956,6 +2961,22 @@ func (r *REPL) startLocalModelServer(model string) error {
 	r.loop.config.BaseURL = url
 	llm.WaitForServerReady(ctx, url)
 	return nil
+}
+
+// printResumedGoal shows a persisted, unfinished goal at startup along with the
+// commands to act on it. No output when there is no active goal.
+func (r *REPL) printResumedGoal() {
+	goal := r.loop.ActiveGoal()
+	if goal == nil || goal.Complete() {
+		return
+	}
+	settled, total := goal.Progress()
+	fmt.Fprintln(os.Stdout, styleReplInfo.Render(
+		fmt.Sprintf("Resuming goal (%d/%d done): %s", settled, total, firstLine(goal.Text))))
+	fmt.Fprint(os.Stdout, goal.Summary())
+	fmt.Fprintln(os.Stdout, styleReplDim.Render(
+		"Type /goal to review · /goal new <text> to replace · /goal skip to drop the current task · /goal clear to abandon it",
+	))
 }
 
 // providerStatusLine returns a one-line summary of ready providers for the welcome banner.

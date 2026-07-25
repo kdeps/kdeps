@@ -91,7 +91,9 @@ Because step 4 always advances, a goal terminates instead of stalling. Work from
 settled task is also refused if reissued, so finished tasks are never re-run.
 
 The plan persists in the memory store, so it survives a `/model` switch and later
-turns continue the same goal.
+turns continue the same goal. When you start the REPL with a goal still carried
+over from a previous session, it is shown up front with the commands to steer or
+drop it, rather than silently resuming on your next prompt.
 
 ```
 /goal                # show the plan and each task's status
