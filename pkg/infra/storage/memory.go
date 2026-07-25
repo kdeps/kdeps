@@ -48,15 +48,25 @@ type MemoryStorage struct {
 	DB   *bolt.DB
 	mu   sync.RWMutex
 	path string
+	refs int // holders of this shared handle; guarded by storesMu
 }
 
-// openStores caches opened MemoryStorage instances keyed by resolved path.
-// bbolt uses flock per-file, so sharing the *bolt.DB handle within a process
-// avoids "resource temporarily unavailable" errors when multiple callers
-// open the same path.
+// openStores caches opened MemoryStorage instances keyed by resolved path, so a
+// process shares one *bolt.DB per file. bbolt takes an exclusive flock per file
+// and bolt.Open(..., nil) blocks forever waiting for it, so a second open of the
+// same path must never happen while the first is live — hence the shared handle.
+//
+// The handle is reference-counted: NewMemoryStorage hands out (and counts) the
+// cached store, and Close only evicts and closes it when the last holder
+// releases. Closing a still-shared handle was the source of both a
+// "database not open" failure and, after a naive evict-on-close, a flock
+// deadlock.
 //
 //nolint:gochecknoglobals // singleton cache for bbolt handle sharing
-var openStores sync.Map
+var (
+	storesMu   sync.Mutex
+	openStores = map[string]*MemoryStorage{}
+)
 
 func resolveMemoryDBPath(dbPath string) string {
 	if dbPath != "" {
@@ -124,11 +134,15 @@ func NewMemoryStorage(dbPath string) (*MemoryStorage, error) {
 	}
 	dbPath = effectivePath
 
-	// Check for an existing open store for this path.
-	if existing, ok := openStores.Load(dbPath); ok {
-		if store, typeOK := existing.(*MemoryStorage); typeOK {
-			return store, nil
-		}
+	// Serialize open/close so an open never races a concurrent open or close of
+	// the same path (which would flock-deadlock or hand back a closing handle).
+	storesMu.Lock()
+	defer storesMu.Unlock()
+
+	// Existing shared store: take a reference and reuse the live handle.
+	if store, ok := openStores[dbPath]; ok {
+		store.refs++
+		return store, nil
 	}
 
 	if err := ensureMemoryDBDirectory(dbPath); err != nil {
@@ -149,8 +163,8 @@ func NewMemoryStorage(dbPath string) (*MemoryStorage, error) {
 		return nil, fmt.Errorf("failed to initialize schema: %w", bucketErr)
 	}
 
-	store := &MemoryStorage{DB: db, path: dbPath}
-	openStores.Store(dbPath, store)
+	store := &MemoryStorage{DB: db, path: dbPath, refs: 1}
+	openStores[dbPath] = store
 	return store, nil
 }
 
@@ -227,9 +241,19 @@ func (m *MemoryStorage) Delete(key string) error {
 // Close closes the database connection.
 func (m *MemoryStorage) Close() error {
 	kdeps_debug.Log("enter: Close")
-	// Evict from the shared cache before closing: otherwise the next
-	// NewMemoryStorage for this path returns this now-closed handle and its
-	// operations fail with "database not open".
-	openStores.Delete(m.path)
+	// Only the last holder actually closes the shared handle. Closing while
+	// others still hold it caused "database not open"; evicting so a concurrent
+	// caller reopened the same path caused a flock deadlock. Reference counting
+	// avoids both: the handle stays live until every holder has released it.
+	storesMu.Lock()
+	defer storesMu.Unlock()
+	if m.refs > 1 {
+		m.refs--
+		return nil
+	}
+	m.refs = 0
+	if openStores[m.path] == m {
+		delete(openStores, m.path)
+	}
 	return m.DB.Close()
 }

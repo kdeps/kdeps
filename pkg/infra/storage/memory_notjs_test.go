@@ -91,3 +91,41 @@ func TestNewMemoryStorage_ReopensAfterClose(t *testing.T) {
 		t.Fatalf("reopened store must be usable, got: %v", setErr)
 	}
 }
+
+// The shared handle is reference-counted: two openers get the same store, and a
+// Close by one holder must leave it usable for the other — closing a still-held
+// handle is what produced "database not open", and evicting it so the other
+// reopened the same path is what deadlocked on bbolt's flock.
+func TestNewMemoryStorage_SharedHandleRefcounted(t *testing.T) {
+	path := t.TempDir() + "/shared.db"
+
+	a, err := NewMemoryStorage(path)
+	if err != nil {
+		t.Fatalf("open a: %v", err)
+	}
+	b, err := NewMemoryStorage(path)
+	if err != nil {
+		t.Fatalf("open b: %v", err)
+	}
+	if a != b {
+		t.Fatal("same path should share one handle")
+	}
+
+	// One holder closes; the other must still work, not "database not open".
+	if closeErr := a.Close(); closeErr != nil {
+		t.Fatalf("close a: %v", closeErr)
+	}
+	if setErr := b.Set("k", "v"); setErr != nil {
+		t.Fatalf("shared handle must stay live for the other holder, got: %v", setErr)
+	}
+
+	// Last holder closes; a fresh open reopens cleanly (no flock hang).
+	if closeErr := b.Close(); closeErr != nil {
+		t.Fatalf("close b: %v", closeErr)
+	}
+	c, err := NewMemoryStorage(path)
+	if err != nil {
+		t.Fatalf("reopen after last close: %v", err)
+	}
+	_ = c.Close()
+}
