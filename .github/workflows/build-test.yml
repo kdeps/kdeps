@@ -159,10 +159,11 @@ jobs:
 
     - name: Test Unit
       run: make test-unit
-      # make test-unit runs go test with -timeout=20m; the step must exceed that
-      # so the Go timeout is the real guard. The suite runs -parallel 1 with
-      # atomic coverage, so aggregate wall-time grows with the test count.
-      timeout-minutes: 25
+      # make test-unit runs go test with -timeout=30m; the step must exceed that
+      # so the Go timeout is the real guard and produces a goroutine dump on a
+      # real hang instead of an opaque step kill (the previous 25m step killed
+      # before Go could, hiding a bbolt flock deadlock in the storage layer).
+      timeout-minutes: 35
 
     - name: Upload unit coverage artifact
       uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1

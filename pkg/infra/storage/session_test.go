@@ -856,3 +856,29 @@ func TestSessionStorage_Close(t *testing.T) {
 	err = storage.Close()
 	require.NoError(t, err)
 }
+
+// Two session stores on the same file share one bolt handle: opening twice
+// would deadlock on bbolt's exclusive flock, and a Close by one holder must
+// leave the other usable (regression for the storage-layer flock hang that
+// timed out CI).
+func TestNewSessionStorage_SharedHandleRefcounted(t *testing.T) {
+	path := t.TempDir() + "/sessions.db"
+
+	a, err := storage.NewSessionStorage(path, "sess-a")
+	require.NoError(t, err)
+	b, err := storage.NewSessionStorage(path, "sess-b")
+	require.NoError(t, err)
+	if a.DB != b.DB {
+		t.Fatal("same path must share one bolt handle")
+	}
+
+	// One holder closes; the other must still work, not fail on a closed DB.
+	require.NoError(t, a.Close())
+	require.NoError(t, b.Set("k", "v"))
+
+	// Last holder closes; a fresh open must not hang on a stale lock.
+	require.NoError(t, b.Close())
+	c, err := storage.NewSessionStorage(path, "sess-c")
+	require.NoError(t, err)
+	_ = c.Close()
+}

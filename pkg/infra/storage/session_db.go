@@ -98,23 +98,19 @@ func NewSessionStorageWithTTL(
 		return nil, err
 	}
 
-	db, err := boltOpen(effectivePath, 0600, nil) //nolint:mnd // DB file permissions
+	// Share one bolt handle per file, reference-counted: two SessionStorages on
+	// the same path (different session IDs) must not open the file twice, which
+	// bbolt's exclusive flock would deadlock on. acquireSessionDB also bounds
+	// the flock wait so a stale lock fails fast instead of hanging.
+	db, err := acquireSessionDB(effectivePath)
 	if err != nil {
-		return nil, fmt.Errorf("failed to open database: %w", err)
-	}
-
-	// Create bucket on first open.
-	if bucketErr := db.Update(func(tx *bolt.Tx) error {
-		_, cerr := tx.CreateBucketIfNotExists(SessionsBucket)
-		return cerr
-	}); bucketErr != nil {
-		_ = db.Close()
-		return nil, fmt.Errorf("failed to initialize schema: %w", bucketErr)
+		return nil, err
 	}
 
 	storage := &SessionStorage{
 		DB:              db,
 		path:            dbPath,
+		dbFile:          effectivePath,
 		SessionID:       sessionID,
 		DefaultTTL:      defaultTTL,
 		cleanupInterval: defaultCleanupInterval,
@@ -381,5 +377,6 @@ func (s *SessionStorage) Close() error {
 			close(s.stopCh)
 		}
 	}
-	return s.DB.Close()
+	// Release the shared handle; it closes only when the last holder does.
+	return releaseSessionDB(s.dbFile, s.DB)
 }

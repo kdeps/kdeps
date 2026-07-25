@@ -43,6 +43,10 @@ var boltOpen = bolt.Open
 //nolint:gochecknoglobals // exported for test access
 var MemoryBucket = []byte("memory")
 
+// memoryOpenTimeout bounds how long a bolt.Open waits for the file's exclusive
+// lock before failing, so a stale lock cannot hang the process indefinitely.
+const memoryOpenTimeout = 10 * time.Second
+
 // MemoryStorage provides persistent key-value storage using bbolt.
 type MemoryStorage struct {
 	DB   *bolt.DB
@@ -149,7 +153,18 @@ func NewMemoryStorage(dbPath string) (*MemoryStorage, error) {
 		return nil, fmt.Errorf("failed to create directory: %w", err)
 	}
 
-	db, err := boltOpen(dbPath, 0600, nil) //nolint:mnd // DB file permissions
+	// Timeout bounds the exclusive-flock wait: bolt.Open with no timeout blocks
+	// forever if the file is locked by another process (e.g. a stale lock from a
+	// killed test run), which shows up as a hung suite. A bounded wait turns
+	// that into a fast, clear error instead.
+	//
+	// NoSync skips the per-commit fsync. This is a memory store — ephemeral
+	// runtime state, not crash-durable data — so trading durability for write
+	// speed is correct, and it keeps fsync latency out of a large serial suite.
+	db, err := boltOpen(dbPath, 0600, &bolt.Options{ //nolint:mnd // DB file permissions
+		Timeout: memoryOpenTimeout,
+		NoSync:  true,
+	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to open database: %w", err)
 	}
@@ -246,14 +261,18 @@ func (m *MemoryStorage) Close() error {
 	// caller reopened the same path caused a flock deadlock. Reference counting
 	// avoids both: the handle stays live until every holder has released it.
 	storesMu.Lock()
-	defer storesMu.Unlock()
 	if m.refs > 1 {
 		m.refs--
+		storesMu.Unlock()
 		return nil
 	}
 	m.refs = 0
 	if openStores[m.path] == m {
 		delete(openStores, m.path)
 	}
+	storesMu.Unlock()
+	// Close the DB outside the lock: bbolt's Close blocks until in-flight
+	// transactions finish, and holding storesMu across it would freeze every
+	// other open/close in the process.
 	return m.DB.Close()
 }
