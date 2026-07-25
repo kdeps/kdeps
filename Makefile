@@ -185,7 +185,7 @@ test: fmt lint build
 test-unit:
 	@echo "Running unit tests with coverage..."
 	@mkdir -p "$${GITHUB_WORKSPACE:-/tmp}/go-test-tmp" 2>/dev/null || true; \
-	env -u KDEPS_SKIP_BOOTSTRAP -u KDEPS_COMPONENT_DIR GOTMPDIR="$${GITHUB_WORKSPACE:-/tmp}/go-test-tmp" go test -short -parallel 1 -count=1 -timeout=30m -covermode=atomic -coverprofile=coverage.out ./pkg/... ./cmd/... ./; \
+	env -u KDEPS_SKIP_BOOTSTRAP -u KDEPS_COMPONENT_DIR KDEPS_MEMORY_DB_PATH=:memory: GOTMPDIR="$${GITHUB_WORKSPACE:-/tmp}/go-test-tmp" go test -short -parallel 1 -count=1 -timeout=30m -covermode=atomic -coverprofile=coverage.out ./pkg/... ./cmd/... ./; \
 	TEST_EXIT=$$?; \
 	echo ""; \
 	if [ -f coverage.out ]; then \

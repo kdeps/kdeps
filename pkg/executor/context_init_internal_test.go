@@ -228,6 +228,10 @@ func TestNewExecutionContext_MemoryStorageFailure(t *testing.T) {
 	roHome := filepath.Join(t.TempDir(), "rohome")
 	require.NoError(t, os.Mkdir(roHome, 0555))
 	t.Setenv("HOME", roHome)
+	// Force the memory-store open to fail by pointing it inside the read-only
+	// dir (resolved ahead of HOME). Explicit so the test does not depend on the
+	// default path, which the suite runs as :memory: for isolation.
+	t.Setenv("KDEPS_MEMORY_DB_PATH", filepath.Join(roHome, "sub", "memory.db"))
 
 	_, err := NewExecutionContext(&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "x"}})
 	require.Error(t, err)

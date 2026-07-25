@@ -131,9 +131,9 @@ func TestReferencedConnections_BotNilConfig(t *testing.T) {
 func TestReferencedConnectionsAndBackends_CloudModel(t *testing.T) {
 	wf := &domain.Workflow{
 		Resources: []*domain.Resource{
-			{ActionID: "triage", Chat: &domain.ChatConfig{Model: "deepseek-chat"}},
-			{ActionID: "draft", Chat: &domain.ChatConfig{Model: "deepseek-chat"}}, // dup backend
-			{ActionID: "local", Chat: &domain.ChatConfig{Model: "llama3.2:1b"}},   // local, no backend
+			{ActionID: "triage", Chat: &domain.ChatConfig{Model: "deepseek-v4-flash"}},
+			{ActionID: "draft", Chat: &domain.ChatConfig{Model: "deepseek-v4-flash"}}, // dup backend
+			{ActionID: "local", Chat: &domain.ChatConfig{Model: "llama3.2:1b"}},       // local, no backend
 		},
 	}
 	_, backends := referencedConnectionsAndBackends(wf)
@@ -161,7 +161,7 @@ func TestEnsureWorkflowRuntimeConfig_CloudNoTerminal(t *testing.T) {
 	t.Setenv("KDEPS_API_AUTH_TOKEN", "")
 	wf := &domain.Workflow{
 		Settings:  domain.WorkflowSettings{APIServer: &domain.APIServerConfig{}},
-		Resources: []*domain.Resource{{ActionID: "c", Chat: &domain.ChatConfig{Model: "deepseek-chat"}}},
+		Resources: []*domain.Resource{{ActionID: "c", Chat: &domain.ChatConfig{Model: "deepseek-v4-flash"}}},
 	}
 	require.NoError(t, ensureWorkflowRuntimeConfig(wf))
 }

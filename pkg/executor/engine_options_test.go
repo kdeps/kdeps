@@ -57,6 +57,10 @@ func TestSetNewExecutionContextForAgency_CreateError(t *testing.T) {
 	roHome := filepath.Join(t.TempDir(), "ro")
 	require.NoError(t, os.Mkdir(roHome, 0555))
 	t.Setenv("HOME", roHome)
+	// Force the memory-store open to fail via a path inside the read-only dir
+	// (resolved ahead of HOME), independent of the default path the suite runs
+	// as :memory: for isolation.
+	t.Setenv("KDEPS_MEMORY_DB_PATH", filepath.Join(roHome, "sub", "memory.db"))
 
 	e := covTestEngine()
 	e.SetNewExecutionContextForAgency(map[string]string{"a": "/tmp"})
