@@ -79,11 +79,29 @@ func resolveMemoryDBPath(dbPath string) string {
 	if envPath := os.Getenv("KDEPS_MEMORY_DB_PATH"); envPath != "" {
 		return envPath
 	}
-	homeDir, homeErr := os.UserHomeDir()
-	if homeErr != nil {
-		homeDir = "."
-	}
-	return filepath.Join(homeDir, ".kdeps", "memory.db")
+	// Default to a per-process file. The memory store is a single-writer bbolt
+	// file guarded by an exclusive flock, so a single shared path (the old
+	// ~/.kdeps/memory.db) let only one kdeps process open it — a second server
+	// blocked on the lock. Memory here is request/session state for the life of
+	// the process, not cross-restart durable storage, so scoping the default to
+	// the pid gives every process its own file: shared across that process's
+	// requests, isolated from other instances.
+	return processMemoryDBPath()
+}
+
+//nolint:gochecknoglobals // stable per-process default path, computed once
+var (
+	processMemoryPathOnce sync.Once
+	processMemoryPath     string
+)
+
+func processMemoryDBPath() string {
+	processMemoryPathOnce.Do(func() {
+		// Under the OS temp dir, not ~/.kdeps, so per-process files do not
+		// accumulate in the user's config directory and the OS reclaims them.
+		processMemoryPath = filepath.Join(os.TempDir(), fmt.Sprintf("kdeps-memory-%d.db", os.Getpid()))
+	})
+	return processMemoryPath
 }
 
 func ensureMemoryDBDirectory(dbPath string) error {

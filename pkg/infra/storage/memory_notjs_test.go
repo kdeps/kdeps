@@ -23,6 +23,8 @@ package storage
 import (
 	"errors"
 	"os"
+	"strconv"
+	"strings"
 	"testing"
 	"time"
 
@@ -128,4 +130,49 @@ func TestNewMemoryStorage_SharedHandleRefcounted(t *testing.T) {
 		t.Fatalf("reopen after last close: %v", err)
 	}
 	_ = c.Close()
+}
+
+// The default memory path is per-process and stable: every open in one process
+// resolves to the same file (so memory persists across a server's requests),
+// while a different process gets a different file (so concurrent kdeps
+// instances never contend on one exclusive-locked bbolt file).
+func TestResolveMemoryDBPath_PerProcessDefault(t *testing.T) {
+	t.Setenv("KDEPS_MEMORY_DB_PATH", "") // force the built-in default
+
+	p1 := resolveMemoryDBPath("")
+	p2 := resolveMemoryDBPath("")
+	if p1 != p2 {
+		t.Fatalf("default must be stable within a process: %q != %q", p1, p2)
+	}
+	if !strings.Contains(p1, strconv.Itoa(os.Getpid())) {
+		t.Fatalf("default must be scoped to the pid, got %q", p1)
+	}
+
+	// Explicit path and env override still win.
+	if got := resolveMemoryDBPath("/explicit.db"); got != "/explicit.db" {
+		t.Fatalf("explicit path must win, got %q", got)
+	}
+	t.Setenv("KDEPS_MEMORY_DB_PATH", "/from/env.db")
+	if got := resolveMemoryDBPath(""); got != "/from/env.db" {
+		t.Fatalf("env override must win, got %q", got)
+	}
+}
+
+// Within one process the default store is shared, so a value set through one
+// context is visible to the next — the persistence the E2E memory tests need.
+func TestMemoryStorage_DefaultSharesAcrossContexts(t *testing.T) {
+	t.Setenv("KDEPS_MEMORY_DB_PATH", "")
+
+	a, err := NewMemoryStorage("")
+	require.NoError(t, err)
+	require.NoError(t, a.Set("shared-key", "shared-value"))
+
+	b, err := NewMemoryStorage("")
+	require.NoError(t, err)
+	got, ok := b.Get("shared-key")
+	require.True(t, ok, "a second context in the same process must see the value")
+	assert.Equal(t, "shared-value", got)
+
+	require.NoError(t, a.Close())
+	require.NoError(t, b.Close())
 }
