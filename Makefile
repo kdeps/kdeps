@@ -205,7 +205,7 @@ test-unit:
 # Run integration tests
 test-integration:
 	@echo "Running integration tests with coverage..."
-	@go test -v -coverprofile=coverage-integration.out -covermode=count ./tests/integration/...
+	@KDEPS_MEMORY_DB_PATH=:memory: go test -v -coverprofile=coverage-integration.out -covermode=count ./tests/integration/...
 	@echo ""
 	@if [ -f coverage-integration.out ]; then \
 		echo "Coverage Report:"; \
