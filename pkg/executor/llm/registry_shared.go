@@ -74,12 +74,12 @@ func loadOrSeedLocalFile(localPath, defaultYAML string) ([]byte, bool) {
 	if err != nil {
 		return nil, false
 	}
-	// If the embedded version differs from the cached local file, the
-	// binary was rebuilt with an updated registry — use the new embedded
-	// data and refresh the cache.
-	if string(raw) != defaultYAML {
-		_ = afero.WriteFile(AppFS, localPath, []byte(defaultYAML), 0600)
-		return nil, false // signal: use embedded, cache refreshed
-	}
+	// Return the local file as-is; the caller merges it over the embedded
+	// registry (embedded is the base, so binary upgrades still surface new
+	// aliases; local entries override or extend it). Discarding the local file
+	// whenever it differed from the embedded default — as a previous "stale
+	// cache" guard did — also wiped legitimate user overrides and entries
+	// written by `kdeps update`, which is the opposite of what the local
+	// registry is for.
 	return raw, true
 }

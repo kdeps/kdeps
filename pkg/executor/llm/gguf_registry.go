@@ -19,6 +19,8 @@
 package llm
 
 import (
+	"net/url"
+	"path"
 	"path/filepath"
 	"sort"
 
@@ -124,11 +126,25 @@ func GGUFCachedPath(alias, modelsDir string) (string, bool) {
 	if !ok {
 		return "", false
 	}
-	basename := filepath.Base(rawURL)
+	// Take the filename from the URL's PATH, not filepath.Base of the whole
+	// URL string — the latter returns the host ("example.com") for a URL with
+	// no file component ("https://example.com/"), yielding a bogus cache name.
+	basename := path.Base(ggufURLPath(rawURL))
 	if basename == "" || basename == "." || basename == "/" {
 		return "", false
 	}
 	return filepath.Join(modelsDir, basename), true
+}
+
+// ggufURLPath returns the path component of a model URL, so the cache filename
+// is derived from the file part rather than the host. A value that does not
+// parse as a URL (a bare local path) is returned unchanged.
+func ggufURLPath(rawURL string) string {
+	u, err := url.Parse(rawURL)
+	if err != nil || u.Path == "" {
+		return rawURL
+	}
+	return u.Path
 }
 
 func GGUFAliasNames() []string {
