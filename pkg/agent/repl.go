@@ -3990,7 +3990,8 @@ func (r *REPL) cmdTuro(args []string) error {
 		fmt.Fprintf(os.Stdout, "%s\n", styleReplSuccess.Render("turo "+arg+": "+state))
 	default:
 		fmt.Fprintln(os.Stderr, styleReplError.Render(
-			"Usage: /turo [on|off|lite|full|ultra|wenyan|filler on|off|synonyms on|off|gloss on|off|defmatch on|off|arrows on|off]"))
+			"Usage: /turo [on|off|lite|full|ultra|wenyan|"+
+				"filler|synonyms|gloss|defmatch|arrows on|off]"))
 		return nil
 	}
 	r.persistTuning() // survive across sessions
