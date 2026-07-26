@@ -123,8 +123,14 @@ func startGGUFServer(path string, port int) (int, error) {
 		"--ctx-size", strconv.Itoa(localContextSize),
 		"--no-mmap",
 	)
-	cmd.Stdout = nil
-	cmd.Stderr = nil
+	// Keep the server's output: llama-server reports model load failures
+	// (unsupported GGUF version, corrupt file) on stderr and then exits.
+	// Discarding it leaves only an opaque health-check timeout.
+	if logFile, err := openServerLog(path); err == nil {
+		cmd.Stdout = logFile
+		cmd.Stderr = logFile
+		defer logFile.Close()
+	}
 	if err := cmd.Start(); err != nil {
 		return 0, fmt.Errorf("failed to start llama-server: %w", err)
 	}

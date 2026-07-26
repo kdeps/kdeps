@@ -199,6 +199,19 @@ To keep agent context faithful (drop filler only, no wording changes), set `TURO
 
 The default model is persisted to `~/.kdeps/agent-loop-settings.yaml` and loaded automatically at startup when `--model` is not passed.
 
+### How a model is picked when none is configured
+
+With no `--model` flag, no saved default, and no `model:` in `~/.kdeps/config.yaml`, kdeps picks the first option that is actually usable, in this order:
+
+1. **llamafile** - the `llamafile` runner binary on `PATH`, or a cached `*.llamafile` in the models directory (a `.llamafile` is self-executing, so no runner is needed).
+2. **GGUF** - the first `*.gguf` in the models directory that `llama-server` can load. Files with an unreadable header or a GGUFv1 container are skipped: current llama.cpp builds refuse them (`GGUFv1 is no longer supported`), so serving one would start a server that exits immediately and fail every request.
+3. **Cloud** - the first known provider whose API key env var is set (`OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, ...).
+4. **ollama** - the `ollama` binary on `PATH`.
+
+The models directory is `$KDEPS_MODELS_DIR`, or `~/.kdeps/models` when that is unset. If nothing matches, kdeps starts with no model and `/model` lists what you can download.
+
+Each local model server writes its stdout and stderr next to the model file as `<model>.server.log`. When a server fails to become healthy, the tail of that log is included in the error, so a bad model file reports its real cause instead of a bare connection failure.
+
 ### Registering a model by URL
 
 `/model <url>` registers a custom model and switches to it. The URL kind is detected automatically:

@@ -2918,7 +2918,7 @@ func (r *REPL) startLocalModelServer(model string) error {
 		))
 		return context.Canceled
 	}
-	_ = svc.ServeModel(ctx, backend, model, "", 0)
+	serveErr := svc.ServeModel(ctx, backend, model, "", 0)
 	if ctx.Err() != nil {
 		fmt.Fprintf(os.Stdout, "%s\n", styleReplMeta.Render("Model server start canceled."))
 		return context.Canceled
@@ -2949,12 +2949,14 @@ func (r *REPL) startLocalModelServer(model string) error {
 		}
 	}
 	if url == "" {
+		msg := "Warning: model server did not start in time; requests may fail."
+		if serveErr != nil {
+			msg = "Warning: model server failed to start: " + serveErr.Error()
+		}
 		fmt.Fprintf(
 			os.Stdout,
 			"%s\n",
-			styleModelsNoKey.Render(
-				"Warning: model server did not start in time; requests may fail.",
-			),
+			styleModelsNoKey.Render(msg),
 		)
 		return nil
 	}

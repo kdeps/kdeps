@@ -181,6 +181,34 @@ func writeServerPortFile(path string, port int) {
 	_ = afero.WriteFile(AppFS, serverPortFile(path), []byte(strconv.Itoa(port)), 0600)
 }
 
+// serverLogPath is where a model server's stdout/stderr is kept, next to the
+// model file it was started for.
+func serverLogPath(modelPath string) string {
+	return modelPath + ".server.log"
+}
+
+// openServerLog truncates and opens the log file for a model server run.
+func openServerLog(modelPath string) (*os.File, error) {
+	return os.OpenFile(serverLogPath(modelPath), os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0600)
+}
+
+// tailServerLog returns the last few lines written by a model server, used to
+// explain why it never became healthy. Returns "" when no log is available.
+func tailServerLog(modelPath string) string {
+	data, err := afero.ReadFile(AppFS, serverLogPath(modelPath))
+	if err != nil {
+		return ""
+	}
+	lines := strings.Split(strings.TrimSpace(string(data)), "\n")
+	if len(lines) > serverLogTailLines {
+		lines = lines[len(lines)-serverLogTailLines:]
+	}
+	return strings.TrimSpace(strings.Join(lines, "; "))
+}
+
+// serverLogTailLines is how many trailing log lines are quoted in start errors.
+const serverLogTailLines = 5
+
 // readServerPortFile returns the port stored in the state file, or 0 if missing/invalid.
 func readServerPortFile(path string) int {
 	data, err := afero.ReadFile(AppFS, serverPortFile(path))
@@ -252,6 +280,9 @@ func serveLocalProcess(
 		return 0, startErr
 	}
 	if healthErr := waitForHealthy(ctx, serverURL, port, cfg.timeout()); healthErr != nil {
+		if tail := tailServerLog(path); tail != "" {
+			return 0, fmt.Errorf("%w (%s output: %s)", healthErr, cfg.label, tail)
+		}
 		return 0, healthErr
 	}
 	// Health OK means the process is up but the model may still be loading.

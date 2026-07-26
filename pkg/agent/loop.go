@@ -32,6 +32,7 @@ import (
 	"io"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"regexp"
 	"strings"
 	"sync"
@@ -491,26 +492,58 @@ func autoStartLocalModel(ctx context.Context, cfg *Config) {
 	cfg.BaseURL = cfg.ModelService.ServerURL(cfg.Backend, cfg.Model)
 }
 
+// localModelsDir returns the directory holding downloaded local models,
+// honouring KDEPS_MODELS_DIR and falling back to ~/.kdeps/models.
+func localModelsDir() string {
+	if dir := os.Getenv("KDEPS_MODELS_DIR"); dir != "" {
+		return dir
+	}
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return ""
+	}
+	return filepath.Join(home, ".kdeps", "models")
+}
+
+// firstServableModel returns the alias of the first file in dir carrying ext
+// that servable accepts. The alias is the basename with ext trimmed, matching
+// how the llamafile and GGUF registries name cached files. servable may be nil
+// to accept every match.
+func firstServableModel(dir, ext string, servable func(path string) bool) (string, bool) {
+	if dir == "" {
+		return "", false
+	}
+	entries, err := afero.ReadDir(AppFS, dir)
+	if err != nil {
+		return "", false
+	}
+	for _, e := range entries {
+		if e.IsDir() || !strings.HasSuffix(e.Name(), ext) {
+			continue
+		}
+		if servable != nil && !servable(filepath.Join(dir, e.Name())) {
+			continue
+		}
+		return strings.TrimSuffix(e.Name(), ext), true
+	}
+	return "", false
+}
+
 func detectDefaultModelAndBackend() (string, string) {
-	// Priority 1: llamafile
+	modelsDir := localModelsDir()
+	// Priority 1: llamafile — either the runner binary on PATH, or a cached
+	// .llamafile model, which is self-executing and needs no runner.
 	if _, err := exec.LookPath("llamafile"); err == nil {
 		return "llamafile", executorLLM.BackendFile
 	}
-	// Priority 2: GGUF — check if any .gguf files exist in models dir
-	modelsDir := os.Getenv("KDEPS_MODELS_DIR")
-	if modelsDir == "" {
-		if home, err := os.UserHomeDir(); err == nil {
-			modelsDir = home + "/.kdeps/models"
-		}
+	if alias, ok := firstServableModel(modelsDir, ".llamafile", nil); ok {
+		return alias, executorLLM.BackendFile
 	}
-	if modelsDir != "" {
-		if entries, err := afero.ReadDir(AppFS, modelsDir); err == nil {
-			for _, e := range entries {
-				if !e.IsDir() && strings.HasSuffix(e.Name(), ".gguf") {
-					return strings.TrimSuffix(e.Name(), ".gguf"), executorLLM.BackendGGUF
-				}
-			}
-		}
+	// Priority 2: GGUF — skip files llama-server refuses to load (GGUFv1),
+	// otherwise the server dies on startup and every request fails.
+	servable := func(path string) bool { return executorLLM.GGUFLoadable(AppFS, path) }
+	if alias, ok := firstServableModel(modelsDir, ".gguf", servable); ok {
+		return alias, executorLLM.BackendGGUF
 	}
 	// Priority 3: cloud API keys (explicitly configured takes priority
 	// over a local ollama binary that may have no models pulled).

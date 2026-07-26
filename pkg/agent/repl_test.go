@@ -3,6 +3,7 @@ package agent
 import (
 	"bytes"
 	"context"
+	"encoding/binary"
 	"errors"
 	"fmt"
 	"io"
@@ -4747,10 +4748,19 @@ func TestCmdClear_WithSummary(t *testing.T) {
 
 // --- detectDefaultModelAndBackend ---
 
+// ggufHeader builds a minimal GGUF file header carrying the given container
+// version, enough for the loadability check to read it.
+func ggufHeader(version uint32) []byte {
+	b := make([]byte, 8)
+	copy(b, "GGUF")
+	binary.LittleEndian.PutUint32(b[4:], version)
+	return b
+}
+
 func TestDetectDefaultModelAndBackend_GGUFDir(t *testing.T) {
 	// Force Priority 2 (GGUF): create a models dir with a .gguf file.
 	dir := t.TempDir()
-	require.NoError(t, os.WriteFile(filepath.Join(dir, "llama3.gguf"), []byte("fake"), 0o600))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "llama3.gguf"), ggufHeader(3), 0o600))
 	t.Setenv("KDEPS_MODELS_DIR", dir)
 	// Block Priority 1 (llamafile) by ensuring it's not in this PATH.
 	t.Setenv("PATH", t.TempDir())
@@ -4758,6 +4768,62 @@ func TestDetectDefaultModelAndBackend_GGUFDir(t *testing.T) {
 	model, backend := detectDefaultModelAndBackend()
 	assert.Equal(t, "llama3", model)
 	assert.Equal(t, llm.BackendGGUF, backend)
+}
+
+func TestDetectDefaultModelAndBackend_SkipsUnloadableGGUF(t *testing.T) {
+	// A GGUFv1 file cannot be loaded by llama-server; picking it would start a
+	// server that dies immediately and make every request fail.
+	dir := t.TempDir()
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "a-old.gguf"), ggufHeader(1), 0o600))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "b-new.gguf"), ggufHeader(3), 0o600))
+	t.Setenv("KDEPS_MODELS_DIR", dir)
+	t.Setenv("PATH", t.TempDir())
+
+	model, backend := detectDefaultModelAndBackend()
+	assert.Equal(t, "b-new", model)
+	assert.Equal(t, llm.BackendGGUF, backend)
+}
+
+func TestDetectDefaultModelAndBackend_OnlyUnloadableGGUF(t *testing.T) {
+	dir := t.TempDir()
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "old.gguf"), ggufHeader(1), 0o600))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "junk.gguf"), []byte("fake"), 0o600))
+	t.Setenv("KDEPS_MODELS_DIR", dir)
+	t.Setenv("PATH", t.TempDir())
+	for _, m := range KnownCloudModels {
+		t.Setenv(m.EnvVar, "")
+	}
+
+	model, backend := detectDefaultModelAndBackend()
+	assert.Empty(t, model)
+	assert.Empty(t, backend)
+}
+
+func TestDetectDefaultModelAndBackend_CachedLlamafile(t *testing.T) {
+	// A cached .llamafile is self-executing: it must be picked even when no
+	// "llamafile" runner binary is on PATH.
+	dir := t.TempDir()
+	require.NoError(t, os.WriteFile(
+		filepath.Join(dir, "TinyLlama-1.1B-Chat-v1.0.Q4_K_M.llamafile"), []byte("bin"), 0o600))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "old.gguf"), ggufHeader(1), 0o600))
+	t.Setenv("KDEPS_MODELS_DIR", dir)
+	t.Setenv("PATH", t.TempDir())
+
+	model, backend := detectDefaultModelAndBackend()
+	assert.Equal(t, "TinyLlama-1.1B-Chat-v1.0.Q4_K_M", model)
+	assert.Equal(t, llm.BackendFile, backend)
+}
+
+func TestDetectDefaultModelAndBackend_LlamafilePreferredOverGGUF(t *testing.T) {
+	dir := t.TempDir()
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "a.gguf"), ggufHeader(3), 0o600))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "z.llamafile"), []byte("bin"), 0o600))
+	t.Setenv("KDEPS_MODELS_DIR", dir)
+	t.Setenv("PATH", t.TempDir())
+
+	model, backend := detectDefaultModelAndBackend()
+	assert.Equal(t, "z", model)
+	assert.Equal(t, llm.BackendFile, backend)
 }
 
 func TestDetectDefaultModelAndBackend_CloudEnvVar(t *testing.T) {
