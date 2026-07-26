@@ -47,6 +47,7 @@ type ToolTuning struct {
 	TuroFiller   bool
 	TuroSynonyms bool
 	TuroGloss    bool
+	TuroDefmatch bool
 	TuroArrows   bool
 }
 
@@ -75,6 +76,7 @@ func (r *REPL) toolTuningSnapshot() ToolTuning {
 		TuroFiller:           TuroStage("filler"),
 		TuroSynonyms:         TuroStage("synonyms"),
 		TuroGloss:            TuroStage("gloss"),
+		TuroDefmatch:         TuroStage("defmatch"),
 		TuroArrows:           TuroStage("arrows"),
 	}
 }
@@ -114,6 +116,7 @@ func (r *REPL) applyToolTuning(t ToolTuning) {
 		SetTuroStage("filler", t.TuroFiller)
 		SetTuroStage("synonyms", t.TuroSynonyms)
 		SetTuroStage("gloss", t.TuroGloss)
+		SetTuroStage("defmatch", t.TuroDefmatch)
 		SetTuroStage("arrows", t.TuroArrows)
 	}
 }

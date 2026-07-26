@@ -68,6 +68,7 @@ type AgentLoopTuning struct {
 	TuroFiller           bool   `yaml:"turo_filler"`
 	TuroSynonyms         bool   `yaml:"turo_synonyms"`
 	TuroGloss            bool   `yaml:"turo_gloss"`
+	TuroDefmatch         bool   `yaml:"turo_defmatch"`
 	TuroArrows           bool   `yaml:"turo_arrows,omitempty"`
 }
 

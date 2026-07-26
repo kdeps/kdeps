@@ -53,13 +53,13 @@ func TestMain(m *testing.M) {
 func resetTuroState(t *testing.T) {
 	t.Helper()
 	turoState.mu.Lock()
-	pLevel, pFiller, pSyn, pGloss, pArrows, pOff, pInit :=
-		turoState.level, turoState.filler, turoState.synonyms, turoState.gloss, turoState.arrows, turoState.off, turoState.init
+	pLevel, pFiller, pSyn, pGloss, pDefmatch, pArrows, pOff, pInit :=
+		turoState.level, turoState.filler, turoState.synonyms, turoState.gloss, turoState.defmatch, turoState.arrows, turoState.off, turoState.init
 	turoState.mu.Unlock()
 	t.Cleanup(func() {
 		turoState.mu.Lock()
-		turoState.level, turoState.filler, turoState.synonyms, turoState.gloss, turoState.arrows, turoState.off, turoState.init =
-			pLevel, pFiller, pSyn, pGloss, pArrows, pOff, pInit
+		turoState.level, turoState.filler, turoState.synonyms, turoState.gloss, turoState.defmatch, turoState.arrows, turoState.off, turoState.init =
+			pLevel, pFiller, pSyn, pGloss, pDefmatch, pArrows, pOff, pInit
 		turoState.mu.Unlock()
 		turoReduceCache.Clear()
 	})
@@ -104,7 +104,7 @@ func TestTuroRuntimeOff_Toggle(t *testing.T) {
 func TestTuroStage_ToggleAndUnknown(t *testing.T) {
 	resetTuroState(t)
 
-	for _, stage := range []string{"filler", "synonyms", "gloss", "arrows"} {
+	for _, stage := range []string{"filler", "synonyms", "gloss", "defmatch", "arrows"} {
 		if !SetTuroStage(stage, false) {
 			t.Fatalf("SetTuroStage(%q, false) returned false", stage)
 		}

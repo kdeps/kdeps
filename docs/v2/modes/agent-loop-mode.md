@@ -49,6 +49,7 @@ Inside the REPL, type `/help` for the full list:
 | `/turo` | Show turo reducer status (state, level). Only available when the `turo` binary is on `PATH` |
 | `/turo on\|off` | Enable or disable prompt reduction at runtime |
 | `/turo lite\|full\|ultra` | Set the turo compression level |
+| `/turo <stage> on\|off` | Toggle a pipeline stage: `filler`, `synonyms`, `gloss`, `defmatch`, `arrows` |
 | `/goal` | Show the active goal's task list and status |
 | `/goal new <text>` | Replace the active goal with a new plan |
 | `/goal skip` | Abandon the active task and advance to the next |
@@ -137,18 +138,21 @@ already done, and are reported as `[goal] web budget → 30`.
 system preamble + input + tool results + history  ->  turo  ->  LLM
 ```
 
-turo runs a four-stage pipeline, all on by default, repeating until the output stops shrinking:
+turo runs a five-stage pipeline, all on by default, repeating until the output stops shrinking:
 
 1. **Filler deletion** - strips pleasantries, hedges, leaders, and articles (`please`, `I think`, `of course`).
-2. **Synonym swap** - replaces words with a fewer-token WordNet synonym (`utilize` -> `use`).
+2. **Defmatch** - collapses a definition-like phrase into the word it defines (`the state of disorder and lawlessness` -> `anarchy`). Strictly gated: it fires only when every keyword of a headword's definition is present and the headword is cheaper in tokens, so on technical text it makes zero replacements. It earns its keep on natural prose.
 3. **Gloss swap** - replaces words with the shortest defining word from their dictionary definition (`approach` -> `come`). The lossiest stage.
-4. **Reduction** - keeps content words by part of speech, deduplicates, and (ultra) collapses inflections by lemma.
+4. **Synonym swap** - replaces words with a fewer-token WordNet synonym (`utilize` -> `use`).
+5. **Reduction** - keeps content words by part of speech, deduplicates, and (ultra) collapses inflections by lemma.
 
-One more stage runs before reduction, also on by default:
+Phrase-level stages run before word-level ones: a phrase matcher has to see the whole phrase, so a single earlier swap inside it is enough to lose the match. Headwords defmatch produces are held back from the later swaps, which would otherwise walk the match straight back.
+
+One more stage runs before the rest, also on by default:
 
 - **Arrows** - replaces multi-word causal/sequential connectives (`leads to`, `results in`, `gives rise to`) with a single `->` token (`cache miss leads to slow query` -> `cache miss -> slow query`). Only multi-word phrases qualify, so it always saves at least one token. Disable with `/turo arrows off` or `TURO_ARROWS=off`.
 
-Stages 2-4 and arrows are lossy - they change wording, not just drop filler - so agent context sent to the model is compressed but no longer verbatim prose. Disable individual stages with the `TURO_*` environment variables below, or turn turo off entirely.
+Stages 2-5 and arrows are lossy - they change wording, not just drop filler - so agent context sent to the model is compressed but no longer verbatim prose. Disable individual stages with the `TURO_*` environment variables below, or turn turo off entirely.
 
 Turo is entirely optional: if the binary is not installed, kdeps sends everything unreduced and the `/turo` command reports that it is unavailable.
 
@@ -160,8 +164,9 @@ Control it at runtime with `/turo`:
 /turo on             # re-enable
 /turo ultra          # set level: lite | full | ultra | wenyan
 /turo wenyan         # ultra reduction + swap words for Classical Chinese chars (CJK-tokenizer models only)
-/turo gloss off      # disable a lossy stage: filler | synonyms | gloss | arrows
+/turo gloss off      # disable a lossy stage: filler | synonyms | gloss | defmatch | arrows
 /turo synonyms on    # re-enable a stage
+/turo defmatch off   # disable the defmatch stage (definition-like phrase -> headword)
 /turo arrows off     # disable the arrow stage (connective phrases -> "->")
 ```
 
@@ -170,8 +175,9 @@ Install-time controls via environment variables:
 ```yaml
 TURO_LEVEL: ultra    # default compression level (lite, full, ultra)
 TURO_FILLER: "off"   # skip stage 1 (filler deletion)
-TURO_SYNONYMS: "off" # skip stage 2 (synonym swap) - keeps wording closer to source
+TURO_DEFMATCH: "off" # skip stage 2 (defmatch) - keeps definition-like phrases intact
 TURO_GLOSS: "off"    # skip stage 3 (gloss swap) - the lossiest stage
+TURO_SYNONYMS: "off" # skip stage 4 (synonym swap) - keeps wording closer to source
 TURO_ARROWS: "off"   # skip the arrow stage (connective phrases -> "->")
 KDEPS_TURO: "off"    # disable turo entirely (also TURO_DISABLED=1)
 KDEPS_TURO_PATH: /custom/path/to/turo  # override binary discovery

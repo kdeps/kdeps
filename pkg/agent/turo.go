@@ -46,15 +46,16 @@ var (
 )
 
 // turoState holds the runtime turo settings mutated by the /turo command.
-// level is passed to the turo binary; filler/synonyms/gloss toggle its pipeline
-// stages (all on by default); off is a runtime override that disables reduction
-// even when the binary is installed.
+// level is passed to the turo binary; filler/synonyms/gloss/defmatch/arrows
+// toggle its pipeline stages (all on by default); off is a runtime override
+// that disables reduction even when the binary is installed.
 type turoSettings struct {
 	mu       sync.Mutex
 	level    string
 	filler   bool
 	synonyms bool
 	gloss    bool
+	defmatch bool
 	arrows   bool
 	off      bool
 	init     bool
@@ -94,7 +95,8 @@ func turoInit() {
 	turoState.filler = !turoEnvOff("TURO_FILLER")
 	turoState.synonyms = !turoEnvOff("TURO_SYNONYMS")
 	turoState.gloss = !turoEnvOff("TURO_GLOSS")
-	turoState.arrows = !turoEnvOff("TURO_ARROWS") // on by default (matches the turo binary)
+	turoState.defmatch = !turoEnvOff("TURO_DEFMATCH") // on by default (matches the turo binary)
+	turoState.arrows = !turoEnvOff("TURO_ARROWS")     // on by default (matches the turo binary)
 	turoState.init = true
 }
 
@@ -132,7 +134,7 @@ func SetTuroLevel(level string) bool {
 // turoValidStages are the pipeline stages toggled by /turo <stage> on|off.
 //
 //nolint:gochecknoglobals // static lookup set
-var turoValidStages = map[string]bool{"filler": true, "synonyms": true, "gloss": true, "arrows": true}
+var turoValidStages = map[string]bool{"filler": true, "synonyms": true, "gloss": true, "defmatch": true, "arrows": true}
 
 // TuroStage reports whether a pipeline stage is enabled. Unknown stages report
 // false.
@@ -147,6 +149,8 @@ func TuroStage(name string) bool {
 		return turoState.synonyms
 	case "gloss":
 		return turoState.gloss
+	case "defmatch":
+		return turoState.defmatch
 	case "arrows":
 		return turoState.arrows
 	}
@@ -168,6 +172,8 @@ func SetTuroStage(name string, on bool) bool {
 		turoState.synonyms = on
 	case "gloss":
 		turoState.gloss = on
+	case "defmatch":
+		turoState.defmatch = on
 	case "arrows":
 		turoState.arrows = on
 	}
@@ -233,7 +239,9 @@ func turoReduce(ctx context.Context, text string) string {
 	}
 	turoInit()
 	turoState.mu.Lock()
-	level, filler, synonyms, gloss, arrows := turoState.level, turoState.filler, turoState.synonyms, turoState.gloss, turoState.arrows
+	level := turoState.level
+	filler, synonyms := turoState.filler, turoState.synonyms
+	gloss, defmatch, arrows := turoState.gloss, turoState.defmatch, turoState.arrows
 	turoState.mu.Unlock()
 
 	runCtx, cancel := context.WithTimeout(ctx, turoTimeout)
@@ -244,6 +252,7 @@ func turoReduce(ctx context.Context, text string) string {
 		fmt.Sprintf("-filler=%t", filler),
 		fmt.Sprintf("-synonyms=%t", synonyms),
 		fmt.Sprintf("-gloss=%t", gloss),
+		fmt.Sprintf("-defmatch=%t", defmatch),
 		fmt.Sprintf("-arrows=%t", arrows),
 	)
 	cmd.Stdin = strings.NewReader(text)
