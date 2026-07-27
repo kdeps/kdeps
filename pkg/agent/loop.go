@@ -2406,38 +2406,63 @@ func formatLoopResult(result any) string {
 	if s, ok := result.(string); ok {
 		return stripContentToolCalls(s)
 	}
-	m, isMap := asStringMap(result)
-	if !isMap {
+	m, ok := asStringMap(result)
+	if !ok {
 		return ""
 	}
-	// LLM/executor failures are {error: "..."}; never treat the error text as content.
-	if errVal, hasErr := m["error"]; hasErr {
-		if s, ok := errVal.(string); ok && s != "" {
-			return ""
-		}
+	if isErrorResultMap(m) {
+		return ""
 	}
-	// Standard path: {"message": {"content": "...", "role": "assistant"}}
-	if msg, msgOK := asStringMap(m["message"]); msgOK {
-		if content, contentOK := msg[toolParamContent].(string); contentOK {
-			return stripContentToolCalls(content)
-		}
+	if content := messageContentFromMap(m); content != "" {
+		return stripContentToolCalls(content)
 	}
-	// Fallback: scan nested maps for content-like fields (skip "error").
+	if content := nestedContentFromMap(m); content != "" {
+		return stripContentToolCalls(content)
+	}
+	return ""
+}
+
+// isErrorResultMap reports whether m is an executor error payload {error: "..."}.
+func isErrorResultMap(m map[string]any) bool {
+	errVal, hasErr := m["error"]
+	if !hasErr {
+		return false
+	}
+	s, ok := errVal.(string)
+	return ok && s != ""
+}
+
+// messageContentFromMap returns message.content from a standard chat result map.
+func messageContentFromMap(m map[string]any) string {
+	msg, ok := asStringMap(m["message"])
+	if !ok {
+		return ""
+	}
+	content, ok := msg[toolParamContent].(string)
+	if !ok {
+		return ""
+	}
+	return content
+}
+
+// nestedContentFromMap scans top-level and nested maps for content-like fields.
+func nestedContentFromMap(m map[string]any) string {
 	contentKeys := []string{toolParamContent, "text", "response", "output"}
 	for key, v := range m {
 		if key == "error" {
 			continue
 		}
-		if s, strOK := v.(string); strOK && s != "" {
-			return stripContentToolCalls(s)
+		if s, ok := v.(string); ok && s != "" {
+			return s
 		}
-		inner, innerOK := asStringMap(v)
-		if !innerOK {
+		inner, ok := asStringMap(v)
+		if !ok {
 			continue
 		}
 		for _, ck := range contentKeys {
-			if s, strOK := inner[ck].(string); strOK && s != "" {
-				return stripContentToolCalls(s)
+			s, has := inner[ck].(string)
+			if has && s != "" {
+				return s
 			}
 		}
 	}

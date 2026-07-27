@@ -3829,6 +3829,7 @@ func TestStartLocalModelServer_UnknownBackend_NoOp(t *testing.T) {
 }
 
 func TestStartLocalModelServer_LocalBackend_CallsService(t *testing.T) {
+	t.Setenv("KDEPS_YES", "1") // non-interactive tests auto-approve local download
 	svc := &mockModelService{url: "http://localhost:9999/v1"}
 	loop := makeTestLoop(nil)
 	loop.config.ModelService = svc
