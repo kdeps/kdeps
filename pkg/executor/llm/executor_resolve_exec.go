@@ -30,9 +30,12 @@ import (
 	"github.com/kdeps/kdeps/v2/pkg/parser/expression"
 )
 
-// defaultBuiltinModel is the zero-config default: a small llamafile served by
-// the local file backend, downloaded on first use.
-const defaultBuiltinModel = "llama3.2:1b"
+// DefaultBuiltinModel is the zero-config file-backend model. Interactive
+// first use confirms, then auto-downloads into ~/.kdeps/models/.
+const DefaultBuiltinModel = "ministral3:3b"
+
+// defaultBuiltinModel is the internal alias used by empty-model resolution.
+const defaultBuiltinModel = DefaultBuiltinModel
 
 // defaultModelWhenEmpty resolves the model for a chat resource that omits
 // `model:`. Order: config router (KDEPS_LLM_ROUTER) -> first config model

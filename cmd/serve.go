@@ -259,6 +259,9 @@ func runAgentLoopCmd(path string, flags *agentLoopFlags) error {
 	}
 
 	startModel, startBackend := resolveStartModel(flags, settings)
+	// Fill empty model/backend the same way the agent loop does (file default
+	// ministral3:3b, cloud keys, ollama, cached local models).
+	startModel, startBackend = agent.ResolveModelAndBackend(startModel, startBackend)
 
 	cfg := agent.Config{
 		Model:        startModel,

@@ -156,7 +156,7 @@ func configureBackendChoice(
 // configureLlamafile sets the local file backend and a default model.
 func configureLlamafile(out io.StringWriter, reader *bufio.Reader, cfg *Config) {
 	cfg.LLM.Backend = fileBackendStr
-	model := promptLine(out, reader, "  Default model [llama3.2:1b]: ", "llama3.2:1b")
+	model := promptLine(out, reader, "  Default model [ministral3:3b]: ", "ministral3:3b")
 	setDefaultModel(cfg, model)
 }
 

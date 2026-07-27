@@ -2911,6 +2911,12 @@ func (r *REPL) startLocalModelServer(model string) error {
 	// Capture the turn context: Ctrl+C cancels it (and handleSignalInterrupt
 	// replaces r.ctx with a fresh one for the next prompt).
 	ctx := r.ctx
+	if !ConfirmModelDownload(model, backend) {
+		fmt.Fprintf(os.Stdout, "\n%s\n", styleReplMeta.Render(
+			"Download skipped. Use /model <name> to pick another model.",
+		))
+		return context.Canceled
+	}
 	fmt.Fprintf(os.Stdout, "\n%s\n", styleReplMeta.Render("Downloading/starting model server..."))
 	if err := svc.DownloadModel(ctx, backend, model); err != nil && ctx.Err() != nil {
 		fmt.Fprintf(os.Stdout, "%s\n", styleReplMeta.Render(

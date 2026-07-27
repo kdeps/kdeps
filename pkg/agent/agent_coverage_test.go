@@ -36,6 +36,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	executorLLM "github.com/kdeps/kdeps/v2/pkg/executor/llm"
 	kdepstools "github.com/kdeps/kdeps/v2/pkg/tools"
 )
 
@@ -822,9 +823,9 @@ func TestDetectDefaultModelAndBackend_NeitherFound(t *testing.T) {
 	}
 
 	model, backend := detectDefaultModelAndBackend()
-	// When nothing is available, returns empty — no auto-start of unusable model.
-	assert.Empty(t, model)
-	assert.Empty(t, backend)
+	// When nothing is available, first-run defaults to the builtin file model.
+	assert.Equal(t, defaultModelName, model)
+	assert.Equal(t, executorLLM.BackendFile, backend)
 }
 
 func TestDetectDefaultModelAndBackend_CloudKeySet(t *testing.T) {

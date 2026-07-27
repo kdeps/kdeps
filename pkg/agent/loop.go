@@ -429,7 +429,13 @@ func (l *Loop) PromptByName(name string) *PromptTemplate {
 //  3. ollama (local ollama)
 //  4. cloud (first model with API key set)
 //
-// Falls back to llama3.2 + file if nothing is available.
+// Falls back to ministral3:3b + file if nothing is available.
+
+// ResolveModelAndBackend applies the same model/backend resolution used by the
+// agent loop (flags/env -> auto-detect -> backend defaults -> builtin file model).
+func ResolveModelAndBackend(model, backend string) (string, string) {
+	return resolveModelAndBackend(model, backend)
+}
 
 func resolveModelAndBackend(model, backend string) (string, string) {
 	// Determine backend first: explicit flag/env overrides auto-detection.
@@ -450,6 +456,9 @@ func resolveModelAndBackend(model, backend string) (string, string) {
 	case backend == "":
 		backend = BackendForModel(model)
 	}
+	if model == "" && backend != "" {
+		model = defaultModelForBackend(backend)
+	}
 	return model, backend
 }
 
@@ -458,7 +467,7 @@ func resolveModelAndBackend(model, backend string) (string, string) {
 func defaultModelForBackend(backend string) string {
 	switch backend {
 	case executorLLM.BackendFile:
-		return "" // needs llamafile binary — let user pick
+		return defaultModelName // first-run llamafile; confirm before download
 	case executorLLM.BackendGGUF:
 		return "" // needs .gguf files — let user pick
 	case "ollama":
@@ -485,6 +494,9 @@ func autoStartLocalModel(ctx context.Context, cfg *Config) {
 		return
 	}
 	if cfg.Model == "" {
+		return
+	}
+	if !ConfirmModelDownload(cfg.Model, cfg.Backend) {
 		return
 	}
 	_ = cfg.ModelService.DownloadModel(ctx, cfg.Backend, cfg.Model)
@@ -534,7 +546,7 @@ func detectDefaultModelAndBackend() (string, string) {
 	// Priority 1: llamafile — either the runner binary on PATH, or a cached
 	// .llamafile model, which is self-executing and needs no runner.
 	if _, err := exec.LookPath("llamafile"); err == nil {
-		return "llamafile", executorLLM.BackendFile
+		return defaultModelName, executorLLM.BackendFile
 	}
 	if alias, ok := firstServableModel(modelsDir, ".llamafile", nil); ok {
 		return alias, executorLLM.BackendFile
@@ -556,7 +568,8 @@ func detectDefaultModelAndBackend() (string, string) {
 	if _, err := exec.LookPath("ollama"); err == nil {
 		return defaultModelName, "ollama"
 	}
-	return "", ""
+	// Nothing installed yet: first-run file backend + builtin model.
+	return defaultModelName, executorLLM.BackendFile
 }
 
 func applyConfigDefaults(cfg Config) Config {
@@ -616,7 +629,7 @@ const (
 	// keeps printing never trips it.
 	defaultToolStallTimeout            = 10 * time.Minute
 	defaultAutoToolAllocationIncrement = 100
-	defaultModelName                   = "llama3.2"
+	defaultModelName                   = executorLLM.DefaultBuiltinModel
 	// maxIdenticalToolCalls is how many times in a row the model may issue the
 	// exact same tool call before the turn is ended as a stuck loop.
 	maxIdenticalToolCalls = 3

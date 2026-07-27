@@ -145,6 +145,11 @@ func prefetchModel(ctx context.Context, backend, model string) {
 	if model == "" {
 		return
 	}
+	// Interactive first-use: confirm local model download before auto-fetch.
+	if !agentMemory.ConfirmModelDownload(model, backend) {
+		fmt.Fprintf(os.Stderr, "Download of %s skipped.\n", model)
+		return
+	}
 	svc := newModelServiceFunc()
 	if err := svc.DownloadModel(ctx, backend, model); err != nil {
 		return

@@ -4795,8 +4795,8 @@ func TestDetectDefaultModelAndBackend_OnlyUnloadableGGUF(t *testing.T) {
 	}
 
 	model, backend := detectDefaultModelAndBackend()
-	assert.Empty(t, model)
-	assert.Empty(t, backend)
+	assert.Equal(t, defaultModelName, model)
+	assert.Equal(t, llm.BackendFile, backend)
 }
 
 func TestDetectDefaultModelAndBackend_CachedLlamafile(t *testing.T) {
@@ -4849,8 +4849,8 @@ func TestDetectDefaultModelAndBackend_FallbackDefault(t *testing.T) {
 		t.Setenv(m.EnvVar, "")
 	}
 	model, backend := detectDefaultModelAndBackend()
-	assert.Empty(t, model)
-	assert.Empty(t, backend)
+	assert.Equal(t, defaultModelName, model)
+	assert.Equal(t, llm.BackendFile, backend)
 }
 
 func TestDetectDefaultModelAndBackend_OllamaPath(t *testing.T) {

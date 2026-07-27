@@ -17,7 +17,7 @@ llm:
   backend: file   # this is the default - the line can be omitted entirely
 ```
 
-Model names like `llama3.2:1b` are registry aliases resolved to Mozilla's
+Model names like `ministral3:3b` are registry aliases resolved to Mozilla's
 HuggingFace llamafiles (`kdeps llamafile list` shows all; `kdeps llamafile update`
 refreshes the registry). The `chat.model` field also accepts a direct URL or a
 path to a `.llamafile`.

@@ -22,6 +22,7 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
+	"strings"
 
 	"github.com/spf13/afero"
 
@@ -201,4 +202,50 @@ func ListLlamafileMappings() []LlamafileEntry {
 func LlamafileRegistryVersion() int {
 	ensureRegistryLoaded()
 	return llamafileRegistryData.Version
+}
+
+// NeedsLlamafileDownload reports whether model is not fully cached under the
+// models directory. Unknown aliases / absolute paths that exist return false.
+func NeedsLlamafileDownload(model string) bool {
+	if model == "" {
+		return false
+	}
+	dir, err := modelsDir()
+	if err != nil {
+		return true
+	}
+	// Absolute or relative path: only download if missing/partial.
+	if filepath.IsAbs(model) || strings.HasPrefix(model, "./") || strings.HasPrefix(model, "../") {
+		info, statErr := AppFS.Stat(model)
+		if statErr != nil || info.IsDir() {
+			return true
+		}
+		return isPartialDownload(AppFS, model)
+	}
+	if p, ok := LlamafileCachedPath(model, dir); ok {
+		info, statErr := AppFS.Stat(p)
+		if statErr != nil || info.IsDir() {
+			return true
+		}
+		return isPartialDownload(AppFS, p)
+	}
+	// Bare filename in models dir.
+	cached := filepath.Join(dir, model)
+	info, statErr := AppFS.Stat(cached)
+	if statErr != nil || info.IsDir() {
+		// Known remote alias still needs download.
+		_, known := ResolveLlamafileAlias(model)
+		return known || IsRemoteModel(model)
+	}
+	return isPartialDownload(AppFS, cached)
+}
+
+// LlamafileSizeBytes returns the registry size for alias, or 0 if unknown.
+func LlamafileSizeBytes(model string) int64 {
+	for _, e := range ListLlamafileMappings() {
+		if e.Alias == model {
+			return e.SizeBytes
+		}
+	}
+	return 0
 }
