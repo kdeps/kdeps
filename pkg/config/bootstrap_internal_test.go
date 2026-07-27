@@ -537,7 +537,7 @@ func TestConfigureLlamafile(t *testing.T) {
 	require.NoError(t, configureBackendChoice(&out, reader, &fmtWriter{w: &out}, cfg, "1"))
 	assert.Equal(t, fileBackendStr, cfg.LLM.Backend)
 	require.Len(t, cfg.LLM.Models, 1)
-	assert.Equal(t, "ministral3:3b", cfg.LLM.Models[0].Model)
+	assert.Equal(t, "llama3.2:1b", cfg.LLM.Models[0].Model)
 }
 
 func TestConfigureGGUF(t *testing.T) {

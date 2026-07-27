@@ -429,7 +429,7 @@ func (l *Loop) PromptByName(name string) *PromptTemplate {
 //  3. ollama (local ollama)
 //  4. cloud (first model with API key set)
 //
-// Falls back to ministral3:3b + file if nothing is available.
+// Falls back to llama3.2:1b + file if nothing is available.
 
 // ResolveModelAndBackend applies the same model/backend resolution used by the
 // agent loop (flags/env -> auto-detect -> backend defaults -> builtin file model).
@@ -502,6 +502,16 @@ func autoStartLocalModel(ctx context.Context, cfg *Config) {
 	_ = cfg.ModelService.DownloadModel(ctx, cfg.Backend, cfg.Model)
 	_ = cfg.ModelService.ServeModel(ctx, cfg.Backend, cfg.Model, "", 0)
 	cfg.BaseURL = cfg.ModelService.ServerURL(cfg.Backend, cfg.Model)
+}
+
+// ensureLocalModelReady confirms (first use), downloads, and serves a local
+// file/gguf model when BaseURL is still empty. No-op for cloud backends or
+// when the model is already running.
+func (l *Loop) ensureLocalModelReady(ctx context.Context) {
+	if l == nil {
+		return
+	}
+	autoStartLocalModel(ctx, &l.config)
 }
 
 // localModelsDir returns the directory holding downloaded local models,
@@ -664,6 +674,9 @@ func envOrDefault(key, fallback string) string {
 func (l *Loop) Run(ctx context.Context, input string) (string, error) {
 	const actionID = "agent_loop_chat"
 
+	// First use: confirm + download + serve local model when not yet running.
+	l.ensureLocalModelReady(ctx)
+
 	// Auto-compact before the LLM call when history exceeds the token threshold.
 	if msgs := l.session.RawMessages(); shouldAutoCompact(
 		msgs,
@@ -733,6 +746,9 @@ func (l *Loop) IsStreaming() bool {
 // as they arrive. Returns the full accumulated response (also stored in session history).
 // The caller should write a trailing newline after this returns if needed.
 func (l *Loop) RunStreaming(ctx context.Context, input string, w io.Writer) (string, error) {
+	// First use: confirm + download + serve local model when not yet running.
+	l.ensureLocalModelReady(ctx)
+
 	// Auto-compact before the LLM call when history exceeds the token threshold.
 	if msgs := l.session.RawMessages(); shouldAutoCompact(
 		msgs,

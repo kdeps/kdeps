@@ -28,7 +28,7 @@ import (
 )
 
 func TestDefaultBuiltinModel(t *testing.T) {
-	assert.Equal(t, "ministral3:3b", DefaultBuiltinModel)
+	assert.Equal(t, "llama3.2:1b", DefaultBuiltinModel)
 	assert.Equal(t, DefaultBuiltinModel, defaultBuiltinModel)
 }
 
@@ -38,20 +38,20 @@ func TestNeedsLlamafileDownload_UnknownEmpty(t *testing.T) {
 
 func TestNeedsLlamafileDownload_KnownAliasMissing(t *testing.T) {
 	t.Setenv("KDEPS_MODELS_DIR", t.TempDir())
-	assert.True(t, NeedsLlamafileDownload("ministral3:3b"))
+	assert.True(t, NeedsLlamafileDownload("llama3.2:1b"))
 }
 
 func TestNeedsLlamafileDownload_Cached(t *testing.T) {
 	dir := t.TempDir()
 	t.Setenv("KDEPS_MODELS_DIR", dir)
-	p, ok := LlamafileCachedPath("ministral3:3b", dir)
+	p, ok := LlamafileCachedPath("llama3.2:1b", dir)
 	require.True(t, ok)
 	require.NoError(t, afero.WriteFile(AppFS, p, []byte("fake-llamafile"), 0o755))
-	assert.False(t, NeedsLlamafileDownload("ministral3:3b"))
+	assert.False(t, NeedsLlamafileDownload("llama3.2:1b"))
 }
 
 func TestLlamafileSizeBytes_Ministral(t *testing.T) {
-	n := LlamafileSizeBytes("ministral3:3b")
+	n := LlamafileSizeBytes("llama3.2:1b")
 	assert.Greater(t, n, int64(0))
 	assert.Equal(t, int64(0), LlamafileSizeBytes("no-such-alias-xyz"))
 }

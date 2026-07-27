@@ -20,8 +20,8 @@ part of the alias so you can trade size for quality:
 
 | Alias | Model | Quant | Size |
 |-------|-------|-------|------|
-| `ministral3` / `ministral3:3b` | Ministral 3 3B Instruct (default) | Q4_K_M | ~3.1 GB |
-| `llama3.2` / `llama3.2:1b` | Llama 3.2 1B Instruct | Q4_K_M | ~1.1 GB |
+| `llama3.2` / `llama3.2:1b` | Llama 3.2 1B Instruct (default) | Q4_K_M | ~1.1 GB |
+| `ministral3` / `ministral3:3b` | Ministral 3 3B Instruct | Q4_K_M | ~3.1 GB |
 | `llama3.2:1b-q6` | Llama 3.2 1B Instruct | Q6_K | ~1.5 GB |
 | `llama3.2:1b-q8` | Llama 3.2 1B Instruct | Q8_0 | ~2.1 GB |
 | `llama3.2:3b` | Llama 3.2 3B Instruct | Q4_K_M | ~2.2 GB |

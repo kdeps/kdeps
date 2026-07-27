@@ -19,7 +19,7 @@ curl -LsSf https://raw.githubusercontent.com/kdeps/kdeps/main/install.sh | sh
 
 No LLM server needed: models run as local
 [llamafiles](https://github.com/Mozilla-Ocho/llamafile) (the default `file`
-backend). The default model (`ministral3:3b`, ~3.1 GB) is confirmed then downloaded to
+backend). The default model (`llama3.2:1b`, ~1.1 GB) is confirmed then downloaded to
 `~/.kdeps/models/` automatically on first run.
 
 ## Create a project

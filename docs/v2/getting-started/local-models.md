@@ -21,7 +21,7 @@ kdeps uses llamafile by default. The first time you run a `chat:` resource with 
 
 ```bash
 kdeps
-# confirms download of ministral3:3b (~3.1 GB) on first run, then starts the REPL
+# confirms download of llama3.2:1b (~1.1 GB) on first message, then serves it
 ```
 
 **Pick a different model by alias:**
@@ -42,8 +42,8 @@ Known aliases and their sizes:
 
 | Alias | Model | Size |
 |-------|-------|------|
-| `ministral3` / `ministral3:3b` | Ministral 3 3B Instruct (default) | ~3.1 GB |
-| `llama3.2` / `llama3.2:1b` | Llama 3.2 1B Instruct | ~1.1 GB |
+| `llama3.2` / `llama3.2:1b` | Llama 3.2 1B Instruct (default) | ~1.1 GB |
+| `ministral3` / `ministral3:3b` | Ministral 3 3B Instruct | ~3.1 GB |
 | `llama3.2:3b` | Llama 3.2 3B Instruct | ~2.2 GB |
 | `llama3.1:8b` | Llama 3.1 8B Instruct | ~5.2 GB |
 

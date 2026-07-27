@@ -636,23 +636,28 @@ func (m *mockCmdSvc) ServeModel(_ context.Context, _, _, _ string, _ int) error 
 func (m *mockCmdSvc) ServerURL(_, _ string) string { return "" }
 func (m *mockCmdSvc) KillModel(_, _ string) bool   { return false }
 
-func TestPrefetchModel_LocalBackend_CallsServeModel(t *testing.T) {
+func TestPrefetchModel_UncachedLocal_SkipsDownloadAndServe(t *testing.T) {
+	// Uncached file/gguf models must not download at startup (first-use path).
 	svc := &mockCmdSvc{}
 	orig := newModelServiceFunc
 	newModelServiceFunc = func() executorLLM.ModelServiceInterface { return svc }
 	t.Cleanup(func() { newModelServiceFunc = orig })
 
-	prefetchModel(context.Background(), agentBackendGGUF, "some-model")
-	assert.True(t, svc.serveCalled)
+	prefetchModel(context.Background(), agentBackendGGUF, "uncached-gguf-model-xyz")
+	assert.False(t, svc.serveCalled)
+
+	prefetchModel(context.Background(), agentBackendFile, "uncached-file-model-xyz")
+	assert.False(t, svc.serveCalled)
 }
 
 func TestPrefetchModel_LocalBackend_DownloadError_SkipsServe(t *testing.T) {
+	// ollama still goes through DownloadModel; file/gguf uncached exit earlier.
 	svc := &mockCmdSvc{downloadErr: errors.New("download failed")}
 	orig := newModelServiceFunc
 	newModelServiceFunc = func() executorLLM.ModelServiceInterface { return svc }
 	t.Cleanup(func() { newModelServiceFunc = orig })
 
-	prefetchModel(context.Background(), agentBackendFile, "some-model")
+	prefetchModel(context.Background(), "ollama", "some-model")
 	assert.False(t, svc.serveCalled)
 }
 

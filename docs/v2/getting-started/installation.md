@@ -73,7 +73,7 @@ docker --version
 For local LLM inference, KDeps uses [llamafile](https://github.com/Mozilla-Ocho/llamafile)
 as the default backend (`file`): models are single self-contained binaries that
 kdeps downloads to `~/.kdeps/models/` and serves locally - no server install,
-no GPU, no API key. The default model alias `ministral3:3b` resolves to Mozilla's
+no GPU, no API key. The default model alias `llama3.2:1b` resolves to Mozilla's
 Llama 3.2 1B Instruct llamafile (~1.1 GB, downloaded on first run).
 
 ```bash

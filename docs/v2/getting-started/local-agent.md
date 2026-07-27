@@ -39,11 +39,11 @@ kdeps --version
 kdeps
 ```
 
-That's it. kdeps opens an interactive REPL. By default it offers the local llamafile model `ministral3:3b` (~3.1 GB on first run). You confirm the download, then it is cached in `~/.kdeps/models/`. No API key needed.
+That's it. kdeps opens an interactive REPL. By default it uses the local llamafile model `llama3.2:1b` (~1.1 GB). On first use you confirm the download; it is cached in `~/.kdeps/models/`. No API key needed.
 
 ```text
 kdeps v2.x.x
-model: ministral3:3b (local, file backend)
+model: llama3.2:1b (local, file backend)
 > _
 ```
 

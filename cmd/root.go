@@ -111,7 +111,7 @@ func createRootCommand() *cobra.Command {
 
 	rootCmd.Flags().StringVar(
 		&flags.Model, "model", "",
-		"LLM model to use (default: KDEPS_AGENT_MODEL env or ministral3:3b)",
+		"LLM model to use (default: KDEPS_AGENT_MODEL env or llama3.2:1b)",
 	)
 	rootCmd.Flags().StringVar(
 		&flags.Backend, "backend", "",

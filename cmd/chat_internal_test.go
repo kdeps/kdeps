@@ -80,7 +80,7 @@ func TestRunChat_DefaultFlags(t *testing.T) {
 	require.NoError(t, err)
 	assert.Contains(t, output, "kdeps chat - AI workflow assistant")
 	assert.Contains(t, output, "Model:")
-	assert.Contains(t, output, "ministral3:3b")
+	assert.Contains(t, output, "llama3.2:1b")
 	assert.Contains(t, output, "via llamafile (local, served on first message)")
 	assert.Contains(t, output, "Bye.")
 }
@@ -92,7 +92,7 @@ func TestRunChat_ModelFlag(t *testing.T) {
 	output, err := runChatWithPipe(t, &ChatFlags{Model: "gpt-4o"}, "/quit\n")
 	require.NoError(t, err)
 	assert.Contains(t, output, "gpt-4o")
-	assert.NotContains(t, output, "ministral3:3b")
+	assert.NotContains(t, output, "llama3.2:1b")
 }
 
 func TestRunChat_BaseURLFlag(t *testing.T) {

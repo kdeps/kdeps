@@ -25,6 +25,7 @@ import (
 	"fmt"
 	"log/slog"
 	"os"
+	"strings"
 
 	agentMemory "github.com/kdeps/kdeps/v2/pkg/agent"
 	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
@@ -135,20 +136,20 @@ func newExecutorRegistry(logger *slog.Logger) *executor.Registry {
 	return registry
 }
 
-// prefetchModel downloads and starts serving the model before entering the
-// system. For the file (llamafile) backend this also blocks until the model
-// weights are fully loaded so the first prompt is not delayed. Returns
-// immediately when the model is already cached/running, model is empty, or
-// ctx is canceled (Ctrl+C during startup). Errors are silently ignored — the
-// executor retries on the first prompt.
+// prefetchModel starts a local model server when the model is already cached.
+// Uncached models are not downloaded here — first-use confirm + download
+// happens when the user sends a message or runs /model (see ConfirmModelDownload).
+// That keeps startup fast and avoids multi-GB blocks / CI SIGTERM on open.
+// Errors are ignored; the executor retries on the first prompt.
 func prefetchModel(ctx context.Context, backend, model string) {
 	if model == "" {
 		return
 	}
-	// Interactive first-use: confirm local model download before auto-fetch.
-	if !agentMemory.ConfirmModelDownload(model, backend) {
-		fmt.Fprintf(os.Stderr, "Download of %s skipped.\n", model)
-		return
+	// Uncached local models: skip at startup (confirm + download on first use).
+	if backend == agentBackendFile || backend == agentBackendGGUF {
+		if !localModelAlreadyCached(backend, model) {
+			return
+		}
 	}
 	svc := newModelServiceFunc()
 	if err := svc.DownloadModel(ctx, backend, model); err != nil {
@@ -159,8 +160,35 @@ func prefetchModel(ctx context.Context, backend, model string) {
 	}
 }
 
-// setupEngineWithAgentPaths is like setupEngine but also injects the agentNameMap
-// into every new ExecutionContext so that `agent` resources can call sibling agents.
+// localModelAlreadyCached reports whether a file/gguf model is fully on disk
+// and ready to serve without a network download.
+func localModelAlreadyCached(backend, model string) bool {
+	if cached := executorLLM.DownloadedModelAliases(); cached[model] {
+		return true
+	}
+	if strings.HasPrefix(model, "/") || strings.HasPrefix(model, "./") || strings.HasPrefix(model, "../") {
+		info, err := os.Stat(model)
+		return err == nil && !info.IsDir()
+	}
+	if backend != agentBackendFile {
+		return false
+	}
+	// Known alias with a complete cache file under models dir.
+	if executorLLM.NeedsLlamafileDownload(model) {
+		return false
+	}
+	dir, err := executorLLM.DefaultModelsDir()
+	if err != nil {
+		return false
+	}
+	p, ok := executorLLM.LlamafileCachedPath(model, dir)
+	if !ok {
+		return false
+	}
+	_, err = os.Stat(p)
+	return err == nil
+}
+
 func setupEngineWithAgentPaths(
 	workflow *domain.Workflow,
 	agentNameMap map[string]string,

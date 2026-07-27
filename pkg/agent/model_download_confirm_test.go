@@ -32,7 +32,7 @@ func TestConfirmModelDownload_NonInteractiveSkipsWithoutYes(t *testing.T) {
 	t.Setenv("KDEPS_YES", "")
 	t.Setenv("KDEPS_ASSUME_YES", "")
 	var out bytes.Buffer
-	ok := confirmModelDownload(&out, strings.NewReader(""), "ministral3:3b", llm.BackendFile, false)
+	ok := confirmModelDownload(&out, strings.NewReader(""), "llama3.2:1b", llm.BackendFile, false)
 	assert.False(t, ok, "non-interactive must not auto-download multi-GB models")
 	assert.Empty(t, out.String())
 }
@@ -40,7 +40,7 @@ func TestConfirmModelDownload_NonInteractiveSkipsWithoutYes(t *testing.T) {
 func TestConfirmModelDownload_NonInteractiveWithYes(t *testing.T) {
 	t.Setenv("KDEPS_YES", "1")
 	var out bytes.Buffer
-	ok := confirmModelDownload(&out, strings.NewReader(""), "ministral3:3b", llm.BackendFile, false)
+	ok := confirmModelDownload(&out, strings.NewReader(""), "llama3.2:1b", llm.BackendFile, false)
 	assert.True(t, ok)
 	assert.Empty(t, out.String())
 }
@@ -49,9 +49,9 @@ func TestConfirmModelDownload_UserYes(t *testing.T) {
 	t.Setenv("KDEPS_YES", "")
 	t.Setenv("KDEPS_ASSUME_YES", "")
 	var out bytes.Buffer
-	ok := confirmModelDownload(&out, strings.NewReader("y\n"), "ministral3:3b", llm.BackendFile, true)
+	ok := confirmModelDownload(&out, strings.NewReader("y\n"), "llama3.2:1b", llm.BackendFile, true)
 	assert.True(t, ok)
-	assert.Contains(t, out.String(), "ministral3:3b")
+	assert.Contains(t, out.String(), "llama3.2:1b")
 	assert.Contains(t, out.String(), "Download now")
 }
 
@@ -59,7 +59,7 @@ func TestConfirmModelDownload_UserNo(t *testing.T) {
 	t.Setenv("KDEPS_YES", "")
 	t.Setenv("KDEPS_ASSUME_YES", "")
 	var out bytes.Buffer
-	ok := confirmModelDownload(&out, strings.NewReader("n\n"), "ministral3:3b", llm.BackendFile, true)
+	ok := confirmModelDownload(&out, strings.NewReader("n\n"), "llama3.2:1b", llm.BackendFile, true)
 	assert.False(t, ok)
 }
 
@@ -67,14 +67,14 @@ func TestConfirmModelDownload_EmptyEnterDefaultsYes(t *testing.T) {
 	t.Setenv("KDEPS_YES", "")
 	t.Setenv("KDEPS_ASSUME_YES", "")
 	var out bytes.Buffer
-	ok := confirmModelDownload(&out, strings.NewReader("\n"), "ministral3:3b", llm.BackendFile, true)
+	ok := confirmModelDownload(&out, strings.NewReader("\n"), "llama3.2:1b", llm.BackendFile, true)
 	assert.True(t, ok)
 }
 
 func TestConfirmModelDownload_AssumeYesEnv(t *testing.T) {
 	t.Setenv("KDEPS_YES", "1")
 	var out bytes.Buffer
-	ok := confirmModelDownload(&out, strings.NewReader("n\n"), "ministral3:3b", llm.BackendFile, true)
+	ok := confirmModelDownload(&out, strings.NewReader("n\n"), "llama3.2:1b", llm.BackendFile, true)
 	assert.True(t, ok)
 	assert.Empty(t, out.String())
 }

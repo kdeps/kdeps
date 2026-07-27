@@ -30,9 +30,9 @@ import (
 	"github.com/kdeps/kdeps/v2/pkg/parser/expression"
 )
 
-// DefaultBuiltinModel is the zero-config file-backend model. Interactive
-// first use confirms, then auto-downloads into ~/.kdeps/models/.
-const DefaultBuiltinModel = "ministral3:3b"
+// DefaultBuiltinModel is the zero-config file-backend model (~1.1 GB).
+// Interactive first use confirms, then auto-downloads into ~/.kdeps/models/.
+const DefaultBuiltinModel = "llama3.2:1b"
 
 // defaultBuiltinModel is the internal alias used by empty-model resolution.
 const defaultBuiltinModel = DefaultBuiltinModel

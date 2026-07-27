@@ -33,7 +33,7 @@ import (
 )
 
 const (
-	defaultChatModel  = "ministral3:3b"
+	defaultChatModel  = "llama3.2:1b"
 	chatBackendOllama = "ollama"
 )
 
@@ -75,7 +75,7 @@ Examples:
   kdeps chat --model gpt-4o
 
   # Use Ollama with a custom URL
-  kdeps chat --model ministral3:3b --base-url http://localhost:11434
+  kdeps chat --model llama3.2:1b --base-url http://localhost:11434
 
   # Resume a previous session
   kdeps chat --session session-1234567890
