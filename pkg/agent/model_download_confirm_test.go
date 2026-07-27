@@ -28,7 +28,17 @@ import (
 	"github.com/kdeps/kdeps/v2/pkg/executor/llm"
 )
 
-func TestConfirmModelDownload_NonInteractiveAutoYes(t *testing.T) {
+func TestConfirmModelDownload_NonInteractiveSkipsWithoutYes(t *testing.T) {
+	t.Setenv("KDEPS_YES", "")
+	t.Setenv("KDEPS_ASSUME_YES", "")
+	var out bytes.Buffer
+	ok := confirmModelDownload(&out, strings.NewReader(""), "ministral3:3b", llm.BackendFile, false)
+	assert.False(t, ok, "non-interactive must not auto-download multi-GB models")
+	assert.Empty(t, out.String())
+}
+
+func TestConfirmModelDownload_NonInteractiveWithYes(t *testing.T) {
+	t.Setenv("KDEPS_YES", "1")
 	var out bytes.Buffer
 	ok := confirmModelDownload(&out, strings.NewReader(""), "ministral3:3b", llm.BackendFile, false)
 	assert.True(t, ok)

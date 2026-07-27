@@ -36,8 +36,10 @@ import (
 // Auto-approves when:
 //   - backend is not a local download backend
 //   - the model is already fully cached
-//   - stdin is not a TTY (CI/pipes)
 //   - KDEPS_YES=1 or KDEPS_ASSUME_YES=1
+//
+// Non-interactive sessions without KDEPS_YES skip the download (return false)
+// so CI/REPL tests do not block on multi-GB fetches at startup.
 func ConfirmModelDownload(model, backend string) bool {
 	return confirmModelDownload(os.Stdout, os.Stdin, model, backend, term.IsTerminal(int(os.Stdin.Fd())))
 }
@@ -57,7 +59,13 @@ func confirmModelDownload(w io.Writer, r io.Reader, model, backend string, inter
 			return true
 		}
 	}
-	if !interactive || os.Getenv("KDEPS_YES") == "1" || os.Getenv("KDEPS_ASSUME_YES") == "1" {
+	// Non-interactive (CI/pipes): only auto-download when explicitly opted in.
+	// Otherwise startup would block on multi-GB HuggingFace fetches and get
+	// SIGTERM'd as "interrupted during model startup".
+	if !interactive {
+		return os.Getenv("KDEPS_YES") == "1" || os.Getenv("KDEPS_ASSUME_YES") == "1"
+	}
+	if os.Getenv("KDEPS_YES") == "1" || os.Getenv("KDEPS_ASSUME_YES") == "1" {
 		return true
 	}
 
