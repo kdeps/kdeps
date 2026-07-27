@@ -1,0 +1,11 @@
+# Codecov uploads still run from .github/workflows/build-test.yml for the
+# dashboard/badge. The GitHub App otherwise posts codecov/patch (and project)
+# commit statuses after a green Actions run; those statuses are independent of
+# GHA job success and frequently flip the combined commit status to failure
+# (e.g. "80% of diff hit (target 91%)") or leave it pending.
+#
+# Keep report ingestion. Do not gate CI or the commit status on Codecov.
+coverage:
+  status:
+    project: off
+    patch: off
