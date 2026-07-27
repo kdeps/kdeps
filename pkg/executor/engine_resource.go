@@ -20,6 +20,7 @@ package executor
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/kdeps/kdeps/v2/pkg/domain"
 	"github.com/kdeps/kdeps/v2/pkg/events"
@@ -32,7 +33,11 @@ func (e *Engine) runWorkflowResource(
 	ctx *ExecutionContext,
 	reqCtx *RequestContext,
 ) error {
-	e.logger.Info("Executing resource",
+	logResource := e.logger.Info
+	if strings.HasPrefix(resource.ActionID, "agent_loop_") {
+		logResource = e.logger.Debug
+	}
+	logResource("Executing resource",
 		"name", resource.Name,
 		"actionID", resource.ActionID)
 	e.emitter.Emit(events.ResourceStarted(
@@ -98,7 +103,7 @@ func (e *Engine) runWorkflowResource(
 	}
 
 	ctx.SetOutput(resource.ActionID, output)
-	e.logger.Info("Resource completed",
+	logResource("Resource completed",
 		"actionID", resource.ActionID,
 		"output", redactValue(output))
 	e.emitter.Emit(events.ResourceCompleted(

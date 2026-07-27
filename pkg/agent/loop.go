@@ -2406,33 +2406,48 @@ func formatLoopResult(result any) string {
 	if s, ok := result.(string); ok {
 		return stripContentToolCalls(s)
 	}
-	m, isMap := result.(map[string]any)
+	m, isMap := asStringMap(result)
 	if !isMap {
 		return ""
 	}
+	// LLM/executor failures are {error: "..."}; never treat the error text as content.
+	if errVal, hasErr := m["error"]; hasErr {
+		if s, ok := errVal.(string); ok && s != "" {
+			return ""
+		}
+	}
 	// Standard path: {"message": {"content": "...", "role": "assistant"}}
-	if msg, msgOK := m["message"].(map[string]any); msgOK {
+	if msg, msgOK := asStringMap(m["message"]); msgOK {
 		if content, contentOK := msg[toolParamContent].(string); contentOK {
 			return stripContentToolCalls(content)
 		}
 	}
-	// Fallback: scan nested maps for content-like fields.
+	// Fallback: scan nested maps for content-like fields (skip "error").
 	contentKeys := []string{toolParamContent, "text", "response", "output"}
-	for _, v := range m {
-		inner, innerOK := v.(map[string]any)
-		if !innerOK {
-			if s, strOK := v.(string); strOK && s != "" {
-				return stripContentToolCalls(s)
-			}
+	for key, v := range m {
+		if key == "error" {
 			continue
 		}
-		for _, key := range contentKeys {
-			if s, strOK := inner[key].(string); strOK && s != "" {
+		if s, strOK := v.(string); strOK && s != "" {
+			return stripContentToolCalls(s)
+		}
+		inner, innerOK := asStringMap(v)
+		if !innerOK {
+			continue
+		}
+		for _, ck := range contentKeys {
+			if s, strOK := inner[ck].(string); strOK && s != "" {
 				return stripContentToolCalls(s)
 			}
 		}
 	}
 	return ""
+}
+
+// asStringMap returns v when it is a string-keyed map.
+func asStringMap(v any) (map[string]any, bool) {
+	m, ok := v.(map[string]any)
+	return m, ok
 }
 
 // dsmlBlockRe matches a DeepSeek DSML tool-call span leaked into text content

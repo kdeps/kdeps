@@ -90,3 +90,24 @@ func TestExtractJSONObject(t *testing.T) {
 		t.Fatalf("expected empty, got %q", got)
 	}
 }
+
+func TestFormatLoopResult_ErrorMap(t *testing.T) {
+	t.Parallel()
+	if got := formatLoopResult(map[string]any{"error": "connection refused"}); got != "" {
+		t.Fatalf("error map: got %q, want empty", got)
+	}
+	if got := formatLoopResult(map[string]interface{}{"error": "boom"}); got != "" {
+		t.Fatalf("error map interface: got %q, want empty", got)
+	}
+}
+
+func TestFormatLoopResult_MessageMap(t *testing.T) {
+	t.Parallel()
+	got := formatLoopResult(map[string]any{
+		"message": map[string]any{"role": "assistant", "content": `{"tasks":["a","b"]}`},
+	})
+	want := `{"tasks":["a","b"]}`
+	if got != want {
+		t.Fatalf("message map: got %q, want %q", got, want)
+	}
+}

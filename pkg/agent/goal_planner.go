@@ -79,6 +79,15 @@ func planGoal(ctx context.Context, l *Loop, input string) *Goal {
 // requestPlan performs a single decomposition call and parses the task list.
 // Returns nil when the call fails or the reply cannot be parsed.
 func requestPlan(l *Loop, input string, repair bool) []string {
+	// Local models must be served before the planner can call them. If the
+	// first-use download was skipped/declined, degrade to a single-task goal
+	// instead of a failed agent_loop_plan with {error: ...}.
+	if l.config.BaseURL == "" {
+		backend := l.config.Backend
+		if backend == "" || backend == "file" || backend == "gguf" {
+			return nil
+		}
+	}
 	system := goalPlanSystemPrompt
 	if repair {
 		system += "\n\nYour previous reply was not valid JSON. Reply with the JSON object ONLY."
