@@ -10,6 +10,7 @@ import (
 	"os/exec"
 	"os/signal"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"syscall"
 	"time"
@@ -76,18 +77,14 @@ func runLlamaFit(repl *agent.REPL) {
 	if unmarshalErr := json.Unmarshal(out, &result); unmarshalErr != nil {
 		return
 	}
-	// Index llmfit results two ways: by exact GGUF source repo, and by the
-	// normalized base model name. Most llmfit entries have no gguf_sources,
-	// and llmfit's "name" is the base repo (Qwen/Qwen2.5-1.5B-Instruct) while
-	// kdeps registry repos are quantizer repos (bartowski/…-GGUF), so exact
-	// repo matching alone leaves most aliases unscored.
-	type scoreEntry struct {
-		score float64
-		fit   string
-	}
-	repoMap := make(map[string]scoreEntry)
-	nameMap := make(map[string]scoreEntry)
-	record := func(m map[string]scoreEntry, key string, e scoreEntry) {
+	// Index llmfit results by exact GGUF source repo, normalized base name,
+	// and a looser key (instruct/chat/it stripped). Most llmfit entries have
+	// no gguf_sources, and kdeps repos are quantizer/packaging repos while
+	// llmfit names are base model ids — so multi-key matching is required.
+	repoMap := make(map[string]llamaFitScoreEntry)
+	nameMap := make(map[string]llamaFitScoreEntry)
+	looseMap := make(map[string]llamaFitScoreEntry)
+	record := func(m map[string]llamaFitScoreEntry, key string, e llamaFitScoreEntry) {
 		if key == "" {
 			return
 		}
@@ -96,27 +93,29 @@ func runLlamaFit(repl *agent.REPL) {
 		}
 	}
 	for _, m := range result.Models {
-		entry := scoreEntry{m.Score, m.FitLevel}
+		entry := llamaFitScoreEntry{m.Score, m.FitLevel}
 		record(nameMap, normalizeModelKey(m.Name), entry)
+		record(looseMap, normalizeModelKeyLoose(m.Name), entry)
 		for _, src := range m.GGUFSrcs {
 			record(repoMap, strings.ToLower(src.Repo), entry)
 			record(nameMap, normalizeModelKey(src.Repo), entry)
+			record(looseMap, normalizeModelKeyLoose(src.Repo), entry)
 		}
 	}
-	// Map each alias to its score via its HuggingFace repo: exact repo match
-	// first, then normalized base-name match.
+
+	// Candidates per alias: HF repo, filename, and description. Filename is
+	// essential for multi-model packaging repos (e.g. mozilla-ai/llamafile_0.10)
+	// where the repo name is not the model name.
+	candidates := buildLlamaFitMatchCandidates()
+
 	scores := make(map[string]float64)
 	fitLevels := make(map[string]string)
 	for _, alias := range repl.ModelNames() {
-		repo := repl.ModelRepos()[alias]
-		if repo == "" {
-			continue
+		cands := candidates[alias]
+		if repo := repl.ModelRepos()[alias]; repo != "" {
+			cands = append([]string{repo}, cands...)
 		}
-		entry, ok := repoMap[strings.ToLower(repo)]
-		if !ok {
-			entry, ok = nameMap[normalizeModelKey(repo)]
-		}
-		if ok {
+		if entry, ok := matchLlamaFitScore(cands, repoMap, nameMap, looseMap); ok {
 			scores[alias] = entry.score
 			fitLevels[alias] = entry.fit
 		}
@@ -124,19 +123,108 @@ func runLlamaFit(repl *agent.REPL) {
 	repl.SetLlamaFitScores(scores, fitLevels)
 }
 
-// normalizeModelKey reduces a HuggingFace repo id or model name to a
-// comparable key: the part after the owner, lowercased, with quantizer
-// suffixes ("-GGUF", "-llamafile") dropped and all non-alphanumerics removed.
-// "bartowski/Llama-3.2-1B-Instruct-GGUF", "unsloth/Llama-3.2-1B-Instruct-GGUF",
-// and "alpindale/Llama-3.2-1B-Instruct" all normalize to "llama321binstruct".
+// llamaFitScoreEntry is the score + fit level for one matched model.
+type llamaFitScoreEntry struct {
+	score float64
+	fit   string
+}
+
+// buildLlamaFitMatchCandidates returns alias -> filename/description strings
+// from the GGUF and llamafile registries for name-based llmfit matching.
+func buildLlamaFitMatchCandidates() map[string][]string {
+	out := make(map[string][]string)
+	add := func(alias, filename, desc string) {
+		if alias == "" {
+			return
+		}
+		var cands []string
+		if filename != "" {
+			cands = append(cands, filename)
+		}
+		if desc != "" {
+			cands = append(cands, desc)
+		}
+		if len(cands) == 0 {
+			return
+		}
+		out[alias] = append(out[alias], cands...)
+	}
+	for _, e := range llm.ListLlamafileMappings() {
+		add(e.Alias, e.Filename, e.Description)
+	}
+	for _, e := range llm.ListGGUFMappings() {
+		add(e.Alias, e.Filename, e.Description)
+	}
+	return out
+}
+
+// matchLlamaFitScore tries exact repo, then normalized name, then loose name
+// against the candidate strings (repo / filename / description).
+func matchLlamaFitScore(
+	cands []string,
+	repoMap, nameMap, looseMap map[string]llamaFitScoreEntry,
+) (llamaFitScoreEntry, bool) {
+	for _, c := range cands {
+		if c == "" {
+			continue
+		}
+		if entry, ok := repoMap[strings.ToLower(c)]; ok {
+			return entry, true
+		}
+	}
+	for _, c := range cands {
+		if entry, ok := nameMap[normalizeModelKey(c)]; ok {
+			return entry, true
+		}
+	}
+	for _, c := range cands {
+		if entry, ok := looseMap[normalizeModelKeyLoose(c)]; ok {
+			return entry, true
+		}
+	}
+	return llamaFitScoreEntry{}, false
+}
+
+// trailingQuantRE matches a trailing GGUF/llamafile quant suffix on a stem,
+// e.g. "-Q4_K_M", ".Q8_0", "-UD-Q2_K_XL". Applied after lowercasing.
+var trailingQuantRE = regexp.MustCompile(`(?i)[._-](?:ud-)?(?:q|iq)\d+(?:_[a-z0-9]+)*$`)
+
+// normalizeModelKey reduces a HuggingFace repo id, filename, or model name to a
+// comparable key: the part after the owner, lowercased, with quantizer and
+// packaging suffixes dropped, Meta- prefix stripped, trailing quant markers
+// removed, and all non-alphanumerics removed.
+//
+//	bartowski/Llama-3.2-1B-Instruct-GGUF
+//	mozilla-ai/Meta-Llama-3.1-8B-Instruct-llamafile
+//	Meta-Llama-3.1-8B-Instruct.Q4_K_M.llamafile
+//	alpindale/Llama-3.2-1B-Instruct
+//
+// all normalize toward the same family of keys (meta- stripped so Meta-Llama
+// and Llama share a key with llmfit's meta-llama/Llama-… names).
 func normalizeModelKey(id string) string {
+	if id == "" {
+		return ""
+	}
+	// Descriptions may end with " [default]".
+	if i := strings.Index(id, " ["); i >= 0 {
+		id = id[:i]
+	}
 	if i := strings.LastIndex(id, "/"); i >= 0 {
 		id = id[i+1:]
 	}
 	id = strings.ToLower(id)
-	for _, suffix := range []string{"-gguf", "-llamafile", ".gguf", ".llamafile"} {
+	for _, suffix := range []string{".gguf", ".llamafile", "-gguf", "-llamafile", "-hf"} {
 		id = strings.TrimSuffix(id, suffix)
 	}
+	for {
+		next := trailingQuantRE.ReplaceAllString(id, "")
+		if next == id {
+			break
+		}
+		id = next
+	}
+	// llmfit uses meta-llama/Llama-3.1-…; mozilla-ai ships Meta-Llama-3.1-….
+	id = strings.TrimPrefix(id, "meta-")
 	var b strings.Builder
 	for _, r := range id {
 		if (r >= 'a' && r <= 'z') || (r >= '0' && r <= '9') {
@@ -144,6 +232,24 @@ func normalizeModelKey(id string) string {
 		}
 	}
 	return b.String()
+}
+
+// normalizeModelKeyLoose is normalizeModelKey plus stripping of role suffixes
+// that differ across registries: "instruct", "chat", and gemma's trailing "it".
+// Used as a fallback so Llama-3.2-3B-Instruct matches llmfit's Llama-3.2-3B.
+func normalizeModelKeyLoose(id string) string {
+	k := normalizeModelKey(id)
+	for _, s := range []string{"instruct", "chat"} {
+		k = strings.ReplaceAll(k, s, "")
+	}
+	// gemma-4-12b-it -> gemma412bit -> gemma412b. The size unit "b" sits
+	// between the digit and the role suffix "it".
+	if len(k) > 4 && strings.HasSuffix(k, "bit") {
+		if prev := k[len(k)-4]; prev >= '0' && prev <= '9' {
+			k = k[:len(k)-2] // drop "it", keep trailing "b"
+		}
+	}
+	return k
 }
 
 // optionalToolNotices returns install suggestions for optional tools that

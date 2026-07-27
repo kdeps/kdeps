@@ -33,19 +33,73 @@ import (
 )
 
 func TestNormalizeModelKey(t *testing.T) {
-	// Quantizer repos, llamafile repos, and base repos of the same model all
-	// normalize to the same key.
+	// Quantizer repos, llamafile repos, filenames, and base repos of the same
+	// model all normalize to the same key. Meta- is stripped so Meta-Llama
+	// matches llmfit's meta-llama/Llama-… names.
 	want := "llama321binstruct"
 	for _, in := range []string{
 		"bartowski/Llama-3.2-1B-Instruct-GGUF",
 		"unsloth/Llama-3.2-1B-Instruct-GGUF",
 		"alpindale/Llama-3.2-1B-Instruct",
 		"mozilla-ai/Llama-3.2-1B-Instruct-llamafile",
+		"Llama-3.2-1B-Instruct-Q4_K_M.llamafile",
+		"Llama-3.2-1B-Instruct.Q4_K_M.gguf",
 	} {
 		assert.Equal(t, want, normalizeModelKey(in), "input: %s", in)
 	}
+	assert.Equal(t, "llama318binstruct", normalizeModelKey("mozilla-ai/Meta-Llama-3.1-8B-Instruct-llamafile"))
+	assert.Equal(t, "llama318binstruct", normalizeModelKey("Meta-Llama-3.1-8B-Instruct.Q4_K_M.llamafile"))
+	assert.Equal(t, "llama318binstruct", normalizeModelKey("meta-llama/Llama-3.1-8B-Instruct"))
 	assert.Equal(t, "qwen2515binstruct", normalizeModelKey("Qwen/Qwen2.5-1.5B-Instruct"))
+	assert.Equal(t, "starcoder23b", normalizeModelKey("starcoder2-3b.Q4_K_M.llamafile"))
+	assert.Equal(t, "qwen2515binstruct", normalizeModelKey("Qwen2.5-1.5B-Instruct [default]"))
 	assert.Empty(t, normalizeModelKey(""))
+}
+
+func TestNormalizeModelKeyLoose(t *testing.T) {
+	// Instruct/chat/it stripped so base and instruct variants share a key.
+	assert.Equal(t, "llama323b", normalizeModelKeyLoose("mozilla-ai/Llama-3.2-3B-Instruct-llamafile"))
+	assert.Equal(t, "llama323b", normalizeModelKeyLoose("meta-llama/Llama-3.2-3B"))
+	assert.Equal(t, "gemma412b", normalizeModelKeyLoose("gemma-4-12b-it-Q4_K_M.gguf"))
+	assert.Equal(t, "gemma412b", normalizeModelKeyLoose("google/gemma-4-12b"))
+}
+
+func TestMatchLlamaFitScore(t *testing.T) {
+	repoMap := map[string]llamaFitScoreEntry{
+		"bartowski/qwen2.5-1.5b-instruct-gguf": {66.1, "Too Tight"},
+	}
+	nameMap := map[string]llamaFitScoreEntry{
+		"llama321binstruct": {78.5, "Good"},
+		"starcoder23b":      {55.0, "Marginal"},
+	}
+	looseMap := map[string]llamaFitScoreEntry{
+		"llama323b": {67.3, "Marginal"},
+	}
+
+	// Exact repo wins.
+	e, ok := matchLlamaFitScore([]string{"bartowski/Qwen2.5-1.5B-Instruct-GGUF"}, repoMap, nameMap, looseMap)
+	require.True(t, ok)
+	assert.InDelta(t, 66.1, e.score, 0.001)
+
+	// Filename-based name match (packaging repo).
+	e, ok = matchLlamaFitScore(
+		[]string{"mozilla-ai/llamafile_0.10", "starcoder2-3b.Q4_K_M.llamafile"},
+		repoMap, nameMap, looseMap,
+	)
+	require.True(t, ok)
+	assert.InDelta(t, 55.0, e.score, 0.001)
+	assert.Equal(t, "Marginal", e.fit)
+
+	// Loose match: Instruct filename vs base llmfit name.
+	e, ok = matchLlamaFitScore(
+		[]string{"mozilla-ai/Llama-3.2-3B-Instruct-llamafile", "Llama-3.2-3B-Instruct-Q4_K_M.llamafile"},
+		repoMap, nameMap, looseMap,
+	)
+	require.True(t, ok)
+	assert.InDelta(t, 67.3, e.score, 0.001)
+
+	_, ok = matchLlamaFitScore([]string{"unknown/model"}, repoMap, nameMap, looseMap)
+	assert.False(t, ok)
 }
 
 // TestRunLlamaFit_NameBasedMatching verifies aliases are scored via the
@@ -55,7 +109,10 @@ func TestRunLlamaFit_NameBasedMatching(t *testing.T) {
 	const fixture = `{"models":[
 		{"name":"alpindale/Llama-3.2-1B-Instruct","score":78.5,"fit_level":"Good","gguf_sources":[]},
 		{"name":"Qwen/Qwen2.5-1.5B-Instruct","score":66.1,"fit_level":"Too Tight",
-		 "gguf_sources":[{"repo":"bartowski/Qwen2.5-1.5B-Instruct-GGUF"}]}
+		 "gguf_sources":[{"repo":"bartowski/Qwen2.5-1.5B-Instruct-GGUF"}]},
+		{"name":"meta-llama/Llama-3.1-8B-Instruct","score":48.4,"fit_level":"Too Tight","gguf_sources":[]},
+		{"name":"meta-llama/Llama-3.2-3B","score":67.3,"fit_level":"Marginal","gguf_sources":[]},
+		{"name":"bigcode/starcoder2-3b","score":55.0,"fit_level":"Marginal","gguf_sources":[]}
 	]}`
 	dir := t.TempDir()
 	fake := filepath.Join(dir, "llmfit")
@@ -66,10 +123,20 @@ func TestRunLlamaFit_NameBasedMatching(t *testing.T) {
 	t.Setenv("PATH", dir+string(os.PathListSeparator)+os.Getenv("PATH"))
 
 	repl := agent.NewREPL(context.Background(), agent.New(nil, nil, nil, agent.Config{Model: "m", Backend: "openai"}))
-	repl.SetModelNames([]string{"llama3.2:1b-q4", "qwen2.5:1.5b", "no-repo-model"})
+	repl.SetModelNames([]string{
+		"llama3.2:1b-q4",
+		"qwen2.5:1.5b",
+		"llama3.1:8b",
+		"llama3.2:3b",
+		"starcoder2:3b",
+		"no-repo-model",
+	})
 	repl.SetModelRepos(map[string]string{
-		"llama3.2:1b-q4": "bartowski/Llama-3.2-1B-Instruct-GGUF", // name-based match
-		"qwen2.5:1.5b":   "bartowski/Qwen2.5-1.5B-Instruct-GGUF", // exact repo match
+		"llama3.2:1b-q4": "bartowski/Llama-3.2-1B-Instruct-GGUF",            // name-based match
+		"qwen2.5:1.5b":   "bartowski/Qwen2.5-1.5B-Instruct-GGUF",            // exact repo match
+		"llama3.1:8b":    "mozilla-ai/Meta-Llama-3.1-8B-Instruct-llamafile", // Meta- strip
+		"llama3.2:3b":    "mozilla-ai/Llama-3.2-3B-Instruct-llamafile",      // loose instruct strip
+		"starcoder2:3b":  "mozilla-ai/starcoder2-llamafile",                 // filename size disambig
 	})
 
 	runLlamaFit(repl)
@@ -78,6 +145,16 @@ func TestRunLlamaFit_NameBasedMatching(t *testing.T) {
 	assert.Equal(t, "Good", repl.LlamaFitFitLevel("llama3.2:1b-q4"))
 	assert.InDelta(t, 66.1, repl.LlamaFitScore("qwen2.5:1.5b"), 0.001)
 	assert.Equal(t, "Too Tight", repl.LlamaFitFitLevel("qwen2.5:1.5b"))
+	assert.InDelta(t, 48.4, repl.LlamaFitScore("llama3.1:8b"), 0.001)
+	assert.Equal(t, "Too Tight", repl.LlamaFitFitLevel("llama3.1:8b"))
+	assert.InDelta(t, 67.3, repl.LlamaFitScore("llama3.2:3b"), 0.001)
+	assert.Equal(t, "Marginal", repl.LlamaFitFitLevel("llama3.2:3b"))
+	// starcoder2:3b needs filename from the live registry; if the registry
+	// has starcoder2-3b*.llamafile it matches, otherwise repo-only fails.
+	// Score is non-zero when the baked registry filename is present.
+	if score := repl.LlamaFitScore("starcoder2:3b"); score > 0 {
+		assert.InDelta(t, 55.0, score, 0.001)
+	}
 	assert.Zero(t, repl.LlamaFitScore("no-repo-model"))
 }
 

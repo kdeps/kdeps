@@ -24,8 +24,10 @@ Authentication:
 """
 
 import argparse
+import json
 import os
 import re
+import subprocess
 import sys
 from collections import OrderedDict
 from datetime import datetime
@@ -146,23 +148,33 @@ def quant_sort_key(quant):
     return (n != 4, n)
 
 
-def _harvest_by_extension(candidates, api, args, extension, quant_re, parse_fn):
+def _harvest_by_extension(candidates, api, args, extension, quant_re, parse_fn, limit=None):
     """Harvest models with a given file extension from HuggingFace.
     Returns (flat_entries, by_base_dict) following the same scheme as
-    the llamafile harvesting logic."""
-    seen_org_repos = set()
+    the llamafile harvesting logic.
+
+    limit: max candidates to process. Defaults to args.limit. Pass 0 or a
+    negative value to process every candidate (used for llmfit seeding).
+    """
+    if limit is None:
+        limit = args.limit
+    pool = candidates if limit is not None and limit <= 0 else candidates[:limit]
+
+    seen_model_ids = set()
     by_base = OrderedDict()
-    for m in candidates[:args.limit]:
-        org_repo = m.modelId.split("/")[-1]
-        if org_repo in seen_org_repos:
+    for m in pool:
+        model_id = getattr(m, "modelId", None) or getattr(m, "id", None) or ""
+        if not model_id or model_id in seen_model_ids:
             continue
-        seen_org_repos.add(org_repo)
+        seen_model_ids.add(model_id)
 
         try:
-            info = api.model_info(m.modelId, files_metadata=True)
+            info = api.model_info(model_id, files_metadata=True)
         except Exception:
             continue
 
+        downloads = getattr(m, "downloads", None) or 0
+        pipeline_tag = getattr(m, "pipeline_tag", None) or ""
         for s in info.siblings:
             if not s.rfilename.endswith(extension):
                 continue
@@ -174,22 +186,57 @@ def _harvest_by_extension(candidates, api, args, extension, quant_re, parse_fn):
             base_alias, family_alias, quant, params_label, version = parsed
             variants = by_base.setdefault(base_alias, OrderedDict())
             existing = variants.get(quant)
-            if existing and (existing["downloads"] or 0) >= (m.downloads or 0):
+            if existing and (existing["downloads"] or 0) >= downloads:
                 continue
             variants[quant] = {
                 "family_alias": family_alias,
                 "quant": quant,
                 "params": params_label,
                 "version": version,
-                "url": f"https://huggingface.co/{m.modelId}/resolve/main/{s.rfilename}",
+                "url": f"https://huggingface.co/{model_id}/resolve/main/{s.rfilename}",
                 "size_bytes": s.size or 0,
-                "downloads": m.downloads or 0,
-                "pipeline_tag": m.pipeline_tag or "",
+                "downloads": downloads,
+                "pipeline_tag": pipeline_tag,
                 "filename": s.rfilename,
-                "repo": m.modelId,
+                "repo": model_id,
             }
 
     return _build_entries(by_base), by_base
+
+
+class _SeedModel:
+    """Minimal HF model stand-in for seeding harvest from known repo ids."""
+
+    def __init__(self, model_id, downloads=0, pipeline_tag=""):
+        self.modelId = model_id
+        self.downloads = downloads
+        self.pipeline_tag = pipeline_tag
+
+
+def load_llmfit_gguf_repos():
+    """Return HuggingFace repo ids from `llmfit fit --json` gguf_sources.
+
+    Returns an empty list when llmfit is not installed or fails. Seeding the
+    GGUF harvest from llmfit keeps the catalog scoreable in the model picker.
+    """
+    try:
+        out = subprocess.check_output(
+            ["llmfit", "fit", "--json"],
+            stderr=subprocess.DEVNULL,
+            timeout=60,
+        )
+        data = json.loads(out)
+    except (OSError, subprocess.SubprocessError, json.JSONDecodeError, ValueError):
+        return []
+    repos = []
+    seen = set()
+    for m in data.get("models") or []:
+        for src in m.get("gguf_sources") or []:
+            repo = (src.get("repo") or "").strip()
+            if repo and repo not in seen:
+                seen.add(repo)
+                repos.append(repo)
+    return repos
 
 
 def _build_entries(by_base):
@@ -345,11 +392,35 @@ def main():
         gguf_primary = [m for m in gguf_models]
         gguf_entries, _ = _harvest_by_extension(gguf_primary, api, args, ".gguf", GGUF_QUANT_RE, parse_gguf_name)
 
+        seen_repos = {e["repo"] for e in gguf_entries}
+
+        # ── llmfit gguf_sources seed ──
+        # Top-download HF search currently surfaces brand-new models that
+        # llmfit does not know. Seed the catalog with every GGUF repo llmfit
+        # already scores so the model picker can show fit levels.
+        llmfit_repos = load_llmfit_gguf_repos()
+        if llmfit_repos:
+            print(f"  llmfit: {len(llmfit_repos)} gguf_sources repos", file=sys.stderr)
+            seed_models = [
+                _SeedModel(r) for r in llmfit_repos if r not in seen_repos
+            ]
+            if seed_models:
+                # limit=0: process every llmfit-sourced repo, not just top N.
+                seed_entries, _ = _harvest_by_extension(
+                    seed_models, api, args, ".gguf", GGUF_QUANT_RE, parse_gguf_name, limit=0,
+                )
+                added = 0
+                for e in seed_entries:
+                    if e["repo"] not in seen_repos:
+                        seen_repos.add(e["repo"])
+                        gguf_entries.append(e)
+                        added += 1
+                print(f"  llmfit: +{added} entries from gguf_sources", file=sys.stderr)
+        else:
+            print("  llmfit: not available — skip gguf_sources seed", file=sys.stderr)
+
         # ── Chinese AI labs GGUF harvest ──
         if args.chinese_labs:
-            seen_repos = set()
-            for e in gguf_entries:
-                seen_repos.add(e["repo"])
             for name_filter, query in CHINESE_AI_LABS:
                 try:
                     lab_models = list(api.list_models(search=query, sort="downloads", limit=50))
