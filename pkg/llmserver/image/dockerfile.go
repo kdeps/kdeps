@@ -69,9 +69,7 @@ func ResolveBaseImage(recipeBase, gpu string) string {
 }
 
 // RenderDockerfile produces a Dockerfile for the LLM appliance (no kdeps agent).
-//
-//nolint:funlen,gocognit // dockerfile assembly is linear branches
-func RenderDockerfile(req BuildRequest) (string, error) {
+func RenderDockerfile(req BuildRequest) (string, error) { //nolint:cyclop,funlen,gocognit // recipe→Dockerfile assembly
 	if req.Recipe == nil {
 		return "", errors.New("recipe is required")
 	}
@@ -96,7 +94,8 @@ func RenderDockerfile(req BuildRequest) (string, error) {
 	}
 	fmt.Fprintf(&b, "FROM %s\n\n", from)
 	b.WriteString("USER root\n")
-	if isDebianFamily(from) {
+	switch {
+	case isDebianFamily(from):
 		b.WriteString("ENV DEBIAN_FRONTEND=noninteractive\n")
 		b.WriteString("RUN apt-get update && apt-get install -y --no-install-recommends \\\n")
 		b.WriteString("    ca-certificates curl \\\n")
@@ -107,10 +106,11 @@ func RenderDockerfile(req BuildRequest) (string, error) {
 			fmt.Fprintf(&b, "    %s \\\n", strings.Join(r.Engine.Packages, " "))
 		}
 		b.WriteString("    && rm -rf /var/lib/apt/lists/*\n\n")
-	} else if len(r.Engine.Packages) > 0 {
+	case len(r.Engine.Packages) > 0:
 		// Prebuilt server images: only emit package note; install via recipe install snippet.
-		fmt.Fprintf(&b, "# packages declared (install via recipe install): %s\n\n", strings.Join(r.Engine.Packages, " "))
-	} else {
+		fmt.Fprintf(&b, "# packages declared (install via recipe install): %s\n\n",
+			strings.Join(r.Engine.Packages, " "))
+	default:
 		b.WriteString("# Prebuilt inference image — skip base apt layer\n\n")
 	}
 
@@ -168,7 +168,9 @@ func RenderDockerfile(req BuildRequest) (string, error) {
 		fmt.Fprintf(&b, "  CMD curl -fsS \"http://127.0.0.1:%d%s\" || exit 1\n\n", r.API.Port, r.API.Health.Path)
 	} else {
 		// Prebuilt images may lack curl; prefer python urllib (vLLM/TGI/SGLang images include python).
-		fmt.Fprintf(&b, "  CMD python3 -c \"import urllib.request; urllib.request.urlopen('http://127.0.0.1:%d%s')\" || exit 1\n\n", r.API.Port, r.API.Health.Path)
+		fmt.Fprintf(&b,
+			"  CMD python3 -c \"import urllib.request; urllib.request.urlopen('http://127.0.0.1:%d%s')\" || exit 1\n\n",
+			r.API.Port, r.API.Health.Path)
 	}
 	b.WriteString("ENTRYPOINT [\"/entrypoint.sh\"]\n")
 

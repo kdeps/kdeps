@@ -43,7 +43,7 @@ select an engine recipe and model only.
 
 With no subcommand on a TTY, launches the interactive wizard (same as: kdeps llm wizard).`,
 		Args: cobra.NoArgs,
-		RunE: func(c *cobra.Command, args []string) error {
+		RunE: func(c *cobra.Command, _ []string) error {
 			// Bare "kdeps llm" → wizard on TTY, else help.
 			if isInteractiveTTY() {
 				return runLLMWizard(c)

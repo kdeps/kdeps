@@ -19,7 +19,7 @@
 package domain
 
 import (
-	"fmt"
+	"errors"
 	"strings"
 )
 
@@ -186,7 +186,7 @@ func (c *LetsEncryptConfig) Validate() error {
 		return nil
 	}
 	if strings.TrimSpace(c.Domain) == "" && len(c.Domains) == 0 {
-		return fmt.Errorf("letsEncrypt: domain (or domains) is required")
+		return errors.New("letsEncrypt: domain (or domains) is required")
 	}
 	if strings.TrimSpace(c.Domain) == "" && len(c.Domains) > 0 {
 		c.Domain = c.Domains[0]

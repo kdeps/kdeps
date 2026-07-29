@@ -126,7 +126,11 @@ func runLLMRun(cmd *cobra.Command, f *llmRunFlags) error {
 	}
 
 	url := fmt.Sprintf("http://127.0.0.1:%d%s", port, entry.Recipe.API.BasePath)
-	out, emitErr := clientconfig.Emit(clientconfig.Options{BaseURL: url, Model: f.Model, Format: clientconfig.FormatYAML})
+	out, emitErr := clientconfig.Emit(clientconfig.Options{
+		BaseURL: url,
+		Model:   f.Model,
+		Format:  clientconfig.FormatYAML,
+	})
 	if emitErr == nil {
 		fmt.Fprintln(cmd.ErrOrStderr(), "\n# Client config:")
 		fmt.Fprint(cmd.ErrOrStderr(), out)

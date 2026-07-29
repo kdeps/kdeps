@@ -56,9 +56,15 @@ Filter:
 	return cmd
 }
 
+const (
+	llmModelsPad       = 2
+	llmModelsBytesPerG = 1e9
+	llmModelsDLPerK    = 1000
+)
+
 func runLLMModels(kind string) error {
 	kdeps_debug.Log("enter: runLLMModels")
-	filter := ""
+	var filter string
 	switch kind {
 	case "", "all":
 		filter = ""
@@ -73,7 +79,7 @@ func runLLMModels(kind string) error {
 	lfN, ggN := tui.HarvestCounts()
 	fmt.Fprintf(os.Stderr, "Harvest: %d llamafile · %d GGUF  (update: kdeps llamafile update)\n\n", lfN, ggN)
 
-	w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
+	w := tabwriter.NewWriter(os.Stdout, 0, 0, llmModelsPad, ' ', 0)
 	fmt.Fprintln(w, "TYPE\tALIAS\tPARAMS\tQUANT\tSIZE\tDOWNLOADS")
 	fmt.Fprintln(w, "----\t-----\t------\t-----\t----\t---------")
 
@@ -93,11 +99,11 @@ func runLLMModels(kind string) error {
 func printHarvestRow(w *tabwriter.Writer, kind, alias, params, quant string, sizeBytes int64, downloads int) {
 	size := "?"
 	if sizeBytes > 0 {
-		size = fmt.Sprintf("%.1f GB", float64(sizeBytes)/1e9)
+		size = fmt.Sprintf("%.1f GB", float64(sizeBytes)/llmModelsBytesPerG)
 	}
 	dl := ""
 	if downloads > 0 {
-		dl = fmt.Sprintf("%dk", downloads/1000)
+		dl = fmt.Sprintf("%dk", downloads/llmModelsDLPerK)
 	}
 	fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\t%s\n", kind, alias, params, quant, size, dl)
 }

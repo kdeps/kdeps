@@ -21,6 +21,7 @@
 package tui
 
 import (
+	"errors"
 	"fmt"
 	"strings"
 
@@ -172,7 +173,7 @@ func (m listPickerModel) View() string {
 // Cancel returns "", nil (caller treats empty as cancel) or an error from tea.
 func RunListPicker(title string, items []ListItem) (string, error) {
 	if len(items) == 0 {
-		return "", fmt.Errorf("no items to pick")
+		return "", errors.New("no items to pick")
 	}
 	m := newListPickerModel(title, items)
 	p := tea.NewProgram(m, tea.WithAltScreen())

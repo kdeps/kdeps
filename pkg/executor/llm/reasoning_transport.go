@@ -75,7 +75,7 @@ func historyReasoning(historyJSON string) []string {
 	var out []string
 	hasReasoning := false
 	for _, h := range history {
-		if role, _ := h["role"].(string); role != "assistant" {
+		if role, _ := h["role"].(string); role != roleAssistant {
 			continue
 		}
 		r, _ := h["reasoning_content"].(string)
@@ -168,7 +168,7 @@ func injectReasoning(body []byte, reasoning []string) ([]byte, bool) {
 		if !isObj {
 			continue
 		}
-		if role, _ := msg["role"].(string); role != "assistant" {
+		if role, _ := msg["role"].(string); role != roleAssistant {
 			continue
 		}
 		if idx >= len(reasoning) {

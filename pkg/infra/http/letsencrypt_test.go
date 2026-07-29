@@ -38,6 +38,7 @@ func TestNewAutocertManager(t *testing.T) {
 	}
 	if m == nil {
 		t.Fatal("nil manager")
+		return
 	}
 	if m.Client == nil {
 		t.Fatal("expected staging ACME client")

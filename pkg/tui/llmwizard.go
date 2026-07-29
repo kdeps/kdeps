@@ -21,12 +21,19 @@
 package tui
 
 import (
+	"errors"
 	"fmt"
 	"strings"
 
 	"github.com/kdeps/kdeps/v2/pkg/executor/llm"
 	"github.com/kdeps/kdeps/v2/pkg/llmserver/catalog"
 	"github.com/kdeps/kdeps/v2/pkg/llmserver/recipe"
+)
+
+const (
+	harvestMetaPartsCap = 3
+	bytesPerGB          = 1e9
+	downloadsPerK       = 1000
 )
 
 // LLMWizardAction is the post-selection step the user wants.
@@ -55,6 +62,9 @@ func engineUsesHarvest(kind recipe.EngineKind) bool {
 	switch kind {
 	case recipe.EngineLlamafile, recipe.EngineLlamaServer, recipe.EngineGGUF, recipe.EngineLlamaCpp:
 		return true
+	case recipe.EngineOllama, recipe.EngineVLLM, recipe.EngineTGI, recipe.EngineSGLang,
+		recipe.EngineLocalAI, recipe.EngineCustom:
+		return false
 	default:
 		return false
 	}
@@ -66,6 +76,9 @@ func engineHarvestType(kind recipe.EngineKind) string {
 		return modelTypeLLamafile
 	case recipe.EngineLlamaServer, recipe.EngineGGUF, recipe.EngineLlamaCpp:
 		return modelTypeGGUF
+	case recipe.EngineOllama, recipe.EngineVLLM, recipe.EngineTGI, recipe.EngineSGLang,
+		recipe.EngineLocalAI, recipe.EngineCustom:
+		return ""
 	default:
 		return ""
 	}
@@ -124,12 +137,12 @@ func HarvestListItems(filterType string) []ListItem {
 }
 
 // HarvestCounts returns llamafile and GGUF entry counts from the registry harvest.
-func HarvestCounts() (llamafile, gguf int) {
+func HarvestCounts() (int, int) {
 	return len(llm.ListLlamafileMappings()), len(llm.ListGGUFMappings())
 }
 
 func harvestMeta(params, quant, repo string) string {
-	parts := make([]string, 0, 3)
+	parts := make([]string, 0, harvestMetaPartsCap)
 	if params != "" {
 		parts = append(parts, params)
 	}
@@ -151,10 +164,10 @@ func harvestDesc(kind, params, quant string, sizeBytes int64, downloads int) str
 		parts = append(parts, quant)
 	}
 	if sizeBytes > 0 {
-		parts = append(parts, fmt.Sprintf("%.1f GB", float64(sizeBytes)/1e9))
+		parts = append(parts, fmt.Sprintf("%.1f GB", float64(sizeBytes)/bytesPerGB))
 	}
 	if downloads > 0 {
-		parts = append(parts, fmt.Sprintf("%dk dl", downloads/1000))
+		parts = append(parts, fmt.Sprintf("%dk dl", downloads/downloadsPerK))
 	}
 	return strings.Join(parts, " · ")
 }
@@ -163,7 +176,7 @@ func formatHarvestSize(sizeBytes int64) string {
 	if sizeBytes <= 0 {
 		return ""
 	}
-	return fmt.Sprintf("%.1f", float64(sizeBytes)/1e9)
+	return fmt.Sprintf("%.1f", float64(sizeBytes)/bytesPerGB)
 }
 
 // EngineListItems turns catalog recipes into list picker rows.
@@ -199,7 +212,7 @@ func RunLLMWizard() (LLMWizardResult, error) {
 		return result, err
 	}
 	if len(entries) == 0 {
-		return result, fmt.Errorf("no LLM server recipes found")
+		return result, errors.New("no LLM server recipes found")
 	}
 
 	engineID, err := RunListPicker("Select LLM engine (stock + user recipes)", EngineListItems(entries))
@@ -251,12 +264,28 @@ func RunLLMWizard() (LLMWizardResult, error) {
 
 	// Action
 	actions := []ListItem{
-		{ID: string(LLMActionShowDockerfile), Title: "Preview Dockerfile", Description: "kdeps llm build --show-dockerfile"},
+		{
+			ID:          string(LLMActionShowDockerfile),
+			Title:       "Preview Dockerfile",
+			Description: "kdeps llm build --show-dockerfile",
+		},
 		{ID: string(LLMActionBuild), Title: "Build Docker image", Description: "kdeps llm build"},
 		{ID: string(LLMActionRun), Title: "Build & run locally", Description: "kdeps llm run"},
-		{ID: string(LLMActionExportK8s), Title: "Export Kubernetes YAML", Description: "kdeps llm export k8s (uses built/default tag)"},
-		{ID: string(LLMActionExportISOCfg), Title: "Export LinuxKit config", Description: "kdeps llm export iso --config-only"},
-		{ID: string(LLMActionClientConfig), Title: "Print client config only", Description: "kdeps llm client-config for localhost"},
+		{
+			ID:          string(LLMActionExportK8s),
+			Title:       "Export Kubernetes YAML",
+			Description: "kdeps llm export k8s (uses built/default tag)",
+		},
+		{
+			ID:          string(LLMActionExportISOCfg),
+			Title:       "Export LinuxKit config",
+			Description: "kdeps llm export iso --config-only",
+		},
+		{
+			ID:          string(LLMActionClientConfig),
+			Title:       "Print client config only",
+			Description: "kdeps llm client-config for localhost",
+		},
 	}
 	actionID, err := RunListPicker("What next?", actions)
 	if err != nil {
@@ -332,7 +361,13 @@ func pickFromHarvest(engineID, filterType, current string) (string, error) {
 			ggN++
 		}
 	}
-	title := fmt.Sprintf("Available harvest models for %s  (%d shown · %d LF · %d GGUF)", engineID, len(items), lfN, ggN)
+	title := fmt.Sprintf(
+		"Available harvest models for %s  (%d shown · %d LF · %d GGUF)",
+		engineID,
+		len(items),
+		lfN,
+		ggN,
+	)
 	// Leading "custom" row so user can still type an id not in harvest
 	items = append([]ListItem{{
 		ID:          "__type__",
@@ -361,6 +396,9 @@ func freeTextHint(kind recipe.EngineKind) string {
 		return "HuggingFace model id (e.g. facebook/opt-125m)"
 	case recipe.EngineLocalAI:
 		return "LocalAI model name (optional)"
+	case recipe.EngineLlamafile, recipe.EngineLlamaServer, recipe.EngineGGUF,
+		recipe.EngineLlamaCpp, recipe.EngineCustom:
+		return "HuggingFace model id, Ollama tag, or path"
 	default:
 		return "HuggingFace model id, Ollama tag, or path"
 	}

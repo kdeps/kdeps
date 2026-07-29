@@ -20,6 +20,7 @@ package http
 
 import (
 	"crypto/tls"
+	"errors"
 	"fmt"
 	"log/slog"
 	stdhttp "net/http"
@@ -55,8 +56,8 @@ func resolveLetsEncryptCacheDir(cfg *domain.LetsEncryptConfig) (string, error) {
 		}
 		return dir, nil
 	}
-	home, err := os.UserHomeDir()
-	if err != nil {
+	home, homeErr := os.UserHomeDir()
+	if homeErr != nil {
 		dir := filepath.Join(os.TempDir(), "kdeps-letsencrypt")
 		if mkErr := os.MkdirAll(dir, 0o700); mkErr != nil {
 			return "", mkErr
@@ -64,8 +65,8 @@ func resolveLetsEncryptCacheDir(cfg *domain.LetsEncryptConfig) (string, error) {
 		return dir, nil
 	}
 	dir := filepath.Join(home, ".kdeps", "letsencrypt")
-	if err := os.MkdirAll(dir, 0o700); err != nil {
-		return "", fmt.Errorf("letsEncrypt default cacheDir: %w", err)
+	if mkErr := os.MkdirAll(dir, 0o700); mkErr != nil {
+		return "", fmt.Errorf("letsEncrypt default cacheDir: %w", mkErr)
 	}
 	return dir, nil
 }
@@ -77,7 +78,7 @@ func newAutocertManager(cfg *domain.LetsEncryptConfig) (*autocert.Manager, error
 	}
 	hosts := cfg.Hosts()
 	if len(hosts) == 0 {
-		return nil, fmt.Errorf("letsEncrypt: no hosts configured")
+		return nil, errors.New("letsEncrypt: no hosts configured")
 	}
 	cacheDir, err := resolveLetsEncryptCacheDir(cfg)
 	if err != nil {
@@ -101,12 +102,15 @@ func startHTTPChallengeServer(addr string, m *autocert.Manager, logger *slog.Log
 	if strings.TrimSpace(addr) == "" {
 		return nil
 	}
-	// HTTPHandler answers /.well-known/acme-challenge/; other requests redirect to HTTPS.
-	handler := m.HTTPHandler(stdhttp.HandlerFunc(func(w stdhttp.ResponseWriter, r *stdhttp.Request) {
-		target := "https://" + r.Host + r.URL.RequestURI()
-		stdhttp.Redirect(w, r, target, stdhttp.StatusMovedPermanently)
-	}))
-	srv := &stdhttp.Server{Addr: addr, Handler: handler}
+	// HTTPHandler answers /.well-known/acme-challenge/. Non-challenge GETs get a fixed
+	// HTTPS homepage hint (no open redirect — do not echo r.Host).
+	fallback := stdhttp.HandlerFunc(func(w stdhttp.ResponseWriter, _ *stdhttp.Request) {
+		w.Header().Set("Content-Type", "text/plain; charset=utf-8")
+		w.WriteHeader(stdhttp.StatusOK)
+		_, _ = w.Write([]byte("kdeps: use HTTPS on the API/web listen address\n"))
+	})
+	handler := m.HTTPHandler(fallback)
+	srv := &stdhttp.Server{Addr: addr, Handler: handler, ReadHeaderTimeout: DefaultHTTPReadTimeout}
 	go func() {
 		if logger != nil {
 			logger.Info("starting Let's Encrypt HTTP-01 challenge server", "addr", addr)
@@ -132,7 +136,11 @@ func letsEncryptHTTPChallengeAddr(cfg *domain.LetsEncryptConfig) string {
 
 // applyLetsEncrypt configures srv for automatic certificates and starts the HTTP-01 listener.
 // Returns a cleanup function (may be no-op).
-func applyLetsEncrypt(srv *stdhttp.Server, cfg *domain.LetsEncryptConfig, logger *slog.Logger) (cleanup func(), err error) {
+func applyLetsEncrypt(
+	srv *stdhttp.Server,
+	cfg *domain.LetsEncryptConfig,
+	logger *slog.Logger,
+) (func(), error) {
 	m, err := newAutocertManager(cfg)
 	if err != nil {
 		return nil, err
@@ -148,10 +156,10 @@ func applyLetsEncrypt(srv *stdhttp.Server, cfg *domain.LetsEncryptConfig, logger
 	}
 
 	challengeSrv := startHTTPChallengeServer(letsEncryptHTTPChallengeAddr(cfg), m, logger)
-	cleanup = func() {
+	cleanupFn := func() {
 		if challengeSrv != nil {
 			_ = challengeSrv.Close()
 		}
 	}
-	return cleanup, nil
+	return cleanupFn, nil
 }

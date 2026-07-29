@@ -126,7 +126,12 @@ func RunHarvesterScript() bool {
 		return false
 	}
 
-	cmd := exec.CommandContext(context.Background(), "python3", script, "--write", "--gguf", "--chinese-labs", "--limit", "40")
+	cmd := exec.CommandContext(
+		context.Background(),
+		"python3", script,
+		"--write", "--gguf", "--chinese-labs",
+		"--limit", "40",
+	)
 	cmd.Stdout = os.Stderr
 	cmd.Stderr = os.Stderr
 	return cmd.Run() == nil

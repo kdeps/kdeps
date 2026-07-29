@@ -21,6 +21,7 @@
 package cmd
 
 import (
+	"errors"
 	"fmt"
 	"os"
 
@@ -63,7 +64,9 @@ func isInteractiveTTY() bool {
 func runLLMWizard(cmd *cobra.Command) error {
 	kdeps_debug.Log("enter: runLLMWizard")
 	if !isInteractiveTTY() {
-		return fmt.Errorf("llm wizard requires an interactive terminal (TTY); use kdeps llm list|build|... flags instead")
+		return errors.New(
+			"llm wizard requires an interactive terminal (TTY); use kdeps llm list|build|... flags instead",
+		)
 	}
 
 	result, err := tui.RunLLMWizard()
