@@ -49,10 +49,31 @@ export default defineConfig({
 
     nav: [
       { text: 'Guide', link: '/getting-started/quickstart' },
+      {
+        text: 'Deploy',
+        items: [
+          { text: 'Deployment Guide', link: '/guides/deployment-guide' },
+          { text: 'Docker', link: '/deployment/docker' },
+          { text: 'Kubernetes', link: '/deployment/kubernetes' },
+          { text: 'LLM Server Appliance', link: '/deployment/llm-server' },
+          { text: 'TLS / HTTPS', link: '/deployment/tls-https' },
+          { text: 'Standalone Binaries', link: '/deployment/prepackage' },
+          { text: 'Web Server Mode', link: '/deployment/webserver' },
+        ]
+      },
+      {
+        text: 'Reference',
+        items: [
+          { text: 'CLI', link: '/reference/cli/' },
+          { text: 'LLM Commands', link: '/reference/cli/llm' },
+          { text: 'Security', link: '/reference/security' },
+          { text: 'workflow.yaml', link: '/configuration/workflow' },
+        ]
+      },
       { text: 'Registry', link: 'https://kdeps.io' },
       { text: 'GitHub', link: 'https://github.com/kdeps/kdeps' },
       {
-        text: 'v2.0.0',
+        text: 'v2.1.11',
         items: [
           { text: 'Changelog', link: 'https://github.com/kdeps/kdeps/releases' },
           { text: 'Contributing', link: 'https://github.com/kdeps/kdeps/blob/main/CONTRIBUTING.md' },
@@ -91,12 +112,14 @@ export default defineConfig({
         },
         {
           text: 'Configuration',
-          collapsed: true,
+          collapsed: false,
           items: [
             { text: 'workflow.yaml', link: '/configuration/workflow' },
             { text: 'Global Config', link: '/configuration/advanced' },
             { text: 'CORS & Security', link: '/configuration/cors' },
             { text: 'Route Restrictions', link: '/configuration/route-restrictions' },
+            { text: 'Sessions', link: '/configuration/session' },
+            { text: 'TLS / HTTPS', link: '/deployment/tls-https' },
           ]
         },
         {
@@ -133,7 +156,7 @@ export default defineConfig({
         },
         {
           text: 'Deployment',
-          collapsed: true,
+          collapsed: false,
           items: [
             { text: 'Docker', link: '/deployment/docker' },
             { text: 'Kubernetes', link: '/deployment/kubernetes' },
