@@ -12,22 +12,22 @@ Works in **workflow mode** (HTTP API / web) and for any agent package that enabl
 ```d2
 direction: down
 
-dns: "DNS A/AAAA" {shape: oval}
-host: "kdeps host" {shape: rectangle}
-mode: "TLS mode" {shape: diamond}
-pem: "Static PEM certFile keyFile" {shape: rectangle}
-le: "Lets Encrypt custom domain" {shape: rectangle}
-proxy: "Reverse proxy" {shape: rectangle}
-p80: "port 80 HTTP-01" {shape: rectangle}
-p443: "port 443 HTTPS" {shape: rectangle}
+A: DNS {shape: oval}
+B: "kdeps host" {shape: rectangle}
+C: "TLS mode" {shape: diamond}
+D: StaticPEM {shape: rectangle}
+E: LetsEncrypt {shape: rectangle}
+F: ReverseProxy {shape: rectangle}
+G: port80 {shape: rectangle}
+H: port443 {shape: rectangle}
 
-dns -> host
-host -> mode
-mode -> pem: "bring certs"
-mode -> le: "ACME"
-mode -> proxy: "terminate elsewhere"
-le -> p80
-le -> p443
+A -> B
+B -> C
+C -> D: certs
+C -> E: acme
+C -> F: proxy
+E -> G
+E -> H
 ```
 
 | Mode | When to use |

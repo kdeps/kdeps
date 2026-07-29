@@ -11,20 +11,20 @@ Agent packaging (`kdeps bundle build` / `export iso` / `export k8s`) still deplo
 ```d2
 direction: right
 
-catalog: "Recipe catalog" {shape: rectangle}
-build: "kdeps llm build" {shape: rectangle}
-docker: "Docker" {shape: rectangle}
-iso: "ISO" {shape: rectangle}
-k8s: "Kubernetes" {shape: rectangle}
-client: "kdeps client" {shape: rectangle}
+A: "Recipe catalog" {shape: rectangle}
+B: "kdeps llm build" {shape: rectangle}
+C: Docker {shape: rectangle}
+D: ISO {shape: rectangle}
+E: Kubernetes {shape: rectangle}
+F: "kdeps client" {shape: rectangle}
 
-catalog -> build: "engine + model"
-build -> docker
-build -> iso
-build -> k8s
-docker -> client: "OpenAI /v1"
-iso -> client: "OpenAI /v1"
-k8s -> client: "OpenAI /v1"
+A -> B: select
+B -> C
+B -> D
+B -> E
+C -> F: serve
+D -> F: serve
+E -> F: serve
 ```
 
 ## Commands
