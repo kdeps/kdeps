@@ -6,7 +6,6 @@ on:
     paths:
       - 'docs/v1/**'
       - 'docs/v2/**'
-      - 'docs/v3/**'
       - '.github/workflows/docs.yml'
   workflow_dispatch:
 
@@ -36,7 +35,14 @@ jobs:
           cache-dependency-path: |
             docs/v1/package-lock.json
             docs/v2/package-lock.json
-            docs/v3/package-lock.json
+
+      - name: Install d2
+        run: |
+          curl -fsSL -o /tmp/d2.tar.gz https://github.com/terrastruct/d2/releases/download/v0.7.1/d2-v0.7.1-linux-amd64.tar.gz
+          echo "eb172adf59f38d1e5a70ab177591356754ffaf9bebb84e0ca8b767dfb421dad7  /tmp/d2.tar.gz" | sha256sum -c
+          tar -xzf /tmp/d2.tar.gz -C /tmp
+          sudo install /tmp/d2-v0.7.1/bin/d2 /usr/local/bin/d2
+          d2 --version
 
       - name: Setup Pages
         uses: actions/configure-pages@45bfe0192ca1faeb007ade9deae92b16b8254a0d # v6
@@ -53,36 +59,19 @@ jobs:
         run: npm ci
         working-directory: docs/v2
 
-      - name: Install d2 (v2 diagrams)
-        run: |
-          curl -fsSL -o /tmp/d2.tar.gz https://github.com/terrastruct/d2/releases/download/v0.7.1/d2-v0.7.1-linux-amd64.tar.gz
-          echo "eb172adf59f38d1e5a70ab177591356754ffaf9bebb84e0ca8b767dfb421dad7  /tmp/d2.tar.gz" | sha256sum -c
-          tar -xzf /tmp/d2.tar.gz -C /tmp
-          sudo install /tmp/d2-v0.7.1/bin/d2 /usr/local/bin/d2
-          d2 --version
-
       - name: Build v2
         run: npm run build
         working-directory: docs/v2
 
-      - name: Install dependencies (v3)
-        run: npm ci
-        working-directory: docs/v3
-
-      - name: Build v3
-        run: npm run build
-        working-directory: docs/v3
-
-      - name: Nest archives under v3
+      - name: Nest v1 under v2
         run: |
-          mkdir -p docs/v3/.vitepress/dist/v1 docs/v3/.vitepress/dist/v2
-          cp -rp docs/v1/.vitepress/dist/. docs/v3/.vitepress/dist/v1/
-          cp -rp docs/v2/.vitepress/dist/. docs/v3/.vitepress/dist/v2/
+          mkdir -p docs/v2/.vitepress/dist/v1
+          cp -rp docs/v1/.vitepress/dist/. docs/v2/.vitepress/dist/v1/
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
         with:
-          path: docs/v3/.vitepress/dist
+          path: docs/v2/.vitepress/dist
 
   deploy:
     environment:
