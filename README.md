@@ -231,16 +231,26 @@ kdeps export k8s            # Kubernetes manifests
 
 ### LLM server appliance
 
-Standalone OpenAI-compatible inference server (no workflow path):
+Standalone OpenAI-compatible inference server (no workflow path). Stock engines: `ollama`, `llamafile`, `llama-server` / `gguf`, `llamacpp`, `vllm`, `tgi`, `sglang`, `localai`, `openai-compat`.
 
 ```bash
 kdeps llm list
-kdeps llm build --engine ollama --model llama3.2 --tag myorg/llm:1 --show-dockerfile
+kdeps llm show vllm
+kdeps llm build --engine ollama --model llama3.2 --tag myorg/llm:1
+kdeps llm build --engine vllm --model facebook/opt-125m --gpu cuda --tag myorg/vllm:1
 kdeps llm export k8s --image myorg/llm:1 --engine ollama -o llm.yaml
 kdeps llm client-config --url http://192.168.1.50:8000/v1
 ```
 
-Docs: [docs/v2/deployment/llm-server.md](docs/v2/deployment/llm-server.md)
+Point any kdeps host at the appliance:
+
+```yaml
+llm:
+  backend: openai
+  base_url: http://192.168.1.50:8000/v1
+```
+
+Docs: [docs/v2/deployment/llm-server.md](docs/v2/deployment/llm-server.md) · CLI: [docs/v2/reference/cli/llm.md](docs/v2/reference/cli/llm.md) · Example: [examples/llm-server/](examples/llm-server/)
 
 ## Registry
 

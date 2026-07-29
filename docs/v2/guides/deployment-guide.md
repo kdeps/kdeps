@@ -159,3 +159,20 @@ See [Standalone Binaries](/deployment/prepackage) for self-contained single-bina
 - [Kubernetes Deployment](/deployment/kubernetes) -- manifest structure, health checks
 - [Standalone Binaries](/deployment/prepackage) -- single-binary edge exports
 - [CLI: Packaging Commands](/reference/cli/packaging) -- all bundle and export commands
+
+## Optional: LLM server appliance (not an agent)
+
+To deploy a **shared OpenAI-compatible inference server** (no workflow) for many kdeps clients:
+
+```bash
+kdeps llm list
+kdeps llm build --engine ollama --model llama3.2 --tag registry.example.com/llm:v1
+docker push registry.example.com/llm:v1
+kdeps llm export k8s --engine ollama --image registry.example.com/llm:v1 -o llm.yaml
+kubectl apply -f llm.yaml
+kdeps llm client-config --url http://kdeps-llm-ollama:8000/v1
+```
+
+Stock engines include `ollama`, `llamafile`, `gguf` / `llama-server`, `llamacpp`, `vllm`, `tgi`, `sglang`, and `localai`. GPU engines require `--gpu cuda` (or another profile).
+
+See [LLM Server Appliance](/deployment/llm-server) and [LLM Commands](/reference/cli/llm).

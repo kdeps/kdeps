@@ -298,3 +298,14 @@ See `examples/k8s-deployment/README.md` for details.
 - [Docker Deployment](docker) - Build Docker images for your workflows
 - [Standalone Executables](prepackage) - Self-contained binaries for edge deployment
 - [CLI Reference](/reference/cli/) - Full command reference
+
+## LLM appliance manifests
+
+Agent manifests use `kdeps export k8s` (this page). For an inference-only Deployment + Service:
+
+```bash
+kdeps llm export k8s --engine ollama --image REG/llm:1 --model llama3.2 -o llm.yaml
+kubectl apply -f llm.yaml
+```
+
+Client hosts set `llm.backend: openai` and `llm.base_url`. See [LLM Server Appliance](/deployment/llm-server).

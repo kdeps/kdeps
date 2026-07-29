@@ -431,4 +431,21 @@ chat:
 
 ## Self-hosted LLM appliance
 
-Deploy a dedicated OpenAI-compatible server with `kdeps llm` (Docker, ISO, Kubernetes), then point this host at it with `backend: openai` and `base_url`. See [LLM Server Appliance](/deployment/llm-server).
+Deploy a dedicated OpenAI-compatible server with `kdeps llm` (Docker, ISO, Kubernetes), then point this host at it with `backend: openai` and `base_url`.
+
+Stock engines: `ollama`, `llamafile`, `llama-server` / `gguf`, `llamacpp`, `vllm`, `tgi`, `sglang`, `localai`, `openai-compat`.
+
+```bash
+kdeps llm list
+kdeps llm build --engine ollama --model llama3.2 --tag myorg/llm:1
+kdeps llm client-config --url http://192.168.1.50:8000/v1
+```
+
+```yaml
+llm:
+  backend: openai
+  base_url: http://192.168.1.50:8000/v1
+```
+
+See [LLM Server Appliance](/deployment/llm-server) and [LLM Commands](/reference/cli/llm).
+

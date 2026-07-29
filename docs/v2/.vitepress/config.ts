@@ -139,6 +139,7 @@ export default defineConfig({
             { text: 'Kubernetes', link: '/deployment/kubernetes' },
             { text: 'Web Server Mode', link: '/deployment/webserver' },
             { text: 'Standalone Binaries', link: '/deployment/prepackage' },
+            { text: 'LLM Server Appliance', link: '/deployment/llm-server' },
           ]
         },
         {
@@ -149,6 +150,7 @@ export default defineConfig({
             { text: 'Dev Commands', link: '/reference/cli/dev' },
             { text: 'Registry Commands', link: '/reference/cli/registry' },
             { text: 'Packaging Commands', link: '/reference/cli/packaging' },
+            { text: 'LLM Commands', link: '/reference/cli/llm' },
             { text: 'Components Reference', link: '/reference/components' },
             { text: 'Expression Functions', link: '/reference/expression-functions-reference' },
             { text: 'Expression Operators', link: '/reference/expression-operators' },

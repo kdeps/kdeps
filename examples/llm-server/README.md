@@ -2,13 +2,17 @@
 
 Standalone OpenAI-compatible inference — no workflow path.
 
+## Quick start
+
 ```bash
-# List engines
+# List stock engines (ollama, llamafile, gguf, vllm, tgi, sglang, localai, ...)
 kdeps llm list
 kdeps llm show ollama
+kdeps llm show vllm
 
 # Preview Dockerfile
 kdeps llm build --engine ollama --model llama3.2 --show-dockerfile
+kdeps llm build --engine vllm --model facebook/opt-125m --gpu cuda --show-dockerfile
 
 # Build and run (requires Docker)
 kdeps llm build --engine ollama --model llama3.2 --tag kdeps-llm-ollama:dev
@@ -21,15 +25,18 @@ kdeps llm export k8s --engine ollama --image kdeps-llm-ollama:dev --model llama3
 kdeps llm client-config --url http://127.0.0.1:8000/v1
 ```
 
-Custom recipe: copy `custom-recipe.yaml` to `./llm-servers/` or `~/.kdeps/llm-servers/`.
-
-Docs: [LLM Server Appliance](../../docs/v2/deployment/llm-server.md)
-
 ## Stock engines
 
-```bash
-kdeps llm list
-# ollama, llamafile, llama-server, gguf, llamacpp, vllm, tgi, sglang, localai, openai-compat
-```
+| ID | Notes |
+|----|--------|
+| `ollama` | Local pull/serve |
+| `llamafile` | Self-contained binary |
+| `llama-server` / `gguf` | GGUF weights |
+| `llamacpp` | Official llama.cpp server image |
+| `vllm` / `tgi` / `sglang` | GPU — pass `--gpu cuda` |
+| `localai` | OpenAI drop-in |
+| `openai-compat` | Template for any `/v1` image |
 
-GPU engines (`vllm`, `tgi`, `sglang`) require `--gpu cuda` (or another profile) at build time.
+Custom recipe: copy `custom-recipe.yaml` to `./llm-servers/` or `~/.kdeps/llm-servers/`.
+
+Docs: [LLM Server Appliance](../../docs/v2/deployment/llm-server.md) · [CLI](../../docs/v2/reference/cli/llm.md)

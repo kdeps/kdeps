@@ -431,3 +431,14 @@ See the [Kubernetes Deployment guide](kubernetes) for the full reference.
 - [WebServer Mode](webserver) - Serve frontends
 - [LLM Backends](../resources/llm-backends) - Backend configuration
 - [Management API](/reference/management-api) - Live workflow updates without rebuilding
+
+## LLM server appliance (not an agent image)
+
+This page packages **agents** (`workflow.yaml` + kdeps). For a **standalone** OpenAI-compatible model server:
+
+```bash
+kdeps llm build --engine ollama --model llama3.2 --tag myorg/llm:1
+kdeps llm build --engine vllm --model facebook/opt-125m --gpu cuda --tag myorg/vllm:1
+```
+
+See [LLM Server Appliance](/deployment/llm-server).
