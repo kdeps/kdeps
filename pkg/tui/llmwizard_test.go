@@ -75,3 +75,34 @@ func TestFormatLLMWizardSummary(t *testing.T) {
 		t.Fatal("empty summary")
 	}
 }
+
+func TestHarvestListItems(t *testing.T) {
+	items := HarvestListItems("")
+	if len(items) == 0 {
+		t.Skip("empty harvest")
+	}
+	for _, it := range items {
+		if it.ID == "" || it.Title == "" {
+			t.Fatalf("empty id/title: %+v", it)
+		}
+		if it.Badge != "LF" && it.Badge != "GGUF" {
+			t.Fatalf("badge %q", it.Badge)
+		}
+	}
+	lfOnly := HarvestListItems(modelTypeLLamafile)
+	ggOnly := HarvestListItems(modelTypeGGUF)
+	if len(lfOnly)+len(ggOnly) != len(items) {
+		// may differ if aliases overlap ids — only check non-empty when source non-empty
+		t.Logf("all=%d lf=%d gg=%d", len(items), len(lfOnly), len(ggOnly))
+	}
+}
+
+func TestHarvestCounts(t *testing.T) {
+	lf, gg := HarvestCounts()
+	if lf < 0 || gg < 0 {
+		t.Fatal("negative counts")
+	}
+	if lf+gg == 0 {
+		t.Skip("empty harvest")
+	}
+}

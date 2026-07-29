@@ -235,6 +235,7 @@ Standalone OpenAI-compatible inference server (no workflow path). Stock engines:
 
 ```bash
 kdeps llm wizard   # TUI: engine + harvest model + build
+kdeps llm models   # harvest (llamafile + GGUF) available
 kdeps llm list
 kdeps llm show vllm
 kdeps llm build --engine ollama --model llama3.2 --tag myorg/llm:1

@@ -35,6 +35,17 @@ kdeps llm   # same on a TTY
 
 Requires a TTY. Non-interactive environments should use the flag-based commands below.
 
+## kdeps llm models
+
+List models available from the llamafile/GGUF harvest (what the wizard shows when picking a model).
+
+```bash
+kdeps llm models
+kdeps llm models --type gguf
+kdeps llm models --type llamafile
+kdeps llamafile update   # refresh harvest from HuggingFace
+```
+
 ## kdeps llm list
 
 List stock and user/project recipes.

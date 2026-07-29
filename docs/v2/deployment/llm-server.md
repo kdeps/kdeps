@@ -51,6 +51,7 @@ Uses the llamafile/GGUF harvest for `llamafile`, `llama-server` / `gguf`, and `l
 
 ```bash
 # List stock + user recipes
+kdeps llm models   # harvest (llamafile + GGUF) available
 kdeps llm list
 
 # Inspect a recipe

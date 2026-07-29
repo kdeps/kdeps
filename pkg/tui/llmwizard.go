@@ -79,7 +79,7 @@ func HarvestModelEntries(filterType string) []ModelEntry {
 			out = append(out, ModelEntry{
 				Name:      m.Alias,
 				ModelType: modelTypeLLamafile,
-				Repo:      m.Repo,
+				Repo:      harvestMeta(m.Params, m.Quantization, m.Repo),
 				SizeGB:    formatHarvestSize(m.SizeBytes),
 			})
 		}
@@ -89,7 +89,7 @@ func HarvestModelEntries(filterType string) []ModelEntry {
 			out = append(out, ModelEntry{
 				Name:      m.Alias,
 				ModelType: modelTypeGGUF,
-				Repo:      m.Repo,
+				Repo:      harvestMeta(m.Params, m.Quantization, m.Repo),
 				SizeGB:    formatHarvestSize(m.SizeBytes),
 			})
 		}
@@ -97,12 +97,73 @@ func HarvestModelEntries(filterType string) []ModelEntry {
 	return out
 }
 
+// HarvestListItems builds list-picker rows for available harvest models (rich descriptions).
+func HarvestListItems(filterType string) []ListItem {
+	items := make([]ListItem, 0)
+	if filterType == "" || filterType == modelTypeLLamafile {
+		for _, m := range llm.ListLlamafileMappings() {
+			items = append(items, ListItem{
+				ID:          m.Alias,
+				Title:       m.Alias,
+				Description: harvestDesc("llamafile", m.Params, m.Quantization, m.SizeBytes, m.Downloads),
+				Badge:       "LF",
+			})
+		}
+	}
+	if filterType == "" || filterType == modelTypeGGUF {
+		for _, m := range llm.ListGGUFMappings() {
+			items = append(items, ListItem{
+				ID:          m.Alias,
+				Title:       m.Alias,
+				Description: harvestDesc("gguf", m.Params, m.Quantization, m.SizeBytes, m.Downloads),
+				Badge:       "GGUF",
+			})
+		}
+	}
+	return items
+}
+
+// HarvestCounts returns llamafile and GGUF entry counts from the registry harvest.
+func HarvestCounts() (llamafile, gguf int) {
+	return len(llm.ListLlamafileMappings()), len(llm.ListGGUFMappings())
+}
+
+func harvestMeta(params, quant, repo string) string {
+	parts := make([]string, 0, 3)
+	if params != "" {
+		parts = append(parts, params)
+	}
+	if quant != "" {
+		parts = append(parts, quant)
+	}
+	if repo != "" {
+		parts = append(parts, repo)
+	}
+	return strings.Join(parts, " · ")
+}
+
+func harvestDesc(kind, params, quant string, sizeBytes int64, downloads int) string {
+	parts := []string{kind}
+	if params != "" {
+		parts = append(parts, params)
+	}
+	if quant != "" {
+		parts = append(parts, quant)
+	}
+	if sizeBytes > 0 {
+		parts = append(parts, fmt.Sprintf("%.1f GB", float64(sizeBytes)/1e9))
+	}
+	if downloads > 0 {
+		parts = append(parts, fmt.Sprintf("%dk dl", downloads/1000))
+	}
+	return strings.Join(parts, " · ")
+}
+
 func formatHarvestSize(sizeBytes int64) string {
 	if sizeBytes <= 0 {
 		return ""
 	}
-	const bytesPerGB = 1e9
-	return fmt.Sprintf("%.1f GB", float64(sizeBytes)/bytesPerGB)
+	return fmt.Sprintf("%.1f", float64(sizeBytes)/1e9)
 }
 
 // EngineListItems turns catalog recipes into list picker rows.
@@ -128,7 +189,7 @@ func EngineListItems(entries []recipe.Entry) []ListItem {
 	return items
 }
 
-// RunLLMWizard walks engine → model (harvest or typed) → GPU → action.
+// RunLLMWizard walks engine → model (harvest shown) → GPU → action.
 // Cancel returns a zero result and nil error; check Engine == "".
 func RunLLMWizard() (LLMWizardResult, error) {
 	var result LLMWizardResult
@@ -156,13 +217,12 @@ func RunLLMWizard() (LLMWizardResult, error) {
 	}
 	r := entry.Recipe
 
-	// Model selection
 	model, err := pickModelForRecipe(r)
 	if err != nil {
 		return result, err
 	}
-	if model == "" && engineUsesHarvest(r.Engine.Kind) {
-		// cancelled
+	if model == "" {
+		// cancelled at model step
 		return LLMWizardResult{}, nil
 	}
 	result.Model = model
@@ -212,31 +272,98 @@ func RunLLMWizard() (LLMWizardResult, error) {
 }
 
 func pickModelForRecipe(r recipe.Recipe) (string, error) {
+	filterType := engineHarvestType(r.Engine.Kind)
+	// For harvest-native engines, force the matching harvest slice.
+	// For others (ollama/vllm/...), still offer browsing the full harvest plus type-in.
+	lfN, ggN := HarvestCounts()
+	totalHarvest := lfN + ggN
+
 	if engineUsesHarvest(r.Engine.Kind) {
-		filterType := engineHarvestType(r.Engine.Kind)
-		entries := HarvestModelEntries(filterType)
-		if len(entries) == 0 {
-			// fall back to free text if harvest empty
-			return RunTextInput(
-				fmt.Sprintf("Model for %s (harvest empty)", r.ID),
-				"Type a model alias or path",
-				r.Models.Default,
-			)
+		return pickFromHarvest(r.ID, filterType, r.Models.Default)
+	}
+
+	// Non-harvest engines: show available harvest + type custom
+	sourceItems := []ListItem{
+		{
+			ID:          "type",
+			Title:       "Type model id / tag",
+			Description: freeTextHint(r.Engine.Kind),
+			Badge:       "type",
+		},
+	}
+	if totalHarvest > 0 {
+		sourceItems = append([]ListItem{{
+			ID:          "harvest",
+			Title:       fmt.Sprintf("Show harvest models (%d available)", totalHarvest),
+			Description: fmt.Sprintf("%d llamafile · %d GGUF from registry (kdeps llamafile list)", lfN, ggN),
+			Badge:       "harvest",
+		}}, sourceItems...)
+	}
+	src, err := RunListPicker(fmt.Sprintf("Model for %s — choose source", r.ID), sourceItems)
+	if err != nil {
+		return "", err
+	}
+	switch src {
+	case "":
+		return "", nil
+	case "harvest":
+		return pickFromHarvest(r.ID, "", r.Models.Default)
+	default:
+		return RunTextInput(fmt.Sprintf("Model for %s", r.ID), freeTextHint(r.Engine.Kind), r.Models.Default)
+	}
+}
+
+// pickFromHarvest shows every available crop model (filtered by type when set).
+func pickFromHarvest(engineID, filterType, current string) (string, error) {
+	items := HarvestListItems(filterType)
+	if len(items) == 0 {
+		return RunTextInput(
+			fmt.Sprintf("Model for %s (harvest empty)", engineID),
+			"Type a model alias or path — run: kdeps llamafile update",
+			current,
+		)
+	}
+	lfN, ggN := 0, 0
+	for _, it := range items {
+		switch it.Badge {
+		case "LF":
+			lfN++
+		case "GGUF":
+			ggN++
 		}
-		// Reuse existing model picker (fuzzy filter + scroll over harvest)
-		return RunModelPicker(entries, r.Models.Default, "")
 	}
-	// Pull-based engines: type HF id / ollama tag / custom
-	hint := "HuggingFace model id, Ollama tag, or path"
-	switch r.Engine.Kind {
+	title := fmt.Sprintf("Available harvest models for %s  (%d shown · %d LF · %d GGUF)", engineID, len(items), lfN, ggN)
+	// Leading "custom" row so user can still type an id not in harvest
+	items = append([]ListItem{{
+		ID:          "__type__",
+		Title:       "Type a custom model id…",
+		Description: "Not in harvest — enter alias, HF id, or path manually",
+		Badge:       "type",
+	}}, items...)
+	id, err := RunListPicker(title, items)
+	if err != nil {
+		return "", err
+	}
+	if id == "" {
+		return "", nil
+	}
+	if id == "__type__" {
+		return RunTextInput(fmt.Sprintf("Custom model for %s", engineID), "Model alias / HF id / path", current)
+	}
+	return id, nil
+}
+
+func freeTextHint(kind recipe.EngineKind) string {
+	switch kind {
 	case recipe.EngineOllama:
-		hint = "Ollama model tag (e.g. llama3.2, mistral)"
+		return "Ollama model tag (e.g. llama3.2, mistral)"
 	case recipe.EngineVLLM, recipe.EngineTGI, recipe.EngineSGLang:
-		hint = "HuggingFace model id (e.g. facebook/opt-125m)"
+		return "HuggingFace model id (e.g. facebook/opt-125m)"
 	case recipe.EngineLocalAI:
-		hint = "LocalAI model name (optional)"
+		return "LocalAI model name (optional)"
+	default:
+		return "HuggingFace model id, Ollama tag, or path"
 	}
-	return RunTextInput(fmt.Sprintf("Model for %s", r.ID), hint, r.Models.Default)
 }
 
 // FormatLLMWizardSummary prints a one-line summary of the selection.

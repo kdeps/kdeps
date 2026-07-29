@@ -53,6 +53,7 @@ With no subcommand on a TTY, launches the interactive wizard (same as: kdeps llm
 	}
 	cmd.AddCommand(newLLMWizardCmd())
 	cmd.AddCommand(newLLMListCmd())
+	cmd.AddCommand(newLLMModelsCmd())
 	cmd.AddCommand(newLLMShowCmd())
 	cmd.AddCommand(newLLMClientConfigCmd())
 	cmd.AddCommand(newLLMBuildCmd())

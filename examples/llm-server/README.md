@@ -9,6 +9,7 @@ Standalone OpenAI-compatible inference — no workflow path.
 kdeps llm wizard
 
 # List stock engines (ollama, llamafile, gguf, vllm, tgi, sglang, localai, ...)
+kdeps llm models   # harvest (llamafile + GGUF) available
 kdeps llm list
 kdeps llm show ollama
 kdeps llm show vllm
