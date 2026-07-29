@@ -86,6 +86,11 @@ In an [agency](/reference/glossary#agency), each agent resolves its own profile 
 settings:
   certFile: "/etc/certs/server.crt"   # TLS certificate PEM -- omit for plain HTTP
   keyFile:  "/etc/certs/server.key"   # TLS private key PEM
+  # Or automatic certs for a custom domain (Let's Encrypt):
+  # letsEncrypt:
+  #   domain: api.example.com
+  #   email: ops@example.com
+  # See /deployment/tls-https
   apiServer:
     hostIp: "127.0.0.1"        # bind address (default: 127.0.0.1)
     portNum: 16395              # port (default: 16395)
@@ -110,6 +115,20 @@ settings:
 ```
 
 See [Security](advanced.md#security) for the full security reference.
+
+### Let's Encrypt (custom domain)
+
+```yaml
+settings:
+  letsEncrypt:
+    domain: api.example.com
+    email: ops@example.com
+  apiServer:
+    hostIP: "0.0.0.0"
+    portNum: 443
+```
+
+DNS must point at this host; open ports **80** and **443**. Full guide: [TLS and HTTPS](/deployment/tls-https). Static `certFile`/`keyFile` still take priority when both are set.
 
 ## Web Server
 

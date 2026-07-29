@@ -177,4 +177,4 @@ For the full management API reference see [Management API](/reference/management
 
 ## Let's Encrypt
 
-For custom domains without mounting PEM secrets, set `settings.letsEncrypt.domain` and publish ports 80/443. See [Security — TLS](/reference/security#tls).
+For custom domains without mounting PEM secrets, set `settings.letsEncrypt.domain` and publish ports 80/443. See [TLS and HTTPS (Custom Domains)](/deployment/tls-https) and [Security — TLS](/reference/security#tls).

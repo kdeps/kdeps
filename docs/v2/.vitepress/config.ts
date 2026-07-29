@@ -140,6 +140,7 @@ export default defineConfig({
             { text: 'Web Server Mode', link: '/deployment/webserver' },
             { text: 'Standalone Binaries', link: '/deployment/prepackage' },
             { text: 'LLM Server Appliance', link: '/deployment/llm-server' },
+            { text: 'TLS / HTTPS', link: '/deployment/tls-https' },
           ]
         },
         {

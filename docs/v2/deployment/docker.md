@@ -442,3 +442,26 @@ kdeps llm build --engine vllm --model facebook/opt-125m --gpu cuda --tag myorg/v
 ```
 
 See [LLM Server Appliance](/deployment/llm-server).
+
+## HTTPS / custom domain
+
+For automatic Let's Encrypt certificates on a custom domain, set `settings.letsEncrypt` in the workflow and publish ports **80** and **443**. Persist the certificate cache:
+
+```bash
+docker run -p 80:80 -p 443:443 \
+  -v kdeps-le:/var/lib/kdeps/letsencrypt \
+  myagent:latest
+```
+
+```yaml
+settings:
+  letsEncrypt:
+    domain: api.example.com
+    email: ops@example.com
+    cacheDir: /var/lib/kdeps/letsencrypt
+  apiServer:
+    hostIP: "0.0.0.0"
+    portNum: 443
+```
+
+See [TLS and HTTPS (Custom Domains)](/deployment/tls-https). Static PEM mounts via `certFile`/`keyFile` remain supported.

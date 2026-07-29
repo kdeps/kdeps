@@ -309,3 +309,23 @@ kubectl apply -f llm.yaml
 ```
 
 Client hosts set `llm.backend: openai` and `llm.base_url`. See [LLM Server Appliance](/deployment/llm-server).
+
+## HTTPS / custom domain
+
+Two patterns:
+
+1. **Ingress TLS** (cert-manager / cloud LB) — terminate TLS at the Ingress; keep kdeps on HTTP inside the cluster (recommended for most clusters).
+2. **In-pod Let's Encrypt** — set `settings.letsEncrypt.domain`, listen on **443**, expose Service ports **80/443**, and mount a **PVC** at `cacheDir`.
+
+```yaml
+settings:
+  letsEncrypt:
+    domain: api.example.com
+    email: ops@example.com
+    cacheDir: /var/lib/kdeps/letsencrypt
+  apiServer:
+    hostIP: "0.0.0.0"
+    portNum: 443
+```
+
+Full guide: [TLS and HTTPS (Custom Domains)](/deployment/tls-https).

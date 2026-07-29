@@ -176,3 +176,19 @@ kdeps llm client-config --url http://kdeps-llm-ollama:8000/v1
 Stock engines include `ollama`, `llamafile`, `gguf` / `llama-server`, `llamacpp`, `vllm`, `tgi`, `sglang`, and `localai`. GPU engines require `--gpu cuda` (or another profile).
 
 See [LLM Server Appliance](/deployment/llm-server) and [LLM Commands](/reference/cli/llm).
+
+## HTTPS on a custom domain
+
+After deploy, enable HTTPS either at the load balancer/Ingress or in-process:
+
+```yaml
+settings:
+  letsEncrypt:
+    domain: api.example.com
+    email: ops@example.com
+  apiServer:
+    hostIP: "0.0.0.0"
+    portNum: 443
+```
+
+Open ports **80** and **443**, point DNS at the service, and persist `cacheDir` (default `~/.kdeps/letsencrypt`). Details: [TLS and HTTPS](/deployment/tls-https).

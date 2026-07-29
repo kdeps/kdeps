@@ -150,7 +150,7 @@ settings:
 
 ### Let's Encrypt (custom domain)
 
-Issue and renew certificates automatically for a **custom domain** via ACME (HTTP-01 on port 80 + TLS-ALPN-01 on the HTTPS listener). Point DNS A/AAAA records at this host first. Prefer listen address **:443** for production.
+Automatic ACME certificates for a **custom domain** (HTTP-01 on port 80 + TLS-ALPN-01 on HTTPS). Point DNS A/AAAA at this host; prefer listen **:443**.
 
 ```yaml
 # workflow.yaml
@@ -161,20 +161,21 @@ settings:
       - www.example.com
     email: ops@example.com           # recommended for expiry notices
     cacheDir: /var/lib/kdeps/letsencrypt   # optional; default ~/.kdeps/letsencrypt
-    staging: false                   # true = LE staging CA (no rate limits; untrusted by browsers)
+    staging: false                   # true = LE staging CA (browsers untrusted)
     # httpChallengeAddr: ":80"       # default; set "" to disable HTTP-01
   apiServer:
-    port: 443
     hostIP: "0.0.0.0"
+    portNum: 443
     routes:
       - path: /api/v1/chat
         methods: [POST]
 ```
 
-Priority: if both `certFile`/`keyFile` and `letsEncrypt` are set, **static PEM files win**.  
-The same settings apply to the **web server** when `webServer` is enabled.
+If both `certFile`/`keyFile` and `letsEncrypt` are set, **static PEM wins**. The same settings apply to **webServer** when enabled.
 
-Docker/K8s: publish ports **80** and **443**, and ensure the process can write `cacheDir`.
+Docker/K8s: publish **80** and **443**; keep `cacheDir` on a writable volume.
+
+Full guide: [TLS and HTTPS (Custom Domains)](/deployment/tls-https).
 
 
 ## Concurrent Request Limit

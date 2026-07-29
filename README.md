@@ -228,6 +228,23 @@ kdeps bundle prepackage     # self-contained binary per arch
 kdeps export k8s            # Kubernetes manifests
 ```
 
+### HTTPS (custom domain)
+
+Static PEM files or automatic **Let's Encrypt** for your domain:
+
+```yaml
+# workflow.yaml
+settings:
+  letsEncrypt:
+    domain: api.example.com
+    email: ops@example.com
+  apiServer:
+    hostIP: "0.0.0.0"
+    portNum: 443
+```
+
+Point DNS at the host; open ports **80** and **443**. Docs: [docs/v2/deployment/tls-https.md](docs/v2/deployment/tls-https.md).
+
 
 ### LLM server appliance
 
