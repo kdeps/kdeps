@@ -43,4 +43,4 @@ kdeps llm client-config --url http://127.0.0.1:8000/v1
 
 Custom recipe: copy `custom-recipe.yaml` to `./llm-servers/` or `~/.kdeps/llm-servers/`.
 
-Docs: [LLM Server Appliance](../../docs/v2/deployment/llm-server.md) · [CLI](../../docs/v2/getting-started/installation.md)
+Docs: [LLM Server Appliance](../../docs/v2/deployment/llm-server.md) · [CLI](../../docs/v2/reference/cli/llm.md)

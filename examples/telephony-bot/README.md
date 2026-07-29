@@ -68,5 +68,5 @@ Your provider integration extracts the `twiml` (or `answer`) field and returns T
 
 ## See Also
 
-- [Telephony Resource](../../docs/v2/resources/overview.md) -- full action and field reference
+- [Telephony Resource](../../docs/v2/resources/telephony.md) -- full action and field reference
 - [LLM Resource](../../docs/v2/resources/llm.md) — LLM / chat

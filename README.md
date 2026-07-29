@@ -269,7 +269,7 @@ llm:
   base_url: http://192.168.1.50:8000/v1
 ```
 
-Docs: [docs/v2/deployment/llm-server.md](docs/v2/deployment/llm-server.md) · CLI: [docs/v2/getting-started/installation.md](docs/v2/getting-started/installation.md) · Example: [examples/llm-server/](examples/llm-server/)
+Docs: [docs/v2/deployment/llm-server.md](docs/v2/deployment/llm-server.md) · CLI: [docs/v2/reference/cli/llm.md](docs/v2/reference/cli/llm.md) · Example: [examples/llm-server/](examples/llm-server/)
 
 ## Registry
 
