@@ -127,6 +127,6 @@ bot:
 ## See Also
 
 - [Stateless Bot Example](../stateless-bot/) — One-shot stdin/stdout execution
-- [Input Sources Documentation](../../docs/v2/concepts/input-sources.md)
-- [Bot Tutorial](../../docs/v2/tutorials/bot.md)
+- [Input Sources Documentation](../../docs/v3/workflow.md)
+- [Bot Tutorial](../../docs/v3/workflow.md)
 - [Voice Assistant Example](../voice-assistant/) — Audio/microphone input with TTS output
