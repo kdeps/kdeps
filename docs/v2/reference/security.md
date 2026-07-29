@@ -133,7 +133,9 @@ settings:
 
 ## TLS
 
-Enable HTTPS by pointing `certFile` and `keyFile` at a PEM certificate and private key. These fields belong in `settings`, not in `apiServer`.
+### Static certificates
+
+Enable HTTPS with PEM cert/key paths under `settings` (not under `apiServer`):
 
 ```yaml
 # workflow.yaml
@@ -145,6 +147,35 @@ settings:
       - path: /api/v1/chat
         methods: [POST]
 ```
+
+### Let's Encrypt (custom domain)
+
+Issue and renew certificates automatically for a **custom domain** via ACME (HTTP-01 on port 80 + TLS-ALPN-01 on the HTTPS listener). Point DNS A/AAAA records at this host first. Prefer listen address **:443** for production.
+
+```yaml
+# workflow.yaml
+settings:
+  letsEncrypt:
+    domain: api.example.com          # required primary hostname
+    domains:                         # optional SANs
+      - www.example.com
+    email: ops@example.com           # recommended for expiry notices
+    cacheDir: /var/lib/kdeps/letsencrypt   # optional; default ~/.kdeps/letsencrypt
+    staging: false                   # true = LE staging CA (no rate limits; untrusted by browsers)
+    # httpChallengeAddr: ":80"       # default; set "" to disable HTTP-01
+  apiServer:
+    port: 443
+    hostIP: "0.0.0.0"
+    routes:
+      - path: /api/v1/chat
+        methods: [POST]
+```
+
+Priority: if both `certFile`/`keyFile` and `letsEncrypt` are set, **static PEM files win**.  
+The same settings apply to the **web server** when `webServer` is enabled.
+
+Docker/K8s: publish ports **80** and **443**, and ensure the process can write `cacheDir`.
+
 
 ## Concurrent Request Limit
 

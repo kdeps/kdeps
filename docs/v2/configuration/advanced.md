@@ -308,7 +308,7 @@ settings:
 
 ## Security
 
-Auth, rate limiting, TLS, body size cap, concurrency limits, and resource output caps. See [Security Reference](/reference/security) for the full documentation.
+Auth, rate limiting, TLS (static certs or Let's Encrypt custom domains), body size cap, concurrency limits, and resource output caps. See [Security Reference](/reference/security) for the full documentation.
 
 ## See Also
 

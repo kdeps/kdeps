@@ -174,3 +174,7 @@ For the full management API reference see [Management API](/reference/management
 - [Docker Deployment](/deployment/docker) - Core packaging and build workflow
 - [Kubernetes Deployment](/deployment/kubernetes) - Cluster deployment
 - [Management API](/reference/management-api) - Live workflow updates without rebuilding
+
+## Let's Encrypt
+
+For custom domains without mounting PEM secrets, set `settings.letsEncrypt.domain` and publish ports 80/443. See [Security — TLS](/reference/security#tls).

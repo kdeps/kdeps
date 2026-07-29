@@ -18,6 +18,11 @@
 
 package domain
 
+import (
+	"fmt"
+	"strings"
+)
+
 const (
 	// DefaultPort is the default port for API and Web servers.
 	DefaultPort = 16395
@@ -124,8 +129,11 @@ type WorkflowMetadata struct {
 
 // WorkflowSettings contains workflow settings.
 type WorkflowSettings struct {
-	CertFile       string                   `yaml:"certFile,omitempty"`
-	KeyFile        string                   `yaml:"keyFile,omitempty"`
+	CertFile string `yaml:"certFile,omitempty"`
+	KeyFile  string `yaml:"keyFile,omitempty"`
+	// LetsEncrypt enables automatic TLS certificates for a custom domain via ACME (HTTP-01 / TLS-ALPN-01).
+	// When set, certFile/keyFile are ignored for the API and web servers.
+	LetsEncrypt    *LetsEncryptConfig       `yaml:"letsEncrypt,omitempty"`
 	APIServer      *APIServerConfig         `yaml:"apiServer,omitempty"`
 	WebServer      *WebServerConfig         `yaml:"webServer,omitempty"`
 	AgentSettings  AgentSettings            `yaml:"agentSettings"`
@@ -134,6 +142,56 @@ type WorkflowSettings struct {
 	WebApp         *WebAppConfig            `yaml:"webApp,omitempty"         json:"webApp,omitempty"`
 	Input          *InputConfig             `yaml:"input,omitempty"          json:"input,omitempty"`
 	LLM            *LLMInputConfig          `yaml:"llm,omitempty"            json:"llm,omitempty"`
+}
+
+// LetsEncryptConfig configures automatic certificates from Let's Encrypt (or the LE staging CA).
+// Point DNS for domain/domains at this host; process must bind the API listen address (typically :443)
+// and can serve the ACME HTTP-01 challenge on httpChallengeAddr (default ":80").
+type LetsEncryptConfig struct {
+	// Domain is the primary hostname (e.g. api.example.com). Required.
+	Domain string `yaml:"domain"`
+	// Domains are additional hostnames included on the certificate (optional SANs).
+	Domains []string `yaml:"domains,omitempty"`
+	// Email is registered with the ACME account (recommended for expiry notices).
+	Email string `yaml:"email,omitempty"`
+	// CacheDir stores account keys and certs. Default: ~/.kdeps/letsencrypt
+	CacheDir string `yaml:"cacheDir,omitempty"`
+	// Staging uses the Let's Encrypt staging environment (no production rate limits; browsers will not trust certs).
+	Staging bool `yaml:"staging,omitempty"`
+	// HTTPChallengeAddr is where the HTTP-01 challenge handler listens (default ":80"). Set empty to disable HTTP-01.
+	HTTPChallengeAddr *string `yaml:"httpChallengeAddr,omitempty"`
+}
+
+// Hosts returns the primary domain plus optional SANs, de-duplicated.
+func (c *LetsEncryptConfig) Hosts() []string {
+	if c == nil {
+		return nil
+	}
+	seen := map[string]bool{}
+	var out []string
+	for _, h := range append([]string{c.Domain}, c.Domains...) {
+		h = strings.TrimSpace(strings.ToLower(h))
+		if h == "" || seen[h] {
+			continue
+		}
+		seen[h] = true
+		out = append(out, h)
+	}
+	return out
+}
+
+// Validate checks required Let's Encrypt fields.
+func (c *LetsEncryptConfig) Validate() error {
+	if c == nil {
+		return nil
+	}
+	if strings.TrimSpace(c.Domain) == "" && len(c.Domains) == 0 {
+		return fmt.Errorf("letsEncrypt: domain (or domains) is required")
+	}
+	if strings.TrimSpace(c.Domain) == "" && len(c.Domains) > 0 {
+		c.Domain = c.Domains[0]
+	}
+	return nil
 }
 
 // WebAppConfig contains WASM web application configuration.

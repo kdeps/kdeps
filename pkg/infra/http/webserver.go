@@ -75,6 +75,25 @@ func (s *WebServer) Start(ctx context.Context) error {
 
 	s.httpServer = newDefaultHTTPServer(addr, s.Router)
 
+	certFile, keyFile := workflowTLSCertificates(s.Workflow)
+	if hasTLSCertificates(certFile, keyFile) {
+		s.logBackgroundInfo("starting web HTTPS server", "addr", addr, "cert", certFile)
+		return s.httpServer.ListenAndServeTLS(certFile, keyFile)
+	}
+	if le := workflowLetsEncrypt(s.Workflow); le != nil {
+		cleanup, err := applyLetsEncrypt(s.httpServer, le, s.logger)
+		if err != nil {
+			return err
+		}
+		defer cleanup()
+		hosts := le.Hosts()
+		domain := ""
+		if len(hosts) > 0 {
+			domain = hosts[0]
+		}
+		s.logBackgroundInfo("starting web HTTPS server", "addr", addr, "cert", "letsencrypt:"+domain)
+		return s.httpServer.ListenAndServeTLS("", "")
+	}
 	return s.httpServer.ListenAndServe()
 }
 

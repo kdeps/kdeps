@@ -33,12 +33,34 @@ func (s *Server) logStartingHTTP(addr string) {
 }
 
 func (s *Server) listenAndServe(addr, certFile, keyFile string) error {
+	// 1) Static PEM certs win when both paths are set.
 	if hasTLSCertificates(certFile, keyFile) {
 		s.logStartingHTTPS(addr, certFile)
 		return s.httpServer.ListenAndServeTLS(certFile, keyFile)
 	}
+	// 2) Let's Encrypt for custom domains (ACME).
+	if le := workflowLetsEncrypt(s.Workflow); le != nil {
+		return s.listenAndServeLetsEncrypt(addr, le)
+	}
 	s.logStartingHTTP(addr)
 	return s.httpServer.ListenAndServe()
+}
+
+func (s *Server) listenAndServeLetsEncrypt(addr string, le *domain.LetsEncryptConfig) error {
+	cleanup, err := applyLetsEncrypt(s.httpServer, le, s.logger)
+	if err != nil {
+		return err
+	}
+	// Challenge server is short-lived relative to process; close on TLS listen failure only.
+	// Successful ListenAndServeTLS blocks — cleanup runs after it returns.
+	defer cleanup()
+	hosts := le.Hosts()
+	domain := ""
+	if len(hosts) > 0 {
+		domain = hosts[0]
+	}
+	s.logStartingHTTPS(addr, "letsencrypt:"+domain)
+	return s.httpServer.ListenAndServeTLS("", "")
 }
 
 func (s *Server) enableHotReloadIfDev(devMode bool) {
