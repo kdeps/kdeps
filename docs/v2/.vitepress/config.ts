@@ -27,7 +27,7 @@ const DOCS_RELEASE = 'v2.1.11'
 export default defineConfig({
   title: 'kdeps',
   description:
-    'Coding CLI agent first. YAML workflows and agencies for LLMs, data, and deploy.',
+    'YAML workflows for language models. Run locally, package, and deploy.',
   lang: 'en-US',
   appearance: 'force-dark',
   lastUpdated: true,
@@ -45,13 +45,13 @@ export default defineConfig({
     ['meta', { name: 'theme-color', content: '#080808' }],
     ['meta', { name: 'og:type', content: 'website' }],
     ['meta', { name: 'og:site_name', content: 'kdeps docs' }],
-    ['meta', { name: 'og:title', content: 'kdeps — coding agent & AI workflows' }],
+    ['meta', { name: 'og:title', content: 'kdeps — YAML workflows for language models' }],
     [
       'meta',
       {
         name: 'og:description',
         content:
-          'Run a tool-using coding agent in your terminal, then ship YAML workflows as Docker, K8s, or a binary.',
+          'Define model workflows in YAML. Run locally and ship as Docker, Kubernetes, or a binary.',
       },
     ],
     ['meta', { name: 'twitter:card', content: 'summary' }],
@@ -62,16 +62,16 @@ export default defineConfig({
     siteTitle: false,
 
     nav: [
-      { text: 'Agent', link: '/getting-started/local-agent' },
+      { text: 'Try locally', link: '/getting-started/local-agent' },
       { text: 'Install', link: '/getting-started/installation' },
       {
         text: 'Guide',
         items: [
           { text: 'Quickstart (workflow API)', link: '/getting-started/quickstart' },
-          { text: 'Agent mode', link: '/modes/agent-loop-mode' },
+          { text: 'Loop mode', link: '/modes/agent-loop-mode' },
           { text: 'Workflow mode', link: '/modes/workflow-mode' },
           { text: 'Local models', link: '/getting-started/local-models' },
-          { text: 'Agent skills', link: '/getting-started/agent-skills' },
+          { text: 'Editor skills', link: '/getting-started/agent-skills' },
           { text: 'Why kdeps?', link: '/concepts/why-kdeps' },
         ],
       },
@@ -94,7 +94,7 @@ export default defineConfig({
           { text: 'LLM commands', link: '/reference/cli/llm' },
           { text: 'Security', link: '/reference/security' },
           { text: 'workflow.yaml', link: '/configuration/workflow' },
-          { text: 'Tools (agent loop)', link: '/reference/tools-reference' },
+          { text: 'Built-in tools', link: '/reference/tools-reference' },
         ],
       },
       { text: 'Registry', link: 'https://kdeps.io' },
@@ -120,10 +120,10 @@ export default defineConfig({
           text: 'Start',
           items: [
             { text: 'Install', link: '/getting-started/installation' },
-            { text: 'Coding agent (local)', link: '/getting-started/local-agent' },
+            { text: 'Run locally', link: '/getting-started/local-agent' },
             { text: 'Local models', link: '/getting-started/local-models' },
             { text: 'Workflow quickstart', link: '/getting-started/quickstart' },
-            { text: 'Agent skills', link: '/getting-started/agent-skills' },
+            { text: 'Editor skills', link: '/getting-started/agent-skills' },
             { text: 'Why kdeps?', link: '/concepts/why-kdeps' },
           ],
         },
@@ -131,7 +131,7 @@ export default defineConfig({
           text: 'Modes',
           collapsed: false,
           items: [
-            { text: 'Agent mode', link: '/modes/agent-loop-mode' },
+            { text: 'Loop mode', link: '/modes/agent-loop-mode' },
             { text: 'Workflow mode', link: '/modes/workflow-mode' },
             { text: 'Agencies', link: '/concepts/agency' },
           ],

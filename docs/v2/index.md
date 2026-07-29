@@ -3,39 +3,39 @@ layout: home
 
 hero:
   name: kdeps
-  text: Coding agent, then workflows
-  tagline: Run kdeps for a tool-using CLI agent. Point it at a project for workflows-as-tools. Ship YAML pipelines as Docker, Kubernetes, ISO, or a binary when you need a fixed API. Proud member of the NVIDIA Inception program.
+  text: YAML pipelines for models
+  tagline: Define steps in YAML, run them locally, ship the same files as Docker, Kubernetes, or a binary. Works with local models or cloud APIs. Proud member of the NVIDIA Inception program.
   actions:
-    - theme: brand
-      text: Coding agent
-      link: /getting-started/local-agent
     - theme: brand
       text: Install
       link: /getting-started/installation
+    - theme: brand
+      text: Try locally
+      link: /getting-started/local-agent
     - theme: alt
-      text: Agent mode
-      link: /modes/agent-loop-mode
+      text: Quickstart
+      link: /getting-started/quickstart
     - theme: alt
-      text: Workflow mode
-      link: /modes/workflow-mode
+      text: Why kdeps?
+      link: /concepts/why-kdeps
 
 features:
-  - title: Coding CLI agent
-    details: Run kdeps for an AI REPL with tools, goals, and memory. Use llamafile or Ollama offline — no API key required.
-  - title: Workflows
-    details: Write a workflow.yaml once. Run with kdeps run. Deploy Docker, Kubernetes, or a binary — same files.
-  - title: Agencies
-    details: Multi-agent systems that call each other via the agent resource. Compose specialists, not monoliths.
-  - title: Any backend
-    details: llamafile and Ollama out of the box, or OpenAI, Anthropic, Groq, and any OpenAI-compatible endpoint.
+  - title: Terminal REPL
+    details: Run kdeps for a local chat loop with tools. llamafile or Ollama work offline without an API key.
+  - title: Workflow YAML
+    details: Declare steps and dependencies once. kdeps run executes the graph. Same files for local and deploy.
+  - title: Multi-agent packages
+    details: Split work across agents and call them with the agent resource. Reuse packaged units.
+  - title: Swap backends
+    details: llamafile and Ollama by default, or OpenAI-compatible, Anthropic, Groq, and similar endpoints via config.
   - title: Component registry
-    details: Install scraper, search, browser, and embedding components. Compose with one line.
-  - title: Ship anywhere
-    details: Docker, Kubernetes, bootable ISO, or a self-contained binary. Apache 2.0. Standard YAML in git.
+    details: Install scraper, search, browser, and embedding components and wire them into a workflow.
+  - title: Package and deploy
+    details: Docker, Kubernetes, ISO, or a single binary. Apache 2.0. Plain YAML in git.
   - title: Validate and doctor
-    details: kdeps validate checks schema, deps, and expressions. kdeps doctor checks the environment before you hit run.
+    details: kdeps validate checks schema and dependencies. kdeps doctor checks the host environment.
   - title: Dev reload
-    details: kdeps run --dev watches files and reloads. Iterate without restarting the server.
-  - title: Agent skills
-    details: A coding-agent skill teaches Claude Code, Cursor, and friends how to scaffold kdeps projects.
+    details: kdeps run --dev reloads on file change so you can iterate without a full restart.
+  - title: Editor skills
+    details: Optional skill files help Claude Code, Cursor, and similar tools scaffold kdeps projects.
 ---

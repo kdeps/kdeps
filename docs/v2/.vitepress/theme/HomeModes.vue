@@ -4,16 +4,16 @@
     <div class="container">
       <p class="section-eyebrow">architecture</p>
       <h2 class="section-title">Two modes</h2>
-      <p class="section-sub">Coding agent first. Workflows when you need a fixed DAG. Mix them in an agency.</p>
+      <p class="section-sub">Interactive loop or fixed pipelines. Use either, or both in an agency.</p>
 
       <div class="modes">
         <!-- Agent mode (primary) -->
         <div class="mode-card">
           <div class="mode-header">
             <span class="mode-tag">agent</span>
-            <h3>Coding CLI agent</h3>
+            <h3>Interactive loop</h3>
           </div>
-          <p class="mode-desc">Autonomous LLM loop in your terminal. Built-in tools, goals, and workflows-as-tools when you pass a path.</p>
+          <p class="mode-desc">Chat in the terminal with built-in tools. Pass a project path to load workflows as tools.</p>
 
           <div class="flow">
             <div class="flow-node entry">stdin prompt</div>
