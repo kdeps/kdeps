@@ -428,3 +428,7 @@ chat:
 - [LLM Resource](llm) - Complete LLM resource documentation
 - [Tools](../concepts/tools) - LLM function calling
 - [Docker Deployment](../deployment/docker) - Deploying with local models
+
+## Self-hosted LLM appliance
+
+Deploy a dedicated OpenAI-compatible server with `kdeps llm` (Docker, ISO, Kubernetes), then point this host at it with `backend: openai` and `base_url`. See [LLM Server Appliance](/deployment/llm-server).

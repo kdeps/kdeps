@@ -228,6 +228,20 @@ kdeps bundle prepackage     # self-contained binary per arch
 kdeps export k8s            # Kubernetes manifests
 ```
 
+
+### LLM server appliance
+
+Standalone OpenAI-compatible inference server (no workflow path):
+
+```bash
+kdeps llm list
+kdeps llm build --engine ollama --model llama3.2 --tag myorg/llm:1 --show-dockerfile
+kdeps llm export k8s --image myorg/llm:1 --engine ollama -o llm.yaml
+kdeps llm client-config --url http://192.168.1.50:8000/v1
+```
+
+Docs: [docs/v2/deployment/llm-server.md](docs/v2/deployment/llm-server.md)
+
 ## Registry
 
 ```bash

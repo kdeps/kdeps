@@ -48,6 +48,7 @@ kdeps run workflow.yaml
 | `kdeps bundle build` | [Packaging Commands](/reference/cli/packaging#kdeps-bundle-build) | Build Docker image |
 | `kdeps export iso` | [Packaging Commands](/reference/cli/packaging#kdeps-export-iso) | Export bootable image |
 | `kdeps export k8s` | [Packaging Commands](/reference/cli/packaging#kdeps-export-k8s) | Generate Kubernetes manifests |
+| `kdeps llm` | [LLM Commands](/reference/cli/llm) | LLM server appliances |
 
 ## Command Workflow
 

@@ -1,0 +1,32 @@
+# Example custom recipe — place in ./llm-servers/ or ~/.kdeps/llm-servers/
+id: custom-openai
+name: Custom OpenAI-compat
+description: Any image that already serves OpenAI-compatible /v1
+version: "1"
+
+api:
+  port: 8000
+  base_path: /v1
+  chat_path: /v1/chat/completions
+  health:
+    method: GET
+    path: /v1/models
+  auth:
+    mode: none
+
+engine:
+  kind: custom
+  # Replace with your inference image
+  base_image: "ghcr.io/example/openai-compat:latest"
+  command: ["/serve", "--host", "0.0.0.0", "--port", "8000"]
+  openai_bridge: false
+
+models:
+  strategy: pull
+
+resources:
+  gpu: optional
+  memory_hint: "8Gi"
+
+capabilities:
+  - chat

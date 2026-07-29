@@ -224,4 +224,5 @@ func addDistributeCommands(rootCmd *cobra.Command) {
 func addDeployCommands(rootCmd *cobra.Command) {
 	addCommandToGroup(rootCmd, groupDeploy, newExecCmd())
 	addCommandToGroup(rootCmd, groupDeploy, newExportCmd())
+	addCommandToGroup(rootCmd, groupDeploy, newLLMCmd())
 }

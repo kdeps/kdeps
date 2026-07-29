@@ -1,0 +1,9 @@
+# Run after: kdeps llm build --engine ollama --model llama3.2 --tag kdeps-llm-ollama:dev
+services:
+  llm:
+    image: kdeps-llm-ollama:dev
+    ports:
+      - "8000:8000"
+    environment:
+      LLM_MODEL: llama3.2
+    # restart: unless-stopped
