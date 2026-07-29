@@ -104,5 +104,6 @@ kdeps run examples/control-flow/workflow.yaml
 ## Learn More
 
 - [Loop Iteration Documentation](../../docs/v2/concepts/loop.md) - Complete loop guide
-- [Control Flow Documentation](../../docs/CONTROL_FLOW.md) - Expressions and conditionals
+- [Loop / iteration](../../docs/v2/concepts/loop.md)
+- [Expressions](../../docs/v2/concepts/expressions.md)
 - [expr-lang Documentation](https://expr-lang.org/docs/language-definition) - Full language reference
