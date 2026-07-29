@@ -70,7 +70,7 @@ jobs:
         env:
           HF_TOKEN: ${{ secrets.HF_TOKEN }}
         run: |
-          python3 tools/llamafile-harvester/harvest.py --write --gguf || echo "harvest failed; keeping committed registry"
+          python3 tools/llamafile-harvester/harvest.py --write --gguf --chinese-labs || echo "harvest failed; keeping committed registry"
           if git diff --quiet pkg/executor/llm/llamafile_versions_data.go tools/llamafile-harvester/llamafile_versions.yaml pkg/executor/llm/gguf_versions_data.go tools/llamafile-harvester/gguf_versions.yaml 2>/dev/null; then
             echo "has_registry_updates=false" >> $GITHUB_OUTPUT
           else

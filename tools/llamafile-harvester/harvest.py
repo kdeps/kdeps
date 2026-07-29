@@ -10,6 +10,12 @@ Usage:
     python3 harvest.py                          # print Go file to stdout
     python3 harvest.py --write                  # overwrite source files
     python3 harvest.py --write --output <dir>   # overwrite in specific dir
+    python3 harvest.py --write --gguf           # GGUF + Chinese labs (default with --gguf)
+    python3 harvest.py --write --gguf --no-chinese-labs  # GGUF only, no lab pass
+
+Chinese AI labs (DeepSeek, Qwen, Yi, GLM, InternLM, Kimi, …) are harvested into
+the GGUF registry when --gguf is set (use --no-chinese-labs to skip). Nightly CI
+must pass --gguf so labs stay in the daily crop.
 
 Requirements:
     huggingface_hub >= 0.20
@@ -82,14 +88,22 @@ SKIP_QUANT_MARKERS = (".BF16", "-BF16", ".F16", "-F16", ".F32", "-F32")
 # Each entry is (name_filter, search_query) — name_filter is a case-insensitive
 # substring matched against modelId; search_query finds GGUF variants on HF.
 CHINESE_AI_LABS = [
+    # (name_filter on modelId, HF search query)
     ("deepseek", "deepseek gguf"),
     ("qwen", "qwen gguf"),
     ("yi-", "yi gguf"),
+    ("yi/", "01-ai yi gguf"),  # 01-ai/Yi-* repos
     ("glm", "glm gguf"),
+    ("chatglm", "chatglm gguf"),
     ("internlm", "internlm gguf"),
     ("kimi", "kimi gguf"),
+    ("moonshot", "moonshot gguf"),
     ("step-", "stepfun gguf"),
+    ("stepfun", "stepfun gguf"),
     ("hunyuan", "hunyuan gguf"),
+    ("baichuan", "baichuan gguf"),
+    ("minimax", "minimax gguf"),
+    ("ernie", "ernie gguf"),
     ("bge", "bge gguf"),
 ]
 
@@ -358,9 +372,17 @@ def main():
                         help="Include non-mozilla-ai models")
     parser.add_argument("--gguf", action="store_true",
                         help="Also harvest GGUF models from HuggingFace")
-    parser.add_argument("--chinese-labs", action="store_true",
-                        help="Include Chinese AI labs (DeepSeek, Qwen, Yi, GLM, InternLM, etc.) in GGUF harvest")
+    parser.add_argument(
+        "--chinese-labs",
+        action=argparse.BooleanOptionalAction,
+        default=None,
+        help="Include Chinese AI labs (DeepSeek, Qwen, Yi, GLM, InternLM, …) in GGUF harvest. "
+             "Default: on when --gguf is set. Use --no-chinese-labs to disable.",
+    )
     args = parser.parse_args()
+    # Nightly and local GGUF harvests must keep Chinese labs unless explicitly disabled.
+    if args.chinese_labs is None:
+        args.chinese_labs = bool(args.gguf)
 
     if args.output:
         out_dir = args.output
@@ -420,6 +442,9 @@ def main():
             print("  llmfit: not available — skip gguf_sources seed", file=sys.stderr)
 
         # ── Chinese AI labs GGUF harvest ──
+        # Required for DeepSeek/Qwen/Yi/GLM/… coverage. Default on with --gguf.
+        if not args.chinese_labs:
+            print("  chinese-labs: skipped (--no-chinese-labs)", file=sys.stderr)
         if args.chinese_labs:
             for name_filter, query in CHINESE_AI_LABS:
                 try:
