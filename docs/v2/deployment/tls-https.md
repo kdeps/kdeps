@@ -9,15 +9,25 @@ Works in **workflow mode** (HTTP API / web) and for any agent package that enabl
 
 ## Choose a mode
 
-```text
-DNS A/AAAA -> your host
-        |
-        +-- Static PEM ---------- settings.certFile + settings.keyFile
-        |
-        +-- Let's Encrypt ------- settings.letsEncrypt.domain (+ email, cacheDir)
-                 |
-                 +-- :80  HTTP-01 challenge (+ plain text hint on other paths)
-                 +-- :443 HTTPS (TLS-ALPN-01 + app traffic)
+```d2
+direction: down
+
+dns: "DNS A/AAAA" {shape: oval}
+host: "kdeps host" {shape: rectangle}
+mode: "TLS mode" {shape: diamond}
+pem: "Static PEM certFile keyFile" {shape: rectangle}
+le: "Lets Encrypt custom domain" {shape: rectangle}
+proxy: "Reverse proxy" {shape: rectangle}
+p80: "port 80 HTTP-01" {shape: rectangle}
+p443: "port 443 HTTPS" {shape: rectangle}
+
+dns -> host
+host -> mode
+mode -> pem: "bring certs"
+mode -> le: "ACME"
+mode -> proxy: "terminate elsewhere"
+le -> p80
+le -> p443
 ```
 
 | Mode | When to use |
