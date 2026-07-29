@@ -1,63 +1,105 @@
-# Agent mode
+# Coding agent
 
-An interactive LLM loop. The model plans tasks, calls tools, and drives work to completion.
+Primary mode: a **CLI coding agent** in your terminal. Plans tasks, calls tools, finishes the goal.
+
+```bash
+kdeps                              # model-only REPL
+kdeps .                            # this repo / project as tools
+kdeps ./my-agent/                  # one workflow = one tool
+kdeps ./agents/                    # every workflow under the path = a tool
+kdeps --model deepseek-v4-flash --system "You are a DevOps assistant."
+kdeps --resume <session-id>
+kdeps --skill ~/.kdeps/skills/
+```
+
+No workflow files required to chat. Add a path when you want project tools.
+
+## What it is good for
+
+- Code and ops work in a real shell context
+- Multi-step tasks with a plan (`/goal`)
+- Calling your kdeps workflows as tools without leaving the REPL
+- Local models (llamafile / GGUF) or cloud keys
 
 ## Start
 
 ```bash
-kdeps                              # model-only REPL
-kdeps ./my-agent/                  # one workflow = one tool
-kdeps ./agents/                    # every workflow in the folder = a tool
-kdeps --model deepseek-v4-flash --system "You are a DevOps assistant."
-kdeps --resume <session-id>        # continue a saved session
+kdeps --version   # expect 2.1.x on current releases
+kdeps
 ```
 
-When you pass a path, workflows (and agencies) under it are registered as tools. If the model calls one, the **full workflow engine** runs — same DAG as `kdeps run`.
+First run may ask for a backend. **llamafile** needs no API key; model lands in `~/.kdeps/models/`.
 
-## Built-in tools
+Cloud:
 
-Always available in the loop (examples): web search, scraper, calculator, SQL helpers, bash, file ops. New loop-only capabilities land here; user workflows stay as tools, not as a second executor path.
+```bash
+export ANTHROPIC_API_KEY=...
+export OPENAI_API_KEY=...
+export DEEPSEEK_API_KEY=...
+# or llm: in ~/.kdeps/config.yaml
+```
 
-## Goal-directed runs
+## Root flags (agent)
 
-A prompt becomes a task list. The model works the active task until it finishes or fails, then moves on.
+| Flag | Purpose |
+|------|---------|
+| `[path]` | Load workflows / agencies under path as tools |
+| `--model` | Model id (else env / config / default) |
+| `--backend` | Backend id |
+| `--base-url` | OpenAI-compat base URL |
+| `--system` | System prompt every turn |
+| `--resume` | Resume session id |
+| `--skill` | Skill file or directory (repeatable) |
+| `--debug` / `--verbose` | Logging |
+
+## Tools
+
+Built-ins always available in the loop (examples): web search, scraper, calculator, SQL helpers, bash, file ops.
+
+Pass a path: each workflow (and agency) registers as a tool. When the model calls one, the **full workflow engine** runs — same DAG as `kdeps run`.
+
+## Goals
 
 ```text
-prompt -> tasks -> [task 1] -> [task 2] -> ... -> answer
+prompt -> task list -> [task 1] -> [task 2] -> ... -> answer
 ```
 
-Tools like `task_complete` / `task_fail` advance the plan. Slash command `/goal` inspects or steers it.
+The model advances with `task_complete` / `task_fail`. Steer with `/goal`.
 
-## Useful slash commands
+## Slash commands
 
-| Command | What it does |
-|---------|----------------|
-| `/help` | Full command list |
+Type `/help` for the live list. Common:
+
+| Command | Purpose |
+|---------|---------|
+| `/help` | All commands |
 | `/model [name]` | Show or switch model |
 | `/model list` | Available models |
-| `/model ps` | Running local model servers |
-| `/clear` | Summarize and clear conversation |
+| `/model ps` | Running local servers |
+| `/model tool set …` | Persist loop settings |
+| `/clear` | Summarize and clear |
 | `/compact` | Compact history |
-| `/session …` | Save / load / list sessions |
+| `/session …` | Save / load / list |
 | `/thinking …` | Extended reasoning (when supported) |
-| `/turo …` | Token reducer (if `turo` is on `PATH`) |
-| `/goal …` | View or change the task plan |
-| `/exit` | Leave the REPL |
-| `! <cmd>` | Run a shell command; model sees the output |
-| `!! <cmd>` | Run a shell command; no model turn |
+| `/turo …` | Token reducer if `turo` on `PATH` |
+| `/goal …` | Inspect or change plan |
+| `/skills` | Loaded skills |
+| `/exit` | Leave REPL |
+| `! <cmd>` | Shell; model sees output |
+| `!! <cmd>` | Shell; no model turn |
 
-Type `/help` for the full set — it stays in sync with the binary.
-
-## Skills and prompts
+## Skills
 
 ```bash
 kdeps --skill ~/.kdeps/skills/
 ```
 
-Skills teach the agent how to work in a domain (including how to scaffold kdeps projects). List loaded skills with `/skills`.
+Skills teach domain behavior (including scaffolding kdeps projects). List with `/skills`.
 
 ## Settings that stick
 
-Loop settings (tool rounds, compaction, stall timeout, …) persist under `~/.kdeps/agent-loop-settings.yaml`. Change them with `/model tool set …` or edit the file.
+Loop knobs (rounds, compaction, stall timeout, …) live in `~/.kdeps/agent-loop-settings.yaml`. Change via `/model tool set …` or edit the file.
 
-Next: [Two modes](/modes) · [Workflow mode](/workflow) · [CLI](/cli).
+## Workflow next
+
+Fixed HTTP APIs and deterministic pipelines: [Workflow mode](/workflow) (`kdeps run`). Full map: [CLI](/cli) · [Two modes](/modes).

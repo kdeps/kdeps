@@ -2,7 +2,7 @@ import { defineConfig } from 'vitepress'
 
 export default defineConfig({
   title: 'kdeps',
-  description: 'AI workflows in YAML — CLI first.',
+  description: 'Coding CLI agent, then workflows in YAML.',
   appearance: 'force-dark',
   cleanUrls: true,
   lastUpdated: true,
@@ -16,7 +16,7 @@ export default defineConfig({
     ['meta', { name: 'og:type', content: 'website' }],
     ['meta', { name: 'og:site_name', content: 'kdeps docs' }],
     ['meta', { name: 'og:title', content: 'kdeps' }],
-    ['meta', { name: 'og:description', content: 'AI workflows in YAML — CLI first.' }],
+    ['meta', { name: 'og:description', content: 'Coding CLI agent, then workflows in YAML.' }],
   ],
 
   themeConfig: {
@@ -25,39 +25,40 @@ export default defineConfig({
 
     nav: [
       { text: 'Quickstart', link: '/quickstart' },
+      { text: 'Agent', link: '/agent' },
       { text: 'CLI', link: '/cli' },
       { text: 'Workflow', link: '/workflow' },
-      { text: 'Deploy', link: '/deploy' },
       { text: 'Registry', link: 'https://kdeps.io' },
       { text: 'GitHub', link: 'https://github.com/kdeps/kdeps' },
       {
-        text: 'v3',
+        text: 'v2.1.11',
         items: [
           { text: 'Changelog', link: 'https://github.com/kdeps/kdeps/releases' },
-          { text: 'Archive v2', link: '/v2/' },
-          { text: 'Archive v1', link: '/v1/' },
+          { text: 'Release v2.1.11', link: 'https://github.com/kdeps/kdeps/releases/tag/v2.1.11' },
+          { text: 'Archive v2 docs', link: '/v2/' },
+          { text: 'Archive v1 docs', link: '/v1/' },
         ],
       },
     ],
 
     sidebar: [
       {
-        text: 'CLI & workflow',
+        text: 'Start',
         items: [
           { text: 'Install', link: '/install' },
           { text: 'Quickstart', link: '/quickstart' },
+          { text: 'Coding agent', link: '/agent' },
           { text: 'CLI', link: '/cli' },
-          { text: 'Workflow mode', link: '/workflow' },
           { text: 'Two modes', link: '/modes' },
         ],
       },
       {
-        text: 'Build',
+        text: 'Workflow',
         items: [
+          { text: 'Workflow mode', link: '/workflow' },
           { text: 'Resources', link: '/resources' },
           { text: 'Expressions', link: '/expressions' },
           { text: 'Config', link: '/config' },
-          { text: 'Agent mode', link: '/agent' },
         ],
       },
       {
@@ -67,11 +68,6 @@ export default defineConfig({
           { text: 'LLM server', link: '/llm-server' },
           { text: 'TLS / HTTPS', link: '/tls' },
           { text: 'Security', link: '/security' },
-        ],
-      },
-      {
-        text: 'Reference',
-        items: [
           { text: 'Components', link: '/components' },
         ],
       },
@@ -91,7 +87,7 @@ export default defineConfig({
     },
 
     footer: {
-      message: 'Apache 2.0 · Highly experimental',
+      message: 'Apache 2.0 · kdeps v2.1.11 · Highly experimental',
       copyright: 'kdeps',
     },
   },

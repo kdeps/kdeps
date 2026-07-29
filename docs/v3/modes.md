@@ -1,30 +1,27 @@
 # Two modes
 
-kdeps has one product surface and two ways to run it.
+**Default mental model:** coding agent first; workflow when you need a fixed pipeline.
 
-| | **Workflow mode** | **Agent mode** |
+| | **Coding agent** | **Workflow mode** |
 |---|---|---|
-| Command | `kdeps run workflow.yaml` | `kdeps` or `kdeps [path]` |
-| Shape | Deterministic DAG | LLM loop with tools |
-| Entry | `metadata.targetActionId` | Your prompt |
-| Best for | APIs, bots, fixed pipelines | Interactive work, multi-step tasks |
-| Resources | Steps in order via `requires:` | Whole workflows registered as tools |
-| Ship | `kdeps bundle package` / `build` | same packages; path also loads as tools |
+| Command | `kdeps` / `kdeps [path]` | `kdeps run workflow.yaml` |
+| Shape | LLM loop + tools | Deterministic DAG |
+| Entry | Your prompt | `metadata.targetActionId` |
+| Best for | Coding, ops, multi-step goals | APIs, bots, file jobs |
+| Resources | Built-in tools + workflows-as-tools | Steps via `requires:` |
+| Ship | Optional | `kdeps bundle package` / `build` |
 
 ```text
+agent:     prompt  -> plan tasks -> call tools (incl. workflows) -> answer
 workflow:  request -> resolve graph -> run resources -> response
-agent:     prompt  -> plan tasks    -> call tools     -> answer
 ```
 
-## When to use which
+## How they connect
 
-- **Workflow** — you want the same path every time: validate input, call a model, hit SQL, return JSON.
-- **Agent** — you want the model to decide next steps, use tools, and finish a goal across turns.
+- Agent alone: no YAML required.
+- `kdeps ./path` — workflows under path become tools; a tool call runs the **full** DAG.
+- `kdeps run … --interactive` — serve the workflow and keep an agent REPL open.
 
-They share the same YAML, resources, and backends. An agent that loads `./my-agent/` can call that workflow as one tool; the engine still runs the full DAG inside.
+Backends (`~/.kdeps/config.yaml`, env keys, `KDEPS_LLM_BASE_URL`) apply to both.
 
-## Backend config is shared
-
-Local or cloud models apply to both modes. Set them once in `~/.kdeps/config.yaml` or env vars (`KDEPS_DEFAULT_BACKEND`, `KDEPS_LLM_BASE_URL`, provider API keys).
-
-Details: [Workflow mode](/workflow) · [Agent mode](/agent).
+[Coding agent](/agent) · [Workflow mode](/workflow) · [CLI](/cli).

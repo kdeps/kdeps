@@ -1,6 +1,6 @@
 # Install
 
-Get the CLI, then run `kdeps`.
+Latest release: **[v2.1.11](https://github.com/kdeps/kdeps/releases/tag/v2.1.11)**.
 
 ## macOS (Homebrew)
 
@@ -14,7 +14,7 @@ brew install kdeps/tap/kdeps
 curl -LsSf https://raw.githubusercontent.com/kdeps/kdeps/main/install.sh | sh
 ```
 
-On Windows, use [Git Bash](https://git-scm.com/downloads/win) or [WSL](https://learn.microsoft.com/en-us/windows/wsl/install).
+On Windows use [Git Bash](https://git-scm.com/downloads/win) or [WSL](https://learn.microsoft.com/en-us/windows/wsl/install).
 
 ## Go
 
@@ -26,26 +26,26 @@ go install github.com/kdeps/kdeps/v2@latest
 
 ```bash
 kdeps --version
+# kdeps version 2.1.11 …
 ```
 
-## First run (workflow)
-
-```bash
-kdeps new my-agent
-cd my-agent
-export KDEPS_API_AUTH_TOKEN=dev-token
-kdeps run workflow.yaml --dev
-```
-
-Or open the agent REPL:
+## First run — coding agent
 
 ```bash
 kdeps
 ```
 
-On a fresh machine, kdeps may ask which language model to use. Pick **llamafile** for a local model with no server install. The default model downloads into `~/.kdeps/models/` on first use.
+Optional project tools:
 
-Cloud keys (when you want them):
+```bash
+kdeps .
+# or
+kdeps ./my-agent/
+```
+
+First launch may ask for a model backend. **llamafile** needs no API key; files go under `~/.kdeps/models/`.
+
+Cloud keys when you want them:
 
 ```bash
 export ANTHROPIC_API_KEY=...
@@ -53,14 +53,18 @@ export OPENAI_API_KEY=...
 export DEEPSEEK_API_KEY=...
 ```
 
-Or set `llm:` in `~/.kdeps/config.yaml`.
+Or `llm:` in `~/.kdeps/config.yaml`.
+
+## Workflow later
+
+```bash
+kdeps new my-agent
+export KDEPS_API_AUTH_TOKEN=dev-token
+kdeps run workflow.yaml --dev
+```
 
 ## Docker
 
-Only needed if you will build container images. Install [Docker Desktop](https://docs.docker.com/get-docker/) or Docker Engine, then:
+Only if you build images (`kdeps bundle build`). Install [Docker](https://docs.docker.com/get-docker/), then `docker --version`.
 
-```bash
-docker --version
-```
-
-Next: [Quickstart](/quickstart).
+Next: [Quickstart](/quickstart) · [Coding agent](/agent).

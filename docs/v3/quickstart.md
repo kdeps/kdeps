@@ -1,8 +1,43 @@
 # Quickstart
 
-Code path: **scaffold → validate → run → call**.
+**Agent first.** Then workflow if you need a fixed API.
 
-## Workflow API
+## 1. Coding agent
+
+```bash
+curl -LsSf https://raw.githubusercontent.com/kdeps/kdeps/main/install.sh | sh
+# or: brew install kdeps/tap/kdeps
+
+kdeps --version    # latest release: 2.1.11
+kdeps              # REPL — local model by default
+```
+
+Talk to the model. Use `/help`, `/model list`, `!make test`.
+
+### Agent on a project
+
+```bash
+cd ~/Projects/acme
+kdeps .            # workflows under . become tools
+```
+
+Or a single agent dir:
+
+```bash
+kdeps ./my-agent/
+```
+
+Useful:
+
+```bash
+kdeps --model llama3.2:1b --system "You are a careful code reviewer."
+kdeps --resume <session-id>
+kdeps --skill ~/.kdeps/skills/
+```
+
+Details: [Coding agent](/agent) · [CLI](/cli).
+
+## 2. Workflow API (when you need one)
 
 ```bash
 kdeps new my-agent
@@ -12,8 +47,6 @@ export KDEPS_API_AUTH_TOKEN=dev-token
 kdeps run workflow.yaml --dev
 ```
 
-In another terminal:
-
 ```bash
 curl -X POST http://localhost:16395/api/v1/chat \
   -H "Authorization: Bearer $KDEPS_API_AUTH_TOKEN" \
@@ -21,93 +54,30 @@ curl -X POST http://localhost:16395/api/v1/chat \
   -d '{"q":"hello"}'
 ```
 
-### What `kdeps new` wrote
+Scaffold layout:
 
 ```text
 my-agent/
 ├── workflow.yaml
 └── resources/
-    └── …
 ```
 
-Edit `workflow.yaml` (`metadata.targetActionId`, `settings.apiServer.routes`) and resources under `resources/`. Each resource is one step; chain with `requires:` and `get('id')`.
+`requires:` orders steps; `get('id')` reads outputs. Full shape: [Workflow mode](/workflow).
 
-### Minimal hand-written shape
-
-`workflow.yaml`:
-
-```yaml
-apiVersion: kdeps.io/v1
-kind: Workflow
-
-metadata:
-  name: my-agent
-  version: "1.0.0"
-  targetActionId: response
-
-settings:
-  apiServer:
-    hostIp: "127.0.0.1"
-    portNum: 16395
-    routes:
-      - path: /api/v1/chat
-        methods: [POST]
-```
-
-`resources/llm.yaml`:
-
-<div v-pre>
-
-```yaml
-actionId: llm
-name: chat
-validations:
-  methods: [POST]
-  routes: [/api/v1/chat]
-  check:
-    - get('q') != ''
-  error:
-    code: 400
-    message: "'q' is required"
-chat:
-  model: llama3.2:1b
-  role: user
-  prompt: "{{ get('q') }}"
-  timeout: 60s
-```
-
-</div>
-
-`resources/response.yaml`:
-
-```yaml
-actionId: response
-name: api
-requires: [llm]
-apiResponse:
-  success: true
-  data:
-    answer: get('llm').message.content
-```
-
-### Useful run flags
+### Run flags (workflow)
 
 ```bash
 kdeps run workflow.yaml --port 16395
-kdeps run workflow.yaml --events          # NDJSON on stderr
-kdeps run workflow.yaml --interactive     # workflow + REPL
-kdeps run workflow.yaml --file ./doc.txt  # file input source
+kdeps run workflow.yaml --events
+kdeps run workflow.yaml --interactive   # workflow + agent REPL
+kdeps run workflow.yaml --file ./doc.txt
 ```
 
-## Agent REPL (optional)
+## 3. Ship later
 
 ```bash
-kdeps                 # local model REPL
-kdeps ./my-agent/     # workflows become tools
+kdeps bundle package .
+kdeps bundle build . --tag myregistry/agent:latest
 ```
 
-## Next
-
-- [CLI](/cli) — command + flag map  
-- [Workflow mode](/workflow) — graph, layout, ship  
-- [Resources](/resources) · [Config](/config)
+[Deploy](/deploy) · [Resources](/resources) · [Config](/config).

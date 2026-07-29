@@ -1,6 +1,6 @@
 # Workflow mode
 
-Deterministic DAG. CLI entrypoint: **`kdeps run`**.
+Secondary mode after the [coding agent](/agent). Deterministic DAG. CLI entrypoint: **`kdeps run`**.
 
 ```bash
 kdeps new my-agent
@@ -9,6 +9,8 @@ kdeps validate .
 export KDEPS_API_AUTH_TOKEN=dev-token
 kdeps run workflow.yaml --dev
 ```
+
+Use this when you need a stable API, bot, or file pipeline. The same project can load in the agent via `kdeps ./my-agent/`.
 
 ## Layout
 

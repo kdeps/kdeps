@@ -1,8 +1,35 @@
 # CLI
 
-Developer surface for **workflow mode**. Prefer `kdeps <cmd> --help` on your binary.
+Primary surface: **coding agent** (`kdeps` / `kdeps [path]`).  
+Secondary: **workflow** (`kdeps run`, validate, bundle).  
+Also: registry, LLM appliances, exports.
 
-## Daily loop
+Prefer `kdeps <cmd> --help` on your binary (docs track **v2.1.11**).
+
+## Coding agent
+
+```bash
+kdeps
+kdeps .
+kdeps ./my-agent/ --model deepseek-v4-flash --system "You ship carefully."
+kdeps --resume <session-id>
+kdeps --skill ~/.kdeps/skills/
+```
+
+| Flag | Purpose |
+|------|---------|
+| `[path]` | Workflows / agencies under path → tools |
+| `--model` | Model id |
+| `--backend` | Backend id |
+| `--base-url` | OpenAI-compat base URL |
+| `--system` | System prompt |
+| `--resume` | Session id |
+| `--skill` | Skill path (repeatable) |
+| `--debug` / `--verbose` / `--instrument` | Diagnostics |
+
+Inside the REPL: `/help`, `/model`, `/goal`, `/session`, `!cmd`. See [Coding agent](/agent).
+
+## Develop (workflow)
 
 ```text
 kdeps new my-agent
@@ -10,85 +37,67 @@ kdeps new my-agent
   -> kdeps validate .
   -> export KDEPS_API_AUTH_TOKEN=...
   -> kdeps run workflow.yaml [--dev]
-  -> curl / api client
-  -> kdeps bundle package|build|export   # when shipping
+  -> (optional) kdeps bundle package|build|export
 ```
-
-## Develop
 
 | Command | Purpose |
 |---------|---------|
-| `kdeps new <name>` | Scaffold agent (`-t` / `--template`, default `api-service`) |
-| `kdeps new <name> --force` | Overwrite existing directory |
-| `kdeps validate <path>` | YAML, schema, deps, expressions (file or dir) |
-| `kdeps run <workflow.yaml\|package.kdeps>` | Run workflow locally |
-| `kdeps edit` | Open `~/.kdeps/config.yaml` |
-| `kdeps env` | Print env exports for configured connections |
-| `kdeps doctor` | Health checks (config, models, Python, …) |
-| `kdeps chat` | Chat helper (see `--help`) |
+| `kdeps new <name>` | Scaffold (`-t` template, default `api-service`) |
+| `kdeps new <name> --force` | Overwrite dir |
+| `kdeps validate <path>` | Schema, deps, expressions |
+| `kdeps run <workflow.yaml\|.kdeps>` | Run workflow |
+| `kdeps edit` | Edit `~/.kdeps/config.yaml` |
+| `kdeps env` | Print connection env exports |
+| `kdeps doctor` | Environment checks |
+| `kdeps chat` | Chat helper (`--help`) |
 
-### `kdeps run` flags
+### `kdeps run`
 
 | Flag | Purpose |
 |------|---------|
 | `--port <n>` | Listen port (default `16395`) |
 | `--dev` | Hot reload |
-| `--file <path>` | File input source path (overrides stdin / `KDEPS_FILE_PATH`) |
-| `--events` | NDJSON lifecycle events on stderr |
-| `--interactive` | Run workflow **and** open LLM REPL alongside it |
-| `--memory` | Enable workflow memory expression helpers |
-| `--debug` / `--verbose` | Logging (persistent flags) |
+| `--file <path>` | File input (overrides stdin / `KDEPS_FILE_PATH`) |
+| `--events` | NDJSON events on stderr |
+| `--interactive` | Workflow + agent REPL |
+| `--memory` | Workflow memory expression helpers |
 
 ```bash
-kdeps run workflow.yaml
 kdeps run workflow.yaml --dev --port 16395
-kdeps run workflow.yaml --file ./doc.txt
 kdeps run workflow.yaml --interactive
 kdeps run myapp-1.0.0.kdeps
 ```
 
-API routes need a token (not in git):
+### `kdeps validate`
 
-```bash
-export KDEPS_API_AUTH_TOKEN=dev-token
-# or: api_auth_token in ~/.kdeps/config.yaml
-```
-
-### `kdeps validate` accepts
-
-- `workflow.yaml` path
-- Agent dir (has `workflow.yaml`)
-- Component dir (`component.yaml`)
-- Agency dir (`agency.yaml`)
+Accepts workflow file, agent dir, component dir, or agency dir.
 
 ```bash
 kdeps validate workflow.yaml
 kdeps validate examples/chatbot
 ```
 
-## Package (`kdeps bundle …`)
+## Package
 
-Top-level packaging lives under **`bundle`**.
+Under **`kdeps bundle`**:
 
 | Command | Purpose |
 |---------|---------|
 | `kdeps bundle package <dir>` | `.kdeps` / `.kagency` archive |
-| `kdeps bundle build <path>` | Docker image (dir, yaml, or package) |
+| `kdeps bundle build <path>` | Docker image |
 | `kdeps bundle prepackage …` | Standalone binary packaging |
-| `kdeps bundle export …` | Export formats under bundle |
+| `kdeps bundle export …` | Bundle exports |
 
-Also top-level:
+Top-level deploy export:
 
 | Command | Purpose |
 |---------|---------|
-| `kdeps export iso\|k8s …` | Deploy-group export (ISO, Kubernetes) |
+| `kdeps export iso\|k8s …` | ISO / Kubernetes |
 
 ```bash
-kdeps bundle package my-agent/
-kdeps bundle package my-agent/ --output dist/
-kdeps bundle build my-agent/ --tag myregistry/myagent:latest
-kdeps bundle build my-agent/ --gpu cuda --show-dockerfile
-kdeps export k8s my-agent/ -o deploy.yaml
+kdeps bundle package .
+kdeps bundle build . --tag myregistry/agent:latest --gpu cuda
+kdeps export k8s . -o deploy.yaml
 ```
 
 ## Registry
@@ -96,40 +105,21 @@ kdeps export k8s my-agent/ -o deploy.yaml
 | Command | Purpose |
 |---------|---------|
 | `kdeps registry search <q>` | Find packages |
-| `kdeps registry install <pkg>` | Install component / agent |
+| `kdeps registry install <pkg>` | Install |
 | `kdeps registry list` | Installed |
 | `kdeps registry info <pkg>` | Metadata |
 
-## Agent REPL (not workflow)
+## LLM appliances
 
-| Command | Purpose |
-|---------|---------|
-| `kdeps` | Model REPL |
-| `kdeps [path]` | REPL; workflows under path become tools |
-| `kdeps --model … --system …` | Model / system prompt |
-| `kdeps --resume <id>` | Resume session |
-| `kdeps --skill <path>` | Load skills |
-
-See [Agent mode](/agent).
-
-## LLM appliances (not workflow)
-
-No workflow path argument. See [LLM server](/llm-server).
+Standalone inference only — no workflow path. [LLM server](/llm-server).
 
 ```bash
-kdeps llm list|models|show|build|run|export|client-config|wizard
+kdeps llm wizard|list|models|show|build|run|export|client-config
 kdeps llamafile list|update
 ```
 
 ## Global flags
 
-| Flag | Purpose |
-|------|---------|
-| `--debug` | Debug logging |
-| `--verbose` | Verbose output |
-| `--instrument` | Call-chain tracing |
-| `-v` / `--version` | Version |
+`--debug`, `--verbose`, `--instrument`, `-v` / `--version`.
 
-Agent-only root flags: `--backend`, `--base-url`, `--model`, `--resume`, `--skill`, `--system`.
-
-Next: [Workflow mode](/workflow) · [Quickstart](/quickstart).
+Next: [Coding agent](/agent) · [Workflow mode](/workflow).
