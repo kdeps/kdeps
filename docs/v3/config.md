@@ -1,69 +1,83 @@
 # Config
 
-Two layers: **workflow files** (what runs) and **machine config** (secrets and defaults).
+Two layers: **workflow files** (behavior) and **machine config** (secrets / defaults).
 
 ## workflow.yaml settings
 
 | Block | Purpose |
 |-------|---------|
-| `apiServer` | Host, port, routes, rate limits, trusted proxies |
-| `webServer` | Static files or reverse-proxy target |
-| `agentSettings` | Runtime packages, env, Python deps for packaged runs |
-| `sqlConnections` | Named DB DSNs (prefer secrets via env) |
-| `session` | Cross-request key-value store |
-| `certFile` / `keyFile` | Static TLS |
-| `letsEncrypt` | ACME TLS for a public domain |
+| `input` | `sources: [api\|bot\|file]` — [Inputs](/inputs) |
+| `apiServer` | Host, port, routes, rate limits, CORS, trusted proxies |
+| `webServer` | Static + optional frontend proxy — [Web server](/webserver) |
+| `agentSettings` | Python version, packages, env for packaged runs |
+| `sqlConnections` | Named DB DSNs |
+| `session` | Cross-request store |
+| `certFile` / `keyFile` / `letsEncrypt` | TLS — [TLS](/tls) |
 
-Example API surface:
+### Session
+
+```yaml
+settings:
+  session:
+    type: sqlite                 # or memory
+    path: "/data/sessions.db"
+    ttl: "30m"
+    cleanupInterval: "5m"
+```
+
+```yaml
+before:
+  - set('history', get('history') or [], 'session')
+  - set('turn', int(get('turn') or 0) + 1, 'session')
+```
+
+Client sends / receives `X-Session-ID`.
+
+### CORS (sketch)
 
 ```yaml
 settings:
   apiServer:
-    hostIp: "0.0.0.0"
-    portNum: 16395
-    routes:
-      - path: /api/v1/chat
-        methods: [POST]
-      - path: /api/v1/public
-        methods: [GET]
-        public: true   # no bearer token
+    cors:
+      allowOrigins: ["https://app.example.com"]
+      allowMethods: [GET, POST]
+      allowHeaders: [Authorization, Content-Type]
 ```
+
+### Routes
+
+API routes on `apiServer.routes`. Per-resource gates: `validations.methods` / `routes` / `public: true` on a route for open access.
 
 ## ~/.kdeps/config.yaml
 
-Machine-local. Do not commit.
+Do not commit.
 
 ```yaml
-api_auth_token: "your-secret"
+api_auth_token: "…"
 
 llm:
-  backend: openai          # or file, ollama, gguf, …
-  base_url: http://host:8000/v1
-  # openai_api_key: "..."
+  backend: file                  # file | gguf | ollama | openai | …
+  # base_url: http://host:8000/v1
+  # openai_api_key: "…"
 
-# Optional per-agent overrides (metadata.name)
+bot_connections: { }             # platform tokens — [Inputs](/inputs)
+# smtp_connections / imap_connections / http_connections / search_connections
+
 agents:
-  my-agent:
+  my-agent:                      # matches metadata.name
     llm:
       backend: openai
-      openai_api_key: sk-...
 ```
 
-Named connections for email, HTTP auth, and search providers also live here.
-
-## Environment overrides
+## Environment
 
 | Variable | Role |
 |----------|------|
-| `KDEPS_API_AUTH_TOKEN` | API bearer / X-Api-Key value |
-| `KDEPS_DEFAULT_BACKEND` | LLM backend id |
-| `KDEPS_LLM_BASE_URL` | OpenAI-compat base URL (…/v1) |
-| `ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, … | Provider keys |
+| `KDEPS_API_AUTH_TOKEN` | API bearer |
+| `KDEPS_DEFAULT_BACKEND` | LLM backend |
+| `KDEPS_LLM_BASE_URL` | OpenAI-compat `/v1` |
+| `KDEPS_PERMISSION_MODE` | Agent tool permissions |
+| `KDEPS_LEAN_MODE` / `KDEPS_AGENT_PRESET` | Agent tool surface |
+| Provider keys | `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, … |
 
-## Auth rule of thumb
-
-- Token for `apiServer` routes (unless `public: true`)
-- Token in env or `~/.kdeps/config.yaml`, never in `workflow.yaml`
-- Management endpoints under `/_kdeps/*` use a separate management token when enabled
-
-See [Security](/security) and [TLS](/tls).
+[Security](/security) · [LLM](/llm) · [Coding agent](/agent).

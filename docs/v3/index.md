@@ -26,3 +26,5 @@ features:
   - title: Local or cloud
     details: llamafile / Ollama without a key, or OpenAI-compatible backends. Package with `kdeps bundle` when you deploy.
 ---
+
+For a long-form narrative of the same material, see the free book [AI Appliances](https://leanpub.com/kdeps) (source mirrors `./book/` in the repo checkout).

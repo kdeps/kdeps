@@ -24,4 +24,4 @@ workflow:  request -> resolve graph -> run resources -> response
 
 Backends (`~/.kdeps/config.yaml`, env keys, `KDEPS_LLM_BASE_URL`) apply to both.
 
-[Coding agent](/agent) · [Workflow mode](/workflow) · [CLI](/cli).
+[Coding agent](/agent) · [Workflow mode](/workflow) · [Agencies](/agencies) · [CLI](/cli).

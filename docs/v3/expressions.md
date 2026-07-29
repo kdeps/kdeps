@@ -1,45 +1,72 @@
 # Expressions
 
-Lightweight access to request data and earlier resource output.
+Glue between resources: pass data, validate, branch.
 
-## get and set
+## Two forms
+
+**Interpolation** in strings:
 
 <div v-pre>
 
 ```yaml
-prompt: "{{ get('q') }}"
-# ...
-answer: get('llm').message.content
+prompt: "Hello {{ get('name') }}"
+url: "https://api.example.com/{{ get('id') }}"
 ```
 
 </div>
 
-- `get('q')` — request field / param
-- `get('llm')` — full output of resource `actionId: llm`
-- `set('key', value)` — store a value for later steps (`before` / `after`)
-
-Use mustache-style double braces around expressions inside string templates. Outside strings, bare expressions are fine.
-
-## Validation checks
+**Bare statements** in `before:`, `after:`, `check:`, `skip:`, `onError.when`:
 
 ```yaml
+before:
+  - set('query', lower(trim(get('q'))))
+  - set('page', int(get('page')) or 1)
 validations:
   check:
-    - get('q') != ''
-    - get('limit') <= 100
-  skip:
-    - get('dry_run') == true
-  error:
-    code: 400
-    message: Invalid input
+    - get('email') != ''
 ```
 
-Failed `check` returns the error. True `skip` skips the resource.
+## get / set
 
-## Tips
+```yaml
+get('q')                 # request field
+get('llm')               # resource output (actionId)
+get('record').name       # field access
+get('items')[0]
 
-- Keep expressions short. Heavy logic belongs in `python` or `exec`.
-- Prefer stable `actionId` names — they are your API between steps.
-- For lists, `items:` runs the resource per element; combine with `get` carefully.
+set('key', value)                 # request scope
+set('key', value, 'session')      # cross-request session
+set('key', value, 'memory')       # persistent memory
+set('key', value, 'item')         # items: loop scope
+```
 
-If you need the full operator and function list, start from examples in the repo (`examples/`) and the archived v2 reference under `/v2/` until this page grows a short appendix.
+Optional source pin: `get('Authorization', 'header')`, `get('API_KEY', 'env')`, `get('page', 'param')`.
+
+LookupLookup order (simplified):** item context → request memory → persistent memory → session → resource outputs → query → body → headers → files → system `info()`.
+
+## info / env
+
+```yaml
+info('ID')           # request id
+info('timestamp')
+env('HOME')
+```
+
+## Useful library (subset)
+
+| Area | Examples |
+|------|----------|
+| String | `trim`, `lower`, `upper`, `split`, `join`, `replace`, `len`, `matches` |
+| Number | `int`, `float`, `min`, `max`, `abs` |
+| List / map | `filter`, `map`, `len`, indexing |
+| Logic | `and`, `or`, `not`, `?:`, comparisons |
+
+Heavy logic → `python:` or `exec:`. Full surface evolves with the binary — validate expressions with `kdeps validate`.
+
+## With iteration and errors
+
+- `items:` → `get('current')`, item scope — [Iteration](/iteration)  
+- Failures → [Errors](/errors)  
+- Sessions → [Config](/config)
+
+[Resources](/resources) · [LLM](/llm).

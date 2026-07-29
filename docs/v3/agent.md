@@ -4,59 +4,90 @@ Primary mode: a **CLI coding agent** in your terminal. Plans tasks, calls tools,
 
 ```bash
 kdeps                              # model-only REPL
-kdeps .                            # this repo / project as tools
+kdeps .                            # this project — workflows become tools
 kdeps ./my-agent/                  # one workflow = one tool
-kdeps ./agents/                    # every workflow under the path = a tool
+kdeps ./agents/                    # every workflow under path = a tool
 kdeps --model deepseek-v4-flash --system "You are a DevOps assistant."
 kdeps --resume <session-id>
 kdeps --skill ~/.kdeps/skills/
 ```
 
-No workflow files required to chat. Add a path when you want project tools.
+No YAML required to chat. Add a path when you want project tools.
 
-## What it is good for
+## How tools register
 
-- Code and ops work in a real shell context
-- Multi-step tasks with a plan (`/goal`)
-- Calling your kdeps workflows as tools without leaving the REPL
-- Local models (llamafile / GGUF) or cloud keys
+1. Discover `workflow.yaml` under the path  
+2. Register each as a tool using `metadata.name` + `metadata.description`  
+3. Start the LLM loop  
 
-## Start
+The model sees **tool name, description, and input schema** — not individual resources. The DAG inside is an implementation detail.
 
-```bash
-kdeps --version   # expect 2.1.x on current releases
-kdeps
+```yaml
+# workflow.yaml
+metadata:
+  name: web-researcher          # tool id (lowercase, hyphenated)
+  description: "Fetch a URL and answer questions about it"
 ```
 
-First run may ask for a backend. **llamafile** needs no API key; model lands in `~/.kdeps/models/`.
+**Names and descriptions matter.** Overlapping tools confuse the model.
 
-Cloud:
+### Tool input / output
 
-```bash
-export ANTHROPIC_API_KEY=...
-export OPENAI_API_KEY=...
-export DEEPSEEK_API_KEY=...
-# or llm: in ~/.kdeps/config.yaml
+Calls pass an `input` field. Inside the workflow:
+
+```yaml
+prompt: "Process: {{ get('input') }}"
 ```
 
-## Root flags (agent)
+Return value is the terminal `apiResponse` body (what `targetActionId` produces).
 
-| Flag | Purpose |
-|------|---------|
-| `[path]` | Load workflows / agencies under path as tools |
-| `--model` | Model id (else env / config / default) |
-| `--backend` | Backend id |
-| `--base-url` | OpenAI-compat base URL |
-| `--system` | System prompt every turn |
-| `--resume` | Resume session id |
-| `--skill` | Skill file or directory (repeatable) |
-| `--debug` / `--verbose` | Logging |
+### Folder of specialists
 
-## Tools
+```text
+agents/
+  research/workflow.yaml    # metadata.name: research-agent
+  writer/workflow.yaml      # metadata.name: writer-agent
+```
 
-Built-ins always available in the loop (examples): web search, scraper, calculator, SQL helpers, bash, file ops.
+```bash
+kdeps ./agents/    # two tools; model composes them
+```
 
-Pass a path: each workflow (and agency) registers as a tool. When the model calls one, the **full workflow engine** runs — same DAG as `kdeps run`.
+## Built-in tools (high signal)
+
+Always available in the loop (subset — type `/help` / watch tool list for the full set):
+
+| Group | Examples |
+|-------|----------|
+| Web | `web_search`, `wikipedia`, `web_scraper`, `http_request` |
+| Files | `read_file`, `write_file`, `edit_file`, `list_files`, `search_local` |
+| Code | `code_search`, `code_definition`, `code_references`, `code_diagnostics`, … |
+| Shell | `bash_exec`, `bash_job_list`, `bash_job_wait` |
+| Memory | `memory_save`, `memory_search`, `memory_list`, `memory_delete` |
+| Data | `sql_query`, `sql_list_tables`, `calculator` |
+| Docs / RAG | `load_document`, `embedding_*`, `retrieve_context` |
+| Orchestration | `task_*`, `team_*`, `cron_*`, `approval_*` |
+
+**bash:** Ctrl+C cancels and returns partial output; Ctrl+Z backgrounds (`bash_job_wait` later).  
+**rtk:** if `rtk` is on `PATH`, `bash_exec` compresses output automatically.  
+**Git:** agent commits can add a `Co-Authored-By: kdeps (…)` trailer.
+
+## Permissions and presets
+
+```bash
+export KDEPS_PERMISSION_MODE=read-only          # or workspace-write, danger-full-access (default)
+export KDEPS_LEAN_MODE=true                     # no bash / network tools
+export KDEPS_AGENT_PRESET=audit|explain|implement
+export KDEPS_ALLOW_BASH=false
+export KDEPS_BASH_MODE=read-only
+```
+
+| Preset | Permission | Tools |
+|--------|------------|--------|
+| `audit` / `explain` | ReadOnly | Lean |
+| `implement` | WorkspaceWrite | Lean + file writes |
+
+Blocked calls can request a one-shot override via `approval_request` / `approval_grant` (REPL tools).
 
 ## Goals
 
@@ -64,42 +95,34 @@ Pass a path: each workflow (and agency) registers as a tool. When the model call
 prompt -> task list -> [task 1] -> [task 2] -> ... -> answer
 ```
 
-The model advances with `task_complete` / `task_fail`. Steer with `/goal`.
+Advance with `task_complete` / `task_fail`. Steer with `/goal`.
 
 ## Slash commands
 
-Type `/help` for the live list. Common:
+Type `/help` for the live list.
 
 | Command | Purpose |
 |---------|---------|
-| `/help` | All commands |
 | `/model [name]` | Show or switch model |
-| `/model list` | Available models |
-| `/model ps` | Running local servers |
+| `/model list` / `ps` | Models / local servers |
 | `/model tool set …` | Persist loop settings |
-| `/clear` | Summarize and clear |
-| `/compact` | Compact history |
-| `/session …` | Save / load / list |
-| `/thinking …` | Extended reasoning (when supported) |
-| `/turo …` | Token reducer if `turo` on `PATH` |
-| `/goal …` | Inspect or change plan |
+| `/clear` `/compact` | History |
+| `/session …` | Save / load |
+| `/thinking …` | Extended reasoning |
+| `/turo …` | Token reducer if installed |
+| `/goal …` | Task plan |
 | `/skills` | Loaded skills |
-| `/exit` | Leave REPL |
-| `! <cmd>` | Shell; model sees output |
-| `!! <cmd>` | Shell; no model turn |
+| `! <cmd>` / `!! <cmd>` | Shell with / without model turn |
+| `/exit` | Leave |
 
-## Skills
+## Skills and settings
 
 ```bash
 kdeps --skill ~/.kdeps/skills/
 ```
 
-Skills teach domain behavior (including scaffolding kdeps projects). List with `/skills`.
-
-## Settings that stick
-
-Loop knobs (rounds, compaction, stall timeout, …) live in `~/.kdeps/agent-loop-settings.yaml`. Change via `/model tool set …` or edit the file.
+Loop settings: `~/.kdeps/agent-loop-settings.yaml` (or `/model tool set …`).
 
 ## Workflow next
 
-Fixed HTTP APIs and deterministic pipelines: [Workflow mode](/workflow) (`kdeps run`). Full map: [CLI](/cli) · [Two modes](/modes).
+Fixed APIs and DAGs: [Workflow mode](/workflow). Multi-agent packages: [Agencies](/agencies). Map: [CLI](/cli).

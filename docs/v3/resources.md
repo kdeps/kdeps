@@ -1,8 +1,8 @@
 # Resources
 
-A resource is one step. It has an id, optional dependencies, optional validation, and exactly one primary action.
+One step: id, optional deps, optional validation, **one** primary action.
 
-Works in **both** modes: DAG steps in workflow mode; inside a whole-workflow tool in agent mode.
+Works in workflow mode as DAG nodes, and inside workflows the [coding agent](/agent) calls as tools.
 
 ## Shape
 
@@ -11,8 +11,7 @@ Works in **both** modes: DAG steps in workflow mode; inside a whole-workflow too
 ```yaml
 actionId: fetch
 name: Fetch URL
-requires:
-  - validate
+requires: [validate]
 validations:
   methods: [POST]
   check:
@@ -20,67 +19,70 @@ validations:
   error:
     code: 400
     message: url required
+before:
+  - set('u', trim(get('url')))
 httpClient:
   method: GET
-  url: "{{ get('url') }}"
+  url: "{{ get('u') }}"
+onError:
+  action: retry
+  maxRetries: 2
 ```
 
 </div>
 
-- `requires:` — run these first; read their output with `get('id')`
-- `items:` — run once per item (fan-out)
-- `before` / `after` — expression hooks around the action
-- `apiResponse:` — may sit with another action to shape the HTTP reply
+- `requires:` — order; read with `get('id')`  
+- `items:` / `loop:` — [Iteration](/iteration)  
+- `onError:` — [Errors](/errors)  
+- `before` / `after` — [Expressions](/expressions)  
 
-## Built-in actions
+## Actions (built-in)
 
 | Key | Role |
 |-----|------|
-| `chat` | LLM call — reply at `.message.content` |
-| `httpClient` | HTTP request |
-| `sql` | Database query |
-| `python` | Python script (stdout, often JSON) |
-| `exec` | Shell command |
-| `file` | Read / write / list / delete |
-| `git` | Status, diff, commit, push, pull |
-| `codeIntelligence` | Search symbols, defs, diagnostics |
-| `scraper` | Fetch URL + CSS selectors |
-| `browser` | Playwright automation |
-| `searchWeb` | Web search providers |
-| `searchLocal` | Local file search |
-| `embedding` | Local keyword index |
-| `email` | SMTP send / IMAP read |
-| `telephony` | Voice / TwiML actions |
-| `botReply` | Reply on the inbound bot platform |
-| `agent` | Call another agent workflow |
-| `loader` | Load docs into chunks (RAG) |
-| `vectorStore` | Vector add / similarity search |
+| `chat` | LLM — [LLM](/llm) |
+| `httpClient` | HTTP |
+| `sql` | Database |
+| `python` | Script (stdout / JSON) |
+| `exec` | Shell |
+| `file` / `git` / `codeIntelligence` | Local code/fs |
+| `scraper` / `browser` | Fetch / Playwright |
+| `searchWeb` / `searchLocal` | Search |
+| `embedding` / `loader` / `vectorStore` | Knowledge / RAG |
+| `email` / `telephony` / `botReply` | Messaging |
+| `agent` | Call another agent — [Agencies](/agencies) |
 | `transcribe` | Speech-to-text |
-| `apiResponse` | HTTP response body for the caller |
+| `apiResponse` | HTTP response |
+| `component` | Registry pack — [Components](/components) |
+
+## Validation sketch
+
+```yaml
+validations:
+  methods: [POST]
+  routes: [/api/v1/chat]
+  headers: [Authorization]
+  skip:
+    - get('dry_run') == true
+  check:
+    - get('q') != ''
+  error:
+    code: 400
+    message: required
+```
 
 ## Registry components
-
-Installable packs from the registry:
 
 ```bash
 kdeps registry install <name>
 ```
 
-Then call them from a resource with `component:` instead of a built-in key. See [Components](/components).
-
-## Chat sketch
-
-<div v-pre>
-
 ```yaml
-actionId: llm
-chat:
-  model: llama3.2:1b
-  role: user
-  prompt: "{{ get('q') }}"
-  timeout: 60s
+component:
+  name: botreply
+  with:
+    platform: telegram
+    message: "Hello!"
 ```
 
-</div>
-
-Backend (local vs cloud) comes from global config, not from each resource — unless you override it for a profile. See [Config](/config).
+[Inputs](/inputs) · [Workflow](/workflow) · [CLI](/cli).
