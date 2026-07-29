@@ -284,7 +284,8 @@ private/*.txt
 /packages/
 /registry/
 
-book
+# Local LeanPub/Markua source (synced into docs/v3/book for deploy)
+/book/
 .claude_tmp/
 __pycache__/
 pkg/executor/embedding/models/

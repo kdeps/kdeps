@@ -3,28 +3,31 @@ layout: home
 title: kdeps
 hero:
   name: kdeps
-  text: Coding agent in your terminal
-  tagline: Run `kdeps` for a tool-using CLI agent. Point it at a project for workflows-as-tools. Ship YAML pipelines when you need a fixed API.
+  text: AI Appliances
+  tagline: Coding CLI agent first. Then workflows, agencies, and deploy — the full book is the main docs (v2.1.11).
+  image:
+    src: /book-cover.jpg
+    alt: AI Appliances book cover
   actions:
+    - theme: brand
+      text: Coding agent
+      link: /book/chapter-05-agent-mode
     - theme: brand
       text: Quickstart
       link: /quickstart
-    - theme: brand
-      text: Coding agent
-      link: /agent
+    - theme: alt
+      text: Full book
+      link: /book/frontmatter
     - theme: alt
       text: CLI
       link: /cli
-    - theme: alt
-      text: Workflow
-      link: /workflow
 features:
   - title: Coding CLI agent
-    details: "`kdeps` opens a REPL with tools, memory, goals, and `/model` controls. Drop a path and every workflow becomes a callable tool."
-  - title: Workflow mode
-    details: "`kdeps run` for deterministic DAGs — APIs, bots, file jobs. Same resources the agent can invoke as tools."
-  - title: Local or cloud
-    details: llamafile / Ollama without a key, or OpenAI-compatible backends. Package with `kdeps bundle` when you deploy.
+    details: "`kdeps` / `kdeps [path]` — tools, goals, permissions, workflows-as-tools. Start with the agent chapter."
+  - title: Workflow & agencies
+    details: Deterministic DAGs, multi-agent `agency.yaml`, resources, expressions, bot/file inputs.
+  - title: Ship
+    details: Docker, Kubernetes, standalone binary, web server mode, LLM server appliances.
 ---
 
-For a long-form narrative of the same material, see the free book [AI Appliances](https://leanpub.com/kdeps) (source mirrors `./book/` in the repo checkout).
+The site ships the **AI Appliances** book from `./book/` as main documentation, plus short CLI cards. Release pin: **[v2.1.11](https://github.com/kdeps/kdeps/releases/tag/v2.1.11)**. Also on [LeanPub](https://leanpub.com/kdeps).
