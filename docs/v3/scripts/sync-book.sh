@@ -1,32 +1,44 @@
 #!/usr/bin/env bash
-# Copy gitignored ./book/ into docs/v3/book (main docs source of truth for deploy).
+# Replace docs/v3 book pages from gitignored ./book/
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/../../.." && pwd)"
 SRC="$ROOT/book"
-DST="$ROOT/docs/v3/book"
-PUB="$ROOT/docs/v3/public"
+DST="$ROOT/docs/v3"
+PUB="$DST/public"
 
 if [[ ! -d "$SRC" ]]; then
-  echo "missing $SRC (local book tree)" >&2
+  echo "missing $SRC" >&2
   exit 1
 fi
 
-mkdir -p "$DST"
-cp "$SRC"/Book.txt "$DST/" 2>/dev/null || true
-cp "$SRC"/frontmatter.md "$SRC"/backmatter.md "$DST/"
-cp "$SRC"/chapter-*.md "$SRC"/appendix-*.md "$DST/"
-cp "$SRC"/cover.jpg "$SRC"/cover2.jpg "$DST/" 2>/dev/null || true
-cp "$SRC"/cover.jpg "$PUB/book-cover.jpg" 2>/dev/null || true
+# Remove previous book pages (keep VitePress tooling + home index)
+find "$DST" -maxdepth 1 -type f \( \
+  -name 'chapter-*.md' -o \
+  -name 'appendix-*.md' -o \
+  -name 'frontmatter.md' -o \
+  -name 'backmatter.md' -o \
+  -name 'Book.txt' -o \
+  -name 'something-*.md' \
+\) -delete
 
-# Vue must not interpret mustache expressions in book markdown
+cp "$SRC/Book.txt" "$DST/"
+cp "$SRC/frontmatter.md" "$SRC/backmatter.md" "$DST/"
+cp "$SRC"/chapter-*.md "$DST/"
+cp "$SRC"/appendix-*.md "$DST/"
+cp "$SRC/cover.jpg" "$PUB/book-cover.jpg" 2>/dev/null || true
+cp "$SRC/cover.jpg" "$SRC/cover2.jpg" "$PUB/" 2>/dev/null || true
+
 python3 - <<'PY'
 from pathlib import Path
-dst = Path("docs/v3/book")
-for p in dst.glob("*.md"):
-    t = p.read_text()
-    t2 = t.replace("{{", "&#123;&#123;").replace("}}", "&#125;&#125;")
-    # avoid double-escape on re-sync
-    t2 = t2.replace("&#123;&#123;&#123;&#123;", "&#123;&#123;").replace("&#125;&#125;&#125;&#125;", "&#125;&#125;")
-    p.write_text(t2)
-print("synced book -> docs/v3/book")
+dst = Path("docs/v3")
+patterns = ["chapter-*.md", "appendix-*.md", "frontmatter.md", "backmatter.md"]
+for pat in patterns:
+    for p in dst.glob(pat):
+        t = p.read_text()
+        t2 = t.replace("{{", "&#123;&#123;").replace("}}", "&#125;&#125;")
+        t2 = t2.replace("&#123;&#123;&#123;&#123;", "&#123;&#123;").replace(
+            "&#125;&#125;&#125;&#125;", "&#125;&#125;"
+        )
+        p.write_text(t2)
+print("docs/v3 replaced from ./book/")
 PY

@@ -243,7 +243,7 @@ settings:
     portNum: 443
 ```
 
-Point DNS at the host; open ports **80** and **443**. Docs: [docs/v3/tls.md](docs/v3/tls.md).
+Point DNS at the host; open ports **80** and **443**. Docs: [docs/v3/appendix-b-security.md](docs/v3/appendix-b-security.md).
 
 
 ### LLM server appliance
@@ -269,7 +269,7 @@ llm:
   base_url: http://192.168.1.50:8000/v1
 ```
 
-Docs: [docs/v3/llm-server.md](docs/v3/llm-server.md) · CLI: [docs/v3/cli.md](docs/v3/cli.md) · Example: [examples/llm-server/](examples/llm-server/)
+Docs: [docs/v3/chapter-26-llm-server-appliance.md](docs/v3/chapter-26-llm-server-appliance.md) · CLI: [docs/v3/chapter-02-getting-started.md](docs/v3/chapter-02-getting-started.md) · Example: [examples/llm-server/](examples/llm-server/)
 
 ## Registry
 

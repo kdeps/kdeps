@@ -1,55 +1,9 @@
 import { defineConfig } from 'vitepress'
 
-/** Book chapters (from ./book via docs/v3/book). Agent before workflow. */
-const bookStart = [
-  { text: 'Preface', link: '/book/frontmatter' },
-  { text: 'Why AI appliances?', link: '/book/chapter-01-why-ai-appliances' },
-  { text: 'Getting started', link: '/book/chapter-02-getting-started' },
-  { text: 'Core concepts', link: '/book/chapter-03-core-concepts' },
-]
-
-const bookAgentFirst = [
-  { text: 'Coding agent (agent mode)', link: '/book/chapter-05-agent-mode' },
-  { text: 'Workflow mode', link: '/book/chapter-04-workflow-mode' },
-]
-
-const bookResources = [
-  { text: 'LLM resources', link: '/book/chapter-06-llm-resources' },
-  { text: 'Data resources', link: '/book/chapter-07-data-resources' },
-  { text: 'Knowledge resources', link: '/book/chapter-08-knowledge-resources' },
-  { text: 'Browser automation', link: '/book/chapter-09-browser-automation' },
-  { text: 'API response & validation', link: '/book/chapter-10-api-response-and-validation' },
-  { text: 'Expressions & data flow', link: '/book/chapter-11-expressions-and-data-flow' },
-  { text: 'Components', link: '/book/chapter-12-components' },
-  { text: 'Agencies', link: '/book/chapter-13-agencies' },
-]
-
-const bookConfig = [
-  { text: 'Workflow configuration', link: '/book/chapter-14-workflow-configuration' },
-  { text: 'Sessions, CORS, routes', link: '/book/chapter-15-sessions-cors-routes' },
-  { text: 'Advanced configuration', link: '/book/chapter-16-advanced-configuration' },
-]
-
-const bookShip = [
-  { text: 'Docker deployment', link: '/book/chapter-17-docker-deployment' },
-  { text: 'Kubernetes deployment', link: '/book/chapter-18-kubernetes-deployment' },
-  { text: 'Standalone binary', link: '/book/chapter-19-standalone-binary' },
-  { text: 'Web server mode', link: '/book/chapter-20-webserver-mode' },
-  { text: 'Validate, debug, develop', link: '/book/chapter-21-validate-debug-develop' },
-  { text: 'Iteration (items & loop)', link: '/book/chapter-22-iteration' },
-  { text: 'Error handling (onError)', link: '/book/chapter-23-error-handling' },
-  { text: 'Real-world examples', link: '/book/chapter-24-real-world-examples' },
-  { text: 'Bot & file inputs', link: '/book/chapter-25-bot-and-file-inputs' },
-  { text: 'LLM server appliance', link: '/book/chapter-26-llm-server-appliance' },
-]
-
-const bookAppendix = [
-  { text: 'Troubleshooting', link: '/book/appendix-a-troubleshooting' },
-  { text: 'Security', link: '/book/appendix-b-security' },
-  { text: 'Testing', link: '/book/appendix-c-testing' },
-  { text: 'About the author', link: '/book/backmatter' },
-]
-
+/**
+ * docs/v3 is the AI Appliances book (synced from ./book/).
+ * Agent chapter is ordered before workflow.
+ */
 export default defineConfig({
   title: 'kdeps',
   description: 'AI Appliances — coding CLI agent, workflows, and agencies in YAML.',
@@ -74,10 +28,10 @@ export default defineConfig({
     siteTitle: false,
 
     nav: [
-      { text: 'Start', link: '/quickstart' },
-      { text: 'Agent', link: '/book/chapter-05-agent-mode' },
-      { text: 'CLI', link: '/cli' },
-      { text: 'Book', link: '/book/frontmatter' },
+      { text: 'Start', link: '/chapter-02-getting-started' },
+      { text: 'Agent', link: '/chapter-05-agent-mode' },
+      { text: 'Workflow', link: '/chapter-04-workflow-mode' },
+      { text: 'CLI', link: '/chapter-02-getting-started#install' },
       { text: 'Registry', link: 'https://kdeps.io' },
       { text: 'GitHub', link: 'https://github.com/kdeps/kdeps' },
       {
@@ -85,74 +39,76 @@ export default defineConfig({
         items: [
           { text: 'Changelog', link: 'https://github.com/kdeps/kdeps/releases' },
           { text: 'Release v2.1.11', link: 'https://github.com/kdeps/kdeps/releases/tag/v2.1.11' },
-          { text: 'LeanPub book', link: 'https://leanpub.com/kdeps' },
-          { text: 'Archive v2 docs', link: '/v2/' },
-          { text: 'Archive v1 docs', link: '/v1/' },
+          { text: 'LeanPub', link: 'https://leanpub.com/kdeps' },
+          { text: 'Archive v2', link: '/v2/' },
+          { text: 'Archive v1', link: '/v1/' },
         ],
       },
     ],
 
     sidebar: [
       {
-        text: 'Quick reference',
+        text: 'Start',
         items: [
-          { text: 'Install', link: '/install' },
-          { text: 'Quickstart', link: '/quickstart' },
-          { text: 'CLI', link: '/cli' },
-          { text: 'Two modes', link: '/modes' },
+          { text: 'Preface', link: '/frontmatter' },
+          { text: 'Why AI appliances?', link: '/chapter-01-why-ai-appliances' },
+          { text: 'Getting started', link: '/chapter-02-getting-started' },
+          { text: 'Core concepts', link: '/chapter-03-core-concepts' },
         ],
       },
       {
-        text: 'Book — start',
-        collapsed: false,
-        items: bookStart,
+        text: 'Agent & workflow',
+        items: [
+          { text: 'Coding agent (agent mode)', link: '/chapter-05-agent-mode' },
+          { text: 'Workflow mode', link: '/chapter-04-workflow-mode' },
+        ],
       },
       {
-        text: 'Book — agent & workflow',
-        collapsed: false,
-        items: bookAgentFirst,
+        text: 'Build',
+        items: [
+          { text: 'LLM resources', link: '/chapter-06-llm-resources' },
+          { text: 'Data resources', link: '/chapter-07-data-resources' },
+          { text: 'Knowledge resources', link: '/chapter-08-knowledge-resources' },
+          { text: 'Browser automation', link: '/chapter-09-browser-automation' },
+          { text: 'API response & validation', link: '/chapter-10-api-response-and-validation' },
+          { text: 'Expressions & data flow', link: '/chapter-11-expressions-and-data-flow' },
+          { text: 'Components', link: '/chapter-12-components' },
+          { text: 'Agencies', link: '/chapter-13-agencies' },
+        ],
       },
       {
-        text: 'Book — build',
-        collapsed: false,
-        items: bookResources,
-      },
-      {
-        text: 'Book — config',
-        collapsed: true,
-        items: bookConfig,
-      },
-      {
-        text: 'Book — ship & patterns',
-        collapsed: true,
-        items: bookShip,
-      },
-      {
-        text: 'Book — appendix',
-        collapsed: true,
-        items: bookAppendix,
-      },
-      {
-        text: 'Quick cards',
+        text: 'Config',
         collapsed: true,
         items: [
-          { text: 'Coding agent (short)', link: '/agent' },
-          { text: 'Workflow (short)', link: '/workflow' },
-          { text: 'Resources', link: '/resources' },
-          { text: 'LLM chat', link: '/llm' },
-          { text: 'Agencies', link: '/agencies' },
-          { text: 'Inputs', link: '/inputs' },
-          { text: 'Iteration', link: '/iteration' },
-          { text: 'Errors', link: '/errors' },
-          { text: 'Config', link: '/config' },
-          { text: 'Web server', link: '/webserver' },
-          { text: 'Deploy', link: '/deploy' },
-          { text: 'LLM server', link: '/llm-server' },
-          { text: 'TLS', link: '/tls' },
-          { text: 'Security', link: '/security' },
-          { text: 'Debug', link: '/debug' },
-          { text: 'Components', link: '/components' },
-          { text: 'Expressions', link: '/expressions' },
+          { text: 'Workflow configuration', link: '/chapter-14-workflow-configuration' },
+          { text: 'Sessions, CORS, routes', link: '/chapter-15-sessions-cors-routes' },
+          { text: 'Advanced configuration', link: '/chapter-16-advanced-configuration' },
+        ],
+      },
+      {
+        text: 'Ship & patterns',
+        collapsed: true,
+        items: [
+          { text: 'Docker', link: '/chapter-17-docker-deployment' },
+          { text: 'Kubernetes', link: '/chapter-18-kubernetes-deployment' },
+          { text: 'Standalone binary', link: '/chapter-19-standalone-binary' },
+          { text: 'Web server mode', link: '/chapter-20-webserver-mode' },
+          { text: 'Validate, debug, develop', link: '/chapter-21-validate-debug-develop' },
+          { text: 'Iteration', link: '/chapter-22-iteration' },
+          { text: 'Error handling', link: '/chapter-23-error-handling' },
+          { text: 'Real-world examples', link: '/chapter-24-real-world-examples' },
+          { text: 'Bot & file inputs', link: '/chapter-25-bot-and-file-inputs' },
+          { text: 'LLM server appliance', link: '/chapter-26-llm-server-appliance' },
+        ],
+      },
+      {
+        text: 'Appendix',
+        collapsed: true,
+        items: [
+          { text: 'Troubleshooting', link: '/appendix-a-troubleshooting' },
+          { text: 'Security', link: '/appendix-b-security' },
+          { text: 'Testing', link: '/appendix-c-testing' },
+          { text: 'About the author', link: '/backmatter' },
         ],
       },
     ],
@@ -171,7 +127,7 @@ export default defineConfig({
     },
 
     footer: {
-      message: 'Apache 2.0 · kdeps v2.1.11 · Book: AI Appliances',
+      message: 'Apache 2.0 · kdeps v2.1.11 · AI Appliances',
       copyright: 'kdeps',
     },
   },

@@ -103,6 +103,6 @@ kdeps run examples/control-flow/workflow.yaml
 
 ## Learn More
 
-- [Loop Iteration Documentation](../../docs/v3/resources.md) - Complete loop guide
+- [Loop Iteration Documentation](../../docs/v3/chapter-07-data-resources.md) - Complete loop guide
 - [Control Flow Documentation](../../docs/CONTROL_FLOW.md) - Expressions and conditionals
 - [expr-lang Documentation](https://expr-lang.org/docs/language-definition) - Full language reference

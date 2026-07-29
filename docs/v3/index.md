@@ -4,30 +4,30 @@ title: kdeps
 hero:
   name: kdeps
   text: AI Appliances
-  tagline: Coding CLI agent first. Then workflows, agencies, and deploy — the full book is the main docs (v2.1.11).
+  tagline: The book is the docs. Coding CLI agent first, then workflows and agencies in YAML. Release v2.1.11.
   image:
     src: /book-cover.jpg
     alt: AI Appliances book cover
   actions:
     - theme: brand
       text: Coding agent
-      link: /book/chapter-05-agent-mode
+      link: /chapter-05-agent-mode
     - theme: brand
-      text: Quickstart
-      link: /quickstart
+      text: Getting started
+      link: /chapter-02-getting-started
     - theme: alt
-      text: Full book
-      link: /book/frontmatter
+      text: Preface
+      link: /frontmatter
     - theme: alt
-      text: CLI
-      link: /cli
+      text: GitHub
+      link: https://github.com/kdeps/kdeps
 features:
   - title: Coding CLI agent
-    details: "`kdeps` / `kdeps [path]` — tools, goals, permissions, workflows-as-tools. Start with the agent chapter."
-  - title: Workflow & agencies
-    details: Deterministic DAGs, multi-agent `agency.yaml`, resources, expressions, bot/file inputs.
+    details: Agent mode — REPL, tools, goals, permissions, workflows as tools. Start with chapter 5.
+  - title: Workflow mode
+    details: Deterministic DAGs, resources, expressions, bot and file inputs, agencies.
   - title: Ship
-    details: Docker, Kubernetes, standalone binary, web server mode, LLM server appliances.
+    details: Docker, Kubernetes, standalone binary, web server, LLM server appliances.
 ---
 
-The site ships the **AI Appliances** book from `./book/` as main documentation, plus short CLI cards. Release pin: **[v2.1.11](https://github.com/kdeps/kdeps/releases/tag/v2.1.11)**. Also on [LeanPub](https://leanpub.com/kdeps).
+Source of truth: local `./book/` synced into `docs/v3/`. Re-sync with `docs/v3/scripts/sync-book.sh`. Also on [LeanPub](https://leanpub.com/kdeps).
