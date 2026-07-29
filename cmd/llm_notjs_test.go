@@ -54,7 +54,7 @@ func TestNewLLMCmdHasSubcommands(t *testing.T) {
 	for _, c := range cmd.Commands() {
 		names[c.Name()] = true
 	}
-	for _, want := range []string{"list", "show", "client-config", "build", "run", "export"} {
+	for _, want := range []string{"wizard", "list", "show", "client-config", "build", "run", "export"} {
 		if !names[want] {
 			t.Errorf("missing subcommand %s", want)
 		}

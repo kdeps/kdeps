@@ -24,6 +24,17 @@ kdeps llm list
 
 Override or add recipes in `~/.kdeps/llm-servers/*.yaml` or `./llm-servers/*.yaml`.
 
+## kdeps llm wizard
+
+Interactive TUI to select engine, model (from harvest or typed), GPU, and action.
+
+```bash
+kdeps llm wizard
+kdeps llm   # same on a TTY
+```
+
+Requires a TTY. Non-interactive environments should use the flag-based commands below.
+
 ## kdeps llm list
 
 List stock and user/project recipes.

@@ -234,6 +234,7 @@ kdeps export k8s            # Kubernetes manifests
 Standalone OpenAI-compatible inference server (no workflow path). Stock engines: `ollama`, `llamafile`, `llama-server` / `gguf`, `llamacpp`, `vllm`, `tgi`, `sglang`, `localai`, `openai-compat`.
 
 ```bash
+kdeps llm wizard   # TUI: engine + harvest model + build
 kdeps llm list
 kdeps llm show vllm
 kdeps llm build --engine ollama --model llama3.2 --tag myorg/llm:1

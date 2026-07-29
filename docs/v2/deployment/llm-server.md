@@ -37,6 +37,18 @@ targets.k8s -> client: "OpenAI /v1"
 
 No workflow path argument — select engine and model only.
 
+### Interactive wizard (TUI)
+
+On a terminal, pick engine → harvest model → GPU → action (build/run/export):
+
+```bash
+kdeps llm wizard
+# or bare:
+kdeps llm
+```
+
+Uses the llamafile/GGUF harvest for `llamafile`, `llama-server` / `gguf`, and `llamacpp`. For `ollama` / `vllm` / `tgi` / `sglang` / `localai`, type a model id. Filter lists by typing; ↑/↓ navigate; enter select; esc cancel.
+
 ```bash
 # List stock + user recipes
 kdeps llm list

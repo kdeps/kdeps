@@ -5,6 +5,9 @@ Standalone OpenAI-compatible inference — no workflow path.
 ## Quick start
 
 ```bash
+# Interactive TUI (engine + harvest model + build)
+kdeps llm wizard
+
 # List stock engines (ollama, llamafile, gguf, vllm, tgi, sglang, localai, ...)
 kdeps llm list
 kdeps llm show ollama
