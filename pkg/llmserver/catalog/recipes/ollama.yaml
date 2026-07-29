@@ -1,0 +1,41 @@
+id: ollama
+name: Ollama
+description: Ollama inference server with OpenAI-compatible /v1 surface
+version: "1"
+
+api:
+  port: 8000
+  base_path: /v1
+  chat_path: /v1/chat/completions
+  health:
+    method: GET
+    path: /v1/models
+  auth:
+    mode: none
+    env: LLM_API_KEY
+
+engine:
+  kind: ollama
+  base_image: "ubuntu:24.04"
+  packages: []
+  install: |
+    curl -fsSL https://ollama.com/install.sh | sh
+  command: ["ollama", "serve"]
+  env:
+    OLLAMA_HOST: "0.0.0.0:11434"
+  internal_port: 11434
+  # Ollama exposes OpenAI-compat under /v1 on the same host; publish via bridge on 8000.
+  openai_bridge: true
+  openai_bridge_upstream: "http://127.0.0.1:11434/v1"
+
+models:
+  strategy: pull
+  default: ""
+
+resources:
+  gpu: optional
+  memory_hint: "8Gi"
+
+capabilities:
+  - chat
+  - tools

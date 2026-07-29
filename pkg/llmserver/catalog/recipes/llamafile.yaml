@@ -1,0 +1,37 @@
+id: llamafile
+name: Llamafile
+description: Self-contained .llamafile binary serving OpenAI-compatible /v1
+version: "1"
+
+api:
+  port: 8000
+  base_path: /v1
+  chat_path: /v1/chat/completions
+  health:
+    method: GET
+    path: /v1/models
+  auth:
+    mode: none
+    env: LLM_API_KEY
+
+engine:
+  kind: llamafile
+  base_image: "ubuntu:24.04"
+  packages: []
+  install: |
+    true
+  command: ["/models/model.llamafile", "--server", "--host", "0.0.0.0", "--port", "8000"]
+  env: {}
+  internal_port: 8000
+  openai_bridge: false
+
+models:
+  strategy: copy
+  default: ""
+
+resources:
+  gpu: optional
+  memory_hint: "8Gi"
+
+capabilities:
+  - chat
