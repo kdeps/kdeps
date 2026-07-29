@@ -24,3 +24,12 @@ kdeps llm client-config --url http://127.0.0.1:8000/v1
 Custom recipe: copy `custom-recipe.yaml` to `./llm-servers/` or `~/.kdeps/llm-servers/`.
 
 Docs: [LLM Server Appliance](../../docs/v2/deployment/llm-server.md)
+
+## Stock engines
+
+```bash
+kdeps llm list
+# ollama, llamafile, llama-server, gguf, llamacpp, vllm, tgi, sglang, localai, openai-compat
+```
+
+GPU engines (`vllm`, `tgi`, `sglang`) require `--gpu cuda` (or another profile) at build time.

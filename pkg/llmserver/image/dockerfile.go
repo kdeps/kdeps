@@ -96,16 +96,23 @@ func RenderDockerfile(req BuildRequest) (string, error) {
 	}
 	fmt.Fprintf(&b, "FROM %s\n\n", from)
 	b.WriteString("USER root\n")
-	b.WriteString("ENV DEBIAN_FRONTEND=noninteractive\n")
-	b.WriteString("RUN apt-get update && apt-get install -y --no-install-recommends \\\n")
-	b.WriteString("    ca-certificates curl \\\n")
-	if req.GPU == "vulkan" || req.GPU == "intel" {
-		b.WriteString("    libvulkan1 mesa-vulkan-drivers \\\n")
+	if isDebianFamily(from) {
+		b.WriteString("ENV DEBIAN_FRONTEND=noninteractive\n")
+		b.WriteString("RUN apt-get update && apt-get install -y --no-install-recommends \\\n")
+		b.WriteString("    ca-certificates curl \\\n")
+		if req.GPU == "vulkan" || req.GPU == "intel" {
+			b.WriteString("    libvulkan1 mesa-vulkan-drivers \\\n")
+		}
+		if len(r.Engine.Packages) > 0 {
+			fmt.Fprintf(&b, "    %s \\\n", strings.Join(r.Engine.Packages, " "))
+		}
+		b.WriteString("    && rm -rf /var/lib/apt/lists/*\n\n")
+	} else if len(r.Engine.Packages) > 0 {
+		// Prebuilt server images: only emit package note; install via recipe install snippet.
+		fmt.Fprintf(&b, "# packages declared (install via recipe install): %s\n\n", strings.Join(r.Engine.Packages, " "))
+	} else {
+		b.WriteString("# Prebuilt inference image — skip base apt layer\n\n")
 	}
-	if len(r.Engine.Packages) > 0 {
-		fmt.Fprintf(&b, "    %s \\\n", strings.Join(r.Engine.Packages, " "))
-	}
-	b.WriteString("    && rm -rf /var/lib/apt/lists/*\n\n")
 
 	if strings.TrimSpace(r.Engine.Install) != "" && strings.TrimSpace(r.Engine.Install) != "true" {
 		b.WriteString("# Engine install\n")
@@ -157,7 +164,12 @@ func RenderDockerfile(req BuildRequest) (string, error) {
 
 	fmt.Fprintf(&b, "EXPOSE %d\n", r.API.Port)
 	fmt.Fprintf(&b, "HEALTHCHECK --interval=30s --timeout=5s --start-period=60s --retries=3 \\\n")
-	fmt.Fprintf(&b, "  CMD curl -fsS \"http://127.0.0.1:%d%s\" || exit 1\n\n", r.API.Port, r.API.Health.Path)
+	if isDebianFamily(from) {
+		fmt.Fprintf(&b, "  CMD curl -fsS \"http://127.0.0.1:%d%s\" || exit 1\n\n", r.API.Port, r.API.Health.Path)
+	} else {
+		// Prebuilt images may lack curl; prefer python urllib (vLLM/TGI/SGLang images include python).
+		fmt.Fprintf(&b, "  CMD python3 -c \"import urllib.request; urllib.request.urlopen('http://127.0.0.1:%d%s')\" || exit 1\n\n", r.API.Port, r.API.Health.Path)
+	}
 	b.WriteString("ENTRYPOINT [\"/entrypoint.sh\"]\n")
 
 	_ = req.Tag
@@ -248,6 +260,14 @@ func RenderEntrypoint(req BuildRequest) (string, error) {
 
 	fmt.Fprintf(&b, "exec %s\n", cmd)
 	return b.String(), nil
+}
+
+func isDebianFamily(image string) bool {
+	img := strings.ToLower(image)
+	return strings.Contains(img, "ubuntu") ||
+		strings.Contains(img, "debian") ||
+		strings.HasPrefix(img, "nvidia/cuda") ||
+		strings.HasPrefix(img, "rocm/")
 }
 
 func shellJoin(parts []string) string {

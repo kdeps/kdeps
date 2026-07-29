@@ -1,6 +1,6 @@
-id: llama-server
-name: llama-server (GGUF)
-description: llama.cpp llama-server serving GGUF weights over OpenAI-compatible /v1
+id: llamacpp
+name: llama.cpp server
+description: Official llama.cpp server image (OpenAI-compatible /v1) for GGUF
 version: "1"
 
 api:
@@ -15,13 +15,15 @@ api:
     env: LLM_API_KEY
 
 engine:
-  kind: llama-server
-  base_image: "ubuntu:24.04"
+  kind: llamacpp
+  base_image: "ghcr.io/ggerganov/llama.cpp:server"
   packages: []
   install: |
-    # llama-server binary is resolved/copied by the image builder at build time
     true
-  command: ["llama-server", "--host", "0.0.0.0", "--port", "8000"]
+  command:
+    - sh
+    - -c
+    - exec /app/llama-server --host 0.0.0.0 --port 8000 -m "${LLM_MODEL:-/models/model.gguf}"
   env: {}
   internal_port: 8000
   openai_bridge: false

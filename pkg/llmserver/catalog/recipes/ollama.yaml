@@ -24,7 +24,6 @@ engine:
   env:
     OLLAMA_HOST: "0.0.0.0:11434"
   internal_port: 11434
-  # Ollama exposes OpenAI-compat under /v1 on the same host; publish via bridge on 8000.
   openai_bridge: true
   openai_bridge_upstream: "http://127.0.0.1:11434/v1"
 

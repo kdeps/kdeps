@@ -1,0 +1,41 @@
+id: vllm
+name: vLLM
+description: High-throughput OpenAI-compatible server (vLLM) for GPU inference
+version: "1"
+
+api:
+  port: 8000
+  base_path: /v1
+  chat_path: /v1/chat/completions
+  health:
+    method: GET
+    path: /v1/models
+  auth:
+    mode: none
+    env: LLM_API_KEY
+
+engine:
+  kind: vllm
+  base_image: "vllm/vllm-openai:latest"
+  packages: []
+  install: |
+    true
+  command:
+    - sh
+    - -c
+    - exec python3 -m vllm.entrypoints.openai.api_server --host 0.0.0.0 --port 8000 --model "${LLM_MODEL}"
+  env: {}
+  internal_port: 8000
+  openai_bridge: false
+
+models:
+  strategy: pull
+  default: ""
+
+resources:
+  gpu: required
+  memory_hint: "16Gi"
+
+capabilities:
+  - chat
+  - tools

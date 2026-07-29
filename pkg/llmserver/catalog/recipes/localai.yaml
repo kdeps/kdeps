@@ -1,0 +1,39 @@
+id: localai
+name: LocalAI
+description: LocalAI drop-in OpenAI-compatible API (CPU/GPU images)
+version: "1"
+
+api:
+  port: 8000
+  base_path: /v1
+  chat_path: /v1/chat/completions
+  health:
+    method: GET
+    path: /readyz
+  auth:
+    mode: none
+    env: LLM_API_KEY
+
+engine:
+  kind: localai
+  base_image: "localai/localai:latest-cpu"
+  packages: []
+  install: |
+    true
+  command: ["/local-ai", "run"]
+  env:
+    ADDRESS: "0.0.0.0:8000"
+  internal_port: 8000
+  openai_bridge: false
+
+models:
+  strategy: pull
+  default: ""
+
+resources:
+  gpu: optional
+  memory_hint: "8Gi"
+
+capabilities:
+  - chat
+  - tools

@@ -87,11 +87,18 @@ Chat resources keep using `chat.model` as usual — only the backend URL changes
 
 Stock recipes ship embedded:
 
-| ID | Engine | Model strategy |
-|----|--------|----------------|
-| `ollama` | Ollama | pull |
-| `llama-server` | llama.cpp llama-server (GGUF) | copy |
-| `llamafile` | .llamafile binary | copy |
+| ID | Engine | Model strategy | Notes |
+|----|--------|----------------|-------|
+| `ollama` | Ollama | pull | Local models via Ollama |
+| `llamafile` | Llamafile | copy | Self-contained `.llamafile` |
+| `llama-server` | llama.cpp llama-server | copy | GGUF via kdeps llama-server path |
+| `gguf` | llama-server (alias) | copy | Same as `llama-server` |
+| `llamacpp` | llama.cpp server image | copy | Official llama.cpp server image |
+| `vllm` | vLLM | pull | GPU, high throughput |
+| `tgi` | Hugging Face TGI | pull | GPU |
+| `sglang` | SGLang | pull | GPU |
+| `localai` | LocalAI | pull | CPU/GPU OpenAI drop-in |
+| `openai-compat` | custom | pull | Template for any OpenAI-compat image |
 
 ### Add or override a recipe
 

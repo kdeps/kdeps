@@ -1,0 +1,41 @@
+id: tgi
+name: Text Generation Inference (TGI)
+description: Hugging Face TGI with OpenAI-compatible /v1 (GPU-oriented)
+version: "1"
+
+api:
+  port: 8000
+  base_path: /v1
+  chat_path: /v1/chat/completions
+  health:
+    method: GET
+    path: /health
+  auth:
+    mode: none
+    env: LLM_API_KEY
+
+engine:
+  kind: tgi
+  base_image: "ghcr.io/huggingface/text-generation-inference:latest"
+  packages: []
+  install: |
+    true
+  # TGI entrypoint; model id/path via LLM_MODEL (HF hub id or local path)
+  command:
+    - sh
+    - -c
+    - exec text-generation-launcher --hostname 0.0.0.0 --port 8000 --model-id "${LLM_MODEL}"
+  env: {}
+  internal_port: 8000
+  openai_bridge: false
+
+models:
+  strategy: pull
+  default: ""
+
+resources:
+  gpu: required
+  memory_hint: "16Gi"
+
+capabilities:
+  - chat

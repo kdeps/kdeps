@@ -53,6 +53,12 @@ const (
 	EngineOllama      EngineKind = "ollama"
 	EngineLlamaServer EngineKind = "llama-server"
 	EngineLlamafile   EngineKind = "llamafile"
+	EngineGGUF        EngineKind = "gguf" // alias of llama-server / GGUF path
+	EngineVLLM        EngineKind = "vllm"
+	EngineTGI         EngineKind = "tgi"
+	EngineSGLang      EngineKind = "sglang"
+	EngineLocalAI     EngineKind = "localai"
+	EngineLlamaCpp    EngineKind = "llamacpp"
 	EngineCustom      EngineKind = "custom"
 )
 

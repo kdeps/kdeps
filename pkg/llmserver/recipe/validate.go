@@ -86,7 +86,8 @@ func Validate(r *Recipe) error {
 	}
 
 	switch r.Engine.Kind {
-	case EngineOllama, EngineLlamaServer, EngineLlamafile, EngineCustom:
+	case EngineOllama, EngineLlamaServer, EngineLlamafile, EngineGGUF,
+		EngineVLLM, EngineTGI, EngineSGLang, EngineLocalAI, EngineLlamaCpp, EngineCustom:
 		// ok
 	case "":
 		return fmt.Errorf("recipe %q: engine.kind is required", r.ID)

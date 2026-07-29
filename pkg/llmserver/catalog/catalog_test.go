@@ -29,8 +29,8 @@ func TestLoadStockRecipes(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Load: %v", err)
 	}
-	if len(entries) < 3 {
-		t.Fatalf("want >= 3 stock recipes, got %d", len(entries))
+	if len(entries) < 10 {
+		t.Fatalf("want >= 10 stock recipes, got %d", len(entries))
 	}
 	ids := map[string]bool{}
 	for _, e := range entries {
@@ -42,7 +42,10 @@ func TestLoadStockRecipes(t *testing.T) {
 			t.Errorf("%s base_path = %s", e.Recipe.ID, e.Recipe.API.BasePath)
 		}
 	}
-	for _, id := range []string{"ollama", "llama-server", "llamafile"} {
+	for _, id := range []string{
+		"ollama", "llamafile", "llama-server", "gguf",
+		"vllm", "tgi", "sglang", "localai", "llamacpp", "openai-compat",
+	} {
 		if !ids[id] {
 			t.Errorf("missing stock recipe %s", id)
 		}
