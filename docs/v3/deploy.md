@@ -1,60 +1,44 @@
 # Deploy
 
-Package a workflow once, ship it many ways. LLM **appliances** (inference only) use a separate path — see [LLM server](/llm-server).
+Same workflow files you run with **`kdeps run`**. Packaging CLI lives under **`kdeps bundle`**.
 
 ## Package
 
 ```bash
-kdeps bundle package workflow.yaml
-# -> myagent-1.0.0.kdeps
+kdeps validate .
+kdeps bundle package .
+# -> name-version.kdeps
+kdeps run name-1.0.0.kdeps
 ```
 
 ## Docker
 
 ```bash
-kdeps bundle build myagent-1.0.0.kdeps --tag myregistry/myagent:latest
-kdeps bundle build myagent-1.0.0.kdeps --gpu cuda --tag myregistry/myagent:gpu
-kdeps bundle build myagent-1.0.0.kdeps --show-dockerfile
+kdeps bundle build .
+kdeps bundle build . --tag myregistry/myagent:latest
+kdeps bundle build . --gpu cuda --tag myregistry/myagent:gpu
+kdeps bundle build . --show-dockerfile
 ```
 
-Run the image with the same env you use locally (`KDEPS_API_AUTH_TOKEN`, provider keys, etc.).
+Pass runtime secrets via env (`KDEPS_API_AUTH_TOKEN`, provider keys) — not baked into YAML.
 
-## Kubernetes
+## Kubernetes / ISO
 
 ```bash
-kdeps bundle export k8s myagent-1.0.0.kdeps -o deploy.yaml
-# or from an image you already built
+kdeps export k8s . -o deploy.yaml
+kdeps export iso …
+# also: kdeps bundle export …
 ```
 
-Apply with `kubectl`. Wire secrets via Kubernetes Secrets / env — not committed YAML.
-
-## ISO / standalone
-
-Bootable or binary packaging for appliance-style hosts:
-
-```bash
-kdeps bundle export iso …
-kdeps bundle export binary …
-```
-
-Flags and outputs evolve — check `kdeps bundle --help` on your installed version.
+Use `kdeps export --help` / `kdeps bundle export --help` for flags on your build.
 
 ## Preflight
 
 ```bash
-kdeps validate workflow.yaml
+kdeps validate .
 kdeps doctor
 ```
 
-## TLS on the host
+## TLS
 
-Serve HTTPS with static PEMs or Let's Encrypt. See [TLS / HTTPS](/tls).
-
-## Dev reload
-
-```bash
-export KDEPS_API_AUTH_TOKEN=dev-token
-kdeps run workflow.yaml --dev
-```
-
-Next: [LLM server](/llm-server) · [Security](/security).
+[TLS / HTTPS](/tls) · [Security](/security) · [CLI](/cli).

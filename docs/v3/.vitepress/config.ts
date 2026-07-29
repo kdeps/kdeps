@@ -2,7 +2,7 @@ import { defineConfig } from 'vitepress'
 
 export default defineConfig({
   title: 'kdeps',
-  description: 'AI agents and workflows in YAML.',
+  description: 'AI workflows in YAML — CLI first.',
   appearance: 'force-dark',
   cleanUrls: true,
   lastUpdated: true,
@@ -16,7 +16,7 @@ export default defineConfig({
     ['meta', { name: 'og:type', content: 'website' }],
     ['meta', { name: 'og:site_name', content: 'kdeps docs' }],
     ['meta', { name: 'og:title', content: 'kdeps' }],
-    ['meta', { name: 'og:description', content: 'AI agents and workflows in YAML.' }],
+    ['meta', { name: 'og:description', content: 'AI workflows in YAML — CLI first.' }],
   ],
 
   themeConfig: {
@@ -24,10 +24,10 @@ export default defineConfig({
     siteTitle: false,
 
     nav: [
-      { text: 'Install', link: '/install' },
       { text: 'Quickstart', link: '/quickstart' },
-      { text: 'Deploy', link: '/deploy' },
       { text: 'CLI', link: '/cli' },
+      { text: 'Workflow', link: '/workflow' },
+      { text: 'Deploy', link: '/deploy' },
       { text: 'Registry', link: 'https://kdeps.io' },
       { text: 'GitHub', link: 'https://github.com/kdeps/kdeps' },
       {
@@ -42,21 +42,22 @@ export default defineConfig({
 
     sidebar: [
       {
-        text: 'Start',
+        text: 'CLI & workflow',
         items: [
           { text: 'Install', link: '/install' },
           { text: 'Quickstart', link: '/quickstart' },
+          { text: 'CLI', link: '/cli' },
+          { text: 'Workflow mode', link: '/workflow' },
           { text: 'Two modes', link: '/modes' },
         ],
       },
       {
         text: 'Build',
         items: [
-          { text: 'Workflow mode', link: '/workflow' },
-          { text: 'Agent mode', link: '/agent' },
           { text: 'Resources', link: '/resources' },
           { text: 'Expressions', link: '/expressions' },
           { text: 'Config', link: '/config' },
+          { text: 'Agent mode', link: '/agent' },
         ],
       },
       {
@@ -71,7 +72,6 @@ export default defineConfig({
       {
         text: 'Reference',
         items: [
-          { text: 'CLI', link: '/cli' },
           { text: 'Components', link: '/components' },
         ],
       },

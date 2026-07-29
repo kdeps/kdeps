@@ -1,33 +1,38 @@
 # Quickstart
 
-Two paths. Pick one.
+Code path: **scaffold → validate → run → call**.
 
-## Agent in 30 seconds
-
-```bash
-kdeps
-```
-
-Talk to a local model (llamafile by default). No workflow files required.
-
-Give the agent tools by pointing at a project:
-
-```bash
-kdeps ./my-agent/
-```
-
-Every workflow under that path becomes a callable tool. Type `/help` inside the REPL for slash commands.
-
-## Workflow API in a few minutes
-
-### 1. Create a project
+## Workflow API
 
 ```bash
 kdeps new my-agent
 cd my-agent
+kdeps validate .
+export KDEPS_API_AUTH_TOKEN=dev-token
+kdeps run workflow.yaml --dev
 ```
 
-### 2. Define the workflow
+In another terminal:
+
+```bash
+curl -X POST http://localhost:16395/api/v1/chat \
+  -H "Authorization: Bearer $KDEPS_API_AUTH_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"q":"hello"}'
+```
+
+### What `kdeps new` wrote
+
+```text
+my-agent/
+├── workflow.yaml
+└── resources/
+    └── …
+```
+
+Edit `workflow.yaml` (`metadata.targetActionId`, `settings.apiServer.routes`) and resources under `resources/`. Each resource is one step; chain with `requires:` and `get('id')`.
+
+### Minimal hand-written shape
 
 `workflow.yaml`:
 
@@ -48,8 +53,6 @@ settings:
       - path: /api/v1/chat
         methods: [POST]
 ```
-
-### 3. Add an LLM step
 
 `resources/llm.yaml`:
 
@@ -75,8 +78,6 @@ chat:
 
 </div>
 
-### 4. Return the response
-
 `resources/response.yaml`:
 
 ```yaml
@@ -89,22 +90,24 @@ apiResponse:
     answer: get('llm').message.content
 ```
 
-### 5. Run
-
-API mode needs a token (never commit it):
+### Useful run flags
 
 ```bash
-export KDEPS_API_AUTH_TOKEN=dev-token
-kdeps run workflow.yaml
+kdeps run workflow.yaml --port 16395
+kdeps run workflow.yaml --events          # NDJSON on stderr
+kdeps run workflow.yaml --interactive     # workflow + REPL
+kdeps run workflow.yaml --file ./doc.txt  # file input source
 ```
 
-Call it:
+## Agent REPL (optional)
 
 ```bash
-curl -X POST http://localhost:16395/api/v1/chat \
-  -H "Authorization: Bearer $KDEPS_API_AUTH_TOKEN" \
-  -H "Content-Type: application/json" \
-  -d '{"q":"hello"}'
+kdeps                 # local model REPL
+kdeps ./my-agent/     # workflows become tools
 ```
 
-Next: [Two modes](/modes) · [Workflow mode](/workflow) · [Agent mode](/agent).
+## Next
+
+- [CLI](/cli) — command + flag map  
+- [Workflow mode](/workflow) — graph, layout, ship  
+- [Resources](/resources) · [Config](/config)

@@ -9,6 +9,7 @@ kdeps has one product surface and two ways to run it.
 | Entry | `metadata.targetActionId` | Your prompt |
 | Best for | APIs, bots, fixed pipelines | Interactive work, multi-step tasks |
 | Resources | Steps in order via `requires:` | Whole workflows registered as tools |
+| Ship | `kdeps bundle package` / `build` | same packages; path also loads as tools |
 
 ```text
 workflow:  request -> resolve graph -> run resources -> response

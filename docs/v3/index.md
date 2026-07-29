@@ -3,26 +3,26 @@ layout: home
 title: kdeps
 hero:
   name: kdeps
-  text: AI agents in YAML
-  tagline: Two modes — workflow pipelines and an autonomous agent loop. Same files, local or cloud models, deploy when you are ready.
+  text: Workflows from the CLI
+  tagline: Scaffold, validate, run. YAML DAGs for APIs and agents — local models or cloud, same commands.
   actions:
-    - theme: brand
-      text: Install
-      link: /install
     - theme: brand
       text: Quickstart
       link: /quickstart
+    - theme: brand
+      text: CLI
+      link: /cli
     - theme: alt
-      text: Two modes
-      link: /modes
+      text: Workflow mode
+      link: /workflow
     - theme: alt
       text: GitHub
       link: https://github.com/kdeps/kdeps
 features:
-  - title: Agent mode
-    details: Run `kdeps` for a REPL with tools, memory, and goal-driven task plans. Point at a folder and each workflow becomes a tool.
+  - title: CLI loop
+    details: "`kdeps new` → `validate` → `run --dev`. Package with `kdeps bundle` when you ship."
   - title: Workflow mode
-    details: Write a DAG in YAML. Run it locally, then ship the same files as Docker, Kubernetes, ISO, or a binary.
-  - title: Local or cloud
-    details: llamafile and Ollama work without an API key. Or use OpenAI, Anthropic, Groq, and any OpenAI-compatible endpoint.
+    details: Deterministic DAG. Resources declare `requires:`; one `kdeps run` serves the API or other inputs.
+  - title: Agent mode
+    details: "`kdeps [path]` for a tool-using REPL. Workflows under the path become callable tools."
 ---

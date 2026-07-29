@@ -28,7 +28,16 @@ go install github.com/kdeps/kdeps/v2@latest
 kdeps --version
 ```
 
-## First run
+## First run (workflow)
+
+```bash
+kdeps new my-agent
+cd my-agent
+export KDEPS_API_AUTH_TOKEN=dev-token
+kdeps run workflow.yaml --dev
+```
+
+Or open the agent REPL:
 
 ```bash
 kdeps

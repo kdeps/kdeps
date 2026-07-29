@@ -1,10 +1,13 @@
 # Workflow mode
 
-Deterministic pipelines. Each resource declares dependencies with `requires:`. kdeps builds a graph, runs steps in order, and returns a response.
+Deterministic DAG. CLI entrypoint: **`kdeps run`**.
 
 ```bash
-kdeps run workflow.yaml
-kdeps run workflow.yaml --dev   # reload on file change
+kdeps new my-agent
+cd my-agent
+kdeps validate .
+export KDEPS_API_AUTH_TOKEN=dev-token
+kdeps run workflow.yaml --dev
 ```
 
 ## Layout
@@ -16,6 +19,26 @@ my-agent/
     ├── llm.yaml
     └── response.yaml
 ```
+
+`kdeps new <name>` scaffolds this (template default: `api-service`).
+
+## CLI
+
+| Step | Command |
+|------|---------|
+| Scaffold | `kdeps new <name> [-t template]` |
+| Check | `kdeps validate .` |
+| Run | `kdeps run workflow.yaml` |
+| Reload | `kdeps run workflow.yaml --dev` |
+| Port | `kdeps run workflow.yaml --port 16395` |
+| File input | `kdeps run workflow.yaml --file ./in.txt` |
+| Events | `kdeps run workflow.yaml --events` |
+| + REPL | `kdeps run workflow.yaml --interactive` |
+| Memory fns | `kdeps run workflow.yaml --memory` |
+| Package | `kdeps bundle package .` |
+| Image | `kdeps bundle build . --tag …` |
+
+Full flag list: [CLI](/cli).
 
 ## workflow.yaml
 
@@ -37,18 +60,18 @@ settings:
         methods: [POST]
 ```
 
-Optional under `settings`: `webServer`, `agentSettings`, `sqlConnections`, `session`, TLS (`certFile` / `keyFile` or `letsEncrypt`).
+Optional `settings`: `webServer`, `agentSettings`, `sqlConnections`, `session`, TLS (`certFile` / `keyFile` or `letsEncrypt`).
 
-**Credentials stay out of the repo.** Put tokens and connection secrets in `~/.kdeps/config.yaml` or env vars.
+**Secrets stay off-repo** — `~/.kdeps/config.yaml` or env (`KDEPS_API_AUTH_TOKEN`, provider keys).
 
-## A resource file
+## Resource file
 
 <div v-pre>
 
 ```yaml
-actionId: llm              # unique id; used by requires: and get()
+actionId: llm
 name: chat
-requires: []               # ids that must finish first
+requires: []
 validations:
   methods: [POST]
   routes: [/api/v1/chat]
@@ -65,33 +88,34 @@ chat:
 
 </div>
 
-Each resource has **one primary action** (`chat`, `httpClient`, `sql`, `python`, `exec`, …). See [Resources](/resources).
+One primary action per resource (`chat`, `httpClient`, `sql`, `python`, `exec`, …). See [Resources](/resources).
 
-Read another step's output with `get('actionId')`. The chat reply text is usually `get('llm').message.content`.
+Read prior output with `get('actionId')`. Chat text: `get('llm').message.content`.
 
-## Request flow
+## Runtime path
 
 ```text
-POST /api/v1/chat
-  -> auth / rate limit / body checks
-  -> walk graph from targetActionId
-  -> run each resource
-  -> apiResponse builds the HTTP body
+kdeps run workflow.yaml
+  -> load + resolve graph from targetActionId
+  -> open input (api / web / bot / file)
+  -> per request: auth gates -> run resources -> apiResponse
 ```
 
-## Input sources
+```text
+POST /api/v1/chat + Bearer token
+  -> rate limit / body / concurrency
+  -> validate resource
+  -> chat resource
+  -> apiResponse
+```
 
-Workflows can listen on:
-
-- **API** — `settings.apiServer` (REST)
-- **Web** — `settings.webServer` (static or proxy)
-- **Bot / file** — platform or file-driven input (see examples in the repo)
-
-## Validate before run
+## Ship the same files
 
 ```bash
-kdeps validate workflow.yaml
-kdeps doctor
+kdeps validate .
+kdeps bundle package .
+kdeps bundle build . --tag myregistry/agent:latest
+kdeps export k8s . -o deploy.yaml
 ```
 
-Next: [Resources](/resources) · [Config](/config) · [Deploy](/deploy).
+See [Deploy](/deploy) · [Security](/security) · [CLI](/cli).
