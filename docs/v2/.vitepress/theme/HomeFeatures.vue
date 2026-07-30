@@ -12,7 +12,7 @@
       <div class="grid">
         <div class="card">
           <h3>Local AI agent</h3>
-          <p>Run <code>kdeps</code> for a local REPL with tools. llamafile or Ollama work offline without an API key.</p>
+          <p>Run <code>kdeps</code> and you are in an AI REPL. Use llamafile or Ollama for a fully offline, private coding agent - no API key, no cloud dependency, no setup.</p>
           <a href="/getting-started/local-agent" class="link">Run locally -></a>
           <a href="/modes/agent-loop-mode" class="link">Agent mode -></a>
         </div>
@@ -44,7 +44,7 @@
 
         <div class="card">
           <h3>Build with AI assistance</h3>
-          <p>Install the kdeps skill so Claude Code, Cursor, and similar tools can scaffold workflows, components, and packages.</p>
+          <p>Install the kdeps skill and ask Claude Code, Cursor, or any coding agent to scaffold workflows for you. It knows the full schema, all resource types, and kdeps.io packaging.</p>
           <a href="/getting-started/agent-skills" class="link">Install the skill -></a>
         </div>
       </div>

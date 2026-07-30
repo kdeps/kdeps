@@ -1,45 +1,15 @@
-<!-- Copyright 2026 kdeps KVK 94834768. Licensed under Apache-2.0. -->
+<!--
+  Copyright 2026 Kdeps, KvK 94834768
+  Licensed under the Apache License, Version 2.0
+-->
 <template>
   <section class="modes-section">
     <div class="container">
       <p class="section-eyebrow">architecture</p>
       <h2 class="section-title">Two modes</h2>
-      <p class="section-sub">Fixed graphs for APIs and services, or an interactive terminal loop. Combine both when you need them.</p>
+      <p class="section-sub">Pick the one that fits the task. Mix them in an agency.</p>
 
       <div class="modes">
-        <!-- Agent mode (primary) -->
-        <div class="mode-card">
-          <div class="mode-header">
-            <span class="mode-tag">agent</span>
-            <h3>Terminal loop</h3>
-          </div>
-          <p class="mode-desc">A local REPL with tools. Point it at a project to load your workflows.</p>
-
-          <div class="flow">
-            <div class="flow-node entry">stdin prompt</div>
-            <div class="flow-arrow">↓</div>
-            <div class="flow-node llm">
-              <span class="node-name">LLM</span>
-              <span class="node-type">plans steps</span>
-            </div>
-            <div class="flow-arrow">↓</div>
-            <div class="flow-tools">
-              <div class="tool-node">bash</div>
-              <div class="tool-node">files</div>
-              <div class="tool-node">search</div>
-            </div>
-            <div class="flow-arrow">↓</div>
-            <div class="flow-node llm">
-              <span class="node-name">LLM</span>
-              <span class="node-type">synthesizes</span>
-            </div>
-            <div class="flow-arrow">↓</div>
-            <div class="flow-node exit">response</div>
-          </div>
-
-          <div class="mode-cmd"><span class="prompt">$</span> kdeps ./my-agent/</div>
-        </div>
-
         <!-- Workflow mode -->
         <div class="mode-card">
           <div class="mode-header">
@@ -66,13 +36,45 @@
 
           <div class="mode-cmd"><span class="prompt">$</span> kdeps run workflow.yaml</div>
         </div>
+
+        <!-- Agent mode -->
+        <div class="mode-card">
+          <div class="mode-header">
+            <span class="mode-tag">agent</span>
+            <h3>Autonomous LLM loop</h3>
+          </div>
+          <p class="mode-desc">The LLM decides which resources to call and in what order. Every resource auto-registers as a tool. Multi-step reasoning, no wiring required.</p>
+
+          <div class="flow">
+            <div class="flow-node entry">stdin prompt</div>
+            <div class="flow-arrow">↓</div>
+            <div class="flow-node llm">
+              <span class="node-name">LLM</span>
+              <span class="node-type">plans steps</span>
+            </div>
+            <div class="flow-arrow">↓</div>
+            <div class="flow-tools">
+              <div class="tool-node">http</div>
+              <div class="tool-node">sql</div>
+              <div class="tool-node">python</div>
+            </div>
+            <div class="flow-arrow">↓</div>
+            <div class="flow-node llm">
+              <span class="node-name">LLM</span>
+              <span class="node-type">synthesizes</span>
+            </div>
+            <div class="flow-arrow">↓</div>
+            <div class="flow-node exit">response</div>
+          </div>
+
+          <div class="mode-cmd"><span class="prompt">$</span> kdeps serve workflow.yaml</div>
+        </div>
       </div>
     </div>
   </section>
 </template>
 
 <style scoped>
-
 .modes-section {
   padding: 72px 24px;
   border-top: 1px solid rgba(255, 255, 255, 0.06);
