@@ -198,10 +198,12 @@ func TestEnsureLLMBackendStep_NoOllama(t *testing.T) {
 }
 
 func TestEnsureLLMBackendStep_WithOllamaRunning(t *testing.T) {
+	// Fake "already running" by listening on the Ollama host port so we never
+	// need a real ollama binary on PATH (startOllamaServer is skipped).
 	l, err := net.Listen("tcp", "127.0.0.1:0")
 	require.NoError(t, err)
 	port := l.Addr().(*net.TCPAddr).Port
-	l.Close()
+	t.Cleanup(func() { _ = l.Close() })
 	t.Setenv("KDEPS_DEFAULT_BACKEND", "ollama")
 	t.Setenv("OLLAMA_HOST", fmt.Sprintf("127.0.0.1:%d", port))
 	wf := &domain.Workflow{
