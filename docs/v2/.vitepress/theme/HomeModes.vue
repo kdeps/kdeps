@@ -4,16 +4,16 @@
     <div class="container">
       <p class="section-eyebrow">architecture</p>
       <h2 class="section-title">Two modes</h2>
-      <p class="section-sub">Interactive loop or fixed pipelines. Use either, or both in an agency.</p>
+      <p class="section-sub">Fixed graphs for APIs and services, or an interactive terminal loop. Combine both when you need them.</p>
 
       <div class="modes">
         <!-- Agent mode (primary) -->
         <div class="mode-card">
           <div class="mode-header">
             <span class="mode-tag">agent</span>
-            <h3>Interactive loop</h3>
+            <h3>Terminal loop</h3>
           </div>
-          <p class="mode-desc">Chat in the terminal with built-in tools. Pass a project path to load workflows as tools.</p>
+          <p class="mode-desc">A local REPL with tools. Point it at a project to load your workflows.</p>
 
           <div class="flow">
             <div class="flow-node entry">stdin prompt</div>

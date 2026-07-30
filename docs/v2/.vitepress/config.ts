@@ -27,7 +27,7 @@ const DOCS_RELEASE = 'v2.1.11'
 export default defineConfig({
   title: 'kdeps',
   description:
-    'YAML workflows for language models. Run locally, package, and deploy.',
+    'Self-hosted apps with models inside. Graph workflows in YAML; package as Docker, Kubernetes, or a binary.',
   lang: 'en-US',
   appearance: 'force-dark',
   lastUpdated: true,
@@ -45,13 +45,13 @@ export default defineConfig({
     ['meta', { name: 'theme-color', content: '#080808' }],
     ['meta', { name: 'og:type', content: 'website' }],
     ['meta', { name: 'og:site_name', content: 'kdeps docs' }],
-    ['meta', { name: 'og:title', content: 'kdeps — YAML workflows for language models' }],
+    ['meta', { name: 'og:title', content: 'kdeps — self-hosted apps with models inside' }],
     [
       'meta',
       {
         name: 'og:description',
         content:
-          'Define model workflows in YAML. Run locally and ship as Docker, Kubernetes, or a binary.',
+          'Compose models, scripts, and APIs as a YAML graph. Run offline or with cloud APIs. Ship one package everywhere.',
       },
     ],
     ['meta', { name: 'twitter:card', content: 'summary' }],
