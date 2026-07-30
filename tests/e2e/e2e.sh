@@ -109,6 +109,7 @@ source "$SCRIPT_DIR/test_connection_prompt.sh"
 source "$SCRIPT_DIR/test_model_resolution.sh"
 source "$SCRIPT_DIR/test_doctor.sh"
 source "$SCRIPT_DIR/test_llm_cli.sh"
+source "$SCRIPT_DIR/test_env_cmd.sh"
 source "$SCRIPT_DIR/test_component_version_pinning.sh"
 
 # Run llamafile (default file backend) live test (skips when model not cached)

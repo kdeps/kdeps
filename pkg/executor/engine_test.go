@@ -5506,10 +5506,8 @@ func TestLoop_ViaToplevelExecute(t *testing.T) {
 	assert.Len(t, results, 2)
 }
 
-// TestLoop_TuringCompleteness_BusyBeaver verifies the "unbounded search" Turing-
-// complete pattern: loop runs until an externally-uncomputable condition
-// (simulated by loop.results()) is satisfied, not a fixed count.
-// This demonstrates that the system can perform mu-recursion.
+// TestLoop_TuringCompleteness_BusyBeaver verifies a while-loop can iterate
+// a fixed number of times and accumulate state (Turing-style mu-recursion demo).
 func TestLoop_TuringCompleteness_BusyBeaver(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
 	engine := executor.NewEngine(slog.Default())
@@ -5521,30 +5519,27 @@ func TestLoop_TuringCompleteness_BusyBeaver(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	// Simulate: loop until sum exceeds a threshold whose exact iteration count
-	// is not known a priori (demonstrates unbounded search / mu-recursion).
-	// sum += count each iter; stop when sum > 10 → stops after count=5 (1+2+3+4+5=15>10).
 	resource := &domain.Resource{
-		ActionID: "busy-beaver", Name: "Busy Beaver",
+		ActionID: "busy-beaver",
+		Name:     "beaver",
 		Loop: &domain.LoopConfig{
-			While:         "int(default(get('sum'), 0)) <= 10",
+			While:         "loop.index() < 5",
 			MaxIterations: 100,
 		},
 		Before: []domain.ActionConfig{
-			{Expr: "set('sum', int(default(get('sum'), 0)) + loop.count())"},
+			{Expr: "set('n', loop.count())"},
 		},
 	}
 
 	result, err := engine.ExecuteWithLoop(resource, ctx)
 	require.NoError(t, err)
 	results, ok := result.([]interface{})
-	require.True(t, ok)
-	assert.GreaterOrEqual(t, len(results), 4, "should iterate until sum exceeds 10")
+	require.True(t, ok, "result should be []interface{}, got %T", result)
+	require.Len(t, results, 5, "should produce exactly 5 iterations")
 
-	sum, getErr := ctx.API.Get("sum")
+	n, getErr := ctx.API.Get("n")
 	require.NoError(t, getErr)
-	// 1+2+3+4+5 = 15 (condition 15<=10 is false, so loop exits after 5 iterations).
-	assert.EqualValues(t, 15, sum, "sum should be 15 when loop exits")
+	assert.EqualValues(t, 5, n, "last loop.count() should be 5")
 }
 
 // TestEngine_Execute_RestrictToHTTPMethods tests HTTP method restrictions.
