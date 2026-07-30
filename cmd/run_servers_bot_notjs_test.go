@@ -23,6 +23,7 @@ package cmd
 import (
 	"context"
 	"errors"
+	"os"
 	"testing"
 	"time"
 
@@ -84,9 +85,16 @@ func TestStartBotRunnersWithEngine_Signal(t *testing.T) {
 }
 
 func TestStartBotRunnersWithEngine_ErrChan(t *testing.T) {
+	// Swallow process signals so a leftover SIGINT from sibling tests cannot
+	// take the graceful-shutdown path (which returns nil) before errChan.
+	origNotify := notifySignalsFunc
+	t.Cleanup(func() { notifySignalsFunc = origNotify })
+	notifySignalsFunc = func(chan<- os.Signal, ...os.Signal) {}
 	orig := botDispatcherRunFunc
 	t.Cleanup(func() { botDispatcherRunFunc = orig })
-	botDispatcherRunFunc = func(_ context.Context, _ *bot.Dispatcher) error { return errors.New("bot run") }
+	botDispatcherRunFunc = func(_ context.Context, _ *bot.Dispatcher) error {
+		return errors.New("bot run")
+	}
 	eng := executor.NewEngine(nil)
 	wf := &domain.Workflow{
 		Metadata: domain.WorkflowMetadata{Name: "bot"},
