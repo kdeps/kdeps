@@ -20,7 +20,6 @@
 package cmd
 
 import (
-	"bytes"
 	"io"
 	"os"
 	"path/filepath"
@@ -39,7 +38,7 @@ func TestNewEnvCmd(t *testing.T) {
 }
 
 func TestPrintEnvExportsNilAndAPI(t *testing.T) {
-	printEnvExports(nil) // no panic
+	printEnvExports(nil)
 
 	oldOut, oldErr := os.Stdout, os.Stderr
 	rOut, wOut, _ := os.Pipe()
@@ -69,31 +68,24 @@ func TestPrintEnvExportsNilAndAPI(t *testing.T) {
 	_ = wErr.Close()
 	os.Stdout, os.Stderr = oldOut, oldErr
 
-	outB, _ := io.ReadAll(rOut)
+	_, _ = io.ReadAll(rOut)
 	errB, _ := io.ReadAll(rErr)
-	out, errS := string(outB), string(errB)
-	if !strings.Contains(errS, "kdeps env export") {
-		t.Fatalf("stderr: %s", errS)
+	if !strings.Contains(string(errB), "kdeps env export") {
+		t.Fatalf("stderr: %s", errB)
 	}
-	// Token export when API present and env unset
+
 	_ = os.Unsetenv("KDEPS_API_AUTH_TOKEN")
-	// re-run auth helper directly
-	var buf bytes.Buffer
 	oldStdout := os.Stdout
 	r, w, _ := os.Pipe()
 	os.Stdout = w
 	printAuthTokenEnvExport(true)
+	printAuthTokenEnvExport(false)
 	_ = w.Close()
 	os.Stdout = oldStdout
-	_, _ = buf.ReadFrom(r)
-	if !strings.Contains(buf.String(), "KDEPS_API_AUTH_TOKEN") && !strings.Contains(out, "KDEPS_API_AUTH_TOKEN") {
-		// either path may have set it depending on scanWorkflows
-		t.Logf("stdout from printEnvExports: %q auth helper: %q", out, buf.String())
-	}
-	printAuthTokenEnvExport(false)
+	_, _ = io.ReadAll(r)
 }
 
-func TestPrintLLMKeyAndConnectionExports(t *testing.T) {
+func TestPrintLLMKeyAndConnectionExports(_ *testing.T) {
 	cfg := &config.Config{}
 	printLLMKeyEnvExports(cfg, []string{"openai", "anthropic", ""})
 	printConnectionEnvExports(cfg, nil)
@@ -118,13 +110,12 @@ settings:
       - path: /api/v1/x
         methods: [POST]
 `
-	if err := os.WriteFile(wfPath, []byte(content), 0o600); err != nil {
-		t.Fatal(err)
+	if writeErr := os.WriteFile(wfPath, []byte(content), 0o600); writeErr != nil {
+		t.Fatal(writeErr)
 	}
-	// minimal resource so parse may succeed depending on parser rules
 	resDir := filepath.Join(dir, "resources")
-	if err := os.MkdirAll(resDir, 0o750); err != nil {
-		t.Fatal(err)
+	if mkdirErr := os.MkdirAll(resDir, 0o750); mkdirErr != nil {
+		t.Fatal(mkdirErr)
 	}
 	res := `
 actionId: respond
@@ -134,16 +125,14 @@ apiResponse:
   data:
     ok: true
 `
-	if err := os.WriteFile(filepath.Join(resDir, "respond.yaml"), []byte(res), 0o600); err != nil {
-		t.Fatal(err)
+	if writeResErr := os.WriteFile(filepath.Join(resDir, "respond.yaml"), []byte(res), 0o600); writeResErr != nil {
+		t.Fatal(writeResErr)
 	}
 
-	err := RunEnvWithFlags(nil, []string{wfPath}, &RunFlags{})
-	if err != nil {
-		// parse requirements may still fail in some setups; surface but allow connection scan path
-		t.Logf("RunEnvWithFlags: %v", err)
+	if runErr := RunEnvWithFlags(nil, []string{wfPath}, &RunFlags{}); runErr != nil {
+		t.Logf("RunEnvWithFlags: %v", runErr)
 	}
-	if err := RunEnvWithFlags(nil, []string{filepath.Join(dir, "missing.yaml")}, &RunFlags{}); err == nil {
+	if missErr := RunEnvWithFlags(nil, []string{filepath.Join(dir, "missing.yaml")}, &RunFlags{}); missErr == nil {
 		t.Fatal("expected error for missing path")
 	}
 }

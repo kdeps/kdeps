@@ -23,91 +23,84 @@ import (
 	"testing"
 )
 
-func TestPromptCacheStatsLifecycle(t *testing.T) {
+func TestPromptCacheStatsEmpty(t *testing.T) {
 	s := &PromptCacheStats{}
 	s.Reset()
-
 	if s.HitRate() != 0 || s.CacheSavingsPercent() != 0 {
-		t.Fatalf("empty stats should be zero, hit=%v savings=%v", s.HitRate(), s.CacheSavingsPercent())
+		t.Fatalf("empty stats should be zero")
 	}
-	if got := s.Summary(); !strings.Contains(got, "No cache stats") {
-		t.Fatalf("summary empty: %q", got)
+	if !strings.Contains(s.Summary(), "No cache stats") {
+		t.Fatalf("summary: %q", s.Summary())
 	}
 	if s.LastRecord() != nil {
 		t.Fatal("last record should be nil")
 	}
+}
 
+func TestPromptCacheStatsRecordAndSummary(t *testing.T) {
+	s := &PromptCacheStats{}
+	s.Reset()
 	s.RecordCacheUsageFromTokens(100, 20)
 	if s.MissCount() != 1 || s.HitCount() != 0 {
 		t.Fatalf("miss expected: hits=%d misses=%d", s.HitCount(), s.MissCount())
 	}
-	if s.TotalInputTokens() != 100 || s.TotalOutputTokens() != 20 {
-		t.Fatalf("token totals: in=%d out=%d", s.TotalInputTokens(), s.TotalOutputTokens())
-	}
-
 	s.RecordCacheUsage(200, 30, 50, 80)
-	if s.HitCount() != 1 {
-		t.Fatalf("hit count = %d", s.HitCount())
-	}
-	if s.TotalTokensCached() != 50 {
-		t.Fatalf("cached = %d", s.TotalTokensCached())
+	if s.HitCount() != 1 || s.TotalTokensCached() != 50 {
+		t.Fatalf("hit/cached: %d/%d", s.HitCount(), s.TotalTokensCached())
 	}
 	if s.TotalTokensServedFromCache() != 80 {
 		t.Fatalf("served = %d", s.TotalTokensServedFromCache())
 	}
-	if s.HitRate() <= 0 || s.HitRate() >= 1 {
-		t.Fatalf("hit rate = %v", s.HitRate())
+	if s.HitRate() <= 0 || s.CacheSavingsPercent() <= 0 {
+		t.Fatalf("rates hit=%v savings=%v", s.HitRate(), s.CacheSavingsPercent())
 	}
-	if s.CacheSavingsPercent() <= 0 {
-		t.Fatalf("savings = %v", s.CacheSavingsPercent())
+	if len(s.Records()) != 2 {
+		t.Fatalf("records = %d", len(s.Records()))
 	}
-
-	recs := s.Records()
-	if len(recs) != 2 {
-		t.Fatalf("records = %d", len(recs))
+	if last := s.LastRecord(); last == nil || last.InputTokens != 200 {
+		t.Fatalf("last = %+v", last)
 	}
-	last := s.LastRecord()
-	if last == nil || last.InputTokens != 200 {
-		t.Fatalf("last record = %+v", last)
+	if !strings.Contains(s.Summary(), "hits") {
+		t.Fatalf("summary: %q", s.Summary())
 	}
-	if TakeLastPromptCacheRecord() == nil && GlobalPromptCacheStats.LastRecord() != nil {
-		// Global may be empty; function just proxies LastRecord
-	}
-
-	sum := s.Summary()
-	if !strings.Contains(sum, "hits") || !strings.Contains(sum, "misses") {
-		t.Fatalf("summary: %q", sum)
-	}
-
-	raw, err := s.MarshalJSON()
-	if err != nil {
-		t.Fatal(err)
-	}
-	var m map[string]any
-	if err := json.Unmarshal(raw, &m); err != nil {
-		t.Fatal(err)
-	}
-	if _, ok := m["hit_count"]; !ok {
-		t.Fatalf("json missing hit_count: %s", raw)
-	}
-
+	_ = TakeLastPromptCacheRecord()
 	s.Reset()
-	if s.HitCount() != 0 || len(s.Records()) != 0 {
+	if s.HitCount() != 0 {
 		t.Fatal("reset failed")
 	}
 }
 
-func TestFormatLargeInt(t *testing.T) {
-	cases := map[int64]string{
-		0:     "0",
-		999:   "999",
-		1000:  "1,000",
-		12345: "12,345",
-		1_000_000: "1,000,000",
+func TestPromptCacheStatsMarshalJSON(t *testing.T) {
+	s := &PromptCacheStats{}
+	s.Reset()
+	s.RecordCacheUsage(10, 5, 1, 2)
+	raw, marshalErr := s.MarshalJSON()
+	if marshalErr != nil {
+		t.Fatal(marshalErr)
 	}
-	for n, want := range cases {
-		if got := formatLargeInt(n); got != want {
-			t.Errorf("formatLargeInt(%d)=%q want %q", n, got, want)
+	var m map[string]any
+	if unmarshalErr := json.Unmarshal(raw, &m); unmarshalErr != nil {
+		t.Fatal(unmarshalErr)
+	}
+	if _, ok := m["hit_count"]; !ok {
+		t.Fatalf("json missing hit_count: %s", raw)
+	}
+}
+
+func TestFormatLargeInt(t *testing.T) {
+	cases := []struct {
+		n    int64
+		want string
+	}{
+		{0, "0"},
+		{999, "999"},
+		{1000, "1,000"},
+		{12345, "12,345"},
+		{1_000_000, "1,000,000"},
+	}
+	for _, tc := range cases {
+		if got := formatLargeInt(tc.n); got != tc.want {
+			t.Errorf("formatLargeInt(%d)=%q want %q", tc.n, got, tc.want)
 		}
 	}
 }

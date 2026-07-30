@@ -29,25 +29,25 @@ func TestMemoryStoreAdapterCRUD(t *testing.T) {
 	dir := t.TempDir()
 	ms := agent.NewMemoryStore(dir)
 	ms.SetCwd(dir)
-	if err := ms.Load(); err != nil {
-		t.Fatalf("Load: %v", err)
+	if loadErr := ms.Load(); loadErr != nil {
+		t.Fatalf("Load: %v", loadErr)
 	}
 	t.Cleanup(func() { _ = ms.Close() })
 
 	ad := NewMemoryStoreAdapter(ms)
-	if err := ad.Set("greeting", "hello"); err != nil {
-		t.Fatal(err)
+	if setErr := ad.Set("greeting", "hello"); setErr != nil {
+		t.Fatal(setErr)
 	}
 	val, ok := ad.Get("greeting")
 	if !ok || val != "hello" {
 		t.Fatalf("Get = %q ok=%v", val, ok)
 	}
-	if _, ok := ad.Get("missing"); ok {
+	if _, missing := ad.Get("missing"); missing {
 		t.Fatal("expected missing key")
 	}
 
-	if err := ad.Set("topic", "coverage"); err != nil {
-		t.Fatal(err)
+	if setErr := ad.Set("topic", "coverage"); setErr != nil {
+		t.Fatal(setErr)
 	}
 	list := ad.List()
 	if len(list) < 2 {
@@ -68,14 +68,14 @@ func TestMemoryStoreAdapterCRUD(t *testing.T) {
 		t.Fatal("Search expected hits")
 	}
 
-	if err := ad.Delete("greeting"); err != nil {
-		t.Fatal(err)
+	if delErr := ad.Delete("greeting"); delErr != nil {
+		t.Fatal(delErr)
 	}
-	if _, ok := ad.Get("greeting"); ok {
+	if _, stillThere := ad.Get("greeting"); stillThere {
 		t.Fatal("deleted key still present")
 	}
 
-	if err := ad.Save(); err != nil {
-		t.Fatal(err)
+	if saveErr := ad.Save(); saveErr != nil {
+		t.Fatal(saveErr)
 	}
 }

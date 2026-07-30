@@ -45,11 +45,11 @@ func TestRunLLMList(t *testing.T) {
 		t.Fatal(err)
 	}
 	os.Stdout = w
-	err = runLLMList()
+	runErr := runLLMList()
 	_ = w.Close()
 	os.Stdout = old
-	if err != nil {
-		t.Fatal(err)
+	if runErr != nil {
+		t.Fatal(runErr)
 	}
 	out, _ := io.ReadAll(r)
 	s := string(out)
@@ -65,18 +65,18 @@ func TestRunLLMShow(t *testing.T) {
 		t.Fatal(err)
 	}
 	os.Stdout = w
-	err = runLLMShow("ollama")
+	runErr := runLLMShow("ollama")
 	_ = w.Close()
 	os.Stdout = old
-	if err != nil {
-		t.Fatal(err)
+	if runErr != nil {
+		t.Fatal(runErr)
 	}
 	out, _ := io.ReadAll(r)
 	s := string(out)
 	if !strings.Contains(s, "ollama") || !strings.Contains(s, "Client config") {
 		t.Fatalf("show output: %s", s)
 	}
-	if err := runLLMShow("definitely-not-a-recipe-id-xyz"); err == nil {
+	if showErr := runLLMShow("definitely-not-a-recipe-id-xyz"); showErr == nil {
 		t.Fatal("expected error for unknown recipe")
 	}
 }
@@ -88,47 +88,46 @@ func TestRunLLMClientConfig(t *testing.T) {
 		t.Fatal(err)
 	}
 	os.Stdout = w
-	err = runLLMClientConfig(&llmClientConfigFlags{
+	runErr := runLLMClientConfig(&llmClientConfigFlags{
 		URL:    "http://127.0.0.1:8000/v1",
 		Model:  "llama3.2",
 		Format: "yaml",
 	})
 	_ = w.Close()
 	os.Stdout = old
-	if err != nil {
-		t.Fatal(err)
+	if runErr != nil {
+		t.Fatal(runErr)
 	}
 	out, _ := io.ReadAll(r)
 	if !strings.Contains(string(out), "base_url") && !strings.Contains(string(out), "8000") {
 		t.Fatalf("client-config: %s", out)
 	}
-	if err := runLLMClientConfig(&llmClientConfigFlags{URL: "", Format: "yaml"}); err == nil {
+	if emptyErr := runLLMClientConfig(&llmClientConfigFlags{URL: "", Format: "yaml"}); emptyErr == nil {
 		t.Fatal("expected error for empty url")
 	}
 }
 
 func TestRunLLMModelsFilters(t *testing.T) {
-	if err := runLLMModels("nope"); err == nil {
+	if badErr := runLLMModels("nope"); badErr == nil {
 		t.Fatal("expected error for bad type")
 	}
-	// empty filter should not error even if harvest is empty
 	oldOut, oldErr := os.Stdout, os.Stderr
 	rOut, wOut, _ := os.Pipe()
 	rErr, wErr, _ := os.Pipe()
 	os.Stdout, os.Stderr = wOut, wErr
-	err := runLLMModels("")
+	runErr := runLLMModels("")
 	_ = wOut.Close()
 	_ = wErr.Close()
 	os.Stdout, os.Stderr = oldOut, oldErr
-	if err != nil {
-		t.Fatal(err)
+	if runErr != nil {
+		t.Fatal(runErr)
 	}
 	_, _ = io.ReadAll(rOut)
 	_, _ = io.ReadAll(rErr)
 
 	for _, kind := range []string{"llamafile", "gguf", "all"} {
-		if err := runLLMModels(kind); err != nil {
-			t.Fatalf("runLLMModels(%q): %v", kind, err)
+		if kindErr := runLLMModels(kind); kindErr != nil {
+			t.Fatalf("runLLMModels(%q): %v", kind, kindErr)
 		}
 	}
 }
