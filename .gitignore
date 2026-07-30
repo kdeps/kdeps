@@ -291,3 +291,8 @@ __pycache__/
 pkg/executor/embedding/models/
 .tmp/
 ai-email-client
+
+# Bare "memory" files created when tests/runs set KDEPS_MEMORY_DB_PATH=memory
+# (cwd-relative bolt DBs). Do not ignore directories named memory (e.g. e2e components).
+memory
+!**/memory/
