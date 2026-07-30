@@ -41,6 +41,7 @@ func schemaEnumMap() map[string][]interface{} {
 			"together", "perplexity", "groq", "deepseek", "openrouter", "xai",
 			"bedrock",
 			"watsonx",
+			"m365",
 		},
 		enumKeyHTTPMethod: httpMethods,
 		enumKeyContextLength: {

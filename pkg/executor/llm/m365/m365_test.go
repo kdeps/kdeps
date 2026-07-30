@@ -857,3 +857,625 @@ func TestPostTokenError(t *testing.T) {
 		t.Error("want error from token endpoint")
 	}
 }
+
+// --- coverage: fenced.go pure-logic gaps ---
+
+func TestFormatToolChoiceInstructionBranches(t *testing.T) {
+	if formatToolChoiceInstruction(nil) != "" {
+		t.Error("nil -> empty")
+	}
+	if formatToolChoiceInstruction(&ToolChoice{Mode: "auto"}) != "" {
+		t.Error("auto -> empty")
+	}
+	if formatToolChoiceInstruction(&ToolChoice{Mode: "required"}) == "" {
+		t.Error("required -> non-empty")
+	}
+	if got := formatToolChoiceInstruction(&ToolChoice{Mode: "function", FunctionName: "bash"}); !strings.Contains(
+		got,
+		"bash",
+	) {
+		t.Errorf("function -> %q", got)
+	}
+	if formatToolChoiceInstruction(&ToolChoice{Mode: "function"}) != "" {
+		t.Error("function with no name -> empty")
+	}
+}
+
+func TestToolCallSummaryBranches(t *testing.T) {
+	if got := toolCallSummary(`{"path":"a.txt"}`); got != "a.txt" {
+		t.Errorf("named-key = %q", got)
+	}
+	if got := toolCallSummary(`{"weird_key":"value here"}`); got != "value here" {
+		t.Errorf("fallback-any-string = %q", got)
+	}
+	if toolCallSummary(`not json`) != "" {
+		t.Error("invalid json -> empty")
+	}
+	if toolCallSummary(`{"n":1}`) != "" {
+		t.Error("no string value -> empty")
+	}
+	long := strings.Repeat("x", 200)
+	if got := toolCallSummary(`{"command":"` + long + `"}`); len(got) != summaryMaxLen {
+		t.Errorf("truncation len = %d", len(got))
+	}
+}
+
+func TestScalarToStringBranches(t *testing.T) {
+	if scalarToString(nil) != "" {
+		t.Error("nil")
+	}
+	if scalarToString("x") != "x" {
+		t.Error("string")
+	}
+	if scalarToString(42) != "42" {
+		t.Errorf("number = %q", scalarToString(42))
+	}
+	if scalarToString(true) != "true" {
+		t.Errorf("bool = %q", scalarToString(true))
+	}
+}
+
+func TestDeriveSpecFromArgs(t *testing.T) {
+	spec := deriveSpecFromArgs("mystery_tool", map[string]any{"path": "x", "content": "y"})
+	if spec.Name != "mystery_tool" {
+		t.Errorf("name = %q", spec.Name)
+	}
+	if spec.BodyParam != "content" {
+		t.Errorf("body param = %q", spec.BodyParam)
+	}
+}
+
+func TestParseFencedInnerEditPairMismatch(t *testing.T) {
+	spec := DeriveFencedSpec(editToolDef())
+	if _, ok := parseFencedInner(spec, "no search/replace markers here"); ok {
+		t.Error("malformed edit body should fail to parse")
+	}
+}
+
+func TestRenderFencedTemplateEditPair(t *testing.T) {
+	spec := DeriveFencedSpec(editToolDef())
+	tmpl := renderFencedTemplate(spec)
+	if !strings.Contains(tmpl, "SEARCH") || !strings.Contains(tmpl, "REPLACE") {
+		t.Errorf("template = %q", tmpl)
+	}
+}
+
+func TestRenderFencedCallEditPair(t *testing.T) {
+	spec := DeriveFencedSpec(editToolDef())
+	out := RenderFencedCall(spec, map[string]any{"path": "a.py", "old": "x", "new": "y"})
+	if !strings.Contains(out, "<<<<<<< SEARCH") || !strings.Contains(out, ">>>>>>> REPLACE") {
+		t.Errorf("rendered edit call = %q", out)
+	}
+}
+
+func TestCurrentFramingVariantEnvOverride(t *testing.T) {
+	t.Setenv("M365_FRAMING_VARIANT", "minimal")
+	if CurrentFramingVariant() != "minimal" {
+		t.Errorf("variant = %q", CurrentFramingVariant())
+	}
+}
+
+func TestShellNameNoShellTool(t *testing.T) {
+	if got := shellName(nil); got != "bash" {
+		t.Errorf("default shell name = %q", got)
+	}
+}
+
+func TestFindShellToolSingleParamFallback(t *testing.T) {
+	tool := ToolDef{Function: ToolFunction{
+		Name: "run_it",
+		Parameters: &ToolParameters{
+			Properties: map[string]json.RawMessage{"cmd": json.RawMessage(`{"type":"string"}`)},
+		},
+	}}
+	if findShellTool([]ToolDef{tool}) == nil {
+		t.Error("single cmd-like param should be treated as the shell tool")
+	}
+}
+
+func TestPropNamesNilParameters(t *testing.T) {
+	if propNames(ToolDef{Function: ToolFunction{Name: "x"}}) != nil {
+		t.Error("nil parameters -> nil props")
+	}
+}
+
+// --- coverage: session.go / stream.go small gaps ---
+
+func TestBuildChatArgsExtraOptionsSets(t *testing.T) {
+	t.Setenv("M365_EXTRA_OPTIONSSETS", "flagA, flagB ,,")
+	s := NewCopilotSession(CopilotSessionOptions{})
+	args := s.buildChatArgs("req", "hi", "m365-copilot", true)
+	opts, _ := args["optionsSets"].([]string)
+	found := map[string]bool{}
+	for _, o := range opts {
+		found[o] = true
+	}
+	if !found["flagA"] || !found["flagB"] {
+		t.Errorf("optionsSets = %v", opts)
+	}
+}
+
+func TestBuildChatArgsNoCodeInterpreterEnv(t *testing.T) {
+	t.Setenv("M365_NO_CODE_INTERPRETER", "1")
+	s := NewCopilotSession(CopilotSessionOptions{})
+	args := s.buildChatArgs("req", "hi", "m365-copilot", true)
+	opts, _ := args["optionsSets"].([]string)
+	for _, o := range opts {
+		if o == "cwc_code_interpreter" {
+			t.Error("code interpreter options should be suppressed")
+		}
+	}
+}
+
+func TestStreamSawActionDefaultsFalse(t *testing.T) {
+	s := &CopilotStream{deltas: make(chan string, 1)}
+	if s.SawAction() {
+		t.Error("SawAction should default false (native actions unported)")
+	}
+}
+
+// --- coverage: auth.go browser-login-driven flows (browserLoginFunc stubbed) ---
+
+func withStubBrowserLogin(
+	t *testing.T,
+	fn func(ctx context.Context, authURL string, creds *Credentials) (string, error),
+) {
+	t.Helper()
+	old := browserLoginFunc
+	browserLoginFunc = fn
+	t.Cleanup(func() { browserLoginFunc = old })
+}
+
+func withTokenEndpoint(t *testing.T) {
+	t.Helper()
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = w.Write(
+			[]byte(`{"access_token":"AT-` + r.FormValue("scope") + `","refresh_token":"RT","expires_in":3600}`),
+		)
+	}))
+	old := authority
+	authority = srv.URL
+	t.Cleanup(func() { authority = old; srv.Close() })
+}
+
+func TestLoginAutomatedSuccess(t *testing.T) {
+	resetCache()
+	defer resetCache()
+	t.Setenv("M365_CACHE_FILE", filepath.Join(t.TempDir(), "c.json"))
+	withTokenEndpoint(t)
+	withStubBrowserLogin(t, func(context.Context, string, *Credentials) (string, error) {
+		return "auth-code", nil
+	})
+
+	tok, err := loginAutomated(context.Background(), &Credentials{Email: "e", Password: "p", MFASecret: "m"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(tok, "AT-") {
+		t.Errorf("token = %q", tok)
+	}
+}
+
+func TestRunBrowserLoginRetriesThenSucceeds(t *testing.T) {
+	resetCache()
+	defer resetCache()
+	t.Setenv("M365_CACHE_FILE", filepath.Join(t.TempDir(), "c.json"))
+	withTokenEndpoint(t)
+
+	attempts := 0
+	withStubBrowserLogin(t, func(context.Context, string, *Credentials) (string, error) {
+		attempts++
+		if attempts < 2 {
+			return "", errBoom
+		}
+		return "auth-code", nil
+	})
+
+	// Use a near-zero retry wait so the test doesn't actually sleep 31s.
+	tok, err := runBrowserLoginWithWait(
+		context.Background(),
+		chatScopes,
+		&Credentials{Email: "e", Password: "p", MFASecret: "m"},
+		2,
+		time.Millisecond,
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if tok == "" {
+		t.Error("expected a token after the retry succeeded")
+	}
+	if attempts != 2 {
+		t.Errorf("attempts = %d, want 2", attempts)
+	}
+}
+
+func TestRunBrowserLoginExhausted(t *testing.T) {
+	withStubBrowserLogin(t, func(context.Context, string, *Credentials) (string, error) {
+		return "", errBoom
+	})
+	_, err := runBrowserLoginWithWait(
+		context.Background(),
+		chatScopes,
+		&Credentials{Email: "e", Password: "p", MFASecret: "m"},
+		2,
+		time.Millisecond,
+	)
+	if err == nil {
+		t.Fatal("want error after exhausting retries")
+	}
+}
+
+func TestGetTokenAutomatedLoginPath(t *testing.T) {
+	resetCache()
+	defer resetCache()
+	t.Setenv("M365_CACHE_FILE", filepath.Join(t.TempDir(), "c.json"))
+	secretsPath := filepath.Join(t.TempDir(), "secrets.json")
+	t.Setenv("M365_SECRETS_FILE", secretsPath)
+	_ = os.WriteFile(secretsPath, []byte(`{"email":"e","password":"p","mfaSecret":"m"}`), 0o600)
+	withTokenEndpoint(t)
+	withStubBrowserLogin(t, func(context.Context, string, *Credentials) (string, error) { return "code", nil })
+
+	tok, err := getToken(context.Background())
+	if err != nil || tok == "" {
+		t.Fatalf("getToken = %q, %v", tok, err)
+	}
+}
+
+func TestGetTokenForScopeAutomatedLoginPath(t *testing.T) {
+	resetCache()
+	defer resetCache()
+	t.Setenv("M365_CACHE_FILE", filepath.Join(t.TempDir(), "c.json"))
+	secretsPath := filepath.Join(t.TempDir(), "secrets.json")
+	t.Setenv("M365_SECRETS_FILE", secretsPath)
+	_ = os.WriteFile(secretsPath, []byte(`{"email":"e","password":"p","mfaSecret":"m"}`), 0o600)
+	withTokenEndpoint(t)
+	withStubBrowserLogin(t, func(context.Context, string, *Credentials) (string, error) { return "code", nil })
+
+	tok, err := getTokenForScope(context.Background(), []string{"custom-scope"})
+	if err != nil || tok == "" {
+		t.Fatalf("getTokenForScope = %q, %v", tok, err)
+	}
+}
+
+func TestForceReauthViaSecrets(t *testing.T) {
+	resetCache()
+	defer resetCache()
+	t.Setenv("M365_CACHE_FILE", filepath.Join(t.TempDir(), "c.json"))
+	secretsPath := filepath.Join(t.TempDir(), "secrets.json")
+	t.Setenv("M365_SECRETS_FILE", secretsPath)
+	_ = os.WriteFile(secretsPath, []byte(`{"email":"e","password":"p","mfaSecret":"m"}`), 0o600)
+	withTokenEndpoint(t)
+	withStubBrowserLogin(t, func(context.Context, string, *Credentials) (string, error) { return "code", nil })
+
+	if !forceReauth(context.Background()) {
+		t.Error("forceReauth should succeed via the automated-login fallback")
+	}
+}
+
+func TestLoadSecretsInvalidJSON(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "secrets.json")
+	t.Setenv("M365_SECRETS_FILE", path)
+	_ = os.WriteFile(path, []byte(`not json`), 0o600)
+	if loadSecrets() != nil {
+		t.Error("invalid JSON should yield nil secrets")
+	}
+}
+
+func TestLoadSecretsIncomplete(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "secrets.json")
+	t.Setenv("M365_SECRETS_FILE", path)
+	_ = os.WriteFile(path, []byte(`{"email":"e"}`), 0o600)
+	if loadSecrets() != nil {
+		t.Error("incomplete secrets should yield nil")
+	}
+}
+
+func TestConfigDirNoHome(t *testing.T) {
+	// configDir falls back to "." when the home directory can't be resolved;
+	// exercising the happy path here is enough to cover the function's body
+	// (the error branch requires breaking os.UserHomeDir, which isn't portable).
+	if configDir() == "" {
+		t.Error("configDir should never be empty")
+	}
+}
+
+func TestLoadCacheCorruptFile(t *testing.T) {
+	resetCache()
+	defer resetCache()
+	path := filepath.Join(t.TempDir(), "c.json")
+	t.Setenv("M365_CACHE_FILE", path)
+	_ = os.WriteFile(path, []byte(`not json`), 0o600)
+	c := loadCache()
+	if c == nil || c.Access == nil {
+		t.Errorf("corrupt cache should fall back to an empty cache: %+v", c)
+	}
+}
+
+func TestPostTokenHTTPError(t *testing.T) {
+	resetCache()
+	defer resetCache()
+	t.Setenv("M365_CACHE_FILE", filepath.Join(t.TempDir(), "c.json"))
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusInternalServerError)
+		_, _ = w.Write([]byte(`not json`))
+	}))
+	defer srv.Close()
+	old := authority
+	authority = srv.URL
+	defer func() { authority = old }()
+
+	if _, err := exchangeCode(context.Background(), "code", "verifier", []string{"s"}); err == nil {
+		t.Error("want decode error from a non-JSON error body")
+	}
+}
+
+// --- coverage: agent.go remaining provisioning branches ---
+
+func TestGetOrCreateAgentFindsExisting(t *testing.T) {
+	t.Setenv("M365_CACHE_FILE", filepath.Join(t.TempDir(), "c.json"))
+	t.Setenv("M365_AGENT_CACHE_FILE", filepath.Join(t.TempDir(), "agent.json"))
+	resetCache()
+	defer resetCache()
+	seedAccessToken([]string{bapScope}, "bap-tok")
+	seedAccessToken([]string{powerPlatformScope}, "pp-tok")
+
+	wantName := getAgentName()
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case r.Method == http.MethodGet && strings.Contains(r.URL.Path, "minimalBots"):
+			_, _ = w.Write([]byte(`[{"botId":"existing-bot","shortBotName":"` + wantName + `"}]`))
+		case r.Method == http.MethodPost && strings.HasSuffix(r.URL.Path, "/publish"):
+			_, _ = w.Write([]byte(`{"TitleId":"T-existing"}`))
+		default:
+			w.WriteHeader(http.StatusNotFound)
+		}
+	}))
+	defer srv.Close()
+	oldEnv, oldBap := envURLOverride, bapAPI
+	envURLOverride, bapAPI = srv.URL, srv.URL
+	defer func() { envURLOverride, bapAPI = oldEnv, oldBap }()
+
+	id, err := getOrCreateAgent(context.Background(), false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if id != "T-existing.existing-bot.gpt.default" {
+		t.Errorf("agent id = %q", id)
+	}
+}
+
+func TestGetOrCreateAgentPublishFailsThenRecreates(t *testing.T) {
+	t.Setenv("M365_CACHE_FILE", filepath.Join(t.TempDir(), "c.json"))
+	t.Setenv("M365_AGENT_CACHE_FILE", filepath.Join(t.TempDir(), "agent.json"))
+	resetCache()
+	defer resetCache()
+	seedAccessToken([]string{bapScope}, "bap-tok")
+	seedAccessToken([]string{powerPlatformScope}, "pp-tok")
+
+	publishAttempts := 0
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case r.Method == http.MethodGet && strings.Contains(r.URL.Path, "minimalBots"):
+			_, _ = w.Write([]byte(`[]`))
+		case r.Method == http.MethodDelete:
+			w.WriteHeader(http.StatusOK)
+		case r.Method == http.MethodPost && strings.HasSuffix(r.URL.Path, "/publish"):
+			publishAttempts++
+			if publishAttempts == 1 {
+				w.WriteHeader(http.StatusBadRequest)
+				return
+			}
+			_, _ = w.Write([]byte(`{"TitleId":"T-recreated"}`))
+		case r.Method == http.MethodPost:
+			_, _ = w.Write([]byte(`{"bot":{"schemaName":"botY"}}`))
+		default:
+			w.WriteHeader(http.StatusNotFound)
+		}
+	}))
+	defer srv.Close()
+	oldEnv, oldBap := envURLOverride, bapAPI
+	envURLOverride, bapAPI = srv.URL, srv.URL
+	defer func() { envURLOverride, bapAPI = oldEnv, oldBap }()
+
+	id, err := getOrCreateAgent(context.Background(), false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if id != "T-recreated.botY.gpt.default" {
+		t.Errorf("agent id = %q", id)
+	}
+	if publishAttempts != 2 {
+		t.Errorf("publish attempts = %d, want 2 (fail then recreate+succeed)", publishAttempts)
+	}
+}
+
+func TestGetOrCreateAgentPublishFailsPermanently(t *testing.T) {
+	t.Setenv("M365_CACHE_FILE", filepath.Join(t.TempDir(), "c.json"))
+	t.Setenv("M365_AGENT_CACHE_FILE", filepath.Join(t.TempDir(), "agent.json"))
+	resetCache()
+	defer resetCache()
+	seedAccessToken([]string{bapScope}, "bap-tok")
+	seedAccessToken([]string{powerPlatformScope}, "pp-tok")
+
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case r.Method == http.MethodGet && strings.Contains(r.URL.Path, "minimalBots"):
+			_, _ = w.Write([]byte(`[]`))
+		case r.Method == http.MethodDelete:
+			w.WriteHeader(http.StatusOK)
+		case r.Method == http.MethodPost && strings.HasSuffix(r.URL.Path, "/publish"):
+			w.WriteHeader(http.StatusBadRequest)
+		case r.Method == http.MethodPost:
+			_, _ = w.Write([]byte(`{"bot":{"schemaName":"botZ"}}`))
+		default:
+			w.WriteHeader(http.StatusNotFound)
+		}
+	}))
+	defer srv.Close()
+	oldEnv, oldBap := envURLOverride, bapAPI
+	envURLOverride, bapAPI = srv.URL, srv.URL
+	defer func() { envURLOverride, bapAPI = oldEnv, oldBap }()
+
+	id, err := getOrCreateAgent(context.Background(), false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if id != "" {
+		t.Errorf("permanently failing publish should yield empty id, got %q", id)
+	}
+}
+
+func TestGetOrCreateAgentListBotsFails(t *testing.T) {
+	t.Setenv("M365_CACHE_FILE", filepath.Join(t.TempDir(), "c.json"))
+	t.Setenv("M365_AGENT_CACHE_FILE", filepath.Join(t.TempDir(), "agent.json"))
+	resetCache()
+	defer resetCache()
+	seedAccessToken([]string{bapScope}, "bap-tok")
+	seedAccessToken([]string{powerPlatformScope}, "pp-tok")
+
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusInternalServerError)
+	}))
+	defer srv.Close()
+	oldEnv, oldBap := envURLOverride, bapAPI
+	envURLOverride, bapAPI = srv.URL, srv.URL
+	defer func() { envURLOverride, bapAPI = oldEnv, oldBap }()
+
+	id, err := getOrCreateAgent(context.Background(), false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if id != "" {
+		t.Errorf("listBots failure should yield empty id, got %q", id)
+	}
+}
+
+func TestGetOrCreateAgentNoBAPToken(t *testing.T) {
+	t.Setenv("M365_CACHE_FILE", filepath.Join(t.TempDir(), "c.json"))
+	t.Setenv("M365_AGENT_CACHE_FILE", filepath.Join(t.TempDir(), "agent.json"))
+	t.Setenv("M365_SECRETS_FILE", filepath.Join(t.TempDir(), "none.json"))
+	resetCache()
+	defer resetCache()
+
+	id, err := getOrCreateAgent(context.Background(), false)
+	if err != nil || id != "" {
+		t.Errorf("no BAP token -> empty id, no error: id=%q err=%v", id, err)
+	}
+}
+
+func TestGetOrCreateAgentNoPowerPlatformToken(t *testing.T) {
+	t.Setenv("M365_CACHE_FILE", filepath.Join(t.TempDir(), "c.json"))
+	t.Setenv("M365_AGENT_CACHE_FILE", filepath.Join(t.TempDir(), "agent.json"))
+	t.Setenv("M365_SECRETS_FILE", filepath.Join(t.TempDir(), "none.json"))
+	resetCache()
+	defer resetCache()
+	seedAccessToken([]string{bapScope}, "bap-tok")
+
+	id, err := getOrCreateAgent(context.Background(), false)
+	if err != nil || id != "" {
+		t.Errorf("no PowerPlatform token -> empty id, no error: id=%q err=%v", id, err)
+	}
+}
+
+// --- coverage: final small gaps ---
+
+func TestDecodeJWTBadBase64(t *testing.T) {
+	if _, err := DecodeJWT("hdr.not-valid-base64!!!.sig"); err == nil {
+		t.Error("want base64 decode error")
+	}
+}
+
+func TestParseFencedToolCallsNoMatch(t *testing.T) {
+	specs := BuildSpecMap([]ToolDef{shellToolDef()})
+	calls, leftover := ParseFencedToolCalls("```python\nprint(1)\n```", specs)
+	if len(calls) != 0 {
+		t.Errorf("unknown fence language should not parse as a tool call: %+v", calls)
+	}
+	if !strings.Contains(leftover, "python") {
+		t.Errorf("leftover should retain the untouched fence: %q", leftover)
+	}
+}
+
+func TestBrowserProfileDirAndChromiumPath(t *testing.T) {
+	dir := t.TempDir()
+	t.Setenv("M365_BROWSER_PROFILE", dir+"/profile")
+	if browserProfileDir() != dir+"/profile" {
+		t.Errorf("browserProfileDir = %q", browserProfileDir())
+	}
+
+	t.Setenv("CHROMIUM_PATH", "/custom/chromium")
+	if resolveChromiumPath() != "/custom/chromium" {
+		t.Errorf("resolveChromiumPath override = %q", resolveChromiumPath())
+	}
+}
+
+func TestPPFetchDelete(t *testing.T) {
+	var gotMethod string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotMethod = r.Method
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer srv.Close()
+	res, err := ppFetch(context.Background(), http.MethodDelete, srv.URL, "tok", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	res.Body.Close()
+	if gotMethod != http.MethodDelete {
+		t.Errorf("method = %q", gotMethod)
+	}
+}
+
+func TestListBotsHTTPError(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusForbidden)
+	}))
+	defer srv.Close()
+	if _, err := listBots(context.Background(), srv.URL, "tok"); err == nil {
+		t.Error("want error on non-2xx status")
+	}
+}
+
+func TestCreateBotHTTPError(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusBadRequest)
+	}))
+	defer srv.Close()
+	if _, err := createBot(context.Background(), srv.URL, "tok"); err == nil {
+		t.Error("want error on non-2xx status")
+	}
+}
+
+func TestPublishBotMissingTitleID(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_, _ = w.Write([]byte(`{}`))
+	}))
+	defer srv.Close()
+	if _, err := publishBot(context.Background(), srv.URL, "tok", "bot1"); err == nil {
+		t.Error("want error when TitleId is missing")
+	}
+}
+
+func TestPublishBotHTTPError(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusInternalServerError)
+	}))
+	defer srv.Close()
+	if _, err := publishBot(context.Background(), srv.URL, "tok", "bot1"); err == nil {
+		t.Error("want error on non-2xx status")
+	}
+}
+
+func TestGetEnvironmentURLHTTPError(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusInternalServerError)
+	}))
+	defer srv.Close()
+	old := bapAPI
+	bapAPI = srv.URL
+	defer func() { bapAPI = old }()
+	if _, err := getEnvironmentURL(context.Background(), "tok"); err == nil {
+		t.Error("want error on non-2xx BAP status")
+	}
+}

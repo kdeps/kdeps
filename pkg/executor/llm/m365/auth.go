@@ -276,15 +276,29 @@ func loadSecrets() *Credentials {
 	return &c
 }
 
+// browserLoginFunc is a var (not a direct call) only so tests can stub out the
+// real Playwright-driven login without a browser.
+//
+//nolint:gochecknoglobals // effectively constant; overridden only in tests
+var browserLoginFunc = browserLogin
+
 // runBrowserLogin performs the interactive PKCE leg headlessly, retrying up to
 // attempts times (TOTP codes are single-use per 30s window, so retries wait for
 // a fresh window).
 func runBrowserLogin(ctx context.Context, scopes []string, creds *Credentials, attempts int) (string, error) {
+	return runBrowserLoginWithWait(ctx, scopes, creds, attempts, totpWindowWait)
+}
+
+// runBrowserLoginWithWait is runBrowserLogin with an injectable inter-attempt
+// wait, so tests can exercise the retry loop without sleeping a real TOTP window.
+func runBrowserLoginWithWait(
+	ctx context.Context, scopes []string, creds *Credentials, attempts int, wait time.Duration,
+) (string, error) {
 	kdeps_debug.Log("enter: runBrowserLogin")
 	var lastErr error
 	for attempt := 1; attempt <= attempts; attempt++ {
 		authURL, verifier := buildAuthURL(scopes)
-		code, err := browserLogin(ctx, authURL, creds)
+		code, err := browserLoginFunc(ctx, authURL, creds)
 		if err == nil {
 			var token string
 			token, err = exchangeCode(ctx, code, verifier, scopes)
@@ -297,7 +311,7 @@ func runBrowserLogin(ctx context.Context, scopes []string, creds *Credentials, a
 			select {
 			case <-ctx.Done():
 				return "", ctx.Err()
-			case <-time.After(totpWindowWait):
+			case <-time.After(wait):
 			}
 		}
 	}

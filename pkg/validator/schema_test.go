@@ -2295,6 +2295,7 @@ func TestSchemaValidator_GetEnumValues_EdgeCases(t *testing.T) {
 				"xai",
 				"bedrock",
 				"watsonx",
+				"m365",
 			},
 		},
 		{
@@ -2378,6 +2379,7 @@ func TestSchemaValidator_GetEnumValues_EdgeCases(t *testing.T) {
 				"xai",
 				"bedrock",
 				"watsonx",
+				"m365",
 			},
 		},
 		{

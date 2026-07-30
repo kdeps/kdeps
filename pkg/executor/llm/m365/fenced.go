@@ -52,7 +52,7 @@ type ToolDef struct {
 
 // bodyParamNames are argument names carried as the free-form fence body.
 //
-//nolint:gochecknoglobals // static lookup, read-only
+//nolint:gochecknoglobals,goconst // static lookup, read-only; JSON/wire literals not worth shared consts
 var bodyParamNames = map[string]bool{
 	"command": true, "content": true, "code": true, "body": true,
 	"script": true, "text": true, "query": true, "input": true,

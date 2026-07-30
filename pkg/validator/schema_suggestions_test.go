@@ -528,6 +528,7 @@ func TestSchemaValidator_DirectFunctionCoverage(t *testing.T) {
 					"xai",
 					"bedrock",
 					"watsonx",
+					"m365",
 				},
 			},
 			{
@@ -623,6 +624,7 @@ func TestSchemaValidator_DirectFunctionCoverage(t *testing.T) {
 					"xai",
 					"bedrock",
 					"watsonx",
+					"m365",
 				},
 			},
 			{
@@ -682,6 +684,7 @@ func TestSchemaValidator_DirectFunctionCoverage(t *testing.T) {
 					"xai",
 					"bedrock",
 					"watsonx",
+					"m365",
 				},
 			},
 		}

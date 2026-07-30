@@ -19,6 +19,12 @@ import (
 // rs is the SignalR record separator terminating every frame on the wire.
 const rs = "\x1E"
 
+// chatWSBase is the chat WebSocket base URL. It is a var (not a const) only so
+// tests can point the transport at a local server.
+//
+//nolint:gochecknoglobals // effectively constant; overridden only in tests
+var chatWSBase = "wss://substrate.office.com/m365Copilot/Chathub"
+
 // deltaBufferSize is the streamed-delta channel capacity; sized so early tokens
 // are never dropped before the consumer attaches.
 const deltaBufferSize = 64
@@ -153,8 +159,7 @@ func (s *CopilotSession) Chat(ctx context.Context, token, text, model string) (*
 	params.Set("agent", "web")
 	params.Set("scenario", "OfficeWebIncludedCopilot")
 
-	wsURL := fmt.Sprintf("wss://substrate.office.com/m365Copilot/Chathub/%s@%s?%s",
-		claims.OID, claims.TID, params.Encode())
+	wsURL := fmt.Sprintf("%s/%s@%s?%s", chatWSBase, claims.OID, claims.TID, params.Encode())
 
 	header := http.Header{}
 	header.Set("Origin", "https://m365.cloud.microsoft")
@@ -224,7 +229,7 @@ func (s *CopilotSession) buildChatArgs(requestID, text, model string, isFirst bo
 			"deviceType":       "desktop",
 		},
 		"message": map[string]any{
-			"author":                "user",
+			"author":                "user", //nolint:goconst // JSON/wire literal
 			"inputMethod":           "Keyboard",
 			"text":                  text,
 			"entityAnnotationTypes": []string{"People", "File", "Event", "Email", "TeamsMessage"},
@@ -277,7 +282,7 @@ func buildSendPayload(args map[string]any) (string, error) {
 		"arguments":    []any{args},
 		"invocationId": "0",
 		"target":       "chat",
-		"type":         frameStreamInvocation,
+		"type":         frameStreamInvocation, //nolint:goconst // JSON/wire literal
 	}
 	ts := nowISO()
 	metrics := map[string]any{
