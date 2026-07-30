@@ -19,10 +19,18 @@
 package llm
 
 import (
+	"os"
+
 	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
 )
 
 // extractToolCalls extracts tool calls from LLM response.
+//
+// A model that returns several tool calls in one turn is executed in a single
+// batch by default, which lets later calls run on state a model only guessed
+// at (it never saw the earlier calls' real results). Trim to the first call so
+// the tool loop runs one step at a time, each reacting to the previous result.
+// Set KDEPS_ALLOW_MULTI_TOOL=1 to restore batched execution.
 func (e *Executor) extractToolCalls(
 	response map[string]interface{},
 ) ([]map[string]interface{}, bool) {
@@ -49,6 +57,10 @@ func (e *Executor) extractToolCalls(
 		if tcMap, okMap := tc.(map[string]interface{}); okMap {
 			toolCalls = append(toolCalls, tcMap)
 		}
+	}
+
+	if len(toolCalls) > 1 && os.Getenv("KDEPS_ALLOW_MULTI_TOOL") == "" {
+		toolCalls = toolCalls[:1]
 	}
 
 	return toolCalls, len(toolCalls) > 0

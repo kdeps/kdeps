@@ -51,8 +51,11 @@ func TestDefaultRegistryBackendNames_CloudOrderMatchesConfig(t *testing.T) {
 	assert.Equal(t, "gguf", names[2])
 
 	providers := kdepsconfig.CloudLLMProviders()
-	require.Len(t, names, 3+len(providers))
+	// Registry order: 3 local backends, then the cloud providers in config order,
+	// then m365 (a local-server-backed remote that uses no API key).
+	require.Len(t, names, 3+len(providers)+1)
 	for i, p := range providers {
 		assert.Equal(t, p.Name, names[i+3], "registry cloud order mismatch at index %d", i)
 	}
+	assert.Equal(t, "m365", names[len(names)-1], "m365 should be the trailing backend")
 }

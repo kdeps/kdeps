@@ -1676,6 +1676,39 @@ func TestExtractToolCalls_Present(t *testing.T) {
 	assert.Len(t, calls, 1)
 }
 
+func TestExtractToolCalls_TrimsBatchToOne(t *testing.T) {
+	e := NewExecutor("http://localhost:11434")
+	response := map[string]interface{}{
+		"message": map[string]interface{}{
+			"tool_calls": []interface{}{
+				map[string]interface{}{"function": map[string]interface{}{"name": "first"}},
+				map[string]interface{}{"function": map[string]interface{}{"name": "second"}},
+			},
+		},
+	}
+	calls, ok := e.extractToolCalls(response)
+	require.True(t, ok)
+	require.Len(t, calls, 1)
+	fn, _ := calls[0]["function"].(map[string]interface{})
+	assert.Equal(t, "first", fn["name"])
+}
+
+func TestExtractToolCalls_MultiToolAllowedViaEnv(t *testing.T) {
+	t.Setenv("KDEPS_ALLOW_MULTI_TOOL", "1")
+	e := NewExecutor("http://localhost:11434")
+	response := map[string]interface{}{
+		"message": map[string]interface{}{
+			"tool_calls": []interface{}{
+				map[string]interface{}{"function": map[string]interface{}{"name": "first"}},
+				map[string]interface{}{"function": map[string]interface{}{"name": "second"}},
+			},
+		},
+	}
+	calls, ok := e.extractToolCalls(response)
+	require.True(t, ok)
+	assert.Len(t, calls, 2)
+}
+
 func TestExtractToolCalls_NoMessage(t *testing.T) {
 	e := NewExecutor("http://localhost:11434")
 	calls, ok := e.extractToolCalls(map[string]interface{}{})

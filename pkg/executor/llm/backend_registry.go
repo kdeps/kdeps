@@ -47,6 +47,7 @@ var defaultRegistryBackends = []Backend{
 	&ErnieBackend{},
 	&BedrockBackend{},
 	&WatsonXBackend{},
+	&M365Backend{},
 }
 
 // DefaultRegistryBackendNames returns registered backend names in registration order.

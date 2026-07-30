@@ -283,6 +283,44 @@ llm:
 
 Model names use the `provider/model` format, e.g. `openai/gpt-4o`, `anthropic/claude-3.5-sonnet`, `meta-llama/llama-3.1-70b-instruct`. See [openrouter.ai/models](https://openrouter.ai/models) for the full list.
 
+### M365 Copilot
+
+Talks to Microsoft 365 Copilot's chat service - a SignalR-over-WebSocket API, not
+a REST endpoint. kdeps runs a small local OpenAI-compatible server in front of it
+(`m365` backend), so it plugs into the same `chat:` resource and agent-loop paths
+as any other provider.
+
+```yaml
+# ~/.kdeps/config.yaml
+llm:
+  backend: m365
+```
+
+There is no `api_key` field - authentication is a signed-in Microsoft 365
+account, not an API key:
+
+- **Cached session (recommended for interactive use):** sign in once via a
+  browser; kdeps caches the refresh token at `~/.config/kdeps/m365/token-cache.json`
+  and refreshes it silently after that.
+- **Headless hosts (CI, servers):** provide `~/.config/kdeps/m365/secrets.json`
+  with `{"email": "...", "password": "...", "mfaSecret": "..."}` (a TOTP seed,
+  not a one-time code). kdeps drives a headless Chromium login when no cached
+  token is available.
+
+Override paths with `M365_CACHE_FILE`, `M365_SECRETS_FILE`, and
+`M365_BROWSER_PROFILE`. Tool calling routes through an auto-provisioned Copilot
+Studio agent unless the resolved model tone is a `Claude_*` tone, in which case
+kdeps stays agent-less to preserve that tone (attaching an agent forces GPT-5).
+
+| Model | Description |
+|-------|-------------|
+| `m365-copilot` | Default - service picks the model |
+| `quick` | Fast, lower-latency responses |
+| `think-deeper` | Extended reasoning |
+| `claude-sonnet` | Claude Sonnet via M365 |
+| `claude-opus` | Claude Opus via M365 |
+| `gpt-5.5`, `gpt-5.4`, `gpt-5.3`, `gpt-5.2` | GPT-5.x family, `-quick`/`-think-deeper` variants |
+
 ## Self-Hosted Solutions
 
 kdeps works with any self-hosted solution that implements the OpenAI API: vLLM, Text Generation Inference (TGI), LocalAI, LlamaCpp Server.

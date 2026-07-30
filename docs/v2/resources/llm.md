@@ -300,6 +300,16 @@ chat:
 
 </div>
 
+### Tool Loop Behavior
+
+kdeps runs the tool loop one call at a time, regardless of backend: if a model
+returns several tool calls in one turn, only the first is executed. A batched
+call is executed on state the model only guessed at - it never saw the earlier
+calls' real results - so trimming to one call per turn forces a real
+step-by-step loop where each call reacts to the previous tool's actual output.
+Set `KDEPS_ALLOW_MULTI_TOOL=1` to restore batched execution. `maxToolRounds` on
+the `chat:` resource still bounds how many one-at-a-time rounds the loop runs.
+
 ### Component Tools (Opt-In Allowlist)
 
 Expose installed components as LLM function-calling tools:
