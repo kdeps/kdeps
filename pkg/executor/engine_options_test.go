@@ -20,6 +20,7 @@ package executor
 
 import (
 	"errors"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"testing"
@@ -66,4 +67,21 @@ func TestSetNewExecutionContextForAgency_CreateError(t *testing.T) {
 	e.SetNewExecutionContextForAgency(map[string]string{"a": "/tmp"})
 	_, err := e.newExecutionContext(&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "t"}}, "sess")
 	require.Error(t, err)
+}
+
+type stubAgentMemoryStore struct{}
+
+func (stubAgentMemoryStore) Set(string, string) error         { return nil }
+func (stubAgentMemoryStore) Get(string) (string, bool)        { return "", false }
+func (stubAgentMemoryStore) Delete(string) error              { return nil }
+func (stubAgentMemoryStore) List() []AgentMemoryEntry         { return nil }
+func (stubAgentMemoryStore) Search(string) []AgentMemoryEntry { return nil }
+func (stubAgentMemoryStore) Save() error                      { return nil }
+
+func TestSetAgentMemoryStore(t *testing.T) {
+	e := NewEngine(slog.Default())
+	e.SetAgentMemoryStore(stubAgentMemoryStore{})
+	if e.agentMemoryStore == nil {
+		t.Fatal("store not set")
+	}
 }
