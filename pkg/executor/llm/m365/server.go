@@ -80,7 +80,7 @@ func (r *chatRequest) parsedToolChoice() *ToolChoice {
 		} `json:"function"`
 	}
 	if json.Unmarshal(r.ToolChoice, &obj) == nil && obj.Function.Name != "" {
-		return &ToolChoice{Mode: "function", FunctionName: obj.Function.Name} //nolint:goconst // JSON/wire literal
+		return &ToolChoice{Mode: "function", FunctionName: obj.Function.Name}
 	}
 	return nil
 }
@@ -136,7 +136,7 @@ func (p *SessionPool) resolve(messages []Message) *conversationState {
 func fingerprint(messages []Message) string {
 	text := ""
 	for _, m := range messages {
-		if m.Role == "user" { //nolint:goconst // JSON/wire literal
+		if m.Role == "user" {
 			text = GetMessageContent(m)
 			break
 		}
@@ -202,7 +202,6 @@ func (s *Server) handleModels(w http.ResponseWriter) {
 	models := AvailableModels()
 	data := make([]map[string]any, 0, len(models))
 	for _, m := range models {
-		//nolint:goconst // JSON/wire literals
 		entry := map[string]any{"id": m, "object": "model", "owned_by": "m365"}
 		data = append(data, entry)
 	}
@@ -485,7 +484,7 @@ func finalizeToolCalls(parsed *ParseResult, fullText string) *produced {
 func replyTextFrom(arguments, fallback string) string {
 	var args map[string]any
 	if json.Unmarshal([]byte(arguments), &args) == nil {
-		for _, k := range []string{"text", "message", "content"} { //nolint:goconst // JSON/wire literals
+		for _, k := range []string{"text", "message", "content"} {
 			if v, ok := args[k].(string); ok && v != "" {
 				return v
 			}
@@ -511,7 +510,7 @@ func (c *completion) run(ctx context.Context, w http.ResponseWriter) {
 				"choices": []any{map[string]any{
 					"index": 0,
 					"message": map[string]any{
-						"role":       "assistant", //nolint:goconst // JSON/wire literal
+						"role":       "assistant",
 						"content":    nil,
 						"tool_calls": toolCallsJSON(p.toolCalls),
 					},
@@ -590,7 +589,6 @@ func (c *completion) runStream(
 	switch p.kind {
 	case producedError:
 		errChunk := copyMap(base)
-		//nolint:goconst // JSON/wire literal
 		errChunk["error"] = map[string]any{"message": p.errMsg, "type": "upstream_error"}
 		send(errChunk)
 	case producedTools:

@@ -229,7 +229,7 @@ func (s *CopilotSession) buildChatArgs(requestID, text, model string, isFirst bo
 			"deviceType":       "desktop",
 		},
 		"message": map[string]any{
-			"author":                "user", //nolint:goconst // JSON/wire literal
+			"author":                "user",
 			"inputMethod":           "Keyboard",
 			"text":                  text,
 			"entityAnnotationTypes": []string{"People", "File", "Event", "Email", "TeamsMessage"},
@@ -282,7 +282,7 @@ func buildSendPayload(args map[string]any) (string, error) {
 		"arguments":    []any{args},
 		"invocationId": "0",
 		"target":       "chat",
-		"type":         frameStreamInvocation, //nolint:goconst // JSON/wire literal
+		"type":         frameStreamInvocation,
 	}
 	ts := nowISO()
 	metrics := map[string]any{

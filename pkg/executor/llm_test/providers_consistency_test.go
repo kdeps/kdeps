@@ -42,7 +42,10 @@ func TestCloudLLMProviders_MatchExecutorRegistry(t *testing.T) {
 	}
 
 	for name := range registry.GetBackendsForTesting() {
-		if name == "ollama" || name == "file" || name == "gguf" {
+		// ollama/file/gguf are local backends with no API key; m365
+		// authenticates via a browser-login-cached token, not an api_key
+		// config field, so it is a local-server-backed backend too.
+		if name == "ollama" || name == "file" || name == "gguf" || name == "m365" {
 			continue
 		}
 		assert.True(t, configNames[name], "config.CloudLLMProviders missing registry backend %q", name)
@@ -56,4 +59,5 @@ func TestCloudLLMProviders_MatchExecutorRegistry(t *testing.T) {
 	for i, p := range providers {
 		assert.Equal(t, p.Name, names[i+3], "registry registration order mismatch at index %d", i)
 	}
+	assert.Equal(t, "m365", names[len(names)-1], "m365 should be the trailing backend")
 }

@@ -24,7 +24,7 @@ import (
 //nolint:gochecknoglobals // static lookup table, read-only after init
 var modelTones = map[string]string{
 	// Default: let the service pick.
-	"m365-copilot": "auto", //nolint:goconst // JSON/wire literal, not worth a shared const
+	"m365-copilot": "auto",
 
 	// Reasoning depth toggles for the default model.
 	"quick":        "Gpt_Quick",

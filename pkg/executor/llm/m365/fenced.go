@@ -52,7 +52,7 @@ type ToolDef struct {
 
 // bodyParamNames are argument names carried as the free-form fence body.
 //
-//nolint:gochecknoglobals,goconst // static lookup, read-only; JSON/wire literals not worth shared consts
+//nolint:gochecknoglobals // static lookup, read-only
 var bodyParamNames = map[string]bool{
 	"command": true, "content": true, "code": true, "body": true,
 	"script": true, "text": true, "query": true, "input": true,
@@ -74,7 +74,7 @@ var replaceKeys = map[string]bool{
 // shellLangs are fence info-strings that mean "a shell script"; they route to
 // whatever run-a-command tool the caller provided.
 //
-//nolint:gochecknoglobals,goconst // static lookup, read-only; "bash" here is a fence language, not a repeated literal
+//nolint:gochecknoglobals // static lookup, read-only; "bash" here is a fence language, not a repeated literal
 var shellLangs = []string{
 	"bash", "sh", "shell", "zsh", "console",
 	"shell-session", "shellsession", "shsession",

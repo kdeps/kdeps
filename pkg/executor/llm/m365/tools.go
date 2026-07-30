@@ -105,7 +105,7 @@ func formatToolChoiceInstruction(tc *ToolChoice) string {
 		return "\nDo NOT call tools. Text only."
 	case "required":
 		return "\nYou MUST call at least one tool."
-	case "function": //nolint:goconst // JSON/wire literal
+	case "function":
 		if tc.FunctionName != "" {
 			return "\nYou MUST call \"" + tc.FunctionName + "\"."
 		}
