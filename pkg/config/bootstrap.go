@@ -346,9 +346,13 @@ func yamlQuote(s string) string {
 	return `"` + strings.ReplaceAll(s, `"`, `\"`) + `"`
 }
 
+// dirOf returns the parent directory of path, recognizing both "/" and "\"
+// as separators regardless of host OS: config paths in this package may
+// come from user-supplied YAML written with either convention, not just
+// os.PathSeparator (which alone missed forward-slash paths on Windows).
 func dirOf(path string) string {
 	for i := len(path) - 1; i >= 0; i-- {
-		if path[i] == os.PathSeparator {
+		if path[i] == '/' || path[i] == '\\' {
 			return path[:i]
 		}
 	}
