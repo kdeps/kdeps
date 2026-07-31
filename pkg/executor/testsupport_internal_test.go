@@ -111,7 +111,14 @@ type failDotEnvCloser struct {
 	*os.File
 }
 
-func (f *failDotEnvCloser) Close() error { return errors.New("close fail") }
+// Close closes the real handle before returning the injected error, so the
+// underlying file isn't left open (Windows can't remove a still-open file
+// during TempDir cleanup; POSIX tolerates it, which is why this went
+// unnoticed until Windows CI existed).
+func (f *failDotEnvCloser) Close() error {
+	_ = f.File.Close()
+	return errors.New("close fail")
+}
 
 // sanity: ensure reflect import used
 func TestCovReflectUsed(t *testing.T) {
