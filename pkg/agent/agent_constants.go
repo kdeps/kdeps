@@ -81,3 +81,9 @@ const toolParamURL = "url"
 
 // Memory prompt constants.
 const memoryPromptLimit = 500
+
+// memoryKeysListLimit caps how many key names the <memory-keys> preamble block
+// lists. Without a cap, a store with thousands of entries would dump every key
+// into the system prompt on every session — RecentKeys instead shows the most
+// recently updated entries and a count of how many more exist.
+const memoryKeysListLimit = 100

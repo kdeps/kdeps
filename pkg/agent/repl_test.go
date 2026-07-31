@@ -2631,6 +2631,74 @@ func TestBuildSystemPreamble_SmallContext_NoSystemPrompt(t *testing.T) {
 	assert.NotContains(t, preamble, "SKILL")
 }
 
+// --- buildSystemPreamble memory rules: always sent, never turo-reduced ---
+
+func TestBuildSystemPreamble_MemoryRulesSurviveVerbatim(t *testing.T) {
+	loop := makeTestLoop(nil)
+	loop.memoryStore = NewMemoryStore(t.TempDir())
+
+	preamble := loop.buildSystemPreamble("")
+
+	// Byte-for-byte: turoReduce must never see this text, so mechanical
+	// rewriting (filler removal, synonym substitution) cannot have touched it.
+	assert.Contains(t, preamble, "MANDATORY RULE #1 — Check memory before every action.")
+	assert.Contains(t, preamble, "FAILURE TO CHECK MEMORY FIRST IS A BUG.")
+	assert.Contains(t, preamble, "MANDATORY RULE #2 — Save memory after every turn.")
+	assert.Contains(t, preamble, "FAILURE TO SAVE MEMORY AFTER A TURN IS A BUG.")
+}
+
+func TestBuildSystemPreamble_MemoryRulesSurviveSmallContext(t *testing.T) {
+	loop := makeTestLoop(nil)
+	loop.memoryStore = NewMemoryStore(t.TempDir())
+	loop.skills = "LARGE SKILL BLOCK"
+	loop.config.CompactTokenBudget = 4096 // < smallContext (8192): skills get stripped
+
+	preamble := loop.buildSystemPreamble("")
+
+	assert.NotContains(t, preamble, "LARGE SKILL BLOCK")
+	// Memory rules are not "non-essential" content — they must still be sent
+	// even when the context budget is too small for skills.
+	assert.Contains(t, preamble, "MANDATORY RULE #1")
+	assert.Contains(t, preamble, "MANDATORY RULE #2")
+}
+
+func TestBuildSystemPreamble_NoMemoryStoreOmitsRules(t *testing.T) {
+	loop := makeTestLoop(nil) // memoryStore left nil
+	preamble := loop.buildSystemPreamble("")
+	assert.NotContains(t, preamble, "MANDATORY RULE")
+}
+
+// TestBuildSystemPreamble_MemoryKeysCapped guards against dumping every stored
+// key into the system prompt: with more entries than memoryKeysListLimit, the
+// <memory-keys> block must stay capped and say how many more exist, not grow
+// unboundedly with the store.
+func TestBuildSystemPreamble_MemoryKeysCapped(t *testing.T) {
+	loop := makeTestLoop(nil)
+	store := NewMemoryStore(t.TempDir())
+	store.SetCwd("/tmp/memory-keys-cap-test")
+	loop.memoryStore = store
+
+	total := memoryKeysListLimit + 25
+	for i := range total {
+		require.NoError(t, store.Set(fmt.Sprintf("key-%04d", i), "value"))
+	}
+
+	preamble := loop.buildSystemPreamble("")
+
+	// Scope the count to the <memory-keys> block itself — FormatForPrompt's
+	// own recent-entries summary also mentions keys and would otherwise
+	// inflate the count.
+	start := strings.Index(preamble, "<memory-keys>")
+	end := strings.Index(preamble, "</memory-keys>")
+	require.NotEqual(t, -1, start)
+	require.NotEqual(t, -1, end)
+	block := preamble[start:end]
+
+	shown := strings.Count(block, "\nkey-")
+	assert.LessOrEqual(t, shown, memoryKeysListLimit, "memory-keys block must be capped")
+	assert.Contains(t, block, fmt.Sprintf("... and %d more", total-memoryKeysListLimit))
+}
+
 // --- SetModelTypes / SetCloudModelBackends / SetModelPickerFn ---
 
 func TestSetModelTypes(t *testing.T) {

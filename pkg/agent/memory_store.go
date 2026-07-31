@@ -336,6 +336,35 @@ func (m *MemoryStore) List() []MemoryEntry {
 	return entries
 }
 
+// RecentKeys returns up to limit key names, most-recently-updated first, along
+// with the total number of stored entries (which may exceed limit). A store
+// can accumulate thousands of entries over a long-lived session; dumping every
+// key into the system prompt (as <memory-keys> once did) would consume tens of
+// thousands of tokens on every rebuild. limit <= 0 means no cap.
+func (m *MemoryStore) RecentKeys(limit int) (keys []string, total int) {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+	if m.path == "" {
+		return nil, 0
+	}
+	entries := make([]MemoryEntry, 0, len(m.entries))
+	for _, e := range m.entries {
+		entries = append(entries, e)
+	}
+	total = len(entries)
+	sort.Slice(entries, func(i, j int) bool {
+		return entries[i].UpdatedAt > entries[j].UpdatedAt
+	})
+	if limit > 0 && len(entries) > limit {
+		entries = entries[:limit]
+	}
+	keys = make([]string, len(entries))
+	for i, e := range entries {
+		keys[i] = e.Key
+	}
+	return keys, total
+}
+
 // Search returns entries where the query matches (case-insensitive) in the key or value.
 // Returns nil when cwd has not been set.
 func (m *MemoryStore) Search(query string) []MemoryEntry {

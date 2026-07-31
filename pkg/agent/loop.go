@@ -2131,21 +2131,36 @@ func (l *Loop) buildSystemPreamble(focus string) string {
 	limit := l.preambleLimit()
 	var parts []string
 
-	// MANDATORY MEMORY RULES go FIRST — before skills, instructions, or any
-	// other content. The LLM must see these before anything else.
+	// MANDATORY MEMORY RULES are built separately from the rest of the
+	// preamble and never passed through turoReduce below: turo's lexical
+	// rewriting (filler removal, synonym substitution) can mangle directive
+	// language like "MANDATORY RULE" or "IS A BUG", and this text is the core
+	// multi-model reliability mechanism, so it must survive byte-for-byte.
+	// It is also excluded from the small-context truncation further down, so
+	// it is always sent regardless of context budget. The preamble is cached
+	// once per session (cachedSystemPreamble), so keeping it unreduced costs
+	// nothing extra in steady state — it is the single most token-efficient
+	// way to send it: once, verbatim, never recomputed.
+	var memoryParts []string
 	if l.memoryStore != nil {
-		parts = append(parts, l.memoryRulesPreamble()...)
+		memoryParts = append(memoryParts, l.memoryRulesPreamble()...)
 		if memPrompt := l.memoryStore.FormatForPrompt(memoryPromptLimit, focus); memPrompt != "" {
-			parts = append(parts, memPrompt)
+			memoryParts = append(memoryParts, memPrompt)
 		}
 		// Mechanical memory_list: inject the current key list so the LLM
-		// knows what's stored without having to call memory_list itself.
-		if keys := l.memoryStore.List(); len(keys) > 0 {
-			var keyNames []string
-			for _, e := range keys {
-				keyNames = append(keyNames, e.Key)
+		// knows what's stored without having to call memory_list itself. Capped
+		// and recency-ordered — with thousands of entries the full list alone
+		// could be tens of thousands of tokens; memory_search covers the rest.
+		if keyNames, total := l.memoryStore.RecentKeys(memoryKeysListLimit); len(keyNames) > 0 {
+			block := "<memory-keys>\n" + strings.Join(keyNames, "\n")
+			if total > len(keyNames) {
+				block += fmt.Sprintf(
+					"\n... and %d more (use memory_search to find older entries)",
+					total-len(keyNames),
+				)
 			}
-			parts = append(parts, "<memory-keys>\n"+strings.Join(keyNames, "\n")+"\n</memory-keys>")
+			block += "\n</memory-keys>"
+			memoryParts = append(memoryParts, block)
 		}
 	}
 
@@ -2187,6 +2202,16 @@ func (l *Loop) buildSystemPreamble(focus string) string {
 		}
 	}
 	preamble = turoReduce(context.Background(), preamble)
+
+	// Re-attach the memory rules, untouched by turoReduce and unaffected by the
+	// small-context truncation above, so they are always sent intact.
+	if memorySection := strings.Join(memoryParts, "\n\n"); memorySection != "" {
+		if preamble != "" {
+			preamble = memorySection + "\n\n" + preamble
+		} else {
+			preamble = memorySection
+		}
+	}
 	// Prepend the current date verbatim (after reduction, so it is never
 	// mangled) so the model can reason about "today", recent events, and
 	// relative dates. Captured when the preamble is first built for the session.
