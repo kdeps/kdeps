@@ -18,6 +18,7 @@ import (
 	"context"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 	"time"
@@ -26,9 +27,18 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// writeTestScript writes an executable shell script and returns its path.
+// writeTestScript writes an executable script and returns its path. exec.Run
+// invokes the returned path directly (not through a shell), so on Windows a
+// #!/bin/sh script isn't runnable: it has no shebang interpretation and no
+// recognized executable extension. Write a .bat there instead -- body is
+// kept to portable one-liners like "exit 0" that work unchanged in both.
 func writeTestScript(t *testing.T, dir, name, body string) string {
 	t.Helper()
+	if runtime.GOOS == "windows" {
+		path := filepath.Join(dir, name+".bat")
+		require.NoError(t, os.WriteFile(path, []byte("@echo off\r\n"+body+"\r\n"), 0o755))
+		return path
+	}
 	path := filepath.Join(dir, name)
 	require.NoError(t, os.WriteFile(path, []byte("#!/bin/sh\n"+body+"\n"), 0o755))
 	return path
@@ -129,6 +139,9 @@ func TestExecutor_Run_Success(t *testing.T) {
 }
 
 func TestExecutor_ExportK8s_WriteWorkflowError(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("mkdir mode does not enforce POSIX permission bits on Windows")
+	}
 	out := &strings.Builder{}
 	exec := NewExecutor(out, out)
 
@@ -150,6 +163,9 @@ func TestExecutor_ExportK8s_WriteWorkflowError(t *testing.T) {
 }
 
 func TestExecutor_Run_WriteWorkflowError(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("mkdir mode does not enforce POSIX permission bits on Windows")
+	}
 	out := &strings.Builder{}
 	exec := NewExecutor(out, out)
 
