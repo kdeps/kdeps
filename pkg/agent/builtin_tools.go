@@ -150,14 +150,15 @@ func registerCalculator(ctx context.Context, reg *kdepstools.Registry) {
 const maxFileReadBytes = 1 << 20 // 1 MB
 
 // requireAbsFilePath extracts the "file_path" arg, checks it is non-empty and
-// begins with "/" (absolute), and rejects root-directory targets. Used by
-// file-operating tools that share this guard.
+// absolute, and rejects root-directory targets. Used by file-operating tools
+// that share this guard. filepath.IsAbs (not a "/" prefix check) so a
+// Windows drive-letter path like "C:\Users\..." is recognized as absolute.
 func requireAbsFilePath(toolName string, args map[string]any) (string, error) {
 	filePath, _ := args["file_path"].(string)
 	if filePath == "" {
 		return "", fmt.Errorf("%s: file_path is required", toolName)
 	}
-	if !strings.HasPrefix(filePath, "/") {
+	if !filepath.IsAbs(filePath) {
 		return "", fmt.Errorf("%s: absolute path required", toolName)
 	}
 	if err := ValidateRootPath(filePath); err != nil {
@@ -510,7 +511,7 @@ func registerListFiles(reg *kdepstools.Registry) {
 			if dirPath == "" {
 				return "", errors.New("list_files: path is required")
 			}
-			if !strings.HasPrefix(dirPath, "/") {
+			if !filepath.IsAbs(dirPath) {
 				return "", errors.New("list_files: absolute path required")
 			}
 			if err := ValidateRootPath(dirPath); err != nil {

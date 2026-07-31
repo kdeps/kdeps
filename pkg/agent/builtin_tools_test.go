@@ -1937,7 +1937,7 @@ func TestReadFile_Directory(t *testing.T) {
 	RegisterBuiltinTools(context.Background(), reg)
 	tool := reg.Get("read_file")
 	require.NotNil(t, tool)
-	_, err := tool.Execute(map[string]any{"file_path": "/tmp"})
+	_, err := tool.Execute(map[string]any{"file_path": t.TempDir()})
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "is a directory")
 }
@@ -2143,7 +2143,7 @@ func TestWriteFile_Directory(t *testing.T) {
 	RegisterBuiltinTools(context.Background(), reg)
 	tool := reg.Get("write_file")
 	require.NotNil(t, tool)
-	_, err := tool.Execute(map[string]any{"file_path": "/tmp", "content": "data"})
+	_, err := tool.Execute(map[string]any{"file_path": t.TempDir(), "content": "data"})
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "is a directory")
 }
@@ -2869,13 +2869,14 @@ func TestReadFile_WorkspaceBoundary_Allowed(t *testing.T) {
 func TestReadFile_WorkspaceBoundary_Denied(t *testing.T) {
 	dir := t.TempDir()
 	t.Setenv("KDEPS_WORKSPACE_ROOT", dir)
+	outside := filepath.Join(t.TempDir(), "hostname")
 
 	reg := kdepstools.NewRegistry()
 	RegisterBuiltinTools(context.Background(), reg)
 	tool := reg.Get("read_file")
 	require.NotNil(t, tool)
 
-	_, err := tool.Execute(map[string]any{"file_path": "/etc/hostname"})
+	_, err := tool.Execute(map[string]any{"file_path": outside})
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "escapes workspace root")
 }
@@ -2883,6 +2884,7 @@ func TestReadFile_WorkspaceBoundary_Denied(t *testing.T) {
 func TestWriteFile_WorkspaceBoundary_Denied(t *testing.T) {
 	dir := t.TempDir()
 	t.Setenv("KDEPS_WORKSPACE_ROOT", dir)
+	outside := filepath.Join(t.TempDir(), "escaped-file.txt")
 
 	reg := kdepstools.NewRegistry()
 	RegisterBuiltinTools(context.Background(), reg)
@@ -2890,7 +2892,7 @@ func TestWriteFile_WorkspaceBoundary_Denied(t *testing.T) {
 	require.NotNil(t, tool)
 
 	_, err := tool.Execute(map[string]any{
-		"file_path": "/tmp/escaped-file.txt",
+		"file_path": outside,
 		"content":   "data",
 	})
 	assert.Error(t, err)
@@ -2900,6 +2902,7 @@ func TestWriteFile_WorkspaceBoundary_Denied(t *testing.T) {
 func TestEditFile_WorkspaceBoundary_Denied(t *testing.T) {
 	dir := t.TempDir()
 	t.Setenv("KDEPS_WORKSPACE_ROOT", dir)
+	outside := filepath.Join(t.TempDir(), "escaped-file.txt")
 
 	reg := kdepstools.NewRegistry()
 	RegisterBuiltinTools(context.Background(), reg)
@@ -2907,7 +2910,7 @@ func TestEditFile_WorkspaceBoundary_Denied(t *testing.T) {
 	require.NotNil(t, tool)
 
 	_, err := tool.Execute(map[string]any{
-		"file_path":  "/tmp/escaped-file.txt",
+		"file_path":  outside,
 		"old_string": "x",
 		"new_string": "y",
 	})
