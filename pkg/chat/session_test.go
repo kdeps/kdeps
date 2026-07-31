@@ -29,6 +29,7 @@ import (
 func TestNewSession(t *testing.T) {
 	tmp := t.TempDir()
 	t.Setenv("HOME", tmp)
+	t.Setenv("USERPROFILE", tmp)
 
 	s, err := NewSession()
 	require.NoError(t, err)
@@ -100,6 +101,7 @@ func TestSession_SaveTo_NoWorkflow(t *testing.T) {
 func TestSession_SaveHistory_And_Load(t *testing.T) {
 	tmp := t.TempDir()
 	t.Setenv("HOME", tmp)
+	t.Setenv("USERPROFILE", tmp)
 
 	s, err := NewSession()
 	require.NoError(t, err)
@@ -117,6 +119,7 @@ func TestSession_SaveHistory_And_Load(t *testing.T) {
 func TestLoadSession_NotFound(t *testing.T) {
 	tmp := t.TempDir()
 	t.Setenv("HOME", tmp)
+	t.Setenv("USERPROFILE", tmp)
 	_, err := LoadSession("nonexistent-session")
 	assert.Error(t, err)
 }
@@ -223,6 +226,7 @@ func TestLoadSession_CorruptHistory(t *testing.T) {
 	tmp := t.TempDir()
 	t.Setenv("HOME", tmp)
 
+	t.Setenv("USERPROFILE", tmp)
 	sessionID := "test-corrupt-history"
 	sessionDir := filepath.Join(tmp, ".kdeps", "chat-sessions", sessionID)
 	require.NoError(t, os.MkdirAll(sessionDir, 0o700))
