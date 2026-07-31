@@ -41,7 +41,9 @@ func TestKnownCloudModels_AllFieldsSet(t *testing.T) {
 		if m.Desc == "" {
 			t.Errorf("model %q has empty Desc", m.ID)
 		}
-		if m.EnvVar == "" {
+		// m365 authenticates via a browser-login-cached token, not an API key
+		// env var, so it legitimately has no EnvVar (see BuildProviderStatus).
+		if m.EnvVar == "" && m.Backend != backendM365 {
 			t.Errorf("model %q has empty EnvVar", m.ID)
 		}
 		if m.ContextWindow == 0 {
@@ -138,6 +140,15 @@ func TestBuildProviderStatus_CoversAllBackends(t *testing.T) {
 		if _, ok := status[m.Backend]; !ok {
 			t.Errorf("BuildProviderStatus missing backend %q", m.Backend)
 		}
+	}
+}
+
+// m365 authenticates via a browser-login-cached token, not an API key env var,
+// so its models must always show as ready regardless of environment state.
+func TestBuildProviderStatus_M365AlwaysReady(t *testing.T) {
+	status := BuildProviderStatus()
+	if !status[backendM365] {
+		t.Error("expected m365 to always be ready (it has no EnvVar)")
 	}
 }
 

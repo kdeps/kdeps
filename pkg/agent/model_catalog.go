@@ -245,6 +245,83 @@ var KnownCloudModels = []CloudModel{
 		Desc: "fast with web search", EnvVar: "PERPLEXITY_API_KEY",
 		ContextWindow: ctxPerplexity, MaxOutputTokens: outDefault,
 	},
+	// M365 Copilot. Authenticates via a browser-login-cached token, not an API
+	// key env var (EnvVar left empty; BuildProviderStatus and
+	// TestKnownCloudModels_AllFieldsSet both special-case backend == m365 for
+	// that reason). The service doesn't publish exact context/output limits, so
+	// these use conservative estimates matching the underlying model family.
+	{
+		ID: "m365-copilot", Backend: backendM365, Desc: "default - service picks the model",
+		ContextWindow: ctxOpenAI128k, MaxOutputTokens: outOpenAI,
+	},
+	{
+		ID: "quick", Backend: backendM365, Desc: "fast, lower-latency responses",
+		ContextWindow: ctxOpenAI128k, MaxOutputTokens: outOpenAI,
+	},
+	{
+		ID: "think-deeper", Backend: backendM365, Desc: "extended reasoning", SupportsThinking: true,
+		ContextWindow: ctxOpenAI128k, MaxOutputTokens: outOpenAI,
+	},
+	{
+		ID: "claude-sonnet", Backend: backendM365, Desc: "Claude Sonnet via M365",
+		ContextWindow: ctxAnthropic200k, MaxOutputTokens: outAnthropic64k,
+	},
+	{
+		ID: "claude-sonnet-think-deeper", Backend: backendM365, Desc: "Claude Sonnet, extended reasoning",
+		SupportsThinking: true, ContextWindow: ctxAnthropic200k, MaxOutputTokens: outAnthropic64k,
+	},
+	{
+		ID: "claude-opus", Backend: backendM365, Desc: "Claude Opus via M365",
+		ContextWindow: ctxAnthropic200k, MaxOutputTokens: outAnthropic128k,
+	},
+	{
+		ID: "gpt-5.5", Backend: backendM365, Desc: "GPT-5.5",
+		ContextWindow: ctxOpenAI200k, MaxOutputTokens: outOpenAI,
+	},
+	{
+		ID: "gpt-5.5-quick", Backend: backendM365, Desc: "GPT-5.5, fast",
+		ContextWindow: ctxOpenAI200k, MaxOutputTokens: outOpenAI,
+	},
+	{
+		ID: "gpt-5.5-think-deeper", Backend: backendM365, Desc: "GPT-5.5, extended reasoning", SupportsThinking: true,
+		ContextWindow: ctxOpenAI200k, MaxOutputTokens: outOpenAI,
+	},
+	{
+		ID: "gpt-5.4", Backend: backendM365, Desc: "GPT-5.4", SupportsThinking: true,
+		ContextWindow: ctxOpenAI200k, MaxOutputTokens: outOpenAI,
+	},
+	{
+		ID: "gpt-5.4-quick", Backend: backendM365, Desc: "GPT-5.4, fast",
+		ContextWindow: ctxOpenAI200k, MaxOutputTokens: outOpenAI,
+	},
+	{
+		ID: "gpt-5.4-think-deeper", Backend: backendM365, Desc: "GPT-5.4, extended reasoning", SupportsThinking: true,
+		ContextWindow: ctxOpenAI200k, MaxOutputTokens: outOpenAI,
+	},
+	{
+		ID: "gpt-5.3", Backend: backendM365, Desc: "GPT-5.3",
+		ContextWindow: ctxOpenAI128k, MaxOutputTokens: outOpenAI,
+	},
+	{
+		ID: "gpt-5.3-quick", Backend: backendM365, Desc: "GPT-5.3, fast",
+		ContextWindow: ctxOpenAI128k, MaxOutputTokens: outOpenAI,
+	},
+	{
+		ID: "gpt-5.3-think-deeper", Backend: backendM365, Desc: "GPT-5.3, extended reasoning", SupportsThinking: true,
+		ContextWindow: ctxOpenAI128k, MaxOutputTokens: outOpenAI,
+	},
+	{
+		ID: "gpt-5.2", Backend: backendM365, Desc: "GPT-5.2",
+		ContextWindow: ctxOpenAI128k, MaxOutputTokens: outOpenAI,
+	},
+	{
+		ID: "gpt-5.2-quick", Backend: backendM365, Desc: "GPT-5.2, fast",
+		ContextWindow: ctxOpenAI128k, MaxOutputTokens: outOpenAI,
+	},
+	{
+		ID: "gpt-5.2-think-deeper", Backend: backendM365, Desc: "GPT-5.2, extended reasoning", SupportsThinking: true,
+		ContextWindow: ctxOpenAI128k, MaxOutputTokens: outOpenAI,
+	},
 }
 
 // ModelSupportsThinking returns true when the model is known to support extended
@@ -312,7 +389,9 @@ func CloudModelIDs() []string {
 }
 
 // BuildProviderStatus returns a map from backend name to true when that
-// provider's API key env var is set to a non-empty value.
+// provider is usable: either its API key env var is set to a non-empty value,
+// or the model declares no EnvVar at all (e.g. m365, which authenticates via a
+// browser-login-cached token rather than an API key).
 func BuildProviderStatus() map[string]bool {
 	seen := make(map[string]bool)
 	status := make(map[string]bool)
@@ -321,6 +400,10 @@ func BuildProviderStatus() map[string]bool {
 			continue
 		}
 		seen[m.Backend] = true
+		if m.EnvVar == "" {
+			status[m.Backend] = true
+			continue
+		}
 		status[m.Backend] = os.Getenv(m.EnvVar) != ""
 	}
 	return status

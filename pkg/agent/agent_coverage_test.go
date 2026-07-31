@@ -813,13 +813,15 @@ func TestDetectDefaultModelAndBackend_NeitherFound(t *testing.T) {
 	// t.Setenv requires no t.Parallel()
 	t.Setenv("PATH", "")
 	t.Setenv("KDEPS_MODELS_DIR", "/nonexistent-models-dir-for-test-xyz")
-	// Clear all distinct known cloud model env vars
+	// Clear all distinct known cloud model env vars. Skip models with no
+	// EnvVar (e.g. m365, which authenticates via browser login, not a key).
 	cleared := map[string]bool{}
 	for _, m := range KnownCloudModels {
-		if !cleared[m.EnvVar] {
-			cleared[m.EnvVar] = true
-			t.Setenv(m.EnvVar, "")
+		if m.EnvVar == "" || cleared[m.EnvVar] {
+			continue
 		}
+		cleared[m.EnvVar] = true
+		t.Setenv(m.EnvVar, "")
 	}
 
 	model, backend := detectDefaultModelAndBackend()
@@ -840,7 +842,7 @@ func TestDetectDefaultModelAndBackend_CloudKeySet(t *testing.T) {
 	m := KnownCloudModels[0]
 	t.Setenv(m.EnvVar, "test-api-key-value")
 	for _, other := range KnownCloudModels[1:] {
-		if other.EnvVar != m.EnvVar {
+		if other.EnvVar != "" && other.EnvVar != m.EnvVar {
 			t.Setenv(other.EnvVar, "")
 		}
 	}

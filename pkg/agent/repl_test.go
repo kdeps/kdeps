@@ -4792,6 +4792,9 @@ func TestDetectDefaultModelAndBackend_OnlyUnloadableGGUF(t *testing.T) {
 	t.Setenv("KDEPS_MODELS_DIR", dir)
 	t.Setenv("PATH", t.TempDir())
 	for _, m := range KnownCloudModels {
+		if m.EnvVar == "" {
+			continue
+		}
 		t.Setenv(m.EnvVar, "")
 	}
 
@@ -4847,6 +4850,9 @@ func TestDetectDefaultModelAndBackend_FallbackDefault(t *testing.T) {
 	t.Setenv("KDEPS_MODELS_DIR", t.TempDir()) // empty dir
 	// Clear all cloud API key env vars.
 	for _, m := range KnownCloudModels {
+		if m.EnvVar == "" {
+			continue
+		}
 		t.Setenv(m.EnvVar, "")
 	}
 	model, backend := detectDefaultModelAndBackend()
@@ -4857,6 +4863,9 @@ func TestDetectDefaultModelAndBackend_FallbackDefault(t *testing.T) {
 func TestDetectDefaultModelAndBackend_OllamaPath(t *testing.T) {
 	// Force Priority 4 (ollama): block llamafile, gguf, and cloud keys.
 	for _, m := range KnownCloudModels {
+		if m.EnvVar == "" {
+			continue
+		}
 		t.Setenv(m.EnvVar, "")
 	}
 	t.Setenv("KDEPS_MODELS_DIR", t.TempDir()) // empty - no .gguf
