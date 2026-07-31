@@ -30,6 +30,7 @@ import (
 	"os/signal"
 	"path/filepath"
 	"regexp"
+	"runtime"
 	"slices"
 	"sort"
 	"strconv"
@@ -1926,6 +1927,16 @@ func (r *REPL) withCookedTerminal(fn func() error, onSuspend func()) (bool, erro
 	return interrupted.Load(), err
 }
 
+// newShellCommand builds the shell invocation for "! <cmd>" / "!! <cmd>".
+// Windows has no bash on PATH by default, so it runs through cmd.exe instead;
+// everywhere else keeps the existing bash -c invocation.
+func newShellCommand(ctx context.Context, cmd string) *exec.Cmd {
+	if runtime.GOOS == "windows" {
+		return exec.CommandContext(ctx, "cmd", "/C", cmd)
+	}
+	return exec.CommandContext(ctx, "bash", "-c", cmd)
+}
+
 func (r *REPL) execBangCommand(cmd string, excludeFromContext bool) error {
 	start := time.Now()
 	tracker := newLastLineTracker(start)
@@ -1934,7 +1945,7 @@ func (r *REPL) execBangCommand(cmd string, excludeFromContext bool) error {
 	mw := newMonitoredWriter(os.Stdout, tracker)
 
 	var outBuf, errBuf bytes.Buffer
-	shell := exec.CommandContext(r.ctx, "bash", "-c", cmd)
+	shell := newShellCommand(r.ctx, cmd)
 	// Tee stdout/stderr to terminal AND capture for LLM context.
 	shell.Stdout = io.MultiWriter(mw, &outBuf)
 	shell.Stderr = io.MultiWriter(mw, &errBuf)

@@ -202,6 +202,36 @@ jobs:
       env:
         KDEPS_E2E_LLAMAFILE_DOWNLOAD: "1"
 
+  test-windows:
+    # Proves the Windows release binary actually builds and its unit tests
+    # pass natively, not just that it cross-compiles. Scoped to unit tests
+    # only (./pkg/... ./cmd/... ./) -- integration/e2e need ollama, uv, and
+    # Docker ported to Windows first (tracked separately, not yet done).
+    runs-on: windows-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Set up Go
+        uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6
+        with:
+          go-version-file: 'go.mod'
+
+      - name: Build
+        shell: bash
+        run: go build ./...
+
+      - name: Vet
+        shell: bash
+        run: go vet ./...
+
+      - name: Test Unit
+        shell: bash
+        env:
+          KDEPS_MEMORY_DB_PATH: ":memory:"
+        run: go test -short -parallel 1 -count=1 -timeout=20m ./pkg/... ./cmd/... ./
+
   coverage-badge:
     needs: test
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'

@@ -1684,8 +1684,9 @@ func TestResolveOutputFile_DefaultDirMkdirError(t *testing.T) {
 	tmpDir := t.TempDir()
 	// Make the parent read-only so MkdirAll fails inside it.
 	require.NoError(t, os.Chmod(tmpDir, 0o444))
+	orig := defaultScreenshotDir
 	defaultScreenshotDir = filepath.Join(tmpDir, "kdeps-browser")
-	t.Cleanup(func() { defaultScreenshotDir = "/tmp/kdeps-browser" })
+	t.Cleanup(func() { defaultScreenshotDir = orig })
 
 	_, err := resolveOutputFile("")
 	require.Error(t, err)

@@ -27,6 +27,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"runtime"
 	"syscall"
 	"testing"
 	"time"
@@ -144,6 +145,53 @@ func TestStartLlamafileServer_MissingShell(t *testing.T) {
 	_, err := startLlamafileServer("/nonexistent/model.llamafile", 1)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "failed to start llamafile server")
+}
+
+func TestEnsureExecutableExtension_AlreadyExe(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "model.exe")
+	got, err := ensureExecutableExtension(path)
+	require.NoError(t, err)
+	assert.Equal(t, path, got)
+}
+
+func TestEnsureExecutableExtension_CopiesOnce(t *testing.T) {
+	dir := t.TempDir()
+	src := filepath.Join(dir, "model.llamafile")
+	require.NoError(t, os.WriteFile(src, []byte("payload"), 0o755))
+
+	got, err := ensureExecutableExtension(src)
+	require.NoError(t, err)
+	assert.Equal(t, src+".exe", got)
+	data, readErr := os.ReadFile(got)
+	require.NoError(t, readErr)
+	assert.Equal(t, "payload", string(data))
+
+	// Second call finds the existing copy and does not error re-creating it.
+	got2, err2 := ensureExecutableExtension(src)
+	require.NoError(t, err2)
+	assert.Equal(t, got, got2)
+}
+
+func TestEnsureExecutableExtension_MissingSource(t *testing.T) {
+	_, err := ensureExecutableExtension(filepath.Join(t.TempDir(), "nope.llamafile"))
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "failed to open llamafile")
+}
+
+func TestNewLlamafileCommand_NonWindowsUsesShell(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("posix-only assertion")
+	}
+	orig := llamafileShell
+	t.Cleanup(func() { llamafileShell = orig })
+	llamafileShell = "/bin/sh"
+
+	cmd, err := newLlamafileCommand(context.Background(), "/some/model.llamafile", "--server")
+	require.NoError(t, err)
+	require.Len(t, cmd.Args, 3)
+	assert.Equal(t, "/bin/sh", cmd.Args[0])
+	assert.Equal(t, "/some/model.llamafile", cmd.Args[1])
+	assert.Equal(t, "--server", cmd.Args[2])
 }
 
 func TestServeModel_FileBackend(t *testing.T) {

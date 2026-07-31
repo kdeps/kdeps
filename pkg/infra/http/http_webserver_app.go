@@ -22,6 +22,7 @@ import (
 	"context"
 	"os"
 	"os/exec"
+	"runtime"
 
 	"github.com/kdeps/kdeps/v2/pkg/domain"
 )
@@ -38,7 +39,12 @@ func killProcessIfRunning(cmd *exec.Cmd) error {
 }
 
 func newAppShellCommand(ctx context.Context, workDir, command string) *exec.Cmd {
-	cmd := execCommandContext(ctx, "sh", "-c", command)
+	var cmd *exec.Cmd
+	if runtime.GOOS == "windows" {
+		cmd = execCommandContext(ctx, "cmd", "/C", command)
+	} else {
+		cmd = execCommandContext(ctx, "sh", "-c", command)
+	}
 	cmd.Dir = workDir
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr

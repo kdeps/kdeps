@@ -22,6 +22,8 @@ package browser
 import (
 	"errors"
 	"fmt"
+	"os"
+	"path/filepath"
 	"sync"
 	"time"
 
@@ -45,7 +47,7 @@ const (
 )
 
 //nolint:gochecknoglobals // overridden in tests
-var defaultScreenshotDir = "/tmp/kdeps-browser"
+var defaultScreenshotDir = filepath.Join(os.TempDir(), "kdeps-browser")
 
 type session struct {
 	pw      *playwright.Playwright

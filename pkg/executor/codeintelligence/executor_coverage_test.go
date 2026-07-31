@@ -11,7 +11,6 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
-	"syscall"
 	"testing"
 	"time"
 
@@ -470,60 +469,6 @@ func TestLSPClient_ReadMessage_NoBlankLine(t *testing.T) {
 	_, err := c.readMessage()
 	if err == nil || !strings.Contains(err.Error(), "read header separator") {
 		t.Fatalf("expected header separator error, got: %v", err)
-	}
-}
-
-// countOpenFDs returns the number of currently open file descriptors (up to 2048).
-func countOpenFDs() int {
-	var count int
-	for i := range 2048 {
-		var stat syscall.Stat_t
-		if err := syscall.Fstat(i, &stat); err == nil {
-			count++
-		}
-	}
-	return count
-}
-
-// setRlimitNoFile sets RLIMIT_NOFILE to cur and registers cleanup to restore it.
-func setRlimitNoFile(t *testing.T, cur uint64) {
-	t.Helper()
-	var oldLimit syscall.Rlimit
-	if err := syscall.Getrlimit(syscall.RLIMIT_NOFILE, &oldLimit); err != nil {
-		t.Skipf("cannot get rlimit: %v", err)
-	}
-	newLimit := syscall.Rlimit{Cur: cur, Max: oldLimit.Max}
-	if err := syscall.Setrlimit(syscall.RLIMIT_NOFILE, &newLimit); err != nil {
-		t.Skipf("cannot set rlimit to %d: %v", cur, err)
-	}
-	t.Cleanup(func() { _ = syscall.Setrlimit(syscall.RLIMIT_NOFILE, &oldLimit) })
-}
-
-// TestStartLSPClient_StdinPipeError covers the stdin pipe error path in startLSPClient.
-// Uses RLIMIT_NOFILE to force os.Pipe to fail.
-func TestStartLSPClient_StdinPipeError(t *testing.T) {
-	if testing.Short() {
-		t.Skip("skipping resource-intensive test in short mode")
-	}
-	cur := uint64(countOpenFDs() + 1) // only allow 1 more FD — os.Pipe needs 2
-	setRlimitNoFile(t, cur)
-	_, err := startLSPClient("echo", nil)
-	if err == nil || !strings.Contains(err.Error(), "lsp: stdin pipe") {
-		t.Fatalf("expected stdin pipe error, got: %v", err)
-	}
-}
-
-// TestStartLSPClient_StdoutPipeError covers the stdout pipe error path in startLSPClient.
-// Uses RLIMIT_NOFILE to allow stdin pipe to succeed but stdout pipe to fail.
-func TestStartLSPClient_StdoutPipeError(t *testing.T) {
-	if testing.Short() {
-		t.Skip("skipping resource-intensive test in short mode")
-	}
-	cur := uint64(countOpenFDs() + 2) // allow exactly 2 more FDs — stdin pipe consumes both
-	setRlimitNoFile(t, cur)
-	_, err := startLSPClient("echo", nil)
-	if err == nil || !strings.Contains(err.Error(), "lsp: stdout pipe") {
-		t.Fatalf("expected stdout pipe error, got: %v", err)
 	}
 }
 

@@ -23,6 +23,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"log/slog"
 	"net"
 
@@ -30,6 +31,8 @@ import (
 	"os"
 	"os/exec"
 	"os/signal"
+	"path/filepath"
+	"runtime"
 	"strconv"
 	"strings"
 	"sync"
@@ -321,18 +324,76 @@ var llamafileStartTimeoutFunc = func() time.Duration { //nolint:gochecknoglobals
 	return llamafileStartTimeout
 }
 
+// windowsExeExt is the extension the Windows PE loader requires to run a
+// binary directly; llamafiles ship without it since the APE polyglot format
+// is extension-agnostic on POSIX.
+const windowsExeExt = ".exe"
+
+// ensureExecutableExtension returns a path the Windows loader will execute
+// directly. If path already ends in .exe it is returned unchanged; otherwise
+// a sibling copy with the extension appended is created (once) and returned.
+// Pure file logic, safe to call and test on any OS.
+func ensureExecutableExtension(path string) (string, error) {
+	if strings.EqualFold(filepath.Ext(path), windowsExeExt) {
+		return path, nil
+	}
+	target := path + windowsExeExt
+	if _, statErr := os.Stat(target); statErr == nil {
+		return target, nil
+	}
+	src, openErr := os.Open(path)
+	if openErr != nil {
+		return "", fmt.Errorf("failed to open llamafile for .exe copy: %w", openErr)
+	}
+	defer func() { _ = src.Close() }()
+
+	dst, createErr := os.OpenFile(target, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0o755) //nolint:gosec // executable copy
+	if createErr != nil {
+		return "", fmt.Errorf("failed to create %s: %w", target, createErr)
+	}
+	if _, copyErr := io.Copy(dst, src); copyErr != nil {
+		_ = dst.Close()
+		return "", fmt.Errorf("failed to copy llamafile to %s: %w", target, copyErr)
+	}
+	if closeErr := dst.Close(); closeErr != nil {
+		return "", fmt.Errorf("failed to finalize %s: %w", target, closeErr)
+	}
+	return target, nil
+}
+
+// newLlamafileCommand builds the command that launches the llamafile server
+// binary at path. Llamafiles are APE (Actually Portable Executable)
+// shell-script polyglots: macOS and Linux kernels without binfmt support
+// cannot execve them directly ("exec format error"), so POSIX always
+// launches through sh. Windows has no sh on PATH and its loader reads the
+// embedded PE header directly once the file is .exe-suffixed, so it execs
+// the (possibly copied) binary with no shell wrapper at all.
+func newLlamafileCommand(ctx context.Context, path string, args ...string) (*exec.Cmd, error) {
+	if runtime.GOOS == "windows" {
+		exePath, err := ensureExecutableExtension(path)
+		if err != nil {
+			return nil, err
+		}
+		return exec.CommandContext(ctx, exePath, args...), nil
+	}
+	shArgs := make([]string, 0, len(args)+1)
+	shArgs = append(shArgs, path)
+	shArgs = append(shArgs, args...)
+	return exec.CommandContext(ctx, llamafileShell, shArgs...), nil
+}
+
 func startLlamafileServer(path string, port int) (int, error) {
 	ctx := context.Background()
-	// Llamafiles are APE (Actually Portable Executable) shell-script polyglots:
-	// macOS and kernels without binfmt support cannot execve them directly
-	// ("exec format error"), so always launch through sh.
-	cmd := exec.CommandContext(ctx, llamafileShell, path,
+	cmd, cmdErr := newLlamafileCommand(ctx, path,
 		"--server",
 		"--host", "127.0.0.1",
 		"--port", strconv.Itoa(port),
 		"--nobrowser",
 		"--ctx-size", strconv.Itoa(localContextSize),
 	)
+	if cmdErr != nil {
+		return 0, fmt.Errorf("failed to prepare llamafile server command: %w", cmdErr)
+	}
 	// The server is detached and outlives the parent; it must not inherit
 	// stdout/stderr (holding those fds blocks `go test` and pipes long after
 	// the parent exits). Health is checked via HTTP, not log output.

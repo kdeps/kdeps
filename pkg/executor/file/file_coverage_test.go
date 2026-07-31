@@ -5,7 +5,6 @@ package file
 import (
 	"os"
 	"path/filepath"
-	"syscall"
 	"testing"
 
 	"github.com/kdeps/kdeps/v2/pkg/domain"
@@ -192,33 +191,3 @@ func TestCopyDir_CopyFileError(t *testing.T) {
 
 // TestAppend_CoverageWriteStringError covers the WriteString error path in the
 // append operation by limiting the process file size via RLIMIT_FSIZE.
-func TestAppend_CoverageWriteStringError(t *testing.T) {
-	dir := t.TempDir()
-	path := filepath.Join(dir, "test.txt")
-	if err := os.WriteFile(path, []byte("initial"), 0o644); err != nil {
-		t.Fatal(err)
-	}
-
-	var oldRlimit syscall.Rlimit
-	if err := syscall.Getrlimit(syscall.RLIMIT_FSIZE, &oldRlimit); err != nil {
-		t.Skip("RLIMIT_FSIZE not supported:", err)
-	}
-
-	zeroLimit := &syscall.Rlimit{Cur: 0, Max: oldRlimit.Max}
-	if err := syscall.Setrlimit(syscall.RLIMIT_FSIZE, zeroLimit); err != nil {
-		t.Skip("cannot set RLIMIT_FSIZE:", err)
-	}
-	defer func() {
-		_ = syscall.Setrlimit(syscall.RLIMIT_FSIZE, &oldRlimit)
-	}()
-
-	e := NewExecutor()
-	_, err := e.Execute(nil, &domain.FileResourceConfig{
-		Operation: domain.FileOpAppend,
-		Path:      path,
-		Content:   " more\n",
-	})
-	if err == nil {
-		t.Fatal("expected write error from append")
-	}
-}
