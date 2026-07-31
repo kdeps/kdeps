@@ -308,6 +308,9 @@ func TestRender_ExecuteError(t *testing.T) {
 // TestWalkJinja2Template_ProcessDirectoryError tests walkJinja2Template when
 // processJinja2Directory fails due to an unwritable output directory.
 func TestWalkJinja2Template_ProcessDirectoryError(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("mkdir mode does not enforce POSIX permission bits on Windows")
+	}
 	renderer := NewJinja2Renderer(internalTestFS)
 	generator := &Generator{}
 
@@ -336,6 +339,9 @@ func TestWalkJinja2Template_ProcessDirectoryError(t *testing.T) {
 // TestProcessJinja2Directory_MkdirAllError tests processJinja2Directory when
 // the output subdirectory cannot be created.
 func TestProcessJinja2Directory_MkdirAllError(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("/dev/null is not a blocking special file on Windows")
+	}
 	renderer := NewJinja2Renderer(internalTestFS)
 	generator := &Generator{}
 

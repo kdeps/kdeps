@@ -27,6 +27,7 @@ import (
 	"context"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 
@@ -211,6 +212,9 @@ func TestCopyTarEntries_TruncatedArchive(t *testing.T) {
 }
 
 func TestAppendFileEntry_UnreadableModel(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("file mode does not enforce POSIX permission bits on Windows")
+	}
 	tmp := t.TempDir()
 	locked := filepath.Join(tmp, "locked.llamafile")
 	require.NoError(t, os.WriteFile(locked, []byte("x"), 0o000))
@@ -337,6 +341,9 @@ func TestResolveModelsToFiles_ManagerError(t *testing.T) {
 }
 
 func TestAugmentPackageWithModels_WriteAugmentedArchiveError(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("file mode does not enforce POSIX permission bits on Windows")
+	}
 	modelsDir := t.TempDir()
 	// Create a model file that resolves but is unreadable, so the append phase in
 	// writeAugmentedArchive fails. The resolved path reaches writeAugmentedArchive

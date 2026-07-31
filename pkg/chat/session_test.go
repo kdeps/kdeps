@@ -270,6 +270,9 @@ func TestSession_Reset_KeepsHistoryJSON(t *testing.T) {
 }
 
 func TestNewSession_MkdirAllError(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("mkdir mode does not enforce POSIX permission bits on Windows")
+	}
 	tmp := t.TempDir()
 	readonly := filepath.Join(tmp, "readonly")
 	require.NoError(t, os.MkdirAll(readonly, 0o555))
@@ -281,6 +284,9 @@ func TestNewSession_MkdirAllError(t *testing.T) {
 }
 
 func TestNewSession_MkdirSessionError(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("mkdir mode does not enforce POSIX permission bits on Windows")
+	}
 	tmp := t.TempDir()
 	kdepsDir := filepath.Join(tmp, ".kdeps")
 	sessionsRoot := filepath.Join(kdepsDir, "chat-sessions")

@@ -1302,6 +1302,9 @@ func TestAppend_OpenFileError(t *testing.T) {
 }
 
 func TestAppend_WriteStringError(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("file mode does not enforce POSIX permission bits on Windows")
+	}
 	dir := t.TempDir()
 	// Open /dev/fdset or a read-only path.
 	path := filepath.Join(dir, "write_protected.txt")

@@ -47,6 +47,9 @@ func TestLoadOrSeedLocalRegistry_EmptyPath(t *testing.T) {
 }
 
 func TestLoadOrSeedLocalRegistry_UnreadableFile(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("file mode does not enforce POSIX permission bits on Windows")
+	}
 	path := filepath.Join(t.TempDir(), "registry.yaml")
 	require.NoError(t, os.WriteFile(path, []byte("version: 1"), 0o000))
 	assert.Nil(t, loadOrSeedLocalRegistry(path))

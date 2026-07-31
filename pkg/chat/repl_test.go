@@ -18,6 +18,7 @@ import (
 	"context"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 
@@ -306,6 +307,9 @@ func TestREPL_NoGenerator(t *testing.T) {
 }
 
 func TestREPL_SaveWithError(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("mkdir mode does not enforce POSIX permission bits on Windows")
+	}
 	sessionDir := t.TempDir()
 
 	session := &Session{

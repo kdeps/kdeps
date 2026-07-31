@@ -527,6 +527,9 @@ func TestUpdateComponentFiles_MergeDotEnv_LoadError(t *testing.T) {
 }
 
 func TestUpdateComponentFiles_MergeDotEnv_AppendOpenError(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("file mode does not enforce POSIX permission bits on Windows")
+	}
 	dir := t.TempDir()
 	dotEnvPath := filepath.Join(dir, ".env")
 	// Read-only file: loadComponentDotEnv succeeds, but os.OpenFile(O_WRONLY) fails.
