@@ -54,6 +54,10 @@ Inside the REPL, type `/help` for the full list:
 | `/goal new <text>` | Replace the active goal with a new plan |
 | `/goal skip` | Abandon the active task and advance to the next |
 | `/goal clear` | Drop the active goal |
+| `/memory` | Show memory store overview: entry count and the 10 most recently updated entries (with values) |
+| `/memory list` | List every stored memory entry with a truncated value preview |
+| `/memory search <query>` | Search memory keys and values for a substring |
+| `/memory show <key>` | Show one entry's full value, type, timestamps, and its dependency graph node (the same `<graph-node>` block the model receives in its prompt) |
 | `/settings` | Open the tool/skill selector |
 | `/exit` | Exit the REPL |
 | `! <cmd>` | Run a shell command; the output becomes an agent turn - the model responds and can act on it (e.g. `!make lint` -> the model fixes the findings) |
@@ -382,6 +386,8 @@ Always available. No environment variables required.
 | `memory_list` | List all stored memory keys. |
 
 Memory is stored per-project at `~/.kdeps/memory/<encoded-cwd>/memory.jsonl`. Facts persist across sessions and are auto-extracted from every turn — the agent can write `[MEMORY: key] value` on its own line to persist a fact without calling `memory_save`. See [Persistent Memory](/concepts/memory) for details.
+
+The `memory_*` tools are how the *model* reads and writes memory during a turn. To inspect the store yourself from the REPL, use `/memory` (overview), `/memory list` (every entry), and `/memory search <query>` — see [REPL slash commands](#repl-slash-commands).
 
 ### Shell execution
 

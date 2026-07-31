@@ -152,6 +152,134 @@ func TestPrintConvergenceAndCmdGoal(t *testing.T) {
 	_, _ = io.ReadAll(rd)
 }
 
+// captureOutput redirects the given *os.File pointer (os.Stdout or
+// os.Stderr) for the duration of fn and returns what it wrote.
+func captureOutput(t *testing.T, target **os.File, fn func()) string {
+	t.Helper()
+	old := *target
+	rd, wr, pipeErr := os.Pipe()
+	if pipeErr != nil {
+		t.Fatal(pipeErr)
+	}
+	*target = wr
+	fn()
+	_ = wr.Close()
+	*target = old
+	out, _ := io.ReadAll(rd)
+	return string(out)
+}
+
+func newTestMemoryREPL(t *testing.T) (*REPL, *MemoryStore) {
+	t.Helper()
+	dir := t.TempDir()
+	ms := NewMemoryStore(dir)
+	ms.SetCwd(filepath.Join(dir, "p"))
+	t.Cleanup(func() { _ = ms.Close() })
+	return &REPL{loop: &Loop{memoryStore: ms, config: Config{}}, ctx: context.Background()}, ms
+}
+
+func TestCmdMemoryNoStore(t *testing.T) {
+	r := &REPL{loop: &Loop{config: Config{}}, ctx: context.Background()}
+	out := captureOutput(t, &os.Stdout, func() { _ = r.cmdMemory(nil) })
+	if !strings.Contains(out, "not available") {
+		t.Fatalf("expected not-available message, got %q", out)
+	}
+}
+
+func TestCmdMemoryEmptyStore(t *testing.T) {
+	r, _ := newTestMemoryREPL(t)
+	out := captureOutput(t, &os.Stdout, func() { _ = r.cmdMemory(nil) })
+	if !strings.Contains(out, "no memory entries") {
+		t.Fatalf("expected empty-store message, got %q", out)
+	}
+	out = captureOutput(t, &os.Stdout, func() { _ = r.cmdMemory([]string{"list"}) })
+	if !strings.Contains(out, "no memory entries") {
+		t.Fatalf("expected empty list message, got %q", out)
+	}
+}
+
+func TestCmdMemoryOverviewAndList(t *testing.T) {
+	r, ms := newTestMemoryREPL(t)
+	if err := ms.Set("fact:alpha", "the sky is blue"); err != nil {
+		t.Fatal(err)
+	}
+	if err := ms.Set("fact:beta", "grass is green"); err != nil {
+		t.Fatal(err)
+	}
+
+	out := captureOutput(t, &os.Stdout, func() { _ = r.cmdMemory(nil) })
+	if !strings.Contains(out, "2 entries") || !strings.Contains(out, "fact:alpha") ||
+		!strings.Contains(out, "the sky is blue") {
+		t.Fatalf("expected overview with entries and values, got %q", out)
+	}
+
+	out = captureOutput(t, &os.Stdout, func() { _ = r.cmdMemory([]string{"list"}) })
+	if !strings.Contains(out, "fact:alpha") || !strings.Contains(out, "the sky is blue") {
+		t.Fatalf("expected list with values, got %q", out)
+	}
+}
+
+func TestCmdMemorySearch(t *testing.T) {
+	r, ms := newTestMemoryREPL(t)
+	if err := ms.Set("fact:alpha", "the sky is blue"); err != nil {
+		t.Fatal(err)
+	}
+	if err := ms.Set("fact:beta", "grass is green"); err != nil {
+		t.Fatal(err)
+	}
+
+	out := captureOutput(t, &os.Stdout, func() { _ = r.cmdMemory([]string{"search", "blue"}) })
+	if !strings.Contains(out, "fact:alpha") || strings.Contains(out, "fact:beta") {
+		t.Fatalf("expected search to match only alpha, got %q", out)
+	}
+
+	errOut := captureOutput(t, &os.Stderr, func() { _ = r.cmdMemory([]string{"search"}) })
+	if !strings.Contains(errOut, "Usage: /memory search") {
+		t.Fatalf("expected search usage error, got %q", errOut)
+	}
+
+	out = captureOutput(t, &os.Stdout, func() { _ = r.cmdMemory([]string{"search", "nope-nothing-matches"}) })
+	if !strings.Contains(out, "no memory entries matching") {
+		t.Fatalf("expected no-match message, got %q", out)
+	}
+}
+
+func TestCmdMemoryShowAndUnknown(t *testing.T) {
+	r, ms := newTestMemoryREPL(t)
+	if err := ms.Set("fact:alpha", "the sky is blue"); err != nil {
+		t.Fatal(err)
+	}
+	if err := ms.Set("fact:beta", "grass is green"); err != nil {
+		t.Fatal(err)
+	}
+	if err := ms.SetRelation("fact:alpha", "fact:beta"); err != nil {
+		t.Fatal(err)
+	}
+
+	out := captureOutput(t, &os.Stdout, func() { _ = r.cmdMemory([]string{"bogus"}) })
+	if !strings.Contains(out, "Unknown /memory subcommand") {
+		t.Fatalf("expected unknown-subcommand message, got %q", out)
+	}
+
+	out = captureOutput(t, &os.Stdout, func() { _ = r.cmdMemory([]string{"show", "fact:alpha"}) })
+	if !strings.Contains(out, "fact:alpha") || !strings.Contains(out, "the sky is blue") {
+		t.Fatalf("expected show to print key and full value, got %q", out)
+	}
+	if !strings.Contains(out, "<graph-node") {
+		t.Fatalf("expected show to include the dependency graph node, got %q", out)
+	}
+
+	out = captureOutput(t, &os.Stdout, func() { _ = r.cmdMemory([]string{"show", "no-such-key"}) })
+	if !strings.Contains(out, "no memory entry for key") {
+		t.Fatalf("expected show miss message, got %q", out)
+	}
+
+	errOut := captureOutput(t, &os.Stderr, func() { _ = r.cmdMemory([]string{"show"}) })
+	if !strings.Contains(errOut, "Usage: /memory show") {
+		t.Fatalf("expected show usage error, got %q", errOut)
+	}
+}
+
 func TestPageLinesNonInteractive(t *testing.T) {
 	r := &REPL{loop: &Loop{config: Config{InteractiveTTY: false}}}
 	old := os.Stdout

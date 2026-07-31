@@ -2096,6 +2096,8 @@ func (r *REPL) dispatchCommand(cmd string) error {
 		return r.cmdTuro(args)
 	case "/goal":
 		return r.cmdGoal(args)
+	case "/memory":
+		return r.cmdMemory(args)
 	case "/permission", "/permissions":
 		return r.cmdPermission(args)
 	case "/exit", "/quit":
@@ -2158,6 +2160,10 @@ func (r *REPL) cmdHelp() error {
 		"  /goal new <text>                   Replace the active goal with a new plan",
 		"  /goal skip                         Abandon the active task and move to the next",
 		"  /goal clear                        Drop the active goal (stops task enforcement)",
+		"  /memory                            Show memory store overview (entry count, most recent entries)",
+		"  /memory list                       List all stored memory entries",
+		"  /memory search <query>             Search memory keys/values for a substring",
+		"  /memory show <key>                 Show one entry's full value, type, and related keys",
 		"  ! <cmd>                            Run a shell command; the output becomes an agent turn (the model responds)",
 		"  !! <cmd>                           Run a shell command silently - no LLM turn, nothing added to context",
 	}
@@ -4046,6 +4052,151 @@ func (r *REPL) cmdGoal(args []string) error {
 		fmt.Fprintln(os.Stderr, styleReplError.Render("Usage: /goal [new <text>|skip|clear]"))
 	}
 	return nil
+}
+
+// memoryValuePreviewLen bounds how much of an entry's value /memory prints per
+// line; the store can hold long tool-result captures that would otherwise
+// blow out a single line of terminal output.
+const memoryValuePreviewLen = 80
+
+// cmdMemory inspects the session memory store: overview, full list, or a
+// substring search across keys and values.
+func (r *REPL) cmdMemory(args []string) error {
+	store := r.loop.MemoryStore()
+	if store == nil {
+		fmt.Fprintln(os.Stdout, styleReplMeta.Render("Memory store not available."))
+		return nil
+	}
+
+	sub := ""
+	if len(args) > 0 {
+		sub = strings.ToLower(args[0])
+	}
+
+	switch sub {
+	case "":
+		return r.cmdMemoryOverview(store)
+	case "list":
+		return r.cmdMemoryList(store)
+	case "search":
+		if len(args) < sessionSubcmdArgMin {
+			fmt.Fprintln(os.Stderr, styleReplError.Render("Usage: /memory search <query>"))
+			return nil
+		}
+		return r.cmdMemorySearch(store, strings.Join(args[1:], " "))
+	case "show":
+		if len(args) < sessionSubcmdArgMin {
+			fmt.Fprintln(os.Stderr, styleReplError.Render("Usage: /memory show <key>"))
+			return nil
+		}
+		return r.cmdMemoryShow(store, args[1])
+	default:
+		fmt.Fprintf(os.Stdout, "Unknown /memory subcommand: %s. Use list, search, or show.\n", sub)
+		return nil
+	}
+}
+
+// memoryOverviewRecentCount caps how many entries bare "/memory" previews.
+// Full values (unlike the key-only <memory-keys> prompt block) push a longer
+// list past useful terminal output, so the default view stays short; /memory
+// list shows everything.
+const memoryOverviewRecentCount = 10
+
+// cmdMemoryOverview shows entry count and the most recently updated entries,
+// newest first, with value previews.
+func (r *REPL) cmdMemoryOverview(store *MemoryStore) error {
+	total := store.Len()
+	if total == 0 {
+		fmt.Fprintln(os.Stdout, styleReplMeta.Render("no memory entries yet"))
+		return nil
+	}
+	recent := mostRecentMemoryEntries(store.List(), memoryOverviewRecentCount)
+	fmt.Fprintln(os.Stdout, styleReplHeading.Render(fmt.Sprintf("Memory: %d entries", total)))
+	fmt.Fprintln(os.Stdout, styleReplDim.Render("Most recently updated:"))
+	printMemoryEntries(recent)
+	if total > len(recent) {
+		fmt.Fprintln(os.Stdout, styleReplDim.Render(
+			"/memory list shows all entries · /memory search <query> filters by substring"))
+	}
+	return nil
+}
+
+// mostRecentMemoryEntries returns up to limit entries from entries, sorted
+// newest-updated first. limit <= 0 means no cap.
+func mostRecentMemoryEntries(entries []MemoryEntry, limit int) []MemoryEntry {
+	out := make([]MemoryEntry, len(entries))
+	copy(out, entries)
+	sort.Slice(out, func(i, j int) bool {
+		return out[i].UpdatedAt > out[j].UpdatedAt
+	})
+	if limit > 0 && len(out) > limit {
+		out = out[:limit]
+	}
+	return out
+}
+
+// cmdMemoryList prints every stored entry, key sorted, with a truncated value
+// preview.
+func (r *REPL) cmdMemoryList(store *MemoryStore) error {
+	entries := store.List()
+	if len(entries) == 0 {
+		fmt.Fprintln(os.Stdout, styleReplMeta.Render("no memory entries yet"))
+		return nil
+	}
+	fmt.Fprintln(os.Stdout, styleReplHeading.Render(fmt.Sprintf("Memory: %d entries", len(entries))))
+	printMemoryEntries(entries)
+	return nil
+}
+
+// cmdMemorySearch prints entries whose key or value contains query.
+func (r *REPL) cmdMemorySearch(store *MemoryStore, query string) error {
+	results := store.Search(query)
+	if len(results) == 0 {
+		fmt.Fprintln(os.Stdout, styleReplMeta.Render(fmt.Sprintf("no memory entries matching %q", query)))
+		return nil
+	}
+	fmt.Fprintln(os.Stdout, styleReplHeading.Render(fmt.Sprintf("Memory: %d matches for %q", len(results), query)))
+	printMemoryEntries(results)
+	return nil
+}
+
+// cmdMemoryShow prints a single entry's untruncated value, type, timestamps,
+// and its dependency graph node — the same <graph-node> block FormatForPrompt
+// sends the model, so what you see here matches what the LLM sees for this key.
+func (r *REPL) cmdMemoryShow(store *MemoryStore, key string) error {
+	entry, ok := store.Get(key)
+	if !ok {
+		fmt.Fprintln(os.Stdout, styleReplMeta.Render(fmt.Sprintf("no memory entry for key %q", key)))
+		return nil
+	}
+	fmt.Fprintln(os.Stdout, styleReplHeading.Render(entry.Key))
+	if entry.Type != "" {
+		fmt.Fprintf(os.Stdout, "%s %s\n", styleReplDim.Render("type:"), entry.Type)
+	}
+	fmt.Fprintf(os.Stdout, "%s %s\n", styleReplDim.Render("updated:"),
+		time.UnixMilli(entry.UpdatedAt).Format("2006-01-02 15:04"))
+	if len(entry.References) > 0 {
+		fmt.Fprintf(os.Stdout, "%s %s\n", styleReplDim.Render("related:"), strings.Join(entry.References, ", "))
+	}
+	fmt.Fprintln(os.Stdout)
+	fmt.Fprintln(os.Stdout, entry.Value)
+	if graph := store.FormatGraphNode(key); graph != "" {
+		fmt.Fprintln(os.Stdout)
+		fmt.Fprintln(os.Stdout, styleReplDim.Render(graph))
+	}
+	return nil
+}
+
+// printMemoryEntries renders one line per entry: key, type, truncated value.
+func printMemoryEntries(entries []MemoryEntry) {
+	for _, e := range entries {
+		value := truncateEllipsis(strings.ReplaceAll(e.Value, "\n", " "), memoryValuePreviewLen)
+		typeTag := ""
+		if e.Type != "" {
+			typeTag = " " + styleReplDim.Render("["+e.Type+"]")
+		}
+		fmt.Fprintf(os.Stdout, "  %s%s: %s\n", e.Key, typeTag, value)
+	}
 }
 
 // printTuroStatus prints the current turo settings.
