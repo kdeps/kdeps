@@ -23,6 +23,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"runtime"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -355,7 +356,10 @@ func TestExtractTar_MkdirDirError(t *testing.T) {
 func TestExtractTar_CloseError(t *testing.T) {
 	data := buildTarGz(t, map[string]string{"file.txt": "hello"})
 	opts := targz.DefaultOptions()
-	opts.Hooks.FileClose = func(*os.File) error {
+	opts.Hooks.FileClose = func(f *os.File) error {
+		// Close the real handle so the injected error doesn't leak an open
+		// file (Windows can't remove a still-open file; POSIX tolerates it).
+		_ = f.Close()
 		return errors.New("close fail")
 	}
 	err := targz.ExtractGzipTar(bytes.NewReader(data), t.TempDir(), opts)
@@ -378,6 +382,9 @@ func TestExtractTar_ParentMkdirError(t *testing.T) {
 }
 
 func TestWriteEntry_CreateFileError(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("chmod does not enforce POSIX permission bits on Windows")
+	}
 	if os.Getuid() == 0 {
 		t.Skip("chmod tests do not work as root")
 	}

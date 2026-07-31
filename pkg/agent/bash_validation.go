@@ -210,14 +210,14 @@ func ValidateRootPath(path string) error {
 	}
 
 	clean := filepath.Clean(path)
-	if clean == string(filepath.Separator) {
+	if isFilesystemRoot(clean) {
 		return errors.New("operation on root directory '/' is blocked (set KDEPS_ALLOW_ROOT=true to permit)")
 	}
 
 	// Resolve symlinks to catch paths that indirectly point to /.
 	resolved, err := filepath.EvalSymlinks(path)
 	if err == nil {
-		if filepath.Clean(resolved) == string(filepath.Separator) {
+		if isFilesystemRoot(filepath.Clean(resolved)) {
 			return fmt.Errorf(
 				"path %q resolves to root directory '/' — blocked (set KDEPS_ALLOW_ROOT=true to permit)",
 				path,
@@ -226,6 +226,16 @@ func ValidateRootPath(path string) error {
 	}
 
 	return nil
+}
+
+// isFilesystemRoot reports whether clean is a filesystem root: "/" on POSIX,
+// or "\" / "C:\" / a bare volume root on Windows. filepath.Separator alone
+// only matches the POSIX case ("//" cleans to "\\" on Windows, a UNC-style
+// path that isn't equal to a single separator), so this strips any volume
+// name and leading separators instead of comparing against one fixed string.
+func isFilesystemRoot(clean string) bool {
+	rest := strings.TrimPrefix(clean, filepath.VolumeName(clean))
+	return strings.Trim(rest, string(filepath.Separator)) == ""
 }
 
 // bashFirstCommand extracts the first command word, skipping leading env var assignments.

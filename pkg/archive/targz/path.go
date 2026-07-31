@@ -29,10 +29,17 @@ import (
 
 // hasPathEscape reports whether a cleaned path name escapes its parent directory.
 // Used by ResolveTarget (archive extraction) to reject absolute paths in entries.
+//
+// filepath.IsAbs alone isn't enough on Windows: a rooted-but-driveless entry
+// name like "/abs/outside" cleans to "\abs\outside", which Windows does not
+// consider absolute (IsAbs there requires a volume letter), even though it is
+// exactly the kind of archive-entry path this check exists to reject. Rooted
+// entries are rejected outright regardless of OS-specific "absolute" rules.
 func hasPathEscape(cleanName string) bool {
 	return cleanName == ".." ||
 		strings.HasPrefix(cleanName, ".."+string(os.PathSeparator)) ||
-		filepath.IsAbs(cleanName)
+		filepath.IsAbs(cleanName) ||
+		strings.HasPrefix(cleanName, string(os.PathSeparator))
 }
 
 // hasDotDotEscape reports whether a cleaned path name has ".." traversal.
