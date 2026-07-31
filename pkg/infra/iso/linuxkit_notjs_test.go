@@ -206,6 +206,9 @@ func TestDownloadFile_HTTPDoError(t *testing.T) {
 }
 
 func TestDownloadFile_CreateError(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("mkdir mode does not enforce POSIX permission bits on Windows")
+	}
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusOK)
 		_, _ = w.Write([]byte("content"))

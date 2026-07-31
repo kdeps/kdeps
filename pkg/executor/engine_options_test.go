@@ -23,6 +23,7 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
+	"runtime"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -55,6 +56,9 @@ func TestSetNewExecutionContextForAgency_Success(t *testing.T) {
 }
 
 func TestSetNewExecutionContextForAgency_CreateError(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("mkdir mode does not enforce POSIX permission bits on Windows")
+	}
 	roHome := filepath.Join(t.TempDir(), "ro")
 	require.NoError(t, os.Mkdir(roHome, 0555))
 	t.Setenv("HOME", roHome)

@@ -28,6 +28,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 
@@ -365,6 +366,9 @@ func TestWriteCleanBinaryTemp_CreateTempError(t *testing.T) {
 }
 
 func TestWriteCleanBinaryTemp_CloseError(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("mkdir mode does not enforce POSIX permission bits on Windows")
+	}
 	tmp := t.TempDir()
 	f, err := os.Create(filepath.Join(tmp, "src"))
 	require.NoError(t, err)

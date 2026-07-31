@@ -29,6 +29,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 
@@ -395,6 +396,9 @@ func TestExtractFile_CreateAndCopyErr(t *testing.T) {
 }
 
 func TestExtractFile_RegistryCloseErr(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("mkdir mode does not enforce POSIX permission bits on Windows")
+	}
 	tmp := t.TempDir()
 	roDir := filepath.Join(tmp, "ro")
 	require.NoError(t, os.Mkdir(roDir, 0500))

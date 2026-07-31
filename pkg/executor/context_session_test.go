@@ -21,6 +21,7 @@ package executor
 import (
 	"os"
 	"path/filepath"
+	"runtime"
 	"testing"
 	"time"
 
@@ -36,6 +37,9 @@ func TestParseSessionTTL_Valid(t *testing.T) {
 }
 
 func TestCreateSessionStorage_InvalidDBPath(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("mkdir mode does not enforce POSIX permission bits on Windows")
+	}
 	t.Setenv("HOME", t.TempDir())
 	roDir := filepath.Join(t.TempDir(), "ro")
 	require.NoError(t, os.Mkdir(roDir, 0555))

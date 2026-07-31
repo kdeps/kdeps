@@ -365,6 +365,9 @@ func TestUnwrapArchiveRoot_MultipleEntries(t *testing.T) {
 }
 
 func TestCopyFile_CloseError(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("mkdir mode does not enforce POSIX permission bits on Windows")
+	}
 	tmp := t.TempDir()
 	src := filepath.Join(tmp, "src.txt")
 	dst := filepath.Join(tmp, "ro", "dst.txt")

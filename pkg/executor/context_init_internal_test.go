@@ -22,6 +22,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"runtime"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -32,6 +33,9 @@ import (
 )
 
 func TestNewExecutionContext_SessionStorageError(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("mkdir mode does not enforce POSIX permission bits on Windows")
+	}
 	t.Setenv("HOME", t.TempDir())
 	roDir := filepath.Join(t.TempDir(), "ro")
 	require.NoError(t, os.Mkdir(roDir, 0555))
@@ -225,6 +229,9 @@ func TestNewExecutionContext_ConfigLoadError(t *testing.T) {
 }
 
 func TestNewExecutionContext_MemoryStorageFailure(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("mkdir mode does not enforce POSIX permission bits on Windows")
+	}
 	roHome := filepath.Join(t.TempDir(), "rohome")
 	require.NoError(t, os.Mkdir(roHome, 0555))
 	t.Setenv("HOME", roHome)

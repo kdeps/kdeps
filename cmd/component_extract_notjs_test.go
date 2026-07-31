@@ -28,6 +28,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 
@@ -46,6 +47,9 @@ func TestSafeKomponentTarget_Errors(t *testing.T) {
 }
 
 func TestWriteKomponentRegularFile_CopyAndCloseErrors(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("mkdir mode does not enforce POSIX permission bits on Windows")
+	}
 	destDir := t.TempDir()
 	target := filepath.Join(destDir, "out.txt")
 	archivePath := filepath.Join(t.TempDir(), "a.tar.gz")
@@ -249,6 +253,9 @@ func TestSafeKomponentTarget_AllBranches(t *testing.T) {
 }
 
 func TestWriteKomponentRegularFile_CloseErr(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("mkdir mode does not enforce POSIX permission bits on Windows")
+	}
 	destDir := t.TempDir()
 	archivePath := filepath.Join(t.TempDir(), "a.tar.gz")
 	createTarGz(

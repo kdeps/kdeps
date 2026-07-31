@@ -362,6 +362,9 @@ func TestBuilder_Build_RunnerError(t *testing.T) {
 }
 
 func TestBuilder_Build_CreateTempError(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("mkdir mode does not enforce POSIX permission bits on Windows")
+	}
 	tmpDir := t.TempDir()
 	readOnlyDir := filepath.Join(tmpDir, "readonly")
 	require.NoError(t, os.Mkdir(readOnlyDir, 0555))
@@ -405,6 +408,9 @@ func TestBuilder_Build_MkdirAllOutputDirError(t *testing.T) {
 }
 
 func TestBuilder_Build_RenameError(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("mkdir mode does not enforce POSIX permission bits on Windows")
+	}
 	tmpDir := t.TempDir()
 
 	outputDir := filepath.Join(tmpDir, "readonly-output")
