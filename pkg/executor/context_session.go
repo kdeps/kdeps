@@ -21,11 +21,15 @@ package executor
 import (
 	"fmt"
 	"path/filepath"
+	"sync/atomic"
 	"time"
 
 	"github.com/kdeps/kdeps/v2/pkg/domain"
 	"github.com/kdeps/kdeps/v2/pkg/infra/storage"
 )
+
+//nolint:gochecknoglobals // monotonic disambiguator for newContextSessionID
+var contextSessionIDCounter atomic.Int64
 
 func providedSessionIDFromArgs(sessionID ...string) string {
 	if len(sessionID) > 0 && sessionID[0] != "" {
@@ -38,7 +42,10 @@ func resolveSessionID(provided string) string {
 	if provided != "" {
 		return provided
 	}
-	return fmt.Sprintf("session-%d", time.Now().UnixNano())
+	// time.Now().UnixNano() alone can collide on platforms with coarse
+	// wall-clock resolution (Windows ticks in ~15ms increments), so a
+	// monotonic counter is appended to guarantee uniqueness.
+	return fmt.Sprintf("session-%d-%d", time.Now().UnixNano(), contextSessionIDCounter.Add(1))
 }
 
 func parseSessionTTL(ttlStr string) time.Duration {

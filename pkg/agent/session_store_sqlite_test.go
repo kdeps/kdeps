@@ -192,8 +192,10 @@ func TestSQLiteSessionStore_SearchSessions(t *testing.T) {
 
 func TestNewSQLiteSessionStore_DefaultPath(t *testing.T) {
 	// Override home dir to ensure test doesn't write to real home.
+	// os.UserHomeDir() reads HOME on POSIX but USERPROFILE on Windows.
 	dir := t.TempDir()
 	t.Setenv("HOME", dir)
+	t.Setenv("USERPROFILE", dir)
 
 	store, err := NewSQLiteSessionStore(context.Background(), "")
 	if err != nil {

@@ -24,10 +24,22 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sync/atomic"
 	"time"
 
 	"github.com/spf13/afero"
 )
+
+//nolint:gochecknoglobals // monotonic disambiguator for newSessionID
+var sessionIDCounter atomic.Int64
+
+// newSessionID returns a unique session id. time.Now().UnixNano() alone can
+// collide on platforms with coarse wall-clock resolution (Windows ticks in
+// ~15ms increments), so a monotonic counter is appended to guarantee
+// uniqueness even when two ids are generated within the same tick.
+func newSessionID() string {
+	return fmt.Sprintf("session-%d-%d", time.Now().UnixNano(), sessionIDCounter.Add(1))
+}
 
 //nolint:gochecknoglobals // test-replaceable
 var jsonMarshalIndent = json.MarshalIndent
@@ -75,7 +87,7 @@ func NewSession() (*Session, error) {
 		return nil, fmt.Errorf("could not create sessions directory: %w", mkErr)
 	}
 
-	id := fmt.Sprintf("session-%d", time.Now().UnixNano())
+	id := newSessionID()
 	dir := filepath.Join(sessionsRoot, id)
 	if mkErr := AppFS.MkdirAll(dir, 0o700); mkErr != nil {
 		return nil, fmt.Errorf("could not create session directory: %w", mkErr)

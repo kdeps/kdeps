@@ -206,7 +206,7 @@ func (s *MongoDBSessionStore) SaveAs(session *Session, name, model string) (stri
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	id := fmt.Sprintf("session-%d", time.Now().UnixNano())
+	id := newSessionID()
 	msgs := session.Messages()
 	mongoMsgs := make([]mongoSessionMsg, len(msgs))
 	for i, m := range msgs {

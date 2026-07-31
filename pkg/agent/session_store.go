@@ -26,6 +26,7 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	bolt "go.etcd.io/bbolt"
@@ -40,6 +41,19 @@ var (
 )
 
 const sessionDir = ".kdeps/sessions"
+
+//nolint:gochecknoglobals // monotonic disambiguator shared by every store's ID generation
+var sessionIDCounter atomic.Int64
+
+// newSessionID returns a unique session id shared by every store
+// implementation (bbolt, SQL, SQLite, MongoDB). time.Now().UnixNano() alone
+// can collide: wall-clock resolution is coarse on some platforms (Windows
+// ticks in ~15ms increments), so two ids generated in quick succession can
+// land on the identical nanosecond value. The monotonic counter guarantees
+// uniqueness even then.
+func newSessionID() string {
+	return fmt.Sprintf("session-%d-%d", time.Now().UnixNano(), sessionIDCounter.Add(1))
+}
 
 // SessionMetadata holds summary information about a saved session.
 type SessionMetadata struct {
@@ -141,7 +155,7 @@ func (s *SessionStore) SaveAs(session SessionReader, name, model string) (string
 		return "", err
 	}
 
-	id := fmt.Sprintf("session-%d", time.Now().UnixNano())
+	id := newSessionID()
 	now := time.Now().UnixMilli()
 
 	entries := []sessionEntry{{
@@ -333,7 +347,7 @@ func (s *SessionStore) Import(srcPath string) (string, error) {
 		return "", fmt.Errorf("session store: import read %s: %w", srcPath, readErr)
 	}
 
-	id := fmt.Sprintf("session-%d", time.Now().UnixNano())
+	id := newSessionID()
 
 	// The store holds each session as a JSON array of entries (see SaveAs);
 	// source files are newline-delimited. Storing the raw bytes would leave the

@@ -24,10 +24,20 @@ import (
 	"encoding/json"
 	"fmt"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
 )
+
+//nolint:gochecknoglobals // monotonic disambiguator for newSessionID
+var sessionIDCounter atomic.Int64
+
+// newSessionID returns a unique session id. time.Now().UnixNano() alone can
+// collide when two ids are generated within the same wall-clock tick.
+func newSessionID() string {
+	return fmt.Sprintf("session-%d-%d", time.Now().UnixNano(), sessionIDCounter.Add(1))
+}
 
 // SessionStorage provides in-memory per-session key-value storage for WASM builds.
 type SessionStorage struct {
@@ -56,7 +66,7 @@ func NewSessionStorageWithTTL(
 ) (*SessionStorage, error) {
 	kdeps_debug.Log("enter: NewSessionStorageWithTTL")
 	if sessionID == "" {
-		sessionID = fmt.Sprintf("session-%d", time.Now().UnixNano())
+		sessionID = newSessionID()
 	}
 
 	return &SessionStorage{

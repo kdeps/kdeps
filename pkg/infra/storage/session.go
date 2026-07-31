@@ -25,6 +25,7 @@ import (
 	"context"
 	"fmt"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	bolt "go.etcd.io/bbolt"
@@ -36,6 +37,17 @@ const sqliteMemoryDSN = ":memory:"
 
 //nolint:gochecknoglobals // overridden in tests for fast cleanup
 var defaultCleanupInterval = 5 * time.Minute
+
+//nolint:gochecknoglobals // monotonic disambiguator for newSessionID
+var sessionIDCounter atomic.Int64
+
+// newSessionID returns a unique session id. time.Now().UnixNano() alone can
+// collide on platforms with coarse wall-clock resolution (Windows ticks in
+// ~15ms increments), so a monotonic counter is appended to guarantee
+// uniqueness even when two ids are generated within the same tick.
+func newSessionID() string {
+	return fmt.Sprintf("session-%d-%d", time.Now().UnixNano(), sessionIDCounter.Add(1))
+}
 
 // sessionOpenTimeout bounds how long a session-store bolt.Open waits for the
 // file's exclusive lock before failing, so a contended or stale lock cannot hang

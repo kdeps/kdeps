@@ -44,7 +44,7 @@ func (s *sqlSessionStore) saveAs(session *Session, name, model string) (string, 
 	defer s.mu.Unlock()
 
 	ctx := s.ctx
-	id := fmt.Sprintf("session-%d", time.Now().UnixNano())
+	id := newSessionID()
 	now := time.Now().UnixMilli()
 
 	tx, txErr := s.db.BeginTx(ctx, nil)

@@ -43,7 +43,7 @@ func normalizeSessionDBPath(dbPath string) string {
 
 func normalizeSessionID(sessionID string) string {
 	if sessionID == "" {
-		return fmt.Sprintf("session-%d", time.Now().UnixNano())
+		return newSessionID()
 	}
 	return sessionID
 }
