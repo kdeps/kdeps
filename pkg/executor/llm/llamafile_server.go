@@ -356,7 +356,7 @@ func ensureExecutableExtension(path string) (string, error) {
 // embedded PE header directly once the file is .exe-suffixed, so it execs
 // the (possibly copied) binary with no shell wrapper at all.
 func newLlamafileCommand(ctx context.Context, path string, args ...string) (*exec.Cmd, error) {
-	if runtime.GOOS == "windows" {
+	if runtime.GOOS == goosWindows {
 		exePath, err := ensureExecutableExtension(path)
 		if err != nil {
 			return nil, err

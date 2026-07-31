@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"runtime"
 	"testing"
 
 	"github.com/spf13/afero"
@@ -53,6 +54,11 @@ func TestHFDownloadWithToken_HTTPError(t *testing.T) {
 }
 
 func TestHFDownloadAria2c_Success(t *testing.T) {
+	if runtime.GOOS == goosWindows {
+		t.Skip(
+			"fake aria2c shim is a #!/bin/sh script invoked by absolute path; not runnable on Windows",
+		)
+	}
 	binDir := t.TempDir()
 	fakeAria2c := binDir + "/aria2c"
 	script := "#!/bin/sh\nfor a in \"$@\"; do\n  case \"$a\" in\n    --dir=*) d=\"${a#--dir=}\" ;;\n    --out=*) o=\"${a#--out=}\" ;;\n  esac\ndone\nprintf 'data' > \"$d/$o\"\n"
@@ -74,6 +80,11 @@ func TestHFDownloadAria2c_Success(t *testing.T) {
 }
 
 func TestHFDownloadAria2c_WithToken(t *testing.T) {
+	if runtime.GOOS == goosWindows {
+		t.Skip(
+			"fake aria2c shim is a #!/bin/sh script invoked by absolute path; not runnable on Windows",
+		)
+	}
 	binDir := t.TempDir()
 	fakeAria2c := binDir + "/aria2c"
 	script := "#!/bin/sh\nfor a in \"$@\"; do case \"$a\" in --dir=*) d=\"${a#--dir=}\" ;; --out=*) o=\"${a#--out=}\" ;; esac; done\nprintf 'ok' > \"$d/$o\"\n"
@@ -93,6 +104,11 @@ func TestHFDownloadAria2c_WithToken(t *testing.T) {
 }
 
 func TestHFDownloadAria2c_Failure(t *testing.T) {
+	if runtime.GOOS == goosWindows {
+		t.Skip(
+			"fake aria2c shim is a #!/bin/sh script invoked by absolute path; not runnable on Windows",
+		)
+	}
 	binDir := t.TempDir()
 	fakeAria2c := binDir + "/aria2c"
 	require.NoError(t, os.WriteFile(fakeAria2c, []byte("#!/bin/sh\nexit 1\n"), 0o755))
@@ -235,7 +251,12 @@ func TestHFRegisterGGUFEntry_ReadError(t *testing.T) {
 	ReloadGGUFRegistry()
 	t.Cleanup(ReloadGGUFRegistry)
 
-	entry := GGUFEntry{Alias: "test-model", URL: "http://example.com/m.gguf", Filename: "m.gguf", Repo: "org/test"}
+	entry := GGUFEntry{
+		Alias:    "test-model",
+		URL:      "http://example.com/m.gguf",
+		Filename: "m.gguf",
+		Repo:     "org/test",
+	}
 	err := HFRegisterGGUFEntry(entry)
 	require.NoError(t, err)
 }

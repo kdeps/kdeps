@@ -19,6 +19,7 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
+	"runtime"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -325,6 +326,11 @@ func TestInstallComponentPackages_PythonPackages(t *testing.T) {
 }
 
 func TestInstallComponentPackages_OSPackages(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip(
+			"Linux package manager (apk/apt-get/brew) shim is a #!/bin/sh script; no Windows equivalent",
+		)
+	}
 	tmpDir := t.TempDir()
 	apkBin := filepath.Join(tmpDir, "apk")
 	require.NoError(t, os.WriteFile(apkBin, []byte("#!/bin/sh\n"+
@@ -378,6 +384,11 @@ func TestInstallComponentPackages_OSPackagesNoPkgManager(t *testing.T) {
 // ---------------------------------------------------------------------------
 
 func TestInstallOSPackages_AllInstalled(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip(
+			"Linux package manager (apk/apt-get/brew) shim is a #!/bin/sh script; no Windows equivalent",
+		)
+	}
 	tmpDir := t.TempDir()
 	apkBin := filepath.Join(tmpDir, "apk")
 	// apk info -e exits 0 => package is already installed.
@@ -393,6 +404,11 @@ func TestInstallOSPackages_AllInstalled(t *testing.T) {
 }
 
 func TestInstallOSPackages_WithAPK(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip(
+			"Linux package manager (apk/apt-get/brew) shim is a #!/bin/sh script; no Windows equivalent",
+		)
+	}
 	tmpDir := t.TempDir()
 	apkBin := filepath.Join(tmpDir, "apk")
 	content := "#!/bin/sh\n" +
@@ -406,6 +422,11 @@ func TestInstallOSPackages_WithAPK(t *testing.T) {
 }
 
 func TestInstallOSPackages_WithAptGet(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip(
+			"Linux package manager (apk/apt-get/brew) shim is a #!/bin/sh script; no Windows equivalent",
+		)
+	}
 	tmpDir := t.TempDir()
 	// dpkg -s exits 1 => not installed
 	require.NoError(t, os.WriteFile(
@@ -429,6 +450,11 @@ func TestInstallOSPackages_WithAptGet(t *testing.T) {
 // ---------------------------------------------------------------------------
 
 func TestDetectPackageManager_APK(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip(
+			"Linux package manager (apk/apt-get/brew) shim is a #!/bin/sh script; no Windows equivalent",
+		)
+	}
 	tmpDir := t.TempDir()
 	require.NoError(t, os.WriteFile(
 		filepath.Join(tmpDir, "apk"),
@@ -442,6 +468,11 @@ func TestDetectPackageManager_APK(t *testing.T) {
 }
 
 func TestDetectPackageManager_AptGet(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip(
+			"Linux package manager (apk/apt-get/brew) shim is a #!/bin/sh script; no Windows equivalent",
+		)
+	}
 	tmpDir := t.TempDir()
 	require.NoError(t, os.WriteFile(
 		filepath.Join(tmpDir, "apt-get"),
@@ -455,6 +486,11 @@ func TestDetectPackageManager_AptGet(t *testing.T) {
 }
 
 func TestDetectPackageManager_Brew(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip(
+			"Linux package manager (apk/apt-get/brew) shim is a #!/bin/sh script; no Windows equivalent",
+		)
+	}
 	origGOOS := componentGOOS
 	t.Cleanup(func() { componentGOOS = origGOOS })
 	componentGOOS = goOSDarwin
@@ -472,6 +508,11 @@ func TestDetectPackageManager_Brew(t *testing.T) {
 }
 
 func TestInstallOSPackages_WithBrewOverride(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip(
+			"Linux package manager (apk/apt-get/brew) shim is a #!/bin/sh script; no Windows equivalent",
+		)
+	}
 	origGOOS := componentGOOS
 	t.Cleanup(func() { componentGOOS = origGOOS })
 	componentGOOS = goOSDarwin

@@ -22,6 +22,11 @@ import (
 )
 
 func TestAssembleRawBIOS_DockerError(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip(
+			"fake docker shim is a #!/bin/sh script with POSIX conditionals and a ':'-joined PATH; not portable",
+		)
+	}
 	// Create a fake docker command that fails
 	tmpDir := t.TempDir()
 	fakeDocker := filepath.Join(tmpDir, "docker")
@@ -70,6 +75,11 @@ exit 1
 }
 
 func TestAssembleRawBIOS_DockerRunError(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip(
+			"fake docker shim is a #!/bin/sh script with POSIX conditionals and a ':'-joined PATH; not portable",
+		)
+	}
 	// Create a fake docker command that succeeds for 'save' but fails for 'run'
 	tmpDir := t.TempDir()
 	fakeDocker := filepath.Join(tmpDir, "docker")
@@ -118,6 +128,11 @@ exit 1
 }
 
 func TestAssembleRawBIOS_Success(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip(
+			"fake docker shim is a #!/bin/sh script with POSIX conditionals and a ':'-joined PATH; not portable",
+		)
+	}
 	tmpDir := t.TempDir()
 	fakeDocker := filepath.Join(tmpDir, "docker")
 
@@ -227,6 +242,11 @@ exit 0
 }
 
 func TestAssembleRawBIOS_CopyDiskImageError(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip(
+			"fake docker shim is a #!/bin/sh script with POSIX conditionals and a ':'-joined PATH; not portable",
+		)
+	}
 	tmpDir := t.TempDir()
 	fakeDocker := filepath.Join(tmpDir, "docker")
 
@@ -280,6 +300,11 @@ exit 0
 }
 
 func TestAssembleRawBIOS_BootScriptWriteError(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip(
+			"fake docker shim is a #!/bin/sh script with POSIX conditionals and a ':'-joined PATH; not portable",
+		)
+	}
 	tmpDir := t.TempDir()
 	fakeDocker := filepath.Join(tmpDir, "docker")
 
@@ -330,6 +355,11 @@ exit 1
 }
 
 func TestAssembleRawBIOS_WriteAssembleScriptError(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip(
+			"fake docker shim is a #!/bin/sh script with POSIX conditionals and a ':'-joined PATH; not portable",
+		)
+	}
 	tmpDir := t.TempDir()
 	fakeDocker := filepath.Join(tmpDir, "docker")
 
@@ -451,7 +481,15 @@ func TestAssembleRawBIOS_MkdirTempError(t *testing.T) {
 		t.Fatalf("failed to chmod cache dir to 0555: %v", err)
 	}
 
-	err := assembleRawBIOS(t.Context(), "/fake/kernel", "/fake/initrd", "/fake/cmdline", "/fake/output", "", "")
+	err := assembleRawBIOS(
+		t.Context(),
+		"/fake/kernel",
+		"/fake/initrd",
+		"/fake/cmdline",
+		"/fake/output",
+		"",
+		"",
+	)
 	if err == nil {
 		t.Error("expected error from MkdirTemp failure, got nil")
 	}
@@ -479,7 +517,15 @@ func TestAssembleRawBIOS_MkdirAllError(t *testing.T) {
 		t.Fatalf("failed to create blocking file: %v", err)
 	}
 
-	err := assembleRawBIOS(t.Context(), "/fake/kernel", "/fake/initrd", "/fake/cmdline", "/fake/output", "", "")
+	err := assembleRawBIOS(
+		t.Context(),
+		"/fake/kernel",
+		"/fake/initrd",
+		"/fake/cmdline",
+		"/fake/output",
+		"",
+		"",
+	)
 	if err == nil {
 		t.Error("expected error from MkdirAll failure, got nil")
 	}

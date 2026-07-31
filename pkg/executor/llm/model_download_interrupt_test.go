@@ -27,6 +27,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"sync/atomic"
 	"testing"
@@ -37,7 +38,9 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// runShell runs sh -c script and returns the error from Run().
+// runShell runs sh -c script and returns the error from Run(). The scripts
+// callers pass ("kill -INT $$", etc.) are POSIX shell/signal specific with
+// no Windows equivalent, so callers must skip on Windows themselves.
 func runShell(t *testing.T, script string) error {
 	t.Helper()
 	cmd := exec.CommandContext(context.Background(), "/bin/sh", "-c", script)
@@ -45,12 +48,22 @@ func runShell(t *testing.T, script string) error {
 }
 
 func TestAria2cInterrupted_ExitCode7(t *testing.T) {
+	if runtime.GOOS == goosWindows {
+		t.Skip(
+			"runShell invokes /bin/sh directly; POSIX shell/signal semantics have no Windows equivalent",
+		)
+	}
 	err := runShell(t, "exit 7")
 	require.Error(t, err)
 	assert.True(t, aria2cInterrupted(err))
 }
 
 func TestAria2cInterrupted_SignalKill(t *testing.T) {
+	if runtime.GOOS == goosWindows {
+		t.Skip(
+			"runShell invokes /bin/sh directly; POSIX shell/signal semantics have no Windows equivalent",
+		)
+	}
 	// A process that kills itself with SIGINT reports ExitCode -1.
 	err := runShell(t, "kill -INT $$")
 	require.Error(t, err)
@@ -58,6 +71,11 @@ func TestAria2cInterrupted_SignalKill(t *testing.T) {
 }
 
 func TestAria2cInterrupted_OtherExitCode(t *testing.T) {
+	if runtime.GOOS == goosWindows {
+		t.Skip(
+			"runShell invokes /bin/sh directly; POSIX shell/signal semantics have no Windows equivalent",
+		)
+	}
 	err := runShell(t, "exit 1")
 	require.Error(t, err)
 	assert.False(t, aria2cInterrupted(err))
@@ -70,6 +88,11 @@ func TestAria2cInterrupted_NonExitError(t *testing.T) {
 // TestDownloadWithResume_CtxCanceled uses a fake aria2c on PATH that blocks,
 // then cancels the context and expects ErrDownloadInterrupted.
 func TestDownloadWithResume_CtxCanceled(t *testing.T) {
+	if runtime.GOOS == goosWindows {
+		t.Skip(
+			"fake aria2c shim is a #!/bin/sh script on PATH; not runnable on Windows, and interrupt exit-code semantics are POSIX-signal-specific",
+		)
+	}
 	dir := t.TempDir()
 	fake := filepath.Join(dir, "aria2c")
 	require.NoError(t, os.WriteFile(fake, []byte("#!/bin/sh\nsleep 30\n"), 0o755))
@@ -78,7 +101,11 @@ func TestDownloadWithResume_CtxCanceled(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
 	defer cancel()
 
-	err := downloadWithResume(ctx, filepath.Join(dir, "model.gguf"), "http://example.invalid/model.gguf")
+	err := downloadWithResume(
+		ctx,
+		filepath.Join(dir, "model.gguf"),
+		"http://example.invalid/model.gguf",
+	)
 	require.Error(t, err)
 	assert.ErrorIs(t, err, ErrDownloadInterrupted)
 }
@@ -86,6 +113,11 @@ func TestDownloadWithResume_CtxCanceled(t *testing.T) {
 // TestDownloadWithResume_SummaryInterval verifies per-second progress is
 // enforced unless the user's custom flags pick their own interval.
 func TestDownloadWithResume_SummaryInterval(t *testing.T) {
+	if runtime.GOOS == goosWindows {
+		t.Skip(
+			"fake aria2c shim is a #!/bin/sh script on PATH; not runnable on Windows, and interrupt exit-code semantics are POSIX-signal-specific",
+		)
+	}
 	dir := t.TempDir()
 	argsFile := filepath.Join(dir, "args.txt")
 	fake := filepath.Join(dir, "aria2c")
@@ -95,14 +127,20 @@ func TestDownloadWithResume_SummaryInterval(t *testing.T) {
 
 	// Custom flags without an interval -> --summary-interval=1 appended.
 	t.Setenv("KDEPS_ARIA2C_FLAGS", "-x 4")
-	require.NoError(t, downloadWithResume(context.Background(), filepath.Join(dir, "m.gguf"), "http://x/m.gguf"))
+	require.NoError(
+		t,
+		downloadWithResume(context.Background(), filepath.Join(dir, "m.gguf"), "http://x/m.gguf"),
+	)
 	args, err := os.ReadFile(argsFile)
 	require.NoError(t, err)
 	assert.Contains(t, string(args), "--summary-interval=1")
 
 	// User-chosen interval is respected, not overridden.
 	t.Setenv("KDEPS_ARIA2C_FLAGS", "-x 4 --summary-interval=5")
-	require.NoError(t, downloadWithResume(context.Background(), filepath.Join(dir, "m.gguf"), "http://x/m.gguf"))
+	require.NoError(
+		t,
+		downloadWithResume(context.Background(), filepath.Join(dir, "m.gguf"), "http://x/m.gguf"),
+	)
 	args, err = os.ReadFile(argsFile)
 	require.NoError(t, err)
 	assert.Contains(t, string(args), "--summary-interval=5")
@@ -283,7 +321,9 @@ func TestAria2cNoiseFilter_SingleLine(t *testing.T) {
 func TestAria2cNoiseFilter_NoProgressNoOutput(t *testing.T) {
 	var out strings.Builder
 	f := &aria2cNoiseFilter{w: &out}
-	_, err := f.Write([]byte("07/09 [ERROR] CUID#1 - Download aborted. URI=x\nException: [A.cc:1]\n"))
+	_, err := f.Write(
+		[]byte("07/09 [ERROR] CUID#1 - Download aborted. URI=x\nException: [A.cc:1]\n"),
+	)
 	require.NoError(t, err)
 	f.Flush()
 	assert.Empty(t, out.String())

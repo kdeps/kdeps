@@ -41,8 +41,9 @@ import (
 )
 
 const (
-	archAmd64 = "amd64"
-	archArm64 = "arm64"
+	archAmd64   = "amd64"
+	archArm64   = "arm64"
+	goosWindows = "windows"
 )
 
 //nolint:gochecknoglobals // shared HTTP client for downloads
@@ -299,7 +300,7 @@ func detectOSArch() string {
 		if goarch == archArm64 {
 			return "macos-arm64"
 		}
-	case "windows":
+	case goosWindows:
 		if goarch == archAmd64 {
 			return "win-cpu-x64"
 		}

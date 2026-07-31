@@ -33,6 +33,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"syscall"
 	"testing"
@@ -284,7 +285,10 @@ func newBuildDockerClient(t *testing.T, handler gapRoundTripper) {
 func writeISOPackageDir(t *testing.T) (string, *domain.Workflow, func()) {
 	t.Helper()
 	tmpDir := t.TempDir()
-	require.NoError(t, os.WriteFile(filepath.Join(tmpDir, "workflow.yaml"), []byte(minimalWorkflowYAML()), 0644))
+	require.NoError(
+		t,
+		os.WriteFile(filepath.Join(tmpDir, "workflow.yaml"), []byte(minimalWorkflowYAML()), 0644),
+	)
 	require.NoError(t, os.MkdirAll(filepath.Join(tmpDir, "resources"), 0755))
 	require.NoError(t, os.WriteFile(
 		filepath.Join(tmpDir, "resources", "act.yaml"),
@@ -353,7 +357,9 @@ func jsonHTTPResponse(status int, body []byte) *http.Response {
 	}
 }
 
-func bytesHTTPResponse(body string) *http.Response { //nolint:unparam // test helper accepts variable body strings
+func bytesHTTPResponse(
+	body string, //nolint:unparam // test helper accepts variable body strings
+) *http.Response {
 	return &http.Response{
 		StatusCode: http.StatusOK,
 		Proto:      "HTTP/1.1",
@@ -379,6 +385,11 @@ func exportDockerBuildSuccessHandler() gapRoundTripper {
 
 func installFakeLinuxkit(t *testing.T) {
 	t.Helper()
+	if runtime.GOOS == "windows" {
+		t.Skip(
+			"fake linuxkit shim is a #!/bin/sh script with POSIX conditionals; not runnable on Windows",
+		)
+	}
 	tmp := t.TempDir()
 	script := `#!/bin/sh
 if [ "$1" = "build" ]; then

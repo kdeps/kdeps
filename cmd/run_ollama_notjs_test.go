@@ -25,6 +25,7 @@ import (
 	"net"
 	"os"
 	"path/filepath"
+	"runtime"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -77,7 +78,14 @@ func TestStartOllamaServer_NotFound(t *testing.T) {
 
 func TestStartOllamaServer_FakeOllamaSucceeds(t *testing.T) {
 	tmp := t.TempDir()
-	fakeOllama := filepath.Join(tmp, "ollama")
+	// startOllamaServer resolves "ollama" via exec.LookPath, which needs a
+	// recognized executable extension to find a bare name on Windows (no
+	// shebang interpretation there).
+	name := "ollama"
+	if runtime.GOOS == "windows" {
+		name = "ollama.bat"
+	}
+	fakeOllama := filepath.Join(tmp, name)
 	require.NoError(t, os.WriteFile(fakeOllama, []byte("#!/bin/sh\nexit 0\n"), 0755))
 	t.Setenv("PATH", tmp)
 

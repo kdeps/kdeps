@@ -21,6 +21,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"testing"
 	"time"
 
@@ -530,9 +531,16 @@ func TestRunPythonCheck_Neither(t *testing.T) {
 }
 
 func TestRunPythonCheck_OnlyPython_Shim(t *testing.T) {
-	// Place a shim python binary (without python3) in a temp PATH.
+	// Place a shim python binary (without python3) in a temp PATH. python()
+	// only calls exec.LookPath, never executes the shim, so its content is
+	// irrelevant -- but LookPath needs a recognized executable extension to
+	// find a bare "python" on Windows (no shebang interpretation there).
 	dir := t.TempDir()
-	pythonBin := filepath.Join(dir, "python")
+	name := "python"
+	if runtime.GOOS == "windows" {
+		name = "python.bat"
+	}
+	pythonBin := filepath.Join(dir, name)
 	require.NoError(t, os.WriteFile(pythonBin, []byte("#!/bin/sh\nexit 0"), 0755))
 	t.Setenv("PATH", dir)
 

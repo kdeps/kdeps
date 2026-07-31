@@ -47,7 +47,7 @@ func TestLoadOrSeedLocalRegistry_EmptyPath(t *testing.T) {
 }
 
 func TestLoadOrSeedLocalRegistry_UnreadableFile(t *testing.T) {
-	if runtime.GOOS == "windows" {
+	if runtime.GOOS == goosWindows {
 		t.Skip("file mode does not enforce POSIX permission bits on Windows")
 	}
 	path := filepath.Join(t.TempDir(), "registry.yaml")
@@ -75,7 +75,7 @@ func TestWriteLocalRegistry_NoHomeFallsBackToCwd(t *testing.T) {
 }
 
 func TestWriteLocalRegistry_MkdirError(t *testing.T) {
-	if runtime.GOOS == "windows" {
+	if runtime.GOOS == goosWindows {
 		t.Skip("relies on /dev/null being a non-directory special file blocking mkdir; no Windows equivalent")
 	}
 	t.Setenv("HOME", "/dev/null")
@@ -185,7 +185,7 @@ func TestEnsureExecutableExtension_MissingSource(t *testing.T) {
 }
 
 func TestNewLlamafileCommand_NonWindowsUsesShell(t *testing.T) {
-	if runtime.GOOS == "windows" {
+	if runtime.GOOS == goosWindows {
 		t.Skip("posix-only assertion")
 	}
 	orig := llamafileShell
@@ -239,7 +239,7 @@ func TestRunHarvesterScript_NoScriptFound(t *testing.T) {
 }
 
 func TestUpdateRegistryFromRemote_WriteError(t *testing.T) {
-	if runtime.GOOS == "windows" {
+	if runtime.GOOS == goosWindows {
 		t.Skip("relies on /dev/null being a non-directory special file blocking mkdir; no Windows equivalent")
 	}
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {

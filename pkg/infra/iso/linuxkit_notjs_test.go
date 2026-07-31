@@ -30,13 +30,20 @@ import (
 
 func TestEnsureLinuxKit_InPath(t *testing.T) {
 	tmpDir := t.TempDir()
-	fakeLinuxKit := filepath.Join(tmpDir, "linuxkit")
+	// EnsureLinuxKit only calls execLookPath, never executes the binary, so
+	// content is irrelevant -- but LookPath needs a recognized executable
+	// extension to find a bare "linuxkit" on Windows (no shebang there).
+	name := "linuxkit"
+	if runtime.GOOS == "windows" {
+		name = "linuxkit.bat"
+	}
+	fakeLinuxKit := filepath.Join(tmpDir, name)
 	if err := os.WriteFile(fakeLinuxKit, []byte("#!/bin/sh\necho ok"), 0755); err != nil {
 		t.Fatalf("failed to create fake linuxkit: %v", err)
 	}
 
 	oldPath := os.Getenv("PATH")
-	os.Setenv("PATH", tmpDir+":"+oldPath)
+	os.Setenv("PATH", tmpDir+string(os.PathListSeparator)+oldPath)
 	defer os.Setenv("PATH", oldPath)
 
 	path, err := EnsureLinuxKit(context.Background())

@@ -135,7 +135,8 @@ func configureBackendChoice(
 	out io.StringWriter, reader *bufio.Reader, w *fmtWriter, cfg *Config, choice string,
 ) error {
 	idx := 0
-	if _, err := fmt.Sscanf(choice, "%d", &idx); err != nil || idx < 1 || idx > len(backendChoices) {
+	if _, err := fmt.Sscanf(choice, "%d", &idx); err != nil || idx < 1 ||
+		idx > len(backendChoices) {
 		return nil //nolint:nilerr // invalid/blank menu input means "skip", not an error
 	}
 	switch backendChoices[idx-1].kind {
@@ -163,7 +164,12 @@ func configureLlamafile(out io.StringWriter, reader *bufio.Reader, cfg *Config) 
 // configureGGUF sets the gguf backend and an optional default model.
 func configureGGUF(out io.StringWriter, reader *bufio.Reader, cfg *Config) {
 	cfg.LLM.Backend = ggufBackendStr
-	model := promptLine(out, reader, "  Default GGUF model alias or path (blank to set per resource): ", "")
+	model := promptLine(
+		out,
+		reader,
+		"  Default GGUF model alias or path (blank to set per resource): ",
+		"",
+	)
 	setDefaultModel(cfg, model)
 }
 
@@ -176,7 +182,8 @@ func configureCloud(out io.StringWriter, reader *bufio.Reader, w *fmtWriter, cfg
 	}
 	choice := promptLine(out, reader, "  Enter number [1]: ", "1")
 	idx := 1
-	if _, err := fmt.Sscanf(choice, "%d", &idx); err != nil || idx < 1 || idx > len(cloudProvidersList) {
+	if _, err := fmt.Sscanf(choice, "%d", &idx); err != nil || idx < 1 ||
+		idx > len(cloudProvidersList) {
 		idx = 1
 	}
 	p := cloudProvidersList[idx-1]
@@ -200,11 +207,21 @@ func configureCloud(out io.StringWriter, reader *bufio.Reader, w *fmtWriter, cfg
 // configureOllama sets the ollama backend, host, and an optional model.
 func configureOllama(out io.StringWriter, reader *bufio.Reader, cfg *Config) {
 	cfg.LLM.Backend = ollamaBackendStr
-	host := promptLine(out, reader, "  Ollama host URL [http://localhost:11434]: ", "http://localhost:11434")
+	host := promptLine(
+		out,
+		reader,
+		"  Ollama host URL [http://localhost:11434]: ",
+		"http://localhost:11434",
+	)
 	if strings.TrimSpace(host) != "" {
 		cfg.LLM.OllamaHost = strings.TrimSpace(host)
 	}
-	model := promptLine(out, reader, "  Default model (e.g. llama3.2, blank to set per resource): ", "")
+	model := promptLine(
+		out,
+		reader,
+		"  Default model (e.g. llama3.2, blank to set per resource): ",
+		"",
+	)
 	setDefaultModel(cfg, model)
 }
 
@@ -229,7 +246,8 @@ func configureRouter(out io.StringWriter, reader *bufio.Reader, w *fmtWriter, cf
 	}
 	choice := promptLine(out, reader, "  Enter number [1]: ", "1")
 	idx := 1
-	if _, err := fmt.Sscanf(choice, "%d", &idx); err != nil || idx < 1 || idx > len(routerStrategies) {
+	if _, err := fmt.Sscanf(choice, "%d", &idx); err != nil || idx < 1 ||
+		idx > len(routerStrategies) {
 		idx = 1
 	}
 	cfg.LLM.Strategy = routerStrategies[idx-1]

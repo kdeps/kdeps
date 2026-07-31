@@ -534,7 +534,7 @@ func TestDetectOSArch_DarwinAmd64(t *testing.T) {
 func TestDetectOSArch_WindowsAmd64(t *testing.T) {
 	origOS := testOS
 	origArch := testArch
-	testOS = "windows"
+	testOS = goosWindows
 	testArch = "amd64"
 	t.Cleanup(func() { testOS = origOS; testArch = origArch })
 	result := detectOSArch()

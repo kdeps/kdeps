@@ -191,7 +191,7 @@ func TestParseLlamafileYAML_Empty(t *testing.T) {
 }
 
 func TestWriteLocalRegistry_MarshalError(t *testing.T) {
-	if runtime.GOOS == "windows" {
+	if runtime.GOOS == goosWindows {
 		t.Skip("relies on /dev/null being a non-directory special file blocking mkdir; no Windows equivalent")
 	}
 	t.Setenv("HOME", "/dev/null/impossible")

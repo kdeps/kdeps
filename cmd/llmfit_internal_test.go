@@ -24,6 +24,7 @@ import (
 	"context"
 	"os"
 	"path/filepath"
+	"runtime"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -47,8 +48,16 @@ func TestNormalizeModelKey(t *testing.T) {
 	} {
 		assert.Equal(t, want, normalizeModelKey(in), "input: %s", in)
 	}
-	assert.Equal(t, "llama318binstruct", normalizeModelKey("mozilla-ai/Meta-Llama-3.1-8B-Instruct-llamafile"))
-	assert.Equal(t, "llama318binstruct", normalizeModelKey("Meta-Llama-3.1-8B-Instruct.Q4_K_M.llamafile"))
+	assert.Equal(
+		t,
+		"llama318binstruct",
+		normalizeModelKey("mozilla-ai/Meta-Llama-3.1-8B-Instruct-llamafile"),
+	)
+	assert.Equal(
+		t,
+		"llama318binstruct",
+		normalizeModelKey("Meta-Llama-3.1-8B-Instruct.Q4_K_M.llamafile"),
+	)
 	assert.Equal(t, "llama318binstruct", normalizeModelKey("meta-llama/Llama-3.1-8B-Instruct"))
 	assert.Equal(t, "qwen2515binstruct", normalizeModelKey("Qwen/Qwen2.5-1.5B-Instruct"))
 	assert.Equal(t, "starcoder23b", normalizeModelKey("starcoder2-3b.Q4_K_M.llamafile"))
@@ -58,7 +67,11 @@ func TestNormalizeModelKey(t *testing.T) {
 
 func TestNormalizeModelKeyLoose(t *testing.T) {
 	// Instruct/chat/it stripped so base and instruct variants share a key.
-	assert.Equal(t, "llama323b", normalizeModelKeyLoose("mozilla-ai/Llama-3.2-3B-Instruct-llamafile"))
+	assert.Equal(
+		t,
+		"llama323b",
+		normalizeModelKeyLoose("mozilla-ai/Llama-3.2-3B-Instruct-llamafile"),
+	)
 	assert.Equal(t, "llama323b", normalizeModelKeyLoose("meta-llama/Llama-3.2-3B"))
 	assert.Equal(t, "gemma412b", normalizeModelKeyLoose("gemma-4-12b-it-Q4_K_M.gguf"))
 	assert.Equal(t, "gemma412b", normalizeModelKeyLoose("google/gemma-4-12b"))
@@ -77,7 +90,12 @@ func TestMatchLlamaFitScore(t *testing.T) {
 	}
 
 	// Exact repo wins.
-	e, ok := matchLlamaFitScore([]string{"bartowski/Qwen2.5-1.5B-Instruct-GGUF"}, repoMap, nameMap, looseMap)
+	e, ok := matchLlamaFitScore(
+		[]string{"bartowski/Qwen2.5-1.5B-Instruct-GGUF"},
+		repoMap,
+		nameMap,
+		looseMap,
+	)
 	require.True(t, ok)
 	assert.InDelta(t, 66.1, e.score, 0.001)
 
@@ -92,8 +110,13 @@ func TestMatchLlamaFitScore(t *testing.T) {
 
 	// Loose match: Instruct filename vs base llmfit name.
 	e, ok = matchLlamaFitScore(
-		[]string{"mozilla-ai/Llama-3.2-3B-Instruct-llamafile", "Llama-3.2-3B-Instruct-Q4_K_M.llamafile"},
-		repoMap, nameMap, looseMap,
+		[]string{
+			"mozilla-ai/Llama-3.2-3B-Instruct-llamafile",
+			"Llama-3.2-3B-Instruct-Q4_K_M.llamafile",
+		},
+		repoMap,
+		nameMap,
+		looseMap,
 	)
 	require.True(t, ok)
 	assert.InDelta(t, 67.3, e.score, 0.001)
@@ -106,6 +129,9 @@ func TestMatchLlamaFitScore(t *testing.T) {
 // normalized base-model name even when llmfit reports no gguf_sources and the
 // registry repo differs from llmfit's base repo.
 func TestRunLlamaFit_NameBasedMatching(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("fake llmfit shim is a #!/bin/sh heredoc script; not runnable on Windows")
+	}
 	const fixture = `{"models":[
 		{"name":"alpindale/Llama-3.2-1B-Instruct","score":78.5,"fit_level":"Good","gguf_sources":[]},
 		{"name":"Qwen/Qwen2.5-1.5B-Instruct","score":66.1,"fit_level":"Too Tight",
@@ -122,7 +148,10 @@ func TestRunLlamaFit_NameBasedMatching(t *testing.T) {
 	// the script's own `cat` still resolves.
 	t.Setenv("PATH", dir+string(os.PathListSeparator)+os.Getenv("PATH"))
 
-	repl := agent.NewREPL(context.Background(), agent.New(nil, nil, nil, agent.Config{Model: "m", Backend: "openai"}))
+	repl := agent.NewREPL(
+		context.Background(),
+		agent.New(nil, nil, nil, agent.Config{Model: "m", Backend: "openai"}),
+	)
 	repl.SetModelNames([]string{
 		"llama3.2:1b-q4",
 		"qwen2.5:1.5b",
@@ -171,9 +200,16 @@ func TestOptionalToolNotices_MissingTools(t *testing.T) {
 	assert.Contains(t, notices[1], "llmfit not installed")
 	assert.Contains(t, notices[1], "brew install AlexsJones/llmfit/llmfit")
 
-	// With both tools present, no notices.
+	// With both tools present, no notices. optionalToolNotices only calls
+	// exec.LookPath, never executes either binary, so content is
+	// irrelevant -- but LookPath needs a recognized executable extension
+	// to find a bare name on Windows (no shebang interpretation there).
 	for _, tool := range []string{"aria2c", "llmfit"} {
-		require.NoError(t, os.WriteFile(filepath.Join(empty, tool), []byte("#!/bin/sh\n"), 0o755))
+		name := tool
+		if runtime.GOOS == "windows" {
+			name += ".bat"
+		}
+		require.NoError(t, os.WriteFile(filepath.Join(empty, name), []byte("#!/bin/sh\n"), 0o755))
 	}
 	assert.Empty(t, optionalToolNotices())
 }

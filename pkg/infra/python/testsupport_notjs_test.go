@@ -24,6 +24,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -59,11 +60,15 @@ func TestManager_InstallRequirements_NonexistentFile(t *testing.T) {
 }
 
 // TestManager_InstallTool_BinaryAlreadyOnPath uses a binary that is always on
-// PATH ("ls" on POSIX) so InstallTool returns nil immediately without invoking uv.
+// PATH ("ls" on POSIX, "cmd" on Windows) so InstallTool returns nil
+// immediately without invoking uv.
 func TestManager_InstallTool_BinaryAlreadyOnPath(t *testing.T) {
 	m := python.NewManager(t.TempDir())
-	// "ls" is universally available on Linux/macOS CI.
-	err := m.InstallTool("ls", "some-pkg")
+	binary := "ls"
+	if runtime.GOOS == "windows" {
+		binary = "cmd"
+	}
+	err := m.InstallTool(binary, "some-pkg")
 	require.NoError(t, err, "InstallTool should no-op when binary is already on PATH")
 }
 

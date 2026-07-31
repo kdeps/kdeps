@@ -39,7 +39,7 @@ func TestDetectOSArch(t *testing.T) {
 		assert.Equal(t, "macos-x64", result)
 	case runtime.GOOS == "darwin" && runtime.GOARCH == "arm64":
 		assert.Equal(t, "macos-arm64", result)
-	case runtime.GOOS == "windows" && runtime.GOARCH == "amd64":
+	case runtime.GOOS == goosWindows && runtime.GOARCH == "amd64":
 		assert.Equal(t, "win-cpu-x64", result)
 	default:
 		assert.Equal(t, "", result)
