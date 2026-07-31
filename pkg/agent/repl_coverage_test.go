@@ -401,11 +401,15 @@ func TestCmdEditor_FallbackWhenBothEmpty(t *testing.T) {
 // --- helper: capture stdout ---
 
 func TestHistoryPath_ReturnsPath(t *testing.T) {
-	t.Setenv("HOME", "/test/home/user")
+	dir := t.TempDir()
+	// os.UserHomeDir() reads HOME on POSIX but USERPROFILE on Windows; set
+	// both so the fake home takes effect on either OS.
+	t.Setenv("HOME", dir)
+	t.Setenv("USERPROFILE", dir)
 	path := historyPath()
 	assert.Contains(t, path, ".kdeps")
 	assert.Contains(t, path, "history")
-	assert.Contains(t, path, "/test/home/user")
+	assert.Contains(t, path, dir)
 }
 
 func TestCmdHelp_PrintsCommands(t *testing.T) {
