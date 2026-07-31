@@ -536,7 +536,7 @@ func TestSessionBasePath_WithCwd(t *testing.T) {
 	t.Cleanup(func() { _ = store.Close() })
 	store.SetCwd("/some/project/path")
 	result := store.sessionBasePath()
-	assert.Equal(t, dir+"/--some-project-path--", result)
+	assert.Equal(t, filepath.Join(dir, "--some-project-path--"), result)
 }
 
 func TestSessionBasePath_WithoutCwd(t *testing.T) {
