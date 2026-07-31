@@ -290,6 +290,7 @@ func TestSelectionFromSettings_Filtered(t *testing.T) {
 
 func TestSettingsPath_HomeDirError(t *testing.T) {
 	t.Setenv("HOME", "")
+	t.Setenv("USERPROFILE", "") // os.UserHomeDir() reads USERPROFILE on Windows, not HOME
 
 	path, err := settingsPath()
 	assert.Error(t, err)
@@ -301,6 +302,7 @@ func TestSettingsPath_HomeDirError(t *testing.T) {
 // When HOME is unset, UserHomeDir fails; LoadSettings must return DefaultSettings with nil error.
 func TestLoadSettings_HomeDirError(t *testing.T) {
 	t.Setenv("HOME", "")
+	t.Setenv("USERPROFILE", "") // os.UserHomeDir() reads USERPROFILE on Windows, not HOME
 
 	s, err := LoadSettings()
 	assert.NoError(t, err) // non-fatal: silently uses defaults
@@ -310,6 +312,7 @@ func TestLoadSettings_HomeDirError(t *testing.T) {
 // TestSave_HomeDirError covers the settingsPath-error branch in Save.
 func TestSave_HomeDirError(t *testing.T) {
 	t.Setenv("HOME", "")
+	t.Setenv("USERPROFILE", "") // os.UserHomeDir() reads USERPROFILE on Windows, not HOME
 
 	err := Settings{SelectAll: true}.Save()
 	assert.Error(t, err)

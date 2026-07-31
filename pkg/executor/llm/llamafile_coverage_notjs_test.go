@@ -72,6 +72,9 @@ func TestWriteLocalRegistry_NoHomeFallsBackToCwd(t *testing.T) {
 }
 
 func TestWriteLocalRegistry_MkdirError(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("relies on /dev/null being a non-directory special file blocking mkdir; no Windows equivalent")
+	}
 	t.Setenv("HOME", "/dev/null")
 	err := WriteLocalRegistry([]LlamafileEntry{{Alias: "a", URL: "https://x/a.llamafile"}})
 	require.Error(t, err)
@@ -233,6 +236,9 @@ func TestRunHarvesterScript_NoScriptFound(t *testing.T) {
 }
 
 func TestUpdateRegistryFromRemote_WriteError(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("relies on /dev/null being a non-directory special file blocking mkdir; no Windows equivalent")
+	}
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		_, _ = w.Write([]byte("version: 1\nllamafiles:\n  - alias: r\n    url: https://x/r.llamafile\n"))
 	}))

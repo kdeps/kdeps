@@ -4419,9 +4419,13 @@ func TestCmdClear_WithFewTurns(t *testing.T) {
 // --- historyPath with HOME set ---
 
 func TestHistoryPath_WithHome(t *testing.T) {
-	t.Setenv("HOME", "/custom/home")
+	dir := t.TempDir()
+	// os.UserHomeDir() reads HOME on POSIX but USERPROFILE on Windows; set
+	// both so the fake home takes effect on either OS.
+	t.Setenv("HOME", dir)
+	t.Setenv("USERPROFILE", dir)
 	path := historyPath()
-	assert.Contains(t, path, "/custom/home")
+	assert.Contains(t, path, dir)
 	assert.Contains(t, path, ".kdeps")
 	assert.Contains(t, path, "repl_history")
 }

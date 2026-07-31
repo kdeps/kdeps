@@ -225,6 +225,7 @@ func TestUnwrapArchiveRoot_ReadDirError(t *testing.T) {
 
 func TestCloneAsComponent_InstallDirError(t *testing.T) {
 	t.Setenv("HOME", "")
+	t.Setenv("USERPROFILE", "") // os.UserHomeDir() reads USERPROFILE on Windows, not HOME
 	t.Setenv("KDEPS_COMPONENT_DIR", "")
 	err := cloneAsComponent("c", t.TempDir())
 	require.Error(t, err)

@@ -54,7 +54,13 @@ func TestGGufLlamaServerBinary_NoEnvVar(t *testing.T) {
 }
 
 func TestCachedLlamaServerPath_Default(t *testing.T) {
-	t.Setenv("HOME", "/test/home/gguf")
+	// Override userHomeDirFunc directly rather than t.Setenv("HOME", ...):
+	// os.UserHomeDir() reads USERPROFILE on Windows, not HOME, so the env
+	// var alone has no effect there.
+	orig := userHomeDirFunc
+	t.Cleanup(func() { userHomeDirFunc = orig })
+	userHomeDirFunc = func() (string, error) { return "/test/home/gguf", nil }
+
 	result := cachedLlamaServerPath()
 	expected := filepath.Join("/test/home/gguf", ".kdeps", "bin", "llama-server")
 	if result != expected {

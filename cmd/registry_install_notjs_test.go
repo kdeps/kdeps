@@ -73,6 +73,7 @@ func TestInstallRegistryComponent_ProjectDirPath(t *testing.T) {
 
 func TestInstallRegistryComponent_Errors(t *testing.T) {
 	t.Setenv("HOME", "")
+	t.Setenv("USERPROFILE", "") // os.UserHomeDir() reads USERPROFILE on Windows, not HOME
 	t.Setenv("KDEPS_COMPONENT_DIR", "")
 	cmd := &cobra.Command{}
 	err := installRegistryComponent(

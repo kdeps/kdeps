@@ -361,6 +361,7 @@ func TestDiscoverComponentsDir_SkipsFiles(t *testing.T) {
 // When HOME is unset, UserHomeDir fails and the function returns empty items.
 func TestDiscoverItems_HomeDirError(t *testing.T) {
 	t.Setenv("HOME", "")
+	t.Setenv("USERPROFILE", "") // os.UserHomeDir() reads USERPROFILE on Windows, not HOME
 	items := discoverItems()
 	for _, tab := range items {
 		assert.Empty(t, tab)

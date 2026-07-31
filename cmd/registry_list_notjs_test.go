@@ -50,6 +50,7 @@ func TestRegistryListRunE_HomeFail(t *testing.T) {
 	}
 	t.Setenv("KDEPS_COMPONENT_DIR", "")
 	t.Setenv("HOME", "")
+	t.Setenv("USERPROFILE", "") // os.UserHomeDir() reads USERPROFILE on Windows, not HOME
 	require.Error(t, registryListRunE())
 }
 

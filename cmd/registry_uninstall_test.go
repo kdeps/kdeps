@@ -259,6 +259,7 @@ func TestRegistryUninstall_ComponentError(t *testing.T) {
 	t.Setenv("KDEPS_AGENTS_DIR", tmp)
 	// Set HOME to a path that componentInstallDir will fail to derive.
 	t.Setenv("HOME", "")
+	t.Setenv("USERPROFILE", "") // os.UserHomeDir() reads USERPROFILE on Windows, not HOME
 
 	cmd := &cobra.Command{}
 	// No agent installed, and componentInstallDir will fail without HOME.
@@ -274,6 +275,7 @@ func TestUninstallAgent_KdepsAgentsDirError(t *testing.T) {
 	}
 	t.Setenv("KDEPS_AGENTS_DIR", "")
 	t.Setenv("HOME", "")
+	t.Setenv("USERPROFILE", "") // os.UserHomeDir() reads USERPROFILE on Windows, not HOME
 
 	cmd := &cobra.Command{}
 	ok, err := uninstallAgent(cmd, "x")
@@ -288,6 +290,7 @@ func TestDoRegistryUninstall_AgentDirError(t *testing.T) {
 	}
 	t.Setenv("KDEPS_AGENTS_DIR", "")
 	t.Setenv("HOME", "")
+	t.Setenv("USERPROFILE", "") // os.UserHomeDir() reads USERPROFILE on Windows, not HOME
 
 	cmd := &cobra.Command{}
 	err := doRegistryUninstall(cmd, "x")
@@ -301,6 +304,7 @@ func TestFindInstalledPackage_AgentsDirError(t *testing.T) {
 	}
 	t.Setenv("KDEPS_AGENTS_DIR", "")
 	t.Setenv("HOME", "")
+	t.Setenv("USERPROFILE", "") // os.UserHomeDir() reads USERPROFILE on Windows, not HOME
 
 	found, dir, err := findInstalledPackage("x")
 	require.Error(t, err)
@@ -315,6 +319,7 @@ func TestDoRegistryUpdate_FindPackageError(t *testing.T) {
 	}
 	t.Setenv("KDEPS_AGENTS_DIR", "")
 	t.Setenv("HOME", "")
+	t.Setenv("USERPROFILE", "") // os.UserHomeDir() reads USERPROFILE on Windows, not HOME
 
 	cmd := &cobra.Command{}
 	err := doRegistryUpdate(cmd, "x", "http://localhost")
@@ -330,6 +335,7 @@ func TestUninstallComponent_CompDirError(t *testing.T) {
 	// KDEPS_AGENTS_DIR set so kdepsAgentsDir succeeds, HOME empty so componentInstallDir fails.
 	t.Setenv("KDEPS_AGENTS_DIR", tmp)
 	t.Setenv("HOME", "")
+	t.Setenv("USERPROFILE", "") // os.UserHomeDir() reads USERPROFILE on Windows, not HOME
 
 	origDir, _ := os.Getwd()
 	require.NoError(t, os.Chdir(tmp))
@@ -350,6 +356,7 @@ func TestFindInstalledPackage_CompDirError(t *testing.T) {
 	tmp := t.TempDir()
 	t.Setenv("KDEPS_AGENTS_DIR", tmp)
 	t.Setenv("HOME", "")
+	t.Setenv("USERPROFILE", "") // os.UserHomeDir() reads USERPROFILE on Windows, not HOME
 
 	origDir, _ := os.Getwd()
 	require.NoError(t, os.Chdir(tmp))

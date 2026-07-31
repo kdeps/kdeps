@@ -47,9 +47,16 @@ func TestDetectOSArch(t *testing.T) {
 }
 
 func TestCachedLlamaServerPath(t *testing.T) {
-	t.Setenv("HOME", "/test/home")
+	// Override userHomeDirFunc directly rather than t.Setenv("HOME", ...):
+	// os.UserHomeDir() reads USERPROFILE on Windows, not HOME, so the env
+	// var alone has no effect there. filepath.Join (not a "/"-joined
+	// literal) so the expected value matches on any OS.
+	orig := userHomeDirFunc
+	t.Cleanup(func() { userHomeDirFunc = orig })
+	userHomeDirFunc = func() (string, error) { return "/test/home", nil }
+
 	path := cachedLlamaServerPath()
-	assert.Equal(t, "/test/home/.kdeps/bin/llama-server", path)
+	assert.Equal(t, filepath.Join("/test/home", ".kdeps", "bin", "llama-server"), path)
 }
 
 func TestResolvedGGUFURL_NoModelsDir(t *testing.T) {
