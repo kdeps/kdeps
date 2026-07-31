@@ -2164,6 +2164,21 @@ func (l *Loop) buildSystemPreamble(focus string) string {
 		}
 	}
 
+	// Tool guidance (toolUseGuidance) and the tool catalog (ToolPrompt) are also
+	// built separately and kept out of turoReduce, for the same reason as the
+	// memory rules: they are the model's only source of exact tool names,
+	// parameter names, and calling conventions (kdeps has no native
+	// function-calling schema — this text block IS the tool interface), so
+	// lexical rewriting here can silently break tool calls. Always included
+	// when tools exist, even in small-context mode below.
+	var toolParts []string
+	if l.registry != nil && len(l.registry.List()) > 0 {
+		toolParts = append(toolParts, toolUseGuidance)
+		if toolPrompt := l.registry.ToolPrompt(); toolPrompt != "" {
+			toolParts = append(toolParts, toolPrompt)
+		}
+	}
+
 	if l.skills != "" {
 		parts = append(parts, l.skills)
 	}
@@ -2176,12 +2191,6 @@ func (l *Loop) buildSystemPreamble(focus string) string {
 		if instructions := discoverInstructions(""); instructions != "" {
 			parts = append(parts, instructions)
 		}
-	}
-	if l.registry != nil && len(l.registry.List()) > 0 {
-		parts = append(parts, toolUseGuidance)
-		if toolPrompt := l.registry.ToolPrompt(); toolPrompt != "" {
-			parts = append(parts, toolPrompt)
-		}
 		parts = append(parts, l.commitTrailerPreamble())
 		parts = append(parts, l.dateAndWDPreamble())
 	}
@@ -2189,22 +2198,28 @@ func (l *Loop) buildSystemPreamble(focus string) string {
 		parts = append(parts, l.config.SystemPrompt)
 	}
 	preamble := strings.Join(parts, "\n\n")
-	// For models with very small context windows, keep only tool guidance
-	// and strip large skill blocks that would cause immediate overflow.
+	// For models with very small context windows, drop skills and instructions
+	// to leave room for the actual conversation. Tool guidance is unaffected —
+	// it is re-attached unconditionally below, not part of this reduction pool.
 	const smallContext = 8192
 	if limit < smallContext && l.skills != "" {
-		essential := toolUseGuidance
-		if l.config.SystemPrompt != "" {
-			essential = l.config.SystemPrompt + "\n\n" + toolUseGuidance
-		}
+		essential := l.config.SystemPrompt
 		if len(parts) > 0 {
 			preamble = essential
 		}
 	}
 	preamble = turoReduce(context.Background(), preamble)
 
-	// Re-attach the memory rules, untouched by turoReduce and unaffected by the
-	// small-context truncation above, so they are always sent intact.
+	// Re-attach tool guidance/catalog and the memory rules, in that order,
+	// untouched by turoReduce and unaffected by the small-context truncation
+	// above, so both are always sent intact.
+	if toolSection := strings.Join(toolParts, "\n\n"); toolSection != "" {
+		if preamble != "" {
+			preamble = toolSection + "\n\n" + preamble
+		} else {
+			preamble = toolSection
+		}
+	}
 	if memorySection := strings.Join(memoryParts, "\n\n"); memorySection != "" {
 		if preamble != "" {
 			preamble = memorySection + "\n\n" + preamble

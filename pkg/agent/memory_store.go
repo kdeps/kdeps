@@ -341,7 +341,7 @@ func (m *MemoryStore) List() []MemoryEntry {
 // can accumulate thousands of entries over a long-lived session; dumping every
 // key into the system prompt (as <memory-keys> once did) would consume tens of
 // thousands of tokens on every rebuild. limit <= 0 means no cap.
-func (m *MemoryStore) RecentKeys(limit int) (keys []string, total int) {
+func (m *MemoryStore) RecentKeys(limit int) ([]string, int) {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 	if m.path == "" {
@@ -351,14 +351,14 @@ func (m *MemoryStore) RecentKeys(limit int) (keys []string, total int) {
 	for _, e := range m.entries {
 		entries = append(entries, e)
 	}
-	total = len(entries)
+	total := len(entries)
 	sort.Slice(entries, func(i, j int) bool {
 		return entries[i].UpdatedAt > entries[j].UpdatedAt
 	})
 	if limit > 0 && len(entries) > limit {
 		entries = entries[:limit]
 	}
-	keys = make([]string, len(entries))
+	keys := make([]string, len(entries))
 	for i, e := range entries {
 		keys[i] = e.Key
 	}

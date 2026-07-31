@@ -107,6 +107,10 @@ func requestPlan(l *Loop, input string, repair bool) []string {
 			{Role: "system", Prompt: system},
 		},
 		// No tools: decomposition is a standalone structured call.
+		// Grammar-constrained JSON mode: without it, small local models
+		// (e.g. gguf/ollama 7-9B) routinely emit prose around the object and
+		// burn the one repair attempt on every turn.
+		JSONResponse: true,
 	}
 	synthetic := l.buildSyntheticWorkflow(goalPlanActionID, chatCfg)
 	result, err := l.engine.Execute(synthetic, nil)

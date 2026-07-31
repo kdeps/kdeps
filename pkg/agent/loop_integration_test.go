@@ -544,6 +544,63 @@ func TestBuildSystemPreamble_ContainsCommitTrailer(t *testing.T) {
 	assert.Contains(t, preamble, "git commit")
 }
 
+// TestBuildSystemPreamble_ToolGuidanceSurvivesVerbatim guards the tool
+// interface: kdeps has no native function-calling schema, so toolUseGuidance
+// and the tool catalog (ToolPrompt) are the model's only source of exact tool
+// names and calling conventions. They must never pass through turoReduce,
+// where lexical rewriting could silently break tool calls.
+func TestBuildSystemPreamble_ToolGuidanceSurvivesVerbatim(t *testing.T) {
+	eng := executor.NewEngine(nil)
+	reg := tools.NewRegistry()
+	reg.Register(&tools.Tool{
+		Name:        "calc",
+		Description: "calculator",
+		Parameters:  map[string]domain.ToolParam{},
+		Execute:     func(_ map[string]any) (string, error) { return "42", nil },
+	})
+	loop := New(eng, newTestWorkflowForSession(), reg, Config{
+		Model:    "deepseek-reasoner",
+		Backend:  "deepseek",
+		Streamer: &mockStreamer{},
+	})
+
+	preamble := loop.buildSystemPreamble("")
+
+	// Exact phrases from toolUseGuidance's operating rules.
+	assert.Contains(t, preamble, "STOP ALL SEARCHING")
+	assert.Contains(t, preamble, "Send independent tool calls in a single message to run them concurrently.")
+	// Exact rendering of the registered tool from ToolPrompt.
+	assert.Contains(t, preamble, "**calc**: calculator")
+}
+
+// TestBuildSystemPreamble_ToolGuidanceSurvivesSmallContext verifies tool
+// guidance is still sent, verbatim, even when the context budget is too small
+// for skills — previously the small-context path replaced the whole preamble
+// with a reduced copy of toolUseGuidance, so it wasn't actually protected.
+func TestBuildSystemPreamble_ToolGuidanceSurvivesSmallContext(t *testing.T) {
+	eng := executor.NewEngine(nil)
+	reg := tools.NewRegistry()
+	reg.Register(&tools.Tool{
+		Name:        "calc",
+		Description: "calculator",
+		Parameters:  map[string]domain.ToolParam{},
+		Execute:     func(_ map[string]any) (string, error) { return "42", nil },
+	})
+	loop := New(eng, newTestWorkflowForSession(), reg, Config{
+		Model:    "deepseek-reasoner",
+		Backend:  "deepseek",
+		Streamer: &mockStreamer{},
+	})
+	loop.skills = "LARGE SKILL BLOCK"
+	loop.config.CompactTokenBudget = 4096 // < smallContext (8192)
+
+	preamble := loop.buildSystemPreamble("")
+
+	assert.NotContains(t, preamble, "LARGE SKILL BLOCK")
+	assert.Contains(t, preamble, "STOP ALL SEARCHING")
+	assert.Contains(t, preamble, "**calc**: calculator")
+}
+
 // TestRunStreaming_StopsEarlyMidway verifies that when tool calls stop before
 // MaxToolRounds the loop exits after the clean round.
 func TestRunStreaming_StopsEarlyMidway(t *testing.T) {
