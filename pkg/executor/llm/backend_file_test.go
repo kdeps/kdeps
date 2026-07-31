@@ -20,6 +20,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"runtime"
 	"strings"
 	"testing"
 
@@ -257,6 +258,9 @@ func TestDefaultModelsDir_EnvOverride_MkdirFails(t *testing.T) {
 	if os.Getuid() == 0 {
 		t.Skip("root bypasses file permissions")
 	}
+	if runtime.GOOS == "windows" {
+		t.Skip("chmod does not enforce POSIX permission bits on Windows")
+	}
 	base := t.TempDir()
 	// Make base read-only so subdirectory creation fails.
 	if err := os.Chmod(base, 0500); err != nil {
@@ -273,6 +277,9 @@ func TestDefaultModelsDir_EnvOverride_MkdirFails(t *testing.T) {
 func TestDefaultModelsDir_FallbackMkdirFails(t *testing.T) {
 	if os.Getuid() == 0 {
 		t.Skip("root bypasses file permissions")
+	}
+	if runtime.GOOS == "windows" {
+		t.Skip("chmod does not enforce POSIX permission bits on Windows")
 	}
 	base := t.TempDir()
 	if err := os.Chmod(base, 0500); err != nil {

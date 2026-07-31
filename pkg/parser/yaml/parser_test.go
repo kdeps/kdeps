@@ -22,6 +22,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"runtime"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -1553,6 +1554,9 @@ func TestLoadComponentResources_ReadDirError(t *testing.T) {
 	if os.Getuid() == 0 {
 		t.Skip("chmod tests do not work as root")
 	}
+	if runtime.GOOS == "windows" {
+		t.Skip("chmod does not enforce POSIX permission bits on Windows")
+	}
 
 	projectDir := t.TempDir()
 
@@ -1590,6 +1594,9 @@ settings:
 func TestScanComponentsDir_ReadDirError(t *testing.T) {
 	if os.Getuid() == 0 {
 		t.Skip("chmod tests do not work as root")
+	}
+	if runtime.GOOS == "windows" {
+		t.Skip("chmod does not enforce POSIX permission bits on Windows")
 	}
 
 	tmp := t.TempDir()
@@ -1630,6 +1637,9 @@ func TestScanComponentsDir_StatError(t *testing.T) {
 	if os.Getuid() == 0 {
 		t.Skip("chmod tests do not work as root")
 	}
+	if runtime.GOOS == "windows" {
+		t.Skip("chmod does not enforce POSIX permission bits on Windows")
+	}
 	parent := t.TempDir()
 	child := filepath.Join(parent, "comps")
 	require.NoError(t, os.Mkdir(child, 0o755))
@@ -1645,6 +1655,9 @@ func TestScanComponentsDir_StatError(t *testing.T) {
 func TestLoadComponents_GlobalScanError(t *testing.T) {
 	if os.Getuid() == 0 {
 		t.Skip("chmod tests do not work as root")
+	}
+	if runtime.GOOS == "windows" {
+		t.Skip("chmod does not enforce POSIX permission bits on Windows")
 	}
 	parent := t.TempDir()
 	child := filepath.Join(parent, "global-comps")

@@ -24,6 +24,7 @@ import (
 	stdhttp "net/http"
 	"net/http/httptest"
 	"os"
+	"runtime"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -382,6 +383,9 @@ func TestUploadHandler_HandleUpload_FileSizeLimit_CatchAll(t *testing.T) {
 // processFileHeader's store.Store call fails (e.g. read-only directory),
 // covering the store error branch at line 184-186.
 func TestUploadHandler_HandleUpload_StoreError(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("chmod does not enforce POSIX permission bits on Windows")
+	}
 	tmpDir := t.TempDir()
 	uploadDir := filepath.Join(tmpDir, "uploads")
 	err := os.MkdirAll(uploadDir, 0755)

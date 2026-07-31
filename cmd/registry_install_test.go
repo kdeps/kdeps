@@ -32,6 +32,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"runtime"
 	"testing"
 
 	"github.com/spf13/cobra"
@@ -917,6 +918,9 @@ func TestExtractFile_OpenFileError(t *testing.T) {
 	if os.Getuid() == 0 {
 		t.Skip("cannot test permission errors as root")
 	}
+	if runtime.GOOS == "windows" {
+		t.Skip("chmod does not enforce POSIX permission bits on Windows")
+	}
 	// Use a path under a read-only directory.
 	readOnlyDir := t.TempDir()
 	require.NoError(t, os.Chmod(readOnlyDir, 0500))
@@ -934,6 +938,9 @@ func TestExtractFile_OpenFileError(t *testing.T) {
 func TestDownloadArchive_CreateFileError(t *testing.T) {
 	if os.Getuid() == 0 {
 		t.Skip("cannot test permission errors as root")
+	}
+	if runtime.GOOS == "windows" {
+		t.Skip("chmod does not enforce POSIX permission bits on Windows")
 	}
 	srv := httptest.NewServer(stdhttp.HandlerFunc(func(w stdhttp.ResponseWriter, _ *stdhttp.Request) {
 		_, _ = w.Write([]byte("fake content"))
@@ -1017,6 +1024,9 @@ func TestExtractFile_OpenFileError2(t *testing.T) {
 	if os.Getuid() == 0 {
 		t.Skip("cannot test permission errors as root")
 	}
+	if runtime.GOOS == "windows" {
+		t.Skip("chmod does not enforce POSIX permission bits on Windows")
+	}
 	// Create parent dir and make it read-only — MkdirAll succeeds (dir exists)
 	// but OpenFile fails (no write permission).
 	parentDir := t.TempDir()
@@ -1053,6 +1063,9 @@ func TestExtractFile_SizeLimitExceeded(t *testing.T) {
 func TestExtractArchive_DirMkdirError(t *testing.T) {
 	if os.Getuid() == 0 {
 		t.Skip("cannot test permission errors as root")
+	}
+	if runtime.GOOS == "windows" {
+		t.Skip("chmod does not enforce POSIX permission bits on Windows")
 	}
 	var buf bytes.Buffer
 	gz := gzip.NewWriter(&buf)

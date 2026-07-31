@@ -29,6 +29,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"runtime"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -141,6 +142,9 @@ func TestCloneFromRemote_UnwrapError(t *testing.T) {
 }
 
 func TestCloneAsComponent_CopyKomponentFail(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("chmod does not enforce POSIX permission bits on Windows")
+	}
 	tmp := t.TempDir()
 	compDir := filepath.Join(tmp, "components")
 	require.NoError(t, os.MkdirAll(compDir, 0755))
@@ -183,7 +187,7 @@ func TestCopyFile_CloseSuccessPath(t *testing.T) {
 }
 
 func TestUnwrapArchiveRoot_ReadError(t *testing.T) {
-	if os.Getenv("GOOS") == "windows" {
+	if runtime.GOOS == "windows" {
 		t.Skip("chmod not supported")
 	}
 	tmp := t.TempDir()
@@ -194,6 +198,9 @@ func TestUnwrapArchiveRoot_ReadError(t *testing.T) {
 }
 
 func TestCloneAsComponent_MkdirAllError(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("chmod does not enforce POSIX permission bits on Windows")
+	}
 	tmp := t.TempDir()
 	t.Setenv("KDEPS_COMPONENT_DIR", filepath.Join(tmp, "components"))
 	src := filepath.Join(tmp, "src")
@@ -206,7 +213,7 @@ func TestCloneAsComponent_MkdirAllError(t *testing.T) {
 }
 
 func TestUnwrapArchiveRoot_ReadDirError(t *testing.T) {
-	if os.Getenv("GOOS") == "windows" {
+	if runtime.GOOS == "windows" {
 		t.Skip("chmod not supported")
 	}
 	tmp := t.TempDir()
@@ -441,6 +448,9 @@ func TestCopyFile_CreateError(t *testing.T) {
 	if os.Getuid() == 0 {
 		t.Skip("cannot test permission errors as root")
 	}
+	if runtime.GOOS == "windows" {
+		t.Skip("chmod does not enforce POSIX permission bits on Windows")
+	}
 	tmp := t.TempDir()
 	src := filepath.Join(tmp, "src.txt")
 	require.NoError(t, os.WriteFile(src, []byte("hello"), 0644))
@@ -463,6 +473,9 @@ func TestCopyDir_SrcNotFound(t *testing.T) {
 func TestCopyDir_WalkError(t *testing.T) {
 	if os.Getuid() == 0 {
 		t.Skip("cannot test permission errors as root")
+	}
+	if runtime.GOOS == "windows" {
+		t.Skip("chmod does not enforce POSIX permission bits on Windows")
 	}
 	tmp := t.TempDir()
 	sub := filepath.Join(tmp, "subdir")

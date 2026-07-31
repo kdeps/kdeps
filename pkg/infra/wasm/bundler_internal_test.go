@@ -23,6 +23,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"runtime"
 	"testing"
 
 	"github.com/spf13/afero"
@@ -81,6 +82,9 @@ func TestCopyWebServerFiles_WriteFileError(t *testing.T) {
 }
 
 func TestRenderBootstrap_CreateError(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("chmod does not enforce POSIX permission bits on Windows")
+	}
 	tmpDir := t.TempDir()
 	distDir := filepath.Join(tmpDir, "dist")
 	require.NoError(t, os.MkdirAll(distDir, 0750))

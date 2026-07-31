@@ -80,6 +80,9 @@ func TestSplitDocuments_WithChunkOverlap(t *testing.T) {
 // WalkDir callback (when a file/directory cannot be read due to permissions).
 func TestLoadDirectory_UnreadableFile(t *testing.T) {
 	if runtime.GOOS == "windows" {
+		t.Skip("chmod does not enforce POSIX permission bits on Windows")
+	}
+	if runtime.GOOS == "windows" {
 		t.Skip("permission-based test not reliable on Windows")
 	}
 	dir := t.TempDir()
@@ -246,6 +249,9 @@ func TestLoadHTMLLynx_CmdError(t *testing.T) {
 // TestLoadDirectory_UnreadableFileInWalk covers the rerr != nil skip path in
 // the WalkDir callback (when a file cannot be read after being discovered).
 func TestLoadDirectory_UnreadableFileInWalk(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("chmod does not enforce POSIX permission bits on Windows")
+	}
 	if runtime.GOOS == "windows" {
 		t.Skip("permission-based test not reliable on Windows")
 	}

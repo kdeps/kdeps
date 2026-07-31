@@ -18,6 +18,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"runtime"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -98,6 +99,9 @@ func TestLoad_Malformed(t *testing.T) {
 func TestLoad_UnreadableFile(t *testing.T) {
 	if os.Getuid() == 0 {
 		t.Skip("root bypasses file permissions")
+	}
+	if runtime.GOOS == "windows" {
+		t.Skip("chmod does not enforce POSIX permission bits on Windows")
 	}
 	dir := t.TempDir()
 	path := filepath.Join(dir, "config.yaml")

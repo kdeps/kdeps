@@ -17,6 +17,7 @@ package verify_test
 import (
 	"os"
 	"path/filepath"
+	"runtime"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -291,6 +292,9 @@ func TestVerifyDir_InvalidYAMLSkipped(t *testing.T) {
 }
 
 func TestVerifyDir_UnreadableYAMLFile(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("chmod does not enforce POSIX permission bits on Windows")
+	}
 	dir := t.TempDir()
 	writeYAML(t, dir, "secret.yaml", "apiKey: real-secret\n")
 	require.NoError(t, os.Chmod(filepath.Join(dir, "secret.yaml"), 0000))

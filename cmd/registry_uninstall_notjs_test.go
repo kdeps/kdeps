@@ -24,6 +24,7 @@ import (
 	"bytes"
 	"os"
 	"path/filepath"
+	"runtime"
 	"testing"
 
 	"github.com/spf13/cobra"
@@ -52,6 +53,9 @@ func TestRemoveInstalledFile_NotFound(t *testing.T) {
 }
 
 func TestRemoveInstalledFile_Error(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("chmod does not enforce POSIX permission bits on Windows")
+	}
 	tmp := t.TempDir()
 	fpath := filepath.Join(tmp, "readonly")
 	require.NoError(t, os.WriteFile(fpath, []byte("x"), 0400))

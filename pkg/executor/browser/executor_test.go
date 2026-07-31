@@ -25,6 +25,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"runtime"
 	"testing"
 	"time"
 
@@ -1680,6 +1681,9 @@ func TestCleanupSession_WithSessionID(t *testing.T) {
 // ─── resolveOutputFile default dir mkdir error ─────────────────────────────────
 
 func TestResolveOutputFile_DefaultDirMkdirError(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("chmod does not enforce POSIX permission bits on Windows")
+	}
 	// Cannot use t.Parallel() due to package-level var override.
 	tmpDir := t.TempDir()
 	// Make the parent read-only so MkdirAll fails inside it.

@@ -23,6 +23,7 @@ package cmd
 import (
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 
@@ -53,6 +54,9 @@ func TestBuildAgentNameMap_EmptyName_Complete(t *testing.T) {
 }
 
 func TestExecuteAgencyStepsWithFlags_PreprocessError_Final(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("chmod does not enforce POSIX permission bits on Windows")
+	}
 	tmp := t.TempDir()
 	agency := filepath.Join(tmp, "agency.yaml")
 	require.NoError(t, os.WriteFile(agency, []byte(`apiVersion: kdeps.io/v1
@@ -158,7 +162,7 @@ func TestBuildAgentNameMap_EmptyPaths(t *testing.T) {
 }
 
 func TestPrintAgencyAgentIndex_AbsPath(t *testing.T) {
-	if os.Getenv("GOOS") == "windows" {
+	if runtime.GOOS == "windows" {
 		t.Skip("abs path fallback differs on Windows")
 	}
 	agency := &domain.Agency{Metadata: domain.AgencyMetadata{TargetAgentID: "a"}}

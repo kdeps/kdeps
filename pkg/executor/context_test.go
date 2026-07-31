@@ -21,6 +21,7 @@ package executor_test
 import (
 	"os"
 	"path/filepath"
+	"runtime"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -2686,6 +2687,9 @@ func TestExecutionContext_ApplySelector_DefaultCase(t *testing.T) {
 
 // TestExecutionContext_ReadAllFiles_Error tests readAllFiles with file read errors.
 func TestExecutionContext_ReadAllFiles_Error(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("chmod does not enforce POSIX permission bits on Windows")
+	}
 	ctx, err := executor.NewExecutionContext(&domain.Workflow{})
 	require.NoError(t, err)
 

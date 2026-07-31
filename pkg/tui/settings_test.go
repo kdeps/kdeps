@@ -5,6 +5,7 @@ package tui
 import (
 	"os"
 	"path/filepath"
+	"runtime"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -228,6 +229,9 @@ func TestLoadSettings_ReadError(t *testing.T) {
 }
 
 func TestSettings_Save_WriteError(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("chmod does not enforce POSIX permission bits on Windows")
+	}
 	home := t.TempDir()
 	t.Setenv("HOME", home)
 

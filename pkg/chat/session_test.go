@@ -17,6 +17,7 @@ package chat
 import (
 	"os"
 	"path/filepath"
+	"runtime"
 	"testing"
 
 	"errors"
@@ -152,6 +153,9 @@ func TestSession_Cleanup(t *testing.T) {
 }
 
 func TestSession_WriteWorkflow_WriteError(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("chmod does not enforce POSIX permission bits on Windows")
+	}
 	dir := t.TempDir()
 	// Make session dir read-only so WriteFile fails
 	require.NoError(t, os.Chmod(dir, 0o555))
@@ -171,6 +175,9 @@ func TestSession_WriteWorkflow_WriteError(t *testing.T) {
 }
 
 func TestSession_SaveTo_MkdirAllError(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("chmod does not enforce POSIX permission bits on Windows")
+	}
 	tmp := t.TempDir()
 	readonlyParent := filepath.Join(tmp, "readonly")
 	require.NoError(t, os.MkdirAll(readonlyParent, 0o555))
@@ -192,6 +199,9 @@ func TestSession_SaveTo_MkdirAllError(t *testing.T) {
 }
 
 func TestSession_SaveTo_WriteError(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("chmod does not enforce POSIX permission bits on Windows")
+	}
 	dest := t.TempDir()
 	require.NoError(t, os.Chmod(dest, 0o555))
 

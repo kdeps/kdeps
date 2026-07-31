@@ -23,6 +23,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"runtime"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -312,6 +313,9 @@ func TestExecute_DefaultDBPath(t *testing.T) {
 // TestExecute_EnsureSchemaError exercises the ensureSchema error branch
 // (executor.go:78-80) by placing the database in a read-only directory.
 func TestExecute_EnsureSchemaError(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("chmod does not enforce POSIX permission bits on Windows")
+	}
 	tmpDir := t.TempDir()
 	roDir := filepath.Join(tmpDir, "readonly")
 	err := os.Mkdir(roDir, 0444)

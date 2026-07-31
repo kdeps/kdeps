@@ -20,6 +20,7 @@ package http_test
 
 import (
 	"os"
+	"runtime"
 	"testing"
 	"time"
 
@@ -233,6 +234,9 @@ func TestNewTemporaryFileStore_MkdirAllError(t *testing.T) {
 // TestTemporaryFileStore_Store_WriteFileError exercises the os.WriteFile error
 // branch at line 84-86 by writing to a read-only directory.
 func TestTemporaryFileStore_Store_WriteFileError(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("chmod does not enforce POSIX permission bits on Windows")
+	}
 	tmpDir := t.TempDir()
 	// Make directory read-only so os.WriteFile fails
 	require.NoError(t, os.Chmod(tmpDir, 0444))

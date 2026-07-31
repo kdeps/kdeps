@@ -27,6 +27,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"runtime"
 	"testing"
 
 	"github.com/spf13/cobra"
@@ -170,6 +171,9 @@ func TestFindInstalledPackage_GlobalComponent(t *testing.T) {
 func TestRegistryUpdate_RemoveError(t *testing.T) {
 	if os.Getuid() == 0 {
 		t.Skip("cannot test permission errors as root")
+	}
+	if runtime.GOOS == "windows" {
+		t.Skip("chmod does not enforce POSIX permission bits on Windows")
 	}
 	tmp := t.TempDir()
 	t.Setenv("KDEPS_AGENTS_DIR", tmp)
@@ -362,6 +366,9 @@ func TestUninstallAgent_RemoveAllError(t *testing.T) {
 	if os.Getuid() == 0 {
 		t.Skip("cannot test permission errors as root")
 	}
+	if runtime.GOOS == "windows" {
+		t.Skip("chmod does not enforce POSIX permission bits on Windows")
+	}
 	tmp := t.TempDir()
 	t.Setenv("KDEPS_AGENTS_DIR", tmp)
 
@@ -383,6 +390,9 @@ func TestUninstallAgent_RemoveAllError(t *testing.T) {
 func TestUninstallComponent_RemoveAllError(t *testing.T) {
 	if os.Getuid() == 0 {
 		t.Skip("cannot test permission errors as root")
+	}
+	if runtime.GOOS == "windows" {
+		t.Skip("chmod does not enforce POSIX permission bits on Windows")
 	}
 	tmp := t.TempDir()
 	t.Setenv("KDEPS_AGENTS_DIR", tmp)

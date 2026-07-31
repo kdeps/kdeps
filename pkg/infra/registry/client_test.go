@@ -27,6 +27,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"runtime"
 	"testing"
 	"time"
 
@@ -246,6 +247,9 @@ func TestClient_Download_ConnectionError(t *testing.T) {
 
 // TestClient_Download_MkdirAllError verifies error when destination directory cannot be created.
 func TestClient_Download_MkdirAllError(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("chmod does not enforce POSIX permission bits on Windows")
+	}
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		_, _ = w.Write([]byte("fake archive content"))
 	}))

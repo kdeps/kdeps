@@ -18,6 +18,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"runtime"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -69,6 +70,9 @@ func TestLoadComponentResources_FilepathAbsFallback(t *testing.T) {
 }
 
 func TestAutoDiscoverAgents_WalkDirError(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("chmod does not enforce POSIX permission bits on Windows")
+	}
 	if os.Getuid() == 0 {
 		t.Skip("chmod tests do not work as root")
 	}

@@ -23,6 +23,7 @@ package cmd
 import (
 	"os"
 	"path/filepath"
+	"runtime"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -59,7 +60,7 @@ func TestListInstalledAgents_SkipFiles(t *testing.T) {
 }
 
 func TestIsVersionedAgentDir_ReadError(t *testing.T) {
-	if os.Getenv("GOOS") == "windows" {
+	if runtime.GOOS == "windows" {
 		t.Skip("chmod not supported")
 	}
 	tmp := t.TempDir()

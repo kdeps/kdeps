@@ -23,6 +23,7 @@ package cmd
 import (
 	"os"
 	"path/filepath"
+	"runtime"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -72,7 +73,7 @@ func TestGenerateFallbackReadme_ReadContinue(t *testing.T) {
 }
 
 func TestGenerateFallbackReadme_ReadSkip(t *testing.T) {
-	if os.Getenv("GOOS") == "windows" {
+	if runtime.GOOS == "windows" {
 		t.Skip("chmod not supported")
 	}
 	tmp := t.TempDir()

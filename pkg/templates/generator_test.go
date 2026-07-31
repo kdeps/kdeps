@@ -21,6 +21,7 @@ package templates_test
 import (
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 
@@ -1402,6 +1403,9 @@ func TestGenerator_WalkTemplate_ErrorHandling(t *testing.T) {
 }
 
 func TestGenerator_WalkTemplate_DirectoryCreationFailure(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("chmod does not enforce POSIX permission bits on Windows")
+	}
 	generator, err := templates.NewGenerator()
 	require.NoError(t, err)
 

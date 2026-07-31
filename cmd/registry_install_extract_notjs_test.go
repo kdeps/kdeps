@@ -28,6 +28,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"runtime"
 	"testing"
 
 	"github.com/spf13/cobra"
@@ -163,7 +164,7 @@ func TestExtractRegularFile_Success(t *testing.T) {
 }
 
 func TestSafeArchiveTarget_AbsAndRelErr(t *testing.T) {
-	if os.Getenv("GOOS") == "windows" {
+	if runtime.GOOS == "windows" {
 		t.Skip("path semantics differ on Windows")
 	}
 	// NUL-byte destDir: same as AbsError case — SkipBadPaths=true silently skips.

@@ -5,6 +5,7 @@ package file
 import (
 	"os"
 	"path/filepath"
+	"runtime"
 	"testing"
 
 	"github.com/kdeps/kdeps/v2/pkg/domain"
@@ -127,6 +128,9 @@ func TestCopyFile_MkdirAllError(t *testing.T) {
 // TestCopyFile_CreateFileError covers the os.Create error path in copyFile
 // when the destination directory is read-only.
 func TestCopyFile_CreateFileError(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("chmod does not enforce POSIX permission bits on Windows")
+	}
 	dir := t.TempDir()
 	src := filepath.Join(dir, "src.txt")
 	if err := os.WriteFile(src, []byte("data"), 0o644); err != nil {
@@ -166,6 +170,9 @@ func TestCopyFile_CopyError(t *testing.T) {
 // TestCopyDir_CopyFileError covers the copyFile error path inside copyDir when
 // a file cannot be created because the destination directory is read-only.
 func TestCopyDir_CopyFileError(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("chmod does not enforce POSIX permission bits on Windows")
+	}
 	dir := t.TempDir()
 	srcdir := filepath.Join(dir, "srcdir")
 	if err := os.MkdirAll(srcdir, 0o755); err != nil {

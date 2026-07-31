@@ -21,6 +21,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"runtime"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -30,6 +31,9 @@ import (
 func TestExtractKdepsPackage_MkdirTempError(t *testing.T) {
 	if os.Getuid() == 0 {
 		t.Skip("chmod tests do not work as root")
+	}
+	if runtime.GOOS == "windows" {
+		t.Skip("chmod does not enforce POSIX permission bits on Windows")
 	}
 
 	dir := t.TempDir()
@@ -53,6 +57,9 @@ func TestExtractKdepsPackage_MkdirTempError(t *testing.T) {
 func TestExtractKdepsPackage_OpenError(t *testing.T) {
 	if os.Getuid() == 0 {
 		t.Skip("chmod tests do not work as root")
+	}
+	if runtime.GOOS == "windows" {
+		t.Skip("chmod does not enforce POSIX permission bits on Windows")
 	}
 
 	dir := t.TempDir()
@@ -124,6 +131,9 @@ func TestExtractTarFile_MkdirAllError(t *testing.T) {
 func TestExtractTarFile_CreateError(t *testing.T) {
 	if os.Getuid() == 0 {
 		t.Skip("chmod tests do not work as root")
+	}
+	if runtime.GOOS == "windows" {
+		t.Skip("chmod does not enforce POSIX permission bits on Windows")
 	}
 
 	dir := t.TempDir()

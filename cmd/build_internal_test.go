@@ -25,6 +25,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 
@@ -860,6 +861,9 @@ func TestBuildWASMImage_MissingWASMExecJS(t *testing.T) {
 }
 
 func TestBuildWASMImage_CollectWebServerFilesError(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("chmod does not enforce POSIX permission bits on Windows")
+	}
 	origBundle := bundleFunc
 	t.Cleanup(func() { bundleFunc = origBundle })
 	bundleFunc = func(_ *wasmPkg.BundleConfig) error { return nil }

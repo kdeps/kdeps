@@ -21,6 +21,7 @@ package wasm_test
 import (
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 
@@ -487,6 +488,9 @@ func TestBundle_GenerateDefaultIndexError(t *testing.T) {
 }
 
 func TestBundle_InjectBootstrapError(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("chmod does not enforce POSIX permission bits on Windows")
+	}
 	tmpDir := t.TempDir()
 	wasmFile := filepath.Join(tmpDir, "kdeps.wasm")
 	wasmExecFile := filepath.Join(tmpDir, "wasm_exec.js")

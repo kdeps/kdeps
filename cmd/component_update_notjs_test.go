@@ -23,6 +23,7 @@ package cmd
 import (
 	"os"
 	"path/filepath"
+	"runtime"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -124,6 +125,9 @@ func TestUpdateComponentDir_ParseError(t *testing.T) {
 }
 
 func TestUpdateComponentDir_ReadError(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("chmod does not enforce POSIX permission bits on Windows")
+	}
 	tmp := t.TempDir()
 	require.NoError(t, os.WriteFile(filepath.Join(tmp, "component.yaml"), []byte("metadata:\n  name: c\n"), 0644))
 	require.NoError(t, os.Chmod(filepath.Join(tmp, "component.yaml"), 0000))
@@ -132,14 +136,14 @@ func TestUpdateComponentDir_ReadError(t *testing.T) {
 }
 
 func TestComponentUpdateInternal_AbsError_Final(t *testing.T) {
-	if os.Getenv("GOOS") == "windows" {
+	if runtime.GOOS == "windows" {
 		t.Skip("invalid path semantics differ on Windows")
 	}
 	require.Error(t, componentUpdateInternal("\x00bad"))
 }
 
 func TestFindUpdateTargetComponentDirs_ScanError_Final(t *testing.T) {
-	if os.Getenv("GOOS") == "windows" {
+	if runtime.GOOS == "windows" {
 		t.Skip("chmod not supported")
 	}
 	tmp := t.TempDir()
@@ -253,7 +257,7 @@ metadata:
 }
 
 func TestComponentUpdateInternal_AbsErr(t *testing.T) {
-	if os.Getenv("GOOS") == "windows" {
+	if runtime.GOOS == "windows" {
 		t.Skip("invalid path semantics differ on Windows")
 	}
 	err := componentUpdateInternal(string([]byte{0x00}))
@@ -296,6 +300,9 @@ func TestScanComponentSubdirs_NotExist(t *testing.T) {
 func TestScanComponentSubdirs_ReadDirError(t *testing.T) {
 	if os.Getuid() == 0 {
 		t.Skip("cannot test permission errors as root")
+	}
+	if runtime.GOOS == "windows" {
+		t.Skip("chmod does not enforce POSIX permission bits on Windows")
 	}
 	tmp := t.TempDir()
 	require.NoError(t, os.Chmod(tmp, 0o000))

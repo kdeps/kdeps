@@ -23,6 +23,7 @@ package storage
 import (
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 	"time"
@@ -54,6 +55,9 @@ func TestNewMemoryStorage_EnvDBPath(t *testing.T) {
 }
 
 func TestNewMemoryStorage_InitSchemaError(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("chmod does not enforce POSIX permission bits on Windows")
+	}
 	tmpDir := t.TempDir()
 	roDir := filepath.Join(tmpDir, "readonly")
 	err := os.Mkdir(roDir, 0444)
@@ -72,6 +76,9 @@ func TestNewMemoryStorage_InitSchemaError(t *testing.T) {
 }
 
 func TestNewSessionStorageWithTTL_InitSchemaError(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("chmod does not enforce POSIX permission bits on Windows")
+	}
 	tmpDir := t.TempDir()
 	roDir := filepath.Join(tmpDir, "readonly")
 	err := os.Mkdir(roDir, 0444)
@@ -112,6 +119,9 @@ func TestSessionStorage_GetAll_ScanError(t *testing.T) {
 }
 
 func TestSessionStorage_InitSchema_TableError(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("chmod does not enforce POSIX permission bits on Windows")
+	}
 	tmpDir := t.TempDir()
 	roDir := filepath.Join(tmpDir, "readonly")
 	err := os.Mkdir(roDir, 0444)

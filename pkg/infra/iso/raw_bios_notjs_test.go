@@ -13,6 +13,7 @@ package iso
 import (
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 
@@ -184,6 +185,9 @@ exit 0
 }
 
 func TestAssembleRawBIOS_CopyFileError(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("chmod does not enforce POSIX permission bits on Windows")
+	}
 	tmpDir := t.TempDir()
 	fakeDocker := filepath.Join(tmpDir, "docker")
 	dockerScript := `#!/bin/sh
@@ -425,6 +429,9 @@ func TestCopyFile_DestInvalidDir(t *testing.T) {
 }
 
 func TestAssembleRawBIOS_MkdirTempError(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("chmod does not enforce POSIX permission bits on Windows")
+	}
 	if testing.Short() {
 		t.Skip("Skipping test that requires filesystem permission manipulation")
 	}
@@ -482,6 +489,9 @@ func TestAssembleRawBIOS_MkdirAllError(t *testing.T) {
 }
 
 func TestCreateRawBIOSWorkDir_MkdirTempError(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("chmod does not enforce POSIX permission bits on Windows")
+	}
 	tmpDir := t.TempDir()
 	oldHome := os.Getenv("HOME")
 	os.Setenv("HOME", tmpDir)

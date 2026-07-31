@@ -22,6 +22,7 @@ import (
 	"embed"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 
@@ -408,6 +409,9 @@ func TestProcessJ2File_RenderError(t *testing.T) {
 // TestProcessJ2File_WriteFileError tests processJ2File when writing the output
 // file fails (read-only output directory).
 func TestProcessJ2File_WriteFileError(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("chmod does not enforce POSIX permission bits on Windows")
+	}
 	tmpDir := t.TempDir()
 
 	// Create a .j2 file with valid template content.
@@ -431,6 +435,9 @@ func TestProcessJ2File_WriteFileError(t *testing.T) {
 // TestPreprocessJ2Files_WalkError tests PreprocessJ2Files when filepath.WalkDir
 // encounters a directory that cannot be read.
 func TestPreprocessJ2Files_WalkError(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("chmod does not enforce POSIX permission bits on Windows")
+	}
 	tmpDir := t.TempDir()
 
 	// Create a subdirectory with a .j2 file inside.

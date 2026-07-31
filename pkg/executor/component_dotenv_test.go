@@ -21,6 +21,7 @@ package executor_test
 import (
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 
@@ -404,6 +405,9 @@ func TestScaffoldComponentFiles_ScaffoldDotEnvWriteError(t *testing.T) {
 }
 
 func TestScaffoldComponentFiles_ScaffoldReadmeWriteError(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("chmod does not enforce POSIX permission bits on Windows")
+	}
 	dir := t.TempDir()
 	subDir := filepath.Join(dir, "compdir")
 	require.NoError(t, os.MkdirAll(subDir, 0o755))
@@ -496,6 +500,9 @@ metadata:
 // --- UpdateComponentFiles / mergeDotEnv error paths ---
 
 func TestUpdateComponentFiles_MergeDotEnv_LoadError(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("chmod does not enforce POSIX permission bits on Windows")
+	}
 	dir := t.TempDir()
 	dotEnvPath := filepath.Join(dir, ".env")
 	require.NoError(t, os.WriteFile(dotEnvPath, []byte("EXISTING=1\n"), 0o600))
@@ -594,6 +601,9 @@ func TestScanResourceEnvVars_ExecEnvMap(t *testing.T) {
 // --- UpdateComponentFiles error paths (scaffoldReadme / scaffoldDotEnv) ---
 
 func TestUpdateComponentFiles_ScaffoldReadmeError(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("chmod does not enforce POSIX permission bits on Windows")
+	}
 	dir := t.TempDir()
 	subDir := filepath.Join(dir, "compdir")
 	require.NoError(t, os.MkdirAll(subDir, 0o755))
@@ -614,6 +624,9 @@ func TestUpdateComponentFiles_ScaffoldReadmeError(t *testing.T) {
 }
 
 func TestUpdateComponentFiles_ScaffoldDotEnvError(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("chmod does not enforce POSIX permission bits on Windows")
+	}
 	dir := t.TempDir()
 	subDir := filepath.Join(dir, "compdir")
 	require.NoError(t, os.MkdirAll(subDir, 0o755))

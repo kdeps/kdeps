@@ -23,6 +23,7 @@ package file
 import (
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 
@@ -958,6 +959,9 @@ func TestWrite_ParentDirError(t *testing.T) {
 }
 
 func TestWrite_BackupError(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("chmod does not enforce POSIX permission bits on Windows")
+	}
 	dir := t.TempDir()
 	path := filepath.Join(dir, "writable.txt")
 	if err := os.WriteFile(path, []byte("original"), 0444); err != nil {
@@ -1114,6 +1118,9 @@ func TestList_Recursive(t *testing.T) {
 }
 
 func TestDelete_RemoveError(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("chmod does not enforce POSIX permission bits on Windows")
+	}
 	dir := t.TempDir()
 	path := filepath.Join(dir, "protected")
 	if err := os.WriteFile(path, []byte("x"), 0444); err != nil {
@@ -1510,6 +1517,9 @@ func TestApplyHunk_ContextOutOfRange(t *testing.T) {
 }
 
 func TestCopyFile_IOCopyError(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("chmod does not enforce POSIX permission bits on Windows")
+	}
 	// Covers lines 595-597: io.Copy failure.
 	// Create a src file, then make dst unwritable after create
 	dir := t.TempDir()

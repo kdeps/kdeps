@@ -23,6 +23,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"runtime"
 	"testing"
 	"time"
 
@@ -216,6 +217,9 @@ func TestExecute_FileMetadata(t *testing.T) {
 }
 
 func TestExecute_UnreadableFile(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("chmod does not enforce POSIX permission bits on Windows")
+	}
 	dir := t.TempDir()
 	readable := filepath.Join(dir, "readable.txt")
 	require.NoError(t, os.WriteFile(readable, []byte("hello world"), 0o600))

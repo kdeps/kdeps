@@ -24,6 +24,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 
@@ -56,7 +57,7 @@ func TestFindServeWorkflowFiles_SkipMissing(t *testing.T) {
 }
 
 func TestRunAgentLoopCmd_AbsError(t *testing.T) {
-	if os.Getenv("GOOS") == "windows" {
+	if runtime.GOOS == "windows" {
 		t.Skip("invalid path semantics differ on Windows")
 	}
 	err := runAgentLoopCmd("\x00bad", &agentLoopFlags{})
@@ -82,7 +83,7 @@ agents:
 }
 
 func TestFindServeWorkflowFiles_WalkErrPath(t *testing.T) {
-	if os.Getenv("GOOS") == "windows" {
+	if runtime.GOOS == "windows" {
 		t.Skip("invalid path semantics differ on Windows")
 	}
 	paths := findServeWorkflowFiles("\x00bad")
@@ -90,7 +91,7 @@ func TestFindServeWorkflowFiles_WalkErrPath(t *testing.T) {
 }
 
 func TestRunAgentLoopCmd_AbsError_Final(t *testing.T) {
-	if os.Getenv("GOOS") == "windows" {
+	if runtime.GOOS == "windows" {
 		t.Skip("invalid path semantics differ on Windows")
 	}
 	require.Error(t, runAgentLoopCmd("\x00bad", &agentLoopFlags{}))
@@ -259,7 +260,7 @@ func TestRegisterComponentTools_NoComponents(_ *testing.T) {
 }
 
 func TestRunAgentLoopCmd_Errors(t *testing.T) {
-	if os.Getenv("GOOS") == "windows" {
+	if runtime.GOOS == "windows" {
 		t.Skip("invalid path semantics differ on Windows")
 	}
 	err := runAgentLoopCmd("\x00bad", &agentLoopFlags{})

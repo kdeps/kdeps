@@ -27,6 +27,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"runtime"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -66,7 +67,7 @@ func TestResolveKdepsPackage_FallbackWorkflow(t *testing.T) {
 }
 
 func TestResolveRegularPath_AbsError(t *testing.T) {
-	if os.Getenv("GOOS") == "windows" {
+	if runtime.GOOS == "windows" {
 		t.Skip("invalid path semantics differ on Windows")
 	}
 	_, _, err := ResolveRegularPath("\x00invalid")
@@ -108,7 +109,7 @@ func TestResolveKagencyPackage_NoAgencyFile(t *testing.T) {
 }
 
 func TestResolveRegularPath_AbsError_Remaining(t *testing.T) {
-	if os.Getenv("GOOS") == "windows" {
+	if runtime.GOOS == "windows" {
 		t.Skip("invalid path semantics differ on Windows")
 	}
 	_, _, err := ResolveRegularPath("\x00bad")

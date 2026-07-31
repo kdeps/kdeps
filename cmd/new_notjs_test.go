@@ -24,6 +24,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"runtime"
 	"testing"
 
 	"github.com/spf13/cobra"
@@ -61,7 +62,7 @@ func TestPrepareNewOutputDir_ExistsNoForce(t *testing.T) {
 }
 
 func TestPrepareNewOutputDir_StatError_Complete(t *testing.T) {
-	if os.Getenv("GOOS") == "windows" {
+	if runtime.GOOS == "windows" {
 		t.Skip("invalid path semantics differ on Windows")
 	}
 	err := prepareNewOutputDir("\x00bad", false)
@@ -80,7 +81,7 @@ func TestRunNewWithFlags_GeneratorInitError(t *testing.T) {
 }
 
 func TestPrepareNewOutputDir_StatError_Final(t *testing.T) {
-	if os.Getenv("GOOS") == "windows" {
+	if runtime.GOOS == "windows" {
 		t.Skip("invalid path semantics differ on Windows")
 	}
 	require.Error(t, prepareNewOutputDir("\x00bad", false))
