@@ -22,6 +22,7 @@ import (
 	"context"
 	"os"
 	"path/filepath"
+	"runtime"
 	"sync"
 	"testing"
 	"time"
@@ -30,8 +31,16 @@ import (
 // fakeRTK installs an executable named "rtk" at the front of PATH and resets the
 // cached probe so each test observes its own binary. body is the shell script
 // that stands in for `rtk rewrite <cmd>`; "$2" is the command being rewritten.
+//
+// The fake is a #!/bin/sh script with no extension: Windows has no shebang
+// interpretation and won't resolve an extensionless file as an executable on
+// PATH, so every test that depends on this mock actually running (accepted,
+// rejected as an impostor, or exercising a rewrite) is POSIX-only.
 func fakeRTK(t *testing.T, body string) {
 	t.Helper()
+	if runtime.GOOS == "windows" {
+		t.Skip("fake rtk binary is a #!/bin/sh script; not executable on Windows")
+	}
 	dir := t.TempDir()
 	script := "#!/bin/sh\n" + body + "\n"
 	if err := os.WriteFile(filepath.Join(dir, "rtk"), []byte(script), 0o755); err != nil {
