@@ -23,7 +23,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"io"
 	"log/slog"
 	"net"
 
@@ -41,6 +40,7 @@ import (
 	"time"
 
 	"github.com/spf13/afero"
+	"github.com/spf13/fileflow"
 
 	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
 )
@@ -331,32 +331,19 @@ const windowsExeExt = ".exe"
 
 // ensureExecutableExtension returns a path the Windows loader will execute
 // directly. If path already ends in .exe it is returned unchanged; otherwise
-// a sibling copy with the extension appended is created (once) and returned.
-// Pure file logic, safe to call and test on any OS.
+// a sibling copy with the extension appended is created and returned.
+// fileflow.Copy is a no-op when the destination already exists and is
+// byte-identical, and re-copies when it doesn't (e.g. the source llamafile
+// was updated to a new version) -- a plain os.Stat existence check would
+// silently keep serving a stale copy. Pure file logic, safe to call and test
+// on any OS.
 func ensureExecutableExtension(path string) (string, error) {
 	if strings.EqualFold(filepath.Ext(path), windowsExeExt) {
 		return path, nil
 	}
-	target := path + windowsExeExt
-	if _, statErr := os.Stat(target); statErr == nil {
-		return target, nil
-	}
-	src, openErr := os.Open(path)
-	if openErr != nil {
-		return "", fmt.Errorf("failed to open llamafile for .exe copy: %w", openErr)
-	}
-	defer func() { _ = src.Close() }()
-
-	dst, createErr := os.OpenFile(target, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0o755) //nolint:gosec // executable copy
-	if createErr != nil {
-		return "", fmt.Errorf("failed to create %s: %w", target, createErr)
-	}
-	if _, copyErr := io.Copy(dst, src); copyErr != nil {
-		_ = dst.Close()
-		return "", fmt.Errorf("failed to copy llamafile to %s: %w", target, copyErr)
-	}
-	if closeErr := dst.Close(); closeErr != nil {
-		return "", fmt.Errorf("failed to finalize %s: %w", target, closeErr)
+	target, copyErr := fileflow.Copy(path, path+windowsExeExt)
+	if copyErr != nil {
+		return "", fmt.Errorf("failed to copy llamafile to %s: %w", path+windowsExeExt, copyErr)
 	}
 	return target, nil
 }

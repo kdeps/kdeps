@@ -175,7 +175,7 @@ func TestEnsureExecutableExtension_CopiesOnce(t *testing.T) {
 func TestEnsureExecutableExtension_MissingSource(t *testing.T) {
 	_, err := ensureExecutableExtension(filepath.Join(t.TempDir(), "nope.llamafile"))
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "failed to open llamafile")
+	assert.Contains(t, err.Error(), "failed to copy llamafile")
 }
 
 func TestNewLlamafileCommand_NonWindowsUsesShell(t *testing.T) {
