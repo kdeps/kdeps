@@ -235,7 +235,7 @@ jobs:
         # (default = NumCPU); linking several test binaries at once exceeded the
         # windows-latest runner's page-file commit limit ("VirtualAlloc ...
         # errno=1455 / fatal error: out of memory" in cmd/link).
-        run: go test -p 1 -short -parallel 1 -count=1 -timeout=20m ./pkg/... ./cmd/... ./
+        run: go test -p 1 -short -failfast -parallel 1 -count=1 -timeout=20m ./pkg/... ./cmd/... ./
 
   coverage-badge:
     needs: test

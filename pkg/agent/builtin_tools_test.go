@@ -26,6 +26,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 	"time"
@@ -2071,6 +2072,9 @@ func TestReadFile_EmptyFile(t *testing.T) {
 }
 
 func TestReadFile_MissingFileWritePermission(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("chmod does not enforce POSIX permission bits on Windows")
+	}
 	reg := kdepstools.NewRegistry()
 	RegisterBuiltinTools(context.Background(), reg)
 	tool := reg.Get("read_file")
@@ -2199,6 +2203,9 @@ func TestWriteFile_OverwriteExistingFile(t *testing.T) {
 }
 
 func TestWriteFile_NoPermission(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("chmod does not enforce POSIX permission bits on Windows")
+	}
 	reg := kdepstools.NewRegistry()
 	RegisterBuiltinTools(context.Background(), reg)
 	tool := reg.Get("write_file")

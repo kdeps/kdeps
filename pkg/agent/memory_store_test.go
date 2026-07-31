@@ -22,6 +22,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"path/filepath"
 	"strings"
 	"sync"
 	"testing"
@@ -38,8 +39,10 @@ import (
 func TestNewMemoryStore_Defaults(t *testing.T) {
 	store := NewMemoryStore("")
 	require.NotNil(t, store)
-	// basePath should be set to ~/.kdeps/memory
-	assert.Contains(t, store.basePath, memoryDir)
+	// basePath should be set to ~/.kdeps/memory. memoryDir is a "/"-joined
+	// literal; filepath.Join normalizes separators for the host OS, so
+	// compare against a Join'd form rather than the raw constant.
+	assert.Contains(t, store.basePath, filepath.Join(".kdeps", "memory"))
 
 	// empty basePath with no home
 	t.Setenv("HOME", "")
