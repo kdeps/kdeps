@@ -358,6 +358,9 @@ func TestCmdSessionImport_TildeExpansion(t *testing.T) {
 }
 
 func TestCmdSessionImport_ImportError(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("chmod does not enforce POSIX permission bits on Windows")
+	}
 	loop := makeTestLoop(nil)
 	dir := t.TempDir()
 	// Make the store dir read-only so Import's os.WriteFile fails.
