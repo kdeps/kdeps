@@ -5,6 +5,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"runtime"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -154,9 +155,13 @@ func TestCmdModelDefault_WithTagKeywordPrefix(t *testing.T) {
 // --- autoSaveOnExit coverage: SaveAs error path ---
 
 func TestAutoSaveOnExit_SaveError(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("chmod does not enforce POSIX permission bits on Windows")
+	}
 	dir := t.TempDir()
 	// Make the session store directory unwritable to trigger a save error.
 	store := NewSessionStore(dir)
+	t.Cleanup(func() { _ = store.Close() })
 	loop := makeTestLoop(nil)
 	loop.store = store
 	loop.session.Append("hi", "hello")
@@ -187,6 +192,7 @@ func TestAutoSaveOnExit_SaveError(t *testing.T) {
 func TestCmdSession_ListSubcommand(t *testing.T) {
 	loop := makeTestLoop(nil)
 	store := NewSessionStore(t.TempDir())
+	t.Cleanup(func() { _ = store.Close() })
 	loop.store = store
 	repl := NewREPL(context.Background(), loop)
 	defer repl.cancel()
@@ -201,6 +207,7 @@ func TestCmdSession_ListSubcommand(t *testing.T) {
 func TestCmdSession_ImportSubcommand_MissingArg(t *testing.T) {
 	loop := makeTestLoop(nil)
 	store := NewSessionStore(t.TempDir())
+	t.Cleanup(func() { _ = store.Close() })
 	loop.store = store
 	repl := NewREPL(context.Background(), loop)
 	defer repl.cancel()
@@ -215,6 +222,7 @@ func TestCmdSession_ImportSubcommand_MissingArg(t *testing.T) {
 func TestCmdSession_ImportSubcommand_Success(t *testing.T) {
 	loop := makeTestLoop(nil)
 	store := NewSessionStore(t.TempDir())
+	t.Cleanup(func() { _ = store.Close() })
 	loop.store = store
 	repl := NewREPL(context.Background(), loop)
 	defer repl.cancel()
@@ -235,6 +243,7 @@ func TestCmdSession_ImportSubcommand_Success(t *testing.T) {
 func TestCmdSession_BranchesSubcommand(t *testing.T) {
 	loop := makeTestLoop(nil)
 	store := NewSessionStore(t.TempDir())
+	t.Cleanup(func() { _ = store.Close() })
 	loop.store = store
 	repl := NewREPL(context.Background(), loop)
 	defer repl.cancel()
@@ -278,6 +287,7 @@ func TestCmdSessionList_StoreError(t *testing.T) {
 	// Create a store where the base path is a file, so ListMeta fails.
 	dir := t.TempDir()
 	store := NewSessionStore(dir)
+	t.Cleanup(func() { _ = store.Close() })
 	loop.store = store
 	repl := NewREPL(context.Background(), loop)
 	defer repl.cancel()
@@ -297,9 +307,13 @@ func TestCmdSessionList_StoreError(t *testing.T) {
 // --- cmdSessionSave coverage: error path ---
 
 func TestCmdSessionSave_StoreError(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("chmod does not enforce POSIX permission bits on Windows")
+	}
 	loop := makeTestLoop(nil)
 	dir := t.TempDir()
 	store := NewSessionStore(dir)
+	t.Cleanup(func() { _ = store.Close() })
 	repl := NewREPL(context.Background(), loop)
 	defer repl.cancel()
 
@@ -317,6 +331,7 @@ func TestCmdSessionSave_StoreError(t *testing.T) {
 func TestCmdSessionLoad_StoreError(t *testing.T) {
 	loop := makeTestLoop(nil)
 	store := NewSessionStore(t.TempDir())
+	t.Cleanup(func() { _ = store.Close() })
 	repl := NewREPL(context.Background(), loop)
 	defer repl.cancel()
 
@@ -330,6 +345,7 @@ func TestCmdSessionLoad_StoreError(t *testing.T) {
 func TestCmdSessionImport_TildeExpansion(t *testing.T) {
 	loop := makeTestLoop(nil)
 	store := NewSessionStore(t.TempDir())
+	t.Cleanup(func() { _ = store.Close() })
 	repl := NewREPL(context.Background(), loop)
 	defer repl.cancel()
 
@@ -346,6 +362,7 @@ func TestCmdSessionImport_ImportError(t *testing.T) {
 	dir := t.TempDir()
 	// Make the store dir read-only so Import's os.WriteFile fails.
 	store := NewSessionStore(dir)
+	t.Cleanup(func() { _ = store.Close() })
 	repl := NewREPL(context.Background(), loop)
 	defer repl.cancel()
 

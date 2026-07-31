@@ -60,11 +60,13 @@ func TestRegisterGoalToolsAndSettleNoEnforcer(t *testing.T) {
 func TestSessionStore_Close(t *testing.T) {
 	dir := t.TempDir()
 	s := NewSessionStore(dir)
+	t.Cleanup(func() { _ = s.Close() })
 	s.SetCwd(filepath.Join(dir, "proj"))
 	if err := s.Close(); err != nil {
 		t.Fatal(err)
 	}
 	s2 := NewSessionStore(dir)
+	t.Cleanup(func() { _ = s2.Close() })
 	s2.SetCwd(filepath.Join(dir, "proj"))
 	_, _ = s2.List()
 	if err := s2.Close(); err != nil {

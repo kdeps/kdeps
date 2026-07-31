@@ -738,6 +738,7 @@ func TestSQLiteSessionStore_Migrate_ExecError(t *testing.T) {
 func TestSessionStore_Load_EmptyFile(t *testing.T) {
 	dir := t.TempDir()
 	store := NewSessionStore(dir)
+	t.Cleanup(func() { _ = store.Close() })
 
 	// Create an empty session file
 	sessionDir := filepath.Join(dir, ".kdeps", "sessions")
@@ -754,6 +755,7 @@ func TestSessionStore_Load_EmptyFile(t *testing.T) {
 func TestSessionStore_LoadMetaFromPathLocked_InvalidJSON(t *testing.T) {
 	dir := t.TempDir()
 	store := NewSessionStore(dir)
+	t.Cleanup(func() { _ = store.Close() })
 
 	// Create a file with invalid JSON on the first line
 	sessionDir := filepath.Join(dir, ".kdeps", "sessions")
@@ -771,6 +773,7 @@ func TestSessionStore_LoadMetaFromPathLocked_InvalidJSON(t *testing.T) {
 func TestSessionStore_LoadMetaFromPathLocked_WrongType(t *testing.T) {
 	dir := t.TempDir()
 	store := NewSessionStore(dir)
+	t.Cleanup(func() { _ = store.Close() })
 
 	sessionDir := filepath.Join(dir, ".kdeps", "sessions")
 	require.NoError(t, os.MkdirAll(sessionDir, 0750))
@@ -788,6 +791,7 @@ func TestSessionStore_LoadMetaFromPathLocked_WrongType(t *testing.T) {
 func TestSessionStore_Load_BadSessionID(t *testing.T) {
 	dir := t.TempDir()
 	store := NewSessionStore(dir)
+	t.Cleanup(func() { _ = store.Close() })
 	_, err := store.Load("nonexistent-session-xyz")
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "not found")

@@ -725,6 +725,7 @@ func TestReplCompleter_ThinkingPartial(t *testing.T) {
 func TestReplCompleter_SessionIDCompletion(t *testing.T) {
 	dir := t.TempDir()
 	store := NewSessionStore(dir)
+	t.Cleanup(func() { _ = store.Close() })
 
 	loop := makeTestLoop(nil)
 	loop.store = store
@@ -1696,6 +1697,7 @@ func TestCmdSession_NoStore(t *testing.T) {
 func TestCmdSession_UnknownSubcommand(t *testing.T) {
 	loop := makeTestLoop(nil)
 	loop.store = NewSessionStore(t.TempDir())
+	t.Cleanup(func() { _ = loop.store.Close() })
 	repl := NewREPL(context.Background(), loop)
 	repl.loop.store = loop.store
 	defer repl.cancel()
@@ -1712,6 +1714,7 @@ func TestCmdSession_UnknownSubcommand(t *testing.T) {
 func TestCmdSessionList_Empty(t *testing.T) {
 	loop := makeTestLoop(nil)
 	store := NewSessionStore(t.TempDir())
+	t.Cleanup(func() { _ = store.Close() })
 	repl := NewREPL(context.Background(), loop)
 	defer repl.cancel()
 
@@ -1727,6 +1730,7 @@ func TestCmdSessionList_Empty(t *testing.T) {
 func TestCmdSessionSave_Success(t *testing.T) {
 	loop := makeTestLoop(nil)
 	store := NewSessionStore(t.TempDir())
+	t.Cleanup(func() { _ = store.Close() })
 	repl := NewREPL(context.Background(), loop)
 	defer repl.cancel()
 
@@ -1742,6 +1746,7 @@ func TestCmdSessionSave_Success(t *testing.T) {
 func TestCmdSessionList_WithSessions(t *testing.T) {
 	loop := makeTestLoop(nil)
 	store := NewSessionStore(t.TempDir())
+	t.Cleanup(func() { _ = store.Close() })
 	repl := NewREPL(context.Background(), loop)
 	defer repl.cancel()
 
@@ -1759,6 +1764,7 @@ func TestCmdSessionList_WithSessions(t *testing.T) {
 func TestCmdSessionLoadDelete(t *testing.T) {
 	loop := makeTestLoop(nil)
 	store := NewSessionStore(t.TempDir())
+	t.Cleanup(func() { _ = store.Close() })
 	repl := NewREPL(context.Background(), loop)
 	defer repl.cancel()
 
@@ -1781,6 +1787,7 @@ func TestCmdSessionLoadDelete(t *testing.T) {
 func TestCmdSession_SaveSubcommand(t *testing.T) {
 	loop := makeTestLoop(nil)
 	loop.store = NewSessionStore(t.TempDir())
+	t.Cleanup(func() { _ = loop.store.Close() })
 	repl := NewREPL(context.Background(), loop)
 	repl.loop.store = loop.store
 	defer repl.cancel()
@@ -1797,6 +1804,7 @@ func TestCmdSession_SaveSubcommand(t *testing.T) {
 func TestCmdSession_LoadMissingArg(t *testing.T) {
 	loop := makeTestLoop(nil)
 	loop.store = NewSessionStore(t.TempDir())
+	t.Cleanup(func() { _ = loop.store.Close() })
 	repl := NewREPL(context.Background(), loop)
 	repl.loop.store = loop.store
 	defer repl.cancel()
@@ -1813,6 +1821,7 @@ func TestCmdSession_LoadMissingArg(t *testing.T) {
 func TestCmdSession_DeleteMissingArg(t *testing.T) {
 	loop := makeTestLoop(nil)
 	loop.store = NewSessionStore(t.TempDir())
+	t.Cleanup(func() { _ = loop.store.Close() })
 	repl := NewREPL(context.Background(), loop)
 	repl.loop.store = loop.store
 	defer repl.cancel()
@@ -1830,6 +1839,7 @@ func TestCmdSession_LoadViaDispatcher(t *testing.T) {
 	// Tests the return r.cmdSessionLoad(store, args[1]) path in cmdSession
 	loop := makeTestLoop(nil)
 	store := NewSessionStore(t.TempDir())
+	t.Cleanup(func() { _ = store.Close() })
 	loop.store = store
 	repl := NewREPL(context.Background(), loop)
 	defer repl.cancel()
@@ -1850,6 +1860,7 @@ func TestCmdSession_DeleteViaDispatcher(t *testing.T) {
 	// Tests the return r.cmdSessionDelete(store, args[1]) path in cmdSession
 	loop := makeTestLoop(nil)
 	store := NewSessionStore(t.TempDir())
+	t.Cleanup(func() { _ = store.Close() })
 	loop.store = store
 	repl := NewREPL(context.Background(), loop)
 	defer repl.cancel()
@@ -1870,6 +1881,7 @@ func TestCmdSession_GotoSuccess(t *testing.T) {
 	// Tests the goto success path including the return nil after RestoreTo succeeds
 	loop := makeTestLoop(nil)
 	loop.store = NewSessionStore(t.TempDir())
+	t.Cleanup(func() { _ = loop.store.Close() })
 	repl := NewREPL(context.Background(), loop)
 	defer repl.cancel()
 
@@ -1891,6 +1903,7 @@ func TestCmdSession_GotoNotFound(t *testing.T) {
 	// Tests the !RestoreTo path in goto (ID not found)
 	loop := makeTestLoop(nil)
 	loop.store = NewSessionStore(t.TempDir())
+	t.Cleanup(func() { _ = loop.store.Close() })
 	repl := NewREPL(context.Background(), loop)
 	defer repl.cancel()
 
@@ -1907,6 +1920,7 @@ func TestCmdSessionList_UnnamedAndNoModel(t *testing.T) {
 	// Tests the name=="" and model=="" fallback paths in cmdSessionList
 	loop := makeTestLoop(nil)
 	store := NewSessionStore(t.TempDir())
+	t.Cleanup(func() { _ = store.Close() })
 	repl := NewREPL(context.Background(), loop)
 	defer repl.cancel()
 	origOut := os.Stdout
@@ -1926,6 +1940,7 @@ func TestCmdSessionSave_WithName(t *testing.T) {
 	// Tests the name!="" path in cmdSessionSave (appends (name) to message)
 	loop := makeTestLoop(nil)
 	store := NewSessionStore(t.TempDir())
+	t.Cleanup(func() { _ = store.Close() })
 	repl := NewREPL(context.Background(), loop)
 	defer repl.cancel()
 	origOut := os.Stdout
@@ -1941,6 +1956,7 @@ func TestCmdSessionDelete_NotFound(t *testing.T) {
 	// Tests the err!=nil path in cmdSessionDelete
 	loop := makeTestLoop(nil)
 	store := NewSessionStore(t.TempDir())
+	t.Cleanup(func() { _ = store.Close() })
 	repl := NewREPL(context.Background(), loop)
 	defer repl.cancel()
 	origOut := os.Stdout
@@ -1956,6 +1972,7 @@ func TestCmdSession_CheckpointEmpty(t *testing.T) {
 	// Tests checkpoint with no messages (id==0 path)
 	loop := makeTestLoop(nil)
 	loop.store = NewSessionStore(t.TempDir())
+	t.Cleanup(func() { _ = loop.store.Close() })
 	repl := NewREPL(context.Background(), loop)
 	defer repl.cancel()
 	origOut := os.Stdout
@@ -1971,6 +1988,7 @@ func TestCmdSession_CheckpointWithMessages(t *testing.T) {
 	// Tests checkpoint with messages (id>0 path, return nil)
 	loop := makeTestLoop(nil)
 	loop.store = NewSessionStore(t.TempDir())
+	t.Cleanup(func() { _ = loop.store.Close() })
 	repl := NewREPL(context.Background(), loop)
 	defer repl.cancel()
 	origOut := os.Stdout
@@ -1986,6 +2004,7 @@ func TestCmdSession_CheckpointWithMessages(t *testing.T) {
 func TestCmdSession_GotoMissingArg(t *testing.T) {
 	loop := makeTestLoop(nil)
 	loop.store = NewSessionStore(t.TempDir())
+	t.Cleanup(func() { _ = loop.store.Close() })
 	repl := NewREPL(context.Background(), loop)
 	defer repl.cancel()
 	origOut := os.Stdout
@@ -2000,6 +2019,7 @@ func TestCmdSession_GotoMissingArg(t *testing.T) {
 func TestCmdSession_GotoInvalidID(t *testing.T) {
 	loop := makeTestLoop(nil)
 	loop.store = NewSessionStore(t.TempDir())
+	t.Cleanup(func() { _ = loop.store.Close() })
 	repl := NewREPL(context.Background(), loop)
 	defer repl.cancel()
 	origOut := os.Stdout
@@ -2147,6 +2167,7 @@ func TestCmdSessionLoad_RestoresModel(t *testing.T) {
 	loop := makeTestLoop(nil)
 	loop.config.Model = "initial-model"
 	store := NewSessionStore(t.TempDir())
+	t.Cleanup(func() { _ = store.Close() })
 	repl := NewREPL(context.Background(), loop)
 	defer repl.cancel()
 
@@ -2172,6 +2193,7 @@ func TestCmdSessionLoad_NoModelInMeta(t *testing.T) {
 	loop := makeTestLoop(nil)
 	loop.config.Model = "current-model"
 	store := NewSessionStore(t.TempDir())
+	t.Cleanup(func() { _ = store.Close() })
 	repl := NewREPL(context.Background(), loop)
 	defer repl.cancel()
 
@@ -4313,6 +4335,7 @@ func TestAutoSaveOnExit_NoStore(_ *testing.T) {
 func TestAutoSaveOnExit_NoTurns(t *testing.T) {
 	dir := t.TempDir()
 	store := NewSessionStore(dir)
+	t.Cleanup(func() { _ = store.Close() })
 	loop := makeTestLoop(nil)
 	loop.store = store
 	repl := NewREPL(context.Background(), loop)
@@ -4325,6 +4348,7 @@ func TestAutoSaveOnExit_NoTurns(t *testing.T) {
 func TestAutoSaveOnExit_SavesSession(t *testing.T) {
 	dir := t.TempDir()
 	store := NewSessionStore(dir)
+	t.Cleanup(func() { _ = store.Close() })
 	loop := makeTestLoop(nil)
 	loop.session.Append("hi", "hello")
 	loop.store = store
@@ -4350,6 +4374,7 @@ func TestAutoSaveOnExit_SavesSession(t *testing.T) {
 func TestCmdSessionImport_FileNotFound(t *testing.T) {
 	dir := t.TempDir()
 	store := NewSessionStore(dir)
+	t.Cleanup(func() { _ = store.Close() })
 	loop := makeTestLoop(nil)
 	loop.store = store
 	repl := NewREPL(context.Background(), loop)
@@ -4362,6 +4387,7 @@ func TestCmdSessionImport_FileNotFound(t *testing.T) {
 func TestCmdSessionImport_Success(t *testing.T) {
 	dir := t.TempDir()
 	store := NewSessionStore(dir)
+	t.Cleanup(func() { _ = store.Close() })
 	loop := makeTestLoop(nil)
 	loop.store = store
 	repl := NewREPL(context.Background(), loop)
@@ -4586,6 +4612,7 @@ func TestDoSessionIDCompletion_NoStore(t *testing.T) {
 func TestDoSessionIDCompletion_EmptyStore(t *testing.T) {
 	dir := t.TempDir()
 	store := NewSessionStore(dir)
+	t.Cleanup(func() { _ = store.Close() })
 	loop := makeTestLoop(nil)
 	loop.store = store
 	repl := NewREPL(context.Background(), loop)
@@ -4599,6 +4626,7 @@ func TestDoSessionIDCompletion_EmptyStore(t *testing.T) {
 func TestDoSessionIDCompletion_WithMetas(t *testing.T) {
 	dir := t.TempDir()
 	store := NewSessionStore(dir)
+	t.Cleanup(func() { _ = store.Close() })
 	// Seed the bbolt store; an empty token completes to every stored id.
 	sess := NewSession(0)
 	sess.Append("q", "a")
@@ -4621,6 +4649,7 @@ func TestDoSessionIDCompletion_WithMetas(t *testing.T) {
 func TestDoSessionIDCompletion_TokenFilter(t *testing.T) {
 	dir := t.TempDir()
 	store := NewSessionStore(dir)
+	t.Cleanup(func() { _ = store.Close() })
 	// Completions come from the bbolt store, so seed it with a real session
 	// rather than writing a JSONL file.
 	sess := NewSession(0)

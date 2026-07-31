@@ -21,6 +21,7 @@ package agent
 import (
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 
@@ -29,6 +30,7 @@ import (
 
 func TestNewSessionStore_DefaultPath(t *testing.T) {
 	store := NewSessionStore("")
+	t.Cleanup(func() { _ = store.Close() })
 	if store == nil {
 		t.Fatal("expected non-nil store")
 	}
@@ -37,6 +39,7 @@ func TestNewSessionStore_DefaultPath(t *testing.T) {
 func TestSaveAndLoad(t *testing.T) {
 	dir := t.TempDir()
 	store := NewSessionStore(dir)
+	t.Cleanup(func() { _ = store.Close() })
 
 	session := NewSession(0)
 	session.Append("hello", "world")
@@ -67,6 +70,7 @@ func TestSaveAndLoad(t *testing.T) {
 func TestSave_FileCreated(t *testing.T) {
 	dir := t.TempDir()
 	store := NewSessionStore(dir)
+	t.Cleanup(func() { _ = store.Close() })
 
 	session := NewSession(0)
 	session.Append("test", "response")
@@ -85,6 +89,7 @@ func TestSave_FileCreated(t *testing.T) {
 func TestLoad_Nonexistent(t *testing.T) {
 	dir := t.TempDir()
 	store := NewSessionStore(dir)
+	t.Cleanup(func() { _ = store.Close() })
 
 	_, err := store.Load("nonexistent")
 	if err == nil {
@@ -95,6 +100,7 @@ func TestLoad_Nonexistent(t *testing.T) {
 func TestList_Empty(t *testing.T) {
 	dir := t.TempDir()
 	store := NewSessionStore(dir)
+	t.Cleanup(func() { _ = store.Close() })
 
 	ids, err := store.List()
 	if err != nil {
@@ -108,6 +114,7 @@ func TestList_Empty(t *testing.T) {
 func TestList_WithSessions(t *testing.T) {
 	dir := t.TempDir()
 	store := NewSessionStore(dir)
+	t.Cleanup(func() { _ = store.Close() })
 
 	session := NewSession(0)
 	session.Append("hi", "hello")
@@ -132,6 +139,7 @@ func TestList_WithSessions(t *testing.T) {
 func TestSave_EmptySession(t *testing.T) {
 	dir := t.TempDir()
 	store := NewSessionStore(dir)
+	t.Cleanup(func() { _ = store.Close() })
 
 	session := NewSession(0)
 	id, err := store.Save(session)
@@ -161,6 +169,7 @@ func TestSave_MkdirError(t *testing.T) {
 	t.Cleanup(func() { os.Remove(f.Name()) })
 
 	store := NewSessionStore(f.Name())
+	t.Cleanup(func() { _ = store.Close() })
 	_, err = store.Save(NewSession(0))
 	if err == nil {
 		t.Fatal("expected error when basePath is a file")
@@ -168,6 +177,9 @@ func TestSave_MkdirError(t *testing.T) {
 }
 
 func TestSave_CreateError(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("chmod does not enforce POSIX permission bits on Windows")
+	}
 	dir := t.TempDir()
 	// Make dir unwritable so os.Create fails.
 	if err := os.Chmod(dir, 0555); err != nil {
@@ -176,6 +188,7 @@ func TestSave_CreateError(t *testing.T) {
 	t.Cleanup(func() { os.Chmod(dir, 0755) }) //nolint:errcheck
 
 	store := NewSessionStore(dir)
+	t.Cleanup(func() { _ = store.Close() })
 	_, err := store.Save(NewSession(0))
 	if err == nil {
 		t.Fatal("expected error when dir is not writable")
@@ -184,6 +197,7 @@ func TestSave_CreateError(t *testing.T) {
 
 func TestList_NonExistentDir(t *testing.T) {
 	store := NewSessionStore(filepath.Join(t.TempDir(), "does-not-exist"))
+	t.Cleanup(func() { _ = store.Close() })
 	ids, err := store.List()
 	if err != nil {
 		t.Fatalf("expected nil error for non-existent dir, got: %v", err)
@@ -194,6 +208,9 @@ func TestList_NonExistentDir(t *testing.T) {
 }
 
 func TestList_UnreadableDir(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("chmod does not enforce POSIX permission bits on Windows")
+	}
 	dir := t.TempDir()
 	if err := os.Chmod(dir, 0000); err != nil {
 		t.Skip("cannot change permissions:", err)
@@ -201,6 +218,7 @@ func TestList_UnreadableDir(t *testing.T) {
 	t.Cleanup(func() { os.Chmod(dir, 0755) }) //nolint:errcheck
 
 	store := NewSessionStore(dir)
+	t.Cleanup(func() { _ = store.Close() })
 	_, err := store.List()
 	if err == nil {
 		t.Fatal("expected error when dir is not readable")
@@ -212,6 +230,7 @@ func TestList_UnreadableDir(t *testing.T) {
 func TestSaveAs_WithNameAndModel(t *testing.T) {
 	dir := t.TempDir()
 	store := NewSessionStore(dir)
+	t.Cleanup(func() { _ = store.Close() })
 
 	session := NewSession(0)
 	session.Append("q", "a")
@@ -242,6 +261,7 @@ func TestSaveAs_WithNameAndModel(t *testing.T) {
 func TestSaveAs_EmptyNameModel(t *testing.T) {
 	dir := t.TempDir()
 	store := NewSessionStore(dir)
+	t.Cleanup(func() { _ = store.Close() })
 
 	session := NewSession(0)
 	id, err := store.SaveAs(session, "", "")
@@ -263,6 +283,7 @@ func TestSaveAs_EmptyNameModel(t *testing.T) {
 func TestLoadMeta_NotFound(t *testing.T) {
 	dir := t.TempDir()
 	store := NewSessionStore(dir)
+	t.Cleanup(func() { _ = store.Close() })
 
 	_, err := store.LoadMeta("nonexistent-id")
 	if err == nil {
@@ -273,6 +294,7 @@ func TestLoadMeta_NotFound(t *testing.T) {
 func TestLoadMeta_ReturnsID(t *testing.T) {
 	dir := t.TempDir()
 	store := NewSessionStore(dir)
+	t.Cleanup(func() { _ = store.Close() })
 
 	session := NewSession(0)
 	session.Append("hi", "hello")
@@ -299,6 +321,7 @@ func TestLoadMeta_ReturnsID(t *testing.T) {
 func TestListMeta_Empty(t *testing.T) {
 	dir := t.TempDir()
 	store := NewSessionStore(dir)
+	t.Cleanup(func() { _ = store.Close() })
 
 	metas, err := store.ListMeta()
 	if err != nil {
@@ -312,6 +335,7 @@ func TestListMeta_Empty(t *testing.T) {
 func TestListMeta_MultipleSessions(t *testing.T) {
 	dir := t.TempDir()
 	store := NewSessionStore(dir)
+	t.Cleanup(func() { _ = store.Close() })
 
 	for i := range 3 {
 		s := NewSession(0)
@@ -340,6 +364,7 @@ func TestListMeta_MultipleSessions(t *testing.T) {
 
 func TestListMeta_NonExistentDir(t *testing.T) {
 	store := NewSessionStore(filepath.Join(t.TempDir(), "no-such-dir"))
+	t.Cleanup(func() { _ = store.Close() })
 	metas, err := store.ListMeta()
 	if err != nil {
 		t.Fatalf("expected nil error for non-existent dir, got: %v", err)
@@ -354,6 +379,7 @@ func TestListMeta_NonExistentDir(t *testing.T) {
 func TestDelete_Existing(t *testing.T) {
 	dir := t.TempDir()
 	store := NewSessionStore(dir)
+	t.Cleanup(func() { _ = store.Close() })
 
 	session := NewSession(0)
 	session.Append("x", "y")
@@ -375,6 +401,7 @@ func TestDelete_Existing(t *testing.T) {
 func TestDelete_Nonexistent(t *testing.T) {
 	dir := t.TempDir()
 	store := NewSessionStore(dir)
+	t.Cleanup(func() { _ = store.Close() })
 
 	if err := store.Delete("does-not-exist"); err == nil {
 		t.Fatal("expected error when deleting nonexistent session")
@@ -384,6 +411,7 @@ func TestDelete_Nonexistent(t *testing.T) {
 func TestDelete_ThenListEmpty(t *testing.T) {
 	dir := t.TempDir()
 	store := NewSessionStore(dir)
+	t.Cleanup(func() { _ = store.Close() })
 
 	s := NewSession(0)
 	s.Append("q", "a")
@@ -402,6 +430,7 @@ func TestDelete_ThenListEmpty(t *testing.T) {
 func TestLoadMeta_EmptyFile(t *testing.T) {
 	dir := t.TempDir()
 	store := NewSessionStore(dir)
+	t.Cleanup(func() { _ = store.Close() })
 	path := filepath.Join(dir, "empty-session.jsonl")
 	if err := os.WriteFile(path, []byte{}, 0600); err != nil {
 		t.Fatal(err)
@@ -415,6 +444,7 @@ func TestLoadMeta_EmptyFile(t *testing.T) {
 func TestLoadMeta_BadJSONHeader(t *testing.T) {
 	dir := t.TempDir()
 	store := NewSessionStore(dir)
+	t.Cleanup(func() { _ = store.Close() })
 	path := filepath.Join(dir, "bad-json.jsonl")
 	if err := os.WriteFile(path, []byte("not-valid-json\n"), 0600); err != nil {
 		t.Fatal(err)
@@ -428,6 +458,7 @@ func TestLoadMeta_BadJSONHeader(t *testing.T) {
 func TestLoadMeta_WrongType(t *testing.T) {
 	dir := t.TempDir()
 	store := NewSessionStore(dir)
+	t.Cleanup(func() { _ = store.Close() })
 	path := filepath.Join(dir, "wrong-type.jsonl")
 	if err := os.WriteFile(path, []byte(`{"type":"message","role":"user","content":"hi"}`+"\n"), 0600); err != nil {
 		t.Fatal(err)
@@ -441,6 +472,7 @@ func TestLoadMeta_WrongType(t *testing.T) {
 func TestLoadMeta_EmptySessionID(t *testing.T) {
 	dir := t.TempDir()
 	store := NewSessionStore(dir)
+	t.Cleanup(func() { _ = store.Close() })
 	// A source whose session_meta carries no sessionId: the import assigns one,
 	// and LoadMeta reports that id with the rest of the metadata intact.
 	path := filepath.Join(dir, "no-session-id.jsonl")
@@ -501,6 +533,7 @@ func TestEncodeCwd_PathWithBackslashes(t *testing.T) {
 func TestSessionBasePath_WithCwd(t *testing.T) {
 	dir := t.TempDir()
 	store := NewSessionStore(dir)
+	t.Cleanup(func() { _ = store.Close() })
 	store.SetCwd("/some/project/path")
 	result := store.sessionBasePath()
 	assert.Equal(t, dir+"/--some-project-path--", result)
@@ -509,6 +542,7 @@ func TestSessionBasePath_WithCwd(t *testing.T) {
 func TestSessionBasePath_WithoutCwd(t *testing.T) {
 	dir := t.TempDir()
 	store := NewSessionStore(dir)
+	t.Cleanup(func() { _ = store.Close() })
 	result := store.sessionBasePath()
 	assert.Equal(t, dir, result)
 }
@@ -518,6 +552,7 @@ func TestSessionBasePath_WithoutCwd(t *testing.T) {
 func TestFindSessionFileLocked_WithCwd(t *testing.T) {
 	dir := t.TempDir()
 	store := NewSessionStore(dir)
+	t.Cleanup(func() { _ = store.Close() })
 	store.SetCwd("/tmp/proj")
 
 	session := NewSession(0)
@@ -542,6 +577,7 @@ func TestFindSessionFileLocked_WithCwd(t *testing.T) {
 func TestFindSessionFileLocked_CwdIsolatesSessions(t *testing.T) {
 	dir := t.TempDir()
 	store := NewSessionStore(dir)
+	t.Cleanup(func() { _ = store.Close() })
 	session := NewSession(0)
 	session.Append("q", "a")
 	id, err := store.Save(session)
@@ -564,6 +600,7 @@ func TestFindSessionFileLocked_CwdIsolatesSessions(t *testing.T) {
 func TestFindSessionFileLocked_NotFound(t *testing.T) {
 	dir := t.TempDir()
 	store := NewSessionStore(dir)
+	t.Cleanup(func() { _ = store.Close() })
 	store.SetCwd("/some/project")
 
 	store.mu.Lock()
@@ -578,6 +615,7 @@ func TestFindSessionFileLocked_NotFound(t *testing.T) {
 func TestListDirsLocked_WithCwd(t *testing.T) {
 	dir := t.TempDir()
 	store := NewSessionStore(dir)
+	t.Cleanup(func() { _ = store.Close() })
 	store.SetCwd("/my/project")
 
 	store.mu.Lock()
@@ -591,6 +629,7 @@ func TestListDirsLocked_WithCwd(t *testing.T) {
 func TestListDirsLocked_WithoutCwd(t *testing.T) {
 	dir := t.TempDir()
 	store := NewSessionStore(dir)
+	t.Cleanup(func() { _ = store.Close() })
 
 	store.mu.Lock()
 	dirs := store.listDirsLocked()
@@ -606,6 +645,7 @@ func TestListDirsLocked_WithoutCwd(t *testing.T) {
 func TestSaveAs_WithCwd(t *testing.T) {
 	dir := t.TempDir()
 	store := NewSessionStore(dir)
+	t.Cleanup(func() { _ = store.Close() })
 	store.SetCwd("/tmp/project")
 
 	session := NewSession(0)
@@ -631,6 +671,7 @@ func TestSaveAs_WithCwd(t *testing.T) {
 func TestDelete_RemoveError(t *testing.T) {
 	dir := t.TempDir()
 	store := NewSessionStore(dir)
+	t.Cleanup(func() { _ = store.Close() })
 
 	session := NewSession(0)
 	session.Append("x", "y")
@@ -650,8 +691,12 @@ func TestDelete_RemoveError(t *testing.T) {
 }
 
 func TestImport_WriteError(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("chmod does not enforce POSIX permission bits on Windows")
+	}
 	dir := t.TempDir()
 	store := NewSessionStore(dir)
+	t.Cleanup(func() { _ = store.Close() })
 
 	srcDir := t.TempDir()
 	srcPath := filepath.Join(srcDir, "session.jsonl")
@@ -675,6 +720,7 @@ func TestImport_WriteError(t *testing.T) {
 func TestListMeta_SkipsCorruptFile(t *testing.T) {
 	dir := t.TempDir()
 	store := NewSessionStore(dir)
+	t.Cleanup(func() { _ = store.Close() })
 	// Create a corrupt file - empty JSONL.
 	if err := os.WriteFile(filepath.Join(dir, "corrupt.jsonl"), []byte{}, 0600); err != nil {
 		t.Fatal(err)
@@ -697,6 +743,7 @@ func TestListMeta_SkipsCorruptFile(t *testing.T) {
 func TestListMeta_SkipsNonJSONL(t *testing.T) {
 	dir := t.TempDir()
 	store := NewSessionStore(dir)
+	t.Cleanup(func() { _ = store.Close() })
 	// Create a non-.jsonl file.
 	if err := os.WriteFile(filepath.Join(dir, "readme.txt"), []byte("hello"), 0600); err != nil {
 		t.Fatal(err)
@@ -711,6 +758,9 @@ func TestListMeta_SkipsNonJSONL(t *testing.T) {
 }
 
 func TestListMeta_UnreadableDir(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("chmod does not enforce POSIX permission bits on Windows")
+	}
 	dir := t.TempDir()
 	if err := os.Chmod(dir, 0000); err != nil {
 		t.Skip("cannot change permissions:", err)
@@ -718,6 +768,7 @@ func TestListMeta_UnreadableDir(t *testing.T) {
 	t.Cleanup(func() { os.Chmod(dir, 0755) }) //nolint:errcheck
 
 	store := NewSessionStore(dir)
+	t.Cleanup(func() { _ = store.Close() })
 	_, err := store.ListMeta()
 	if err == nil {
 		t.Fatal("expected error when dir is not readable")
@@ -727,6 +778,7 @@ func TestListMeta_UnreadableDir(t *testing.T) {
 func TestLoad_IgnoresBadJSONLine(t *testing.T) {
 	dir := t.TempDir()
 	store := NewSessionStore(dir)
+	t.Cleanup(func() { _ = store.Close() })
 	// Import normalizes a JSONL file into the store, skipping unparsable lines.
 	content := `{"type":"session_meta","ts":1000,"sessionId":"x","turns":0}` + "\n" +
 		`not-valid-json` + "\n" +
@@ -753,6 +805,7 @@ func TestLoad_IgnoresBadJSONLine(t *testing.T) {
 func TestList_SkipsNonJSONL(t *testing.T) {
 	dir := t.TempDir()
 	store := NewSessionStore(dir)
+	t.Cleanup(func() { _ = store.Close() })
 	if err := os.WriteFile(filepath.Join(dir, "notes.txt"), []byte("x"), 0600); err != nil {
 		t.Fatal(err)
 	}
@@ -768,6 +821,7 @@ func TestList_SkipsNonJSONL(t *testing.T) {
 func TestImport_CopiesFile(t *testing.T) {
 	dir := t.TempDir()
 	store := NewSessionStore(dir)
+	t.Cleanup(func() { _ = store.Close() })
 
 	srcDir := t.TempDir()
 	srcPath := srcDir + "/session.jsonl"
@@ -798,6 +852,7 @@ func TestImport_CopiesFile(t *testing.T) {
 func TestImport_NonexistentSource(t *testing.T) {
 	dir := t.TempDir()
 	store := NewSessionStore(dir)
+	t.Cleanup(func() { _ = store.Close() })
 
 	_, err := store.Import("/nonexistent-file")
 	if err == nil {
@@ -808,6 +863,7 @@ func TestImport_NonexistentSource(t *testing.T) {
 func TestImport_WithCwd(t *testing.T) {
 	dir := t.TempDir()
 	store := NewSessionStore(dir)
+	t.Cleanup(func() { _ = store.Close() })
 	store.SetCwd("/tmp/project")
 
 	srcDir := t.TempDir()
@@ -836,6 +892,7 @@ func TestEncodeCwd_LeadingSlashes(t *testing.T) {
 func TestLoad_ScannerError(t *testing.T) {
 	dir := t.TempDir()
 	store := NewSessionStore(dir)
+	t.Cleanup(func() { _ = store.Close() })
 
 	// Create a file with a line longer than the 1 MiB scanner buffer.
 	// The scanner buffer is set to 1<<20, so 2 MiB of data should trigger it.
@@ -881,6 +938,7 @@ func TestImport_MkdirError(t *testing.T) {
 	t.Cleanup(func() { os.Remove(f.Name()) })
 
 	store := NewSessionStore(filepath.Join(f.Name(), "subdir"))
+	t.Cleanup(func() { _ = store.Close() })
 	srcDir := t.TempDir()
 	srcPath := filepath.Join(srcDir, "session.jsonl")
 	if wErr := os.WriteFile(srcPath, []byte("{}"), 0600); wErr != nil {
