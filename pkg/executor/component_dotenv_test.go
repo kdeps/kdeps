@@ -440,6 +440,9 @@ func TestParseComponentForUpdate_InvalidYAML(t *testing.T) {
 }
 
 func TestParseComponentForUpdate_ResourcesDirAsFile(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("afero.ReadDir on a path that is a regular file does not error the same way on Windows")
+	}
 	dir := t.TempDir()
 	// Create resources as a file so os.ReadDir returns a non-IsNotExist error.
 	resourcesPath := filepath.Join(dir, "resources")
