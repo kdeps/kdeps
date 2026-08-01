@@ -239,19 +239,11 @@ func validateSearchRoot(path string) error {
 		abs = path // Abs only fails if the cwd is unavailable; check the raw path
 	}
 	clean := filepath.Clean(abs)
-	if forbiddenSearchRoots[clean] {
-		return fmt.Errorf("codeIntelligence: refusing to search system directory %q — pass a project path", clean)
-	}
-	if runtime.GOOS == "windows" {
-		if vol := filepath.VolumeName(clean); vol != "" {
-			root := vol + string(filepath.Separator)
-			if clean == root {
-				return fmt.Errorf("codeIntelligence: refusing to search system directory %q — pass a project path", clean)
-			}
-			if filepath.Dir(clean) == root && forbiddenSearchRootNames[strings.ToLower(filepath.Base(clean))] {
-				return fmt.Errorf("codeIntelligence: refusing to search system directory %q — pass a project path", clean)
-			}
-		}
+	if forbiddenSearchRoots[clean] || isForbiddenWindowsSearchRoot(clean) {
+		return fmt.Errorf(
+			"codeIntelligence: refusing to search system directory %q — pass a project path",
+			clean,
+		)
 	}
 	if home, herr := os.UserHomeDir(); herr == nil && home != "" && clean == filepath.Clean(home) {
 		return fmt.Errorf(
@@ -260,6 +252,25 @@ func validateSearchRoot(path string) error {
 		)
 	}
 	return nil
+}
+
+// isForbiddenWindowsSearchRoot reports whether clean is a Windows drive root
+// (e.g. C:\) or an immediate child of one matching forbiddenSearchRootNames
+// (covers both a real system dir like C:\Windows and the Windows-resolved
+// form of Unix-style literals like C:\dev, C:\usr, C:\etc).
+func isForbiddenWindowsSearchRoot(clean string) bool {
+	if runtime.GOOS != "windows" {
+		return false
+	}
+	vol := filepath.VolumeName(clean)
+	if vol == "" {
+		return false
+	}
+	root := vol + string(filepath.Separator)
+	if clean == root {
+		return true
+	}
+	return filepath.Dir(clean) == root && forbiddenSearchRootNames[strings.ToLower(filepath.Base(clean))]
 }
 
 func (e *Executor) buildRGArgs(config *domain.CodeIntelligenceConfig, extra ...string) []string {

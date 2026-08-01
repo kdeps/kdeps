@@ -311,9 +311,13 @@ func TestInstallLlamaServer_Success(t *testing.T) {
 	// Windows os.Stat never reports the exec bit on regular files, so this
 	// check has no equivalent there.
 	if runtime.GOOS != goosWindows {
-		info, err := os.Stat(dest)
-		require.NoError(t, err)
-		assert.NotZero(t, info.Mode().Perm()&0100, "installed llama-server binary must have owner-execute permission")
+		info, statErr := os.Stat(dest)
+		require.NoError(t, statErr)
+		assert.NotZero(
+			t,
+			info.Mode().Perm()&0100,
+			"installed llama-server binary must have owner-execute permission",
+		)
 	}
 }
 
@@ -777,7 +781,10 @@ func TestExtractTarGzFile_InvalidGzipContent(t *testing.T) {
 // executable.
 func TestInstallLlamaServer_TarGzSuccess(t *testing.T) {
 	if runtime.GOOS == goosWindows {
-		t.Skip("pins the non-Windows install path (.tar.gz asset); Windows always picks .zip and has no exec bit to check")
+		t.Skip(
+			"pins the non-Windows install path (.tar.gz asset); " +
+				"Windows always picks .zip and has no exec bit to check",
+		)
 	}
 	stubLlamaServerAsset(t, "https://example.com/llama-server.tar.gz")
 

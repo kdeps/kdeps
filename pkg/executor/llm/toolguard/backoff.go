@@ -48,7 +48,7 @@ const (
 	defaultBackoffThreshold = 3
 	defaultBackoffBase      = 90 * time.Second
 	defaultBackoffMax       = 600 * time.Second
-	defaultJitterMin        = 10 * time.Second
+	defaultJitterFloor      = 10 * time.Second
 	defaultJitterMax        = 25 * time.Second
 	backoffFactor           = 2
 )
@@ -77,7 +77,7 @@ func NewBackoffController(opts BackoffOptions) *BackoffController {
 		b.maxCooldown = defaultBackoffMax
 	}
 	if b.jitterMin == 0 {
-		b.jitterMin = defaultJitterMin
+		b.jitterMin = defaultJitterFloor
 	}
 	if b.jitterMax == 0 {
 		b.jitterMax = defaultJitterMax

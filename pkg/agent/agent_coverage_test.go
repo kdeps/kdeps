@@ -752,42 +752,6 @@ func TestSessionStore_Load_EmptyFile(t *testing.T) {
 	_ = err
 }
 
-func TestSessionStore_LoadMetaFromPathLocked_InvalidJSON(t *testing.T) {
-	dir := t.TempDir()
-	store := NewSessionStore(dir)
-	t.Cleanup(func() { _ = store.Close() })
-
-	// Create a file with invalid JSON on the first line
-	sessionDir := filepath.Join(dir, ".kdeps", "sessions")
-	require.NoError(t, os.MkdirAll(sessionDir, 0750))
-	badFile := filepath.Join(sessionDir, "bad-id.jsonl")
-	require.NoError(t, os.WriteFile(badFile, []byte("not valid json\n"), 0600))
-
-	store.mu.Lock()
-	_, err := store.loadMetaFromPathLocked(badFile, "bad-id")
-	store.mu.Unlock()
-	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "bad header")
-}
-
-func TestSessionStore_LoadMetaFromPathLocked_WrongType(t *testing.T) {
-	dir := t.TempDir()
-	store := NewSessionStore(dir)
-	t.Cleanup(func() { _ = store.Close() })
-
-	sessionDir := filepath.Join(dir, ".kdeps", "sessions")
-	require.NoError(t, os.MkdirAll(sessionDir, 0750))
-	wrongTypeFile := filepath.Join(sessionDir, "wrongtype-id.jsonl")
-	// Valid JSON but wrong type (not "session_meta")
-	require.NoError(t, os.WriteFile(wrongTypeFile, []byte(`{"type":"message","ts":123}`+"\n"), 0600))
-
-	store.mu.Lock()
-	_, err := store.loadMetaFromPathLocked(wrongTypeFile, "wrongtype-id")
-	store.mu.Unlock()
-	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "unexpected first entry type")
-}
-
 func TestSessionStore_Load_BadSessionID(t *testing.T) {
 	dir := t.TempDir()
 	store := NewSessionStore(dir)

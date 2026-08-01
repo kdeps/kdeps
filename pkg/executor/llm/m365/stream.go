@@ -18,6 +18,12 @@ import (
 type CopilotStream struct {
 	deltas chan string
 
+	// writeMu serializes every conn.WriteMessage call. gorilla/websocket
+	// requires a single writer at a time; the stop-on-cancel goroutine in
+	// run() can otherwise write concurrently with the main read/dispatch
+	// loop and panic ("concurrent write to websocket connection").
+	writeMu sync.Mutex
+
 	mu            sync.Mutex
 	answer        string
 	received      bool
@@ -127,6 +133,14 @@ func (s *CopilotStream) setErr(err error) {
 	s.mu.Unlock()
 }
 
+// writeMessage sends a text frame, serialized against every other writer on
+// conn (every SignalR frame this client sends is text).
+func (s *CopilotStream) writeMessage(conn *websocket.Conn, data []byte) error {
+	s.writeMu.Lock()
+	defer s.writeMu.Unlock()
+	return conn.WriteMessage(websocket.TextMessage, data)
+}
+
 // advance folds an incoming text piece and emits any new suffix.
 func (s *CopilotStream) advance(next string) {
 	s.mu.Lock()
@@ -162,7 +176,7 @@ func (s *CopilotStream) run(ctx context.Context, conn *websocket.Conn, args map[
 			hd := handshakeDone
 			s.mu.Unlock()
 			if hd {
-				_ = conn.WriteMessage(websocket.TextMessage, []byte(stopFrame))
+				_ = s.writeMessage(conn, []byte(stopFrame))
 			} else {
 				_ = conn.Close()
 			}
@@ -171,7 +185,7 @@ func (s *CopilotStream) run(ctx context.Context, conn *websocket.Conn, args map[
 	}()
 
 	// Send the SignalR handshake.
-	if err := conn.WriteMessage(websocket.TextMessage, []byte(`{"protocol":"json","version":1}`+rs)); err != nil {
+	if err := s.writeMessage(conn, []byte(`{"protocol":"json","version":1}`+rs)); err != nil {
 		s.setErr(fmt.Errorf("m365: send handshake: %w", err))
 		return
 	}
@@ -237,7 +251,7 @@ func (s *CopilotStream) sendChat(conn *websocket.Conn, args map[string]any) bool
 		s.setErr(fmt.Errorf("m365: build chat payload: %w", err))
 		return false
 	}
-	if err = conn.WriteMessage(websocket.TextMessage, []byte(payload)); err != nil {
+	if err = s.writeMessage(conn, []byte(payload)); err != nil {
 		s.setErr(fmt.Errorf("m365: send chat: %w", err))
 		return false
 	}
@@ -249,7 +263,7 @@ func (s *CopilotStream) sendChat(conn *websocket.Conn, args map[string]any) bool
 func (s *CopilotStream) handleFrame(conn *websocket.Conn, env signalRFrame, raw string) bool {
 	switch env.Type {
 	case framePing: // keep-alive ping — echo it.
-		_ = conn.WriteMessage(websocket.TextMessage, []byte(`{"type":6}`+rs))
+		_ = s.writeMessage(conn, []byte(`{"type":6}`+rs))
 		return false
 	case frameClose: // close
 		if env.Error != "" {

@@ -133,7 +133,7 @@ var atFileRefRe = regexp.MustCompile(`@(\S+)`)
 var (
 	hfSearchFunc         func(ctx context.Context, query string, limit int) ([]llm.HFModelResult, error) = llm.HFSearchGGUF
 	hfInfoFunc           func(ctx context.Context, repoID string) (llm.HFRepoInfo, error)                = llm.HFRepoFiles
-	hfDownloadFunc       func(ctx context.Context, repoID, filename string) (string, string, error)      = hfDownloadAdapter
+	hfDownloadFunc                                                                                       = hfDownloadAdapter
 	listLocalServersFunc                                                                                 = llm.ListLocalServers
 )
 

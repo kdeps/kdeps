@@ -38,42 +38,67 @@ func (e *Executor) resolveConfig(
 	kdeps_debug.Log("enter: resolveConfig")
 	resolvedConfig := *config
 
-	// Evaluate TimeoutDuration if it contains expression syntax
-	if config.Timeout != "" {
-		timeoutStr, err := e.EvaluateExpression(evaluator, ctx, config.Timeout)
-		if err != nil {
-			return nil, fmt.Errorf("failed to evaluate timeout duration: %w", err)
-		}
-		resolvedConfig.Timeout = fmt.Sprintf("%v", timeoutStr)
+	timeout, err := e.evaluateIfExpr(evaluator, ctx, config.Timeout, "timeout duration")
+	if err != nil {
+		return nil, err
 	}
+	resolvedConfig.Timeout = timeout
 
-	// Evaluate WorkingDir if it contains expression syntax
-	if config.WorkingDir != "" {
-		workingDir, err := e.EvaluateExpression(evaluator, ctx, config.WorkingDir)
-		if err != nil {
-			return nil, fmt.Errorf("failed to evaluate working directory: %w", err)
-		}
-		resolvedConfig.WorkingDir = fmt.Sprintf("%v", workingDir)
+	workingDir, err := e.evaluateIfExpr(evaluator, ctx, config.WorkingDir, "working directory")
+	if err != nil {
+		return nil, err
 	}
+	resolvedConfig.WorkingDir = workingDir
 
-	// Evaluate Env if provided
 	if len(config.Env) > 0 {
-		resolvedEnv := make(map[string]string)
-		for k, v := range config.Env {
-			evalK, err := e.EvaluateExpression(evaluator, ctx, k)
-			if err != nil {
-				return nil, fmt.Errorf("failed to evaluate env key %s: %w", k, err)
-			}
-			evalV, err := e.EvaluateExpression(evaluator, ctx, v)
-			if err != nil {
-				return nil, fmt.Errorf("failed to evaluate env value for %s: %w", k, err)
-			}
-			resolvedEnv[fmt.Sprintf("%v", evalK)] = fmt.Sprintf("%v", evalV)
+		resolvedEnv, envErr := e.resolveEnv(evaluator, ctx, config.Env)
+		if envErr != nil {
+			return nil, envErr
 		}
 		resolvedConfig.Env = resolvedEnv
 	}
 
 	return &resolvedConfig, nil
+}
+
+// evaluateIfExpr returns raw unchanged when it has no expression syntax;
+// otherwise it evaluates raw and stringifies the result. label names the
+// field in error messages.
+func (e *Executor) evaluateIfExpr(
+	evaluator *expression.Evaluator,
+	ctx *executor.ExecutionContext,
+	raw, label string,
+) (string, error) {
+	if raw == "" || !e.containsExpressionSyntax(raw) {
+		return raw, nil
+	}
+	value, err := e.EvaluateExpression(evaluator, ctx, raw)
+	if err != nil {
+		return "", fmt.Errorf("failed to evaluate %s: %w", label, err)
+	}
+	return fmt.Sprintf("%v", value), nil
+}
+
+// resolveEnv evaluates expression syntax in env var keys/values, leaving
+// plain literals unchanged.
+func (e *Executor) resolveEnv(
+	evaluator *expression.Evaluator,
+	ctx *executor.ExecutionContext,
+	env map[string]string,
+) (map[string]string, error) {
+	resolved := make(map[string]string, len(env))
+	for k, v := range env {
+		key, err := e.evaluateIfExpr(evaluator, ctx, k, fmt.Sprintf("env key %s", k))
+		if err != nil {
+			return nil, err
+		}
+		value, err := e.evaluateIfExpr(evaluator, ctx, v, fmt.Sprintf("env value for %s", k))
+		if err != nil {
+			return nil, err
+		}
+		resolved[key] = value
+	}
+	return resolved, nil
 }
 
 // evaluateArgs evaluates shell command arguments.
