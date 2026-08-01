@@ -31,6 +31,12 @@ import (
 func TestConfirmModelDownload_NonInteractiveSkipsWithoutYes(t *testing.T) {
 	t.Setenv("KDEPS_YES", "")
 	t.Setenv("KDEPS_ASSUME_YES", "")
+	// Pin an empty models dir: confirmModelDownload auto-approves when the
+	// model is already cached, and llama3.2:1b may genuinely be cached under
+	// the developer's real ~/.kdeps/models, which would make this assertion
+	// depend on machine state instead of the non-interactive/no-YES behavior
+	// under test.
+	t.Setenv("KDEPS_MODELS_DIR", t.TempDir())
 	var out bytes.Buffer
 	ok := confirmModelDownload(&out, strings.NewReader(""), "llama3.2:1b", llm.BackendFile, false)
 	assert.False(t, ok, "non-interactive must not auto-download multi-GB models")
@@ -39,6 +45,7 @@ func TestConfirmModelDownload_NonInteractiveSkipsWithoutYes(t *testing.T) {
 
 func TestConfirmModelDownload_NonInteractiveWithYes(t *testing.T) {
 	t.Setenv("KDEPS_YES", "1")
+	t.Setenv("KDEPS_MODELS_DIR", t.TempDir())
 	var out bytes.Buffer
 	ok := confirmModelDownload(&out, strings.NewReader(""), "llama3.2:1b", llm.BackendFile, false)
 	assert.True(t, ok)
@@ -48,6 +55,7 @@ func TestConfirmModelDownload_NonInteractiveWithYes(t *testing.T) {
 func TestConfirmModelDownload_UserYes(t *testing.T) {
 	t.Setenv("KDEPS_YES", "")
 	t.Setenv("KDEPS_ASSUME_YES", "")
+	t.Setenv("KDEPS_MODELS_DIR", t.TempDir())
 	var out bytes.Buffer
 	ok := confirmModelDownload(&out, strings.NewReader("y\n"), "llama3.2:1b", llm.BackendFile, true)
 	assert.True(t, ok)
@@ -58,6 +66,7 @@ func TestConfirmModelDownload_UserYes(t *testing.T) {
 func TestConfirmModelDownload_UserNo(t *testing.T) {
 	t.Setenv("KDEPS_YES", "")
 	t.Setenv("KDEPS_ASSUME_YES", "")
+	t.Setenv("KDEPS_MODELS_DIR", t.TempDir())
 	var out bytes.Buffer
 	ok := confirmModelDownload(&out, strings.NewReader("n\n"), "llama3.2:1b", llm.BackendFile, true)
 	assert.False(t, ok)
@@ -66,6 +75,7 @@ func TestConfirmModelDownload_UserNo(t *testing.T) {
 func TestConfirmModelDownload_EmptyEnterDefaultsYes(t *testing.T) {
 	t.Setenv("KDEPS_YES", "")
 	t.Setenv("KDEPS_ASSUME_YES", "")
+	t.Setenv("KDEPS_MODELS_DIR", t.TempDir())
 	var out bytes.Buffer
 	ok := confirmModelDownload(&out, strings.NewReader("\n"), "llama3.2:1b", llm.BackendFile, true)
 	assert.True(t, ok)
@@ -73,6 +83,7 @@ func TestConfirmModelDownload_EmptyEnterDefaultsYes(t *testing.T) {
 
 func TestConfirmModelDownload_AssumeYesEnv(t *testing.T) {
 	t.Setenv("KDEPS_YES", "1")
+	t.Setenv("KDEPS_MODELS_DIR", t.TempDir())
 	var out bytes.Buffer
 	ok := confirmModelDownload(&out, strings.NewReader("n\n"), "llama3.2:1b", llm.BackendFile, true)
 	assert.True(t, ok)

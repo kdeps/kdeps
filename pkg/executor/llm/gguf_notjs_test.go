@@ -232,6 +232,11 @@ func TestServiceGGUF_DownloadModel(t *testing.T) {
 	t.Cleanup(func() { AppFS = origFS })
 	AppFS = afero.NewOsFs()
 
+	// AppFS is the real OS filesystem here (DownloadModel writes through it),
+	// so KDEPS_MODELS_DIR must be pinned to a temp dir or this test downloads
+	// straight into the developer's real ~/.kdeps/models.
+	t.Setenv("KDEPS_MODELS_DIR", t.TempDir())
+
 	svc := NewModelService(nil)
 	// Use a URL so it skips alias resolution.
 	err := svc.DownloadModel(context.Background(), "gguf", "http://example.com/mymodel.gguf")
@@ -560,6 +565,11 @@ func TestServiceGGUF_ServeModel_Success(t *testing.T) {
 	origFS := AppFS
 	t.Cleanup(func() { AppFS = origFS })
 	AppFS = afero.NewOsFs()
+
+	// NewGGUFManager (via ServeModel) creates KDEPS_MODELS_DIR on the real
+	// filesystem set above; pin it to a temp dir instead of the developer's
+	// real ~/.kdeps/models.
+	t.Setenv("KDEPS_MODELS_DIR", t.TempDir())
 
 	origDo := httpDefaultClientDo
 	t.Cleanup(func() { httpDefaultClientDo = origDo })

@@ -85,8 +85,21 @@ func (r *REPL) toolTuningSnapshot() ToolTuning {
 // Run so persisted values win over built-in defaults.
 func (r *REPL) applyToolTuning(t ToolTuning) {
 	c := &r.loop.config
-	c.MaxToolRounds = t.MaxToolRounds
-	c.AutoRetryMax = t.AutoRetryMax
+	// MaxToolRounds/AutoRetryMax/AutoCompactThreshold/CompactTokenBudget are
+	// zero-value landmines: applyConfigDefaults treats <=0 as "unset" and
+	// fills in the built-in default, but a persisted snapshot from before
+	// that default was ever applied (or from a field the user never touched)
+	// can carry a literal 0. AutoRetryMax=0 in particular makes
+	// streamChatWithRetry's `for attempt := range 0` never execute, silently
+	// skipping the LLM call every round. Only override when the persisted
+	// value is a real, positive choice, so the just-applied default survives
+	// a zero snapshot the same way ToolStallTimeout's "" case already does.
+	if t.MaxToolRounds > 0 {
+		c.MaxToolRounds = t.MaxToolRounds
+	}
+	if t.AutoRetryMax > 0 {
+		c.AutoRetryMax = t.AutoRetryMax
+	}
 	if d, err := time.ParseDuration(t.AutoRetryBaseDelay); err == nil && d > 0 {
 		c.AutoRetryBaseDelay = d
 	}
@@ -100,8 +113,12 @@ func (r *REPL) applyToolTuning(t ToolTuning) {
 			c.ToolStallTimeout = d
 		}
 	}
-	c.AutoCompactThreshold = t.AutoCompactThreshold
-	c.CompactTokenBudget = t.CompactTokenBudget
+	if t.AutoCompactThreshold > 0 {
+		c.AutoCompactThreshold = t.AutoCompactThreshold
+	}
+	if t.CompactTokenBudget > 0 {
+		c.CompactTokenBudget = t.CompactTokenBudget
+	}
 	c.MaxTurns = t.MaxTurns
 	c.MaxHistoryTokens = t.MaxHistoryTokens
 	c.WebLimit = t.WebLimit

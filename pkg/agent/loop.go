@@ -805,8 +805,17 @@ func (l *Loop) streamChatWithRetry(
 	chatCfg *domain.ChatConfig,
 	buf *strings.Builder,
 ) (string, []domain.StreamedToolCall, error) {
+	// AutoRetryMax <= 0 is a config landmine, not "never call the LLM": it can
+	// reach here from a persisted settings snapshot saved before
+	// applyConfigDefaults ever ran (see applyToolTuning). `range 0` would skip
+	// the loop body entirely and return a silent empty success, so always try
+	// at least once regardless of the configured value.
+	attempts := l.config.AutoRetryMax
+	if attempts < 1 {
+		attempts = 1
+	}
 	var lastErr error
-	for attempt := range l.config.AutoRetryMax {
+	for attempt := range attempts {
 		buf.Reset() // discard partial output from a failed attempt
 		content, toolCalls, err := l.streamer.StreamChat(ctx, chatCfg, buf)
 		if err == nil {
@@ -816,7 +825,7 @@ func (l *Loop) streamChatWithRetry(
 			return "", nil, err
 		}
 		lastErr = err
-		if attempt == l.config.AutoRetryMax-1 {
+		if attempt == attempts-1 {
 			break
 		}
 		l.reconnectLocalModel(ctx, chatCfg)

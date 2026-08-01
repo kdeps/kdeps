@@ -349,6 +349,29 @@ func TestToolTuning_SnapshotApplyRoundTrip(t *testing.T) {
 	assert.Equal(t, 15*time.Minute, r2.loop.config.ToolStallTimeout)
 }
 
+// TestToolTuning_ZeroPersistedValuesPreserveDefaults guards against a
+// regression where a persisted ToolTuning snapshot carrying a zero value for
+// MaxToolRounds/AutoRetryMax/AutoCompactThreshold/CompactTokenBudget clobbers
+// the built-in defaults applyConfigDefaults already computed. AutoRetryMax=0
+// in particular made streamChatWithRetry's `for attempt := range 0` never
+// execute, silently skipping every LLM call.
+func TestToolTuning_ZeroPersistedValuesPreserveDefaults(t *testing.T) {
+	r := &REPL{loop: &Loop{config: Config{
+		MaxToolRounds: 200, AutoRetryMax: 3,
+		AutoCompactThreshold: 30000, CompactTokenBudget: 6000,
+	}}}
+	r.applyToolTuning(ToolTuning{
+		MaxToolRounds:        0,
+		AutoRetryMax:         0,
+		AutoCompactThreshold: 0,
+		CompactTokenBudget:   0,
+	})
+	assert.Equal(t, 200, r.loop.config.MaxToolRounds)
+	assert.Equal(t, 3, r.loop.config.AutoRetryMax)
+	assert.Equal(t, 30000, r.loop.config.AutoCompactThreshold)
+	assert.Equal(t, 6000, r.loop.config.CompactTokenBudget)
+}
+
 func TestToolTuning_StallOffRoundTrip(t *testing.T) {
 	r := &REPL{loop: &Loop{config: Config{ToolStallTimeout: -1}}}
 	assert.Equal(t, "off", r.toolTuningSnapshot().ToolStallTimeout)
