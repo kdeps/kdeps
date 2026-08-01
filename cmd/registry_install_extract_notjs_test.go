@@ -57,6 +57,17 @@ func TestExtractArchive_AndFileErrors(t *testing.T) {
 }
 
 func TestSafeArchiveTarget_AbsError(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		// On Windows, filepath.Abs shells out to GetFullPathName, which
+		// itself rejects the NUL byte -- so ResolveTarget returns a hard
+		// "resolve target path" error (skip=false) instead of silently
+		// skipping; safeArchiveTarget reports ok=true whenever skip=false,
+		// error or not.
+		_, ok, err := safeArchiveTarget("\x00bad", "entry")
+		require.Error(t, err)
+		assert.True(t, ok)
+		return
+	}
 	// Invalid destDir with a NUL byte: TargetAbs succeeds (filepath.Abs is string-only),
 	// but the result can't be validated as inside destDir, so SkipBadPaths=true silently
 	// skips the entry (ok=false) instead of returning an error.
@@ -122,7 +133,7 @@ func TestExtractRegularFile_HeaderOversized(t *testing.T) {
 func TestExtractFileRegistry_CloseOnSuccessError(t *testing.T) {
 	orig := extractFileCloseFunc
 	t.Cleanup(func() { extractFileCloseFunc = orig })
-	extractFileCloseFunc = func(_ *os.File) error { return errors.New("close failed") }
+	extractFileCloseFunc = func(f *os.File) error { _ = f.Close(); return errors.New("close failed") }
 
 	target := filepath.Join(t.TempDir(), "out.txt")
 	err := extractFile(target, bytes.NewReader([]byte("ok")))

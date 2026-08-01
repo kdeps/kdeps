@@ -20,6 +20,7 @@ func TestDefaultSettings(t *testing.T) {
 func TestSettings_SaveLoad(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
+	t.Setenv("USERPROFILE", home) // os.UserHomeDir() reads USERPROFILE on Windows, not HOME
 
 	s := Settings{
 		SelectAll:        false,
@@ -38,6 +39,7 @@ func TestSettings_SaveLoad(t *testing.T) {
 func TestLoadSettings_Missing(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
+	t.Setenv("USERPROFILE", home) // os.UserHomeDir() reads USERPROFILE on Windows, not HOME
 
 	s, err := LoadSettings()
 	require.NoError(t, err)
@@ -47,6 +49,7 @@ func TestLoadSettings_Missing(t *testing.T) {
 func TestLoadSettings_CorruptFile(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
+	t.Setenv("USERPROFILE", home) // os.UserHomeDir() reads USERPROFILE on Windows, not HOME
 
 	path := filepath.Join(home, ".kdeps", "agent-loop-settings.yaml")
 	require.NoError(t, os.MkdirAll(filepath.Dir(path), 0o750))
@@ -139,6 +142,7 @@ func TestSelectionFromSettings_SelectAll(t *testing.T) {
 func TestSaveDefaultModel(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
+	t.Setenv("USERPROFILE", home) // os.UserHomeDir() reads USERPROFILE on Windows, not HOME
 
 	require.NoError(t, SaveDefaultModel("llama3.2:1b"))
 
@@ -150,6 +154,7 @@ func TestSaveDefaultModel(t *testing.T) {
 func TestAddCustomOpenAIModel(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
+	t.Setenv("USERPROFILE", home) // os.UserHomeDir() reads USERPROFILE on Windows, not HOME
 
 	require.NoError(t, AddCustomOpenAIModel("localhost-1234", "http://localhost:1234/v1"))
 	require.NoError(t, AddCustomOpenAIModel("together", "https://api.together.xyz/v1"))
@@ -170,6 +175,7 @@ func TestAddCustomOpenAIModel(t *testing.T) {
 func TestSetFavoriteModel(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
+	t.Setenv("USERPROFILE", home) // os.UserHomeDir() reads USERPROFILE on Windows, not HOME
 
 	require.NoError(t, SetFavoriteModel("gpt-4o", true))
 	require.NoError(t, SetFavoriteModel("llama3.2:1b", true))
@@ -188,6 +194,7 @@ func TestSetFavoriteModel(t *testing.T) {
 func TestSaveDefaultModel_UpdatesExisting(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
+	t.Setenv("USERPROFILE", home) // os.UserHomeDir() reads USERPROFILE on Windows, not HOME
 
 	require.NoError(t, SaveDefaultModel("first-model"))
 	require.NoError(t, SaveDefaultModel("second-model"))
@@ -201,6 +208,7 @@ func TestSaveDefaultModel_UpdatesExisting(t *testing.T) {
 func TestSettings_Save_PreservesOtherFields(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
+	t.Setenv("USERPROFILE", home) // os.UserHomeDir() reads USERPROFILE on Windows, not HOME
 
 	s := Settings{
 		SelectAll:        false,
@@ -218,6 +226,7 @@ func TestSettings_Save_PreservesOtherFields(t *testing.T) {
 func TestLoadSettings_ReadError(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
+	t.Setenv("USERPROFILE", home) // os.UserHomeDir() reads USERPROFILE on Windows, not HOME
 
 	// Create a directory at the settings path so ReadFile fails with "is a directory"
 	path := filepath.Join(home, ".kdeps", "agent-loop-settings.yaml")
@@ -234,6 +243,7 @@ func TestSettings_Save_WriteError(t *testing.T) {
 	}
 	home := t.TempDir()
 	t.Setenv("HOME", home)
+	t.Setenv("USERPROFILE", home) // os.UserHomeDir() reads USERPROFILE on Windows, not HOME
 
 	dir := filepath.Join(home, ".kdeps")
 	require.NoError(t, os.MkdirAll(dir, 0o750))
@@ -248,6 +258,7 @@ func TestSettings_Save_WriteError(t *testing.T) {
 func TestSettings_Save_MkdirError(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
+	t.Setenv("USERPROFILE", home) // os.UserHomeDir() reads USERPROFILE on Windows, not HOME
 
 	// Place a file at ".kdeps" so MkdirAll fails (can't mkdir over a file).
 	conflict := filepath.Join(home, ".kdeps")
@@ -261,6 +272,7 @@ func TestSettings_Save_MkdirError(t *testing.T) {
 func TestSaveDefaultModel_LoadError(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
+	t.Setenv("USERPROFILE", home) // os.UserHomeDir() reads USERPROFILE on Windows, not HOME
 
 	path := filepath.Join(home, ".kdeps", "agent-loop-settings.yaml")
 	require.NoError(t, os.MkdirAll(path, 0o750)) // dir at file path causes ReadFile to fail

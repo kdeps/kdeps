@@ -113,7 +113,11 @@ func TestExportK8sInternal_ValidateError(t *testing.T) {
 }
 
 func TestExportK8sInternal_InvalidPath(t *testing.T) {
-	err := exportK8sInternal(nil, []string{"/nonexistent"}, &K8sFlags{})
+	// A path under this test's own TempDir is guaranteed missing and immune
+	// to pollution from unrelated tests/packages that create a real
+	// directory at the shared literal "/nonexistent" during the same run.
+	missing := filepath.Join(t.TempDir(), "nonexistent")
+	err := exportK8sInternal(nil, []string{missing}, &K8sFlags{})
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "failed to access path")
 }

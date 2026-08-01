@@ -22,6 +22,7 @@ import (
 	"embed"
 	"os"
 	"path/filepath"
+	"runtime"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -279,6 +280,9 @@ func TestBuildJinja2Context(t *testing.T) {
 // (regardless of extension prefix) in a directory tree to their base names,
 // preserving the original file permissions.
 func TestPreprocessJ2Files(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("chmod does not enforce POSIX permission bits on Windows")
+	}
 	tmpDir := t.TempDir()
 
 	files := map[string]struct {

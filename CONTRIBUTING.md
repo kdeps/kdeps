@@ -17,6 +17,7 @@ KDeps v2 is a complete rewrite focusing on a "local-first" execution model, YAML
 - **uv**: Recommended for Python-related features.
 - **Docker**: Optional, needed for containerization features.
 - **golangci-lint v2**: For code linting (`go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@latest`).
+- **A C compiler** (Windows only): `github.com/mattn/go-sqlite3` needs cgo. Without a compiler on `PATH`, `CGO_ENABLED` auto-disables and sqlite-backed tests fail at runtime with "this is a stub". Install a mingw-w64 toolchain (e.g. `choco install mingw`) and make sure `gcc` is on `PATH` before running `go test`/`go build` locally.
 
 ### Environment Setup
 1. Clone the repository:

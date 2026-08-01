@@ -21,6 +21,7 @@ package iso
 import (
 	"errors"
 	"net/http"
+	"path/filepath"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -30,7 +31,7 @@ import (
 func TestLinuxkitCacheDir_Success(t *testing.T) {
 	dir, err := linuxkitCacheDir()
 	require.NoError(t, err)
-	assert.Contains(t, dir, ".cache/kdeps/linuxkit")
+	assert.Contains(t, dir, filepath.Join(".cache", "kdeps", "linuxkit"))
 }
 
 func TestLinuxkitCacheDir_HomeDirError(t *testing.T) {

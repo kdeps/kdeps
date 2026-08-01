@@ -37,8 +37,9 @@ import (
 )
 
 func TestLocalRegistryPath_NoHome(t *testing.T) {
-	t.Setenv("HOME", "")
-	require.NoError(t, os.Unsetenv("HOME"))
+	orig := userHomeDirFunc
+	t.Cleanup(func() { userHomeDirFunc = orig })
+	userHomeDirFunc = func() (string, error) { return "", errors.New("no home") }
 	assert.Empty(t, localRegistryPath())
 }
 
@@ -66,8 +67,9 @@ func TestMergeLlamafileRegistries_NilEmbedded(t *testing.T) {
 }
 
 func TestWriteLocalRegistry_NoHomeFallsBackToCwd(t *testing.T) {
-	t.Setenv("HOME", "")
-	require.NoError(t, os.Unsetenv("HOME"))
+	orig := userHomeDirFunc
+	t.Cleanup(func() { userHomeDirFunc = orig })
+	userHomeDirFunc = func() (string, error) { return "", errors.New("no home") }
 	t.Chdir(t.TempDir())
 
 	require.NoError(t, WriteLocalRegistry([]LlamafileEntry{{Alias: "a", URL: "https://x/a.llamafile"}}))
@@ -90,7 +92,9 @@ func TestResolve_AliasDownloads(t *testing.T) {
 	defer srv.Close()
 
 	home := t.TempDir()
-	t.Setenv("HOME", home)
+	origHome := userHomeDirFunc
+	t.Cleanup(func() { userHomeDirFunc = origHome })
+	userHomeDirFunc = func() (string, error) { return home, nil }
 	require.NoError(t, WriteLocalRegistry([]LlamafileEntry{
 		{Alias: "cov-alias", URL: srv.URL + "/cov-alias-model.llamafile", SizeBytes: 14},
 	}))
@@ -135,6 +139,9 @@ func TestServe_FixedPortHealthTimeout(t *testing.T) {
 }
 
 func TestStartLlamafileServer_SpawnsViaShell(t *testing.T) {
+	if runtime.GOOS == goosWindows {
+		t.Skip("posix-only: Windows execs the (copied) binary directly, never through a shell")
+	}
 	// A real spawn through the shell: the "llamafile" is a script that exits
 	// immediately; Start must succeed and detach without inheriting stdio.
 	script := filepath.Join(t.TempDir(), "noop.llamafile")
@@ -144,6 +151,9 @@ func TestStartLlamafileServer_SpawnsViaShell(t *testing.T) {
 }
 
 func TestStartLlamafileServer_MissingShell(t *testing.T) {
+	if runtime.GOOS == goosWindows {
+		t.Skip("posix-only: llamafileShell is unused on Windows, which execs the binary directly")
+	}
 	orig := llamafileShell
 	t.Cleanup(func() { llamafileShell = orig })
 	llamafileShell = "/nonexistent/shell"
@@ -181,7 +191,7 @@ func TestEnsureExecutableExtension_CopiesOnce(t *testing.T) {
 func TestEnsureExecutableExtension_MissingSource(t *testing.T) {
 	_, err := ensureExecutableExtension(filepath.Join(t.TempDir(), "nope.llamafile"))
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "failed to copy llamafile")
+	assert.Contains(t, err.Error(), "llamafile not found")
 }
 
 func TestNewLlamafileCommand_NonWindowsUsesShell(t *testing.T) {

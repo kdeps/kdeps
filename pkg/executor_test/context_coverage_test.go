@@ -1708,11 +1708,11 @@ func TestExecutionContext_GetExecStderr_FromMap(t *testing.T) {
 // TestReadFile_Directory tests readFile with directory path.
 func TestReadFile_Directory(t *testing.T) {
 	tmpDir := t.TempDir()
-	subDir := tmpDir + "/subdir"
+	subDir := filepath.Join(tmpDir, "subdir")
 	err := os.Mkdir(subDir, 0755)
 	require.NoError(t, err)
 
-	testFile := subDir + "/file.txt"
+	testFile := filepath.Join(subDir, "file.txt")
 	err = os.WriteFile(testFile, []byte("content"), 0644)
 	require.NoError(t, err)
 
@@ -2218,11 +2218,11 @@ func TestReadFile_ReadError(t *testing.T) {
 // TestReadFile_DirectoryWithSubdirs tests readFile with directory containing subdirectories.
 func TestReadFile_DirectoryWithSubdirs(t *testing.T) {
 	tmpDir := t.TempDir()
-	subDir := tmpDir + "/subdir"
+	subDir := filepath.Join(tmpDir, "subdir")
 	err := os.Mkdir(subDir, 0755)
 	require.NoError(t, err)
 
-	testFile := tmpDir + "/file.txt"
+	testFile := filepath.Join(tmpDir, "file.txt")
 	err = os.WriteFile(testFile, []byte("content"), 0644)
 	require.NoError(t, err)
 

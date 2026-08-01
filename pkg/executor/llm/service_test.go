@@ -33,6 +33,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"runtime"
 
 	"github.com/kdeps/kdeps/v2/pkg/executor/llm"
 )
@@ -220,6 +221,9 @@ func TestModelService_ConcurrentAccess(t *testing.T) {
 }
 
 func TestModelService_DownloadModel_File_CachedFile(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("Windows os.Stat never reports the 0111 exec bits on regular files; no equivalent to check")
+	}
 	dir := t.TempDir()
 	t.Setenv("KDEPS_MODELS_DIR", dir)
 
@@ -238,6 +242,9 @@ func TestModelService_DownloadModel_File_CachedFile(t *testing.T) {
 }
 
 func TestModelService_DownloadModel_File_RemoteURL(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("Windows os.Stat never reports the 0111 exec bits on regular files; no equivalent to check")
+	}
 	content := []byte("fake llamafile binary")
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusOK)

@@ -54,6 +54,11 @@ func TestFindUpdateTargetComponentDirs_Errors(t *testing.T) {
 }
 
 func TestScanComponentSubdirs_ReadError(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		// Windows reports ReadDir-on-a-file as ERROR_PATH_NOT_FOUND, which
+		// os.IsNotExist treats the same as a missing directory (no error).
+		t.Skip("Windows cannot distinguish not-a-directory from not-exist here")
+	}
 	tmp := t.TempDir()
 	f := filepath.Join(tmp, "notadir")
 	require.NoError(t, os.WriteFile(f, []byte("x"), 0644))
@@ -271,6 +276,11 @@ func TestFindUpdateTargetComponentDirs_NotFound(t *testing.T) {
 }
 
 func TestScanComponentSubdirs_ReadErr(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		// Windows reports ReadDir-on-a-file as ERROR_PATH_NOT_FOUND, which
+		// os.IsNotExist treats the same as a missing directory (no error).
+		t.Skip("Windows cannot distinguish not-a-directory from not-exist here")
+	}
 	tmp := t.TempDir()
 	f := filepath.Join(tmp, "notadir")
 	require.NoError(t, os.WriteFile(f, []byte("x"), 0644))

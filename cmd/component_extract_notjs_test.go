@@ -25,7 +25,6 @@ import (
 	"bytes"
 	"compress/gzip"
 	"errors"
-	"io"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -318,13 +317,10 @@ func TestCmdExtractTarEntry_DotEntry(t *testing.T) {
 	)
 
 	// Read back and test cmdExtractTarEntry via cmdExtractTarGz.
-	err := cmdExtractTarGz(
-		func() io.ReadCloser {
-			f, _ := os.Open(archivePath)
-			return f
-		}(),
-		destDir,
-	)
+	archiveFile, archiveErr := os.Open(archivePath)
+	require.NoError(t, archiveErr)
+	defer archiveFile.Close()
+	err := cmdExtractTarGz(archiveFile, destDir)
 	require.NoError(t, err)
 }
 
@@ -341,13 +337,10 @@ func TestCmdExtractTarEntry_AbsolutePath(t *testing.T) {
 		[][]byte{{'x'}},
 	)
 
-	err := cmdExtractTarGz(
-		func() io.ReadCloser {
-			f, _ := os.Open(archivePath)
-			return f
-		}(),
-		destDir,
-	)
+	archiveFile, archiveErr := os.Open(archivePath)
+	require.NoError(t, archiveErr)
+	defer archiveFile.Close()
+	err := cmdExtractTarGz(archiveFile, destDir)
 	require.NoError(t, err)
 	// File should NOT exist in destDir.
 	_, err = os.Stat(filepath.Join(destDir, "etc", "passwd"))
@@ -367,13 +360,10 @@ func TestCmdExtractTarEntry_RelPathCheck(t *testing.T) {
 		[][]byte{{'x'}},
 	)
 
-	err := cmdExtractTarGz(
-		func() io.ReadCloser {
-			f, _ := os.Open(archivePath)
-			return f
-		}(),
-		destDir,
-	)
+	archiveFile, archiveErr := os.Open(archivePath)
+	require.NoError(t, archiveErr)
+	defer archiveFile.Close()
+	err := cmdExtractTarGz(archiveFile, destDir)
 	require.NoError(t, err)
 	// File should NOT exist (path traversal blocked).
 	_, err = os.Stat(filepath.Join(destDir, "outside.txt"))
@@ -393,13 +383,10 @@ func TestCmdExtractTarEntry_ParentDirPrefix(t *testing.T) {
 		[][]byte{{'x'}},
 	)
 
-	err := cmdExtractTarGz(
-		func() io.ReadCloser {
-			f, _ := os.Open(archivePath)
-			return f
-		}(),
-		destDir,
-	)
+	archiveFile, archiveErr := os.Open(archivePath)
+	require.NoError(t, archiveErr)
+	defer archiveFile.Close()
+	err := cmdExtractTarGz(archiveFile, destDir)
 	require.NoError(t, err)
 }
 
@@ -411,13 +398,10 @@ func TestCmdExtractTarEntry_DirectoryType(t *testing.T) {
 		nil,
 	)
 
-	err := cmdExtractTarGz(
-		func() io.ReadCloser {
-			f, _ := os.Open(archivePath)
-			return f
-		}(),
-		destDir,
-	)
+	archiveFile, archiveErr := os.Open(archivePath)
+	require.NoError(t, archiveErr)
+	defer archiveFile.Close()
+	err := cmdExtractTarGz(archiveFile, destDir)
 	require.NoError(t, err)
 	assert.DirExists(t, filepath.Join(destDir, "mydir"))
 }
@@ -435,13 +419,10 @@ func TestCmdExtractTarEntry_RegularFile(t *testing.T) {
 		[][]byte{content},
 	)
 
-	err := cmdExtractTarGz(
-		func() io.ReadCloser {
-			f, _ := os.Open(archivePath)
-			return f
-		}(),
-		destDir,
-	)
+	archiveFile, archiveErr := os.Open(archivePath)
+	require.NoError(t, archiveErr)
+	defer archiveFile.Close()
+	err := cmdExtractTarGz(archiveFile, destDir)
 	require.NoError(t, err)
 	data, err := os.ReadFile(filepath.Join(destDir, "testfile.txt"))
 	require.NoError(t, err)

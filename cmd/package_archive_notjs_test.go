@@ -27,6 +27,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"runtime"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -36,7 +37,11 @@ import (
 )
 
 func TestCreatePackageArchive_Errors(t *testing.T) {
-	err := CreatePackageArchive(t.TempDir(), "/nonexistent/nested/pkg.kdeps", &domain.Workflow{})
+	invalidPath := "/nonexistent/nested/pkg.kdeps"
+	if runtime.GOOS == "windows" {
+		invalidPath = filepath.Join(t.TempDir(), "NUL", "nested", "pkg.kdeps")
+	}
+	err := CreatePackageArchive(t.TempDir(), invalidPath, &domain.Workflow{})
 	require.Error(t, err)
 }
 

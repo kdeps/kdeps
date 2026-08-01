@@ -19,6 +19,7 @@
 package http
 
 import (
+	"path"
 	"path/filepath"
 	"strings"
 
@@ -63,7 +64,10 @@ func dockerDefaultWorkflowPath() string {
 	if p := findWorkflowFileHook("/app"); p != "" {
 		return p
 	}
-	return filepath.Join("/app", manifest.WorkflowYAML)
+	// dockerAppRoot ("/app") is the container's root inside the (always Linux)
+	// Docker image, not a host path, so keep the POSIX separator even when
+	// this binary is built for a non-Linux GOOS.
+	return path.Join("/app", manifest.WorkflowYAML)
 }
 
 func managementWorkflowPathFallback() string {

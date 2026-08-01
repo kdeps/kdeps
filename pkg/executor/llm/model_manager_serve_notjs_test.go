@@ -27,6 +27,7 @@ import (
 	stdhttp "net/http"
 	"os"
 	"path/filepath"
+	"runtime"
 	"testing"
 	"time"
 
@@ -40,6 +41,9 @@ import (
 // TestServeFileModel_NewLlamafileManagerFailure covers line 183-185:
 // NewLlamafileManager returns an error when DefaultModelsDir fails.
 func TestServeFileModel_NewLlamafileManagerFailure(t *testing.T) {
+	if runtime.GOOS == goosWindows {
+		t.Skip("relies on /dev/null being a non-directory special file blocking mkdir; no Windows equivalent")
+	}
 	t.Setenv("KDEPS_MODELS_DIR", "/dev/null/models-test")
 
 	m := NewModelManager(nil)
@@ -49,6 +53,9 @@ func TestServeFileModel_NewLlamafileManagerFailure(t *testing.T) {
 }
 
 func TestServeGGUFModel_NewGGUFManagerFailure(t *testing.T) {
+	if runtime.GOOS == goosWindows {
+		t.Skip("relies on /dev/null being a non-directory special file blocking mkdir; no Windows equivalent")
+	}
 	t.Setenv("KDEPS_MODELS_DIR", "/dev/null/models-test")
 
 	m := NewModelManager(nil)

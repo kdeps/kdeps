@@ -262,6 +262,7 @@ func TestDefaultServerHooks_Direct(t *testing.T) {
 }
 
 func TestStartHTTPServerWithEngine_SignalShutdown(t *testing.T) {
+	injectSignalNotify(t)
 	origStart := httpServerStartFunc
 	origShutdown := httpServerShutdownFunc
 	t.Cleanup(func() {
@@ -284,18 +285,17 @@ func TestStartHTTPServerWithEngine_SignalShutdown(t *testing.T) {
 	}
 	done := make(chan error, 1)
 	go func() { done <- startHTTPServerWithEngine(eng, wf, t.TempDir(), false, false) }()
-	time.Sleep(100 * time.Millisecond)
-	sendSIGINTToSelf(t)
-	close(block)
 	select {
 	case err := <-done:
 		require.NoError(t, err)
 	case <-time.After(5 * time.Second):
+		close(block)
 		t.Fatal("timeout")
 	}
 }
 
 func TestStartBothServersWithEngine_SignalShutdown(t *testing.T) {
+	injectSignalNotify(t)
 	origStart := httpServerStartFunc
 	t.Cleanup(func() { httpServerStartFunc = origStart })
 	block := make(chan struct{})
@@ -314,18 +314,17 @@ func TestStartBothServersWithEngine_SignalShutdown(t *testing.T) {
 	}
 	done := make(chan error, 1)
 	go func() { done <- startBothServersWithEngine(eng, wf, t.TempDir(), false, false) }()
-	time.Sleep(100 * time.Millisecond)
-	sendSIGINTToSelf(t)
-	close(block)
 	select {
 	case err := <-done:
 		require.NoError(t, err)
 	case <-time.After(5 * time.Second):
+		close(block)
 		t.Fatal("timeout")
 	}
 }
 
 func TestStartWebServer_SignalShutdown(t *testing.T) {
+	injectSignalNotify(t)
 	origStart := webServerStartFunc
 	origShutdown := webServerShutdownFunc
 	t.Cleanup(func() {
@@ -348,18 +347,17 @@ func TestStartWebServer_SignalShutdown(t *testing.T) {
 	}}
 	done := make(chan error, 1)
 	go func() { done <- StartWebServer(wf, t.TempDir(), false) }()
-	time.Sleep(100 * time.Millisecond)
-	sendSIGINTToSelf(t)
-	close(block)
 	select {
 	case err := <-done:
 		require.NoError(t, err)
 	case <-time.After(5 * time.Second):
+		close(block)
 		t.Fatal("timeout")
 	}
 }
 
 func TestStartBothServersWithEngine_MergedSignalShutdown(t *testing.T) {
+	injectSignalNotify(t)
 	origStart := httpServerStartFunc
 	t.Cleanup(func() { httpServerStartFunc = origStart })
 	block := make(chan struct{})
@@ -379,13 +377,11 @@ func TestStartBothServersWithEngine_MergedSignalShutdown(t *testing.T) {
 	}
 	done := make(chan error, 1)
 	go func() { done <- startBothServersWithEngine(eng, wf, t.TempDir(), false, false) }()
-	time.Sleep(100 * time.Millisecond)
-	sendSIGINTToSelf(t)
-	close(block)
 	select {
 	case err := <-done:
 		require.NoError(t, err)
 	case <-time.After(5 * time.Second):
+		close(block)
 		t.Fatal("timeout")
 	}
 }

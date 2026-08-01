@@ -35,6 +35,7 @@ import (
 	"net"
 	"os"
 	"path/filepath"
+	"runtime"
 	"time"
 
 	"github.com/kdeps/kdeps/v2/pkg/domain"
@@ -1794,8 +1795,13 @@ func TestServer_NewServer_FileStoreError(t *testing.T) {
 	err := os.WriteFile(blocker, []byte("blocker"), 0600)
 	require.NoError(t, err)
 
-	// Set TMPDIR so os.TempDir() returns our temp dir
+	// Set TMPDIR so os.TempDir() returns our temp dir. os.TempDir() consults
+	// different env vars per OS (TMPDIR on Unix, TMP/TEMP on Windows).
 	t.Setenv("TMPDIR", tmpDir)
+	if runtime.GOOS == "windows" {
+		t.Setenv("TMP", tmpDir)
+		t.Setenv("TEMP", tmpDir)
+	}
 
 	server, err := httppkg.NewServer(nil, nil, slog.Default())
 	require.Error(t, err)

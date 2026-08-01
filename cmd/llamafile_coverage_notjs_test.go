@@ -25,6 +25,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"runtime"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -138,7 +139,11 @@ func TestEnsureLLMBackendStep_WarmupPaths(t *testing.T) {
 }
 
 func TestEnsureLLMBackendStep_WarmupCacheUnavailable(t *testing.T) {
-	t.Setenv("KDEPS_MODELS_DIR", "/dev/null/impossible")
+	invalidModelsDir := "/dev/null/impossible"
+	if runtime.GOOS == "windows" {
+		invalidModelsDir = filepath.Join(t.TempDir(), "NUL", "impossible")
+	}
+	t.Setenv("KDEPS_MODELS_DIR", invalidModelsDir)
 	t.Setenv("KDEPS_DEFAULT_BACKEND", "file")
 	t.Setenv("KDEPS_LLM_BASE_URL", "")
 	require.NoError(t, os.Unsetenv("KDEPS_LLM_BASE_URL"))

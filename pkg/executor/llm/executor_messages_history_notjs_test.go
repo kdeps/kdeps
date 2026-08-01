@@ -38,6 +38,16 @@ func historyTestContext(t *testing.T) *executor.ExecutionContext {
 		&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}},
 	)
 	require.NoError(t, err)
+	// ctx.Memory is a refcounted, process-wide cached handle (see
+	// storage.NewMemoryStorage); release this test's reference so a
+	// custom KDEPS_MEMORY_DB_PATH under t.TempDir() isn't left open,
+	// which would fail Windows' directory cleanup ("used by another
+	// process" - Windows can't remove a file with a live handle).
+	t.Cleanup(func() {
+		if ctx.Memory != nil {
+			_ = ctx.Memory.Close()
+		}
+	})
 	return ctx
 }
 

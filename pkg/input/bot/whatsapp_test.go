@@ -38,6 +38,7 @@ import (
 	"errors"
 	"fmt"
 	"net"
+	"runtime"
 
 	kdepsconfig "github.com/kdeps/kdeps/v2/pkg/config"
 	"github.com/kdeps/kdeps/v2/pkg/domain"
@@ -437,7 +438,12 @@ func TestWhatsAppStart_DefaultPort(t *testing.T) {
 
 	err = r.Start(ctx, ch)
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "address already in use")
+	// Windows reports the equivalent bind failure with a different OS error string.
+	wantSubstr := "address already in use"
+	if runtime.GOOS == "windows" {
+		wantSubstr = "Only one usage of each socket address"
+	}
+	assert.Contains(t, err.Error(), wantSubstr)
 }
 
 func TestHandleWebhookPost_MalformedJSON(t *testing.T) {

@@ -245,7 +245,7 @@ func TestDownloadModelFile_PartialNotCached(t *testing.T) {
 		context.Background(), "http://example.invalid/m.gguf", "m.gguf", "/models", nil, fs,
 	)
 	require.NoError(t, err)
-	assert.Equal(t, "/models/m.gguf", path)
+	assert.Equal(t, filepath.Join("/models", "m.gguf"), path)
 	assert.True(t, resumeCalled.Load(), "partial download must be resumed, not returned as cached")
 }
 
@@ -266,7 +266,7 @@ func TestDownloadModelFile_CompleteFileIsCached(t *testing.T) {
 		context.Background(), "http://example.invalid/m.gguf", "m.gguf", "/models", nil, fs,
 	)
 	require.NoError(t, err)
-	assert.Equal(t, "/models/m.gguf", path)
+	assert.Equal(t, filepath.Join("/models", "m.gguf"), path)
 }
 
 // TestFilterAria2cLine covers the console noise filter: only the progress

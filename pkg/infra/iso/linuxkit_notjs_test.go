@@ -56,11 +56,12 @@ func TestEnsureLinuxKit_InPath(t *testing.T) {
 }
 
 func TestEnsureLinuxKit_InCache(t *testing.T) {
-	// Mock HOME to control cache location
+	// Mock the home directory lookup to control cache location (HOME is not
+	// honored by os.UserHomeDir on Windows, so override the package var directly).
 	tmpDir := t.TempDir()
-	oldHome := os.Getenv("HOME")
-	os.Setenv("HOME", tmpDir)
-	defer os.Setenv("HOME", oldHome)
+	origHome := osUserHomeDir
+	t.Cleanup(func() { osUserHomeDir = origHome })
+	osUserHomeDir = func() (string, error) { return tmpDir, nil }
 
 	// Create cached binary
 	cacheDir := filepath.Join(tmpDir, ".cache", "kdeps", "linuxkit")
@@ -258,10 +259,12 @@ func TestDownloadFile_CopyError(t *testing.T) {
 
 func TestEnsureLinuxKit_DownloadErrorWithCancelledContext(t *testing.T) {
 	// Use a cancelled context so downloadFile returns immediately without network access.
+	// Override the home dir lookup directly since HOME is not honored by
+	// os.UserHomeDir on Windows.
 	tmpDir := t.TempDir()
-	oldHome := os.Getenv("HOME")
-	os.Setenv("HOME", tmpDir)
-	defer os.Setenv("HOME", oldHome)
+	origHome := osUserHomeDir
+	t.Cleanup(func() { osUserHomeDir = origHome })
+	osUserHomeDir = func() (string, error) { return tmpDir, nil }
 
 	oldPath := os.Getenv("PATH")
 	os.Setenv("PATH", "")
@@ -281,10 +284,12 @@ func TestEnsureLinuxKit_DownloadErrorWithCancelledContext(t *testing.T) {
 
 func TestEnsureLinuxKit_MkdirAllError(t *testing.T) {
 	// Create a file at the cache directory path so MkdirAll fails with ENOTDIR.
+	// Override the home dir lookup directly since HOME is not honored by
+	// os.UserHomeDir on Windows.
 	tmpDir := t.TempDir()
-	oldHome := os.Getenv("HOME")
-	os.Setenv("HOME", tmpDir)
-	defer os.Setenv("HOME", oldHome)
+	origHome := osUserHomeDir
+	t.Cleanup(func() { osUserHomeDir = origHome })
+	osUserHomeDir = func() (string, error) { return tmpDir, nil }
 
 	oldPath := os.Getenv("PATH")
 	os.Setenv("PATH", "")
@@ -319,10 +324,12 @@ func TestEnsureLinuxKit_DownloadError(t *testing.T) {
 	}
 
 	// Ensure linuxkit is not on PATH, and no cached binary exists.
+	// Override the home dir lookup directly since HOME is not honored by
+	// os.UserHomeDir on Windows.
 	tmpDir := t.TempDir()
-	oldHome := os.Getenv("HOME")
-	os.Setenv("HOME", tmpDir)
-	defer os.Setenv("HOME", oldHome)
+	origHome := osUserHomeDir
+	t.Cleanup(func() { osUserHomeDir = origHome })
+	osUserHomeDir = func() (string, error) { return tmpDir, nil }
 
 	oldPath := os.Getenv("PATH")
 	os.Setenv("PATH", "")
@@ -403,9 +410,11 @@ func TestCreateRawBIOSWorkDir_HomeDirError(t *testing.T) {
 
 func TestEnsureLinuxKit_CachedBinary(t *testing.T) {
 	tmpDir := t.TempDir()
-	oldHome := os.Getenv("HOME")
-	os.Setenv("HOME", tmpDir)
-	t.Cleanup(func() { os.Setenv("HOME", oldHome) })
+	// Override the home dir lookup directly since HOME is not honored by
+	// os.UserHomeDir on Windows.
+	origHome := osUserHomeDir
+	t.Cleanup(func() { osUserHomeDir = origHome })
+	osUserHomeDir = func() (string, error) { return tmpDir, nil }
 
 	oldPath := os.Getenv("PATH")
 	os.Setenv("PATH", "")

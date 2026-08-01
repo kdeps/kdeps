@@ -96,7 +96,11 @@ func TestBuilder_Build_MkdirTempBuildDirError(t *testing.T) {
 
 func TestNewBuilder_EnsureLinuxKitError(t *testing.T) {
 	tmpDir := t.TempDir()
-	t.Setenv("HOME", tmpDir)
+	// Override the home dir lookup directly since HOME is not honored by
+	// os.UserHomeDir on Windows.
+	origHome := osUserHomeDir
+	t.Cleanup(func() { osUserHomeDir = origHome })
+	osUserHomeDir = func() (string, error) { return tmpDir, nil }
 	t.Setenv("PATH", "")
 
 	cacheParent := filepath.Join(tmpDir, ".cache", "kdeps")
@@ -110,9 +114,11 @@ func TestNewBuilder_EnsureLinuxKitError(t *testing.T) {
 
 func TestNewBuilder_CachedBinary(t *testing.T) {
 	tmpDir := t.TempDir()
-	oldHome := os.Getenv("HOME")
-	os.Setenv("HOME", tmpDir)
-	t.Cleanup(func() { os.Setenv("HOME", oldHome) })
+	// Override the home dir lookup directly since HOME is not honored by
+	// os.UserHomeDir on Windows.
+	origHome := osUserHomeDir
+	t.Cleanup(func() { osUserHomeDir = origHome })
+	osUserHomeDir = func() (string, error) { return tmpDir, nil }
 
 	oldPath := os.Getenv("PATH")
 	os.Setenv("PATH", "")

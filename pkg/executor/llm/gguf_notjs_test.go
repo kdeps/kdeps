@@ -30,6 +30,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"runtime"
 	"testing"
 	"time"
 
@@ -43,13 +44,16 @@ func TestGGUFManager_Resolve_AbsPath(t *testing.T) {
 	t.Cleanup(func() { AppFS = origFS })
 	AppFS = afero.NewMemMapFs()
 
-	path := "/models/my-model.gguf"
-	require.NoError(t, AppFS.MkdirAll("/models", 0750))
+	// filepath.IsAbs requires a drive letter on Windows, so a POSIX-style
+	// "/models/..." literal isn't absolute there; build one that is.
+	modelsDir := filepath.Join(t.TempDir(), "models")
+	path := filepath.Join(modelsDir, "my-model.gguf")
+	require.NoError(t, AppFS.MkdirAll(modelsDir, 0750))
 	f, err := AppFS.Create(path)
 	require.NoError(t, err)
 	f.Close()
 
-	mgr := NewGGUFManagerWithDir(nil, "/models")
+	mgr := NewGGUFManagerWithDir(nil, modelsDir)
 	got, err := mgr.Resolve(context.Background(), path)
 	require.NoError(t, err)
 	assert.Equal(t, path, got)
@@ -258,6 +262,9 @@ func TestServiceGGUF_ServeModel_DownloadError(t *testing.T) {
 }
 
 func TestGGUFManager_NewGGUFManager_Error(t *testing.T) {
+	if runtime.GOOS == goosWindows {
+		t.Skip("relies on /dev/null being a non-directory special file blocking mkdir; no Windows equivalent")
+	}
 	t.Setenv("KDEPS_MODELS_DIR", "/dev/null/no-such-dir-xyz")
 	_, err := NewGGUFManager(nil)
 	require.Error(t, err)
@@ -302,7 +309,10 @@ func TestGGUFManager_Resolve_AbsPath_NotFound(t *testing.T) {
 	AppFS = afero.NewMemMapFs()
 
 	mgr := NewGGUFManagerWithDir(nil, t.TempDir())
-	_, err := mgr.Resolve(context.Background(), "/nonexistent/path/model.gguf")
+	// filepath.IsAbs requires a drive letter on Windows, so a POSIX-style
+	// "/nonexistent/..." literal isn't absolute there; build one that is.
+	missing := filepath.Join(t.TempDir(), "nonexistent", "path", "model.gguf")
+	_, err := mgr.Resolve(context.Background(), missing)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "gguf model not found at")
 }
@@ -432,8 +442,10 @@ func TestGGUFStartTimeoutFunc_Default(t *testing.T) {
 func TestStartGGUFServer_Success(t *testing.T) {
 	orig := ggufLlamaServerBinaryFn
 	t.Cleanup(func() { ggufLlamaServerBinaryFn = orig })
-	// /bin/sh always exists; it will exit with unknown-flag error but cmd.Start() succeeds.
-	ggufLlamaServerBinaryFn = func() string { return "/bin/sh" }
+	// os.Args[0] (the test binary itself) always exists and is executable on
+	// any OS; it will exit with an unknown-flag error but cmd.Start() succeeds.
+	// "/bin/sh" doesn't exist on Windows, so it isn't a portable stand-in here.
+	ggufLlamaServerBinaryFn = func() string { return os.Args[0] }
 	_, err := startGGUFServer("/tmp/model.gguf", 29995)
 	require.NoError(t, err)
 }
@@ -534,6 +546,9 @@ func TestGGUFManager_Serve_FullSuccessViaStart(t *testing.T) {
 }
 
 func TestServiceGGUF_PrepareGGUF_NewManagerError(t *testing.T) {
+	if runtime.GOOS == goosWindows {
+		t.Skip("relies on /dev/null being a non-directory special file blocking mkdir; no Windows equivalent")
+	}
 	t.Setenv("KDEPS_MODELS_DIR", "/dev/null/no-such-dir-xyz")
 	svc := NewModelService(nil)
 	err := svc.ServeModel(context.Background(), "gguf", "any-model", "", 0)

@@ -235,7 +235,10 @@ func TestHFDownloadWithToken_RequestError(t *testing.T) {
 }
 
 func TestHFDownloadGGUF_NilLogger(t *testing.T) {
-	t.Setenv("HOME", t.TempDir())
+	origHome := userHomeDirFunc
+	home := t.TempDir()
+	userHomeDirFunc = func() (string, error) { return home, nil }
+	t.Cleanup(func() { userHomeDirFunc = origHome })
 	ReloadGGUFRegistry()
 	t.Cleanup(ReloadGGUFRegistry)
 
@@ -247,7 +250,10 @@ func TestHFDownloadGGUF_NilLogger(t *testing.T) {
 }
 
 func TestHFRegisterGGUFEntry_ReadError(t *testing.T) {
-	t.Setenv("HOME", t.TempDir())
+	origHome := userHomeDirFunc
+	home := t.TempDir()
+	userHomeDirFunc = func() (string, error) { return home, nil }
+	t.Cleanup(func() { userHomeDirFunc = origHome })
 	ReloadGGUFRegistry()
 	t.Cleanup(ReloadGGUFRegistry)
 

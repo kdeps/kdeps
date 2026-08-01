@@ -12,6 +12,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strconv"
 	"strings"
 
@@ -214,6 +215,19 @@ var forbiddenSearchRoots = map[string]bool{
 	"/etc": true, "/var": true, "/bin": true, "/opt": true,
 }
 
+// forbiddenSearchRootNames are directory names that are dangerous to recurse
+// into when found as an immediate child of a Windows drive root (e.g.
+// C:\Windows, or C:\dev / C:\Library / C:\usr / C:\etc as resolved from
+// Unix-style paths via filepath.Abs on Windows).
+//
+//nolint:gochecknoglobals // static denylist
+var forbiddenSearchRootNames = map[string]bool{
+	"dev": true, "proc": true, "sys": true, "private": true,
+	"system": true, "library": true, "usr": true, "etc": true,
+	"var": true, "bin": true, "opt": true, "windows": true,
+	"program files": true, "program files (x86)": true, "programdata": true,
+}
+
 // validateSearchRoot rejects filesystem roots and system directories so a
 // stray or over-broad path never turns code_search into a whole-disk walk.
 func validateSearchRoot(path string) error {
@@ -227,6 +241,17 @@ func validateSearchRoot(path string) error {
 	clean := filepath.Clean(abs)
 	if forbiddenSearchRoots[clean] {
 		return fmt.Errorf("codeIntelligence: refusing to search system directory %q — pass a project path", clean)
+	}
+	if runtime.GOOS == "windows" {
+		if vol := filepath.VolumeName(clean); vol != "" {
+			root := vol + string(filepath.Separator)
+			if clean == root {
+				return fmt.Errorf("codeIntelligence: refusing to search system directory %q — pass a project path", clean)
+			}
+			if filepath.Dir(clean) == root && forbiddenSearchRootNames[strings.ToLower(filepath.Base(clean))] {
+				return fmt.Errorf("codeIntelligence: refusing to search system directory %q — pass a project path", clean)
+			}
+		}
 	}
 	if home, herr := os.UserHomeDir(); herr == nil && home != "" && clean == filepath.Clean(home) {
 		return fmt.Errorf(

@@ -60,13 +60,13 @@ func TestCachedLlamaServerPath(t *testing.T) {
 }
 
 func TestResolvedGGUFURL_NoModelsDir(t *testing.T) {
-	t.Setenv("KDEPS_MODELS_DIR", "/nonexistent/path-test-gguf")
+	t.Setenv("KDEPS_MODELS_DIR", filepath.Join(t.TempDir(), "path-test-gguf"))
 	result := ResolvedGGUFURL("test-model")
 	assert.Equal(t, "", result)
 }
 
 func TestResolvedLlamafileURL_NoModelsDir(t *testing.T) {
-	t.Setenv("KDEPS_MODELS_DIR", "/nonexistent/path-test-llamafile")
+	t.Setenv("KDEPS_MODELS_DIR", filepath.Join(t.TempDir(), "path-test-llamafile"))
 	result := ResolvedLlamafileURL("test-model")
 	assert.Equal(t, "", result)
 }
@@ -77,7 +77,9 @@ func TestResolvedLlamafileURL_NoModelsDir(t *testing.T) {
 
 func TestEnsureLlamaServerBinary_ReturnsCachedPath(t *testing.T) {
 	tmp := t.TempDir()
-	t.Setenv("HOME", tmp)
+	orig := userHomeDirFunc
+	t.Cleanup(func() { userHomeDirFunc = orig })
+	userHomeDirFunc = func() (string, error) { return tmp, nil }
 	binDir := filepath.Join(tmp, ".kdeps", "bin")
 	require.NoError(t, os.MkdirAll(binDir, 0o750))
 	cachedBin := filepath.Join(binDir, "llama-server")
@@ -103,7 +105,9 @@ func TestResolvedLlamafileURL_KnownModelNoServer(t *testing.T) {
 
 func TestEnsureLlamaServerBinary_UnsupportedPlatformReturnsEmpty(t *testing.T) {
 	tmp := t.TempDir()
-	t.Setenv("HOME", tmp)
+	origHome := userHomeDirFunc
+	t.Cleanup(func() { userHomeDirFunc = origHome })
+	userHomeDirFunc = func() (string, error) { return tmp, nil }
 	// Make the cached path absent so ensureLlamaServerBinary tries to install.
 	// Force an unsupported platform so installLlamaServer fails immediately
 	// (no network call — detectOSArch returns "" → "unsupported platform" error).

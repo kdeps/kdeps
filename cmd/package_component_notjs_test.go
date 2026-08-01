@@ -24,6 +24,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"runtime"
 	"testing"
 
 	"github.com/spf13/cobra"
@@ -47,7 +48,11 @@ metadata:
 }
 
 func TestCreateComponentPackageArchive_Errors(t *testing.T) {
-	err := CreateComponentPackageArchive(t.TempDir(), "/no/dir/out.komponent")
+	invalidPath := "/no/dir/out.komponent"
+	if runtime.GOOS == "windows" {
+		invalidPath = filepath.Join(t.TempDir(), "NUL", "dir", "out.komponent")
+	}
+	err := CreateComponentPackageArchive(t.TempDir(), invalidPath)
 	require.Error(t, err)
 }
 
@@ -78,10 +83,14 @@ metadata:
   version: "1.0.0"
 `
 	require.NoError(t, os.WriteFile(filepath.Join(tmp, "component.yaml"), []byte(comp), 0644))
+	invalidOutput := "/no/dir"
+	if runtime.GOOS == "windows" {
+		invalidOutput = filepath.Join(t.TempDir(), "NUL", "dir")
+	}
 	err = PackageComponentWithFlags(
 		&cobra.Command{},
 		[]string{tmp},
-		&PackageFlags{Output: "/no/dir"},
+		&PackageFlags{Output: invalidOutput},
 	)
 	require.Error(t, err)
 }

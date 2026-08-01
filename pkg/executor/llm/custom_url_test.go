@@ -55,9 +55,14 @@ func TestRegisterURLModelRejectsBadExt(t *testing.T) {
 }
 
 func TestRegisterLlamafileEntryLocal(t *testing.T) {
-	// Isolate HOME so registry writes go to temp
+	// Isolate HOME so registry writes go to temp. Overrides userHomeDirFunc
+	// directly rather than t.Setenv("HOME", ...): os.UserHomeDir() reads
+	// USERPROFILE on Windows, not HOME, so the env var alone has no effect
+	// there and the write would otherwise land in the real user's home dir.
 	home := t.TempDir()
-	t.Setenv("HOME", home)
+	origHome := userHomeDirFunc
+	t.Cleanup(func() { userHomeDirFunc = origHome })
+	userHomeDirFunc = func() (string, error) { return home, nil }
 	// ensure models dir under home
 	_ = filepath.Join(home, ".kdeps")
 

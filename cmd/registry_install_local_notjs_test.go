@@ -164,7 +164,7 @@ func TestPeekManifest_ReadAllHookError(t *testing.T) {
 func TestExtractFileRegistry_CloseHookError(t *testing.T) {
 	orig := extractFileCloseFunc
 	t.Cleanup(func() { extractFileCloseFunc = orig })
-	extractFileCloseFunc = func(_ *os.File) error { return errors.New("close") }
+	extractFileCloseFunc = func(f *os.File) error { _ = f.Close(); return errors.New("close") }
 	tmp := t.TempDir()
 	target := filepath.Join(tmp, "out.txt")
 	err := extractFile(target, bytes.NewReader([]byte("data")))
@@ -174,7 +174,7 @@ func TestExtractFileRegistry_CloseHookError(t *testing.T) {
 func TestRegistryInstallDownloadArchive_CloseHook(t *testing.T) {
 	origClose := downloadArchiveCloseFunc
 	t.Cleanup(func() { downloadArchiveCloseFunc = origClose })
-	downloadArchiveCloseFunc = func(_ *os.File) error { return errors.New("close") }
+	downloadArchiveCloseFunc = func(f *os.File) error { _ = f.Close(); return errors.New("close") }
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		_, _ = w.Write([]byte("data"))
 	}))

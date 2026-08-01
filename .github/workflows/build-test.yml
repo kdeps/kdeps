@@ -210,6 +210,11 @@ jobs:
     runs-on: windows-latest
     permissions:
       contents: read
+    env:
+      # github.com/mattn/go-sqlite3 needs cgo; without a C compiler on PATH,
+      # CGO_ENABLED auto-disables and go-sqlite3 falls back to a stub that
+      # errors at runtime ("this is a stub") on every sqlite-backed test.
+      CGO_ENABLED: "1"
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
@@ -217,6 +222,11 @@ jobs:
         uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6
         with:
           go-version-file: 'go.mod'
+
+      - name: Add MSYS2 mingw64 (gcc) to PATH
+        # windows-latest ships MSYS2 at C:\msys64 but doesn't put it on PATH.
+        shell: bash
+        run: echo "C:\msys64\mingw64\bin" >> "$GITHUB_PATH"
 
       - name: Build
         shell: bash

@@ -51,6 +51,7 @@ func TestComponentInstallDir_Default(t *testing.T) {
 	t.Setenv("KDEPS_COMPONENT_DIR", "")
 	home := t.TempDir()
 	t.Setenv("HOME", home)
+	t.Setenv("USERPROFILE", home)
 	dir, err := cmd.ComponentInstallDir()
 	require.NoError(t, err)
 	assert.Equal(t, filepath.Join(home, ".kdeps", "components"), dir)

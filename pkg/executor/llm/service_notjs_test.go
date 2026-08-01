@@ -178,13 +178,13 @@ func TestListLocalServers_DoesNotPanic(_ *testing.T) {
 }
 
 func TestLlamafileServerURL_NoModelsDir(t *testing.T) {
-	t.Setenv("KDEPS_MODELS_DIR", "/nonexistent/path-llamafile-test")
+	t.Setenv("KDEPS_MODELS_DIR", filepath.Join(t.TempDir(), "path-llamafile-test"))
 	s := NewModelService(slog.Default())
 	assert.Equal(t, "", s.llamafileServerURL("test-model"))
 }
 
 func TestGGUFServerURL_NoModelsDir(t *testing.T) {
-	t.Setenv("KDEPS_MODELS_DIR", "/nonexistent/path-gguf-test")
+	t.Setenv("KDEPS_MODELS_DIR", filepath.Join(t.TempDir(), "path-gguf-test"))
 	s := NewModelService(slog.Default())
 	assert.Equal(t, "", s.ggufServerURL("test-model"))
 }
@@ -195,13 +195,13 @@ func TestKillModel_UnknownBackend(t *testing.T) {
 }
 
 func TestKillModel_BackendFile_PrepareError(t *testing.T) {
-	t.Setenv("KDEPS_MODELS_DIR", "/nonexistent/path-kill-test")
+	t.Setenv("KDEPS_MODELS_DIR", filepath.Join(t.TempDir(), "path-kill-test"))
 	s := NewModelService(slog.Default())
 	assert.False(t, s.KillModel(BackendFile, "nonexistent-model"))
 }
 
 func TestKillModel_BackendGGUF_PrepareError(t *testing.T) {
-	t.Setenv("KDEPS_MODELS_DIR", "/nonexistent/path-kill-test")
+	t.Setenv("KDEPS_MODELS_DIR", filepath.Join(t.TempDir(), "path-kill-test"))
 	s := NewModelService(slog.Default())
 	assert.False(t, s.KillModel(BackendGGUF, "nonexistent-model"))
 }
@@ -244,25 +244,25 @@ func TestKillModel_BackendGGUF_NotRunning(t *testing.T) {
 }
 
 func TestGGUFServerURL_ModelNotPrepared(t *testing.T) {
-	t.Setenv("KDEPS_MODELS_DIR", "/nonexistent/path-gguf-url")
+	t.Setenv("KDEPS_MODELS_DIR", filepath.Join(t.TempDir(), "path-gguf-url"))
 	s := NewModelService(slog.Default())
 	assert.Equal(t, "", s.ggufServerURL("unknown-model"))
 }
 
 func TestLlamafileServerURL_ModelNotPrepared(t *testing.T) {
-	t.Setenv("KDEPS_MODELS_DIR", "/nonexistent/path-llamafile-url")
+	t.Setenv("KDEPS_MODELS_DIR", filepath.Join(t.TempDir(), "path-llamafile-url"))
 	s := NewModelService(slog.Default())
 	assert.Equal(t, "", s.llamafileServerURL("unknown-model"))
 }
 
 func TestServerURL_BackendFile(t *testing.T) {
-	t.Setenv("KDEPS_MODELS_DIR", "/nonexistent/path-srv-file")
+	t.Setenv("KDEPS_MODELS_DIR", filepath.Join(t.TempDir(), "path-srv-file"))
 	s := NewModelService(slog.Default())
 	assert.Equal(t, "", s.ServerURL(BackendFile, "test-model"))
 }
 
 func TestServerURL_BackendGGUF(t *testing.T) {
-	t.Setenv("KDEPS_MODELS_DIR", "/nonexistent/path-srv-gguf")
+	t.Setenv("KDEPS_MODELS_DIR", filepath.Join(t.TempDir(), "path-srv-gguf"))
 	s := NewModelService(slog.Default())
 	assert.Equal(t, "", s.ServerURL(BackendGGUF, "test-model"))
 }

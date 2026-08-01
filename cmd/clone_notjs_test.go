@@ -58,6 +58,7 @@ func TestCloneAsComponent_Success(t *testing.T) {
 	komp := filepath.Join(src, "mycomp.komponent")
 	createKomponentArchive(t, komp, "component.yaml", "metadata:\n  name: mycomp\n")
 	t.Setenv("HOME", tmp)
+	t.Setenv("USERPROFILE", tmp)
 	err := cloneAsComponent("mycomp", src)
 	require.NoError(t, err)
 }
@@ -100,6 +101,7 @@ func TestCloneAsComponent_MkdirError(t *testing.T) {
 func TestCloneAsComponent_CopyKomponentError(t *testing.T) {
 	tmp := t.TempDir()
 	t.Setenv("HOME", tmp)
+	t.Setenv("USERPROFILE", tmp)
 	src := filepath.Join(tmp, "src")
 	require.NoError(t, os.MkdirAll(src, 0755))
 	komp := filepath.Join(src, "c.komponent")
@@ -117,6 +119,9 @@ func TestCloneAsWorkdir_CopyError(t *testing.T) {
 }
 
 func TestCopyFile_CloseDstError(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("chmod does not enforce POSIX permission bits on Windows")
+	}
 	tmp := t.TempDir()
 	src := filepath.Join(tmp, "src.txt")
 	dst := filepath.Join(tmp, "ro", "dst.txt")
@@ -179,7 +184,7 @@ func TestCopyDir_WalkRelError(t *testing.T) {
 func TestCopyFile_CloseSuccessPath(t *testing.T) {
 	orig := copyFileCloseFunc
 	t.Cleanup(func() { copyFileCloseFunc = orig })
-	copyFileCloseFunc = func(_ *os.File) error { return errors.New("close failed") }
+	copyFileCloseFunc = func(f *os.File) error { _ = f.Close(); return errors.New("close failed") }
 	tmp := t.TempDir()
 	src := filepath.Join(tmp, "src.txt")
 	require.NoError(t, os.WriteFile(src, []byte("ok"), 0644))
@@ -305,6 +310,7 @@ func TestUnwrapArchiveRoot_SingleDir(t *testing.T) {
 func TestCloneAsComponent_CopyDir(t *testing.T) {
 	tmp := t.TempDir()
 	t.Setenv("HOME", tmp)
+	t.Setenv("USERPROFILE", tmp)
 	src := filepath.Join(tmp, "src")
 	require.NoError(t, os.MkdirAll(src, 0755))
 	require.NoError(
@@ -398,6 +404,7 @@ func TestDetectCloneType_Workflow(t *testing.T) {
 func TestCloneAsComponent_CopyErr(t *testing.T) {
 	tmp := t.TempDir()
 	t.Setenv("HOME", tmp)
+	t.Setenv("USERPROFILE", tmp)
 	err := cloneAsComponent("c", "/nonexistent/src")
 	require.Error(t, err)
 }

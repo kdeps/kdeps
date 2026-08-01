@@ -23,6 +23,7 @@ package llm
 import (
 	"context"
 	"log/slog"
+	"runtime"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -38,6 +39,9 @@ func TestModelService_PrepareLlamafileErrors(t *testing.T) {
 // TestServeLlamafileModel_NewLlamafileManagerFailure covers lines 102-104:
 // NewLlamafileManager returns an error when DefaultModelsDir fails.
 func TestServeLlamafileModel_NewLlamafileManagerFailure(t *testing.T) {
+	if runtime.GOOS == goosWindows {
+		t.Skip("relies on /dev/null being a non-directory special file blocking mkdir; no Windows equivalent")
+	}
 	t.Setenv("KDEPS_MODELS_DIR", "/dev/null/models-test")
 
 	s := &ModelService{logger: slog.Default()}

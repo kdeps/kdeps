@@ -738,6 +738,11 @@ func TestEnsureKdepsFile_CreatePackageArchiveError(t *testing.T) {
 
 func TestEnsureKdepsFile_CreateTempError(t *testing.T) {
 	t.Setenv("TMPDIR", "/nonexistent-tmpdir-for-ensure-test")
+	if runtime.GOOS == "windows" {
+		// os.CreateTemp("") on Windows resolves via TMP/TEMP, not TMPDIR.
+		t.Setenv("TMP", "/nonexistent-tmpdir-for-ensure-test")
+		t.Setenv("TEMP", "/nonexistent-tmpdir-for-ensure-test")
+	}
 	path, created, err := ensureKdepsFile("/some/path/workflow.yaml", "/some/pkgdir", &domain.Workflow{})
 	require.Error(t, err)
 	assert.Empty(t, path)
@@ -903,6 +908,11 @@ func TestBuildWASMImage_MkdirTempError(t *testing.T) {
 
 	// Point TMPDIR at a non-existent directory so os.MkdirTemp fails.
 	t.Setenv("TMPDIR", "/nonexistent-mkdir-tmp")
+	if runtime.GOOS == "windows" {
+		// os.MkdirTemp("") on Windows resolves via TMP/TEMP, not TMPDIR.
+		t.Setenv("TMP", "/nonexistent-mkdir-tmp")
+		t.Setenv("TEMP", "/nonexistent-mkdir-tmp")
+	}
 
 	err := buildWASMImage(context.Background(), tmpDir, &BuildFlags{})
 	require.Error(t, err)

@@ -39,6 +39,7 @@ import (
 func TestReadReadmeForComponent_GlobalKomponent(t *testing.T) {
 	tmp := t.TempDir()
 	t.Setenv("HOME", tmp)
+	t.Setenv("USERPROFILE", tmp)
 	compDir := filepath.Join(tmp, ".kdeps", "components")
 	require.NoError(t, os.MkdirAll(compDir, 0755))
 	archive := filepath.Join(compDir, "mycomp.komponent")
@@ -85,7 +86,7 @@ func TestSafeKomponentTarget_RelHookError(t *testing.T) {
 func TestWriteKomponentRegularFile_CloseHookError(t *testing.T) {
 	orig := komponentFileCloseFunc
 	t.Cleanup(func() { komponentFileCloseFunc = orig })
-	komponentFileCloseFunc = func(_ *os.File) error { return errors.New("close") }
+	komponentFileCloseFunc = func(f *os.File) error { _ = f.Close(); return errors.New("close") }
 	tmp := t.TempDir()
 	target := filepath.Join(tmp, "f.txt")
 	hdr := &tar.Header{Name: "f.txt", Size: 1, Mode: 0644}

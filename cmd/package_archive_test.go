@@ -25,6 +25,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"runtime"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -33,6 +34,17 @@ import (
 	"github.com/kdeps/kdeps/v2/cmd"
 	"github.com/kdeps/kdeps/v2/pkg/domain"
 )
+
+// notFoundErrSubstr returns a substring present in the OS's own "file not
+// found" error text: Go's os package surfaces the raw OS error message,
+// which differs between "no such file or directory" (Unix) and "The system
+// cannot find the ... specified." (Windows).
+func notFoundErrSubstr() string {
+	if runtime.GOOS == "windows" {
+		return "cannot find"
+	}
+	return "no such file or directory"
+}
 
 func TestCreatePackageArchive(t *testing.T) {
 	tests := []struct {
@@ -377,11 +389,19 @@ func TestAddFileToArchive(t *testing.T) {
 				info, err := os.Stat(testFile)
 				require.NoError(t, err)
 
-				// Use a path that doesn't exist to trigger file open error
+				// Use a path that doesn't exist to trigger file open error.
+				// On Windows, "/some/other/path" has no drive letter so it
+				// isn't absolute; filepath.Rel fails outright instead of
+				// producing a path that later fails to open.
 				return "/some/other/path", sourceDir, info, tarWriter
 			},
-			wantErr:     true,
-			errContains: "no such file or directory",
+			wantErr: true,
+			errContains: func() string {
+				if runtime.GOOS == "windows" {
+					return "can't make"
+				}
+				return "no such file or directory"
+			}(),
 		},
 	}
 
@@ -449,7 +469,7 @@ func TestWriteFileContent(t *testing.T) {
 				return "/nonexistent/file.txt", tarWriter
 			},
 			wantErr:     true,
-			errContains: "no such file or directory",
+			errContains: notFoundErrSubstr(),
 		},
 	}
 

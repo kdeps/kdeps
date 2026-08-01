@@ -26,6 +26,7 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"runtime"
 	"testing"
 	"time"
 
@@ -186,6 +187,19 @@ func TestWebServer_StaticFileServing(t *testing.T) {
 }
 
 func TestWebServer_PathResolution(t *testing.T) {
+	// Absolute paths and their expected resolutions must be OS-native: a
+	// leading "/" with no drive letter is not an absolute path on Windows
+	// (filepath.IsAbs requires a volume there), so these literals differ
+	// per platform.
+	absPublicPath := "/var/www/html"
+	projectDir := "/Users/test/project"
+	appDir := "/Users/test/app"
+	if runtime.GOOS == "windows" {
+		absPublicPath = `C:\var\www\html`
+		projectDir = `C:\Users\test\project`
+		appDir = `C:\Users\test\app`
+	}
+
 	tests := []struct {
 		name        string
 		publicPath  string
@@ -195,20 +209,20 @@ func TestWebServer_PathResolution(t *testing.T) {
 		{
 			name:        "Relative path",
 			publicPath:  "./public",
-			workflowDir: "/Users/test/project",
-			wantPath:    "/Users/test/project/public",
+			workflowDir: projectDir,
+			wantPath:    filepath.Join(projectDir, "public"),
 		},
 		{
 			name:        "Absolute path",
-			publicPath:  "/var/www/html",
-			workflowDir: "/Users/test/project",
-			wantPath:    "/var/www/html",
+			publicPath:  absPublicPath,
+			workflowDir: projectDir,
+			wantPath:    absPublicPath,
 		},
 		{
 			name:        "Nested relative path",
 			publicPath:  "./web/dist",
-			workflowDir: "/Users/test/app",
-			wantPath:    "/Users/test/app/web/dist",
+			workflowDir: appDir,
+			wantPath:    filepath.Join(appDir, "web", "dist"),
 		},
 	}
 

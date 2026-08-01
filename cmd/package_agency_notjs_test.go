@@ -24,6 +24,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 
@@ -59,7 +60,11 @@ agents:
 }
 
 func TestCreateAgencyPackageArchive_Errors(t *testing.T) {
-	err := CreateAgencyPackageArchive(t.TempDir(), "/no/dir/out.kagency")
+	invalidPath := "/no/dir/out.kagency"
+	if runtime.GOOS == "windows" {
+		invalidPath = filepath.Join(t.TempDir(), "NUL", "dir", "out.kagency")
+	}
+	err := CreateAgencyPackageArchive(t.TempDir(), invalidPath)
 	require.Error(t, err)
 }
 
@@ -113,7 +118,11 @@ agents:
 			0644,
 		),
 	)
-	err := PackageAgencyWithFlags(&cobra.Command{}, []string{tmp}, &PackageFlags{Output: "/no/dir"})
+	invalidOutput := "/no/dir"
+	if runtime.GOOS == "windows" {
+		invalidOutput = filepath.Join(t.TempDir(), "NUL", "dir")
+	}
+	err := PackageAgencyWithFlags(&cobra.Command{}, []string{tmp}, &PackageFlags{Output: invalidOutput})
 	require.Error(t, err)
 }
 

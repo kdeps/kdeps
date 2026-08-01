@@ -41,3 +41,14 @@ func SetDownloadWithResume(fn func(ctx context.Context, dest, url string) error)
 	downloadWithResumeFunc = fn
 	return func() { downloadWithResumeFunc = orig }
 }
+
+// SetUserHomeDir replaces the home-directory lookup used by the local
+// registry and models-dir code for tests. Needed instead of t.Setenv("HOME",
+// ...): os.UserHomeDir() reads USERPROFILE on Windows, not HOME, so the env
+// var alone has no effect there and writes would otherwise land in the real
+// user's home directory. Returns a cleanup function that restores the original.
+func SetUserHomeDir(dir string) func() {
+	orig := userHomeDirFunc
+	userHomeDirFunc = func() (string, error) { return dir, nil }
+	return func() { userHomeDirFunc = orig }
+}

@@ -45,9 +45,10 @@ func TestDetectPayloadRange_ReadError(t *testing.T) {
 	require.NoError(t, f.Close())
 	f, err = os.Open(f.Name())
 	require.NoError(t, err)
-	defer f.Close()
-	// Close underlying file to force ReadAt error on a second handle.
-	require.NoError(t, os.Remove(f.Name()))
+	// Close the handle up front to force ReadAt to fail. (Deleting the file
+	// while open, the original trick, isn't portable: Windows refuses to
+	// remove a file with an open handle.)
+	require.NoError(t, f.Close())
 	_, _, ok := detectPayloadRange(f, int64(EmbeddedTrailerSize+10))
 	assert.False(t, ok)
 }
@@ -184,6 +185,7 @@ func TestEmbeddedHooks_FinalCoverage(t *testing.T) {
 	embeddedTrailerWriteStringFunc = func(_ *os.File, _ string) (int, error) { return 0, errors.New("magic") }
 	require.Error(t, writeEmbeddedTrailer(f, 1))
 	embeddedTrailerWriteStringFunc = origStr
+	require.NoError(t, f.Close())
 
 	origReadAt := detectEmbeddedReadAtFunc
 	detectEmbeddedReadAtFunc = func(_ *os.File, _ []byte, _ int64) (int, error) { return 0, errors.New("readat") }
@@ -226,7 +228,7 @@ func TestAppendEmbeddedPackage_OutputOpenAndCloseWarn(t *testing.T) {
 	appendEmbeddedOpenOutputFunc = origOpen
 	origClose := appendEmbeddedOutCloseFunc
 	t.Cleanup(func() { appendEmbeddedOutCloseFunc = origClose })
-	appendEmbeddedOutCloseFunc = func(_ *os.File) error { return errors.New("close warn") }
+	appendEmbeddedOutCloseFunc = func(f *os.File) error { _ = f.Close(); return errors.New("close warn") }
 	out := filepath.Join(tmp, "ok-out")
 	require.NoError(t, AppendEmbeddedPackage(bin, kdeps, out))
 

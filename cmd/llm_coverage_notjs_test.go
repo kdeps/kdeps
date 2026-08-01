@@ -115,15 +115,25 @@ func TestRunLLMModelsFilters(t *testing.T) {
 	rOut, wOut, _ := os.Pipe()
 	rErr, wErr, _ := os.Pipe()
 	os.Stdout, os.Stderr = wOut, wErr
+
+	// Drain both pipes concurrently while runLLMModels writes. Anonymous
+	// pipes have a small, OS-defined buffer (much smaller on Windows than
+	// Linux); reading only after the call returns lets the buffer fill up
+	// and deadlocks the writer against a reader that can never start.
+	outDone := make(chan struct{})
+	errDone := make(chan struct{})
+	go func() { _, _ = io.ReadAll(rOut); close(outDone) }()
+	go func() { _, _ = io.ReadAll(rErr); close(errDone) }()
+
 	runErr := runLLMModels("")
 	_ = wOut.Close()
 	_ = wErr.Close()
 	os.Stdout, os.Stderr = oldOut, oldErr
+	<-outDone
+	<-errDone
 	if runErr != nil {
 		t.Fatal(runErr)
 	}
-	_, _ = io.ReadAll(rOut)
-	_, _ = io.ReadAll(rErr)
 
 	for _, kind := range []string{"llamafile", "gguf", "all"} {
 		if kindErr := runLLMModels(kind); kindErr != nil {

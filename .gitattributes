@@ -1,3 +1,18 @@
+# Normalize all text files to LF line endings regardless of the checkout
+# platform's core.autocrlf setting. Without this, a Windows clone (Git for
+# Windows defaults to core.autocrlf=true) silently rewrites every checked-out
+# .go/.yaml/.tmpl/.j2/.sh file to CRLF, which breaks go:embed'd templates,
+# string-equality assertions, and POSIX shebang scripts.
+* text=auto eol=lf
+
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.woff binary
+*.woff2 binary
+
 # Specify language for Python files
 *.py linguist-language=Python
 

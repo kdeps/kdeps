@@ -205,6 +205,9 @@ func TestLlamafileManager_Resolve_RemoteURL_HTTPError(t *testing.T) {
 // --- MakeExecutable ---------------------------------------------------------
 
 func TestLlamafileManager_MakeExecutable(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("Windows os.Stat never reports the 0111 exec bits on regular files; no equivalent to check")
+	}
 	mgr, dir := newMgrWithDir(t)
 	path := filepath.Join(dir, "model.llamafile")
 	if err := os.WriteFile(path, []byte("x"), 0600); err != nil {

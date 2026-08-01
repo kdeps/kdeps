@@ -148,7 +148,8 @@ func AddFileToArchive(
 	if headerErr != nil {
 		return headerErr
 	}
-	header.Name = relPath
+	// Tar entry names are always "/"-separated regardless of host OS.
+	header.Name = filepath.ToSlash(relPath)
 
 	if writeErr := tarWriter.WriteHeader(header); writeErr != nil {
 		return writeErr

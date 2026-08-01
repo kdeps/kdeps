@@ -247,6 +247,7 @@ func TestRunChat_ExitAliases(t *testing.T) {
 func TestRunChat_LoadSessionCorruptHistory(t *testing.T) {
 	tmp := t.TempDir()
 	t.Setenv("HOME", tmp)
+	t.Setenv("USERPROFILE", tmp)
 
 	// Create a session manually by writing a corrupt history.json.
 	sessionDir := tmp + "/.kdeps/chat-sessions/session-corrupt"

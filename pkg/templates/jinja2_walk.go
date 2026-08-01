@@ -21,6 +21,7 @@ package templates
 import (
 	"fmt"
 	"os"
+	"path"
 	"path/filepath"
 
 	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
@@ -40,7 +41,11 @@ func (g *Generator) walkJinja2Template(
 ) error {
 	kdeps_debug.Log("enter: walkJinja2Template")
 	for _, entry := range entries {
-		sourcePath := filepath.Join(templateDir, entry.Name())
+		// templateDir/sourcePath are keys into the embedded template FS, which
+		// (like all io/fs.FS implementations) always uses "/" regardless of
+		// host OS; filepath.Join here would emit "\" on Windows and the FS
+		// would fail to find the entry.
+		sourcePath := path.Join(templateDir, entry.Name())
 
 		if entry.IsDir() {
 			if err := g.processJinja2Directory(renderer, sourcePath, outputDir, data, entry.Name()); err != nil {

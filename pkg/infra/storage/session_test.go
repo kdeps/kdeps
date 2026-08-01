@@ -21,6 +21,7 @@ package storage_test
 import (
 	"os"
 	"path/filepath"
+	"runtime"
 	"testing"
 	"time"
 
@@ -147,6 +148,11 @@ func TestNewSessionStorageWithTTL_InvalidDBPath(t *testing.T) {
 	// Test with a path that can't be created (permission issues)
 	// This is hard to test reliably across systems, so we'll test with an invalid path format
 	invalidPath := "/dev/null/invalid.db" // Can't create directory under /dev/null
+	if runtime.GOOS == "windows" {
+		// Windows has no /dev/null special file; a reserved device name as a
+		// path component reliably fails directory creation instead.
+		invalidPath = filepath.Join(t.TempDir(), "NUL", "invalid.db")
+	}
 
 	storage, err := storage.NewSessionStorageWithTTL(invalidPath, "test-session", time.Hour)
 	require.Error(t, err)
@@ -535,7 +541,10 @@ func TestNewSessionStorage_EmptyPath(t *testing.T) {
 
 func TestNewSessionStorage_InvalidDirectory(t *testing.T) {
 	// Test with invalid directory path
-	invalidPath := "/nonexistent/parent/directory/sessions.db"
+	invalidPath := "/dev/null/parent/directory/sessions.db"
+	if runtime.GOOS == "windows" {
+		invalidPath = filepath.Join(t.TempDir(), "NUL", "parent", "directory", "sessions.db")
+	}
 	sessionID := "test-session"
 	storage, err := storage.NewSessionStorage(invalidPath, sessionID)
 	require.Error(t, err)

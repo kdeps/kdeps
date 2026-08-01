@@ -21,6 +21,7 @@ package cmd_test
 import (
 	"os"
 	"path/filepath"
+	"runtime"
 	"testing"
 
 	"github.com/spf13/cobra"
@@ -204,6 +205,11 @@ func TestResolveOutputPath_AbsoluteOutput(t *testing.T) {
 	wf.Metadata.Version = "1.0.0"
 
 	absPath := "/tmp/absolute-output.iso"
+	if runtime.GOOS == "windows" {
+		// "/tmp/..." isn't absolute per filepath.IsAbs on Windows (no volume);
+		// use a path that is genuinely absolute on this OS.
+		absPath = `C:\tmp\absolute-output.iso`
+	}
 	result := cmd.ResolveOutputPath(absPath, "iso", wf, "/some/dir")
 	assert.Equal(t, absPath, result)
 }

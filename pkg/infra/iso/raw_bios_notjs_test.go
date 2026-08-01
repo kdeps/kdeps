@@ -504,9 +504,11 @@ func TestAssembleRawBIOS_MkdirAllError(t *testing.T) {
 	}
 
 	tmpDir := t.TempDir()
-	oldHome := os.Getenv("HOME")
-	os.Setenv("HOME", tmpDir)
-	defer os.Setenv("HOME", oldHome)
+	// Override the home dir lookup directly since HOME is not honored by
+	// os.UserHomeDir on Windows.
+	origHome := osUserHomeDir
+	t.Cleanup(func() { osUserHomeDir = origHome })
+	osUserHomeDir = func() (string, error) { return tmpDir, nil }
 
 	cacheParent := filepath.Join(tmpDir, ".cache")
 	if err := os.MkdirAll(cacheParent, 0750); err != nil {
@@ -554,9 +556,11 @@ func TestCreateRawBIOSWorkDir_MkdirTempError(t *testing.T) {
 
 func TestCreateRawBIOSWorkDir_MkdirAllError(t *testing.T) {
 	tmpDir := t.TempDir()
-	oldHome := os.Getenv("HOME")
-	os.Setenv("HOME", tmpDir)
-	t.Cleanup(func() { os.Setenv("HOME", oldHome) })
+	// Override the home dir lookup directly since HOME is not honored by
+	// os.UserHomeDir on Windows.
+	origHome := osUserHomeDir
+	t.Cleanup(func() { osUserHomeDir = origHome })
+	osUserHomeDir = func() (string, error) { return tmpDir, nil }
 
 	cacheParent := filepath.Join(tmpDir, ".cache")
 	require.NoError(t, os.MkdirAll(cacheParent, 0750))
@@ -569,7 +573,11 @@ func TestCreateRawBIOSWorkDir_MkdirAllError(t *testing.T) {
 
 func TestAssembleRawBIOS_WorkDirError(t *testing.T) {
 	tmpDir := t.TempDir()
-	t.Setenv("HOME", tmpDir)
+	// Override the home dir lookup directly since HOME is not honored by
+	// os.UserHomeDir on Windows.
+	origHome := osUserHomeDir
+	t.Cleanup(func() { osUserHomeDir = origHome })
+	osUserHomeDir = func() (string, error) { return tmpDir, nil }
 
 	cacheParent := filepath.Join(tmpDir, ".cache")
 	require.NoError(t, os.MkdirAll(cacheParent, 0750))

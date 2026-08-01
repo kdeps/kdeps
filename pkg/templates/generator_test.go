@@ -294,6 +294,11 @@ func TestGenerator_GenerateProject_DirectoryCreationFailure(t *testing.T) {
 
 	// Test with invalid output directory path that should cause MkdirAll to fail
 	invalidPath := "/dev/null/invalid/deep/path/project"
+	if runtime.GOOS == "windows" {
+		// Windows has no /dev/null special file; a reserved device name as a
+		// path component reliably fails directory creation instead.
+		invalidPath = filepath.Join(t.TempDir(), "NUL", "invalid", "deep", "path", "project")
+	}
 
 	data := templates.TemplateData{
 		Name: "test",
@@ -1049,6 +1054,9 @@ func TestGenerator_WalkTemplate_MkdirAllErrorCoverage(t *testing.T) {
 
 	// Create a deeply nested invalid path that should cause MkdirAll to fail
 	invalidPath := "/dev/null/invalid/deep/nested/template/path"
+	if runtime.GOOS == "windows" {
+		invalidPath = filepath.Join(t.TempDir(), "NUL", "invalid", "deep", "nested", "template", "path")
+	}
 
 	data := templates.TemplateData{
 		Name: "test",

@@ -21,6 +21,7 @@ package storage_test
 import (
 	"os"
 	"path/filepath"
+	"runtime"
 	"testing"
 
 	bolt "go.etcd.io/bbolt"
@@ -74,7 +75,10 @@ func TestNewMemoryStorage_EmptyPath(t *testing.T) {
 
 func TestNewMemoryStorage_InvalidDirectory(t *testing.T) {
 	// Test with invalid directory path
-	invalidPath := "/nonexistent/parent/directory/test.db"
+	invalidPath := "/dev/null/parent/directory/test.db"
+	if runtime.GOOS == "windows" {
+		invalidPath = filepath.Join(t.TempDir(), "NUL", "parent", "directory", "test.db")
+	}
 	storage, err := storage.NewMemoryStorage(invalidPath)
 	require.Error(t, err)
 	assert.Nil(t, storage)

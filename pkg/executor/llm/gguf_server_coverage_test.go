@@ -13,6 +13,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"runtime"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -146,7 +147,9 @@ func TestEnsureLlamaServerBinary_Cached(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	t.Setenv("HOME", dir)
+	orig := userHomeDirFunc
+	t.Cleanup(func() { userHomeDirFunc = orig })
+	userHomeDirFunc = func() (string, error) { return dir, nil }
 	result := ensureLlamaServerBinary()
 	if result != cachedPath {
 		t.Errorf("expected cached path %q, got %q", cachedPath, result)
@@ -155,7 +158,9 @@ func TestEnsureLlamaServerBinary_Cached(t *testing.T) {
 
 func TestEnsureLlamaServerBinary_InstallFallback(t *testing.T) {
 	dir := t.TempDir()
-	t.Setenv("HOME", dir)
+	orig := userHomeDirFunc
+	t.Cleanup(func() { userHomeDirFunc = orig })
+	userHomeDirFunc = func() (string, error) { return dir, nil }
 	stubLlamaServerAsset(t, "https://example.com/llama-server.zip")
 
 	// Mock HTTP client to make installLlamaServer fail
@@ -303,9 +308,13 @@ func TestInstallLlamaServer_Success(t *testing.T) {
 
 	// Regression: the installed binary must be executable (0600 cannot be
 	// exec'd), or ServeModel's cmd.Start() fails with "permission denied".
-	info, err := os.Stat(dest)
-	require.NoError(t, err)
-	assert.NotZero(t, info.Mode().Perm()&0100, "installed llama-server binary must have owner-execute permission")
+	// Windows os.Stat never reports the exec bit on regular files, so this
+	// check has no equivalent there.
+	if runtime.GOOS != goosWindows {
+		info, err := os.Stat(dest)
+		require.NoError(t, err)
+		assert.NotZero(t, info.Mode().Perm()&0100, "installed llama-server binary must have owner-execute permission")
+	}
 }
 
 func TestResolvedGGUFURL_ModelNotInCache(t *testing.T) {
@@ -437,7 +446,9 @@ func TestCachedLlamaServerPath_HomeDirError(t *testing.T) {
 
 func TestEnsureLlamaServerBinary_InstallSuccess(t *testing.T) {
 	dir := t.TempDir()
-	t.Setenv("HOME", dir)
+	orig := userHomeDirFunc
+	t.Cleanup(func() { userHomeDirFunc = orig })
+	userHomeDirFunc = func() (string, error) { return dir, nil }
 	stubLlamaServerAsset(t, "https://example.com/llama-server.zip")
 
 	// Pre-create the parent dir so downloadFile's os.Create succeeds.
@@ -765,6 +776,9 @@ func TestExtractTarGzFile_InvalidGzipContent(t *testing.T) {
 // extract it with extractTarGzFile (not extractZipFile) and leave the binary
 // executable.
 func TestInstallLlamaServer_TarGzSuccess(t *testing.T) {
+	if runtime.GOOS == goosWindows {
+		t.Skip("pins the non-Windows install path (.tar.gz asset); Windows always picks .zip and has no exec bit to check")
+	}
 	stubLlamaServerAsset(t, "https://example.com/llama-server.tar.gz")
 
 	tarGzPath := writeTestTarGz(t, map[string]string{

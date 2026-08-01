@@ -175,6 +175,9 @@ func RunListPicker(title string, items []ListItem) (string, error) {
 	if len(items) == 0 {
 		return "", errors.New("no items to pick")
 	}
+	if !isInteractive() {
+		return "", nil
+	}
 	m := newListPickerModel(title, items)
 	p := tea.NewProgram(m, tea.WithAltScreen())
 	final, err := p.Run()

@@ -72,10 +72,10 @@ func TestGGUFRegistryVersion(t *testing.T) {
 
 func TestGGUFRegistry_LocalOverride(t *testing.T) {
 	dir := t.TempDir()
-	homeOrig := os.Getenv("HOME")
-	t.Setenv("HOME", dir)
+	origHome := userHomeDirFunc
+	userHomeDirFunc = func() (string, error) { return dir, nil }
 	t.Cleanup(func() {
-		t.Setenv("HOME", homeOrig)
+		userHomeDirFunc = origHome
 		ReloadGGUFRegistry()
 	})
 	ReloadGGUFRegistry()
@@ -95,7 +95,9 @@ func TestGGUFRegistry_LocalOverride(t *testing.T) {
 func TestGGUFCachedPath_Hit(t *testing.T) {
 	ReloadGGUFRegistry()
 	t.Cleanup(ReloadGGUFRegistry)
-	path, ok := GGUFCachedPath("qwen3.5:4b", "/tmp/models")
+	// filepath.IsAbs requires a drive letter on Windows, so a POSIX-style
+	// "/tmp/models" literal isn't absolute there; use a real absolute dir.
+	path, ok := GGUFCachedPath("qwen3.5:4b", filepath.Join(t.TempDir(), "models"))
 	require.True(t, ok)
 	assert.True(t, filepath.IsAbs(path))
 	assert.Contains(t, path, ".gguf")
@@ -111,10 +113,10 @@ func TestGGUFCachedPath_Miss(t *testing.T) {
 
 func TestGGUFRegistry_MergeOverridesEmbedded(t *testing.T) {
 	dir := t.TempDir()
-	homeOrig := os.Getenv("HOME")
-	t.Setenv("HOME", dir)
+	origHome := userHomeDirFunc
+	userHomeDirFunc = func() (string, error) { return dir, nil }
 	t.Cleanup(func() {
-		t.Setenv("HOME", homeOrig)
+		userHomeDirFunc = origHome
 		ReloadGGUFRegistry()
 	})
 	ReloadGGUFRegistry()

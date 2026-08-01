@@ -316,7 +316,13 @@ func TestAugmentPackageWithModels_TempCreateError(t *testing.T) {
 	modelsDir := t.TempDir()
 	require.NoError(t, os.WriteFile(filepath.Join(modelsDir, "fake-model.llamafile"), []byte("fake"), 0o755))
 	t.Setenv("KDEPS_MODELS_DIR", modelsDir)
-	t.Setenv("TMPDIR", filepath.Join(t.TempDir(), "missing", "deep"))
+	missingTmp := filepath.Join(t.TempDir(), "missing", "deep")
+	t.Setenv("TMPDIR", missingTmp)
+	if runtime.GOOS == "windows" {
+		// os.CreateTemp("") on Windows resolves via TMP/TEMP, not TMPDIR.
+		t.Setenv("TMP", missingTmp)
+		t.Setenv("TEMP", missingTmp)
+	}
 
 	// Override MkdirTemp so ExtractPackage succeeds despite the bad TMPDIR,
 	// isolating the test to the os.CreateTemp failure path in augmentPackageWithModels.
@@ -334,7 +340,11 @@ func TestAugmentPackageWithModels_TempCreateError(t *testing.T) {
 }
 
 func TestResolveModelsToFiles_ManagerError(t *testing.T) {
-	t.Setenv("KDEPS_MODELS_DIR", "/dev/null/impossible")
+	invalidModelsDir := "/dev/null/impossible"
+	if runtime.GOOS == "windows" {
+		invalidModelsDir = filepath.Join(t.TempDir(), "NUL", "impossible")
+	}
+	t.Setenv("KDEPS_MODELS_DIR", invalidModelsDir)
 	_, err := resolveModelsToFiles([]string{"whatever.llamafile"})
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "model cache unavailable")

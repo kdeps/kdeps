@@ -192,11 +192,16 @@ func TestExecutor_Execute_CommandWithWorkingDirectory(t *testing.T) {
 	)
 	require.NoError(t, err)
 
-	// Set FSRoot in context
-	ctx.FSRoot = "/tmp" // Use /tmp as it's available on most systems
+	// Use a real, OS-native directory instead of the POSIX-only "/tmp".
+	dir := t.TempDir()
+	ctx.FSRoot = dir
 
+	cmd := "pwd"
+	if runtime.GOOS == "windows" {
+		cmd = "cd" // "pwd" isn't a cmd.exe builtin; bare "cd" prints the cwd
+	}
 	config := &domain.ExecConfig{
-		Command: "pwd",
+		Command: cmd,
 	}
 
 	result, err := execInstance.Execute(ctx, config)
@@ -205,7 +210,7 @@ func TestExecutor_Execute_CommandWithWorkingDirectory(t *testing.T) {
 	resultMap, ok := result.(map[string]interface{})
 	require.True(t, ok)
 	assert.True(t, resultMap["success"].(bool))
-	assert.Contains(t, resultMap["stdout"].(string), "/tmp")
+	assert.Contains(t, resultMap["stdout"].(string), dir)
 }
 
 func TestExecutor_Execute_CommandWithExpressionEvaluation(t *testing.T) {
@@ -327,6 +332,9 @@ func TestExecutor_Execute_CommandWithComplexOutput(t *testing.T) {
 }
 
 func TestExecutor_Execute_CommandWithJSONLikeOutput(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("shell command differs on windows")
+	}
 	execInstance := execexecutor.NewExecutor()
 	ctx, err := executor.NewExecutionContext(
 		&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}},
@@ -376,6 +384,9 @@ func TestExecutor_Execute_CommandWithLargeOutput(t *testing.T) {
 }
 
 func TestExecutor_Execute_CommandWithSpecialCharacters(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("shell command differs on windows")
+	}
 	execInstance := execexecutor.NewExecutor()
 	ctx, err := executor.NewExecutionContext(
 		&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}},
@@ -399,6 +410,9 @@ func TestExecutor_Execute_CommandWithSpecialCharacters(t *testing.T) {
 }
 
 func TestExecutor_Execute_CommandWithUnicode(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("shell command differs on windows")
+	}
 	execInstance := execexecutor.NewExecutor()
 	ctx, err := executor.NewExecutionContext(
 		&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}},
@@ -615,6 +629,11 @@ func TestExecutor_Execute_WithArgs(t *testing.T) {
 }
 
 func TestExecutor_Execute_WithArgsAndExpressions(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		// With Args set, buildCommand spawns Command directly (no shell), and
+		// "echo" is not a standalone Windows executable, only a cmd.exe builtin.
+		t.Skip("echo is not a standalone executable on windows")
+	}
 	// Test Args with complex expressions
 	execInstance := execexecutor.NewExecutor()
 	ctx, err := executor.NewExecutionContext(
@@ -1047,10 +1066,14 @@ func TestExecutor_Execute_WithExpressionInWorkingDir(t *testing.T) {
 	require.NoError(t, err)
 
 	// Set a working directory in the context outputs
-	ctx.Outputs["workDir"] = "/tmp"
+	ctx.Outputs["workDir"] = t.TempDir()
 
+	cmd := "pwd"
+	if runtime.GOOS == "windows" {
+		cmd = "cd" // "pwd" isn't a cmd.exe builtin; bare "cd" prints the cwd
+	}
 	config := &domain.ExecConfig{
-		Command:    "pwd",
+		Command:    cmd,
 		Args:       []string{},
 		WorkingDir: "{{get('workDir')}}",
 	}
@@ -1279,9 +1302,13 @@ func TestExecutor_Execute_WorkingDirLiteral(t *testing.T) {
 	ctx, err := executor.NewExecutionContext(&domain.Workflow{})
 	require.NoError(t, err)
 
+	cmd := "pwd"
+	if runtime.GOOS == "windows" {
+		cmd = "cd" // "pwd" isn't a cmd.exe builtin; bare "cd" prints the cwd
+	}
 	config := &domain.ExecConfig{
-		Command:    "pwd",
-		WorkingDir: "/tmp",
+		Command:    cmd,
+		WorkingDir: t.TempDir(),
 	}
 
 	result, err := execInstance.Execute(ctx, config)

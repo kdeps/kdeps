@@ -57,6 +57,7 @@ func TestRegistryUninstall_ComponentGlobal(t *testing.T) {
 	tmp := t.TempDir()
 	t.Setenv("KDEPS_AGENTS_DIR", tmp)
 	t.Setenv("HOME", tmp)
+	t.Setenv("USERPROFILE", tmp)
 
 	compDir := filepath.Join(tmp, ".kdeps", "components", "my-comp")
 	require.NoError(t, os.MkdirAll(compDir, 0750))
@@ -157,6 +158,7 @@ func TestFindInstalledPackage_GlobalComponent(t *testing.T) {
 	tmp := t.TempDir()
 	t.Setenv("KDEPS_AGENTS_DIR", tmp)
 	t.Setenv("HOME", tmp)
+	t.Setenv("USERPROFILE", tmp)
 
 	compDir := filepath.Join(tmp, ".kdeps", "components", "ocr")
 	require.NoError(t, os.MkdirAll(compDir, 0750))

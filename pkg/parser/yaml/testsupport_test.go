@@ -20,6 +20,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"runtime"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -252,7 +253,12 @@ func TestGlobalComponentsDir_EnvOverride(t *testing.T) {
 func TestGlobalComponentsDir_Default(t *testing.T) {
 	t.Setenv("KDEPS_COMPONENT_DIR", "")
 	home := t.TempDir()
-	t.Setenv("HOME", home)
+	// os.UserHomeDir() reads USERPROFILE on Windows, HOME elsewhere.
+	if runtime.GOOS == "windows" {
+		t.Setenv("USERPROFILE", home)
+	} else {
+		t.Setenv("HOME", home)
+	}
 	result := yaml.GlobalComponentsDir()
 	assert.Equal(t, filepath.Join(home, ".kdeps", "components"), result)
 }

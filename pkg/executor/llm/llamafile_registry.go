@@ -19,7 +19,6 @@
 package llm
 
 import (
-	"os"
 	"path/filepath"
 	"sort"
 	"strings"
@@ -60,8 +59,12 @@ var (
 )
 
 // localRegistryPath returns the path to the user's local registry override.
+// Uses the shared userHomeDirFunc hook (see gguf_registry.go) rather than
+// os.UserHomeDir directly so tests can override it: os.UserHomeDir() reads
+// USERPROFILE on Windows, not HOME, so t.Setenv("HOME", ...) alone has no
+// effect there.
 func localRegistryPath() string {
-	home, err := os.UserHomeDir()
+	home, err := userHomeDirFunc()
 	if err != nil {
 		return ""
 	}
@@ -164,6 +167,13 @@ func ResolveLlamafileAlias(model string) (string, bool) {
 	return url, ok
 }
 
+// isMeaninglessBasename reports whether a filepath.Base result carries no
+// real filename info. filepath.Base("/") returns "/" on POSIX but the OS
+// path separator ("\") on Windows, so both must be checked.
+func isMeaninglessBasename(name string) bool {
+	return name == "" || name == "." || name == "/" || name == string(filepath.Separator)
+}
+
 // LlamafileCachedPath returns the expected local cache path for a llamafile alias,
 // or ("", false) if the alias is unknown. It does not stat the file.
 func LlamafileCachedPath(alias, modelsDir string) (string, bool) {
@@ -173,7 +183,7 @@ func LlamafileCachedPath(alias, modelsDir string) (string, bool) {
 		return "", false
 	}
 	basename := filepath.Base(rawURL)
-	if basename == "" || basename == "." || basename == "/" {
+	if isMeaninglessBasename(basename) {
 		return "", false
 	}
 	return filepath.Join(modelsDir, basename), true

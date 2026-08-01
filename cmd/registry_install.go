@@ -81,7 +81,10 @@ func isLocalFilePath(ref string) bool {
 	return strings.HasPrefix(ref, "./") ||
 		strings.HasPrefix(ref, "../") ||
 		strings.HasPrefix(ref, "/") ||
+		strings.HasPrefix(ref, `.\`) ||
+		strings.HasPrefix(ref, `..\`) ||
 		strings.HasPrefix(ref, "~") ||
+		filepath.IsAbs(ref) ||
 		strings.HasSuffix(ref, ".kdeps") ||
 		strings.HasSuffix(ref, ".kagency") ||
 		strings.HasSuffix(ref, ".komponent")

@@ -1,6 +1,7 @@
 package http
 
 import (
+	"path/filepath"
 	"testing"
 	"time"
 
@@ -13,7 +14,7 @@ import (
 func TestStoredUploadPath(t *testing.T) {
 	t.Parallel()
 	p := storedUploadPath("/uploads", "abc123", "file.txt")
-	assert.Equal(t, "/uploads/abc123_file.txt", p)
+	assert.Equal(t, filepath.Join("/uploads", "abc123_file.txt"), p)
 }
 
 func TestNewUploadedFileRecord(t *testing.T) {

@@ -22,7 +22,7 @@ import (
 	"embed"
 	"fmt"
 	"os"
-	"path/filepath"
+	"path"
 
 	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
 )
@@ -77,7 +77,7 @@ func (g *Generator) GenerateProject(
 	data TemplateData,
 ) error {
 	kdeps_debug.Log("enter: GenerateProject")
-	templateDir := filepath.Join("templates", templateName)
+	templateDir := path.Join("templates", templateName)
 	entries, readErr := templatesFS.ReadDir(templateDir)
 	if readErr != nil {
 		return fmt.Errorf("template not found: %s", templateName)

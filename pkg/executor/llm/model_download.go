@@ -56,7 +56,7 @@ func downloadModelFile(
 		logger = slog.Default()
 	}
 	basename := filepath.Base(rawURL)
-	if basename == "" || basename == "." || basename == "/" {
+	if isMeaninglessBasename(basename) {
 		basename = fallbackBasename
 	} else {
 		basename = pathologize.Clean(basename)

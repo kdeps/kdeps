@@ -64,11 +64,14 @@ func (c *Client) Download(ctx context.Context, name, version, destDir string) (s
 		_ = f.Close()
 		return "", fmt.Errorf("failed to write file: %w", copyErr)
 	}
-	doClose := f.Close
+	// Always perform the real close first to release the OS file handle
+	// (on Windows an unclosed handle blocks deletion of the file). The test
+	// hook, when set, only substitutes the reported error.
+	closeErr := f.Close()
 	if testFileClose != nil {
-		doClose = func() error { return testFileClose(f) }
+		closeErr = testFileClose(f)
 	}
-	if closeErr := doClose(); closeErr != nil {
+	if closeErr != nil {
 		return "", fmt.Errorf("failed to close file: %w", closeErr)
 	}
 	return destPath, nil

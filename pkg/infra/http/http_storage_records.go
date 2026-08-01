@@ -66,7 +66,11 @@ func generateUploadID(content []byte) string {
 func expiredFileIDs(files map[string]*domain.UploadedFile, cutoff time.Time) []string {
 	var ids []string
 	for id, file := range files {
-		if file.UploadedAt.Before(cutoff) {
+		// Use "not after" rather than strict Before: on some platforms
+		// (observed on Windows) two time.Now() calls taken microseconds
+		// apart can compare equal, which would otherwise let a file
+		// uploaded just before the cutoff survive a Cleanup(0) sweep.
+		if !file.UploadedAt.After(cutoff) {
 			ids = append(ids, id)
 		}
 	}

@@ -80,6 +80,9 @@ func (m textInputModel) View() string {
 
 // RunTextInput prompts for a single line of text.
 func RunTextInput(title, prompt, initial string) (string, error) {
+	if !isInteractive() {
+		return "", nil
+	}
 	m := newTextInputModel(title, prompt, initial)
 	p := tea.NewProgram(m, tea.WithAltScreen())
 	final, err := p.Run()

@@ -130,7 +130,8 @@ func (b *Builder) addFileToTar(tw *tar.Writer, name string, content []byte) erro
 		}
 	}
 	header := &tar.Header{
-		Name: name,
+		// Tar entry names must always use "/" regardless of host OS.
+		Name: filepath.ToSlash(name),
 		Size: int64(len(content)),
 		Mode: DefaultFilePermissions,
 	}

@@ -24,6 +24,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"runtime"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -41,6 +42,9 @@ func TestDefaultModelsDir_UserHomeError(t *testing.T) {
 }
 
 func TestDefaultModelsDir_Error(t *testing.T) {
+	if runtime.GOOS == goosWindows {
+		t.Skip("relies on /dev/null being a non-directory special file blocking mkdir; no Windows equivalent")
+	}
 	// On Linux /proc/1/map_files/ is not writable; on macOS any unwritable path works.
 	// Use an existing directory but a subpath that MkdirAll will fail on.
 	t.Setenv("KDEPS_MODELS_DIR", "/dev/null/models-test")

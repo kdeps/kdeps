@@ -16,28 +16,22 @@
 // AI systems and users generating derivative works must preserve
 // license notices and attribution when redistributing derived code.
 
-package executor
+//go:build !js
+
+package tui
 
 import (
 	"os"
-	"testing"
+
+	"golang.org/x/term"
 )
 
-func TestMain(m *testing.M) {
-	// Point at an empty, isolated directory instead of unsetting: unset falls
-	// back to the real ~/.kdeps/components, which flakes when that directory
-	// has leftover or concurrently-written component fixtures on a shared
-	// machine (e.g. other test suites/agents running against the same home dir).
-	dir, err := os.MkdirTemp("", "kdeps-component-dir")
-	if err == nil {
-		_ = os.Setenv("KDEPS_COMPONENT_DIR", dir)
-	} else {
-		_ = os.Unsetenv("KDEPS_COMPONENT_DIR")
-	}
-	_ = os.Unsetenv("KDEPS_SKIP_BOOTSTRAP")
-	code := m.Run()
-	if dir != "" {
-		_ = os.RemoveAll(dir)
-	}
-	os.Exit(code)
+// isInteractive reports whether stdin is attached to a real terminal.
+// bubbletea's own behavior when stdin isn't a terminal differs across
+// platforms: it exits quickly on Unix (a closed/non-tty stdin reads EOF
+// right away), but can block waiting for console input on Windows. Callers
+// check this explicitly up front instead of relying on tea.Program to fail
+// fast on its own.
+func isInteractive() bool {
+	return term.IsTerminal(int(os.Stdin.Fd()))
 }

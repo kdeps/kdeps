@@ -19,12 +19,12 @@ func TestIsYAMLResourceFile(t *testing.T) {
 
 func TestWorkflowDirFromPath(t *testing.T) {
 	t.Parallel()
-	assert.Equal(t, "/tmp/project", workflowDirFromPath("/tmp/project/workflow.yaml"))
+	assert.Equal(t, filepath.Join("/tmp", "project"), workflowDirFromPath(filepath.Join("/tmp", "project", "workflow.yaml")))
 }
 
 func TestWorkflowResourcesDir(t *testing.T) {
 	t.Parallel()
-	assert.Equal(t, "/tmp/project/resources", workflowResourcesDir("/tmp/project/workflow.yaml"))
+	assert.Equal(t, filepath.Join("/tmp", "project", "resources"), workflowResourcesDir(filepath.Join("/tmp", "project", "workflow.yaml")))
 }
 
 func TestClearResourcesDir_NonExistentDir(t *testing.T) {

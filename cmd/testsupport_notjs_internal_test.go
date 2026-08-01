@@ -457,13 +457,6 @@ func mustFreePort(t *testing.T) int {
 	return port
 }
 
-func sendSIGINTToSelf(t *testing.T) {
-	t.Helper()
-	p, err := os.FindProcess(os.Getpid())
-	require.NoError(t, err)
-	require.NoError(t, p.Signal(syscall.SIGINT))
-}
-
 // captureStdout redirects os.Stdout to a pipe for the duration of f.
 // The pipe is drained concurrently so writes larger than the pipe buffer
 // (including stray output from leaked goroutines) cannot deadlock f.

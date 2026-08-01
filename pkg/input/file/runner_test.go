@@ -19,6 +19,7 @@
 package file
 
 import (
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"strings"
@@ -54,8 +55,11 @@ func TestReadFileInput_JSONPathOnly_ReadsFile(t *testing.T) {
 	require.NoError(t, err)
 	tmp.Close()
 
-	json := `{"path":"` + tmp.Name() + `"}`
-	inp, err := readFileInput(strings.NewReader(json), nil, "")
+	// Marshal to JSON rather than hand-building the string: on Windows tmp.Name()
+	// contains backslashes, which must be escaped to form valid JSON.
+	payload, err := json.Marshal(map[string]string{"path": tmp.Name()})
+	require.NoError(t, err)
+	inp, err := readFileInput(strings.NewReader(string(payload)), nil, "")
 	require.NoError(t, err)
 	assert.Equal(t, tmp.Name(), inp.Path)
 	assert.Equal(t, "file content from disk", inp.Content)

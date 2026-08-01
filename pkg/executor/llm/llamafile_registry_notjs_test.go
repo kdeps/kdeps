@@ -76,7 +76,9 @@ func TestLlamafileRegistryVersion(t *testing.T) {
 
 func TestWriteLocalRegistry_CreatesFile(t *testing.T) {
 	home := t.TempDir()
-	t.Setenv("HOME", home)
+	origHome := userHomeDirFunc
+	t.Cleanup(func() { userHomeDirFunc = origHome })
+	userHomeDirFunc = func() (string, error) { return home, nil }
 	ReloadRegistry()
 
 	entries := []LlamafileEntry{
@@ -99,7 +101,9 @@ func TestWriteLocalRegistry_CreatesFile(t *testing.T) {
 
 func TestWriteLocalRegistry_WritesToHome(t *testing.T) {
 	home := t.TempDir()
-	t.Setenv("HOME", home)
+	origHome := userHomeDirFunc
+	t.Cleanup(func() { userHomeDirFunc = origHome })
+	userHomeDirFunc = func() (string, error) { return home, nil }
 	ReloadRegistry()
 
 	err := WriteLocalRegistry(ListLlamafileMappings())
@@ -113,7 +117,9 @@ func TestWriteLocalRegistry_WritesToHome(t *testing.T) {
 
 func TestLocalRegistrySeedsFromEmbedded(t *testing.T) {
 	home := t.TempDir()
-	t.Setenv("HOME", home)
+	origHome := userHomeDirFunc
+	t.Cleanup(func() { userHomeDirFunc = origHome })
+	userHomeDirFunc = func() (string, error) { return home, nil }
 	ReloadRegistry()
 
 	// Trigger registry load (seeds the local file via loadLlamafileRegistry).
@@ -127,7 +133,9 @@ func TestLocalRegistrySeedsFromEmbedded(t *testing.T) {
 
 func TestReloadRegistry_PicksUpNewEntries(t *testing.T) {
 	home := t.TempDir()
-	t.Setenv("HOME", home)
+	origHome := userHomeDirFunc
+	t.Cleanup(func() { userHomeDirFunc = origHome })
+	userHomeDirFunc = func() (string, error) { return home, nil }
 	ReloadRegistry()
 
 	// Write a custom entry
@@ -149,7 +157,9 @@ func TestReloadRegistry_PicksUpNewEntries(t *testing.T) {
 
 func TestReloadRegistry_LocalOverridesEmbedded(t *testing.T) {
 	home := t.TempDir()
-	t.Setenv("HOME", home)
+	origHome := userHomeDirFunc
+	t.Cleanup(func() { userHomeDirFunc = origHome })
+	userHomeDirFunc = func() (string, error) { return home, nil }
 	ReloadRegistry()
 
 	entries := []LlamafileEntry{
@@ -165,7 +175,9 @@ func TestReloadRegistry_LocalOverridesEmbedded(t *testing.T) {
 
 func TestRegistryLoading_WithCorruptedLocalFile(t *testing.T) {
 	home := t.TempDir()
-	t.Setenv("HOME", home)
+	origHome := userHomeDirFunc
+	t.Cleanup(func() { userHomeDirFunc = origHome })
+	userHomeDirFunc = func() (string, error) { return home, nil }
 
 	// Write invalid YAML to local path before first load
 	localPath := filepath.Join(home, ".kdeps", "llamafile_versions.yaml")

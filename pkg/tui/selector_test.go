@@ -276,9 +276,9 @@ func TestSkillSearchDirs_Override(t *testing.T) {
 func TestSkillSearchDirs_Default(t *testing.T) {
 	t.Setenv("KDEPS_SKILL_DIRS", "")
 	dirs := skillSearchDirs("/home/user")
-	assert.Contains(t, dirs, "/home/user/.kdeps/skills")
-	assert.Contains(t, dirs, "/home/user/.agents/skills")
-	assert.Contains(t, dirs, "/home/user/.claude/skills")
+	assert.Contains(t, dirs, filepath.Join("/home/user", ".kdeps", "skills"))
+	assert.Contains(t, dirs, filepath.Join("/home/user", ".agents", "skills"))
+	assert.Contains(t, dirs, filepath.Join("/home/user", ".claude", "skills"))
 }
 
 func TestDirFromEnv_EnvSet(t *testing.T) {
@@ -288,7 +288,7 @@ func TestDirFromEnv_EnvSet(t *testing.T) {
 
 func TestDirFromEnv_EnvUnset(t *testing.T) {
 	t.Setenv("MY_TEST_DIR2", "")
-	assert.Equal(t, "/home/sub", dirFromEnv("MY_TEST_DIR2", "/home", "sub"))
+	assert.Equal(t, filepath.Join("/home", "sub"), dirFromEnv("MY_TEST_DIR2", "/home", "sub"))
 }
 
 func TestHasFile(t *testing.T) {
@@ -306,7 +306,7 @@ func TestAgentsDirFromEnv(t *testing.T) {
 	assert.Equal(t, "/custom/agents", agentsDirFromEnv("/home/user"))
 
 	t.Setenv("KDEPS_AGENTS_DIR", "")
-	assert.Equal(t, "/home/user/.kdeps/agents", agentsDirFromEnv("/home/user"))
+	assert.Equal(t, filepath.Join("/home/user", ".kdeps", "agents"), agentsDirFromEnv("/home/user"))
 }
 
 func TestModel_Update_NonKeyMsg(t *testing.T) {

@@ -108,6 +108,10 @@ func TestManager_GetVenvName_WithRequirementsFile(t *testing.T) {
 // TestManager_InstallTool_Success exercises the path where uv tool install
 // completes successfully (binary not on PATH, uv installs it, returns nil).
 func TestManager_InstallTool_Success(t *testing.T) {
+	if _, err := exec.LookPath("uv"); err != nil {
+		t.Skip("uv not installed — skipping test that requires the uv tool")
+	}
+
 	m := python.NewManager(t.TempDir())
 
 	err := m.InstallTool("pycowsay", "pycowsay")

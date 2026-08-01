@@ -51,6 +51,7 @@ func TestStartBotRunnersWithEngine_DispatcherError(t *testing.T) {
 }
 
 func TestStartBotRunnersWithEngine_Signal(t *testing.T) {
+	injectSignalNotify(t)
 	orig := botDispatcherRunFunc
 	t.Cleanup(func() { botDispatcherRunFunc = orig })
 	block := make(chan struct{})
@@ -73,13 +74,11 @@ func TestStartBotRunnersWithEngine_Signal(t *testing.T) {
 	}
 	done := make(chan error, 1)
 	go func() { done <- StartBotRunnersWithEngine(eng, wf, false) }()
-	time.Sleep(100 * time.Millisecond)
-	sendSIGINTToSelf(t)
-	close(block)
 	select {
 	case err := <-done:
 		require.NoError(t, err)
 	case <-time.After(5 * time.Second):
+		close(block)
 		t.Fatal("timeout")
 	}
 }

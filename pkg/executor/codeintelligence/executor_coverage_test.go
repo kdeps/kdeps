@@ -10,6 +10,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 	"time"
@@ -527,8 +528,16 @@ func TestLSPManager_GetServer_InitializeError(t *testing.T) {
 	dir := t.TempDir()
 	// Create a fake gopls that exits immediately — startLSPClient succeeds
 	// but the initialize call fails because the process is gone.
-	fakeGopls := filepath.Join(dir, "gopls")
-	if err := os.WriteFile(fakeGopls, []byte("#!/bin/sh\nexit 0\n"), 0755); err != nil {
+	// exec.Command resolves a bare "gopls" via LookPath, which on Windows
+	// needs a recognized PATHEXT extension (no shebang interpretation there).
+	name := "gopls"
+	body := "#!/bin/sh\nexit 0\n"
+	if runtime.GOOS == "windows" {
+		name = "gopls.bat"
+		body = "@exit /b 0\n"
+	}
+	fakeGopls := filepath.Join(dir, name)
+	if err := os.WriteFile(fakeGopls, []byte(body), 0755); err != nil {
 		t.Fatal(err)
 	}
 

@@ -3089,6 +3089,9 @@ func TestExecutionContext_ApplySelector_ErrorCases(t *testing.T) {
 
 // TestExecutionContext_ReadFile_DirectoryError tests ReadFile error handling.
 func TestExecutionContext_ReadFile_DirectoryError(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("chmod does not enforce POSIX permission bits on Windows")
+	}
 	tmpDir := t.TempDir()
 
 	// Create a directory and make it unreadable

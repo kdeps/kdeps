@@ -81,7 +81,9 @@ func ParseIgnorePatterns(content string) []string {
 
 // matchesDirPattern reports whether any path component matches a directory pattern.
 func matchesDirPattern(relPath, dirPattern string) bool {
-	for _, part := range strings.Split(relPath, string(filepath.Separator)) {
+	// .kdepsignore patterns use "/" as the separator regardless of OS (same
+	// convention as .gitignore), so normalize relPath before splitting.
+	for _, part := range strings.Split(filepath.ToSlash(relPath), "/") {
 		if matched, _ := filepath.Match(dirPattern, part); matched {
 			return true
 		}
@@ -97,7 +99,7 @@ func matchesIgnorePattern(relPath, baseName, pattern string) bool {
 	if matched, _ := filepath.Match(pattern, baseName); matched {
 		return true
 	}
-	matched, _ := filepath.Match(pattern, relPath)
+	matched, _ := filepath.Match(pattern, filepath.ToSlash(relPath))
 	return matched
 }
 

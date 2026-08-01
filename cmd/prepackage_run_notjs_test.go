@@ -24,6 +24,7 @@ import (
 	"context"
 	"os"
 	"path/filepath"
+	"runtime"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -40,10 +41,14 @@ func TestPrePackageWithFlags_MkdirError(t *testing.T) {
 			0644,
 		),
 	)
+	invalidOutput := "/nonexistent/dir/out"
+	if runtime.GOOS == "windows" {
+		invalidOutput = filepath.Join(t.TempDir(), "NUL", "dir", "out")
+	}
 	err := PrePackageWithFlags(
 		context.Background(),
 		[]string{kdeps},
-		&PrePackageFlags{Output: "/nonexistent/dir/out"},
+		&PrePackageFlags{Output: invalidOutput},
 	)
 	require.Error(t, err)
 }

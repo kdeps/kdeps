@@ -26,8 +26,9 @@ import (
 	"time"
 )
 
-// testFileClose, if non-nil, is called instead of *os.File.Close in Download.
-// Used in tests to trigger the close error branch.
+// testFileClose, if non-nil, is called (after the real Close) to substitute
+// the error Download reports. Used in tests to trigger the close error
+// branch without leaking the underlying OS file handle.
 //
 //nolint:gochecknoglobals // test-injectable hook for error branches
 var testFileClose func(*os.File) error

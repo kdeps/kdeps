@@ -34,6 +34,7 @@ import (
 	"net/smtp"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 	"time"
@@ -880,23 +881,46 @@ func TestResolveAttachmentPaths_NilFSRoot(t *testing.T) {
 }
 
 func TestResolveAttachmentPaths_WithFSRoot(t *testing.T) {
-	result := resolveAttachmentPaths("/root", []string{"a.txt", "sub/b.txt"})
-	assert.Equal(t, []string{"/root/a.txt", "/root/sub/b.txt"}, result)
+	root := "/root"
+	result := resolveAttachmentPaths(root, []string{"a.txt", "sub/b.txt"})
+	assert.Equal(
+		t,
+		[]string{filepath.Join(root, "a.txt"), filepath.Join(root, "sub/b.txt")},
+		result,
+	)
+}
+
+// absPath returns a path that filepath.IsAbs recognizes as absolute on the
+// current OS (Windows requires a drive letter; a bare leading "/" is not
+// absolute there).
+func absPath(unixStylePath string) string {
+	if runtime.GOOS == "windows" {
+		return filepath.Join(`C:\`, filepath.FromSlash(unixStylePath))
+	}
+	return unixStylePath
 }
 
 func TestResolveAttachmentPaths_AbsolutePaths(t *testing.T) {
-	result := resolveAttachmentPaths("/root", []string{"/etc/a.txt", "/tmp/b.txt"})
-	assert.Equal(t, []string{"/etc/a.txt", "/tmp/b.txt"}, result)
+	a, b := absPath("/etc/a.txt"), absPath("/tmp/b.txt")
+	result := resolveAttachmentPaths("/root", []string{a, b})
+	assert.Equal(t, []string{a, b}, result)
 }
 
 func TestResolveAttachmentPaths_MixedPaths(t *testing.T) {
+	root := "/root"
+	abs := absPath("/absolute.txt")
 	result := resolveAttachmentPaths(
-		"/root",
-		[]string{"relative.txt", "/absolute.txt", "", "another/rel.txt"},
+		root,
+		[]string{"relative.txt", abs, "", "another/rel.txt"},
 	)
 	assert.Equal(
 		t,
-		[]string{"/root/relative.txt", "/absolute.txt", "", "/root/another/rel.txt"},
+		[]string{
+			filepath.Join(root, "relative.txt"),
+			abs,
+			"",
+			filepath.Join(root, "another/rel.txt"),
+		},
 		result,
 	)
 }

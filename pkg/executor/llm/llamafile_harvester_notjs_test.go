@@ -33,7 +33,9 @@ import (
 
 func TestUpdateRegistryFromRemote_Success(t *testing.T) {
 	home := t.TempDir()
-	t.Setenv("HOME", home)
+	origHome := userHomeDirFunc
+	t.Cleanup(func() { userHomeDirFunc = origHome })
+	userHomeDirFunc = func() (string, error) { return home, nil }
 	ReloadRegistry()
 
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
@@ -79,7 +81,9 @@ func TestUpdateRegistryFromRemote_HTTPError(t *testing.T) {
 
 func TestUpdateRegistryFromRemote_MergePreservesLocalOnlyEntries(t *testing.T) {
 	home := t.TempDir()
-	t.Setenv("HOME", home)
+	origHome := userHomeDirFunc
+	t.Cleanup(func() { userHomeDirFunc = origHome })
+	userHomeDirFunc = func() (string, error) { return home, nil }
 	ReloadRegistry()
 
 	// Write a local-only entry first.
@@ -111,7 +115,9 @@ func TestUpdateRegistryFromRemote_MergePreservesLocalOnlyEntries(t *testing.T) {
 
 func TestUpdateRegistryFromRemote_RemoteOverridesLocal(t *testing.T) {
 	home := t.TempDir()
-	t.Setenv("HOME", home)
+	origHome := userHomeDirFunc
+	t.Cleanup(func() { userHomeDirFunc = origHome })
+	userHomeDirFunc = func() (string, error) { return home, nil }
 	ReloadRegistry()
 
 	// Local entry with same alias as what remote will provide.
@@ -148,6 +154,7 @@ func TestRunHarvesterScript_NoScript(t *testing.T) {
 }
 
 func TestRunHarvesterScript_WithCustomScript(t *testing.T) {
+	requireFunctionalPython3(t)
 	dir := t.TempDir()
 	scriptPath := filepath.Join(dir, "mock-harvest.py")
 	require.NoError(t, os.WriteFile(scriptPath, []byte("#!/usr/bin/env python3\nprint('ok')\n"), 0755))

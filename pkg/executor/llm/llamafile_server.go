@@ -341,6 +341,12 @@ func ensureExecutableExtension(path string) (string, error) {
 	if strings.EqualFold(filepath.Ext(path), windowsExeExt) {
 		return path, nil
 	}
+	// fileflow.Copy creates the destination directory before checking the
+	// source exists, so a missing llamafile would still leave a phantom
+	// directory behind; fail fast instead.
+	if _, statErr := os.Stat(path); statErr != nil {
+		return "", fmt.Errorf("llamafile not found at %s: %w", path, statErr)
+	}
 	target, copyErr := fileflow.Copy(path, path+windowsExeExt)
 	if copyErr != nil {
 		return "", fmt.Errorf("failed to copy llamafile to %s: %w", path+windowsExeExt, copyErr)

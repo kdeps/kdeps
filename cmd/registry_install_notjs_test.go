@@ -100,6 +100,7 @@ func TestInstallRegistryComponent_Errors(t *testing.T) {
 func TestInstallRegistryComponent_Global(t *testing.T) {
 	tmp := t.TempDir()
 	t.Setenv("HOME", tmp)
+	t.Setenv("USERPROFILE", tmp)
 	archive := buildMinimalKdepsArchivePath(t)
 	manifest := &domain.KdepsPkg{Name: "globalcomp", Type: pkgTypeComponent}
 	cmd := &cobra.Command{}
@@ -110,6 +111,7 @@ func TestInstallRegistryComponent_Global(t *testing.T) {
 func TestInstallRegistryComponent_GlobalPath(t *testing.T) {
 	tmp := t.TempDir()
 	t.Setenv("HOME", tmp)
+	t.Setenv("USERPROFILE", tmp)
 	archive := buildMinimalKdepsArchivePath(t)
 	manifest := &domain.KdepsPkg{Name: "gcomp", Type: pkgTypeComponent, Description: "d"}
 	cmd := &cobra.Command{}

@@ -204,6 +204,10 @@ func Run() (Selection, Settings, error) {
 		settings = DefaultSettings()
 	}
 
+	if !isInteractive() {
+		return Selection{}, settings, nil
+	}
+
 	m := applyToModel(newModel(items), settings)
 	p := tea.NewProgram(m)
 	final, runErr := p.Run()

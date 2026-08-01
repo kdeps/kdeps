@@ -1425,6 +1425,9 @@ func newTestSQLiteStore(t *testing.T, embedder *stubVectorEmbedder) *sqlStore {
 		embedder,
 	)
 	require.NoError(t, err)
+	t.Cleanup(func() {
+		_ = store.db.Close()
+	})
 	return store
 }
 

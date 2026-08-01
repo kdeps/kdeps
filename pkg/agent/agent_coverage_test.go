@@ -816,7 +816,7 @@ func TestSession_RestoreTo_PrunesMessages(t *testing.T) {
 func TestDetectDefaultModelAndBackend_NeitherFound(t *testing.T) {
 	// t.Setenv requires no t.Parallel()
 	t.Setenv("PATH", "")
-	t.Setenv("KDEPS_MODELS_DIR", "/nonexistent-models-dir-for-test-xyz")
+	t.Setenv("KDEPS_MODELS_DIR", filepath.Join(t.TempDir(), "models-dir-for-test-xyz"))
 	// Clear all distinct known cloud model env vars. Skip models with no
 	// EnvVar (e.g. m365, which authenticates via browser login, not a key).
 	cleared := map[string]bool{}
@@ -837,7 +837,7 @@ func TestDetectDefaultModelAndBackend_NeitherFound(t *testing.T) {
 func TestDetectDefaultModelAndBackend_CloudKeySet(t *testing.T) {
 	// t.Setenv requires no t.Parallel()
 	t.Setenv("PATH", "")
-	t.Setenv("KDEPS_MODELS_DIR", "/nonexistent-models-dir-xyz")
+	t.Setenv("KDEPS_MODELS_DIR", filepath.Join(t.TempDir(), "models-dir-xyz"))
 
 	// Set one of the known cloud model env vars
 	if len(KnownCloudModels) == 0 {

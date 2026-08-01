@@ -715,14 +715,24 @@ func TestIOToolsBaseDir(t *testing.T) {
 // TestIOToolsBaseDir_UserCacheDirFallback verifies the fallback path in
 // IOToolsBaseDir when os.UserCacheDir() returns an error.
 func TestIOToolsBaseDir_UserCacheDirFallback(t *testing.T) {
+	// os.UserCacheDir() consults different env vars per OS: HOME/XDG_CACHE_HOME
+	// on Unix, %LocalAppData% on Windows. Clear whichever ones it actually
+	// reads so the fallback branch is exercised on every platform.
 	home := os.Getenv("HOME")
 	xdgCache := os.Getenv("XDG_CACHE_HOME")
+	localAppData := os.Getenv("LocalAppData")
 	os.Unsetenv("HOME")
 	os.Unsetenv("XDG_CACHE_HOME")
+	if runtime.GOOS == "windows" {
+		os.Unsetenv("LocalAppData")
+	}
 	t.Cleanup(func() {
 		os.Setenv("HOME", home)
 		if xdgCache != "" {
 			os.Setenv("XDG_CACHE_HOME", xdgCache)
+		}
+		if runtime.GOOS == "windows" {
+			os.Setenv("LocalAppData", localAppData)
 		}
 	})
 

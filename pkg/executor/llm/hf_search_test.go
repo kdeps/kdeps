@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -120,7 +121,7 @@ func TestHFSearchGGUF_HTTPError(t *testing.T) {
 
 func TestHFRegisterGGUFEntry_AddsToRegistry(t *testing.T) {
 	// Use a temp home dir so we don't touch the real registry.
-	t.Setenv("HOME", t.TempDir())
+	t.Cleanup(llm.SetUserHomeDir(t.TempDir()))
 	llm.ReloadGGUFRegistry()
 	t.Cleanup(func() { llm.ReloadGGUFRegistry() })
 
@@ -143,7 +144,7 @@ func TestHFRegisterGGUFEntry_AddsToRegistry(t *testing.T) {
 }
 
 func TestHFRegisterGGUFEntry_UpdatesExisting(t *testing.T) {
-	t.Setenv("HOME", t.TempDir())
+	t.Cleanup(llm.SetUserHomeDir(t.TempDir()))
 	llm.ReloadGGUFRegistry()
 	t.Cleanup(func() { llm.ReloadGGUFRegistry() })
 
@@ -231,7 +232,7 @@ func TestHFRepoFiles_CancelledContext(t *testing.T) {
 }
 
 func TestHFDownloadGGUF_AlreadyExists(t *testing.T) {
-	t.Setenv("HOME", t.TempDir())
+	t.Cleanup(llm.SetUserHomeDir(t.TempDir()))
 	llm.ReloadGGUFRegistry()
 	t.Cleanup(func() { llm.ReloadGGUFRegistry() })
 
@@ -239,7 +240,7 @@ func TestHFDownloadGGUF_AlreadyExists(t *testing.T) {
 	t.Setenv("KDEPS_MODELS_DIR", dir)
 
 	filename := "AlreadyThere-Q4.gguf"
-	dest := dir + "/" + filename
+	dest := filepath.Join(dir, filename)
 	require.NoError(t, os.WriteFile(dest, []byte("existing"), 0o600))
 
 	path, alias, err := llm.HFDownloadGGUF(context.Background(), "org/Repo", filename, nil)

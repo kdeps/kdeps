@@ -1493,6 +1493,12 @@ func TestExecutor_ExecuteScript_JSONOutput(t *testing.T) {
 			t.Skip("python not available in test environment")
 		}
 	}
+	// On Windows, "python"/"python3" on PATH may just be the App Execution
+	// Alias stub that prompts to install from the Microsoft Store rather
+	// than a real interpreter; LookPath finds it but running it fails.
+	if verifyErr := execpkg.Command(pythonBin, "--version").Run(); verifyErr != nil {
+		t.Skip("python on PATH is not a working interpreter (e.g. Windows Store alias stub)")
+	}
 
 	exec.SetExecCommandForTesting(func(name string, arg ...string) *execpkg.Cmd {
 		// Replace the mock python with the real one

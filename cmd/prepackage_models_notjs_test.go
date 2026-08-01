@@ -284,9 +284,8 @@ func TestApplyBundledModelsDir_SetsBundledLlamaServer(t *testing.T) {
 
 	tmp := t.TempDir()
 	bundled := filepath.Join(tmp, BundledModelsDir)
-	binDir := filepath.Join(bundled, "bin")
-	require.NoError(t, os.MkdirAll(binDir, 0o750))
-	binPath := filepath.Join(binDir, "llama-server")
+	binPath := filepath.Join(bundled, llamaServerBundleKey())
+	require.NoError(t, os.MkdirAll(filepath.Dir(binPath), 0o750))
 	require.NoError(t, os.WriteFile(binPath, []byte("fake"), 0o755))
 
 	applyBundledModelsDir(tmp)

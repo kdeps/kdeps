@@ -286,14 +286,21 @@ func TestBundle_InvalidOutputPath(t *testing.T) {
 	require.NoError(t, os.WriteFile(wasmFile, []byte("wasm"), 0644))
 	require.NoError(t, os.WriteFile(wasmExecFile, []byte("js"), 0644))
 
-	// Use a path that contains invalid characters or is too long
+	// Use a path that cannot be created: /dev/null is a non-directory special
+	// file on Unix, so mkdir underneath it fails; Windows has no such device,
+	// so a reserved device name ("NUL") as a path component serves the same
+	// purpose there.
+	invalidPath := "/dev/null/invalid/path"
+	if runtime.GOOS == "windows" {
+		invalidPath = filepath.Join(t.TempDir(), "NUL", "invalid", "path")
+	}
 	config := &wasm.BundleConfig{
 		WASMBinaryPath: wasmFile,
 		WASMExecJSPath: wasmExecFile,
 		WorkflowYAML:   "test",
 		WebServerFiles: map[string]string{},
 		APIRoutes:      []string{},
-		OutputDir:      "/dev/null/invalid/path", // This path cannot be created
+		OutputDir:      invalidPath,
 	}
 
 	err := wasm.Bundle(config)

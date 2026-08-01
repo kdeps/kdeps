@@ -71,11 +71,15 @@ func TestVerifySHA256_CopyError(t *testing.T) {
 	require.NoError(t, os.WriteFile(f, []byte("x"), 0644))
 	require.NoError(t, os.Chmod(f, 0000))
 	t.Cleanup(func() { _ = os.Chmod(f, 0644) })
-	_, err := os.Open(f)
+	opened, err := os.Open(f)
 	if err != nil {
 		err = verifySHA256("/nonexistent", strings.Repeat("a", 64))
 		require.Error(t, err)
+		return
 	}
+	// chmod 0000 doesn't block opening on Windows; close the handle we did
+	// get so t.TempDir()'s cleanup can remove the file afterward.
+	opened.Close()
 }
 
 func TestDownloadArchive_WriteFileError(t *testing.T) {

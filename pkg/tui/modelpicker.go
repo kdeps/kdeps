@@ -449,6 +449,9 @@ func RunModelPicker(entries []ModelEntry, currentModel, preFilter string) (strin
 	if len(entries) == 0 {
 		return "", nil
 	}
+	if !isInteractive() {
+		return "", nil
+	}
 	m := newModelPickerModel(entries, currentModel, preFilter)
 	p := tea.NewProgram(m, tea.WithAltScreen())
 	final, err := p.Run()
