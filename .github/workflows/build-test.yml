@@ -254,7 +254,14 @@ jobs:
     permissions:
       contents: write
     steps:
+      # Uses RELEASE_TOKEN (admin PAT) instead of the default github-actions[bot]
+      # token: main's branch protection requires 5 status checks, which the
+      # bot's own follow-up commit can never satisfy (chicken-and-egg). Admins
+      # are allowed to bypass (enforce_admins is off), so pushing as an admin
+      # identity is what lets this land. Same pattern as nightly-release.yml.
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          token: ${{ secrets.RELEASE_TOKEN }}
       - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6
         with:
           go-version-file: go.mod

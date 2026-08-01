@@ -46,6 +46,12 @@ Every prompt becomes a task plan the agent is driven through to completion — n
 curl -LsSf https://raw.githubusercontent.com/kdeps/kdeps/main/install.sh | sh
 ```
 
+Windows (PowerShell):
+
+```powershell
+irm https://raw.githubusercontent.com/kdeps/kdeps/main/install.ps1 | iex
+```
+
 Or with Homebrew (macOS and Linux):
 
 ```bash

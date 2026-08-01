@@ -16,13 +16,25 @@ brew install kdeps/tap/kdeps
 curl -LsSf https://raw.githubusercontent.com/kdeps/kdeps/main/install.sh | sh
 ```
 
+### Windows (PowerShell)
+
+```powershell
+irm https://raw.githubusercontent.com/kdeps/kdeps/main/install.ps1 | iex
+```
+
+Installs `kdeps.exe` into `%USERPROFILE%\.local\bin` and adds it to your user `PATH`. To pin a version or choose a different directory:
+
+```powershell
+& ([scriptblock]::Create((irm https://raw.githubusercontent.com/kdeps/kdeps/main/install.ps1))) -Tag v2.1.15 -BinDir C:\tools\bin
+```
+
 ### Windows (wget in WSL or Git Bash)
 
 ```bash
 wget -qO- https://raw.githubusercontent.com/kdeps/kdeps/main/install.sh | sh
 ```
 
-> **Note for Windows Users**: For optimal functionality, run the installation command using either [Git Bash](https://git-scm.com/downloads/win) or [WSL](https://learn.microsoft.com/en-us/windows/wsl/install).
+> **Note for Windows Users**: [Git Bash](https://git-scm.com/downloads/win) or [WSL](https://learn.microsoft.com/en-us/windows/wsl/install) also work if you prefer the shell-based installer above.
 
 ### From Source
 
