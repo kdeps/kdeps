@@ -100,7 +100,15 @@ func detectDisableColors(w io.Writer, opts *PrettyHandlerOptions) {
 	}
 
 	// Only auto-disable if it's a file but not a terminal.
-	opts.DisableColors = !isTerminal(file)
+	if !isTerminal(file) {
+		opts.DisableColors = true
+		return
+	}
+
+	// On Windows, a char-device handle can still be a console that doesn't
+	// interpret ANSI escapes unless VT processing is turned on; if that
+	// fails, fall back to disabling colors rather than printing raw codes.
+	opts.DisableColors = !enableVirtualTerminal(file)
 }
 
 // buildEnabledLevelMap returns the set of levels at or above minLevel.
