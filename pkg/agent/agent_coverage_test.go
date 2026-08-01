@@ -1193,15 +1193,16 @@ func TestCompactAndRetry_TaskCompleted(t *testing.T) {
 func TestCompactAndRetry_NotCompleted(_ *testing.T) {
 	// t.Setenv requires no t.Parallel()
 	// This branch hits CompactWithLLM which returns ("", nil) for a short session,
-	// then falls through to runToolRounds. With MaxToolRounds=0 (default in test),
-	// runToolRounds returns ("", nil) without calling any streamer.
-	// This test just verifies no panic.
+	// then falls through to runToolRounds, which now always makes at least one
+	// real streamer call (see streamChatWithRetry) regardless of AutoRetryMax.
+	// A mock streamer is required so that call has something to hit instead of
+	// nil-panicking. This test just verifies no panic.
 	loop := makeTestLoop(nil)
+	loop.streamer = &mockStreamer{}
 	loop.session.Append("do something", "still working on it")
 
 	w := io.Discard
 	_, err := loop.compactAndRetry(context.Background(), "original request", w)
-	// With MaxToolRounds=0, the function returns "" without error
 	_ = err
 }
 
