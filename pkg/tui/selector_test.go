@@ -268,7 +268,8 @@ func TestDiscoverItems_Skill(t *testing.T) {
 }
 
 func TestSkillSearchDirs_Override(t *testing.T) {
-	t.Setenv("KDEPS_SKILL_DIRS", "/a:/b:/c")
+	sep := string(filepath.ListSeparator)
+	t.Setenv("KDEPS_SKILL_DIRS", "/a"+sep+"/b"+sep+"/c")
 	dirs := skillSearchDirs("/home/user")
 	assert.Equal(t, []string{"/a", "/b", "/c"}, dirs)
 }

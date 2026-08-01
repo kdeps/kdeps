@@ -306,7 +306,11 @@ func discoverSkills(dirs []string, items *[numTabs][]Item) {
 // KDEPS_SKILL_DIRS overrides the defaults (colon-separated list).
 func skillSearchDirs(home string) []string {
 	if override := os.Getenv("KDEPS_SKILL_DIRS"); override != "" {
-		return strings.Split(override, ":")
+		// filepath.SplitList, not strings.Split(":"): a Windows absolute
+		// path has a colon right after the drive letter, so a literal ":"
+		// separator shatters it. SplitList uses the OS path-list separator
+		// (";" on Windows, ":" on Unix), matching %PATH%/$PATH convention.
+		return filepath.SplitList(override)
 	}
 	return []string{
 		filepath.Join(home, ".kdeps", "skills"),
