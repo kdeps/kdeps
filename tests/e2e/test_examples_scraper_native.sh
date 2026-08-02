@@ -164,7 +164,10 @@ fi
 
 test_passed "scraper-native - server started"
 
-RESP=$(curl -s --max-time 10 -X POST "http://127.0.0.1:${API_PORT}/summarize" \
+# summarize.yaml runs a chat executor -- a cold-start LLM load can take well
+# over 10s on a fresh VM (test_llamafile_e2e.sh gives its own chat call 300s
+# for the same reason), so this needs real headroom too.
+RESP=$(curl -s --max-time 120 -X POST "http://127.0.0.1:${API_PORT}/summarize" \
     -H "Content-Type: application/json" -d "{}" 2>&1)
 
 # Either a success response or an LLM error - just check it responded

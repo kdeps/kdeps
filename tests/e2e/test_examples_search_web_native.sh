@@ -177,7 +177,10 @@ fi
 
 test_passed "search-web-native - server started"
 
-RESP=$(curl -s --max-time 15 -X POST "http://127.0.0.1:${API_PORT}/search" \
+# answer.yaml runs a chat executor -- a cold-start LLM load can take well
+# over 15s on a fresh VM (test_llamafile_e2e.sh gives its own chat call 300s
+# for the same reason), so this needs real headroom too.
+RESP=$(curl -s --max-time 120 -X POST "http://127.0.0.1:${API_PORT}/search" \
     -H "Content-Type: application/json" \
     -d '{"query": "Go programming language"}' 2>&1)
 
