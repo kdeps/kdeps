@@ -32,7 +32,9 @@ if [ -z "${KDEPS_BIN:-}" ] || [ ! -x "${KDEPS_BIN}" ]; then
 fi
 
 WORK_DIR=$(mktemp -d -t kdeps-embedding-e2e-XXXXXX 2>/dev/null || mktemp -d)
-DB_PATH="$WORK_DIR/embed.db"
+# Native form: only ever embedded in YAML content kdeps.exe reads directly,
+# never used bash-side (see to_native_path in common.sh).
+DB_PATH=$(to_native_path "$WORK_DIR/embed.db")
 cleanup() { rm -rf "$WORK_DIR"; }
 trap cleanup EXIT
 

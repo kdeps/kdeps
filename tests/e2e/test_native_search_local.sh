@@ -41,6 +41,10 @@ mkdir -p "$SEARCH_DIR"
 echo "hello world content" > "$SEARCH_DIR/hello.txt"
 echo "goodbye content" > "$SEARCH_DIR/goodbye.txt"
 echo "package main" > "$SEARCH_DIR/main.go"
+# Native form for embedding in YAML content kdeps.exe reads directly; $SEARCH_DIR
+# itself stays POSIX-form for the bash file operations above (see
+# to_native_path in common.sh).
+SEARCH_DIR_NATIVE=$(to_native_path "$SEARCH_DIR")
 
 # Test: searchLocal with glob filter
 test_searchlocal_glob() {
@@ -61,7 +65,7 @@ YAML
 actionId: do-search
 name: Do Search
 searchLocal:
-  path: "${SEARCH_DIR}"
+  path: "${SEARCH_DIR_NATIVE}"
   glob: "*.go"
 apiResponse:
   success: true
@@ -96,7 +100,7 @@ YAML
 actionId: do-search
 name: Do Search
 searchLocal:
-  path: "${SEARCH_DIR}"
+  path: "${SEARCH_DIR_NATIVE}"
   query: "hello"
 apiResponse:
   success: true
@@ -131,7 +135,7 @@ YAML
 actionId: do-search
 name: Do Search
 searchLocal:
-  path: "${SEARCH_DIR}"
+  path: "${SEARCH_DIR_NATIVE}"
   glob: "*.txt"
   query: "hello"
 apiResponse:

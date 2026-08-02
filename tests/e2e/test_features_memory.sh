@@ -41,6 +41,10 @@ mkdir -p "$TEST_DIR/resources"
 LOG_FILE=$(mktemp)
 trap 'kill "$KDEPS_PID" 2>/dev/null; wait "$KDEPS_PID" 2>/dev/null; rm -rf "$TEST_DIR" "$LOG_FILE"' EXIT
 DB_PATH="${TEST_DIR}/memory.db"
+# Native form for embedding in YAML content kdeps.exe reads directly (see
+# to_native_path in common.sh); $DB_PATH itself stays POSIX-form for the
+# bash-side existence check below.
+DB_PATH_NATIVE=$(to_native_path "$DB_PATH")
 
 cat > "$TEST_DIR/workflow.yaml" <<EOF
 apiVersion: kdeps.io/v1
@@ -76,7 +80,7 @@ component:
     action: "store"
     key: "e2e_test_key"
     value: "hello from e2e test"
-    dbPath: "${DB_PATH}"
+    dbPath: "${DB_PATH_NATIVE}"
 EOF
 
 cat > "$TEST_DIR/resources/retrieve.yaml" <<EOF
@@ -90,7 +94,7 @@ component:
   with:
     action: "retrieve"
     key: "e2e_test_key"
-    dbPath: "${DB_PATH}"
+    dbPath: "${DB_PATH_NATIVE}"
 EOF
 
 cat > "$TEST_DIR/resources/forget.yaml" <<EOF
@@ -104,7 +108,7 @@ component:
   with:
     action: "forget"
     key: "e2e_test_key"
-    dbPath: "${DB_PATH}"
+    dbPath: "${DB_PATH_NATIVE}"
 EOF
 
 cat > "$TEST_DIR/resources/response.yaml" <<'EOF'

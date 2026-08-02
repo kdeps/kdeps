@@ -42,6 +42,10 @@ mkdir -p "$TEST_DIR/resources"
 LOG_FILE=$(mktemp)
 trap 'kill "$KDEPS_PID" 2>/dev/null; wait "$KDEPS_PID" 2>/dev/null; rm -rf "$TEST_DIR" "$LOG_FILE"' EXIT
 DB_PATH="${TEST_DIR}/embeddings.db"
+# Native form for embedding in YAML content kdeps.exe reads directly (see
+# to_native_path in common.sh); $DB_PATH itself stays POSIX-form for the
+# bash-side existence check below.
+DB_PATH_NATIVE=$(to_native_path "$DB_PATH")
 
 cat > "$TEST_DIR/workflow.yaml" <<EOF
 apiVersion: kdeps.io/v1
@@ -75,7 +79,7 @@ component:
     operation: "upsert"
     text: "The quick brown fox jumps over the lazy dog"
     collection: "e2e_upsert"
-    dbPath: "${DB_PATH}"
+    dbPath: "${DB_PATH_NATIVE}"
 apiResponse:
   success: true
   response:
@@ -94,7 +98,7 @@ component:
     operation: "search"
     text: ""
     collection: "e2e_upsert"
-    dbPath: "${DB_PATH}"
+    dbPath: "${DB_PATH_NATIVE}"
 EOF
 
 cat > "$TEST_DIR/resources/response.yaml" <<'EOF'

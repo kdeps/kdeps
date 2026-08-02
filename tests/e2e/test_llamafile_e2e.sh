@@ -51,11 +51,41 @@ if [ ! -f "$MODELS_DIR/$LLAMAFILE_NAME" ] && [ "${KDEPS_E2E_LLAMAFILE_DOWNLOAD:-
 fi
 
 llamafile_server_count() {
-    pgrep -f "$LLAMAFILE_NAME" 2>/dev/null | wc -l | tr -d ' '
+    case "$(uname -s)" in
+        MINGW*|MSYS*|CYGWIN*)
+            # kdeps.exe spawns the llama-server subprocess via native Windows
+            # process creation, not through the MSYS runtime, so pgrep/ps
+            # here can't see it at all (0 every time, even while it's
+            # actually running and serving requests fine) -- use tasklist,
+            # which sees every native process, instead. The running image is
+            # "$LLAMAFILE_NAME.exe" (ensureExecutableExtension copies the
+            # llamafile to add .exe so Windows will run it), so match on
+            # that with a wildcard and count only actual process rows.
+            tasklist /FI "IMAGENAME eq ${LLAMAFILE_NAME}*" 2>/dev/null | grep -c '\.exe' || true
+            ;;
+        *)
+            pgrep -f "$LLAMAFILE_NAME" 2>/dev/null | wc -l | tr -d ' '
+            ;;
+    esac
+}
+
+# Same MSYS-visibility gap as llamafile_server_count above: pkill can't see
+# (or kill) a native Windows process kdeps.exe spawned, so a leftover
+# llama-server from an earlier run would silently keep running and squat on
+# its port for every run after it. taskkill works on the real process list.
+llamafile_server_kill() {
+    case "$(uname -s)" in
+        MINGW*|MSYS*|CYGWIN*)
+            taskkill //F //IM "${LLAMAFILE_NAME}.exe" >/dev/null 2>&1 || true
+            ;;
+        *)
+            pkill -f "$LLAMAFILE_NAME" 2>/dev/null || true
+            ;;
+    esac
 }
 
 # Make sure no llamafile server is left over from earlier runs.
-pkill -f "$LLAMAFILE_NAME" 2>/dev/null
+llamafile_server_kill
 sleep 1
 
 SERVER_LOG=$(mktemp)
@@ -66,7 +96,7 @@ SERVER_PID=$!
 cleanup_llamafile_e2e() {
     kill "$SERVER_PID" 2>/dev/null
     wait "$SERVER_PID" 2>/dev/null
-    pkill -f "$LLAMAFILE_NAME" 2>/dev/null
+    llamafile_server_kill
 }
 
 # Wait for the API server (downloading + loading the model can take a while).

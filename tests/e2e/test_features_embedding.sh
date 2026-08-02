@@ -38,7 +38,10 @@ PY
 
 TEST_DIR=$(mktemp -d)
 mkdir -p "$TEST_DIR/resources"
-DB_PATH="$TEST_DIR/embeddings.db"
+# Native form: this is only ever embedded in YAML content kdeps.exe reads
+# directly, never used bash-side, so no need for a separate POSIX variant
+# (see to_native_path in common.sh).
+DB_PATH=$(to_native_path "$TEST_DIR/embeddings.db")
 
 cat > "$TEST_DIR/workflow.yaml" <<EOF
 apiVersion: kdeps.io/v1

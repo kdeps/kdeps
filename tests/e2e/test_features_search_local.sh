@@ -43,6 +43,9 @@ PY
 
 TEST_DIR=$(mktemp -d)
 mkdir -p "$TEST_DIR/resources" "$TEST_DIR/docs"
+# Native form for embedding in YAML content kdeps.exe reads directly -- see
+# to_native_path in common.sh. $TEST_DIR itself keeps its POSIX form for bash.
+TEST_DIR_NATIVE=$(to_native_path "$TEST_DIR")
 LOG_FILE=$(mktemp)
 
 trap 'kill "$KDEPS_PID" 2>/dev/null; wait "$KDEPS_PID" 2>/dev/null; rm -rf "$TEST_DIR" "$LOG_FILE"' EXIT
@@ -96,7 +99,7 @@ validations:
 component:
   name: search-local
   with:
-    path: "${TEST_DIR}/docs"
+    path: "${TEST_DIR_NATIVE}/docs"
     query: "searchable_token"
 apiResponse:
   success: true
@@ -114,7 +117,7 @@ validations:
 component:
   name: search-local
   with:
-    path: "${TEST_DIR}/docs"
+    path: "${TEST_DIR_NATIVE}/docs"
     glob: "*.md"
 apiResponse:
   success: true
@@ -132,7 +135,7 @@ validations:
 component:
   name: search-local
   with:
-    path: "${TEST_DIR}/docs"
+    path: "${TEST_DIR_NATIVE}/docs"
     query: "searchable_token"
     limit: 1
 apiResponse:
@@ -151,7 +154,7 @@ validations:
 component:
   name: search-local
   with:
-    path: "${TEST_DIR}/docs"
+    path: "${TEST_DIR_NATIVE}/docs"
     query: "zzz_no_such_keyword_zzz"
 onError:
   action: continue

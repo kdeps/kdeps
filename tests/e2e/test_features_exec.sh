@@ -144,8 +144,17 @@ validations:
   routes: [/exec/multiline]
   methods: [POST]
 exec:
-  command: printf
-  args: ["line1\nline2\nline3\n"]
+  # Routed through sh -c with an escaped (not literal) \n rather than passed
+  # directly to printf: Windows reconstructs a child process's argv from a
+  # single command-line string, and an argument containing a raw embedded
+  # newline byte gets split into separate arguments during that
+  # reconstruction (confirmed: printf receives "line1" "line2" "line3" as
+  # three args instead of one, printing only the first with a "ignoring
+  # excess arguments" warning). Keeping the argument itself single-line and
+  # letting the shell's own printf interpret \n internally avoids ever
+  # passing a raw newline across the process-creation boundary.
+  command: sh
+  args: ["-c", "printf 'line1\\nline2\\nline3\\n'"]
 apiResponse:
   success: true
   response:

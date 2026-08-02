@@ -40,6 +40,30 @@ case "$(uname -s)" in
 esac
 export NULL_PATH
 
+# Convert a bash-side path (e.g. from `mktemp -d`) to the form a native
+# kdeps.exe needs when it's embedded as YAML/JSON file *content* -- not passed
+# as a CLI argument. MSYS bash auto-translates POSIX-style paths in CLI args
+# for a native child process, but that translation never happens for text
+# written into a fixture file kdeps.exe reads and parses itself: a literal
+# "/tmp/tmp.XXXX" string resolves on Windows against the current drive root
+# (e.g. "C:\tmp\tmp.XXXX"), not wherever MSYS actually backs /tmp. Wrap any
+# bash-generated absolute path with this before writing it into a workflow's
+# YAML content whenever the value is a filesystem path kdeps itself will
+# open (component `with.path`, a DB file path, etc.).
+to_native_path() {
+    if command -v cygpath &>/dev/null; then
+        # -m (not -w): forward slashes, not backslashes. A native Windows
+        # path with backslashes breaks when embedded in a double-quoted YAML
+        # string (backslash starts a YAML escape sequence); Windows itself
+        # accepts forward slashes just fine, so -m is both correct and safe
+        # to write as YAML text.
+        cygpath -m "$1"
+    else
+        printf '%s' "$1"
+    fi
+}
+export -f to_native_path
+
 export PASSED="${PASSED:-0}"
 export FAILED="${FAILED:-0}"
 export SKIPPED="${SKIPPED:-0}"
