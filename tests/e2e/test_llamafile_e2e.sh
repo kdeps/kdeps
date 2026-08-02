@@ -60,8 +60,14 @@ llamafile_server_count() {
             # which sees every native process, instead. The running image is
             # "$LLAMAFILE_NAME.exe" (ensureExecutableExtension copies the
             # llamafile to add .exe so Windows will run it), so match on
-            # that with a wildcard and count only actual process rows.
-            tasklist /FI "IMAGENAME eq ${LLAMAFILE_NAME}*" 2>/dev/null | grep -c '\.exe' || true
+            # that with a wildcard. /FO CSV (not the default table format) is
+            # required: the default table truncates the Image Name column to
+            # ~25 chars, which cuts off ".exe" entirely for a name this long
+            # and made an earlier version of this check always read 0. Flags
+            # use a doubled leading slash (//FI, not /FI): Git Bash's
+            # automatic POSIX-path conversion otherwise mangles a bare "/FI"
+            # into a filesystem path before tasklist ever sees it.
+            tasklist //FI "IMAGENAME eq ${LLAMAFILE_NAME}*" //FO CSV //NH 2>/dev/null | grep -c '^"' || true
             ;;
         *)
             pgrep -f "$LLAMAFILE_NAME" 2>/dev/null | wc -l | tr -d ' '
