@@ -38,16 +38,38 @@ var registerAgencyTargetParseFunc = ParseWorkflowFile
 // agentBackendFile is the default LLM backend (llamafile).
 const agentBackendFile = "file"
 
-// refreshREPLModelLists repopulates the four model lists on repl.
-// Called at startup and inside the SetRefreshModelsFn closure.
+// refreshREPLModelLists repopulates the model lists on repl from one unified,
+// collision-qualified pass over every local + cloud model (see
+// buildUnifiedEntries). Called at startup and inside the SetRefreshModelsFn
+// closure.
 func refreshREPLModelLists(repl *agent.REPL) {
 	// Refresh registries to pick up any embedded data changes since last build.
 	llm.ReloadGGUFRegistry()
 	llm.ReloadRegistry()
-	repl.SetModelNames(buildAllModelNames())
-	repl.SetDownloadedModels(llm.DownloadedModelAliases())
-	repl.SetModelTypes(buildModelTypes())
-	repl.SetModelRepos(buildModelRepos())
+	entries := buildUnifiedEntries()
+	names := make([]string, 0, len(entries))
+	types := make(map[string]string, len(entries))
+	repos := make(map[string]string, len(entries))
+	downloaded := make(map[string]bool, len(entries))
+	cloudBackends := make(map[string]string, len(entries))
+	for _, e := range entries {
+		names = append(names, e.Name)
+		types[e.Name] = e.Type
+		if e.Repo != "" {
+			repos[e.Name] = e.Repo
+		}
+		if e.Downloaded {
+			downloaded[e.Name] = true
+		}
+		if e.Type == "" { // cloud
+			cloudBackends[e.Name] = e.Backend
+		}
+	}
+	repl.SetModelNames(names)
+	repl.SetDownloadedModels(downloaded)
+	repl.SetModelTypes(types)
+	repl.SetModelRepos(repos)
+	repl.SetCloudModelBackends(cloudBackends)
 }
 
 // runLlamaFit runs llmfit and populates the REPL's score maps.
@@ -443,10 +465,11 @@ func resolveHostWorkflow(path string, registry *tools.Registry, flags *agentLoop
 // wireREPL connects model lists, llmfit scores, pickers, and TUI runners to
 // a freshly created REPL.
 func wireREPL(repl *agent.REPL, registry *tools.Registry, flags *agentLoopFlags) {
-	// Provide model name suggestions for /model <tab> completion.
+	// Provide model name suggestions for /model <tab> completion. Cloud
+	// backends are populated as part of the same unified pass now, not a
+	// separate call (see refreshREPLModelLists / buildUnifiedEntries).
 	refreshREPLModelLists(repl)
 	runLlamaFit(repl)
-	repl.SetCloudModelBackends(buildCloudBackends())
 	repl.SetProviderStatus(agent.BuildProviderStatus())
 	// Merge optional-tool notices + preflight warnings for low-limit backends.
 	notices := optionalToolNotices()
@@ -497,6 +520,17 @@ func resolveStartModel(flags *agentLoopFlags, settings tui.Settings) (string, st
 	b := flags.Backend
 	if m == "" && settings.DefaultModel != "" {
 		m = settings.DefaultModel
+	}
+	// A backend-qualified value (e.g. "gguf:qwen3:30b", saved once a
+	// previously-ambiguous bare name was disambiguated) fully determines
+	// both fields; skip the bare-name inference chain below entirely so it
+	// never mis-parses the qualifier as part of the model name.
+	if qualBackend, bareModel, ok := agent.SplitQualifiedModelName(m); ok {
+		m = bareModel
+		if b == "" {
+			b = qualBackend
+		}
+		return m, b
 	}
 	// .gguf suffix always means GGUF backend regardless of env vars.
 	if b == "" && agent.IsGGUFModelName(m) {
@@ -787,104 +821,40 @@ func namesEqual(a, b []tui.Item) bool {
 	return true
 }
 
-// buildModelNames returns local model alias names from llamafile, gguf, and ollama.
-func buildModelNames() []string {
-	names := append(llm.LlamafileAliasNames(), llm.GGUFAliasNames()...)
-	for _, o := range llm.ListOllamaModels() {
-		names = append(names, o.Name)
-	}
-	seen := make(map[string]bool, len(names))
-	out := make([]string, 0, len(names))
-	for _, n := range names {
-		if !seen[n] {
-			seen[n] = true
-			out = append(out, n)
-		}
-	}
-	return out
-}
-
-// buildAllModelNames returns local model aliases followed by all known cloud model IDs.
-// Local models sort first so they appear first in /model <tab> completion.
-func buildAllModelNames() []string {
-	local := buildModelNames()
-	cloud := agent.CloudModelIDs()
-	seen := make(map[string]bool, len(local)+len(cloud))
-	out := make([]string, 0, len(local)+len(cloud))
-	for _, n := range local {
-		if !seen[n] {
-			seen[n] = true
-			out = append(out, n)
-		}
-	}
-	for _, n := range cloud {
-		if !seen[n] {
-			seen[n] = true
-			out = append(out, n)
-		}
-	}
-	return out
-}
-
-// buildModelTypes returns a map of model name → type used by /model completion.
-// Types: "" (cloud), "llamafile", "gguf". Used for visual prefix in tab completion:
-//
-//	(no prefix) = cloud / ollama
-//	~ = llamafile (not downloaded)
-//	# = GGUF (not downloaded)
-//	* = downloaded (any type, overrides)
-func buildModelTypes() map[string]string {
-	types := make(map[string]string)
-	// First pass: llamafile aliases.
-	for _, a := range llm.ListLlamafileMappings() {
-		types[a.Alias] = "llamafile"
-	}
-	// Second pass: GGUF aliases may overwrite. When an alias is in both
-	// registries, check what's actually on disk so the user sees the right
-	// type (e.g. "llamafile cached" vs "gguf cached").
+// buildUnifiedEntries collects one agent.LocalModelEntry per llamafile, GGUF,
+// Ollama, and cloud-catalog model, with same-named entries from different
+// backends (e.g. "qwen3:30b" registered in both the llamafile and GGUF
+// registries as distinct downloadable artifacts) qualified to
+// "<type>:<name>" so neither silently shadows the other. Non-colliding
+// entries keep their bare alias name unchanged. See agent.BuildUnifiedModelEntries.
+func buildUnifiedEntries() []agent.LocalModelEntry {
 	modelsDir, dirErr := llm.DefaultModelsDir()
-	for _, a := range llm.ListGGUFMappings() {
-		if types[a.Alias] == "llamafile" && dirErr == nil {
-			if p, ok := llm.LlamafileCachedPath(a.Alias, modelsDir); ok {
-				if _, err := os.Stat(p); err == nil {
-					// The .llamafile file exists — keep "llamafile" type.
-					continue
-				}
-			}
+	llamafileCached := func(alias string) bool {
+		if dirErr != nil {
+			return false
 		}
-		types[a.Alias] = "gguf"
-	}
-	for _, o := range llm.ListOllamaModels() {
-		types[o.Name] = chatBackendOllama
-	}
-	return types
-}
-
-// buildModelRepos returns a map of model alias → HuggingFace repo id (e.g. "googleai/gemma4")
-// for llamafile and gguf models. Shown in /models next to each local model alias.
-func buildModelRepos() map[string]string {
-	repos := make(map[string]string)
-	for _, a := range llm.ListLlamafileMappings() {
-		if a.Repo != "" {
-			repos[a.Alias] = a.Repo
+		p, ok := llm.LlamafileCachedPath(alias, modelsDir)
+		if !ok {
+			return false
 		}
+		_, statErr := os.Stat(p)
+		return statErr == nil
 	}
-	for _, a := range llm.ListGGUFMappings() {
-		if a.Repo != "" {
-			repos[a.Alias] = a.Repo
+	ggufCached := func(alias string) bool {
+		if dirErr != nil {
+			return false
 		}
+		p, ok := llm.GGUFCachedPath(alias, modelsDir)
+		if !ok {
+			return false
+		}
+		_, statErr := os.Stat(p)
+		return statErr == nil
 	}
-	return repos
-}
-
-// buildCloudBackends returns a map from cloud model name → backend for /model
-// completion. Used to show [deepseek] instead of [cloud] when the API key is set.
-func buildCloudBackends() map[string]string {
-	m := make(map[string]string)
-	for _, cm := range agent.KnownCloudModels {
-		m[cm.ID] = cm.Backend
-	}
-	return m
+	return agent.BuildUnifiedModelEntries(
+		llm.ListLlamafileMappings(), llm.ListGGUFMappings(), llm.ListOllamaModels(),
+		llamafileCached, ggufCached, true,
+	)
 }
 
 // buildModelPickerFn returns a function that opens the TUI model picker with

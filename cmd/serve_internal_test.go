@@ -844,6 +844,34 @@ func TestResolveStartModel_DefaultModelGGUF(t *testing.T) {
 	assert.Equal(t, "gguf", b)
 }
 
+func TestResolveStartModel_QualifiedDefaultModel_SplitsBackendAndModel(t *testing.T) {
+	t.Setenv("KDEPS_DEFAULT_BACKEND", "")
+	flags := &agentLoopFlags{}
+	settings := tui.Settings{DefaultModel: "gguf:qwen3:30b"}
+	m, b := resolveStartModel(flags, settings)
+	assert.Equal(t, "qwen3:30b", m)
+	assert.Equal(t, executorLLM.BackendGGUF, b)
+}
+
+func TestResolveStartModel_QualifiedLlamafileDefaultModel_SplitsToFileBackend(t *testing.T) {
+	t.Setenv("KDEPS_DEFAULT_BACKEND", "")
+	flags := &agentLoopFlags{}
+	settings := tui.Settings{DefaultModel: "llamafile:qwen3:30b"}
+	m, b := resolveStartModel(flags, settings)
+	assert.Equal(t, "qwen3:30b", m)
+	assert.Equal(t, executorLLM.BackendFile, b)
+}
+
+func TestResolveStartModel_ExplicitFlagsBackendWinsOverQualifiedDefault(t *testing.T) {
+	// An explicit --backend flag still takes precedence, matching the
+	// existing "explicit backend not overridden" behavior for other cases.
+	flags := &agentLoopFlags{Backend: "ollama"}
+	settings := tui.Settings{DefaultModel: "gguf:qwen3:30b"}
+	m, b := resolveStartModel(flags, settings)
+	assert.Equal(t, "qwen3:30b", m)
+	assert.Equal(t, "ollama", b)
+}
+
 // --- isTerminal ---
 
 func TestIsTerminal_ClosedFileReturnsFalse(t *testing.T) {

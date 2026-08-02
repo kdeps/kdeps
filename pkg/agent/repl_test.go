@@ -3497,6 +3497,104 @@ func TestApplyModelSwitch_GGUFType_SetsBackend(t *testing.T) {
 	assert.Equal(t, llm.BackendGGUF, repl.loop.config.Backend)
 }
 
+func TestApplyModelSwitch_QualifiedGGUFName_SetsExplicitBackendAndBareModel(t *testing.T) {
+	loop := makeTestLoop(nil)
+	repl := NewREPL(context.Background(), loop)
+	defer repl.cancel()
+	repl.SetModelTypes(map[string]string{
+		"llamafile:qwen3:30b": modelTypeLLamafile,
+		"gguf:qwen3:30b":      modelTypeGGUF,
+	})
+
+	origOut := os.Stdout
+	r, w, _ := os.Pipe()
+	os.Stdout = w
+	repl.applyModelSwitch("gguf:qwen3:30b")
+	w.Close()
+	os.Stdout = origOut
+	io.Copy(io.Discard, r) //nolint:errcheck
+	r.Close()
+
+	assert.Equal(t, llm.BackendGGUF, repl.loop.config.Backend)
+	assert.Equal(t, "qwen3:30b", repl.loop.config.Model,
+		"config.Model must be the bare alias, not the qualified selector")
+}
+
+func TestApplyModelSwitch_QualifiedLlamafileName_SetsFileBackend(t *testing.T) {
+	loop := makeTestLoop(nil)
+	repl := NewREPL(context.Background(), loop)
+	defer repl.cancel()
+	repl.SetModelTypes(map[string]string{
+		"llamafile:qwen3:30b": modelTypeLLamafile,
+		"gguf:qwen3:30b":      modelTypeGGUF,
+	})
+
+	origOut := os.Stdout
+	r, w, _ := os.Pipe()
+	os.Stdout = w
+	repl.applyModelSwitch("llamafile:qwen3:30b")
+	w.Close()
+	os.Stdout = origOut
+	io.Copy(io.Discard, r) //nolint:errcheck
+	r.Close()
+
+	assert.Equal(t, llm.BackendFile, repl.loop.config.Backend)
+	assert.Equal(t, "qwen3:30b", repl.loop.config.Model)
+}
+
+func TestCmdModelWithName_AmbiguousBareName_FallsBackWithNotice(t *testing.T) {
+	loop := makeTestLoop(nil)
+	repl := NewREPL(context.Background(), loop)
+	defer repl.cancel()
+	repl.modelNames = []string{"llamafile:qwen3:30b", "gguf:qwen3:30b"}
+	repl.modelTypes = map[string]string{
+		"llamafile:qwen3:30b": modelTypeLLamafile,
+		"gguf:qwen3:30b":      modelTypeGGUF,
+	}
+
+	out := captureStdout(t, func() {
+		err := repl.cmdModelWithName("qwen3:30b")
+		assert.NoError(t, err)
+	})
+
+	assert.Contains(t, out, "ambiguous across backends")
+	assert.Contains(t, out, "gguf:qwen3:30b") // ollama > gguf > llamafile preference; no ollama candidate here
+	assert.Equal(t, llm.BackendGGUF, repl.loop.config.Backend)
+	assert.Equal(t, "qwen3:30b", repl.loop.config.Model)
+}
+
+func TestCmdModelWithName_QualifiedName_SelectsExactEntry(t *testing.T) {
+	loop := makeTestLoop(nil)
+	repl := NewREPL(context.Background(), loop)
+	defer repl.cancel()
+	repl.modelNames = []string{"llamafile:qwen3:30b", "gguf:qwen3:30b"}
+	repl.modelTypes = map[string]string{
+		"llamafile:qwen3:30b": modelTypeLLamafile,
+		"gguf:qwen3:30b":      modelTypeGGUF,
+	}
+
+	out := captureStdout(t, func() {
+		err := repl.cmdModelWithName("llamafile:qwen3:30b")
+		assert.NoError(t, err)
+	})
+
+	assert.NotContains(t, out, "ambiguous")
+	assert.Equal(t, llm.BackendFile, repl.loop.config.Backend)
+	assert.Equal(t, "qwen3:30b", repl.loop.config.Model)
+}
+
+func TestDoModelCompletion_QualifiedNamesBothSurfaced(t *testing.T) {
+	loop := makeTestLoop(nil)
+	repl := NewREPL(context.Background(), loop)
+	defer repl.cancel()
+	repl.modelNames = []string{"llamafile:qwen3:30b", "gguf:qwen3:30b", "llama3.2:1b"}
+
+	matched, isPrefix := repl.modelNamesMatchingToken("qwen3")
+	assert.False(t, isPrefix, "qualified-bare-name matches use the tag-suffix (offset 0) path")
+	assert.ElementsMatch(t, []string{"llamafile:qwen3:30b", "gguf:qwen3:30b"}, matched)
+	assert.NotContains(t, matched, "llama3.2:1b")
+}
+
 // --- pageLines ---
 
 func TestPageLines_FewLines_PrintsAll(t *testing.T) {

@@ -692,6 +692,42 @@ func boldTagKeyword(tag, keyword string) string {
 }
 
 // modelCompletionSuffixes builds the readline suffix list for /model completion.
+// modelNamesMatchingBackendOrQualifier finds two kinds of match a plain
+// name-prefix search misses, marking each match in seen as it's found:
+//
+//   - Backend-name match: a multi-model cloud backend's own name is often
+//     also one of its model IDs (m365 -> "m365-copilot"), which would
+//     short-circuit a plain prefix search before it ever considers the rest
+//     of that backend's models -- most of them don't repeat the backend name
+//     in their own ID at all (m365 -> "gpt-5.5", "claude-sonnet", "quick",
+//     ...). So typing "m365" surfaces every m365 model, not just the one
+//     literally named that.
+//   - Qualified-bare-name match: a collision-qualified local entry (e.g.
+//     "gguf:qwen3:30b") no longer has the bare alias as its own literal
+//     prefix, so typing the bare name a user remembers ("qwen3") wouldn't
+//     find it otherwise.
+//
+// Checked unconditionally, not just when a plain prefix match is empty, so
+// neither backend nor qualifier collisions can shadow the rest of a match set.
+func (r *REPL) modelNamesMatchingBackendOrQualifier(lower string, seen map[string]struct{}) []string {
+	var matched []string
+	for _, name := range r.modelNames {
+		if _, ok := seen[name]; ok {
+			continue
+		}
+		if backend := r.cloudModelBackends[name]; backend != "" && strings.HasPrefix(strings.ToLower(backend), lower) {
+			matched = append(matched, name)
+			seen[name] = struct{}{}
+			continue
+		}
+		if _, bare, ok := SplitQualifiedModelName(name); ok && strings.HasPrefix(strings.ToLower(bare), lower) {
+			matched = append(matched, name)
+			seen[name] = struct{}{}
+		}
+	}
+	return matched
+}
+
 // modelNamesMatchingToken returns prefix-matched model names. If no prefix
 // matches exist, falls back to tag-type matches (gguf, cached, cloud, enabled,
 // llamafile). Callers must use the returned bool to distinguish the two cases
@@ -706,29 +742,12 @@ func (r *REPL) modelNamesMatchingToken(lower string) ([]string, bool) {
 		}
 	}
 
-	// Backend-name match: a multi-model cloud backend's own name is often
-	// also one of its model IDs (m365 -> "m365-copilot"), which would
-	// short-circuit the plain prefix search above before it ever considers
-	// the rest of that backend's models -- most of them don't repeat the
-	// backend name in their own ID at all (m365 -> "gpt-5.5", "claude-sonnet",
-	// "quick", ...). Checked unconditionally, not just when prefix is empty,
-	// so typing "m365" surfaces every m365 model instead of only the one
-	// literally named that.
-	var byBackend []string
-	for _, name := range r.modelNames {
-		if _, ok := seen[name]; ok {
-			continue
-		}
-		if backend := r.cloudModelBackends[name]; backend != "" && strings.HasPrefix(strings.ToLower(backend), lower) {
-			byBackend = append(byBackend, name)
-			seen[name] = struct{}{}
-		}
-	}
+	byBackend := r.modelNamesMatchingBackendOrQualifier(lower, seen)
 	if len(byBackend) > 0 {
 		// Mixing true prefix-offset entries with these (which aren't
 		// actually prefixed by the typed token) can't share one readline
-		// offset, so once a backend match exists everything is presented
-		// tag-style (offset 0) instead.
+		// offset, so once a backend/qualified match exists everything is
+		// presented tag-style (offset 0) instead.
 		return append(prefix, byBackend...), false
 	}
 	if len(prefix) > 0 {
@@ -2247,6 +2266,43 @@ func (r *REPL) cmdClear() error {
 var tagKeywords = []string{"gguf", "llamafile", "cloud", "enabled", "cached", "installed", "ollama"}
 
 // cmdModelWithName resolves and applies the given model name argument.
+// resolveAmbiguousBareModel returns every modelNames entry that is a
+// backend-qualified form of name (i.e. name itself used to be an
+// unambiguous bare alias before collision-qualification split it across
+// backends). Returns nil when name isn't ambiguous this way.
+func (r *REPL) resolveAmbiguousBareModel(name string) []string {
+	var matches []string
+	for _, n := range r.modelNames {
+		if _, bare, ok := SplitQualifiedModelName(n); ok && bare == name {
+			matches = append(matches, n)
+		}
+	}
+	return matches
+}
+
+// ambiguousModelPreferenceOrder ranks qualified candidates the same way the
+// old flat-map builders used to resolve a collision (last write wins:
+// ollama, then gguf, then llamafile), so a user who never explicitly
+// disambiguates sees the exact same backend they always got -- only the new
+// notice is new, not the behavior.
+//
+//nolint:gochecknoglobals // read-only preference table
+var ambiguousModelPreferenceOrder = []string{modelTypeOllama, modelTypeGGUF, modelTypeLLamafile}
+
+// pickPreferredAmbiguous returns the historically-preferred entry from a set
+// of qualified candidates sharing one bare name. Falls back to the first
+// candidate if none match the known preference order.
+func (r *REPL) pickPreferredAmbiguous(candidates []string) string {
+	for _, pref := range ambiguousModelPreferenceOrder {
+		for _, c := range candidates {
+			if r.modelTypes[c] == pref {
+				return c
+			}
+		}
+	}
+	return candidates[0]
+}
+
 func (r *REPL) cmdModelWithName(arg string) error {
 	// A URL argument registers a custom model/endpoint before switching.
 	if r.handleCustomModelURL(arg) {
@@ -2261,6 +2317,22 @@ func (r *REPL) cmdModelWithName(arg string) error {
 	// model name. Recover the real model by stripping the keyword prefix.
 	if resolved := r.stripTagKeywordPrefix(name); r.isModelName(resolved) {
 		r.applyModelSwitch(resolved)
+		return nil
+	}
+	// A bare name that used to be unambiguous before collision-qualification
+	// split it across backends (e.g. "qwen3:30b" -> "llamafile:qwen3:30b" +
+	// "gguf:qwen3:30b"): auto-pick the historically-preferred backend and say
+	// so, rather than silently guessing or refusing the (very recognizable)
+	// input outright.
+	if ambiguous := r.resolveAmbiguousBareModel(name); len(ambiguous) > 0 {
+		chosen := r.pickPreferredAmbiguous(ambiguous)
+		fmt.Fprintf(os.Stdout, "%s\n",
+			styleReplMeta.Render(fmt.Sprintf(
+				"%q is ambiguous across backends (%s) -- using %s. Use the full name to pick a specific one.",
+				name, strings.Join(ambiguous, ", "), chosen,
+			)),
+		)
+		r.applyModelSwitch(chosen)
 		return nil
 	}
 	// Not a model name: treat as picker filter if available.
@@ -2678,6 +2750,16 @@ func (r *REPL) cmdModelDefault(args []string) error {
 	name := stripModelIndicators(args[0])
 	if resolved := r.stripTagKeywordPrefix(name); r.isModelName(resolved) {
 		name = resolved
+	} else if ambiguous := r.resolveAmbiguousBareModel(name); len(ambiguous) > 0 {
+		chosen := r.pickPreferredAmbiguous(ambiguous)
+		fmt.Fprintf(os.Stdout, "%s\n",
+			styleReplMeta.Render(fmt.Sprintf(
+				"%q is ambiguous across backends (%s) -- saving %s as default. "+
+					"Use the full name to pick a specific one.",
+				name, strings.Join(ambiguous, ", "), chosen,
+			)),
+		)
+		name = chosen
 	}
 	if r.saveDefaultFn != nil {
 		if err := r.saveDefaultFn(name); err != nil {
@@ -2774,6 +2856,14 @@ func stripModelIndicators(name string) string {
 // applyModelSwitch applies a model selection and prints a confirmation.
 // A Ctrl+C during the model download/start reverts to the previous model.
 func (r *REPL) applyModelSwitch(model string) {
+	// A backend-qualified name (e.g. "gguf:qwen3:30b", selected to disambiguate
+	// two registries that both use the same bare alias) carries its backend
+	// explicitly, bypassing the customEndpoints/BackendForModel/modelTypes
+	// inference chain below entirely. r.loop.config.Model always ends up
+	// bare: that's the literal registry alias startLocalModelServer,
+	// ConfirmModelDownload, and svc.DownloadModel/ServeModel key on.
+	qualBackend, bareModel, isQualified := SplitQualifiedModelName(model)
+
 	prevModel := r.loop.config.Model
 	prevBackend := r.loop.config.Backend
 	prevBaseURL := r.loop.config.BaseURL
@@ -2785,10 +2875,13 @@ func (r *REPL) applyModelSwitch(model string) {
 	budget := newLimit * contextHistoryFraction / contextHistoryDivisor
 	r.loop.config.CompactTokenBudget = budget
 	r.loop.config.AutoCompactThreshold = budget
-	r.loop.Session().SetTokenBudget(newLimit, model)
+	r.loop.Session().SetTokenBudget(newLimit, bareModel)
 	r.loop.CompactIfNeeded(r.ctx)
-	r.loop.config.Model = model
-	if baseURL, ok := r.customEndpoints[model]; ok {
+	r.loop.config.Model = bareModel
+	if isQualified {
+		r.loop.config.Backend = qualBackend
+		r.loop.config.BaseURL = ""
+	} else if baseURL, ok := r.customEndpoints[model]; ok {
 		// User-registered OpenAI-compatible endpoint: talk to its base URL.
 		r.loop.config.Backend = toolParamOpenAI
 		r.loop.config.BaseURL = baseURL
@@ -2813,7 +2906,7 @@ func (r *REPL) applyModelSwitch(model string) {
 			r.loop.config.BaseURL = ""
 		}
 	}
-	if err := r.startLocalModelServer(model); err != nil {
+	if err := r.startLocalModelServer(bareModel); err != nil {
 		// Canceled: the new model never became usable — restore the old one.
 		r.loop.config.Model = prevModel
 		r.loop.config.Backend = prevBackend
@@ -2826,7 +2919,7 @@ func (r *REPL) applyModelSwitch(model string) {
 		)
 		return
 	}
-	r.loop.Session().SetTokenBudget(newLimit, model)
+	r.loop.Session().SetTokenBudget(newLimit, bareModel)
 	// New model: rebuild the frozen system preamble so the commit trailer names
 	// the model now in use instead of the previous one.
 	r.loop.InvalidateSystemPreamble()
@@ -2850,15 +2943,18 @@ func (r *REPL) contextLimitForModel(model string) int {
 			return n
 		}
 	}
+	// The cloud-catalog fallbacks below key on the bare registry/catalog
+	// name; strip a qualifier first so they never see e.g. "gguf:qwen3:30b".
+	_, bareModel, _ := SplitQualifiedModelName(model)
 	// Check the per-model context window registry.
-	if ctx := ContextWindowForModel(model); ctx > 0 {
+	if ctx := ContextWindowForModel(bareModel); ctx > 0 {
 		return ctx
 	}
-	if BackendForModel(model) != "" {
+	if BackendForModel(bareModel) != "" {
 		return contextLimitCloud
 	}
 	// Derive from model parameter count (e.g., "7B" → 32768).
-	if n := contextFromParams(model); n > 0 {
+	if n := contextFromParams(bareModel); n > 0 {
 		return n
 	}
 	return contextLimitDefault

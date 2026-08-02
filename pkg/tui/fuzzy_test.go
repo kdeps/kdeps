@@ -43,6 +43,22 @@ func TestFuzzyMatchEntries_MatchesByBackendName(t *testing.T) {
 	assert.ElementsMatch(t, []string{"m365-copilot", "gpt-5.5", "claude-sonnet"}, names)
 }
 
+func TestFuzzyMatchEntries_BareQueryMatchesQualifiedName(t *testing.T) {
+	// A collision-qualified entry's Name (e.g. "gguf:qwen3:30b" -- see
+	// pkg/agent.QualifyModelName) is no longer prefixed by the bare alias a
+	// user is likely to type; the subsequence fuzzy match must still find it.
+	entries := []ModelEntry{
+		{Name: "llamafile:qwen3:30b", ModelType: modelTypeLLamafile},
+		{Name: "gguf:qwen3:30b", ModelType: modelTypeGGUF},
+	}
+	got := fuzzyMatchEntries(entries, "qwen3")
+	names := make([]string, len(got))
+	for i, e := range got {
+		names[i] = e.Name
+	}
+	assert.ElementsMatch(t, []string{"llamafile:qwen3:30b", "gguf:qwen3:30b"}, names)
+}
+
 func TestFuzzyScore_EmptyQuery(t *testing.T) {
 	// Empty query always matches with score 0.
 	ok, score := fuzzyScore("", "any text here")
