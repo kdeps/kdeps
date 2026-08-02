@@ -51,6 +51,7 @@ settings:
     file:
       path: /dev/null
 EOF
+sed -i "s#/dev/null#$NULL_PATH#" "$TMPDIR/workflow.yaml"
 mkdir -p "$TMPDIR/resources"
 cat > "$TMPDIR/resources/greet.yaml" <<'EOF'
 actionId: greet
@@ -69,7 +70,7 @@ fi
 
 # Test 3: run with --instrument produces trace output (ENTER/LEAVE or function names)
 SERVER_LOG=$(mktemp)
-"$KDEPS_BIN" run "$TMPDIR" --file /dev/null --instrument >"$SERVER_LOG" 2>&1 &
+"$KDEPS_BIN" run "$TMPDIR" --file "$NULL_PATH" --instrument >"$SERVER_LOG" 2>&1 &
 SERVER_PID=$!
 sleep 4
 kill "$SERVER_PID" 2>/dev/null || true

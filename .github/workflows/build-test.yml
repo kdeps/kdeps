@@ -228,6 +228,20 @@ jobs:
         shell: bash
         run: echo "C:\msys64\mingw64\bin" >> "$GITHUB_PATH"
 
+      - name: Install uv
+        # kdeps's default (file/llamafile) backend shells out to uv to set up
+        # its Python venv; without it on PATH, e2e's llamafile-e2e scenario
+        # fails with "uv: executable file not found".
+        shell: bash
+        run: curl -LsSf https://astral.sh/uv/0.11.20/install.sh | sh && echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+
+      - name: Install Python e2e test deps
+        # e2e scripts' own tooling (not kdeps itself) parses workflow YAML and
+        # exercises the scraper example; windows-latest's system python3 has
+        # neither preinstalled, unlike ubuntu-latest's.
+        shell: bash
+        run: python3 -m pip install --quiet pyyaml requests beautifulsoup4
+
       - name: Build
         shell: bash
         run: go build ./...

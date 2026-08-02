@@ -27,6 +27,19 @@ NC='\033[0m' # No Color
 
 # Counters (exported so sub-scripts can use them)
 # Initialize only if not already set (to allow accumulation across scripts)
+
+# Cross-platform null-device path. Go's os.DevNull is "NUL" on Windows, not
+# "/dev/null" -- native Windows binaries don't understand a leading "/" as an
+# absolute root (it resolves against the current drive instead), so a literal
+# "/dev/null" written into a --file flag or YAML fixture never reaches the
+# real null device there. Fixtures that just need a placeholder "empty file"
+# path should use $NULL_PATH instead of hardcoding "/dev/null".
+case "$(uname -s)" in
+    MINGW*|MSYS*|CYGWIN*) NULL_PATH="NUL" ;;
+    *) NULL_PATH="/dev/null" ;;
+esac
+export NULL_PATH
+
 export PASSED="${PASSED:-0}"
 export FAILED="${FAILED:-0}"
 export SKIPPED="${SKIPPED:-0}"

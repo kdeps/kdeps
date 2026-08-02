@@ -63,7 +63,7 @@ CFG="$WORK/config.yaml"
 
 run_agent() {
     timeout 60 env KDEPS_CONFIG_PATH="$CFG" KDEPS_SKIP_BOOTSTRAP=1 \
-        "$KDEPS_BIN" run "$WORK/agent/workflow.yaml" --file /dev/null < /dev/null 2>&1
+        "$KDEPS_BIN" run "$WORK/agent/workflow.yaml" --file "$NULL_PATH" < /dev/null 2>&1
 }
 
 # --- Test 1: cloud backend, no model, no llm.models -> clear error ----------

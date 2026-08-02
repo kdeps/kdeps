@@ -216,6 +216,7 @@ settings:
     file:
       path: /dev/null
 EOF
+sed -i "s#/dev/null#$NULL_PATH#" "$WHERE_DIR/workflow.yaml"
 
 cat > "$WHERE_DIR/resources/filterItems.yaml" <<'EOF'
 actionId: filterItems

@@ -93,6 +93,7 @@ settings:
     file:
       path: /dev/null
 EOF
+    sed -i "s#/dev/null#$NULL_PATH#" "$dir/workflow.yaml"
 
     cat > "$dir/resources/greet.yaml" <<'EOF'
 actionId: greet
@@ -126,6 +127,7 @@ settings:
     file:
       path: /dev/null
 EOF
+    sed -i "s#/dev/null#$NULL_PATH#" "$dir/workflow.yaml"
 
     cat > "$dir/resources/bad.yaml" <<'EOF'
 actionId: bad
@@ -147,7 +149,7 @@ make_events_workflow "$TEST_DIR"
 STDOUT_FILE=$(mktemp)
 STDERR_FILE=$(mktemp)
 
-"$KDEPS_BIN" run "$TEST_DIR" --file /dev/null --events \
+"$KDEPS_BIN" run "$TEST_DIR" --file "$NULL_PATH" --events \
     >"$STDOUT_FILE" 2>"$STDERR_FILE" || true
 
 STDERR_EVENTS=$(events_from_stderr "$STDERR_FILE")
@@ -172,7 +174,7 @@ rm -f "$STDOUT_FILE" "$STDERR_FILE"
 # ---------------------------------------------------------------------------
 
 STDERR_FILE=$(mktemp)
-"$KDEPS_BIN" run "$TEST_DIR" --file /dev/null --events 2>"$STDERR_FILE" || true
+"$KDEPS_BIN" run "$TEST_DIR" --file "$NULL_PATH" --events 2>"$STDERR_FILE" || true
 
 ALL_VALID=true
 while IFS= read -r line; do
@@ -197,7 +199,7 @@ rm -f "$STDERR_FILE"
 # ---------------------------------------------------------------------------
 
 STDERR_FILE=$(mktemp)
-"$KDEPS_BIN" run "$TEST_DIR" --file /dev/null --events 2>"$STDERR_FILE" || true
+"$KDEPS_BIN" run "$TEST_DIR" --file "$NULL_PATH" --events 2>"$STDERR_FILE" || true
 
 WF_STARTED=$(events_from_stderr "$STDERR_FILE" | grep '"workflow.started"' | head -1)
 if [ -n "$WF_STARTED" ]; then
@@ -219,7 +221,7 @@ rm -f "$STDERR_FILE"
 # ---------------------------------------------------------------------------
 
 STDERR_FILE=$(mktemp)
-"$KDEPS_BIN" run "$TEST_DIR" --file /dev/null --events 2>"$STDERR_FILE" || true
+"$KDEPS_BIN" run "$TEST_DIR" --file "$NULL_PATH" --events 2>"$STDERR_FILE" || true
 
 WF_COMPLETED=$(events_from_stderr "$STDERR_FILE" | grep '"workflow.completed"' | head -1)
 if [ -n "$WF_COMPLETED" ]; then
@@ -235,7 +237,7 @@ rm -f "$STDERR_FILE"
 # ---------------------------------------------------------------------------
 
 STDERR_FILE=$(mktemp)
-"$KDEPS_BIN" run "$TEST_DIR" --file /dev/null --events 2>"$STDERR_FILE" || true
+"$KDEPS_BIN" run "$TEST_DIR" --file "$NULL_PATH" --events 2>"$STDERR_FILE" || true
 
 RES_STARTED=$(events_from_stderr "$STDERR_FILE" | grep '"resource.started"' | head -1)
 if [ -n "$RES_STARTED" ]; then
@@ -263,7 +265,7 @@ rm -f "$STDERR_FILE"
 # ---------------------------------------------------------------------------
 
 STDERR_FILE=$(mktemp)
-"$KDEPS_BIN" run "$TEST_DIR" --file /dev/null --events 2>"$STDERR_FILE" || true
+"$KDEPS_BIN" run "$TEST_DIR" --file "$NULL_PATH" --events 2>"$STDERR_FILE" || true
 
 RES_COMPLETED=$(events_from_stderr "$STDERR_FILE" | grep '"resource.completed"' | head -1)
 if [ -n "$RES_COMPLETED" ]; then
@@ -285,7 +287,7 @@ rm -f "$STDERR_FILE"
 # ---------------------------------------------------------------------------
 
 STDERR_FILE=$(mktemp)
-"$KDEPS_BIN" run "$TEST_DIR" --file /dev/null --events 2>"$STDERR_FILE" || true
+"$KDEPS_BIN" run "$TEST_DIR" --file "$NULL_PATH" --events 2>"$STDERR_FILE" || true
 
 ALL_HAVE_FIELDS=true
 MISSING_DETAIL=""
@@ -317,7 +319,7 @@ rm -f "$STDERR_FILE"
 # ---------------------------------------------------------------------------
 
 STDERR_FILE=$(mktemp)
-"$KDEPS_BIN" run "$TEST_DIR" --file /dev/null --events 2>"$STDERR_FILE" || true
+"$KDEPS_BIN" run "$TEST_DIR" --file "$NULL_PATH" --events 2>"$STDERR_FILE" || true
 
 ALL_EVENTS=$(events_from_stderr "$STDERR_FILE")
 FIRST_EVENT=$(echo "$ALL_EVENTS" | head -1 | python3 -c "import sys,json; print(json.loads(sys.stdin.read()).get('event',''))" 2>/dev/null || echo "")
@@ -347,7 +349,7 @@ FAIL_DIR=$(mktemp -d)
 make_failing_workflow "$FAIL_DIR"
 
 STDERR_FILE=$(mktemp)
-"$KDEPS_BIN" run "$FAIL_DIR" --file /dev/null --events 2>"$STDERR_FILE" || true
+"$KDEPS_BIN" run "$FAIL_DIR" --file "$NULL_PATH" --events 2>"$STDERR_FILE" || true
 
 RES_FAILED=$(events_from_stderr "$STDERR_FILE" | grep '"resource.failed"' | head -1)
 WF_FAILED=$(events_from_stderr "$STDERR_FILE" | grep '"workflow.failed"' | head -1)
@@ -381,7 +383,7 @@ NO_EVENTS_DIR=$(mktemp -d)
 make_events_workflow "$NO_EVENTS_DIR"
 
 STDERR_FILE=$(mktemp)
-"$KDEPS_BIN" run "$NO_EVENTS_DIR" --file /dev/null 2>"$STDERR_FILE" || true
+"$KDEPS_BIN" run "$NO_EVENTS_DIR" --file "$NULL_PATH" 2>"$STDERR_FILE" || true
 
 EVENTS_COUNT=$(events_from_stderr "$STDERR_FILE" | wc -l | tr -d ' ')
 if [ "$EVENTS_COUNT" = "0" ]; then

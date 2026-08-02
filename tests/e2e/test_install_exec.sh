@@ -70,6 +70,7 @@ input:
   file:
     path: /dev/null
 YAML
+sed -i "s#/dev/null#$NULL_PATH#" "$AGENT_DIR/workflow.yaml"
 # Run exec — it should attempt to start the agent (not fail with "not found").
 # We expect a run-related error (no server, missing resources, etc.) but NOT "not found".
 run_capturing env KDEPS_AGENTS_DIR="$FAKE_AGENTS_DIR" "$KDEPS_BIN" exec hello-agent

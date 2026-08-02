@@ -65,13 +65,12 @@ EOF
 CFG="$WORK/config-missing.yaml"
 cat > "$CFG" << 'EOF'
 llm:
-  backend: ollama
-  ollama_host: http://localhost:11434
+  backend: file
 EOF
 BEFORE=$(shasum "$CFG" | awk '{print $1}')
 
 OUT=$(timeout 60 env KDEPS_CONFIG_PATH="$CFG" KDEPS_SKIP_BOOTSTRAP=1 \
-    "$KDEPS_BIN" run "$WORK/agent/workflow.yaml" --file /dev/null < /dev/null 2>&1)
+    "$KDEPS_BIN" run "$WORK/agent/workflow.yaml" --file "$NULL_PATH" < /dev/null 2>&1)
 RC=$?
 AFTER=$(shasum "$CFG" | awk '{print $1}')
 
@@ -98,15 +97,14 @@ fi
 CFG2="$WORK/config-present.yaml"
 cat > "$CFG2" << 'EOF'
 llm:
-  backend: ollama
-  ollama_host: http://localhost:11434
+  backend: file
 sql_connections:
   missingdb:
     connection: "file::memory:?cache=shared"
 EOF
 
 OUT2=$(timeout 60 env KDEPS_CONFIG_PATH="$CFG2" KDEPS_SKIP_BOOTSTRAP=1 \
-    "$KDEPS_BIN" run "$WORK/agent/workflow.yaml" --file /dev/null < /dev/null 2>&1)
+    "$KDEPS_BIN" run "$WORK/agent/workflow.yaml" --file "$NULL_PATH" < /dev/null 2>&1)
 
 if output_grep "not found in config.yaml sql_connections" "$OUT2"; then
     test_failed "Present connection - connection unexpectedly reported missing" \
@@ -119,7 +117,7 @@ fi
 # The workflow references sql connection "missingdb"; provide it from the env.
 OUT2B=$(timeout 60 env KDEPS_CONFIG_PATH="$CFG" KDEPS_SKIP_BOOTSTRAP=1 \
     KDEPS_SQL_CONNECTIONS_MISSINGDB_CONNECTION="file::memory:?cache=shared" \
-    "$KDEPS_BIN" run "$WORK/agent/workflow.yaml" --file /dev/null < /dev/null 2>&1)
+    "$KDEPS_BIN" run "$WORK/agent/workflow.yaml" --file "$NULL_PATH" < /dev/null 2>&1)
 
 if output_grep "not found in config.yaml sql_connections" "$OUT2B"; then
     test_failed "Env connection - not resolved from environment" \
@@ -167,8 +165,7 @@ EOF
 CFG3="$WORK/config-notoken.yaml"
 cat > "$CFG3" << 'EOF'
 llm:
-  backend: ollama
-  ollama_host: http://localhost:11434
+  backend: file
 EOF
 BEFORE3=$(shasum "$CFG3" | awk '{print $1}')
 

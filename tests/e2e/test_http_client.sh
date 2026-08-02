@@ -111,7 +111,11 @@ cleanup() {
 trap cleanup EXIT
 
 SERVER_READY=false
-MAX_WAIT=20
+# A fresh CI VM's first execution of a newly-built kdeps.exe can add several
+# seconds of one-time latency (Windows Defender real-time scan of a ~140MB
+# binary), on top of the ~10s a warm/cached run needs -- so this waits longer
+# than it looks like it should for the common case.
+MAX_WAIT=40
 WAITED=0
 
 BACKEND_READY=false
