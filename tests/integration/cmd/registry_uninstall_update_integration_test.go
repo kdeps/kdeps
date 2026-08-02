@@ -175,6 +175,7 @@ func TestRegistryUninstall_Integration_GlobalComponent(t *testing.T) {
 	tmp := t.TempDir()
 	t.Setenv("KDEPS_AGENTS_DIR", tmp)
 	t.Setenv("HOME", tmp)
+	t.Setenv("USERPROFILE", tmp) // os.UserHomeDir reads USERPROFILE on Windows, not HOME
 
 	compDir := filepath.Join(tmp, ".kdeps", "components", "pdf-parser")
 	require.NoError(t, os.MkdirAll(compDir, 0750))

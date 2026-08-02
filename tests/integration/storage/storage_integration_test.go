@@ -20,6 +20,7 @@ package storage_test
 
 import (
 	"fmt"
+	"os"
 	"path/filepath"
 	"testing"
 
@@ -36,6 +37,7 @@ func TestStorageIntegration_MemoryStorage(t *testing.T) {
 	dbPath := filepath.Join(tmpDir, "memory.db")
 	store, err := storage.NewMemoryStorage(dbPath)
 	require.NoError(t, err)
+	defer store.Close()
 
 	// Test data
 	key := "test-key"
@@ -102,6 +104,7 @@ func TestStorageIntegration_SessionStorage(t *testing.T) {
 	dbPath := filepath.Join(tmpDir, "sessions.db")
 	store, err := storage.NewSessionStorage(dbPath, "test-session")
 	require.NoError(t, err)
+	defer store.Close()
 
 	key := "session-data"
 	data := map[string]interface{}{
@@ -178,6 +181,7 @@ func TestStorageIntegration_ErrorHandling(t *testing.T) {
 	dbPath := filepath.Join(tmpDir, "memory.db")
 	memoryStore, err := storage.NewMemoryStorage(dbPath)
 	require.NoError(t, err)
+	defer memoryStore.Close()
 
 	_, exists := memoryStore.Get("non-existent-key")
 	assert.False(t, exists)
@@ -186,6 +190,7 @@ func TestStorageIntegration_ErrorHandling(t *testing.T) {
 	sessionDBPath := filepath.Join(tmpDir, "sessions.db")
 	sessionStore, err := storage.NewSessionStorage(sessionDBPath, "error-test")
 	require.NoError(t, err)
+	defer sessionStore.Close()
 
 	_, exists = sessionStore.Get("non-existent-key")
 	assert.False(t, exists)
@@ -193,20 +198,30 @@ func TestStorageIntegration_ErrorHandling(t *testing.T) {
 
 func TestStorageIntegration_ConstructorErrorHandling(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
-	// Test memory storage constructor with invalid paths
-	invalidPath := "/nonexistent/parent/directory/memory.db"
+	// Test memory/session storage constructors with a path whose parent can
+	// never be created: both constructors os.MkdirAll the parent directory,
+	// so a merely-missing directory always succeeds. A regular file sitting
+	// where a directory needs to go fails MkdirAll identically on every OS,
+	// unlike a bare "/nonexistent/..." (Windows resolves it against whatever
+	// the current drive happens to be) or a root-owned path (Unix-only
+	// permission denial).
+	blockingFile := filepath.Join(t.TempDir(), "not-a-directory")
+	require.NoError(t, os.WriteFile(blockingFile, []byte("x"), 0o600))
+
+	invalidPath := filepath.Join(blockingFile, "sub", "memory.db")
 	_, err := storage.NewMemoryStorage(invalidPath)
-	require.Error(t, err, "Should fail with invalid directory")
+	require.Error(t, err, "Should fail when a path component is a file, not a directory")
 
 	// Test session storage constructor with invalid paths
-	_, err = storage.NewSessionStorage("/nonexistent/parent/directory/sessions.db", "test-session")
-	require.Error(t, err, "Should fail with invalid directory")
+	_, err = storage.NewSessionStorage(filepath.Join(blockingFile, "sub", "sessions.db"), "test-session")
+	require.Error(t, err, "Should fail when a path component is a file, not a directory")
 
 	// Test session storage constructor with empty session ID
 	tmpDir := t.TempDir()
 	validPath := filepath.Join(tmpDir, "sessions.db")
 	sessionStore, err := storage.NewSessionStorage(validPath, "")
 	require.NoError(t, err)
+	defer sessionStore.Close()
 	assert.NotNil(t, sessionStore)
 }
 

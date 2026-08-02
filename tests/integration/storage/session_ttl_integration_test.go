@@ -36,8 +36,10 @@ func TestSessionStorage_TTL(t *testing.T) {
 	tmpDir := t.TempDir()
 	dbPath := filepath.Join(tmpDir, "sessions_ttl.db")
 
-	// Create session storage with 200ms TTL (reduced from 1 second)
-	store, err := storage.NewSessionStorageWithTTL(dbPath, "ttl-test", 200*time.Millisecond)
+	// Margin widened 3x (was 200ms/400ms) after observed flakes under heavy
+	// parallel test load, where scheduling/disk-commit jitter ate into the
+	// original tight window.
+	store, err := storage.NewSessionStorageWithTTL(dbPath, "ttl-test", 600*time.Millisecond)
 	require.NoError(t, err)
 	defer store.Close()
 
@@ -55,8 +57,8 @@ func TestSessionStorage_TTL(t *testing.T) {
 	require.True(t, exists)
 	assert.NotNil(t, retrieved)
 
-	// Wait for TTL to expire (400ms total wait, reduced from 2 seconds)
-	time.Sleep(400 * time.Millisecond)
+	// Wait for TTL to expire
+	time.Sleep(1200 * time.Millisecond)
 
 	// Should no longer exist
 	retrieved, exists = store.Get(key)
@@ -70,8 +72,8 @@ func TestSessionStorage_TTL_Extension(t *testing.T) {
 	tmpDir := t.TempDir()
 	dbPath := filepath.Join(tmpDir, "sessions_ttl_extend.db")
 
-	// Create session storage with 400ms TTL (reduced from 2 seconds)
-	store, err := storage.NewSessionStorageWithTTL(dbPath, "ttl-extend-test", 400*time.Millisecond)
+	// Margin widened 3x (was 400ms/300ms/300ms) -- see TestSessionStorage_TTL.
+	store, err := storage.NewSessionStorageWithTTL(dbPath, "ttl-extend-test", 1200*time.Millisecond)
 	require.NoError(t, err)
 	defer store.Close()
 
@@ -85,15 +87,15 @@ func TestSessionStorage_TTL_Extension(t *testing.T) {
 	_, exists := store.Get(key)
 	require.True(t, exists)
 
-	// Wait 300ms (less than TTL)
-	time.Sleep(300 * time.Millisecond)
+	// Wait (less than TTL)
+	time.Sleep(900 * time.Millisecond)
 
 	// Access again - should extend TTL (Get() calls Touch() if TTL is configured)
 	_, exists = store.Get(key)
 	require.True(t, exists)
 
-	// Wait another 300ms (total 600ms, but TTL was extended to 400ms from last access)
-	time.Sleep(300 * time.Millisecond)
+	// Wait again (total exceeds original TTL, but TTL was extended on last access)
+	time.Sleep(900 * time.Millisecond)
 
 	// Should still exist because TTL was extended on last Get()
 	_, exists = store.Get(key)
@@ -106,8 +108,9 @@ func TestSessionStorage_Touch(t *testing.T) {
 	tmpDir := t.TempDir()
 	dbPath := filepath.Join(tmpDir, "sessions_touch.db")
 
-	// Create session storage with 200ms TTL (reduced from 1 second)
-	store, err := storage.NewSessionStorageWithTTL(dbPath, "touch-test", 200*time.Millisecond)
+	// Margin widened 3x (was 200ms TTL / 100ms / 100ms / 300ms) -- see
+	// TestSessionStorage_TTL.
+	store, err := storage.NewSessionStorageWithTTL(dbPath, "touch-test", 600*time.Millisecond)
 	require.NoError(t, err)
 	defer store.Close()
 
@@ -117,22 +120,22 @@ func TestSessionStorage_Touch(t *testing.T) {
 	err = store.Set(key, value)
 	require.NoError(t, err)
 
-	// Wait 100ms (half of TTL)
-	time.Sleep(100 * time.Millisecond)
+	// Wait (half of TTL)
+	time.Sleep(300 * time.Millisecond)
 
-	// Touch to extend TTL by another 200ms
+	// Touch to extend TTL by another full TTL
 	err = store.Touch(key)
 	require.NoError(t, err)
 
-	// Wait another 100ms (total 200ms, but TTL was extended)
-	time.Sleep(100 * time.Millisecond)
+	// Wait again (total is the original TTL, but TTL was extended by Touch)
+	time.Sleep(300 * time.Millisecond)
 
 	// Should still exist
 	_, exists := store.Get(key)
 	assert.True(t, exists)
 
-	// Wait another 300ms (total 500ms, TTL was 200ms after touch)
-	time.Sleep(300 * time.Millisecond)
+	// Wait past the extended TTL
+	time.Sleep(900 * time.Millisecond)
 
 	// Should now be expired
 	_, exists = store.Get(key)
@@ -157,16 +160,16 @@ func TestSessionStorage_TouchWithTTL(t *testing.T) {
 	err = store.Set(key, value)
 	require.NoError(t, err)
 
-	// Touch with custom 200ms TTL (reduced from 1 second)
-	err = store.TouchWithTTL(key, 200*time.Millisecond)
+	// Margin widened 3x (was 200ms/400ms) -- see TestSessionStorage_TTL.
+	err = store.TouchWithTTL(key, 600*time.Millisecond)
 	require.NoError(t, err)
 
 	// Should exist immediately (Get() won't extend TTL since DefaultTTL is 0)
 	_, exists := store.Get(key)
 	require.True(t, exists)
 
-	// Wait for TTL to expire (400ms total wait, reduced from 2 seconds)
-	time.Sleep(400 * time.Millisecond)
+	// Wait for TTL to expire
+	time.Sleep(1200 * time.Millisecond)
 
 	// Should be expired
 	_, exists = store.Get(key)
@@ -179,8 +182,8 @@ func TestSessionStorage_IsExpired(t *testing.T) {
 	tmpDir := t.TempDir()
 	dbPath := filepath.Join(tmpDir, "sessions_expired.db")
 
-	// Create session storage with 200ms TTL (reduced from 1 second)
-	store, err := storage.NewSessionStorageWithTTL(dbPath, "expired-test", 200*time.Millisecond)
+	// Margin widened 3x (was 200ms/400ms) -- see TestSessionStorage_TTL.
+	store, err := storage.NewSessionStorageWithTTL(dbPath, "expired-test", 600*time.Millisecond)
 	require.NoError(t, err)
 	defer store.Close()
 
@@ -195,8 +198,8 @@ func TestSessionStorage_IsExpired(t *testing.T) {
 	require.NoError(t, err)
 	assert.False(t, expired)
 
-	// Wait for TTL to expire (400ms total wait, reduced from 2 seconds)
-	time.Sleep(400 * time.Millisecond)
+	// Wait for TTL to expire
+	time.Sleep(1200 * time.Millisecond)
 
 	// Should be expired
 	expired, err = store.IsExpired(key)
@@ -210,8 +213,11 @@ func TestSessionStorage_Cleanup(t *testing.T) {
 	tmpDir := t.TempDir()
 	dbPath := filepath.Join(tmpDir, "sessions_cleanup.db")
 
-	// Create session storage with short TTL
-	store, err := storage.NewSessionStorageWithTTL(dbPath, "cleanup-test", 500*time.Millisecond)
+	// Create session storage with short TTL. Margin is generous (3x TTL wait)
+	// because the "verify all exist" loop below touches (extends) the TTL on
+	// each Get, and under heavy parallel test load the scheduling/disk-commit
+	// jitter can eat into a tight margin, flaking the expiry check that follows.
+	store, err := storage.NewSessionStorageWithTTL(dbPath, "cleanup-test", 1*time.Second)
 	require.NoError(t, err)
 	defer store.Close()
 
@@ -231,7 +237,7 @@ func TestSessionStorage_Cleanup(t *testing.T) {
 
 	// Wait for TTL to expire and cleanup to run (cleanup runs every 5 minutes, but we can trigger manually)
 	// Note: In a real scenario, cleanup runs in background. For testing, we wait and check.
-	time.Sleep(1 * time.Second)
+	time.Sleep(3 * time.Second)
 
 	// All should be expired (cleanup may not have run yet, but Get should return false)
 	// The cleanup goroutine runs every 5 minutes, so expired items may still be in DB

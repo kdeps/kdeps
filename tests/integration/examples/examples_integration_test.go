@@ -22,6 +22,7 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 
@@ -449,6 +450,10 @@ func TestHTTPAdvancedExample_POST(t *testing.T) {
 
 // TestShellExecExample_GET tests GET endpoint as described in README.
 func TestShellExecExample_GET(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("system-info.yaml's command chain (uname/pwd/date via && ) is POSIX-shell-only; " +
+			"kdeps' exec resource runs it through cmd /C on Windows by design, where none of those exist")
+	}
 	workflowPath := "../../../examples/shell-exec/workflow.yaml"
 	if _, err := os.Stat(workflowPath); os.IsNotExist(err) {
 		t.Skip("Shell exec example not available")

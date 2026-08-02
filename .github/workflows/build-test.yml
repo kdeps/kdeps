@@ -203,10 +203,9 @@ jobs:
         KDEPS_E2E_LLAMAFILE_DOWNLOAD: "1"
 
   test-windows:
-    # Proves the Windows release binary actually builds and its unit tests
-    # pass natively, not just that it cross-compiles. Scoped to unit tests
-    # only (./pkg/... ./cmd/... ./) -- integration/e2e need ollama, uv, and
-    # Docker ported to Windows first (tracked separately, not yet done).
+    # Proves the Windows release binary actually builds and its unit + integration
+    # tests pass natively, not just that it cross-compiles. E2E is not included yet --
+    # it needs ollama, uv, and Docker ported to Windows first (tracked separately).
     runs-on: windows-latest
     permissions:
       contents: read
@@ -246,6 +245,14 @@ jobs:
         # windows-latest runner's page-file commit limit ("VirtualAlloc ...
         # errno=1455 / fatal error: out of memory" in cmd/link).
         run: go test -p 1 -short -failfast -parallel 1 -count=1 -timeout=20m ./pkg/... ./cmd/... ./
+
+      - name: Test Integration
+        shell: bash
+        env:
+          KDEPS_MEMORY_DB_PATH: ":memory:"
+        # Same -p 1 -parallel 1 constraint as the unit-test step above (linking
+        # several test binaries at once exceeds the runner's page-file commit limit).
+        run: go test -p 1 -parallel 1 -count=1 -timeout=20m ./tests/integration/...
 
   coverage-badge:
     needs: test

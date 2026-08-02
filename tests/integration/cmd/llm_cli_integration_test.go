@@ -36,13 +36,21 @@ func kdepsBin(t *testing.T) string {
 		filepath.Join("..", "..", "kdeps"),
 		"kdeps",
 	}
-	// Walk up from test cwd
+	// Walk up from test cwd to the filesystem root. Stop once filepath.Dir
+	// stops changing rather than comparing against "/" -- on Windows Dir
+	// stabilizes at the drive root (e.g. "C:\") and never produces "/", so a
+	// "/" sentinel spins forever re-stat'ing the same path.
 	wd, _ := os.Getwd()
-	for d := wd; d != "/" && d != ""; d = filepath.Dir(d) {
+	for d := wd; d != ""; {
 		p := filepath.Join(d, "kdeps")
 		if st, err := os.Stat(p); err == nil && !st.IsDir() {
 			return p
 		}
+		parent := filepath.Dir(d)
+		if parent == d {
+			break
+		}
+		d = parent
 	}
 	for _, c := range candidates {
 		if st, err := os.Stat(c); err == nil && !st.IsDir() {
