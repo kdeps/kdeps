@@ -36,12 +36,19 @@ trap 'rm -rf "$TMP_HOME" "$FAKE_BIN_DIR"; kill "$_OLLAMA_MOCK_PID" 2>/dev/null' 
 # Fake `ollama` CLI: `ollama list` reports the model as already pulled so
 # buildModelTypes() classifies it as an ollama model, and serveOllamaModel's
 # "already running" check succeeds immediately (no real subprocess spawned).
+#
+# kdeps.exe is a native (non-MSYS) binary on Windows: its own PATH lookup
+# needs a real .bat/.exe/.cmd there, since native process creation never
+# interprets a "#!/bin/sh" shebang the way POSIX exec does. Without a .bat
+# twin, this mock is invisible to kdeps.exe on Windows -- it would silently
+# find no ollama models at all rather than actually exercising the ollama
+# code path this test is supposed to cover.
 cat > "$FAKE_BIN_DIR/ollama" << 'EOF'
 #!/bin/sh
 case "$1" in
     list)
         echo "NAME            ID              SIZE"
-        echo "llama3.2:1b     abc123def456    1.3 GB"
+        echo "e2e-ollama-test-model:1b     abc123def456    1.3 GB"
         exit 0
         ;;
     *)
@@ -50,6 +57,16 @@ case "$1" in
 esac
 EOF
 chmod +x "$FAKE_BIN_DIR/ollama"
+
+cat > "$FAKE_BIN_DIR/ollama.bat" << 'EOF'
+@echo off
+if "%1"=="list" (
+    echo NAME            ID              SIZE
+    echo e2e-ollama-test-model:1b     abc123def456    1.3 GB
+    exit /b 0
+)
+exit /b 0
+EOF
 
 # Mock Ollama HTTP server: 200 on any path, including the completions probe
 # used by WaitForServerReady.
@@ -83,7 +100,7 @@ _OLLAMA_MOCK_PID=$!
 sleep 0.2
 
 START=$(date +%s)
-OUTPUT=$(printf '%s\n' '/model llama3.2:1b' '/quit' | \
+OUTPUT=$(printf '%s\n' '/model e2e-ollama-test-model:1b' '/quit' | \
     HOME="$TMP_HOME" \
     PATH="$FAKE_BIN_DIR:$PATH" \
     OLLAMA_HOST="http://127.0.0.1:$_OLLAMA_MOCK_PORT" \
@@ -106,7 +123,7 @@ else
     test_passed "REPL /model <ollama model> - ServerURL resolved (no timeout warning)"
 fi
 
-if output_grep_fixed "Model set to llama3.2:1b" "$OUTPUT"; then
+if output_grep_fixed "Model set to e2e-ollama-test-model:1b" "$OUTPUT"; then
     test_passed "REPL /model <ollama model> - model switch completed"
 else
     test_failed "REPL /model <ollama model> - model switch did not complete" "Output: $OUTPUT"
