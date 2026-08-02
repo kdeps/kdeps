@@ -63,7 +63,7 @@ func TestCachedLlamaServerPath_Default(t *testing.T) {
 	userHomeDirFunc = func() (string, error) { return "/test/home/gguf", nil }
 
 	result := cachedLlamaServerPath()
-	expected := filepath.Join("/test/home/gguf", ".kdeps", "bin", "llama-server")
+	expected := filepath.Join("/test/home/gguf", ".kdeps", "bin", llamaServerExeName())
 	if result != expected {
 		t.Errorf("expected %q, got %q", expected, result)
 	}
@@ -139,7 +139,7 @@ func TestExtractZipFile_NoLlamaServerBinary(t *testing.T) {
 
 func TestEnsureLlamaServerBinary_Cached(t *testing.T) {
 	dir := t.TempDir()
-	cachedPath := filepath.Join(dir, ".kdeps", "bin", "llama-server")
+	cachedPath := filepath.Join(dir, ".kdeps", "bin", llamaServerExeName())
 	if err := os.MkdirAll(filepath.Dir(cachedPath), 0750); err != nil {
 		t.Fatal(err)
 	}
@@ -274,6 +274,45 @@ func TestInstallLlamaServer_ExtractError(t *testing.T) {
 	assert.Contains(t, err.Error(), "extract llama-server")
 }
 
+// Regression: on a truly fresh ~/.kdeps (first-ever install), dest's parent
+// directory ("bin") does not exist yet. installLlamaServer must create it
+// itself rather than assuming the caller already has -- downloadFile's
+// os.Create fails outright into a missing directory, and previously that
+// failure silently downgraded ensureLlamaServerBinary to the bare "llama-server"
+// PATH-lookup fallback, which then failed with a confusing
+// "executable file not found in %PATH%" error on first run.
+func TestInstallLlamaServer_CreatesMissingParentDir(t *testing.T) {
+	stubLlamaServerAsset(t, "https://example.com/llama-server.zip")
+	origTransport := downloadHTTPClient.Transport
+	t.Cleanup(func() { downloadHTTPClient.Transport = origTransport })
+
+	var buf bytes.Buffer
+	zw := zip.NewWriter(&buf)
+	f, err := zw.Create("llama-server")
+	require.NoError(t, err)
+	_, err = f.Write([]byte("fake-llama-server-binary"))
+	require.NoError(t, err)
+	require.NoError(t, zw.Close())
+
+	downloadHTTPClient.Transport = roundTripperFunc(func(_ *http.Request) (*http.Response, error) {
+		return &http.Response{
+			StatusCode: http.StatusOK,
+			Body:       io.NopCloser(bytes.NewReader(buf.Bytes())),
+			Header:     make(http.Header),
+		}, nil
+	})
+
+	dir := t.TempDir()
+	// Deliberately do NOT create filepath.Join(dir, ".kdeps", "bin").
+	dest := filepath.Join(dir, ".kdeps", "bin", "llama-server")
+
+	require.NoError(t, installLlamaServer(dest))
+
+	data, err := os.ReadFile(dest)
+	require.NoError(t, err)
+	assert.Equal(t, "fake-llama-server-binary", string(data))
+}
+
 func TestInstallLlamaServer_Success(t *testing.T) {
 	stubLlamaServerAsset(t, "https://example.com/llama-server.zip")
 	origTransport := downloadHTTPClient.Transport
@@ -319,6 +358,124 @@ func TestInstallLlamaServer_Success(t *testing.T) {
 			"installed llama-server binary must have owner-execute permission",
 		)
 	}
+}
+
+// Regression: llama.cpp release archives ship llama-server as a thin launcher
+// depending on a same-named "-impl" library plus several shared ggml-*/
+// llama-* libraries in the same directory; extracting only the launcher left
+// it unable to start. installLlamaServer must pull in every other archive
+// member alongside it.
+func TestInstallLlamaServer_ExtractsSiblingLibraries(t *testing.T) {
+	stubLlamaServerAsset(t, "https://example.com/llama-server.zip")
+
+	var buf bytes.Buffer
+	zw := zip.NewWriter(&buf)
+	main, err := zw.Create("llama-server")
+	require.NoError(t, err)
+	_, err = main.Write([]byte("thin-launcher"))
+	require.NoError(t, err)
+	impl, err := zw.Create("llama-server-impl.dll")
+	require.NoError(t, err)
+	_, err = impl.Write([]byte("real-implementation"))
+	require.NoError(t, err)
+	ggml, err := zw.Create("ggml-base.dll")
+	require.NoError(t, err)
+	_, err = ggml.Write([]byte("shared-library"))
+	require.NoError(t, err)
+	unrelated, err := zw.Create("llama-cli.exe")
+	require.NoError(t, err)
+	_, err = unrelated.Write([]byte("other-tool"))
+	require.NoError(t, err)
+	require.NoError(t, zw.Close())
+
+	origTransport := downloadHTTPClient.Transport
+	t.Cleanup(func() { downloadHTTPClient.Transport = origTransport })
+	downloadHTTPClient.Transport = roundTripperFunc(func(_ *http.Request) (*http.Response, error) {
+		return &http.Response{
+			StatusCode: http.StatusOK,
+			Body:       io.NopCloser(bytes.NewReader(buf.Bytes())),
+			Header:     make(http.Header),
+		}, nil
+	})
+
+	dir := t.TempDir()
+	dest := filepath.Join(dir, ".kdeps", "bin", "llama-server")
+	require.NoError(t, os.MkdirAll(filepath.Dir(dest), 0750))
+
+	require.NoError(t, installLlamaServer(dest))
+
+	binDir := filepath.Dir(dest)
+	data, err := os.ReadFile(dest)
+	require.NoError(t, err)
+	assert.Equal(t, "thin-launcher", string(data))
+
+	implData, err := os.ReadFile(filepath.Join(binDir, "llama-server-impl.dll"))
+	require.NoError(t, err)
+	assert.Equal(t, "real-implementation", string(implData))
+
+	ggmlData, err := os.ReadFile(filepath.Join(binDir, "ggml-base.dll"))
+	require.NoError(t, err)
+	assert.Equal(t, "shared-library", string(ggmlData))
+
+	cliData, err := os.ReadFile(filepath.Join(binDir, "llama-cli.exe"))
+	require.NoError(t, err)
+	assert.Equal(t, "other-tool", string(cliData))
+}
+
+func TestExtractSiblingFiles_Zip(t *testing.T) {
+	dir := t.TempDir()
+	var buf bytes.Buffer
+	zw := zip.NewWriter(&buf)
+	f1, err := zw.Create("llama-server")
+	require.NoError(t, err)
+	_, err = f1.Write([]byte("main"))
+	require.NoError(t, err)
+	f2, err := zw.Create("helper.dll")
+	require.NoError(t, err)
+	_, err = f2.Write([]byte("sibling"))
+	require.NoError(t, err)
+	require.NoError(t, zw.Close())
+
+	zipPath := filepath.Join(dir, "test.zip")
+	require.NoError(t, os.WriteFile(zipPath, buf.Bytes(), 0600))
+
+	destDir := filepath.Join(dir, "out")
+	require.NoError(t, os.MkdirAll(destDir, 0750))
+	require.NoError(t, extractSiblingFiles(zipPath, true, destDir, "llama-server"))
+
+	// The skipped file must not be written by the sibling pass.
+	assert.NoFileExists(t, filepath.Join(destDir, "llama-server"))
+
+	data, err := os.ReadFile(filepath.Join(destDir, "helper.dll"))
+	require.NoError(t, err)
+	assert.Equal(t, "sibling", string(data))
+}
+
+func TestExtractSiblingFiles_TarGz(t *testing.T) {
+	tarGzPath := writeTestTarGz(t, map[string]string{
+		"build/bin/llama-server":      "main",
+		"build/bin/libhelper-impl.so": "sibling",
+	})
+	destDir := filepath.Join(filepath.Dir(tarGzPath), "out")
+	require.NoError(t, os.MkdirAll(destDir, 0750))
+
+	require.NoError(t, extractSiblingFiles(tarGzPath, false, destDir, "llama-server"))
+
+	assert.NoFileExists(t, filepath.Join(destDir, "llama-server"))
+
+	data, err := os.ReadFile(filepath.Join(destDir, "libhelper-impl.so"))
+	require.NoError(t, err)
+	assert.Equal(t, "sibling", string(data))
+}
+
+func TestExtractSiblingFiles_ZipMissingArchive(t *testing.T) {
+	err := extractSiblingFiles("/nonexistent/archive.zip", true, t.TempDir(), "llama-server")
+	require.Error(t, err)
+}
+
+func TestExtractSiblingFiles_TarGzMissingArchive(t *testing.T) {
+	err := extractSiblingFiles("/nonexistent/archive.tar.gz", false, t.TempDir(), "llama-server")
+	require.Error(t, err)
 }
 
 func TestResolvedGGUFURL_ModelNotInCache(t *testing.T) {
@@ -477,7 +634,7 @@ func TestEnsureLlamaServerBinary_InstallSuccess(t *testing.T) {
 	})
 
 	result := ensureLlamaServerBinary()
-	expected := filepath.Join(dir, ".kdeps", "bin", "llama-server")
+	expected := filepath.Join(dir, ".kdeps", "bin", llamaServerExeName())
 	assert.Equal(t, expected, result)
 }
 

@@ -170,12 +170,22 @@ func ResolvedGGUFURL(model string) string {
 	return ""
 }
 
+// llamaServerExeName returns the OS-appropriate filename for the llama-server
+// launcher shipped in llama.cpp release archives ("llama-server.exe" on
+// Windows, "llama-server" elsewhere).
+func llamaServerExeName() string {
+	if runtime.GOOS == goosWindows {
+		return "llama-server.exe"
+	}
+	return "llama-server"
+}
+
 func cachedLlamaServerPath() string {
 	home, err := userHomeDirFunc()
 	if err != nil {
 		return ""
 	}
-	return filepath.Join(home, ".kdeps", "bin", "llama-server")
+	return filepath.Join(home, ".kdeps", "bin", llamaServerExeName())
 }
 
 // llamaServerExecutablePerm grants owner/group/other read+execute and owner
@@ -197,6 +207,11 @@ func installLlamaServer(dest string) error {
 	if isZip {
 		archivePath = dest + ".zip"
 	}
+	// dest's parent (~/.kdeps/bin) may not exist yet on a first-ever install --
+	// downloadFile's os.Create fails outright without it.
+	if mkdirErr := os.MkdirAll(filepath.Dir(dest), 0750); mkdirErr != nil {
+		return fmt.Errorf("create llama-server dir: %w", mkdirErr)
+	}
 	if dlErr := downloadFile(archivePath, assetURL); dlErr != nil {
 		return fmt.Errorf("download llama-server: %w", dlErr)
 	}
@@ -209,10 +224,116 @@ func installLlamaServer(dest string) error {
 	if err != nil {
 		return fmt.Errorf("extract llama-server: %w", err)
 	}
+	// llama.cpp's release builds ship llama-server as a thin launcher (tens of
+	// KB) that dynamically loads a same-named "-impl" library plus several
+	// shared ggml-*/llama-* libraries from its own directory; on every
+	// platform, not just Windows. Extracting only the launcher leaves it
+	// unable to start ("missing DLL" / "shared library not found"). Pull in
+	// every other file from the same archive alongside it.
+	siblingErr := extractSiblingFiles(archivePath, isZip, filepath.Dir(dest), filepath.Base(dest))
+	if siblingErr != nil {
+		return fmt.Errorf("extract llama-server dependencies: %w", siblingErr)
+	}
 	if chmodErr := os.Chmod(dest, llamaServerExecutablePerm); chmodErr != nil {
 		return fmt.Errorf("chmod llama-server: %w", chmodErr)
 	}
 	return nil
+}
+
+// extractSiblingFiles extracts every regular file in the archive other than
+// skipBase (already handled by extractZipFile/extractTarGzFile) into destDir,
+// flattening any directory structure the archive uses -- see the comment in
+// installLlamaServer for why this matters.
+func extractSiblingFiles(archivePath string, isZip bool, destDir, skipBase string) error {
+	kdeps_debug.Log("enter: extractSiblingFiles")
+	if isZip {
+		return extractZipSiblings(archivePath, destDir, skipBase)
+	}
+	return extractTarGzSiblings(archivePath, destDir, skipBase)
+}
+
+func extractZipSiblings(zipPath, destDir, skipBase string) error {
+	reader, err := zip.OpenReader(zipPath)
+	if err != nil {
+		return err
+	}
+	defer reader.Close()
+	for _, f := range reader.File {
+		if f.FileInfo().IsDir() {
+			continue
+		}
+		base := filepath.Base(f.Name)
+		if base == skipBase {
+			continue
+		}
+		if copyErr := copyZipEntryTo(f, filepath.Join(destDir, base)); copyErr != nil {
+			return copyErr
+		}
+	}
+	return nil
+}
+
+func copyZipEntryTo(f *zip.File, outPath string) error {
+	rc, err := f.Open()
+	if err != nil {
+		return err
+	}
+	defer rc.Close()
+	out, err := os.OpenFile(outPath, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0600)
+	if err != nil {
+		return err
+	}
+	defer out.Close()
+	//nolint:gosec // G110: binary is size-bounded by GitHub release; not user-controlled decompression
+	_, err = io.Copy(out, rc)
+	return err
+}
+
+func extractTarGzSiblings(tarGzPath, destDir, skipBase string) error {
+	f, err := os.Open(tarGzPath)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+	gz, err := gzip.NewReader(f)
+	if err != nil {
+		return err
+	}
+	defer gz.Close()
+	tr := tar.NewReader(gz)
+	for {
+		hdr, nextErr := tr.Next()
+		if errors.Is(nextErr, io.EOF) {
+			break
+		}
+		if nextErr != nil {
+			return nextErr
+		}
+		if hdr.Typeflag != tar.TypeReg {
+			continue
+		}
+		base := filepath.Base(hdr.Name)
+		if base == skipBase {
+			continue
+		}
+		if copyErr := copyTarEntryTo(tr, filepath.Join(destDir, base)); copyErr != nil {
+			return copyErr
+		}
+	}
+	return nil
+}
+
+func copyTarEntryTo(tr *tar.Reader, outPath string) error {
+	out, err := os.OpenFile(outPath, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0600)
+	if err != nil {
+		return err
+	}
+	_, copyErr := io.Copy(out, tr)
+	closeErr := out.Close()
+	if copyErr != nil {
+		return copyErr
+	}
+	return closeErr
 }
 
 const llamaCppLatestReleaseAPI = "https://api.github.com/repos/ggml-org/llama.cpp/releases/latest"

@@ -56,7 +56,7 @@ func TestCachedLlamaServerPath(t *testing.T) {
 	userHomeDirFunc = func() (string, error) { return "/test/home", nil }
 
 	path := cachedLlamaServerPath()
-	assert.Equal(t, filepath.Join("/test/home", ".kdeps", "bin", "llama-server"), path)
+	assert.Equal(t, filepath.Join("/test/home", ".kdeps", "bin", llamaServerExeName()), path)
 }
 
 func TestResolvedGGUFURL_NoModelsDir(t *testing.T) {
@@ -82,7 +82,7 @@ func TestEnsureLlamaServerBinary_ReturnsCachedPath(t *testing.T) {
 	userHomeDirFunc = func() (string, error) { return tmp, nil }
 	binDir := filepath.Join(tmp, ".kdeps", "bin")
 	require.NoError(t, os.MkdirAll(binDir, 0o750))
-	cachedBin := filepath.Join(binDir, "llama-server")
+	cachedBin := filepath.Join(binDir, llamaServerExeName())
 	require.NoError(t, os.WriteFile(cachedBin, []byte("fake"), 0o755))
 
 	result := EnsureLlamaServerBinary()
