@@ -23,6 +23,26 @@ func TestFuzzyMatchEntries_AllDelimiters(t *testing.T) {
 	}
 }
 
+func TestFuzzyMatchEntries_MatchesByBackendName(t *testing.T) {
+	// tagForEntry only ever renders a generic "[cloud]"/"[cloud enabled]" tag,
+	// never the backend name itself, so without Backend in the search text a
+	// query for "m365" would only match the one model literally named
+	// "m365-copilot" and hide the other m365-backed models that don't repeat
+	// the backend name in their own id (gpt-5.5, claude-sonnet, ...).
+	entries := []ModelEntry{
+		{Name: "m365-copilot", Backend: "m365"},
+		{Name: "gpt-5.5", Backend: "m365"},
+		{Name: "claude-sonnet", Backend: "m365"},
+		{Name: "deepseek-chat", Backend: "deepseek"},
+	}
+	got := fuzzyMatchEntries(entries, "m365")
+	names := make([]string, len(got))
+	for i, e := range got {
+		names[i] = e.Name
+	}
+	assert.ElementsMatch(t, []string{"m365-copilot", "gpt-5.5", "claude-sonnet"}, names)
+}
+
 func TestFuzzyScore_EmptyQuery(t *testing.T) {
 	// Empty query always matches with score 0.
 	ok, score := fuzzyScore("", "any text here")

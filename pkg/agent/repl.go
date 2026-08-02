@@ -66,7 +66,11 @@ const (
 	replFileCompletionMax = 20
 	replAutoCompactEvery  = 25
 
-	replModelCompletionMax         = 10 // max model name suggestions for /model <tab> with a partial filter
+	// 20, not 10: typing a backend name (e.g. "m365", which has 16 catalog
+	// entries) should surface every one of that backend's models, not an
+	// arbitrarily truncated subset -- the user has already narrowed intent
+	// by typing the exact backend name.
+	replModelCompletionMax         = 20 // max model name suggestions for /model <tab> with a partial filter
 	replModelCompletionMaxNoFilter = 10 // cap when no partial typed (prioritized: cached > enabled-cloud > llamafile > gguf > ollama > cloud)
 
 	// Default thinking token budgets per mode. These are explicit so langchaingo
@@ -694,16 +698,43 @@ func boldTagKeyword(tag, keyword string) string {
 // so that modelCompletionSuffixes uses the correct tokenLen.
 func (r *REPL) modelNamesMatchingToken(lower string) ([]string, bool) {
 	var prefix []string
+	seen := make(map[string]struct{})
 	for _, name := range r.modelNames {
 		if strings.HasPrefix(strings.ToLower(name), lower) {
 			prefix = append(prefix, name)
+			seen[name] = struct{}{}
 		}
+	}
+
+	// Backend-name match: a multi-model cloud backend's own name is often
+	// also one of its model IDs (m365 -> "m365-copilot"), which would
+	// short-circuit the plain prefix search above before it ever considers
+	// the rest of that backend's models -- most of them don't repeat the
+	// backend name in their own ID at all (m365 -> "gpt-5.5", "claude-sonnet",
+	// "quick", ...). Checked unconditionally, not just when prefix is empty,
+	// so typing "m365" surfaces every m365 model instead of only the one
+	// literally named that.
+	var byBackend []string
+	for _, name := range r.modelNames {
+		if _, ok := seen[name]; ok {
+			continue
+		}
+		if backend := r.cloudModelBackends[name]; backend != "" && strings.HasPrefix(strings.ToLower(backend), lower) {
+			byBackend = append(byBackend, name)
+			seen[name] = struct{}{}
+		}
+	}
+	if len(byBackend) > 0 {
+		// Mixing true prefix-offset entries with these (which aren't
+		// actually prefixed by the typed token) can't share one readline
+		// offset, so once a backend match exists everything is presented
+		// tag-style (offset 0) instead.
+		return append(prefix, byBackend...), false
 	}
 	if len(prefix) > 0 {
 		return prefix, true
 	}
-	// No prefix matches: try tag-type filtering.
-	seen := make(map[string]struct{}, len(prefix))
+	// No prefix or backend matches: try tag-type filtering.
 	var tagged []string
 	for _, name := range r.modelNames {
 		if _, ok := seen[name]; ok {

@@ -4590,6 +4590,28 @@ func TestDoModelCompletion_PrefixMatch(t *testing.T) {
 	assert.Len(t, results, 2)
 }
 
+func TestDoModelCompletion_BackendNameSurfacesAllModels(t *testing.T) {
+	loop := makeTestLoop(nil)
+	repl := NewREPL(context.Background(), loop)
+	defer repl.cancel()
+	// Mirrors the real m365 catalog shape: one model id happens to start with
+	// the backend name ("m365-copilot"), but most don't ("gpt-5.5",
+	// "claude-sonnet") -- a plain name-prefix search for "m365" must not stop
+	// at the one lucky match and hide the rest.
+	repl.modelNames = []string{"m365-copilot", "gpt-5.5", "claude-sonnet", "deepseek-chat"}
+	repl.cloudModelBackends = map[string]string{
+		"m365-copilot":  "m365",
+		"gpt-5.5":       "m365",
+		"claude-sonnet": "m365",
+		"deepseek-chat": "deepseek",
+	}
+
+	matched, isPrefix := repl.modelNamesMatchingToken("m365")
+	assert.False(t, isPrefix, "backend-name matches use the tag-suffix (offset 0) path")
+	assert.ElementsMatch(t, []string{"m365-copilot", "gpt-5.5", "claude-sonnet"}, matched)
+	assert.NotContains(t, matched, "deepseek-chat")
+}
+
 func TestDoModelCompletion_NoMatch(t *testing.T) {
 	loop := makeTestLoop(nil)
 	repl := NewREPL(context.Background(), loop)
