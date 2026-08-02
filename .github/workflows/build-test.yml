@@ -204,8 +204,9 @@ jobs:
 
   test-windows:
     # Proves the Windows release binary actually builds and its unit + integration
-    # tests pass natively, not just that it cross-compiles. E2E is not included yet --
-    # it needs ollama, uv, and Docker ported to Windows first (tracked separately).
+    # tests pass natively, not just that it cross-compiles. E2E is included too;
+    # scripts needing ollama/python3/docker self-skip when the tool is missing
+    # (see tests/e2e/*.sh `command -v` guards) rather than failing the job.
     runs-on: windows-latest
     permissions:
       contents: read
@@ -253,6 +254,38 @@ jobs:
         # Same -p 1 -parallel 1 constraint as the unit-test step above (linking
         # several test binaries at once exceeds the runner's page-file commit limit).
         run: go test -p 1 -parallel 1 -count=1 -timeout=20m ./tests/integration/...
+
+      - name: Cache llamafile models
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.kdeps/models
+          key: llamafiles-windows-${{ hashFiles('pkg/executor/llm/llamafile_versions_data.go') }}
+
+      - name: Build kdeps binary for e2e
+        shell: bash
+        run: go build -o kdeps .
+
+      # Populate the llamafile cache (no-op on cache hit) so the llamafile e2e
+      # scripts exercise the default file backend with a real model, mirroring
+      # the Linux `test` job's step.
+      - name: Pre-download default llamafile
+        shell: bash
+        run: |
+          mkdir -p ~/.kdeps/models
+          FILE=~/.kdeps/models/Llama-3.2-1B-Instruct-Q4_K_M.llamafile
+          if [ ! -f "$FILE" ]; then
+            curl -fL --retry 3 -o "$FILE" \
+              https://huggingface.co/mozilla-ai/Llama-3.2-1B-Instruct-llamafile/resolve/main/Llama-3.2-1B-Instruct-Q4_K_M.llamafile
+          fi
+          chmod +x "$FILE"
+
+      - name: Test E2E
+        shell: bash
+        timeout-minutes: 30
+        env:
+          KDEPS_E2E_LLAMAFILE_DOWNLOAD: "1"
+          KDEPS_MEMORY_DB_PATH: ":memory:"
+        run: bash tests/e2e/e2e.sh
 
   coverage-badge:
     needs: test
