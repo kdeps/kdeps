@@ -539,24 +539,24 @@ def main():
         os.makedirs(out_dir, exist_ok=True)
 
         go_path = os.path.join(out_dir, "llamafile_versions_data.go")
-        with open(go_path, "w") as f:
+        with open(go_path, "w", encoding="utf-8") as f:
             f.write(go_source)
         print(f"Wrote {len(entries)} entries to {go_path}", file=sys.stderr)
 
         tools_yaml = os.path.normpath(os.path.join(HERE, "llamafile_versions.yaml"))
-        with open(tools_yaml, "w") as f:
+        with open(tools_yaml, "w", encoding="utf-8") as f:
             f.write(yaml_text)
         print(f"Wrote YAML to {tools_yaml}", file=sys.stderr)
 
         if gguf_source:
             gguf_go_path = os.path.join(out_dir, "gguf_versions_data.go")
-            with open(gguf_go_path, "w") as f:
+            with open(gguf_go_path, "w", encoding="utf-8") as f:
                 f.write(gguf_source)
             print(f"Wrote {len(gguf_entries)} GGUF entries to {gguf_go_path}", file=sys.stderr)
 
             gguf_yaml_path = os.path.normpath(os.path.join(HERE, "gguf_versions.yaml"))
             gguf_yaml_text = "\n".join(gguf_yaml_lines)
-            with open(gguf_yaml_path, "w") as f:
+            with open(gguf_yaml_path, "w", encoding="utf-8") as f:
                 f.write(gguf_yaml_text)
             print(f"Wrote GGUF YAML to {gguf_yaml_path}", file=sys.stderr)
     else:
