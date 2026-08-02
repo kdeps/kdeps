@@ -187,9 +187,10 @@ func buildCloudProviderMap(list []cloudProvider) map[string]cloudProvider {
 }
 
 func buildAllProviderNames(list []cloudProvider) []string {
-	names := make([]string, 0, len(list)+2) //nolint:mnd // file + ollama prepended
+	names := make([]string, 0, len(list)+3) //nolint:mnd // file + ollama + m365 prepended
 	names = append(names, fileBackendStr)
 	names = append(names, ollamaBackendStr)
+	names = append(names, m365BackendStr)
 	for _, p := range list {
 		names = append(names, p.name)
 	}

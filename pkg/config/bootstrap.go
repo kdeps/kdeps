@@ -85,6 +85,7 @@ var backendChoices = []backendChoice{
 	{"cloud", "cloud", "OpenAI, Anthropic, DeepSeek, Groq, xAI, ... (needs an API key)"},
 	{ollamaBackendStr, "ollama", "connect to an Ollama server"},
 	{"router", "router", "route across multiple models by strategy (advanced)"},
+	{m365BackendStr, "m365", "Microsoft 365 Copilot (browser login, no API key)"},
 }
 
 // routerStrategies are the selectable LLM router strategies, in menu order.
@@ -148,6 +149,8 @@ func configureBackendChoice(
 		return configureCloud(out, reader, w, cfg)
 	case ollamaBackendStr:
 		configureOllama(out, reader, cfg)
+	case m365BackendStr:
+		configureM365(out, reader, cfg)
 	case "router":
 		configureRouter(out, reader, w, cfg)
 	}
@@ -221,6 +224,20 @@ func configureOllama(out io.StringWriter, reader *bufio.Reader, cfg *Config) {
 		reader,
 		"  Default model (e.g. llama3.2, blank to set per resource): ",
 		"",
+	)
+	setDefaultModel(cfg, model)
+}
+
+// configureM365 sets the m365 backend and an optional default model. No API
+// key is collected: M365 Copilot authenticates via a cached browser login
+// token, not an environment-variable key.
+func configureM365(out io.StringWriter, reader *bufio.Reader, cfg *Config) {
+	cfg.LLM.Backend = m365BackendStr
+	model := promptLine(
+		out,
+		reader,
+		"  Default model [m365-copilot]: ",
+		"m365-copilot",
 	)
 	setDefaultModel(cfg, model)
 }

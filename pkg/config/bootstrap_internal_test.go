@@ -550,6 +550,16 @@ func TestConfigureGGUF(t *testing.T) {
 	assert.Equal(t, "qwen3.5-4b", cfg.LLM.Models[0].Model)
 }
 
+func TestConfigureM365(t *testing.T) {
+	reader := bufio.NewReader(strings.NewReader("\n")) // accept default model
+	var out testWriter
+	cfg := &Config{}
+	require.NoError(t, configureBackendChoice(&out, reader, &fmtWriter{w: &out}, cfg, "6"))
+	assert.Equal(t, m365BackendStr, cfg.LLM.Backend)
+	require.Len(t, cfg.LLM.Models, 1)
+	assert.Equal(t, "m365-copilot", cfg.LLM.Models[0].Model)
+}
+
 func TestConfigureRouter(t *testing.T) {
 	// two models then blank to finish, then strategy "2" (round_robin)
 	reader := bufio.NewReader(strings.NewReader(
