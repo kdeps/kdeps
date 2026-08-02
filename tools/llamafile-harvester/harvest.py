@@ -84,6 +84,36 @@ def yaml_str(value):
 # Quantizations that are too large to be useful defaults; never harvested.
 SKIP_QUANT_MARKERS = (".BF16", "-BF16", ".F16", "-F16", ".F32", "-F32")
 
+# HF pipeline_tag values that mean "not a text-generation chat model" even when
+# the repo name matches a chat family's naming convention (e.g. the ASR repo
+# "handy-computer/Qwen3-ASR-1.7B-gguf" contains "qwen" and would otherwise win
+# the "qwen3:1.7b" alias by download count over the real chat GGUF). kdeps
+# serves harvested models through a chat/completion API, so anything tagged as
+# ASR, TTS, vision, or embedding-only can never actually work there.
+NON_CHAT_PIPELINE_TAGS = frozenset({
+    "automatic-speech-recognition",
+    "text-to-speech",
+    "audio-classification",
+    "audio-to-audio",
+    "voice-activity-detection",
+    "image-classification",
+    "image-segmentation",
+    "object-detection",
+    "image-to-text",
+    "text-to-image",
+    "image-to-image",
+    "video-classification",
+    "depth-estimation",
+    "feature-extraction",
+    "sentence-similarity",
+    "token-classification",
+    "fill-mask",
+    "zero-shot-classification",
+    "zero-shot-image-classification",
+    "question-answering",
+    "text-classification",
+})
+
 # Chinese AI labs to include in the daily GGUF harvest.
 # Each entry is (name_filter, search_query) — name_filter is a case-insensitive
 # substring matched against modelId; search_query finds GGUF variants on HF.
@@ -189,6 +219,8 @@ def _harvest_by_extension(candidates, api, args, extension, quant_re, parse_fn, 
 
         downloads = getattr(m, "downloads", None) or 0
         pipeline_tag = getattr(m, "pipeline_tag", None) or ""
+        if pipeline_tag in NON_CHAT_PIPELINE_TAGS:
+            continue
         for s in info.siblings:
             if not s.rfilename.endswith(extension):
                 continue

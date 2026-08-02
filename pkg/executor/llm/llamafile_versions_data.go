@@ -3201,16 +3201,16 @@ var defaultLlamafileVersionsYAML = "" +
 		"    repo: \"DavidAU/Qwen3.6-40B-Claude-4.6-Opus-Deckard-Heretic-Uncensored-Thinking-NEO-CODE-Di-IMatrix-MAX-GGUF\"\n" +
 		"\n" +
 		"  - alias: \"qwen3:1.7b\"\n" +
-		"    description: \"Qwen3-ASR-1.7B-Q4_K_M\"\n" +
-		"    url: \"https://huggingface.co/handy-computer/Qwen3-ASR-1.7B-gguf/resolve/main/Qwen3-ASR-1.7B-Q4_K_M.gguf\"\n" +
+		"    description: \"Qwen3-1.7B.Q4_K_M\"\n" +
+		"    url: \"https://huggingface.co/MaziyarPanahi/Qwen3-1.7B-GGUF/resolve/main/Qwen3-1.7B.Q4_K_M.gguf\"\n" +
 		"    quantization: \"Q4_K_M\"\n" +
-		"    size_bytes: 1319830496\n" +
+		"    size_bytes: 1282439296\n" +
 		"    llama_version: \"3\"\n" +
 		"    params: \"1.7B\"\n" +
-		"    downloads: 182189\n" +
-		"    pipeline_tag: \"automatic-speech-recognition\"\n" +
-		"    filename: \"Qwen3-ASR-1.7B-Q4_K_M.gguf\"\n" +
-		"    repo: \"handy-computer/Qwen3-ASR-1.7B-gguf\"\n" +
+		"    downloads: 156888\n" +
+		"    pipeline_tag: \"text-generation\"\n" +
+		"    filename: \"Qwen3-1.7B.Q4_K_M.gguf\"\n" +
+		"    repo: \"MaziyarPanahi/Qwen3-1.7B-GGUF\"\n" +
 		"\n" +
 		"  - alias: \"qwen3.5:122b\"\n" +
 		"    description: \"Qwen3.5-122B-A10B-UD-Q2_K_XL\"\n" +

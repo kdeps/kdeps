@@ -1350,16 +1350,16 @@ ggufs:
     repo: "DavidAU/Qwen3.6-40B-Claude-4.6-Opus-Deckard-Heretic-Uncensored-Thinking-NEO-CODE-Di-IMatrix-MAX-GGUF"
 
   - alias: "qwen3:1.7b"
-    description: "Qwen3-ASR-1.7B-Q4_K_M"
-    url: "https://huggingface.co/handy-computer/Qwen3-ASR-1.7B-gguf/resolve/main/Qwen3-ASR-1.7B-Q4_K_M.gguf"
+    description: "Qwen3-1.7B.Q4_K_M"
+    url: "https://huggingface.co/MaziyarPanahi/Qwen3-1.7B-GGUF/resolve/main/Qwen3-1.7B.Q4_K_M.gguf"
     quantization: "Q4_K_M"
-    size_bytes: 1319830496
+    size_bytes: 1282439296
     llama_version: "3"
     params: "1.7B"
-    downloads: 182189
-    pipeline_tag: "automatic-speech-recognition"
-    filename: "Qwen3-ASR-1.7B-Q4_K_M.gguf"
-    repo: "handy-computer/Qwen3-ASR-1.7B-gguf"
+    downloads: 156888
+    pipeline_tag: "text-generation"
+    filename: "Qwen3-1.7B.Q4_K_M.gguf"
+    repo: "MaziyarPanahi/Qwen3-1.7B-GGUF"
 
   - alias: "qwen3.5:122b"
     description: "Qwen3.5-122B-A10B-UD-Q2_K_XL"
