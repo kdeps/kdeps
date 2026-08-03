@@ -396,7 +396,14 @@ func TestLlamafileManager_Serve_StartsAndBecomesHealthy(t *testing.T) {
 
 	mgr, dir := newMgrWithDir(t)
 	bin := filepath.Join(dir, "model.llamafile")
-	if err := os.WriteFile(bin, []byte("#!/bin/sh\nexit 0"), 0750); err != nil {
+	// This script is a stand-in for a real llamafile process -- the actual
+	// health endpoint being polled is the httptest server above, on a
+	// different port. It must stay alive past the 100ms health-ready delay
+	// below: waitForHealthy now also checks whether the started process has
+	// already exited (see ServerCrashedError), so an immediate "exit 0" would
+	// race that check and be misread as a crash before health ever gets a
+	// chance to succeed.
+	if err := os.WriteFile(bin, []byte("#!/bin/sh\nsleep 2"), 0750); err != nil {
 		t.Fatal(err)
 	}
 
