@@ -110,6 +110,14 @@ func TestResolve_AliasDownloads(t *testing.T) {
 }
 
 func TestServe_StartErrorBranch(t *testing.T) {
+	// A cmd.Start() failure (missing/broken binary) says nothing about GPU
+	// compatibility -- unlike a health-check timeout, it must not flip this
+	// machine to CPU-only forever.
+	origHome := userHomeDirFunc
+	t.Cleanup(func() { userHomeDirFunc = origHome })
+	homeDir := t.TempDir()
+	userHomeDirFunc = func() (string, error) { return homeDir, nil }
+
 	orig := startLlamafileServerFunc
 	t.Cleanup(func() { startLlamafileServerFunc = orig })
 	startLlamafileServerFunc = func(_ string, _ int) (int, error) {
@@ -120,15 +128,23 @@ func TestServe_StartErrorBranch(t *testing.T) {
 	_, err := m.Serve(context.Background(), "/nonexistent/start-error.llamafile", 0)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "spawn failed")
+	assert.False(t, llamafileCPUFallbackActive(), "a start failure must not mark the CPU fallback")
 }
 
 func TestServe_FixedPortHealthTimeout(t *testing.T) {
+	origHome := userHomeDirFunc
 	origStart := startLlamafileServerFunc
 	origTimeout := llamafileStartTimeoutFunc
 	t.Cleanup(func() {
+		userHomeDirFunc = origHome
 		startLlamafileServerFunc = origStart
 		llamafileStartTimeoutFunc = origTimeout
 	})
+	// This deliberately triggers a health-check timeout, which now marks the
+	// CPU-only fallback on disk (see errServerNotHealthy) -- isolate that
+	// away from the developer's real ~/.kdeps/bin.
+	homeDir := t.TempDir()
+	userHomeDirFunc = func() (string, error) { return homeDir, nil }
 	startLlamafileServerFunc = func(_ string, _ int) (int, error) { return 0, nil }
 	llamafileStartTimeoutFunc = func() time.Duration { return 10 * time.Millisecond }
 

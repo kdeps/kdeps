@@ -282,7 +282,8 @@ func serveLocalProcess(
 	if startErr != nil {
 		return 0, startErr
 	}
-	if healthErr := waitForHealthy(ctx, serverURL, port, cfg.timeout()); healthErr != nil {
+	defer untrackProcessExit(pid)
+	if healthErr := waitForHealthy(ctx, serverURL, port, pid, cfg.timeout()); healthErr != nil {
 		if tail := tailServerLog(path); tail != "" {
 			return 0, fmt.Errorf("%w (%s output: %s)", healthErr, cfg.label, tail)
 		}
@@ -308,11 +309,19 @@ func serveLocalProcess(
 // "-ngl" (GPU layer offload) launch flag: llamafile's embedded tinyBLAS
 // backend auto-detects and uses an available NVIDIA/AMD GPU when that flag
 // is set, and does nothing harmful if none is found. But a launch can still
-// fail outright on some GPU/driver combinations, so the first time that
-// happens here, Serve marks the CPU-only fallback and retries once -- every
-// subsequent Serve call (this run and later ones, via the on-disk marker)
-// then omits "-ngl" from the start without paying the failed-GPU-launch cost
-// again.
+// fail outright on some GPU/driver combinations, so the first time the
+// server starts but never becomes healthy (errServerNotHealthy -- the actual
+// signal of a GPU/driver problem, not a busy port or missing binary), Serve
+// marks the CPU-only fallback and retries once -- every subsequent Serve
+// call (this run and later ones, via the on-disk marker) then omits "-ngl"
+// from the start without paying the failed-GPU-launch cost again.
+//
+// A process that exits before ever answering a health check (*ServerCrashedError)
+// is a different signal from a plain timeout -- it usually means a missing
+// runtime dependency (an outdated VC++ Redistributable on Windows, missing
+// libomp on macOS), not an incompatible GPU. Serve attempts the one known fix
+// for the current OS (see runtime_deps.go) at most once per call and retries
+// the same build before falling through to the CPU-fallback path above.
 func (m *LlamafileManager) Serve(ctx context.Context, path string, port int) (int, error) {
 	kdeps_debug.Log("enter: LlamafileManager.Serve")
 	cfg := localProcessConfig{
@@ -326,12 +335,16 @@ func (m *LlamafileManager) Serve(ctx context.Context, path string, port int) (in
 	}
 	alreadyOnCPUFallback := llamafileCPUFallbackActive()
 	servedPort, err := serveLocalProcess(ctx, m.logger, cfg, path, port)
-	if err == nil || alreadyOnCPUFallback {
+	remediated := false
+	servedPort, remediated, err = maybeRemediateCrash(ctx, m.logger, cfg, path, port, servedPort, err, remediated)
+	if err == nil || alreadyOnCPUFallback || !isRetryableServeErr(err) {
 		return servedPort, err
 	}
 	m.logger.WarnContext(ctx, "llamafile server (GPU) failed to start; retrying with CPU only", "error", err)
 	markLlamafileCPUFallback()
-	return serveLocalProcess(ctx, m.logger, cfg, path, port)
+	servedPort, err = serveLocalProcess(ctx, m.logger, cfg, path, port)
+	servedPort, _, err = maybeRemediateCrash(ctx, m.logger, cfg, path, port, servedPort, err, remediated)
+	return servedPort, err
 }
 
 // llamafileCPUFallbackMarkerName records (on disk, so it survives across
@@ -457,24 +470,69 @@ func startLlamafileServer(path string, port int) (int, error) {
 	if cmdErr != nil {
 		return 0, fmt.Errorf("failed to prepare llamafile server command: %w", cmdErr)
 	}
-	// The server is detached and outlives the parent; it must not inherit
-	// stdout/stderr (holding those fds blocks `go test` and pipes long after
-	// the parent exits). Health is checked via HTTP, not log output.
-	cmd.Stdout = nil
-	cmd.Stderr = nil
+	// The server is detached and outlives the parent; it must not *inherit*
+	// the parent's stdout/stderr (holding those fds open blocks `go test` and
+	// pipes long after the parent exits). Writing to its own dedicated log
+	// file (like startGGUFServer already does) doesn't have that problem --
+	// it's a real *os.File, not an inherited fd -- and gives crash diagnosis
+	// (runtime_deps.go) something to inspect when the process dies early.
+	if logFile, err := openServerLog(path); err == nil {
+		cmd.Stdout = logFile
+		cmd.Stderr = logFile
+		defer logFile.Close()
+	} else {
+		cmd.Stdout = nil
+		cmd.Stderr = nil
+	}
 	if startErr := cmd.Start(); startErr != nil {
 		return 0, fmt.Errorf("failed to start llamafile server: %w", startErr)
 	}
 	pid := cmd.Process.Pid
-	_ = cmd.Process.Release()
+	trackProcessExit(cmd)
 	return pid, nil
 }
 
-func waitForHealthy(ctx context.Context, serverURL string, port int, timeout time.Duration) error {
+// errServerNotHealthy sentinel-wraps a health-check timeout so callers can
+// distinguish "the process started but never came up" (the actual signal a
+// GPU/driver problem produces) from any other Serve failure -- a busy port,
+// a cmd.Start() failure, a corrupt model file -- via errors.Is. Those other
+// failures have nothing to do with GPU compatibility and must not trigger a
+// permanent CPU-only fallback.
+var errServerNotHealthy = errors.New("server did not become healthy")
+
+// ServerCrashedError means the process exited before ever answering a health
+// check -- distinct from errServerNotHealthy, which means the process was
+// still running but never came up in time. This distinction matters: a crash
+// can be remediated (see runtime_deps.go -- a missing runtime dependency like
+// an outdated VC++ Redistributable, libomp, or the Vulkan loader), whereas a
+// process that's merely slow usually just means no compatible GPU/driver.
+type ServerCrashedError struct {
+	ExitCode int
+}
+
+func (e *ServerCrashedError) Error() string {
+	return fmt.Sprintf("server process exited (code %d) before becoming healthy", e.ExitCode)
+}
+
+// waitForHealthy polls serverURL until it responds healthy, the process
+// identified by pid exits early (returning *ServerCrashedError), or timeout
+// elapses (returning an errServerNotHealthy-wrapped error). pid is 0 when the
+// caller has no tracked process to check (e.g. a test's fake startServer) --
+// processExitedNow(0) always reports "not exited," so behavior is unchanged
+// in that case.
+func waitForHealthy(ctx context.Context, serverURL string, port, pid int, timeout time.Duration) error {
 	deadline := time.Now().Add(timeout)
 	for time.Now().Before(deadline) {
 		if isHealthy(serverURL) {
 			return nil
+		}
+		if exited, exitErr := processExitedNow(pid); exited {
+			code := 0
+			var ee *exec.ExitError
+			if errors.As(exitErr, &ee) {
+				code = ee.ExitCode()
+			}
+			return &ServerCrashedError{ExitCode: code}
 		}
 		select {
 		case <-ctx.Done():
@@ -482,7 +540,7 @@ func waitForHealthy(ctx context.Context, serverURL string, port int, timeout tim
 		case <-time.After(llamafileHealthPoll):
 		}
 	}
-	return fmt.Errorf("server did not become healthy within %s on port %d", timeout, port)
+	return fmt.Errorf("%w within %s on port %d", errServerNotHealthy, timeout, port)
 }
 
 var isHealthy = func(baseURL string) bool { //nolint:gochecknoglobals // test-replaceable hook

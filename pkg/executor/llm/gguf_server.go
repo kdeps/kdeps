@@ -145,11 +145,22 @@ func ggufGPUFirstPlatform() bool {
 //
 // The installed binary attempts GPU acceleration first on every platform
 // (Vulkan on Windows/Linux, Metal on macOS -- see detectOSArch and
-// startGGUFServer's "--n-gpu-layers" flag); a machine with no usable GPU/driver
-// will fail its health check. When that happens here for the first time,
+// startGGUFServer's "--n-gpu-layers" flag). A machine with no usable
+// GPU/driver typically starts the process but never becomes healthy
+// (errServerNotHealthy); other failures (busy port, missing binary, corrupt
+// model) are unrelated to GPU compatibility and are returned as-is, without
+// touching the fallback. The first time a health-check timeout happens here,
 // Serve marks the CPU fallback and retries once -- every subsequent Serve
 // call (this run and later ones, via the on-disk marker) then skips straight
 // past the broken GPU path without paying that cost again.
+//
+// A process that exits before ever answering a health check (*ServerCrashedError)
+// is a different signal from a plain timeout -- it usually means a missing
+// runtime dependency (an outdated VC++ Redistributable on Windows, missing
+// libvulkan on Linux, missing libomp on macOS), not an incompatible GPU.
+// Serve attempts the one known fix for the current OS (see runtime_deps.go)
+// at most once per call and retries the same build before falling through to
+// the CPU-fallback path above.
 func (m *GGUFManager) Serve(ctx context.Context, path string, port int) (int, error) {
 	kdeps_debug.Log("enter: GGUFManager.Serve")
 	cfg := localProcessConfig{
@@ -163,12 +174,25 @@ func (m *GGUFManager) Serve(ctx context.Context, path string, port int) (int, er
 	}
 	alreadyOnCPUFallback := ggufCPUFallbackActive()
 	servedPort, err := serveLocalProcess(ctx, m.logger, cfg, path, port)
-	if err == nil || alreadyOnCPUFallback || !ggufGPUFirstPlatform() {
+	remediated := false
+	servedPort, remediated, err = maybeRemediateCrash(ctx, m.logger, cfg, path, port, servedPort, err, remediated)
+	if err == nil || alreadyOnCPUFallback || !ggufGPUFirstPlatform() || !isRetryableServeErr(err) {
 		return servedPort, err
 	}
 	m.logger.WarnContext(ctx, "llama-server (Vulkan build) failed to start; retrying with CPU build", "error", err)
 	markGGUFCPUFallback()
-	return serveLocalProcess(ctx, m.logger, cfg, path, port)
+	servedPort, err = serveLocalProcess(ctx, m.logger, cfg, path, port)
+	servedPort, _, err = maybeRemediateCrash(ctx, m.logger, cfg, path, port, servedPort, err, remediated)
+	return servedPort, err
+}
+
+// isRetryableServeErr reports whether err is a signal worth falling back to
+// the CPU build for -- a genuine health-check timeout or an (unremediated,
+// or remediated-but-still-crashing) process crash. Other failures (busy
+// port, missing binary, corrupt model) are unrelated to GPU compatibility.
+func isRetryableServeErr(err error) bool {
+	var crashErr *ServerCrashedError
+	return errors.Is(err, errServerNotHealthy) || errors.As(err, &crashErr)
 }
 
 // ggufGPULayers is passed to "--n-gpu-layers" to offload every layer
@@ -206,7 +230,7 @@ func startGGUFServer(path string, port int) (int, error) {
 		return 0, fmt.Errorf("failed to start llama-server: %w", err)
 	}
 	pid := cmd.Process.Pid
-	_ = cmd.Process.Release()
+	trackProcessExit(cmd)
 	return pid, nil
 }
 

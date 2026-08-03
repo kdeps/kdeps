@@ -348,6 +348,40 @@ func TestGGUFManager_Serve_StartError(t *testing.T) {
 	assert.Contains(t, err.Error(), "start failed")
 }
 
+func TestGGUFManager_Serve_StartErrorDoesNotMarkCPUFallback(t *testing.T) {
+	// A cmd.Start() failure (missing/broken binary) says nothing about GPU
+	// compatibility -- unlike a health-check timeout, it must not flip this
+	// machine to CPU-only forever.
+	origHome := userHomeDirFunc
+	origStart := startGGUFServerFunc
+	origDo := httpDefaultClientDo
+	t.Cleanup(func() {
+		userHomeDirFunc = origHome
+		startGGUFServerFunc = origStart
+		httpDefaultClientDo = origDo
+	})
+	homeDir := t.TempDir()
+	userHomeDirFunc = func() (string, error) { return homeDir, nil }
+	startGGUFServerFunc = func(_ string, _ int) (int, error) {
+		return 0, errors.New("start failed")
+	}
+	httpDefaultClientDo = func(_ *stdhttp.Request) (*stdhttp.Response, error) {
+		return nil, errors.New("no server")
+	}
+
+	path := "/fake/start-error-no-fallback.gguf"
+	t.Cleanup(func() {
+		servedGGUFsMu.Lock()
+		delete(servedGGUFs, path)
+		servedGGUFsMu.Unlock()
+	})
+
+	mgr := NewGGUFManagerWithDir(nil, t.TempDir())
+	_, err := mgr.Serve(context.Background(), path, 19997)
+	require.Error(t, err)
+	assert.False(t, ggufCPUFallbackActive(), "a start failure must not mark the CPU fallback")
+}
+
 func TestStartGGUFServer_BadBinary(t *testing.T) {
 	orig := ggufLlamaServerBinaryFn
 	t.Cleanup(func() { ggufLlamaServerBinaryFn = orig })
@@ -482,14 +516,22 @@ func TestGGUFManager_Serve_FindFreePortError(t *testing.T) {
 }
 
 func TestGGUFManager_Serve_WaitForHealthyError(t *testing.T) {
+	origHome := userHomeDirFunc
 	origStart := startGGUFServerFunc
 	origTimeout := ggufStartTimeoutFunc
 	origDo := httpDefaultClientDo
 	t.Cleanup(func() {
+		userHomeDirFunc = origHome
 		startGGUFServerFunc = origStart
 		ggufStartTimeoutFunc = origTimeout
 		httpDefaultClientDo = origDo
 	})
+
+	// This deliberately triggers a health-check timeout, which now marks the
+	// CPU-only fallback on disk (see errServerNotHealthy) -- isolate that
+	// away from the developer's real ~/.kdeps/bin.
+	homeDir := t.TempDir()
+	userHomeDirFunc = func() (string, error) { return homeDir, nil }
 
 	startGGUFServerFunc = func(_ string, _ int) (int, error) { return 0, nil }
 	ggufStartTimeoutFunc = func() time.Duration { return 1 * time.Millisecond }
@@ -595,6 +637,173 @@ func TestGGUFManager_Serve_VulkanFailureFallsBackToCPU(t *testing.T) {
 	require.Error(t, err)
 	assert.Equal(t, 2, startCalls, "expected one Vulkan attempt plus one CPU-fallback retry")
 	assert.True(t, ggufCPUFallbackActive(), "failure should persist the CPU-fallback marker")
+}
+
+// crashOnStart registers a fake, already-exited PID for startCall (1-indexed)
+// so waitForHealthy detects an instant crash for that attempt without
+// waiting out any timeout.
+func crashOnStart(startCall int) int {
+	pid := 700000 + startCall
+	ch := make(chan struct{})
+	close(ch)
+	processExitMu.Lock()
+	processExitCh[pid] = ch
+	processExitErr[pid] = errors.New("exit status 1")
+	processExitMu.Unlock()
+	return pid
+}
+
+func TestGGUFManager_Serve_CrashRemediatedThenHealthy(t *testing.T) {
+	origHome := userHomeDirFunc
+	origStart := startGGUFServerFunc
+	origTimeout := ggufStartTimeoutFunc
+	origDo := httpDefaultClientDo
+	calls := swapRuntimeDepsHooks(t)
+	t.Cleanup(func() {
+		userHomeDirFunc = origHome
+		startGGUFServerFunc = origStart
+		ggufStartTimeoutFunc = origTimeout
+		httpDefaultClientDo = origDo
+	})
+
+	homeDir := t.TempDir()
+	userHomeDirFunc = func() (string, error) { return homeDir, nil }
+	ggufStartTimeoutFunc = func() time.Duration { return 2 * time.Second }
+	_ = calls // all remediation hooks succeed (zero-value errs)
+
+	startCalls := 0
+	startGGUFServerFunc = func(_ string, _ int) (int, error) {
+		startCalls++
+		if startCalls == 1 {
+			return crashOnStart(startCalls), nil // first attempt crashes instantly
+		}
+		return 800000 + startCalls, nil // retry: never crashes, just waits on health
+	}
+	// Gate health on startCalls rather than a raw call count: the retry
+	// re-enters serveLocalProcess (with the original port=0), redoing its own
+	// pre-checks before ever reaching startServer again, so a fixed "first N
+	// calls fail" counter can't distinguish "still on attempt 1" from "the
+	// retry's own pre-check." Only report healthy once the (crashing) first
+	// attempt has actually happened AND a second startServer call has been
+	// made for the retry.
+	httpDefaultClientDo = func(_ *stdhttp.Request) (*stdhttp.Response, error) {
+		if startCalls >= 2 {
+			return &stdhttp.Response{StatusCode: stdhttp.StatusOK, Body: io.NopCloser(bytes.NewReader(nil))}, nil
+		}
+		return nil, errors.New("not yet healthy")
+	}
+
+	path := "/fake/crash-remediated.gguf"
+	t.Cleanup(func() {
+		servedGGUFsMu.Lock()
+		delete(servedGGUFs, path)
+		servedGGUFsMu.Unlock()
+	})
+
+	mgr := NewGGUFManagerWithDir(nil, t.TempDir())
+	_, err := mgr.Serve(context.Background(), path, 0)
+	require.NoError(t, err)
+	assert.Equal(t, 2, startCalls, "expected one crashing attempt plus one successful retry")
+	assert.False(t, ggufCPUFallbackActive(), "a remediated crash on the GPU build must not also mark CPU fallback")
+}
+
+func TestGGUFManager_Serve_CrashRemediationFailsFallsBackToCPU(t *testing.T) {
+	if !ggufGPUFirstPlatform() {
+		t.Skip("CPU fallback only applies to platforms with a GPU-first (Vulkan) build")
+	}
+
+	origHome := userHomeDirFunc
+	origStart := startGGUFServerFunc
+	origTimeout := ggufStartTimeoutFunc
+	origDo := httpDefaultClientDo
+	calls := swapRuntimeDepsHooks(t)
+	t.Cleanup(func() {
+		userHomeDirFunc = origHome
+		startGGUFServerFunc = origStart
+		ggufStartTimeoutFunc = origTimeout
+		httpDefaultClientDo = origDo
+	})
+
+	homeDir := t.TempDir()
+	userHomeDirFunc = func() (string, error) { return homeDir, nil }
+	ggufStartTimeoutFunc = func() time.Duration { return 2 * time.Second }
+	// Force remediation to be a no-op/unavailable on every OS this could run
+	// on: Windows always "attempts" (download+install), so make the download
+	// fail; macOS/Linux are gated on log signatures that this test's empty
+	// log tail never matches anyway.
+	calls.downloadVCRedistErr = errors.New("network down")
+
+	startCalls := 0
+	startGGUFServerFunc = func(_ string, _ int) (int, error) {
+		startCalls++
+		return crashOnStart(startCalls), nil // every attempt crashes instantly
+	}
+	httpDefaultClientDo = func(_ *stdhttp.Request) (*stdhttp.Response, error) {
+		return nil, errors.New("connection refused")
+	}
+
+	path := "/fake/crash-remediation-fails.gguf"
+	t.Cleanup(func() {
+		servedGGUFsMu.Lock()
+		delete(servedGGUFs, path)
+		servedGGUFsMu.Unlock()
+	})
+
+	require.False(t, ggufCPUFallbackActive())
+	mgr := NewGGUFManagerWithDir(nil, t.TempDir())
+	_, err := mgr.Serve(context.Background(), path, 0)
+	require.Error(t, err)
+	assert.Equal(t, 2, startCalls,
+		"expected one GPU crash (remediation unavailable/failed) plus one CPU-fallback attempt")
+	assert.True(t, ggufCPUFallbackActive(),
+		"an unremediated crash should still fall through to the CPU-fallback marker")
+}
+
+func TestGGUFManager_Serve_RemediationAttemptedAtMostOncePerCall(t *testing.T) {
+	if !ggufGPUFirstPlatform() {
+		t.Skip("CPU fallback only applies to platforms with a GPU-first (Vulkan) build")
+	}
+
+	origHome := userHomeDirFunc
+	origStart := startGGUFServerFunc
+	origTimeout := ggufStartTimeoutFunc
+	origDo := httpDefaultClientDo
+	calls := swapRuntimeDepsHooks(t)
+	t.Cleanup(func() {
+		userHomeDirFunc = origHome
+		startGGUFServerFunc = origStart
+		ggufStartTimeoutFunc = origTimeout
+		httpDefaultClientDo = origDo
+	})
+
+	homeDir := t.TempDir()
+	userHomeDirFunc = func() (string, error) { return homeDir, nil }
+	ggufStartTimeoutFunc = func() time.Duration { return 2 * time.Second }
+
+	startCalls := 0
+	startGGUFServerFunc = func(_ string, _ int) (int, error) {
+		startCalls++
+		return crashOnStart(startCalls), nil // every attempt crashes instantly, on every retry
+	}
+	httpDefaultClientDo = func(_ *stdhttp.Request) (*stdhttp.Response, error) {
+		return nil, errors.New("connection refused")
+	}
+
+	path := "/fake/remediation-bounded.gguf"
+	t.Cleanup(func() {
+		servedGGUFsMu.Lock()
+		delete(servedGGUFs, path)
+		servedGGUFsMu.Unlock()
+	})
+
+	mgr := NewGGUFManagerWithDir(nil, t.TempDir())
+	_, err := mgr.Serve(context.Background(), path, 0)
+	require.Error(t, err)
+	// Attempts: GPU crash -> remediate+retry (crash again) -> CPU-fallback
+	// crash -> no second remediation attempt (bounded to once per Serve call).
+	assert.Equal(t, 3, startCalls)
+	assert.LessOrEqual(t, calls.downloadVCRedist, 1,
+		"remediation must not be attempted more than once per Serve() call")
 }
 
 func TestGGUFManager_Serve_NoRetryWhenAlreadyOnCPUFallback(t *testing.T) {

@@ -23,6 +23,7 @@ package llm
 import (
 	"bytes"
 	"context"
+	"errors"
 	"io"
 	"net"
 	stdhttp "net/http"
@@ -32,6 +33,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
+
+var errNoServer = errors.New("no server")
 
 func TestFindFreePort_UnexpectedAddrType(t *testing.T) {
 	orig := netListenConfigListen
@@ -45,8 +48,55 @@ func TestFindFreePort_UnexpectedAddrType(t *testing.T) {
 }
 
 func TestWaitForHealthy_Timeout(t *testing.T) {
-	err := waitForHealthy(context.Background(), "http://127.0.0.1:1", 1, 10*time.Millisecond)
+	err := waitForHealthy(context.Background(), "http://127.0.0.1:1", 1, 0, 10*time.Millisecond)
 	require.Error(t, err)
+}
+
+func TestWaitForHealthy_CrashDetectedFast(t *testing.T) {
+	origDo := httpDefaultClientDo
+	t.Cleanup(func() { httpDefaultClientDo = origDo })
+	httpDefaultClientDo = func(_ *stdhttp.Request) (*stdhttp.Response, error) {
+		return nil, errNoServer
+	}
+
+	const fakePID = 555444333
+	ch := make(chan struct{})
+	close(ch) // already exited by the time waitForHealthy checks
+	processExitMu.Lock()
+	processExitCh[fakePID] = ch
+	processExitErr[fakePID] = errors.New("exit status 1")
+	processExitMu.Unlock()
+	t.Cleanup(func() { untrackProcessExit(fakePID) })
+
+	start := time.Now()
+	err := waitForHealthy(context.Background(), "http://127.0.0.1:1", 1, fakePID, 10*time.Second)
+	elapsed := time.Since(start)
+
+	require.Error(t, err)
+	var crashErr *ServerCrashedError
+	require.ErrorAs(t, err, &crashErr, "an already-exited process must surface *ServerCrashedError, not a timeout")
+	assert.Less(t, elapsed, 2*time.Second, "crash detection must be fast, not wait out the full timeout")
+}
+
+func TestWaitForHealthy_StillRunningFallsThroughToTimeout(t *testing.T) {
+	origDo := httpDefaultClientDo
+	t.Cleanup(func() { httpDefaultClientDo = origDo })
+	httpDefaultClientDo = func(_ *stdhttp.Request) (*stdhttp.Response, error) {
+		return nil, errNoServer
+	}
+
+	const fakePID = 555444334
+	ch := make(chan struct{}) // never closed -- process "still running"
+	processExitMu.Lock()
+	processExitCh[fakePID] = ch
+	processExitMu.Unlock()
+	t.Cleanup(func() { untrackProcessExit(fakePID) })
+
+	err := waitForHealthy(context.Background(), "http://127.0.0.1:1", 1, fakePID, 10*time.Millisecond)
+	require.Error(t, err)
+	var crashErr *ServerCrashedError
+	assert.False(t, errors.As(err, &crashErr), "a still-running process must time out, not report a crash")
+	assert.ErrorIs(t, err, errServerNotHealthy)
 }
 
 func TestFindFreePort_Basic(t *testing.T) {

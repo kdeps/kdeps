@@ -136,6 +136,52 @@ func TestLlamafileCPUFallbackMarker_NoHomeDir(t *testing.T) {
 	assert.False(t, llamafileCPUFallbackActive())
 }
 
+func TestLlamafileManager_Serve_CrashRemediatedThenHealthy(t *testing.T) {
+	origHome := userHomeDirFunc
+	origStart := startLlamafileServerFunc
+	origTimeout := llamafileStartTimeoutFunc
+	origDo := httpDefaultClientDo
+	swapRuntimeDepsHooks(t) // remediation must never touch the real machine
+	t.Cleanup(func() {
+		userHomeDirFunc = origHome
+		startLlamafileServerFunc = origStart
+		llamafileStartTimeoutFunc = origTimeout
+		httpDefaultClientDo = origDo
+	})
+
+	homeDir := t.TempDir()
+	userHomeDirFunc = func() (string, error) { return homeDir, nil }
+	llamafileStartTimeoutFunc = func() time.Duration { return 2 * time.Second }
+
+	startCalls := 0
+	startLlamafileServerFunc = func(_ string, _ int) (int, error) {
+		startCalls++
+		if startCalls == 1 {
+			return crashOnStart(startCalls), nil // first attempt crashes instantly
+		}
+		return 900000 + startCalls, nil
+	}
+	httpDefaultClientDo = func(_ *stdhttp.Request) (*stdhttp.Response, error) {
+		if startCalls >= 2 {
+			return &stdhttp.Response{StatusCode: stdhttp.StatusOK, Body: io.NopCloser(bytes.NewReader(nil))}, nil
+		}
+		return nil, errors.New("not yet healthy")
+	}
+
+	path := "/fake/llamafile-crash-remediated.llamafile"
+	t.Cleanup(func() {
+		servedLlamafilesMu.Lock()
+		delete(servedLlamafiles, path)
+		servedLlamafilesMu.Unlock()
+	})
+
+	m := NewLlamafileManagerWithDir(nil, t.TempDir())
+	_, err := m.Serve(context.Background(), path, 0)
+	require.NoError(t, err)
+	assert.Equal(t, 2, startCalls, "expected one crashing attempt plus one successful retry")
+	assert.False(t, llamafileCPUFallbackActive(), "a remediated crash must not also mark the CPU fallback")
+}
+
 func TestLlamafileManager_Serve_GPUFailureFallsBackToCPU(t *testing.T) {
 	origHome := userHomeDirFunc
 	origStart := startLlamafileServerFunc
@@ -292,6 +338,13 @@ func TestLlamafileServe_HealthTimeoutAfterStart(t *testing.T) {
 	origTimeout := llamafileStartTimeoutFunc
 	llamafileStartTimeoutFunc = func() time.Duration { return 100 * time.Millisecond }
 	t.Cleanup(func() { llamafileStartTimeoutFunc = origTimeout })
+	// This deliberately triggers a health-check timeout, which now marks the
+	// CPU-only fallback on disk (see errServerNotHealthy) -- isolate that
+	// away from the developer's real ~/.kdeps/bin.
+	origHome := userHomeDirFunc
+	t.Cleanup(func() { userHomeDirFunc = origHome })
+	homeDir := t.TempDir()
+	userHomeDirFunc = func() (string, error) { return homeDir, nil }
 	dir := t.TempDir()
 	modelPath := filepath.Join(dir, "run.llamafile")
 	require.NoError(t, os.WriteFile(modelPath, []byte("#!/bin/sh\nexit 0\n"), 0755))

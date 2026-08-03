@@ -419,6 +419,10 @@ func TestLlamafileManager_Serve_NotHealthy_StartFail(t *testing.T) {
 	// Use 100ms health-poll timeout so the test fails fast instead of waiting 60s.
 	cleanup := llm.SetLlamafileStartTimeout(func() time.Duration { return 100 * time.Millisecond })
 	defer cleanup()
+	// This deliberately triggers a health-check timeout, which now marks the
+	// CPU-only fallback on disk (see errServerNotHealthy) -- isolate that
+	// away from the developer's real ~/.kdeps/bin.
+	defer llm.SetUserHomeDir(t.TempDir())()
 
 	// Server is up but returns 503 → isHealthy returns false → tries to start binary → fails.
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
