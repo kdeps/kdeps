@@ -300,9 +300,22 @@ func serveLocalProcess(
 	return port, nil
 }
 
+// Serve starts a llamafile server for path (or reuses one if already
+// running). Returns the port the server is listening on.
+//
+// Unlike the GGUF backend, a llamafile is a single portable binary for every
+// platform -- GPU vs CPU isn't a separate download, just the presence of the
+// "-ngl" (GPU layer offload) launch flag: llamafile's embedded tinyBLAS
+// backend auto-detects and uses an available NVIDIA/AMD GPU when that flag
+// is set, and does nothing harmful if none is found. But a launch can still
+// fail outright on some GPU/driver combinations, so the first time that
+// happens here, Serve marks the CPU-only fallback and retries once -- every
+// subsequent Serve call (this run and later ones, via the on-disk marker)
+// then omits "-ngl" from the start without paying the failed-GPU-launch cost
+// again.
 func (m *LlamafileManager) Serve(ctx context.Context, path string, port int) (int, error) {
 	kdeps_debug.Log("enter: LlamafileManager.Serve")
-	return serveLocalProcess(ctx, m.logger, localProcessConfig{
+	cfg := localProcessConfig{
 		mu:          &servedLlamafilesMu,
 		served:      servedLlamafiles,
 		pids:        servedLlamafilePIDs,
@@ -310,8 +323,61 @@ func (m *LlamafileManager) Serve(ctx context.Context, path string, port int) (in
 		timeout:     llamafileStartTimeoutFunc,
 		label:       "llamafile server",
 		defaultPort: BackendFilePort,
-	}, path, port)
+	}
+	alreadyOnCPUFallback := llamafileCPUFallbackActive()
+	servedPort, err := serveLocalProcess(ctx, m.logger, cfg, path, port)
+	if err == nil || alreadyOnCPUFallback {
+		return servedPort, err
+	}
+	m.logger.WarnContext(ctx, "llamafile server (GPU) failed to start; retrying with CPU only", "error", err)
+	markLlamafileCPUFallback()
+	return serveLocalProcess(ctx, m.logger, cfg, path, port)
 }
+
+// llamafileCPUFallbackMarkerName records (on disk, so it survives across
+// process runs) that GPU-layer offload failed to launch on this machine and
+// every future llamafile serve should omit "-ngl" and run CPU-only.
+const llamafileCPUFallbackMarkerName = ".llamafile_cpu_fallback"
+
+func llamafileCPUFallbackMarkerPath() string {
+	home, err := userHomeDirFunc()
+	if err != nil {
+		return ""
+	}
+	return filepath.Join(home, ".kdeps", "bin", llamafileCPUFallbackMarkerName)
+}
+
+// llamafileCPUFallbackActive reports whether a prior GPU launch failure
+// marked this machine as needing CPU-only llamafile serving.
+func llamafileCPUFallbackActive() bool {
+	p := llamafileCPUFallbackMarkerPath()
+	if p == "" {
+		return false
+	}
+	_, err := os.Stat(p)
+	return err == nil
+}
+
+// markLlamafileCPUFallback persists the CPU-fallback decision so it survives
+// across kdeps restarts, not just the rest of this process's lifetime.
+func markLlamafileCPUFallback() {
+	p := llamafileCPUFallbackMarkerPath()
+	if p == "" {
+		return
+	}
+	if mkdirErr := os.MkdirAll(filepath.Dir(p), 0750); mkdirErr != nil {
+		kdeps_debug.Log(fmt.Sprintf("mark llamafile CPU fallback: %v", mkdirErr))
+		return
+	}
+	if err := os.WriteFile(p, []byte("GPU launch failed; running CPU-only.\n"), 0600); err != nil {
+		kdeps_debug.Log(fmt.Sprintf("mark llamafile CPU fallback: %v", err))
+	}
+}
+
+// llamafileGPULayers is passed to "-ngl" to offload every layer llama.cpp
+// finds in the model -- it clamps to the model's actual layer count, so a
+// value larger than any real model is a safe "offload everything" sentinel.
+const llamafileGPULayers = "999"
 
 // startLlamafileServerFunc launches the server binary (overridable in tests).
 var startLlamafileServerFunc = startLlamafileServer //nolint:gochecknoglobals // test-replaceable hook
@@ -377,13 +443,17 @@ func newLlamafileCommand(ctx context.Context, path string, args ...string) (*exe
 
 func startLlamafileServer(path string, port int) (int, error) {
 	ctx := context.Background()
-	cmd, cmdErr := newLlamafileCommand(ctx, path,
+	args := []string{
 		"--server",
 		"--host", "127.0.0.1",
 		"--port", strconv.Itoa(port),
 		"--nobrowser",
 		"--ctx-size", strconv.Itoa(localContextSize),
-	)
+	}
+	if !llamafileCPUFallbackActive() {
+		args = append(args, "-ngl", llamafileGPULayers)
+	}
+	cmd, cmdErr := newLlamafileCommand(ctx, path, args...)
 	if cmdErr != nil {
 		return 0, fmt.Errorf("failed to prepare llamafile server command: %w", cmdErr)
 	}

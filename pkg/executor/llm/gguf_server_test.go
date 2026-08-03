@@ -32,15 +32,15 @@ func TestDetectOSArch(t *testing.T) {
 	result := detectOSArch()
 	switch {
 	case runtime.GOOS == "linux" && runtime.GOARCH == "amd64":
-		assert.Equal(t, "ubuntu-x64", result)
+		assert.Equal(t, "ubuntu-vulkan-x64", result)
 	case runtime.GOOS == "linux" && runtime.GOARCH == "arm64":
-		assert.Equal(t, "ubuntu-arm64", result)
+		assert.Equal(t, "ubuntu-vulkan-arm64", result)
 	case runtime.GOOS == "darwin" && runtime.GOARCH == "amd64":
 		assert.Equal(t, "macos-x64", result)
 	case runtime.GOOS == "darwin" && runtime.GOARCH == "arm64":
 		assert.Equal(t, "macos-arm64", result)
 	case runtime.GOOS == goosWindows && runtime.GOARCH == "amd64":
-		assert.Equal(t, "win-cpu-x64", result)
+		assert.Equal(t, "win-vulkan-x64", result)
 	default:
 		assert.Equal(t, "", result)
 	}

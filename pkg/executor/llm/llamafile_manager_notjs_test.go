@@ -108,6 +108,165 @@ func TestLlamafileServe_FindFreePortError(t *testing.T) {
 	require.Error(t, err)
 }
 
+func TestLlamafileCPUFallbackMarker_InactiveByDefault(t *testing.T) {
+	dir := t.TempDir()
+	orig := userHomeDirFunc
+	t.Cleanup(func() { userHomeDirFunc = orig })
+	userHomeDirFunc = func() (string, error) { return dir, nil }
+
+	assert.False(t, llamafileCPUFallbackActive())
+}
+
+func TestLlamafileCPUFallbackMarker_ActiveAfterMark(t *testing.T) {
+	dir := t.TempDir()
+	orig := userHomeDirFunc
+	t.Cleanup(func() { userHomeDirFunc = orig })
+	userHomeDirFunc = func() (string, error) { return dir, nil }
+
+	markLlamafileCPUFallback()
+	assert.True(t, llamafileCPUFallbackActive())
+}
+
+func TestLlamafileCPUFallbackMarker_NoHomeDir(t *testing.T) {
+	orig := userHomeDirFunc
+	t.Cleanup(func() { userHomeDirFunc = orig })
+	userHomeDirFunc = func() (string, error) { return "", errors.New("no home") }
+
+	markLlamafileCPUFallback()
+	assert.False(t, llamafileCPUFallbackActive())
+}
+
+func TestLlamafileManager_Serve_GPUFailureFallsBackToCPU(t *testing.T) {
+	origHome := userHomeDirFunc
+	origStart := startLlamafileServerFunc
+	origTimeout := llamafileStartTimeoutFunc
+	origDo := httpDefaultClientDo
+	t.Cleanup(func() {
+		userHomeDirFunc = origHome
+		startLlamafileServerFunc = origStart
+		llamafileStartTimeoutFunc = origTimeout
+		httpDefaultClientDo = origDo
+	})
+
+	homeDir := t.TempDir()
+	userHomeDirFunc = func() (string, error) { return homeDir, nil }
+	llamafileStartTimeoutFunc = func() time.Duration { return 5 * time.Millisecond }
+
+	startCalls := 0
+	startLlamafileServerFunc = func(_ string, _ int) (int, error) {
+		startCalls++
+		return 0, nil
+	}
+	// Every health probe fails, simulating a GPU launch that never becomes
+	// healthy on this machine -- and, since the CPU retry uses the same mock,
+	// that it also never becomes healthy in this test.
+	httpDefaultClientDo = func(_ *stdhttp.Request) (*stdhttp.Response, error) {
+		return nil, errors.New("connection refused")
+	}
+
+	path := "/fake/gpu-fallback.llamafile"
+	t.Cleanup(func() {
+		servedLlamafilesMu.Lock()
+		delete(servedLlamafiles, path)
+		servedLlamafilesMu.Unlock()
+	})
+
+	require.False(t, llamafileCPUFallbackActive())
+	m := NewLlamafileManagerWithDir(nil, t.TempDir())
+	_, err := m.Serve(context.Background(), path, 0)
+	require.Error(t, err)
+	assert.Equal(t, 2, startCalls, "expected one GPU attempt plus one CPU-fallback retry")
+	assert.True(t, llamafileCPUFallbackActive(), "failure should persist the CPU-fallback marker")
+}
+
+func TestLlamafileManager_Serve_NoRetryWhenAlreadyOnCPUFallback(t *testing.T) {
+	origHome := userHomeDirFunc
+	origStart := startLlamafileServerFunc
+	origTimeout := llamafileStartTimeoutFunc
+	origDo := httpDefaultClientDo
+	t.Cleanup(func() {
+		userHomeDirFunc = origHome
+		startLlamafileServerFunc = origStart
+		llamafileStartTimeoutFunc = origTimeout
+		httpDefaultClientDo = origDo
+	})
+
+	homeDir := t.TempDir()
+	userHomeDirFunc = func() (string, error) { return homeDir, nil }
+	llamafileStartTimeoutFunc = func() time.Duration { return 5 * time.Millisecond }
+	markLlamafileCPUFallback() // simulate a prior run that already hit the fallback
+
+	startCalls := 0
+	startLlamafileServerFunc = func(_ string, _ int) (int, error) {
+		startCalls++
+		return 0, nil
+	}
+	httpDefaultClientDo = func(_ *stdhttp.Request) (*stdhttp.Response, error) {
+		return nil, errors.New("connection refused")
+	}
+
+	path := "/fake/already-on-cpu-fallback.llamafile"
+	t.Cleanup(func() {
+		servedLlamafilesMu.Lock()
+		delete(servedLlamafiles, path)
+		servedLlamafilesMu.Unlock()
+	})
+
+	m := NewLlamafileManagerWithDir(nil, t.TempDir())
+	_, err := m.Serve(context.Background(), path, 0)
+	require.Error(t, err)
+	assert.Equal(t, 1, startCalls, "should not retry when the CPU build is already the active choice")
+}
+
+func TestLlamafileManager_Serve_GPUSuccessNeverMarksFallback(t *testing.T) {
+	origHome := userHomeDirFunc
+	origStart := startLlamafileServerFunc
+	origTimeout := llamafileStartTimeoutFunc
+	origDo := httpDefaultClientDo
+	t.Cleanup(func() {
+		userHomeDirFunc = origHome
+		startLlamafileServerFunc = origStart
+		llamafileStartTimeoutFunc = origTimeout
+		httpDefaultClientDo = origDo
+	})
+
+	homeDir := t.TempDir()
+	userHomeDirFunc = func() (string, error) { return homeDir, nil }
+	llamafileStartTimeoutFunc = func() time.Duration { return 100 * time.Millisecond }
+
+	startCalls := 0
+	startLlamafileServerFunc = func(_ string, _ int) (int, error) {
+		startCalls++
+		return 0, nil
+	}
+	// First health probe (pre-start "already running?" check) fails so Serve
+	// actually calls startServer; every probe after that succeeds.
+	healthCalls := 0
+	httpDefaultClientDo = func(_ *stdhttp.Request) (*stdhttp.Response, error) {
+		healthCalls++
+		if healthCalls == 1 {
+			return nil, errors.New("not yet healthy")
+		}
+		return &stdhttp.Response{
+			StatusCode: stdhttp.StatusOK,
+			Body:       io.NopCloser(bytes.NewReader(nil)),
+		}, nil
+	}
+
+	path := "/fake/gpu-success.llamafile"
+	t.Cleanup(func() {
+		servedLlamafilesMu.Lock()
+		delete(servedLlamafiles, path)
+		servedLlamafilesMu.Unlock()
+	})
+
+	m := NewLlamafileManagerWithDir(nil, t.TempDir())
+	_, err := m.Serve(context.Background(), path, 29991)
+	require.NoError(t, err)
+	assert.Equal(t, 1, startCalls, "a healthy first attempt should never trigger the CPU retry")
+	assert.False(t, llamafileCPUFallbackActive())
+}
+
 func TestServeFileModel_MakeExecutableFail(t *testing.T) {
 	origFS := AppFS
 	t.Cleanup(func() { AppFS = origFS })

@@ -550,6 +550,148 @@ func TestGGUFManager_Serve_FullSuccessViaStart(t *testing.T) {
 	assert.Equal(t, 29993, port)
 }
 
+func TestGGUFManager_Serve_VulkanFailureFallsBackToCPU(t *testing.T) {
+	if !ggufGPUFirstPlatform() {
+		t.Skip("CPU fallback only applies to platforms with a GPU-first (Vulkan) build")
+	}
+
+	origHome := userHomeDirFunc
+	origStart := startGGUFServerFunc
+	origTimeout := ggufStartTimeoutFunc
+	origDo := httpDefaultClientDo
+	t.Cleanup(func() {
+		userHomeDirFunc = origHome
+		startGGUFServerFunc = origStart
+		ggufStartTimeoutFunc = origTimeout
+		httpDefaultClientDo = origDo
+	})
+
+	homeDir := t.TempDir()
+	userHomeDirFunc = func() (string, error) { return homeDir, nil }
+	ggufStartTimeoutFunc = func() time.Duration { return 5 * time.Millisecond }
+
+	startCalls := 0
+	startGGUFServerFunc = func(_ string, _ int) (int, error) {
+		startCalls++
+		return 0, nil
+	}
+	// Every health probe fails, simulating a Vulkan build that can't launch
+	// on this machine (no compatible driver) -- and, since the CPU retry uses
+	// the same mock, that it also never becomes healthy in this test.
+	httpDefaultClientDo = func(_ *stdhttp.Request) (*stdhttp.Response, error) {
+		return nil, errors.New("connection refused")
+	}
+
+	path := "/fake/vulkan-fallback.gguf"
+	t.Cleanup(func() {
+		servedGGUFsMu.Lock()
+		delete(servedGGUFs, path)
+		servedGGUFsMu.Unlock()
+	})
+
+	require.False(t, ggufCPUFallbackActive())
+	mgr := NewGGUFManagerWithDir(nil, t.TempDir())
+	_, err := mgr.Serve(context.Background(), path, 0)
+	require.Error(t, err)
+	assert.Equal(t, 2, startCalls, "expected one Vulkan attempt plus one CPU-fallback retry")
+	assert.True(t, ggufCPUFallbackActive(), "failure should persist the CPU-fallback marker")
+}
+
+func TestGGUFManager_Serve_NoRetryWhenAlreadyOnCPUFallback(t *testing.T) {
+	if !ggufGPUFirstPlatform() {
+		t.Skip("CPU fallback only applies to platforms with a GPU-first (Vulkan) build")
+	}
+
+	origHome := userHomeDirFunc
+	origStart := startGGUFServerFunc
+	origTimeout := ggufStartTimeoutFunc
+	origDo := httpDefaultClientDo
+	t.Cleanup(func() {
+		userHomeDirFunc = origHome
+		startGGUFServerFunc = origStart
+		ggufStartTimeoutFunc = origTimeout
+		httpDefaultClientDo = origDo
+	})
+
+	homeDir := t.TempDir()
+	userHomeDirFunc = func() (string, error) { return homeDir, nil }
+	ggufStartTimeoutFunc = func() time.Duration { return 5 * time.Millisecond }
+	markGGUFCPUFallback() // simulate a prior run that already hit the fallback
+
+	startCalls := 0
+	startGGUFServerFunc = func(_ string, _ int) (int, error) {
+		startCalls++
+		return 0, nil
+	}
+	httpDefaultClientDo = func(_ *stdhttp.Request) (*stdhttp.Response, error) {
+		return nil, errors.New("connection refused")
+	}
+
+	path := "/fake/already-on-cpu-fallback.gguf"
+	t.Cleanup(func() {
+		servedGGUFsMu.Lock()
+		delete(servedGGUFs, path)
+		servedGGUFsMu.Unlock()
+	})
+
+	mgr := NewGGUFManagerWithDir(nil, t.TempDir())
+	_, err := mgr.Serve(context.Background(), path, 0)
+	require.Error(t, err)
+	assert.Equal(t, 1, startCalls, "should not retry when the CPU build is already the active choice")
+}
+
+func TestGGUFManager_Serve_VulkanSuccessNeverMarksFallback(t *testing.T) {
+	origHome := userHomeDirFunc
+	origStart := startGGUFServerFunc
+	origTimeout := ggufStartTimeoutFunc
+	origReady := WaitForCompletionsReadyFunc
+	origDo := httpDefaultClientDo
+	t.Cleanup(func() {
+		userHomeDirFunc = origHome
+		startGGUFServerFunc = origStart
+		ggufStartTimeoutFunc = origTimeout
+		WaitForCompletionsReadyFunc = origReady
+		httpDefaultClientDo = origDo
+	})
+
+	homeDir := t.TempDir()
+	userHomeDirFunc = func() (string, error) { return homeDir, nil }
+	ggufStartTimeoutFunc = func() time.Duration { return 100 * time.Millisecond }
+	WaitForCompletionsReadyFunc = func(_ context.Context, _ string) {}
+
+	startCalls := 0
+	startGGUFServerFunc = func(_ string, _ int) (int, error) {
+		startCalls++
+		return 0, nil
+	}
+	// First health probe (pre-start "already running?" check) fails so Serve
+	// actually calls startServer; every probe after that succeeds.
+	healthCalls := 0
+	httpDefaultClientDo = func(_ *stdhttp.Request) (*stdhttp.Response, error) {
+		healthCalls++
+		if healthCalls == 1 {
+			return nil, errors.New("not yet healthy")
+		}
+		return &stdhttp.Response{
+			StatusCode: stdhttp.StatusOK,
+			Body:       io.NopCloser(bytes.NewReader(nil)),
+		}, nil
+	}
+
+	path := "/fake/vulkan-success.gguf"
+	t.Cleanup(func() {
+		servedGGUFsMu.Lock()
+		delete(servedGGUFs, path)
+		servedGGUFsMu.Unlock()
+	})
+
+	mgr := NewGGUFManagerWithDir(nil, t.TempDir())
+	_, err := mgr.Serve(context.Background(), path, 29992)
+	require.NoError(t, err)
+	assert.Equal(t, 1, startCalls, "a healthy first attempt should never trigger the CPU retry")
+	assert.False(t, ggufCPUFallbackActive())
+}
+
 func TestServiceGGUF_PrepareGGUF_NewManagerError(t *testing.T) {
 	if runtime.GOOS == goosWindows {
 		t.Skip("relies on /dev/null being a non-directory special file blocking mkdir; no Windows equivalent")

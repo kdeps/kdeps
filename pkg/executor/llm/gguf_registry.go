@@ -118,6 +118,16 @@ func ResolveGGUFAlias(model string) (string, bool) {
 	return url, ok
 }
 
+// GGUFSizeBytes returns the registry size for alias, or 0 if unknown.
+func GGUFSizeBytes(alias string) int64 {
+	for _, e := range ListGGUFMappings() {
+		if e.Alias == alias {
+			return e.SizeBytes
+		}
+	}
+	return 0
+}
+
 // GGUFCachedPath returns the expected local cache path for a GGUF alias,
 // or ("", false) if the alias is unknown. It does not stat the file.
 func GGUFCachedPath(alias, modelsDir string) (string, bool) {

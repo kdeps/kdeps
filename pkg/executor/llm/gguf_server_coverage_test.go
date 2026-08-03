@@ -680,7 +680,7 @@ func TestDetectOSArch_LinuxAmd64(t *testing.T) {
 	testArch = "amd64"
 	t.Cleanup(func() { testOS = origOS; testArch = origArch })
 	result := detectOSArch()
-	assert.Equal(t, "ubuntu-x64", result)
+	assert.Equal(t, "ubuntu-vulkan-x64", result)
 }
 
 func TestDetectOSArch_LinuxArm64(t *testing.T) {
@@ -690,7 +690,7 @@ func TestDetectOSArch_LinuxArm64(t *testing.T) {
 	testArch = "arm64"
 	t.Cleanup(func() { testOS = origOS; testArch = origArch })
 	result := detectOSArch()
-	assert.Equal(t, "ubuntu-arm64", result)
+	assert.Equal(t, "ubuntu-vulkan-arm64", result)
 }
 
 func TestDetectOSArch_DarwinAmd64(t *testing.T) {
@@ -710,7 +710,7 @@ func TestDetectOSArch_WindowsAmd64(t *testing.T) {
 	testArch = "amd64"
 	t.Cleanup(func() { testOS = origOS; testArch = origArch })
 	result := detectOSArch()
-	assert.Equal(t, "win-cpu-x64", result)
+	assert.Equal(t, "win-vulkan-x64", result)
 }
 
 func TestDetectOSArch_Unsupported(t *testing.T) {
@@ -721,6 +721,207 @@ func TestDetectOSArch_Unsupported(t *testing.T) {
 	t.Cleanup(func() { testOS = origOS; testArch = origArch })
 	result := detectOSArch()
 	assert.Equal(t, "", result)
+}
+
+func TestDetectOSArchCPU_LinuxAmd64(t *testing.T) {
+	origOS := testOS
+	origArch := testArch
+	testOS = "linux"
+	testArch = "amd64"
+	t.Cleanup(func() { testOS = origOS; testArch = origArch })
+	assert.Equal(t, "ubuntu-x64", detectOSArchCPU())
+}
+
+func TestDetectOSArchCPU_LinuxArm64(t *testing.T) {
+	origOS := testOS
+	origArch := testArch
+	testOS = "linux"
+	testArch = "arm64"
+	t.Cleanup(func() { testOS = origOS; testArch = origArch })
+	assert.Equal(t, "ubuntu-arm64", detectOSArchCPU())
+}
+
+func TestDetectOSArchCPU_WindowsAmd64(t *testing.T) {
+	origOS := testOS
+	origArch := testArch
+	testOS = goosWindows
+	testArch = "amd64"
+	t.Cleanup(func() { testOS = origOS; testArch = origArch })
+	assert.Equal(t, "win-cpu-x64", detectOSArchCPU())
+}
+
+func TestDetectOSArchCPU_DarwinAmd64(t *testing.T) {
+	origOS := testOS
+	origArch := testArch
+	testOS = "darwin"
+	testArch = "amd64"
+	t.Cleanup(func() { testOS = origOS; testArch = origArch })
+	assert.Equal(t, "macos-x64", detectOSArchCPU())
+}
+
+func TestDetectOSArchCPU_Unsupported(t *testing.T) {
+	origOS := testOS
+	origArch := testArch
+	testOS = "plan9"
+	testArch = "riscv64"
+	t.Cleanup(func() { testOS = origOS; testArch = origArch })
+	assert.Equal(t, "", detectOSArchCPU())
+}
+
+func TestGGufGPUFirstPlatform_MatchesRealOSWithNoOverride(t *testing.T) {
+	want := runtime.GOOS == goosWindows || runtime.GOOS == "linux" || runtime.GOOS == "darwin"
+	assert.Equal(t, want, ggufGPUFirstPlatform())
+}
+
+func TestGGufGPUFirstPlatform_TrueForWindowsLinuxDarwin(t *testing.T) {
+	orig := testOS
+	t.Cleanup(func() { testOS = orig })
+	for _, goos := range []string{goosWindows, "linux", "darwin"} {
+		testOS = goos
+		assert.True(t, ggufGPUFirstPlatform(), "expected GPU-first for %s", goos)
+	}
+}
+
+func TestGGufGPUFirstPlatform_FalseForOtherOS(t *testing.T) {
+	orig := testOS
+	t.Cleanup(func() { testOS = orig })
+	testOS = "plan9"
+	assert.False(t, ggufGPUFirstPlatform())
+}
+
+func TestGGufHasDistinctCPUBuild_MatchesRealOSWithNoOverride(t *testing.T) {
+	want := runtime.GOOS == goosWindows || runtime.GOOS == "linux"
+	assert.Equal(t, want, ggufHasDistinctCPUBuild())
+}
+
+func TestGGufHasDistinctCPUBuild_TrueForWindowsAndLinux(t *testing.T) {
+	orig := testOS
+	t.Cleanup(func() { testOS = orig })
+	for _, goos := range []string{goosWindows, "linux"} {
+		testOS = goos
+		assert.True(t, ggufHasDistinctCPUBuild(), "expected distinct CPU build for %s", goos)
+	}
+}
+
+func TestGGufHasDistinctCPUBuild_FalseForDarwin(t *testing.T) {
+	orig := testOS
+	t.Cleanup(func() { testOS = orig })
+	testOS = "darwin"
+	assert.False(t, ggufHasDistinctCPUBuild(), "macOS has no separate CPU-only asset")
+}
+
+func TestLlamaCppReleaseAPI_UsesPinnedTag(t *testing.T) {
+	assert.Equal(
+		t,
+		"https://api.github.com/repos/ggml-org/llama.cpp/releases/tags/"+llamaCppPinnedTag,
+		llamaCppReleaseAPI(),
+	)
+}
+
+func TestGGUFCPUFallbackMarker_InactiveByDefault(t *testing.T) {
+	dir := t.TempDir()
+	orig := userHomeDirFunc
+	t.Cleanup(func() { userHomeDirFunc = orig })
+	userHomeDirFunc = func() (string, error) { return dir, nil }
+
+	assert.False(t, ggufCPUFallbackActive())
+}
+
+func TestGGUFCPUFallbackMarker_ActiveAfterMark(t *testing.T) {
+	dir := t.TempDir()
+	orig := userHomeDirFunc
+	t.Cleanup(func() { userHomeDirFunc = orig })
+	userHomeDirFunc = func() (string, error) { return dir, nil }
+
+	markGGUFCPUFallback()
+	assert.True(t, ggufCPUFallbackActive())
+}
+
+func TestGGUFCPUFallbackMarker_NoHomeDir(t *testing.T) {
+	orig := userHomeDirFunc
+	t.Cleanup(func() { userHomeDirFunc = orig })
+	userHomeDirFunc = func() (string, error) { return "", errors.New("no home") }
+
+	// Neither call should panic; both degrade to "no fallback" when the
+	// marker's location can't be determined.
+	markGGUFCPUFallback()
+	assert.False(t, ggufCPUFallbackActive())
+}
+
+func TestCachedLlamaServerCPUPath_DiffersFromPrimary(t *testing.T) {
+	dir := t.TempDir()
+	orig := userHomeDirFunc
+	t.Cleanup(func() { userHomeDirFunc = orig })
+	userHomeDirFunc = func() (string, error) { return dir, nil }
+
+	primary := cachedLlamaServerPath()
+	cpu := cachedLlamaServerCPUPath()
+	assert.NotEqual(t, primary, cpu, "CPU fallback must not share a directory with the primary install")
+	assert.Equal(t, filepath.Base(primary), filepath.Base(cpu), "same binary filename, different directory")
+}
+
+func TestEnsureLlamaServerBinaryCPU_InstallSuccess(t *testing.T) {
+	dir := t.TempDir()
+	orig := userHomeDirFunc
+	t.Cleanup(func() { userHomeDirFunc = orig })
+	userHomeDirFunc = func() (string, error) { return dir, nil }
+	stubLlamaServerAsset(t, "https://example.com/llama-server-cpu.zip")
+
+	var buf bytes.Buffer
+	zw := zip.NewWriter(&buf)
+	f, err := zw.Create("llama-server")
+	require.NoError(t, err)
+	_, err = f.Write([]byte("cpu-binary-data"))
+	require.NoError(t, err)
+	zw.Close()
+
+	origTransport := downloadHTTPClient.Transport
+	t.Cleanup(func() { downloadHTTPClient.Transport = origTransport })
+	downloadHTTPClient.Transport = roundTripperFunc(func(_ *http.Request) (*http.Response, error) {
+		return &http.Response{
+			StatusCode: http.StatusOK,
+			Body:       io.NopCloser(bytes.NewReader(buf.Bytes())),
+			Header:     make(http.Header),
+		}, nil
+	})
+
+	result := ensureLlamaServerBinaryCPU()
+	expected := filepath.Join(dir, ".kdeps", "bin", "cpu-fallback", llamaServerExeName())
+	assert.Equal(t, expected, result)
+}
+
+func TestEnsureLlamaServerBinaryCPU_InstallFailureFallsBackToPATH(t *testing.T) {
+	dir := t.TempDir()
+	orig := userHomeDirFunc
+	t.Cleanup(func() { userHomeDirFunc = orig })
+	userHomeDirFunc = func() (string, error) { return dir, nil }
+	stubLlamaServerAsset(t, "https://example.com/llama-server-cpu.zip")
+
+	origTransport := downloadHTTPClient.Transport
+	t.Cleanup(func() { downloadHTTPClient.Transport = origTransport })
+	downloadHTTPClient.Transport = roundTripperFunc(func(_ *http.Request) (*http.Response, error) {
+		return nil, errors.New("mock download failure")
+	})
+
+	result := ensureLlamaServerBinaryCPU()
+	assert.Equal(t, "llama-server", result)
+}
+
+func TestGGufLlamaServerBinary_UsesCPUFallbackWhenMarked(t *testing.T) {
+	t.Setenv("KDEPS_LLAMA_SERVER_BIN", "")
+	dir := t.TempDir()
+	orig := userHomeDirFunc
+	t.Cleanup(func() { userHomeDirFunc = orig })
+	userHomeDirFunc = func() (string, error) { return dir, nil }
+
+	markGGUFCPUFallback()
+
+	// Pre-seed the CPU-fallback binary so this resolves without network access.
+	cpuPath := cachedLlamaServerCPUPath()
+	require.NoError(t, os.MkdirAll(filepath.Dir(cpuPath), 0750))
+	require.NoError(t, os.WriteFile(cpuPath, []byte("fake"), 0755))
+
+	assert.Equal(t, cpuPath, ggufLlamaServerBinary())
 }
 
 func TestInstallLlamaServer_UnsupportedPlatform(t *testing.T) {
@@ -845,7 +1046,7 @@ func TestResolveLlamaServerAsset_HTTPTransportError(t *testing.T) {
 
 	_, err := resolveLlamaServerAsset("macos-arm64")
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "fetch latest release")
+	assert.Contains(t, err.Error(), "fetch pinned release")
 }
 
 func TestResolveLlamaServerAsset_Non200Status(t *testing.T) {
@@ -861,7 +1062,7 @@ func TestResolveLlamaServerAsset_Non200Status(t *testing.T) {
 
 	_, err := resolveLlamaServerAsset("macos-arm64")
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "fetch latest release returned 404")
+	assert.Contains(t, err.Error(), "fetch pinned release returned 404")
 }
 
 func TestResolveLlamaServerAsset_InvalidJSON(t *testing.T) {
