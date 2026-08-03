@@ -179,6 +179,13 @@ func formatHarvestSize(sizeBytes int64) string {
 	return fmt.Sprintf("%.1f", float64(sizeBytes)/bytesPerGB)
 }
 
+// FormatSizeGB formats a byte count as a one-decimal GB string (e.g. "4.2"),
+// or "" when sizeBytes is unknown/non-positive. Exported for callers outside
+// pkg/tui that populate ModelEntry.SizeGB.
+func FormatSizeGB(sizeBytes int64) string {
+	return formatHarvestSize(sizeBytes)
+}
+
 // EngineListItems turns catalog recipes into list picker rows.
 func EngineListItems(entries []recipe.Entry) []ListItem {
 	items := make([]ListItem, 0, len(entries))

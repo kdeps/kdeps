@@ -323,6 +323,9 @@ func runCronScheduler(ctx context.Context) {
 // agentBackendGGUF is the llama.cpp/llama-server backend for GGUF model files.
 const agentBackendGGUF = "gguf"
 
+// agentModelTypeLlamafile is the display type for llamafile-backed models.
+const agentModelTypeLlamafile = "llamafile"
+
 type agentLoopFlags struct {
 	Model        string
 	Backend      string
@@ -873,6 +876,14 @@ func buildModelPickerFn(repl *agent.REPL) func(filter string) (string, error) {
 			// enabled = API key is set for this model's provider.
 			// Map existence alone does not mean enabled; check providerStatus.
 			enabled := backend != "" && status[backend]
+			_, bareName, _ := agent.SplitQualifiedModelName(name)
+			sizeGB := ""
+			switch types[name] {
+			case agentModelTypeLlamafile:
+				sizeGB = tui.FormatSizeGB(llm.LlamafileSizeBytes(bareName))
+			case agentBackendGGUF:
+				sizeGB = tui.FormatSizeGB(llm.GGUFSizeBytes(bareName))
+			}
 			entries = append(entries, tui.ModelEntry{
 				Name:      name,
 				ModelType: types[name],
@@ -880,6 +891,7 @@ func buildModelPickerFn(repl *agent.REPL) func(filter string) (string, error) {
 				Repo:      repos[name],
 				Cached:    downloaded[name],
 				Enabled:   enabled,
+				SizeGB:    sizeGB,
 				Score:     repl.LlamaFitScore(name),
 				FitLevel:  repl.LlamaFitFitLevel(name),
 			})

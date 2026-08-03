@@ -361,13 +361,9 @@ func (m modelPickerModel) renderRow(e ModelEntry, isCursor bool, width int) stri
 		nameStr = styleAccent.Bold(true).Render(name)
 	}
 
-	// right-align tag
-	nameW := lipgloss.Width(nameStr)
-	padW := width - markerW - nameW - tagW - checkW
-	if padW < 1 {
-		padW = 1
-	}
-	pad := strings.Repeat(" ", padW)
+	// Keep the tag close to the name (fixed gap) instead of right-aligning it
+	// across the full terminal width.
+	pad := strings.Repeat(" ", pickerNamePad)
 
 	return marker + nameStr + pad + tag + checkmark
 }
@@ -395,6 +391,10 @@ func tagForEntry(e ModelEntry) string {
 	if e.Repo != "" {
 		repoSuffix = " " + e.Repo
 	}
+	sizeSuffix := ""
+	if e.SizeGB != "" {
+		sizeSuffix = " " + e.SizeGB + "GB"
+	}
 	scoreTag := ""
 	if e.Score > 0 {
 		level := ""
@@ -417,9 +417,9 @@ func tagForEntry(e ModelEntry) string {
 	if e.Cached {
 		switch e.ModelType {
 		case modelTypeLLamafile:
-			return scoreTag + "[llamafile installed" + repoSuffix + "]"
+			return scoreTag + "[llamafile installed" + repoSuffix + sizeSuffix + "]"
 		case modelTypeGGUF:
-			return scoreTag + "[gguf installed" + repoSuffix + "]"
+			return scoreTag + "[gguf installed" + repoSuffix + sizeSuffix + "]"
 		case modelTypeOllama:
 			return scoreTag + "[ollama installed]"
 		default:
@@ -428,9 +428,9 @@ func tagForEntry(e ModelEntry) string {
 	}
 	switch e.ModelType {
 	case modelTypeLLamafile:
-		return scoreTag + "[llamafile" + repoSuffix + "]"
+		return scoreTag + "[llamafile" + repoSuffix + sizeSuffix + "]"
 	case modelTypeGGUF:
-		return scoreTag + "[gguf" + repoSuffix + "]"
+		return scoreTag + "[gguf" + repoSuffix + sizeSuffix + "]"
 	case modelTypeOllama:
 		return scoreTag + "[ollama]"
 	default:
