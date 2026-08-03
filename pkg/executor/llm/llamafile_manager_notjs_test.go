@@ -141,13 +141,22 @@ func TestLlamafileManager_Serve_CrashRemediatedThenHealthy(t *testing.T) {
 	origStart := startLlamafileServerFunc
 	origTimeout := llamafileStartTimeoutFunc
 	origDo := httpDefaultClientDo
+	origOS := testOS
 	swapRuntimeDepsHooks(t) // remediation must never touch the real machine
 	t.Cleanup(func() {
 		userHomeDirFunc = origHome
 		startLlamafileServerFunc = origStart
 		llamafileStartTimeoutFunc = origTimeout
 		httpDefaultClientDo = origDo
+		testOS = origOS
 	})
+	// Force Windows: its remediation attempts unconditionally on any crash,
+	// unlike macOS/Linux which gate on a log-tail signature that a fake path
+	// (with no real log file) can never match -- this test is about
+	// Serve()'s wiring/retry-once behavior, not re-testing that per-OS
+	// gating (already covered in runtime_deps_test.go), so it must not
+	// depend on which OS actually runs the test.
+	testOS = goosWindows
 
 	homeDir := t.TempDir()
 	userHomeDirFunc = func() (string, error) { return homeDir, nil }

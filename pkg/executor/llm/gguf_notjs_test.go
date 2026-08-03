@@ -658,13 +658,22 @@ func TestGGUFManager_Serve_CrashRemediatedThenHealthy(t *testing.T) {
 	origStart := startGGUFServerFunc
 	origTimeout := ggufStartTimeoutFunc
 	origDo := httpDefaultClientDo
+	origOS := testOS
 	calls := swapRuntimeDepsHooks(t)
 	t.Cleanup(func() {
 		userHomeDirFunc = origHome
 		startGGUFServerFunc = origStart
 		ggufStartTimeoutFunc = origTimeout
 		httpDefaultClientDo = origDo
+		testOS = origOS
 	})
+	// Force Windows: its remediation attempts unconditionally on any crash,
+	// unlike macOS/Linux which gate on a log-tail signature that a fake path
+	// (with no real log file) can never match -- this test is about
+	// Serve()'s wiring/retry-once behavior, not re-testing that per-OS
+	// gating (already covered in runtime_deps_test.go), so it must not
+	// depend on which OS actually runs the test.
+	testOS = goosWindows
 
 	homeDir := t.TempDir()
 	userHomeDirFunc = func() (string, error) { return homeDir, nil }
@@ -708,29 +717,28 @@ func TestGGUFManager_Serve_CrashRemediatedThenHealthy(t *testing.T) {
 }
 
 func TestGGUFManager_Serve_CrashRemediationFailsFallsBackToCPU(t *testing.T) {
-	if !ggufGPUFirstPlatform() {
-		t.Skip("CPU fallback only applies to platforms with a GPU-first (Vulkan) build")
-	}
-
 	origHome := userHomeDirFunc
 	origStart := startGGUFServerFunc
 	origTimeout := ggufStartTimeoutFunc
 	origDo := httpDefaultClientDo
+	origOS := testOS
 	calls := swapRuntimeDepsHooks(t)
 	t.Cleanup(func() {
 		userHomeDirFunc = origHome
 		startGGUFServerFunc = origStart
 		ggufStartTimeoutFunc = origTimeout
 		httpDefaultClientDo = origDo
+		testOS = origOS
 	})
+	// Force Windows so remediation genuinely attempts (and this test's forced
+	// download failure is what makes it decline) -- see
+	// TestGGUFManager_Serve_CrashRemediatedThenHealthy for why this can't be
+	// left to whatever OS actually runs the test.
+	testOS = goosWindows
 
 	homeDir := t.TempDir()
 	userHomeDirFunc = func() (string, error) { return homeDir, nil }
 	ggufStartTimeoutFunc = func() time.Duration { return 2 * time.Second }
-	// Force remediation to be a no-op/unavailable on every OS this could run
-	// on: Windows always "attempts" (download+install), so make the download
-	// fail; macOS/Linux are gated on log signatures that this test's empty
-	// log tail never matches anyway.
 	calls.downloadVCRedistErr = errors.New("network down")
 
 	startCalls := 0
@@ -760,21 +768,23 @@ func TestGGUFManager_Serve_CrashRemediationFailsFallsBackToCPU(t *testing.T) {
 }
 
 func TestGGUFManager_Serve_RemediationAttemptedAtMostOncePerCall(t *testing.T) {
-	if !ggufGPUFirstPlatform() {
-		t.Skip("CPU fallback only applies to platforms with a GPU-first (Vulkan) build")
-	}
-
 	origHome := userHomeDirFunc
 	origStart := startGGUFServerFunc
 	origTimeout := ggufStartTimeoutFunc
 	origDo := httpDefaultClientDo
+	origOS := testOS
 	calls := swapRuntimeDepsHooks(t)
 	t.Cleanup(func() {
 		userHomeDirFunc = origHome
 		startGGUFServerFunc = origStart
 		ggufStartTimeoutFunc = origTimeout
 		httpDefaultClientDo = origDo
+		testOS = origOS
 	})
+	// Force Windows so remediation genuinely attempts each time it's checked
+	// -- see TestGGUFManager_Serve_CrashRemediatedThenHealthy for why this
+	// can't be left to whatever OS actually runs the test.
+	testOS = goosWindows
 
 	homeDir := t.TempDir()
 	userHomeDirFunc = func() (string, error) { return homeDir, nil }
