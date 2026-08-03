@@ -203,6 +203,37 @@ To keep agent context faithful (drop filler only, no wording changes), set `TURO
 
 The default model is persisted to `~/.kdeps/agent-loop-settings.yaml` and loaded automatically at startup when `--model` is not passed.
 
+### Same alias, different backends
+
+llamafile, GGUF, and Ollama registries can each have their own, unrelated
+entry under the same bare alias (e.g. `qwen3.5` might exist as a distinct
+download in both the llamafile and GGUF catalogs, or as a locally-pulled
+Ollama tag). When kdeps detects this, `/model list` and `/model <tab>` show
+every colliding entry qualified by its backend instead of hiding one:
+
+```
+llamafile:qwen3.5
+gguf:qwen3.5
+```
+
+Switch to a specific one with its qualified name:
+
+```
+/model gguf:qwen3.5
+```
+
+Typing the bare, still-ambiguous name auto-picks the same backend kdeps has
+always preferred (`ollama` > `gguf` > `llamafile`) and prints a one-line
+notice so you know which one you got:
+
+```
+/model qwen3.5
+"qwen3.5" is ambiguous across backends (llamafile:qwen3.5, gguf:qwen3.5) -- using gguf:qwen3.5. Use the full name to pick a specific one.
+```
+
+Non-colliding names — the vast majority of aliases — are completely
+unaffected; you only ever need the `backend:` prefix when kdeps tells you to.
+
 ### How a model is picked when none is configured
 
 With no `--model` flag, no saved default, and no `model:` in `~/.kdeps/config.yaml`, kdeps picks the first option that is actually usable, in this order:

@@ -53,6 +53,17 @@ go build -o kdeps main.go
 ./kdeps --version
 ```
 
+On Windows without `make` (or Git Bash/WSL), `build.ps1` and `build.bat` in the
+repo root do the same build with version/commit info embedded, matching
+`make build`:
+
+```powershell
+.\build.ps1
+```
+```cmd
+build.bat
+```
+
 ## Verify Installation
 
 ```bash
@@ -106,6 +117,7 @@ config for you:
     [3] cloud      OpenAI, Anthropic, DeepSeek, Groq, xAI, ... (needs an API key)
     [4] ollama     connect to an Ollama server
     [5] router     route across multiple models by strategy (advanced)
+    [6] m365       Microsoft 365 Copilot (browser login, no API key)
     [0] Skip (configure later)
 ```
 
@@ -115,6 +127,9 @@ Each choice fills in the matching `llm:` fields:
 - **cloud** — sets `backend`, prompts for the provider's API key, and stores it under `llm.<provider>_api_key`.
 - **ollama** — sets `backend: ollama` and the host URL.
 - **router** — collects the models to route across and a strategy (`fallback`, `round_robin`, `token_threshold`, `cost_optimized`), written as `llm.models` + `llm.strategy`.
+- **m365** — sets `backend: m365`. No API key: authenticates via a browser-cached
+  Microsoft 365 sign-in (or headless credentials for CI/servers). See
+  [LLM Provider Reference — M365 Copilot](/reference/llm-providers#m365-copilot).
 
 In non-interactive environments (CI, pipes) kdeps skips the wizard and writes a
 fully commented template instead. Re-run the wizard any time by removing
