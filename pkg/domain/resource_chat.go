@@ -63,6 +63,18 @@ type ChatConfig struct {
 	// every subsequent assistant turn, so it has to be carried alongside the
 	// content rather than folded into it.
 	ReasoningOut *string `yaml:"-"`
+	// MessagesOut, when non-nil, receives the exact messages array included in
+	// the outgoing request body after any backend-specific transformation
+	// (e.g. folding system-role messages for local chat templates that
+	// reject them -- see foldSystemMessages). Runtime-only output field, used
+	// by the REPL's /prompt command to show what was actually sent.
+	MessagesOut *[]map[string]interface{} `yaml:"-"`
+	// ToolsOut, when non-nil, receives the exact tool definitions included in
+	// the outgoing request (the full merged set actually passed to the
+	// provider, not just cfg.Tools verbatim -- see the callers of
+	// captureSentTools). Runtime-only output field, used by the REPL's
+	// /prompt command.
+	ToolsOut *[]Tool `yaml:"-"`
 
 	ContextLength int    `yaml:"contextLength,omitempty"` // Context length in tokens: 4096, 8192, 16384, 32768, 65536, 131072, 262144 (default: 4096)
 	Role          string `yaml:"role"`

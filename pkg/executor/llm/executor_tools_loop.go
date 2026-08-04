@@ -62,7 +62,7 @@ func (e *Executor) handleToolCalls(
 
 		currentMessages = e.addToolResultsToMessages(currentMessages, toolCalls, toolResults)
 
-		nextResponse, err := e.chatFollowUp(backend, baseURL, modelStr, currentMessages, requestConfig, timeout)
+		nextResponse, err := e.chatFollowUp(cfg, backend, baseURL, modelStr, currentMessages, requestConfig, timeout)
 		if err != nil {
 			return nil, err
 		}
@@ -73,6 +73,7 @@ func (e *Executor) handleToolCalls(
 }
 
 func (e *Executor) chatFollowUp(
+	cfg *domain.ChatConfig,
 	backend Backend,
 	baseURL string,
 	modelStr string,
@@ -84,6 +85,7 @@ func (e *Executor) chatFollowUp(
 	if err != nil {
 		return nil, fmt.Errorf("failed to build follow-up request: %w", err)
 	}
+	captureSentMessages(cfg, requestBody)
 	response, err := e.callBackend(backend, baseURL, requestBody, timeout)
 	if err != nil {
 		return nil, fmt.Errorf("follow-up LLM call failed: %w", err)

@@ -46,6 +46,7 @@ func swapRuntimeDepsHooks(t *testing.T) *runtimeDepsHookCalls {
 	origBrewInstallLibomp := brewInstallLibompFn
 	origDetectLinuxVulkanPackage := detectLinuxVulkanPackageFn
 	origRunSudoInstall := runSudoInstallFn
+	origReinstallLlamaServer := reinstallLlamaServerFn
 	t.Cleanup(func() {
 		downloadVCRedistFn = origDownloadVCRedist
 		runVCRedistInstallerFn = origRunVCRedistInstaller
@@ -54,6 +55,7 @@ func swapRuntimeDepsHooks(t *testing.T) *runtimeDepsHookCalls {
 		brewInstallLibompFn = origBrewInstallLibomp
 		detectLinuxVulkanPackageFn = origDetectLinuxVulkanPackage
 		runSudoInstallFn = origRunSudoInstall
+		reinstallLlamaServerFn = origReinstallLlamaServer
 	})
 
 	downloadVCRedistFn = func(string) error { calls.downloadVCRedist++; return calls.downloadVCRedistErr }
@@ -63,6 +65,7 @@ func swapRuntimeDepsHooks(t *testing.T) *runtimeDepsHookCalls {
 	brewInstallLibompFn = func() error { calls.brewInstallLibomp++; return calls.brewInstallLibompErr }
 	detectLinuxVulkanPackageFn = func() (string, string) { calls.detectLinuxVulkanPackage++; return calls.pmName, calls.pkgName }
 	runSudoInstallFn = func(string, string) error { calls.runSudoInstall++; return calls.runSudoInstallErr }
+	reinstallLlamaServerFn = func() error { calls.reinstallLlamaServer++; return calls.reinstallLlamaServerErr }
 
 	return calls
 }
@@ -82,6 +85,8 @@ type runtimeDepsHookCalls struct {
 	pmName, pkgName          string
 	runSudoInstall           int
 	runSudoInstallErr        error
+	reinstallLlamaServer     int
+	reinstallLlamaServerErr  error
 }
 
 func TestRemediateCrash_UnknownOS(t *testing.T) {
@@ -204,6 +209,33 @@ func TestRemediateMacCrash_BrewInstallFailure(t *testing.T) {
 	logTail := "dyld: Library not loaded: .../libomp.dylib"
 
 	assert.False(t, remediateMacCrash(logTail))
+}
+
+func TestRemediateMacCrash_OtherMissingDylibReinstallsLlamaServer(t *testing.T) {
+	calls := swapRuntimeDepsHooks(t)
+	logTail := "dyld: Library not loaded: @rpath/libllama-common.0.dylib; " +
+		"Referenced from: /Users/joel/.kdeps/bin/llama-server"
+
+	assert.True(t, remediateMacCrash(logTail))
+	assert.Equal(t, 1, calls.reinstallLlamaServer)
+	assert.Zero(t, calls.lookPath, "must not go down the libomp/brew path for an unrelated missing dylib")
+	assert.Zero(t, calls.brewInstallLibomp)
+}
+
+func TestRemediateMacCrash_OtherMissingDylibReinstallFailure(t *testing.T) {
+	calls := swapRuntimeDepsHooks(t)
+	calls.reinstallLlamaServerErr = errors.New("download failed")
+	logTail := "dyld: Library not loaded: @rpath/libllama-common.0.dylib"
+
+	assert.False(t, remediateMacCrash(logTail))
+}
+
+func TestRemediateMacCrash_NonDylibLibraryNotLoadedGated(t *testing.T) {
+	calls := swapRuntimeDepsHooks(t)
+	logTail := "dyld: Library not loaded: some binary framework, not a dylib at all"
+
+	assert.False(t, remediateMacCrash(logTail))
+	assert.Zero(t, calls.reinstallLlamaServer)
 }
 
 func TestRemediateLinuxCrash_GatedOnLogSignature(t *testing.T) {

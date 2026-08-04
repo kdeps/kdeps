@@ -168,7 +168,7 @@ func TestRunLlamaFit_NameBasedMatching(t *testing.T) {
 		"starcoder2:3b":  "mozilla-ai/starcoder2-llamafile",                 // filename size disambig
 	})
 
-	runLlamaFit(repl)
+	runLlamaFit(context.Background(), repl)
 
 	assert.InDelta(t, 78.5, repl.LlamaFitScore("llama3.2:1b-q4"), 0.001)
 	assert.Equal(t, "Good", repl.LlamaFitFitLevel("llama3.2:1b-q4"))

@@ -159,7 +159,7 @@ func remediateWindowsCrash() bool {
 	return true
 }
 
-// --- macOS: missing libomp (Homebrew) --------------------------------------
+// --- macOS: missing libomp (Homebrew), or any other missing sibling dylib --
 
 //nolint:gochecknoglobals // test-replaceable hooks
 var (
@@ -168,7 +168,17 @@ var (
 	brewInstallLibompFn = func() error {
 		return runCommandInheritStdio("brew", "install", "libomp")
 	}
+	reinstallLlamaServerFn = reinstallLlamaServer
 )
+
+// reinstallLlamaServer re-downloads and re-extracts the cached llama-server
+// release archive. Used to recover from a prior extract that dropped a
+// symlinked sibling library (see extractTarGzSiblings) -- installLlamaServer
+// always re-downloads and overwrites, so this repairs an existing cache
+// entry without needing to delete it first.
+func reinstallLlamaServer() error {
+	return installLlamaServer(cachedLlamaServerPath())
+}
 
 // installHomebrewNonInteractive runs Homebrew's official installer in
 // non-interactive mode (Homebrew's install script explicitly supports
@@ -186,11 +196,31 @@ func installHomebrewNonInteractive() error {
 
 // remediateMacCrash installs libomp via Homebrew (bootstrapping Homebrew
 // itself first if missing) when the crash log shows the known dyld
-// "libomp.dylib not found" signature.
+// "libomp.dylib not found" signature. For any other missing-library dyld
+// crash (e.g. "Library not loaded: @rpath/libllama-common.0.dylib"), it
+// re-downloads and re-extracts the llama-server release archive instead --
+// that signature means a sibling shared library llama-server itself ships
+// was never written to ~/.kdeps/bin, not a missing system dependency.
 func remediateMacCrash(logTail string) bool {
-	if !strings.Contains(logTail, "Library not loaded") || !strings.Contains(logTail, "libomp") {
+	if !strings.Contains(logTail, "Library not loaded") {
 		return false
 	}
+	if strings.Contains(logTail, "libomp") {
+		return remediateMacLibompCrash()
+	}
+	if !strings.Contains(logTail, ".dylib") {
+		return false
+	}
+	if err := reinstallLlamaServerFn(); err != nil {
+		kdeps_debug.Log(fmt.Sprintf("llama-server reinstall failed: %v", err))
+		return false
+	}
+	return true
+}
+
+// remediateMacLibompCrash installs libomp via Homebrew, bootstrapping
+// Homebrew itself first if missing.
+func remediateMacLibompCrash() bool {
 	if _, err := lookPathFn("brew"); err != nil {
 		if bootstrapErr := installHomebrewFn(); bootstrapErr != nil {
 			kdeps_debug.Log(fmt.Sprintf("homebrew bootstrap failed: %v", bootstrapErr))

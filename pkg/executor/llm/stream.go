@@ -790,6 +790,115 @@ func buildLangchainMessages(cfg *domain.ChatConfig) []llms.MessageContent {
 	return msgs
 }
 
+// foldSystemLangchainMessages merges every system-role message's text into
+// the front of the first remaining message and drops the system entries.
+// The langchaingo-based streaming path (StreamChat/streamChatOnce) has its
+// own message representation ([]llms.MessageContent), entirely separate
+// from the raw-map path's foldSystemMessages (backend_helpers.go) -- both
+// need the same fix for the same reason: local llama.cpp/llama-server GGUF
+// and llamafile backends serve whatever chat template is baked into the
+// model file, and some (e.g. Gemma's official template) call
+// raise_exception("System role not supported") and reject the request
+// outright with an HTTP 400 if one is present.
+func foldSystemLangchainMessages(messages []llms.MessageContent) []llms.MessageContent {
+	var systemParts []string
+	rest := make([]llms.MessageContent, 0, len(messages))
+	for _, m := range messages {
+		if m.Role != llms.ChatMessageTypeSystem {
+			rest = append(rest, m)
+			continue
+		}
+		for _, part := range m.Parts {
+			if text, ok := langchainPartText(part); ok && text != "" {
+				systemParts = append(systemParts, text)
+			}
+		}
+	}
+	systemText := strings.Join(systemParts, "\n\n")
+	if systemText == "" || len(rest) == 0 {
+		return rest
+	}
+	prependToLangchainMessage(&rest[0], systemText)
+	return rest
+}
+
+// langchainPartText unwraps a ContentPart down to its text, if any.
+// llms.WithCacheControl (used for the system preamble's CacheControl:
+// "ephemeral" scenario item -- see buildChatConfig) wraps a part in
+// llms.CachedContent, which embeds the original ContentPart rather than
+// being a llms.TextContent itself; a plain type assertion for TextContent
+// misses it, silently dropping the entire cached system preamble (skills,
+// tool guidance, memory rules, date) instead of folding or displaying it.
+func langchainPartText(part llms.ContentPart) (string, bool) {
+	if cached, ok := part.(llms.CachedContent); ok {
+		return langchainPartText(cached.ContentPart)
+	}
+	if tc, ok := part.(llms.TextContent); ok {
+		return tc.Text, true
+	}
+	return "", false
+}
+
+// prependToLangchainMessage prepends text to msg's leading text part in
+// place, or inserts a new one at the front if msg has none (e.g. an
+// image-only message).
+func prependToLangchainMessage(msg *llms.MessageContent, text string) {
+	for i, part := range msg.Parts {
+		if existing, ok := langchainPartText(part); ok {
+			msg.Parts[i] = llms.TextContent{Text: text + "\n\n" + existing}
+			return
+		}
+	}
+	msg.Parts = append([]llms.ContentPart{llms.TextContent{Text: text}}, msg.Parts...)
+}
+
+// captureSentLangchainMessages records messages -- already folded and
+// otherwise exactly as sent -- into cfg.MessagesOut, if the caller asked
+// for it (see domain.ChatConfig.MessagesOut and captureSentMessages, its
+// counterpart for the raw-map request path). No-op otherwise.
+func captureSentLangchainMessages(cfg *domain.ChatConfig, messages []llms.MessageContent) {
+	if cfg == nil || cfg.MessagesOut == nil {
+		return
+	}
+	out := make([]map[string]interface{}, 0, len(messages))
+	for _, m := range messages {
+		out = append(out, map[string]interface{}{
+			jsonFieldRole:    string(m.Role),
+			jsonFieldContent: langchainPartsPreview(m.Parts),
+		})
+	}
+	*cfg.MessagesOut = out
+}
+
+// langchainPartsPreview renders a message's content parts as a single
+// display string: text parts verbatim, other part kinds (images, binary
+// attachments) as a "[Type]" placeholder.
+func langchainPartsPreview(parts []llms.ContentPart) string {
+	texts := make([]string, 0, len(parts))
+	for _, part := range parts {
+		if text, ok := langchainPartText(part); ok {
+			texts = append(texts, text)
+			continue
+		}
+		texts = append(texts, fmt.Sprintf("[%T]", part))
+	}
+	return strings.Join(texts, "\n")
+}
+
+// buildLangchainMessagesForBackend builds the outgoing messages for backend,
+// folding system-role messages for local GGUF/llamafile backends (see
+// foldSystemLangchainMessages) and recording the exact messages and tools
+// sent into cfg.MessagesOut/cfg.ToolsOut for the REPL's /prompt command.
+func buildLangchainMessagesForBackend(cfg *domain.ChatConfig, backend string) []llms.MessageContent {
+	messages := buildLangchainMessages(cfg)
+	if backend == BackendFile || backend == BackendGGUF {
+		messages = foldSystemLangchainMessages(messages)
+	}
+	captureSentLangchainMessages(cfg, messages)
+	captureSentTools(cfg, cfg.Tools)
+	return messages
+}
+
 // buildUserMessage creates a human MessageContent combining text and any attached files.
 func buildUserMessage(msgType llms.ChatMessageType, prompt string, files []string) llms.MessageContent {
 	var parts []llms.ContentPart
@@ -1235,7 +1344,7 @@ func (e *Executor) StreamChat(
 		return "", nil, fmt.Errorf("stream: build llm: %w", err)
 	}
 
-	messages := buildLangchainMessages(cfg)
+	messages := buildLangchainMessagesForBackend(cfg, backend)
 	opts := buildStreamOpts(cfg, backend, w)
 
 	ctx = attachReasoningEcho(ctx, backend, cfg)
@@ -1344,7 +1453,7 @@ func (e *Executor) streamChatOnce(
 		return "", nil, fmt.Errorf("stream: build llm: %w", err)
 	}
 
-	messages := buildLangchainMessages(cfg)
+	messages := buildLangchainMessagesForBackend(cfg, backend)
 	opts := buildStreamOpts(cfg, backend, w)
 
 	ctx = attachReasoningEcho(ctx, backend, cfg)

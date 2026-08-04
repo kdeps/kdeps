@@ -1137,6 +1137,157 @@ func TestCmdHistory_LongMessage(t *testing.T) {
 	assert.NoError(t, err)
 }
 
+// --- cmdPrompt ---
+
+func TestCmdPrompt_NoCallYet(t *testing.T) {
+	loop := makeTestLoop(nil)
+	repl := NewREPL(context.Background(), loop)
+	defer repl.cancel()
+
+	err := repl.cmdPrompt(nil)
+	assert.NoError(t, err)
+}
+
+func TestCmdPrompt_ShowsLastSentMessages(t *testing.T) {
+	loop := makeTestLoop(nil)
+	loop.lastSentMessages = []map[string]interface{}{
+		{"role": "system", "content": "sys prompt"},
+		{"role": "user", "content": "hello"},
+	}
+	repl := NewREPL(context.Background(), loop)
+	defer repl.cancel()
+
+	err := repl.cmdPrompt(nil)
+	assert.NoError(t, err)
+}
+
+func TestCmdPrompt_ShowsToolsWithTokenEstimates(t *testing.T) {
+	loop := makeTestLoop(nil)
+	loop.lastSentMessages = []map[string]interface{}{
+		{"role": "user", "content": "search for something"},
+	}
+	loop.lastSentTools = []domain.Tool{
+		{Name: "web_search", Description: "Use for current events, facts, research"},
+		{Name: "bash_exec", Description: "Run a shell command"},
+	}
+	repl := NewREPL(context.Background(), loop)
+	defer repl.cancel()
+
+	err := repl.cmdPrompt(nil)
+	assert.NoError(t, err)
+}
+
+func TestCmdPrompt_RawJSONIncludesTools(t *testing.T) {
+	loop := makeTestLoop(nil)
+	loop.lastSentMessages = []map[string]interface{}{
+		{"role": "user", "content": "hi"},
+	}
+	loop.lastSentTools = []domain.Tool{
+		{Name: "web_search", Description: "search the web"},
+	}
+	repl := NewREPL(context.Background(), loop)
+	defer repl.cancel()
+
+	err := repl.cmdPrompt([]string{"raw"})
+	assert.NoError(t, err)
+}
+
+func TestPromptToolTokenCount_NonZeroForRealTool(t *testing.T) {
+	tl := domain.Tool{Name: "web_search", Description: "Use for current events, facts, research"}
+	got := promptToolTokenCount("test-model", tl)
+	assert.Positive(t, got)
+}
+
+func TestCmdPrompt_RawJSON(t *testing.T) {
+	loop := makeTestLoop(nil)
+	loop.lastSentMessages = []map[string]interface{}{
+		{"role": "user", "content": "hi"},
+	}
+	repl := NewREPL(context.Background(), loop)
+	defer repl.cancel()
+
+	err := repl.cmdPrompt([]string{"raw"})
+	assert.NoError(t, err)
+}
+
+func TestCmdPrompt_MissingRole(t *testing.T) {
+	loop := makeTestLoop(nil)
+	loop.lastSentMessages = []map[string]interface{}{
+		{"content": "no role field"},
+	}
+	repl := NewREPL(context.Background(), loop)
+	defer repl.cancel()
+
+	err := repl.cmdPrompt(nil)
+	assert.NoError(t, err)
+}
+
+// --- promptMessageContentPreview ---
+
+func TestPromptMessageContentPreview_String(t *testing.T) {
+	got := promptMessageContentPreview(map[string]interface{}{"content": "plain text"})
+	assert.Equal(t, "plain text", got)
+}
+
+func TestPromptMessageContentPreview_Multimodal(t *testing.T) {
+	got := promptMessageContentPreview(map[string]interface{}{
+		"content": []interface{}{
+			map[string]interface{}{"type": "text", "text": "describe this"},
+			map[string]interface{}{"type": "image_url", "image_url": map[string]interface{}{"url": "data:..."}},
+		},
+	})
+	assert.Equal(t, "describe this\n[image_url]", got)
+}
+
+func TestPromptMessageContentPreview_Missing(t *testing.T) {
+	got := promptMessageContentPreview(map[string]interface{}{})
+	assert.Equal(t, "<nil>", got)
+}
+
+// --- Loop.captureLastMessages / LastSentMessages ---
+
+func TestLoop_LastSentMessages_NilBeforeAnyCall(t *testing.T) {
+	loop := makeTestLoop(nil)
+	assert.Nil(t, loop.LastSentMessages())
+}
+
+func TestLoop_CaptureLastMessages_WiresConfigOutput(t *testing.T) {
+	loop := makeTestLoop(nil)
+	cfg := &domain.ChatConfig{}
+	loop.captureLastMessages(cfg)
+	require.NotNil(t, cfg.MessagesOut)
+
+	*cfg.MessagesOut = []map[string]interface{}{{"role": "user", "content": "hi"}}
+	assert.Equal(t, []map[string]interface{}{{"role": "user", "content": "hi"}}, loop.LastSentMessages())
+}
+
+func TestLoop_CaptureLastMessages_NilConfigIsNoop(t *testing.T) {
+	loop := makeTestLoop(nil)
+	assert.NotPanics(t, func() { loop.captureLastMessages(nil) })
+}
+
+// --- Loop.captureCallOutputs / LastSentTools ---
+
+func TestLoop_LastSentTools_NilBeforeAnyCall(t *testing.T) {
+	loop := makeTestLoop(nil)
+	assert.Nil(t, loop.LastSentTools())
+}
+
+func TestLoop_CaptureCallOutputs_WiresToolsOut(t *testing.T) {
+	loop := makeTestLoop(nil)
+	cfg := &domain.ChatConfig{}
+	loop.captureCallOutputs(cfg)
+	require.NotNil(t, cfg.ToolsOut)
+
+	*cfg.ToolsOut = []domain.Tool{{Name: "web_search", Description: "search"}}
+	assert.Equal(t, []domain.Tool{{Name: "web_search", Description: "search"}}, loop.LastSentTools())
+}
+
+func TestLoop_CaptureCallOutputs_NilConfigIsNoop(t *testing.T) {
+	loop := makeTestLoop(nil)
+	assert.NotPanics(t, func() { loop.captureCallOutputs(nil) })
+}
+
 // --- dispatchCommand remaining branches ---
 
 func TestDispatchCommand_Help(t *testing.T) {
@@ -1200,6 +1351,15 @@ func TestDispatchCommand_History(t *testing.T) {
 	defer repl.cancel()
 
 	err := repl.dispatchCommand("/history")
+	assert.NoError(t, err)
+}
+
+func TestDispatchCommand_Prompt(t *testing.T) {
+	loop := makeTestLoop(nil)
+	repl := NewREPL(context.Background(), loop)
+	defer repl.cancel()
+
+	err := repl.dispatchCommand("/prompt")
 	assert.NoError(t, err)
 }
 

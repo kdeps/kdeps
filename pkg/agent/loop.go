@@ -223,6 +223,15 @@ type Loop struct {
 	// lastReasoning holds the reasoning_content from the most recent LLM call
 	// until it is attached to that turn's assistant message.
 	lastReasoning string
+	// lastSentMessages holds the exact messages array included in the most
+	// recent outgoing LLM request, after any backend-specific transformation
+	// (e.g. folding system-role messages for chat templates that reject
+	// them). Read by the REPL's /prompt command; overwritten on every call.
+	lastSentMessages []map[string]interface{}
+	// lastSentTools holds the exact tool definitions included in the most
+	// recent outgoing LLM request. Tools are a separate top-level request
+	// field, not part of lastSentMessages. Read by the REPL's /prompt command.
+	lastSentTools []domain.Tool
 	pendingFiles  []string // per-turn image/file attachments; cleared after buildChatConfig
 	// systemPreamble is built once on the first turn and reused verbatim on every
 	// subsequent turn. Keeping it byte-identical lets provider prompt caches hit
@@ -696,6 +705,7 @@ func (l *Loop) Run(ctx context.Context, input string) (string, error) {
 	systemPreamble := l.cachedSystemPreamble(input)
 
 	chatCfg := l.buildChatConfig(ctx, input, systemPreamble)
+	l.captureCallOutputs(chatCfg)
 
 	// Request body size preflight: check before sending to the engine's LLM call.
 	// The engine path (vs runToolRounds) does not have its own preflight check.
@@ -937,7 +947,7 @@ func (l *Loop) runToolRounds(
 	if err := l.preflightRequestSize(chatCfg); err != nil {
 		return "", err
 	}
-	l.captureReasoning(chatCfg)
+	l.captureCallOutputs(chatCfg)
 
 	var finalContent string
 	capped := false
@@ -1430,6 +1440,40 @@ func (l *Loop) takeReasoning() string {
 	r := l.lastReasoning
 	l.lastReasoning = ""
 	return r
+}
+
+// captureLastMessages points the chat config at the loop's lastSentMessages
+// slot so each call (including every tool-round follow-up) records the
+// exact messages array it actually sent.
+func (l *Loop) captureLastMessages(cfg *domain.ChatConfig) {
+	if cfg != nil {
+		cfg.MessagesOut = &l.lastSentMessages
+	}
+}
+
+// captureCallOutputs wires every runtime-only output field on cfg (reasoning,
+// last-sent messages) to this loop's state in one call.
+func (l *Loop) captureCallOutputs(cfg *domain.ChatConfig) {
+	l.captureReasoning(cfg)
+	l.captureLastMessages(cfg)
+	if cfg != nil {
+		cfg.ToolsOut = &l.lastSentTools
+	}
+}
+
+// LastSentMessages returns the exact messages array sent to the LLM on the
+// most recent call, or nil if no call has completed yet. Used by the REPL's
+// /prompt command.
+func (l *Loop) LastSentMessages() []map[string]interface{} {
+	return l.lastSentMessages
+}
+
+// LastSentTools returns the exact tool definitions sent to the LLM on the
+// most recent call, or nil if no call has completed yet (or no tools were
+// registered). Tools are a separate request field, not part of
+// LastSentMessages. Used by the REPL's /prompt command.
+func (l *Loop) LastSentTools() []domain.Tool {
+	return l.lastSentTools
 }
 
 // preflightRequestSize estimates the payload size before the first LLM call.

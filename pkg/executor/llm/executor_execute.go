@@ -60,6 +60,8 @@ func (e *Executor) Execute(
 	if err != nil {
 		return nil, fmt.Errorf("failed to build request: %w", err)
 	}
+	captureSentMessages(resolvedConfig, requestBody)
+	captureSentTools(resolvedConfig, allTools)
 	timeout := e.resolveTimeout(resolvedConfig)
 	maxOutputBytes := e.resolveMaxOutputBytes()
 

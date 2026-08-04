@@ -57,7 +57,7 @@ func (b *GGUFBackend) BuildRequest(
 	config ChatRequestConfig,
 ) (map[string]interface{}, error) {
 	kdeps_debug.Log("enter: GGUFBackend.BuildRequest")
-	return buildOpenAICompatRequest(model, messages, config), nil
+	return buildOpenAICompatRequest(model, foldSystemMessages(messages), config), nil
 }
 
 func (b *GGUFBackend) ParseResponse(resp *stdhttp.Response) (map[string]interface{}, error) {

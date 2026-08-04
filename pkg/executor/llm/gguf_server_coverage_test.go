@@ -1133,6 +1133,64 @@ func TestExtractTarGzFile_InvalidGzipContent(t *testing.T) {
 	require.Error(t, err)
 }
 
+// TestExtractTarGzSiblings_PreservesSymlinks pins the fix for the "llama.cpp
+// macOS release ships libllama-common.0.dylib as a symlinked sibling"
+// regression: a prior version of extractTarGzSiblings only copied
+// tar.TypeReg entries, silently dropping any sibling shipped as a symlink
+// (e.g. an unversioned "libllama-common.dylib" alias pointing at the
+// versioned file) and leaving llama-server unable to dyld-load it.
+func TestExtractTarGzSiblings_PreservesSymlinks(t *testing.T) {
+	dir := t.TempDir()
+	tarGzPath := filepath.Join(dir, "archive.tar.gz")
+
+	var buf bytes.Buffer
+	gz := gzip.NewWriter(&buf)
+	tw := tar.NewWriter(gz)
+	writeReg := func(name, content string) {
+		require.NoError(t, tw.WriteHeader(&tar.Header{
+			Name: name, Mode: 0600, Size: int64(len(content)), Typeflag: tar.TypeReg,
+		}))
+		_, err := tw.Write([]byte(content))
+		require.NoError(t, err)
+	}
+	writeSymlink := func(name, linkname string) {
+		require.NoError(t, tw.WriteHeader(&tar.Header{
+			Name: name, Typeflag: tar.TypeSymlink, Linkname: linkname,
+		}))
+	}
+	// Symlink entry appears before its target -- the extraction must not
+	// depend on archive ordering.
+	writeSymlink("build/bin/libllama-common.dylib", "libllama-common.0.dylib")
+	writeReg("build/bin/llama-server", "fake-binary-content")
+	writeReg("build/bin/libllama-common.0.dylib", "fake-shared-lib-content")
+	require.NoError(t, tw.Close())
+	require.NoError(t, gz.Close())
+	require.NoError(t, os.WriteFile(tarGzPath, buf.Bytes(), 0600))
+
+	destDir := filepath.Join(dir, "extracted")
+	require.NoError(t, os.MkdirAll(destDir, 0750))
+
+	err := extractTarGzSiblings(tarGzPath, destDir, "llama-server")
+	require.NoError(t, err)
+
+	target, err := os.ReadFile(filepath.Join(destDir, "libllama-common.0.dylib"))
+	require.NoError(t, err)
+	assert.Equal(t, "fake-shared-lib-content", string(target))
+
+	linkPath := filepath.Join(destDir, "libllama-common.dylib")
+	info, lstatErr := os.Lstat(linkPath)
+	require.NoError(t, lstatErr)
+	assert.NotZero(t, info.Mode()&os.ModeSymlink, "libllama-common.dylib must be recreated as a symlink")
+
+	resolved, err := os.Readlink(linkPath)
+	require.NoError(t, err)
+	assert.Equal(t, "libllama-common.0.dylib", resolved)
+
+	// llama-server itself is the skip-base and must not be re-extracted here.
+	_, statErr := os.Stat(filepath.Join(destDir, "llama-server"))
+	assert.True(t, os.IsNotExist(statErr))
+}
+
 // TestInstallLlamaServer_TarGzSuccess pins the full non-Windows install path:
 // resolveLlamaServerAssetFn returns a .tar.gz asset, installLlamaServer must
 // extract it with extractTarGzFile (not extractZipFile) and leave the binary

@@ -82,7 +82,12 @@ def yaml_str(value):
 
 
 # Quantizations that are too large to be useful defaults; never harvested.
-SKIP_QUANT_MARKERS = (".BF16", "-BF16", ".F16", "-F16", ".F32", "-F32")
+# "mmproj" files are multimodal projector companions for a vision model's
+# main GGUF, not standalone servable models -- llama-server exits immediately
+# if pointed at one directly. Their filenames otherwise pass every other
+# harvest filter (family/params/quant regexes all match), so they must be
+# excluded explicitly.
+SKIP_QUANT_MARKERS = (".BF16", "-BF16", ".F16", "-F16", ".F32", "-F32", "mmproj")
 
 # HF pipeline_tag values that mean "not a text-generation chat model" even when
 # the repo name matches a chat family's naming convention (e.g. the ASR repo

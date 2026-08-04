@@ -72,16 +72,24 @@ func refreshREPLModelLists(repl *agent.REPL) {
 	repl.SetCloudModelBackends(cloudBackends)
 }
 
+// runLlamaFitTimeout bounds the llmfit subprocess. It normally returns in
+// <1s; this is a backstop against a slow or hung first invocation (e.g.
+// building its own hardware/model database) blocking the entire CLI startup
+// indefinitely with no console output, since Output() buffers everything
+// until the process exits.
+const runLlamaFitTimeout = 10 * time.Second
+
 // runLlamaFit runs llmfit and populates the REPL's score maps.
-// Non-fatal: if llmfit is not installed or fails, scores are simply absent.
-// Synchronous at startup since llmfit returns in <1s; the scores should
-// be present before the user opens the model picker for the first time.
-// "fit" (not "recommend") is used because it returns every model llmfit
-// knows including Too Tight ones — recommend cuts at min-fit=marginal,
-// leaving most catalog models unscored.
-func runLlamaFit(repl *agent.REPL) {
-	//nolint:noctx // llmfit is a local sub-second CLI call; no context needed.
-	cmd := exec.Command("llmfit", "fit", "--json")
+// Non-fatal: if llmfit is not installed, times out, or fails, scores are
+// simply absent. Synchronous at startup since llmfit returns in <1s; the
+// scores should be present before the user opens the model picker for the
+// first time. "fit" (not "recommend") is used because it returns every
+// model llmfit knows including Too Tight ones — recommend cuts at
+// min-fit=marginal, leaving most catalog models unscored.
+func runLlamaFit(ctx context.Context, repl *agent.REPL) {
+	ctx, cancel := context.WithTimeout(ctx, runLlamaFitTimeout)
+	defer cancel()
+	cmd := exec.CommandContext(ctx, "llmfit", "fit", "--json")
 	out, execErr := cmd.Output()
 	if execErr != nil {
 		return
@@ -437,7 +445,8 @@ func runAgentLoopCmd(path string, flags *agentLoopFlags) error {
 	repl := agent.NewREPL(rootCtx, loop)
 	defer llm.ShutdownLocalServers()
 
-	wireREPL(repl, registry, flags)
+	fmt.Fprintln(os.Stderr, "Loading model catalog...")
+	wireREPL(rootCtx, repl, registry, flags)
 
 	// Start cron background scheduler: polls every 60s for due cron jobs.
 	// Each due job creates a task and advances its NextRun.
@@ -467,12 +476,12 @@ func resolveHostWorkflow(path string, registry *tools.Registry, flags *agentLoop
 
 // wireREPL connects model lists, llmfit scores, pickers, and TUI runners to
 // a freshly created REPL.
-func wireREPL(repl *agent.REPL, registry *tools.Registry, flags *agentLoopFlags) {
+func wireREPL(ctx context.Context, repl *agent.REPL, registry *tools.Registry, flags *agentLoopFlags) {
 	// Provide model name suggestions for /model <tab> completion. Cloud
 	// backends are populated as part of the same unified pass now, not a
 	// separate call (see refreshREPLModelLists / buildUnifiedEntries).
 	refreshREPLModelLists(repl)
-	runLlamaFit(repl)
+	runLlamaFit(ctx, repl)
 	repl.SetProviderStatus(agent.BuildProviderStatus())
 	// Merge optional-tool notices + preflight warnings for low-limit backends.
 	notices := optionalToolNotices()

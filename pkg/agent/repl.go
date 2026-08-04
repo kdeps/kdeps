@@ -22,6 +22,7 @@ import (
 	"bufio"
 	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -109,7 +110,7 @@ const (
 //nolint:gochecknoglobals // command list must be package-level for completer
 var builtinCmds = []string{
 	"/help", "/settings", "/clear", "/model", "/context",
-	"/skills", "/prompts", "/compact", "/history", "/thinking", "/session",
+	"/skills", "/prompts", "/prompt", "/compact", "/history", "/thinking", "/session",
 	"/editor", "/copy", "/reload", "/permission", "/exit", "/quit",
 }
 
@@ -2115,6 +2116,8 @@ func (r *REPL) runPlain() {
 }
 
 // dispatchCommand handles slash-prefixed commands.
+//
+//nolint:funlen // flat command-dispatch switch; splitting it obscures rather than clarifies
 func (r *REPL) dispatchCommand(cmd string) error {
 	parts := strings.Fields(cmd)
 	command := strings.ToLower(parts[0])
@@ -2135,6 +2138,8 @@ func (r *REPL) dispatchCommand(cmd string) error {
 		return r.cmdCompact()
 	case "/history":
 		return r.cmdHistory()
+	case "/prompt":
+		return r.cmdPrompt(args)
 	case "/session":
 		return r.cmdSession(args)
 	case "/settings":
@@ -2209,6 +2214,8 @@ func (r *REPL) cmdHelp() error {
 		"  /<skill-name> [..]                Invoke a loaded skill or prompt template by name",
 		"  /compact                           Compact conversation history (keep recent turns)",
 		"  /history                           Show recent conversation turns",
+		"  /prompt                            Show the exact messages+tools sent to the LLM on the last call, with token estimates",
+		"  /prompt raw                        Same, as raw JSON (exact request wire format, full tool schemas)",
 		"  /thinking [off|minimal|low|medium|high|xhigh|auto]  Show or set extended reasoning/thinking mode",
 		"  /session list|save|load|delete|import|checkpoint|goto  Manage saved sessions",
 		"  /editor                            Open $EDITOR to compose a long prompt",
@@ -3436,6 +3443,136 @@ func (r *REPL) cmdHistory() error {
 		)
 	}
 	return nil
+}
+
+// cmdPrompt shows the exact messages array sent to the LLM on the most
+// recent call -- including any backend-specific transformation, such as
+// folding system-role messages for local chat templates (e.g. Gemma's)
+// that reject them outright. Useful for debugging why a model behaved
+// unexpectedly: what it actually saw may differ from the configured system
+// prompt once backend quirks are applied.
+func (r *REPL) cmdPrompt(args []string) error {
+	messages := r.loop.LastSentMessages()
+	tools := r.loop.LastSentTools()
+	if len(messages) == 0 {
+		fmt.Fprintln(os.Stdout, styleReplMeta.Render(
+			"No LLM call has been made yet this session.",
+		))
+		return nil
+	}
+
+	if len(args) > 0 && strings.EqualFold(args[0], "raw") {
+		return r.printPromptRaw(messages, tools)
+	}
+
+	model := r.loop.config.Model
+	msgTokens := make([]int, len(messages))
+	msgTotal := 0
+	for i, m := range messages {
+		msgTokens[i] = llm.CountTokens(model, promptMessageContentPreview(m))
+		msgTotal += msgTokens[i]
+	}
+	toolTokens := make([]int, len(tools))
+	toolTotal := 0
+	for i, tl := range tools {
+		toolTokens[i] = promptToolTokenCount(model, tl)
+		toolTotal += toolTokens[i]
+	}
+
+	fmt.Fprintln(os.Stdout, styleReplHeading.Render(
+		fmt.Sprintf("Last request sent to the LLM (%d messages, %d tools, ~%d tokens estimated):",
+			len(messages), len(tools), msgTotal+toolTotal),
+	))
+	for i, m := range messages {
+		role, _ := m["role"].(string)
+		if role == "" {
+			role = "?"
+		}
+		fmt.Fprintf(os.Stdout, "  %s\n",
+			styleReplHeading.Render(fmt.Sprintf("[%d] %s (~%d tokens):", i, strings.ToUpper(role), msgTokens[i])),
+		)
+		fmt.Fprintln(os.Stdout, "    "+strings.ReplaceAll(promptMessageContentPreview(m), "\n", "\n    "))
+	}
+	if len(tools) > 0 {
+		fmt.Fprintln(os.Stdout, styleReplHeading.Render(
+			fmt.Sprintf("Tools (%d, ~%d tokens):", len(tools), toolTotal),
+		))
+		for i, tl := range tools {
+			fmt.Fprintf(os.Stdout, "  %s %s  %s\n",
+				styleReplHeading.Render(tl.Name),
+				styleReplDim.Render(fmt.Sprintf("(~%d tokens)", toolTokens[i])),
+				styleReplMeta.Render(tl.Description),
+			)
+		}
+	}
+	fmt.Fprintln(os.Stdout, styleReplDim.Render(
+		"Token counts are local tiktoken estimates of what was actually sent (post-fold, post-turo) -- "+
+			"they will not exactly match the provider's billed count for non-OpenAI-family models, "+
+			"but explain the relative weight of each part of the request.",
+	))
+	fmt.Fprintln(os.Stdout, styleReplDim.Render("(use /prompt raw for exact JSON, including full tool schemas)"))
+	return nil
+}
+
+// promptToolTokenCount estimates the token cost of a single tool definition
+// as it would be serialized in the request: name, description, and
+// parameter schema -- the fields that actually cost tokens on the wire,
+// excluding runtime-only bookkeeping (Script/MCP/Execute) that never
+// reaches the provider. Built as a manual approximation rather than
+// json.Marshal(tl) since domain.Tool/ToolParam carry only yaml tags.
+func promptToolTokenCount(model string, tl domain.Tool) int {
+	var b strings.Builder
+	b.WriteString(tl.Name)
+	b.WriteString(" ")
+	b.WriteString(tl.Description)
+	for name, p := range tl.Parameters {
+		fmt.Fprintf(&b, " %s:%s:%s", name, p.Type, p.Description)
+	}
+	return llm.CountTokens(model, b.String())
+}
+
+// printPromptRaw dumps messages and tools as raw JSON -- the exact request
+// shape (minus per-provider wrapping), for verifying precisely what a model
+// received, schemas included.
+func (r *REPL) printPromptRaw(messages []map[string]interface{}, tools []domain.Tool) error {
+	raw, err := json.MarshalIndent(map[string]interface{}{
+		"messages": messages,
+		"tools":    tools,
+	}, "", "  ")
+	if err != nil {
+		return fmt.Errorf("marshal last sent request: %w", err)
+	}
+	fmt.Fprintln(os.Stdout, styleReplHeading.Render("Last request sent to the LLM (raw JSON):"))
+	fmt.Fprintln(os.Stdout, string(raw))
+	return nil
+}
+
+// promptMessageContentPreview renders a message's content field for /prompt
+// display: the plain string case verbatim, or a summary of each part for
+// the multimodal []interface{} case (text/image_url parts from buildContent).
+func promptMessageContentPreview(m map[string]interface{}) string {
+	switch content := m["content"].(type) {
+	case string:
+		return content
+	case []interface{}:
+		var parts []string
+		for _, part := range content {
+			partMap, isMap := part.(map[string]interface{})
+			if !isMap {
+				continue
+			}
+			if text, isString := partMap["text"].(string); isString {
+				parts = append(parts, text)
+				continue
+			}
+			if partType, isString := partMap["type"].(string); isString {
+				parts = append(parts, fmt.Sprintf("[%s]", partType))
+			}
+		}
+		return strings.Join(parts, "\n")
+	default:
+		return fmt.Sprintf("%v", content)
+	}
 }
 
 // cmdSettings opens the TUI selector, saves the result, and applies skill changes live.

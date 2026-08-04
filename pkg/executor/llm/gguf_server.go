@@ -465,6 +465,12 @@ func copyZipEntryTo(f *zip.File, outPath string) error {
 	return err
 }
 
+// extractTarGzSiblings extracts every regular-file sibling in the archive,
+// then recreates any symlink siblings (e.g. an unversioned "libfoo.dylib" ->
+// "libfoo.0.dylib" alias, a common convention for versioned shared
+// libraries). Symlinks carry no data of their own -- their tar.Header is
+// buffered and replayed after the single sequential pass over the archive,
+// so a symlink appearing before the regular file it targets still resolves.
 func extractTarGzSiblings(tarGzPath, destDir, skipBase string) error {
 	f, err := os.Open(tarGzPath)
 	if err != nil {
@@ -477,6 +483,7 @@ func extractTarGzSiblings(tarGzPath, destDir, skipBase string) error {
 	}
 	defer gz.Close()
 	tr := tar.NewReader(gz)
+	var symlinks []*tar.Header
 	for {
 		hdr, nextErr := tr.Next()
 		if errors.Is(nextErr, io.EOF) {
@@ -485,15 +492,28 @@ func extractTarGzSiblings(tarGzPath, destDir, skipBase string) error {
 		if nextErr != nil {
 			return nextErr
 		}
-		if hdr.Typeflag != tar.TypeReg {
-			continue
-		}
 		base := filepath.Base(hdr.Name)
 		if base == skipBase {
 			continue
 		}
-		if copyErr := copyTarEntryTo(tr, filepath.Join(destDir, base)); copyErr != nil {
-			return copyErr
+		switch hdr.Typeflag {
+		case tar.TypeReg:
+			if copyErr := copyTarEntryTo(tr, filepath.Join(destDir, base)); copyErr != nil {
+				return copyErr
+			}
+		case tar.TypeSymlink:
+			symlinks = append(symlinks, hdr)
+		}
+	}
+	for _, hdr := range symlinks {
+		base := filepath.Base(hdr.Name)
+		if base == skipBase {
+			continue
+		}
+		outPath := filepath.Join(destDir, base)
+		_ = os.Remove(outPath)
+		if linkErr := os.Symlink(filepath.Base(hdr.Linkname), outPath); linkErr != nil {
+			return linkErr
 		}
 	}
 	return nil

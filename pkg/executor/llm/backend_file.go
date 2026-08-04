@@ -69,7 +69,7 @@ func (b *FileBackend) BuildRequest(
 	config ChatRequestConfig,
 ) (map[string]interface{}, error) {
 	kdeps_debug.Log("enter: FileBackend.BuildRequest")
-	return buildOpenAICompatRequest(model, messages, config), nil
+	return buildOpenAICompatRequest(model, foldSystemMessages(messages), config), nil
 }
 
 // ParseResponse parses the OpenAI-compatible response from the llamafile server.

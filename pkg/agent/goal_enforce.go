@@ -333,7 +333,9 @@ func (e *goalEnforcer) directive() string {
 	if total == 1 {
 		fmt.Fprintf(&b, `
 RULES (enforced in code, not advisory):
-1. Answer the request directly.
+1. Answer the request directly. Use a tool first if the answer depends on
+   current/live information (news, prices, today's date, recent events) —
+   never guess or make up current facts from memory.
 2. Close the task with task_complete(id=%d, summary) once it is met, or
    task_fail(id=%d, reason) if it cannot be.
 Do not repeat these rules in your reply.`, active.ID, active.ID)
