@@ -21,7 +21,7 @@ require (
 	github.com/expr-lang/expr v1.17.8
 	github.com/fsnotify/fsnotify v1.10.1
 	github.com/go-sql-driver/mysql v1.10.0
-	github.com/go-telegram/bot v1.22.0
+	github.com/go-telegram/bot v1.23.0
 	github.com/google/uuid v1.6.0
 	github.com/gorilla/websocket v1.5.3
 	github.com/ledongthuc/pdf v0.0.0-20250511090121-5959a4027728
