@@ -11,9 +11,7 @@
 [![Registry](https://img.shields.io/badge/registry-kdeps.io-00E5FF)](https://kdeps.io)
 [![GitHub stars](https://img.shields.io/github/stars/kdeps/kdeps)](https://github.com/kdeps/kdeps/stargazers)
 
-Build and deploy AI agents in YAML. Two modes: **workflow** (DAG pipelines), **agent** (autonomous LLM loop).
-
-> **Highly experimental.** APIs, schemas, and CLI flags change without notice. Not for production. [Report issues](https://github.com/kdeps/kdeps/issues).
+Build and deploy AI agents in YAML. Two modes: **workflow** (DAG pipelines), **agent** (autonomous LLM loop). Git-native: everything lives in versionable YAML you commit to your repo like any other code.
 
 ## Run the agent
 

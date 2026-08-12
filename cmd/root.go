@@ -143,8 +143,6 @@ func runRootPersistentPreRun(cmd *cobra.Command) {
 	initRootLogging(cmd)
 	bootstrapRootConfig()
 	maybeEnableInstrumentation(cmd)
-	kdepslog.Warn("HIGHLY EXPERIMENTAL SOFTWARE — under active development, expect breaking changes",
-		"feedback", "https://github.com/kdeps/kdeps/issues")
 }
 
 func initRootLogging(cmd *cobra.Command) {
