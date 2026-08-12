@@ -72,8 +72,14 @@ func TestSessionStorage_TTL_Extension(t *testing.T) {
 	tmpDir := t.TempDir()
 	dbPath := filepath.Join(tmpDir, "sessions_ttl_extend.db")
 
-	// Margin widened 3x (was 400ms/300ms/300ms) -- see TestSessionStorage_TTL.
-	store, err := storage.NewSessionStorageWithTTL(dbPath, "ttl-extend-test", 1200*time.Millisecond)
+	// Rescaled to whole-second margins (was 1200ms/900ms/900ms) after an
+	// observed flake on windows-latest: every Get() here also performs a real
+	// bbolt disk-commit via Touch() (see SessionStorage.Get), and on a loaded
+	// Windows CI runner that commit's latency alone can eat the sub-second
+	// margin, pushing the wall-clock check past the TTL before the "still
+	// under TTL" assertion runs. Matches the seconds-scale margin already
+	// used successfully by TestSessionStorage_Cleanup for the same reason.
+	store, err := storage.NewSessionStorageWithTTL(dbPath, "ttl-extend-test", 3*time.Second)
 	require.NoError(t, err)
 	defer store.Close()
 
@@ -87,15 +93,15 @@ func TestSessionStorage_TTL_Extension(t *testing.T) {
 	_, exists := store.Get(key)
 	require.True(t, exists)
 
-	// Wait (less than TTL)
-	time.Sleep(900 * time.Millisecond)
+	// Wait (less than TTL, generous margin)
+	time.Sleep(2 * time.Second)
 
 	// Access again - should extend TTL (Get() calls Touch() if TTL is configured)
 	_, exists = store.Get(key)
 	require.True(t, exists)
 
 	// Wait again (total exceeds original TTL, but TTL was extended on last access)
-	time.Sleep(900 * time.Millisecond)
+	time.Sleep(2 * time.Second)
 
 	// Should still exist because TTL was extended on last Get()
 	_, exists = store.Get(key)
