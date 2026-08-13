@@ -2796,12 +2796,152 @@ func TestRegisterCodeIntelligenceTools_CodeHover_MissingParams(t *testing.T) {
 	assert.Error(t, err)
 }
 
+func TestRegisterCodeIntelligenceTools_CodeDefinition_WithSymbol(t *testing.T) {
+	reg := kdepstools.NewRegistry()
+	RegisterBuiltinTools(context.Background(), reg)
+	tool := reg.Get("code_definition")
+	require.NotNil(t, tool)
+	// Exercises the "symbol" arg-extraction branch shared by all code_* tools;
+	// the outcome depends on whether rg/an LSP server is available in this env.
+	_, _ = tool.Execute(map[string]any{"symbol": "main", "path": t.TempDir()})
+}
+
 func TestRegisterCodeIntelligenceTools_CodeDiagnostics_MissingPath(t *testing.T) {
 	reg := kdepstools.NewRegistry()
 	RegisterBuiltinTools(context.Background(), reg)
 	tool := reg.Get("code_diagnostics")
 	require.NotNil(t, tool)
 	_, err := tool.Execute(map[string]any{})
+	assert.Error(t, err)
+}
+
+// --- registerCodeIntelligenceTools: graph tools ---
+
+func writeCodeGraphFixture(t *testing.T, root string) {
+	t.Helper()
+	files := map[string]string{
+		"a.md": "---\ntopics: [go]\n---\nSee [b](b.md).",
+		"b.md": "---\ntopics: [go]\n---\nNo links.",
+	}
+	for name, content := range files {
+		require.NoError(t, os.WriteFile(filepath.Join(root, name), []byte(content), 0o600))
+	}
+}
+
+func TestRegisterCodeIntelligenceTools_GraphToolsRegistered(t *testing.T) {
+	reg := kdepstools.NewRegistry()
+	RegisterBuiltinTools(context.Background(), reg)
+
+	for _, name := range []string{"code_index_folder", "code_graph_file", "code_graph_topic", "code_graph_all"} {
+		tool := reg.Get(name)
+		require.NotNil(t, tool, "%s should be registered", name)
+		assert.NotEmpty(t, tool.Description)
+		assert.NotNil(t, tool.Execute)
+		assert.NotEmpty(t, tool.Parameters)
+	}
+}
+
+func TestRegisterCodeIntelligenceTools_IndexFolder(t *testing.T) {
+	root := t.TempDir()
+	writeCodeGraphFixture(t, root)
+	dbPath := filepath.Join(root, ".kdeps", "graph.db")
+
+	reg := kdepstools.NewRegistry()
+	RegisterBuiltinTools(context.Background(), reg)
+	tool := reg.Get("code_index_folder")
+	require.NotNil(t, tool)
+
+	out, err := tool.Execute(map[string]any{
+		"path":        root,
+		"graphDBPath": dbPath,
+		"extensions":  []any{".md"},
+	})
+	require.NoError(t, err)
+	assert.Contains(t, out, `"filesIndexed": 2`)
+}
+
+func TestRegisterCodeIntelligenceTools_GraphFile(t *testing.T) {
+	root := t.TempDir()
+	writeCodeGraphFixture(t, root)
+	dbPath := filepath.Join(root, ".kdeps", "graph.db")
+
+	reg := kdepstools.NewRegistry()
+	RegisterBuiltinTools(context.Background(), reg)
+
+	indexTool := reg.Get("code_index_folder")
+	require.NotNil(t, indexTool)
+	_, err := indexTool.Execute(map[string]any{"path": root, "graphDBPath": dbPath})
+	require.NoError(t, err)
+
+	graphFileTool := reg.Get("code_graph_file")
+	require.NotNil(t, graphFileTool)
+	out, err := graphFileTool.Execute(map[string]any{
+		"path":        filepath.Join(root, "a.md"),
+		"graphDBPath": dbPath,
+	})
+	require.NoError(t, err)
+	assert.Contains(t, out, "relatedByTopic")
+}
+
+func TestRegisterCodeIntelligenceTools_GraphTopic(t *testing.T) {
+	root := t.TempDir()
+	writeCodeGraphFixture(t, root)
+	dbPath := filepath.Join(root, ".kdeps", "graph.db")
+
+	reg := kdepstools.NewRegistry()
+	RegisterBuiltinTools(context.Background(), reg)
+
+	indexTool := reg.Get("code_index_folder")
+	require.NotNil(t, indexTool)
+	_, err := indexTool.Execute(map[string]any{"path": root, "graphDBPath": dbPath})
+	require.NoError(t, err)
+
+	graphTopicTool := reg.Get("code_graph_topic")
+	require.NotNil(t, graphTopicTool)
+	out, err := graphTopicTool.Execute(map[string]any{
+		"topic":       "go",
+		"graphDBPath": dbPath,
+	})
+	require.NoError(t, err)
+	assert.Contains(t, out, `"topic": "go"`)
+}
+
+func TestRegisterCodeIntelligenceTools_GraphAll(t *testing.T) {
+	root := t.TempDir()
+	writeCodeGraphFixture(t, root)
+	dbPath := filepath.Join(root, ".kdeps", "graph.db")
+
+	reg := kdepstools.NewRegistry()
+	RegisterBuiltinTools(context.Background(), reg)
+
+	indexTool := reg.Get("code_index_folder")
+	require.NotNil(t, indexTool)
+	_, err := indexTool.Execute(map[string]any{"path": root, "graphDBPath": dbPath})
+	require.NoError(t, err)
+
+	graphAllTool := reg.Get("code_graph_all")
+	require.NotNil(t, graphAllTool)
+	out, err := graphAllTool.Execute(map[string]any{"graphDBPath": dbPath})
+	require.NoError(t, err)
+	assert.Contains(t, out, "roots")
+}
+
+func TestRegisterCodeIntelligenceTools_GraphAll_MissingDBLocation(t *testing.T) {
+	reg := kdepstools.NewRegistry()
+	RegisterBuiltinTools(context.Background(), reg)
+	tool := reg.Get("code_graph_all")
+	require.NotNil(t, tool)
+	_, err := tool.Execute(map[string]any{})
+	assert.Error(t, err)
+}
+
+func TestRegisterCodeIntelligenceTools_IndexFolder_InvalidRootPath(t *testing.T) {
+	t.Setenv("KDEPS_ALLOW_ROOT", "")
+	reg := kdepstools.NewRegistry()
+	RegisterBuiltinTools(context.Background(), reg)
+	tool := reg.Get("code_index_folder")
+	require.NotNil(t, tool)
+	_, err := tool.Execute(map[string]any{"path": "/"})
 	assert.Error(t, err)
 }
 

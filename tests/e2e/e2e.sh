@@ -82,6 +82,7 @@ source "$SCRIPT_DIR/test_features_browser.sh"
 source "$SCRIPT_DIR/test_native_search_local.sh"
 source "$SCRIPT_DIR/test_native_embedding.sh"
 source "$SCRIPT_DIR/test_native_scraper.sh"
+source "$SCRIPT_DIR/test_features_codeintelligence_graph.sh"
 
 # CLI subcommand E2E tests
 source "$SCRIPT_DIR/test_bundle_export.sh"
