@@ -2001,6 +2001,13 @@ type codeToolDef struct {
 }
 
 func codeIntelligenceToolDefs() []codeToolDef {
+	defs := lspCodeToolDefs()
+	return append(defs, graphCodeToolDefs()...)
+}
+
+// lspCodeToolDefs returns the LSP/rg-backed code-intelligence tools
+// (code_search, code_definition, code_references, code_symbols, code_hover, code_diagnostics).
+func lspCodeToolDefs() []codeToolDef {
 	return []codeToolDef{
 		{
 			name: "code_search",
@@ -2097,8 +2104,121 @@ func codeIntelligenceToolDefs() []codeToolDef {
 	}
 }
 
-// registerCodeIntelligenceTools registers LSP-powered code intelligence tools
-// (code_search, code_definition, code_references, code_symbols, code_hover, code_diagnostics).
+// graphCodeToolDefs returns the kartographer-backed folder index/graph tools
+// (code_index_folder, code_graph_file, code_graph_topic, code_graph_all).
+func graphCodeToolDefs() []codeToolDef {
+	return []codeToolDef{
+		{
+			name: "code_index_folder",
+			desc: "Index a folder into a persistent graph database, tracking markdown/wikilink references between files and topics/tags declared in YAML frontmatter. Run this once before code_graph_file, code_graph_topic, or code_graph_all. Requires: path.",
+			op:   domain.CodeIntOpIndexFolder,
+			params: map[string]domain.ToolParam{
+				toolParamPath: {
+					Type:        toolParamString,
+					Description: "Folder to index (absolute path)",
+					Required:    true,
+				},
+				"extensions": {
+					Type:        "array",
+					ItemsType:   toolParamString,
+					Description: "File extensions to index, e.g. [\".md\", \".yaml\"]. Defaults to .md/.markdown/.txt/.yaml/.yml.",
+				},
+				"graphDBPath": {
+					Type:        toolParamString,
+					Description: "Graph index db path. Defaults to \"<path>/.kdeps/graph.db\".",
+				},
+			},
+		},
+		{
+			name: "code_graph_file",
+			desc: "Graph a single indexed file: its reference tree plus every other indexed file that shares a topic with it. Requires an index built with code_index_folder first. Requires: path.",
+			op:   domain.CodeIntOpGraphFile,
+			params: map[string]domain.ToolParam{
+				toolParamPath: {
+					Type:        toolParamString,
+					Description: "Indexed file to graph (absolute path)",
+					Required:    true,
+				},
+				"graphDBPath": {
+					Type:        toolParamString,
+					Description: "Graph index db path used by code_index_folder. Defaults to \"<path>/.kdeps/graph.db\".",
+				},
+			},
+		},
+		{
+			name: "code_graph_topic",
+			desc: "Graph every indexed file tagged with a topic, plus the full reference graph. Requires an index built with code_index_folder first. Requires: topic.",
+			op:   domain.CodeIntOpGraphTopic,
+			params: map[string]domain.ToolParam{
+				"topic": {
+					Type:        toolParamString,
+					Description: "Topic/tag to graph, as declared in a file's frontmatter",
+					Required:    true,
+				},
+				toolParamPath: {
+					Type:        toolParamString,
+					Description: "Indexed folder root, used to locate the default graph db path",
+				},
+				"graphDBPath": {
+					Type:        toolParamString,
+					Description: "Graph index db path used by code_index_folder. Defaults to \"<path>/.kdeps/graph.db\".",
+				},
+			},
+		},
+		{
+			name: "code_graph_all",
+			desc: "Graph everything in the index: the full reference graph plus every root file (files nothing else references). Requires an index built with code_index_folder first.",
+			op:   domain.CodeIntOpGraphAll,
+			params: map[string]domain.ToolParam{
+				toolParamPath: {
+					Type:        toolParamString,
+					Description: "Indexed folder root, used to locate the default graph db path",
+				},
+				"graphDBPath": {
+					Type:        toolParamString,
+					Description: "Graph index db path used by code_index_folder. Defaults to \"<path>/.kdeps/graph.db\".",
+				},
+			},
+		},
+	}
+}
+
+// codeIntelligenceConfigFromArgs builds a CodeIntelligenceConfig for op from
+// the tool call args shared across every code_* tool.
+func codeIntelligenceConfigFromArgs(
+	toolName string, op domain.CodeIntelligenceOperation, args map[string]any,
+) (*domain.CodeIntelligenceConfig, error) {
+	config := &domain.CodeIntelligenceConfig{Operation: op}
+	if v, ok := args["query"].(string); ok {
+		config.Query = v
+	}
+	if v, ok := args["symbol"].(string); ok {
+		config.Symbol = v
+	}
+	if v, ok := args["path"].(string); ok {
+		config.Path = v
+		if err := ValidateRootPath(v); err != nil {
+			return nil, fmt.Errorf("%s: %w", toolName, err)
+		}
+	}
+	if v, ok := args["topic"].(string); ok {
+		config.Topic = v
+	}
+	if v, ok := args["graphDBPath"].(string); ok {
+		config.GraphDBPath = v
+	}
+	if v, ok := args["extensions"].([]any); ok {
+		for _, e := range v {
+			config.Extensions = append(config.Extensions, fmt.Sprint(e))
+		}
+	}
+	return config, nil
+}
+
+// registerCodeIntelligenceTools registers code intelligence tools: LSP/rg-backed
+// symbol search (code_search, code_definition, code_references, code_symbols,
+// code_hover, code_diagnostics) and kartographer-backed folder graphing
+// (code_index_folder, code_graph_file, code_graph_topic, code_graph_all).
 func registerCodeIntelligenceTools(_ context.Context, reg *kdepstools.Registry) {
 	exec := codeintel.NewExecutor()
 
@@ -2108,27 +2228,16 @@ func registerCodeIntelligenceTools(_ context.Context, reg *kdepstools.Registry) 
 			Description: ct.desc,
 			Parameters:  ct.params,
 			Execute: func(args map[string]any) (string, error) {
-				config := &domain.CodeIntelligenceConfig{
-					Operation: ct.op,
-				}
-				if v, ok := args["query"].(string); ok {
-					config.Query = v
-				}
-				if v, ok := args["symbol"].(string); ok {
-					config.Symbol = v
-				}
-				if v, ok := args["path"].(string); ok {
-					config.Path = v
-					if err := ValidateRootPath(v); err != nil {
-						return "", fmt.Errorf("%s: %w", ct.name, err)
-					}
-				}
-
-				result, err := exec.Execute(nil, config)
+				config, err := codeIntelligenceConfigFromArgs(ct.name, ct.op, args)
 				if err != nil {
 					return "", err
 				}
-				out, err := json.MarshalIndent(result, "", "  ")
+
+				res, err := exec.Execute(nil, config)
+				if err != nil {
+					return "", err
+				}
+				out, err := json.MarshalIndent(res, "", "  ")
 				if err != nil {
 					return "", err
 				}

@@ -74,6 +74,10 @@ func (e *Executor) Execute(
 		return result(false, map[string]interface{}{resultError: err.Error()}), err
 	}
 
+	if isGraphOperation(config.Operation) {
+		return e.executeGraph(config)
+	}
+
 	// Try LSP first if we can detect a language server for this file.
 	langID := config.LanguageID
 	if langID == "" && config.Path != "" {
@@ -91,6 +95,8 @@ func (e *Executor) Execute(
 }
 
 // executeLSP dispatches an LSP operation.
+//
+//nolint:exhaustive // graph ops (indexFolder/graphFile/graphTopic/graphAll) are routed to executeGraph before this is reached
 func (e *Executor) executeLSP(client *lspClient, config *domain.CodeIntelligenceConfig, _ string) (interface{}, error) {
 	switch config.Operation {
 	case domain.CodeIntOpSymbolSearch:
@@ -111,6 +117,8 @@ func (e *Executor) executeLSP(client *lspClient, config *domain.CodeIntelligence
 }
 
 // executeRG dispatches an rg-based operation (fallback).
+//
+//nolint:exhaustive // graph ops (indexFolder/graphFile/graphTopic/graphAll) are routed to executeGraph before this is reached
 func (e *Executor) executeRG(config *domain.CodeIntelligenceConfig) (interface{}, error) {
 	switch config.Operation {
 	case domain.CodeIntOpSymbolSearch:

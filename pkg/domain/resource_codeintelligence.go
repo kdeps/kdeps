@@ -10,6 +10,19 @@ const (
 	CodeIntOpDocumentSymbols CodeIntelligenceOperation = "documentSymbols"
 	CodeIntOpHover           CodeIntelligenceOperation = "hover"
 	CodeIntOpDiagnostics     CodeIntelligenceOperation = "diagnostics"
+
+	// CodeIntOpIndexFolder indexes a folder into a persistent graph database
+	// (references + topics), backing the graphFile/graphTopic/graphAll operations.
+	CodeIntOpIndexFolder CodeIntelligenceOperation = "indexFolder"
+	// CodeIntOpGraphFile returns the reference graph plus every other indexed
+	// file that shares a topic with Path.
+	CodeIntOpGraphFile CodeIntelligenceOperation = "graphFile"
+	// CodeIntOpGraphTopic returns every indexed file tagged with Topic, plus
+	// the full reference graph.
+	CodeIntOpGraphTopic CodeIntelligenceOperation = "graphTopic"
+	// CodeIntOpGraphAll returns the full reference graph plus every root file
+	// (files nothing else references) — graphs everything indexed.
+	CodeIntOpGraphAll CodeIntelligenceOperation = "graphAll"
 )
 
 // CodeIntelligenceConfig holds configuration for a code-intelligence resource.
@@ -26,4 +39,9 @@ type CodeIntelligenceConfig struct {
 	Include    []string                  `yaml:"include,omitempty"`    // rg --include patterns
 	Exclude    []string                  `yaml:"exclude,omitempty"`    // rg --exclude patterns
 	Recursive  bool                      `yaml:"recursive,omitempty"`  // search subdirectories
+
+	// Graph fields — indexFolder/graphFile/graphTopic/graphAll only.
+	Topic       string   `yaml:"topic,omitempty"`       // topic name for graphTopic
+	Extensions  []string `yaml:"extensions,omitempty"`  // file extensions to index for indexFolder (defaults to .md/.markdown/.txt/.yaml/.yml)
+	GraphDBPath string   `yaml:"graphDBPath,omitempty"` // bbolt graph index db path; defaults to "<path>/.kdeps/graph.db"
 }
