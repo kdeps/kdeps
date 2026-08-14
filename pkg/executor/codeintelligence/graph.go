@@ -4,6 +4,7 @@ package codeintelligence
 
 import (
 	"errors"
+	"os"
 	"path/filepath"
 
 	"github.com/charmbracelet/log"
@@ -16,6 +17,13 @@ const (
 	defaultGraphDBDir  = ".kdeps"
 	defaultGraphDBFile = "graph.db"
 )
+
+// getCwd resolves the current working directory. It's a package-level var so
+// tests can point indexFolder at a fixture directory without changing the
+// test process's real working directory.
+//
+//nolint:gochecknoglobals // test-facing override, mirrors AppFS above
+var getCwd = os.Getwd
 
 // isGraphOperation reports whether op is handled by the kartographer-backed
 // folder index/graph operations rather than LSP/rg.
@@ -31,15 +39,27 @@ func isGraphOperation(op domain.CodeIntelligenceOperation) bool {
 }
 
 // graphDBPath resolves the bbolt graph index path: config.GraphDBPath when
-// set, otherwise "<path>/.kdeps/graph.db".
+// set, otherwise "<path>/.kdeps/graph.db" using config.Path when given, or
+// the current working directory otherwise. indexFolder always indexes the
+// CWD (see graphIndexFolder), so its db location ignores Path too -- the db
+// must land next to whatever was actually indexed. graphFile's Path is a
+// single target file, never a sensible db-root, so it's excluded the same way.
 func graphDBPath(config *domain.CodeIntelligenceConfig) (string, error) {
 	if config.GraphDBPath != "" {
 		return config.GraphDBPath, nil
 	}
-	if config.Path == "" {
-		return "", errors.New("codeIntelligence: graphDBPath or path is required to locate the graph index")
+	root := config.Path
+	if config.Operation == domain.CodeIntOpIndexFolder || config.Operation == domain.CodeIntOpGraphFile {
+		root = ""
 	}
-	return filepath.Join(config.Path, defaultGraphDBDir, defaultGraphDBFile), nil
+	if root == "" {
+		cwd, err := getCwd()
+		if err != nil {
+			return "", err
+		}
+		root = cwd
+	}
+	return filepath.Join(root, defaultGraphDBDir, defaultGraphDBFile), nil
 }
 
 // executeGraph dispatches indexFolder/graphFile/graphTopic/graphAll against a
@@ -75,16 +95,20 @@ func (e *Executor) executeGraph(config *domain.CodeIntelligenceConfig) (interfac
 	}
 }
 
+// graphIndexFolder always indexes the current working directory -- Path is
+// not honored here (unlike the other operations) so an LLM or workflow can
+// never point indexing at an arbitrary filesystem location.
 func graphIndexFolder(ig *graph.IndexedGraph, config *domain.CodeIntelligenceConfig) (interface{}, error) {
-	if config.Path == "" {
-		return nil, errors.New("codeIntelligence: path is required for indexFolder")
+	cwd, err := getCwd()
+	if err != nil {
+		return result(false, map[string]interface{}{resultError: err.Error()}), err
 	}
-	n, err := ig.IndexFolder(config.Path, config.Extensions)
+	n, err := ig.IndexFolder(cwd, config.Extensions)
 	if err != nil {
 		return result(false, map[string]interface{}{resultError: err.Error()}), err
 	}
 	return result(true, map[string]interface{}{
-		"path":         config.Path,
+		"path":         cwd,
 		"filesIndexed": n,
 	}), nil
 }

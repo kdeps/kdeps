@@ -2844,6 +2844,7 @@ func TestRegisterCodeIntelligenceTools_GraphToolsRegistered(t *testing.T) {
 func TestRegisterCodeIntelligenceTools_IndexFolder(t *testing.T) {
 	root := t.TempDir()
 	writeCodeGraphFixture(t, root)
+	t.Chdir(root)
 	dbPath := filepath.Join(root, ".kdeps", "graph.db")
 
 	reg := kdepstools.NewRegistry()
@@ -2852,9 +2853,28 @@ func TestRegisterCodeIntelligenceTools_IndexFolder(t *testing.T) {
 	require.NotNil(t, tool)
 
 	out, err := tool.Execute(map[string]any{
-		"path":        root,
 		"graphDBPath": dbPath,
 		"extensions":  []any{".md"},
+	})
+	require.NoError(t, err)
+	assert.Contains(t, out, `"filesIndexed": 2`)
+}
+
+func TestRegisterCodeIntelligenceTools_IndexFolder_IgnoresPath(t *testing.T) {
+	root := t.TempDir()
+	writeCodeGraphFixture(t, root)
+	t.Chdir(root)
+	dbPath := filepath.Join(root, ".kdeps", "graph.db")
+
+	reg := kdepstools.NewRegistry()
+	RegisterBuiltinTools(context.Background(), reg)
+	tool := reg.Get("code_index_folder")
+	require.NotNil(t, tool)
+
+	// A "path" arg must be ignored: indexFolder only ever indexes the CWD.
+	out, err := tool.Execute(map[string]any{
+		"path":        t.TempDir(),
+		"graphDBPath": dbPath,
 	})
 	require.NoError(t, err)
 	assert.Contains(t, out, `"filesIndexed": 2`)
@@ -2863,6 +2883,7 @@ func TestRegisterCodeIntelligenceTools_IndexFolder(t *testing.T) {
 func TestRegisterCodeIntelligenceTools_GraphFile(t *testing.T) {
 	root := t.TempDir()
 	writeCodeGraphFixture(t, root)
+	t.Chdir(root)
 	dbPath := filepath.Join(root, ".kdeps", "graph.db")
 
 	reg := kdepstools.NewRegistry()
@@ -2870,7 +2891,7 @@ func TestRegisterCodeIntelligenceTools_GraphFile(t *testing.T) {
 
 	indexTool := reg.Get("code_index_folder")
 	require.NotNil(t, indexTool)
-	_, err := indexTool.Execute(map[string]any{"path": root, "graphDBPath": dbPath})
+	_, err := indexTool.Execute(map[string]any{"graphDBPath": dbPath})
 	require.NoError(t, err)
 
 	graphFileTool := reg.Get("code_graph_file")
@@ -2886,6 +2907,7 @@ func TestRegisterCodeIntelligenceTools_GraphFile(t *testing.T) {
 func TestRegisterCodeIntelligenceTools_GraphTopic(t *testing.T) {
 	root := t.TempDir()
 	writeCodeGraphFixture(t, root)
+	t.Chdir(root)
 	dbPath := filepath.Join(root, ".kdeps", "graph.db")
 
 	reg := kdepstools.NewRegistry()
@@ -2893,7 +2915,7 @@ func TestRegisterCodeIntelligenceTools_GraphTopic(t *testing.T) {
 
 	indexTool := reg.Get("code_index_folder")
 	require.NotNil(t, indexTool)
-	_, err := indexTool.Execute(map[string]any{"path": root, "graphDBPath": dbPath})
+	_, err := indexTool.Execute(map[string]any{"graphDBPath": dbPath})
 	require.NoError(t, err)
 
 	graphTopicTool := reg.Get("code_graph_topic")
@@ -2909,6 +2931,7 @@ func TestRegisterCodeIntelligenceTools_GraphTopic(t *testing.T) {
 func TestRegisterCodeIntelligenceTools_GraphAll(t *testing.T) {
 	root := t.TempDir()
 	writeCodeGraphFixture(t, root)
+	t.Chdir(root)
 	dbPath := filepath.Join(root, ".kdeps", "graph.db")
 
 	reg := kdepstools.NewRegistry()
@@ -2916,7 +2939,7 @@ func TestRegisterCodeIntelligenceTools_GraphAll(t *testing.T) {
 
 	indexTool := reg.Get("code_index_folder")
 	require.NotNil(t, indexTool)
-	_, err := indexTool.Execute(map[string]any{"path": root, "graphDBPath": dbPath})
+	_, err := indexTool.Execute(map[string]any{"graphDBPath": dbPath})
 	require.NoError(t, err)
 
 	graphAllTool := reg.Get("code_graph_all")
@@ -2926,13 +2949,26 @@ func TestRegisterCodeIntelligenceTools_GraphAll(t *testing.T) {
 	assert.Contains(t, out, "roots")
 }
 
-func TestRegisterCodeIntelligenceTools_GraphAll_MissingDBLocation(t *testing.T) {
+func TestRegisterCodeIntelligenceTools_GraphAll_DefaultsToCWD(t *testing.T) {
+	root := t.TempDir()
+	writeCodeGraphFixture(t, root)
+	t.Chdir(root)
+
 	reg := kdepstools.NewRegistry()
 	RegisterBuiltinTools(context.Background(), reg)
+
+	indexTool := reg.Get("code_index_folder")
+	require.NotNil(t, indexTool)
+	_, err := indexTool.Execute(map[string]any{})
+	require.NoError(t, err)
+
 	tool := reg.Get("code_graph_all")
 	require.NotNil(t, tool)
-	_, err := tool.Execute(map[string]any{})
-	assert.Error(t, err)
+	out, err := tool.Execute(map[string]any{})
+	require.NoError(t, err)
+	assert.Contains(t, out, "roots")
+	_, statErr := os.Stat(filepath.Join(root, ".kdeps", "graph.db"))
+	require.NoError(t, statErr, "expected graph.db under the CWD")
 }
 
 func TestRegisterCodeIntelligenceTools_IndexFolder_InvalidRootPath(t *testing.T) {

@@ -29,14 +29,32 @@ func writeGraphFixture(t *testing.T, root string) {
 	}
 }
 
+// withCwd overrides the package-level getCwd for the duration of the test,
+// so indexFolder (which always indexes "the current working directory") can
+// be pointed at a fixture directory without touching the real process cwd.
+func withCwd(t *testing.T, dir string) {
+	t.Helper()
+	orig := getCwd
+	getCwd = func() (string, error) { return dir, nil }
+	t.Cleanup(func() { getCwd = orig })
+}
+
+func withCwdErr(t *testing.T, msg string) {
+	t.Helper()
+	orig := getCwd
+	getCwd = func() (string, error) { return "", errors.New(msg) }
+	t.Cleanup(func() { getCwd = orig })
+}
+
 func TestExecute_IndexFolder(t *testing.T) {
 	root := t.TempDir()
 	writeGraphFixture(t, root)
+	withCwd(t, root)
 
 	exec := NewExecutor()
 	res, err := exec.Execute(nil, &domain.CodeIntelligenceConfig{
-		Operation: domain.CodeIntOpIndexFolder,
-		Path:      root,
+		Operation:   domain.CodeIntOpIndexFolder,
+		GraphDBPath: filepath.Join(t.TempDir(), "graph.db"),
 	})
 	if err != nil {
 		t.Fatalf("Execute: %v", err)
@@ -51,17 +69,47 @@ func TestExecute_IndexFolder(t *testing.T) {
 	if m["filesIndexed"] != 3 {
 		t.Fatalf("expected 3 files indexed, got %v", m["filesIndexed"])
 	}
+	if m["path"] != root {
+		t.Fatalf("expected indexed path to be the CWD override %q, got %v", root, m["path"])
+	}
+}
+
+func TestExecute_IndexFolder_IgnoresPath(t *testing.T) {
+	root := t.TempDir()
+	writeGraphFixture(t, root)
+	withCwd(t, root)
+
+	// A Path pointing somewhere else must be ignored: indexFolder only ever
+	// indexes the CWD.
+	elsewhere := t.TempDir()
+	if err := os.WriteFile(filepath.Join(elsewhere, "unrelated.md"), []byte("nope"), 0o600); err != nil {
+		t.Fatalf("write unrelated.md: %v", err)
+	}
+
+	exec := NewExecutor()
+	res, err := exec.Execute(nil, &domain.CodeIntelligenceConfig{
+		Operation:   domain.CodeIntOpIndexFolder,
+		Path:        elsewhere,
+		GraphDBPath: filepath.Join(t.TempDir(), "graph.db"),
+	})
+	if err != nil {
+		t.Fatalf("Execute: %v", err)
+	}
+	m := res.(map[string]interface{})
+	if m["filesIndexed"] != 3 {
+		t.Fatalf("expected 3 files indexed from the CWD override, got %v", m["filesIndexed"])
+	}
 }
 
 func TestExecute_GraphFile(t *testing.T) {
 	root := t.TempDir()
 	writeGraphFixture(t, root)
-	dbPath := filepath.Join(root, ".kdeps", "graph.db")
+	withCwd(t, root)
+	dbPath := filepath.Join(t.TempDir(), "graph.db")
 
 	exec := NewExecutor()
 	if _, err := exec.Execute(nil, &domain.CodeIntelligenceConfig{
 		Operation:   domain.CodeIntOpIndexFolder,
-		Path:        root,
 		GraphDBPath: dbPath,
 	}); err != nil {
 		t.Fatalf("indexFolder: %v", err)
@@ -88,19 +136,21 @@ func TestExecute_GraphFile(t *testing.T) {
 func TestExecute_GraphTopic(t *testing.T) {
 	root := t.TempDir()
 	writeGraphFixture(t, root)
+	withCwd(t, root)
+	dbPath := filepath.Join(t.TempDir(), "graph.db")
 
 	exec := NewExecutor()
 	if _, err := exec.Execute(nil, &domain.CodeIntelligenceConfig{
-		Operation: domain.CodeIntOpIndexFolder,
-		Path:      root,
+		Operation:   domain.CodeIntOpIndexFolder,
+		GraphDBPath: dbPath,
 	}); err != nil {
 		t.Fatalf("indexFolder: %v", err)
 	}
 
 	res, err := exec.Execute(nil, &domain.CodeIntelligenceConfig{
-		Operation: domain.CodeIntOpGraphTopic,
-		Path:      root,
-		Topic:     "go",
+		Operation:   domain.CodeIntOpGraphTopic,
+		Topic:       "go",
+		GraphDBPath: dbPath,
 	})
 	if err != nil {
 		t.Fatalf("Execute: %v", err)
@@ -118,18 +168,20 @@ func TestExecute_GraphTopic(t *testing.T) {
 func TestExecute_GraphAll(t *testing.T) {
 	root := t.TempDir()
 	writeGraphFixture(t, root)
+	withCwd(t, root)
+	dbPath := filepath.Join(t.TempDir(), "graph.db")
 
 	exec := NewExecutor()
 	if _, err := exec.Execute(nil, &domain.CodeIntelligenceConfig{
-		Operation: domain.CodeIntOpIndexFolder,
-		Path:      root,
+		Operation:   domain.CodeIntOpIndexFolder,
+		GraphDBPath: dbPath,
 	}); err != nil {
 		t.Fatalf("indexFolder: %v", err)
 	}
 
 	res, err := exec.Execute(nil, &domain.CodeIntelligenceConfig{
-		Operation: domain.CodeIntOpGraphAll,
-		Path:      root,
+		Operation:   domain.CodeIntOpGraphAll,
+		GraphDBPath: dbPath,
 	})
 	if err != nil {
 		t.Fatalf("Execute: %v", err)
@@ -141,6 +193,34 @@ func TestExecute_GraphAll(t *testing.T) {
 	roots, ok := m["roots"].([]string)
 	if !ok || len(roots) != 2 {
 		t.Fatalf("unexpected roots: %v", m["roots"])
+	}
+}
+
+func TestExecute_GraphAll_DefaultsDBPathToCWD(t *testing.T) {
+	root := t.TempDir()
+	writeGraphFixture(t, root)
+	withCwd(t, root)
+
+	exec := NewExecutor()
+	if _, err := exec.Execute(nil, &domain.CodeIntelligenceConfig{
+		Operation: domain.CodeIntOpIndexFolder,
+	}); err != nil {
+		t.Fatalf("indexFolder: %v", err)
+	}
+
+	res, err := exec.Execute(nil, &domain.CodeIntelligenceConfig{
+		Operation: domain.CodeIntOpGraphAll,
+	})
+	if err != nil {
+		t.Fatalf("Execute: %v", err)
+	}
+	m := res.(map[string]interface{})
+	roots, ok := m["roots"].([]string)
+	if !ok || len(roots) != 2 {
+		t.Fatalf("unexpected roots: %v", m["roots"])
+	}
+	if _, statErr := os.Stat(filepath.Join(root, ".kdeps", "graph.db")); statErr != nil {
+		t.Fatalf("expected graph.db under the CWD override: %v", statErr)
 	}
 }
 
@@ -166,10 +246,69 @@ func TestExecute_GraphTopic_MissingTopic(t *testing.T) {
 	}
 }
 
-func TestGraphDBPath_MissingBoth(t *testing.T) {
-	_, err := graphDBPath(&domain.CodeIntelligenceConfig{})
+func TestGraphDBPath_ExplicitGraphDBPath(t *testing.T) {
+	want := filepath.Join(t.TempDir(), "graph.db")
+	got, err := graphDBPath(&domain.CodeIntelligenceConfig{GraphDBPath: want})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if got != want {
+		t.Fatalf("got %q, want %q", got, want)
+	}
+}
+
+func TestGraphDBPath_DefaultsToCWD(t *testing.T) {
+	dir := t.TempDir()
+	withCwd(t, dir)
+
+	for _, op := range []domain.CodeIntelligenceOperation{
+		domain.CodeIntOpIndexFolder, domain.CodeIntOpGraphFile,
+		domain.CodeIntOpGraphTopic, domain.CodeIntOpGraphAll,
+	} {
+		got, err := graphDBPath(&domain.CodeIntelligenceConfig{Operation: op})
+		if err != nil {
+			t.Fatalf("%s: unexpected error: %v", op, err)
+		}
+		want := filepath.Join(dir, ".kdeps", "graph.db")
+		if got != want {
+			t.Fatalf("%s: got %q, want %q", op, got, want)
+		}
+	}
+}
+
+func TestGraphDBPath_IndexFolderAndGraphFileIgnorePath(t *testing.T) {
+	dir := t.TempDir()
+	withCwd(t, dir)
+
+	for _, op := range []domain.CodeIntelligenceOperation{domain.CodeIntOpIndexFolder, domain.CodeIntOpGraphFile} {
+		got, err := graphDBPath(&domain.CodeIntelligenceConfig{Operation: op, Path: "/some/other/place"})
+		if err != nil {
+			t.Fatalf("%s: unexpected error: %v", op, err)
+		}
+		want := filepath.Join(dir, ".kdeps", "graph.db")
+		if got != want {
+			t.Fatalf("%s: Path was not ignored: got %q, want %q", op, got, want)
+		}
+	}
+}
+
+func TestGraphDBPath_GraphTopicUsesPath(t *testing.T) {
+	root := t.TempDir()
+	got, err := graphDBPath(&domain.CodeIntelligenceConfig{Operation: domain.CodeIntOpGraphTopic, Path: root})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	want := filepath.Join(root, ".kdeps", "graph.db")
+	if got != want {
+		t.Fatalf("got %q, want %q", got, want)
+	}
+}
+
+func TestGraphDBPath_GetCwdError(t *testing.T) {
+	withCwdErr(t, "no cwd")
+	_, err := graphDBPath(&domain.CodeIntelligenceConfig{Operation: domain.CodeIntOpGraphAll})
 	if err == nil {
-		t.Fatal("expected error when both graphDBPath and path are empty")
+		t.Fatal("expected error when getCwd fails")
 	}
 }
 
@@ -186,12 +325,13 @@ func TestExecuteGraph_UnsupportedOperation(t *testing.T) {
 }
 
 func TestExecuteGraph_DBPathError(t *testing.T) {
+	withCwdErr(t, "no cwd")
 	exec := NewExecutor()
 	_, err := exec.executeGraph(&domain.CodeIntelligenceConfig{
 		Operation: domain.CodeIntOpGraphAll,
 	})
 	if err == nil {
-		t.Fatal("expected error when graphDBPath and path are both empty")
+		t.Fatal("expected error when the CWD default can't be resolved")
 	}
 }
 
@@ -232,10 +372,11 @@ func TestExecuteGraph_OpenDBError(t *testing.T) {
 	}
 }
 
-func TestGraphIndexFolder_MissingPath(t *testing.T) {
+func TestGraphIndexFolder_GetCwdError(t *testing.T) {
+	withCwdErr(t, "no cwd")
 	_, err := graphIndexFolder(nil, &domain.CodeIntelligenceConfig{})
 	if err == nil {
-		t.Fatal("expected error for missing path")
+		t.Fatal("expected error when getCwd fails")
 	}
 }
 
@@ -257,6 +398,7 @@ func (f *failOpenFs) Open(name string) (afero.File, error) {
 func TestGraphIndexFolder_ReadError(t *testing.T) {
 	root := t.TempDir()
 	writeGraphFixture(t, root)
+	withCwd(t, root)
 	dbPath := filepath.Join(t.TempDir(), "graph.db")
 
 	failPath := filepath.Join(root, "a.md")
@@ -270,7 +412,7 @@ func TestGraphIndexFolder_ReadError(t *testing.T) {
 	}
 	defer ig.Close()
 
-	_, err = graphIndexFolder(ig, &domain.CodeIntelligenceConfig{Path: root})
+	_, err = graphIndexFolder(ig, &domain.CodeIntelligenceConfig{})
 	if err == nil {
 		t.Fatal("expected read error")
 	}

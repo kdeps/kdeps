@@ -13,7 +13,6 @@ RESOURCE_FILE_INDEX="$TEST_DIR/resources/index-folder.yaml"
 RESOURCE_FILE_GRAPH="$TEST_DIR/resources/graph-all.yaml"
 RESOURCE_FILE_RESPONSE="$TEST_DIR/resources/response.yaml"
 
-DOCS_DIR_NATIVE=$(to_native_path "$DOCS_DIR")
 DB_PATH_NATIVE=$(to_native_path "$TEST_DIR/graph.db")
 
 cat > "$DOCS_DIR/a.md" <<'EOF'
@@ -56,9 +55,11 @@ cat > "$RESOURCE_FILE_INDEX" <<EOF
 actionId: indexFolder
 name: Index Folder
 
+# indexFolder always indexes the process's current working directory --
+# "path" is intentionally not set here (and would be ignored if it were).
+# The server below is launched with its cwd set to the docs fixture dir.
 codeIntelligence:
   operation: indexFolder
-  path: "$DOCS_DIR_NATIVE"
   graphDBPath: "$DB_PATH_NATIVE"
 EOF
 
@@ -100,9 +101,15 @@ else
     return 0
 fi
 
-# Test 2: Start server and run the indexFolder -> graphAll -> response dependency chain
+# Test 2: Start server and run the indexFolder -> graphAll -> response dependency chain.
+# indexFolder indexes the process's CWD, so kdeps is launched with its cwd set to
+# $DOCS_DIR -- via a subshell (preserves this script's own cwd, since it's sourced
+# by e2e.sh) that execs into the timeout/kdeps process (keeps $! as its real PID).
 SERVER_LOG=$(mktemp)
-timeout 15 "$KDEPS_BIN" run "$WORKFLOW_FILE" > "$SERVER_LOG" 2>&1 &
+(
+    cd "$DOCS_DIR" || exit 1
+    exec timeout 15 "$KDEPS_BIN" run "$WORKFLOW_FILE" > "$SERVER_LOG" 2>&1
+) &
 SERVER_PID=$!
 
 sleep 4

@@ -62,6 +62,7 @@ func newCodeIntelligenceEngine(t *testing.T) *executor.Engine {
 func TestWorkflowExecutor_CodeIntelligence_IndexThenGraphAll(t *testing.T) {
 	root := t.TempDir()
 	writeGraphIntegrationFixture(t, root)
+	t.Chdir(root)
 	dbPath := filepath.Join(root, ".kdeps", "graph.db")
 
 	engine := newCodeIntelligenceEngine(t)
@@ -82,7 +83,6 @@ func TestWorkflowExecutor_CodeIntelligence_IndexThenGraphAll(t *testing.T) {
 				Name:     "Index Folder",
 				CodeIntelligence: &domain.CodeIntelligenceConfig{
 					Operation:   domain.CodeIntOpIndexFolder,
-					Path:        root,
 					GraphDBPath: dbPath,
 				},
 			},
@@ -118,6 +118,7 @@ func TestWorkflowExecutor_CodeIntelligence_IndexThenGraphAll(t *testing.T) {
 func TestWorkflowExecutor_CodeIntelligence_IndexThenGraphFile(t *testing.T) {
 	root := t.TempDir()
 	writeGraphIntegrationFixture(t, root)
+	t.Chdir(root)
 	dbPath := filepath.Join(root, ".kdeps", "graph.db")
 
 	engine := newCodeIntelligenceEngine(t)
@@ -138,7 +139,6 @@ func TestWorkflowExecutor_CodeIntelligence_IndexThenGraphFile(t *testing.T) {
 				Name:     "Index Folder",
 				CodeIntelligence: &domain.CodeIntelligenceConfig{
 					Operation:   domain.CodeIntOpIndexFolder,
-					Path:        root,
 					GraphDBPath: dbPath,
 				},
 			},
@@ -170,6 +170,7 @@ func TestWorkflowExecutor_CodeIntelligence_IndexThenGraphFile(t *testing.T) {
 func TestWorkflowExecutor_CodeIntelligence_IndexThenGraphTopic(t *testing.T) {
 	root := t.TempDir()
 	writeGraphIntegrationFixture(t, root)
+	t.Chdir(root)
 	dbPath := filepath.Join(root, ".kdeps", "graph.db")
 
 	engine := newCodeIntelligenceEngine(t)
@@ -190,7 +191,6 @@ func TestWorkflowExecutor_CodeIntelligence_IndexThenGraphTopic(t *testing.T) {
 				Name:     "Index Folder",
 				CodeIntelligence: &domain.CodeIntelligenceConfig{
 					Operation:   domain.CodeIntOpIndexFolder,
-					Path:        root,
 					GraphDBPath: dbPath,
 				},
 			},
