@@ -288,6 +288,8 @@ github.com/json-iterator/go v1.1.12 h1:PV8peI4a0ysnczrg+LtxykD8LfKY9ML6u2jnxaEnr
 github.com/json-iterator/go v1.1.12/go.mod h1:e30LSqwooZae/UwlEbR2852Gd8hjQvJoHmT4TnhNGBo=
 github.com/kdeps/kartographer v0.1.1 h1:jv5pOkDePbYDeXzE2oI/Qsw2ruMEtqalK+DejO45uF0=
 github.com/kdeps/kartographer v0.1.1/go.mod h1:sp4wzvogzfnP/OE+6h2cglSVs7DC4Kz3sISgBqNJ0x4=
+github.com/kdeps/kartographer v0.2.0 h1:HYFq/zcUh3AXZaYNWBWn1bCDOuxbXE3u1B+wmcvNOiU=
+github.com/kdeps/kartographer v0.2.0/go.mod h1:sp4wzvogzfnP/OE+6h2cglSVs7DC4Kz3sISgBqNJ0x4=
 github.com/kennygrant/sanitize v1.2.4 h1:gN25/otpP5vAsO2djbMhF/LQX6R7+O1TB4yv8NzpJ3o=
 github.com/kennygrant/sanitize v1.2.4/go.mod h1:LGsjYYtgxbetdg5owWB2mpgUL6e2nfw2eObZ0u0qvak=
 github.com/kisielk/sqlstruct v0.0.0-20201105191214-5f3e10d3ab46/go.mod h1:yyMNCyc/Ib3bDTKd379tNMpB/7/H5TjM2Y9QJ5THLbE=

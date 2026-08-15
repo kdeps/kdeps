@@ -177,7 +177,26 @@ codeIntelligence:
 
 ### Graphing an Indexed Folder
 
-The four operations above are different from the LSP/rg operations: instead of searching live files, they build and query a small persistent graph database of the current working directory — tracking which files link to which (`[text](path)` markdown links and `[[path]]` wikilinks), and which files share a topic (a `topics:` or `tags:` list in a leading YAML frontmatter block). This is useful for docs/knowledge-base folders, not source code: run kdeps from inside a `docs/` directory and ask "what references this file?" or "show me everything tagged `auth`."
+The four operations above are different from the LSP/rg operations: instead of searching live files, they build and query a small persistent graph database of the current working directory — tracking which files link to which, and which files share a topic. Run kdeps from inside a `docs/` directory (or a source tree, with `extensions` opted in — see below) and ask "what references this file?" or "show me everything tagged `auth`."
+
+References are derived per file type:
+
+| File type | How references are found |
+|-----------|---------------------------|
+| `.md` / `.markdown` / `.txt` | Markdown links (`[text](path)`) and wikilinks (`[[path]]`) |
+| `.html` / `.htm` | `href`/`src` attribute values |
+| Go, Python, Rust, TypeScript/JavaScript, C/C++, Ruby, Java | Import/include statements — relative (`from . import x`, `#include "local.h"`) and non-relative/module-style (`import "github.com/x/pkg"`), the latter matched against files actually present in the indexed folder. Heuristic regex extraction, not a full parser — ambiguous or external/stdlib imports are dropped, not guessed. |
+| `.json` / `.yaml` / `.yml` (bare, no frontmatter) | No reference extraction |
+
+All of the above (plus any file with a leading `---` YAML frontmatter block) get **topic** extraction from a `topics:`/`tags:` list — for a bare `.json`/`.yaml`/`.yml` file, a top-level `topics:`/`tags:` key works with no frontmatter markers needed.
+
+The default `extensions` (`.md`/`.markdown`/`.txt`/`.yaml`/`.yml`) only cover docs — indexing source code, HTML, or JSON requires opting in explicitly, so pointing `indexFolder` at a project root never silently walks an entire source tree by surprise:
+
+```yaml
+codeIntelligence:
+  operation: indexFolder
+  extensions: [".go", ".md"]  # opt in to Go import graphing alongside docs
+```
 
 `indexFolder` must run once before `graphFile`/`graphTopic`/`graphAll` can query the same graph database (same `graphDBPath`, which defaults to `<CWD>/.kdeps/graph.db`).
 

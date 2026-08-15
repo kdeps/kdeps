@@ -224,6 +224,60 @@ func TestExecute_GraphAll_DefaultsDBPathToCWD(t *testing.T) {
 	}
 }
 
+// TestExecute_IndexFolder_SourceCodeExtensions verifies that passing
+// extensions: [".go"] to indexFolder opts into kartographer's source-code
+// import extraction (added in kartographer v0.2.0), on top of the default
+// markdown/docs behavior exercised by the other tests in this file.
+func TestExecute_IndexFolder_SourceCodeExtensions(t *testing.T) {
+	root := t.TempDir()
+	// Named differently from its own directory so the resolution isn't
+	// accidentally ambiguous between the file and its containing dir.
+	pkgDir := filepath.Join(root, "pkgname")
+	if err := os.MkdirAll(pkgDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(pkgDir, "impl.go"), []byte("package pkgname\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(root, "main.go"), []byte(`package main
+
+import "example.com/root/pkgname"
+
+func main() {}
+`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	withCwd(t, root)
+	dbPath := filepath.Join(t.TempDir(), "graph.db")
+
+	exec := NewExecutor()
+	if _, err := exec.Execute(nil, &domain.CodeIntelligenceConfig{
+		Operation:   domain.CodeIntOpIndexFolder,
+		Extensions:  []string{".go"},
+		GraphDBPath: dbPath,
+	}); err != nil {
+		t.Fatalf("indexFolder: %v", err)
+	}
+
+	res, err := exec.Execute(nil, &domain.CodeIntelligenceConfig{
+		Operation:   domain.CodeIntOpGraphFile,
+		Path:        filepath.Join(root, "main.go"),
+		GraphDBPath: dbPath,
+	})
+	if err != nil {
+		t.Fatalf("graphFile: %v", err)
+	}
+	m := res.(map[string]interface{})
+	references, ok := m["references"].(map[string][]string)
+	if !ok {
+		t.Fatalf("unexpected references type %T", m["references"])
+	}
+	got := references[filepath.Join(root, "main.go")]
+	if len(got) != 1 || got[0] != pkgDir {
+		t.Fatalf("expected main.go's import resolved to %q, got %v", pkgDir, got)
+	}
+}
+
 func TestExecute_GraphFile_MissingPath(t *testing.T) {
 	exec := NewExecutor()
 	_, err := exec.Execute(nil, &domain.CodeIntelligenceConfig{
