@@ -69,6 +69,43 @@ func TestSkillByName_MultipleSkills(t *testing.T) {
 	assert.Nil(t, loop.SkillByName("missing"))
 }
 
+// --- registerSkillLoader / load_skill related-skills hint ---
+
+func TestRegisterSkillLoader_RelatedSkillsHint(t *testing.T) {
+	reg := tools.NewRegistry()
+	loop := &Loop{
+		registry:      reg,
+		skillList:     []Skill{{Name: "a", Content: "Do A."}, {Name: "b", Content: "Do B."}},
+		relatedSkills: map[string][]string{"a": {"b"}},
+	}
+	loop.registerSkillLoader()
+
+	tool := reg.Get("load_skill")
+	require.NotNil(t, tool)
+
+	out, err := tool.Execute(map[string]any{"name": "a"})
+	require.NoError(t, err)
+	assert.Contains(t, out, "Do A.")
+	assert.Contains(t, out, "Related skills")
+	assert.Contains(t, out, "b")
+}
+
+func TestRegisterSkillLoader_NoRelatedSkills(t *testing.T) {
+	reg := tools.NewRegistry()
+	loop := &Loop{
+		registry:  reg,
+		skillList: []Skill{{Name: "a", Content: "Do A."}},
+	}
+	loop.registerSkillLoader()
+
+	tool := reg.Get("load_skill")
+	require.NotNil(t, tool)
+
+	out, err := tool.Execute(map[string]any{"name": "a"})
+	require.NoError(t, err)
+	assert.Equal(t, "Do A.", out)
+}
+
 // --- dispatchCommand skill routing ---
 
 func TestDispatchCommand_UnknownNonSkill(t *testing.T) {

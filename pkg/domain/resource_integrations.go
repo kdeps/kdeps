@@ -135,6 +135,13 @@ type SearchLocalConfig struct {
 	// IndexDBPath is the path to the index database file.
 	// Defaults to "<path>/.kdeps/index.db" when Index is true.
 	IndexDBPath string `yaml:"indexDBPath,omitempty"`
+
+	// GraphBoost re-ranks indexed results using the folder's kartographer
+	// reference/topic graph (markdown links + frontmatter "topics:"/"tags:"):
+	// results linked from, or sharing a topic with, a top TF-IDF match are
+	// boosted above equally-scored unconnected results. Requires Index: true.
+	// The graph db lives at "<path>/.kdeps/graph.db", separate from IndexDBPath.
+	GraphBoost bool `yaml:"graphBoost,omitempty"`
 }
 
 // SearchWebConfig represents web search configuration.

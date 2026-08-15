@@ -26,6 +26,8 @@ import (
 	"sync"
 
 	"github.com/spf13/afero"
+
+	"github.com/kdeps/kartographer/graph"
 )
 
 // Skill represents a loaded skill from a SKILL.md file.
@@ -62,6 +64,17 @@ func loadSkills(extraPaths []string) string {
 // loadSkillSlice discovers and loads all skills from default locations and any
 // explicitly provided paths. Returns the raw slice of Skill structs.
 func loadSkillSlice(extraPaths []string) []Skill {
+	skills, _ := loadSkillSliceWithDirs(extraPaths)
+	return skills
+}
+
+// loadSkillSliceWithDirs is loadSkillSlice, additionally returning the skill
+// root directories that were walked (defaultSkillDirs plus any directory
+// extraPaths). Callers that need to re-walk the same roots -- e.g.
+// computeRelatedSkills, which must index a whole skill-library root at once
+// for kartographer to resolve links between sibling skill directories --
+// use this instead of re-deriving the list from individual skill paths.
+func loadSkillSliceWithDirs(extraPaths []string) ([]Skill, []string) {
 	seen := sync.Map{}
 	skills := make([]Skill, 0)
 
@@ -86,7 +99,7 @@ func loadSkillSlice(extraPaths []string) []Skill {
 		}
 	}
 
-	return skills
+	return skills, dirs
 }
 
 // discoverSkillsInDir walks a directory and finds SKILL.md files.
@@ -218,4 +231,71 @@ func formatSkillsForPrompt(skills []Skill) string {
 	}
 	sb.WriteString("</available_skills>")
 	return sb.String()
+}
+
+// computeRelatedSkills builds a skill-name -> related-skill-names map using a
+// kartographer reference/topic graph over the skill-library root directories
+// (dirs, from loadSkillSliceWithDirs): a skill is related to another if its
+// SKILL.md links to it, or if they share a "topics:"/"tags:" frontmatter
+// entry. Each root is indexed as a whole (not each skill's own leaf
+// directory) so kartographer can resolve links between sibling skill
+// directories -- it only resolves a link if it stays inside the indexed
+// root. The graph db is a scratch temp file, removed once the map is
+// extracted -- nothing persists across calls.
+func computeRelatedSkills(skills []Skill, dirs []string) map[string][]string {
+	if len(skills) == 0 || len(dirs) == 0 {
+		return nil
+	}
+
+	dbPath := filepath.Join(os.TempDir(), fmt.Sprintf("kdeps-skills-graph-%d.db", os.Getpid()))
+	ig, err := graph.NewIndexedGraph(AppFS, nil, dbPath)
+	if err != nil {
+		return nil
+	}
+	defer func() {
+		_ = ig.Close()
+		_ = os.Remove(dbPath)
+	}()
+
+	nameByPath := make(map[string]string, len(skills))
+	for _, sk := range skills {
+		nameByPath[sk.Source] = sk.Name
+	}
+	for _, dir := range dirs {
+		// An unreadable/missing skill root shouldn't cost every other root's
+		// skills their related-skill hints.
+		_, _ = ig.IndexFolder(dir, []string{".md"})
+	}
+
+	related := make(map[string][]string, len(skills))
+	for _, sk := range skills {
+		if names := relatedSkillNames(ig, sk, nameByPath); len(names) > 0 {
+			related[sk.Name] = names
+		}
+	}
+	return related
+}
+
+// relatedSkillNames returns the deduped names of skills that sk references
+// or shares a topic with, resolved against nameByPath (skill source path ->
+// skill name). A link or topic hit that doesn't resolve to a known skill
+// (e.g. a link to a non-skill doc) is silently skipped. Split out from
+// computeRelatedSkills so a query against an already-closed graph store can
+// be tested independently of the open/index setup around it.
+func relatedSkillNames(ig *graph.IndexedGraph, sk Skill, nameByPath map[string]string) []string {
+	references, relatedByTopic, err := ig.GraphFile(sk.Source)
+	if err != nil {
+		return nil
+	}
+	seen := map[string]bool{sk.Name: true}
+	var names []string
+	for _, path := range append(append([]string{}, references[sk.Source]...), relatedByTopic...) {
+		name, ok := nameByPath[path]
+		if !ok || seen[name] {
+			continue
+		}
+		seen[name] = true
+		names = append(names, name)
+	}
+	return names
 }

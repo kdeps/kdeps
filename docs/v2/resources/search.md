@@ -102,6 +102,49 @@ chat:
 
 </div>
 
+### Indexed search (ranked results)
+
+`index: true` switches `searchLocal` from a plain directory walk to a persistent TF-IDF inverted index, giving each result a relevance `score` instead of just a yes/no filename/content match. The index is built once (or incrementally reused) at `<path>/.kdeps/index.db` and speeds up repeated searches of the same folder.
+
+```yaml
+searchLocal:
+  path: "/workspace/docs"
+  query: "authentication flow"
+  index: true                # build/use a persistent TF-IDF index instead of walking every search
+  fuzzy: true                 # optional: Levenshtein fuzzy matching (requires index: true)
+  maxDistance: 2               # optional: max edit distance for fuzzy matching, default 2
+  indexDBPath: "/custom/index.db"  # optional: override the default <path>/.kdeps/index.db
+  graphBoost: true             # optional: re-rank using the folder's link/topic graph (requires index: true)
+```
+
+| Field | Type | Required | Default | Description |
+|-------|------|----------|---------|-------------|
+| `index` | bool | no | `false` | Build/use a persistent TF-IDF inverted index instead of a plain walk |
+| `fuzzy` | bool | no | `false` | Enable Levenshtein fuzzy term matching (requires `index: true`) |
+| `maxDistance` | integer | no | `2` | Max edit distance for fuzzy matching |
+| `indexDBPath` | string | no | `<path>/.kdeps/index.db` | Where the TF-IDF index is stored |
+| `graphBoost` | bool | no | `false` | Re-rank results using the same [kartographer](https://github.com/kdeps/kartographer) reference/topic graph `codeIntelligence`'s [`indexFolder`/`graphAll`](codeintelligence#graphing-an-indexed-folder) builds -- requires `index: true` |
+
+**How `graphBoost` ranks results:** `searchLocal` already ranks by TF-IDF (term frequency across the folder). `graphBoost` additionally builds a graph of the same folder -- markdown links (`[text](path)`) and shared YAML frontmatter `topics:`/`tags:` -- at `<path>/.kdeps/graph.db` (kept separate from `indexDBPath`). Any result linked from, or sharing a topic with, one of the top 5 TF-IDF matches gets its score boosted 25% before the final sort. This means a lower-scoring-but-connected document can outrank a higher-scoring-but-isolated one -- useful when the top match is a short "index" page whose linked sub-pages are the real answer.
+
+```yaml
+# resources/search-graph.yaml
+actionId: findRelatedDocs
+searchLocal:
+  path: "/workspace/docs"
+  query: "{{ get('query') }}"
+  index: true
+  graphBoost: true
+```
+
+Indexed-mode output rows add two fields on top of the base result shape:
+
+| Key | Type | Description |
+|-----|------|-------------|
+| `score` | float | TF-IDF relevance score (post-boost when `graphBoost` is set) |
+| `matchCount` | integer | Number of distinct query terms matched |
+| `snippet` | string | Text excerpt around the match |
+
 ---
 
 ## searchWeb

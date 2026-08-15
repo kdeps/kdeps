@@ -756,6 +756,20 @@ Invoke a skill from the REPL with `/<skill-name>` or `/<skill-name> extra contex
 
 **Progressive disclosure (token cost):** the system prompt lists only each skill's name and description - never the full body. Skill instructions are re-sent on every LLM call as part of the system prompt, so embedding full bodies for a large skill set would burn tokens every turn. Instead, the agent calls the built-in `load_skill` tool with a skill name to pull that skill's full instructions on demand, only when a task actually needs it.
 
+**Related skills:** when skills are (re)loaded, kdeps builds a small [kartographer](https://github.com/kdeps/kartographer) reference/topic graph over each skill-library root -- the same mechanism `codeIntelligence`'s [`indexFolder`/`graphFile`](../resources/codeintelligence#graphing-an-indexed-folder) uses on any folder. A skill is related to another if its `SKILL.md` links to it (`[other](../other/SKILL.md)`), or if both declare the same `topics:`/`tags:` in frontmatter:
+
+```markdown
+---
+name: code-review
+description: Guidelines for reviewing Go code
+topics: [go, quality]
+---
+
+Always check for error handling. See [testing](../testing/SKILL.md) for coverage expectations.
+```
+
+When `load_skill` returns a skill whose graph has related skills, it appends a hint listing their names so the model can decide whether to load them too, instead of guessing skill names cold. This is purely additive -- a skill with no links or topics behaves exactly as before.
+
 ## Prompt templates
 
 Prompt templates are reusable named prompts loaded from `.md` files. They work exactly like skills: invoke them by name from the REPL.

@@ -19,10 +19,13 @@
 package agent
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/kdeps/kartographer/graph"
 )
 
 func TestLoadSkillFromFile_WithFrontmatter(t *testing.T) {
@@ -256,4 +259,113 @@ func TestDiscoverSkillsInDir_WalkError(t *testing.T) {
 
 	// The function should not panic and returns whatever it found before the error.
 	_ = discoverSkillsInDir(root)
+}
+
+func writeSkillFixture(t *testing.T, dir, name, extraFrontmatter, body string) {
+	t.Helper()
+	if err := os.MkdirAll(dir, 0755); err != nil {
+		t.Fatal(err)
+	}
+	content := "---\nname: " + name + "\ndescription: " + name + " skill\n" +
+		extraFrontmatter + "---\n\n" + body + "\n"
+	if err := os.WriteFile(filepath.Join(dir, "SKILL.md"), []byte(content), 0644); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestComputeRelatedSkills(t *testing.T) {
+	root := t.TempDir()
+	writeSkillFixture(t, filepath.Join(root, "skillA"), "skillA", "",
+		"See [skillB](../skillB/SKILL.md) and [notes](../notes.md) for more.")
+	writeSkillFixture(t, filepath.Join(root, "skillB"), "skillB", "", "No links here.")
+	writeSkillFixture(t, filepath.Join(root, "skillC"), "skillC", "topics: [shared]\n", "Shares a topic with D.")
+	writeSkillFixture(t, filepath.Join(root, "skillD"), "skillD", "topics: [shared]\n", "Shares a topic with C.")
+	writeSkillFixture(t, filepath.Join(root, "skillE"), "skillE", "", "Isolated, no links or topics.")
+	// skillF/skillG both link to each other AND share a topic -- exercises the
+	// dedup path (same related name reachable via references and topics).
+	writeSkillFixture(t, filepath.Join(root, "skillF"), "skillF", "topics: [dup]\n",
+		"See [skillG](../skillG/SKILL.md).")
+	writeSkillFixture(t, filepath.Join(root, "skillG"), "skillG", "topics: [dup]\n", "No outbound links.")
+	if err := os.WriteFile(filepath.Join(root, "notes.md"), []byte("Not a skill."), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	skills := discoverSkillsInDir(root)
+	if len(skills) != 7 {
+		t.Fatalf("expected 7 skills discovered, got %d", len(skills))
+	}
+
+	related := computeRelatedSkills(skills, []string{root})
+
+	// skillA links to skillB (known skill, kept) and notes.md (not a known
+	// skill, silently dropped) -- exercises the !ok branch.
+	if got := related["skillA"]; len(got) != 1 || got[0] != "skillB" {
+		t.Fatalf("expected skillA related to [skillB] (notes.md dropped), got %v", got)
+	}
+	if got := related["skillC"]; len(got) != 1 || got[0] != "skillD" {
+		t.Fatalf("expected skillC related to [skillD], got %v", got)
+	}
+	if got := related["skillD"]; len(got) != 1 || got[0] != "skillC" {
+		t.Fatalf("expected skillD related to [skillC], got %v", got)
+	}
+	// skillF -> skillG via both a link and a shared topic: must be deduped to one entry.
+	if got := related["skillF"]; len(got) != 1 || got[0] != "skillG" {
+		t.Fatalf("expected skillF related to [skillG] deduped, got %v", got)
+	}
+	if got, ok := related["skillB"]; ok {
+		t.Fatalf("expected skillB to have no related skills (no outbound links/topics), got %v", got)
+	}
+	if got, ok := related["skillE"]; ok {
+		t.Fatalf("expected isolated skillE to have no related skills, got %v", got)
+	}
+}
+
+func TestComputeRelatedSkills_EmptyInputs(t *testing.T) {
+	if got := computeRelatedSkills(nil, []string{"/somewhere"}); got != nil {
+		t.Fatalf("expected nil for no skills, got %v", got)
+	}
+	skills := []Skill{{Name: "a", Source: "/a/SKILL.md"}}
+	if got := computeRelatedSkills(skills, nil); got != nil {
+		t.Fatalf("expected nil for no dirs, got %v", got)
+	}
+}
+
+func TestComputeRelatedSkills_NewIndexedGraphError(t *testing.T) {
+	// Pre-create a non-bbolt file at the exact scratch db path computeRelatedSkills
+	// will use (PID-based, deterministic within this process): bolt.Open must
+	// fail to read its header, and computeRelatedSkills must return nil rather
+	// than panic or error out the caller.
+	dbPath := filepath.Join(os.TempDir(), fmt.Sprintf("kdeps-skills-graph-%d.db", os.Getpid()))
+	if err := os.WriteFile(dbPath, []byte("not a bbolt database"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	defer os.Remove(dbPath) //nolint:errcheck
+
+	skills := []Skill{{Name: "a", Source: "/a/SKILL.md"}}
+	if got := computeRelatedSkills(skills, []string{"/a"}); got != nil {
+		t.Fatalf("expected nil on bbolt open error, got %v", got)
+	}
+}
+
+func TestRelatedSkillNames_GraphFileErrorOnClosedStore(t *testing.T) {
+	dir := t.TempDir()
+	writeSkillFixture(t, filepath.Join(dir, "a"), "a", "", "content")
+	dbPath := filepath.Join(dir, "graph.db")
+
+	ig, err := graph.NewIndexedGraph(AppFS, nil, dbPath)
+	if err != nil {
+		t.Fatalf("NewIndexedGraph: %v", err)
+	}
+	if _, indexErr := ig.IndexFolder(dir, []string{".md"}); indexErr != nil {
+		t.Fatalf("IndexFolder: %v", indexErr)
+	}
+	if closeErr := ig.Close(); closeErr != nil {
+		t.Fatalf("Close: %v", closeErr)
+	}
+
+	sk := Skill{Name: "a", Source: filepath.Join(dir, "a", "SKILL.md")}
+	got := relatedSkillNames(ig, sk, map[string]string{sk.Source: "a"})
+	if got != nil {
+		t.Fatalf("expected nil querying a closed graph store, got %v", got)
+	}
 }

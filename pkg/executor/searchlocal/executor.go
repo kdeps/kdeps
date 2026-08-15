@@ -28,10 +28,14 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"sort"
 	"strings"
 	"sync"
 
+	"github.com/charmbracelet/log"
 	"github.com/spf13/afero"
+
+	"github.com/kdeps/kartographer/graph"
 
 	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
 	"github.com/kdeps/kdeps/v2/pkg/domain"
@@ -58,6 +62,90 @@ func NewExecutor() *Executor {
 // indexDBPath returns the default index database path for a directory.
 func indexDBPath(dir string) string {
 	return filepath.Join(dir, ".kdeps", "index.db")
+}
+
+// graphDBPath returns the default kartographer graph database path for a
+// directory -- deliberately separate from indexDBPath's TF-IDF index.db.
+func graphDBPath(dir string) string {
+	return filepath.Join(dir, ".kdeps", "graph.db")
+}
+
+const (
+	// graphBoostFactor multiplies the score of a result linked from, or
+	// sharing a topic with, a top-ranked seed result.
+	graphBoostFactor = 1.25
+	// graphBoostSeedCount is how many top-ranked results are used as seeds
+	// when looking up connected documents in the graph.
+	graphBoostSeedCount = 5
+)
+
+// boostByGraph re-ranks results using a kartographer reference/topic graph
+// over config.Path: documents linked from, or sharing a frontmatter topic
+// with, a top-ranked seed result get their score boosted before the final
+// sort. Never returns an error -- graph boosting is a ranking enhancement,
+// not a correctness requirement, so any graph failure just leaves the
+// TF-IDF ranking untouched.
+func boostByGraph(config *domain.SearchLocalConfig, results []index.SearchResult) []index.SearchResult {
+	if len(results) == 0 {
+		return results
+	}
+
+	dbPath := graphDBPath(config.Path)
+	if err := AppFS.MkdirAll(filepath.Dir(dbPath), 0o700); err != nil {
+		return results
+	}
+
+	ig, err := graph.NewIndexedGraph(AppFS, log.Default(), dbPath)
+	if err != nil {
+		return results
+	}
+	defer func() { _ = ig.Close() }()
+
+	if _, indexErr := ig.IndexFolder(config.Path, nil); indexErr != nil {
+		return results
+	}
+
+	connected := graphConnectedSet(ig, results)
+	for i := range results {
+		if connected[results[i].Document.Path] {
+			results[i].Score *= graphBoostFactor
+		}
+	}
+
+	sort.Slice(results, func(i, j int) bool {
+		if results[i].MatchCount != results[j].MatchCount {
+			return results[i].MatchCount > results[j].MatchCount
+		}
+		return results[i].Score > results[j].Score
+	})
+
+	return results
+}
+
+// graphConnectedSet returns every document path linked from, or sharing a
+// topic with, one of the top graphBoostSeedCount results. Split out from
+// boostByGraph so a query against an already-open (or already-closed) graph
+// can be tested independently of the open/index setup around it.
+func graphConnectedSet(ig *graph.IndexedGraph, results []index.SearchResult) map[string]bool {
+	seedCount := graphBoostSeedCount
+	if seedCount > len(results) {
+		seedCount = len(results)
+	}
+
+	connected := make(map[string]bool)
+	for _, seed := range results[:seedCount] {
+		references, relatedByTopic, err := ig.GraphFile(seed.Document.Path)
+		if err != nil {
+			continue
+		}
+		for _, path := range references[seed.Document.Path] {
+			connected[path] = true
+		}
+		for _, path := range relatedByTopic {
+			connected[path] = true
+		}
+	}
+	return connected
 }
 
 // noIndexDirs are directory names that are never indexed.
@@ -659,6 +747,9 @@ func (e *Executor) Execute(
 	if config.Path == "" {
 		return nil, errors.New("searchLocal: path is required")
 	}
+	if config.GraphBoost && !config.Index {
+		return nil, errors.New("searchLocal: graphBoost requires index: true")
+	}
 
 	if config.Index {
 		return e.executeIndexed(config)
@@ -726,6 +817,10 @@ func (e *Executor) executeIndexed(config *domain.SearchLocalConfig) (interface{}
 		results = idx.FuzzySearch(queryTerms, maxDist)
 	} else {
 		results = idx.Search(queryTerms)
+	}
+
+	if config.GraphBoost {
+		results = boostByGraph(config, results)
 	}
 
 	// Apply limit

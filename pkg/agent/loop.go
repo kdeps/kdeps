@@ -207,9 +207,10 @@ type Loop struct {
 	workflow      *domain.Workflow
 	config        Config
 	session       SessionReadWriter
-	skills        string           // pre-formatted skill XML block for the system prompt
-	skillList     []Skill          // raw skill structs for name lookup (/skill-name invocation)
-	prompts       []PromptTemplate // loaded prompt templates
+	skills        string              // pre-formatted skill XML block for the system prompt
+	skillList     []Skill             // raw skill structs for name lookup (/skill-name invocation)
+	relatedSkills map[string][]string // skill name -> related skill names (kartographer link/topic graph)
+	prompts       []PromptTemplate    // loaded prompt templates
 	onAutoCompact func(summary string)
 	store         *SessionStore // optional persistence
 	memoryStore   *MemoryStore  // optional memory persistence
@@ -251,7 +252,7 @@ type Loop struct {
 // then to sensible defaults.
 func New(eng *executor.Engine, workflow *domain.Workflow, reg *tools.Registry, cfg Config) *Loop {
 	cfg = applyConfigDefaults(cfg)
-	skillSlice := loadSkillSlice(cfg.SkillPaths)
+	skillSlice, skillDirs := loadSkillSliceWithDirs(cfg.SkillPaths)
 
 	var session SessionReadWriter
 	if cfg.ResumeSession != nil {
@@ -265,17 +266,18 @@ func New(eng *executor.Engine, workflow *domain.Workflow, reg *tools.Registry, c
 	}
 
 	l := &Loop{
-		engine:      eng,
-		registry:    reg,
-		workflow:    workflow,
-		config:      cfg,
-		session:     session,
-		skills:      formatSkillsForPrompt(skillSlice),
-		skillList:   skillSlice,
-		prompts:     loadPromptTemplateSlice(cfg.PromptPaths),
-		store:       cfg.Store,
-		memoryStore: cfg.MemoryStore,
-		streamer:    cfg.Streamer,
+		engine:        eng,
+		registry:      reg,
+		workflow:      workflow,
+		config:        cfg,
+		session:       session,
+		skills:        formatSkillsForPrompt(skillSlice),
+		skillList:     skillSlice,
+		relatedSkills: computeRelatedSkills(skillSlice, skillDirs),
+		prompts:       loadPromptTemplateSlice(cfg.PromptPaths),
+		store:         cfg.Store,
+		memoryStore:   cfg.MemoryStore,
+		streamer:      cfg.Streamer,
 	}
 
 	l.registerSkillLoader()
@@ -339,7 +341,11 @@ func (l *Loop) registerSkillLoader() {
 			if sk == nil {
 				return "", fmt.Errorf("load_skill: no skill named %q", name)
 			}
-			return sk.Content, nil
+			content := sk.Content
+			if related := l.relatedSkills[sk.Name]; len(related) > 0 {
+				content += "\n\n---\nRelated skills (call load_skill again if relevant): " + strings.Join(related, ", ")
+			}
+			return content, nil
 		},
 	})
 }
@@ -2721,8 +2727,9 @@ func (l *Loop) Skills() string {
 // ReloadSkills reloads skills from the given paths and updates the system prompt.
 // This is called when /settings saves new skill selections.
 func (l *Loop) ReloadSkills(skillPaths []string) {
-	slice := loadSkillSlice(resolveAbsPaths(skillPaths))
+	slice, dirs := loadSkillSliceWithDirs(resolveAbsPaths(skillPaths))
 	l.skillList = slice
+	l.relatedSkills = computeRelatedSkills(slice, dirs)
 	l.skills = formatSkillsForPrompt(slice)
 	l.config.SkillPaths = skillPaths
 	l.registerSkillLoader()      // (re)register load_skill for the new skill set
