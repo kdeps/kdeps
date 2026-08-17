@@ -91,6 +91,11 @@ the turn
 
 The same detector looks for existing, readable **text files** mentioned by name (`look at main.go`) and offers to inline their contents the same way `@main.go` would. Images and binaries are never auto-detected -- use an explicit `@path` for those. Only a strict allowlist of read-only commands is ever offered (`ls`, `df`, `ps`, `git status`, `go env`, `docker ps`, etc.) -- destructive or mutating commands (`rm`, `git commit`, `go build`, `docker rm`, ...) never match, so there is nothing to confirm your way into breaking. One confirmation covers everything detected in a single message; declining (or just pressing Enter) sends your original text completely unchanged, exactly as if nothing had been detected.
 
+**Pipes and command substitution** are recognized too, as long as every stage is itself allowlisted:
+
+- `ps aux | grep -i kdeps` -- detected and run as one pipeline, provided every `|`-separated stage is a read-only command (a stage like `xargs rm` breaks the chain; only the safe leading stage is offered on its own instead).
+- `` $(git rev-parse HEAD) `` -- the `$(...)` body is checked the same way and, if safe, run and inlined as its own command; anything that could chain a second command inside the parens (`;`, `&`, `` ` ``, a nested `$(`) is rejected outright rather than run partially.
+
 Disable it for the session with `/autocontext off` if the confirmation prompt gets in your way; `/autocontext on` re-enables it, and `/autocontext` alone shows the current state.
 
 ## Goal-directed execution

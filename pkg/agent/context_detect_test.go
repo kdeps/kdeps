@@ -77,6 +77,126 @@ func TestDetectCommands_NoMatch(t *testing.T) {
 	assert.Empty(t, got)
 }
 
+func TestDetectCommands_Pipeline(t *testing.T) {
+	got := detectCommands("can you run ps aux | grep -i kdeps")
+	assert.Contains(t, got, "ps aux | grep -i kdeps")
+}
+
+func TestDetectCommands_PipelineRequiresPipe(t *testing.T) {
+	// No "|" present -- falls back to the flags-only single-command match,
+	// which stops before the non-flag positional "-la in this dir" tail.
+	got := detectCommands("please run ls -la in this dir")
+	assert.Equal(t, []string{"ls -la"}, got)
+}
+
+func TestDetectCommands_PipelineStopsAtUnallowedStage(t *testing.T) {
+	// "xargs" is not allowlisted, so the pipeline as a whole is rejected;
+	// only the safe leading "cat" is offered, never the dangerous "rm".
+	got := detectCommands("cat foo | xargs rm")
+	assert.Equal(t, []string{"cat"}, got)
+	for _, c := range got {
+		assert.NotContains(t, c, "rm")
+	}
+}
+
+func TestDetectCommands_PipelineTruncatesAtChainingMetachar(t *testing.T) {
+	got := detectCommands("ps aux | grep kdeps; rm -rf /")
+	assert.Equal(t, []string{"ps aux | grep kdeps"}, got)
+	for _, c := range got {
+		assert.NotContains(t, c, "rm")
+	}
+}
+
+func TestDetectCommands_PipelineWithGatedFirstStage(t *testing.T) {
+	got := detectCommands("docker ps | grep kdeps")
+	assert.Contains(t, got, "docker ps | grep kdeps")
+}
+
+func TestDetectCommands_PipelineExcludesMutatingGatedStage(t *testing.T) {
+	got := detectCommands("docker rm foo | grep bar")
+	assert.NotContains(t, got, "docker rm foo | grep bar")
+	assert.Contains(t, got, "grep")
+}
+
+func TestDetectCommands_SubstitutionBareCommand(t *testing.T) {
+	got := detectCommands("what's in $(pwd)")
+	assert.Equal(t, []string{"pwd"}, got)
+}
+
+func TestDetectCommands_SubstitutionAllowsPositionalArgs(t *testing.T) {
+	// Unlike the flags-only free-text bare match, $(...) trusts trailing
+	// positional args since the parens delimit the command unambiguously.
+	got := detectCommands("summarize $(head -n 5 notes.txt)")
+	assert.Equal(t, []string{"head -n 5 notes.txt"}, got)
+}
+
+func TestDetectCommands_SubstitutionGatedCommand(t *testing.T) {
+	got := detectCommands("check $(git status)")
+	assert.Equal(t, []string{"git status"}, got)
+}
+
+func TestDetectCommands_SubstitutionPipeline(t *testing.T) {
+	got := detectCommands("check $(ps aux | grep -i kdeps)")
+	assert.Equal(t, []string{"ps aux | grep -i kdeps"}, got)
+}
+
+func TestDetectCommands_SubstitutionRejectsUnallowedCommand(t *testing.T) {
+	got := detectCommands("check $(rm -rf /)")
+	assert.Empty(t, got)
+}
+
+func TestDetectCommands_SubstitutionRejectsChaining(t *testing.T) {
+	// A leading allowlisted token followed by ";" is rejected outright
+	// rather than run partially -- unlike free text, "$(...)" gives no
+	// other signal that only a prefix was intended.
+	got := detectCommands("check $(ps; rm -rf /)")
+	assert.Empty(t, got)
+}
+
+func TestDetectCommands_SubstitutionRejectsBackgrounding(t *testing.T) {
+	got := detectCommands("check $(ps & rm -rf /)")
+	assert.Empty(t, got)
+}
+
+func TestDetectCommands_SubstitutionRejectsBacktick(t *testing.T) {
+	got := detectCommands("check $(ps `rm -rf /`)")
+	assert.Empty(t, got)
+}
+
+func TestDetectCommands_SubstitutionRejectsNested(t *testing.T) {
+	// The inner, safe substitution is still found even though the outer
+	// wrapper doesn't parse as one non-nested $(...) span.
+	got := detectCommands("nested $(echo $(pwd))")
+	assert.Equal(t, []string{"pwd"}, got)
+}
+
+func TestDetectCommands_SubstitutionEmptyBody(t *testing.T) {
+	got := detectCommands("what is $()")
+	assert.Empty(t, got)
+}
+
+func TestDetectCommands_SubstitutionRejectsGatedNameWithoutSubcommand(t *testing.T) {
+	// "git" alone has no subcommand at all -- must not match the gated
+	// name+subcommand pair check with an out-of-range index.
+	got := detectCommands("check $(git)")
+	assert.Empty(t, got)
+}
+
+func TestIsSafeCommandString_EmptyString(t *testing.T) {
+	assert.False(t, isSafeCommandString(""))
+}
+
+func TestDetectCommands_SubstitutionDedupedAgainstFreeText(t *testing.T) {
+	got := detectCommands("run $(git status) or just git status directly")
+	count := 0
+	for _, c := range got {
+		if c == "git status" {
+			count++
+		}
+	}
+	assert.Equal(t, 1, count)
+}
+
 func TestDetectFiles_TextFileMatches(t *testing.T) {
 	dir := t.TempDir()
 	p := filepath.Join(dir, "notes.txt")
