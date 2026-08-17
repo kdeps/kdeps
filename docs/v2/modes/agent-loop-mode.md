@@ -271,7 +271,9 @@ unaffected; you only ever need the `backend:` prefix when kdeps tells you to.
 
 ### How a model is picked when none is configured
 
-With no `--model` flag, no saved default, and no `model:` in `~/.kdeps/config.yaml`, kdeps picks the first option that is actually usable, in this order:
+With no `--model` flag, no saved default, and no `model:` in `~/.kdeps/config.yaml`, kdeps first checks whether [`llmfit`](https://github.com/AlexsJones/llmfit) is installed (`brew install AlexsJones/llmfit/llmfit`): if it is, and at least one local model (llamafile/GGUF/Ollama) is already downloaded, kdeps starts with whichever downloaded model llmfit scores as the best hardware fit for this machine, skipping the fixed order below entirely.
+
+Otherwise -- no `llmfit`, or nothing downloaded yet -- kdeps picks the first option that is actually usable, in this fixed order:
 
 1. **llamafile** - the `llamafile` runner binary on `PATH`, or a cached `*.llamafile` in the models directory (a `.llamafile` is self-executing, so no runner is needed).
 2. **GGUF** - the first `*.gguf` in the models directory that `llama-server` can load. Files with an unreadable header or a GGUFv1 container are skipped: current llama.cpp builds refuse them (`GGUFv1 is no longer supported`), so serving one would start a server that exits immediately and fail every request.

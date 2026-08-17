@@ -19,8 +19,10 @@
 package llm
 
 import (
+	"context"
 	"fmt"
 	"os"
+	"os/exec"
 	"strings"
 	"time"
 
@@ -37,13 +39,26 @@ const DefaultBuiltinModel = "llama3.2:1b"
 // defaultBuiltinModel is the internal alias used by empty-model resolution.
 const defaultBuiltinModel = DefaultBuiltinModel
 
+// bestInstalledModelByFitFunc is BestInstalledModelByFit, overridable in
+// tests so defaultModelWhenEmpty's new tier can be exercised deterministically
+// without depending on what's actually installed on the machine running the
+// test suite.
+//
+//nolint:gochecknoglobals // test-replaceable hook
+var bestInstalledModelByFitFunc = BestInstalledModelByFit
+
 // defaultModelWhenEmpty resolves the model for a chat resource that omits
 // `model:`. Order: config router (KDEPS_LLM_ROUTER) -> first config model
-// (KDEPS_LLM_MODELS) -> the built-in llamafile default when the backend is
-// local (file). Returns ("", false) when a cloud/gguf/ollama backend is set but
-// no model is configured, so the caller can emit a clear error rather than
-// guess a model the backend cannot serve.
-func defaultModelWhenEmpty() (string, bool) {
+// (KDEPS_LLM_MODELS) -> best installed local model by llmfit hardware fit ->
+// the built-in llamafile default -- all only on the file backend (explicit
+// or defaulted). Returns ("", false) when a cloud/gguf/ollama backend is set
+// but no model is configured, so the caller can emit a clear error rather
+// than guess a model that backend cannot serve.
+//
+// The llmfit-based tier is gated by a cheap LookPath first, so the common
+// case (llmfit not installed) costs nothing extra per execution; only when
+// it's actually present does resolution pay for a `llmfit fit --json` call.
+func defaultModelWhenEmpty(ctx context.Context) (string, bool) {
 	if os.Getenv("KDEPS_LLM_ROUTER") != "" {
 		return "router", true
 	}
@@ -54,6 +69,11 @@ func defaultModelWhenEmpty() (string, bool) {
 	}
 	switch os.Getenv("KDEPS_DEFAULT_BACKEND") {
 	case "", BackendFile:
+		if _, err := exec.LookPath("llmfit"); err == nil {
+			if alias, _, ok := bestInstalledModelByFitFunc(ctx, AppFS, []string{BackendFile}); ok {
+				return alias, true
+			}
+		}
 		return defaultBuiltinModel, true
 	default:
 		return "", false
@@ -70,7 +90,7 @@ func (e *Executor) resolveModelForExecution(
 		return "", "", nil, fmt.Errorf("failed to evaluate model: %w", err)
 	}
 	if modelStr == "" {
-		fallback, ok := defaultModelWhenEmpty()
+		fallback, ok := defaultModelWhenEmpty(ctx.Ctx)
 		if !ok {
 			return "", "", nil, domain.NewError(domain.ErrCodeInvalidResource,
 				"no model configured for backend "+os.Getenv("KDEPS_DEFAULT_BACKEND")+

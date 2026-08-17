@@ -2,7 +2,6 @@ package cmd
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"io/fs"
@@ -10,8 +9,6 @@ import (
 	"os/exec"
 	"os/signal"
 	"path/filepath"
-	"regexp"
-	"strings"
 	"syscall"
 	"time"
 
@@ -72,97 +69,32 @@ func refreshREPLModelLists(repl *agent.REPL) {
 	repl.SetCloudModelBackends(cloudBackends)
 }
 
-// runLlamaFitTimeout bounds the llmfit subprocess. It normally returns in
-// <1s; this is a backstop against a slow or hung first invocation (e.g.
-// building its own hardware/model database) blocking the entire CLI startup
-// indefinitely with no console output, since Output() buffers everything
-// until the process exits.
-const runLlamaFitTimeout = 10 * time.Second
-
-// runLlamaFit runs llmfit and populates the REPL's score maps.
-// Non-fatal: if llmfit is not installed, times out, or fails, scores are
-// simply absent. Synchronous at startup since llmfit returns in <1s; the
-// scores should be present before the user opens the model picker for the
-// first time. "fit" (not "recommend") is used because it returns every
-// model llmfit knows including Too Tight ones — recommend cuts at
-// min-fit=marginal, leaving most catalog models unscored.
+// runLlamaFit runs llmfit and populates the REPL's score maps, covering
+// every catalog alias (not just installed ones) so tab-completion/`/model
+// list` can rank download candidates too. Non-fatal: if llmfit is not
+// installed, times out, or fails, scores are simply absent. Synchronous at
+// startup since llmfit returns in <1s; the scores should be present before
+// the user opens the model picker for the first time. Delegates the actual
+// subprocess call and matching to llm.RunLlamaFit -- the same core used by
+// pickInstalledModelByFit's narrower, installed-only pre-resolution pass.
 func runLlamaFit(ctx context.Context, repl *agent.REPL) {
-	ctx, cancel := context.WithTimeout(ctx, runLlamaFitTimeout)
-	defer cancel()
-	cmd := exec.CommandContext(ctx, "llmfit", "fit", "--json")
-	out, execErr := cmd.Output()
-	if execErr != nil {
-		return
+	candidates := buildLlamaFitCatalogCandidates(repl)
+	scores := llm.RunLlamaFit(ctx, candidates)
+	flatScores := make(map[string]float64, len(scores))
+	fitLevels := make(map[string]string, len(scores))
+	for alias, s := range scores {
+		flatScores[alias] = s.Score
+		fitLevels[alias] = s.FitLevel
 	}
-	var result struct {
-		Models []struct {
-			Name     string  `json:"name"`
-			Score    float64 `json:"score"`
-			FitLevel string  `json:"fit_level"`
-			GGUFSrcs []struct {
-				Repo string `json:"repo"`
-			} `json:"gguf_sources"`
-		} `json:"models"`
-	}
-	if unmarshalErr := json.Unmarshal(out, &result); unmarshalErr != nil {
-		return
-	}
-	// Index llmfit results by exact GGUF source repo, normalized base name,
-	// and a looser key (instruct/chat/it stripped). Most llmfit entries have
-	// no gguf_sources, and kdeps repos are quantizer/packaging repos while
-	// llmfit names are base model ids — so multi-key matching is required.
-	repoMap := make(map[string]llamaFitScoreEntry)
-	nameMap := make(map[string]llamaFitScoreEntry)
-	looseMap := make(map[string]llamaFitScoreEntry)
-	record := func(m map[string]llamaFitScoreEntry, key string, e llamaFitScoreEntry) {
-		if key == "" {
-			return
-		}
-		if existing, ok := m[key]; !ok || e.score > existing.score {
-			m[key] = e
-		}
-	}
-	for _, m := range result.Models {
-		entry := llamaFitScoreEntry{m.Score, m.FitLevel}
-		record(nameMap, normalizeModelKey(m.Name), entry)
-		record(looseMap, normalizeModelKeyLoose(m.Name), entry)
-		for _, src := range m.GGUFSrcs {
-			record(repoMap, strings.ToLower(src.Repo), entry)
-			record(nameMap, normalizeModelKey(src.Repo), entry)
-			record(looseMap, normalizeModelKeyLoose(src.Repo), entry)
-		}
-	}
-
-	// Candidates per alias: HF repo, filename, and description. Filename is
-	// essential for multi-model packaging repos (e.g. mozilla-ai/llamafile_0.10)
-	// where the repo name is not the model name.
-	candidates := buildLlamaFitMatchCandidates()
-
-	scores := make(map[string]float64)
-	fitLevels := make(map[string]string)
-	for _, alias := range repl.ModelNames() {
-		cands := candidates[alias]
-		if repo := repl.ModelRepos()[alias]; repo != "" {
-			cands = append([]string{repo}, cands...)
-		}
-		if entry, ok := matchLlamaFitScore(cands, repoMap, nameMap, looseMap); ok {
-			scores[alias] = entry.score
-			fitLevels[alias] = entry.fit
-		}
-	}
-	repl.SetLlamaFitScores(scores, fitLevels)
+	repl.SetLlamaFitScores(flatScores, fitLevels)
 }
 
-// llamaFitScoreEntry is the score + fit level for one matched model.
-type llamaFitScoreEntry struct {
-	score float64
-	fit   string
-}
-
-// buildLlamaFitMatchCandidates returns alias -> filename/description strings
-// from the GGUF and llamafile registries for name-based llmfit matching.
-func buildLlamaFitMatchCandidates() map[string][]string {
-	out := make(map[string][]string)
+// buildLlamaFitCatalogCandidates returns one llm.ScoredModelCandidate per
+// alias the REPL already knows about (the full local + cloud catalog, not
+// just installed models), with match names built from the GGUF/llamafile
+// registries plus the alias's own repo when known.
+func buildLlamaFitCatalogCandidates(repl *agent.REPL) []llm.ScoredModelCandidate {
+	matchNames := make(map[string][]string)
 	add := func(alias, filename, desc string) {
 		if alias == "" {
 			return
@@ -174,10 +106,9 @@ func buildLlamaFitMatchCandidates() map[string][]string {
 		if desc != "" {
 			cands = append(cands, desc)
 		}
-		if len(cands) == 0 {
-			return
+		if len(cands) > 0 {
+			matchNames[alias] = append(matchNames[alias], cands...)
 		}
-		out[alias] = append(out[alias], cands...)
 	}
 	for _, e := range llm.ListLlamafileMappings() {
 		add(e.Alias, e.Filename, e.Description)
@@ -185,101 +116,37 @@ func buildLlamaFitMatchCandidates() map[string][]string {
 	for _, e := range llm.ListGGUFMappings() {
 		add(e.Alias, e.Filename, e.Description)
 	}
-	return out
+
+	names := repl.ModelNames()
+	candidates := make([]llm.ScoredModelCandidate, 0, len(names))
+	for _, alias := range names {
+		cands := matchNames[alias]
+		if repo := repl.ModelRepos()[alias]; repo != "" {
+			cands = append([]string{repo}, cands...)
+		}
+		candidates = append(candidates, llm.ScoredModelCandidate{
+			Alias: alias, MatchNames: cands,
+		})
+	}
+	return candidates
 }
 
-// matchLlamaFitScore tries exact repo, then normalized name, then loose name
-// against the candidate strings (repo / filename / description).
-func matchLlamaFitScore(
-	cands []string,
-	repoMap, nameMap, looseMap map[string]llamaFitScoreEntry,
-) (llamaFitScoreEntry, bool) {
-	for _, c := range cands {
-		if c == "" {
-			continue
-		}
-		if entry, ok := repoMap[strings.ToLower(c)]; ok {
-			return entry, true
-		}
+// pickInstalledModelByFit picks the best hardware-fit already-installed
+// local model (llamafile/GGUF/Ollama) as the startup model+backend, using
+// llmfit. Only called when nothing else configured a model (no flag, no
+// saved default, no env) -- see the call site in runAgentLoopCmd. Returns
+// ("", "") when llmfit isn't installed or nothing is downloaded yet, so the
+// caller falls through to the existing fixed-tier ResolveModelAndBackend
+// unchanged.
+func pickInstalledModelByFit(ctx context.Context) (string, string) {
+	if _, err := exec.LookPath("llmfit"); err != nil {
+		return "", ""
 	}
-	for _, c := range cands {
-		if entry, ok := nameMap[normalizeModelKey(c)]; ok {
-			return entry, true
-		}
+	alias, backend, ok := llm.BestInstalledModelByFit(ctx, agent.AppFS, nil)
+	if !ok {
+		return "", ""
 	}
-	for _, c := range cands {
-		if entry, ok := looseMap[normalizeModelKeyLoose(c)]; ok {
-			return entry, true
-		}
-	}
-	return llamaFitScoreEntry{}, false
-}
-
-// trailingQuantRE matches a trailing GGUF/llamafile quant suffix on a stem,
-// e.g. "-Q4_K_M", ".Q8_0", "-UD-Q2_K_XL". Applied after lowercasing.
-var trailingQuantRE = regexp.MustCompile(`(?i)[._-](?:ud-)?(?:q|iq)\d+(?:_[a-z0-9]+)*$`)
-
-// normalizeModelKey reduces a HuggingFace repo id, filename, or model name to a
-// comparable key: the part after the owner, lowercased, with quantizer and
-// packaging suffixes dropped, Meta- prefix stripped, trailing quant markers
-// removed, and all non-alphanumerics removed.
-//
-//	bartowski/Llama-3.2-1B-Instruct-GGUF
-//	mozilla-ai/Meta-Llama-3.1-8B-Instruct-llamafile
-//	Meta-Llama-3.1-8B-Instruct.Q4_K_M.llamafile
-//	alpindale/Llama-3.2-1B-Instruct
-//
-// all normalize toward the same family of keys (meta- stripped so Meta-Llama
-// and Llama share a key with llmfit's meta-llama/Llama-… names).
-func normalizeModelKey(id string) string {
-	if id == "" {
-		return ""
-	}
-	// Descriptions may end with " [default]".
-	if i := strings.Index(id, " ["); i >= 0 {
-		id = id[:i]
-	}
-	if i := strings.LastIndex(id, "/"); i >= 0 {
-		id = id[i+1:]
-	}
-	id = strings.ToLower(id)
-	for _, suffix := range []string{".gguf", ".llamafile", "-gguf", "-llamafile", "-hf"} {
-		id = strings.TrimSuffix(id, suffix)
-	}
-	for {
-		next := trailingQuantRE.ReplaceAllString(id, "")
-		if next == id {
-			break
-		}
-		id = next
-	}
-	// llmfit uses meta-llama/Llama-3.1-…; mozilla-ai ships Meta-Llama-3.1-….
-	id = strings.TrimPrefix(id, "meta-")
-	var b strings.Builder
-	for _, r := range id {
-		if (r >= 'a' && r <= 'z') || (r >= '0' && r <= '9') {
-			b.WriteRune(r)
-		}
-	}
-	return b.String()
-}
-
-// normalizeModelKeyLoose is normalizeModelKey plus stripping of role suffixes
-// that differ across registries: "instruct", "chat", and gemma's trailing "it".
-// Used as a fallback so Llama-3.2-3B-Instruct matches llmfit's Llama-3.2-3B.
-func normalizeModelKeyLoose(id string) string {
-	k := normalizeModelKey(id)
-	for _, s := range []string{"instruct", "chat"} {
-		k = strings.ReplaceAll(k, s, "")
-	}
-	// gemma-4-12b-it -> gemma412bit -> gemma412b. The size unit "b" sits
-	// between the digit and the role suffix "it".
-	if len(k) > 4 && strings.HasSuffix(k, "bit") {
-		if prev := k[len(k)-4]; prev >= '0' && prev <= '9' {
-			k = k[:len(k)-2] // drop "it", keep trailing "b"
-		}
-	}
-	return k
+	return alias, backend
 }
 
 // optionalToolNotices returns install suggestions for optional tools that
@@ -398,9 +265,14 @@ func runAgentLoopCmd(path string, flags *agentLoopFlags) error {
 	}
 
 	startModel, startBackend := resolveStartModel(flags, settings)
-	// Fill empty model/backend the same way the agent loop does (file default
-	// llama3.2:1b, cloud keys, ollama, cached local models).
-	startModel, startBackend = agent.ResolveModelAndBackend(startModel, startBackend)
+	if startModel == "" && startBackend == "" {
+		startModel, startBackend = pickInstalledModelByFit(rootCtx)
+	}
+	if startModel == "" && startBackend == "" {
+		// Fill empty model/backend the same way the agent loop does (file
+		// default llama3.2:1b, cloud keys, ollama, cached local models).
+		startModel, startBackend = agent.ResolveModelAndBackend(startModel, startBackend)
+	}
 
 	cfg := agent.Config{
 		Model:        startModel,

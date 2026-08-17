@@ -1,0 +1,415 @@
+package llm
+
+import (
+	"context"
+	"os"
+	"os/exec"
+	"path/filepath"
+	"runtime"
+	"testing"
+
+	"github.com/spf13/afero"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+)
+
+func TestNormalizeModelKey(t *testing.T) {
+	// Quantizer repos, llamafile repos, filenames, and base repos of the same
+	// model all normalize to the same key. Meta- is stripped so Meta-Llama
+	// matches llmfit's meta-llama/Llama-… names.
+	want := "llama321binstruct"
+	for _, in := range []string{
+		"bartowski/Llama-3.2-1B-Instruct-GGUF",
+		"unsloth/Llama-3.2-1B-Instruct-GGUF",
+		"alpindale/Llama-3.2-1B-Instruct",
+		"mozilla-ai/Llama-3.2-1B-Instruct-llamafile",
+		"Llama-3.2-1B-Instruct-Q4_K_M.llamafile",
+		"Llama-3.2-1B-Instruct.Q4_K_M.gguf",
+	} {
+		assert.Equal(t, want, normalizeModelKey(in), "input: %s", in)
+	}
+	assert.Equal(
+		t,
+		"llama318binstruct",
+		normalizeModelKey("mozilla-ai/Meta-Llama-3.1-8B-Instruct-llamafile"),
+	)
+	assert.Equal(
+		t,
+		"llama318binstruct",
+		normalizeModelKey("Meta-Llama-3.1-8B-Instruct.Q4_K_M.llamafile"),
+	)
+	assert.Equal(t, "llama318binstruct", normalizeModelKey("meta-llama/Llama-3.1-8B-Instruct"))
+	assert.Equal(t, "qwen2515binstruct", normalizeModelKey("Qwen/Qwen2.5-1.5B-Instruct"))
+	assert.Equal(t, "starcoder23b", normalizeModelKey("starcoder2-3b.Q4_K_M.llamafile"))
+	assert.Equal(t, "qwen2515binstruct", normalizeModelKey("Qwen2.5-1.5B-Instruct [default]"))
+	assert.Empty(t, normalizeModelKey(""))
+}
+
+func TestNormalizeModelKeyLoose(t *testing.T) {
+	// Instruct/chat/it stripped so base and instruct variants share a key.
+	assert.Equal(
+		t,
+		"llama323b",
+		normalizeModelKeyLoose("mozilla-ai/Llama-3.2-3B-Instruct-llamafile"),
+	)
+	assert.Equal(t, "llama323b", normalizeModelKeyLoose("meta-llama/Llama-3.2-3B"))
+	assert.Equal(t, "gemma412b", normalizeModelKeyLoose("gemma-4-12b-it-Q4_K_M.gguf"))
+	assert.Equal(t, "gemma412b", normalizeModelKeyLoose("google/gemma-4-12b"))
+}
+
+func TestMatchLlamaFitScore(t *testing.T) {
+	repoMap := map[string]FitScore{
+		"bartowski/qwen2.5-1.5b-instruct-gguf": {66.1, "Too Tight"},
+	}
+	nameMap := map[string]FitScore{
+		"llama321binstruct": {78.5, "Good"},
+		"starcoder23b":      {55.0, "Marginal"},
+	}
+	looseMap := map[string]FitScore{
+		"llama323b": {67.3, "Marginal"},
+	}
+
+	// Exact repo wins; a leading empty candidate is skipped, not matched.
+	e, ok := matchLlamaFitScore(
+		[]string{"", "bartowski/Qwen2.5-1.5B-Instruct-GGUF"},
+		repoMap,
+		nameMap,
+		looseMap,
+	)
+	require.True(t, ok)
+	assert.InDelta(t, 66.1, e.Score, 0.001)
+
+	// Filename-based name match (packaging repo).
+	e, ok = matchLlamaFitScore(
+		[]string{"mozilla-ai/llamafile_0.10", "starcoder2-3b.Q4_K_M.llamafile"},
+		repoMap, nameMap, looseMap,
+	)
+	require.True(t, ok)
+	assert.InDelta(t, 55.0, e.Score, 0.001)
+	assert.Equal(t, "Marginal", e.FitLevel)
+
+	// Loose match: Instruct filename vs base llmfit name.
+	e, ok = matchLlamaFitScore(
+		[]string{
+			"mozilla-ai/Llama-3.2-3B-Instruct-llamafile",
+			"Llama-3.2-3B-Instruct-Q4_K_M.llamafile",
+		},
+		repoMap,
+		nameMap,
+		looseMap,
+	)
+	require.True(t, ok)
+	assert.InDelta(t, 67.3, e.Score, 0.001)
+
+	_, ok = matchLlamaFitScore([]string{"unknown/model"}, repoMap, nameMap, looseMap)
+	assert.False(t, ok)
+}
+
+// --- ListInstalledLocalCandidates -------------------------------------------
+
+func TestListInstalledLocalCandidates_NoneCached(t *testing.T) {
+	t.Setenv("KDEPS_MODELS_DIR", t.TempDir())
+	t.Setenv("PATH", t.TempDir()) // no ollama on PATH either
+	got := ListInstalledLocalCandidates(afero.NewMemMapFs())
+	assert.Empty(t, got)
+}
+
+func TestResolveCachedPath_UnknownAlias(t *testing.T) {
+	fakeCachedPath := func(string, string) (string, bool) { return "", false }
+	path, ok := resolveCachedPath(afero.NewMemMapFs(), fakeCachedPath, "unknown", "/models")
+	assert.False(t, ok)
+	assert.Empty(t, path)
+}
+
+func TestResolveCachedPath_KnownButNotOnDisk(t *testing.T) {
+	fakeCachedPath := func(string, string) (string, bool) { return "/models/x.gguf", true }
+	path, ok := resolveCachedPath(afero.NewMemMapFs(), fakeCachedPath, "x", "/models")
+	assert.False(t, ok)
+	assert.Empty(t, path)
+}
+
+func TestResolveCachedPath_Found(t *testing.T) {
+	fs := afero.NewMemMapFs()
+	require.NoError(t, afero.WriteFile(fs, "/models/x.gguf", []byte("data"), 0o600))
+	fakeCachedPath := func(string, string) (string, bool) { return "/models/x.gguf", true }
+	path, ok := resolveCachedPath(fs, fakeCachedPath, "x", "/models")
+	assert.True(t, ok)
+	assert.Equal(t, "/models/x.gguf", path)
+}
+
+func TestListInstalledLocalCandidates_LlamafileCached(t *testing.T) {
+	t.Setenv("KDEPS_MODELS_DIR", t.TempDir())
+	t.Setenv("PATH", t.TempDir())
+	modelsDir, err := DefaultModelsDir()
+	require.NoError(t, err)
+
+	entries := ListLlamafileMappings()
+	require.NotEmpty(t, entries, "embedded llamafile registry must not be empty")
+	var alias, path string
+	for _, e := range entries {
+		if p, ok := LlamafileCachedPath(e.Alias, modelsDir); ok {
+			alias, path = e.Alias, p
+			break
+		}
+	}
+	require.NotEmpty(t, alias, "no llamafile registry entry resolved to a cache path")
+
+	fs := afero.NewMemMapFs()
+	require.NoError(t, afero.WriteFile(fs, path, []byte("fake"), 0o600))
+
+	got := ListInstalledLocalCandidates(fs)
+	var found bool
+	for _, c := range got {
+		if c.Alias == alias {
+			found = true
+			assert.Equal(t, BackendFile, c.Backend)
+			assert.True(t, c.Installed)
+		}
+	}
+	assert.True(t, found, "cached llamafile alias %q not reported as installed", alias)
+}
+
+func TestListInstalledLocalCandidates_GGUFCachedAndLoadable(t *testing.T) {
+	t.Setenv("KDEPS_MODELS_DIR", t.TempDir())
+	t.Setenv("PATH", t.TempDir())
+	modelsDir, err := DefaultModelsDir()
+	require.NoError(t, err)
+
+	entries := ListGGUFMappings()
+	require.NotEmpty(t, entries, "embedded GGUF registry must not be empty")
+	var alias, path string
+	for _, e := range entries {
+		if p, ok := GGUFCachedPath(e.Alias, modelsDir); ok {
+			alias, path = e.Alias, p
+			break
+		}
+	}
+	require.NotEmpty(t, alias, "no GGUF registry entry resolved to a cache path")
+
+	fs := afero.NewMemMapFs()
+	require.NoError(t, afero.WriteFile(fs, path, ggufTestHeader(3), 0o600))
+
+	got := ListInstalledLocalCandidates(fs)
+	var found bool
+	for _, c := range got {
+		if c.Alias == alias {
+			found = true
+			assert.Equal(t, BackendGGUF, c.Backend)
+			assert.True(t, c.Installed)
+		}
+	}
+	assert.True(t, found, "cached, loadable GGUF alias %q not reported as installed", alias)
+}
+
+func TestListInstalledLocalCandidates_GGUFCachedButNotLoadable(t *testing.T) {
+	t.Setenv("KDEPS_MODELS_DIR", t.TempDir())
+	t.Setenv("PATH", t.TempDir())
+	modelsDir, err := DefaultModelsDir()
+	require.NoError(t, err)
+
+	entries := ListGGUFMappings()
+	require.NotEmpty(t, entries)
+	var alias, path string
+	for _, e := range entries {
+		if p, ok := GGUFCachedPath(e.Alias, modelsDir); ok {
+			alias, path = e.Alias, p
+			break
+		}
+	}
+	require.NotEmpty(t, alias)
+
+	fs := afero.NewMemMapFs()
+	// GGUFv1 header: present but not loadable by current llama-server builds.
+	require.NoError(t, afero.WriteFile(fs, path, ggufTestHeader(1), 0o600))
+
+	got := ListInstalledLocalCandidates(fs)
+	for _, c := range got {
+		assert.NotEqual(t, alias, c.Alias, "non-loadable GGUFv1 file must not be reported as installed")
+	}
+}
+
+func TestListInstalledLocalCandidates_OllamaPulled(t *testing.T) {
+	t.Setenv("KDEPS_MODELS_DIR", t.TempDir())
+
+	orig := execCommandContext
+	t.Cleanup(func() { execCommandContext = orig })
+	execCommandContext = func(ctx context.Context, _ string, _ ...string) *exec.Cmd {
+		output := "NAME\tID\tSIZE\nllama3:latest\tabc123\t4.5GB\n"
+		return exec.CommandContext(ctx, "echo", output)
+	}
+
+	got := ListInstalledLocalCandidates(afero.NewMemMapFs())
+	var found bool
+	for _, c := range got {
+		if c.Alias == "llama3:latest" {
+			found = true
+			assert.Equal(t, "ollama", c.Backend)
+			assert.True(t, c.Installed)
+		}
+	}
+	assert.True(t, found, "pulled ollama model not reported as installed")
+}
+
+func TestListInstalledLocalCandidates_ModelsDirUnresolvable(t *testing.T) {
+	// HOME unset and no KDEPS_MODELS_DIR override -> DefaultModelsDir fails.
+	t.Setenv("KDEPS_MODELS_DIR", "")
+	t.Setenv("HOME", "")
+	t.Setenv("USERPROFILE", "") // Windows home var
+	got := ListInstalledLocalCandidates(afero.NewMemMapFs())
+	assert.Nil(t, got)
+}
+
+// --- BestInstalled -----------------------------------------------------------
+
+func TestBestInstalled_PicksHighestScore(t *testing.T) {
+	candidates := []ScoredModelCandidate{
+		{Alias: "a", Backend: BackendFile, Installed: true},
+		{Alias: "b", Backend: BackendFile, Installed: true},
+	}
+	scores := map[string]FitScore{
+		"a": {Score: 50, FitLevel: "Marginal"},
+		"b": {Score: 90, FitLevel: "Good"},
+	}
+	alias, backend, ok := BestInstalled(candidates, scores, nil)
+	require.True(t, ok)
+	assert.Equal(t, "b", alias)
+	assert.Equal(t, BackendFile, backend)
+}
+
+func TestBestInstalled_TiesBreakByAlias(t *testing.T) {
+	candidates := []ScoredModelCandidate{
+		{Alias: "z", Backend: BackendFile, Installed: true},
+		{Alias: "a", Backend: BackendFile, Installed: true},
+	}
+	scores := map[string]FitScore{
+		"z": {Score: 50},
+		"a": {Score: 50},
+	}
+	alias, _, ok := BestInstalled(candidates, scores, nil)
+	require.True(t, ok)
+	assert.Equal(t, "a", alias)
+}
+
+func TestBestInstalled_SkipsNotInstalled(t *testing.T) {
+	candidates := []ScoredModelCandidate{
+		{Alias: "a", Backend: BackendFile, Installed: false},
+	}
+	scores := map[string]FitScore{"a": {Score: 99}}
+	_, _, ok := BestInstalled(candidates, scores, nil)
+	assert.False(t, ok)
+}
+
+func TestBestInstalled_SkipsUnscored(t *testing.T) {
+	candidates := []ScoredModelCandidate{
+		{Alias: "a", Backend: BackendFile, Installed: true},
+	}
+	_, _, ok := BestInstalled(candidates, map[string]FitScore{}, nil)
+	assert.False(t, ok)
+}
+
+func TestBestInstalled_FiltersByAllowedBackend(t *testing.T) {
+	candidates := []ScoredModelCandidate{
+		{Alias: "a", Backend: "ollama", Installed: true},
+		{Alias: "b", Backend: BackendFile, Installed: true},
+	}
+	scores := map[string]FitScore{
+		"a": {Score: 99},
+		"b": {Score: 10},
+	}
+	alias, backend, ok := BestInstalled(candidates, scores, []string{BackendFile})
+	require.True(t, ok)
+	assert.Equal(t, "b", alias)
+	assert.Equal(t, BackendFile, backend)
+}
+
+func TestBestInstalled_NoCandidates(t *testing.T) {
+	_, _, ok := BestInstalled(nil, map[string]FitScore{}, nil)
+	assert.False(t, ok)
+}
+
+// --- RunLlamaFit ---------------------------------------------------------
+
+// fakeLlamaFitBinary writes a fake `llmfit` shim that prints fixture and
+// prepends its directory to PATH -- prepend, not replace, so the shim's own
+// `cat` (used to emit the fixture) still resolves via the rest of PATH.
+func fakeLlamaFitBinary(t *testing.T, fixture string) {
+	t.Helper()
+	if runtime.GOOS == "windows" {
+		t.Skip("fake llmfit shim is a #!/bin/sh heredoc script; not runnable on Windows")
+	}
+	dir := t.TempDir()
+	script := "#!/bin/sh\ncat <<'EOF'\n" + fixture + "\nEOF\n"
+	fake := filepath.Join(dir, "llmfit")
+	require.NoError(t, os.WriteFile(fake, []byte(script), 0o755))
+	t.Setenv("PATH", dir+string(os.PathListSeparator)+os.Getenv("PATH"))
+}
+
+func TestRunLlamaFit_MissingBinary(t *testing.T) {
+	t.Setenv("PATH", t.TempDir())
+	got := RunLlamaFit(context.Background(), []ScoredModelCandidate{{Alias: "a", MatchNames: []string{"x"}}})
+	assert.Empty(t, got)
+}
+
+func TestRunLlamaFit_MalformedJSON(t *testing.T) {
+	fakeLlamaFitBinary(t, "not json")
+	got := RunLlamaFit(context.Background(), []ScoredModelCandidate{{Alias: "a", MatchNames: []string{"x"}}})
+	assert.Empty(t, got)
+}
+
+func TestRunLlamaFit_MatchesAndScores(t *testing.T) {
+	fixture := `{"models":[
+		{"name":"alpindale/Llama-3.2-1B-Instruct","score":78.5,"fit_level":"Good","gguf_sources":[]},
+		{"name":"Qwen/Qwen2.5-1.5B-Instruct","score":66.1,"fit_level":"Too Tight",
+		 "gguf_sources":[{"repo":"bartowski/Qwen2.5-1.5B-Instruct-GGUF"}]},
+		{"name":"","score":10,"fit_level":"Marginal","gguf_sources":[{"repo":""}]}
+	]}`
+	fakeLlamaFitBinary(t, fixture)
+
+	candidates := []ScoredModelCandidate{
+		{Alias: "llama3.2:1b", MatchNames: []string{"alpindale/Llama-3.2-1B-Instruct"}},
+		{Alias: "qwen2.5:1.5b", MatchNames: []string{"bartowski/Qwen2.5-1.5B-Instruct-GGUF"}},
+		{Alias: "unmatched", MatchNames: []string{"nonexistent/model"}},
+	}
+	got := RunLlamaFit(context.Background(), candidates)
+	require.Contains(t, got, "llama3.2:1b")
+	assert.InDelta(t, 78.5, got["llama3.2:1b"].Score, 0.001)
+	assert.Equal(t, "Good", got["llama3.2:1b"].FitLevel)
+	require.Contains(t, got, "qwen2.5:1.5b")
+	assert.InDelta(t, 66.1, got["qwen2.5:1.5b"].Score, 0.001)
+	assert.NotContains(t, got, "unmatched")
+}
+
+// --- BestInstalledModelByFit ----------------------------------------------
+
+func TestBestInstalledModelByFit_NoCandidates(t *testing.T) {
+	t.Setenv("KDEPS_MODELS_DIR", t.TempDir())
+	t.Setenv("PATH", t.TempDir())
+	alias, backend, ok := BestInstalledModelByFit(context.Background(), afero.NewMemMapFs(), nil)
+	assert.False(t, ok)
+	assert.Empty(t, alias)
+	assert.Empty(t, backend)
+}
+
+func TestBestInstalledModelByFit_InstalledButUnscored(t *testing.T) {
+	t.Setenv("KDEPS_MODELS_DIR", t.TempDir())
+	modelsDir, err := DefaultModelsDir()
+	require.NoError(t, err)
+	entries := ListLlamafileMappings()
+	require.NotEmpty(t, entries)
+	var path string
+	for _, e := range entries {
+		if p, ok := LlamafileCachedPath(e.Alias, modelsDir); ok {
+			path = p
+			break
+		}
+	}
+	require.NotEmpty(t, path)
+
+	fs := afero.NewMemMapFs()
+	require.NoError(t, afero.WriteFile(fs, path, []byte("fake"), 0o600))
+	// No llmfit on PATH -> RunLlamaFit returns no scores -> nothing to pick.
+	t.Setenv("PATH", t.TempDir())
+
+	_, _, ok := BestInstalledModelByFit(context.Background(), fs, nil)
+	assert.False(t, ok)
+}

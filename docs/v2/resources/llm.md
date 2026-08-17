@@ -39,11 +39,12 @@ If a `chat` resource uses a cloud model (e.g. `model: deepseek-chat`) whose prov
 `model:` is optional. When omitted, kdeps resolves it in this order:
 
 ```text
-resource model:  ->  config router (llm.models + strategy)  ->  first llm.models entry  ->  built-in llama3.2:1b (file backend)
+resource model:  ->  config router (llm.models + strategy)  ->  first llm.models entry
+  ->  best installed model by hardware fit (llmfit)  ->  built-in llama3.2:1b (file backend)
 ```
 
 - A resource with an explicit `model:` always wins.
-- Omit `model:` to inherit the machine default: the LLM router if `llm.strategy` is set, otherwise the first entry in `llm.models`, otherwise the built-in `llama3.2:1b` served by the local file backend.
+- Omit `model:` to inherit the machine default: the LLM router if `llm.strategy` is set, otherwise the first entry in `llm.models`, otherwise — on the local file backend, when [`llmfit`](/modes/agent-loop-mode#how-a-model-is-picked-when-none-is-configured) is installed and at least one local model is already downloaded — whichever downloaded model best fits this machine's hardware, otherwise the built-in `llama3.2:1b` served by the local file backend. The `llmfit` tier is a no-op (falls straight to the built-in default) when `llmfit` isn't installed or nothing is downloaded yet.
 - A cloud/gguf/ollama backend with **no** model and **no** `llm.models` errors at run time, because kdeps will not guess a model that backend cannot serve — set `model:` on the resource or `llm.models` in `config.yaml`.
 
 ## Basic Usage
