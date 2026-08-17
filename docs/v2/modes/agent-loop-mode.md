@@ -62,6 +62,36 @@ Inside the REPL, type `/help` for the full list:
 | `/exit` | Exit the REPL |
 | `! <cmd>` | Run a shell command; the output becomes an agent turn - the model responds and can act on it (e.g. `!make lint` -> the model fixes the findings) |
 | `!! <cmd>` | Run a shell command silently - no LLM turn, nothing added to context |
+| `@<path>` | Inline a file's contents (text) or attach it (image) into the next turn, e.g. `explain @main.go` |
+| `/autocontext [on\|off]` | Show or toggle auto-detecting command/file mentions in plain chat text (on by default) |
+
+### Auto-detected commands and files
+
+`!cmd` and `@path` require you to know kdeps' own syntax. Auto-context detection covers the common case where you just describe what you want in plain English:
+
+```text
+you type: "can you check df -h and see if we're low on disk"
+              |
+              v
+kdeps scans the line for a read-only command mention (`df -h`)
+              |
+              v
+"Detected in your message:
+   command: df -h
+ Run the command(s) / include the file(s)? [y/N]"
+              |
+       y -----+----- n/Enter
+       |             |
+       v             v
+runs `df -h`,   sends your original
+appends its     text completely
+output, sends   unchanged
+the turn
+```
+
+The same detector looks for existing, readable **text files** mentioned by name (`look at main.go`) and offers to inline their contents the same way `@main.go` would. Images and binaries are never auto-detected -- use an explicit `@path` for those. Only a strict allowlist of read-only commands is ever offered (`ls`, `df`, `ps`, `git status`, `go env`, `docker ps`, etc.) -- destructive or mutating commands (`rm`, `git commit`, `go build`, `docker rm`, ...) never match, so there is nothing to confirm your way into breaking. One confirmation covers everything detected in a single message; declining (or just pressing Enter) sends your original text completely unchanged, exactly as if nothing had been detected.
+
+Disable it for the session with `/autocontext off` if the confirmation prompt gets in your way; `/autocontext on` re-enables it, and `/autocontext` alone shows the current state.
 
 ## Goal-directed execution
 

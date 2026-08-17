@@ -111,7 +111,7 @@ const (
 var builtinCmds = []string{
 	"/help", "/settings", "/clear", "/model", "/context",
 	"/skills", "/prompts", "/prompt", "/compact", "/history", "/thinking", "/session",
-	"/editor", "/copy", "/reload", "/permission", "/exit", "/quit",
+	"/editor", "/copy", "/reload", "/permission", "/autocontext", "/exit", "/quit",
 }
 
 //nolint:gochecknoglobals // lipgloss styles for REPL output
@@ -219,6 +219,14 @@ type REPL struct {
 	// it to raw, restored on a termination signal so the tty never leaks in raw
 	// mode (which makes the shell echo "^M" on Enter).
 	termSnap *termSnapshot
+
+	// autoContextDetect enables scanning ordinary (non-!/non-/) input for
+	// read-only command and text-file mentions, confirming once before
+	// running/reading them. Toggled via /autocontext on|off.
+	autoContextDetect bool
+	// confirmFn answers the auto-context y/N prompt; nil in production (falls
+	// back to confirmYesNo's readline-based prompt), injected in tests.
+	confirmFn func(prompt string) bool
 }
 
 // NewREPL creates a new REPL for the given agent loop, deriving its context
@@ -227,14 +235,15 @@ func NewREPL(rootCtx context.Context, loop *Loop) *REPL {
 	loopCtx, loopCancel := context.WithCancel(rootCtx)
 	turnCtx, turnCancel := context.WithCancel(loopCtx)
 	r := &REPL{
-		loop:         loop,
-		loopCtx:      loopCtx,
-		loopCancel:   loopCancel,
-		ctx:          turnCtx,
-		cancel:       turnCancel,
-		history:      make([]string, 0, replHistoryInitCap),
-		turnAlert:    resolveTurnAlert(),
-		tokenCounter: &TokenCounter{},
+		loop:              loop,
+		loopCtx:           loopCtx,
+		loopCancel:        loopCancel,
+		ctx:               turnCtx,
+		cancel:            turnCancel,
+		history:           make([]string, 0, replHistoryInitCap),
+		turnAlert:         resolveTurnAlert(),
+		tokenCounter:      &TokenCounter{},
+		autoContextDetect: true,
 	}
 	loop.SetOnAutoCompact(func(summary string) {
 		fmt.Fprintf(os.Stdout, "\n%s\n%s\n\n",
@@ -1792,6 +1801,15 @@ func (r *REPL) processInput(input string) error {
 		}
 	}
 
+	// Auto-detect read-only command/text-file mentions in ordinary chat text
+	// and, on confirmation, splice their output/content into the same input
+	// before @ref expansion -- see confirmAndGatherContext.
+	if singleLine {
+		if extra := r.confirmAndGatherContext(input); extra != "" {
+			input += extra
+		}
+	}
+
 	expanded, imgFiles := expandFileRefsMonitored(input)
 	if len(imgFiles) > 0 {
 		r.loop.SetPendingFiles(imgFiles)
@@ -1988,6 +2006,25 @@ func newShellCommand(ctx context.Context, cmd string) *exec.Cmd {
 	return exec.CommandContext(ctx, "bash", "-c", cmd)
 }
 
+// formatCommandBlock renders a command plus its captured stdout/stderr/exit
+// code in the shape the LLM already sees from ! commands (matching pi's
+// bashExecutionToText format), so ! commands and auto-detected command
+// context (confirmAndGatherContext) produce identical message formatting.
+func formatCommandBlock(cmd, stdout, stderr string, exitCode int) string {
+	var sb strings.Builder
+	fmt.Fprintf(&sb, "Ran `%s`\n\n", cmd)
+	if out := strings.TrimRight(stdout, "\n"); out != "" {
+		fmt.Fprintf(&sb, "Output:\n%s\n", out)
+	}
+	if errOut := strings.TrimRight(stderr, "\n"); errOut != "" {
+		fmt.Fprintf(&sb, "Stderr:\n%s\n", errOut)
+	}
+	if exitCode != 0 {
+		fmt.Fprintf(&sb, "Exit code: %d\n", exitCode)
+	}
+	return strings.TrimRight(sb.String(), "\n")
+}
+
 func (r *REPL) execBangCommand(cmd string, excludeFromContext bool) error {
 	start := time.Now()
 	tracker := newLastLineTracker(start)
@@ -2037,23 +2074,12 @@ func (r *REPL) execBangCommand(cmd string, excludeFromContext bool) error {
 		}
 	}
 
-	// Build the LLM-facing text matching pi's bashExecutionToText format.
-	var sb strings.Builder
-	fmt.Fprintf(&sb, "Ran `%s`\n\n", cmd)
-	if out := strings.TrimRight(outBuf.String(), "\n"); out != "" {
-		fmt.Fprintf(&sb, "Output:\n%s\n", out)
-	}
-	if errOut := strings.TrimRight(errBuf.String(), "\n"); errOut != "" {
-		fmt.Fprintf(&sb, "Stderr:\n%s\n", errOut)
-	}
-	if exitCode != 0 {
-		fmt.Fprintf(&sb, "Exit code: %d\n", exitCode)
-	}
+	block := formatCommandBlock(cmd, outBuf.String(), errBuf.String(), exitCode)
 
 	// Run a full agent turn with the command + output as the message: the
 	// model responds to the result instead of silently absorbing it. A
 	// non-zero exit code is part of the message, not a REPL error.
-	resp, err := r.runWithThinking(r.ctx, strings.TrimRight(sb.String(), "\n"))
+	resp, err := r.runWithThinking(r.ctx, block)
 	if err != nil {
 		return err
 	}
@@ -2063,6 +2089,89 @@ func (r *REPL) execBangCommand(cmd string, excludeFromContext bool) error {
 	}
 	r.maybeHintCompact()
 	return nil
+}
+
+// confirmAndGatherContext detects read-only command and text-file mentions in
+// input (see context_detect.go), asks the user once, and on approval returns
+// an extra block to append to the message: commands are run and formatted via
+// formatCommandBlock (same shape as ! commands); files are read and formatted
+// the same way expandFileRefs formats a text @ref. Returns "" when nothing
+// was detected, detection is disabled, or the user declines -- callers send
+// the original input completely unchanged in that case.
+func (r *REPL) confirmAndGatherContext(input string) string {
+	if !r.autoContextDetect {
+		return ""
+	}
+	cmds, files := detectContext(AppFS, input)
+	if len(cmds) == 0 && len(files) == 0 {
+		return ""
+	}
+
+	fmt.Fprintln(os.Stdout, styleReplMeta.Render("Detected in your message:"))
+	for _, c := range cmds {
+		fmt.Fprintln(os.Stdout, styleReplMeta.Render("  command: "+c))
+	}
+	for _, f := range files {
+		fmt.Fprintln(os.Stdout, styleReplMeta.Render("  file: "+f))
+	}
+	confirm := r.confirmFn
+	if confirm == nil {
+		confirm = r.confirmYesNo
+	}
+	if !confirm("Run the command(s) / include the file(s)? [y/N] ") {
+		return ""
+	}
+
+	var sb strings.Builder
+	for _, c := range cmds {
+		sb.WriteString("\n\n")
+		sb.WriteString(r.runAutoDetectedCommand(c))
+	}
+	for _, f := range files {
+		data, err := afero.ReadFile(AppFS, f)
+		if err != nil {
+			continue
+		}
+		fmt.Fprintf(&sb, "\n\n--- %s ---\n%s", f, strings.TrimRight(string(data), "\n"))
+	}
+	return sb.String()
+}
+
+// confirmYesNo prompts with a y/N question using the active readline
+// instance, temporarily swapping its prompt. Any answer other than y/yes
+// (including a bare Enter, an unreadable line, or no active readline
+// instance -- e.g. non-TTY test injection) is treated as "no".
+func (r *REPL) confirmYesNo(prompt string) bool {
+	if r.readlineInst == nil {
+		return false
+	}
+	r.readlineInst.SetPrompt(prompt)
+	defer r.readlineInst.SetPrompt(r.dynamicPrompt())
+
+	line, err := r.readlineInst.Readline()
+	if err != nil {
+		return false
+	}
+	ans := strings.ToLower(strings.TrimSpace(line))
+	return ans == "y" || ans == "yes"
+}
+
+// runAutoDetectedCommand runs a single auto-detected read-only command,
+// teeing its output to the terminal, and returns it formatted via
+// formatCommandBlock -- the same shape execBangCommand produces.
+func (r *REPL) runAutoDetectedCommand(cmd string) string {
+	var outBuf, errBuf bytes.Buffer
+	shell := newShellCommand(r.ctx, cmd)
+	shell.Stdout = io.MultiWriter(os.Stdout, &outBuf)
+	shell.Stderr = io.MultiWriter(os.Stderr, &errBuf)
+
+	runErr := shell.Run()
+	var exitCode int
+	var exitErr *exec.ExitError
+	if errors.As(runErr, &exitErr) {
+		exitCode = exitErr.ExitCode()
+	}
+	return formatCommandBlock(cmd, outBuf.String(), errBuf.String(), exitCode)
 }
 
 // runPlain is a fallback REPL for non-TTY environments (pipes, tests).
@@ -2166,6 +2275,8 @@ func (r *REPL) dispatchCommand(cmd string) error {
 		return r.cmdMemory(args)
 	case "/permission", "/permissions":
 		return r.cmdPermission(args)
+	case "/autocontext":
+		return r.cmdAutoContext(args)
 	case "/exit", "/quit":
 		r.loopCancel() // exit the loop; also cascades to cancel r.ctx (child of loopCtx)
 		return nil
@@ -2217,6 +2328,7 @@ func (r *REPL) cmdHelp() error {
 		"  /prompt                            Show the exact messages+tools sent to the LLM on the last call, with token estimates",
 		"  /prompt raw                        Same, as raw JSON (exact request wire format, full tool schemas)",
 		"  /thinking [off|minimal|low|medium|high|xhigh|auto]  Show or set extended reasoning/thinking mode",
+		"  /autocontext [on|off]              Show or toggle auto-detecting command/file mentions in chat input",
 		"  /session list|save|load|delete|import|checkpoint|goto  Manage saved sessions",
 		"  /editor                            Open $EDITOR to compose a long prompt",
 		"  /copy                              Copy the last assistant response to the system clipboard",
@@ -3634,6 +3746,30 @@ func (r *REPL) cmdPermission(args []string) error {
 	default:
 		fmt.Fprintln(os.Stdout, styleReplMeta.Render(fmt.Sprintf(
 			"Unknown mode %q. Valid: read-only, workspace-write, danger-full-access, ask.", args[0])))
+	}
+	return nil
+}
+
+// cmdAutoContext shows or toggles automatic command/file-mention detection
+// (see confirmAndGatherContext) for ordinary chat input.
+func (r *REPL) cmdAutoContext(args []string) error {
+	if len(args) == 0 {
+		state := "off"
+		if r.autoContextDetect {
+			state = "on"
+		}
+		fmt.Fprintln(os.Stdout, styleReplMeta.Render("Auto-context detection: "+state))
+		return nil
+	}
+	switch strings.ToLower(args[0]) {
+	case "on":
+		r.autoContextDetect = true
+		fmt.Fprintln(os.Stdout, styleReplMeta.Render("Auto-context detection enabled."))
+	case "off":
+		r.autoContextDetect = false
+		fmt.Fprintln(os.Stdout, styleReplMeta.Render("Auto-context detection disabled."))
+	default:
+		fmt.Fprintln(os.Stdout, styleReplMeta.Render(fmt.Sprintf("Unknown option %q. Valid: on, off.", args[0])))
 	}
 	return nil
 }
