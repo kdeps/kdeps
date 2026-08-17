@@ -275,6 +275,15 @@ func TestDetectFiles_BackslashPathMatches(t *testing.T) {
 	assert.Equal(t, winStyle, got[0][1])
 }
 
+func TestDetectFiles_WindowsDriveLetterAndShortNameMatches(t *testing.T) {
+	// A real Windows CI path: drive letter ("C:"), backslashes, and an 8.3
+	// short-name segment ("RUNNER~1") -- all of ":" and "~" must be allowed.
+	path := `C:\Users\RUNNER~1\AppData\Local\Temp\TestSomething123\001\notes.txt`
+	got := bareFileRefPattern.FindAllStringSubmatch("please look at "+path+" now", -1)
+	require.Len(t, got, 1)
+	assert.Equal(t, path, got[0][1])
+}
+
 func TestDetectFiles_Deduped(t *testing.T) {
 	dir := t.TempDir()
 	p := filepath.Join(dir, "notes.txt")

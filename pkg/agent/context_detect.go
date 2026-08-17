@@ -87,7 +87,7 @@ var (
 		`\b(` + strings.Join(autoBareCommandNames, "|") + `)\b(?:\s+-{1,2}[\w-]+)*`,
 	)
 	autoGatedCommandPatterns = buildGatedCommandPatterns(autoGatedCommandSubcommands)
-	bareFileRefPattern       = regexp.MustCompile(`(?:^|\s)([\w./\\-]+\.\w{1,8})\b`)
+	bareFileRefPattern       = regexp.MustCompile(`(?:^|\s)([\w./\\:~-]+\.\w{1,8})\b`)
 
 	// pipelineSegmentStart is a stage of a pipeline: either a bare command
 	// name, or a gated dual-use tool immediately followed by one of its own
