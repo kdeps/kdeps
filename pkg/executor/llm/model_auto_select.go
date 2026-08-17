@@ -64,12 +64,7 @@ func ListInstalledLocalCandidates(fs afero.Fs) []ScoredModelCandidate {
 			MatchNames: []string{e.Repo, e.Filename, e.Description},
 		})
 	}
-	for _, o := range ListOllamaModels() {
-		out = append(out, ScoredModelCandidate{
-			Alias: o.Name, Backend: "ollama", Installed: true,
-			MatchNames: []string{o.Name},
-		})
-	}
+	out = append(out, listInstalledOllamaCandidates()...)
 	return out
 }
 
