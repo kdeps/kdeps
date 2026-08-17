@@ -21,6 +21,7 @@ package agent
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/spf13/afero"
@@ -259,6 +260,19 @@ func TestDetectFiles_TooLargeSkipped(t *testing.T) {
 
 	got := detectFiles(afero.NewOsFs(), "check "+p)
 	assert.Empty(t, got)
+}
+
+func TestDetectFiles_BackslashPathMatches(t *testing.T) {
+	// filepath.Join on Windows produces backslash-separated paths; the
+	// bare-file regex must accept "\" as a path separator, not just "/".
+	dir := t.TempDir()
+	p := filepath.Join(dir, "notes.txt")
+	require.NoError(t, os.WriteFile(p, []byte("hello"), 0o644))
+
+	winStyle := strings.ReplaceAll(p, string(filepath.Separator), `\`)
+	got := bareFileRefPattern.FindAllStringSubmatch("please look at "+winStyle+" now", -1)
+	require.Len(t, got, 1)
+	assert.Equal(t, winStyle, got[0][1])
 }
 
 func TestDetectFiles_Deduped(t *testing.T) {
