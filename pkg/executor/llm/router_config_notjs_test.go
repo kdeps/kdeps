@@ -24,6 +24,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestResolveAllowedModel_EmptyAllowed_ReturnsModel(t *testing.T) {
@@ -49,4 +50,23 @@ func TestResolveAllowedModel_ModelNotInAllowed_ReturnsFirst(t *testing.T) {
 func TestResolveAllowedModel_EmptyModel_ReturnsFirst(t *testing.T) {
 	got := resolveAllowedModel("", []string{"llama3.3:latest"})
 	assert.Equal(t, "llama3.3:latest", got)
+}
+
+func TestConfiguredModelEntries_Unset(t *testing.T) {
+	t.Setenv("KDEPS_LLM_ROUTER", "")
+	assert.Nil(t, ConfiguredModelEntries())
+}
+
+func TestConfiguredModelEntries_Malformed(t *testing.T) {
+	t.Setenv("KDEPS_LLM_ROUTER", "not json")
+	assert.Nil(t, ConfiguredModelEntries())
+}
+
+func TestConfiguredModelEntries_Set(t *testing.T) {
+	t.Setenv("KDEPS_LLM_ROUTER", `{"strategy":"auto","models":[`+
+		`{"model":"llama3.2:1b","backend":"file"},{"model":"gpt-4o","backend":"openai"}]}`)
+	entries := ConfiguredModelEntries()
+	require.Len(t, entries, 2)
+	assert.Equal(t, "llama3.2:1b", entries[0].Model)
+	assert.Equal(t, "gpt-4o", entries[1].Model)
 }

@@ -106,7 +106,7 @@ func (e *Executor) resolveModelForExecution(
 
 	var fallbackRoutes []kdepsconfig.ModelEntry
 	if modelStr == "router" {
-		modelStr, fallbackRoutes, err = e.applyRouterModel(resolvedConfig, promptStr)
+		modelStr, fallbackRoutes, err = e.applyRouterModel(ctx.Ctx, resolvedConfig, promptStr)
 		if err != nil {
 			return "", "", nil, err
 		}

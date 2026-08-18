@@ -7,9 +7,12 @@ import (
 	"regexp"
 	"slices"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/spf13/afero"
+
+	kdepsconfig "github.com/kdeps/kdeps/v2/pkg/config"
 )
 
 // runLlamaFitTimeout bounds the llmfit subprocess. It normally returns in
@@ -153,6 +156,97 @@ func BestInstalledModelByFit(
 	}
 	scores := RunLlamaFit(ctx, candidates)
 	return BestInstalled(candidates, scores, allowedBackends)
+}
+
+// llamaFitIndexOnce memoizes fetchLlamaFitIndex for the process lifetime.
+// Unlike RunLlamaFit's existing one-shot startup callers (which only ever
+// call it once or twice per process), the "auto" router strategy is
+// evaluated on paths that can legitimately run repeatedly -- once per
+// chat-resource execution in workflow mode -- and hardware/config don't
+// change mid-process, so re-shelling out to llmfit on every call would be
+// pure wasted latency (up to runLlamaFitTimeout each time).
+//
+//nolint:gochecknoglobals // intentional process-lifetime memoization; reset directly in tests
+var (
+	llamaFitIndexOnce                                                 sync.Once
+	llamaFitIndexRepoMap, llamaFitIndexNameMap, llamaFitIndexLooseMap map[string]FitScore
+	llamaFitIndexOK                                                   bool
+)
+
+// cachedLlamaFitIndex is fetchLlamaFitIndex, computed at most once per
+// process. ctx from the first caller bounds that one real subprocess call;
+// every later call just returns the cached result immediately.
+func cachedLlamaFitIndex(
+	ctx context.Context,
+) (map[string]FitScore, map[string]FitScore, map[string]FitScore, bool) {
+	llamaFitIndexOnce.Do(func() {
+		llamaFitIndexRepoMap, llamaFitIndexNameMap, llamaFitIndexLooseMap, llamaFitIndexOK = fetchLlamaFitIndex(ctx)
+	})
+	return llamaFitIndexRepoMap, llamaFitIndexNameMap, llamaFitIndexLooseMap, llamaFitIndexOK
+}
+
+// RunLlamaFitCached is RunLlamaFit backed by the process-lifetime cached
+// index (cachedLlamaFitIndex) instead of a fresh llmfit invocation every
+// call. Used by selection paths evaluated more than once per process (the
+// "auto" router strategy); RunLlamaFit itself is untouched since its
+// existing callers are genuinely one-shot.
+func RunLlamaFitCached(ctx context.Context, candidates []ScoredModelCandidate) map[string]FitScore {
+	scores := make(map[string]FitScore)
+	repoMap, nameMap, looseMap, ok := cachedLlamaFitIndex(ctx)
+	if !ok {
+		return scores
+	}
+	for _, c := range candidates {
+		if entry, matched := matchLlamaFitScore(c.MatchNames, repoMap, nameMap, looseMap); matched {
+			scores[c.Alias] = entry
+		}
+	}
+	return scores
+}
+
+// ScoreModelEntries picks the best hardware-fit entry from entries (a
+// config-driven candidate list, e.g. llm.models) via the cached llmfit
+// index. Only entries on a local backend (file/GGUF/ollama) are scored --
+// llmfit measures hardware fit, meaningless for a remote API model, the
+// same policy ListInstalledLocalCandidates applies -- so a cloud entry is
+// never preferred, only ever reachable through the caller's own fallback
+// (e.g. Router.defaultEntry). ok=false when nothing scored: no local-backend
+// entries, or llmfit unavailable.
+func ScoreModelEntries(
+	ctx context.Context, entries []kdepsconfig.ModelEntry,
+) (*kdepsconfig.ModelEntry, bool) {
+	localBackends := map[string]bool{BackendFile: true, BackendGGUF: true, "ollama": true}
+	candidates := make([]ScoredModelCandidate, 0, len(entries))
+	for _, e := range entries {
+		if !localBackends[e.Backend] {
+			continue
+		}
+		candidates = append(candidates, ScoredModelCandidate{
+			Alias: e.Model, Backend: e.Backend, MatchNames: []string{e.Model},
+		})
+	}
+	if len(candidates) == 0 {
+		return nil, false
+	}
+	scores := RunLlamaFitCached(ctx, candidates)
+
+	var best *kdepsconfig.ModelEntry
+	var bestScore float64
+	found := false
+	for i := range entries {
+		e := &entries[i]
+		if !localBackends[e.Backend] {
+			continue
+		}
+		score, scored := scores[e.Model]
+		if !scored {
+			continue
+		}
+		if !found || score.Score > bestScore {
+			best, bestScore, found = e, score.Score, true
+		}
+	}
+	return best, found
 }
 
 // fetchLlamaFitIndex runs llmfit and indexes its results by exact GGUF

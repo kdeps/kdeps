@@ -15,6 +15,7 @@
 package llm
 
 import (
+	"context"
 	"encoding/json"
 	"log/slog"
 	"os"
@@ -24,16 +25,11 @@ import (
 	"github.com/kdeps/kdeps/v2/pkg/domain"
 )
 
-func applyLLMRouter(logger *slog.Logger, cfg *domain.ChatConfig, promptStr string) []kdepsconfig.ModelEntry {
-	routerJSON := os.Getenv("KDEPS_LLM_ROUTER")
-	if routerJSON == "" {
-		return nil
-	}
-	var uc kdepsconfig.UnifiedModelsConfig
-	if err := json.Unmarshal([]byte(routerJSON), &uc); err != nil {
-		return nil
-	}
-	if uc.Strategy == "" || len(uc.Models) == 0 {
+func applyLLMRouter(
+	ctx context.Context, logger *slog.Logger, cfg *domain.ChatConfig, promptStr string,
+) []kdepsconfig.ModelEntry {
+	uc, ok := configuredModels()
+	if !ok || uc.Strategy == "" || len(uc.Models) == 0 {
 		return nil
 	}
 	if uc.Strategy == "fallback" {
@@ -43,10 +39,37 @@ func applyLLMRouter(logger *slog.Logger, cfg *domain.ChatConfig, promptStr strin
 		}
 		return entries
 	}
-	if entry, err := NewRouter(uc.Strategy, uc.Models, logger).Select("", promptStr); err == nil && entry != nil {
+	if entry, err := NewRouter(uc.Strategy, uc.Models, logger).Select(ctx, "", promptStr); err == nil && entry != nil {
 		applyRoute(cfg, entry)
 	}
 	return nil
+}
+
+// configuredModels parses KDEPS_LLM_ROUTER into a UnifiedModelsConfig.
+// ok=false when the env var is unset or doesn't parse.
+func configuredModels() (kdepsconfig.UnifiedModelsConfig, bool) {
+	routerJSON := os.Getenv("KDEPS_LLM_ROUTER")
+	if routerJSON == "" {
+		return kdepsconfig.UnifiedModelsConfig{}, false
+	}
+	var uc kdepsconfig.UnifiedModelsConfig
+	if err := json.Unmarshal([]byte(routerJSON), &uc); err != nil {
+		return kdepsconfig.UnifiedModelsConfig{}, false
+	}
+	return uc, true
+}
+
+// ConfiguredModelEntries returns the model entries configured via
+// KDEPS_LLM_ROUTER (i.e. llm.models in ~/.kdeps/config.yaml), regardless of
+// strategy. Used as the shared candidate pool for the "auto" strategy in
+// both the workflow router (this file) and agent-loop mode's --model auto
+// sentinel (cmd/serve.go). Returns nil when nothing is configured.
+func ConfiguredModelEntries() []kdepsconfig.ModelEntry {
+	uc, ok := configuredModels()
+	if !ok {
+		return nil
+	}
+	return uc.Models
 }
 
 func applyRoute(cfg *domain.ChatConfig, r *kdepsconfig.ModelEntry) {

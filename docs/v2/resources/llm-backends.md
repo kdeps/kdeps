@@ -258,6 +258,28 @@ llm:
 
 Counters are keyed by a fingerprint of the model list, so different route configs maintain independent counters.
 
+### Strategy: `auto`
+
+Picks the best hardware-fit model among `models` using [`llmfit`](https://github.com/AlexsJones/llmfit) (`brew install AlexsJones/llmfit/llmfit`), instead of a fixed rule like `token_threshold`/`cost_optimized`/`round_robin`.
+
+```yaml
+# resources/example.yaml
+llm:
+  strategy: auto
+  models:
+    - model: llama3.2:1b
+      backend: file
+    - model: qwen2.5:7b
+      backend: gguf
+    - model: gpt-4o
+      backend: openai
+      default: true          # only ever used as the fallback -- see below
+```
+
+Only entries on a local backend (`file`, `gguf`, `ollama`) are scored -- `llmfit` measures hardware fit, which is meaningless for a remote API model, so a cloud entry is never *preferred*, only ever reached via `default: true` when no local entry scores. Falls back the same way when `llmfit` isn't installed. The `llmfit` index is computed once per process and cached, not re-run on every request.
+
+Agent-loop mode has the same strategy available via `--model auto` (or `KDEPS_AGENT_MODEL=auto`) -- see [Agent Mode](/modes/agent-loop-mode#how-a-model-is-picked-when-none-is-configured).
+
 ## Supported Backends
 
 kdeps supports local backends (Llamafile, GGUF/llama.cpp, Ollama) and any OpenAI-compatible API: OpenAI, Anthropic, Google, Mistral, Groq, Together AI, Perplexity, Cohere, DeepSeek, xAI (Grok), OpenRouter, and self-hosted solutions (vLLM, TGI, LocalAI, LlamaCpp). See [LLM Provider Reference](/reference/llm-providers) for per-provider config snippets and available model names.

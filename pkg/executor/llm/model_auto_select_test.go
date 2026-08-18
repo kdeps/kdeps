@@ -6,12 +6,31 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"strings"
+	"sync"
 	"testing"
 
 	"github.com/spf13/afero"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	kdepsconfig "github.com/kdeps/kdeps/v2/pkg/config"
 )
+
+// resetLlamaFitIndexCache clears the process-lifetime llmfit index cache so
+// each test that exercises it (cachedLlamaFitIndex/RunLlamaFitCached/
+// ScoreModelEntries) starts from a clean slate and doesn't leak into
+// whichever test runs next in this package.
+func resetLlamaFitIndexCache(t *testing.T) {
+	t.Helper()
+	reset := func() {
+		llamaFitIndexOnce = sync.Once{}
+		llamaFitIndexRepoMap, llamaFitIndexNameMap, llamaFitIndexLooseMap = nil, nil, nil
+		llamaFitIndexOK = false
+	}
+	reset()
+	t.Cleanup(reset)
+}
 
 func TestNormalizeModelKey(t *testing.T) {
 	// Quantizer repos, llamafile repos, filenames, and base repos of the same
@@ -412,4 +431,101 @@ func TestBestInstalledModelByFit_InstalledButUnscored(t *testing.T) {
 
 	_, _, ok := BestInstalledModelByFit(context.Background(), fs, nil)
 	assert.False(t, ok)
+}
+
+// --- cachedLlamaFitIndex / RunLlamaFitCached ------------------------------
+
+func TestCachedLlamaFitIndex_MissingBinary(t *testing.T) {
+	resetLlamaFitIndexCache(t)
+	t.Setenv("PATH", t.TempDir())
+
+	_, _, _, ok := cachedLlamaFitIndex(context.Background())
+	assert.False(t, ok)
+}
+
+func TestRunLlamaFitCached_MemoizesAcrossCalls(t *testing.T) {
+	resetLlamaFitIndexCache(t)
+	if runtime.GOOS == "windows" {
+		t.Skip("fake llmfit shim is a #!/bin/sh heredoc script; not runnable on Windows")
+	}
+
+	dir := t.TempDir()
+	counterFile := filepath.Join(dir, "calls")
+	fixture := `{"models":[{"name":"alpindale/Llama-3.2-1B-Instruct","score":78.5,"fit_level":"Good","gguf_sources":[]}]}`
+	script := "#!/bin/sh\necho x >> " + counterFile + "\ncat <<'EOF'\n" + fixture + "\nEOF\n"
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "llmfit"), []byte(script), 0o755))
+	t.Setenv("PATH", dir+string(os.PathListSeparator)+os.Getenv("PATH"))
+
+	candidates := []ScoredModelCandidate{
+		{Alias: "llama3.2:1b", MatchNames: []string{"alpindale/Llama-3.2-1B-Instruct"}},
+	}
+	got1 := RunLlamaFitCached(context.Background(), candidates)
+	got2 := RunLlamaFitCached(context.Background(), candidates)
+	assert.Equal(t, got1, got2)
+	require.Contains(t, got1, "llama3.2:1b")
+	assert.InDelta(t, 78.5, got1["llama3.2:1b"].Score, 0.001)
+
+	data, err := os.ReadFile(counterFile)
+	require.NoError(t, err)
+	assert.Equal(t, 1, strings.Count(string(data), "x"), "llmfit must only be invoked once, cached thereafter")
+}
+
+// --- ScoreModelEntries -----------------------------------------------------
+
+func TestScoreModelEntries_NoLocalBackendEntries(t *testing.T) {
+	resetLlamaFitIndexCache(t)
+	entries := []kdepsconfig.ModelEntry{
+		{Model: "gpt-4o", Backend: "openai"},
+		{Model: "claude-3", Backend: "anthropic"},
+	}
+	best, ok := ScoreModelEntries(context.Background(), entries)
+	assert.False(t, ok)
+	assert.Nil(t, best)
+}
+
+func TestScoreModelEntries_EmptyEntries(t *testing.T) {
+	resetLlamaFitIndexCache(t)
+	best, ok := ScoreModelEntries(context.Background(), nil)
+	assert.False(t, ok)
+	assert.Nil(t, best)
+}
+
+func TestScoreModelEntries_LlmfitUnavailable(t *testing.T) {
+	resetLlamaFitIndexCache(t)
+	t.Setenv("PATH", t.TempDir())
+
+	entries := []kdepsconfig.ModelEntry{{Model: "llama3.2:1b", Backend: BackendFile}}
+	best, ok := ScoreModelEntries(context.Background(), entries)
+	assert.False(t, ok)
+	assert.Nil(t, best)
+}
+
+func TestScoreModelEntries_PicksBestAmongLocalOnly(t *testing.T) {
+	resetLlamaFitIndexCache(t)
+	fixture := `{"models":[
+		{"name":"alpindale/Llama-3.2-1B-Instruct","score":40,"fit_level":"Marginal","gguf_sources":[]},
+		{"name":"Qwen/Qwen2.5-1.5B-Instruct","score":90,"fit_level":"Good",
+		 "gguf_sources":[{"repo":"bartowski/Qwen2.5-1.5B-Instruct-GGUF"}]}
+	]}`
+	fakeLlamaFitBinary(t, fixture)
+
+	entries := []kdepsconfig.ModelEntry{
+		{Model: "alpindale/Llama-3.2-1B-Instruct", Backend: BackendFile},
+		{Model: "bartowski/Qwen2.5-1.5B-Instruct-GGUF", Backend: BackendGGUF},
+		{Model: "gpt-4o", Backend: "openai"}, // never eligible, no local backend
+	}
+	best, ok := ScoreModelEntries(context.Background(), entries)
+	require.True(t, ok)
+	assert.Equal(t, "bartowski/Qwen2.5-1.5B-Instruct-GGUF", best.Model)
+}
+
+func TestScoreModelEntries_UnmatchedEntriesExcluded(t *testing.T) {
+	resetLlamaFitIndexCache(t)
+	fixture := `{"models":[]}`
+	fakeLlamaFitBinary(t, fixture)
+
+	entries := []kdepsconfig.ModelEntry{{Model: "unknown-model", Backend: BackendFile}}
+	best, ok := ScoreModelEntries(context.Background(), entries)
+	assert.False(t, ok)
+	assert.Nil(t, best)
 }

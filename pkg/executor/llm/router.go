@@ -15,6 +15,7 @@
 package llm
 
 import (
+	"context"
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
@@ -44,7 +45,7 @@ func NewRouter(strategy string, models []kdepsconfig.ModelEntry, logger *slog.Lo
 }
 
 // Select returns the ModelEntry to use for promptText.
-func (r *Router) Select(routerID, promptText string) (*kdepsconfig.ModelEntry, error) {
+func (r *Router) Select(ctx context.Context, routerID, promptText string) (*kdepsconfig.ModelEntry, error) {
 	if len(r.models) == 0 {
 		return nil, nil //nolint:nilnil // nil route = no match, caller falls through to default behaviour
 	}
@@ -55,9 +56,22 @@ func (r *Router) Select(routerID, promptText string) (*kdepsconfig.ModelEntry, e
 		return r.selectCostOptimized(promptText)
 	case "round_robin":
 		return r.selectRoundRobin(routerID)
+	case "auto":
+		return r.selectAuto(ctx)
 	default:
 		return nil, fmt.Errorf("unknown router strategy: %q", r.strategy)
 	}
+}
+
+// selectAuto picks the best hardware-fit model among the router's configured
+// entries via llmfit (see ScoreModelEntries), falling back to the entry
+// marked Default when nothing scores (llmfit unavailable, or every entry is
+// a cloud backend llmfit can't measure).
+func (r *Router) selectAuto(ctx context.Context) (*kdepsconfig.ModelEntry, error) {
+	if best, ok := ScoreModelEntries(ctx, r.models); ok {
+		return best, nil
+	}
+	return r.defaultEntry(), nil
 }
 
 // SortedFallbackRoutes returns models sorted by priority ascending (lower = tried first).

@@ -21,6 +21,7 @@
 package llm
 
 import (
+	"context"
 	"encoding/base64"
 	"encoding/json"
 	"errors"
@@ -754,7 +755,7 @@ func TestApplyLLMRouter_InvalidJSON(t *testing.T) {
 	t.Setenv("KDEPS_LLM_ROUTER", "not-valid-json")
 	e := NewExecutor("")
 	cfg := &domain.ChatConfig{Model: "router"}
-	entries := applyLLMRouter(e.logger, cfg, "prompt")
+	entries := applyLLMRouter(context.Background(), e.logger, cfg, "prompt")
 	assert.Nil(t, entries)
 	assert.Equal(t, "router", cfg.Model, "should not mutate cfg on invalid JSON")
 }
@@ -768,14 +769,14 @@ func TestApplyLLMRouter_EmptyModels(t *testing.T) {
 	t.Setenv("KDEPS_LLM_ROUTER", string(routerJSON))
 	e := NewExecutor("")
 	cfg := &domain.ChatConfig{Model: "router"}
-	entries := applyLLMRouter(e.logger, cfg, "prompt")
+	entries := applyLLMRouter(context.Background(), e.logger, cfg, "prompt")
 	assert.Nil(t, entries)
 }
 
 func TestApplyLLMRouter_NoEnvVar(t *testing.T) {
 	e := NewExecutor("")
 	cfg := &domain.ChatConfig{Model: "router"}
-	entries := applyLLMRouter(e.logger, cfg, "prompt")
+	entries := applyLLMRouter(context.Background(), e.logger, cfg, "prompt")
 	assert.Nil(t, entries)
 }
 

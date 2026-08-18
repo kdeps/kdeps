@@ -270,9 +270,30 @@ notice so you know which one you got:
 Non-colliding names — the vast majority of aliases — are completely
 unaffected; you only ever need the `backend:` prefix when kdeps tells you to.
 
+### `--model auto`: route across your configured models
+
+`--model auto` (or `KDEPS_AGENT_MODEL=auto`) picks the best hardware-fit model from your own `llm.models` config (`~/.kdeps/config.yaml`) via [`llmfit`](https://github.com/AlexsJones/llmfit) -- the same `auto` strategy the [workflow-mode router](/resources/llm-backends#strategy-auto) uses, so one config drives both modes:
+
+```yaml
+# ~/.kdeps/config.yaml
+llm:
+  strategy: auto
+  models:
+    - model: llama3.2:1b
+      backend: file
+    - model: qwen2.5:7b
+      backend: gguf
+```
+
+```bash
+kdeps --model auto
+```
+
+If nothing's configured (or none of it scores), `auto` falls through to the same installed-model pick described below, then the same fixed tiers -- it's always at least as good as omitting `--model` entirely.
+
 ### How a model is picked when none is configured
 
-With no `--model` flag, no saved default, and no `model:` in `~/.kdeps/config.yaml`, kdeps first checks whether [`llmfit`](https://github.com/AlexsJones/llmfit) is installed (`brew install AlexsJones/llmfit/llmfit`): if it is, and at least one local model (llamafile/GGUF/Ollama) is already downloaded, kdeps starts with whichever downloaded model llmfit scores as the best hardware fit for this machine, skipping the fixed order below entirely.
+With no `--model` flag, no saved default, and no `model:` in `~/.kdeps/config.yaml`, kdeps first checks whether `llmfit` is installed (`brew install AlexsJones/llmfit/llmfit`): if it is, and at least one local model (llamafile/GGUF/Ollama) is already downloaded, kdeps starts with whichever downloaded model llmfit scores as the best hardware fit for this machine, skipping the fixed order below entirely.
 
 Otherwise -- no `llmfit`, or nothing downloaded yet -- kdeps picks the first option that is actually usable, in this fixed order:
 

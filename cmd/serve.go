@@ -406,13 +406,20 @@ func wireREPL(
 	}
 }
 
-// resolveStartModelWithAutoPick layers the llmfit best-installed-model pick
-// and the fixed-tier fallback on top of resolveStartModel: both only fire
-// when flags/settings left model and backend completely unresolved.
+// resolveStartModelWithAutoPick layers the "--model auto" sentinel, the
+// llmfit best-installed-model pick, and the fixed-tier fallback on top of
+// resolveStartModel. The latter two only fire when flags/settings left model
+// and backend completely unresolved; "auto" is explicit and always resolved
+// through resolveAutoModel, ignoring any backend that came along with it
+// (mirrors workflow mode's "model: router" sentinel, which also resolves
+// both model and backend together via the matched route).
 func resolveStartModelWithAutoPick(
 	ctx context.Context, flags *agentLoopFlags, settings tui.Settings,
 ) (string, string) {
 	model, backend := resolveStartModel(flags, settings)
+	if model == "auto" {
+		return resolveAutoModel(ctx)
+	}
 	if model == "" && backend == "" {
 		model, backend = pickInstalledModelByFit(ctx)
 	}
@@ -422,6 +429,36 @@ func resolveStartModelWithAutoPick(
 		model, backend = agent.ResolveModelAndBackend(model, backend)
 	}
 	return model, backend
+}
+
+// scoreModelEntriesFunc is llm.ScoreModelEntries, overridable in tests so
+// they don't depend on that package's process-lifetime llmfit cache (which
+// cmd's tests have no access to reset, unlike pkg/executor/llm's own tests).
+//
+//nolint:gochecknoglobals // test-replaceable hook
+var scoreModelEntriesFunc = llm.ScoreModelEntries
+
+// pickInstalledModelByFitFunc is pickInstalledModelByFit, overridable in
+// tests so resolveAutoModel's fallback tiers can be exercised independently
+// without needing a real llmfit binary plus a real cached model on disk.
+//
+//nolint:gochecknoglobals // test-replaceable hook
+var pickInstalledModelByFitFunc = pickInstalledModelByFit
+
+// resolveAutoModel implements the "--model auto" sentinel: best of what's
+// explicitly configured (llm.models, scored the same way the workflow
+// router's "auto" strategy scores it) -> best of what's installed locally
+// (pickInstalledModelByFit, v2.6.0) -> the original fixed-tier default
+// chain. Each tier only runs if the previous one had nothing to offer, so
+// "auto" is never worse than what already existed, just possibly smarter.
+func resolveAutoModel(ctx context.Context) (string, string) {
+	if entry, ok := scoreModelEntriesFunc(ctx, llm.ConfiguredModelEntries()); ok {
+		return entry.Model, entry.Backend
+	}
+	if model, backend := pickInstalledModelByFitFunc(ctx); model != "" || backend != "" {
+		return model, backend
+	}
+	return agent.ResolveModelAndBackend("", "")
 }
 
 // resolveStartModel returns the model and backend to use at startup.

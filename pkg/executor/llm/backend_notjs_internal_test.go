@@ -240,7 +240,7 @@ func TestApplyLLMRouter_FallbackStrategy(t *testing.T) {
 
 	e := NewExecutor("")
 	cfg := &domain.ChatConfig{Model: "router"}
-	entries := applyLLMRouter(e.logger, cfg, "test prompt")
+	entries := applyLLMRouter(context.Background(), e.logger, cfg, "test prompt")
 	require.NotNil(t, entries, "should return sorted entries for fallback strategy")
 	// Priority 1 (lower) comes first -> llama3.1:8b applied
 	assert.Equal(t, "llama3.1:8b", cfg.Model)
@@ -264,7 +264,7 @@ func TestApplyLLMRouter_CostOptimizedStrategy(t *testing.T) {
 
 	e := NewExecutor("")
 	cfg := &domain.ChatConfig{Model: "router"}
-	entries := applyLLMRouter(e.logger, cfg, "some prompt")
+	entries := applyLLMRouter(context.Background(), e.logger, cfg, "some prompt")
 	assert.Nil(t, entries, "cost_optimized returns nil entries")
 	assert.Equal(t, "gpt-4o-mini", cfg.Model, "should pick cheapest")
 	assert.Equal(t, "openai", cfg.Backend)
@@ -283,7 +283,7 @@ func TestApplyLLMRouter_RoundRobinStrategy(t *testing.T) {
 
 	e := NewExecutor("")
 	cfg := &domain.ChatConfig{Model: "router"}
-	entries := applyLLMRouter(e.logger, cfg, "prompt")
+	entries := applyLLMRouter(context.Background(), e.logger, cfg, "prompt")
 	assert.Nil(t, entries, "round_robin returns nil entries")
 	assert.NotEmpty(t, cfg.Model)
 	assert.Equal(t, "openai", cfg.Backend)

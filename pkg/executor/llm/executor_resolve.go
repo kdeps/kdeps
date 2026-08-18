@@ -19,6 +19,7 @@
 package llm
 
 import (
+	"context"
 	"fmt"
 
 	kdepsconfig "github.com/kdeps/kdeps/v2/pkg/config"
@@ -26,10 +27,11 @@ import (
 )
 
 func (e *Executor) applyRouterModel(
+	ctx context.Context,
 	resolvedConfig *domain.ChatConfig,
 	promptStr string,
 ) (string, []kdepsconfig.ModelEntry, error) {
-	fallbackRoutes := applyLLMRouter(e.logger, resolvedConfig, promptStr)
+	fallbackRoutes := applyLLMRouter(ctx, e.logger, resolvedConfig, promptStr)
 	modelStr := resolvedConfig.Model
 	if modelStr == "" || modelStr == "router" {
 		return "", nil, domain.NewError(domain.ErrCodeInvalidResource,

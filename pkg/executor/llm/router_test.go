@@ -15,6 +15,7 @@
 package llm
 
 import (
+	"context"
 	"log/slog"
 	"testing"
 
@@ -39,7 +40,7 @@ func TestRouterTokenThreshold_MatchesSmallRoute(t *testing.T) {
 		{Model: "gpt-4o", Backend: "openai", MinTokens: intPtr(51)},
 	}
 	r := NewRouter("token_threshold", models, newTestLogger())
-	route, err := r.Select("", "hi")
+	route, err := r.Select(context.Background(), "", "hi")
 	require.NoError(t, err)
 	require.NotNil(t, route)
 	assert.Equal(t, "gpt-4o-mini", route.Model)
@@ -52,7 +53,7 @@ func TestRouterTokenThreshold_MatchesLargeRoute(t *testing.T) {
 	}
 	r := NewRouter("token_threshold", models, newTestLogger())
 	longPrompt := "The quick brown fox jumps over the lazy dog and the cat sat on the mat."
-	route, err := r.Select("", longPrompt)
+	route, err := r.Select(context.Background(), "", longPrompt)
 	require.NoError(t, err)
 	require.NotNil(t, route)
 	assert.Equal(t, "gpt-4o", route.Model)
@@ -64,7 +65,7 @@ func TestRouterTokenThreshold_FallsBackToDefault(t *testing.T) {
 		{Model: "fallback-model", Backend: "openai", Default: true},
 	}
 	r := NewRouter("token_threshold", models, newTestLogger())
-	route, err := r.Select("", "hello world how are you doing today")
+	route, err := r.Select(context.Background(), "", "hello world how are you doing today")
 	require.NoError(t, err)
 	require.NotNil(t, route)
 	assert.Equal(t, "fallback-model", route.Model)
@@ -75,7 +76,7 @@ func TestRouterTokenThreshold_NoMatch_NoDefault_ReturnsNil(t *testing.T) {
 		{Model: "gpt-4o-mini", Backend: "openai", MaxTokens: intPtr(1)},
 	}
 	r := NewRouter("token_threshold", models, newTestLogger())
-	route, err := r.Select("", "hello world this is a longer prompt")
+	route, err := r.Select(context.Background(), "", "hello world this is a longer prompt")
 	require.NoError(t, err)
 	assert.Nil(t, route)
 }
@@ -88,7 +89,7 @@ func TestRouterCostOptimized_PicksCheapest(t *testing.T) {
 		{Model: "gpt-4o-mini", Backend: "openai", CostPerInputToken: floatPtr(0.00015)},
 	}
 	r := NewRouter("cost_optimized", models, newTestLogger())
-	route, err := r.Select("", "some prompt text")
+	route, err := r.Select(context.Background(), "", "some prompt text")
 	require.NoError(t, err)
 	require.NotNil(t, route)
 	assert.Equal(t, "gpt-4o-mini", route.Model)
@@ -100,7 +101,7 @@ func TestRouterCostOptimized_NilCostTreatedAsZero(t *testing.T) {
 		{Model: "free-local", Backend: "ollama"},
 	}
 	r := NewRouter("cost_optimized", models, newTestLogger())
-	route, err := r.Select("", "any prompt")
+	route, err := r.Select(context.Background(), "", "any prompt")
 	require.NoError(t, err)
 	require.NotNil(t, route)
 	assert.Equal(t, "free-local", route.Model)
@@ -119,7 +120,7 @@ func TestRouterRoundRobin_DistributesEvenly(t *testing.T) {
 	id := "test-rr-distributes-evenly"
 	seen := map[string]int{}
 	for range 9 {
-		route, err := r.Select(id, "prompt")
+		route, err := r.Select(context.Background(), id, "prompt")
 		require.NoError(t, err)
 		require.NotNil(t, route)
 		seen[route.Model]++
@@ -172,7 +173,7 @@ func TestSortedFallbackRoutes_DoesNotMutateOriginal(t *testing.T) {
 func TestRouter_UnknownStrategy_ReturnsError(t *testing.T) {
 	models := []config.ModelEntry{{Model: "m", Backend: "openai"}}
 	r := NewRouter("bogus", models, newTestLogger())
-	_, err := r.Select("", "prompt")
+	_, err := r.Select(context.Background(), "", "prompt")
 	assert.Error(t, err)
 }
 
@@ -180,14 +181,62 @@ func TestRouter_UnknownStrategy_ReturnsError(t *testing.T) {
 
 func TestRouter_NilConfig_ReturnsNil(t *testing.T) {
 	r := NewRouter("", nil, newTestLogger())
-	route, err := r.Select("", "prompt")
+	route, err := r.Select(context.Background(), "", "prompt")
 	require.NoError(t, err)
 	assert.Nil(t, route)
 }
 
 func TestRouter_EmptyRoutes_ReturnsNil(t *testing.T) {
 	r := NewRouter("round_robin", nil, newTestLogger())
-	route, err := r.Select("", "prompt")
+	route, err := r.Select(context.Background(), "", "prompt")
+	require.NoError(t, err)
+	assert.Nil(t, route)
+}
+
+// --- auto ---
+
+func TestRouter_Auto_PicksBestFitEntry(t *testing.T) {
+	resetLlamaFitIndexCache(t)
+	fixture := `{"models":[
+		{"name":"alpindale/Llama-3.2-1B-Instruct","score":40,"fit_level":"Marginal","gguf_sources":[]},
+		{"name":"Qwen/Qwen2.5-1.5B-Instruct","score":90,"fit_level":"Good",
+		 "gguf_sources":[{"repo":"bartowski/Qwen2.5-1.5B-Instruct-GGUF"}]}
+	]}`
+	fakeLlamaFitBinary(t, fixture)
+
+	models := []config.ModelEntry{
+		{Model: "alpindale/Llama-3.2-1B-Instruct", Backend: BackendFile},
+		{Model: "bartowski/Qwen2.5-1.5B-Instruct-GGUF", Backend: BackendGGUF, Default: true},
+	}
+	r := NewRouter("auto", models, newTestLogger())
+	route, err := r.Select(context.Background(), "", "prompt")
+	require.NoError(t, err)
+	require.NotNil(t, route)
+	assert.Equal(t, "bartowski/Qwen2.5-1.5B-Instruct-GGUF", route.Model)
+}
+
+func TestRouter_Auto_FallsBackToDefaultWhenNothingScores(t *testing.T) {
+	resetLlamaFitIndexCache(t)
+	t.Setenv("PATH", t.TempDir())
+
+	models := []config.ModelEntry{
+		{Model: "gpt-4o-mini", Backend: "openai"},
+		{Model: "gpt-4o", Backend: "openai", Default: true},
+	}
+	r := NewRouter("auto", models, newTestLogger())
+	route, err := r.Select(context.Background(), "", "prompt")
+	require.NoError(t, err)
+	require.NotNil(t, route)
+	assert.Equal(t, "gpt-4o", route.Model)
+}
+
+func TestRouter_Auto_NoDefaultAndNothingScores_ReturnsNil(t *testing.T) {
+	resetLlamaFitIndexCache(t)
+	t.Setenv("PATH", t.TempDir())
+
+	models := []config.ModelEntry{{Model: "gpt-4o", Backend: "openai"}}
+	r := NewRouter("auto", models, newTestLogger())
+	route, err := r.Select(context.Background(), "", "prompt")
 	require.NoError(t, err)
 	assert.Nil(t, route)
 }

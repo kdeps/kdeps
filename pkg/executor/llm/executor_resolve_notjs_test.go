@@ -39,12 +39,12 @@ import (
 func TestApplyRouterModel_Success(t *testing.T) {
 	e := NewExecutor("")
 	cfg := &domain.ChatConfig{Model: "router"}
-	_, routes, err := e.applyRouterModel(cfg, "hello")
+	_, routes, err := e.applyRouterModel(context.Background(), cfg, "hello")
 	require.Error(t, err)
 	assert.Nil(t, routes)
 
 	cfg.Model = "gpt-4"
-	model, routes, err := e.applyRouterModel(cfg, "hello")
+	model, routes, err := e.applyRouterModel(context.Background(), cfg, "hello")
 	require.NoError(t, err)
 	assert.Equal(t, "gpt-4", model)
 	assert.Nil(t, routes)
