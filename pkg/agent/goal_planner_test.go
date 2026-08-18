@@ -51,14 +51,17 @@ func TestParsePlanTasks_CapsAtMax(t *testing.T) {
 // The trivial fast-path is what keeps always-on enforcement from adding a
 // planning call to ordinary chat.
 func TestLooksTrivial(t *testing.T) {
-	trivial := []string{"what is 2+2?", "who wrote this file?"}
+	trivial := []string{
+		"what is 2+2?", "who wrote this file?",
+		"hello", "hi", "thanks", "ok",
+		"build the auth API", // short, single-line, no multi-step marker -- no longer requires a trailing "?"
+	}
 	for _, s := range trivial {
 		if !looksTrivial(s) {
 			t.Errorf("%q should skip decomposition", s)
 		}
 	}
 	notTrivial := []string{
-		"build the auth API",                       // no question mark
 		"fix the bug and then run the tests?",      // multi-step marker
 		"summarize this\nand also update the docs", // multi-line
 		"is this question long enough to be treated as a real request that spans well beyond the trivial length limit used for a single quick question?",

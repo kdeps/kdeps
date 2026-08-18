@@ -111,7 +111,7 @@ const (
 var builtinCmds = []string{
 	"/help", "/settings", "/clear", "/model", "/context",
 	"/skills", "/prompts", "/prompt", "/compact", "/history", "/thinking", "/session",
-	"/editor", "/copy", "/reload", "/permission", "/autocontext", "/exit", "/quit",
+	"/editor", "/copy", "/reload", "/permission", "/autocontext", "/tools", "/exit", "/quit",
 }
 
 //nolint:gochecknoglobals // lipgloss styles for REPL output
@@ -227,6 +227,17 @@ type REPL struct {
 	// confirmFn answers the auto-context y/N prompt; nil in production (falls
 	// back to confirmYesNo's readline-based prompt), injected in tests.
 	confirmFn func(prompt string) bool
+
+	// toolsFilterFn toggles the lean/full tool set at runtime (see /tools);
+	// nil when nothing was excluded at startup (lean mode already applied
+	// some other way, or the user opted out with KDEPS_FULL_TOOLS) -- in
+	// that case /tools has nothing to toggle.
+	toolsFilterFn func(full bool) int
+	// toolsFullMode tracks the current state for /tools' status display.
+	toolsFullMode bool
+	// toolsCount is the last known tool count, shown by /tools with no args
+	// so it doesn't need to reach back into the registry to report it.
+	toolsCount int
 }
 
 // NewREPL creates a new REPL for the given agent loop, deriving its context
@@ -271,6 +282,15 @@ func (r *REPL) SetOnSettingsChange(fn OnSettingsChange) {
 // SetTUIRunner injects the function that opens the settings TUI.
 func (r *REPL) SetTUIRunner(fn TUIRunner) {
 	r.tuiRunner = fn
+}
+
+// SetToolsFilterFn injects the closure that toggles the lean/full tool set
+// (see /tools), plus the current (lean) tool count for its status display.
+// Called only when lean filtering actually excluded something at startup;
+// leaving it nil is how /tools knows there's nothing to toggle.
+func (r *REPL) SetToolsFilterFn(fn func(full bool) int, currentCount int) {
+	r.toolsFilterFn = fn
+	r.toolsCount = currentCount
 }
 
 // SetModelNames registers model name suggestions for /model <tab> completion.
@@ -2277,6 +2297,8 @@ func (r *REPL) dispatchCommand(cmd string) error {
 		return r.cmdPermission(args)
 	case "/autocontext":
 		return r.cmdAutoContext(args)
+	case "/tools":
+		return r.cmdTools(args)
 	case "/exit", "/quit":
 		r.loopCancel() // exit the loop; also cascades to cancel r.ctx (child of loopCtx)
 		return nil
@@ -2329,6 +2351,7 @@ func (r *REPL) cmdHelp() error {
 		"  /prompt raw                        Same, as raw JSON (exact request wire format, full tool schemas)",
 		"  /thinking [off|minimal|low|medium|high|xhigh|auto]  Show or set extended reasoning/thinking mode",
 		"  /autocontext [on|off]              Show or toggle auto-detecting command/file mentions in chat input",
+		"  /tools [full|lean]                 Show or toggle the lean/full tool set for this session",
 		"  /session list|save|load|delete|import|checkpoint|goto  Manage saved sessions",
 		"  /editor                            Open $EDITOR to compose a long prompt",
 		"  /copy                              Copy the last assistant response to the system clipboard",
@@ -3770,6 +3793,43 @@ func (r *REPL) cmdAutoContext(args []string) error {
 		fmt.Fprintln(os.Stdout, styleReplMeta.Render("Auto-context detection disabled."))
 	default:
 		fmt.Fprintln(os.Stdout, styleReplMeta.Render(fmt.Sprintf("Unknown option %q. Valid: on, off.", args[0])))
+	}
+	return nil
+}
+
+// cmdTools shows or toggles the lean/full tool set at runtime. A no-op when
+// toolsFilterFn is nil, which means lean filtering didn't exclude anything at
+// startup (already lean/preset some other way, or KDEPS_FULL_TOOLS was set) --
+// there is nothing this session could restore or trim further.
+func (r *REPL) cmdTools(args []string) error {
+	if r.toolsFilterFn == nil {
+		fmt.Fprintln(os.Stdout, styleReplMeta.Render(
+			"Tool set: nothing to toggle (already at the full set for this session).",
+		))
+		return nil
+	}
+	if len(args) == 0 {
+		state := "lean"
+		if r.toolsFullMode {
+			state = "full"
+		}
+		fmt.Fprintln(os.Stdout, styleReplMeta.Render(fmt.Sprintf(
+			"Tool set: %s (%d tools). Use /tools full or /tools lean to switch.",
+			state, r.toolsCount,
+		)))
+		return nil
+	}
+	switch strings.ToLower(args[0]) {
+	case "full":
+		r.toolsCount = r.toolsFilterFn(true)
+		r.toolsFullMode = true
+		fmt.Fprintln(os.Stdout, styleReplMeta.Render(fmt.Sprintf("Tool set: full (%d tools).", r.toolsCount)))
+	case "lean":
+		r.toolsCount = r.toolsFilterFn(false)
+		r.toolsFullMode = false
+		fmt.Fprintln(os.Stdout, styleReplMeta.Render(fmt.Sprintf("Tool set: lean (%d tools).", r.toolsCount)))
+	default:
+		fmt.Fprintln(os.Stdout, styleReplMeta.Render(fmt.Sprintf("Unknown option %q. Valid: full, lean.", args[0])))
 	}
 	return nil
 }

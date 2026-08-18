@@ -64,6 +64,7 @@ Inside the REPL, type `/help` for the full list:
 | `!! <cmd>` | Run a shell command silently - no LLM turn, nothing added to context |
 | `@<path>` | Inline a file's contents (text) or attach it (image) into the next turn, e.g. `explain @main.go` |
 | `/autocontext [on\|off]` | Show or toggle auto-detecting command/file mentions in plain chat text (on by default) |
+| `/tools [full\|lean]` | Show or toggle the lean/full tool set for this session (lean by default — see [Lean mode](#lean-mode)) |
 
 ### Auto-detected commands and files
 
@@ -590,13 +591,21 @@ With no model configured, the trailer falls back to `Co-Authored-By: kdeps <nore
 
 ### Lean mode
 
-`KDEPS_LEAN_MODE` further restricts the tool surface for CI/automation. When enabled, the agent has no `bash_exec`, `web_search`, `web_scraper`, `wikipedia`, `http_request`, or any external API tools:
+The lean tool set — `read_file`, `write_file`, `edit_file`, `list_files`, `code_search`, `code_definition`, `code_references`, `code_symbols`, `code_hover`, `code_diagnostics`, `search_local`, `load_document`, `calculator`, `embedding_vectorize`, `embedding_search`, `transcribe_audio` (~16 tools) — is now **on by default for every session**, on every backend. The full default catalog (~55 tools) costs real tokens twice on every turn — once as a native tool schema, once as prose in the tool-use guidance — so trimming it by default cuts prompt weight everywhere, not just for CI/automation.
 
-```bash
-KDEPS_LEAN_MODE=true ./kdeps
+No `bash_exec`, `web_search`, `web_scraper`, `wikipedia`, `http_request`, or external API tools are registered by default. Two ways to get the full set back:
+
+```
+/tools full     # this session only, switch back any time
+/tools lean     # switch back
+/tools          # show current mode and tool count
 ```
 
-Tools available in lean mode: `read_file`, `write_file`, `edit_file`, `list_files`, `code_search`, `code_definition`, `code_references`, `code_symbols`, `code_hover`, `code_diagnostics`, `search_local`, `load_document`, `calculator`, `embedding_vectorize`, `embedding_search`, `transcribe_audio`.
+```bash
+KDEPS_FULL_TOOLS=true ./kdeps   # start every session already full
+```
+
+`KDEPS_LEAN_MODE`/`KDEPS_AGENT_PRESET` (below) still work exactly as before and take priority — if either is set, the auto-default doesn't re-apply on top of it.
 
 ### Agent presets
 

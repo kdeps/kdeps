@@ -140,6 +140,33 @@ func TestResolveLeanMode_Unset(t *testing.T) {
 	assert.False(t, ResolveLeanMode())
 }
 
+func TestResolveFullTools(t *testing.T) {
+	tests := []struct {
+		envVal string
+		want   bool
+	}{
+		{"1", true},
+		{"true", true},
+		{"yes", true},
+		{"TRUE", true},
+		{"Yes", true},
+		{"0", false},
+		{"false", false},
+		{"no", false},
+		{"", false},
+		{"anything_else", false},
+	}
+	for _, tt := range tests {
+		t.Setenv("KDEPS_FULL_TOOLS", tt.envVal)
+		assert.Equal(t, tt.want, ResolveFullTools(), "full_tools=%q", tt.envVal)
+	}
+}
+
+func TestResolveFullTools_Unset(t *testing.T) {
+	t.Setenv("KDEPS_FULL_TOOLS", "")
+	assert.False(t, ResolveFullTools())
+}
+
 func TestResolvePreset(t *testing.T) {
 	tests := []struct {
 		envVal  string

@@ -264,15 +264,7 @@ func runAgentLoopCmd(path string, flags *agentLoopFlags) error {
 		_ = memStore.Load()
 	}
 
-	startModel, startBackend := resolveStartModel(flags, settings)
-	if startModel == "" && startBackend == "" {
-		startModel, startBackend = pickInstalledModelByFit(rootCtx)
-	}
-	if startModel == "" && startBackend == "" {
-		// Fill empty model/backend the same way the agent loop does (file
-		// default llama3.2:1b, cloud keys, ollama, cached local models).
-		startModel, startBackend = agent.ResolveModelAndBackend(startModel, startBackend)
-	}
+	startModel, startBackend := resolveStartModelWithAutoPick(rootCtx, flags, settings)
 
 	cfg := agent.Config{
 		Model:        startModel,
@@ -313,12 +305,19 @@ func runAgentLoopCmd(path string, flags *agentLoopFlags) error {
 		return errors.New("agent loop: interrupted during model startup")
 	}
 
+	// Lean tool filtering now applies by default (any backend -- fewer tools
+	// means less prompt/payload weight everywhere, not just on CPU-bound
+	// local models), unless the user already asked for lean mode/a preset or
+	// opted out with KDEPS_FULL_TOOLS. /tools full restores the excluded set
+	// at runtime; see buildToolsFilterFn and wireREPL below.
+	excludedTools := applyLeanFilterIfNeeded(registry)
+
 	loop := agent.New(eng, hostWorkflow, registry, cfg)
 	repl := agent.NewREPL(rootCtx, loop)
 	defer llm.ShutdownLocalServers()
 
 	fmt.Fprintln(os.Stderr, "Loading model catalog...")
-	wireREPL(rootCtx, repl, registry, flags)
+	wireREPL(rootCtx, repl, registry, flags, excludedTools)
 
 	// Start cron background scheduler: polls every 60s for due cron jobs.
 	// Each due job creates a task and advances its NextRun.
@@ -347,8 +346,19 @@ func resolveHostWorkflow(path string, registry *tools.Registry, flags *agentLoop
 }
 
 // wireREPL connects model lists, llmfit scores, pickers, and TUI runners to
-// a freshly created REPL.
-func wireREPL(ctx context.Context, repl *agent.REPL, registry *tools.Registry, flags *agentLoopFlags) {
+// a freshly created REPL. excludedTools is whatever applyLeanToolFilter
+// removed from registry at startup (nil if lean filtering didn't run) --
+// wired into the /tools runtime toggle, see SetToolsFilterFn below.
+func wireREPL(
+	ctx context.Context,
+	repl *agent.REPL,
+	registry *tools.Registry,
+	flags *agentLoopFlags,
+	excludedTools []*tools.Tool,
+) {
+	if len(excludedTools) > 0 {
+		repl.SetToolsFilterFn(buildToolsFilterFn(registry, excludedTools), len(registry.List()))
+	}
 	// Provide model name suggestions for /model <tab> completion. Cloud
 	// backends are populated as part of the same unified pass now, not a
 	// separate call (see refreshREPLModelLists / buildUnifiedEntries).
@@ -394,6 +404,24 @@ func wireREPL(ctx context.Context, repl *agent.REPL, registry *tools.Registry, f
 	if isTerminal(os.Stdout) && isTerminal(os.Stdin) {
 		repl.SetTUIRunner(buildTUIRunner(registry, flags))
 	}
+}
+
+// resolveStartModelWithAutoPick layers the llmfit best-installed-model pick
+// and the fixed-tier fallback on top of resolveStartModel: both only fire
+// when flags/settings left model and backend completely unresolved.
+func resolveStartModelWithAutoPick(
+	ctx context.Context, flags *agentLoopFlags, settings tui.Settings,
+) (string, string) {
+	model, backend := resolveStartModel(flags, settings)
+	if model == "" && backend == "" {
+		model, backend = pickInstalledModelByFit(ctx)
+	}
+	if model == "" && backend == "" {
+		// Fill empty model/backend the same way the agent loop does (file
+		// default llama3.2:1b, cloud keys, ollama, cached local models).
+		model, backend = agent.ResolveModelAndBackend(model, backend)
+	}
+	return model, backend
 }
 
 // resolveStartModel returns the model and backend to use at startup.
@@ -589,6 +617,62 @@ func initLeanTools(ctx context.Context, reg *tools.Registry) {
 		return
 	}
 	_ = mode // permission mode applied; consumed below
+}
+
+// shouldApplyLeanFilter reports whether the auto-lean startup filter should
+// run: it must not already be lean/preseted (initLeanTools handled that
+// case) and the user must not have opted out with KDEPS_FULL_TOOLS.
+func shouldApplyLeanFilter() bool {
+	return !agent.IsLeanOrPreseted() && !agent.ResolveFullTools()
+}
+
+// applyLeanFilterIfNeeded runs applyLeanToolFilter when shouldApplyLeanFilter
+// says to, returning the tools it excluded (nil otherwise).
+func applyLeanFilterIfNeeded(reg *tools.Registry) []*tools.Tool {
+	if !shouldApplyLeanFilter() {
+		return nil
+	}
+	return applyLeanToolFilter(reg)
+}
+
+// applyLeanToolFilter unregisters every tool LeanModeToolFilter excludes and
+// returns them, so a caller can restore the full set later (see
+// buildToolsFilterFn) without needing to reconstruct the excluded *tools.Tool
+// values from scratch.
+func applyLeanToolFilter(reg *tools.Registry) []*tools.Tool {
+	allTools := reg.List()
+	kept := agent.LeanModeToolFilter(extractToolNames(allTools))
+	keptSet := make(map[string]bool, len(kept))
+	for _, n := range kept {
+		keptSet[n] = true
+	}
+	excluded := make([]*tools.Tool, 0, len(allTools)-len(kept))
+	for _, t := range allTools {
+		if !keptSet[t.Name] {
+			reg.Unregister(t.Name)
+			excluded = append(excluded, t)
+		}
+	}
+	return excluded
+}
+
+// buildToolsFilterFn returns the closure wired to the REPL's /tools command:
+// called with full=true it re-registers every tool excluded at startup;
+// called with full=false it unregisters them again. Returns the resulting
+// tool count either way.
+func buildToolsFilterFn(reg *tools.Registry, excluded []*tools.Tool) func(full bool) int {
+	return func(full bool) int {
+		if full {
+			for _, t := range excluded {
+				reg.Register(t)
+			}
+		} else {
+			for _, t := range excluded {
+				reg.Unregister(t.Name)
+			}
+		}
+		return len(reg.List())
+	}
 }
 
 // registerComponentTools registers each component from wf as a callable tool.

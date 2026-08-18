@@ -99,6 +99,14 @@ func ResolveLeanMode() bool {
 	return v == "1" || v == "true" || v == "yes"
 }
 
+// ResolveFullTools checks the KDEPS_FULL_TOOLS env var -- the escape hatch
+// that opts a session back into the full tool set that lean filtering now
+// applies to by default. Returns true when the value is "1", "true", or "yes".
+func ResolveFullTools() bool {
+	v := strings.ToLower(strings.TrimSpace(os.Getenv("KDEPS_FULL_TOOLS")))
+	return v == "1" || v == "true" || v == "yes"
+}
+
 // resolvePreset checks KDEPS_AGENT_PRESET env var and returns the preset.
 // Returns empty string and false when no preset is configured.
 func resolvePreset() (AgentPreset, bool) {

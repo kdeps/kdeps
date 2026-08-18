@@ -170,9 +170,14 @@ var multiStepMarkers = []string{
 	"step 1", "step one", " also ", " as well as ",
 }
 
-// looksTrivial reports whether input can skip decomposition entirely: a short
-// question with no multi-step markers. Keeps always-on enforcement from adding a
-// planning call to ordinary chat.
+// looksTrivial reports whether input can skip decomposition entirely: a short,
+// single-line request with no multi-step markers -- a question, a greeting, or
+// a one-off task obvious enough that decomposing it into a task list of one
+// would just restate it. Keeps always-on enforcement from adding a planning
+// call to ordinary chat; skipping decomposition here does not skip task
+// enforcement itself, since NewGoal still wraps the raw input as a single
+// GoalTask that task_complete/task_fail apply to exactly as they would a
+// decomposed one.
 func looksTrivial(input string) bool {
 	if len(input) > trivialPromptMaxLen {
 		return false
@@ -183,8 +188,6 @@ func looksTrivial(input string) bool {
 			return false
 		}
 	}
-	if strings.Count(strings.TrimSpace(input), "\n") > 0 {
-		return false // multi-line input is a spec, not a one-liner
-	}
-	return strings.HasSuffix(strings.TrimSpace(input), "?")
+	// Multi-line input is a spec, not a one-liner.
+	return strings.Count(strings.TrimSpace(input), "\n") == 0
 }
