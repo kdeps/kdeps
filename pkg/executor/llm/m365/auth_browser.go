@@ -35,7 +35,36 @@ const (
 	stepTimeoutMs       = 8000
 )
 
+// playwrightRunFunc and playwrightInstallFunc are playwright.Run/Install,
+// overridable in tests so the auto-install retry path can be exercised
+// without a real network download.
+//
+//nolint:gochecknoglobals // test-replaceable hooks
+var (
+	playwrightRunFunc     = playwright.Run
+	playwrightInstallFunc = playwright.Install
+)
+
 func browserProfileDir() string { return resolveFile("M365_BROWSER_PROFILE", "browser-profile") }
+
+// startPlaywright starts the Playwright driver, installing the Chromium
+// driver/browser on first use if it's missing -- so the m365 backend works
+// without a manual `playwright install chromium` step.
+func startPlaywright() (*playwright.Playwright, error) {
+	pw, err := playwrightRunFunc()
+	if err == nil {
+		return pw, nil
+	}
+	fmt.Fprintln(os.Stderr, "m365: installing Playwright Chromium (first use only)...")
+	if instErr := playwrightInstallFunc(&playwright.RunOptions{Browsers: []string{"chromium"}}); instErr != nil {
+		return nil, fmt.Errorf("m365: start playwright (auto-install failed: %w) after: %w", instErr, err)
+	}
+	pw, err = playwrightRunFunc()
+	if err != nil {
+		return nil, fmt.Errorf("m365: start playwright after auto-install: %w", err)
+	}
+	return pw, nil
+}
 
 // resolveChromiumPath returns an explicit or system Chromium, or "" to let
 // Playwright use its bundled browser.
@@ -58,9 +87,9 @@ func resolveChromiumPath() string {
 func browserLogin(ctx context.Context, authURL string, creds *Credentials) (string, error) {
 	kdeps_debug.Log("enter: browserLogin")
 
-	pw, err := playwright.Run()
+	pw, err := startPlaywright()
 	if err != nil {
-		return "", fmt.Errorf("m365: start playwright (run `playwright install chromium`): %w", err)
+		return "", err
 	}
 	defer func() { _ = pw.Stop() }()
 

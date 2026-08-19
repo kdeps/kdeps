@@ -297,15 +297,29 @@ llm:
 ```
 
 There is no `api_key` field - authentication is a signed-in Microsoft 365
-account, not an API key:
+account, not an API key. There is no separate login command either: put your
+credentials in `~/.config/kdeps/m365/secrets.json` and kdeps logs in
+automatically the first time it needs a token.
 
-- **Cached session (recommended for interactive use):** sign in once via a
-  browser; kdeps caches the refresh token at `~/.config/kdeps/m365/token-cache.json`
-  and refreshes it silently after that.
-- **Headless hosts (CI, servers):** provide `~/.config/kdeps/m365/secrets.json`
-  with `{"email": "...", "password": "...", "mfaSecret": "..."}` (a TOTP seed,
-  not a one-time code). kdeps drives a headless Chromium login when no cached
-  token is available.
+```json
+// ~/.config/kdeps/m365/secrets.json
+{
+  "email": "you@yourtenant.com",
+  "password": "your-password",
+  "mfaSecret": "your-TOTP-seed"
+}
+```
+
+`mfaSecret` is the TOTP seed (the same secret you'd scan into an authenticator
+app), not a one-time code - kdeps generates codes from it itself, so your
+account needs authenticator-app MFA enrolled (not push/SMS-only).
+
+On first use kdeps drives a **headless** Chromium browser through the Azure AD
+login form with those credentials and caches the resulting refresh token at
+`~/.config/kdeps/m365/token-cache.json`; every request after that refreshes
+silently from the cache without touching `secrets.json` again. The Chromium
+driver itself is installed automatically on first use if it's missing - no
+manual `playwright install chromium` step required.
 
 Override paths with `M365_CACHE_FILE`, `M365_SECRETS_FILE`, and
 `M365_BROWSER_PROFILE`. Tool calling routes through an auto-provisioned Copilot
