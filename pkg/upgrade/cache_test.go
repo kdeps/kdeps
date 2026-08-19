@@ -30,8 +30,19 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+// setTestHome points os.UserHomeDir at an isolated temp dir for the
+// duration of the test. HOME alone only works on unix -- os.UserHomeDir
+// reads USERPROFILE on Windows, so both must be set for cachePath's tests
+// to be genuinely isolated there (a Windows CI run without this shares one
+// real cache file across every test in this file).
+func setTestHome(t *testing.T, dir string) {
+	t.Helper()
+	t.Setenv("HOME", dir)
+	t.Setenv("USERPROFILE", dir)
+}
+
 func TestCachedOrFresh_NoCacheGoesLive(t *testing.T) {
-	t.Setenv("HOME", t.TempDir())
+	setTestHome(t, t.TempDir())
 	calls := 0
 	stubLatestStable(t, func(context.Context, string) (string, error) {
 		calls++
@@ -44,7 +55,7 @@ func TestCachedOrFresh_NoCacheGoesLive(t *testing.T) {
 }
 
 func TestCachedOrFresh_UsesFreshCache(t *testing.T) {
-	t.Setenv("HOME", t.TempDir())
+	setTestHome(t, t.TempDir())
 	calls := 0
 	stubLatestStable(t, func(context.Context, string) (string, error) {
 		calls++
@@ -61,7 +72,7 @@ func TestCachedOrFresh_UsesFreshCache(t *testing.T) {
 }
 
 func TestCachedOrFresh_ExpiredCacheGoesLiveAgain(t *testing.T) {
-	t.Setenv("HOME", t.TempDir())
+	setTestHome(t, t.TempDir())
 	calls := 0
 	stubLatestStable(t, func(context.Context, string) (string, error) {
 		calls++
@@ -80,7 +91,7 @@ func TestCachedOrFresh_ExpiredCacheGoesLiveAgain(t *testing.T) {
 }
 
 func TestFresh_PropagatesErrorWithoutCaching(t *testing.T) {
-	t.Setenv("HOME", t.TempDir())
+	setTestHome(t, t.TempDir())
 	stubLatestStable(t, func(context.Context, string) (string, error) {
 		return "", errors.New("network down")
 	})
@@ -99,7 +110,7 @@ func TestCachePath_NoHome(t *testing.T) {
 
 func TestReadCache_InvalidJSON(t *testing.T) {
 	home := t.TempDir()
-	t.Setenv("HOME", home)
+	setTestHome(t, home)
 	dir := filepath.Join(home, ".kdeps")
 	require.NoError(t, os.MkdirAll(dir, 0o700))
 	require.NoError(t, os.WriteFile(filepath.Join(dir, cacheFileName), []byte("not-json"), 0o600))
@@ -108,7 +119,7 @@ func TestReadCache_InvalidJSON(t *testing.T) {
 }
 
 func TestReadCache_MissingFile(t *testing.T) {
-	t.Setenv("HOME", t.TempDir())
+	setTestHome(t, t.TempDir())
 	_, ok := readCache()
 	assert.False(t, ok)
 }
