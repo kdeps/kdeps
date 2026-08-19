@@ -31,7 +31,7 @@
 
         <div class="card">
           <h3>Any backend, no lock-in</h3>
-          <p>llamafile and Ollama work out of the box - no server install, no API key. Or use OpenAI, Anthropic, Groq, or any OpenAI-compatible endpoint. Apache 2.0 license.</p>
+          <p>llamafile and Ollama work out of the box - no server install, no API key. Or use OpenAI, Anthropic, Groq, or any OpenAI-compatible endpoint. Set <code>model: auto-router</code> and kdeps picks the best installed model automatically, falling back to cloud - zero config either way. Apache 2.0 license.</p>
           <a href="/resources/llm-backends" class="link">LLM backends -></a>
         </div>
 

@@ -30,7 +30,7 @@ features:
     details: Multi-agent orchestration. One agent calls another declaratively via the `agent:` resource type. Compose agents like functions.
 
   - title: Any backend, no lock-in
-    details: llamafile and Ollama work out of the box - no server install, no API key. Or use OpenAI, Anthropic, Groq, and any OpenAI-compatible endpoint. Switch backends in config without touching workflow files.
+    details: llamafile and Ollama work out of the box - no server install, no API key. Or use OpenAI, Anthropic, Groq, and any OpenAI-compatible endpoint. Set model auto-router and kdeps picks the best installed model automatically, with cloud fallback - zero config either way.
   - title: Component registry
     details: Install pre-built scraper, search, browser, and embedding components. Compose them into your workflow with one line.
   - title: Deploy anywhere
