@@ -95,6 +95,9 @@ func createRootCommand() *cobra.Command {
 			runRootPersistentPreRun(cmd)
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if up, _ := cmd.Flags().GetBool("upgrade"); up {
+				return runUpgradeCmd(cmd.OutOrStdout())
+			}
 			debugMode, _ := cmd.Flags().GetBool("debug")
 			flags.Debug = debugMode
 			path := ""
@@ -108,6 +111,8 @@ func createRootCommand() *cobra.Command {
 	rootCmd.PersistentFlags().Bool("verbose", false, "Enable verbose output")
 	rootCmd.PersistentFlags().Bool("debug", false, "Enable debug logging")
 	rootCmd.PersistentFlags().Bool("instrument", false, "Enable call-chain instrumentation tracing")
+
+	rootCmd.Flags().Bool("upgrade", false, "Check for and install the latest kdeps release, then exit")
 
 	rootCmd.Flags().StringVar(
 		&flags.Model, "model", "",

@@ -30,6 +30,7 @@ require (
 	github.com/lib/pq v1.12.3
 	github.com/mattn/go-sqlite3 v1.14.49
 	github.com/microcosm-cc/bluemonday v1.0.27
+	github.com/minio/selfupdate v0.6.0
 	github.com/muesli/termenv v0.16.0
 	github.com/nikolalohinski/gonja/v2 v2.9.0
 	github.com/pkoukk/tiktoken-go v0.1.8
@@ -47,6 +48,7 @@ require (
 	go.etcd.io/bbolt v1.5.0
 	go.mongodb.org/mongo-driver v1.17.9
 	golang.org/x/crypto v0.54.0
+	golang.org/x/mod v0.37.0
 	golang.org/x/net v0.57.0
 	golang.org/x/sys v0.47.0
 	golang.org/x/term v0.45.0
@@ -55,6 +57,7 @@ require (
 )
 
 require (
+	aead.dev/minisign v0.2.0 // indirect
 	cloud.google.com/go v0.123.0 // indirect
 	cloud.google.com/go/ai v0.7.0 // indirect
 	cloud.google.com/go/aiplatform v1.125.0 // indirect
@@ -195,7 +198,6 @@ require (
 	go.starlark.net v0.0.0-20260613233743-8ba36ccb83fb // indirect
 	go.yaml.in/yaml/v2 v2.4.4 // indirect
 	golang.org/x/exp v0.0.0-20260611194520-c48552f49976 // indirect
-	golang.org/x/mod v0.37.0 // indirect
 	golang.org/x/oauth2 v0.36.0 // indirect
 	golang.org/x/sync v0.22.0 // indirect
 	golang.org/x/telemetry v0.0.0-20260625142307-59b4966ccb57 // indirect

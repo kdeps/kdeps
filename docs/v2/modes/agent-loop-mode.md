@@ -65,6 +65,7 @@ Inside the REPL, type `/help` for the full list:
 | `@<path>` | Inline a file's contents (text) or attach it (image) into the next turn, e.g. `explain @main.go` |
 | `/autocontext [on\|off]` | Show or toggle auto-detecting command/file mentions in plain chat text (on by default) |
 | `/tools [full\|lean]` | Show or toggle the lean/full tool set for this session (lean by default — see [Lean mode](#lean-mode)) |
+| `/upgrade` | Check for a newer kdeps release and, for a standalone install, download/verify/install it (see [Updating kdeps](#updating-kdeps)) |
 
 ### Auto-detected commands and files
 
@@ -392,6 +393,42 @@ PID      PORT   BACKEND      MODEL                                STATUS
 ```
 /model ps kill phi4           # send SIGKILL, remove port file
 /model ps switch phi4         # set active model to an already-running server
+```
+
+## Updating kdeps
+
+kdeps checks GitHub for a newer stable release at startup (throttled to once
+every 24 hours, cached at `~/.kdeps/update-check.json`, and bounded to 3
+seconds so a slow network never delays startup) and, if one exists, prints a
+one-line notice under the banner:
+
+```
+Update available: v2.8.0 -> v2.9.0. Run /upgrade to update.
+```
+
+Run `/upgrade` any time to check immediately (always live, ignoring the
+cache) and, if an update is available, install it:
+
+```
+/upgrade
+```
+
+What happens next depends on how kdeps was installed:
+
+- **Homebrew** (`brew install kdeps/tap/kdeps`): prints `brew upgrade kdeps`
+  instead of touching the binary -- self-replacing it would desync
+  Homebrew's own bookkeeping.
+- **.deb/.apk package**: prints the matching package-manager upgrade command.
+- **Standalone** (the `curl | sh` installer, or a manually downloaded
+  binary): after a `[Y/n]` confirmation (skippable with `KDEPS_YES=1`),
+  downloads the release archive for your platform, verifies its SHA256
+  against the release's `checksums.txt`, and atomically replaces the running
+  binary. Restart kdeps afterward to use the new version.
+
+The same flow is available without starting the REPL:
+
+```bash
+kdeps --upgrade
 ```
 
 ## Context window size

@@ -20,6 +20,7 @@ import (
 	"github.com/kdeps/kdeps/v2/pkg/executor/llm"
 	"github.com/kdeps/kdeps/v2/pkg/tools"
 	"github.com/kdeps/kdeps/v2/pkg/tui"
+	kupgrade "github.com/kdeps/kdeps/v2/pkg/upgrade"
 )
 
 // filepathAbsAgentLoopFunc resolves agent loop paths (overridable in tests).
@@ -165,6 +166,33 @@ func optionalToolNotices() []string {
 				" (brew install AlexsJones/llmfit/llmfit)")
 	}
 	return notices
+}
+
+// updateCheckTimeout bounds updateAvailabilityNotice's live GitHub call so a
+// slow/unreachable network never meaningfully delays startup. The common
+// case (a fresh on-disk cache, see pkg/upgrade.CachedOrFresh) returns almost
+// instantly and never reaches this deadline.
+const updateCheckTimeout = 3 * time.Second
+
+// updateAvailabilityNoticeFunc is upgrade.CachedOrFresh, overridable in
+// tests so startup-notice wiring can be exercised without a real GitHub call
+// or an on-disk cache file.
+//
+//nolint:gochecknoglobals // test-replaceable hook
+var updateAvailabilityNoticeFunc = kupgrade.CachedOrFresh
+
+// updateAvailabilityNotice returns a one-line "update available" notice, or
+// "" when kdeps is current or the check couldn't complete in time/failed
+// (never surfaced as an error -- a broken update check must not block or
+// clutter startup).
+func updateAvailabilityNotice(ctx context.Context) string {
+	checkCtx, cancel := context.WithTimeout(ctx, updateCheckTimeout)
+	defer cancel()
+	result, err := updateAvailabilityNoticeFunc(checkCtx)
+	if err != nil || !result.Available {
+		return ""
+	}
+	return fmt.Sprintf("Update available: v%s -> v%s. Run /upgrade to update.", result.Current, result.Latest)
 }
 
 // runCronScheduler polls the cron registry every 60s and creates tasks for
@@ -368,6 +396,9 @@ func wireREPL(
 	// Merge optional-tool notices + preflight warnings for low-limit backends.
 	notices := optionalToolNotices()
 	notices = append(notices, agent.RequestSizePreflightWarnings()...)
+	if notice := updateAvailabilityNotice(ctx); notice != "" {
+		notices = append(notices, notice)
+	}
 	repl.SetStartupNotices(notices)
 
 	// Refresh in-memory model lists after /model hff download registers a new GGUF.
