@@ -23,7 +23,7 @@ import (
 	"fmt"
 	"path/filepath"
 
-	playwright "github.com/playwright-community/playwright-go"
+	playwright "github.com/mxschmitt/playwright-go"
 
 	"github.com/spf13/afero"
 

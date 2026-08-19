@@ -32,9 +32,9 @@ require (
 	github.com/microcosm-cc/bluemonday v1.0.27
 	github.com/minio/selfupdate v0.6.0
 	github.com/muesli/termenv v0.16.0
+	github.com/mxschmitt/playwright-go v0.6201.1
 	github.com/nikolalohinski/gonja/v2 v2.9.0
 	github.com/pkoukk/tiktoken-go v0.1.8
-	github.com/playwright-community/playwright-go v0.5700.1
 	github.com/robfig/cron/v3 v3.0.1
 	github.com/sijms/go-ora/v2 v2.9.0
 	github.com/slack-go/slack v0.27.0
@@ -120,7 +120,6 @@ require (
 	github.com/emersion/go-sasl v0.0.0-20241020182733-b788ff22d5a6 // indirect
 	github.com/erikgeiser/coninput v0.0.0-20211004153227-1c3628e74d0f // indirect
 	github.com/felixge/httpsnoop v1.1.0 // indirect
-	github.com/go-jose/go-jose/v3 v3.0.5 // indirect
 	github.com/go-logfmt/logfmt v0.6.0 // indirect
 	github.com/go-logr/logr v1.4.3 // indirect
 	github.com/go-logr/stdr v1.2.2 // indirect
