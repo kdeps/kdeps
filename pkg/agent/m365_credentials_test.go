@@ -19,11 +19,10 @@
 package agent
 
 import (
-	"bufio"
 	"bytes"
-	"io"
+	"context"
+	"errors"
 	"path/filepath"
-	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -32,17 +31,11 @@ import (
 	"github.com/kdeps/kdeps/v2/pkg/executor/llm/m365"
 )
 
-// stubReadMasked overrides readMaskedFunc for the duration of the test so
-// masked reads pull plain lines from the shared bufio.Reader instead of
-// touching a real terminal fd.
-func stubReadMasked(t *testing.T) {
+func stubM365Login(t *testing.T, fn func(context.Context) (string, error)) {
 	t.Helper()
-	orig := readMaskedFunc
-	readMaskedFunc = func(_ io.Writer, br *bufio.Reader, _ string) string {
-		line, _ := br.ReadString('\n')
-		return strings.TrimSpace(line)
-	}
-	t.Cleanup(func() { readMaskedFunc = orig })
+	orig := m365LoginFunc
+	m365LoginFunc = fn
+	t.Cleanup(func() { m365LoginFunc = orig })
 }
 
 func setM365Env(t *testing.T) {
@@ -52,55 +45,110 @@ func setM365Env(t *testing.T) {
 	t.Setenv("M365_CACHE_FILE", filepath.Join(dir, "cache.json"))
 }
 
-func TestEnsureM365Credentials_AlreadyReady(t *testing.T) {
+func TestEnsureM365Login_PublicWrapperAlreadyReady(t *testing.T) {
 	setM365Env(t)
 	require.NoError(t, m365.SaveCredentials("e@x.com", "p", "m"))
 
-	var out bytes.Buffer
-	ok := ensureM365Credentials(&out, strings.NewReader(""), true)
+	called := false
+	stubM365Login(t, func(context.Context) (string, error) {
+		called = true
+		return "", nil
+	})
+
+	// EnsureM365Login computes the real term.IsTerminal(stdin) internally;
+	// regardless of its value, an already-ready session short-circuits
+	// before that check matters.
+	ok := EnsureM365Login(context.Background(), &bytes.Buffer{})
 	assert.True(t, ok)
-	assert.Empty(t, out.String(), "must not prompt when credentials already exist")
+	assert.False(t, called)
 }
 
-func TestEnsureM365Credentials_NonInteractiveWithoutCredentials(t *testing.T) {
+func TestEnsureM365Login_AlreadyReady(t *testing.T) {
 	setM365Env(t)
+	require.NoError(t, m365.SaveCredentials("e@x.com", "p", "m"))
+
+	called := false
+	stubM365Login(t, func(context.Context) (string, error) {
+		called = true
+		return "", nil
+	})
 
 	var out bytes.Buffer
-	ok := ensureM365Credentials(&out, strings.NewReader(""), false)
+	ok := ensureM365Login(context.Background(), &out, true)
+	assert.True(t, ok)
+	assert.False(t, called, "must not launch a browser when already signed in")
+	assert.Empty(t, out.String())
+}
+
+func TestEnsureM365Login_NonInteractiveWithoutCredentials(t *testing.T) {
+	setM365Env(t)
+	called := false
+	stubM365Login(t, func(context.Context) (string, error) {
+		called = true
+		return "", nil
+	})
+
+	var out bytes.Buffer
+	ok := ensureM365Login(context.Background(), &out, false)
 	assert.False(t, ok)
-	assert.Empty(t, out.String(), "must not block/print in non-interactive sessions")
+	assert.False(t, called, "must not block/launch a browser in non-interactive sessions")
+	assert.Empty(t, out.String())
 }
 
-func TestEnsureM365Credentials_InteractiveCollectsAndSaves(t *testing.T) {
+func TestEnsureM365Login_InteractiveLaunchesBrowserAndSucceeds(t *testing.T) {
 	setM365Env(t)
-	stubReadMasked(t)
+	called := false
+	stubM365Login(t, func(context.Context) (string, error) {
+		called = true
+		return "tok", nil
+	})
 
-	input := "e@x.com\nsecret-pass\nJBSWY3DPEHPK3PXP\n"
 	var out bytes.Buffer
-	ok := ensureM365Credentials(&out, strings.NewReader(input), true)
+	ok := ensureM365Login(context.Background(), &out, true)
 	require.True(t, ok)
-	assert.Contains(t, out.String(), "Saved")
-
-	assert.True(t, m365.CredentialsReady())
+	assert.True(t, called)
+	assert.Contains(t, out.String(), "Opening a browser window")
+	assert.Contains(t, out.String(), "Signed in")
 }
 
-func TestEnsureM365Credentials_MissingFieldCancels(t *testing.T) {
+func TestEnsureM365Login_InteractiveLoginFails(t *testing.T) {
 	setM365Env(t)
-	stubReadMasked(t)
+	stubM365Login(t, func(context.Context) (string, error) {
+		return "", errors.New("timed out waiting for auth code")
+	})
 
-	// Empty password line.
-	input := "e@x.com\n\nJBSWY3DPEHPK3PXP\n"
 	var out bytes.Buffer
-	ok := ensureM365Credentials(&out, strings.NewReader(input), true)
+	ok := ensureM365Login(context.Background(), &out, true)
 	assert.False(t, ok)
-	assert.Contains(t, out.String(), "canceled")
-	assert.False(t, m365.CredentialsReady())
+	assert.Contains(t, out.String(), "sign-in failed")
+	assert.Contains(t, out.String(), "timed out waiting for auth code")
 }
 
 func TestLoopEnsureM365Ready_NoopForOtherBackends(t *testing.T) {
 	setM365Env(t)
+	called := false
+	stubM365Login(t, func(context.Context) (string, error) {
+		called = true
+		return "", nil
+	})
 	l := &Loop{config: Config{Backend: "openai"}}
-	l.ensureM365Ready()
-	// No panic and no credentials file created for a non-m365 backend.
+	l.ensureM365Ready(context.Background())
+	assert.False(t, called)
 	assert.False(t, m365.CredentialsReady())
+}
+
+func TestLoopEnsureM365Ready_M365BackendTriggersLogin(t *testing.T) {
+	setM365Env(t)
+	called := false
+	stubM365Login(t, func(context.Context) (string, error) {
+		called = true
+		return "tok", nil
+	})
+	l := &Loop{config: Config{Backend: backendM365}}
+	// ensureM365Ready always gates on a real TTY (term.IsTerminal(stdin)),
+	// which is false in the test process, so it must not call the login
+	// func here -- this asserts the backend check alone doesn't bypass that
+	// gate (see the interactive-path tests above for the launch assertion).
+	l.ensureM365Ready(context.Background())
+	assert.False(t, called)
 }

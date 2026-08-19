@@ -320,6 +320,32 @@ func SaveCredentials(email, password, mfaSecret string) error {
 //nolint:gochecknoglobals // effectively constant; overridden only in tests
 var browserLoginFunc = browserLogin
 
+// headedBrowserLoginFunc is browserLoginHeaded, overridable in tests.
+//
+//nolint:gochecknoglobals // effectively constant; overridden only in tests
+var headedBrowserLoginFunc = browserLoginHeaded
+
+// InteractiveLogin performs a one-time, fully manual sign-in: opens a
+// visible browser window and waits for the user to complete whatever
+// challenge Azure AD presents (password, MFA app, passkey, SSO tile --
+// whatever the tenant requires). No Credentials are read or stored. On
+// success the resulting refresh token is cached exactly like the scripted
+// flow (exchangeCode persists it the same way), so every subsequent
+// getToken() call is silent -- the browser only reappears if the cache is
+// cleared, the refresh token is revoked, or the caller runs this again
+// explicitly (e.g. the REPL's /login command).
+func InteractiveLogin(ctx context.Context) (string, error) {
+	kdeps_debug.Log("enter: InteractiveLogin")
+	tokenMu.Lock()
+	defer tokenMu.Unlock()
+	authURL, verifier := buildAuthURL(chatScopes)
+	code, err := headedBrowserLoginFunc(ctx, authURL)
+	if err != nil {
+		return "", err
+	}
+	return exchangeCode(ctx, code, verifier, chatScopes)
+}
+
 // runBrowserLogin performs the interactive PKCE leg headlessly, retrying up to
 // attempts times (TOTP codes are single-use per 30s window, so retries wait for
 // a fresh window).
@@ -384,7 +410,9 @@ func getToken(ctx context.Context) (string, error) {
 	secrets := loadSecrets()
 	if secrets == nil {
 		return "", fmt.Errorf(
-			"m365: no cached token and no secrets file; provide email/password/mfaSecret at %s",
+			"m365: not signed in -- run /login in the REPL (or kdeps --model m365-copilot"+
+				" --backend m365 interactively) to open a browser and sign in,"+
+				" or provide email/password/mfaSecret at %s for a headless host",
 			secretsFile(),
 		)
 	}

@@ -66,6 +66,7 @@ Inside the REPL, type `/help` for the full list:
 | `/autocontext [on\|off]` | Show or toggle auto-detecting command/file mentions in plain chat text (on by default) |
 | `/tools [full\|lean]` | Show or toggle the lean/full tool set for this session (lean by default — see [Lean mode](#lean-mode)) |
 | `/upgrade` | Check for a newer kdeps release and, for a standalone install, download/verify/install it (see [Updating kdeps](#updating-kdeps)) |
+| `/login` | m365 backend only: open a browser window to (re-)sign in, even if a session is already cached (see [M365 Copilot](/reference/llm-providers#m365-copilot)) |
 
 ### Auto-detected commands and files
 

@@ -29,10 +29,13 @@ const (
 	loginViewportWidth  = 1280
 	loginViewportHeight = 800
 	authCodeTimeout     = 45 * time.Second
-	fillTimeoutMs       = 20000
-	pressDelayMs        = 20
-	tileTimeoutMs       = 5000
-	stepTimeoutMs       = 8000
+	// headedAuthCodeTimeout gives a human, not a script, time to complete
+	// whatever Azure AD challenge appears (password, MFA app, passkey, SSO).
+	headedAuthCodeTimeout = 10 * time.Minute
+	fillTimeoutMs         = 20000
+	pressDelayMs          = 20
+	tileTimeoutMs         = 5000
+	stepTimeoutMs         = 8000
 )
 
 // playwrightRunFunc and playwrightInstallFunc are playwright.Run/Install,
@@ -80,12 +83,33 @@ func resolveChromiumPath() string {
 	return ""
 }
 
-// browserLogin opens authURL, drives the login form, and returns the captured
-// authorization code.
-//
-//nolint:gocognit // browser setup, request capture, and timeout race in one flow
+// browserLogin opens authURL headlessly, drives the login form with creds,
+// and returns the captured authorization code. Used by the secrets.json
+// scripted-login fallback.
 func browserLogin(ctx context.Context, authURL string, creds *Credentials) (string, error) {
 	kdeps_debug.Log("enter: browserLogin")
+	return doBrowserLogin(ctx, authURL, creds, true, authCodeTimeout)
+}
+
+// browserLoginHeaded opens a visible Chrome window at authURL and waits for
+// the user to complete sign-in themselves -- no credentials are read or
+// filled; driveAzureLogin never runs for this path. Used by the primary,
+// zero-config interactive login flow (see InteractiveLogin in auth.go).
+func browserLoginHeaded(ctx context.Context, authURL string) (string, error) {
+	kdeps_debug.Log("enter: browserLoginHeaded")
+	return doBrowserLogin(ctx, authURL, nil, false, headedAuthCodeTimeout)
+}
+
+// doBrowserLogin opens authURL, optionally drives the login form (when creds
+// is non-nil), and returns the captured authorization code. headless and
+// timeout differ between the scripted (secrets.json) and headed (interactive)
+// callers above.
+//
+//nolint:gocognit // browser setup, request capture, and timeout race in one flow
+func doBrowserLogin(
+	ctx context.Context, authURL string, creds *Credentials, headless bool, timeout time.Duration,
+) (string, error) {
+	kdeps_debug.Log("enter: doBrowserLogin")
 
 	pw, err := startPlaywright()
 	if err != nil {
@@ -94,7 +118,7 @@ func browserLogin(ctx context.Context, authURL string, creds *Credentials) (stri
 	defer func() { _ = pw.Stop() }()
 
 	opts := playwright.BrowserTypeLaunchPersistentContextOptions{
-		Headless: playwright.Bool(true),
+		Headless: playwright.Bool(headless),
 		Args: []string{
 			"--no-sandbox",
 			"--disable-dev-shm-usage",
@@ -152,15 +176,19 @@ func browserLogin(ctx context.Context, authURL string, creds *Credentials) (stri
 	}
 
 	// Drive the form concurrently with the code race: the SSO-silent path may
-	// redirect through with the code before any form step appears.
-	go driveAzureLogin(page, creds)
+	// redirect through with the code before any form step appears. Skipped
+	// entirely for the headed/interactive path (creds == nil) -- the human
+	// drives the whole form themselves, including "Stay signed in?".
+	if creds != nil {
+		go driveAzureLogin(page, creds)
+	}
 
 	select {
 	case code := <-codeCh:
 		return code, nil
 	case <-ctx.Done():
 		return "", ctx.Err()
-	case <-time.After(authCodeTimeout):
+	case <-time.After(timeout):
 		return "", errors.New("m365: timed out waiting for auth code")
 	}
 }

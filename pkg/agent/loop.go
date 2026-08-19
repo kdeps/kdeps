@@ -691,7 +691,7 @@ func (l *Loop) Run(ctx context.Context, input string) (string, error) {
 
 	// First use: confirm + download + serve local model when not yet running.
 	l.ensureLocalModelReady(ctx)
-	l.ensureM365Ready()
+	l.ensureM365Ready(ctx)
 
 	// Auto-compact before the LLM call when history exceeds the token threshold.
 	if msgs := l.session.RawMessages(); shouldAutoCompact(
@@ -765,7 +765,7 @@ func (l *Loop) IsStreaming() bool {
 func (l *Loop) RunStreaming(ctx context.Context, input string, w io.Writer) (string, error) {
 	// First use: confirm + download + serve local model when not yet running.
 	l.ensureLocalModelReady(ctx)
-	l.ensureM365Ready()
+	l.ensureM365Ready(ctx)
 
 	// Auto-compact before the LLM call when history exceeds the token threshold.
 	if msgs := l.session.RawMessages(); shouldAutoCompact(

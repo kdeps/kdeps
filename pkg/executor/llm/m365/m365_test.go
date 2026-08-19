@@ -1179,6 +1179,66 @@ func TestRunBrowserLoginExhausted(t *testing.T) {
 	}
 }
 
+func withStubHeadedBrowserLogin(t *testing.T, fn func(ctx context.Context, authURL string) (string, error)) {
+	t.Helper()
+	old := headedBrowserLoginFunc
+	headedBrowserLoginFunc = fn
+	t.Cleanup(func() { headedBrowserLoginFunc = old })
+}
+
+func TestInteractiveLoginSuccess(t *testing.T) {
+	resetCache()
+	defer resetCache()
+	t.Setenv("M365_CACHE_FILE", filepath.Join(t.TempDir(), "c.json"))
+	withTokenEndpoint(t)
+
+	var gotAuthURL string
+	withStubHeadedBrowserLogin(t, func(_ context.Context, authURL string) (string, error) {
+		gotAuthURL = authURL
+		return "auth-code", nil
+	})
+
+	tok, err := InteractiveLogin(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(tok, "AT-") {
+		t.Errorf("token = %q", tok)
+	}
+	if !strings.Contains(gotAuthURL, "response_type=code") {
+		t.Errorf("authURL = %q, want an authorize URL", gotAuthURL)
+	}
+}
+
+func TestInteractiveLoginBrowserFails(t *testing.T) {
+	withStubHeadedBrowserLogin(t, func(context.Context, string) (string, error) {
+		return "", errBoom
+	})
+	_, err := InteractiveLogin(context.Background())
+	if err == nil {
+		t.Fatal("want error when the headed browser login fails")
+	}
+}
+
+func TestInteractiveLoginExchangeFails(t *testing.T) {
+	resetCache()
+	defer resetCache()
+	t.Setenv("M365_CACHE_FILE", filepath.Join(t.TempDir(), "c.json"))
+	// No token endpoint stub: exchangeCode's request will fail against the
+	// real (unstubbed) authority, or return a non-200 -- either way an error.
+	old := authority
+	authority = "http://127.0.0.1:0"
+	t.Cleanup(func() { authority = old })
+
+	withStubHeadedBrowserLogin(t, func(context.Context, string) (string, error) {
+		return "auth-code", nil
+	})
+	_, err := InteractiveLogin(context.Background())
+	if err == nil {
+		t.Fatal("want error when code exchange fails")
+	}
+}
+
 func TestGetTokenAutomatedLoginPath(t *testing.T) {
 	resetCache()
 	defer resetCache()

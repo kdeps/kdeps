@@ -111,7 +111,7 @@ const (
 var builtinCmds = []string{
 	"/help", "/settings", "/clear", "/model", "/context",
 	"/skills", "/prompts", "/prompt", "/compact", "/history", "/thinking", "/session",
-	"/editor", "/copy", "/reload", "/permission", "/autocontext", "/tools", "/upgrade", "/exit", "/quit",
+	"/editor", "/copy", "/reload", "/permission", "/autocontext", "/tools", "/upgrade", "/login", "/exit", "/quit",
 }
 
 //nolint:gochecknoglobals // lipgloss styles for REPL output
@@ -2301,6 +2301,8 @@ func (r *REPL) dispatchCommand(cmd string) error {
 		return r.cmdTools(args)
 	case "/upgrade":
 		return r.cmdUpgrade(args)
+	case "/login":
+		return r.cmdLogin(args)
 	case "/exit", "/quit":
 		r.loopCancel() // exit the loop; also cascades to cancel r.ctx (child of loopCtx)
 		return nil

@@ -19,40 +19,53 @@
 package agent
 
 import (
-	"bufio"
+	"context"
 	"fmt"
 	"io"
 	"os"
-	"strings"
 
 	"golang.org/x/term"
 
 	"github.com/kdeps/kdeps/v2/pkg/executor/llm/m365"
 )
 
+// m365LoginFunc is m365.InteractiveLogin, overridable in tests so the
+// browser-launching login can be exercised without a real Playwright/Chrome
+// process or network call.
+//
+//nolint:gochecknoglobals // test-replaceable hook
+var m365LoginFunc = m365.InteractiveLogin
+
 // ensureM365Ready makes sure kdeps can authenticate against M365 Copilot
 // before the turn's LLM call. No-op for every other backend, and a cheap
-// no-op once credentials already exist (CredentialsReady only checks local
-// state, no network call).
-func (l *Loop) ensureM365Ready() {
+// no-op once credentials already exist (EnsureM365Login only checks local
+// state -- a cached session or a hand-provisioned secrets.json -- before
+// deciding whether to launch anything).
+func (l *Loop) ensureM365Ready(ctx context.Context) {
 	if l.config.Backend != backendM365 {
 		return
 	}
-	EnsureM365Credentials()
+	EnsureM365Login(ctx, os.Stdout)
 }
 
-// EnsureM365Credentials reports whether kdeps can authenticate against M365
-// Copilot: a cached session or a complete secrets file already on disk, or -
-// on a TTY - collected interactively right now and saved to
-// ~/.config/kdeps/m365/secrets.json, so credentials get filled in
-// automatically on first use instead of requiring the user to hand-write
-// that file. Non-interactive sessions without credentials return false
-// without blocking; the subsequent LLM call surfaces the real auth error.
-func EnsureM365Credentials() bool {
-	return ensureM365Credentials(os.Stdout, os.Stdin, term.IsTerminal(int(os.Stdin.Fd())))
+// EnsureM365Login makes sure kdeps can authenticate against M365 Copilot:
+// a cached session or a hand-provisioned secrets.json already on disk (see
+// m365.CredentialsReady -- that headless scripted path is unchanged and
+// keeps working exactly as before for servers with no display), or -- on a
+// TTY -- a one-time interactive browser sign-in launched automatically and
+// cached for every future launch. No email/password/TOTP prompt: the user
+// completes whatever Azure AD actually asks for (password, MFA app,
+// passkey, SSO tile) in the browser window itself. Non-interactive sessions
+// without a session/secrets.json return false without blocking; the
+// subsequent LLM call surfaces the real "not signed in" error from getToken.
+func EnsureM365Login(ctx context.Context, w io.Writer) bool {
+	return ensureM365Login(ctx, w, term.IsTerminal(int(os.Stdin.Fd())))
 }
 
-func ensureM365Credentials(w io.Writer, r io.Reader, interactive bool) bool {
+// ensureM365Login is EnsureM365Login with an injectable interactive flag, so
+// tests can exercise the browser-launch path deterministically regardless of
+// whether the test process itself has a controlling TTY.
+func ensureM365Login(ctx context.Context, w io.Writer, interactive bool) bool {
 	if m365.CredentialsReady() {
 		return true
 	}
@@ -60,47 +73,11 @@ func ensureM365Credentials(w io.Writer, r io.Reader, interactive bool) bool {
 		return false
 	}
 
-	fmt.Fprintf(w, "\nM365 Copilot needs a signed-in account. Credentials are saved to %s.\n", m365.SecretsPath())
-	br := bufio.NewReader(r)
-	readLine := func(prompt string) string {
-		fmt.Fprint(w, prompt)
-		line, _ := br.ReadString('\n')
-		return strings.TrimSpace(line)
-	}
-	email := readLine("Email: ")
-	password := readMaskedFunc(w, br, "Password: ")
-	mfaSecret := readMaskedFunc(w, br, "MFA TOTP secret (authenticator app seed, not a 6-digit code): ")
-
-	if email == "" || password == "" || mfaSecret == "" {
-		fmt.Fprintln(w, "m365: setup canceled (missing input).")
+	fmt.Fprintln(w, "\nM365 Copilot needs a signed-in account. Opening a browser window to sign in...")
+	if _, err := m365LoginFunc(ctx); err != nil {
+		fmt.Fprintf(w, "m365: sign-in failed: %v\n", err)
 		return false
 	}
-	if err := m365.SaveCredentials(email, password, mfaSecret); err != nil {
-		fmt.Fprintf(w, "m365: %v\n", err)
-		return false
-	}
-	fmt.Fprintln(w, "Saved. Signing in now...")
+	fmt.Fprintln(w, "Signed in. This session is saved for future launches.")
 	return true
-}
-
-// readMaskedFunc reads a secret line without echoing it to the terminal,
-// overridable in tests: term.ReadPassword requires a real terminal fd on
-// os.Stdin and cannot read from a fake io.Reader, so tests always exercise
-// the plain fallback path deterministically instead of depending on whether
-// the test process itself happens to have a terminal stdin.
-//
-//nolint:gochecknoglobals // test-replaceable hook
-var readMaskedFunc = readMaskedFromStdin
-
-func readMaskedFromStdin(w io.Writer, br *bufio.Reader, prompt string) string {
-	fmt.Fprint(w, prompt)
-	if term.IsTerminal(int(os.Stdin.Fd())) {
-		b, err := term.ReadPassword(int(os.Stdin.Fd()))
-		fmt.Fprintln(w)
-		if err == nil {
-			return strings.TrimSpace(string(b))
-		}
-	}
-	line, _ := br.ReadString('\n')
-	return strings.TrimSpace(line)
 }
