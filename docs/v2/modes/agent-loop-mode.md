@@ -291,6 +291,20 @@ kdeps --model auto
 
 If nothing's configured (or none of it scores), `auto` falls through to the same installed-model pick described below, then the same fixed tiers -- it's always at least as good as omitting `--model` entirely.
 
+### `--model auto-router`: zero-config, fully automatic
+
+`--model auto` still scores *your configured* `llm.models`. `--model auto-router` (or `KDEPS_AGENT_MODEL=auto-router`) skips `llm.models` entirely, every time, and always goes straight to discovery:
+
+```bash
+kdeps --model auto-router
+```
+
+1. **Best-fit installed local model** -- every cached llamafile, loadable GGUF, and pulled Ollama tag scored via `llmfit`. Requires `llmfit` on `PATH`; skipped (no cost) when it isn't installed.
+2. **Cloud fallback** -- the first provider with both an API key env var set and a known representative model (`gpt-4o` for OpenAI, `claude-sonnet-4-6` for Anthropic, ...).
+3. **Fixed tiers** -- if neither finds anything, falls through to the same fixed-order pick described below.
+
+Workflow mode has the same sentinel via `model: auto-router` on a chat resource -- see [LLM Backends](/resources/llm-backends#auto-router-zero-config-fully-automatic).
+
 ### How a model is picked when none is configured
 
 With no `--model` flag, no saved default, and no `model:` in `~/.kdeps/config.yaml`, kdeps first checks whether `llmfit` is installed (`brew install AlexsJones/llmfit/llmfit`): if it is, and at least one local model (llamafile/GGUF/Ollama) is already downloaded, kdeps starts with whichever downloaded model llmfit scores as the best hardware fit for this machine, skipping the fixed order below entirely.

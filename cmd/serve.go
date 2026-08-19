@@ -417,6 +417,12 @@ func resolveStartModelWithAutoPick(
 	ctx context.Context, flags *agentLoopFlags, settings tui.Settings,
 ) (string, string) {
 	model, backend := resolveStartModel(flags, settings)
+	if model == "auto-router" {
+		if m, b, ok := autoRouterPickFunc(ctx, agent.AppFS); ok {
+			return m, b
+		}
+		return agent.ResolveModelAndBackend("", "")
+	}
 	if model == "auto" {
 		return resolveAutoModel(ctx)
 	}
@@ -444,6 +450,14 @@ var scoreModelEntriesFunc = llm.ScoreModelEntries
 //
 //nolint:gochecknoglobals // test-replaceable hook
 var pickInstalledModelByFitFunc = pickInstalledModelByFit
+
+// autoRouterPickFunc is llm.AutoRouterPick, overridable in tests. Unlike
+// "--model auto" (resolveAutoModel), "--model auto-router" skips configured
+// llm.models entirely and always goes straight to zero-config discovery:
+// best-fit installed local model, then first cloud provider with a key set.
+//
+//nolint:gochecknoglobals // test-replaceable hook
+var autoRouterPickFunc = llm.AutoRouterPick
 
 // resolveAutoModel implements the "--model auto" sentinel: best of what's
 // explicitly configured (llm.models, scored the same way the workflow

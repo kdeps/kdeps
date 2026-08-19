@@ -3,6 +3,7 @@ package llm
 import (
 	"context"
 	"encoding/json"
+	"os"
 	"os/exec"
 	"regexp"
 	"slices"
@@ -156,6 +157,33 @@ func BestInstalledModelByFit(
 	}
 	scores := RunLlamaFit(ctx, candidates)
 	return BestInstalled(candidates, scores, allowedBackends)
+}
+
+// AutoRouterPick discovers and picks a model with zero configuration: the
+// best-fit installed local model (llamafile/GGUF/ollama, scored via the
+// process-lifetime cached llmfit index -- unlike BestInstalledModelByFit,
+// this can be called repeatedly, e.g. once per workflow execution, not just
+// once at process startup) -> the first cloud provider with both an API key
+// set and a known DefaultModel (pkg/config.CloudLLMProviders). ok=false
+// when neither yields anything; callers supply their own final safety net.
+func AutoRouterPick(ctx context.Context, fs afero.Fs) (string, string, bool) {
+	if _, err := exec.LookPath("llmfit"); err == nil {
+		if candidates := ListInstalledLocalCandidates(fs); len(candidates) > 0 {
+			scores := RunLlamaFitCached(ctx, candidates)
+			if model, backend, ok := BestInstalled(candidates, scores, nil); ok {
+				return model, backend, true
+			}
+		}
+	}
+	for _, p := range kdepsconfig.CloudLLMProviders() {
+		if p.DefaultModel == "" {
+			continue
+		}
+		if os.Getenv(p.EnvVar) != "" {
+			return p.DefaultModel, p.Name, true
+		}
+	}
+	return "", "", false
 }
 
 // llamaFitIndexOnce memoizes fetchLlamaFitIndex for the process lifetime.

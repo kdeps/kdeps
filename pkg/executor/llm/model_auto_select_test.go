@@ -529,3 +529,98 @@ func TestScoreModelEntries_UnmatchedEntriesExcluded(t *testing.T) {
 	assert.False(t, ok)
 	assert.Nil(t, best)
 }
+
+// --- AutoRouterPick --------------------------------------------------------
+
+// clearCloudProviderEnvVars blanks every known cloud provider's API key env
+// var, so cloud-fallback tests are deterministic regardless of what's set in
+// the environment actually running the test suite (e.g. a developer's shell).
+func clearCloudProviderEnvVars(t *testing.T) {
+	t.Helper()
+	for _, p := range kdepsconfig.CloudLLMProviders() {
+		t.Setenv(p.EnvVar, "")
+	}
+}
+
+func TestAutoRouterPick_NothingAvailable(t *testing.T) {
+	resetLlamaFitIndexCache(t)
+	clearCloudProviderEnvVars(t)
+	t.Setenv("PATH", t.TempDir())
+	t.Setenv("KDEPS_MODELS_DIR", t.TempDir())
+
+	model, backend, ok := AutoRouterPick(context.Background(), afero.NewMemMapFs())
+	assert.False(t, ok)
+	assert.Empty(t, model)
+	assert.Empty(t, backend)
+}
+
+func TestAutoRouterPick_CloudFallbackWhenNoLlmfit(t *testing.T) {
+	resetLlamaFitIndexCache(t)
+	clearCloudProviderEnvVars(t)
+	t.Setenv("PATH", t.TempDir())
+	t.Setenv("OPENAI_API_KEY", "sk-test")
+
+	model, backend, ok := AutoRouterPick(context.Background(), afero.NewMemMapFs())
+	require.True(t, ok)
+	assert.Equal(t, "gpt-4o", model)
+	assert.Equal(t, "openai", backend)
+}
+
+func TestAutoRouterPick_CloudFallbackSkipsProvidersWithNoDefaultModel(t *testing.T) {
+	resetLlamaFitIndexCache(t)
+	clearCloudProviderEnvVars(t)
+	t.Setenv("PATH", t.TempDir())
+	// huggingface has no DefaultModel (many models, no single canonical
+	// pick); only openai (later in the list) should ever be reachable.
+	t.Setenv("HF_TOKEN", "hf-test")
+	t.Setenv("OPENAI_API_KEY", "sk-test")
+
+	model, backend, ok := AutoRouterPick(context.Background(), afero.NewMemMapFs())
+	require.True(t, ok)
+	assert.Equal(t, "gpt-4o", model)
+	assert.Equal(t, "openai", backend)
+}
+
+func TestAutoRouterPick_LocalWinsOverCloud(t *testing.T) {
+	resetLlamaFitIndexCache(t)
+	clearCloudProviderEnvVars(t)
+	t.Setenv("OPENAI_API_KEY", "sk-test") // present but must lose to a local match
+	t.Setenv("KDEPS_MODELS_DIR", t.TempDir())
+
+	modelsDir, err := DefaultModelsDir()
+	require.NoError(t, err)
+	entries := ListLlamafileMappings()
+	require.NotEmpty(t, entries)
+	var alias, repo, path string
+	for _, e := range entries {
+		if p, ok := LlamafileCachedPath(e.Alias, modelsDir); ok && e.Repo != "" {
+			alias, repo, path = e.Alias, e.Repo, p
+			break
+		}
+	}
+	require.NotEmpty(t, alias)
+	require.NotEmpty(t, repo)
+
+	fs := afero.NewMemMapFs()
+	require.NoError(t, afero.WriteFile(fs, path, []byte("fake"), 0o600))
+	fakeLlamaFitBinary(t, `{"models":[{"name":"x","score":90,"fit_level":"Good",`+
+		`"gguf_sources":[{"repo":"`+repo+`"}]}]}`)
+
+	model, backend, ok := AutoRouterPick(context.Background(), fs)
+	require.True(t, ok)
+	assert.Equal(t, alias, model)
+	assert.Equal(t, BackendFile, backend)
+}
+
+func TestAutoRouterPick_LlmfitPresentButNothingScoresFallsToCloud(t *testing.T) {
+	resetLlamaFitIndexCache(t)
+	clearCloudProviderEnvVars(t)
+	t.Setenv("KDEPS_MODELS_DIR", t.TempDir())
+	t.Setenv("OPENAI_API_KEY", "sk-test")
+	fakeLlamaFitBinary(t, `{"models":[]}`)
+
+	model, backend, ok := AutoRouterPick(context.Background(), afero.NewMemMapFs())
+	require.True(t, ok)
+	assert.Equal(t, "gpt-4o", model)
+	assert.Equal(t, "openai", backend)
+}

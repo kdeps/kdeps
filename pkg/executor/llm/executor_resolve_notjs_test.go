@@ -171,6 +171,43 @@ func TestResolveModelForExecution_EmptyModelFallsBack(t *testing.T) {
 	assert.Equal(t, "my-model", model)
 }
 
+func TestResolveModelForExecution_AutoRouterPicksLocal(t *testing.T) {
+	t.Setenv("KDEPS_LLM_ROUTER", `{"strategy":"fallback","models":[{"model":"should-not-be-used"}]}`)
+	orig := autoRouterPickFunc
+	autoRouterPickFunc = func(context.Context, afero.Fs) (string, string, bool) {
+		return "picked-model", BackendFile, true
+	}
+	t.Cleanup(func() { autoRouterPickFunc = orig })
+
+	e := NewExecutor("")
+	ctx, err := executor.NewExecutionContext(&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "t"}})
+	require.NoError(t, err)
+
+	model, _, routes, err := e.resolveModelForExecution(
+		expression.NewEvaluator(ctx.API), ctx, &domain.ChatConfig{Model: "auto-router", Prompt: "p"})
+	require.NoError(t, err)
+	assert.Equal(t, "picked-model", model)
+	assert.Nil(t, routes)
+}
+
+func TestResolveModelForExecution_AutoRouterFallsBackToBuiltin(t *testing.T) {
+	t.Setenv("KDEPS_LLM_ROUTER", "")
+	orig := autoRouterPickFunc
+	autoRouterPickFunc = func(context.Context, afero.Fs) (string, string, bool) {
+		return "", "", false
+	}
+	t.Cleanup(func() { autoRouterPickFunc = orig })
+
+	e := NewExecutor("")
+	ctx, err := executor.NewExecutionContext(&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "t"}})
+	require.NoError(t, err)
+
+	model, _, _, err := e.resolveModelForExecution(
+		expression.NewEvaluator(ctx.API), ctx, &domain.ChatConfig{Model: "auto-router", Prompt: "p"})
+	require.NoError(t, err)
+	assert.Equal(t, defaultBuiltinModel, model)
+}
+
 func TestResolveModelForExecution_EmptyModelCloudErrors(t *testing.T) {
 	t.Setenv("KDEPS_LLM_ROUTER", "")
 	t.Setenv("KDEPS_LLM_MODELS", "")

@@ -19,13 +19,20 @@ type LLMProvider struct {
 	Name    string // backend name, e.g. "openai"
 	YAMLKey string // config yaml field, e.g. "openai_api_key"
 	EnvVar  string // environment variable, e.g. "OPENAI_API_KEY"
+	// DefaultModel is a representative model id for this provider (e.g.
+	// "gpt-4o"), or "" for providers with no single canonical default.
+	// Used only as a last-resort cloud pick when no local model is found --
+	// see pkg/executor/llm.AutoRouterPick.
+	DefaultModel string
 }
 
 // CloudLLMProviders returns supported cloud LLM providers in registry order.
 func CloudLLMProviders() []LLMProvider {
 	providers := make([]LLMProvider, len(cloudProvidersList))
 	for i, p := range cloudProvidersList {
-		providers[i] = LLMProvider{Name: p.name, YAMLKey: p.yamlKey, EnvVar: p.envVar}
+		providers[i] = LLMProvider{
+			Name: p.name, YAMLKey: p.yamlKey, EnvVar: p.envVar, DefaultModel: p.defaultModel,
+		}
 	}
 	return providers
 }

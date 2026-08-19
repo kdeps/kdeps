@@ -24,11 +24,21 @@ import (
 	"context"
 	"testing"
 
+	"github.com/spf13/afero"
 	"github.com/stretchr/testify/assert"
 
 	kdepsconfig "github.com/kdeps/kdeps/v2/pkg/config"
 	"github.com/kdeps/kdeps/v2/pkg/tui"
 )
+
+// stubAutoRouterPick overrides autoRouterPickFunc for the duration of the
+// test, restoring the original on cleanup.
+func stubAutoRouterPick(t *testing.T, fn func(context.Context, afero.Fs) (string, string, bool)) {
+	t.Helper()
+	orig := autoRouterPickFunc
+	autoRouterPickFunc = fn
+	t.Cleanup(func() { autoRouterPickFunc = orig })
+}
 
 // stubScoreModelEntries overrides scoreModelEntriesFunc for the duration of
 // the test, restoring the original on cleanup.
@@ -98,6 +108,32 @@ func TestResolveStartModelWithAutoPick_AutoSentinel(t *testing.T) {
 	model, backend := resolveStartModelWithAutoPick(context.Background(), flags, tui.Settings{})
 	assert.Equal(t, "best-fit-model", model)
 	assert.Equal(t, "file", backend)
+}
+
+func TestResolveStartModelWithAutoPick_AutoRouterSentinel(t *testing.T) {
+	stubAutoRouterPick(t, func(context.Context, afero.Fs) (string, string, bool) {
+		return "discovered-model", "gguf", true
+	})
+	stubScoreModelEntries(t, func(context.Context, []kdepsconfig.ModelEntry) (*kdepsconfig.ModelEntry, bool) {
+		t.Fatal("scoreModelEntriesFunc must not be called for auto-router")
+		return nil, false
+	})
+
+	flags := &agentLoopFlags{Model: "auto-router"}
+	model, backend := resolveStartModelWithAutoPick(context.Background(), flags, tui.Settings{})
+	assert.Equal(t, "discovered-model", model)
+	assert.Equal(t, "gguf", backend)
+}
+
+func TestResolveStartModelWithAutoPick_AutoRouterFallsBackToFixedTiers(t *testing.T) {
+	stubAutoRouterPick(t, func(context.Context, afero.Fs) (string, string, bool) {
+		return "", "", false
+	})
+
+	flags := &agentLoopFlags{Model: "auto-router"}
+	model, backend := resolveStartModelWithAutoPick(context.Background(), flags, tui.Settings{})
+	assert.NotEmpty(t, model)
+	assert.NotEmpty(t, backend)
 }
 
 func TestResolveStartModelWithAutoPick_NonAutoUnaffected(t *testing.T) {

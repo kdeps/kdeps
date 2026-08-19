@@ -68,41 +68,48 @@ var (
 	cloudProvidersList = []cloudProvider{
 		{
 			name: providerOpenAI, yamlKey: "openai_api_key", envVar: "OPENAI_API_KEY",
-			doctorSpotCheck: true,
-			field:           func(k *LLMKeys) *string { return &k.OpenAI },
+			doctorSpotCheck: true, defaultModel: "gpt-4o",
+			field: func(k *LLMKeys) *string { return &k.OpenAI },
 		},
 		{
 			name: "anthropic", yamlKey: "anthropic_api_key", envVar: "ANTHROPIC_API_KEY",
-			doctorSpotCheck: true,
-			field:           func(k *LLMKeys) *string { return &k.Anthropic },
+			doctorSpotCheck: true, defaultModel: "claude-sonnet-4-6",
+			field: func(k *LLMKeys) *string { return &k.Anthropic },
 		},
 		{
 			name: "google", yamlKey: "google_api_key", envVar: "GOOGLE_API_KEY",
-			field: func(k *LLMKeys) *string { return &k.Google },
+			defaultModel: "gemini-2.5-flash",
+			field:        func(k *LLMKeys) *string { return &k.Google },
 		},
 		{
 			name: "cohere", yamlKey: "cohere_api_key", envVar: "COHERE_API_KEY",
-			field: func(k *LLMKeys) *string { return &k.Cohere },
+			defaultModel: "command-r-plus",
+			field:        func(k *LLMKeys) *string { return &k.Cohere },
 		},
 		{
 			name: "mistral", yamlKey: "mistral_api_key", envVar: "MISTRAL_API_KEY",
-			field: func(k *LLMKeys) *string { return &k.Mistral },
+			defaultModel: "mistral-large-latest",
+			field:        func(k *LLMKeys) *string { return &k.Mistral },
 		},
 		{
 			name: "together", yamlKey: "together_api_key", envVar: "TOGETHER_API_KEY",
-			field: func(k *LLMKeys) *string { return &k.Together },
+			defaultModel: "meta-llama/Llama-3-70b-chat-hf",
+			field:        func(k *LLMKeys) *string { return &k.Together },
 		},
 		{
 			name: "perplexity", yamlKey: "perplexity_api_key", envVar: "PERPLEXITY_API_KEY",
-			field: func(k *LLMKeys) *string { return &k.Perplexity },
+			defaultModel: "llama-3.1-sonar-large-128k-online",
+			field:        func(k *LLMKeys) *string { return &k.Perplexity },
 		},
 		{
 			name: "groq", yamlKey: "groq_api_key", envVar: "GROQ_API_KEY",
-			field: func(k *LLMKeys) *string { return &k.Groq },
+			defaultModel: "llama-3.3-70b-versatile",
+			field:        func(k *LLMKeys) *string { return &k.Groq },
 		},
 		{
 			name: "deepseek", yamlKey: "deepseek_api_key", envVar: "DEEPSEEK_API_KEY",
-			field: func(k *LLMKeys) *string { return &k.DeepSeek },
+			defaultModel: "deepseek-v4-flash",
+			field:        func(k *LLMKeys) *string { return &k.DeepSeek },
 		},
 		{
 			name: "openrouter", yamlKey: "openrouter_api_key", envVar: "OPENROUTER_API_KEY",
@@ -110,7 +117,8 @@ var (
 		},
 		{
 			name: "xai", yamlKey: "xai_api_key", envVar: "XAI_API_KEY",
-			field: func(k *LLMKeys) *string { return &k.XAI },
+			defaultModel: "grok-3",
+			field:        func(k *LLMKeys) *string { return &k.XAI },
 		},
 		{
 			name: "huggingface", yamlKey: "huggingface_api_key", envVar: "HF_TOKEN",
@@ -149,6 +157,13 @@ type cloudProvider struct {
 	yamlKey         string
 	envVar          string
 	doctorSpotCheck bool
+	// defaultModel is a representative model id for this provider (e.g.
+	// "gpt-4o" for openai), used only as auto-router's last-resort cloud
+	// pick when no local model is installed. Empty for providers that host
+	// many models with no single canonical default (e.g. bedrock, watsonx)
+	// -- those simply don't participate in that fallback, same as they
+	// already don't in pkg/agent's own cloud model catalog.
+	defaultModel string
 	// field returns a pointer to this provider's key inside an LLMKeys.
 	field func(*LLMKeys) *string
 }

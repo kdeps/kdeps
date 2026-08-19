@@ -47,6 +47,13 @@ const defaultBuiltinModel = DefaultBuiltinModel
 //nolint:gochecknoglobals // test-replaceable hook
 var bestInstalledModelByFitFunc = BestInstalledModelByFit
 
+// autoRouterPickFunc is AutoRouterPick, overridable in tests so the
+// "auto-router" resolution branch can be exercised deterministically without
+// depending on real llmfit/installed models/cloud env vars.
+//
+//nolint:gochecknoglobals // test-replaceable hook
+var autoRouterPickFunc = AutoRouterPick
+
 // defaultModelWhenEmpty resolves the model for a chat resource that omits
 // `model:`. Order: config router (KDEPS_LLM_ROUTER) -> first config model
 // (KDEPS_LLM_MODELS) -> best installed local model by llmfit hardware fit ->
@@ -102,6 +109,19 @@ func (e *Executor) resolveModelForExecution(
 	promptStr, err := e.evaluateStringOrLiteral(evaluator, ctx, resolvedConfig.Prompt)
 	if err != nil {
 		return "", "", nil, fmt.Errorf("failed to evaluate prompt: %w", err)
+	}
+
+	// "auto-router" needs no llm.models config at all -- unlike "router"
+	// (which delegates to the user's configured candidates), it always
+	// discovers installed local models and, failing that, a cloud model
+	// with a key set (AutoRouterPick). Checked before "router" so it never
+	// touches KDEPS_LLM_ROUTER.
+	if modelStr == "auto-router" {
+		if m, b, ok := autoRouterPickFunc(ctx.Ctx, AppFS); ok {
+			modelStr, resolvedConfig.Backend = m, b
+		} else {
+			modelStr = defaultBuiltinModel
+		}
 	}
 
 	var fallbackRoutes []kdepsconfig.ModelEntry

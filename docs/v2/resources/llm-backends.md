@@ -280,6 +280,26 @@ Only entries on a local backend (`file`, `gguf`, `ollama`) are scored -- `llmfit
 
 Agent-loop mode has the same strategy available via `--model auto` (or `KDEPS_AGENT_MODEL=auto`) -- see [Agent Mode](/modes/agent-loop-mode#how-a-model-is-picked-when-none-is-configured).
 
+### `auto-router`: zero-config, fully automatic
+
+`auto` still scores *your configured* `llm.models` -- you pick the candidates, `auto` picks among them. `auto-router` needs no `llm.models` entry at all. Set a resource's `model` field to `auto-router` and kdeps discovers everything itself, every time it runs:
+
+```yaml
+# resources/llm.yaml
+chat:
+  model: auto-router   # zero config -- ignores llm.models/router entirely
+  role: user
+  prompt: "{{ get('q') }}"
+```
+
+Resolution order, with no config required:
+
+1. **Best-fit installed local model** -- every cached llamafile, loadable GGUF, and pulled Ollama tag is scored via `llmfit`, same as `auto`'s local tier. Requires `llmfit` on `PATH`; skipped entirely (no cost) when it isn't installed.
+2. **Cloud fallback** -- the first provider with both an API key env var set (`OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, ...) and a known representative model (`gpt-4o` for OpenAI, `claude-sonnet-4-6` for Anthropic, etc.) is used. Providers that host many models with no single canonical default (OpenRouter, Hugging Face, Bedrock, Watsonx, ...) don't participate in this fallback.
+3. **Built-in default** -- if neither of the above finds anything, kdeps falls back to the same zero-config built-in llamafile (`llama3.2:1b`) used when `model:` is omitted entirely.
+
+Agent-loop mode has the same sentinel via `--model auto-router` -- see [Agent Mode](/modes/agent-loop-mode#-model-auto-router-zero-config-fully-automatic).
+
 ## Supported Backends
 
 kdeps supports local backends (Llamafile, GGUF/llama.cpp, Ollama) and any OpenAI-compatible API: OpenAI, Anthropic, Google, Mistral, Groq, Together AI, Perplexity, Cohere, DeepSeek, xAI (Grok), OpenRouter, and self-hosted solutions (vLLM, TGI, LocalAI, LlamaCpp). See [LLM Provider Reference](/reference/llm-providers) for per-provider config snippets and available model names.
