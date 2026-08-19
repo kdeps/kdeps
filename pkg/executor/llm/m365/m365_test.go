@@ -8,6 +8,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 	"time"
@@ -508,12 +509,16 @@ func TestSaveCredentials(t *testing.T) {
 	if s == nil || s.Email != "e@x.com" || s.Password != "p" || s.MFASecret != "m" {
 		t.Errorf("secrets after save = %+v", s)
 	}
-	info, err := os.Stat(path)
-	if err != nil {
-		t.Fatalf("stat: %v", err)
-	}
-	if perm := info.Mode().Perm(); perm != 0o600 {
-		t.Errorf("secrets file perm = %v, want 0600", perm)
+	// Windows' os.Stat doesn't report Unix-style permission bits, so
+	// os.WriteFile's 0o600 mode has no equivalent to assert there.
+	if runtime.GOOS != "windows" {
+		info, err := os.Stat(path)
+		if err != nil {
+			t.Fatalf("stat: %v", err)
+		}
+		if perm := info.Mode().Perm(); perm != 0o600 {
+			t.Errorf("secrets file perm = %v, want 0600", perm)
+		}
 	}
 }
 
