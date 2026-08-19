@@ -477,6 +477,74 @@ func TestLoadSecrets(t *testing.T) {
 	}
 }
 
+func TestSecretsPath(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "secrets.json")
+	t.Setenv("M365_SECRETS_FILE", path)
+	if got := SecretsPath(); got != path {
+		t.Errorf("SecretsPath() = %q, want %q", got, path)
+	}
+}
+
+func TestSaveCredentials(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "nested", "secrets.json")
+	t.Setenv("M365_SECRETS_FILE", path)
+
+	if err := SaveCredentials("", "p", "m"); err == nil {
+		t.Error("empty email should error")
+	}
+	if err := SaveCredentials("e", "", "m"); err == nil {
+		t.Error("empty password should error")
+	}
+	if err := SaveCredentials("e", "p", ""); err == nil {
+		t.Error("empty mfaSecret should error")
+	}
+
+	if err := SaveCredentials("  e@x.com  ", "p", "m"); err != nil {
+		t.Fatalf("SaveCredentials: %v", err)
+	}
+	s := loadSecrets()
+	if s == nil || s.Email != "e@x.com" || s.Password != "p" || s.MFASecret != "m" {
+		t.Errorf("secrets after save = %+v", s)
+	}
+	info, err := os.Stat(path)
+	if err != nil {
+		t.Fatalf("stat: %v", err)
+	}
+	if perm := info.Mode().Perm(); perm != 0o600 {
+		t.Errorf("secrets file perm = %v, want 0600", perm)
+	}
+}
+
+func TestCredentialsReady(t *testing.T) {
+	t.Setenv("M365_SECRETS_FILE", filepath.Join(t.TempDir(), "none.json"))
+	t.Setenv("M365_CACHE_FILE", filepath.Join(t.TempDir(), "cache.json"))
+	resetCache()
+	defer resetCache()
+
+	if CredentialsReady() {
+		t.Error("no secrets and no cached token should not be ready")
+	}
+
+	if err := SaveCredentials("e", "p", "m"); err != nil {
+		t.Fatalf("SaveCredentials: %v", err)
+	}
+	if !CredentialsReady() {
+		t.Error("a valid secrets file should be ready")
+	}
+
+	// A cached refresh token alone (no secrets file) is also ready.
+	t.Setenv("M365_SECRETS_FILE", filepath.Join(t.TempDir(), "still-none.json"))
+	resetCache()
+	cacheMu.Lock()
+	cacheState = &tokenCache{RefreshToken: "rt", Access: map[string]cachedToken{}}
+	cacheMu.Unlock()
+	if !CredentialsReady() {
+		t.Error("a cached refresh token should be ready even without a secrets file")
+	}
+}
+
 func TestForceReauthNoCredentials(t *testing.T) {
 	t.Setenv("M365_SECRETS_FILE", filepath.Join(t.TempDir(), "none.json"))
 	// No refresh token in cache and no secrets file -> cannot reauth.

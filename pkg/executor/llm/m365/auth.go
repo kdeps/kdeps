@@ -276,6 +276,44 @@ func loadSecrets() *Credentials {
 	return &c
 }
 
+// SecretsPath returns the on-disk path credentials are read from/written to
+// (M365_SECRETS_FILE, or the default under configDir).
+func SecretsPath() string { return secretsFile() }
+
+// CredentialsReady reports whether kdeps can authenticate without prompting:
+// either a cached refresh token already exists, or a complete secrets file
+// (email/password/mfaSecret) is present on disk.
+func CredentialsReady() bool {
+	c := loadCache()
+	cacheMu.Lock()
+	hasRefresh := c.RefreshToken != ""
+	cacheMu.Unlock()
+	return hasRefresh || loadSecrets() != nil
+}
+
+// SaveCredentials validates and writes email/password/mfaSecret to the
+// secrets file (0600), creating configDir if needed. Used by interactive
+// callers (the REPL, --model m365 startup) to collect credentials on first
+// use instead of requiring the user to hand-write the JSON file themselves.
+func SaveCredentials(email, password, mfaSecret string) error {
+	email, password, mfaSecret = strings.TrimSpace(email), strings.TrimSpace(password), strings.TrimSpace(mfaSecret)
+	if email == "" || password == "" || mfaSecret == "" {
+		return errors.New("m365: email, password, and mfaSecret are all required")
+	}
+	data, err := json.MarshalIndent(Credentials{Email: email, Password: password, MFASecret: mfaSecret}, "", "  ")
+	if err != nil {
+		return err
+	}
+	path := secretsFile()
+	if mkErr := os.MkdirAll(filepath.Dir(path), 0o700); mkErr != nil {
+		return fmt.Errorf("m365: create config dir: %w", mkErr)
+	}
+	if wErr := os.WriteFile(path, data, 0o600); wErr != nil {
+		return fmt.Errorf("m365: write secrets file: %w", wErr)
+	}
+	return nil
+}
+
 // browserLoginFunc is a var (not a direct call) only so tests can stub out the
 // real Playwright-driven login without a browser.
 //

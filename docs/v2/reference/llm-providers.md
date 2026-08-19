@@ -297,9 +297,16 @@ llm:
 ```
 
 There is no `api_key` field - authentication is a signed-in Microsoft 365
-account, not an API key. There is no separate login command either: put your
-credentials in `~/.config/kdeps/m365/secrets.json` and kdeps logs in
-automatically the first time it needs a token.
+account, not an API key. There is no separate login command either:
+
+- **Agent-loop mode, interactive (recommended):** the first time you pick an
+  m365 model (`kdeps --model m365-copilot --backend m365`, or `/model
+  m365-copilot` in the REPL) with no credentials on disk yet, kdeps prompts
+  for email, password, and your authenticator app's TOTP seed right there in
+  the terminal and saves them to `~/.config/kdeps/m365/secrets.json` (mode
+  `0600`) - nothing to hand-write.
+- **Headless hosts (CI, servers), or to skip the prompt:** write
+  `~/.config/kdeps/m365/secrets.json` yourself before running kdeps:
 
 ```json
 // ~/.config/kdeps/m365/secrets.json
@@ -312,7 +319,9 @@ automatically the first time it needs a token.
 
 `mfaSecret` is the TOTP seed (the same secret you'd scan into an authenticator
 app), not a one-time code - kdeps generates codes from it itself, so your
-account needs authenticator-app MFA enrolled (not push/SMS-only).
+account needs authenticator-app MFA enrolled (not push/SMS-only). Workflow
+mode's `chat:` resource has no terminal to prompt on, so it always requires
+the file to already exist.
 
 On first use kdeps drives a **headless** Chromium browser through the Azure AD
 login form with those credentials and caches the resulting refresh token at
