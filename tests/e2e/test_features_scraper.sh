@@ -219,7 +219,13 @@ if [ "$KDEPS_STARTED" = false ]; then
 fi
 
 # ── Test 1: plain text scraping ───────────────────────────────────────────────
-PLAIN_RESP=$(curl -s --max-time 5 \
+# This is the first real request after /health reports ready -- /health does
+# not guarantee the DAG/route machinery has finished warming up, and on a
+# slow/loaded CI runner (observed on Windows) that one-time cost can exceed a
+# tight timeout even though the server is technically listening. Subsequent
+# requests (html, selector below) are reliably fast once warm, so only this
+# first call needs the extra headroom.
+PLAIN_RESP=$(curl -s --max-time 30 \
     -X POST "http://127.0.0.1:${API_PORT}/scrape/plain" \
     -H "Content-Type: application/json" -d '{}' 2>&1)
 
