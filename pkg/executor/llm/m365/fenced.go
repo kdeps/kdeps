@@ -342,10 +342,59 @@ func shellName(tools []ToolDef) string {
 	return "bash"
 }
 
+// dedicatedFileTools names the file-operating tools kdeps registers
+// alongside the shell tool, in the order fileToolHints should mention them.
+//
+//nolint:gochecknoglobals // static lookup table
+var dedicatedFileTools = []struct{ name, hint string }{
+	{"write_file", "create or overwrite a file: `write_file`"},
+	{"edit_file", "make a targeted change: `edit_file`"},
+	{"read_file", "read a file: `read_file`"},
+	{"list_files", "list a directory: `list_files`"},
+}
+
+// fileToolHints redirects file creation/editing/reading/listing to kdeps's
+// dedicated tools when the tool list includes them. Without this, the
+// forceful shell framing below (needed to stop weaker models from just
+// describing what they'd run instead of acting) drowns out each tool's own
+// description, and the model defaults to shelling out via heredocs/sed even
+// for a plain file write that has a dedicated tool. Returns "" when none of
+// the dedicated tools are registered, leaving the shell as the only option.
+func fileToolHints(tools []ToolDef) string {
+	has := func(name string) bool {
+		for _, t := range tools {
+			if t.Function.Name == name {
+				return true
+			}
+		}
+		return false
+	}
+	var hints []string
+	for _, ft := range dedicatedFileTools {
+		if has(ft.name) {
+			hints = append(hints, ft.hint)
+		}
+	}
+	if len(hints) == 0 {
+		return ""
+	}
+	return " FILE OPERATIONS HAVE DEDICATED TOOLS -- prefer them over the shell: " +
+		strings.Join(hints, "; ") +
+		". Reach for the shell for what those don't cover: running scripts or tests, git, and inspecting process or system state."
+}
+
 func baselineFraming(tools []ToolDef) string {
 	var shellFraming string
 	if shell := findShellTool(tools); shell != nil {
-		shellFraming = "\n\nTHE WAY YOU DO ANYTHING IS BY WRITING A SHELL SCRIPT. You have a real shell (the `" + shell.Function.Name + "` tool). To perform a step, emit ONE ```bash block that does the whole thing end-to-end against the real files in the working directory: create/overwrite files with `cat > name <<'EOF' ... EOF` heredocs, edit files in place with `sed -i`, inspect with `cat`/`ls`/`grep`, run code with the available interpreters. The block is executed for real and you get its output back. Writing the commands IS doing the task; describing what you \"would\" run, or claiming you did it, accomplishes nothing.\n\nYou have NOT run any command yet and have NO results. NEVER claim a command \"returned no output\", that files are \"missing\", or that you \"cannot access\" / \"cannot list\" the environment before you have actually emitted a ```bash block and seen its <tool_response>. The files named in the task are present on a real filesystem right now. Your FIRST output must be a ```bash block (e.g. `ls -la` then `cat` the relevant files) - never open with prose, a question, or a request for the user to paste files. Do not assume a file's contents or a command's result; run a command and read the real output. One self-contained ```bash block per turn."
+		fileHints := fileToolHints(tools)
+		firstAction := "a ```bash block (e.g. `ls -la` then `cat` the relevant files)"
+		if fileHints != "" {
+			firstAction = "the fenced call for whichever tool the step needs " +
+				"(e.g. `list_files` to see what's there, or `read_file` on a named file)"
+		}
+		shellFraming = "\n\nYou have a real shell (the `" + shell.Function.Name + "` tool)." + fileHints +
+			" To perform a step, emit ONE fenced block for the single tool that step needs, acting end-to-end against the real files in the working directory: a ```bash block inspects with `cat`/`ls`/`grep` and runs code with the available interpreters." +
+			" The block is executed for real and you get its output back. Writing the commands IS doing the task; describing what you \"would\" run, or claiming you did it, accomplishes nothing.\n\nYou have NOT run any command yet and have NO results. NEVER claim a command \"returned no output\", that files are \"missing\", or that you \"cannot access\" / \"cannot list\" the environment before you have actually emitted a fenced block and seen its <tool_response>. The files named in the task are present on a real filesystem right now. Your FIRST output must be " + firstAction + " - never open with prose, a question, or a request for the user to paste files. Do not assume a file's contents or a command's result; run a tool and read the real output. One self-contained fenced block per turn."
 	}
 	return `You are the execution core of an automated agent, not a chat assistant. Your output is parsed by a program - a real runtime that executes your tool calls against a live system and returns the actual results to you in <tool_response> blocks.` + shellFraming + `
 
@@ -380,7 +429,13 @@ STRICT RULES:
 
 func minimalFraming(tools []ToolDef) string {
 	name := shellName(tools)
-	return "You are an automated agent with a real shell (the `" + name + "` tool). You do the task by emitting ONE ```bash block per turn that acts on the real files in the working directory (heredocs to create, `sed -i` to edit, `cat`/`ls`/`grep` to inspect, interpreters to run). The block is executed for real; its output comes back in a <tool_response>. Writing the commands IS doing the task.\n\nYou have run nothing yet. Your FIRST output must be a ```bash block - never prose, a question, or \"I can't access the files\". Never claim a result you have not seen in a <tool_response>.\n\n" + toolsBlock(
+	fileHints := fileToolHints(tools)
+	shellPurpose := "acts on the real files in the working directory (heredocs to create, `sed -i` to edit, `cat`/`ls`/`grep` to inspect, interpreters to run)"
+	if fileHints != "" {
+		shellPurpose = "runs scripts/tests, git, or inspects process/system state"
+	}
+	return "You are an automated agent with a real shell (the `" + name + "` tool)." + fileHints +
+		" You do the task by emitting ONE fenced block per turn for whichever tool the step needs; a ```bash block " + shellPurpose + ". The block is executed for real; its output comes back in a <tool_response>. Writing the commands IS doing the task.\n\nYou have run nothing yet. Your FIRST output must be a fenced tool call - never prose, a question, or \"I can't access the files\". Never claim a result you have not seen in a <tool_response>.\n\n" + toolsBlock(
 		tools,
 	)
 }
@@ -389,7 +444,13 @@ func softenedFraming(tools []ToolDef) string {
 	name := shellName(tools)
 	var shellLine string
 	if findShellTool(tools) != nil {
-		shellLine = "You have a real shell available as the `" + name + "` tool. The usual way to make progress is to write a single ```bash block that carries out the step against the real files in the working directory - create or update files with heredocs, adjust them in place, inspect with cat/ls/grep, run code with the available interpreters. The runtime executes the block and returns its real output to you. Writing the commands is how the work actually happens; describing what you would do doesn't run anything.\n\n"
+		fileHints := fileToolHints(tools)
+		shellPurpose := "create or update files with heredocs, adjust them in place, inspect with cat/ls/grep, run code with the available interpreters"
+		if fileHints != "" {
+			shellPurpose = "run scripts or tests, use git, or inspect process/system state"
+		}
+		shellLine = "You have a real shell available as the `" + name + "` tool." + fileHints +
+			" The usual way to make progress on a step the shell covers is to write a single ```bash block that carries it out against the real files in the working directory - " + shellPurpose + ". The runtime executes the block and returns its real output to you. Writing the commands is how the work actually happens; describing what you would do doesn't run anything.\n\n"
 	}
 	return `You are an automated coding agent working in a real working directory. Your replies are read by a program that runs your tool calls and returns the results.
 

@@ -171,6 +171,47 @@ func TestFormatFencedToolDefinitionsVariants(t *testing.T) {
 	}
 }
 
+func TestFileToolHints_EmptyWithoutDedicatedTools(t *testing.T) {
+	if got := fileToolHints([]ToolDef{shellToolDef()}); got != "" {
+		t.Errorf("no dedicated file tools registered, want empty hint, got %q", got)
+	}
+}
+
+func TestFileToolHints_NamesRegisteredTools(t *testing.T) {
+	got := fileToolHints([]ToolDef{shellToolDef(), writeToolDef(), editToolDef()})
+	for _, want := range []string{"write_file", "edit_file"} {
+		if !strings.Contains(got, want) {
+			t.Errorf("hint missing %q: %q", want, got)
+		}
+	}
+	if strings.Contains(got, "read_file") {
+		t.Errorf("read_file not registered, must not appear in hint: %q", got)
+	}
+}
+
+// Every framing variant must steer file operations to the dedicated tools,
+// not just the shell, once those tools are registered -- otherwise a model
+// defaults to heredocs/sed for a plain file write that has a dedicated tool.
+func TestFramingVariants_PreferDedicatedFileTools(t *testing.T) {
+	tools := []ToolDef{shellToolDef(), writeToolDef(), editToolDef()}
+	for _, v := range []string{"baseline", "minimal", "softened"} {
+		out := FormatFencedToolDefinitions(tools, v)
+		if !strings.Contains(out, "write_file") || !strings.Contains(out, "DEDICATED TOOLS") {
+			t.Errorf("variant %q does not steer file ops to dedicated tools:\n%s", v, out)
+		}
+	}
+}
+
+func TestFramingVariants_ShellOnlyWithoutDedicatedTools(t *testing.T) {
+	tools := []ToolDef{shellToolDef()}
+	for _, v := range []string{"baseline", "minimal", "softened"} {
+		out := FormatFencedToolDefinitions(tools, v)
+		if strings.Contains(out, "DEDICATED TOOLS") {
+			t.Errorf("variant %q should not mention dedicated tools when none are registered:\n%s", v, out)
+		}
+	}
+}
+
 // --- tools.go ---
 
 func TestGetMessageContent(t *testing.T) {
