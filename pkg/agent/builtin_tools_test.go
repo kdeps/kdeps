@@ -1923,7 +1923,7 @@ func TestReadFile_RelativePath(t *testing.T) {
 	defer func() { _ = os.Chdir(oldWD) }()
 
 	reg := kdepstools.NewRegistry()
-	RegisterBuiltinTools(context.Background(), reg)
+	registerReadFile(reg)
 	tool := reg.Get("read_file")
 	require.NotNil(t, tool)
 	out, err := tool.Execute(map[string]any{"file_path": "foo.txt"})
@@ -2147,7 +2147,7 @@ func TestWriteFile_RelativePath(t *testing.T) {
 	defer func() { _ = os.Chdir(oldWD) }()
 
 	reg := kdepstools.NewRegistry()
-	RegisterBuiltinTools(context.Background(), reg)
+	registerWriteFile(reg)
 	tool := reg.Get("write_file")
 	require.NotNil(t, tool)
 	_, err = tool.Execute(map[string]any{"file_path": "foo.txt", "content": "data"})
