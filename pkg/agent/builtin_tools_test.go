@@ -1915,13 +1915,20 @@ func TestReadFile_EmptyFilePath(t *testing.T) {
 }
 
 func TestReadFile_RelativePath(t *testing.T) {
+	dir := t.TempDir()
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "foo.txt"), []byte("hi"), 0600))
+	oldWD, err := os.Getwd()
+	require.NoError(t, err)
+	require.NoError(t, os.Chdir(dir))
+	defer func() { _ = os.Chdir(oldWD) }()
+
 	reg := kdepstools.NewRegistry()
 	RegisterBuiltinTools(context.Background(), reg)
 	tool := reg.Get("read_file")
 	require.NotNil(t, tool)
-	_, err := tool.Execute(map[string]any{"file_path": "relative/path.txt"})
-	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "absolute path required")
+	out, err := tool.Execute(map[string]any{"file_path": "foo.txt"})
+	require.NoError(t, err, "a relative path must resolve against the working directory")
+	assert.Contains(t, out, "hi")
 }
 
 func TestReadFile_NonExistentFile(t *testing.T) {
@@ -2133,13 +2140,21 @@ func TestWriteFile_EmptyFilePath(t *testing.T) {
 }
 
 func TestWriteFile_RelativePath(t *testing.T) {
+	dir := t.TempDir()
+	oldWD, err := os.Getwd()
+	require.NoError(t, err)
+	require.NoError(t, os.Chdir(dir))
+	defer func() { _ = os.Chdir(oldWD) }()
+
 	reg := kdepstools.NewRegistry()
 	RegisterBuiltinTools(context.Background(), reg)
 	tool := reg.Get("write_file")
 	require.NotNil(t, tool)
-	_, err := tool.Execute(map[string]any{"file_path": "relative/path.txt", "content": "data"})
-	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "absolute path required")
+	_, err = tool.Execute(map[string]any{"file_path": "foo.txt", "content": "data"})
+	require.NoError(t, err, "a relative path must resolve against the working directory")
+	data, rerr := os.ReadFile(filepath.Join(dir, "foo.txt"))
+	require.NoError(t, rerr)
+	assert.Equal(t, "data", string(data))
 }
 
 func TestWriteFile_Directory(t *testing.T) {
@@ -2354,15 +2369,24 @@ func TestRegisterEditFile_Execute_MissingPath(t *testing.T) {
 }
 
 func TestRegisterEditFile_Execute_RelativePath(t *testing.T) {
+	dir := t.TempDir()
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "foo.txt"), []byte("hello world"), 0600))
+	oldWD, err := os.Getwd()
+	require.NoError(t, err)
+	require.NoError(t, os.Chdir(dir))
+	defer func() { _ = os.Chdir(oldWD) }()
+
 	reg := kdepstools.NewRegistry()
 	registerEditFile(reg)
 	tool := reg.Get("edit_file")
 	require.NotNil(t, tool)
-	_, err := tool.Execute(
-		map[string]any{"file_path": "relative/path", "old_string": "x", "new_string": "y"},
+	_, err = tool.Execute(
+		map[string]any{"file_path": "foo.txt", "old_string": "hello", "new_string": "goodbye"},
 	)
-	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "absolute path required")
+	require.NoError(t, err, "a relative path must resolve against the working directory")
+	data, rerr := os.ReadFile(filepath.Join(dir, "foo.txt"))
+	require.NoError(t, rerr)
+	assert.Equal(t, "goodbye world", string(data))
 }
 
 func TestRegisterEditFile_Execute_OldEqualsNew(t *testing.T) {
@@ -2477,13 +2501,20 @@ func TestRegisterListFiles_Execute_MissingPath(t *testing.T) {
 }
 
 func TestRegisterListFiles_Execute_RelativePath(t *testing.T) {
+	dir := t.TempDir()
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "foo.txt"), []byte("hi"), 0600))
+	oldWD, err := os.Getwd()
+	require.NoError(t, err)
+	require.NoError(t, os.Chdir(dir))
+	defer func() { _ = os.Chdir(oldWD) }()
+
 	reg := kdepstools.NewRegistry()
 	registerListFiles(reg)
 	tool := reg.Get("list_files")
 	require.NotNil(t, tool)
-	_, err := tool.Execute(map[string]any{"path": "relative/path"})
-	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "absolute path required")
+	out, err := tool.Execute(map[string]any{"path": "."})
+	require.NoError(t, err, "a relative path must resolve against the working directory")
+	assert.Contains(t, out, "foo.txt")
 }
 
 func TestRegisterListFiles_Execute_Success(t *testing.T) {

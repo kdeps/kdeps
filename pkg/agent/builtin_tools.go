@@ -149,17 +149,28 @@ func registerCalculator(ctx context.Context, reg *kdepstools.Registry) {
 
 const maxFileReadBytes = 1 << 20 // 1 MB
 
-// requireAbsFilePath extracts the "file_path" arg, checks it is non-empty and
-// absolute, and rejects root-directory targets. Used by file-operating tools
-// that share this guard. filepath.IsAbs (not a "/" prefix check) so a
-// Windows drive-letter path like "C:\Users\..." is recognized as absolute.
+// requireAbsFilePath extracts the "file_path" arg, checks it is non-empty,
+// resolves it against the working directory if relative, and rejects
+// root-directory targets. Used by file-operating tools that share this
+// guard. filepath.IsAbs (not a "/" prefix check) so a Windows drive-letter
+// path like "C:\Users\..." is recognized as absolute.
+//
+// Relative paths (e.g. ".", "foo/bar.go") are resolved via filepath.Abs,
+// which joins against os.Getwd() -- the same working directory injected
+// into the model's system preamble (dateAndWDPreamble). Models sometimes
+// guess a relative path instead of reading that preamble line; resolving
+// rather than rejecting avoids a needless failed tool call in that case.
 func requireAbsFilePath(toolName string, args map[string]any) (string, error) {
 	filePath, _ := args["file_path"].(string)
 	if filePath == "" {
 		return "", fmt.Errorf("%s: file_path is required", toolName)
 	}
 	if !filepath.IsAbs(filePath) {
-		return "", fmt.Errorf("%s: absolute path required", toolName)
+		abs, err := filepath.Abs(filePath)
+		if err != nil {
+			return "", fmt.Errorf("%s: resolve %s: %w", toolName, filePath, err)
+		}
+		filePath = abs
 	}
 	if err := ValidateRootPath(filePath); err != nil {
 		return "", fmt.Errorf("%s: %w", toolName, err)
@@ -512,7 +523,11 @@ func registerListFiles(reg *kdepstools.Registry) {
 				return "", errors.New("list_files: path is required")
 			}
 			if !filepath.IsAbs(dirPath) {
-				return "", errors.New("list_files: absolute path required")
+				abs, err := filepath.Abs(dirPath)
+				if err != nil {
+					return "", fmt.Errorf("list_files: resolve %s: %w", dirPath, err)
+				}
+				dirPath = abs
 			}
 			if err := ValidateRootPath(dirPath); err != nil {
 				return "", fmt.Errorf("list_files: %w", err)
