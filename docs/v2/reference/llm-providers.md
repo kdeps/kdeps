@@ -317,6 +317,18 @@ missing - no manual `playwright install chromium` step required. Override
 which browser launches with `CHROMIUM_PATH`, and the persistent browser
 profile location with `M365_BROWSER_PROFILE`.
 
+**Linux only:** downloading Chromium isn't enough - it also needs a handful
+of shared libraries the OS doesn't ship by default. On Debian/Ubuntu:
+
+```bash
+sudo apt-get install -y libnss3 libnspr4 libasound2t64
+```
+
+(On older Debian/Ubuntu releases the package is `libasound2` instead of
+`libasound2t64`.) If these are missing, kdeps' launch error names the exact
+package manager command for your distro - Playwright detects it directly
+from the host, so trust that command over this list if they differ.
+
 **Headless hosts (CI, servers with no display): scripted `secrets.json`
 fallback.** Write `~/.config/kdeps/m365/secrets.json` yourself before running
 kdeps:

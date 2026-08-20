@@ -72,7 +72,7 @@ func newSession(
 	browser, err := selectBrowserType(pw, engineName).Launch(launchOpts)
 	if err != nil {
 		_ = pw.Stop()
-		return nil, fmt.Errorf("could not launch %s browser: %w", engineName, err)
+		return nil, fmt.Errorf("could not launch %s browser: %w", engineName, friendlyLaunchError(err))
 	}
 
 	bCtx, page, err := createContextAndPage(browser, viewport, userAgent, stealthMode)
@@ -83,6 +83,27 @@ func newSession(
 	}
 
 	return &session{pw: pw, browser: browser, ctx: bCtx, page: page}, nil
+}
+
+// missingHostDepsMarker is the stable substring Playwright's own launch
+// error uses when the OS is missing shared libraries Chromium needs to run
+// (e.g. libnspr4, libnss3, libasound2 on Debian/Ubuntu). Verified against
+// playwright-core's actual error text, not guessed.
+const missingHostDepsMarker = "Host system is missing dependencies to run browsers"
+
+// friendlyLaunchError prefixes a clear, kdeps-specific heading onto a
+// missing-host-dependencies launch failure. Playwright's own error already
+// includes the exact, host-specific install command (it inspects the local
+// package manager/distro itself); this only makes that error easier to spot
+// instead of reformatting or re-deriving the command ourselves.
+func friendlyLaunchError(err error) error {
+	if err == nil || !strings.Contains(err.Error(), missingHostDepsMarker) {
+		return err
+	}
+	return fmt.Errorf(
+		"the OS is missing shared libraries Chromium needs to run -- install"+
+			" them with the command Playwright suggests below, then retry: %w", err,
+	)
 }
 
 func selectBrowserType(pw *playwright.Playwright, engineName string) playwright.BrowserType {

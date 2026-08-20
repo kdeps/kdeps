@@ -27,6 +27,29 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+func TestFriendlyLaunchError_Nil(t *testing.T) {
+	assert.NoError(t, friendlyLaunchError(nil))
+}
+
+func TestFriendlyLaunchError_UnrelatedErrorPassesThrough(t *testing.T) {
+	orig := errors.New("some other launch failure")
+	got := friendlyLaunchError(orig)
+	assert.Equal(t, orig, got)
+}
+
+func TestFriendlyLaunchError_MissingHostDeps(t *testing.T) {
+	orig := errors.New(
+		"browserType.launch: Host system is missing dependencies to run browsers.\n" +
+			"Missing libraries:\n    libnspr4.so\n    libnss3.so\n" +
+			"Please install them with:\n\n    sudo apt-get install -y libnspr4 libnss3 libasound2t64\n",
+	)
+	got := friendlyLaunchError(orig)
+	require.Error(t, got)
+	assert.Contains(t, got.Error(), "missing shared libraries")
+	assert.Contains(t, got.Error(), "Host system is missing dependencies to run browsers")
+	assert.Contains(t, got.Error(), "sudo apt-get install -y libnspr4 libnss3 libasound2t64")
+}
+
 func stubPlaywrightRun(t *testing.T, fn func(...*playwright.RunOptions) (*playwright.Playwright, error)) {
 	t.Helper()
 	orig := playwrightRunFunc
