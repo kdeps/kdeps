@@ -231,6 +231,9 @@ func (l *Loop) dispatchReactTool(toolName, toolInput string) string {
 	canonical := l.registry.ResolveAlias(toolName)
 	normalizeToolArgs(canonical, args)
 	coerceToolArgTypes(tool.Parameters, args)
+	if denyReason, blocked := l.checkPathBoundary(args); blocked {
+		return fmt.Sprintf(`{"error":"%s"}`, denyReason)
+	}
 	result, err := tool.Execute(args)
 	if err != nil {
 		return fmt.Sprintf(`{"error":"%s"}`, err.Error())

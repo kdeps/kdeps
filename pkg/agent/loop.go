@@ -1816,6 +1816,11 @@ func (l *Loop) dispatchStreamToolCall(tc domain.StreamedToolCall, w io.Writer) s
 	// for us -- see coerceToolArgTypes).
 	normalizeToolArgs(canonical, args)
 	coerceToolArgTypes(tool.Parameters, args)
+
+	if result, blocked := l.blockOnPathBoundary(args); blocked {
+		return result
+	}
+
 	start := time.Now()
 
 	// Inject execution context so cancellable tools (e.g. bash_exec) can be

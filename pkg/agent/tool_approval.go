@@ -26,9 +26,12 @@ package agent
 
 import (
 	"bufio"
+	"errors"
 	"fmt"
 	"io"
 	"os"
+	"path/filepath"
+	"time"
 
 	"golang.org/x/term"
 )
@@ -104,6 +107,125 @@ func (l *Loop) promptToolApproval(w io.Writer, toolName, rawArgs string) approva
 		fmt.Fprintf(w, "Allowed for this session: %s\n", toolName)
 	case approveDeny:
 		fmt.Fprintf(w, "Denied: %s\n", toolName)
+	}
+	return decision
+}
+
+// pathBoundaryToolName scopes GlobalApprovalTokenRegistry grants issued by
+// checkPathBoundary, keeping them distinct from PermissionAsk's per-tool
+// grants (ApprovalScope.ToolName) even though both share the same registry.
+const pathBoundaryToolName = "__path_boundary__"
+
+// blockOnPathBoundary is dispatchStreamToolCall's entry point into
+// checkPathBoundary: on a block, it closes the terminal's open call line (if
+// any) and returns the formatted tool-error result the caller should return
+// immediately. blocked is false when the call may proceed.
+func (l *Loop) blockOnPathBoundary(args map[string]any) (string, bool) {
+	denyReason, blocked := l.checkPathBoundary(args)
+	if !blocked {
+		return "", false
+	}
+	if termW := l.config.ToolOutputWriter; termW != nil {
+		l.closeToolCallLine(termW, "... blocked: "+denyReason)
+	}
+	return toolErrorJSON(errors.New(denyReason)), true
+}
+
+// checkPathBoundary approves or refuses a file-touching tool call whose
+// resolved path falls outside the workspace root: KDEPS_WORKSPACE_ROOT when
+// set, otherwise the process's current working directory. Unlike
+// checkToolPermission this runs regardless of PermissionMode -- straying
+// outside the project directory (a parent dir, a system path, another
+// project) is worth a prompt even in danger-full-access, since the working
+// directory is the project the user is actually pointed at.
+//
+// Only args carrying "file_path" or "path" are checked, so a tool with
+// neither (most non-file tools) is unaffected. Returns (denyReason, blocked).
+func (l *Loop) checkPathBoundary(args map[string]any) (string, bool) {
+	raw, _ := args[toolParamFilePath].(string)
+	if raw == "" {
+		raw, _ = args[toolParamPath].(string)
+	}
+	if raw == "" {
+		return "", false
+	}
+
+	abs, err := filepath.Abs(raw)
+	if err != nil {
+		return "", false // malformed path: let the tool itself report the error
+	}
+
+	root := os.Getenv("KDEPS_WORKSPACE_ROOT")
+	if root == "" {
+		wd, wdErr := os.Getwd()
+		if wdErr != nil {
+			return "", false
+		}
+		root = wd
+	}
+	if pathWithinRoot(abs, root) {
+		return "", false
+	}
+
+	if tok := GlobalApprovalTokenRegistry.FindMatchingGranted(
+		pathBoundaryToolName, abs, time.Now(),
+	); tok != nil {
+		return "", false
+	}
+
+	denyReason := fmt.Sprintf("path %s is outside the working directory %s", abs, root)
+	if !l.config.InteractiveTTY {
+		return denyReason + " (no terminal available to approve it)", true
+	}
+	w := l.config.ToolOutputWriter
+	if w == nil {
+		w = os.Stdout
+	}
+	switch l.promptPathApproval(w, abs, root) {
+	case approveOnce:
+		return "", false
+	case approveAlways:
+		t := GlobalApprovalTokenRegistry.Request(ApprovalScope{ToolName: pathBoundaryToolName, Action: abs}, 0)
+		GlobalApprovalTokenRegistry.Grant(t.TokenID, "user", "", "interactive allow-always (path boundary)")
+		return "", false
+	case approveDeny:
+		return denyReason, true
+	}
+	return denyReason, true
+}
+
+// promptPathApproval prints an approval prompt for a path outside the
+// working directory and reads a single keypress. Mirrors promptToolApproval's
+// interaction shape (see there for the raw-input handling and key mapping)
+// with wording specific to a path boundary rather than a tool call.
+func (l *Loop) promptPathApproval(w io.Writer, path, root string) approvalDecision {
+	fmt.Fprintf(w, "\n[Approve access outside %s?\n  path: %s\n", root, path)
+	fmt.Fprintf(w, "  (y)es, once   (a)llow always for this path   (d)eny\n"+
+		"Enter choice (y/a/d): ")
+
+	oldState, err := term.MakeRaw(int(os.Stdin.Fd()))
+	if err != nil {
+		fmt.Fprint(w, "\n(Can't read interactive input — denying.)\n")
+		return approveDeny
+	}
+	defer func() { _ = term.Restore(int(os.Stdin.Fd()), oldState) }()
+
+	br := bufio.NewReader(os.Stdin)
+	b, err := br.ReadByte()
+	if err != nil {
+		return approveDeny
+	}
+
+	fmt.Fprint(w, "\r\033[K")
+
+	decision := parseApprovalKey(b)
+	switch decision {
+	case approveOnce:
+		fmt.Fprintf(w, "Allowed once: %s\n", path)
+	case approveAlways:
+		fmt.Fprintf(w, "Allowed for this path: %s\n", path)
+	case approveDeny:
+		fmt.Fprintf(w, "Denied: %s\n", path)
 	}
 	return decision
 }

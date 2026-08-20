@@ -1987,26 +1987,37 @@ func isBinaryContent(data []byte) bool {
 }
 
 // validateWorkspaceBoundary checks that path stays within KDEPS_WORKSPACE_ROOT when set.
-// Returns nil when no workspace root is configured (opt-in enforcement).
+// Returns nil when no workspace root is configured (opt-in enforcement). This
+// is a hard, non-interactive check used as defense-in-depth wherever a tool's
+// Execute runs without dispatch context (workflow mode, direct calls, tests);
+// see checkPathBoundary (loop.go) for the interactive, cwd-defaulted version
+// used on the real streaming dispatch path.
 func validateWorkspaceBoundary(path string) error {
 	root := os.Getenv("KDEPS_WORKSPACE_ROOT")
 	if root == "" {
 		return nil
 	}
+	if pathWithinRoot(path, root) {
+		return nil
+	}
+	return fmt.Errorf("path %s escapes workspace root %s", path, root)
+}
+
+// pathWithinRoot reports whether path is root itself or lies under it,
+// resolving symlinks on both sides when possible so a symlinked escape
+// route is still caught. A path that doesn't exist yet (write_file creating
+// a new file) falls back to a lexical comparison.
+func pathWithinRoot(path, root string) bool {
 	canonical, err := filepath.EvalSymlinks(path)
 	if err != nil {
-		// Path may not exist yet (write_file creating new file); validate lexically.
 		canonical = filepath.Clean(path)
 	}
 	rootCanonical, err := filepath.EvalSymlinks(root)
 	if err != nil {
 		rootCanonical = filepath.Clean(root)
 	}
-	if !strings.HasPrefix(canonical, rootCanonical+string(filepath.Separator)) &&
-		canonical != rootCanonical {
-		return fmt.Errorf("path %s escapes workspace root %s", path, root)
-	}
-	return nil
+	return canonical == rootCanonical ||
+		strings.HasPrefix(canonical, rootCanonical+string(filepath.Separator))
 }
 
 type codeToolDef struct {
