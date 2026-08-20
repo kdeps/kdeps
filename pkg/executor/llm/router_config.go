@@ -84,22 +84,15 @@ func applyRoute(cfg *domain.ChatConfig, r *kdepsconfig.ModelEntry) {
 	}
 }
 
+// allowedModelsFromEnv returns the user's configured llm.models names (via
+// KDEPS_LLM_MODELS), used only as the "first configured model" default when
+// a resource's model: is empty -- see defaultModelWhenEmpty. It is never
+// used to override a model a resource or the agent loop explicitly
+// specified; kdeps trusts an explicit model choice unconditionally.
 func allowedModelsFromEnv() []string {
 	v := os.Getenv("KDEPS_LLM_MODELS")
 	if v == "" {
 		return nil
 	}
 	return strings.Split(v, ",")
-}
-
-func resolveAllowedModel(model string, allowed []string) string {
-	if len(allowed) == 0 {
-		return model
-	}
-	for _, m := range allowed {
-		if m == model {
-			return model
-		}
-	}
-	return allowed[0]
 }

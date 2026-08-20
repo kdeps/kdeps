@@ -132,7 +132,6 @@ func (e *Executor) resolveModelForExecution(
 		}
 	}
 
-	modelStr = e.applyModelAllowlist(modelStr)
 	e.ensureModelAvailable(resolvedConfig, modelStr)
 
 	return modelStr, promptStr, fallbackRoutes, nil

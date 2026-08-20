@@ -562,7 +562,7 @@ func TestExecutor_Execute_ResourceModelUsed(t *testing.T) {
 	assert.Equal(t, "llama3.3:latest", gotModel)
 }
 
-func TestExecutor_Execute_WorkflowModelAllowlist_Override(t *testing.T) {
+func TestExecutor_Execute_WorkflowModel_NotOverriddenByLLMModels(t *testing.T) {
 	t.Setenv("KDEPS_DEFAULT_BACKEND", "ollama")
 	t.Setenv("HOME", t.TempDir())
 	t.Setenv("KDEPS_LLM_MODELS", "llama3.3:latest")
@@ -584,15 +584,15 @@ func TestExecutor_Execute_WorkflowModelAllowlist_Override(t *testing.T) {
 	)
 	require.NoError(t, err)
 
-	// Runtime model not in KDEPS_LLM_MODELS allowlist — should be overridden.
+	// Explicit model not in KDEPS_LLM_MODELS — must be used as-is, never swapped.
 	cfg := &domain.ChatConfig{Model: "llama3.2:1b", Prompt: "hello", BaseURL: server.URL}
 	_, err = llm.NewExecutor(server.URL).Execute(ctx, cfg)
 	require.NoError(t, err)
 	assert.Equal(
 		t,
-		"llama3.3:latest",
+		"llama3.2:1b",
 		gotModel,
-		"model not in KDEPS_LLM_MODELS should be overridden to first allowlisted model",
+		"KDEPS_LLM_MODELS must never override an explicitly requested model",
 	)
 }
 

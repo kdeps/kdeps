@@ -20,7 +20,6 @@ package llm
 
 import (
 	"context"
-	"fmt"
 
 	kdepsconfig "github.com/kdeps/kdeps/v2/pkg/config"
 	"github.com/kdeps/kdeps/v2/pkg/domain"
@@ -38,27 +37,6 @@ func (e *Executor) applyRouterModel(
 			"model is set to 'router' but no LLM router is configured in ~/.kdeps/config.yaml", nil)
 	}
 	return modelStr, fallbackRoutes, nil
-}
-
-func (e *Executor) applyModelAllowlist(modelStr string) string {
-	allowed := allowedModelsFromEnv()
-	if len(allowed) == 0 {
-		return modelStr
-	}
-	resolved := resolveAllowedModel(modelStr, allowed)
-	if resolved != modelStr {
-		e.logger.Error(
-			"model not in KDEPS_LLM_MODELS allowlist — overriding with first allowlisted model",
-			"requested", modelStr,
-			"using", resolved,
-			"fix", fmt.Sprintf(
-				"add %s to llm.models in config.yaml, "+
-					"or this resource will always run with %s instead",
-				modelStr, resolved,
-			),
-		)
-	}
-	return resolved
 }
 
 func (e *Executor) ensureModelAvailable(resolvedConfig *domain.ChatConfig, modelStr string) {

@@ -643,7 +643,7 @@ func TestResolveModelForExecution_RouterMissing(t *testing.T) {
 	require.Error(t, err)
 }
 
-func TestResolveModelForExecution_AllowlistOverride(t *testing.T) {
+func TestResolveModelForExecution_ExplicitModelNeverOverridden(t *testing.T) {
 	e := NewExecutor("")
 	ctx, err := executor.NewExecutionContext(&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "t"}})
 	require.NoError(t, err)
@@ -654,7 +654,7 @@ func TestResolveModelForExecution_AllowlistOverride(t *testing.T) {
 		Prompt: "p",
 	})
 	require.NoError(t, err)
-	assert.Equal(t, "allowed-only", model)
+	assert.Equal(t, "blocked", model, "KDEPS_LLM_MODELS must never override an explicitly requested model")
 }
 
 func TestResolveModelForExecution_EnsureModelErrorIgnored(t *testing.T) {
