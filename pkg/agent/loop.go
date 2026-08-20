@@ -1810,8 +1810,12 @@ func (l *Loop) dispatchStreamToolCall(tc domain.StreamedToolCall, w io.Writer) s
 		}
 		return toolErrorJSON(fmt.Errorf("invalid tool call arguments JSON: %w", err))
 	}
-	// Rewrite synonym param keys (grep's "pattern" -> search_local's "query").
+	// Rewrite synonym param keys (grep's "pattern" -> search_local's "query"),
+	// then coerce values into the types the tool's declared params expect
+	// (fenced-protocol backends have no JSON-schema enforcement to do this
+	// for us -- see coerceToolArgTypes).
 	normalizeToolArgs(canonical, args)
+	coerceToolArgTypes(tool.Parameters, args)
 	start := time.Now()
 
 	// Inject execution context so cancellable tools (e.g. bash_exec) can be

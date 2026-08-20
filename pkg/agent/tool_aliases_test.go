@@ -40,6 +40,7 @@ var canonicalToolNames = map[string]bool{
 	"sql_query": true, "sql_list_tables": true, "sql_describe_table": true,
 	"load_document": true, "transcribe_audio": true, "retrieve_context": true,
 	"memory_save": true, "memory_search": true, "memory_delete": true, "memory_list": true,
+	"task_complete": true, "task_fail": true,
 }
 
 func TestToolNameAliases_AllTargetsAreRealTools(t *testing.T) {
@@ -113,6 +114,44 @@ func TestNormalizeToolArgs_UnknownToolNoop(t *testing.T) {
 	args := map[string]any{"pattern": "x"}
 	normalizeToolArgs("no_such_tool", args)
 	assert.Equal(t, "x", args["pattern"], "no aliases for unknown tool")
+}
+
+func TestNormalizeToolArgs_TaskCompleteAcceptsTaskIDAlias(t *testing.T) {
+	args := map[string]any{"task_id": float64(1), "summary": "done"}
+	normalizeToolArgs("task_complete", args)
+	assert.Equal(t, float64(1), args["id"])
+	assert.NotContains(t, args, "task_id")
+}
+
+func TestCoerceToolArgTypes_StringToNumber(t *testing.T) {
+	params := map[string]domain.ToolParam{"id": {Type: "integer"}}
+	args := map[string]any{"id": "1"}
+	coerceToolArgTypes(params, args)
+	assert.Equal(t, float64(1), args["id"])
+}
+
+func TestCoerceToolArgTypes_StringToBool(t *testing.T) {
+	params := map[string]domain.ToolParam{"enabled": {Type: "boolean"}}
+	cases := map[string]bool{"true": true, "false": false, "1": true, "0": false, "yes": true, "no": false}
+	for raw, want := range cases {
+		args := map[string]any{"enabled": raw}
+		coerceToolArgTypes(params, args)
+		assert.Equalf(t, want, args["enabled"], "coercing %q", raw)
+	}
+}
+
+func TestCoerceToolArgTypes_LeavesUnknownTypesAlone(t *testing.T) {
+	params := map[string]domain.ToolParam{"name": {Type: "string"}}
+	args := map[string]any{"name": "foo"}
+	coerceToolArgTypes(params, args)
+	assert.Equal(t, "foo", args["name"])
+}
+
+func TestCoerceToolArgTypes_UnparsableStringLeftAsIs(t *testing.T) {
+	params := map[string]domain.ToolParam{"id": {Type: "integer"}}
+	args := map[string]any{"id": "not-a-number"}
+	coerceToolArgTypes(params, args)
+	assert.Equal(t, "not-a-number", args["id"], "an unparsable value is left for the tool to reject")
 }
 
 // TestParamAliasKeysMatchToolParams sanity-checks that the canonical param

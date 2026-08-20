@@ -21,8 +21,6 @@ package agent
 import (
 	"errors"
 	"fmt"
-	"strconv"
-	"strings"
 
 	"github.com/kdeps/kdeps/v2/pkg/domain"
 	kdepstools "github.com/kdeps/kdeps/v2/pkg/tools"
@@ -106,14 +104,12 @@ func (l *Loop) settleTask(args map[string]any, status GoalTaskStatus) (string, e
 
 	id, ok := toolArgInt(args, "id")
 	if !ok {
-		// Some backends' models persistently call this with "task_id" instead
-		// of the declared "id" param (m365's fenced protocol has no schema
-		// enforcement to catch it) -- accept it rather than looping the model
-		// on a naming mismatch it won't self-correct.
-		id, ok = toolArgInt(args, "task_id")
-	}
-	if !ok {
-		return "", fmt.Errorf("id is required (the active task is %d)", active.ID)
+		// No usable id at all (a naming mismatch the caller's alias table
+		// didn't already catch, or the model just omitted it). With exactly
+		// one active task there is only one thing it could mean, so default
+		// to it rather than making the model retry a parameter it apparently
+		// can't supply.
+		id = active.ID
 	}
 	if id != active.ID {
 		// Settling a task other than the active one — reaching back to reopen
@@ -146,26 +142,15 @@ func (l *Loop) settleTask(args map[string]any, status GoalTaskStatus) (string, e
 		settledID, status, next.ID, next.Desc), nil
 }
 
-// toolArgInt reads an integer tool argument, accepting the float64 that JSON
-// decoding produces, a plain int, or a numeric string. The string case
-// matters for backends like m365 whose fenced (non-native) tool-calling
-// protocol sometimes has the model quote a numeric id, e.g. "id": "1"
-// instead of "id": 1.
+// toolArgInt reads an integer tool argument. Callers reached through normal
+// tool dispatch already have coerceToolArgTypes's work done for them (see
+// tool_aliases.go); this also accepts a numeric string directly so callers
+// that build args by hand (tests, or settleTask's own defaulting) don't need
+// to route through that layer first.
 func toolArgInt(args map[string]any, key string) (int, bool) {
-	switch v := args[key].(type) {
-	case float64:
-		return int(v), true
-	case int:
-		return v, true
-	case int64:
-		return int(v), true
-	case string:
-		n, err := strconv.Atoi(strings.TrimSpace(v))
-		if err != nil {
-			return 0, false
-		}
-		return n, true
-	default:
+	n, ok := toolArgNumber(args[key])
+	if !ok {
 		return 0, false
 	}
+	return int(n), true
 }

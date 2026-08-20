@@ -228,6 +228,9 @@ func (l *Loop) dispatchReactTool(toolName, toolInput string) string {
 		// Non-JSON input: treat as a single "input" argument.
 		args = map[string]interface{}{"input": toolInput}
 	}
+	canonical := l.registry.ResolveAlias(toolName)
+	normalizeToolArgs(canonical, args)
+	coerceToolArgTypes(tool.Parameters, args)
 	result, err := tool.Execute(args)
 	if err != nil {
 		return fmt.Sprintf(`{"error":"%s"}`, err.Error())

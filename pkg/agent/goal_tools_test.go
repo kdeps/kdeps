@@ -62,19 +62,15 @@ func TestSettleTask_RejectsWrongID(t *testing.T) {
 	}
 }
 
-func TestSettleTask_MissingIDIsRefused(t *testing.T) {
-	l := loopWithGoal("a")
-	if _, err := l.settleTask(map[string]any{"summary": "no id"}, GoalTaskDone); err == nil {
-		t.Fatal("a missing id must be refused")
-	}
-}
-
-func TestSettleTask_AcceptsTaskIDAlias(t *testing.T) {
+// A missing id has exactly one sensible reading with a single active task:
+// the active one. Defaulting instead of refusing avoids looping the model on
+// a parameter it apparently can't supply.
+func TestSettleTask_MissingIDDefaultsToActiveTask(t *testing.T) {
 	l := loopWithGoal("a", "b")
 
-	out, err := l.settleTask(map[string]any{"task_id": float64(1), "summary": "did a"}, GoalTaskDone)
+	out, err := l.settleTask(map[string]any{"summary": "no id"}, GoalTaskDone)
 	if err != nil {
-		t.Fatalf("a model calling with task_id instead of id must still be accepted: %v", err)
+		t.Fatalf("a missing id should default to the active task, got error: %v", err)
 	}
 	if !strings.Contains(out, "active task is now 2") {
 		t.Fatalf("result should name the next active task: %q", out)
