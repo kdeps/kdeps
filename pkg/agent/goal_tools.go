@@ -106,6 +106,13 @@ func (l *Loop) settleTask(args map[string]any, status GoalTaskStatus) (string, e
 
 	id, ok := toolArgInt(args, "id")
 	if !ok {
+		// Some backends' models persistently call this with "task_id" instead
+		// of the declared "id" param (m365's fenced protocol has no schema
+		// enforcement to catch it) -- accept it rather than looping the model
+		// on a naming mismatch it won't self-correct.
+		id, ok = toolArgInt(args, "task_id")
+	}
+	if !ok {
 		return "", fmt.Errorf("id is required (the active task is %d)", active.ID)
 	}
 	if id != active.ID {

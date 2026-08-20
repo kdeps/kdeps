@@ -69,6 +69,18 @@ func TestSettleTask_MissingIDIsRefused(t *testing.T) {
 	}
 }
 
+func TestSettleTask_AcceptsTaskIDAlias(t *testing.T) {
+	l := loopWithGoal("a", "b")
+
+	out, err := l.settleTask(map[string]any{"task_id": float64(1), "summary": "did a"}, GoalTaskDone)
+	if err != nil {
+		t.Fatalf("a model calling with task_id instead of id must still be accepted: %v", err)
+	}
+	if !strings.Contains(out, "active task is now 2") {
+		t.Fatalf("result should name the next active task: %q", out)
+	}
+}
+
 func TestSettleTask_ReportsGoalCompletion(t *testing.T) {
 	l := loopWithGoal("only task")
 
