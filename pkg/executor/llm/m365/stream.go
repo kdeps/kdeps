@@ -288,14 +288,20 @@ func (s *CopilotStream) handleFrame(conn *websocket.Conn, env signalRFrame, raw 
 	}
 }
 
-// handleStreamItem mines the final "type:2" item for throttle/scores/state.
+// handleStreamItem mines the final "type:2" item for throttle/scores/state,
+// and -- since some turns never send their answer as an incremental type:1
+// update, only in this authoritative snapshot -- also surfaces its text.
+// Without that, such a turn produces zero visible output even though the
+// server did answer (confirmed live: m365-copilot's "auto" tone completing
+// with completion_tokens=0 despite the service actually responding).
 func (s *CopilotStream) handleStreamItem(raw string) {
 	var item streamItem
 	if json.Unmarshal([]byte(raw), &item) != nil || item.Item == nil {
 		return
 	}
+
+	var text string
 	s.mu.Lock()
-	defer s.mu.Unlock()
 	if item.Item.TurnState != "" {
 		s.turnState = item.Item.TurnState
 	}
@@ -310,7 +316,35 @@ func (s *CopilotStream) handleStreamItem(raw string) {
 			continue
 		}
 		s.mineMessageLocked(m)
+		if visible, ok := visibleBotText(m); ok {
+			text = visible
+		}
 	}
+	s.mu.Unlock()
+
+	// advance's own fold logic (foldStreamText) is idempotent against text
+	// already emitted by an earlier type:1 update, so calling it here
+	// unconditionally is safe even when deltas already streamed the answer.
+	if text != "" {
+		s.advance(text)
+	}
+}
+
+// visibleBotText reports the text of a bot message that represents the
+// user-visible answer, as opposed to a structural/metadata-only message
+// (a search step, a card, a suggestion). The service tags the plain answer
+// with either an empty messageType or "Chat" -- the latter is explicitly one
+// of the types kdeps' own allowedMessageTypes list (buildChatArgs) asks the
+// server to send, but was previously never treated as visible content here,
+// silently dropping the answer for any turn that arrives tagged that way.
+func visibleBotText(m botMessage) (string, bool) {
+	if m.Author != "bot" || m.Text == "" {
+		return "", false
+	}
+	if m.MessageType == "" || m.MessageType == "Chat" {
+		return m.Text, true
+	}
+	return "", false
 }
 
 // handleUpdate processes "type:1 target:update" argument frames.
@@ -332,8 +366,8 @@ func (s *CopilotStream) handleUpdate(arguments []json.RawMessage) {
 					s.mineMessageLocked(m)
 					s.mu.Unlock()
 				}
-				if m.Author == "bot" && m.Text != "" && m.MessageType == "" {
-					s.advance(m.Text)
+				if text, ok := visibleBotText(m); ok {
+					s.advance(text)
 				}
 			}
 			continue

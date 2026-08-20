@@ -189,6 +189,95 @@ func TestCopilotSessionChatMessageUpdateAndThrottleUpdate(t *testing.T) {
 	}
 }
 
+// A turn whose answer arrives only in the final authoritative "type:2" item
+// (no incremental writeAtCursor or type:1 messages update beforehand) must
+// still surface as content -- confirmed live as the m365-copilot "auto" tone
+// bug: completion_tokens=0 despite the service actually answering, because
+// handleStreamItem previously mined metadata but never extracted the text.
+func TestCopilotSessionChatFinalItemOnlyAnswer_EmptyMessageType(t *testing.T) {
+	srv := newFakeChatServer(t, []string{
+		`{"type":2,"item":{"messages":[{"author":"bot","text":"final only","messageId":"m1"}],"turnState":"Completed"}}`,
+	})
+	withChatWSBase(t, srv.wsURL())
+
+	sess := NewCopilotSession(CopilotSessionOptions{})
+	stream, err := sess.Chat(context.Background(), testJWT(t), "hi", "m365-copilot")
+	if err != nil {
+		t.Fatal(err)
+	}
+	drainDeltas(stream)
+	if serr := stream.Err(); serr != nil {
+		t.Fatalf("stream error: %v", serr)
+	}
+	if !stream.HasContent() || stream.FullText() != "final only" {
+		t.Errorf("FullText = %q, HasContent = %v", stream.FullText(), stream.HasContent())
+	}
+}
+
+// Same as above, but the answer is tagged messageType "Chat" -- one of the
+// types kdeps' own allowedMessageTypes list asks the server for, previously
+// silently dropped because only an exactly-empty messageType counted.
+func TestCopilotSessionChatFinalItemOnlyAnswer_ChatMessageType(t *testing.T) {
+	srv := newFakeChatServer(t, []string{
+		`{"type":2,"item":{"messages":[{"author":"bot","text":"chat typed","messageId":"m1","messageType":"Chat"}],"turnState":"Completed"}}`,
+	})
+	withChatWSBase(t, srv.wsURL())
+
+	sess := NewCopilotSession(CopilotSessionOptions{})
+	stream, err := sess.Chat(context.Background(), testJWT(t), "hi", "m365-copilot")
+	if err != nil {
+		t.Fatal(err)
+	}
+	drainDeltas(stream)
+	if !stream.HasContent() || stream.FullText() != "chat typed" {
+		t.Errorf("FullText = %q, HasContent = %v", stream.FullText(), stream.HasContent())
+	}
+}
+
+// A type:1 full-text "messages" snapshot (not writeAtCursor) tagged "Chat"
+// must also be surfaced -- the same gap as the final-item case, but on the
+// incremental-update path.
+func TestCopilotSessionChatMessageUpdate_ChatMessageType(t *testing.T) {
+	srv := newFakeChatServer(t, []string{
+		`{"type":1,"target":"update","arguments":[{"messages":[{"author":"bot","text":"update chat typed","messageType":"Chat"}]}]}`,
+	})
+	withChatWSBase(t, srv.wsURL())
+
+	sess := NewCopilotSession(CopilotSessionOptions{})
+	stream, err := sess.Chat(context.Background(), testJWT(t), "hi", "m365-copilot")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var got strings.Builder
+	for d := range stream.Deltas() {
+		got.WriteString(d)
+	}
+	if got.String() != "update chat typed" {
+		t.Errorf("deltas = %q", got.String())
+	}
+}
+
+// A message tagged with a structural/metadata type (not the plain answer)
+// must still be excluded from visible content -- guards against a filter
+// broadened so far it treats every message as the answer.
+func TestCopilotSessionChatMessageUpdate_NonAnswerTypeExcluded(t *testing.T) {
+	srv := newFakeChatServer(t, []string{
+		`{"type":1,"target":"update","arguments":[{"messages":[{"author":"bot","text":"searching...","messageType":"InternalSearchQuery"}]}]}`,
+		`{"type":3}`,
+	})
+	withChatWSBase(t, srv.wsURL())
+
+	sess := NewCopilotSession(CopilotSessionOptions{})
+	stream, err := sess.Chat(context.Background(), testJWT(t), "hi", "m365-copilot")
+	if err != nil {
+		t.Fatal(err)
+	}
+	drainDeltas(stream)
+	if stream.HasContent() || stream.FullText() != "" {
+		t.Errorf("non-answer messageType must not surface as content, got FullText = %q", stream.FullText())
+	}
+}
+
 func TestCopilotSessionChatPingAndCompletionError(t *testing.T) {
 	srv := newFakeChatServer(t, []string{
 		`{"type":6}`, // keep-alive; client echoes and continues
