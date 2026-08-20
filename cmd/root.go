@@ -29,6 +29,7 @@ import (
 	"github.com/kdeps/kdeps/v2/pkg/config"
 	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
 	kdepslog "github.com/kdeps/kdeps/v2/pkg/log"
+	kupgrade "github.com/kdeps/kdeps/v2/pkg/upgrade"
 
 	"github.com/spf13/cobra"
 )
@@ -148,6 +149,7 @@ func runRootPersistentPreRun(cmd *cobra.Command) {
 	initRootLogging(cmd)
 	bootstrapRootConfig()
 	maybeEnableInstrumentation(cmd)
+	kupgrade.CleanupOldBinary()
 }
 
 func initRootLogging(cmd *cobra.Command) {

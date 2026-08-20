@@ -24,6 +24,8 @@ import (
 	"os"
 	"path/filepath"
 	"time"
+
+	"github.com/kdeps/kdeps/v2/pkg/version"
 )
 
 // checkCacheTTL is how long a cached check result is trusted before
@@ -60,12 +62,22 @@ var nowFunc = time.Now
 // Otherwise it performs a live Check and persists the result for next time.
 // A cache read/write failure never blocks the check itself -- worst case is
 // a redundant live check next launch.
+//
+// The cached entry's Current is never trusted for the comparison: it
+// reflects whatever binary happened to write the cache file, which may be
+// an older one from before the user upgraded. Only Latest (the GitHub
+// lookup result, unaffected by which local binary is running) is reused
+// from cache; Current always comes from the live pkg/version.Version --
+// otherwise a binary that's already current keeps reporting an update
+// available for up to checkCacheTTL after the upgrade, replaying a stale
+// comparison against its own predecessor's version.
 func CachedOrFresh(ctx context.Context) (CheckResult, error) {
 	if entry, ok := readCache(); ok && nowFunc().Sub(entry.CheckedAt) < checkCacheTTL {
+		current := version.Version
 		return CheckResult{
-			Current:   entry.Current,
+			Current:   current,
 			Latest:    entry.Latest,
-			Available: versionLess(entry.Current, entry.Latest),
+			Available: versionLess(current, entry.Latest),
 		}, nil
 	}
 	return Fresh(ctx)

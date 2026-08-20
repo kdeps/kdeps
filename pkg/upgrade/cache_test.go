@@ -28,6 +28,8 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/kdeps/kdeps/v2/pkg/version"
 )
 
 // setTestHome points os.UserHomeDir at an isolated temp dir for the
@@ -69,6 +71,34 @@ func TestCachedOrFresh_UsesFreshCache(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, 1, calls, "second call must be served from cache, not a live check")
 	assert.Equal(t, "2.9.0", result.Latest)
+}
+
+// TestCachedOrFresh_IgnoresStaleCachedCurrent reproduces the real-world bug
+// report: kdeps checks and caches an "update available" result, the user
+// upgrades, and the new binary -- a different process, so a different
+// version.Version -- reads the still-fresh cache within checkCacheTTL. The
+// cached Current (written by the old binary) must never be trusted; Current
+// always has to reflect the binary that's actually running right now.
+func TestCachedOrFresh_IgnoresStaleCachedCurrent(t *testing.T) {
+	setTestHome(t, t.TempDir())
+	stubLatestStable(t, func(context.Context, string) (string, error) { return "2.11.2", nil })
+
+	origVersion := version.Version
+	t.Cleanup(func() { version.Version = origVersion })
+
+	// Old binary (2.11.0) runs the check; caches "update available: 2.11.0 -> 2.11.2".
+	version.Version = "2.11.0"
+	first, err := Fresh(context.Background())
+	require.NoError(t, err)
+	require.True(t, first.Available)
+
+	// User upgrades; a new process (this one, simulated) is now v2.11.2 and
+	// reads the still-fresh cache written by the old binary above.
+	version.Version = "2.11.2"
+	result, err := CachedOrFresh(context.Background())
+	require.NoError(t, err)
+	assert.Equal(t, "2.11.2", result.Current, "Current must reflect the live running version, not the stale cache")
+	assert.False(t, result.Available, "must not report an update available when already on the latest version")
 }
 
 func TestCachedOrFresh_ExpiredCacheGoesLiveAgain(t *testing.T) {
