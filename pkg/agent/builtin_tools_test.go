@@ -1915,18 +1915,22 @@ func TestReadFile_EmptyFilePath(t *testing.T) {
 }
 
 func TestReadFile_RelativePath(t *testing.T) {
-	dir := t.TempDir()
-	require.NoError(t, os.WriteFile(filepath.Join(dir, "foo.txt"), []byte("hi"), 0600))
-	oldWD, err := os.Getwd()
+	// os.Chdir is process-wide and races with any parallel test in this
+	// package doing its own relative-path I/O, so this creates its fixture
+	// in the real ambient working directory (a unique name, cleaned up via
+	// defer) instead of chdir-ing into a t.TempDir().
+	f, err := os.CreateTemp(".", "kdeps_read_test_*.txt")
 	require.NoError(t, err)
-	require.NoError(t, os.Chdir(dir))
-	defer func() { _ = os.Chdir(oldWD) }()
+	relName := f.Name()
+	defer func() { _ = os.Remove(relName) }()
+	require.NoError(t, os.WriteFile(relName, []byte("hi"), 0600))
+	require.NoError(t, f.Close())
 
 	reg := kdepstools.NewRegistry()
 	registerReadFile(reg)
 	tool := reg.Get("read_file")
 	require.NotNil(t, tool)
-	out, err := tool.Execute(map[string]any{"file_path": "foo.txt"})
+	out, err := tool.Execute(map[string]any{"file_path": relName})
 	require.NoError(t, err, "a relative path must resolve against the working directory")
 	assert.Contains(t, out, "hi")
 }
@@ -2140,19 +2144,22 @@ func TestWriteFile_EmptyFilePath(t *testing.T) {
 }
 
 func TestWriteFile_RelativePath(t *testing.T) {
-	dir := t.TempDir()
-	oldWD, err := os.Getwd()
+	// Reserve a unique relative name in the real ambient working directory
+	// instead of chdir-ing (process-wide, races with parallel tests).
+	f, err := os.CreateTemp(".", "kdeps_write_test_*.txt")
 	require.NoError(t, err)
-	require.NoError(t, os.Chdir(dir))
-	defer func() { _ = os.Chdir(oldWD) }()
+	relName := f.Name()
+	require.NoError(t, f.Close())
+	require.NoError(t, os.Remove(relName)) // let write_file create it fresh
+	defer func() { _ = os.Remove(relName) }()
 
 	reg := kdepstools.NewRegistry()
 	registerWriteFile(reg)
 	tool := reg.Get("write_file")
 	require.NotNil(t, tool)
-	_, err = tool.Execute(map[string]any{"file_path": "foo.txt", "content": "data"})
+	_, err = tool.Execute(map[string]any{"file_path": relName, "content": "data"})
 	require.NoError(t, err, "a relative path must resolve against the working directory")
-	data, rerr := os.ReadFile(filepath.Join(dir, "foo.txt"))
+	data, rerr := os.ReadFile(relName)
 	require.NoError(t, rerr)
 	assert.Equal(t, "data", string(data))
 }
@@ -2369,22 +2376,25 @@ func TestRegisterEditFile_Execute_MissingPath(t *testing.T) {
 }
 
 func TestRegisterEditFile_Execute_RelativePath(t *testing.T) {
-	dir := t.TempDir()
-	require.NoError(t, os.WriteFile(filepath.Join(dir, "foo.txt"), []byte("hello world"), 0600))
-	oldWD, err := os.Getwd()
+	// Fixture lives in the real ambient working directory (unique name, via
+	// defer cleanup) rather than a chdir'd t.TempDir(): os.Chdir is
+	// process-wide and races with any parallel test's own relative-path I/O.
+	f, err := os.CreateTemp(".", "kdeps_edit_test_*.txt")
 	require.NoError(t, err)
-	require.NoError(t, os.Chdir(dir))
-	defer func() { _ = os.Chdir(oldWD) }()
+	relName := f.Name()
+	defer func() { _ = os.Remove(relName) }()
+	require.NoError(t, os.WriteFile(relName, []byte("hello world"), 0600))
+	require.NoError(t, f.Close())
 
 	reg := kdepstools.NewRegistry()
 	registerEditFile(reg)
 	tool := reg.Get("edit_file")
 	require.NotNil(t, tool)
 	_, err = tool.Execute(
-		map[string]any{"file_path": "foo.txt", "old_string": "hello", "new_string": "goodbye"},
+		map[string]any{"file_path": relName, "old_string": "hello", "new_string": "goodbye"},
 	)
 	require.NoError(t, err, "a relative path must resolve against the working directory")
-	data, rerr := os.ReadFile(filepath.Join(dir, "foo.txt"))
+	data, rerr := os.ReadFile(relName)
 	require.NoError(t, rerr)
 	assert.Equal(t, "goodbye world", string(data))
 }
@@ -2501,20 +2511,17 @@ func TestRegisterListFiles_Execute_MissingPath(t *testing.T) {
 }
 
 func TestRegisterListFiles_Execute_RelativePath(t *testing.T) {
-	dir := t.TempDir()
-	require.NoError(t, os.WriteFile(filepath.Join(dir, "foo.txt"), []byte("hi"), 0600))
-	oldWD, err := os.Getwd()
-	require.NoError(t, err)
-	require.NoError(t, os.Chdir(dir))
-	defer func() { _ = os.Chdir(oldWD) }()
-
+	// Lists the real ambient working directory ("." resolves there) instead
+	// of chdir-ing into a t.TempDir(): os.Chdir is process-wide and races
+	// with any parallel test's own relative-path I/O. go test always runs
+	// with the package directory as CWD, so this file is guaranteed present.
 	reg := kdepstools.NewRegistry()
 	registerListFiles(reg)
 	tool := reg.Get("list_files")
 	require.NotNil(t, tool)
 	out, err := tool.Execute(map[string]any{"path": "."})
 	require.NoError(t, err, "a relative path must resolve against the working directory")
-	assert.Contains(t, out, "foo.txt")
+	assert.Contains(t, out, "builtin_tools_test.go")
 }
 
 func TestRegisterListFiles_Execute_Success(t *testing.T) {
