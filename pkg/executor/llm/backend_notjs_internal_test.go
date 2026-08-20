@@ -619,6 +619,44 @@ func TestBuildOpenAICompatLLM_UnknownBackend(t *testing.T) {
 	assert.NotNil(t, model)
 }
 
+func TestBuildM365LLM_UsesLocalProxyWhenBaseURLEmpty(t *testing.T) {
+	t.Setenv("OPENAI_API_KEY", "")
+	cfg := &domain.ChatConfig{Model: "m365-copilot", Backend: backendM365}
+	model, err := buildM365LLM(cfg)
+	require.NoError(t, err)
+	assert.NotNil(t, model)
+	// buildM365LLM must not mutate the caller's cfg in place.
+	assert.Empty(t, cfg.BaseURL)
+}
+
+func TestBuildM365LLM_RespectsExplicitBaseURL(t *testing.T) {
+	cfg := &domain.ChatConfig{Model: "m365-copilot", Backend: backendM365, BaseURL: "http://127.0.0.1:19999"}
+	model, err := buildM365LLM(cfg)
+	require.NoError(t, err)
+	assert.NotNil(t, model)
+	assert.Equal(t, "http://127.0.0.1:19999", cfg.BaseURL)
+}
+
+func TestBuildLangchainLLM_M365Backend(t *testing.T) {
+	t.Setenv("OPENAI_API_KEY", "")
+	cfg := &domain.ChatConfig{Model: "m365-copilot", Backend: backendM365}
+	model, err := buildLangchainLLM(t.Context(), cfg)
+	require.NoError(t, err, "m365 must not require OPENAI_API_KEY")
+	assert.NotNil(t, model)
+}
+
+func TestBuildOpenAICompatLLM_M365NoAuthRequired(t *testing.T) {
+	t.Setenv("OPENAI_API_KEY", "")
+	cfg := &domain.ChatConfig{
+		Model:   "m365-copilot",
+		Backend: backendM365,
+		BaseURL: "http://127.0.0.1:19999",
+	}
+	model, err := buildOpenAICompatLLM(cfg, backendM365)
+	require.NoError(t, err)
+	assert.NotNil(t, model)
+}
+
 func TestBuildLangchainLLM_FileBackend(t *testing.T) {
 	cfg := &domain.ChatConfig{Model: "test-model", Backend: BackendFile}
 	model, err := buildLangchainLLM(t.Context(), cfg)

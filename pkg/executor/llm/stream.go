@@ -147,6 +147,9 @@ func buildLangchainLLM(ctx context.Context, cfg *domain.ChatConfig) (llms.Model,
 				model, err = buildOpenAICompatLLM(cfg, backend)
 			}
 
+		case backendM365:
+			model, err = buildM365LLM(cfg)
+
 		default:
 			model, err = buildOpenAICompatLLM(cfg, backend)
 		}
@@ -175,7 +178,7 @@ func buildOpenAICompatLLM(cfg *domain.ChatConfig, backend string) (llms.Model, e
 	apiKey := os.Getenv(providerAPIKeyEnvVar(backend))
 	// Local servers don't require auth.
 	if apiKey == "" && (backend == BackendFile || backend == BackendGGUF ||
-		backend == backendOllama || backend == "local") {
+		backend == backendOllama || backend == "local" || backend == backendM365) {
 		apiKey = backendOllama
 	}
 
@@ -197,6 +200,26 @@ func buildOpenAICompatLLM(cfg *domain.ChatConfig, backend string) (llms.Model, e
 	}
 
 	return lcopenai.New(opts...)
+}
+
+// buildM365LLM points cfg at the shared local M365 Copilot proxy server
+// (backend_m365.go's sharedM365Server -- the same one workflow mode's
+// M365Backend.DefaultURL() uses) before building an OpenAI-compatible
+// client. m365 speaks OpenAI's chat/completions wire format through that
+// local proxy, not a real OpenAI account, so there is no API key involved
+// -- without this, backend "m365" falls through buildOpenAICompatLLM's
+// default OpenAI base URL and demands OPENAI_API_KEY.
+func buildM365LLM(cfg *domain.ChatConfig) (llms.Model, error) {
+	if cfg.BaseURL == "" {
+		url, err := sharedM365Server.baseURLOnce()
+		if err != nil {
+			return nil, fmt.Errorf("m365: start local proxy: %w", err)
+		}
+		cfgCopy := *cfg
+		cfgCopy.BaseURL = url
+		cfg = &cfgCopy
+	}
+	return buildOpenAICompatLLM(cfg, backendM365)
 }
 
 // buildNativeOllamaLLM constructs a native Ollama LLM when Ollama-specific options
