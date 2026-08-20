@@ -105,8 +105,14 @@ func TestSettleTask_NoGoalIsAnError(t *testing.T) {
 }
 
 func TestToolArgInt(t *testing.T) {
-	cases := map[string]any{"float": float64(3), "int": 4, "int64": int64(5)}
-	want := map[string]int{"float": 3, "int": 4, "int64": 5}
+	cases := map[string]any{
+		"float":  float64(3),
+		"int":    4,
+		"int64":  int64(5),
+		"string": "6",
+		"padded": " 7 ",
+	}
+	want := map[string]int{"float": 3, "int": 4, "int64": 5, "string": 6, "padded": 7}
 	for key, raw := range cases {
 		got, ok := toolArgInt(map[string]any{key: raw}, key)
 		if !ok || got != want[key] {

@@ -21,6 +21,8 @@ package agent
 import (
 	"errors"
 	"fmt"
+	"strconv"
+	"strings"
 
 	"github.com/kdeps/kdeps/v2/pkg/domain"
 	kdepstools "github.com/kdeps/kdeps/v2/pkg/tools"
@@ -138,7 +140,10 @@ func (l *Loop) settleTask(args map[string]any, status GoalTaskStatus) (string, e
 }
 
 // toolArgInt reads an integer tool argument, accepting the float64 that JSON
-// decoding produces as well as a plain int.
+// decoding produces, a plain int, or a numeric string. The string case
+// matters for backends like m365 whose fenced (non-native) tool-calling
+// protocol sometimes has the model quote a numeric id, e.g. "id": "1"
+// instead of "id": 1.
 func toolArgInt(args map[string]any, key string) (int, bool) {
 	switch v := args[key].(type) {
 	case float64:
@@ -147,6 +152,12 @@ func toolArgInt(args map[string]any, key string) (int, bool) {
 		return v, true
 	case int64:
 		return int(v), true
+	case string:
+		n, err := strconv.Atoi(strings.TrimSpace(v))
+		if err != nil {
+			return 0, false
+		}
+		return n, true
 	default:
 		return 0, false
 	}
