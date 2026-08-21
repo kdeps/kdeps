@@ -108,9 +108,18 @@ loop walks a cursor through the list that only ever moves forward, so a model
 cannot circle back over finished work or stall on a task until a budget expires.
 
 ```text
-prompt -> decompose into tasks -> [task 1] -> [task 2] -> ... -> answer
+prompt -> decompose into tasks -> confirm -> [task 1] -> [task 2] -> ... -> answer
                                      ^ only the active task is in scope
 ```
+
+**Confirming the plan.** Reaching the original prompt's goal can take several
+intermediate tasks, and a single decomposition call can misorder, omit, or
+invent a step. Once decomposition produces more than one task, an independent
+second LLM call reviews the candidate list against the original request and
+either approves it unchanged or returns a corrected list — the plan the loop
+actually runs is always the confirmed one. A single-task plan skips this
+(nothing to reorder), and a failed or unparsable confirmation falls back to
+the original candidate rather than blocking the turn.
 
 **How a task is settled.** The model cannot finish a task by saying so in prose.
 It calls one of two tools and the code validates the id against the active task:

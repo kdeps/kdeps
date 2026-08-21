@@ -21,6 +21,7 @@ package agent
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"strings"
 
 	"github.com/kdeps/kdeps/v2/pkg/domain"
@@ -73,7 +74,28 @@ func planGoal(ctx context.Context, l *Loop, input string) *Goal {
 		// One repair attempt with a stricter instruction before giving up.
 		tasks = requestPlan(l, input, true)
 	}
+	// Reaching the original request from start to finish can take several
+	// intermediate tasks, and a single decomposition call can misorder,
+	// omit, or invent one -- confirm the candidate list with an independent
+	// second pass before it drives the loop. Only worth the extra call once
+	// there is more than one task to get wrong; a single-task plan has
+	// nothing to reorder or split.
+	if len(tasks) > 1 {
+		tasks = confirmPlan(l, input, tasks)
+	}
 	return NewGoal(input, tasks)
+}
+
+// localModelNotServed reports whether the configured backend is a local
+// model that has not been served yet. Attempting a planning/confirmation
+// call in that state would produce a failed engine.Execute instead of a
+// clean degrade, so callers check this before making the call at all.
+func localModelNotServed(l *Loop) bool {
+	if l.config.BaseURL != "" {
+		return false
+	}
+	backend := l.config.Backend
+	return backend == "" || backend == "file" || backend == "gguf"
 }
 
 // requestPlan performs a single decomposition call and parses the task list.
@@ -82,11 +104,8 @@ func requestPlan(l *Loop, input string, repair bool) []string {
 	// Local models must be served before the planner can call them. If the
 	// first-use download was skipped/declined, degrade to a single-task goal
 	// instead of a failed agent_loop_plan with {error: ...}.
-	if l.config.BaseURL == "" {
-		backend := l.config.Backend
-		if backend == "" || backend == "file" || backend == "gguf" {
-			return nil
-		}
+	if localModelNotServed(l) {
+		return nil
 	}
 	system := goalPlanSystemPrompt
 	if repair {
@@ -118,6 +137,61 @@ func requestPlan(l *Loop, input string, repair bool) []string {
 		return nil
 	}
 	return parsePlanTasks(formatLoopResult(result))
+}
+
+const goalConfirmActionID = "agent_loop_plan_confirm"
+
+const goalConfirmSystemPrompt = `You are reviewing a task list generated to accomplish a user request, checking it actually reaches the goal from start to finish.
+
+Reply with ONLY a JSON object, no prose and no code fence:
+{"tasks":["first concrete step","second concrete step"]}
+
+Rules:
+- If the given task list is correct, complete, and correctly ordered, return it unchanged.
+- If a step is missing, out of order, or unnecessary, return the corrected list instead.
+- Never add meta-steps like "understand the request" or "review the plan".
+- Maximum 12 tasks.`
+
+// confirmPlan asks the model to independently review a candidate
+// decomposition before it drives the loop -- a second pass that can either
+// approve the list as-is or return a corrected one, not a rubber stamp.
+// Never blocks or errors: an unparsable or failed confirmation call falls
+// back to the original candidate list unchanged, since a broken
+// verification pass must not be able to stall a turn.
+func confirmPlan(l *Loop, input string, candidate []string) []string {
+	if localModelNotServed(l) {
+		return candidate
+	}
+
+	var b strings.Builder
+	b.WriteString("Request:\n")
+	b.WriteString(input)
+	b.WriteString("\n\nCandidate task list:\n")
+	for i, t := range candidate {
+		fmt.Fprintf(&b, "%d. %s\n", i+1, t)
+	}
+
+	chatCfg := &domain.ChatConfig{
+		Model:   l.config.Model,
+		Backend: l.config.Backend,
+		BaseURL: l.config.BaseURL,
+		Role:    l.config.Role,
+		Prompt:  b.String(),
+		Scenario: []domain.ScenarioItem{
+			{Role: "system", Prompt: goalConfirmSystemPrompt},
+		},
+		JSONResponse: true,
+	}
+	synthetic := l.buildSyntheticWorkflow(goalConfirmActionID, chatCfg)
+	result, err := l.engine.Execute(synthetic, nil)
+	if err != nil {
+		return candidate
+	}
+	confirmed := parsePlanTasks(formatLoopResult(result))
+	if len(confirmed) == 0 {
+		return candidate
+	}
+	return confirmed
 }
 
 // parsePlanTasks extracts the task list from a model reply, tolerating a code

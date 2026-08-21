@@ -16,7 +16,11 @@ package agent
 
 import (
 	"context"
+	"errors"
 	"testing"
+
+	"github.com/kdeps/kdeps/v2/pkg/domain"
+	"github.com/kdeps/kdeps/v2/pkg/executor"
 )
 
 func TestParsePlanTasks(t *testing.T) {
@@ -82,6 +86,119 @@ func TestPlanGoal_FallsBackWithoutEngine(t *testing.T) {
 	}
 	if len(g.Tasks) != 1 || g.Tasks[0].Desc != "do the thing" {
 		t.Fatalf("expected a single fallback task, got %+v", g.Tasks)
+	}
+}
+
+func TestConfirmPlan_NoLocalServer(t *testing.T) {
+	for _, backend := range []string{"", "file", "gguf"} {
+		l := &Loop{config: Config{Backend: backend}}
+		candidate := []string{"a", "b"}
+		got := confirmPlan(l, "do something", candidate)
+		if len(got) != 2 || got[0] != "a" || got[1] != "b" {
+			t.Fatalf("backend %q: expected the unchanged candidate, got %v", backend, got)
+		}
+	}
+}
+
+func TestConfirmPlan_ApprovesAsIs(t *testing.T) {
+	eng := executor.NewEngine(nil)
+	eng.SetExecuteFunc(func(*domain.Workflow, interface{}) (interface{}, error) {
+		return `{"tasks":["a","b"]}`, nil
+	})
+	l := &Loop{engine: eng, workflow: newTestWorkflowForSession(), config: Config{Backend: "openai"}}
+
+	got := confirmPlan(l, "do something", []string{"a", "b"})
+	if len(got) != 2 || got[0] != "a" || got[1] != "b" {
+		t.Fatalf("expected the approved list unchanged, got %v", got)
+	}
+}
+
+func TestConfirmPlan_ReturnsCorrectedList(t *testing.T) {
+	var gotActionID string
+	eng := executor.NewEngine(nil)
+	eng.SetExecuteFunc(func(wf *domain.Workflow, _ interface{}) (interface{}, error) {
+		gotActionID = wf.Metadata.TargetActionID
+		return `{"tasks":["a","missing step","b"]}`, nil
+	})
+	l := &Loop{engine: eng, workflow: newTestWorkflowForSession(), config: Config{Backend: "openai"}}
+
+	got := confirmPlan(l, "do something", []string{"a", "b"})
+	if len(got) != 3 || got[1] != "missing step" {
+		t.Fatalf("expected the corrected list, got %v", got)
+	}
+	if gotActionID != goalConfirmActionID {
+		t.Errorf("action id = %q, want %q", gotActionID, goalConfirmActionID)
+	}
+}
+
+func TestConfirmPlan_FallsBackOnEngineError(t *testing.T) {
+	eng := executor.NewEngine(nil)
+	eng.SetExecuteFunc(func(*domain.Workflow, interface{}) (interface{}, error) {
+		return nil, errors.New("boom")
+	})
+	l := &Loop{engine: eng, workflow: newTestWorkflowForSession(), config: Config{Backend: "openai"}}
+
+	candidate := []string{"a", "b"}
+	got := confirmPlan(l, "do something", candidate)
+	if len(got) != 2 || got[0] != "a" || got[1] != "b" {
+		t.Fatalf("expected the unchanged candidate on error, got %v", got)
+	}
+}
+
+func TestConfirmPlan_FallsBackOnUnparsableReply(t *testing.T) {
+	eng := executor.NewEngine(nil)
+	eng.SetExecuteFunc(func(*domain.Workflow, interface{}) (interface{}, error) {
+		return "not json at all", nil
+	})
+	l := &Loop{engine: eng, workflow: newTestWorkflowForSession(), config: Config{Backend: "openai"}}
+
+	candidate := []string{"a", "b"}
+	got := confirmPlan(l, "do something", candidate)
+	if len(got) != 2 || got[0] != "a" || got[1] != "b" {
+		t.Fatalf("expected the unchanged candidate on unparsable reply, got %v", got)
+	}
+}
+
+// PlanGoal must only pay for the confirmation call when there is more than
+// one task to get wrong -- a single-task plan has nothing to reorder.
+func TestPlanGoal_SkipsConfirmationForSingleTask(t *testing.T) {
+	calls := 0
+	eng := executor.NewEngine(nil)
+	eng.SetExecuteFunc(func(*domain.Workflow, interface{}) (interface{}, error) {
+		calls++
+		return `{"tasks":["only step"]}`, nil
+	})
+	l := &Loop{engine: eng, workflow: newTestWorkflowForSession(), config: Config{Backend: "openai"}}
+
+	g := planGoal(context.Background(), l, "first do step one; then do step two; then verify everything works")
+	if len(g.Tasks) != 1 {
+		t.Fatalf("expected a single task, got %+v", g.Tasks)
+	}
+	if calls != 1 {
+		t.Errorf("expected exactly one engine call (decompose only, no confirm), got %d", calls)
+	}
+}
+
+// A multi-task decomposition must be run through the independent
+// confirmation pass before becoming the Goal.
+func TestPlanGoal_ConfirmsMultiTaskPlan(t *testing.T) {
+	var actionIDs []string
+	eng := executor.NewEngine(nil)
+	eng.SetExecuteFunc(func(wf *domain.Workflow, _ interface{}) (interface{}, error) {
+		actionIDs = append(actionIDs, wf.Metadata.TargetActionID)
+		if wf.Metadata.TargetActionID == goalConfirmActionID {
+			return `{"tasks":["step one","step two","step three"]}`, nil
+		}
+		return `{"tasks":["step one","step two"]}`, nil
+	})
+	l := &Loop{engine: eng, workflow: newTestWorkflowForSession(), config: Config{Backend: "openai"}}
+
+	g := planGoal(context.Background(), l, "first do step one; then do step two; then verify everything works")
+	if len(g.Tasks) != 3 {
+		t.Fatalf("expected the confirmed 3-task plan, got %+v", g.Tasks)
+	}
+	if len(actionIDs) != 2 || actionIDs[0] != goalPlanActionID || actionIDs[1] != goalConfirmActionID {
+		t.Fatalf("expected [plan, confirm] action id order, got %v", actionIDs)
 	}
 }
 
