@@ -1211,15 +1211,38 @@ func TestBuildChatArgsNoCodeInterpreterEnv(t *testing.T) {
 // tools, which still went out in the prompt and are then ignored. Confirmed
 // live: a think-deeper turn with tools registered used the server's own bash
 // sandbox against an empty /mnt/data instead of kdeps' local-filesystem
-// tools, reporting "no project found" for a real, populated repository.
+// tools, reporting "no project found" for a real, populated repository. Gated
+// on HasTools, not WantedAgent, so this holds even on a Claude-tone turn
+// (which never wants an M365 agent) as long as real tools exist.
 func TestBuildChatArgs_WantedAgentSuppressesCodeInterpreterEvenAgentless(t *testing.T) {
-	s := NewCopilotSession(CopilotSessionOptions{WantedAgent: true})
+	s := NewCopilotSession(CopilotSessionOptions{WantedAgent: true, HasTools: true})
 	args := s.buildChatArgs("req", "hi", "m365-copilot", true)
 	opts, _ := args["optionsSets"].([]string)
 	for _, o := range opts {
 		if o == "cwc_code_interpreter" {
 			t.Errorf(
 				"code interpreter must stay off when the turn wanted an agent, got optionsSets = %v",
+				opts,
+			)
+		}
+	}
+}
+
+// The actual regression this gate was designed to prevent: a Claude-tone
+// turn never wants an M365 agent (WantedAgent stays false, by convention --
+// see ModelSession's doc comment), but if it has real tools to route through
+// fenced calls, the server's code interpreter must stay off. Before HasTools
+// existed, this case incorrectly unlocked it (the gate keyed on WantedAgent
+// alone), which would let a Claude-tone tool session silently answer from
+// M365's own sandbox exactly like the gpt-5.x reasoning-tone case above.
+func TestBuildChatArgs_HasToolsSuppressesCodeInterpreterEvenWithoutWantedAgent(t *testing.T) {
+	s := NewCopilotSession(CopilotSessionOptions{WantedAgent: false, HasTools: true})
+	args := s.buildChatArgs("req", "hi", "m365-copilot", true)
+	opts, _ := args["optionsSets"].([]string)
+	for _, o := range opts {
+		if o == "cwc_code_interpreter" {
+			t.Errorf(
+				"code interpreter must stay off when real tools exist, even agentless: got optionsSets = %v",
 				opts,
 			)
 		}

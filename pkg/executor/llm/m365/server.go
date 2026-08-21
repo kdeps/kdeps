@@ -202,7 +202,9 @@ func formatDeltaMessages(messages []Message) string {
 			}
 			parts = append(
 				parts,
-				"<tool_response name=\""+name+"\" call_id=\""+callID+"\">\n"+GetMessageContent(m)+"\n</tool_response>",
+				"<tool_response name=\""+name+"\" call_id=\""+callID+"\">\n"+GetMessageContent(
+					m,
+				)+"\n</tool_response>",
 			)
 		default:
 			parts = append(parts, "<"+m.Role+">\n"+GetMessageContent(m)+"\n</"+m.Role+">")
@@ -261,6 +263,11 @@ type completion struct {
 	hasTools     bool
 	useToolAgent bool
 	text         string
+	// runModel is the model name actually sent to ModelSession.Run, distinct
+	// from body.Model (which the response echoes back to the caller). Only
+	// the tone-fallback path in produce() diverges the two, so a caller never
+	// sees a "model" in the response different from what it requested.
+	runModel string
 
 	lastThrottle      *Throttle
 	lastContentOrigin string
@@ -284,6 +291,7 @@ func newCompletion(pool *SessionPool, body *chatRequest) *completion {
 		session:      conv.session,
 		hasTools:     hasTools,
 		useToolAgent: useToolAgent,
+		runModel:     body.Model,
 	}
 
 	// Full prompt on the first turn; a delta of new messages on follow-ups.
@@ -326,7 +334,11 @@ type produced struct {
 // (guarded by *agentRefreshed, shared across runBuffered's retry branches).
 // If the agent id changed, it resets c.text to originalText and sleeps
 // before the caller's retry. Returns true when the caller should retry.
-func (c *completion) tryRefreshAgent(ctx context.Context, agentRefreshed *bool, originalText string) bool {
+func (c *completion) tryRefreshAgent(
+	ctx context.Context,
+	agentRefreshed *bool,
+	originalText string,
+) bool {
 	if *agentRefreshed {
 		return false
 	}
@@ -351,7 +363,7 @@ func (c *completion) runBuffered(ctx context.Context, onDelta func(string)) (str
 	awaitDegradationBackoff(ctx)
 
 	for attempt := 0; attempt <= maxRetries; attempt++ {
-		stream, err := c.session.Run(ctx, c.text, c.body.Model, c.useToolAgent)
+		stream, err := c.session.Run(ctx, c.text, c.runModel, c.useToolAgent, c.hasTools)
 		if err != nil {
 			return "", upstreamError(err.Error())
 		}
@@ -490,6 +502,12 @@ func (c *completion) produce(ctx context.Context, onDelta func(string)) *produce
 		parsed = ParseToolCalls(fullText, c.body.Tools)
 	}
 
+	if fallbackText, fallbackParsed, ferr := c.toneFallback(ctx, parsed, everActed); ferr != nil {
+		return ferr
+	} else if fallbackParsed != nil {
+		fullText, parsed = fallbackText, *fallbackParsed
+	}
+
 	// Document guard: a prose answer full of code fences is not an action turn.
 	if IsProseDocument(parsed) {
 		parsed = ParseResult{HasToolCalls: false, TextContent: fullText}
@@ -510,6 +528,52 @@ func (c *completion) produce(ctx context.Context, onDelta func(string)) *produce
 		return &produced{kind: producedTools, toolCalls: parsed.ToolCalls}
 	}
 	return &produced{kind: producedText, text: fullText}
+}
+
+// toneFallback makes one more attempt through Claude tone when the turn still
+// has no real tool call after the confab/hallucination retry above, and the
+// reply still looks like a confabulation or hallucination. gpt-5.x
+// reasoning-tier tones have their own native code-interpreter habit that
+// ignores the no-sandbox system-prompt guidance and the fenced-retry
+// instruction outright -- confirmed live: a model fabricated a bash action
+// against M365's own /mnt/data sandbox, never once emitting a real fenced
+// tool call, and the confab retry above with the same model still failed the
+// same way. Claude tone does not have this native-tool-use habit.
+//
+// Deliberately still pattern-gated (unlike an earlier version of this check):
+// a plain-text, non-tool-call reply is frequently the correct answer --
+// either a genuine no-tools-needed response, or (once everActed is true) the
+// normal synthesis at the end of a successful tool-use turn -- so firing
+// unconditionally would burn an extra Claude-tone turn on ordinary replies.
+// This does mean some relapse phrasings that don't match either pattern slip
+// through uncaught (confirmed live: the model once ignored its own
+// successful tool_response and hallucinated a bash check instead, in
+// wording neither pattern caught) -- an accepted false-negative in exchange
+// for not taxing the common case.
+// Returns (text, parsed, nil) only when a fallback attempt actually ran; a
+// nil parsed means no fallback was needed or eligible.
+func (c *completion) toneFallback(
+	ctx context.Context,
+	parsed ParseResult,
+	everActed bool,
+) (string, *ParseResult, *produced) {
+	eligible := !parsed.HasToolCalls && os.Getenv("M365_NO_TONE_FALLBACK") == "" &&
+		!strings.HasPrefix(GetToneForModel(c.runModel), "Claude_") &&
+		(LooksLikeConfabulation(parsed.TextContent) ||
+			(!everActed && LooksLikeHallucinatedCompletion(parsed.TextContent)))
+	if !eligible {
+		return "", nil, nil
+	}
+	c.runModel = "claude"
+	c.useToolAgent = false
+	c.text = confabForcePrompt(c.body.Tools)
+	retryText, rerr := c.runBuffered(ctx, nil)
+	if rerr != nil {
+		return "", nil, rerr
+	}
+	c.conv.sentMessageCount = len(c.body.Messages)
+	fallbackParsed := ParseToolCalls(retryText, c.body.Tools)
+	return retryText, &fallbackParsed, nil
 }
 
 // finalizeToolCalls converts a synthetic reply() call back to plain text and
@@ -709,7 +773,10 @@ func (c *completion) usage() map[string]any {
 		u["x_m365_conversation_max"] = t.Max
 		pct := 0
 		if t.Max > 0 {
-			pct = minInt(percentScale, int(float64(t.Current)/float64(t.Max)*percentScale+roundHalf))
+			pct = minInt(
+				percentScale,
+				int(float64(t.Current)/float64(t.Max)*percentScale+roundHalf),
+			)
 		}
 		u["x_m365_conversation_pct"] = pct
 		u["x_m365_conversation_remaining"] = maxInt(0, t.Max-t.Current)
@@ -769,7 +836,12 @@ func toolCallsJSON(calls []ParsedToolCall) []any {
 }
 
 func upstreamError(msg string) *produced {
-	return &produced{kind: producedError, errStatus: http.StatusBadGateway, errMsg: msg, errType: "upstream_error"}
+	return &produced{
+		kind:      producedError,
+		errStatus: http.StatusBadGateway,
+		errMsg:    msg,
+		errType:   "upstream_error",
+	}
 }
 
 func rateLimitError(t *Throttle) *produced {
@@ -810,7 +882,11 @@ func writeJSON(w http.ResponseWriter, status int, body any) {
 }
 
 func writeError(w http.ResponseWriter, status int, message, errType string) {
-	writeJSON(w, status, map[string]any{"error": map[string]any{"message": message, "type": errType}})
+	writeJSON(
+		w,
+		status,
+		map[string]any{"error": map[string]any{"message": message, "type": errType}},
+	)
 }
 
 func sleep(ctx context.Context, d time.Duration) {

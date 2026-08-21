@@ -296,6 +296,102 @@ func TestServerChatCompletionConfabulationRetry(t *testing.T) {
 	}
 }
 
+// A reasoning-tone model can ignore the fenced-retry instruction too --
+// confirmed live: it fabricated a bash action against M365's own sandbox on
+// both the natural turn and the forced retry, never producing a real tool
+// call. The third attempt falls back to Claude tone, which must succeed
+// where the reasoning tone couldn't.
+func TestServerChatCompletionToneFallbackAfterRepeatedHallucination(t *testing.T) {
+	frames := [][]string{
+		successFrame("I cannot access the files, `/mnt/data` is empty"),
+		successFrame("I cannot access the files, `/mnt/data` is still empty"),
+		successFrame("```list_files\n/tmp\n```"),
+	}
+	srv, wsSrv := newTestServer(t, frames)
+	base := srv.URL
+
+	_, body := postChat(t, base, map[string]any{
+		"model":    "gpt-5.6-think-deeper",
+		"messages": []map[string]any{{"role": "user", "content": "list files"}},
+		"tools": []map[string]any{{
+			"type": "function",
+			"function": map[string]any{
+				"name": "list_files",
+				"parameters": map[string]any{
+					"properties": map[string]any{"path": map[string]any{"type": "string"}},
+				},
+			},
+		}},
+	})
+	choices, _ := body["choices"].([]any)
+	if len(choices) != 1 {
+		t.Fatalf("body = %+v", body)
+	}
+	choice := choices[0].(map[string]any)
+	if choice["finish_reason"] != "tool_calls" {
+		t.Fatalf("tone fallback should have produced a real tool call: %+v", body)
+	}
+	if wsSrv.turnCount() != 3 {
+		t.Errorf("expected the confab retry plus one tone-fallback retry (3 WS turns), got %d", wsSrv.turnCount())
+	}
+	// The response must still report the originally requested model, not the
+	// internal fallback tone.
+	if body["model"] != "gpt-5.6-think-deeper" {
+		t.Errorf("response model = %v, want the originally requested model", body["model"])
+	}
+	// The third (fallback) chat frame must carry the Claude tone.
+	frame := wsSrv.chats[2]
+	if !strings.Contains(frame, `"tone":"Claude_Sonnet"`) {
+		t.Errorf("fallback turn did not use Claude tone: %s", frame)
+	}
+}
+
+// Once a tool call has already succeeded earlier in the conversation, a
+// plain-text final reply with no new tool call is the normal, expected end
+// of a tool-use turn (the model synthesizing the result) -- it must NOT
+// trigger the Claude-tone fallback. Only the everActed-false (opening-turn)
+// case fires unconditionally; this guards the common case doesn't pay for it.
+func TestServerChatCompletionNoToneFallbackAfterSuccessfulToolCall(t *testing.T) {
+	frames := [][]string{successFrame("Here is a summary of what I found.")}
+	srv, wsSrv := newTestServer(t, frames)
+	base := srv.URL
+
+	_, body := postChat(t, base, map[string]any{
+		"model": "gpt-5.6-think-deeper",
+		"messages": []map[string]any{
+			{"role": "user", "content": "list files then summarize"},
+			{
+				"role": "assistant",
+				"tool_calls": []map[string]any{{
+					"id":       "call_1",
+					"function": map[string]any{"name": "list_files", "arguments": `{"path":"/tmp"}`},
+				}},
+			},
+			{"role": "tool", "tool_call_id": "call_1", "content": "a.txt\nb.txt"},
+		},
+		"tools": []map[string]any{{
+			"type": "function",
+			"function": map[string]any{
+				"name": "list_files",
+				"parameters": map[string]any{
+					"properties": map[string]any{"path": map[string]any{"type": "string"}},
+				},
+			},
+		}},
+	})
+	choices, _ := body["choices"].([]any)
+	if len(choices) != 1 {
+		t.Fatalf("body = %+v", body)
+	}
+	choice := choices[0].(map[string]any)
+	if choice["finish_reason"] != "stop" {
+		t.Fatalf("plain synthesis reply should not trigger a fallback retry: %+v", body)
+	}
+	if wsSrv.turnCount() != 1 {
+		t.Errorf("expected exactly one WS turn (no fallback), got %d", wsSrv.turnCount())
+	}
+}
+
 // A session with no shell tool must not be told to write a ```bash block on
 // retry -- BuildSpecMap only aliases that fence language onto a real tool
 // when a shell tool is registered, so asking for it here would never parse

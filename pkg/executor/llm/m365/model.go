@@ -37,7 +37,13 @@ type ModelSession struct {
 	// resolution keeps failing (currentAgentID stays "") while a caller that
 	// previously ran tool-less now wants tools.
 	currentWantedAgent bool
-	agentResolved      bool
+	// currentHasTools is whether the live copilotSession was built for a turn
+	// that had real fenced tools available, tracked separately from
+	// currentWantedAgent so a Claude-tone turn (which never wants an M365
+	// agent) still suppresses the server's own code interpreter when it has
+	// real tools to route through instead.
+	currentHasTools bool
+	agentResolved   bool
 }
 
 // ModelSessionOptions configures a ModelSession.
@@ -104,7 +110,13 @@ func (m *ModelSession) reset() {
 
 // Run sends one prompt and returns the streamed answer. wantAgentTurn lets a
 // caller suppress the agent for a single turn (e.g. to keep a Claude_* tone).
-func (m *ModelSession) Run(ctx context.Context, text, model string, wantAgentTurn bool) (*CopilotStream, error) {
+// hasTools records whether the caller has real fenced tools this turn,
+// independent of wantAgentTurn -- it keeps the server's own code interpreter
+// off whenever real tools exist, even on a turn that doesn't want an M365
+// agent.
+func (m *ModelSession) Run(
+	ctx context.Context, text, model string, wantAgentTurn, hasTools bool,
+) (*CopilotStream, error) {
 	kdeps_debug.Log("enter: ModelSession.Run")
 
 	token, err := m.resolveToken(ctx)
@@ -125,15 +137,18 @@ func (m *ModelSession) Run(ctx context.Context, text, model string, wantAgentTur
 		agentForTurn = m.cachedAgentID
 	}
 
-	if m.copilotSession == nil || m.currentAgentID != agentForTurn || m.currentWantedAgent != wantAgent {
+	if m.copilotSession == nil || m.currentAgentID != agentForTurn ||
+		m.currentWantedAgent != wantAgent || m.currentHasTools != hasTools {
 		m.copilotSession = NewCopilotSession(CopilotSessionOptions{
 			AgentID:        agentForTurn,
 			SessionID:      m.sessionID,
 			ConversationID: m.conversationID,
 			WantedAgent:    wantAgent,
+			HasTools:       hasTools,
 		})
 		m.currentAgentID = agentForTurn
 		m.currentWantedAgent = wantAgent
+		m.currentHasTools = hasTools
 	}
 
 	stream, err := m.copilotSession.Chat(ctx, token, text, model)
@@ -144,9 +159,11 @@ func (m *ModelSession) Run(ctx context.Context, text, model string, wantAgentTur
 			SessionID:      m.sessionID,
 			ConversationID: m.conversationID,
 			WantedAgent:    wantAgent,
+			HasTools:       hasTools,
 		})
 		m.currentAgentID = agentForTurn
 		m.currentWantedAgent = wantAgent
+		m.currentHasTools = hasTools
 		return m.copilotSession.Chat(ctx, token, text, model)
 	}
 	return stream, nil

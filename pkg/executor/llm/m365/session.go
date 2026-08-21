@@ -102,6 +102,7 @@ type CopilotSession struct {
 	conversationID string
 	agentID        string
 	wantedAgent    bool
+	hasTools       bool
 	turnCount      int
 }
 
@@ -112,15 +113,20 @@ type CopilotSessionOptions struct {
 	ConversationID string
 	// WantedAgent records whether the caller asked for tool-agent behavior
 	// this turn, independent of whether an agent id was actually resolved.
-	// AgentID == "" is ambiguous on its own: it means either "no tools were
-	// requested, agentless chat is correct" or "tools were requested but
-	// getOrCreateAgent silently failed to provision one" (model.go's Run
-	// treats that failure as non-fatal and falls back agentless). Only the
-	// first case should unlock the server's own code interpreter -- doing so
-	// in the second case lets the model silently answer from Microsoft's
-	// empty sandbox filesystem instead of kdeps' real local-filesystem
-	// tools, which still went out in the prompt and get ignored.
 	WantedAgent bool
+	// HasTools records whether the caller has real fenced tools to route
+	// calls through this turn. This -- not WantedAgent -- gates the server's
+	// own code interpreter: WantedAgent is false on a Claude-tone turn (which
+	// never wants an M365 agent) even when real tools exist, and AgentID ==
+	// "" is separately ambiguous on its own (it means either "no tools were
+	// requested, agentless chat is correct" or "tools were requested but
+	// getOrCreateAgent silently failed to provision one" -- model.go's Run
+	// treats that failure as non-fatal and falls back agentless). Only when
+	// there are truly no tools at all should the server's code interpreter
+	// unlock; otherwise the model can silently answer from Microsoft's empty
+	// sandbox filesystem instead of kdeps' real local-filesystem tools, which
+	// still went out in the prompt and get ignored.
+	HasTools bool
 }
 
 // NewCopilotSession creates a session, generating any IDs left unset.
@@ -131,6 +137,7 @@ func NewCopilotSession(opts CopilotSessionOptions) *CopilotSession {
 		conversationID: opts.ConversationID,
 		agentID:        opts.AgentID,
 		wantedAgent:    opts.WantedAgent,
+		hasTools:       opts.HasTools,
 	}
 	if s.sessionID == "" {
 		s.sessionID = uuid.NewString()
@@ -202,7 +209,7 @@ func (s *CopilotSession) Chat(ctx context.Context, token, text, model string) (*
 // buildChatArgs assembles the arguments[0] object of the chat invocation.
 func (s *CopilotSession) buildChatArgs(requestID, text, model string, isFirst bool) map[string]any {
 	optionsSets := []string{}
-	if s.agentID == "" && !s.wantedAgent && os.Getenv("M365_NO_CODE_INTERPRETER") == "" {
+	if s.agentID == "" && !s.hasTools && os.Getenv("M365_NO_CODE_INTERPRETER") == "" {
 		optionsSets = append(optionsSets, codeInterpreterOptionsSets...)
 	}
 	if extra := os.Getenv("M365_EXTRA_OPTIONSSETS"); extra != "" {

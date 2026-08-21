@@ -436,7 +436,7 @@ func TestModelSessionRunAgentless(t *testing.T) {
 	m := NewModelSession(ModelSessionOptions{
 		GetToken: func(context.Context) (string, error) { return testJWT(t), nil },
 	})
-	stream, err := m.Run(context.Background(), "hello", "m365-copilot", false)
+	stream, err := m.Run(context.Background(), "hello", "m365-copilot", false, false)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -466,7 +466,7 @@ func TestModelSessionRunAgentWantedButUnresolved_NoCodeInterpreterOnWire(t *test
 		GetToken: func(context.Context) (string, error) { return testJWT(t), nil },
 		GetAgent: func(context.Context, bool) (string, error) { return "", errBoom },
 	})
-	stream, err := m.Run(context.Background(), "hello", "m365-copilot", true)
+	stream, err := m.Run(context.Background(), "hello", "m365-copilot", true, true)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -499,7 +499,7 @@ func TestModelSessionRunWithAgent(t *testing.T) {
 		GetToken: func(context.Context) (string, error) { return testJWT(t), nil },
 		GetAgent: func(context.Context, bool) (string, error) { return "T1.b1.gpt.default", nil },
 	})
-	stream, err := m.Run(context.Background(), "hello", "m365-copilot", true)
+	stream, err := m.Run(context.Background(), "hello", "m365-copilot", true, true)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -522,7 +522,7 @@ func TestModelSessionRunTokenError(t *testing.T) {
 	m := NewModelSession(ModelSessionOptions{
 		GetToken: func(context.Context) (string, error) { return "", errBoom },
 	})
-	if _, err := m.Run(context.Background(), "hi", "m365-copilot", false); err == nil {
+	if _, err := m.Run(context.Background(), "hi", "m365-copilot", false, false); err == nil {
 		t.Fatal("want token error")
 	}
 }
@@ -538,7 +538,7 @@ func TestModelSessionRunReconnectsOnChatError(t *testing.T) {
 	m := NewModelSession(ModelSessionOptions{
 		GetToken: func(context.Context) (string, error) { return testJWT(t), nil },
 	})
-	if _, err := m.Run(context.Background(), "hi", "m365-copilot", false); err == nil {
+	if _, err := m.Run(context.Background(), "hi", "m365-copilot", false, false); err == nil {
 		t.Fatal("want dial error surfaced after retry")
 	}
 }
