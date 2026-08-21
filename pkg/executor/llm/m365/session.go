@@ -198,6 +198,8 @@ func (s *CopilotSession) Chat(ctx context.Context, token, text, model string) (*
 
 	stream := &CopilotStream{
 		deltas:    make(chan string, deltaBufferSize),
+		thinking:  make(chan string, deltaBufferSize),
+		thinkOnce: map[string]bool{},
 		maxScores: map[string]float64{},
 	}
 

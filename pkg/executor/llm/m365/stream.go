@@ -17,7 +17,9 @@ import (
 // CopilotStream is the streamed result of one chat turn. Consume Deltas until it
 // closes, then read the metadata accessors and check Err.
 type CopilotStream struct {
-	deltas chan string
+	deltas    chan string
+	thinking  chan string
+	thinkOnce map[string]bool
 
 	// writeMu serializes every conn.WriteMessage call. gorilla/websocket
 	// requires a single writer at a time; the stop-on-cancel goroutine in
@@ -42,6 +44,14 @@ type CopilotStream struct {
 // Deltas returns the channel of streamed answer suffixes. It is closed when the
 // turn completes.
 func (s *CopilotStream) Deltas() <-chan string { return s.deltas }
+
+// ThinkingDeltas returns the channel of the model's reasoning/chain-of-thought
+// summary text, one message at a time as the service sends it. It is closed
+// when the turn completes. This is separate from Deltas because reasoning
+// text is always safe to show live, even on a tool-calling turn where the
+// answer itself is buffered until parsed (it might contain in-progress
+// fenced tool-call syntax that shouldn't leak to the user raw).
+func (s *CopilotStream) ThinkingDeltas() <-chan string { return s.thinking }
 
 // FullText returns the reconstructed answer accumulated so far.
 func (s *CopilotStream) FullText() string {
@@ -156,6 +166,35 @@ func (s *CopilotStream) advance(next string) {
 	}
 }
 
+// isChainOfThoughtSummary reports whether a bot message is one of the
+// service's reasoning/"thinking" progress messages, as opposed to the
+// user-visible answer. These carry the model's chain-of-thought summary
+// prose (e.g. "**Exploring project status tools**...") and are otherwise
+// silently dropped by visibleBotText, leaving the caller with no visibility
+// into what the model is doing on a long or tool-heavy turn.
+func isChainOfThoughtSummary(m botMessage) bool {
+	return m.Author == "bot" && m.Text != "" && m.ContentOrigin == "ChainOfThoughtSummary"
+}
+
+// advanceThinking emits a reasoning message exactly once per MessageID: the
+// service resends the same message (with growing metadata) across multiple
+// frames, and each one is a full-text snapshot, not an incremental delta, so
+// folding logic like advance's would be wrong here.
+func (s *CopilotStream) advanceThinking(m botMessage) {
+	s.mu.Lock()
+	key := m.MessageID
+	if key == "" {
+		key = m.Text
+	}
+	if s.thinkOnce[key] {
+		s.mu.Unlock()
+		return
+	}
+	s.thinkOnce[key] = true
+	s.mu.Unlock()
+	s.thinking <- m.Text
+}
+
 // logRawFrame prints the raw SignalR frame bytes when KDEPS_DEBUG is set. The
 // call-chain instrumentation (kdeps_debug.Log) only records function names,
 // not frame content, so this is the only way to see what the service
@@ -176,6 +215,7 @@ func logRawFrame(frame string) {
 func (s *CopilotStream) run(ctx context.Context, conn *websocket.Conn, args map[string]any) {
 	kdeps_debug.Log("enter: CopilotStream.run")
 	defer close(s.deltas)
+	defer close(s.thinking)
 	defer conn.Close()
 
 	// Cancel the in-flight turn when the caller's context is done, mirroring the
@@ -326,16 +366,24 @@ func (s *CopilotStream) handleStreamItem(raw string) {
 			Max:     item.Item.Throttling.MaxNumUserMessagesInConversation,
 		}
 	}
+	var thinkMsgs []botMessage
 	for _, m := range item.Item.Messages {
 		if m.Author != "bot" {
 			continue
 		}
 		s.mineMessageLocked(m)
+		if isChainOfThoughtSummary(m) {
+			thinkMsgs = append(thinkMsgs, m)
+			continue
+		}
 		if visible, ok := visibleBotText(m); ok {
 			text = visible
 		}
 	}
 	s.mu.Unlock()
+	for _, m := range thinkMsgs {
+		s.advanceThinking(m)
+	}
 
 	// advance's own fold logic (foldStreamText) is idempotent against text
 	// already emitted by an earlier type:1 update, so calling it here
@@ -380,6 +428,10 @@ func (s *CopilotStream) handleUpdate(arguments []json.RawMessage) {
 					s.mu.Lock()
 					s.mineMessageLocked(m)
 					s.mu.Unlock()
+				}
+				if isChainOfThoughtSummary(m) {
+					s.advanceThinking(m)
+					continue
 				}
 				if text, ok := visibleBotText(m); ok {
 					s.advance(text)

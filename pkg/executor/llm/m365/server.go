@@ -268,6 +268,15 @@ type completion struct {
 	// the tone-fallback path in produce() diverges the two, so a caller never
 	// sees a "model" in the response different from what it requested.
 	runModel string
+	// onThinking, when set, is called with each reasoning/chain-of-thought
+	// message as the service sends it, across every runBuffered call for this
+	// completion (including confab/tone-fallback retries). Constant for the
+	// whole turn, unlike onDelta, which runBuffered takes per-call since it
+	// only fires when the answer itself is safe to stream live.
+	onThinking func(string)
+	// thinking accumulates every reasoning message this completion has seen,
+	// for the non-streaming JSON response's reasoning_content field.
+	thinking strings.Builder
 
 	lastThrottle      *Throttle
 	lastContentOrigin string
@@ -352,6 +361,25 @@ func (c *completion) tryRefreshAgent(
 	return true
 }
 
+// drainThinking consumes stream's reasoning/chain-of-thought messages in the
+// background, accumulating them into c.thinking and forwarding each to
+// c.onThinking if set. Returns a channel closed once the stream's thinking
+// channel closes, so the caller can wait for it after draining Deltas.
+func (c *completion) drainThinking(stream *CopilotStream) <-chan struct{} {
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		for t := range stream.ThinkingDeltas() {
+			c.thinking.WriteString(t)
+			c.thinking.WriteString("\n")
+			if c.onThinking != nil {
+				c.onThinking(t)
+			}
+		}
+	}()
+	return done
+}
+
 // runBuffered runs one turn (with retries on an empty reply), forwarding text
 // deltas to onDelta as they arrive. onDelta may be nil.
 //
@@ -368,6 +396,8 @@ func (c *completion) runBuffered(ctx context.Context, onDelta func(string)) (str
 			return "", upstreamError(err.Error())
 		}
 
+		thinkDone := c.drainThinking(stream)
+
 		var b strings.Builder
 		for delta := range stream.Deltas() {
 			b.WriteString(delta)
@@ -375,6 +405,7 @@ func (c *completion) runBuffered(ctx context.Context, onDelta func(string)) (str
 				onDelta(delta)
 			}
 		}
+		<-thinkDone
 		fullText := b.String()
 		if ft := stream.FullText(); len(ft) > len(fullText) {
 			fullText = ft
@@ -615,6 +646,17 @@ func replyTextFrom(arguments, fallback string) string {
 	return fallback
 }
 
+// addReasoning sets reasoning_content on a non-streaming response message
+// when this completion captured any chain-of-thought text, so a client that
+// only ever calls the non-streaming endpoint still gets visibility into what
+// the model did on the turn, and so reasoning_transport.go's echo-back logic
+// (required by some reasoning-model APIs) has something to replay.
+func (c *completion) addReasoning(msg map[string]any) {
+	if t := c.thinking.String(); t != "" {
+		msg["reasoning_content"] = t
+	}
+}
+
 // run renders the produced turn as JSON or an early-flushed SSE stream.
 func (c *completion) run(ctx context.Context, w http.ResponseWriter) {
 	completionID := "chatcmpl-" + uuid.NewString()
@@ -627,25 +669,29 @@ func (c *completion) run(ctx context.Context, w http.ResponseWriter) {
 		case producedError:
 			writeError(w, p.errStatus, p.errMsg, p.errType)
 		case producedTools:
+			msg := map[string]any{
+				"role":       "assistant",
+				"content":    nil,
+				"tool_calls": toolCallsJSON(p.toolCalls),
+			}
+			c.addReasoning(msg)
 			writeJSON(w, http.StatusOK, map[string]any{
 				"id": completionID, "object": "chat.completion", "created": created, "model": c.body.Model,
 				"choices": []any{map[string]any{
-					"index": 0,
-					"message": map[string]any{
-						"role":       "assistant",
-						"content":    nil,
-						"tool_calls": toolCallsJSON(p.toolCalls),
-					},
+					"index":         0,
+					"message":       msg,
 					"finish_reason": "tool_calls",
 				}},
 				"usage": c.usage(),
 			})
 		case producedText:
+			msg := map[string]any{"role": "assistant", "content": p.text}
+			c.addReasoning(msg)
 			writeJSON(w, http.StatusOK, map[string]any{
 				"id": completionID, "object": "chat.completion", "created": created, "model": c.body.Model,
 				"choices": []any{map[string]any{
 					"index":         0,
-					"message":       map[string]any{"role": "assistant", "content": p.text},
+					"message":       msg,
 					"finish_reason": outputFinishReason(p.text),
 				}},
 				"usage": c.usage(),
@@ -693,6 +739,19 @@ func (c *completion) runStream(
 	}
 
 	send(chunk(base, map[string]any{"role": "assistant"}, nil))
+
+	// Reasoning text is always safe to stream live, even on a tool-calling
+	// turn where the answer itself is buffered until parsed -- it never
+	// contains fenced tool-call syntax, only the model's chain-of-thought
+	// prose. Wired here (not just accumulated into c.thinking) so a client
+	// watching the stream sees it as the model produces it, not only after
+	// the turn completes.
+	c.onThinking = func(t string) {
+		if t == "" {
+			return
+		}
+		send(chunk(base, map[string]any{"reasoning_content": t}, nil))
+	}
 
 	sent := ""
 	var liveDelta func(string)

@@ -287,6 +287,43 @@ func TestCopilotSessionChatMessageUpdate_NonAnswerTypeExcluded(t *testing.T) {
 	}
 }
 
+// A ChainOfThoughtSummary progress message must surface on ThinkingDeltas,
+// not on the answer Deltas channel, and repeats of the same MessageID (the
+// service resends messages with growing metadata across frames) must not
+// duplicate it.
+func TestCopilotSessionChatThinkingDeltas(t *testing.T) {
+	srv := newFakeChatServer(t, []string{
+		`{"type":1,"target":"update","arguments":[{"messages":[{"author":"bot","text":"**thinking one**","messageId":"t1","contentOrigin":"ChainOfThoughtSummary","messageType":"Progress"}]}]}`,
+		`{"type":1,"target":"update","arguments":[{"messages":[{"author":"bot","text":"**thinking one**","messageId":"t1","contentOrigin":"ChainOfThoughtSummary","messageType":"Progress"}]}]}`,
+		`{"type":1,"target":"update","arguments":[{"messages":[{"author":"bot","text":"the answer","messageType":"Chat"}]}]}`,
+	})
+	withChatWSBase(t, srv.wsURL())
+
+	sess := NewCopilotSession(CopilotSessionOptions{})
+	stream, err := sess.Chat(context.Background(), testJWT(t), "hi", "m365-copilot")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	var thinking []string
+	thinkDone := make(chan struct{})
+	go func() {
+		defer close(thinkDone)
+		for t := range stream.ThinkingDeltas() {
+			thinking = append(thinking, t)
+		}
+	}()
+	drainDeltas(stream)
+	<-thinkDone
+
+	if len(thinking) != 1 || thinking[0] != "**thinking one**" {
+		t.Errorf("thinking deltas = %v, want exactly one deduped message", thinking)
+	}
+	if stream.FullText() != "the answer" {
+		t.Errorf("FullText = %q, thinking text must not leak into the answer", stream.FullText())
+	}
+}
+
 func TestCopilotSessionChatPingAndCompletionError(t *testing.T) {
 	srv := newFakeChatServer(t, []string{
 		`{"type":6}`, // keep-alive; client echoes and continues

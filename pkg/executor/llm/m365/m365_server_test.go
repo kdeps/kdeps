@@ -3,6 +3,7 @@ package m365
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -152,6 +153,17 @@ func fmtDelta(text string) string {
 	return `{"type":1,"target":"update","arguments":[{"messages":[{"author":"bot","text":` + string(encoded) + `}]}]}`
 }
 
+// fmtThinking builds a type:1 target:update frame carrying a
+// ChainOfThoughtSummary progress message, the shape the service uses for its
+// reasoning/"thinking" text.
+func fmtThinking(text, messageID string) string {
+	encodedText, _ := json.Marshal(text)
+	encodedID, _ := json.Marshal(messageID)
+	return `{"type":1,"target":"update","arguments":[{"messages":[{"author":"bot","text":` +
+		string(encodedText) + `,"messageId":` + string(encodedID) +
+		`,"contentOrigin":"ChainOfThoughtSummary","messageType":"Progress"}]}]}`
+}
+
 // --- non-streaming, no tools ---
 
 func TestServerChatCompletionNonStreaming(t *testing.T) {
@@ -173,6 +185,63 @@ func TestServerChatCompletionNonStreaming(t *testing.T) {
 	}
 	if choice["finish_reason"] != "stop" {
 		t.Errorf("finish_reason = %v", choice["finish_reason"])
+	}
+}
+
+// ChainOfThoughtSummary progress messages must reach the caller as
+// reasoning_content, not be silently dropped -- confirmed live as leaving the
+// user with no visibility into what a long or tool-heavy m365 turn was
+// actually doing while it ran.
+func TestServerChatCompletionNonStreamingReasoningContent(t *testing.T) {
+	frames := []string{
+		fmtThinking("**Exploring the repo**", "think-1"),
+		fmtDelta("final answer"),
+		`{"type":2,"item":{"turnState":"Completed"}}`,
+	}
+	srv, _ := newTestServer(t, [][]string{frames})
+	base := srv.URL
+
+	_, body := postChat(t, base, map[string]any{
+		"model":    "m365-copilot",
+		"messages": []map[string]any{{"role": "user", "content": "hi"}},
+	})
+	choices, _ := body["choices"].([]any)
+	if len(choices) != 1 {
+		t.Fatalf("body = %+v", body)
+	}
+	msg := choices[0].(map[string]any)["message"].(map[string]any)
+	if msg["content"] != "final answer" {
+		t.Errorf("content = %v", msg["content"])
+	}
+	if !strings.Contains(fmt.Sprint(msg["reasoning_content"]), "Exploring the repo") {
+		t.Errorf("reasoning_content = %v, want it to contain the thinking text", msg["reasoning_content"])
+	}
+}
+
+// The same thinking text must also stream live as reasoning_content chunks,
+// not just appear in the final buffered response.
+func TestServerChatCompletionStreamingReasoningContent(t *testing.T) {
+	frames := []string{
+		fmtThinking("**Checking status**", "think-1"),
+		fmtDelta("done"),
+		`{"type":2,"item":{"turnState":"Completed"}}`,
+	}
+	srv, _ := newTestServer(t, [][]string{frames})
+	base := srv.URL
+
+	data, _ := json.Marshal(map[string]any{
+		"model":    "m365-copilot",
+		"stream":   true,
+		"messages": []map[string]any{{"role": "user", "content": "hi"}},
+	})
+	res, err := http.Post(base+"/v1/chat/completions", "application/json", strings.NewReader(string(data)))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer res.Body.Close()
+	out := readSSEBody(t, res.Body)
+	if !strings.Contains(out, `"reasoning_content":"**Checking status**"`) {
+		t.Errorf("stream missing live reasoning_content chunk:\n%s", out)
 	}
 }
 
