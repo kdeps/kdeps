@@ -94,6 +94,7 @@ const (
 	memTypeResult     = "result"
 	memTypeStatus     = "status"
 	memTypeToolResult = "tool_result"
+	memTypeThinking   = "thinking"
 	memTypeFact       = "fact"
 	memTypeDecision   = "decision"
 	memTypePreference = "preference"
@@ -1574,6 +1575,84 @@ func isToolMemoryWorthy(toolName string) bool {
 	return toolMemoryWorthy[toolName]
 }
 
+// thinkingResultCap bounds how many reasoning/chain-of-thought entries are
+// kept, same as ExtractToolResult's per-tool cap — thinking fires at least
+// once per round, so an unbounded session would otherwise bloat the store
+// fastest of any entry type.
+const thinkingResultCap = 20
+
+// SaveThinking saves the model's reasoning/chain-of-thought text for a round
+// as a memory entry, so a later turn (or a future session) can memory_search
+// for what the model was actually reasoning about, not just what it said or
+// did. Called after every round that produced any reasoning text, across
+// every thinking-capable backend (native extended thinking, M365 Copilot's
+// chain-of-thought summary, etc.) since they all flow through the same
+// ThinkingWriter/liveThinkingWriter pipeline. No-op for empty/whitespace-only
+// text so an idle round can't create a blank entry.
+func (m *MemoryStore) SaveThinking(text string) int {
+	text = strings.TrimSpace(text)
+	if m.path == "" || text == "" {
+		return 0
+	}
+
+	now := time.Now().UnixMilli()
+	entry := MemoryEntry{
+		Key:       thinkingKey(text, now),
+		Value:     truncateValue(text, memoryMaxValuePreview),
+		Type:      memTypeThinking,
+		CreatedAt: now,
+		UpdatedAt: now,
+	}
+
+	m.mu.Lock()
+	var thinkingKeys []string
+	for k, e := range m.entries {
+		if e.Type == memTypeThinking {
+			thinkingKeys = append(thinkingKeys, k)
+		}
+	}
+	if len(thinkingKeys) >= thinkingResultCap {
+		sort.Slice(thinkingKeys, func(i, j int) bool {
+			return m.entries[thinkingKeys[i]].UpdatedAt < m.entries[thinkingKeys[j]].UpdatedAt
+		})
+		for _, k := range thinkingKeys[:len(thinkingKeys)-thinkingResultCap+1] {
+			delete(m.entries, k)
+		}
+	}
+	m.mu.Unlock()
+
+	return m.saveEntries([]MemoryEntry{entry})
+}
+
+// thinkingKey derives a stable-enough memory key from the round's reasoning
+// text and a millisecond timestamp, so consecutive rounds (which often start
+// with similar phrasing, e.g. "Let me...") never collide into the same key.
+func thinkingKey(text string, nowMillis int64) string {
+	firstLine := text
+	if idx := strings.Index(firstLine, "\n"); idx >= 0 {
+		firstLine = firstLine[:idx]
+	}
+	firstLine = strings.TrimSpace(firstLine)
+	if len(firstLine) > memoryMaxFirstLine {
+		firstLine = firstLine[:memoryMaxFirstLine]
+	}
+	slug := strings.ToLower(firstLine)
+	slug = strings.Map(func(r rune) rune {
+		if (r >= 'a' && r <= 'z') || (r >= '0' && r <= '9') {
+			return r
+		}
+		return '_'
+	}, slug)
+	slug = strings.Trim(slug, "_")
+	if len(slug) > memoryMaxDerivedKey {
+		slug = slug[:memoryMaxDerivedKey]
+	}
+	if slug == "" {
+		slug = "round"
+	}
+	return fmt.Sprintf("thinking:%d:%s", nowMillis, slug)
+}
+
 // ExtractToolResult saves a tool call result to memory. Only captures results
 // from write/exec/search tools — read-only lookups are filtered out to avoid
 // memory bloat from hundreds of tool-call artifact entries.
@@ -1796,6 +1875,7 @@ type typeRule struct {
 
 var typeRules = []typeRule{ //nolint:gochecknoglobals // static lookup table for inferType
 	{func(k string) bool { return strings.HasPrefix(k, "tool:") }, memTypeToolResult},
+	{func(k string) bool { return strings.HasPrefix(k, "thinking:") }, memTypeThinking},
 	{func(k string) bool { return k == "last_action" }, memTypeAction},
 	{func(k string) bool { return k == "last_files" }, memTypeFile},
 	{func(k string) bool { return containsAny(k, "prompt", "goal", "task") }, memTypePrompt},

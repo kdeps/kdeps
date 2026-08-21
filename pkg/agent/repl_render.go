@@ -701,6 +701,15 @@ func dedent(text string) string {
 func (w *liveThinkingWriter) Flush() {
 	if w.started {
 		fmt.Fprint(os.Stdout, ansiReset+"\r\n")
+		// memoryStoreInstance directly, not GetOrCreateMemoryStore: the latter
+		// lazily creates a store against the real process CWD on first call,
+		// which would pollute the filesystem with a .kdeps/memory directory
+		// from a bare unit test that never configured one. A real REPL session
+		// always sets memoryStoreInstance during Loop construction, so this
+		// stays a no-op only in contexts that never wired memory up at all.
+		if memoryStoreInstance != nil {
+			memoryStoreInstance.SaveThinking(w.buf.String())
+		}
 		w.started = false
 		w.buf.Reset()
 		w.prevRows = 0

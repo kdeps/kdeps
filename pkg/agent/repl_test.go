@@ -5700,6 +5700,61 @@ func TestLiveThinkingWriter_ActiveLifecycle(t *testing.T) {
 	assert.False(t, tw.active.Load())
 }
 
+// Flush must save the round's accumulated reasoning text to memory when a
+// Loop has configured a MemoryStore, so a later turn can memory_search for
+// what the model was actually reasoning about, not just what it said or did.
+func TestLiveThinkingWriter_FlushSavesToMemory(t *testing.T) {
+	origOut := os.Stdout
+	_, w, _ := os.Pipe()
+	os.Stdout = w
+	defer func() {
+		w.Close()
+		os.Stdout = origOut
+	}()
+
+	store := NewMemoryStore(t.TempDir())
+	store.SetCwd("/Users/test/Projects/foo")
+	old := memoryStoreInstance
+	memoryStoreInstance = store
+	t.Cleanup(func() { memoryStoreInstance = old })
+
+	tw := &liveThinkingWriter{}
+	_, err := tw.Write([]byte("Considering the tradeoffs of approach A"))
+	require.NoError(t, err)
+	tw.Flush()
+
+	var found bool
+	for _, e := range store.List() {
+		if e.Type == memTypeThinking && strings.Contains(e.Value, "approach A") {
+			found = true
+			break
+		}
+	}
+	assert.True(t, found, "the flushed thinking text was saved to memory")
+}
+
+// Flush must not panic or attempt to write anywhere when no Loop has
+// configured a MemoryStore (memoryStoreInstance is nil) -- a synthetic or
+// test context that never wired memory up must stay a safe no-op.
+func TestLiveThinkingWriter_FlushNoMemoryStoreIsSafe(t *testing.T) {
+	origOut := os.Stdout
+	_, w, _ := os.Pipe()
+	os.Stdout = w
+	defer func() {
+		w.Close()
+		os.Stdout = origOut
+	}()
+
+	old := memoryStoreInstance
+	memoryStoreInstance = nil
+	t.Cleanup(func() { memoryStoreInstance = old })
+
+	tw := &liveThinkingWriter{}
+	_, err := tw.Write([]byte("some reasoning"))
+	require.NoError(t, err)
+	assert.NotPanics(t, tw.Flush)
+}
+
 // TestRunStreaming_SpinnerClearedBeforeOutput verifies that the spinner escape
 // sequence (ansiClearLine) appears after "generating" frames, ensuring the
 // spinner line is erased after the last frame and before the response renders.

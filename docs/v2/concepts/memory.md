@@ -123,6 +123,7 @@ Entries are auto-classified by key pattern:
 | `result` | `result`, `output`, `done` | Completed work results |
 | `status` | `status`, `state` | Current state information |
 | `tool_result` | `tool:*` | Tool call outputs |
+| `thinking` | `thinking:*` | The model's reasoning/chain-of-thought text for a round, across every thinking-capable backend (native extended thinking, M365 Copilot's chain-of-thought summary, etc.) — searchable via `memory_search` so a later turn can recall what the model was actually reasoning about, not just what it said or did. Capped at 20 entries like `tool_result`. |
 | `fact` | (default for unknown) | General facts |
 | `decision` | `decision`, `decided` | Design decisions |
 | `preference` | `preference`, `prefer`, `like` | User preferences |

@@ -822,6 +822,65 @@ func TestMemoryStore_ExtractToolResult_MarksTruncation(t *testing.T) {
 	assert.LessOrEqual(t, len(toolVal), memoryMaxValuePreview+len("..."), "value capped near the preview limit")
 }
 
+// SaveThinking must persist a round's reasoning text as a searchable memory
+// entry -- the whole point is that a later turn (or a future session) can
+// memory_search for what the model was actually reasoning about.
+func TestMemoryStore_SaveThinking_SavesSearchableEntry(t *testing.T) {
+	dir := t.TempDir()
+	store := NewMemoryStore(dir)
+	store.SetCwd("/Users/test/Projects/foo")
+
+	n := store.SaveThinking("Considering whether to use approach A or approach B for the parser")
+	require.Equal(t, 1, n)
+
+	var found *MemoryEntry
+	for _, e := range store.List() {
+		if e.Type == memTypeThinking {
+			e := e
+			found = &e
+			break
+		}
+	}
+	require.NotNil(t, found, "a thinking entry was stored")
+	assert.Contains(t, found.Value, "approach A or approach B")
+
+	results := store.Search("approach B")
+	require.NotEmpty(t, results, "the thinking entry is findable via memory_search")
+}
+
+// Empty or whitespace-only reasoning text (an idle round, or a round with no
+// actual thinking output) must not create a blank memory entry.
+func TestMemoryStore_SaveThinking_EmptyIsNoop(t *testing.T) {
+	dir := t.TempDir()
+	store := NewMemoryStore(dir)
+	store.SetCwd("/Users/test/Projects/foo")
+
+	require.Equal(t, 0, store.SaveThinking(""))
+	require.Equal(t, 0, store.SaveThinking("   \n\t  "))
+	require.Empty(t, store.List())
+}
+
+// Thinking fires at least once per round, so it accumulates faster than any
+// other entry type in a long session -- must stay capped like ExtractToolResult,
+// not grow unbounded.
+func TestMemoryStore_SaveThinking_CapsRetention(t *testing.T) {
+	dir := t.TempDir()
+	store := NewMemoryStore(dir)
+	store.SetCwd("/Users/test/Projects/foo")
+
+	for i := range thinkingResultCap + 10 {
+		store.SaveThinking(fmt.Sprintf("round %d reasoning about something distinct", i))
+	}
+
+	count := 0
+	for _, e := range store.List() {
+		if e.Type == memTypeThinking {
+			count++
+		}
+	}
+	assert.LessOrEqual(t, count, thinkingResultCap, "thinking entries stay bounded")
+}
+
 func TestMemoryStore_FormatForPrompt_ResumeSkipsDone(t *testing.T) {
 	dir := t.TempDir()
 	store := NewMemoryStore(dir)
