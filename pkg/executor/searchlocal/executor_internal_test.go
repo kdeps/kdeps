@@ -15,6 +15,7 @@
 package searchlocal
 
 import (
+	"archive/zip"
 	"bytes"
 	"errors"
 	"fmt"
@@ -547,4 +548,165 @@ func TestIndexableExtensions(t *testing.T) {
 	output := buf.String()
 	// main.go (.go is indexable) and Makefile (no extension — indexable)
 	assert.Contains(t, output, "2 files")
+}
+
+// samplePDFWithText builds a minimal single-page PDF containing text as
+// visible page content, with a correct xref table (byte offsets computed at
+// build time), so the pure-Go pdf parser can actually open and read it.
+func samplePDFWithText(t *testing.T, text string) []byte {
+	t.Helper()
+	stream := "BT /F1 12 Tf 10 100 Td (" + text + ") Tj ET"
+	objs := []string{
+		"<< /Type /Catalog /Pages 2 0 R >>",
+		"<< /Type /Pages /Kids [3 0 R] /Count 1 >>",
+		"<< /Type /Page /Parent 2 0 R /Resources << /Font << /F1 4 0 R >> >> " +
+			"/MediaBox [0 0 200 200] /Contents 5 0 R >>",
+		"<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>",
+		fmt.Sprintf("<< /Length %d >>\nstream\n%s\nendstream", len(stream), stream),
+	}
+
+	var buf bytes.Buffer
+	buf.WriteString("%PDF-1.4\n")
+	offsets := make([]int, len(objs))
+	for i, body := range objs {
+		offsets[i] = buf.Len()
+		fmt.Fprintf(&buf, "%d 0 obj\n%s\nendobj\n", i+1, body)
+	}
+
+	xrefStart := buf.Len()
+	fmt.Fprintf(&buf, "xref\n0 %d\n", len(objs)+1)
+	buf.WriteString("0000000000 65535 f \n")
+	for _, off := range offsets {
+		fmt.Fprintf(&buf, "%010d 00000 n \n", off)
+	}
+	fmt.Fprintf(&buf, "trailer\n<< /Size %d /Root 1 0 R >>\nstartxref\n%d\n%%%%EOF", len(objs)+1, xrefStart)
+
+	return buf.Bytes()
+}
+
+// writeZipMember builds a minimal ZIP archive containing one named member
+// with the given content -- enough to exercise extractZippedXMLText and
+// extractPptxText against docx/xlsx/pptx/odt/ods/odp, all of which are ZIP
+// archives of XML under the hood.
+func writeZipMember(t *testing.T, path, memberName, content string) {
+	t.Helper()
+	f, err := os.Create(path)
+	require.NoError(t, err)
+	defer f.Close()
+
+	zw := zip.NewWriter(f)
+	w, err := zw.Create(memberName)
+	require.NoError(t, err)
+	_, err = w.Write([]byte(content))
+	require.NoError(t, err)
+	require.NoError(t, zw.Close())
+}
+
+// searchForMarker indexes dir and asserts exactly one result for query.
+func searchForMarker(t *testing.T, e *Executor, dir, query string) {
+	t.Helper()
+	n := e.StartIndex(dir)
+	if n != 1 {
+		t.Fatalf("indexed %d files, want 1", n)
+	}
+	result, err := e.Execute(nil, &domain.SearchLocalConfig{Path: dir, Query: query, Index: true})
+	require.NoError(t, err)
+	rm, ok := result.(map[string]interface{})
+	require.True(t, ok)
+	count, _ := rm["count"].(int)
+	if count != 1 {
+		t.Errorf("search found %d results, want 1: %+v", count, rm)
+	}
+}
+
+// Office document formats (Word/Excel/PowerPoint OOXML, and LibreOffice/
+// OpenOffice ODF) are ZIP archives of XML -- extractZippedXMLText/
+// extractPptxText must pull the real document text out of the right member
+// file(s), not index the ZIP's raw compressed bytes as garbage tokens.
+func TestOfficeDocumentIndexing(t *testing.T) {
+	docXML := `<w:document xmlns:w="ns"><w:body><w:p><w:r>` +
+		`<w:t>UniqueDocxMarker</w:t></w:r></w:p></w:body></w:document>`
+	sharedStringsXML := `<sst xmlns="ns"><si><t>UniqueXlsxMarker</t></si></sst>`
+	slideXML := `<p:sld xmlns:a="ns" xmlns:p="ns2"><p:cSld><p:spTree><p:sp>` +
+		`<p:txBody><a:p><a:r><a:t>UniquePptxMarker</a:t></a:r></a:p></p:txBody>` +
+		`</p:sp></p:spTree></p:cSld></p:sld>`
+	odfContentXML := `<office:document-content xmlns:text="ns"><office:body>` +
+		`<office:text><text:p>UniqueOdtMarker</text:p></office:text>` +
+		`</office:body></office:document-content>`
+
+	cases := []struct {
+		ext, member, content, marker string
+	}{
+		{".docx", "word/document.xml", docXML, "UniqueDocxMarker"},
+		{".xlsx", "xl/sharedStrings.xml", sharedStringsXML, "UniqueXlsxMarker"},
+		{".odt", "content.xml", odfContentXML, "UniqueOdtMarker"},
+		{".pptx", "ppt/slides/slide1.xml", slideXML, "UniquePptxMarker"},
+	}
+	for _, c := range cases {
+		t.Run(c.ext, func(t *testing.T) {
+			dir := t.TempDir()
+			writeZipMember(t, filepath.Join(dir, "doc"+c.ext), c.member, c.content)
+			searchForMarker(t, NewExecutor(), dir, c.marker)
+		})
+	}
+}
+
+// "dist" is a standard build-output directory name, but it's also where
+// static-site generators (VitePress, Docusaurus, VuePress) render HTML docs
+// -- confirmed live as the reason a project's built documentation was
+// silently invisible to /search. A file inside a dist/ directory must still
+// be indexed.
+func TestDistDirectoryNotExcluded(t *testing.T) {
+	dir := t.TempDir()
+	distDir := filepath.Join(dir, "dist")
+	require.NoError(t, os.MkdirAll(distDir, 0750))
+	require.NoError(t, os.WriteFile(
+		filepath.Join(distDir, "page.html"),
+		[]byte("<html><body>UniqueDistMarker</body></html>"),
+		0600,
+	))
+
+	e := NewExecutor()
+	n := e.StartIndex(dir)
+	if n != 1 {
+		t.Fatalf("indexed %d files, want 1 (dist/page.html)", n)
+	}
+
+	result, err := e.Execute(nil, &domain.SearchLocalConfig{
+		Path: dir, Query: "UniqueDistMarker", Index: true,
+	})
+	require.NoError(t, err)
+	rm, ok := result.(map[string]interface{})
+	require.True(t, ok)
+	count, _ := rm["count"].(int)
+	if count != 1 {
+		t.Errorf("search found %d results for a file in dist/, want 1: %+v", count, rm)
+	}
+}
+
+// PDFs are binary, but were still added to indexableExtensions -- confirmed
+// they must be extracted to plain text first (via a pure-Go parser, no
+// pdftotext/pdfcpu binary required), not tokenized as raw bytes, or a search
+// for the document's actual text content would never match.
+func TestPDFIndexingExtractsText(t *testing.T) {
+	dir := t.TempDir()
+	pdfPath := filepath.Join(dir, "doc.pdf")
+	require.NoError(t, os.WriteFile(pdfPath, samplePDFWithText(t, "UniquePDFMarker"), 0600))
+
+	e := NewExecutor()
+	n := e.StartIndex(dir)
+	if n != 1 {
+		t.Fatalf("indexed %d files, want 1 (doc.pdf)", n)
+	}
+
+	result, err := e.Execute(nil, &domain.SearchLocalConfig{
+		Path: dir, Query: "UniquePDFMarker", Index: true,
+	})
+	require.NoError(t, err)
+	rm, ok := result.(map[string]interface{})
+	require.True(t, ok)
+	count, _ := rm["count"].(int)
+	if count != 1 {
+		t.Errorf("search found %d results for the PDF's text content, want 1: %+v", count, rm)
+	}
 }

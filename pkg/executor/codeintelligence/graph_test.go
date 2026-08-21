@@ -278,6 +278,48 @@ func main() {}
 	}
 }
 
+// HTML/PDF indexing for code_index_folder is opt-in via an explicit
+// extensions list (["...", ".html"]), not the tool's default -- the default
+// stays narrow (kartographer's own .md/.markdown/.txt/.yaml/.yml) so that
+// pointing indexFolder at a project root never silently walks an entire
+// source/build tree by surprise, per its documented design.
+func TestExecute_IndexFolder_HTMLRequiresExplicitOptIn(t *testing.T) {
+	root := t.TempDir()
+	if err := os.WriteFile(filepath.Join(root, "page.html"), []byte("<html>hi</html>"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	withCwd(t, root)
+	dbPath := filepath.Join(t.TempDir(), "graph.db")
+
+	exec := NewExecutor()
+	res, err := exec.Execute(nil, &domain.CodeIntelligenceConfig{
+		Operation:   domain.CodeIntOpIndexFolder,
+		GraphDBPath: dbPath,
+	})
+	if err != nil {
+		t.Fatalf("indexFolder: %v", err)
+	}
+	m := res.(map[string]interface{})
+	filesIndexed, _ := m["filesIndexed"].(int)
+	if filesIndexed != 0 {
+		t.Fatalf("filesIndexed = %v, want 0 (.html not in the default extension set)", filesIndexed)
+	}
+
+	res, err = exec.Execute(nil, &domain.CodeIntelligenceConfig{
+		Operation:   domain.CodeIntOpIndexFolder,
+		Extensions:  []string{".html"},
+		GraphDBPath: dbPath,
+	})
+	if err != nil {
+		t.Fatalf("indexFolder with explicit extensions: %v", err)
+	}
+	m = res.(map[string]interface{})
+	filesIndexed, _ = m["filesIndexed"].(int)
+	if filesIndexed != 1 {
+		t.Fatalf("filesIndexed = %v, want 1 once .html is explicitly opted in", filesIndexed)
+	}
+}
+
 func TestExecute_GraphFile_MissingPath(t *testing.T) {
 	exec := NewExecutor()
 	_, err := exec.Execute(nil, &domain.CodeIntelligenceConfig{
