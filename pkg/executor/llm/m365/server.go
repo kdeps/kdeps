@@ -287,6 +287,24 @@ type produced struct {
 	errType   string
 }
 
+// tryRefreshAgent re-resolves the tool-calling agent once per completion
+// (guarded by *agentRefreshed, shared across runBuffered's retry branches).
+// If the agent id changed, it resets c.text to originalText and sleeps
+// before the caller's retry. Returns true when the caller should retry.
+func (c *completion) tryRefreshAgent(ctx context.Context, agentRefreshed *bool, originalText string) bool {
+	if *agentRefreshed {
+		return false
+	}
+	*agentRefreshed = true
+	changed, _ := c.session.RefreshAgent(ctx)
+	if !changed {
+		return false
+	}
+	c.text = originalText
+	sleep(ctx, shortRetryDelay)
+	return true
+}
+
 // runBuffered runs one turn (with retries on an empty reply), forwarding text
 // deltas to onDelta as they arrive. onDelta may be nil.
 //
@@ -315,6 +333,16 @@ func (c *completion) runBuffered(ctx context.Context, onDelta func(string)) (str
 			fullText = ft
 		}
 		if serr := stream.Err(); serr != nil {
+			// A completion error on the tool-agent path (getOrCreateAgent) can
+			// mean the cached agent id went stale server-side -- exactly the
+			// failure mode the empty-reply branch below already recovers from
+			// via RefreshAgent, just arriving as an error frame instead of a
+			// silent empty one. Give it the same one-shot recovery before
+			// surfacing the error, instead of failing immediately.
+			if c.useToolAgent && attempt < maxRetries &&
+				c.tryRefreshAgent(ctx, &agentRefreshed, originalText) {
+				continue
+			}
 			return "", upstreamError(serr.Error())
 		}
 
@@ -361,13 +389,8 @@ func (c *completion) runBuffered(ctx context.Context, onDelta func(string)) (str
 			return "", rateLimitError(t)
 		}
 		if attempt < maxRetries {
-			if !agentRefreshed {
-				agentRefreshed = true
-				if changed, _ := c.session.RefreshAgent(ctx); changed {
-					c.text = originalText
-					sleep(ctx, shortRetryDelay)
-					continue
-				}
+			if c.tryRefreshAgent(ctx, &agentRefreshed, originalText) {
+				continue
 			}
 			sleep(ctx, shortRetryDelay)
 			c.text = "Please continue."

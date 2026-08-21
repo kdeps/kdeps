@@ -128,8 +128,14 @@ func TestCopilotSessionChatStreamsDeltasAndMetadata(t *testing.T) {
 	if !stream.HasContent() || stream.FullText() != "hello" {
 		t.Errorf("FullText = %q", stream.FullText())
 	}
-	if stream.MessageID() != "m1" || stream.MessageType() != "Chat" || stream.ContentOrigin() != "DeepLeo" {
-		t.Errorf("metadata: id=%q type=%q origin=%q", stream.MessageID(), stream.MessageType(), stream.ContentOrigin())
+	if stream.MessageID() != "m1" || stream.MessageType() != "Chat" ||
+		stream.ContentOrigin() != "DeepLeo" {
+		t.Errorf(
+			"metadata: id=%q type=%q origin=%q",
+			stream.MessageID(),
+			stream.MessageType(),
+			stream.ContentOrigin(),
+		)
 	}
 	if stream.TurnState() != "Completed" {
 		t.Errorf("turnState = %q", stream.TurnState())
@@ -274,7 +280,10 @@ func TestCopilotSessionChatMessageUpdate_NonAnswerTypeExcluded(t *testing.T) {
 	}
 	drainDeltas(stream)
 	if stream.HasContent() || stream.FullText() != "" {
-		t.Errorf("non-answer messageType must not surface as content, got FullText = %q", stream.FullText())
+		t.Errorf(
+			"non-answer messageType must not surface as content, got FullText = %q",
+			stream.FullText(),
+		)
 	}
 }
 
@@ -291,7 +300,8 @@ func TestCopilotSessionChatPingAndCompletionError(t *testing.T) {
 		t.Fatal(err)
 	}
 	drainDeltas(stream)
-	if serr := stream.Err(); serr == nil || !strings.Contains(serr.Error(), "something went wrong") {
+	if serr := stream.Err(); serr == nil ||
+		!strings.Contains(serr.Error(), "something went wrong") {
 		t.Errorf("err = %v", serr)
 	}
 }
@@ -524,12 +534,19 @@ func TestServeHTTPChatCompletions_StreamingUpstreamErrorIsVisible(t *testing.T) 
 	if err != nil {
 		t.Fatal(err)
 	}
-	req := httptest.NewRequest(http.MethodPost, "/v1/chat/completions", strings.NewReader(string(reqBody)))
+	req := httptest.NewRequest(
+		http.MethodPost,
+		"/v1/chat/completions",
+		strings.NewReader(string(reqBody)),
+	)
 	rec := httptest.NewRecorder()
 	handler.ServeHTTP(rec, req)
 
 	if rec.Code != http.StatusOK {
-		t.Fatalf("status = %d (SSE headers are already committed by the time the error is known)", rec.Code)
+		t.Fatalf(
+			"status = %d (SSE headers are already committed by the time the error is known)",
+			rec.Code,
+		)
 	}
 
 	body := rec.Body.String()
@@ -549,7 +566,10 @@ func TestServeHTTPChatCompletions_StreamingUpstreamErrorIsVisible(t *testing.T) 
 		}
 		choice, _ := choices[0].(map[string]any)
 		if delta, ok := choice["delta"].(map[string]any); ok {
-			if content, _ := delta["content"].(string); strings.Contains(content, "Failed to invoke 'Chat'") {
+			if content, _ := delta["content"].(string); strings.Contains(
+				content,
+				"Failed to invoke 'Chat'",
+			) {
 				sawContent = true
 			}
 		}
@@ -562,6 +582,128 @@ func TestServeHTTPChatCompletions_StreamingUpstreamErrorIsVisible(t *testing.T) 
 			"a generic OpenAI-compatible client would show nothing:\n%s", body)
 	}
 	if !sawFinish {
-		t.Errorf("no finish_reason chunk -- a generic client has no signal the turn ended:\n%s", body)
+		t.Errorf(
+			"no finish_reason chunk -- a generic client has no signal the turn ended:\n%s",
+			body,
+		)
+	}
+}
+
+// newSequencedChatServer serves a different fixed frame sequence per
+// successive WebSocket connection (connFrames[0] for the first connection,
+// connFrames[1] for the second, ...). Used to simulate a completion error on
+// the first attempt recovering on a retry against a fresh connection (e.g.
+// after RefreshAgent), which the single-sequence fakeChatServer can't express
+// since every connection there gets the same frames.
+type sequencedChatServer struct {
+	srv *httptest.Server
+	mu  sync.Mutex
+	n   int
+}
+
+func newSequencedChatServer(t *testing.T, connFrames [][]string) *sequencedChatServer {
+	t.Helper()
+	upgrader := websocket.Upgrader{CheckOrigin: func(*http.Request) bool { return true }}
+	f := &sequencedChatServer{}
+	f.srv = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		f.mu.Lock()
+		idx := f.n
+		f.n++
+		f.mu.Unlock()
+		frames := []string{}
+		if idx < len(connFrames) {
+			frames = connFrames[idx]
+		}
+
+		conn, err := upgrader.Upgrade(w, r, nil)
+		if err != nil {
+			return
+		}
+		defer conn.Close()
+
+		if _, _, hsErr := conn.ReadMessage(); hsErr != nil {
+			return
+		}
+		if ackErr := conn.WriteMessage(websocket.TextMessage, []byte("{}"+rs)); ackErr != nil {
+			return
+		}
+		if _, _, chatErr := conn.ReadMessage(); chatErr != nil {
+			return
+		}
+		for _, frame := range frames {
+			if sendErr := conn.WriteMessage(websocket.TextMessage, []byte(frame+rs)); sendErr != nil {
+				return
+			}
+		}
+		time.Sleep(20 * time.Millisecond)
+	}))
+	t.Cleanup(f.srv.Close)
+	return f
+}
+
+func (f *sequencedChatServer) wsURL() string {
+	return "ws" + strings.TrimPrefix(f.srv.URL, "http") + "/Chathub"
+}
+
+// A completion error on the tool-agent path recovers via the same
+// RefreshAgent retry the empty-reply branch already had, instead of failing
+// the turn immediately -- confirmed live as the root cause of m365-copilot's
+// "auto" tone consistently failing with "Failed to invoke 'Chat' due to an
+// error on the server." while non-agent (Claude) tones succeeded.
+func TestServeHTTPChatCompletions_AgentErrorRecoversOnRefresh(t *testing.T) {
+	srv := newSequencedChatServer(t, [][]string{
+		{
+			`{"type":3,"invocationId":"0","error":"Failed to invoke 'Chat' due to an error on the server."}`,
+		},
+		{
+			`{"type":1,"target":"update","arguments":[{"messages":[{"author":"bot","text":"recovered","messageType":"Chat"}]}]}`,
+			`{"type":3}`,
+		},
+	})
+	withChatWSBase(t, srv.wsURL())
+
+	agentCalls := 0
+	handler := NewServer(ModelSessionOptions{
+		GetToken: func(context.Context) (string, error) { return testJWT(t), nil },
+		GetAgent: func(_ context.Context, forceRefresh bool) (string, error) {
+			agentCalls++
+			if forceRefresh {
+				return "agent-v2", nil
+			}
+			return "agent-v1", nil
+		},
+	})
+
+	reqBody, err := json.Marshal(map[string]any{
+		"model":    "m365-copilot",
+		"messages": []map[string]any{{"role": "user", "content": "status"}},
+		"tools": []map[string]any{
+			{"type": "function", "function": map[string]any{"name": "noop"}},
+		},
+		"stream": true,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	req := httptest.NewRequest(
+		http.MethodPost,
+		"/v1/chat/completions",
+		strings.NewReader(string(reqBody)),
+	)
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, req)
+
+	body := rec.Body.String()
+	if !strings.Contains(body, "recovered") {
+		t.Errorf("did not recover onto the successful retry after the agent refresh:\n%s", body)
+	}
+	if strings.Contains(body, "Failed to invoke") {
+		t.Errorf("the transient error leaked into the final response despite recovering:\n%s", body)
+	}
+	if agentCalls < 2 {
+		t.Errorf(
+			"expected a forceRefresh agent resolution after the completion error, got %d agent calls",
+			agentCalls,
+		)
 	}
 }
