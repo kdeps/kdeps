@@ -120,7 +120,7 @@ func TestLoop_SystemPreambleBuiltOnceAndCached(t *testing.T) {
 		return "ok", nil
 	})
 	reg := tools.NewRegistry()
-	loop := New(eng, newTestWorkflowForSession(), reg, Config{Model: "test", SystemPrompt: "RULES"})
+	loop := New(eng, newTestWorkflowForSession(), reg, Config{Model: "test", SystemPrompt: "RULES", Backend: backendAnthropic})
 
 	if _, err := loop.Run(context.Background(), "hello"); err != nil {
 		t.Fatalf("turn 1: %v", err)

@@ -19,6 +19,8 @@
 package agent
 
 import (
+	"bytes"
+	"context"
 	"os"
 	"path/filepath"
 	"strings"
@@ -26,6 +28,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	"github.com/kdeps/kdeps/v2/pkg/executor"
 	kdepstools "github.com/kdeps/kdeps/v2/pkg/tools"
 )
 
@@ -119,5 +122,87 @@ func TestCachedSystemPreamble_NoRegistryNoWorkingDirectory(t *testing.T) {
 	out := l.cachedSystemPreamble("focus")
 	if strings.Contains(out, "Working directory:") {
 		t.Errorf("a loop with no tool registry must not get a working directory line: %q", out)
+	}
+}
+
+// End-to-end regression test for the live failure: RunStreaming with a real
+// registered tool (mirroring an agent-loop session with tools available)
+// must actually place a "Working directory:" line in the first scenario
+// message reaching the streamer -- not just in cachedSystemPreamble's return
+// value in isolation, since a bug anywhere between there and StreamChat
+// (buildChatConfig, withGoalDirective) could still drop it silently.
+func TestRunStreaming_ScenarioCarriesWorkingDirectory(t *testing.T) {
+	reg := kdepstools.NewRegistry()
+	reg.Register(&kdepstools.Tool{Name: "noop"})
+
+	ms := &cfgRecordingStreamer{
+		inner: mockStreamer{
+			responses: []mockStreamResponse{
+				{content: "done", toolCalls: nil},
+			},
+		},
+	}
+	eng := executor.NewEngine(nil)
+	loop := New(eng, newTestWorkflowForSession(), reg, Config{
+		Model:         "test",
+		Streamer:      ms,
+		MaxToolRounds: 5,
+	})
+
+	var buf bytes.Buffer
+	_, err := loop.RunStreaming(context.Background(), "hi", &buf)
+	require.NoError(t, err)
+	require.NotEmpty(t, ms.cfgs, "streamer must have been called")
+
+	cfg := ms.cfgs[0]
+	require.NotEmpty(t, cfg.Scenario, "scenario must carry the system preamble")
+	wd, err := os.Getwd()
+	require.NoError(t, err)
+	if !strings.Contains(cfg.Scenario[0].Prompt, "Working directory: "+wd) {
+		t.Errorf(
+			"scenario[0] (role=%s) never reached the streamer with a working directory line:\n%s",
+			cfg.Scenario[0].Role, cfg.Scenario[0].Prompt,
+		)
+	}
+}
+
+// CacheControl is an Anthropic-specific hint ("ephemeral" per-message
+// caching). Confirmed live that setting it unconditionally silently drops
+// the ENTIRE system message for a non-Anthropic backend (m365): its
+// OpenAI-compatible request serialization has no notion of a
+// CacheControl-wrapped content part and emits an empty string instead of the
+// real preamble -- no tool guidance, no working directory, nothing. This
+// guards both directions: Anthropic keeps the caching hint (the reason it
+// exists), everything else must not get it at all.
+func TestBuildChatConfig_CacheControlOnlyForAnthropic(t *testing.T) {
+	cases := []struct {
+		backend   string
+		wantCache bool
+	}{
+		{backend: "anthropic", wantCache: true},
+		{backend: "m365", wantCache: false},
+		{backend: "openai", wantCache: false},
+		{backend: "", wantCache: false},
+	}
+	for _, c := range cases {
+		t.Run(c.backend, func(t *testing.T) {
+			eng := executor.NewEngine(nil)
+			l := New(eng, newTestWorkflowForSession(), kdepstools.NewRegistry(), Config{
+				Model:   "test",
+				Backend: c.backend,
+			})
+			cfg := l.buildChatConfig(context.Background(), "hi", "preamble text")
+			require.NotEmpty(t, cfg.Scenario)
+			gotCache := cfg.Scenario[0].CacheControl != ""
+			if gotCache != c.wantCache {
+				t.Errorf("backend %q: CacheControl set = %v, want %v (value=%q)",
+					c.backend, gotCache, c.wantCache, cfg.Scenario[0].CacheControl)
+			}
+			// The preamble text itself must always be present regardless of
+			// CacheControl -- this is the actual regression, not just the flag.
+			if cfg.Scenario[0].Prompt != "preamble text" {
+				t.Errorf("backend %q: preamble text lost, got %q", c.backend, cfg.Scenario[0].Prompt)
+			}
+		})
 	}
 }

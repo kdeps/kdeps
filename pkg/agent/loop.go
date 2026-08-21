@@ -2192,7 +2192,8 @@ func (l *Loop) cachedSystemPreamble(focus string) string {
 	// a stale cached CWD is actively misleading rather than merely wasteful.
 	// Recomputed and re-sent on every call so the model is told the real
 	// working directory on every turn, not just the session's first one.
-	if l.registry != nil && len(l.registry.List()) > 0 {
+	hasRegistry := l.registry != nil && len(l.registry.List()) > 0
+	if hasRegistry {
 		if l.systemPreamble == "" {
 			return l.dateAndWDPreamble()
 		}
@@ -2464,12 +2465,20 @@ func (l *Loop) buildChatConfig(ctx context.Context, input, systemPreamble string
 	}
 
 	// Inject system preamble as scenario (prepended before history). The preamble
-	// is built once and reused, so mark it ephemeral: providers that support
-	// prompt caching (Anthropic) cache the system prefix across turns.
+	// is built once and reused, so mark it ephemeral on backends that actually
+	// support prompt caching (Anthropic): they cache the system prefix across
+	// turns. Confirmed live that setting this unconditionally breaks other
+	// backends -- m365's OpenAI-compatible request serialization has no notion
+	// of a CacheControl-wrapped content part, so it silently emitted an empty
+	// string for the whole system message instead of the real preamble text,
+	// leaving the model with no system content, no working directory, no tool
+	// guidance at all for that message.
 	if systemPreamble != "" {
-		chatCfg.Scenario = []domain.ScenarioItem{
-			{Role: "system", Prompt: systemPreamble, CacheControl: "ephemeral"},
+		item := domain.ScenarioItem{Role: "system", Prompt: systemPreamble}
+		if l.config.Backend == backendAnthropic {
+			item.CacheControl = "ephemeral"
 		}
+		chatCfg.Scenario = []domain.ScenarioItem{item}
 	}
 
 	return chatCfg
