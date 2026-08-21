@@ -195,6 +195,15 @@ type Config struct {
 	// MaxUnproductiveRounds is how many consecutive rounds may produce nothing
 	// new before the task is force-closed (0=default 3).
 	MaxUnproductiveRounds int
+	// Judges is an explicit review panel run against the final output of every
+	// turn. Takes priority over AutoJudges when non-empty.
+	Judges []JudgeSpec
+	// AutoJudges, when true and Judges is empty, generates a review panel per
+	// turn via one LLM call rather than requiring a hand-configured roster.
+	AutoJudges bool
+	// JudgeMaxIterations caps the revise-and-rejudge loop when a judge rejects
+	// the output (0=default 2).
+	JudgeMaxIterations int
 }
 
 // Loop drives a multi-turn agent conversation using the kdeps engine as the
@@ -635,6 +644,9 @@ func applyConfigDefaults(cfg Config) Config {
 	if cfg.MaxUnproductiveRounds <= 0 {
 		cfg.MaxUnproductiveRounds = defaultMaxUnproductiveRounds
 	}
+	if cfg.JudgeMaxIterations <= 0 {
+		cfg.JudgeMaxIterations = defaultJudgeMaxIterations
+	}
 	// NOTE: auto stall/tool allocation is enabled only by the interactive REPL
 	// (repl.Run), not here — library and test callers keep the deterministic
 	// budget-exhaustion behavior instead of silently raising the budget.
@@ -798,6 +810,14 @@ func (l *Loop) RunStreaming(ctx context.Context, input string, w io.Writer) (str
 	}
 
 	response := stripContentToolCalls(finalContent)
+
+	// Judge panel: an independent review of the final output, with the power
+	// to send it back for revision. Never runs for library/test callers with
+	// no roster configured, and never blocks the turn on any failure.
+	if roster := l.resolveJudgeRoster(ctx, input); len(roster) > 0 {
+		response, _ = l.iterateWithJudges(ctx, chatCfg, roster, input, response, finalContent, w)
+	}
+
 	l.session.Append(input, response)
 
 	// Auto-extract facts from the turn into persistent memory.

@@ -2291,6 +2291,8 @@ func (r *REPL) dispatchCommand(cmd string) error {
 		return r.cmdTuro(args)
 	case "/goal":
 		return r.cmdGoal(args)
+	case "/judges":
+		return r.cmdJudges(args)
 	case "/memory":
 		return r.cmdMemory(args)
 	case "/permission", "/permissions":
@@ -2367,6 +2369,11 @@ func (r *REPL) cmdHelp() error {
 		"  /goal new <text>                   Replace the active goal with a new plan",
 		"  /goal skip                         Abandon the active task and move to the next",
 		"  /goal clear                        Drop the active goal (stops task enforcement)",
+		"  /judges                            Show the configured judge panel (reviews each turn's final output)",
+		"  /judges add <name> <criteria>      Add a judge to the explicit roster",
+		"  /judges remove <name>              Remove a judge from the explicit roster",
+		"  /judges auto [on|off]              Show or toggle a per-turn auto-generated roster",
+		"  /judges clear                      Disable the judge panel entirely",
 		"  /memory                            Show memory store overview (entry count, most recent entries)",
 		"  /memory list                       List all stored memory entries",
 		"  /memory search <query>             Search memory keys/values for a substring",
@@ -4527,6 +4534,120 @@ func (r *REPL) cmdGoal(args []string) error {
 		fmt.Fprintln(os.Stderr, styleReplError.Render("Usage: /goal [new <text>|skip|clear]"))
 	}
 	return nil
+}
+
+// judgesAddMinArgs is "add <name> <criteria...>"; judgesRemoveMinArgs is
+// "remove <name>" — both counted including the subcommand word itself.
+const (
+	judgesAddMinArgs    = 3
+	judgesRemoveMinArgs = 2
+)
+
+// toggleOff names the disabled state for /judges auto and /judges clear.
+const toggleOff = "off"
+
+// cmdJudges configures the review panel run against each turn's final output:
+// an explicit roster (add/remove), auto-generated per turn, or disabled.
+func (r *REPL) cmdJudges(args []string) error {
+	if len(args) == 0 {
+		r.printJudgesStatus()
+		return nil
+	}
+
+	switch args[0] {
+	case "list":
+		r.printJudgesStatus()
+	case "add":
+		if len(args) < judgesAddMinArgs {
+			fmt.Fprintln(os.Stderr, styleReplError.Render("Usage: /judges add <name> <criteria...>"))
+			return nil
+		}
+		name := args[1]
+		criteria := strings.TrimSpace(strings.Join(args[2:], " "))
+		r.loop.SetJudges(append(r.loop.Judges(), JudgeSpec{Name: name, Criteria: criteria}))
+		fmt.Fprintln(os.Stdout, styleReplSuccess.Render(fmt.Sprintf("added judge %q", name)))
+	case "remove":
+		if len(args) < judgesRemoveMinArgs {
+			fmt.Fprintln(os.Stderr, styleReplError.Render("Usage: /judges remove <name>"))
+			return nil
+		}
+		r.removeJudge(args[1])
+	case "auto":
+		r.cmdJudgesAuto(args[1:])
+	case "clear", toggleOff:
+		r.loop.SetJudges(nil)
+		r.loop.SetAutoJudges(false)
+		fmt.Fprintln(os.Stdout, styleReplSuccess.Render("judge panel disabled"))
+	default:
+		fmt.Fprintln(os.Stderr, styleReplError.Render(
+			"Usage: /judges [list|add <name> <criteria>|remove <name>|auto [on|off]|clear]"))
+	}
+	return nil
+}
+
+// removeJudge drops the named judge from the explicit roster.
+func (r *REPL) removeJudge(name string) {
+	var kept []JudgeSpec
+	removed := false
+	for _, j := range r.loop.Judges() {
+		if j.Name == name {
+			removed = true
+			continue
+		}
+		kept = append(kept, j)
+	}
+	r.loop.SetJudges(kept)
+	if removed {
+		fmt.Fprintln(os.Stdout, styleReplSuccess.Render(fmt.Sprintf("removed judge %q", name)))
+		return
+	}
+	fmt.Fprintln(os.Stdout, styleReplMeta.Render(fmt.Sprintf("no judge named %q", name)))
+}
+
+// cmdJudgesAuto shows or toggles auto-generated judge rosters.
+func (r *REPL) cmdJudgesAuto(args []string) {
+	if len(args) == 0 {
+		state := toggleOff
+		if r.loop.AutoJudges() {
+			state = "on"
+		}
+		fmt.Fprintf(os.Stdout, "auto-judges: %s\n", state)
+		return
+	}
+	switch args[0] {
+	case "on":
+		r.loop.SetAutoJudges(true)
+		fmt.Fprintln(os.Stdout, styleReplSuccess.Render("auto-judges enabled"))
+	case toggleOff:
+		r.loop.SetAutoJudges(false)
+		fmt.Fprintln(os.Stdout, styleReplSuccess.Render("auto-judges disabled"))
+	default:
+		fmt.Fprintln(os.Stderr, styleReplError.Render("Usage: /judges auto [on|off]"))
+	}
+}
+
+// printJudgesStatus shows the current roster and auto-judges state.
+func (r *REPL) printJudgesStatus() {
+	judges := r.loop.Judges()
+	auto := r.loop.AutoJudges()
+	if len(judges) == 0 && !auto {
+		fmt.Fprintln(os.Stdout, styleReplMeta.Render("no judge panel configured — outputs are not reviewed"))
+		return
+	}
+	if len(judges) == 0 {
+		fmt.Fprintln(os.Stdout, styleReplMeta.Render("auto-judges enabled — a roster is generated per turn"))
+		return
+	}
+	fmt.Fprintln(os.Stdout, styleReplHeading.Render("Configured judges:"))
+	for _, j := range judges {
+		fmt.Fprintf(os.Stdout, "  - %s: %s\n", j.Name, j.Criteria)
+	}
+	if auto {
+		fmt.Fprintln(os.Stdout, styleReplDim.Render(
+			"(auto-judges also enabled, but the explicit roster takes priority)"))
+	}
+	fmt.Fprintln(os.Stdout, styleReplDim.Render(
+		"/judges add <name> <criteria> adds · /judges remove <name> drops · /judges clear disables"))
 }
 
 // memoryValuePreviewLen bounds how much of an entry's value /memory prints per
