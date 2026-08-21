@@ -2183,11 +2183,21 @@ func (l *Loop) InvalidateSystemPreamble() {
 // system prefix every turn is what lets provider prompt caches hit it instead
 // of re-billing skills, instructions, and memory rules on each turn.
 func (l *Loop) cachedSystemPreamble(focus string) string {
-	if l.systemPreambleBuilt {
-		return l.systemPreamble
+	if !l.systemPreambleBuilt {
+		l.systemPreamble = l.buildSystemPreamble(focus)
+		l.systemPreambleBuilt = true
 	}
-	l.systemPreamble = l.buildSystemPreamble(focus)
-	l.systemPreambleBuilt = true
+	// dateAndWDPreamble is deliberately NOT part of the cached preamble above:
+	// the working directory can change mid-session (a `cd` via bash_exec), and
+	// a stale cached CWD is actively misleading rather than merely wasteful.
+	// Recomputed and re-sent on every call so the model is told the real
+	// working directory on every turn, not just the session's first one.
+	if l.registry != nil && len(l.registry.List()) > 0 {
+		if l.systemPreamble == "" {
+			return l.dateAndWDPreamble()
+		}
+		return l.systemPreamble + "\n\n" + l.dateAndWDPreamble()
+	}
 	return l.systemPreamble
 }
 
@@ -2262,7 +2272,8 @@ func (l *Loop) buildSystemPreamble(focus string) string {
 			parts = append(parts, instructions)
 		}
 		parts = append(parts, l.commitTrailerPreamble())
-		parts = append(parts, l.dateAndWDPreamble())
+		// dateAndWDPreamble is appended fresh by cachedSystemPreamble on every
+		// call, not here, so it never goes stale after a mid-session cd.
 	}
 	if l.config.SystemPrompt != "" {
 		parts = append(parts, l.config.SystemPrompt)
