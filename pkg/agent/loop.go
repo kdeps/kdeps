@@ -2170,6 +2170,20 @@ persistent memory. Check memory before every action; save after every
 turn. This is not optional — it is the core reliability mechanism.
 </internals>`
 
+// m365NoSandboxGuidance tells an M365 Copilot backend model explicitly that it
+// has no bash or code-interpreter tool here, countering the model's own
+// native "run code" habit that otherwise fires regardless of the fenced tool
+// list it was given.
+const m365NoSandboxGuidance = `<no-sandbox>
+This session has no bash, shell, or code-interpreter tool, and no /mnt/data
+or similar sandbox mount. Do not write a bash command, a heredoc, or any
+"Coding and executing" style action -- nothing runs it, and any files or
+paths it reports are not real. The ONLY way to act is a fenced call to one
+of the tools listed above, using the tool's exact name as the fence's
+info-string. If a task needs a capability none of those tools provide, say
+so instead of improvising a shell command.
+</no-sandbox>`
+
 // InvalidateSystemPreamble forces the next turn to rebuild the system preamble.
 // Call after a runtime change that the preamble embeds (model switch, which
 // renames the commit trailer author) so the cached prefix does not go stale.
@@ -2257,6 +2271,14 @@ func (l *Loop) buildSystemPreamble(focus string) string {
 		toolParts = append(toolParts, toolUseGuidance)
 		if toolPrompt := l.registry.ToolPrompt(); toolPrompt != "" {
 			toolParts = append(toolParts, toolPrompt)
+		}
+		// M365 Copilot backend models have their own native "run code"/"code
+		// interpreter" habit baked in from training, independent of kdeps'
+		// tool list -- confirmed live: a model fabricated a bash -lc action
+		// against M365's own empty sandbox at /mnt/data instead of calling any
+		// registered fenced tool. Tell it explicitly there is no such tool here.
+		if l.config.Backend == backendM365 {
+			toolParts = append(toolParts, m365NoSandboxGuidance)
 		}
 	}
 

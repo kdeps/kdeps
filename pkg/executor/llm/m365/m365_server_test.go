@@ -296,6 +296,45 @@ func TestServerChatCompletionConfabulationRetry(t *testing.T) {
 	}
 }
 
+// A session with no shell tool must not be told to write a ```bash block on
+// retry -- BuildSpecMap only aliases that fence language onto a real tool
+// when a shell tool is registered, so asking for it here would never parse
+// into a call. The retry prompt must instead point at a real registered tool
+// (list_files), and the model complying with that should succeed.
+func TestServerChatCompletionConfabulationRetryNoShellTool(t *testing.T) {
+	frames := [][]string{
+		successFrame("I cannot access the files, please paste them here"),
+		successFrame("```list_files\n/tmp\n```"),
+	}
+	srv, wsSrv := newTestServer(t, frames)
+	base := srv.URL
+
+	_, body := postChat(t, base, map[string]any{
+		"model":    "m365-copilot",
+		"messages": []map[string]any{{"role": "user", "content": "list files"}},
+		"tools": []map[string]any{{
+			"type": "function",
+			"function": map[string]any{
+				"name": "list_files",
+				"parameters": map[string]any{
+					"properties": map[string]any{"path": map[string]any{"type": "string"}},
+				},
+			},
+		}},
+	})
+	choices, _ := body["choices"].([]any)
+	if len(choices) != 1 {
+		t.Fatalf("body = %+v", body)
+	}
+	choice := choices[0].(map[string]any)
+	if choice["finish_reason"] != "tool_calls" {
+		t.Fatalf("retry should have produced a real tool call: %+v", body)
+	}
+	if wsSrv.turnCount() != 2 {
+		t.Errorf("expected exactly one forced retry (2 WS turns), got %d", wsSrv.turnCount())
+	}
+}
+
 // --- Disengaged recovery ---
 
 func TestServerChatCompletionDisengageRetry(t *testing.T) {

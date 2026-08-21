@@ -167,6 +167,46 @@ func TestRenderAndParseFencedRoundTrip(t *testing.T) {
 	}
 }
 
+// confabForcePrompt/hallucinationForcePrompt must never tell the model to
+// write a ```bash block unless a shell tool is actually registered --
+// BuildSpecMap only aliases that fence language onto a real tool in that
+// case, so asking for it otherwise is a retry that can never parse into a
+// tool call.
+func TestForcePrompts_BashOnlyWithShellTool(t *testing.T) {
+	withShell := confabForcePrompt([]ToolDef{shellToolDef()})
+	if !strings.Contains(withShell, "```bash") {
+		t.Errorf("confabForcePrompt with a shell tool should ask for ```bash, got %q", withShell)
+	}
+	withShellHalluc := hallucinationForcePrompt([]ToolDef{shellToolDef()})
+	if !strings.Contains(withShellHalluc, "```bash") {
+		t.Errorf(
+			"hallucinationForcePrompt with a shell tool should ask for ```bash, got %q",
+			withShellHalluc,
+		)
+	}
+
+	withoutShell := confabForcePrompt([]ToolDef{writeToolDef()})
+	if strings.Contains(withoutShell, "Emit ONE ```bash") {
+		t.Errorf(
+			"confabForcePrompt without a shell tool must not ask for a ```bash block, got %q",
+			withoutShell,
+		)
+	}
+	if !strings.Contains(withoutShell, "no bash or code-interpreter tool") {
+		t.Errorf(
+			"confabForcePrompt without a shell tool should explain there is none, got %q",
+			withoutShell,
+		)
+	}
+	withoutShellHalluc := hallucinationForcePrompt([]ToolDef{writeToolDef()})
+	if strings.Contains(withoutShellHalluc, "Emit ONE ```bash") {
+		t.Errorf(
+			"hallucinationForcePrompt without a shell tool must not ask for a ```bash block, got %q",
+			withoutShellHalluc,
+		)
+	}
+}
+
 func TestParseFencedShellRouting(t *testing.T) {
 	specs := BuildSpecMap([]ToolDef{shellToolDef()})
 	calls, _ := ParseFencedToolCalls("```bash\nls -la\n```", specs)
@@ -221,7 +261,11 @@ func TestFramingVariants_ShellOnlyWithoutDedicatedTools(t *testing.T) {
 	for _, v := range []string{"baseline", "minimal", "softened"} {
 		out := FormatFencedToolDefinitions(tools, v)
 		if strings.Contains(out, "DEDICATED TOOLS") {
-			t.Errorf("variant %q should not mention dedicated tools when none are registered:\n%s", v, out)
+			t.Errorf(
+				"variant %q should not mention dedicated tools when none are registered:\n%s",
+				v,
+				out,
+			)
 		}
 	}
 }
@@ -232,7 +276,10 @@ func TestGetMessageContent(t *testing.T) {
 	if GetMessageContent(Message{Content: "hi"}) != "hi" {
 		t.Error("string content")
 	}
-	parts := []any{map[string]any{"type": "text", "text": "a"}, map[string]any{"type": "text", "text": "b"}}
+	parts := []any{
+		map[string]any{"type": "text", "text": "a"},
+		map[string]any{"type": "text", "text": "b"},
+	}
 	if GetMessageContent(Message{Content: parts}) != "ab" {
 		t.Error("array content")
 	}
@@ -473,7 +520,9 @@ func TestAgentNamingAndCache(t *testing.T) {
 
 	dir := t.TempDir()
 	t.Setenv("M365_AGENT_CACHE_FILE", filepath.Join(dir, "agent-id.json"))
-	saveCachedAgent(cachedAgent{AgentID: "A.b.gpt.default", BotID: "b", InstructionsHash: "hash1234"})
+	saveCachedAgent(
+		cachedAgent{AgentID: "A.b.gpt.default", BotID: "b", InstructionsHash: "hash1234"},
+	)
 	got := loadCachedAgent()
 	if got == nil || got.AgentID != "A.b.gpt.default" {
 		t.Errorf("round-trip cache = %+v", got)
@@ -620,8 +669,11 @@ func TestParsedToolChoice(t *testing.T) {
 	if tc := none.parsedToolChoice(); tc == nil || tc.Mode != "none" {
 		t.Errorf("string tool_choice = %+v", tc)
 	}
-	fn := &chatRequest{ToolChoice: json.RawMessage(`{"type":"function","function":{"name":"bash"}}`)}
-	if tc := fn.parsedToolChoice(); tc == nil || tc.Mode != "function" || tc.FunctionName != "bash" {
+	fn := &chatRequest{
+		ToolChoice: json.RawMessage(`{"type":"function","function":{"name":"bash"}}`),
+	}
+	if tc := fn.parsedToolChoice(); tc == nil || tc.Mode != "function" ||
+		tc.FunctionName != "bash" {
 		t.Errorf("function tool_choice = %+v", tc)
 	}
 	empty := &chatRequest{}
@@ -632,7 +684,9 @@ func TestParsedToolChoice(t *testing.T) {
 
 func TestFingerprintStable(t *testing.T) {
 	a := fingerprint([]Message{{Role: "user", Content: "hello"}})
-	b := fingerprint([]Message{{Role: "user", Content: "hello"}, {Role: "assistant", Content: "hi"}})
+	b := fingerprint(
+		[]Message{{Role: "user", Content: "hello"}, {Role: "assistant", Content: "hi"}},
+	)
 	if a != b {
 		t.Error("fingerprint should key on first user message only")
 	}
@@ -697,7 +751,11 @@ func TestServeHTTPNotFound(t *testing.T) {
 func TestServeHTTPBadRequest(t *testing.T) {
 	srv := NewServer(ModelSessionOptions{})
 	rec := httptest.NewRecorder()
-	req := httptest.NewRequest(http.MethodPost, "/v1/chat/completions", strings.NewReader("{bad json"))
+	req := httptest.NewRequest(
+		http.MethodPost,
+		"/v1/chat/completions",
+		strings.NewReader("{bad json"),
+	)
 	srv.ServeHTTP(rec, req)
 	if rec.Code != http.StatusBadRequest {
 		t.Errorf("status = %d", rec.Code)
@@ -743,7 +801,11 @@ func TestNewCompletionToneAgent(t *testing.T) {
 		Tools:    []ToolDef{shellToolDef()},
 	})
 	if !claude.hasTools || claude.useToolAgent {
-		t.Errorf("claude tone should be agent-less: hasTools=%v useAgent=%v", claude.hasTools, claude.useToolAgent)
+		t.Errorf(
+			"claude tone should be agent-less: hasTools=%v useAgent=%v",
+			claude.hasTools,
+			claude.useToolAgent,
+		)
 	}
 	if !strings.Contains(claude.text, "<tools>") {
 		t.Error("first turn should contain the full tool prompt")
@@ -765,7 +827,8 @@ func TestFinalizeToolCalls(t *testing.T) {
 		HasToolCalls: true,
 		ToolCalls:    []ParsedToolCall{{Name: "reply", Arguments: `{"text":"the answer"}`}},
 	}
-	if p := finalizeToolCalls(replyOnly, "fallback"); p == nil || p.kind != producedText || p.text != "the answer" {
+	if p := finalizeToolCalls(replyOnly, "fallback"); p == nil || p.kind != producedText ||
+		p.text != "the answer" {
 		t.Errorf("reply-only should resolve to text: %+v", p)
 	}
 	// Batched calls are trimmed to one.
@@ -850,7 +913,10 @@ func TestAcquireSilentCacheHit(t *testing.T) {
 	t.Setenv("M365_CACHE_FILE", filepath.Join(t.TempDir(), "cache.json"))
 	cacheMu.Lock()
 	cacheState = &tokenCache{Access: map[string]cachedToken{
-		scopeKey([]string{"s"}): {AccessToken: "cached-tok", ExpiresAt: time.Now().Add(time.Hour).Unix()},
+		scopeKey([]string{"s"}): {
+			AccessToken: "cached-tok",
+			ExpiresAt:   time.Now().Add(time.Hour).Unix(),
+		},
 	}}
 	cacheMu.Unlock()
 	defer func() {
@@ -877,7 +943,10 @@ func seedAccessToken(scopes []string, tok string) {
 	if cacheState == nil {
 		cacheState = &tokenCache{Access: map[string]cachedToken{}}
 	}
-	cacheState.Access[scopeKey(scopes)] = cachedToken{AccessToken: tok, ExpiresAt: time.Now().Add(time.Hour).Unix()}
+	cacheState.Access[scopeKey(scopes)] = cachedToken{
+		AccessToken: tok,
+		ExpiresAt:   time.Now().Add(time.Hour).Unix(),
+	}
 	cacheMu.Unlock()
 }
 
@@ -1149,7 +1218,10 @@ func TestBuildChatArgs_WantedAgentSuppressesCodeInterpreterEvenAgentless(t *test
 	opts, _ := args["optionsSets"].([]string)
 	for _, o := range opts {
 		if o == "cwc_code_interpreter" {
-			t.Errorf("code interpreter must stay off when the turn wanted an agent, got optionsSets = %v", opts)
+			t.Errorf(
+				"code interpreter must stay off when the turn wanted an agent, got optionsSets = %v",
+				opts,
+			)
 		}
 	}
 }
@@ -1167,7 +1239,10 @@ func TestBuildChatArgs_NoAgentWantedEnablesCodeInterpreter(t *testing.T) {
 		}
 	}
 	if !found {
-		t.Errorf("code interpreter should still be enabled when no agent was ever wanted, got optionsSets = %v", opts)
+		t.Errorf(
+			"code interpreter should still be enabled when no agent was ever wanted, got optionsSets = %v",
+			opts,
+		)
 	}
 }
 
@@ -1194,7 +1269,11 @@ func withTokenEndpoint(t *testing.T) {
 	t.Helper()
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		_, _ = w.Write(
-			[]byte(`{"access_token":"AT-` + r.FormValue("scope") + `","refresh_token":"RT","expires_in":3600}`),
+			[]byte(
+				`{"access_token":"AT-` + r.FormValue(
+					"scope",
+				) + `","refresh_token":"RT","expires_in":3600}`,
+			),
 		)
 	}))
 	old := authority
@@ -1211,7 +1290,10 @@ func TestLoginAutomatedSuccess(t *testing.T) {
 		return "auth-code", nil
 	})
 
-	tok, err := loginAutomated(context.Background(), &Credentials{Email: "e", Password: "p", MFASecret: "m"})
+	tok, err := loginAutomated(
+		context.Background(),
+		&Credentials{Email: "e", Password: "p", MFASecret: "m"},
+	)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1270,7 +1352,10 @@ func TestRunBrowserLoginExhausted(t *testing.T) {
 	}
 }
 
-func withStubHeadedBrowserLogin(t *testing.T, fn func(ctx context.Context, authURL string) (string, error)) {
+func withStubHeadedBrowserLogin(
+	t *testing.T,
+	fn func(ctx context.Context, authURL string) (string, error),
+) {
 	t.Helper()
 	old := headedBrowserLoginFunc
 	headedBrowserLoginFunc = fn
@@ -1338,7 +1423,10 @@ func TestGetTokenAutomatedLoginPath(t *testing.T) {
 	t.Setenv("M365_SECRETS_FILE", secretsPath)
 	_ = os.WriteFile(secretsPath, []byte(`{"email":"e","password":"p","mfaSecret":"m"}`), 0o600)
 	withTokenEndpoint(t)
-	withStubBrowserLogin(t, func(context.Context, string, *Credentials) (string, error) { return "code", nil })
+	withStubBrowserLogin(
+		t,
+		func(context.Context, string, *Credentials) (string, error) { return "code", nil },
+	)
 
 	tok, err := getToken(context.Background())
 	if err != nil || tok == "" {
@@ -1354,7 +1442,10 @@ func TestGetTokenForScopeAutomatedLoginPath(t *testing.T) {
 	t.Setenv("M365_SECRETS_FILE", secretsPath)
 	_ = os.WriteFile(secretsPath, []byte(`{"email":"e","password":"p","mfaSecret":"m"}`), 0o600)
 	withTokenEndpoint(t)
-	withStubBrowserLogin(t, func(context.Context, string, *Credentials) (string, error) { return "code", nil })
+	withStubBrowserLogin(
+		t,
+		func(context.Context, string, *Credentials) (string, error) { return "code", nil },
+	)
 
 	tok, err := getTokenForScope(context.Background(), []string{"custom-scope"})
 	if err != nil || tok == "" {
@@ -1370,7 +1461,10 @@ func TestForceReauthViaSecrets(t *testing.T) {
 	t.Setenv("M365_SECRETS_FILE", secretsPath)
 	_ = os.WriteFile(secretsPath, []byte(`{"email":"e","password":"p","mfaSecret":"m"}`), 0o600)
 	withTokenEndpoint(t)
-	withStubBrowserLogin(t, func(context.Context, string, *Credentials) (string, error) { return "code", nil })
+	withStubBrowserLogin(
+		t,
+		func(context.Context, string, *Credentials) (string, error) { return "code", nil },
+	)
 
 	if !forceReauth(context.Background()) {
 		t.Error("forceReauth should succeed via the automated-login fallback")

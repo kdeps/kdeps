@@ -22,9 +22,15 @@ import (
 // the agent loop without either knowing it is really a SignalR WebSocket.
 
 const (
-	confabForcePrompt = "The working directory and the files named in the task ARE present on a real filesystem right now. Do NOT ask me to paste anything, and do NOT say commands return no output - you have not run any command yet. Emit ONE ```bash block this turn: run `ls -la` and `cat` the relevant files. Output only the ```bash block, nothing else."
-
-	hallucinationForcePrompt = "You have NOT actually done that - no tool ran this turn, so nothing changed on disk. Do not claim a file was created, replaced, or updated until a <tool_response> confirms it. Emit ONE ```bash block now that performs the change for real (write the file with a `cat > path <<'EOF' ... EOF` heredoc), and nothing else."
+	// noShellRetryHint replaces the ```bash instruction when the request has no
+	// shell tool registered. BuildSpecMap (fenced.go) only aliases the ```bash
+	// fence language onto a real tool when findShellTool finds one in the
+	// request's tool list; without one, asking the model for a ```bash block is
+	// a dead end -- ParseFencedToolCalls will never match it to any tool, so
+	// every retry using it silently fails. Confirmed live: a session with only
+	// read_file/write_file/list_files/etc. (no shell tool) kept retrying with a
+	// ```bash block that always parsed to zero tool calls.
+	noShellRetryHint = "There is no bash or code-interpreter tool in this session -- a ```bash block will not run and will not be parsed as a call. Call one of your available tools now using its fenced format (the tool name as the fence's info-string, e.g. ```read_file / file_path: ...), and nothing else."
 
 	maxRetries      = 2
 	shortRetryDelay = 2 * time.Second
@@ -41,6 +47,35 @@ const (
 	// roundHalf rounds a percentage to the nearest integer.
 	roundHalf = 0.5
 )
+
+// confabForcePrompt builds the retry instruction for a confabulated
+// "I can't access X" reply. ```bash only round-trips through ParseFencedToolCalls
+// when the request registers a shell tool (BuildSpecMap aliases the fence
+// language onto it); without one, point the model at its real tools instead.
+func confabForcePrompt(tools []ToolDef) string {
+	base := "The working directory and the files named in the task ARE present on a real " +
+		"filesystem right now. Do NOT ask me to paste anything, and do NOT say commands " +
+		"return no output - you have not run any command yet. "
+	if findShellTool(tools) != nil {
+		return base + "Emit ONE ```bash block this turn: run `ls -la` and `cat` the relevant files. " +
+			"Output only the ```bash block, nothing else."
+	}
+	return base + noShellRetryHint
+}
+
+// hallucinationForcePrompt builds the retry instruction for a claimed file
+// mutation that no tool call backs. See confabForcePrompt for why the
+// no-shell-tool case cannot ask for a ```bash block.
+func hallucinationForcePrompt(tools []ToolDef) string {
+	base := "You have NOT actually done that - no tool ran this turn, so nothing changed on " +
+		"disk. Do not claim a file was created, replaced, or updated until a <tool_response> " +
+		"confirms it. "
+	if findShellTool(tools) != nil {
+		return base + "Emit ONE ```bash block now that performs the change for real (write the " +
+			"file with a `cat > path <<'EOF' ... EOF` heredoc), and nothing else."
+	}
+	return base + noShellRetryHint
+}
 
 func outputCharCeiling() int { return intEnv("M365_OUTPUT_CHAR_CEILING", defaultOutputCeiling) }
 
@@ -442,9 +477,9 @@ func (c *completion) produce(ctx context.Context, onDelta func(string)) *produce
 			break
 		}
 		if confab {
-			c.text = confabForcePrompt
+			c.text = confabForcePrompt(c.body.Tools)
 		} else {
-			c.text = hallucinationForcePrompt
+			c.text = hallucinationForcePrompt(c.body.Tools)
 		}
 		retryText, rerr := c.runBuffered(ctx, nil)
 		if rerr != nil {

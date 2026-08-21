@@ -120,7 +120,12 @@ func TestLoop_SystemPreambleBuiltOnceAndCached(t *testing.T) {
 		return "ok", nil
 	})
 	reg := tools.NewRegistry()
-	loop := New(eng, newTestWorkflowForSession(), reg, Config{Model: "test", SystemPrompt: "RULES", Backend: backendAnthropic})
+	loop := New(
+		eng,
+		newTestWorkflowForSession(),
+		reg,
+		Config{Model: "test", SystemPrompt: "RULES", Backend: backendAnthropic},
+	)
 
 	if _, err := loop.Run(context.Background(), "hello"); err != nil {
 		t.Fatalf("turn 1: %v", err)
@@ -141,7 +146,11 @@ func TestLoop_SystemPreambleBuiltOnceAndCached(t *testing.T) {
 	}
 	first, second := sys(capturedWorkflows[0]), sys(capturedWorkflows[1])
 	if first.Prompt != second.Prompt {
-		t.Fatalf("system preamble changed across turns:\nturn1: %q\nturn2: %q", first.Prompt, second.Prompt)
+		t.Fatalf(
+			"system preamble changed across turns:\nturn1: %q\nturn2: %q",
+			first.Prompt,
+			second.Prompt,
+		)
 	}
 	if first.CacheControl != "ephemeral" {
 		t.Fatalf("expected ephemeral cache control on system prompt, got %q", first.CacheControl)
@@ -157,7 +166,10 @@ func TestLoop_SystemPreambleBuiltOnceAndCached(t *testing.T) {
 	}
 	third := sys(capturedWorkflows[2])
 	if third.Prompt == first.Prompt {
-		t.Fatalf("expected preamble to rebuild after invalidate, but it was unchanged: %q", third.Prompt)
+		t.Fatalf(
+			"expected preamble to rebuild after invalidate, but it was unchanged: %q",
+			third.Prompt,
+		)
 	}
 }
 
@@ -344,7 +356,11 @@ func TestRunStreaming_MaxRoundsExhausted(t *testing.T) {
 func TestRunStreaming_BreaksRepeatBlockLoop(t *testing.T) {
 	// Model re-issues the identical tool call every round (the pasted bug: a
 	// tool blocked by convergence, retried forever). The loop must break.
-	toolCall := domain.StreamedToolCall{ID: "1", Name: "bash_exec", Arguments: `{"command":"echo hello"}`}
+	toolCall := domain.StreamedToolCall{
+		ID:        "1",
+		Name:      "bash_exec",
+		Arguments: `{"command":"echo hello"}`,
+	}
 	responses := make([]mockStreamResponse, 0, 20)
 	for range 20 {
 		responses = append(responses, mockStreamResponse{
@@ -358,7 +374,11 @@ func TestRunStreaming_BreaksRepeatBlockLoop(t *testing.T) {
 	result, err := loop.RunStreaming(context.Background(), "go", &buf)
 	require.NoError(t, err)
 	if ms.callCount != maxIdenticalToolCalls {
-		t.Fatalf("expected loop to break after %d identical calls, got %d", maxIdenticalToolCalls, ms.callCount)
+		t.Fatalf(
+			"expected loop to break after %d identical calls, got %d",
+			maxIdenticalToolCalls,
+			ms.callCount,
+		)
 	}
 	if !strings.Contains(result, "repeated the same") {
 		t.Fatalf("expected stuck-loop notice, got %q", result)
@@ -568,7 +588,11 @@ func TestBuildSystemPreamble_ToolGuidanceSurvivesVerbatim(t *testing.T) {
 
 	// Exact phrases from toolUseGuidance's operating rules.
 	assert.Contains(t, preamble, "STOP ALL SEARCHING")
-	assert.Contains(t, preamble, "Send independent tool calls in a single message to run them concurrently.")
+	assert.Contains(
+		t,
+		preamble,
+		"Send independent tool calls in a single message to run them concurrently.",
+	)
 	// Exact rendering of the registered tool from ToolPrompt.
 	assert.Contains(t, preamble, "**calc**: calculator")
 }
@@ -1978,7 +2002,12 @@ func TestRunStreaming_SilentRoundIsNudged(t *testing.T) {
 
 	require.Len(t, ms.cfgs, 2, "a silent round must be nudged, not returned as-is")
 	assert.Equal(t, "next steps are X and Y", got)
-	assert.NotContains(t, got, "without answering", "a real answer must not be replaced by the notice")
+	assert.NotContains(
+		t,
+		got,
+		"without answering",
+		"a real answer must not be replaced by the notice",
+	)
 }
 
 // The nudge must not cost the user their question. On the first round the input
@@ -2046,5 +2075,10 @@ func TestRunStreaming_PersistentSilenceEmitsNoticeOnce(t *testing.T) {
 	assert.Len(t, ms.cfgs, 2, "must nudge exactly once, not loop")
 	assert.NotEmpty(t, strings.TrimSpace(got), "turn must never end in silence")
 	assert.Contains(t, got, "without answering or calling a tool")
-	assert.Contains(t, buf.String(), "without answering or calling a tool", "notice must reach the user")
+	assert.Contains(
+		t,
+		buf.String(),
+		"without answering or calling a tool",
+		"notice must reach the user",
+	)
 }
