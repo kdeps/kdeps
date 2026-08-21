@@ -449,6 +449,45 @@ func TestModelSessionRunAgentless(t *testing.T) {
 	}
 }
 
+// A turn that wants agent tool-calling but whose agent fails to provision
+// (getOrCreateAgent errors, a non-fatal fallback to agentless) must still
+// keep the server's own code interpreter off on the wire -- otherwise the
+// model silently answers from Microsoft's sandbox instead of the caller's
+// real tools. Confirmed live as the root cause of a think-deeper turn
+// reporting "no project found" for a real, populated local repository.
+func TestModelSessionRunAgentWantedButUnresolved_NoCodeInterpreterOnWire(t *testing.T) {
+	srv := newFakeChatServer(t, []string{
+		`{"type":1,"target":"update","arguments":[{"messages":[{"author":"bot","text":"ok"}]}]}`,
+		`{"type":2,"item":{"messages":[{"author":"bot","text":"ok","messageType":"Chat"}],"turnState":"Completed"}}`,
+	})
+	withChatWSBase(t, srv.wsURL())
+
+	m := NewModelSession(ModelSessionOptions{
+		GetToken: func(context.Context) (string, error) { return testJWT(t), nil },
+		GetAgent: func(context.Context, bool) (string, error) { return "", errBoom },
+	})
+	stream, err := m.Run(context.Background(), "hello", "m365-copilot", true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	drainDeltas(stream)
+
+	var env map[string]any
+	if uerr := json.Unmarshal([]byte(srv.chatFrame()), &env); uerr != nil {
+		t.Fatal(uerr)
+	}
+	args := env["arguments"].([]any)[0].(map[string]any)
+	optsRaw, _ := args["optionsSets"].([]any)
+	for _, o := range optsRaw {
+		if o == "cwc_code_interpreter" {
+			t.Errorf(
+				"code interpreter must not be enabled on the wire when the agent was wanted but unresolved: %v",
+				optsRaw,
+			)
+		}
+	}
+}
+
 func TestModelSessionRunWithAgent(t *testing.T) {
 	srv := newFakeChatServer(t, []string{
 		`{"type":1,"target":"update","arguments":[{"messages":[{"author":"bot","text":"agent reply"}]}]}`,

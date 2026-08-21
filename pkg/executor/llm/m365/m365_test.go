@@ -1135,6 +1135,42 @@ func TestBuildChatArgsNoCodeInterpreterEnv(t *testing.T) {
 	}
 }
 
+// A turn that wanted the tool-calling agent but ended up agentless (agent
+// resolution failed, or the caller hasn't provisioned one) must NOT unlock
+// the server's own code interpreter: doing so lets the model silently answer
+// from Microsoft's empty sandbox filesystem instead of the caller's real
+// tools, which still went out in the prompt and are then ignored. Confirmed
+// live: a think-deeper turn with tools registered used the server's own bash
+// sandbox against an empty /mnt/data instead of kdeps' local-filesystem
+// tools, reporting "no project found" for a real, populated repository.
+func TestBuildChatArgs_WantedAgentSuppressesCodeInterpreterEvenAgentless(t *testing.T) {
+	s := NewCopilotSession(CopilotSessionOptions{WantedAgent: true})
+	args := s.buildChatArgs("req", "hi", "m365-copilot", true)
+	opts, _ := args["optionsSets"].([]string)
+	for _, o := range opts {
+		if o == "cwc_code_interpreter" {
+			t.Errorf("code interpreter must stay off when the turn wanted an agent, got optionsSets = %v", opts)
+		}
+	}
+}
+
+// The existing agentless-and-tool-less case is unaffected: code interpreter
+// still unlocks when nothing asked for the tool-agent path at all.
+func TestBuildChatArgs_NoAgentWantedEnablesCodeInterpreter(t *testing.T) {
+	s := NewCopilotSession(CopilotSessionOptions{WantedAgent: false})
+	args := s.buildChatArgs("req", "hi", "m365-copilot", true)
+	opts, _ := args["optionsSets"].([]string)
+	found := false
+	for _, o := range opts {
+		if o == "cwc_code_interpreter" {
+			found = true
+		}
+	}
+	if !found {
+		t.Errorf("code interpreter should still be enabled when no agent was ever wanted, got optionsSets = %v", opts)
+	}
+}
+
 func TestStreamSawActionDefaultsFalse(t *testing.T) {
 	s := &CopilotStream{deltas: make(chan string, 1)}
 	if s.SawAction() {

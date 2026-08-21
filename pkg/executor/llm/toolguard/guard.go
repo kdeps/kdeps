@@ -36,6 +36,13 @@ var hallucinatedCompletionPatterns = compileAll([]string{
 	`(?i)\b(?:the\s+)?(?:file|readme|script|config|change|version|content)\s+(?:has|have|is|was|were)\s+(?:been\s+)?(?:created|replaced|updated|saved|written|applied|added|modified|overwritten)\b`,
 	`(?i)\bhere'?s\s+(?:the\s+)?(?:updated|new|simplified|replaced|final)\s+(?:file|readme|version|content)\b`,
 	`(?i)\b(?:executed|ran|invoked|launched|compiled)\b[^.\n]{0,40}\b(?:it|them|this|the\s+(?:script|program|file|code|command|tests?)|python3?|node)\b`,
+	// /mnt/data is the mount point of the provider's own server-side sandbox
+	// (M365 Copilot's code-interpreter container), not the caller's real
+	// filesystem. A reply reporting facts about it -- "no project found",
+	// file listings, git state -- is a true statement about the wrong
+	// machine: the model explored its own sandbox instead of calling a real
+	// tool, so there's nothing to salvage from the claim.
+	`(?i)/mnt/data\b`,
 })
 
 func compileAll(patterns []string) []*regexp.Regexp {
@@ -64,8 +71,10 @@ func LooksLikeConfabulation(text string) bool {
 }
 
 // LooksLikeHallucinatedCompletion reports whether a no-tool-call reply claims a
-// file mutation it may not have performed. Callers should act on this only when
-// no tool actually ran in the conversation so far, keeping false positives low.
+// file mutation it may not have performed, or reports facts about a
+// provider-side sandbox as if it were the caller's real filesystem. Callers
+// should act on this only when no tool actually ran in the conversation so
+// far, keeping false positives low.
 func LooksLikeHallucinatedCompletion(text string) bool {
 	t := trimSpace(text)
 	if len(t) < minHallucTextLen {

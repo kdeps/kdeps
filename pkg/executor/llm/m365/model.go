@@ -31,7 +31,13 @@ type ModelSession struct {
 	// currentAgentID is the agent id the live copilotSession was built for
 	// (empty means an agent-less session).
 	currentAgentID string
-	agentResolved  bool
+	// currentWantedAgent is whether the live copilotSession was built for a
+	// turn that wanted agent behavior, tracked separately from
+	// currentAgentID because both can independently flip: e.g. agent
+	// resolution keeps failing (currentAgentID stays "") while a caller that
+	// previously ran tool-less now wants tools.
+	currentWantedAgent bool
+	agentResolved      bool
 }
 
 // ModelSessionOptions configures a ModelSession.
@@ -119,13 +125,15 @@ func (m *ModelSession) Run(ctx context.Context, text, model string, wantAgentTur
 		agentForTurn = m.cachedAgentID
 	}
 
-	if m.copilotSession == nil || m.currentAgentID != agentForTurn {
+	if m.copilotSession == nil || m.currentAgentID != agentForTurn || m.currentWantedAgent != wantAgent {
 		m.copilotSession = NewCopilotSession(CopilotSessionOptions{
 			AgentID:        agentForTurn,
 			SessionID:      m.sessionID,
 			ConversationID: m.conversationID,
+			WantedAgent:    wantAgent,
 		})
 		m.currentAgentID = agentForTurn
+		m.currentWantedAgent = wantAgent
 	}
 
 	stream, err := m.copilotSession.Chat(ctx, token, text, model)
@@ -135,8 +143,10 @@ func (m *ModelSession) Run(ctx context.Context, text, model string, wantAgentTur
 			AgentID:        agentForTurn,
 			SessionID:      m.sessionID,
 			ConversationID: m.conversationID,
+			WantedAgent:    wantAgent,
 		})
 		m.currentAgentID = agentForTurn
+		m.currentWantedAgent = wantAgent
 		return m.copilotSession.Chat(ctx, token, text, model)
 	}
 	return stream, nil

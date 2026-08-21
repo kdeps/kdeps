@@ -30,6 +30,19 @@ func TestLooksLikeHallucinatedCompletion(t *testing.T) {
 	}
 }
 
+// /mnt/data is the mount of the provider's own sandbox filesystem (e.g. M365
+// Copilot's code interpreter), not the caller's real disk. A reply reporting
+// facts about it is truthful about the wrong machine, confirmed as a real
+// live failure mode (a model explored an empty /mnt/data and reported "no
+// project found" for a real, populated local repository).
+func TestLooksLikeHallucinatedCompletion_ProviderSandboxPath(t *testing.T) {
+	if !LooksLikeHallucinatedCompletion(
+		"## Current project status\n\n- Project directory: `/mnt/data`\n- Files present: None",
+	) {
+		t.Error("should flag a reply reporting facts about /mnt/data as a hallucinated completion")
+	}
+}
+
 func TestBackoffControllerDistinctConversationGating(t *testing.T) {
 	b := NewBackoffController(BackoffOptions{Threshold: 2, BaseCooldown: time.Minute})
 
