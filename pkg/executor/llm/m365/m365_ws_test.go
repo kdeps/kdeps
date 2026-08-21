@@ -499,3 +499,69 @@ var errBoom = &boomError{}
 type boomError struct{}
 
 func (*boomError) Error() string { return "boom" }
+
+// A genuine completion error from the service (frame type:3 with a non-empty
+// error) previously vanished into a streaming SSE response with no content
+// and no finish_reason chunk, because runStream's producedError case only
+// ever wrote a non-standard "error" object no OpenAI-compatible client looks
+// for. Confirmed live as m365-copilot's "auto" tone completing with
+// completion_tokens=0 on a real upstream error that never reached the user.
+func TestServeHTTPChatCompletions_StreamingUpstreamErrorIsVisible(t *testing.T) {
+	srv := newFakeChatServer(t, []string{
+		`{"type":3,"invocationId":"0","error":"Failed to invoke 'Chat' due to an error on the server."}`,
+	})
+	withChatWSBase(t, srv.wsURL())
+
+	handler := NewServer(ModelSessionOptions{
+		GetToken: func(context.Context) (string, error) { return testJWT(t), nil },
+	})
+
+	reqBody, err := json.Marshal(map[string]any{
+		"model":    "m365-copilot",
+		"messages": []map[string]any{{"role": "user", "content": "status"}},
+		"stream":   true,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	req := httptest.NewRequest(http.MethodPost, "/v1/chat/completions", strings.NewReader(string(reqBody)))
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d (SSE headers are already committed by the time the error is known)", rec.Code)
+	}
+
+	body := rec.Body.String()
+	var sawContent, sawFinish bool
+	for _, line := range strings.Split(body, "\n") {
+		line = strings.TrimPrefix(line, "data: ")
+		if line == "" || strings.HasPrefix(line, "[DONE]") {
+			continue
+		}
+		var chunkObj map[string]any
+		if json.Unmarshal([]byte(line), &chunkObj) != nil {
+			continue
+		}
+		choices, _ := chunkObj["choices"].([]any)
+		if len(choices) == 0 {
+			continue
+		}
+		choice, _ := choices[0].(map[string]any)
+		if delta, ok := choice["delta"].(map[string]any); ok {
+			if content, _ := delta["content"].(string); strings.Contains(content, "Failed to invoke 'Chat'") {
+				sawContent = true
+			}
+		}
+		if fr, _ := choice["finish_reason"].(string); fr != "" {
+			sawFinish = true
+		}
+	}
+	if !sawContent {
+		t.Errorf("no delta.content chunk carried the error message -- "+
+			"a generic OpenAI-compatible client would show nothing:\n%s", body)
+	}
+	if !sawFinish {
+		t.Errorf("no finish_reason chunk -- a generic client has no signal the turn ended:\n%s", body)
+	}
+}

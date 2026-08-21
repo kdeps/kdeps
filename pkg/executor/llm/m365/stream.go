@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"maps"
+	"os"
 	"strings"
 	"sync"
 
@@ -155,6 +156,19 @@ func (s *CopilotStream) advance(next string) {
 	}
 }
 
+// logRawFrame prints the raw SignalR frame bytes when KDEPS_DEBUG is set. The
+// call-chain instrumentation (kdeps_debug.Log) only records function names,
+// not frame content, so this is the only way to see what the service
+// actually sent on the wire -- needed to diagnose content that silently
+// fails to surface (an unrecognized messageType, a genuinely empty
+// completion under a given tone, etc.) rather than guessing at it.
+func logRawFrame(frame string) {
+	if !kdeps_debug.Enabled() {
+		return
+	}
+	fmt.Fprintf(os.Stderr, "m365 raw frame: %s\n", frame)
+}
+
 // run drives the WebSocket: handshake, send chat, then fold frames until the
 // server closes the turn. It always closes the Deltas channel and the socket.
 //
@@ -207,6 +221,7 @@ func (s *CopilotStream) run(ctx context.Context, conn *websocket.Conn, args map[
 			if frame == "" {
 				continue
 			}
+			logRawFrame(frame)
 			var env signalRFrame
 			if jerr := json.Unmarshal([]byte(frame), &env); jerr != nil {
 				// Non-JSON before handshake completion means the handshake ack is

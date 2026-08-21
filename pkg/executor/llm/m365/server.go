@@ -588,9 +588,28 @@ func (c *completion) runStream(
 
 	switch p.kind {
 	case producedError:
+		// A standard OpenAI-compatible SSE client only understands
+		// choices[].delta.content and choices[].finish_reason -- it has no
+		// notion of the bare errChunk["error"] object below. Without a
+		// content delta and a finish_reason chunk, such a client (which is
+		// exactly what kdeps' own generic streaming consumer is) sees a
+		// stream with nothing recognizable in it at all: zero content, no
+		// completion signal. Confirmed live as m365-copilot's "auto" tone
+		// completing with completion_tokens=0 on a genuine upstream error
+		// ("Failed to invoke 'Chat' due to an error on the server.") that
+		// never reached the user. Send the error as visible text first, so
+		// any client shows it, then the raw object for one sophisticated
+		// enough to use it, then close the turn properly.
+		msg := fmt.Sprintf("[m365 error: %s]", p.errMsg)
+		send(chunk(base, map[string]any{"content": msg}, nil))
 		errChunk := copyMap(base)
 		errChunk["error"] = map[string]any{"message": p.errMsg, "type": "upstream_error"}
 		send(errChunk)
+		final := chunk(base, map[string]any{}, ptrStr("stop"))
+		if includeUsage {
+			final["usage"] = c.usage()
+		}
+		send(final)
 	case producedTools:
 		for i, tc := range p.toolCalls {
 			send(chunk(base, map[string]any{"tool_calls": []any{map[string]any{
