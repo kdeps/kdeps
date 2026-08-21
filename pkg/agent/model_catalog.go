@@ -275,6 +275,10 @@ var KnownCloudModels = []CloudModel{
 		ContextWindow: ctxAnthropic200k, MaxOutputTokens: outAnthropic128k,
 	},
 	{
+		ID: "gpt-5.6-think-deeper", Backend: backendM365, Desc: "GPT-5.6, extended reasoning (reasoning only for now)",
+		SupportsThinking: true, ContextWindow: ctxOpenAI200k, MaxOutputTokens: outOpenAI,
+	},
+	{
 		ID: "gpt-5.5", Backend: backendM365, Desc: "GPT-5.5",
 		ContextWindow: ctxOpenAI200k, MaxOutputTokens: outOpenAI,
 	},

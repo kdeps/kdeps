@@ -18,13 +18,17 @@ import (
 )
 
 // modelTones maps a caller-facing model name to the server-side "tone" the chat
-// request must carry. An unknown tone makes the server reject the turn, so every
-// value here is one the live service has been observed to accept.
+// request must carry. The service VALIDATES tones -- an unrecognized one is
+// rejected with a completion error ("Failed to invoke 'Chat' due to an error
+// on the server."), so every value here is one the live service has been
+// confirmed to accept. Notably "auto" is NOT a valid tone despite reading
+// like one; the service's real default/auto-select tone is "magic".
 //
 //nolint:gochecknoglobals // static lookup table, read-only after init
 var modelTones = map[string]string{
 	// Default: let the service pick.
-	"m365-copilot": "auto",
+	"m365-copilot": "magic",
+	"auto":         "magic",
 
 	// Reasoning depth toggles for the default model.
 	"quick":        "Gpt_Quick",
@@ -32,10 +36,14 @@ var modelTones = map[string]string{
 
 	// Anthropic-hosted models exposed through the service.
 	"Claude_Sonnet":              "Claude_Sonnet",
+	"claude":                     "Claude_Sonnet",
 	"claude-sonnet":              "Claude_Sonnet",
 	"claude-sonnet-4.5":          "Claude_Sonnet",
 	"claude-sonnet-think-deeper": "Claude_Sonnet_Reasoning",
 	"claude-opus":                "Claude_Opus",
+
+	// GPT-5.6 (reasoning only).
+	"gpt-5.6-think-deeper": "Gpt_5_6_Reasoning",
 
 	// GPT-5.5.
 	"gpt-5.5":              "Gpt_5_5_Chat",

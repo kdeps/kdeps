@@ -18,16 +18,30 @@ import (
 
 func TestGetToneForModel(t *testing.T) {
 	cases := map[string]string{
-		"m365-copilot":       "auto",
+		"m365-copilot":       "magic",
+		"auto":               "magic",
 		"quick":              "Gpt_Quick",
 		"claude-opus":        "Claude_Opus",
 		"claude-sonnet-4.5":  "Claude_Sonnet",
 		"claude-anything-xy": "Claude_Sonnet", // unmapped claude-* falls back to Claude_Sonnet
-		"totally-unknown":    "auto",          // falls back to default tone
+		"totally-unknown":    "magic",         // falls back to default tone
 	}
 	for model, want := range cases {
 		if got := GetToneForModel(model); got != want {
 			t.Errorf("GetToneForModel(%q) = %q, want %q", model, got, want)
+		}
+	}
+}
+
+// The service validates tones and rejects an unrecognized one with a
+// completion error ("Failed to invoke 'Chat'..."). "auto" reads like a
+// plausible tone but is not one the service accepts; the real auto-select
+// tone is "magic". This guards against that regressing.
+func TestGetToneForModel_NeverReturnsInvalidAutoTone(t *testing.T) {
+	models := append(AvailableModels(), "totally-unknown", "claude-something")
+	for _, model := range models {
+		if tone := GetToneForModel(model); tone == "auto" {
+			t.Errorf("GetToneForModel(%q) returned the invalid tone %q", model, tone)
 		}
 	}
 }
