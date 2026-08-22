@@ -1521,6 +1521,11 @@ func (r *REPL) Run() error {
 	// advances instead of circling. Enabled here for the same reason as the
 	// budget: library and test callers keep the plain round loop.
 	r.loop.config.GoalEnforcement = true
+	// Auto-generate a judge panel per turn by default in interactive use, for
+	// the same reason: library/test callers get no panel unless they opt in via
+	// Config.Judges/AutoJudges. /judges auto off (or /judges clear) disables it
+	// for the rest of the session.
+	r.loop.config.AutoJudges = true
 	if r.persistedTuning != nil {
 		r.applyToolTuning(*r.persistedTuning)
 	}

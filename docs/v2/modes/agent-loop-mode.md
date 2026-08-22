@@ -272,14 +272,20 @@ same way goal decomposition is. Any failure anywhere in the panel (a judge
 that errors, times out, or never calls `judge_verdict`) degrades to approval
 rather than blocking the turn.
 
+**On by default in the interactive REPL.** `AutoJudges` is enabled
+automatically when you start the REPL, the same way `GoalEnforcement` is —
+every turn gets an auto-generated review panel with no configuration needed.
+Library and test callers get no panel unless they set `Config.Judges` or
+`Config.AutoJudges` explicitly.
+
 **From the REPL**, the same roster is managed with `/judges` — no restart
 needed:
 
 ```
 /judges                                        # show the current roster / auto-judges state
-/judges add correctness every claim must cite a source   # add a judge (name, then criteria)
+/judges auto off                               # turn off the default auto-generated panel
+/judges add correctness every claim must cite a source   # or: hand-configure an explicit roster instead
 /judges remove correctness                     # drop it again
-/judges auto on                                # or: generate a roster per turn instead
 /judges clear                                  # disable the panel entirely
 ```
 

@@ -36,7 +36,7 @@ deepseek-v4-flash · 2.1k/64k · mem:231 · task:2/5 · turo:ultra
 ...
 ```
 
-Every prompt becomes a task plan the agent is driven through to completion — no circling, no dead stops. Runtime controls: `/goal` steer the plan, `/model` switch models mid-session, `/turo` tune the token reducer, `/thinking` toggle reasoning. Set a cloud key (`DEEPSEEK_API_KEY`, `ANTHROPIC_API_KEY`, ...) or run a local model — kdeps downloads and serves it for you.
+Every prompt becomes a task plan the agent is driven through to completion — no circling, no dead stops. An auto-generated judge panel reviews each turn's final output with real tool access and can send it back for revision before you see it (`/judges auto off` to disable). Runtime controls: `/goal` steer the plan, `/judges` configure or disable the review panel, `/model` switch models mid-session, `/turo` tune the token reducer, `/thinking` toggle reasoning. Set a cloud key (`DEEPSEEK_API_KEY`, `ANTHROPIC_API_KEY`, ...) or run a local model — kdeps downloads and serves it for you.
 
 ## Install
 
