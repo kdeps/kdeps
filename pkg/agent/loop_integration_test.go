@@ -34,6 +34,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/kdeps/kdeps/v2/pkg/config"
 	"github.com/kdeps/kdeps/v2/pkg/domain"
 	"github.com/kdeps/kdeps/v2/pkg/executor"
 	llm "github.com/kdeps/kdeps/v2/pkg/executor/llm"
@@ -538,6 +539,28 @@ func TestCommitTrailer(t *testing.T) {
 			assert.Equal(t, c.want, l.commitTrailer())
 		})
 	}
+}
+
+// TestCommitTrailer_ConfiguredIdentityTakesPriority guards that a configured
+// identity is used verbatim instead of the synthetic model-naming trailer --
+// a commit made as "Sales Bot" should say so, not "kdeps (whatever model)".
+func TestCommitTrailer_ConfiguredIdentityTakesPriority(t *testing.T) {
+	l := &Loop{config: Config{
+		Backend: "deepseek", Model: "deepseek-reasoner",
+		Identity: &config.IdentityConfig{Name: "Sales Bot", Email: "sales-bot@example.com"},
+	}}
+	assert.Equal(t, "Co-Authored-By: Sales Bot <sales-bot@example.com>", l.commitTrailer())
+}
+
+// TestCommitTrailer_IncompleteIdentityFallsBack guards that a partial
+// identity (missing email, say) does not produce a malformed trailer -- it
+// falls back to the synthetic one instead.
+func TestCommitTrailer_IncompleteIdentityFallsBack(t *testing.T) {
+	l := &Loop{config: Config{
+		Backend: "deepseek", Model: "deepseek-reasoner",
+		Identity: &config.IdentityConfig{Name: "Sales Bot"}, // no email
+	}}
+	assert.Equal(t, "Co-Authored-By: kdeps (deepseek/deepseek-reasoner) <noreply@kdeps.com>", l.commitTrailer())
 }
 
 // TestBuildSystemPreamble_ContainsCommitTrailer verifies the preamble

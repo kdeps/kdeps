@@ -310,6 +310,37 @@ settings:
 
 Auth, rate limiting, TLS (static certs or Let's Encrypt custom domains), body size cap, concurrency limits, and resource output caps. See [Security Reference](/reference/security) for the full documentation.
 
+## Agent Identity
+
+An agent can have a configured identity — name, email, mailing address, and named accounts for services it authenticates with. Like SMTP/IMAP/bot credentials, it lives in `~/.kdeps/config.yaml`, never in `workflow.yaml`, and follows the same [per-agent profile](workflow.md#metadata-and-config-profiles) merge: set it globally, override it under `agents.<name>`, or both.
+
+```yaml
+# ~/.kdeps/config.yaml
+identity:                        # global default identity
+  name: "kdeps bot"
+  email: bot@example.com
+
+agents:
+  sales-bot:                     # matches metadata.name: sales-bot
+    identity:
+      name: "Sales Bot"
+      email: sales-bot@example.com
+      address: "123 Example St, Springfield"
+      accounts:                  # named credentials for tools that log into a service
+        crm:
+          username: "${CRM_USER}"
+          password: "${CRM_PASS}"
+          url: https://crm.example.com
+```
+
+Identity is `name`/`email`/`address` (attribution — who the agent is) plus `accounts` (credentials — what the agent can log into). They're used in three places:
+
+- **Git commits.** In agent-loop mode, the `Co-Authored-By` trailer the agent adds to its own commits uses `"name <email>"` when configured, instead of the default `kdeps (<model>) <noreply@kdeps.com>`.
+- **Outbound email.** An [`email:` resource](/resources/email) with no `from:` set defaults to `identity.email`.
+- **`identity_get` tool.** Agent-loop mode registers this tool so the model can answer "who are you" or sign its own output — it returns `name`/`email`/`address` only. `accounts` (and its passwords) are never exposed to the LLM through this or any tool; a model that can read a credential can leak it in its own output.
+
+`accounts` are consumed by resources that need to authenticate as the agent. An `httpClient` resource with `accountName: crm` and no `connectionName` resolves Basic Auth from `identity.accounts.crm` — `connectionName` (a full [named HTTP connection](/resources/http-client)) always takes priority when both are set.
+
 ## See Also
 
 - [Security Reference](/reference/security) - Auth, rate limiting, TLS, concurrency, output caps

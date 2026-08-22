@@ -103,6 +103,9 @@ bot_connections:
   discord:
     token: xyz
 api_auth_token: secret
+identity:
+  name: kdeps bot
+  email: bot@example.com
 `)
 	cfg := loadCfg(t)
 	for _, w := range cfg.Validate("") {

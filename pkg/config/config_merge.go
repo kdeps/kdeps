@@ -32,6 +32,9 @@ func mergeConfig(dst *Config, src *Config) {
 	}
 	mergeMap(&dst.SQLConnections, src.SQLConnections)
 	setStrIfNotEmpty(&dst.APIAuthToken, src.APIAuthToken)
+	if src.Identity != nil {
+		dst.Identity = src.Identity
+	}
 }
 
 // setStrIfNotEmpty copies src to *dst when src is non-empty.

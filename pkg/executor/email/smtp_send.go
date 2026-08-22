@@ -76,6 +76,7 @@ func (e *Executor) resolveSendRequest(
 	if err != nil {
 		return nil, fmt.Errorf("email executor: evaluate from: %w", err)
 	}
+	from = defaultFromIdentity(from, ctx)
 	subject, err := ev(cfg.Subject)
 	if err != nil {
 		return nil, fmt.Errorf("email executor: evaluate subject: %w", err)
@@ -156,6 +157,16 @@ func (e *Executor) resolveSendRequest(
 	}
 	req.addr = fmt.Sprintf("%s:%d", req.smtpHost, port)
 	return req, nil
+}
+
+// defaultFromIdentity returns from unchanged when set, otherwise falls back
+// to the agent's configured identity email -- the same way commit trailers
+// default to it in agent-loop mode (see Loop.commitAuthorLine).
+func defaultFromIdentity(from string, ctx *executor.ExecutionContext) string {
+	if from != "" || ctx == nil || ctx.Config == nil || ctx.Config.Identity == nil {
+		return from
+	}
+	return ctx.Config.Identity.Email
 }
 
 // deliverSMTPMessage sends a message via implicit TLS or STARTTLS.

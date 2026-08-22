@@ -112,6 +112,8 @@ email:
 
 </div>
 
+`from` is optional when the agent has a configured [identity](/configuration/advanced#agent-identity) — it defaults to `identity.email`, so a per-agent identity means you don't have to repeat the sender address on every `email:` resource.
+
 HTML email — set `html: true` and put HTML in `body:`:
 
 <div v-pre>

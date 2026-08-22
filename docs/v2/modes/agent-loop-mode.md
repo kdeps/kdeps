@@ -651,6 +651,10 @@ Memory is stored per-project at `~/.kdeps/memory/<encoded-cwd>/memory.jsonl`. Fa
 
 The `memory_*` tools are how the *model* reads and writes memory during a turn. To inspect the store yourself from the REPL, use `/memory` (overview), `/memory list` (every entry), and `/memory search <query>` — see [REPL slash commands](#repl-slash-commands).
 
+### Identity tool
+
+Always available. `identity_get` returns the agent's configured name, email, and address — see [Agent Identity](/configuration/advanced#agent-identity) for how to set one. Returns "No identity configured for this agent." when unset. Never returns account credentials, even if configured; a model that can read a password can leak it in its own output.
+
 ### Shell execution
 
 `bash_exec` runs any shell command and streams output to the terminal. Two keyboard shortcuts change its behavior mid-run:
@@ -781,6 +785,8 @@ How the model is named depends on where it runs:
 Cloud and Ollama models are namespaced by their provider (`provider/model`). Local llamafile and GGUF models already carry their HuggingFace namespace in the name, so the runtime is appended instead — the same repo is often published as both, and the name alone cannot tell them apart.
 
 With no model configured, the trailer falls back to `Co-Authored-By: kdeps <noreply@kdeps.com>`.
+
+A configured [identity](/configuration/advanced#agent-identity) takes priority over all of the above: with `identity.name`/`identity.email` set, the trailer becomes `Co-Authored-By: Sales Bot <sales-bot@example.com>` instead of naming the model.
 
 ### Lean mode
 

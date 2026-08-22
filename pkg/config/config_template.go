@@ -186,6 +186,22 @@ defaults:
 # Required when apiServer is enabled. Set here or via KDEPS_API_AUTH_TOKEN env var.
 # api_auth_token: "${API_AUTH_TOKEN}"
 
+# ── Agent identity — who the agent is, for attribution and authenticated tools ──
+# Used for git commit trailers, outbound email "from", and the identity_get
+# tool in agent-loop mode (name/email/address only — accounts are never
+# exposed to the LLM). Set globally here, or per-agent under agents.<name>
+# (see the "Per-agent config profiles" example below) to give each agent its
+# own identity.
+# identity:
+#   name: "kdeps bot"
+#   email: bot@example.com
+#   address: "123 Example St, Springfield"
+#   accounts:                      # named credentials for tools that log into a service
+#     crm:
+#       username: "${CRM_USER}"
+#       password: "${CRM_PASS}"
+#       url: https://crm.example.com
+
 `
 
 func buildRoutingExamplesSection() string {
@@ -285,6 +301,9 @@ func buildAgentsExampleSection() string {
 #       chat:
 #         timeout: "120s"
 #         temperature: 0.2
+#     identity:                  # this agent's own identity, overriding the global one above
+#       name: "Sales Bot"
+#       email: sales-bot@example.com
 #
 #   another-agent:               # matches metadata.name: another-agent
 #     llm:

@@ -44,6 +44,7 @@ import (
 
 	"github.com/spf13/afero"
 
+	"github.com/kdeps/kdeps/v2/pkg/config"
 	"github.com/kdeps/kdeps/v2/pkg/domain"
 	"github.com/kdeps/kdeps/v2/pkg/executor"
 	executorLLM "github.com/kdeps/kdeps/v2/pkg/executor/llm"
@@ -213,6 +214,12 @@ type Config struct {
 	// writer to RunStreaming can leave it nil and keep getting notices through
 	// that writer as before.
 	ProgressWriter io.Writer
+	// Identity is the agent's configured identity (name, email, address,
+	// named accounts), resolved from ~/.kdeps/config.yaml's per-agent profile
+	// (see config.LoadStructWithAgent). Nil when unconfigured -- attribution
+	// (commit trailers, outbound email) falls back to its existing synthetic
+	// default, and the identity_get tool reports nothing configured.
+	Identity *config.IdentityConfig
 }
 
 // Loop drives a multi-turn agent conversation using the kdeps engine as the
@@ -299,6 +306,7 @@ func New(eng *executor.Engine, workflow *domain.Workflow, reg *tools.Registry, c
 	}
 
 	l.registerSkillLoader()
+	l.registerIdentityTool()
 
 	if cfg.MemoryStore != nil {
 		memoryStoreInstance = cfg.MemoryStore
@@ -364,6 +372,43 @@ func (l *Loop) registerSkillLoader() {
 				content += "\n\n---\nRelated skills (call load_skill again if relevant): " + strings.Join(related, ", ")
 			}
 			return content, nil
+		},
+	})
+}
+
+// registerIdentityTool registers identity_get so the LLM can answer "who are
+// you" using the agent's configured identity. Registered unconditionally --
+// an unconfigured identity is a harmless, valid reply, not an error. Only
+// Name/Email/Address are ever returned: Identity.Accounts carries secrets
+// and must never reach the model (a model that can read a password can leak
+// it in its own output).
+func (l *Loop) registerIdentityTool() {
+	if l.registry == nil {
+		return
+	}
+	l.registry.Register(&tools.Tool{
+		Name: "identity_get",
+		Description: "Return this agent's configured identity: name, email, and " +
+			"mailing address. Use this to answer questions about who you are, or to " +
+			"sign outputs (commits, emails) as this agent. Never returns credentials.",
+		Category:     "agent",
+		OutputFormat: "plain text",
+		Execute: func(map[string]any) (string, error) {
+			id := l.config.Identity
+			if id == nil || (id.Name == "" && id.Email == "" && id.Address == "") {
+				return "No identity configured for this agent.", nil
+			}
+			var b strings.Builder
+			if id.Name != "" {
+				fmt.Fprintf(&b, "name: %s\n", id.Name)
+			}
+			if id.Email != "" {
+				fmt.Fprintf(&b, "email: %s\n", id.Email)
+			}
+			if id.Address != "" {
+				fmt.Fprintf(&b, "address: %s\n", id.Address)
+			}
+			return strings.TrimSpace(b.String()), nil
 		},
 	})
 }
@@ -2441,8 +2486,18 @@ func (l *Loop) memoryRulesPreamble() []string {
 // commitTrailer returns the Co-Authored-By line for git commits made by the
 // agent.
 func (l *Loop) commitTrailer() string {
-	return "Co-Authored-By: " + commitAuthor(l.config.Backend, l.config.Model) +
-		" <noreply@kdeps.com>"
+	return "Co-Authored-By: " + l.commitAuthorLine()
+}
+
+// commitAuthorLine renders the trailer's "Name <email>" author. A configured
+// identity (see Config.Identity) takes priority -- a commit made as "Sales
+// Bot" should say so, not "kdeps (whatever model happened to be active)".
+// Falls back to the synthetic model-naming trailer when no identity is set.
+func (l *Loop) commitAuthorLine() string {
+	if id := l.config.Identity; id != nil && id.Name != "" && id.Email != "" {
+		return id.Name + " <" + id.Email + ">"
+	}
+	return commitAuthor(l.config.Backend, l.config.Model) + " <noreply@kdeps.com>"
 }
 
 // commitAuthor renders the trailer's author as "kdeps (<model>)". Naming the

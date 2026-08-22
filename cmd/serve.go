@@ -15,6 +15,7 @@ import (
 	"github.com/robfig/cron/v3"
 
 	"github.com/kdeps/kdeps/v2/pkg/agent"
+	"github.com/kdeps/kdeps/v2/pkg/config"
 	"github.com/kdeps/kdeps/v2/pkg/domain"
 	"github.com/kdeps/kdeps/v2/pkg/executor"
 	"github.com/kdeps/kdeps/v2/pkg/executor/llm"
@@ -294,6 +295,16 @@ func runAgentLoopCmd(path string, flags *agentLoopFlags) error {
 
 	startModel, startBackend := resolveStartModelWithAutoPick(rootCtx, flags, settings)
 
+	// Per-agent identity (name, email, address, accounts), keyed by the host
+	// workflow's own metadata.name -- unlike workflow mode (cmd/run_workflow.go,
+	// cmd/run_servers_bot.go), agent-loop mode never otherwise resolves the
+	// ~/.kdeps/config.yaml agents.<name> profile. Non-fatal: an unconfigured or
+	// unreadable config.yaml just means no identity, not a startup failure.
+	var identity *config.IdentityConfig
+	if identityCfg, identityErr := config.LoadStructWithAgent(hostWorkflow.Metadata.Name); identityErr == nil {
+		identity = identityCfg.Identity
+	}
+
 	cfg := agent.Config{
 		Model:        startModel,
 		Backend:      startBackend,
@@ -304,6 +315,7 @@ func runAgentLoopCmd(path string, flags *agentLoopFlags) error {
 		ModelService: llm.NewModelService(nil),
 		Store:        store,
 		MemoryStore:  memStore,
+		Identity:     identity,
 	}
 
 	// Restore full LLM config from persistent session memory. Only sets fields

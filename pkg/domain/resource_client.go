@@ -34,6 +34,12 @@ type HTTPClientConfig struct {
 	// ConnectionName references a named connection in settings.httpConnections.
 	ConnectionName string `yaml:"connectionName,omitempty"`
 
+	// AccountName references a named account under the agent's identity
+	// (~/.kdeps/config.yaml identity.accounts / agents.<name>.identity.accounts).
+	// Resolved as Basic Auth when set and ConnectionName did not already
+	// supply auth -- ConnectionName always takes priority.
+	AccountName string `yaml:"accountName,omitempty"`
+
 	// Advanced options
 	// FollowRedirects: nil (default) = follow redirects, false = don't follow, true = follow
 	FollowRedirects *bool          `yaml:"followRedirects,omitempty"`

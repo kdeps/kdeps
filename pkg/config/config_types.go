@@ -281,6 +281,28 @@ type SQLConnectionConfig struct {
 	Connection string `yaml:"connection"` // DSN, e.g. "postgres://user:pass@host/db"
 }
 
+// AccountConfig holds credentials for a named third-party account an agent
+// logs into (e.g. a CRM, a website for browser automation) -- distinct from
+// the SMTP/IMAP/bot connections above, which are for kdeps' own outbound
+// integrations, not a general "the agent authenticates as this identity"
+// concept.
+type AccountConfig struct {
+	Username string `yaml:"username,omitempty"`
+	Password string `yaml:"password,omitempty"`
+	URL      string `yaml:"url,omitempty"` // the service this account logs into
+}
+
+// IdentityConfig holds an agent's identity: who it is (name, email, address)
+// for attribution (git commit trailers, outbound email "from"), plus named
+// accounts for tools that need to authenticate as this agent. Never exposed
+// to the LLM beyond Name/Email/Address -- Accounts carries secrets.
+type IdentityConfig struct {
+	Name     string                   `yaml:"name,omitempty"`
+	Email    string                   `yaml:"email,omitempty"`
+	Address  string                   `yaml:"address,omitempty"`
+	Accounts map[string]AccountConfig `yaml:"accounts,omitempty"`
+}
+
 // Config is the top-level structure of ~/.kdeps/config.yaml.
 type Config struct {
 	LLM               LLMKeys                           `yaml:"llm"`
@@ -293,5 +315,6 @@ type Config struct {
 	BotConnections    *BotConnectionConfig              `yaml:"bot_connections,omitempty"`
 	SQLConnections    map[string]SQLConnectionConfig    `yaml:"sql_connections,omitempty"`
 	APIAuthToken      string                            `yaml:"api_auth_token,omitempty"`
+	Identity          *IdentityConfig                   `yaml:"identity,omitempty"`
 	Agents            map[string]Config                 `yaml:"agents,omitempty"`
 }

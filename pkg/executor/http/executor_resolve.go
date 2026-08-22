@@ -33,11 +33,33 @@ func (e *Executor) resolveConnectionAuth(
 	config *domain.HTTPClientConfig,
 ) (string, *kdepsconfig.HTTPAuthConfig) {
 	kdeps_debug.Log("enter: resolveConnectionAuth")
-	conn := e.resolveHTTPConnection(ctx, config)
-	if conn == nil {
-		return "", nil
+	if conn := e.resolveHTTPConnection(ctx, config); conn != nil {
+		return conn.Proxy, conn.Auth
 	}
-	return conn.Proxy, conn.Auth
+	return "", e.resolveAccountAuth(ctx, config)
+}
+
+// resolveAccountAuth returns Basic Auth credentials from the agent's
+// identity.accounts[accountName] (see AccountName on HTTPClientConfig), when
+// the resource references one and no named httpConnection already supplied
+// auth. Returns nil when unset or the account is not found.
+func (e *Executor) resolveAccountAuth(
+	ctx *executor.ExecutionContext,
+	config *domain.HTTPClientConfig,
+) *kdepsconfig.HTTPAuthConfig {
+	kdeps_debug.Log("enter: resolveAccountAuth")
+	if config.AccountName == "" || ctx == nil || ctx.Config == nil || ctx.Config.Identity == nil {
+		return nil
+	}
+	acct, ok := ctx.Config.Identity.Accounts[config.AccountName]
+	if !ok {
+		return nil
+	}
+	return &kdepsconfig.HTTPAuthConfig{
+		Type:     "basic",
+		Username: acct.Username,
+		Password: acct.Password,
+	}
 }
 
 // resolveConfig evaluates dynamic fields in HTTP client configuration.

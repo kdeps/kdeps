@@ -39,6 +39,7 @@ var (
 		"bot_connections":    true,
 		"sql_connections":    true,
 		"api_auth_token":     true,
+		"identity":           true,
 		"agents":             true,
 	}
 

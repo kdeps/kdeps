@@ -461,6 +461,32 @@ func TestMergeConfig_BotConnectionsNilSrc(t *testing.T) {
 	require.NotNil(t, dst.BotConnections)
 }
 
+func TestMergeConfig_Identity(t *testing.T) {
+	dst := &Config{}
+	src := &Config{
+		Identity: &IdentityConfig{
+			Name:  "Sales Bot",
+			Email: "sales-bot@example.com",
+			Accounts: map[string]AccountConfig{
+				"crm": {Username: "salesbot", Password: "secret", URL: "https://crm.example.com"},
+			},
+		},
+	}
+	mergeConfig(dst, src)
+	require.NotNil(t, dst.Identity)
+	assert.Equal(t, "Sales Bot", dst.Identity.Name)
+	assert.Equal(t, "sales-bot@example.com", dst.Identity.Email)
+	assert.Equal(t, "salesbot", dst.Identity.Accounts["crm"].Username)
+}
+
+func TestMergeConfig_IdentityNilSrc(t *testing.T) {
+	dst := &Config{Identity: &IdentityConfig{Name: "kdeps bot"}}
+	src := &Config{}
+	mergeConfig(dst, src)
+	require.NotNil(t, dst.Identity)
+	assert.Equal(t, "kdeps bot", dst.Identity.Name)
+}
+
 func TestMergeConfig_APIAuthToken(t *testing.T) {
 	dst := &Config{}
 	src := &Config{APIAuthToken: "my-secret-token"}

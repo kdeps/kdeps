@@ -17,6 +17,7 @@ package agent_test
 import (
 	"context"
 	"errors"
+	"slices"
 	"strings"
 	"testing"
 
@@ -339,11 +340,15 @@ func TestLoop_Run_ToolsWired(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if len(capturedWorkflow.Resources[0].Chat.Tools) != 1 {
-		t.Fatalf("expected 1 tool, got %d", len(capturedWorkflow.Resources[0].Chat.Tools))
+	// identity_get is always registered alongside whatever the caller adds
+	// (see Loop.registerIdentityTool), so "mytool" is present, not exclusive.
+	gotTools := capturedWorkflow.Resources[0].Chat.Tools
+	names := make([]string, len(gotTools))
+	for i, tl := range gotTools {
+		names[i] = tl.Name
 	}
-	if capturedWorkflow.Resources[0].Chat.Tools[0].Name != "mytool" {
-		t.Fatalf("unexpected tool name: %q", capturedWorkflow.Resources[0].Chat.Tools[0].Name)
+	if !slices.Contains(names, "mytool") {
+		t.Fatalf("expected \"mytool\" among wired tools, got %v", names)
 	}
 }
 

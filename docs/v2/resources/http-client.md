@@ -184,6 +184,28 @@ http_connections:
       token: "${API_TOKEN}"
 ```
 
+### Account Auth
+
+`accountName:` is a lighter alternative to `connectionName:` for services the agent authenticates with as itself, using a named account from the agent's [identity](/configuration/advanced#agent-identity) instead of a full `http_connections` entry. Resolves as Basic Auth. When both are set, `connectionName` wins.
+
+```yaml
+# ~/.kdeps/config.yaml
+identity:
+  accounts:
+    crm:
+      username: "${CRM_USER}"
+      password: "${CRM_PASS}"
+      url: https://crm.example.com
+```
+
+```yaml
+# resources/fetch.yaml
+httpClient:
+  method: GET
+  url: "https://crm.example.com/contacts"
+  accountName: crm
+```
+
 ## Retry Configuration
 
 Automatic retries with exponential backoff:

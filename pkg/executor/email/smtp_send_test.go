@@ -136,3 +136,41 @@ func TestResolveSendRequest_EvalErrors(t *testing.T) {
 		})
 	}
 }
+
+func TestResolveSendRequest_FromDefaultsToIdentityEmail(t *testing.T) {
+	ex := &Executor{}
+	ctx := smtpResolveCtx(t)
+	ctx.Config.Identity = &kdepsconfig.IdentityConfig{Name: "Sales Bot", Email: "sales-bot@example.com"}
+	smtpCfg := kdepsconfig.SMTPConnectionConfig{Host: "smtp.example.com", Username: "user", Password: "pass"}
+
+	req, err := ex.resolveSendRequest(ctx, &domain.EmailConfig{
+		Subject: "s", Body: "b", To: []string{"a@b.com"}, // From intentionally omitted
+	}, smtpCfg)
+	require.NoError(t, err)
+	assert.Equal(t, "sales-bot@example.com", req.from)
+}
+
+func TestResolveSendRequest_ExplicitFromTakesPriorityOverIdentity(t *testing.T) {
+	ex := &Executor{}
+	ctx := smtpResolveCtx(t)
+	ctx.Config.Identity = &kdepsconfig.IdentityConfig{Name: "Sales Bot", Email: "sales-bot@example.com"}
+	smtpCfg := kdepsconfig.SMTPConnectionConfig{Host: "smtp.example.com", Username: "user", Password: "pass"}
+
+	req, err := ex.resolveSendRequest(ctx, &domain.EmailConfig{
+		From: "explicit@example.com", Subject: "s", Body: "b", To: []string{"a@b.com"},
+	}, smtpCfg)
+	require.NoError(t, err)
+	assert.Equal(t, "explicit@example.com", req.from)
+}
+
+func TestResolveSendRequest_NoFromNoIdentityStillErrors(t *testing.T) {
+	ex := &Executor{}
+	ctx := smtpResolveCtx(t)
+	smtpCfg := kdepsconfig.SMTPConnectionConfig{Host: "smtp.example.com", Username: "user", Password: "pass"}
+
+	_, err := ex.resolveSendRequest(ctx, &domain.EmailConfig{
+		Subject: "s", Body: "b", To: []string{"a@b.com"},
+	}, smtpCfg)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "from is required")
+}
