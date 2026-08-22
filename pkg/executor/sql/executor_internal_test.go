@@ -47,6 +47,53 @@ func TestGetConnection_OpenError(t *testing.T) {
 	assert.Contains(t, err.Error(), "failed to open database")
 }
 
+func TestNormalizeSQLiteDSN(t *testing.T) {
+	tests := []struct {
+		name string
+		in   string
+		want string
+	}{
+		{"sqlite3 scheme, absolute path", "sqlite3:///tmp/test.db", "/tmp/test.db"},
+		{"sqlite scheme, absolute path", "sqlite:///tmp/test.db", "/tmp/test.db"},
+		{"sqlite3 scheme, relative path", "sqlite3://./dev.db", "./dev.db"},
+		{"sqlite scheme, memory", "sqlite://:memory:", ":memory:"},
+		{"file scheme with slashes", "file:///tmp/test.db", "/tmp/test.db"},
+		{"file scheme no slashes", "file:test.db", "test.db"},
+		{"already bare path", "/tmp/test.db", "/tmp/test.db"},
+		{"already bare memory", ":memory:", ":memory:"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.want, normalizeSQLiteDSN(tt.in))
+		})
+	}
+}
+
+// TestGetConnection_SQLiteRealFile is a regression guard for a bug where the
+// "sqlite3://"/"sqlite://" scheme prefix was passed straight through to the
+// go-sqlite3 driver, which does not parse it as a URL -- every real (non-
+// ":memory:") file connection failed with "no such file or directory"
+// because it tried to open a file literally named "sqlite://...". Exercises
+// the real getConnection -> sqlOpen path (not a mocked one) against an actual
+// temp file, the way a workflow's sql_connections DSN does.
+func TestGetConnection_SQLiteRealFile(t *testing.T) {
+	dbPath := t.TempDir() + "/real.db"
+	e := NewExecutor()
+
+	db, err := e.getConnection("sqlite3://"+dbPath, nil)
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = db.Close() })
+
+	_, err = db.Exec("CREATE TABLE t (id INTEGER PRIMARY KEY, v TEXT)")
+	require.NoError(t, err)
+	_, err = db.Exec("INSERT INTO t (v) VALUES ('hello')")
+	require.NoError(t, err)
+
+	var v string
+	require.NoError(t, db.QueryRow("SELECT v FROM t WHERE id = 1").Scan(&v))
+	assert.Equal(t, "hello", v)
+}
+
 func TestFormatAsCSV_WriteErrors(t *testing.T) {
 	e := NewExecutor()
 	data := []map[string]interface{}{{"id": 1, "name": "Alice"}}

@@ -61,6 +61,29 @@ func (e *Executor) DetectDriver(connectionStr string) string {
 	return driverPostgres // Default
 }
 
+// sqliteSchemePrefixes are connection-string scheme prefixes stripped before
+// handing the DSN to the sqlite3 driver. Longest/most specific first.
+//
+//nolint:gochecknoglobals // static lookup table
+var sqliteSchemePrefixes = []string{"sqlite3://", "sqlite://", "file://", "file:"}
+
+// normalizeSQLiteDSN strips a sqlite/file URL scheme prefix from connStr,
+// leaving the bare file path (or ":memory:") the sqlite3 driver actually
+// expects. Unlike the postgres/mysql drivers, go-sqlite3 does not parse a
+// "sqlite://" wrapper itself -- database/sql hands the DSN straight through
+// to the driver, so leaving the scheme in place makes every real (non-
+// ":memory:") file connection fail with "no such file or directory": it's
+// trying to open a file literally named "sqlite://...".
+func normalizeSQLiteDSN(connStr string) string {
+	lower := strings.ToLower(connStr)
+	for _, prefix := range sqliteSchemePrefixes {
+		if strings.HasPrefix(lower, prefix) {
+			return connStr[len(prefix):]
+		}
+	}
+	return connStr
+}
+
 // ConfigurePool configures the database connection pool (exported for testing).
 func (e *Executor) ConfigurePool(db *sql.DB, poolConfig *domain.PoolConfig) {
 	kdeps_debug.Log("enter: ConfigurePool")

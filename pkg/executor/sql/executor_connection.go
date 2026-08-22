@@ -68,8 +68,13 @@ func (e *Executor) getConnection(
 	// Parse connection string to determine driver
 	driver := e.DetectDriver(connectionStr)
 
-	// Open connection
-	db, err := sqlOpen(driver, connectionStr)
+	// Open connection. go-sqlite3 expects a bare path (or ":memory:"), not the
+	// "sqlite://"/"file://" URL wrapper other drivers parse themselves.
+	dsn := connectionStr
+	if driver == "sqlite3" {
+		dsn = normalizeSQLiteDSN(connectionStr)
+	}
+	db, err := sqlOpen(driver, dsn)
 	if err != nil {
 		return nil, fmt.Errorf("failed to open database: %w", err)
 	}
