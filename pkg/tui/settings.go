@@ -73,6 +73,10 @@ type AgentLoopTuning struct {
 	ToolsFullMode        bool   `yaml:"tools_full_mode,omitempty"`
 	AutoJudges           bool   `yaml:"auto_judges,omitempty"`
 	ToolsConfigured      bool   `yaml:"tools_configured,omitempty"`
+	AutoContextDetect    bool   `yaml:"auto_context_detect,omitempty"`
+	PermissionMode       string `yaml:"permission_mode,omitempty"`
+	ThinkingMode         string `yaml:"thinking_mode,omitempty"`
+	ContextSize          int    `yaml:"context_size,omitempty"`
 }
 
 // SaveAgentLoopTuning persists the agent-loop tool settings, preserving the rest

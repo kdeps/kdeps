@@ -407,6 +407,85 @@ func TestToolTuning_ToolsAndJudgesSnapshotRoundTrip(t *testing.T) {
 	assert.False(t, snap.ToolsFullMode)
 }
 
+func TestToolTuning_PermissionModeRoundTrip(t *testing.T) {
+	r := &REPL{loop: &Loop{config: Config{PermissionMode: PermissionReadOnly}}}
+	snap := r.toolTuningSnapshot()
+	assert.Equal(t, "read-only", snap.PermissionMode)
+
+	r2 := &REPL{loop: &Loop{config: Config{}}}
+	r2.applyToolTuning(snap)
+	assert.Equal(t, PermissionReadOnly, r2.loop.config.PermissionMode)
+}
+
+func TestToolTuning_PermissionModeEmptyPreservesDefault(t *testing.T) {
+	r := &REPL{loop: &Loop{config: Config{PermissionMode: PermissionWorkspaceWrite}}}
+	r.applyToolTuning(ToolTuning{PermissionMode: ""})
+	assert.Equal(t, PermissionWorkspaceWrite, r.loop.config.PermissionMode,
+		"an unconfigured snapshot must not clobber the mode already set")
+}
+
+func TestToolTuning_ThinkingModeRoundTrip(t *testing.T) {
+	r := &REPL{loop: &Loop{}}
+	r.loop.SetThinking(&domain.ThinkingConfig{Mode: domain.ThinkingModeHigh})
+	snap := r.toolTuningSnapshot()
+	assert.Equal(t, "high", snap.ThinkingMode)
+
+	r2 := &REPL{loop: &Loop{}}
+	r2.applyToolTuning(snap)
+	got := r2.loop.Thinking()
+	require.NotNil(t, got)
+	assert.Equal(t, domain.ThinkingModeHigh, got.Mode)
+}
+
+func TestToolTuning_ThinkingModeOffRoundTrip(t *testing.T) {
+	r := &REPL{loop: &Loop{}}
+	r.applyToolTuning(ToolTuning{ThinkingMode: "off"})
+	assert.Nil(t, r.loop.Thinking(), "an explicit off must clear thinking")
+}
+
+func TestToolTuning_ThinkingModeEmptyPreservesDefault(t *testing.T) {
+	r := &REPL{loop: &Loop{}}
+	r.loop.SetThinking(&domain.ThinkingConfig{Mode: domain.ThinkingModeAuto})
+	r.applyToolTuning(ToolTuning{ThinkingMode: ""})
+	got := r.loop.Thinking()
+	require.NotNil(t, got)
+	assert.Equal(t, domain.ThinkingModeAuto, got.Mode, "an unconfigured snapshot must not clobber the default")
+}
+
+func TestToolTuning_ContextSizeRoundTrip(t *testing.T) {
+	r := &REPL{loop: &Loop{config: Config{Model: "test-model"}}}
+	r.contextSize = 65536
+	snap := r.toolTuningSnapshot()
+	assert.Equal(t, 65536, snap.ContextSize)
+
+	r2 := &REPL{loop: &Loop{config: Config{Model: "test-model"}}}
+	r2.applyToolTuning(snap)
+	assert.Equal(t, 65536, r2.contextSize)
+	assert.Equal(t, 49152, r2.loop.config.CompactTokenBudget) // 65536 * 3/4
+	assert.Equal(t, 49152, r2.loop.config.AutoCompactThreshold)
+}
+
+func TestToolTuning_ContextSizeZeroIsNoop(t *testing.T) {
+	r := &REPL{loop: &Loop{config: Config{CompactTokenBudget: 1000, AutoCompactThreshold: 1000}}}
+	r.contextSize = 8000
+	r.applyToolTuning(ToolTuning{ContextSize: 0})
+	assert.Equal(t, 8000, r.contextSize, "a zero snapshot must not clobber the size already set")
+	assert.Equal(t, 1000, r.loop.config.CompactTokenBudget)
+}
+
+func TestToolTuning_AutoContextDetectRoundTrip(t *testing.T) {
+	r := &REPL{loop: &Loop{}}
+	r.autoContextDetect = false
+	snap := r.toolTuningSnapshot()
+	assert.False(t, snap.AutoContextDetect)
+	assert.True(t, snap.ToolsConfigured)
+
+	r2 := &REPL{loop: &Loop{}}
+	r2.autoContextDetect = true
+	r2.applyToolTuning(snap)
+	assert.False(t, r2.autoContextDetect)
+}
+
 func TestToolTuning_StallOffRoundTrip(t *testing.T) {
 	r := &REPL{loop: &Loop{config: Config{ToolStallTimeout: -1}}}
 	assert.Equal(t, "off", r.toolTuningSnapshot().ToolStallTimeout)

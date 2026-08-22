@@ -230,14 +230,17 @@ type REPL struct {
 
 	// toolsFilterFn toggles the lean/full tool set at runtime (see /tools);
 	// nil when nothing was excluded at startup (lean mode already applied
-	// some other way, or the user opted out with KDEPS_FULL_TOOLS) -- in
-	// that case /tools has nothing to toggle.
+	// some other way) -- in that case /tools has nothing to toggle.
 	toolsFilterFn func(full bool) int
 	// toolsFullMode tracks the current state for /tools' status display.
 	toolsFullMode bool
 	// toolsCount is the last known tool count, shown by /tools with no args
 	// so it doesn't need to reach back into the registry to report it.
 	toolsCount int
+	// contextSize is the last /context <size> the user set, persisted so a
+	// restored session starts local model servers at the same --ctx-size.
+	// 0 means never explicitly set.
+	contextSize int
 }
 
 // NewREPL creates a new REPL for the given agent loop, deriving its context
@@ -3796,6 +3799,7 @@ func (r *REPL) cmdPermission(args []string) error {
 	switch mode {
 	case PermissionReadOnly, PermissionWorkspaceWrite, PermissionDangerFullAccess, PermissionAsk:
 		r.loop.config.PermissionMode = mode
+		r.persistTuning() // survive across sessions
 		fmt.Fprintln(os.Stdout, styleReplMeta.Render("Permission mode: "+string(mode)))
 	default:
 		fmt.Fprintln(os.Stdout, styleReplMeta.Render(fmt.Sprintf(
@@ -3824,7 +3828,9 @@ func (r *REPL) cmdAutoContext(args []string) error {
 		fmt.Fprintln(os.Stdout, styleReplMeta.Render("Auto-context detection disabled."))
 	default:
 		fmt.Fprintln(os.Stdout, styleReplMeta.Render(fmt.Sprintf("Unknown option %q. Valid: on, off.", args[0])))
+		return nil
 	}
+	r.persistTuning() // survive across sessions
 	return nil
 }
 
@@ -3867,6 +3873,47 @@ func (r *REPL) cmdTools(args []string) error {
 	return nil
 }
 
+// thinkingBudgets maps mode -> explicit BudgetTokens so langchaingo never
+// falls back to CalculateThinkingBudget(mode, 0)=0 (which silently disables
+// thinking when MaxTokens=0). Shared by cmdThinking and applyToolTuning (the
+// persisted-settings restore path) so both build the identical config for a
+// given mode.
+//
+//nolint:gochecknoglobals // static lookup table
+var thinkingBudgets = map[domain.ThinkingMode]int{
+	domain.ThinkingModeNone:    0,
+	domain.ThinkingModeMinimal: replThinkingBudgetMinimal,
+	domain.ThinkingModeLow:     replThinkingBudgetLow,
+	domain.ThinkingModeMedium:  replThinkingBudgetMedium,
+	domain.ThinkingModeHigh:    replThinkingBudgetHigh,
+	domain.ThinkingModeXHigh:   replThinkingBudgetXHigh,
+	domain.ThinkingModeAuto:    replThinkingBudgetAuto,
+}
+
+// thinkingConfigForMode builds the ThinkingConfig for mode, or nil for
+// none/off/unknown. Extracted so applyToolTuning can rebuild the exact same
+// config cmdThinking would from a persisted mode string.
+func thinkingConfigForMode(mode domain.ThinkingMode) *domain.ThinkingConfig {
+	switch mode {
+	case domain.ThinkingModeNone:
+		return nil
+	case domain.ThinkingModeMinimal,
+		domain.ThinkingModeLow,
+		domain.ThinkingModeMedium,
+		domain.ThinkingModeHigh,
+		domain.ThinkingModeXHigh,
+		domain.ThinkingModeAuto:
+		return &domain.ThinkingConfig{
+			Mode:           mode,
+			BudgetTokens:   thinkingBudgets[mode],
+			ReturnOutput:   true,
+			StreamThinking: true, // stream reasoning tokens in real-time via liveThinkingWriter
+		}
+	default:
+		return nil
+	}
+}
+
 func (r *REPL) cmdThinking(args []string) error {
 	if len(args) == 0 {
 		cur := r.loop.Thinking()
@@ -3879,17 +3926,6 @@ func (r *REPL) cmdThinking(args []string) error {
 			))
 		}
 		return nil
-	}
-	// thinkingBudgets maps mode → explicit BudgetTokens so langchaingo never falls
-	// back to CalculateThinkingBudget(mode, 0)=0 (which silently disables thinking when MaxTokens=0).
-	thinkingBudgets := map[domain.ThinkingMode]int{
-		domain.ThinkingModeNone:    0,
-		domain.ThinkingModeMinimal: replThinkingBudgetMinimal,
-		domain.ThinkingModeLow:     replThinkingBudgetLow,
-		domain.ThinkingModeMedium:  replThinkingBudgetMedium,
-		domain.ThinkingModeHigh:    replThinkingBudgetHigh,
-		domain.ThinkingModeXHigh:   replThinkingBudgetXHigh,
-		domain.ThinkingModeAuto:    replThinkingBudgetAuto,
 	}
 	mode := domain.ThinkingMode(strings.ToLower(args[0]))
 	switch mode {
@@ -3910,18 +3946,13 @@ func (r *REPL) cmdThinking(args []string) error {
 				),
 			))
 		}
-		budget := thinkingBudgets[mode]
-		r.loop.SetThinking(&domain.ThinkingConfig{
-			Mode:           mode,
-			BudgetTokens:   budget,
-			ReturnOutput:   true,
-			StreamThinking: true, // stream reasoning tokens in real-time via liveThinkingWriter
-		})
+		cfg := thinkingConfigForMode(mode)
+		r.loop.SetThinking(cfg)
 		fmt.Fprintf(
 			os.Stdout,
 			"%s\n",
 			styleReplMeta.Render(
-				fmt.Sprintf("Thinking set to %s (budget %d tokens).", mode, budget),
+				fmt.Sprintf("Thinking set to %s (budget %d tokens).", mode, cfg.BudgetTokens),
 			),
 		)
 	default:
@@ -3929,7 +3960,9 @@ func (r *REPL) cmdThinking(args []string) error {
 			os.Stdout,
 			styleReplMeta.Render("Usage: /thinking [off|minimal|low|medium|high|xhigh|auto]"),
 		)
+		return nil
 	}
+	r.persistTuning() // survive across sessions
 	return nil
 }
 
@@ -4962,6 +4995,8 @@ func (r *REPL) cmdContext(args []string) error {
 	r.loop.config.AutoCompactThreshold = budget
 	r.loop.Session().SetTokenBudget(n, model)
 	r.loop.CompactIfNeeded(r.ctx)
+	r.contextSize = n
+	r.persistTuning() // survive across sessions
 
 	fmt.Fprintf(os.Stdout, "%s\n", styleReplSuccess.Render(fmt.Sprintf("Context window set to %d tokens", n)))
 	return nil

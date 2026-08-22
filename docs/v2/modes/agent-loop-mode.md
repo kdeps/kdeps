@@ -39,13 +39,14 @@ Inside the REPL, type `/help` for the full list:
 | `/<skill-name> [prompt]` | Invoke a skill or prompt template directly |
 | `/compact` | Summarize history to free context |
 | `/history` | Show conversation history |
-| `/thinking [off\|low\|medium\|high\|auto]` | Enable extended reasoning (Claude only; warns if current model does not support it) |
+| `/thinking [off\|low\|medium\|high\|auto]` | Enable extended reasoning (Claude only; warns if current model does not support it); persists across sessions |
+| `/permission [read-only\|workspace-write\|danger-full-access\|ask]` | Show or set the tool permission mode; persists across sessions (see [Permission modes](#permission-modes)) |
 | `/session list\|save\|load\|delete\|checkpoint\|goto\|branches\|import` | Manage saved sessions and navigate branching history |
 | `/editor` | Open current input in `$EDITOR` (ctrl+g) |
 | `/copy` | Copy last assistant response to clipboard |
 | `/reload` | Reload skills and prompt templates from disk |
 | `/context` | Show current context window size |
-| `/context <size>` | Set context window size (e.g. `32768` or `32k`); restarts local model servers with the new `--ctx-size` |
+| `/context <size>` | Set context window size (e.g. `32768` or `32k`); restarts local model servers with the new `--ctx-size`; persists across sessions |
 | `/turo` | Show turo reducer status (state, level). Only available when the `turo` binary is on `PATH` |
 | `/turo on\|off` | Enable or disable prompt reduction at runtime |
 | `/turo lite\|full\|ultra` | Set the turo compression level |
@@ -57,7 +58,7 @@ Inside the REPL, type `/help` for the full list:
 | `/judges` | Show the configured judge panel (reviews each turn's final output — see [Judge panel](#judge-panel)) |
 | `/judges add <name> <criteria>` | Add a judge to the explicit roster |
 | `/judges remove <name>` | Remove a judge from the explicit roster |
-| `/judges auto [on\|off]` | Show or toggle a per-turn auto-generated roster |
+| `/judges auto [on\|off]` | Show or toggle a per-turn auto-generated roster; persists across sessions |
 | `/judges clear` | Disable the judge panel (drops the explicit roster and turns off auto-judges) |
 | `/memory` | Show memory store overview: entry count and the 10 most recently updated entries (with values) |
 | `/memory list` | List every stored memory entry with a truncated value preview |
@@ -68,7 +69,7 @@ Inside the REPL, type `/help` for the full list:
 | `! <cmd>` | Run a shell command; the output becomes an agent turn - the model responds and can act on it (e.g. `!make lint` -> the model fixes the findings) |
 | `!! <cmd>` | Run a shell command silently - no LLM turn, nothing added to context |
 | `@<path>` | Inline a file's contents (text) or attach it (image) into the next turn, e.g. `explain @main.go` |
-| `/autocontext [on\|off]` | Show or toggle auto-detecting command/file mentions in plain chat text (on by default) |
+| `/autocontext [on\|off]` | Show or toggle auto-detecting command/file mentions in plain chat text (on by default, persists across sessions) |
 | `/tools [full\|lean]` | Show or toggle the lean/full tool set (full by default, persists across sessions — see [Lean mode](#lean-mode)) |
 | `/upgrade` | Check for a newer kdeps release and, for a standalone install, download/verify/install it (see [Updating kdeps](#updating-kdeps)) |
 | `/login` | m365 backend only: open a browser window to (re-)sign in, even if a session is already cached (see [M365 Copilot](/reference/llm-providers#m365-copilot)) |

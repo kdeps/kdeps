@@ -22,6 +22,9 @@ import (
 	"fmt"
 	"os"
 	"time"
+
+	"github.com/kdeps/kdeps/v2/pkg/domain"
+	llm "github.com/kdeps/kdeps/v2/pkg/executor/llm"
 )
 
 // ToolTuning is a persistable snapshot of the /model tool settings so they
@@ -54,11 +57,26 @@ type ToolTuning struct {
 	// AutoJudges persists the /judges auto choice (default: on).
 	AutoJudges bool
 	// ToolsConfigured is the "was this section ever saved" sentinel for
-	// ToolsFullMode/AutoJudges, the same role TuroLevel != "" plays for the
-	// turo fields below -- without it, a snapshot saved before this feature
-	// existed would carry zero values (lean/off) and silently override the
-	// full/auto-judges-on defaults on every subsequent restore.
+	// ToolsFullMode/AutoJudges/AutoContextDetect, the same role TuroLevel !=
+	// "" plays for the turo fields above -- without it, a snapshot saved
+	// before this feature existed would carry zero values (lean/off) and
+	// silently override the full/auto-judges-on/auto-context-on defaults on
+	// every subsequent restore.
 	ToolsConfigured bool
+	// AutoContextDetect persists the /autocontext choice (default: on).
+	AutoContextDetect bool
+	// PermissionMode persists the /permission choice. Empty means never
+	// configured -- checkToolPermission/resolvePermissionMode already treat
+	// "" as "use KDEPS_PERMISSION_MODE/the built-in default", so this needs
+	// no separate sentinel.
+	PermissionMode string
+	// ThinkingMode persists the /thinking choice ("off", "low", "auto", ...).
+	// Empty means never configured -- leave the auto-thinking default NewREPL
+	// already set, the same way TuroLevel == "" leaves the turo defaults.
+	ThinkingMode string
+	// ContextSize persists the /context <size> choice. 0 means never
+	// configured.
+	ContextSize int
 }
 
 // toolTuningSnapshot captures the current tool settings for persistence.
@@ -67,6 +85,10 @@ func (r *REPL) toolTuningSnapshot() ToolTuning {
 	stall := c.ToolStallTimeout.String()
 	if c.ToolStallTimeout < 0 {
 		stall = "off"
+	}
+	thinkingMode := ""
+	if cur := r.loop.Thinking(); cur != nil {
+		thinkingMode = string(cur.Mode)
 	}
 	return ToolTuning{
 		MaxToolRounds:        c.MaxToolRounds,
@@ -91,6 +113,10 @@ func (r *REPL) toolTuningSnapshot() ToolTuning {
 		ToolsFullMode:        r.toolsFullMode,
 		AutoJudges:           c.AutoJudges,
 		ToolsConfigured:      true,
+		AutoContextDetect:    r.autoContextDetect,
+		PermissionMode:       string(c.PermissionMode),
+		ThinkingMode:         thinkingMode,
+		ContextSize:          r.contextSize,
 	}
 }
 
@@ -149,15 +175,47 @@ func (r *REPL) applyToolTuning(t ToolTuning) {
 		SetTuroStage("defmatch", t.TuroDefmatch)
 		SetTuroStage("arrows", t.TuroArrows)
 	}
-	// Restore the tools/judges toggles only when this section was actually
-	// saved; otherwise keep whatever wireREPL already set (full tools,
-	// auto-judges on) instead of a stale snapshot's zero values.
+	r.applyToolTuningExtras(t)
+}
+
+// applyToolTuningExtras restores the tools/judges/auto-context/permission/
+// thinking/context-size settings, split out of applyToolTuning to keep it
+// under the function-length lint limit.
+func (r *REPL) applyToolTuningExtras(t ToolTuning) {
+	c := &r.loop.config
+	// Restore the tools/judges/auto-context toggles only when this section was
+	// actually saved; otherwise keep whatever wireREPL/NewREPL already set
+	// (full tools, auto-judges on, auto-context on) instead of a stale
+	// snapshot's zero values.
 	if t.ToolsConfigured {
 		if r.toolsFilterFn != nil && t.ToolsFullMode != r.toolsFullMode {
 			r.toolsCount = r.toolsFilterFn(t.ToolsFullMode)
 			r.toolsFullMode = t.ToolsFullMode
 		}
 		c.AutoJudges = t.AutoJudges
+		r.autoContextDetect = t.AutoContextDetect
+	}
+	// PermissionMode empty is already the natural "unconfigured" value
+	// (resolvePermissionMode/checkToolPermission fall back to the env var or
+	// built-in default for it), so no extra sentinel is needed here.
+	if t.PermissionMode != "" {
+		c.PermissionMode = PermissionMode(t.PermissionMode)
+	}
+	// Restore thinking only when persisted; otherwise keep the auto-thinking
+	// default NewREPL already set, the same way turo's defaults survive above.
+	if t.ThinkingMode != "" {
+		r.loop.SetThinking(thinkingConfigForMode(domain.ThinkingMode(t.ThinkingMode)))
+	}
+	if t.ContextSize > 0 {
+		r.contextSize = t.ContextSize
+		llm.SetLocalContextSize(t.ContextSize)
+		const contextHistoryFraction, contextHistoryDivisor = 3, 4
+		budget := t.ContextSize * contextHistoryFraction / contextHistoryDivisor
+		c.CompactTokenBudget = budget
+		c.AutoCompactThreshold = budget
+		if r.loop.Session() != nil {
+			r.loop.Session().SetTokenBudget(t.ContextSize, c.Model)
+		}
 	}
 }
 
