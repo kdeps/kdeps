@@ -19,11 +19,13 @@
 package agent
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
 	"io"
 	"strconv"
+	"strings"
 	"testing"
 
 	"github.com/kdeps/kdeps/v2/pkg/domain"
@@ -194,6 +196,21 @@ func TestIterateWithJudges_ApprovedReturnsAsIs(t *testing.T) {
 	)
 	if response != "final answer" || final != "final answer" {
 		t.Fatalf("expected unchanged response, got response=%q final=%q", response, final)
+	}
+}
+
+func TestIterateWithJudges_ReportsReviewingAndApproved(t *testing.T) {
+	l := newJudgeTestLoop(&verdictStreamer{approved: true})
+	roster := []JudgeSpec{{Name: "correctness", Criteria: "check it"}}
+	cfg := &domain.ChatConfig{Model: "test"}
+	var buf bytes.Buffer
+	l.iterateWithJudges(context.Background(), cfg, roster, "in", "final answer", "final answer", &buf)
+	out := buf.String()
+	if !strings.Contains(out, "reviewing output") || !strings.Contains(out, "correctness") {
+		t.Errorf("expected a reviewing notice naming the judge, got %q", out)
+	}
+	if !strings.Contains(out, "approved by correctness") {
+		t.Errorf("expected an approval notice, got %q", out)
 	}
 }
 

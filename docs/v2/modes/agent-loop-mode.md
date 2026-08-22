@@ -135,6 +135,21 @@ It calls one of two tools and the code validates the id against the active task:
 If a turn ends with a text answer instead of either call, the loop settles the
 active task from that text and continues with the next one.
 
+**You can see which task is active.** Whenever the cursor moves onto a task —
+a fresh multi-task plan, a resumed goal, or an advance via `task_complete`/
+`task_fail` — the REPL prints which one, so you always know what the loop is
+doing without running `/goal`:
+
+```
+[goal] plan: 3 tasks — /goal to inspect, /goal clear to drop
+[goal] working on task 1/3: add the /users endpoint
+...
+[goal] working on task 2/3: write tests for it
+```
+
+Silent for a single-task goal — there is nothing to disambiguate. The
+modeline's `task:N/M` counter tracks the same cursor between prompts.
+
 **When a task stops producing.** A round is unproductive when every tool result
 is an error, a convergence block, or a byte-identical repeat. Consecutive
 unproductive rounds escalate:
@@ -215,6 +230,24 @@ is combined into a revision directive, the loop produces a new answer, and the
 whole panel reviews it again — up to `JudgeMaxIterations` times (default 2).
 Once the budget is spent the last attempted answer is returned regardless — a
 judge panel that never approves must not be able to block the turn forever.
+
+**You can see it happening.** Because a judge is a full tool-calling loop, a
+review can take as long as a real turn — the REPL prints `[judge]` status
+lines so you are never left staring at a silent prompt:
+
+```
+[judge] reviewing output — correctness, security
+[judge] approved by correctness, security
+```
+
+or, on rejection:
+
+```
+[judge] reviewing output — correctness, security
+[judge] revision requested (1/2): security: uses a shell command with unescaped input
+[judge] reviewing output — correctness, security
+[judge] approved by correctness, security
+```
 
 **Configuring the roster.**
 

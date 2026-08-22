@@ -433,20 +433,45 @@ func (l *Loop) beginGoal(ctx context.Context, input string, w io.Writer) string 
 	l.registerGoalTools()
 
 	goal := loadGoal(l.memoryStore)
+	fresh := goal == nil || goal.Complete()
 	switch {
-	case goal == nil || goal.Complete():
+	case fresh:
 		goal = planGoal(ctx, l, input)
 		saveGoal(l.memoryStore, goal)
 		if _, total := goal.Progress(); total > 1 {
 			l.reportGoalEvent(w, fmt.Sprintf("plan: %d tasks — /goal to inspect, /goal clear to drop", total))
 		}
 	default:
+		// resumeNotice already names the active task, so a fresh plan is the
+		// only case that still needs announceActiveTask below.
 		l.reportGoalEvent(w, resumeNotice(goal))
 	}
 
 	l.enforcer = newGoalEnforcer(goal, l.memoryStore,
 		l.config.MaxUnproductiveRounds, l.config.TaskRoundBudget)
+	if fresh {
+		l.announceActiveTask(w)
+	}
 	return l.enforcer.directive()
+}
+
+// announceActiveTask tells the user what the loop is about to work on. Called
+// whenever the cursor moves onto a task — a fresh plan or an advance via
+// task_complete/task_fail — since neither event otherwise surfaces the task's
+// description anywhere the user can see without running /goal. Silent for a
+// single-task goal: there is nothing to disambiguate.
+func (l *Loop) announceActiveTask(w io.Writer) {
+	e := l.enforcer
+	if e == nil || e.goal == nil {
+		return
+	}
+	active := e.goal.Active()
+	if active == nil {
+		return
+	}
+	if _, total := e.goal.Progress(); total > 1 {
+		l.reportGoalEvent(w, fmt.Sprintf("working on task %d/%d: %s", active.ID, total, active.Desc))
+	}
 }
 
 // resumeNotice describes a goal picked up from a previous turn or session.
@@ -587,6 +612,12 @@ func (l *Loop) enforceGoalProgress(cfg **domain.ChatConfig, outcome roundOutcome
 		*cfg = stripTools(*cfg)
 		l.reportGoalEvent(w, "all tasks settled — answering")
 		return
+	}
+
+	// The cursor moved this round — via task_complete/task_fail (advanced) or
+	// a fail-forward abandon — so a new task is now active. Name it.
+	if outcome.advanced || level == escalateFailForward {
+		l.announceActiveTask(w)
 	}
 
 	*cfg = e.applyEscalation(*cfg, level)

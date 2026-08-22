@@ -226,7 +226,13 @@ func (l *Loop) iterateWithJudges(
 	if maxIter <= 0 {
 		maxIter = defaultJudgeMaxIterations
 	}
+	names := judgeNames(roster)
 	for iter := range maxIter {
+		// A judge is a full tool-calling loop of its own, so a review can take
+		// as long as a real turn — say so up front rather than leaving the user
+		// staring at a silent prompt.
+		l.reportJudgeEvent(w, fmt.Sprintf("reviewing output — %s", names))
+
 		verdicts := runJudgePanel(ctx, l, roster, input, response)
 		var feedback []string
 		for _, v := range verdicts {
@@ -235,6 +241,7 @@ func (l *Loop) iterateWithJudges(
 			}
 		}
 		if len(feedback) == 0 {
+			l.reportJudgeEvent(w, fmt.Sprintf("approved by %s", names))
 			return response, finalContent
 		}
 		l.reportJudgeEvent(w, fmt.Sprintf("revision requested (%d/%d): %s",
@@ -251,6 +258,16 @@ func (l *Loop) iterateWithJudges(
 		response = stripContentToolCalls(finalContent)
 	}
 	return response, finalContent
+}
+
+// judgeNames renders a roster's names as a plain comma-separated list for
+// status messages, e.g. "correctness, security".
+func judgeNames(roster []JudgeSpec) string {
+	names := make([]string, len(roster))
+	for i, spec := range roster {
+		names[i] = spec.Name
+	}
+	return strings.Join(names, ", ")
 }
 
 // reportJudgeEvent surfaces a judge-panel transition to the user. Silent when
