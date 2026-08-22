@@ -271,10 +271,11 @@ func judgeNames(roster []JudgeSpec) string {
 }
 
 // reportJudgeEvent surfaces a judge-panel transition to the user. Silent when
-// the loop has no writer (library callers).
+// there is nowhere to write it (library callers with no writer at all).
 func (l *Loop) reportJudgeEvent(w io.Writer, msg string) {
-	if w == nil {
+	pw := l.progressWriter(w)
+	if pw == nil {
 		return
 	}
-	fmt.Fprintf(w, "\n[judge] %s\n", msg)
+	fmt.Fprintf(pw, "\n[judge] %s\n", msg)
 }

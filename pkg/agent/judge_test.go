@@ -293,6 +293,19 @@ func TestIterateWithJudges_StopsAtBudgetWithoutBlocking(t *testing.T) {
 	}
 }
 
+func TestReportJudgeEvent_PrefersConfigProgressWriter(t *testing.T) {
+	l := newJudgeTestLoop(nil)
+	var progress, passed bytes.Buffer
+	l.config.ProgressWriter = &progress
+	l.reportJudgeEvent(&passed, "test notice")
+	if !strings.Contains(progress.String(), "test notice") {
+		t.Fatalf("expected the notice on ProgressWriter, got %q", progress.String())
+	}
+	if passed.Len() != 0 {
+		t.Fatalf("expected nothing written to the passed-through writer, got %q", passed.String())
+	}
+}
+
 func TestScopedRegistry_EmptyNamesCopiesAll(t *testing.T) {
 	parent := tools.NewRegistry()
 	parent.Register(&tools.Tool{Name: "a"})

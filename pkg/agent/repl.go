@@ -293,6 +293,15 @@ func (r *REPL) SetToolsFilterFn(fn func(full bool) int, currentCount int) {
 	r.toolsCount = currentCount
 }
 
+// SetToolsFullMode records whether the registry started in full mode, for
+// /tools' status display. Call once at startup alongside SetToolsFilterFn;
+// the zero value (false/"lean") is correct only when the caller never sets
+// this, which no longer matches the default (full tools unless the user
+// opted into lean mode/a preset).
+func (r *REPL) SetToolsFullMode(full bool) {
+	r.toolsFullMode = full
+}
+
 // SetModelNames registers model name suggestions for /model <tab> completion.
 func (r *REPL) SetModelNames(names []string) {
 	r.modelNames = names
@@ -1511,6 +1520,12 @@ func (r *REPL) Run() error {
 	// (cursor moves down but stays at the same column). Without \r before \n, each
 	// output line starts where the previous one ended, creating a rightward staircase.
 	r.loop.config.ToolOutputWriter = &crlfWriter{w: os.Stdout}
+	// [goal]/[judge] status notices: RunStreaming's own writer (runStreaming's
+	// local strings.Builder) is buffered silently there and only rendered once
+	// the turn completes, so notices written through it alone never reach the
+	// terminal live. Route them to stdout directly instead, same crlfWriter
+	// wrapping as ToolOutputWriter and for the same raw-mode reason.
+	r.loop.config.ProgressWriter = &crlfWriter{w: os.Stdout}
 	// Mark this as the interactive REPL so bash_exec may hand the controlling
 	// terminal to a child (see Config.InteractiveTTY). Never set outside the REPL.
 	r.loop.config.InteractiveTTY = true
@@ -3815,8 +3830,8 @@ func (r *REPL) cmdAutoContext(args []string) error {
 
 // cmdTools shows or toggles the lean/full tool set at runtime. A no-op when
 // toolsFilterFn is nil, which means lean filtering didn't exclude anything at
-// startup (already lean/preset some other way, or KDEPS_FULL_TOOLS was set) --
-// there is nothing this session could restore or trim further.
+// startup (already lean/preset some other way) -- there is nothing this
+// session could restore or trim further.
 func (r *REPL) cmdTools(args []string) error {
 	if r.toolsFilterFn == nil {
 		fmt.Fprintln(os.Stdout, styleReplMeta.Render(
@@ -3846,7 +3861,9 @@ func (r *REPL) cmdTools(args []string) error {
 		fmt.Fprintln(os.Stdout, styleReplMeta.Render(fmt.Sprintf("Tool set: lean (%d tools).", r.toolsCount)))
 	default:
 		fmt.Fprintln(os.Stdout, styleReplMeta.Render(fmt.Sprintf("Unknown option %q. Valid: full, lean.", args[0])))
+		return nil
 	}
+	r.persistTuning() // survive across sessions
 	return nil
 }
 
@@ -4582,6 +4599,7 @@ func (r *REPL) cmdJudges(args []string) error {
 	case "clear", toggleOff:
 		r.loop.SetJudges(nil)
 		r.loop.SetAutoJudges(false)
+		r.persistTuning() // survive across sessions
 		fmt.Fprintln(os.Stdout, styleReplSuccess.Render("judge panel disabled"))
 	default:
 		fmt.Fprintln(os.Stderr, styleReplError.Render(
@@ -4628,7 +4646,9 @@ func (r *REPL) cmdJudgesAuto(args []string) {
 		fmt.Fprintln(os.Stdout, styleReplSuccess.Render("auto-judges disabled"))
 	default:
 		fmt.Fprintln(os.Stderr, styleReplError.Render("Usage: /judges auto [on|off]"))
+		return
 	}
+	r.persistTuning() // survive across sessions
 }
 
 // printJudgesStatus shows the current roster and auto-judges state.

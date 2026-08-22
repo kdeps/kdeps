@@ -372,6 +372,41 @@ func TestToolTuning_ZeroPersistedValuesPreserveDefaults(t *testing.T) {
 	assert.Equal(t, 6000, r.loop.config.CompactTokenBudget)
 }
 
+// TestToolTuning_ToolsAndJudgesZeroSnapshotPreservesDefaults guards against a
+// snapshot saved before ToolsFullMode/AutoJudges existed (zero values: lean,
+// off) silently overriding the full-tools/auto-judges-on defaults wireREPL
+// already set. ToolsConfigured is the sentinel that gates this.
+func TestToolTuning_ToolsAndJudgesZeroSnapshotPreservesDefaults(t *testing.T) {
+	r := &REPL{loop: &Loop{config: Config{AutoJudges: true}}}
+	r.toolsFullMode = true
+	r.applyToolTuning(ToolTuning{}) // no fields set at all -- an old snapshot
+	assert.True(t, r.loop.config.AutoJudges, "AutoJudges default must survive an unconfigured snapshot")
+	assert.True(t, r.toolsFullMode, "ToolsFullMode default must survive an unconfigured snapshot")
+}
+
+func TestToolTuning_ToolsAndJudgesConfiguredSnapshotApplies(t *testing.T) {
+	r := &REPL{loop: &Loop{config: Config{AutoJudges: true}}}
+	r.toolsFullMode = true
+	var got bool
+	r.toolsFilterFn = func(full bool) int {
+		got = full
+		return 16
+	}
+	r.applyToolTuning(ToolTuning{ToolsConfigured: true, ToolsFullMode: false, AutoJudges: false})
+	assert.False(t, r.loop.config.AutoJudges, "explicit AutoJudges=false must apply")
+	assert.False(t, r.toolsFullMode, "explicit ToolsFullMode=false must apply")
+	assert.False(t, got, "the filter fn must have been called with full=false")
+}
+
+func TestToolTuning_ToolsAndJudgesSnapshotRoundTrip(t *testing.T) {
+	r := &REPL{loop: &Loop{config: Config{AutoJudges: false}}}
+	r.toolsFullMode = false
+	snap := r.toolTuningSnapshot()
+	assert.True(t, snap.ToolsConfigured)
+	assert.False(t, snap.AutoJudges)
+	assert.False(t, snap.ToolsFullMode)
+}
+
 func TestToolTuning_StallOffRoundTrip(t *testing.T) {
 	r := &REPL{loop: &Loop{config: Config{ToolStallTimeout: -1}}}
 	assert.Equal(t, "off", r.toolTuningSnapshot().ToolStallTimeout)

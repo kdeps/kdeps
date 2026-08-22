@@ -204,6 +204,15 @@ type Config struct {
 	// JudgeMaxIterations caps the revise-and-rejudge loop when a judge rejects
 	// the output (0=default 2).
 	JudgeMaxIterations int
+	// ProgressWriter, when set, receives live "[goal]"/"[judge]" status notices
+	// instead of the writer passed to RunStreaming. RunStreaming's own writer
+	// carries raw streamed token content that the REPL buffers silently and
+	// only renders (as markdown) once the turn completes, so a notice written
+	// through it alone would never reach the terminal during a live turn. The
+	// REPL sets this to stdout; library/test callers that pass a real terminal
+	// writer to RunStreaming can leave it nil and keep getting notices through
+	// that writer as before.
+	ProgressWriter io.Writer
 }
 
 // Loop drives a multi-turn agent conversation using the kdeps engine as the

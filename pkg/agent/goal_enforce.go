@@ -625,12 +625,23 @@ func (l *Loop) enforceGoalProgress(cfg **domain.ChatConfig, outcome roundOutcome
 }
 
 // reportGoalEvent surfaces a state-machine transition to the user. Silent when
-// the loop has no writer (library callers).
+// there is nowhere to write it (library callers with no writer at all).
 func (l *Loop) reportGoalEvent(w io.Writer, msg string) {
-	if w == nil {
+	pw := l.progressWriter(w)
+	if pw == nil {
 		return
 	}
-	fmt.Fprintf(w, "\n[goal] %s\n", msg)
+	fmt.Fprintf(pw, "\n[goal] %s\n", msg)
+}
+
+// progressWriter picks where a live status notice goes: Config.ProgressWriter
+// when set (the REPL's case — RunStreaming's own w is silently buffered
+// there), otherwise the writer the caller already passed down.
+func (l *Loop) progressWriter(w io.Writer) io.Writer {
+	if l != nil && l.config.ProgressWriter != nil {
+		return l.config.ProgressWriter
+	}
+	return w
 }
 
 // stripTools returns a copy of cfg with no tools, ending the tool phase.

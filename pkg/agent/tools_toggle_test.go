@@ -93,6 +93,18 @@ func TestCmdTools_UnknownOption(t *testing.T) {
 	assert.False(t, repl.toolsFullMode)
 }
 
+func TestSetToolsFullMode(t *testing.T) {
+	loop := makeTestLoop(nil)
+	repl := NewREPL(context.Background(), loop)
+	defer repl.cancel()
+
+	assert.False(t, repl.toolsFullMode)
+	repl.SetToolsFullMode(true)
+	assert.True(t, repl.toolsFullMode)
+	repl.SetToolsFullMode(false)
+	assert.False(t, repl.toolsFullMode)
+}
+
 func TestSetToolsFilterFn(t *testing.T) {
 	loop := makeTestLoop(nil)
 	repl := NewREPL(context.Background(), loop)

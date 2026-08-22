@@ -333,12 +333,12 @@ func runAgentLoopCmd(path string, flags *agentLoopFlags) error {
 		return errors.New("agent loop: interrupted during model startup")
 	}
 
-	// Lean tool filtering now applies by default (any backend -- fewer tools
-	// means less prompt/payload weight everywhere, not just on CPU-bound
-	// local models), unless the user already asked for lean mode/a preset or
-	// opted out with KDEPS_FULL_TOOLS. /tools full restores the excluded set
-	// at runtime; see buildToolsFilterFn and wireREPL below.
-	excludedTools := applyLeanFilterIfNeeded(registry)
+	// The tool set starts full by default; KDEPS_LEAN_MODE/KDEPS_AGENT_PRESET
+	// (handled by initLeanTools above) are the only opt-ins to the reduced
+	// set. The excluded-tools list is still precomputed so /tools lean can
+	// switch to it at runtime; see leanExcludedTools, buildToolsFilterFn, and
+	// wireREPL below.
+	excludedTools := leanExcludedTools(registry)
 
 	loop := agent.New(eng, hostWorkflow, registry, cfg)
 	repl := agent.NewREPL(rootCtx, loop)
@@ -386,6 +386,7 @@ func wireREPL(
 ) {
 	if len(excludedTools) > 0 {
 		repl.SetToolsFilterFn(buildToolsFilterFn(registry, excludedTools), len(registry.List()))
+		repl.SetToolsFullMode(!agent.IsLeanOrPreseted())
 	}
 	// Provide model name suggestions for /model <tab> completion. Cloud
 	// backends are populated as part of the same unified pass now, not a
@@ -701,27 +702,12 @@ func initLeanTools(ctx context.Context, reg *tools.Registry) {
 	_ = mode // permission mode applied; consumed below
 }
 
-// shouldApplyLeanFilter reports whether the auto-lean startup filter should
-// run: it must not already be lean/preseted (initLeanTools handled that
-// case) and the user must not have opted out with KDEPS_FULL_TOOLS.
-func shouldApplyLeanFilter() bool {
-	return !agent.IsLeanOrPreseted() && !agent.ResolveFullTools()
-}
-
-// applyLeanFilterIfNeeded runs applyLeanToolFilter when shouldApplyLeanFilter
-// says to, returning the tools it excluded (nil otherwise).
-func applyLeanFilterIfNeeded(reg *tools.Registry) []*tools.Tool {
-	if !shouldApplyLeanFilter() {
-		return nil
-	}
-	return applyLeanToolFilter(reg)
-}
-
-// applyLeanToolFilter unregisters every tool LeanModeToolFilter excludes and
-// returns them, so a caller can restore the full set later (see
-// buildToolsFilterFn) without needing to reconstruct the excluded *tools.Tool
-// values from scratch.
-func applyLeanToolFilter(reg *tools.Registry) []*tools.Tool {
+// leanExcludedTools returns the tools LeanModeToolFilter would exclude from
+// reg, without unregistering them. The registry starts in full mode by
+// default (KDEPS_LEAN_MODE/KDEPS_AGENT_PRESET are the only opt-ins, handled
+// earlier by initLeanTools); this precomputed list is only so /tools lean can
+// still switch to the reduced set at runtime -- see buildToolsFilterFn.
+func leanExcludedTools(reg *tools.Registry) []*tools.Tool {
 	allTools := reg.List()
 	kept := agent.LeanModeToolFilter(extractToolNames(allTools))
 	keptSet := make(map[string]bool, len(kept))
@@ -731,7 +717,6 @@ func applyLeanToolFilter(reg *tools.Registry) []*tools.Tool {
 	excluded := make([]*tools.Tool, 0, len(allTools)-len(kept))
 	for _, t := range allTools {
 		if !keptSet[t.Name] {
-			reg.Unregister(t.Name)
 			excluded = append(excluded, t)
 		}
 	}

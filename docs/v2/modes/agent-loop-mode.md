@@ -69,7 +69,7 @@ Inside the REPL, type `/help` for the full list:
 | `!! <cmd>` | Run a shell command silently - no LLM turn, nothing added to context |
 | `@<path>` | Inline a file's contents (text) or attach it (image) into the next turn, e.g. `explain @main.go` |
 | `/autocontext [on\|off]` | Show or toggle auto-detecting command/file mentions in plain chat text (on by default) |
-| `/tools [full\|lean]` | Show or toggle the lean/full tool set for this session (lean by default — see [Lean mode](#lean-mode)) |
+| `/tools [full\|lean]` | Show or toggle the lean/full tool set (full by default, persists across sessions — see [Lean mode](#lean-mode)) |
 | `/upgrade` | Check for a newer kdeps release and, for a standalone install, download/verify/install it (see [Updating kdeps](#updating-kdeps)) |
 | `/login` | m365 backend only: open a browser window to (re-)sign in, even if a session is already cached (see [M365 Copilot](/reference/llm-providers#m365-copilot)) |
 
@@ -276,7 +276,9 @@ rather than blocking the turn.
 automatically when you start the REPL, the same way `GoalEnforcement` is —
 every turn gets an auto-generated review panel with no configuration needed.
 Library and test callers get no panel unless they set `Config.Judges` or
-`Config.AutoJudges` explicitly.
+`Config.AutoJudges` explicitly. `/judges auto on|off` persists across
+sessions the same way `/tools full|lean` does; a hand-configured roster
+(`/judges add`/`remove`) is session-only.
 
 **From the REPL**, the same roster is managed with `/judges` — no restart
 needed:
@@ -781,21 +783,17 @@ With no model configured, the trailer falls back to `Co-Authored-By: kdeps <nore
 
 ### Lean mode
 
-The lean tool set — `read_file`, `write_file`, `edit_file`, `list_files`, `code_search`, `code_definition`, `code_references`, `code_symbols`, `code_hover`, `code_diagnostics`, `search_local`, `load_document`, `calculator`, `embedding_vectorize`, `embedding_search`, `transcribe_audio` (~16 tools) — is now **on by default for every session**, on every backend. The full default catalog (~55 tools) costs real tokens twice on every turn — once as a native tool schema, once as prose in the tool-use guidance — so trimming it by default cuts prompt weight everywhere, not just for CI/automation.
-
-No `bash_exec`, `web_search`, `web_scraper`, `wikipedia`, `http_request`, or external API tools are registered by default. Two ways to get the full set back:
+The full tool catalog (~55 tools — `bash_exec`, `web_search`, `web_scraper`, `wikipedia`, `http_request`, external API tools, plus the lean set below) is **on by default for every session**. Trim it down when you want less prompt weight (each tool costs tokens twice — once as a native tool schema, once as prose in the tool-use guidance) or a restricted surface for CI/automation:
 
 ```
-/tools full     # this session only, switch back any time
-/tools lean     # switch back
+/tools lean     # this session only, switch back any time
+/tools full     # switch back
 /tools          # show current mode and tool count
 ```
 
-```bash
-KDEPS_FULL_TOOLS=true ./kdeps   # start every session already full
-```
+The choice persists automatically across sessions — no flag needed — the same way `/model tool set` settings do. Lean mode keeps `read_file`, `write_file`, `edit_file`, `list_files`, `code_search`, `code_definition`, `code_references`, `code_symbols`, `code_hover`, `code_diagnostics`, `search_local`, `load_document`, `calculator`, `embedding_vectorize`, `embedding_search`, `transcribe_audio` (~16 tools).
 
-`KDEPS_LEAN_MODE`/`KDEPS_AGENT_PRESET` (below) still work exactly as before and take priority — if either is set, the auto-default doesn't re-apply on top of it.
+`KDEPS_LEAN_MODE`/`KDEPS_AGENT_PRESET` (below) start a session already in lean mode and take priority over the persisted `/tools` choice.
 
 ### Agent presets
 

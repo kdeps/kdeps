@@ -43,10 +43,10 @@ func newLeanTestRegistry() *tools.Registry {
 	return reg
 }
 
-func TestApplyLeanToolFilter_ExcludesAndReturnsExcluded(t *testing.T) {
+func TestLeanExcludedTools_ComputesWithoutMutating(t *testing.T) {
 	reg := newLeanTestRegistry()
 
-	excluded := applyLeanToolFilter(reg)
+	excluded := leanExcludedTools(reg)
 
 	names := make(map[string]bool, len(excluded))
 	for _, tl := range excluded {
@@ -56,35 +56,37 @@ func TestApplyLeanToolFilter_ExcludesAndReturnsExcluded(t *testing.T) {
 	assert.True(t, names["http_request"])
 	assert.False(t, names["read_file"])
 
+	// The registry itself is untouched -- the tool set starts full by
+	// default; only the toggle target is precomputed.
 	remaining := extractToolNames(reg.List())
 	assert.Contains(t, remaining, "read_file")
-	assert.NotContains(t, remaining, "bash_exec")
-	assert.NotContains(t, remaining, "http_request")
+	assert.Contains(t, remaining, "bash_exec")
+	assert.Contains(t, remaining, "http_request")
 }
 
-func TestApplyLeanToolFilter_EmptyRegistry(t *testing.T) {
+func TestLeanExcludedTools_EmptyRegistry(t *testing.T) {
 	reg := tools.NewRegistry()
-	excluded := applyLeanToolFilter(reg)
+	excluded := leanExcludedTools(reg)
 	assert.Empty(t, excluded)
 }
 
 func TestBuildToolsFilterFn_FullReregistersLeanUnregisters(t *testing.T) {
 	reg := newLeanTestRegistry()
-	excluded := applyLeanToolFilter(reg)
+	excluded := leanExcludedTools(reg)
 	require.Len(t, excluded, 2)
-	require.Len(t, reg.List(), 1) // only read_file left
+	require.Len(t, reg.List(), 3) // registry starts full
 
 	filterFn := buildToolsFilterFn(reg, excluded)
-
-	fullCount := filterFn(true)
-	assert.Equal(t, 3, fullCount)
-	assert.NotNil(t, reg.Get("bash_exec"))
-	assert.NotNil(t, reg.Get("http_request"))
 
 	leanCount := filterFn(false)
 	assert.Equal(t, 1, leanCount)
 	assert.Nil(t, reg.Get("bash_exec"))
 	assert.Nil(t, reg.Get("http_request"))
+
+	fullCount := filterFn(true)
+	assert.Equal(t, 3, fullCount)
+	assert.NotNil(t, reg.Get("bash_exec"))
+	assert.NotNil(t, reg.Get("http_request"))
 }
 
 func TestBuildToolsFilterFn_NoExcludedToolsIsNoOp(t *testing.T) {
@@ -93,46 +95,6 @@ func TestBuildToolsFilterFn_NoExcludedToolsIsNoOp(t *testing.T) {
 
 	assert.Equal(t, 3, filterFn(true))
 	assert.Equal(t, 3, filterFn(false))
-}
-
-func TestShouldApplyLeanFilter(t *testing.T) {
-	t.Setenv("KDEPS_LEAN_MODE", "")
-	t.Setenv("KDEPS_AGENT_PRESET", "")
-	t.Setenv("KDEPS_FULL_TOOLS", "")
-	assert.True(t, shouldApplyLeanFilter(), "no env vars set -> filter applies by default")
-
-	t.Setenv("KDEPS_FULL_TOOLS", "1")
-	assert.False(t, shouldApplyLeanFilter(), "KDEPS_FULL_TOOLS opts out")
-	t.Setenv("KDEPS_FULL_TOOLS", "")
-
-	t.Setenv("KDEPS_LEAN_MODE", "1")
-	assert.False(t, shouldApplyLeanFilter(), "already lean -- initLeanTools handled it, avoid double filtering")
-	t.Setenv("KDEPS_LEAN_MODE", "")
-
-	t.Setenv("KDEPS_AGENT_PRESET", "audit")
-	assert.False(t, shouldApplyLeanFilter(), "already preseted -- initLeanTools handled it")
-}
-
-func TestApplyLeanFilterIfNeeded(t *testing.T) {
-	t.Setenv("KDEPS_LEAN_MODE", "")
-	t.Setenv("KDEPS_AGENT_PRESET", "")
-	t.Setenv("KDEPS_FULL_TOOLS", "")
-
-	reg := newLeanTestRegistry()
-	excluded := applyLeanFilterIfNeeded(reg)
-	assert.Len(t, excluded, 2)
-	assert.Len(t, reg.List(), 1)
-}
-
-func TestApplyLeanFilterIfNeeded_SkippedWhenOptedOut(t *testing.T) {
-	t.Setenv("KDEPS_LEAN_MODE", "")
-	t.Setenv("KDEPS_AGENT_PRESET", "")
-	t.Setenv("KDEPS_FULL_TOOLS", "1")
-
-	reg := newLeanTestRegistry()
-	excluded := applyLeanFilterIfNeeded(reg)
-	assert.Nil(t, excluded)
-	assert.Len(t, reg.List(), 3)
 }
 
 func TestPickInstalledModelByFit_NoLlmfitOnPath(t *testing.T) {

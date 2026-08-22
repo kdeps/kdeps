@@ -49,6 +49,16 @@ type ToolTuning struct {
 	TuroGloss    bool
 	TuroDefmatch bool
 	TuroArrows   bool
+	// ToolsFullMode persists the /tools full|lean choice (default: full).
+	ToolsFullMode bool
+	// AutoJudges persists the /judges auto choice (default: on).
+	AutoJudges bool
+	// ToolsConfigured is the "was this section ever saved" sentinel for
+	// ToolsFullMode/AutoJudges, the same role TuroLevel != "" plays for the
+	// turo fields below -- without it, a snapshot saved before this feature
+	// existed would carry zero values (lean/off) and silently override the
+	// full/auto-judges-on defaults on every subsequent restore.
+	ToolsConfigured bool
 }
 
 // toolTuningSnapshot captures the current tool settings for persistence.
@@ -78,6 +88,9 @@ func (r *REPL) toolTuningSnapshot() ToolTuning {
 		TuroGloss:            TuroStage("gloss"),
 		TuroDefmatch:         TuroStage("defmatch"),
 		TuroArrows:           TuroStage("arrows"),
+		ToolsFullMode:        r.toolsFullMode,
+		AutoJudges:           c.AutoJudges,
+		ToolsConfigured:      true,
 	}
 }
 
@@ -135,6 +148,16 @@ func (r *REPL) applyToolTuning(t ToolTuning) {
 		SetTuroStage("gloss", t.TuroGloss)
 		SetTuroStage("defmatch", t.TuroDefmatch)
 		SetTuroStage("arrows", t.TuroArrows)
+	}
+	// Restore the tools/judges toggles only when this section was actually
+	// saved; otherwise keep whatever wireREPL already set (full tools,
+	// auto-judges on) instead of a stale snapshot's zero values.
+	if t.ToolsConfigured {
+		if r.toolsFilterFn != nil && t.ToolsFullMode != r.toolsFullMode {
+			r.toolsCount = r.toolsFilterFn(t.ToolsFullMode)
+			r.toolsFullMode = t.ToolsFullMode
+		}
+		c.AutoJudges = t.AutoJudges
 	}
 }
 

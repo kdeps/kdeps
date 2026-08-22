@@ -78,6 +78,31 @@ func TestEnforceGoalProgress_NoAnnouncementWhenNotAdvanced(t *testing.T) {
 	}
 }
 
+// A status notice must reach the terminal even when the writer passed to
+// RunStreaming/runToolRounds is a silent internal buffer (the REPL's case) --
+// Config.ProgressWriter is where it actually has to land.
+func TestReportGoalEvent_PrefersConfigProgressWriter(t *testing.T) {
+	l := loopWithGoal("write tests", "fix the bug")
+	var progress, passed bytes.Buffer
+	l.config.ProgressWriter = &progress
+	l.reportGoalEvent(&passed, "test notice")
+	if !strings.Contains(progress.String(), "test notice") {
+		t.Fatalf("expected the notice on ProgressWriter, got %q", progress.String())
+	}
+	if passed.Len() != 0 {
+		t.Fatalf("expected nothing written to the passed-through writer, got %q", passed.String())
+	}
+}
+
+func TestReportGoalEvent_FallsBackToPassedWriterWithoutConfig(t *testing.T) {
+	l := loopWithGoal("write tests", "fix the bug")
+	var passed bytes.Buffer
+	l.reportGoalEvent(&passed, "test notice")
+	if !strings.Contains(passed.String(), "test notice") {
+		t.Fatalf("expected the notice on the passed writer, got %q", passed.String())
+	}
+}
+
 func TestEnforceGoalProgress_AnnouncesOnFailForward(t *testing.T) {
 	l := loopWithGoal("write tests", "fix the bug")
 	l.enforcer.strikes = penaltyFailForward
