@@ -2412,6 +2412,12 @@ func TestCmdSessionLoad_NoModelInMeta(t *testing.T) {
 
 // --- /copy ---
 
+// testCaptureStdout redirects os.Stdout to a pipe for the duration of fn and
+// returns everything written to it. The reader runs concurrently with fn,
+// not after it returns: fn's writes and the drain must overlap, because an
+// OS pipe has a finite buffer (small on Windows) and a write past that
+// capacity blocks until something reads — with no concurrent reader, a
+// verbose fn (e.g. printing many help lines) deadlocks the write forever.
 func testCaptureStdout(_ *testing.T, fn func()) string {
 	pr, pw, err := os.Pipe()
 	if err != nil {
@@ -2419,13 +2425,20 @@ func testCaptureStdout(_ *testing.T, fn func()) string {
 	}
 	old := os.Stdout
 	os.Stdout = pw
+
+	outCh := make(chan string, 1)
+	go func() {
+		var sb strings.Builder
+		_, _ = io.Copy(&sb, pr)
+		outCh <- sb.String()
+	}()
+
 	fn()
 	pw.Close()
 	os.Stdout = old
-	var sb strings.Builder
-	_, _ = io.Copy(&sb, pr)
+	out := <-outCh
 	pr.Close()
-	return sb.String()
+	return out
 }
 
 func TestCmdCopy_NoSession(t *testing.T) {
