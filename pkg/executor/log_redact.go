@@ -24,22 +24,36 @@ import (
 )
 
 // redactValue returns a non-sensitive description of v for diagnostic logging:
-// its type and size, never its raw contents. Resource outputs and workflow item
-// values can carry user or model data, so logging them verbatim would write
-// potentially sensitive content to logs in the clear (CodeQL go/clear-text-
-// logging). Logging the shape instead keeps traces useful without the payload.
+// its shape and size, never its raw contents. Resource outputs and workflow
+// item values can carry user or model data, so logging them verbatim would
+// write potentially sensitive content to logs in the clear (CodeQL go/clear-
+// text-logging). Logging the shape instead keeps traces useful without the
+// payload -- in plain words ("object (2 keys)"), not Go's raw %T type syntax
+// ("map[string]interface {}(len=2)"), which reads like an internal crash
+// dump to anyone running `kdeps run` and isn't more informative for it.
 func redactValue(v any) string {
 	switch t := v.(type) {
 	case nil:
-		return "<nil>"
+		return "empty"
 	case string:
-		return fmt.Sprintf("string(len=%d)", len(t))
+		return fmt.Sprintf("text (%d chars)", len(t))
 	case []byte:
-		return fmt.Sprintf("[]byte(len=%d)", len(t))
+		return fmt.Sprintf("bytes (%d)", len(t))
 	}
 	rv := reflect.ValueOf(v)
-	if k := rv.Kind(); k == reflect.Slice || k == reflect.Array || k == reflect.Map {
-		return fmt.Sprintf("%T(len=%d)", v, rv.Len())
+	switch rv.Kind() { //nolint:exhaustive // only map/slice/array get special-cased; everything else falls to Kind().String()
+	case reflect.Map:
+		return fmt.Sprintf("object (%d %s)", rv.Len(), pluralize(rv.Len(), "key", "keys"))
+	case reflect.Slice, reflect.Array:
+		return fmt.Sprintf("array (%d %s)", rv.Len(), pluralize(rv.Len(), "item", "items"))
+	default:
+		return rv.Kind().String()
 	}
-	return fmt.Sprintf("%T", v)
+}
+
+func pluralize(n int, singular, plural string) string {
+	if n == 1 {
+		return singular
+	}
+	return plural
 }
