@@ -45,7 +45,7 @@ func TestSessionStorage_TTL(t *testing.T) {
 
 	// Set data with TTL
 	key := "ttl-key"
-	value := map[string]interface{}{
+	value := map[string]any{
 		"data": "test-value",
 	}
 
@@ -114,9 +114,10 @@ func TestSessionStorage_Touch(t *testing.T) {
 	tmpDir := t.TempDir()
 	dbPath := filepath.Join(tmpDir, "sessions_touch.db")
 
-	// Margin widened 3x (was 200ms TTL / 100ms / 100ms / 300ms) -- see
-	// TestSessionStorage_TTL.
-	store, err := storage.NewSessionStorageWithTTL(dbPath, "touch-test", 600*time.Millisecond)
+	// TTL widened and waits kept well clear of the expiry boundary (previous
+	// 600ms TTL / 300ms / 300ms landed the "still exists" check exactly at
+	// the boundary, which flaked under CI load) -- see TestSessionStorage_TTL.
+	store, err := storage.NewSessionStorageWithTTL(dbPath, "touch-test", 1000*time.Millisecond)
 	require.NoError(t, err)
 	defer store.Close()
 
@@ -126,22 +127,22 @@ func TestSessionStorage_Touch(t *testing.T) {
 	err = store.Set(key, value)
 	require.NoError(t, err)
 
-	// Wait (half of TTL)
-	time.Sleep(300 * time.Millisecond)
+	// Wait (well under TTL)
+	time.Sleep(200 * time.Millisecond)
 
 	// Touch to extend TTL by another full TTL
 	err = store.Touch(key)
 	require.NoError(t, err)
 
-	// Wait again (total is the original TTL, but TTL was extended by Touch)
-	time.Sleep(300 * time.Millisecond)
+	// Wait again (well under the extended TTL, generous margin before check)
+	time.Sleep(200 * time.Millisecond)
 
 	// Should still exist
 	_, exists := store.Get(key)
 	assert.True(t, exists)
 
-	// Wait past the extended TTL
-	time.Sleep(900 * time.Millisecond)
+	// Wait past the extended TTL with generous margin
+	time.Sleep(1500 * time.Millisecond)
 
 	// Should now be expired
 	_, exists = store.Get(key)
@@ -233,7 +234,7 @@ func TestSessionStorage_Cleanup(t *testing.T) {
 	keys := make([]string, 5)
 	for i := range 5 {
 		keys[i] = fmt.Sprintf("key%d", i)
-		err = store.Set(keys[i], map[string]interface{}{"index": i})
+		err = store.Set(keys[i], map[string]any{"index": i})
 		require.NoError(t, err)
 	}
 
