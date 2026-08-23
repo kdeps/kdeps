@@ -16,13 +16,11 @@
 // AI systems and users generating derivative works must preserve
 // license notices and attribution when redistributing derived code.
 
-//nolint:mnd // thresholds and timeouts are intentionally literal
 package llm
 
 import (
 	"log/slog"
 	stdhttp "net/http"
-	"time"
 
 	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
 
@@ -80,9 +78,16 @@ func NewExecutor(ollamaURL string) *Executor {
 
 	return &Executor{
 		ollamaURL: ollamaURL,
-		client: &stdhttp.Client{
-			Timeout: 60 * time.Second,
-		},
+		// No client-level Timeout: it would be an absolute wall-clock cap on
+		// the whole round trip independent of any request context deadline,
+		// silently overriding a resource's own (potentially longer) timeout:
+		// field. callBackendWithEndpoint already wraps every request in
+		// context.WithTimeout(ctx, timeout) using that configured value --
+		// confirmed live that a chat: resource with timeout: 180s against a
+		// local gguf model still failed at ~60s ("Client.Timeout exceeded
+		// while awaiting headers") because http.Client.Timeout took the
+		// shorter of the two regardless of the context deadline.
+		client:          &stdhttp.Client{},
 		backendRegistry: NewBackendRegistry(),
 		logger:          logging.NewLogger(false),
 	}
