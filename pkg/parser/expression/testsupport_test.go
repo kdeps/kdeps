@@ -662,12 +662,75 @@ func TestGet_Interpolated_MultipleGetCalls(t *testing.T) {
 	assert.Equal(t, "Name: John Doe", result)
 }
 
+// TestGet_Interpolated_BackToBackBlocksNoLeadingText is a regression guard: a
+// template with no literal text before the first block or between blocks (e.g.
+// "{{ a }}{{ b }}") still starts with "{{" and ends with "}}", so it used to be
+// misclassified as a single interpolation by evaluateSingleInterpolation's
+// prefix/suffix-only check. Slicing off just the outermost braces left the
+// inner "}} {{" embedded in the "expression", which always failed to compile
+// -- silently, too, since callers like the browser executor's evaluateText
+// swallow interpolation errors and fall back to the raw unresolved template.
+func TestGet_Interpolated_BackToBackBlocksNoLeadingText(t *testing.T) {
+	b := newBackend()
+	b.params["first"] = "John"
+	b.params["last"] = "Doe"
+	ev := newEvaluatorWithBackend(b)
+	result := evalInterpolated(t, ev, "{{ get('first') }}{{ get('last') }}")
+	assert.Equal(t, "JohnDoe", result)
+}
+
 func TestGet_Interpolated_MixGetAndLiteral(t *testing.T) {
 	b := newBackend()
 	b.memory["count"] = "3"
 	ev := newEvaluatorWithBackend(b)
 	result := evalInterpolated(t, ev, "You have {{ get('count') }} messages")
 	assert.Equal(t, "You have 3 messages", result)
+}
+
+// TestGet_Interpolated_MultiBlockPatterns is a mechanical sweep of every
+// block-adjacency shape a resource field's {{ }} interpolation can take --
+// the exact dimension the single-vs-multi-block misclassification bug lived
+// in. Every resource action (chat prompt, httpClient url, sql query, browser
+// url/selector, ...) resolves fields through this one shared evaluator, so
+// covering the shapes here covers every field project-wide; there is no
+// per-executor duplicate of this logic to separately re-test (verified by
+// reading each executor's field-resolution code, not assumed).
+func TestGet_Interpolated_MultiBlockPatterns(t *testing.T) {
+	b := newBackend()
+	b.params["a"] = "A"
+	b.params["b"] = "B"
+	b.params["c"] = "C"
+	b.params["q"] = "has?mark"
+	ev := newEvaluatorWithBackend(b)
+
+	tests := []struct {
+		name     string
+		template string
+		want     string
+	}{
+		{"single block, no surrounding text", "{{ get('a') }}", "A"},
+		{"two blocks back to back, no text anywhere", "{{ get('a') }}{{ get('b') }}", "AB"},
+		{"three blocks back to back", "{{ get('a') }}{{ get('b') }}{{ get('c') }}", "ABC"},
+		{"two blocks, leading text only", "x{{ get('a') }}{{ get('b') }}", "xAB"},
+		{"two blocks, trailing text only", "{{ get('a') }}{{ get('b') }}x", "ABx"},
+		{"two blocks, text between", "{{ get('a') }}-{{ get('b') }}", "A-B"},
+		{"two blocks, leading and trailing text", "x{{ get('a') }}{{ get('b') }}y", "xABy"},
+		{"two blocks, single space between", "{{ get('a') }} {{ get('b') }}", "A B"},
+		{
+			"ternary expression as the first of two back-to-back blocks",
+			"{{ get('a') == 'A' ? 'yes' : 'no' }}{{ get('b') }}", "yesB",
+		},
+		{
+			"contains operator inside a back-to-back block",
+			"{{ get('q') contains '?' ? 'has' : 'no' }}{{ get('b') }}", "hasB",
+		},
+		{"four blocks back to back", "{{ get('a') }}{{ get('b') }}{{ get('c') }}{{ get('a') }}", "ABCA"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.want, evalInterpolated(t, ev, tt.template))
+		})
+	}
 }
 
 func TestGet_Interpolated_DefaultInAllMissing(t *testing.T) {

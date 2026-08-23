@@ -900,10 +900,15 @@ func buildSearchResult(path string, results []map[string]interface{}) map[string
 // for ranked search results with optional fuzzy matching.
 // Otherwise, it uses the existing filepath.WalkDir approach with glob and content matching.
 func (e *Executor) Execute(
-	_ *executor.ExecutionContext,
+	execCtx *executor.ExecutionContext,
 	config *domain.SearchLocalConfig,
 ) (interface{}, error) {
 	kdeps_debug.Log("enter: Execute")
+
+	config, err := resolveConfig(execCtx, config)
+	if err != nil {
+		return nil, err
+	}
 
 	if config.Path == "" {
 		return nil, errors.New("searchLocal: path is required")

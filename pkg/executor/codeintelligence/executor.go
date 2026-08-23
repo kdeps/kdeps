@@ -64,9 +64,14 @@ func NewExecutorWithRunner(runner Runner) *Executor {
 // Execute dispatches to the appropriate code-intelligence operation.
 // Tries LSP first; falls back to rg if no LSP server is available.
 func (e *Executor) Execute(
-	_ *executor.ExecutionContext,
+	execCtx *executor.ExecutionContext,
 	config *domain.CodeIntelligenceConfig,
 ) (interface{}, error) {
+	config, resolveErr := resolveConfig(execCtx, config)
+	if resolveErr != nil {
+		return nil, resolveErr
+	}
+
 	if config.Operation == "" {
 		return nil, errors.New("codeIntelligence: operation is required")
 	}

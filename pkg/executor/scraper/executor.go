@@ -53,10 +53,15 @@ func NewExecutor() *Executor {
 
 // Execute fetches and optionally filters HTML content from a URL.
 func (e *Executor) Execute(
-	_ *executor.ExecutionContext,
+	ctx *executor.ExecutionContext,
 	config *domain.ScraperConfig,
 ) (interface{}, error) {
 	kdeps_debug.Log("enter: Execute")
+
+	config, err := resolveConfig(ctx, config)
+	if err != nil {
+		return nil, err
+	}
 
 	if config.URL == "" {
 		return nil, errors.New("scraper: url is required")

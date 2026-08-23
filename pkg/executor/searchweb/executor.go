@@ -131,6 +131,11 @@ func (e *Executor) Execute(
 ) (interface{}, error) {
 	kdeps_debug.Log("enter: Execute")
 
+	config, err := resolveConfig(ctx, config)
+	if err != nil {
+		return nil, err
+	}
+
 	if config.Query == "" {
 		return nil, errors.New("searchWeb: query is required")
 	}

@@ -64,10 +64,15 @@ func NewExecutor() *Executor {
 
 // Execute loads documents from cfg.Source using the configured loader type.
 func (e *Executor) Execute(
-	_ *executor.ExecutionContext,
+	execCtx *executor.ExecutionContext,
 	cfg *domain.LoaderConfig,
 ) (interface{}, error) {
 	kdeps_debug.Log("enter: loader.Execute")
+
+	cfg, err := resolveConfig(execCtx, cfg)
+	if err != nil {
+		return nil, err
+	}
 
 	if cfg.Source == "" {
 		return nil, errors.New("loader: source is required")

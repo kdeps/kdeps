@@ -92,10 +92,15 @@ func buildEmbeddingResult(fields map[string]interface{}) map[string]interface{} 
 
 // Execute performs the configured embedding operation.
 func (e *Executor) Execute(
-	_ *executor.ExecutionContext,
+	execCtx *executor.ExecutionContext,
 	config *domain.EmbeddingConfig,
 ) (interface{}, error) {
 	kdeps_debug.Log("enter: Execute")
+
+	config, resolveErr := resolveInterpolatedConfig(execCtx, config)
+	if resolveErr != nil {
+		return nil, resolveErr
+	}
 
 	ctx := context.Background()
 

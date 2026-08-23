@@ -68,6 +68,11 @@ func (e *Executor) Execute(
 ) (interface{}, error) {
 	kdeps_debug.Log("enter: transcribe.Execute")
 
+	cfg, err := resolveConfig(ctx, cfg)
+	if err != nil {
+		return nil, err
+	}
+
 	if cfg.File == "" {
 		return nil, errors.New("transcribe: file is required")
 	}

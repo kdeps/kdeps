@@ -69,9 +69,14 @@ func NewExecutorWithRunner(runner CommandRunner) *Executor {
 
 // Execute dispatches to the appropriate git operation.
 func (e *Executor) Execute(
-	_ *executor.ExecutionContext,
+	execCtx *executor.ExecutionContext,
 	config *domain.GitResourceConfig,
 ) (interface{}, error) {
+	config, err := resolveConfig(execCtx, config)
+	if err != nil {
+		return nil, err
+	}
+
 	if config.Operation == "" {
 		return nil, errors.New("git: operation is required")
 	}

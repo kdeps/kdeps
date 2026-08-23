@@ -72,10 +72,15 @@ func NewExecutor() *Executor {
 
 // Execute runs the configured vector store operation.
 func (e *Executor) Execute(
-	_ *executor.ExecutionContext,
+	execCtx *executor.ExecutionContext,
 	cfg *domain.VectorStoreConfig,
 ) (interface{}, error) {
 	kdeps_debug.Log("enter: vectorstore.Execute")
+
+	cfg, err := resolveConfig(execCtx, cfg)
+	if err != nil {
+		return nil, err
+	}
 
 	ctx := context.Background()
 

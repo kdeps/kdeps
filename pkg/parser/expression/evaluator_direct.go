@@ -33,8 +33,8 @@ import (
 // evaluateDirect evaluates a direct expression like: get('q'), x != ”.
 func (e *Evaluator) evaluateDirect(
 	exprStr string,
-	env map[string]interface{},
-) (interface{}, error) {
+	env map[string]any,
+) (any, error) {
 	kdeps_debug.Log("enter: evaluateDirect")
 	// Build environment with unified API functions.
 	evalEnv := e.buildEnvironment(env)
@@ -70,8 +70,8 @@ func (e *Evaluator) evaluateDirect(
 // If the template contains ONLY a single {{expr}} with no other text, returns the value directly (not stringified).
 func (e *Evaluator) evaluateInterpolated(
 	template string,
-	env map[string]interface{},
-) (interface{}, error) {
+	env map[string]any,
+) (any, error) {
 	kdeps_debug.Log("enter: evaluateInterpolated")
 	// Check if this is a single interpolation
 	if value, isSingle, err := e.evaluateSingleInterpolation(template, env); isSingle {
@@ -85,11 +85,21 @@ func (e *Evaluator) evaluateInterpolated(
 // evaluateSingleInterpolation checks if template is a single {{expr}} and evaluates it directly.
 func (e *Evaluator) evaluateSingleInterpolation(
 	template string,
-	env map[string]interface{},
-) (interface{}, bool, error) {
+	env map[string]any,
+) (any, bool, error) {
 	kdeps_debug.Log("enter: evaluateSingleInterpolation")
 	trimmed := strings.TrimSpace(template)
 	if !strings.HasPrefix(trimmed, "{{") || !strings.HasSuffix(trimmed, "}}") {
+		return nil, false, nil
+	}
+	// A template consisting of back-to-back blocks with no literal text between
+	// them (e.g. "{{ a }}{{ b }}") also starts with "{{" and ends with "}}", so
+	// the prefix/suffix check alone misclassifies it as a single interpolation --
+	// slicing off only the outermost braces leaves the inner "}}{{ " embedded in
+	// the "expression", which always fails to compile. Only genuinely single-block
+	// templates (exactly one "{{" and one "}}") take this path; anything else
+	// falls through to evaluateMultipleInterpolations, which scans block by block.
+	if strings.Count(trimmed, "{{") != 1 || strings.Count(trimmed, "}}") != 1 {
 		return nil, false, nil
 	}
 
@@ -119,7 +129,7 @@ func (e *Evaluator) evaluateSingleInterpolation(
 // case).
 func (e *Evaluator) evaluateMultipleInterpolations(
 	template string,
-	env map[string]interface{},
+	env map[string]any,
 ) (string, error) {
 	kdeps_debug.Log("enter: evaluateMultipleInterpolations")
 
@@ -157,10 +167,10 @@ func (e *Evaluator) evaluateMultipleInterpolations(
 // evaluateAndFormatExpression evaluates an expression and formats it as a string.
 func (e *Evaluator) evaluateAndFormatExpression(
 	exprStr string,
-	env map[string]interface{},
+	env map[string]any,
 ) (string, error) {
 	kdeps_debug.Log("enter: evaluateAndFormatExpression")
-	var value interface{}
+	var value any
 	var err error
 
 	// Try simple variable lookup first (dot notation)

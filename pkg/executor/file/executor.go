@@ -78,9 +78,14 @@ func NewExecutor() *Executor {
 
 // Execute dispatches to the appropriate file operation based on config.
 func (e *Executor) Execute(
-	_ *executor.ExecutionContext,
+	execCtx *executor.ExecutionContext,
 	config *domain.FileResourceConfig,
 ) (interface{}, error) {
+	config, err := resolveConfig(execCtx, config)
+	if err != nil {
+		return nil, err
+	}
+
 	if config.Operation == "" {
 		return nil, errors.New("file: operation is required")
 	}
