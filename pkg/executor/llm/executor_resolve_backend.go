@@ -113,44 +113,54 @@ func (e *Executor) resolveChatRequestConfig(
 	}
 }
 
-// defaultAnthropicChatContextLength is used only for the Anthropic backend
+// defaultAnthropicChatContextLength is used for the Anthropic backend
 // (including Claude reached indirectly via Bedrock, where the backend name
-// alone doesn't reveal the underlying model family): Anthropic's Messages
-// API rejects a request that omits max_tokens entirely -- it's a required
-// field, so "unlimited" (omitting it) is not an option there the way it is
-// for every other backend below. Chosen to sit within Anthropic's standard
+// alone doesn't reveal the underlying model family) and for m365: Anthropic's
+// Messages API rejects a request that omits max_tokens entirely -- it's a
+// required field, so "unlimited" (omitting it) is not an option there the
+// way it is for every other backend below. m365 is not a documented API --
+// it proxies Microsoft 365 Copilot's consumer chat surface, forwarding to
+// whichever underlying model (GPT or Claude) it's configured for -- so
+// unlike openai/google/etc., there's no verified evidence that omitting
+// max_tokens there falls back to "as much as the model allows" instead of a
+// small internal default; confirmed live that a real m365 chat with the
+// field omitted still truncated. Chosen to sit within Anthropic's standard
 // non-extended-output ceiling shared across current Claude generations,
 // rather than the old flat 4096 that silently truncated real usage.
 const defaultAnthropicChatContextLength = 8192
 
 // defaultChatContextLength returns the fallback wire-level max_tokens used
 // when a chat: resource sets neither contextLength nor
-// KDEPS_CHAT_CONTEXT_LENGTH. Confirmed live (both here and via a real cloud
-// backend report) that the previous flat 4096 default silently truncated
-// large tool-call arguments and long generations, no error surfaced --
-// callers had no way to tell "the model chose to stop" from "kdeps cut it
-// off".
+// KDEPS_CHAT_CONTEXT_LENGTH. Confirmed live (here, via a real cloud backend
+// report, and via a real m365 report of a write_file call that "completed"
+// but was truncated) that the previous flat 4096 default -- and, for m365,
+// omitting the field entirely -- silently truncated large tool-call
+// arguments and long generations, no error surfaced -- callers had no way
+// to tell "the model chose to stop" from "kdeps/the gateway cut it off".
 //
 // Local backends (file/gguf/ollama) get the real configured --ctx-size
 // (LocalContextSize): a local server can never generate more tokens than
 // that allows anyway, so it is the true ceiling, not an arbitrary smaller
 // one.
 //
-// Every backend whose BuildRequest guards the field on ">0" (bedrock,
+// Every backend whose BuildRequest guards the field on ">0" AND has a
+// documented, verified "omitted means uncapped" API contract (bedrock,
 // cohere, watsonx, and the openai-compat family: openai, google,
-// huggingface, maritaca, openai-compat, cloudflare, ernie, m365) gets 0
-// here, which cleanly omits max_tokens from the request entirely --
-// genuinely unlimited by default, letting the provider apply its own real
-// ceiling instead of an arbitrary kdeps number. Only Anthropic is a real
-// exception: max_tokens is a required field there, so it keeps a
-// conservative positive default (defaultAnthropicChatContextLength) rather
-// than erroring out on every call. A resource on any backend that needs a
-// specific cap can still set contextLength explicitly.
+// huggingface, maritaca, openai-compat, cloudflare, ernie) gets 0 here,
+// which cleanly omits max_tokens from the request entirely -- genuinely
+// unlimited by default, letting the provider apply its own real ceiling
+// instead of an arbitrary kdeps number. Anthropic and m365 are the
+// exceptions: a real positive default (defaultAnthropicChatContextLength)
+// rather than erroring out (Anthropic) or silently truncating on an
+// unverified gateway default (m365). A resource on any backend that needs a
+// specific cap can still set contextLength explicitly, and a known model's
+// real catalog ceiling (see resolveChatRequestConfig's ModelMaxOutputTokens
+// lookup) still takes priority over this fallback either way.
 func defaultChatContextLength(backendName string) int {
 	switch backendName {
 	case BackendFile, BackendGGUF, "ollama":
 		return LocalContextSize()
-	case backendAnthropic:
+	case backendAnthropic, backendM365:
 		return defaultAnthropicChatContextLength
 	default:
 		return 0

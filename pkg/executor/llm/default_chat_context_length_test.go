@@ -59,7 +59,7 @@ func TestDefaultChatContextLength_LocalBackends(t *testing.T) {
 func TestDefaultChatContextLength_OmitForOptionalBackends(t *testing.T) {
 	for _, backend := range []string{
 		"openai", "google", "huggingface", "maritaca",
-		"openai-compat", "cloudflare", "ernie", "m365", "bedrock", "cohere", "watsonx",
+		"openai-compat", "cloudflare", "ernie", "bedrock", "cohere", "watsonx",
 		"", "unknown-future-backend",
 	} {
 		t.Run(backend, func(t *testing.T) {
@@ -75,6 +75,17 @@ func TestDefaultChatContextLength_OmitForOptionalBackends(t *testing.T) {
 func TestDefaultChatContextLength_Anthropic(t *testing.T) {
 	assert.Equal(t, defaultAnthropicChatContextLength, defaultChatContextLength(backendAnthropic))
 	assert.Equal(t, 8192, defaultChatContextLength(backendAnthropic))
+}
+
+// TestDefaultChatContextLength_M365 verifies m365 also gets the real
+// positive default, not omission: unlike openai/google/etc., m365 has no
+// documented API contract confirming "omitted means uncapped" -- it proxies
+// Microsoft 365 Copilot's consumer chat surface to whichever underlying
+// model it's configured for, and a real m365 write_file call with the field
+// omitted was confirmed live to still truncate.
+func TestDefaultChatContextLength_M365(t *testing.T) {
+	assert.Equal(t, defaultAnthropicChatContextLength, defaultChatContextLength(backendM365))
+	assert.Equal(t, 8192, defaultChatContextLength(backendM365))
 }
 
 // TestResolveChatRequestConfig_LocalBackend_NoExplicitContextLength confirms
@@ -217,6 +228,32 @@ func TestResolveChatRequestConfig_UnknownModel_FallsBackToBackendDefault(t *test
 	e := &Executor{}
 	got := e.resolveChatRequestConfig(&domain.ChatConfig{Model: "some-future-claude-model"}, nil, backendAnthropic)
 	assert.Equal(t, defaultAnthropicChatContextLength, got.ContextLength)
+}
+
+// TestBuildOpenAICompatRequest_MaxTokens_M365_NotOmitted verifies the actual
+// wire-level request sent to the m365 backend carries a real max_tokens
+// value when unset, not an omitted field -- the fix for a live report of a
+// write_file call on m365 that "completed" but was silently truncated.
+func TestBuildOpenAICompatRequest_MaxTokens_M365_NotOmitted(t *testing.T) {
+	e := &Executor{}
+	requestConfig := e.resolveChatRequestConfig(&domain.ChatConfig{}, nil, backendM365)
+	req := buildOpenAICompatRequest("gpt-5.5", []map[string]interface{}{
+		{"role": "user", "content": "write a long file"},
+	}, requestConfig)
+
+	got, hasMaxTokens := req["max_tokens"]
+	require.True(t, hasMaxTokens, "m365 must not omit max_tokens -- its gateway's own default is unverified")
+	assert.Equal(t, defaultAnthropicChatContextLength, got)
+}
+
+// TestResolveChatRequestConfig_KnownM365Model_UsesCatalogMaxOutputTokens
+// confirms a recognized m365 model (e.g. Claude Sonnet routed through M365
+// Copilot) still gets its real cataloged ceiling rather than the
+// conservative fallback.
+func TestResolveChatRequestConfig_KnownM365Model_UsesCatalogMaxOutputTokens(t *testing.T) {
+	e := &Executor{}
+	got := e.resolveChatRequestConfig(&domain.ChatConfig{Model: "claude-sonnet"}, nil, backendM365)
+	assert.Equal(t, outAnthropic64k, got.ContextLength)
 }
 
 // TestBuildOpenAICompatRequest_MaxTokens_ReflectsLocalContextSize verifies
