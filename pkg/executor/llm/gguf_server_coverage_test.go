@@ -914,6 +914,17 @@ func TestGGufLlamaServerBinary_UsesCPUFallbackWhenMarked(t *testing.T) {
 	t.Cleanup(func() { userHomeDirFunc = orig })
 	userHomeDirFunc = func() (string, error) { return dir, nil }
 
+	// ggufHasDistinctCPUBuild is only true on Windows/Linux (macOS has a
+	// single Metal-linked binary and toggles GPU use via --n-gpu-layers
+	// instead, see ggufHasDistinctCPUBuild's doc comment), so force a
+	// platform that actually has a separate CPU build to exercise the
+	// routing this test is named for -- on native macOS runs, this
+	// otherwise always fell through to the primary binary path regardless
+	// of the fallback marker.
+	origOS := testOS
+	testOS = goosWindows
+	t.Cleanup(func() { testOS = origOS })
+
 	markGGUFCPUFallback()
 
 	// Pre-seed the CPU-fallback binary so this resolves without network access.

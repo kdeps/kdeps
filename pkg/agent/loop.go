@@ -2562,6 +2562,8 @@ func (l *Loop) buildChatConfig(ctx context.Context, input, systemPreamble string
 		Thinking: l.config.Thinking,
 	}
 
+	chatCfg.MaxTokens = localBackendMaxTokens(l.config.Backend)
+
 	// Inject conversation history as the messages field. When turo is active,
 	// route each message's content through it (cached, so only new messages
 	// spawn turo) so history reaches the LLM in the same reduced form as the
@@ -2606,6 +2608,28 @@ func (l *Loop) historyMessages(ctx context.Context) string {
 	return reducer.BuildMessagesJSONReduced(func(s string) string {
 		return turoReduceCached(ctx, s)
 	})
+}
+
+// localBackendMaxTokens returns an explicit output-token cap for local model
+// backends so a request never falls back to the underlying server's own
+// implicit default -- confirmed live that leaving MaxTokens unset let a local
+// llama-server apply a smaller output cap than the model's real ceiling,
+// silently truncating a large write_file content argument mid-generation. A
+// local server can never generate more tokens than its own context window
+// allows anyway, so requesting the full configured --ctx-size (via
+// executorLLM.LocalContextSize) is the true ceiling, not an arbitrary smaller
+// default. Cloud backends return nil (existing behavior unchanged): sending a
+// value above what a given cloud model actually supports causes a hard
+// request error instead of a clamp, and their own no-max_tokens defaults
+// already track the model's real limit rather than an artificially small one.
+func localBackendMaxTokens(backend string) *int {
+	switch backend {
+	case executorLLM.BackendFile, executorLLM.BackendGGUF, "ollama":
+		n := executorLLM.LocalContextSize()
+		return &n
+	default:
+		return nil
+	}
 }
 
 func (l *Loop) buildSyntheticWorkflow(
@@ -2810,6 +2834,10 @@ func (l *Loop) CompactWithLLM(ctx context.Context) (string, error) {
 		},
 		// No tools - compaction is a standalone summarization call.
 	}
+	// See localBackendMaxTokens for why local backends need an explicit
+	// MaxTokens: a truncated compaction summary would silently lose
+	// conversation history.
+	chatCfg.MaxTokens = localBackendMaxTokens(l.config.Backend)
 	synthetic := l.buildSyntheticWorkflow(compactionActionID, chatCfg)
 
 	result, err := l.engine.Execute(synthetic, nil)

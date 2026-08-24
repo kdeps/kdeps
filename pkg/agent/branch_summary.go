@@ -143,6 +143,7 @@ func (l *Loop) SummarizeBranch(_ context.Context) (string, error) {
 		},
 		// No tools - branch summarization is a standalone call.
 	}
+	chatCfg.MaxTokens = localBackendMaxTokens(l.config.Backend)
 	synthetic := l.buildSyntheticWorkflow(branchActionID, chatCfg)
 
 	result, err := l.engine.Execute(synthetic, nil)

@@ -20,6 +20,7 @@ package llm_test
 
 import (
 	"context"
+	"os/exec"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -30,6 +31,13 @@ import (
 func TestModelManager_DownloadModel(t *testing.T) {
 	if testing.Short() {
 		t.Skip("skipping test that triggers external service calls in short mode")
+	}
+	// This test requires the real ollama CLI on PATH (not every dev machine
+	// or CI runner has it installed, unlike the gguf/llamafile backends
+	// which kdeps installs itself) -- skip cleanly instead of failing when
+	// it's absent.
+	if _, err := exec.LookPath("ollama"); err != nil {
+		t.Skip("ollama not installed on PATH")
 	}
 	// Create a real service and manager to test delegation
 	service := llm.NewModelService(nil)

@@ -111,6 +111,11 @@ func TestAdvancedFeatures_SkipCondition(t *testing.T) {
 // TestAdvancedFeatures_PreflightCheck tests preflight check in integration.
 func TestAdvancedFeatures_PreflightCheck(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
+	// Memory storage resolves to one shared per-process file by default (see
+	// processMemoryDBPath in pkg/infra/storage/memory.go), not a per-HOME or
+	// per-Engine path, so set('userId', ...) below would otherwise leak into
+	// every other test sharing this test binary's process.
+	t.Setenv("KDEPS_MEMORY_DB_PATH", ":memory:")
 	workflow := &domain.Workflow{
 		APIVersion: "kdeps.io/v1",
 		Kind:       "Workflow",
@@ -181,6 +186,12 @@ func TestAdvancedFeatures_PreflightCheck(t *testing.T) {
 // TestAdvancedFeatures_PreflightCheck_Failure tests preflight check failure.
 func TestAdvancedFeatures_PreflightCheck_Failure(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
+	// Isolate from the per-process default memory store -- without this, a
+	// prior test in the same process (e.g. TestAdvancedFeatures_PreflightCheck,
+	// which sets userId) leaves get('userId') non-nil here, so the "userId not
+	// set" premise this test is named for silently doesn't hold. See
+	// processMemoryDBPath in pkg/infra/storage/memory.go.
+	t.Setenv("KDEPS_MEMORY_DB_PATH", ":memory:")
 	workflow := &domain.Workflow{
 		APIVersion: "kdeps.io/v1",
 		Kind:       "Workflow",

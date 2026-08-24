@@ -655,7 +655,13 @@ func TestCredentialsReady(t *testing.T) {
 }
 
 func TestForceReauthNoCredentials(t *testing.T) {
-	t.Setenv("M365_SECRETS_FILE", filepath.Join(t.TempDir(), "none.json"))
+	dir := t.TempDir()
+	t.Setenv("M365_SECRETS_FILE", filepath.Join(dir, "none.json"))
+	// Isolate from any real cached refresh token on the host (e.g.
+	// ~/.config/kdeps/m365/token-cache.json from actual prior M365 auth) --
+	// without this override the test's premise (no cache, no secrets) does
+	// not hold on a machine that has ever authenticated for real.
+	t.Setenv("M365_CACHE_FILE", filepath.Join(dir, "no-cache.json"))
 	// No refresh token in cache and no secrets file -> cannot reauth.
 	if forceReauth(context.Background()) {
 		t.Error("forceReauth should fail without cache or secrets")
@@ -898,7 +904,11 @@ func TestBackoffDisabled(t *testing.T) {
 }
 
 func TestGetTokenNoCredentials(t *testing.T) {
-	t.Setenv("M365_SECRETS_FILE", filepath.Join(t.TempDir(), "none.json"))
+	dir := t.TempDir()
+	t.Setenv("M365_SECRETS_FILE", filepath.Join(dir, "none.json"))
+	// See TestForceReauthNoCredentials for why the cache file also needs
+	// isolating from any real cached refresh token on the host.
+	t.Setenv("M365_CACHE_FILE", filepath.Join(dir, "no-cache.json"))
 	if _, err := getToken(context.Background()); err == nil {
 		t.Error("getToken should fail without cache or secrets")
 	}
