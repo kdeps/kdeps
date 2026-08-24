@@ -20,7 +20,6 @@ package executor
 
 import (
 	"os"
-	"time"
 
 	"github.com/kdeps/kdeps/v2/pkg/domain"
 )
@@ -43,32 +42,4 @@ func (e *Engine) configureLLMExecutor(llmExecutor interface{}, ctx *ExecutionCon
 		}
 		adapter.SetOfflineMode(offlineMode)
 	}
-}
-
-// startLLMTimeoutCountdown logs remaining timeout every second until done is closed.
-func (e *Engine) startLLMTimeoutCountdown(actionID string, timeoutDuration time.Duration) chan struct{} {
-	if e.debugMode {
-		return nil
-	}
-	done := make(chan struct{})
-	startTime := time.Now()
-	go func() {
-		ticker := time.NewTicker(1 * time.Second)
-		defer ticker.Stop()
-		for {
-			select {
-			case <-done:
-				return
-			case <-ticker.C:
-				remaining := timeoutDuration - time.Since(startTime)
-				if remaining <= 0 {
-					return
-				}
-				e.logger.Info("action will timeout",
-					"actionID", actionID,
-					"remaining", e.FormatDuration(remaining))
-			}
-		}
-	}()
-	return done
 }

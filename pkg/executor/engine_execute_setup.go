@@ -127,9 +127,6 @@ func (e *Engine) prepareWorkflowExecution(
 	e.emitter.Emit(events.WorkflowStarted(workflow.Metadata.Name))
 	targetActionID := workflow.Metadata.TargetActionID
 
-	e.logger.Info("Building execution graph",
-		"total_resources", len(workflow.Resources),
-		"target_action_id", targetActionID)
 	for _, res := range workflow.Resources {
 		e.logger.Debug("Resource in workflow",
 			"action_id", res.ActionID,
@@ -148,7 +145,9 @@ func (e *Engine) prepareWorkflowExecution(
 		)
 	}
 
-	e.logger.Info("Execution order determined",
+	e.logger.Info("Building execution graph",
+		"total_resources", len(workflow.Resources),
+		"target_action_id", targetActionID,
 		"resources_to_execute", len(resources))
 	return resources, targetActionID, nil
 }

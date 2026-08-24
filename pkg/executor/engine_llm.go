@@ -38,7 +38,7 @@ func (e *Engine) executeLLM(resource *domain.Resource, ctx *ExecutionContext) (i
 		return nil, errors.New("LLM executor not available")
 	}
 
-	timeoutDuration, timeoutDurationStr := e.resolveLLMTimeout(resource.Chat)
+	_, timeoutDurationStr := e.resolveLLMTimeout(resource.Chat)
 	backendName := e.resolveLLMBackend(resource.Chat)
 	modelStr := e.evaluateLLMModel(resource.Chat.Model, ctx)
 
@@ -52,11 +52,7 @@ func (e *Engine) executeLLM(resource *domain.Resource, ctx *ExecutionContext) (i
 	e.updateLLMMetadata(ctx, modelStr, backendName)
 	e.configureLLMExecutor(llmExecutor, ctx)
 
-	done := e.startLLMTimeoutCountdown(resource.ActionID, timeoutDuration)
 	result, execErr := llmExecutor.Execute(ctx, resource.Chat)
-	if done != nil {
-		close(done)
-	}
 	return result, execErr
 }
 
