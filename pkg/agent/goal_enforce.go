@@ -439,7 +439,7 @@ func (l *Loop) beginGoal(ctx context.Context, input string, w io.Writer) string 
 		goal = planGoal(ctx, l, input)
 		saveGoal(l.memoryStore, goal)
 		if _, total := goal.Progress(); total > 1 {
-			l.reportGoalEvent(w, fmt.Sprintf("plan: %d tasks — /goal to inspect, /goal clear to drop", total))
+			l.reportGoalSummary(w, goal)
 		}
 	default:
 		// resumeNotice already names the active task, so a fresh plan is the
@@ -632,6 +632,19 @@ func (l *Loop) reportGoalEvent(w io.Writer, msg string) {
 		return
 	}
 	fmt.Fprintf(pw, "\n[goal] %s\n", msg)
+}
+
+// reportGoalSummary shows the full decomposed task list right after a fresh
+// plan is generated, instead of just a task count -- the user previously had
+// to run /goal to see what agent_loop_plan actually produced. Reuses
+// Goal.Summary(), the same rendering /goal already shows on demand, so the
+// two never drift out of sync.
+func (l *Loop) reportGoalSummary(w io.Writer, goal *Goal) {
+	pw := l.progressWriter(w)
+	if pw == nil {
+		return
+	}
+	fmt.Fprintf(pw, "\n[goal] plan generated — /goal clear to drop\n%s", goal.Summary())
 }
 
 // progressWriter picks where a live status notice goes: Config.ProgressWriter

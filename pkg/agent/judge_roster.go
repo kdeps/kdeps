@@ -21,6 +21,8 @@ package agent
 import (
 	"context"
 	"encoding/json"
+	"fmt"
+	"io"
 	"strings"
 
 	"github.com/kdeps/kdeps/v2/pkg/domain"
@@ -157,4 +159,19 @@ func (l *Loop) resolveJudgeRoster(ctx context.Context, input string) []JudgeSpec
 		return nil
 	}
 	return generateJudgeRoster(l, input)
+}
+
+// reportJudgeRoster shows the auto-generated judge panel (agent_loop_judge_roster)
+// and each judge's review criteria right after it's built for the turn --
+// previously invisible unless the user ran /judges list, which only shows an
+// explicit roster anyway, not what auto-generation actually produced.
+func (l *Loop) reportJudgeRoster(w io.Writer, roster []JudgeSpec) {
+	pw := l.progressWriter(w)
+	if pw == nil {
+		return
+	}
+	fmt.Fprintf(pw, "\n[judges] panel generated — %d reviewer(s)\n", len(roster))
+	for _, j := range roster {
+		fmt.Fprintf(pw, "  - %s: %s\n", j.Name, j.Criteria)
+	}
 }

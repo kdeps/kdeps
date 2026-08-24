@@ -19,8 +19,10 @@
 package agent
 
 import (
+	"bytes"
 	"context"
 	"errors"
+	"strings"
 	"testing"
 
 	"github.com/kdeps/kdeps/v2/pkg/domain"
@@ -157,5 +159,45 @@ func TestGenerateJudgeRoster_NoLocalServer(t *testing.T) {
 		if got := generateJudgeRoster(l, "do something"); got != nil {
 			t.Fatalf("backend %q: expected nil roster, got %v", backend, got)
 		}
+	}
+}
+
+// TestReportJudgeRoster_ShowsEachJudgeAndCriteria confirms the auto-generated
+// panel (agent_loop_judge_roster) is announced with every judge's name and
+// review criteria -- previously invisible unless the user ran /judges list,
+// which only ever showed an explicit roster, not what auto-generation
+// actually produced for the turn.
+func TestReportJudgeRoster_ShowsEachJudgeAndCriteria(t *testing.T) {
+	l := &Loop{}
+	roster := []JudgeSpec{
+		{Name: "correctness", Criteria: "checks the output is factually correct"},
+		{Name: "security", Criteria: "checks for injection or unsafe patterns"},
+	}
+	var buf bytes.Buffer
+	l.reportJudgeRoster(&buf, roster)
+	out := buf.String()
+	if !strings.Contains(out, "2 reviewer(s)") {
+		t.Errorf("expected reviewer count in %q", out)
+	}
+	for _, want := range []string{
+		"correctness: checks the output is factually correct",
+		"security: checks for injection or unsafe patterns",
+	} {
+		if !strings.Contains(out, want) {
+			t.Errorf("expected %q in %q", want, out)
+		}
+	}
+}
+
+func TestReportJudgeRoster_PrefersConfigProgressWriter(t *testing.T) {
+	l := &Loop{config: Config{}}
+	var progress, passed bytes.Buffer
+	l.config.ProgressWriter = &progress
+	l.reportJudgeRoster(&passed, []JudgeSpec{{Name: "correctness", Criteria: "checks correctness"}})
+	if !strings.Contains(progress.String(), "correctness") {
+		t.Fatalf("expected the roster on ProgressWriter, got %q", progress.String())
+	}
+	if passed.Len() != 0 {
+		t.Fatalf("expected nothing written to the passed-through writer, got %q", passed.String())
 	}
 }

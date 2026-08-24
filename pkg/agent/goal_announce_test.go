@@ -103,6 +103,34 @@ func TestReportGoalEvent_FallsBackToPassedWriterWithoutConfig(t *testing.T) {
 	}
 }
 
+// TestReportGoalSummary_ShowsFullTaskList confirms a fresh plan announces
+// every decomposed task by description, not just a count -- previously the
+// user had to run /goal to see what agent_loop_plan actually generated.
+func TestReportGoalSummary_ShowsFullTaskList(t *testing.T) {
+	l := loopWithGoal("write tests", "fix the bug", "update docs")
+	var buf bytes.Buffer
+	l.reportGoalSummary(&buf, l.enforcer.goal)
+	out := buf.String()
+	for _, want := range []string{"write tests", "fix the bug", "update docs"} {
+		if !strings.Contains(out, want) {
+			t.Errorf("expected task %q in summary, got %q", want, out)
+		}
+	}
+}
+
+func TestReportGoalSummary_PrefersConfigProgressWriter(t *testing.T) {
+	l := loopWithGoal("write tests", "fix the bug")
+	var progress, passed bytes.Buffer
+	l.config.ProgressWriter = &progress
+	l.reportGoalSummary(&passed, l.enforcer.goal)
+	if !strings.Contains(progress.String(), "write tests") {
+		t.Fatalf("expected the summary on ProgressWriter, got %q", progress.String())
+	}
+	if passed.Len() != 0 {
+		t.Fatalf("expected nothing written to the passed-through writer, got %q", passed.String())
+	}
+}
+
 func TestEnforceGoalProgress_AnnouncesOnFailForward(t *testing.T) {
 	l := loopWithGoal("write tests", "fix the bug")
 	l.enforcer.strikes = penaltyFailForward

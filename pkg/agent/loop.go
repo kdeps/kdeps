@@ -868,7 +868,14 @@ func (l *Loop) RunStreaming(ctx context.Context, input string, w io.Writer) (str
 	// Judge panel: an independent review of the final output, with the power
 	// to send it back for revision. Never runs for library/test callers with
 	// no roster configured, and never blocks the turn on any failure.
+	explicitRoster := len(l.config.Judges) > 0
 	if roster := l.resolveJudgeRoster(ctx, input); len(roster) > 0 {
+		// Only announce an auto-generated roster (agent_loop_judge_roster) --
+		// an explicit one is already visible via /judges list and doesn't
+		// change per turn, so repeating it every turn would just be noise.
+		if !explicitRoster {
+			l.reportJudgeRoster(w, roster)
+		}
 		response, _ = l.iterateWithJudges(ctx, chatCfg, roster, input, response, finalContent, w)
 	}
 
