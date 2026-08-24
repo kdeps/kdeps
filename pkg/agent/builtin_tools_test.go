@@ -3586,3 +3586,65 @@ func TestGoogleCacheDeleteTool_Execute_InitError(t *testing.T) {
 	}
 	_ = result
 }
+
+// --- writeFileVerified ---
+
+func TestWriteFileVerified_RoundTripsSuccessfully(t *testing.T) {
+	tmpFile, err := os.CreateTemp("", "kdeps-writeverified-*.txt")
+	require.NoError(t, err)
+	require.NoError(t, tmpFile.Close())
+	defer os.Remove(tmpFile.Name())
+
+	err = writeFileVerified(tmpFile.Name(), []byte("hello verified\n"))
+	require.NoError(t, err)
+
+	data, err := os.ReadFile(tmpFile.Name())
+	require.NoError(t, err)
+	assert.Equal(t, "hello verified\n", string(data))
+}
+
+func TestWriteFileVerified_PermissionErrorAfterRetries(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("chmod does not enforce POSIX permission bits on Windows")
+	}
+	tmpDir, err := os.MkdirTemp("", "kdeps-writeverified-noperm-*")
+	require.NoError(t, err)
+	require.NoError(t, os.Chmod(tmpDir, 0o500))
+	defer func() {
+		_ = os.Chmod(tmpDir, 0o700)
+		os.RemoveAll(tmpDir)
+	}()
+
+	err = writeFileVerified(filepath.Join(tmpDir, "cant-write-here.txt"), []byte("data"))
+	assert.Error(t, err)
+}
+
+// TestEditFile_ReadAfterWriteVerification confirms edit_file's write now
+// goes through the same read-after-write path as write_file: the edited
+// file's on-disk content is verified to match what edit_file intended to
+// write, not just assumed from a successful WriteFile call.
+func TestEditFile_ReadAfterWriteVerification(t *testing.T) {
+	reg := kdepstools.NewRegistry()
+	RegisterBuiltinTools(context.Background(), reg)
+	tool := reg.Get("edit_file")
+	require.NotNil(t, tool)
+
+	tmpFile, err := os.CreateTemp("", "kdeps-editfile-verify-*.go")
+	require.NoError(t, err)
+	_, err = tmpFile.WriteString("package main\n\nvar debug = false\n")
+	require.NoError(t, err)
+	require.NoError(t, tmpFile.Close())
+	defer os.Remove(tmpFile.Name())
+
+	result, err := tool.Execute(map[string]any{
+		"file_path":  tmpFile.Name(),
+		"old_string": "debug = false",
+		"new_string": "debug = true",
+	})
+	require.NoError(t, err)
+	assert.Contains(t, result, "Edited")
+
+	data, err := os.ReadFile(tmpFile.Name())
+	require.NoError(t, err)
+	assert.Equal(t, "package main\n\nvar debug = true\n", string(data))
+}

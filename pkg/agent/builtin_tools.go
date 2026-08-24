@@ -282,6 +282,36 @@ func readLocalFile(filePath string, args map[string]any) (string, error) {
 	return out, nil
 }
 
+// writeFileVerified writes data to path and reads it back to confirm the
+// bytes on disk actually match what was written, retrying once on mismatch
+// before failing. This is a read-after-write durability check -- it cannot
+// detect an upstream problem (e.g. the model itself handed the tool
+// incomplete content), only that the write to disk was faithful to whatever
+// content the tool actually received.
+func writeFileVerified(path string, data []byte) error {
+	const maxAttempts = 2
+	var lastErr error
+	for attempt := 1; attempt <= maxAttempts; attempt++ {
+		if err := afero.WriteFile(AppFS, path, data, 0o600); err != nil {
+			lastErr = fmt.Errorf("write %s: %w", path, err)
+			continue
+		}
+		got, err := afero.ReadFile(AppFS, path)
+		if err != nil {
+			lastErr = fmt.Errorf("verify %s: read back failed: %w", path, err)
+			continue
+		}
+		if bytes.Equal(got, data) {
+			return nil
+		}
+		lastErr = fmt.Errorf(
+			"verify %s: wrote %d bytes but read back %d bytes -- content did not round-trip",
+			path, len(data), len(got),
+		)
+	}
+	return lastErr
+}
+
 // registerWriteFile registers a local file write/overwrite tool.
 // Creates or overwrites text files on the filesystem. Accepts absolute paths only.
 // No API key required.
@@ -332,8 +362,8 @@ func registerWriteFile(reg *kdepstools.Registry) {
 		if prev, rerr := afero.ReadFile(AppFS, filePath); rerr == nil {
 			oldContent = string(prev)
 		}
-		if err = afero.WriteFile(AppFS, filePath, []byte(content), 0o600); err != nil {
-			return "", fmt.Errorf("write_file: write %s: %w", filePath, err)
+		if err = writeFileVerified(filePath, []byte(content)); err != nil {
+			return "", fmt.Errorf("write_file: %w", err)
 		}
 		writeToolDiff(tool.OutputWriter, oldContent, content, filePath)
 		return fmt.Sprintf("Wrote %d bytes to %s", len(content), filePath), nil
@@ -401,8 +431,8 @@ func registerEditFile(reg *kdepstools.Registry) {
 			)
 		}
 		newContent := strings.Replace(content, oldStr, newStr, 1)
-		if werr := afero.WriteFile(AppFS, filePath, []byte(newContent), 0o600); werr != nil {
-			return "", fmt.Errorf("edit_file: write %s: %w", filePath, werr)
+		if werr := writeFileVerified(filePath, []byte(newContent)); werr != nil {
+			return "", fmt.Errorf("edit_file: %w", werr)
 		}
 		// Show the colored diff of the changed region in the terminal; keep the
 		// model's result concise (ANSI escapes must not pollute the LLM context).

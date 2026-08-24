@@ -195,6 +195,75 @@ func TestParseFencedToolCalls_ContentWithNestedFence(t *testing.T) {
 	}
 }
 
+// bashExecToolDef mirrors the real agent-loop built-in tool name
+// ("bash_exec"), unlike shellToolDef's test-only "bash" alias.
+func bashExecToolDef() ToolDef {
+	return ToolDef{Function: ToolFunction{
+		Name: "bash_exec",
+		Parameters: &ToolParameters{
+			Properties: map[string]json.RawMessage{"command": json.RawMessage(`{"type":"string"}`)},
+		},
+	}}
+}
+
+// TestParseFencedToolCalls_ContentWithNestedRealToolName covers the exact
+// live scenario reported: write_file and bash_exec are both registered
+// tools, and the file content itself contains an example ```bash_exec
+// fence (e.g. a plan document showing an example command) -- unlike the
+// generic ```bash used in TestParseFencedToolCalls_ContentWithNestedFence,
+// here the nested fence's info-string is ITSELF a real registered tool
+// name, which is the scenario actually reported as still broken.
+func TestParseFencedToolCalls_ContentWithNestedRealToolName(t *testing.T) {
+	tools := []ToolDef{writeToolDef(), bashExecToolDef()}
+	specs := BuildSpecMap(tools)
+	content := "# Plan\n\nExample:\n\n```bash_exec\necho hello\n```\n\nThen do the next step."
+	rendered := RenderFencedCall(specs["write_file"], map[string]any{
+		"path": "PLAN.md", "content": content,
+	})
+	calls, leftover := ParseFencedToolCalls(rendered, specs)
+	if len(calls) != 1 {
+		t.Fatalf("got %d calls, leftover=%q", len(calls), leftover)
+	}
+	var args map[string]any
+	if err := json.Unmarshal([]byte(calls[0].Arguments), &args); err != nil {
+		t.Fatal(err)
+	}
+	if args["content"] != content {
+		t.Errorf("content truncated at nested real-tool-name fence:\ngot:  %q\nwant: %q", args["content"], content)
+	}
+}
+
+// TestParseFencedToolCalls_ContentWithNestedShellAlias covers the realistic
+// default agent-loop registration: write_file AND bash_exec (the real
+// shell tool, whose single "command" property makes findShellTool
+// recognize it) registered together, so shellLangs aliases like ```bash
+// route to bash_exec's spec too -- unlike
+// TestParseFencedToolCalls_ContentWithNestedFence, which only registered
+// write_file and so never actually exercised a nested fence whose alias
+// resolves to a real spec.
+func TestParseFencedToolCalls_ContentWithNestedShellAlias(t *testing.T) {
+	tools := []ToolDef{writeToolDef(), bashExecToolDef()}
+	specs := BuildSpecMap(tools)
+	if _, ok := specs["bash"]; !ok {
+		t.Fatal("expected \"bash\" aliased to bash_exec's spec -- test setup invalid")
+	}
+	content := "# Plan\n\nExample:\n\n```bash\necho hello\n```\n\nThen do the next step."
+	rendered := RenderFencedCall(specs["write_file"], map[string]any{
+		"path": "PLAN.md", "content": content,
+	})
+	calls, leftover := ParseFencedToolCalls(rendered, specs)
+	if len(calls) != 1 {
+		t.Fatalf("got %d calls, leftover=%q", len(calls), leftover)
+	}
+	var args map[string]any
+	if err := json.Unmarshal([]byte(calls[0].Arguments), &args); err != nil {
+		t.Fatal(err)
+	}
+	if args["content"] != content {
+		t.Errorf("content truncated at nested shell-alias fence:\ngot:  %q\nwant: %q", args["content"], content)
+	}
+}
+
 // TestParseFencedToolCalls_ContentWithMultipleNestedFences covers content
 // with more than one nested fence, confirming the greedy match reaches the
 // real final close, not just the second-to-last stray "```".
