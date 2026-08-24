@@ -3648,3 +3648,92 @@ func TestEditFile_ReadAfterWriteVerification(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, "package main\n\nvar debug = true\n", string(data))
 }
+
+// --- commandInvokesOtherToolAsShell ---
+
+// fakeToolNamed registers a no-op tool under name so
+// commandInvokesOtherToolAsShell has something real to match against.
+func fakeToolNamed(reg *kdepstools.Registry, name string) {
+	reg.Register(&kdepstools.Tool{
+		Name:    name,
+		Execute: func(map[string]any) (string, error) { return "", nil },
+	})
+}
+
+// TestCommandInvokesOtherToolAsShell_LiveReportedPattern reproduces the
+// exact live report: bash_exec given a multi-line script whose line 26 is
+// the bare tool name "memory_save", followed by "key: ..." / "value: ..."
+// header lines -- the model trying to call memory_save from inside a bash
+// script instead of with its own tool call, which the real shell then fails
+// with "command not found".
+func TestCommandInvokesOtherToolAsShell_LiveReportedPattern(t *testing.T) {
+	reg := kdepstools.NewRegistry()
+	fakeToolNamed(reg, "memory_save")
+	command := "echo start\n" +
+		"memory_save\n" +
+		"key: last_run\n" +
+		"value: ok\n" +
+		"echo done"
+	name, ok := commandInvokesOtherToolAsShell(command, reg)
+	require.True(t, ok)
+	assert.Equal(t, "memory_save", name)
+}
+
+// TestCommandInvokesOtherToolAsShell_AnyRegisteredTool confirms the
+// detection isn't hardcoded to memory_save or bash_exec specifically --
+// reported live as happening "not only bash_exec but all tools".
+func TestCommandInvokesOtherToolAsShell_AnyRegisteredTool(t *testing.T) {
+	reg := kdepstools.NewRegistry()
+	fakeToolNamed(reg, "custom_lookup")
+	command := "custom_lookup\nquery: something"
+	name, ok := commandInvokesOtherToolAsShell(command, reg)
+	require.True(t, ok)
+	assert.Equal(t, "custom_lookup", name)
+}
+
+// TestCommandInvokesOtherToolAsShell_NoFalsePositiveOnRealCommand confirms
+// a real shell command that happens to share a word with a tool name isn't
+// flagged when it doesn't match the full confusion pattern (arguments on
+// the same line, or no header-style line following).
+func TestCommandInvokesOtherToolAsShell_NoFalsePositiveOnRealCommand(t *testing.T) {
+	reg := kdepstools.NewRegistry()
+	fakeToolNamed(reg, "test")
+	cases := []string{
+		"go test ./...",               // tool name with real arguments on the same line
+		"test -f somefile && echo ok", // bash's own `test` builtin, no header line follows
+		"echo test\necho done",        // tool name as an argument to echo, not a bare line
+	}
+	for _, command := range cases {
+		_, ok := commandInvokesOtherToolAsShell(command, reg)
+		assert.False(t, ok, "false positive on: %q", command)
+	}
+}
+
+// TestCommandInvokesOtherToolAsShell_IgnoresBashExecItself confirms the
+// tool's own name never self-triggers (bash_exec is always "registered").
+func TestCommandInvokesOtherToolAsShell_IgnoresBashExecItself(t *testing.T) {
+	reg := kdepstools.NewRegistry()
+	fakeToolNamed(reg, "bash_exec")
+	command := "bash_exec\ncommand: echo hi"
+	_, ok := commandInvokesOtherToolAsShell(command, reg)
+	assert.False(t, ok)
+}
+
+// TestBashExec_RejectsToolCalledAsShellCommand confirms the real bash_exec
+// tool rejects the live-reported pattern end to end with a corrective error
+// instead of running it and getting a real shell "command not found".
+func TestBashExec_RejectsToolCalledAsShellCommand(t *testing.T) {
+	t.Setenv("KDEPS_ALLOW_BASH", "true")
+	reg := kdepstools.NewRegistry()
+	RegisterBuiltinTools(context.Background(), reg)
+	fakeToolNamed(reg, "memory_save")
+	tool := reg.Get("bash_exec")
+	require.NotNil(t, tool)
+
+	_, err := tool.Execute(map[string]any{
+		"command": "echo start\nmemory_save\nkey: last_run\nvalue: ok",
+	})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "memory_save")
+	assert.Contains(t, err.Error(), "not a real shell command")
+}

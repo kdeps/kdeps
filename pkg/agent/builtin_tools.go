@@ -1213,6 +1213,16 @@ func registerBashExec(ctx context.Context, reg *kdepstools.Registry) {
 		if block, reason, _ := ValidateBashCommand(command, BashReadOnlyMode()); block {
 			return "", fmt.Errorf("bash_exec: blocked: %s", reason)
 		}
+		if name, ok := commandInvokesOtherToolAsShell(command, reg); ok {
+			return "", fmt.Errorf(
+				"bash_exec: this command runs `%s` as a shell command, followed by "+
+					"header-style lines (key: value) -- that looks like an attempt to call "+
+					"the %q tool, not a real shell command, and will fail with "+
+					"\"command not found\". Call %q directly with its own tool call instead "+
+					"of inside bash_exec",
+				name, name, name,
+			)
+		}
 
 		// Convergence: track distinct bash commands, cache repeats.
 		// The original command (before rtk rewriting) is the cache key.
@@ -1228,6 +1238,65 @@ func registerBashExec(ctx context.Context, reg *kdepstools.Registry) {
 		return runBashExec(ctx, tool, command, args)
 	}
 	reg.Register(tool)
+}
+
+// commandInvokesOtherToolAsShell detects a live-confirmed model confusion
+// pattern: writing another registered tool's name as a bare shell command,
+// followed by header-style "key: value" lines (the fenced tool-call
+// convention), inside a bash_exec command -- instead of calling that tool
+// with its own tool call. The shell doesn't know kdeps tool names and fails
+// with "command not found" ("bash: line N: memory_save: command not
+// found"); this catches the pattern before running it, so the model gets a
+// corrective error instead of a bare shell 127. Reported live as happening
+// for multiple tools, not just one -- so this checks every registered tool,
+// not a hardcoded name.
+func commandInvokesOtherToolAsShell(command string, reg *kdepstools.Registry) (string, bool) {
+	lines := strings.Split(command, "\n")
+	for i, line := range lines {
+		word := strings.TrimSpace(line)
+		// Only a bare tool name alone on its own line, no arguments -- a real
+		// shell invocation of a program almost always has flags/arguments,
+		// while this confusion pattern is the tool name by itself.
+		if word == "" || word == toolNameBashExec || strings.ContainsAny(word, " \t") {
+			continue
+		}
+		if reg.Get(word) == nil {
+			continue
+		}
+		// Require the next non-empty line to look like "key: value" -- the
+		// fenced tool-call header convention -- so a shell script that
+		// coincidentally has a line matching a tool's name for some other
+		// reason isn't flagged.
+		for _, next := range lines[i+1:] {
+			next = strings.TrimSpace(next)
+			if next == "" {
+				continue
+			}
+			if looksLikeHeaderLine(next) {
+				return word, true
+			}
+			break
+		}
+	}
+	return "", false
+}
+
+// looksLikeHeaderLine reports whether s matches the fenced tool-call header
+// convention: "key: value" or "key:" with nothing after -- an identifier
+// immediately followed by a colon.
+func looksLikeHeaderLine(s string) bool {
+	colon := strings.IndexByte(s, ':')
+	if colon <= 0 {
+		return false
+	}
+	for _, r := range s[:colon] {
+		isLetter := (r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z')
+		isDigitOrUnderscore := r == '_' || (r >= '0' && r <= '9')
+		if !isLetter && !isDigitOrUnderscore {
+			return false
+		}
+	}
+	return true
 }
 
 // runBashExec executes a validated bash command, handling rtk rewriting,
