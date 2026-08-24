@@ -103,30 +103,47 @@ func (e *Executor) resolveChatRequestConfig(
 	}
 }
 
-// defaultChatContextLength returns the fallback wire-level max_tokens
-// (buildOpenAICompatRequest sends ChatRequestConfig.ContextLength as
-// max_tokens) used when a chat: resource sets neither contextLength nor
-// KDEPS_CHAT_CONTEXT_LENGTH. Confirmed live that the previous flat 4096
-// default silently truncated large tool-call arguments and long generations
-// on local backends -- local servers can never generate more tokens than
-// their own --ctx-size allows anyway, so requesting that full size (via
-// LocalContextSize) is the true ceiling, not an arbitrary smaller one. Cloud
-// and other remote backends keep the historical 4096 default: this same
-// buildOpenAICompatRequest path is also shared by several cloud-facing
-// backends (google, huggingface, maritaca, openai-compat, cloudflare,
-// ernie, m365), where raising the default without per-provider knowledge of
-// each model's real output ceiling risks a hard request-validation error
-// instead of a clamp.
-// defaultCloudChatContextLength is the historical fallback max_tokens for
-// non-local backends, unchanged by this fix.
-const defaultCloudChatContextLength = 4096
+// defaultAnthropicChatContextLength is used only for the Anthropic backend
+// (including Claude reached indirectly via Bedrock, where the backend name
+// alone doesn't reveal the underlying model family): Anthropic's Messages
+// API rejects a request that omits max_tokens entirely -- it's a required
+// field, so "unlimited" (omitting it) is not an option there the way it is
+// for every other backend below. Chosen to sit within Anthropic's standard
+// non-extended-output ceiling shared across current Claude generations,
+// rather than the old flat 4096 that silently truncated real usage.
+const defaultAnthropicChatContextLength = 8192
 
+// defaultChatContextLength returns the fallback wire-level max_tokens used
+// when a chat: resource sets neither contextLength nor
+// KDEPS_CHAT_CONTEXT_LENGTH. Confirmed live (both here and via a real cloud
+// backend report) that the previous flat 4096 default silently truncated
+// large tool-call arguments and long generations, no error surfaced --
+// callers had no way to tell "the model chose to stop" from "kdeps cut it
+// off".
+//
+// Local backends (file/gguf/ollama) get the real configured --ctx-size
+// (LocalContextSize): a local server can never generate more tokens than
+// that allows anyway, so it is the true ceiling, not an arbitrary smaller
+// one.
+//
+// Every backend whose BuildRequest guards the field on ">0" (bedrock,
+// cohere, watsonx, and the openai-compat family: openai, google,
+// huggingface, maritaca, openai-compat, cloudflare, ernie, m365) gets 0
+// here, which cleanly omits max_tokens from the request entirely --
+// genuinely unlimited by default, letting the provider apply its own real
+// ceiling instead of an arbitrary kdeps number. Only Anthropic is a real
+// exception: max_tokens is a required field there, so it keeps a
+// conservative positive default (defaultAnthropicChatContextLength) rather
+// than erroring out on every call. A resource on any backend that needs a
+// specific cap can still set contextLength explicitly.
 func defaultChatContextLength(backendName string) int {
 	switch backendName {
 	case BackendFile, BackendGGUF, "ollama":
 		return LocalContextSize()
+	case backendAnthropic:
+		return defaultAnthropicChatContextLength
 	default:
-		return defaultCloudChatContextLength
+		return 0
 	}
 }
 

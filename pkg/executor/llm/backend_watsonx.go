@@ -50,14 +50,23 @@ func (b *WatsonXBackend) BuildRequest(
 	config ChatRequestConfig,
 ) (map[string]interface{}, error) {
 	kdeps_debug.Log("enter: BuildRequest")
+	parameters := map[string]interface{}{
+		"temperature": defaultWatsonXTemperature,
+	}
+	// Guard on >0 like every other backend's BuildRequest here: unlike
+	// buildOpenAICompatRequest's shared helper, this one previously set
+	// max_new_tokens unconditionally, so a 0 ContextLength (kdeps choosing
+	// not to impose its own cap) would have literally requested "generate 0
+	// tokens" instead of omitting the field and letting WatsonX apply its
+	// own real default.
+	if config.ContextLength > 0 {
+		parameters["max_new_tokens"] = config.ContextLength
+	}
 	req := map[string]interface{}{
 		"model_id":   model,
 		"project_id": "",
 		"input":      extractWatsonXPrompt(messages),
-		"parameters": map[string]interface{}{
-			"max_new_tokens": config.ContextLength,
-			"temperature":    defaultWatsonXTemperature,
-		},
+		"parameters": parameters,
 	}
 	return req, nil
 }
