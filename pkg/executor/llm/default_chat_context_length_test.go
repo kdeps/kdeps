@@ -185,6 +185,40 @@ func TestResolveChatRequestConfig_AnthropicBackend_NoExplicitContextLength(t *te
 		"Anthropic requires max_tokens; it must reflect the raised default, not the old flat 4096")
 }
 
+// TestResolveChatRequestConfig_KnownModel_UsesCatalogMaxOutputTokens
+// verifies a recognized model gets its real max output tokens from
+// KnownCloudModels instead of the generic per-backend fallback -- e.g.
+// claude-opus-4-8 supports 128000 output tokens, far more than the
+// conservative 8192 defaultAnthropicChatContextLength assumes for an
+// unrecognized Claude model name.
+func TestResolveChatRequestConfig_KnownModel_UsesCatalogMaxOutputTokens(t *testing.T) {
+	e := &Executor{}
+	got := e.resolveChatRequestConfig(&domain.ChatConfig{Model: "claude-opus-4-8"}, nil, backendAnthropic)
+	assert.Equal(t, outAnthropic128k, got.ContextLength)
+}
+
+// TestResolveChatRequestConfig_KnownOpenAIModel_UsesCatalogMaxOutputTokens
+// confirms the same catalog lookup applies to a known optional-field
+// backend too: a recognized model gets its real ceiling instead of being
+// left at 0 (omitted) just because it wasn't given an explicit
+// contextLength.
+func TestResolveChatRequestConfig_KnownOpenAIModel_UsesCatalogMaxOutputTokens(t *testing.T) {
+	e := &Executor{}
+	got := e.resolveChatRequestConfig(&domain.ChatConfig{Model: "gpt-4o"}, nil, backendOpenAI)
+	assert.Equal(t, outOpenAI, got.ContextLength)
+}
+
+// TestResolveChatRequestConfig_UnknownModel_FallsBackToBackendDefault
+// confirms a model name absent from the catalog (a local model, or a cloud
+// model kdeps doesn't know yet) still falls through to
+// defaultChatContextLength rather than silently getting 0 from a failed
+// catalog lookup treated as "found".
+func TestResolveChatRequestConfig_UnknownModel_FallsBackToBackendDefault(t *testing.T) {
+	e := &Executor{}
+	got := e.resolveChatRequestConfig(&domain.ChatConfig{Model: "some-future-claude-model"}, nil, backendAnthropic)
+	assert.Equal(t, defaultAnthropicChatContextLength, got.ContextLength)
+}
+
 // TestBuildOpenAICompatRequest_MaxTokens_ReflectsLocalContextSize verifies
 // the actual JSON request body sent over the wire -- the ultimate consumer
 // of the fixed default -- carries the local --ctx-size as max_tokens rather

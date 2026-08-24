@@ -555,7 +555,7 @@ func defaultModelForBackend(backend string) string {
 		return "" // ollama has no models pulled
 	default:
 		// Cloud backend — return the first matching model from the catalog.
-		for _, m := range KnownCloudModels {
+		for _, m := range executorLLM.KnownCloudModels {
 			if m.Backend == backend && os.Getenv(m.EnvVar) != "" {
 				return m.ID
 			}
@@ -647,7 +647,7 @@ func detectDefaultModelAndBackend() (string, string) {
 	}
 	// Priority 3: cloud API keys (explicitly configured takes priority
 	// over a local ollama binary that may have no models pulled).
-	for _, m := range KnownCloudModels {
+	for _, m := range executorLLM.KnownCloudModels {
 		if os.Getenv(m.EnvVar) != "" {
 			return m.ID, m.Backend
 		}

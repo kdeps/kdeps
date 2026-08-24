@@ -43,7 +43,7 @@ func buildKnownModelQualifierPrefixes() map[string]bool {
 		modelTypeOllama:    true, // "ollama"
 		llm.BackendFile:    true, // "file" -- the internal backend id llamafile translates to
 	}
-	for _, cm := range KnownCloudModels {
+	for _, cm := range llm.KnownCloudModels {
 		if cm.Backend != "" {
 			prefixes[cm.Backend] = true
 		}
@@ -128,7 +128,7 @@ func BuildUnifiedModelEntries(
 		})
 	}
 	if includeCloud {
-		for _, cm := range KnownCloudModels {
+		for _, cm := range llm.KnownCloudModels {
 			entries = append(entries, LocalModelEntry{Name: cm.ID, Backend: cm.Backend, Type: ""})
 		}
 	}

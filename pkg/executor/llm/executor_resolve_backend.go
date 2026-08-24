@@ -87,7 +87,17 @@ func (e *Executor) resolveChatRequestConfig(
 		}
 	}
 	if contextLength == 0 {
-		contextLength = defaultChatContextLength(backendName)
+		// A known model's real max output tokens (ModelMaxOutputTokens) beats
+		// any hardcoded fallback -- e.g. claude-opus-4-8 gets 128000, not the
+		// conservative 8192 defaultAnthropicChatContextLength assumes for an
+		// unrecognized Claude model name. Falls through to
+		// defaultChatContextLength when the model isn't in the catalog (a
+		// local/custom model name, or a cloud model kdeps doesn't know yet).
+		if known := ModelMaxOutputTokens(config.Model); known > 0 {
+			contextLength = known
+		} else {
+			contextLength = defaultChatContextLength(backendName)
+		}
 	}
 
 	streaming := config.Streaming

@@ -3408,7 +3408,7 @@ func (r *REPL) pageLines(lines []string) error {
 func (r *REPL) collectCloudModels(w io.Writer) {
 	currentModel := r.loop.config.Model
 	lastBackend := ""
-	for _, m := range KnownCloudModels {
+	for _, m := range llm.KnownCloudModels {
 		ready := r.providerStatus[m.Backend]
 		if m.Backend != lastBackend {
 			r.writeBackendHeader(w, m.Backend, m.EnvVar, ready, lastBackend != "")
@@ -3434,7 +3434,7 @@ func (r *REPL) writeBackendHeader(w io.Writer, backend, envVar string, ready, ad
 	)
 }
 
-func (r *REPL) writeCloudModelRow(w io.Writer, m CloudModel, currentModel string, ready bool) {
+func (r *REPL) writeCloudModelRow(w io.Writer, m llm.CloudModel, currentModel string, ready bool) {
 	idField := fmt.Sprintf("%-*s", modelsIDWidth, m.ID)
 	isCurrent := m.ID == currentModel
 	switch {
@@ -3456,7 +3456,7 @@ func (r *REPL) writeCloudModelRow(w io.Writer, m CloudModel, currentModel string
 
 // isCloudModelID returns true if name is a known cloud model ID.
 func isCloudModelID(name string) bool {
-	for _, m := range KnownCloudModels {
+	for _, m := range llm.KnownCloudModels {
 		if m.ID == name {
 			return true
 		}
@@ -3938,7 +3938,7 @@ func (r *REPL) cmdThinking(args []string) error {
 		domain.ThinkingModeHigh,
 		domain.ThinkingModeXHigh,
 		domain.ThinkingModeAuto:
-		if !ModelSupportsThinking(r.loop.config.Model) {
+		if !llm.ModelSupportsThinking(r.loop.config.Model) {
 			fmt.Fprintln(os.Stdout, styleReplMeta.Render(
 				fmt.Sprintf(
 					"Warning: model %q may not support extended thinking.",

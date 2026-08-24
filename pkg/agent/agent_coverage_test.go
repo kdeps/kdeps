@@ -784,7 +784,7 @@ func TestDetectDefaultModelAndBackend_NeitherFound(t *testing.T) {
 	// Clear all distinct known cloud model env vars. Skip models with no
 	// EnvVar (e.g. m365, which authenticates via browser login, not a key).
 	cleared := map[string]bool{}
-	for _, m := range KnownCloudModels {
+	for _, m := range executorLLM.KnownCloudModels {
 		if m.EnvVar == "" || cleared[m.EnvVar] {
 			continue
 		}
@@ -804,12 +804,12 @@ func TestDetectDefaultModelAndBackend_CloudKeySet(t *testing.T) {
 	t.Setenv("KDEPS_MODELS_DIR", filepath.Join(t.TempDir(), "models-dir-xyz"))
 
 	// Set one of the known cloud model env vars
-	if len(KnownCloudModels) == 0 {
+	if len(executorLLM.KnownCloudModels) == 0 {
 		t.Skip("no known cloud models defined")
 	}
-	m := KnownCloudModels[0]
+	m := executorLLM.KnownCloudModels[0]
 	t.Setenv(m.EnvVar, "test-api-key-value")
-	for _, other := range KnownCloudModels[1:] {
+	for _, other := range executorLLM.KnownCloudModels[1:] {
 		if other.EnvVar != "" && other.EnvVar != m.EnvVar {
 			t.Setenv(other.EnvVar, "")
 		}

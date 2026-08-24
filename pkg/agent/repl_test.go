@@ -3343,7 +3343,7 @@ func TestContextLimitForModel_CloudModel(t *testing.T) {
 	defer repl.cancel()
 	// Cloud models (those BackendForModel returns non-empty) get contextLimitCloud
 	// Use a known cloud model ID from the KnownCloudModels list
-	for _, m := range KnownCloudModels {
+	for _, m := range llm.KnownCloudModels {
 		if BackendForModel(m.ID) != "" {
 			assert.Equal(t, contextLimitCloud, repl.contextLimitForModel(m.ID))
 			return
@@ -5044,7 +5044,7 @@ func TestWriteCloudModelRow_Current(t *testing.T) {
 	repl := NewREPL(context.Background(), loop)
 	defer repl.cancel()
 	var buf strings.Builder
-	m := CloudModel{ID: "claude-opus-4-8", Backend: "anthropic", Desc: "most capable"}
+	m := llm.CloudModel{ID: "claude-opus-4-8", Backend: "anthropic", Desc: "most capable"}
 	repl.writeCloudModelRow(&buf, m, "claude-opus-4-8", true)
 	out := buf.String()
 	assert.Contains(t, out, "claude-opus-4-8")
@@ -5056,7 +5056,7 @@ func TestWriteCloudModelRow_Ready(t *testing.T) {
 	repl := NewREPL(context.Background(), loop)
 	defer repl.cancel()
 	var buf strings.Builder
-	m := CloudModel{ID: "claude-opus-4-8", Backend: "anthropic", Desc: "most capable"}
+	m := llm.CloudModel{ID: "claude-opus-4-8", Backend: "anthropic", Desc: "most capable"}
 	repl.writeCloudModelRow(&buf, m, "other-model", true)
 	out := buf.String()
 	assert.Contains(t, out, "most capable")
@@ -5068,7 +5068,7 @@ func TestWriteCloudModelRow_NotReady(t *testing.T) {
 	repl := NewREPL(context.Background(), loop)
 	defer repl.cancel()
 	var buf strings.Builder
-	m := CloudModel{ID: "claude-opus-4-8", Backend: "anthropic", Desc: "most capable"}
+	m := llm.CloudModel{ID: "claude-opus-4-8", Backend: "anthropic", Desc: "most capable"}
 	repl.writeCloudModelRow(&buf, m, "other-model", false)
 	out := buf.String()
 	assert.NotContains(t, out, "current")
@@ -5222,7 +5222,7 @@ func TestDetectDefaultModelAndBackend_OnlyUnloadableGGUF(t *testing.T) {
 	require.NoError(t, os.WriteFile(filepath.Join(dir, "junk.gguf"), []byte("fake"), 0o600))
 	t.Setenv("KDEPS_MODELS_DIR", dir)
 	t.Setenv("PATH", t.TempDir())
-	for _, m := range KnownCloudModels {
+	for _, m := range llm.KnownCloudModels {
 		if m.EnvVar == "" {
 			continue
 		}
@@ -5266,8 +5266,8 @@ func TestDetectDefaultModelAndBackend_CloudEnvVar(t *testing.T) {
 	t.Setenv("PATH", t.TempDir())
 	t.Setenv("KDEPS_MODELS_DIR", t.TempDir()) // empty dir, no .gguf
 	// Set a known cloud API key env var.
-	if len(KnownCloudModels) > 0 {
-		m := KnownCloudModels[0]
+	if len(llm.KnownCloudModels) > 0 {
+		m := llm.KnownCloudModels[0]
 		t.Setenv(m.EnvVar, "test-key")
 		model, backend := detectDefaultModelAndBackend()
 		assert.Equal(t, m.ID, model)
@@ -5280,7 +5280,7 @@ func TestDetectDefaultModelAndBackend_FallbackDefault(t *testing.T) {
 	t.Setenv("PATH", t.TempDir())
 	t.Setenv("KDEPS_MODELS_DIR", t.TempDir()) // empty dir
 	// Clear all cloud API key env vars.
-	for _, m := range KnownCloudModels {
+	for _, m := range llm.KnownCloudModels {
 		if m.EnvVar == "" {
 			continue
 		}
@@ -5293,7 +5293,7 @@ func TestDetectDefaultModelAndBackend_FallbackDefault(t *testing.T) {
 
 func TestDetectDefaultModelAndBackend_OllamaPath(t *testing.T) {
 	// Force Priority 4 (ollama): block llamafile, gguf, and cloud keys.
-	for _, m := range KnownCloudModels {
+	for _, m := range llm.KnownCloudModels {
 		if m.EnvVar == "" {
 			continue
 		}

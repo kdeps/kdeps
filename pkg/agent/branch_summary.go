@@ -24,6 +24,7 @@ import (
 	"fmt"
 
 	"github.com/kdeps/kdeps/v2/pkg/domain"
+	executorLLM "github.com/kdeps/kdeps/v2/pkg/executor/llm"
 )
 
 const (
@@ -118,7 +119,7 @@ func (l *Loop) SummarizeBranch(_ context.Context) (string, error) {
 	}
 
 	// Determine token budget from model context window.
-	ctxWindow := ModelContextWindow(l.config.Model)
+	ctxWindow := executorLLM.ModelContextWindow(l.config.Model)
 	if ctxWindow <= 0 {
 		ctxWindow = branchSummaryDefaultCtx
 	} else if ctxWindow > branchSummaryDefaultCtx {
