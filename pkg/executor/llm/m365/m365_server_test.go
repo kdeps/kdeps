@@ -302,6 +302,96 @@ func TestServerChatCompletionToolCall(t *testing.T) {
 	}
 }
 
+// writeFileToolParam is the OpenAI-style tool schema for write_file, shared by
+// the end-to-end tests below that drive the real WebSocket-mocked server
+// through to a parsed HTTP tool_calls response (not just ParseFencedToolCalls
+// called directly on a string), so a fix verified here is confirmed to hold
+// through the actual production request/response pipeline, not just at the
+// unit level.
+func writeFileToolParam() map[string]any {
+	return map[string]any{
+		"type": "function",
+		"function": map[string]any{
+			"name": "write_file",
+			"parameters": map[string]any{
+				"properties": map[string]any{
+					"path":    map[string]any{"type": "string"},
+					"content": map[string]any{"type": "string"},
+				},
+			},
+		},
+	}
+}
+
+// TestServerChatCompletionToolCall_ContentWithNestedFence drives the nested-
+// fence truncation fix (fenceRegex's greedy body match) through the real
+// server pipeline: a scripted upstream frame carrying a write_file call
+// whose content contains its own ```bash example block, verified not to
+// truncate in the actual HTTP tool_calls response.
+func TestServerChatCompletionToolCall_ContentWithNestedFence(t *testing.T) {
+	content := "# Plan\n\nExample:\n\n```bash\necho hi\n```\n\nDone."
+	raw := "```write_file\npath: PLAN.md\n\n" + content + "\n```"
+	srv, _ := newTestServer(t, [][]string{successFrame(raw)})
+
+	_, body := postChat(t, srv.URL, map[string]any{
+		"model":    "m365-copilot",
+		"messages": []map[string]any{{"role": "user", "content": "write the plan"}},
+		"tools":    []map[string]any{writeFileToolParam()},
+	})
+	choices, _ := body["choices"].([]any)
+	if len(choices) != 1 {
+		t.Fatalf("body = %+v", body)
+	}
+	msg := choices[0].(map[string]any)["message"].(map[string]any)
+	calls, _ := msg["tool_calls"].([]any)
+	if len(calls) != 1 {
+		t.Fatalf("tool_calls = %+v", calls)
+	}
+	fn := calls[0].(map[string]any)["function"].(map[string]any)
+	var args map[string]any
+	if err := json.Unmarshal([]byte(fn["arguments"].(string)), &args); err != nil {
+		t.Fatal(err)
+	}
+	if args["content"] != content {
+		t.Errorf("content truncated through the real pipeline:\ngot:  %q\nwant: %q", args["content"], content)
+	}
+}
+
+// TestServerChatCompletionToolCall_SelfWrappedContent drives the redundant-
+// self-wrap stripping fix through the real server pipeline: a scripted
+// upstream frame carrying a write_file call whose content is itself wrapped
+// in a ```markdown ... ``` fence, verified stripped in the actual HTTP
+// tool_calls response.
+func TestServerChatCompletionToolCall_SelfWrappedContent(t *testing.T) {
+	intended := "# Plan\n\n## Overview\nDo the thing."
+	selfWrapped := "```markdown\n" + intended + "\n```"
+	raw := "```write_file\npath: PLAN.md\n\n" + selfWrapped + "\n```"
+	srv, _ := newTestServer(t, [][]string{successFrame(raw)})
+
+	_, body := postChat(t, srv.URL, map[string]any{
+		"model":    "m365-copilot",
+		"messages": []map[string]any{{"role": "user", "content": "write the plan"}},
+		"tools":    []map[string]any{writeFileToolParam()},
+	})
+	choices, _ := body["choices"].([]any)
+	if len(choices) != 1 {
+		t.Fatalf("body = %+v", body)
+	}
+	msg := choices[0].(map[string]any)["message"].(map[string]any)
+	calls, _ := msg["tool_calls"].([]any)
+	if len(calls) != 1 {
+		t.Fatalf("tool_calls = %+v", calls)
+	}
+	fn := calls[0].(map[string]any)["function"].(map[string]any)
+	var args map[string]any
+	if err := json.Unmarshal([]byte(fn["arguments"].(string)), &args); err != nil {
+		t.Fatal(err)
+	}
+	if args["content"] != intended {
+		t.Errorf("self-wrap not stripped through the real pipeline:\ngot:  %q\nwant: %q", args["content"], intended)
+	}
+}
+
 func TestServerChatCompletionReplyToolBecomesText(t *testing.T) {
 	// "text" is the reply tool's sole (body) param, so it has no header line -
 	// the fence body IS the text argument verbatim.
