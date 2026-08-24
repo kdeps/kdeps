@@ -86,7 +86,19 @@ var shellToolName = regexp.MustCompile(
 
 var commandParamName = regexp.MustCompile(`(?i)^(command|cmd|script|input)$`)
 
-var fenceRegex = regexp.MustCompile("(?s)```([A-Za-z0-9_]+)[ \t]*\r?\n(.*?)\r?\n?```")
+// fenceRegex's body capture is greedy ((.*) not (.*?)), matching through to
+// the LAST closing fence in the text rather than the first. Confirmed live
+// (a real write_file call whose content -- a markdown PLAN.md -- itself
+// contained a nested ``` code block) that a non-greedy body match stops at
+// that inner fence instead of the real outer close, silently truncating the
+// tool argument while the model's raw streamed text (visible in the REPL)
+// showed the complete response. Safe to be greedy: the framing prompts
+// (baselineFraming/minimalFraming/softenedFraming below) explicitly require
+// "ONE fenced block... No prose, no second fence, no commentary before or
+// after" -- a well-formed response never has a second real fence for this
+// to over-consume into, and every caller of ParseFencedToolCalls only ever
+// reads calls[0] anyway.
+var fenceRegex = regexp.MustCompile("(?s)```([A-Za-z0-9_]+)[ \t]*\r?\n(.*)\r?\n?```")
 
 var searchReplaceRegex = regexp.MustCompile(
 	`(?s)<{5,}\s*SEARCH\s*\r?\n(.*?)\r?\n={5,}\s*\r?\n(.*?)\r?\n>{5,}\s*REPLACE`,
@@ -529,7 +541,14 @@ func ParseFencedToolCalls(text string, specs map[string]FencedToolSpec) ([]Parse
 		if !ok {
 			continue // not a tool - leave it in prose
 		}
-		args, ok := parseFencedInner(spec, m[2])
+		// The body group is greedy (see fenceRegex's doc comment), so its own
+		// optional \r?\n? before the closing fence can end up matching zero
+		// characters, leaving the one real trailing newline inside the
+		// captured group instead of the boundary. Strip it deterministically
+		// here rather than relying on regex backtracking to land on the
+		// "right" empty match every time.
+		body := strings.TrimSuffix(strings.TrimSuffix(m[2], "\n"), "\r")
+		args, ok := parseFencedInner(spec, body)
 		if !ok {
 			continue
 		}

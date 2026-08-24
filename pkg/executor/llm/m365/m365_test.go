@@ -167,6 +167,57 @@ func TestRenderAndParseFencedRoundTrip(t *testing.T) {
 	}
 }
 
+// TestParseFencedToolCalls_ContentWithNestedFence is a regression test for a
+// live report: a write_file call whose content is a markdown document (e.g.
+// PLAN.md) containing its own ```-fenced code block was silently truncated
+// at that inner fence -- kdeps reported the write as "completed" but the
+// file on disk stopped right where the nested fence began, even though the
+// model's full raw text (visible in the REPL) was complete. A non-greedy
+// body match in fenceRegex stopped at the FIRST "```" it saw instead of the
+// real outer close.
+func TestParseFencedToolCalls_ContentWithNestedFence(t *testing.T) {
+	tools := []ToolDef{writeToolDef()}
+	specs := BuildSpecMap(tools)
+	content := "# Plan\n\nRun this:\n\n```bash\necho hello\n```\n\nThen do the next step."
+	rendered := RenderFencedCall(specs["write_file"], map[string]any{
+		"path": "PLAN.md", "content": content,
+	})
+	calls, leftover := ParseFencedToolCalls(rendered, specs)
+	if len(calls) != 1 {
+		t.Fatalf("got %d calls, leftover=%q", len(calls), leftover)
+	}
+	var args map[string]any
+	if err := json.Unmarshal([]byte(calls[0].Arguments), &args); err != nil {
+		t.Fatal(err)
+	}
+	if args["content"] != content {
+		t.Errorf("content truncated at nested fence:\ngot:  %q\nwant: %q", args["content"], content)
+	}
+}
+
+// TestParseFencedToolCalls_ContentWithMultipleNestedFences covers content
+// with more than one nested fence, confirming the greedy match reaches the
+// real final close, not just the second-to-last stray "```".
+func TestParseFencedToolCalls_ContentWithMultipleNestedFences(t *testing.T) {
+	tools := []ToolDef{writeToolDef()}
+	specs := BuildSpecMap(tools)
+	content := "# Plan\n\n```bash\nstep one\n```\n\nmiddle text\n\n```bash\nstep two\n```\n\ndone."
+	rendered := RenderFencedCall(specs["write_file"], map[string]any{
+		"path": "PLAN.md", "content": content,
+	})
+	calls, _ := ParseFencedToolCalls(rendered, specs)
+	if len(calls) != 1 {
+		t.Fatalf("got %d calls", len(calls))
+	}
+	var args map[string]any
+	if err := json.Unmarshal([]byte(calls[0].Arguments), &args); err != nil {
+		t.Fatal(err)
+	}
+	if args["content"] != content {
+		t.Errorf("content truncated:\ngot:  %q\nwant: %q", args["content"], content)
+	}
+}
+
 // confabForcePrompt/hallucinationForcePrompt must never tell the model to
 // write a ```bash block unless a shell tool is actually registered --
 // BuildSpecMap only aliases that fence language onto a real tool in that
