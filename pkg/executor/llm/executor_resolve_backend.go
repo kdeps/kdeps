@@ -75,7 +75,9 @@ func (e *Executor) resolveBackend(config *domain.ChatConfig, useEnvDefaults bool
 
 // resolveChatRequestConfig builds a ChatRequestConfig with resolved defaults
 // for context length, streaming, and pre-merged tools converted to API format.
-func (e *Executor) resolveChatRequestConfig(config *domain.ChatConfig, allTools []domain.Tool) ChatRequestConfig {
+func (e *Executor) resolveChatRequestConfig(
+	config *domain.ChatConfig, allTools []domain.Tool, backendName string,
+) ChatRequestConfig {
 	contextLength := config.ContextLength
 	if contextLength == 0 {
 		if v := os.Getenv("KDEPS_CHAT_CONTEXT_LENGTH"); v != "" {
@@ -85,7 +87,7 @@ func (e *Executor) resolveChatRequestConfig(config *domain.ChatConfig, allTools 
 		}
 	}
 	if contextLength == 0 {
-		contextLength = 4096
+		contextLength = defaultChatContextLength(backendName)
 	}
 
 	streaming := config.Streaming
@@ -98,6 +100,33 @@ func (e *Executor) resolveChatRequestConfig(config *domain.ChatConfig, allTools 
 		JSONResponse:  config.JSONResponse,
 		Streaming:     streaming,
 		Tools:         e.buildTools(allTools),
+	}
+}
+
+// defaultChatContextLength returns the fallback wire-level max_tokens
+// (buildOpenAICompatRequest sends ChatRequestConfig.ContextLength as
+// max_tokens) used when a chat: resource sets neither contextLength nor
+// KDEPS_CHAT_CONTEXT_LENGTH. Confirmed live that the previous flat 4096
+// default silently truncated large tool-call arguments and long generations
+// on local backends -- local servers can never generate more tokens than
+// their own --ctx-size allows anyway, so requesting that full size (via
+// LocalContextSize) is the true ceiling, not an arbitrary smaller one. Cloud
+// and other remote backends keep the historical 4096 default: this same
+// buildOpenAICompatRequest path is also shared by several cloud-facing
+// backends (google, huggingface, maritaca, openai-compat, cloudflare,
+// ernie, m365), where raising the default without per-provider knowledge of
+// each model's real output ceiling risks a hard request-validation error
+// instead of a clamp.
+// defaultCloudChatContextLength is the historical fallback max_tokens for
+// non-local backends, unchanged by this fix.
+const defaultCloudChatContextLength = 4096
+
+func defaultChatContextLength(backendName string) int {
+	switch backendName {
+	case BackendFile, BackendGGUF, "ollama":
+		return LocalContextSize()
+	default:
+		return defaultCloudChatContextLength
 	}
 }
 

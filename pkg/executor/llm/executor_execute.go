@@ -55,7 +55,7 @@ func (e *Executor) Execute(
 		return nil, backendErr
 	}
 	allTools := mergeComponentTools(resolvedConfig.Tools, resolvedConfig.ComponentTools, ctx.Workflow)
-	requestConfig := e.resolveChatRequestConfig(resolvedConfig, allTools)
+	requestConfig := e.resolveChatRequestConfig(resolvedConfig, allTools, backend.Name())
 	requestBody, err := backend.BuildRequest(modelStr, messages, requestConfig)
 	if err != nil {
 		return nil, fmt.Errorf("failed to build request: %w", err)
