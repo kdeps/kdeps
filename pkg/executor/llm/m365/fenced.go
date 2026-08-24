@@ -427,6 +427,7 @@ STRICT RULES:
 - Never describe your intent ("I'll read the file...", "Let me check...") and never emit filler or acknowledgements. Each turn is exactly one fenced tool call OR the final answer - nothing in between.
 - One tool call per response, then stop and wait for its <tool_response>. Never emit two fenced blocks in one response.
 - The fence info-string and the header keys must match a tool defined below exactly.
+- Every tool below is called with ITS OWN fence, info-string = that tool's name (e.g. ` + "```memory_search" + ` to search memory, ` + "```read_file" + ` to read a file) - never call one tool by writing another tool's name as the shell command inside a ` + "```bash" + ` block. The shell only runs real system commands; it does not know kdeps tool names and will fail with "command not found".
 - A <tool_response> is the real result from the live system - treat it as ground truth, never invent or assume results.
 - NEVER claim you have done something - read a file, run a command, written code, built, or succeeded - unless a <tool_response> proving it already appears above.
 - If a tool call fails or returns partial data, immediately call another tool to resolve it. Do not give up.
@@ -447,7 +448,7 @@ func minimalFraming(tools []ToolDef) string {
 		shellPurpose = "runs scripts/tests, git, or inspects process/system state"
 	}
 	return "You are an automated agent with a real shell (the `" + name + "` tool)." + fileHints +
-		" You do the task by emitting ONE fenced block per turn for whichever tool the step needs; a ```bash block " + shellPurpose + ". The block is executed for real; its output comes back in a <tool_response>. Writing the commands IS doing the task.\n\nYou have run nothing yet. Your FIRST output must be a fenced tool call - never prose, a question, or \"I can't access the files\". Never claim a result you have not seen in a <tool_response>.\n\n" + toolsBlock(
+		" You do the task by emitting ONE fenced block per turn for whichever tool the step needs; a ```bash block " + shellPurpose + ". The block is executed for real; its output comes back in a <tool_response>. Writing the commands IS doing the task. To call a tool other than the shell (e.g. memory_search), use ITS OWN fence directly - never write another tool's name as a shell command, the shell will fail with \"command not found\".\n\nYou have run nothing yet. Your FIRST output must be a fenced tool call - never prose, a question, or \"I can't access the files\". Never claim a result you have not seen in a <tool_response>.\n\n" + toolsBlock(
 		tools,
 	)
 }
@@ -474,7 +475,7 @@ func softenedFraming(tools []ToolDef) string {
 <the body argument, if the tool has one>
 ` + "```" + `
 
-A <tool_response> is the real result from the live system - rely on it rather than assuming what a command would print. Work one step at a time: one tool call per reply, then wait for its <tool_response>. Begin by running a ` + "```bash" + ` block that inspects the relevant files, rather than answering from memory, and keep going with tool calls until the task is finished. Reply in plain language only once the task is done and no further tool call would help.
+A <tool_response> is the real result from the live system - rely on it rather than assuming what a command would print. Work one step at a time: one tool call per reply, then wait for its <tool_response>. Begin by running a ` + "```bash" + ` block that inspects the relevant files, rather than answering from memory, and keep going with tool calls until the task is finished. To call a tool other than the shell, use its own fence directly - never write another tool's name as a shell command inside a ` + "```bash" + ` block, the shell does not know kdeps tool names and will fail with "command not found". Reply in plain language only once the task is done and no further tool call would help.
 
 ` + toolsBlock(
 		tools,
@@ -525,9 +526,40 @@ func parseFencedInner(spec FencedToolSpec, inner string) (map[string]any, bool) 
 		args[spec.EditPair.search] = sr[1]
 		args[spec.EditPair.replace] = sr[2]
 	case spec.BodyParam != "":
-		args[spec.BodyParam] = rest
+		args[spec.BodyParam] = stripRedundantOuterFence(rest)
 	}
 	return args, true
+}
+
+// stripRedundantOuterFence removes a body's own self-wrapping code fence,
+// e.g. a model asked to write_file a markdown document habitually wraps the
+// whole thing in an extra ```markdown ... ``` block as if displaying it,
+// even though the outer ```write_file ... ``` tool-call fence already
+// delimits the body -- kdeps then wrote that inner wrapper's own fence
+// markers literally into the file (confirmed live: the written file's first
+// line was a bare ``` line). Only strips when the body's FIRST line is
+// itself a fence open and its LAST line is a bare fence close -- i.e. the
+// entire body is wrapped in exactly one pair, not a document that happens
+// to contain an internal code block partway through.
+// minWrappedFenceLines is the fewest lines a self-wrapped body can have: an
+// opening fence line and a closing fence line, with the wrapped content (if
+// any) in between.
+const minWrappedFenceLines = 2
+
+func stripRedundantOuterFence(content string) string {
+	lines := strings.Split(content, "\n")
+	if len(lines) < minWrappedFenceLines {
+		return content
+	}
+	first := strings.TrimRight(lines[0], "\r")
+	if !strings.HasPrefix(first, "```") {
+		return content
+	}
+	last := strings.TrimRight(lines[len(lines)-1], "\r")
+	if strings.TrimSpace(last) != "```" {
+		return content
+	}
+	return strings.Join(lines[1:len(lines)-1], "\n")
 }
 
 // ParseFencedToolCalls parses every fenced block whose info-string matches a

@@ -287,6 +287,77 @@ func TestParseFencedToolCalls_ContentWithMultipleNestedFences(t *testing.T) {
 	}
 }
 
+// TestParseFencedToolCalls_StripsRedundantSelfWrappedContent is a
+// regression test for a live report: the written PLAN.md's first line was a
+// bare ``` -- the model wrapped its entire markdown answer in its own
+// ```markdown ... ``` fence (a habit from being asked to "write" content,
+// as if displaying it) even though the outer ```write_file ... ``` tool-call
+// fence already delimits the body. Before the fix, kdeps wrote that inner
+// wrapper's fence markers literally into the file.
+func TestParseFencedToolCalls_StripsRedundantSelfWrappedContent(t *testing.T) {
+	tools := []ToolDef{writeToolDef()}
+	specs := BuildSpecMap(tools)
+	intended := "# Plan\n\n## Overview\nDo the thing.\n\n### Data Flow\nA -> B -> C"
+	selfWrapped := "```markdown\n" + intended + "\n```"
+	rendered := RenderFencedCall(specs["write_file"], map[string]any{
+		"path": "PLAN.md", "content": selfWrapped,
+	})
+	calls, leftover := ParseFencedToolCalls(rendered, specs)
+	if len(calls) != 1 {
+		t.Fatalf("got %d calls, leftover=%q", len(calls), leftover)
+	}
+	var args map[string]any
+	if err := json.Unmarshal([]byte(calls[0].Arguments), &args); err != nil {
+		t.Fatal(err)
+	}
+	if args["content"] != intended {
+		t.Errorf("redundant self-wrap not stripped:\ngot:  %q\nwant: %q", args["content"], intended)
+	}
+}
+
+// TestParseFencedToolCalls_DoesNotStripInternalCodeBlock confirms the strip
+// is scoped to a whole-body self-wrap, not any document that merely
+// contains a code block partway through -- its first line is prose, not a
+// fence, so nothing should be removed.
+func TestParseFencedToolCalls_DoesNotStripInternalCodeBlock(t *testing.T) {
+	tools := []ToolDef{writeToolDef()}
+	specs := BuildSpecMap(tools)
+	content := "# Plan\n\nExample:\n\n```bash\necho hi\n```\n\nDone."
+	rendered := RenderFencedCall(specs["write_file"], map[string]any{
+		"path": "PLAN.md", "content": content,
+	})
+	calls, _ := ParseFencedToolCalls(rendered, specs)
+	if len(calls) != 1 {
+		t.Fatalf("got %d calls", len(calls))
+	}
+	var args map[string]any
+	if err := json.Unmarshal([]byte(calls[0].Arguments), &args); err != nil {
+		t.Fatal(err)
+	}
+	if args["content"] != content {
+		t.Errorf("content should be unchanged:\ngot:  %q\nwant: %q", args["content"], content)
+	}
+}
+
+// TestFraming_WarnsAgainstCallingToolsAsShellCommands is a regression test
+// for a live report: the model tried to invoke other tools (bash_exec,
+// memory_search, etc.) by writing their name as a shell command inside a
+// ```bash block, producing real shell errors like "memory_search: command
+// not found". None of the three framing variants explicitly warned against
+// this confusion -- they described "use its own fence" but never named the
+// specific anti-pattern that was actually happening.
+func TestFraming_WarnsAgainstCallingToolsAsShellCommands(t *testing.T) {
+	tools := []ToolDef{shellToolDef(), writeToolDef()}
+	for _, variant := range []string{"baseline", "minimal", "softened"} {
+		t.Run(variant, func(t *testing.T) {
+			out := FormatFencedToolDefinitions(tools, variant)
+			if !strings.Contains(out, "command not found") {
+				t.Errorf("%s framing missing the tool-as-shell-command warning:\n%s", variant, out)
+			}
+		})
+	}
+}
+
 // confabForcePrompt/hallucinationForcePrompt must never tell the model to
 // write a ```bash block unless a shell tool is actually registered --
 // BuildSpecMap only aliases that fence language onto a real tool in that
