@@ -2487,6 +2487,19 @@ func (l *Loop) memoryRulesPreamble() []string {
 			"Save after every turn, every time, without exception. " +
 			"The cost of one extra save is negligible. The cost of a lost turn is " +
 			"a corrupted pipeline and hours of debugging.",
+		"MANDATORY RULE #3 — Memory is history, not a current capability check. " +
+			"A memory entry recording that a tool call failed, was unavailable, or " +
+			"could not be completed in a PAST turn or session is NOT evidence that the " +
+			"same tool is unavailable NOW. Never refuse or skip a tool call because " +
+			"memory says a similar attempt didn't work before — attempt the real tool " +
+			"call this turn and let its actual <tool_response> tell you whether it " +
+			"works, every time. " +
+			"WHY THIS EXISTS: confirmed live — a model read a memory entry describing " +
+			"an earlier turn where it (wrongly) believed it had no tool access, treated " +
+			"that stale belief as still true, and pre-emptively told the user it " +
+			"couldn't act — when the very same tool call succeeded immediately once " +
+			"actually attempted. Memory persists facts about the task and prior " +
+			"results; it must never be used to talk yourself out of trying.",
 	}
 }
 

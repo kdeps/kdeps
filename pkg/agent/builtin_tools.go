@@ -38,6 +38,7 @@ import (
 
 	"github.com/kdeps/kdeps/v2/pkg/domain"
 	execSearch "github.com/kdeps/kdeps/v2/pkg/executor/searchlocal"
+	"github.com/kdeps/kdeps/v2/pkg/executor/llm/toolguard"
 	kdepstools "github.com/kdeps/kdeps/v2/pkg/tools"
 
 	lcllms "github.com/tmc/langchaingo/llms"
@@ -2403,6 +2404,16 @@ func registerMemorySaveTool(reg *kdepstools.Registry) {
 			}
 			if value == "" {
 				return "", errors.New("memory_save: value is required")
+			}
+			if toolguard.LooksLikeConfabulation(value) || toolguard.LooksLikeHallucinatedCompletion(value) {
+				return "", fmt.Errorf(
+					"memory_save: refused to save %q -- it reads as a claim that a tool "+
+						"or action failed or is unavailable, and this gets replayed as fact "+
+						"in every future call. If a tool call genuinely failed, save the "+
+						"specific error instead of a general capability claim; otherwise "+
+						"retry the tool call for real before concluding it doesn't work",
+					value,
+				)
 			}
 			if err := memoryStoreInstance.Set(key, value); err != nil {
 				return "", fmt.Errorf("memory_save: %w", err)

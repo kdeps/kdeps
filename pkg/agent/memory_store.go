@@ -31,6 +31,8 @@ import (
 	"unicode/utf8"
 
 	bolt "go.etcd.io/bbolt"
+
+	"github.com/kdeps/kdeps/v2/pkg/executor/llm/toolguard"
 	// graph types inlined from github.com/kdeps/kartographer (see graph.go).
 )
 
@@ -1386,6 +1388,12 @@ func extractStructuredSections(response string, now int64, seen map[string]bool)
 		if body == "" || len(body) < 10 {
 			continue
 		}
+		// Same unverified-self-report risk as extractMemoryMarkers -- see its
+		// comment. A "## Status" section is exactly where a model would write
+		// a claim like "I currently have no tool access".
+		if toolguard.LooksLikeConfabulation(body) || toolguard.LooksLikeHallucinatedCompletion(body) {
+			continue
+		}
 		// Truncate long values, marking the cut so the fragment isn't read as whole (N).
 		value := truncateValue(body, maxValueLength)
 		key := keyPrefix + ":" + slugify(header)
@@ -1430,12 +1438,24 @@ func slugify(header string) string {
 }
 
 // extractMemoryMarkers finds [MEMORY: key] value markers in text.
+//
+// A marker's value is the model's own unverified self-report (unlike, say,
+// extractToolResults, which reflects a real executed tool's actual output),
+// so it's filtered against the confabulation/hallucination patterns before
+// being saved: confirmed live, a model that (wrongly) believed it had no
+// tool access wrote that belief into a [MEMORY: ...] marker, and every
+// future call replayed it as established fact via FormatForPrompt --
+// causing the model to pre-emptively refuse tool calls that, once actually
+// attempted, worked fine.
 func extractMemoryMarkers(text string, now int64, seen map[string]bool) []MemoryEntry {
 	var entries []MemoryEntry
 	for _, match := range memoryMarkerRe.FindAllStringSubmatch(text, -1) {
 		key := strings.TrimSpace(match[1])
 		value := strings.TrimSpace(match[2])
 		if key == "" || value == "" || seen[key] {
+			continue
+		}
+		if toolguard.LooksLikeConfabulation(value) || toolguard.LooksLikeHallucinatedCompletion(value) {
 			continue
 		}
 		seen[key] = true
@@ -1454,6 +1474,11 @@ func extractKeyValueLines(text string, now int64, seen map[string]bool) []Memory
 		key := strings.ToLower(strings.TrimSpace(match[1]))
 		value := strings.TrimSpace(match[2])
 		if key == "" || value == "" || seen[key] || len(value) > 500 {
+			continue
+		}
+		// Same unverified-self-report risk as extractMemoryMarkers -- see its
+		// comment. A "STATUS: cannot access tools" line is exactly this shape.
+		if toolguard.LooksLikeConfabulation(value) || toolguard.LooksLikeHallucinatedCompletion(value) {
 			continue
 		}
 		seen[key] = true

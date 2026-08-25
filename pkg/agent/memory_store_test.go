@@ -1239,6 +1239,27 @@ func TestMemoryTools_Save_EmptyValue(t *testing.T) {
 	assert.Contains(t, err.Error(), "value is required")
 }
 
+// TestMemoryTools_Save_RefusesConfabulatedClaim is a regression test: a
+// model that (wrongly) believed it had no tool access could call memory_save
+// to record that belief, and every future call would replay it via
+// FormatForPrompt as established fact -- causing pre-emptive refusal of tool
+// calls that actually work. memory_save must reject this shape outright.
+func TestMemoryTools_Save_RefusesConfabulatedClaim(t *testing.T) {
+	setupMemoryStoreForTools(t)
+	reg := kdepstools.NewRegistry()
+	registerMemoryTools(reg)
+
+	_, err := reg.Get("memory_save").Execute(map[string]any{
+		"key": "status", "value": "I cannot access the tools in this session",
+	})
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "refused to save")
+
+	result, searchErr := reg.Get("memory_search").Execute(map[string]any{"query": "status"})
+	require.NoError(t, searchErr)
+	assert.Contains(t, result, "No memory entries found")
+}
+
 func TestMemoryTools_Search_NoResults(t *testing.T) {
 	setupMemoryStoreForTools(t)
 	reg := kdepstools.NewRegistry()
@@ -1510,6 +1531,26 @@ func TestExtractTurn_MemoryMarker(t *testing.T) {
 	e, ok := store.Get("project_language")
 	require.True(t, ok)
 	assert.Equal(t, "Go 1.26", e.Value)
+}
+
+// TestExtractTurn_RefusesConfabulatedMemoryMarker is a regression test for
+// the same root cause as TestMemoryTools_Save_RefusesConfabulatedClaim, via
+// the [MEMORY: ...] marker path instead of the memory_save tool -- the
+// MANDATORY MEMORY RULES system prompt documents this marker as the primary
+// way to persist a fact, so it's an equally live vector for a model writing
+// its own unverified "I have no tool access" belief into permanent, always-
+// injected memory.
+func TestExtractTurn_RefusesConfabulatedMemoryMarker(t *testing.T) {
+	dir := t.TempDir()
+	store := NewMemoryStore(dir)
+	store.SetCwd("/Users/test/Projects/foo")
+
+	assistantResponse := "[MEMORY: tool_status] I cannot access the tools in this environment"
+	captured := store.ExtractTurn("can you check the files?", assistantResponse)
+	assert.Equal(t, 0, captured)
+
+	_, ok := store.Get("tool_status")
+	assert.False(t, ok)
 }
 
 func TestExtractTurn_MultipleMarkers(t *testing.T) {
