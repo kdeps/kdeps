@@ -566,6 +566,34 @@ func TestParseToolCallsJSONFallback(t *testing.T) {
 	}
 }
 
+// TestParseToolCallsJSONFallback_NestedArguments is a regression test for the
+// same class of bug as the chained-invoke leak above, in the JSON fallback
+// path: toolCallJSONRegex's non-greedy `\{.*?\}\s*\}` cut off at the FIRST
+// closing brace pair it found, which for "arguments":{"a":{"b":1},"c":{"d":2}}
+// lands one brace short of the real close -- json.Unmarshal then fails on
+// the truncated candidate, the call is silently dropped, and the model's raw
+// JSON syntax leaks into the returned text instead of executing. The
+// balanced-brace scanner must recover the call regardless of nesting depth.
+func TestParseToolCallsJSONFallback_NestedArguments(t *testing.T) {
+	res := ParseToolCalls(`{"tool":"foo","arguments":{"a":{"b":1},"c":{"d":2}}}`, nil)
+	if !res.HasToolCalls || len(res.ToolCalls) != 1 || res.ToolCalls[0].Name != "foo" {
+		t.Fatalf("res = %+v", res)
+	}
+	var args map[string]any
+	if err := json.Unmarshal([]byte(res.ToolCalls[0].Arguments), &args); err != nil {
+		t.Fatal(err)
+	}
+	if _, ok := args["a"]; !ok {
+		t.Errorf("nested arguments not recovered: %v", args)
+	}
+	if _, ok := args["c"]; !ok {
+		t.Errorf("nested arguments not recovered: %v", args)
+	}
+	if strings.Contains(res.TextContent, `"tool"`) {
+		t.Errorf("raw JSON tool-call syntax leaked into text content: %q", res.TextContent)
+	}
+}
+
 func TestParseToolCallsPlainText(t *testing.T) {
 	res := ParseToolCalls("just an answer", []ToolDef{shellToolDef()})
 	if res.HasToolCalls || res.TextContent != "just an answer" {

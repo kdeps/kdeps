@@ -2742,10 +2742,17 @@ func asStringMap(v any) (map[string]any, bool) {
 	return m, ok
 }
 
-// dsmlBlockRe matches a DeepSeek DSML tool-call span leaked into text content
-// (fullwidth-bar delimited tags), including everything between the first
-// opening and last closing tool_calls tag.
-var dsmlBlockRe = regexp.MustCompile(`(?s)<｜+\s*DSML\s*｜+tool_calls>.*</｜+\s*DSML\s*｜+tool_calls>`)
+// dsmlBlockRe matches one DeepSeek DSML tool-call span leaked into text
+// content (fullwidth-bar delimited tags). The body capture is non-greedy
+// ((?s).*?, matching to the NEAREST closing tag) rather than greedy: greedy
+// matching through to the LAST closing tag spans and deletes everything
+// between two separate leaked blocks in the same reply -- including real
+// prose the user was meant to see -- which is the same "assumed only one
+// occurrence" mistake the m365 fenced/invoke tool-call parsing hit twice.
+// ReplaceAllString below already finds every non-overlapping match in turn,
+// so non-greedy still strips both blocks; it just stops swallowing the text
+// between them.
+var dsmlBlockRe = regexp.MustCompile(`(?s)<｜+\s*DSML\s*｜+tool_calls>.*?</｜+\s*DSML\s*｜+tool_calls>`)
 
 // dsmlTagRe matches a stray DSML tag left behind when a leaked block is
 // truncated or malformed.

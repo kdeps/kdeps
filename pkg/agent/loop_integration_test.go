@@ -1011,6 +1011,22 @@ func TestStripContentToolCalls_DSMLEmbeddedInProse(t *testing.T) {
 	assert.Contains(t, got, "answer text")
 }
 
+// TestStripContentToolCalls_DSMLTwoBlocksPreservesBetween is a regression
+// test: dsmlBlockRe used to be greedy ((?s).* through to the LAST closing
+// tool_calls tag), so two separate leaked blocks in the same reply caused
+// the strip to span both and delete everything between them -- including
+// real prose the user was meant to see. The regex must stop at each block's
+// own nearest close, matching the same non-greedy fix applied to m365's
+// <invoke> parsing for the identical "assumed only one occurrence" bug.
+func TestStripContentToolCalls_DSMLTwoBlocksPreservesBetween(t *testing.T) {
+	content := `<｜｜DSML｜｜tool_calls> <｜｜DSML｜｜invoke name="a"> </｜｜DSML｜｜invoke> </｜｜DSML｜｜tool_calls>` +
+		"\n\nHere is important text the user needs to see.\n\n" +
+		`<｜｜DSML｜｜tool_calls> <｜｜DSML｜｜invoke name="b"> </｜｜DSML｜｜invoke> </｜｜DSML｜｜tool_calls>`
+	got := stripContentToolCalls(content)
+	assert.Contains(t, got, "Here is important text the user needs to see")
+	assert.NotContains(t, got, "DSML")
+}
+
 // TestRunToolRounds_FinalRoundCarriesBudgetPrompt verifies the forced final
 // round tells the model why its tools disappeared.
 func TestRunToolRounds_FinalRoundCarriesBudgetPrompt(t *testing.T) {

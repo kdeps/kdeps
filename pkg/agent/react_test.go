@@ -17,6 +17,7 @@ package agent
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
 	"strings"
 	"testing"
@@ -120,6 +121,35 @@ func TestParseReactAction(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+// TestParseReactAction_MultilineJSONInput is a regression test: the framing
+// prompt asks for "the input to the action as a JSON object" but doesn't
+// forbid pretty-printing it, and models commonly do. The original
+// single-line (.+) capture (no (?s)) truncated a pretty-printed Action
+// Input to just its opening "{", which then failed json.Unmarshal in
+// dispatchReactTool and silently corrupted the call into
+// {"input": "{"}. parseReactAction must recover the whole object via
+// jsonutil.ScanBalancedObject regardless of how it's formatted.
+func TestParseReactAction_MultilineJSONInput(t *testing.T) {
+	t.Parallel()
+	output := "Thought: write the plan\n" +
+		"Action: write_file\n" +
+		"Action Input: {\n" +
+		"  \"path\": \"PLAN.md\",\n" +
+		"  \"content\": \"line one\\nline two\"\n" +
+		"}"
+	name, input, ok := parseReactAction(output)
+	if !ok || name != "write_file" {
+		t.Fatalf("name=%q ok=%v, want write_file/true", name, ok)
+	}
+	var args map[string]any
+	if err := json.Unmarshal([]byte(input), &args); err != nil {
+		t.Fatalf("input not valid JSON: %v\ninput = %q", err, input)
+	}
+	if args["path"] != "PLAN.md" {
+		t.Errorf("args = %v", args)
 	}
 }
 

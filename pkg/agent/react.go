@@ -23,6 +23,7 @@ import (
 	"strings"
 
 	"github.com/kdeps/kdeps/v2/pkg/domain"
+	"github.com/kdeps/kdeps/v2/pkg/jsonutil"
 )
 
 const (
@@ -46,9 +47,19 @@ Final Answer: the final answer to the original input question
 Begin!`
 )
 
-var (
-	reactActionRe = regexp.MustCompile(`(?i)Action:\s*(.+?)\s*\nAction\s+Input:\s*(.+)`)
-)
+// reactActionPrefixRe locates the action name and the start of the Action
+// Input value. It intentionally does NOT capture the value itself: the
+// original regex captured it with a single-line (.+) group, which the
+// framing prompt's "input to the action as a JSON object" doesn't forbid
+// pretty-printing across multiple lines (a common model formatting habit) --
+// that truncated the value to just its opening "{", which then fails
+// json.Unmarshal in dispatchReactTool and silently falls back to wrapping
+// the truncated "{" as a bogus {"input": "{"} argument, corrupting the real
+// tool call. Same root cause as the m365 fenced/invoke parsing bugs:
+// assuming a narrower shape (single-line) than what a real reply produces.
+// parseReactAction below uses jsonutil.ScanBalancedObject to recover the
+// full value regardless of how it's formatted.
+var reactActionPrefixRe = regexp.MustCompile(`(?i)Action:\s*(.+?)\s*\nAction\s+Input:\s*`)
 
 // reactStep is one tool-call/observation pair in the ReAct scratchpad.
 type reactStep struct {
@@ -207,14 +218,32 @@ func extractFinalAnswer(output string) (string, bool) {
 	return strings.TrimSpace(output[idx+len(reactFinalAnswerPrefix):]), true
 }
 
-// parseReactAction extracts the tool name and input from a ReAct-format LLM output.
+// parseReactAction extracts the tool name and input from a ReAct-format LLM
+// output. When the Action Input value is a JSON object, its true extent is
+// found with jsonutil.ScanBalancedObject rather than assumed to fit on one
+// line, so a model that pretty-prints multi-line JSON still round-trips.
+// Non-JSON input (a plain string, per the model ignoring the "JSON object"
+// instruction) falls back to the rest of the first line, matching the prior
+// single-line behavior for that case.
 func parseReactAction(output string) (string, string, bool) {
-	const minMatches = 3
-	matches := reactActionRe.FindStringSubmatch(output)
-	if len(matches) < minMatches {
+	loc := reactActionPrefixRe.FindStringSubmatchIndex(output)
+	if loc == nil {
 		return "", "", false
 	}
-	return strings.TrimSpace(matches[1]), strings.TrimSpace(matches[2]), true
+	action := strings.TrimSpace(output[loc[2]:loc[3]])
+	valueStart := loc[1]
+
+	if valueStart < len(output) && output[valueStart] == '{' {
+		if end, ok := jsonutil.ScanBalancedObject(output, valueStart); ok {
+			return action, output[valueStart:end], true
+		}
+	}
+
+	rest := output[valueStart:]
+	if nl := strings.IndexByte(rest, '\n'); nl >= 0 {
+		rest = rest[:nl]
+	}
+	return action, strings.TrimSpace(rest), true
 }
 
 // dispatchReactTool executes a tool by name with the given JSON input string.

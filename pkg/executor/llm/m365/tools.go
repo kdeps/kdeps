@@ -9,6 +9,7 @@ import (
 
 	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
 	"github.com/kdeps/kdeps/v2/pkg/executor/llm/toolguard"
+	"github.com/kdeps/kdeps/v2/pkg/jsonutil"
 )
 
 const (
@@ -57,7 +58,16 @@ type ToolChoice struct {
 	FunctionName string
 }
 
-var toolCallJSONRegex = regexp.MustCompile(`(?s)\{\s*"tool"\s*:\s*"[^"]+"\s*,\s*"arguments"\s*:\s*\{.*?\}\s*\}`)
+// toolCallPrefixRegex locates the START of a stray JSON tool-call object
+// (a model ignoring the <invoke> framing and emitting {"tool":...,
+// "arguments":{...}} directly). It only matches up through the arguments
+// object's own opening brace; jsonutil.ScanBalancedObject then finds the
+// true matching close from there, so a nested object inside "arguments"
+// (e.g. {"tool":"foo","arguments":{"opts":{"a":1}}}) is captured whole
+// instead of being cut off at the first inner "}". A fixed-depth regex here
+// (`\{.*?\}\s*\}`) is the same class of bug fenceRegex/invokeRegex already
+// hit twice: it assumes a shape shallower than what a real reply produces.
+var toolCallPrefixRegex = regexp.MustCompile(`\{\s*"tool"\s*:\s*"[^"]+"\s*,\s*"arguments"\s*:\s*\{`)
 
 var confidenceRegex = regexp.MustCompile(`\{\s*"confidence"\s*:\s*-?[0-9.]+\s*\}`)
 
@@ -294,27 +304,11 @@ func ParseToolCalls(text string, tools []ToolDef) ParseResult {
 		}
 	}
 
-	var calls []ParsedToolCall
-	for _, m := range toolCallJSONRegex.FindAllString(text, -1) {
-		var parsed struct {
-			Tool      string          `json:"tool"`
-			Arguments json.RawMessage `json:"arguments"`
-		}
-		if json.Unmarshal([]byte(m), &parsed) != nil || parsed.Tool == "" {
-			continue
-		}
-		calls = append(calls, ParsedToolCall{
-			ID:        newCallID(),
-			Name:      parsed.Tool,
-			Arguments: string(parsed.Arguments),
-		})
-	}
-
+	calls, remaining := parseJSONToolCalls(text)
 	if len(calls) == 0 {
 		return ParseResult{HasToolCalls: false, TextContent: cleanLooseText(text)}
 	}
 
-	remaining := toolCallJSONRegex.ReplaceAllString(text, "")
 	remaining = confidenceRegex.ReplaceAllString(remaining, "")
 	remaining = finalObjectRegex.ReplaceAllString(remaining, "")
 	remaining = emptyFenceRegex.ReplaceAllString(remaining, "")
@@ -323,6 +317,37 @@ func ParseToolCalls(text string, tools []ToolDef) ParseResult {
 
 	return ParseResult{HasToolCalls: true, ToolCalls: calls, TextContent: remaining}
 }
+
+// parseJSONToolCalls recovers every stray {"tool":...,"arguments":{...}}
+// object in text, tolerating arbitrarily nested "arguments" values.
+// remaining is text with each matched call's full span removed.
+func parseJSONToolCalls(text string) ([]ParsedToolCall, string) {
+	var calls []ParsedToolCall
+	remaining := text
+	for _, loc := range toolCallPrefixRegex.FindAllStringIndex(text, -1) {
+		start := loc[0]
+		end, ok := jsonutil.ScanBalancedObject(text, start)
+		if !ok {
+			continue
+		}
+		candidate := text[start:end]
+		var parsed struct {
+			Tool      string          `json:"tool"`
+			Arguments json.RawMessage `json:"arguments"`
+		}
+		if json.Unmarshal([]byte(candidate), &parsed) != nil || parsed.Tool == "" {
+			continue
+		}
+		calls = append(calls, ParsedToolCall{
+			ID:        newCallID(),
+			Name:      parsed.Tool,
+			Arguments: string(parsed.Arguments),
+		})
+		remaining = strings.Replace(remaining, candidate, "", 1)
+	}
+	return calls, remaining
+}
+
 
 var markdownHeaderRegex = regexp.MustCompile(`(?m)^#{1,6}\s`)
 
