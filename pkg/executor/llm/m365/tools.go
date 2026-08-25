@@ -23,9 +23,9 @@ const (
 
 // This file adapts OpenAI-style chat messages and tool definitions to the
 // prompt-injection protocol the chat model understands, and parses the model's
-// fenced replies back into structured tool calls. The model has no native
+// replies back into structured tool calls. The model has no native
 // function-calling, so tools are described in the prompt and calls are recovered
-// from Markdown fences (see fenced.go).
+// from <invoke>/<parameter> XML blocks (see fenced.go).
 
 // Message is one OpenAI-style chat message. Content may be a plain string or a
 // content-part array; both decode into this shape.
@@ -328,11 +328,12 @@ var markdownHeaderRegex = regexp.MustCompile(`(?m)^#{1,6}\s`)
 
 // IsProseDocument reports whether a reply is a written document (prose with many
 // embedded code fences) rather than a genuine action turn. The shell-routing
-// parser turns every ```bash block into a call, so a document answer would get
-// executed; this flags that shape so the caller returns it as text.
+// parser turns every well-formed <invoke> block into a call, so a document
+// answer that happens to illustrate the syntax would get executed; this flags
+// that shape so the caller returns it as text.
 //
-// This guard is fenced-format-specific: it only matters when tool calls are
-// recovered by parsing Markdown fences out of free text (as m365 does). Backends
+// This guard is invoke-format-specific: it only matters when tool calls are
+// recovered by parsing XML blocks out of free text (as m365 does). Backends
 // with native structured tool-calling never have this ambiguity, so this stays
 // local to m365 rather than moving to toolguard.
 func IsProseDocument(p ParseResult) bool {

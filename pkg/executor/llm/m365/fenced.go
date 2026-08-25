@@ -10,25 +10,28 @@ import (
 )
 
 // The chat model has no native tool-calling API. Tool calls are emulated with
-// Markdown code fences: the model emits a fenced block whose info-string is the
-// tool name, scalar arguments render as "key: value" header lines, and one
-// free-form argument becomes the fence body. This file builds the prompt-side
-// tool definitions and parses fenced blocks back into structured calls.
-//	```bash
-//	ls -la
-//	```
-//	```write_file
-//	path: main.go
-//	package main
-//	```
-//	```edit_file
-//	path: app.go
-//	<<<<<<< SEARCH
-//	debug = false
-//	=======
-//	debug = true
-//	>>>>>>> REPLACE
-//	```
+// Anthropic-style XML invoke tags: the model emits <invoke name="tool_name">
+// with one <parameter name="key">value</parameter> per argument. This shape
+// was chosen over a Markdown-fence convention (```tool_name ... ```) because
+// the model actually driving this backend is trained on this exact
+// <invoke>/<parameter> format for its own native tool use, and because
+// "</parameter>" / "</invoke>" collide with real file content far less often
+// than a bare "```" does -- a written file or patch commonly contains its own
+// nested Markdown code fence, which silently truncated fenced-style parsing.
+// This file builds the prompt-side tool definitions and parses <invoke>
+// blocks back into structured calls.
+//	<invoke name="bash">
+//	<parameter name="command">ls -la</parameter>
+//	</invoke>
+//	<invoke name="write_file">
+//	<parameter name="path">main.go</parameter>
+//	<parameter name="content">package main</parameter>
+//	</invoke>
+//	<invoke name="edit_file">
+//	<parameter name="path">app.go</parameter>
+//	<parameter name="old_string">debug = false</parameter>
+//	<parameter name="new_string">debug = true</parameter>
+//	</invoke>
 
 // ToolFunction is the function schema of an OpenAI-style tool definition.
 type ToolFunction struct {
@@ -50,7 +53,7 @@ type ToolDef struct {
 	Function ToolFunction `json:"function"`
 }
 
-// bodyParamNames are argument names carried as the free-form fence body.
+// bodyParamNames are argument names carried as the free-form final parameter.
 //
 //nolint:gochecknoglobals // static lookup, read-only
 var bodyParamNames = map[string]bool{
@@ -71,10 +74,11 @@ var replaceKeys = map[string]bool{
 	"new_str": true, "new_string": true,
 }
 
-// shellLangs are fence info-strings that mean "a shell script"; they route to
-// whatever run-a-command tool the caller provided.
+// shellLangs are legacy fence-language aliases still recognised as invoke
+// names for "run this as a shell command"; they route to whatever
+// run-a-command tool the caller provided.
 //
-//nolint:gochecknoglobals // static lookup, read-only; "bash" here is a fence language, not a repeated literal
+//nolint:gochecknoglobals // static lookup, read-only; "bash" here is an alias, not a repeated literal
 var shellLangs = []string{
 	"bash", "sh", "shell", "zsh", "console",
 	"shell-session", "shellsession", "shsession",
@@ -86,35 +90,32 @@ var shellToolName = regexp.MustCompile(
 
 var commandParamName = regexp.MustCompile(`(?i)^(command|cmd|script|input)$`)
 
-// fenceRegex's body capture is greedy ((.*) not (.*?)), matching through to
-// the LAST closing fence in the text rather than the first. Confirmed live
-// (a real write_file call whose content -- a markdown PLAN.md -- itself
-// contained a nested ``` code block) that a non-greedy body match stops at
-// that inner fence instead of the real outer close, silently truncating the
-// tool argument while the model's raw streamed text (visible in the REPL)
-// showed the complete response. Safe to be greedy: the framing prompts
+// invokeRegex's body capture is greedy ((?s).*), matching through to the LAST
+// closing </invoke> in the text rather than the first. Mirrors the same
+// reasoning the prior fenced-Markdown parser needed: the framing prompts
 // (baselineFraming/minimalFraming/softenedFraming below) explicitly require
-// "ONE fenced block... No prose, no second fence, no commentary before or
-// after" -- a well-formed response never has a second real fence for this
-// to over-consume into, and every caller of ParseFencedToolCalls only ever
-// reads calls[0] anyway.
-var fenceRegex = regexp.MustCompile("(?s)```([A-Za-z0-9_]+)[ \t]*\r?\n(.*)\r?\n?```")
+// "ONE invoke block... No prose, no second invoke, no commentary before or
+// after" -- a well-formed response never has a second real </invoke> for this
+// to over-consume into, and every caller of ParseInvokeToolCalls only ever
+// reads calls[0] anyway. Being greedy protects against a parameter's own
+// value containing a literal "</invoke>" substring (rare, but not
+// impossible) truncating the real call early.
+var invokeRegex = regexp.MustCompile(`(?s)<invoke name="([A-Za-z0-9_.\-]+)">(.*)</invoke>`)
 
-var searchReplaceRegex = regexp.MustCompile(
-	`(?s)<{5,}\s*SEARCH\s*\r?\n(.*?)\r?\n={5,}\s*\r?\n(.*?)\r?\n>{5,}\s*REPLACE`,
-)
+const parameterCloseTag = "</parameter>"
 
-var headerLineRegex = regexp.MustCompile(`^([A-Za-z0-9_]+):[ \t]?(.*)$`)
-
-// FencedToolSpec describes how one tool maps onto the fenced shape.
+// FencedToolSpec describes how one tool maps onto the <invoke> shape.
 type FencedToolSpec struct {
 	Name        string
 	Description string
-	// HeaderParams render as "key: value" header lines.
+	// HeaderParams render as single-line <parameter name="key">value</parameter>
+	// tags, in declaration order, before the free-form parameter (if any).
 	HeaderParams []string
-	// BodyParam is the free-form argument carried as the fence body.
+	// BodyParam is the free-form argument carried as the final parameter,
+	// parsed greedily through to the invoke's closing tag.
 	BodyParam string
-	// EditPair, when set, renders an (old -> new) SEARCH/REPLACE diff.
+	// EditPair, when set, renders an (old -> new) pair of parameters instead
+	// of a single body parameter.
 	EditPair *editPair
 }
 
@@ -136,7 +137,7 @@ func propNames(t ToolDef) []string {
 	return names
 }
 
-// DeriveFencedSpec derives the fenced shape for a single tool.
+// DeriveFencedSpec derives the <invoke> shape for a single tool.
 func DeriveFencedSpec(tool ToolDef) FencedToolSpec {
 	kdeps_debug.Log("enter: DeriveFencedSpec")
 	name := tool.Function.Name
@@ -210,9 +211,9 @@ func findShellTool(tools []ToolDef) *ToolDef {
 	return nil
 }
 
-// BuildSpecMap maps each tool name to its fenced spec, aliasing shell fence
-// languages (```bash etc.) onto the caller's shell tool so the model can "just
-// write bash" and still produce a structured call.
+// BuildSpecMap maps each tool name to its invoke spec, aliasing legacy shell
+// names (bash, sh, ...) onto the caller's shell tool so the model can invoke
+// e.g. <invoke name="bash"> and still produce a structured call.
 func BuildSpecMap(tools []ToolDef) map[string]FencedToolSpec {
 	kdeps_debug.Log("enter: BuildSpecMap")
 	m := make(map[string]FencedToolSpec, len(tools))
@@ -245,59 +246,51 @@ func scalarToString(v any) string {
 	}
 }
 
-// RenderFencedCall renders one concrete call (name + args) as a fenced block,
-// for replaying a prior assistant tool call back into the transcript.
+func renderParameter(name, value string) string {
+	return `<parameter name="` + name + `">` + value + parameterCloseTag
+}
+
+// RenderFencedCall renders one concrete call (name + args) as an <invoke>
+// block, for replaying a prior assistant tool call back into the transcript.
 func RenderFencedCall(spec FencedToolSpec, args map[string]any) string {
 	var lines []string
 	for _, h := range spec.HeaderParams {
 		if v, ok := args[h]; ok {
-			lines = append(lines, h+": "+scalarToString(v))
+			lines = append(lines, renderParameter(h, scalarToString(v)))
 		}
 	}
 	switch {
 	case spec.EditPair != nil:
 		lines = append(lines,
-			"<<<<<<< SEARCH",
-			scalarToString(args[spec.EditPair.search]),
-			"=======",
-			scalarToString(args[spec.EditPair.replace]),
-			">>>>>>> REPLACE",
+			renderParameter(spec.EditPair.search, scalarToString(args[spec.EditPair.search])),
+			renderParameter(spec.EditPair.replace, scalarToString(args[spec.EditPair.replace])),
 		)
 	case spec.BodyParam != "":
-		if len(lines) > 0 {
-			lines = append(lines, "")
-		}
-		lines = append(lines, scalarToString(args[spec.BodyParam]))
+		lines = append(lines, renderParameter(spec.BodyParam, scalarToString(args[spec.BodyParam])))
 	}
-	return "```" + spec.Name + "\n" + strings.Join(lines, "\n") + "\n```"
+	return `<invoke name="` + spec.Name + `">` + "\n" + strings.Join(lines, "\n") + "\n</invoke>"
 }
 
 // renderFencedTemplate renders a self-documenting template for the <tools> block.
 func renderFencedTemplate(spec FencedToolSpec) string {
 	var lines []string
 	for _, h := range spec.HeaderParams {
-		lines = append(lines, h+": <"+h+">")
+		lines = append(lines, renderParameter(h, "<"+h+">"))
 	}
 	switch {
 	case spec.EditPair != nil:
 		lines = append(lines,
-			"<<<<<<< SEARCH",
-			"<"+spec.EditPair.search+">",
-			"=======",
-			"<"+spec.EditPair.replace+">",
-			">>>>>>> REPLACE",
+			renderParameter(spec.EditPair.search, "<"+spec.EditPair.search+">"),
+			renderParameter(spec.EditPair.replace, "<"+spec.EditPair.replace+">"),
 		)
 	case spec.BodyParam != "":
-		if len(lines) > 0 {
-			lines = append(lines, "")
-		}
-		lines = append(lines, "<"+spec.BodyParam+">")
+		lines = append(lines, renderParameter(spec.BodyParam, "<"+spec.BodyParam+">"))
 	}
 	header := spec.Name
 	if spec.Description != "" {
 		header = spec.Name + " - " + spec.Description
 	}
-	return header + "\n```" + spec.Name + "\n" + strings.Join(lines, "\n") + "\n```"
+	return header + "\n" + `<invoke name="` + spec.Name + `">` + "\n" + strings.Join(lines, "\n") + "\n</invoke>"
 }
 
 // toolsBlock renders the shared <tools> definition block.
@@ -399,14 +392,14 @@ func baselineFraming(tools []ToolDef) string {
 	var shellFraming string
 	if shell := findShellTool(tools); shell != nil {
 		fileHints := fileToolHints(tools)
-		firstAction := "a ```bash block (e.g. `ls -la` then `cat` the relevant files)"
+		firstAction := "an <invoke name=\"" + shell.Function.Name + "\"> block (e.g. `ls -la` then `cat` the relevant files)"
 		if fileHints != "" {
-			firstAction = "the fenced call for whichever tool the step needs " +
+			firstAction = "the invoke block for whichever tool the step needs " +
 				"(e.g. `list_files` to see what's there, or `read_file` on a named file)"
 		}
 		shellFraming = "\n\nYou have a real shell (the `" + shell.Function.Name + "` tool)." + fileHints +
-			" To perform a step, emit ONE fenced block for the single tool that step needs, acting end-to-end against the real files in the working directory: a ```bash block inspects with `cat`/`ls`/`grep` and runs code with the available interpreters." +
-			" The block is executed for real and you get its output back. Writing the commands IS doing the task; describing what you \"would\" run, or claiming you did it, accomplishes nothing.\n\nYou have NOT run any command yet and have NO results. NEVER claim a command \"returned no output\", that files are \"missing\", or that you \"cannot access\" / \"cannot list\" the environment before you have actually emitted a fenced block and seen its <tool_response>. The files named in the task are present on a real filesystem right now. Your FIRST output must be " + firstAction + " - never open with prose, a question, or a request for the user to paste files. Do not assume a file's contents or a command's result; run a tool and read the real output. One self-contained fenced block per turn."
+			" To perform a step, emit ONE <invoke> block for the single tool that step needs, acting end-to-end against the real files in the working directory: an invoke of the shell tool inspects with `cat`/`ls`/`grep` and runs code with the available interpreters." +
+			" The block is executed for real and you get its output back. Writing the commands IS doing the task; describing what you \"would\" run, or claiming you did it, accomplishes nothing.\n\nYou have NOT run any command yet and have NO results. NEVER claim a command \"returned no output\", that files are \"missing\", or that you \"cannot access\" / \"cannot list\" the environment before you have actually emitted an invoke block and seen its <tool_response>. The files named in the task are present on a real filesystem right now. Your FIRST output must be " + firstAction + " - never open with prose, a question, or a request for the user to paste files. Do not assume a file's contents or a command's result; run a tool and read the real output. One self-contained invoke block per turn."
 	}
 	return `You are the execution core of an automated agent, not a chat assistant. Your output is parsed by a program - a real runtime that executes your tool calls against a live system and returns the actual results to you in <tool_response> blocks.` + shellFraming + `
 
@@ -414,20 +407,19 @@ Performing the task with tools is your PRIMARY JOB. Answering the user in prose 
 
 TOOL USE IS REQUIRED when the user asks you to read files, run commands, inspect the repository, fetch data, or perform any action a tool can accomplish. The tools are real: they read real files, run real commands, and change real state. Never answer from memory or simulate a result when a tool can provide it.
 
-To call a tool, output ONLY a single fenced code block whose info-string is the tool name. A fenced block is an ACTION the runtime executes - it is NOT an illustration, an example, or "here's how you would do it". No text before or after it:
+To call a tool, output ONLY a single ` + "`<invoke name=\"tool_name\">`" + ` block. An invoke block is an ACTION the runtime executes - it is NOT an illustration, an example, or "here's how you would do it". No text before or after it:
 
-` + "```<tool_name>" + `
-<header lines: one "key: value" per scalar argument>
-
-<body argument, if the tool has one>
-` + "```" + `
+<invoke name="<tool_name>">
+<parameter name="<param_name>"><value></parameter>
+...
+</invoke>
 
 STRICT RULES:
-- Output ONLY the fenced block when calling a tool. No prose, no second fence, no commentary before or after.
-- Never describe your intent ("I'll read the file...", "Let me check...") and never emit filler or acknowledgements. Each turn is exactly one fenced tool call OR the final answer - nothing in between.
-- One tool call per response, then stop and wait for its <tool_response>. Never emit two fenced blocks in one response.
-- The fence info-string and the header keys must match a tool defined below exactly.
-- Every tool below is called with ITS OWN fence, info-string = that tool's name (e.g. ` + "```memory_search" + ` to search memory, ` + "```read_file" + ` to read a file) - never call one tool by writing another tool's name as the shell command inside a ` + "```bash" + ` block. The shell only runs real system commands; it does not know kdeps tool names and will fail with "command not found".
+- Output ONLY the invoke block when calling a tool. No prose, no second invoke, no commentary before or after.
+- Never describe your intent ("I'll read the file...", "Let me check...") and never emit filler or acknowledgements. Each turn is exactly one invoke block OR the final answer - nothing in between.
+- One tool call per response, then stop and wait for its <tool_response>. Never emit two invoke blocks in one response.
+- The invoke's "name" attribute and each parameter's "name" attribute must match a tool defined below exactly.
+- Every tool below is called with ITS OWN invoke, name="<that tool's name>" (e.g. <invoke name="memory_search"> to search memory, <invoke name="read_file"> to read a file) - never call one tool by writing another tool's name as the shell command inside an invoke of the shell tool. The shell only runs real system commands; it does not know kdeps tool names and will fail with "command not found".
 - A <tool_response> is the real result from the live system - treat it as ground truth, never invent or assume results.
 - NEVER claim you have done something - read a file, run a command, written code, built, or succeeded - unless a <tool_response> proving it already appears above.
 - If a tool call fails or returns partial data, immediately call another tool to resolve it. Do not give up.
@@ -448,7 +440,8 @@ func minimalFraming(tools []ToolDef) string {
 		shellPurpose = "runs scripts/tests, git, or inspects process/system state"
 	}
 	return "You are an automated agent with a real shell (the `" + name + "` tool)." + fileHints +
-		" You do the task by emitting ONE fenced block per turn for whichever tool the step needs; a ```bash block " + shellPurpose + ". The block is executed for real; its output comes back in a <tool_response>. Writing the commands IS doing the task. To call a tool other than the shell (e.g. memory_search), use ITS OWN fence directly - never write another tool's name as a shell command, the shell will fail with \"command not found\".\n\nYou have run nothing yet. Your FIRST output must be a fenced tool call - never prose, a question, or \"I can't access the files\". Never claim a result you have not seen in a <tool_response>.\n\n" + toolsBlock(
+		` You do the task by emitting ONE <invoke> block per turn for whichever tool the step needs; an invoke of the shell tool ` + shellPurpose + `. The block is executed for real; its output comes back in a <tool_response>. Writing the commands IS doing the task. To call a tool other than the shell (e.g. memory_search), use ITS OWN invoke directly - never write another tool's name as a shell command, the shell will fail with "command not found".` +
+		"\n\nYou have run nothing yet. Your FIRST output must be an invoke block - never prose, a question, or \"I can't access the files\". Never claim a result you have not seen in a <tool_response>.\n\n" + toolsBlock(
 		tools,
 	)
 }
@@ -463,19 +456,18 @@ func softenedFraming(tools []ToolDef) string {
 			shellPurpose = "run scripts or tests, use git, or inspect process/system state"
 		}
 		shellLine = "You have a real shell available as the `" + name + "` tool." + fileHints +
-			" The usual way to make progress on a step the shell covers is to write a single ```bash block that carries it out against the real files in the working directory - " + shellPurpose + ". The runtime executes the block and returns its real output to you. Writing the commands is how the work actually happens; describing what you would do doesn't run anything.\n\n"
+			" The usual way to make progress on a step the shell covers is to write a single invoke of the shell tool that carries it out against the real files in the working directory - " + shellPurpose + ". The runtime executes the block and returns its real output to you. Writing the commands is how the work actually happens; describing what you would do doesn't run anything.\n\n"
 	}
 	return `You are an automated coding agent working in a real working directory. Your replies are read by a program that runs your tool calls and returns the results.
 
-` + shellLine + `To use a tool, reply with a single fenced code block whose info-string is the tool name (a fence is run as a real action, not shown as an illustration):
+` + shellLine + `To use a tool, reply with a single ` + "`<invoke name=\"tool_name\">`" + ` block (an invoke is run as a real action, not shown as an illustration):
 
-` + "```<tool_name>" + `
-<one "key: value" header line per scalar argument>
+<invoke name="<tool_name>">
+<parameter name="<param_name>"><value></parameter>
+...
+</invoke>
 
-<the body argument, if the tool has one>
-` + "```" + `
-
-A <tool_response> is the real result from the live system - rely on it rather than assuming what a command would print. Work one step at a time: one tool call per reply, then wait for its <tool_response>. Begin by running a ` + "```bash" + ` block that inspects the relevant files, rather than answering from memory, and keep going with tool calls until the task is finished. To call a tool other than the shell, use its own fence directly - never write another tool's name as a shell command inside a ` + "```bash" + ` block, the shell does not know kdeps tool names and will fail with "command not found". Reply in plain language only once the task is done and no further tool call would help.
+A <tool_response> is the real result from the live system - rely on it rather than assuming what a command would print. Work one step at a time: one tool call per reply, then wait for its <tool_response>. Begin by running an invoke of the shell tool that inspects the relevant files, rather than answering from memory, and keep going with tool calls until the task is finished. To call a tool other than the shell, use its own invoke directly - never write another tool's name as a shell command inside an invoke of the shell tool, the shell does not know kdeps tool names and will fail with "command not found". Reply in plain language only once the task is done and no further tool call would help.
 
 ` + toolsBlock(
 		tools,
@@ -490,57 +482,58 @@ type ParsedToolCall struct {
 	Arguments string
 }
 
-// parseFencedInner parses one fenced block body into an arguments object.
+// parseFencedInner parses one <invoke> block body into an arguments object.
+// inner is everything between the opening <invoke name="..."> tag and the
+// closing </invoke> tag.
 func parseFencedInner(spec FencedToolSpec, inner string) (map[string]any, bool) {
-	lines := strings.Split(inner, "\n")
 	args := map[string]any{}
+	rest := inner
 
-	i := 0
-	if len(spec.HeaderParams) > 0 {
-		headerSet := make(map[string]bool, len(spec.HeaderParams))
-		for _, h := range spec.HeaderParams {
-			headerSet[h] = true
+	for _, h := range spec.HeaderParams {
+		open := `<parameter name="` + h + `">`
+		idx := strings.Index(rest, open)
+		if idx == -1 {
+			continue
 		}
-		for ; i < len(lines); i++ {
-			if strings.TrimSpace(lines[i]) == "" {
-				i++
-				break
-			}
-			m := headerLineRegex.FindStringSubmatch(lines[i])
-			if m != nil && headerSet[m[1]] {
-				args[m[1]] = m[2]
-			} else {
-				break
-			}
+		afterOpen := rest[idx+len(open):]
+		closeIdx := strings.Index(afterOpen, parameterCloseTag)
+		if closeIdx == -1 {
+			continue
 		}
+		args[h] = strings.TrimSpace(afterOpen[:closeIdx])
+		rest = afterOpen[closeIdx+len(parameterCloseTag):]
 	}
-
-	rest := strings.Join(lines[i:], "\n")
 
 	switch {
 	case spec.EditPair != nil:
-		sr := searchReplaceRegex.FindStringSubmatch(rest)
-		if sr == nil {
+		searchVal, replaceVal, ok := parseEditPairParams(rest, spec.EditPair)
+		if !ok {
 			return nil, false
 		}
-		args[spec.EditPair.search] = sr[1]
-		args[spec.EditPair.replace] = sr[2]
+		args[spec.EditPair.search] = searchVal
+		args[spec.EditPair.replace] = replaceVal
 	case spec.BodyParam != "":
-		args[spec.BodyParam] = stripRedundantOuterFence(rest)
+		val, ok := parseFinalParam(rest, spec.BodyParam)
+		if !ok {
+			return nil, false
+		}
+		args[spec.BodyParam] = stripRedundantOuterFence(val)
 	}
 	return args, true
 }
 
-// stripRedundantOuterFence removes a body's own self-wrapping code fence,
-// e.g. a model asked to write_file a markdown document habitually wraps the
-// whole thing in an extra ```markdown ... ``` block as if displaying it,
-// even though the outer ```write_file ... ``` tool-call fence already
-// delimits the body -- kdeps then wrote that inner wrapper's own fence
-// markers literally into the file (confirmed live: the written file's first
-// line was a bare ``` line). Only strips when the body's FIRST line is
-// itself a fence open and its LAST line is a bare fence close -- i.e. the
-// entire body is wrapped in exactly one pair, not a document that happens
-// to contain an internal code block partway through.
+// stripRedundantOuterFence removes a body's own self-wrapping Markdown code
+// fence, e.g. a model asked to write_file a markdown document habitually
+// wraps the whole thing in an extra ```markdown ... ``` block as if
+// displaying it, even though the outer <parameter name="content"> tag
+// already delimits the body -- kdeps then wrote that inner wrapper's own
+// fence markers literally into the file (confirmed live: the written file's
+// first line was a bare ``` line). This habit is independent of the
+// tool-call delimiter convention (XML invoke tags here, Markdown fences
+// before), so the strip still applies under either. Only strips when the
+// body's FIRST line is itself a fence open and its LAST line is a bare fence
+// close -- i.e. the entire body is wrapped in exactly one pair, not a
+// document that happens to contain an internal code block partway through.
 // minWrappedFenceLines is the fewest lines a self-wrapped body can have: an
 // opening fence line and a closing fence line, with the wrapped content (if
 // any) in between.
@@ -562,25 +555,72 @@ func stripRedundantOuterFence(content string) string {
 	return strings.Join(lines[1:len(lines)-1], "\n")
 }
 
-// ParseFencedToolCalls parses every fenced block whose info-string matches a
-// known tool. leftover is the text with those fences removed.
+// parseFinalParam extracts the last parameter's value: everything after its
+// open tag through to the LAST occurrence of the close tag in rest (greedy,
+// for the same reason invokeRegex's body capture is greedy -- the value may
+// itself contain a literal "</parameter>"-shaped substring in pathological
+// content, and the framing prompts guarantee this is the only remaining
+// parameter in a well-formed call).
+func parseFinalParam(rest, name string) (string, bool) {
+	open := `<parameter name="` + name + `">`
+	idx := strings.Index(rest, open)
+	if idx == -1 {
+		return "", false
+	}
+	afterOpen := rest[idx+len(open):]
+	closeIdx := strings.LastIndex(afterOpen, parameterCloseTag)
+	if closeIdx == -1 {
+		return "", false
+	}
+	return afterOpen[:closeIdx], true
+}
+
+// parseEditPairParams extracts the search/replace pair. search is parsed
+// non-greedily up to its own close tag (its value is expected to be a
+// short, targeted snippet); replace is parsed greedily as the final
+// parameter, same as parseFinalParam.
+func parseEditPairParams(rest string, pair *editPair) (string, string, bool) {
+	searchOpen := `<parameter name="` + pair.search + `">`
+	idx := strings.Index(rest, searchOpen)
+	if idx == -1 {
+		return "", "", false
+	}
+	afterSearchOpen := rest[idx+len(searchOpen):]
+
+	searchCloseIdx := strings.Index(afterSearchOpen, parameterCloseTag)
+	if searchCloseIdx == -1 {
+		return "", "", false
+	}
+	search := afterSearchOpen[:searchCloseIdx]
+	afterSearchClose := afterSearchOpen[searchCloseIdx+len(parameterCloseTag):]
+
+	replaceOpen := `<parameter name="` + pair.replace + `">`
+	replaceIdx := strings.Index(afterSearchClose, replaceOpen)
+	if replaceIdx == -1 {
+		return "", "", false
+	}
+	afterReplaceOpen := afterSearchClose[replaceIdx+len(replaceOpen):]
+
+	replaceCloseIdx := strings.LastIndex(afterReplaceOpen, parameterCloseTag)
+	if replaceCloseIdx == -1 {
+		return "", "", false
+	}
+	replace := afterReplaceOpen[:replaceCloseIdx]
+	return search, replace, true
+}
+
+// ParseFencedToolCalls parses every <invoke> block whose name matches a known
+// tool. leftover is the text with those blocks removed.
 func ParseFencedToolCalls(text string, specs map[string]FencedToolSpec) ([]ParsedToolCall, string) {
 	kdeps_debug.Log("enter: ParseFencedToolCalls")
 	var calls []ParsedToolCall
 	leftover := text
-	for _, m := range fenceRegex.FindAllStringSubmatch(text, -1) {
+	for _, m := range invokeRegex.FindAllStringSubmatch(text, -1) {
 		spec, ok := specs[m[1]]
 		if !ok {
 			continue // not a tool - leave it in prose
 		}
-		// The body group is greedy (see fenceRegex's doc comment), so its own
-		// optional \r?\n? before the closing fence can end up matching zero
-		// characters, leaving the one real trailing newline inside the
-		// captured group instead of the boundary. Strip it deterministically
-		// here rather than relying on regex backtracking to land on the
-		// "right" empty match every time.
-		body := strings.TrimSuffix(strings.TrimSuffix(m[2], "\n"), "\r")
-		args, ok := parseFencedInner(spec, body)
+		args, ok := parseFencedInner(spec, m[2])
 		if !ok {
 			continue
 		}

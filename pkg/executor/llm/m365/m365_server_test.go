@@ -271,7 +271,9 @@ func TestServerChatCompletionStreaming(t *testing.T) {
 // --- tool calling ---
 
 func TestServerChatCompletionToolCall(t *testing.T) {
-	srv, _ := newTestServer(t, [][]string{successFrame("```bash\nls -la\n```")})
+	srv, _ := newTestServer(t, [][]string{successFrame(
+		`<invoke name="bash"><parameter name="command">ls -la</parameter></invoke>`,
+	)})
 	base := srv.URL
 
 	_, body := postChat(t, base, map[string]any{
@@ -324,13 +326,14 @@ func writeFileToolParam() map[string]any {
 }
 
 // TestServerChatCompletionToolCall_ContentWithNestedFence drives the nested-
-// fence truncation fix (fenceRegex's greedy body match) through the real
-// server pipeline: a scripted upstream frame carrying a write_file call
+// content truncation fix (parseFinalParam's greedy body match) through the
+// real server pipeline: a scripted upstream frame carrying a write_file call
 // whose content contains its own ```bash example block, verified not to
 // truncate in the actual HTTP tool_calls response.
 func TestServerChatCompletionToolCall_ContentWithNestedFence(t *testing.T) {
 	content := "# Plan\n\nExample:\n\n```bash\necho hi\n```\n\nDone."
-	raw := "```write_file\npath: PLAN.md\n\n" + content + "\n```"
+	raw := `<invoke name="write_file"><parameter name="path">PLAN.md</parameter>` +
+		`<parameter name="content">` + content + `</parameter></invoke>`
 	srv, _ := newTestServer(t, [][]string{successFrame(raw)})
 
 	_, body := postChat(t, srv.URL, map[string]any{
@@ -365,7 +368,8 @@ func TestServerChatCompletionToolCall_ContentWithNestedFence(t *testing.T) {
 func TestServerChatCompletionToolCall_SelfWrappedContent(t *testing.T) {
 	intended := "# Plan\n\n## Overview\nDo the thing."
 	selfWrapped := "```markdown\n" + intended + "\n```"
-	raw := "```write_file\npath: PLAN.md\n\n" + selfWrapped + "\n```"
+	raw := `<invoke name="write_file"><parameter name="path">PLAN.md</parameter>` +
+		`<parameter name="content">` + selfWrapped + `</parameter></invoke>`
 	srv, _ := newTestServer(t, [][]string{successFrame(raw)})
 
 	_, body := postChat(t, srv.URL, map[string]any{
@@ -393,9 +397,11 @@ func TestServerChatCompletionToolCall_SelfWrappedContent(t *testing.T) {
 }
 
 func TestServerChatCompletionReplyToolBecomesText(t *testing.T) {
-	// "text" is the reply tool's sole (body) param, so it has no header line -
-	// the fence body IS the text argument verbatim.
-	srv, _ := newTestServer(t, [][]string{successFrame("```reply\nthe answer\n```")})
+	// "text" is the reply tool's sole (body) param, so it has no header
+	// parameter - the final <parameter> value IS the text argument verbatim.
+	srv, _ := newTestServer(t, [][]string{successFrame(
+		`<invoke name="reply"><parameter name="text">the answer</parameter></invoke>`,
+	)})
 	base := srv.URL
 	_, body := postChat(t, base, map[string]any{
 		"model":    "m365-copilot",
@@ -424,7 +430,7 @@ func TestServerChatCompletionReplyToolBecomesText(t *testing.T) {
 func TestServerChatCompletionConfabulationRetry(t *testing.T) {
 	frames := [][]string{
 		successFrame("I cannot access the files, please paste them here"),
-		successFrame("```bash\nls -la\n```"),
+		successFrame(`<invoke name="bash"><parameter name="command">ls -la</parameter></invoke>`),
 	}
 	srv, wsSrv := newTestServer(t, frames)
 	base := srv.URL
@@ -464,7 +470,7 @@ func TestServerChatCompletionToneFallbackAfterRepeatedHallucination(t *testing.T
 	frames := [][]string{
 		successFrame("I cannot access the files, `/mnt/data` is empty"),
 		successFrame("I cannot access the files, `/mnt/data` is still empty"),
-		successFrame("```list_files\n/tmp\n```"),
+		successFrame(`<invoke name="list_files"><parameter name="path">/tmp</parameter></invoke>`),
 	}
 	srv, wsSrv := newTestServer(t, frames)
 	base := srv.URL
@@ -551,15 +557,15 @@ func TestServerChatCompletionNoToneFallbackAfterSuccessfulToolCall(t *testing.T)
 	}
 }
 
-// A session with no shell tool must not be told to write a ```bash block on
-// retry -- BuildSpecMap only aliases that fence language onto a real tool
-// when a shell tool is registered, so asking for it here would never parse
-// into a call. The retry prompt must instead point at a real registered tool
+// A session with no shell tool must not be told to write a bash invoke on
+// retry -- BuildSpecMap only aliases that invoke name onto a real tool when
+// a shell tool is registered, so asking for it here would never parse into a
+// call. The retry prompt must instead point at a real registered tool
 // (list_files), and the model complying with that should succeed.
 func TestServerChatCompletionConfabulationRetryNoShellTool(t *testing.T) {
 	frames := [][]string{
 		successFrame("I cannot access the files, please paste them here"),
-		successFrame("```list_files\n/tmp\n```"),
+		successFrame(`<invoke name="list_files"><parameter name="path">/tmp</parameter></invoke>`),
 	}
 	srv, wsSrv := newTestServer(t, frames)
 	base := srv.URL
@@ -766,7 +772,9 @@ func TestServerModelsEndpointOverHTTP(t *testing.T) {
 // --- coverage: runStream tool-call branch, usage, error builders ---
 
 func TestServerChatCompletionStreamingToolCalls(t *testing.T) {
-	srv, _ := newTestServer(t, [][]string{successFrame("```bash\nls -la\n```")})
+	srv, _ := newTestServer(t, [][]string{successFrame(
+		`<invoke name="bash"><parameter name="command">ls -la</parameter></invoke>`,
+	)})
 	base := srv.URL
 
 	data, _ := json.Marshal(map[string]any{

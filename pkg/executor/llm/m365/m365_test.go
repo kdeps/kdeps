@@ -167,14 +167,40 @@ func TestRenderAndParseFencedRoundTrip(t *testing.T) {
 	}
 }
 
+// TestRenderAndParseFencedRoundTrip_EditPair covers the SEARCH/REPLACE-style
+// tool (edit_file) round-tripping through the XML invoke format: two
+// parameters (old, new) instead of the ASCII <<<<<<<SEARCH/=======/>>>>>>>
+// REPLACE block the prior Markdown-fence convention used.
+func TestRenderAndParseFencedRoundTrip_EditPair(t *testing.T) {
+	tools := []ToolDef{editToolDef()}
+	specs := BuildSpecMap(tools)
+	rendered := RenderFencedCall(specs["edit_file"], map[string]any{
+		"path": "app.go", "old": "debug = false", "new": "debug = true",
+	})
+	calls, leftover := ParseFencedToolCalls(rendered, specs)
+	if len(calls) != 1 {
+		t.Fatalf("got %d calls, leftover=%q, rendered=%q", len(calls), leftover, rendered)
+	}
+	var args map[string]any
+	if err := json.Unmarshal([]byte(calls[0].Arguments), &args); err != nil {
+		t.Fatal(err)
+	}
+	if args["path"] != "app.go" || args["old"] != "debug = false" || args["new"] != "debug = true" {
+		t.Errorf("args = %v", args)
+	}
+}
+
 // TestParseFencedToolCalls_ContentWithNestedFence is a regression test for a
 // live report: a write_file call whose content is a markdown document (e.g.
 // PLAN.md) containing its own ```-fenced code block was silently truncated
-// at that inner fence -- kdeps reported the write as "completed" but the
-// file on disk stopped right where the nested fence began, even though the
-// model's full raw text (visible in the REPL) was complete. A non-greedy
-// body match in fenceRegex stopped at the FIRST "```" it saw instead of the
-// real outer close.
+// at that inner fence under the old Markdown-fence tool-calling convention
+// -- kdeps reported the write as "completed" but the file on disk stopped
+// right where the nested fence began, even though the model's full raw text
+// (visible in the REPL) was complete. The XML <invoke>/<parameter>
+// convention this test now exercises is immune to a nested "```" the same
+// way the old greedy fenceRegex was made immune to it: the closing
+// </parameter> is a far rarer substring than "```" to find inside real file
+// content, and parseFinalParam is greedy through to the LAST occurrence.
 func TestParseFencedToolCalls_ContentWithNestedFence(t *testing.T) {
 	tools := []ToolDef{writeToolDef()}
 	specs := BuildSpecMap(tools)
@@ -212,7 +238,10 @@ func bashExecToolDef() ToolDef {
 // fence (e.g. a plan document showing an example command) -- unlike the
 // generic ```bash used in TestParseFencedToolCalls_ContentWithNestedFence,
 // here the nested fence's info-string is ITSELF a real registered tool
-// name, which is the scenario actually reported as still broken.
+// name. Under the XML convention this content is plain Markdown prose to
+// the parser (it contains no <invoke>/<parameter> tags at all), so it can
+// never be misparsed as a second call regardless of what tool name appears
+// inside it.
 func TestParseFencedToolCalls_ContentWithNestedRealToolName(t *testing.T) {
 	tools := []ToolDef{writeToolDef(), bashExecToolDef()}
 	specs := BuildSpecMap(tools)
@@ -364,22 +393,25 @@ func TestFraming_WarnsAgainstCallingToolsAsShellCommands(t *testing.T) {
 // case, so asking for it otherwise is a retry that can never parse into a
 // tool call.
 func TestForcePrompts_BashOnlyWithShellTool(t *testing.T) {
+	const bashInvoke = `<invoke name="bash">`
+
 	withShell := confabForcePrompt([]ToolDef{shellToolDef()})
-	if !strings.Contains(withShell, "```bash") {
-		t.Errorf("confabForcePrompt with a shell tool should ask for ```bash, got %q", withShell)
+	if !strings.Contains(withShell, bashInvoke) {
+		t.Errorf("confabForcePrompt with a shell tool should ask for %s, got %q", bashInvoke, withShell)
 	}
 	withShellHalluc := hallucinationForcePrompt([]ToolDef{shellToolDef()})
-	if !strings.Contains(withShellHalluc, "```bash") {
+	if !strings.Contains(withShellHalluc, bashInvoke) {
 		t.Errorf(
-			"hallucinationForcePrompt with a shell tool should ask for ```bash, got %q",
+			"hallucinationForcePrompt with a shell tool should ask for %s, got %q",
+			bashInvoke,
 			withShellHalluc,
 		)
 	}
 
 	withoutShell := confabForcePrompt([]ToolDef{writeToolDef()})
-	if strings.Contains(withoutShell, "Emit ONE ```bash") {
+	if strings.Contains(withoutShell, "Emit ONE "+bashInvoke) {
 		t.Errorf(
-			"confabForcePrompt without a shell tool must not ask for a ```bash block, got %q",
+			"confabForcePrompt without a shell tool must not ask for a bash invoke, got %q",
 			withoutShell,
 		)
 	}
@@ -390,9 +422,9 @@ func TestForcePrompts_BashOnlyWithShellTool(t *testing.T) {
 		)
 	}
 	withoutShellHalluc := hallucinationForcePrompt([]ToolDef{writeToolDef()})
-	if strings.Contains(withoutShellHalluc, "Emit ONE ```bash") {
+	if strings.Contains(withoutShellHalluc, "Emit ONE "+bashInvoke) {
 		t.Errorf(
-			"hallucinationForcePrompt without a shell tool must not ask for a ```bash block, got %q",
+			"hallucinationForcePrompt without a shell tool must not ask for a bash invoke, got %q",
 			withoutShellHalluc,
 		)
 	}
@@ -400,7 +432,10 @@ func TestForcePrompts_BashOnlyWithShellTool(t *testing.T) {
 
 func TestParseFencedShellRouting(t *testing.T) {
 	specs := BuildSpecMap([]ToolDef{shellToolDef()})
-	calls, _ := ParseFencedToolCalls("```bash\nls -la\n```", specs)
+	calls, _ := ParseFencedToolCalls(
+		`<invoke name="bash"><parameter name="command">ls -la</parameter></invoke>`,
+		specs,
+	)
 	if len(calls) != 1 || calls[0].Name != "bash" {
 		t.Fatalf("calls = %+v", calls)
 	}
@@ -481,7 +516,7 @@ func TestGetMessageContent(t *testing.T) {
 
 func TestParseToolCallsFenced(t *testing.T) {
 	tools := []ToolDef{shellToolDef()}
-	res := ParseToolCalls("```bash\necho hi\n```", tools)
+	res := ParseToolCalls(`<invoke name="bash"><parameter name="command">echo hi</parameter></invoke>`, tools)
 	if !res.HasToolCalls || len(res.ToolCalls) != 1 {
 		t.Fatalf("res = %+v", res)
 	}
@@ -1333,7 +1368,7 @@ func TestParseFencedInnerEditPairMismatch(t *testing.T) {
 func TestRenderFencedTemplateEditPair(t *testing.T) {
 	spec := DeriveFencedSpec(editToolDef())
 	tmpl := renderFencedTemplate(spec)
-	if !strings.Contains(tmpl, "SEARCH") || !strings.Contains(tmpl, "REPLACE") {
+	if !strings.Contains(tmpl, `<parameter name="old">`) || !strings.Contains(tmpl, `<parameter name="new">`) {
 		t.Errorf("template = %q", tmpl)
 	}
 }
@@ -1341,7 +1376,8 @@ func TestRenderFencedTemplateEditPair(t *testing.T) {
 func TestRenderFencedCallEditPair(t *testing.T) {
 	spec := DeriveFencedSpec(editToolDef())
 	out := RenderFencedCall(spec, map[string]any{"path": "a.py", "old": "x", "new": "y"})
-	if !strings.Contains(out, "<<<<<<< SEARCH") || !strings.Contains(out, ">>>>>>> REPLACE") {
+	if !strings.Contains(out, `<parameter name="old">x</parameter>`) ||
+		!strings.Contains(out, `<parameter name="new">y</parameter>`) {
 		t.Errorf("rendered edit call = %q", out)
 	}
 }
@@ -1930,12 +1966,15 @@ func TestDecodeJWTBadBase64(t *testing.T) {
 
 func TestParseFencedToolCallsNoMatch(t *testing.T) {
 	specs := BuildSpecMap([]ToolDef{shellToolDef()})
-	calls, leftover := ParseFencedToolCalls("```python\nprint(1)\n```", specs)
+	calls, leftover := ParseFencedToolCalls(
+		`<invoke name="python"><parameter name="code">print(1)</parameter></invoke>`,
+		specs,
+	)
 	if len(calls) != 0 {
-		t.Errorf("unknown fence language should not parse as a tool call: %+v", calls)
+		t.Errorf("unknown tool name should not parse as a tool call: %+v", calls)
 	}
 	if !strings.Contains(leftover, "python") {
-		t.Errorf("leftover should retain the untouched fence: %q", leftover)
+		t.Errorf("leftover should retain the untouched invoke block: %q", leftover)
 	}
 }
 
