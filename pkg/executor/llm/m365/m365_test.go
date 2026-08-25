@@ -190,6 +190,43 @@ func TestRenderAndParseFencedRoundTrip_EditPair(t *testing.T) {
 	}
 }
 
+// TestParseFencedToolCalls_ChainedInvokeDoesNotLeakIntoBody is a regression
+// test for a live report: the model chained a second real call
+// (<invoke name="task_complete">...) directly after a write_file call in the
+// same turn, despite the "one invoke per turn" framing rule. With
+// invokeRegex greedy to the LAST </invoke> in the whole text, the first
+// call's "content" parameter swallowed everything up to the second call's
+// own closing tags, and kdeps wrote
+// "...actual content</parameter></invoke>\n<invoke name=\"task_complete\">
+// <parameter name=\"task_id\">1</parameter>" literally into the file.
+// invokeRegex must recover each invoke scoped to its own nearest close tag.
+func TestParseFencedToolCalls_ChainedInvokeDoesNotLeakIntoBody(t *testing.T) {
+	tools := []ToolDef{writeToolDef(), bashExecToolDef()}
+	specs := BuildSpecMap(tools)
+	content := "line one\nline two"
+	raw := `<invoke name="write_file"><parameter name="path">PLAN.md</parameter>` +
+		`<parameter name="content">` + content + `</parameter></invoke>` +
+		"\n" +
+		`<invoke name="bash_exec"><parameter name="command">echo done</parameter></invoke>`
+	calls, _ := ParseFencedToolCalls(raw, specs)
+	if len(calls) != 2 {
+		t.Fatalf("got %d calls, want 2: %+v", len(calls), calls)
+	}
+	if calls[0].Name != "write_file" {
+		t.Fatalf("calls[0] = %+v, want write_file", calls[0])
+	}
+	var args map[string]any
+	if err := json.Unmarshal([]byte(calls[0].Arguments), &args); err != nil {
+		t.Fatal(err)
+	}
+	if args["content"] != content {
+		t.Errorf("second chained invoke leaked into content:\ngot:  %q\nwant: %q", args["content"], content)
+	}
+	if calls[1].Name != "bash_exec" {
+		t.Fatalf("calls[1] = %+v, want bash_exec", calls[1])
+	}
+}
+
 // TestParseFencedToolCalls_ContentWithNestedFence is a regression test for a
 // live report: a write_file call whose content is a markdown document (e.g.
 // PLAN.md) containing its own ```-fenced code block was silently truncated

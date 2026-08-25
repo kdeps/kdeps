@@ -90,17 +90,23 @@ var shellToolName = regexp.MustCompile(
 
 var commandParamName = regexp.MustCompile(`(?i)^(command|cmd|script|input)$`)
 
-// invokeRegex's body capture is greedy ((?s).*), matching through to the LAST
-// closing </invoke> in the text rather than the first. Mirrors the same
-// reasoning the prior fenced-Markdown parser needed: the framing prompts
-// (baselineFraming/minimalFraming/softenedFraming below) explicitly require
-// "ONE invoke block... No prose, no second invoke, no commentary before or
-// after" -- a well-formed response never has a second real </invoke> for this
-// to over-consume into, and every caller of ParseInvokeToolCalls only ever
-// reads calls[0] anyway. Being greedy protects against a parameter's own
-// value containing a literal "</invoke>" substring (rare, but not
-// impossible) truncating the real call early.
-var invokeRegex = regexp.MustCompile(`(?s)<invoke name="([A-Za-z0-9_.\-]+)">(.*)</invoke>`)
+// invokeRegex's body capture is non-greedy ((?s).*?), matching through to the
+// FIRST closing </invoke> after each opening tag -- NOT the last. This was
+// greedy in an earlier version on the theory that the framing prompts'
+// "ONE invoke block per turn" rule made a second real </invoke> impossible
+// to over-consume into. That assumption was proven false live: the model
+// chained a second call (write_file immediately followed by
+// <invoke name="task_complete">...) in the same turn despite the
+// instruction, and the greedy match swallowed the second invoke's raw XML
+// into the first call's body parameter -- writing "</parameter></invoke>
+// <invoke name=\"task_complete\">..." literally into the file. Multiple
+// chained real invokes are a live-confirmed, real failure mode; a literal
+// "</invoke>" substring inside a parameter's own value is a much rarer,
+// theoretical one. Non-greedy correctly scopes each invoke to its own
+// nearest close tag, so FindAllStringSubmatch below recovers every real call
+// in the response instead of only the first (with the rest mangled into its
+// body).
+var invokeRegex = regexp.MustCompile(`(?s)<invoke name="([A-Za-z0-9_.\-]+)">(.*?)</invoke>`)
 
 const parameterCloseTag = "</parameter>"
 
@@ -556,11 +562,12 @@ func stripRedundantOuterFence(content string) string {
 }
 
 // parseFinalParam extracts the last parameter's value: everything after its
-// open tag through to the LAST occurrence of the close tag in rest (greedy,
-// for the same reason invokeRegex's body capture is greedy -- the value may
-// itself contain a literal "</parameter>"-shaped substring in pathological
-// content, and the framing prompts guarantee this is the only remaining
-// parameter in a well-formed call).
+// open tag through to the LAST occurrence of the close tag in rest (greedy).
+// rest is already scoped to a single invoke's own inner text (invokeRegex is
+// non-greedy per call, so a second real invoke chained after this one is
+// never part of rest) -- the only remaining risk this greedy match protects
+// against is the value itself containing a literal "</parameter>"-shaped
+// substring, which is far rarer than a second chained call turned out to be.
 func parseFinalParam(rest, name string) (string, bool) {
 	open := `<parameter name="` + name + `">`
 	idx := strings.Index(rest, open)
