@@ -13,29 +13,6 @@
 
 Build and deploy AI agents in YAML. Two modes: **workflow** (DAG pipelines), **agent** (autonomous LLM loop). Git-native: everything lives in versionable YAML you commit to your repo like any other code.
 
-## Run the agent
-
-An autonomous LLM agent in your terminal. It plans, calls tools (web search, http, python, exec, sql, bash, file ops), keeps memory across turns, and drives every prompt to a finished result. Point it at a folder and each workflow inside becomes a callable tool.
-
-```bash
-kdeps                              # runs the agent loop REPL
-kdeps --model deepseek-v4-flash    # pass a specific model
-kdeps --resume <session-id>        # continue a saved session
-```
-
-```text
-kdeps agent  ~/Projects/acme  ·  /help for commands  ·  Ctrl+D to exit
-──────────────────────────────────────────────────────────────
-deepseek-v4-flash · 2.1k/64k · mem:231 · task:2/5 · turo:ultra
-> ship the release notes for v0.4
-[web_search -> v0.4 changelog] ... done (0.8s)
-[read_file -> CHANGELOG.md] ... done
-[goal] task 2 done — continuing with task 3: draft notes
-...
-```
-
-Every prompt becomes a task plan the agent is driven through to completion — no circling, no dead stops. An auto-generated judge panel reviews each turn's final output with real tool access and can send it back for revision before you see it (`/judges auto off` to disable). Runtime controls: `/goal` steer the plan, `/judges` configure or disable the review panel, `/model` switch models mid-session, `/turo` tune the token reducer, `/thinking` toggle reasoning. Set a cloud key (`DEEPSEEK_API_KEY`, `ANTHROPIC_API_KEY`, ...) or run a local model — kdeps downloads and serves it for you.
-
 ## Install
 
 ```bash
@@ -81,7 +58,7 @@ Docs: [Workflow Mode](https://kdeps.com/modes/workflow-mode) · [Resources Overv
 
 ### Agent mode
 
-Autonomous LLM loop: every workflow becomes a callable tool, and the LLM decides which to call, in what order, to complete the task. Runs as an interactive REPL until you exit (Ctrl+D) — see [Run the agent](#run-the-agent) above for the REPL itself.
+Autonomous LLM loop: every workflow becomes a callable tool, and the LLM decides which to call, in what order, to complete the task. Runs as an interactive REPL until you exit (Ctrl+D).
 
 ```bash
 kdeps # agent loop REPL
