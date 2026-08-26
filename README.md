@@ -56,7 +56,7 @@ kdeps run workflow.yaml --dev    # hot reload
 
 Docs: [Workflow Mode](https://kdeps.com/modes/workflow-mode) · [Resources Overview](https://kdeps.com/resources/overview) · [Expressions](https://kdeps.com/concepts/expressions)
 
-### Agent mode
+### Agent Loop mode
 
 Autonomous LLM loop: every workflow becomes a callable tool, and the LLM decides which to call, in what order, to complete the task. Runs as an interactive REPL until you exit (Ctrl+D).
 
