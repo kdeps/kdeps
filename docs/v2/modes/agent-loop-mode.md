@@ -8,7 +8,7 @@ Running `kdeps` with no arguments starts a model-only REPL with no workflow tool
 
 ```bash
 kdeps                              # model-only REPL, no tools
-kdeps ./my-agent/                  # one workflow = one tool
+kdeps ./my-agent/                  # loads one workflow as one tool
 kdeps ./agents/                    # every workflow in the folder becomes a tool
 kdeps ./my-agent/ --model llama3.2 --system "You are a DevOps assistant."  # override model/system prompt
 kdeps --skill ~/.kdeps/skills/     # load skill files
@@ -1106,8 +1106,8 @@ Both settings can also be tuned with `/model tool set rounds <n>` and `/model to
 ## Single workflow vs folder
 
 ```bash
-kdeps ./my-agent/     # One workflow = one tool (named after metadata.name)
-kdeps ./agents/       # Folder = every workflow and agency inside becomes a separate tool
+kdeps ./my-agent/     # loads one workflow as one tool (named after metadata.name)
+kdeps ./agents/       # loads every workflow and agency in the folder as a separate tool
 ```
 
 When you point to a folder, kdeps discovers every workflow and agency file inside it (recursively). Each becomes a separate tool. The tool name is `metadata.name` from the workflow's manifest -- not the filename.

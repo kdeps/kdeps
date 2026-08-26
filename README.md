@@ -19,7 +19,7 @@ An autonomous LLM agent in your terminal. It plans, calls tools (web search, htt
 
 ```bash
 kdeps                              # model-only REPL, no tools
-kdeps ./my-agent/                  # one workflow = one tool
+kdeps ./my-agent/                  # loads one workflow as one tool
 kdeps ./agents/                    # every workflow in the folder becomes a tool
 kdeps ./my-agent/ --model deepseek-v4-flash --system "You are a DevOps assistant."  # override model/system prompt
 kdeps --resume <session-id>        # continue a saved session
