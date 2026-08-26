@@ -7,7 +7,7 @@ Running `kdeps` with no arguments starts a bare REPL with no workflow tools -- b
 ## Starting the agent loop
 
 ```bash
-kdeps                              # bare REPL, no workflow tools (built-in tools like web_search/bash_exec still work)
+kdeps                              # runs the agent loop REPL
 kdeps ./my-agent/                  # loads one workflow as one tool
 kdeps ./agents/                    # every workflow in the folder becomes a tool
 kdeps ./my-agent/ --model llama3.2 --system "You are a DevOps assistant."  # override model/system prompt
@@ -1172,12 +1172,14 @@ F -> G: no
 
 ## Tool registration
 
-| Target | Workflow/agency/component tools registered | Built-in tools (web_search, bash_exec, file ops, etc.) |
-|--------|-----------------|-----------------|
-| No path | None | Always registered |
-| Single workflow file/dir | One tool (`metadata.name`) + one tool per component | Always registered |
-| Single agency file | One tool (`agency metadata.name`) | Always registered |
-| Folder | One tool per workflow/agency found recursively + component tools | Always registered |
+Built-in tools (web_search, bash_exec, file ops, memory, etc.) are always registered regardless of path. Workflow/agency/component tools depend on what you point at:
+
+| Target | Workflow/agency/component tools registered |
+|--------|-----------------|
+| No path | None |
+| Single workflow file/dir | One tool (`metadata.name`) + one tool per component |
+| Single agency file | One tool (`agency metadata.name`) |
+| Folder | One tool per workflow/agency found recursively + component tools |
 
 ## Command
 
