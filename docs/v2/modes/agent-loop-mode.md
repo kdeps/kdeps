@@ -8,12 +8,12 @@ Running `kdeps` with no arguments starts a bare REPL with no workflow tools -- b
 
 ```bash
 kdeps                              # runs the agent loop REPL
-kdeps ./my-agent/                  # registers the workflow as an LLM-callable tool
-kdeps ./agents/                    # registers every workflow in the folder as an LLM-callable tool
-kdeps ./my-agent/ --model llama3.2 --system "You are a DevOps assistant."  # override model/system prompt
+kdeps --model llama3.2 --system "You are a DevOps assistant."  # override model/system prompt
 kdeps --skill ~/.kdeps/skills/     # load skill files
 kdeps --resume <session-id>        # continue a saved session
 ```
+
+Pass a workflow or agency path to register it as a tool -- see [Single workflow vs folder](#single-workflow-vs-folder) below.
 
 ## REPL slash commands
 
