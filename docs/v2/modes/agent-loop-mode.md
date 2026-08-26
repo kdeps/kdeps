@@ -1218,6 +1218,7 @@ KDEPS_AGENT_BACKEND=file              # default: local llamafile
 # Bare REPL, no workflow tools
 kdeps
 
+# Advanced usage: point at a workflow or agency directory to register it as a tool
 # Registers the workflow as an LLM-callable tool
 kdeps ./my-agent/
 

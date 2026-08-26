@@ -84,6 +84,7 @@ Docs: [Workflow Mode](https://kdeps.com/modes/workflow-mode) · [Resources Overv
 Autonomous LLM loop: every workflow becomes a callable tool, and the LLM decides which to call, in what order, to complete the task. Runs as an interactive REPL until you exit (Ctrl+D) — see [Run the agent](#run-the-agent) above for the REPL itself.
 
 ```bash
+# Advanced usage: point at a workflow or agency directory to register it as a tool
 kdeps ./my-agent/                                                        # registers the workflow as an LLM-callable tool
 kdeps ./my-agent/ --model llama3.2 --system "You are a DevOps assistant."  # override model/system prompt
 ```
