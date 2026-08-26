@@ -5,7 +5,7 @@ Workflow mode runs a deterministic DAG pipeline: a request arrives, resources ex
 Run with:
 
 ```bash
-kdeps run workflow.yaml
+kdeps run workflow.yaml    # or kdeps run ./my-agent/ to point at a directory containing workflow.yaml
 ```
 
 ## How it works

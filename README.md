@@ -75,6 +75,7 @@ DAG-deterministic request/response pipelines: each resource declares its depende
 
 ```bash
 kdeps run workflow.yaml          # local, instant startup
+kdeps run ./my-agent/            # or point at a directory containing workflow.yaml
 kdeps run workflow.yaml --dev    # hot reload
 ```
 

@@ -7,11 +7,12 @@ Commands for local development: run, agent REPL, validate, scaffold, configure, 
 Run a workflow locally (default execution mode).
 
 ```bash
-kdeps run [workflow.yaml | package.kdeps] [flags]
+kdeps run [workflow.yaml | directory | package.kdeps] [flags]
 ```
 
 **Arguments:**
-- `workflow.yaml` -- Path to workflow file or directory containing `workflow.yaml`
+- `workflow.yaml` -- Path to a workflow file
+- `directory` -- Path to a directory containing `workflow.yaml`
 - `package.kdeps` -- Path to packaged workflow file
 
 **Flags:**
@@ -28,6 +29,7 @@ kdeps run [workflow.yaml | package.kdeps] [flags]
 ```bash
 export KDEPS_API_AUTH_TOKEN=dev-token      # Required when apiServer is configured
 kdeps run workflow.yaml                    # Run from file
+kdeps run ./my-agent/                      # Run from a directory containing workflow.yaml
 kdeps run myapp.kdeps                      # Run from package
 kdeps run workflow.yaml --dev              # Hot reload
 kdeps run workflow.yaml --debug            # Debug logging
