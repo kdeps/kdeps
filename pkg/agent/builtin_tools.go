@@ -37,8 +37,8 @@ import (
 	"github.com/spf13/afero"
 
 	"github.com/kdeps/kdeps/v2/pkg/domain"
-	execSearch "github.com/kdeps/kdeps/v2/pkg/executor/searchlocal"
 	"github.com/kdeps/kdeps/v2/pkg/executor/llm/toolguard"
+	execSearch "github.com/kdeps/kdeps/v2/pkg/executor/searchlocal"
 	kdepstools "github.com/kdeps/kdeps/v2/pkg/tools"
 
 	lcllms "github.com/tmc/langchaingo/llms"

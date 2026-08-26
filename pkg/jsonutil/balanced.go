@@ -33,31 +33,46 @@ func ScanBalancedObject(text string, start int) (int, bool) {
 	if start >= len(text) || text[start] != '{' {
 		return 0, false
 	}
-	depth := 0
-	inString := false
-	escaped := false
+	var st jsonScanState
 	for i := start; i < len(text); i++ {
-		c := text[i]
-		switch {
-		case escaped:
-			escaped = false
-		case inString:
-			switch c {
-			case '\\':
-				escaped = true
-			case '"':
-				inString = false
-			}
-		case c == '"':
-			inString = true
-		case c == '{':
-			depth++
-		case c == '}':
-			depth--
-			if depth == 0 {
-				return i + 1, true
-			}
+		if st.step(text[i]) {
+			return i + 1, true
 		}
 	}
 	return 0, false
+}
+
+// jsonScanState tracks brace depth and quoted-string context while scanning
+// one character at a time, kept separate from ScanBalancedObject's loop so
+// each function stays simple on its own (a single function combining both
+// pushed this package's average cyclomatic complexity over the repo's
+// cyclop threshold).
+type jsonScanState struct {
+	depth    int
+	inString bool
+	escaped  bool
+}
+
+// step advances the scan by one character. It returns true when this
+// character closed the outermost object (depth returned to zero).
+func (s *jsonScanState) step(c byte) bool {
+	switch {
+	case s.escaped:
+		s.escaped = false
+	case s.inString:
+		switch c {
+		case '\\':
+			s.escaped = true
+		case '"':
+			s.inString = false
+		}
+	case c == '"':
+		s.inString = true
+	case c == '{':
+		s.depth++
+	case c == '}':
+		s.depth--
+		return s.depth == 0
+	}
+	return false
 }

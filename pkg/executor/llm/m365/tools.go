@@ -348,7 +348,6 @@ func parseJSONToolCalls(text string) ([]ParsedToolCall, string) {
 	return calls, remaining
 }
 
-
 var markdownHeaderRegex = regexp.MustCompile(`(?m)^#{1,6}\s`)
 
 // IsProseDocument reports whether a reply is a written document (prose with many
