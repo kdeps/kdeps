@@ -89,7 +89,7 @@ Docs: [Agencies](https://kdeps.com/concepts/agency) · Example: [`examples/agenc
 
 ```bash
 kdeps bundle build          # Docker image
-kdeps export iso            # bootable edge ISO
+kdeps bundle export iso     # bootable edge ISO
 kdeps bundle prepackage     # self-contained binary per arch
 kdeps export k8s            # Kubernetes manifests
 ```
