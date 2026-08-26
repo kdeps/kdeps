@@ -2,12 +2,12 @@
 
 Agent loop mode starts an interactive LLM REPL where whole workflows and components are registered as callable tools. The LLM decides which tool to invoke based on the user's prompt. Workflow tools run the full pipeline atomically so all `requires:` dependencies resolve correctly.
 
-Running `kdeps` with no arguments starts a model-only REPL with no workflow tools. Pass a path to load workflows/agencies as tools.
+Running `kdeps` with no arguments starts a bare REPL with no workflow tools -- built-in tools (web_search, bash_exec, file ops, memory, etc.) are still available. Pass a path to also load workflows/agencies as tools.
 
 ## Starting the agent loop
 
 ```bash
-kdeps                              # model-only REPL, no tools
+kdeps                              # bare REPL, no workflow tools (built-in tools like web_search/bash_exec still work)
 kdeps ./my-agent/                  # loads one workflow as one tool
 kdeps ./agents/                    # every workflow in the folder becomes a tool
 kdeps ./my-agent/ --model llama3.2 --system "You are a DevOps assistant."  # override model/system prompt
@@ -1172,12 +1172,12 @@ F -> G: no
 
 ## Tool registration
 
-| Target | Tools registered |
-|--------|-----------------|
-| No path (model-only) | None -- pure LLM conversation |
-| Single workflow file/dir | One tool (`metadata.name`) + one tool per component |
-| Single agency file | One tool (`agency metadata.name`) |
-| Folder | One tool per workflow/agency found recursively + component tools |
+| Target | Workflow/agency/component tools registered | Built-in tools (web_search, bash_exec, file ops, etc.) |
+|--------|-----------------|-----------------|
+| No path | None | Always registered |
+| Single workflow file/dir | One tool (`metadata.name`) + one tool per component | Always registered |
+| Single agency file | One tool (`agency metadata.name`) | Always registered |
+| Folder | One tool per workflow/agency found recursively + component tools | Always registered |
 
 ## Command
 
