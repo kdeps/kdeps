@@ -70,7 +70,7 @@ Send a chat message to the LLM.
 ```json
 {
   "success": true,
-  "response": {
+  "data": {
     "message": "AI (Artificial Intelligence) is...",
     "model": "llama3.2:1b",
     "query": "What is AI?"
@@ -86,7 +86,7 @@ Get list of available models.
 ```json
 {
   "success": true,
-  "response": {
+  "data": {
     "models": [
       {"id": "llama3.2:1b", "name": "Llama 3.2 (1B)", "description": "..."},
       ...
@@ -121,7 +121,7 @@ selector in `public/index.html`.
 Build a Docker image with pre-loaded models:
 
 ```bash
-kdeps build workflow.yaml
+kdeps bundle build workflow.yaml
 ```
 
 The resulting image will include:

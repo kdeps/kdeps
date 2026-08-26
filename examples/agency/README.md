@@ -65,19 +65,19 @@ An agency directory can be packed into a single portable `.kagency` archive
 
 ```bash
 # Package the agency → produces greeter-agency-1.0.0.kagency
-kdeps package examples/agency/
+kdeps bundle package examples/agency/
 
 # Run the packed agency
 kdeps run greeter-agency-1.0.0.kagency
 
 # Build a Docker image from the packed agency (uses the entry-point agent)
-kdeps build greeter-agency-1.0.0.kagency
+kdeps bundle build greeter-agency-1.0.0.kagency
 
 # Export as a bootable ISO
 kdeps export iso greeter-agency-1.0.0.kagency
 
 # Embed in a self-contained binary (no separate kdeps install needed)
-kdeps prepackage greeter-agency-1.0.0.kagency --output my-greeter
+kdeps bundle prepackage greeter-agency-1.0.0.kagency --output my-greeter
 ./my-greeter   # auto-detects and runs the embedded .kagency
 ```
 
@@ -85,7 +85,7 @@ kdeps prepackage greeter-agency-1.0.0.kagency --output my-greeter
 
 Individual agents can also be distributed as `.kdeps` archive files.  To use a packed agent:
 
-1. Package the agent: `kdeps package agents/responder`
+1. Package the agent: `kdeps bundle package agents/responder`
 2. Place the resulting `responder-agent-1.0.0.kdeps` file in the `agents/` directory.
 3. Reference it in `agency.yaml`:
 

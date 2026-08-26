@@ -71,7 +71,7 @@ multiple Telegram bot workflows.
 To package the component as a shareable `.komponent` archive:
 
 ```bash
-kdeps package components/botreply --output components/
+kdeps bundle package components/botreply --output components/
 ```
 
 ## Key Expressions

@@ -24,8 +24,8 @@ agentSettings:
 
 **GPU builds auto-select Ubuntu:**
 ```bash
-kdeps build .              # CPU: alpine (or workflow baseOS)
-kdeps build . --gpu cuda   # GPU: ubuntu + official ollama/ollama when Ollama is enabled
+kdeps bundle build .              # CPU: alpine (or workflow baseOS)
+kdeps bundle build . --gpu cuda   # GPU: ubuntu + official ollama/ollama when Ollama is enabled
 ```
 
 ### OS Packages
@@ -98,7 +98,7 @@ agentSettings:
 
 **Build:**
 ```bash
-kdeps build .
+kdeps bundle build .
 ```
 
 **Result:** ~70MB Ollama base (`alpine/ollama`) plus kdeps layers
@@ -128,7 +128,7 @@ resources:
 
 **Build:**
 ```bash
-kdeps build .
+kdeps bundle build .
 ```
 
 **Result:** Ubuntu image without Ollama (uses cloud APIs)
@@ -151,7 +151,7 @@ agentSettings:
 
 **Build:**
 ```bash
-kdeps build .
+kdeps bundle build .
 ```
 
 **Result:** Ubuntu image with PostgreSQL client and Redis tools
@@ -178,7 +178,7 @@ agentSettings:
 
 **Build:**
 ```bash
-kdeps build . --tag datascience:latest
+kdeps bundle build . --tag datascience:latest
 ```
 
 ---
@@ -187,10 +187,10 @@ kdeps build . --tag datascience:latest
 
 ```bash
 # Preview what will be generated
-kdeps build . --show-dockerfile
+kdeps bundle build . --show-dockerfile
 
 # Preview with Ubuntu baseOS in workflow.yaml
-kdeps build . --show-dockerfile
+kdeps bundle build . --show-dockerfile
 ```
 
 ### Example Output (Alpine + Ollama):
@@ -272,7 +272,7 @@ agentSettings:
 ### 2. `--gpu` Flag
 
 ```bash
-kdeps build . --gpu cuda
+kdeps bundle build . --gpu cuda
 ```
 
 **Result:** Ubuntu + `ollama/ollama` when Ollama is enabled
@@ -340,7 +340,7 @@ kdeps run workflow.yaml --dev
 curl -X POST 'http://localhost:16395/api/v1/chat?q=Hello'
 
 # Build Docker image
-kdeps build . --tag docker-config:latest
+kdeps bundle build . --tag docker-config:latest
 
 # Run Docker image
 docker run -p 16395:16395 docker-config:latest

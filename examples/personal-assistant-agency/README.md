@@ -216,13 +216,13 @@ Or wire it to a cron job / cloud scheduler to run every 30 minutes:
 
 ```bash
 # Package as a portable .kagency archive
-kdeps package examples/personal-assistant-agency/
+kdeps bundle package examples/personal-assistant-agency/
 
 # Run the packed agency
 kdeps run personal-assistant-1.0.0.kagency
 
 # Build a Docker image
-kdeps build personal-assistant-1.0.0.kagency
+kdeps bundle build personal-assistant-1.0.0.kagency
 
 # Export as a self-booting ISO
 kdeps export iso personal-assistant-1.0.0.kagency

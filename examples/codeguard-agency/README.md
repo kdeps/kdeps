@@ -43,18 +43,21 @@ curl -X POST https://<your-deployment>.kdeps.io/api/v1/review \
 
 ```json
 {
-  "overall_score": 3,
-  "risk_level": "critical",
-  "executive_summary": "The code contains a critical shell-injection vulnerability ...",
-  "top_priorities": [
-    { "priority": 1, "title": "Remove shell=True", "rationale": "..." },
-    { "priority": 2, "title": "Validate command input", "rationale": "..." },
-    { "priority": 3, "title": "Add error handling", "rationale": "..." }
-  ],
-  "security": { "severity": "critical", "findings": [...], "summary": "..." },
-  "quality":  { "score": 4, "suggestions": [...], "summary": "..." },
-  "next_steps": ["Parameterise command args", "Add allow-list validation", "..."],
-  "estimated_fix_effort": "small"
+  "success": true,
+  "data": {
+    "overall_score": 3,
+    "risk_level": "critical",
+    "executive_summary": "The code contains a critical shell-injection vulnerability ...",
+    "top_priorities": [
+      { "priority": 1, "title": "Remove shell=True", "rationale": "..." },
+      { "priority": 2, "title": "Validate command input", "rationale": "..." },
+      { "priority": 3, "title": "Add error handling", "rationale": "..." }
+    ],
+    "security": { "severity": "critical", "findings": [...], "summary": "..." },
+    "quality":  { "score": 4, "suggestions": [...], "summary": "..." },
+    "next_steps": ["Parameterise command args", "Add allow-list validation", "..."],
+    "estimated_fix_effort": "small"
+  }
 }
 ```
 

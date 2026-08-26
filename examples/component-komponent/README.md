@@ -62,7 +62,7 @@ Expected output:
 
 2. Package it:
    ```bash
-   kdeps package my-component --output .
+   kdeps bundle package my-component --output .
    # Creates my-component-1.0.0.komponent
    ```
 
