@@ -95,6 +95,16 @@ func Fresh(ctx context.Context) (CheckResult, error) {
 	return result, nil
 }
 
+// FreshNightly always performs a live nightly-channel check. Never reads or
+// writes the stable-channel cache: nightly opt-in (/upgrade nightly,
+// --upgrade --nightly) is always an explicit, one-off action, never the
+// routine startup check CachedOrFresh serves, so there's nothing to cache
+// against and no reason to let a nightly check disturb the stable cache
+// CachedOrFresh relies on.
+func FreshNightly(ctx context.Context) (CheckResult, error) {
+	return CheckNightly(ctx)
+}
+
 func readCache() (cacheEntry, bool) {
 	path := cachePath()
 	if path == "" {

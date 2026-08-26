@@ -49,6 +49,11 @@ type CheckResult struct {
 //nolint:gochecknoglobals // test-replaceable hook
 var latestStableFunc = gh.LatestStableReleaseTag
 
+// latestNightlyFunc is gh.LatestNightlyReleaseTag, overridable in tests.
+//
+//nolint:gochecknoglobals // test-replaceable hook
+var latestNightlyFunc = gh.LatestNightlyReleaseTag
+
 // Check compares the running version (pkg/version.Version) against the
 // latest stable kdeps release on GitHub. Always performs a live network
 // call; callers on a hot/frequent path (e.g. process startup) should use
@@ -65,6 +70,33 @@ func checkAgainst(ctx context.Context, current string) (CheckResult, error) {
 	result := CheckResult{Current: current, Latest: latest}
 	result.Available = versionLess(current, latest)
 	return result, nil
+}
+
+// CheckNightly compares the running version against the latest nightly
+// kdeps release on GitHub. Unlike Check, Available is a plain string
+// inequality rather than a semver comparison: a nightly tag
+// ("vX.Y.Z-nightlyNNNN") reuses the CURRENT stable version's X.Y.Z as its
+// base until the next stable release ships, so strict semver precedence
+// rules a prerelease suffix as OLDER than its own base release -- which
+// would report a real, newer nightly build as "no update available" for
+// anyone running the stable X.Y.Z it was cut from. Nightly opt-in is always
+// an explicit, deliberate action (never the default auto-check), so simply
+// offering "whatever the latest nightly is, unless you're already on it" is
+// the right behavior, matching how other tools' nightly/insiders channels work.
+func CheckNightly(ctx context.Context) (CheckResult, error) {
+	return checkNightlyAgainst(ctx, version.Version)
+}
+
+func checkNightlyAgainst(ctx context.Context, current string) (CheckResult, error) {
+	latest, err := latestNightlyFunc(ctx, kdepsReleaseRepo)
+	if err != nil {
+		return CheckResult{}, err
+	}
+	return CheckResult{
+		Current:   current,
+		Latest:    latest,
+		Available: current != latest,
+	}, nil
 }
 
 // versionLess reports whether a is an older version than b, comparing as

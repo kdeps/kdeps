@@ -157,6 +157,91 @@ func TestCmdUpgrade_PerformFails(t *testing.T) {
 	require.NoError(t, repl.cmdUpgrade(nil), "a failed upgrade must not error the REPL loop")
 }
 
+// stubUpgradeNightlyHooks mirrors stubUpgradeHooks but stubs
+// upgradeFreshNightlyFunc instead of upgradeFreshFunc, for "/upgrade nightly".
+func stubUpgradeNightlyHooks(
+	t *testing.T,
+	freshNightly func(context.Context) (upgrade.CheckResult, error),
+	detect func() upgrade.Method,
+	perform func(context.Context, io.Writer, string) error,
+) {
+	t.Helper()
+	origFreshNightly, origDetect, origPerform := upgradeFreshNightlyFunc, upgradeDetectFunc, upgradePerformFunc
+	if freshNightly != nil {
+		upgradeFreshNightlyFunc = freshNightly
+	}
+	if detect != nil {
+		upgradeDetectFunc = detect
+	}
+	if perform != nil {
+		upgradePerformFunc = perform
+	}
+	t.Cleanup(func() {
+		upgradeFreshNightlyFunc, upgradeDetectFunc, upgradePerformFunc = origFreshNightly, origDetect, origPerform
+	})
+}
+
+func TestCmdUpgrade_Nightly_UsesNightlyCheckFunc(t *testing.T) {
+	loop := makeTestLoop(nil)
+	repl := NewREPL(context.Background(), loop)
+	defer repl.cancel()
+
+	stableCalled := false
+	stubUpgradeHooks(t, func(context.Context) (upgrade.CheckResult, error) {
+		stableCalled = true
+		return upgrade.CheckResult{Current: "2.9.0", Latest: "2.9.0", Available: false}, nil
+	}, nil, nil)
+	stubUpgradeNightlyHooks(t, func(context.Context) (upgrade.CheckResult, error) {
+		return upgrade.CheckResult{
+			Current: "2.9.0-nightly202608260200", Latest: "2.9.0-nightly202608260200", Available: false,
+		}, nil
+	}, nil, nil)
+
+	require.NoError(t, repl.cmdUpgrade([]string{"nightly"}))
+	assert.False(t, stableCalled, "/upgrade nightly must not hit the stable-channel check")
+}
+
+func TestCmdUpgrade_Nightly_NonStandaloneGetsNightlySpecificInstructions(t *testing.T) {
+	loop := makeTestLoop(nil)
+	repl := NewREPL(context.Background(), loop)
+	defer repl.cancel()
+
+	performCalled := false
+	stubUpgradeNightlyHooks(t,
+		func(context.Context) (upgrade.CheckResult, error) {
+			return upgrade.CheckResult{
+				Current: "2.9.0", Latest: "2.9.0-nightly202608260200", Available: true,
+			}, nil
+		},
+		func() upgrade.Method { return upgrade.MethodHomebrew },
+		func(context.Context, io.Writer, string) error { performCalled = true; return nil },
+	)
+
+	require.NoError(t, repl.cmdUpgrade([]string{"nightly"}))
+	assert.False(t, performCalled, "must never self-replace for a Homebrew install")
+}
+
+func TestCmdUpgrade_Nightly_StandaloneConfirmedInstallsNightlyTag(t *testing.T) {
+	t.Setenv("KDEPS_YES", "1")
+	loop := makeTestLoop(nil)
+	repl := NewREPL(context.Background(), loop)
+	defer repl.cancel()
+
+	var gotTag string
+	stubUpgradeNightlyHooks(t,
+		func(context.Context) (upgrade.CheckResult, error) {
+			return upgrade.CheckResult{
+				Current: "2.9.0", Latest: "2.9.0-nightly202608260200", Available: true,
+			}, nil
+		},
+		func() upgrade.Method { return upgrade.MethodStandalone },
+		func(_ context.Context, _ io.Writer, tag string) error { gotTag = tag; return nil },
+	)
+
+	require.NoError(t, repl.cmdUpgrade([]string{"nightly"}))
+	assert.Equal(t, "2.9.0-nightly202608260200", gotTag)
+}
+
 func TestDispatchCommand_Upgrade(t *testing.T) {
 	loop := makeTestLoop(nil)
 	repl := NewREPL(context.Background(), loop)

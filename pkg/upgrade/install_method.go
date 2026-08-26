@@ -112,3 +112,23 @@ func InstructionsFor(m Method) string {
 		return ""
 	}
 }
+
+// InstructionsForNightly returns upgrade instructions for a non-standalone
+// install method when the nightly channel was requested. Homebrew/.deb/.apk
+// only ever track the latest STABLE release -- InstructionsFor's commands
+// for those methods would silently give the user a stable build, not the
+// nightly they asked for -- so this points them at a standalone install
+// instead of a misleading package-manager command. Empty for
+// MethodStandalone, since that case is handled by Perform instead.
+func InstructionsForNightly(m Method) string {
+	switch m {
+	case MethodHomebrew, MethodDebPkg, MethodApkPkg:
+		return "Nightly builds aren't available through your package manager (it only tracks stable releases). " +
+			"Download a nightly archive directly from https://github.com/" + kdepsReleaseRepo +
+			"/releases, or switch to a standalone install to use --upgrade --nightly / /upgrade nightly directly."
+	case MethodStandalone:
+		return ""
+	default:
+		return ""
+	}
+}

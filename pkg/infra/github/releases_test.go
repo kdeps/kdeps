@@ -362,3 +362,105 @@ func TestLatestStableReleaseTag_Wrapper(t *testing.T) {
 	}
 	assert.NotEmpty(t, tag)
 }
+
+func TestLatestNightlyReleaseTagFromAPI_PicksNewestNightlySkipsStableAndDraft(t *testing.T) {
+	t.Parallel()
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, "/repos/kdeps/kdeps/releases", r.URL.Path)
+		assert.Equal(t, "20", r.URL.Query().Get("per_page"))
+		_, _ = w.Write([]byte(`[
+			{"tag_name":"v2.9.0-nightly202608260500","draft":true},
+			{"tag_name":"v2.9.0-nightly202608260200","draft":false},
+			{"tag_name":"v2.9.0","draft":false},
+			{"tag_name":"v2.8.0-nightly202608190312","draft":false}
+		]`))
+	}))
+	t.Cleanup(server.Close)
+
+	tag, err := gh.LatestNightlyReleaseTagFromAPI(
+		context.Background(), server.URL, "kdeps/kdeps", server.Client(),
+	)
+	require.NoError(t, err)
+	assert.Equal(t, "2.9.0-nightly202608260200", tag, "must skip the draft nightly and the stable release")
+}
+
+func TestLatestNightlyReleaseTagFromAPI_NoneFound(t *testing.T) {
+	t.Parallel()
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_, _ = w.Write([]byte(`[{"tag_name":"v2.9.0","draft":false}]`))
+	}))
+	t.Cleanup(server.Close)
+
+	_, err := gh.LatestNightlyReleaseTagFromAPI(
+		context.Background(), server.URL, "kdeps/kdeps", server.Client(),
+	)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "no nightly release found")
+}
+
+func TestLatestNightlyReleaseTagFromAPI_NilClient(t *testing.T) {
+	t.Parallel()
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_, _ = w.Write([]byte(`[{"tag_name":"v1.2.3-nightly202608260200","draft":false}]`))
+	}))
+	t.Cleanup(server.Close)
+
+	tag, err := gh.LatestNightlyReleaseTagFromAPI(context.Background(), server.URL, "kdeps/kdeps", nil)
+	require.NoError(t, err)
+	assert.Equal(t, "1.2.3-nightly202608260200", tag)
+}
+
+func TestLatestNightlyReleaseTagFromAPI_WithToken(t *testing.T) {
+	t.Setenv("GITHUB_TOKEN", "test-token")
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, "Bearer test-token", r.Header.Get("Authorization"))
+		_, _ = w.Write([]byte(`[{"tag_name":"v3.0.0-nightly202608260200","draft":false}]`))
+	}))
+	t.Cleanup(server.Close)
+
+	tag, err := gh.LatestNightlyReleaseTagFromAPI(context.Background(), server.URL, "kdeps/kdeps", server.Client())
+	require.NoError(t, err)
+	assert.Equal(t, "3.0.0-nightly202608260200", tag)
+}
+
+func TestLatestNightlyReleaseTagFromAPI_StatusError(t *testing.T) {
+	t.Parallel()
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusNotFound)
+		_, _ = w.Write([]byte("not found"))
+	}))
+	t.Cleanup(server.Close)
+
+	_, err := gh.LatestNightlyReleaseTagFromAPI(context.Background(), server.URL, "kdeps/kdeps", server.Client())
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "returned 404")
+}
+
+func TestLatestNightlyReleaseTagFromAPI_InvalidJSON(t *testing.T) {
+	t.Parallel()
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_, _ = w.Write([]byte("not-json"))
+	}))
+	t.Cleanup(server.Close)
+
+	_, err := gh.LatestNightlyReleaseTagFromAPI(context.Background(), server.URL, "kdeps/kdeps", server.Client())
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "parse GitHub response")
+}
+
+func TestLatestNightlyReleaseTag_Wrapper(t *testing.T) {
+	t.Parallel()
+
+	tag, err := gh.LatestNightlyReleaseTag(context.Background(), "kdeps/kdeps")
+	if err != nil {
+		assert.Contains(t, err.Error(), "GitHub")
+		return
+	}
+	assert.NotEmpty(t, tag)
+}

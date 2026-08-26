@@ -83,3 +83,66 @@ func TestCheck_UsesPackageVersion(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, "called", gotCurrent)
 }
+
+func stubLatestNightly(t *testing.T, fn func(context.Context, string) (string, error)) {
+	t.Helper()
+	orig := latestNightlyFunc
+	latestNightlyFunc = fn
+	t.Cleanup(func() { latestNightlyFunc = orig })
+}
+
+func TestCheckNightlyAgainst_UpdateAvailable(t *testing.T) {
+	stubLatestNightly(t, func(context.Context, string) (string, error) {
+		return "2.9.0-nightly202608260200", nil
+	})
+	result, err := checkNightlyAgainst(context.Background(), "2.9.0")
+	require.NoError(t, err)
+	assert.Equal(t, CheckResult{
+		Current: "2.9.0", Latest: "2.9.0-nightly202608260200", Available: true,
+	}, result)
+}
+
+// TestCheckNightlyAgainst_SameBaseVersionStillOffered is the key behavioral
+// difference from checkAgainst: a nightly tag reuses the current stable
+// version's X.Y.Z until the next stable ships, so strict semver precedence
+// (versionLess) would treat "2.9.0-nightlyNNNN" as OLDER than "2.9.0" and
+// never offer it. checkNightlyAgainst must use plain inequality instead.
+func TestCheckNightlyAgainst_SameBaseVersionStillOffered(t *testing.T) {
+	stubLatestNightly(t, func(context.Context, string) (string, error) {
+		return "2.9.0-nightly202608260200", nil
+	})
+	result, err := checkNightlyAgainst(context.Background(), "2.9.0")
+	require.NoError(t, err)
+	assert.True(t, result.Available, "a nightly built from the current stable version must still be offered")
+
+	// Sanity: confirm versionLess alone (the stable-channel comparison) would
+	// have gotten this wrong, which is exactly why checkNightlyAgainst can't
+	// reuse it.
+	assert.False(t, versionLess("2.9.0", "2.9.0-nightly202608260200"))
+}
+
+func TestCheckNightlyAgainst_AlreadyOnLatestNightly(t *testing.T) {
+	stubLatestNightly(t, func(context.Context, string) (string, error) {
+		return "2.9.0-nightly202608260200", nil
+	})
+	result, err := checkNightlyAgainst(context.Background(), "2.9.0-nightly202608260200")
+	require.NoError(t, err)
+	assert.False(t, result.Available)
+}
+
+func TestCheckNightlyAgainst_PropagatesError(t *testing.T) {
+	stubLatestNightly(t, func(context.Context, string) (string, error) { return "", errors.New("boom") })
+	_, err := checkNightlyAgainst(context.Background(), "2.9.0")
+	require.Error(t, err)
+}
+
+func TestCheckNightly_UsesPackageVersion(t *testing.T) {
+	var gotRepo string
+	stubLatestNightly(t, func(_ context.Context, repo string) (string, error) {
+		gotRepo = repo
+		return "9.9.9-nightly202608260200", nil
+	})
+	_, err := CheckNightly(context.Background())
+	require.NoError(t, err)
+	assert.Equal(t, kdepsReleaseRepo, gotRepo)
+}

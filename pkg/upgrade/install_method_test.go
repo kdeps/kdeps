@@ -109,3 +109,20 @@ func TestInstructionsFor(t *testing.T) {
 	assert.Empty(t, InstructionsFor(MethodStandalone))
 	assert.Empty(t, InstructionsFor(Method("unknown")))
 }
+
+// TestInstructionsForNightly_NeverPointsAtPackageManagerCommands is the
+// reason this function exists separately from InstructionsFor: brew/apt/apk
+// only ever track the latest STABLE release, so InstructionsFor's own
+// commands ("brew upgrade kdeps" etc.) would silently install a stable
+// build for a user who explicitly asked for nightly.
+func TestInstructionsForNightly_NeverPointsAtPackageManagerCommands(t *testing.T) {
+	for _, m := range []Method{MethodHomebrew, MethodDebPkg, MethodApkPkg} {
+		got := InstructionsForNightly(m)
+		assert.NotEmpty(t, got, "method %v", m)
+		assert.NotContains(t, got, "brew upgrade kdeps")
+		assert.NotContains(t, got, "apt install")
+		assert.NotContains(t, got, "apk upgrade")
+	}
+	assert.Empty(t, InstructionsForNightly(MethodStandalone))
+	assert.Empty(t, InstructionsForNightly(Method("unknown")))
+}

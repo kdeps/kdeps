@@ -2401,6 +2401,8 @@ func (r *REPL) cmdHelp() error {
 		"  /memory list                       List all stored memory entries",
 		"  /memory search <query>             Search memory keys/values for a substring",
 		"  /memory show <key>                 Show one entry's full value, type, and related keys",
+		"  /upgrade                           Check for and install the latest stable kdeps release",
+		"  /upgrade nightly                   Check for and install the latest nightly kdeps build",
 		"  ! <cmd>                            Run a shell command; the output becomes an agent turn (the model responds)",
 		"  !! <cmd>                           Run a shell command silently - no LLM turn, nothing added to context",
 	}

@@ -31,36 +31,50 @@ import (
 	kupgrade "github.com/kdeps/kdeps/v2/pkg/upgrade"
 )
 
-// upgradeFreshFunc, upgradeDetectFunc, and upgradePerformFunc are
-// kupgrade.Fresh/Detect/Perform, overridable in tests so runUpgradeCmd can
-// be exercised without a real GitHub call, real install-method detection,
-// or a real binary replacement.
+// upgradeFreshFunc, upgradeFreshNightlyFunc, upgradeDetectFunc, and
+// upgradePerformFunc are kupgrade.Fresh/FreshNightly/Detect/Perform,
+// overridable in tests so runUpgradeCmd can be exercised without a real
+// GitHub call, real install-method detection, or a real binary replacement.
 //
 //nolint:gochecknoglobals // test-replaceable hooks
 var (
-	upgradeFreshFunc   = kupgrade.Fresh
-	upgradeDetectFunc  = kupgrade.Detect
-	upgradePerformFunc = kupgrade.Perform
+	upgradeFreshFunc        = kupgrade.Fresh
+	upgradeFreshNightlyFunc = kupgrade.FreshNightly
+	upgradeDetectFunc       = kupgrade.Detect
+	upgradePerformFunc      = kupgrade.Perform
 )
 
-// runUpgradeCmd implements "kdeps --upgrade": the same check -> instructions
-// or confirm-and-replace flow as the REPL's /upgrade command (pkg/agent's
-// cmdUpgrade), but driven from a plain cobra command exit rather than the
-// REPL loop.
-func runUpgradeCmd(w io.Writer) error {
+// runUpgradeCmd implements "kdeps --upgrade" (and "kdeps --upgrade
+// --nightly"): the same check -> instructions or confirm-and-replace flow as
+// the REPL's /upgrade command (pkg/agent's cmdUpgrade), but driven from a
+// plain cobra command exit rather than the REPL loop. nightly switches the
+// channel from the latest stable release to the latest nightly build.
+func runUpgradeCmd(w io.Writer, nightly bool) error {
 	ctx := context.Background()
-	result, err := upgradeFreshFunc(ctx)
+	checkFunc := upgradeFreshFunc
+	if nightly {
+		checkFunc = upgradeFreshNightlyFunc
+	}
+	result, err := checkFunc(ctx)
 	if err != nil {
 		return fmt.Errorf("upgrade: check failed: %w", err)
 	}
 	if !result.Available {
+		if nightly {
+			fmt.Fprintf(w, "kdeps is already on the latest nightly (v%s).\n", result.Current)
+			return nil
+		}
 		fmt.Fprintf(w, "kdeps v%s is up to date.\n", result.Current)
 		return nil
 	}
 	fmt.Fprintf(w, "Update available: v%s -> v%s.\n", result.Current, result.Latest)
 
 	method := upgradeDetectFunc()
-	if instructions := kupgrade.InstructionsFor(method); instructions != "" {
+	instructions := kupgrade.InstructionsFor(method)
+	if nightly {
+		instructions = kupgrade.InstructionsForNightly(method)
+	}
+	if instructions != "" {
 		fmt.Fprintln(w, instructions)
 		return nil
 	}

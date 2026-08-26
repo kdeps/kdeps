@@ -97,7 +97,8 @@ func createRootCommand() *cobra.Command {
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if up, _ := cmd.Flags().GetBool("upgrade"); up {
-				return runUpgradeCmd(cmd.OutOrStdout())
+				nightly, _ := cmd.Flags().GetBool("nightly")
+				return runUpgradeCmd(cmd.OutOrStdout(), nightly)
 			}
 			debugMode, _ := cmd.Flags().GetBool("debug")
 			flags.Debug = debugMode
@@ -114,6 +115,10 @@ func createRootCommand() *cobra.Command {
 	rootCmd.PersistentFlags().Bool("instrument", false, "Enable call-chain instrumentation tracing")
 
 	rootCmd.Flags().Bool("upgrade", false, "Check for and install the latest kdeps release, then exit")
+	rootCmd.Flags().Bool(
+		"nightly", false,
+		"With --upgrade, check the nightly channel instead of the latest stable release",
+	)
 
 	rootCmd.Flags().StringVar(
 		&flags.Model, "model", "",

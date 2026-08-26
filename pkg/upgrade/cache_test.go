@@ -154,6 +154,30 @@ func TestReadCache_MissingFile(t *testing.T) {
 	assert.False(t, ok)
 }
 
+// TestFreshNightly_NeverTouchesStableCache confirms FreshNightly is fully
+// isolated from the stable-channel cache CachedOrFresh relies on: neither
+// reading a stable cache entry to inform its result, nor writing one that
+// would corrupt a later stable-channel CachedOrFresh call.
+func TestFreshNightly_NeverTouchesStableCache(t *testing.T) {
+	setTestHome(t, t.TempDir())
+	stableCalls := 0
+	stubLatestStable(t, func(context.Context, string) (string, error) {
+		stableCalls++
+		return "2.9.0", nil
+	})
+	stubLatestNightly(t, func(context.Context, string) (string, error) {
+		return "2.9.0-nightly202608260200", nil
+	})
+
+	result, err := FreshNightly(context.Background())
+	require.NoError(t, err)
+	assert.Equal(t, "2.9.0-nightly202608260200", result.Latest)
+	assert.Equal(t, 0, stableCalls, "FreshNightly must never call the stable-channel lookup")
+
+	_, ok := readCache()
+	assert.False(t, ok, "FreshNightly must never write the stable-channel cache")
+}
+
 func TestWriteCache_NoHomeIsNoop(t *testing.T) {
 	t.Setenv("HOME", "")
 	t.Setenv("USERPROFILE", "")

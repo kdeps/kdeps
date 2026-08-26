@@ -55,13 +55,37 @@ func stubCmdUpgradeHooks(
 	})
 }
 
+// stubCmdUpgradeNightlyHooks mirrors stubCmdUpgradeHooks but stubs
+// upgradeFreshNightlyFunc instead of upgradeFreshFunc, for the --nightly path.
+func stubCmdUpgradeNightlyHooks(
+	t *testing.T,
+	freshNightly func(context.Context) (upgrade.CheckResult, error),
+	detect func() upgrade.Method,
+	perform func(context.Context, io.Writer, string) error,
+) {
+	t.Helper()
+	origFreshNightly, origDetect, origPerform := upgradeFreshNightlyFunc, upgradeDetectFunc, upgradePerformFunc
+	if freshNightly != nil {
+		upgradeFreshNightlyFunc = freshNightly
+	}
+	if detect != nil {
+		upgradeDetectFunc = detect
+	}
+	if perform != nil {
+		upgradePerformFunc = perform
+	}
+	t.Cleanup(func() {
+		upgradeFreshNightlyFunc, upgradeDetectFunc, upgradePerformFunc = origFreshNightly, origDetect, origPerform
+	})
+}
+
 func TestRunUpgradeCmd_CheckFails(t *testing.T) {
 	stubCmdUpgradeHooks(t, func(context.Context) (upgrade.CheckResult, error) {
 		return upgrade.CheckResult{}, errors.New("network down")
 	}, nil, nil)
 
 	var out bytes.Buffer
-	err := runUpgradeCmd(&out)
+	err := runUpgradeCmd(&out, false)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "check failed")
 }
@@ -72,7 +96,7 @@ func TestRunUpgradeCmd_UpToDate(t *testing.T) {
 	}, nil, nil)
 
 	var out bytes.Buffer
-	require.NoError(t, runUpgradeCmd(&out))
+	require.NoError(t, runUpgradeCmd(&out, false))
 	assert.Contains(t, out.String(), "up to date")
 }
 
@@ -87,7 +111,7 @@ func TestRunUpgradeCmd_NonStandaloneInstructionsOnly(t *testing.T) {
 	)
 
 	var out bytes.Buffer
-	require.NoError(t, runUpgradeCmd(&out))
+	require.NoError(t, runUpgradeCmd(&out, false))
 	assert.False(t, performCalled)
 	assert.Contains(t, out.String(), "apt")
 }
@@ -105,7 +129,7 @@ func TestRunUpgradeCmd_StandaloneDeclinedWithoutYes(t *testing.T) {
 	)
 
 	var out bytes.Buffer
-	require.NoError(t, runUpgradeCmd(&out))
+	require.NoError(t, runUpgradeCmd(&out, false))
 	assert.False(t, performCalled)
 	assert.Contains(t, out.String(), "skipped")
 }
@@ -122,7 +146,7 @@ func TestRunUpgradeCmd_StandaloneConfirmedViaEnv(t *testing.T) {
 	)
 
 	var out bytes.Buffer
-	require.NoError(t, runUpgradeCmd(&out))
+	require.NoError(t, runUpgradeCmd(&out, false))
 	assert.Equal(t, "2.9.0", gotTag)
 	assert.Contains(t, out.String(), "Updated to v2.9.0")
 }
@@ -138,7 +162,7 @@ func TestRunUpgradeCmd_PerformFails(t *testing.T) {
 	)
 
 	var out bytes.Buffer
-	err := runUpgradeCmd(&out)
+	err := runUpgradeCmd(&out, false)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "checksum mismatch")
 }
@@ -160,4 +184,74 @@ func TestRootCmd_UpgradeFlagShortCircuits(t *testing.T) {
 	root.SetArgs([]string{"--upgrade"})
 	require.NoError(t, root.Execute())
 	assert.Contains(t, out.String(), "up to date")
+}
+
+func TestRunUpgradeCmd_Nightly_UpToDate(t *testing.T) {
+	stubCmdUpgradeNightlyHooks(t, func(context.Context) (upgrade.CheckResult, error) {
+		return upgrade.CheckResult{
+			Current: "2.9.0-nightly202608260200", Latest: "2.9.0-nightly202608260200", Available: false,
+		}, nil
+	}, nil, nil)
+
+	var out bytes.Buffer
+	require.NoError(t, runUpgradeCmd(&out, true))
+	assert.Contains(t, out.String(), "already on the latest nightly")
+}
+
+func TestRunUpgradeCmd_Nightly_NonStandaloneGetsNightlySpecificInstructions(t *testing.T) {
+	performCalled := false
+	stubCmdUpgradeNightlyHooks(t,
+		func(context.Context) (upgrade.CheckResult, error) {
+			return upgrade.CheckResult{
+				Current: "2.9.0", Latest: "2.9.0-nightly202608260200", Available: true,
+			}, nil
+		},
+		func() upgrade.Method { return upgrade.MethodHomebrew },
+		func(context.Context, io.Writer, string) error { performCalled = true; return nil },
+	)
+
+	var out bytes.Buffer
+	require.NoError(t, runUpgradeCmd(&out, true))
+	assert.False(t, performCalled)
+	assert.Contains(t, out.String(), "package manager")
+	assert.NotContains(t, out.String(), "brew upgrade kdeps")
+}
+
+func TestRunUpgradeCmd_Nightly_StandaloneConfirmedInstallsNightlyTag(t *testing.T) {
+	t.Setenv("KDEPS_YES", "1")
+	var gotTag string
+	stubCmdUpgradeNightlyHooks(t,
+		func(context.Context) (upgrade.CheckResult, error) {
+			return upgrade.CheckResult{
+				Current: "2.9.0", Latest: "2.9.0-nightly202608260200", Available: true,
+			}, nil
+		},
+		func() upgrade.Method { return upgrade.MethodStandalone },
+		func(_ context.Context, _ io.Writer, tag string) error { gotTag = tag; return nil },
+	)
+
+	var out bytes.Buffer
+	require.NoError(t, runUpgradeCmd(&out, true))
+	assert.Equal(t, "2.9.0-nightly202608260200", gotTag)
+	assert.Contains(t, out.String(), "Updated to v2.9.0-nightly202608260200")
+}
+
+func TestRootCmd_UpgradeNightlyFlagShortCircuits(t *testing.T) {
+	stubCmdUpgradeNightlyHooks(t,
+		func(context.Context) (upgrade.CheckResult, error) {
+			return upgrade.CheckResult{
+				Current: "2.9.0-nightly202608260200", Latest: "2.9.0-nightly202608260200", Available: false,
+			}, nil
+		},
+		func() upgrade.Method { return upgrade.MethodStandalone },
+		nil,
+	)
+
+	root := NewRootCmd()
+	var out bytes.Buffer
+	root.SetOut(&out)
+	root.SetErr(&out)
+	root.SetArgs([]string{"--upgrade", "--nightly"})
+	require.NoError(t, root.Execute())
+	assert.Contains(t, out.String(), "already on the latest nightly")
 }
