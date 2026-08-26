@@ -7,10 +7,10 @@ Running `kdeps` with no arguments starts a model-only REPL with no workflow tool
 ## Starting the agent loop
 
 ```bash
-kdeps                              # model-only REPL (no tools)
+kdeps                              # model-only REPL, no tools
 kdeps ./my-agent/                  # one workflow = one tool
-kdeps ./agents/                    # folder = every workflow inside becomes a tool
-kdeps ./my-agent/ --model llama3.2 --system "You are a DevOps assistant."
+kdeps ./agents/                    # every workflow in the folder becomes a tool
+kdeps ./my-agent/ --model llama3.2 --system "You are a DevOps assistant."  # override model/system prompt
 kdeps --skill ~/.kdeps/skills/     # load skill files
 kdeps --resume <session-id>        # continue a saved session
 ```

@@ -18,10 +18,10 @@ Build and deploy AI agents in YAML. Two modes: **workflow** (DAG pipelines), **a
 An autonomous LLM agent in your terminal. It plans, calls tools (web search, http, python, exec, sql, bash, file ops), keeps memory across turns, and drives every prompt to a finished result. Point it at a folder and each workflow inside becomes a callable tool.
 
 ```bash
-kdeps                              # model-only REPL (no tools)
+kdeps                              # model-only REPL, no tools
 kdeps ./my-agent/                  # one workflow = one tool
-kdeps ./agents/                    # every workflow in the folder = a tool
-kdeps --model deepseek-v4-flash --system "You are a DevOps assistant."
+kdeps ./agents/                    # every workflow in the folder becomes a tool
+kdeps ./my-agent/ --model deepseek-v4-flash --system "You are a DevOps assistant."  # override model/system prompt
 kdeps --resume <session-id>        # continue a saved session
 ```
 
