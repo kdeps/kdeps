@@ -89,7 +89,7 @@ Docs: [Agencies](https://kdeps.com/concepts/agency) · Example: [`examples/agenc
 
 ```bash
 kdeps bundle build          # Docker image
-kdeps bundle export iso     # bootable edge ISO
+kdeps export iso            # bootable edge ISO
 kdeps bundle prepackage     # self-contained binary per arch
 kdeps export k8s            # Kubernetes manifests
 ```
@@ -105,11 +105,13 @@ settings:
     domain: api.example.com
     email: ops@example.com
   apiServer:
-    hostIP: "0.0.0.0"
+    hostIp: "0.0.0.0"
     portNum: 443
 ```
 
-Point DNS at the host; open ports **80** and **443**. Docs: [docs/v2/deployment/tls-https.md](docs/v2/deployment/tls-https.md).
+Point DNS at the host; open ports **80** and **443**.
+
+Docs: [TLS and HTTPS](https://kdeps.com/deployment/tls-https)
 
 ### LLM server appliance
 
@@ -134,7 +136,7 @@ llm:
   base_url: http://192.168.1.50:8000/v1
 ```
 
-Docs: [docs/v2/deployment/llm-server.md](docs/v2/deployment/llm-server.md) · CLI: [docs/v2/reference/cli/llm.md](docs/v2/reference/cli/llm.md) · Example: [examples/llm-server/](examples/llm-server/)
+Docs: [LLM Server Appliance](https://kdeps.com/deployment/llm-server) · [LLM Commands](https://kdeps.com/reference/cli/llm) · Example: [`examples/llm-server/`](examples/llm-server/)
 
 ## Registry
 
@@ -151,10 +153,10 @@ Grok, and other agents how to scaffold kdeps workflows, components, and agencies
 including `kdeps.pkg.yaml` for [kdeps.io](https://kdeps.io) distribution.
 
 ```bash
-git clone https://github.com/kdeps/skill ~/.claude/skills/kdeps
+npx skills add https://github.com/kdeps/skill --skill kdeps
 ```
 
-Docs: [kdeps.com/getting-started/agent-skills](https://kdeps.com/getting-started/agent-skills)
+Docs: [Agent Skills](https://kdeps.com/getting-started/agent-skills)
 
 ## Global config
 
