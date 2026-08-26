@@ -123,10 +123,12 @@ For React, Vue, or Angular apps:
 
 ```yaml
 # workflow.yaml
-routes:
-  - path: "/"
-    serverType: "static"
-    publicPath: "./frontend/build"
+settings:
+  webServer:
+    routes:
+      - path: "/"
+        serverType: "static"
+        publicPath: "./frontend/build"
 ```
 
 ## Reverse Proxy
@@ -151,12 +153,14 @@ settings:
 
 ```yaml
 # workflow.yaml
-routes:
-  - path: "/dashboard"
-    serverType: "app"
-    publicPath: "./dashboard"
-    appPort: 8501
-    command: "streamlit run dashboard.py --server.port 8501 --server.headless true"
+settings:
+  webServer:
+    routes:
+      - path: "/dashboard"
+        serverType: "app"
+        publicPath: "./dashboard"
+        appPort: 8501
+        command: "streamlit run dashboard.py --server.port 8501 --server.headless true"
 ```
 
 The Streamlit app:
@@ -176,19 +180,21 @@ if st.button("Submit"):
         headers={"Authorization": f"Bearer {os.environ['KDEPS_API_AUTH_TOKEN']}"},
         json={"q": query},
     )
-    st.write(response.json()["response"]["answer"])
+    st.write(response.json()["data"]["answer"])
 ```
 
 ### Gradio Example
 
 ```yaml
 # workflow.yaml
-routes:
-  - path: "/demo"
-    serverType: "app"
-    publicPath: "./gradio-app"
-    appPort: 7860
-    command: "python app.py"
+settings:
+  webServer:
+    routes:
+      - path: "/demo"
+        serverType: "app"
+        publicPath: "./gradio-app"
+        appPort: 7860
+        command: "python app.py"
 ```
 
 ```python
@@ -203,7 +209,7 @@ def chat(message):
         headers={"Authorization": f"Bearer {os.environ['KDEPS_API_AUTH_TOKEN']}"},
         json={"q": message},
     )
-    return response.json()["response"]["answer"]
+    return response.json()["data"]["answer"]
 
 demo = gr.Interface(fn=chat, inputs="text", outputs="text")
 demo.launch(server_name="0.0.0.0", server_port=7860)
@@ -213,12 +219,14 @@ demo.launch(server_name="0.0.0.0", server_port=7860)
 
 ```yaml
 # workflow.yaml
-routes:
-  - path: "/admin"
-    serverType: "app"
-    publicPath: "./admin-panel"
-    appPort: 5000
-    command: "python app.py"
+settings:
+  webServer:
+    routes:
+      - path: "/admin"
+        serverType: "app"
+        publicPath: "./admin-panel"
+        appPort: 5000
+        command: "python app.py"
 ```
 
 ```python
@@ -240,11 +248,13 @@ WebSocket connections are automatically proxied:
 
 ```yaml
 # workflow.yaml
-routes:
-  - path: "/ws-app"
-    serverType: "app"
-    appPort: 8000
-    command: "python websocket_app.py"
+settings:
+  webServer:
+    routes:
+      - path: "/ws-app"
+        serverType: "app"
+        appPort: 8000
+        command: "python websocket_app.py"
 ```
 
 ```python

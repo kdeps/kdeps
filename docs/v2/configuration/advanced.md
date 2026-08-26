@@ -310,6 +310,56 @@ settings:
 
 Auth, rate limiting, TLS (static certs or Let's Encrypt custom domains), body size cap, concurrency limits, and resource output caps. See [Security Reference](/reference/security) for the full documentation.
 
+## Global Defaults (`defaults`, `resource_defaults`)
+
+`~/.kdeps/config.yaml` can set two kinds of global default, applied whenever
+a workflow doesn't set the equivalent field itself. Edit it with
+[`kdeps edit`](/reference/cli/dev#kdeps-edit); [`kdeps doctor`](/reference/cli/dev#kdeps-doctor)
+checks it (along with Ollama/Python/installed agents) before you hit run.
+
+```yaml
+# ~/.kdeps/config.yaml
+defaults:
+  timezone: "America/New_York"   # sets TZ env var for every agent
+  python_version: "3.12"         # sets KDEPS_PYTHON_VERSION
+  offline_mode: false            # sets KDEPS_OFFLINE_MODE=true when enabled
+
+resource_defaults:               # applied to every resource of that type
+  chat:
+    timeout: 60s                 # hard stop per LLM call
+    context_length: 4096
+    streaming: false
+    max_output_bytes: 1048576
+  http:
+    timeout: 30s
+    follow_redirects: true
+    retry_max_attempts: 3
+    retry_backoff: 1s
+    max_response_bytes: 10485760
+  python:
+    timeout: 60s
+    max_output_bytes: 1048576
+  exec:
+    timeout: 30s
+    max_output_bytes: 1048576
+  sql:
+    timeout: 30s
+    max_rows: 1000
+  onError:
+    action: fail                 # fail | continue | retry
+    max_retries: 3
+    retry_delay: 1s
+```
+
+`defaults` mirrors a workflow's `agentSettings` (timezone, Python version);
+`resource_defaults` mirrors the fields a resource sets on itself (a `chat:`
+resource's own `timeout:`, for example) -- either can still be overridden
+per-resource in `workflow.yaml`, which always wins over the global default.
+
+Config is validated on load. Warnings go to stderr for unknown keys, missing
+API keys, invalid durations, and agent profiles under `agents:` that don't
+match any installed workflow's `metadata.name`.
+
 ## Agent Identity
 
 An agent can have a configured identity — name, email, mailing address, and named accounts for services it authenticates with. Like SMTP/IMAP/bot credentials, it lives in `~/.kdeps/config.yaml`, never in `workflow.yaml`, and follows the same [per-agent profile](workflow.md#metadata-and-config-profiles) merge: set it globally, override it under `agents.<name>`, or both.

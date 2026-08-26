@@ -416,7 +416,7 @@ chat:
 | Feature | Ollama | OpenAI | Anthropic | Google | Mistral | Groq |
 |---------|--------|--------|-----------|--------|---------|------|
 | JSON Response | Yes | Yes | Partial | Yes | Yes | Yes |
-| Tools/Functions | Yes | Yes | No | Yes | Yes | Yes |
+| Tools/Functions | Yes | Yes | Yes | Yes | Yes | Yes |
 | Vision | Yes* | Yes | Yes | Yes | Yes | Yes |
 | Streaming | Yes | No** | No** | No** | No** | No** |
 
@@ -464,13 +464,6 @@ chat:
 
 </div>
 
-## See Also
-
-- [LLM Provider Reference](/reference/llm-providers) - Per-provider config snippets and model names
-- [LLM Resource](llm) - Complete LLM resource documentation
-- [Tools](../concepts/tools) - LLM function calling
-- [Docker Deployment](../deployment/docker) - Deploying with local models
-
 ## Self-hosted LLM appliance
 
 Deploy a dedicated OpenAI-compatible server with `kdeps llm` (Docker, ISO, Kubernetes), then point this host at it with `backend: openai` and `base_url`.
@@ -490,4 +483,11 @@ llm:
 ```
 
 See [LLM Server Appliance](/deployment/llm-server) and [LLM Commands](/reference/cli/llm).
+
+## See Also
+
+- [LLM Provider Reference](/reference/llm-providers) - Per-provider config snippets and model names
+- [LLM Resource](llm) - Complete LLM resource documentation
+- [Tools](../concepts/tools) - LLM function calling
+- [Docker Deployment](../deployment/docker) - Deploying with local models
 

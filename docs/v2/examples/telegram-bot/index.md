@@ -53,7 +53,7 @@ chat:
 
 actionId: reply
 name: Reply
-dependencies:
+requires:
   - llm
 
 botReply:

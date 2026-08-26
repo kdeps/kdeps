@@ -11,7 +11,7 @@ POST /api/v1/run  {"q": "...", ...other fields...}
   chat resource reads fields via get('field')
         |
         v
-{"success": true, "response": {"data": {...structured output...}}}
+{"success": true, "data": {...structured output...}}
 ```
 
 Every agent shares the same entry point:

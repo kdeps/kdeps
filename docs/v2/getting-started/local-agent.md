@@ -24,7 +24,7 @@ curl -LsSf https://raw.githubusercontent.com/kdeps/kdeps/main/install.sh | sh
 **Go install:**
 
 ```bash
-go install github.com/kdeps/kdeps@latest
+go install github.com/kdeps/kdeps/v2@latest
 ```
 
 Verify:

@@ -126,7 +126,7 @@ Expected response:
 ```json
 {
   "success": true,
-  "response": {
+  "data": {
     "answer": "Entropy is a measure of disorder..."
   }
 }

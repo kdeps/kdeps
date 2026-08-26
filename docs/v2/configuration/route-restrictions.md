@@ -290,7 +290,7 @@ sql:
 
 ## See Also
 
-- [Validation](/concepts/validation) — Full `validations:` block reference
+- [Validation and Control Flow](/concepts/validation-and-control) — Full `validations:` block reference
 - [Request Object](/concepts/request-object) — Accessing request data
 - [Workflow Configuration](../configuration/workflow) — Route configuration
 - [Resources Overview](../resources/overview) — Resource basics

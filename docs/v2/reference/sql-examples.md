@@ -54,6 +54,8 @@ sql:
 
 ## Multi-Database Sync
 
+<div v-pre>
+
 ```yaml
 # Fetch from source database
 actionId: fetchSource
@@ -79,10 +81,10 @@ sql:
           name = EXCLUDED.name,
           price = EXCLUDED.price,
           updated_at = EXCLUDED.updated_at
-<div v-pre>
       paramsBatch: "{{ get('fetchSource') }}"
-</div>
 ```
+
+</div>
 
 ## Search with LLM Enhancement
 

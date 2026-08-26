@@ -24,7 +24,7 @@ chat:
 # Inline resources to run AFTER the main resource
 after:
   - sql:
-      connection: "sqlite3://./db.sqlite"
+      connectionName: main  # DSN defined in ~/.kdeps/config.yaml sql_connections.main.connection
       query: "INSERT INTO logs VALUES (?)"
   - python:
       script: "print('Post-processing complete')"
@@ -79,7 +79,7 @@ chat:
 
 after:
   - sql:
-      connection: "postgresql://localhost/logs"
+      connectionName: logs_db  # DSN defined in ~/.kdeps/config.yaml sql_connections.logs_db.connection
       query: "INSERT INTO audit_log (action, timestamp) VALUES (?, NOW())"
       params: ["chat_completion"]
 ```
@@ -133,8 +133,9 @@ chat:
 
 after:
   - sql:
-      connection: "redis://localhost"
-      query: "SET cache:{{get('query_hash')}} {{get('_output')}}"
+      connectionName: cache_db  # DSN defined in ~/.kdeps/config.yaml sql_connections.cache_db.connection
+      query: "INSERT INTO response_cache (query_hash, response) VALUES (?, ?) ON CONFLICT (query_hash) DO UPDATE SET response = excluded.response"
+      params: ["{{get('query_hash')}}", "{{get('_output')}}"]
 ```
 
 ## Multiple Inline Resources
@@ -158,7 +159,7 @@ chat:
 
 after:
   - sql:
-      connection: "sqlite3://./db.sqlite"
+      connectionName: main  # DSN defined in ~/.kdeps/config.yaml sql_connections.main.connection
       query: "INSERT INTO results VALUES (?)"
   - python:
       script: "send_metrics.py"
@@ -180,7 +181,7 @@ before:
 
 after:
   - sql:
-      connection: "sqlite3://./db.sqlite"
+      connectionName: main  # DSN defined in ~/.kdeps/config.yaml sql_connections.main.connection
       query: "INSERT INTO cache VALUES (?)"
 ```
 

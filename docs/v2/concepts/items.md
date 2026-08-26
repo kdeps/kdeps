@@ -94,26 +94,9 @@ chat:
 
 After processing, you can access all collected values from a resource that uses items:
 
-### Using `get('resourceId', 'itemvalues')`
-
-```yaml
-# resources/collect-results.yaml
-actionId: collectResults
-requires:
-  - processItems
-after:
-  # Get all collected values from the items iteration
-  - set('allResults', get('processItems', 'itemvalues'))
-  - set('resultCount', len(get('allResults')))
-apiResponse:
-  response:
-    results: get('allResults')
-    count: get('resultCount')
-```
-
 ### Using `item.values(actionID)`
 
-You can also use the `item.values()` method with an action ID to get all iteration values from a specific resource:
+Pass an action ID to `item.values()` to get all iteration values from a specific resource:
 
 ```yaml
 # resources/collect-results.yaml
@@ -131,7 +114,7 @@ apiResponse:
     count: get('resultCount')
 ```
 
-**Note:** `item.values()` without arguments returns all items for the current iteration context (equivalent to `item.values()` or `get('all')`). With an action ID, it returns all values from that specific resource's items iteration.
+**Note:** `item.values()` without arguments returns all items for the current iteration context (equivalent to `get('all')`). With an action ID, it returns all values from that specific resource's items iteration.
 
 ## Examples
 

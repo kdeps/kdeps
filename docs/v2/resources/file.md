@@ -238,7 +238,7 @@ The `file:` resource is designed for coding agent workflows. A typical edit cycl
   requires: [readFile]
   chat:
     model: claude-sonnet-4-20250514
-    prompt: "Review this code and suggest a fix: {{readFile.content}}"
+    prompt: "Review this code and suggest a fix: {{ get('readFile').content }}"
 
 # Step 3: Apply the fix as a patch
 - actionId: applyFix
@@ -247,7 +247,7 @@ The `file:` resource is designed for coding agent workflows. A typical edit cycl
   file:
     operation: patch
     path: /project/main.go
-    patch: "{{analyzeCode.patch}}"
+    patch: "{{ get('analyzeCode').patch }}"
     backup: true
 ```
 

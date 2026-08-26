@@ -41,6 +41,7 @@ kdeps run workflow.yaml
 | `kdeps new` | [Dev Commands](/reference/cli/dev#kdeps-new) | Scaffold a new agent |
 | `kdeps edit` | [Dev Commands](/reference/cli/dev#kdeps-edit) | Edit global config |
 | `kdeps doctor` | [Dev Commands](/reference/cli/dev#kdeps-doctor) | System health checks |
+| `kdeps --upgrade` | [Dev Commands](/reference/cli/dev#kdeps-upgrade) | Check for and install a newer kdeps release |
 | `kdeps chat` | [Dev Commands](/reference/cli/dev#kdeps-chat) | Interactive workflow generator |
 | `kdeps llamafile` | [Dev Commands](/reference/cli/dev#kdeps-llamafile) | Llamafile model registry (list, update) |
 | `kdeps registry` | [Registry Commands](/reference/cli/registry) | Search, install, publish packages |

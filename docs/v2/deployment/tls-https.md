@@ -46,7 +46,7 @@ settings:
   certFile: "/etc/certs/server.crt"
   keyFile: "/etc/certs/server.key"
   apiServer:
-    hostIP: "0.0.0.0"
+    hostIp: "0.0.0.0"
     portNum: 443
     routes:
       - path: /api/v1/chat
@@ -68,7 +68,7 @@ settings:
     domain: api.example.com    # required primary hostname
     email: ops@example.com     # recommended for LE expiry notices
   apiServer:
-    hostIP: "0.0.0.0"
+    hostIp: "0.0.0.0"
     portNum: 443
     routes:
       - path: /api/v1/chat
@@ -89,7 +89,7 @@ settings:
     staging: false                    # true = staging CA (untrusted by browsers; no prod rate limits)
     # httpChallengeAddr: ":80"        # default; set "" to disable HTTP-01 listener
   apiServer:
-    hostIP: "0.0.0.0"
+    hostIp: "0.0.0.0"
     portNum: 443
   # webServer also uses the same TLS settings when present
   # webServer:
@@ -133,7 +133,7 @@ settings:
     email: ops@example.com
     staging: true
   apiServer:
-    hostIP: "0.0.0.0"
+    hostIp: "0.0.0.0"
     portNum: 443
 ```
 
@@ -160,7 +160,7 @@ settings:
     email: ops@example.com
     cacheDir: /var/lib/kdeps/letsencrypt
   apiServer:
-    hostIP: "0.0.0.0"
+    hostIp: "0.0.0.0"
     portNum: 443
 ```
 
@@ -168,7 +168,7 @@ Alternatively mount static secrets as `certFile` / `keyFile` (see [Docker refere
 
 ## Kubernetes
 
-Expose Service ports **80** and **443**, use a **persistent volume** for `cacheDir`, and set `hostIP`/`port` so the pod listens on 443.
+Expose Service ports **80** and **443**, use a **persistent volume** for `cacheDir`, and set `hostIp`/`port` so the pod listens on 443.
 
 ```yaml
 settings:
@@ -177,7 +177,7 @@ settings:
     email: ops@example.com
     cacheDir: /var/lib/kdeps/letsencrypt
   apiServer:
-    hostIP: "0.0.0.0"
+    hostIp: "0.0.0.0"
     portNum: 443
 ```
 
@@ -193,7 +193,7 @@ kubectl apply -f k8s.yaml
 
 If you already run Caddy, Traefik, or Nginx for TLS:
 
-- Leave kdeps on HTTP (`hostIP: 127.0.0.1`, default port)
+- Leave kdeps on HTTP (`hostIp: 127.0.0.1`, default port)
 - Do **not** set `letsEncrypt` or PEM paths on kdeps
 - Proxy `https://api.example.com` → `http://127.0.0.1:16395`
 

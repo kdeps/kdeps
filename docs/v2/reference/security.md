@@ -164,7 +164,7 @@ settings:
     staging: false                   # true = LE staging CA (browsers untrusted)
     # httpChallengeAddr: ":80"       # default; set "" to disable HTTP-01
   apiServer:
-    hostIP: "0.0.0.0"
+    hostIp: "0.0.0.0"
     portNum: 443
     routes:
       - path: /api/v1/chat

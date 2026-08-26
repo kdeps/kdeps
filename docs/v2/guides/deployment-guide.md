@@ -94,7 +94,7 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Install kdeps
-        run: curl -fsSL https://kdeps.io/install.sh | bash
+        run: curl -LsSf https://raw.githubusercontent.com/kdeps/kdeps/main/install.sh | sh
 
       - name: Validate
         run: kdeps validate workflow.yaml
@@ -127,7 +127,7 @@ deploy:
   only:
     - tags
   script:
-    - curl -fsSL https://kdeps.io/install.sh | bash
+    - curl -LsSf https://raw.githubusercontent.com/kdeps/kdeps/main/install.sh | sh
     - kdeps validate workflow.yaml
     - kdeps bundle package . --output dist/
     - kdeps bundle build dist/*.kdeps --tag $CI_REGISTRY_IMAGE:$CI_COMMIT_TAG
@@ -187,7 +187,7 @@ settings:
     domain: api.example.com
     email: ops@example.com
   apiServer:
-    hostIP: "0.0.0.0"
+    hostIp: "0.0.0.0"
     portNum: 443
 ```
 

@@ -95,10 +95,10 @@ validations:
   required:
     - name
     - email
-  properties:
-    name:
+  rules:
+    - field: name
       type: string
-    email:
+    - field: email
       type: string
       pattern: "^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$"
 
@@ -208,4 +208,4 @@ after:
 
 - [Unified API](unified-api.md) - Primary API for data access
 - [Request Object](request-object.md) - Full request access
-- [Validation](validation.md) - Input validation
+- [Validation and Control Flow](/concepts/validation-and-control) - Input validation

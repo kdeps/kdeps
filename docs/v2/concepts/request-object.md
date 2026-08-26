@@ -234,6 +234,10 @@ after:
   # Check file count
   - set('fileCount', request.filecount())
   - set('hasFiles', get('fileCount') > 0)
+  # Get file information
+  - set('filePath', request.filepath('document'))
+  - set('fileType', request.filetype('document'))
+  - set('isPDF', get('fileType') == 'application/pdf')
 
 validations:
   check:
@@ -241,12 +245,6 @@ validations:
   error:
     code: 400
     message: At least one file is required
-
-after:
-  # Get file information
-  - set('filePath', request.filepath('document'))
-  - set('fileType', request.filetype('document'))
-  - set('isPDF', get('fileType') == 'application/pdf')
 
 chat:
   prompt: |

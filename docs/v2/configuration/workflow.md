@@ -124,7 +124,7 @@ settings:
     domain: api.example.com
     email: ops@example.com
   apiServer:
-    hostIP: "0.0.0.0"
+    hostIp: "0.0.0.0"
     portNum: 443
 ```
 

@@ -250,14 +250,16 @@ Output:
 
 ## Connection Pooling
 
-Configure connection pools in workflow settings:
+`workflow.yaml`'s `sqlConnections` entry holds pool config only -- no
+`connection:` field. The DSN itself always comes from `sql_connections` in
+`~/.kdeps/config.yaml` (see [Connection Configuration](#connection-configuration)
+above); a connection string here would be silently ignored.
 
 ```yaml
 # workflow.yaml
 settings:
   sqlConnections:
     main:
-      connection: "postgres://user:pass@localhost:5432/myapp"
       pool:
         maxConnections: 20      # Maximum pool size
         minConnections: 5       # Minimum idle connections

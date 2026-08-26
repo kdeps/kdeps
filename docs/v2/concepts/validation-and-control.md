@@ -387,9 +387,9 @@ chat:
 
 ```
 Request
-  ↓ methods / routes     → skip if no match
   ↓ headers / params     → filter inaccessible keys
   ↓ skip conditions      → skip if any true
+  ↓ methods / routes     → skip if no match
   ↓ check + error        → abort with error if any false
   ↓ required/rules/expr  → abort with 422 if invalid
   ↓ Execute Resource

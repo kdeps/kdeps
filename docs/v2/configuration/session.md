@@ -173,6 +173,8 @@ apiResponse:
 
 ### User Preferences
 
+<div v-pre>
+
 ```yaml
 # Save preferences
 actionId: savePrefs
@@ -193,13 +195,11 @@ actionId: getContent
 
 chat:
   prompt: |
-<div v-pre>
-      Respond in {{ get('language', 'session') }}.
-      Current time in {{ get('timezone', 'session') }}: {{ info('timestamp') }}
-</div>
-
-
+    Respond in {{ get('language', 'session') }}.
+    Current time in {{ get('timezone', 'session') }}: {{ info('timestamp') }}
 ```
+
+</div>
 
 ## Session ID
 

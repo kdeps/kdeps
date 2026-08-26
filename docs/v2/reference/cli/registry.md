@@ -48,17 +48,17 @@ git tag v1.2.0 && git push --tags
 # 2. Generate the formula YAML (downloads the tarball and computes SHA256)
 kdeps registry submit --tag v1.2.0
 
-# 3. Open a PR to https://github.com/kdeps-io/registry
+# 3. Open a PR to https://github.com/kdeps/registry
 #    adding the printed formula as formulas/<your-package-name>.yaml
 ```
 
 ### Formula File Format
 
 ```yaml
-# workflow.yaml
+# formulas/my-agent.yaml
 name: my-agent
 version: 1.2.0
-type: agent
+type: workflow
 github: owner/my-agent-repo
 tarball: https://github.com/owner/my-agent-repo/archive/refs/tags/v1.2.0.tar.gz
 sha256: <computed-by-kdeps-registry-submit>

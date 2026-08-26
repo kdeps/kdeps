@@ -55,7 +55,7 @@ Output:
 ```json
 {
   "success": true,
-  "response": {
+  "data": {
     "message": "Hello, World!"
   }
 }

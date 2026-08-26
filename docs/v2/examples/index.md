@@ -35,7 +35,7 @@ Best for:
 - Multi-resource orchestration patterns
 
 ```bash
-KDEPS_TELEGRAM_BOT_TOKEN=... kdeps run workflow.yaml
+TELEGRAM_BOT_TOKEN=... kdeps run workflow.yaml
 ```
 
 ## Showcase

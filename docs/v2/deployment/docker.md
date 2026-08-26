@@ -408,7 +408,8 @@ Configure Kubernetes settings in `workflow.yaml`:
 ```yaml
 # workflow.yaml
 settings:
-  portNum: 16395
+  apiServer:
+    portNum: 16395
   agentSettings:
     replicas: 3
     resources:
@@ -460,7 +461,7 @@ settings:
     email: ops@example.com
     cacheDir: /var/lib/kdeps/letsencrypt
   apiServer:
-    hostIP: "0.0.0.0"
+    hostIp: "0.0.0.0"
     portNum: 443
 ```
 

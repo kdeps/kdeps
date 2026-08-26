@@ -48,7 +48,7 @@ llm:
 
 The `chat.model` field also accepts a direct HuggingFace URL, an absolute/relative path to a `.gguf`, or a bare filename looked up in `~/.kdeps/models/`.
 
-Set `KDEPS_GGUF_CTX_SIZE` to override the context window (default: `llama-server` default).
+Set `KDEPS_CTX_SIZE` to override the context window (default: `llama-server` default).
 
 ### Ollama (opt-in)
 

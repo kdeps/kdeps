@@ -42,7 +42,7 @@ apiResponse:
 
 ## Action Types
 
-16 action types are available: `navigate`, `click`, `fill`, `type`, `upload`, `select`, [`check`](/reference/glossary#check), `uncheck`, `hover`, `scroll`, `press`, `clear`, `evaluate`, `screenshot`, `wait`. See the [Browser Action Types Reference](/reference/browser-actions) for the complete field-level documentation of each action.
+15 action types are available: `navigate`, `click`, `fill`, `type`, `upload`, `select`, [`check`](/reference/glossary#check), `uncheck`, `hover`, `scroll`, `press`, `clear`, `evaluate`, `screenshot`, `wait`. See the [Browser Action Types Reference](/reference/browser-actions) for the complete field-level documentation of each action.
 
 ## Stealth Mode
 

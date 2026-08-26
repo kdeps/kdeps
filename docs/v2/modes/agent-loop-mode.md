@@ -72,6 +72,7 @@ Inside the REPL, type `/help` for the full list:
 | `/autocontext [on\|off]` | Show or toggle auto-detecting command/file mentions in plain chat text (on by default, persists across sessions) |
 | `/tools [full\|lean]` | Show or toggle the lean/full tool set (full by default, persists across sessions — see [Lean mode](#lean-mode)) |
 | `/upgrade` | Check for a newer kdeps release and, for a standalone install, download/verify/install it (see [Updating kdeps](#updating-kdeps)) |
+| `/upgrade nightly` | Same, but checks the nightly channel instead of the latest stable release (see [Nightly builds](#nightly-builds)) |
 | `/login` | m365 backend only: open a browser window to (re-)sign in, even if a session is already cached (see [M365 Copilot](/reference/llm-providers#m365-copilot)) |
 
 ### Auto-detected commands and files
@@ -551,6 +552,30 @@ The same flow is available without starting the REPL:
 ```bash
 kdeps --upgrade
 ```
+
+### Nightly builds
+
+kdeps also cuts a nightly build from `main` most days. `/upgrade nightly`
+(or `kdeps --upgrade --nightly` outside the REPL) switches the channel for
+that one check: instead of the latest stable release, it checks and
+installs the latest nightly.
+
+```
+/upgrade nightly
+```
+
+```bash
+kdeps --upgrade --nightly
+```
+
+Nightly opt-in only works for a **standalone** install -- Homebrew/.deb/.apk
+only ever track stable, so on those install methods `/upgrade nightly`
+prints instructions for a standalone install instead of a package-manager
+command (which would silently install a stable build, not the nightly you
+asked for). "Already up to date" for the nightly channel means you're
+running that exact nightly tag, not a newer-by-semver comparison -- a
+nightly tag reuses the current stable version number until the next stable
+release ships, so it's always offered until you're actually on it.
 
 ## Context window size
 
