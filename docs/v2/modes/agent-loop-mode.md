@@ -1215,16 +1215,16 @@ KDEPS_AGENT_BACKEND=file              # default: local llamafile
 ## Examples
 
 ```bash
-# Pure LLM REPL, no workflows
+# Bare REPL, no workflow tools
 kdeps
 
-# Single workflow -- one tool
+# Registers the workflow as an LLM-callable tool
 kdeps ./my-agent/
 
-# All workflows in a folder
+# Registers every workflow in the folder as an LLM-callable tool
 kdeps ./agents/
 
-# Specify model and system prompt
+# Override model and system prompt
 kdeps ./agents/ --model mistral --system "You are a data analyst."
 
 # GGUF backend with local model file
