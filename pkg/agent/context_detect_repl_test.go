@@ -57,7 +57,7 @@ func TestConfirmAndGatherContext_Disabled(t *testing.T) {
 	repl.autoContextDetect = false
 	repl.confirmFn = func(string) bool { t.Fatal("must not prompt when disabled"); return false }
 
-	got := repl.confirmAndGatherContext("run df -h please")
+	got := repl.confirmAndGatherContext(`run "df -h" please`)
 	assert.Empty(t, got)
 }
 
@@ -79,7 +79,7 @@ func TestConfirmAndGatherContext_DefaultConfirmFnNilReadlineDeclines(t *testing.
 
 	// confirmFn left nil -- falls back to confirmYesNo, which declines when
 	// no readline instance is active (e.g. non-TTY test injection).
-	got := repl.confirmAndGatherContext("run pwd please")
+	got := repl.confirmAndGatherContext(`run "pwd" please`)
 	assert.Empty(t, got)
 }
 
@@ -90,7 +90,7 @@ func TestConfirmAndGatherContext_Declined(t *testing.T) {
 
 	repl.confirmFn = func(string) bool { return false }
 
-	got := repl.confirmAndGatherContext("run df -h please")
+	got := repl.confirmAndGatherContext(`run "df -h" please`)
 	assert.Empty(t, got)
 }
 
@@ -101,7 +101,7 @@ func TestConfirmAndGatherContext_ApprovedCommand(t *testing.T) {
 
 	repl.confirmFn = func(string) bool { return true }
 
-	got := repl.confirmAndGatherContext("run pwd please")
+	got := repl.confirmAndGatherContext(`run "pwd" please`)
 	assert.Contains(t, got, "Ran `pwd`")
 	assert.Contains(t, got, "Output:")
 }
@@ -117,7 +117,7 @@ func TestConfirmAndGatherContext_ApprovedFile(t *testing.T) {
 
 	repl.confirmFn = func(string) bool { return true }
 
-	got := repl.confirmAndGatherContext("please look at " + p)
+	got := repl.confirmAndGatherContext(`please look at "` + p + `"`)
 	assert.Contains(t, got, "file body")
 	assert.Contains(t, got, "--- "+p+" ---")
 }
@@ -134,9 +134,9 @@ func TestProcessInput_AutoContext_DeclinedLeavesInputUnchanged(t *testing.T) {
 		seen = prompt
 		return "ok", nil
 	}
-	err := repl.processInput("run pwd please")
+	err := repl.processInput(`run "pwd" please`)
 	assert.NoError(t, err)
-	assert.Equal(t, "run pwd please", seen)
+	assert.Equal(t, `run "pwd" please`, seen)
 }
 
 func TestProcessInput_AutoContext_ApprovedAppendsBlock(t *testing.T) {
@@ -151,9 +151,9 @@ func TestProcessInput_AutoContext_ApprovedAppendsBlock(t *testing.T) {
 		seen = prompt
 		return "ok", nil
 	}
-	err := repl.processInput("run pwd please")
+	err := repl.processInput(`run "pwd" please`)
 	assert.NoError(t, err)
-	assert.Contains(t, seen, "run pwd please")
+	assert.Contains(t, seen, `run "pwd" please`)
 	assert.Contains(t, seen, "Ran `pwd`")
 }
 
@@ -302,6 +302,6 @@ func TestConfirmAndGatherContext_FileDisappearsBeforeRead(t *testing.T) {
 		return true
 	}
 
-	got := repl.confirmAndGatherContext("please look at " + p)
+	got := repl.confirmAndGatherContext(`please look at "` + p + `"`)
 	assert.NotContains(t, got, p)
 }

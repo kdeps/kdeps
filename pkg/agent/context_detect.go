@@ -83,11 +83,7 @@ const pipelineArgToken = "[^\\s|;&`$()]+"
 
 //nolint:gochecknoglobals // compiled once from the allowlists above
 var (
-	autoBareCommandPattern = regexp.MustCompile(
-		`\b(` + strings.Join(autoBareCommandNames, "|") + `)\b(?:\s+-{1,2}[\w-]+)*`,
-	)
-	autoGatedCommandPatterns = buildGatedCommandPatterns(autoGatedCommandSubcommands)
-	bareFileRefPattern       = regexp.MustCompile(`(?:^|\s)([\w./\\:~-]+\.\w{1,8})\b`)
+	bareFileRefPattern = regexp.MustCompile(`(?:^|\s)([\w./\\:~-]+\.\w{1,8})\b`)
 
 	// pipelineSegmentStart is a stage of a pipeline: either a bare command
 	// name, or a gated dual-use tool immediately followed by one of its own
@@ -118,19 +114,26 @@ var (
 	// chain a second, unvetted command (sequencing, backgrounding, backticks,
 	// or a nested substitution) rather than trusting just its leading token.
 	dangerousSubstitutionMeta = regexp.MustCompile("[;&`\n]|\\$\\(")
+
+	// quotedSpanPattern matches a double- or single-quoted span (heuristic,
+	// no escaped-quote handling -- same simplicity level as
+	// commandSubstitutionPattern).
+	quotedSpanPattern = regexp.MustCompile(`"([^"]+)"|'([^']+)'`)
 )
 
-func buildGatedCommandPatterns(specs []struct {
-	name string
-	subs []string
-}) []*regexp.Regexp {
-	patterns := make([]*regexp.Regexp, 0, len(specs))
-	for _, spec := range specs {
-		patterns = append(patterns, regexp.MustCompile(
-			`\b`+regexp.QuoteMeta(spec.name)+`\s+(`+strings.Join(spec.subs, "|")+`)\b`,
-		))
+// quotedSpans returns the inner text of every quoted span in s, in order.
+// Both detectCommands and detectFiles scope their matching to these spans
+// only -- a bare mention in unquoted prose is never captured.
+func quotedSpans(s string) []string {
+	var spans []string
+	for _, sm := range quotedSpanPattern.FindAllStringSubmatchIndex(s, -1) {
+		start, end := sm[2], sm[3] // double-quoted capture
+		if start < 0 {
+			start, end = sm[4], sm[5] // single-quoted capture
+		}
+		spans = append(spans, s[start:end])
 	}
-	return patterns
+	return spans
 }
 
 // gatedAlternation builds a single regex alternation covering every gated
@@ -148,11 +151,12 @@ func gatedAlternation(specs []struct {
 }
 
 // detectCommands scans input for allowlisted read-only command mentions --
-// single commands, "|" pipelines, and "$(...)" substitutions -- returning
-// them in the order they appear ($(...) substitutions first, then
-// pipelines, then bare matches, then gated matches), deduped. Heuristic
-// regex, not a shell parser -- see autoBareCommandNames /
-// autoGatedCommandSubcommands / pipelinePattern for the safety rationale.
+// wrapped in double or single quotes, or inside a "$(...)" substitution --
+// returning them in the order they appear ($(...) substitutions first, then
+// quoted spans), deduped. A bare, unquoted mention in free-flowing prose is
+// never captured. Heuristic regex, not a shell parser -- see
+// autoBareCommandNames / autoGatedCommandSubcommands / pipelinePattern for
+// the safety rationale.
 func detectCommands(input string) []string {
 	seen := make(map[string]bool)
 	var found []string
@@ -163,11 +167,6 @@ func detectCommands(input string) []string {
 		}
 		seen[m] = true
 		found = append(found, m)
-	}
-	addAll := func(matches []string) {
-		for _, m := range matches {
-			add(m)
-		}
 	}
 	mask := func(masked []byte, start, end int) {
 		for i := start; i < end; i++ {
@@ -180,9 +179,8 @@ func detectCommands(input string) []string {
 	masked := []byte(input)
 
 	// $(...) substitutions are resolved first and their span masked out, so
-	// a partial match from inside one (e.g. the bare pattern's flags-only
-	// capture stopping short of a trailing positional arg) never also shows
-	// up as a separate, incomplete entry alongside the full extracted command.
+	// a quote character inside one is never also picked up as a separate
+	// quoted span below.
 	for _, sm := range commandSubstitutionPattern.FindAllStringSubmatchIndex(input, -1) {
 		inner := strings.TrimSpace(input[sm[2]:sm[3]])
 		if inner != "" && !dangerousSubstitutionMeta.MatchString(inner) && isSafeCommandString(inner) {
@@ -191,18 +189,17 @@ func detectCommands(input string) []string {
 		mask(masked, sm[0], sm[1])
 	}
 
-	// Pipelines are matched next and their span masked out the same way,
-	// before the single-command patterns run, so a pipeline's own stages are
-	// never also reported as separate redundant single-command matches.
-	for _, loc := range pipelinePattern.FindAllIndex(masked, -1) {
-		add(string(masked[loc[0]:loc[1]]))
-		mask(masked, loc[0], loc[1])
-	}
-	remaining := string(masked)
-
-	addAll(autoBareCommandPattern.FindAllString(remaining, -1))
-	for _, pat := range autoGatedCommandPatterns {
-		addAll(pat.FindAllString(remaining, -1))
+	// Quoted spans are the only other way a command is captured: this keeps
+	// auto-context from firing on prose that merely mentions a command-like
+	// word, while still letting an explicit "run \"git status\"" trigger.
+	// Same isSafeCommandString validation as $(...) substitutions, for the
+	// same reason -- an explicit delimiter removes the ambiguity free-text
+	// matching has to guard against. No further masking needed: nothing
+	// scans the remaining text after this.
+	for _, span := range quotedSpans(string(masked)) {
+		if inner := strings.TrimSpace(span); inner != "" && isSafeCommandString(inner) {
+			add(inner)
+		}
 	}
 	return found
 }
@@ -242,36 +239,40 @@ func isSafeCommandString(s string) bool {
 	return false
 }
 
-// detectFiles scans input for filename-like tokens that resolve to an
-// existing, non-directory, non-image, non-binary file under fs -- explicit
-// @refs (handled separately and silently by expandFileRefs) are stripped
-// first so this never double-matches an already-explicit reference.
+// detectFiles scans quoted spans of input for filename-like tokens that
+// resolve to an existing, non-directory, non-image, non-binary file under
+// fs -- a bare, unquoted mention in free-flowing prose is never captured.
+// Explicit @refs (handled separately and silently by expandFileRefs) are
+// stripped first so this never double-matches an already-explicit
+// reference.
 func detectFiles(fs afero.Fs, input string) []string {
 	stripped := atFileRefRe.ReplaceAllString(input, "")
 
 	seen := make(map[string]bool)
 	var found []string
-	for _, sm := range bareFileRefPattern.FindAllStringSubmatch(stripped, -1) {
-		m := sm[1]
-		if seen[m] {
-			continue
+	for _, span := range quotedSpans(stripped) {
+		for _, sm := range bareFileRefPattern.FindAllStringSubmatch(span, -1) {
+			m := sm[1]
+			if seen[m] {
+				continue
+			}
+			info, err := fs.Stat(m)
+			if err != nil || info.IsDir() {
+				continue
+			}
+			if imageExts[strings.ToLower(filepath.Ext(m))] {
+				continue
+			}
+			if info.Size() > maxFileReadBytes {
+				continue
+			}
+			data, err := afero.ReadFile(fs, m)
+			if err != nil || isBinaryContent(data) {
+				continue
+			}
+			seen[m] = true
+			found = append(found, m)
 		}
-		info, err := fs.Stat(m)
-		if err != nil || info.IsDir() {
-			continue
-		}
-		if imageExts[strings.ToLower(filepath.Ext(m))] {
-			continue
-		}
-		if info.Size() > maxFileReadBytes {
-			continue
-		}
-		data, err := afero.ReadFile(fs, m)
-		if err != nil || isBinaryContent(data) {
-			continue
-		}
-		seen[m] = true
-		found = append(found, m)
 	}
 	return found
 }

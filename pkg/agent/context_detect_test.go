@@ -34,10 +34,10 @@ func TestDetectCommands_BareNames(t *testing.T) {
 		input string
 		want  string
 	}{
-		{"can you check df -h for me", "df -h"},
-		{"please run ls -la in this dir", "ls -la"},
-		{"what does uname say", "uname"},
-		{"tail app.log for errors", "tail"},
+		{`can you check "df -h" for me`, "df -h"},
+		{`please run "ls -la" in this dir`, "ls -la"},
+		{"what does 'uname' say", "uname"},
+		{`"tail" app.log for errors`, "tail"},
 	}
 	for _, tt := range tests {
 		got := detectCommands(tt.input)
@@ -46,24 +46,38 @@ func TestDetectCommands_BareNames(t *testing.T) {
 }
 
 func TestDetectCommands_WordBoundary(t *testing.T) {
-	// "ls" inside "useless" must not match as the ls command.
+	// "ls" inside "useless" must not match as the ls command, even unquoted.
 	got := detectCommands("this approach seems useless to me")
 	assert.Empty(t, got)
 }
 
+func TestDetectCommands_UnquotedNoLongerMatches(t *testing.T) {
+	// A bare mention with no quotes anywhere is never captured, regardless
+	// of how command-shaped it looks.
+	got := detectCommands("can you please run df -h for me")
+	assert.Empty(t, got)
+}
+
+func TestDetectCommands_SingleQuotesMatchLikeDouble(t *testing.T) {
+	double := detectCommands(`run "git status" please`)
+	single := detectCommands("run 'git status' please")
+	assert.Equal(t, double, single)
+}
+
 func TestDetectCommands_GatedSubcommandsMatchOnlyReadOnly(t *testing.T) {
-	got := detectCommands("run git status and then git log please")
+	got := detectCommands(`run "git status" and then "git log" please`)
 	assert.Contains(t, got, "git status")
 	assert.Contains(t, got, "git log")
 }
 
 func TestDetectCommands_GatedSubcommandsExcludeMutating(t *testing.T) {
-	got := detectCommands("please git commit -m 'wip' and go build ./...")
+	// Quoting does not bypass the mutating-command exclusion.
+	got := detectCommands(`please "git commit -m 'wip'" and "go build ./..."`)
 	assert.Empty(t, got)
 }
 
 func TestDetectCommands_Deduped(t *testing.T) {
-	got := detectCommands("run df -h then check df -h again")
+	got := detectCommands(`run "df -h" then check "df -h" again`)
 	count := 0
 	for _, c := range got {
 		if c == "df -h" {
@@ -79,44 +93,48 @@ func TestDetectCommands_NoMatch(t *testing.T) {
 }
 
 func TestDetectCommands_Pipeline(t *testing.T) {
-	got := detectCommands("can you run ps aux | grep -i kdeps")
+	got := detectCommands(`can you run "ps aux | grep -i kdeps"`)
 	assert.Contains(t, got, "ps aux | grep -i kdeps")
 }
 
-func TestDetectCommands_PipelineRequiresPipe(t *testing.T) {
-	// No "|" present -- falls back to the flags-only single-command match,
-	// which stops before the non-flag positional "-la in this dir" tail.
-	got := detectCommands("please run ls -la in this dir")
+func TestDetectCommands_SingleCommandWithPositionalArgs(t *testing.T) {
+	// A quoted span is an explicit delimiter, so trailing positional args
+	// (not just flags) are trusted -- same rationale as $(...) substitutions.
+	got := detectCommands(`please run "ls -la" in this dir`)
 	assert.Equal(t, []string{"ls -la"}, got)
 }
 
 func TestDetectCommands_PipelineStopsAtUnallowedStage(t *testing.T) {
-	// "xargs" is not allowlisted, so the pipeline as a whole is rejected;
-	// only the safe leading "cat" is offered, never the dangerous "rm".
-	got := detectCommands("cat foo | xargs rm")
-	assert.Equal(t, []string{"cat"}, got)
-	for _, c := range got {
-		assert.NotContains(t, c, "rm")
-	}
+	// "xargs" is not allowlisted, so a pipeline containing it is rejected
+	// outright when quoted as a single span -- never offered even partially.
+	got := detectCommands(`"cat foo | xargs rm"`)
+	assert.Empty(t, got)
 }
 
 func TestDetectCommands_PipelineTruncatesAtChainingMetachar(t *testing.T) {
-	got := detectCommands("ps aux | grep kdeps; rm -rf /")
+	// A chaining metacharacter inside the quoted span invalidates the whole
+	// span; the safe leading stage is not offered on its own.
+	got := detectCommands(`"ps aux | grep kdeps; rm -rf /"`)
+	assert.Empty(t, got)
+}
+
+func TestDetectCommands_PipelineQuotedSeparatelyFromDangerousSuffix(t *testing.T) {
+	// If the user quotes only the safe portion, the unquoted dangerous
+	// suffix is never scanned at all.
+	got := detectCommands(`"ps aux | grep kdeps"; rm -rf /`)
 	assert.Equal(t, []string{"ps aux | grep kdeps"}, got)
-	for _, c := range got {
-		assert.NotContains(t, c, "rm")
-	}
 }
 
 func TestDetectCommands_PipelineWithGatedFirstStage(t *testing.T) {
-	got := detectCommands("docker ps | grep kdeps")
+	got := detectCommands(`"docker ps | grep kdeps"`)
 	assert.Contains(t, got, "docker ps | grep kdeps")
 }
 
 func TestDetectCommands_PipelineExcludesMutatingGatedStage(t *testing.T) {
-	got := detectCommands("docker rm foo | grep bar")
-	assert.NotContains(t, got, "docker rm foo | grep bar")
-	assert.Contains(t, got, "grep")
+	// The mutating "docker rm" stage invalidates the whole quoted pipeline;
+	// none of it -- not even the otherwise-safe "grep" stage -- is offered.
+	got := detectCommands(`"docker rm foo | grep bar"`)
+	assert.Empty(t, got)
 }
 
 func TestDetectCommands_SubstitutionBareCommand(t *testing.T) {
@@ -203,8 +221,27 @@ func TestDetectFiles_TextFileMatches(t *testing.T) {
 	p := filepath.Join(dir, "notes.txt")
 	require.NoError(t, os.WriteFile(p, []byte("hello"), 0o644))
 
-	got := detectFiles(afero.NewOsFs(), "please look at "+p+" and tell me")
+	got := detectFiles(afero.NewOsFs(), `please look at "`+p+`" and tell me`)
 	assert.Contains(t, got, p)
+}
+
+func TestDetectFiles_UnquotedNoLongerMatches(t *testing.T) {
+	dir := t.TempDir()
+	p := filepath.Join(dir, "notes.txt")
+	require.NoError(t, os.WriteFile(p, []byte("hello"), 0o644))
+
+	got := detectFiles(afero.NewOsFs(), "please look at "+p+" and tell me")
+	assert.Empty(t, got)
+}
+
+func TestDetectFiles_SingleQuotesMatchLikeDouble(t *testing.T) {
+	dir := t.TempDir()
+	p := filepath.Join(dir, "notes.txt")
+	require.NoError(t, os.WriteFile(p, []byte("hello"), 0o644))
+
+	double := detectFiles(afero.NewOsFs(), `look at "`+p+`" please`)
+	single := detectFiles(afero.NewOsFs(), "look at '"+p+"' please")
+	assert.Equal(t, double, single)
 }
 
 func TestDetectFiles_ImageSkipped(t *testing.T) {
@@ -212,7 +249,7 @@ func TestDetectFiles_ImageSkipped(t *testing.T) {
 	p := filepath.Join(dir, "photo.png")
 	require.NoError(t, os.WriteFile(p, []byte("\x89PNG"), 0o644))
 
-	got := detectFiles(afero.NewOsFs(), "describe "+p)
+	got := detectFiles(afero.NewOsFs(), `describe "`+p+`"`)
 	assert.Empty(t, got)
 }
 
@@ -221,12 +258,13 @@ func TestDetectFiles_BinarySkipped(t *testing.T) {
 	p := filepath.Join(dir, "data.bin")
 	require.NoError(t, os.WriteFile(p, []byte{0x00, 0x01, 0x02, 0x00}, 0o644))
 
-	got := detectFiles(afero.NewOsFs(), "check "+p)
+	got := detectFiles(afero.NewOsFs(), `check "`+p+`"`)
 	assert.Empty(t, got)
 }
 
 func TestDetectFiles_NonexistentSkipped(t *testing.T) {
-	got := detectFiles(afero.NewOsFs(), "look at /nonexistent/path/main.go")
+	// Quoting does not bypass the fs.Stat existence check.
+	got := detectFiles(afero.NewOsFs(), `look at "/nonexistent/path/main.go"`)
 	assert.Empty(t, got)
 }
 
@@ -234,7 +272,7 @@ func TestDetectFiles_DirectorySkipped(t *testing.T) {
 	dir := t.TempDir()
 	sub := filepath.Join(dir, "sub.dir")
 	require.NoError(t, os.Mkdir(sub, 0o755))
-	got := detectFiles(afero.NewOsFs(), "check "+sub)
+	got := detectFiles(afero.NewOsFs(), `check "`+sub+`"`)
 	assert.Empty(t, got)
 }
 
@@ -258,7 +296,7 @@ func TestDetectFiles_TooLargeSkipped(t *testing.T) {
 	}
 	require.NoError(t, os.WriteFile(p, data, 0o644))
 
-	got := detectFiles(afero.NewOsFs(), "check "+p)
+	got := detectFiles(afero.NewOsFs(), `check "`+p+`"`)
 	assert.Empty(t, got)
 }
 
@@ -289,7 +327,7 @@ func TestDetectFiles_Deduped(t *testing.T) {
 	p := filepath.Join(dir, "notes.txt")
 	require.NoError(t, os.WriteFile(p, []byte("hello"), 0o644))
 
-	got := detectFiles(afero.NewOsFs(), p+" and again "+p)
+	got := detectFiles(afero.NewOsFs(), `"`+p+`" and again "`+p+`"`)
 	count := 0
 	for _, f := range got {
 		if f == p {
@@ -304,7 +342,7 @@ func TestDetectContext_Combined(t *testing.T) {
 	p := filepath.Join(dir, "main.go")
 	require.NoError(t, os.WriteFile(p, []byte("package main"), 0o644))
 
-	cmds, files := detectContext(afero.NewOsFs(), "run df -h and look at "+p)
+	cmds, files := detectContext(afero.NewOsFs(), `run "df -h" and look at "`+p+`"`)
 	assert.Contains(t, cmds, "df -h")
 	assert.Contains(t, files, p)
 }

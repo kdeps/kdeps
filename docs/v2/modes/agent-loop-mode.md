@@ -77,34 +77,38 @@ Inside the REPL, type `/help` for the full list:
 
 ### Auto-detected commands and files
 
-`!cmd` and `@path` require you to know kdeps' own syntax. Auto-context detection covers the common case where you just describe what you want in plain English:
+`!cmd` and `@path` require you to know kdeps' own syntax. Auto-context detection covers the common case where you just describe what you want in plain English -- but only fires on a command or file mention wrapped in quotes (single or double); an unquoted mention in plain prose is never offered:
 
 ```text
-you type: "can you check df -h and see if we're low on disk"
+you type: "can you run \"df -h\" and take a look at \"main.go\"?"
               |
               v
-kdeps scans the line for a read-only command mention (`df -h`)
+kdeps scans the quoted spans for a read-only command ("df -h")
+and an existing, readable file ("main.go")
               |
               v
 "Detected in your message:
    command: df -h
+   file: main.go
  Run the command(s) / include the file(s)? [y/N]"
               |
        y -----+----- n/Enter
        |             |
        v             v
 runs `df -h`,   sends your original
-appends its     text completely
-output, sends   unchanged
+inlines         text completely
+main.go, sends  unchanged
 the turn
 ```
 
-The same detector looks for existing, readable **text files** mentioned by name (`look at main.go`) and offers to inline their contents the same way `@main.go` would. Images and binaries are never auto-detected -- use an explicit `@path` for those. Only a strict allowlist of read-only commands is ever offered (`ls`, `df`, `ps`, `git status`, `go env`, `docker ps`, etc.) -- destructive or mutating commands (`rm`, `git commit`, `go build`, `docker rm`, ...) never match, so there is nothing to confirm your way into breaking. One confirmation covers everything detected in a single message; declining (or just pressing Enter) sends your original text completely unchanged, exactly as if nothing had been detected.
+Only text inside `"..."` or `'...'` is ever scanned -- typing `can you check df -h for me` with no quotes triggers nothing, even though `df -h` is a recognized command. Quoting `"df -h"` is what tells auto-context you mean it literally.
+
+The same quoted-span scan looks for existing, readable **text files** by name (`look at "main.go"`) and offers to inline their contents the same way `@main.go` would. Images and binaries are never auto-detected -- use an explicit `@path` for those. Only a strict allowlist of read-only commands is ever offered (`ls`, `df`, `ps`, `git status`, `go env`, `docker ps`, etc.) -- destructive or mutating commands (`rm`, `git commit`, `go build`, `docker rm`, ...) never match, even quoted, so there is nothing to confirm your way into breaking. One confirmation covers everything detected in a single message; declining (or just pressing Enter) sends your original text completely unchanged, exactly as if nothing had been detected.
 
 **Pipes and command substitution** are recognized too, as long as every stage is itself allowlisted:
 
-- `ps aux | grep -i kdeps` -- detected and run as one pipeline, provided every `|`-separated stage is a read-only command (a stage like `xargs rm` breaks the chain; only the safe leading stage is offered on its own instead).
-- `` $(git rev-parse HEAD) `` -- the `$(...)` body is checked the same way and, if safe, run and inlined as its own command; anything that could chain a second command inside the parens (`;`, `&`, `` ` ``, a nested `$(`) is rejected outright rather than run partially.
+- `"ps aux | grep -i kdeps"` -- quoted as one pipeline and run that way, provided every `|`-separated stage is a read-only command; a stage like `xargs rm` invalidates the whole quoted pipeline rather than being silently dropped.
+- `` $(git rev-parse HEAD) `` -- its own explicit delimiter, so it needs no additional quoting. The `$(...)` body is checked the same way and, if safe, run and inlined as its own command; anything that could chain a second command inside the parens (`;`, `&`, `` ` ``, a nested `$(`) is rejected outright rather than run partially.
 
 Disable it for the session with `/autocontext off` if the confirmation prompt gets in your way; `/autocontext on` re-enables it, and `/autocontext` alone shows the current state.
 
