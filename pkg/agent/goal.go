@@ -61,6 +61,10 @@ type GoalTask struct {
 	Rounds int `json:"rounds"`
 	// Note holds the completion summary or the failure reason.
 	Note string `json:"note,omitempty"`
+	// Evidence records what verification confirmed the task's result --
+	// e.g. a test run, a diff, an md5 comparison. Empty when the task made
+	// no tool calls (nothing to verify) or evidence enforcement is off.
+	Evidence string `json:"evidence,omitempty"`
 }
 
 // Goal is the plan for a prompt: an ordered task list plus a monotonic cursor.

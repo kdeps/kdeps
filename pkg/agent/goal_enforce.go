@@ -48,9 +48,17 @@ type goalEnforcer struct {
 
 	maxUnproductive int
 	taskBudget      int
+	// requireEvidence gates task_complete: a task with tool calls must have
+	// made at least one evidence-capable call before it can close. Set once
+	// from Config.RequireTaskEvidence at construction.
+	requireEvidence bool
 
 	// unproductive counts consecutive rounds that produced nothing new.
 	unproductive int
+	// hasEvidence is true once the active task has made at least one call to
+	// an evidence-capable tool (see isEvidenceCapableTool). Reset in
+	// resetTask.
+	hasEvidence bool
 	// seenResults dedups tool results within the active task, so re-fetching
 	// the same page does not read as progress.
 	seenResults map[string]bool
@@ -73,7 +81,9 @@ type goalEnforcer struct {
 	strikes int
 }
 
-func newGoalEnforcer(goal *Goal, store *MemoryStore, maxUnproductive, taskBudget int) *goalEnforcer {
+func newGoalEnforcer(
+	goal *Goal, store *MemoryStore, maxUnproductive, taskBudget int, requireEvidence bool,
+) *goalEnforcer {
 	if maxUnproductive <= 0 {
 		maxUnproductive = defaultMaxUnproductiveRounds
 	}
@@ -85,6 +95,7 @@ func newGoalEnforcer(goal *Goal, store *MemoryStore, maxUnproductive, taskBudget
 		store:           store,
 		maxUnproductive: maxUnproductive,
 		taskBudget:      taskBudget,
+		requireEvidence: requireEvidence,
 		seenResults:     make(map[string]bool),
 		completedSigs:   make(map[string]int),
 		blockedTools:    make(map[string]bool),
@@ -190,6 +201,9 @@ func (e *goalEnforcer) recordCall(name, args string) {
 		return
 	}
 	e.taskSigs = append(e.taskSigs, toolCallSignature(name, args))
+	if isEvidenceCapableTool(name) {
+		e.hasEvidence = true
+	}
 }
 
 // observeResult folds one tool result into the progress signal, reporting
@@ -296,6 +310,7 @@ func (e *goalEnforcer) resetTask() {
 	e.taskSigs = nil
 	e.unproductive = 0
 	e.strikes = 0 // a new task starts with a clean record
+	e.hasEvidence = false
 	e.seenResults = make(map[string]bool)
 	e.blockedTools = make(map[string]bool)
 }
@@ -339,6 +354,11 @@ RULES (enforced in code, not advisory):
 2. Close the task with task_complete(id=%d, summary) once it is met, or
    task_fail(id=%d, reason) if it cannot be.
 Do not repeat these rules in your reply.`, active.ID, active.ID)
+		if e.requireEvidence {
+			b.WriteString("\nBefore closing a task with tool calls, run a check " +
+				"(bash_exec, read_file, sql_query, memory_query, ...) that " +
+				"confirms the result, and pass what it showed as evidence.")
+		}
 		if e.strikes > 0 {
 			fmt.Fprintf(&b, "\n\nStrikes against this task: %d. %s", e.strikes, penaltyNotice(e.strikes))
 		}
@@ -363,6 +383,11 @@ Each refusal is a strike against this task: the second withdraws the tool you
 misused, the third withdraws every tool, the fourth abandons the task and the
 goal continues without it.`,
 		active.ID, active.ID, active.ID, active.ID, active.ID)
+	if e.requireEvidence {
+		b.WriteString("\nBefore closing a task with tool calls, run a check " +
+			"(bash_exec, read_file, sql_query, memory_query, ...) that " +
+			"confirms the result, and pass what it showed as evidence.")
+	}
 	if e.strikes > 0 {
 		fmt.Fprintf(&b, "\n\nStrikes against this task: %d. %s", e.strikes, penaltyNotice(e.strikes))
 	}
@@ -448,7 +473,7 @@ func (l *Loop) beginGoal(ctx context.Context, input string, w io.Writer) string 
 	}
 
 	l.enforcer = newGoalEnforcer(goal, l.memoryStore,
-		l.config.MaxUnproductiveRounds, l.config.TaskRoundBudget)
+		l.config.MaxUnproductiveRounds, l.config.TaskRoundBudget, l.config.RequireTaskEvidence)
 	if fresh {
 		l.announceActiveTask(w)
 	}
@@ -498,7 +523,7 @@ func (l *Loop) SetGoal(ctx context.Context, text string) *Goal {
 	goal := planGoal(ctx, l, text)
 	saveGoal(l.memoryStore, goal)
 	l.enforcer = newGoalEnforcer(goal, l.memoryStore,
-		l.config.MaxUnproductiveRounds, l.config.TaskRoundBudget)
+		l.config.MaxUnproductiveRounds, l.config.TaskRoundBudget, l.config.RequireTaskEvidence)
 	return goal
 }
 

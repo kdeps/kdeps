@@ -163,3 +163,20 @@ func TestCategoryName(t *testing.T) {
 		t.Fatal("an uncategorized budget has no name")
 	}
 }
+
+func TestIsEvidenceCapableTool(t *testing.T) {
+	for _, name := range []string{
+		toolNameBashExec, toolNameReadFile, toolNameListFiles, toolNameSearchLocal,
+		"md5_file", "tail_file", "sql_query", "memory_query", "code_search", "code_diagnostics",
+	} {
+		if !isEvidenceCapableTool(name) {
+			t.Errorf("%s should be recognized as evidence-capable", name)
+		}
+	}
+	if isEvidenceCapableTool(toolNameWebSearch) {
+		t.Fatal("web_search must not be evidence-capable -- it cannot verify a local change")
+	}
+	if isEvidenceCapableTool("nonexistent_tool") {
+		t.Fatal("an unrecognized tool name must not be evidence-capable")
+	}
+}

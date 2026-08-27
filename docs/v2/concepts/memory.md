@@ -4,7 +4,7 @@ Persistent memory lets the agent store and recall facts across sessions. Unlike 
 
 ## How it works
 
-Memory is stored as a JSONL file at `~/.kdeps/memory/<encoded-cwd>/memory.jsonl`. Each entry has a key, value, type, timestamps, and optional references to other entries for graph-based relationship tracking.
+Memory is stored in a bbolt (embedded key-value) database at `~/.kdeps/memory/<encoded-cwd>/memory.bolt`. Each entry has a key, value, type, timestamps, and optional references to other entries for graph-based relationship tracking.
 
 The memory store is injected into every LLM call automatically as a single graph-ordered `<memory>` block in the system prompt: entries appear in causal order (a parent always before the children that reference it), each value is shown inline with its parent edges, and the newest unfinished task is flagged so a model resuming after an orchestrator model switch knows exactly where to continue.
 
@@ -18,6 +18,8 @@ The agent has four LLM-callable tools for interacting with persistent memory:
 | `memory_search` | Search entries by key or value (case-insensitive substring match). |
 | `memory_delete` | Remove an entry by key. |
 | `memory_list` | List all stored keys (use `memory_search` to find content). |
+
+A fifth tool, `memory_query`, runs relational queries (select/project/join/union) over memory plus tool-call history and task state -- see [Relational Query](#relational-query-memory-query) below.
 
 ### memory_save
 
@@ -77,6 +79,55 @@ Returns all stored keys (no content). Use `memory_search` to find specific entri
 }
 ```
 
+## Relational Query (memory_query)
+
+`memory_search` and `memory_list` cover simple lookups. For anything that
+needs filtering by field, combining facts across sources, or correlating
+past tool calls with the task that triggered them, `memory_query` runs a
+relational query -- select/project/join/union -- over three relations built
+from agent state:
+
+| Relation | Fields | Source |
+|---|---|---|
+| `memory` | `key`, `value`, `namespace`, `type`, `references`, `createdAt`, `updatedAt` | Persistent memory entries |
+| `tool_calls` | `name`, `args`, `result`, `timestamp` | Recent tool-call history (this session, most recent 200) |
+| `tasks` | `id`, `desc`, `status`, `rounds`, `note` | The active goal's task list (empty when no goal is active) |
+
+The query language is [expr-lang](https://expr-lang.org/) -- the same engine
+kdeps uses for `before:`/`after:` expressions. `filter()` and `map()` are
+its own built-ins (select and project); `join()` and `union()` are added by
+`memory_query` specifically for this tool:
+
+| Operation | Function | Example |
+|---|---|---|
+| Select (WHERE) | `filter(relation, predicate)` | `filter(memory, .type == "error")` |
+| Project (columns) | `map(relation, expr)` | `map(memory, {key: .key, value: .value})` |
+| Join | `join(left, right, leftField, rightField)` | `join(tool_calls, memory, "name", "key")` |
+| Union | `union(a, b)` | `union(filter(memory, .type == "error"), filter(memory, .type == "decision"))` |
+
+`join` is an equi-join: it matches rows where `left[leftField] ==
+right[rightField]` and returns merged rows with `left_`/`right_` prefixed
+field names, so `left_key` and `right_key` never collide even when both
+relations use the same field name. It has no inequality/range-join or
+multi-field-key support today.
+
+```json
+{
+  "name": "memory_query",
+  "parameters": {
+    "query": "filter(memory, .type == \"error\")",
+    "limit": 20
+  }
+}
+```
+
+The result is JSON with three fields: `rows` (the matched rows, capped at `limit`), `count` (the total number of matches before capping), and `truncated` (a boolean). `limit` defaults to 50 and is capped at 500 -- `truncated: true`
+means more rows matched than were returned, not that the query failed.
+
+`memory_query` is an **agent-mode** tool: it reads the active `Loop`'s state
+directly, so it is not available in workflow mode (there is no LLM making
+tool-call decisions there to query against).
+
 ## Auto-extraction
 
 The agent loop automatically extracts facts from every turn without an explicit `memory_save` call. Three extraction mechanisms run after each turn:
@@ -124,14 +175,14 @@ Entries are auto-classified by key pattern:
 | `status` | `status`, `state` | Current state information |
 | `tool_result` | `tool:*` | Tool call outputs |
 | `thinking` | `thinking:*` | The model's reasoning/chain-of-thought text for a round, across every thinking-capable backend (native extended thinking, M365 Copilot's chain-of-thought summary, etc.) — searchable via `memory_search` so a later turn can recall what the model was actually reasoning about, not just what it said or did. Capped at 20 entries like `tool_result`. |
-| `fact` | (default for unknown) | General facts |
 | `decision` | `decision`, `decided` | Design decisions |
 | `preference` | `preference`, `prefer`, `like` | User preferences |
 | `context` | `context`, `env`, `config` | Environment context |
 | `file` | `file`, `path`, `dir`, `last_files` | File references |
 | `action` | `last_action` | Last action taken |
 | `error` | `error`, `fail`, `bug` | Errors and failures |
-| `note` | (fallback) | Uncategorized entries |
+| `note` | (default for unknown) | Uncategorized entries -- no key pattern matched |
+| `fact` | (not auto-assigned) | General facts; not produced by any key pattern today, but grouped with `note` as a low-signal type (both capped at 50 combined) |
 
 ## Memory graph
 
@@ -200,7 +251,7 @@ Auto-extracted **low-signal** entries (types `note` and `fact`) are also globall
 
 ## Configuration
 
-Memory is enabled by default when the agent loop starts. No YAML configuration is needed. The store is created at `~/.kdeps/memory/<encoded-cwd>/memory.jsonl` where `<encoded-cwd>` is a sanitized version of the current working directory path.
+Memory is enabled by default when the agent loop starts. No YAML configuration is needed. The store is created at `~/.kdeps/memory/<encoded-cwd>/memory.bolt` where `<encoded-cwd>` is a sanitized version of the current working directory path.
 
 To disable memory, do not pass a `MemoryStore` to the agent config.
 

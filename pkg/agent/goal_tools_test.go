@@ -22,8 +22,12 @@ import (
 )
 
 func loopWithGoal(descs ...string) *Loop {
+	return loopWithGoalEvidence(false, descs...)
+}
+
+func loopWithGoalEvidence(requireEvidence bool, descs ...string) *Loop {
 	l := &Loop{}
-	l.enforcer = newGoalEnforcer(NewGoal("goal", descs), nil, 3, 25)
+	l.enforcer = newGoalEnforcer(NewGoal("goal", descs), nil, 3, 25, requireEvidence)
 	return l
 }
 
@@ -109,6 +113,80 @@ func TestSettleTask_NoGoalIsAnError(t *testing.T) {
 	l := &Loop{}
 	if _, err := l.settleTask(map[string]any{"id": float64(1)}, GoalTaskDone); err == nil {
 		t.Fatal("settling without an active goal must error")
+	}
+}
+
+// RequireTaskEvidence: a task with zero tool calls has nothing to verify, so
+// task_complete must not be blocked.
+func TestSettleTask_EvidenceNotRequiredForZeroToolCallTask(t *testing.T) {
+	l := loopWithGoalEvidence(true, "a", "b")
+
+	_, err := l.settleTask(map[string]any{"id": float64(1), "summary": "answered directly"}, GoalTaskDone)
+	if err != nil {
+		t.Fatalf("a task with no tool calls must close without evidence, got: %v", err)
+	}
+}
+
+// RequireTaskEvidence: a task that made only non-evidence-capable calls
+// (e.g. web_search) must be refused until an evidence-capable tool runs.
+func TestSettleTask_EvidenceRequiredRefusesUnverifiedCompletion(t *testing.T) {
+	l := loopWithGoalEvidence(true, "a", "b")
+	l.enforcer.recordCall(toolNameWebSearch, `{"query":"x"}`)
+
+	_, err := l.settleTask(map[string]any{"id": float64(1), "summary": "done"}, GoalTaskDone)
+	if err == nil {
+		t.Fatal("a task with tool calls but no evidence-capable call must be refused")
+	}
+	if !strings.Contains(err.Error(), "none of them verify") {
+		t.Fatalf("refusal should explain the missing evidence, got: %v", err)
+	}
+	if l.enforcer.goal.Cursor != 0 {
+		t.Fatal("a refused completion must not move the cursor")
+	}
+}
+
+// RequireTaskEvidence: once an evidence-capable tool has run, task_complete
+// succeeds and the evidence text is recorded on the task.
+func TestSettleTask_EvidenceRequiredAllowsVerifiedCompletion(t *testing.T) {
+	l := loopWithGoalEvidence(true, "a", "b")
+	l.enforcer.recordCall(toolNameBashExec, `{"command":"go test ./..."}`)
+
+	out, err := l.settleTask(map[string]any{
+		"id": float64(1), "summary": "done",
+		"evidence": "ran go test ./..., all passed",
+	}, GoalTaskDone)
+	if err != nil {
+		t.Fatalf("a task with an evidence-capable call must be allowed to close, got: %v", err)
+	}
+	if !strings.Contains(out, "active task is now 2") {
+		t.Fatalf("result should name the next active task: %q", out)
+	}
+	if got := l.enforcer.goal.Tasks[0].Evidence; got != "ran go test ./..., all passed" {
+		t.Fatalf("evidence should be recorded on the task, got %q", got)
+	}
+}
+
+// RequireTaskEvidence never gates task_fail: giving up doesn't claim a
+// result that needs verifying.
+func TestSettleTask_EvidenceNotRequiredForTaskFail(t *testing.T) {
+	l := loopWithGoalEvidence(true, "a", "b")
+	l.enforcer.recordCall(toolNameWebSearch, `{"query":"x"}`)
+
+	_, err := l.settleTask(map[string]any{"id": float64(1), "reason": "cannot do it"}, GoalTaskFailed)
+	if err != nil {
+		t.Fatalf("task_fail must never be gated by evidence, got: %v", err)
+	}
+}
+
+// The default (RequireTaskEvidence: false) preserves today's behavior: no
+// evidence needed even for a task with only non-evidence-capable calls.
+func TestSettleTask_EvidenceFlagOffPreservesOldBehavior(t *testing.T) {
+	l := loopWithGoal("a", "b") // requireEvidence defaults to false
+	l.enforcer.recordCall(toolNameWebSearch, `{"query":"x"}`)
+
+	_, err := l.settleTask(map[string]any{"id": float64(1), "summary": "done"}, GoalTaskDone)
+	if err != nil {
+		t.Fatalf("evidence gating must be opt-in; got unexpected refusal: %v", err)
 	}
 }
 

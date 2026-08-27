@@ -60,6 +60,14 @@ func (l *Loop) registerGoalTools() {
 				Description: "One line describing what was accomplished",
 				Required:    true,
 			},
+			"evidence": {
+				Type: toolParamString,
+				Description: "What verification was run and what it showed " +
+					"(e.g. 'ran go test ./pkg/foo, 12 passed', 'diffed output.txt " +
+					"before/after, matches expected'). Required when this task made " +
+					"tool calls; omit for a pure-reasoning task with nothing to verify.",
+				Required: false,
+			},
 		},
 		Execute: func(args map[string]any) (string, error) {
 			return l.settleTask(args, GoalTaskDone)
@@ -120,9 +128,22 @@ func (l *Loop) settleTask(args map[string]any, status GoalTaskStatus) (string, e
 			id, active.ID, active.Desc, strikes, penaltyNotice(strikes))
 	}
 
+	if status == GoalTaskDone && e.requireEvidence && len(e.taskSigs) > 0 && !e.hasEvidence {
+		return "", fmt.Errorf(
+			"REFUSED: task %d has tool calls but none of them verify the claimed "+
+				"result. Run a check first — bash_exec (diff, md5sum, test run), "+
+				"read_file, list_files, sql_query, or memory_query — then call "+
+				"task_complete again with what it showed",
+			active.ID)
+	}
+
 	note, _ := args["summary"].(string)
 	if note == "" {
 		note, _ = args["reason"].(string)
+	}
+
+	if evidence, _ := args["evidence"].(string); evidence != "" {
+		active.Evidence = evidence
 	}
 
 	settledID, settledDesc := active.ID, active.Desc

@@ -131,11 +131,33 @@ the original candidate rather than blocking the turn.
 **How a task is settled.** The model cannot finish a task by saying so in prose.
 It calls one of two tools and the code validates the id against the active task:
 
-- `task_complete{id, summary}` - the objective is met; advance.
+- `task_complete{id, summary, evidence}` - the objective is met; advance.
 - `task_fail{id, reason}` - it cannot be done; advance anyway with the reason recorded.
 
 If a turn ends with a text answer instead of either call, the loop settles the
 active task from that text and continues with the next one.
+
+**Evidence-gated completion (`RequireTaskEvidence`).** By default, `task_complete`
+only checks *which* task is being closed -- the claimed outcome itself is
+unverified. With `RequireTaskEvidence: true`, a task that made tool calls must
+have run at least one verification-capable tool (`bash_exec`, `read_file`,
+`list_files`, `md5_file`, `tail_file`, `search_local`, `sql_query`,
+`memory_query`, `code_search`, `code_diagnostics`) before `task_complete` is
+accepted -- otherwise it is refused with a message naming what to run first.
+A task that made *no* tool calls (a direct answer with nothing to verify) is
+exempt, and `task_fail` is never gated. The `evidence` argument records what
+was checked and what it showed (e.g. `"ran go test ./pkg/foo, 12 passed"`),
+stored on the task and queryable later via
+[`memory_query`](/concepts/memory#relational-query-memory-query)'s
+`tasks` relation.
+
+Two tools exist specifically for this: `md5_file` computes a file's MD5
+checksum -- call it once before and once after a change and compare the two
+hashes to prove whether the content actually changed -- and `tail_file`
+returns the last N lines of a file (default 20) without needing to know its
+total length upfront, for checking how a log or command output ends.
+`list_files` also defaults to the current working directory when `path` is
+omitted, making a quick directory listing a one-argument-free call.
 
 **You can see which task is active.** Whenever the cursor moves onto a task —
 a fresh multi-task plan, a resumed goal, or an advance via `task_complete`/
@@ -178,8 +200,8 @@ drop it, rather than silently resuming on your next prompt.
 
 The modeline shows `task:2/5` while a goal is active. Enforcement is on in the
 interactive REPL; library and test callers keep the plain round loop. Tuning:
-`TaskRoundBudget` (default 25 rounds per task) and `MaxUnproductiveRounds`
-(default 3).
+`TaskRoundBudget` (default 25 rounds per task), `MaxUnproductiveRounds`
+(default 3), and `RequireTaskEvidence` (default `false`, opt-in).
 
 Small local models sometimes copy the task directive into their reply instead of
 acting on it, which would leave the turn with no answer. When that happens the
@@ -672,7 +694,7 @@ Always available. No environment variables required.
 | `memory_delete` | Remove a memory entry by key. |
 | `memory_list` | List all stored memory keys. |
 
-Memory is stored per-project at `~/.kdeps/memory/<encoded-cwd>/memory.jsonl`. Facts persist across sessions and are auto-extracted from every turn — the agent can write `[MEMORY: key] value` on its own line to persist a fact without calling `memory_save`. See [Persistent Memory](/concepts/memory) for details.
+Memory is stored per-project at `~/.kdeps/memory/<encoded-cwd>/memory.bolt`. Facts persist across sessions and are auto-extracted from every turn — the agent can write `[MEMORY: key] value` on its own line to persist a fact without calling `memory_save`. See [Persistent Memory](/concepts/memory) for details.
 
 The `memory_*` tools are how the *model* reads and writes memory during a turn. To inspect the store yourself from the REPL, use `/memory` (overview), `/memory list` (every entry), and `/memory search <query>` — see [REPL slash commands](#repl-slash-commands).
 

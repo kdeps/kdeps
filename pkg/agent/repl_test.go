@@ -5799,7 +5799,7 @@ func TestRunStreaming_SpinnerClearedBeforeOutput(t *testing.T) {
 func TestPrintResumedGoal_ShowsGoalAndCommands(t *testing.T) {
 	loop := makeTestLoop(nil)
 	loop.config.GoalEnforcement = true
-	loop.enforcer = newGoalEnforcer(NewGoal("ship the release", []string{"write notes", "tag it"}), nil, 3, 25)
+	loop.enforcer = newGoalEnforcer(NewGoal("ship the release", []string{"write notes", "tag it"}), nil, 3, 25, false)
 	repl := NewREPL(context.Background(), loop)
 	defer repl.cancel()
 

@@ -21,6 +21,7 @@ package agent
 import (
 	"bytes"
 	"context"
+	"crypto/md5" //nolint:gosec // content-identity checksum, not a security use
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -105,6 +106,8 @@ func RegisterBuiltinTools(ctx context.Context, reg *kdepstools.Registry) {
 	registerListFiles(reg)
 	registerCalculator(ctx, reg)
 	registerReadFile(reg)
+	registerMD5File(reg)
+	registerTailFile(reg)
 	registerWriteFile(reg)
 	registerEditFile(reg)
 	registerSerpAPI(ctx, reg, webCache)
@@ -120,6 +123,7 @@ func RegisterBuiltinTools(ctx context.Context, reg *kdepstools.Registry) {
 	registerCodeIntelligenceTools(ctx, reg)
 	registerResourceTools(ctx, reg)
 	registerTaskTeamTools(reg)
+	registerMemoryQueryTool(reg)
 	// After all tools exist, map familiar names (grep, cat, ls, ...) to them.
 	registerToolAliases(reg)
 }
@@ -280,6 +284,155 @@ func readLocalFile(filePath string, args map[string]any) (string, error) {
 		out = fmt.Sprintf("%s\n[%d/%d lines shown]", out, shownLines, totalLines)
 	}
 
+	return out, nil
+}
+
+// defaultTailLines is how many lines from the end of a file tail_file
+// returns when the caller omits lines.
+const defaultTailLines = 20
+
+// registerMD5File registers an evidence tool: the MD5 checksum of a file.
+// Call once before and once after a change to prove whether the file's
+// contents actually changed. No API key required.
+func registerMD5File(reg *kdepstools.Registry) {
+	reg.Register(&kdepstools.Tool{
+		Name: "md5_file",
+		Description: "Compute the MD5 checksum of a file. Call once before " +
+			"and once after a change to prove whether the file's contents " +
+			"actually changed -- pair both hashes as evidence for " +
+			"task_complete rather than asserting the change happened.",
+		Category: "file",
+		SeeAlso:  "read_file, tail_file, list_files",
+		Parameters: map[string]domain.ToolParam{
+			toolParamFilePath: {
+				Type:        toolParamString,
+				Description: "Absolute (or cwd-relative) path to the file to hash",
+				Required:    true,
+			},
+		},
+		Execute: func(args map[string]any) (string, error) {
+			filePath, err := requireAbsFilePath("md5_file", args)
+			if err != nil {
+				return "", err
+			}
+			// Deliberately not wrapped in trackFileCall: that cache exists so
+			// re-reading an unchanged file is free, but md5_file's entire
+			// purpose is detecting whether a file *changed* between two
+			// calls -- returning a cached "before" hash on the "after" call
+			// would silently defeat that.
+			return md5File(filePath)
+		},
+	})
+}
+
+func md5File(filePath string) (string, error) {
+	if err := validateWorkspaceBoundary(filePath); err != nil {
+		return "", fmt.Errorf("md5_file: %w", err)
+	}
+	info, err := AppFS.Stat(filePath)
+	if err != nil {
+		return "", fmt.Errorf("md5_file: stat %s: %w", filePath, err)
+	}
+	if info.IsDir() {
+		return "", fmt.Errorf("md5_file: %s is a directory", filePath)
+	}
+	if info.Size() > maxFileReadBytes {
+		return "", fmt.Errorf("md5_file: %s is %d bytes (max %d)", filePath, info.Size(), maxFileReadBytes)
+	}
+	data, err := afero.ReadFile(AppFS, filePath)
+	if err != nil {
+		return "", fmt.Errorf("md5_file: read %s: %w", filePath, err)
+	}
+	sum := md5.Sum(data) //nolint:gosec // content-identity checksum, not a security use
+	// Output mirrors the real md5sum CLI ("<hex>  <path>"... here path-first
+	// to match sha256sum-style tools too), so a model that already knows the
+	// shape of a checksum command's output recognizes it immediately.
+	return fmt.Sprintf("%s  %x", filePath, sum), nil
+}
+
+// registerTailFile registers an evidence tool: the last N lines of a file.
+// Unlike read_file's offset/limit (which needs the caller to already know
+// where to start), tail_file answers "how does this log/output end" in one
+// call. No API key required.
+func registerTailFile(reg *kdepstools.Registry) {
+	reg.Register(&kdepstools.Tool{
+		Name: "tail_file",
+		Description: "Read the last N lines of a file (default 20) -- for " +
+			"checking the end of a log or output file without knowing its " +
+			"total length upfront. Use as evidence that a command's output " +
+			"or a log ends the way a task claims it does.",
+		Category: "file",
+		SeeAlso:  "read_file, md5_file, list_files",
+		Parameters: map[string]domain.ToolParam{
+			toolParamFilePath: {
+				Type:        toolParamString,
+				Description: "Absolute (or cwd-relative) path to the file",
+				Required:    true,
+			},
+			"lines": {
+				Type:        "number",
+				Description: "Number of lines from the end to return (default 20)",
+			},
+		},
+		Execute: func(args map[string]any) (string, error) {
+			filePath, err := requireAbsFilePath("tail_file", args)
+			if err != nil {
+				return "", err
+			}
+			// Deliberately not wrapped in trackFileCall (see md5_file's same
+			// note): a log/output file's tail is expected to change between
+			// calls, and evidence gathering wants the current state, not a
+			// cached snapshot from an earlier call in the same task.
+			return tailLocalFile(filePath, args)
+		},
+	})
+}
+
+func tailLocalFile(filePath string, args map[string]any) (string, error) {
+	if err := validateWorkspaceBoundary(filePath); err != nil {
+		return "", fmt.Errorf("tail_file: %w", err)
+	}
+	info, err := AppFS.Stat(filePath)
+	if err != nil {
+		return "", fmt.Errorf("tail_file: stat %s: %w", filePath, err)
+	}
+	if info.IsDir() {
+		return "", fmt.Errorf("tail_file: %s is a directory", filePath)
+	}
+	if info.Size() > maxFileReadBytes {
+		return "", fmt.Errorf("tail_file: %s is %d bytes (max %d)", filePath, info.Size(), maxFileReadBytes)
+	}
+	data, err := afero.ReadFile(AppFS, filePath)
+	if err != nil {
+		return "", fmt.Errorf("tail_file: read %s: %w", filePath, err)
+	}
+	if isBinaryContent(data) {
+		return "", fmt.Errorf("tail_file: %s appears to be a binary file", filePath)
+	}
+
+	n := defaultTailLines
+	if v, ok := args["lines"].(float64); ok && v > 0 {
+		n = int(v)
+	}
+
+	lines := strings.Split(string(data), "\n")
+	// File ending with \n produces a trailing empty element; drop it.
+	if len(lines) > 0 && lines[len(lines)-1] == "" {
+		lines = lines[:len(lines)-1]
+	}
+	totalLines := len(lines)
+	startLine := max(0, totalLines-n)
+
+	shown := lines[startLine:]
+	var sb strings.Builder
+	digitWidth := len(strconv.Itoa(totalLines))
+	for i, line := range shown {
+		fmt.Fprintf(&sb, "%*d\t%s\n", digitWidth, startLine+i+1, line)
+	}
+	out := strings.TrimSuffix(sb.String(), "\n")
+	if startLine > 0 {
+		out = fmt.Sprintf("%s\n[last %d/%d lines shown]", out, len(shown), totalLines)
+	}
 	return out, nil
 }
 
@@ -540,48 +693,68 @@ func coloredDiff(oldStr, newStr, filePath string) string {
 func registerListFiles(reg *kdepstools.Registry) {
 	reg.Register(&kdepstools.Tool{
 		Name:        toolNameListFiles,
-		Description: "List files and directories in a given directory path. Returns names and types (file/dir). Use to discover project structure before reading or editing files. Requires an absolute path.",
+		Description: "List files and directories in a given directory path. Returns names and types (file/dir). Use to discover project structure before reading or editing files. Omit path to list the current working directory.",
 		Parameters: map[string]domain.ToolParam{
 			toolParamPath: {
 				Type:        toolParamString,
-				Description: "Absolute path to the directory to list",
-				Required:    true,
+				Description: "Absolute path to the directory to list. Omit to list the current working directory.",
+				Required:    false,
 			},
 		},
 		Execute: func(args map[string]any) (string, error) {
-			dirPath, _ := args["path"].(string)
-			if dirPath == "" {
-				return "", errors.New("list_files: path is required")
-			}
-			if !filepath.IsAbs(dirPath) {
-				abs, err := filepath.Abs(dirPath)
-				if err != nil {
-					return "", fmt.Errorf("list_files: resolve %s: %w", dirPath, err)
-				}
-				dirPath = abs
-			}
-			if err := ValidateRootPath(dirPath); err != nil {
-				return "", fmt.Errorf("list_files: %w", err)
+			dirPath, err := resolveListFilesDirPath(args)
+			if err != nil {
+				return "", err
 			}
 			entries, err := afero.ReadDir(AppFS, dirPath)
 			if err != nil {
 				return "", fmt.Errorf("list_files: read %s: %w", dirPath, err)
 			}
 			return trackFileCall(dirPath, func() (string, error) {
-				var sb strings.Builder
-				fmt.Fprintf(&sb, "%s:\n", dirPath)
-				for _, e := range entries {
-					const fileKind = "file"
-					kind := fileKind
-					if e.IsDir() {
-						kind = "dir"
-					}
-					fmt.Fprintf(&sb, "  [%s] %s\n", kind, e.Name())
-				}
-				return strings.TrimSpace(sb.String()), nil
+				return renderFileList(dirPath, entries), nil
 			})
 		},
 	})
+}
+
+// resolveListFilesDirPath resolves list_files's path argument: empty
+// defaults to the cwd, relative resolves against it, and the result is
+// checked against ValidateRootPath before any filesystem read.
+func resolveListFilesDirPath(args map[string]any) (string, error) {
+	dirPath, _ := args["path"].(string)
+	if dirPath == "" {
+		wd, err := os.Getwd()
+		if err != nil {
+			return "", fmt.Errorf("list_files: resolve cwd: %w", err)
+		}
+		dirPath = wd
+	}
+	if !filepath.IsAbs(dirPath) {
+		abs, err := filepath.Abs(dirPath)
+		if err != nil {
+			return "", fmt.Errorf("list_files: resolve %s: %w", dirPath, err)
+		}
+		dirPath = abs
+	}
+	if err := ValidateRootPath(dirPath); err != nil {
+		return "", fmt.Errorf("list_files: %w", err)
+	}
+	return dirPath, nil
+}
+
+// renderFileList formats a directory's entries as "[file|dir] name" lines.
+func renderFileList(dirPath string, entries []os.FileInfo) string {
+	var sb strings.Builder
+	fmt.Fprintf(&sb, "%s:\n", dirPath)
+	for _, e := range entries {
+		const fileKind = "file"
+		kind := fileKind
+		if e.IsDir() {
+			kind = "dir"
+		}
+		fmt.Fprintf(&sb, "  [%s] %s\n", kind, e.Name())
+	}
+	return strings.TrimSpace(sb.String())
 }
 
 // queryCaller is the langchaingo tool shape shared by the single-query

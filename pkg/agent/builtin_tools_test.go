@@ -22,6 +22,7 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -2500,14 +2501,22 @@ func TestWriteToolDiff_NilWriterNoPanic(_ *testing.T) {
 
 // --- registerListFiles execute closure ---
 
+// An empty/omitted path now defaults to the cwd instead of erroring -- see
+// TestListFiles_NoPathListsCwd for the full assertion; this keeps the
+// registerListFiles-direct (no RegisterBuiltinTools) construction path
+// covered too.
 func TestRegisterListFiles_Execute_MissingPath(t *testing.T) {
 	reg := kdepstools.NewRegistry()
 	registerListFiles(reg)
 	tool := reg.Get("list_files")
 	require.NotNil(t, tool)
-	_, err := tool.Execute(map[string]any{"path": ""})
-	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "path is required")
+
+	wd, err := os.Getwd()
+	require.NoError(t, err)
+
+	out, err := tool.Execute(map[string]any{"path": ""})
+	require.NoError(t, err, "an empty path must default to the cwd, not error")
+	assert.Contains(t, out, wd+":")
 }
 
 func TestRegisterListFiles_Execute_RelativePath(t *testing.T) {
@@ -3736,4 +3745,159 @@ func TestBashExec_RejectsToolCalledAsShellCommand(t *testing.T) {
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "memory_save")
 	assert.Contains(t, err.Error(), "not a real shell command")
+}
+
+func TestMD5File_Registered(t *testing.T) {
+	reg := kdepstools.NewRegistry()
+	RegisterBuiltinTools(context.Background(), reg)
+	tool := reg.Get("md5_file")
+	require.NotNil(t, tool)
+	assert.Contains(t, tool.Parameters, "file_path")
+}
+
+func TestMD5File_MatchesKnownHash(t *testing.T) {
+	reg := kdepstools.NewRegistry()
+	RegisterBuiltinTools(context.Background(), reg)
+	tool := reg.Get("md5_file")
+	require.NotNil(t, tool)
+
+	tmpFile, err := os.CreateTemp("", "kdeps-md5-test-*.txt")
+	require.NoError(t, err)
+	defer os.Remove(tmpFile.Name())
+	_, err = tmpFile.WriteString("hello world")
+	require.NoError(t, err)
+	require.NoError(t, tmpFile.Close())
+
+	result, err := tool.Execute(map[string]any{"file_path": tmpFile.Name()})
+	require.NoError(t, err)
+	// md5("hello world") is a well-known test vector.
+	assert.Contains(t, result, "5eb63bbbe01eeed093cb22bb8f5acdc3")
+	assert.Contains(t, result, tmpFile.Name())
+}
+
+func TestMD5File_ChangesWhenContentChanges(t *testing.T) {
+	reg := kdepstools.NewRegistry()
+	RegisterBuiltinTools(context.Background(), reg)
+	tool := reg.Get("md5_file")
+	require.NotNil(t, tool)
+
+	tmpFile, err := os.CreateTemp("", "kdeps-md5-diff-test-*.txt")
+	require.NoError(t, err)
+	defer os.Remove(tmpFile.Name())
+	require.NoError(t, os.WriteFile(tmpFile.Name(), []byte("before"), 0o600))
+
+	before, err := tool.Execute(map[string]any{"file_path": tmpFile.Name()})
+	require.NoError(t, err)
+
+	require.NoError(t, os.WriteFile(tmpFile.Name(), []byte("after"), 0o600))
+	after, err := tool.Execute(map[string]any{"file_path": tmpFile.Name()})
+	require.NoError(t, err)
+
+	assert.NotEqual(t, before, after, "md5_file must reflect the file's current content")
+}
+
+func TestMD5File_Directory(t *testing.T) {
+	reg := kdepstools.NewRegistry()
+	RegisterBuiltinTools(context.Background(), reg)
+	tool := reg.Get("md5_file")
+	require.NotNil(t, tool)
+
+	_, err := tool.Execute(map[string]any{"file_path": os.TempDir()})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "directory")
+}
+
+func TestTailFile_Registered(t *testing.T) {
+	reg := kdepstools.NewRegistry()
+	RegisterBuiltinTools(context.Background(), reg)
+	tool := reg.Get("tail_file")
+	require.NotNil(t, tool)
+	assert.Contains(t, tool.Parameters, "file_path")
+	assert.Contains(t, tool.Parameters, "lines")
+}
+
+func TestTailFile_DefaultLinesAndOrder(t *testing.T) {
+	reg := kdepstools.NewRegistry()
+	RegisterBuiltinTools(context.Background(), reg)
+	tool := reg.Get("tail_file")
+	require.NotNil(t, tool)
+
+	tmpFile, err := os.CreateTemp("", "kdeps-tail-test-*.txt")
+	require.NoError(t, err)
+	defer os.Remove(tmpFile.Name())
+
+	var lines []string
+	for i := 1; i <= 30; i++ {
+		lines = append(lines, fmt.Sprintf("line %d", i))
+	}
+	require.NoError(t, os.WriteFile(tmpFile.Name(), []byte(strings.Join(lines, "\n")+"\n"), 0o600))
+
+	result, err := tool.Execute(map[string]any{"file_path": tmpFile.Name()})
+	require.NoError(t, err)
+	// Default is 20 lines -- lines 11..30, in order, with correct numbering.
+	assert.Contains(t, result, "11\tline 11")
+	assert.Contains(t, result, "30\tline 30")
+	assert.NotContains(t, result, "\tline 10\n")
+	assert.Contains(t, result, "[last 20/30 lines shown]")
+}
+
+func TestTailFile_ExplicitLinesCount(t *testing.T) {
+	reg := kdepstools.NewRegistry()
+	RegisterBuiltinTools(context.Background(), reg)
+	tool := reg.Get("tail_file")
+	require.NotNil(t, tool)
+
+	tmpFile, err := os.CreateTemp("", "kdeps-tail-explicit-test-*.txt")
+	require.NoError(t, err)
+	defer os.Remove(tmpFile.Name())
+	require.NoError(t, os.WriteFile(tmpFile.Name(), []byte("a\nb\nc\nd\ne\n"), 0o600))
+
+	result, err := tool.Execute(map[string]any{"file_path": tmpFile.Name(), "lines": float64(2)})
+	require.NoError(t, err)
+	assert.Equal(t, "4\td\n5\te\n[last 2/5 lines shown]", result)
+}
+
+func TestTailFile_ShorterThanRequestedLinesNoTruncationMarker(t *testing.T) {
+	reg := kdepstools.NewRegistry()
+	RegisterBuiltinTools(context.Background(), reg)
+	tool := reg.Get("tail_file")
+	require.NotNil(t, tool)
+
+	tmpFile, err := os.CreateTemp("", "kdeps-tail-short-test-*.txt")
+	require.NoError(t, err)
+	defer os.Remove(tmpFile.Name())
+	require.NoError(t, os.WriteFile(tmpFile.Name(), []byte("only\ntwo\n"), 0o600))
+
+	result, err := tool.Execute(map[string]any{"file_path": tmpFile.Name()})
+	require.NoError(t, err)
+	assert.Equal(t, "1\tonly\n2\ttwo", result)
+	assert.NotContains(t, result, "lines shown")
+}
+
+func TestListFiles_NoPathListsCwd(t *testing.T) {
+	reg := kdepstools.NewRegistry()
+	RegisterBuiltinTools(context.Background(), reg)
+	tool := reg.Get("list_files")
+	require.NotNil(t, tool)
+
+	wd, err := os.Getwd()
+	require.NoError(t, err)
+
+	result, err := tool.Execute(map[string]any{})
+	require.NoError(t, err)
+	assert.Contains(t, result, wd+":")
+}
+
+func TestListFiles_ExplicitPathUnchanged(t *testing.T) {
+	reg := kdepstools.NewRegistry()
+	RegisterBuiltinTools(context.Background(), reg)
+	tool := reg.Get("list_files")
+	require.NotNil(t, tool)
+
+	tmpDir := t.TempDir()
+	require.NoError(t, os.WriteFile(tmpDir+"/marker.txt", []byte("x"), 0o600))
+
+	result, err := tool.Execute(map[string]any{"path": tmpDir})
+	require.NoError(t, err)
+	assert.Contains(t, result, "marker.txt")
 }

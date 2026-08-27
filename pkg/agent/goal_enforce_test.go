@@ -23,7 +23,7 @@ import (
 
 func testEnforcer(t *testing.T, descs ...string) *goalEnforcer {
 	t.Helper()
-	return newGoalEnforcer(NewGoal("goal", descs), nil, 3, 25)
+	return newGoalEnforcer(NewGoal("goal", descs), nil, 3, 25, false)
 }
 
 // A round that only returns blocked or duplicate content is not progress.
@@ -267,7 +267,7 @@ func TestWithGoalDirective_ReplacesAndPreservesPreamble(t *testing.T) {
 // must still advance the plan, otherwise the turn ends with tasks outstanding.
 func TestSettleActiveFromText_AdvancesAndClassifies(t *testing.T) {
 	l := &Loop{}
-	l.enforcer = newGoalEnforcer(NewGoal("goal", []string{"a", "b", "c"}), nil, 3, 25)
+	l.enforcer = newGoalEnforcer(NewGoal("goal", []string{"a", "b", "c"}), nil, 3, 25, false)
 
 	if !l.settleActiveFromText("Done: wrote the file.", nil) {
 		t.Fatal("a text answer should settle task 1 and continue")
@@ -388,5 +388,49 @@ func TestDirectiveSingleTaskIsShort(t *testing.T) {
 	}
 	if strings.Contains(single, "REFUSED") {
 		t.Fatal("a single-task goal has no other task to refuse")
+	}
+}
+
+func TestGoalEnforcer_RecordCallSetsHasEvidence(t *testing.T) {
+	e := newGoalEnforcer(NewGoal("g", []string{"a"}), nil, 3, 25, true)
+	if e.hasEvidence {
+		t.Fatal("hasEvidence must start false")
+	}
+	e.recordCall(toolNameWebSearch, `{}`)
+	if e.hasEvidence {
+		t.Fatal("a non-evidence-capable call must not set hasEvidence")
+	}
+	e.recordCall(toolNameReadFile, `{"path":"x"}`)
+	if !e.hasEvidence {
+		t.Fatal("an evidence-capable call must set hasEvidence")
+	}
+}
+
+func TestGoalEnforcer_ResetTaskClearsHasEvidence(t *testing.T) {
+	e := newGoalEnforcer(NewGoal("g", []string{"a", "b"}), nil, 3, 25, true)
+	e.recordCall(toolNameBashExec, `{}`)
+	if !e.hasEvidence {
+		t.Fatal("setup: hasEvidence should be true before reset")
+	}
+	e.resetTask()
+	if e.hasEvidence {
+		t.Fatal("resetTask must clear hasEvidence for the next task")
+	}
+}
+
+func TestDirective_MentionsEvidenceOnlyWhenRequired(t *testing.T) {
+	withEvidence := (&goalEnforcer{requireEvidence: true, goal: &Goal{
+		Text:  "say hello",
+		Tasks: []GoalTask{{ID: 1, Desc: "say hello"}},
+	}}).directive()
+	without := (&goalEnforcer{requireEvidence: false, goal: &Goal{
+		Text:  "say hello",
+		Tasks: []GoalTask{{ID: 1, Desc: "say hello"}},
+	}}).directive()
+	if !strings.Contains(withEvidence, "evidence") {
+		t.Fatal("directive should mention evidence when RequireTaskEvidence is on")
+	}
+	if strings.Contains(without, "evidence") {
+		t.Fatal("directive should not mention evidence when RequireTaskEvidence is off")
 	}
 }

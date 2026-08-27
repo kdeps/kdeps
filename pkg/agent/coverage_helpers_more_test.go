@@ -105,7 +105,7 @@ func TestClearGoalHelper(t *testing.T) {
 
 func TestGoalEnforcer_BudgetEscalation(t *testing.T) {
 	g := NewGoal("ship it", []string{"write tests"})
-	e := newGoalEnforcer(g, nil, 3, 10)
+	e := newGoalEnforcer(g, nil, 3, 10, false)
 	if e.takeBudgetNote() != "" {
 		t.Fatal("empty note")
 	}

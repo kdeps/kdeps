@@ -65,6 +65,31 @@ var budgetToolCategories = map[string]toolBudgetCategory{
 
 func categoryForTool(name string) toolBudgetCategory { return budgetToolCategories[name] }
 
+// evidenceCapableTools are tools whose result can serve as verification that
+// a claimed change actually happened -- inspecting files, running commands,
+// or querying stored state. Distinct from budgetToolCategories: that map
+// exists for rate-limiting, this one for RequireTaskEvidence's completion
+// gate, and conflating them would make budgetToolCategories's meaning
+// ambiguous.
+//
+//nolint:gochecknoglobals // static lookup table
+var evidenceCapableTools = map[string]bool{
+	toolNameBashExec:    true,
+	toolNameReadFile:    true,
+	toolNameListFiles:   true,
+	toolNameSearchLocal: true,
+	"md5_file":          true,
+	"tail_file":         true,
+	"sql_query":         true,
+	"memory_query":      true,
+	"code_search":       true,
+	"code_diagnostics":  true,
+}
+
+// isEvidenceCapableTool reports whether name's result can verify a claimed
+// task outcome, used by RequireTaskEvidence's task_complete gate.
+func isEvidenceCapableTool(name string) bool { return evidenceCapableTools[name] }
+
 // cacheForCategory returns the convergence cache backing a category.
 func cacheForCategory(c toolBudgetCategory) *convergenceCache {
 	switch c {

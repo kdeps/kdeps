@@ -196,6 +196,11 @@ type Config struct {
 	// MaxUnproductiveRounds is how many consecutive rounds may produce nothing
 	// new before the task is force-closed (0=default 3).
 	MaxUnproductiveRounds int
+	// RequireTaskEvidence, when true, refuses task_complete for any task that
+	// made tool calls but none of them verify the claimed result (see
+	// isEvidenceCapableTool). A task with zero tool calls is exempt -- nothing
+	// to verify. Opt-in: false preserves today's behavior.
+	RequireTaskEvidence bool
 	// Judges is an explicit review panel run against the final output of every
 	// turn. Takes priority over AutoJudges when non-empty.
 	Judges []JudgeSpec
@@ -221,6 +226,15 @@ type Config struct {
 	// default, and the identity_get tool reports nothing configured.
 	Identity *config.IdentityConfig
 }
+
+// activeLoop is set during Loop construction so the memory_query builtin
+// tool can reach the current loop's memory store, tool-call log, and active
+// goal without a Loop reference of its own. Nil when unconfigured (mirrors
+// memoryStoreInstance in memory_store.go). Process-wide singleton; one per
+// agent process.
+//
+//nolint:gochecknoglobals // test-replaceable singleton, same pattern as memoryStoreInstance
+var activeLoop *Loop
 
 // Loop drives a multi-turn agent conversation using the kdeps engine as the
 // executor. All registered tools are wired into a synthetic chat resource so
@@ -271,6 +285,46 @@ type Loop struct {
 	// same-line completion suffix. The spinner must not draw over it; the
 	// monitor's first frame or output printing closes it.
 	toolLineOpen atomic.Bool
+	// toolCallLog records recent tool calls (name, args, result, timestamp)
+	// for the memory_query relational tool's tool_calls relation. Capped to
+	// maxToolCallLog entries, oldest dropped first.
+	toolCallLog []ToolCallRecord
+}
+
+// ToolCallRecord is one recorded tool invocation, exposed to the memory_query
+// builtin tool as a row in the tool_calls relation.
+type ToolCallRecord struct {
+	Name      string `json:"name"`
+	Args      string `json:"args"` // raw JSON arguments, as sent
+	Result    string `json:"result"`
+	Timestamp int64  `json:"timestamp"` // UnixMilli
+}
+
+// maxToolCallLog bounds toolCallLog's growth in a long session -- same
+// spirit as the per-type caps in memory_store.go.
+const maxToolCallLog = 200
+
+// ToolCallLog returns the recorded tool-call history, oldest first.
+func (l *Loop) ToolCallLog() []ToolCallRecord {
+	if l == nil {
+		return nil
+	}
+	return l.toolCallLog
+}
+
+// recordToolCall appends a tool call to the log, dropping the oldest entry
+// once maxToolCallLog is reached.
+func (l *Loop) recordToolCall(name, args, result string) {
+	if l == nil {
+		return
+	}
+	l.toolCallLog = append(l.toolCallLog, ToolCallRecord{
+		Name: name, Args: args, Result: result,
+		Timestamp: time.Now().UnixMilli(),
+	})
+	if over := len(l.toolCallLog) - maxToolCallLog; over > 0 {
+		l.toolCallLog = l.toolCallLog[over:]
+	}
 }
 
 // New creates a new Loop. cfg fields with zero values fall back to env vars and
@@ -321,6 +375,8 @@ func New(eng *executor.Engine, workflow *domain.Workflow, reg *tools.Registry, c
 		}
 		l.saveSessionConfig()
 	}
+
+	activeLoop = l
 
 	return l
 }
@@ -1691,6 +1747,7 @@ func (l *Loop) appendToolRoundTrip(
 			"name":           tc.Name,
 			toolParamContent: turoReduce(ctx, capToolResult(result)),
 		})
+		l.recordToolCall(tc.Name, tc.Arguments, result)
 	}
 
 	updated := *cfg
