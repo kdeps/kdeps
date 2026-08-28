@@ -283,13 +283,17 @@ func TestRegisterOCRTool_Execute_ExtractsText(t *testing.T) {
 	if _, err := exec.LookPath("tesseract"); err != nil {
 		t.Skip("tesseract not found in PATH")
 	}
-	if _, err := exec.LookPath("magick"); err != nil {
-		t.Skip("magick (ImageMagick) not found in PATH")
+	imCmd := "magick"
+	if _, err := exec.LookPath(imCmd); err != nil {
+		imCmd = "convert"
+		if _, err := exec.LookPath(imCmd); err != nil {
+			t.Skip("ImageMagick (magick/convert) not found in PATH")
+		}
 	}
 
 	dir := t.TempDir()
 	imgPath := filepath.Join(dir, "test.png")
-	cmd := exec.Command("magick", "-size", "300x80", "xc:white",
+	cmd := exec.Command(imCmd, "-size", "300x80", "xc:white",
 		"-fill", "black", "-draw", "text 10,40 'TOOLTEST'", imgPath)
 	require.NoError(t, cmd.Run())
 

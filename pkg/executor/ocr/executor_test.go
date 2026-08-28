@@ -40,13 +40,18 @@ func requireBin(t *testing.T, name string) string {
 
 // writeTestImage generates a small PNG containing the given text via
 // ImageMagick, for real end-to-end tesseract verification. Skips the
-// calling test if ImageMagick's "magick" is unavailable.
+// calling test if neither ImageMagick binary (IM7's "magick" or IM6's
+// "convert") is available.
 func writeTestImage(t *testing.T, text string) string {
 	t.Helper()
-	requireBin(t, "magick")
+	imCmd := "magick"
+	if _, err := exec.LookPath(imCmd); err != nil {
+		imCmd = "convert"
+		requireBin(t, imCmd)
+	}
 	dir := t.TempDir()
 	path := filepath.Join(dir, "test.png")
-	cmd := exec.Command("magick", "-size", "300x80", "xc:white",
+	cmd := exec.Command(imCmd, "-size", "300x80", "xc:white",
 		"-fill", "black", "-draw", "text 10,40 '"+text+"'", path)
 	require.NoError(t, cmd.Run())
 	return path

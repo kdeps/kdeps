@@ -74,7 +74,12 @@ test_ocr_extracts_text() {
         test_skipped "ocr - end-to-end text extraction (tesseract not installed)"
         return 0
     fi
-    if ! command -v magick &>/dev/null; then
+    local im_cmd=""
+    if command -v magick &>/dev/null; then
+        im_cmd="magick"
+    elif command -v convert &>/dev/null; then
+        im_cmd="convert"
+    else
         test_skipped "ocr - end-to-end text extraction (ImageMagick not installed)"
         return 0
     fi
@@ -84,7 +89,7 @@ test_ocr_extracts_text() {
     mkdir -p "$pkg_dir/resources"
 
     local img_path="$pkg_dir/fixture.png"
-    magick -size 300x80 xc:white -fill black \
+    "$im_cmd" -size 300x80 xc:white -fill black \
         -draw "text 10,40 'KDEPS OCR'" "$img_path"
 
     local img_path_native
