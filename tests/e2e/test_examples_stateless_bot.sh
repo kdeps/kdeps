@@ -36,5 +36,16 @@ for f in "$PROJECT_ROOT/examples/stateless-bot/resources/"*.yaml; do
 done
 [ $RESOURCE_COUNT -gt 0 ] && test_passed "Stateless Bot - Resource files exist ($RESOURCE_COUNT found)"
 
-test_skipped "Stateless Bot - Server test (requires external service/LLM)"
+# Stateless bot mode reads a JSON message from stdin and runs one-shot (no
+# HTTP server) -- the workflow's chat resource uses model: llama3.2:1b, the
+# same local llamafile CI already provisions for every other local-model
+# e2e test, so this needs no external service.
+RUN_OUT=$(echo '{"message": "Say hi"}' | timeout 60 "$KDEPS_BIN" run "$WORKFLOW_PATH" 2>&1 || true)
+if output_grep_i "fatal" "$RUN_OUT"; then
+    test_failed "Stateless Bot - Server test" "$RUN_OUT"
+elif output_grep_i "Resource completed" "$RUN_OUT"; then
+    test_passed "Stateless Bot - Server test"
+else
+    test_skipped "Stateless Bot - Server test (unexpected output)"
+fi
 echo ""
