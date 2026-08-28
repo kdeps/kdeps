@@ -284,9 +284,9 @@ func TestRegisterOCRTool_Execute_ExtractsText(t *testing.T) {
 		t.Skip("tesseract not found in PATH")
 	}
 	imCmd := "magick"
-	if _, err := exec.LookPath(imCmd); err != nil {
+	if _, lookErr := exec.LookPath(imCmd); lookErr != nil {
 		imCmd = "convert"
-		if _, err := exec.LookPath(imCmd); err != nil {
+		if _, convertErr := exec.LookPath(imCmd); convertErr != nil {
 			t.Skip("ImageMagick (magick/convert) not found in PATH")
 		}
 	}
