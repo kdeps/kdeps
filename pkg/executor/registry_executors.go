@@ -91,3 +91,10 @@ func (r *Registry) SetTranscribeExecutor(exec ResourceExecutor) {
 func (r *Registry) GetTranscribeExecutor() ResourceExecutor {
 	return r.getExecutor(ExecutorTranscribe)
 }
+
+func (r *Registry) SetOCRExecutor(exec ResourceExecutor) {
+	r.Register(ExecutorOCR, exec)
+}
+func (r *Registry) GetOCRExecutor() ResourceExecutor {
+	return r.getExecutor(ExecutorOCR)
+}

@@ -158,3 +158,20 @@ func (e *Engine) executeInlineTranscribe(
 		"executeInlineTranscribe", e.registry.GetTranscribeExecutor, "transcribe", ctx, config,
 	)
 }
+
+// executeOCR executes an ocr resource.
+func (e *Engine) executeOCR(resource *domain.Resource, ctx *ExecutionContext) (interface{}, error) {
+	return e.executeRegisteredResource(
+		resource, "ocr", resource.OCR,
+		e.registry.GetOCRExecutor, "ocr", "executeOCR", ctx,
+	)
+}
+
+// executeInlineOCR executes an inline ocr resource.
+func (e *Engine) executeInlineOCR(
+	config *domain.OCRConfig, ctx *ExecutionContext,
+) (interface{}, error) {
+	return e.executeRegistered(
+		"executeInlineOCR", e.registry.GetOCRExecutor, "ocr", ctx, config,
+	)
+}

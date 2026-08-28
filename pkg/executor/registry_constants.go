@@ -49,5 +49,6 @@ const (
 	ExecutorLoader      = "loader"
 	ExecutorVectorStore = "vectorStore"
 	ExecutorTranscribe  = "transcribe"
+	ExecutorOCR         = "ocr"
 	ExecutorAPIResponse = "apiResponse"
 )

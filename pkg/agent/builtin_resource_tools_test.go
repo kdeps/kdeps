@@ -21,6 +21,7 @@ package agent
 import (
 	"context"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"testing"
 
@@ -41,6 +42,7 @@ func TestRegisterResourceTools_AllRegistered(t *testing.T) {
 		"http_request",
 		"search_local",
 		"transcribe_audio",
+		"ocr_image",
 		"load_document",
 		"embedding_search",
 		"embedding_vectorize",
@@ -237,6 +239,68 @@ func TestRegisterTranscribeTool_Execute_WithModelAndBackend(t *testing.T) {
 		"backend": "openai",
 	})
 	assert.Error(t, err)
+}
+
+// --- registerOCRTool ---
+
+func TestRegisterOCRTool_Registered(t *testing.T) {
+	reg := kdepstools.NewRegistry()
+	registerOCRTool(context.Background(), reg)
+	tool := reg.Get("ocr_image")
+	require.NotNil(t, tool)
+	assert.Equal(t, "ocr_image", tool.Name)
+	assert.Contains(t, tool.Parameters, "file")
+	assert.True(t, tool.Parameters["file"].Required)
+	assert.Contains(t, tool.Parameters, "language")
+	assert.False(t, tool.Parameters["language"].Required)
+}
+
+func TestRegisterOCRTool_Execute_MissingFile(t *testing.T) {
+	reg := kdepstools.NewRegistry()
+	registerOCRTool(context.Background(), reg)
+	tool := reg.Get("ocr_image")
+	require.NotNil(t, tool)
+
+	_, err := tool.Execute(map[string]any{})
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "file is required")
+}
+
+func TestRegisterOCRTool_Execute_WithInvalidFile(t *testing.T) {
+	if _, err := exec.LookPath("tesseract"); err != nil {
+		t.Skip("tesseract not found in PATH")
+	}
+	reg := kdepstools.NewRegistry()
+	registerOCRTool(context.Background(), reg)
+	tool := reg.Get("ocr_image")
+	require.NotNil(t, tool)
+
+	_, err := tool.Execute(map[string]any{"file": "/nonexistent/image.png"})
+	assert.Error(t, err)
+}
+
+func TestRegisterOCRTool_Execute_ExtractsText(t *testing.T) {
+	if _, err := exec.LookPath("tesseract"); err != nil {
+		t.Skip("tesseract not found in PATH")
+	}
+	if _, err := exec.LookPath("magick"); err != nil {
+		t.Skip("magick (ImageMagick) not found in PATH")
+	}
+
+	dir := t.TempDir()
+	imgPath := filepath.Join(dir, "test.png")
+	cmd := exec.Command("magick", "-size", "300x80", "xc:white",
+		"-fill", "black", "-draw", "text 10,40 'TOOLTEST'", imgPath)
+	require.NoError(t, cmd.Run())
+
+	reg := kdepstools.NewRegistry()
+	registerOCRTool(context.Background(), reg)
+	tool := reg.Get("ocr_image")
+	require.NotNil(t, tool)
+
+	out, err := tool.Execute(map[string]any{"file": imgPath})
+	require.NoError(t, err)
+	assert.Contains(t, out, "TOOLTEST")
 }
 
 // --- registerLoaderTool ---

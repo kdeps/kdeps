@@ -55,6 +55,7 @@ func primaryResourceDispatch() []primaryDispatchEntry {
 		ExecutorLoader:      (*Engine).executeLoader,
 		ExecutorVectorStore: (*Engine).executeVectorStore,
 		ExecutorTranscribe:  (*Engine).executeTranscribe,
+		ExecutorOCR:         (*Engine).executeOCR,
 		ExecutorAPIResponse: (*Engine).executeAPIResponse,
 	}
 

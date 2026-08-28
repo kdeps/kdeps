@@ -173,7 +173,7 @@ func TestPrimaryResourceTypesList(t *testing.T) {
 		"chat", "httpClient", "sql", "python", "exec", "agent", "component",
 		"scraper", "embedding", "searchLocal", "searchWeb",
 		"telephony", "browser", "botReply", "email", "file", "git",
-		"codeIntelligence", "loader", "vectorStore", "transcribe", "apiResponse",
+		"codeIntelligence", "loader", "vectorStore", "transcribe", "ocr", "apiResponse",
 	}
 	for _, et := range expectedTypes {
 		if !strings.Contains(got, et) {
@@ -189,7 +189,7 @@ func TestPrimaryResourceTypeNames_MatchesExecutorRegistry(t *testing.T) {
 		"chat", "httpClient", "sql", "python", "exec", "agent", "component",
 		"scraper", "embedding", "searchLocal", "searchWeb",
 		"telephony", "browser", "botReply", "email", "file", "git",
-		"codeIntelligence", "loader", "vectorStore", "transcribe", "apiResponse",
+		"codeIntelligence", "loader", "vectorStore", "transcribe", "ocr", "apiResponse",
 	}
 	got := domain.PrimaryResourceTypeNames()
 	if len(got) != len(want) {

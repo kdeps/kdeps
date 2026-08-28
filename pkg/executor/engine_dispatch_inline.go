@@ -157,6 +157,9 @@ func inlineResourceDispatch() []inlineDispatchEntry {
 		ExecutorTranscribe: func(e *Engine, inline *domain.InlineResource, _ int, ctx *ExecutionContext) (interface{}, error) {
 			return e.executeInlineTranscribe(inline.Transcribe, ctx)
 		},
+		ExecutorOCR: func(e *Engine, inline *domain.InlineResource, _ int, ctx *ExecutionContext) (interface{}, error) {
+			return e.executeInlineOCR(inline.OCR, ctx)
+		},
 		ExecutorBotReply: func(e *Engine, inline *domain.InlineResource, index int, ctx *ExecutionContext) (interface{}, error) {
 			return e.executeBotReply(inlineSyntheticResource(inline, index), ctx)
 		},

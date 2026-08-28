@@ -47,6 +47,7 @@ type ActionConfig struct {
 	Loader           *LoaderConfig           `yaml:"loader,omitempty"`
 	VectorStore      *VectorStoreConfig      `yaml:"vectorStore,omitempty"`
 	Transcribe       *TranscribeConfig       `yaml:"transcribe,omitempty"`
+	OCR              *OCRConfig              `yaml:"ocr,omitempty"`
 	APIResponse      *APIResponseConfig      `yaml:"apiResponse,omitempty"`
 }
 

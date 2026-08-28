@@ -101,6 +101,7 @@ var toolRequiredPermission = map[string]PermissionMode{
 	toolNameSearchLocal:   PermissionReadOnly,
 	"load_document":       PermissionReadOnly,
 	"transcribe_audio":    PermissionReadOnly,
+	"ocr_image":           PermissionReadOnly,
 	"sql_query":           PermissionReadOnly, // read-only statements enforced by the tool
 	"sql_list_tables":     PermissionReadOnly,
 	"sql_describe_table":  PermissionReadOnly,

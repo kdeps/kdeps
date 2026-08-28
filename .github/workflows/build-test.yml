@@ -124,8 +124,8 @@ jobs:
     - name: Install Playwright Chromium
       run: playwright install --with-deps chromium
 
-    - name: Install OS packages for e2e (wkhtmltopdf, espeak)
-      run: sudo apt-get update && sudo apt-get install -y wkhtmltopdf espeak
+    - name: Install OS packages for e2e (wkhtmltopdf, espeak, tesseract)
+      run: sudo apt-get update && sudo apt-get install -y wkhtmltopdf espeak tesseract-ocr
 
     # repo root's package.json already declares puppeteer as a devDependency
     # (used by the ChatGPT Clone example's e2e browser test); nothing
