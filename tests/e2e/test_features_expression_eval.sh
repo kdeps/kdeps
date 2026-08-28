@@ -269,8 +269,8 @@ restrictToRoutes: [/helpers]
 apiResponse:
   success: true
   response:
-    encoded: "{{ urlencode(input('q', 'hello world')) }}"
-    json_out: "{{ toJSON({'key': input('v', 'val')}) }}"
+    encoded: "{{ urlencode(get('q', 'hello world')) }}"
+    json_out: "{{ toJSON({'key': get('v', 'val')}) }}"
     ternary_t: "{{ ternary(1 == 1, 'yes', 'no') }}"
     ternary_f: "{{ ternary(1 == 2, 'yes', 'no') }}"
 EOF
@@ -306,6 +306,7 @@ done
 if [ "$HELPERS_READY" = true ] && command -v curl &>/dev/null && command -v jq &>/dev/null; then
     RESP=$(curl -sf -X POST "http://127.0.0.1:$HELPERS_PORT/helpers" \
         -H "Content-Type: application/json" \
+        -H "Authorization: Bearer $KDEPS_API_AUTH_TOKEN" \
         -d '{"q":"hello world","v":"42"}' 2>/dev/null || echo "")
 
     if [ -n "$RESP" ]; then

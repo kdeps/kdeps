@@ -83,7 +83,7 @@ metadata:
   name: scraper-plain-test
   version: "1.0.0"
   targetActionId: fetch-page
-settings:
+settings: {}
 YAML
 
     mkdir -p "$pkg_dir/resources"
@@ -126,7 +126,7 @@ metadata:
   name: scraper-css-test
   version: "1.0.0"
   targetActionId: fetch-with-selector
-settings:
+settings: {}
 YAML
 
     cat > "$pkg_dir/resources/fetch-with-selector.yaml" <<YAML

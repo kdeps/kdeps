@@ -12,6 +12,6 @@ sql:
     - query: |
         UPDATE users
         SET status = $1,
-            updated_at = NOW()
+            updated_at = CURRENT_TIMESTAMP
         WHERE id = $2
       paramsBatch: "{{ get('user_updates') }}"

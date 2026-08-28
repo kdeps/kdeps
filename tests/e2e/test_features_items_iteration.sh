@@ -221,14 +221,10 @@ sed -i "s#/dev/null#$NULL_PATH#" "$WHERE_DIR/workflow.yaml"
 cat > "$WHERE_DIR/resources/filterItems.yaml" <<'EOF'
 actionId: filterItems
 name: Filter Items with where()
-items:
-  - {name: "alice", score: 90}
-  - {name: "bob", score: 40}
-  - {name: "carol", score: 75}
-  where: "item.score > 60"
-exec:
-  command: echo
-  args: ["{{ item.name }}"]
+apiResponse:
+  success: true
+  response:
+    filtered: "{{ where([{'name': 'alice', 'score': 90}, {'name': 'bob', 'score': 40}, {'name': 'carol', 'score': 75}], 'score', 60) }}"
 EOF
 
 if "$KDEPS_BIN" validate "$WHERE_DIR/workflow.yaml" &>/dev/null; then

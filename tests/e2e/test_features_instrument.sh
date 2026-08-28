@@ -78,7 +78,7 @@ wait "$SERVER_PID" 2>/dev/null || true
 
 COMBINED=$(cat "$SERVER_LOG")
 # --instrument emits trace lines to stderr/stdout; look for any trace indicator
-if output_grep_i "enter\|leave\|trace\|instrument\|call" "$COMBINED"; then
+if output_grep_i "enter|leave|trace|instrument|call" "$COMBINED"; then
     test_passed "instrument - run with --instrument emits trace output"
 else
     # The flag is accepted and workflow runs; instrumentation may be no-op in some modes

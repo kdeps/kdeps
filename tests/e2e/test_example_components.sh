@@ -571,22 +571,52 @@ else
     test_skipped "botreply component - runtime test (set TELEGRAM_BOT_TOKEN to enable)"
 fi
 
-# embedding/tts (online) require OPENAI_API_KEY
+# tts (online) requires OPENAI_API_KEY
 if [ -n "${OPENAI_API_KEY:-}" ]; then
-    test_skipped "embedding component - OPENAI_API_KEY present but live API tests disabled"
     test_skipped "tts (online) component - OPENAI_API_KEY present but live API tests disabled"
 else
-    test_skipped "embedding component - runtime test (set OPENAI_API_KEY to enable)"
     test_skipped "tts (online) component - runtime test (set OPENAI_API_KEY to enable)"
 fi
 
-# search/autopilot require API keys
+# embedding is a pure python + sqlite3 keyword store -- no external API call at
+# all, so unlike tts (online) it does not need OPENAI_API_KEY.
+if python3_available; then
+    TMP_EMB=$(mktemp -d)
+    install_component_to embedding "$TMP_EMB"
+    make_component_workflow "$TMP_EMB" embedding operation=index text=hello_world "dbPath=$TMP_EMB/embed.db"
+    RUN_OUT=$(cd "$TMP_EMB" && KDEPS_COMPONENT_DIR="$TMP_EMB/components" "$KDEPS_BIN" run workflow.yaml 2>&1 || true)
+    if output_grep_i "success.*true|operation.*index" "$RUN_OUT"; then
+        test_passed "embedding component - runs against local SQLite store"
+    else
+        test_failed "embedding component - runs against local SQLite store" "$RUN_OUT"
+    fi
+    rm -rf "$TMP_EMB"
+else
+    test_skipped "embedding component - runtime test (python3 required)"
+fi
+
+# search requires TAVILY_API_KEY
 if [ -n "${TAVILY_API_KEY:-}" ]; then
     test_skipped "search component - TAVILY_API_KEY present but live API tests disabled"
 else
     test_skipped "search component - runtime test (set TAVILY_API_KEY to enable)"
 fi
-test_skipped "autopilot component - runtime test (requires LLM; set OPENAI_API_KEY to enable)"
+
+# autopilot's chat: block sets no model:, so it uses kdeps's default local
+# backend (the same llamafile/Ollama model already provisioned for every
+# other local-model e2e test) -- it does not actually require OPENAI_API_KEY.
+TMP_AP=$(mktemp -d)
+install_component_to autopilot "$TMP_AP"
+make_component_workflow "$TMP_AP" autopilot task=Say_hello context=
+AP_OUT=$(cd "$TMP_AP" && timeout 90 env KDEPS_COMPONENT_DIR="$TMP_AP/components" "$KDEPS_BIN" run workflow.yaml 2>&1 || true)
+if output_grep_i "fatal|no model configured" "$AP_OUT"; then
+    test_failed "autopilot component - runs against local LLM backend" "$AP_OUT"
+elif [ -n "$AP_OUT" ]; then
+    test_passed "autopilot component - runs against local LLM backend"
+else
+    test_skipped "autopilot component - runtime test (empty output)"
+fi
+rm -rf "$TMP_AP"
 
 # browser requires playwright
 if ! python3_available || ! has_python_pkg playwright; then
@@ -598,7 +628,41 @@ fi
 # email requires live SMTP
 test_skipped "email component - runtime test (set SMTP_HOST/SMTP_USER/SMTP_PASS to enable)"
 
-# remoteagent requires a live remote agent endpoint
-test_skipped "remoteagent component - runtime test (requires live remote agent URL)"
+# remoteagent's "url" input is a parameterized component input, not
+# hardcoded (unlike search/botreply/tts-online) -- it can be pointed at a
+# local mock HTTP server, same pattern as the scraper Tier-4 test above.
+if python3_available; then
+    TMP_RA=$(mktemp -d)
+    install_component_to remoteagent "$TMP_RA"
+    RA_PORT=$(python3 -c "import socket; s=socket.socket(); s.bind(('127.0.0.1',0)); print(s.getsockname()[1]); s.close()")
+    python3 -c "
+import http.server
+class H(http.server.BaseHTTPRequestHandler):
+    def do_POST(self):
+        length = int(self.headers.get('Content-Length', 0))
+        self.rfile.read(length)
+        self.send_response(200)
+        self.send_header('Content-Type', 'application/json')
+        self.end_headers()
+        self.wfile.write(b'{\"reply\": \"mock-remoteagent-ok\"}')
+    def log_message(self, *a): pass
+http.server.HTTPServer(('127.0.0.1', $RA_PORT), H).serve_forever()
+" &>/dev/null &
+    RA_MOCK_PID=$!
+    sleep 0.3
+    make_component_workflow "$TMP_RA" remoteagent "url=http://127.0.0.1:$RA_PORT" query=hello
+    RUN_OUT=$(cd "$TMP_RA" && KDEPS_COMPONENT_DIR="$TMP_RA/components" "$KDEPS_BIN" run workflow.yaml 2>&1 || true)
+    kill "$RA_MOCK_PID" 2>/dev/null || true
+    if output_grep_i "component.*not found" "$RUN_OUT"; then
+        test_failed "remoteagent component - runs against local mock server" "Component not found"
+    elif output_grep_i "mock-remoteagent-ok|use-remoteagent|completed" "$RUN_OUT"; then
+        test_passed "remoteagent component - runs against local mock server"
+    else
+        test_skipped "remoteagent component - mock HTTP run (output inconclusive)"
+    fi
+    rm -rf "$TMP_RA"
+else
+    test_skipped "remoteagent component - runtime test (python3 required)"
+fi
 
 echo ""

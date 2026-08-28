@@ -114,6 +114,25 @@ jobs:
     - name: Install uv
       run: curl -LsSf https://astral.sh/uv/0.11.20/install.sh | sh && echo "$HOME/.local/bin" >> $GITHUB_PATH
 
+    # Free/open-source tooling several e2e Tier-4 component tests need
+    # (scraper, calendar, pdf, tts, browser) -- without these installed the
+    # tests correctly self-skip rather than fail, but installing them lets
+    # that real coverage run instead of being skipped.
+    - name: Install Python e2e test deps
+      run: python3 -m pip install --quiet pyyaml requests beautifulsoup4 icalendar pdfkit playwright
+
+    - name: Install Playwright Chromium
+      run: playwright install --with-deps chromium
+
+    - name: Install OS packages for e2e (wkhtmltopdf, espeak)
+      run: sudo apt-get update && sudo apt-get install -y wkhtmltopdf espeak
+
+    # repo root's package.json already declares puppeteer as a devDependency
+    # (used by the ChatGPT Clone example's e2e browser test); nothing
+    # previously installed it on this job.
+    - name: Install npm deps for browser e2e tests
+      run: npm ci
+
     - name: Install ollama
       run: |
         curl -fsSL -o /tmp/ollama.tar.zst https://github.com/ollama/ollama/releases/download/v0.30.7/ollama-linux-amd64.tar.zst

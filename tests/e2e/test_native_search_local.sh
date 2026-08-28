@@ -58,7 +58,7 @@ metadata:
   name: searchlocal-glob-test
   version: "1.0.0"
   targetActionId: do-search
-settings:
+settings: {}
 YAML
 
     cat > "$pkg_dir/resources/do-search.yaml" <<YAML
@@ -93,7 +93,7 @@ metadata:
   name: searchlocal-keyword-test
   version: "1.0.0"
   targetActionId: do-search
-settings:
+settings: {}
 YAML
 
     cat > "$pkg_dir/resources/do-search.yaml" <<YAML
@@ -128,7 +128,7 @@ metadata:
   name: searchlocal-combined-test
   version: "1.0.0"
   targetActionId: do-search
-settings:
+settings: {}
 YAML
 
     cat > "$pkg_dir/resources/do-search.yaml" <<YAML

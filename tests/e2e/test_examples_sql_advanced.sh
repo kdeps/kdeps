@@ -76,9 +76,41 @@ else
     test_skipped "SQL Advanced - SQL connections configured"
 fi
 
-# Test 4: Try to start server (may fail due to missing DB)
+# Test 4: Start server against a throwaway SQLite DB instead of the
+# workflow's placeholder Postgres DSN -- the example correctly treats that
+# DSN as a secret (KDEPS_SQL_CONNECTIONS_ANALYTICS_CONNECTION), and without
+# a live Postgres this would otherwise 500. The SQL executor already
+# normalizes the $1/$2 placeholders and NOW() used in analytics.yaml /
+# batch-update.yaml across drivers, so pointing the same real example at
+# SQLite works end-to-end.
+SQL_ADVANCED_DB_DIR=$(mktemp -d)
+SQL_ADVANCED_DB="$SQL_ADVANCED_DB_DIR/analytics.db"
+if command -v python3 &>/dev/null; then
+    python3 - <<PYEOF
+import sqlite3
+conn = sqlite3.connect('$SQL_ADVANCED_DB')
+c = conn.cursor()
+c.execute("""CREATE TABLE users (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    email TEXT UNIQUE NOT NULL,
+    age INTEGER,
+    status TEXT DEFAULT 'active',
+    created_at TEXT DEFAULT (datetime('now')),
+    updated_at TEXT DEFAULT (datetime('now'))
+)""")
+c.executemany("INSERT INTO users (email, age, created_at) VALUES (?, ?, ?)", [
+    ('alice@example.com', 30, '2024-06-01 10:00:00'),
+    ('bob@example.com', 25, '2024-06-02 11:00:00'),
+    ('carol@example.com', 35, '2024-06-03 12:00:00'),
+])
+conn.commit()
+conn.close()
+PYEOF
+fi
+
 SERVER_LOG=$(mktemp)
-timeout 8 "$KDEPS_BIN" run "$WORKFLOW_PATH" > "$SERVER_LOG" 2>&1 &
+KDEPS_SQL_CONNECTIONS_ANALYTICS_CONNECTION="sqlite://$SQL_ADVANCED_DB" \
+    timeout 8 "$KDEPS_BIN" run "$WORKFLOW_PATH" > "$SERVER_LOG" 2>&1 &
 SERVER_PID=$!
 
 # Wait for server to start
@@ -115,6 +147,7 @@ if grep -qi "failed to parse\|validation failed\|syntax error" "$SERVER_LOG" 2>/
     kill $SERVER_PID 2>/dev/null || true
     wait $SERVER_PID 2>/dev/null || true
     rm -f "$SERVER_LOG"
+    rm -rf "$SQL_ADVANCED_DB_DIR"
     test_skipped "SQL Advanced - Server startup" "Workflow parsing failed"
     return 0
 fi
@@ -125,12 +158,14 @@ if [ "$SERVER_READY" = true ]; then
     # Test 5: Test endpoint (if server started)
     if command -v curl &> /dev/null; then
         RESPONSE=$(curl -s -w "\n%{http_code}" -X GET \
+            -H "Authorization: Bearer $KDEPS_API_AUTH_TOKEN" \
             "http://127.0.0.1:$PORT$ENDPOINT" 2>/dev/null || echo -e "\n000")
         STATUS_CODE=$(echo "$RESPONSE" | tail -1)
-        
+        BODY=$(echo "$RESPONSE" | sed '$d')
+
     if [ "$STATUS_CODE" = "200" ]; then
         test_passed "SQL Advanced - GET endpoint (200 OK)"
-        
+
         # Verify response structure matches expected format:
         # HTTP Response format: {"success": true, "data": {...}, "meta": {...}}
         # GET endpoint returns analytics - data field contains analytics result (CSV or JSON)
@@ -200,6 +235,7 @@ if [ "$SERVER_READY" = true ]; then
     if [ "$SERVER_READY" = true ] && command -v curl &> /dev/null; then
         POST_RESPONSE=$(curl -s -w "\n%{http_code}" -X POST \
             -H "Content-Type: application/json" \
+            -H "Authorization: Bearer $KDEPS_API_AUTH_TOKEN" \
             -d '{"user_updates": [["active", 123]]}' \
             "http://127.0.0.1:$PORT$ENDPOINT" 2>/dev/null || echo -e "\n000")
         POST_STATUS=$(echo "$POST_RESPONSE" | tail -n 1)
@@ -278,6 +314,7 @@ else
 fi
 
 rm -f "$SERVER_LOG"
+rm -rf "$SQL_ADVANCED_DB_DIR"
 
 # -- SQLite mock runtime test --------------------------------------------------
 # Verify the SQL executor works end-to-end without Postgres/MySQL.

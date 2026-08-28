@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Autopilot feature E2E tests
-# Tests that the kdeps binary correctly handles workflow YAML with autopilot resource type.
+# Tests that the kdeps binary correctly handles workflow YAML invoking the
+# autopilot component (autopilot is a component, not a native resource type).
 
 set -uo pipefail
 
@@ -9,101 +10,79 @@ source "$SCRIPT_DIR/common.sh"
 
 echo "Testing autopilot feature..."
 
-# Helper: write a workflow file and return the path.
-write_workflow() {
-    local dir="$1"
-    local filename="$2"
-    local content="$3"
-    local filepath="$dir/$filename"
-    printf '%s' "$content" > "$filepath"
-    echo "$filepath"
-}
-
-# Test: autopilot resource type is recognized by the binary (validation/parse step)
+# Test: autopilot is invoked via the autopilot component (component:), the
+# current mechanism -- not a native "run.autopilot" resource type, which no
+# longer exists. Verify a workflow using it validates and packages cleanly.
 test_autopilot_resource_recognized() {
     local tmpdir
     tmpdir=$(mktemp -d)
+    mkdir -p "$tmpdir/resources"
 
-    local workflow_yaml
-    workflow_yaml=$(cat <<'EOF'
+    cat > "$tmpdir/workflow.yaml" <<'EOF'
 apiVersion: kdeps.io/v1
 kind: Workflow
 metadata:
   name: autopilot-test
   version: "1.0.0"
   targetActionId: pilot
-resources:
-  - metadata:
-      actionId: pilot
-      name: Autopilot Resource
-    run:
-      autopilot:
-        goal: "Find the answer"
-        maxIterations: 3
+settings: {}
 EOF
-)
 
-    write_workflow "$tmpdir" "workflow.yaml" "$workflow_yaml" > /dev/null
+    cat > "$tmpdir/resources/pilot.yaml" <<'EOF'
+actionId: pilot
+name: Autopilot Resource
+component:
+  name: autopilot
+  with:
+    task: "Find the answer"
+    context: "test context"
+EOF
 
-    # Use kdeps to validate/parse the workflow file. We expect the binary to
-    # parse it without rejecting the autopilot key as unknown.
-    # The "package" command is available and does parse the workflow.
     if "$KDEPS_BIN" bundle package "$tmpdir" --output "$tmpdir/out.kdeps" &>/dev/null 2>&1; then
         test_passed "autopilot resource type recognized in workflow YAML"
     else
-        # If packaging fails (environment-specific, e.g. no Docker), check if
-        # the failure is due to autopilot being unrecognized vs environment.
         local output
         output=$("$KDEPS_BIN" bundle package "$tmpdir" --output "$tmpdir/out.kdeps" 2>&1 || true)
-        if output_grep_i "unknown|unrecognized|invalid.*autopilot" "$output"; then
-            test_failed "autopilot resource type recognized" "Binary rejects autopilot as unknown field: $output"
-        else
-            test_skipped "autopilot resource type recognized (environment-specific failure)"
-        fi
+        test_failed "autopilot resource type recognized" "packaging failed: $output"
     fi
 
     rm -rf "$tmpdir"
 }
 
-# Test: autopilot config with empty goal is rejected at the executor level
-# (validates via Go test, not binary - documented expectation)
+# Test: the autopilot component's required "task" input is enforced at
+# validation time when omitted -- the modern equivalent of the old
+# "empty goal rejected" check, now that autopilot is a component rather than
+# a native resource type with its own goal field.
 test_autopilot_empty_goal_rejected() {
     local tmpdir
     tmpdir=$(mktemp -d)
+    mkdir -p "$tmpdir/resources"
 
-    local workflow_yaml
-    workflow_yaml=$(cat <<'EOF'
+    cat > "$tmpdir/workflow.yaml" <<'EOF'
 apiVersion: kdeps.io/v1
 kind: Workflow
 metadata:
-  name: autopilot-empty-goal
+  name: autopilot-missing-task
   version: "1.0.0"
   targetActionId: pilot
-resources:
-  - metadata:
-      actionId: pilot
-      name: Autopilot
-    run:
-      autopilot:
-        goal: ""
-        maxIterations: 3
+settings: {}
 EOF
-)
 
-    write_workflow "$tmpdir" "workflow.yaml" "$workflow_yaml" > /dev/null
+    cat > "$tmpdir/resources/pilot.yaml" <<'EOF'
+actionId: pilot
+name: Autopilot
+component:
+  name: autopilot
+  with:
+    context: "no task provided"
+EOF
 
-    # The empty goal check happens at runtime (executor.Execute), not at parse time.
-    # Packaging should succeed (YAML is syntactically valid).
-    if "$KDEPS_BIN" bundle package "$tmpdir" --output "$tmpdir/out.kdeps" &>/dev/null 2>&1; then
-        test_passed "autopilot empty goal YAML parses successfully (runtime validation expected)"
+    local output
+    output=$("$KDEPS_BIN" validate "$tmpdir/workflow.yaml" 2>&1 || true)
+    if output_grep_i "requires input \"task\"|task.*not provided" "$output"; then
+        test_passed "autopilot empty goal rejected (missing required task input)"
     else
-        local output
-        output=$("$KDEPS_BIN" bundle package "$tmpdir" --output "$tmpdir/out.kdeps" 2>&1 || true)
-        if output_grep_i "goal.*empty|empty.*goal" "$output"; then
-            test_passed "autopilot empty goal rejected at parse time"
-        else
-            test_skipped "autopilot empty goal test (environment-specific failure)"
-        fi
+        test_failed "autopilot empty goal test" "expected a missing-task validation error, got: $output"
     fi
 
     rm -rf "$tmpdir"
