@@ -764,7 +764,7 @@ Always available. No environment variables required.
 
 | Tool | Description |
 |------|-------------|
-| `read_file` | Read file contents |
+| `read_file` | Read file contents (plain text, plus PDF/DOCX/EPUB/RTF/ODT extraction) |
 | `write_file` | Write or overwrite a file |
 | `edit_file` | Apply a unified diff to a file |
 | `list_files` | List directory contents |

@@ -93,10 +93,32 @@ func (e *Executor) Execute(
 	return buildLoaderResult(docs), nil
 }
 
+//nolint:gochecknoglobals // static extension->loader-type map
+var extensionLoaderTypes = map[string]string{
+	".pdf":  "pdf",
+	".html": "html",
+	".htm":  "html",
+	".csv":  "csv",
+	".docx": "docx",
+	".epub": "epub",
+	".rtf":  "rtf",
+	".odt":  "odt",
+}
+
+// DetectTypeFromExtension maps a file's extension to a loader type,
+// defaulting to "text" for anything unrecognized -- the same default
+// loadDocuments falls back to when no type is given at all.
+func DetectTypeFromExtension(source string) string {
+	if t, ok := extensionLoaderTypes[strings.ToLower(filepath.Ext(source))]; ok {
+		return t
+	}
+	return "text"
+}
+
 func loadDocuments(cfg *domain.LoaderConfig) ([]Document, error) {
 	loaderType := strings.ToLower(cfg.Type)
 	if loaderType == "" {
-		loaderType = "text"
+		loaderType = DetectTypeFromExtension(cfg.Source)
 	}
 
 	switch loaderType {
@@ -367,11 +389,13 @@ func loadPandoc(source string) ([]Document, error) {
 	if _, lookErr := exec.LookPath("pandoc"); lookErr != nil {
 		return nil, errors.New("loader pandoc: pandoc not found in PATH (install pandoc)")
 	}
+	// No --from flag: pandoc auto-detects the input format from the file
+	// extension. Passing the literal string "auto" as a --from value is
+	// rejected by pandoc ("Unknown input format auto") -- omitting the flag
+	// entirely is pandoc's actual auto-detection mechanism.
 	cmd := exec.CommandContext(
 		context.Background(),
 		"pandoc",
-		"--from",
-		"auto",
 		"--to",
 		"plain",
 		"--wrap=none",

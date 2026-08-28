@@ -218,9 +218,7 @@ func TestLoadPandoc_Success(t *testing.T) {
 	requireBin(t, "pandoc")
 	f := writeTempFileExt(t, "# Hello\nThis is a test.", ".md")
 	docs, err := loadPandoc(f)
-	if err != nil {
-		t.Skipf("pandoc execution error: %v (may not support --from auto)", err)
-	}
+	require.NoError(t, err)
 	require.Len(t, docs, 1)
 	assert.Contains(t, docs[0].Content, "Hello")
 }

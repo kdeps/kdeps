@@ -26,6 +26,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"runtime"
 	"strings"
@@ -3062,6 +3063,95 @@ func TestReadFile_BinaryContent_Rejected(t *testing.T) {
 	_, err = tool.Execute(map[string]any{"file_path": tmpFile.Name()})
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "binary file")
+}
+
+// --- readLocalFile document-format dispatch (PDF/DOCX/EPUB/RTF/ODT) ---
+
+func requirePandoc(t *testing.T) {
+	t.Helper()
+	if _, err := exec.LookPath("pandoc"); err != nil {
+		t.Skipf("pandoc not found in PATH: %v", err)
+	}
+}
+
+func TestReadFile_DOCX_ExtractsText(t *testing.T) {
+	requirePandoc(t)
+	reg := kdepstools.NewRegistry()
+	RegisterBuiltinTools(context.Background(), reg)
+	tool := reg.Get("read_file")
+	require.NotNil(t, tool)
+
+	dir := t.TempDir()
+	docxPath := filepath.Join(dir, "test.docx")
+	cmd := exec.Command("pandoc", "-f", "markdown", "-o", docxPath)
+	cmd.Stdin = strings.NewReader("Hello from a DOCX file.")
+	require.NoError(t, cmd.Run())
+
+	result, err := tool.Execute(map[string]any{"file_path": docxPath})
+	require.NoError(t, err)
+	// Extracted text comes back through the same line-numbered format as
+	// plain text (e.g. "1\tHello from a DOCX file."), proving the dispatch
+	// and formatFileLines wiring -- not re-testing pandoc's own extraction
+	// accuracy, which pkg/executor/loader's own tests already cover.
+	assert.Contains(t, result, "Hello from a DOCX file.")
+	assert.Regexp(t, `^\s*1\t`, result)
+}
+
+func TestReadFile_HTML_StaysPlainText(t *testing.T) {
+	reg := kdepstools.NewRegistry()
+	RegisterBuiltinTools(context.Background(), reg)
+	tool := reg.Get("read_file")
+	require.NotNil(t, tool)
+
+	tmpFile, err := os.CreateTemp("", "kdeps-readfile-html-*.html")
+	require.NoError(t, err)
+	defer os.Remove(tmpFile.Name())
+	_, err = tmpFile.WriteString("<html><body><p>hi</p></body></html>\n")
+	require.NoError(t, err)
+	require.NoError(t, tmpFile.Close())
+
+	result, err := tool.Execute(map[string]any{"file_path": tmpFile.Name()})
+	require.NoError(t, err)
+	// Raw markup, not goquery-stripped text -- html/csv are deliberately
+	// excluded from read_file's document-dispatch allowlist since they were
+	// already readable as plain text before this change.
+	assert.Contains(t, result, "<html><body><p>hi</p></body></html>")
+}
+
+func TestReadFile_CSV_StaysPlainText(t *testing.T) {
+	reg := kdepstools.NewRegistry()
+	RegisterBuiltinTools(context.Background(), reg)
+	tool := reg.Get("read_file")
+	require.NotNil(t, tool)
+
+	tmpFile, err := os.CreateTemp("", "kdeps-readfile-csv-*.csv")
+	require.NoError(t, err)
+	defer os.Remove(tmpFile.Name())
+	_, err = tmpFile.WriteString("a,b\n1,2\n")
+	require.NoError(t, err)
+	require.NoError(t, tmpFile.Close())
+
+	result, err := tool.Execute(map[string]any{"file_path": tmpFile.Name()})
+	require.NoError(t, err)
+	// Raw CSV rows, not the loader's "header: value" per-row reformatting.
+	assert.Contains(t, result, "a,b")
+	assert.Contains(t, result, "1,2")
+}
+
+func TestReadFile_DOCX_MissingPandoc_ClearError(t *testing.T) {
+	dir := t.TempDir()
+	docxPath := filepath.Join(dir, "test.docx")
+	require.NoError(t, os.WriteFile(docxPath, []byte("not a real docx"), 0o644))
+
+	reg := kdepstools.NewRegistry()
+	RegisterBuiltinTools(context.Background(), reg)
+	tool := reg.Get("read_file")
+	require.NotNil(t, tool)
+
+	t.Setenv("PATH", "")
+	_, err := tool.Execute(map[string]any{"file_path": docxPath})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "pandoc not found")
 }
 
 func TestWriteFile_ContentTooLarge(t *testing.T) {

@@ -449,3 +449,39 @@ func TestLoadDocuments_Textutil(t *testing.T) {
 	_, err := loadDocuments(&domain.LoaderConfig{Type: "textutil", Source: f})
 	_ = err
 }
+
+func TestDetectTypeFromExtension(t *testing.T) {
+	cases := map[string]string{
+		"report.pdf":      "pdf",
+		"page.html":       "html",
+		"page.htm":        "html",
+		"PAGE.HTML":       "html", // case-insensitive
+		"data.csv":        "csv",
+		"letter.docx":     "docx",
+		"book.epub":       "epub",
+		"memo.rtf":        "rtf",
+		"doc.odt":         "odt",
+		"notes.txt":       "text",
+		"main.go":         "text",
+		"noextension":     "text",
+		"":                "text",
+		"/a/b/report.PDF": "pdf", // case-insensitive, with a path
+	}
+	for source, want := range cases {
+		assert.Equal(t, want, DetectTypeFromExtension(source), "source: %q", source)
+	}
+}
+
+// Regression test for the bug where loadDocuments's empty-Type fallback was
+// hardcoded to "text" regardless of the source file's extension, silently
+// misparsing any document loaded without an explicit type.
+func TestLoadDocuments_EmptyTypeUsesExtensionDetection(t *testing.T) {
+	f := writeTempFileExt(t, "a,b\n1,2\n", ".csv")
+	docs, err := loadDocuments(&domain.LoaderConfig{Source: f})
+	require.NoError(t, err)
+	require.NotEmpty(t, docs)
+	// A CSV parsed as CSV produces one Document per row with column data in
+	// Metadata; parsed as plain text it would instead be one Document whose
+	// Content is the raw "a,b\n1,2\n" string with no such metadata.
+	assert.Contains(t, docs[0].Metadata, "row")
+}

@@ -181,7 +181,7 @@ func registerLoaderTool(_ context.Context, reg *kdepstools.Registry) {
 			},
 			"type": {
 				Type:        toolParamString,
-				Description: "Document type: pdf, pdf_pdftotext, pdf_cpu, pandoc, docx, epub, rtf, odt, html, html_lynx, csv, text, textutil, directory, notion. Auto-detected if omitted. Auto-detected if omitted. pdf=Go lib, pdf_pdftotext=poppler, pdf_cpu=pdfcpu, pandoc=universal, docx/epub/rtf/odt=pandoc, html_lynx=lynx, textutil=macOS.",
+				Description: "Document type: pdf, pdf_pdftotext, pdf_cpu, pandoc, docx, epub, rtf, odt, html, html_lynx, csv, text, textutil, directory, notion. Auto-detected from the file extension if omitted. pdf=Go lib, pdf_pdftotext=poppler, pdf_cpu=pdfcpu, pandoc=universal, docx/epub/rtf/odt=pandoc, html_lynx=lynx, textutil=macOS.",
 			},
 			"chunkSize": {
 				Type:        toolParamNumber,

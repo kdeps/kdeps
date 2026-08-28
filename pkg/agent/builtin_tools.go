@@ -39,6 +39,7 @@ import (
 
 	"github.com/kdeps/kdeps/v2/pkg/domain"
 	"github.com/kdeps/kdeps/v2/pkg/executor/llm/toolguard"
+	execLoader "github.com/kdeps/kdeps/v2/pkg/executor/loader"
 	execSearch "github.com/kdeps/kdeps/v2/pkg/executor/searchlocal"
 	kdepstools "github.com/kdeps/kdeps/v2/pkg/tools"
 
@@ -184,16 +185,18 @@ func requireAbsFilePath(toolName string, args map[string]any) (string, error) {
 }
 
 // registerReadFile registers a local file reading tool.
-// Reads text files from the filesystem. Accepts absolute paths only.
-// No API key required.
+// Reads text files from the filesystem, and extracts text from PDF, DOCX,
+// EPUB, RTF, and ODT documents via the same loader package the loader:
+// workflow-mode resource action and the load_document tool use. Accepts
+// absolute paths only. No API key required.
 func registerReadFile(reg *kdepstools.Registry) {
 	reg.Register(&kdepstools.Tool{
 		Name:         toolNameReadFile,
-		Description:  "Read a file from the local filesystem. Returns the file contents as text. Use for reading source code, configuration files, documentation, Makefiles, or any text-based file the agent needs to understand.",
+		Description:  "Read a file from the local filesystem. Returns the file contents as text. Plain text, source code, configuration files, and documentation are read directly; PDF, DOCX, EPUB, RTF, and ODT documents have their text extracted automatically. Use load_document instead for CSV/HTML structured parsing or RAG chunking.",
 		Category:     "file",
 		OutputFormat: "plain text with line numbers",
-		Constraints:  "max ~2000 lines per read; use offset/limit for large files; must use absolute path; never re-read a file already in this conversation",
-		SeeAlso:      "list_files, search_local, edit_file",
+		Constraints:  "max ~2000 lines per read; use offset/limit for large files; must use absolute path; never re-read a file already in this conversation; DOCX/EPUB/RTF/ODT extraction requires pandoc on PATH, PDF needs no external tool",
+		SeeAlso:      "list_files, search_local, edit_file, load_document",
 		Parameters: map[string]domain.ToolParam{
 			toolParamFilePath: {
 				Type:        toolParamString,
@@ -221,6 +224,19 @@ func registerReadFile(reg *kdepstools.Registry) {
 	})
 }
 
+// readFileDocDispatchTypes are the loader types read_file dispatches to --
+// formats it could not read at all before (rejected by isBinaryContent).
+// html/csv are deliberately excluded: they are already plain text and
+// already read correctly today (raw markup / raw rows); routing them
+// through the loader would strip that raw form (e.g. goquery discards HTML
+// tags) for no benefit. load_document still offers structured html/csv
+// parsing explicitly when that's what's wanted.
+//
+//nolint:gochecknoglobals // static allowlist
+var readFileDocDispatchTypes = map[string]bool{
+	"pdf": true, "docx": true, "epub": true, "rtf": true, "odt": true,
+}
+
 func readLocalFile(filePath string, args map[string]any) (string, error) {
 	if err := validateWorkspaceBoundary(filePath); err != nil {
 		return "", fmt.Errorf("read_file: %w", err)
@@ -241,6 +257,15 @@ func readLocalFile(filePath string, args map[string]any) (string, error) {
 		)
 	}
 
+	if docType := execLoader.DetectTypeFromExtension(filePath); readFileDocDispatchTypes[docType] {
+		content, docErr := readDocumentFile(filePath, docType)
+		if docErr != nil {
+			return "", fmt.Errorf("read_file: %w", docErr)
+		}
+		go execSearch.NewExecutor().IndexFile(filePath)
+		return formatFileLines(content, args), nil
+	}
+
 	data, err := afero.ReadFile(AppFS, filePath)
 	if err != nil {
 		return "", fmt.Errorf("read_file: read %s: %w", filePath, err)
@@ -252,8 +277,42 @@ func readLocalFile(filePath string, args map[string]any) (string, error) {
 	// Lazily index every file that's read into the search index.
 	go execSearch.NewExecutor().IndexFile(filePath)
 
-	lines := strings.Split(string(data), "\n")
-	// File ending with \n produces a trailing empty element; drop it.
+	return formatFileLines(string(data), args), nil
+}
+
+// readDocumentFile extracts text from a PDF/DOCX/EPUB/RTF/ODT file via the
+// same loader package the loader: workflow-mode resource action and the
+// load_document tool use, so read_file needs no format-parsing code of its
+// own.
+func readDocumentFile(filePath, docType string) (string, error) {
+	result, err := execLoader.NewExecutor().Execute(nil, &domain.LoaderConfig{
+		Source: filePath,
+		Type:   docType,
+	})
+	if err != nil {
+		return "", err
+	}
+	resultMap, ok := result.(map[string]interface{})
+	if !ok {
+		return "", errors.New("unexpected loader result type")
+	}
+	docs, ok := resultMap["documents"].([]execLoader.Document)
+	if !ok || len(docs) == 0 {
+		return "", errors.New("document produced no readable content")
+	}
+	parts := make([]string, len(docs))
+	for i, d := range docs {
+		parts[i] = d.Content
+	}
+	return strings.Join(parts, "\n\n"), nil
+}
+
+// formatFileLines applies the offset/limit line-windowing and cat -n-style
+// numbering read_file has always used to plain text, now shared with the
+// document-dispatch path so both look identical to the model.
+func formatFileLines(content string, args map[string]any) string {
+	lines := strings.Split(content, "\n")
+	// Content ending with \n produces a trailing empty element; drop it.
 	if len(lines) > 0 && lines[len(lines)-1] == "" {
 		lines = lines[:len(lines)-1]
 	}
@@ -284,7 +343,7 @@ func readLocalFile(filePath string, args map[string]any) (string, error) {
 		out = fmt.Sprintf("%s\n[%d/%d lines shown]", out, shownLines, totalLines)
 	}
 
-	return out, nil
+	return out
 }
 
 // defaultTailLines is how many lines from the end of a file tail_file
