@@ -66,21 +66,19 @@ YAML
     rm -rf "$pkg_dir"
 }
 
-# Test: end-to-end extraction against a real generated image (skips if
-# tesseract or ImageMagick's "magick" is unavailable, matching the pattern
-# used by the other CLI-dependent e2e tests in this suite).
+# Test: end-to-end extraction against the committed sample image
+# (tests/e2e/fixtures/ocr-sample.png, text "KDeps OCR Sample"). Skips if
+# tesseract is unavailable, matching the pattern used by the other
+# CLI-dependent e2e tests in this suite.
 test_ocr_extracts_text() {
     if ! command -v tesseract &>/dev/null; then
         test_skipped "ocr - end-to-end text extraction (tesseract not installed)"
         return 0
     fi
-    local im_cmd=""
-    if command -v magick &>/dev/null; then
-        im_cmd="magick"
-    elif command -v convert &>/dev/null; then
-        im_cmd="convert"
-    else
-        test_skipped "ocr - end-to-end text extraction (ImageMagick not installed)"
+
+    local fixture="$PROJECT_ROOT/tests/e2e/fixtures/ocr-sample.png"
+    if [ ! -f "$fixture" ]; then
+        test_skipped "ocr - end-to-end text extraction (fixture not found: $fixture)"
         return 0
     fi
 
@@ -88,12 +86,8 @@ test_ocr_extracts_text() {
     pkg_dir=$(mktemp -d)
     mkdir -p "$pkg_dir/resources"
 
-    local img_path="$pkg_dir/fixture.png"
-    "$im_cmd" -size 300x80 xc:white -fill black \
-        -draw "text 10,40 'KDEPS OCR'" "$img_path"
-
     local img_path_native
-    img_path_native=$(to_native_path "$img_path")
+    img_path_native=$(to_native_path "$fixture")
 
     cat > "$pkg_dir/workflow.yaml" <<'YAML'
 apiVersion: kdeps.io/v1
@@ -118,10 +112,10 @@ YAML
 
     local result
     if result=$(timeout 30 "$KDEPS_BIN" run "$pkg_dir" 2>&1); then
-        if output_grep_i "KDEPS OCR" "$result"; then
+        if output_grep_i "KDeps OCR Sample" "$result"; then
             test_passed "ocr - end-to-end text extraction"
         else
-            test_failed "ocr - end-to-end text extraction" "expected 'KDEPS OCR' in output: $result"
+            test_failed "ocr - end-to-end text extraction" "expected 'KDeps OCR Sample' in output: $result"
         fi
     else
         test_failed "ocr - end-to-end text extraction" "run failed: $result"
