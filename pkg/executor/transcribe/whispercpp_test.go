@@ -71,6 +71,7 @@ func TestTranscribeWhisperCPP_ExtractsText(t *testing.T) {
 }
 
 func TestTranscribeWhisperCPP_ExplicitModelPath_NotFound(t *testing.T) {
+	requireWhisperCLI(t)
 	_, err := transcribeWhisperCPP(nil, &domain.TranscribeConfig{
 		File: sampleAudioFixture, Backend: "whisper-cpp", ModelPath: "/nonexistent/model.bin",
 	})
