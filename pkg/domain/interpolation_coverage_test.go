@@ -124,6 +124,7 @@ var interpolationManifest = map[string]map[string]interpolationFieldStatus{
 		"Model":                  interpolatable(),
 		"Backend":                interpolatable(),
 		"BaseURL":                interpolatable(),
+		"ModelPath":              interpolatable(),
 		"Language":               interpolatable(),
 		"Prompt":                 interpolatable(),
 		"ResponseFormat":         interpolatable(),

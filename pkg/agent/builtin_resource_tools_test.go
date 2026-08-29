@@ -23,6 +23,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -239,6 +240,64 @@ func TestRegisterTranscribeTool_Execute_WithModelAndBackend(t *testing.T) {
 		"backend": "openai",
 	})
 	assert.Error(t, err)
+}
+
+func TestRegisterTranscribeTool_Registered_HasModelPathParam(t *testing.T) {
+	reg := kdepstools.NewRegistry()
+	registerTranscribeTool(context.Background(), reg)
+	tool := reg.Get("transcribe_audio")
+	require.NotNil(t, tool)
+	assert.Contains(t, tool.Parameters, "modelPath")
+}
+
+func TestRegisterTranscribeTool_Execute_WhisperCPP_InvalidModelPath(t *testing.T) {
+	// transcribeWhisperCPP checks the whisper-cli binary before modelPath,
+	// so this needs the same skip guard as the real-extraction test below
+	// to stay meaningful (and not just report "whisper-cli not found") in
+	// an environment without it installed.
+	if _, err := exec.LookPath("whisper-cli"); err != nil {
+		t.Skip("whisper-cli not found in PATH")
+	}
+	t.Setenv("KDEPS_WORKSPACE_ROOT", "")
+	reg := kdepstools.NewRegistry()
+	registerTranscribeTool(context.Background(), reg)
+	tool := reg.Get("transcribe_audio")
+	require.NotNil(t, tool)
+
+	// File itself doesn't need to exist for this assertion -- modelPath is
+	// resolved after the file check in transcribeWhisperCPP, and this repo
+	// module has no such audio fixture, so use a real path (a Go source
+	// file) purely to get past the file-exists check and reach the
+	// modelPath validation being tested here.
+	_, err := tool.Execute(map[string]any{
+		"file":      "builtin_resource_tools.go",
+		"backend":   "whisper-cpp",
+		"modelPath": "/nonexistent/model.bin",
+	})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "modelPath")
+}
+
+func TestRegisterTranscribeTool_Execute_WhisperCPP_ExtractsText(t *testing.T) {
+	if _, err := exec.LookPath("whisper-cli"); err != nil {
+		t.Skip("whisper-cli not found in PATH")
+	}
+	t.Setenv("KDEPS_WORKSPACE_ROOT", "")
+	reg := kdepstools.NewRegistry()
+	registerTranscribeTool(context.Background(), reg)
+	tool := reg.Get("transcribe_audio")
+	require.NotNil(t, tool)
+
+	wd, err := os.Getwd()
+	require.NoError(t, err)
+	fixture := filepath.Join(wd, "..", "..", "tests", "e2e", "fixtures", "transcribe-sample.mp3")
+
+	out, err := tool.Execute(map[string]any{
+		"file":    fixture,
+		"backend": "whisper-cpp",
+	})
+	require.NoError(t, err)
+	assert.Contains(t, strings.ToLower(out), "transcription test")
 }
 
 // --- registerOCRTool ---

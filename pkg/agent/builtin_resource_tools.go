@@ -127,7 +127,7 @@ func registerTranscribeTool(_ context.Context, reg *kdepstools.Registry) {
 
 	reg.Register(&kdepstools.Tool{
 		Name:        "transcribe_audio",
-		Description: "Transcribe an audio or video file to text using Whisper API. Supports mp3, mp4, mpeg, mpga, m4a, wav, webm. Returns the transcribed text. Requires: file (absolute path to audio file). Optional: model (default whisper-1), backend (openai, groq, local).",
+		Description: "Transcribe an audio or video file to text. Whisper API backends (openai, groq, local) support mp3, mp4, mpeg, mpga, m4a, wav, webm; the whisper-cpp backend runs entirely offline (no API key, no network after the model is cached) and supports flac, mp3, ogg, wav only. Returns the transcribed text. Requires: file (absolute path to audio file). Optional: model (default whisper-1), backend (openai, groq, local, whisper-cpp), modelPath (whisper-cpp only -- overrides the auto-downloaded default model).",
 		Parameters: map[string]domain.ToolParam{
 			"file": {
 				Type:        toolParamString,
@@ -136,11 +136,15 @@ func registerTranscribeTool(_ context.Context, reg *kdepstools.Registry) {
 			},
 			toolParamModel: {
 				Type:        toolParamString,
-				Description: "Transcription model. Default: whisper-1. Groq: whisper-large-v3",
+				Description: "Transcription model. Default: whisper-1. Groq: whisper-large-v3. Ignored for whisper-cpp.",
 			},
 			"backend": {
 				Type:        toolParamString,
-				Description: "API provider: openai (default), groq, or local",
+				Description: "Provider: openai (default), groq, local, or whisper-cpp (offline, no API key)",
+			},
+			"modelPath": {
+				Type:        toolParamString,
+				Description: "whisper-cpp only: absolute path to a GGML model file. Default: auto-downloaded ggml-base.en.bin",
 			},
 		},
 		Execute: func(args map[string]any) (string, error) {
@@ -156,6 +160,9 @@ func registerTranscribeTool(_ context.Context, reg *kdepstools.Registry) {
 			}
 			if v, ok := args["backend"].(string); ok {
 				config.Backend = v
+			}
+			if v, ok := args["modelPath"].(string); ok {
+				config.ModelPath = v
 			}
 
 			result, err := exec.Execute(nil, config)

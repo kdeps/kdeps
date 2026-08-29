@@ -80,6 +80,9 @@ func resolveConfig(
 	if resolved.BaseURL, err = evaluateStringOrLiteral(evaluator, ctx, cfg.BaseURL); err != nil {
 		return nil, fmt.Errorf("failed to evaluate baseURL: %w", err)
 	}
+	if resolved.ModelPath, err = evaluateStringOrLiteral(evaluator, ctx, cfg.ModelPath); err != nil {
+		return nil, fmt.Errorf("failed to evaluate modelPath: %w", err)
+	}
 	if resolved.Language, err = evaluateStringOrLiteral(evaluator, ctx, cfg.Language); err != nil {
 		return nil, fmt.Errorf("failed to evaluate language: %w", err)
 	}

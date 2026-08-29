@@ -29,12 +29,23 @@ type TranscribeConfig struct {
 	// For Groq use "whisper-large-v3". For local servers use model name as configured.
 	Model string `yaml:"model,omitempty"`
 
-	// Backend selects the API provider: "openai" (default), "groq", or "local".
-	// Uses the same backend names as the chat: executor.
+	// Backend selects the transcription provider: "openai" (default), "groq",
+	// "local" (a self-hosted OpenAI-compatible Whisper HTTP server), or
+	// "whisper-cpp" (runs fully offline via the local whisper-cli binary --
+	// no API key, no network after the model is cached; only supports
+	// flac/mp3/ogg/wav, narrower than the HTTP backends' format list).
 	Backend string `yaml:"backend,omitempty"`
 
-	// BaseURL overrides the API base URL. Defaults to the backend's standard endpoint.
+	// BaseURL overrides the API base URL. Defaults to the backend's standard
+	// endpoint. Ignored for the whisper-cpp backend.
 	BaseURL string `yaml:"baseURL,omitempty"`
+
+	// ModelPath overrides the local GGML model file used by the
+	// "whisper-cpp" backend. If empty, a default English model
+	// (ggml-base.en.bin) is auto-downloaded to ~/.kdeps/models/ on first
+	// use, matching chat:'s zero-config llamafile default. Ignored for the
+	// openai/groq/local backends.
+	ModelPath string `yaml:"modelPath,omitempty"`
 
 	// Language is the ISO-639-1 language code (e.g. "en", "fr", "de").
 	// Providing this improves accuracy and speed. Empty = auto-detect.

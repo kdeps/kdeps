@@ -77,6 +77,10 @@ func (e *Executor) Execute(
 		return nil, errors.New("transcribe: file is required")
 	}
 
+	if strings.EqualFold(cfg.Backend, "whisper-cpp") {
+		return transcribeWhisperCPP(ctx, cfg)
+	}
+
 	apiKey, baseURL := resolveTranscribeEndpoint(cfg)
 
 	model := cfg.Model

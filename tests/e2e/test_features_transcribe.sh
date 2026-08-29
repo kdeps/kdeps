@@ -132,7 +132,72 @@ YAML
     rm -rf "$pkg_dir"
 }
 
+# Test: end-to-end transcription via the offline whisper-cpp backend
+# against the committed sample audio -- no API key needed, unlike
+# test_transcribe_live above. Skips only if whisper-cli isn't installed
+# (CI installs it alongside the other Tier-4 CLI deps).
+test_transcribe_whispercpp() {
+    if ! command -v whisper-cli &>/dev/null; then
+        test_skipped "transcribe - whisper-cpp end-to-end transcription (whisper-cli not installed)"
+        return 0
+    fi
+
+    local fixture="$PROJECT_ROOT/tests/e2e/fixtures/transcribe-sample.mp3"
+    if [ ! -f "$fixture" ]; then
+        test_skipped "transcribe - whisper-cpp end-to-end transcription (fixture not found: $fixture)"
+        return 0
+    fi
+
+    local pkg_dir
+    pkg_dir=$(mktemp -d)
+    mkdir -p "$pkg_dir/resources"
+
+    local audio_path_native
+    audio_path_native=$(to_native_path "$fixture")
+
+    cat > "$pkg_dir/workflow.yaml" <<'YAML'
+apiVersion: kdeps.io/v1
+kind: Workflow
+metadata:
+  name: transcribe-whispercpp-e2e-test
+  version: "1.0.0"
+  targetActionId: transcribe
+settings: {}
+YAML
+
+    cat > "$pkg_dir/resources/transcribe.yaml" <<YAML
+actionId: transcribe
+name: Transcribe Audio
+transcribe:
+  file: "${audio_path_native}"
+  backend: "whisper-cpp"
+apiResponse:
+  success: true
+  response:
+    text: "{{ output('transcribe') }}"
+YAML
+
+    local result
+    # First run may need to download the default model (~140MB), so allow
+    # more time than the API-backed test above.
+    if result=$(timeout 120 "$KDEPS_BIN" run "$pkg_dir" 2>&1); then
+        # Real ASR accuracy against a real model -- assert on the phrase
+        # that isn't a proper noun; a small/base model can mishear "kdeps"
+        # (confirmed by hand during planning, e.g. as "Depp's").
+        if output_grep_i "transcription test" "$result"; then
+            test_passed "transcribe - whisper-cpp end-to-end transcription"
+        else
+            test_failed "transcribe - whisper-cpp end-to-end transcription" "expected 'transcription test' in output: $result"
+        fi
+    else
+        test_failed "transcribe - whisper-cpp end-to-end transcription" "run failed: $result"
+    fi
+
+    rm -rf "$pkg_dir"
+}
+
 test_transcribe_validates
 test_transcribe_live
+test_transcribe_whispercpp
 
 echo ""

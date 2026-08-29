@@ -40,6 +40,20 @@ import (
 // downloader when the accelerated download failed for this reason.
 var ErrDownloadInterrupted = errors.New("model download interrupted")
 
+// DownloadModelFile downloads rawURL into modelsDir, for callers outside
+// this package (e.g. the transcribe executor's whisper.cpp model). See
+// downloadModelFile for behavior.
+func DownloadModelFile(
+	ctx context.Context,
+	rawURL string,
+	fallbackBasename string,
+	modelsDir string,
+	logger *slog.Logger,
+	fs afero.Fs,
+) (string, error) {
+	return downloadModelFile(ctx, rawURL, fallbackBasename, modelsDir, logger, fs)
+}
+
 // downloadModelFile downloads rawURL into modelsDir, using fallbackBasename
 // when the URL has no meaningful base name. Returns the local path.
 // Skips the download when the destination already exists in fs.

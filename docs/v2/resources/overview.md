@@ -91,7 +91,7 @@ These executors are compiled into the `kdeps` binary and require no installation
 | `codeIntelligence` | Code navigation | Symbol search, definitions, references, diagnostics via ripgrep |
 | `loader` | Document loading | Load PDF, HTML, CSV, text, or a directory into text chunks for RAG |
 | `vectorStore` | Vector database | Add and similarity-search documents across Qdrant, Chroma, Pinecone, pgvector, and more |
-| `transcribe` | Speech-to-text | Whisper transcription via OpenAI, Groq, or a local backend |
+| `transcribe` | Speech-to-text | Whisper transcription via OpenAI, Groq, a local HTTP server, or fully offline via whisper-cpp (no API key) |
 | `ocr` | Image text extraction | Extract text from an image via tesseract -- local, no API key |
 | `apiResponse` | API response | Return data to the HTTP caller |
 

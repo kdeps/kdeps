@@ -124,8 +124,8 @@ jobs:
     - name: Install Playwright Chromium
       run: playwright install --with-deps chromium
 
-    - name: Install OS packages for e2e (wkhtmltopdf, espeak, tesseract, imagemagick)
-      run: sudo apt-get update && sudo apt-get install -y wkhtmltopdf espeak tesseract-ocr imagemagick
+    - name: Install OS packages for e2e (wkhtmltopdf, espeak, tesseract, imagemagick, whisper-cpp)
+      run: sudo apt-get update && sudo apt-get install -y wkhtmltopdf espeak tesseract-ocr imagemagick whisper-cpp
 
     # repo root's package.json already declares puppeteer as a devDependency
     # (used by the ChatGPT Clone example's e2e browser test); nothing
@@ -213,6 +213,18 @@ jobs:
             https://huggingface.co/mozilla-ai/Llama-3.2-1B-Instruct-llamafile/resolve/main/Llama-3.2-1B-Instruct-Q4_K_M.llamafile
         fi
         chmod +x "$FILE"
+
+    # Same idea for the transcribe: whisper-cpp backend's default model --
+    # shares the ~/.kdeps/models cache step above (path: ~/.kdeps/models),
+    # so this is a no-op on cache hit.
+    - name: Pre-download default whisper.cpp model
+      run: |
+        mkdir -p ~/.kdeps/models
+        FILE=~/.kdeps/models/ggml-base.en.bin
+        if [ ! -f "$FILE" ]; then
+          curl -fL --retry 3 -o "$FILE" \
+            https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-base.en.bin
+        fi
 
     - name: Test E2E
       run: make test-e2e

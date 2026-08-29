@@ -1001,7 +1001,7 @@ These always-on tools invoke the corresponding kdeps executor directly:
 |------|-------------|
 | `http_request` | Make an HTTP request (GET/POST/PUT/DELETE/PATCH) |
 | `search_local` | Search the local document index |
-| `transcribe_audio` | Transcribe an audio file |
+| `transcribe_audio` | Transcribe an audio file (OpenAI, Groq, a local HTTP server, or offline via whisper-cpp) |
 | `ocr_image` | Extract text from an image via tesseract (local, no API key) |
 | `load_document` | Load and extract text from a document |
 
