@@ -318,9 +318,33 @@ func TestBuildReactSystemPreamble_WithTools(t *testing.T) {
 	if !strings.Contains(preamble, "tool_beta") {
 		t.Errorf("expected tool_beta in preamble, got: %q", preamble[:clampMax(200, len(preamble))])
 	}
-	// The comma separator path should be exercised (tool_alpha, tool_beta)
-	if !strings.Contains(preamble, "tool_alpha, tool_beta") && !strings.Contains(preamble, "tool_beta, tool_alpha") {
-		t.Errorf("expected comma-joined tool names in preamble, got: %q", preamble[:clampMax(300, len(preamble))])
+	// The comma-joined "Action: ... one of [ ... ]" list is built from
+	// Registry.List(), which iterates an unordered map -- New() also
+	// unconditionally registers an "identity_get" tool into the same
+	// registry (registerIdentityTool), so this list has 3 entries in
+	// non-deterministic order, not just tool_alpha/tool_beta adjacently.
+	// Extract the bracketed list and check membership rather than asserting
+	// a specific adjacency/order that only holds for 2 of its 6 possible
+	// permutations.
+	start := strings.Index(preamble, "one of [ ")
+	end := strings.Index(preamble, " ]")
+	if start < 0 || end < 0 || end <= start {
+		t.Fatalf(
+			"expected a \"one of [ ... ]\" tool list in preamble, got: %q",
+			preamble[:clampMax(300, len(preamble))],
+		)
+	}
+	list := preamble[start+len("one of [ ") : end]
+	names := strings.Split(list, ", ")
+	found := map[string]bool{}
+	for _, n := range names {
+		found[n] = true
+	}
+	if !found["tool_alpha"] || !found["tool_beta"] {
+		t.Errorf("expected tool_alpha and tool_beta as separate entries in %q, got names: %v", list, names)
+	}
+	if len(names) < 2 {
+		t.Errorf("expected the comma separator path to be exercised (2+ entries), got: %v", names)
 	}
 }
 
