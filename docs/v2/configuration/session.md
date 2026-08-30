@@ -2,6 +2,8 @@
 
 Sessions let resources persist values across multiple requests from the same caller using `set('key', val, 'session')`. Configure the storage backend in `workflow.yaml` under `settings.session:`.
 
+*Applies to both workflow mode and agent mode.*
+
 | Type | Persistence | Use Case |
 |------|-------------|----------|
 | `sqlite` | File-based, survives restart | Production, multi-container |

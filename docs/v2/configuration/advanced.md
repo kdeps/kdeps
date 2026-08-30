@@ -2,6 +2,8 @@
 
 This reference covers security, rate limiting, trusted proxies, resource output caps, and other server-level settings that live in `workflow.yaml` under `settings:`.
 
+*Applies to both workflow mode and agent mode.*
+
 ## Request object
 
 The `request` object provides access to HTTP request metadata in expressions.

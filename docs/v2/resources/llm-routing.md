@@ -1,6 +1,6 @@
 # Routing
 
-Routing delegates model selection from resource YAML to [config](/resources/llm-backends). Set a resource's `model` field to `router`:
+Routing delegates model selection from resource YAML to [config](/resources/llm-backends). It applies in both modes, wherever a `chat:` resource runs. Set a resource's `model` field to `router`:
 
 ```yaml
 # resources/llm.yaml

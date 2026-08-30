@@ -2,6 +2,8 @@
 
 End-to-end CI/CD pipeline: package your workflow, build a Docker image, push to a registry, and deploy to Kubernetes.
 
+*Applies to workflow mode.*
+
 ## Overview
 
 ```d2

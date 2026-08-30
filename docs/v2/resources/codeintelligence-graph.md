@@ -2,6 +2,8 @@
 
 The `indexFolder`/`graphFile`/`graphTopic`/`graphAll` operations of the [Code Intelligence resource](/resources/codeintelligence) are different from its LSP/rg operations: instead of searching live files, they build and query a small persistent graph database of the current working directory - tracking which files link to which, and which files share a topic. Run kdeps from inside a `docs/` directory (or a source tree, with `extensions` opted in - see below) and ask "what references this file?" or "show me everything tagged `auth`."
 
+It works in both modes: as a DAG step in workflow mode, and as a built-in capability in the agent loop.
+
 References are derived per file type:
 
 | File type | How references are found |

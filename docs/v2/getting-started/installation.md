@@ -2,6 +2,8 @@
 
 Install the `kdeps` CLI to start building agents locally. Docker is optional - only needed if you want to build container images for deployment.
 
+*Applies to both workflow mode and agent mode.*
+
 ## Installing the kdeps CLI
 
 ### macOS (homebrew)

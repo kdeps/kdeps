@@ -2,6 +2,8 @@
 
 Every function available in kdeps expressions - usable in any field that supports <span v-pre>`{{ }}`</span> interpolation or in `expr` blocks.
 
+*Applies to both workflow mode and agent mode.*
+
 ## Core functions
 
 The four functions used in almost every resource: read data, write data, access uploaded files, and read request metadata.

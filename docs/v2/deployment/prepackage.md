@@ -2,6 +2,8 @@
 
 `kdeps bundle prepackage` embeds a `.kdeps` workflow archive directly into the kdeps binary, producing a single self-contained executable per architecture. Copy it to the target machine and run it - no kdeps installation required.
 
+*Applies to workflow mode.*
+
 ## Overview
 
 ```bash

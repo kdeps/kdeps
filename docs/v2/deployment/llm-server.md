@@ -2,6 +2,8 @@
 
 Provision a **standalone LLM inference appliance** (no kdeps agent, no workflow) to Docker, ISO, or Kubernetes. Any kdeps host uses it as a client over **OpenAI-compatible `/v1`**.
 
+*Applies to workflow mode.*
+
 Works for **both** workflow mode and agent mode clients - set `llm.backend: openai` and `llm.base_url` on the client machine.
 
 Agent packaging (`kdeps bundle build` / `export iso` / `export k8s`) still deploys **agents**. `kdeps llm` deploys **only the inference server**.

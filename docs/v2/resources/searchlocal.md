@@ -1,6 +1,8 @@
 # searchLocal resource
 
-The `searchLocal` executor walks a local directory and returns matching files by filename glob pattern and/or content keyword. See [Search Resources](/resources/search) for how it relates to `searchWeb`.
+The `searchLocal` executor walks a local directory and returns matching files by filename glob pattern and/or content keyword. See [Search resources](/resources/search) for how it relates to `searchWeb`.
+
+It works in both modes: as a DAG step in workflow mode, and inside any workflow the LLM calls as a tool in agent mode.
 
 ## Configuration
 

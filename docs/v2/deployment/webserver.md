@@ -2,6 +2,8 @@
 
 `webServer:` serves static files or proxies to a running subprocess alongside your API server. Use it to serve a React frontend, a Streamlit dashboard, or any other web app next to your agent API.
 
+*Applies to workflow mode.*
+
 ## How routing works
 
 Requests hit a single port. kdeps matches the path prefix and dispatches to the right handler.

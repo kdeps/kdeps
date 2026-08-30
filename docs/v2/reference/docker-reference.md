@@ -2,6 +2,8 @@
 
 Production best practices, troubleshooting, and security hardening for kdeps Docker deployments. See [Docker Deployment](/deployment/docker) for the core packaging and build workflow.
 
+*Applies to workflow mode.*
+
 ## Production best practices
 
 ### Use specific tags

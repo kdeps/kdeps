@@ -2,6 +2,8 @@
 
 These examples show how complex agents can be built in ~20 lines of YAML with no custom code. Each example is a complete workflow: POST a JSON body, get a structured JSON response.
 
+*Applies to both workflow mode and agent mode.*
+
 The pattern for all examples:
 
 ```

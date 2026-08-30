@@ -2,6 +2,8 @@
 
 `validations:` gates which HTTP methods and routes can trigger a resource - resources are skipped silently when the incoming request does not match.
 
+*Applies to workflow mode.*
+
 ## HTTP method restrictions
 
 Limit a resource to specific HTTP methods using `methods:` inside the `validations:` block:

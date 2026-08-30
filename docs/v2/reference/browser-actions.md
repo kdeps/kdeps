@@ -2,6 +2,8 @@
 
 Complete reference for all action types available in the `actions:` list of a [`browser:` resource](/resources/browser).
 
+*Applies to both workflow mode and agent mode.*
+
 Each item in the `actions` list requires an `action` field that selects the operation.
 
 ---

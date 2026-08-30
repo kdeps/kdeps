@@ -2,6 +2,8 @@
 
 `kdeps export k8s` generates a Kubernetes `Deployment` and `ClusterIP` `Service` from your `workflow.yaml` - no manual YAML authoring required.
 
+*Applies to workflow mode.*
+
 ## Quick start
 
 ```bash

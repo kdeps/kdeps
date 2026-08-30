@@ -2,6 +2,8 @@
 
 Serve the kdeps **API server** and **web server** over HTTPS for a **custom domain**. Two modes:
 
+*Applies to workflow mode.*
+
 1. **Static certificates** - you supply PEM `certFile` / `keyFile`
 2. **Let's Encrypt** - kdeps obtains and renews certificates with ACME for your domain
 

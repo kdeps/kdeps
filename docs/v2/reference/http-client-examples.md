@@ -2,6 +2,8 @@
 
 Example `httpClient:` resources for common API integration patterns. See [HTTP Client Resource](/resources/http-client) for the full configuration reference.
 
+*Applies to both workflow mode and agent mode.*
+
 ## Fetch data and process
 
 <div v-pre>

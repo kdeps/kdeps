@@ -23,8 +23,10 @@ skeleton from [Contributing to docs](./CONTRIBUTING-DOCS.md).
 
 ## Two modes - always label
 
-kdeps has two modes. Every feature page states which mode(s) it applies to in
-the first paragraph or an info callout:
+kdeps has two modes. Every concept, feature, how-to, tutorial, and deployment
+page states which mode(s) it applies to in the first paragraph or an info
+callout. Pure CLI command references and the glossary are exempt - a command
+reference documents the CLI itself, not a mode-specific feature.
 
 - **Workflow mode** - DAG-deterministic request/response pipelines.
 - **Agent mode** - autonomous LLM agents with tool use and memory.

@@ -3,6 +3,8 @@
 Coding agents (Claude Code, Cursor, Grok, and others) can scaffold kdeps
 projects for you when you install the **kdeps skill**.
 
+*Applies to agent mode.*
+
 ## Install the skill
 
 **Skills CLI:**

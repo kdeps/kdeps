@@ -2,6 +2,8 @@
 
 Best practices and examples for the [`validations:` block](/concepts/validation-and-control).
 
+*Applies to workflow mode.*
+
 ## Best practices
 
 ### Use [`skip`](/reference/glossary#skip) for optional logic

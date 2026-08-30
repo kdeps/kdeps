@@ -2,6 +2,8 @@
 
 `workflow.yaml` is the entry point for a kdeps workflow. It declares metadata, the HTTP server or input source, agent settings, and SQL connections. Resources live in separate files under `resources/`. Credentials (SMTP, IMAP, HTTP auth, search API keys) live in `~/.kdeps/config.yaml` - not here.
 
+*Applies to workflow mode.*
+
 ## How the pieces fit together
 
 ```d2

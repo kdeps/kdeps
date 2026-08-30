@@ -2,6 +2,8 @@
 
 Examples, error handling, and debugging guidance for the [`python:` resource](/resources/python).
 
+*Applies to both workflow mode and agent mode.*
+
 ## Examples
 
 ### Data transformation
