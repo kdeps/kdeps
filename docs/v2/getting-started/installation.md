@@ -129,7 +129,7 @@ Each choice fills in the matching `llm:` fields:
 - **router** — collects the models to route across and a strategy (`fallback`, `round_robin`, `token_threshold`, `cost_optimized`), written as `llm.models` + `llm.strategy`.
 - **m365** — sets `backend: m365`. No API key: authenticates via a browser-cached
   Microsoft 365 sign-in (or headless credentials for CI/servers). See
-  [LLM Provider Reference — M365 Copilot](/reference/llm-providers#m365-copilot).
+  [LLM Provider Reference — M365 Copilot](/reference/llm-providers-m365).
 
 In non-interactive environments (CI, pipes) kdeps skips the wizard and writes a
 fully commented template instead. Re-run the wizard any time by removing
