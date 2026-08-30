@@ -58,7 +58,7 @@ The LLM manages teams through these tools:
 
 ## CronRegistry
 
-Schedules recurring task creation from the `kdeps serve` process. Each cron job stores a cron expression, prompt/description templates, and tracks last/next run times. **Cron jobs fire automatically** — the server starts a background goroutine that calls `Tick()` every 60 seconds and creates tasks for any due jobs.
+Schedules recurring task creation from the agent loop process. Each cron job stores a cron expression, prompt/description templates, and tracks last/next run times. **Cron jobs fire automatically** — the server starts a background goroutine that calls `Tick()` every 60 seconds and creates tasks for any due jobs.
 
 | CLI tool | Description |
 |----------|-------------|
@@ -67,7 +67,7 @@ Schedules recurring task creation from the `kdeps serve` process. Each cron job 
 | `cron_pause` / `cron_resume` | Pause or resume a cron job |
 | `cron_delete` | Delete a cron job |
 
-No manual polling or goroutine setup needed. Start `kdeps serve path/to/agent/` and cron runs in the background.
+No manual polling or goroutine setup needed. Start `kdeps path/to/agent/` and cron runs in the background.
 
 ## See Also
 

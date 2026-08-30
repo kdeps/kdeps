@@ -226,7 +226,7 @@ env:
 
 The agent loop checks the estimated request body size before every LLM API call. Providers with strict payload caps (e.g. DashScope at 6 MB) silently reject oversized requests -- the preflight catches this before the call is made, returning an actionable error message.
 
-**This check runs automatically in both agent paths** (`kdeps serve` and the engine-based `Loop.Run()`). No code changes needed -- configure your backend and the preflight runs.
+**This check runs automatically in both agent paths** (the agent loop REPL and the engine-based `Loop.Run()`). No code changes needed -- configure your backend and the preflight runs.
 
 | Backend | Limit |
 |---------|-------|

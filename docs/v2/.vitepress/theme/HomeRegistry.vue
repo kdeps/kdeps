@@ -19,8 +19,7 @@
             <span class="pkg">search</span>
             <span class="pkg">browser</span>
             <span class="pkg">embedding</span>
-            <span class="pkg">tts</span>
-            <span class="pkg">email</span>
+            <span class="pkg">botreply</span>
           </div>
           <div class="cmd"><span class="prompt">$</span> kdeps registry install scraper</div>
         </div>

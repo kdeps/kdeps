@@ -24,7 +24,7 @@
           <div class="step-num">02</div>
           <div class="step-body">
             <h3>Run kdeps</h3>
-            <p><code>kdeps run workflow.yaml</code> starts the API server. <code>kdeps serve</code> starts the autonomous agent loop.</p>
+            <p><code>kdeps run workflow.yaml</code> starts the API server. <code>kdeps [path]</code> starts the autonomous agent loop.</p>
           </div>
         </div>
 

@@ -45,7 +45,7 @@ const llmBackends = [
 
 const deployTargets = [
   { name: 'Docker', sub: 'docker image' },
-  { name: 'Kubernetes', sub: 'helm chart' },
+  { name: 'Kubernetes', sub: 'manifests' },
   { name: 'Binary', sub: 'single file' },
   { name: 'ISO', sub: 'bootable image' },
   { name: 'WebServer', sub: 'http server' },

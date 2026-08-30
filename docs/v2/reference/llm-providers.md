@@ -312,7 +312,7 @@ See [M365 Copilot](/reference/llm-providers-m365) for the full setup: sign-in fl
 
 ## Self-Hosted Solutions
 
-kdeps works with any self-hosted solution that implements the OpenAI API: vLLM, Text Generation Inference (TGI), LocalAI, LlamaCpp Server.
+kdeps works with any self-hosted solution that implements the OpenAI API: vLLM, Text Generation Inference (TGI), LocalAI, LlamaCpp Server, LM Studio.
 
 ```yaml
 # ~/.kdeps/config.yaml

@@ -67,7 +67,7 @@
             <div class="flow-node exit">response</div>
           </div>
 
-          <div class="mode-cmd"><span class="prompt">$</span> kdeps serve workflow.yaml</div>
+          <div class="mode-cmd"><span class="prompt">$</span> kdeps workflow.yaml</div>
         </div>
       </div>
     </div>
