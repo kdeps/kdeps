@@ -193,12 +193,14 @@ settings:
 
 ### Pool Configuration
 
-| Field | Default | Description |
+| Field | Default (when `pool:` is omitted entirely) | Description |
 |-------|---------|-------------|
-| `maxConnections` | 25 | Maximum pool size |
-| `minConnections` | 5 | Minimum idle connections |
-| `maxIdleTime` | 30m | Max time before idle connection is closed |
-| `connectionTimeout` | 10s | Connection acquisition timeout |
+| `maxConnections` | 10 | Maximum pool size |
+| `minConnections` | 2 | Minimum idle connections |
+| `maxIdleTime` | 5m | Max time before idle connection is closed |
+| `connectionTimeout` | (none -- no connection lifetime limit) | Connection acquisition timeout |
+
+These defaults (`pkg/config/defaults.yml`) apply only when `pool:` is left out of `sqlConnections.<name>` entirely. If `pool:` is present but a sub-field is omitted or empty, that sub-field is **not** backfilled with the default above -- it falls through to the Go `database/sql` driver's own zero-value behavior (effectively unbounded for `maxConnections`/`connectionTimeout`, no idle connections kept for `minConnections`). Set every field you care about explicitly once you add a `pool:` block.
 
 ### Using Named Connections
 

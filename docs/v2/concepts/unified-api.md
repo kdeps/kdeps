@@ -15,8 +15,8 @@ get('q') search order:
   5. URL query params (?q=hello)
   6. request body     ({"q": "hello"})
   7. request headers
-  8. uploaded files
-  9. system metadata
+  8. system metadata
+  9. uploaded files
 ```
 
 To skip the chain and read from a specific source:
