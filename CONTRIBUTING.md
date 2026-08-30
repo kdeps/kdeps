@@ -1,93 +1,112 @@
-# Contributing to KDeps
+# Contributing to kdeps
 
-First off, thank you for considering contributing to KDeps!
+Thank you for considering a contribution to kdeps.
 
-KDeps v2 is a complete rewrite focusing on a "local-first" execution model, YAML configuration, and a Unified API. We welcome contributions that help make AI workflow orchestration simpler and more efficient.
+kdeps is an AI appliance builder: you define what an agent does in YAML and run
+it locally or deploy it anywhere. Contributions that make AI workflow
+orchestration simpler, faster, or more reliable are welcome.
 
-## Ways to Contribute
-- **Reporting Bugs**: Open an issue with a clear description, reproduction steps, and expected vs. actual behavior.
-- **Suggesting Features**: We love new ideas! Open an issue to discuss your proposal.
-- **Documentation**: Help improve the `docs/v2` documentation.
-- **Code**: Submit Pull Requests for bug fixes or new features.
+By contributing, you agree that your contributions are licensed under the
+project's [Apache 2.0 License](LICENSE), and you agree to follow the
+[code of conduct](CODE_OF_CONDUCT.md).
 
-## Getting Started
+## Ways to contribute
 
-### Prerequisites
-- **Go**: v1.24 or later.
-- **uv**: Recommended for Python-related features.
-- **Docker**: Optional, needed for containerization features.
-- **golangci-lint v2**: For code linting (`go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@latest`).
-- **A C compiler** (Windows only): `github.com/mattn/go-sqlite3` needs cgo. Without a compiler on `PATH`, `CGO_ENABLED` auto-disables and sqlite-backed tests fail at runtime with "this is a stub". Install a mingw-w64 toolchain (e.g. `choco install mingw`) and make sure `gcc` is on `PATH` before running `go test`/`go build` locally.
+- **Report a bug**: open an issue with a clear description, reproduction steps,
+  and expected versus actual behavior.
+- **Suggest a feature**: start a thread in
+  [Discussions](https://github.com/kdeps/kdeps/discussions).
+- **Improve the docs**: edit the pages under `docs/v2/`. Follow the
+  [documentation style guide](docs/v2/STYLE-GUIDE.md) and
+  [docs contributing guide](docs/v2/CONTRIBUTING-DOCS.md).
+- **Write code**: submit a pull request for a bug fix or a feature.
 
-### Environment Setup
-1. Clone the repository:
-   ```bash
-   git clone https://github.com/kdeps/kdeps.git
-   cd kdeps
-   ```
-2. Install dependencies:
-   ```bash
-   make deps
-   ```
+## Before you start
 
-## Development Workflow
+Install:
 
-### Building
-To build the `kdeps` binary locally:
+- **Go** 1.24 or later.
+- **golangci-lint v2**:
+  `go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@latest`.
+- **uv** (recommended) for Python-backed resources.
+- **Docker** (optional) for container image builds.
+- **A C compiler** on Windows: `go-sqlite3` needs cgo. Without `gcc` on `PATH`,
+  `CGO_ENABLED` auto-disables and sqlite-backed tests fail at runtime.
+
+Then:
+
 ```bash
-make build
+git clone https://github.com/kdeps/kdeps.git
+cd kdeps
+make deps
 ```
-The binary will be created in the root directory as `./kdeps`.
 
-### Testing
-We maintain ~70% test coverage across unit, integration, and E2E tests.
+## Development workflow
 
-- **Run all tests**: `make test` (runs fmt, lint, build, and unit tests)
-- **Unit Tests**: `make test-unit` (tests in `pkg/` and `cmd/`)
-- **Integration Tests**: `make test-integration` (tests in `tests/integration/`)
-- **E2E Tests**: `make test-e2e` (tests in `tests/e2e/`)
+### Build
 
-**Note**: Some tests require Docker daemon to be running. Tests that interact with Docker are automatically skipped when using the `-short` flag.
+```bash
+make build      # produces ./kdeps in the repo root
+```
 
-### Linting and Formatting
-Before submitting a PR, ensure your code is formatted and linted:
+Use `./kdeps` for local verification. Do not rely on a globally installed
+binary - it is not updated by `make build`.
+
+### Test
+
+```bash
+make test              # fmt, lint, build, unit tests
+make test-integration  # tests in tests/integration/
+make test-e2e          # tests in tests/e2e/
+```
+
+Some tests need a running Docker daemon and are skipped with `-short`.
+
+### Lint
+
 ```bash
 make fmt
 make lint
 ```
 
-## Pull Request Guidelines
-1. **Discuss First**: For large changes, please open an issue first to discuss the approach.
-2. **Feature Branch**: Create a new branch for your changes (e.g., `feat/add-new-resource`).
-3. **Tests Required**: Every code change should include corresponding tests.
-4. **Documentation**: Update relevant files in `docs/v2` if you change or add configuration options.
-5. **Clean History**: Keep your commits focused and provide clear commit messages.
-6. **PR Description**: Describe *why* the change is needed and *what* it accomplishes.
+Fix every lint issue before opening a pull request, including pre-existing ones
+in files you touched.
 
-## Project Architecture
-- `cmd/`: CLI command implementations (using Cobra).
-- `pkg/domain/`: Core data models and interfaces (no external dependencies).
-- `pkg/parser/`: YAML and Expression parsing logic.
-- `pkg/executor/`: The execution engine and individual resource executors (LLM, SQL, etc.).
-- `pkg/infra/`: External integrations like Docker and Storage.
-- `docs/v2/`: VitePress documentation source (current). `docs/v1/` is archived under `/v1/`.
+## Pull request guidelines
 
-## Release Process
+1. **Discuss large changes first** in an issue or discussion.
+2. **Branch** from `main` (for example `feat/add-x` or `fix/y`).
+3. **Add tests** for every code change: unit, and at least one integration and
+   one end-to-end test for a new CLI flag, resource, or scanner.
+4. **Update the docs** in the same pull request: `README.md`, every affected
+   page under `docs/v2/`, and the matching chapters under `book/`. Stale docs
+   are a bug.
+5. **Validate the docs**: `cd docs/v2 && npm run build`.
+6. **Keep commits focused** with clear messages.
+7. **Explain the why** in the pull request description, not just the what.
 
-### Regular Releases
-Regular versioned releases are triggered when a tag matching `v*` is pushed to the repository. The release workflow automatically builds binaries for all supported platforms and publishes them.
+## Project layout
 
-### Nightly Releases
-KDeps has an automated nightly release process that:
-- Runs daily at 2 AM UTC
-- Updates all Go modules to their latest versions
-- Validates the updates with linting, building, and testing
-- Commits the updated `go.mod` and `go.sum` to the main branch
-- Creates a nightly release with the tag format `nightly-YYYYMMDD-HHMM`
-- Publishes binaries with the latest dependencies
-- **Release status**: Marked as "latest" when all validation checks pass, or as "prerelease" if any linting, build, or test failures occur
+| Path | Contents |
+| :--- | :--- |
+| `cmd/` | CLI commands (Cobra) |
+| `pkg/domain/` | Core data models and interfaces |
+| `pkg/parser/` | YAML and expression parsing |
+| `pkg/executor/` | Execution engine and resource executors |
+| `pkg/agent/` | Agent loop mode |
+| `pkg/infra/` | External integrations (Docker, storage) |
+| `docs/v2/` | VitePress documentation source |
 
-The nightly workflow can also be manually triggered via the GitHub Actions UI if needed. If no module updates are available, the workflow will skip the release process.
+## Releases
 
-## License
-By contributing to KDeps, you agree that your contributions will be licensed under the project's [Apache 2.0 License](LICENSE).
+- **Versioned releases** are triggered by pushing a `v*` tag. The release
+  workflow builds and publishes binaries for all supported platforms.
+- **Nightly releases** run daily at 02:00 UTC: update Go modules, validate,
+  commit `go.mod` and `go.sum`, and publish a `nightly-YYYYMMDD-HHMM` release.
+
+## See also
+
+- [Code of conduct](CODE_OF_CONDUCT.md)
+- [Security policy](SECURITY.md)
+- [Support](SUPPORT.md)
+- [Governance](GOVERNANCE.md)

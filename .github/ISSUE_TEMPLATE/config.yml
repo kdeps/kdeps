@@ -1,0 +1,14 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Question or "how do I..."
+    url: https://github.com/kdeps/kdeps/discussions
+    about: Ask in Discussions. Issues are for bugs only.
+  - name: Feature request
+    url: https://github.com/kdeps/kdeps/discussions/categories/ideas
+    about: Propose and discuss new features in Discussions.
+  - name: Security vulnerability
+    url: https://github.com/kdeps/kdeps/security/advisories/new
+    about: Report privately. Never open a public issue for a vulnerability.
+  - name: Documentation
+    url: https://kdeps.com
+    about: Read the docs before filing a bug.
