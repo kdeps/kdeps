@@ -1,6 +1,6 @@
 # Items iteration
 
-`items:` runs a resource once per entry in a list - like a for-each loop, but each iteration is a full resource execution with its own output.
+`items:` runs a resource once per entry in a list - like a for-each loop, but each iteration is a full resource execution with its own output. This is a workflow mode concept; it also applies when the LLM calls a workflow as a tool in agent mode.
 
 ## Basic usage
 

@@ -1,6 +1,6 @@
 # Validation and control flow
 
-The `validations:` block controls whether a resource runs and what it accepts. It fires before the action - before any LLM call, HTTP request, or script execution.
+The `validations:` block controls whether a resource runs and what it accepts. It fires before the action - before any LLM call, HTTP request, or script execution. This is a workflow mode concept, set per resource.
 
 ```yaml
 # resources/example.yaml

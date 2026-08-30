@@ -1,6 +1,6 @@
 # Input object
 
-The `input` object is a property-style shorthand for request body fields. Instead of `get('field')`, you write `input.field`. It is automatically available in all expressions and `expr` blocks.
+The `input` object is a property-style shorthand for request body fields. Instead of `get('field')`, you write `input.field`. It is automatically available in all expressions and `expr` blocks. This is a workflow mode concept - it reads the incoming request.
 
 ## Basic usage
 

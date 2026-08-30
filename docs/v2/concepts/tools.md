@@ -2,6 +2,8 @@
 
 Tools let an LLM call other resources mid-response. When the LLM decides a tool is needed, kdeps runs the target resource, feeds the result back to the LLM, and the LLM continues. The LLM only sees the tool's output - it does not see the resource YAML.
 
+This page covers workflow mode tools, defined in `chat.tools` on a `chat:` resource. In agent mode, tools are whole workflows and components instead - see [Agent loop mode](/modes/agent-loop-mode).
+
 ```d2
 direction: down
 

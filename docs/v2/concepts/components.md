@@ -2,6 +2,8 @@
 
 A component is a reusable, shareable resource bundle. kdeps has two kinds: registry components you install with `kdeps registry install`, and custom components you build yourself in a `components/` directory.
 
+Components work in both modes. In workflow mode, a resource invokes a component with `component:`. In agent mode, a component is registered as an LLM tool and runs only when the model calls it.
+
 ## Overview
 
 Components encapsulate resources, configuration, and dependencies into a single package. Think of them as callable sub-workflows - you invoke them with `component:` from any resource, pass typed inputs via `with:`, and get structured output back.

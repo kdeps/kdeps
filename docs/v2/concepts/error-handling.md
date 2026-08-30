@@ -1,6 +1,6 @@
 # Error handling (onError)
 
-`onError` defines what happens when a resource fails. Without it, any error stops the workflow immediately. With it, you can retry, substitute a fallback value, or log the error and continue.
+`onError` defines what happens when a resource fails. Without it, any error stops the workflow immediately. With it, you can retry, substitute a fallback value, or log the error and continue. This is a workflow mode concept, set per resource.
 
 ## Complete reference
 
