@@ -137,13 +137,17 @@ jobs:
       uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
       with:
         path: ~/.local/bin/whisper-cli
-        key: whisper-cli-v1.7.5
+        key: whisper-cli-v1.7.5-static
 
     - name: Build whisper-cli from source
       if: steps.cache-whisper-cli.outputs.cache-hit != 'true'
       run: |
         git clone --depth 1 --branch v1.7.5 https://github.com/ggerganov/whisper.cpp.git /tmp/whisper.cpp
-        cmake -S /tmp/whisper.cpp -B /tmp/whisper.cpp/build -DCMAKE_BUILD_TYPE=Release
+        # Static build: a shared libwhisper.so.1 only exists in this ephemeral
+        # build dir, so a cache-hit run restoring just the binary would fail
+        # with "cannot open shared object file" (confirmed live in CI) unless
+        # everything is linked in statically.
+        cmake -S /tmp/whisper.cpp -B /tmp/whisper.cpp/build -DCMAKE_BUILD_TYPE=Release -DBUILD_SHARED_LIBS=OFF
         cmake --build /tmp/whisper.cpp/build -j"$(nproc)" --target whisper-cli
         mkdir -p ~/.local/bin
         install -m 0755 /tmp/whisper.cpp/build/bin/whisper-cli ~/.local/bin/whisper-cli
