@@ -163,7 +163,7 @@ kdeps ./agents/
 
 The agent REPL starts. Type a prompt and the LLM calls your workflow tools as needed.
 
-## See Also
+## See also
 
 - [Modes](/modes/workflow-mode) - Understand workflow and agent modes
 - [Workflow Configuration](../configuration/workflow) - Full `workflow.yaml` reference

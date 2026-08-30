@@ -115,7 +115,7 @@ task machine refuses to trust.
 Adjustments need at least 4 distinct calls in the category, never drop below work
 already done, and are reported as `[goal] web budget → 30`.
 
-## See Also
+## See also
 
 - [Agent Loop Mode](/modes/agent-loop-mode) -- overview and starting the REPL
 - [Judge Panel](/modes/agent-loop-judges) -- reviews each turn's final output

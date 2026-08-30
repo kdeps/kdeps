@@ -304,7 +304,7 @@ If `/config/settings.yaml` exists, the original is saved to `/config/settings.ya
 5. **Check `exists` before delete** or rely on the idempotent delete behavior
 6. **Handle the `success` field** in downstream resources to detect failures
 
-## See Also
+## See also
 
 - [Exec Resource](exec) — shell commands (use for CLI tools that lack a native resource)
 - [Python Resource](python) — complex data processing

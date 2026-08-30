@@ -288,7 +288,7 @@ sql:
 3. **Handle All Methods**: Ensure all expected methods have corresponding resources
 4. **Use [`skip`](/reference/glossary#skip) as Fallback**: For complex routing logic, combine with `skip` conditions
 
-## See Also
+## See also
 
 - [Validation and Control Flow](/concepts/validation-and-control) — Full `validations:` block reference
 - [Request Object](/concepts/request-object) — Accessing request data

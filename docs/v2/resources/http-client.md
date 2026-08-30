@@ -369,7 +369,7 @@ httpClient:
 | `auth.value` | string | API key header value |
 | `proxy` | string | Proxy URL (may include `user:pass@`) |
 
-## See Also
+## See also
 
 - [HTTP Client Examples](/reference/http-client-examples) - GitHub, Stripe, webhook, cached API examples
 - [SQL Resource](sql.md) -- database operations

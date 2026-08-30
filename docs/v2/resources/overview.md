@@ -320,7 +320,7 @@ Only list direct dependencies in [`requires`](/reference/glossary#requires). KDe
 ### 5. Use Appropriate Timeouts
 Set realistic `timeout` values based on expected execution time.
 
-## See Also
+## See also
 
 - [LLM Resource](llm) -- AI model integration
 - [HTTP Client](http-client) -- external API calls

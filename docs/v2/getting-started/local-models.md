@@ -176,7 +176,7 @@ This makes kdeps suitable for working with sensitive codebases, proprietary docu
 
 ---
 
-## See Also
+## See also
 
 - [LLM Backends Reference](/resources/llm-backends) - Full backend config, routing strategies, all provider options
 - [LLM Providers Reference](/reference/llm-providers) - Per-provider snippets for cloud backends

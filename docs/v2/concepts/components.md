@@ -83,7 +83,7 @@ chat:
 
 The component's `interface.inputs` become the tool's parameter schema. The LLM uses this to decide when and how to call the tool.
 
-## See Also
+## See also
 
 - [Components Reference](/reference/components) -- full schema, input validation, env var auto-derivation, packaging
 - [Agencies](/concepts/agency) -- agent-to-agent call pattern

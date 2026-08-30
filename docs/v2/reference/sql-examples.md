@@ -126,7 +126,7 @@ chat:
 
 </div>
 
-## See Also
+## See also
 
 - [SQL Resource](/resources/sql) - Full sql: reference with transactions, batch ops, connection pooling
 - [Python Resource](/resources/python) - Post-process SQL results with pandas

@@ -91,7 +91,7 @@ vectorStore:
 
 `loader:`'s output documents map directly onto `vectorStore:`'s `documents:` field -- see the [Loader Resource](loader#rag-pipeline-example) for the full load-then-index pipeline.
 
-## See Also
+## See also
 
 - [Loader Resource](loader) -- load files/URLs into documents before indexing
 - [Embedding Resource](embedding) -- local SQLite-backed alternative, no external service required

@@ -104,7 +104,7 @@ Package pushes extract the full archive in-place — `resources/`, `data/`, and 
 - Per-file decompression cap of 500 MB guards against zip-bomb payloads.
 - Response bodies are capped at 1 MB.
 
-## See Also
+## See also
 
 - [Configuration Reference](/configuration/workflow) - Full workflow.yaml settings
 - [Deployment Guide](/guides/deployment-guide) - CI/CD pipeline walkthrough

@@ -318,7 +318,7 @@ query: "SELECT * FROM users WHERE id = {{ get('user_id') }}"
 
 </div>
 
-## See Also
+## See also
 
 - [SQL Examples](/reference/sql-examples) - User lookup, analytics, multi-database sync, LLM-enhanced search
 - [Python Resource](python) -- data processing scripts

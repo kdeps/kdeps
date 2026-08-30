@@ -456,7 +456,7 @@ kdeps --resume abc123def456
 | Input | Single workflow path | Optional file or folder |
 | Session memory | None | Multi-turn, persistent JSONL |
 
-## See Also
+## See also
 
 - [REPL Slash Commands](/modes/agent-loop-commands) - Full command reference
 - [Built-in Tools](/modes/agent-loop-tools) - Tool catalog, permission modes, lean mode

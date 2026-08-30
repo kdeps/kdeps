@@ -215,7 +215,7 @@ print(json.dumps(result))  # Only stdout is the resource output
 - Set realistic `timeout` values - the default may not be enough for ML inference
 - Store secrets in env vars, never inline in scripts
 
-## See Also
+## See also
 
 - [Python Resource](/resources/python) - Core configuration reference
 - [Exec Resource](/resources/exec) - Shell command execution

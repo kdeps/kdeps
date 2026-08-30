@@ -222,7 +222,7 @@ Tool result returned to LLM
 LLM generates final response
 ```
 
-## See Also
+## See also
 
 - [Tools Reference](/reference/tools-reference) - Examples, tool chaining, best practices, debugging
 - [LLM Resource](../resources/llm) - Full LLM configuration

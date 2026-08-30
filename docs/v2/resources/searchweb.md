@@ -149,7 +149,7 @@ chat:
 | `KDEPS_BING_URL` | Override Bing API base URL |
 | `KDEPS_TAVILY_URL` | Override Tavily API base URL |
 
-## See Also
+## See also
 
 - [Search Resources](/resources/search) - overview and `searchLocal`
 - [Scraper Resource](scraper) - Fetch URL content to feed into search pipelines

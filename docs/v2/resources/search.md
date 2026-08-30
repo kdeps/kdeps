@@ -31,7 +31,7 @@ searchWeb:
 
 See [searchWeb Resource](/resources/searchweb) for the full field reference, provider setup, and error handling.
 
-## See Also
+## See also
 
 - [searchLocal Resource](/resources/searchlocal)
 - [searchWeb Resource](/resources/searchweb)

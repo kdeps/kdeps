@@ -69,7 +69,7 @@ license: Apache-2.0
 
 `kdeps registry install` downloads from the GitHub tarball URL and verifies the SHA256 locally.
 
-## See Also
+## See also
 
 - [Registry Formula Specification](/reference/registry-formula-spec) -- formula file format and publishing workflow
 - [CLI Overview](/reference/cli/) -- global flags, exit codes, env vars

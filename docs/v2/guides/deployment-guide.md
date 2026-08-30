@@ -153,7 +153,7 @@ kdeps run dist/my-agent-1.0.0.kdeps --port 16395
 
 See [Standalone Binaries](/deployment/prepackage) for self-contained single-binary exports.
 
-## See Also
+## See also
 
 - [Docker Deployment](/deployment/docker) -- image build details, base OS, GPU support
 - [Kubernetes Deployment](/deployment/kubernetes) -- manifest structure, health checks

@@ -171,7 +171,7 @@ A resource-level configuration block containing `skip`, `check`, `routes`, `meth
 ### workflow
 The top-level unit of execution in kdeps. A YAML file defining resources, their dependencies, and configuration. Declared as `kind: Workflow`. See [workflow.yaml Reference](/configuration/workflow).
 
-## See Also
+## See also
 
 - [Execution Flow](/guides/execution-flow) -- how the DAG resolves and runs
 - [Expression Functions Reference](/reference/expression-functions-reference) -- all functions available in expressions

@@ -231,7 +231,7 @@ Memory is enabled by default when the agent loop starts. No YAML configuration i
 
 To disable memory, do not pass a `MemoryStore` to the agent config.
 
-## See Also
+## See also
 
 - [Session Configuration](/configuration/session) — request-scoped persistent storage
 - [Agent Loop Mode](/modes/agent-loop-mode) — how the agent loop works

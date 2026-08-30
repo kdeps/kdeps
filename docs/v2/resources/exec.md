@@ -374,7 +374,7 @@ validations:
     - get('user_input') matches '^[a-zA-Z0-9_-]+$'
 ```
 
-## See Also
+## See also
 
 - [Python Resource](python) -- complex data processing
 - [HTTP Client](http-client) -- API calls (preferred over curl)

@@ -169,7 +169,7 @@ PID      PORT   BACKEND      MODEL                                STATUS
 /model ps switch phi4         # set active model to an already-running server
 ```
 
-## See Also
+## See also
 
 - [Agent Loop Mode](/modes/agent-loop-mode) -- overview and starting the REPL
 - [LLM Backends & Routing](/resources/llm-backends) -- the workflow-mode equivalent of `auto`/`auto-router`

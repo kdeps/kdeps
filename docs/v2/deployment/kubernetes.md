@@ -294,7 +294,7 @@ kdeps export k8s examples/k8s-deployment --image my-registry/k8s-example:1.0.0
 
 See `examples/k8s-deployment/README.md` for details.
 
-## See Also
+## See also
 
 - [Docker Deployment](docker) - Build Docker images for your workflows
 - [Standalone Executables](prepackage) - Self-contained binaries for edge deployment

@@ -201,7 +201,7 @@ chat:
 
 </div>
 
-## See Also
+## See also
 
 - [Items Reference](/reference/items-reference) - Use cases, dynamic items, performance, best practices
 - [Resources Overview](../resources/overview) - Resource configuration

@@ -395,7 +395,7 @@ Request
   ↓ Execute Resource
 ```
 
-## See Also
+## See also
 
 - [Validation Examples](/reference/validation-examples) - Best practices and examples
 - [Expressions](/concepts/expressions) - Expression syntax for conditions

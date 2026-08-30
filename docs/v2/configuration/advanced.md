@@ -393,7 +393,7 @@ Identity is `name`/`email`/`address` (attribution — who the agent is) plus `ac
 
 `accounts` are consumed by resources that need to authenticate as the agent. An `httpClient` resource with `accountName: crm` and no `connectionName` resolves Basic Auth from `identity.accounts.crm` — `connectionName` (a full [named HTTP connection](/resources/http-client)) always takes priority when both are set.
 
-## See Also
+## See also
 
 - [Security Reference](/reference/security) - Auth, rate limiting, TLS, concurrency, output caps
 - [Workflow Configuration](workflow.md) - Basic workflow configuration

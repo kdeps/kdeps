@@ -311,7 +311,7 @@ Available when `google_api_key` is set in `~/.kdeps/config.yaml`. Use these to m
 
 The cached content has a TTL set by Google AI (default 1 hour). Use `google_cache_delete` to remove it early and avoid storage charges.
 
-## See Also
+## See also
 
 - [Tools (Function Calling)](/concepts/tools) - Core tool definition and syntax
 - [LLM Resource](/resources/llm) - Full LLM configuration

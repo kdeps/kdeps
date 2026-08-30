@@ -378,7 +378,7 @@ after:
       params: ["{{item.current()}}"]
 ```
 
-## See Also
+## See also
 
 - [Expression Blocks](/reference/expr-blocks) - Using `before` and `after`
 - [Error Handling](error-handling.md) - Handling errors in resources

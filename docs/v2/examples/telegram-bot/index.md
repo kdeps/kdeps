@@ -67,6 +67,6 @@ export TELEGRAM_BOT_TOKEN="1234567890:AAH..."
 kdeps run workflow.yaml
 ```
 
-## See Also
+## See also
 
 - [Input Sources](../../concepts/input-sources.md) — Full platform config reference

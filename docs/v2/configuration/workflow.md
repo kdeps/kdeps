@@ -230,7 +230,7 @@ settings:
     type: sqlite   # storage backend
 ```
 
-## See Also
+## See also
 
 - [Global Config](/configuration/advanced) - Backend, defaults, named connections, and agent profiles
 - [Resources Overview](/resources/overview) - Resource types and fields

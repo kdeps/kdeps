@@ -333,7 +333,7 @@ llm:
   openai_api_key: ...
 ```
 
-## See Also
+## See also
 
 - [LLM Backends](/resources/llm-backends) - Routing, allowlists, streaming, feature matrix
 - [LLM Resource](/resources/llm) - Complete LLM resource documentation

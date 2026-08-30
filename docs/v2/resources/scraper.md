@@ -91,7 +91,7 @@ onError:
 > kdeps registry install scraper
 > ```
 
-## See Also
+## See also
 
 - [Embedding Resource](embedding) -- store and search scraped content
 - [LLM Resource](llm) -- feed scraped content into prompts

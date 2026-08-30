@@ -204,7 +204,7 @@ after:
 3. **Use default() for safety** - `default(input.field, 'fallback')`
 4. **Prefer get() for flexibility** - When you need query params, headers, or type hints
 
-## See Also
+## See also
 
 - [Unified API](unified-api.md) - Primary API for data access
 - [Request Object](request-object.md) - Full request access

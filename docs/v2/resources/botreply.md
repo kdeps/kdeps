@@ -42,7 +42,7 @@ botReply:
 
 See the [Stateless Bot](/examples/stateless-bot/) and [Telegram Bot](/examples/telegram-bot/) example agents for complete, runnable `botReply:` workflows.
 
-## See Also
+## See also
 
 - [Input Sources](/concepts/input-sources) -- configuring `settings.input.bot`
 - [Resources Overview](overview) -- all resource types

@@ -341,7 +341,7 @@ Expressions evaluate left-to-right with this precedence (highest to lowest):
 - **Validate before processing** -- check types and null values before operations
 - **Keep expressions simple** -- complex logic belongs in Python resources
 
-## See Also
+## See also
 
 - [Expressions Guide](/concepts/expressions) -- where expressions are used and basic syntax
 - [Validation & Control Flow](/concepts/validation-and-control) -- skip, check, and error handling

@@ -304,7 +304,7 @@ npx playwright install chromium
 npx playwright install
 ```
 
-## See Also
+## See also
 
 - [HTTP Client](http-client) -- simple HTTP requests without a browser
 - [Scraper](scraper) -- text extraction from already-fetched pages

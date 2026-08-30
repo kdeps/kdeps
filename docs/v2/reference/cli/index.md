@@ -149,7 +149,7 @@ kubectl rollout status deployment/my-agent
 - Use `--gpu cuda` for GPU workloads
 - Tag images with version numbers: `--tag my-agent:v1.0.0`
 
-## See Also
+## See also
 
 - [Dev Commands](/reference/cli/dev) -- run, serve, validate, new, edit, doctor, chat
 - [Registry Commands](/reference/cli/registry) -- search, install, publish

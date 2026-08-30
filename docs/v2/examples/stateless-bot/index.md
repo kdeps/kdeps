@@ -81,6 +81,6 @@ Output is written to stdout:
 Paris
 ```
 
-## See Also
+## See also
 
 - [Input Sources](../../concepts/input-sources.md) — Full platform config reference

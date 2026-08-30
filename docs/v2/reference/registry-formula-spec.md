@@ -124,7 +124,7 @@ registry/
 
 No nested directories. Flat `formulas/` folder. One file per package name. Version bumps update the existing file.
 
-## See Also
+## See also
 
 - [Registry Commands](/reference/cli/registry) — install, search, publish, verify
 - [Components Reference](/reference/components) — component.yaml reference

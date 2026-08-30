@@ -169,7 +169,7 @@ KDEPS_MANAGEMENT_TOKEN=mysecret
 
 For the full management API reference see [Management API](/reference/management-api).
 
-## See Also
+## See also
 
 - [Docker Deployment](/deployment/docker) - Core packaging and build workflow
 - [Kubernetes Deployment](/deployment/kubernetes) - Cluster deployment

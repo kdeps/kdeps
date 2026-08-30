@@ -204,7 +204,7 @@ In agent mode (`kdeps [path]`), the execution model differs:
 
 Pointing at a single file registers one tool. Pointing at a folder registers one tool per workflow/agency found recursively (plus components). Resources are never registered as individual tools.
 
-## See Also
+## See also
 
 - [Workflow Mode](/modes/workflow-mode) -- deterministic DAG pipelines
 - [Agent Mode](/modes/agent-loop-mode) -- LLM-driven tool calling

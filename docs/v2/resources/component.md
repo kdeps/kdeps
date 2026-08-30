@@ -42,7 +42,7 @@ component:
 
 Whatever the component's own result resource returns -- the shape depends on the component. Check the component's own documentation or `component.yaml` for its output contract.
 
-## See Also
+## See also
 
 - [Components](/concepts/components) -- registry vs. custom components, how to build and publish one
 - [Agent Resource](agent) -- call a full sibling agent instead of a component

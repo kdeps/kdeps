@@ -21,7 +21,7 @@ To be prompted interactively instead, turn both off in config; the REPL then off
 
 Tools marked "cached" in [Built-in Tools](/modes/agent-loop-tools) memoize successful results for the lifetime of the agent process: repeating the same query or URL returns the cached copy instantly instead of refetching. Failed and empty lookups are not cached, so they are retried on the next call. `wolfram_alpha` results are cached the same way.
 
-## See Also
+## See also
 
 - [Built-in Tools](/modes/agent-loop-tools) -- the full tool catalog
 - [Shell Execution](/modes/agent-loop-shell) -- Ctrl+C/Ctrl+Z, background jobs, rtk

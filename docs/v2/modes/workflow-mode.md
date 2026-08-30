@@ -197,7 +197,7 @@ apiResponse:
 
 Memory entries are automatically linked into a relationship graph showing the chain from prompt to tool calls to results.
 
-## See Also
+## See also
 
 - [Workflow Configuration](../configuration/workflow) - Full `workflow.yaml` reference
 - [Resources Overview](../resources/overview) - Resource types and fields

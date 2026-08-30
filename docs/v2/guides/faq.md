@@ -98,7 +98,7 @@ Yes. Set `streaming: true` on a `chat:` resource to stream LLM responses token-b
 
 Session data is stored in a WAL-based embedded database. The location is configurable in `settings.session`. See [Session & Persistence](/configuration/session).
 
-## See Also
+## See also
 
 - [Quickstart](/getting-started/quickstart) -- build your first workflow
 - [Execution Flow](/guides/execution-flow) -- how the engine runs resources

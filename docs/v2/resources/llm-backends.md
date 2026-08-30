@@ -354,7 +354,7 @@ llm:
 
 See [LLM Server Appliance](/deployment/llm-server) and [LLM Commands](/reference/cli/llm).
 
-## See Also
+## See also
 
 - [LLM Provider Reference](/reference/llm-providers) - Per-provider config snippets and model names
 - [LLM Resource](llm) - Complete LLM resource documentation

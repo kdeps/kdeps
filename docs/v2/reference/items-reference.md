@@ -198,7 +198,7 @@ items:
 - Use `prev` / `next` accessors to pass context between items
 - For very large batches, use the `python:` resource with pandas
 
-## See Also
+## See also
 
 - [Items](/concepts/items) - Core items concept and syntax
 - [Expressions](/concepts/expressions) - Dynamic item expressions

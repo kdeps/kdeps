@@ -195,7 +195,7 @@ These always-on tools invoke the corresponding kdeps executor directly:
 | `ocr_image` | Extract text from an image via tesseract (local, no API key) |
 | `load_document` | Load and extract text from a document |
 
-## See Also
+## See also
 
 - [Agent Loop Mode](/modes/agent-loop-mode) -- overview and starting the REPL
 - [REPL Slash Commands](/modes/agent-loop-commands) -- full command reference

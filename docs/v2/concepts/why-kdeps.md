@@ -102,7 +102,7 @@ A company that commissions a kdeps agent today can hand the YAML files and Docke
 | Any team | Replace a human clicking through tabs and copy-pasting between tools |
 
 
-## See Also
+## See also
 
 - [Quick Start](/getting-started/quickstart) - Build your first workflow in minutes
 - [Workflow Mode](/modes/workflow-mode) - Deterministic DAG pipelines

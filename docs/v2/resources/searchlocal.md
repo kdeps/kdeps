@@ -135,7 +135,7 @@ Indexed-mode output rows add two fields on top of the base result shape:
 | `matchCount` | integer | Number of distinct query terms matched |
 | `snippet` | string | Text excerpt around the match |
 
-## See Also
+## See also
 
 - [Search Resources](/resources/search) - overview and `searchWeb`
 - [Graphing an Indexed Folder](/resources/codeintelligence-graph) - the same kartographer graph `graphBoost` reuses

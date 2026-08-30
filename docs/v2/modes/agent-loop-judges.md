@@ -88,7 +88,7 @@ needed:
 /judges clear                                  # disable the panel entirely
 ```
 
-## See Also
+## See also
 
 - [Agent Loop Mode](/modes/agent-loop-mode) -- overview and starting the REPL
 - [Goal-Directed Execution](/modes/agent-loop-goals) -- the task cursor a judge's revision request feeds back into

@@ -405,7 +405,7 @@ after:
   - set('result2', output('llmResource'))
 ```
 
-## See Also
+## See also
 
 - [Unified API](/concepts/unified-api) - Core get() and set() functions
 - [Expressions](/concepts/expressions) - Expression syntax and operators

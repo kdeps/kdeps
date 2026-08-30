@@ -79,7 +79,7 @@ The transcribed text, as a plain string:
 "This is a kdeps transcription test."
 ```
 
-## See Also
+## See also
 
 - [OCR Resource](ocr) -- the equivalent offline, no-API-key pattern for images
 - [Resources Overview](overview) -- all resource types

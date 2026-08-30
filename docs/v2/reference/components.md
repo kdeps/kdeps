@@ -418,7 +418,7 @@ component:
 6. **Test in isolation**: package and validate before using in workflows
 7. **Minimize env vars**: declare all required environment dependencies; let auto-derivation detect them
 
-## See Also
+## See also
 
 - [Components Overview](/concepts/components) -- what components are and when to use them
 - [Agencies](/concepts/agency) -- agent-to-agent call pattern

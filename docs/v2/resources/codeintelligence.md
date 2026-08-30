@@ -188,7 +188,7 @@ See [Graphing an Indexed Folder](/resources/codeintelligence-graph) for the full
 3. **Use `pattern` to narrow searches** with the rg fallback
 4. **Agent mode tools are zero-config** — LLM can call them without YAML
 
-## See Also
+## See also
 
 - [Agent Mode](/modes/agent-loop-mode) — built-in `code_*` tools
 - [git resource](git) — version control operations

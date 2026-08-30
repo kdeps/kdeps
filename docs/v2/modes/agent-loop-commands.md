@@ -94,7 +94,7 @@ The same scan finds existing, readable **text files** by name (`look at "main.go
 
 Disable it for the session with `/autocontext off` if the confirmation prompt gets in your way; `/autocontext on` re-enables it, and `/autocontext` alone shows the current state.
 
-## See Also
+## See also
 
 - [Agent Loop Mode](/modes/agent-loop-mode) -- overview and starting the REPL
 - [Built-in Tools](/modes/agent-loop-tools) -- tools available to the model

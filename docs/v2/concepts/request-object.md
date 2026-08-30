@@ -371,7 +371,7 @@ The `request` object provides an alternative way to access request data. Both ap
 4. **Access request metadata** - Use `request.method`, `request.path`, etc. for routing logic
 5. **Combine with expressions** - Use in `expr` blocks for pre-processing
 
-## See Also
+## See also
 
 - [Unified API](/concepts/unified-api) - Primary API for data access
 - [Input Sources](input-sources) - Configuring API, bot, and file input sources

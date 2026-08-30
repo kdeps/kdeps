@@ -49,7 +49,7 @@ Expressions have access to the full [expr-lang standard library](https://expr-la
 
 kdeps adds workflow-specific helpers on top. See the [Expression Functions Reference](/reference/expression-functions-reference) for the full list.
 
-## See Also
+## See also
 
 - [Expression Functions Reference](/reference/expression-functions-reference) - All kdeps-specific functions
 - [Expression Operators](/reference/expression-operators) - Comparison and logic operators

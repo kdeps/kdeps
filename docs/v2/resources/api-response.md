@@ -359,7 +359,7 @@ apiResponse:
 4. **Include metadata** - Model version, timing, etc.
 5. **Handle errors gracefully** - Clear error messages
 
-## See Also
+## See also
 
 - [Resources Overview](overview) -- all resource types
 - [LLM Resource](llm) -- AI model integration

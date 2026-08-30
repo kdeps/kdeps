@@ -113,7 +113,7 @@ chat:
 
 </div>
 
-## See Also
+## See also
 
 - [Validation and Control Flow](/concepts/validation-and-control) - Full `validations:` block reference
 - [Expressions](/concepts/expressions) - Expression syntax for conditions

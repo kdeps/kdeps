@@ -326,7 +326,7 @@ settings:
         publicPath: "./public"
 ```
 
-## See Also
+## See also
 
 - [Docker Deployment](docker) - Package for production
 - [Workflow Configuration](../configuration/workflow) - Full settings reference

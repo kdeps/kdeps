@@ -134,7 +134,7 @@ Resolution order, with no config required:
 
 Agent-loop mode has the same sentinel via `--model auto-router` -- see [Local Model Management](/modes/agent-loop-models#-model-auto-router-zero-config-fully-automatic).
 
-## See Also
+## See also
 
 - [LLM Backends & Routing](/resources/llm-backends) -- backend configuration and the unified models list
 - [Local Model Management](/modes/agent-loop-models) -- the agent-loop equivalent of `auto`/`auto-router`

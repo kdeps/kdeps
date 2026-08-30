@@ -221,7 +221,7 @@ apiResponse:
 
 See [Unified API](../concepts/unified-api.md#resource-specific-accessors) for details.
 
-## See Also
+## See also
 
 - [Python Examples](/reference/python-examples) - Data transformation, ML inference, image processing, error handling, debugging
 - [Exec Resource](exec) -- shell command execution

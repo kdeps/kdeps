@@ -113,7 +113,7 @@ chat:
 
 </div>
 
-## See Also
+## See also
 
 - [Expression Functions Reference](/reference/expression-functions-reference) -- all functions (get, set, file, info, and more)
 - [Expressions Guide](/concepts/expressions) -- where expressions are used and basic syntax

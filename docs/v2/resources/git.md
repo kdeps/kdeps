@@ -166,7 +166,7 @@ git:
 4. **Use `status` before `add`** to understand what will be staged
 5. **Set `maxCount` on `log`** to avoid unbounded output
 
-## See Also
+## See also
 
 - [Exec Resource](exec) - shell commands (use for non-git CLI tools)
 - [Workflow Configuration](../configuration/workflow) - settings reference

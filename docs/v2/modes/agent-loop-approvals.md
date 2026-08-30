@@ -35,7 +35,7 @@ When a tool call is denied by the [permission mode](/modes/agent-loop-tools#perm
 
 Scope matching supports wildcards: an empty `Action` matches any action. `FindMatchingGranted(toolName, action, now)` is called automatically in the `BeforeToolCall` hook — you never call it directly.
 
-## See Also
+## See also
 
 - [Agent Loop Mode](/modes/agent-loop-mode) -- overview and starting the REPL
 - [Built-in Tools](/modes/agent-loop-tools) -- permission modes and the full tool catalog

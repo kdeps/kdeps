@@ -183,7 +183,7 @@ curl "http://localhost:17100/api/v1/greet?name=Alice" \
 # → {"success":true,"data":"Hello, Alice! (from responder-agent)"}
 ```
 
-## See Also
+## See also
 
 - [Agent resource](../resources/overview.md#agent) — `agent:` resource reference
 - [`examples/agency/`](https://github.com/kdeps/kdeps/tree/main/examples/agency) — runnable example

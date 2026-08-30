@@ -342,7 +342,7 @@ In `onError.expr` and `onError.when` expressions, the `error` object is availabl
 5. **Provide meaningful fallbacks** - Return useful data even on failure
 6. **Combine with validations.skip** - Create fallback resource chains
 
-## See Also
+## See also
 
 - [Validation and Control Flow](/concepts/validation-and-control) - Input validation
 - [Expression Helpers](/concepts/expression-helpers) - Helper functions

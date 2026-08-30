@@ -101,6 +101,6 @@ httpClient:
   timeout: 30s
 ```
 
-## See Also
+## See also
 
 - [HTTP Client Resource](/resources/http-client) - Full configuration reference

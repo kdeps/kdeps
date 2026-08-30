@@ -47,7 +47,7 @@ Best for:
 - Learning the `POST /api/v1/run` pattern
 - Adapting a pattern to your own data
 
-## See Also
+## See also
 
 - [Quickstart](/getting-started/quickstart) -- build your first workflow in 5 minutes
 - [Workflow Mode](/modes/workflow-mode) -- deterministic DAG execution

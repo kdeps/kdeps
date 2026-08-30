@@ -116,7 +116,7 @@ embedding:
 > kdeps registry install embedding
 > ```
 
-## See Also
+## See also
 
 - [Scraper Resource](scraper) -- fetch content to index
 - [Search Resource](search) -- search local files and the web

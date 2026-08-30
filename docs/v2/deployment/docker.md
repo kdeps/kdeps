@@ -425,7 +425,7 @@ The generated manifest includes a `Deployment` with readiness/liveness probes an
 
 See the [Kubernetes Deployment guide](kubernetes) for the full reference.
 
-## See Also
+## See also
 
 - [Docker Reference](/reference/docker-reference) - Production best practices, security hardening, troubleshooting
 - [Workflow Configuration](../configuration/workflow) - Agent settings

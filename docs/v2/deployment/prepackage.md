@@ -155,7 +155,7 @@ curl -X POST http://localhost:16395/api/chat \
   -d '{"message":"Hello"}'
 ```
 
-## See Also
+## See also
 
 - [Package Command](../getting-started/quickstart) — Creating `.kdeps` archives
 - [Docker Deployment](docker) — Containerized deployment

@@ -97,7 +97,7 @@ Project scaffolding templates (used by `kdeps new`) also use Jinja2 with `.j2` f
 | `port` | int | API server port |
 | `resources` | []string | Enabled resource types |
 
-## See Also
+## See also
 
 - [Expressions](/concepts/expressions)
 - [Unified API](/concepts/unified-api)

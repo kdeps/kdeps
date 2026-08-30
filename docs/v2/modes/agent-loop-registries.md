@@ -69,7 +69,7 @@ Schedules recurring task creation from the agent loop process. Each cron job sto
 
 No manual polling or goroutine setup needed. Start `kdeps path/to/agent/` and cron runs in the background.
 
-## See Also
+## See also
 
 - [Agent Loop Mode](/modes/agent-loop-mode) -- overview and starting the REPL
 - [Built-in Tools](/modes/agent-loop-tools) -- the full tool catalog these registries add to

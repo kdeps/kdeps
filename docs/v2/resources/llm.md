@@ -737,7 +737,7 @@ apiResponse:
     parsed: get('llmResource').answer            # if jsonResponse: true with key "answer"
 ```
 
-## See Also
+## See also
 
 - [LLM Backends](llm-backends) - Configure model, backend, API keys, and routing
 - [Tools](../concepts/tools) - LLM function calling

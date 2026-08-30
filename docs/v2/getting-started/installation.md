@@ -185,7 +185,7 @@ sudo usermod -aG docker $USER
 # Log out and back in for changes to take effect
 ```
 
-## See Also
+## See also
 
 - [Quickstart Guide](/getting-started/quickstart) - Build your first AI agent
 - [CLI Reference](/reference/cli/) - Complete command reference

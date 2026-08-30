@@ -271,7 +271,7 @@ settings:
       KDEPS_PYTHON_MAX_OUTPUT_BYTES: "524288"  # 512 KiB
 ```
 
-## See Also
+## See also
 
 - [Advanced Configuration](/configuration/advanced) - Request object, agent settings, SQL connections, trusted proxies
 - [Docker Reference](/reference/docker-reference) - Container security hardening

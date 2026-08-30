@@ -239,7 +239,7 @@ kdeps validate workflow.yaml
 
 Checks the workflow schema, dependency graph, and expression syntax without running any actions.
 
-## See Also
+## See also
 
 - [Execution Flow](/guides/execution-flow) -- how the DAG resolves and runs
 - [Validation & Control Flow](/concepts/validation-and-control) -- skip and check logic

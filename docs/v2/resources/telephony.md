@@ -206,7 +206,7 @@ Recognised fields in the inbound webhook body (Twilio format; unknown fields are
 | `SpeechResult` | `telephony.speech()` |
 | `Confidence` | `telephony.confidence()` |
 
-## See Also
+## See also
 
 - [LLM Resource](llm) -- generate spoken responses with an LLM
 - [API Response](api-response) -- how the TwiML reaches the provider

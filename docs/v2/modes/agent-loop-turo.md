@@ -53,7 +53,7 @@ KDEPS_TURO_PATH: /custom/path/to/turo  # override binary discovery
 
 To keep agent context faithful (drop filler only, no wording changes), set `TURO_SYNONYMS=off` and `TURO_GLOSS=off`.
 
-## See Also
+## See also
 
 - [Agent Loop Mode](/modes/agent-loop-mode) -- overview and starting the REPL
 - [REPL Slash Commands](/modes/agent-loop-commands) -- full command reference

@@ -89,7 +89,7 @@ vectorStore:
   embedModel: text-embedding-3-small
 ```
 
-## See Also
+## See also
 
 - [Vector Store Resource](vectorstore) -- index and search the loaded documents
 - [Embedding Resource](embedding) -- lightweight keyword-based alternative for local, API-key-free RAG

@@ -50,7 +50,7 @@ What this does **not** change:
 An unrelated crate on crates.io is also named `rtk`. kdeps does not trust the name — it verifies the binary by behavior, so an impostor on your `PATH` is ignored rather than producing broken commands. Check yours with `rtk gain`: it works on the real one.
 :::
 
-## See Also
+## See also
 
 - [Built-in Tools](/modes/agent-loop-tools) -- the full tool catalog
 - [Tool Execution Monitoring](/modes/agent-loop-monitoring) -- live status lines and stall detection

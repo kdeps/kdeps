@@ -175,7 +175,7 @@ Manifests are driven by `agentSettings` in `workflow.yaml`:
 
 See [Kubernetes Deployment](/deployment/kubernetes) for full details.
 
-## See Also
+## See also
 
 - [CLI Overview](/reference/cli/) -- global flags, exit codes, env vars
 - [Dev Commands](/reference/cli/dev) -- run, serve, validate, new

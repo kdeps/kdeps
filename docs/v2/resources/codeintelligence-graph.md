@@ -89,6 +89,6 @@ codeIntelligence:
 
 `references` is always a full adjacency map (`file -> files it links to`); the caller walks it to render a tree or diagram. This mirrors [kartographer](https://github.com/kdeps/kartographer)'s own `DependencyGraph` traversal machinery, reused here through `IndexedGraph`.
 
-## See Also
+## See also
 
 - [Code Intelligence Resource](/resources/codeintelligence) -- the other LSP/rg-backed operations

@@ -398,7 +398,7 @@ apiResponse:
 | Running a repeated scheduled task (`every:`) | One-shot batch over a dataset |
 | Firing at specific dates or times (`at:`) | Batch processing of a dataset |
 
-## See Also
+## See also
 
 - [Items Iteration](items) — Fixed-list iteration
 - [Expressions](/concepts/expressions) — Expression syntax

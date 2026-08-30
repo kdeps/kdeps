@@ -238,7 +238,7 @@ apiResponse:
 
 </div>
 
-## See Also
+## See also
 
 - [Quick Start](/getting-started/quickstart) - Walkthrough with a running example
 - [Resources Overview](/resources/overview) - All resource types
