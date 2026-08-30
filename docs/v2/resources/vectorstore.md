@@ -1,4 +1,4 @@
-# Vector Store Resource
+# Vector store resource
 
 The `vectorStore:` resource adds documents to, and runs similarity search against, an external vector database. Unlike `embedding:` (SQLite keyword/vector index built into kdeps), `vectorStore:` talks to a real vector database service -- Qdrant, Chroma, Pinecone, pgvector, and more -- for production-scale RAG.
 
@@ -6,7 +6,7 @@ The `vectorStore:` resource adds documents to, and runs similarity search agains
 
 Both [workflow mode](/modes/workflow-mode) and [agent mode](/modes/agent-loop-mode).
 
-## Basic Usage
+## Basic usage
 
 ```yaml
 # resources/index.yaml
@@ -38,7 +38,7 @@ vectorStore:
   embedModel: text-embedding-3-small
 ```
 
-## Supported Providers
+## Supported providers
 
 | `provider` | Connection via `url` |
 |---|---|
@@ -54,7 +54,7 @@ vectorStore:
 | `redis` | Redis URI, e.g. `redis://localhost:6379` (default if `url` is empty). `collection` is the Redis index name |
 | `bedrock` | AWS Bedrock Knowledge Base -- `collection` is the knowledge base ID; no `url` or `embedModel` needed, embedding happens server-side. Uses the standard AWS SDK credential chain (`AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_REGION`) |
 
-## Configuration Options
+## Configuration options
 
 | Option | Operation | Description |
 |---|---|---|
@@ -87,7 +87,7 @@ vectorStore:
 }
 ```
 
-## Feeding from a Loader
+## Feeding from a loader
 
 `loader:`'s output documents map directly onto `vectorStore:`'s `documents:` field -- see the [Loader Resource](loader#rag-pipeline-example) for the full load-then-index pipeline.
 

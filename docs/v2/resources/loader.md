@@ -1,4 +1,4 @@
-# Loader Resource
+# Loader resource
 
 The `loader:` resource reads a file, URL, or directory into structured `Document` objects -- plain text plus metadata -- and optionally splits them into chunks. It is the ingestion step of a RAG pipeline: load, then feed the output into `vectorStore:` or `embedding:` for indexing.
 
@@ -6,7 +6,7 @@ The `loader:` resource reads a file, URL, or directory into structured `Document
 
 Both [workflow mode](/modes/workflow-mode) and [agent mode](/modes/agent-loop-mode). In agent mode, the same loader is available as the `load_document` built-in tool.
 
-## Basic Usage
+## Basic usage
 
 ```yaml
 # resources/load.yaml
@@ -29,7 +29,7 @@ loader:
   chunkSplitter: recursive
 ```
 
-## Configuration Options
+## Configuration options
 
 | Option | Description |
 |---|---|
@@ -41,7 +41,7 @@ loader:
 | `chunkOverlap` | Characters of overlap between consecutive chunks |
 | `chunkSplitter` | Splitting strategy: `recursive` (default), `token`, or `markdown` |
 
-## Loader Types
+## Loader types
 
 | `type` | Reads |
 |---|---|
@@ -64,7 +64,7 @@ loader:
 
 `documents` is directly usable as the `documents:` input to a `vectorStore:` `add_documents` operation -- each `content`/`metadata` pair maps onto a [`VectorStoreDocument`](vectorstore).
 
-## RAG Pipeline Example
+## RAG pipeline example
 
 ```yaml
 # resources/load.yaml

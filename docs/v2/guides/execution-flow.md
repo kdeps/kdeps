@@ -1,4 +1,4 @@
-# Execution Flow
+# Execution flow
 
 How kdeps resolves, orders, and runs resources in a workflow.
 
@@ -12,7 +12,7 @@ When you run `kdeps run workflow.yaml` or call `POST /api/v1/run`, the engine:
 4. Topologically sorts resources so dependencies run before dependents
 5. Executes resources in order -- resources without shared dependencies can run concurrently
 
-## Execution Order
+## Execution order
 
 ```d2
 direction: down
@@ -21,14 +21,14 @@ A: Request at targetActionId {shape: oval}
 B: "1. Build dependency graph\neach resource = node; requires = edges\nfails fast on cycles"
 C: "2. Walk transitive deps\nbackward from targetActionId\ncollect only needed nodes"
 D: "3. Topological sort\ndeps always run before dependents\nindependent resources run concurrently"
-E: "4. Execute each resource\na. before: block\nb. skip — any true? skip silently\nc. check — all true? proceed, else fail\nd. main action (chat, sql, http...)\ne. after: block\nf. onError handler"
+E: "4. Execute each resource\na. before: block\nb. skip - any true? skip silently\nc. check - all true? proceed, else fail\nd. main action (chat, sql, http...)\ne. after: block\nf. onError handler"
 F: "5. Terminal resource\napiResponse: formats output"
 G: JSON response returned {shape: oval}
 
 A -> B -> C -> D -> E -> F -> G
 ```
 
-## Dependency Graph
+## Dependency graph
 
 ### How requires works
 
@@ -112,7 +112,7 @@ Resources that don't depend on each other (neither directly nor transitively) ca
 
 `fetchUsers` and `fetchProducts` run concurrently. `merge` waits for both.
 
-## Cycle Detection
+## Cycle detection
 
 The engine detects cycles during graph construction and fails fast with `ErrCodeDependencyCycle`:
 
@@ -125,7 +125,7 @@ The engine detects cycles during graph construction and fails fast with `ErrCode
   requires: [A]    # cycle: A -> B -> A
 ```
 
-## Skip vs Check
+## Skip vs check
 
 Both run before the main action, but they behave differently:
 
@@ -158,7 +158,7 @@ validations:
     message: Missing API key or query too long
 ```
 
-## Loop Execution
+## Loop execution
 
 When a resource has a [`loop`](/reference/glossary#loop) config, the engine runs the full resource cycle (before -> check -> action -> after) repeatedly:
 
@@ -189,7 +189,7 @@ J -> B: no
 
 See [Loop](/concepts/loop) for full details.
 
-## Agent Mode Execution
+## Agent mode execution
 
 In agent mode (`kdeps [path]`), the execution model differs:
 

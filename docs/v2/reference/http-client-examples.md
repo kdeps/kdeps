@@ -1,8 +1,8 @@
-# HTTP Client Examples
+# HTTP client examples
 
 Example `httpClient:` resources for common API integration patterns. See [HTTP Client Resource](/resources/http-client) for the full configuration reference.
 
-## Fetch Data and Process
+## Fetch data and process
 
 <div v-pre>
 
@@ -35,7 +35,7 @@ chat:
 
 </div>
 
-## Authenticated API with Retry
+## Authenticated API with retry
 
 <div v-pre>
 
@@ -67,7 +67,7 @@ httpClient:
 
 </div>
 
-## Webhook Call
+## Webhook call
 
 <div v-pre>
 
@@ -88,7 +88,7 @@ httpClient:
 
 </div>
 
-## Cached External API
+## Cached external API
 
 ```yaml
 # resources/example.yaml

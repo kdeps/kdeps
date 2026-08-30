@@ -1,4 +1,4 @@
-# Deployment Guide
+# Deployment guide
 
 End-to-end CI/CD pipeline: package your workflow, build a Docker image, push to a registry, and deploy to Kubernetes.
 
@@ -17,7 +17,7 @@ A -> B -> C -> D
 
 Each step is a single `kdeps` command. No Dockerfiles, no manual YAML authoring, no glue scripts.
 
-## Step 1: Validate
+## Step 1: validate
 
 Run schema and dependency validation before packaging:
 
@@ -27,7 +27,7 @@ kdeps validate workflow.yaml
 
 This catches YAML syntax errors, missing dependencies, circular references, and bad expressions before they reach production. Always run this in CI before packaging.
 
-## Step 2: Package
+## Step 2: package
 
 Create a portable `.kdeps` archive containing the workflow and all resources:
 
@@ -38,7 +38,7 @@ kdeps bundle package . --output dist/
 
 The archive includes `workflow.yaml`, all resource files, Python requirements, data files, and assets. Respects `.kdepsignore` exclusions.
 
-## Step 3: Build Docker Image
+## Step 3: build Docker image
 
 Build a Docker image from the package:
 
@@ -59,7 +59,7 @@ docker push registry.example.com/my-agent:v1.0.0-gpu
 
 See [Docker Deployment](/deployment/docker) for base OS selection, offline mode, and custom image configuration.
 
-## Step 4: Deploy to Kubernetes
+## Step 4: deploy to Kubernetes
 
 Generate Kubernetes manifests and apply them:
 
@@ -76,9 +76,9 @@ The generated manifests include Deployment, Service, and environment configurati
 
 See [Kubernetes Deployment](/deployment/kubernetes) for full manifest structure, health checks, and multi-replica configuration.
 
-## CI/CD Pipeline Example
+## CI/CD pipeline example
 
-### GitHub Actions
+### GitHub actions
 
 ```yaml
 # .github/workflows/deploy.yml
@@ -136,7 +136,7 @@ deploy:
     - kubectl apply -f k8s.yaml
 ```
 
-## Standalone Binaries (No Docker)
+## Standalone binaries (no Docker)
 
 For edge deployments that can't run containers, use the prepackage flow:
 

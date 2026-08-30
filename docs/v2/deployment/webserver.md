@@ -1,4 +1,4 @@
-# WebServer Mode
+# WebServer mode
 
 `webServer:` serves static files or proxies to a running subprocess alongside your API server. Use it to serve a React frontend, a Streamlit dashboard, or any other web app next to your agent API.
 
@@ -31,7 +31,7 @@ G -> H
 
 `webServer` responses include the same defensive security headers as `apiServer` (`X-Content-Type-Options`, `X-Frame-Options`, `Referrer-Policy`, `Permissions-Policy`, and HSTS when TLS is enabled). CSP is omitted on `webServer` so proxied apps keep working. Bearer auth applies only to `apiServer` routes, not static files or app proxies.
 
-### webServer-only (no apiServer)
+### Webserver-only (no apiServer)
 
 If you run with only `webServer` and no `apiServer`, there is no bearer auth. Anyone who can reach the bind address can read static files and use app proxies unless you add ingress auth. Optional `rateLimit`, `maxBodyBytes`, and `maxConcurrent` under `webServer` still apply:
 
@@ -50,7 +50,7 @@ settings:
         publicPath: "./public"
 ```
 
-## Basic Configuration
+## Basic configuration
 
 ```yaml
 # workflow.yaml
@@ -79,7 +79,7 @@ settings:
         publicPath: "./public"
 ```
 
-## Static File Serving
+## Static file serving
 
 Serve static files from a directory:
 
@@ -103,7 +103,7 @@ settings:
         publicPath: "./static/assets"
 ```
 
-### Directory Structure
+### Directory structure
 
 ```
 my-agent/
@@ -117,7 +117,7 @@ my-agent/
     └── index.html
 ```
 
-### SPA (Single Page Application)
+### SPA (single page application)
 
 For React, Vue, or Angular apps:
 
@@ -131,7 +131,7 @@ settings:
         publicPath: "./frontend/build"
 ```
 
-## Reverse Proxy
+## Reverse proxy
 
 Forward requests to backend applications:
 
@@ -149,7 +149,7 @@ settings:
         command: "streamlit run app.py"
 ```
 
-### Streamlit Example
+### Streamlit example
 
 ```yaml
 # workflow.yaml
@@ -183,7 +183,7 @@ if st.button("Submit"):
     st.write(response.json()["data"]["answer"])
 ```
 
-### Gradio Example
+### Gradio example
 
 ```yaml
 # workflow.yaml
@@ -215,7 +215,7 @@ demo = gr.Interface(fn=chat, inputs="text", outputs="text")
 demo.launch(server_name="0.0.0.0", server_port=7860)
 ```
 
-### Flask Example
+### Flask example
 
 ```yaml
 # workflow.yaml
@@ -242,7 +242,7 @@ if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000)
 ```
 
-## WebSocket Support
+## WebSocket support
 
 WebSocket connections are automatically proxied:
 
@@ -272,7 +272,7 @@ asyncio.get_event_loop().run_until_complete(start_server)
 asyncio.get_event_loop().run_forever()
 ```
 
-## Multiple Routes
+## Multiple routes
 
 Combine static files and multiple apps:
 
@@ -306,7 +306,7 @@ settings:
         command: "python demo.py"
 ```
 
-## Trusted Proxies
+## Trusted proxies
 
 For deployments behind a load balancer:
 

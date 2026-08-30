@@ -1,4 +1,4 @@
-# Error Handling (onError)
+# Error handling (onError)
 
 `onError` defines what happens when a resource fails. Without it, any error stops the workflow immediately. With it, you can retry, substitute a fallback value, or log the error and continue.
 
@@ -31,9 +31,9 @@ onError:
 | `fail` | workflow stops and returns the error (default when no onError block) |
 | `retry` | resource is retried up to `maxRetries` times; fails after that |
 
-## Basic Usage
+## Basic usage
 
-### Continue with Fallback
+### Continue with fallback
 
 Continue execution even if the resource fails, using a fallback value:
 
@@ -54,7 +54,7 @@ onError:
 
 When the HTTP request fails, the resource returns the fallback value instead of stopping the workflow.
 
-### Continue without Fallback
+### Continue without fallback
 
 If no fallback is provided, the resource returns an error info object:
 
@@ -74,7 +74,7 @@ The output will be:
 }
 ```
 
-### Retry with Backoff
+### Retry with backoff
 
 Automatically retry failed operations:
 
@@ -97,7 +97,7 @@ This will:
 3. Retry up to 3 times total
 4. If all retries fail, return an error
 
-### Explicit Fail
+### Explicit fail
 
 Explicitly mark that errors should stop execution (useful for documentation):
 
@@ -109,9 +109,9 @@ onError:
 
 This is the default behavior when no `onError` is configured.
 
-## Advanced Usage
+## Advanced usage
 
-### Error-Specific Handling with `when`
+### Error-specific handling with `when`
 
 Handle only specific types of errors:
 
@@ -128,7 +128,7 @@ onError:
 
 If the error doesn't match any `when` condition, the error is NOT handled and propagates normally.
 
-### Execute Expressions on Error (`expr`)
+### Execute expressions on error (`expr`)
 
 Run expressions when an error occurs (useful for logging, metrics, etc.):
 
@@ -152,7 +152,7 @@ The expressions have access to the `error` object:
 - `error.statusCode` - HTTP status code (if applicable)
 - `error.details` - Additional error details (if available)
 
-### Dynamic Fallback Values
+### Dynamic fallback values
 
 Fallback values can include expressions:
 
@@ -170,9 +170,9 @@ onError:
 
 </div>
 
-## Use Cases
+## Use cases
 
-### Resilient API Calls
+### Resilient API calls
 
 <div v-pre>
 
@@ -192,7 +192,7 @@ onError:
 
 </div>
 
-### Graceful Degradation
+### Graceful degradation
 
 <div v-pre>
 
@@ -209,7 +209,7 @@ onError:
 
 </div>
 
-### Circuit Breaker Pattern
+### Circuit breaker pattern
 
 ```yaml
 # resources/external-service.yaml
@@ -235,7 +235,7 @@ onError:
     circuitBreaker: "open"
 ```
 
-### Database Fallback
+### Database fallback
 
 <div v-pre>
 
@@ -271,7 +271,7 @@ sql:
 
 </div>
 
-### LLM with Model Fallback
+### LLM with model fallback
 
 <div v-pre>
 
@@ -310,7 +310,7 @@ apiResponse:
 
 </div>
 
-## Error Object Reference
+## Error object reference
 
 In `onError.expr` and `onError.when` expressions, the `error` object is available:
 
@@ -322,7 +322,7 @@ In `onError.expr` and `onError.when` expressions, the `error` object is availabl
 | `error.statusCode` | number | HTTP status code (if applicable) |
 | `error.details` | object | Additional error context |
 
-### Common Error Types
+### Common error types
 
 | Type | Description |
 |------|-------------|
@@ -333,7 +333,7 @@ In `onError.expr` and `onError.when` expressions, the `error` object is availabl
 | `UNAUTHORIZED` | Authentication required |
 | `RESOURCE_FAILED` | Resource execution failed |
 
-## Best Practices
+## Best practices
 
 1. **Use retries for transient failures** - Network issues, rate limits, temporary unavailability
 2. **Use continue for non-critical operations** - Enhancements, optional data, caching

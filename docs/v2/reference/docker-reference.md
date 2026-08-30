@@ -1,10 +1,10 @@
-# Docker Deployment Reference
+# Docker deployment reference
 
 Production best practices, troubleshooting, and security hardening for kdeps Docker deployments. See [Docker Deployment](/deployment/docker) for the core packaging and build workflow.
 
-## Production Best Practices
+## Production best practices
 
-### Use Specific Tags
+### Use specific tags
 
 ```bash
 # Good
@@ -14,7 +14,7 @@ kdeps bundle build app.kdeps --tag myregistry/myagent:1.0.0
 kdeps bundle build app.kdeps --tag myregistry/myagent:latest
 ```
 
-### Set Resource Limits
+### Set resource limits
 
 ```yaml
 # docker-compose.yml
@@ -30,7 +30,7 @@ services:
           memory: 2G
 ```
 
-### Use Secrets
+### Use secrets
 
 ```bash
 # Create secret
@@ -42,7 +42,7 @@ docker service create \
   myregistry/myagent:latest
 ```
 
-### Enable Logging
+### Enable logging
 
 ```yaml
 # docker-compose.yml
@@ -55,7 +55,7 @@ services:
         max-file: "5"
 ```
 
-### Network Security
+### Network security
 
 ```yaml
 # docker-compose.yml
@@ -71,7 +71,7 @@ networks:
     internal: true
 ```
 
-## Security Hardening
+## Security hardening
 
 Generated images run as the unprivileged `kdeps` user, including Ollama-backed images. Ollama models are stored under `/app/.ollama/models`.
 
@@ -97,7 +97,7 @@ See [Security](../configuration/advanced#security) for the full reference.
 
 ## Troubleshooting
 
-### Build Fails
+### Build fails
 
 ```bash
 # Show detailed output
@@ -107,14 +107,14 @@ kdeps bundle build app.kdeps --show-dockerfile
 docker info
 ```
 
-### Image Too Large
+### Image too large
 
 1. Use `alpine` base OS
 2. Remove unnecessary packages
 3. Use optimized templates (automatic)
 4. Avoid `offlineMode` unless needed
 
-### Model Download Slow
+### Model download slow
 
 ```bash
 # Llamafiles are cached in ~/.kdeps/models/ and baked into the image at build
@@ -125,7 +125,7 @@ ollama pull llama3.2:1b
 offlineMode: true
 ```
 
-### Check Workflow Status
+### Check workflow status
 
 ```bash
 curl -H "Authorization: Bearer $KDEPS_MANAGEMENT_TOKEN" \
@@ -144,7 +144,7 @@ curl -H "Authorization: Bearer $KDEPS_MANAGEMENT_TOKEN" \
 }
 ```
 
-### Docker Compose with Management API
+### Docker compose with management API
 
 ```yaml
 # docker-compose.yml
@@ -175,6 +175,6 @@ For the full management API reference see [Management API](/reference/management
 - [Kubernetes Deployment](/deployment/kubernetes) - Cluster deployment
 - [Management API](/reference/management-api) - Live workflow updates without rebuilding
 
-## Let's Encrypt
+## Let's encrypt
 
-For custom domains without mounting PEM secrets, set `settings.letsEncrypt.domain` and publish ports 80/443. See [TLS and HTTPS (Custom Domains)](/deployment/tls-https) and [Security — TLS](/reference/security#tls).
+For custom domains without mounting PEM secrets, set `settings.letsEncrypt.domain` and publish ports 80/443. See [TLS and HTTPS (Custom Domains)](/deployment/tls-https) and [Security - TLS](/reference/security#tls).

@@ -3,7 +3,7 @@ title: Local Models (Llamafile & Ollama)
 description: Run kdeps entirely offline with local models. Your code and prompts never leave your machine.
 ---
 
-# Local Models (Llamafile & Ollama)
+# Local models (llamafile & Ollama)
 
 kdeps can run entirely offline. When you use a local model backend, nothing is sent to external APIs - your prompts, code, and responses stay on your machine.
 

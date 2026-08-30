@@ -1,6 +1,6 @@
-# Graphing an Indexed Folder
+# Graphing an indexed folder
 
-The `indexFolder`/`graphFile`/`graphTopic`/`graphAll` operations of the [Code Intelligence resource](/resources/codeintelligence) are different from its LSP/rg operations: instead of searching live files, they build and query a small persistent graph database of the current working directory — tracking which files link to which, and which files share a topic. Run kdeps from inside a `docs/` directory (or a source tree, with `extensions` opted in — see below) and ask "what references this file?" or "show me everything tagged `auth`."
+The `indexFolder`/`graphFile`/`graphTopic`/`graphAll` operations of the [Code Intelligence resource](/resources/codeintelligence) are different from its LSP/rg operations: instead of searching live files, they build and query a small persistent graph database of the current working directory - tracking which files link to which, and which files share a topic. Run kdeps from inside a `docs/` directory (or a source tree, with `extensions` opted in - see below) and ask "what references this file?" or "show me everything tagged `auth`."
 
 References are derived per file type:
 
@@ -8,12 +8,12 @@ References are derived per file type:
 |-----------|---------------------------|
 | `.md` / `.markdown` / `.txt` | Markdown links (`[text](path)`) and wikilinks (`[[path]]`) |
 | `.html` / `.htm` | `href`/`src` attribute values |
-| Go, Python, Rust, TypeScript/JavaScript, C/C++, Ruby, Java | Import/include statements — relative (`from . import x`, `#include "local.h"`) and non-relative/module-style (`import "github.com/x/pkg"`), the latter matched against files actually present in the indexed folder. Heuristic regex extraction, not a full parser — ambiguous or external/stdlib imports are dropped, not guessed. |
+| Go, Python, Rust, TypeScript/JavaScript, C/C++, Ruby, Java | Import/include statements - relative (`from . import x`, `#include "local.h"`) and non-relative/module-style (`import "github.com/x/pkg"`), the latter matched against files actually present in the indexed folder. Heuristic regex extraction, not a full parser - ambiguous or external/stdlib imports are dropped, not guessed. |
 | `.json` / `.yaml` / `.yml` (bare, no frontmatter) | No reference extraction |
 
-All of the above (plus any file with a leading `---` YAML frontmatter block) get **topic** extraction from a `topics:`/`tags:` list — for a bare `.json`/`.yaml`/`.yml` file, a top-level `topics:`/`tags:` key works with no frontmatter markers needed.
+All of the above (plus any file with a leading `---` YAML frontmatter block) get **topic** extraction from a `topics:`/`tags:` list - for a bare `.json`/`.yaml`/`.yml` file, a top-level `topics:`/`tags:` key works with no frontmatter markers needed.
 
-The default `extensions` (`.md`/`.markdown`/`.txt`/`.yaml`/`.yml`) only cover docs — indexing source code, HTML, or JSON requires opting in explicitly, so pointing `indexFolder` at a project root never silently walks an entire source tree by surprise:
+The default `extensions` (`.md`/`.markdown`/`.txt`/`.yaml`/`.yml`) only cover docs - indexing source code, HTML, or JSON requires opting in explicitly, so pointing `indexFolder` at a project root never silently walks an entire source tree by surprise:
 
 ```yaml
 codeIntelligence:
@@ -39,7 +39,7 @@ codeIntelligence:
   extensions: [".md", ".yaml"]  # optional; defaults to .md/.markdown/.txt/.yaml/.yml
 ```
 
-`path` is not accepted here — see the note above. Run `kdeps run` (or the `code_index_folder` agent tool) from inside the directory you want indexed.
+`path` is not accepted here - see the note above. Run `kdeps run` (or the `code_index_folder` agent tool) from inside the directory you want indexed.
 
 **Output:**
 ```json
@@ -50,7 +50,7 @@ codeIntelligence:
 }
 ```
 
-**Graph a single file** — its references, plus every other indexed file sharing a topic with it:
+**Graph a single file** - its references, plus every other indexed file sharing a topic with it:
 
 ```yaml
 codeIntelligence:
@@ -80,7 +80,7 @@ codeIntelligence:
   # path: /path/to/docs  # optional: locate the graph db elsewhere; defaults to <CWD>/.kdeps/graph.db
 ```
 
-**Graph the whole index** — the full reference graph plus every root file (files nothing else references):
+**Graph the whole index** - the full reference graph plus every root file (files nothing else references):
 
 ```yaml
 codeIntelligence:

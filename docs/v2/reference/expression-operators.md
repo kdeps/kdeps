@@ -1,8 +1,8 @@
-# Expression Operators
+# Expression operators
 
 All comparison and logical operators available in `validations.check`, `validations.skip`, and any boolean expression context.
 
-## Comparison Operators
+## Comparison operators
 
 | Operator | Description | Example |
 |---|---|---|
@@ -13,7 +13,7 @@ All comparison and logical operators available in `validations.check`, `validati
 | `<` / `lt` | Less than | `get('price') < 100` |
 | `<=` / `lte` | Less than or equal | `get('count') <= 10` |
 
-## String Operators
+## String operators
 
 | Operator | Description | Example |
 |---|---|---|
@@ -22,7 +22,7 @@ All comparison and logical operators available in `validations.check`, `validati
 | `endsWith` | String ends with suffix | `get('file') endsWith '.pdf'` |
 | `matches` | Regex match | `get('email') matches '^[^@]+@[^@]+$'` |
 
-## Array Operators
+## Array operators
 
 | Operator | Description | Example |
 |---|---|---|
@@ -31,7 +31,7 @@ All comparison and logical operators available in `validations.check`, `validati
 | `contains` | Array contains value | `get('tags') contains 'featured'` |
 | `len` | Array or string length | `len(get('items')) > 0` |
 
-## Logical Operators
+## Logical operators
 
 | Operator | Description | Example |
 |---|---|---|
@@ -39,7 +39,7 @@ All comparison and logical operators available in `validations.check`, `validati
 | `\|\|` / `or` | Logical OR | `get('role') == 'admin' \|\| get('role') == 'mod'` |
 | `!` / `not` | Logical NOT | `!get('isBanned')` |
 
-## Membership & Null
+## Membership & null
 
 | Operator | Description | Example |
 |---|---|---|
@@ -48,7 +48,7 @@ All comparison and logical operators available in `validations.check`, `validati
 | `? :` | Ternary conditional | `get('score') >= 70 ? 'pass' : 'fail'` |
 | `nil` | Check for nil/null | `get('optional') != nil` |
 
-## Operator Precedence
+## Operator precedence
 
 Highest to lowest:
 
@@ -63,7 +63,7 @@ Highest to lowest:
 9. Ternary: `? :`
 10. Null coalescing: `??`
 
-## Usage Contexts
+## Usage contexts
 
 ### In validations.check (all must pass)
 

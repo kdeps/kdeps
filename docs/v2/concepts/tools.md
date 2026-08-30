@@ -1,4 +1,4 @@
-# Tools (Function Calling)
+# Tools (function calling)
 
 Tools let an LLM call other resources mid-response. When the LLM decides a tool is needed, kdeps runs the target resource, feeds the result back to the LLM, and the LLM continues. The LLM only sees the tool's output -- it does not see the resource YAML.
 
@@ -51,9 +51,9 @@ tools:
         required: true
 ```
 
-## Tool Types
+## Tool types
 
-### Resource-Based Tools
+### Resource-based tools
 
 Tools that reference other KDeps resources:
 
@@ -88,7 +88,7 @@ chat:
 
 </div>
 
-### External MCP Tools
+### External MCP tools
 
 Use `mcp:` instead of `script:` to call a tool on an external MCP server. kdeps spawns the server as a subprocess, performs the JSON-RPC initialize handshake, calls the tool, and shuts the process down.
 
@@ -119,7 +119,7 @@ tools:
 
 `mcp:` and `script:` are mutually exclusive. A fresh subprocess is started per tool invocation.
 
-**Example — filesystem access via npx:**
+**Example - filesystem access via npx:**
 
 <div v-pre>
 
@@ -142,7 +142,7 @@ chat:
 
 </div>
 
-### Multiple Tools
+### Multiple tools
 
 Define multiple tools for different capabilities:
 
@@ -195,7 +195,7 @@ chat:
 
 </div>
 
-## Parameter Types
+## Parameter types
 
 | Type | Description | Example |
 |------|-------------|---------|
@@ -206,7 +206,7 @@ chat:
 | `object` | JSON object | `{"key": "value"}` |
 | `array` | List of values | `[1, 2, 3]` |
 
-## Tool Execution Flow
+## Tool execution flow
 
 ```
 User Prompt

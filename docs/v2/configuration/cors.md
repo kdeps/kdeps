@@ -1,8 +1,8 @@
-# CORS Configuration
+# CORS configuration
 
 CORS controls which browser origins can call your API. Set it inside the `cors:` block under `apiServer:`. If no `cors:` block is present, kdeps allows all origins with credentials enabled by default.
 
-## Basic Configuration
+## Basic configuration
 
 ```yaml
 # workflow.yaml
@@ -28,7 +28,7 @@ settings:
       maxAge: "24h"
 ```
 
-## Configuration Fields
+## Configuration fields
 
 | Field | Type | Description |
 |-------|------|-------------|
@@ -39,9 +39,9 @@ settings:
 | `allowCredentials` | boolean | Allows credentials (e.g., cookies, HTTP authentication) in CORS requests (default: `true`) |
 | `maxAge` | string | Maximum duration for caching CORS preflight responses (e.g., `"24h"`, `"12h"`). Default: `"12h"` |
 
-## Common Scenarios
+## Common scenarios
 
-### Default Behavior: Smart Auto-configuration
+### Default behavior: smart auto-configuration
 
 By default, KDeps enables CORS and allows all origins while supporting credentials. This is ideal for local development where your frontend might be on a different port (e.g., Vite on `:5173`) than your API (e.g., KDeps on `:16395`).
 
@@ -54,7 +54,7 @@ cors:
   allowCredentials: true
 ```
 
-### Production: Specific Origins
+### Production: specific origins
 
 For production, it is highly recommended to restrict to specific domains:
 
@@ -81,7 +81,7 @@ cors:
   maxAge: "24h"
 ```
 
-### Multiple Environments
+### Multiple environments
 
 You can configure different CORS settings for different environments:
 
@@ -100,7 +100,7 @@ cors:
   maxAge: "24h"
 ```
 
-## How CORS Works
+## How CORS works
 
 1. **Simple Requests**: For simple requests (GET, POST with certain content types), the browser sends the request directly with an `Origin` header.
 
@@ -114,7 +114,7 @@ cors:
    - `Access-Control-Allow-Credentials`: Whether credentials are allowed
    - `Access-Control-Max-Age`: How long to cache preflight responses
 
-## Best Practices
+## Best practices
 
 ### Security
 
@@ -134,7 +134,7 @@ cors:
 
 ## Troubleshooting
 
-### CORS Errors in Browser
+### CORS errors in browser
 
 If you see CORS errors in the browser console:
 
@@ -143,14 +143,14 @@ If you see CORS errors in the browser console:
 3. **Check Headers**: Verify custom headers are in `allowHeaders`.
 4. **Credentials Mismatch**: If using credentials, ensure `allowCredentials: true` and origins are not `"*"`.
 
-### Common Error Messages
+### Common error messages
 
 - **"No 'Access-Control-Allow-Origin' header"**: Origin not in `allowOrigins`.
 - **"Method not allowed"**: HTTP method not in `allowMethods`.
 - **"Header not allowed"**: Custom header not in `allowHeaders`.
 - **"Credentials not allowed"**: Using credentials with wildcard origin (`"*"`).
 
-## Example: Full Configuration
+## Example: full configuration
 
 ```yaml
 # workflow.yaml

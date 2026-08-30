@@ -1,4 +1,4 @@
-# Transcribe Resource
+# Transcribe resource
 
 The `transcribe:` resource converts speech in an audio file to text using a Whisper model -- OpenAI's API, Groq's API, a self-hosted OpenAI-compatible server, or fully offline via a local `whisper-cli` binary with no API key at all.
 
@@ -6,7 +6,7 @@ The `transcribe:` resource converts speech in an audio file to text using a Whis
 
 Both [workflow mode](/modes/workflow-mode) and [agent mode](/modes/agent-loop-mode). In agent mode, the same executor is available as the `transcribe_audio` built-in tool.
 
-## Basic Usage
+## Basic usage
 
 ```yaml
 # resources/transcribe.yaml
@@ -56,7 +56,7 @@ transcribe:
   language: en
 ```
 
-## Configuration Options
+## Configuration options
 
 | Option | Applies to | Description |
 |---|---|---|

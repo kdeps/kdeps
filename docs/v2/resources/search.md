@@ -1,4 +1,4 @@
-# Search Resources
+# Search resources
 
 kdeps provides two native search executors compiled into the binary: `searchLocal` for local file search and `searchWeb` for web search.
 
@@ -6,7 +6,7 @@ kdeps provides two native search executors compiled into the binary: `searchLoca
 
 Both [workflow mode](/modes/workflow-mode) and [agent mode](/modes/agent-loop-mode). In workflow mode each executor runs as a DAG step. In agent mode, the workflow containing these resources runs as a single callable tool.
 
-## searchLocal
+## Searchlocal
 
 Walks a local directory and returns matching files by filename glob pattern and/or content keyword, with an optional persistent TF-IDF index for ranked results.
 
@@ -19,7 +19,7 @@ searchLocal:
 
 See [searchLocal Resource](/resources/searchlocal) for the full field reference, indexed/ranked search, and `graphBoost`.
 
-## searchWeb
+## Searchweb
 
 Queries the web and returns structured results. Default provider is DuckDuckGo -- no connection or API key required; Brave, Bing, and Tavily need a named connection.
 

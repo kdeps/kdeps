@@ -1,8 +1,8 @@
-# SQL Resource Examples
+# SQL resource examples
 
 Example queries for the [`sql:` resource](/resources/sql). All examples use parameterized queries to prevent SQL injection.
 
-## User Lookup
+## User lookup
 
 ```yaml
 # resources/user-lookup.yaml
@@ -26,7 +26,7 @@ sql:
   timeout: 10s
 ```
 
-## Analytics Query
+## Analytics query
 
 ```yaml
 # resources/analytics.yaml
@@ -52,7 +52,7 @@ sql:
   timeout: 60s
 ```
 
-## Multi-Database Sync
+## Multi-database sync
 
 <div v-pre>
 
@@ -86,7 +86,7 @@ sql:
 
 </div>
 
-## Search with LLM Enhancement
+## Search with LLM enhancement
 
 <div v-pre>
 

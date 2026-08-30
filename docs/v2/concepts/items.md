@@ -1,8 +1,8 @@
-# Items Iteration
+# Items iteration
 
 `items:` runs a resource once per entry in a list -- like a for-each loop, but each iteration is a full resource execution with its own output.
 
-## Basic Usage
+## Basic usage
 
 <div v-pre>
 
@@ -21,7 +21,7 @@ chat:
 
 </div>
 
-## Item Context
+## Item context
 
 When processing items, special getters are available:
 
@@ -34,11 +34,11 @@ When processing items, special getters are available:
 | `get('count')` | Total number of items |
 | `get('all')` | Array of all items |
 
-## The `item` Object
+## The `item` object
 
 You can also access item context through the `item` object with callable methods:
 
-### Method Syntax
+### Method syntax
 
 ```yaml
 # resources/example.yaml
@@ -65,7 +65,7 @@ after:
 
 Both syntaxes are equivalent. Use whichever is more readable for your use case.
 
-### Example: Using item Object
+### Example: using item object
 
 <div v-pre>
 
@@ -90,7 +90,7 @@ chat:
 
 </div>
 
-## Accessing All Item Values
+## Accessing all item values
 
 After processing, you can access all collected values from a resource that uses items:
 
@@ -118,7 +118,7 @@ apiResponse:
 
 ## Examples
 
-### Simple Processing
+### Simple processing
 
 <div v-pre>
 
@@ -137,7 +137,7 @@ chat:
 
 </div>
 
-### With Context
+### With context
 
 <div v-pre>
 
@@ -157,7 +157,7 @@ chat:
 
 </div>
 
-### Skip Specific Items
+### Skip specific items
 
 <div v-pre>
 
@@ -178,7 +178,7 @@ chat:
 
 </div>
 
-### Conditional Processing
+### Conditional processing
 
 Items iterate over expressions that evaluate to strings. To filter, use `skip` on the value:
 

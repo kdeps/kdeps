@@ -1,4 +1,4 @@
-# searchLocal Resource
+# Searchlocal resource
 
 The `searchLocal` executor walks a local directory and returns matching files by filename glob pattern and/or content keyword. See [Search Resources](/resources/search) for how it relates to `searchWeb`.
 

@@ -1,4 +1,4 @@
-# Request Object
+# Request object
 
 The `request` object gives you direct access to the HTTP request -- method, path, headers, query params, body, and uploaded files. It is available in all expressions and `expr` blocks when running in workflow mode.
 
@@ -18,7 +18,7 @@ after:
   - set('body', request.body)
 ```
 
-### Available Properties
+### Available properties
 
 | Property | Type | Description |
 |----------|------|-------------|
@@ -32,7 +32,7 @@ after:
 
 ## Methods
 
-### File Access Methods
+### File access methods
 
 #### `request.file(name)`
 
@@ -121,7 +121,7 @@ after:
   - set('imageCount', len(get('allImages')))
 ```
 
-### File Information Methods
+### File information methods
 
 #### `request.filecount()`
 
@@ -168,7 +168,7 @@ after:
 
 **Returns:** Array of MIME types (strings)
 
-### Request Data Methods
+### Request data methods
 
 #### `request.data()`
 
@@ -223,7 +223,7 @@ after:
 
 ## Examples
 
-### File Upload Processing
+### File upload processing
 
 <div v-pre>
 
@@ -256,7 +256,7 @@ chat:
 
 </div>
 
-### Multi-File Processing
+### Multi-file processing
 
 <div v-pre>
 
@@ -281,7 +281,7 @@ chat:
 
 </div>
 
-### Request Metadata
+### Request metadata
 
 <div v-pre>
 
@@ -304,7 +304,7 @@ apiResponse:
 
 </div>
 
-### Conditional Processing Based on Request
+### Conditional processing based on request
 
 ```yaml
 # resources/example.yaml
@@ -324,7 +324,7 @@ validations:
     message: Authorization required
 ```
 
-### File Type Validation
+### File type validation
 
 ```yaml
 # resources/example.yaml
@@ -341,7 +341,7 @@ validations:
     message: Only PNG, JPEG, and PDF files are allowed
 ```
 
-## Comparison with Unified API
+## Comparison with unified API
 
 The `request` object provides an alternative way to access request data. Both approaches work:
 
@@ -363,7 +363,7 @@ The `request` object provides an alternative way to access request data. Both ap
 
 **Recommendation:** Use the Unified API (`get()`, `info()`) for consistency, but `request` object methods are available as a convenience shorthand.
 
-## Best Practices
+## Best practices
 
 1. **Use for file operations** - `request.file()`, `request.filepath()`, etc. are convenient for file handling
 2. **Check file count first** - Use `request.filecount()` before accessing files

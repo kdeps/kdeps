@@ -1,8 +1,8 @@
-# Route and Method Restrictions
+# Route and method restrictions
 
 `validations:` gates which HTTP methods and routes can trigger a resource -- resources are skipped silently when the incoming request does not match.
 
-## HTTP Method Restrictions
+## HTTP method restrictions
 
 Limit a resource to specific HTTP methods using `methods:` inside the `validations:` block:
 
@@ -26,7 +26,7 @@ When `methods:` is set inside `validations:`:
 - Mismatched methods skip the resource silently
 - Multiple methods can be specified
 
-### Common Patterns
+### Common patterns
 
 **CRUD Operations:**
 
@@ -73,7 +73,7 @@ sql:
       params: ["{{ get('id') }}"]
 ```
 
-## Route Restrictions
+## Route restrictions
 
 Limit a resource to specific URL routes using `routes:` inside the `validations:` block:
 
@@ -90,7 +90,7 @@ sql:
     - query: "SELECT * FROM admin_stats"
 ```
 
-### Route Patterns
+### Route patterns
 
 | Pattern | Matches | Does Not Match |
 |---------|---------|----------------|
@@ -152,7 +152,7 @@ sql:
     - query: "SELECT * FROM content"
 ```
 
-## Combining Restrictions
+## Combining restrictions
 
 Combine method and route restrictions for precise control:
 
@@ -182,7 +182,7 @@ sql:
       params: ["{{ get('id') }}"]
 ```
 
-## RESTful API Example
+## RESTful API example
 
 Complete RESTful API using restrictions:
 
@@ -281,7 +281,7 @@ sql:
       params: ["{{ get('id') }}"]
 ```
 
-## Best Practices
+## Best practices
 
 1. **Be Specific**: Use exact routes when possible rather than wildcards
 2. **Combine with [`check`](/reference/glossary#check)**: Add preflight validation for secure endpoints
@@ -290,7 +290,7 @@ sql:
 
 ## See also
 
-- [Validation and Control Flow](/concepts/validation-and-control) — Full `validations:` block reference
-- [Request Object](/concepts/request-object) — Accessing request data
-- [Workflow Configuration](../configuration/workflow) — Route configuration
-- [Resources Overview](../resources/overview) — Resource basics
+- [Validation and Control Flow](/concepts/validation-and-control) - Full `validations:` block reference
+- [Request Object](/concepts/request-object) - Accessing request data
+- [Workflow Configuration](../configuration/workflow) - Route configuration
+- [Resources Overview](../resources/overview) - Resource basics

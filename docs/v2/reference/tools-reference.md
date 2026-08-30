@@ -1,10 +1,10 @@
-# Tools Reference
+# Tools reference
 
 Examples, best practices, and debugging guidance for the [`tools:` block](/concepts/tools) in `chat:` resources.
 
 ## Examples
 
-### Calculator Tool
+### Calculator tool
 
 <div v-pre>
 
@@ -60,7 +60,7 @@ chat:
 
 </div>
 
-### Database Search Tool
+### Database search tool
 
 <div v-pre>
 
@@ -107,7 +107,7 @@ chat:
 
 </div>
 
-### Weather API Tool
+### Weather API tool
 
 <div v-pre>
 
@@ -137,7 +137,7 @@ chat:
 
 </div>
 
-### Multi-Tool Agent
+### Multi-tool agent
 
 <div v-pre>
 
@@ -192,7 +192,7 @@ chat:
 
 </div>
 
-## Tool Chaining
+## Tool chaining
 
 LLMs can chain multiple tools together:
 
@@ -205,9 +205,9 @@ LLMs can chain multiple tools together:
 4. Gets result: `1842.23`
 5. Responds: "The total for laptops under $1000 with tax is $1842.23"
 
-## Best Practices
+## Best practices
 
-### Write Clear Descriptions
+### Write clear descriptions
 
 ```yaml
 # Good - specific and helpful
@@ -220,7 +220,7 @@ description: |
 description: Search stuff
 ```
 
-### Define All Parameters
+### Define all parameters
 
 ```yaml
 # resources/example.yaml
@@ -239,7 +239,7 @@ parameters:
     required: false
 ```
 
-### Handle Errors in Tools
+### Handle errors in tools
 
 ```python
 try:
@@ -249,11 +249,11 @@ except Exception as e:
     print(json.dumps({"success": False, "error": str(e)}))
 ```
 
-### Keep Tools Focused
+### Keep tools focused
 
 Each tool should do one thing well. Create multiple simple tools rather than one complex tool.
 
-### Use Appropriate Models
+### Use appropriate models
 
 Tool calling works best with larger, instruction-tuned models:
 - `llama3.2` (good)
@@ -261,7 +261,7 @@ Tool calling works best with larger, instruction-tuned models:
 - `mistral` (good)
 - GPT-4, Claude (excellent)
 
-## Debugging Tools
+## Debugging tools
 
 Add logging to understand tool execution:
 
@@ -285,11 +285,11 @@ python:
 
 </div>
 
-## Built-In Agent Tools
+## Built-in agent tools
 
 These tools are registered automatically in [agent mode](/modes/agent-loop-mode) when the relevant API key is configured. They are available to the LLM without any `tools:` block in your YAML.
 
-### Google AI Cache Tools
+### Google AI cache tools
 
 Available when `google_api_key` is set in `~/.kdeps/config.yaml`. Use these to manage Google AI CachedContent resources -- pre-caching large context (documents, long system prompts) reduces latency and cost for repeated calls.
 

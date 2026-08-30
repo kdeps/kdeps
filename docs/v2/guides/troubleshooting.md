@@ -2,9 +2,9 @@
 
 Common errors, what they mean, and how to fix them.
 
-## Dependency Errors
+## Dependency errors
 
-### dependency cycle detected
+### Dependency cycle detected
 
 ```
 Error: dependency cycle detected (code: DEPENDENCY_CYCLE)
@@ -14,7 +14,7 @@ Two or more resources form a circular [`requires`](/reference/glossary#requires)
 
 Fix: break the cycle by removing one of the `requires` edges. If both resources genuinely need each other's output, merge them into a single resource.
 
-### resource 'X' depends on unknown resource 'Y'
+### Resource 'x' depends on unknown resource 'y'
 
 ```
 Error: resource 'fetchData' depends on unknown resource 'missingResource'
@@ -24,7 +24,7 @@ A `requires` field references an actionId that doesn't exist in the workflow.
 
 Fix: check for typos in the `requires` list, or add the missing resource. ActionIds are case-sensitive.
 
-### target resource 'X' not found
+### Target resource 'x' not found
 
 ```
 Error: target resource 'respond' not found
@@ -34,7 +34,7 @@ Error: target resource 'respond' not found
 
 Fix: ensure the actionId in [`targetActionId`](/reference/glossary#targetactionid) matches exactly (case-sensitive) one of the resources in the workflow.
 
-## Validation Errors
+## Validation errors
 
 ### Input validation failed
 
@@ -60,7 +60,7 @@ Fix: validate the expression syntax. Common causes:
 - Misspelled function names (`get` not `Get`, `len` not `length`)
 - Referencing a key that doesn't exist without a nil check
 
-## Expression Errors
+## Expression errors
 
 ### Expression evaluation failed
 
@@ -83,9 +83,9 @@ If `{{ get('missingKey') }}` renders as empty string, the key doesn't exist in a
 
 </div>
 
-## LLM / Chat Errors
+## LLM / chat errors
 
-### model not found
+### Model not found
 
 ```
 Error: model 'llama3.2' not found
@@ -122,7 +122,7 @@ Fix: set the appropriate environment variable:
 - Anthropic: `ANTHROPIC_API_KEY`
 - Or pass via `KDEPS_AGENT_BASE_URL` headers
 
-## HTTP Client Errors
+## HTTP client errors
 
 ### Resource execution timed out
 
@@ -153,7 +153,7 @@ Fix:
 - Check network connectivity from the kdeps host
 - If the service is behind a VPN or firewall, ensure access is allowed
 
-## Python Errors
+## Python errors
 
 ### Python script failed
 
@@ -168,7 +168,7 @@ Fix: check stderr output. Run the workflow with `--debug` to see full Python out
 - Syntax error in inline script
 - Python version incompatibility
 
-## Exec Errors
+## Exec errors
 
 ### Command not found
 
@@ -180,7 +180,7 @@ The shell command isn't available on the system.
 
 Fix: install the command or use the full path. Verify the command works in a regular shell first.
 
-## Loop Errors
+## Loop errors
 
 ### Loop exceeded max iterations
 
@@ -195,7 +195,7 @@ Fix:
 - Increase `maxIterations` if you genuinely need more iterations
 - Add an `every` delay to slow the loop if it's running too fast
 
-## Authentication Errors
+## Authentication errors
 
 ### 401 Unauthorized
 

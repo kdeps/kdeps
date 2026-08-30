@@ -1,4 +1,4 @@
-# Git Resource
+# Git resource
 
 The `git:` resource provides structured version control operations for reading repository state and making commits. It replaces ad-hoc shell commands (`exec git status`, `exec git log`) with type-safe, composable DAG operations that return structured output.
 
@@ -6,7 +6,7 @@ The `git:` resource provides structured version control operations for reading r
 
 Both [workflow mode](/modes/workflow-mode) and [agent mode](/modes/agent-loop-mode). In workflow mode it executes as a DAG step. In agent mode, the workflow containing this resource runs as a single callable tool.
 
-## Basic Usage
+## Basic usage
 
 ```yaml
 # resources/status.yaml
@@ -46,7 +46,7 @@ git:
 | `push` | Push to remote |
 | `pull` | Pull from remote |
 
-## Configuration Options
+## Configuration options
 
 | Option | Operation | Description |
 |--------|-----------|-------------|
@@ -62,7 +62,7 @@ git:
 | `dryRun` | add, commit, checkout, init, clone, push, pull | Preview without modifying |
 | `format` | log, show | Custom git format string |
 
-## Operation Details
+## Operation details
 
 ### Status
 
@@ -146,7 +146,7 @@ git:
   paths: ["src/main.go", "src/utils.go"]
 ```
 
-## Dry Run Mode
+## Dry run mode
 
 Every write operation supports `dryRun: true` to preview what would happen without modifying the repository:
 
@@ -158,7 +158,7 @@ git:
   dryRun: true
 ```
 
-## Best Practices
+## Best practices
 
 1. **Always set `workingDir`** - avoid ambiguity about which repository is being operated on
 2. **Use `dryRun` on write operations** - verify before committing, pushing, or checking out

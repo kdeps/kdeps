@@ -1,4 +1,4 @@
-# Workflow Configuration
+# Workflow configuration
 
 `workflow.yaml` is the entry point for a kdeps workflow. It declares metadata, the HTTP server or input source, agent settings, and SQL connections. Resources live in separate files under `resources/`. Credentials (SMTP, IMAP, HTTP auth, search API keys) live in `~/.kdeps/config.yaml` -- not here.
 
@@ -77,7 +77,7 @@ agents:
 
 In an [agency](/reference/glossary#agency), each agent resolves its own profile independently. Without a matching profile, the global config is used unchanged. On startup, kdeps warns about profiles that don't match any installed workflow name (non-fatal).
 
-## API Server
+## API server
 
 `apiServer` starts an HTTP server. TLS certificate paths go in `settings` (not under `apiServer`).
 
@@ -116,7 +116,7 @@ settings:
 
 See [Security](advanced.md#security) for the full security reference.
 
-### Let's Encrypt (custom domain)
+### Let's encrypt (custom domain)
 
 ```yaml
 settings:
@@ -130,7 +130,7 @@ settings:
 
 DNS must point at this host; open ports **80** and **443**. Full guide: [TLS and HTTPS](/deployment/tls-https). Static `certFile`/`keyFile` still take priority when both are set.
 
-## Web Server
+## Web server
 
 `webServer` serves static files or proxies to a running app process. Use it alongside `apiServer` to serve a frontend next to your API.
 
@@ -157,7 +157,7 @@ settings:
         command: "streamlit run app.py"
 ```
 
-## Agent Settings
+## Agent settings
 
 `agentSettings` controls the runtime environment. These settings affect Docker image builds and local execution.
 
@@ -186,7 +186,7 @@ example pins a backend, e.g. `KDEPS_DEFAULT_BACKEND: ollama`.
 
 Model selection goes in `chat.model` inside each resource file. Backend and API keys go in `~/.kdeps/config.yaml`. See [LLM Backends](../resources/llm-backends) for routing.
 
-## SQL Connections
+## SQL connections
 
 Named SQL connections are split across two files: the connection string (DSN) lives in `~/.kdeps/config.yaml` (machine-local, never committed), and pool config lives in `workflow.yaml`.
 

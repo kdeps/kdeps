@@ -1,8 +1,8 @@
-# CLI Reference
+# CLI reference
 
 The `kdeps` CLI creates, runs, tests, packages, and deploys agents. All commands follow `kdeps [command] [options]`.
 
-## Global Flags
+## Global flags
 
 All commands support these global flags:
 
@@ -12,7 +12,7 @@ All commands support these global flags:
 | `--debug` | Enable DEBUG-level log output with source locations |
 | `--instrument` | Enable call-chain instrumentation tracing |
 
-### Structured Logging
+### Structured logging
 
 kdeps uses structured JSON logging via Go's `log/slog`. Warnings and errors go to stderr in human-readable format by default.
 
@@ -51,9 +51,9 @@ kdeps run workflow.yaml
 | `kdeps export k8s` | [Packaging Commands](/reference/cli/packaging#kdeps-export-k8s) | Generate Kubernetes manifests |
 | `kdeps llm` | [LLM Commands](/reference/cli/llm) | LLM server appliances |
 
-## Command Workflow
+## Command workflow
 
-### Typical Development Flow
+### Typical development flow
 
 ```bash
 # 1. Create new agent
@@ -73,7 +73,7 @@ kdeps bundle package . --output dist/
 kdeps bundle build dist/my-agent-1.0.0.kdeps --tag my-agent:latest
 ```
 
-### Production Deployment Flow
+### Production deployment flow
 
 ```bash
 # 1. Validate before packaging
@@ -91,7 +91,7 @@ kdeps bundle build dist/my-agent-1.0.0.kdeps \
 docker push registry.com/my-agent:v1.0.0
 ```
 
-### Kubernetes Deployment Flow
+### Kubernetes deployment flow
 
 ```bash
 # 1. Build Docker image
@@ -108,7 +108,7 @@ kubectl apply -f k8s.yaml
 kubectl rollout status deployment/my-agent
 ```
 
-## Exit Codes
+## Exit codes
 
 | Code | Meaning |
 |---|---|
@@ -117,7 +117,7 @@ kubectl rollout status deployment/my-agent
 | `2` | Validation error |
 | `3` | Execution error |
 
-## Environment Variables
+## Environment variables
 
 | Variable | Description |
 |---|---|

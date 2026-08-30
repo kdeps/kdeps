@@ -1,4 +1,4 @@
-# Security Reference
+# Security reference
 
 Every request passes through a chain of gates before reaching the workflow DAG. Each gate can reject the request with a specific status code.
 
@@ -58,7 +58,7 @@ export KDEPS_API_AUTH_TOKEN="your-secret-token"
 
 No `auth:` block in `workflow.yaml`. The token is never stored in the workflow file.
 
-## Trusted Proxies
+## Trusted proxies
 
 `X-Forwarded-For` and `X-Real-IP` are ignored unless the direct TCP peer matches an entry in `trustedProxies`. This prevents clients from spoofing their IP for rate limiting and request context. Configure CIDRs or exact IPs for your load balancer or ingress.
 
@@ -74,7 +74,7 @@ settings:
 
 Without `trustedProxies`, kdeps uses `RemoteAddr` only. When both `apiServer` and `webServer` are configured, entries from both blocks are merged for rate limiting and request IP context.
 
-## Security Headers
+## Security headers
 
 Both `apiServer` and `webServer` responses include defensive HTTP headers on every response:
 
@@ -86,11 +86,11 @@ Both `apiServer` and `webServer` responses include defensive HTTP headers on eve
 
 `apiServer` also sets a strict `Content-Security-Policy` (`default-src 'none'; frame-ancestors 'none'; base-uri 'none'`) on JSON API responses. `webServer` omits CSP so proxied apps (Streamlit, Gradio, SPAs) are not blocked.
 
-### webServer-only mode
+### Webserver-only mode
 
 When only `webServer` is configured (no `apiServer`), kdeps does not enforce bearer auth. Static files and app proxies are world-readable if bound to `0.0.0.0` unless you add an ingress with auth. You can still set `rateLimit`, `maxBodyBytes`, and `maxConcurrent` under `webServer` to throttle abuse.
 
-## Rate Limiting
+## Rate limiting
 
 Limit requests per client IP using a token-bucket algorithm. `requestsPerMinute` is the sustained rate; `burst` is the number of requests allowed above that rate in a single burst. Clients that exceed the limit receive a `429` response with a `Retry-After: 60` header.
 
@@ -120,7 +120,7 @@ settings:
         publicPath: "./public"
 ```
 
-## Body Size Limit
+## Body size limit
 
 Cap the size of incoming request bodies. Requests that exceed `maxBodyBytes` receive a `413` response. This limit does not apply to `multipart/form-data` uploads.
 
@@ -148,7 +148,7 @@ settings:
         methods: [POST]
 ```
 
-### Let's Encrypt (custom domain)
+### Let's encrypt (custom domain)
 
 Automatic ACME certificates for a **custom domain** (HTTP-01 on port 80 + TLS-ALPN-01 on HTTPS). Point DNS A/AAAA at this host; prefer listen **:443**.
 
@@ -178,7 +178,7 @@ Docker/K8s: publish **80** and **443**; keep `cacheDir` on a writable volume.
 Full guide: [TLS and HTTPS (Custom Domains)](/deployment/tls-https).
 
 
-## Concurrent Request Limit
+## Concurrent request limit
 
 Cap the number of simultaneous in-flight requests. When the limit is reached, new requests receive `503 Service Unavailable` immediately rather than queuing. Omit or set to `0` to disable.
 
@@ -189,7 +189,7 @@ settings:
     maxConcurrent: 50
 ```
 
-## Build-Time Env (Docker and Kubernetes Export)
+## Build-time env (Docker and Kubernetes export)
 
 `agentSettings.env` is embedded into generated Dockerfiles and Kubernetes manifests. Plain keys become `ENV` / `value:` entries. kdeps rejects auth tokens at Docker build time (`KDEPS_API_AUTH_TOKEN`, `KDEPS_MANAGEMENT_TOKEN`) and any secret-like key (`_TOKEN`, `_SECRET`, `_PASSWORD`, `_API_KEY`, etc.) in both Docker and Kubernetes export.
 
@@ -222,7 +222,7 @@ env:
         key: OPENAI_API_KEY
 ```
 
-## Request Body Size Preflight
+## Request body size preflight
 
 The agent loop checks the estimated request body size before every LLM API call. Providers with strict payload caps (e.g. DashScope at 6 MB) silently reject oversized requests -- the preflight catches this before the call is made, returning an actionable error message.
 
@@ -249,7 +249,7 @@ WARN backend "dashscope" has a 6.0 MB request body limit --
      reduce MaxHistoryTokens if you hit payload errors
 ```
 
-## Resource Output Caps
+## Resource output caps
 
 Four environment variables limit how many bytes executor resources return to the workflow engine. Set them in `agentSettings.env`.
 

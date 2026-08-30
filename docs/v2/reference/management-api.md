@@ -37,7 +37,7 @@ Authorization: Bearer mysecret
 | Token wrong or header missing | `401 Unauthorized` |
 | Token correct | Handler runs |
 
-## Size Limits
+## Size limits
 
 | Endpoint | Limit | Over-limit response |
 |----------|-------|---------------------|
@@ -46,7 +46,7 @@ Authorization: Bearer mysecret
 
 Oversized uploads are rejected before any data is written to disk.
 
-## Status Response
+## Status response
 
 ```json
 {
@@ -90,13 +90,13 @@ curl -X POST \
   http://localhost:16395/_kdeps/reload
 ```
 
-## Restart Persistence
+## Restart persistence
 
-When a new workflow is pushed, kdeps writes it to the same path that was given at startup (or `/app/workflow.yaml` inside Docker). The workflow path is never changed after push — only the file contents are updated. On the next restart, kdeps reads the updated file automatically.
+When a new workflow is pushed, kdeps writes it to the same path that was given at startup (or `/app/workflow.yaml` inside Docker). The workflow path is never changed after push - only the file contents are updated. On the next restart, kdeps reads the updated file automatically.
 
 After a YAML push, any stale `.yaml`/`.yml` files in the `resources/` sibling directory are removed. This prevents duplicate resource loading the management API inlines all resources into a single `workflow.yaml`.
 
-Package pushes extract the full archive in-place — `resources/`, `data/`, and `scripts/` are all replaced or added.
+Package pushes extract the full archive in-place - `resources/`, `data/`, and `scripts/` are all replaced or added.
 
 ## Security
 

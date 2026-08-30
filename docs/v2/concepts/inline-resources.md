@@ -1,8 +1,8 @@
-# Inline Resources
+# Inline resources
 
 Inline resources are full resource actions (chat, httpClient, sql, python, exec, file) placed directly inside a resource's `before:` or `after:` block. They run as part of that resource instead of requiring separate files.
 
-## Basic Syntax
+## Basic syntax
 
 ```yaml
 # resources/example.yaml
@@ -30,13 +30,13 @@ after:
       script: "print('Post-processing complete')"
 ```
 
-## Supported Resource Types
+## Supported resource types
 
 Each inline resource can be any supported execution block, including `chat`, `httpClient`, `sql`, `python`, `exec`, `agent`, `component`, `scraper`, `embedding`, `searchLocal`, `searchWeb`, `telephony`, `browser`, `botReply`, `email`, `file`, `git`, `codeIntelligence`, `loader`, `vectorStore`, `transcribe`, `ocr`, or `apiResponse`. Every execution type works as either the resource primary block or as an inline step in `before:`/`after:`.
 
 When `apiResponse` is the only primary block and the resource has `before:` or `after:` inline steps, the response is evaluated exactly once - after all `before:` steps have run - so API clients always receive a single response object.
 
-## Execution Order
+## Execution order
 
 ```d2
 direction: down
@@ -50,9 +50,9 @@ E: "expressions in after:\nset() / get() statements"
 A -> B -> C -> D -> E
 ```
 
-## Common Use Cases
+## Common use cases
 
-### 1. Data Enrichment
+### 1. Data enrichment
 
 Fetch additional data before processing:
 
@@ -68,7 +68,7 @@ chat:
   prompt: "Analyze user: {{get('_output')}}"
 ```
 
-### 2. Logging and Auditing
+### 2. Logging and auditing
 
 Record operations in a database:
 
@@ -102,7 +102,7 @@ after:
         timestamp: "{{now()}}"
 ```
 
-### 4. Environment Setup
+### 4. Environment setup
 
 Prepare files or environment before execution:
 
@@ -138,7 +138,7 @@ after:
       params: ["{{get('query_hash')}}", "{{get('_output')}}"]
 ```
 
-## Multiple Inline Resources
+## Multiple inline resources
 
 You can have multiple inline resources of the same or different types:
 
@@ -168,7 +168,7 @@ after:
       url: "https://api.example.com/complete"
 ```
 
-## Resources Without Main Type
+## Resources without main type
 
 You can have a resource with only inline resources and no main resource type:
 
@@ -187,7 +187,7 @@ after:
 
 This is useful for orchestration tasks where you need to coordinate multiple operations.
 
-## Error Handling
+## Error handling
 
 If an inline resource fails:
 - Execution stops immediately
@@ -214,7 +214,7 @@ onError:
     message: "Processing failed"
 ```
 
-## Accessing Context
+## Accessing context
 
 Inline resources have access to the full execution context:
 
@@ -234,11 +234,11 @@ chat:
   prompt: "User data: {{get('_output')}}"
 ```
 
-## Configuration Options
+## Configuration options
 
 Each inline resource supports the same configuration options as the standalone resource:
 
-### HTTP Client
+### HTTP client
 ```yaml
 # resources/example.yaml
 - httpClient:
@@ -296,7 +296,7 @@ Each inline resource supports the same configuration options as the standalone r
     timeout: 30s
 ```
 
-## Best Practices
+## Best practices
 
 1. **Keep inline resources focused**: Each should perform a single, well-defined task
 2. **Use descriptive configurations**: Make it clear what each inline resource does
@@ -306,9 +306,9 @@ Each inline resource supports the same configuration options as the standalone r
 6. **Use expressions**: Access context data with <span v-pre>`{{get('variable')}}`</span>
 7. **Consider alternatives**: For complex workflows, separate resources may be clearer
 
-## Comparison with Separate Resources
+## Comparison with separate resources
 
-### Traditional Approach (Separate Resources)
+### Traditional approach (separate resources)
 ```yaml
 # 5 separate resource files
 - fetch-config.yaml
@@ -318,7 +318,7 @@ Each inline resource supports the same configuration options as the standalone r
 - send-notification.yaml
 ```
 
-### With Inline Resources
+### With inline resources
 ```yaml
 # Single resource file
 before:
@@ -337,9 +337,9 @@ after:
 - Reduced boilerplate
 - Easier to understand and maintain
 
-## Advanced Patterns
+## Advanced patterns
 
-### Conditional Inline Resources
+### Conditional inline resources
 
 Use expressions with inline resources:
 
@@ -355,7 +355,7 @@ after:
   - set('notification_sent', get('should_notify') == true)
 ```
 
-### Combining with Items
+### Combining with items
 
 Inline resources work with the `items` feature:
 

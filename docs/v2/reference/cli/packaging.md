@@ -1,4 +1,4 @@
-# Packaging Commands
+# Packaging commands
 
 Package workflows for distribution and generate deployment artifacts.
 

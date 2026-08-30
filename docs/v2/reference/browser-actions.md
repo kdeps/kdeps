@@ -1,4 +1,4 @@
-# Browser Action Types Reference
+# Browser action types reference
 
 Complete reference for all action types available in the `actions:` list of a [`browser:` resource](/resources/browser).
 

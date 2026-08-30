@@ -1,10 +1,10 @@
-# Python Resource Examples
+# Python resource examples
 
 Examples, error handling, and debugging guidance for the [`python:` resource](/resources/python).
 
 ## Examples
 
-### Data Transformation
+### Data transformation
 
 <div v-pre>
 
@@ -38,7 +38,7 @@ python:
 
 </div>
 
-### ML Inference
+### ML inference
 
 <div v-pre>
 
@@ -77,7 +77,7 @@ python:
 
 </div>
 
-### Text Processing
+### Text processing
 
 <div v-pre>
 
@@ -111,7 +111,7 @@ python:
 
 </div>
 
-### Image Processing
+### Image processing
 
 <div v-pre>
 
@@ -145,7 +145,7 @@ python:
 
 </div>
 
-### API Integration
+### API integration
 
 <div v-pre>
 
@@ -174,7 +174,7 @@ python:
 
 </div>
 
-## Error Handling
+## Error handling
 
 ```python
 import json
@@ -207,7 +207,7 @@ result = {"data": "value"}
 print(json.dumps(result))  # Only stdout is the resource output
 ```
 
-## Best Practices
+## Best practices
 
 - Always output JSON to stdout - kdeps parses it as the resource result
 - Handle exceptions and output `{"success": false, "error": "..."}` rather than crashing

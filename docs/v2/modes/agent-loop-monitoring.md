@@ -1,4 +1,4 @@
-# Tool Execution Monitoring
+# Tool execution monitoring
 
 How the [agent loop REPL](/modes/agent-loop-mode) shows a running tool's progress and handles one that stalls -- applies to every [built-in tool](/modes/agent-loop-tools), not just a specific category.
 
@@ -12,10 +12,10 @@ The monitor also detects hung tools. Staleness is measured by *silence*, not wal
 
 When a tool stalls, the default is **auto-increase**: the stall timeout is bumped by the increment (default 5m) and the bump is announced (`[Auto-stall allocation: stall timeout increased by 5m. New timeout: 15m.]`), so a long silent-but-alive command keeps running without a prompt. This is on by default.
 
-Two other modes are available via `/model tool set autokill <on|off>` (autokill and auto-increase are mutually exclusive — enabling one disables the other):
+Two other modes are available via `/model tool set autokill <on|off>` (autokill and auto-increase are mutually exclusive - enabling one disables the other):
 
-- `autokill on` — a stalled tool is **killed** at the stall timeout (no increase, no prompt), and the model gets a structured error so it can retry differently.
-- `autokill off` — the default auto-increase-and-announce behavior.
+- `autokill on` - a stalled tool is **killed** at the stall timeout (no increase, no prompt), and the model gets a structured error so it can retry differently.
+- `autokill off` - the default auto-increase-and-announce behavior.
 
 To be prompted interactively instead, turn both off in config; the REPL then offers `(i)ncrease` / `(k)ill` when a tool stalls.
 

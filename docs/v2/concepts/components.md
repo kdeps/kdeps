@@ -6,7 +6,7 @@ A component is a reusable, shareable resource bundle. kdeps has two kinds: regis
 
 Components encapsulate resources, configuration, and dependencies into a single package. Think of them as callable sub-workflows -- you invoke them with `component:` from any resource, pass typed inputs via `with:`, and get structured output back.
 
-## Types of Components
+## Types of components
 
 ### Registry components (installable)
 
@@ -42,7 +42,7 @@ my-workflow/
         └── resources/           ← component-specific resources
 ```
 
-## How Components Work
+## How components work
 
 1. Place a `component.yaml` in `components/<name>/` or install via `kdeps registry install`
 2. At parse time, kdeps scans `components/` and loads all component manifests
@@ -53,7 +53,7 @@ my-workflow/
 
 Components cannot contain `settings` (no server modes, port bindings) -- they are purely resource bundles.
 
-## Calling a Component
+## Calling a component
 
 ```yaml
 # resources/fetch.yaml
@@ -68,7 +68,7 @@ component:
 
 After execution, access results via `output('fetch-article')`.
 
-## Components as LLM Tools
+## Components as LLM tools
 
 Installed components can be exposed as LLM function-calling tools via `componentTools:` on a `chat:` resource. By default, no components are registered -- you opt in explicitly:
 

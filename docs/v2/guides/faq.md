@@ -1,4 +1,4 @@
-# Frequently Asked Questions
+# Frequently asked questions
 
 Common questions about kdeps installation, usage, and architecture.
 
@@ -14,7 +14,7 @@ Yes. kdeps is open source under the Apache 2.0 license. The CLI, engine, and all
 
 Use workflow mode when you know the pipeline upfront. Use agent mode when you want an interactive, conversational interface.
 
-## Do I need to know Go to use kdeps?
+## Do I need to know go to use kdeps?
 
 No. Workflows are written in YAML. The only code you might write is inline Python scripts or shell commands in `python`/`exec` resources.
 

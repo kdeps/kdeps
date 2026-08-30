@@ -1,8 +1,8 @@
-# LLM Server Appliance
+# LLM server appliance
 
 Provision a **standalone LLM inference appliance** (no kdeps agent, no workflow) to Docker, ISO, or Kubernetes. Any kdeps host uses it as a client over **OpenAI-compatible `/v1`**.
 
-Works for **both** workflow mode and agent mode clients — set `llm.backend: openai` and `llm.base_url` on the client machine.
+Works for **both** workflow mode and agent mode clients - set `llm.backend: openai` and `llm.base_url` on the client machine.
 
 Agent packaging (`kdeps bundle build` / `export iso` / `export k8s`) still deploys **agents**. `kdeps llm` deploys **only the inference server**.
 
@@ -29,7 +29,7 @@ E -> F: serve
 
 ## Commands
 
-No workflow path argument — select engine and model only.
+No workflow path argument - select engine and model only.
 
 ### Interactive wizard (TUI)
 
@@ -100,7 +100,7 @@ export KDEPS_LLM_BASE_URL=http://192.168.1.50:8000/v1
 
 Generate the same snippet with `kdeps llm client-config`.
 
-Chat resources keep using `chat.model` as usual — only the backend URL changes. Applies to **workflow mode** and **agent mode**.
+Chat resources keep using `chat.model` as usual - only the backend URL changes. Applies to **workflow mode** and **agent mode**.
 
 ## Stock recipes
 
@@ -212,12 +212,12 @@ Requires Docker and linuxkit (auto-downloaded, same tooling family as agent `exp
 
 ## Auth
 
-Default: no auth (private networks — document the risk). Opt in with recipe `api.auth` and CLI `--require-auth` / `--api-key-env`. On Kubernetes, put the key in a Secret (`--api-key-secret`).
+Default: no auth (private networks - document the risk). Opt in with recipe `api.auth` and CLI `--require-auth` / `--api-key-env`. On Kubernetes, put the key in a Secret (`--api-key-secret`).
 
 ## Related
 
-- [LLM backends](/resources/llm-backends) — client-side backend selection
-- [LLM Commands](/reference/cli/llm) — full CLI flag reference
-- [Docker deployment](/deployment/docker) — **agent** images (not appliances)
-- [Kubernetes deployment](/deployment/kubernetes) — **agent** manifests
+- [LLM backends](/resources/llm-backends) - client-side backend selection
+- [LLM Commands](/reference/cli/llm) - full CLI flag reference
+- [Docker deployment](/deployment/docker) - **agent** images (not appliances)
+- [Kubernetes deployment](/deployment/kubernetes) - **agent** manifests
 - Example project: `examples/llm-server/`

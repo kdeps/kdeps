@@ -1,4 +1,4 @@
-# Expression Helper Functions
+# Expression helper functions
 
 Expression helper functions give you safe nested-property access, null coalescing, JSON serialization, URL encoding, and conditionals -- the utilities you reach for after `get()` and `set()` are not enough.
 
@@ -16,7 +16,7 @@ Expression helper functions give you safe nested-property access, null coalescin
 | `input(key)` | Access request input |
 | `output(resourceId)` | Access resource output |
 
-## json()
+## Json()
 
 Converts any data structure to a JSON string. Useful for logging, debugging, or preparing data for external APIs.
 
@@ -74,7 +74,7 @@ after:
     }))
 ```
 
-## safe()
+## Safe()
 
 Safely accesses nested properties without throwing errors. Returns `nil` if any part of the path is missing.
 
@@ -129,7 +129,7 @@ after:
   - set('retries', default(safe(get('config'), 'http.retries'), 3))
 ```
 
-## debug()
+## Debug()
 
 Returns a formatted, indented JSON string representation of any data. Useful for development and troubleshooting.
 
@@ -185,7 +185,7 @@ apiResponse:
 
 </div>
 
-## default()
+## Default()
 
 Null coalescing operator. Returns the fallback value if the primary value is `nil` or an empty string.
 
@@ -254,7 +254,7 @@ Alias for `json()`. Converts any data structure to a JSON string.
 toJSON(data)
 ```
 
-## urlencode()
+## Urlencode()
 
 URL-encodes a string. Useful for building query parameters or form-encoded values.
 
@@ -286,7 +286,7 @@ after:
   # "hello world" -> "hello+world"
 ```
 
-## ternary()
+## Ternary()
 
 Returns `trueVal` if `cond` is `true`, otherwise returns `falseVal`. Equivalent to a conditional expression.
 
@@ -325,7 +325,7 @@ after:
   - set('label', ternary(get('isAdmin'), 'Admin', 'User'))
 ```
 
-## input()
+## Input()
 
 Alternative way to access request input parameters. Equivalent to `get(key)` for request data.
 
@@ -370,7 +370,7 @@ after:
   - set('query2', input('q'))
 ```
 
-## output()
+## Output()
 
 Alternative way to access resource outputs. Equivalent to `get(resourceId)`.
 

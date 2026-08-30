@@ -1,10 +1,10 @@
-# Items Reference
+# Items reference
 
 Use cases, dynamic items, collecting results, and best practices for the [`items:` field](/concepts/items).
 
-## Use Cases
+## Use cases
 
-### Batch LLM Processing
+### Batch LLM processing
 
 <div v-pre>
 
@@ -25,7 +25,7 @@ chat:
 
 </div>
 
-### Data Enrichment
+### Data enrichment
 
 <div v-pre>
 
@@ -43,7 +43,7 @@ httpClient:
 
 </div>
 
-### Report Generation
+### Report generation
 
 <div v-pre>
 
@@ -70,7 +70,7 @@ chat:
 
 </div>
 
-### Multi-Language Translation
+### Multi-language translation
 
 <div v-pre>
 
@@ -95,7 +95,7 @@ chat:
 
 </div>
 
-### Sequential Processing
+### Sequential processing
 
 <div v-pre>
 
@@ -119,7 +119,7 @@ chat:
 
 </div>
 
-### Image Batch Processing
+### Image batch processing
 
 <div v-pre>
 
@@ -139,7 +139,7 @@ chat:
 
 </div>
 
-## Collecting Results
+## Collecting results
 
 Item results are collected into an array:
 
@@ -168,7 +168,7 @@ apiResponse:
 
 </div>
 
-## Dynamic Items
+## Dynamic items
 
 Items can come from expressions or previous resources. The `items:` field is always a YAML list; a single expression that returns an array is expanded into multiple iterations:
 
@@ -186,13 +186,13 @@ items:
   - "filter(get('allItems'), .status == 'active')"
 ```
 
-## Performance Considerations
+## Performance considerations
 
 - Items process sequentially - each waits for the previous to complete
 - Set `timeout` to account for total processing time across all items
 - For large datasets, Python batch processing is more efficient than items
 
-## Best Practices
+## Best practices
 
 - Use skip conditions to avoid processing items that don't qualify
 - Use `prev` / `next` accessors to pass context between items

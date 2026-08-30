@@ -1,4 +1,4 @@
-# Embedding Resource
+# Embedding resource
 
 The `embedding` executor is a native capability compiled into the `kdeps` binary. It provides a SQLite-backed keyword store for indexing, searching, upserting, and deleting text documents. Use it as the storage layer for RAG pipelines that run fully on-prem.
 
@@ -20,8 +20,8 @@ embedding:
 
 | Field | Type | Required | Default | Description |
 |-------|------|----------|---------|-------------|
-| `operation` | string | yes | — | `index`, `search`, `upsert`, or `delete` |
-| `text` | string | yes* | — | Text to index, query, or delete. *Optional for `delete` (omit to delete entire collection) |
+| `operation` | string | yes | - | `index`, `search`, `upsert`, or `delete` |
+| `text` | string | yes* | - | Text to index, query, or delete. *Optional for `delete` (omit to delete entire collection) |
 | `collection` | string | no | `"default"` | Namespace for documents |
 | `dbPath` | string | no | `"kdeps-embedding.db"` | SQLite database file path |
 | `limit` | integer | no | `10` | Max results for `search` |
@@ -93,7 +93,7 @@ apiResponse:
 
 ## Collections
 
-Use `collection` to namespace documents — useful for multi-tenant or multi-topic stores:
+Use `collection` to namespace documents - useful for multi-tenant or multi-topic stores:
 
 ```yaml
 # Index into separate collections

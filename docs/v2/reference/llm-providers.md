@@ -1,10 +1,10 @@
-# LLM Provider Reference
+# LLM provider reference
 
 Per-provider configuration for all backends supported by kdeps. Backend and API keys go in `~/.kdeps/config.yaml`. See [LLM Backends](/resources/llm-backends) for routing, allowlists, and streaming.
 
-## Local Backends
+## Local backends
 
-### Llamafile (Default)
+### Llamafile (default)
 
 The `file` backend is the default: models run as
 [llamafiles](https://github.com/Mozilla-Ocho/llamafile) - single self-contained
@@ -27,7 +27,7 @@ into the image - see [Docker deployment](/deployment/docker#llm-backend-in-image
 
 ### GGUF (llama.cpp)
 
-The `gguf` backend serves GGUF model files via `llama-server` (llama.cpp). Full parity with the `file` backend: alias resolution, URL download with progress bar, shared cache at `~/.kdeps/models/`. llama-server is automatically downloaded and cached on first use — no manual install needed. Override with `KDEPS_LLAMA_SERVER_BIN` for a custom binary.
+The `gguf` backend serves GGUF model files via `llama-server` (llama.cpp). Full parity with the `file` backend: alias resolution, URL download with progress bar, shared cache at `~/.kdeps/models/`. llama-server is automatically downloaded and cached on first use - no manual install needed. Override with `KDEPS_LLAMA_SERVER_BIN` for a custom binary.
 
 ```yaml
 # ~/.kdeps/config.yaml
@@ -77,7 +77,7 @@ settings:
 | `ollamaPullModel` | bool | Auto-pull model if not present locally |
 | `ollamaPullTimeout` | string | Timeout for model pull (e.g. `"10m"`) |
 
-## Cloud Backends
+## Cloud backends
 
 Any API that implements the OpenAI chat completions API works with kdeps.
 
@@ -103,7 +103,7 @@ llm:
 |-------|------|-------------|
 | `openAILegacyMaxTokens` | bool | Send `max_tokens` instead of `max_completion_tokens` (for Azure and older-compat servers) |
 
-### Anthropic (Claude)
+### Anthropic (claude)
 
 ```yaml
 # ~/.kdeps/config.yaml
@@ -130,7 +130,7 @@ llm:
 
 See [LLM Backends - Anthropic](/resources/llm-backends#anthropic-prompt-caching-and-extended-output) for examples.
 
-### Google (Gemini / Vertex AI)
+### Google (gemini / vertex AI)
 
 ```yaml
 # ~/.kdeps/config.yaml
@@ -255,7 +255,7 @@ llm:
 | `deepseek-v4-flash` | Fast |
 | `deepseek-coder` | Code generation |
 
-### xAI (Grok)
+### xAI (grok)
 
 ```yaml
 # ~/.kdeps/config.yaml
@@ -283,7 +283,7 @@ llm:
 
 Model names use the `provider/model` format, e.g. `openai/gpt-4o`, `anthropic/claude-3.5-sonnet`, `meta-llama/llama-3.1-70b-instruct`. See [openrouter.ai/models](https://openrouter.ai/models) for the full list.
 
-### AWS Bedrock
+### AWS bedrock
 
 ```yaml
 # ~/.kdeps/config.yaml
@@ -310,7 +310,7 @@ Talks to Microsoft 365 Copilot's chat service through a local OpenAI-compatible 
 
 See [M365 Copilot](/reference/llm-providers-m365) for the full setup: sign-in flows, Linux dependencies, headless fallback, and the model list.
 
-## Self-Hosted Solutions
+## Self-hosted solutions
 
 kdeps works with any self-hosted solution that implements the OpenAI API: vLLM, Text Generation Inference (TGI), LocalAI, LlamaCpp Server, LM Studio.
 
@@ -321,7 +321,7 @@ llm:
   base_url: http://your-vllm-server:8000/v1
 ```
 
-## Custom Base URL
+## Custom base URL
 
 Override the default API URL via `base_url`:
 

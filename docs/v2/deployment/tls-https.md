@@ -1,9 +1,9 @@
-# TLS and HTTPS (Custom Domains)
+# TLS and HTTPS (custom domains)
 
 Serve the kdeps **API server** and **web server** over HTTPS for a **custom domain**. Two modes:
 
-1. **Static certificates** — you supply PEM `certFile` / `keyFile`
-2. **Let's Encrypt** — kdeps obtains and renews certificates with ACME for your domain
+1. **Static certificates** - you supply PEM `certFile` / `keyFile`
+2. **Let's Encrypt** - kdeps obtains and renews certificates with ACME for your domain
 
 Works in **workflow mode** (HTTP API / web) and for any agent package that enables `apiServer` / `webServer`. Agent mode REPL does not listen for HTTPS itself.
 
@@ -34,7 +34,7 @@ E -> H
 |------|-------------|
 | Static PEM | Corporate CA, existing cert pipeline, secrets already mounted |
 | Let's Encrypt | Public custom domain, automatic renew, no PEM files to manage |
-| Reverse proxy (Caddy/Traefik/Nginx) | Multi-service mesh, K8s Ingress — kdeps stays HTTP internally |
+| Reverse proxy (Caddy/Traefik/Nginx) | Multi-service mesh, K8s Ingress - kdeps stays HTTP internally |
 
 **Priority:** if both static PEM and `letsEncrypt` are set, **static PEM wins**.
 
@@ -55,7 +55,7 @@ settings:
 
 Paths are top-level under `settings` (not under `apiServer`). Same certs apply to `webServer` when enabled.
 
-## Let's Encrypt (custom domain)
+## Let's encrypt (custom domain)
 
 kdeps uses Go `autocert` (ACME) against Let's Encrypt production or staging.
 
@@ -99,7 +99,7 @@ settings:
 
 | Field | Default | Purpose |
 |-------|---------|---------|
-| `domain` | — | Primary hostname on the cert |
+| `domain` | - | Primary hostname on the cert |
 | `domains` | `[]` | Extra hostnames (SANs); if only these are set, first becomes primary |
 | `email` | `""` | Let's Encrypt registration email |
 | `cacheDir` | `~/.kdeps/letsencrypt` | ACME account keys + issued certs (must be writable) |
@@ -118,7 +118,7 @@ settings:
 When `letsEncrypt` is active (and no static PEM):
 
 - **HTTPS** on the configured API/web listen address (`ListenAndServeTLS` with autocert `GetCertificate`)
-- **HTTP on `httpChallengeAddr`** (default `:80`) serving `/.well-known/acme-challenge/…`; other paths return a short plain-text hint (no open redirect)
+- **HTTP on `httpChallengeAddr`** (default `:80`) serving `/.well-known/acme-challenge/...`; other paths return a short plain-text hint (no open redirect)
 
 Certificates renew automatically while the process is running and the cache directory is preserved.
 
@@ -181,7 +181,7 @@ settings:
     portNum: 443
 ```
 
-Many clusters prefer **Ingress TLS** (cert-manager) and keep kdeps on plain HTTP inside the cluster. That remains fully supported — omit `letsEncrypt` and terminate TLS at the Ingress.
+Many clusters prefer **Ingress TLS** (cert-manager) and keep kdeps on plain HTTP inside the cluster. That remains fully supported - omit `letsEncrypt` and terminate TLS at the Ingress.
 
 ```bash
 kdeps export k8s myagent-1.0.0.kdeps --image REG/myagent:1 -o k8s.yaml
@@ -218,7 +218,7 @@ The appliance recipes themselves do not embed ACME today.
 
 ## Related
 
-- [Security reference — TLS](/reference/security#tls)
+- [Security reference - TLS](/reference/security#tls)
 - [Workflow configuration](/configuration/workflow)
 - [Docker deployment](/deployment/docker)
 - [Kubernetes deployment](/deployment/kubernetes)

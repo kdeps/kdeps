@@ -1,10 +1,10 @@
-# Input Object
+# Input object
 
 The `input` object is a property-style shorthand for request body fields. Instead of `get('field')`, you write `input.field`. It is automatically available in all expressions and `expr` blocks.
 
-## Basic Usage
+## Basic usage
 
-### Property Access
+### Property access
 
 Access request body fields as properties:
 
@@ -23,7 +23,7 @@ chat:
 
 </div>
 
-### In String Interpolation
+### In string interpolation
 
 Use `input` directly in interpolated strings:
 
@@ -37,7 +37,7 @@ chat:
 
 </div>
 
-### Nested Properties
+### Nested properties
 
 Access nested object properties:
 
@@ -48,7 +48,7 @@ after:
   - set('email', input.user.email)
 ```
 
-## Comparison with Unified API
+## Comparison with unified API
 
 The `input` object is a convenience wrapper around request body data. Both approaches work:
 
@@ -72,7 +72,7 @@ after:
   - set('email', get('user').email)
 ```
 
-## When to Use
+## When to use
 
 ### Use `input` when:
 - Accessing request body fields frequently
@@ -86,7 +86,7 @@ after:
 
 ## Examples
 
-### Simple Form Data
+### Simple form data
 
 ```yaml
 # resources/create-user.yaml
@@ -116,7 +116,7 @@ sql:
     - get('userEmail')
 ```
 
-### Nested Object Access
+### Nested object access
 
 <div v-pre>
 
@@ -136,7 +136,7 @@ chat:
 
 </div>
 
-### Array Processing
+### Array processing
 
 <div v-pre>
 
@@ -155,7 +155,7 @@ chat:
 
 </div>
 
-### Conditional Based on Input
+### Conditional based on input
 
 <div v-pre>
 
@@ -178,7 +178,7 @@ chat:
 
 </div>
 
-## Input Object vs Request Body
+## Input object vs request body
 
 The `input` object is the same as `request.body`:
 
@@ -197,7 +197,7 @@ after:
 2. **No type hints** - Cannot specify data source like `get('key', 'param')`
 3. **No fallback** - Returns nil if property doesn't exist (use `default()` for fallbacks)
 
-## Best Practices
+## Best practices
 
 1. **Use for body data** - Perfect for POST/PUT request bodies
 2. **Combine with validation** - Validate input structure before using

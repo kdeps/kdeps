@@ -1,4 +1,4 @@
-# File Resource
+# File resource
 
 The `file:` resource provides structured filesystem operations for reading, writing, patching, listing, deleting, copying, moving, and appending files and directories. It replaces ad-hoc shell commands (`exec cat`, `exec sed -i`, etc.) with type-safe, composable DAG operations that return structured output.
 
@@ -6,7 +6,7 @@ The `file:` resource provides structured filesystem operations for reading, writ
 
 Both [workflow mode](/modes/workflow-mode) and [agent mode](/modes/agent-loop-mode). In workflow mode it executes as a DAG step. In agent mode, the workflow containing this resource runs as a single callable tool.
 
-## Basic Usage
+## Basic usage
 
 ```yaml
 # resources/read.yaml
@@ -42,7 +42,7 @@ file:
 | `move` | Move/rename a file or directory |
 | `append` | Append content to a file |
 
-## Configuration Options
+## Configuration options
 
 | Option | Operation | Description |
 |--------|-----------|-------------|
@@ -59,7 +59,7 @@ file:
 | `mode` | write, mkdir | File mode (e.g. `"0644"`, `"0755"`) |
 | `appendNewline` | write, append | Ensure content ends with a trailing newline |
 
-## Operation Details
+## Operation details
 
 ### Read
 
@@ -219,7 +219,7 @@ file:
   appendNewline: true
 ```
 
-## Coding Agent Example
+## Coding agent example
 
 The `file:` resource is designed for coding agent workflows. A typical edit cycle:
 
@@ -251,7 +251,7 @@ The `file:` resource is designed for coding agent workflows. A typical edit cycl
     backup: true
 ```
 
-## Expressions with File Output
+## Expressions with file output
 
 The `file:` resource output is a map, so you access fields by key:
 
@@ -266,7 +266,7 @@ The `file:` resource output is a map, so you access fields by key:
 - set('wasDryRun', get('writeFile').dryRun)
 ```
 
-## Dry Run Mode
+## Dry run mode
 
 Every mutating operation (`write`, `patch`, `delete`, `mkdir`, `copy`, `move`, `append`) supports `dryRun: true` to preview what would happen without modifying the filesystem. Use it for safety checks before applying changes:
 
@@ -280,7 +280,7 @@ file:
   # Output: { "success": true, "dryRun": true, "written": false }
 ```
 
-## Backup Safety
+## Backup safety
 
 Enable `backup: true` on `write` and `patch` operations to automatically create a `.bak` copy before overwriting:
 
@@ -295,9 +295,9 @@ file:
 
 If `/config/settings.yaml` exists, the original is saved to `/config/settings.yaml.bak` before the write.
 
-## Best Practices
+## Best practices
 
-1. **Use `file:` instead of `exec cat`/`exec sed`** — structured output, error handling, and DAG composability
+1. **Use `file:` instead of `exec cat`/`exec sed`** - structured output, error handling, and DAG composability
 2. **Enable backups** on critical files (`backup: true`)
 3. **Dry-run before destructive operations** to verify paths and content
 4. **Use `patch` for surgical edits** instead of rewriting entire files
@@ -306,8 +306,8 @@ If `/config/settings.yaml` exists, the original is saved to `/config/settings.ya
 
 ## See also
 
-- [Exec Resource](exec) — shell commands (use for CLI tools that lack a native resource)
-- [Python Resource](python) — complex data processing
-- [Git Resource](git) — version control operations
-- [Code Intelligence Resource](codeintelligence) — code navigation and search
+- [Exec Resource](exec) - shell commands (use for CLI tools that lack a native resource)
+- [Python Resource](python) - complex data processing
+- [Git Resource](git) - version control operations
+- [Code Intelligence Resource](codeintelligence) - code navigation and search
 - [Workflow Configuration](../configuration/workflow)

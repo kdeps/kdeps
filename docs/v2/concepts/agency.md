@@ -42,7 +42,7 @@ metadata:
   name: my-agency
   version: "1.0.0"
   description: "A multi-agent pipeline"
-  # Entry-point agent — resolved by metadata.name in an agent's workflow.yaml.
+  # Entry-point agent - resolved by metadata.name in an agent's workflow.yaml.
   # If omitted, the first discovered agent is used.
   targetAgentId: greeter-agent
 
@@ -58,8 +58,8 @@ agents:
 
 When the `agents:` list is **omitted**, kdeps auto-discovers agents in two ways:
 
-1. **Directory-based** — any `agents/**/workflow.yaml` (or `.yml`, `.yaml.j2`, …) is loaded.
-2. **Packed archives** — any `agents/*.kdeps` file is extracted and its `workflow.yaml` is loaded.
+1. **Directory-based** - any `agents/**/workflow.yaml` (or `.yml`, `.yaml.j2`, ...) is loaded.
+2. **Packed archives** - any `agents/*.kdeps` file is extracted and its `workflow.yaml` is loaded.
 
 When the `agents:` list is **provided**, only the listed entries are loaded (directories
 or `.kdeps` archives). All listed paths are resolved relative to the agency directory.
@@ -102,7 +102,7 @@ agent:
 
 ## Packaging an agency (.kagency)
 
-An entire agency — `agency.yaml` plus all `agents/` sub-trees — can be packed into a
+An entire agency - `agency.yaml` plus all `agents/` sub-trees - can be packed into a
 single portable **`.kagency`** archive (a gzip-compressed tar).
 
 ```bash
@@ -187,8 +187,8 @@ curl "http://localhost:17100/api/v1/greet?name=Alice" \
 
 ## See also
 
-- [Agent resource](../resources/overview.md#agent) — `agent:` resource reference
-- [`examples/agency/`](https://github.com/kdeps/kdeps/tree/main/examples/agency) — runnable example
+- [Agent resource](../resources/overview.md#agent) - `agent:` resource reference
+- [`examples/agency/`](https://github.com/kdeps/kdeps/tree/main/examples/agency) - runnable example
 - [Packaging Commands](/reference/cli/packaging) -- `.kdeps` and `.kagency` formats
-- [Docker deployment](../deployment/docker.md) — building Docker images
-- [Standalone executables](../deployment/prepackage.md) — exporting self-contained binaries
+- [Docker deployment](../deployment/docker.md) - building Docker images
+- [Standalone executables](../deployment/prepackage.md) - exporting self-contained binaries

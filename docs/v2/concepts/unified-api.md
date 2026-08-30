@@ -2,7 +2,7 @@
 
 `get()` and `set()` are the two functions you use for almost everything in kdeps. They work the same way in string interpolation <span v-pre>`{{ }}`</span>, in `before:`/`after:` blocks, and in `validations.check` conditions.
 
-## get() -- read any value
+## Get() -- read any value
 
 `get('key')` searches a priority chain and returns the first match. You rarely need to specify a source explicitly.
 
@@ -39,7 +39,7 @@ apiResponse:
     text: get('llm').answer     # field access when LLM returns JSON
 ```
 
-## set() -- store a value
+## Set() -- store a value
 
 `set()` writes into memory (current request) by default. Pass `'session'` to persist across requests.
 
@@ -52,7 +52,7 @@ after:
 
 `set()` is like assigning to a variable. Downstream resources read it with `get()`.
 
-## file() -- read uploaded files
+## File() -- read uploaded files
 
 ```yaml
 # resources/example.yaml
@@ -60,7 +60,7 @@ content: file('doc.pdf')    # file uploaded with the request
 images: file('*.jpg')       # glob pattern -- returns first match
 ```
 
-## info() -- request metadata
+## Info() -- request metadata
 
 ```yaml
 # resources/example.yaml

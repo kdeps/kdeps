@@ -1,8 +1,8 @@
-# Kubernetes Deployment
+# Kubernetes deployment
 
 `kdeps export k8s` generates a Kubernetes `Deployment` and `ClusterIP` `Service` from your `workflow.yaml` -- no manual YAML authoring required.
 
-## Quick Start
+## Quick start
 
 ```bash
 # Generate manifests and print to stdout
@@ -13,7 +13,7 @@ kdeps export k8s examples/chatbot --output k8s.yaml
 kubectl apply -f k8s.yaml
 ```
 
-## Command Reference
+## Command reference
 
 ```bash
 kdeps export k8s [path] [flags]
@@ -53,7 +53,7 @@ kdeps export k8s examples/chatbot \
   --output deploy/k8s.yaml
 ```
 
-## Workflow Configuration
+## Workflow configuration
 
 Configure Kubernetes-specific settings in `workflow.yaml` under `agentSettings`:
 
@@ -115,7 +115,7 @@ agentSettings:
 
 When `resources` is absent, no `resources:` block is emitted (Kubernetes defaults apply).
 
-## Generated Manifests
+## Generated manifests
 
 `kdeps export k8s` produces a single YAML document with a Deployment and a Service separated by `---` (plus a NetworkPolicy when opted in).
 
@@ -263,7 +263,7 @@ kubectl apply -f deploy/env-secret.yaml
 
 Pod `securityContext` defaults include `runAsNonRoot: true`, `seccompProfile.type: RuntimeDefault`, and `capabilities.drop: ["ALL"]`. The pod also sets `automountServiceAccountToken: false` since kdeps workloads never call the Kubernetes API.
 
-## Typical Workflow
+## Typical workflow
 
 ```bash
 # 1. Build the Docker image
@@ -315,8 +315,8 @@ Client hosts set `llm.backend: openai` and `llm.base_url`. See [LLM Server Appli
 
 Two patterns:
 
-1. **Ingress TLS** (cert-manager / cloud LB) — terminate TLS at the Ingress; keep kdeps on HTTP inside the cluster (recommended for most clusters).
-2. **In-pod Let's Encrypt** — set `settings.letsEncrypt.domain`, listen on **443**, expose Service ports **80/443**, and mount a **PVC** at `cacheDir`.
+1. **Ingress TLS** (cert-manager / cloud LB) - terminate TLS at the Ingress; keep kdeps on HTTP inside the cluster (recommended for most clusters).
+2. **In-pod Let's Encrypt** - set `settings.letsEncrypt.domain`, listen on **443**, expose Service ports **80/443**, and mount a **PVC** at `cacheDir`.
 
 ```yaml
 settings:

@@ -12,7 +12,7 @@ Each example targets a different use case. Pick the one closest to what you're b
 | [Telegram Bot](/examples/telegram-bot/) | Workflow | Polling loop, multi-resource pipelines, external API calls |
 | [Showcase](/examples/showcase) | Workflow | Complex agents in ~20 lines of YAML -- multiple real-world patterns |
 
-## Stateless Bot
+## Stateless bot
 
 A one-shot bot that reads from stdin (or an env var), calls an LLM, and writes the reply to stdout. No server, no polling, no state.
 
@@ -25,7 +25,7 @@ Best for:
 echo "What is 2+2?" | kdeps run workflow.yaml
 ```
 
-## Telegram Bot
+## Telegram bot
 
 A polling bot that watches for Telegram messages and replies with LLM responses. Two resources chained together: `llm` calls the model, `reply` sends the answer back via the Telegram API.
 

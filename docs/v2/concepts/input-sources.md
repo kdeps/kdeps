@@ -1,4 +1,4 @@
-# Input Sources
+# Input sources
 
 kdeps workflows receive input through three sources: HTTP API, chat bots, and file input. Configure the source in `settings` inside `workflow.yaml`.
 
@@ -12,7 +12,7 @@ kdeps workflows receive input through three sources: HTTP API, chat bots, and fi
 
 The default source is `api`. If no input config is specified, the workflow starts an HTTP API server on port 16395.
 
-## API Source
+## API source
 
 The `api` source starts an HTTP REST server. This is the default for all workflows.
 
@@ -31,7 +31,7 @@ Requests are JSON and routed to resources based on `metadata.targetActionId` in 
 
 Use `validations.methods` and `validations.routes` in individual resources to scope them to specific routes.
 
-## Bot Source
+## Bot source
 
 The `bot` source connects to chat platforms. Supported platforms: Discord, Slack, Telegram, WhatsApp.
 
@@ -61,7 +61,7 @@ Execution types:
 - `polling` (default): Long-running persistent connection. Blocks until SIGINT/SIGTERM.
 - `stateless`: Reads one message from stdin as JSON, executes the workflow once, writes the reply to stdout, then exits.
 
-## File Source
+## File source
 
 The `file` source reads file content from stdin, the `KDEPS_FILE_PATH` environment variable, or a configured path. The workflow executes once and exits.
 

@@ -1,4 +1,4 @@
-# SQL Resource
+# SQL resource
 
 The `sql:` resource runs SQL queries against a named connection and returns the result set as the resource's output. Use it to read, write, or transact against any supported database.
 
@@ -6,7 +6,7 @@ The `sql:` resource runs SQL queries against a named connection and returns the 
 
 Both [workflow mode](/modes/workflow-mode) and [agent mode](/modes/agent-loop-mode). In workflow mode it executes as a DAG step. In agent mode, the workflow containing this resource runs as a single callable tool.
 
-## Basic Usage
+## Basic usage
 
 <div v-pre>
 
@@ -25,7 +25,7 @@ sql:
 
 </div>
 
-## Supported Databases
+## Supported databases
 
 | Database | Connection String Format |
 |----------|-------------------------|
@@ -35,7 +35,7 @@ sql:
 | SQL Server | `sqlserver://user:pass@host:1433/db` |
 | Oracle | `oracle://user:pass@host:1521/service` |
 
-## Connection Configuration
+## Connection configuration
 
 Connection strings (DSNs) live in `~/.kdeps/config.yaml` - never in `workflow.yaml`, which is version-controlled. Pool configuration lives in `workflow.yaml`.
 
@@ -77,9 +77,9 @@ sql:
   query: "SELECT * FROM users"
 ```
 
-## Query Types
+## Query types
 
-### Simple Query
+### Simple query
 
 ```yaml
 # resources/example.yaml
@@ -91,7 +91,7 @@ sql:
   timeout: 30s
 ```
 
-### Parameterized Query
+### Parameterized query
 
 <div v-pre>
 
@@ -116,7 +116,7 @@ sql:
 
 </div>
 
-### Insert / Update / Delete
+### Insert / update / delete
 
 ```yaml
 # resources/example.yaml
@@ -162,7 +162,7 @@ sql:
 
 If any query fails, the entire transaction is rolled back.
 
-## Batch Operations
+## Batch operations
 
 Process multiple records efficiently:
 
@@ -191,9 +191,9 @@ Where `products` is an array of parameter arrays:
 ]
 ```
 
-## Result Formats
+## Result formats
 
-### JSON (Default)
+### JSON (default)
 
 ```yaml
 # resources/example.yaml
@@ -248,7 +248,7 @@ Output:
 +----+-------+-------------------+
 ```
 
-## Connection Pooling
+## Connection pooling
 
 `workflow.yaml`'s `sqlConnections` entry holds pool config only -- no
 `connection:` field. The DSN itself always comes from `sql_connections` in
@@ -267,7 +267,7 @@ settings:
         connectionTimeout: "5s" # Timeout for acquiring connection
 ```
 
-## Accessing Results
+## Accessing results
 
 ```yaml
 # In another resource
@@ -284,7 +284,7 @@ apiResponse:
     first_name: get('sqlResource')[0].name
 ```
 
-## Best Practices
+## Best practices
 
 1. **Use named connections** - Easier to manage and configure pooling
 2. **Always use parameterized queries** - Prevent SQL injection
@@ -293,7 +293,7 @@ apiResponse:
 5. **Configure connection pooling** - Improve performance under load
 6. **Use appropriate timeouts** - Prevent long-running queries from blocking
 
-## Security Notes
+## Security notes
 
 - Never interpolate user input directly into queries
 - Always use parameterized queries (`$1`, `$2`, etc.)

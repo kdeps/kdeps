@@ -1,4 +1,4 @@
-# REPL Slash Commands
+# REPL slash commands
 
 Inside the [agent loop REPL](/modes/agent-loop-mode), type `/help` for the full list:
 
@@ -40,7 +40,7 @@ Inside the [agent loop REPL](/modes/agent-loop-mode), type `/help` for the full 
 | `/goal new <text>` | Replace the active goal with a new plan |
 | `/goal skip` | Abandon the active task and advance to the next |
 | `/goal clear` | Drop the active goal |
-| `/judges` | Show the configured judge panel (reviews each turn's final output — see [Judge panel](/modes/agent-loop-judges)) |
+| `/judges` | Show the configured judge panel (reviews each turn's final output - see [Judge panel](/modes/agent-loop-judges)) |
 | `/judges add <name> <criteria>` | Add a judge to the explicit roster |
 | `/judges remove <name>` | Remove a judge from the explicit roster |
 | `/judges auto [on\|off]` | Show or toggle a per-turn auto-generated roster; persists across sessions |
@@ -55,7 +55,7 @@ Inside the [agent loop REPL](/modes/agent-loop-mode), type `/help` for the full 
 | `!! <cmd>` | Run a shell command silently - no LLM turn, nothing added to context |
 | `@<path>` | Inline a file's contents (text) or attach it (image) into the next turn, e.g. `explain @main.go` |
 | `/autocontext [on\|off]` | Show or toggle auto-detecting command/file mentions in plain chat text (on by default, persists across sessions) |
-| `/tools [full\|lean]` | Show or toggle the lean/full tool set (full by default, persists across sessions — see [Lean mode](/modes/agent-loop-tools#lean-mode)) |
+| `/tools [full\|lean]` | Show or toggle the lean/full tool set (full by default, persists across sessions - see [Lean mode](/modes/agent-loop-tools#lean-mode)) |
 | `/upgrade` | Check for a newer kdeps release and, for a standalone install, download/verify/install it (see [Updating kdeps](/modes/agent-loop-mode#updating-kdeps)) |
 | `/upgrade nightly` | Same, but checks the nightly channel instead of the latest stable release (see [Nightly builds](/modes/agent-loop-mode#nightly-builds)) |
 | `/login` | m365 backend only: open a browser window to (re-)sign in, even if a session is already cached (see [M365 Copilot](/reference/llm-providers-m365)) |

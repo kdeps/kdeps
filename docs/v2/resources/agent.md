@@ -1,4 +1,4 @@
-# Agent Resource (Delegation)
+# Agent resource (delegation)
 
 The `agent:` resource calls a sibling agent's entire workflow within the same [agency](/concepts/agency) and returns that agent's `apiResponse` output. It is how one agent delegates a subtask to another specialized agent.
 
@@ -6,7 +6,7 @@ The `agent:` resource calls a sibling agent's entire workflow within the same [a
 
 Both [workflow mode](/modes/workflow-mode) and [agent mode](/modes/agent-loop-mode). Only valid between agents bundled in the same `agency.yaml` -- see [Agencies](/concepts/agency) for how agents are grouped and discover each other.
 
-## Basic Usage
+## Basic usage
 
 ```yaml
 # resources/delegate.yaml
@@ -29,7 +29,7 @@ apiResponse:
     result: "{{ output('delegate') }}"
 ```
 
-## Configuration Options
+## Configuration options
 
 | Option | Description |
 |---|---|

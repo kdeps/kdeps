@@ -3,7 +3,7 @@ title: Run Locally in 30 Seconds
 description: Install kdeps and start an AI agent REPL on your machine. No Docker, no config, no API key required.
 ---
 
-# Run Locally in 30 Seconds
+# Run locally in 30 seconds
 
 kdeps ships as a standalone binary. Install it, run it, and you have an interactive AI agent running on your machine. No Docker. No config file. No API key required if you use a local model.
 

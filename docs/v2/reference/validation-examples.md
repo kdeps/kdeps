@@ -1,10 +1,10 @@
-# Validation and Control Flow - Examples
+# Validation and control flow - examples
 
 Best practices and examples for the [`validations:` block](/concepts/validation-and-control).
 
-## Best Practices
+## Best practices
 
-### Use [`skip`](/reference/glossary#skip) for Optional Logic
+### Use [`skip`](/reference/glossary#skip) for optional logic
 
 ```yaml
 # resources/example.yaml
@@ -13,7 +13,7 @@ validations:
     - get('enableCache') != true
 ```
 
-### Validate Early with [`check`](/reference/glossary#check)
+### Validate early with [`check`](/reference/glossary#check)
 
 <div v-pre>
 
@@ -30,7 +30,7 @@ validations:
 
 </div>
 
-### Restrict Routes for Security
+### Restrict routes for security
 
 <div v-pre>
 
@@ -43,7 +43,7 @@ validations:
 
 </div>
 
-### Combine All Controls
+### Combine all controls
 
 <div v-pre>
 
@@ -68,7 +68,7 @@ chat:
 
 ## Examples
 
-### Conditional Processing
+### Conditional processing
 
 ```yaml
 # resources/smart-processor.yaml
@@ -89,7 +89,7 @@ python:
     return process(data)
 ```
 
-### Secure Endpoint
+### Secure endpoint
 
 <div v-pre>
 

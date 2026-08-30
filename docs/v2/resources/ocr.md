@@ -1,4 +1,4 @@
-# OCR Resource
+# OCR resource
 
 The `ocr:` resource extracts text from an image using [tesseract](https://github.com/tesseract-ocr/tesseract) -- fully local, no API key, no network call.
 
@@ -10,7 +10,7 @@ Both [workflow mode](/modes/workflow-mode) and [agent mode](/modes/agent-loop-mo
 
 Requires the `tesseract` binary on `PATH` (`apt install tesseract-ocr`, `brew install tesseract`). kdeps shells out to it -- there is no bundled OCR engine.
 
-## Basic Usage
+## Basic usage
 
 ```yaml
 # resources/ocr.yaml
@@ -30,7 +30,7 @@ apiResponse:
     text: "{{ output('ocr') }}"
 ```
 
-## Configuration Options
+## Configuration options
 
 | Option | Description |
 |---|---|

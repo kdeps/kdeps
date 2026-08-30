@@ -1,4 +1,4 @@
-# Python Resource
+# Python resource
 
 The `python:` resource runs a Python script and stores its stdout (parsed as JSON) as the resource's output.
 
@@ -32,7 +32,7 @@ python:
 
 `script` and `scriptFile` are mutually exclusive. The script must write valid JSON to stdout -- that output becomes `get('actionId')` for downstream resources.
 
-## Inline Scripts
+## Inline scripts
 
 <div v-pre>
 
@@ -58,7 +58,7 @@ python:
 
 </div>
 
-## Script Files
+## Script files
 
 <div v-pre>
 
@@ -96,7 +96,7 @@ result = {"status": "success", "mode": args.mode}
 print(json.dumps(result))
 ```
 
-## Python Packages
+## Python packages
 
 Configure Python packages in your workflow:
 
@@ -123,7 +123,7 @@ settings:
 
 KDeps uses [uv](https://github.com/astral-sh/uv) for fast Python package management (97% smaller than Anaconda).
 
-## Virtual Environment Isolation
+## Virtual environment isolation
 
 Use separate virtual environments for different resources:
 
@@ -148,7 +148,7 @@ python:
     # ...
 ```
 
-## Output Handling
+## Output handling
 
 Python scripts must output JSON to stdout:
 
@@ -179,7 +179,7 @@ apiResponse:
     data: get('pythonResource').data
 ```
 
-## Environment Variables
+## Environment variables
 
 Access environment variables in scripts:
 
@@ -200,7 +200,7 @@ api_key = os.environ.get('API_KEY')
 debug = os.environ.get('DEBUG') == 'true'
 ```
 
-## Accessing Output Details
+## Accessing output details
 
 Access stdout, stderr, and exit codes from other resources:
 

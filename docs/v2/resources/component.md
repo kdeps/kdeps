@@ -1,4 +1,4 @@
-# Component Resource
+# Component resource
 
 The `component:` resource calls a reusable resource bundle -- a registry component installed with `kdeps registry install`, or a custom component in your project's `components/` directory. Think of it like calling a function: you pass typed inputs via `with:`, the component's own resources run, and you get its result back.
 
@@ -6,7 +6,7 @@ The `component:` resource calls a reusable resource bundle -- a registry compone
 
 Both [workflow mode](/modes/workflow-mode) and [agent mode](/modes/agent-loop-mode). See [Components](/concepts/components) for the difference between registry and custom components, and how to build one.
 
-## Basic Usage
+## Basic usage
 
 ```yaml
 # resources/scrape.yaml
@@ -30,7 +30,7 @@ component:
     message: "Hello!"
 ```
 
-## Configuration Options
+## Configuration options
 
 | Option | Description |
 |---|---|

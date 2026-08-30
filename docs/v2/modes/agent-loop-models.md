@@ -1,10 +1,10 @@
-# Local Model Management
+# Local model management
 
 Managing which LLM the [agent loop REPL](/modes/agent-loop-mode) talks to -- switching mid-session, auto-routing, and running local model servers.
 
 ## Switching models
 
-`/model <name>` switches models mid-session. For local backends (`file`, `gguf`), the REPL downloads and starts the server if it isn't already running, then shows a progress display until the completions endpoint is accepting requests — the first prompt after the switch never gets a "network error" while weights load.
+`/model <name>` switches models mid-session. For local backends (`file`, `gguf`), the REPL downloads and starts the server if it isn't already running, then shows a progress display until the completions endpoint is accepting requests - the first prompt after the switch never gets a "network error" while weights load.
 
 ```
 /model qwen3.5-4b                     # switch to a known alias
@@ -42,7 +42,7 @@ notice so you know which one you got:
 "qwen3.5" is ambiguous across backends (llamafile:qwen3.5, gguf:qwen3.5) -- using gguf:qwen3.5. Use the full name to pick a specific one.
 ```
 
-Non-colliding names — the vast majority of aliases — are completely
+Non-colliding names - the vast majority of aliases - are completely
 unaffected; you only ever need the `backend:` prefix when kdeps tells you to.
 
 ## `--model auto`: route across your configured models
@@ -145,7 +145,7 @@ Favorites are saved to `~/.kdeps/agent-loop-settings.yaml`, shown first (marked 
 # List GGUF files and sizes inside a repo
 /model hff info unsloth/Qwen2.5-VL-7B-Instruct-GGUF
 
-# Download a specific file — registers it as an alias in ~/.kdeps/gguf_versions.yaml
+# Download a specific file - registers it as an alias in ~/.kdeps/gguf_versions.yaml
 /model hff download unsloth/Qwen2.5-VL-7B-Instruct-GGUF Qwen2.5-VL-7B-Instruct-Q4_K_M.gguf
 
 # Switch to it immediately after download

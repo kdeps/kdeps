@@ -1,12 +1,12 @@
-# Advanced Configuration
+# Advanced configuration
 
 This reference covers security, rate limiting, trusted proxies, resource output caps, and other server-level settings that live in `workflow.yaml` under `settings:`.
 
-## Request Object
+## Request object
 
 The `request` object provides access to HTTP request metadata in expressions.
 
-### Available Properties
+### Available properties
 
 | Property | Type | Description |
 |----------|------|-------------|
@@ -16,7 +16,7 @@ The `request` object provides access to HTTP request metadata in expressions.
 | `request.ID` | string | Unique request ID |
 | `sessionId` | string | Session ID (if sessions enabled) |
 
-### Usage Examples
+### Usage examples
 
 ```yaml
 # resources/log-request.yaml
@@ -39,7 +39,7 @@ after:
     }))
 ```
 
-### Request-Based Routing
+### Request-based routing
 
 ```yaml
 # resources/example.yaml
@@ -52,7 +52,7 @@ validations:
     - "!get('isPost')"
 ```
 
-### Logging and Auditing
+### Logging and auditing
 
 <div v-pre>
 
@@ -74,11 +74,11 @@ sql:
 
 </div>
 
-## Agent Settings
+## Agent settings
 
 The `agentSettings` section configures the runtime environment.
 
-### Complete Reference
+### Complete reference
 
 ```yaml
 # workflow.yaml
@@ -118,9 +118,9 @@ settings:
       DEBUG: "false"
 ```
 
-### Field Descriptions
+### Field descriptions
 
-#### Python Settings
+#### Python settings
 
 | Field | Description |
 |-------|-------------|
@@ -130,7 +130,7 @@ settings:
 | `pyprojectFile` | Path to pyproject.toml (for uv) |
 | `lockFile` | Path to uv.lock file |
 
-#### System Packages
+#### System packages
 
 | Field | Description |
 |-------|-------------|
@@ -138,7 +138,7 @@ settings:
 | `osPackages` | Additional OS-level libraries |
 | `repositories` | Additional package repositories |
 
-#### Docker Settings
+#### Docker settings
 
 | Field | Description |
 |-------|-------------|
@@ -154,7 +154,7 @@ settings:
 | `args` | Build-time arguments |
 | `env` | Runtime environment variables |
 
-## SQL Connections
+## SQL connections
 
 SQL connection strings (DSNs) live in `~/.kdeps/config.yaml` - never in `workflow.yaml`, which is version-controlled. Pool configuration lives in `workflow.yaml`.
 
@@ -191,7 +191,7 @@ settings:
         connectionTimeout: "5s"
 ```
 
-### Pool Configuration
+### Pool configuration
 
 | Field | Default (when `pool:` is omitted entirely) | Description |
 |-------|---------|-------------|
@@ -202,7 +202,7 @@ settings:
 
 These defaults (`pkg/config/defaults.yml`) apply only when `pool:` is left out of `sqlConnections.<name>` entirely. If `pool:` is present but a sub-field is omitted or empty, that sub-field is **not** backfilled with the default above -- it falls through to the Go `database/sql` driver's own zero-value behavior (effectively unbounded for `maxConnections`/`connectionTimeout`, no idle connections kept for `minConnections`). Set every field you care about explicitly once you add a `pool:` block.
 
-### Using Named Connections
+### Using named connections
 
 <div v-pre>
 
@@ -218,11 +218,11 @@ sql:
 
 </div>
 
-## Trusted Proxies
+## Trusted proxies
 
 Configure trusted proxies for accurate client IP detection behind load balancers. kdeps ignores `X-Forwarded-For` and `X-Real-IP` unless the direct peer matches an entry in this list.
 
-### API Server
+### API server
 
 ```yaml
 # workflow.yaml
@@ -236,7 +236,7 @@ settings:
       - "192.168.0.0/16"
 ```
 
-### Web Server
+### Web server
 
 ```yaml
 # workflow.yaml
@@ -249,7 +249,7 @@ settings:
       - "10.0.0.1"
 ```
 
-## Environment Variable Expansion
+## Environment variable expansion
 
 Use environment variables in configuration values.
 
@@ -270,7 +270,7 @@ settings:
       DATABASE_URL: "postgres://${DB_USER}:${DB_PASS}@${DB_HOST}:5432/${DB_NAME}"
 ```
 
-### In SQL Connections
+### In SQL connections
 
 ```yaml
 # ~/.kdeps/config.yaml
@@ -279,7 +279,7 @@ sql_connections:
     connection: "postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@${POSTGRES_HOST}:5432/${POSTGRES_DB}"
 ```
 
-## Multiple Route Definitions
+## Multiple route definitions
 
 Define multiple routes with different methods and paths.
 
@@ -312,7 +312,7 @@ settings:
 
 Auth, rate limiting, TLS (static certs or Let's Encrypt custom domains), body size cap, concurrency limits, and resource output caps. See [Security Reference](/reference/security) for the full documentation.
 
-## Global Defaults (`defaults`, `resource_defaults`)
+## Global defaults (`defaults`, `resource_defaults`)
 
 `~/.kdeps/config.yaml` can set two kinds of global default, applied whenever
 a workflow doesn't set the equivalent field itself. Edit it with
@@ -362,9 +362,9 @@ Config is validated on load. Warnings go to stderr for unknown keys, missing
 API keys, invalid durations, and agent profiles under `agents:` that don't
 match any installed workflow's `metadata.name`.
 
-## Agent Identity
+## Agent identity
 
-An agent can have a configured identity — name, email, mailing address, and named accounts for services it authenticates with. Like SMTP/IMAP/bot credentials, it lives in `~/.kdeps/config.yaml`, never in `workflow.yaml`, and follows the same [per-agent profile](workflow.md#metadata-and-config-profiles) merge: set it globally, override it under `agents.<name>`, or both.
+An agent can have a configured identity - name, email, mailing address, and named accounts for services it authenticates with. Like SMTP/IMAP/bot credentials, it lives in `~/.kdeps/config.yaml`, never in `workflow.yaml`, and follows the same [per-agent profile](workflow.md#metadata-and-config-profiles) merge: set it globally, override it under `agents.<name>`, or both.
 
 ```yaml
 # ~/.kdeps/config.yaml
@@ -385,13 +385,13 @@ agents:
           url: https://crm.example.com
 ```
 
-Identity is `name`/`email`/`address` (attribution — who the agent is) plus `accounts` (credentials — what the agent can log into). They're used in three places:
+Identity is `name`/`email`/`address` (attribution - who the agent is) plus `accounts` (credentials - what the agent can log into). They're used in three places:
 
 - **Git commits.** In agent-loop mode, the `Co-Authored-By` trailer the agent adds to its own commits uses `"name <email>"` when configured, instead of the default `kdeps (<model>) <noreply@kdeps.com>`.
 - **Outbound email.** An [`email:` resource](/resources/email) with no `from:` set defaults to `identity.email`.
-- **`identity_get` tool.** Agent-loop mode registers this tool so the model can answer "who are you" or sign its own output — it returns `name`/`email`/`address` only. `accounts` (and its passwords) are never exposed to the LLM through this or any tool; a model that can read a credential can leak it in its own output.
+- **`identity_get` tool.** Agent-loop mode registers this tool so the model can answer "who are you" or sign its own output - it returns `name`/`email`/`address` only. `accounts` (and its passwords) are never exposed to the LLM through this or any tool; a model that can read a credential can leak it in its own output.
 
-`accounts` are consumed by resources that need to authenticate as the agent. An `httpClient` resource with `accountName: crm` and no `connectionName` resolves Basic Auth from `identity.accounts.crm` — `connectionName` (a full [named HTTP connection](/resources/http-client)) always takes priority when both are set.
+`accounts` are consumed by resources that need to authenticate as the agent. An `httpClient` resource with `accountName: crm` and no `connectionName` resolves Basic Auth from `identity.accounts.crm` - `connectionName` (a full [named HTTP connection](/resources/http-client)) always takes priority when both are set.
 
 ## See also
 

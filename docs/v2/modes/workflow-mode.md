@@ -1,4 +1,4 @@
-# Workflow Mode
+# Workflow mode
 
 Workflow mode runs a deterministic DAG pipeline: a request arrives, resources execute in dependency order, and the result is returned. Every run follows the same path for the same input.
 
@@ -147,7 +147,7 @@ settings:
 
 See [Input Sources](../concepts/input-sources) for full configuration.
 
-## Agent Memory (`--memory`)
+## Agent memory (`--memory`)
 
 Workflow mode can use the same persistent memory facilities as agent mode. Pass `--memory` to enable:
 

@@ -4,13 +4,13 @@ Install the `kdeps` CLI to start building agents locally. Docker is optional -- 
 
 ## Installing KDeps CLI
 
-### macOS (Homebrew)
+### macOS (homebrew)
 
 ```bash
 brew install kdeps/tap/kdeps
 ```
 
-### Linux, macOS, and Windows (curl)
+### Linux, macOS, and windows (curl)
 
 ```bash
 curl -LsSf https://raw.githubusercontent.com/kdeps/kdeps/main/install.sh | sh
@@ -28,7 +28,7 @@ Installs `kdeps.exe` into `%USERPROFILE%\.local\bin` and adds it to your user `P
 & ([scriptblock]::Create((irm https://raw.githubusercontent.com/kdeps/kdeps/main/install.ps1))) -Tag v2.1.15 -BinDir C:\tools\bin
 ```
 
-### Windows (wget in WSL or Git Bash)
+### Windows (wget in WSL or Git bash)
 
 ```bash
 wget -qO- https://raw.githubusercontent.com/kdeps/kdeps/main/install.sh | sh
@@ -36,7 +36,7 @@ wget -qO- https://raw.githubusercontent.com/kdeps/kdeps/main/install.sh | sh
 
 > **Note for Windows Users**: [Git Bash](https://git-scm.com/downloads/win) or [WSL](https://learn.microsoft.com/en-us/windows/wsl/install) also work if you prefer the shell-based installer above.
 
-### From Source
+### From source
 
 **Option 1: Go Install (Recommended)**
 
@@ -64,7 +64,7 @@ repo root do the same build with version/commit info embedded, matching
 build.bat
 ```
 
-## Verify Installation
+## Verify installation
 
 ```bash
 kdeps --version
@@ -75,7 +75,7 @@ You should see output like:
 kdeps version 2.0.0
 ```
 
-## Docker (Optional)
+## Docker (optional)
 
 Docker is only needed if you want to build container images for deployment. For local development and testing, KDeps runs natively without Docker.
 
@@ -85,7 +85,7 @@ Docker is only needed if you want to build container images for deployment. For 
 - **Windows**: [Docker Desktop for Windows](https://docs.docker.com/desktop/install/windows-install/)
 - **Linux**: [Docker Engine](https://docs.docker.com/engine/install/)
 
-### Verify Docker Installation
+### Verify Docker installation
 
 ```bash
 docker --version
@@ -123,19 +123,19 @@ config for you:
 
 Each choice fills in the matching `llm:` fields:
 
-- **llamafile / gguf** — sets `backend` and a default model.
-- **cloud** — sets `backend`, prompts for the provider's API key, and stores it under `llm.<provider>_api_key`.
-- **ollama** — sets `backend: ollama` and the host URL.
-- **router** — collects the models to route across and a strategy (`fallback`, `round_robin`, `token_threshold`, `cost_optimized`), written as `llm.models` + `llm.strategy`.
-- **m365** — sets `backend: m365`. No API key: authenticates via a browser-cached
+- **llamafile / gguf** - sets `backend` and a default model.
+- **cloud** - sets `backend`, prompts for the provider's API key, and stores it under `llm.<provider>_api_key`.
+- **ollama** - sets `backend: ollama` and the host URL.
+- **router** - collects the models to route across and a strategy (`fallback`, `round_robin`, `token_threshold`, `cost_optimized`), written as `llm.models` + `llm.strategy`.
+- **m365** - sets `backend: m365`. No API key: authenticates via a browser-cached
   Microsoft 365 sign-in (or headless credentials for CI/servers). See
-  [LLM Provider Reference — M365 Copilot](/reference/llm-providers-m365).
+  [LLM Provider Reference - M365 Copilot](/reference/llm-providers-m365).
 
 In non-interactive environments (CI, pipes) kdeps skips the wizard and writes a
 fully commented template instead. Re-run the wizard any time by removing
 `~/.kdeps/config.yaml`, or edit it directly with `kdeps edit`.
 
-## Ollama (Optional)
+## Ollama (optional)
 
 To use [Ollama](https://ollama.ai/) instead of the default llamafile backend:
 
@@ -154,7 +154,7 @@ llm:
 
 ## Troubleshooting
 
-### Permission Denied Error
+### Permission denied error
 
 If you encounter a `Permission Denied` error during installation:
 
@@ -162,7 +162,7 @@ If you encounter a `Permission Denied` error during installation:
 curl -LsSf https://raw.githubusercontent.com/kdeps/kdeps/main/install.sh | sudo sh
 ```
 
-### Command Not Found
+### Command not found
 
 If `kdeps` is not found after installation, add `~/.local/bin` to your PATH:
 
@@ -176,7 +176,7 @@ Then reload your shell:
 source ~/.bashrc  # or source ~/.zshrc
 ```
 
-### Docker Permission Issues (Linux)
+### Docker permission issues (linux)
 
 If you get permission errors when running Docker commands:
 

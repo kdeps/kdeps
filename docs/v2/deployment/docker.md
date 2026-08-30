@@ -1,4 +1,4 @@
-# Docker Deployment
+# Docker deployment
 
 `kdeps bundle build` packages your workflow into a Docker image that starts an API server when run. No Dockerfile needed -- kdeps generates one from your `workflow.yaml`.
 
@@ -25,7 +25,7 @@ kdeps bundle package path/to/workflow.yaml
 
 This creates `myagent-1.0.0.kdeps` (name and version from workflow metadata).
 
-### What's Included
+### What's included
 
 ```
 myagent-1.0.0.kdeps
@@ -36,9 +36,9 @@ myagent-1.0.0.kdeps
 └── public/                # static files (if present)
 ```
 
-## Building Docker Images
+## Building Docker images
 
-### Basic Build
+### Basic build
 
 ```bash
 kdeps bundle build myagent-1.0.0.kdeps
@@ -46,13 +46,13 @@ kdeps bundle build myagent-1.0.0.kdeps
 
 Creates image: `kdeps-myagent:1.0.0`
 
-### Custom Tag
+### Custom tag
 
 ```bash
 kdeps bundle build myagent-1.0.0.kdeps --tag myregistry/myagent:latest
 ```
 
-### Show Dockerfile
+### Show dockerfile
 
 View the generated Dockerfile without building:
 
@@ -60,7 +60,7 @@ View the generated Dockerfile without building:
 kdeps bundle build myagent-1.0.0.kdeps --show-dockerfile
 ```
 
-## GPU Support
+## GPU support
 
 Build images with GPU acceleration:
 
@@ -78,7 +78,7 @@ kdeps bundle build myagent-1.0.0.kdeps --gpu intel
 kdeps bundle build myagent-1.0.0.kdeps --gpu vulkan
 ```
 
-### GPU Runtime
+### GPU runtime
 
 When running GPU-enabled images:
 
@@ -90,7 +90,7 @@ docker run --gpus all myregistry/myagent:latest
 docker run --device=/dev/kfd --device=/dev/dri myregistry/myagent:latest
 ```
 
-## Base OS Auto-Selection
+## Base OS auto-selection
 
 KDeps automatically selects the base OS based on GPU requirements:
 
@@ -107,7 +107,7 @@ kdeps bundle build myagent-1.0.0.kdeps
 kdeps bundle build myagent-1.0.0.kdeps --gpu cuda
 ```
 
-### Why Auto-Selection?
+### Why auto-selection?
 
 - **Alpine** uses musl libc and cannot run GPU workloads (NVIDIA CUDA, AMD ROCm require glibc)
 - **Ubuntu** uses glibc and supports all GPU types
@@ -131,7 +131,7 @@ settings:
 
 `--gpu` always forces Ubuntu. `debian` is not supported.
 
-## LLM Backend in Images
+## LLM backend in images
 
 By default no LLM server is installed: chat resources run on the `file`
 backend, and the llamafile model for each chat resource is downloaded into the
@@ -145,7 +145,7 @@ default (file backend)     → FROM alpine:latest or ubuntu:latest
 no chat resources          → FROM alpine:latest or ubuntu:latest (vanilla)
 ```
 
-## Ollama Docker Images (opt-in)
+## Ollama Docker images (opt-in)
 
 Ollama is bundled only when `installOllama: true`, `KDEPS_DEFAULT_BACKEND=ollama` is set with chat resources, or `KDEPS_LLM_ROUTER` routes to Ollama.
 
@@ -165,7 +165,7 @@ no Ollama                  → FROM alpine:latest or ubuntu:latest
 
 When the base image already includes Ollama, kdeps does not `COPY --from` a second Ollama layer.
 
-## Offline Mode
+## Offline mode
 
 Bake models into the image for air-gapped deployments:
 
@@ -187,7 +187,7 @@ kdeps bundle build myagent-1.0.0.kdeps
 
 The resulting image contains all models and doesn't require internet access.
 
-## Python Dependencies
+## Python dependencies
 
 ### Using requirements.txt
 
@@ -200,7 +200,7 @@ settings:
 
 KDeps uses [uv](https://github.com/astral-sh/uv) for fast Python package management (97% smaller than Anaconda).
 
-### Inline Packages
+### Inline packages
 
 ```yaml
 # workflow.yaml
@@ -213,7 +213,7 @@ settings:
       - scikit-learn
 ```
 
-## System Packages
+## System packages
 
 Install OS-level packages:
 
@@ -230,13 +230,13 @@ settings:
       - ppa:alex-p/tesseract-ocr-devel
 ```
 
-## Package Version Pinning
+## Package version pinning
 
 On every `bundle build`, kdeps resolves package versions before generating the Dockerfile:
 
-- **kdeps** — latest [GitHub release](https://github.com/kdeps/kdeps/releases); `install.sh` is fetched from that tag and the same tag is passed to the installer (never `main` + floating latest)
-- **ollama** — latest [ollama/ollama](https://github.com/ollama/ollama/releases) release as the Docker image tag for `ollama/ollama` and `alpine/ollama` (never `:latest`). `--gpu rocm` uses the fixed `ollama/ollama:rocm` tag instead.
-- **uv** — latest [astral-sh/uv](https://github.com/astral-sh/uv/releases) release as the `ghcr.io/astral-sh/uv` tag
+- **kdeps** - latest [GitHub release](https://github.com/kdeps/kdeps/releases); `install.sh` is fetched from that tag and the same tag is passed to the installer (never `main` + floating latest)
+- **ollama** - latest [ollama/ollama](https://github.com/ollama/ollama/releases) release as the Docker image tag for `ollama/ollama` and `alpine/ollama` (never `:latest`). `--gpu rocm` uses the fixed `ollama/ollama:rocm` tag instead.
+- **uv** - latest [astral-sh/uv](https://github.com/astral-sh/uv/releases) release as the `ghcr.io/astral-sh/uv` tag
 
 Override any field with an explicit semver (`v1.2.3` or `1.2.3`). Use `latest` or omit a field to accept the resolved value at build time.
 
@@ -245,9 +245,9 @@ Override any field with an explicit semver (`v1.2.3` or `1.2.3`). Use `latest` o
 settings:
   agentSettings:
     versions:
-      kdeps: v2.0.0    # optional — default: newest GitHub release when bundle build runs
-      ollama: 0.5.4    # optional — default: newest ollama/ollama release
-      uv: 0.6.3        # optional — default: newest astral-sh/uv release
+      kdeps: v2.0.0    # optional - default: newest GitHub release when bundle build runs
+      ollama: 0.5.4    # optional - default: newest ollama/ollama release
+      uv: 0.6.3        # optional - default: newest astral-sh/uv release
 ```
 
 Preview resolved pins:
@@ -258,9 +258,9 @@ kdeps bundle build myagent-1.0.0.kdeps --show-dockerfile
 
 When no Ollama base image is selected, kdeps uses `alpine:latest` or `ubuntu:latest`. Python defaults to `3.12` when `pythonVersion` is omitted.
 
-## Environment Variables
+## Environment variables
 
-### Build-time Args
+### Build-time args
 
 ```yaml
 # workflow.yaml
@@ -275,7 +275,7 @@ Pass during build:
 docker build --build-arg BUILD_VERSION=1.0.0 ...
 ```
 
-### Runtime Environment
+### Runtime environment
 
 ```yaml
 # workflow.yaml
@@ -291,7 +291,7 @@ Override at runtime:
 docker run -e LOG_LEVEL=debug myregistry/myagent:latest
 ```
 
-## Docker Compose
+## Docker compose
 
 KDeps generates a `docker-compose.yml`:
 
@@ -330,7 +330,7 @@ Run with:
 docker-compose up -d
 ```
 
-## Optimized Build Process
+## Optimized build process
 
 KDeps uses a streamlined build process that leverages the official installation script. This ensures the smallest possible image size and maximum compatibility.
 
@@ -360,7 +360,7 @@ The build process also automatically handles:
 - **Model management**: Pre-pulling models for offline readiness.
 - **Service orchestration**: Lightweight `supervisor` to manage API and LLM processes.
 
-## Health Checks
+## Health checks
 
 Add a health endpoint:
 
@@ -385,7 +385,7 @@ services:
       retries: 3
 ```
 
-## Kubernetes Deployment
+## Kubernetes deployment
 
 KDeps generates Kubernetes manifests directly from your `workflow.yaml` using `kdeps export k8s`. No manual YAML authoring needed.
 

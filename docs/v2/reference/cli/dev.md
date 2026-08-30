@@ -1,4 +1,4 @@
-# Dev Commands
+# Dev commands
 
 Commands for local development: run, agent REPL, validate, scaffold, configure, and diagnose.
 

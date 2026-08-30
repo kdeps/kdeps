@@ -1,8 +1,8 @@
-# While-Loop Iteration
+# While-loop iteration
 
-The [`loop`](/reference/glossary#loop) block enables conditional, unbounded iteration — making kdeps workflows Turing complete. Unlike `items` (which iterates over a fixed list), `loop` repeats a resource body while an optional expression is true (or for a fixed count when `while:` is omitted), with full access to mutable state via `set()`/`get()`. Add `every:` to turn the loop into a **repeated scheduled task** that pauses for a fixed duration between iterations.
+The [`loop`](/reference/glossary#loop) block enables conditional, unbounded iteration - making kdeps workflows Turing complete. Unlike `items` (which iterates over a fixed list), `loop` repeats a resource body while an optional expression is true (or for a fixed count when `while:` is omitted), with full access to mutable state via `set()`/`get()`. Add `every:` to turn the loop into a **repeated scheduled task** that pauses for a fixed duration between iterations.
 
-## Basic Usage
+## Basic usage
 
 <div v-pre>
 
@@ -24,9 +24,9 @@ apiResponse:
 
 </div>
 
-`loop.index() < 5` runs the body for index 0–4, producing 5 iterations. Each iteration's `apiResponse` becomes one element of the streaming response.
+`loop.index() < 5` runs the body for index 0 - 4, producing 5 iterations. Each iteration's `apiResponse` becomes one element of the streaming response.
 
-## Loop Context
+## Loop context
 
 Inside the loop body, special callables are available:
 
@@ -36,7 +36,7 @@ Inside the loop body, special callables are available:
 | `loop.count()` | Current iteration count (1-based) |
 | `loop.results()` | Results accumulated from **all prior** iterations |
 
-### Method Syntax
+### Method syntax
 
 ```yaml
 # resources/example.yaml
@@ -56,7 +56,7 @@ after:
 | `set('key', val, 'loop')` | `set('key', val, 'item')` | Loop-scoped storage |
 | `get('key', 'loop')` | `get('key', 'item')` | Read loop-scoped value |
 
-## Loop-Scoped Storage
+## Loop-scoped storage
 
 Use `'loop'` as a storage type hint to scope variables to the loop context, mirroring the `'item'` type for items iteration:
 
@@ -73,7 +73,7 @@ after:
 
 </div>
 
-## `loop.results()` — Self-Referential Termination
+## `loop.results()` - self-referential termination
 
 `loop.results()` returns a slice of all results from **previous** iterations. This enables patterns where the termination condition depends on what the loop has already produced:
 
@@ -90,11 +90,11 @@ after:
 
 </div>
 
-The loop runs until 3 results have been collected, regardless of how many iterations that takes — a key pattern for mu-recursion and unbounded search.
+The loop runs until 3 results have been collected, regardless of how many iterations that takes - a key pattern for mu-recursion and unbounded search.
 
-## Streaming Response
+## Streaming response
 
-When `apiResponse` is present, every iteration produces one response map. Multiple per-iteration responses constitute a **streaming response** — a slice returned to the caller. This mirrors how `items` with `apiResponse` works.
+When `apiResponse` is present, every iteration produces one response map. Multiple per-iteration responses constitute a **streaming response** - a slice returned to the caller. This mirrors how `items` with `apiResponse` works.
 
 <div v-pre>
 
@@ -117,9 +117,9 @@ Three iterations → three `apiResponse` maps → streaming slice of length 3.
 
 No iterations → empty slice.
 
-## `maxIterations` Safety Cap
+## `maxIterations` safety cap
 
-`maxIterations` is a configurable upper bound on the number of iterations. It prevents accidental infinite loops in production while preserving Turing completeness — users can set it to any positive integer.
+`maxIterations` is a configurable upper bound on the number of iterations. It prevents accidental infinite loops in production while preserving Turing completeness - users can set it to any positive integer.
 
 - Default: `1000`
 - Set to any positive integer for tighter or looser control
@@ -132,7 +132,7 @@ loop:
   maxIterations: 50000   # allow up to 50k iterations
 ```
 
-## `every:` — Repeated Scheduled Tasks
+## `every:` - repeated scheduled tasks
 
 Add `every:` to pause the loop for a fixed duration **between** iterations, turning it into a repeated scheduled task (ticker pattern). Supported units: `ms` (milliseconds), `s` (seconds), `m` (minutes), `h` (hours).
 
@@ -155,7 +155,7 @@ apiResponse:
 
 </div>
 
-The sleep is **skipped after the last iteration** — the caller receives results without an unnecessary trailing delay.
+The sleep is **skipped after the last iteration** - the caller receives results without an unnecessary trailing delay.
 
 ### Combining `while: "true"` with `every:` for infinite polling
 
@@ -186,11 +186,11 @@ after:
 
 An invalid `every:` value (e.g. `"not-a-duration"`) is rejected at validation time.
 
-## `at:` — Specific Dates and Times
+## `at:` - specific dates and times
 
 Use `at:` to fire the loop body at a list of specific dates and/or times, in order. The engine sleeps until each scheduled time before executing the body for that iteration.
 
-`every:` and `at:` are mutually exclusive — set only one per loop block.
+`every:` and `at:` are mutually exclusive - set only one per loop block.
 
 <div v-pre>
 
@@ -243,11 +243,11 @@ exec:
 If a time entry is already in the past the engine fires immediately (no sleep).  
 An invalid entry (e.g. `"not-a-date"`) causes an error before any iterations run.
 
-## Condition Syntax
+## Condition syntax
 
 The `while:` field is optional. When omitted, the loop runs until `maxIterations` (default 1000) or until all `at:` entries are consumed.
 
-When provided, the expression is evaluated using expr-lang — any boolean expression is valid:
+When provided, the expression is evaluated using expr-lang - any boolean expression is valid:
 
 ```yaml
 # Counter
@@ -268,7 +268,7 @@ while: "int(loop.count()) * int(loop.count() + 1) / 2 <= 20"
 
 The `while` field is a plain expr-lang boolean expression string.
 
-## Turing Completeness
+## Turing completeness
 
 The three primitives of Turing completeness are:
 
@@ -278,7 +278,7 @@ The three primitives of Turing completeness are:
 | **Mutable state** | `set()` / `get()` across iterations |
 | **Conditional branching** | Arbitrary boolean `while` expression + `validations.skip` |
 
-Together with `loop.results()` feeding back into the `while` condition, the system can simulate any computable function — including mu-recursion (search until an unpredictable condition is met).
+Together with `loop.results()` feeding back into the `while` condition, the system can simulate any computable function - including mu-recursion (search until an unpredictable condition is met).
 
 ## Examples
 
@@ -301,7 +301,7 @@ apiResponse:
 
 </div>
 
-### State-Machine Phase Transition
+### State-machine phase transition
 
 <div v-pre>
 
@@ -320,7 +320,7 @@ apiResponse:
 
 </div>
 
-### Conditional Early Exit (flag-based)
+### Conditional early exit (flag-based)
 
 <div v-pre>
 
@@ -341,7 +341,7 @@ apiResponse:
 
 </div>
 
-### Collect N Results
+### Collect n results
 
 <div v-pre>
 
@@ -360,7 +360,7 @@ apiResponse:
 
 </div>
 
-### Downstream Resource Reads Loop Output
+### Downstream resource reads loop output
 
 A resource that runs a loop and a downstream resource that reads the final state:
 
@@ -387,9 +387,9 @@ apiResponse:
 
 </div>
 
-## When to Use `loop` vs `items`
+## When to use `loop` vs `items`
 
-| Use `loop` when… | Use `items` when… |
+| Use `loop` when... | Use `items` when... |
 |------------------|------------------|
 | Number of iterations is not known in advance | You have a fixed list to process |
 | Termination depends on runtime state | You want to iterate over a pre-computed array |
@@ -400,7 +400,7 @@ apiResponse:
 
 ## See also
 
-- [Items Iteration](items) — Fixed-list iteration
-- [Expressions](/concepts/expressions) — Expression syntax
-- [Expression Functions Reference](/reference/expression-functions-reference) — Complete function list
-- [Validation and Control Flow](/concepts/validation-and-control) — Skip conditions, preflight checks
+- [Items Iteration](items) - Fixed-list iteration
+- [Expressions](/concepts/expressions) - Expression syntax
+- [Expression Functions Reference](/reference/expression-functions-reference) - Complete function list
+- [Validation and Control Flow](/concepts/validation-and-control) - Skip conditions, preflight checks

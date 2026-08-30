@@ -1,4 +1,4 @@
-# Example: Telegram LLM Bot
+# Example: Telegram LLM bot
 
 This workflow runs in workflow mode (`kdeps run`) as a Telegram bot -- it polls for messages and replies with a local LLM response (llamafile, no server install). Two resources: `llm` calls the model, `reply` sends the answer back.
 
@@ -69,4 +69,4 @@ kdeps run workflow.yaml
 
 ## See also
 
-- [Input Sources](../../concepts/input-sources.md) — Full platform config reference
+- [Input Sources](../../concepts/input-sources.md) - Full platform config reference

@@ -1,6 +1,6 @@
-# Persistent Memory
+# Persistent memory
 
-Persistent memory lets the agent store and recall facts across sessions. Unlike [session storage](/configuration/session) (which is request-scoped and survives restarts), persistent memory is **project-scoped** — facts saved in one session are available in future sessions for the same project.
+Persistent memory lets the agent store and recall facts across sessions. Unlike [session storage](/configuration/session) (which is request-scoped and survives restarts), persistent memory is **project-scoped** - facts saved in one session are available in future sessions for the same project.
 
 ## How it works
 
@@ -30,7 +30,7 @@ Creates or updates a memory entry. The entry is persisted immediately to disk.
   "name": "memory_save",
   "parameters": {
     "key": "project_name",
-    "value": "kdeps — Go module github.com/kdeps/kdeps/v2"
+    "value": "kdeps - Go module github.com/kdeps/kdeps/v2"
   }
 }
 ```
@@ -52,7 +52,7 @@ Returns matching entries as formatted text:
 
 ```
 Found 2 memory entries:
-- project_name: kdeps — Go module github.com/kdeps/kdeps/v2
+- project_name: kdeps - Go module github.com/kdeps/kdeps/v2
 - project_structure: Monorepo layout: cmd/, pkg/ (25 packages), docs/, tests/
 ```
 
@@ -79,7 +79,7 @@ Returns all stored keys (no content). Use `memory_search` to find specific entri
 }
 ```
 
-## Relational Query (memory_query)
+## Relational query (memory_query)
 
 For filtering by field, combining facts across sources, or correlating past tool calls with the task that triggered them, `memory_query` runs a relational query -- select/project/join/union -- over three relations built from agent state:
 
@@ -115,7 +115,7 @@ The agent loop automatically extracts facts from every turn without an explicit 
 The agent can write `[MEMORY: key] value` on its own line in any response. The extractor captures these as memory entries:
 
 ```
-[MEMORY: project_name] kdeps — Go module github.com/kdeps/kdeps/v2
+[MEMORY: project_name] kdeps - Go module github.com/kdeps/kdeps/v2
 ```
 
 ### 2. Action sentences
@@ -152,7 +152,7 @@ Entries are auto-classified by key pattern:
 | `result` | `result`, `output`, `done` | Completed work results |
 | `status` | `status`, `state` | Current state information |
 | `tool_result` | `tool:*` | Tool call outputs |
-| `thinking` | `thinking:*` | The model's reasoning/chain-of-thought text for a round, across every thinking-capable backend (native extended thinking, M365 Copilot's chain-of-thought summary, etc.) — searchable via `memory_search` so a later turn can recall what the model was actually reasoning about, not just what it said or did. Capped at 20 entries like `tool_result`. |
+| `thinking` | `thinking:*` | The model's reasoning/chain-of-thought text for a round, across every thinking-capable backend (native extended thinking, M365 Copilot's chain-of-thought summary, etc.) - searchable via `memory_search` so a later turn can recall what the model was actually reasoning about, not just what it said or did. Capped at 20 entries like `tool_result`. |
 | `decision` | `decision`, `decided` | Design decisions |
 | `preference` | `preference`, `prefer`, `like` | User preferences |
 | `context` | `context`, `env`, `config` | Environment context |
@@ -172,7 +172,7 @@ prompt → purpose → progress → tool_result → result → status
                             action, error, file, decision, fact, note
 ```
 
-Rather than a separate diagram, the graph is **inlined into the `<memory>` block**: entries are ordered so each parent comes before the children that reference it, and every entry shows its parent edge with `<- parent`. The LLM reads the workflow as one chain instead of cross-referencing a separate arrow list. Each entry is rendered on exactly one line — a multiline value (tool output, a captured section) has its newlines collapsed to ` / ` so it never breaks the one-entry-per-line reading.
+Rather than a separate diagram, the graph is **inlined into the `<memory>` block**: entries are ordered so each parent comes before the children that reference it, and every entry shows its parent edge with `<- parent`. The LLM reads the workflow as one chain instead of cross-referencing a separate arrow list. Each entry is rendered on exactly one line - a multiline value (tool output, a captured section) has its newlines collapsed to ` / ` so it never breaks the one-entry-per-line reading.
 
 ## Prompt injection
 
@@ -200,8 +200,8 @@ Duplicate facts (case/whitespace-insensitive) are flagged `(same as <key>)` on t
 
 When the agent runs `/compact` (summarizes and clears conversation history), the `AutoCapture` method extracts structured sections from the summary:
 
-- `## Key Decisions` — saved as `decision` type entries
-- `## Critical Context` — saved as `context` type entries
+- `## Key Decisions` - saved as `decision` type entries
+- `## Critical Context` - saved as `context` type entries
 
 This preserves important information across compaction boundaries.
 
@@ -211,19 +211,19 @@ After every compaction, a `checkpoint:summary` entry is saved containing the con
 
 ## Session persistence
 
-The agent's full LLM config (model, backend, base URL) is saved to `session:config` on startup and after every `/model` switch. On the next run, the config is restored automatically — you pick up right where you left off.
+The agent's full LLM config (model, backend, base URL) is saved to `session:config` on startup and after every `/model` switch. On the next run, the config is restored automatically - you pick up right where you left off.
 
 Additionally, the working directory is saved on start (`session:started`) and resume (`session:resumed`) so the agent always knows where it is.
 
 ## Workflow mode
 
-Memory tools work in both agent mode and workflow mode. In workflow mode, the store is lazy-initialized on first use via `GetOrCreateMemoryStore()`. No Loop required — memory is available to any resource or tool.
+Memory tools work in both agent mode and workflow mode. In workflow mode, the store is lazy-initialized on first use via `GetOrCreateMemoryStore()`. No Loop required - memory is available to any resource or tool.
 
 ## Tool result filtering
 
-To prevent memory bloat, only write/exec/search tools produce memory entries. Read-only lookups (`read_file`, `list_files`, `search_local`) are filtered out. Each tool type is capped at 20 entries — the oldest are auto-deleted when the cap is reached. A tool result (or any captured section) longer than its store limit is cut and marked with a trailing `...`, so a model reads it as a fragment rather than mistaking a mid-text cut for the complete output. The cut is backed off to the nearest character boundary, so a multibyte character (e.g. non-Latin text or an emoji) is never split.
+To prevent memory bloat, only write/exec/search tools produce memory entries. Read-only lookups (`read_file`, `list_files`, `search_local`) are filtered out. Each tool type is capped at 20 entries - the oldest are auto-deleted when the cap is reached. A tool result (or any captured section) longer than its store limit is cut and marked with a trailing `...`, so a model reads it as a fragment rather than mistaking a mid-text cut for the complete output. The cut is backed off to the nearest character boundary, so a multibyte character (e.g. non-Latin text or an emoji) is never split.
 
-Auto-extracted **low-signal** entries (types `note` and `fact`) are also globally capped at 50 combined — the noisiest, least-structural entries that accumulate fastest over a long-lived project. When the cap is exceeded, the oldest are pruned on write. Structural entries (`prompt`, `purpose`, `progress`, `result`, `status`, `decision`, `context`, `tool_result`, ...) are never pruned by this cap, so the workflow chain and resume point are always preserved.
+Auto-extracted **low-signal** entries (types `note` and `fact`) are also globally capped at 50 combined - the noisiest, least-structural entries that accumulate fastest over a long-lived project. When the cap is exceeded, the oldest are pruned on write. Structural entries (`prompt`, `purpose`, `progress`, `result`, `status`, `decision`, `context`, `tool_result`, ...) are never pruned by this cap, so the workflow chain and resume point are always preserved.
 
 ## Configuration
 
@@ -233,6 +233,6 @@ To disable memory, do not pass a `MemoryStore` to the agent config.
 
 ## See also
 
-- [Session Configuration](/configuration/session) — request-scoped persistent storage
-- [Agent Loop Mode](/modes/agent-loop-mode) — how the agent loop works
-- [Expression Functions](/reference/expression-functions-reference) — `set()` and `get()` for session/memory
+- [Session Configuration](/configuration/session) - request-scoped persistent storage
+- [Agent Loop Mode](/modes/agent-loop-mode) - how the agent loop works
+- [Expression Functions](/reference/expression-functions-reference) - `set()` and `get()` for session/memory

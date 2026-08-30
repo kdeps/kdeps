@@ -1,4 +1,4 @@
-# Scraper Resource
+# Scraper resource
 
 The `scraper` executor is a native capability compiled into the `kdeps` binary. It fetches a URL and returns the text content, with optional CSS selector filtering.
 
@@ -18,8 +18,8 @@ scraper:
 
 | Field | Type | Required | Default | Description |
 |-------|------|----------|---------|-------------|
-| `url` | string | yes | — | URL to fetch |
-| `selector` | string | no | — | CSS selector to scope extraction |
+| `url` | string | yes | - | URL to fetch |
+| `selector` | string | no | - | CSS selector to scope extraction |
 | `timeout` | integer | no | `30` | Request timeout in seconds |
 
 ## Output
@@ -71,7 +71,7 @@ scraper:
 
 </div>
 
-## Error Handling
+## Error handling
 
 Use `onError` to handle unreachable URLs gracefully:
 

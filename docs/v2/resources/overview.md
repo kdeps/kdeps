@@ -1,4 +1,4 @@
-# Resources Overview
+# Resources overview
 
 A resource is a single step in a workflow. It has an ID, optional dependencies, optional validation, and exactly one action. kdeps builds a dependency graph from all resources and runs them in order.
 
@@ -6,7 +6,7 @@ A resource is a single step in a workflow. It has an ID, optional dependencies, 
 
 All resource types work in both [workflow mode](/modes/workflow-mode) and [agent mode](/modes/agent-loop-mode). In workflow mode, resources execute as DAG steps ordered by `requires:`. In agent mode, whole workflows are registered as callable tools -- the LLM invokes a workflow as a unit, and all resource dependencies inside it resolve correctly.
 
-## Resource Structure
+## Resource structure
 
 ```yaml
 # resources/my-resource.yaml
@@ -64,7 +64,7 @@ component:           # call an installable registry component
     message: "Hello!"
 ```
 
-## Resource Types
+## Resource types
 
 ### Native executors (always available)
 
@@ -107,7 +107,7 @@ These executors are compiled into the `kdeps` binary and require no installation
 
 See the [Components guide](../concepts/components) for installation and usage details.
 
-## actionId and requires
+## Actionid and requires
 
 [`actionId`](/reference/glossary#actionid) is the resource's unique name. It has two purposes: it controls which resource [`targetActionId`](/reference/glossary#targetactionid) points to, and it is the key you pass to `get()` to read a resource's output.
 
@@ -156,7 +156,7 @@ validations:
 
 [`skip`](/reference/glossary#skip) silently no-ops the resource. [`check`](/reference/glossary#check) returns an error to the caller. Both take a list -- any one true condition is enough to trigger the behavior.
 
-## before and after expressions
+## Before and after expressions
 
 `before:` runs before the action; use it to compute values the action reads.
 `after:` runs after the action; use it to process output for downstream resources.
@@ -178,7 +178,7 @@ after:
 
 See [Expressions](/concepts/expressions) for detailed documentation.
 
-## Items Iteration
+## Items iteration
 
 Process multiple items in sequence:
 
@@ -204,7 +204,7 @@ Access iteration context:
 - `get('index')` - Current index (0-based)
 - `get('count')` - Total item count
 
-## Loop Iteration
+## Loop iteration
 
 Repeat a resource body while a condition is true (Turing-complete while-loop). Add `every:` to pause between iterations for a ticker pattern, or `at:` to fire at specific dates/times:
 
@@ -239,7 +239,7 @@ Loop fields:
 
 When `apiResponse` is present, each iteration produces one streaming response map.
 
-## Resource Output
+## Resource output
 
 Each resource produces output that can be accessed by dependent resources:
 
@@ -260,7 +260,7 @@ apiResponse:
 
 </div>
 
-## Execution Flow
+## Execution flow
 
 ```d2
 direction: down
@@ -295,9 +295,9 @@ F: Response {shape: oval}
 A -> B -> C -> loop -> E -> F
 ```
 
-## Best Practices
+## Best practices
 
-### 1. Use Descriptive actionIds
+### 1. Use descriptive actionIds
 ```yaml
 # Good
 actionId: fetchUserProfile
@@ -308,16 +308,16 @@ actionId: resource1
 actionId: r2
 ```
 
-### 2. Single Responsibility
+### 2. Single responsibility
 Each resource should do one thing well. Split complex logic into multiple resources.
 
-### 3. Validate Early
+### 3. Validate early
 Use `validations.check` to validate inputs before expensive operations.
 
-### 4. Handle Dependencies
+### 4. Handle dependencies
 Only list direct dependencies in [`requires`](/reference/glossary#requires). KDeps handles transitive dependencies.
 
-### 5. Use Appropriate Timeouts
+### 5. Use appropriate timeouts
 Set realistic `timeout` values based on expected execution time.
 
 ## See also

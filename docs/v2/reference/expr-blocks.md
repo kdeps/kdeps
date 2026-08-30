@@ -1,4 +1,4 @@
-# Inline Resource Blocks (before / after)
+# Inline resource blocks (before / after)
 
 `before:` and `after:` are expression lists that run around a resource's main action -- `before:` prepares data before the action runs, `after:` processes output after it completes. Think of them like setup/teardown blocks around a function call.
 
@@ -7,7 +7,7 @@
 
 Both accept bare scalar expressions. Each item executes in sequence and can call `set()` to store values, perform calculations, or read from memory and session.
 
-## Basic Usage
+## Basic usage
 
 <div v-pre>
 
@@ -26,9 +26,9 @@ chat:
 
 </div>
 
-## When to Use expr Blocks
+## When to use expr blocks
 
-### 1. Data Transformation
+### 1. Data transformation
 
 Transform data before using it:
 
@@ -45,7 +45,7 @@ httpClient:
     timestamp: get('request_time')
 ```
 
-### 2. Memory/Session Operations
+### 2. Memory/Session operations
 
 Store values for later use:
 
@@ -82,7 +82,7 @@ apiResponse:
     final_price: get('final_price')
 ```
 
-### 4. Conditional Logic
+### 4. Conditional logic
 
 Set values based on conditions:
 
@@ -98,7 +98,7 @@ httpClient:
     ttl: get('cache_ttl')
 ```
 
-## Execution Order
+## Execution order
 
 Expressions in each block run top to bottom. The full per-resource order is:
 
@@ -114,9 +114,9 @@ E: response {shape: oval}
 A -> B -> C -> D -> E
 ```
 
-## Common Patterns
+## Common patterns
 
-### Pattern 1: Data Normalization
+### Pattern 1: data normalization
 
 ```yaml
 # resources/example.yaml
@@ -133,7 +133,7 @@ sql:
     - get('normalized_name')
 ```
 
-### Pattern 2: Counter/State Management
+### Pattern 2: Counter/State management
 
 <div v-pre>
 
@@ -150,7 +150,7 @@ chat:
 
 </div>
 
-### Pattern 3: Data Aggregation
+### Pattern 3: data aggregation
 
 ```yaml
 # resources/example.yaml
@@ -166,7 +166,7 @@ apiResponse:
       total: get('total_value')
 ```
 
-### Pattern 4: Error Handling Preparation
+### Pattern 4: error handling preparation
 
 ```yaml
 # resources/example.yaml
@@ -180,7 +180,7 @@ httpClient:
     maxAttempts: 3
 ```
 
-## Expression-Only Resources
+## Expression-only resources
 
 You can create resources that only execute expressions (no main action):
 
@@ -197,7 +197,7 @@ after:
 
 This resource returns `{"status": "expressions_executed"}` and can be used as a dependency for other resources.
 
-## Accessing expr Results
+## Accessing expr results
 
 Values set in `expr` blocks are immediately available via `get()`:
 
@@ -215,9 +215,9 @@ chat:
 
 </div>
 
-## Best Practices
+## Best practices
 
-### 1. Keep Expressions Simple
+### 1. Keep expressions simple
 
 ```yaml
 # Good: Simple, clear expressions
@@ -230,7 +230,7 @@ after:
 #   - set('result', get('a') * get('b') / get('c') + get('d') - ...)
 ```
 
-### 2. Use for Side Effects
+### 2. Use for side effects
 
 ```yaml
 # Good: Storing state
@@ -241,7 +241,7 @@ after:
 # Avoid: Complex data processing (use Python)
 ```
 
-### 3. Order Matters
+### 3. Order matters
 
 Expressions execute in sequence:
 
@@ -264,7 +264,7 @@ after:
 
 ## Examples
 
-### Example 1: Request Logging
+### Example 1: request logging
 
 <div v-pre>
 
@@ -287,7 +287,7 @@ chat:
 
 </div>
 
-### Example 2: Data Validation and Transformation
+### Example 2: data validation and transformation
 
 <div v-pre>
 
@@ -313,7 +313,7 @@ chat:
 
 </div>
 
-### Example 3: Session Management
+### Example 3: session management
 
 <div v-pre>
 
