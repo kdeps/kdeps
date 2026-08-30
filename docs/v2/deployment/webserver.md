@@ -31,7 +31,7 @@ G -> H
 
 `webServer` responses include the same defensive security headers as `apiServer` (`X-Content-Type-Options`, `X-Frame-Options`, `Referrer-Policy`, `Permissions-Policy`, and HSTS when TLS is enabled). CSP is omitted on `webServer` so proxied apps keep working. Bearer auth applies only to `apiServer` routes, not static files or app proxies.
 
-### Webserver-only (no apiServer)
+### webServer-only (no apiServer)
 
 If you run with only `webServer` and no `apiServer`, there is no bearer auth. Anyone who can reach the bind address can read static files and use app proxies unless you add ingress auth. Optional `rateLimit`, `maxBodyBytes`, and `maxConcurrent` under `webServer` still apply:
 

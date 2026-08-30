@@ -107,7 +107,7 @@ These executors are compiled into the `kdeps` binary and require no installation
 
 See the [Components guide](../concepts/components) for installation and usage details.
 
-## Actionid and requires
+## actionId and requires
 
 [`actionId`](/reference/glossary#actionid) is the resource's unique name. It has two purposes: it controls which resource [`targetActionId`](/reference/glossary#targetactionid) points to, and it is the key you pass to `get()` to read a resource's output.
 

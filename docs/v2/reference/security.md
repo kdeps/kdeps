@@ -86,7 +86,7 @@ Both `apiServer` and `webServer` responses include defensive HTTP headers on eve
 
 `apiServer` also sets a strict `Content-Security-Policy` (`default-src 'none'; frame-ancestors 'none'; base-uri 'none'`) on JSON API responses. `webServer` omits CSP so proxied apps (Streamlit, Gradio, SPAs) are not blocked.
 
-### Webserver-only mode
+### webServer-only mode
 
 When only `webServer` is configured (no `apiServer`), kdeps does not enforce bearer auth. Static files and app proxies are world-readable if bound to `0.0.0.0` unless you add an ingress with auth. You can still set `rateLimit`, `maxBodyBytes`, and `maxConcurrent` under `webServer` to throttle abuse.
 

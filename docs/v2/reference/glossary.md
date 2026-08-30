@@ -1,178 +1,57 @@
 # Glossary
 
-Every kdeps term defined in one place. First mention of any term in other docs pages links here.
+Every kdeps term defined in one place. The first mention of any term on other
+docs pages links here. This is a reference page and applies to both workflow
+mode and agent mode.
 
-## A
-
-### Actionid
-A unique string identifier for a [resource](#resource) within a workflow. Used as the target for `requires` dependencies. Must be unique across all resources in the workflow. In [agent mode](#agent-mode), resources are not exposed as tools directly - the whole workflow is the tool, named after `metadata.name`.
-
-### Agent
-An autonomous LLM-driven pipeline defined by `kind: Agent` in a workflow. Agents have tools, memory, and multi-step reasoning. Run with `kdeps [path]`. See [Agent Mode](/modes/agent-loop-mode).
-
-### Agency
-A pattern where one agent calls another agent as a sub-agent. The caller delegates a task, the callee runs autonomously, and the result is returned. Defined via the `agent:` action type. See [Agencies](/concepts/agency).
-
-### Apiresponse
-A resource action type that returns a structured JSON response to the client. The terminal node in most workflows - the final resource that formats and sends the output. See [API Response](/resources/api-response).
-
-## B
-
-### Before
-An expression block that runs before a resource's main action. Use for data preparation, normalization, and input validation. Each expression executes sequentially. See [Expression Blocks](/reference/expr-blocks).
-
-### Browser
-A resource action type for browser automation (Playwright-based). Navigates pages, clicks elements, fills forms, and extracts content. See [Browser](/resources/browser).
-
-## C
-
-### Chat
-A resource action type for LLM chat completion. Sends a prompt to a language model and returns the response. The most commonly used action type. See [LLM (Chat)](/resources/llm).
-
-### Check
-A list of boolean expressions in `validations.check`. ALL must be true for the resource to execute. If any is false, the resource fails with a configurable error code and message. Unlike [skip](#skip), check failure stops the workflow. See [Validation & Control Flow](/concepts/validation-and-control).
-
-### Component
-A reusable, packaged workflow published to the kdeps registry. Components encapsulate resources, logic, and configuration that can be imported into other workflows. Defined by `kind: Component`. See [Components](/concepts/components).
-
-### Componenttools
-Tools provided by a [component](#component) that are exposed to the calling agent or workflow. When an agent calls a component, the component's tools become available for the LLM to invoke.
-
-### Codeintelligence
-A resource action type for code navigation and intelligence. Supports symbol search, definition lookup, reference finding, document symbols, hover info, and diagnostics via ripgrep and Go vet. See [Code Intelligence](/resources/codeintelligence).
-
-## E
-
-### Embedding
-A resource action type that generates vector embeddings from text. Used for semantic search and RAG pipelines. See [Embedding](/resources/embedding).
-
-### Exec
-A resource action type that runs shell commands. Captures stdout, stderr, and exit code. See [Exec](/resources/exec).
-
-### Expr
-<div v-pre>
-
-Short for "expression." A statement evaluated by the expr-lang engine. Used in `before`/`after` blocks, `validations.check`/`validations.skip`, and `{{ }}` string interpolation.
-
-</div>
-
-## F
-
-### File
-Accesses uploaded files or local files. The `file()` function takes a glob pattern and optional selector (`first`, `last`, `count`, `all`, `mime:<type>`).
-
-### File (resource)
-A resource action type for filesystem operations. Supports read, write, patch, list, delete, exists, mkdir, copy, move, and append operations on files and directories. See [File](/resources/file).
-
-## G
-
-### Get
-The primary data access function. Retrieves values from query params, headers, request body, session, memory, environment variables, or resource outputs. Uses auto-detection when no source hint is given. See [Expression Functions](/reference/expression-functions-reference).
-
-### Git
-A resource action type for version control operations. Supports status, diff, log, commit, branch, push, pull, and other git operations. See [Git](/resources/git).
-
-## H
-
-### Httpclient
-A resource action type for making HTTP requests. Supports GET, POST, PUT, DELETE, headers, query params, request body, retry, and caching. See [HTTP Client](/resources/http-client).
-
-## I
-
-### Info
-Returns request metadata: `ID`, `timestamp`, `path`, `method`, `IP`, `sessionId`, `filecount`, `files`, `filetypes`.
-
-### Items
-An array of data that a resource iterates over. When set, the resource runs once per item. Access the current item via `item.current()` or `get('current')`. See [Items & Loop](/concepts/items).
-
-## J
-
-### Jsonresponse
-A boolean field on `chat` resources. When `true`, forces the LLM to return valid JSON (no markdown wrapping, no explanatory text).
-
-## L
-
-### Loop
-A while-loop configuration on a resource. The resource body executes repeatedly as long as the `while` expression is true, up to `maxIterations`. Supports `every` for ticker-style scheduled execution. See [Loop](/concepts/loop).
-
-## M
-
-### Memory (expression)
-Request-scoped key/value storage. Values set with `set('key', value, 'memory')` persist for the duration of a single request and are accessible via `get('key', 'memory')`. Cleared when the request completes.
-
-### Memory (persistent)
-Project-scoped persistent storage for the agent loop. Facts are stored in a bbolt database at `~/.kdeps/memory/<encoded-cwd>/memory.bolt` and survive across sessions. The agent has five built-in tools (`memory_save`, `memory_search`, `memory_delete`, `memory_list`, `memory_query`) for interacting with persistent memory - `memory_query` additionally runs relational queries (select/project/join/union) across memory, tool-call history, and task state. Facts are auto-extracted from every turn and injected into the LLM's system prompt. See [Persistent Memory](/concepts/memory).
-
-### Memory graph
-A directed graph of memory entries built from their `References` fields. Entries are auto-linked by type (e.g. `tool_result` depends on `progress`, `result` depends on `tool_result`). The graph is inlined into the `<memory>` block - entries in causal order (parents before children), each showing its `<- parent` edge - so the model can trace relationships between facts without a separate diagram.
-
-## O
-
-### Output
-Accesses the output of a completed resource by its actionId. Use `output('actionId')` to read results from upstream resources.
-
-## P
-
-### Python
-A resource action type that runs Python scripts. Supports inline scripts, file paths, packages, and virtual environments. See [Python](/resources/python).
-
-## R
-
-### Requires
-A list of actionIds that must complete successfully before this resource can run. Defines DAG edges. The engine resolves transitive dependencies automatically.
-
-### Resource
-The fundamental building block of a kdeps workflow. Each resource has an `actionId`, a primary action type (chat, httpClient, sql, etc.), optional `requires` dependencies, and optional validations/loop/error handling.
-
-## S
-
-### Scenario
-A test scenario defined for a resource or workflow. Scenarios specify inputs and expected outputs, used for validation during `kdeps validate`.
-
-### Scraper
-A resource action type for web scraping. Extracts structured data from HTML pages using CSS selectors. See [Scraper](/resources/scraper).
-
-### Searchlocal
-A resource action type for local semantic search over indexed documents. See [Search](/resources/search).
-
-### Searchweb
-A resource action type for web search via configured search APIs.
-
-### Session
-Session-scoped key/value storage. Values set with `set('key', value, 'session')` persist across requests from the same client. See [Session & Persistence](/configuration/session).
-
-### Set
-Stores a value in memory or session. Usage: `set('key', value)` (memory) or `set('key', value, 'session')` (persistent across requests).
-
-### Skip
-A list of boolean expressions in `validations.skip`. If ANY expression is true, the resource is skipped. Unlike [check](#check), skipping is silent - the workflow continues to the next resource. See [Validation & Control Flow](/concepts/validation-and-control).
-
-### Sql
-A resource action type for SQL database queries. Supports PostgreSQL, MySQL, SQLite. Parameterized queries prevent injection. See [SQL](/resources/sql).
-
-### Streaming
-A boolean field on `chat` resources. When `true`, the LLM response is streamed token-by-token instead of waiting for the full response.
-
-## T
-
-### targetActionId
-The entry point resource for a workflow. Execution starts by resolving the dependency graph from this resource backward. Set in `metadata.targetActionId`.
-
-### Tools
-Functions registered with the LLM. In [agent mode](#agent-mode), tools are whole workflows (named after `metadata.name`) and components - not individual resources. The LLM decides which tool to call based on the user prompt. In workflow mode, tools are custom functions defined in `chat.tools` on a `chat:` resource. See [Tools](/concepts/tools).
-
-## V
-
-### Validations
-A resource-level configuration block containing `skip`, `check`, `routes`, `methods`, and `error`. Controls whether a resource runs and how it fails. See [Validation & Control Flow](/concepts/validation-and-control).
-
-## W
-
-### Workflow
-The top-level unit of execution in kdeps. A YAML file defining resources, their dependencies, and configuration. Declared as `kind: Workflow`. See [workflow.yaml Reference](/configuration/workflow).
+| Term | Definition | More |
+| :--- | :--- | :--- |
+| <a id="actionid"></a>`actionId` | A unique string that identifies a resource within a workflow. Used as the target of `requires:` dependencies. In agent mode, resources are not exposed as tools; the whole workflow is the tool, named after `metadata.name`. | [Resources overview](/resources/overview) |
+| agent | An autonomous LLM-driven pipeline defined by `kind: Agent`. Has tools, memory, and multi-step reasoning. Run with `kdeps [path]`. | [Agent loop mode](/modes/agent-loop-mode) |
+| <a id="agency"></a>agency | Multiple agents composed into one system. One agent delegates a task to another via the `agent:` action type; the callee runs its full pipeline and returns its output. | [AI agencies](/concepts/agency) |
+| `apiResponse` | A resource action type that returns a structured JSON response to the client. Usually the terminal node of a workflow. | [API response](/resources/api-response) |
+| `before` / `after` | Expression blocks that run before or after a resource's main action. Used for data preparation, normalization, and validation. Statements execute in order. | [Expression blocks](/reference/expr-blocks) |
+| `browser` | A resource action type for browser automation. Navigates pages, clicks elements, fills forms, and extracts content. | [Browser](/resources/browser) |
+| `chat` | A resource action type for LLM chat completion. Sends a prompt and returns the response. The most common action type. | [LLM (chat)](/resources/llm) |
+| <a id="check"></a>`check` | A list of boolean expressions in `validations.check`. All must be true or the resource fails and the workflow stops. | [Validation and control flow](/concepts/validation-and-control) |
+| `codeIntelligence` | A resource action type for code navigation: symbol search, definition lookup, reference finding, hover info, and diagnostics. | [Code intelligence](/resources/codeintelligence) |
+| <a id="component"></a>component | A reusable, packaged resource bundle. Installed from the registry or built in a `components/` directory. Declared as `kind: Component`. | [Components](/concepts/components) |
+| `componentTools` | Tools provided by a component that are exposed to the calling agent or workflow for the LLM to invoke. | [Components](/concepts/components) |
+| `embedding` | A resource action type that generates vector embeddings from text, for semantic search and RAG. | [Embedding](/resources/embedding) |
+| `exec` | A resource action type that runs shell commands and captures stdout, stderr, and exit code. | [Exec](/resources/exec) |
+| expr | Short for expression: a statement evaluated by the expr-lang engine. Used in `before:` / `after:` blocks, `validations`, and `{{ }}` string interpolation. | [Expressions](/concepts/expressions) |
+| `file()` | An expression function that reads uploaded or local files. Takes a glob pattern and an optional selector (`first`, `last`, `count`, `all`, `mime:<type>`). | [Unified API](/concepts/unified-api) |
+| `file` (resource) | A resource action type for filesystem operations: read, write, patch, list, delete, mkdir, copy, move, append. | [File](/resources/file) |
+| `get()` | The primary data access function. Reads from query params, headers, body, session, memory, environment, or resource outputs, with auto-detection. | [Unified API](/concepts/unified-api) |
+| `git` | A resource action type for version control: status, diff, log, commit, branch, push, pull. | [Git](/resources/git) |
+| `httpClient` | A resource action type for HTTP requests. Supports all methods, headers, query params, body, retry, and caching. | [HTTP client](/resources/http-client) |
+| `info()` | An expression function that returns request metadata: `ID`, `timestamp`, `path`, `method`, `IP`, `sessionId`, `filecount`, `files`, `filetypes`. | [Unified API](/concepts/unified-api) |
+| `items` | An array a resource iterates over. The resource runs once per item. Access the current item via `item.current()` or `get('current')`. | [Items iteration](/concepts/items) |
+| `jsonResponse` | A boolean field on `chat` resources. When true, forces the LLM to return valid JSON with no markdown wrapping. | [LLM (chat)](/resources/llm) |
+| <a id="loop"></a>`loop` | A while-loop on a resource. The body runs while the `while` expression is true, up to `maxIterations`. `every:` turns it into a scheduled ticker. | [While-loop iteration](/concepts/loop) |
+| memory (expression) | Request-scoped key/value storage. Set with `set('key', value, 'memory')`; read with `get('key', 'memory')`. Cleared when the request completes. | [Session and memory](/configuration/session) |
+| memory (persistent) | Project-scoped storage for the agent loop in a bbolt database that survives across sessions. Built-in tools: `memory_save`, `memory_search`, `memory_delete`, `memory_list`, `memory_query`. | [Persistent memory](/concepts/memory) |
+| memory graph | A directed graph of memory entries linked by their `References` fields and auto-linked by type. Inlined into the `<memory>` block in causal order. | [Persistent memory](/concepts/memory) |
+| `output()` | An expression function that reads the output of a completed resource by its `actionId`. | [Unified API](/concepts/unified-api) |
+| `python` | A resource action type that runs Python scripts. Supports inline scripts, file paths, packages, and virtual environments. | [Python](/resources/python) |
+| <a id="requires"></a>`requires` | A list of `actionId`s that must complete before this resource runs. Defines the DAG edges. Transitive dependencies resolve automatically. | [Execution flow](/guides/execution-flow) |
+| resource | The fundamental building block of a workflow: an `actionId`, a primary action type, optional `requires`, and optional validations, loop, and error handling. | [Resources overview](/resources/overview) |
+| scenario | A test case for a resource or workflow: inputs and expected outputs, checked during `kdeps validate`. | [Validation examples](/reference/validation-examples) |
+| `scraper` | A resource action type for web scraping. Extracts structured data from HTML using CSS selectors. | [Scraper](/resources/scraper) |
+| `searchLocal` | A resource action type for local semantic search over indexed documents. | [searchLocal](/resources/searchlocal) |
+| `searchWeb` | A resource action type for web search via configured search APIs. | [searchWeb](/resources/searchweb) |
+| session | Session-scoped key/value storage that persists across requests from the same client. Set with `set('key', value, 'session')`. | [Session and memory](/configuration/session) |
+| `set()` | Stores a value in memory (this request) or session (across requests). | [Unified API](/concepts/unified-api) |
+| <a id="skip"></a>`skip` | A list of boolean expressions in `validations.skip`. If any is true, the resource is skipped silently and the workflow continues. | [Validation and control flow](/concepts/validation-and-control) |
+| `sql` | A resource action type for SQL queries against PostgreSQL, MySQL, or SQLite. Parameterized queries prevent injection. | [SQL](/resources/sql) |
+| <a id="streaming"></a>`streaming` | A boolean field on `chat` resources. When true, the LLM response streams token by token. | [LLM backends](/resources/llm-backends) |
+| <a id="targetactionid"></a>`targetActionId` | The entry-point resource of a workflow, set in `metadata.targetActionId`. Execution resolves the dependency graph backward from here. | [workflow.yaml](/configuration/workflow) |
+| tools | Functions registered with the LLM. In agent mode, tools are whole workflows and components. In workflow mode, tools are functions defined in `chat.tools`. | [Tools](/concepts/tools) |
+| <a id="validations"></a>`validations` | A resource-level block with `skip`, `check`, `routes`, `methods`, and `error`. Controls whether a resource runs and how it fails. | [Validation and control flow](/concepts/validation-and-control) |
+| workflow | The top-level unit of execution: a YAML file defining resources, dependencies, and configuration. Declared as `kind: Workflow`. | [workflow.yaml](/configuration/workflow) |
 
 ## See also
 
-- [Execution Flow](/guides/execution-flow) - how the DAG resolves and runs
-- [Expression Functions Reference](/reference/expression-functions-reference) - all functions available in expressions
-- [Expression Operators](/reference/expression-operators) - comparison and logical operators
+- [Execution flow](/guides/execution-flow) - how the DAG resolves and runs
+- [Expression functions reference](/reference/expression-functions-reference) - every function available in expressions
+- [Expression operators](/reference/expression-operators) - comparison and logical operators
