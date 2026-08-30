@@ -39,7 +39,9 @@ Inside the REPL, type `/help` for the full list:
 | `/<skill-name> [prompt]` | Invoke a skill or prompt template directly |
 | `/compact` | Summarize history to free context |
 | `/history` | Show conversation history |
-| `/thinking [off\|low\|medium\|high\|auto]` | Enable extended reasoning (Claude only; warns if current model does not support it); persists across sessions |
+| `/thinking [off\|minimal\|low\|medium\|high\|xhigh\|auto]` | Enable extended reasoning (Claude only; warns if current model does not support it); persists across sessions |
+| `/prompt` | Show the exact LLM request for the last turn (system prompt, messages, tool schemas) |
+| `/prompt raw` | Same, unformatted -- the raw JSON payload sent to the model |
 | `/permission [read-only\|workspace-write\|danger-full-access\|ask]` | Show or set the tool permission mode; persists across sessions (see [Permission modes](#permission-modes)) |
 | `/session list\|save\|load\|delete\|checkpoint\|goto\|branches\|import` | Manage saved sessions and navigate branching history |
 | `/editor` | Open current input in `$EDITOR` (ctrl+g) |
@@ -697,6 +699,7 @@ Always available. No environment variables required.
 | `memory_search` | Search memory entries by key or value (case-insensitive substring). |
 | `memory_delete` | Remove a memory entry by key. |
 | `memory_list` | List all stored memory keys. |
+| `memory_query` | Run an expr-lang relational query over agent state: `memory` (persistent entries), `tool_calls` (recent tool call history), `tasks` (active goal's task list). Supports `filter()`, `map()`, `join()`, `union()`. |
 
 Memory is stored per-project at `~/.kdeps/memory/<encoded-cwd>/memory.bolt`. Facts persist across sessions and are auto-extracted from every turn — the agent can write `[MEMORY: key] value` on its own line to persist a fact without calling `memory_save`. See [Persistent Memory](/concepts/memory) for details.
 
@@ -768,6 +771,8 @@ Always available. No environment variables required.
 | `write_file` | Write or overwrite a file |
 | `edit_file` | Apply a unified diff to a file |
 | `list_files` | List directory contents |
+| `md5_file` | Compute a file's MD5 hash -- cheap way to check whether content actually changed |
+| `tail_file` | Read the last N lines of a file without loading the whole thing |
 
 `write_file` and `edit_file` print a **colored diff** of what changed under the tool call - removed lines in red, added lines in green, with a couple of context lines - so you can see every change the agent makes at a glance. Large diffs (e.g. writing a whole new file) are capped. The diff is shown in the terminal only; the model receives a concise result, not the ANSI-colored text.
 
@@ -894,6 +899,18 @@ Tracks every task created by the agent loop. Each task has a unique ID (`task-N`
 | `StalledTasks(stalledAfter)` | Running tasks with stale heartbeats |
 | `Delete(taskID)` | Remove a task from the registry |
 
+The LLM manages tasks through these tools:
+
+| Tool | Description |
+|------|-------------|
+| `task_create` | Create a new task (`prompt`, `description`). Returns the task ID |
+| `task_get` | Get a task's status, timestamps, output, and assigned team by `task_id` |
+| `task_list` | List all tasks, newest first |
+| `task_stop` | Stop a running or created task by `task_id` |
+| `task_complete` | Mark a task as completed |
+| `task_append_output` | Append text to a task's output log |
+| `task_assign_team` | Assign a task to a team for multi-agent coordination |
+
 ### TeamRegistry
 
 Groups tasks for multi-agent coordination. Each team has a name, a list of task IDs, and a status (`created` -> `running` -> `completed` -> `deleted`).
@@ -906,6 +923,16 @@ Groups tasks for multi-agent coordination. Each team has a name, a list of task 
 | `AddTask(teamID, taskID)` | Assign a task to a team |
 | `SetStatus(teamID, status)` | Update team status |
 | `Delete(teamID)` | Mark as deleted |
+
+The LLM manages teams through these tools:
+
+| Tool | Description |
+|------|-------------|
+| `team_create` | Create a new team (`name`). Returns the team ID |
+| `team_get` | Get a team's task IDs, status, and name by `team_id` |
+| `team_list` | List all teams |
+| `team_add_task` | Assign an existing task to a team |
+| `team_delete` | Delete (mark as deleted) a team |
 
 ### CronRegistry
 

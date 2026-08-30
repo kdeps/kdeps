@@ -193,16 +193,6 @@ after:
   - set('avgPrice', sum(get('prices')) / len(get('prices')))
 ```
 
-### slice(array, start, end)
-Extracts a sub-array. Negative indices count from the end.
-
-```yaml
-# resources/example.yaml
-after:
-  - set('firstFive', slice(get('items'), 0, 5))
-  - set('lastTen', slice(get('items'), -10, len(get('items'))))
-```
-
 ### first(array) / last(array)
 Returns the first or last element of an array.
 

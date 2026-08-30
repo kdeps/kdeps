@@ -8,14 +8,16 @@ Both [workflow mode](/modes/workflow-mode) and [agent mode](/modes/agent-loop-mo
 
 ## Actions
 
-Set `action:` to one of four values:
+Set `action:` to one of six values:
 
 | Action | What it does |
 |---|---|
 | `send` (default) | Send an email via SMTP |
 | `read` | Retrieve recent messages from an IMAP mailbox |
 | `search` | Search messages in an IMAP mailbox by criteria |
-| `modify` | Change flags or move/delete messages via IMAP |
+| `modify` | Change flags or move messages via IMAP |
+| `list` | List IMAP mailboxes/folders |
+| `delete` | Delete messages from an IMAP mailbox |
 
 ## Global Named Connections
 
@@ -261,9 +263,9 @@ email:
 
 | Field | Type | Default | Description |
 |---|---|---|---|
-| `action` | string | `send` | `send`, `read`, `search`, or `modify` |
+| `action` | string | `send` | `send`, `read`, `search`, `modify`, `list`, or `delete` |
 | `smtpConnection` | string | | Named SMTP connection (required for send) |
-| `imapConnection` | string | | Named IMAP connection (required for read/search/modify) |
+| `imapConnection` | string | | Named IMAP connection (required for read/search/modify/list/delete) |
 | `from` | string | | Sender address (send only) |
 | `to` | []string | | Recipients (send only) |
 | `cc` | []string | | CC recipients (send only) |

@@ -1,12 +1,14 @@
 # Management API
 
-The built-in management API lets you update a running kdeps server's workflow without rebuilding or redeploying the container. Every kdeps server exposes four endpoints under `/_kdeps/` alongside your normal agent routes.
+The built-in management API lets you update a running kdeps server's workflow without rebuilding or redeploying the container. Every kdeps server exposes six endpoints under `/_kdeps/` alongside your normal agent routes.
 
 ## Endpoints
 
 | Method | Path | Auth | Description |
 |--------|------|------|-------------|
 | `GET` | `/_kdeps/status` | ✓ | Workflow name, version, description, resource count |
+| `GET` | `/_kdeps/openapi` | ✓ | OpenAPI spec generated from the loaded workflow's routes |
+| `GET` | `/_kdeps/schema` | ✓ | JSON Schema generated from the loaded workflow |
 | `PUT` | `/_kdeps/workflow` | ✓ | Write a single workflow YAML, clear stale `resources/`, hot-reload |
 | `PUT` | `/_kdeps/package` | ✓ | Extract a full `.kdeps` tar.gz archive (preserves `data/`, `scripts/`, etc.), hot-reload |
 | `POST` | `/_kdeps/reload` | ✓ | Reload the workflow from the current on-disk file |

@@ -283,6 +283,27 @@ llm:
 
 Model names use the `provider/model` format, e.g. `openai/gpt-4o`, `anthropic/claude-3.5-sonnet`, `meta-llama/llama-3.1-70b-instruct`. See [openrouter.ai/models](https://openrouter.ai/models) for the full list.
 
+### AWS Bedrock
+
+```yaml
+# ~/.kdeps/config.yaml
+llm:
+  backend: bedrock
+```
+
+Authenticates via the standard AWS SDK credential chain, not a `config.yaml` API key -- set `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, and `AWS_REGION` as environment variables (or use an IAM instance role). `model` is the Bedrock model ID for your region, e.g. `anthropic.claude-3-5-sonnet-20241022-v2:0` or `meta.llama3-1-70b-instruct-v1:0`.
+
+### IBM WatsonX
+
+```yaml
+# ~/.kdeps/config.yaml
+llm:
+  backend: watsonx
+  watsonx_api_key: ...
+```
+
+Also requires `WATSONX_PROJECT_ID` as an environment variable (no `config.yaml` field for it). `model` is a WatsonX model ID, e.g. `ibm/granite-13b-chat-v2` or `meta-llama/llama-3-70b-instruct`.
+
 ### M365 Copilot
 
 Talks to Microsoft 365 Copilot's chat service - a SignalR-over-WebSocket API, not

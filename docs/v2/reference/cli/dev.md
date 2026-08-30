@@ -23,6 +23,9 @@ kdeps run [workflow.yaml | directory | package.kdeps] [flags]
 | `--port` | API server port number | From workflow config |
 | `--debug` | Enable debug logging | `false` |
 | `--interactive` | Open an interactive LLM REPL alongside the running workflow | `false` |
+| `--file` | File path to process (file input source only). Takes priority over stdin, `KDEPS_FILE_PATH`, and `input.file.path` config | |
+| `--events` | Emit structured NDJSON execution events to stderr (resource lifecycle, failure classification) | `false` |
+| `--memory` | Enable the agent memory store in workflow mode -- resources can use `memory_save`/`memory_search`/`memory_list`/`memory_delete` expression functions | `false` |
 
 **Examples:**
 
@@ -53,10 +56,12 @@ kdeps [path] [flags]
 
 | Flag | Default | Description |
 |---|---|---|
-| `--model` | `KDEPS_AGENT_MODEL` or `llama3.2` | LLM model name |
+| `--model` | `KDEPS_AGENT_MODEL` or `llama3.2:1b` | LLM model name |
 | `--backend` | `KDEPS_AGENT_BACKEND` or `file` | LLM backend (`file` = local llamafile, no server) |
 | `--base-url` | `KDEPS_AGENT_BASE_URL` | LLM API base URL |
 | `--system` | (none) | System prompt injected at conversation start |
+| `--skill` | (none) | Load a skill file or directory (repeatable) |
+| `--resume` | (none) | Resume a saved session by ID |
 | `--debug` | false | Enable debug logging |
 
 **Examples:**

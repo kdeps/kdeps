@@ -79,7 +79,7 @@ type VectorStoreConfig struct {
 	// Provider selects the vector store backend.
 	// Supported: qdrant (default), azureaisearch, chroma, pinecone, opensearch,
 	// elasticsearch, weaviate, mariadb, dolt, mysql, pgvector, postgres,
-	// postgresql, alloydb, cloudsql, mongodb, mongo.
+	// postgresql, alloydb, cloudsql, mongodb, mongo, redis, bedrock.
 	Provider string `yaml:"provider,omitempty"`
 	// URL is the endpoint or DSN for the vector store service.
 	// qdrant: "http://localhost:6333"

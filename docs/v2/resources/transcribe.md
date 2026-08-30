@@ -67,7 +67,7 @@ transcribe:
 | `modelPath` | whisper-cpp | Path to a GGML model file. Default: auto-downloaded `ggml-base.en.bin` |
 | `language` | all | ISO-639-1 language hint, e.g. `en` |
 | `prompt` | openai, groq, local | Optional context prompt to guide transcription style/vocabulary |
-| `responseFormat` | openai, groq, local | `json` (default), `text`, `srt`, `verbose_json`, `vtt` |
+| `responseFormat` | openai, groq, local | `text` (default), `json`, `srt`, `verbose_json`, `vtt` |
 | `temperature` | openai, groq, local | Sampling temperature, `0`-`1` |
 | `timestampGranularities` | openai, groq, local | `["segment"]` and/or `["word"]`, only with `responseFormat: verbose_json` |
 

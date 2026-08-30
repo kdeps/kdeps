@@ -51,6 +51,8 @@ vectorStore:
 | `pgvector` / `postgres` / `postgresql` / `alloydb` / `cloudsql` | PostgreSQL DSN, e.g. `postgres://user:pass@localhost/db` |
 | `mariadb` / `dolt` / `mysql` | MySQL DSN, e.g. `user:pass@tcp(localhost:3306)/dbname` |
 | `mongodb` / `mongo` | MongoDB URI, e.g. `mongodb://localhost:27017` |
+| `redis` | Redis URI, e.g. `redis://localhost:6379` (default if `url` is empty). `collection` is the Redis index name |
+| `bedrock` | AWS Bedrock Knowledge Base -- `collection` is the knowledge base ID; no `url` or `embedModel` needed, embedding happens server-side. Uses the standard AWS SDK credential chain (`AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_REGION`) |
 
 ## Configuration Options
 

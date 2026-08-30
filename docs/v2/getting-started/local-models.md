@@ -156,7 +156,7 @@ llm:
   backend: gguf
 ```
 
-Known GGUF aliases: `qwen3.5-4b`, `qwen3.5-8b`, `llama3.2-3b`, `llama3.1-8b`, `phi4-mini`, `gemma3-4b`, `mistral-7b`, `deepseek-r1-7b`.
+Known GGUF aliases (see `kdeps llamafile list` -- shares the same discovery command -- or `/model hff search <query>` in the REPL to find more): `qwen3.5`, `qwen3.5:4b`, `qwen3.5:9b`, `qwen3.5:27b`, `qwen3.5:122b`, `qwen3`, `gemma4`, `glm4.5`, `glm4.7`, `yi34`, `yi6`, `dolphin2.9`, `hermes2.5`. Each alias also has quantization variants (`-q4`, `-q6`, `-q8`, etc.) for smaller/faster or larger/more-accurate downloads.
 
 Environment overrides:
 - `KDEPS_LLAMA_SERVER_BIN` - path to the `llama-server` binary
