@@ -146,6 +146,7 @@ export default defineConfig({
           items: [
             { text: 'LLM (Chat)', link: '/resources/llm' },
             { text: 'LLM Backends & Routing', link: '/resources/llm-backends' },
+            { text: 'Routing', link: '/resources/llm-routing' },
             { text: 'HTTP Client', link: '/resources/http-client' },
             { text: 'Python', link: '/resources/python' },
             { text: 'Exec (Shell)', link: '/resources/exec' },

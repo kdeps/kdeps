@@ -81,11 +81,7 @@ Returns all stored keys (no content). Use `memory_search` to find specific entri
 
 ## Relational Query (memory_query)
 
-`memory_search` and `memory_list` cover simple lookups. For anything that
-needs filtering by field, combining facts across sources, or correlating
-past tool calls with the task that triggered them, `memory_query` runs a
-relational query -- select/project/join/union -- over three relations built
-from agent state:
+For filtering by field, combining facts across sources, or correlating past tool calls with the task that triggered them, `memory_query` runs a relational query -- select/project/join/union -- over three relations built from agent state:
 
 | Relation | Fields | Source |
 |---|---|---|
@@ -93,10 +89,7 @@ from agent state:
 | `tool_calls` | `name`, `args`, `result`, `timestamp` | Recent tool-call history (this session, most recent 200) |
 | `tasks` | `id`, `desc`, `status`, `rounds`, `note` | The active goal's task list (empty when no goal is active) |
 
-The query language is [expr-lang](https://expr-lang.org/) -- the same engine
-kdeps uses for `before:`/`after:` expressions. `filter()` and `map()` are
-its own built-ins (select and project); `join()` and `union()` are added by
-`memory_query` specifically for this tool:
+The query language is [expr-lang](https://expr-lang.org/), the same engine `before:`/`after:` expressions use. `filter()`/`map()` are its own built-ins (select/project); `join()`/`union()` are added by `memory_query`:
 
 | Operation | Function | Example |
 |---|---|---|
@@ -105,28 +98,13 @@ its own built-ins (select and project); `join()` and `union()` are added by
 | Join | `join(left, right, leftField, rightField)` | `join(tool_calls, memory, "name", "key")` |
 | Union | `union(a, b)` | `union(filter(memory, .type == "error"), filter(memory, .type == "decision"))` |
 
-`join` is an equi-join: it matches rows where `left[leftField] ==
-right[rightField]` and returns merged rows with `left_`/`right_` prefixed
-field names, so `left_key` and `right_key` never collide even when both
-relations use the same field name. It has no inequality/range-join or
-multi-field-key support today.
+`join` is an equi-join, merging rows with `left_`/`right_` prefixed field names so same-named fields never collide; no inequality/range-join or multi-field-key support today.
 
 ```json
-{
-  "name": "memory_query",
-  "parameters": {
-    "query": "filter(memory, .type == \"error\")",
-    "limit": 20
-  }
-}
+{"name": "memory_query", "parameters": {"query": "filter(memory, .type == \"error\")", "limit": 20}}
 ```
 
-The result is JSON with three fields: `rows` (the matched rows, capped at `limit`), `count` (the total number of matches before capping), and `truncated` (a boolean). `limit` defaults to 50 and is capped at 500 -- `truncated: true`
-means more rows matched than were returned, not that the query failed.
-
-`memory_query` is an **agent-mode** tool: it reads the active `Loop`'s state
-directly, so it is not available in workflow mode (there is no LLM making
-tool-call decisions there to query against).
+The result has `rows` (capped at `limit`, default 50, max 500), `count` (total matches before capping), and `truncated` (bool). `memory_query` is **agent-mode only** -- it reads the active `Loop`'s state directly, so workflow mode has no LLM tool-call state to query.
 
 ## Auto-extraction
 
@@ -198,7 +176,7 @@ Rather than a separate diagram, the graph is **inlined into the `<memory>` block
 
 ## Prompt injection
 
-On every turn the memory store injects one graph-ordered `<memory>` block: a legend, a one-line orientation map (entry counts by type + the resume target with its **relative age**), the entries in topological order (parents first) with their values and `<- parent` edges inline, the newest unfinished `progress`/`result`/`status` entry marked `<== RESUME`, and that node's downstream (reverse) dependencies:
+On every turn the memory store injects one graph-ordered `<memory>` block: a legend, a one-line orientation map (entry counts by type + the resume target with its **relative age**), the entries in topological order (parents first) with `<- parent` edges inline, the newest unfinished `progress`/`result`/`status` entry marked `<== RESUME`, and that node's downstream dependencies:
 
 ```
 <memory>
@@ -210,15 +188,13 @@ result:build [result]: compiles; tests pending  <- tool:write_users  <== RESUME
 </memory>
 ```
 
-The `(2m ago)` hint on the resume target is a coarse relative age (`just now` / `Nm` / `Nh` / `Nd ago`). A model resuming after an orchestrator model switch uses it to judge whether the resume point is still fresh or likely stale enough to re-verify before continuing.
+The `(2m ago)` hint is a coarse relative age (`just now`/`Nm`/`Nh`/`Nd ago`) a model uses after an orchestrator model switch to judge whether to re-verify before continuing.
 
-The block is truncated to a token budget. Truncation is prioritized, not just oldest-first: the **active task chain** (the resume node and its nearest ancestors), entries **relevant to the current prompt** (matched on significant prompt words at word boundaries — including 3-character technical terms like `api`, `sql`, or `git`, and their plurals, but never a mid-word substring like `api` inside `capital`; the strongest matches win the limited slots, a term in an entry's key counting for more than one in its value and a structural entry like a `result` or `decision` outranking a passing mention in a `note`, with recency breaking ties), and the **newest unresolved error** are always kept, so a large memory never drops where you are, what you just asked about, or a failure you should not repeat — unrelated older entries drop first. Edges to dropped entries are omitted so no arrow dangles.
+The block is truncated to a token budget, but not oldest-first: the **active task chain**, entries **relevant to the current prompt** (matched on significant prompt words at word boundaries, ranked by key vs. value match and entry structure, recency breaking ties), and the **newest unresolved error** are always kept -- unrelated older entries drop first, and edges to dropped entries are omitted so no arrow dangles.
 
-The orientation map also names the most recent unresolved `error` entry (e.g. `| error: error:migration`) so a resuming model is reminded of a known failure up front. An error whose value reads as handled (`resolved`, `fixed`, `closed`, `wontfix`, `cancelled`, ...) is not surfaced — but one that reads as re-opened (`reopened`, `not fixed`, `still failing`, ...) is, even if the word `fixed` also appears.
+The orientation map also names the most recent unresolved `error` entry so a resuming model is reminded of a known failure up front -- one that reads as handled (`resolved`, `fixed`, `closed`, ...) is not surfaced, but a re-opened one (`reopened`, `not fixed`, `still failing`, ...) is, even alongside the word "fixed".
 
-When two entries carry the same fact (compared case- and whitespace-insensitively), the later one is flagged `(same as <first-key>)` instead of being repeated as if it were independent evidence — so a cold model reads the fact once and treats the rest as copies (possibly stale), not corroboration. Nothing is dropped by this flag, so graph edges stay intact; short common values (e.g. `done`) are never flagged.
-
-The agent also receives a rule: "Check memory first. Before taking ANY action, use `memory_search` and `memory_list` to see what is already known about the task."
+Duplicate facts (case/whitespace-insensitive) are flagged `(same as <key>)` on the later entry instead of repeated as independent evidence, without dropping the entry or its graph edges. The agent also receives a standing rule: "Check memory first. Before taking ANY action, use `memory_search` and `memory_list` to see what is already known about the task."
 
 ## Compaction integration
 
