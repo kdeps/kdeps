@@ -1,6 +1,6 @@
 # Examples
 
-Complete, runnable workflows that demonstrate common patterns. Every example is copy-paste ready -- clone, add your API keys, and run.
+Complete, runnable workflows that demonstrate common patterns. Every example is copy-paste ready - clone, add your API keys, and run.
 
 ## Overview
 
@@ -8,9 +8,9 @@ Each example targets a different use case. Pick the one closest to what you're b
 
 | Example | Mode | What it demonstrates |
 |---|---|---|
-| [Stateless Bot](/examples/stateless-bot/) | Workflow | One-shot stdin/stdout LLM calls -- cron jobs, CI pipelines |
+| [Stateless Bot](/examples/stateless-bot/) | Workflow | One-shot stdin/stdout LLM calls - cron jobs, CI pipelines |
 | [Telegram Bot](/examples/telegram-bot/) | Workflow | Polling loop, multi-resource pipelines, external API calls |
-| [Showcase](/examples/showcase) | Workflow | Complex agents in ~20 lines of YAML -- multiple real-world patterns |
+| [Showcase](/examples/showcase) | Workflow | Complex agents in ~20 lines of YAML - multiple real-world patterns |
 
 ## Stateless bot
 
@@ -40,7 +40,7 @@ TELEGRAM_BOT_TOKEN=... kdeps run workflow.yaml
 
 ## Showcase
 
-A collection of real-world agents -- each a complete workflow you can POST to and get structured JSON back. Covers data extraction, classification, summarization, and more.
+A collection of real-world agents - each a complete workflow you can POST to and get structured JSON back. Covers data extraction, classification, summarization, and more.
 
 Best for:
 - Seeing how complex agents fit in ~20 lines of YAML
@@ -49,6 +49,6 @@ Best for:
 
 ## See also
 
-- [Quickstart](/getting-started/quickstart) -- build your first workflow in 5 minutes
-- [Workflow Mode](/modes/workflow-mode) -- deterministic DAG execution
-- [Agent Mode](/modes/agent-loop-mode) -- interactive LLM-driven tool calling
+- [Quickstart](/getting-started/quickstart) - build your first workflow in 5 minutes
+- [Workflow Mode](/modes/workflow-mode) - deterministic DAG execution
+- [Agent Mode](/modes/agent-loop-mode) - interactive LLM-driven tool calling

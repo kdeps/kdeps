@@ -1,6 +1,6 @@
 # Searchweb resource
 
-The `searchWeb` executor queries the web and returns structured results. The default provider is DuckDuckGo -- no connection or API key required. Paid providers (Brave, Bing, Tavily) require a named connection in `workflow.yaml` settings. See [Search Resources](/resources/search) for how it relates to `searchLocal`.
+The `searchWeb` executor queries the web and returns structured results. The default provider is DuckDuckGo - no connection or API key required. Paid providers (Brave, Bing, Tavily) require a named connection in `workflow.yaml` settings. See [Search Resources](/resources/search) for how it relates to `searchLocal`.
 
 ## Global named connections (paid providers)
 

@@ -1,10 +1,10 @@
 # API response resource
 
-`apiResponse:` builds and returns the HTTP response sent back to the caller. It is always the last resource in the dependency chain -- the resource pointed to by [`targetActionId`](/reference/glossary#targetactionid) in `workflow.yaml`.
+`apiResponse:` builds and returns the HTTP response sent back to the caller. It is always the last resource in the dependency chain - the resource pointed to by [`targetActionId`](/reference/glossary#targetactionid) in `workflow.yaml`.
 
 ## Where it runs
 
-[Workflow mode](/modes/workflow-mode) only. `apiResponse:` is the terminal node that formats the HTTP response returned by a workflow. In agent mode, `apiResponse.response` is what the engine returns to the LLM as the tool result -- but the resource itself is not a tool; the whole workflow is.
+[Workflow mode](/modes/workflow-mode) only. `apiResponse:` is the terminal node that formats the HTTP response returned by a workflow. In agent mode, `apiResponse.response` is what the engine returns to the LLM as the tool result - but the resource itself is not a tool; the whole workflow is.
 
 ## Basic usage
 
@@ -361,6 +361,6 @@ apiResponse:
 
 ## See also
 
-- [Resources Overview](overview) -- all resource types
-- [LLM Resource](llm) -- AI model integration
-- [Unified API](../concepts/unified-api) -- data access patterns
+- [Resources Overview](overview) - all resource types
+- [LLM Resource](llm) - AI model integration
+- [Unified API](../concepts/unified-api) - data access patterns

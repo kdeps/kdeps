@@ -64,7 +64,7 @@ setup:
 ```
 
 **Behaviour:**
-- `setup` runs **once per component per engine lifetime** (cached -- subsequent calls are no-ops).
+- `setup` runs **once per component per engine lifetime** (cached - subsequent calls are no-ops).
 - `pythonPackages` are installed via `uv pip install`. Already-present packages are skipped.
 - `osPackages` are installed via the detected system package manager (apk on Alpine, apt-get on Debian/Ubuntu, brew on macOS). If no supported package manager is found, a warning is logged and execution continues.
 - `commands` run in order after package installs. A non-zero exit terminates setup with an error.
@@ -80,7 +80,7 @@ teardown:
 
 **Behaviour:**
 - `teardown.commands` run after **every invocation** of the component (not cached).
-- Errors in teardown commands are logged as warnings but do not propagate -- teardown is best-effort.
+- Errors in teardown commands are logged as warnings but do not propagate - teardown is best-effort.
 
 ### Deprecated: top-level `pythonPackages`
 
@@ -120,7 +120,7 @@ When a resource calls a component, kdeps validates `with:` against the interface
 
 | Condition | Behaviour |
 |---|---|
-| Required input missing | Error -- execution stops |
+| Required input missing | Error - execution stops |
 | Unknown key in `with:` | Warning logged; key is ignored |
 | Optional input omitted | Component default value is applied |
 
@@ -243,7 +243,7 @@ chat:
 ```
 
 The component's `interface.inputs` become the tool's parameter schema. Rules:
-- `componentTools:` absent or empty -- no components are registered (default).
+- `componentTools:` absent or empty - no components are registered (default).
 - Names not installed are silently ignored.
 - Explicit `tools:` entries take precedence over `componentTools:` entries.
 
@@ -307,8 +307,8 @@ SCRAPER_TIMEOUT=30
 ### Auto-scaffolded files
 
 When a component runs for the first time, kdeps auto-creates these files if absent:
-- **`.env`** -- template listing all `env()` variables found in resources, with empty values
-- **`README.md`** -- generated from `component.yaml` metadata
+- **`.env`** - template listing all `env()` variables found in resources, with empty values
+- **`README.md`** - generated from `component.yaml` metadata
 
 Existing files are never overwritten.
 
@@ -405,7 +405,7 @@ component:
   name: greeter
   with:
     message: "Hello"
-    recipient: "KDeps"
+    recipient: "kdeps"
 ```
 
 ## Best practices
@@ -420,7 +420,7 @@ component:
 
 ## See also
 
-- [Components Overview](/concepts/components) -- what components are and when to use them
-- [Agencies](/concepts/agency) -- agent-to-agent call pattern
-- [Expression Functions Reference](/reference/expression-functions-reference) -- `output()`, `get()`, `env()`
-- [CLI: Registry Commands](/reference/cli/registry) -- install, list, uninstall components
+- [Components Overview](/concepts/components) - what components are and when to use them
+- [Agencies](/concepts/agency) - agent-to-agent call pattern
+- [Expression Functions Reference](/reference/expression-functions-reference) - `output()`, `get()`, `env()`
+- [CLI: Registry Commands](/reference/cli/registry) - install, list, uninstall components

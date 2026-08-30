@@ -376,6 +376,6 @@ validations:
 
 ## See also
 
-- [Python Resource](python) -- complex data processing
-- [HTTP Client](http-client) -- API calls (preferred over curl)
-- [Workflow Configuration](../configuration/workflow) -- OS package settings
+- [Python Resource](python) - complex data processing
+- [HTTP Client](http-client) - API calls (preferred over curl)
+- [Workflow Configuration](../configuration/workflow) - OS package settings

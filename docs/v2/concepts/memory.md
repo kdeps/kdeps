@@ -19,7 +19,7 @@ The agent has four LLM-callable tools for interacting with persistent memory:
 | `memory_delete` | Remove an entry by key. |
 | `memory_list` | List all stored keys (use `memory_search` to find content). |
 
-A fifth tool, `memory_query`, runs relational queries (select/project/join/union) over memory plus tool-call history and task state -- see [Relational Query](#relational-query-memory-query) below.
+A fifth tool, `memory_query`, runs relational queries (select/project/join/union) over memory plus tool-call history and task state - see [Relational Query](#relational-query-memory-query) below.
 
 ### memory_save
 
@@ -81,7 +81,7 @@ Returns all stored keys (no content). Use `memory_search` to find specific entri
 
 ## Relational query (memory_query)
 
-For filtering by field, combining facts across sources, or correlating past tool calls with the task that triggered them, `memory_query` runs a relational query -- select/project/join/union -- over three relations built from agent state:
+For filtering by field, combining facts across sources, or correlating past tool calls with the task that triggered them, `memory_query` runs a relational query - select/project/join/union - over three relations built from agent state:
 
 | Relation | Fields | Source |
 |---|---|---|
@@ -104,7 +104,7 @@ The query language is [expr-lang](https://expr-lang.org/), the same engine `befo
 {"name": "memory_query", "parameters": {"query": "filter(memory, .type == \"error\")", "limit": 20}}
 ```
 
-The result has `rows` (capped at `limit`, default 50, max 500), `count` (total matches before capping), and `truncated` (bool). `memory_query` is **agent-mode only** -- it reads the active `Loop`'s state directly, so workflow mode has no LLM tool-call state to query.
+The result has `rows` (capped at `limit`, default 50, max 500), `count` (total matches before capping), and `truncated` (bool). `memory_query` is **agent-mode only** - it reads the active `Loop`'s state directly, so workflow mode has no LLM tool-call state to query.
 
 ## Auto-extraction
 
@@ -159,7 +159,7 @@ Entries are auto-classified by key pattern:
 | `file` | `file`, `path`, `dir`, `last_files` | File references |
 | `action` | `last_action` | Last action taken |
 | `error` | `error`, `fail`, `bug` | Errors and failures |
-| `note` | (default for unknown) | Uncategorized entries -- no key pattern matched |
+| `note` | (default for unknown) | Uncategorized entries - no key pattern matched |
 | `fact` | (not auto-assigned) | General facts; not produced by any key pattern today, but grouped with `note` as a low-signal type (both capped at 50 combined) |
 
 ## Memory graph
@@ -190,9 +190,9 @@ result:build [result]: compiles; tests pending  <- tool:write_users  <== RESUME
 
 The `(2m ago)` hint is a coarse relative age (`just now`/`Nm`/`Nh`/`Nd ago`) a model uses after an orchestrator model switch to judge whether to re-verify before continuing.
 
-The block is truncated to a token budget, but not oldest-first: the **active task chain**, entries **relevant to the current prompt** (matched on significant prompt words at word boundaries, ranked by key vs. value match and entry structure, recency breaking ties), and the **newest unresolved error** are always kept -- unrelated older entries drop first, and edges to dropped entries are omitted so no arrow dangles.
+The block is truncated to a token budget, but not oldest-first: the **active task chain**, entries **relevant to the current prompt** (matched on significant prompt words at word boundaries, ranked by key vs. value match and entry structure, recency breaking ties), and the **newest unresolved error** are always kept - unrelated older entries drop first, and edges to dropped entries are omitted so no arrow dangles.
 
-The orientation map also names the most recent unresolved `error` entry so a resuming model is reminded of a known failure up front -- one that reads as handled (`resolved`, `fixed`, `closed`, ...) is not surfaced, but a re-opened one (`reopened`, `not fixed`, `still failing`, ...) is, even alongside the word "fixed".
+The orientation map also names the most recent unresolved `error` entry so a resuming model is reminded of a known failure up front - one that reads as handled (`resolved`, `fixed`, `closed`, ...) is not surfaced, but a re-opened one (`reopened`, `not fixed`, `still failing`, ...) is, even alongside the word "fixed".
 
 Duplicate facts (case/whitespace-insensitive) are flagged `(same as <key>)` on the later entry instead of repeated as independent evidence, without dropping the entry or its graph edges. The agent also receives a standing rule: "Check memory first. Before taking ANY action, use `memory_search` and `memory_list` to see what is already known about the task."
 

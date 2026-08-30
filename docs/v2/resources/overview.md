@@ -4,7 +4,7 @@ A resource is a single step in a workflow. It has an ID, optional dependencies, 
 
 ## Where it runs
 
-All resource types work in both [workflow mode](/modes/workflow-mode) and [agent mode](/modes/agent-loop-mode). In workflow mode, resources execute as DAG steps ordered by `requires:`. In agent mode, whole workflows are registered as callable tools -- the LLM invokes a workflow as a unit, and all resource dependencies inside it resolve correctly.
+All resource types work in both [workflow mode](/modes/workflow-mode) and [agent mode](/modes/agent-loop-mode). In workflow mode, resources execute as DAG steps ordered by `requires:`. In agent mode, whole workflows are registered as callable tools - the LLM invokes a workflow as a unit, and all resource dependencies inside it resolve correctly.
 
 ## Resource structure
 
@@ -92,7 +92,7 @@ These executors are compiled into the `kdeps` binary and require no installation
 | `loader` | Document loading | Load PDF, HTML, CSV, text, or a directory into text chunks for RAG |
 | `vectorStore` | Vector database | Add and similarity-search documents across Qdrant, Chroma, Pinecone, pgvector, and more |
 | `transcribe` | Speech-to-text | Whisper transcription via OpenAI, Groq, a local HTTP server, or fully offline via whisper-cpp (no API key) |
-| `ocr` | Image text extraction | Extract text from an image via tesseract -- local, no API key |
+| `ocr` | Image text extraction | Extract text from an image via tesseract - local, no API key |
 | `apiResponse` | API response | Return data to the HTTP caller |
 
 ### Registry components (installable via `kdeps registry install`)
@@ -129,11 +129,11 @@ apiResponse:
     answer: get('llm').message.content   # reply text from the llm resource
 ```
 
-`requires:` lists direct dependencies only. kdeps resolves transitive dependencies automatically -- you do not need to list the entire chain.
+`requires:` lists direct dependencies only. kdeps resolves transitive dependencies automatically - you do not need to list the entire chain.
 
 ## Validation
 
-[`validations`](/reference/glossary#validations) gates whether a resource runs at all. It fires before the action -- failing fast means no LLM call, no HTTP call, no wasted work.
+[`validations`](/reference/glossary#validations) gates whether a resource runs at all. It fires before the action - failing fast means no LLM call, no HTTP call, no wasted work.
 
 ```yaml
 # resources/example.yaml
@@ -154,7 +154,7 @@ validations:
     message: "q is required and limit must be <= 100"
 ```
 
-[`skip`](/reference/glossary#skip) silently no-ops the resource. [`check`](/reference/glossary#check) returns an error to the caller. Both take a list -- any one true condition is enough to trigger the behavior.
+[`skip`](/reference/glossary#skip) silently no-ops the resource. [`check`](/reference/glossary#check) returns an error to the caller. Both take a list - any one true condition is enough to trigger the behavior.
 
 ## Before and after expressions
 
@@ -315,19 +315,19 @@ Each resource should do one thing well. Split complex logic into multiple resour
 Use `validations.check` to validate inputs before expensive operations.
 
 ### 4. Handle dependencies
-Only list direct dependencies in [`requires`](/reference/glossary#requires). KDeps handles transitive dependencies.
+Only list direct dependencies in [`requires`](/reference/glossary#requires). kdeps handles transitive dependencies.
 
 ### 5. Use appropriate timeouts
 Set realistic `timeout` values based on expected execution time.
 
 ## See also
 
-- [LLM Resource](llm) -- AI model integration
-- [HTTP Client](http-client) -- external API calls
-- [SQL Resource](sql) -- database operations
-- [Python Resource](python) -- script execution
-- [Exec Resource](exec) -- shell commands
-- [Email Resource](email) -- SMTP send, IMAP read/search/modify
-- [API Response](api-response) -- response formatting
-- [Agency & Multi-Agent](../concepts/agency) -- multi-agent orchestration
-- [Components](../concepts/components) -- installable capability extensions
+- [LLM Resource](llm) - AI model integration
+- [HTTP Client](http-client) - external API calls
+- [SQL Resource](sql) - database operations
+- [Python Resource](python) - script execution
+- [Exec Resource](exec) - shell commands
+- [Email Resource](email) - SMTP send, IMAP read/search/modify
+- [API Response](api-response) - response formatting
+- [Agency & Multi-Agent](../concepts/agency) - multi-agent orchestration
+- [Components](../concepts/components) - installable capability extensions

@@ -1,6 +1,6 @@
 # Request object
 
-The `request` object gives you direct access to the HTTP request -- method, path, headers, query params, body, and uploaded files. It is available in all expressions and `expr` blocks when running in workflow mode.
+The `request` object gives you direct access to the HTTP request - method, path, headers, query params, body, and uploaded files. It is available in all expressions and `expr` blocks when running in workflow mode.
 
 ## Properties
 

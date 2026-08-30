@@ -372,6 +372,6 @@ httpClient:
 ## See also
 
 - [HTTP Client Examples](/reference/http-client-examples) - GitHub, Stripe, webhook, cached API examples
-- [SQL Resource](sql.md) -- database operations
-- [LLM Resource](llm.md) -- AI model integration
-- [Unified API](../concepts/unified-api.md) -- data access patterns
+- [SQL Resource](sql.md) - database operations
+- [LLM Resource](llm.md) - AI model integration
+- [Unified API](../concepts/unified-api.md) - data access patterns

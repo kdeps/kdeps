@@ -54,7 +54,7 @@ apiResponse:
 | `reject` | Reject the call (with optional `reason:`) |
 | `redirect` | Redirect call control elsewhere |
 
-`ask` and `menu` must set at least one of `grammar`, `grammarUrl`, `limit`, or `matches` -- validation fails otherwise.
+`ask` and `menu` must set at least one of `grammar`, `grammarUrl`, `limit`, or `matches` - validation fails otherwise.
 
 ## Complete reference
 
@@ -166,7 +166,7 @@ The resource output contains the accumulated TwiML and, for `ask`/`menu`, a resu
 
 ## Expression accessors
 
-Usable in expression lists (`before:`, `after:`, `validations`, `onError.expr`). To use a value in a <span v-pre>`{{ }}`</span> template, copy it to a key first -- bare `telephony.` references inside templates fail static analysis:
+Usable in expression lists (`before:`, `after:`, `validations`, `onError.expr`). To use a value in a <span v-pre>`{{ }}`</span> template, copy it to a key first - bare `telephony.` references inside templates fail static analysis:
 
 <div v-pre>
 
@@ -208,6 +208,6 @@ Recognised fields in the inbound webhook body (Twilio format; unknown fields are
 
 ## See also
 
-- [LLM Resource](llm) -- generate spoken responses with an LLM
-- [API Response](api-response) -- how the TwiML reaches the provider
-- [Components](../concepts/components) -- `invoke:` targets for menu matches
+- [LLM Resource](llm) - generate spoken responses with an LLM
+- [API Response](api-response) - how the TwiML reaches the provider
+- [Components](../concepts/components) - `invoke:` targets for menu matches

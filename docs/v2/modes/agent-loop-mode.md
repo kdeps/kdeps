@@ -2,7 +2,7 @@
 
 Agent loop mode starts an interactive LLM REPL where whole workflows and components are registered as callable tools. The LLM decides which tool to invoke based on the user's prompt. Workflow tools run the full pipeline atomically so all `requires:` dependencies resolve correctly.
 
-Running `kdeps` with no arguments starts a bare REPL with no workflow tools -- built-in tools (web_search, bash_exec, file ops, memory, etc.) are still available. Pass a path to also load workflows/agencies as tools.
+Running `kdeps` with no arguments starts a bare REPL with no workflow tools - built-in tools (web_search, bash_exec, file ops, memory, etc.) are still available. Pass a path to also load workflows/agencies as tools.
 
 ## Starting the agent loop
 
@@ -13,29 +13,29 @@ kdeps --skill ~/.kdeps/skills/     # load skill files
 kdeps --resume <session-id>        # continue a saved session
 ```
 
-Pass a workflow or agency path to register it as a tool -- see [Single workflow vs folder](#single-workflow-vs-folder) below.
+Pass a workflow or agency path to register it as a tool - see [Single workflow vs folder](#single-workflow-vs-folder) below.
 
 ## REPL slash commands
 
-Every REPL interaction is driven by slash commands -- `/model`, `/session`, `/thinking`, `/goal`, `/judges`, `/memory`, `/turo`, and more -- plus auto-detected shell commands and file references you can just type in plain, quoted English (`can you check "df -h"?`) instead of `!df -h`.
+Every REPL interaction is driven by slash commands - `/model`, `/session`, `/thinking`, `/goal`, `/judges`, `/memory`, `/turo`, and more - plus auto-detected shell commands and file references you can just type in plain, quoted English (`can you check "df -h"?`) instead of `!df -h`.
 
 See [REPL Slash Commands](/modes/agent-loop-commands) for the full command table and how auto-detection works.
 
 ## Goal-directed execution
 
-Every prompt becomes an explicit task list that Go code drives to completion -- the loop walks a cursor through the list that only ever moves forward, so a model cannot circle back over finished work or stall on a task until a budget expires. A task closes by calling `task_complete`/`task_fail`, optionally gated on real evidence (`RequireTaskEvidence`), and unproductive rounds escalate through re-anchor, narrow, force-close, and fail-forward so a goal always terminates.
+Every prompt becomes an explicit task list that Go code drives to completion - the loop walks a cursor through the list that only ever moves forward, so a model cannot circle back over finished work or stall on a task until a budget expires. A task closes by calling `task_complete`/`task_fail`, optionally gated on real evidence (`RequireTaskEvidence`), and unproductive rounds escalate through re-anchor, narrow, force-close, and fail-forward so a goal always terminates.
 
 See [Goal-Directed Execution](/modes/agent-loop-goals) for the full mechanics, including adaptive per-category tool budgets.
 
 ## Judge panel
 
-Goal enforcement checks that the loop keeps moving; it says nothing about whether the final answer is actually *right*. A judge panel is an independent review of that answer, run after the turn produces it -- one or more reviewer personas, each with real tool access, check the output and can send it back for revision before it reaches you. `AutoJudges` is on by default in the interactive REPL; toggle or hand-configure the roster with `/judges`.
+Goal enforcement checks that the loop keeps moving; it says nothing about whether the final answer is actually *right*. A judge panel is an independent review of that answer, run after the turn produces it - one or more reviewer personas, each with real tool access, check the output and can send it back for revision before it reaches you. `AutoJudges` is on by default in the interactive REPL; toggle or hand-configure the roster with `/judges`.
 
 See [Judge Panel](/modes/agent-loop-judges) for the full review flow and roster configuration.
 
 ## Prompt reduction (turo)
 
-`turo` is an optional token reducer. When the `turo` binary is on `PATH`, kdeps pipes everything it sends to the LLM through it first -- system preamble, input, tool results, and conversation history -- through a five-stage pipeline (filler deletion, defmatch, gloss swap, synonym swap, reduction) plus an arrow-connective pass. Code, file paths, and identifiers are preserved verbatim; if a reduction isn't smaller, the original passes through unchanged. Applies to agent mode only.
+`turo` is an optional token reducer. When the `turo` binary is on `PATH`, kdeps pipes everything it sends to the LLM through it first - system preamble, input, tool results, and conversation history - through a five-stage pipeline (filler deletion, defmatch, gloss swap, synonym swap, reduction) plus an arrow-connective pass. Code, file paths, and identifiers are preserved verbatim; if a reduction isn't smaller, the original passes through unchanged. Applies to agent mode only.
 
 See [Prompt Reduction (turo)](/modes/agent-loop-turo) for the full pipeline, `/turo` controls, and install-time environment variables.
 
@@ -66,7 +66,7 @@ cache) and, if an update is available, install it:
 What happens next depends on how kdeps was installed:
 
 - **Homebrew** (`brew install kdeps/tap/kdeps`): prints `brew upgrade kdeps`
-  instead of touching the binary -- self-replacing it would desync
+  instead of touching the binary - self-replacing it would desync
   Homebrew's own bookkeeping.
 - **.deb/.apk package**: prints the matching package-manager upgrade command.
 - **Standalone** (the `curl | sh` installer, or a manually downloaded
@@ -96,12 +96,12 @@ installs the latest nightly.
 kdeps --upgrade --nightly
 ```
 
-Nightly opt-in only works for a **standalone** install -- Homebrew/.deb/.apk
+Nightly opt-in only works for a **standalone** install - Homebrew/.deb/.apk
 only ever track stable, so on those install methods `/upgrade nightly`
 prints instructions for a standalone install instead of a package-manager
 command (which would silently install a stable build, not the nightly you
 asked for). "Already up to date" for the nightly channel means you're
-running that exact nightly tag, not a newer-by-semver comparison -- a
+running that exact nightly tag, not a newer-by-semver comparison - a
 nightly tag reuses the current stable version number until the next stable
 release ships, so it's always offered until you're actually on it.
 
@@ -166,19 +166,19 @@ When extended reasoning is enabled (`/thinking`), the streamed reasoning is rend
 
 ## Built-in tools
 
-The agent has access to a set of built-in tools the LLM can call without any YAML configuration -- file operations, shell execution, web/search, memory, SQL, embeddings, and more -- plus name aliases so a model that calls `grep` or `cat` still reaches the right tool. Tools requiring credentials only register when the matching environment variable is set.
+The agent has access to a set of built-in tools the LLM can call without any YAML configuration - file operations, shell execution, web/search, memory, SQL, embeddings, and more - plus name aliases so a model that calls `grep` or `cat` still reaches the right tool. Tools requiring credentials only register when the matching environment variable is set.
 
 See [Built-in Tools](/modes/agent-loop-tools) for the full catalog, permission modes, lean mode, and agent presets.
 
 ## Agent registries
 
-The agent loop maintains three in-memory registries for lifecycle management -- TaskRegistry, TeamRegistry, and CronRegistry -- each with its own set of LLM-facing tools (`task_*`, `team_*`, `cron_*`) for creating, tracking, and coordinating work across turns and sessions.
+The agent loop maintains three in-memory registries for lifecycle management - TaskRegistry, TeamRegistry, and CronRegistry - each with its own set of LLM-facing tools (`task_*`, `team_*`, `cron_*`) for creating, tracking, and coordinating work across turns and sessions.
 
 See [Agent Registries](/modes/agent-loop-registries) for the full method and tool reference.
 
 ## Approval tokens
 
-When a tool call is denied by the permission mode, the agent can request a one-time exception via an approval token (`approval_request`/`approval_grant`/`approval_list`/`approval_revoke`) -- a scoped override for a specific tool+action combination without relaxing the overall permission mode.
+When a tool call is denied by the permission mode, the agent can request a one-time exception via an approval token (`approval_request`/`approval_grant`/`approval_list`/`approval_revoke`) - a scoped override for a specific tool+action combination without relaxing the overall permission mode.
 
 See [Approval Tokens](/modes/agent-loop-approvals) for the full lifecycle and an example flow.
 
@@ -226,7 +226,7 @@ Invoke a skill from the REPL with `/<skill-name>` or `/<skill-name> extra contex
 
 **Progressive disclosure (token cost):** the system prompt lists only each skill's name and description - never the full body. Skill instructions are re-sent on every LLM call as part of the system prompt, so embedding full bodies for a large skill set would burn tokens every turn. Instead, the agent calls the built-in `load_skill` tool with a skill name to pull that skill's full instructions on demand, only when a task actually needs it.
 
-**Related skills:** when skills are (re)loaded, kdeps builds a small [kartographer](https://github.com/kdeps/kartographer) reference/topic graph over each skill-library root -- the same mechanism `codeIntelligence`'s [`indexFolder`/`graphFile`](../resources/codeintelligence-graph) uses on any folder. A skill is related to another if its `SKILL.md` links to it (`[other](../other/SKILL.md)`), or if both declare the same `topics:`/`tags:` in frontmatter:
+**Related skills:** when skills are (re)loaded, kdeps builds a small [kartographer](https://github.com/kdeps/kartographer) reference/topic graph over each skill-library root - the same mechanism `codeIntelligence`'s [`indexFolder`/`graphFile`](../resources/codeintelligence-graph) uses on any folder. A skill is related to another if its `SKILL.md` links to it (`[other](../other/SKILL.md)`), or if both declare the same `topics:`/`tags:` in frontmatter:
 
 ```markdown
 ---
@@ -238,7 +238,7 @@ topics: [go, quality]
 Always check for error handling. See [testing](../testing/SKILL.md) for coverage expectations.
 ```
 
-When `load_skill` returns a skill whose graph has related skills, it appends a hint listing their names so the model can decide whether to load them too, instead of guessing skill names cold. This is purely additive -- a skill with no links or topics behaves exactly as before.
+When `load_skill` returns a skill whose graph has related skills, it appends a hint listing their names so the model can decide whether to load them too, instead of guessing skill names cold. This is purely additive - a skill with no links or topics behaves exactly as before.
 
 ## Prompt templates
 
@@ -314,7 +314,7 @@ kdeps ./my-agent/     # registers the workflow as an LLM-callable tool (named af
 kdeps ./agents/       # registers every workflow and agency in the folder as a separate LLM-callable tool
 ```
 
-When you point to a folder, kdeps discovers every workflow and agency file inside it (recursively). Each becomes a separate tool. The tool name is `metadata.name` from the workflow's manifest -- not the filename.
+When you point to a folder, kdeps discovers every workflow and agency file inside it (recursively). Each becomes a separate tool. The tool name is `metadata.name` from the workflow's manifest - not the filename.
 
 ## Concrete example
 
@@ -346,7 +346,7 @@ Running:
 kdeps ./my-agent/
 ```
 
-The LLM receives one tool named `my-agent`. When it calls that tool, kdeps runs the full workflow DAG -- every resource in dependency order -- and returns `apiResponse.response` to the LLM.
+The LLM receives one tool named `my-agent`. When it calls that tool, kdeps runs the full workflow DAG - every resource in dependency order - and returns `apiResponse.response` to the LLM.
 
 ## How it works
 
@@ -391,7 +391,7 @@ Built-in tools (web_search, bash_exec, file ops, memory, etc.) are always regist
 kdeps [path] [flags]
 ```
 
-`[path]` is optional. When provided it must be a workflow/agency file or directory. The tool name comes from `metadata.name` -- not the filename.
+`[path]` is optional. When provided it must be a workflow/agency file or directory. The tool name comes from `metadata.name` - not the filename.
 
 ### Flags
 

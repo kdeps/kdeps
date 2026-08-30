@@ -23,7 +23,7 @@ settings:
 
 ### SQLite (recommended for production)
 
-Persists to a file -- survives restarts and can be shared via a mounted volume.
+Persists to a file - survives restarts and can be shared via a mounted volume.
 
 ```yaml
 # workflow.yaml

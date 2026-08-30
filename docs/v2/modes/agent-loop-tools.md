@@ -59,7 +59,7 @@ Always available. No environment variables required.
 | `write_file` | Write or overwrite a file |
 | `edit_file` | Apply a unified diff to a file |
 | `list_files` | List directory contents |
-| `md5_file` | Compute a file's MD5 hash -- cheap way to check whether content actually changed |
+| `md5_file` | Compute a file's MD5 hash - cheap way to check whether content actually changed |
 | `tail_file` | Read the last N lines of a file without loading the whole thing |
 
 `write_file` and `edit_file` print a **colored diff** of what changed under the tool call - removed lines in red, added lines in green, with a couple of context lines - so you can see every change the agent makes at a glance. Large diffs (e.g. writing a whole new file) are capped. The diff is shown in the terminal only; the model receives a concise result, not the ANSI-colored text.
@@ -68,7 +68,7 @@ Always available. No environment variables required.
 
 | Tool | Required env var | Description |
 |------|-----------------|-------------|
-| `web_search` | (none -- uses DuckDuckGo) | Search the web (30s timeout, cached) |
+| `web_search` | (none - uses DuckDuckGo) | Search the web (30s timeout, cached) |
 | `wikipedia` | (none) | Fetch a Wikipedia article (30s timeout, cached) |
 | `web_scraper` | (none) | Fetch and extract text from any URL (60s timeout, cached) |
 | `serpapi_search` | `SERPAPI_API_KEY` | Google search via SerpAPI (30s timeout, cached) |
@@ -77,7 +77,7 @@ Always available. No environment variables required.
 
 Web and search tools carry a hard timeout so a hung remote endpoint cannot stall the turn. Ctrl+C during any tool call cancels the in-flight request immediately and skips the round's remaining tools. Tools marked "cached" memoize successful results for the process lifetime; failed/empty lookups are retried.
 
-While any tool runs, the REPL shows a live status line and detects hangs via a stall timeout -- see [Tool Execution Monitoring](/modes/agent-loop-monitoring) for the full mechanics.
+While any tool runs, the REPL shows a live status line and detects hangs via a stall timeout - see [Tool Execution Monitoring](/modes/agent-loop-monitoring) for the full mechanics.
 
 ## Permission modes
 
@@ -197,8 +197,8 @@ These always-on tools invoke the corresponding kdeps executor directly:
 
 ## See also
 
-- [Agent Loop Mode](/modes/agent-loop-mode) -- overview and starting the REPL
-- [REPL Slash Commands](/modes/agent-loop-commands) -- full command reference
-- [Shell Execution](/modes/agent-loop-shell) -- bash_exec keyboard shortcuts and rtk
-- [Tool Execution Monitoring](/modes/agent-loop-monitoring) -- status lines and stall detection
-- [Agent Registries](/modes/agent-loop-registries) -- task_*/team_*/cron_* tools for multi-agent coordination
+- [Agent Loop Mode](/modes/agent-loop-mode) - overview and starting the REPL
+- [REPL Slash Commands](/modes/agent-loop-commands) - full command reference
+- [Shell Execution](/modes/agent-loop-shell) - bash_exec keyboard shortcuts and rtk
+- [Tool Execution Monitoring](/modes/agent-loop-monitoring) - status lines and stall detection
+- [Agent Registries](/modes/agent-loop-registries) - task_*/team_*/cron_* tools for multi-agent coordination

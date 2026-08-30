@@ -1,6 +1,6 @@
 # Transcribe resource
 
-The `transcribe:` resource converts speech in an audio file to text using a Whisper model -- OpenAI's API, Groq's API, a self-hosted OpenAI-compatible server, or fully offline via a local `whisper-cli` binary with no API key at all.
+The `transcribe:` resource converts speech in an audio file to text using a Whisper model - OpenAI's API, Groq's API, a self-hosted OpenAI-compatible server, or fully offline via a local `whisper-cli` binary with no API key at all.
 
 ## Where it runs
 
@@ -33,8 +33,8 @@ apiResponse:
 |---|---|---|---|
 | `openai` (default) | `OPENAI_API_KEY` | mp3, mp4, mpeg, mpga, m4a, wav, webm | Whisper API, model default `whisper-1` |
 | `groq` | `GROQ_API_KEY` | mp3, mp4, mpeg, mpga, m4a, wav, webm | Faster/cheaper Whisper-compatible API, e.g. `whisper-large-v3` |
-| `local` | -- | mp3, mp4, mpeg, mpga, m4a, wav, webm | Self-hosted OpenAI-compatible Whisper HTTP server, `baseURL` points at it |
-| `whisper-cpp` | local `whisper-cli` binary on PATH | flac, mp3, ogg, wav only | Fully offline -- no API key, no network after the model is cached |
+| `local` | - | mp3, mp4, mpeg, mpga, m4a, wav, webm | Self-hosted OpenAI-compatible Whisper HTTP server, `baseURL` points at it |
+| `whisper-cpp` | local `whisper-cli` binary on PATH | flac, mp3, ogg, wav only | Fully offline - no API key, no network after the model is cached |
 
 ## Offline transcription (`whisper-cpp`)
 
@@ -44,7 +44,7 @@ transcribe:
   backend: whisper-cpp
 ```
 
-No config beyond `file` and `backend` is required. On first use, a default English model (`ggml-base.en.bin`, ~140MB) auto-downloads to `~/.kdeps/models/` -- the same cache directory used by `chat:`'s llamafile models -- and every later call reuses the cached file. Requires the `whisper-cli` binary from [whisper.cpp](https://github.com/ggerganov/whisper.cpp) to be installed and on `PATH`.
+No config beyond `file` and `backend` is required. On first use, a default English model (`ggml-base.en.bin`, ~140MB) auto-downloads to `~/.kdeps/models/` - the same cache directory used by `chat:`'s llamafile models - and every later call reuses the cached file. Requires the `whisper-cli` binary from [whisper.cpp](https://github.com/ggerganov/whisper.cpp) to be installed and on `PATH`.
 
 Use `modelPath` to point at a different GGML model (a multilingual or larger model for better accuracy):
 
@@ -81,5 +81,5 @@ The transcribed text, as a plain string:
 
 ## See also
 
-- [OCR Resource](ocr) -- the equivalent offline, no-API-key pattern for images
-- [Resources Overview](overview) -- all resource types
+- [OCR Resource](ocr) - the equivalent offline, no-API-key pattern for images
+- [Resources Overview](overview) - all resource types

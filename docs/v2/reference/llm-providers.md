@@ -291,7 +291,7 @@ llm:
   backend: bedrock
 ```
 
-Authenticates via the standard AWS SDK credential chain, not a `config.yaml` API key -- set `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, and `AWS_REGION` as environment variables (or use an IAM instance role). `model` is the Bedrock model ID for your region, e.g. `anthropic.claude-3-5-sonnet-20241022-v2:0` or `meta.llama3-1-70b-instruct-v1:0`.
+Authenticates via the standard AWS SDK credential chain, not a `config.yaml` API key - set `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, and `AWS_REGION` as environment variables (or use an IAM instance role). `model` is the Bedrock model ID for your region, e.g. `anthropic.claude-3-5-sonnet-20241022-v2:0` or `meta.llama3-1-70b-instruct-v1:0`.
 
 ### IBM WatsonX
 
@@ -306,7 +306,7 @@ Also requires `WATSONX_PROJECT_ID` as an environment variable (no `config.yaml` 
 
 ### M365 Copilot
 
-Talks to Microsoft 365 Copilot's chat service through a local OpenAI-compatible server kdeps runs in front of it (`m365` backend) -- no API key, authentication is a signed-in Microsoft 365 account via a browser sign-in flow (interactive) or a scripted `secrets.json` (headless/CI).
+Talks to Microsoft 365 Copilot's chat service through a local OpenAI-compatible server kdeps runs in front of it (`m365` backend) - no API key, authentication is a signed-in Microsoft 365 account via a browser sign-in flow (interactive) or a scripted `secrets.json` (headless/CI).
 
 See [M365 Copilot](/reference/llm-providers-m365) for the full setup: sign-in flows, Linux dependencies, headless fallback, and the model list.
 

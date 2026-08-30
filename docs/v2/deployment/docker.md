@@ -1,6 +1,6 @@
 # Docker deployment
 
-`kdeps bundle build` packages your workflow into a Docker image that starts an API server when run. No Dockerfile needed -- kdeps generates one from your `workflow.yaml`.
+`kdeps bundle build` packages your workflow into a Docker image that starts an API server when run. No Dockerfile needed - kdeps generates one from your `workflow.yaml`.
 
 ## Overview
 
@@ -92,7 +92,7 @@ docker run --device=/dev/kfd --device=/dev/dri myregistry/myagent:latest
 
 ## Base OS auto-selection
 
-KDeps automatically selects the base OS based on GPU requirements:
+kdeps automatically selects the base OS based on GPU requirements:
 
 - **No `--gpu` flag** → **Alpine** (CPU-only, smallest images ~300MB)
 - **`--gpu` specified** → **Ubuntu** (GPU support, glibc-based)
@@ -198,7 +198,7 @@ settings:
     requirementsFile: "requirements.txt"
 ```
 
-KDeps uses [uv](https://github.com/astral-sh/uv) for fast Python package management (97% smaller than Anaconda).
+kdeps uses [uv](https://github.com/astral-sh/uv) for fast Python package management (97% smaller than Anaconda).
 
 ### Inline packages
 
@@ -293,7 +293,7 @@ docker run -e LOG_LEVEL=debug myregistry/myagent:latest
 
 ## Docker compose
 
-KDeps generates a `docker-compose.yml`:
+kdeps generates a `docker-compose.yml`:
 
 ```yaml
 # docker-compose.yml
@@ -332,7 +332,7 @@ docker-compose up -d
 
 ## Optimized build process
 
-KDeps uses a streamlined build process that leverages the official installation script. This ensures the smallest possible image size and maximum compatibility.
+kdeps uses a streamlined build process that leverages the official installation script. This ensures the smallest possible image size and maximum compatibility.
 
 ```dockerfile
 # Example of generated Dockerfile logic
@@ -387,7 +387,7 @@ services:
 
 ## Kubernetes deployment
 
-KDeps generates Kubernetes manifests directly from your `workflow.yaml` using `kdeps export k8s`. No manual YAML authoring needed.
+kdeps generates Kubernetes manifests directly from your `workflow.yaml` using `kdeps export k8s`. No manual YAML authoring needed.
 
 ```bash
 # Build and push the Docker image first

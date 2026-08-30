@@ -1,6 +1,6 @@
 # LLM resource
 
-The `chat:` resource sends a prompt to a language model and stores the response as the resource's output. The output is the raw response object -- the reply text is at `get('id').message.content`. With `jsonResponse: true` the output is the parsed JSON object instead.
+The `chat:` resource sends a prompt to a language model and stores the response as the resource's output. The output is the raw response object - the reply text is at `get('id').message.content`. With `jsonResponse: true` the output is the parsed JSON object instead.
 
 ## Where it runs
 
@@ -516,7 +516,7 @@ chat:
 
 ## Streaming (Ollama only)
 
-Set `streaming: true` to have Ollama stream the response as NDJSON chunks. KDeps accumulates all chunks and returns the same response shape as non-streaming.
+Set `streaming: true` to have Ollama stream the response as NDJSON chunks. kdeps accumulates all chunks and returns the same response shape as non-streaming.
 
 <div v-pre>
 

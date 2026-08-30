@@ -55,5 +55,5 @@ To keep agent context faithful (drop filler only, no wording changes), set `TURO
 
 ## See also
 
-- [Agent Loop Mode](/modes/agent-loop-mode) -- overview and starting the REPL
-- [REPL Slash Commands](/modes/agent-loop-commands) -- full command reference
+- [Agent Loop Mode](/modes/agent-loop-mode) - overview and starting the REPL
+- [REPL Slash Commands](/modes/agent-loop-commands) - full command reference

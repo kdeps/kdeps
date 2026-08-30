@@ -73,7 +73,7 @@ kdeps stays agent-less to preserve that tone (attaching an agent forces GPT-5).
 
 Reasoning-tone models (`think-deeper`, `*-think-deeper`) stream their
 chain-of-thought summary as live reasoning feedback, same as native
-extended-thinking models -- visible in the agent-loop REPL automatically
+extended-thinking models - visible in the agent-loop REPL automatically
 (thinking is on by default), or via `reasoning_content` in the raw
 OpenAI-compatible response for direct API use.
 
@@ -88,5 +88,5 @@ OpenAI-compatible response for direct API use.
 
 ## See also
 
-- [LLM Provider Reference](/reference/llm-providers) -- all other backends
-- [Agent Loop Mode](/modes/agent-loop-mode) -- `/login` command and REPL usage
+- [LLM Provider Reference](/reference/llm-providers) - all other backends
+- [Agent Loop Mode](/modes/agent-loop-mode) - `/login` command and REPL usage

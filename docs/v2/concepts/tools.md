@@ -1,6 +1,6 @@
 # Tools (function calling)
 
-Tools let an LLM call other resources mid-response. When the LLM decides a tool is needed, kdeps runs the target resource, feeds the result back to the LLM, and the LLM continues. The LLM only sees the tool's output -- it does not see the resource YAML.
+Tools let an LLM call other resources mid-response. When the LLM decides a tool is needed, kdeps runs the target resource, feeds the result back to the LLM, and the LLM continues. The LLM only sees the tool's output - it does not see the resource YAML.
 
 ```d2
 direction: down
@@ -55,7 +55,7 @@ tools:
 
 ### Resource-based tools
 
-Tools that reference other KDeps resources:
+Tools that reference other kdeps resources:
 
 <div v-pre>
 
@@ -215,7 +215,7 @@ LLM analyzes prompt
     ↓
 LLM decides to call tool(s)
     ↓
-KDeps executes tool resource
+kdeps executes tool resource
     ↓
 Tool result returned to LLM
     ↓

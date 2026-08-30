@@ -1,6 +1,6 @@
 # Jinja2 templates
 
-KDeps uses [Jinja2](https://jinja.palletsprojects.com/)-compatible templates (via [gonja](https://github.com/nikolalohinski/gonja)) as the unified template system for both project scaffolding and runtime YAML preprocessing.
+kdeps uses [Jinja2](https://jinja.palletsprojects.com/)-compatible templates (via [gonja](https://github.com/nikolalohinski/gonja)) as the unified template system for both project scaffolding and runtime YAML preprocessing.
 
 ## YAML preprocessing
 
@@ -28,7 +28,7 @@ settings:
 
 ### Auto-protection of runtime API calls
 
-KDeps automatically wraps all runtime API function calls (<code v-pre>{{ get(...) }}</code>, <code v-pre>{{ set(...) }}</code>, <code v-pre>{{ info(...) }}</code>, <code v-pre>{{ input(...) }}</code>, <code v-pre>{{ output(...) }}</code>, <code v-pre>{{ file(...) }}</code>, <code v-pre>{{ item(...) }}</code>, <code v-pre>{{ loop(...) }}</code>, <code v-pre>{{ session(...) }}</code>, <code v-pre>{{ json(...) }}</code>, <code v-pre>{{ safe(...) }}</code>, <code v-pre>{{ debug(...) }}</code>, <code v-pre>{{ default(...) }}</code>) in `{% raw %}...{% endraw %}` before Jinja2 renders the file. You **do not** need to add raw blocks manually.
+kdeps automatically wraps all runtime API function calls (<code v-pre>{{ get(...) }}</code>, <code v-pre>{{ set(...) }}</code>, <code v-pre>{{ info(...) }}</code>, <code v-pre>{{ input(...) }}</code>, <code v-pre>{{ output(...) }}</code>, <code v-pre>{{ file(...) }}</code>, <code v-pre>{{ item(...) }}</code>, <code v-pre>{{ loop(...) }}</code>, <code v-pre>{{ session(...) }}</code>, <code v-pre>{{ json(...) }}</code>, <code v-pre>{{ safe(...) }}</code>, <code v-pre>{{ debug(...) }}</code>, <code v-pre>{{ default(...) }}</code>) in `{% raw %}...{% endraw %}` before Jinja2 renders the file. You **do not** need to add raw blocks manually.
 
 Static Jinja2 expressions like <code v-pre>{{ env.PORT }}</code> are evaluated normally because they do not start with a kdeps API function name.
 

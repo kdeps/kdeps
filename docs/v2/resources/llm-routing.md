@@ -110,13 +110,13 @@ llm:
       default: true          # only ever used as the fallback -- see below
 ```
 
-Only entries on a local backend (`file`, `gguf`, `ollama`) are scored -- `llmfit` measures hardware fit, which is meaningless for a remote API model, so a cloud entry is never *preferred*, only ever reached via `default: true` when no local entry scores. Falls back the same way when `llmfit` isn't installed. The `llmfit` index is computed once per process and cached, not re-run on every request.
+Only entries on a local backend (`file`, `gguf`, `ollama`) are scored - `llmfit` measures hardware fit, which is meaningless for a remote API model, so a cloud entry is never *preferred*, only ever reached via `default: true` when no local entry scores. Falls back the same way when `llmfit` isn't installed. The `llmfit` index is computed once per process and cached, not re-run on every request.
 
-Agent-loop mode has the same strategy available via `--model auto` (or `KDEPS_AGENT_MODEL=auto`) -- see [Local Model Management](/modes/agent-loop-models#how-a-model-is-picked-when-none-is-configured).
+Agent-loop mode has the same strategy available via `--model auto` (or `KDEPS_AGENT_MODEL=auto`) - see [Local Model Management](/modes/agent-loop-models#how-a-model-is-picked-when-none-is-configured).
 
 ## `auto-router`: zero-config, fully automatic
 
-`auto` still scores *your configured* `llm.models` -- you pick the candidates, `auto` picks among them. `auto-router` needs no `llm.models` entry at all. Set a resource's `model` field to `auto-router` and kdeps discovers everything itself, every time it runs:
+`auto` still scores *your configured* `llm.models` - you pick the candidates, `auto` picks among them. `auto-router` needs no `llm.models` entry at all. Set a resource's `model` field to `auto-router` and kdeps discovers everything itself, every time it runs:
 
 ```yaml
 # resources/llm.yaml
@@ -128,13 +128,13 @@ chat:
 
 Resolution order, with no config required:
 
-1. **Best-fit installed local model** -- every cached llamafile, loadable GGUF, and pulled Ollama tag is scored via `llmfit`, same as `auto`'s local tier. Requires `llmfit` on `PATH`; skipped entirely (no cost) when it isn't installed.
-2. **Cloud fallback** -- the first provider with both an API key env var set (`OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, ...) and a known representative model (`gpt-4o` for OpenAI, `claude-sonnet-4-6` for Anthropic, etc.) is used. Providers that host many models with no single canonical default (OpenRouter, Hugging Face, Bedrock, Watsonx, ...) don't participate in this fallback.
-3. **Built-in default** -- if neither of the above finds anything, kdeps falls back to the same zero-config built-in llamafile (`llama3.2:1b`) used when `model:` is omitted entirely.
+1. **Best-fit installed local model** - every cached llamafile, loadable GGUF, and pulled Ollama tag is scored via `llmfit`, same as `auto`'s local tier. Requires `llmfit` on `PATH`; skipped entirely (no cost) when it isn't installed.
+2. **Cloud fallback** - the first provider with both an API key env var set (`OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, ...) and a known representative model (`gpt-4o` for OpenAI, `claude-sonnet-4-6` for Anthropic, etc.) is used. Providers that host many models with no single canonical default (OpenRouter, Hugging Face, Bedrock, Watsonx, ...) don't participate in this fallback.
+3. **Built-in default** - if neither of the above finds anything, kdeps falls back to the same zero-config built-in llamafile (`llama3.2:1b`) used when `model:` is omitted entirely.
 
-Agent-loop mode has the same sentinel via `--model auto-router` -- see [Local Model Management](/modes/agent-loop-models#-model-auto-router-zero-config-fully-automatic).
+Agent-loop mode has the same sentinel via `--model auto-router` - see [Local Model Management](/modes/agent-loop-models#-model-auto-router-zero-config-fully-automatic).
 
 ## See also
 
-- [LLM Backends & Routing](/resources/llm-backends) -- backend configuration and the unified models list
-- [Local Model Management](/modes/agent-loop-models) -- the agent-loop equivalent of `auto`/`auto-router`
+- [LLM Backends & Routing](/resources/llm-backends) - backend configuration and the unified models list
+- [Local Model Management](/modes/agent-loop-models) - the agent-loop equivalent of `auto`/`auto-router`

@@ -10,7 +10,7 @@ When you run `kdeps run workflow.yaml` or call `POST /api/v1/run`, the engine:
 2. Detects cycles (fails fast if any exist)
 3. Finds the [`targetActionId`](/reference/glossary#targetactionid) resource and walks its transitive dependencies
 4. Topologically sorts resources so dependencies run before dependents
-5. Executes resources in order -- resources without shared dependencies can run concurrently
+5. Executes resources in order - resources without shared dependencies can run concurrently
 
 ## Execution order
 
@@ -197,7 +197,7 @@ In agent mode (`kdeps [path]`), the execution model differs:
 2. Each agency is registered as one tool (tool name = `agency.metadata.name`); internal agents are not exposed individually
 3. Components from each loaded workflow are also registered as individual callable tools
 4. The LLM receives the user prompt and decides which tool to invoke
-5. Workflow tool calls run the full DAG -- all `requires:` dependencies execute in order; `apiResponse.response` is returned to the LLM
+5. Workflow tool calls run the full DAG - all `requires:` dependencies execute in order; `apiResponse.response` is returned to the LLM
 6. Agency tool calls run the agency's entry-point pipeline; internal `agent:` resources resolve against the agency's agent map
 7. Component tool calls run the component in isolation with inputs mapped to its interface fields
 8. The LLM may call more tools or produce a final answer
@@ -206,7 +206,7 @@ Pointing at a single file registers one tool. Pointing at a folder registers one
 
 ## See also
 
-- [Workflow Mode](/modes/workflow-mode) -- deterministic DAG pipelines
-- [Agent Mode](/modes/agent-loop-mode) -- LLM-driven tool calling
-- [Validation & Control Flow](/concepts/validation-and-control) -- skip, check, and error handling
-- [Loop](/concepts/loop) -- while-loop iteration
+- [Workflow Mode](/modes/workflow-mode) - deterministic DAG pipelines
+- [Agent Mode](/modes/agent-loop-mode) - LLM-driven tool calling
+- [Validation & Control Flow](/concepts/validation-and-control) - skip, check, and error handling
+- [Loop](/concepts/loop) - while-loop iteration

@@ -166,18 +166,18 @@ kdeps export k8s examples/chatbot --replicas 5 # Override replicas
 ```
 
 Manifests are driven by `agentSettings` in `workflow.yaml`:
-- `replicas` -- number of pod replicas
-- `resources` -- CPU/memory limits and requests
-- `env` -- container environment variables
-- `networkPolicy: true` -- appends a NetworkPolicy restricting ingress to the configured ports
-- `portNum` inside `apiServer:`/`webServer:` -- exposed ports
-- `installOllama: true` -- adds Ollama backend port (11434)
+- `replicas` - number of pod replicas
+- `resources` - CPU/memory limits and requests
+- `env` - container environment variables
+- `networkPolicy: true` - appends a NetworkPolicy restricting ingress to the configured ports
+- `portNum` inside `apiServer:`/`webServer:` - exposed ports
+- `installOllama: true` - adds Ollama backend port (11434)
 
 See [Kubernetes Deployment](/deployment/kubernetes) for full details.
 
 ## See also
 
-- [CLI Overview](/reference/cli/) -- global flags, exit codes, env vars
-- [Dev Commands](/reference/cli/dev) -- run, serve, validate, new
+- [CLI Overview](/reference/cli/) - global flags, exit codes, env vars
+- [Dev Commands](/reference/cli/dev) - run, serve, validate, new
 - [Docker Deployment](/deployment/docker)
 - [Kubernetes Deployment](/deployment/kubernetes)

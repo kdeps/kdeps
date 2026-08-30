@@ -30,7 +30,7 @@ python:
 
 </div>
 
-`script` and `scriptFile` are mutually exclusive. The script must write valid JSON to stdout -- that output becomes `get('actionId')` for downstream resources.
+`script` and `scriptFile` are mutually exclusive. The script must write valid JSON to stdout - that output becomes `get('actionId')` for downstream resources.
 
 ## Inline scripts
 
@@ -121,7 +121,7 @@ settings:
     lockFile: "uv.lock"
 ```
 
-KDeps uses [uv](https://github.com/astral-sh/uv) for fast Python package management (97% smaller than Anaconda).
+kdeps uses [uv](https://github.com/astral-sh/uv) for fast Python package management (97% smaller than Anaconda).
 
 ## Virtual environment isolation
 
@@ -160,7 +160,7 @@ result = {
     "data": [1, 2, 3]
 }
 
-# This is how KDeps captures the output
+# This is how kdeps captures the output
 print(json.dumps(result))
 ```
 
@@ -224,6 +224,6 @@ See [Unified API](../concepts/unified-api.md#resource-specific-accessors) for de
 ## See also
 
 - [Python Examples](/reference/python-examples) - Data transformation, ML inference, image processing, error handling, debugging
-- [Exec Resource](exec) -- shell command execution
-- [LLM Resource](llm) -- combine with AI
-- [Workflow Configuration](../configuration/workflow) -- Python settings
+- [Exec Resource](exec) - shell command execution
+- [LLM Resource](llm) - combine with AI
+- [Workflow Configuration](../configuration/workflow) - Python settings

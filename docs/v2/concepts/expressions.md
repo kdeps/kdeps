@@ -4,7 +4,7 @@ Expressions are how you pass data between resources, validate inputs, and run co
 
 ## Where expressions are used
 
-**String interpolation** -- embed an expression inside any string field using <span v-pre>`{{ }}`</span>:
+**String interpolation** - embed an expression inside any string field using <span v-pre>`{{ }}`</span>:
 
 <div v-pre>
 
@@ -16,7 +16,7 @@ chat:
 
 </div>
 
-**before:/after: blocks** -- a list of statements executed sequentially. Each statement is a bare expression, not wrapped in <span v-pre>`{{ }}`</span>:
+**before:/after: blocks** - a list of statements executed sequentially. Each statement is a bare expression, not wrapped in <span v-pre>`{{ }}`</span>:
 
 ```yaml
 # resources/example.yaml
@@ -26,7 +26,7 @@ after:
   - set('total', get('price') * get('quantity'))
 ```
 
-**validations.skip / validations.check / onError.when** -- a list of boolean expressions; any one true is enough:
+**validations.skip / validations.check / onError.when** - a list of boolean expressions; any one true is enough:
 
 ```yaml
 # resources/example.yaml

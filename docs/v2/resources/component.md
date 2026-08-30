@@ -1,6 +1,6 @@
 # Component resource
 
-The `component:` resource calls a reusable resource bundle -- a registry component installed with `kdeps registry install`, or a custom component in your project's `components/` directory. Think of it like calling a function: you pass typed inputs via `with:`, the component's own resources run, and you get its result back.
+The `component:` resource calls a reusable resource bundle - a registry component installed with `kdeps registry install`, or a custom component in your project's `components/` directory. Think of it like calling a function: you pass typed inputs via `with:`, the component's own resources run, and you get its result back.
 
 ## Where it runs
 
@@ -34,16 +34,16 @@ component:
 
 | Option | Description |
 |---|---|
-| `name` | Component name -- either the registry install name, or a directory under `components/` (required) |
+| `name` | Component name - either the registry install name, or a directory under `components/` (required) |
 | `version` | Pin a specific installed version (registry components only) |
 | `with` | Key-value inputs passed to the component. Each entry is injected as `set('<callerActionId>.<key>', value)` before the component's resources run, so the same component can be called multiple times with different inputs in one workflow |
 
 ## Output
 
-Whatever the component's own result resource returns -- the shape depends on the component. Check the component's own documentation or `component.yaml` for its output contract.
+Whatever the component's own result resource returns - the shape depends on the component. Check the component's own documentation or `component.yaml` for its output contract.
 
 ## See also
 
-- [Components](/concepts/components) -- registry vs. custom components, how to build and publish one
-- [Agent Resource](agent) -- call a full sibling agent instead of a component
-- [Resources Overview](overview) -- all resource types
+- [Components](/concepts/components) - registry vs. custom components, how to build and publish one
+- [Agent Resource](agent) - call a full sibling agent instead of a component
+- [Resources Overview](overview) - all resource types

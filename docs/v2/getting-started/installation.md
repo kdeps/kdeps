@@ -1,8 +1,8 @@
 # Installation
 
-Install the `kdeps` CLI to start building agents locally. Docker is optional -- only needed if you want to build container images for deployment.
+Install the `kdeps` CLI to start building agents locally. Docker is optional - only needed if you want to build container images for deployment.
 
-## Installing KDeps CLI
+## Installing the kdeps CLI
 
 ### macOS (homebrew)
 
@@ -77,7 +77,7 @@ kdeps version 2.0.0
 
 ## Docker (optional)
 
-Docker is only needed if you want to build container images for deployment. For local development and testing, KDeps runs natively without Docker.
+Docker is only needed if you want to build container images for deployment. For local development and testing, kdeps runs natively without Docker.
 
 ### Install Docker
 
@@ -93,7 +93,7 @@ docker --version
 
 ## Local LLMs (no install needed)
 
-For local LLM inference, KDeps uses [llamafile](https://github.com/Mozilla-Ocho/llamafile)
+For local LLM inference, kdeps uses [llamafile](https://github.com/Mozilla-Ocho/llamafile)
 as the default backend (`file`): models are single self-contained binaries that
 kdeps downloads to `~/.kdeps/models/` and serves locally - no server install,
 no GPU, no API key. The default model alias `llama3.2:1b` resolves to Mozilla's

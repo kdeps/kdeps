@@ -1,6 +1,6 @@
 # Expression functions reference
 
-Every function available in kdeps expressions -- usable in any field that supports <span v-pre>`{{ }}`</span> interpolation or in `expr` blocks.
+Every function available in kdeps expressions - usable in any field that supports <span v-pre>`{{ }}`</span> interpolation or in `expr` blocks.
 
 ## Core functions
 
@@ -105,7 +105,7 @@ default(get('limit'), 10)    # Return 10 if limit is missing
 
 ## Input/Output functions
 
-Explicit accessors for request inputs and resource outputs -- use these when `get()` auto-detection is ambiguous.
+Explicit accessors for request inputs and resource outputs - use these when `get()` auto-detection is ambiguous.
 
 ### Input(name, type?)
 Accesses input data (similar to `get` but strictly for inputs).
@@ -134,7 +134,7 @@ output('llmResource')        # Get LLM output
 Available inside `items:` blocks to access the state of the current loop iteration.
 
 ### Item object
-Accesses current iteration context. `item` is an object -- call its methods to read iteration state.
+Accesses current iteration context. `item` is an object - call its methods to read iteration state.
 
 **Methods:**
 ```yaml
@@ -150,7 +150,7 @@ item.values()    # All items as an array
 
 Access session-scoped data set with `set('key', val, 'session')` in any resource.
 
-### Session()
+### session()
 Returns the entire session data object.
 
 **Examples:**
@@ -288,7 +288,7 @@ after:
   - set('ts', info('timestamp'))
 ```
 
-### Now()
+### now()
 Returns the current time as a `time.Time` value. Useful with comparison operators or passing to `date()` for parsing.
 
 ```yaml
@@ -336,13 +336,13 @@ Expressions evaluate left-to-right with this precedence (highest to lowest):
 
 ## Best practices
 
-- **Use parentheses for clarity** -- `(a + b) * c` is clearer than relying on precedence
+- **Use parentheses for clarity** - `(a + b) * c` is clearer than relying on precedence
 - **Break complex expressions** into multiple statements for readability
-- **Validate before processing** -- check types and null values before operations
-- **Keep expressions simple** -- complex logic belongs in Python resources
+- **Validate before processing** - check types and null values before operations
+- **Keep expressions simple** - complex logic belongs in Python resources
 
 ## See also
 
-- [Expressions Guide](/concepts/expressions) -- where expressions are used and basic syntax
-- [Validation & Control Flow](/concepts/validation-and-control) -- skip, check, and error handling
-- [Inline Resource Blocks](/reference/expr-blocks) -- `before:` and `after:` expression blocks
+- [Expressions Guide](/concepts/expressions) - where expressions are used and basic syntax
+- [Validation & Control Flow](/concepts/validation-and-control) - skip, check, and error handling
+- [Inline Resource Blocks](/reference/expr-blocks) - `before:` and `after:` expression blocks

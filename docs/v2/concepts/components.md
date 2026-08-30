@@ -4,7 +4,7 @@ A component is a reusable, shareable resource bundle. kdeps has two kinds: regis
 
 ## Overview
 
-Components encapsulate resources, configuration, and dependencies into a single package. Think of them as callable sub-workflows -- you invoke them with `component:` from any resource, pass typed inputs via `with:`, and get structured output back.
+Components encapsulate resources, configuration, and dependencies into a single package. Think of them as callable sub-workflows - you invoke them with `component:` from any resource, pass typed inputs via `with:`, and get structured output back.
 
 ## Types of components
 
@@ -31,7 +31,7 @@ component:
 
 ### Custom components (user-defined)
 
-Components you build: a `component.yaml` manifest plus resources in a `components/<name>/` directory. Auto-discovered at run time -- no changes to `workflow.yaml` needed.
+Components you build: a `component.yaml` manifest plus resources in a `components/<name>/` directory. Auto-discovered at run time - no changes to `workflow.yaml` needed.
 
 ```
 my-workflow/
@@ -51,7 +51,7 @@ my-workflow/
 5. Inputs are validated against the component's `interface.inputs` declaration
 6. Component output is accessed via `output('<callerActionId>')`
 
-Components cannot contain `settings` (no server modes, port bindings) -- they are purely resource bundles.
+Components cannot contain `settings` (no server modes, port bindings) - they are purely resource bundles.
 
 ## Calling a component
 
@@ -70,7 +70,7 @@ After execution, access results via `output('fetch-article')`.
 
 ## Components as LLM tools
 
-Installed components can be exposed as LLM function-calling tools via `componentTools:` on a `chat:` resource. By default, no components are registered -- you opt in explicitly:
+Installed components can be exposed as LLM function-calling tools via `componentTools:` on a `chat:` resource. By default, no components are registered - you opt in explicitly:
 
 ```yaml
 # resources/example.yaml
@@ -85,7 +85,7 @@ The component's `interface.inputs` become the tool's parameter schema. The LLM u
 
 ## See also
 
-- [Components Reference](/reference/components) -- full schema, input validation, env var auto-derivation, packaging
-- [Agencies](/concepts/agency) -- agent-to-agent call pattern
-- [CLI: Registry Commands](/reference/cli/registry) -- install, list, uninstall components
-- [Glossary: component](/reference/glossary#component) -- definition
+- [Components Reference](/reference/components) - full schema, input validation, env var auto-derivation, packaging
+- [Agencies](/concepts/agency) - agent-to-agent call pattern
+- [CLI: Registry Commands](/reference/cli/registry) - install, list, uninstall components
+- [Glossary: component](/reference/glossary#component) - definition

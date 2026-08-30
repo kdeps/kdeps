@@ -113,9 +113,9 @@ searchLocal:
 | `fuzzy` | bool | no | `false` | Enable Levenshtein fuzzy term matching (requires `index: true`) |
 | `maxDistance` | integer | no | `2` | Max edit distance for fuzzy matching |
 | `indexDBPath` | string | no | `<path>/.kdeps/index.db` | Where the TF-IDF index is stored |
-| `graphBoost` | bool | no | `false` | Re-rank results using the same [kartographer](https://github.com/kdeps/kartographer) reference/topic graph `codeIntelligence`'s [`indexFolder`/`graphAll`](codeintelligence-graph) builds -- requires `index: true` |
+| `graphBoost` | bool | no | `false` | Re-rank results using the same [kartographer](https://github.com/kdeps/kartographer) reference/topic graph `codeIntelligence`'s [`indexFolder`/`graphAll`](codeintelligence-graph) builds - requires `index: true` |
 
-**How `graphBoost` ranks results:** `searchLocal` already ranks by TF-IDF. `graphBoost` additionally builds a graph of the folder -- markdown links and shared `topics:`/`tags:` frontmatter -- at `<path>/.kdeps/graph.db` (kept separate from `indexDBPath`). A result linked from, or sharing a topic with, a top-5 TF-IDF match gets boosted 25% before the final sort, so a lower-scoring-but-connected document can outrank a higher-scoring-but-isolated one -- useful when the top match is a short "index" page.
+**How `graphBoost` ranks results:** `searchLocal` already ranks by TF-IDF. `graphBoost` additionally builds a graph of the folder - markdown links and shared `topics:`/`tags:` frontmatter - at `<path>/.kdeps/graph.db` (kept separate from `indexDBPath`). A result linked from, or sharing a topic with, a top-5 TF-IDF match gets boosted 25% before the final sort, so a lower-scoring-but-connected document can outrank a higher-scoring-but-isolated one - useful when the top match is a short "index" page.
 
 ```yaml
 # resources/search-graph.yaml

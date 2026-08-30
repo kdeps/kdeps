@@ -1,6 +1,6 @@
 # Route and method restrictions
 
-`validations:` gates which HTTP methods and routes can trigger a resource -- resources are skipped silently when the incoming request does not match.
+`validations:` gates which HTTP methods and routes can trigger a resource - resources are skipped silently when the incoming request does not match.
 
 ## HTTP method restrictions
 

@@ -5,7 +5,7 @@ Every kdeps term defined in one place. First mention of any term in other docs p
 ## A
 
 ### Actionid
-A unique string identifier for a [resource](#resource) within a workflow. Used as the target for `requires` dependencies. Must be unique across all resources in the workflow. In [agent mode](#agent-mode), resources are not exposed as tools directly -- the whole workflow is the tool, named after `metadata.name`.
+A unique string identifier for a [resource](#resource) within a workflow. Used as the target for `requires` dependencies. Must be unique across all resources in the workflow. In [agent mode](#agent-mode), resources are not exposed as tools directly - the whole workflow is the tool, named after `metadata.name`.
 
 ### Agent
 An autonomous LLM-driven pipeline defined by `kind: Agent` in a workflow. Agents have tools, memory, and multi-step reasoning. Run with `kdeps [path]`. See [Agent Mode](/modes/agent-loop-mode).
@@ -14,7 +14,7 @@ An autonomous LLM-driven pipeline defined by `kind: Agent` in a workflow. Agents
 A pattern where one agent calls another agent as a sub-agent. The caller delegates a task, the callee runs autonomously, and the result is returned. Defined via the `agent:` action type. See [Agencies](/concepts/agency).
 
 ### Apiresponse
-A resource action type that returns a structured JSON response to the client. The terminal node in most workflows -- the final resource that formats and sends the output. See [API Response](/resources/api-response).
+A resource action type that returns a structured JSON response to the client. The terminal node in most workflows - the final resource that formats and sends the output. See [API Response](/resources/api-response).
 
 ## B
 
@@ -101,7 +101,7 @@ A while-loop configuration on a resource. The resource body executes repeatedly 
 Request-scoped key/value storage. Values set with `set('key', value, 'memory')` persist for the duration of a single request and are accessible via `get('key', 'memory')`. Cleared when the request completes.
 
 ### Memory (persistent)
-Project-scoped persistent storage for the agent loop. Facts are stored in a bbolt database at `~/.kdeps/memory/<encoded-cwd>/memory.bolt` and survive across sessions. The agent has five built-in tools (`memory_save`, `memory_search`, `memory_delete`, `memory_list`, `memory_query`) for interacting with persistent memory -- `memory_query` additionally runs relational queries (select/project/join/union) across memory, tool-call history, and task state. Facts are auto-extracted from every turn and injected into the LLM's system prompt. See [Persistent Memory](/concepts/memory).
+Project-scoped persistent storage for the agent loop. Facts are stored in a bbolt database at `~/.kdeps/memory/<encoded-cwd>/memory.bolt` and survive across sessions. The agent has five built-in tools (`memory_save`, `memory_search`, `memory_delete`, `memory_list`, `memory_query`) for interacting with persistent memory - `memory_query` additionally runs relational queries (select/project/join/union) across memory, tool-call history, and task state. Facts are auto-extracted from every turn and injected into the LLM's system prompt. See [Persistent Memory](/concepts/memory).
 
 ### Memory graph
 A directed graph of memory entries built from their `References` fields. Entries are auto-linked by type (e.g. `tool_result` depends on `progress`, `result` depends on `tool_result`). The graph is inlined into the `<memory>` block - entries in causal order (parents before children), each showing its `<- parent` edge - so the model can trace relationships between facts without a separate diagram.
@@ -145,7 +145,7 @@ Session-scoped key/value storage. Values set with `set('key', value, 'session')`
 Stores a value in memory or session. Usage: `set('key', value)` (memory) or `set('key', value, 'session')` (persistent across requests).
 
 ### Skip
-A list of boolean expressions in `validations.skip`. If ANY expression is true, the resource is skipped. Unlike [check](#check), skipping is silent -- the workflow continues to the next resource. See [Validation & Control Flow](/concepts/validation-and-control).
+A list of boolean expressions in `validations.skip`. If ANY expression is true, the resource is skipped. Unlike [check](#check), skipping is silent - the workflow continues to the next resource. See [Validation & Control Flow](/concepts/validation-and-control).
 
 ### Sql
 A resource action type for SQL database queries. Supports PostgreSQL, MySQL, SQLite. Parameterized queries prevent injection. See [SQL](/resources/sql).
@@ -159,7 +159,7 @@ A boolean field on `chat` resources. When `true`, the LLM response is streamed t
 The entry point resource for a workflow. Execution starts by resolving the dependency graph from this resource backward. Set in `metadata.targetActionId`.
 
 ### Tools
-Functions registered with the LLM. In [agent mode](#agent-mode), tools are whole workflows (named after `metadata.name`) and components -- not individual resources. The LLM decides which tool to call based on the user prompt. In workflow mode, tools are custom functions defined in `chat.tools` on a `chat:` resource. See [Tools](/concepts/tools).
+Functions registered with the LLM. In [agent mode](#agent-mode), tools are whole workflows (named after `metadata.name`) and components - not individual resources. The LLM decides which tool to call based on the user prompt. In workflow mode, tools are custom functions defined in `chat.tools` on a `chat:` resource. See [Tools](/concepts/tools).
 
 ## V
 
@@ -173,6 +173,6 @@ The top-level unit of execution in kdeps. A YAML file defining resources, their 
 
 ## See also
 
-- [Execution Flow](/guides/execution-flow) -- how the DAG resolves and runs
-- [Expression Functions Reference](/reference/expression-functions-reference) -- all functions available in expressions
-- [Expression Operators](/reference/expression-operators) -- comparison and logical operators
+- [Execution Flow](/guides/execution-flow) - how the DAG resolves and runs
+- [Expression Functions Reference](/reference/expression-functions-reference) - all functions available in expressions
+- [Expression Operators](/reference/expression-operators) - comparison and logical operators

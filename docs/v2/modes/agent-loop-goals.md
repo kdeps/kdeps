@@ -28,12 +28,12 @@ If a turn ends with a text answer instead of either call, the loop settles the
 active task from that text and continues with the next one.
 
 **Evidence-gated completion (`RequireTaskEvidence`).** By default, `task_complete`
-only checks *which* task is being closed -- the claimed outcome itself is
+only checks *which* task is being closed - the claimed outcome itself is
 unverified. With `RequireTaskEvidence: true`, a task that made tool calls must
 have run at least one verification-capable tool (`bash_exec`, `read_file`,
 `list_files`, `md5_file`, `tail_file`, `search_local`, `sql_query`,
 `memory_query`, `code_search`, `code_diagnostics`) before `task_complete` is
-accepted -- otherwise it is refused with a message naming what to run first.
+accepted - otherwise it is refused with a message naming what to run first.
 A task that made *no* tool calls (a direct answer with nothing to verify) is
 exempt, and `task_fail` is never gated. The `evidence` argument records what
 was checked and what it showed (e.g. `"ran go test ./pkg/foo, 12 passed"`),
@@ -42,8 +42,8 @@ stored on the task and queryable later via
 `tasks` relation.
 
 Two tools exist specifically for this: `md5_file` computes a file's MD5
-checksum -- call it once before and once after a change and compare the two
-hashes to prove whether the content actually changed -- and `tail_file`
+checksum - call it once before and once after a change and compare the two
+hashes to prove whether the content actually changed - and `tail_file`
 returns the last N lines of a file (default 20) without needing to know its
 total length upfront, for checking how a log or command output ends.
 `list_files` also defaults to the current working directory when `path` is
@@ -116,6 +116,6 @@ already done, and are reported as `[goal] web budget → 30`.
 
 ## See also
 
-- [Agent Loop Mode](/modes/agent-loop-mode) -- overview and starting the REPL
-- [Judge Panel](/modes/agent-loop-judges) -- reviews each turn's final output
-- [Agent Registries](/modes/agent-loop-registries) -- TaskRegistry/TeamRegistry tools for multi-agent coordination
+- [Agent Loop Mode](/modes/agent-loop-mode) - overview and starting the REPL
+- [Judge Panel](/modes/agent-loop-judges) - reviews each turn's final output
+- [Agent Registries](/modes/agent-loop-registries) - TaskRegistry/TeamRegistry tools for multi-agent coordination

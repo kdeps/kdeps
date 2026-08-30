@@ -118,6 +118,6 @@ embedding:
 
 ## See also
 
-- [Scraper Resource](scraper) -- fetch content to index
-- [Search Resource](search) -- search local files and the web
-- [LLM Resource](llm) -- use search results as context
+- [Scraper Resource](scraper) - fetch content to index
+- [Search Resource](search) - search local files and the web
+- [LLM Resource](llm) - use search results as context

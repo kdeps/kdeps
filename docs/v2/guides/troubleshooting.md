@@ -72,7 +72,7 @@ An expression in `before:`, `after:`, or [`validations`](/reference/glossary#val
 
 Common causes:
 - **Type mismatch**: `get('age') > 'old'` (comparing number to string)
-- **Nil access**: `lower(get('name'))` when name is nil -- use `lower(get('name') ?? '')` instead
+- **Nil access**: `lower(get('name'))` when name is nil - use `lower(get('name') ?? '')` instead
 - **Undefined function**: using a function that doesn't exist in expr-lang
 
 ### Missing value in string interpolation
@@ -191,7 +191,7 @@ Error: loop exceeded maxIterations (1000)
 A `loop.while` condition never became false, and the safety cap stopped execution.
 
 Fix:
-- Check the `while` expression -- is it ever becoming false?
+- Check the `while` expression - is it ever becoming false?
 - Increase `maxIterations` if you genuinely need more iterations
 - Add an `every` delay to slow the loop if it's running too fast
 
@@ -241,7 +241,7 @@ Checks the workflow schema, dependency graph, and expression syntax without runn
 
 ## See also
 
-- [Execution Flow](/guides/execution-flow) -- how the DAG resolves and runs
-- [Validation & Control Flow](/concepts/validation-and-control) -- skip and check logic
-- [Expression Functions Reference](/reference/expression-functions-reference) -- all available functions
-- [CLI Reference](/reference/cli/) -- all flags and commands
+- [Execution Flow](/guides/execution-flow) - how the DAG resolves and runs
+- [Validation & Control Flow](/concepts/validation-and-control) - skip and check logic
+- [Expression Functions Reference](/reference/expression-functions-reference) - all available functions
+- [CLI Reference](/reference/cli/) - all flags and commands

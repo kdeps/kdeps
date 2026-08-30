@@ -1,6 +1,6 @@
 # Loader resource
 
-The `loader:` resource reads a file, URL, or directory into structured `Document` objects -- plain text plus metadata -- and optionally splits them into chunks. It is the ingestion step of a RAG pipeline: load, then feed the output into `vectorStore:` or `embedding:` for indexing.
+The `loader:` resource reads a file, URL, or directory into structured `Document` objects - plain text plus metadata - and optionally splits them into chunks. It is the ingestion step of a RAG pipeline: load, then feed the output into `vectorStore:` or `embedding:` for indexing.
 
 ## Where it runs
 
@@ -35,8 +35,8 @@ loader:
 |---|---|
 | `type` | Loader to use: `text` (default), `pdf`, `html`, `csv`, `directory` |
 | `source` | File path, URL (for `html`), or directory path (required) |
-| `columns` | CSV only -- optional column filter (empty = all columns) |
-| `password` | PDF only -- decryption password for encrypted PDFs |
+| `columns` | CSV only - optional column filter (empty = all columns) |
+| `password` | PDF only - decryption password for encrypted PDFs |
 | `chunkSize` | When set (> 0), splits each loaded document into chunks of this size |
 | `chunkOverlap` | Characters of overlap between consecutive chunks |
 | `chunkSplitter` | Splitting strategy: `recursive` (default), `token`, or `markdown` |
@@ -47,7 +47,7 @@ loader:
 |---|---|
 | `text` | Plain text file |
 | `pdf` | PDF file, page text extracted |
-| `html` | A URL -- fetches and extracts readable text |
+| `html` | A URL - fetches and extracts readable text |
 | `csv` | CSV file, one Document per row (or per `columns` filter) |
 | `directory` | Every file in a directory, one Document per file |
 
@@ -62,7 +62,7 @@ loader:
 }
 ```
 
-`documents` is directly usable as the `documents:` input to a `vectorStore:` `add_documents` operation -- each `content`/`metadata` pair maps onto a [`VectorStoreDocument`](vectorstore).
+`documents` is directly usable as the `documents:` input to a `vectorStore:` `add_documents` operation - each `content`/`metadata` pair maps onto a [`VectorStoreDocument`](vectorstore).
 
 ## RAG pipeline example
 
@@ -91,6 +91,6 @@ vectorStore:
 
 ## See also
 
-- [Vector Store Resource](vectorstore) -- index and search the loaded documents
-- [Embedding Resource](embedding) -- lightweight keyword-based alternative for local, API-key-free RAG
-- [Resources Overview](overview) -- all resource types
+- [Vector Store Resource](vectorstore) - index and search the loaded documents
+- [Embedding Resource](embedding) - lightweight keyword-based alternative for local, API-key-free RAG
+- [Resources Overview](overview) - all resource types

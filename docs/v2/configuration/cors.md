@@ -32,7 +32,7 @@ settings:
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `allowOrigins` | array | List of allowed origin domains. Use `"*"` for all origins (default: `["*"]`). KDeps smartly echoes the requested origin when `"*"` is used to support credentials. |
+| `allowOrigins` | array | List of allowed origin domains. Use `"*"` for all origins (default: `["*"]`). kdeps smartly echoes the requested origin when `"*"` is used to support credentials. |
 | `allowMethods` | array | List of HTTP methods allowed for CORS requests. Must be one of: `GET`, `POST`, `PUT`, `PATCH`, `DELETE`, `OPTIONS`, `HEAD`. Default: all common methods. |
 | `allowHeaders` | array | List of request headers allowed in CORS requests (e.g., `Content-Type`, `Authorization`). Default: common headers including `Content-Type`, `Authorization`, `Accept`, `X-Requested-With`. |
 | `exposeHeaders` | array | List of response headers exposed to clients (e.g., `X-Request-Id`). If unset, no headers are exposed beyond defaults. |
@@ -43,9 +43,9 @@ settings:
 
 ### Default behavior: smart auto-configuration
 
-By default, KDeps enables CORS and allows all origins while supporting credentials. This is ideal for local development where your frontend might be on a different port (e.g., Vite on `:5173`) than your API (e.g., KDeps on `:16395`).
+By default, kdeps enables CORS and allows all origins while supporting credentials. This is ideal for local development where your frontend might be on a different port (e.g., Vite on `:5173`) than your API (e.g., kdeps on `:16395`).
 
-KDeps achieves this by checking if the incoming `Origin` matches your `allowOrigins` list. If `"*"` is present in the list, KDeps echoes the specific `Origin` back in the `Access-Control-Allow-Origin` header instead of sending a literal `*`. This allows the browser to accept `Access-Control-Allow-Credentials: true`.
+kdeps achieves this by checking if the incoming `Origin` matches your `allowOrigins` list. If `"*"` is present in the list, kdeps echoes the specific `Origin` back in the `Access-Control-Allow-Origin` header instead of sending a literal `*`. This allows the browser to accept `Access-Control-Allow-Credentials: true`.
 
 ```yaml
 # Default behavior (no config needed)

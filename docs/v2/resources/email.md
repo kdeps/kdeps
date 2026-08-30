@@ -294,7 +294,7 @@ email:
 
 ## Secrets
 
-Always use environment variables -- never hardcode credentials:
+Always use environment variables - never hardcode credentials:
 
 ```yaml
 # ~/.kdeps/config.yaml

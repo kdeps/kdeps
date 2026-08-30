@@ -48,7 +48,7 @@ kdeps bundle build dist/my-agent-1.0.0.kdeps \
 docker push registry.example.com/my-agent:v1.0.0
 ```
 
-No Dockerfile needed -- kdeps generates a multi-stage build from your workflow config. GPU support is a flag away:
+No Dockerfile needed - kdeps generates a multi-stage build from your workflow config. GPU support is a flag away:
 
 ```bash
 kdeps bundle build dist/my-agent-1.0.0.kdeps \
@@ -72,7 +72,7 @@ kubectl apply -f k8s.yaml
 kubectl rollout status deployment/my-agent
 ```
 
-The generated manifests include Deployment, Service, and environment configuration -- all driven from `workflow.yaml`. Override replicas, resource limits, and env vars with flags.
+The generated manifests include Deployment, Service, and environment configuration - all driven from `workflow.yaml`. Override replicas, resource limits, and env vars with flags.
 
 See [Kubernetes Deployment](/deployment/kubernetes) for full manifest structure, health checks, and multi-replica configuration.
 
@@ -155,10 +155,10 @@ See [Standalone Binaries](/deployment/prepackage) for self-contained single-bina
 
 ## See also
 
-- [Docker Deployment](/deployment/docker) -- image build details, base OS, GPU support
-- [Kubernetes Deployment](/deployment/kubernetes) -- manifest structure, health checks
-- [Standalone Binaries](/deployment/prepackage) -- single-binary edge exports
-- [CLI: Packaging Commands](/reference/cli/packaging) -- all bundle and export commands
+- [Docker Deployment](/deployment/docker) - image build details, base OS, GPU support
+- [Kubernetes Deployment](/deployment/kubernetes) - manifest structure, health checks
+- [Standalone Binaries](/deployment/prepackage) - single-binary edge exports
+- [CLI: Packaging Commands](/reference/cli/packaging) - all bundle and export commands
 
 ## Optional: LLM server appliance (not an agent)
 

@@ -1,6 +1,6 @@
 # Local model management
 
-Managing which LLM the [agent loop REPL](/modes/agent-loop-mode) talks to -- switching mid-session, auto-routing, and running local model servers.
+Managing which LLM the [agent loop REPL](/modes/agent-loop-mode) talks to - switching mid-session, auto-routing, and running local model servers.
 
 ## Switching models
 
@@ -47,7 +47,7 @@ unaffected; you only ever need the `backend:` prefix when kdeps tells you to.
 
 ## `--model auto`: route across your configured models
 
-`--model auto` (or `KDEPS_AGENT_MODEL=auto`) picks the best hardware-fit model from your own `llm.models` config (`~/.kdeps/config.yaml`) via [`llmfit`](https://github.com/AlexsJones/llmfit) -- the same `auto` strategy the [workflow-mode router](/resources/llm-routing#strategy-auto) uses, so one config drives both modes:
+`--model auto` (or `KDEPS_AGENT_MODEL=auto`) picks the best hardware-fit model from your own `llm.models` config (`~/.kdeps/config.yaml`) via [`llmfit`](https://github.com/AlexsJones/llmfit) - the same `auto` strategy the [workflow-mode router](/resources/llm-routing#strategy-auto) uses, so one config drives both modes:
 
 ```yaml
 # ~/.kdeps/config.yaml
@@ -64,7 +64,7 @@ llm:
 kdeps --model auto
 ```
 
-If nothing's configured (or none of it scores), `auto` falls through to the same installed-model pick described below, then the same fixed tiers -- it's always at least as good as omitting `--model` entirely.
+If nothing's configured (or none of it scores), `auto` falls through to the same installed-model pick described below, then the same fixed tiers - it's always at least as good as omitting `--model` entirely.
 
 ## `--model auto-router`: zero-config, fully automatic
 
@@ -74,17 +74,17 @@ If nothing's configured (or none of it scores), `auto` falls through to the same
 kdeps --model auto-router
 ```
 
-1. **Best-fit installed local model** -- every cached llamafile, loadable GGUF, and pulled Ollama tag scored via `llmfit`. Requires `llmfit` on `PATH`; skipped (no cost) when it isn't installed.
-2. **Cloud fallback** -- the first provider with both an API key env var set and a known representative model (`gpt-4o` for OpenAI, `claude-sonnet-4-6` for Anthropic, ...).
-3. **Fixed tiers** -- if neither finds anything, falls through to the same fixed-order pick described below.
+1. **Best-fit installed local model** - every cached llamafile, loadable GGUF, and pulled Ollama tag scored via `llmfit`. Requires `llmfit` on `PATH`; skipped (no cost) when it isn't installed.
+2. **Cloud fallback** - the first provider with both an API key env var set and a known representative model (`gpt-4o` for OpenAI, `claude-sonnet-4-6` for Anthropic, ...).
+3. **Fixed tiers** - if neither finds anything, falls through to the same fixed-order pick described below.
 
-Workflow mode has the same sentinel via `model: auto-router` on a chat resource -- see [LLM Backends](/resources/llm-routing#auto-router-zero-config-fully-automatic).
+Workflow mode has the same sentinel via `model: auto-router` on a chat resource - see [LLM Backends](/resources/llm-routing#auto-router-zero-config-fully-automatic).
 
 ## How a model is picked when none is configured
 
 With no `--model` flag, no saved default, and no `model:` in `~/.kdeps/config.yaml`, kdeps first checks whether `llmfit` is installed (`brew install AlexsJones/llmfit/llmfit`): if it is, and at least one local model (llamafile/GGUF/Ollama) is already downloaded, kdeps starts with whichever downloaded model llmfit scores as the best hardware fit for this machine, skipping the fixed order below entirely.
 
-Otherwise -- no `llmfit`, or nothing downloaded yet -- kdeps picks the first option that is actually usable, in this fixed order:
+Otherwise - no `llmfit`, or nothing downloaded yet - kdeps picks the first option that is actually usable, in this fixed order:
 
 1. **llamafile** - the `llamafile` runner binary on `PATH`, or a cached `*.llamafile` in the models directory (a `.llamafile` is self-executing, so no runner is needed).
 2. **GGUF** - the first `*.gguf` in the models directory that `llama-server` can load. Files with an unreadable header or a GGUFv1 container are skipped: current llama.cpp builds refuse them (`GGUFv1 is no longer supported`), so serving one would start a server that exits immediately and fail every request.
@@ -171,6 +171,6 @@ PID      PORT   BACKEND      MODEL                                STATUS
 
 ## See also
 
-- [Agent Loop Mode](/modes/agent-loop-mode) -- overview and starting the REPL
-- [LLM Backends & Routing](/resources/llm-backends) -- the workflow-mode equivalent of `auto`/`auto-router`
-- [REPL Slash Commands](/modes/agent-loop-commands) -- full command reference
+- [Agent Loop Mode](/modes/agent-loop-mode) - overview and starting the REPL
+- [LLM Backends & Routing](/resources/llm-backends) - the workflow-mode equivalent of `auto`/`auto-router`
+- [REPL Slash Commands](/modes/agent-loop-commands) - full command reference

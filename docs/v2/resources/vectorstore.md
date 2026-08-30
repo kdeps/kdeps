@@ -1,6 +1,6 @@
 # Vector store resource
 
-The `vectorStore:` resource adds documents to, and runs similarity search against, an external vector database. Unlike `embedding:` (SQLite keyword/vector index built into kdeps), `vectorStore:` talks to a real vector database service -- Qdrant, Chroma, Pinecone, pgvector, and more -- for production-scale RAG.
+The `vectorStore:` resource adds documents to, and runs similarity search against, an external vector database. Unlike `embedding:` (SQLite keyword/vector index built into kdeps), `vectorStore:` talks to a real vector database service - Qdrant, Chroma, Pinecone, pgvector, and more - for production-scale RAG.
 
 ## Where it runs
 
@@ -52,7 +52,7 @@ vectorStore:
 | `mariadb` / `dolt` / `mysql` | MySQL DSN, e.g. `user:pass@tcp(localhost:3306)/dbname` |
 | `mongodb` / `mongo` | MongoDB URI, e.g. `mongodb://localhost:27017` |
 | `redis` | Redis URI, e.g. `redis://localhost:6379` (default if `url` is empty). `collection` is the Redis index name |
-| `bedrock` | AWS Bedrock Knowledge Base -- `collection` is the knowledge base ID; no `url` or `embedModel` needed, embedding happens server-side. Uses the standard AWS SDK credential chain (`AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_REGION`) |
+| `bedrock` | AWS Bedrock Knowledge Base - `collection` is the knowledge base ID; no `url` or `embedModel` needed, embedding happens server-side. Uses the standard AWS SDK credential chain (`AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_REGION`) |
 
 ## Configuration options
 
@@ -89,10 +89,10 @@ vectorStore:
 
 ## Feeding from a loader
 
-`loader:`'s output documents map directly onto `vectorStore:`'s `documents:` field -- see the [Loader Resource](loader#rag-pipeline-example) for the full load-then-index pipeline.
+`loader:`'s output documents map directly onto `vectorStore:`'s `documents:` field - see the [Loader Resource](loader#rag-pipeline-example) for the full load-then-index pipeline.
 
 ## See also
 
-- [Loader Resource](loader) -- load files/URLs into documents before indexing
-- [Embedding Resource](embedding) -- local SQLite-backed alternative, no external service required
-- [Resources Overview](overview) -- all resource types
+- [Loader Resource](loader) - load files/URLs into documents before indexing
+- [Embedding Resource](embedding) - local SQLite-backed alternative, no external service required
+- [Resources Overview](overview) - all resource types

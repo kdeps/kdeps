@@ -1,6 +1,6 @@
 # Kubernetes deployment
 
-`kdeps export k8s` generates a Kubernetes `Deployment` and `ClusterIP` `Service` from your `workflow.yaml` -- no manual YAML authoring required.
+`kdeps export k8s` generates a Kubernetes `Deployment` and `ClusterIP` `Service` from your `workflow.yaml` - no manual YAML authoring required.
 
 ## Quick start
 
@@ -97,7 +97,7 @@ Ports are derived from your workflow settings:
 Chat resources on the default `file` backend need no backend port: the
 llamafile self-serves on localhost inside the pod.
 
-Ports, probes, and NetworkPolicy rules are all derived from this configuration -- only what the workflow actually serves is exposed. A workflow with no `apiServer` or `webServer` (a bot or file workflow) gets no container ports and no probes.
+Ports, probes, and NetworkPolicy rules are all derived from this configuration - only what the workflow actually serves is exposed. A workflow with no `apiServer` or `webServer` (a bot or file workflow) gets no container ports and no probes.
 
 ### Resources
 
@@ -218,7 +218,7 @@ spec:
       port: 8080     # only the configured apiServer port accepts traffic
 ```
 
-The Ollama backend port (11434) is never opened for ingress: Ollama binds `127.0.0.1` inside the pod, so it is only reachable from within the pod regardless. A workflow with no `apiServer` or `webServer` gets a policy with no ingress rules at all -- all ingress denied.
+The Ollama backend port (11434) is never opened for ingress: Ollama binds `127.0.0.1` inside the pod, so it is only reachable from within the pod regardless. A workflow with no `apiServer` or `webServer` gets a policy with no ingress rules at all - all ingress denied.
 
 Your cluster must run a CNI that enforces NetworkPolicy (Calico, Cilium, etc.); on clusters without one the policy is accepted but has no effect.
 

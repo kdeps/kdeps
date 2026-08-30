@@ -261,7 +261,7 @@ chat:
 
 ## Streaming (Ollama)
 
-Set `streaming: true` on a `chat:` resource to have Ollama stream the response as NDJSON chunks. KDeps accumulates all chunks internally and returns the same response shape as a non-streaming call.
+Set `streaming: true` on a `chat:` resource to have Ollama stream the response as NDJSON chunks. kdeps accumulates all chunks internally and returns the same response shape as a non-streaming call.
 
 <div v-pre>
 
@@ -277,7 +277,7 @@ chat:
 | [`streaming`](/reference/glossary#streaming) | What happens |
 |-------------|-------------|
 | `false` (default) | Single JSON response |
-| `true` | Ollama streams NDJSON; KDeps accumulates and returns merged map |
+| `true` | Ollama streams NDJSON; kdeps accumulates and returns merged map |
 
 `streaming: true` is silently ignored for non-Ollama backends.
 

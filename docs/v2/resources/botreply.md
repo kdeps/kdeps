@@ -1,10 +1,10 @@
 # Bot reply resource
 
-The `botReply:` resource sends a text reply back to the bot platform that delivered the current message -- Discord, Slack, Telegram, WhatsApp, or stdout when running in stateless mode. It only makes sense in a workflow whose `settings.input.sources` includes `bot`.
+The `botReply:` resource sends a text reply back to the bot platform that delivered the current message - Discord, Slack, Telegram, WhatsApp, or stdout when running in stateless mode. It only makes sense in a workflow whose `settings.input.sources` includes `bot`.
 
 ## Where it runs
 
-Both [workflow mode](/modes/workflow-mode) and [agent mode](/modes/agent-loop-mode). Requires `bot` configured under `settings.input` -- see [Input Sources](/concepts/input-sources).
+Both [workflow mode](/modes/workflow-mode) and [agent mode](/modes/agent-loop-mode). Requires `bot` configured under `settings.input` - see [Input Sources](/concepts/input-sources).
 
 ## Basic usage
 
@@ -44,5 +44,5 @@ See the [Stateless Bot](/examples/stateless-bot/) and [Telegram Bot](/examples/t
 
 ## See also
 
-- [Input Sources](/concepts/input-sources) -- configuring `settings.input.bot`
-- [Resources Overview](overview) -- all resource types
+- [Input Sources](/concepts/input-sources) - configuring `settings.input.bot`
+- [Resources Overview](overview) - all resource types

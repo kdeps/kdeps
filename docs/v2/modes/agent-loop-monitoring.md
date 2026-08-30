@@ -1,6 +1,6 @@
 # Tool execution monitoring
 
-How the [agent loop REPL](/modes/agent-loop-mode) shows a running tool's progress and handles one that stalls -- applies to every [built-in tool](/modes/agent-loop-tools), not just a specific category.
+How the [agent loop REPL](/modes/agent-loop-mode) shows a running tool's progress and handles one that stalls - applies to every [built-in tool](/modes/agent-loop-tools), not just a specific category.
 
 While a tool runs, the REPL shows a live monitor line - `⠴ bash_exec running (12m34s) · <latest output line>` - refreshed every second, so a long command (a full test suite, a large download) is visibly alive instead of silent. The line is replaced by the usual `... done (elapsed)` summary when the tool finishes.
 
@@ -23,5 +23,5 @@ Tools marked "cached" in [Built-in Tools](/modes/agent-loop-tools) memoize succe
 
 ## See also
 
-- [Built-in Tools](/modes/agent-loop-tools) -- the full tool catalog
-- [Shell Execution](/modes/agent-loop-shell) -- Ctrl+C/Ctrl+Z, background jobs, rtk
+- [Built-in Tools](/modes/agent-loop-tools) - the full tool catalog
+- [Shell Execution](/modes/agent-loop-shell) - Ctrl+C/Ctrl+Z, background jobs, rtk

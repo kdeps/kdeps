@@ -127,7 +127,7 @@ kubectl rollout status deployment/my-agent
 | `KDEPS_PYTHON_VERSION` | Global Python version (e.g., `3.12`) |
 | `KDEPS_OFFLINE_MODE` | Set `true` to block all external LLM calls |
 | `KDEPS_LEAN_MODE` | Set `1`, `true`, or `yes` to restrict tool surface (no bash, no network) |
-| `KDEPS_AGENT_PRESET` | `audit`, `explain`, or `implement` -- combines lean mode with permission mode |
+| `KDEPS_AGENT_PRESET` | `audit`, `explain`, or `implement` - combines lean mode with permission mode |
 | `KDEPS_PERMISSION_MODE` | `read-only`, `workspace-write`, or `danger-full-access` |
 | `OLLAMA_HOST` | Ollama server URL |
 | `TZ` | Timezone applied to all workflow runs |
@@ -151,7 +151,7 @@ kubectl rollout status deployment/my-agent
 
 ## See also
 
-- [Dev Commands](/reference/cli/dev) -- run, serve, validate, new, edit, doctor, chat
-- [Registry Commands](/reference/cli/registry) -- search, install, publish
-- [Packaging Commands](/reference/cli/packaging) -- bundle, export, build
+- [Dev Commands](/reference/cli/dev) - run, serve, validate, new, edit, doctor, chat
+- [Registry Commands](/reference/cli/registry) - search, install, publish
+- [Packaging Commands](/reference/cli/packaging) - bundle, export, build
 - [Installation](/getting-started/installation)

@@ -6,7 +6,7 @@ An agency runs as a workflow. In agent mode, an agency is registered as an LLM t
 
 ## Use cases
 
-Agencies are the natural evolution from single agents. Where a single agent handles one workflow, an agency coordinates many specialized agents -- each one a reproducible, repeatable process -- into a unified system that tackles multi-step problems.
+Agencies are the natural evolution from single agents. Where a single agent handles one workflow, an agency coordinates many specialized agents - each one a reproducible, repeatable process - into a unified system that tackles multi-step problems.
 
 | Single AI Agent | Autonomous AI Agency |
 |---|---|
@@ -189,6 +189,6 @@ curl "http://localhost:17100/api/v1/greet?name=Alice" \
 
 - [Agent resource](../resources/overview.md#agent) - `agent:` resource reference
 - [`examples/agency/`](https://github.com/kdeps/kdeps/tree/main/examples/agency) - runnable example
-- [Packaging Commands](/reference/cli/packaging) -- `.kdeps` and `.kagency` formats
+- [Packaging Commands](/reference/cli/packaging) - `.kdeps` and `.kagency` formats
 - [Docker deployment](../deployment/docker.md) - building Docker images
 - [Standalone executables](../deployment/prepackage.md) - exporting self-contained binaries

@@ -1,6 +1,6 @@
 # Validation and control flow
 
-The `validations:` block controls whether a resource runs and what it accepts. It fires before the action -- before any LLM call, HTTP request, or script execution.
+The `validations:` block controls whether a resource runs and what it accepts. It fires before the action - before any LLM call, HTTP request, or script execution.
 
 ```yaml
 # resources/example.yaml
@@ -24,8 +24,8 @@ Fields summary:
 |-------|-------|--------------------------------|
 | `methods` / `routes` | match | skip silently if no match |
 | `headers` / `params` | match | skip silently if no match |
-| [`skip`](/reference/glossary#skip) | OR -- any true | skip silently |
-| [`check`](/reference/glossary#check) | AND -- all must be true | return error to caller |
+| [`skip`](/reference/glossary#skip) | OR - any true | skip silently |
+| [`check`](/reference/glossary#check) | AND - all must be true | return error to caller |
 
 ## Skip conditions
 
@@ -51,7 +51,7 @@ chat:
 
 ### How it works
 
-Any true condition skips the resource silently -- it produces no output but its slot in the dependency graph still exists so downstream resources can reference it. Use `get()` to access any data source in skip conditions.
+Any true condition skips the resource silently - it produces no output but its slot in the dependency graph still exists so downstream resources can reference it. Use `get()` to access any data source in skip conditions.
 
 ### Common patterns
 
@@ -97,7 +97,7 @@ chat:
 
 ### How it works
 
-All `check` conditions must pass (AND logic). If any one fails, execution stops immediately and the configured `error` is returned to the caller -- no LLM call, no HTTP request, no work done.
+All `check` conditions must pass (AND logic). If any one fails, execution stops immediately and the configured `error` is returned to the caller - no LLM call, no HTTP request, no work done.
 
 ### Check expressions
 
@@ -235,7 +235,7 @@ chat:
 
 ### Validation syntax
 
-KDeps supports multiple syntaxes for field validation:
+kdeps supports multiple syntaxes for field validation:
 
 **`properties` (map format)**
 ```yaml

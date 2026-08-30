@@ -10,7 +10,7 @@ Yes. kdeps is open source under the Apache 2.0 license. The CLI, engine, and all
 
 [Workflow mode](/modes/workflow-mode) (`kdeps run`) runs resources in a deterministic DAG order defined by [`requires`](/reference/glossary#requires) dependencies. You control exactly what runs and when.
 
-[Agent mode](/modes/agent-loop-mode) (`kdeps [path]`) registers whole workflows and components as tools and lets an LLM decide which to invoke in response to user prompts. Workflow tools execute as a complete pipeline so all `requires:` dependencies resolve. Component tools run a single reusable component in isolation. Point at a single file or a folder -- folder mode exposes every workflow and agency found recursively, plus all their components.
+[Agent mode](/modes/agent-loop-mode) (`kdeps [path]`) registers whole workflows and components as tools and lets an LLM decide which to invoke in response to user prompts. Workflow tools execute as a complete pipeline so all `requires:` dependencies resolve. Component tools run a single reusable component in isolation. Point at a single file or a folder - folder mode exposes every workflow and agency found recursively, plus all their components.
 
 Use workflow mode when you know the pipeline upfront. Use agent mode when you want an interactive, conversational interface.
 
@@ -52,7 +52,7 @@ LangChain is a Python/JS library. kdeps is a standalone binary configured in YAM
 - LangChain: you write code that calls library functions
 - kdeps: you write YAML that the engine executes
 
-kdeps has no code dependency -- install the binary, write a YAML file, and run.
+kdeps has no code dependency - install the binary, write a YAML file, and run.
 
 ## Can I call one workflow from another?
 
@@ -84,7 +84,7 @@ Never hardcode secrets in workflow YAML files.
 
 ## What's the maximum workflow size?
 
-There's no hard limit. The engine builds an in-memory dependency graph -- workflows with thousands of resources will use more memory but should work. The practical limit is readability of the YAML.
+There's no hard limit. The engine builds an in-memory dependency graph - workflows with thousands of resources will use more memory but should work. The practical limit is readability of the YAML.
 
 ## Can I use kdeps in CI/CD pipelines?
 
@@ -100,7 +100,7 @@ Session data is stored in a WAL-based embedded database. The location is configu
 
 ## See also
 
-- [Quickstart](/getting-started/quickstart) -- build your first workflow
-- [Execution Flow](/guides/execution-flow) -- how the engine runs resources
-- [Troubleshooting](/guides/troubleshooting) -- common errors and fixes
-- [Glossary](/reference/glossary) -- all kdeps terms defined
+- [Quickstart](/getting-started/quickstart) - build your first workflow
+- [Execution Flow](/guides/execution-flow) - how the engine runs resources
+- [Troubleshooting](/guides/troubleshooting) - common errors and fixes
+- [Glossary](/reference/glossary) - all kdeps terms defined

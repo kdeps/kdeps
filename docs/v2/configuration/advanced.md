@@ -198,9 +198,9 @@ settings:
 | `maxConnections` | 10 | Maximum pool size |
 | `minConnections` | 2 | Minimum idle connections |
 | `maxIdleTime` | 5m | Max time before idle connection is closed |
-| `connectionTimeout` | (none -- no connection lifetime limit) | Connection acquisition timeout |
+| `connectionTimeout` | (none - no connection lifetime limit) | Connection acquisition timeout |
 
-These defaults (`pkg/config/defaults.yml`) apply only when `pool:` is left out of `sqlConnections.<name>` entirely. If `pool:` is present but a sub-field is omitted or empty, that sub-field is **not** backfilled with the default above -- it falls through to the Go `database/sql` driver's own zero-value behavior (effectively unbounded for `maxConnections`/`connectionTimeout`, no idle connections kept for `minConnections`). Set every field you care about explicitly once you add a `pool:` block.
+These defaults (`pkg/config/defaults.yml`) apply only when `pool:` is left out of `sqlConnections.<name>` entirely. If `pool:` is present but a sub-field is omitted or empty, that sub-field is **not** backfilled with the default above - it falls through to the Go `database/sql` driver's own zero-value behavior (effectively unbounded for `maxConnections`/`connectionTimeout`, no idle connections kept for `minConnections`). Set every field you care about explicitly once you add a `pool:` block.
 
 ### Using named connections
 
@@ -355,7 +355,7 @@ resource_defaults:               # applied to every resource of that type
 
 `defaults` mirrors a workflow's `agentSettings` (timezone, Python version);
 `resource_defaults` mirrors the fields a resource sets on itself (a `chat:`
-resource's own `timeout:`, for example) -- either can still be overridden
+resource's own `timeout:`, for example) - either can still be overridden
 per-resource in `workflow.yaml`, which always wins over the global default.
 
 Config is validated on load. Warnings go to stderr for unknown keys, missing

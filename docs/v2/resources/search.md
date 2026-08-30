@@ -21,7 +21,7 @@ See [searchLocal Resource](/resources/searchlocal) for the full field reference,
 
 ## Searchweb
 
-Queries the web and returns structured results. Default provider is DuckDuckGo -- no connection or API key required; Brave, Bing, and Tavily need a named connection.
+Queries the web and returns structured results. Default provider is DuckDuckGo - no connection or API key required; Brave, Bing, and Tavily need a named connection.
 
 ```yaml
 searchWeb:

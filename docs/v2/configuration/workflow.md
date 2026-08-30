@@ -1,6 +1,6 @@
 # Workflow configuration
 
-`workflow.yaml` is the entry point for a kdeps workflow. It declares metadata, the HTTP server or input source, agent settings, and SQL connections. Resources live in separate files under `resources/`. Credentials (SMTP, IMAP, HTTP auth, search API keys) live in `~/.kdeps/config.yaml` -- not here.
+`workflow.yaml` is the entry point for a kdeps workflow. It declares metadata, the HTTP server or input source, agent settings, and SQL connections. Resources live in separate files under `resources/`. Credentials (SMTP, IMAP, HTTP auth, search API keys) live in `~/.kdeps/config.yaml` - not here.
 
 ## How the pieces fit together
 
@@ -62,7 +62,7 @@ Credentials and named connections (SMTP, IMAP, HTTP auth, search API keys) belon
 
 ## Metadata and config profiles
 
-`metadata.name` maps to a per-agent profile in `~/.kdeps/config.yaml`. When the workflow runs, kdeps merges that profile on top of global config -- only the fields you specify override; everything else inherits.
+`metadata.name` maps to a per-agent profile in `~/.kdeps/config.yaml`. When the workflow runs, kdeps merges that profile on top of global config - only the fields you specify override; everything else inherits.
 
 ```yaml
 # ~/.kdeps/config.yaml

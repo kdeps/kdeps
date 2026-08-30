@@ -250,7 +250,7 @@ Output:
 
 ## Connection pooling
 
-`workflow.yaml`'s `sqlConnections` entry holds pool config only -- no
+`workflow.yaml`'s `sqlConnections` entry holds pool config only - no
 `connection:` field. The DSN itself always comes from `sql_connections` in
 `~/.kdeps/config.yaml` (see [Connection Configuration](#connection-configuration)
 above); a connection string here would be silently ignored.
@@ -321,6 +321,6 @@ query: "SELECT * FROM users WHERE id = {{ get('user_id') }}"
 ## See also
 
 - [SQL Examples](/reference/sql-examples) - User lookup, analytics, multi-database sync, LLM-enhanced search
-- [Python Resource](python) -- data processing scripts
-- [HTTP Client](http-client) -- external API calls
-- [Workflow Configuration](../configuration/workflow) -- connection settings
+- [Python Resource](python) - data processing scripts
+- [HTTP Client](http-client) - external API calls
+- [Workflow Configuration](../configuration/workflow) - connection settings
