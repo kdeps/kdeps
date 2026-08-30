@@ -45,55 +45,9 @@ Always available. `identity_get` returns the agent's configured name, email, and
 
 ## Shell execution
 
-`bash_exec` runs any shell command and streams output to the terminal. Two keyboard shortcuts change its behavior mid-run:
+`bash_exec` runs any shell command and streams output to the terminal, with Ctrl+C to cancel, Ctrl+Z to background it, and companion `bash_job_list`/`bash_job_wait` tools. If [rtk](https://github.com/rtk-ai/rtk) is installed, output is compressed automatically before it reaches the LLM (up to 90% fewer tokens).
 
-| Key | Effect |
-|-----|--------|
-| `Ctrl+C` | Cancel the running tool. Partial output is returned to the LLM as a result so it can decide what to do next. Works for any built-in tool, not only `bash_exec`. |
-| `Ctrl+Z` | Detach the process as a background job. `bash_exec` immediately returns `{"status":"backgrounded","job_id":N}` to the LLM. |
-
-Ctrl+C is read directly from the terminal while a tool runs, so it cancels even long-running tools (e.g. a slow `search_local` or `web_scraper`) - the REPL does not rely on the terminal delivering a signal.
-
-`Ctrl+Z` at the REPL prompt (no tool running) suspends kdeps normally (`fg` to resume).
-
-Background jobs are managed with two companion tools:
-
-| Tool | Description |
-|------|-------------|
-| `bash_job_list` | Show all background jobs with status (`running`/`done`/`failed`), elapsed time, and command |
-| `bash_job_wait` | Block until a job completes and return its full output. Pass `job_id` from the backgrounded result. |
-
-Set `KDEPS_ALLOW_BASH=false` to disable all three `bash_*` tools.
-
-### Token savings with rtk (optional)
-
-[rtk](https://github.com/rtk-ai/rtk) is a CLI proxy that compresses command output before it reaches the LLM. `git status` costs ~300 tokens; `rtk git status` costs ~60 for the same information. If rtk is installed, `bash_exec` uses it automatically — nothing to configure.
-
-```text
-LLM calls bash_exec("go test ./...")
-  -> kdeps asks: rtk rewrite "go test ./..."
-  -> rtk answers: rtk go test ./...
-  -> kdeps runs the rewritten command
-  -> LLM sees filtered output (up to 90% fewer tokens)
-```
-
-Install it with `brew install rtk`, or skip it — kdeps runs your commands unchanged when rtk is absent.
-
-| Env var | Effect |
-|---------|--------|
-| _(none)_ | Auto-detect. rtk is used when it is on `PATH` and passes verification. |
-| `KDEPS_RTK=off` | Never use rtk, even if installed. |
-| `RTK_DISABLED=1` | Also honored. rtk's own escape hatch, so one variable turns it off everywhere. |
-
-What this does **not** change:
-
-- **Your commands still run.** If rtk is missing, too old, wedged, or has no compression for a command, kdeps runs the original. rtk can never block execution.
-- **Permissions are unaffected.** kdeps gates shell commands itself. rtk is only a compressor here, so its own permission verdicts are ignored rather than double-gating you.
-- **Workflow mode is untouched.** Only agent loop `bash_exec` uses rtk. Workflow `exec` resources keep raw output, because pipelines parse it downstream.
-
-::: tip Verifying the right rtk
-An unrelated crate on crates.io is also named `rtk`. kdeps does not trust the name — it verifies the binary by behavior, so an impostor on your `PATH` is ignored rather than producing broken commands. Check yours with `rtk gain`: it works on the real one.
-:::
+See [Shell Execution](/modes/agent-loop-shell) for the full keyboard-shortcut and rtk reference.
 
 ## File operations
 
@@ -121,26 +75,9 @@ Always available. No environment variables required.
 | `exa_search` | `EXA_API_KEY` or `METAPHOR_API_KEY` | Neural search via Exa (cached) |
 | `perplexity_search` | `PERPLEXITY_API_KEY` | Search via Perplexity (30s timeout, cached) |
 
-Web and search tools carry a hard timeout so a hung remote endpoint cannot stall the turn. Ctrl+C during any tool call cancels the in-flight request immediately and skips the round's remaining tools.
+Web and search tools carry a hard timeout so a hung remote endpoint cannot stall the turn. Ctrl+C during any tool call cancels the in-flight request immediately and skips the round's remaining tools. Tools marked "cached" memoize successful results for the process lifetime; failed/empty lookups are retried.
 
-While a tool runs, the REPL shows a live monitor line - `⠴ bash_exec running (12m34s) · <latest output line>` - refreshed every second, so a long command (a full test suite, a large download) is visibly alive instead of silent. The line is replaced by the usual `... done (elapsed)` summary when the tool finishes.
-
-Every tool gets a meaningful monitor line, not just `bash_exec`: the line is seeded with what the tool is acting on, derived from its arguments - the URL for `web_scraper`/`http_request`, the query for `web_search`/`sql_query`, the path for `search_local`, and so on (`⠴ web_scraper running (3s) · https://example.com`). Tools that stream output (like `bash_exec`) then replace the seed with their latest output line as it flows.
-
-The same status line covers `! <cmd>` / `!! <cmd>` shell commands and `@file` ref expansion: while a bang command is silent the line shows `⠴ ! make lint running (57s)`, and any real output erases the status line first so the two never collide.
-
-The monitor also detects hung tools. Staleness is measured by *silence*, not wall-clock time - a long build that keeps printing never trips it. After 2 minutes without output the line warns (`no output for 3m20s`); after the stall timeout (default 10 minutes of silence, tune with `/model tool set stall-timeout 5m`, `0` disables) the tool is killed and the model receives a structured error explaining the hang so it can retry with a narrower or more verbose command, or run it in the background.
-
-When a tool stalls, the default is **auto-increase**: the stall timeout is bumped by the increment (default 5m) and the bump is announced (`[Auto-stall allocation: stall timeout increased by 5m. New timeout: 15m.]`), so a long silent-but-alive command keeps running without a prompt. This is on by default.
-
-Two other modes are available via `/model tool set autokill <on|off>` (autokill and auto-increase are mutually exclusive — enabling one disables the other):
-
-- `autokill on` — a stalled tool is **killed** at the stall timeout (no increase, no prompt), and the model gets a structured error so it can retry differently.
-- `autokill off` — the default auto-increase-and-announce behavior.
-
-To be prompted interactively instead, turn both off in config; the REPL then offers `(i)ncrease` / `(k)ill` when a tool stalls.
-
-Tools marked "cached" memoize successful results for the lifetime of the agent process: repeating the same query or URL returns the cached copy instantly instead of refetching. Failed and empty lookups are not cached, so they are retried on the next call. `wolfram_alpha` results are cached the same way.
+While any tool runs, the REPL shows a live status line and detects hangs via a stall timeout -- see [Tool Execution Monitoring](/modes/agent-loop-monitoring) for the full mechanics.
 
 ## Permission modes
 
@@ -262,4 +199,6 @@ These always-on tools invoke the corresponding kdeps executor directly:
 
 - [Agent Loop Mode](/modes/agent-loop-mode) -- overview and starting the REPL
 - [REPL Slash Commands](/modes/agent-loop-commands) -- full command reference
+- [Shell Execution](/modes/agent-loop-shell) -- bash_exec keyboard shortcuts and rtk
+- [Tool Execution Monitoring](/modes/agent-loop-monitoring) -- status lines and stall detection
 - [Agent Registries](/modes/agent-loop-registries) -- task_*/team_*/cron_* tools for multi-agent coordination

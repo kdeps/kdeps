@@ -88,12 +88,9 @@ the turn
 
 Only text inside `"..."` or `'...'` is ever scanned -- typing `can you check df -h for me` with no quotes triggers nothing, even though `df -h` is a recognized command. Quoting `"df -h"` is what tells auto-context you mean it literally.
 
-The same quoted-span scan looks for existing, readable **text files** by name (`look at "main.go"`) and offers to inline their contents the same way `@main.go` would. Images and binaries are never auto-detected -- use an explicit `@path` for those. Only a strict allowlist of read-only commands is ever offered (`ls`, `df`, `ps`, `git status`, `go env`, `docker ps`, etc.) -- destructive or mutating commands (`rm`, `git commit`, `go build`, `docker rm`, ...) never match, even quoted, so there is nothing to confirm your way into breaking. One confirmation covers everything detected in a single message; declining (or just pressing Enter) sends your original text completely unchanged, exactly as if nothing had been detected.
+The same scan finds existing, readable **text files** by name (`look at "main.go"`) and offers to inline them like `@main.go` would -- images/binaries are never auto-detected, use an explicit `@path` instead. Only a strict allowlist of read-only commands is offered (`ls`, `df`, `ps`, `git status`, `go env`, `docker ps`, etc.); destructive commands (`rm`, `git commit`, `go build`, `docker rm`, ...) never match, even quoted. One confirmation covers everything in a message; declining (or pressing Enter) sends your text unchanged.
 
-**Pipes and command substitution** are recognized too, as long as every stage is itself allowlisted:
-
-- `"ps aux | grep -i kdeps"` -- quoted as one pipeline and run that way, provided every `|`-separated stage is a read-only command; a stage like `xargs rm` invalidates the whole quoted pipeline rather than being silently dropped.
-- `` $(git rev-parse HEAD) `` -- its own explicit delimiter, so it needs no additional quoting. The `$(...)` body is checked the same way and, if safe, run and inlined as its own command; anything that could chain a second command inside the parens (`;`, `&`, `` ` ``, a nested `$(`) is rejected outright rather than run partially.
+**Pipes and command substitution** are recognized too, as long as every stage is allowlisted: `"ps aux | grep -i kdeps"` runs as one pipeline provided each `|`-separated stage is read-only (a stage like `xargs rm` invalidates the whole thing); `` $(git rev-parse HEAD) `` needs no extra quoting -- its `$(...)` body is checked the same way, and anything that could chain a second command inside the parens (`;`, `&`, `` ` ``, a nested `$(`) is rejected outright.
 
 Disable it for the session with `/autocontext off` if the confirmation prompt gets in your way; `/autocontext on` re-enables it, and `/autocontext` alone shows the current state.
 
