@@ -93,6 +93,6 @@ vectorStore:
 
 ## See also
 
-- [Loader Resource](loader) - load files/URLs into documents before indexing
-- [Embedding Resource](embedding) - local SQLite-backed alternative, no external service required
-- [Resources Overview](overview) - all resource types
+- [Loader resource](loader) - load files/URLs into documents before indexing
+- [Embedding resource](embedding) - local SQLite-backed alternative, no external service required
+- [Resources overview](overview) - all resource types

@@ -117,6 +117,6 @@ chat:
 
 ## See also
 
-- [Validation and Control Flow](/concepts/validation-and-control) - Full `validations:` block reference
+- [Validation and control flow](/concepts/validation-and-control) - Full `validations:` block reference
 - [Expressions](/concepts/expressions) - Expression syntax for conditions
 - [Unified API](/concepts/unified-api) - Using `get()` in validations

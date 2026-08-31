@@ -400,7 +400,7 @@ apiResponse:
 
 ## See also
 
-- [Items Iteration](items) - Fixed-list iteration
+- [Items iteration](items) - Fixed-list iteration
 - [Expressions](/concepts/expressions) - Expression syntax
-- [Expression Functions Reference](/reference/expression-functions-reference) - Complete function list
-- [Validation and Control Flow](/concepts/validation-and-control) - Skip conditions, preflight checks
+- [Expression functions reference](/reference/expression-functions-reference) - Complete function list
+- [Validation and control flow](/concepts/validation-and-control) - Skip conditions, preflight checks

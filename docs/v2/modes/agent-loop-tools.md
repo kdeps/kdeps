@@ -197,8 +197,8 @@ These always-on tools invoke the corresponding kdeps executor directly:
 
 ## See also
 
-- [Agent Loop Mode](/modes/agent-loop-mode) - overview and starting the REPL
-- [REPL Slash Commands](/modes/agent-loop-commands) - full command reference
-- [Shell Execution](/modes/agent-loop-shell) - bash_exec keyboard shortcuts and rtk
-- [Tool Execution Monitoring](/modes/agent-loop-monitoring) - status lines and stall detection
-- [Agent Registries](/modes/agent-loop-registries) - task_*/team_*/cron_* tools for multi-agent coordination
+- [Agent loop mode](/modes/agent-loop-mode) - overview and starting the REPL
+- [REPL slash commands](/modes/agent-loop-commands) - full command reference
+- [Shell execution](/modes/agent-loop-shell) - bash_exec keyboard shortcuts and rtk
+- [Tool execution monitoring](/modes/agent-loop-monitoring) - status lines and stall detection
+- [Agent registries](/modes/agent-loop-registries) - task_*/team_*/cron_* tools for multi-agent coordination

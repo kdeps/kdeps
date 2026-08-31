@@ -45,5 +45,5 @@ Whatever the component's own result resource returns - the shape depends on the 
 ## See also
 
 - [Components](/concepts/components) - registry vs. custom components, how to build and publish one
-- [Agent Resource](agent) - call a full sibling agent instead of a component
-- [Resources Overview](overview) - all resource types
+- [Agent resource](agent) - call a full sibling agent instead of a component
+- [Resources overview](overview) - all resource types

@@ -287,5 +287,5 @@ Pause execution for a duration or until a CSS selector appears.
 
 ## See also
 
-- [Browser Resource](/resources/browser) - Configuration, stealth mode, sessions, and examples
-- [Scraper Resource](/resources/scraper) - Text extraction from already-fetched pages
+- [Browser resource](/resources/browser) - Configuration, stealth mode, sessions, and examples
+- [Scraper resource](/resources/scraper) - Text extraction from already-fetched pages

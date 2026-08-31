@@ -306,8 +306,8 @@ If `/config/settings.yaml` exists, the original is saved to `/config/settings.ya
 
 ## See also
 
-- [Exec Resource](exec) - shell commands (use for CLI tools that lack a native resource)
-- [Python Resource](python) - complex data processing
-- [Git Resource](git) - version control operations
-- [Code Intelligence Resource](codeintelligence) - code navigation and search
-- [Workflow Configuration](../configuration/workflow)
+- [Exec resource](exec) - shell commands (use for CLI tools that lack a native resource)
+- [Python resource](python) - complex data processing
+- [Git resource](git) - version control operations
+- [Code intelligence resource](codeintelligence) - code navigation and search
+- [Workflow configuration](../configuration/workflow)

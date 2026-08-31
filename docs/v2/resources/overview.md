@@ -322,12 +322,12 @@ Set realistic `timeout` values based on expected execution time.
 
 ## See also
 
-- [LLM Resource](llm) - AI model integration
-- [HTTP Client](http-client) - external API calls
-- [SQL Resource](sql) - database operations
-- [Python Resource](python) - script execution
-- [Exec Resource](exec) - shell commands
-- [Email Resource](email) - SMTP send, IMAP read/search/modify
-- [API Response](api-response) - response formatting
-- [Agency & Multi-Agent](../concepts/agency) - multi-agent orchestration
+- [LLM resource](llm) - AI model integration
+- [HTTP client](http-client) - external API calls
+- [SQL resource](sql) - database operations
+- [Python resource](python) - script execution
+- [Exec resource](exec) - shell commands
+- [Email resource](email) - SMTP send, IMAP read/search/modify
+- [API response](api-response) - response formatting
+- [Agency & multi-agent](../concepts/agency) - multi-agent orchestration
 - [Components](../concepts/components) - installable capability extensions

@@ -153,6 +153,6 @@ chat:
 
 ## See also
 
-- [Search Resources](/resources/search) - overview and `searchLocal`
-- [Scraper Resource](scraper) - Fetch URL content to feed into search pipelines
-- [LLM Resource](llm) - Use search results as context for chat resources
+- [Search resources](/resources/search) - overview and `searchLocal`
+- [Scraper resource](scraper) - Fetch URL content to feed into search pipelines
+- [LLM resource](llm) - Use search results as context for chat resources

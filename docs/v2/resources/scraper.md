@@ -93,6 +93,6 @@ onError:
 
 ## See also
 
-- [Embedding Resource](embedding) - store and search scraped content
-- [LLM Resource](llm) - feed scraped content into prompts
-- [HTTP Client](http-client) - lower-level HTTP with auth, headers, caching
+- [Embedding resource](embedding) - store and search scraped content
+- [LLM resource](llm) - feed scraped content into prompts
+- [HTTP client](http-client) - lower-level HTTP with auth, headers, caching

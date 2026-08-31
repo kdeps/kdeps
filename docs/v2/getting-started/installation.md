@@ -189,7 +189,7 @@ sudo usermod -aG docker $USER
 
 ## See also
 
-- [Quickstart Guide](/getting-started/quickstart) - Build your first AI agent
-- [CLI Reference](/reference/cli/) - Complete command reference
-- [Workflow Configuration](../configuration/workflow) - Learn about workflow settings
+- [Quickstart guide](/getting-started/quickstart) - Build your first AI agent
+- [CLI reference](/reference/cli/) - Complete command reference
+- [Workflow configuration](../configuration/workflow) - Learn about workflow settings
 - [Examples](https://github.com/kdeps/kdeps/tree/main/examples) - Browse example workflows

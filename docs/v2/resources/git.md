@@ -168,5 +168,5 @@ git:
 
 ## See also
 
-- [Exec Resource](exec) - shell commands (use for non-git CLI tools)
-- [Workflow Configuration](../configuration/workflow) - settings reference
+- [Exec resource](exec) - shell commands (use for non-git CLI tools)
+- [Workflow configuration](../configuration/workflow) - settings reference

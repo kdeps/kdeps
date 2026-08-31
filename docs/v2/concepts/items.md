@@ -213,7 +213,7 @@ chat:
 ## See also
 
 - [Items reference](/reference/items-reference) - dynamic items, performance, best practices
-- [Resources Overview](../resources/overview) - Resource configuration
+- [Resources overview](../resources/overview) - Resource configuration
 - [Expressions](/concepts/expressions) - Expression syntax
-- [Expression Functions Reference](/reference/expression-functions-reference) - Complete function reference
-- [Python Resource](../resources/python) - For complex batch processing
+- [Expression functions reference](/reference/expression-functions-reference) - Complete function reference
+- [Python resource](../resources/python) - For complex batch processing

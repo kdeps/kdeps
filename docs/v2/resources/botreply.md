@@ -44,5 +44,5 @@ See the [Stateless Bot](/examples/stateless-bot/) and [Telegram Bot](/examples/t
 
 ## See also
 
-- [Input Sources](/concepts/input-sources) - configuring `settings.input.bot`
-- [Resources Overview](overview) - all resource types
+- [Input sources](/concepts/input-sources) - configuring `settings.input.bot`
+- [Resources overview](overview) - all resource types

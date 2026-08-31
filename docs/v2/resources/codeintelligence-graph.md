@@ -93,4 +93,4 @@ codeIntelligence:
 
 ## See also
 
-- [Code Intelligence Resource](/resources/codeintelligence) - the other LSP/rg-backed operations
+- [Code intelligence resource](/resources/codeintelligence) - the other LSP/rg-backed operations

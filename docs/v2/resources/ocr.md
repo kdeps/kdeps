@@ -56,5 +56,5 @@ The extracted text, as a plain string:
 
 ## See also
 
-- [Transcribe Resource](transcribe) - the equivalent offline, no-API-key pattern for audio (`whisper-cpp` backend)
-- [Resources Overview](overview) - all resource types
+- [Transcribe resource](transcribe) - the equivalent offline, no-API-key pattern for audio (`whisper-cpp` backend)
+- [Resources overview](overview) - all resource types

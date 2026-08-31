@@ -195,6 +195,6 @@ settings:
 
 ## See also
 
-- [Workflow Configuration](workflow.md) - Full workflow settings reference
-- [API Server Settings](workflow.md#api-server-settings) - Complete API server configuration
-- [WebServer Mode](../deployment/webserver.md) - Serving static files and proxying
+- [Workflow configuration](workflow.md) - Full workflow settings reference
+- [API server settings](workflow.md#api-server-settings) - Complete API server configuration
+- [WebServer mode](../deployment/webserver.md) - Serving static files and proxying

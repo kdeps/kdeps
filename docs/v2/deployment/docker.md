@@ -429,10 +429,10 @@ See the [Kubernetes Deployment guide](kubernetes) for the full reference.
 
 ## See also
 
-- [Docker Reference](/reference/docker-reference) - Production best practices, security hardening, troubleshooting
-- [Workflow Configuration](../configuration/workflow) - Agent settings
-- [WebServer Mode](webserver) - Serve frontends
-- [LLM Backends](../resources/llm-backends) - Backend configuration
+- [Docker reference](/reference/docker-reference) - Production best practices, security hardening, troubleshooting
+- [Workflow configuration](../configuration/workflow) - Agent settings
+- [WebServer mode](webserver) - Serve frontends
+- [LLM backends](../resources/llm-backends) - Backend configuration
 - [Management API](/reference/management-api) - Live workflow updates without rebuilding
 
 ## LLM server appliance (not an agent image)

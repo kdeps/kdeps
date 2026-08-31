@@ -458,14 +458,14 @@ kdeps --resume abc123def456
 
 ## See also
 
-- [REPL Slash Commands](/modes/agent-loop-commands) - Full command reference
-- [Built-in Tools](/modes/agent-loop-tools) - Tool catalog, permission modes, lean mode
-- [Goal-Directed Execution](/modes/agent-loop-goals) - Task decomposition and enforcement
-- [Judge Panel](/modes/agent-loop-judges) - Independent review of the final answer
-- [Local Model Management](/modes/agent-loop-models) - Switching, auto-routing, running servers
-- [Agent Registries](/modes/agent-loop-registries) - Task/team/cron tools
-- [Approval Tokens](/modes/agent-loop-approvals) - One-time permission exceptions
-- [Prompt Reduction (turo)](/modes/agent-loop-turo) - Optional token reducer
-- [Workflow Mode](workflow-mode) - Deterministic DAG pipelines
-- [LLM Provider Reference](/reference/llm-providers) - Backend config and model names
+- [REPL slash commands](/modes/agent-loop-commands) - Full command reference
+- [Built-in tools](/modes/agent-loop-tools) - Tool catalog, permission modes, lean mode
+- [Goal-directed execution](/modes/agent-loop-goals) - Task decomposition and enforcement
+- [Judge panel](/modes/agent-loop-judges) - Independent review of the final answer
+- [Local model management](/modes/agent-loop-models) - Switching, auto-routing, running servers
+- [Agent registries](/modes/agent-loop-registries) - Task/team/cron tools
+- [Approval tokens](/modes/agent-loop-approvals) - One-time permission exceptions
+- [Prompt reduction (turo)](/modes/agent-loop-turo) - Optional token reducer
+- [Workflow mode](workflow-mode) - Deterministic DAG pipelines
+- [LLM provider reference](/reference/llm-providers) - Backend config and model names
 - [Agencies](/concepts/agency) - Multi-agent orchestration

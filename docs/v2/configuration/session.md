@@ -274,6 +274,6 @@ For multiple containers sharing sessions:
 
 ## See also
 
-- [Workflow Configuration](workflow.md) - Full settings reference
+- [Workflow configuration](workflow.md) - Full settings reference
 - [Unified API](../concepts/unified-api.md) - get() and set() usage
-- [Docker Deployment](../deployment/docker.md) - Production setup
+- [Docker deployment](../deployment/docker.md) - Production setup

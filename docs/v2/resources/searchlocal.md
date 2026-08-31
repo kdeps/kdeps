@@ -139,5 +139,5 @@ Indexed-mode output rows add two fields on top of the base result shape:
 
 ## See also
 
-- [Search Resources](/resources/search) - overview and `searchWeb`
-- [Graphing an Indexed Folder](/resources/codeintelligence-graph) - the same kartographer graph `graphBoost` reuses
+- [Search resources](/resources/search) - overview and `searchWeb`
+- [Graphing an indexed folder](/resources/codeintelligence-graph) - the same kartographer graph `graphBoost` reuses

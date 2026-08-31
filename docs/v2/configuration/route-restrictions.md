@@ -292,7 +292,7 @@ sql:
 
 ## See also
 
-- [Validation and Control Flow](/concepts/validation-and-control) - Full `validations:` block reference
-- [Request Object](/concepts/request-object) - Accessing request data
-- [Workflow Configuration](../configuration/workflow) - Route configuration
-- [Resources Overview](../resources/overview) - Resource basics
+- [Validation and control flow](/concepts/validation-and-control) - Full `validations:` block reference
+- [Request object](/concepts/request-object) - Accessing request data
+- [Workflow configuration](../configuration/workflow) - Route configuration
+- [Resources overview](../resources/overview) - Resource basics

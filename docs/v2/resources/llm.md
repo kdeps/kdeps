@@ -739,6 +739,6 @@ apiResponse:
 
 ## See also
 
-- [LLM Backends](llm-backends) - Configure model, backend, API keys, and routing
+- [LLM backends](llm-backends) - Configure model, backend, API keys, and routing
 - [Tools](../concepts/tools) - LLM function calling
-- [Docker Deployment](../deployment/docker) - Deploying with local models
+- [Docker deployment](../deployment/docker) - Deploying with local models

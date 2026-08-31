@@ -23,5 +23,5 @@ Tools marked "cached" in [Built-in Tools](/modes/agent-loop-tools) memoize succe
 
 ## See also
 
-- [Built-in Tools](/modes/agent-loop-tools) - the full tool catalog
-- [Shell Execution](/modes/agent-loop-shell) - Ctrl+C/Ctrl+Z, background jobs, rtk
+- [Built-in tools](/modes/agent-loop-tools) - the full tool catalog
+- [Shell execution](/modes/agent-loop-shell) - Ctrl+C/Ctrl+Z, background jobs, rtk

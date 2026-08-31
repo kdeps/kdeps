@@ -306,6 +306,6 @@ npx playwright install
 
 ## See also
 
-- [HTTP Client](http-client) - simple HTTP requests without a browser
+- [HTTP client](http-client) - simple HTTP requests without a browser
 - [Scraper](scraper) - text extraction from already-fetched pages
 - [Python](python) - Custom Python automation scripts

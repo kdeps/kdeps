@@ -128,6 +128,6 @@ No nested directories. Flat `formulas/` folder. One file per package name. Versi
 
 ## See also
 
-- [Registry Commands](/reference/cli/registry) - install, search, publish, verify
-- [Components Reference](/reference/components) - component.yaml reference
-- [Packaging Commands](/reference/cli/packaging) - archive formats
+- [Registry commands](/reference/cli/registry) - install, search, publish, verify
+- [Components reference](/reference/components) - component.yaml reference
+- [Packaging commands](/reference/cli/packaging) - archive formats

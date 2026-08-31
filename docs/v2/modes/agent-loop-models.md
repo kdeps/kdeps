@@ -171,6 +171,6 @@ PID      PORT   BACKEND      MODEL                                STATUS
 
 ## See also
 
-- [Agent Loop Mode](/modes/agent-loop-mode) - overview and starting the REPL
-- [LLM Backends & Routing](/resources/llm-backends) - the workflow-mode equivalent of `auto`/`auto-router`
-- [REPL Slash Commands](/modes/agent-loop-commands) - full command reference
+- [Agent loop mode](/modes/agent-loop-mode) - overview and starting the REPL
+- [LLM backends & routing](/resources/llm-backends) - the workflow-mode equivalent of `auto`/`auto-router`
+- [REPL slash commands](/modes/agent-loop-commands) - full command reference

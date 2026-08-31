@@ -234,6 +234,6 @@ settings:
 
 ## See also
 
-- [Global Config](/configuration/advanced) - Backend, defaults, named connections, and agent profiles
-- [Resources Overview](/resources/overview) - Resource types and fields
+- [Global config](/configuration/advanced) - Backend, defaults, named connections, and agent profiles
+- [Resources overview](/resources/overview) - Resource types and fields
 - [Agencies](/concepts/agency) - Multi-agent orchestration

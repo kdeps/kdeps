@@ -52,5 +52,5 @@ An unrelated crate on crates.io is also named `rtk`. kdeps does not trust the na
 
 ## See also
 
-- [Built-in Tools](/modes/agent-loop-tools) - the full tool catalog
-- [Tool Execution Monitoring](/modes/agent-loop-monitoring) - live status lines and stall detection
+- [Built-in tools](/modes/agent-loop-tools) - the full tool catalog
+- [Tool execution monitoring](/modes/agent-loop-monitoring) - live status lines and stall detection

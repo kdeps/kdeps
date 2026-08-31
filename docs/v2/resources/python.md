@@ -223,7 +223,7 @@ See [Unified API](../concepts/unified-api.md#resource-specific-accessors) for de
 
 ## See also
 
-- [Python Examples](/reference/python-examples) - Data transformation, ML inference, image processing, error handling, debugging
-- [Exec Resource](exec) - shell command execution
-- [LLM Resource](llm) - combine with AI
-- [Workflow Configuration](../configuration/workflow) - Python settings
+- [Python examples](/reference/python-examples) - Data transformation, ML inference, image processing, error handling, debugging
+- [Exec resource](exec) - shell command execution
+- [LLM resource](llm) - combine with AI
+- [Workflow configuration](../configuration/workflow) - Python settings

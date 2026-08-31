@@ -104,6 +104,6 @@ A company that commissions a kdeps agent today can hand the YAML files and Docke
 
 ## See also
 
-- [Quick Start](/getting-started/quickstart) - Build your first workflow in minutes
-- [Workflow Mode](/modes/workflow-mode) - Deterministic DAG pipelines
-- [Agent Mode](/modes/agent-loop-mode) - Autonomous LLM loop
+- [Quick start](/getting-started/quickstart) - Build your first workflow in minutes
+- [Workflow mode](/modes/workflow-mode) - Deterministic DAG pipelines
+- [Agent mode](/modes/agent-loop-mode) - Autonomous LLM loop

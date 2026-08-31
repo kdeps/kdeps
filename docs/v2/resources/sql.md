@@ -320,7 +320,7 @@ query: "SELECT * FROM users WHERE id = {{ get('user_id') }}"
 
 ## See also
 
-- [SQL Examples](/reference/sql-examples) - User lookup, analytics, multi-database sync, LLM-enhanced search
-- [Python Resource](python) - data processing scripts
-- [HTTP Client](http-client) - external API calls
-- [Workflow Configuration](../configuration/workflow) - connection settings
+- [SQL examples](/reference/sql-examples) - User lookup, analytics, multi-database sync, LLM-enhanced search
+- [Python resource](python) - data processing scripts
+- [HTTP client](http-client) - external API calls
+- [Workflow configuration](../configuration/workflow) - connection settings

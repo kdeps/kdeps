@@ -101,6 +101,6 @@ Session data is stored in a WAL-based embedded database. The location is configu
 ## See also
 
 - [Quickstart](/getting-started/quickstart) - build your first workflow
-- [Execution Flow](/guides/execution-flow) - how the engine runs resources
+- [Execution flow](/guides/execution-flow) - how the engine runs resources
 - [Troubleshooting](/guides/troubleshooting) - common errors and fixes
 - [Glossary](/reference/glossary) - all kdeps terms defined

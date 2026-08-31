@@ -152,7 +152,7 @@ item.values()    # All items as an array
 
 Access session-scoped data set with `set('key', val, 'session')` in any resource.
 
-### session()
+### Session()
 Returns the entire session data object.
 
 **Examples:**
@@ -290,7 +290,7 @@ after:
   - set('ts', info('timestamp'))
 ```
 
-### now()
+### Now()
 Returns the current time as a `time.Time` value. Useful with comparison operators or passing to `date()` for parsing.
 
 ```yaml
@@ -345,6 +345,6 @@ Expressions evaluate left-to-right with this precedence (highest to lowest):
 
 ## See also
 
-- [Expressions Guide](/concepts/expressions) - where expressions are used and basic syntax
-- [Validation & Control Flow](/concepts/validation-and-control) - skip, check, and error handling
-- [Inline Resource Blocks](/reference/expr-blocks) - `before:` and `after:` expression blocks
+- [Expressions guide](/concepts/expressions) - where expressions are used and basic syntax
+- [Validation & control flow](/concepts/validation-and-control) - skip, check, and error handling
+- [Inline resource blocks](/reference/expr-blocks) - `before:` and `after:` expression blocks

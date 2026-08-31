@@ -91,6 +91,6 @@ vectorStore:
 
 ## See also
 
-- [Vector Store Resource](vectorstore) - index and search the loaded documents
-- [Embedding Resource](embedding) - lightweight keyword-based alternative for local, API-key-free RAG
-- [Resources Overview](overview) - all resource types
+- [Vector store resource](vectorstore) - index and search the loaded documents
+- [Embedding resource](embedding) - lightweight keyword-based alternative for local, API-key-free RAG
+- [Resources overview](overview) - all resource types

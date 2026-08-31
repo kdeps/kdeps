@@ -151,7 +151,7 @@ kubectl rollout status deployment/my-agent
 
 ## See also
 
-- [Dev Commands](/reference/cli/dev) - run, serve, validate, new, edit, doctor, chat
-- [Registry Commands](/reference/cli/registry) - search, install, publish
-- [Packaging Commands](/reference/cli/packaging) - bundle, export, build
+- [Dev commands](/reference/cli/dev) - run, serve, validate, new, edit, doctor, chat
+- [Registry commands](/reference/cli/registry) - search, install, publish
+- [Packaging commands](/reference/cli/packaging) - bundle, export, build
 - [Installation](/getting-started/installation)

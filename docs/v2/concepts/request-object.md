@@ -374,5 +374,5 @@ The `request` object provides an alternative way to access request data. Both ap
 ## See also
 
 - [Unified API](/concepts/unified-api) - Primary API for data access
-- [Input Sources](input-sources) - Configuring API, bot, and file input sources
-- [Info Function](unified-api#info-function) - Request metadata access
+- [Input sources](input-sources) - Configuring API, bot, and file input sources
+- [Info function](unified-api#info-function) - Request metadata access

@@ -208,6 +208,6 @@ Recognised fields in the inbound webhook body (Twilio format; unknown fields are
 
 ## See also
 
-- [LLM Resource](llm) - generate spoken responses with an LLM
-- [API Response](api-response) - how the TwiML reaches the provider
+- [LLM resource](llm) - generate spoken responses with an LLM
+- [API response](api-response) - how the TwiML reaches the provider
 - [Components](../concepts/components) - `invoke:` targets for menu matches

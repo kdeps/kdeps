@@ -96,6 +96,6 @@ Disable it for the session with `/autocontext off` if the confirmation prompt ge
 
 ## See also
 
-- [Agent Loop Mode](/modes/agent-loop-mode) - overview and starting the REPL
-- [Built-in Tools](/modes/agent-loop-tools) - tools available to the model
-- [Goal-Directed Execution](/modes/agent-loop-goals)
+- [Agent loop mode](/modes/agent-loop-mode) - overview and starting the REPL
+- [Built-in tools](/modes/agent-loop-tools) - tools available to the model
+- [Goal-directed execution](/modes/agent-loop-goals)

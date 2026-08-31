@@ -330,6 +330,6 @@ settings:
 
 ## See also
 
-- [Docker Deployment](docker) - Package for production
-- [Workflow Configuration](../configuration/workflow) - Full settings reference
+- [Docker deployment](docker) - Package for production
+- [Workflow configuration](../configuration/workflow) - Full settings reference
 - [Examples](https://github.com/kdeps/kdeps/tree/main/examples) - Working examples

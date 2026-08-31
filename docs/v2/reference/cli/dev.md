@@ -268,6 +268,6 @@ kdeps llamafile update    # refresh the registry from HuggingFace (llamafile + G
 
 ## See also
 
-- [CLI Overview](/reference/cli/) - global flags, exit codes, env vars, workflows
-- [Registry Commands](/reference/cli/registry) - search, install, publish
-- [Packaging Commands](/reference/cli/packaging) - bundle, export, build
+- [CLI overview](/reference/cli/) - global flags, exit codes, env vars, workflows
+- [Registry commands](/reference/cli/registry) - search, install, publish
+- [Packaging commands](/reference/cli/packaging) - bundle, export, build

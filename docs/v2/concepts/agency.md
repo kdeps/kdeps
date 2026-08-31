@@ -189,6 +189,6 @@ curl "http://localhost:17100/api/v1/greet?name=Alice" \
 
 - [Agent resource](../resources/overview.md#agent) - `agent:` resource reference
 - [`examples/agency/`](https://github.com/kdeps/kdeps/tree/main/examples/agency) - runnable example
-- [Packaging Commands](/reference/cli/packaging) - `.kdeps` and `.kagency` formats
+- [Packaging commands](/reference/cli/packaging) - `.kdeps` and `.kagency` formats
 - [Docker deployment](../deployment/docker.md) - building Docker images
 - [Standalone executables](../deployment/prepackage.md) - exporting self-contained binaries

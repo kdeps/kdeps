@@ -298,9 +298,9 @@ See `examples/k8s-deployment/README.md` for details.
 
 ## See also
 
-- [Docker Deployment](docker) - Build Docker images for your workflows
-- [Standalone Executables](prepackage) - Self-contained binaries for edge deployment
-- [CLI Reference](/reference/cli/) - Full command reference
+- [Docker deployment](docker) - Build Docker images for your workflows
+- [Standalone executables](prepackage) - Self-contained binaries for edge deployment
+- [CLI reference](/reference/cli/) - Full command reference
 
 ## LLM appliance manifests
 

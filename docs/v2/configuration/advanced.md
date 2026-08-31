@@ -397,8 +397,8 @@ Identity is `name`/`email`/`address` (attribution - who the agent is) plus `acco
 
 ## See also
 
-- [Security Reference](/reference/security) - Auth, rate limiting, TLS, concurrency, output caps
-- [Workflow Configuration](workflow.md) - Basic workflow configuration
-- [Session & Storage](session.md) - Session persistence
+- [Security reference](/reference/security) - Auth, rate limiting, TLS, concurrency, output caps
+- [Workflow configuration](workflow.md) - Basic workflow configuration
+- [Session & storage](session.md) - Session persistence
 - [CORS](cors.md) - Cross-origin configuration
-- [Docker Deployment](../deployment/docker.md) - Deployment options
+- [Docker deployment](../deployment/docker.md) - Deployment options

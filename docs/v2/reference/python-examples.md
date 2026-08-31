@@ -219,6 +219,6 @@ print(json.dumps(result))  # Only stdout is the resource output
 
 ## See also
 
-- [Python Resource](/resources/python) - Core configuration reference
-- [Exec Resource](/resources/exec) - Shell command execution
-- [LLM Resource](/resources/llm) - Combine Python with AI
+- [Python resource](/resources/python) - Core configuration reference
+- [Exec resource](/resources/exec) - Shell command execution
+- [LLM resource](/resources/llm) - Combine Python with AI

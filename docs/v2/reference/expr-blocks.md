@@ -341,5 +341,5 @@ apiResponse:
 
 - [Expressions](/concepts/expressions) - Expression syntax and operators
 - [Unified API](/concepts/unified-api) - Using `get()` and `set()`
-- [Resources Overview](../resources/overview.md) - Resource structure
-- [Validation and Control Flow](/concepts/validation-and-control) - Preflight checks
+- [Resources overview](../resources/overview.md) - Resource structure
+- [Validation and control flow](/concepts/validation-and-control) - Preflight checks

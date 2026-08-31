@@ -43,5 +43,5 @@ The target agent's own `apiResponse` output, unchanged - whatever shape that age
 ## See also
 
 - [Agencies](/concepts/agency) - multi-agent orchestration, how agents are bundled and named
-- [Component Resource](component) - call a reusable resource bundle instead of a full sibling agent
-- [Resources Overview](overview) - all resource types
+- [Component resource](component) - call a reusable resource bundle instead of a full sibling agent
+- [Resources overview](overview) - all resource types

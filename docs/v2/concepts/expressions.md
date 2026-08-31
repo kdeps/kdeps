@@ -51,6 +51,6 @@ kdeps adds workflow-specific helpers on top. See the [Expression Functions Refer
 
 ## See also
 
-- [Expression Functions Reference](/reference/expression-functions-reference) - All kdeps-specific functions
-- [Expression Operators](/reference/expression-operators) - Comparison and logic operators
-- [Expression Blocks](/reference/expr-blocks) - `before:` / `after:` statement blocks
+- [Expression functions reference](/reference/expression-functions-reference) - All kdeps-specific functions
+- [Expression operators](/reference/expression-operators) - Comparison and logic operators
+- [Expression blocks](/reference/expr-blocks) - `before:` / `after:` statement blocks

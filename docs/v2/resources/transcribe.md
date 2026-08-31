@@ -81,5 +81,5 @@ The transcribed text, as a plain string:
 
 ## See also
 
-- [OCR Resource](ocr) - the equivalent offline, no-API-key pattern for images
-- [Resources Overview](overview) - all resource types
+- [OCR resource](ocr) - the equivalent offline, no-API-key pattern for images
+- [Resources overview](overview) - all resource types

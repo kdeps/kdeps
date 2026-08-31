@@ -157,10 +157,10 @@ See [Standalone Binaries](/deployment/prepackage) for self-contained single-bina
 
 ## See also
 
-- [Docker Deployment](/deployment/docker) - image build details, base OS, GPU support
-- [Kubernetes Deployment](/deployment/kubernetes) - manifest structure, health checks
-- [Standalone Binaries](/deployment/prepackage) - single-binary edge exports
-- [CLI: Packaging Commands](/reference/cli/packaging) - all bundle and export commands
+- [Docker deployment](/deployment/docker) - image build details, base OS, GPU support
+- [Kubernetes deployment](/deployment/kubernetes) - manifest structure, health checks
+- [Standalone binaries](/deployment/prepackage) - single-binary edge exports
+- [CLI: packaging commands](/reference/cli/packaging) - all bundle and export commands
 
 ## Optional: LLM server appliance (not an agent)
 

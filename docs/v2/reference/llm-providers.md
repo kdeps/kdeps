@@ -337,5 +337,5 @@ llm:
 
 ## See also
 
-- [LLM Backends](/resources/llm-backends) - Routing, allowlists, streaming, feature matrix
-- [LLM Resource](/resources/llm) - Complete LLM resource documentation
+- [LLM backends](/resources/llm-backends) - Routing, allowlists, streaming, feature matrix
+- [LLM resource](/resources/llm) - Complete LLM resource documentation

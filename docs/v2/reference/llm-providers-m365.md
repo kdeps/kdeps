@@ -88,5 +88,5 @@ OpenAI-compatible response for direct API use.
 
 ## See also
 
-- [LLM Provider Reference](/reference/llm-providers) - all other backends
-- [Agent Loop Mode](/modes/agent-loop-mode) - `/login` command and REPL usage
+- [LLM provider reference](/reference/llm-providers) - all other backends
+- [Agent loop mode](/modes/agent-loop-mode) - `/login` command and REPL usage

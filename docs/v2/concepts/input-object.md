@@ -207,5 +207,5 @@ after:
 ## See also
 
 - [Unified API](unified-api.md) - Primary API for data access
-- [Request Object](request-object.md) - Full request access
-- [Validation and Control Flow](/concepts/validation-and-control) - Input validation
+- [Request object](request-object.md) - Full request access
+- [Validation and control flow](/concepts/validation-and-control) - Input validation

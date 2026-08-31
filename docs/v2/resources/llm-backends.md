@@ -356,8 +356,8 @@ See [LLM Server Appliance](/deployment/llm-server) and [LLM Commands](/reference
 
 ## See also
 
-- [LLM Provider Reference](/reference/llm-providers) - Per-provider config snippets and model names
-- [LLM Resource](llm) - Complete LLM resource documentation
+- [LLM provider reference](/reference/llm-providers) - Per-provider config snippets and model names
+- [LLM resource](llm) - Complete LLM resource documentation
 - [Tools](../concepts/tools) - LLM function calling
-- [Docker Deployment](../deployment/docker) - Deploying with local models
+- [Docker deployment](../deployment/docker) - Deploying with local models
 

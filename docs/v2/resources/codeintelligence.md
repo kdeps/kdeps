@@ -190,7 +190,7 @@ See [Graphing an Indexed Folder](/resources/codeintelligence-graph) for the full
 
 ## See also
 
-- [Agent Mode](/modes/agent-loop-mode) - built-in `code_*` tools
-- [git resource](git) - version control operations
-- [Exec Resource](exec) - shell commands
-- [searchLocal Resource](search) - local file search
+- [Agent mode](/modes/agent-loop-mode) - built-in `code_*` tools
+- [Git resource](git) - version control operations
+- [Exec resource](exec) - shell commands
+- [searchLocal resource](search) - local file search

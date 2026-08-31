@@ -235,6 +235,6 @@ To disable memory, do not pass a `MemoryStore` to the agent config.
 
 ## See also
 
-- [Session Configuration](/configuration/session) - request-scoped persistent storage
-- [Agent Loop Mode](/modes/agent-loop-mode) - how the agent loop works
-- [Expression Functions](/reference/expression-functions-reference) - `set()` and `get()` for session/memory
+- [Session configuration](/configuration/session) - request-scoped persistent storage
+- [Agent loop mode](/modes/agent-loop-mode) - how the agent loop works
+- [Expression functions](/reference/expression-functions-reference) - `set()` and `get()` for session/memory

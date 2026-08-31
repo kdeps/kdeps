@@ -173,8 +173,8 @@ For the full management API reference see [Management API](/reference/management
 
 ## See also
 
-- [Docker Deployment](/deployment/docker) - Core packaging and build workflow
-- [Kubernetes Deployment](/deployment/kubernetes) - Cluster deployment
+- [Docker deployment](/deployment/docker) - Core packaging and build workflow
+- [Kubernetes deployment](/deployment/kubernetes) - Cluster deployment
 - [Management API](/reference/management-api) - Live workflow updates without rebuilding
 
 ## Let's encrypt

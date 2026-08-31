@@ -4,5 +4,5 @@ This page has moved. See **[Validation and Control Flow](/concepts/validation-an
 
 ## See also
 
-- [Validation and Control Flow](/concepts/validation-and-control) - Full `validations:` block reference
-- [Validation Examples](/reference/validation-examples) - Best practices and examples
+- [Validation and control flow](/concepts/validation-and-control) - Full `validations:` block reference
+- [Validation examples](/reference/validation-examples) - Best practices and examples

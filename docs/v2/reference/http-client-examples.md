@@ -105,4 +105,4 @@ httpClient:
 
 ## See also
 
-- [HTTP Client Resource](/resources/http-client) - Full configuration reference
+- [HTTP client resource](/resources/http-client) - Full configuration reference

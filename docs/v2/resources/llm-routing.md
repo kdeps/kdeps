@@ -136,5 +136,5 @@ Agent-loop mode has the same sentinel via `--model auto-router` - see [Local Mod
 
 ## See also
 
-- [LLM Backends & Routing](/resources/llm-backends) - backend configuration and the unified models list
-- [Local Model Management](/modes/agent-loop-models) - the agent-loop equivalent of `auto`/`auto-router`
+- [LLM backends & routing](/resources/llm-backends) - backend configuration and the unified models list
+- [Local model management](/modes/agent-loop-models) - the agent-loop equivalent of `auto`/`auto-router`

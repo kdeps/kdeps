@@ -33,8 +33,8 @@ See [searchWeb Resource](/resources/searchweb) for the full field reference, pro
 
 ## See also
 
-- [searchLocal Resource](/resources/searchlocal)
-- [searchWeb Resource](/resources/searchweb)
-- [Embedding Resource](embedding) - SQLite keyword store for on-prem RAG
-- [Scraper Resource](scraper) - Fetch URL content to feed into search pipelines
-- [LLM Resource](llm) - Use search results as context for chat resources
+- [searchLocal resource](/resources/searchlocal)
+- [searchWeb resource](/resources/searchweb)
+- [Embedding resource](embedding) - SQLite keyword store for on-prem RAG
+- [Scraper resource](scraper) - Fetch URL content to feed into search pipelines
+- [LLM resource](llm) - Use search results as context for chat resources

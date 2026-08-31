@@ -37,5 +37,5 @@ Scope matching supports wildcards: an empty `Action` matches any action. `FindMa
 
 ## See also
 
-- [Agent Loop Mode](/modes/agent-loop-mode) - overview and starting the REPL
-- [Built-in Tools](/modes/agent-loop-tools) - permission modes and the full tool catalog
+- [Agent loop mode](/modes/agent-loop-mode) - overview and starting the REPL
+- [Built-in tools](/modes/agent-loop-tools) - permission modes and the full tool catalog
