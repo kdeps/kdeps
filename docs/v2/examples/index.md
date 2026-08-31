@@ -27,6 +27,7 @@ Each example targets a different use case. Pick the one closest to what you're b
 | [Phone assistant (IVR)](/examples/telephony-bot) | Workflow | `telephony:` menu / say / ask, spoken input to LLM |
 | [Local file search](/examples/local-file-search) | Workflow | `searchLocal:` glob + content search |
 | [Reusable component](/examples/custom-component) | Workflow | `component.yaml`, `interface.inputs`, `component:` + `with:` |
+| [Python data processing](/examples/python-processing) | Workflow | `python:` resource, `input()`, `packages:`, JSON output |
 | [Static site](/examples/static-site) | Workflow | Web server mode, static file serving |
 | [Stateless bot](/examples/stateless-bot/) | Workflow | One-shot stdin/stdout LLM calls - cron jobs, CI pipelines |
 | [Telegram bot](/examples/telegram-bot/) | Workflow | Polling loop, multi-resource pipelines, external API calls |
@@ -248,6 +249,17 @@ Best for:
 - Learning the `interface.inputs` schema and auto-discovery
 
 [Build it step by step](/examples/custom-component)
+
+## Python data processing
+
+An API that runs a Python script to validate and convert data formats. Shows
+how a `python:` resource receives request fields and returns structured data.
+
+Best for:
+- Anything with no native resource - parsing, transforms, calculations
+- Learning `input()` templating and `packages:`
+
+[Build it step by step](/examples/python-processing)
 
 ## Static site
 

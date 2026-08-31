@@ -118,6 +118,7 @@ export default defineConfig({
             { text: 'Phone assistant (IVR)', link: '/examples/telephony-bot' },
             { text: 'Local file search', link: '/examples/local-file-search' },
             { text: 'Reusable component', link: '/examples/custom-component' },
+            { text: 'Python data processing', link: '/examples/python-processing' },
             { text: 'Static site', link: '/examples/static-site' },
             { text: 'Stateless bot', link: '/examples/stateless-bot/' },
             { text: 'Telegram bot', link: '/examples/telegram-bot/' },
