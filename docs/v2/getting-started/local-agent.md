@@ -96,8 +96,8 @@ kdeps ./my-workflow/
 
 The REPL starts with your workflow registered as a callable tool. The LLM decides when to invoke it. This is [agent mode](/modes/agent-loop-mode) - the LLM drives, your workflows execute on demand.
 
-## What to do next
+## Next steps
 
-- [Local Models (Llamafile & Ollama)](/getting-started/local-models) - Go deeper on offline setup, model selection, and privacy
-- [Quickstart](/getting-started/quickstart) - Build your first workflow
-- [Agent Skills](/getting-started/agent-skills) - Extend the agent with pre-built skill sets
+- [Local models (llamafile and Ollama)](/getting-started/local-models) - offline setup, model selection, privacy
+- [Quickstart](/getting-started/quickstart) - build your first workflow
+- [Agent skills](/getting-started/agent-skills) - extend the agent with pre-built skill sets

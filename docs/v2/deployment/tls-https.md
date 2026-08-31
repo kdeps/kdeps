@@ -218,7 +218,7 @@ The appliance recipes themselves do not embed ACME today.
 | Wrong certificate host | Hostname in request must match `domain` / `domains` whitelist |
 | Still HTTP | Confirm no static empty cert paths; look for log `starting HTTPS server` / `letsencrypt:` |
 
-## Related
+## See also
 
 - [Security reference - TLS](/reference/security#tls)
 - [Workflow configuration](/configuration/workflow)

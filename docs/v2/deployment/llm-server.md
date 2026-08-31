@@ -216,10 +216,10 @@ Requires Docker and linuxkit (auto-downloaded, same tooling family as agent `exp
 
 Default: no auth (private networks - document the risk). Opt in with recipe `api.auth` and CLI `--require-auth` / `--api-key-env`. On Kubernetes, put the key in a Secret (`--api-key-secret`).
 
-## Related
+## See also
 
 - [LLM backends](/resources/llm-backends) - client-side backend selection
-- [LLM Commands](/reference/cli/llm) - full CLI flag reference
-- [Docker deployment](/deployment/docker) - **agent** images (not appliances)
-- [Kubernetes deployment](/deployment/kubernetes) - **agent** manifests
+- [LLM commands](/reference/cli/llm) - full CLI flag reference
+- [Docker deployment](/deployment/docker) - agent images (not appliances)
+- [Kubernetes deployment](/deployment/kubernetes) - agent manifests
 - Example project: `examples/llm-server/`

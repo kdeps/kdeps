@@ -355,7 +355,7 @@ email:
   limit: 20
 ```
 
-### Onerror fallback for SMTP failures
+### `onError` fallback for SMTP failures
 
 ```yaml
 email:
@@ -369,3 +369,10 @@ onError:
   action: continue
   fallback: {"success": false, "message": "email delivery failed"}
 ```
+
+## See also
+
+- [Global config](/configuration/advanced) - where SMTP and IMAP credentials live
+- [Error handling (onError)](/concepts/error-handling) - retry and fallback behavior
+- [Expressions](/concepts/expressions) - templating the subject and body
+- [Resources overview](/resources/overview) - resource structure and dependencies
