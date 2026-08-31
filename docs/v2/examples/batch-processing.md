@@ -193,5 +193,5 @@ You built an API that:
 
 - [Items iteration](/concepts/items) - `item.prev()`, `item.next()`, skipping
 - [While-loop iteration](/concepts/loop) - unbounded iteration when the count is not known
-- [HTTP client](/resources/http-client) - retries, auth, named connections
+- [HTTP client](/resources/web/http-client) - retries, auth, named connections
 - [Expression helpers](/concepts/expression-helpers) - `safe()`, `default()`, `json()`

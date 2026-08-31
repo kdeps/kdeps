@@ -207,5 +207,5 @@ You built an API that:
 
 - [Session and memory](/configuration/session) - full session configuration
 - [Validation and control flow](/concepts/validation-and-control) - `check`, `required`, `error`
-- [Python resource](/resources/python) - packages, virtual environments
+- [Python resource](/resources/scripting/python) - packages, virtual environments
 - [Unified API](/concepts/unified-api) - `get`, `set`, storage scopes

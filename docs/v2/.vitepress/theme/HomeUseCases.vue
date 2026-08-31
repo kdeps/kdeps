@@ -28,7 +28,7 @@
           <span class="mode-tag">workflow mode</span>
         </a>
 
-        <a href="/resources/embedding" class="card">
+        <a href="/examples/rag-search" class="card">
           <h3>RAG Search</h3>
           <p>Index documents locally, search with keywords, feed results into an LLM prompt. Fully on-prem.</p>
           <span class="mode-tag">workflow mode</span>

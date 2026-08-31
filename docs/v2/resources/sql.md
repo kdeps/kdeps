@@ -49,7 +49,7 @@ sql_connections:
     connection: "postgres://user:pass@analytics-db:5432/analytics"
 ```
 
-If `connectionName` refers to a connection missing from `config.yaml`, `kdeps run` prompts for the DSN at startup and saves it (interactive terminals only; skipped in CI/pipes, where the "connection not found" error surfaces instead). See [Interactive setup on first run](../resources/email.md#interactive-setup-on-first-run).
+If `connectionName` refers to a connection missing from `config.yaml`, `kdeps run` prompts for the DSN at startup and saves it (interactive terminals only; skipped in CI/pipes, where the "connection not found" error surfaces instead). See [Interactive setup on first run](/resources/messaging/email#interactive-setup-on-first-run).
 
 `workflow.yaml` - pool config:
 
@@ -321,6 +321,6 @@ query: "SELECT * FROM users WHERE id = {{ get('user_id') }}"
 ## See also
 
 - [SQL examples](/reference/sql-examples) - User lookup, analytics, multi-database sync, LLM-enhanced search
-- [Python resource](python) - data processing scripts
-- [HTTP client](http-client) - external API calls
-- [Workflow configuration](../configuration/workflow) - connection settings
+- [Python resource](/resources/scripting/python) - data processing scripts
+- [HTTP client](/resources/web/http-client) - external API calls
+- [Workflow configuration](/configuration/workflow) - connection settings

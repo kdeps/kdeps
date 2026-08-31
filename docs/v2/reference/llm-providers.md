@@ -1,6 +1,6 @@
 # LLM provider reference
 
-Per-provider configuration for all backends supported by kdeps. Backend and API keys go in `~/.kdeps/config.yaml`. See [LLM backends](/resources/llm-backends) for routing, allowlists, and streaming.
+Per-provider configuration for all backends supported by kdeps. Backend and API keys go in `~/.kdeps/config.yaml`. See [LLM backends](/resources/llm/backends) for routing, allowlists, and streaming.
 
 *Applies to both workflow mode and agent mode.*
 
@@ -130,7 +130,7 @@ llm:
 | `anthropicBetaHeaders` | list | Additional `anthropic-beta` header values |
 | `scenario[].cacheControl` | string | Set to `"ephemeral"` to mark a scenario message as a cache boundary |
 
-See [LLM Backends - Anthropic](/resources/llm-backends#anthropic-prompt-caching-and-extended-output) for examples.
+See [LLM Backends - Anthropic](/resources/llm/backends#anthropic-prompt-caching-and-extended-output) for examples.
 
 ### Google (gemini / vertex AI)
 
@@ -147,7 +147,7 @@ llm:
 | `gemini-1.5-flash` | Fast inference |
 | `gemini-pro` | Standard Gemini |
 
-**Vertex AI:** Set `googleCloudProject` and `googleCloudLocation` on the `chat:` resource to route to Vertex AI instead of AI Studio. See [LLM Backends - Vertex AI](/resources/llm-backends#vertex-ai-google-cloud).
+**Vertex AI:** Set `googleCloudProject` and `googleCloudLocation` on the `chat:` resource to route to Vertex AI instead of AI Studio. See [LLM Backends - Vertex AI](/resources/llm/backends#vertex-ai-google-cloud).
 
 **Provider-specific resource options:**
 
@@ -337,5 +337,5 @@ llm:
 
 ## See also
 
-- [LLM backends](/resources/llm-backends) - Routing, allowlists, streaming, feature matrix
-- [LLM resource](/resources/llm) - Complete LLM resource documentation
+- [LLM backends](/resources/llm/backends) - Routing, allowlists, streaming, feature matrix
+- [LLM resource](/resources/llm/) - Complete LLM resource documentation

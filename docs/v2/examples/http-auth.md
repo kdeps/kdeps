@@ -169,7 +169,7 @@ You built an endpoint that:
 
 ## Next steps
 
-- [HTTP client resource](/resources/http-client) - all auth types, proxy, named connections
+- [HTTP client resource](/resources/web/http-client) - all auth types, proxy, named connections
 - [HTTP client examples](/reference/http-client-examples) - pagination, file downloads
 - [Error handling (onError)](/concepts/error-handling) - fallback when retries are exhausted
 - [Global config](/configuration/advanced) - named HTTP connections with shared credentials

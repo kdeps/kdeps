@@ -220,5 +220,5 @@ You built an API where the LLM:
 
 - [Tools (function calling)](/concepts/tools) - MCP tools, multiple tools, parameter types
 - [Tools reference](/reference/tools-reference) - tool chaining, debugging
-- [Python resource](/resources/python) - building tool scripts
+- [Python resource](/resources/scripting/python) - building tool scripts
 - [Agent loop mode](/modes/agent-loop-mode) - tools that are whole workflows

@@ -314,6 +314,6 @@ The cached content has a TTL set by Google AI (default 1 hour). Use `google_cach
 ## See also
 
 - [Tools (function calling)](/concepts/tools) - Core tool definition and syntax
-- [LLM resource](/resources/llm) - Full LLM configuration
-- [Python resource](/resources/python) - Building tool scripts
+- [LLM resource](/resources/llm/) - Full LLM configuration
+- [Python resource](/resources/scripting/python) - Building tool scripts
 - [Unified API](/concepts/unified-api) - Data access in tools

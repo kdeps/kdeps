@@ -1,6 +1,6 @@
 # HTTP client examples
 
-Example `httpClient:` resources for common API integration patterns. See [HTTP Client Resource](/resources/http-client) for the full configuration reference.
+Example `httpClient:` resources for common API integration patterns. See [HTTP Client Resource](/resources/web/http-client) for the full configuration reference.
 
 *Applies to both workflow mode and agent mode.*
 
@@ -105,4 +105,4 @@ httpClient:
 
 ## See also
 
-- [HTTP client resource](/resources/http-client) - Full configuration reference
+- [HTTP client resource](/resources/web/http-client) - Full configuration reference

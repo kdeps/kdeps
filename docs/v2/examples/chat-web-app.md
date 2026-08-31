@@ -180,6 +180,6 @@ You built a project that:
 ## Next steps
 
 - [Static site tutorial](/examples/static-site) - web server mode on its own
-- [LLM resource](/resources/llm) - `scenario:`, streaming, JSON mode
+- [LLM resource](/resources/llm/) - `scenario:`, streaming, JSON mode
 - [CORS configuration](/configuration/cors) - locking down origins
 - [Error handling (onError)](/concepts/error-handling) - retry, fallback, `when`

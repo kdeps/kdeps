@@ -205,7 +205,7 @@ You built a search API that:
 
 ## Next steps
 
-- [Embedding resource](/resources/embedding) - collections, delete, batch upsert
-- [Vector store](/resources/vectorstore) - persistent vector storage
-- [searchLocal](/resources/searchlocal) - TF-IDF search over files on disk
+- [Embedding resource](/resources/rag/embedding) - collections, delete, batch upsert
+- [Vector store](/resources/rag/vector-store) - persistent vector storage
+- [searchLocal](/resources/search/searchlocal) - TF-IDF search over files on disk
 - [Validation and control flow](/concepts/validation-and-control) - route and method scoping

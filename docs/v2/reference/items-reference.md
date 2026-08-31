@@ -204,4 +204,4 @@ items:
 
 - [Items](/concepts/items) - Core items concept and syntax
 - [Expressions](/concepts/expressions) - Dynamic item expressions
-- [Python resource](/resources/python) - Batch processing alternative
+- [Python resource](/resources/scripting/python) - Batch processing alternative

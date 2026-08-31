@@ -142,7 +142,7 @@ You built an API that:
 
 ## Next steps
 
-- [Exec resource](/resources/exec) - stdin, environment, exit-code access
+- [Exec resource](/resources/scripting/exec) - stdin, environment, exit-code access
 - [Shell execution](/modes/agent-loop-shell) - the agent-mode `bash_exec` tool
 - [Error handling (onError)](/concepts/error-handling) - retry and fallback on a failed command
 - [CORS configuration](/configuration/cors) - the `cors:` block
