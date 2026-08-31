@@ -19,24 +19,21 @@ const R = (v) => `<span class="re">${v}</span>`
 
 const files = [
   {
-    name: 'local agent',
+    name: 'agent REPL',
     html: [
       `${P('$')} kdeps`,
       ``,
-      `${D('kdeps v2.x.x  |  Local agent mode')}`,
-      `${D('Model: llama3.2 (Ollama)  |  Type /help for commands')}`,
+      `${D('kdeps v2.x  |  agent loop')}`,
+      `${D('Model: llama3.2 (llamafile, offline)  |  /help for commands')}`,
       ``,
-      `${T('>')} write a Go function that parses a CSV file`,
+      `${T('>')} find the failing tests in ./api and suggest a fix`,
       ``,
-      `${R('Sure. Here\'s an idiomatic Go CSV parser...')}`,
+      `${R('Ran go test ./api/... - 2 failures in handler_test.go.')}`,
+      `${R('Both assert 200, but the router now returns 204 for an')}`,
+      `${R('empty body. Update the expected status on lines 41 and 58.')}`,
       ``,
-      `${R('func ParseCSV(r io.Reader) ([][]string, error) {')}`,
-      `${R('    reader := csv.NewReader(r)')}`,
-      `${R('    return reader.ReadAll()')}`,
-      `${R('}')}`,
-      ``,
-      `${T('>')} /model claude-opus-4-8`,
-      `${D('Switched to claude-opus-4-8 (Anthropic)')}`,
+      `${T('>')} /model claude-sonnet`,
+      `${D('Switched to claude-sonnet (Anthropic)')}`,
       ``,
       `${T('>')}`,
     ].join('\n'),
@@ -48,39 +45,45 @@ const files = [
       `${K('kind')}${O(': ')}${S('Workflow')}`,
       ``,
       `${K('metadata')}${O(':')}`,
-      `  ${K('name')}${O(': ')}${S('summarizer')}`,
+      `  ${K('name')}${O(': ')}${S('chat-api')}`,
       `  ${K('version')}${O(': ')}${S('"1.0.0"')}`,
-      `  ${K('targetActionId')}${O(': ')}${S('summarize')}`,
+      `  ${K('targetActionId')}${O(': ')}${S('reply')}   ${D('# its output is the HTTP response')}`,
       ``,
       `${K('settings')}${O(':')}`,
       `  ${K('apiServer')}${O(':')}`,
       `    ${K('portNum')}${O(': ')}${N('16395')}`,
       `    ${K('routes')}${O(':')}`,
-      `      ${O('- ')}${K('path')}${O(': ')}${S('/summarize')}`,
+      `      ${O('- ')}${K('path')}${O(': ')}${S('/api/v1/chat')}`,
       `        ${K('methods')}${O(': ')}${S('[POST]')}`,
     ].join('\n'),
   },
   {
-    name: 'resources/fetch.yaml',
+    name: 'resources/chat.yaml',
     html: [
-      `${K('actionId')}${O(': ')}${S('fetch')}`,
-      `${K('httpClient')}${O(':')}`,
-      `  ${K('method')}${O(': ')}${S('GET')}`,
-      `  ${K('url')}${O(': ')}${S('"{{ get(\'url\') }}"')}`,
-      `  ${K('timeout')}${O(': ')}${S('10s')}`,
-      '', '', '', '', '', '', '', '',
+      `${K('actionId')}${O(': ')}${S('chat')}`,
+      `${K('name')}${O(': ')}${S('LLM Chat')}`,
+      `${K('validations')}${O(':')}`,
+      `  ${K('check')}${O(':')}`,
+      `    ${O('- ')}${S('get(\'q\') != \'\'')}       ${D('# 400 if the body has no "q"')}`,
+      `  ${K('error')}${O(':')}`,
+      `    ${K('code')}${O(': ')}${N('400')}`,
+      `    ${K('message')}${O(': ')}${S('"\'q\' is required"')}`,
+      `${K('chat')}${O(':')}`,
+      `  ${K('model')}${O(': ')}${S('llama3.2:1b')}     ${D('# local, no API key')}`,
+      `  ${K('prompt')}${O(': ')}${S('"{{ get(\'q\') }}"')}`,
+      `  ${K('timeout')}${O(': ')}${S('60s')}`,
     ].join('\n'),
   },
   {
-    name: 'resources/summarize.yaml',
+    name: 'resources/reply.yaml',
     html: [
-      `${K('actionId')}${O(': ')}${S('summarize')}`,
-      `${K('requires')}${O(': ')}${S('[fetch]')}`,
-      `${K('chat')}${O(':')}`,
-      `  ${K('model')}${O(': ')}${S('llama3.2:1b')}`,
-      `  ${K('prompt')}${O(': ')}${S('"Summarize: {{ output(\'fetch\').body }}"')}`,
+      `${K('actionId')}${O(': ')}${S('reply')}`,
+      `${K('name')}${O(': ')}${S('API Response')}`,
+      `${K('requires')}${O(': ')}${S('[chat]')}       ${D('# runs after chat')}`,
       `${K('apiResponse')}${O(':')}`,
-      `  ${K('response')}${O(': ')}${S('"{{ output(\'summarize\') }}"')}`,
+      `  ${K('success')}${O(': ')}${S('true')}`,
+      `  ${K('response')}${O(':')}`,
+      `    ${K('answer')}${O(': ')}${S('get(\'chat\').message.content')}`,
       '', '', '', '', '', '',
     ].join('\n'),
   },
@@ -109,15 +112,14 @@ const files = [
 
         <div class="terminal">
           <div class="tl"><span class="p">$</span><span class="c">export KDEPS_API_AUTH_TOKEN=dev-token</span></div>
-          <div class="tl"><span class="p">$</span><span class="c">kdeps run workflow.yaml</span></div>
+          <div class="tl"><span class="p">$</span><span class="c">kdeps run .</span></div>
           <div class="tl dim">Listening on :16395</div>
           <div class="tl">&nbsp;</div>
-          <div class="tl"><span class="p">$</span><span class="c">curl -s -X POST localhost:16395/summarize \</span></div>
+          <div class="tl"><span class="p">$</span><span class="c">curl -s -X POST localhost:16395/api/v1/chat \</span></div>
           <div class="tl"><span class="pad"></span><span class="c dim">-H "Authorization: Bearer $KDEPS_API_AUTH_TOKEN" \</span></div>
-          <div class="tl"><span class="pad"></span><span class="c dim">-H "Content-Type: application/json" \</span></div>
-          <div class="tl"><span class="pad"></span><span class="c dim">-d '{"url": "https://example.com"}'</span></div>
+          <div class="tl"><span class="pad"></span><span class="c dim">-d '{"q": "What is entropy, in one sentence?"}'</span></div>
           <div class="tl">&nbsp;</div>
-          <div class="tl resp">{"success": true, "data": {"response": "Example.com is used for illustrative examples in documentation."}}</div>
+          <div class="tl resp">{"success": true, "data": {"answer": "Entropy measures how many microscopic arrangements are consistent with a system's macroscopic state."}}</div>
         </div>
       </div>
     </div>
