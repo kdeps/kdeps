@@ -22,6 +22,11 @@ Each example targets a different use case. Pick the one closest to what you're b
 | [Conditionals and lists](/examples/control-flow) | Workflow | Ternary, `&&`/`||`/`!`, `filter`/`map`/`all`/`any` |
 | [Authenticated API call](/examples/http-auth) | Workflow | `httpClient:` bearer/API-key auth, `retry:`, `cache:` |
 | [Two-agent agency](/examples/agency) | Workflow | `kind: Agency`, `agent:` resource, `params:` |
+| [MCP server tools](/examples/mcp-tools) | Workflow | LLM tools backed by an external MCP server |
+| [Inline resources](/examples/inline-resources) | Workflow | Full actions inside `before:` / `after:` |
+| [Phone assistant (IVR)](/examples/telephony-bot) | Workflow | `telephony:` menu / say / ask, spoken input to LLM |
+| [Local file search](/examples/local-file-search) | Workflow | `searchLocal:` glob + content search |
+| [Reusable component](/examples/custom-component) | Workflow | `component.yaml`, `interface.inputs`, `component:` + `with:` |
 | [Static site](/examples/static-site) | Workflow | Web server mode, static file serving |
 | [Stateless bot](/examples/stateless-bot/) | Workflow | One-shot stdin/stdout LLM calls - cron jobs, CI pipelines |
 | [Telegram bot](/examples/telegram-bot/) | Workflow | Polling loop, multi-resource pipelines, external API calls |
@@ -187,6 +192,62 @@ Best for:
 - Learning multi-agent orchestration
 
 [Build it step by step](/examples/agency)
+
+## MCP server tools
+
+Give an LLM tools backed by an external Model Context Protocol server. kdeps
+starts the server as a subprocess, calls the tool, and shuts it down.
+
+Best for:
+- Reusing the growing ecosystem of MCP servers
+- Sandboxed filesystem or API access for a model
+
+[Build it step by step](/examples/mcp-tools)
+
+## Inline resources
+
+Attach `exec:`, `python:`, and `sql:` actions directly to one resource's
+`before:` and `after:` blocks instead of creating a file for each.
+
+Best for:
+- One-off setup and teardown a single resource needs
+- Keeping a small workflow in one file
+
+[Build it step by step](/examples/inline-resources)
+
+## Phone assistant (IVR)
+
+A voice menu: the caller presses a key or speaks, and the workflow reads a
+static answer or has an LLM answer the spoken question. Uses `telephony:` with
+a provider like Twilio.
+
+Best for:
+- Phone support menus and voice bots
+- Learning webhook-driven call control
+
+[Build it step by step](/examples/telephony-bot)
+
+## Local file search
+
+Search a directory by filename pattern and content keyword with the built-in
+`searchLocal:` resource.
+
+Best for:
+- A search endpoint over files on disk
+- The non-semantic counterpart to the RAG tutorial
+
+[Build it step by step](/examples/local-file-search)
+
+## Reusable component
+
+Build a component - a bundle of resources with a typed input interface - and
+call it from a workflow with `component:`.
+
+Best for:
+- Packaging logic you reuse across projects
+- Learning the `interface.inputs` schema and auto-discovery
+
+[Build it step by step](/examples/custom-component)
 
 ## Static site
 
