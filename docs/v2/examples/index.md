@@ -20,6 +20,8 @@ Each example targets a different use case. Pick the one closest to what you're b
 | [Chat web app](/examples/chat-web-app) | Workflow | API + static frontend together, `public` routes, `scenario:` |
 | [File upload](/examples/file-upload) | Workflow | Multipart uploads, `info('files')`, `get(field, 'filepath')` |
 | [Conditionals and lists](/examples/control-flow) | Workflow | Ternary, `&&`/`||`/`!`, `filter`/`map`/`all`/`any` |
+| [Authenticated API call](/examples/http-auth) | Workflow | `httpClient:` bearer/API-key auth, `retry:`, `cache:` |
+| [Two-agent agency](/examples/agency) | Workflow | `kind: Agency`, `agent:` resource, `params:` |
 | [Static site](/examples/static-site) | Workflow | Web server mode, static file serving |
 | [Stateless bot](/examples/stateless-bot/) | Workflow | One-shot stdin/stdout LLM calls - cron jobs, CI pipelines |
 | [Telegram bot](/examples/telegram-bot/) | Workflow | Polling loop, multi-resource pipelines, external API calls |
@@ -161,6 +163,30 @@ Best for:
 - A reference for expression syntax you can run and poke at
 
 [Build it step by step](/examples/control-flow)
+
+## Authenticated API call
+
+An endpoint that calls a third-party API with a bearer token, retries only on
+5xx with exponential backoff, and caches the response for five minutes - all
+from the `httpClient:` `auth:` / `retry:` / `cache:` blocks.
+
+Best for:
+- Wrapping a paid or rate-limited upstream API
+- Learning the built-in retry and cache options
+
+[Build it step by step](/examples/http-auth)
+
+## Two-agent agency
+
+Two agents in one project: the entry-point agent calls the other with the
+`agent:` resource and returns the combined result. Introduces `kind: Agency`
+and the `agency.yaml` manifest.
+
+Best for:
+- Splitting a large workflow into independently testable agents
+- Learning multi-agent orchestration
+
+[Build it step by step](/examples/agency)
 
 ## Static site
 

@@ -111,6 +111,8 @@ export default defineConfig({
             { text: 'Chat web app', link: '/examples/chat-web-app' },
             { text: 'File upload', link: '/examples/file-upload' },
             { text: 'Conditionals and lists', link: '/examples/control-flow' },
+            { text: 'Authenticated API call', link: '/examples/http-auth' },
+            { text: 'Two-agent agency', link: '/examples/agency' },
             { text: 'Static site', link: '/examples/static-site' },
             { text: 'Stateless bot', link: '/examples/stateless-bot/' },
             { text: 'Telegram bot', link: '/examples/telegram-bot/' },
