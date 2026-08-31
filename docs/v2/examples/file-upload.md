@@ -133,7 +133,7 @@ You built an endpoint that:
 
 ## Next steps
 
-- [Request object](/concepts/request-object) - `request.file()`, `filesByType()`, `filecount()`
+- [Data access](/concepts/unified-api#the-request-object) - `request.file()`, `filesByType()`, `filecount()`
 - [Image analysis tutorial](/examples/vision) - attach the upload to an LLM
 - [Document summarizer tutorial](/examples/file-processor) - the `file` input source
 - [Exec resource](/resources/scripting/exec) - process the file with a shell command
