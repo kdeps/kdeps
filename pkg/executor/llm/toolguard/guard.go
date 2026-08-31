@@ -28,6 +28,16 @@ var confabulationPatterns = compileAll([]string{
 	`(?i)(?:file|directory|folder|it)\s+(?:appears?|seems?|looks?)\s+(?:to\s+be\s+)?empty`,
 	`(?i)nothing\s+to\s+(?:simplify|fix|do|change|show|read)`,
 	`(?i)(?:tool|command|it)\s+returned\s+(?:no|empty|nothing)`,
+	// Relapse phrasings where the model blames the environment for empty tool
+	// results instead of retrying (confirmed live on the m365 backend with a
+	// Claude tone: every bash_exec reported as returning "NO CONTENT
+	// AVAILABLE"). None of the patterns above match these.
+	`(?i)no\s+content\s+available`,
+	`(?i)(?:prevent(?:s|ing|ed)?|blocking|blocked)\s+me\s+from\s+(?:accessing|reading|examining|running|executing)`,
+	`(?i)(?:infrastructure|execution\s+environment|environment)\s+(?:problem|issue|failure|is\s+not\s+functioning|not\s+working)`,
+	`(?i)\bsystem\s+(?:failure|is\s+(?:broken|down)|malfunction)`,
+	`(?i)requires?\s+(?:resolution|intervention|a\s+fix)\s+at\s+the\s+system\s+level`,
+	`(?i)cannot\s+complete\s+the\s+task\s+without\s+(?:working\s+)?(?:tool\s+access|the\s+ability)`,
 })
 
 //nolint:gochecknoglobals // compiled pattern set, read-only

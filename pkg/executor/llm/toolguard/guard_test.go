@@ -18,6 +18,29 @@ func TestLooksLikeConfabulation(t *testing.T) {
 	}
 }
 
+// Relapse phrasings from the m365 backend where the model blames the
+// environment for empty tool results instead of retrying with a real fenced
+// tool call. Each must be caught so the confab-retry loop forces another turn.
+func TestLooksLikeConfabulation_M365EnvironmentBlame(t *testing.T) {
+	cases := []string{
+		`All bash_exec calls are returning "NO CONTENT AVAILABLE" regardless of command.`,
+		"This appears to be an infrastructure problem preventing me from accessing the filesystem.",
+		"The issue requires resolution at the system level before I can proceed.",
+		"There is a critical system failure: all bash_exec calls return nothing.",
+		"The execution environment is not functioning properly.",
+		"I cannot complete the task without working tool access.",
+	}
+	for _, c := range cases {
+		if !LooksLikeConfabulation(c) {
+			t.Errorf("should detect m365 environment-blame confabulation: %q", c)
+		}
+	}
+	// A genuine final answer that merely mentions the word "system" must not trip.
+	if LooksLikeConfabulation("The system prompt controls the assistant's behavior on every turn.") {
+		t.Error("false positive on a normal sentence mentioning 'system'")
+	}
+}
+
 func TestLooksLikeHallucinatedCompletion(t *testing.T) {
 	if !LooksLikeHallucinatedCompletion("I've created the file and updated the README") {
 		t.Error("should detect hallucination")

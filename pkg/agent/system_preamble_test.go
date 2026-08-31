@@ -136,13 +136,13 @@ func TestCachedSystemPreamble_NoSandboxGuidanceOnlyForM365(t *testing.T) {
 
 	m365Loop := &Loop{registry: reg, config: Config{Backend: backendM365}}
 	out := m365Loop.cachedSystemPreamble("focus")
-	if !strings.Contains(out, "no bash, shell, or code-interpreter tool") {
+	if !strings.Contains(out, "<use-kdeps-tools>") || !strings.Contains(out, "your own built-in code interpreter") {
 		t.Errorf("m365 backend should get the no-sandbox guidance:\n%s", out)
 	}
 
 	otherLoop := &Loop{registry: reg, config: Config{Backend: "openai"}}
 	out = otherLoop.cachedSystemPreamble("focus")
-	if strings.Contains(out, "no bash, shell, or code-interpreter tool") {
+	if strings.Contains(out, "<use-kdeps-tools>") {
 		t.Errorf("non-m365 backend must not get the m365-specific no-sandbox guidance:\n%s", out)
 	}
 }

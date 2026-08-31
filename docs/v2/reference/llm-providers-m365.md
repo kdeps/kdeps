@@ -71,6 +71,13 @@ Override paths with `M365_CACHE_FILE`, `M365_SECRETS_FILE`, and
 Studio agent unless the resolved model tone is a `Claude_*` tone, in which case
 kdeps stays agent-less to preserve that tone (attaching an agent forces GPT-5).
 
+M365 models (Claude tones especially) have a built-in code interpreter and will
+sometimes use it instead of the fenced kdeps tools - its sandbox is empty, so
+every result comes back blank and the model reports "NO CONTENT AVAILABLE" or
+claims it cannot read files. The system preamble tells the model to use the
+kdeps tools only; if it still slips, reply `use the kdeps tools, not your own`
+and it recovers.
+
 Reasoning-tone models (`think-deeper`, `*-think-deeper`) stream their
 chain-of-thought summary as live reasoning feedback, same as native
 extended-thinking models - visible in the agent-loop REPL automatically
