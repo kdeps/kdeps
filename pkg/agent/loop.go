@@ -2308,19 +2308,25 @@ persistent memory. Check memory before every action; save after every
 turn. This is not optional — it is the core reliability mechanism.
 </internals>`
 
-// m365NoSandboxGuidance tells an M365 Copilot backend model explicitly that it
-// has no bash or code-interpreter tool here, countering the model's own
-// native "run code" habit that otherwise fires regardless of the fenced tool
-// list it was given.
-const m365NoSandboxGuidance = `<no-sandbox>
-This session has no bash, shell, or code-interpreter tool, and no /mnt/data
-or similar sandbox mount. Do not write a bash command, a heredoc, or any
-"Coding and executing" style action -- nothing runs it, and any files or
-paths it reports are not real. The ONLY way to act is a fenced call to one
-of the tools listed above, using the tool's exact name as the fence's
-info-string. If a task needs a capability none of those tools provide, say
-so instead of improvising a shell command.
-</no-sandbox>`
+// m365NoSandboxGuidance tells an M365 Copilot backend model to act through the
+// fenced kdeps tools above and never through its own built-in code interpreter.
+// The model has a native "run code" / "Coding and executing" habit baked in
+// from training that fires regardless of the fenced tool list -- confirmed
+// live: a model ran commands against M365's own empty sandbox at /mnt/data,
+// reported every result as "NO CONTENT AVAILABLE", and concluded it "could not
+// access the filesystem", never once emitting a real fenced tool call.
+const m365NoSandboxGuidance = `<use-kdeps-tools>
+Act ONLY through the fenced kdeps tools listed above -- including bash_exec for
+shell commands. Do NOT use your own built-in code interpreter, "Coding and
+executing" / "Analyzing" action, python tool, or any /mnt/data sandbox: that
+is a different, empty machine. Its output ("no content available", empty
+directory listings, "file not found") says nothing about the real working
+directory, which is a live filesystem with the files named in the task
+present right now. To run a shell command, emit a fenced bash_exec call and
+read the real result from its <tool_response>. If your last few tool results
+looked empty or you feel you "cannot access" anything, you are running your
+internal tools by mistake -- switch to a fenced kdeps tool call and try again.
+</use-kdeps-tools>`
 
 // InvalidateSystemPreamble forces the next turn to rebuild the system preamble.
 // Call after a runtime change that the preamble embeds (model switch, which
