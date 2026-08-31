@@ -42,9 +42,14 @@ type instructionFile struct {
 }
 
 // discoverInstructions walks up from startDir to the filesystem root,
-// collecting AI instruction files (CLAUDE.md, AGENTS.md, GEMINI.md,
-// COPILOT.md, CURSOR.md, CODEX.md, .cursorrules, .kdeps/CLAUDE.md,
-// .kdeps/instructions.md, .github/copilot-instructions.md).
+// collecting AI instruction files (KDEPS.md, CLAUDE.md, AGENTS.md, GEMINI.md,
+// COPILOT.md, CURSOR.md, CODEX.md, .cursorrules, .kdeps/KDEPS.md,
+// .kdeps/CLAUDE.md, .kdeps/instructions.md, .github/copilot-instructions.md).
+//
+// KDEPS.md is kdeps' own instruction file and comes first: it is discovered
+// before the others, keeps its full character budget, and formatInstructions
+// prepends a note telling the model KDEPS.md wins any conflict.
+//
 // Files are deduplicated by content hash and capped at maxTotalChars total.
 //
 //nolint:gocognit // complexity comes from walking ancestor chain with 4 file candidates
@@ -58,6 +63,8 @@ func discoverInstructions(startDir string) string {
 	}
 
 	candidates := []string{
+		"KDEPS.md",
+		"KDEPS.local.md",
 		"CLAUDE.md",
 		"CLAUDE.local.md",
 		"AGENTS.md",
@@ -67,6 +74,7 @@ func discoverInstructions(startDir string) string {
 		"CODEX.md",
 		".cursorrules",
 		filepath.Join(".github", "copilot-instructions.md"),
+		filepath.Join(".kdeps", "KDEPS.md"),
 		filepath.Join(".kdeps", "CLAUDE.md"),
 		filepath.Join(".kdeps", "instructions.md"),
 	}
@@ -131,8 +139,24 @@ func discoverInstructions(startDir string) string {
 	return formatInstructions(files)
 }
 
+// kdepsInstructionFile reports whether name is one of kdeps' own instruction
+// files (KDEPS.md, KDEPS.local.md, or .kdeps/KDEPS.md).
+func kdepsInstructionFile(name string) bool {
+	base := filepath.Base(name)
+	return base == "KDEPS.md" || base == "KDEPS.local.md"
+}
+
 func formatInstructions(files []instructionFile) string {
 	var sb strings.Builder
+	for _, f := range files {
+		if kdepsInstructionFile(f.Name) {
+			sb.WriteString(
+				"When these project instruction files conflict, KDEPS.md takes " +
+					"priority over CLAUDE.md, AGENTS.md, GEMINI.md, and the rest.\n\n",
+			)
+			break
+		}
+	}
 	for _, f := range files {
 		fmt.Fprintf(&sb, "## %s (scope: %s)\n\n%s\n\n", f.Name, f.Path, f.Content)
 	}

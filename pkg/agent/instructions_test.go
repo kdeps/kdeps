@@ -155,3 +155,43 @@ func TestDiscoverInstructions_TruncatesAtMaxTotal(t *testing.T) {
 		t.Fatalf("expected result to reach max capacity, got len=%d", len(result))
 	}
 }
+
+func TestDiscoverInstructions_KDEPSmdWinsPriority(t *testing.T) {
+	dir := t.TempDir()
+	for name, body := range map[string]string{
+		"KDEPS.md":  "# kdeps rules\n\nAlways use kdeps tools.",
+		"CLAUDE.md": "# claude rules\n\nsomething else",
+		"AGENTS.md": "# agents rules\n\nyet another",
+	} {
+		if err := os.WriteFile(filepath.Join(dir, name), []byte(body), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	out := discoverInstructions(dir)
+
+	// Precedence note is present.
+	if !strings.Contains(out, "KDEPS.md takes priority over CLAUDE.md") {
+		t.Fatalf("missing precedence note:\n%s", out)
+	}
+	// KDEPS.md section comes before CLAUDE.md and AGENTS.md.
+	kdepsIdx := strings.Index(out, "## KDEPS.md")
+	claudeIdx := strings.Index(out, "## CLAUDE.md")
+	agentsIdx := strings.Index(out, "## AGENTS.md")
+	if kdepsIdx < 0 || claudeIdx < 0 || agentsIdx < 0 {
+		t.Fatalf("all three sections should be present:\n%s", out)
+	}
+	if kdepsIdx > claudeIdx || kdepsIdx > agentsIdx {
+		t.Fatalf("KDEPS.md must come first: k=%d c=%d a=%d", kdepsIdx, claudeIdx, agentsIdx)
+	}
+}
+
+func TestDiscoverInstructions_NoKDEPSmdNoNote(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, "CLAUDE.md"), []byte("# c"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(discoverInstructions(dir), "takes priority over") {
+		t.Fatal("no KDEPS.md present -> no precedence note")
+	}
+}
