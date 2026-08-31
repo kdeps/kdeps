@@ -296,12 +296,6 @@ kdeps export k8s examples/k8s-deployment --image my-registry/k8s-example:1.0.0
 
 See `examples/k8s-deployment/README.md` for details.
 
-## See also
-
-- [Docker deployment](docker) - Build Docker images for your workflows
-- [Standalone executables](prepackage) - Self-contained binaries for edge deployment
-- [CLI reference](/reference/cli/) - Full command reference
-
 ## LLM appliance manifests
 
 Agent manifests use `kdeps export k8s` (this page). For an inference-only Deployment + Service:
@@ -331,4 +325,11 @@ settings:
     portNum: 443
 ```
 
-Full guide: [TLS and HTTPS (Custom Domains)](/deployment/tls-https).
+Full guide: [TLS and HTTPS (custom domains)](/deployment/tls-https).
+
+## See also
+
+- [Docker deployment](docker) - build Docker images for your workflows
+- [Standalone binaries](prepackage) - self-contained binaries for edge deployment
+- [LLM server appliance](llm-server) - inference-only deployment
+- [CLI reference](/reference/cli/) - full command reference

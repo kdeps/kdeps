@@ -80,7 +80,7 @@ See [Kubernetes Deployment](/deployment/kubernetes) for full manifest structure,
 
 ## CI/CD pipeline example
 
-### GitHub actions
+### GitHub Actions
 
 ```yaml
 # .github/workflows/deploy.yml
@@ -123,7 +123,7 @@ jobs:
 ### GitLab CI
 
 ```yaml
-# docker-compose.yml
+# .gitlab-ci.yml
 deploy:
   stage: deploy
   only:
@@ -153,14 +153,7 @@ export KDEPS_API_AUTH_TOKEN=api-secret
 kdeps run dist/my-agent-1.0.0.kdeps --port 16395
 ```
 
-See [Standalone Binaries](/deployment/prepackage) for self-contained single-binary exports.
-
-## See also
-
-- [Docker deployment](/deployment/docker) - image build details, base OS, GPU support
-- [Kubernetes deployment](/deployment/kubernetes) - manifest structure, health checks
-- [Standalone binaries](/deployment/prepackage) - single-binary edge exports
-- [CLI: packaging commands](/reference/cli/packaging) - all bundle and export commands
+See [Standalone binaries](/deployment/prepackage) for self-contained single-binary exports.
 
 ## Optional: LLM server appliance (not an agent)
 
@@ -194,3 +187,11 @@ settings:
 ```
 
 Open ports **80** and **443**, point DNS at the service, and persist `cacheDir` (default `~/.kdeps/letsencrypt`). Details: [TLS and HTTPS](/deployment/tls-https).
+
+## See also
+
+- [Docker deployment](/deployment/docker) - image build details, base OS, GPU support
+- [Kubernetes deployment](/deployment/kubernetes) - manifest structure, health checks
+- [Standalone binaries](/deployment/prepackage) - single-binary edge exports
+- [LLM server appliance](/deployment/llm-server) - shared inference server
+- [CLI packaging commands](/reference/cli/packaging) - all bundle and export commands

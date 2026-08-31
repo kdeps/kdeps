@@ -171,12 +171,12 @@ KDEPS_MANAGEMENT_TOKEN=mysecret
 
 For the full management API reference see [Management API](/reference/management-api).
 
+## Let's Encrypt
+
+For custom domains without mounting PEM secrets, set `settings.letsEncrypt.domain` and publish ports 80/443. See [TLS and HTTPS (custom domains)](/deployment/tls-https) and [Security - TLS](/reference/security#tls).
+
 ## See also
 
-- [Docker deployment](/deployment/docker) - Core packaging and build workflow
-- [Kubernetes deployment](/deployment/kubernetes) - Cluster deployment
-- [Management API](/reference/management-api) - Live workflow updates without rebuilding
-
-## Let's encrypt
-
-For custom domains without mounting PEM secrets, set `settings.letsEncrypt.domain` and publish ports 80/443. See [TLS and HTTPS (Custom Domains)](/deployment/tls-https) and [Security - TLS](/reference/security#tls).
+- [Docker deployment](/deployment/docker) - core packaging and build workflow
+- [Kubernetes deployment](/deployment/kubernetes) - cluster deployment
+- [Management API](/reference/management-api) - live workflow updates without rebuilding

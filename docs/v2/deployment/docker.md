@@ -425,15 +425,7 @@ settings:
 
 The generated manifest includes a `Deployment` with readiness/liveness probes and a `ClusterIP` `Service`, both derived from your workflow settings.
 
-See the [Kubernetes Deployment guide](kubernetes) for the full reference.
-
-## See also
-
-- [Docker reference](/reference/docker-reference) - Production best practices, security hardening, troubleshooting
-- [Workflow configuration](../configuration/workflow) - Agent settings
-- [WebServer mode](webserver) - Serve frontends
-- [LLM backends](../resources/llm-backends) - Backend configuration
-- [Management API](/reference/management-api) - Live workflow updates without rebuilding
+See the [Kubernetes deployment guide](kubernetes) for the full reference.
 
 ## LLM server appliance (not an agent image)
 
@@ -467,4 +459,12 @@ settings:
     portNum: 443
 ```
 
-See [TLS and HTTPS (Custom Domains)](/deployment/tls-https). Static PEM mounts via `certFile`/`keyFile` remain supported.
+See [TLS and HTTPS (custom domains)](/deployment/tls-https). Static PEM mounts via `certFile`/`keyFile` remain supported.
+
+## See also
+
+- [Docker reference](/reference/docker-reference) - production best practices, security hardening, troubleshooting
+- [Workflow configuration](../configuration/workflow) - agent settings
+- [Web server mode](webserver) - serve frontends
+- [LLM backends](../resources/llm-backends) - backend configuration
+- [Management API](/reference/management-api) - live workflow updates without rebuilding
