@@ -11,6 +11,10 @@ Each example targets a different use case. Pick the one closest to what you're b
 | [Document summarizer](/examples/file-processor) | Workflow | The `file` input source - read one file, return JSON, exit |
 | [Batch processing](/examples/batch-processing) | Workflow | `items:` iteration - process a list in one request |
 | [Document search (RAG)](/examples/rag-search) | Workflow | `embedding:` upsert and search, two routes in one workflow |
+| [Web scraper](/examples/web-scraper) | Workflow | `scraper:` fetch, LLM summary, `jsonResponse` |
+| [Login and sessions](/examples/session-auth) | Workflow | SQLite sessions, `set`/`get` session scope, auth gate |
+| [Shell command API](/examples/shell-command-api) | Workflow | `exec:` with a timeout, method scoping, `info()` |
+| [Static site](/examples/static-site) | Workflow | Web server mode, static file serving |
 | [Stateless bot](/examples/stateless-bot/) | Workflow | One-shot stdin/stdout LLM calls - cron jobs, CI pipelines |
 | [Telegram bot](/examples/telegram-bot/) | Workflow | Polling loop, multi-resource pipelines, external API calls |
 | [Showcase](/examples/showcase) | Workflow | Complex agents in ~20 lines of YAML - multiple real-world patterns |
@@ -52,6 +56,50 @@ Best for:
 - Learning `validations.routes` scoping
 
 [Build it step by step](/examples/rag-search)
+
+## Web scraper
+
+An API that takes a URL, fetches the page with the built-in `scraper:`
+resource, and returns an LLM summary as JSON.
+
+Best for:
+- Turning a page into structured data
+- Feeding scraped text into a larger pipeline
+
+[Build it step by step](/examples/web-scraper)
+
+## Login and sessions
+
+An API with a `POST /login` endpoint that starts a SQLite-backed session and a
+`GET /session` endpoint that only works for a logged-in caller.
+
+Best for:
+- Adding authentication to a workflow
+- Learning session storage scopes
+
+[Build it step by step](/examples/session-auth)
+
+## Shell command API
+
+An endpoint that runs a shell command with `exec:` and returns its output -
+the pattern for exposing a script or CLI tool as an HTTP service.
+
+Best for:
+- Wrapping an existing script
+- System checks and automation endpoints
+
+[Build it step by step](/examples/shell-command-api)
+
+## Static site
+
+Serve a folder of HTML, CSS, and JS over HTTP with web server mode. No
+resources, no LLM.
+
+Best for:
+- A frontend in front of an agent API
+- A docs site or dashboard
+
+[Build it step by step](/examples/static-site)
 
 ## Stateless bot
 
