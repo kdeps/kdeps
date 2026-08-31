@@ -3,8 +3,8 @@ layout: home
 
 hero:
   name: kdeps
-  text: Run AI workflows locally. Or deploy them anywhere.
-  tagline: Describe your AI agent in YAML instead of wiring up an LLM SDK, a web server, retry logic, and a Dockerfile.
+  text: AI Appliance Builder
+  tagline: YAML-defined AI agents and workflow pipelines. Ship as Docker, K8s, ISO, or a single binary.
   announcement: Skills for AI agents are here
   announcementLink: /getting-started/agent-skills
   actions:
