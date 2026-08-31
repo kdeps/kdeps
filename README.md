@@ -77,7 +77,7 @@ Docs: [Agent Loop Mode](https://kdeps.com/modes/agent-loop-mode)
 
 ## Agencies
 
-An agency is a collection of agents that work together. Each agent is its own `workflow.yaml` with its own resources, model, and logic, wired together with the `agent:` resource type — like calling a function, but the function is an entire AI pipeline.
+An agency is a collection of agents that work together. Each agent is its own `workflow.yaml` with its own resources, model, and logic, wired together with the `agent:` resource type - like calling a function, but the function is an entire AI pipeline.
 
 ```bash
 kdeps run agency.yaml
@@ -149,8 +149,7 @@ kdeps registry submit --tag v1.0.0   # generate formula for kdeps.io PR
 ## Agent skill
 
 A [coding-agent skill](https://github.com/kdeps/skill) teaches Claude Code, Cursor,
-Grok, and other agents how to scaffold kdeps workflows, components, and agencies —
-including `kdeps.pkg.yaml` for [kdeps.io](https://kdeps.io) distribution.
+Grok, and other agents how to scaffold kdeps workflows, components, and agencies - including `kdeps.pkg.yaml` for [kdeps.io](https://kdeps.io) distribution.
 
 ```bash
 npx skills add https://github.com/kdeps/skill --skill kdeps
@@ -160,7 +159,7 @@ Docs: [Agent Skills](https://kdeps.com/getting-started/agent-skills)
 
 ## Global config
 
-Machine-local settings — LLM backend, API keys, SQL/SMTP/IMAP connections, per-resource-type defaults — live in `~/.kdeps/config.yaml`, never in `workflow.yaml`. Override any of it per-agent with an `agents:` block keyed by the workflow name.
+Machine-local settings - LLM backend, API keys, SQL/SMTP/IMAP connections, per-resource-type defaults - live in `~/.kdeps/config.yaml`, never in `workflow.yaml`. Override any of it per-agent with an `agents:` block keyed by the workflow name.
 
 ```bash
 kdeps edit    # opens ~/.kdeps/config.yaml

@@ -1,6 +1,6 @@
-# Validation and Control Flow
+# Validation and control flow
 
-The `validations:` block controls whether a resource runs and what it accepts. It fires before the action -- before any LLM call, HTTP request, or script execution.
+The `validations:` block controls whether a resource runs and what it accepts. It fires before the action - before any LLM call, HTTP request, or script execution. This is a workflow mode concept, set per resource.
 
 ```yaml
 # resources/example.yaml
@@ -24,14 +24,14 @@ Fields summary:
 |-------|-------|--------------------------------|
 | `methods` / `routes` | match | skip silently if no match |
 | `headers` / `params` | match | skip silently if no match |
-| [`skip`](/reference/glossary#skip) | OR -- any true | skip silently |
-| [`check`](/reference/glossary#check) | AND -- all must be true | return error to caller |
+| [`skip`](/reference/glossary#skip) | OR - any true | skip silently |
+| [`check`](/reference/glossary#check) | AND - all must be true | return error to caller |
 
-## Skip Conditions
+## Skip conditions
 
 Skip conditions allow you to conditionally skip resource execution based on runtime values.
 
-### Basic Usage
+### Basic usage
 
 <div v-pre>
 
@@ -49,11 +49,11 @@ chat:
 
 </div>
 
-### How It Works
+### How it works
 
-Any true condition skips the resource silently -- it produces no output but its slot in the dependency graph still exists so downstream resources can reference it. Use `get()` to access any data source in skip conditions.
+Any true condition skips the resource silently - it produces no output but its slot in the dependency graph still exists so downstream resources can reference it. Use `get()` to access any data source in skip conditions.
 
-### Common Patterns
+### Common patterns
 
 ```yaml
 # resources/example.yaml
@@ -69,11 +69,11 @@ validations:
     - get('previousResource') == null
 ```
 
-## Preflight Checks
+## Preflight checks
 
 Preflight checks validate inputs **before** resource execution begins. If any condition fails, execution is aborted with a custom error.
 
-### Basic Usage
+### Basic usage
 
 <div v-pre>
 
@@ -95,11 +95,11 @@ chat:
 
 </div>
 
-### How It Works
+### How it works
 
-All `check` conditions must pass (AND logic). If any one fails, execution stops immediately and the configured `error` is returned to the caller -- no LLM call, no HTTP request, no work done.
+All `check` conditions must pass (AND logic). If any one fails, execution stops immediately and the configured `error` is returned to the caller - no LLM call, no HTTP request, no work done.
 
-### Check Expressions
+### Check expressions
 
 <div v-pre>
 
@@ -122,7 +122,7 @@ validations:
 
 </div>
 
-### Error Response
+### Error response
 
 When a `check` validation fails:
 
@@ -136,11 +136,11 @@ When a `check` validation fails:
 }
 ```
 
-## Route and Method Restrictions
+## Route and method restrictions
 
 Limit which HTTP requests can trigger a resource.
 
-### Basic Usage
+### Basic usage
 
 <div v-pre>
 
@@ -157,13 +157,13 @@ chat:
 
 </div>
 
-### How It Works
+### How it works
 
 - Resource only executes if **both** conditions match
 - If restrictions don't match, resource is skipped silently
 - Empty arrays mean "allow all"
 
-### Method Restrictions
+### Method restrictions
 
 ```yaml
 # resources/example.yaml
@@ -173,7 +173,7 @@ validations:
   # omit to allow all methods
 ```
 
-### Route Restrictions
+### Route restrictions
 
 ```yaml
 # resources/example.yaml
@@ -183,7 +183,7 @@ validations:
   # omit to allow all routes
 ```
 
-### Combined Example
+### Combined example
 
 <div v-pre>
 
@@ -200,11 +200,11 @@ chat:
 
 </div>
 
-## Input Validation
+## Input validation
 
 Validate the structure and content of request data using `required`, `rules`, and `expr`.
 
-### Basic Usage
+### Basic usage
 
 <div v-pre>
 
@@ -233,9 +233,9 @@ chat:
 
 </div>
 
-### Validation Syntax
+### Validation syntax
 
-KDeps supports multiple syntaxes for field validation:
+kdeps supports multiple syntaxes for field validation:
 
 **`properties` (map format)**
 ```yaml
@@ -278,7 +278,7 @@ validations:
       minLength: 1
 ```
 
-### Validation Rules Reference
+### Validation rules reference
 
 | Rule | Type | Description |
 |------|------|-------------|
@@ -295,7 +295,7 @@ validations:
 | `maxItems` | number | Maximum array items |
 | `message` | string | Custom error message for this field |
 
-### Custom Expression Rules
+### Custom expression rules
 
 <div v-pre>
 
@@ -321,11 +321,11 @@ chat:
 
 </div>
 
-## Allowed Headers and Parameters
+## Allowed headers and parameters
 
 Restrict which headers and query parameters are allowed in requests.
 
-### Allowed Headers
+### Allowed headers
 
 <div v-pre>
 
@@ -344,7 +344,7 @@ chat:
 
 Headers not in this list are inaccessible via `get()`.
 
-### Allowed Parameters
+### Allowed parameters
 
 <div v-pre>
 
@@ -363,7 +363,7 @@ chat:
 
 Parameters not in this list are inaccessible via `get()`.
 
-### Combined Example
+### Combined example
 
 <div v-pre>
 
@@ -383,7 +383,7 @@ chat:
 
 </div>
 
-## Execution Order
+## Execution order
 
 ```
 Request
@@ -395,10 +395,21 @@ Request
   ↓ Execute Resource
 ```
 
-## See Also
+## Use cases
 
-- [Validation Examples](/reference/validation-examples) - Best practices and examples
-- [Expressions](/concepts/expressions) - Expression syntax for conditions
-- [Resources Overview](../resources/overview.md) - Resource structure
-- [Unified API](/concepts/unified-api) - Using `get()` in validations
-- [Workflow Configuration](../configuration/workflow.md) — Route configuration
+- Reject a bad request before it reaches an LLM or an external API, so a
+  missing field costs nothing (`check` + `error`).
+- Skip a resource when its work is not needed this run - a cache hit, an empty
+  input, a feature flag off (`skip`).
+- Scope a resource to specific HTTP methods and routes so one workflow serves
+  several endpoints (`methods`, `routes`).
+- Enforce an input schema (types, required fields, ranges) with a 422 response
+  on failure (`required`, `rules`, `properties`, `expr`).
+
+## See also
+
+- [Validation examples](/reference/validation-examples) - best practices and examples
+- [Expressions](/concepts/expressions) - expression syntax for conditions
+- [Resources overview](/resources/overview) - resource structure
+- [Unified API](/concepts/unified-api) - using `get()` in validations
+- [Workflow configuration](/configuration/workflow) - route configuration

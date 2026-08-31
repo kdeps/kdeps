@@ -1,8 +1,10 @@
-# Kubernetes Deployment
+# Kubernetes deployment
 
-`kdeps export k8s` generates a Kubernetes `Deployment` and `ClusterIP` `Service` from your `workflow.yaml` -- no manual YAML authoring required.
+`kdeps export k8s` generates a Kubernetes `Deployment` and `ClusterIP` `Service` from your `workflow.yaml` - no manual YAML authoring required.
 
-## Quick Start
+*Applies to workflow mode.*
+
+## Quick start
 
 ```bash
 # Generate manifests and print to stdout
@@ -13,7 +15,7 @@ kdeps export k8s examples/chatbot --output k8s.yaml
 kubectl apply -f k8s.yaml
 ```
 
-## Command Reference
+## Command reference
 
 ```bash
 kdeps export k8s [path] [flags]
@@ -53,7 +55,7 @@ kdeps export k8s examples/chatbot \
   --output deploy/k8s.yaml
 ```
 
-## Workflow Configuration
+## Workflow configuration
 
 Configure Kubernetes-specific settings in `workflow.yaml` under `agentSettings`:
 
@@ -97,7 +99,7 @@ Ports are derived from your workflow settings:
 Chat resources on the default `file` backend need no backend port: the
 llamafile self-serves on localhost inside the pod.
 
-Ports, probes, and NetworkPolicy rules are all derived from this configuration -- only what the workflow actually serves is exposed. A workflow with no `apiServer` or `webServer` (a bot or file workflow) gets no container ports and no probes.
+Ports, probes, and NetworkPolicy rules are all derived from this configuration - only what the workflow actually serves is exposed. A workflow with no `apiServer` or `webServer` (a bot or file workflow) gets no container ports and no probes.
 
 ### Resources
 
@@ -115,7 +117,7 @@ agentSettings:
 
 When `resources` is absent, no `resources:` block is emitted (Kubernetes defaults apply).
 
-## Generated Manifests
+## Generated manifests
 
 `kdeps export k8s` produces a single YAML document with a Deployment and a Service separated by `---` (plus a NetworkPolicy when opted in).
 
@@ -218,7 +220,7 @@ spec:
       port: 8080     # only the configured apiServer port accepts traffic
 ```
 
-The Ollama backend port (11434) is never opened for ingress: Ollama binds `127.0.0.1` inside the pod, so it is only reachable from within the pod regardless. A workflow with no `apiServer` or `webServer` gets a policy with no ingress rules at all -- all ingress denied.
+The Ollama backend port (11434) is never opened for ingress: Ollama binds `127.0.0.1` inside the pod, so it is only reachable from within the pod regardless. A workflow with no `apiServer` or `webServer` gets a policy with no ingress rules at all - all ingress denied.
 
 Your cluster must run a CNI that enforces NetworkPolicy (Calico, Cilium, etc.); on clusters without one the policy is accepted but has no effect.
 
@@ -263,7 +265,7 @@ kubectl apply -f deploy/env-secret.yaml
 
 Pod `securityContext` defaults include `runAsNonRoot: true`, `seccompProfile.type: RuntimeDefault`, and `capabilities.drop: ["ALL"]`. The pod also sets `automountServiceAccountToken: false` since kdeps workloads never call the Kubernetes API.
 
-## Typical Workflow
+## Typical workflow
 
 ```bash
 # 1. Build the Docker image
@@ -294,12 +296,6 @@ kdeps export k8s examples/k8s-deployment --image my-registry/k8s-example:1.0.0
 
 See `examples/k8s-deployment/README.md` for details.
 
-## See Also
-
-- [Docker Deployment](docker) - Build Docker images for your workflows
-- [Standalone Executables](prepackage) - Self-contained binaries for edge deployment
-- [CLI Reference](/reference/cli/) - Full command reference
-
 ## LLM appliance manifests
 
 Agent manifests use `kdeps export k8s` (this page). For an inference-only Deployment + Service:
@@ -309,14 +305,14 @@ kdeps llm export k8s --engine ollama --image REG/llm:1 --model llama3.2 -o llm.y
 kubectl apply -f llm.yaml
 ```
 
-Client hosts set `llm.backend: openai` and `llm.base_url`. See [LLM Server Appliance](/deployment/llm-server).
+Client hosts set `llm.backend: openai` and `llm.base_url`. See [LLM server appliance](/deployment/llm-server).
 
 ## HTTPS / custom domain
 
 Two patterns:
 
-1. **Ingress TLS** (cert-manager / cloud LB) — terminate TLS at the Ingress; keep kdeps on HTTP inside the cluster (recommended for most clusters).
-2. **In-pod Let's Encrypt** — set `settings.letsEncrypt.domain`, listen on **443**, expose Service ports **80/443**, and mount a **PVC** at `cacheDir`.
+1. **Ingress TLS** (cert-manager / cloud LB) - terminate TLS at the Ingress; keep kdeps on HTTP inside the cluster (recommended for most clusters).
+2. **In-pod Let's Encrypt** - set `settings.letsEncrypt.domain`, listen on **443**, expose Service ports **80/443**, and mount a **PVC** at `cacheDir`.
 
 ```yaml
 settings:
@@ -329,4 +325,11 @@ settings:
     portNum: 443
 ```
 
-Full guide: [TLS and HTTPS (Custom Domains)](/deployment/tls-https).
+Full guide: [TLS and HTTPS (custom domains)](/deployment/tls-https).
+
+## See also
+
+- [Docker deployment](docker) - build Docker images for your workflows
+- [Standalone binaries](prepackage) - self-contained binaries for edge deployment
+- [LLM server appliance](llm-server) - inference-only deployment
+- [CLI reference](/reference/cli/) - full command reference

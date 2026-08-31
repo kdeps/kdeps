@@ -1,8 +1,10 @@
-# Components Reference
+# Components reference
 
 Full schema, lifecycle, and packaging reference for kdeps components. For an introduction, see [Components](/concepts/components).
 
-## component.yaml Reference
+*Applies to both workflow mode and agent mode.*
+
+## component.yaml reference
 
 ```yaml
 # component.yaml
@@ -47,9 +49,9 @@ resources:
 | `interface.inputs[].default` | any | no | Default value (only meaningful when required=false) |
 | `resources` | array | no | Inline resource definitions (same as workflow resources) |
 
-## Dependency Lifecycle: `setup` and `teardown`
+## Dependency lifecycle: `setup` and `teardown`
 
-### `setup` Block
+### `setup` block
 
 ```yaml
 # workflow.yaml
@@ -64,12 +66,12 @@ setup:
 ```
 
 **Behaviour:**
-- `setup` runs **once per component per engine lifetime** (cached -- subsequent calls are no-ops).
+- `setup` runs **once per component per engine lifetime** (cached - subsequent calls are no-ops).
 - `pythonPackages` are installed via `uv pip install`. Already-present packages are skipped.
 - `osPackages` are installed via the detected system package manager (apk on Alpine, apt-get on Debian/Ubuntu, brew on macOS). If no supported package manager is found, a warning is logged and execution continues.
 - `commands` run in order after package installs. A non-zero exit terminates setup with an error.
 
-### `teardown` Block
+### `teardown` block
 
 ```yaml
 # workflow.yaml
@@ -80,13 +82,13 @@ teardown:
 
 **Behaviour:**
 - `teardown.commands` run after **every invocation** of the component (not cached).
-- Errors in teardown commands are logged as warnings but do not propagate -- teardown is best-effort.
+- Errors in teardown commands are logged as warnings but do not propagate - teardown is best-effort.
 
-### Deprecated: Top-level `pythonPackages`
+### Deprecated: top-level `pythonPackages`
 
 The top-level `pythonPackages:` field on `Component` is deprecated. Prefer `setup.pythonPackages:` for new components.
 
-## Interface and Inputs
+## Interface and inputs
 
 The `interface` section defines the component's public contract. Inputs behave like function arguments:
 
@@ -114,17 +116,17 @@ resources:
       prompt: "{{ input('message') }}"
 ```
 
-## Input Validation
+## Input validation
 
 When a resource calls a component, kdeps validates `with:` against the interface:
 
 | Condition | Behaviour |
 |---|---|
-| Required input missing | Error -- execution stops |
+| Required input missing | Error - execution stops |
 | Unknown key in `with:` | Warning logged; key is ignored |
 | Optional input omitted | Component default value is applied |
 
-## Input Scoping
+## Input scoping
 
 Inputs from `with:` are injected under **two** scoped keys, so the same component can be called twice with different inputs:
 
@@ -133,7 +135,7 @@ Inputs from `with:` are injected under **two** scoped keys, so the same componen
 | `<callerActionId>.<inputName>` | `fetch-cv.url` |
 | `<componentName>.<inputName>` | `scraper.url` |
 
-## Accessing Component Output
+## Accessing component output
 
 After `component:` executes, results are stored under the caller resource's `actionId`:
 
@@ -161,7 +163,7 @@ chat:
 
 </div>
 
-## Calling the Same Component Twice
+## Calling the same component twice
 
 Inputs are scoped to the caller's `actionId`, so the same component works with different configurations:
 
@@ -196,7 +198,7 @@ component:
 
 Component resources can be defined inline in `component.yaml` or in a `resources/` subdirectory. The `actionId` must be unique across the entire workflow. Components cannot contain `settings`.
 
-## Auto-Discovery
+## Auto-discovery
 
 At parse time, kdeps scans for `components/<name>/component.yaml` files in the same directory as the workflow. All component resources are prepended to the workflow's resource list.
 
@@ -204,13 +206,13 @@ At parse time, kdeps scans for `components/<name>/component.yaml` files in the s
 - Local workflow resources override component resources on `actionId` collision
 - Component loading is recursive (components can declare sub-components)
 
-### Resolution Order
+### Resolution order
 
 1. Workflow's inline resources
 2. Resources from auto-discovered components (alphabetical by component name)
 3. Local workflow `resources/` directory
 
-## Installing from the Registry
+## Installing from the registry
 
 ```bash
 kdeps registry install scraper
@@ -229,7 +231,7 @@ kdeps registry list              # List installed components
 kdeps registry uninstall scraper # Uninstall a component
 ```
 
-## Components as LLM Tools
+## Components as LLM tools
 
 Installed components can be exposed as LLM tools via `componentTools:` on `chat:` resources:
 
@@ -243,7 +245,7 @@ chat:
 ```
 
 The component's `interface.inputs` become the tool's parameter schema. Rules:
-- `componentTools:` absent or empty -- no components are registered (default).
+- `componentTools:` absent or empty - no components are registered (default).
 - Names not installed are silently ignored.
 - Explicit `tools:` entries take precedence over `componentTools:` entries.
 
@@ -270,7 +272,7 @@ my-component-1.0.0.komponent
 └── (other data files, scripts, etc.)
 ```
 
-## Environment Variable Auto-Derivation
+## Environment variable auto-derivation
 
 When a component executes, kdeps checks for a component-scoped env var before falling back to the plain name:
 
@@ -283,7 +285,7 @@ When a component executes, kdeps checks for a component-scoped env var before fa
 | `scraper` | `SCRAPER_OPENAI_API_KEY` | `OPENAI_API_KEY` |
 | `my-bot` | `MY_BOT_TELEGRAM_TOKEN` | `TELEGRAM_TOKEN` |
 
-### `.env` File Support
+### `.env` file support
 
 Components auto-load a `.env` file from their directory as a lowest-priority fallback. Resolution order:
 
@@ -304,11 +306,11 @@ OPENAI_API_KEY=sk-my-key
 SCRAPER_TIMEOUT=30
 ```
 
-### Auto-Scaffolded Files
+### Auto-scaffolded files
 
 When a component runs for the first time, kdeps auto-creates these files if absent:
-- **`.env`** -- template listing all `env()` variables found in resources, with empty values
-- **`README.md`** -- generated from `component.yaml` metadata
+- **`.env`** - template listing all `env()` variables found in resources, with empty values
+- **`README.md`** - generated from `component.yaml` metadata
 
 Existing files are never overwritten.
 
@@ -324,7 +326,7 @@ kdeps registry update ./components/scraper
 - If `.env` already exists: only missing vars appended. Existing values preserved.
 - `README.md` is created from metadata only when absent.
 
-## Complete Example: Scraper Component
+## Complete example: scraper component
 
 <div v-pre>
 
@@ -362,7 +364,7 @@ apiResponse:
 
 </div>
 
-## Example: Greeter Component
+## Example: greeter component
 
 **`components/greeter/component.yaml`**
 
@@ -405,10 +407,10 @@ component:
   name: greeter
   with:
     message: "Hello"
-    recipient: "KDeps"
+    recipient: "kdeps"
 ```
 
-## Best Practices
+## Best practices
 
 1. **Keep components focused**: single responsibility per component
 2. **Version your components**: use semantic versioning in `version`
@@ -418,9 +420,9 @@ component:
 6. **Test in isolation**: package and validate before using in workflows
 7. **Minimize env vars**: declare all required environment dependencies; let auto-derivation detect them
 
-## See Also
+## See also
 
-- [Components Overview](/concepts/components) -- what components are and when to use them
-- [Agencies](/concepts/agency) -- agent-to-agent call pattern
-- [Expression Functions Reference](/reference/expression-functions-reference) -- `output()`, `get()`, `env()`
-- [CLI: Registry Commands](/reference/cli/registry) -- install, list, uninstall components
+- [Components overview](/concepts/components) - what components are and when to use them
+- [Agencies](/concepts/agency) - agent-to-agent call pattern
+- [Expression functions reference](/reference/expression-functions-reference) - `output()`, `get()`, `env()`
+- [CLI: registry commands](/reference/cli/registry) - install, list, uninstall components

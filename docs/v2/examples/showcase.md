@@ -1,6 +1,8 @@
-# Real-World Workflows Showcase
+# Real-world workflows showcase
 
 These examples show how complex agents can be built in ~20 lines of YAML with no custom code. Each example is a complete workflow: POST a JSON body, get a structured JSON response.
+
+*Applies to both workflow mode and agent mode.*
 
 The pattern for all examples:
 
@@ -37,7 +39,7 @@ settings:
 
 ---
 
-### 1. Email — sort, draft, unsubscribe
+### 1. Email - sort, draft, unsubscribe
 
 <div v-pre>
 
@@ -60,7 +62,7 @@ apiResponse:
 
 </div>
 
-### 2. Meetings — agenda + action items
+### 2. Meetings - agenda + action items
 
 <div v-pre>
 
@@ -82,7 +84,7 @@ apiResponse:
 
 </div>
 
-### 3. Late bills — cash-flow-aware due dates
+### 3. Late bills - cash-flow-aware due dates
 
 <div v-pre>
 
@@ -110,7 +112,7 @@ apiResponse:
 
 </div>
 
-### 4. Subscription leaks — find what you forgot
+### 4. Subscription leaks - find what you forgot
 
 <div v-pre>
 
@@ -137,7 +139,7 @@ apiResponse:
 
 </div>
 
-### 5. Finding your own files — RAG search
+### 5. Finding your own files - RAG search
 
 <div v-pre>
 
@@ -162,7 +164,7 @@ apiResponse:
 
 </div>
 
-### 6. Grocery waste — meal plan from what's expiring
+### 6. Grocery waste - meal plan from what's expiring
 
 <div v-pre>
 
@@ -188,7 +190,7 @@ apiResponse:
 
 </div>
 
-### 7. Travel planning — one pass
+### 7. Travel planning - one pass
 
 <div v-pre>
 
@@ -215,7 +217,7 @@ apiResponse:
 
 </div>
 
-### 8. Admin overhead — generate invoice
+### 8. Admin overhead - generate invoice
 
 <div v-pre>
 
@@ -238,8 +240,8 @@ apiResponse:
 
 </div>
 
-## See Also
+## See also
 
-- [Quick Start](/getting-started/quickstart) - Walkthrough with a running example
-- [Resources Overview](/resources/overview) - All resource types
-- [LLM Resource](/resources/llm) - Chat and JSON response
+- [Quick start](/getting-started/quickstart) - Walkthrough with a running example
+- [Resources overview](/resources/overview) - All resource types
+- [LLM resource](/resources/llm) - Chat and JSON response

@@ -1,4 +1,4 @@
-# HTTP Client Resource
+# HTTP client resource
 
 The `httpClient:` resource makes an outbound HTTP request and stores the parsed response body as its output. JSON responses are parsed automatically; other content types are stored as a string.
 
@@ -6,7 +6,7 @@ The `httpClient:` resource makes an outbound HTTP request and stores the parsed 
 
 Both [workflow mode](/modes/workflow-mode) and [agent mode](/modes/agent-loop-mode). In workflow mode it executes as a DAG step. In agent mode, the workflow containing this resource runs as a single callable tool.
 
-## Global Named Connections
+## Global named connections
 
 Authentication credentials and proxy settings belong in `~/.kdeps/config.yaml` as named connections, not inline in resource files or `workflow.yaml`. Resources reference them by name.
 
@@ -79,7 +79,7 @@ httpClient:
 
 </div>
 
-## HTTP Methods
+## HTTP methods
 
 <div v-pre>
 
@@ -118,7 +118,7 @@ httpClient:
 
 All auth types are defined in `settings.httpConnections` and referenced via `connectionName:`.
 
-### Bearer Token
+### Bearer token
 
 ```yaml
 # ~/.kdeps/config.yaml
@@ -137,7 +137,7 @@ httpClient:
   connectionName: myapi
 ```
 
-### Basic Auth
+### Basic auth
 
 ```yaml
 # ~/.kdeps/config.yaml
@@ -149,7 +149,7 @@ http_connections:
       password: "${API_PASS}"
 ```
 
-### API Key
+### API key
 
 ```yaml
 # ~/.kdeps/config.yaml
@@ -172,7 +172,7 @@ http_connections:
       token: "${OAUTH2_ACCESS_TOKEN}"
 ```
 
-### Proxy with Auth
+### Proxy with auth
 
 ```yaml
 # ~/.kdeps/config.yaml
@@ -184,7 +184,7 @@ http_connections:
       token: "${API_TOKEN}"
 ```
 
-### Account Auth
+### Account auth
 
 `accountName:` is a lighter alternative to `connectionName:` for services the agent authenticates with as itself, using a named account from the agent's [identity](/configuration/advanced#agent-identity) instead of a full `http_connections` entry. Resolves as Basic Auth. When both are set, `connectionName` wins.
 
@@ -206,7 +206,7 @@ httpClient:
   accountName: crm
 ```
 
-## Retry Configuration
+## Retry configuration
 
 Automatic retries with exponential backoff:
 
@@ -232,7 +232,7 @@ Retry timing example:
 - Attempt 2: wait 1s
 - Attempt 3: wait 2s (exponential backoff)
 
-## Response Caching
+## Response caching
 
 Cache responses to reduce API calls. Presence of the `cache:` block enables caching.
 
@@ -248,9 +248,9 @@ httpClient:
 
 Cache key defaults to the URL if not specified.
 
-## TLS Configuration
+## TLS configuration
 
-### Skip Certificate Verification (Development Only)
+### Skip certificate verification (development only)
 
 ```yaml
 # resources/example.yaml
@@ -263,7 +263,7 @@ httpClient:
 
 > **Warning**: Never use `insecureSkipVerify: true` in production.
 
-### Custom Certificates
+### Custom certificates
 
 ```yaml
 # resources/example.yaml
@@ -276,7 +276,7 @@ httpClient:
     caFile: "/certs/ca.pem"
 ```
 
-## Redirect Handling
+## Redirect handling
 
 ```yaml
 # resources/example.yaml
@@ -288,7 +288,7 @@ httpClient:
 
 Set to `false` to prevent following redirects.
 
-## Accessing Response
+## Accessing response
 
 The HTTP client response includes:
 
@@ -309,7 +309,7 @@ apiResponse:
     headers: get('httpResource').headers
 ```
 
-### Advanced Response Access
+### Advanced response access
 
 Use resource-specific accessors for detailed response information:
 
@@ -334,7 +334,7 @@ apiResponse:
 
 See [Unified API](../concepts/unified-api.md#resource-specific-accessors) for details.
 
-## Error Handling
+## Error handling
 
 Use preflight checks to validate before making requests:
 
@@ -369,9 +369,9 @@ httpClient:
 | `auth.value` | string | API key header value |
 | `proxy` | string | Proxy URL (may include `user:pass@`) |
 
-## See Also
+## See also
 
-- [HTTP Client Examples](/reference/http-client-examples) - GitHub, Stripe, webhook, cached API examples
-- [SQL Resource](sql.md) -- database operations
-- [LLM Resource](llm.md) -- AI model integration
-- [Unified API](../concepts/unified-api.md) -- data access patterns
+- [HTTP client examples](/reference/http-client-examples) - GitHub, Stripe, webhook, cached API examples
+- [SQL resource](sql.md) - database operations
+- [LLM resource](llm.md) - AI model integration
+- [Unified API](../concepts/unified-api.md) - data access patterns

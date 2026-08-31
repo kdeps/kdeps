@@ -1,6 +1,8 @@
-# Deployment Guide
+# Deployment guide
 
 End-to-end CI/CD pipeline: package your workflow, build a Docker image, push to a registry, and deploy to Kubernetes.
+
+*Applies to workflow mode.*
 
 ## Overview
 
@@ -17,7 +19,7 @@ A -> B -> C -> D
 
 Each step is a single `kdeps` command. No Dockerfiles, no manual YAML authoring, no glue scripts.
 
-## Step 1: Validate
+## Step 1: validate
 
 Run schema and dependency validation before packaging:
 
@@ -27,7 +29,7 @@ kdeps validate workflow.yaml
 
 This catches YAML syntax errors, missing dependencies, circular references, and bad expressions before they reach production. Always run this in CI before packaging.
 
-## Step 2: Package
+## Step 2: package
 
 Create a portable `.kdeps` archive containing the workflow and all resources:
 
@@ -38,7 +40,7 @@ kdeps bundle package . --output dist/
 
 The archive includes `workflow.yaml`, all resource files, Python requirements, data files, and assets. Respects `.kdepsignore` exclusions.
 
-## Step 3: Build Docker Image
+## Step 3: build Docker image
 
 Build a Docker image from the package:
 
@@ -48,7 +50,7 @@ kdeps bundle build dist/my-agent-1.0.0.kdeps \
 docker push registry.example.com/my-agent:v1.0.0
 ```
 
-No Dockerfile needed -- kdeps generates a multi-stage build from your workflow config. GPU support is a flag away:
+No Dockerfile needed - kdeps generates a multi-stage build from your workflow config. GPU support is a flag away:
 
 ```bash
 kdeps bundle build dist/my-agent-1.0.0.kdeps \
@@ -57,9 +59,9 @@ kdeps bundle build dist/my-agent-1.0.0.kdeps \
 docker push registry.example.com/my-agent:v1.0.0-gpu
 ```
 
-See [Docker Deployment](/deployment/docker) for base OS selection, offline mode, and custom image configuration.
+See [Docker deployment](/deployment/docker) for base OS selection, offline mode, and custom image configuration.
 
-## Step 4: Deploy to Kubernetes
+## Step 4: deploy to Kubernetes
 
 Generate Kubernetes manifests and apply them:
 
@@ -72,11 +74,11 @@ kubectl apply -f k8s.yaml
 kubectl rollout status deployment/my-agent
 ```
 
-The generated manifests include Deployment, Service, and environment configuration -- all driven from `workflow.yaml`. Override replicas, resource limits, and env vars with flags.
+The generated manifests include Deployment, Service, and environment configuration - all driven from `workflow.yaml`. Override replicas, resource limits, and env vars with flags.
 
-See [Kubernetes Deployment](/deployment/kubernetes) for full manifest structure, health checks, and multi-replica configuration.
+See [Kubernetes deployment](/deployment/kubernetes) for full manifest structure, health checks, and multi-replica configuration.
 
-## CI/CD Pipeline Example
+## CI/CD pipeline example
 
 ### GitHub Actions
 
@@ -121,7 +123,7 @@ jobs:
 ### GitLab CI
 
 ```yaml
-# docker-compose.yml
+# .gitlab-ci.yml
 deploy:
   stage: deploy
   only:
@@ -136,7 +138,7 @@ deploy:
     - kubectl apply -f k8s.yaml
 ```
 
-## Standalone Binaries (No Docker)
+## Standalone binaries (no Docker)
 
 For edge deployments that can't run containers, use the prepackage flow:
 
@@ -151,14 +153,7 @@ export KDEPS_API_AUTH_TOKEN=api-secret
 kdeps run dist/my-agent-1.0.0.kdeps --port 16395
 ```
 
-See [Standalone Binaries](/deployment/prepackage) for self-contained single-binary exports.
-
-## See Also
-
-- [Docker Deployment](/deployment/docker) -- image build details, base OS, GPU support
-- [Kubernetes Deployment](/deployment/kubernetes) -- manifest structure, health checks
-- [Standalone Binaries](/deployment/prepackage) -- single-binary edge exports
-- [CLI: Packaging Commands](/reference/cli/packaging) -- all bundle and export commands
+See [Standalone binaries](/deployment/prepackage) for self-contained single-binary exports.
 
 ## Optional: LLM server appliance (not an agent)
 
@@ -175,7 +170,7 @@ kdeps llm client-config --url http://kdeps-llm-ollama:8000/v1
 
 Stock engines include `ollama`, `llamafile`, `gguf` / `llama-server`, `llamacpp`, `vllm`, `tgi`, `sglang`, and `localai`. GPU engines require `--gpu cuda` (or another profile).
 
-See [LLM Server Appliance](/deployment/llm-server) and [LLM Commands](/reference/cli/llm).
+See [LLM server appliance](/deployment/llm-server) and [LLM commands](/reference/cli/llm).
 
 ## HTTPS on a custom domain
 
@@ -192,3 +187,11 @@ settings:
 ```
 
 Open ports **80** and **443**, point DNS at the service, and persist `cacheDir` (default `~/.kdeps/letsencrypt`). Details: [TLS and HTTPS](/deployment/tls-https).
+
+## See also
+
+- [Docker deployment](/deployment/docker) - image build details, base OS, GPU support
+- [Kubernetes deployment](/deployment/kubernetes) - manifest structure, health checks
+- [Standalone binaries](/deployment/prepackage) - single-binary edge exports
+- [LLM server appliance](/deployment/llm-server) - shared inference server
+- [CLI packaging commands](/reference/cli/packaging) - all bundle and export commands

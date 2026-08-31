@@ -1,4 +1,4 @@
-# Dev Commands
+# Dev commands
 
 Commands for local development: run, agent REPL, validate, scaffold, configure, and diagnose.
 
@@ -11,9 +11,9 @@ kdeps run [workflow.yaml | directory | package.kdeps] [flags]
 ```
 
 **Arguments:**
-- `workflow.yaml` -- Path to a workflow file
-- `directory` -- Path to a directory containing `workflow.yaml`
-- `package.kdeps` -- Path to packaged workflow file
+- `workflow.yaml` - Path to a workflow file
+- `directory` - Path to a directory containing `workflow.yaml`
+- `package.kdeps` - Path to packaged workflow file
 
 **Flags:**
 
@@ -25,7 +25,7 @@ kdeps run [workflow.yaml | directory | package.kdeps] [flags]
 | `--interactive` | Open an interactive LLM REPL alongside the running workflow | `false` |
 | `--file` | File path to process (file input source only). Takes priority over stdin, `KDEPS_FILE_PATH`, and `input.file.path` config | |
 | `--events` | Emit structured NDJSON execution events to stderr (resource lifecycle, failure classification) | `false` |
-| `--memory` | Enable the agent memory store in workflow mode -- resources can use `memory_save`/`memory_search`/`memory_list`/`memory_delete` expression functions | `false` |
+| `--memory` | Enable the agent memory store in workflow mode - resources can use `memory_save`/`memory_search`/`memory_list`/`memory_delete` expression functions | `false` |
 
 **Examples:**
 
@@ -40,13 +40,13 @@ kdeps run workflow.yaml --port 16395       # Custom port
 kdeps run workflow.yaml --interactive      # LLM REPL alongside server
 ```
 
-When `apiServer` is configured, kdeps refuses to start without `KDEPS_API_AUTH_TOKEN` or `api_auth_token` in `~/.kdeps/config.yaml`. Clients must send `Authorization: Bearer <token>` on workflow routes. See [Security Reference](/reference/security).
+When `apiServer` is configured, kdeps refuses to start without `KDEPS_API_AUTH_TOKEN` or `api_auth_token` in `~/.kdeps/config.yaml`. Clients must send `Authorization: Bearer <token>` on workflow routes. See [Security reference](/reference/security).
 
 ---
 
 ## `kdeps [path]` (agent REPL)
 
-Start agent mode -- an interactive LLM loop where whole workflows and components are registered as callable tools. Pass a path to expose workflows as tools, or omit it for a bare REPL with no workflow tools.
+Start agent mode - an interactive LLM loop where whole workflows and components are registered as callable tools. Pass a path to expose workflows as tools, or omit it for a bare REPL with no workflow tools.
 
 ```bash
 kdeps [path] [flags]
@@ -199,7 +199,7 @@ Exits with code 1 when any check has FAIL status.
 
 ## `kdeps --upgrade`
 
-Check for a newer kdeps release and, for a standalone install, download/verify/install it. Same flow as the REPL's `/upgrade` command -- see [Agent Loop Mode -- Updating kdeps](/modes/agent-loop-mode#updating-kdeps) for the full behavior (what each install method does, checksum verification, etc.).
+Check for a newer kdeps release and, for a standalone install, download/verify/install it. Same flow as the REPL's `/upgrade` command - see [Agent Loop Mode - Updating kdeps](/modes/agent-loop-mode#updating-kdeps) for the full behavior (what each install method does, checksum verification, etc.).
 
 ```bash
 kdeps --upgrade
@@ -253,9 +253,9 @@ echo "list files in /tmp" | kdeps chat --no-execute
 
 ## `kdeps llamafile`
 
-Manage the local model registry. Covers **llamafile**, **GGUF** (llama.cpp), and **Ollama** models. Aliases like `llama3.2:1b` resolve to cached model files in `~/.kdeps/models/`; models are downloaded on first use with aria2c (fast parallel downloads with resume) or built-in HTTP. Ctrl+C cancels an in-flight download immediately -- an interrupted aria2c download aborts instead of restarting via the HTTP fallback, and the partial file is kept so the next attempt resumes.
+Manage the local model registry. Covers **llamafile**, **GGUF** (llama.cpp), and **Ollama** models. Aliases like `llama3.2:1b` resolve to cached model files in `~/.kdeps/models/`; models are downloaded on first use with aria2c (fast parallel downloads with resume) or built-in HTTP. Ctrl+C cancels an in-flight download immediately - an interrupted aria2c download aborts instead of restarting via the HTTP fallback, and the partial file is kept so the next attempt resumes.
 
-When [llmfit](https://github.com/AlexsJones/llmfit) is installed, the agent REPL's `/model` picker shows a hardware-fit score (0-100) and level for each local model -- `Perfect`, `Good`, `Marginal`, or `Too Tight` -- based on your machine's RAM/VRAM, so you can tell before downloading whether a model will actually run. Fit levels are searchable in the picker: type `perfect` or `tight` to filter. When aria2c or llmfit is not installed, the REPL prints a one-line install tip at startup.
+When [llmfit](https://github.com/AlexsJones/llmfit) is installed, the agent REPL's `/model` picker shows a hardware-fit score (0-100) and level for each local model - `Perfect`, `Good`, `Marginal`, or `Too Tight` - based on your machine's RAM/VRAM, so you can tell before downloading whether a model will actually run. Fit levels are searchable in the picker: type `perfect` or `tight` to filter. When aria2c or llmfit is not installed, the REPL prints a one-line install tip at startup.
 
 ```bash
 kdeps llamafile list      # all known aliases (LF + GGUF + Ollama) with size, quant, and URL
@@ -266,8 +266,8 @@ kdeps llamafile update    # refresh the registry from HuggingFace (llamafile + G
 
 ---
 
-## See Also
+## See also
 
-- [CLI Overview](/reference/cli/) -- global flags, exit codes, env vars, workflows
-- [Registry Commands](/reference/cli/registry) -- search, install, publish
-- [Packaging Commands](/reference/cli/packaging) -- bundle, export, build
+- [CLI overview](/reference/cli/) - global flags, exit codes, env vars, workflows
+- [Registry commands](/reference/cli/registry) - search, install, publish
+- [Packaging commands](/reference/cli/packaging) - bundle, export, build

@@ -1,4 +1,4 @@
-# REPL Slash Commands
+# REPL slash commands
 
 Inside the [agent loop REPL](/modes/agent-loop-mode), type `/help` for the full list:
 
@@ -24,7 +24,7 @@ Inside the [agent loop REPL](/modes/agent-loop-mode), type `/help` for the full 
 | `/history` | Show conversation history |
 | `/thinking [off\|minimal\|low\|medium\|high\|xhigh\|auto]` | Enable extended reasoning (Claude only; warns if current model does not support it); persists across sessions |
 | `/prompt` | Show the exact LLM request for the last turn (system prompt, messages, tool schemas) |
-| `/prompt raw` | Same, unformatted -- the raw JSON payload sent to the model |
+| `/prompt raw` | Same, unformatted - the raw JSON payload sent to the model |
 | `/permission [read-only\|workspace-write\|danger-full-access\|ask]` | Show or set the tool permission mode; persists across sessions (see [Permission modes](/modes/agent-loop-tools#permission-modes)) |
 | `/session list\|save\|load\|delete\|checkpoint\|goto\|branches\|import` | Manage saved sessions and navigate branching history |
 | `/editor` | Open current input in `$EDITOR` (ctrl+g) |
@@ -40,7 +40,7 @@ Inside the [agent loop REPL](/modes/agent-loop-mode), type `/help` for the full 
 | `/goal new <text>` | Replace the active goal with a new plan |
 | `/goal skip` | Abandon the active task and advance to the next |
 | `/goal clear` | Drop the active goal |
-| `/judges` | Show the configured judge panel (reviews each turn's final output — see [Judge panel](/modes/agent-loop-judges)) |
+| `/judges` | Show the configured judge panel (reviews each turn's final output - see [Judge panel](/modes/agent-loop-judges)) |
 | `/judges add <name> <criteria>` | Add a judge to the explicit roster |
 | `/judges remove <name>` | Remove a judge from the explicit roster |
 | `/judges auto [on\|off]` | Show or toggle a per-turn auto-generated roster; persists across sessions |
@@ -55,14 +55,14 @@ Inside the [agent loop REPL](/modes/agent-loop-mode), type `/help` for the full 
 | `!! <cmd>` | Run a shell command silently - no LLM turn, nothing added to context |
 | `@<path>` | Inline a file's contents (text) or attach it (image) into the next turn, e.g. `explain @main.go` |
 | `/autocontext [on\|off]` | Show or toggle auto-detecting command/file mentions in plain chat text (on by default, persists across sessions) |
-| `/tools [full\|lean]` | Show or toggle the lean/full tool set (full by default, persists across sessions — see [Lean mode](/modes/agent-loop-tools#lean-mode)) |
+| `/tools [full\|lean]` | Show or toggle the lean/full tool set (full by default, persists across sessions - see [Lean mode](/modes/agent-loop-tools#lean-mode)) |
 | `/upgrade` | Check for a newer kdeps release and, for a standalone install, download/verify/install it (see [Updating kdeps](/modes/agent-loop-mode#updating-kdeps)) |
 | `/upgrade nightly` | Same, but checks the nightly channel instead of the latest stable release (see [Nightly builds](/modes/agent-loop-mode#nightly-builds)) |
 | `/login` | m365 backend only: open a browser window to (re-)sign in, even if a session is already cached (see [M365 Copilot](/reference/llm-providers-m365)) |
 
 ## Auto-detected commands and files
 
-`!cmd` and `@path` require you to know kdeps' own syntax. Auto-context detection covers the common case where you just describe what you want in plain English -- but only fires on a command or file mention wrapped in quotes (single or double); an unquoted mention in plain prose is never offered:
+`!cmd` and `@path` require you to know kdeps' own syntax. Auto-context detection covers the common case where you just describe what you want in plain English - but only fires on a command or file mention wrapped in quotes (single or double); an unquoted mention in plain prose is never offered:
 
 ```text
 you type: "can you run \"df -h\" and take a look at \"main.go\"?"
@@ -86,16 +86,16 @@ main.go, sends  unchanged
 the turn
 ```
 
-Only text inside `"..."` or `'...'` is ever scanned -- typing `can you check df -h for me` with no quotes triggers nothing, even though `df -h` is a recognized command. Quoting `"df -h"` is what tells auto-context you mean it literally.
+Only text inside `"..."` or `'...'` is ever scanned - typing `can you check df -h for me` with no quotes triggers nothing, even though `df -h` is a recognized command. Quoting `"df -h"` is what tells auto-context you mean it literally.
 
-The same scan finds existing, readable **text files** by name (`look at "main.go"`) and offers to inline them like `@main.go` would -- images/binaries are never auto-detected, use an explicit `@path` instead. Only a strict allowlist of read-only commands is offered (`ls`, `df`, `ps`, `git status`, `go env`, `docker ps`, etc.); destructive commands (`rm`, `git commit`, `go build`, `docker rm`, ...) never match, even quoted. One confirmation covers everything in a message; declining (or pressing Enter) sends your text unchanged.
+The same scan finds existing, readable **text files** by name (`look at "main.go"`) and offers to inline them like `@main.go` would - images/binaries are never auto-detected, use an explicit `@path` instead. Only a strict allowlist of read-only commands is offered (`ls`, `df`, `ps`, `git status`, `go env`, `docker ps`, etc.); destructive commands (`rm`, `git commit`, `go build`, `docker rm`, ...) never match, even quoted. One confirmation covers everything in a message; declining (or pressing Enter) sends your text unchanged.
 
-**Pipes and command substitution** are recognized too, as long as every stage is allowlisted: `"ps aux | grep -i kdeps"` runs as one pipeline provided each `|`-separated stage is read-only (a stage like `xargs rm` invalidates the whole thing); `` $(git rev-parse HEAD) `` needs no extra quoting -- its `$(...)` body is checked the same way, and anything that could chain a second command inside the parens (`;`, `&`, `` ` ``, a nested `$(`) is rejected outright.
+**Pipes and command substitution** are recognized too, as long as every stage is allowlisted: `"ps aux | grep -i kdeps"` runs as one pipeline provided each `|`-separated stage is read-only (a stage like `xargs rm` invalidates the whole thing); `` $(git rev-parse HEAD) `` needs no extra quoting - its `$(...)` body is checked the same way, and anything that could chain a second command inside the parens (`;`, `&`, `` ` ``, a nested `$(`) is rejected outright.
 
 Disable it for the session with `/autocontext off` if the confirmation prompt gets in your way; `/autocontext on` re-enables it, and `/autocontext` alone shows the current state.
 
-## See Also
+## See also
 
-- [Agent Loop Mode](/modes/agent-loop-mode) -- overview and starting the REPL
-- [Built-in Tools](/modes/agent-loop-tools) -- tools available to the model
-- [Goal-Directed Execution](/modes/agent-loop-goals)
+- [Agent loop mode](/modes/agent-loop-mode) - overview and starting the REPL
+- [Built-in tools](/modes/agent-loop-tools) - tools available to the model
+- [Goal-directed execution](/modes/agent-loop-goals)

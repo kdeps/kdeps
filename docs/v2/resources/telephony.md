@@ -1,4 +1,4 @@
-# Telephony Resource
+# Telephony resource
 
 The `telephony:` resource models in-call actions (answer, say, ask, menu, dial, record, hangup, and more) for Twilio-compatible telephony providers. The provider POSTs its call webhook to your kdeps API route; the resource reads the webhook fields from the request body and builds a TwiML response that is returned via the standard `apiResponse` mechanism.
 
@@ -14,7 +14,7 @@ provider webhook POST -> telephony: resource -> apiResponse with TwiML
 
 The provider (e.g. Twilio) sends fields like `CallSid`, `From`, `To`, `CallStatus`, `Digits`, `SpeechResult`, and `Confidence` in the webhook body. kdeps populates the call session from them, executes the action, and the resource output contains the TwiML to return. Call state is shared across all telephony resources within the same workflow run.
 
-## Basic Usage
+## Basic usage
 
 ```yaml
 # resources/say.yaml
@@ -54,7 +54,7 @@ apiResponse:
 | `reject` | Reject the call (with optional `reason:`) |
 | `redirect` | Redirect call control elsewhere |
 
-`ask` and `menu` must set at least one of `grammar`, `grammarUrl`, `limit`, or `matches` -- validation fails otherwise.
+`ask` and `menu` must set at least one of `grammar`, `grammarUrl`, `limit`, or `matches` - validation fails otherwise.
 
 ## Complete reference
 
@@ -111,7 +111,7 @@ telephony:
 
 Content fields are template-interpolated: <span v-pre>`say: "{{ get('answerLLM') }}"`</span> speaks the resolved output of a prior resource (also works in `voice`, `audio`, `grammar`, `grammarUrl`, `to`, `from`, `reason`, and `headers` values). Menu handler expressions (`onNoMatch`, `onNoInput`, `onFailure`, `matches[].expr`) are match-time expressions, not templates.
 
-## IVR Menu Example
+## IVR menu example
 
 <div v-pre>
 
@@ -164,9 +164,9 @@ The resource output contains the accumulated TwiML and, for `ask`/`menu`, a resu
 | `result.confidence` | number | Speech confidence 0.0-1.0 (1.0 for DTMF) |
 | `result.match` | bool | True when status is `match` |
 
-## Expression Accessors
+## Expression accessors
 
-Usable in expression lists (`before:`, `after:`, `validations`, `onError.expr`). To use a value in a <span v-pre>`{{ }}`</span> template, copy it to a key first -- bare `telephony.` references inside templates fail static analysis:
+Usable in expression lists (`before:`, `after:`, `validations`, `onError.expr`). To use a value in a <span v-pre>`{{ }}`</span> template, copy it to a key first - bare `telephony.` references inside templates fail static analysis:
 
 <div v-pre>
 
@@ -192,7 +192,7 @@ telephony.twiml()       # accumulated TwiML XML response
 telephony.match()       # true when last ask/menu matched
 ```
 
-## Webhook Fields
+## Webhook fields
 
 Recognised fields in the inbound webhook body (Twilio format; unknown fields are ignored):
 
@@ -206,8 +206,8 @@ Recognised fields in the inbound webhook body (Twilio format; unknown fields are
 | `SpeechResult` | `telephony.speech()` |
 | `Confidence` | `telephony.confidence()` |
 
-## See Also
+## See also
 
-- [LLM Resource](llm) -- generate spoken responses with an LLM
-- [API Response](api-response) -- how the TwiML reaches the provider
-- [Components](../concepts/components) -- `invoke:` targets for menu matches
+- [LLM resource](llm) - generate spoken responses with an LLM
+- [API response](api-response) - how the TwiML reaches the provider
+- [Components](../concepts/components) - `invoke:` targets for menu matches

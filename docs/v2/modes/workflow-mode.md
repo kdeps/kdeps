@@ -1,4 +1,4 @@
-# Workflow Mode
+# Workflow mode
 
 Workflow mode runs a deterministic DAG pipeline: a request arrives, resources execute in dependency order, and the result is returned. Every run follows the same path for the same input.
 
@@ -26,7 +26,7 @@ D -> E: "output stored as get('llm')"
 E -> F
 ```
 
-`requires:` is like an import -- the resource won't run until its dependencies have output. Resources with no shared dependency path run concurrently.
+`requires:` is like an import - the resource won't run until its dependencies have output. Resources with no shared dependency path run concurrently.
 
 ## When to use workflow mode
 
@@ -113,7 +113,7 @@ curl -X POST http://localhost:16395/api/v1/chat \
   -d '{"q": "What is entropy?"}'
 ```
 
-`/health` is exempt. `/_kdeps/*` management routes use `KDEPS_MANAGEMENT_TOKEN` instead. See [Security Reference](/reference/security).
+`/health` is exempt. `/_kdeps/*` management routes use `KDEPS_MANAGEMENT_TOKEN` instead. See [Security reference](/reference/security).
 
 ## Input sources
 
@@ -145,9 +145,9 @@ settings:
       path: /data/input.txt
 ```
 
-See [Input Sources](../concepts/input-sources) for full configuration.
+See [Input sources](../concepts/input-sources) for full configuration.
 
-## Agent Memory (`--memory`)
+## Agent memory (`--memory`)
 
 Workflow mode can use the same persistent memory facilities as agent mode. Pass `--memory` to enable:
 
@@ -197,8 +197,8 @@ apiResponse:
 
 Memory entries are automatically linked into a relationship graph showing the chain from prompt to tool calls to results.
 
-## See Also
+## See also
 
-- [Workflow Configuration](../configuration/workflow) - Full `workflow.yaml` reference
-- [Resources Overview](../resources/overview) - Resource types and fields
-- [Agent Mode](agent-loop-mode) - Autonomous LLM loop
+- [Workflow configuration](../configuration/workflow) - Full `workflow.yaml` reference
+- [Resources overview](../resources/overview) - Resource types and fields
+- [Agent mode](agent-loop-mode) - Autonomous LLM loop

@@ -1,12 +1,14 @@
-# Expression Functions Reference
+# Expression functions reference
 
-Every function available in kdeps expressions -- usable in any field that supports <span v-pre>`{{ }}`</span> interpolation or in `expr` blocks.
+Every function available in kdeps expressions - usable in any field that supports <span v-pre>`{{ }}`</span> interpolation or in `expr` blocks.
 
-## Core Functions
+*Applies to both workflow mode and agent mode.*
+
+## Core functions
 
 The four functions used in almost every resource: read data, write data, access uploaded files, and read request metadata.
 
-### get(key, typeHint?)
+### Get(key, typeHint?)
 Retrieves data from any source.
 
 - **key**: The key to look up.
@@ -20,7 +22,7 @@ get('user_id', 'session')    # Get from session
 get('API_KEY', 'env')        # Get environment variable
 ```
 
-### set(key, value, storage?)
+### Set(key, value, storage?)
 Stores data in memory or session.
 
 - **key**: The key to store.
@@ -33,7 +35,7 @@ set('count', 1)              # Store in memory (request-scoped)
 set('user', data, 'session') # Store in session (persistent)
 ```
 
-### file(pattern, selector?)
+### File(pattern, selector?)
 Accesses uploaded files or local files.
 
 - **pattern**: Glob pattern or file name.
@@ -46,7 +48,7 @@ file('*.pdf', 'first')       # Get content of first PDF
 file('*', 'count')           # Get total file count
 ```
 
-### info(field)
+### Info(field)
 Retrieves request metadata.
 
 - **field**: One of `ID`, `IP`, `timestamp`, `path`, `method`, `sessionId`, `filecount`, `files`, `filetypes`.
@@ -57,11 +59,11 @@ info('ID')                   # Get request ID
 info('IP')                   # Get client IP
 ```
 
-## Data Handling Functions
+## Data handling functions
 
 Utilities for converting, inspecting, and safely traversing data structures.
 
-### json(data)
+### Json(data)
 Converts data to a JSON string.
 
 - **data**: The data to stringify.
@@ -71,7 +73,7 @@ Converts data to a JSON string.
 json(get('userData'))        # Convert object to JSON string
 ```
 
-### safe(obj, path)
+### Safe(obj, path)
 Safely accesses nested properties without panicking on nil values.
 
 - **obj**: The object to access.
@@ -82,7 +84,7 @@ Safely accesses nested properties without panicking on nil values.
 safe(user, "profile.address.city") # Returns city or nil if path invalid
 ```
 
-### debug(obj)
+### Debug(obj)
 Returns a pretty-printed JSON string representation of an object for debugging.
 
 - **obj**: The object to inspect.
@@ -92,7 +94,7 @@ Returns a pretty-printed JSON string representation of an object for debugging.
 debug(get('httpResponse'))   # Inspect complex object structure
 ```
 
-### default(value, fallback)
+### Default(value, fallback)
 Returns a fallback value if the primary value is nil or empty.
 
 - **value**: The value to check.
@@ -103,11 +105,11 @@ Returns a fallback value if the primary value is nil or empty.
 default(get('limit'), 10)    # Return 10 if limit is missing
 ```
 
-## Input/Output Functions
+## Input/Output functions
 
-Explicit accessors for request inputs and resource outputs -- use these when `get()` auto-detection is ambiguous.
+Explicit accessors for request inputs and resource outputs - use these when `get()` auto-detection is ambiguous.
 
-### input(name, type?)
+### Input(name, type?)
 Accesses input data (similar to `get` but strictly for inputs).
 
 - **name**: Input name.
@@ -119,7 +121,7 @@ input('q')                   # Get query param
 input('body')                # Get request body
 ```
 
-### output(resourceId)
+### Output(resourceId)
 Accesses the output of a completed resource.
 
 - **resourceId**: The actionId of the resource.
@@ -129,12 +131,12 @@ Accesses the output of a completed resource.
 output('llmResource')        # Get LLM output
 ```
 
-## Iteration Functions
+## Iteration functions
 
 Available inside `items:` blocks to access the state of the current loop iteration.
 
-### item object
-Accesses current iteration context. `item` is an object -- call its methods to read iteration state.
+### Item object
+Accesses current iteration context. `item` is an object - call its methods to read iteration state.
 
 **Methods:**
 ```yaml
@@ -146,11 +148,11 @@ item.count()     # Total items count
 item.values()    # All items as an array
 ```
 
-## Session Functions
+## Session functions
 
 Access session-scoped data set with `set('key', val, 'session')` in any resource.
 
-### session()
+### Session()
 Returns the entire session data object.
 
 **Examples:**
@@ -158,9 +160,9 @@ Returns the entire session data object.
 session()                    # Get all session data
 ```
 
-## Array Operations
+## Array operations
 
-### filter(array, predicate)
+### Filter(array, predicate)
 Filters an array by a predicate expression. Use `.` to reference the current element.
 
 ```yaml
@@ -171,7 +173,7 @@ after:
   - set('expensiveItems', filter(get('products'), .price > 100))
 ```
 
-### map(array, expression)
+### Map(array, expression)
 Transforms each element in an array.
 
 ```yaml
@@ -193,7 +195,7 @@ after:
   - set('avgPrice', sum(get('prices')) / len(get('prices')))
 ```
 
-### first(array) / last(array)
+### First(array) / last(array)
 Returns the first or last element of an array.
 
 ```yaml
@@ -203,7 +205,7 @@ after:
   - set('lastItem', last(get('items')))
 ```
 
-### len(value)
+### Len(value)
 Returns the length of an array or string.
 
 ```yaml
@@ -213,9 +215,9 @@ after:
   - set('textLength', len(get('text')))
 ```
 
-## String Operations
+## String operations
 
-### Case Conversion
+### Case conversion
 
 ```yaml
 # resources/example.yaml
@@ -225,7 +227,7 @@ after:
   - set('trimmed', trim(get('text')))
 ```
 
-### Splitting & Joining
+### Splitting & joining
 
 ```yaml
 # resources/example.yaml
@@ -243,7 +245,7 @@ after:
   - set('replaced', replace(get('text'), 'old', 'new'))
 ```
 
-### String Matching
+### String matching
 
 `contains`, `startsWith`, `endsWith`, and `matches` are infix operators, not functions.
 
@@ -256,9 +258,9 @@ after:
   - set('isEmail', get('email') matches '^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$')
 ```
 
-## Type Conversion
+## Type conversion
 
-### type(value)
+### Type(value)
 Returns the type as a string: `"string"`, `"int"`, `"float"`, `"bool"`, `"array"`, `"map"`, `"nil"`.
 
 ```yaml
@@ -267,7 +269,7 @@ after:
   - set('valueType', type(get('value')))
 ```
 
-### Casting Functions
+### Casting functions
 
 ```yaml
 # resources/example.yaml
@@ -277,9 +279,9 @@ after:
   - set('idString', string(get('id')))      # 42 -> "42"
 ```
 
-## Date & Time
+## Date & time
 
-### info('timestamp')
+### Info('timestamp')
 Returns the current time as an RFC3339 string (e.g. `2024-12-25T14:30:00Z`). Use this for timestamps in responses, logging, and audit fields.
 
 ```yaml
@@ -288,7 +290,7 @@ after:
   - set('ts', info('timestamp'))
 ```
 
-### now()
+### Now()
 Returns the current time as a `time.Time` value. Useful with comparison operators or passing to `date()` for parsing.
 
 ```yaml
@@ -297,9 +299,9 @@ after:
   - set('currentTime', now())
 ```
 
-## Conditional Logic
+## Conditional logic
 
-### Ternary Operator
+### Ternary operator
 
 ```yaml
 # resources/example.yaml
@@ -308,7 +310,7 @@ after:
   - set('discount', get('isPremium') ? 0.2 : 0.1)
 ```
 
-### Null Coalescing
+### Null coalescing
 
 The `??` operator returns the right-hand value when the left-hand is nil or empty string.
 
@@ -319,7 +321,7 @@ after:
   - set('limit', get('limit') ?? 10)
 ```
 
-## Operator Precedence
+## Operator precedence
 
 Expressions evaluate left-to-right with this precedence (highest to lowest):
 
@@ -334,15 +336,15 @@ Expressions evaluate left-to-right with this precedence (highest to lowest):
 9. Ternary: `? :`
 10. Null coalescing: `??`
 
-## Best Practices
+## Best practices
 
-- **Use parentheses for clarity** -- `(a + b) * c` is clearer than relying on precedence
+- **Use parentheses for clarity** - `(a + b) * c` is clearer than relying on precedence
 - **Break complex expressions** into multiple statements for readability
-- **Validate before processing** -- check types and null values before operations
-- **Keep expressions simple** -- complex logic belongs in Python resources
+- **Validate before processing** - check types and null values before operations
+- **Keep expressions simple** - complex logic belongs in Python resources
 
-## See Also
+## See also
 
-- [Expressions Guide](/concepts/expressions) -- where expressions are used and basic syntax
-- [Validation & Control Flow](/concepts/validation-and-control) -- skip, check, and error handling
-- [Inline Resource Blocks](/reference/expr-blocks) -- `before:` and `after:` expression blocks
+- [Expressions guide](/concepts/expressions) - where expressions are used and basic syntax
+- [Validation & control flow](/concepts/validation-and-control) - skip, check, and error handling
+- [Inline resource blocks](/reference/expr-blocks) - `before:` and `after:` expression blocks

@@ -2,6 +2,8 @@
 
 The built-in management API lets you update a running kdeps server's workflow without rebuilding or redeploying the container. Every kdeps server exposes six endpoints under `/_kdeps/` alongside your normal agent routes.
 
+*Applies to workflow mode.*
+
 ## Endpoints
 
 | Method | Path | Auth | Description |
@@ -37,7 +39,7 @@ Authorization: Bearer mysecret
 | Token wrong or header missing | `401 Unauthorized` |
 | Token correct | Handler runs |
 
-## Size Limits
+## Size limits
 
 | Endpoint | Limit | Over-limit response |
 |----------|-------|---------------------|
@@ -46,7 +48,7 @@ Authorization: Bearer mysecret
 
 Oversized uploads are rejected before any data is written to disk.
 
-## Status Response
+## Status response
 
 ```json
 {
@@ -90,13 +92,13 @@ curl -X POST \
   http://localhost:16395/_kdeps/reload
 ```
 
-## Restart Persistence
+## Restart persistence
 
-When a new workflow is pushed, kdeps writes it to the same path that was given at startup (or `/app/workflow.yaml` inside Docker). The workflow path is never changed after push — only the file contents are updated. On the next restart, kdeps reads the updated file automatically.
+When a new workflow is pushed, kdeps writes it to the same path that was given at startup (or `/app/workflow.yaml` inside Docker). The workflow path is never changed after push - only the file contents are updated. On the next restart, kdeps reads the updated file automatically.
 
 After a YAML push, any stale `.yaml`/`.yml` files in the `resources/` sibling directory are removed. This prevents duplicate resource loading the management API inlines all resources into a single `workflow.yaml`.
 
-Package pushes extract the full archive in-place — `resources/`, `data/`, and `scripts/` are all replaced or added.
+Package pushes extract the full archive in-place - `resources/`, `data/`, and `scripts/` are all replaced or added.
 
 ## Security
 
@@ -104,8 +106,8 @@ Package pushes extract the full archive in-place — `resources/`, `data/`, and 
 - Per-file decompression cap of 500 MB guards against zip-bomb payloads.
 - Response bodies are capped at 1 MB.
 
-## See Also
+## See also
 
-- [Configuration Reference](/configuration/workflow) - Full workflow.yaml settings
-- [Deployment Guide](/guides/deployment-guide) - CI/CD pipeline walkthrough
+- [Configuration reference](/configuration/workflow) - Full workflow.yaml settings
+- [Deployment guide](/guides/deployment-guide) - CI/CD pipeline walkthrough
 - [Security](/configuration/advanced) - Auth, rate limiting, TLS

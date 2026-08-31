@@ -1,8 +1,8 @@
-# Items Iteration
+# Items iteration
 
-`items:` runs a resource once per entry in a list -- like a for-each loop, but each iteration is a full resource execution with its own output.
+`items:` runs a resource once per entry in a list - like a for-each loop, but each iteration is a full resource execution with its own output. This is a workflow mode concept; it also applies when the LLM calls a workflow as a tool in agent mode.
 
-## Basic Usage
+## Basic usage
 
 <div v-pre>
 
@@ -21,7 +21,7 @@ chat:
 
 </div>
 
-## Item Context
+## Item context
 
 When processing items, special getters are available:
 
@@ -34,11 +34,11 @@ When processing items, special getters are available:
 | `get('count')` | Total number of items |
 | `get('all')` | Array of all items |
 
-## The `item` Object
+## The `item` object
 
 You can also access item context through the `item` object with callable methods:
 
-### Method Syntax
+### Method syntax
 
 ```yaml
 # resources/example.yaml
@@ -65,7 +65,7 @@ after:
 
 Both syntaxes are equivalent. Use whichever is more readable for your use case.
 
-### Example: Using item Object
+### Example: using item object
 
 <div v-pre>
 
@@ -90,7 +90,7 @@ chat:
 
 </div>
 
-## Accessing All Item Values
+## Accessing all item values
 
 After processing, you can access all collected values from a resource that uses items:
 
@@ -118,7 +118,7 @@ apiResponse:
 
 ## Examples
 
-### Simple Processing
+### Simple processing
 
 <div v-pre>
 
@@ -137,7 +137,7 @@ chat:
 
 </div>
 
-### With Context
+### With context
 
 <div v-pre>
 
@@ -157,7 +157,7 @@ chat:
 
 </div>
 
-### Skip Specific Items
+### Skip specific items
 
 <div v-pre>
 
@@ -178,7 +178,7 @@ chat:
 
 </div>
 
-### Conditional Processing
+### Conditional processing
 
 Items iterate over expressions that evaluate to strings. To filter, use `skip` on the value:
 
@@ -201,10 +201,19 @@ chat:
 
 </div>
 
-## See Also
+## Use cases
 
-- [Items Reference](/reference/items-reference) - Use cases, dynamic items, performance, best practices
-- [Resources Overview](../resources/overview) - Resource configuration
+- Run the same LLM prompt over each row of a dataset (summarize each document,
+  classify each ticket, translate each string).
+- Generate a multi-section document one section at a time, using `get('prev')`
+  and `get('next')` for continuity.
+- Fan a fixed list of URLs, files, or IDs through an `httpClient:`, `scraper:`,
+  or `sql:` resource and collect the results.
+
+## See also
+
+- [Items reference](/reference/items-reference) - dynamic items, performance, best practices
+- [Resources overview](../resources/overview) - Resource configuration
 - [Expressions](/concepts/expressions) - Expression syntax
-- [Expression Functions Reference](/reference/expression-functions-reference) - Complete function reference
-- [Python Resource](../resources/python) - For complex batch processing
+- [Expression functions reference](/reference/expression-functions-reference) - Complete function reference
+- [Python resource](../resources/python) - For complex batch processing

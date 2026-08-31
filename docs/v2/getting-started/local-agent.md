@@ -3,7 +3,7 @@ title: Run Locally in 30 Seconds
 description: Install kdeps and start an AI agent REPL on your machine. No Docker, no config, no API key required.
 ---
 
-# Run Locally in 30 Seconds
+# Run locally in 30 seconds
 
 kdeps ships as a standalone binary. Install it, run it, and you have an interactive AI agent running on your machine. No Docker. No config file. No API key required if you use a local model.
 
@@ -96,8 +96,8 @@ kdeps ./my-workflow/
 
 The REPL starts with your workflow registered as a callable tool. The LLM decides when to invoke it. This is [agent mode](/modes/agent-loop-mode) - the LLM drives, your workflows execute on demand.
 
-## What to do next
+## Next steps
 
-- [Local Models (Llamafile & Ollama)](/getting-started/local-models) - Go deeper on offline setup, model selection, and privacy
-- [Quickstart](/getting-started/quickstart) - Build your first workflow
-- [Agent Skills](/getting-started/agent-skills) - Extend the agent with pre-built skill sets
+- [Local models (llamafile and Ollama)](/getting-started/local-models) - offline setup, model selection, privacy
+- [Quickstart](/getting-started/quickstart) - build your first workflow
+- [Agent skills](/getting-started/agent-skills) - extend the agent with pre-built skill sets

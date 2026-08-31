@@ -1,4 +1,4 @@
-# Exec Resource
+# Exec resource
 
 The `exec:` resource runs a shell command and stores its stdout as the resource's output. Use it for system operations, file manipulation, or wrapping CLI tools that don't have a native resource type.
 
@@ -6,7 +6,7 @@ The `exec:` resource runs a shell command and stores its stdout as the resource'
 
 Both [workflow mode](/modes/workflow-mode) and [agent mode](/modes/agent-loop-mode). In workflow mode it executes as a DAG step. In agent mode, the workflow containing this resource runs as a single callable tool.
 
-## Basic Usage
+## Basic usage
 
 ```yaml
 # resources/run.yaml
@@ -17,7 +17,7 @@ exec:
   timeout: 30s
 ```
 
-## Configuration Options
+## Configuration options
 
 | Option | Description |
 |--------|-------------|
@@ -27,9 +27,9 @@ exec:
 | `env` | Map of environment variables specific to this execution. |
 | `timeout` | Maximum time allowed for execution (e.g., "30s", "1m"). |
 
-## Command Execution
+## Command execution
 
-### Simple Command
+### Simple command
 
 ```yaml
 # resources/example.yaml
@@ -38,7 +38,7 @@ exec:
   timeout: 10s
 ```
 
-### Command with Arguments
+### Command with arguments
 
 ```yaml
 # resources/example.yaml
@@ -53,7 +53,7 @@ exec:
   timeout: 30s       # Execution timeout
 ```
 
-### Multi-line Script
+### Multi-line script
 
 ```yaml
 # resources/example.yaml
@@ -66,7 +66,7 @@ exec:
   timeout: 30s
 ```
 
-### With Interpolation
+### With interpolation
 
 <div v-pre>
 
@@ -81,7 +81,7 @@ exec:
 
 ## Examples
 
-### System Information
+### System information
 
 ```yaml
 # resources/system-info.yaml
@@ -92,7 +92,7 @@ exec:
   timeout: 10s
 ```
 
-### File Operations
+### File operations
 
 <div v-pre>
 
@@ -118,7 +118,7 @@ exec:
 
 </div>
 
-### Git Operations
+### Git operations
 
 ```yaml
 # resources/git-info.yaml
@@ -135,7 +135,7 @@ exec:
   timeout: 30s
 ```
 
-### Process External Tools
+### Process external tools
 
 <div v-pre>
 
@@ -159,7 +159,7 @@ exec:
 
 </div>
 
-### FFmpeg Video Processing
+### FFmpeg video processing
 
 ```yaml
 # resources/extract-audio.yaml
@@ -179,7 +179,7 @@ exec:
   timeout: 300s
 ```
 
-### OCR with Tesseract
+### OCR with tesseract
 
 <div v-pre>
 
@@ -203,7 +203,7 @@ exec:
 
 </div>
 
-### Docker Operations
+### Docker operations
 
 ```yaml
 # resources/docker-info.yaml
@@ -217,7 +217,7 @@ exec:
   timeout: 30s
 ```
 
-### Curl API Call
+### Curl API call
 
 <div v-pre>
 
@@ -238,7 +238,7 @@ exec:
 
 </div>
 
-## Output Handling
+## Output handling
 
 The exec resource captures stdout as the result. For structured output, echo JSON:
 
@@ -265,7 +265,7 @@ apiResponse:
     success: get('execResource').success
 ```
 
-## Environment Variables
+## Environment variables
 
 Environment variables from workflow settings are available:
 
@@ -288,7 +288,7 @@ exec:
     fi
 ```
 
-## Accessing Output Details
+## Accessing output details
 
 Access stdout, stderr, and exit codes from other resources:
 
@@ -309,7 +309,7 @@ apiResponse:
 
 See [Unified API](../concepts/unified-api.md#resource-specific-accessors) for details.
 
-## Error Handling
+## Error handling
 
 Check command exit codes:
 
@@ -329,7 +329,7 @@ exec:
 
 **Note**: Errors written to stderr are accessible via `exec.stderr('resourceId')` in other resources.
 
-## Installed Packages
+## Installed packages
 
 Configure OS packages in your workflow:
 
@@ -345,7 +345,7 @@ settings:
       - curl
 ```
 
-## Best Practices
+## Best practices
 
 1. **Always set timeouts** - Prevent hanging commands
 2. **Output JSON** - Easier to parse in subsequent resources
@@ -354,7 +354,7 @@ settings:
 5. **Use absolute paths** - Avoid directory confusion
 6. **Prefer Python for complex logic** - Shell scripts can get unwieldy
 
-## Security Notes
+## Security notes
 
 When using user input in commands, be careful about command injection:
 
@@ -374,8 +374,8 @@ validations:
     - get('user_input') matches '^[a-zA-Z0-9_-]+$'
 ```
 
-## See Also
+## See also
 
-- [Python Resource](python) -- complex data processing
-- [HTTP Client](http-client) -- API calls (preferred over curl)
-- [Workflow Configuration](../configuration/workflow) -- OS package settings
+- [Python resource](python) - complex data processing
+- [HTTP client](http-client) - API calls (preferred over curl)
+- [Workflow configuration](../configuration/workflow) - OS package settings

@@ -1,6 +1,8 @@
-# Tools (Function Calling)
+# Tools (function calling)
 
-Tools let an LLM call other resources mid-response. When the LLM decides a tool is needed, kdeps runs the target resource, feeds the result back to the LLM, and the LLM continues. The LLM only sees the tool's output -- it does not see the resource YAML.
+Tools let an LLM call other resources mid-response. When the LLM decides a tool is needed, kdeps runs the target resource, feeds the result back to the LLM, and the LLM continues. The LLM only sees the tool's output - it does not see the resource YAML.
+
+This page covers workflow mode tools, defined in `chat.tools` on a `chat:` resource. In agent mode, tools are whole workflows and components instead - see [Agent loop mode](/modes/agent-loop-mode).
 
 ```d2
 direction: down
@@ -51,11 +53,11 @@ tools:
         required: true
 ```
 
-## Tool Types
+## Tool types
 
-### Resource-Based Tools
+### Resource-based tools
 
-Tools that reference other KDeps resources:
+Tools that reference other kdeps resources:
 
 <div v-pre>
 
@@ -88,7 +90,7 @@ chat:
 
 </div>
 
-### External MCP Tools
+### External MCP tools
 
 Use `mcp:` instead of `script:` to call a tool on an external MCP server. kdeps spawns the server as a subprocess, performs the JSON-RPC initialize handshake, calls the tool, and shuts the process down.
 
@@ -119,7 +121,7 @@ tools:
 
 `mcp:` and `script:` are mutually exclusive. A fresh subprocess is started per tool invocation.
 
-**Example — filesystem access via npx:**
+**Example - filesystem access via npx:**
 
 <div v-pre>
 
@@ -142,7 +144,7 @@ chat:
 
 </div>
 
-### Multiple Tools
+### Multiple tools
 
 Define multiple tools for different capabilities:
 
@@ -195,7 +197,7 @@ chat:
 
 </div>
 
-## Parameter Types
+## Parameter types
 
 | Type | Description | Example |
 |------|-------------|---------|
@@ -206,7 +208,7 @@ chat:
 | `object` | JSON object | `{"key": "value"}` |
 | `array` | List of values | `[1, 2, 3]` |
 
-## Tool Execution Flow
+## Tool execution flow
 
 ```
 User Prompt
@@ -215,17 +217,26 @@ LLM analyzes prompt
     ↓
 LLM decides to call tool(s)
     ↓
-KDeps executes tool resource
+kdeps executes tool resource
     ↓
 Tool result returned to LLM
     ↓
 LLM generates final response
 ```
 
-## See Also
+## Use cases
 
-- [Tools Reference](/reference/tools-reference) - Examples, tool chaining, best practices, debugging
-- [LLM Resource](../resources/llm) - Full LLM configuration
-- [LLM Backends](../resources/llm-backends) - Streaming and backend options
-- [Python Resource](../resources/python) - Building tool scripts
+- Let the model do math, run code, or query a database mid-response instead of
+  guessing (`script:` pointing at a `python:`, `exec:`, or `sql:` resource).
+- Give the model read access to a filesystem, an API, or another service
+  through an external MCP server (`mcp:`).
+- Chain capabilities: the model calls a search tool, then a scraper tool, then
+  summarizes - each tool is a resource the model invokes on demand.
+
+## See also
+
+- [Tools reference](/reference/tools-reference) - examples, tool chaining, best practices, debugging
+- [LLM resource](../resources/llm) - Full LLM configuration
+- [LLM backends](../resources/llm-backends) - Streaming and backend options
+- [Python resource](../resources/python) - Building tool scripts
 - [Unified API](/concepts/unified-api) - Data access in tools

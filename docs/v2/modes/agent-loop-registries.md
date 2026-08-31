@@ -1,4 +1,4 @@
-# Agent Registries
+# Agent registries
 
 The [agent loop](/modes/agent-loop-mode) maintains three in-memory registries for lifecycle management: tasks, teams, and cron schedules.
 
@@ -58,7 +58,7 @@ The LLM manages teams through these tools:
 
 ## CronRegistry
 
-Schedules recurring task creation from the agent loop process. Each cron job stores a cron expression, prompt/description templates, and tracks last/next run times. **Cron jobs fire automatically** — the server starts a background goroutine that calls `Tick()` every 60 seconds and creates tasks for any due jobs.
+Schedules recurring task creation from the agent loop process. Each cron job stores a cron expression, prompt/description templates, and tracks last/next run times. **Cron jobs fire automatically** - the server starts a background goroutine that calls `Tick()` every 60 seconds and creates tasks for any due jobs.
 
 | CLI tool | Description |
 |----------|-------------|
@@ -69,8 +69,8 @@ Schedules recurring task creation from the agent loop process. Each cron job sto
 
 No manual polling or goroutine setup needed. Start `kdeps path/to/agent/` and cron runs in the background.
 
-## See Also
+## See also
 
-- [Agent Loop Mode](/modes/agent-loop-mode) -- overview and starting the REPL
-- [Built-in Tools](/modes/agent-loop-tools) -- the full tool catalog these registries add to
-- [Goal-Directed Execution](/modes/agent-loop-goals) -- how individual tasks are driven to completion
+- [Agent loop mode](/modes/agent-loop-mode) - overview and starting the REPL
+- [Built-in tools](/modes/agent-loop-tools) - the full tool catalog these registries add to
+- [Goal-directed execution](/modes/agent-loop-goals) - how individual tasks are driven to completion

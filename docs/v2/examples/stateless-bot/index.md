@@ -1,6 +1,6 @@
-# Example: Stateless Bot (stdin/stdout)
+# Example: stateless bot (stdin/stdout)
 
-This workflow runs in workflow mode (`kdeps run`) as a one-shot stdin/stdout bot -- reads a message from stdin (or an env var), calls an LLM, and writes the reply to stdout. Useful for cron jobs, CI pipelines, or custom integrations.
+This workflow runs in workflow mode (`kdeps run`) as a one-shot stdin/stdout bot - reads a message from stdin (or an env var), calls an LLM, and writes the reply to stdout. Useful for cron jobs, CI pipelines, or custom integrations.
 
 ## Files
 
@@ -81,6 +81,6 @@ Output is written to stdout:
 Paris
 ```
 
-## See Also
+## See also
 
-- [Input Sources](../../concepts/input-sources.md) — Full platform config reference
+- [Input sources](../../concepts/input-sources.md) - Full platform config reference

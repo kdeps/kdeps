@@ -1,8 +1,8 @@
-# CLI Reference
+# CLI reference
 
 The `kdeps` CLI creates, runs, tests, packages, and deploys agents. All commands follow `kdeps [command] [options]`.
 
-## Global Flags
+## Global flags
 
 All commands support these global flags:
 
@@ -12,7 +12,7 @@ All commands support these global flags:
 | `--debug` | Enable DEBUG-level log output with source locations |
 | `--instrument` | Enable call-chain instrumentation tracing |
 
-### Structured Logging
+### Structured logging
 
 kdeps uses structured JSON logging via Go's `log/slog`. Warnings and errors go to stderr in human-readable format by default.
 
@@ -35,25 +35,25 @@ kdeps run workflow.yaml
 
 | Command | Page | Description |
 |---|---|---|
-| `kdeps run` | [Dev Commands](/reference/cli/dev#kdeps-run) | Run a workflow locally |
-| `kdeps [path]` | [Dev Commands](/reference/cli/dev#kdeps-path-agent-repl) | Agent mode REPL |
-| `kdeps validate` | [Dev Commands](/reference/cli/dev#kdeps-validate) | Validate workflow config |
-| `kdeps new` | [Dev Commands](/reference/cli/dev#kdeps-new) | Scaffold a new agent |
-| `kdeps edit` | [Dev Commands](/reference/cli/dev#kdeps-edit) | Edit global config |
-| `kdeps doctor` | [Dev Commands](/reference/cli/dev#kdeps-doctor) | System health checks |
-| `kdeps --upgrade` | [Dev Commands](/reference/cli/dev#kdeps-upgrade) | Check for and install a newer kdeps release |
-| `kdeps chat` | [Dev Commands](/reference/cli/dev#kdeps-chat) | Interactive workflow generator |
-| `kdeps llamafile` | [Dev Commands](/reference/cli/dev#kdeps-llamafile) | Llamafile model registry (list, update) |
-| `kdeps registry` | [Registry Commands](/reference/cli/registry) | Search, install, publish packages |
-| `kdeps bundle package` | [Packaging Commands](/reference/cli/packaging#kdeps-bundle-package) | Package for distribution |
-| `kdeps bundle build` | [Packaging Commands](/reference/cli/packaging#kdeps-bundle-build) | Build Docker image |
-| `kdeps export iso` | [Packaging Commands](/reference/cli/packaging#kdeps-export-iso) | Export bootable image |
-| `kdeps export k8s` | [Packaging Commands](/reference/cli/packaging#kdeps-export-k8s) | Generate Kubernetes manifests |
-| `kdeps llm` | [LLM Commands](/reference/cli/llm) | LLM server appliances |
+| `kdeps run` | [Dev commands](/reference/cli/dev#kdeps-run) | Run a workflow locally |
+| `kdeps [path]` | [Dev commands](/reference/cli/dev#kdeps-path-agent-repl) | Agent mode REPL |
+| `kdeps validate` | [Dev commands](/reference/cli/dev#kdeps-validate) | Validate workflow config |
+| `kdeps new` | [Dev commands](/reference/cli/dev#kdeps-new) | Scaffold a new agent |
+| `kdeps edit` | [Dev commands](/reference/cli/dev#kdeps-edit) | Edit global config |
+| `kdeps doctor` | [Dev commands](/reference/cli/dev#kdeps-doctor) | System health checks |
+| `kdeps --upgrade` | [Dev commands](/reference/cli/dev#kdeps-upgrade) | Check for and install a newer kdeps release |
+| `kdeps chat` | [Dev commands](/reference/cli/dev#kdeps-chat) | Interactive workflow generator |
+| `kdeps llamafile` | [Dev commands](/reference/cli/dev#kdeps-llamafile) | Llamafile model registry (list, update) |
+| `kdeps registry` | [Registry commands](/reference/cli/registry) | Search, install, publish packages |
+| `kdeps bundle package` | [Packaging commands](/reference/cli/packaging#kdeps-bundle-package) | Package for distribution |
+| `kdeps bundle build` | [Packaging commands](/reference/cli/packaging#kdeps-bundle-build) | Build Docker image |
+| `kdeps export iso` | [Packaging commands](/reference/cli/packaging#kdeps-export-iso) | Export bootable image |
+| `kdeps export k8s` | [Packaging commands](/reference/cli/packaging#kdeps-export-k8s) | Generate Kubernetes manifests |
+| `kdeps llm` | [LLM commands](/reference/cli/llm) | LLM server appliances |
 
-## Command Workflow
+## Command workflow
 
-### Typical Development Flow
+### Typical development flow
 
 ```bash
 # 1. Create new agent
@@ -73,7 +73,7 @@ kdeps bundle package . --output dist/
 kdeps bundle build dist/my-agent-1.0.0.kdeps --tag my-agent:latest
 ```
 
-### Production Deployment Flow
+### Production deployment flow
 
 ```bash
 # 1. Validate before packaging
@@ -91,7 +91,7 @@ kdeps bundle build dist/my-agent-1.0.0.kdeps \
 docker push registry.com/my-agent:v1.0.0
 ```
 
-### Kubernetes Deployment Flow
+### Kubernetes deployment flow
 
 ```bash
 # 1. Build Docker image
@@ -108,7 +108,7 @@ kubectl apply -f k8s.yaml
 kubectl rollout status deployment/my-agent
 ```
 
-## Exit Codes
+## Exit codes
 
 | Code | Meaning |
 |---|---|
@@ -117,7 +117,7 @@ kubectl rollout status deployment/my-agent
 | `2` | Validation error |
 | `3` | Execution error |
 
-## Environment Variables
+## Environment variables
 
 | Variable | Description |
 |---|---|
@@ -127,7 +127,7 @@ kubectl rollout status deployment/my-agent
 | `KDEPS_PYTHON_VERSION` | Global Python version (e.g., `3.12`) |
 | `KDEPS_OFFLINE_MODE` | Set `true` to block all external LLM calls |
 | `KDEPS_LEAN_MODE` | Set `1`, `true`, or `yes` to restrict tool surface (no bash, no network) |
-| `KDEPS_AGENT_PRESET` | `audit`, `explain`, or `implement` -- combines lean mode with permission mode |
+| `KDEPS_AGENT_PRESET` | `audit`, `explain`, or `implement` - combines lean mode with permission mode |
 | `KDEPS_PERMISSION_MODE` | `read-only`, `workspace-write`, or `danger-full-access` |
 | `OLLAMA_HOST` | Ollama server URL |
 | `TZ` | Timezone applied to all workflow runs |
@@ -149,9 +149,9 @@ kubectl rollout status deployment/my-agent
 - Use `--gpu cuda` for GPU workloads
 - Tag images with version numbers: `--tag my-agent:v1.0.0`
 
-## See Also
+## See also
 
-- [Dev Commands](/reference/cli/dev) -- run, serve, validate, new, edit, doctor, chat
-- [Registry Commands](/reference/cli/registry) -- search, install, publish
-- [Packaging Commands](/reference/cli/packaging) -- bundle, export, build
+- [Dev commands](/reference/cli/dev) - run, serve, validate, new, edit, doctor, chat
+- [Registry commands](/reference/cli/registry) - search, install, publish
+- [Packaging commands](/reference/cli/packaging) - bundle, export, build
 - [Installation](/getting-started/installation)

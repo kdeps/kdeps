@@ -32,21 +32,21 @@ kdeps bundle build .              # package workflow + model into a Docker image
 docker run -p 16395:16395 ...     # serve as an HTTP API
 ```
 
-The workflow you ran locally becomes a self-contained deployable unit. See [Deployment Guide](/guides/deployment-guide).
+The workflow you ran locally becomes a self-contained deployable unit. See [Deployment guide](/guides/deployment-guide).
 
 ---
 
 ## The problem
 
-Shipping AI into production means more than calling an API. You need deterministic pipelines, typed inputs and outputs, dependency ordering, retries, validation, and the ability to deploy anywhere -- not a chat session that ends when the browser tab closes.
+Shipping AI into production means more than calling an API. You need deterministic pipelines, typed inputs and outputs, dependency ordering, retries, validation, and the ability to deploy anywhere - not a chat session that ends when the browser tab closes.
 
-kdeps is an **AI appliance builder**. You define what the agent does in YAML, and it runs as a self-contained unit -- an HTTP API, a bot, a file processor -- without a human in the loop.
+kdeps is an **AI appliance builder**. You define what the agent does in YAML, and it runs as a self-contained unit - an HTTP API, a bot, a file processor - without a human in the loop.
 
 ## Deterministic by design
 
 Chat interfaces are deliberately open-ended. kdeps workflow mode is the opposite: inputs are declared, dependencies are explicit (`requires:`), and validations fire before any LLM is called. If the input is wrong, the workflow fails fast with a clear error instead of hallucinating a response.
 
-Same input always produces the same execution path. Output is reproducible, auditable, and safe to run unattended. That is what makes kdeps suitable for production -- not just demos.
+Same input always produces the same execution path. Output is reproducible, auditable, and safe to run unattended. That is what makes kdeps suitable for production - not just demos.
 
 ## Two modes, one workflow file
 
@@ -67,7 +67,7 @@ The same `workflow.yaml` works in both. You do not need to rewrite anything to s
 
 ## Agencies
 
-Single-agent workflows have limited scope. kdeps [agencies](/reference/glossary#agency) let you compose multiple specialized agents into a single system. Each agent has its own model, resources, and logic. They communicate via the `agent:` resource type, which runs another agent's full pipeline and returns its output -- every step is version-controlled, testable, and independently deployable.
+Single-agent workflows have limited scope. kdeps [agencies](/reference/glossary#agency) let you compose multiple specialized agents into a single system. Each agent has its own model, resources, and logic. They communicate via the `agent:` resource type, which runs another agent's full pipeline and returns its output - every step is version-controlled, testable, and independently deployable.
 
 ## Built to last
 
@@ -88,7 +88,7 @@ The two resource types coupled to external systems that can change on their own 
 | `httpClient:` | External APIs change schema, auth, endpoints | Always target a versioned path (`/v2/users`, not `/users`) |
 | `browser:` | Website DOM changes without notice | Use stable selectors (ARIA roles, data attributes) over structural CSS |
 
-Everything else -- SQL, LLM prompts, Python, exec, email, inter-agent calls -- is code you own. It changes when you change it.
+Everything else - SQL, LLM prompts, Python, exec, email, inter-agent calls - is code you own. It changes when you change it.
 
 A company that commissions a kdeps agent today can hand the YAML files and Docker image to a new engineer in 2035 and expect it to still run.
 
@@ -102,8 +102,8 @@ A company that commissions a kdeps agent today can hand the YAML files and Docke
 | Any team | Replace a human clicking through tabs and copy-pasting between tools |
 
 
-## See Also
+## See also
 
-- [Quick Start](/getting-started/quickstart) - Build your first workflow in minutes
-- [Workflow Mode](/modes/workflow-mode) - Deterministic DAG pipelines
-- [Agent Mode](/modes/agent-loop-mode) - Autonomous LLM loop
+- [Quick start](/getting-started/quickstart) - Build your first workflow in minutes
+- [Workflow mode](/modes/workflow-mode) - Deterministic DAG pipelines
+- [Agent mode](/modes/agent-loop-mode) - Autonomous LLM loop

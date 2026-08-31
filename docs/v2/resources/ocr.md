@@ -1,6 +1,6 @@
-# OCR Resource
+# OCR resource
 
-The `ocr:` resource extracts text from an image using [tesseract](https://github.com/tesseract-ocr/tesseract) -- fully local, no API key, no network call.
+The `ocr:` resource extracts text from an image using [tesseract](https://github.com/tesseract-ocr/tesseract) - fully local, no API key, no network call.
 
 ## Where it runs
 
@@ -8,9 +8,9 @@ Both [workflow mode](/modes/workflow-mode) and [agent mode](/modes/agent-loop-mo
 
 ## Requirements
 
-Requires the `tesseract` binary on `PATH` (`apt install tesseract-ocr`, `brew install tesseract`). kdeps shells out to it -- there is no bundled OCR engine.
+Requires the `tesseract` binary on `PATH` (`apt install tesseract-ocr`, `brew install tesseract`). kdeps shells out to it - there is no bundled OCR engine.
 
-## Basic Usage
+## Basic usage
 
 ```yaml
 # resources/ocr.yaml
@@ -30,7 +30,7 @@ apiResponse:
     text: "{{ output('ocr') }}"
 ```
 
-## Configuration Options
+## Configuration options
 
 | Option | Description |
 |---|---|
@@ -51,10 +51,10 @@ ocr:
 The extracted text, as a plain string:
 
 ```json
-"KDeps OCR Sample"
+"kdeps OCR Sample"
 ```
 
-## See Also
+## See also
 
-- [Transcribe Resource](transcribe) -- the equivalent offline, no-API-key pattern for audio (`whisper-cpp` backend)
-- [Resources Overview](overview) -- all resource types
+- [Transcribe resource](transcribe) - the equivalent offline, no-API-key pattern for audio (`whisper-cpp` backend)
+- [Resources overview](overview) - all resource types

@@ -1,8 +1,8 @@
-# Jinja2 Templates
+# Jinja2 templates
 
-KDeps uses [Jinja2](https://jinja.palletsprojects.com/)-compatible templates (via [gonja](https://github.com/nikolalohinski/gonja)) as the unified template system for both project scaffolding and runtime YAML preprocessing.
+kdeps uses [Jinja2](https://jinja.palletsprojects.com/)-compatible templates (via [gonja](https://github.com/nikolalohinski/gonja)) as the unified template system for both project scaffolding and runtime YAML preprocessing. Preprocessing runs for every workflow and resource file in both modes.
 
-## YAML Preprocessing
+## YAML preprocessing
 
 Every workflow and resource YAML file is preprocessed through Jinja2 **before** YAML parsing. This lets you:
 
@@ -26,14 +26,14 @@ settings:
 {% endif %}
 ```
 
-### Auto-protection of Runtime API Calls
+### Auto-protection of runtime API calls
 
-KDeps automatically wraps all runtime API function calls (<code v-pre>{{ get(...) }}</code>, <code v-pre>{{ set(...) }}</code>, <code v-pre>{{ info(...) }}</code>, <code v-pre>{{ input(...) }}</code>, <code v-pre>{{ output(...) }}</code>, <code v-pre>{{ file(...) }}</code>, <code v-pre>{{ item(...) }}</code>, <code v-pre>{{ loop(...) }}</code>, <code v-pre>{{ session(...) }}</code>, <code v-pre>{{ json(...) }}</code>, <code v-pre>{{ safe(...) }}</code>, <code v-pre>{{ debug(...) }}</code>, <code v-pre>{{ default(...) }}</code>) in `{% raw %}...{% endraw %}` before Jinja2 renders the file. You **do not** need to add raw blocks manually.
+kdeps automatically wraps all runtime API function calls (<code v-pre>{{ get(...) }}</code>, <code v-pre>{{ set(...) }}</code>, <code v-pre>{{ info(...) }}</code>, <code v-pre>{{ input(...) }}</code>, <code v-pre>{{ output(...) }}</code>, <code v-pre>{{ file(...) }}</code>, <code v-pre>{{ item(...) }}</code>, <code v-pre>{{ loop(...) }}</code>, <code v-pre>{{ session(...) }}</code>, <code v-pre>{{ json(...) }}</code>, <code v-pre>{{ safe(...) }}</code>, <code v-pre>{{ debug(...) }}</code>, <code v-pre>{{ default(...) }}</code>) in `{% raw %}...{% endraw %}` before Jinja2 renders the file. You **do not** need to add raw blocks manually.
 
 Static Jinja2 expressions like <code v-pre>{{ env.PORT }}</code> are evaluated normally because they do not start with a kdeps API function name.
 
 ```yaml
-# resource.yaml — no {% raw %} needed
+# resource.yaml - no {% raw %} needed
 {% if env.ENABLE_HTTP == 'true' %}
   httpClient:
     method: GET
@@ -43,13 +43,13 @@ Static Jinja2 expressions like <code v-pre>{{ env.PORT }}</code> are evaluated n
 {% endif %}
 ```
 
-### Available Context Variables
+### Available context variables
 
 | Variable | Type | Description |
 |----------|------|-------------|
 | `env` | `map[string]string` | All current process environment variables |
 
-## Template Syntax
+## Template syntax
 
 ### Variables
 
@@ -74,7 +74,7 @@ name: {{ env.SERVICE_NAME | default('my-service') }}
 {# This comment is stripped before parsing #}
 ```
 
-### Whitespace Control
+### Whitespace control
 
 Use `-` to trim surrounding whitespace:
 
@@ -85,7 +85,7 @@ settings:
 {%- endif %}
 ```
 
-## Scaffolding Templates
+## Scaffolding templates
 
 Project scaffolding templates (used by `kdeps new`) also use Jinja2 with `.j2` file extensions. Variables available in scaffolding templates:
 
@@ -97,8 +97,8 @@ Project scaffolding templates (used by `kdeps new`) also use Jinja2 with `.j2` f
 | `port` | int | API server port |
 | `resources` | []string | Enabled resource types |
 
-## See Also
+## See also
 
 - [Expressions](/concepts/expressions)
 - [Unified API](/concepts/unified-api)
-- [Jinja2 Documentation](https://jinja.palletsprojects.com/en/stable/)
+- [Jinja2 documentation](https://jinja.palletsprojects.com/en/stable/)

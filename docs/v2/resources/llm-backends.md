@@ -1,4 +1,4 @@
-# LLM Backends Reference
+# LLM backends reference
 
 kdeps separates two concerns: which model to call (set in the resource file) and where to call it (set in `~/.kdeps/config.yaml`). This lets you switch backends without touching your workflow.
 
@@ -88,11 +88,11 @@ llm:
 
 Run `kdeps edit` to open the config file, or edit it directly.
 
-## Unified Models List
+## Unified models list
 
 `llm.models` in `~/.kdeps/config.yaml` serves dual purpose: it can act as a **plain allowlist** (model names only) or as a **router route table** (with routing metadata). The `llm.strategy` field switches between the two modes.
 
-### Allowlist Mode (no strategy)
+### Allowlist mode (no strategy)
 
 When `strategy` is absent, `llm.models` is a simple list of permitted model names:
 
@@ -116,7 +116,7 @@ llm:
 
 Any request for a model not in this list is overridden to the first model and a warning is logged. Models listed here are pre-pulled into Docker/ISO artifacts.
 
-### Routing Mode (with strategy)
+### Routing mode (with strategy)
 
 When `strategy` is set, the models list acts as router routes:
 
@@ -134,7 +134,7 @@ llm:
       min_tokens: 501
 ```
 
-Plain string entries in routing mode (no `model:` key) are still allowed — they inherit the default `llm.backend`:
+Plain string entries in routing mode (no `model:` key) are still allowed - they inherit the default `llm.backend`:
 
 ```yaml
 # resources/example.yaml
@@ -148,7 +148,7 @@ llm:
       priority: 1
 ```
 
-### Entry Fields
+### Entry fields
 
 Each model entry supports these fields:
 
@@ -170,11 +170,11 @@ Routing delegates model selection from resource YAML to `~/.kdeps/config.yaml`. 
 
 See [Routing](/resources/llm-routing) for every strategy's config shape and resolution order.
 
-## Supported Backends
+## Supported backends
 
 kdeps supports local backends (Llamafile, GGUF/llama.cpp, Ollama) and any OpenAI-compatible API: OpenAI, Anthropic, Google, Mistral, Groq, Together AI, Perplexity, Cohere, DeepSeek, xAI (Grok), OpenRouter, AWS Bedrock, IBM WatsonX, M365 Copilot, and self-hosted solutions (vLLM, TGI, LocalAI, LlamaCpp). See [LLM Provider Reference](/reference/llm-providers) for per-provider config snippets and available model names.
 
-## Vertex AI (Google Cloud)
+## Vertex AI (google cloud)
 
 Target Google's Vertex AI endpoint instead of the standard AI Studio endpoint by setting `googleCloudProject` and `googleCloudLocation` on the `chat:` resource. The backend in `config.yaml` stays `google`; the two resource-level fields route the call to the regional Vertex endpoint.
 
@@ -196,7 +196,7 @@ chat:
 
 Vertex AI uses Application Default Credentials when no `google_api_key` is present. Run `gcloud auth application-default login` to authenticate locally.
 
-## Anthropic: Prompt Caching and Extended Output
+## Anthropic: prompt caching and extended output
 
 Anthropic-specific options are set per resource, not in `config.yaml`.
 
@@ -217,7 +217,7 @@ chat:
       cacheControl: "ephemeral"   # mark this message as the cache boundary
 ```
 
-### Extended output (128K tokens)
+### Extended output (128k tokens)
 
 `anthropicExtendedOutput: true` enables 128K output tokens and adds the `interleaved-thinking-2025-05-14` beta header automatically.
 
@@ -243,7 +243,7 @@ chat:
     - interleaved-thinking-2025-05-14
 ```
 
-## Ollama: Native Options
+## Ollama: native options
 
 Extra controls for the Ollama backend, set per resource.
 
@@ -261,7 +261,7 @@ chat:
 
 ## Streaming (Ollama)
 
-Set `streaming: true` on a `chat:` resource to have Ollama stream the response as NDJSON chunks. KDeps accumulates all chunks internally and returns the same response shape as a non-streaming call.
+Set `streaming: true` on a `chat:` resource to have Ollama stream the response as NDJSON chunks. kdeps accumulates all chunks internally and returns the same response shape as a non-streaming call.
 
 <div v-pre>
 
@@ -277,11 +277,11 @@ chat:
 | [`streaming`](/reference/glossary#streaming) | What happens |
 |-------------|-------------|
 | `false` (default) | Single JSON response |
-| `true` | Ollama streams NDJSON; KDeps accumulates and returns merged map |
+| `true` | Ollama streams NDJSON; kdeps accumulates and returns merged map |
 
 `streaming: true` is silently ignored for non-Ollama backends.
 
-## Feature Support
+## Feature support
 
 | Feature | Ollama | OpenAI | Anthropic | Google | Mistral | Groq |
 |---------|--------|--------|-----------|--------|---------|------|
@@ -295,28 +295,28 @@ chat:
 
 ## Troubleshooting
 
-### Ollama Connection Issues
+### Ollama connection issues
 
 If Ollama cannot be reached:
 1. Check Ollama is running: `ollama list`
 2. Verify the URL in config.yaml (default: `http://localhost:11434`)
 3. Check firewall settings
 
-### API Key Issues
+### API key issues
 
 If you get authentication errors:
 1. Verify the key is set in `~/.kdeps/config.yaml`
 2. Or export the env var: `export OPENAI_API_KEY=sk-...`
 3. Check the key has the correct permissions
 
-### Model Not Found
+### Model not found
 
 If the model is not available:
 1. For Ollama: Pull the model first with `ollama pull model-name`
 2. For APIs: Verify the model name matches the provider's documentation
 3. Check you have access to the model in your API account
 
-### Rate Limiting
+### Rate limiting
 
 Handle rate limits with retry configuration via `onError`:
 
@@ -352,12 +352,12 @@ llm:
   base_url: http://192.168.1.50:8000/v1
 ```
 
-See [LLM Server Appliance](/deployment/llm-server) and [LLM Commands](/reference/cli/llm).
+See [LLM server appliance](/deployment/llm-server) and [LLM commands](/reference/cli/llm).
 
-## See Also
+## See also
 
-- [LLM Provider Reference](/reference/llm-providers) - Per-provider config snippets and model names
-- [LLM Resource](llm) - Complete LLM resource documentation
+- [LLM provider reference](/reference/llm-providers) - Per-provider config snippets and model names
+- [LLM resource](llm) - Complete LLM resource documentation
 - [Tools](../concepts/tools) - LLM function calling
-- [Docker Deployment](../deployment/docker) - Deploying with local models
+- [Docker deployment](../deployment/docker) - Deploying with local models
 

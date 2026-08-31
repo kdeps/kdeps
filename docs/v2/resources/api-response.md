@@ -1,12 +1,12 @@
-# API Response Resource
+# API response resource
 
-`apiResponse:` builds and returns the HTTP response sent back to the caller. It is always the last resource in the dependency chain -- the resource pointed to by [`targetActionId`](/reference/glossary#targetactionid) in `workflow.yaml`.
+`apiResponse:` builds and returns the HTTP response sent back to the caller. It is always the last resource in the dependency chain - the resource pointed to by [`targetActionId`](/reference/glossary#targetactionid) in `workflow.yaml`.
 
 ## Where it runs
 
-[Workflow mode](/modes/workflow-mode) only. `apiResponse:` is the terminal node that formats the HTTP response returned by a workflow. In agent mode, `apiResponse.response` is what the engine returns to the LLM as the tool result -- but the resource itself is not a tool; the whole workflow is.
+[Workflow mode](/modes/workflow-mode) only. `apiResponse:` is the terminal node that formats the HTTP response returned by a workflow. In agent mode, `apiResponse.response` is what the engine returns to the LLM as the tool result - but the resource itself is not a tool; the whole workflow is.
 
-## Basic Usage
+## Basic usage
 
 ```yaml
 # resources/respond.yaml
@@ -22,7 +22,7 @@ apiResponse:
     Content-Type: application/json
 ```
 
-## Configuration Options
+## Configuration options
 
 ```yaml
 # resources/example.yaml
@@ -39,9 +39,9 @@ apiResponse:
   backend: file
 ```
 
-## Response Structure
+## Response structure
 
-### Simple Response
+### Simple response
 
 ```yaml
 # resources/example.yaml
@@ -61,7 +61,7 @@ Output:
 }
 ```
 
-### Dynamic Response
+### Dynamic response
 
 ```yaml
 # resources/example.yaml
@@ -74,7 +74,7 @@ apiResponse:
     request_id: info('ID')
 ```
 
-### Nested Structure
+### Nested structure
 
 ```yaml
 # resources/example.yaml
@@ -92,7 +92,7 @@ apiResponse:
       limit: get('limit', '10')
 ```
 
-## Custom Headers
+## Custom headers
 
 Set response headers:
 
@@ -113,7 +113,7 @@ apiResponse:
 
 </div>
 
-## Adding Metadata
+## Adding metadata
 
 Include model and backend information in responses:
 
@@ -166,7 +166,7 @@ Response format:
 }
 ```
 
-### Manual Metadata
+### Manual metadata
 
 You can also manually specify metadata to override automatic values:
 
@@ -184,11 +184,11 @@ apiResponse:
 
 **Note**: Manual metadata takes precedence over automatic metadata.
 
-## Error Responses
+## Error responses
 
 For error handling, use preflight checks or conditional responses:
 
-### Preflight Validation
+### Preflight validation
 
 ```yaml
 # resources/example.yaml
@@ -205,7 +205,7 @@ apiResponse:
     user: get('userResource')
 ```
 
-### Conditional Success
+### Conditional success
 
 ```yaml
 # resources/example.yaml
@@ -218,7 +218,7 @@ apiResponse:
 
 ## Examples
 
-### Chat API Response
+### Chat API response
 
 ```yaml
 # resources/chat-response.yaml
@@ -236,7 +236,7 @@ apiResponse:
     Content-Type: application/json
 ```
 
-### File Upload Response
+### File upload response
 
 ```yaml
 # resources/upload-response.yaml
@@ -255,7 +255,7 @@ apiResponse:
     Content-Type: application/json
 ```
 
-### Paginated List Response
+### Paginated list response
 
 ```yaml
 # resources/list-response.yaml
@@ -275,7 +275,7 @@ apiResponse:
     X-Total-Count: get('fetchItems').total
 ```
 
-### Multi-Resource Response
+### Multi-resource response
 
 ```yaml
 # resources/dashboard-response.yaml
@@ -301,7 +301,7 @@ apiResponse:
     Content-Type: application/json
 ```
 
-### Error Response Pattern
+### Error response pattern
 
 ```yaml
 # Successful case
@@ -332,7 +332,7 @@ apiResponse:
       message: get('dataResource').error.message
 ```
 
-## Response Transformation
+## Response transformation
 
 Transform data before returning:
 
@@ -351,7 +351,7 @@ apiResponse:
     processed_count: len(get('formatted'))
 ```
 
-## Best Practices
+## Best practices
 
 1. **Always set Content-Type** - Usually `application/json`
 2. **Include request ID** - Helps with debugging
@@ -359,8 +359,8 @@ apiResponse:
 4. **Include metadata** - Model version, timing, etc.
 5. **Handle errors gracefully** - Clear error messages
 
-## See Also
+## See also
 
-- [Resources Overview](overview) -- all resource types
-- [LLM Resource](llm) -- AI model integration
-- [Unified API](../concepts/unified-api) -- data access patterns
+- [Resources overview](overview) - all resource types
+- [LLM resource](llm) - AI model integration
+- [Unified API](../concepts/unified-api) - data access patterns

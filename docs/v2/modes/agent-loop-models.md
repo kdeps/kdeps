@@ -1,10 +1,10 @@
-# Local Model Management
+# Local model management
 
-Managing which LLM the [agent loop REPL](/modes/agent-loop-mode) talks to -- switching mid-session, auto-routing, and running local model servers.
+Managing which LLM the [agent loop REPL](/modes/agent-loop-mode) talks to - switching mid-session, auto-routing, and running local model servers.
 
 ## Switching models
 
-`/model <name>` switches models mid-session. For local backends (`file`, `gguf`), the REPL downloads and starts the server if it isn't already running, then shows a progress display until the completions endpoint is accepting requests — the first prompt after the switch never gets a "network error" while weights load.
+`/model <name>` switches models mid-session. For local backends (`file`, `gguf`), the REPL downloads and starts the server if it isn't already running, then shows a progress display until the completions endpoint is accepting requests - the first prompt after the switch never gets a "network error" while weights load.
 
 ```
 /model qwen3.5-4b                     # switch to a known alias
@@ -42,12 +42,12 @@ notice so you know which one you got:
 "qwen3.5" is ambiguous across backends (llamafile:qwen3.5, gguf:qwen3.5) -- using gguf:qwen3.5. Use the full name to pick a specific one.
 ```
 
-Non-colliding names — the vast majority of aliases — are completely
+Non-colliding names - the vast majority of aliases - are completely
 unaffected; you only ever need the `backend:` prefix when kdeps tells you to.
 
 ## `--model auto`: route across your configured models
 
-`--model auto` (or `KDEPS_AGENT_MODEL=auto`) picks the best hardware-fit model from your own `llm.models` config (`~/.kdeps/config.yaml`) via [`llmfit`](https://github.com/AlexsJones/llmfit) -- the same `auto` strategy the [workflow-mode router](/resources/llm-routing#strategy-auto) uses, so one config drives both modes:
+`--model auto` (or `KDEPS_AGENT_MODEL=auto`) picks the best hardware-fit model from your own `llm.models` config (`~/.kdeps/config.yaml`) via [`llmfit`](https://github.com/AlexsJones/llmfit) - the same `auto` strategy the [workflow-mode router](/resources/llm-routing#strategy-auto) uses, so one config drives both modes:
 
 ```yaml
 # ~/.kdeps/config.yaml
@@ -64,7 +64,7 @@ llm:
 kdeps --model auto
 ```
 
-If nothing's configured (or none of it scores), `auto` falls through to the same installed-model pick described below, then the same fixed tiers -- it's always at least as good as omitting `--model` entirely.
+If nothing's configured (or none of it scores), `auto` falls through to the same installed-model pick described below, then the same fixed tiers - it's always at least as good as omitting `--model` entirely.
 
 ## `--model auto-router`: zero-config, fully automatic
 
@@ -74,17 +74,17 @@ If nothing's configured (or none of it scores), `auto` falls through to the same
 kdeps --model auto-router
 ```
 
-1. **Best-fit installed local model** -- every cached llamafile, loadable GGUF, and pulled Ollama tag scored via `llmfit`. Requires `llmfit` on `PATH`; skipped (no cost) when it isn't installed.
-2. **Cloud fallback** -- the first provider with both an API key env var set and a known representative model (`gpt-4o` for OpenAI, `claude-sonnet-4-6` for Anthropic, ...).
-3. **Fixed tiers** -- if neither finds anything, falls through to the same fixed-order pick described below.
+1. **Best-fit installed local model** - every cached llamafile, loadable GGUF, and pulled Ollama tag scored via `llmfit`. Requires `llmfit` on `PATH`; skipped (no cost) when it isn't installed.
+2. **Cloud fallback** - the first provider with both an API key env var set and a known representative model (`gpt-4o` for OpenAI, `claude-sonnet-4-6` for Anthropic, ...).
+3. **Fixed tiers** - if neither finds anything, falls through to the same fixed-order pick described below.
 
-Workflow mode has the same sentinel via `model: auto-router` on a chat resource -- see [LLM Backends](/resources/llm-routing#auto-router-zero-config-fully-automatic).
+Workflow mode has the same sentinel via `model: auto-router` on a chat resource - see [LLM backends](/resources/llm-routing#auto-router-zero-config-fully-automatic).
 
 ## How a model is picked when none is configured
 
 With no `--model` flag, no saved default, and no `model:` in `~/.kdeps/config.yaml`, kdeps first checks whether `llmfit` is installed (`brew install AlexsJones/llmfit/llmfit`): if it is, and at least one local model (llamafile/GGUF/Ollama) is already downloaded, kdeps starts with whichever downloaded model llmfit scores as the best hardware fit for this machine, skipping the fixed order below entirely.
 
-Otherwise -- no `llmfit`, or nothing downloaded yet -- kdeps picks the first option that is actually usable, in this fixed order:
+Otherwise - no `llmfit`, or nothing downloaded yet - kdeps picks the first option that is actually usable, in this fixed order:
 
 1. **llamafile** - the `llamafile` runner binary on `PATH`, or a cached `*.llamafile` in the models directory (a `.llamafile` is self-executing, so no runner is needed).
 2. **GGUF** - the first `*.gguf` in the models directory that `llama-server` can load. Files with an unreadable header or a GGUFv1 container are skipped: current llama.cpp builds refuse them (`GGUFv1 is no longer supported`), so serving one would start a server that exits immediately and fail every request.
@@ -145,7 +145,7 @@ Favorites are saved to `~/.kdeps/agent-loop-settings.yaml`, shown first (marked 
 # List GGUF files and sizes inside a repo
 /model hff info unsloth/Qwen2.5-VL-7B-Instruct-GGUF
 
-# Download a specific file — registers it as an alias in ~/.kdeps/gguf_versions.yaml
+# Download a specific file - registers it as an alias in ~/.kdeps/gguf_versions.yaml
 /model hff download unsloth/Qwen2.5-VL-7B-Instruct-GGUF Qwen2.5-VL-7B-Instruct-Q4_K_M.gguf
 
 # Switch to it immediately after download
@@ -169,8 +169,8 @@ PID      PORT   BACKEND      MODEL                                STATUS
 /model ps switch phi4         # set active model to an already-running server
 ```
 
-## See Also
+## See also
 
-- [Agent Loop Mode](/modes/agent-loop-mode) -- overview and starting the REPL
-- [LLM Backends & Routing](/resources/llm-backends) -- the workflow-mode equivalent of `auto`/`auto-router`
-- [REPL Slash Commands](/modes/agent-loop-commands) -- full command reference
+- [Agent loop mode](/modes/agent-loop-mode) - overview and starting the REPL
+- [LLM backends & routing](/resources/llm-backends) - the workflow-mode equivalent of `auto`/`auto-router`
+- [REPL slash commands](/modes/agent-loop-commands) - full command reference

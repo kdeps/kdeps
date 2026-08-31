@@ -2,9 +2,11 @@
 
 Common errors, what they mean, and how to fix them.
 
-## Dependency Errors
+*Applies to both workflow mode and agent mode.*
 
-### dependency cycle detected
+## Dependency errors
+
+### Dependency cycle detected
 
 ```
 Error: dependency cycle detected (code: DEPENDENCY_CYCLE)
@@ -14,7 +16,7 @@ Two or more resources form a circular [`requires`](/reference/glossary#requires)
 
 Fix: break the cycle by removing one of the `requires` edges. If both resources genuinely need each other's output, merge them into a single resource.
 
-### resource 'X' depends on unknown resource 'Y'
+### Resource 'x' depends on unknown resource 'y'
 
 ```
 Error: resource 'fetchData' depends on unknown resource 'missingResource'
@@ -24,7 +26,7 @@ A `requires` field references an actionId that doesn't exist in the workflow.
 
 Fix: check for typos in the `requires` list, or add the missing resource. ActionIds are case-sensitive.
 
-### target resource 'X' not found
+### Target resource 'x' not found
 
 ```
 Error: target resource 'respond' not found
@@ -34,7 +36,7 @@ Error: target resource 'respond' not found
 
 Fix: ensure the actionId in [`targetActionId`](/reference/glossary#targetactionid) matches exactly (case-sensitive) one of the resources in the workflow.
 
-## Validation Errors
+## Validation errors
 
 ### Input validation failed
 
@@ -60,7 +62,7 @@ Fix: validate the expression syntax. Common causes:
 - Misspelled function names (`get` not `Get`, `len` not `length`)
 - Referencing a key that doesn't exist without a nil check
 
-## Expression Errors
+## Expression errors
 
 ### Expression evaluation failed
 
@@ -72,7 +74,7 @@ An expression in `before:`, `after:`, or [`validations`](/reference/glossary#val
 
 Common causes:
 - **Type mismatch**: `get('age') > 'old'` (comparing number to string)
-- **Nil access**: `lower(get('name'))` when name is nil -- use `lower(get('name') ?? '')` instead
+- **Nil access**: `lower(get('name'))` when name is nil - use `lower(get('name') ?? '')` instead
 - **Undefined function**: using a function that doesn't exist in expr-lang
 
 ### Missing value in string interpolation
@@ -83,9 +85,9 @@ If `{{ get('missingKey') }}` renders as empty string, the key doesn't exist in a
 
 </div>
 
-## LLM / Chat Errors
+## LLM / chat errors
 
-### model not found
+### Model not found
 
 ```
 Error: model 'llama3.2' not found
@@ -122,7 +124,7 @@ Fix: set the appropriate environment variable:
 - Anthropic: `ANTHROPIC_API_KEY`
 - Or pass via `KDEPS_AGENT_BASE_URL` headers
 
-## HTTP Client Errors
+## HTTP client errors
 
 ### Resource execution timed out
 
@@ -153,7 +155,7 @@ Fix:
 - Check network connectivity from the kdeps host
 - If the service is behind a VPN or firewall, ensure access is allowed
 
-## Python Errors
+## Python errors
 
 ### Python script failed
 
@@ -168,7 +170,7 @@ Fix: check stderr output. Run the workflow with `--debug` to see full Python out
 - Syntax error in inline script
 - Python version incompatibility
 
-## Exec Errors
+## Exec errors
 
 ### Command not found
 
@@ -180,7 +182,7 @@ The shell command isn't available on the system.
 
 Fix: install the command or use the full path. Verify the command works in a regular shell first.
 
-## Loop Errors
+## Loop errors
 
 ### Loop exceeded max iterations
 
@@ -191,11 +193,11 @@ Error: loop exceeded maxIterations (1000)
 A `loop.while` condition never became false, and the safety cap stopped execution.
 
 Fix:
-- Check the `while` expression -- is it ever becoming false?
+- Check the `while` expression - is it ever becoming false?
 - Increase `maxIterations` if you genuinely need more iterations
 - Add an `every` delay to slow the loop if it's running too fast
 
-## Authentication Errors
+## Authentication errors
 
 ### 401 Unauthorized
 
@@ -217,7 +219,7 @@ curl -X POST http://localhost:16395/api/v1/chat \
   -d '{"q": "hello"}'
 ```
 
-`/health` is exempt. `/_kdeps/*` management routes use `KDEPS_MANAGEMENT_TOKEN`, not `KDEPS_API_AUTH_TOKEN`. See [Security Reference](/reference/security).
+`/health` is exempt. `/_kdeps/*` management routes use `KDEPS_MANAGEMENT_TOKEN`, not `KDEPS_API_AUTH_TOKEN`. See [Security reference](/reference/security).
 
 If the server refuses to start, set `KDEPS_API_AUTH_TOKEN` or `api_auth_token` in `~/.kdeps/config.yaml` before running `kdeps run`.
 
@@ -239,9 +241,9 @@ kdeps validate workflow.yaml
 
 Checks the workflow schema, dependency graph, and expression syntax without running any actions.
 
-## See Also
+## See also
 
-- [Execution Flow](/guides/execution-flow) -- how the DAG resolves and runs
-- [Validation & Control Flow](/concepts/validation-and-control) -- skip and check logic
-- [Expression Functions Reference](/reference/expression-functions-reference) -- all available functions
-- [CLI Reference](/reference/cli/) -- all flags and commands
+- [Execution flow](/guides/execution-flow) - how the DAG resolves and runs
+- [Validation & control flow](/concepts/validation-and-control) - skip and check logic
+- [Expression functions reference](/reference/expression-functions-reference) - all available functions
+- [CLI reference](/reference/cli/) - all flags and commands

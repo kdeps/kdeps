@@ -1,6 +1,6 @@
-# Input Sources
+# Input sources
 
-kdeps workflows receive input through three sources: HTTP API, chat bots, and file input. Configure the source in `settings` inside `workflow.yaml`.
+kdeps workflows receive input through three sources: HTTP API, chat bots, and file input. Configure the source in `settings` inside `workflow.yaml`. This is a workflow mode concept - it controls how a running workflow is fed.
 
 ## Overview
 
@@ -12,7 +12,7 @@ kdeps workflows receive input through three sources: HTTP API, chat bots, and fi
 
 The default source is `api`. If no input config is specified, the workflow starts an HTTP API server on port 16395.
 
-## API Source
+## API source
 
 The `api` source starts an HTTP REST server. This is the default for all workflows.
 
@@ -31,7 +31,7 @@ Requests are JSON and routed to resources based on `metadata.targetActionId` in 
 
 Use `validations.methods` and `validations.routes` in individual resources to scope them to specific routes.
 
-## Bot Source
+## Bot source
 
 The `bot` source connects to chat platforms. Supported platforms: Discord, Slack, Telegram, WhatsApp.
 
@@ -61,7 +61,7 @@ Execution types:
 - `polling` (default): Long-running persistent connection. Blocks until SIGINT/SIGTERM.
 - `stateless`: Reads one message from stdin as JSON, executes the workflow once, writes the reply to stdout, then exits.
 
-## File Source
+## File source
 
 The `file` source reads file content from stdin, the `KDEPS_FILE_PATH` environment variable, or a configured path. The workflow executes once and exits.
 
@@ -90,8 +90,17 @@ kdeps run workflow.yaml --interactive
 
 This opens a terminal REPL where you can send prompts and invoke tools interactively.
 
-## See Also
+## Use cases
 
-- [Workflow Configuration](../configuration/workflow) - Full `settings` reference
-- [Workflow Mode](../modes/workflow-mode) - How the request-response cycle works
-- [Bot Configuration](../configuration/workflow#bot-source) - Full bot settings
+- Serve a workflow as an HTTP JSON API for a frontend or another service
+  (`api`).
+- Run a workflow as a chat bot on Discord, Slack, Telegram, or WhatsApp
+  (`bot`).
+- Process one file per invocation from a pipeline, cron job, or CI step
+  (`file`).
+
+## See also
+
+- [Workflow configuration](/configuration/workflow) - full `settings` reference
+- [Workflow mode](/modes/workflow-mode) - how the request-response cycle works
+- [Bot configuration](/configuration/workflow#bot-source) - full bot settings

@@ -1,6 +1,8 @@
-# Session Configuration
+# Session configuration
 
 Sessions let resources persist values across multiple requests from the same caller using `set('key', val, 'session')`. Configure the storage backend in `workflow.yaml` under `settings.session:`.
+
+*Applies to both workflow mode and agent mode.*
 
 | Type | Persistence | Use Case |
 |------|-------------|----------|
@@ -19,11 +21,11 @@ settings:
     cleanupInterval: "5m"           # Cleanup frequency
 ```
 
-## Session Types
+## Session types
 
 ### SQLite (recommended for production)
 
-Persists to a file -- survives restarts and can be shared via a mounted volume.
+Persists to a file - survives restarts and can be shared via a mounted volume.
 
 ```yaml
 # workflow.yaml
@@ -48,7 +50,7 @@ settings:
     cleanupInterval: "5m"
 ```
 
-## TTL (Time To Live)
+## TTL (time to live)
 
 Session expiration durations:
 
@@ -61,9 +63,9 @@ ttl: "24h"    # 24 hours
 ttl: "7d"     # 7 days (168h)
 ```
 
-## Using Sessions
+## Using sessions
 
-### Store Data
+### Store data
 
 ```yaml
 # resources/example.yaml
@@ -78,7 +80,7 @@ after:
   - set('visits', get('visits', 'session') + 1, 'session')
 ```
 
-### Retrieve Data
+### Retrieve data
 
 <div v-pre>
 
@@ -94,7 +96,7 @@ chat:
 
 ## Examples
 
-### Login Session
+### Login session
 
 <div v-pre>
 
@@ -124,7 +126,7 @@ apiResponse:
 
 </div>
 
-### Protected Route
+### Protected route
 
 <div v-pre>
 
@@ -145,7 +147,7 @@ chat:
 
 </div>
 
-### Shopping Cart
+### Shopping cart
 
 ```yaml
 # Add to cart
@@ -171,7 +173,7 @@ apiResponse:
     total: sum(map(get('cart', 'session'), .price))
 ```
 
-### User Preferences
+### User preferences
 
 <div v-pre>
 
@@ -223,9 +225,9 @@ session:
   cleanupInterval: "5m"   # Check for expired sessions every 5 minutes
 ```
 
-## Docker Considerations
+## Docker considerations
 
-### Persistent Volume
+### Persistent volume
 
 For SQLite sessions in Docker:
 
@@ -248,14 +250,14 @@ settings:
     path: "/data/sessions.db"
 ```
 
-### Shared Sessions
+### Shared sessions
 
 For multiple containers sharing sessions:
 
 1. Use a shared volume for SQLite
 2. Or use an external session store (Redis, PostgreSQL)
 
-## Best Practices
+## Best practices
 
 1. **Use SQLite for production** - Survives restarts
 2. **Set appropriate TTL** - Balance security and convenience
@@ -263,15 +265,15 @@ For multiple containers sharing sessions:
 4. **Handle missing sessions** - Always provide defaults
 5. **Secure sensitive data** - Don't store passwords in sessions
 
-## Security Notes
+## Security notes
 
 - Sessions are identified by a unique ID
 - Session IDs should be transmitted securely (HTTPS)
 - Implement logout by clearing session data
 - Set reasonable TTL to limit exposure
 
-## See Also
+## See also
 
-- [Workflow Configuration](workflow.md) - Full settings reference
+- [Workflow configuration](workflow.md) - Full settings reference
 - [Unified API](../concepts/unified-api.md) - get() and set() usage
-- [Docker Deployment](../deployment/docker.md) - Production setup
+- [Docker deployment](../deployment/docker.md) - Production setup

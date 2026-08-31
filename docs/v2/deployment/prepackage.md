@@ -1,6 +1,8 @@
-# Prepackage -- Standalone Executables
+# Prepackage - standalone executables
 
-`kdeps bundle prepackage` embeds a `.kdeps` workflow archive directly into the kdeps binary, producing a single self-contained executable per architecture. Copy it to the target machine and run it -- no kdeps installation required.
+`kdeps bundle prepackage` embeds a `.kdeps` workflow archive directly into the kdeps binary, producing a single self-contained executable per architecture. Copy it to the target machine and run it - no kdeps installation required.
+
+*Applies to workflow mode.*
 
 ## Overview
 
@@ -18,9 +20,9 @@ kdeps bundle prepackage myagent-1.0.0.kdeps --output dist/
 kdeps bundle prepackage myagent-1.0.0.kdeps --kdeps-version 2.0.1
 ```
 
-## How It Works
+## How it works
 
-The archive is appended to the kdeps binary. A 24-byte magic trailer marks where the archive starts so the binary can find it at startup. When you run the prepackaged binary, it detects the embedded `.kdeps` archive and runs it automatically -- exactly like `kdeps run`.
+The archive is appended to the kdeps binary. A 24-byte magic trailer marks where the archive starts so the binary can find it at startup. When you run the prepackaged binary, it detects the embedded `.kdeps` archive and runs it automatically - exactly like `kdeps run`.
 
 ```d2
 direction: down
@@ -32,7 +34,7 @@ C: "24-byte trailer\n8-byte size field + 16-byte magic 'KDEPS_PACK'"
 A -> B -> C
 ```
 
-## Typical Workflow
+## Typical workflow
 
 ```bash
 # 1. Create your agent
@@ -51,7 +53,7 @@ kdeps bundle prepackage dist/my-agent-1.0.0.kdeps --output dist/
 ./dist/my-agent-1.0.0-linux-amd64
 ```
 
-## Supported Targets
+## Supported targets
 
 | Target          | Output filename                    |
 |-----------------|------------------------------------|
@@ -66,10 +68,10 @@ kdeps bundle prepackage dist/my-agent-1.0.0.kdeps --output dist/
 | Flag | Default | Description |
 |------|---------|-------------|
 | `--output`, `-o` | `.` | Directory where binaries are written |
-| `--arch` | *(all)* | Limit to one target: `linux-amd64`, `darwin-arm64`, … |
+| `--arch` | *(all)* | Limit to one target: `linux-amd64`, `darwin-arm64`, ... |
 | `--kdeps-version` | *(running version)* | Specific kdeps release to download as base binary |
 
-## Cross-Architecture Builds
+## Cross-architecture builds
 
 For the **host architecture**, `prepackage` reuses the running kdeps binary as
 the base.  For all other architectures, it downloads the corresponding release
@@ -80,7 +82,7 @@ This means cross-arch builds require:
 - Internet access during the `prepackage` step
 
 ```bash
-# Works immediately for the host arch — no download required
+# Works immediately for the host arch - no download required
 kdeps bundle prepackage myagent.kdeps --arch linux-amd64  # on a Linux/amd64 host
 
 # Requires download from GitHub Releases
@@ -93,7 +95,7 @@ architecture binary is produced.  Specify `--kdeps-version <release>` to
 produce cross-arch binaries even from a dev build.
 :::
 
-## Re-Prepackaging
+## Re-prepackaging
 
 `prepackage` is idempotent.  If the input binary already contains an embedded
 `.kdeps` archive, the old archive is stripped before the new one is attached.
@@ -103,7 +105,7 @@ This means you can safely re-prepackage a binary with an updated workflow:
 # First release
 kdeps bundle prepackage myagent-1.0.0.kdeps --output dist/
 
-# Updated workflow — re-prepackage the same output binary
+# Updated workflow - re-prepackage the same output binary
 kdeps bundle prepackage myagent-1.1.0.kdeps --output dist/
 ```
 
@@ -130,9 +132,9 @@ A typical GitHub Actions workflow:
     path: dist/my-agent-*
 ```
 
-## Running a Prepackaged Binary
+## Running a prepackaged binary
 
-A prepackaged binary behaves exactly like `kdeps run myagent.kdeps` -- it starts an API server, processes requests, and handles all workflow steps.
+A prepackaged binary behaves exactly like `kdeps run myagent.kdeps` - it starts an API server, processes requests, and handles all workflow steps.
 
 ```bash
 # Linux/macOS
@@ -155,7 +157,7 @@ curl -X POST http://localhost:16395/api/chat \
   -d '{"message":"Hello"}'
 ```
 
-## See Also
+## See also
 
-- [Package Command](../getting-started/quickstart) — Creating `.kdeps` archives
-- [Docker Deployment](docker) — Containerized deployment
+- [Package command](../getting-started/quickstart) - Creating `.kdeps` archives
+- [Docker deployment](docker) - Containerized deployment

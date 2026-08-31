@@ -1,4 +1,4 @@
-# Email Resource
+# Email resource
 
 The `email:` resource sends outbound email via SMTP and reads or searches inbound messages via IMAP. Use it to deliver notifications, reports, and alerts from any workflow step.
 
@@ -19,7 +19,7 @@ Set `action:` to one of six values:
 | `list` | List IMAP mailboxes/folders |
 | `delete` | Delete messages from an IMAP mailbox |
 
-## Global Named Connections
+## Global named connections
 
 SMTP and IMAP credentials belong in `~/.kdeps/config.yaml`, not in `workflow.yaml`. Resources reference connections by name. This keeps all secrets in one machine-local file and out of version-controlled workflow files.
 
@@ -44,7 +44,7 @@ imap_connections:
 
 ### Interactive setup on first run
 
-If a resource references a connection that is missing from `~/.kdeps/config.yaml`, `kdeps run` prompts for its fields at startup (before the server starts) and saves them back to `config.yaml` — so you never have to hand-edit the file to get going:
+If a resource references a connection that is missing from `~/.kdeps/config.yaml`, `kdeps run` prompts for its fields at startup (before the server starts) and saves them back to `config.yaml` - so you never have to hand-edit the file to get going:
 
 ```text
 Connection "inbox" (imap) is referenced but not configured.
@@ -63,7 +63,7 @@ Values already provided by an environment variable (e.g. `DEEPSEEK_API_KEY`, `KD
 
 ### Set connections via environment variables
 
-Every named connection can be supplied entirely from the environment — no `config.yaml` entry needed — using the convention `KDEPS_<KIND>_CONNECTIONS_<NAME>_<FIELD>`. The name is matched case-insensitively and used lowercased, so reference it in lowercase in resources (`connectionName: default`, `smtpConnection: alerts`). Env values win over `config.yaml`, per field:
+Every named connection can be supplied entirely from the environment - no `config.yaml` entry needed - using the convention `KDEPS_<KIND>_CONNECTIONS_<NAME>_<FIELD>`. The name is matched case-insensitively and used lowercased, so reference it in lowercase in resources (`connectionName: default`, `smtpConnection: alerts`). Env values win over `config.yaml`, per field:
 
 ```bash
 # smtp_connections.alerts
@@ -94,7 +94,7 @@ export KDEPS_BOT_CONNECTIONS_DISCORD_BOT_TOKEN=...
 
 Env-supplied connections are picked up automatically at run time (not prompted, not written to `config.yaml`); kdeps prints a notice that it is using the connection from the environment. This is the CI-friendly way to inject connection secrets.
 
-## Sending Email
+## Sending email
 
 <div v-pre>
 
@@ -114,9 +114,9 @@ email:
 
 </div>
 
-`from` is optional when the agent has a configured [identity](/configuration/advanced#agent-identity) — it defaults to `identity.email`, so a per-agent identity means you don't have to repeat the sender address on every `email:` resource.
+`from` is optional when the agent has a configured [identity](/configuration/advanced#agent-identity) - it defaults to `identity.email`, so a per-agent identity means you don't have to repeat the sender address on every `email:` resource.
 
-HTML email — set `html: true` and put HTML in `body:`:
+HTML email - set `html: true` and put HTML in `body:`:
 
 <div v-pre>
 
@@ -153,7 +153,7 @@ email:
 {"success": true, "action": "send", "from": "...", "to": [...], "subject": "..."}
 ```
 
-## Reading Email
+## Reading email
 
 ```yaml
 # resources/check-inbox.yaml
@@ -186,7 +186,7 @@ An array of message objects:
 
 Access fields with `get('checkInbox')[0].subject`, `get('checkInbox')[0].body`, etc.
 
-## Searching Email
+## Searching email
 
 <div v-pre>
 
@@ -209,7 +209,7 @@ email:
 
 Search fields: `from`, `to`, `subject`, `body`, `since` (ISO date), `before` (ISO date), `unseen` (bool), `flagged` (bool).
 
-## Modifying Messages
+## Modifying messages
 
 <div v-pre>
 
@@ -235,7 +235,7 @@ email:
 {"success": true, "modified": 1}
 ```
 
-## Configuration Reference
+## Configuration reference
 
 ### `smtp_connections` fields (in `~/.kdeps/config.yaml`)
 
@@ -294,7 +294,7 @@ email:
 
 ## Secrets
 
-Always use environment variables -- never hardcode credentials:
+Always use environment variables - never hardcode credentials:
 
 ```yaml
 # ~/.kdeps/config.yaml
@@ -312,7 +312,7 @@ imap_connections:
 
 **Gmail:** Use an [App Password](https://support.google.com/accounts/answer/185833), not your account password. SMTP: `smtp.gmail.com:587` with `tls: false` (STARTTLS). IMAP: `imap.gmail.com:993` with `tls: true`.
 
-## Common Patterns
+## Common patterns
 
 ### Send a report after LLM generation
 
@@ -355,7 +355,7 @@ email:
   limit: 20
 ```
 
-### onError fallback for SMTP failures
+### `onError` fallback for SMTP failures
 
 ```yaml
 email:
@@ -369,3 +369,10 @@ onError:
   action: continue
   fallback: {"success": false, "message": "email delivery failed"}
 ```
+
+## See also
+
+- [Global config](/configuration/advanced) - where SMTP and IMAP credentials live
+- [Error handling (onError)](/concepts/error-handling) - retry and fallback behavior
+- [Expressions](/concepts/expressions) - templating the subject and body
+- [Resources overview](/resources/overview) - resource structure and dependencies

@@ -1,27 +1,29 @@
-# Registry Formula Specification
+# Registry formula specification
 
 A formula is the submission format for publishing a package to the kdeps registry. It is a YAML document that tells `kdeps registry install` where to download the package and how to verify it.
 
-**Formulas are the submission layer.** You PR a formula file to get listed. The registry at [kdeps.io](https://kdeps.io) runs on a database — formulas are ingested on merge and served from the DB for browsing, search, and install metadata.
+*Applies to both workflow mode and agent mode.*
+
+**Formulas are the submission layer.** You PR a formula file to get listed. The registry at [kdeps.io](https://kdeps.io) runs on a database - formulas are ingested on merge and served from the DB for browsing, search, and install metadata.
 
 Formulas live in `github.com/kdeps/registry` under `formulas/<name>.yaml`. To publish a package, open a PR adding your formula.
 
-## Formula Fields
+## Formula fields
 
 ```yaml
 # formulas/my-agent.yaml
-name: my-agent                         # required — unique package name in the registry
-version: 1.2.0                         # required — semantic version
-type: agent                            # required — component | workflow | agency
-github: owner/repo                     # required — GitHub owner/repo containing the release
+name: my-agent                         # required - unique package name in the registry
+version: 1.2.0                         # required - semantic version
+type: agent                            # required - component | workflow | agency
+github: owner/repo                     # required - GitHub owner/repo containing the release
 tarball: https://github.com/owner/repo/archive/refs/tags/v1.2.0.tar.gz  # required
-sha256: abc123...                      # required — SHA256 of the tarball; computed by kdeps registry submit
+sha256: abc123...                      # required - SHA256 of the tarball; computed by kdeps registry submit
 description: A one-line summary.       # required
-tags: [llm, chat]                      # optional — search keywords
-license: Apache-2.0                    # optional — SPDX identifier
+tags: [llm, chat]                      # optional - search keywords
+license: Apache-2.0                    # optional - SPDX identifier
 ```
 
-### Field Reference
+### Field reference
 
 | Field | Required | Description |
 |---|---|---|
@@ -35,7 +37,7 @@ license: Apache-2.0                    # optional — SPDX identifier
 | `tags` | no | List of search keywords. Use lowercase, no spaces. |
 | `license` | no | SPDX license identifier (`MIT`, `Apache-2.0`, etc.). |
 
-## Package Types
+## Package types
 
 ### Component
 
@@ -67,7 +69,7 @@ type: agency
 
 Example: `cv-matcher`, `research-pipeline`
 
-## Publishing Workflow
+## Publishing workflow
 
 ### 1. Create a release
 
@@ -107,7 +109,7 @@ Once merged, anyone can install:
 kdeps registry install my-agent
 ```
 
-## Repository Layout
+## Repository layout
 
 The registry repo structure:
 
@@ -124,8 +126,8 @@ registry/
 
 No nested directories. Flat `formulas/` folder. One file per package name. Version bumps update the existing file.
 
-## See Also
+## See also
 
-- [Registry Commands](/reference/cli/registry) — install, search, publish, verify
-- [Components Reference](/reference/components) — component.yaml reference
-- [Packaging Commands](/reference/cli/packaging) — archive formats
+- [Registry commands](/reference/cli/registry) - install, search, publish, verify
+- [Components reference](/reference/components) - component.yaml reference
+- [Packaging commands](/reference/cli/packaging) - archive formats

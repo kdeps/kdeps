@@ -1,6 +1,6 @@
-# LLM Resource
+# LLM resource
 
-The `chat:` resource sends a prompt to a language model and stores the response as the resource's output. The output is the raw response object -- the reply text is at `get('id').message.content`. With `jsonResponse: true` the output is the parsed JSON object instead.
+The `chat:` resource sends a prompt to a language model and stores the response as the resource's output. The output is the raw response object - the reply text is at `get('id').message.content`. With `jsonResponse: true` the output is the parsed JSON object instead.
 
 ## Where it runs
 
@@ -28,11 +28,11 @@ llm:
 
 With the default `file` backend, `model: llama3.2:1b` resolves to a local
 llamafile that is downloaded once (~1.1 GB) and served automatically - see
-[LLM Backends](llm-backends#the-default-llamafile-file-backend).
+[LLM backends](llm-backends#the-default-llamafile-file-backend).
 
-Set `model: router` to delegate model selection to the router configured in `~/.kdeps/config.yaml`. See [LLM Backends](llm-backends) for routing strategies.
+Set `model: router` to delegate model selection to the router configured in `~/.kdeps/config.yaml`. See [LLM backends](llm-backends) for routing strategies.
 
-If a `chat` resource uses a cloud model (e.g. `model: deepseek-chat`) whose provider API key is missing from `config.yaml`, `kdeps run` prompts for the key at startup, saves `llm.<provider>_api_key`, and — when no default backend is set — points `llm.backend` at that provider so the model routes correctly. This is interactive-only; in CI/pipes the prompt is skipped. See [Interactive setup on first run](email.md#interactive-setup-on-first-run).
+If a `chat` resource uses a cloud model (e.g. `model: deepseek-chat`) whose provider API key is missing from `config.yaml`, `kdeps run` prompts for the key at startup, saves `llm.<provider>_api_key`, and - when no default backend is set - points `llm.backend` at that provider so the model routes correctly. This is interactive-only; in CI/pipes the prompt is skipped. See [Interactive setup on first run](email.md#interactive-setup-on-first-run).
 
 ### Model resolution order
 
@@ -44,10 +44,10 @@ resource model:  ->  config router (llm.models + strategy)  ->  first llm.models
 ```
 
 - A resource with an explicit `model:` always wins.
-- Omit `model:` to inherit the machine default: the LLM router if `llm.strategy` is set, otherwise the first entry in `llm.models`, otherwise — on the local file backend, when [`llmfit`](/modes/agent-loop-models#how-a-model-is-picked-when-none-is-configured) is installed and at least one local model is already downloaded — whichever downloaded model best fits this machine's hardware, otherwise the built-in `llama3.2:1b` served by the local file backend. The `llmfit` tier is a no-op (falls straight to the built-in default) when `llmfit` isn't installed or nothing is downloaded yet.
-- A cloud/gguf/ollama backend with **no** model and **no** `llm.models` errors at run time, because kdeps will not guess a model that backend cannot serve — set `model:` on the resource or `llm.models` in `config.yaml`.
+- Omit `model:` to inherit the machine default: the LLM router if `llm.strategy` is set, otherwise the first entry in `llm.models`, otherwise - on the local file backend, when [`llmfit`](/modes/agent-loop-models#how-a-model-is-picked-when-none-is-configured) is installed and at least one local model is already downloaded - whichever downloaded model best fits this machine's hardware, otherwise the built-in `llama3.2:1b` served by the local file backend. The `llmfit` tier is a no-op (falls straight to the built-in default) when `llmfit` isn't installed or nothing is downloaded yet.
+- A cloud/gguf/ollama backend with **no** model and **no** `llm.models` errors at run time, because kdeps will not guess a model that backend cannot serve - set `model:` on the resource or `llm.models` in `config.yaml`.
 
-## Basic Usage
+## Basic usage
 
 <div v-pre>
 
@@ -107,7 +107,7 @@ chat:
     - answer
     - confidence
 
-  # strict JSON schema (OpenAI models only) — enforces exact output shape
+  # strict JSON schema (OpenAI models only) - enforces exact output shape
   # use this instead of jsonResponseKeys when you need guaranteed structure
   jsonSchema:
     type: object
@@ -157,9 +157,9 @@ chat:
 
 </div>
 
-## Advanced Parameters
+## Advanced parameters
 
-Full sampling control — all fields are optional and fall back to the model's provider defaults.
+Full sampling control - all fields are optional and fall back to the model's provider defaults.
 
 ```yaml
 # resources/example.yaml
@@ -178,7 +178,7 @@ chat:
     - "###"
 ```
 
-## Context Length
+## Context length
 
 Control the context window:
 
@@ -188,7 +188,7 @@ chat:
   contextLength: 8192  # Options: 4096, 8192, 16384, 32768, 65536, 131072, 262144
 ```
 
-## Scenario (Conversation History)
+## Scenario (conversation history)
 
 Build multi-turn conversations:
 
@@ -216,7 +216,7 @@ chat:
 
 </div>
 
-## JSON Response
+## JSON response
 
 Get structured JSON output:
 
@@ -246,7 +246,7 @@ Output:
 }
 ```
 
-## Vision (File Attachments)
+## Vision (file attachments)
 
 Process images (set a vision-capable model in `chat.model` in your resource file):
 
@@ -264,7 +264,7 @@ chat:
 
 </div>
 
-## Tools (Function Calling)
+## Tools (function calling)
 
 Enable LLMs to call other resources:
 
@@ -301,7 +301,7 @@ chat:
 
 </div>
 
-### Tool Loop Behavior
+### Tool loop behavior
 
 kdeps runs the tool loop one call at a time, regardless of backend: if a model
 returns several tool calls in one turn, only the first is executed. A batched
@@ -311,7 +311,7 @@ step-by-step loop where each call reacts to the previous tool's actual output.
 Set `KDEPS_ALLOW_MULTI_TOOL=1` to restore batched execution. `maxToolRounds` on
 the `chat:` resource still bounds how many one-at-a-time rounds the loop runs.
 
-### Component Tools (Opt-In Allowlist)
+### Component tools (opt-in allowlist)
 
 Expose installed components as LLM function-calling tools:
 
@@ -329,7 +329,7 @@ chat:
     - search
 ```
 
-## Chain-of-Thought
+## Chain-of-thought
 
 `chainOfThought: true` injects a "think step-by-step" system prompt prefix before the first system message. The model reasons explicitly before answering. Works with any provider.
 
@@ -340,7 +340,7 @@ chat:
   chainOfThought: true   # prepend CoT instruction to the system prompt
 ```
 
-## Semantic Few-Shot Selection
+## Semantic few-shot selection
 
 When you have many examples and want semantic (embedding-based) selection instead of word-overlap, set `fewShotEmbeddingModel` and `fewShotEmbeddingBackend`. The K most similar examples are chosen by embedding cosine similarity.
 
@@ -361,7 +361,7 @@ chat:
 
 Requires `fewShotSelectK` to be set. Falls back to word-overlap if no embedding model is configured.
 
-## Prompt Caching (Anthropic)
+## Prompt caching (Anthropic)
 
 `promptCaching: true` enables Anthropic server-side prompt caching. kdeps adds the required `anthropic-beta: prompt-caching-2024-07-31` header automatically. Reduces latency and cost for repeated long system prompts.
 
@@ -392,7 +392,7 @@ chat:
       prompt: What is 2+2?
 ```
 
-## Extended Output (Anthropic)
+## Extended output (Anthropic)
 
 `anthropicExtendedOutput: true` enables 128K output tokens via the `interleaved-thinking-2025-05-14` beta header. Use with models that support extended output (e.g. `claude-sonnet-4-20250514`).
 
@@ -404,7 +404,7 @@ chat:
   maxTokens: 16000
 ```
 
-## Anthropic Beta Headers
+## Anthropic beta headers
 
 `anthropicBetaHeaders` passes arbitrary beta feature headers to Anthropic. Each string is appended to the `anthropic-beta` header value.
 
@@ -417,7 +417,7 @@ chat:
     - interleaved-thinking-2025-05-14
 ```
 
-## OpenAI Legacy Token Param
+## OpenAI legacy token param
 
 Older OpenAI-compatible servers (Azure, self-hosted) use `max_tokens` instead of `max_completion_tokens`. Set `openAILegacyMaxTokens: true` to send the old parameter name.
 
@@ -429,7 +429,7 @@ chat:
   maxTokens: 1000
 ```
 
-## Google AI: Cached Content
+## Google AI: cached content
 
 `googleCachedContent` specifies the name of a Google AI CachedContent resource to attach to the request. Use with the `google_cache_create` built-in tool to pre-cache large context.
 
@@ -441,7 +441,7 @@ chat:
   prompt: "{{ get('q') }}"
 ```
 
-## Google AI: Safety Threshold
+## Google AI: safety threshold
 
 `googleHarmThreshold` controls how aggressively Google's safety filters block responses.
 
@@ -461,7 +461,7 @@ chat:
   prompt: "{{ get('q') }}"
 ```
 
-## Vertex AI (Google Cloud)
+## Vertex AI (google cloud)
 
 `googleCloudProject` and `googleCloudLocation` target Google's Vertex AI endpoint instead of the standard AI Studio endpoint.
 
@@ -476,7 +476,7 @@ chat:
 
 See [LLM Backends - Vertex AI](llm-backends#vertex-ai-google-cloud) for backend configuration.
 
-## Ollama Native Options
+## Ollama native options
 
 Native Ollama options available only when the backend is `ollama`.
 
@@ -490,7 +490,7 @@ chat:
   ollamaPullTimeout: "10m"      # timeout for model pull; applies only when ollamaPullModel: true
 ```
 
-## Sampling: Candidate Count
+## Sampling: candidate count
 
 `candidateCount` (or its alias `n`) requests N independent completions from the model. The response contains all candidates; kdeps merges them into the output object. Not all providers support multiple candidates.
 
@@ -502,7 +502,7 @@ chat:
   # n: 3             # alias for candidateCount (OpenAI style)
 ```
 
-## Sampling: Length Bounds
+## Sampling: length bounds
 
 `minLength` and `maxLength` set lower and upper bounds on generated token count. `maxLength` is an alias for `maxTokens`.
 
@@ -516,7 +516,7 @@ chat:
 
 ## Streaming (Ollama only)
 
-Set `streaming: true` to have Ollama stream the response as NDJSON chunks. KDeps accumulates all chunks and returns the same response shape as non-streaming.
+Set `streaming: true` to have Ollama stream the response as NDJSON chunks. kdeps accumulates all chunks and returns the same response shape as non-streaming.
 
 <div v-pre>
 
@@ -529,9 +529,9 @@ chat:
 
 </div>
 
-## Few-Shot Prompting
+## Few-shot prompting
 
-Inject example user/assistant pairs before the conversation to demonstrate the expected output format. Like calling a function with example inputs and outputs — the model learns the pattern from the examples.
+Inject example user/assistant pairs before the conversation to demonstrate the expected output format. Like calling a function with example inputs and outputs - the model learns the pattern from the examples.
 
 <div v-pre>
 
@@ -597,7 +597,7 @@ chat:
 
 Both fields can be combined: `fewShotSelectK` ranks examples by similarity first, then `fewShotMaxTokens` prunes the result to the token budget. Pairs (user + assistant) are always kept whole.
 
-## RAG Context Injection
+## RAG context injection
 
 Pass pre-fetched retriever chunks into the system prompt with `retrieverContext`. Each chunk becomes a "Retrieved context:" block prepended to the first system message. Populate this from a `vectorStore:` action output.
 
@@ -650,7 +650,7 @@ When combined, `retrieverContextTopK` selects by relevance first, then `retrieve
 
 ## Examples
 
-### Simple Q&A
+### Simple q&A
 
 <div v-pre>
 
@@ -670,7 +670,7 @@ chat:
 
 </div>
 
-### Code Generation
+### Code generation
 
 <div v-pre>
 
@@ -693,7 +693,7 @@ chat:
 
 </div>
 
-### Multi-Resource Pipeline
+### Multi-resource pipeline
 
 <div v-pre>
 
@@ -725,7 +725,7 @@ chat:
 
 </div>
 
-## Accessing Output
+## Accessing output
 
 ```yaml
 # resources/example.yaml
@@ -737,8 +737,8 @@ apiResponse:
     parsed: get('llmResource').answer            # if jsonResponse: true with key "answer"
 ```
 
-## See Also
+## See also
 
-- [LLM Backends](llm-backends) - Configure model, backend, API keys, and routing
+- [LLM backends](llm-backends) - Configure model, backend, API keys, and routing
 - [Tools](../concepts/tools) - LLM function calling
-- [Docker Deployment](../deployment/docker) - Deploying with local models
+- [Docker deployment](../deployment/docker) - Deploying with local models

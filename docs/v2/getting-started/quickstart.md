@@ -1,26 +1,33 @@
 # Quickstart
 
-Already have kdeps running? This quickstart shows you how to build your first workflow.
+Build a working LLM API with kdeps in under five minutes.
 
-New to kdeps? Start here: [Run locally in 30 seconds](/getting-started/local-agent)
+## Overview
 
----
+This quickstart guides you through:
 
-Build a working LLM API in under five minutes.
+- Creating a project
+- Writing a two-resource workflow (an LLM call and a response)
+- Running it as an HTTP API in workflow mode
+- Calling the same workflow as a tool in agent mode
 
-## Prerequisites
+It is for developers who have used a terminal and an HTTP API before. It
+assumes no prior kdeps knowledge. New to kdeps? Start with
+[Run locally in 30 seconds](/getting-started/local-agent) first.
 
-Install kdeps:
+## Before you start
+
+No LLM server is needed: models run as local
+[llamafiles](https://github.com/Mozilla-Ocho/llamafile) (the default `file`
+backend). The default model (`llama3.2:1b`, ~1.1 GB) is confirmed, then
+downloaded to `~/.kdeps/models/` automatically on first run.
+
+## Install
 
 ```bash
 # macOS / Linux
 curl -LsSf https://raw.githubusercontent.com/kdeps/kdeps/main/install.sh | sh
 ```
-
-No LLM server needed: models run as local
-[llamafiles](https://github.com/Mozilla-Ocho/llamafile) (the default `file`
-backend). The default model (`llama3.2:1b`, ~1.1 GB) is confirmed then downloaded to
-`~/.kdeps/models/` automatically on first run.
 
 ## Create a project
 
@@ -110,7 +117,7 @@ export KDEPS_API_AUTH_TOKEN=dev-token
 kdeps run workflow.yaml
 ```
 
-You can also set `api_auth_token` in `~/.kdeps/config.yaml`. See [Security Reference](/reference/security).
+You can also set `api_auth_token` in `~/.kdeps/config.yaml`. See [Security reference](/reference/security).
 
 Test the API:
 
@@ -163,9 +170,10 @@ kdeps ./agents/
 
 The agent REPL starts. Type a prompt and the LLM calls your workflow tools as needed.
 
-## See Also
+## Next steps
 
-- [Modes](/modes/workflow-mode) - Understand workflow and agent modes
-- [Workflow Configuration](../configuration/workflow) - Full `workflow.yaml` reference
-- [Resources Overview](../resources/overview) - All resource types
-- [CLI Reference](/reference/cli/) - All commands and flags
+- [Workflow mode](/modes/workflow-mode) - how the DAG pipeline runs
+- [Agent loop mode](/modes/agent-loop-mode) - the interactive LLM loop
+- [workflow.yaml reference](/configuration/workflow) - every field
+- [Resources overview](/resources/overview) - all resource types
+- [CLI reference](/reference/cli/) - all commands and flags

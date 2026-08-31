@@ -1,7 +1,9 @@
-# Agent Skills
+# Agent skills
 
 Coding agents (Claude Code, Cursor, Grok, and others) can scaffold kdeps
 projects for you when you install the **kdeps skill**.
+
+*Applies to agent mode.*
 
 ## Install the skill
 
@@ -31,7 +33,7 @@ or agency.
 - All 15 primary resource actions plus `apiResponse`
 - Workflow input (`api`, `bot`, `file`), `webServer`, session, and agent REPL (`kdeps [path]`)
 - Expressions, validation, and error handling
-- **Registry-ready packaging** — every scaffold includes `kdeps.pkg.yaml` for
+- **Registry-ready packaging** - every scaffold includes `kdeps.pkg.yaml` for
   [kdeps.io](https://kdeps.io) distribution
 
 ## Publishing to kdeps.io
@@ -63,7 +65,7 @@ The skill teaches agents how to write YAML that installs from
 
 ## See also
 
-- [Registry](https://kdeps.io) — browse and install community packages
-- [Components](/concepts/components) — reusable resource bundles
-- [Agencies](/concepts/agency) — multi-agent orchestration
-- [Skill repository](https://github.com/kdeps/skill) — source and test fixtures
+- [Registry](https://kdeps.io) - browse and install community packages
+- [Components](/concepts/components) - reusable resource bundles
+- [Agencies](/concepts/agency) - multi-agent orchestration
+- [Skill repository](https://github.com/kdeps/skill) - source and test fixtures

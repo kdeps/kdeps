@@ -1,4 +1,4 @@
-# Python Resource
+# Python resource
 
 The `python:` resource runs a Python script and stores its stdout (parsed as JSON) as the resource's output.
 
@@ -30,9 +30,9 @@ python:
 
 </div>
 
-`script` and `scriptFile` are mutually exclusive. The script must write valid JSON to stdout -- that output becomes `get('actionId')` for downstream resources.
+`script` and `scriptFile` are mutually exclusive. The script must write valid JSON to stdout - that output becomes `get('actionId')` for downstream resources.
 
-## Inline Scripts
+## Inline scripts
 
 <div v-pre>
 
@@ -58,7 +58,7 @@ python:
 
 </div>
 
-## Script Files
+## Script files
 
 <div v-pre>
 
@@ -96,7 +96,7 @@ result = {"status": "success", "mode": args.mode}
 print(json.dumps(result))
 ```
 
-## Python Packages
+## Python packages
 
 Configure Python packages in your workflow:
 
@@ -121,9 +121,9 @@ settings:
     lockFile: "uv.lock"
 ```
 
-KDeps uses [uv](https://github.com/astral-sh/uv) for fast Python package management (97% smaller than Anaconda).
+kdeps uses [uv](https://github.com/astral-sh/uv) for fast Python package management (97% smaller than Anaconda).
 
-## Virtual Environment Isolation
+## Virtual environment isolation
 
 Use separate virtual environments for different resources:
 
@@ -148,7 +148,7 @@ python:
     # ...
 ```
 
-## Output Handling
+## Output handling
 
 Python scripts must output JSON to stdout:
 
@@ -160,7 +160,7 @@ result = {
     "data": [1, 2, 3]
 }
 
-# This is how KDeps captures the output
+# This is how kdeps captures the output
 print(json.dumps(result))
 ```
 
@@ -179,7 +179,7 @@ apiResponse:
     data: get('pythonResource').data
 ```
 
-## Environment Variables
+## Environment variables
 
 Access environment variables in scripts:
 
@@ -200,7 +200,7 @@ api_key = os.environ.get('API_KEY')
 debug = os.environ.get('DEBUG') == 'true'
 ```
 
-## Accessing Output Details
+## Accessing output details
 
 Access stdout, stderr, and exit codes from other resources:
 
@@ -221,9 +221,9 @@ apiResponse:
 
 See [Unified API](../concepts/unified-api.md#resource-specific-accessors) for details.
 
-## See Also
+## See also
 
-- [Python Examples](/reference/python-examples) - Data transformation, ML inference, image processing, error handling, debugging
-- [Exec Resource](exec) -- shell command execution
-- [LLM Resource](llm) -- combine with AI
-- [Workflow Configuration](../configuration/workflow) -- Python settings
+- [Python examples](/reference/python-examples) - Data transformation, ML inference, image processing, error handling, debugging
+- [Exec resource](exec) - shell command execution
+- [LLM resource](llm) - combine with AI
+- [Workflow configuration](../configuration/workflow) - Python settings

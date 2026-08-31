@@ -1,4 +1,4 @@
-# Shell Execution
+# Shell execution
 
 `bash_exec`, one of the [built-in tools](/modes/agent-loop-tools), runs any shell command and streams output to the terminal. Two keyboard shortcuts change its behavior mid-run:
 
@@ -22,7 +22,7 @@ Set `KDEPS_ALLOW_BASH=false` to disable all three `bash_*` tools.
 
 ## Token savings with rtk (optional)
 
-[rtk](https://github.com/rtk-ai/rtk) is a CLI proxy that compresses command output before it reaches the LLM. `git status` costs ~300 tokens; `rtk git status` costs ~60 for the same information. If rtk is installed, `bash_exec` uses it automatically — nothing to configure.
+[rtk](https://github.com/rtk-ai/rtk) is a CLI proxy that compresses command output before it reaches the LLM. `git status` costs ~300 tokens; `rtk git status` costs ~60 for the same information. If rtk is installed, `bash_exec` uses it automatically - nothing to configure.
 
 ```text
 LLM calls bash_exec("go test ./...")
@@ -32,7 +32,7 @@ LLM calls bash_exec("go test ./...")
   -> LLM sees filtered output (up to 90% fewer tokens)
 ```
 
-Install it with `brew install rtk`, or skip it — kdeps runs your commands unchanged when rtk is absent.
+Install it with `brew install rtk`, or skip it - kdeps runs your commands unchanged when rtk is absent.
 
 | Env var | Effect |
 |---------|--------|
@@ -47,10 +47,10 @@ What this does **not** change:
 - **Workflow mode is untouched.** Only agent loop `bash_exec` uses rtk. Workflow `exec` resources keep raw output, because pipelines parse it downstream.
 
 ::: tip Verifying the right rtk
-An unrelated crate on crates.io is also named `rtk`. kdeps does not trust the name — it verifies the binary by behavior, so an impostor on your `PATH` is ignored rather than producing broken commands. Check yours with `rtk gain`: it works on the real one.
+An unrelated crate on crates.io is also named `rtk`. kdeps does not trust the name - it verifies the binary by behavior, so an impostor on your `PATH` is ignored rather than producing broken commands. Check yours with `rtk gain`: it works on the real one.
 :::
 
-## See Also
+## See also
 
-- [Built-in Tools](/modes/agent-loop-tools) -- the full tool catalog
-- [Tool Execution Monitoring](/modes/agent-loop-monitoring) -- live status lines and stall detection
+- [Built-in tools](/modes/agent-loop-tools) - the full tool catalog
+- [Tool execution monitoring](/modes/agent-loop-monitoring) - live status lines and stall detection

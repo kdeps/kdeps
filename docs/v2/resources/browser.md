@@ -1,4 +1,4 @@
-# Browser Automation Resource
+# Browser automation resource
 
 The `browser:` resource drives a real browser (Chromium, Firefox, or WebKit) via [Playwright](https://playwright.dev/). Use it to navigate pages, fill forms, run JavaScript, capture screenshots, and maintain authenticated sessions across resources.
 
@@ -6,7 +6,7 @@ The `browser:` resource drives a real browser (Chromium, Firefox, or WebKit) via
 
 Both [workflow mode](/modes/workflow-mode) and [agent mode](/modes/agent-loop-mode). In workflow mode it executes as a DAG step. In agent mode, the workflow containing this resource runs as a single callable tool.
 
-## Basic Usage
+## Basic usage
 
 ```yaml
 # resources/browse.yaml
@@ -24,15 +24,15 @@ apiResponse:
     title: "{{ get('captureTitle') }}"
 ```
 
-## Configuration Options
+## Configuration options
 
 | Option | Description | Default |
 |--------|-------------|---------|
 | `engine` | Browser engine: `chromium`, `firefox`, or `webkit` | `chromium` |
-| `url` | Initial URL to navigate to | — |
-| `waitFor` | CSS selector to wait for before running actions | — |
+| `url` | Initial URL to navigate to | - |
+| `waitFor` | CSS selector to wait for before running actions | - |
 | `headless` | Run browser in headless mode | `true` |
-| `sessionId` | Reuse a named persistent browser session | — |
+| `sessionId` | Reuse a named persistent browser session | - |
 | `timeout` | Global action timeout (e.g. `"30s"`) | `30s` |
 | `viewport.width` | Browser viewport width in pixels | `1280` |
 | `viewport.height` | Browser viewport height in pixels | `720` |
@@ -40,11 +40,11 @@ apiResponse:
 | `stealthMode` | Enable anti-bot detection features | `false` |
 | `actions` | Ordered list of browser actions | `[]` |
 
-## Action Types
+## Action types
 
 15 action types are available: `navigate`, `click`, `fill`, `type`, `upload`, `select`, [`check`](/reference/glossary#check), `uncheck`, `hover`, `scroll`, `press`, `clear`, `evaluate`, `screenshot`, `wait`. See the [Browser Action Types Reference](/reference/browser-actions) for the complete field-level documentation of each action.
 
-## Stealth Mode
+## Stealth mode
 
 Enable `stealthMode: true` to evade bot detection on websites like LinkedIn that block headless browsers. Stealth mode configures the browser with anti-detection settings including:
 
@@ -71,14 +71,14 @@ For sites with sophisticated bot detection, also consider:
 - Using a custom `userAgent` that matches your OS/browser
 - Reusing `sessionId` with pre-authenticated sessions instead of logging in fresh
 
-## Persistent Sessions
+## Persistent sessions
 
-By default each resource runs in a fresh, ephemeral browser context. Set `sessionId` to share a browser context across multiple resources or API calls — cookies, local storage, and page state are preserved.
+By default each resource runs in a fresh, ephemeral browser context. Set `sessionId` to share a browser context across multiple resources or API calls - cookies, local storage, and page state are preserved.
 
 <div v-pre>
 
 ```yaml
-# Resource 1 – log in and save the session
+# Resource 1 - log in and save the session
 browser:
   engine: chromium
   url: "https://app.example.com/login"
@@ -93,7 +93,7 @@ browser:
     - action: click
       selector: "#login-button"
 
-# Resource 2 – reuse the authenticated session
+# Resource 2 - reuse the authenticated session
 browser:
   engine: chromium
   sessionId: "user-session"
@@ -108,7 +108,7 @@ browser:
 
 ## Examples
 
-### Stealth Mode Login (Bot Detection Evasion)
+### Stealth mode login (bot detection evasion)
 
 For websites that block headless browsers, enable `stealthMode` and consider using non-headless mode to appear more human-like:
 
@@ -135,7 +135,7 @@ browser:
         wait: "3000ms"
 ```
 
-### Form Fill and Submit
+### Form fill and submit
 
 <div v-pre>
 
@@ -170,7 +170,7 @@ browser:
 
 </div>
 
-### Screenshot of a Dynamic Dashboard
+### Screenshot of a dynamic dashboard
 
 ```yaml
 # resources/dashboard-shot.yaml
@@ -193,7 +193,7 @@ browser:
       screenshot: "/tmp/dashboard.png"
 ```
 
-### Extract JavaScript-Rendered Data
+### Extract JavaScript-rendered data
 
 ```yaml
 # resources/extract-data.yaml
@@ -215,7 +215,7 @@ browser:
       products: "{{ get('extractData') }}"
 ```
 
-### Multi-Step Login with Persistent Session
+### Multi-step login with persistent session
 
 <div v-pre>
 
@@ -247,7 +247,7 @@ browser:
 
 </div>
 
-### File Upload
+### File upload
 
 ```yaml
 # resources/upload-document.yaml
@@ -286,7 +286,7 @@ before:
   - "set('title', get('captureTitle'))"
 ```
 
-## Supported Engines
+## Supported engines
 
 | Engine | Notes |
 |--------|-------|
@@ -304,8 +304,8 @@ npx playwright install chromium
 npx playwright install
 ```
 
-## See Also
+## See also
 
-- [HTTP Client](http-client) -- simple HTTP requests without a browser
-- [Scraper](scraper) -- text extraction from already-fetched pages
-- [Python](python) — Custom Python automation scripts
+- [HTTP client](http-client) - simple HTTP requests without a browser
+- [Scraper](scraper) - text extraction from already-fetched pages
+- [Python](python) - Custom Python automation scripts

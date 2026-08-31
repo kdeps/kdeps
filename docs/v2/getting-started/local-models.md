@@ -3,9 +3,11 @@ title: Local Models (Llamafile & Ollama)
 description: Run kdeps entirely offline with local models. Your code and prompts never leave your machine.
 ---
 
-# Local Models (Llamafile & Ollama)
+# Local models (llamafile & Ollama)
 
 kdeps can run entirely offline. When you use a local model backend, nothing is sent to external APIs - your prompts, code, and responses stay on your machine.
+
+*Applies to both workflow mode and agent mode.*
 
 Two local backends are supported: **llamafile** (the default, zero-install) and **Ollama** (model manager with a broader catalog).
 
@@ -156,7 +158,7 @@ llm:
   backend: gguf
 ```
 
-Known GGUF aliases (see `kdeps llamafile list` -- shares the same discovery command -- or `/model hff search <query>` in the REPL to find more): `qwen3.5`, `qwen3.5:4b`, `qwen3.5:9b`, `qwen3.5:27b`, `qwen3.5:122b`, `qwen3`, `gemma4`, `glm4.5`, `glm4.7`, `yi34`, `yi6`, `dolphin2.9`, `hermes2.5`. Each alias also has quantization variants (`-q4`, `-q6`, `-q8`, etc.) for smaller/faster or larger/more-accurate downloads.
+Known GGUF aliases (see `kdeps llamafile list` - shares the same discovery command - or `/model hff search <query>` in the REPL to find more): `qwen3.5`, `qwen3.5:4b`, `qwen3.5:9b`, `qwen3.5:27b`, `qwen3.5:122b`, `qwen3`, `gemma4`, `glm4.5`, `glm4.7`, `yi34`, `yi6`, `dolphin2.9`, `hermes2.5`. Each alias also has quantization variants (`-q4`, `-q6`, `-q8`, etc.) for smaller/faster or larger/more-accurate downloads.
 
 Environment overrides:
 - `KDEPS_LLAMA_SERVER_BIN` - path to the `llama-server` binary
@@ -176,8 +178,8 @@ This makes kdeps suitable for working with sensitive codebases, proprietary docu
 
 ---
 
-## See Also
+## See also
 
-- [LLM Backends Reference](/resources/llm-backends) - Full backend config, routing strategies, all provider options
-- [LLM Providers Reference](/reference/llm-providers) - Per-provider snippets for cloud backends
-- [Run Locally in 30 Seconds](/getting-started/local-agent) - Quick start with the agent REPL
+- [LLM backends reference](/resources/llm-backends) - Full backend config, routing strategies, all provider options
+- [LLM providers reference](/reference/llm-providers) - Per-provider snippets for cloud backends
+- [Run locally in 30 seconds](/getting-started/local-agent) - Quick start with the agent REPL

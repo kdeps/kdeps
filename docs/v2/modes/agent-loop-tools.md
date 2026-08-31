@@ -1,4 +1,4 @@
-# Built-in Tools
+# Built-in tools
 
 The [agent loop](/modes/agent-loop-mode) has access to a set of built-in tools that the LLM can call without any YAML configuration. Tools that require credentials are only registered when the relevant environment variable is set.
 
@@ -35,13 +35,13 @@ Always available. No environment variables required.
 | `memory_list` | List all stored memory keys. |
 | `memory_query` | Run an expr-lang relational query over agent state: `memory` (persistent entries), `tool_calls` (recent tool call history), `tasks` (active goal's task list). Supports `filter()`, `map()`, `join()`, `union()`. |
 
-Memory is stored per-project at `~/.kdeps/memory/<encoded-cwd>/memory.bolt`. Facts persist across sessions and are auto-extracted from every turn — the agent can write `[MEMORY: key] value` on its own line to persist a fact without calling `memory_save`. See [Persistent Memory](/concepts/memory) for details.
+Memory is stored per-project at `~/.kdeps/memory/<encoded-cwd>/memory.bolt`. Facts persist across sessions and are auto-extracted from every turn - the agent can write `[MEMORY: key] value` on its own line to persist a fact without calling `memory_save`. See [Persistent memory](/concepts/memory) for details.
 
-The `memory_*` tools are how the *model* reads and writes memory during a turn. To inspect the store yourself from the REPL, use `/memory` (overview), `/memory list` (every entry), and `/memory search <query>` — see [REPL slash commands](/modes/agent-loop-commands).
+The `memory_*` tools are how the *model* reads and writes memory during a turn. To inspect the store yourself from the REPL, use `/memory` (overview), `/memory list` (every entry), and `/memory search <query>` - see [REPL slash commands](/modes/agent-loop-commands).
 
 ## Identity tool
 
-Always available. `identity_get` returns the agent's configured name, email, and address — see [Agent Identity](/configuration/advanced#agent-identity) for how to set one. Returns "No identity configured for this agent." when unset. Never returns account credentials, even if configured; a model that can read a password can leak it in its own output.
+Always available. `identity_get` returns the agent's configured name, email, and address - see [Agent Identity](/configuration/advanced#agent-identity) for how to set one. Returns "No identity configured for this agent." when unset. Never returns account credentials, even if configured; a model that can read a password can leak it in its own output.
 
 ## Shell execution
 
@@ -59,7 +59,7 @@ Always available. No environment variables required.
 | `write_file` | Write or overwrite a file |
 | `edit_file` | Apply a unified diff to a file |
 | `list_files` | List directory contents |
-| `md5_file` | Compute a file's MD5 hash -- cheap way to check whether content actually changed |
+| `md5_file` | Compute a file's MD5 hash - cheap way to check whether content actually changed |
 | `tail_file` | Read the last N lines of a file without loading the whole thing |
 
 `write_file` and `edit_file` print a **colored diff** of what changed under the tool call - removed lines in red, added lines in green, with a couple of context lines - so you can see every change the agent makes at a glance. Large diffs (e.g. writing a whole new file) are capped. The diff is shown in the terminal only; the model receives a concise result, not the ANSI-colored text.
@@ -68,7 +68,7 @@ Always available. No environment variables required.
 
 | Tool | Required env var | Description |
 |------|-----------------|-------------|
-| `web_search` | (none -- uses DuckDuckGo) | Search the web (30s timeout, cached) |
+| `web_search` | (none - uses DuckDuckGo) | Search the web (30s timeout, cached) |
 | `wikipedia` | (none) | Fetch a Wikipedia article (30s timeout, cached) |
 | `web_scraper` | (none) | Fetch and extract text from any URL (60s timeout, cached) |
 | `serpapi_search` | `SERPAPI_API_KEY` | Google search via SerpAPI (30s timeout, cached) |
@@ -77,7 +77,7 @@ Always available. No environment variables required.
 
 Web and search tools carry a hard timeout so a hung remote endpoint cannot stall the turn. Ctrl+C during any tool call cancels the in-flight request immediately and skips the round's remaining tools. Tools marked "cached" memoize successful results for the process lifetime; failed/empty lookups are retried.
 
-While any tool runs, the REPL shows a live status line and detects hangs via a stall timeout -- see [Tool Execution Monitoring](/modes/agent-loop-monitoring) for the full mechanics.
+While any tool runs, the REPL shows a live status line and detects hangs via a stall timeout - see [Tool Execution Monitoring](/modes/agent-loop-monitoring) for the full mechanics.
 
 ## Permission modes
 
@@ -109,7 +109,7 @@ How the model is named depends on where it runs:
 | llamafile | `kdeps (hfuser/gemma4-2-9b llamafile) <noreply@kdeps.com>` |
 | GGUF | `kdeps (hfuser/gemma4-2-9b gguf) <noreply@kdeps.com>` |
 
-Cloud and Ollama models are namespaced by their provider (`provider/model`). Local llamafile and GGUF models already carry their HuggingFace namespace in the name, so the runtime is appended instead — the same repo is often published as both, and the name alone cannot tell them apart.
+Cloud and Ollama models are namespaced by their provider (`provider/model`). Local llamafile and GGUF models already carry their HuggingFace namespace in the name, so the runtime is appended instead - the same repo is often published as both, and the name alone cannot tell them apart.
 
 With no model configured, the trailer falls back to `Co-Authored-By: kdeps <noreply@kdeps.com>`.
 
@@ -117,7 +117,7 @@ A configured [identity](/configuration/advanced#agent-identity) takes priority o
 
 ## Lean mode
 
-The full tool catalog (~55 tools — `bash_exec`, `web_search`, `web_scraper`, `wikipedia`, `http_request`, external API tools, plus the lean set below) is **on by default for every session**. Trim it down when you want less prompt weight (each tool costs tokens twice — once as a native tool schema, once as prose in the tool-use guidance) or a restricted surface for CI/automation:
+The full tool catalog (~55 tools - `bash_exec`, `web_search`, `web_scraper`, `wikipedia`, `http_request`, external API tools, plus the lean set below) is **on by default for every session**. Trim it down when you want less prompt weight (each tool costs tokens twice - once as a native tool schema, once as prose in the tool-use guidance) or a restricted surface for CI/automation:
 
 ```
 /tools lean     # this session only, switch back any time
@@ -125,7 +125,7 @@ The full tool catalog (~55 tools — `bash_exec`, `web_search`, `web_scraper`, `
 /tools          # show current mode and tool count
 ```
 
-The choice persists automatically across sessions — no flag needed — the same way `/model tool set` settings do. Lean mode keeps `read_file`, `write_file`, `edit_file`, `list_files`, `code_search`, `code_definition`, `code_references`, `code_symbols`, `code_hover`, `code_diagnostics`, `search_local`, `load_document`, `calculator`, `embedding_vectorize`, `embedding_search`, `transcribe_audio` (~16 tools).
+The choice persists automatically across sessions - no flag needed - the same way `/model tool set` settings do. Lean mode keeps `read_file`, `write_file`, `edit_file`, `list_files`, `code_search`, `code_definition`, `code_references`, `code_symbols`, `code_hover`, `code_diagnostics`, `search_local`, `load_document`, `calculator`, `embedding_vectorize`, `embedding_search`, `transcribe_audio` (~16 tools).
 
 `KDEPS_LEAN_MODE`/`KDEPS_AGENT_PRESET` (below) start a session already in lean mode and take priority over the persisted `/tools` choice.
 
@@ -195,10 +195,10 @@ These always-on tools invoke the corresponding kdeps executor directly:
 | `ocr_image` | Extract text from an image via tesseract (local, no API key) |
 | `load_document` | Load and extract text from a document |
 
-## See Also
+## See also
 
-- [Agent Loop Mode](/modes/agent-loop-mode) -- overview and starting the REPL
-- [REPL Slash Commands](/modes/agent-loop-commands) -- full command reference
-- [Shell Execution](/modes/agent-loop-shell) -- bash_exec keyboard shortcuts and rtk
-- [Tool Execution Monitoring](/modes/agent-loop-monitoring) -- status lines and stall detection
-- [Agent Registries](/modes/agent-loop-registries) -- task_*/team_*/cron_* tools for multi-agent coordination
+- [Agent loop mode](/modes/agent-loop-mode) - overview and starting the REPL
+- [REPL slash commands](/modes/agent-loop-commands) - full command reference
+- [Shell execution](/modes/agent-loop-shell) - bash_exec keyboard shortcuts and rtk
+- [Tool execution monitoring](/modes/agent-loop-monitoring) - status lines and stall detection
+- [Agent registries](/modes/agent-loop-registries) - task_*/team_*/cron_* tools for multi-agent coordination

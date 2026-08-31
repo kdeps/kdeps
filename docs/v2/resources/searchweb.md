@@ -1,8 +1,10 @@
-# searchWeb Resource
+# searchWeb resource
 
-The `searchWeb` executor queries the web and returns structured results. The default provider is DuckDuckGo -- no connection or API key required. Paid providers (Brave, Bing, Tavily) require a named connection in `workflow.yaml` settings. See [Search Resources](/resources/search) for how it relates to `searchLocal`.
+The `searchWeb` executor queries the web and returns structured results. The default provider is DuckDuckGo - no connection or API key required. Paid providers (Brave, Bing, Tavily) require a named connection in `workflow.yaml` settings. See [Search resources](/resources/search) for how it relates to `searchLocal`.
 
-## Global Named Connections (paid providers)
+It works in both modes: as a DAG step in workflow mode, and inside any workflow the LLM calls as a tool in agent mode.
+
+## Global named connections (paid providers)
 
 API keys belong in `~/.kdeps/config.yaml`, not inline in resource files or `workflow.yaml`:
 
@@ -149,8 +151,8 @@ chat:
 | `KDEPS_BING_URL` | Override Bing API base URL |
 | `KDEPS_TAVILY_URL` | Override Tavily API base URL |
 
-## See Also
+## See also
 
-- [Search Resources](/resources/search) - overview and `searchLocal`
-- [Scraper Resource](scraper) - Fetch URL content to feed into search pipelines
-- [LLM Resource](llm) - Use search results as context for chat resources
+- [Search resources](/resources/search) - overview and `searchLocal`
+- [Scraper resource](scraper) - Fetch URL content to feed into search pipelines
+- [LLM resource](llm) - Use search results as context for chat resources

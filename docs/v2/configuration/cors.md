@@ -1,8 +1,10 @@
-# CORS Configuration
+# CORS configuration
 
 CORS controls which browser origins can call your API. Set it inside the `cors:` block under `apiServer:`. If no `cors:` block is present, kdeps allows all origins with credentials enabled by default.
 
-## Basic Configuration
+*Applies to workflow mode.*
+
+## Basic configuration
 
 ```yaml
 # workflow.yaml
@@ -28,24 +30,24 @@ settings:
       maxAge: "24h"
 ```
 
-## Configuration Fields
+## Configuration fields
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `allowOrigins` | array | List of allowed origin domains. Use `"*"` for all origins (default: `["*"]`). KDeps smartly echoes the requested origin when `"*"` is used to support credentials. |
+| `allowOrigins` | array | List of allowed origin domains. Use `"*"` for all origins (default: `["*"]`). kdeps smartly echoes the requested origin when `"*"` is used to support credentials. |
 | `allowMethods` | array | List of HTTP methods allowed for CORS requests. Must be one of: `GET`, `POST`, `PUT`, `PATCH`, `DELETE`, `OPTIONS`, `HEAD`. Default: all common methods. |
 | `allowHeaders` | array | List of request headers allowed in CORS requests (e.g., `Content-Type`, `Authorization`). Default: common headers including `Content-Type`, `Authorization`, `Accept`, `X-Requested-With`. |
 | `exposeHeaders` | array | List of response headers exposed to clients (e.g., `X-Request-Id`). If unset, no headers are exposed beyond defaults. |
 | `allowCredentials` | boolean | Allows credentials (e.g., cookies, HTTP authentication) in CORS requests (default: `true`) |
 | `maxAge` | string | Maximum duration for caching CORS preflight responses (e.g., `"24h"`, `"12h"`). Default: `"12h"` |
 
-## Common Scenarios
+## Common scenarios
 
-### Default Behavior: Smart Auto-configuration
+### Default behavior: smart auto-configuration
 
-By default, KDeps enables CORS and allows all origins while supporting credentials. This is ideal for local development where your frontend might be on a different port (e.g., Vite on `:5173`) than your API (e.g., KDeps on `:16395`).
+By default, kdeps enables CORS and allows all origins while supporting credentials. This is ideal for local development where your frontend might be on a different port (e.g., Vite on `:5173`) than your API (e.g., kdeps on `:16395`).
 
-KDeps achieves this by checking if the incoming `Origin` matches your `allowOrigins` list. If `"*"` is present in the list, KDeps echoes the specific `Origin` back in the `Access-Control-Allow-Origin` header instead of sending a literal `*`. This allows the browser to accept `Access-Control-Allow-Credentials: true`.
+kdeps achieves this by checking if the incoming `Origin` matches your `allowOrigins` list. If `"*"` is present in the list, kdeps echoes the specific `Origin` back in the `Access-Control-Allow-Origin` header instead of sending a literal `*`. This allows the browser to accept `Access-Control-Allow-Credentials: true`.
 
 ```yaml
 # Default behavior (no config needed)
@@ -54,7 +56,7 @@ cors:
   allowCredentials: true
 ```
 
-### Production: Specific Origins
+### Production: specific origins
 
 For production, it is highly recommended to restrict to specific domains:
 
@@ -81,7 +83,7 @@ cors:
   maxAge: "24h"
 ```
 
-### Multiple Environments
+### Multiple environments
 
 You can configure different CORS settings for different environments:
 
@@ -100,7 +102,7 @@ cors:
   maxAge: "24h"
 ```
 
-## How CORS Works
+## How CORS works
 
 1. **Simple Requests**: For simple requests (GET, POST with certain content types), the browser sends the request directly with an `Origin` header.
 
@@ -114,7 +116,7 @@ cors:
    - `Access-Control-Allow-Credentials`: Whether credentials are allowed
    - `Access-Control-Max-Age`: How long to cache preflight responses
 
-## Best Practices
+## Best practices
 
 ### Security
 
@@ -134,7 +136,7 @@ cors:
 
 ## Troubleshooting
 
-### CORS Errors in Browser
+### CORS errors in browser
 
 If you see CORS errors in the browser console:
 
@@ -143,14 +145,14 @@ If you see CORS errors in the browser console:
 3. **Check Headers**: Verify custom headers are in `allowHeaders`.
 4. **Credentials Mismatch**: If using credentials, ensure `allowCredentials: true` and origins are not `"*"`.
 
-### Common Error Messages
+### Common error messages
 
 - **"No 'Access-Control-Allow-Origin' header"**: Origin not in `allowOrigins`.
 - **"Method not allowed"**: HTTP method not in `allowMethods`.
 - **"Header not allowed"**: Custom header not in `allowHeaders`.
 - **"Credentials not allowed"**: Using credentials with wildcard origin (`"*"`).
 
-## Example: Full Configuration
+## Example: full configuration
 
 ```yaml
 # workflow.yaml
@@ -191,8 +193,8 @@ settings:
       maxAge: "24h"
 ```
 
-## See Also
+## See also
 
-- [Workflow Configuration](workflow.md) - Full workflow settings reference
-- [API Server Settings](workflow.md#api-server-settings) - Complete API server configuration
-- [WebServer Mode](../deployment/webserver.md) - Serving static files and proxying
+- [Workflow configuration](workflow.md) - Full workflow settings reference
+- [API server settings](workflow.md#api-server-settings) - Complete API server configuration
+- [WebServer mode](../deployment/webserver.md) - Serving static files and proxying

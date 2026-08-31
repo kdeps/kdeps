@@ -1,10 +1,12 @@
-# Python Resource Examples
+# Python resource examples
 
 Examples, error handling, and debugging guidance for the [`python:` resource](/resources/python).
 
+*Applies to both workflow mode and agent mode.*
+
 ## Examples
 
-### Data Transformation
+### Data transformation
 
 <div v-pre>
 
@@ -38,7 +40,7 @@ python:
 
 </div>
 
-### ML Inference
+### ML inference
 
 <div v-pre>
 
@@ -77,7 +79,7 @@ python:
 
 </div>
 
-### Text Processing
+### Text processing
 
 <div v-pre>
 
@@ -111,7 +113,7 @@ python:
 
 </div>
 
-### Image Processing
+### Image processing
 
 <div v-pre>
 
@@ -145,7 +147,7 @@ python:
 
 </div>
 
-### API Integration
+### API integration
 
 <div v-pre>
 
@@ -174,7 +176,7 @@ python:
 
 </div>
 
-## Error Handling
+## Error handling
 
 ```python
 import json
@@ -207,7 +209,7 @@ result = {"data": "value"}
 print(json.dumps(result))  # Only stdout is the resource output
 ```
 
-## Best Practices
+## Best practices
 
 - Always output JSON to stdout - kdeps parses it as the resource result
 - Handle exceptions and output `{"success": false, "error": "..."}` rather than crashing
@@ -215,8 +217,8 @@ print(json.dumps(result))  # Only stdout is the resource output
 - Set realistic `timeout` values - the default may not be enough for ML inference
 - Store secrets in env vars, never inline in scripts
 
-## See Also
+## See also
 
-- [Python Resource](/resources/python) - Core configuration reference
-- [Exec Resource](/resources/exec) - Shell command execution
-- [LLM Resource](/resources/llm) - Combine Python with AI
+- [Python resource](/resources/python) - Core configuration reference
+- [Exec resource](/resources/exec) - Shell command execution
+- [LLM resource](/resources/llm) - Combine Python with AI

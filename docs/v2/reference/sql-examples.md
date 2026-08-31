@@ -1,8 +1,10 @@
-# SQL Resource Examples
+# SQL resource examples
 
 Example queries for the [`sql:` resource](/resources/sql). All examples use parameterized queries to prevent SQL injection.
 
-## User Lookup
+*Applies to both workflow mode and agent mode.*
+
+## User lookup
 
 ```yaml
 # resources/user-lookup.yaml
@@ -26,7 +28,7 @@ sql:
   timeout: 10s
 ```
 
-## Analytics Query
+## Analytics query
 
 ```yaml
 # resources/analytics.yaml
@@ -52,7 +54,7 @@ sql:
   timeout: 60s
 ```
 
-## Multi-Database Sync
+## Multi-database sync
 
 <div v-pre>
 
@@ -86,7 +88,7 @@ sql:
 
 </div>
 
-## Search with LLM Enhancement
+## Search with LLM enhancement
 
 <div v-pre>
 
@@ -126,8 +128,8 @@ chat:
 
 </div>
 
-## See Also
+## See also
 
-- [SQL Resource](/resources/sql) - Full sql: reference with transactions, batch ops, connection pooling
-- [Python Resource](/resources/python) - Post-process SQL results with pandas
-- [Tools Reference](/reference/tools-reference) - Use SQL as an LLM tool
+- [SQL resource](/resources/sql) - Full sql: reference with transactions, batch ops, connection pooling
+- [Python resource](/resources/python) - Post-process SQL results with pandas
+- [Tools reference](/reference/tools-reference) - Use SQL as an LLM tool

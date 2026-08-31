@@ -2,11 +2,13 @@
 
 A component is a reusable, shareable resource bundle. kdeps has two kinds: registry components you install with `kdeps registry install`, and custom components you build yourself in a `components/` directory.
 
+Components work in both modes. In workflow mode, a resource invokes a component with `component:`. In agent mode, a component is registered as an LLM tool and runs only when the model calls it.
+
 ## Overview
 
-Components encapsulate resources, configuration, and dependencies into a single package. Think of them as callable sub-workflows -- you invoke them with `component:` from any resource, pass typed inputs via `with:`, and get structured output back.
+Components encapsulate resources, configuration, and dependencies into a single package. Think of them as callable sub-workflows - you invoke them with `component:` from any resource, pass typed inputs via `with:`, and get structured output back.
 
-## Types of Components
+## Types of components
 
 ### Registry components (installable)
 
@@ -31,7 +33,7 @@ component:
 
 ### Custom components (user-defined)
 
-Components you build: a `component.yaml` manifest plus resources in a `components/<name>/` directory. Auto-discovered at run time -- no changes to `workflow.yaml` needed.
+Components you build: a `component.yaml` manifest plus resources in a `components/<name>/` directory. Auto-discovered at run time - no changes to `workflow.yaml` needed.
 
 ```
 my-workflow/
@@ -42,7 +44,7 @@ my-workflow/
         └── resources/           ← component-specific resources
 ```
 
-## How Components Work
+## How components work
 
 1. Place a `component.yaml` in `components/<name>/` or install via `kdeps registry install`
 2. At parse time, kdeps scans `components/` and loads all component manifests
@@ -51,9 +53,9 @@ my-workflow/
 5. Inputs are validated against the component's `interface.inputs` declaration
 6. Component output is accessed via `output('<callerActionId>')`
 
-Components cannot contain `settings` (no server modes, port bindings) -- they are purely resource bundles.
+Components cannot contain `settings` (no server modes, port bindings) - they are purely resource bundles.
 
-## Calling a Component
+## Calling a component
 
 ```yaml
 # resources/fetch.yaml
@@ -68,9 +70,9 @@ component:
 
 After execution, access results via `output('fetch-article')`.
 
-## Components as LLM Tools
+## Components as LLM tools
 
-Installed components can be exposed as LLM function-calling tools via `componentTools:` on a `chat:` resource. By default, no components are registered -- you opt in explicitly:
+Installed components can be exposed as LLM function-calling tools via `componentTools:` on a `chat:` resource. By default, no components are registered - you opt in explicitly:
 
 ```yaml
 # resources/example.yaml
@@ -83,9 +85,18 @@ chat:
 
 The component's `interface.inputs` become the tool's parameter schema. The LLM uses this to decide when and how to call the tool.
 
-## See Also
+## Use cases
 
-- [Components Reference](/reference/components) -- full schema, input validation, env var auto-derivation, packaging
-- [Agencies](/concepts/agency) -- agent-to-agent call pattern
-- [CLI: Registry Commands](/reference/cli/registry) -- install, list, uninstall components
-- [Glossary: component](/reference/glossary#component) -- definition
+- Pull in a pre-built capability (web scraping, search, embeddings, browser
+  automation) with one `kdeps registry install` instead of writing it.
+- Package logic you reuse across projects - a `component.yaml` plus a
+  `components/<name>/` directory - and share it through the registry.
+- Give an LLM a bounded, typed capability by exposing a component as a tool
+  through `componentTools:`.
+
+## See also
+
+- [Components reference](/reference/components) - full schema, input validation, env var auto-derivation, packaging
+- [Agencies](/concepts/agency) - agent-to-agent call pattern
+- [CLI: registry commands](/reference/cli/registry) - install, list, uninstall components
+- [Glossary: component](/reference/glossary#component) - definition

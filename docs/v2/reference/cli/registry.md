@@ -1,4 +1,4 @@
-# Registry Commands
+# Registry commands
 
 Search, install, and publish packages from the kdeps registry.
 
@@ -37,7 +37,7 @@ kdeps registry submit --tag v1.2.0
 kdeps registry verify .
 ```
 
-## Publishing a Package
+## Publishing a package
 
 The kdeps registry is GitHub-hosted. Packages live in the author's own GitHub repo; the registry indexes a formula file per package.
 
@@ -52,7 +52,7 @@ kdeps registry submit --tag v1.2.0
 #    adding the printed formula as formulas/<your-package-name>.yaml
 ```
 
-### Formula File Format
+### Formula file format
 
 ```yaml
 # formulas/my-agent.yaml
@@ -69,9 +69,9 @@ license: Apache-2.0
 
 `kdeps registry install` downloads from the GitHub tarball URL and verifies the SHA256 locally.
 
-## See Also
+## See also
 
-- [Registry Formula Specification](/reference/registry-formula-spec) -- formula file format and publishing workflow
-- [CLI Overview](/reference/cli/) -- global flags, exit codes, env vars
-- [Components Reference](/reference/components) -- component packaging and publishing
-- [Packaging Commands](/reference/cli/packaging) -- bundle and build
+- [Registry formula specification](/reference/registry-formula-spec) - formula file format and publishing workflow
+- [CLI overview](/reference/cli/) - global flags, exit codes, env vars
+- [Components reference](/reference/components) - component packaging and publishing
+- [Packaging commands](/reference/cli/packaging) - bundle and build

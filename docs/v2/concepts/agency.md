@@ -1,10 +1,12 @@
-# Autonomous AI Agencies -- Multi-Agent Orchestration
+# AI agencies
 
-An **autonomous AI Agency** is a collection of kdeps AI Agents that cooperate to handle complex tasks entirely without human-in-the-loop intervention. Each agent in the agency has its own `workflow.yaml` (its own resources, routes, and settings), bundled together under a single `agency.yaml` manifest that makes them operate as one self-governing system.
+An AI agency is a collection of kdeps agents that cooperate to handle complex tasks without human-in-the-loop intervention. This is a workflow mode concept: each agent has its own `workflow.yaml` (its own resources, routes, and settings), bundled under a single `agency.yaml` manifest that makes them operate as one system.
 
-## Why Build an Autonomous AI Agency?
+An agency runs as a workflow. In agent mode, an agency is registered as an LLM tool and executes its full pipeline only when the model calls it.
 
-Agencies are the natural evolution from single AI Agents. Where a single agent handles one workflow, an autonomous AI Agency coordinates many specialized agents — each one a reproducible, repeatable process — into a unified system that can tackle sophisticated, multi-step problems autonomously.
+## Use cases
+
+Agencies are the natural evolution from single agents. Where a single agent handles one workflow, an agency coordinates many specialized agents - each one a reproducible, repeatable process - into a unified system that tackles multi-step problems.
 
 | Single AI Agent | Autonomous AI Agency |
 |---|---|
@@ -14,7 +16,7 @@ Agencies are the natural evolution from single AI Agents. Where a single agent h
 | No inter-agent delegation | Agents delegate work to each other via `agent:` resource |
 | Limited scope | Self-governing system handles complex end-to-end tasks autonomously |
 
-## Directory Structure
+## Directory structure
 
 ```
 my-agency/
@@ -29,7 +31,7 @@ my-agency/
     └── packed-helper-1.0.0.kdeps   # Packed agent archive
 ```
 
-## Agency Manifest (`agency.yaml`)
+## Agency manifest (agency.yaml)
 
 ```yaml
 # workflow-agency.yaml
@@ -40,7 +42,7 @@ metadata:
   name: my-agency
   version: "1.0.0"
   description: "A multi-agent pipeline"
-  # Entry-point agent — resolved by metadata.name in an agent's workflow.yaml.
+  # Entry-point agent - resolved by metadata.name in an agent's workflow.yaml.
   # If omitted, the first discovered agent is used.
   targetAgentId: greeter-agent
 
@@ -52,17 +54,17 @@ agents:
   - agents/packed-1.0.0.kdeps # packed agent archive
 ```
 
-### Agent Discovery
+### Agent discovery
 
 When the `agents:` list is **omitted**, kdeps auto-discovers agents in two ways:
 
-1. **Directory-based** — any `agents/**/workflow.yaml` (or `.yml`, `.yaml.j2`, …) is loaded.
-2. **Packed archives** — any `agents/*.kdeps` file is extracted and its `workflow.yaml` is loaded.
+1. **Directory-based** - any `agents/**/workflow.yaml` (or `.yml`, `.yaml.j2`, ...) is loaded.
+2. **Packed archives** - any `agents/*.kdeps` file is extracted and its `workflow.yaml` is loaded.
 
 When the `agents:` list is **provided**, only the listed entries are loaded (directories
 or `.kdeps` archives). All listed paths are resolved relative to the agency directory.
 
-## Running an Agency
+## Running an agency
 
 ```bash
 # Run from a directory containing agency.yaml
@@ -72,7 +74,7 @@ kdeps run my-agency/
 kdeps run my-agency/agency.yaml
 ```
 
-## Inter-Agent Calls (`agent:`)
+## Inter-agent calls (agent:)
 
 The `agent:` resource type is like calling a function where the function is an entire workflow. kdeps runs the target agent's full pipeline and returns its `apiResponse.response` as the output of the calling resource.
 
@@ -98,9 +100,9 @@ agent:
 - `params:` are key-value pairs the target reads via `get('key')`.
 - The caller reads the result via `output('actionId')` or `get('actionId')`.
 
-## Packaging an Agency (`.kagency`)
+## Packaging an agency (.kagency)
 
-An entire agency — `agency.yaml` plus all `agents/` sub-trees — can be packed into a
+An entire agency - `agency.yaml` plus all `agents/` sub-trees - can be packed into a
 single portable **`.kagency`** archive (a gzip-compressed tar).
 
 ```bash
@@ -132,7 +134,7 @@ kdeps bundle build my-agency-1.0.0.kagency --tag myregistry/my-agency:latest
 The generated Docker image runs the entry-point agent (`targetAgentId`) inside a
 minimal Alpine/Ubuntu container with all dependencies pre-installed.
 
-## Exporting as a Bootable ISO
+## Exporting as a bootable ISO
 
 ```bash
 # Export to a bootable EFI ISO
@@ -145,7 +147,7 @@ kdeps export iso my-agency-1.0.0.kagency --output my-agency.iso
 The ISO boots a minimal LinuxKit system that runs the agency's entry-point agent as a
 containerised service.
 
-## Creating a Self-Contained Binary
+## Creating a self-contained binary
 
 A `.kagency` archive (or a plain `.kdeps` workflow archive) can be embedded directly
 into the kdeps binary, producing a **zero-dependency single binary**:
@@ -160,7 +162,7 @@ kdeps bundle prepackage my-agency-1.0.0.kagency --output dist/
 When executed, the binary inspects its own bytes, extracts the embedded archive to a
 temp directory, then runs it exactly as `kdeps run` would.
 
-## Example: Two-Agent Greeter
+## Example: two-agent greeter
 
 The `examples/agency/` directory ships a minimal two-agent example:
 
@@ -183,10 +185,10 @@ curl "http://localhost:17100/api/v1/greet?name=Alice" \
 # → {"success":true,"data":"Hello, Alice! (from responder-agent)"}
 ```
 
-## See Also
+## See also
 
-- [Agent resource](../resources/overview.md#agent) — `agent:` resource reference
-- [`examples/agency/`](https://github.com/kdeps/kdeps/tree/main/examples/agency) — runnable example
-- [Packaging Commands](/reference/cli/packaging) -- `.kdeps` and `.kagency` formats
-- [Docker deployment](../deployment/docker.md) — building Docker images
-- [Standalone executables](../deployment/prepackage.md) — exporting self-contained binaries
+- [Agent resource](../resources/overview.md#agent) - `agent:` resource reference
+- [`examples/agency/`](https://github.com/kdeps/kdeps/tree/main/examples/agency) - runnable example
+- [Packaging commands](/reference/cli/packaging) - `.kdeps` and `.kagency` formats
+- [Docker deployment](../deployment/docker.md) - building Docker images
+- [Standalone executables](../deployment/prepackage.md) - exporting self-contained binaries

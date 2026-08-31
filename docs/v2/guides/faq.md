@@ -1,4 +1,4 @@
-# Frequently Asked Questions
+# Frequently asked questions
 
 Common questions about kdeps installation, usage, and architecture.
 
@@ -10,11 +10,11 @@ Yes. kdeps is open source under the Apache 2.0 license. The CLI, engine, and all
 
 [Workflow mode](/modes/workflow-mode) (`kdeps run`) runs resources in a deterministic DAG order defined by [`requires`](/reference/glossary#requires) dependencies. You control exactly what runs and when.
 
-[Agent mode](/modes/agent-loop-mode) (`kdeps [path]`) registers whole workflows and components as tools and lets an LLM decide which to invoke in response to user prompts. Workflow tools execute as a complete pipeline so all `requires:` dependencies resolve. Component tools run a single reusable component in isolation. Point at a single file or a folder -- folder mode exposes every workflow and agency found recursively, plus all their components.
+[Agent mode](/modes/agent-loop-mode) (`kdeps [path]`) registers whole workflows and components as tools and lets an LLM decide which to invoke in response to user prompts. Workflow tools execute as a complete pipeline so all `requires:` dependencies resolve. Component tools run a single reusable component in isolation. Point at a single file or a folder - folder mode exposes every workflow and agency found recursively, plus all their components.
 
 Use workflow mode when you know the pipeline upfront. Use agent mode when you want an interactive, conversational interface.
 
-## Do I need to know Go to use kdeps?
+## Do I need to know go to use kdeps?
 
 No. Workflows are written in YAML. The only code you might write is inline Python scripts or shell commands in `python`/`exec` resources.
 
@@ -52,7 +52,7 @@ LangChain is a Python/JS library. kdeps is a standalone binary configured in YAM
 - LangChain: you write code that calls library functions
 - kdeps: you write YAML that the engine executes
 
-kdeps has no code dependency -- install the binary, write a YAML file, and run.
+kdeps has no code dependency - install the binary, write a YAML file, and run.
 
 ## Can I call one workflow from another?
 
@@ -60,7 +60,7 @@ Yes, via [agencies](/reference/glossary#agency). Use the `agent:` action type to
 
 ## Can I deploy kdeps as an API server?
 
-Yes. Run `kdeps ./my-agent/` for agent mode (registers the workflow as a tool by its `metadata.name`), or use `kdeps run` behind the built-in web server for workflow mode. See [Web Server Mode](/deployment/webserver).
+Yes. Run `kdeps ./my-agent/` for agent mode (registers the workflow as a tool by its `metadata.name`), or use `kdeps run` behind the built-in web server for workflow mode. See [Web server mode](/deployment/webserver).
 
 For production, use the [Docker](/deployment/docker) or [Kubernetes](/deployment/kubernetes) deployment options.
 
@@ -84,11 +84,11 @@ Never hardcode secrets in workflow YAML files.
 
 ## What's the maximum workflow size?
 
-There's no hard limit. The engine builds an in-memory dependency graph -- workflows with thousands of resources will use more memory but should work. The practical limit is readability of the YAML.
+There's no hard limit. The engine builds an in-memory dependency graph - workflows with thousands of resources will use more memory but should work. The practical limit is readability of the YAML.
 
 ## Can I use kdeps in CI/CD pipelines?
 
-Yes. The `kdeps run` command is designed for one-shot execution. Pipe input via stdin, pass data via environment variables, and capture stdout. See the [Stateless Bot](/examples/stateless-bot/) example.
+Yes. The `kdeps run` command is designed for one-shot execution. Pipe input via stdin, pass data via environment variables, and capture stdout. See the [Stateless bot](/examples/stateless-bot/) example.
 
 ## Does kdeps support streaming?
 
@@ -98,9 +98,9 @@ Yes. Set `streaming: true` on a `chat:` resource to stream LLM responses token-b
 
 Session data is stored in a WAL-based embedded database. The location is configurable in `settings.session`. See [Session & Persistence](/configuration/session).
 
-## See Also
+## See also
 
-- [Quickstart](/getting-started/quickstart) -- build your first workflow
-- [Execution Flow](/guides/execution-flow) -- how the engine runs resources
-- [Troubleshooting](/guides/troubleshooting) -- common errors and fixes
-- [Glossary](/reference/glossary) -- all kdeps terms defined
+- [Quickstart](/getting-started/quickstart) - build your first workflow
+- [Execution flow](/guides/execution-flow) - how the engine runs resources
+- [Troubleshooting](/guides/troubleshooting) - common errors and fixes
+- [Glossary](/reference/glossary) - all kdeps terms defined

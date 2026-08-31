@@ -1,4 +1,4 @@
-# Prompt Reduction (turo)
+# Prompt reduction (turo)
 
 `turo` is an optional token reducer for [agent loop mode](/modes/agent-loop-mode). When the `turo` binary is on `PATH`, kdeps pipes everything it sends to the LLM through it first - system preamble, your input, tool results, and conversation history. Code, file paths, and identifiers are preserved verbatim. If a reduction is not smaller than the input, the original passes through unchanged. Applies to agent mode only.
 
@@ -53,7 +53,7 @@ KDEPS_TURO_PATH: /custom/path/to/turo  # override binary discovery
 
 To keep agent context faithful (drop filler only, no wording changes), set `TURO_SYNONYMS=off` and `TURO_GLOSS=off`.
 
-## See Also
+## See also
 
-- [Agent Loop Mode](/modes/agent-loop-mode) -- overview and starting the REPL
-- [REPL Slash Commands](/modes/agent-loop-commands) -- full command reference
+- [Agent loop mode](/modes/agent-loop-mode) - overview and starting the REPL
+- [REPL slash commands](/modes/agent-loop-commands) - full command reference

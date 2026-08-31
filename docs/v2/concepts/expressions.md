@@ -1,10 +1,10 @@
 # Expressions
 
-Expressions are how you pass data between resources, validate inputs, and run conditional logic. They are powered by [expr-lang](https://expr-lang.org/).
+Expressions are how you pass data between resources, validate inputs, and run conditional logic. They are powered by [expr-lang](https://expr-lang.org/). Expressions work in both modes: in workflow mode across resources, and in agent mode inside any workflow the LLM calls as a tool.
 
 ## Where expressions are used
 
-**String interpolation** -- embed an expression inside any string field using <span v-pre>`{{ }}`</span>:
+**String interpolation** - embed an expression inside any string field using <span v-pre>`{{ }}`</span>:
 
 <div v-pre>
 
@@ -16,7 +16,7 @@ chat:
 
 </div>
 
-**before:/after: blocks** -- a list of statements executed sequentially. Each statement is a bare expression, not wrapped in <span v-pre>`{{ }}`</span>:
+**before:/after: blocks** - a list of statements executed sequentially. Each statement is a bare expression, not wrapped in <span v-pre>`{{ }}`</span>:
 
 ```yaml
 # resources/example.yaml
@@ -26,7 +26,7 @@ after:
   - set('total', get('price') * get('quantity'))
 ```
 
-**validations.skip / validations.check / onError.when** -- a list of boolean expressions; any one true is enough:
+**validations.skip / validations.check / onError.when** - a list of boolean expressions; any one true is enough:
 
 ```yaml
 # resources/example.yaml
@@ -49,8 +49,8 @@ Expressions have access to the full [expr-lang standard library](https://expr-la
 
 kdeps adds workflow-specific helpers on top. See the [Expression Functions Reference](/reference/expression-functions-reference) for the full list.
 
-## See Also
+## See also
 
-- [Expression Functions Reference](/reference/expression-functions-reference) - All kdeps-specific functions
-- [Expression Operators](/reference/expression-operators) - Comparison and logic operators
-- [Expression Blocks](/reference/expr-blocks) - `before:` / `after:` statement blocks
+- [Expression functions reference](/reference/expression-functions-reference) - All kdeps-specific functions
+- [Expression operators](/reference/expression-operators) - Comparison and logic operators
+- [Expression blocks](/reference/expr-blocks) - `before:` / `after:` statement blocks

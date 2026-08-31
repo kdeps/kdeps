@@ -1,8 +1,8 @@
-# LLM Commands
+# LLM commands
 
-`kdeps llm` provisions **standalone LLM server appliances**. These are not agent packages — there is **no workflow path argument**.
+`kdeps llm` provisions **standalone LLM server appliances**. These are not agent packages - there is **no workflow path argument**.
 
-Architecture, stock recipes, and client wiring: [LLM Server Appliance](/deployment/llm-server).
+Architecture, stock recipes, and client wiring: [LLM server appliance](/deployment/llm-server).
 
 ## Stock engines
 
@@ -43,7 +43,7 @@ List models available from the llamafile/GGUF harvest (what the wizard shows whe
 kdeps llm models
 kdeps llm models --type gguf
 kdeps llm models --type llamafile
-kdeps llamafile update   # refresh harvest (GGUF + Chinese labs: Qwen, DeepSeek, Yi, …)
+kdeps llamafile update   # refresh harvest (GGUF + Chinese labs: Qwen, DeepSeek, Yi, ...)
 ```
 
 ## kdeps llm list
@@ -168,6 +168,6 @@ kdeps llm export iso --engine ollama --model llama3.2 -o llm.iso
 
 ## See also
 
-- [LLM Server Appliance](/deployment/llm-server)
+- [LLM server appliance](/deployment/llm-server)
 - [LLM backends](/resources/llm-backends)
-- [Packaging Commands](/reference/cli/packaging) — agent bundle/export (different product surface)
+- [Packaging commands](/reference/cli/packaging) - agent bundle/export (different product surface)
