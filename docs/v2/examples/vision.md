@@ -169,6 +169,6 @@ You built an API that:
 ## Next steps
 
 - [LLM resource](/resources/llm/) - vision, files, streaming, tools
-- [Request object](/concepts/request-object) - `request.file()`, `filesByType()`
+- [Data access](/concepts/unified-api#the-request-object) - `request.file()`, `filesByType()`
 - [LLM backends](/resources/llm/backends) - Ollama configuration
 - [File processor tutorial](/examples/file-processor) - text files instead of images

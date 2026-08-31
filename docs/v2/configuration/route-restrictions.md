@@ -293,6 +293,6 @@ sql:
 ## See also
 
 - [Validation and control flow](/concepts/validation-and-control) - Full `validations:` block reference
-- [Request object](/concepts/request-object) - Accessing request data
+- [Data access](/concepts/unified-api#the-request-object) - the `request` object
 - [Workflow configuration](../configuration/workflow) - Route configuration
 - [Resources overview](/resources/overview) - Resource basics

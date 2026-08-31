@@ -128,6 +128,7 @@ export default defineConfig({
           text: 'Core concepts',
           collapsed: false,
           items: [
+            { text: 'Concepts overview', link: '/concepts/overview' },
             { text: 'Workflow mode', link: '/modes/workflow-mode' },
             { text: 'Agent loop mode', link: '/modes/agent-loop-mode' },
             { text: 'Agencies', link: '/concepts/agency' },
@@ -135,7 +136,7 @@ export default defineConfig({
             { text: 'Components', link: '/concepts/components' },
             { text: 'Expressions', link: '/concepts/expressions' },
             { text: 'Expression helpers', link: '/concepts/expression-helpers' },
-            { text: 'Unified API (get/set)', link: '/concepts/unified-api' },
+            { text: 'Data access (get/set/input/request)', link: '/concepts/unified-api' },
             { text: 'Tools (function calling)', link: '/concepts/tools' },
             { text: 'Error handling (onError)', link: '/concepts/error-handling' },
           ]
@@ -144,8 +145,6 @@ export default defineConfig({
           text: 'Data & I/O',
           collapsed: false,
           items: [
-            { text: 'Request object', link: '/concepts/request-object' },
-            { text: 'Input object', link: '/concepts/input-object' },
             { text: 'Input sources', link: '/concepts/input-sources' },
             { text: 'Jinja2 templates', link: '/concepts/jinja2-templates' },
             { text: 'Inline resources', link: '/concepts/inline-resources' },
@@ -154,6 +153,7 @@ export default defineConfig({
             { text: 'Validation and control', link: '/concepts/validation-and-control' },
             { text: 'Session storage', link: '/configuration/session' },
             { text: 'Persistent memory', link: '/concepts/memory' },
+            { text: 'Memory internals', link: '/concepts/memory-internals' },
           ]
         },
         {
@@ -381,6 +381,10 @@ export default defineConfig({
     const { writeFile, mkdir } = await import('node:fs/promises')
     const { join, dirname } = await import('node:path')
     const redirects: Record<string, string> = {
+      // concepts pages merged/split (2026-08).
+      'concepts/validation': '/concepts/validation-and-control',
+      'concepts/input-object': '/concepts/unified-api#the-input-object',
+      'concepts/request-object': '/concepts/unified-api#the-request-object',
       'resources/llm': '/resources/llm/',
       'resources/llm-backends': '/resources/llm/backends',
       'resources/llm-routing': '/resources/llm/routing',
