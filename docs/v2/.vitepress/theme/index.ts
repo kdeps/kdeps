@@ -23,11 +23,9 @@ import { h } from 'vue'
 import type { Theme } from 'vitepress'
 import HeroInfo from './HeroInfo.vue'
 import HeroCode from './HeroCode.vue'
-import HomeBackends from './HomeBackends.vue'
 import HomeHowItWorks from './HomeHowItWorks.vue'
 import HomeCapabilities from './HomeCapabilities.vue'
 import HomeComparison from './HomeComparison.vue'
-import HomeRegistry from './HomeRegistry.vue'
 import HomeUseCases from './HomeUseCases.vue'
 import HomeBook from './HomeBook.vue'
 import FooterCTAs from './FooterCTAs.vue'
@@ -41,10 +39,8 @@ export default {
       'home-hero-after': () => h(HeroCode),
       'home-features-after': () => [
         h(HomeHowItWorks),
-        h(HomeBackends),
         h(HomeCapabilities),
         h(HomeComparison),
-        h(HomeRegistry),
         h(HomeUseCases),
         h(HomeBook),
       ],

@@ -34,7 +34,7 @@
           <span class="mode-tag">workflow mode</span>
         </a>
 
-        <a href="/concepts/agency" class="card">
+        <a href="/examples/agency" class="card">
           <h3>Agency Pipeline</h3>
           <p>Orchestrate multiple agents. One summarises, another translates — each an independent workflow.</p>
           <span class="mode-tag agency-tag">multi-agent</span>
