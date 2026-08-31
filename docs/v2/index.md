@@ -4,7 +4,7 @@ layout: home
 hero:
   name: kdeps
   text: Run AI workflows locally. Or deploy them anywhere.
-  tagline: Install kdeps, run `kdeps`, get an AI agent - no API key needed with Ollama or llamafile. Build your workflow in YAML. Deploy as Docker, Kubernetes, or a single binary when you're ready. Proud member of the NVIDIA Inception program.
+  tagline: Describe your AI agent in YAML instead of wiring up an LLM SDK, a web server, retry logic, and a Dockerfile.
   announcement: Skills for AI agents are here
   announcementLink: /getting-started/agent-skills
   actions:
