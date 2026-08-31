@@ -6,7 +6,7 @@ A resource is a single step in a workflow. It has an ID, optional dependencies, 
 
 All resource types work in both [workflow mode](/modes/workflow-mode) and [agent mode](/modes/agent-loop-mode). In workflow mode, resources execute as DAG steps ordered by `requires:`. In agent mode, whole workflows are registered as callable tools - the LLM invokes a workflow as a unit, and all resource dependencies inside it resolve correctly.
 
-## Resource structure
+## The shape of a resource
 
 ```yaml
 # resources/my-resource.yaml
@@ -18,28 +18,31 @@ category: api               # optional grouping label
 requires:                   # like imports -- these run first and must produce output
   - otherResource           # myResource will not run until otherResource is done
 
-items:                      # optional: run this resource once per item in the list
+items:                      # optional: run this resource once per item -- see /concepts/items
   - item1
   - item2
 
-# Restrict which requests trigger this resource (optional)
+loop:                       # optional: repeat while a condition holds -- see /concepts/loop
+  while: "loop.index() < 5"
+
+# Gate whether the resource runs at all -- see /concepts/validation-and-control
 validations:
   methods: [POST]                # only run on POST requests
   routes: [/api/v1/endpoint]    # only run on this route
   headers: [Authorization]      # only run when this header is present
   params: [q, limit]            # only run when these params are present
   skip:
-    - get('skip') == true       # skip if this expression is true
+    - get('skip') == true       # skip silently if true
   check:
-    - get('q') != ''            # fail with error below if false
+    - get('q') != ''            # fail with the error below if false
   error:
     code: 400
     message: Query required
 
-# Expressions that run before/after the action
-before:                 # runs before the action; use to prepare values
+# Expressions that run around the action -- see /concepts/expressions
+before:                 # prepare values the action reads
   - set('pre', 'value')
-after:                  # runs after the action; use to process output
+after:                  # process the output for downstream resources
   - set('post', 'value')
 
 # Exactly one primary action per resource (apiResponse: may accompany it
@@ -64,35 +67,25 @@ component:           # call an installable registry component
     message: "Hello!"
 ```
 
-Detailed reference for each action:
-[`agent`](/resources/delegation/agent) ·
-[`apiResponse`](/resources/api-response) ·
-[`botReply`](/resources/messaging/bot-reply) ·
-[`browser`](/resources/web/browser) ·
-[`chat`](/resources/llm/) ·
-[`codeIntelligence`](/resources/code-intelligence/navigation) ·
-[`component`](/resources/delegation/component) ·
-[`email`](/resources/messaging/email) ·
-[`embedding`](/resources/rag/embedding) ·
-[`exec`](/resources/scripting/exec) ·
-[`file`](/resources/files/file) ·
-[`git`](/resources/files/git) ·
-[`httpClient`](/resources/web/http-client) ·
-[`loader`](/resources/rag/loader) ·
-[`ocr`](/resources/media/ocr) ·
-[`python`](/resources/scripting/python) ·
-[`scraper`](/resources/web/scraper) ·
-[`searchLocal`](/resources/search/searchlocal) ·
-[`searchWeb`](/resources/search/searchweb) ·
-[`sql`](/resources/sql) ·
-[`telephony`](/resources/messaging/telephony) ·
-[`transcribe`](/resources/media/transcribe) ·
-[`vectorStore`](/resources/rag/vector-store)
+## actionId and requires
+
+[`actionId`](/reference/glossary#actionid) is the resource's unique name. It is what [`targetActionId`](/reference/glossary#targetactionid) points to, and the key you pass to `get()` to read the resource's output.
+
+```yaml
+# resources/response.yaml
+actionId: response
+name: API Response
+requires: [llm]          # response will not run until llm is done
+apiResponse:
+  response:
+    answer: get('llm').message.content   # reply text from the llm resource
+```
+
+`requires:` lists **direct** dependencies only. kdeps resolves transitive dependencies automatically - you do not list the whole chain.
 
 ## Resource types
 
-All executors are compiled into the `kdeps` binary and require no installation.
-They are grouped here by function; each links to its own reference page.
+All executors are compiled into the `kdeps` binary and require no installation. They are grouped here by function; each links to its own reference page.
 
 ### AI & language
 
@@ -156,159 +149,6 @@ They are grouped here by function; each links to its own reference page.
 
 See the [Components guide](/concepts/components) for installation and usage details.
 
-## actionId and requires
-
-[`actionId`](/reference/glossary#actionid) is the resource's unique name. It has two purposes: it controls which resource [`targetActionId`](/reference/glossary#targetactionid) points to, and it is the key you pass to `get()` to read a resource's output.
-
-```yaml
-# resources/llm.yaml
-actionId: llm
-name: LLM Chat
-chat:
-  prompt: "{{ get('q') }}"
-```
-
-```yaml
-# resources/response.yaml
-actionId: response
-name: API Response
-requires: [llm]          # response will not run until llm is done
-apiResponse:
-  response:
-    answer: get('llm').message.content   # reply text from the llm resource
-```
-
-`requires:` lists direct dependencies only. kdeps resolves transitive dependencies automatically - you do not need to list the entire chain.
-
-## Validation
-
-[`validations`](/reference/glossary#validations) gates whether a resource runs at all. It fires before the action - failing fast means no LLM call, no HTTP call, no wasted work.
-
-```yaml
-# resources/example.yaml
-validations:
-  methods: [POST]          # skip unless the request method matches
-  routes: [/api/v1/chat]  # skip unless the route matches
-  headers: [Authorization] # skip unless this header is present
-  params: [q]              # skip unless this query/body param is present
-
-  skip:
-    - get('mode') == 'fast'  # skip entirely when true (no error, just no-op)
-
-  check:
-    - get('q') != ''         # must be true or the request is rejected
-    - get('limit') <= 100
-  error:
-    code: 400
-    message: "q is required and limit must be <= 100"
-```
-
-[`skip`](/reference/glossary#skip) silently no-ops the resource. [`check`](/reference/glossary#check) returns an error to the caller. Both take a list - any one true condition is enough to trigger the behavior.
-
-## Before and after expressions
-
-`before:` runs before the action; use it to compute values the action reads.
-`after:` runs after the action; use it to process output for downstream resources.
-
-<div v-pre>
-
-```yaml
-# resources/example.yaml
-before:
-  - set('full_name', get('first') + ' ' + get('last'))
-chat:
-  prompt: "Hello {{ get('full_name') }}"   # reads the value set above
-after:
-  - set('summary', get('myResourceId'))    # store output under a new key
-  - set('ts', info('timestamp'))
-```
-
-</div>
-
-See [Expressions](/concepts/expressions) for detailed documentation.
-
-## Items iteration
-
-Process multiple items in sequence:
-
-<div v-pre>
-
-```yaml
-# resources/example.yaml
-items:
-  - "First item"
-  - "Second item"
-  - "Third item"
-
-chat:
-  prompt: "Process: {{ get('current') }}"
-```
-
-</div>
-
-Access iteration context:
-- `get('current')` - Current item
-- `get('prev')` - Previous item
-- `get('next')` - Next item
-- `get('index')` - Current index (0-based)
-- `get('count')` - Total item count
-
-## Loop iteration
-
-Repeat a resource body while a condition is true (Turing-complete while-loop). Add `every:` to pause between iterations for a ticker pattern, or `at:` to fire at specific dates/times:
-
-<div v-pre>
-
-```yaml
-# resources/example.yaml
-loop:
-  while: "loop.index() < 5"
-  maxIterations: 1000   # safety cap (default: 1000)
-  every: "1s"           # optional: wait 1 second between iterations
-after:
-  - "{{ set('result', loop.count()) }}"
-apiResponse:
-  success: true
-  response:
-    count: "{{ get('result') }}"
-```
-
-</div>
-
-Access loop context:
-- `loop.index()` - Current index (0-based)
-- `loop.count()` - Current count (1-based)
-- `loop.results()` - Results from all prior iterations
-
-Loop fields:
-- `while` - Boolean expression; loop runs while truthy
-- `maxIterations` - Safety cap (default: 1000)
-- `every` - Optional inter-iteration delay (`"500ms"`, `"1s"`, `"2m"`, `"1h"`). Mutually exclusive with `at`
-- `at` - Optional array of specific dates/times (RFC3339, `"HH:MM"`, or `"YYYY-MM-DD"`). Mutually exclusive with `every`
-
-When `apiResponse` is present, each iteration produces one streaming response map.
-
-## Resource output
-
-Each resource produces output that can be accessed by dependent resources:
-
-<div v-pre>
-
-```yaml
-# LLM resource output
-actionId: llmResource
-chat:
-  prompt: "Answer: {{ get('q') }}"
-
-# Access in another resource
-requires: [llmResource]
-apiResponse:
-  response:
-    answer: get('llmResource').message.content  # the reply text
-```
-
-</div>
-
 ## Execution flow
 
 ```d2
@@ -344,39 +184,11 @@ F: Response {shape: oval}
 A -> B -> C -> loop -> E -> F
 ```
 
-## Best practices
-
-### 1. Use descriptive actionIds
-```yaml
-# Good
-actionId: fetchUserProfile
-actionId: validatePayment
-
-# Avoid
-actionId: resource1
-actionId: r2
-```
-
-### 2. Single responsibility
-Each resource should do one thing well. Split complex logic into multiple resources.
-
-### 3. Validate early
-Use `validations.check` to validate inputs before expensive operations.
-
-### 4. Handle dependencies
-Only list direct dependencies in [`requires`](/reference/glossary#requires). kdeps handles transitive dependencies.
-
-### 5. Use appropriate timeouts
-Set realistic `timeout` values based on expected execution time.
-
 ## See also
 
-- [LLM resource](/resources/llm/) - AI model integration
-- [HTTP client](/resources/web/http-client) - external API calls
-- [SQL resource](/resources/sql) - database operations
-- [Python resource](/resources/scripting/python) - script execution
-- [Exec resource](/resources/scripting/exec) - shell commands
-- [Email resource](/resources/messaging/email) - SMTP send, IMAP read/search/modify
-- [API response](api-response) - response formatting
-- [Agency & multi-agent](/concepts/agency) - multi-agent orchestration
+- [Validation and control flow](/concepts/validation-and-control) - the `validations:` block
+- [Expressions](/concepts/expressions) - `before:`/`after:`, `get()`, `set()`
+- [Items iteration](/concepts/items) and [While-loop](/concepts/loop)
+- [Error handling (onError)](/concepts/error-handling) - retry and fallback
+- [Agencies](/concepts/agency) - multi-agent orchestration
 - [Components](/concepts/components) - installable capability extensions
