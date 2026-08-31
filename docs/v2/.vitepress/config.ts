@@ -26,7 +26,7 @@ import pkg from '../package.json' with { type: 'json' }
 
 export default defineConfig({
   title: 'KDeps',
-  description: 'AI agents in YAML. Orchestrate LLMs, databases, and APIs without glue code.',
+  description: 'AI Appliance Builder - YAML-defined AI agents and workflow pipelines. Ship as Docker, K8s, ISO, or a single binary.',
 
   appearance: 'force-dark',
 
@@ -38,8 +38,8 @@ export default defineConfig({
     ['meta', { name: 'theme-color', content: '#080808' }],
     ['meta', { name: 'og:type', content: 'website' }],
     ['meta', { name: 'og:site_name', content: 'KDeps Documentation' }],
-    ['meta', { name: 'og:title', content: 'KDeps - AI Agent Framework' }],
-    ['meta', { name: 'og:description', content: 'AI agents in YAML. Orchestrate LLMs, databases, and APIs without glue code.' }],
+    ['meta', { name: 'og:title', content: 'kdeps - AI Appliance Builder' }],
+    ['meta', { name: 'og:description', content: 'AI Appliance Builder - YAML-defined AI agents and workflow pipelines. Ship as Docker, K8s, ISO, or a single binary.' }],
   ],
 
   lastUpdated: true,
