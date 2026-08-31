@@ -2125,3 +2125,40 @@ func TestGetEnvironmentURLHTTPError(t *testing.T) {
 		t.Error("want error on non-2xx BAP status")
 	}
 }
+
+func TestResolveProseAlongsideCalls(t *testing.T) {
+	longProse := "## Recommendation for New Dashboard\n\n" + strings.Repeat(
+		"These features should be core requirements in the new dashboard. ",
+		6,
+	)
+	oneCall := []ParsedToolCall{{Name: "read_file"}}
+
+	// Long leftover next to a call: the model wrote a document that quotes
+	// tool syntax, so keep the whole reply and drop the call.
+	got := resolveProseAlongsideCalls(
+		ParseResult{HasToolCalls: true, ToolCalls: oneCall, TextContent: longProse},
+		"FULL REPLY TEXT",
+	)
+	if got.HasToolCalls {
+		t.Fatal("long leftover should be treated as prose, not calls")
+	}
+	if got.TextContent != "FULL REPLY TEXT" {
+		t.Fatalf("should restore the full reply text, got %q", got.TextContent)
+	}
+
+	// Short stray leftover: drop it, keep the call (original fail-closed).
+	got = resolveProseAlongsideCalls(
+		ParseResult{HasToolCalls: true, ToolCalls: oneCall, TextContent: "ok let me check"},
+		"FULL",
+	)
+	if !got.HasToolCalls || got.TextContent != "" {
+		t.Fatalf("short leftover should be dropped and the call kept, got %+v", got)
+	}
+
+	// No calls: pass through unchanged.
+	in := ParseResult{HasToolCalls: false, TextContent: "just an answer"}
+	if out := resolveProseAlongsideCalls(in, "x"); out.HasToolCalls ||
+		out.TextContent != "just an answer" {
+		t.Fatalf("no-calls result must pass through unchanged, got %+v", out)
+	}
+}

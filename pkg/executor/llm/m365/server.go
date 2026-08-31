@@ -546,10 +546,7 @@ func (c *completion) produce(ctx context.Context, onDelta func(string)) *produce
 		parsed = ParseResult{HasToolCalls: false, TextContent: fullText}
 	}
 
-	// Fail-closed: strip stray prose emitted alongside tool calls.
-	if parsed.HasToolCalls && strings.TrimSpace(parsed.TextContent) != "" {
-		parsed.TextContent = ""
-	}
+	parsed = resolveProseAlongsideCalls(parsed, fullText)
 
 	if parsed.HasToolCalls {
 		if p := finalizeToolCalls(&parsed, fullText); p != nil {
@@ -607,6 +604,30 @@ func (c *completion) toneFallback(
 	c.conv.sentMessageCount = len(c.body.Messages)
 	fallbackParsed := ParseToolCalls(retryText, c.body.Tools)
 	return retryText, &fallbackParsed, nil
+}
+
+// resolveProseAlongsideCalls decides what a reply that carries BOTH tool calls
+// and leftover prose really is.
+//
+//   - short leftover  -> stray noise emitted next to a real call; drop the text
+//     (fail-closed, the original behaviour).
+//   - long leftover   -> a written answer that merely quotes <invoke> syntax as
+//     an example; the "calls" are illustrations, not an action turn. Keep the
+//     whole reply as text and drop the calls.
+//
+// IsProseDocument already covers the multi-invoke document case; this catches
+// the single-invoke one. Confirmed live on m365: a ~1.8k-token markdown
+// recommendation with one embedded invoke example was reduced to a bogus
+// read_file call plus three scrap lines of leftover.
+func resolveProseAlongsideCalls(parsed ParseResult, fullText string) ParseResult {
+	if !parsed.HasToolCalls || strings.TrimSpace(parsed.TextContent) == "" {
+		return parsed
+	}
+	if len(strings.TrimSpace(parsed.TextContent)) >= proseDocMinChars {
+		return ParseResult{HasToolCalls: false, TextContent: fullText}
+	}
+	parsed.TextContent = ""
+	return parsed
 }
 
 // finalizeToolCalls converts a synthetic reply() call back to plain text and
