@@ -6,19 +6,54 @@ permissions:
 on:
   push:
     branches: [ "main" ]
-    paths-ignore:
-      - 'docs/**'
-      - '*.md'
-      - '.github/coverage-badge.json'
   pull_request:
     branches: [ "main" ]
-    paths-ignore:
-      - 'docs/**'
-      - '*.md'
-      - '.github/coverage-badge.json'
 
+# security-scan, docker-scan, lint, test and test-windows are required status
+# checks on main. A skipped required job counts as passing, but a workflow that
+# never triggers leaves the check "expected" and blocks the PR forever. So the
+# workflow always runs; the `changes` job decides whether the real jobs execute.
 jobs:
+  # Decides whether the code jobs below run. `code=true` when the PR (or push)
+  # changed at least one file that is not docs, not markdown and not the
+  # coverage badge. Dependency-free so there is no third-party action in the
+  # critical path of a required check.
+  changes:
+    runs-on: ubuntu-latest
+    outputs:
+      code: ${{ steps.filter.outputs.code }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+      - id: filter
+        run: |
+          set -euo pipefail
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            base='${{ github.event.pull_request.base.sha }}'
+            head='${{ github.event.pull_request.head.sha }}'
+          else
+            base='${{ github.event.before }}'
+            head='${{ github.sha }}'
+          fi
+          # First push of a new branch: no diff base, assume code changed.
+          if [ -z "$base" ] || ! git cat-file -e "$base" 2>/dev/null; then
+            echo "code=true" >> "$GITHUB_OUTPUT"; exit 0
+          fi
+          changed="$(git diff --name-only "$base" "$head")"
+          echo "Changed files:"; echo "$changed"
+          if [ -z "$changed" ]; then
+            echo "code=false" >> "$GITHUB_OUTPUT"; exit 0
+          fi
+          if printf '%s\n' "$changed" | grep -qvE '^(docs/|.*\.md$|\.github/coverage-badge\.json$)'; then
+            echo "code=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "code=false" >> "$GITHUB_OUTPUT"
+          fi
+
   security-scan:
+    needs: changes
+    if: ${{ github.event_name != 'pull_request' || needs.changes.outputs.code == 'true' }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -34,6 +69,8 @@ jobs:
           skip-files: coverage.out,coverage-integration.out
 
   docker-scan:
+    needs: changes
+    if: ${{ github.event_name != 'pull_request' || needs.changes.outputs.code == 'true' }}
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -60,6 +97,8 @@ jobs:
           trivyignores: .trivyignore
 
   lint:
+    needs: changes
+    if: ${{ github.event_name != 'pull_request' || needs.changes.outputs.code == 'true' }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -97,6 +136,8 @@ jobs:
           fi
 
   test:
+    needs: changes
+    if: ${{ github.event_name != 'pull_request' || needs.changes.outputs.code == 'true' }}
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -261,6 +302,8 @@ jobs:
         KDEPS_E2E_LLAMAFILE_DOWNLOAD: "1"
 
   test-windows:
+    needs: changes
+    if: ${{ github.event_name != 'pull_request' || needs.changes.outputs.code == 'true' }}
     # Proves the Windows release binary actually builds and its unit + integration
     # tests pass natively, not just that it cross-compiles. E2E is included too;
     # scripts needing ollama/python3/docker self-skip when the tool is missing
