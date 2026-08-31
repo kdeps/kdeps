@@ -31,7 +31,7 @@ mode and agent mode.
 | <a id="loop"></a>`loop` | A while-loop on a resource. The body runs while the `while` expression is true, up to `maxIterations`. `every:` turns it into a scheduled ticker. | [While-loop iteration](/concepts/loop) |
 | memory (expression) | Request-scoped key/value storage. Set with `set('key', value, 'memory')`; read with `get('key', 'memory')`. Cleared when the request completes. | [Session and memory](/configuration/session) |
 | memory (persistent) | Project-scoped storage for the agent loop in a bbolt database that survives across sessions. Built-in tools: `memory_save`, `memory_search`, `memory_delete`, `memory_list`, `memory_query`. | [Persistent memory](/concepts/memory) |
-| memory graph | A directed graph of memory entries linked by their `References` fields and auto-linked by type. Inlined into the `<memory>` block in causal order. | [Persistent memory](/concepts/memory) |
+| memory graph | A directed graph of memory entries linked by their `References` fields and auto-linked by type. Inlined into the `<memory>` block in causal order. | [Memory internals](/concepts/memory-internals#memory-graph) |
 | `output()` | An expression function that reads the output of a completed resource by its `actionId`. | [Unified API](/concepts/unified-api) |
 | `python` | A resource action type that runs Python scripts. Supports inline scripts, file paths, packages, and virtual environments. | [Python](/resources/scripting/python) |
 | <a id="requires"></a>`requires` | A list of `actionId`s that must complete before this resource runs. Defines the DAG edges. Transitive dependencies resolve automatically. | [Execution flow](/guides/execution-flow) |
