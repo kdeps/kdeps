@@ -44,9 +44,11 @@ kdeps is an **AI appliance builder**. You define what the agent does in YAML, an
 
 ## Deterministic by design
 
-Chat interfaces are deliberately open-ended. kdeps workflow mode is the opposite: inputs are declared, dependencies are explicit (`requires:`), and validations fire before any LLM is called. If the input is wrong, the workflow fails fast with a clear error instead of hallucinating a response.
+An LLM is probabilistic - ask Claude or GPT the same question twice and you can get two different answers. kdeps workflow mode wraps that in a deterministic shell: the same request always takes the same path through the same resources, `requires:` fixes the order, validations fire before any model is called, and the output is shaped to a fixed schema. The model's wording varies; the pipeline around it does not.
 
-Same input always produces the same execution path. Output is reproducible, auditable, and safe to run unattended. That is what makes kdeps suitable for production - not just demos.
+If the input is wrong, the workflow fails fast with a clear error instead of hallucinating a response. Output is reproducible in structure, auditable, and safe to run unattended - that is what makes kdeps suitable for production, not just demos.
+
+Agent loop mode is the opposite: there the model decides which resources run and in what order.
 
 ## Two modes, one workflow file
 

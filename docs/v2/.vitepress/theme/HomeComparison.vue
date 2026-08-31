@@ -9,6 +9,8 @@
       <h2 class="section-title">YAML replaces glue code</h2>
       <p class="section-sub">No Python scripts, no wiring, no boilerplate.</p>
 
+      <p class="callout">The model is probabilistic; the pipeline around it is not. In workflow mode the same request always takes the same path, validation runs before any LLM call, and the response is shaped to a fixed schema.</p>
+
       <div class="table-wrap">
         <table>
           <thead>
@@ -77,7 +79,16 @@
 .section-sub {
   font-size: 16px;
   color: var(--vp-c-text-2);
-  margin: 0 0 48px;
+  margin: 0 0 24px;
+}
+
+.callout {
+  font-size: 14px;
+  line-height: 1.65;
+  color: var(--vp-c-text-2);
+  border-left: 2px solid var(--vp-c-brand-1);
+  padding: 4px 0 4px 16px;
+  margin: 0 0 40px;
 }
 
 .table-wrap {
