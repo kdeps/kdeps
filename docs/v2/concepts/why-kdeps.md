@@ -73,24 +73,23 @@ Single-agent workflows have limited scope. kdeps [agencies](/reference/glossary#
 
 Most AI tooling has a short half-life. A workflow written against a popular AI SDK in 2023 is unlikely to run without modification today. Model APIs deprecate. SDK interfaces churn. Libraries get abandoned.
 
-kdeps is designed around a different premise: a workflow you deploy today should still be running in 10-15 years.
+kdeps narrows what can rot. The durable artifact is the **built appliance** - the Docker image, ISO, or self-contained binary you produce with `kdeps bundle`. It pins the kdeps runtime, the executors, and (for local models) the model itself into one frozen unit. Hand that image to a new engineer years later and it runs exactly as it did the day you built it.
 
-Three properties make this possible:
+What stays stable:
 
-- **Versioned schema.** Every `workflow.yaml` declares `apiVersion: kdeps.io/v1`. Breaking changes ship under a new API version. Your existing workflows do not move until you explicitly migrate.
-- **Local LLMs never break underneath you.** If you use Ollama or any self-hosted model, the interface does not change unless you update it. No vendor deprecation notices, no sunset dates.
-- **Backend decoupled from workflow.** Cloud model names live in `~/.kdeps/config.yaml`, not in `workflow.yaml`. When a model is deprecated, you change one line in config. The workflow is untouched.
+- **Local LLMs do not break underneath you.** With Ollama or any self-hosted model, the interface changes only when you update it. No vendor deprecation notices, no sunset dates.
+- **The backend is decoupled from the workflow.** Cloud model names live in `~/.kdeps/config.yaml`, not in `workflow.yaml`. When a model is deprecated, you change one line in config; the workflow is untouched.
+- **Your logic is code you own.** SQL, LLM prompts, Python, exec, email, inter-agent calls - these change when you change them.
 
-The two resource types coupled to external systems that can change on their own timeline:
+What you should expect to maintain:
 
-| Resource | Risk | Mitigation |
+| Thing | Why it moves | What to do |
 |---|---|---|
-| `httpClient:` | External APIs change schema, auth, endpoints | Always target a versioned path (`/v2/users`, not `/users`) |
-| `browser:` | Website DOM changes without notice | Use stable selectors (ARIA roles, data attributes) over structural CSS |
+| The `workflow.yaml` schema | kdeps does not carry legacy schema shims - a newer `kdeps` binary may reject an older file. `apiVersion: kdeps.io/v1` marks the current schema, not a frozen one. | Keep the source YAML with the image; re-validate with `kdeps validate` before upgrading the runtime, or just keep running the built image. |
+| `httpClient:` targets | External APIs change schema, auth, endpoints | Target a versioned path (`/v2/users`, not `/users`) |
+| `browser:` selectors | Website DOM changes without notice | Use stable selectors (ARIA roles, data attributes) over structural CSS |
 
-Everything else - SQL, LLM prompts, Python, exec, email, inter-agent calls - is code you own. It changes when you change it.
-
-A company that commissions a kdeps agent today can hand the YAML files and Docker image to a new engineer in 2035 and expect it to still run.
+The guarantee is not that your YAML runs forever on any future kdeps. It is that the appliance you ship is a self-contained unit you can freeze, archive, and redeploy without a live dependency on any vendor.
 
 ## Who it is for
 
