@@ -12,7 +12,9 @@ on:
 # security-scan, docker-scan, lint, test and test-windows are required status
 # checks on main. A skipped required job counts as passing, but a workflow that
 # never triggers leaves the check "expected" and blocks the PR forever. So the
-# workflow always runs; the `changes` job decides whether the real jobs execute.
+# workflow always runs; the `changes` job decides whether the real jobs execute
+# -- on pull_request AND on push to main, so a docs-only merge does not rerun
+# the full suite.
 jobs:
   # Decides whether the code jobs below run. `code=true` when the PR (or push)
   # changed at least one file that is not docs, not markdown and not the
@@ -53,7 +55,7 @@ jobs:
 
   security-scan:
     needs: changes
-    if: ${{ github.event_name != 'pull_request' || needs.changes.outputs.code == 'true' }}
+    if: ${{ needs.changes.outputs.code == 'true' }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -70,7 +72,7 @@ jobs:
 
   docker-scan:
     needs: changes
-    if: ${{ github.event_name != 'pull_request' || needs.changes.outputs.code == 'true' }}
+    if: ${{ needs.changes.outputs.code == 'true' }}
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -98,7 +100,7 @@ jobs:
 
   lint:
     needs: changes
-    if: ${{ github.event_name != 'pull_request' || needs.changes.outputs.code == 'true' }}
+    if: ${{ needs.changes.outputs.code == 'true' }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -137,7 +139,7 @@ jobs:
 
   test:
     needs: changes
-    if: ${{ github.event_name != 'pull_request' || needs.changes.outputs.code == 'true' }}
+    if: ${{ needs.changes.outputs.code == 'true' }}
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -303,7 +305,7 @@ jobs:
 
   test-windows:
     needs: changes
-    if: ${{ github.event_name != 'pull_request' || needs.changes.outputs.code == 'true' }}
+    if: ${{ needs.changes.outputs.code == 'true' }}
     # Proves the Windows release binary actually builds and its unit + integration
     # tests pass natively, not just that it cross-compiles. E2E is included too;
     # scripts needing ollama/python3/docker self-skip when the tool is missing
