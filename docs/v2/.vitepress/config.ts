@@ -119,6 +119,7 @@ export default defineConfig({
             { text: 'Local file search', link: '/examples/local-file-search' },
             { text: 'Reusable component', link: '/examples/custom-component' },
             { text: 'Python data processing', link: '/examples/python-processing' },
+            { text: 'Per-component env vars', link: '/examples/component-env' },
             { text: 'Static site', link: '/examples/static-site' },
             { text: 'Stateless bot', link: '/examples/stateless-bot/' },
             { text: 'Telegram bot', link: '/examples/telegram-bot/' },

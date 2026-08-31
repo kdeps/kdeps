@@ -28,6 +28,7 @@ Each example targets a different use case. Pick the one closest to what you're b
 | [Local file search](/examples/local-file-search) | Workflow | `searchLocal:` glob + content search |
 | [Reusable component](/examples/custom-component) | Workflow | `component.yaml`, `interface.inputs`, `component:` + `with:` |
 | [Python data processing](/examples/python-processing) | Workflow | `python:` resource, `input()`, `packages:`, JSON output |
+| [Per-component env vars](/examples/component-env) | Workflow | `env()` scoping, `{COMPONENT}_{VAR}` override, `.env` files |
 | [Static site](/examples/static-site) | Workflow | Web server mode, static file serving |
 | [Stateless bot](/examples/stateless-bot/) | Workflow | One-shot stdin/stdout LLM calls - cron jobs, CI pipelines |
 | [Telegram bot](/examples/telegram-bot/) | Workflow | Polling loop, multi-resource pipelines, external API calls |
@@ -260,6 +261,18 @@ Best for:
 - Learning `input()` templating and `packages:`
 
 [Build it step by step](/examples/python-processing)
+
+## Per-component env vars
+
+Two components that read the same variable name but can each be given a
+different value via a `{COMPONENT}_{VAR}` prefix, plus the `.env` file kdeps
+scaffolds per component.
+
+Best for:
+- Giving each component its own API key without changing shared YAML
+- Understanding component env resolution order
+
+[Build it step by step](/examples/component-env)
 
 ## Static site
 
