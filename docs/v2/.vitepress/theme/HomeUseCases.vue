@@ -7,36 +7,42 @@
     <div class="container">
       <p class="section-eyebrow">examples</p>
       <h2 class="section-title">What you can build</h2>
-      <p class="section-sub">Real patterns from the examples directory. Every one is a working workflow.</p>
+      <p class="section-sub">Every card links to a working project in the examples directory.</p>
 
       <div class="cards">
-        <a href="/examples/showcase" class="card">
-          <h3>REST API</h3>
-          <p>POST a JSON body, run a DAG pipeline, get structured JSON back. The default pattern for workflow mode.</p>
-          <span class="mode-tag">workflow mode</span>
-        </a>
-
-        <a href="/examples/telegram-bot/" class="card">
-          <h3>Telegram Bot</h3>
-          <p>Poll for messages, run a multi-step pipeline, reply with LLM responses. Two resources: llm and reply.</p>
-          <span class="mode-tag">workflow mode</span>
-        </a>
-
-        <a href="/examples/stateless-bot/" class="card">
-          <h3>Stateless Bot</h3>
-          <p>Read from stdin, call an LLM, write to stdout. One-shot. Perfect for cron jobs and CI pipelines.</p>
+        <a href="/examples/file-processor" class="card">
+          <h3>Document summarizer</h3>
+          <p>POST a file, get back a structured JSON summary - title, key points, entities. Runs on a local model.</p>
           <span class="mode-tag">workflow mode</span>
         </a>
 
         <a href="/examples/rag-search" class="card">
-          <h3>RAG Search</h3>
-          <p>Index documents locally, search with keywords, feed results into an LLM prompt. Fully on-prem.</p>
+          <h3>RAG over your own docs</h3>
+          <p>Index PDFs and text locally, retrieve the relevant chunks, and answer with an LLM. Nothing leaves the box.</p>
+          <span class="mode-tag">workflow mode</span>
+        </a>
+
+        <a href="/examples/web-scraper" class="card">
+          <h3>Web scraper API</h3>
+          <p>Fetch a page, extract the fields you name, return clean JSON. Swap in the browser resource for JS-heavy sites.</p>
+          <span class="mode-tag">workflow mode</span>
+        </a>
+
+        <a href="/examples/sql-api" class="card">
+          <h3>SQL-backed API</h3>
+          <p>Turn a plain-language question into a query against your database and answer it. Parameterized, not string-built.</p>
+          <span class="mode-tag">workflow mode</span>
+        </a>
+
+        <a href="/examples/telephony-bot" class="card">
+          <h3>Phone assistant (IVR)</h3>
+          <p>Answer a call, transcribe the caller, run a pipeline, speak the reply - say, ask, and menu steps in YAML.</p>
           <span class="mode-tag">workflow mode</span>
         </a>
 
         <a href="/examples/agency" class="card">
-          <h3>Agency Pipeline</h3>
-          <p>Orchestrate multiple agents. One summarises, another translates — each an independent workflow.</p>
+          <h3>Multi-agent agency</h3>
+          <p>One agent researches, another writes - each its own workflow.yaml, composed like function calls.</p>
           <span class="mode-tag agency-tag">multi-agent</span>
         </a>
       </div>
