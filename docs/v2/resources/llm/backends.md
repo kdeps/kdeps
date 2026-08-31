@@ -2,6 +2,8 @@
 
 kdeps separates two concerns: which model to call (set in the resource file) and where to call it (set in `~/.kdeps/config.yaml`). This lets you switch backends without touching your workflow.
 
+Whichever backend you pick - cloud (OpenAI, Anthropic, Groq, ...) or local (llamafile, Ollama, GGUF) - the model is probabilistic. The [workflow pipeline](/modes/workflow-mode) around it is what makes a kdeps agent deterministic, not the model.
+
 ## The default: llamafile (file backend)
 
 With no configuration at all, chat resources run on the `file` backend: the
