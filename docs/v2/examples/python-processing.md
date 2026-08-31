@@ -160,7 +160,7 @@ You built an API where a Python script:
 
 ## Next steps
 
-- [Python resource](/resources/python) - files, virtual environments, stdin
+- [Python resource](/resources/scripting/python) - files, virtual environments, stdin
 - [Inline resources tutorial](/examples/inline-resources) - Python in `after:`
 - [Function calling tutorial](/examples/function-calling) - a Python script as an LLM tool
-- [Exec resource](/resources/exec) - plain shell commands
+- [Exec resource](/resources/scripting/exec) - plain shell commands

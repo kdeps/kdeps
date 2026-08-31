@@ -177,6 +177,6 @@ You built an agency that:
 ## Next steps
 
 - [AI agencies](/concepts/agency) - discovery, packaging, `.kagency`
-- [Agent resource](/resources/agent) - the `agent:` reference
+- [Agent resource](/resources/delegation/agent) - the `agent:` reference
 - [Packaging commands](/reference/cli/packaging) - `.kdeps` and `.kagency`
 - [Docker deployment](/deployment/docker) - ship the agency as an image

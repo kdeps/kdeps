@@ -217,7 +217,7 @@ You built an IVR that:
 
 ## Next steps
 
-- [Telephony resource](/resources/telephony) - all actions, voices, providers
-- [Transcribe resource](/resources/transcribe) - speech to text on your own audio
+- [Telephony resource](/resources/messaging/telephony) - all actions, voices, providers
+- [Transcribe resource](/resources/media/transcribe) - speech to text on your own audio
 - [Validation and control flow](/concepts/validation-and-control) - route scoping
-- [Bot reply resource](/resources/botreply) - chat-platform bots
+- [Bot reply resource](/resources/messaging/bot-reply) - chat-platform bots

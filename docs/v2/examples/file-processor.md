@@ -196,5 +196,5 @@ You built a single-shot workflow that:
 
 - [Input sources](/concepts/input-sources) - the `api` and `bot` sources
 - [Batch processing](/examples/batch-processing) - process many items in one run
-- [LLM resource](/resources/llm) - JSON mode, vision, streaming, tools
+- [LLM resource](/resources/llm/) - JSON mode, vision, streaming, tools
 - [Unified API](/concepts/unified-api) - `get()`, `set()`, `input()`, `output()`

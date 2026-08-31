@@ -25,7 +25,7 @@ By the end you will be able to:
 
 The `scraper:` resource fetches a URL and returns its readable text. It runs
 in-process - no browser, no external service. For pages that need JavaScript
-rendering, use the [`browser:` resource](/resources/browser) instead.
+rendering, use the [`browser:` resource](/resources/web/browser) instead.
 
 ## Before you start
 
@@ -178,7 +178,7 @@ You built an API that:
 
 ## Next steps
 
-- [Scraper resource](/resources/scraper) - selectors, timeouts, output shape
-- [Browser resource](/resources/browser) - JavaScript-rendered pages
-- [LLM resource](/resources/llm) - JSON mode, streaming, tools
-- [searchWeb](/resources/searchweb) - find pages to scrape
+- [Scraper resource](/resources/web/scraper) - selectors, timeouts, output shape
+- [Browser resource](/resources/web/browser) - JavaScript-rendered pages
+- [LLM resource](/resources/llm/) - JSON mode, streaming, tools
+- [searchWeb](/resources/search/searchweb) - find pages to scrape

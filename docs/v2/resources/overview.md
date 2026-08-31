@@ -64,36 +64,85 @@ component:           # call an installable registry component
     message: "Hello!"
 ```
 
+Detailed reference for each action:
+[`agent`](/resources/delegation/agent) ·
+[`apiResponse`](/resources/api-response) ·
+[`botReply`](/resources/messaging/bot-reply) ·
+[`browser`](/resources/web/browser) ·
+[`chat`](/resources/llm/) ·
+[`codeIntelligence`](/resources/code-intelligence/navigation) ·
+[`component`](/resources/delegation/component) ·
+[`email`](/resources/messaging/email) ·
+[`embedding`](/resources/rag/embedding) ·
+[`exec`](/resources/scripting/exec) ·
+[`file`](/resources/files/file) ·
+[`git`](/resources/files/git) ·
+[`httpClient`](/resources/web/http-client) ·
+[`loader`](/resources/rag/loader) ·
+[`ocr`](/resources/media/ocr) ·
+[`python`](/resources/scripting/python) ·
+[`scraper`](/resources/web/scraper) ·
+[`searchLocal`](/resources/search/searchlocal) ·
+[`searchWeb`](/resources/search/searchweb) ·
+[`sql`](/resources/sql) ·
+[`telephony`](/resources/messaging/telephony) ·
+[`transcribe`](/resources/media/transcribe) ·
+[`vectorStore`](/resources/rag/vector-store)
+
 ## Resource types
 
-### Native executors (always available)
+All executors are compiled into the `kdeps` binary and require no installation.
+They are grouped here by function; each links to its own reference page.
 
-These executors are compiled into the `kdeps` binary and require no installation.
+### AI & language
 
-| YAML key | Description | Use Case |
-|----------|-------------|----------|
-| `chat` | LLM interaction | AI responses, text generation |
-| `httpClient` | HTTP requests | External APIs, webhooks |
-| `sql` | Database queries | Data retrieval, updates |
-| `python` | Python scripts | Data processing, ML |
-| `exec` | Shell commands | System operations |
-| `scraper` | Web scraping | Fetch URL, optional CSS selector |
-| `embedding` | Keyword store | SQLite index/search/upsert/delete |
-| `searchLocal` | File search | Glob + keyword search across local files |
-| `searchWeb` | Web search | DuckDuckGo (default), Brave, Bing, Tavily |
-| `browser` | Browser automation | Playwright-based navigation, screenshots, JS eval |
-| `email` | Email send/receive | SMTP send, IMAP read/search/modify |
-| `telephony` | Voice call handling | TwiML actions (say, ask, menu, dial, record) for Twilio-compatible providers |
-| `botReply` | Bot platform reply | Send a text reply to the platform that delivered the current message |
-| `agent` | Inter-agent delegation | Call another agent in an [agency](/reference/glossary#agency) |
-| `file` | Filesystem operations | Read, write, patch, list, delete, copy, move files and directories |
-| `git` | Version control | Status, diff, log, commit, branch, push, pull operations |
-| `codeIntelligence` | Code navigation | Symbol search, definitions, references, diagnostics via ripgrep |
-| `loader` | Document loading | Load PDF, HTML, CSV, text, or a directory into text chunks for RAG |
-| `vectorStore` | Vector database | Add and similarity-search documents across Qdrant, Chroma, Pinecone, pgvector, and more |
-| `transcribe` | Speech-to-text | Whisper transcription via OpenAI, Groq, a local HTTP server, or fully offline via whisper-cpp (no API key) |
-| `ocr` | Image text extraction | Extract text from an image via tesseract - local, no API key |
-| `apiResponse` | API response | Return data to the HTTP caller |
+| YAML key | Description | Page |
+|---|---|---|
+| `chat` | LLM interaction - responses, generation, tools, vision | [LLM](/resources/llm/) |
+| `chat` (routing) | Delegate model choice to config / auto-fit | [LLM routing](/resources/llm/routing) |
+| - | Model backends, providers, API keys | [LLM backends](/resources/llm/backends) |
+| `loader` | Load PDF, HTML, CSV, text, or a directory into text chunks | [Loader](/resources/rag/loader) |
+| `embedding` | Local SQLite keyword store: index / search / upsert / delete | [Embedding](/resources/rag/embedding) |
+| `vectorStore` | External vector DB: Qdrant, Chroma, Pinecone, pgvector, ... | [Vector store](/resources/rag/vector-store) |
+| `transcribe` | Speech to text via Whisper (OpenAI, Groq, local, offline) | [Transcribe](/resources/media/transcribe) |
+| `ocr` | Text from an image via tesseract - local, no API key | [OCR](/resources/media/ocr) |
+
+### Web
+
+| YAML key | Description | Page |
+|---|---|---|
+| `httpClient` | HTTP requests - APIs, webhooks, auth, retry, cache | [HTTP client](/resources/web/http-client) |
+| `scraper` | Fetch a URL and extract text, optional CSS selector | [Scraper](/resources/web/scraper) |
+| `browser` | Playwright browser - navigation, forms, JS, screenshots | [Browser](/resources/web/browser) |
+| `searchLocal` | Glob + keyword search across local files | [searchLocal](/resources/search/searchlocal) |
+| `searchWeb` | Web search: DuckDuckGo (default), Brave, Bing, Tavily | [searchWeb](/resources/search/searchweb) |
+
+### Data & system
+
+| YAML key | Description | Page |
+|---|---|---|
+| `sql` | Database queries and transactions | [SQL](/resources/sql) |
+| `file` | Read, write, patch, list, delete, copy, move files | [File](/resources/files/file) |
+| `git` | Status, diff, log, commit, branch, push, pull | [Git](/resources/files/git) |
+| `python` | Run a Python script, stdout parsed as JSON | [Python](/resources/scripting/python) |
+| `exec` | Run a shell command, stdout captured | [Exec](/resources/scripting/exec) |
+| `codeIntelligence` | Symbol search, definitions, references, folder graph | [Code intelligence](/resources/code-intelligence/navigation) · [folder graph](/resources/code-intelligence/graph) |
+
+### Messaging
+
+| YAML key | Description | Page |
+|---|---|---|
+| `email` | SMTP send, IMAP read / search / modify | [Email](/resources/messaging/email) |
+| `telephony` | Voice call handling (say, ask, menu, dial, record) | [Telephony](/resources/messaging/telephony) |
+| `botReply` | Reply to the chat platform that delivered the message | [Bot reply](/resources/messaging/bot-reply) |
+
+### Orchestration
+
+| YAML key | Description | Page |
+|---|---|---|
+| `agent` | Call another agent in an [agency](/reference/glossary#agency) | [Agent](/resources/delegation/agent) |
+| `component` | Call a reusable resource bundle | [Component](/resources/delegation/component) |
+| `apiResponse` | Return data to the HTTP caller | [API response](/resources/api-response) |
 
 ### Registry components (installable via `kdeps registry install`)
 
@@ -105,7 +154,7 @@ These executors are compiled into the `kdeps` binary and require no installation
 | `embedding` | Vector embeddings via OpenAI Embeddings API |
 | `search` | Web search via Tavily API |
 
-See the [Components guide](../concepts/components) for installation and usage details.
+See the [Components guide](/concepts/components) for installation and usage details.
 
 ## actionId and requires
 
@@ -322,12 +371,12 @@ Set realistic `timeout` values based on expected execution time.
 
 ## See also
 
-- [LLM resource](llm) - AI model integration
-- [HTTP client](http-client) - external API calls
-- [SQL resource](sql) - database operations
-- [Python resource](python) - script execution
-- [Exec resource](exec) - shell commands
-- [Email resource](email) - SMTP send, IMAP read/search/modify
+- [LLM resource](/resources/llm/) - AI model integration
+- [HTTP client](/resources/web/http-client) - external API calls
+- [SQL resource](/resources/sql) - database operations
+- [Python resource](/resources/scripting/python) - script execution
+- [Exec resource](/resources/scripting/exec) - shell commands
+- [Email resource](/resources/messaging/email) - SMTP send, IMAP read/search/modify
 - [API response](api-response) - response formatting
-- [Agency & multi-agent](../concepts/agency) - multi-agent orchestration
-- [Components](../concepts/components) - installable capability extensions
+- [Agency & multi-agent](/concepts/agency) - multi-agent orchestration
+- [Components](/concepts/components) - installable capability extensions

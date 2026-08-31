@@ -205,32 +205,71 @@ export default defineConfig({
           text: 'Resources',
           collapsed: false,
           items: [
-            { text: 'LLM (chat)', link: '/resources/llm' },
-            { text: 'LLM backends and routing', link: '/resources/llm-backends' },
-            { text: 'Routing', link: '/resources/llm-routing' },
-            { text: 'HTTP client', link: '/resources/http-client' },
-            { text: 'Python', link: '/resources/python' },
-            { text: 'Exec (shell)', link: '/resources/exec' },
-            { text: 'File', link: '/resources/file' },
-            { text: 'Git', link: '/resources/git' },
-            { text: 'Code intelligence', link: '/resources/codeintelligence' },
-            { text: 'Graphing an indexed folder', link: '/resources/codeintelligence-graph' },
+            { text: 'Overview', link: '/resources/overview' },
+          ]
+        },
+        {
+          text: 'AI & language',
+          collapsed: false,
+          items: [
+            { text: 'LLM (chat)', link: '/resources/llm/' },
+            { text: 'LLM backends', link: '/resources/llm/backends' },
+            { text: 'LLM routing', link: '/resources/llm/routing' },
+            { text: 'RAG - overview', link: '/resources/rag/' },
+            { text: 'Loader', link: '/resources/rag/loader' },
+            { text: 'Embedding', link: '/resources/rag/embedding' },
+            { text: 'Vector store', link: '/resources/rag/vector-store' },
+            { text: 'Media - overview', link: '/resources/media/' },
+            { text: 'Transcribe', link: '/resources/media/transcribe' },
+            { text: 'OCR', link: '/resources/media/ocr' },
+          ]
+        },
+        {
+          text: 'Web',
+          collapsed: false,
+          items: [
+            { text: 'Web - overview', link: '/resources/web/' },
+            { text: 'HTTP client', link: '/resources/web/http-client' },
+            { text: 'Scraper', link: '/resources/web/scraper' },
+            { text: 'Browser', link: '/resources/web/browser' },
+            { text: 'Search - overview', link: '/resources/search/' },
+            { text: 'searchLocal', link: '/resources/search/searchlocal' },
+            { text: 'searchWeb', link: '/resources/search/searchweb' },
+          ]
+        },
+        {
+          text: 'Data & system',
+          collapsed: false,
+          items: [
             { text: 'SQL', link: '/resources/sql' },
-            { text: 'Email', link: '/resources/email' },
-            { text: 'Scraper', link: '/resources/scraper' },
-            { text: 'Browser', link: '/resources/browser' },
-            { text: 'Embedding', link: '/resources/embedding' },
-            { text: 'Loader', link: '/resources/loader' },
-            { text: 'Vector store', link: '/resources/vectorstore' },
-            { text: 'Search', link: '/resources/search' },
-            { text: 'searchLocal', link: '/resources/searchlocal' },
-            { text: 'searchWeb', link: '/resources/searchweb' },
-            { text: 'Transcribe', link: '/resources/transcribe' },
-            { text: 'OCR', link: '/resources/ocr' },
-            { text: 'Telephony', link: '/resources/telephony' },
-            { text: 'Bot reply', link: '/resources/botreply' },
-            { text: 'Agent (delegation)', link: '/resources/agent' },
-            { text: 'Component', link: '/resources/component' },
+            { text: 'Files - overview', link: '/resources/files/' },
+            { text: 'File', link: '/resources/files/file' },
+            { text: 'Git', link: '/resources/files/git' },
+            { text: 'Scripting - overview', link: '/resources/scripting/' },
+            { text: 'Python', link: '/resources/scripting/python' },
+            { text: 'Exec (shell)', link: '/resources/scripting/exec' },
+            { text: 'Code intelligence - overview', link: '/resources/code-intelligence/' },
+            { text: 'Code navigation', link: '/resources/code-intelligence/navigation' },
+            { text: 'Folder graph', link: '/resources/code-intelligence/graph' },
+          ]
+        },
+        {
+          text: 'Messaging',
+          collapsed: false,
+          items: [
+            { text: 'Messaging - overview', link: '/resources/messaging/' },
+            { text: 'Email', link: '/resources/messaging/email' },
+            { text: 'Telephony', link: '/resources/messaging/telephony' },
+            { text: 'Bot reply', link: '/resources/messaging/bot-reply' },
+          ]
+        },
+        {
+          text: 'Orchestration',
+          collapsed: false,
+          items: [
+            { text: 'Delegation - overview', link: '/resources/delegation/' },
+            { text: 'Agent', link: '/resources/delegation/agent' },
+            { text: 'Component', link: '/resources/delegation/component' },
             { text: 'API response', link: '/resources/api-response' },
           ]
         },
@@ -329,6 +368,60 @@ export default defineConfig({
   vite: {
     define: {
       __VUE_OPTIONS_API__: false
+    }
+  },
+
+  // Redirects for resource pages moved into category folders (2026-08).
+  // GitHub Pages has no _redirects, so write a meta-refresh stub at each old path.
+  async buildEnd(siteConfig) {
+    const { writeFile, mkdir } = await import('node:fs/promises')
+    const { join, dirname } = await import('node:path')
+    const redirects: Record<string, string> = {
+      'resources/llm': '/resources/llm/',
+      'resources/llm-backends': '/resources/llm/backends',
+      'resources/llm-routing': '/resources/llm/routing',
+      'resources/rag': '/resources/rag/',
+      'resources/loader': '/resources/rag/loader',
+      'resources/embedding': '/resources/rag/embedding',
+      'resources/vectorstore': '/resources/rag/vector-store',
+      'resources/media': '/resources/media/',
+      'resources/transcribe': '/resources/media/transcribe',
+      'resources/ocr': '/resources/media/ocr',
+      'resources/web': '/resources/web/',
+      'resources/http-client': '/resources/web/http-client',
+      'resources/scraper': '/resources/web/scraper',
+      'resources/browser': '/resources/web/browser',
+      'resources/search': '/resources/search/',
+      'resources/searchlocal': '/resources/search/searchlocal',
+      'resources/searchweb': '/resources/search/searchweb',
+      'resources/scripting': '/resources/scripting/',
+      'resources/python': '/resources/scripting/python',
+      'resources/exec': '/resources/scripting/exec',
+      'resources/files': '/resources/files/',
+      'resources/file': '/resources/files/file',
+      'resources/git': '/resources/files/git',
+      'resources/code-intelligence': '/resources/code-intelligence/',
+      'resources/codeintelligence': '/resources/code-intelligence/navigation',
+      'resources/codeintelligence-graph': '/resources/code-intelligence/graph',
+      'resources/messaging': '/resources/messaging/',
+      'resources/email': '/resources/messaging/email',
+      'resources/telephony': '/resources/messaging/telephony',
+      'resources/botreply': '/resources/messaging/bot-reply',
+      'resources/delegation': '/resources/delegation/',
+      'resources/agent': '/resources/delegation/agent',
+      'resources/component': '/resources/delegation/component',
+    }
+    for (const [from, to] of Object.entries(redirects)) {
+      const file = join(siteConfig.outDir, from + '.html')
+      await mkdir(dirname(file), { recursive: true })
+      await writeFile(
+        file,
+        `<!doctype html><html><head><meta charset="utf-8">` +
+        `<meta http-equiv="refresh" content="0; url=${to}">` +
+        `<link rel="canonical" href="${to}">` +
+        `<title>Redirecting</title></head>` +
+        `<body>This page moved to <a href="${to}">${to}</a>.</body></html>`,
+      )
     }
   }
 })

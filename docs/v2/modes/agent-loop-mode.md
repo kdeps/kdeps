@@ -226,7 +226,7 @@ Invoke a skill from the REPL with `/<skill-name>` or `/<skill-name> extra contex
 
 **Progressive disclosure (token cost):** the system prompt lists only each skill's name and description - never the full body. Skill instructions are re-sent on every LLM call as part of the system prompt, so embedding full bodies for a large skill set would burn tokens every turn. Instead, the agent calls the built-in `load_skill` tool with a skill name to pull that skill's full instructions on demand, only when a task actually needs it.
 
-**Related skills:** when skills are (re)loaded, kdeps builds a small [kartographer](https://github.com/kdeps/kartographer) reference/topic graph over each skill-library root - the same mechanism `codeIntelligence`'s [`indexFolder`/`graphFile`](../resources/codeintelligence-graph) uses on any folder. A skill is related to another if its `SKILL.md` links to it (`[other](../other/SKILL.md)`), or if both declare the same `topics:`/`tags:` in frontmatter:
+**Related skills:** when skills are (re)loaded, kdeps builds a small [kartographer](https://github.com/kdeps/kartographer) reference/topic graph over each skill-library root - the same mechanism `codeIntelligence`'s [`indexFolder`/`graphFile`](/resources/code-intelligence/graph) uses on any folder. A skill is related to another if its `SKILL.md` links to it (`[other](../other/SKILL.md)`), or if both declare the same `topics:`/`tags:` in frontmatter:
 
 ```markdown
 ---

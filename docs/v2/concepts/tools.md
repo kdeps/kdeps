@@ -236,7 +236,7 @@ LLM generates final response
 ## See also
 
 - [Tools reference](/reference/tools-reference) - examples, tool chaining, best practices, debugging
-- [LLM resource](../resources/llm) - Full LLM configuration
-- [LLM backends](../resources/llm-backends) - Streaming and backend options
-- [Python resource](../resources/python) - Building tool scripts
+- [LLM resource](/resources/llm/) - Full LLM configuration
+- [LLM backends](/resources/llm/backends) - Streaming and backend options
+- [Python resource](/resources/scripting/python) - Building tool scripts
 - [Unified API](/concepts/unified-api) - Data access in tools

@@ -147,7 +147,7 @@ You built a search API that:
 
 ## Next steps
 
-- [searchLocal resource](/resources/searchlocal) - `index: true`, fuzzy matching, graph boost
+- [searchLocal resource](/resources/search/searchlocal) - `index: true`, fuzzy matching, graph boost
 - [Document search tutorial](/examples/rag-search) - semantic search with `embedding:`
-- [Code intelligence](/resources/codeintelligence) - symbol search over a source tree
+- [Code intelligence](/resources/code-intelligence/navigation) - symbol search over a source tree
 - [Web scraper tutorial](/examples/web-scraper) - fetch remote pages instead

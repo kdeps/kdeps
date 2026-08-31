@@ -200,5 +200,5 @@ Memory entries are automatically linked into a relationship graph showing the ch
 ## See also
 
 - [Workflow configuration](../configuration/workflow) - Full `workflow.yaml` reference
-- [Resources overview](../resources/overview) - Resource types and fields
+- [Resources overview](/resources/overview) - Resource types and fields
 - [Agent mode](agent-loop-mode) - Autonomous LLM loop

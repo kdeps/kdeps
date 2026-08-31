@@ -1,6 +1,6 @@
 # Python resource examples
 
-Examples, error handling, and debugging guidance for the [`python:` resource](/resources/python).
+Examples, error handling, and debugging guidance for the [`python:` resource](/resources/scripting/python).
 
 *Applies to both workflow mode and agent mode.*
 
@@ -219,6 +219,6 @@ print(json.dumps(result))  # Only stdout is the resource output
 
 ## See also
 
-- [Python resource](/resources/python) - Core configuration reference
-- [Exec resource](/resources/exec) - Shell command execution
-- [LLM resource](/resources/llm) - Combine Python with AI
+- [Python resource](/resources/scripting/python) - Core configuration reference
+- [Exec resource](/resources/scripting/exec) - Shell command execution
+- [LLM resource](/resources/llm/) - Combine Python with AI

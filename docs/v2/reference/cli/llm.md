@@ -169,5 +169,5 @@ kdeps llm export iso --engine ollama --model llama3.2 -o llm.iso
 ## See also
 
 - [LLM server appliance](/deployment/llm-server)
-- [LLM backends](/resources/llm-backends)
+- [LLM backends](/resources/llm/backends)
 - [Packaging commands](/reference/cli/packaging) - agent bundle/export (different product surface)

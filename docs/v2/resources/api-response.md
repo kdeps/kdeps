@@ -361,6 +361,6 @@ apiResponse:
 
 ## See also
 
-- [Resources overview](overview) - all resource types
-- [LLM resource](llm) - AI model integration
-- [Unified API](../concepts/unified-api) - data access patterns
+- [Resources overview](/resources/overview) - all resource types
+- [LLM resource](/resources/llm/) - AI model integration
+- [Unified API](/concepts/unified-api) - data access patterns
