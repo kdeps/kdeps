@@ -395,10 +395,21 @@ Request
   ↓ Execute Resource
 ```
 
+## Use cases
+
+- Reject a bad request before it reaches an LLM or an external API, so a
+  missing field costs nothing (`check` + `error`).
+- Skip a resource when its work is not needed this run - a cache hit, an empty
+  input, a feature flag off (`skip`).
+- Scope a resource to specific HTTP methods and routes so one workflow serves
+  several endpoints (`methods`, `routes`).
+- Enforce an input schema (types, required fields, ranges) with a 422 response
+  on failure (`required`, `rules`, `properties`, `expr`).
+
 ## See also
 
-- [Validation Examples](/reference/validation-examples) - Best practices and examples
-- [Expressions](/concepts/expressions) - Expression syntax for conditions
-- [Resources Overview](../resources/overview.md) - Resource structure
-- [Unified API](/concepts/unified-api) - Using `get()` in validations
-- [Workflow Configuration](../configuration/workflow.md) - Route configuration
+- [Validation examples](/reference/validation-examples) - best practices and examples
+- [Expressions](/concepts/expressions) - expression syntax for conditions
+- [Resources overview](/resources/overview) - resource structure
+- [Unified API](/concepts/unified-api) - using `get()` in validations
+- [Workflow configuration](/configuration/workflow) - route configuration

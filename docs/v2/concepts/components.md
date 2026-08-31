@@ -85,6 +85,15 @@ chat:
 
 The component's `interface.inputs` become the tool's parameter schema. The LLM uses this to decide when and how to call the tool.
 
+## Use cases
+
+- Pull in a pre-built capability (web scraping, search, embeddings, browser
+  automation) with one `kdeps registry install` instead of writing it.
+- Package logic you reuse across projects - a `component.yaml` plus a
+  `components/<name>/` directory - and share it through the registry.
+- Give an LLM a bounded, typed capability by exposing a component as a tool
+  through `componentTools:`.
+
 ## See also
 
 - [Components Reference](/reference/components) - full schema, input validation, env var auto-derivation, packaging

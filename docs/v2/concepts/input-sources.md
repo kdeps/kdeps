@@ -90,8 +90,17 @@ kdeps run workflow.yaml --interactive
 
 This opens a terminal REPL where you can send prompts and invoke tools interactively.
 
+## Use cases
+
+- Serve a workflow as an HTTP JSON API for a frontend or another service
+  (`api`).
+- Run a workflow as a chat bot on Discord, Slack, Telegram, or WhatsApp
+  (`bot`).
+- Process one file per invocation from a pipeline, cron job, or CI step
+  (`file`).
+
 ## See also
 
-- [Workflow Configuration](../configuration/workflow) - Full `settings` reference
-- [Workflow Mode](../modes/workflow-mode) - How the request-response cycle works
-- [Bot Configuration](../configuration/workflow#bot-source) - Full bot settings
+- [Workflow configuration](/configuration/workflow) - full `settings` reference
+- [Workflow mode](/modes/workflow-mode) - how the request-response cycle works
+- [Bot configuration](/configuration/workflow#bot-source) - full bot settings

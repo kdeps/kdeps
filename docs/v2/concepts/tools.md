@@ -224,9 +224,18 @@ Tool result returned to LLM
 LLM generates final response
 ```
 
+## Use cases
+
+- Let the model do math, run code, or query a database mid-response instead of
+  guessing (`script:` pointing at a `python:`, `exec:`, or `sql:` resource).
+- Give the model read access to a filesystem, an API, or another service
+  through an external MCP server (`mcp:`).
+- Chain capabilities: the model calls a search tool, then a scraper tool, then
+  summarizes - each tool is a resource the model invokes on demand.
+
 ## See also
 
-- [Tools Reference](/reference/tools-reference) - Examples, tool chaining, best practices, debugging
+- [Tools reference](/reference/tools-reference) - examples, tool chaining, best practices, debugging
 - [LLM Resource](../resources/llm) - Full LLM configuration
 - [LLM Backends](../resources/llm-backends) - Streaming and backend options
 - [Python Resource](../resources/python) - Building tool scripts

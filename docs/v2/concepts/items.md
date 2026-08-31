@@ -201,9 +201,18 @@ chat:
 
 </div>
 
+## Use cases
+
+- Run the same LLM prompt over each row of a dataset (summarize each document,
+  classify each ticket, translate each string).
+- Generate a multi-section document one section at a time, using `get('prev')`
+  and `get('next')` for continuity.
+- Fan a fixed list of URLs, files, or IDs through an `httpClient:`, `scraper:`,
+  or `sql:` resource and collect the results.
+
 ## See also
 
-- [Items Reference](/reference/items-reference) - Use cases, dynamic items, performance, best practices
+- [Items reference](/reference/items-reference) - dynamic items, performance, best practices
 - [Resources Overview](../resources/overview) - Resource configuration
 - [Expressions](/concepts/expressions) - Expression syntax
 - [Expression Functions Reference](/reference/expression-functions-reference) - Complete function reference
