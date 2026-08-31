@@ -17,8 +17,16 @@ name: "CodeQL"
 on:
   push:
     branches: ["main"]
+    paths-ignore:
+      - 'docs/**'
+      - '*.md'
+      - '.github/coverage-badge.json'
   pull_request:
     branches: ["main"]
+    paths-ignore:
+      - 'docs/**'
+      - '*.md'
+      - '.github/coverage-badge.json'
   schedule:
     - cron: "30 5 * * 1"
 
