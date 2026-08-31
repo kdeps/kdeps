@@ -17,6 +17,7 @@ mode and agent mode.
 | `codeIntelligence` | A resource action type for code navigation: symbol search, definition lookup, reference finding, hover info, and diagnostics. | [Code intelligence](/resources/code-intelligence/navigation) |
 | <a id="component"></a>component | A reusable, packaged resource bundle. Installed from the registry or built in a `components/` directory. Declared as `kind: Component`. | [Components](/concepts/components) |
 | `componentTools` | Tools provided by a component that are exposed to the calling agent or workflow for the LLM to invoke. | [Components](/concepts/components) |
+| <a id="deterministic"></a>deterministic | Same input, same output, every time. In kdeps this describes the workflow-mode pipeline - route matching, `requires:` ordering, `validations`, and response shaping all resolve the same way for a given request. It does not describe the LLM's text output. Contrast [probabilistic](#probabilistic). | [Deterministic by design](/concepts/why-kdeps#deterministic-by-design) |
 | `embedding` | A resource action type that generates vector embeddings from text, for semantic search and RAG. | [Embedding](/resources/rag/embedding) |
 | `exec` | A resource action type that runs shell commands and captures stdout, stderr, and exit code. | [Exec](/resources/scripting/exec) |
 | expr | Short for expression: a statement evaluated by the expr-lang engine. Used in `before:` / `after:` blocks, `validations`, and `{{ }}` string interpolation. | [Expressions](/concepts/expressions) |
@@ -33,6 +34,7 @@ mode and agent mode.
 | memory (persistent) | Project-scoped storage for the agent loop in a bbolt database that survives across sessions. Built-in tools: `memory_save`, `memory_search`, `memory_delete`, `memory_list`, `memory_query`. | [Persistent memory](/concepts/memory) |
 | memory graph | A directed graph of memory entries linked by their `References` fields and auto-linked by type. Inlined into the `<memory>` block in causal order. | [Memory internals](/concepts/memory-internals#memory-graph) |
 | `output()` | An expression function that reads the output of a completed resource by its `actionId`. | [Unified API](/concepts/unified-api) |
+| <a id="probabilistic"></a>probabilistic | The same prompt can produce different output on each call. Every language model - Claude, GPT, Gemini, Groq, Ollama, local llamafile / GGUF - is probabilistic. A kdeps `chat:` resource inherits this; the pipeline around it stays [deterministic](#deterministic). | [LLM provider reference](/reference/llm-providers) |
 | `python` | A resource action type that runs Python scripts. Supports inline scripts, file paths, packages, and virtual environments. | [Python](/resources/scripting/python) |
 | <a id="requires"></a>`requires` | A list of `actionId`s that must complete before this resource runs. Defines the DAG edges. Transitive dependencies resolve automatically. | [Execution flow](/guides/execution-flow) |
 | resource | The fundamental building block of a workflow: an `actionId`, a primary action type, optional `requires`, and optional validations, loop, and error handling. | [Resources overview](/resources/overview) |
