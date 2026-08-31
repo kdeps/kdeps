@@ -99,6 +99,9 @@ export default defineConfig({
           collapsed: false,
           items: [
             { text: 'Examples overview', link: '/examples/' },
+            { text: 'Document summarizer', link: '/examples/file-processor' },
+            { text: 'Batch processing', link: '/examples/batch-processing' },
+            { text: 'Document search (RAG)', link: '/examples/rag-search' },
             { text: 'Stateless bot', link: '/examples/stateless-bot/' },
             { text: 'Telegram bot', link: '/examples/telegram-bot/' },
             { text: 'Showcase', link: '/examples/showcase' },

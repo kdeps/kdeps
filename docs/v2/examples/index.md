@@ -8,9 +8,50 @@ Each example targets a different use case. Pick the one closest to what you're b
 
 | Example | Mode | What it demonstrates |
 |---|---|---|
+| [Document summarizer](/examples/file-processor) | Workflow | The `file` input source - read one file, return JSON, exit |
+| [Batch processing](/examples/batch-processing) | Workflow | `items:` iteration - process a list in one request |
+| [Document search (RAG)](/examples/rag-search) | Workflow | `embedding:` upsert and search, two routes in one workflow |
 | [Stateless bot](/examples/stateless-bot/) | Workflow | One-shot stdin/stdout LLM calls - cron jobs, CI pipelines |
 | [Telegram bot](/examples/telegram-bot/) | Workflow | Polling loop, multi-resource pipelines, external API calls |
 | [Showcase](/examples/showcase) | Workflow | Complex agents in ~20 lines of YAML - multiple real-world patterns |
+
+## Document summarizer
+
+A single-shot workflow that reads a document from `--file`, stdin, or an
+environment variable, sends it to a local LLM, and prints a structured JSON
+summary. Runs once and exits.
+
+Best for:
+- Cron jobs and CI steps
+- `kdeps run ... | jq` one-liners
+- Any pipeline that treats kdeps as a subprocess
+
+[Build it step by step](/examples/file-processor)
+
+## Batch processing
+
+An API that takes a list of items in one request, fans out an HTTP call per
+item with `items:`, transforms each result, and returns an aggregated summary.
+
+Best for:
+- Enriching a list of records from an external API
+- Running the same LLM prompt over many inputs
+- Any fan-out / collect pattern
+
+[Build it step by step](/examples/batch-processing)
+
+## Document search (RAG)
+
+A two-route API: `POST /index` stores a document, `POST /search` returns the
+closest matches. Uses the built-in `embedding:` resource - a local SQLite
+index, no vector database.
+
+Best for:
+- The retrieval half of a RAG pipeline
+- A lightweight search endpoint over your own text
+- Learning `validations.routes` scoping
+
+[Build it step by step](/examples/rag-search)
 
 ## Stateless bot
 
