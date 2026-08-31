@@ -73,7 +73,7 @@ Single-agent workflows have limited scope. kdeps [agencies](/reference/glossary#
 
 Most AI tooling has a short half-life. A workflow written against a popular AI SDK in 2023 is unlikely to run without modification today. Model APIs deprecate. SDK interfaces churn. Libraries get abandoned.
 
-kdeps narrows what can rot. The durable artifact is the **built appliance** - the Docker image, ISO, or self-contained binary you produce with `kdeps bundle`. It pins the kdeps runtime, the executors, and (for local models) the model itself into one frozen unit. Hand that image to a new engineer years later and it runs exactly as it did the day you built it.
+kdeps reduces how many moving parts can break on you. The thing you archive is the **built appliance** - the Docker image, ISO, or self-contained binary you produce with `kdeps bundle`. It pins the kdeps runtime, the executors, and (for local models) the model itself into one frozen unit. Hand that image to a new engineer years later and it runs exactly as it did the day you built it.
 
 What stays stable:
 
