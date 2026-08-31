@@ -14,6 +14,9 @@ Each example targets a different use case. Pick the one closest to what you're b
 | [Web scraper](/examples/web-scraper) | Workflow | `scraper:` fetch, LLM summary, `jsonResponse` |
 | [Login and sessions](/examples/session-auth) | Workflow | SQLite sessions, `set`/`get` session scope, auth gate |
 | [Shell command API](/examples/shell-command-api) | Workflow | `exec:` with a timeout, method scoping, `info()` |
+| [Function calling](/examples/function-calling) | Workflow | LLM `tools:`, `script:`, tool arguments in `memory` |
+| [Image analysis](/examples/vision) | Workflow | Multipart upload, `files:` on a chat prompt, Ollama vision |
+| [SQL-backed API](/examples/sql-api) | Workflow | `sql:` parameterized queries, CSV output, batch transactions |
 | [Static site](/examples/static-site) | Workflow | Web server mode, static file serving |
 | [Stateless bot](/examples/stateless-bot/) | Workflow | One-shot stdin/stdout LLM calls - cron jobs, CI pipelines |
 | [Telegram bot](/examples/telegram-bot/) | Workflow | Polling loop, multi-resource pipelines, external API calls |
@@ -89,6 +92,39 @@ Best for:
 - System checks and automation endpoints
 
 [Build it step by step](/examples/shell-command-api)
+
+## Function calling
+
+An API where the LLM calls your own resources mid-response - a `python:`
+calculator and a mock database lookup - then answers using the results.
+
+Best for:
+- Letting a model compute or look things up instead of guessing
+- Learning the `tools:` / `script:` pattern
+
+[Build it step by step](/examples/function-calling)
+
+## Image analysis
+
+An API that accepts an image upload and a question, sends both to a multimodal
+model, and returns a structured description.
+
+Best for:
+- Vision use cases (captioning, object listing, scene classification)
+- Learning file uploads and `files:` on a chat prompt
+
+[Build it step by step](/examples/vision)
+
+## SQL-backed API
+
+A two-route API over SQLite: `GET /report` runs an analytics query and returns
+CSV; `POST /update` applies a batch of writes in a transaction.
+
+Best for:
+- Exposing a database read or write as an HTTP endpoint
+- Learning parameterized queries and `paramsBatch:`
+
+[Build it step by step](/examples/sql-api)
 
 ## Static site
 
