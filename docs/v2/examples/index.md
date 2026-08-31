@@ -17,6 +17,9 @@ Each example targets a different use case. Pick the one closest to what you're b
 | [Function calling](/examples/function-calling) | Workflow | LLM `tools:`, `script:`, tool arguments in `memory` |
 | [Image analysis](/examples/vision) | Workflow | Multipart upload, `files:` on a chat prompt, Ollama vision |
 | [SQL-backed API](/examples/sql-api) | Workflow | `sql:` parameterized queries, CSV output, batch transactions |
+| [Chat web app](/examples/chat-web-app) | Workflow | API + static frontend together, `public` routes, `scenario:` |
+| [File upload](/examples/file-upload) | Workflow | Multipart uploads, `info('files')`, `get(field, 'filepath')` |
+| [Conditionals and lists](/examples/control-flow) | Workflow | Ternary, `&&`/`||`/`!`, `filter`/`map`/`all`/`any` |
 | [Static site](/examples/static-site) | Workflow | Web server mode, static file serving |
 | [Stateless bot](/examples/stateless-bot/) | Workflow | One-shot stdin/stdout LLM calls - cron jobs, CI pipelines |
 | [Telegram bot](/examples/telegram-bot/) | Workflow | Polling loop, multi-resource pipelines, external API calls |
@@ -125,6 +128,39 @@ Best for:
 - Learning parameterized queries and `paramsBatch:`
 
 [Build it step by step](/examples/sql-api)
+
+## Chat web app
+
+One project that serves a chat API and the static web page that calls it. The
+API route is `public` so the browser needs no token; the LLM has a system
+prompt via `scenario:` and a friendly `onError` fallback.
+
+Best for:
+- A complete, deployable chat UI in one repo
+- Learning `apiServer:` + `webServer:` together
+
+[Build it step by step](/examples/chat-web-app)
+
+## File upload
+
+An endpoint that accepts one or more multipart uploads and returns their
+metadata - count, names, MIME types, and the first file's path on disk.
+
+Best for:
+- Accepting user files
+- The first step of any upload-then-process pipeline
+
+[Build it step by step](/examples/file-upload)
+
+## Conditionals and lists
+
+One resource that exercises every expression control-flow tool: the ternary
+operator, `&&` / `||` / `!`, and `filter` / `map` / `all` / `any` over a list.
+
+Best for:
+- A reference for expression syntax you can run and poke at
+
+[Build it step by step](/examples/control-flow)
 
 ## Static site
 
