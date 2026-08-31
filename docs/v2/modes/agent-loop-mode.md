@@ -265,8 +265,14 @@ Place templates in `~/.kdeps/prompts/` or `./.kdeps/prompts/`. Templates use the
 
 The agent automatically discovers instruction files by walking up the directory tree from CWD:
 
-- `CLAUDE.md`, `CLAUDE.local.md` at any ancestor directory
-- `.kdeps/CLAUDE.md`, `.kdeps/instructions.md` at any ancestor directory
+- `KDEPS.md`, `KDEPS.local.md` at any ancestor directory
+- `CLAUDE.md`, `CLAUDE.local.md`, `AGENTS.md`, `GEMINI.md` at any ancestor directory
+- `.kdeps/KDEPS.md`, `.kdeps/CLAUDE.md`, `.kdeps/instructions.md` at any ancestor directory
+
+`KDEPS.md` is kdeps' own instruction file and takes the highest priority: it is
+discovered first, keeps its full character budget, and the agent is told that
+`KDEPS.md` wins any conflict with `CLAUDE.md`, `AGENTS.md`, `GEMINI.md`, or the
+rest.
 
 Duplicate content (by hash) is deduplicated. Total injected context is capped at ~12 KB. Instructions are injected into the system prompt at startup.
 
