@@ -436,7 +436,7 @@ kdeps llm build --engine ollama --model llama3.2 --tag myorg/llm:1
 kdeps llm build --engine vllm --model facebook/opt-125m --gpu cuda --tag myorg/vllm:1
 ```
 
-See [LLM Server Appliance](/deployment/llm-server).
+See [LLM server appliance](/deployment/llm-server).
 
 ## HTTPS / custom domain
 

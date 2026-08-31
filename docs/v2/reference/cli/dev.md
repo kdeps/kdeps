@@ -40,7 +40,7 @@ kdeps run workflow.yaml --port 16395       # Custom port
 kdeps run workflow.yaml --interactive      # LLM REPL alongside server
 ```
 
-When `apiServer` is configured, kdeps refuses to start without `KDEPS_API_AUTH_TOKEN` or `api_auth_token` in `~/.kdeps/config.yaml`. Clients must send `Authorization: Bearer <token>` on workflow routes. See [Security Reference](/reference/security).
+When `apiServer` is configured, kdeps refuses to start without `KDEPS_API_AUTH_TOKEN` or `api_auth_token` in `~/.kdeps/config.yaml`. Clients must send `Authorization: Bearer <token>` on workflow routes. See [Security reference](/reference/security).
 
 ---
 

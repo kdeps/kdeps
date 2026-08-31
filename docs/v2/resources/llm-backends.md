@@ -352,7 +352,7 @@ llm:
   base_url: http://192.168.1.50:8000/v1
 ```
 
-See [LLM Server Appliance](/deployment/llm-server) and [LLM Commands](/reference/cli/llm).
+See [LLM server appliance](/deployment/llm-server) and [LLM commands](/reference/cli/llm).
 
 ## See also
 

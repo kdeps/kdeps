@@ -2,7 +2,7 @@
 
 `kdeps llm` provisions **standalone LLM server appliances**. These are not agent packages - there is **no workflow path argument**.
 
-Architecture, stock recipes, and client wiring: [LLM Server Appliance](/deployment/llm-server).
+Architecture, stock recipes, and client wiring: [LLM server appliance](/deployment/llm-server).
 
 ## Stock engines
 

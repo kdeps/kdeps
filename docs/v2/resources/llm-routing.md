@@ -112,7 +112,7 @@ llm:
 
 Only entries on a local backend (`file`, `gguf`, `ollama`) are scored - `llmfit` measures hardware fit, which is meaningless for a remote API model, so a cloud entry is never *preferred*, only ever reached via `default: true` when no local entry scores. Falls back the same way when `llmfit` isn't installed. The `llmfit` index is computed once per process and cached, not re-run on every request.
 
-Agent-loop mode has the same strategy available via `--model auto` (or `KDEPS_AGENT_MODEL=auto`) - see [Local Model Management](/modes/agent-loop-models#how-a-model-is-picked-when-none-is-configured).
+Agent-loop mode has the same strategy available via `--model auto` (or `KDEPS_AGENT_MODEL=auto`) - see [Local model management](/modes/agent-loop-models#how-a-model-is-picked-when-none-is-configured).
 
 ## `auto-router`: zero-config, fully automatic
 
@@ -132,7 +132,7 @@ Resolution order, with no config required:
 2. **Cloud fallback** - the first provider with both an API key env var set (`OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, ...) and a known representative model (`gpt-4o` for OpenAI, `claude-sonnet-4-6` for Anthropic, etc.) is used. Providers that host many models with no single canonical default (OpenRouter, Hugging Face, Bedrock, Watsonx, ...) don't participate in this fallback.
 3. **Built-in default** - if neither of the above finds anything, kdeps falls back to the same zero-config built-in llamafile (`llama3.2:1b`) used when `model:` is omitted entirely.
 
-Agent-loop mode has the same sentinel via `--model auto-router` - see [Local Model Management](/modes/agent-loop-models#-model-auto-router-zero-config-fully-automatic).
+Agent-loop mode has the same sentinel via `--model auto-router` - see [Local model management](/modes/agent-loop-models#-model-auto-router-zero-config-fully-automatic).
 
 ## See also
 

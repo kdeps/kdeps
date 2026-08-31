@@ -59,7 +59,7 @@ kdeps bundle build dist/my-agent-1.0.0.kdeps \
 docker push registry.example.com/my-agent:v1.0.0-gpu
 ```
 
-See [Docker Deployment](/deployment/docker) for base OS selection, offline mode, and custom image configuration.
+See [Docker deployment](/deployment/docker) for base OS selection, offline mode, and custom image configuration.
 
 ## Step 4: deploy to Kubernetes
 
@@ -76,7 +76,7 @@ kubectl rollout status deployment/my-agent
 
 The generated manifests include Deployment, Service, and environment configuration - all driven from `workflow.yaml`. Override replicas, resource limits, and env vars with flags.
 
-See [Kubernetes Deployment](/deployment/kubernetes) for full manifest structure, health checks, and multi-replica configuration.
+See [Kubernetes deployment](/deployment/kubernetes) for full manifest structure, health checks, and multi-replica configuration.
 
 ## CI/CD pipeline example
 
@@ -170,7 +170,7 @@ kdeps llm client-config --url http://kdeps-llm-ollama:8000/v1
 
 Stock engines include `ollama`, `llamafile`, `gguf` / `llama-server`, `llamacpp`, `vllm`, `tgi`, `sglang`, and `localai`. GPU engines require `--gpu cuda` (or another profile).
 
-See [LLM Server Appliance](/deployment/llm-server) and [LLM Commands](/reference/cli/llm).
+See [LLM server appliance](/deployment/llm-server) and [LLM commands](/reference/cli/llm).
 
 ## HTTPS on a custom domain
 

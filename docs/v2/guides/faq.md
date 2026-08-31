@@ -60,7 +60,7 @@ Yes, via [agencies](/reference/glossary#agency). Use the `agent:` action type to
 
 ## Can I deploy kdeps as an API server?
 
-Yes. Run `kdeps ./my-agent/` for agent mode (registers the workflow as a tool by its `metadata.name`), or use `kdeps run` behind the built-in web server for workflow mode. See [Web Server Mode](/deployment/webserver).
+Yes. Run `kdeps ./my-agent/` for agent mode (registers the workflow as a tool by its `metadata.name`), or use `kdeps run` behind the built-in web server for workflow mode. See [Web server mode](/deployment/webserver).
 
 For production, use the [Docker](/deployment/docker) or [Kubernetes](/deployment/kubernetes) deployment options.
 
@@ -88,7 +88,7 @@ There's no hard limit. The engine builds an in-memory dependency graph - workflo
 
 ## Can I use kdeps in CI/CD pipelines?
 
-Yes. The `kdeps run` command is designed for one-shot execution. Pipe input via stdin, pass data via environment variables, and capture stdout. See the [Stateless Bot](/examples/stateless-bot/) example.
+Yes. The `kdeps run` command is designed for one-shot execution. Pipe input via stdin, pass data via environment variables, and capture stdout. See the [Stateless bot](/examples/stateless-bot/) example.
 
 ## Does kdeps support streaming?
 

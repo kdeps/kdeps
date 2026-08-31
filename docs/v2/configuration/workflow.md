@@ -186,7 +186,7 @@ On local runs an already-set process variable always wins, so you can override
 per invocation: `API_KEY=other kdeps run workflow.yaml`. This is also how an
 example pins a backend, e.g. `KDEPS_DEFAULT_BACKEND: ollama`.
 
-Model selection goes in `chat.model` inside each resource file. Backend and API keys go in `~/.kdeps/config.yaml`. See [LLM Backends](../resources/llm-backends) for routing.
+Model selection goes in `chat.model` inside each resource file. Backend and API keys go in `~/.kdeps/config.yaml`. See [LLM backends](../resources/llm-backends) for routing.
 
 ## SQL connections
 

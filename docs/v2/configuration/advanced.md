@@ -147,7 +147,7 @@ settings:
 | `baseOS` | Base Docker image OS (`alpine`, `ubuntu`) |
 | `installOllama` | Force/suppress Ollama installation in Docker image (default: off - chat resources use the llamafile file backend) |
 
-> LLM model is set per resource in `chat.model`. Backend, base URL, and API keys are configured in `~/.kdeps/config.yaml`. See [LLM Backends](../resources/llm-backends).
+> LLM model is set per resource in `chat.model`. Backend, base URL, and API keys are configured in `~/.kdeps/config.yaml`. See [LLM backends](../resources/llm-backends).
 
 #### Environment
 
@@ -312,7 +312,7 @@ settings:
 
 ## Security
 
-Auth, rate limiting, TLS (static certs or Let's Encrypt custom domains), body size cap, concurrency limits, and resource output caps. See [Security Reference](/reference/security) for the full documentation.
+Auth, rate limiting, TLS (static certs or Let's Encrypt custom domains), body size cap, concurrency limits, and resource output caps. See [Security reference](/reference/security) for the full documentation.
 
 ## Global defaults (`defaults`, `resource_defaults`)
 

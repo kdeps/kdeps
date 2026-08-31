@@ -32,7 +32,7 @@ kdeps bundle build .              # package workflow + model into a Docker image
 docker run -p 16395:16395 ...     # serve as an HTTP API
 ```
 
-The workflow you ran locally becomes a self-contained deployable unit. See [Deployment Guide](/guides/deployment-guide).
+The workflow you ran locally becomes a self-contained deployable unit. See [Deployment guide](/guides/deployment-guide).
 
 ---
 

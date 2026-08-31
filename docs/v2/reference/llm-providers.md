@@ -1,6 +1,6 @@
 # LLM provider reference
 
-Per-provider configuration for all backends supported by kdeps. Backend and API keys go in `~/.kdeps/config.yaml`. See [LLM Backends](/resources/llm-backends) for routing, allowlists, and streaming.
+Per-provider configuration for all backends supported by kdeps. Backend and API keys go in `~/.kdeps/config.yaml`. See [LLM backends](/resources/llm-backends) for routing, allowlists, and streaming.
 
 *Applies to both workflow mode and agent mode.*
 

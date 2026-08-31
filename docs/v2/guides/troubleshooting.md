@@ -219,7 +219,7 @@ curl -X POST http://localhost:16395/api/v1/chat \
   -d '{"q": "hello"}'
 ```
 
-`/health` is exempt. `/_kdeps/*` management routes use `KDEPS_MANAGEMENT_TOKEN`, not `KDEPS_API_AUTH_TOKEN`. See [Security Reference](/reference/security).
+`/health` is exempt. `/_kdeps/*` management routes use `KDEPS_MANAGEMENT_TOKEN`, not `KDEPS_API_AUTH_TOKEN`. See [Security reference](/reference/security).
 
 If the server refuses to start, set `KDEPS_API_AUTH_TOKEN` or `api_auth_token` in `~/.kdeps/config.yaml` before running `kdeps run`.
 

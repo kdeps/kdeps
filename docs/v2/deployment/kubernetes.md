@@ -305,7 +305,7 @@ kdeps llm export k8s --engine ollama --image REG/llm:1 --model llama3.2 -o llm.y
 kubectl apply -f llm.yaml
 ```
 
-Client hosts set `llm.backend: openai` and `llm.base_url`. See [LLM Server Appliance](/deployment/llm-server).
+Client hosts set `llm.backend: openai` and `llm.base_url`. See [LLM server appliance](/deployment/llm-server).
 
 ## HTTPS / custom domain
 

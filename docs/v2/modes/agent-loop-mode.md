@@ -43,7 +43,7 @@ See [Prompt Reduction (turo)](/modes/agent-loop-turo) for the full pipeline, `/t
 
 `/model <name>` switches models mid-session, downloading and starting a local server (`file`/`gguf`) if needed with a progress display so the first prompt never hits a cold-start error. `--model auto` routes across your configured `llm.models`; `--model auto-router` skips config entirely and always auto-discovers the best local or cloud fit. `/model hff` searches and downloads GGUF models from HuggingFace, `/model favorite` pins ones you use often, and `/model ps` manages running local servers.
 
-See [Local Model Management](/modes/agent-loop-models) for the full reference: alias collisions across backends, registering a model by URL, and how a model is picked when none is configured.
+See [Local model management](/modes/agent-loop-models) for the full reference: alias collisions across backends, registering a model by URL, and how a model is picked when none is configured.
 
 ## Updating kdeps
 

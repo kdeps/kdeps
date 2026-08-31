@@ -8,8 +8,8 @@ Each example targets a different use case. Pick the one closest to what you're b
 
 | Example | Mode | What it demonstrates |
 |---|---|---|
-| [Stateless Bot](/examples/stateless-bot/) | Workflow | One-shot stdin/stdout LLM calls - cron jobs, CI pipelines |
-| [Telegram Bot](/examples/telegram-bot/) | Workflow | Polling loop, multi-resource pipelines, external API calls |
+| [Stateless bot](/examples/stateless-bot/) | Workflow | One-shot stdin/stdout LLM calls - cron jobs, CI pipelines |
+| [Telegram bot](/examples/telegram-bot/) | Workflow | Polling loop, multi-resource pipelines, external API calls |
 | [Showcase](/examples/showcase) | Workflow | Complex agents in ~20 lines of YAML - multiple real-world patterns |
 
 ## Stateless bot

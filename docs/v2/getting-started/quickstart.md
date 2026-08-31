@@ -117,7 +117,7 @@ export KDEPS_API_AUTH_TOKEN=dev-token
 kdeps run workflow.yaml
 ```
 
-You can also set `api_auth_token` in `~/.kdeps/config.yaml`. See [Security Reference](/reference/security).
+You can also set `api_auth_token` in `~/.kdeps/config.yaml`. See [Security reference](/reference/security).
 
 Test the API:
 

@@ -4,7 +4,7 @@ The `botReply:` resource sends a text reply back to the bot platform that delive
 
 ## Where it runs
 
-Both [workflow mode](/modes/workflow-mode) and [agent mode](/modes/agent-loop-mode). Requires `bot` configured under `settings.input` - see [Input Sources](/concepts/input-sources).
+Both [workflow mode](/modes/workflow-mode) and [agent mode](/modes/agent-loop-mode). Requires `bot` configured under `settings.input` - see [Input sources](/concepts/input-sources).
 
 ## Basic usage
 
@@ -40,7 +40,7 @@ botReply:
 
 ## Full example
 
-See the [Stateless Bot](/examples/stateless-bot/) and [Telegram Bot](/examples/telegram-bot/) example agents for complete, runnable `botReply:` workflows.
+See the [Stateless bot](/examples/stateless-bot/) and [Telegram bot](/examples/telegram-bot/) example agents for complete, runnable `botReply:` workflows.
 
 ## See also
 

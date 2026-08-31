@@ -113,7 +113,7 @@ curl -X POST http://localhost:16395/api/v1/chat \
   -d '{"q": "What is entropy?"}'
 ```
 
-`/health` is exempt. `/_kdeps/*` management routes use `KDEPS_MANAGEMENT_TOKEN` instead. See [Security Reference](/reference/security).
+`/health` is exempt. `/_kdeps/*` management routes use `KDEPS_MANAGEMENT_TOKEN` instead. See [Security reference](/reference/security).
 
 ## Input sources
 
@@ -145,7 +145,7 @@ settings:
       path: /data/input.txt
 ```
 
-See [Input Sources](../concepts/input-sources) for full configuration.
+See [Input sources](../concepts/input-sources) for full configuration.
 
 ## Agent memory (`--memory`)
 
