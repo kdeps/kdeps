@@ -35,14 +35,6 @@
               <td><code>kdeps bundle build --tag</code> then <code>docker push</code></td>
             </tr>
             <tr>
-              <td>Glue code between services</td>
-              <td>Resources pass data via <code>output()</code></td>
-            </tr>
-            <tr>
-              <td>Manual polling loop for bots</td>
-              <td><code>input.sources: [bot]</code> in workflow config</td>
-            </tr>
-            <tr>
               <td>Chaining agents by hand</td>
               <td><code>agent:</code> resource — one agent calls another declaratively</td>
             </tr>

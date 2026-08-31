@@ -21,6 +21,8 @@
 import { defineConfig } from 'vitepress'
 import d2 from 'vitepress-plugin-d2'
 import { Layout, Theme } from 'vitepress-plugin-d2/dist/config'
+// Nav version label. Bump docs/v2/package.json "version" on each kdeps release.
+import pkg from '../package.json' with { type: 'json' }
 
 export default defineConfig({
   title: 'KDeps',
@@ -55,10 +57,6 @@ export default defineConfig({
           { text: 'Deployment guide', link: '/guides/deployment-guide' },
           { text: 'Docker', link: '/deployment/docker' },
           { text: 'Kubernetes', link: '/deployment/kubernetes' },
-          { text: 'LLM server appliance', link: '/deployment/llm-server' },
-          { text: 'TLS / HTTPS', link: '/deployment/tls-https' },
-          { text: 'Standalone binaries', link: '/deployment/prepackage' },
-          { text: 'Web server mode', link: '/deployment/webserver' },
         ]
       },
       {
@@ -73,7 +71,7 @@ export default defineConfig({
       { text: 'Registry', link: 'https://kdeps.io' },
       { text: 'GitHub', link: 'https://github.com/kdeps/kdeps' },
       {
-        text: 'v2.18.0',
+        text: `v${pkg.version}`,
         items: [
           { text: 'Changelog', link: 'https://github.com/kdeps/kdeps/releases' },
           { text: 'Contributing', link: 'https://github.com/kdeps/kdeps/blob/main/CONTRIBUTING.md' },
@@ -88,8 +86,8 @@ export default defineConfig({
           items: [
             { text: 'Why kdeps?', link: '/concepts/why-kdeps' },
             { text: 'Installation', link: '/getting-started/installation' },
-            { text: 'Run locally', link: '/getting-started/local-agent' },
             { text: 'Quickstart', link: '/getting-started/quickstart' },
+            { text: 'Run locally', link: '/getting-started/local-agent' },
             { text: 'Local models', link: '/getting-started/local-models' },
             { text: 'Agent skills', link: '/getting-started/agent-skills' },
           ]
@@ -127,7 +125,7 @@ export default defineConfig({
           ]
         },
         {
-          text: 'Concepts',
+          text: 'Core concepts',
           collapsed: false,
           items: [
             { text: 'Workflow mode', link: '/modes/workflow-mode' },
@@ -138,17 +136,23 @@ export default defineConfig({
             { text: 'Expressions', link: '/concepts/expressions' },
             { text: 'Expression helpers', link: '/concepts/expression-helpers' },
             { text: 'Unified API (get/set)', link: '/concepts/unified-api' },
+            { text: 'Tools (function calling)', link: '/concepts/tools' },
+            { text: 'Error handling (onError)', link: '/concepts/error-handling' },
+          ]
+        },
+        {
+          text: 'Data & I/O',
+          collapsed: false,
+          items: [
             { text: 'Request object', link: '/concepts/request-object' },
             { text: 'Input object', link: '/concepts/input-object' },
             { text: 'Input sources', link: '/concepts/input-sources' },
             { text: 'Jinja2 templates', link: '/concepts/jinja2-templates' },
             { text: 'Inline resources', link: '/concepts/inline-resources' },
-            { text: 'Validation and control', link: '/concepts/validation-and-control' },
-            { text: 'Items and loop', link: '/concepts/loop' },
             { text: 'Items iteration', link: '/concepts/items' },
-            { text: 'Tools (function calling)', link: '/concepts/tools' },
-            { text: 'Error handling (onError)', link: '/concepts/error-handling' },
-            { text: 'Session and memory', link: '/configuration/session' },
+            { text: 'While-loop', link: '/concepts/loop' },
+            { text: 'Validation and control', link: '/concepts/validation-and-control' },
+            { text: 'Session storage', link: '/configuration/session' },
             { text: 'Persistent memory', link: '/concepts/memory' },
           ]
         },
@@ -206,71 +210,71 @@ export default defineConfig({
           collapsed: false,
           items: [
             { text: 'Overview', link: '/resources/overview' },
-          ]
-        },
-        {
-          text: 'AI & language',
-          collapsed: false,
-          items: [
-            { text: 'LLM (chat)', link: '/resources/llm/' },
-            { text: 'LLM backends', link: '/resources/llm/backends' },
-            { text: 'LLM routing', link: '/resources/llm/routing' },
-            { text: 'RAG - overview', link: '/resources/rag/' },
-            { text: 'Loader', link: '/resources/rag/loader' },
-            { text: 'Embedding', link: '/resources/rag/embedding' },
-            { text: 'Vector store', link: '/resources/rag/vector-store' },
-            { text: 'Media - overview', link: '/resources/media/' },
-            { text: 'Transcribe', link: '/resources/media/transcribe' },
-            { text: 'OCR', link: '/resources/media/ocr' },
-          ]
-        },
-        {
-          text: 'Web',
-          collapsed: false,
-          items: [
-            { text: 'Web - overview', link: '/resources/web/' },
-            { text: 'HTTP client', link: '/resources/web/http-client' },
-            { text: 'Scraper', link: '/resources/web/scraper' },
-            { text: 'Browser', link: '/resources/web/browser' },
-            { text: 'Search - overview', link: '/resources/search/' },
-            { text: 'searchLocal', link: '/resources/search/searchlocal' },
-            { text: 'searchWeb', link: '/resources/search/searchweb' },
-          ]
-        },
-        {
-          text: 'Data & system',
-          collapsed: false,
-          items: [
-            { text: 'SQL', link: '/resources/sql' },
-            { text: 'Files - overview', link: '/resources/files/' },
-            { text: 'File', link: '/resources/files/file' },
-            { text: 'Git', link: '/resources/files/git' },
-            { text: 'Scripting - overview', link: '/resources/scripting/' },
-            { text: 'Python', link: '/resources/scripting/python' },
-            { text: 'Exec (shell)', link: '/resources/scripting/exec' },
-            { text: 'Code intelligence - overview', link: '/resources/code-intelligence/' },
-            { text: 'Code navigation', link: '/resources/code-intelligence/navigation' },
-            { text: 'Folder graph', link: '/resources/code-intelligence/graph' },
-          ]
-        },
-        {
-          text: 'Messaging',
-          collapsed: false,
-          items: [
-            { text: 'Messaging - overview', link: '/resources/messaging/' },
-            { text: 'Email', link: '/resources/messaging/email' },
-            { text: 'Telephony', link: '/resources/messaging/telephony' },
-            { text: 'Bot reply', link: '/resources/messaging/bot-reply' },
-          ]
-        },
-        {
-          text: 'Orchestration',
-          collapsed: false,
-          items: [
-            { text: 'Delegation - overview', link: '/resources/delegation/' },
-            { text: 'Agent', link: '/resources/delegation/agent' },
-            { text: 'Component', link: '/resources/delegation/component' },
-            { text: 'API response', link: '/resources/api-response' },
+            {
+              text: 'AI & language',
+              collapsed: true,
+              items: [
+                { text: 'LLM (chat)', link: '/resources/llm/' },
+                { text: 'LLM backends', link: '/resources/llm/backends' },
+                { text: 'LLM routing', link: '/resources/llm/routing' },
+                { text: 'RAG - overview', link: '/resources/rag/' },
+                { text: 'Loader', link: '/resources/rag/loader' },
+                { text: 'Embedding', link: '/resources/rag/embedding' },
+                { text: 'Vector store', link: '/resources/rag/vector-store' },
+                { text: 'Media - overview', link: '/resources/media/' },
+                { text: 'Transcribe', link: '/resources/media/transcribe' },
+                { text: 'OCR', link: '/resources/media/ocr' },
+              ]
+            },
+            {
+              text: 'Web',
+              collapsed: true,
+              items: [
+                { text: 'Web - overview', link: '/resources/web/' },
+                { text: 'HTTP client', link: '/resources/web/http-client' },
+                { text: 'Scraper', link: '/resources/web/scraper' },
+                { text: 'Browser', link: '/resources/web/browser' },
+                { text: 'Search - overview', link: '/resources/search/' },
+                { text: 'searchLocal', link: '/resources/search/searchlocal' },
+                { text: 'searchWeb', link: '/resources/search/searchweb' },
+              ]
+            },
+            {
+              text: 'Data & system',
+              collapsed: true,
+              items: [
+                { text: 'SQL', link: '/resources/sql' },
+                { text: 'Files - overview', link: '/resources/files/' },
+                { text: 'File', link: '/resources/files/file' },
+                { text: 'Git', link: '/resources/files/git' },
+                { text: 'Scripting - overview', link: '/resources/scripting/' },
+                { text: 'Python', link: '/resources/scripting/python' },
+                { text: 'Exec (shell)', link: '/resources/scripting/exec' },
+                { text: 'Code intelligence - overview', link: '/resources/code-intelligence/' },
+                { text: 'Code navigation', link: '/resources/code-intelligence/navigation' },
+                { text: 'Folder graph', link: '/resources/code-intelligence/graph' },
+              ]
+            },
+            {
+              text: 'Messaging',
+              collapsed: true,
+              items: [
+                { text: 'Messaging - overview', link: '/resources/messaging/' },
+                { text: 'Email', link: '/resources/messaging/email' },
+                { text: 'Telephony', link: '/resources/messaging/telephony' },
+                { text: 'Bot reply', link: '/resources/messaging/bot-reply' },
+              ]
+            },
+            {
+              text: 'Orchestration',
+              collapsed: true,
+              items: [
+                { text: 'Delegation - overview', link: '/resources/delegation/' },
+                { text: 'Agent', link: '/resources/delegation/agent' },
+                { text: 'Component', link: '/resources/delegation/component' },
+                { text: 'API response', link: '/resources/api-response' },
+              ]
+            },
           ]
         },
         {
