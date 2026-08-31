@@ -88,7 +88,7 @@ brew install kdeps/tap/kdeps
 
 ## How it works
 
-**Workflow mode** - DAG-deterministic request/response pipelines. Each resource declares its dependencies via `requires:` and runs in order, ending in an `apiResponse`. Resource types cover `chat`, `httpClient`, `python`, `exec`, `sql`, `email`, `scraper`, `browser`, `embedding`, `searchLocal`, `searchWeb`, `agent`, and `component`; expressions (`get()`, `output()`, `set()`, plus Jinja2 control flow) wire steps together.
+**Workflow mode** - DAG-deterministic request/response pipelines. Each resource declares its dependencies via `requires:` and runs in order, ending in an `apiResponse`. The LLM call inside a `chat:` resource is still probabilistic, but the pipeline around it is not: the same request takes the same path, validation runs before any model call, and the response is shaped to a fixed schema. Resource types cover `chat`, `httpClient`, `python`, `exec`, `sql`, `email`, `scraper`, `browser`, `embedding`, `searchLocal`, `searchWeb`, `agent`, and `component`; expressions (`get()`, `output()`, `set()`, plus Jinja2 control flow) wire steps together.
 
 ```bash
 kdeps run workflow.yaml          # local, instant startup

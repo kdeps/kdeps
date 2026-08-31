@@ -19,7 +19,7 @@ import agencySvg from './d2/cap-agency.svg?raw'
         <div class="col">
           <div class="col-badge workflow">workflow</div>
           <h3>Deterministic pipelines</h3>
-          <p>Resources run in DAG order defined by <code>requires:</code>. Every request takes the same path. Predictable, auditable, ships to production.</p>
+          <p>Resources run in DAG order defined by <code>requires:</code>. Every request takes the same path. The LLM's wording still varies - everything around it does not.</p>
           <div class="diagram" v-html="workflowSvg" />
           <div class="cmd"><span class="prompt">$</span> kdeps run workflow.yaml</div>
           <a href="/modes/workflow-mode" class="learn">Learn more -></a>
