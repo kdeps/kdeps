@@ -238,6 +238,7 @@ type agentLoopFlags struct {
 	Debug        bool
 	SkillPaths   []string
 	Resume       string
+	Stealth      bool
 }
 
 // runAgentLoopCmd starts the interactive agent loop. When path is empty the
@@ -246,6 +247,8 @@ type agentLoopFlags struct {
 //
 // Discovered items from ~/.kdeps are registered according to persisted settings
 // (default: all enabled). Use /settings inside the REPL to change selections.
+//
+//nolint:funlen // sequential startup orchestration; splitting obscures the order
 func runAgentLoopCmd(path string, flags *agentLoopFlags) error {
 	// Single root context for the entire agent loop session lifetime.
 	// All derived contexts (REPL, model prefetch, tool execution) derive from this.
@@ -276,6 +279,12 @@ func runAgentLoopCmd(path string, flags *agentLoopFlags) error {
 	// Default (SelectAll: true) registers everything found in ~/.kdeps.
 	settings, _ := tui.LoadSettings()
 	applySettingsToRegistry(settings, registry, flags, flags.Debug)
+
+	// Stealth ("Muted") mode. Applied before anything is printed so the banner
+	// is muted too.
+	stealth := resolveStealth(flags, settings)
+	agent.SetStealth(stealth)
+	tui.SetStealth(stealth)
 
 	skillPaths := resolveSkillPaths(flags.SkillPaths)
 
@@ -316,6 +325,7 @@ func runAgentLoopCmd(path string, flags *agentLoopFlags) error {
 		Store:        store,
 		MemoryStore:  memStore,
 		Identity:     identity,
+		Stealth:      stealth,
 	}
 
 	// Restore full LLM config from persistent session memory. Only sets fields
@@ -431,6 +441,13 @@ func wireREPL(
 	// Wire default-model persistence for /model default <name>.
 	repl.SetSaveDefaultFn(tui.SaveDefaultModel)
 
+	// Wire stealth persistence for /stealth. Also mirrors the toggle into the
+	// TUI pickers so /model and /settings stay muted.
+	repl.SetSaveStealthFn(func(on bool) error {
+		tui.SetStealth(on)
+		return tui.SaveStealth(on)
+	})
+
 	// Persist /model tool settings across sessions, and apply any saved ones at
 	// startup. tui.AgentLoopTuning and agent.ToolTuning have identical fields, so
 	// they convert directly.
@@ -517,6 +534,12 @@ func resolveAutoModel(ctx context.Context) (string, string) {
 		return model, backend
 	}
 	return agent.ResolveModelAndBackend("", "")
+}
+
+// resolveStealth decides whether stealth ("Muted") mode is on. Precedence:
+// the --stealth flag, then KDEPS_STEALTH, then the persisted setting.
+func resolveStealth(flags *agentLoopFlags, settings tui.Settings) bool {
+	return flags.Stealth || agent.ResolveStealthEnv() || settings.Stealth
 }
 
 // resolveStartModel returns the model and backend to use at startup.

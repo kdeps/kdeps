@@ -30,6 +30,7 @@ Inside the [agent loop REPL](/modes/agent-loop-mode), type `/help` for the full 
 | `/editor` | Open current input in `$EDITOR` (ctrl+g) |
 | `/copy` | Copy last assistant response to clipboard |
 | `/reload` | Reload skills and prompt templates from disk |
+| `/stealth [on\|off]` | Muted UI - render everything in dark gray with the model name barely visible (for use in public); persists to `~/.kdeps/agent-loop-settings.yaml`. Also `--stealth` / `KDEPS_STEALTH=1` at startup |
 | `/context` | Show current context window size |
 | `/context <size>` | Set context window size (e.g. `32768` or `32k`); restarts local model servers with the new `--ctx-size`; persists across sessions |
 | `/turo` | Show turo reducer status (state, level). Only available when the `turo` binary is on `PATH` |

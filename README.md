@@ -102,6 +102,7 @@ kdeps run workflow.yaml --dev    # hot reload
 kdeps                            # bare agent loop REPL
 kdeps ./my-agent/                # register the workflow as an LLM-callable tool
 kdeps ./my-agent/ --model llama3.2 --system "You are a DevOps assistant."
+kdeps --stealth                  # "Muted" UI: dark gray, model name barely visible (for use in public)
 ```
 
 **Agencies** - a collection of agents that work together. Each agent is its own `workflow.yaml` with its own resources, model, and logic, wired together with the `agent:` resource type - like calling a function, but the function is an entire AI pipeline.

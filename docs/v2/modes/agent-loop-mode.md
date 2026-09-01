@@ -410,6 +410,7 @@ kdeps [path] [flags]
 | `--skill` | (none) | Path to a skill file or directory (repeatable) |
 | `--prompt` | (none) | Path to a prompt templates directory (repeatable) |
 | `--resume` | (none) | Session ID to resume a previous conversation |
+| `--stealth` | false | Muted UI - dark gray, model name barely visible (for use in public) |
 | `--debug` | false | Enable debug logging |
 
 ### Environment variables
@@ -420,7 +421,26 @@ KDEPS_AGENT_BACKEND=file              # default: local llamafile
 # KDEPS_AGENT_BACKEND=gguf           # llama.cpp via llama-server
 # KDEPS_AGENT_BACKEND=ollama         # requires ollama server
 # KDEPS_AGENT_BASE_URL=http://localhost:11434
+KDEPS_STEALTH=1                       # same as --stealth (1, true, or yes)
 ```
+
+## Stealth mode
+
+`--stealth` (or `KDEPS_STEALTH=1`, or `/stealth` at runtime) renders the whole REPL - banner, prompt, model name, streamed responses, thinking blocks, tool summaries, the `/model` and `/settings` pickers - in near-black dark grays. The model name in the status line is the dimmest element on screen, deliberately close to invisible against a dark terminal. Nothing about the output stops working; it just does not read as "an AI session on model X" to anyone glancing at your screen in a cafe, on a plane, or in an open office.
+
+```bash
+kdeps --stealth                # start muted
+```
+
+```text
+/stealth        toggle muted mode
+/stealth on     turn it on
+/stealth off    turn it off
+```
+
+The runtime toggle is remembered - `/stealth on` writes `stealth: true` to `~/.kdeps/agent-loop-settings.yaml`, so the next `kdeps` starts muted too. Precedence: the `--stealth` flag wins, then `KDEPS_STEALTH`, then the persisted setting. The flag and env var override the stored value for that one session without changing it.
+
+Stealth affects rendering only. Prompts, responses, memory, tool calls, and logs are unchanged.
 
 ## Examples
 

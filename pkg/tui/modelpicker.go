@@ -374,13 +374,13 @@ func (m modelPickerModel) renderRow(e ModelEntry, isCursor bool, width int) stri
 func styleForFitLevel(level string) lipgloss.Style {
 	switch level {
 	case "Perfect":
-		return lipgloss.NewStyle().Foreground(lipgloss.Color("#00FF87"))
+		return lipgloss.NewStyle().Foreground(col("#00FF87"))
 	case "Good":
-		return lipgloss.NewStyle().Foreground(lipgloss.Color("#00E5FF"))
+		return lipgloss.NewStyle().Foreground(col("#00E5FF"))
 	case "Marginal":
-		return lipgloss.NewStyle().Foreground(lipgloss.Color("#888888"))
+		return lipgloss.NewStyle().Foreground(colDim("#888888"))
 	case "Too Tight", "TooTight":
-		return lipgloss.NewStyle().Foreground(lipgloss.Color("#FF2D78"))
+		return lipgloss.NewStyle().Foreground(col("#FF2D78"))
 	default:
 		return lipgloss.NewStyle()
 	}

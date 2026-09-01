@@ -225,6 +225,11 @@ type Config struct {
 	// (commit trailers, outbound email) falls back to its existing synthetic
 	// default, and the identity_get tool reports nothing configured.
 	Identity *config.IdentityConfig
+	// Stealth renders the REPL in near-black grays with the model name barely
+	// visible - for running kdeps in public. Resolved from the --stealth flag,
+	// KDEPS_STEALTH, or the persisted setting; also toggled at runtime with
+	// /stealth. The REPL calls SetStealth(cfg.Stealth) before printing anything.
+	Stealth bool
 }
 
 // activeLoop is set during Loop construction so the memory_query builtin
