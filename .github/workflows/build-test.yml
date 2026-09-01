@@ -12,9 +12,12 @@ on:
 # security-scan, docker-scan, lint, test and test-windows are required status
 # checks on main. A skipped required job counts as passing, but a workflow that
 # never triggers leaves the check "expected" and blocks the PR forever. So the
-# workflow always runs; the `changes` job decides whether the real jobs execute
-# -- on pull_request AND on push to main, so a docs-only merge does not rerun
-# the full suite.
+# workflow always runs; the `changes` job decides whether the real jobs execute:
+#   - `code`:           false for a docs-only diff (skip on PR and push).
+#   - `already_tested`: on push to main only, true when this exact source tree
+#                       already passed on a PR branch, so a clean squash-merge
+#                       does not re-run the identical suite. A merge that pulled
+#                       in other main commits has a different tree and still runs.
 jobs:
   # Decides whether the code jobs below run. `code=true` when the PR (or push)
   # changed at least one file that is not docs, not markdown and not the
@@ -22,8 +25,12 @@ jobs:
   # critical path of a required check.
   changes:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      actions: read
     outputs:
       code: ${{ steps.filter.outputs.code }}
+      already_tested: ${{ steps.tested.outputs.already_tested }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -52,10 +59,38 @@ jobs:
           else
             echo "code=false" >> "$GITHUB_OUTPUT"
           fi
+      # On push to main, skip the heavy jobs when this exact source tree was
+      # already tested green on a PR branch (squash-merge of an up-to-date PR
+      # yields a merge commit whose tree == the PR head tree). If the PR was
+      # behind main, the squash pulls in other changes and the tree differs, so
+      # the suite runs. Never skips on pull_request - the PR is the thing under
+      # test. Fail-safe: any error here leaves already_tested unset -> jobs run.
+      - id: tested
+        if: ${{ github.event_name == 'push' }}
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -uo pipefail
+          tree="$(git rev-parse 'HEAD^{tree}')"
+          echo "HEAD tree: $tree"
+          shas="$(gh api \
+            "repos/${{ github.repository }}/actions/workflows/build-test.yml/runs?status=success&per_page=40" \
+            --jq '.workflow_runs[] | select(.event=="pull_request") | .head_sha' 2>/dev/null || true)"
+          for sha in $shas; do
+            git fetch --quiet --depth=1 origin "$sha" 2>/dev/null || true
+            git cat-file -e "${sha}^{commit}" 2>/dev/null || continue
+            if [ "$(git rev-parse "${sha}^{tree}")" = "$tree" ]; then
+              echo "Source tree already tested green on $sha - skipping the suite."
+              echo "already_tested=true" >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
+          done
+          echo "already_tested=false" >> "$GITHUB_OUTPUT"
 
   security-scan:
     needs: changes
-    if: ${{ needs.changes.outputs.code == 'true' }}
+    if: ${{ needs.changes.outputs.code == 'true' && needs.changes.outputs.already_tested != 'true' }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -72,7 +107,7 @@ jobs:
 
   docker-scan:
     needs: changes
-    if: ${{ needs.changes.outputs.code == 'true' }}
+    if: ${{ needs.changes.outputs.code == 'true' && needs.changes.outputs.already_tested != 'true' }}
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -100,7 +135,7 @@ jobs:
 
   lint:
     needs: changes
-    if: ${{ needs.changes.outputs.code == 'true' }}
+    if: ${{ needs.changes.outputs.code == 'true' && needs.changes.outputs.already_tested != 'true' }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -139,7 +174,7 @@ jobs:
 
   test:
     needs: changes
-    if: ${{ needs.changes.outputs.code == 'true' }}
+    if: ${{ needs.changes.outputs.code == 'true' && needs.changes.outputs.already_tested != 'true' }}
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -305,7 +340,7 @@ jobs:
 
   test-windows:
     needs: changes
-    if: ${{ needs.changes.outputs.code == 'true' }}
+    if: ${{ needs.changes.outputs.code == 'true' && needs.changes.outputs.already_tested != 'true' }}
     # Proves the Windows release binary actually builds and its unit + integration
     # tests pass natively, not just that it cross-compiles. E2E is included too;
     # scripts needing ollama/python3/docker self-skip when the tool is missing
