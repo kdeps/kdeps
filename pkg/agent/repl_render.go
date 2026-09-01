@@ -46,6 +46,41 @@ import (
 //nolint:gochecknoglobals // test seam for terminal color detection
 var replColorProfile = termenv.ColorProfile
 
+// stealthColorProfile is the profile glamour and lipgloss use. In stealth mode
+// it is forced to TrueColor: the near-black stealth palette only works with
+// 24-bit escapes - downsampling to 256 or 16 colors rounds the dark grays
+// *up* toward the default foreground, which is exactly the "some text is still
+// light gray / white" bug. A terminal that genuinely cannot do 24-bit will drop
+// the escapes, but nearly every modern terminal renders them even when $TERM
+// does not advertise truecolor.
+func stealthColorProfile() termenv.Profile {
+	if stealthEnabled() {
+		return termenv.TrueColor
+	}
+	return replColorProfile()
+}
+
+// stealthForcedProfile records whether stealth pinned lipgloss to TrueColor, so
+// turning stealth back off only re-detects the profile if we changed it (never
+// on the initial non-stealth build).
+//
+//nolint:gochecknoglobals // paired with applyStealthColorProfile
+var stealthForcedProfile bool
+
+// applyStealthColorProfile pins lipgloss's global color profile to TrueColor
+// while stealth is on, and re-detects it when stealth turns off. Called by
+// rebuildTheme.
+func applyStealthColorProfile() {
+	switch {
+	case stealthEnabled():
+		lipgloss.SetColorProfile(termenv.TrueColor)
+		stealthForcedProfile = true
+	case stealthForcedProfile:
+		lipgloss.SetColorProfile(replColorProfile())
+		stealthForcedProfile = false
+	}
+}
+
 // cached glamour renderers — created once, recreated only on terminal resize.
 // Recreating glamour.NewTermRenderer on every call parses styles and re-initialises
 // chroma from scratch, which causes a visible flicker as each response is rendered.
@@ -69,7 +104,7 @@ func getRenderer() (*glamour.TermRenderer, error) {
 	}
 	r, err := glamour.NewTermRenderer(
 		glamour.WithStyles(replStyleConfig()),
-		glamour.WithColorProfile(replColorProfile()),
+		glamour.WithColorProfile(stealthColorProfile()),
 		glamour.WithWordWrap(w),
 	)
 	if err != nil {
@@ -90,7 +125,7 @@ func getThinkingRenderer() (*glamour.TermRenderer, error) {
 	}
 	r, err := glamour.NewTermRenderer(
 		glamour.WithStyles(thinkingStyleConfig()),
-		glamour.WithColorProfile(replColorProfile()),
+		glamour.WithColorProfile(stealthColorProfile()),
 		glamour.WithWordWrap(thinkingWrapWidth(w)), // leave room for the gutter
 	)
 	if err != nil {

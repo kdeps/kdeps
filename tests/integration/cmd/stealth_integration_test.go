@@ -20,6 +20,8 @@ package cmd_test
 
 import (
 	"bytes"
+	"regexp"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -69,7 +71,17 @@ func TestStealth_EndToEndPalette(t *testing.T) {
 	for _, b := range bright {
 		assert.NotContains(t, rendered, b, "stealth output still contains a bright accent")
 	}
-	assert.Contains(t, rendered, "28;28;28", "stealth output missing the near-black model color")
+	// Every 24-bit foreground color emitted must be a near-black gray: no
+	// channel above 0x40. This catches any element that leaks a lighter color.
+	fg := regexp.MustCompile(`38;2;(\d+);(\d+);(\d+)`)
+	matches := fg.FindAllStringSubmatch(rendered, -1)
+	require.NotEmpty(t, matches, "stealth sample emitted no colors")
+	for _, m := range matches {
+		for _, ch := range m[1:] {
+			v, _ := strconv.Atoi(ch)
+			assert.LessOrEqual(t, v, 0x40, "stealth output has a channel %d too bright in %q", v, m[0])
+		}
+	}
 	assert.NotContains(t, rendered, "\x1b[1m", "stealth output should not be bold")
 
 	agent.SetStealth(false)

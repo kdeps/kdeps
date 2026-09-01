@@ -28,8 +28,8 @@ import "github.com/charmbracelet/lipgloss"
 // stealth palette (pkg/agent/theme.go); cmd/serve.go toggles both together.
 
 const (
-	stealthColor    = "#2e2e2e" // near-black gray - accents, text, cursor
-	stealthColorDim = "#242424" // dimmer still - help text, disabled rows
+	stealthColor    = "#282828" // near-black gray - accents, text, cursor
+	stealthColorDim = "#1e1e1e" // dimmer still - help text, disabled rows
 )
 
 //nolint:gochecknoglobals // process-wide stealth flag, mirrors pkg/agent
