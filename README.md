@@ -11,6 +11,8 @@
 [![Registry](https://img.shields.io/badge/registry-kdeps.io-00E5FF)](https://kdeps.io)
 [![GitHub stars](https://img.shields.io/github/stars/kdeps/kdeps)](https://github.com/kdeps/kdeps/stargazers)
 
+> Before moving on, please consider giving us a GitHub star ⭐️. Thank you!
+
 **AI Appliance Builder** - YAML-defined AI agents and workflow pipelines. Ship as Docker, K8s, ISO, or a single binary. You write one `workflow.yaml` instead of a Python script wiring together an LLM SDK, a web server, retry logic, and a Dockerfile; everything lives in versionable YAML you commit to your repo like any other code.
 
 ## Quickstart
