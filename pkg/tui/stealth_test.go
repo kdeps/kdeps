@@ -61,7 +61,7 @@ func TestStealth_PickerStylesGoDark(t *testing.T) {
 		t.Fatal("styleCursor did not change between normal and stealth")
 	}
 	// Stealth cursor must be the near-black gray and not bold.
-	if !strings.Contains(muted, "38;2;46;46;46") { // #2e2e2e
+	if !strings.Contains(muted, "38;2;40;40;40") { // #282828
 		t.Fatalf("stealth styleCursor missing near-black color: %q", muted)
 	}
 	if strings.Contains(muted, "\x1b[1m") || strings.Contains(muted, ";1m") {
@@ -84,7 +84,7 @@ func TestStealth_FitLevelStylesGoDark(t *testing.T) {
 	if strings.Contains(got, "0;255;135") { // #00FF87
 		t.Fatalf("styleForFitLevel still bright in stealth: %q", got)
 	}
-	if !strings.Contains(got, "38;2;46;46;46") {
+	if !strings.Contains(got, "38;2;40;40;40") {
 		t.Fatalf("styleForFitLevel not near-black in stealth: %q", got)
 	}
 }

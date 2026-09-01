@@ -453,9 +453,29 @@ func (r *REPL) syncTokenCounter() {
 	}
 }
 
-// dynamicPrompt returns a prompt string showing model, turn count, and context usage.
+// dynamicPrompt returns the input prompt. In stealth mode it ends with a bare
+// dark-gray foreground escape (no reset) so the text the user types inherits it
+// instead of the terminal's default foreground - runLoop emits a reset right
+// after Readline returns.
 func (r *REPL) dynamicPrompt() string {
-	return styleReplPrompt.Render("> ")
+	p := styleReplPrompt.Render("> ")
+	if stealthEnabled() {
+		p += stealthInputColor
+	}
+	return p
+}
+
+// stealthInputColor is the SGR that tints typed input in stealth mode. It is
+// intentionally not reset by lipgloss so it carries onto the readline edit line;
+// resetStealthInputTint clears it once the line is read.
+const stealthInputColor = "\x1b[38;2;36;36;36m" // #242424
+
+// resetStealthInputTint clears the trailing input tint left by dynamicPrompt so
+// tool output and errors are not rendered in it. No-op outside stealth mode.
+func resetStealthInputTint() {
+	if stealthEnabled() {
+		fmt.Fprint(os.Stdout, "\x1b[0m")
+	}
 }
 
 // modeline returns a single-line kartographer status bar rendered above
@@ -1763,6 +1783,7 @@ func (r *REPL) runLoop(rl *readline.Instance) error {
 		fmt.Fprint(os.Stdout, ansiClearLine+r.modeline()+"\r\n")
 		rl.SetPrompt(r.dynamicPrompt())
 		line, readErr := rl.Readline()
+		resetStealthInputTint()
 
 		if stop, err := r.handleReadError(readErr); stop {
 			return err

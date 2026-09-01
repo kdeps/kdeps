@@ -91,44 +91,46 @@ var (
 		bold: true,
 	}
 
-	// stealthPalette: near-black grays. Everything sits around #3a3a3a; dim
-	// text drops to #242424; the model name is #1c1c1c.
+	// stealthPalette: near-black grays. Body text sits around #2c2c2c, dim text
+	// at #1e1e1e, and the model name at #161616 - barely a shade above a black
+	// terminal background. Deliberately dark: the earlier, lighter palette read
+	// as "gray text" from a distance.
 	stealthPalette = palette{
-		heading:   "#3a3a3a",
-		link:      "#333333",
-		code:      "#3a3a3a",
-		codeBlock: "#3a3a3a",
-		text:      "#3a3a3a",
-		thinking:  "#2b2b2b",
-		muted:     "#242424",
-		bullet:    "#333333",
-		quote:     "#2e2e2e",
-		borderHr:  "#1c1c1c",
+		heading:   "#2c2c2c",
+		link:      "#282828",
+		code:      "#2c2c2c",
+		codeBlock: "#2c2c2c",
+		text:      "#2c2c2c",
+		thinking:  "#242424",
+		muted:     "#1e1e1e",
+		bullet:    "#282828",
+		quote:     "#242424",
+		borderHr:  "#161616",
 
-		synKeyword: "#3a3a3a",
-		synFunc:    "#3a3a3a",
-		synStr:     "#3a3a3a",
-		synComment: "#242424",
-		synNum:     "#3a3a3a",
-		synType:    "#3a3a3a",
-		synOp:      "#3a3a3a",
+		synKeyword: "#2c2c2c",
+		synFunc:    "#2c2c2c",
+		synStr:     "#2c2c2c",
+		synComment: "#1e1e1e",
+		synNum:     "#2c2c2c",
+		synType:    "#2c2c2c",
+		synOp:      "#2c2c2c",
 
-		replError:   "#402c2c",
-		replMeta:    "#2b2b2b",
-		replHeading: "#3a3a3a",
-		replSuccess: "#2c402c",
-		replPrompt:  "#333333",
-		replInfo:    "#2b2b2b",
-		replDim:     "#242424",
+		replError:   "#332222",
+		replMeta:    "#1e1e1e",
+		replHeading: "#2c2c2c",
+		replSuccess: "#223322",
+		replPrompt:  "#282828",
+		replInfo:    "#1e1e1e",
+		replDim:     "#1e1e1e",
 
-		bannerText:   "#333333",
-		bannerBorder: "#1c1c1c",
+		bannerText:   "#282828",
+		bannerBorder: "#161616",
 
-		modelsReady:   "#333333",
-		modelsNoKey:   "#242424",
-		modelsCurrent: "#333333",
+		modelsReady:   "#282828",
+		modelsNoKey:   "#1e1e1e",
+		modelsCurrent: "#282828",
 
-		modelName: "#1c1c1c",
+		modelName: "#161616",
 
 		bold: false,
 	}
@@ -164,9 +166,10 @@ func SetStealth(on bool) {
 // rebuildTheme reapplies the active palette to every derived style and drops
 // the cached glamour renderers.
 func rebuildTheme() {
-	applyRenderPalette()  // repl_render.go: color vars + thinking styles
-	applyReplStyles()     // repl.go: styleReplX + styleModelName
-	invalidateRenderers() // repl_render.go: nil cachedRenderer / cachedThinkingRenderer
+	applyStealthColorProfile() // repl_render.go: force lipgloss TrueColor in stealth
+	applyRenderPalette()       // repl_render.go: color vars + thinking styles
+	applyReplStyles()          // repl.go: styleReplX + styleModelName
+	invalidateRenderers()      // repl_render.go: nil cachedRenderer / cachedThinkingRenderer
 }
 
 //nolint:gochecknoinits // one-time wiring of the default (normal) theme

@@ -426,7 +426,7 @@ KDEPS_STEALTH=1                       # same as --stealth (1, true, or yes)
 
 ## Stealth mode
 
-`--stealth` (or `KDEPS_STEALTH=1`, or `/stealth` at runtime) renders the whole REPL - banner, prompt, model name, streamed responses, thinking blocks, tool summaries, the `/model` and `/settings` pickers - in near-black dark grays. The model name in the status line is the dimmest element on screen, deliberately close to invisible against a dark terminal. Nothing about the output stops working; it just does not read as "an AI session on model X" to anyone glancing at your screen in a cafe, on a plane, or in an open office.
+`--stealth` (or `KDEPS_STEALTH=1`, or `/stealth` at runtime) renders the whole REPL - banner, prompt, the text you type, model name, streamed responses, thinking blocks, tool summaries, the `/model` and `/settings` pickers - in near-black dark grays (forced 24-bit color so the shades don't round up on a 256-color terminal). The model name in the status line is the dimmest element on screen, deliberately close to invisible against a dark terminal. Nothing about the output stops working; it just does not read as "an AI session on model X" to anyone glancing at your screen in a cafe, on a plane, or in an open office.
 
 ```bash
 kdeps --stealth                # start muted
