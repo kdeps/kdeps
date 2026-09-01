@@ -816,6 +816,36 @@ func TestResolveStartModel_ExplicitBackendNotOverridden(t *testing.T) {
 	assert.Equal(t, "llamafile", b)
 }
 
+func TestResolveStealth_Precedence(t *testing.T) {
+	t.Setenv("KDEPS_STEALTH", "")
+
+	// Nothing set -> off.
+	if resolveStealth(&agentLoopFlags{}, tui.Settings{}) {
+		t.Error("no flag/env/setting should be off")
+	}
+	// Persisted setting alone -> on.
+	if !resolveStealth(&agentLoopFlags{}, tui.Settings{Stealth: true}) {
+		t.Error("persisted Stealth=true should be on")
+	}
+	// Env alone -> on, even when the setting is off.
+	t.Setenv("KDEPS_STEALTH", "1")
+	if !resolveStealth(&agentLoopFlags{}, tui.Settings{Stealth: false}) {
+		t.Error("KDEPS_STEALTH=1 should force on")
+	}
+	t.Setenv("KDEPS_STEALTH", "")
+	// Flag alone -> on, even when the setting is off.
+	if !resolveStealth(&agentLoopFlags{Stealth: true}, tui.Settings{Stealth: false}) {
+		t.Error("--stealth should force on")
+	}
+}
+
+func TestRootCmd_HasStealthFlag(t *testing.T) {
+	cmd := NewRootCmd()
+	if cmd.Flags().Lookup("stealth") == nil {
+		t.Fatal("expected --stealth flag on root command")
+	}
+}
+
 func TestResolveStartModel_GGUFSuffixAutoSetsBackend(t *testing.T) {
 	// Use HOME isolation so registry reads don't interfere.
 	t.Setenv("HOME", t.TempDir())

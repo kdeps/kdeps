@@ -54,18 +54,36 @@ const (
 	helpText        = "↑/↓ navigate  space toggle  tab/shift+tab switch section  enter confirm  q quit"
 )
 
-//nolint:gochecknoglobals // lipgloss styles must be package-level vars
+// Selector styles. Package vars, not initialized inline, so stealth mode
+// (stealth.go) can rebuild them. buildSelectorStyles is called once from
+// stealth.go's init and again on every SetStealth.
+//
+//nolint:gochecknoglobals // runtime-swappable picker styles (stealth mode)
 var (
-	styleBase    = lipgloss.NewStyle()
-	styleTab     = lipgloss.NewStyle().Padding(0, tabPadH)
-	styleTabSel  = lipgloss.NewStyle().Padding(0, tabPadH).Bold(true).Foreground(lipgloss.Color("#00E5FF"))
-	styleEnabled = lipgloss.NewStyle().Foreground(lipgloss.Color("#00E5FF"))
-	styleDim     = lipgloss.NewStyle().Foreground(lipgloss.Color("#555555"))
-	styleHelp    = lipgloss.NewStyle().Foreground(lipgloss.Color("#555555")).Italic(true)
-	styleCursor  = lipgloss.NewStyle().Foreground(lipgloss.Color("#00E5FF")).Bold(true)
-	styleAccent  = lipgloss.NewStyle().Foreground(lipgloss.Color("#00E5FF"))
-	styleSuccess = lipgloss.NewStyle().Foreground(lipgloss.Color("#00FF87"))
+	styleBase    lipgloss.Style
+	styleTab     lipgloss.Style
+	styleTabSel  lipgloss.Style
+	styleEnabled lipgloss.Style
+	styleDim     lipgloss.Style
+	styleHelp    lipgloss.Style
+	styleCursor  lipgloss.Style
+	styleAccent  lipgloss.Style
+	styleSuccess lipgloss.Style
 )
+
+// buildSelectorStyles rebuilds the selector styles honoring stealth mode.
+func buildSelectorStyles() {
+	bold := !stealthEnabled()
+	styleBase = lipgloss.NewStyle()
+	styleTab = lipgloss.NewStyle().Padding(0, tabPadH)
+	styleTabSel = lipgloss.NewStyle().Padding(0, tabPadH).Bold(bold).Foreground(col("#00E5FF"))
+	styleEnabled = lipgloss.NewStyle().Foreground(col("#00E5FF"))
+	styleDim = lipgloss.NewStyle().Foreground(colDim("#555555"))
+	styleHelp = lipgloss.NewStyle().Foreground(colDim("#555555")).Italic(true)
+	styleCursor = lipgloss.NewStyle().Foreground(col("#00E5FF")).Bold(bold)
+	styleAccent = lipgloss.NewStyle().Foreground(col("#00E5FF"))
+	styleSuccess = lipgloss.NewStyle().Foreground(col("#00FF87"))
+}
 
 //nolint:gochecknoglobals // const slice
 var tabLabels = [numTabs]string{"Workflows", "Agencies", "Components", "Skills"}

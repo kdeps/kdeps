@@ -111,23 +111,58 @@ const (
 var builtinCmds = []string{
 	"/help", "/settings", "/clear", "/model", "/context",
 	"/skills", "/prompts", "/prompt", "/compact", "/history", "/thinking", "/session",
-	"/editor", "/copy", "/reload", "/permission", "/autocontext", "/tools", "/upgrade", "/login", "/exit", "/quit",
+	"/editor", "/copy", "/reload", "/permission", "/autocontext", "/tools", "/upgrade",
+	"/login", "/stealth", "/exit", "/quit",
 }
 
-//nolint:gochecknoglobals // lipgloss styles for REPL output
+// REPL output styles. Package vars, not constants, so stealth mode (theme.go)
+// can swap them at runtime. All (re)built by applyReplStyles from the active
+// palette - once from theme.go's init, again on every /stealth toggle.
+//
+//nolint:gochecknoglobals // runtime-swappable REPL styles (stealth mode)
 var (
-	styleReplError   = lipgloss.NewStyle().Foreground(lipgloss.Color("#FF2D78")).Bold(true)
-	styleReplMeta    = lipgloss.NewStyle().Foreground(lipgloss.Color("#888888"))
-	styleReplHeading = lipgloss.NewStyle().Foreground(lipgloss.Color("#00E5FF")).Bold(true)
-	styleReplSuccess = lipgloss.NewStyle().Foreground(lipgloss.Color("#00FF87"))
-	styleReplPrompt  = lipgloss.NewStyle().Foreground(lipgloss.Color("#00E5FF")).Bold(true)
-	styleReplInfo    = lipgloss.NewStyle().Foreground(lipgloss.Color("#7AA2F7"))
-	styleReplDim     = lipgloss.NewStyle().Foreground(lipgloss.Color("#555555"))
-	styleReplBanner  = lipgloss.NewStyle().
-				Foreground(lipgloss.Color("#CDD6F4")).
-				Border(lipgloss.NormalBorder(), false, false, true, false).
-				BorderForeground(lipgloss.Color("#333333"))
+	styleReplError   lipgloss.Style
+	styleReplMeta    lipgloss.Style
+	styleReplHeading lipgloss.Style
+	styleReplSuccess lipgloss.Style
+	styleReplPrompt  lipgloss.Style
+	styleReplInfo    lipgloss.Style
+	styleReplDim     lipgloss.Style
+	styleReplBanner  lipgloss.Style
+	// styleModelName renders the model name in the modeline. In stealth mode
+	// it is the darkest color in the palette - deliberately barely legible.
+	styleModelName lipgloss.Style
 )
+
+// applyReplStyles rebuilds every REPL style from the active palette.
+// Called by rebuildTheme (theme.go).
+func applyReplStyles() {
+	p := activePalette
+	fg := func(hex string) lipgloss.Style {
+		return lipgloss.NewStyle().Foreground(lipgloss.Color(hex))
+	}
+	bold := func(s lipgloss.Style) lipgloss.Style {
+		if p.bold {
+			return s.Bold(true)
+		}
+		return s
+	}
+	styleReplError = bold(fg(p.replError))
+	styleReplMeta = fg(p.replMeta)
+	styleReplHeading = bold(fg(p.replHeading))
+	styleReplSuccess = fg(p.replSuccess)
+	styleReplPrompt = bold(fg(p.replPrompt))
+	styleReplInfo = fg(p.replInfo)
+	styleReplDim = fg(p.replDim)
+	styleReplBanner = fg(p.bannerText).
+		Border(lipgloss.NormalBorder(), false, false, true, false).
+		BorderForeground(lipgloss.Color(p.bannerBorder))
+	styleModelName = bold(fg(p.modelName))
+
+	styleModelsReady = bold(fg(p.modelsReady))
+	styleModelsNoKey = fg(p.modelsNoKey)
+	styleModelsCurrent = bold(fg(p.modelsCurrent))
+}
 
 const historyDirName = ".kdeps"
 const historyFileName = "repl_history"
@@ -186,6 +221,7 @@ type REPL struct {
 	cloudModelBackends map[string]string                   // cloud model name -> backend name
 	modelPickerFn      func(filter string) (string, error) // TUI model picker; nil if unavailable
 	saveDefaultFn      func(model string) error            // persists default model; nil if unavailable
+	saveStealthFn      func(bool) error                    // persists stealth mode; nil if unavailable
 	saveTuningFn       func(ToolTuning) error              // persists /model tool settings; nil if unavailable
 	persistedTuning    *ToolTuning                         // loaded at startup, applied in Run(); nil if none
 	readlineInst       *readline.Instance                  // set during Run(); nil before/after
@@ -359,6 +395,13 @@ func (r *REPL) SetSaveDefaultFn(fn func(string) error) {
 	r.saveDefaultFn = fn
 }
 
+// SetSaveStealthFn injects the function that persists stealth mode on/off.
+// Called by /stealth. When nil, /stealth still toggles for the session but
+// does not persist.
+func (r *REPL) SetSaveStealthFn(fn func(bool) error) {
+	r.saveStealthFn = fn
+}
+
 // SetModelPickerFn injects a TUI model picker function. When set, /model with
 // no arguments launches the picker. When nil (default), /model prints the current model.
 func (r *REPL) SetModelPickerFn(fn func(filter string) (string, error)) {
@@ -423,10 +466,9 @@ func (r *REPL) dynamicPrompt() string {
 func (r *REPL) modeline() string {
 	dim := styleReplDim.Render
 	meta := styleReplMeta.Render
-	bold := styleReplPrompt.Render
 
 	var parts []string
-	parts = append(parts, bold(r.loop.config.Model))
+	parts = append(parts, styleModelName.Render(r.loop.config.Model))
 	if ctxStr := r.contextUsageStr(); ctxStr != "" {
 		parts = append(parts, meta(ctxStr))
 	}
@@ -2328,6 +2370,8 @@ func (r *REPL) dispatchCommand(cmd string) error {
 		return r.cmdUpgrade(args)
 	case "/login":
 		return r.cmdLogin(args)
+	case "/stealth":
+		return r.cmdStealth(args)
 	case "/exit", "/quit":
 		r.loopCancel() // exit the loop; also cascades to cancel r.ctx (child of loopCtx)
 		return nil
@@ -2385,6 +2429,7 @@ func (r *REPL) cmdHelp() error {
 		"  /editor                            Open $EDITOR to compose a long prompt",
 		"  /copy                              Copy the last assistant response to the system clipboard",
 		"  /reload                            Reload skills, prompt templates, and instructions from disk",
+		"  /stealth [on|off]                  Muted UI - dark gray, model name barely visible (for use in public)",
 		"  /context                           Show current context window size",
 		"  /context <size>                    Set context window size (e.g. 32768 or 32k); restarts local servers",
 		"  /turo [on|off|lite|full|ultra|wenyan|filler/synonyms/gloss on|off] Show or set the turo prompt reducer; turo only",
@@ -2911,6 +2956,43 @@ func (r *REPL) setToolSetting(name, value string) {
 // cmdModelDefault handles /model default [name].
 // With no name: prints the current default from settings.
 // With a name: saves it as the new default and switches to it.
+// cmdStealth toggles stealth ("Muted") mode. Renders the whole REPL in
+// near-black grays with the model name barely visible - for use in public.
+//
+//	/stealth          toggle
+//	/stealth on|off   set explicitly
+func (r *REPL) cmdStealth(args []string) error {
+	on := !stealthEnabled()
+	if len(args) > 0 {
+		switch strings.ToLower(args[0]) {
+		case "on", "true", "1":
+			on = true
+		case "off", "false", "0":
+			on = false
+		case "toggle":
+			// keep computed toggle
+		default:
+			fmt.Fprintln(os.Stdout, styleReplMeta.Render("Usage: /stealth [on|off]"))
+			return nil
+		}
+	}
+
+	SetStealth(on)
+	if r.saveStealthFn != nil {
+		if err := r.saveStealthFn(on); err != nil {
+			return fmt.Errorf("persist stealth setting: %w", err)
+		}
+	}
+
+	fmt.Fprintln(os.Stdout, r.modeline())
+	if on {
+		fmt.Fprintln(os.Stdout, styleReplMeta.Render("Stealth mode on - the model name is now barely visible."))
+	} else {
+		fmt.Fprintln(os.Stdout, styleReplMeta.Render("Stealth mode off."))
+	}
+	return nil
+}
+
 func (r *REPL) cmdModelDefault(args []string) error {
 	if len(args) == 0 {
 		// Show current default.
@@ -3326,11 +3408,13 @@ func (r *REPL) providerStatusLine() string {
 
 const modelsIDWidth = 46
 
-//nolint:gochecknoglobals // shared style instances for /models output
+// /models output styles. (Re)built by applyReplStyles - see theme.go.
+//
+//nolint:gochecknoglobals // runtime-swappable REPL styles (stealth mode)
 var (
-	styleModelsReady   = lipgloss.NewStyle().Foreground(lipgloss.Color("#00E5FF")).Bold(true)
-	styleModelsNoKey   = lipgloss.NewStyle().Foreground(lipgloss.Color("#555555"))
-	styleModelsCurrent = lipgloss.NewStyle().Foreground(lipgloss.Color("#FFD60A")).Bold(true)
+	styleModelsReady   lipgloss.Style
+	styleModelsNoKey   lipgloss.Style
+	styleModelsCurrent lipgloss.Style
 )
 
 // cmdModels collects all model lines into a buffer and displays them with pagination.

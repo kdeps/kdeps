@@ -30,6 +30,11 @@ type Settings struct {
 	// Set via /model default <name> in the REPL.
 	DefaultModel string `yaml:"default_model,omitempty"`
 
+	// Stealth persists muted ("Muted") UI mode. Set via /stealth in the REPL.
+	// The --stealth flag and KDEPS_STEALTH env var override it for one session
+	// without changing the stored value.
+	Stealth bool `yaml:"stealth,omitempty"`
+
 	// CustomOpenAIModels are user-added OpenAI-compatible endpoints registered
 	// via "/model <base-url>". Downloaded .gguf/.llamafile URLs persist in
 	// their own version registries; only network endpoints live here.
@@ -126,6 +131,16 @@ func SaveDefaultModel(model string) error {
 		return err
 	}
 	s.DefaultModel = model
+	return s.Save()
+}
+
+// SaveStealth updates only the Stealth field and persists the settings file.
+func SaveStealth(on bool) error {
+	s, err := LoadSettings()
+	if err != nil {
+		return err
+	}
+	s.Stealth = on
 	return s.Save()
 }
 

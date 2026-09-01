@@ -107,28 +107,71 @@ const (
 	maxTermWidth           = 120
 )
 
-// pi-inspired color palette for markdown rendering.
-const (
-	colorHeading   = "#FFD60A" // yellow (pi mdHeading)
-	colorLink      = "#81A2BE" // blue-gray (pi mdLink)
-	colorCode      = "#00E5FF" // cyan (pi mdCode = accent)
-	colorCodeBlock = "#A8FF78" // green (pi mdCodeBlock)
-	colorText      = "#CDD6F4" // primary text
-	colorThinking  = "#888888" // gray (pi thinkingText)
-	colorMuted     = "#555555" // dim
-	colorBullet    = "#00E5FF" // cyan accent (pi mdListBullet)
-	colorQuote     = "#888888" // gray (pi mdQuote)
-	colorBorderHr  = "#333333" // hr separator
+// Color palette for markdown rendering. These are package vars, not consts, so
+// stealth mode (see theme.go) can swap them at runtime via applyRenderPalette.
+// Default values come from normalPalette; applyRenderPalette is called once
+// from theme.go's init and again on every /stealth toggle.
+//
+//nolint:gochecknoglobals // runtime-swappable render palette (stealth mode)
+var (
+	colorHeading   string
+	colorLink      string
+	colorCode      string
+	colorCodeBlock string
+	colorText      string
+	colorThinking  string
+	colorMuted     string
+	colorBullet    string
+	colorQuote     string
+	colorBorderHr  string
 
-	// Syntax highlight colors matching kdeps visual language.
-	colorSyntaxKeyword  = "#FF79C6" // pink keywords
-	colorSyntaxFunction = "#61AFEF" // blue functions
-	colorSyntaxString   = "#A8FF78" // green strings
-	colorSyntaxComment  = "#676767" // dim gray comments
-	colorSyntaxNumber   = "#FFD60A" // yellow numbers
-	colorSyntaxType     = "#00E5FF" // cyan types
-	colorSyntaxOp       = "#EF8080" // red/salmon operators
+	// Syntax highlight colors.
+	colorSyntaxKeyword  string
+	colorSyntaxFunction string
+	colorSyntaxString   string
+	colorSyntaxComment  string
+	colorSyntaxNumber   string
+	colorSyntaxType     string
+	colorSyntaxOp       string
 )
+
+// applyRenderPalette sets the markdown color vars from the active palette and
+// rebuilds the thinking-block styles. Called by rebuildTheme (theme.go).
+func applyRenderPalette() {
+	p := activePalette
+	colorHeading = p.heading
+	colorLink = p.link
+	colorCode = p.code
+	colorCodeBlock = p.codeBlock
+	colorText = p.text
+	colorThinking = p.thinking
+	colorMuted = p.muted
+	colorBullet = p.bullet
+	colorQuote = p.quote
+	colorBorderHr = p.borderHr
+	colorSyntaxKeyword = p.synKeyword
+	colorSyntaxFunction = p.synFunc
+	colorSyntaxString = p.synStr
+	colorSyntaxComment = p.synComment
+	colorSyntaxNumber = p.synNum
+	colorSyntaxType = p.synType
+	colorSyntaxOp = p.synOp
+
+	styleThinkingLabel = lipgloss.NewStyle().
+		Foreground(lipgloss.Color(colorThinking)).
+		Italic(p.bold)
+	styleThinkingGutter = lipgloss.NewStyle().Foreground(lipgloss.Color(colorMuted))
+}
+
+// invalidateRenderers drops the cached glamour renderers so the next render
+// rebuilds them from the current palette. Called by rebuildTheme (theme.go).
+func invalidateRenderers() {
+	rendererMu.Lock()
+	defer rendererMu.Unlock()
+	cachedRenderer = nil
+	cachedThinkingRenderer = nil
+	cachedRendererWidth = 0
+}
 
 // thinkingRe matches <thinking>...</thinking> blocks (including multiline).
 var thinkingRe = regexp.MustCompile(`(?s)<thinking>(.*?)</thinking>`)
@@ -140,10 +183,10 @@ var mdThinkingRe = regexp.MustCompile(
 	`(?m)^\*\s*thinking\s*\n((?:(?:  |\t).*\n?)*)`,
 )
 
-//nolint:gochecknoglobals // lipgloss style for thinking block header
-var styleThinkingLabel = lipgloss.NewStyle().
-	Foreground(lipgloss.Color(colorThinking)).
-	Italic(true)
+// styleThinkingLabel and styleThinkingGutter are (re)built by applyRenderPalette.
+//
+//nolint:gochecknoglobals // runtime-swappable thinking styles (stealth mode)
+var styleThinkingLabel lipgloss.Style
 
 // thinkingGutter is the dim left border drawn on every rendered thinking line so
 // the whole block reads as a distinct aside from the response — even when the
@@ -153,8 +196,8 @@ const (
 	thinkingGutterWidth = 2 // display columns of thinkingGutter
 )
 
-//nolint:gochecknoglobals // lipgloss style for the thinking gutter
-var styleThinkingGutter = lipgloss.NewStyle().Foreground(lipgloss.Color(colorMuted))
+//nolint:gochecknoglobals // runtime-swappable thinking styles (stealth mode)
+var styleThinkingGutter lipgloss.Style
 
 // withThinkingGutter prefixes each line of already-rendered thinking with the dim
 // gutter. The line count is unchanged, so a caller redrawing the block in place

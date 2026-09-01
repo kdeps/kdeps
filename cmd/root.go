@@ -144,6 +144,10 @@ func createRootCommand() *cobra.Command {
 		&flags.Resume, "resume", "",
 		"Session ID to resume a previous conversation",
 	)
+	rootCmd.Flags().BoolVar(
+		&flags.Stealth, "stealth", false,
+		"Muted UI - render everything in dark gray with the model name barely visible (for use in public)",
+	)
 
 	addSubcommands(rootCmd)
 
