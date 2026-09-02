@@ -169,6 +169,12 @@ const historyFileName = "repl_history"
 
 var atFileRefRe = regexp.MustCompile(`@(\S+)`)
 
+// pasteRefRe matches the large-paste marker "[pasted N lines @path]" left in the
+// input on submit. It is expanded to the staged file's contents before the
+// generic @ref pass, which would otherwise swallow the trailing "]" into the
+// path and fail the read.
+var pasteRefRe = regexp.MustCompile(`\[pasted \d+ lines @([^\]\s]+)\]`)
+
 //nolint:gochecknoglobals // test-replaceable network function hooks
 var (
 	hfSearchFunc         func(ctx context.Context, query string, limit int) ([]llm.HFModelResult, error) = llm.HFSearchGGUF
@@ -247,9 +253,11 @@ type REPL struct {
 	// Bracketed paste: a multi-line paste arrives wrapped in ESC[200~/ESC[201~
 	// (see bracketedPasteReader) and lands as a single sentinel rune on the edit
 	// line, so it can be navigated and edited like any other character before it
-	// submits as one prompt.
-	pasteContents []string      // full body of each pending paste
-	tokenCounter  *TokenCounter // cumulative token usage across the session; a sentinel in the edit line marks where each belongs
+	// submits as one prompt. A small single-line paste bypasses this entirely
+	// (raw text into readline); a large paste is staged to pasteTmpDir.
+	pendingPastes []pendingPaste // one entry per staged paste, in edit-line order
+	pasteTmpDir   string         // temp dir holding large-paste files; created lazily, removed on exit
+	tokenCounter  *TokenCounter  // cumulative token usage across the session; a sentinel in the edit line marks where each belongs
 
 	// termSnap is the terminal's cooked mode captured before readline switches
 	// it to raw, restored on a termination signal so the tty never leaks in raw
@@ -1286,6 +1294,22 @@ var imageExts = map[string]bool{
 // so the caller can attach them as multimodal content. Unresolvable refs are kept as-is.
 func expandFileRefs(input string) (string, []string) {
 	var files []string
+
+	// Large-paste markers first: expand "[pasted N lines @path]" to the staged
+	// body so the model sees the full paste. Left untouched on a read error.
+	input = pasteRefRe.ReplaceAllStringFunc(input, func(match string) string {
+		m := pasteRefRe.FindStringSubmatch(match)
+		if m == nil {
+			return match
+		}
+		path := m[1]
+		data, err := afero.ReadFile(AppFS, path)
+		if err != nil {
+			return match
+		}
+		return fmt.Sprintf("\n\n--- %s ---\n%s", path, strings.TrimRight(string(data), "\n"))
+	})
+
 	text := atFileRefRe.ReplaceAllStringFunc(input, func(match string) string {
 		path := match[1:]
 		// URL-based images are routed directly to multimodal (fileContentPart handles them).
@@ -1623,6 +1647,7 @@ func (r *REPL) Run() error {
 		if r.readlineInst != nil {
 			_ = r.readlineInst.Close()
 		}
+		r.cleanupPasteTmp()
 	}()
 
 	r.readlineInst = rl
@@ -1720,6 +1745,7 @@ func (r *REPL) restoreTerminalAndExit(sig os.Signal) {
 	// hanging around.
 	go func() {
 		fmt.Fprint(os.Stdout, ansiDisableBracketedPaste+"\r\n")
+		r.cleanupPasteTmp()
 		llm.ShutdownLocalServers()
 	}()
 	code := signalExitBase + int(syscall.SIGTERM)
@@ -1789,14 +1815,7 @@ func (r *REPL) runLoop(rl *readline.Instance) error {
 			return err
 		}
 
-		// Each pasted block was held as a single sentinel rune in the edit line
-		// (its real body kept out of band). Substitute each sentinel with its
-		// queued body, in order, so the paste reaches the LLM intact as one
-		// prompt while any text typed around it is preserved.
-		for _, body := range r.pasteContents {
-			line = strings.Replace(line, string(pasteSentinel), body, 1)
-		}
-		r.pasteContents = nil
+		line = r.expandPasteSentinels(line)
 
 		input := strings.TrimSpace(line)
 		if input == "" {
@@ -1984,42 +2003,113 @@ func (r *REPL) filterToolInterrupt(rn rune) (rune, bool) {
 	return rn, false // swallow: the tool handled it
 }
 
-// onPasteContent queues the full body of a completed paste. The edit line holds
-// one sentinel rune per paste (see bracketedPasteReader); on submit each
-// sentinel is replaced by the matching queued body, in order, so the readline
-// buffer never carries the large content and the screen is not redrawn.
-func (r *REPL) onPasteContent(content string) {
-	r.pasteContents = append(r.pasteContents, content)
+// pendingPaste is one staged paste: a small multi-line body shown inline
+// verbatim, or a large body written to a temp file and shown as a marker.
+type pendingPaste struct {
+	body    string
+	lines   int
+	large   bool
+	tmpPath string // set only when large
 }
 
-// pasteMarker is the visible glyph shown in place of a paste's sentinel rune. It
-// is exactly one display column wide, matching the sentinel, so the render stays
-// width-aligned with the edit buffer and the cursor tracks correctly.
+// marker renders the large-paste placeholder that stands in for the body on the
+// edit line and in REPL history. Its "@path" token is expanded back to the file
+// contents at turn time (see pasteRefRe / expandFileRefs).
+func (p pendingPaste) marker() string {
+	return fmt.Sprintf("[pasted %d lines @%s]", p.lines, p.tmpPath)
+}
+
+// onPasteContent stages a completed paste that is not a small single-line one
+// (those are handed to readline as raw text upstream). Large pastes are written
+// to a temp file so the edit line and history stay compact; the model still
+// receives the full body via marker expansion on submit.
+func (r *REPL) onPasteContent(content string, large bool, lines int) {
+	p := pendingPaste{body: content, lines: lines, large: large}
+	if large {
+		p.tmpPath = r.stagePasteFile(content)
+	}
+	r.pendingPastes = append(r.pendingPastes, p)
+}
+
+// stagePasteFile writes a large paste body to a file in the session's paste
+// temp dir (created on first use) and returns the path, or "" on any error.
+func (r *REPL) stagePasteFile(content string) string {
+	if r.pasteTmpDir == "" {
+		dir, err := os.MkdirTemp("", "kdeps-paste-")
+		if err != nil {
+			return ""
+		}
+		r.pasteTmpDir = dir
+	}
+	path := filepath.Join(r.pasteTmpDir, fmt.Sprintf("paste-%d.txt", len(r.pendingPastes)+1))
+	if err := os.WriteFile(path, []byte(content), 0o600); err != nil {
+		return ""
+	}
+	return path
+}
+
+// expandPasteSentinels replaces each paste sentinel in a submitted line, in
+// order, with its staged paste's verbatim body (small) or its
+// "[pasted N lines @path]" marker (large). The marker is expanded back to the
+// file contents for the model in expandFileRefs; REPL history keeps it compact.
+// Pending pastes are cleared afterwards.
+func (r *REPL) expandPasteSentinels(line string) string {
+	for _, p := range r.pendingPastes {
+		sub := p.body
+		if p.large && p.tmpPath != "" {
+			sub = p.marker()
+		}
+		line = strings.Replace(line, string(pasteSentinel), sub, 1)
+	}
+	r.pendingPastes = nil
+	return line
+}
+
+// cleanupPasteTmp removes the large-paste temp dir. Safe to call more than once.
+func (r *REPL) cleanupPasteTmp() {
+	if r.pasteTmpDir != "" {
+		_ = os.RemoveAll(r.pasteTmpDir)
+		r.pasteTmpDir = ""
+	}
+}
+
+// pasteMarker is the fallback glyph shown for a sentinel with no matching
+// pendingPaste (its entry was consumed, or the sentinel survived an edit).
 const pasteMarker = '▧'
 
-// pastePainter returns a readline Painter that renders each paste as a single
-// visible marker inline with the rest of the edit line.
+// pastePainter returns a readline Painter that expands each paste sentinel to
+// what the user should see: a small paste's real text, or a large paste's
+// "[pasted N lines @path]" marker.
 func (r *REPL) pastePainter() readline.Painter {
-	return pastePainter{}
+	return pastePainter{repl: r}
 }
 
-// pastePainter implements readline.Painter. It shows the actual edit line and
-// only swaps each paste sentinel rune for a visible marker glyph, one-for-one.
-// Keeping the rendered length equal to the buffer length is what lets the arrow
-// keys, Ctrl+A and Ctrl+E move the cursor correctly around a paste, and lets the
-// user type text before or after it and see what they typed — the old painter
-// replaced the whole line with a fixed "[Pasted +N lines]" summary of a
-// different length, which desynced the cursor and hid the surrounding text.
-type pastePainter struct{}
+// pastePainter implements readline.Painter. It walks the edit line and replaces
+// the k-th paste sentinel with the k-th pending paste's rendered form (body for
+// small, marker for large), leaving everything the user typed around it intact.
+// The render is no longer the same length as the buffer — showing the real
+// content is worth the imperfect cursor tracking around a multi-row paste.
+type pastePainter struct{ repl *REPL }
 
-func (pastePainter) Paint(line []rune, _ int) []rune {
-	out := make([]rune, len(line))
-	for i, r := range line {
-		if r == pasteSentinel {
-			out[i] = pasteMarker
-		} else {
-			out[i] = r
+func (p pastePainter) Paint(line []rune, _ int) []rune {
+	var out []rune
+	seen := 0
+	for _, r := range line {
+		if r != pasteSentinel {
+			out = append(out, r)
+			continue
 		}
+		if p.repl != nil && seen < len(p.repl.pendingPastes) {
+			pp := p.repl.pendingPastes[seen]
+			if pp.large && pp.tmpPath != "" {
+				out = append(out, []rune(pp.marker())...)
+			} else {
+				out = append(out, []rune(pp.body)...)
+			}
+		} else {
+			out = append(out, pasteMarker)
+		}
+		seen++
 	}
 	return out
 }

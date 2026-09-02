@@ -54,28 +54,34 @@ func TestBracketedPaste_BodyKeptOutOfBand(t *testing.T) {
 		wantContent []string // bodies delivered to onContent, in order
 	}{
 		{
-			name:        "three lines yield one sentinel; body out of band",
+			name:        "small single-line paste is raw text; nothing staged",
+			in:          "\x1b[200~just a short line\x1b[201~",
+			wantToRL:    "just a short line",
+			wantContent: nil,
+		},
+		{
+			name:        "small multi-line paste yields one sentinel; body out of band",
 			in:          "\x1b[200~line one\nline two\nline three\x1b[201~",
 			wantToRL:    sentinel,
 			wantContent: []string{"line one\nline two\nline three"},
 		},
 		{
-			name:        "crlf collapses to one newline in the body",
-			in:          "\x1b[200~a\r\nb\x1b[201~",
+			name:        "large paste (many words) is staged behind one sentinel",
+			in:          "\x1b[200~" + strings.Repeat("word ", 40) + "\x1b[201~",
 			wantToRL:    sentinel,
-			wantContent: []string{"a\nb"},
+			wantContent: []string{strings.Repeat("word ", 40)},
+		},
+		{
+			name:        "crlf collapses to one newline in the body",
+			in:          "\x1b[200~a\r\nb\nc\x1b[201~",
+			wantToRL:    sentinel,
+			wantContent: []string{"a\nb\nc"},
 		},
 		{
 			name:        "typing around a paste is preserved; paste is one sentinel",
 			in:          "x\x1b[200~pasted\nlines\x1b[201~y\n",
 			wantToRL:    "x" + sentinel + "y\n",
 			wantContent: []string{"pasted\nlines"},
-		},
-		{
-			name:        "two pastes yield two sentinels and two bodies",
-			in:          "\x1b[200~one\x1b[201~\x1b[200~two\x1b[201~",
-			wantToRL:    sentinel + sentinel,
-			wantContent: []string{"one", "two"},
 		},
 		{
 			name:        "no markers pass through untouched, no content",
@@ -88,11 +94,46 @@ func TestBracketedPaste_BodyKeptOutOfBand(t *testing.T) {
 		t.Run(c.name, func(t *testing.T) {
 			var got []string
 			r := newBracketedPasteReader(strings.NewReader(c.in), nil,
-				func(content string) { got = append(got, content) })
+				func(content string, _ bool, _ int) { got = append(got, content) })
 			assert.Equal(t, c.wantToRL, readAll(t, r), "bytes to readline")
 			assert.Equal(t, c.wantContent, got, "paste bodies to onContent")
 		})
 	}
+}
+
+func TestClassifyPaste(t *testing.T) {
+	cases := []struct {
+		name      string
+		body      string
+		wantLarge bool
+		wantLines int
+	}{
+		{"one short line", "hello there", false, 1},
+		{"four lines exactly", "a\nb\nc\nd", false, 4},
+		{"five lines", "a\nb\nc\nd\ne", true, 5},
+		{"twenty words", strings.Repeat("w ", 20), false, 1},
+		{"twenty-one words", strings.Repeat("w ", 21), true, 1},
+		{"240 chars", strings.Repeat("x", 240), false, 1},
+		{"241 chars", strings.Repeat("x", 241), true, 1},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			large, lines := classifyPaste(c.body)
+			assert.Equal(t, c.wantLarge, large)
+			assert.Equal(t, c.wantLines, lines)
+		})
+	}
+}
+
+func TestBracketedPaste_LargeFlagAndLines(t *testing.T) {
+	var large bool
+	var lines int
+	body := strings.Repeat("line\n", 9) + "last"
+	r := newBracketedPasteReader(strings.NewReader("\x1b[200~"+body+"\x1b[201~"), nil,
+		func(_ string, lg bool, ln int) { large, lines = lg, ln })
+	assert.Equal(t, string(pasteSentinel), readAll(t, r))
+	assert.True(t, large, "10-line paste is large")
+	assert.Equal(t, 10, lines)
 }
 
 func TestPastePainter_PreservesLineAroundPaste(t *testing.T) {
@@ -121,7 +162,7 @@ func TestBracketedPaste_MarkerSplitAcrossReads(t *testing.T) {
 	pieces := []string{"\x1b[2", "00~a\nb", "\x1b[20", "1~"}
 	var got []string
 	r := newBracketedPasteReader(&chunkReader{chunks: pieces}, nil,
-		func(content string) { got = append(got, content) })
+		func(content string, _ bool, _ int) { got = append(got, content) })
 	assert.Equal(t, string(pasteSentinel), readAll(t, r))
 	assert.Equal(t, []string{"a\nb"}, got)
 }

@@ -152,11 +152,39 @@ Only turns longer than a threshold alert, so quick replies stay quiet.
 | `KDEPS_NOTIFY=off` | Disable the alert entirely |
 | `KDEPS_NOTIFY_MIN=<dur>` | Minimum turn duration to alert (default `10s`; `0` = every turn) |
 
-## Pasting multiple lines
+## Pasting
 
-Paste a block of text and the REPL treats it as **one prompt**, not one turn per line. The whole block collapses to a single `▧` marker on the input line (its full content is kept off-screen so a large paste never redraws the terminal); press Enter once to submit and the marker is replaced by the full pasted text, with embedded newlines preserved. This uses the terminal's bracketed-paste mode, so it works in any modern terminal, tmux, and screen.
+Paste a block of text and the REPL treats it as **one prompt**, not one turn per
+line - it uses the terminal's bracketed-paste mode, so it works in any modern
+terminal, tmux, and screen. What happens next depends on the size:
 
-Because the paste is a single character on the edit line, you can **edit around it**: use the arrow keys (or `Ctrl+A` / `Ctrl+E` for line start/end) to move before or after the `▧` and type text there - for example paste a stack trace and type `why does this happen: ` in front of it, then submit. Everything you type around the marker is preserved and sent with the paste as one prompt.
+```d2
+direction: right
+paste: "Paste" {shape: oval}
+check: "<= 4 lines\nAND <= 20 words\nAND <= 240 chars?" {shape: diamond}
+inline: "Inline as literal,\neditable text"
+stage: "Write to a temp file\nshow [pasted N lines @path]"
+model: "Model receives the\nfull text on submit" {shape: oval}
+paste -> check
+check -> inline: yes
+check -> stage: no
+inline -> model
+stage -> model: "@path expands\nback to contents"
+```
+
+A **small** paste is inserted as ordinary editable text on the input line.
+
+A **large** paste is staged to a file under a temp dir so the prompt and your
+scrollback stay readable; the line shows
+`[pasted 123 lines @/tmp/kdeps-paste-xxxx/paste-1.txt]`. Press Enter once to
+submit: that marker is expanded back to the file's contents, so the model always
+gets the whole paste - only the on-screen line and the REPL history keep the
+short form. The temp dir is removed when the REPL exits.
+
+The large-paste marker is a single character on the edit line, so you can **edit
+around it**: use the arrow keys (or `Ctrl+A` / `Ctrl+E`) to move before or after
+it and type there - for example stage a stack trace and type
+`why does this happen: ` in front of it, then submit.
 
 ## Response rendering
 
