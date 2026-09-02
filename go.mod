@@ -28,7 +28,7 @@ require (
 	github.com/kdeps/kartographer v0.2.0
 	github.com/ledongthuc/pdf v0.0.0-20250511090121-5959a4027728
 	github.com/lib/pq v1.12.3
-	github.com/mattn/go-sqlite3 v1.14.49
+	github.com/mattn/go-sqlite3 v1.14.50
 	github.com/microcosm-cc/bluemonday v1.0.27
 	github.com/minio/selfupdate v0.6.0
 	github.com/muesli/termenv v0.16.0
