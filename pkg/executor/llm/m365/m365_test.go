@@ -646,6 +646,65 @@ func TestIsProseDocument(t *testing.T) {
 	}
 }
 
+func TestDropIllustrativeCalls(t *testing.T) {
+	readFile := ToolDef{Function: ToolFunction{
+		Name:       "read_file",
+		Parameters: &ToolParameters{Required: []string{"file_path"}},
+	}}
+	longProse := "## Plan review\n\n" + strings.Repeat(
+		"Read the plan file (limit 100 lines) and cross-reference the components. ", 8,
+	)
+
+	// A call missing a required param inside a long written answer is prose the
+	// parser mis-read: drop the call, keep the whole reply as text (issue #701).
+	got := dropIllustrativeCalls(
+		ParseResult{
+			HasToolCalls: true,
+			ToolCalls:    []ParsedToolCall{{Name: "read_file", Arguments: `{"limit":100}`}},
+			TextContent:  "UI Framework\n5",
+		},
+		[]ToolDef{readFile}, nil, longProse,
+	)
+	if got.HasToolCalls || got.TextContent != longProse {
+		t.Fatalf("missing-required call in long prose should become text, got %+v", got)
+	}
+
+	// A call that repeats one already executed this turn is the model quoting
+	// its own history back inside the answer.
+	history := []Message{{Role: "assistant", ToolCalls: []ToolCall{
+		{Function: ToolCallFunction{Name: "read_file", Arguments: `{"file_path":"PLAN.md"}`}},
+	}}}
+	got = dropIllustrativeCalls(
+		ParseResult{
+			HasToolCalls: true,
+			ToolCalls:    []ParsedToolCall{{Name: "read_file", Arguments: `{"file_path":"PLAN.md"}`}},
+			TextContent:  "done",
+		},
+		[]ToolDef{readFile}, history, longProse,
+	)
+	if got.HasToolCalls {
+		t.Fatalf("duplicate of an executed call should be dropped, got %+v", got)
+	}
+
+	// A well-formed, novel call in a short reply is untouched.
+	action := ParseResult{
+		HasToolCalls: true,
+		ToolCalls:    []ParsedToolCall{{Name: "read_file", Arguments: `{"file_path":"NEW.md"}`}},
+	}
+	if got = dropIllustrativeCalls(action, []ToolDef{readFile}, nil, "short"); !got.HasToolCalls {
+		t.Fatalf("a real call must be kept, got %+v", got)
+	}
+
+	// A malformed call in a SHORT reply still reaches the model as an error.
+	broken := ParseResult{
+		HasToolCalls: true,
+		ToolCalls:    []ParsedToolCall{{Name: "read_file", Arguments: `{"limit":100}`}},
+	}
+	if got = dropIllustrativeCalls(broken, []ToolDef{readFile}, nil, "check the plan"); !got.HasToolCalls {
+		t.Fatalf("a short malformed call must pass through for model recovery, got %+v", got)
+	}
+}
+
 func TestFormatMessagesInjectsTools(t *testing.T) {
 	msgs := []Message{{Role: "user", Content: "do it"}}
 	out := FormatMessages(msgs, []ToolDef{shellToolDef()}, nil, "conv-1", "baseline")

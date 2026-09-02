@@ -78,6 +78,14 @@ claims it cannot read files. The system preamble tells the model to use the
 kdeps tools only; if it still slips, reply `use the kdeps tools, not your own`
 and it recovers.
 
+Because tool calls are recovered from `<invoke>` blocks in free text, a written
+answer that *quotes* that syntax (or just names a tool, like "read the plan file,
+limit 100 lines") could be mis-read as an action. kdeps keeps such a reply as
+text when the recovered call is missing a required parameter, repeats a call
+already run this turn, or sits inside a long prose answer - so a final summary
+that mentions tool names renders in full instead of leaving a few dangling
+fragments before the prompt.
+
 Reasoning-tone models (`think-deeper`, `*-think-deeper`) stream their
 chain-of-thought summary as live reasoning feedback, same as native
 extended-thinking models - visible in the agent-loop REPL automatically

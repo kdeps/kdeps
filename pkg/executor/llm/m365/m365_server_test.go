@@ -425,6 +425,50 @@ func TestServerChatCompletionReplyToolBecomesText(t *testing.T) {
 	}
 }
 
+// TestServerChatCompletion_IllustrativeCallStaysText drives the issue #701 fix
+// through the real server pipeline: a long written answer that quotes
+// read_file-style syntax gets parsed into a bogus read_file call (missing the
+// required file_path) plus scrap leftover. The response must come back as the
+// full text, not a tool call.
+func TestServerChatCompletion_IllustrativeCallStaysText(t *testing.T) {
+	prose := "## Using design/ on the current plans\n\n" + strings.Repeat(
+		"Read the plan file (limit 100 lines) and cross-reference each UI Framework "+
+			"component against the 5 open items before editing. ", 6,
+	)
+	raw := prose + "\n\n<invoke name=\"read_file\"><parameter name=\"limit\">100</parameter></invoke>"
+	srv, _ := newTestServer(t, [][]string{successFrame(raw)})
+
+	_, body := postChat(t, srv.URL, map[string]any{
+		"model":    "m365-copilot",
+		"messages": []map[string]any{{"role": "user", "content": "how can design/ be used"}},
+		"tools": []map[string]any{{
+			"type": "function",
+			"function": map[string]any{
+				"name": "read_file",
+				"parameters": map[string]any{
+					"properties": map[string]any{
+						"file_path": map[string]any{"type": "string"},
+						"limit":     map[string]any{"type": "integer"},
+					},
+					"required": []any{"file_path"},
+				},
+			},
+		}},
+	})
+	choice := body["choices"].([]any)[0].(map[string]any)
+	if choice["finish_reason"] != "stop" {
+		t.Fatalf("finish_reason = %v, body=%+v", choice["finish_reason"], body)
+	}
+	msg := choice["message"].(map[string]any)
+	if calls, _ := msg["tool_calls"].([]any); len(calls) != 0 {
+		t.Fatalf("illustrative call should not execute: %+v", calls)
+	}
+	if got, _ := msg["content"].(string); !strings.Contains(got, "UI Framework") ||
+		!strings.Contains(got, "Using design/ on the current plans") {
+		t.Errorf("full prose answer not returned, got %q", got)
+	}
+}
+
 // --- confabulation / hallucination forced retry ---
 
 func TestServerChatCompletionConfabulationRetry(t *testing.T) {
