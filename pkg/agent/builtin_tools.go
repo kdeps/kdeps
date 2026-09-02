@@ -184,6 +184,19 @@ func requireAbsFilePath(toolName string, args map[string]any) (string, error) {
 	return filePath, nil
 }
 
+// resolveReadFilePath is requireAbsFilePath for read-only file tools: when the
+// model omits file_path it falls back to the last file any file tool touched
+// this session ("re-read what I was just looking at"). Never used for
+// write_file/edit_file -- guessing a path there could clobber the wrong file.
+func resolveReadFilePath(toolName string, args map[string]any) (string, error) {
+	if s, _ := args[toolParamFilePath].(string); strings.TrimSpace(s) == "" {
+		if lf := lastFile(); lf != "" {
+			args[toolParamFilePath] = lf
+		}
+	}
+	return requireAbsFilePath(toolName, args)
+}
+
 // registerReadFile registers a local file reading tool.
 // Reads text files from the filesystem, and extracts text from PDF, DOCX,
 // EPUB, RTF, and ODT documents via the same loader package the loader:
@@ -200,8 +213,7 @@ func registerReadFile(reg *kdepstools.Registry) {
 		Parameters: map[string]domain.ToolParam{
 			toolParamFilePath: {
 				Type:        toolParamString,
-				Description: "Absolute path to the file to read",
-				Required:    true,
+				Description: "Absolute path to the file to read. Omit to re-read the file most recently accessed this session (e.g. to read more of it with offset/limit).",
 			},
 			"offset": {
 				Type:        "number",
@@ -213,10 +225,11 @@ func registerReadFile(reg *kdepstools.Registry) {
 			},
 		},
 		Execute: func(args map[string]any) (string, error) {
-			filePath, err := requireAbsFilePath("read_file", args)
+			filePath, err := resolveReadFilePath("read_file", args)
 			if err != nil {
 				return "", err
 			}
+			rememberFile(filePath)
 			return trackFileCall(filePath, func() (string, error) {
 				return readLocalFile(filePath, args)
 			})
@@ -365,15 +378,15 @@ func registerMD5File(reg *kdepstools.Registry) {
 		Parameters: map[string]domain.ToolParam{
 			toolParamFilePath: {
 				Type:        toolParamString,
-				Description: "Absolute (or cwd-relative) path to the file to hash",
-				Required:    true,
+				Description: "Absolute (or cwd-relative) path to the file to hash. Omit to hash the file most recently accessed this session.",
 			},
 		},
 		Execute: func(args map[string]any) (string, error) {
-			filePath, err := requireAbsFilePath("md5_file", args)
+			filePath, err := resolveReadFilePath("md5_file", args)
 			if err != nil {
 				return "", err
 			}
+			rememberFile(filePath)
 			// Deliberately not wrapped in trackFileCall: that cache exists so
 			// re-reading an unchanged file is free, but md5_file's entire
 			// purpose is detecting whether a file *changed* between two
@@ -425,8 +438,7 @@ func registerTailFile(reg *kdepstools.Registry) {
 		Parameters: map[string]domain.ToolParam{
 			toolParamFilePath: {
 				Type:        toolParamString,
-				Description: "Absolute (or cwd-relative) path to the file",
-				Required:    true,
+				Description: "Absolute (or cwd-relative) path to the file. Omit to tail the file most recently accessed this session.",
 			},
 			"lines": {
 				Type:        "number",
@@ -434,10 +446,11 @@ func registerTailFile(reg *kdepstools.Registry) {
 			},
 		},
 		Execute: func(args map[string]any) (string, error) {
-			filePath, err := requireAbsFilePath("tail_file", args)
+			filePath, err := resolveReadFilePath("tail_file", args)
 			if err != nil {
 				return "", err
 			}
+			rememberFile(filePath)
 			// Deliberately not wrapped in trackFileCall (see md5_file's same
 			// note): a log/output file's tail is expected to change between
 			// calls, and evidence gathering wants the current state, not a
@@ -578,6 +591,7 @@ func registerWriteFile(reg *kdepstools.Registry) {
 		if err = writeFileVerified(filePath, []byte(content)); err != nil {
 			return "", fmt.Errorf("write_file: %w", err)
 		}
+		rememberFile(filePath)
 		writeToolDiff(tool.OutputWriter, oldContent, content, filePath)
 		return fmt.Sprintf("Wrote %d bytes to %s", len(content), filePath), nil
 	}
@@ -647,6 +661,7 @@ func registerEditFile(reg *kdepstools.Registry) {
 		if werr := writeFileVerified(filePath, []byte(newContent)); werr != nil {
 			return "", fmt.Errorf("edit_file: %w", werr)
 		}
+		rememberFile(filePath)
 		// Show the colored diff of the changed region in the terminal; keep the
 		// model's result concise (ANSI escapes must not pollute the LLM context).
 		writeToolDiff(tool.OutputWriter, oldStr, newStr, filePath)

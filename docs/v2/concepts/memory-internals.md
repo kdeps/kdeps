@@ -12,6 +12,8 @@ The agent loop extracts facts from every turn without an explicit `memory_save` 
 [MEMORY: project_name] kdeps - Go module github.com/kdeps/kdeps/v2
 ```
 
+The marker is extracted into the store and then **removed from the reply** before it is shown or written to the transcript - the model's `[MEMORY: ...]` line and any echoed `GOAL:` / `ACTIVE TASK` directive fragment never reach the terminal.
+
 **2. Action sentences.** The first action sentence of the assistant response is captured as a `last_action` entry:
 
 ```

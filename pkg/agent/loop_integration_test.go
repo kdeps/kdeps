@@ -2019,6 +2019,47 @@ func TestRunStreaming_MemoryTools_NoStore(t *testing.T) {
 	// Should not crash — tool returns an error result, loop recovers
 }
 
+// TestRunStreaming_MemoryMarkerExtractedThenStripped verifies the model's
+// "[MEMORY: key] value" line is pulled into the store but never shown to the
+// user or written into the session transcript.
+func TestRunStreaming_MemoryMarkerExtractedThenStripped(t *testing.T) {
+	store := setupMemoryStoreForTools(t)
+
+	answer := "The refactor is done and all tests pass.\n" +
+		"[MEMORY: progress:refactor] parser split into 3 files, tests green\n" +
+		"Nothing else is pending."
+
+	ms := &mockStreamer{responses: []mockStreamResponse{{content: answer, toolCalls: nil}}}
+
+	eng := executor.NewEngine(nil)
+	reg := tools.NewRegistry()
+	registerMemoryTools(reg)
+
+	loop := New(eng, newTestWorkflowForSession(), reg, Config{
+		Model:         "test",
+		Streamer:      ms,
+		MaxToolRounds: 5,
+		MemoryStore:   store,
+	})
+
+	var buf bytes.Buffer
+	result, err := loop.RunStreaming(context.Background(), "finish the refactor", &buf)
+	require.NoError(t, err)
+
+	// The marker was extracted into the store.
+	entry, ok := store.Get("progress:refactor")
+	require.True(t, ok, "[MEMORY:] marker must be persisted")
+	assert.Contains(t, entry.Value, "parser split into 3 files")
+
+	// ...and stripped from the returned answer and the session transcript.
+	assert.NotContains(t, result, "[MEMORY:", "marker must not reach the user")
+	assert.Contains(t, result, "The refactor is done")
+	assert.Contains(t, result, "Nothing else is pending")
+
+	last := loop.Session().LastAssistantContent()
+	assert.NotContains(t, last, "[MEMORY:", "marker must not be stored in history")
+}
+
 // TestRunStreaming_SilentRoundIsNudged reproduces the reasoning-model stall:
 // deepseek-reasoner decided in its thinking to check memory, emitted no tool
 // call and no content, and the turn ended in silence back at the REPL prompt.

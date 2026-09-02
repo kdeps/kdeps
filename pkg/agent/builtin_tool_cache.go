@@ -181,6 +181,34 @@ func trackFileCall(path string, fn func() (string, error)) (string, error) {
 	return globalFileCache.trackCall(path, fn)
 }
 
+// lastFileState remembers the most recent file a file tool touched this
+// process, so a read-only tool called without file_path can fall back to it --
+// the model frequently means "the file I was just looking at" and omits the
+// path. Not reset per turn: "show me more of that file" spans turns.
+//
+//nolint:gochecknoglobals // process-wide last-file tracker, same pattern as the caches above
+var lastFileState struct {
+	mu   sync.Mutex
+	path string
+}
+
+// rememberFile records path as the most recently accessed file.
+func rememberFile(path string) {
+	if path == "" {
+		return
+	}
+	lastFileState.mu.Lock()
+	lastFileState.path = path
+	lastFileState.mu.Unlock()
+}
+
+// lastFile returns the most recently accessed file path, or "" if none yet.
+func lastFile() string {
+	lastFileState.mu.Lock()
+	defer lastFileState.mu.Unlock()
+	return lastFileState.path
+}
+
 func trackCodeCall(query string, fn func() (string, error)) (string, error) {
 	return globalCodeCache.trackCall(query, fn)
 }
