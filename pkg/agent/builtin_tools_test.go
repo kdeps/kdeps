@@ -1897,7 +1897,7 @@ func TestReadFile_Parameters(t *testing.T) {
 	param, ok := tool.Parameters["file_path"]
 	require.True(t, ok, "read_file must have 'file_path' parameter")
 	assert.Equal(t, "string", param.Type)
-	assert.True(t, param.Required)
+	assert.False(t, param.Required, "file_path defaults to the last accessed file when omitted")
 
 	_, ok = tool.Parameters["offset"]
 	assert.True(t, ok, "read_file must have 'offset' parameter")
@@ -1907,6 +1907,12 @@ func TestReadFile_Parameters(t *testing.T) {
 }
 
 func TestReadFile_EmptyFilePath(t *testing.T) {
+	// With no file accessed yet this session, an empty path still errors clearly
+	// (the last-file fallback only kicks in once something has been read).
+	lastFileState.mu.Lock()
+	lastFileState.path = ""
+	lastFileState.mu.Unlock()
+
 	reg := kdepstools.NewRegistry()
 	RegisterBuiltinTools(context.Background(), reg)
 	tool := reg.Get("read_file")

@@ -865,12 +865,17 @@ func (l *Loop) Run(ctx context.Context, input string) (string, error) {
 
 	response := formatLoopResult(result)
 
+	// Extract [MEMORY:] markers into the store, then strip them (and any echoed
+	// goal-directive lines) before the answer is shown or stored.
+	if l.memoryStore != nil {
+		l.memoryStore.ExtractTurn(input, response)
+	}
+	response = sanitizeLoopArtifacts(response)
+
 	// Preserve conversation history
 	l.session.Append(input, response)
 
-	// Auto-extract facts from the turn into persistent memory.
 	if l.memoryStore != nil {
-		l.memoryStore.ExtractTurn(input, response)
 		// Mechanical memory_save: persist a structured turn record so the
 		// next model (after a switch) knows what happened this turn.
 		now := time.Now().Format(time.RFC3339)
@@ -940,11 +945,17 @@ func (l *Loop) RunStreaming(ctx context.Context, input string, w io.Writer) (str
 		response, _ = l.iterateWithJudges(ctx, chatCfg, roster, input, response, finalContent, w)
 	}
 
-	l.session.Append(input, response)
-
-	// Auto-extract facts from the turn into persistent memory.
+	// Extract [MEMORY:] markers into the store while they are still present,
+	// then strip them (and any echoed goal-directive lines) so the visible
+	// answer and the transcript carry only real content.
 	if l.memoryStore != nil {
 		l.memoryStore.ExtractTurn(input, response)
+	}
+	response = sanitizeLoopArtifacts(response)
+
+	l.session.Append(input, response)
+
+	if l.memoryStore != nil {
 		// Mechanical memory_save: persist a structured turn record so the
 		// next model (after a switch) knows what happened this turn.
 		now := time.Now().Format(time.RFC3339)
