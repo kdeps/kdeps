@@ -546,6 +546,7 @@ func (c *completion) produce(ctx context.Context, onDelta func(string)) *produce
 		parsed = ParseResult{HasToolCalls: false, TextContent: fullText}
 	}
 
+	parsed = dropIllustrativeCalls(parsed, c.body.Tools, c.body.Messages, fullText)
 	parsed = resolveProseAlongsideCalls(parsed, fullText)
 
 	if parsed.HasToolCalls {
@@ -628,6 +629,103 @@ func resolveProseAlongsideCalls(parsed ParseResult, fullText string) ParseResult
 	}
 	parsed.TextContent = ""
 	return parsed
+}
+
+// dropIllustrativeCalls removes recovered "tool calls" that the fenced parser
+// almost certainly mis-read out of a written answer rather than an action turn:
+//
+//   - a call missing a parameter the tool declares as required -- a real action
+//     call carries its required args; prose that merely names a tool ("read the
+//     plan file, limit 100 lines") does not.
+//   - a call that exactly repeats one already executed earlier this turn -- the
+//     model quoting its own history back inside the answer.
+//
+// It only fires when the full reply is substantial prose (>= proseDocMinChars),
+// so a genuinely malformed single call still reaches the model as an error it
+// can correct. When every recovered call is illustrative, the reply is text:
+// this is the case IsProseDocument misses once the parser has already gutted the
+// prose into one or two calls plus scraps (issue #701).
+func dropIllustrativeCalls(
+	parsed ParseResult,
+	tools []ToolDef,
+	history []Message,
+	fullText string,
+) ParseResult {
+	if !parsed.HasToolCalls || len(parsed.ToolCalls) == 0 {
+		return parsed
+	}
+	if len(strings.TrimSpace(fullText)) < proseDocMinChars {
+		return parsed
+	}
+
+	required := map[string][]string{}
+	for _, t := range tools {
+		if t.Function.Parameters != nil && len(t.Function.Parameters.Required) > 0 {
+			required[t.Function.Name] = t.Function.Parameters.Required
+		}
+	}
+	executed := map[string]bool{}
+	for _, m := range history {
+		if m.Role != "assistant" {
+			continue
+		}
+		for _, tc := range m.ToolCalls {
+			executed[toolCallSig(tc.Function.Name, tc.Function.Arguments)] = true
+		}
+	}
+
+	var kept []ParsedToolCall
+	for _, call := range parsed.ToolCalls {
+		if missingRequiredArg(call.Arguments, required[call.Name]) {
+			continue
+		}
+		if executed[toolCallSig(call.Name, call.Arguments)] {
+			continue
+		}
+		kept = append(kept, call)
+	}
+	if len(kept) == len(parsed.ToolCalls) {
+		return parsed
+	}
+	if len(kept) == 0 {
+		return ParseResult{HasToolCalls: false, TextContent: fullText}
+	}
+	parsed.ToolCalls = kept
+	return parsed
+}
+
+// missingRequiredArg reports whether the JSON arguments object omits (or leaves
+// empty) any of the named required parameters.
+func missingRequiredArg(arguments string, requiredKeys []string) bool {
+	if len(requiredKeys) == 0 {
+		return false
+	}
+	var args map[string]any
+	if json.Unmarshal([]byte(arguments), &args) != nil {
+		return true
+	}
+	for _, k := range requiredKeys {
+		v, ok := args[k]
+		if !ok {
+			return true
+		}
+		if s, isStr := v.(string); isStr && strings.TrimSpace(s) == "" {
+			return true
+		}
+	}
+	return false
+}
+
+// toolCallSig is a stable name+arguments signature for duplicate detection.
+// Arguments are normalised through a map so key order does not matter.
+func toolCallSig(name, arguments string) string {
+	var args map[string]any
+	if json.Unmarshal([]byte(arguments), &args) == nil {
+		if norm, err := json.Marshal(args); err == nil {
+			return name + "\x00" + string(norm)
+		}
+	}
+	return name + "\x00" + strings.TrimSpace(arguments)
 }
 
 // finalizeToolCalls converts a synthetic reply() call back to plain text and
