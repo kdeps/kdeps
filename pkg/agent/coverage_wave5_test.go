@@ -76,16 +76,16 @@ func TestCmdPermissionThinkingContext(t *testing.T) {
 
 func TestOnPasteContentAndPasteClose(t *testing.T) {
 	r := &REPL{}
-	r.onPasteContent("chunk-a")
-	r.onPasteContent("chunk-b")
-	if len(r.pasteContents) != 2 {
-		t.Fatalf("%v", r.pasteContents)
+	r.onPasteContent("chunk-a", false, 2)
+	r.onPasteContent("chunk-b", false, 3)
+	if len(r.pendingPastes) != 2 {
+		t.Fatalf("%v", r.pendingPastes)
 	}
 	br := newBracketedPasteReader(strings.NewReader(""), nil, nil)
 	if err := br.Close(); err != nil {
 		t.Fatal(err)
 	}
-	// painter
+	// painter: a sentinel with no matching pending paste falls back to the glyph
 	out := (pastePainter{}).Paint([]rune{'a', pasteSentinel, 'b'}, 0)
 	if len(out) != 3 || out[1] != pasteMarker {
 		t.Fatalf("%v", out)

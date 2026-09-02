@@ -18,7 +18,29 @@
 
 package agent
 
-import "io"
+import (
+	"io"
+	"strings"
+)
+
+// A paste at or under every one of these limits is "small": it is handed to
+// readline as literal text (single-line) or shown inline verbatim (multi-line).
+// Anything over a limit is "large" and is staged to a temp file, with the edit
+// line showing a "[pasted N lines @path]" marker instead of the body.
+const (
+	pasteMaxLines = 4
+	pasteMaxWords = 20
+	pasteMaxChars = 240
+)
+
+// classifyPaste reports whether a paste body exceeds the small-paste limits and
+// returns its line count (always >= 1).
+func classifyPaste(body string) (bool, int) {
+	lines := strings.Count(body, "\n") + 1
+	words := len(strings.Fields(body))
+	large := lines > pasteMaxLines || words > pasteMaxWords || len(body) > pasteMaxChars
+	return large, lines
+}
 
 // Bracketed paste: modern terminals wrap a paste in ESC[200~ ... ESC[201~ when
 // the mode is enabled (ansiEnableBracketedPaste). This lets the app treat a
@@ -56,8 +78,8 @@ const (
 // the full text, so readline's buffer stays tiny while the REPL keeps the data.
 type bracketedPasteReader struct {
 	src       io.Reader
-	onPaste   func(active bool, addLines int) // reports paste state to the REPL (for the Painter)
-	onContent func(content string)            // hands the full paste body to the REPL on the end marker
+	onPaste   func(active bool, addLines int)             // reports paste state to the REPL (for the Painter)
+	onContent func(content string, large bool, lines int) // hands a staged paste body to the REPL on the end marker
 
 	pending []byte // partial ESC-marker bytes carried across Read calls
 	out     []byte // transformed bytes ready to hand to readline
@@ -72,7 +94,7 @@ type bracketedPasteReader struct {
 func newBracketedPasteReader(
 	src io.Reader,
 	onPaste func(active bool, addLines int),
-	onContent func(content string),
+	onContent func(content string, large bool, lines int),
 ) *bracketedPasteReader {
 	return &bracketedPasteReader{src: src, onPaste: onPaste, onContent: onContent}
 }
@@ -146,11 +168,21 @@ func (b *bracketedPasteReader) handleMarker(rest []byte) (int, bool) {
 		return len(pasteStartMarker), false
 	case markerMatch(rest, pasteEndMarker):
 		b.inPaste, b.lastCR = false, false
-		if b.onContent != nil {
-			b.onContent(string(b.content))
+		body := string(b.content)
+		large, lines := classifyPaste(body)
+		// A small single-line paste is just typed text: hand the raw bytes to
+		// readline so it is fully editable, with no sentinel and nothing staged.
+		if !large && !strings.Contains(body, "\n") {
+			b.out = append(b.out, b.content...)
+			return len(pasteEndMarker), false
 		}
-		// One placeholder for the whole paste. The sentinel is a multi-byte rune, so
-		// emit its UTF-8 encoding; readline decodes it back to a single edit rune.
+		// Small multi-line, or large: stage the body out of band and leave one
+		// placeholder rune in the edit buffer. The sentinel is a multi-byte
+		// rune, so emit its UTF-8 encoding; readline decodes it back to a
+		// single edit rune.
+		if b.onContent != nil {
+			b.onContent(body, large, lines)
+		}
 		b.out = append(b.out, []byte(string(pasteSentinel))...)
 		return len(pasteEndMarker), false
 	case markerPrefix(rest):
