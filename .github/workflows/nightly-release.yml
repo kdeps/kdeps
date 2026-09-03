@@ -57,7 +57,12 @@ jobs:
           go-version-file: go.mod
 
       - name: Install huggingface_hub (for llamafile harvest)
-        run: pip3 install --break-system-packages -q huggingface_hub 2>/dev/null || pip3 install -q huggingface_hub
+        run: |
+          # macos-latest ships an externally-managed (PEP 668) Homebrew Python,
+          # so a plain `pip3 install` fails. Use an isolated venv.
+          python3 -m venv "$RUNNER_TEMP/hf-venv"
+          "$RUNNER_TEMP/hf-venv/bin/python" -m pip install -q --upgrade pip
+          "$RUNNER_TEMP/hf-venv/bin/python" -m pip install -q huggingface_hub
 
       - name: Cache HuggingFace Hub
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
@@ -70,7 +75,7 @@ jobs:
         env:
           HF_TOKEN: ${{ secrets.HF_TOKEN }}
         run: |
-          python3 tools/llamafile-harvester/harvest.py --write --gguf --chinese-labs || echo "harvest failed; keeping committed registry"
+          "$RUNNER_TEMP/hf-venv/bin/python" tools/llamafile-harvester/harvest.py --write --gguf --chinese-labs || echo "harvest failed; keeping committed registry"
           if git diff --quiet pkg/executor/llm/llamafile_versions_data.go tools/llamafile-harvester/llamafile_versions.yaml pkg/executor/llm/gguf_versions_data.go tools/llamafile-harvester/gguf_versions.yaml 2>/dev/null; then
             echo "has_registry_updates=false" >> $GITHUB_OUTPUT
           else

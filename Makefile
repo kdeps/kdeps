@@ -349,8 +349,9 @@ deps:
 # Harvest llamafile registry from HuggingFace (requires huggingface_hub)
 harvest-llamafiles:
 	@echo "Harvesting llamafile registry from HuggingFace..."
-	@pip3 install --break-system-packages -q huggingface_hub 2>/dev/null || pip3 install -q huggingface_hub; \
-	PYTHONPATH="/tmp/hf-hub:$$PYTHONPATH" python3 tools/llamafile-harvester/harvest.py --write --gguf --chinese-labs && \
+	@test -x .venv-harvest/bin/python || python3 -m venv .venv-harvest
+	@.venv-harvest/bin/python -m pip install -q --upgrade pip huggingface_hub
+	@.venv-harvest/bin/python tools/llamafile-harvester/harvest.py --write --gguf --chinese-labs && \
 	echo "✓ llamafile + GGUF registries updated"
 help:
 	@echo "KDeps v2 - Makefile commands"
