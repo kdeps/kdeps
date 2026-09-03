@@ -254,8 +254,17 @@ func (l *Loop) iterateWithJudges(
 		if err != nil {
 			return response, finalContent
 		}
-		finalContent = content
-		response = stripContentToolCalls(finalContent)
+		// Only accept a revision that actually produced a better answer. A round
+		// that ends with empty content, or with runToolRounds' canned
+		// "model produced nothing" notice, must not replace the last good
+		// response: blanking it makes the caller fall back to the raw round
+		// buffer (every prior iteration's text stacked up -> stray paragraphs
+		// before the prompt), and the notice itself is just as much an artifact.
+		revisedText := stripContentToolCalls(content)
+		if strings.TrimSpace(revisedText) != "" && !isTurnFailureNotice(revisedText) {
+			finalContent = content
+			response = revisedText
+		}
 	}
 	return response, finalContent
 }

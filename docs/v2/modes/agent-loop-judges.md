@@ -25,7 +25,10 @@ output, concurrently. If any judge rejects it, the rejecting judges' feedback
 is combined into a revision directive, the loop produces a new answer, and the
 whole panel reviews it again - up to `JudgeMaxIterations` times (default 2).
 Once the budget is spent the last attempted answer is returned regardless - a
-judge panel that never approves must not be able to block the turn forever.
+judge panel that never approves must not be able to block the turn forever. A
+revision that comes back empty (or with the "model produced nothing" notice) is
+discarded and the previous answer is kept, so a failed revision never replaces a
+real answer with a blank or a canned message.
 
 **You can see it happening.** Because a judge is a full tool-calling loop, a
 review can take as long as a real turn - the REPL prints `[judge]` status
