@@ -198,6 +198,9 @@ zsdoc/data
 # (for Zsh plugins using Python)
 .venv
 
+# harvest-llamafiles Make target's isolated venv
+.venv-harvest/
+
 # Zunit tests' output
 /tests/_output/*
 !/tests/_output/.gitkeep
