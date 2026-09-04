@@ -433,7 +433,7 @@ jobs:
 
       - name: Test E2E
         shell: bash
-        timeout-minutes: 30
+        timeout-minutes: 45
         env:
           KDEPS_E2E_LLAMAFILE_DOWNLOAD: "1"
           KDEPS_MEMORY_DB_PATH: ":memory:"

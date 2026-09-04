@@ -36,6 +36,15 @@ else
     test_failed "http_status returns exactly three digits" "got '$CODE'"
 fi
 
+TIMEOUT_START=$(date +%s)
+timeout 8 true
+TIMEOUT_ELAPSED=$(( $(date +%s) - TIMEOUT_START ))
+if [ "$TIMEOUT_ELAPSED" -le 2 ]; then
+    test_passed "timeout returns as soon as the command exits (${TIMEOUT_ELAPSED}s)"
+else
+    test_failed "timeout returns as soon as the command exits" "took ${TIMEOUT_ELAPSED}s, shim waited out the sleep"
+fi
+
 if ! command -v python3 >/dev/null 2>&1; then
     test_skipped "wait_for_kdeps_port (python3 not available)"
 else

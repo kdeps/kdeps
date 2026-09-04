@@ -234,8 +234,10 @@ _kdeps_timeout_shim() {
     trap 'kill "$pid" "$wdog" 2>/dev/null || true' EXIT TERM INT
     wait "$pid"
     local rc=$?
+    # Do not wait on the sleeper. On Windows Git Bash, wait after kill of a
+    # `sleep N` job can block until the original N seconds elapse, which made
+    # every `timeout 30 kdeps run` take a full 30s even when kdeps exited in 1s.
     kill "$wdog" 2>/dev/null || true
-    wait "$wdog" 2>/dev/null || true
     trap - EXIT TERM INT
     return $rc
 }
@@ -290,6 +292,7 @@ wait_for_http() {
 wait_for_kdeps_port() {
     local port="$1"
     local timeout_s="${2:-20}"
+    local pid="${3:-${SERVER_PID:-${KDEPS_PID:-}}}"
     local i code
     for i in $(seq 1 "$timeout_s"); do
         code=$(http_status "http://127.0.0.1:${port}/health")
@@ -299,6 +302,9 @@ wait_for_kdeps_port() {
         code=$(http_status "http://127.0.0.1:${port}/")
         if [ "$code" != "000" ] && [ -n "$code" ]; then
             return 0
+        fi
+        if [ -n "$pid" ] && ! kill -0 "$pid" 2>/dev/null; then
+            return 1
         fi
         sleep 1
     done
