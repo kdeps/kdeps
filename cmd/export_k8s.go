@@ -47,7 +47,7 @@ func newExportK8sCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "k8s [path]",
 		Short: "Export workflow as Kubernetes manifests",
-		Long: `Export KDeps workflow as Kubernetes manifests (Deployment and Service).
+		Long: `Export kdeps workflow as Kubernetes manifests (Deployment and Service).
 
 Generates YAML manifests that can be used to deploy the workflow to a Kubernetes cluster.
 The generated manifests include a Deployment with the specified image,

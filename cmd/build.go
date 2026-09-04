@@ -64,9 +64,9 @@ func newBuildCmd() *cobra.Command {
 	buildCmd := &cobra.Command{
 		Use:   "build [path]",
 		Short: "Build Docker image from workflow or agency",
-		Long: `Build Docker image from KDeps workflow or agency
+		Long: `Build Docker image from a kdeps workflow or agency
 
-This is optional - KDeps runs locally by default.
+This is optional - kdeps runs locally by default.
 Use this only for deployment/distribution.
 
 Accepts:

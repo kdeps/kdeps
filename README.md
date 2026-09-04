@@ -13,7 +13,15 @@
 
 > Before moving on, please consider giving us a GitHub star ⭐️. Thank you!
 
-**AI Appliance Builder** - YAML-defined AI agents and workflow pipelines. Ship as Docker, K8s, ISO, or a single binary. You write one `workflow.yaml` instead of a Python script wiring together an LLM SDK, a web server, retry logic, and a Dockerfile; everything lives in versionable YAML you commit to your repo like any other code.
+**AI Appliance Builder** - YAML-defined AI agents, workflows, and agencies.
+
+kdeps works at three levels:
+
+- **Local agent** - run `kdeps` and you are in an autonomous AI REPL: tool use, memory, fully offline against a local model. No config, no API key.
+- **Workflow** - define what the agent does in one `workflow.yaml` and run it as an HTTP API, a bot, or a file processor. Same file, laptop or server.
+- **Appliance** - ship that file unchanged as a Docker image, Kubernetes manifests, a bootable ISO, or a single binary.
+
+One YAML file replaces a Python script wiring together an LLM SDK, a web server, retry logic, and a Dockerfile - and it is code you version and commit like any other.
 
 ## Quickstart
 
@@ -90,7 +98,11 @@ brew install kdeps/tap/kdeps
 
 ## How it works
 
-**Workflow mode** - DAG-deterministic request/response pipelines. Each resource declares its dependencies via `requires:` and runs in order, ending in an `apiResponse`. The LLM call inside a `chat:` resource is still probabilistic, but the pipeline around it is not: the same request takes the same path, validation runs before any model call, and the response is shaped to a fixed schema. Resource types cover `chat`, `httpClient`, `python`, `exec`, `sql`, `email`, `scraper`, `browser`, `embedding`, `searchLocal`, `searchWeb`, `agent`, and `component`; expressions (`get()`, `output()`, `set()`, plus Jinja2 control flow) wire steps together.
+**Workflow mode** - DAG-deterministic request/response pipelines. Each resource declares its dependencies via `requires:` and runs in order, ending in an `apiResponse`.
+
+The LLM call inside a `chat:` resource is still probabilistic, but the pipeline around it is not: the same request takes the same path, validation runs before any model call, and the response is shaped to a fixed schema.
+
+Resources cover LLM chat, HTTP, Python, shell, SQL, email, web scraping, browser automation, embeddings, local and web search, and calls to other agents or components. Expressions (`get()`, `output()`, `set()`, plus Jinja2 control flow) wire the steps together.
 
 ```bash
 kdeps run workflow.yaml          # local, instant startup
@@ -120,8 +132,8 @@ Docs: [Workflow mode](https://kdeps.com/modes/workflow-mode) · [Agent loop mode
 The workflow you run locally exports unchanged to any target:
 
 ```bash
-kdeps bundle build          # Docker image
-kdeps bundle export iso     # bootable edge ISO
+kdeps bundle build .        # Docker image
+kdeps export iso            # bootable edge ISO
 kdeps bundle prepackage     # self-contained binary per arch
 kdeps export k8s            # Kubernetes manifests
 ```

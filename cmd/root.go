@@ -87,7 +87,7 @@ func createRootCommand() *cobra.Command {
 
 	rootCmd := &cobra.Command{
 		Use:           "kdeps [path]",
-		Short:         "KDeps - AI Agent Framework",
+		Short:         "kdeps - AI Appliance Builder",
 		Long:          `Build AI agents with YAML configuration. Run without arguments to start the interactive agent loop.`,
 		SilenceUsage:  true,
 		SilenceErrors: true,

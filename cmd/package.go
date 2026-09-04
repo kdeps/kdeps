@@ -45,7 +45,7 @@ func newPackageCmd() *cobra.Command {
 	packageCmd := &cobra.Command{
 		Use:   "package [workflow-directory | agency-directory]",
 		Short: "Package workflow or agency for distribution",
-		Long: `Package KDeps workflow or agency into a portable archive file.
+		Long: `Package kdeps workflow or agency into a portable archive file.
 
 For a workflow directory (containing workflow.yaml):
   Creates a .kdeps archive (tar.gz) that can be used with:

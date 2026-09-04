@@ -60,7 +60,7 @@ func newRunCmd() *cobra.Command {
 	runCmd := &cobra.Command{
 		Use:   "run [workflow.yaml | package.kdeps]",
 		Short: "Run workflow locally",
-		Long: `Run KDeps workflow locally (default execution mode)
+		Long: `Run kdeps workflow locally (default execution mode)
 
 Local execution features:
   • Instant startup (< 1 second)
@@ -137,7 +137,7 @@ func RunWorkflowWithFlags(cmd *cobra.Command, args []string, flags *RunFlags) er
 		versionStr = "dev"
 	}
 
-	fmt.Fprintf(os.Stdout, "🚀 KDeps v%s - Local Execution\n\n", versionStr)
+	fmt.Fprintf(os.Stdout, "🚀 kdeps v%s - Local Execution\n\n", versionStr)
 	if debugMode {
 		fmt.Fprintln(os.Stdout, "🐛 Debug mode: Enabled")
 	}

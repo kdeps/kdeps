@@ -53,7 +53,7 @@ func newExportCmd() *cobra.Command {
 	exportCmd := &cobra.Command{
 		Use:   "export",
 		Short: "Export workflow to different formats",
-		Long:  `Export KDeps workflow to bootable ISO or other formats`,
+		Long:  `Export kdeps workflow to bootable ISO or other formats`,
 	}
 
 	exportCmd.AddCommand(newExportISOCmd())

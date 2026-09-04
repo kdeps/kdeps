@@ -43,7 +43,7 @@ func newValidateCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "validate [path]",
 		Short: "Validate YAML configuration",
-		Long: `Validate KDeps workflow, component, or agency against JSON Schema and business rules
+		Long: `Validate kdeps workflow, component, or agency against JSON Schema and business rules
 
 Validation includes:
   - YAML syntax
