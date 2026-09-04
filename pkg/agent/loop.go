@@ -1243,6 +1243,16 @@ func (l *Loop) silentTurnNotice(w io.Writer) string {
 	return notice
 }
 
+// isTurnFailureNotice reports whether s is one of the canned strings
+// silentTurnNotice / stuckLoopNotice return when a turn produced nothing usable.
+// A judge revision that yields one of these has failed and must not replace the
+// prior answer with the notice.
+func isTurnFailureNotice(s string) bool {
+	t := strings.TrimSpace(s)
+	return strings.HasPrefix(t, "The model ended the turn without answering") ||
+		strings.HasPrefix(t, "The model repeated the same")
+}
+
 // stuckLoopNotice writes and returns the message shown when the model is broken
 // out of a repeat-block loop: it issued the same tool call too many times in a
 // row (usually because the tool was blocked by convergence or kept failing) and

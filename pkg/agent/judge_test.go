@@ -293,6 +293,47 @@ func TestIterateWithJudges_StopsAtBudgetWithoutBlocking(t *testing.T) {
 	}
 }
 
+// emptyRevisionJudgeStreamer always rejects the answer, and its revision rounds
+// produce no text at all (a bare no-op tool call) -- the degenerate case where a
+// reasoning model "revises" by only thinking.
+type emptyRevisionJudgeStreamer struct{ judgeCalls int }
+
+func (s *emptyRevisionJudgeStreamer) StreamChat(
+	_ context.Context, cfg *domain.ChatConfig, _ io.Writer,
+) (string, []domain.StreamedToolCall, error) {
+	for _, t := range cfg.Tools {
+		if t.Name == "judge_verdict" {
+			s.judgeCalls++
+			args, _ := json.Marshal(map[string]any{"approved": false, "feedback": "still wrong"})
+			return "", []domain.StreamedToolCall{
+				{ID: strconv.Itoa(s.judgeCalls), Name: "judge_verdict", Arguments: string(args)},
+			}, nil
+		}
+	}
+	return "", nil, nil // revision round: no text, no tool call
+}
+
+func TestIterateWithJudges_EmptyRevisionKeepsLastGoodResponse(t *testing.T) {
+	l := newJudgeTestLoop(&emptyRevisionJudgeStreamer{})
+	l.config.JudgeMaxIterations = 2
+	roster := []JudgeSpec{{Name: "a", Criteria: "check a"}}
+	response, final := l.iterateWithJudges(
+		context.Background(),
+		&domain.ChatConfig{Model: "test"},
+		roster,
+		"in",
+		"the original good answer",
+		"the original good answer",
+		io.Discard,
+	)
+	if strings.TrimSpace(response) == "" {
+		t.Fatal("an empty revision must not blank out the last good response")
+	}
+	if response != "the original good answer" || final != "the original good answer" {
+		t.Fatalf("expected the original answer to survive, got response=%q final=%q", response, final)
+	}
+}
+
 func TestReportJudgeEvent_PrefersConfigProgressWriter(t *testing.T) {
 	l := newJudgeTestLoop(nil)
 	var progress, passed bytes.Buffer
