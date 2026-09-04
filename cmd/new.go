@@ -140,7 +140,7 @@ func resolveNewTemplate(template string) string {
 func buildNewTemplateData(agentName string) templates.TemplateData {
 	return templates.TemplateData{
 		Name:        agentName,
-		Description: "AI agent powered by KDeps",
+		Description: "AI agent powered by kdeps",
 		Version:     defaultVersion,
 		Port:        defaultPort,
 		Resources:   []string{"http-client", "llm", "response"},

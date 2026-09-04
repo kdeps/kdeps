@@ -35,7 +35,7 @@ func newExportISOCmd() *cobra.Command {
 	isoCmd := &cobra.Command{
 		Use:   "iso [path]",
 		Short: "Export workflow or agency as bootable image",
-		Long: `Export KDeps workflow or agency as a bootable image using LinuxKit
+		Long: `Export kdeps workflow or agency as a bootable image using LinuxKit
 
 Creates a bootable image that runs the workflow on bare metal or VMs.
 The workflow Docker image runs as a container inside a minimal LinuxKit VM

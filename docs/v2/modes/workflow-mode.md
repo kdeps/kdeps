@@ -98,7 +98,8 @@ requires: [llm]
 apiResponse:
   success: true
   response:
-    answer: get('llm')
+    # chat output is the raw response object; the reply text is at .message.content
+    answer: get('llm').message.content
 ```
 
 Run:
@@ -188,11 +189,11 @@ chat:
 actionId: response
 requires: [llm]
 before:
-  - memory_save('last_response', get('llm'))
+  - memory_save('last_response', get('llm').message.content)
 apiResponse:
   success: true
   response:
-    answer: get('llm')
+    answer: get('llm').message.content
 ```
 
 Memory entries are automatically linked into a relationship graph showing the chain from prompt to tool calls to results.

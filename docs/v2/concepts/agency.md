@@ -34,7 +34,7 @@ my-agency/
 ## Agency manifest (agency.yaml)
 
 ```yaml
-# workflow-agency.yaml
+# agency.yaml
 apiVersion: kdeps.io/v1
 kind: Agency
 

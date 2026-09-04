@@ -13,7 +13,15 @@
 
 > Before moving on, please consider giving us a GitHub star ⭐️. Thank you!
 
-**AI Appliance Builder** - YAML-defined AI agents and workflow pipelines. Ship as Docker, K8s, ISO, or a single binary. You write one `workflow.yaml` instead of a Python script wiring together an LLM SDK, a web server, retry logic, and a Dockerfile; everything lives in versionable YAML you commit to your repo like any other code.
+**AI Appliance Builder** - AI agents and workflows defined in YAML, shipped as appliances.
+
+kdeps works at three levels:
+
+- **Local agent** - run `kdeps` and you are in an autonomous AI REPL: tool use, memory, fully offline against a local model. No config, no API key.
+- **Workflow** - define what the agent does in one `workflow.yaml` and run it as an HTTP API, a bot, or a file processor. Same file, laptop or server.
+- **Appliance** - ship that file unchanged as a Docker image, Kubernetes manifests, a bootable ISO, or a single binary.
+
+One YAML file replaces a Python script wiring together an LLM SDK, a web server, retry logic, and a Dockerfile.
 
 ## Quickstart
 
@@ -58,6 +66,7 @@ resources:
 ```
 
 ```bash
+# KDEPS_API_AUTH_TOKEN is the HTTP endpoint's bearer token - not an LLM key
 export KDEPS_API_AUTH_TOKEN=dev-token
 kdeps run workflow.yaml
 
@@ -90,7 +99,15 @@ brew install kdeps/tap/kdeps
 
 ## How it works
 
-**Workflow mode** - DAG-deterministic request/response pipelines. Each resource declares its dependencies via `requires:` and runs in order, ending in an `apiResponse`. The LLM call inside a `chat:` resource is still probabilistic, but the pipeline around it is not: the same request takes the same path, validation runs before any model call, and the response is shaped to a fixed schema. Resource types cover `chat`, `httpClient`, `python`, `exec`, `sql`, `email`, `scraper`, `browser`, `embedding`, `searchLocal`, `searchWeb`, `agent`, and `component`; expressions (`get()`, `output()`, `set()`, plus Jinja2 control flow) wire steps together.
+Whichever level you use, a workflow runs in one of two execution modes - and an agency bundles several workflows into one system.
+
+### Workflow mode
+
+DAG-deterministic request/response pipelines. Each resource declares its dependencies via `requires:` and runs in order, ending in an `apiResponse`.
+
+The LLM call inside a `chat:` resource is still probabilistic, but the pipeline around it is not: the same request takes the same path, validation runs before any model call, and the response is shaped to a fixed schema.
+
+Resources cover LLM chat, HTTP, Python, shell, SQL, email, web scraping, browser automation, embeddings, local and web search, and calls to other agents or components. Expressions (`get()`, `output()`, `set()`, plus Jinja2 control flow) wire the steps together.
 
 ```bash
 kdeps run workflow.yaml          # local, instant startup
@@ -98,16 +115,19 @@ kdeps run ./my-agent/            # or point at a directory containing workflow.y
 kdeps run workflow.yaml --dev    # hot reload
 ```
 
-**Agent loop mode** - an autonomous LLM loop. Every workflow becomes a callable tool, and the LLM decides which to call, in what order, to complete the task. Runs as an interactive REPL until you exit (Ctrl+D).
+### Agent loop mode
+
+An autonomous LLM loop. Every workflow becomes a callable tool, and the LLM decides which to call, in what order, to complete the task. Runs as an interactive REPL until you exit (Ctrl+D).
 
 ```bash
 kdeps                            # bare agent loop REPL
-kdeps ./my-agent/                # register the workflow as an LLM-callable tool
 kdeps ./my-agent/ --model llama3.2 --system "You are a DevOps assistant."
 kdeps --stealth                  # "Muted" UI: dark gray, model name barely visible (for use in public)
 ```
 
-**Agencies** - a collection of agents that work together. Each agent is its own `workflow.yaml` with its own resources, model, and logic, wired together with the `agent:` resource type - like calling a function, but the function is an entire AI pipeline.
+### Agencies
+
+A collection of agents that work together. Each agent is its own `workflow.yaml` with its own resources, model, and logic, wired together with the `agent:` resource type - like calling a function, but the function is an entire AI pipeline.
 
 ```bash
 kdeps run agency.yaml
@@ -120,8 +140,8 @@ Docs: [Workflow mode](https://kdeps.com/modes/workflow-mode) · [Agent loop mode
 The workflow you run locally exports unchanged to any target:
 
 ```bash
-kdeps bundle build          # Docker image
-kdeps bundle export iso     # bootable edge ISO
+kdeps bundle build .        # Docker image
+kdeps export iso            # bootable edge ISO
 kdeps bundle prepackage     # self-contained binary per arch
 kdeps export k8s            # Kubernetes manifests
 ```
