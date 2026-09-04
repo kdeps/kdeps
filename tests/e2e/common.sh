@@ -292,7 +292,10 @@ wait_for_http() {
 wait_for_kdeps_port() {
     local port="$1"
     local timeout_s="${2:-20}"
-    local pid="${3:-${SERVER_PID:-${KDEPS_PID:-}}}"
+    # Only the optional 3rd argument. Do not read SERVER_PID/KDEPS_PID from
+    # the environment: e2e.sh sources every script in one shell, so a dead
+    # PID left by the previous test would abort the wait immediately.
+    local pid="${3:-}"
     local i code
     for i in $(seq 1 "$timeout_s"); do
         code=$(http_status "http://127.0.0.1:${port}/health")
