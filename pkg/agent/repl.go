@@ -4890,6 +4890,13 @@ func (r *REPL) printJudgesStatus() {
 		return
 	}
 	if len(judges) == 0 {
+		if last := r.loop.LastAutoRoster(); len(last) > 0 {
+			fmt.Fprintln(os.Stdout, styleReplHeading.Render("Last auto-generated panel:"))
+			for _, j := range last {
+				fmt.Fprintf(os.Stdout, "  - %s: %s\n", j.Name, j.Criteria)
+			}
+			return
+		}
 		fmt.Fprintln(os.Stdout, styleReplMeta.Render("auto-judges enabled — a roster is generated per turn"))
 		return
 	}

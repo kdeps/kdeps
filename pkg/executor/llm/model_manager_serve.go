@@ -28,7 +28,34 @@ import (
 	"github.com/kdeps/kdeps/v2/pkg/domain"
 )
 
+// supportsModelDownload is the backends ModelService.DownloadModel actually
+// implements. Cloud backends (m365, openai, anthropic, ...) have nothing to
+// fetch; calling DownloadModel for them logs a warning on every LLM call.
+func supportsModelDownload(backend string) bool {
+	switch backend {
+	case BackendFile, BackendGGUF, backendOllama:
+		return true
+	default:
+		return false
+	}
+}
+
+// supportsModelServe is the backends that run a local process. Cloud backends
+// talk to a remote API; serving them locally always fails with "unsupported
+// backend" and the warning is noise in the REPL.
+func supportsModelServe(backend string) bool {
+	switch backend {
+	case BackendFile, BackendGGUF, backendOllama, "llamacpp", "vllm", "tgi", "localai":
+		return true
+	default:
+		return false
+	}
+}
+
 func (m *ModelManager) downloadModelIfOnline(ctx context.Context, backend, model string) {
+	if !supportsModelDownload(backend) {
+		return
+	}
 	if m.offlineMode {
 		m.logger.InfoContext(
 			ctx,
@@ -57,6 +84,9 @@ func (m *ModelManager) serveFileModelIfNeeded(ctx context.Context, config *domai
 }
 
 func (m *ModelManager) serveBackendModel(ctx context.Context, backend, model, host string, port int) {
+	if !supportsModelServe(backend) {
+		return
+	}
 	if err := m.service.ServeModel(ctx, backend, model, host, port); err != nil {
 		m.logger.WarnContext(
 			ctx,

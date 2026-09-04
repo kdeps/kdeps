@@ -20,11 +20,34 @@ package agent
 
 import (
 	"bytes"
+	"context"
 	"strings"
 	"testing"
 
 	"github.com/kdeps/kdeps/v2/pkg/domain"
 )
+
+func TestBeginGoal_ReportsPlanForNonTrivialPrompt(t *testing.T) {
+	l := &Loop{config: Config{GoalEnforcement: true}}
+	var buf bytes.Buffer
+	l.beginGoal(context.Background(), "first do step one; then do step two", &buf)
+	out := buf.String()
+	if !strings.Contains(out, "planning...") {
+		t.Fatalf("expected planning notice, got %q", out)
+	}
+	if !strings.Contains(out, "plan generated") {
+		t.Fatalf("expected plan summary immediately after planning, got %q", out)
+	}
+}
+
+func TestBeginGoal_SilentForTrivialPrompt(t *testing.T) {
+	l := &Loop{config: Config{GoalEnforcement: true}}
+	var buf bytes.Buffer
+	l.beginGoal(context.Background(), "hi", &buf)
+	if strings.Contains(buf.String(), "plan generated") || strings.Contains(buf.String(), "planning...") {
+		t.Fatalf("expected no plan output for trivial chat, got %q", buf.String())
+	}
+}
 
 func TestAnnounceActiveTask_SilentForSingleTaskGoal(t *testing.T) {
 	l := loopWithGoal("only task")

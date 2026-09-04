@@ -158,13 +158,23 @@ func (l *Loop) resolveJudgeRoster(ctx context.Context, input string) []JudgeSpec
 	if !l.config.AutoJudges || looksTrivial(input) {
 		return nil
 	}
-	return generateJudgeRoster(l, input)
+	roster := generateJudgeRoster(l, input)
+	if len(roster) > 0 {
+		l.lastAutoRoster = roster
+	}
+	return roster
 }
 
-// reportJudgeRoster shows the auto-generated judge panel (agent_loop_judge_roster)
-// and each judge's review criteria right after it's built for the turn --
-// previously invisible unless the user ran /judges list, which only shows an
-// explicit roster anyway, not what auto-generation actually produced.
+// LastAutoRoster returns the most recent auto-generated judge panel, or nil.
+func (l *Loop) LastAutoRoster() []JudgeSpec {
+	if l == nil {
+		return nil
+	}
+	return l.lastAutoRoster
+}
+
+// reportJudgeRoster shows the auto-generated judge panel and each judge's
+// review criteria as soon as the roster is built, before the main tool loop.
 func (l *Loop) reportJudgeRoster(w io.Writer, roster []JudgeSpec) {
 	pw := l.progressWriter(w)
 	if pw == nil {

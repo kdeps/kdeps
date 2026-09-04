@@ -121,6 +121,9 @@ func TestResolveJudgeRoster_AutoGenerates(t *testing.T) {
 	if gotActionID != judgeRosterActionID {
 		t.Errorf("action id = %q, want %q", gotActionID, judgeRosterActionID)
 	}
+	if last := l.LastAutoRoster(); len(last) != 1 || last[0].Name != "correctness" {
+		t.Fatalf("LastAutoRoster = %v, want the generated panel", last)
+	}
 }
 
 func TestGenerateJudgeRoster_FallsBackOnEngineError(t *testing.T) {
@@ -199,5 +202,11 @@ func TestReportJudgeRoster_PrefersConfigProgressWriter(t *testing.T) {
 	}
 	if passed.Len() != 0 {
 		t.Fatalf("expected nothing written to the passed-through writer, got %q", passed.String())
+	}
+}
+
+func TestLastAutoRoster_NilLoop(t *testing.T) {
+	if got := (*Loop)(nil).LastAutoRoster(); got != nil {
+		t.Fatalf("nil loop LastAutoRoster = %v, want nil", got)
 	}
 }

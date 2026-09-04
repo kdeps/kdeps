@@ -294,6 +294,10 @@ type Loop struct {
 	// for the memory_query relational tool's tool_calls relation. Capped to
 	// maxToolCallLog entries, oldest dropped first.
 	toolCallLog []ToolCallRecord
+	// lastAutoRoster is the most recent auto-generated judge panel, shown by
+	// /judges list. Explicit Config.Judges is separate and always wins at
+	// review time.
+	lastAutoRoster []JudgeSpec
 }
 
 // ToolCallRecord is one recorded tool invocation, exposed to the memory_query
@@ -921,6 +925,15 @@ func (l *Loop) RunStreaming(ctx context.Context, input string, w io.Writer) (str
 		chatCfg = withGoalDirective(chatCfg, directive)
 	}
 
+	// Resolve the judge panel up front so an auto-generated roster prints
+	// before the main tool loop, not after the answer. The panel still runs
+	// against the final output below.
+	explicitRoster := len(l.config.Judges) > 0
+	roster := l.resolveJudgeRoster(ctx, input)
+	if len(roster) > 0 && !explicitRoster {
+		l.reportJudgeRoster(w, roster)
+	}
+
 	finalContent, err := l.runToolRounds(ctx, chatCfg, w)
 	if err != nil && IsContextOverflowError(err) {
 		finalContent, err = l.compactAndRetry(ctx, input, w)
@@ -934,14 +947,7 @@ func (l *Loop) RunStreaming(ctx context.Context, input string, w io.Writer) (str
 	// Judge panel: an independent review of the final output, with the power
 	// to send it back for revision. Never runs for library/test callers with
 	// no roster configured, and never blocks the turn on any failure.
-	explicitRoster := len(l.config.Judges) > 0
-	if roster := l.resolveJudgeRoster(ctx, input); len(roster) > 0 {
-		// Only announce an auto-generated roster (agent_loop_judge_roster) --
-		// an explicit one is already visible via /judges list and doesn't
-		// change per turn, so repeating it every turn would just be noise.
-		if !explicitRoster {
-			l.reportJudgeRoster(w, roster)
-		}
+	if len(roster) > 0 {
 		response, _ = l.iterateWithJudges(ctx, chatCfg, roster, input, response, finalContent, w)
 	}
 

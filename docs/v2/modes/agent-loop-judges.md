@@ -32,7 +32,22 @@ revision that comes back empty (or with the "model produced nothing" notice) is
 discarded and the previous answer is kept, so a failed revision never replaces a
 real answer with a blank or a canned message.
 
-**You can see it happening.** Because a judge is a full tool-calling loop, a
+**You can see the roster as soon as it is generated.** Auto-judges run one LLM
+call at the start of the turn (same synthetic JSON call as goal planning). The
+REPL prints the panel before the main tool loop, so you know who will review
+before any work starts:
+
+```
+[judges] panel generated - 2 reviewer(s)
+  - correctness: every factual claim must be verifiable from the codebase
+  - security: no secrets, credentials, or unsafe shell input
+```
+
+`/judges` (or `/judges list`) shows that last auto-generated panel. An
+explicit roster from `/judges add` still wins at review time and is not
+re-printed every turn.
+
+**You can see the review happening.** Because a judge is a full tool-calling loop, a
 review can take as long as a real turn - the REPL prints `[judge]` status
 lines so you are never left staring at a silent prompt:
 

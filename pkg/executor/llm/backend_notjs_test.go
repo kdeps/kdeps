@@ -39,6 +39,30 @@ import (
 // backend="ollama" the non-file ServeModel path is exercised (lines
 // 162-173) and that DownloadModel + ServeModel are called with the
 // correct backend and model.
+func TestModelManager_EnsureModel_CloudBackendSkipsDownloadAndServe(t *testing.T) {
+	downloadCalled := false
+	serveCalled := false
+
+	mockSvc := llm.NewMockModelService()
+	mockSvc.DownloadModelFunc = func(_, _ string) error {
+		downloadCalled = true
+		return assert.AnError
+	}
+	mockSvc.ServeModelFunc = func(_, _ string, _ string, _ int) error {
+		serveCalled = true
+		return assert.AnError
+	}
+
+	mgr := llm.NewModelManagerFromServiceInterface(mockSvc)
+	for _, backend := range []string{"m365", "openai", "anthropic", "cloud"} {
+		downloadCalled, serveCalled = false, false
+		err := mgr.EnsureModel(&domain.ChatConfig{Backend: backend, Model: "anything"})
+		require.NoError(t, err, backend)
+		assert.False(t, downloadCalled, "DownloadModel must not run for %s", backend)
+		assert.False(t, serveCalled, "ServeModel must not run for %s", backend)
+	}
+}
+
 func TestModelManager_EnsureModel_OllamaBackend(t *testing.T) {
 	var (
 		calledBackend string

@@ -20,6 +20,9 @@ package agent
 
 import (
 	"context"
+	"io"
+	"os"
+	"strings"
 	"testing"
 )
 
@@ -106,6 +109,29 @@ func TestDispatchCommand_JudgesClearDisablesBoth(t *testing.T) {
 	}
 	if len(loop.Judges()) != 0 || loop.AutoJudges() {
 		t.Fatal("expected both the explicit roster and auto-judges cleared")
+	}
+}
+
+func TestPrintJudgesStatus_ShowsLastAutoRoster(t *testing.T) {
+	loop := makeTestLoop(nil)
+	loop.SetAutoJudges(true)
+	loop.lastAutoRoster = []JudgeSpec{{Name: "correctness", Criteria: "must be accurate"}}
+	repl := NewREPL(context.Background(), loop)
+	defer repl.cancel()
+
+	r, w, err := os.Pipe()
+	if err != nil {
+		t.Fatalf("pipe: %v", err)
+	}
+	old := os.Stdout
+	os.Stdout = w
+	repl.printJudgesStatus()
+	_ = w.Close()
+	os.Stdout = old
+	out, _ := io.ReadAll(r)
+	got := string(out)
+	if !strings.Contains(got, "Last auto-generated panel") || !strings.Contains(got, "correctness") {
+		t.Fatalf("expected last auto roster printed, got %q", got)
 	}
 }
 

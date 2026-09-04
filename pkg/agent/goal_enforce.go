@@ -461,9 +461,15 @@ func (l *Loop) beginGoal(ctx context.Context, input string, w io.Writer) string 
 	fresh := goal == nil || goal.Complete()
 	switch {
 	case fresh:
+		if !looksTrivial(input) {
+			l.reportGoalEvent(w, "planning...")
+		}
 		goal = planGoal(ctx, l, input)
 		saveGoal(l.memoryStore, goal)
-		if _, total := goal.Progress(); total > 1 {
+		// Print the plan as soon as it exists. A single-task decomposition is
+		// still a result the user asked to see; only skip ordinary chat
+		// (looksTrivial) where the "plan" would just restate the prompt.
+		if !looksTrivial(input) {
 			l.reportGoalSummary(w, goal)
 		}
 	default:

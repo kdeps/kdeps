@@ -52,19 +52,23 @@ total length upfront, for checking how a log or command output ends.
 `list_files` also defaults to the current working directory when `path` is
 omitted, making a quick directory listing a one-argument-free call.
 
-**You can see which task is active.** Whenever the cursor moves onto a task - a fresh multi-task plan, a resumed goal, or an advance via `task_complete`/
-`task_fail` - the REPL prints which one, so you always know what the loop is
-doing without running `/goal`:
+**You can see the plan as soon as it exists.** After decomposition, the REPL
+prints the full task list before any tool round runs - including a one-task
+plan. Ordinary chat (short, no multi-step markers) stays silent.
 
 ```
-[goal] plan: 3 tasks - /goal to inspect, /goal clear to drop
-[goal] working on task 1/3: add the /users endpoint
-...
-[goal] working on task 2/3: write tests for it
+[goal] planning...
+[goal] plan generated - /goal clear to drop
+goal: add the /users endpoint and write tests
+  [>] 1. add the /users endpoint
+  [ ] 2. write tests for it
+[goal] working on task 1/2: add the /users endpoint
 ```
 
-Silent for a single-task goal - there is nothing to disambiguate. The
-modeline's `task:N/M` counter tracks the same cursor between prompts.
+Whenever the cursor then moves onto a task - a fresh plan, a resumed goal, or
+an advance via `task_complete`/`task_fail` - the REPL names it. The
+modeline's `task:N/M` counter tracks the same cursor between prompts. Ordinary
+chat (a single-task wrap of a short prompt) does not print a working-on line.
 
 **When a task stops producing.** A round is unproductive when every tool result
 is an error, a convergence block, or a byte-identical repeat. Consecutive
