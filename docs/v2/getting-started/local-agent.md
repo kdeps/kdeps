@@ -100,7 +100,8 @@ The REPL starts with your workflow registered as a callable tool. The LLM decide
 
 ## Next steps
 
-- [Local models (llamafile and Ollama)](/getting-started/local-models) - offline setup, model selection, privacy
 - [Quickstart](/getting-started/quickstart) - build an HTTP API from the same binary
 - [Load a workflow as a tool](/getting-started/workflow-as-tool) - register a `workflow.yaml` in this REPL
+- [Local models (llamafile and Ollama)](/getting-started/local-models) - offline setup, model selection, privacy
+- [Installation](/getting-started/installation) - Windows, source, Docker
 - [Skill for coding agents](/getting-started/agent-skills) - teach Claude Code, Cursor, or Grok to write kdeps YAML

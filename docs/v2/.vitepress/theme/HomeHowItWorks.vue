@@ -7,14 +7,14 @@
     <div class="container">
       <p class="section-eyebrow">getting started</p>
       <h2 class="section-title">How it works</h2>
-      <p class="section-sub">The agent REPL is <code>kdeps</code> with no file. These three steps ship an API.</p>
+      <p class="section-sub">Start in the REPL. Write YAML when you want a pipeline. Ship the same file.</p>
 
       <div class="steps">
         <div class="step">
           <div class="step-num">01</div>
           <div class="step-body">
-            <h3>Write YAML</h3>
-            <p>Declare resources -- chat, HTTP, Python, SQL, shell. Wire them with <code>requires:</code>. No glue code.</p>
+            <h3>Run kdeps</h3>
+            <p><code>kdeps</code> opens the agent REPL. No YAML. No API key. A local model downloads on first use.</p>
           </div>
         </div>
 
@@ -23,8 +23,8 @@
         <div class="step">
           <div class="step-num">02</div>
           <div class="step-body">
-            <h3>Run kdeps</h3>
-            <p><code>kdeps run workflow.yaml</code> starts the API server. <code>kdeps [path]</code> starts the autonomous agent loop.</p>
+            <h3>Write YAML</h3>
+            <p>Declare resources -- chat, HTTP, Python, SQL. Wire them with <code>requires:</code>. One file, both modes.</p>
           </div>
         </div>
 
@@ -33,8 +33,8 @@
         <div class="step">
           <div class="step-num">03</div>
           <div class="step-body">
-            <h3>Call the API</h3>
-            <p>POST to your route, get back structured JSON. Export as Docker, Kubernetes, ISO, or a single binary.</p>
+            <h3>Ship it</h3>
+            <p><code>kdeps run</code> serves the API. <code>kdeps .</code> loads it as a tool. Export Docker, Kubernetes, ISO, or a binary.</p>
           </div>
         </div>
       </div>
