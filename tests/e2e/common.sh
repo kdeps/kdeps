@@ -310,7 +310,7 @@ wait_for_kdeps_port() {
 llm_env_blocker() {
     local text="${1:-}"
     llm_server_crashed "$text" && return 0
-    grep -qiE "ollama.*(connection refused|not running|no such host|dial tcp)|cannot connect to .*ollama|connection refused.*11434|11434.*connection refused|dial tcp[^[:space:]]*:11434" <<< "$text" && return 0
+    grep -qiE "ollama.*(connection refused|not running|no such host|dial tcp|not found|not in PATH)|cannot connect to .*ollama|failed to start ollama|connection refused.*11434|11434.*connection refused|dial tcp[^[:space:]]*:11434|exec: \"ollama\"" <<< "$text" && return 0
     grep -qiE "(OPENAI_API_KEY|ANTHROPIC_API_KEY|GROQ_API_KEY|M365_[A-Z_]*KEY|api[_ ]?key).*(not set|required|missing|invalid)|unauthorized.*api.?key" <<< "$text" && return 0
     grep -qiE "model .* not (found|cached|available)|failed to (download|resolve|pull) model|no such file or directory.*\.(gguf|llamafile)\b" <<< "$text" && return 0
     return 1

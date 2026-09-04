@@ -129,12 +129,13 @@ else
     test_failed "REPL /model <ollama model> - model switch did not complete" "Output: $OUTPUT"
 fi
 
-# The old bug polled ServerURL for up to 10 minutes; a healthy round trip
-# against the mock server should complete in a few seconds.
-if [ "$ELAPSED" -lt 15 ]; then
+# The old bug polled ServerURL for up to 10 minutes. A healthy round trip
+# against the mock server is a few seconds on Linux; Windows CI is slower
+# (AV scan of the binary) but still nowhere near the hang.
+if [ "$ELAPSED" -lt 45 ]; then
     test_passed "REPL /model <ollama model> - completed in ${ELAPSED}s (no polling hang)"
 else
-    test_failed "REPL /model <ollama model> - took ${ELAPSED}s, expected < 15s" "Output: $OUTPUT"
+    test_failed "REPL /model <ollama model> - took ${ELAPSED}s, expected < 45s" "Output: $OUTPUT"
 fi
 
 echo ""

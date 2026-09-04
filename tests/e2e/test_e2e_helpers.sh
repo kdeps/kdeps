@@ -73,6 +73,12 @@ else
     test_failed "llm_env_blocker matches ollama connection refused"
 fi
 
+if llm_env_blocker "LLM backend setup failed: failed to start ollama: ollama not found in PATH: exec: \"ollama\": executable file not found in %PATH%"; then
+    test_passed "llm_env_blocker matches ollama missing from PATH"
+else
+    test_failed "llm_env_blocker matches ollama missing from PATH"
+fi
+
 if llm_env_blocker "panic: runtime error: invalid memory address or nil pointer dereference"; then
     test_failed "llm_env_blocker ignores product panics" "panic was treated as an LLM env skip"
 else

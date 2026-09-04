@@ -76,10 +76,11 @@ test_passed "File Upload - Server startup"
 if command -v curl &> /dev/null; then
     TEST_FILE=$(mktemp)
     echo "Hello, this is a test file content!" > "$TEST_FILE"
+    TEST_FILE_NATIVE=$(to_native_path "$TEST_FILE")
 
-    RESPONSE=$(curl -s -w "\n%{http_code}" -X POST \
-        -F "file[]=@$TEST_FILE" \
-        "http://127.0.0.1:$PORT$ENDPOINT" 2>/dev/null || echo -e "\n000")
+    RESPONSE=$(curl -s -w "\n%{http_code}" --max-time 15 -X POST \
+        -F "file[]=@${TEST_FILE_NATIVE}" \
+        "http://127.0.0.1:$PORT$ENDPOINT" 2>/dev/null || printf '\n000\n')
     STATUS_CODE=$(echo "$RESPONSE" | tail -n 1)
     BODY=$(echo "$RESPONSE" | sed '$d')
 
@@ -104,10 +105,11 @@ if command -v curl &> /dev/null; then
     # Test 5: Multiple files
     TEST_FILE2=$(mktemp)
     echo "Second file content" > "$TEST_FILE2"
-    RESPONSE2=$(curl -s -w "\n%{http_code}" -X POST \
-        -F "file[]=@$TEST_FILE" \
-        -F "file[]=@$TEST_FILE2" \
-        "http://127.0.0.1:$PORT$ENDPOINT" 2>/dev/null || echo -e "\n000")
+    TEST_FILE2_NATIVE=$(to_native_path "$TEST_FILE2")
+    RESPONSE2=$(curl -s -w "\n%{http_code}" --max-time 15 -X POST \
+        -F "file[]=@${TEST_FILE_NATIVE}" \
+        -F "file[]=@${TEST_FILE2_NATIVE}" \
+        "http://127.0.0.1:$PORT$ENDPOINT" 2>/dev/null || printf '\n000\n')
     STATUS_CODE2=$(echo "$RESPONSE2" | tail -n 1)
     BODY2=$(echo "$RESPONSE2" | sed '$d')
     if [ "$STATUS_CODE2" = "200" ] && command -v jq &> /dev/null && [ -n "$BODY2" ]; then
@@ -116,7 +118,7 @@ if command -v curl &> /dev/null; then
         if [ "$COUNT2" = "2" ] || [ "$COUNT2" = 2 ]; then
             test_passed "File Upload - Multiple files (2 uploaded)"
         else
-            test_skipped "File Upload - Multiple files (count: $COUNT2)"
+            test_failed "File Upload - Multiple files (count: $COUNT2)"
         fi
     else
         test_failed "File Upload - Multiple files (status $STATUS_CODE2)"

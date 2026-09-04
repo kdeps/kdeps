@@ -23,9 +23,12 @@ INPUT=$(printf '\033[200~%s\033[201~\n/quit\n' "$BIG")
 OUTPUT=$(printf '%s' "$INPUT" \
     | HOME="$PASTE_HOME" TMPDIR="$PASTE_TMP" timeout 60 "$KDEPS_BIN" 2>&1 || true)
 
-# The 300 raw lines must not all be echoed back - the paste was staged.
+# Staging evidence: a paste marker or a kdeps-paste-* path. After submit the
+# agent may print the staged file as a goal (that is not a readline flood).
 PASTED_ECHOED=$(printf '%s\n' "$OUTPUT" | grep -c '^pasted line ' || true)
-if [ "$PASTED_ECHOED" -lt 50 ]; then
+if output_grep "kdeps-paste-|\[pasted " "$OUTPUT"; then
+    test_passed "paste - large paste staged to a file ($PASTED_ECHOED later mentions)"
+elif [ "$PASTED_ECHOED" -lt 50 ]; then
     test_passed "paste - large paste is not dumped line by line ($PASTED_ECHOED echoed)"
 else
     test_failed "paste - large paste flooded the terminal" "$PASTED_ECHOED lines echoed"

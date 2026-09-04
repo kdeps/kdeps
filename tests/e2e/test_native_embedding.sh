@@ -114,7 +114,8 @@ YAML
 
 # Test: embedding upsert operation
 test_embedding_upsert() {
-    local upsert_db="$WORK_DIR/upsert.db"
+    local upsert_db
+    upsert_db=$(to_native_path "$WORK_DIR/upsert.db")
     local pkg_dir="$WORK_DIR/embed-upsert"
     mkdir -p "$pkg_dir/resources"
 
@@ -152,7 +153,8 @@ YAML
 
 # Test: embedding delete operation
 test_embedding_delete() {
-    local del_db="$WORK_DIR/delete.db"
+    local del_db
+    del_db=$(to_native_path "$WORK_DIR/delete.db")
     local pkg_dir="$WORK_DIR/embed-delete"
     mkdir -p "$pkg_dir/resources"
 
