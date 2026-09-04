@@ -1,6 +1,8 @@
 # Inline resources
 
-Inline resources are full resource actions (chat, httpClient, sql, python, exec, file) placed directly inside a resource's `before:` or `after:` block. They run as part of that resource instead of requiring separate files. This is a workflow mode concept.
+Inline resources are full resource actions (chat, httpClient, sql, python, exec, file) placed directly inside a resource's `before:` or `after:` block. They run as part of that resource instead of requiring separate files.
+
+*Applies to both workflow mode and agent mode.* In workflow mode they are a DAG feature. In agent mode they run inside the workflow when the LLM calls that workflow as a tool.
 
 ## Basic syntax
 

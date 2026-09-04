@@ -2,6 +2,8 @@
 
 The `scraper` executor is a native capability compiled into the `kdeps` binary. It fetches a URL and returns the text content, with optional CSS selector filtering.
 
+Native `scraper:` is HTML text. For PDFs, .docx, .xlsx, and images, install the registry component of the same name (`kdeps registry install scraper`) and call it with `component:`. They are not the same thing.
+
 ## Where it runs
 
 Both [workflow mode](/modes/workflow-mode) and [agent mode](/modes/agent-loop-mode). In workflow mode it executes as a DAG step. In agent mode, the workflow containing this resource runs as a single callable tool.

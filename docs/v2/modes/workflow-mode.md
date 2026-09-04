@@ -2,6 +2,8 @@
 
 Workflow mode runs a deterministic DAG pipeline: a request arrives, resources execute in dependency order, and the result is returned. Every run follows the same path for the same input.
 
+*Applies to workflow mode.*
+
 Run with:
 
 ```bash
@@ -41,8 +43,10 @@ E -> F
 |---|---|---|
 | Execution | DAG, deterministic | LLM loop, tool-driven |
 | Entry point | `metadata.targetActionId` | User prompt |
-| Resources | Declared order | Run as part of a whole-workflow tool |
-| Session | Single execution | Interactive REPL |
+| Unit of work | Individual resources | Whole workflows |
+| Tools | Functions in `chat.tools` | One per workflow + one per component + built-ins |
+| Input | One workflow path | Optional file or folder |
+| Conversation | Single run | Multi-turn, persistent JSONL |
 
 ## Minimal example
 

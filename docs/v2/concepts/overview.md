@@ -19,7 +19,7 @@ The mental model behind kdeps: how a workflow is shaped, how data moves between 
 | [Expression helpers](/concepts/expression-helpers) | `Json()`, `Safe()`, `Debug()`, `default()` and other utilities | Both |
 | [Data access](/concepts/unified-api) | `get()`/`set()` plus the `input` and `request` shorthands | Both (`input`/`request`: workflow) |
 | [Tools (function calling)](/concepts/tools) | Let a `chat:` resource call other resources mid-response | Workflow |
-| [Inline resources](/concepts/inline-resources) | `chat`/`sql`/`python`/... actions nested in a resource's `before:`/`after:` | Workflow |
+| [Inline resources](/concepts/inline-resources) | `chat`/`sql`/`python`/... actions nested in a resource's `before:`/`after:` | Both |
 
 ## Control flow and input
 

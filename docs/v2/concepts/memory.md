@@ -136,10 +136,10 @@ Memory tools work in both agent mode and workflow mode. In workflow mode, the st
 
 ## Configuration
 
-Memory is enabled by default when the agent loop starts. No YAML configuration is needed. The store is created at `~/.kdeps/memory/<encoded-cwd>/memory.bolt` where `<encoded-cwd>` is a sanitized version of the current working directory path. To disable memory, do not pass a `MemoryStore` to the agent config.
+Memory is enabled by default when the agent loop starts. No YAML configuration is needed. The store is created at `~/.kdeps/memory/<encoded-cwd>/memory.bolt` where `<encoded-cwd>` is a sanitized version of the current working directory path.
 
 ## See also
 
 - [Memory internals](/concepts/memory-internals) - auto-extraction, the memory graph, prompt injection, compaction
-- [Session configuration](/configuration/session) - request-scoped persistent storage
+- [Session configuration](/configuration/session) - HTTP session storage across requests from the same caller
 - [Agent mode](/modes/agent-loop-mode) - how the agent loop works

@@ -1,6 +1,8 @@
 # Input sources
 
-kdeps workflows receive input through three sources: HTTP API, chat bots, and file input. Configure the source in `settings` inside `workflow.yaml`. This is a workflow mode concept - it controls how a running workflow is fed.
+kdeps workflows receive input through three sources: HTTP API, chat bots, and file input. Configure the source in `settings` inside `workflow.yaml`.
+
+*Applies to workflow mode.* This controls how a running workflow is fed. Agent mode does not use these sources; the prompt is stdin in the REPL. When the LLM calls a workflow as a tool, that workflow still uses its own input settings.
 
 ## Overview
 

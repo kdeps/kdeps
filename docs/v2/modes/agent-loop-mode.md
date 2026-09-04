@@ -2,6 +2,8 @@
 
 Agent mode starts an interactive LLM REPL where whole workflows and components are registered as callable tools. The LLM decides which tool to invoke based on the user's prompt. Workflow tools run the full pipeline atomically so all `requires:` dependencies resolve correctly. For the deterministic request/response pipeline instead, see [Workflow mode](/modes/workflow-mode).
 
+*Applies to agent mode.*
+
 Running `kdeps` with no arguments starts a bare REPL with no workflow tools - built-in tools (web_search, bash_exec, file ops, memory, etc.) are still available. Pass a path to also load workflows and agencies as tools.
 
 ## Starting the agent loop
@@ -79,7 +81,7 @@ kdeps [path] [flags]
 
 ```bash
 # Environment variables (flags override these)
-KDEPS_AGENT_MODEL=llama3.2
+KDEPS_AGENT_MODEL=llama3.2:1b
 KDEPS_AGENT_BACKEND=file              # default: local llamafile
 KDEPS_AGENT_BASE_URL=http://localhost:11434
 KDEPS_STEALTH=1                       # same as --stealth (1, true, or yes)
@@ -121,9 +123,9 @@ kdeps --resume abc123def456                      # resume a session
 | Execution | DAG, deterministic | LLM loop, tool-driven |
 | Entry point | `metadata.targetActionId` | User prompt |
 | Unit of work | Individual resources | Whole workflows |
-| Tools exposed | Functions in `chat.tools` | One per workflow + one per component |
-| Input | Single workflow path | Optional file or folder |
-| Session memory | None | Multi-turn, persistent JSONL |
+| Tools | Functions in `chat.tools` | One per workflow + one per component + built-ins |
+| Input | One workflow path | Optional file or folder |
+| Conversation | Single run | Multi-turn, persistent JSONL |
 
 ## See also
 

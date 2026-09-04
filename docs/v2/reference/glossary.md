@@ -42,7 +42,7 @@ mode and agent mode.
 | `scraper` | A resource action type for web scraping. Extracts structured data from HTML using CSS selectors. | [Scraper](/resources/web/scraper) |
 | `searchLocal` | A resource action type for local semantic search over indexed documents. | [searchLocal](/resources/search/searchlocal) |
 | `searchWeb` | A resource action type for web search via configured search APIs. | [searchWeb](/resources/search/searchweb) |
-| session | Session-scoped key/value storage that persists across requests from the same client. Set with `set('key', value, 'session')`. | [Session and memory](/configuration/session) |
+| session | HTTP session storage across requests from the same client. Set with `set('key', value, 'session')`. Not the agent REPL conversation (`--resume`, `~/.kdeps/sessions/`). | [Session configuration](/configuration/session) |
 | `set()` | Stores a value in memory (this request) or session (across requests). | [Unified API](/concepts/unified-api) |
 | <a id="skip"></a>`skip` | A list of boolean expressions in `validations.skip`. If any is true, the resource is skipped silently and the workflow continues. | [Validation and control flow](/concepts/validation-and-control) |
 | `sql` | A resource action type for SQL queries against PostgreSQL, MySQL, or SQLite. Parameterized queries prevent injection. | [SQL](/resources/sql) |

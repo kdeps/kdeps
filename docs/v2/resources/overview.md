@@ -139,6 +139,8 @@ All executors are compiled into the `kdeps` binary and require no installation. 
 
 ### Registry components (installable via `kdeps registry install`)
 
+Some install names (`scraper`, `browser`, `embedding`) also exist as native YAML keys. The native action is compiled into the binary; the registry component is a separate, richer package. They are not interchangeable.
+
 | Install name | Description |
 |-------------|-------------|
 | `scraper` | Extended content extraction: PDFs, .docx, .xlsx, images (type auto-detected) |

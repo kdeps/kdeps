@@ -96,11 +96,15 @@ Yes. Set `streaming: true` on a `chat:` resource to stream LLM responses token-b
 
 ## Where does kdeps store session data?
 
-Session data is stored in a WAL-based embedded database. The location is configurable in `settings.session`. See [Session & Persistence](/configuration/session).
+HTTP session data (`set(..., 'session')`) lives in SQLite or in-memory storage, configured in `settings.session`. See [Session configuration](/configuration/session).
+
+Agent mode conversation history is a different store: JSONL files under `~/.kdeps/sessions/`, resumed with `--resume`. See [Agent loop REPL features](/modes/agent-loop-repl).
 
 ## See also
 
-- [Quickstart](/getting-started/quickstart) - build your first workflow
+- [Run locally](/getting-started/local-agent) - agent REPL in 30 seconds
+- [Quickstart](/getting-started/quickstart) - build your first workflow API
+- [Load a workflow as a tool](/getting-started/workflow-as-tool) - same file, agent mode
 - [Execution flow](/guides/execution-flow) - how the engine runs resources
 - [Troubleshooting](/guides/troubleshooting) - common errors and fixes
 - [Glossary](/reference/glossary) - all kdeps terms defined

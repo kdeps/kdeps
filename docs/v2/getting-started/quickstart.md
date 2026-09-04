@@ -2,6 +2,8 @@
 
 Build a two-resource LLM API in workflow mode, then load the same file as a tool in agent mode.
 
+*Applies to both workflow mode and agent mode.*
+
 ## Overview
 
 This quickstart guides you through:
@@ -152,19 +154,12 @@ C -> D
 
 ## Try agent mode
 
-Run the workflow as a tool in an interactive LLM loop. The tool name is `my-agent` (from `metadata.name`). The LLM calls `my-agent`, the full pipeline executes, and the result comes back.
+Same file, different command. `kdeps .` registers this workflow as one tool named `my-agent`. Step-by-step: [Load a workflow as a tool](/getting-started/workflow-as-tool).
 
 ```bash
-# Load the current project directory -- registers one tool named "my-agent"
-kdeps .
-
-# Point at a folder to expose every workflow inside as separate tools
-kdeps ./agents/
+kdeps .            # current directory; tool name is metadata.name
+kdeps ./agents/    # one tool per workflow in the folder
 ```
-
-The agent REPL starts. Type a prompt and the LLM calls your workflow tools as needed.
-See [Load a workflow as a tool](/getting-started/workflow-as-tool) for the
-step-by-step version of this.
 
 ## Next steps
 

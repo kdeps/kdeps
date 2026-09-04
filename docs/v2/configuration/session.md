@@ -1,8 +1,8 @@
 # Session configuration
 
-Sessions let resources persist values across multiple requests from the same caller using `set('key', val, 'session')`. Configure the storage backend in `workflow.yaml` under `settings.session:`.
+Sessions let resources persist values across multiple HTTP requests from the same caller using `set('key', val, 'session')`. Configure the storage backend in `workflow.yaml` under `settings.session:`.
 
-*Applies to both workflow mode and agent mode.*
+*Applies to workflow mode (and when that workflow is called as a tool in agent mode).* This page is HTTP session storage. Agent mode conversation history is a different store: JSONL under `~/.kdeps/sessions/`, resumed with `--resume`. See [Agent loop REPL features](/modes/agent-loop-repl).
 
 | Type | Persistence | Use Case |
 |------|-------------|----------|

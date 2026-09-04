@@ -4,6 +4,8 @@ Install the `kdeps` CLI to start building agents locally. Docker is optional - o
 
 *Applies to both workflow mode and agent mode.*
 
+Already installed? [Run locally](/getting-started/local-agent) or [Quickstart](/getting-started/quickstart).
+
 ## Installing the kdeps CLI
 
 ### macOS (Homebrew)
@@ -95,11 +97,9 @@ docker --version
 
 ## Local LLMs (no install needed)
 
-For local LLM inference, kdeps uses [llamafile](https://github.com/Mozilla-Ocho/llamafile)
-as the default backend (`file`): models are single self-contained binaries that
-kdeps downloads to `~/.kdeps/models/` and serves locally - no server install,
-no GPU, no API key. The default model alias `llama3.2:1b` resolves to Mozilla's
-Llama 3.2 1B Instruct llamafile (~1.1 GB, downloaded on first run).
+Default backend is llamafile: no server, no GPU, no API key. The alias
+`llama3.2:1b` (~1.1 GB) downloads on first run. Full aliases, Ollama, and GGUF:
+[Local models](/getting-started/local-models).
 
 ```bash
 kdeps llamafile list      # see all known model aliases

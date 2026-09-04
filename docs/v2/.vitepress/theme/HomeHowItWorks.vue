@@ -7,7 +7,7 @@
     <div class="container">
       <p class="section-eyebrow">getting started</p>
       <h2 class="section-title">How it works</h2>
-      <p class="section-sub">Three steps from idea to running AI API.</p>
+      <p class="section-sub">The agent REPL is <code>kdeps</code> with no file. These three steps ship an API.</p>
 
       <div class="steps">
         <div class="step">

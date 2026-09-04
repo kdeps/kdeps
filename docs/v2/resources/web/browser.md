@@ -2,6 +2,8 @@
 
 The `browser:` resource drives a real browser (Chromium, Firefox, or WebKit) via [Playwright](https://playwright.dev/). Use it to navigate pages, fill forms, run JavaScript, capture screenshots, and maintain authenticated sessions across resources.
 
+Native `browser:` is compiled in. A registry component of the same name (`kdeps registry install browser`) adds stealth, persistent sessions, and file upload. They are not the same thing.
+
 ## Where it runs
 
 Both [workflow mode](/modes/workflow-mode) and [agent mode](/modes/agent-loop-mode). In workflow mode it executes as a DAG step. In agent mode, the workflow containing this resource runs as a single callable tool.
