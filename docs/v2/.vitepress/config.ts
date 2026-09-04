@@ -50,7 +50,7 @@ export default defineConfig({
     siteTitle: false,
 
     nav: [
-      { text: 'Guide', link: '/getting-started/local-agent' },
+      { text: 'Guide', link: '/getting-started/introduction' },
       {
         text: 'Deploy',
         items: [
@@ -84,12 +84,14 @@ export default defineConfig({
         {
           text: 'Getting started',
           items: [
+            { text: 'What is kdeps?', link: '/getting-started/introduction' },
             { text: 'Why kdeps?', link: '/concepts/why-kdeps' },
             { text: 'Run locally', link: '/getting-started/local-agent' },
             { text: 'Quickstart', link: '/getting-started/quickstart' },
             { text: 'Workflow as a tool', link: '/getting-started/workflow-as-tool' },
             { text: 'Local models', link: '/getting-started/local-models' },
             { text: 'Installation', link: '/getting-started/installation' },
+            { text: 'Glossary', link: '/reference/glossary' },
           ]
         },
         {

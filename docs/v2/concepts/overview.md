@@ -1,6 +1,18 @@
 # Concepts overview
 
-The mental model behind kdeps: how a workflow is shaped, how data moves between steps, and which pieces apply to each mode. Start with the two modes, then reach for the rest as you need them.
+The mental model behind kdeps: how a workflow is shaped, how data moves between steps, and which pieces apply to each mode. If you have not run kdeps yet, read [What is kdeps?](/getting-started/introduction) first.
+
+## How a workflow is shaped
+
+A kdeps project is a folder. `workflow.yaml` is the manifest - name, version,
+and `targetActionId` (the resource that produces the final result). Every other
+`.yaml` file under `resources/` is a single **resource**: one LLM call, one SQL
+query, one shell command, one HTTP request. A resource lists what it `requires:`,
+and kdeps runs the resources in that dependency order, passing each one's output
+forward. That ordered graph is the workflow.
+
+The tables below group every concept by what it does. Start with the two modes,
+then reach for the rest as you need them.
 
 ## The two modes
 

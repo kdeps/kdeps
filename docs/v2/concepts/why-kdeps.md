@@ -1,6 +1,12 @@
 # Why kdeps?
 
-kdeps exists because most AI tooling is built for prototyping, not for running unattended in production. This page applies to both workflow mode and agent mode - it explains why the two exist and when to reach for each.
+kdeps exists because most AI tooling is built for prototyping, not for running unattended in production. This page applies to both workflow mode and agent mode - it explains why the two exist and when to reach for each. New to kdeps? Read [What is kdeps?](/getting-started/introduction) first.
+
+## The problem
+
+Shipping AI into production means more than calling an API. You need deterministic pipelines, typed inputs and outputs, dependency ordering, retries, validation, and the ability to deploy anywhere - not a chat session that ends when the browser tab closes.
+
+kdeps is an **AI Appliance Builder**. You define what the agent does in YAML, and it runs as a self-contained unit - an HTTP API, a bot, a file processor - without a human in the loop.
 
 ## Three levels of investment
 
@@ -35,12 +41,6 @@ docker run -p 16395:16395 ...     # serve as an HTTP API
 The workflow you ran locally becomes a self-contained deployable unit. See [Deployment guide](/guides/deployment-guide).
 
 ---
-
-## The problem
-
-Shipping AI into production means more than calling an API. You need deterministic pipelines, typed inputs and outputs, dependency ordering, retries, validation, and the ability to deploy anywhere - not a chat session that ends when the browser tab closes.
-
-kdeps is an **AI Appliance Builder**. You define what the agent does in YAML, and it runs as a self-contained unit - an HTTP API, a bot, a file processor - without a human in the loop.
 
 ## Deterministic by design
 
