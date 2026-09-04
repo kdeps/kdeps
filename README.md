@@ -13,7 +13,7 @@
 
 > Before moving on, please consider giving us a GitHub star ⭐️. Thank you!
 
-**AI Appliance Builder** - YAML-defined AI agents, workflows, and agencies.
+**AI Appliance Builder** - AI agents and workflows defined in YAML, shipped as appliances.
 
 kdeps works at three levels:
 
@@ -101,7 +101,9 @@ brew install kdeps/tap/kdeps
 
 Whichever level you use, a workflow runs in one of two execution modes - and an agency bundles several workflows into one system.
 
-**Workflow mode** - DAG-deterministic request/response pipelines. Each resource declares its dependencies via `requires:` and runs in order, ending in an `apiResponse`.
+### Workflow mode
+
+DAG-deterministic request/response pipelines. Each resource declares its dependencies via `requires:` and runs in order, ending in an `apiResponse`.
 
 The LLM call inside a `chat:` resource is still probabilistic, but the pipeline around it is not: the same request takes the same path, validation runs before any model call, and the response is shaped to a fixed schema.
 
@@ -113,16 +115,19 @@ kdeps run ./my-agent/            # or point at a directory containing workflow.y
 kdeps run workflow.yaml --dev    # hot reload
 ```
 
-**Agent loop mode** - an autonomous LLM loop. Every workflow becomes a callable tool, and the LLM decides which to call, in what order, to complete the task. Runs as an interactive REPL until you exit (Ctrl+D).
+### Agent loop mode
+
+An autonomous LLM loop. Every workflow becomes a callable tool, and the LLM decides which to call, in what order, to complete the task. Runs as an interactive REPL until you exit (Ctrl+D).
 
 ```bash
 kdeps                            # bare agent loop REPL
-kdeps ./my-agent/                # register the workflow as an LLM-callable tool
 kdeps ./my-agent/ --model llama3.2 --system "You are a DevOps assistant."
 kdeps --stealth                  # "Muted" UI: dark gray, model name barely visible (for use in public)
 ```
 
-**Agencies** - a collection of agents that work together. Each agent is its own `workflow.yaml` with its own resources, model, and logic, wired together with the `agent:` resource type - like calling a function, but the function is an entire AI pipeline.
+### Agencies
+
+A collection of agents that work together. Each agent is its own `workflow.yaml` with its own resources, model, and logic, wired together with the `agent:` resource type - like calling a function, but the function is an entire AI pipeline.
 
 ```bash
 kdeps run agency.yaml
