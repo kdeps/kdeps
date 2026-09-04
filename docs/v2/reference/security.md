@@ -1,6 +1,6 @@
 # Security reference
 
-Every request passes through a chain of gates before reaching the workflow DAG. Each gate can reject the request with a specific status code.
+Every request passes through a chain of gates before reaching the workflow DAG. Each gate can reject the request with a specific status code. This applies to workflow mode, wherever an `apiServer` is configured.
 
 ```d2
 direction: down

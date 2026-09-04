@@ -1,6 +1,6 @@
 # Prompt reduction (turo)
 
-`turo` is an optional token reducer for [agent loop mode](/modes/agent-loop-mode). When the `turo` binary is on `PATH`, kdeps pipes everything it sends to the LLM through it first - system preamble, your input, tool results, and conversation history. Code, file paths, and identifiers are preserved verbatim. If a reduction is not smaller than the input, the original passes through unchanged. Applies to agent mode only.
+`turo` is an optional token reducer for [agent mode](/modes/agent-loop-mode). When the `turo` binary is on `PATH`, kdeps pipes everything it sends to the LLM through it first - system preamble, your input, tool results, and conversation history. Code, file paths, and identifiers are preserved verbatim. If a reduction is not smaller than the input, the original passes through unchanged. Applies to agent mode only.
 
 ```text
 system preamble + input + tool results + history  ->  turo  ->  LLM
@@ -55,5 +55,5 @@ To keep agent context faithful (drop filler only, no wording changes), set `TURO
 
 ## See also
 
-- [Agent loop mode](/modes/agent-loop-mode) - overview and starting the REPL
+- [Agent mode](/modes/agent-loop-mode) - overview and starting the REPL
 - [REPL slash commands](/modes/agent-loop-commands) - full command reference

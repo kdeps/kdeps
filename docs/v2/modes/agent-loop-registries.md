@@ -71,6 +71,6 @@ No manual polling or goroutine setup needed. Start `kdeps path/to/agent/` and cr
 
 ## See also
 
-- [Agent loop mode](/modes/agent-loop-mode) - overview and starting the REPL
+- [Agent mode](/modes/agent-loop-mode) - overview and starting the REPL
 - [Built-in tools](/modes/agent-loop-tools) - the full tool catalog these registries add to
 - [Goal-directed execution](/modes/agent-loop-goals) - how individual tasks are driven to completion

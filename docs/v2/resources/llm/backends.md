@@ -198,6 +198,31 @@ chat:
 
 Vertex AI uses Application Default Credentials when no `google_api_key` is present. Run `gcloud auth application-default login` to authenticate locally.
 
+## Google: cached content and safety threshold
+
+`googleCachedContent` names a Google AI CachedContent resource to attach to the request - pre-cache large context with the `google_cache_create` built-in tool, then reference it here. `googleHarmThreshold` controls how aggressively Google's safety filters block responses.
+
+```yaml
+# resources/example.yaml
+chat:
+  model: gemini-1.5-pro
+  googleCachedContent: "cachedContents/my-cached-doc"   # CachedContent resource name
+  googleHarmThreshold: 1   # 0 provider default, 1 block none, 2 few, 3 some, 4 most
+  prompt: "{{ get('q') }}"
+```
+
+## OpenAI: legacy token param
+
+Older OpenAI-compatible servers (Azure, some self-hosted) expect `max_tokens` instead of `max_completion_tokens`. Set `openAILegacyMaxTokens: true` to send the old parameter name.
+
+```yaml
+# resources/example.yaml
+chat:
+  prompt: "{{ get('q') }}"
+  openAILegacyMaxTokens: true   # send max_tokens instead of max_completion_tokens
+  maxTokens: 1000
+```
+
 ## Anthropic: prompt caching and extended output
 
 Anthropic-specific options are set per resource, not in `config.yaml`.

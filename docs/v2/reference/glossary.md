@@ -7,7 +7,7 @@ mode and agent mode.
 | Term | Definition | More |
 | :--- | :--- | :--- |
 | <a id="actionid"></a>`actionId` | A unique string that identifies a resource within a workflow. Used as the target of `requires:` dependencies. In agent mode, resources are not exposed as tools; the whole workflow is the tool, named after `metadata.name`. | [Resources overview](/resources/overview) |
-| agent | An autonomous LLM-driven pipeline defined by `kind: Agent`. Has tools, memory, and multi-step reasoning. Run with `kdeps [path]`. | [Agent loop mode](/modes/agent-loop-mode) |
+| agent | An autonomous LLM-driven pipeline defined by `kind: Agent`. Has tools, memory, and multi-step reasoning. Run with `kdeps [path]`. | [Agent mode](/modes/agent-loop-mode) |
 | <a id="agency"></a>agency | Multiple agents composed into one system. One agent delegates a task to another via the `agent:` action type; the callee runs its full pipeline and returns its output. | [AI agencies](/concepts/agency) |
 | `apiResponse` | A resource action type that returns a structured JSON response to the client. Usually the terminal node of a workflow. | [API response](/resources/api-response) |
 | `before` / `after` | Expression blocks that run before or after a resource's main action. Used for data preparation, normalization, and validation. Statements execute in order. | [Expression blocks](/reference/expr-blocks) |
@@ -46,7 +46,7 @@ mode and agent mode.
 | `set()` | Stores a value in memory (this request) or session (across requests). | [Unified API](/concepts/unified-api) |
 | <a id="skip"></a>`skip` | A list of boolean expressions in `validations.skip`. If any is true, the resource is skipped silently and the workflow continues. | [Validation and control flow](/concepts/validation-and-control) |
 | `sql` | A resource action type for SQL queries against PostgreSQL, MySQL, or SQLite. Parameterized queries prevent injection. | [SQL](/resources/sql) |
-| <a id="stealth-mode"></a>stealth mode | A "Muted" agent-loop UI: the whole REPL renders in near-black dark grays and the model name is barely visible - for running kdeps in public. Enable with `--stealth`, `KDEPS_STEALTH=1`, or `/stealth`. Rendering only; prompts, responses, and logs are unchanged. | [Agent loop mode](/modes/agent-loop-mode#stealth-mode) |
+| <a id="stealth-mode"></a>stealth mode | A "Muted" agent-loop UI: the whole REPL renders in near-black dark grays and the model name is barely visible - for running kdeps in public. Enable with `--stealth`, `KDEPS_STEALTH=1`, or `/stealth`. Rendering only; prompts, responses, and logs are unchanged. | [Agent loop REPL features](/modes/agent-loop-repl#stealth-mode) |
 | <a id="streaming"></a>`streaming` | A boolean field on `chat` resources. When true, the LLM response streams token by token. | [LLM backends](/resources/llm/backends) |
 | <a id="targetactionid"></a>`targetActionId` | The entry-point resource of a workflow, set in `metadata.targetActionId`. Execution resolves the dependency graph backward from here. | [workflow.yaml](/configuration/workflow) |
 | tools | Functions registered with the LLM. In agent mode, tools are whole workflows and components. In workflow mode, tools are functions defined in `chat.tools`. | [Tools](/concepts/tools) |

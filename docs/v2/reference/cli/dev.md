@@ -199,7 +199,7 @@ Exits with code 1 when any check has FAIL status.
 
 ## `kdeps --upgrade`
 
-Check for a newer kdeps release and, for a standalone install, download/verify/install it. Same flow as the REPL's `/upgrade` command - see [Agent Loop Mode - Updating kdeps](/modes/agent-loop-mode#updating-kdeps) for the full behavior (what each install method does, checksum verification, etc.).
+Check for a newer kdeps release and, for a standalone install, download/verify/install it. Same flow as the REPL's `/upgrade` command - see [Agent loop REPL features - Updating kdeps](/modes/agent-loop-repl#updating-kdeps) for the full behavior (what each install method does, checksum verification, etc.).
 
 ```bash
 kdeps --upgrade

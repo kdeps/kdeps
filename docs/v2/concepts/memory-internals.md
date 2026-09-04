@@ -90,5 +90,5 @@ Auto-extracted **low-signal** entries (types `note` and `fact`) are globally cap
 ## See also
 
 - [Persistent memory](/concepts/memory) - the memory tools and entry types
-- [Agent loop mode](/modes/agent-loop-mode) - how the agent loop works
+- [Agent mode](/modes/agent-loop-mode) - how the agent loop works
 - [Goal-directed execution](/modes/agent-loop-goals) - task state that `memory_query` can read

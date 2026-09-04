@@ -8,7 +8,7 @@ Both [workflow mode](/modes/workflow-mode) and [agent mode](/modes/agent-loop-mo
 
 ## Actions
 
-Set `action:` to one of six values:
+Set the `email.action:` field to one of six values:
 
 | Action | What it does |
 |---|---|

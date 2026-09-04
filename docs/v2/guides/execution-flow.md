@@ -1,6 +1,6 @@
 # Execution flow
 
-How kdeps resolves, orders, and runs resources in a workflow.
+How kdeps resolves, orders, and runs resources in a workflow. This applies to both modes: it is the DAG that workflow mode runs directly, and the same DAG that executes when agent mode calls a workflow tool.
 
 ## Overview
 

@@ -106,7 +106,7 @@ The query language is [expr-lang](https://expr-lang.org/), the same engine `befo
 {"name": "memory_query", "parameters": {"query": "filter(memory, .type == \"error\")", "limit": 20}}
 ```
 
-The result has `rows` (capped at `limit`, default 50, max 500), `count` (total matches before capping), and `truncated` (bool). `memory_query` is **agent-mode only** - it reads the active `Loop`'s state directly, so workflow mode has no LLM tool-call state to query.
+The result has `rows` (capped at `limit`, default 50, max 500), `count` (total matches before capping), and `truncated` (bool). `memory_query` is **agent mode only** - it reads the active `Loop`'s state directly, so workflow mode has no LLM tool-call state to query.
 
 ## Memory entry types
 
@@ -132,7 +132,7 @@ Entries are auto-classified by key pattern. The type controls where the entry si
 
 ## Workflow mode
 
-Memory tools work in both agent mode and workflow mode. In workflow mode, the store is lazy-initialized on first use via `GetOrCreateMemoryStore()`. No Loop required - memory is available to any resource or tool. `memory_query` is the exception: it needs the agent loop's live state and is agent-mode only.
+Memory tools work in both agent mode and workflow mode. In workflow mode, the store is lazy-initialized on first use via `GetOrCreateMemoryStore()`. No Loop required - memory is available to any resource or tool. `memory_query` is the exception: it needs the agent loop's live state and is agent mode only.
 
 ## Configuration
 
@@ -142,4 +142,4 @@ Memory is enabled by default when the agent loop starts. No YAML configuration i
 
 - [Memory internals](/concepts/memory-internals) - auto-extraction, the memory graph, prompt injection, compaction
 - [Session configuration](/configuration/session) - request-scoped persistent storage
-- [Agent loop mode](/modes/agent-loop-mode) - how the agent loop works
+- [Agent mode](/modes/agent-loop-mode) - how the agent loop works

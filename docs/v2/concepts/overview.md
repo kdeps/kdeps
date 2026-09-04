@@ -7,7 +7,7 @@ The mental model behind kdeps: how a workflow is shaped, how data moves between 
 | Concept | What it is | Mode |
 |---|---|---|
 | [Workflow mode](/modes/workflow-mode) | A DAG of resources that runs in dependency order and returns a response | Workflow |
-| [Agent loop mode](/modes/agent-loop-mode) | An LLM that calls workflows, components, and built-in tools to finish a task | Agent |
+| [Agent mode](/modes/agent-loop-mode) | An LLM that calls workflows, components, and built-in tools to finish a task | Agent |
 | [Agencies](/concepts/agency) | Several agents bundled under one `agency.yaml`, calling each other with `agent:` | Both |
 | [Components](/concepts/components) | Reusable resource bundles you install or build, invoked with `component:` | Both |
 

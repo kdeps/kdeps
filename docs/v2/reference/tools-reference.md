@@ -1,6 +1,6 @@
 # Tools reference
 
-Examples, best practices, and debugging guidance for the [`tools:` block](/concepts/tools) in `chat:` resources.
+Examples, best practices, and debugging guidance for the [`tools:` block](/concepts/tools) in `chat:` resources. This is a workflow mode feature; in agent mode, tools are whole workflows and components.
 
 ## Examples
 
