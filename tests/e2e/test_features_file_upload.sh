@@ -60,29 +60,13 @@ SERVER_LOG=$(mktemp)
 timeout 30 "$KDEPS_BIN" run "$WORKFLOW_PATH" > "$SERVER_LOG" 2>&1 &
 SERVER_PID=$!
 
-sleep 3
-MAX_WAIT=10
-WAITED=0
-SERVER_READY=false
-
-while [ $WAITED -lt $MAX_WAIT ]; do
-    if command -v lsof &> /dev/null && lsof -ti:$PORT &> /dev/null 2>&1; then
-        SERVER_READY=true; sleep 1; break
-    elif command -v ss &> /dev/null && ss -lnt 2>/dev/null | grep -q ":$PORT "; then
-        SERVER_READY=true; sleep 1; break
-    elif command -v netstat &> /dev/null && netstat -an 2>/dev/null | grep -q ":$PORT.*LISTEN"; then
-        SERVER_READY=true; sleep 1; break
-    fi
-    sleep 0.5
-    WAITED=$((WAITED + 1))
-done
+if ! wait_for_kdeps_port "$PORT" 20; then SERVER_READY=false; else SERVER_READY=true; fi
 
 if [ "$SERVER_READY" = false ]; then
-    SERVER_ERR=$(grep -i "error\|panic\|fail" "$SERVER_LOG" 2>/dev/null | head -1 || true)
+    fail_server_startup "File Upload - Server startup (server did not start)" "$SERVER_LOG"
     kill $SERVER_PID 2>/dev/null || true
     wait $SERVER_PID 2>/dev/null || true
     rm -f "$SERVER_LOG"
-    test_skipped "File Upload - Server startup (server did not start${SERVER_ERR:+: $SERVER_ERR})"
     return 0
 fi
 
@@ -112,9 +96,9 @@ if command -v curl &> /dev/null; then
             fi
         fi
     elif [ "$STATUS_CODE" = "500" ]; then
-        test_skipped "File Upload - POST endpoint (500 - likely missing dependency)"
+        test_failed "File Upload - POST endpoint (500 - likely missing dependency)"
     else
-        test_skipped "File Upload - POST endpoint (status $STATUS_CODE)"
+        test_failed "File Upload - POST endpoint (status $STATUS_CODE)"
     fi
 
     # Test 5: Multiple files
@@ -135,7 +119,7 @@ if command -v curl &> /dev/null; then
             test_skipped "File Upload - Multiple files (count: $COUNT2)"
         fi
     else
-        test_skipped "File Upload - Multiple files (status $STATUS_CODE2)"
+        test_failed "File Upload - Multiple files (status $STATUS_CODE2)"
     fi
     rm -f "$TEST_FILE" "$TEST_FILE2"
 else

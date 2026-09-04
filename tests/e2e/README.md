@@ -68,7 +68,14 @@ Each test script can be run independently:
 Tests provide color-coded output:
 - ✓ **Green** - Test passed
 - ✗ **Red** - Test failed
-- ⊘ **Yellow** - Test skipped (usually due to missing dependencies)
+- ⊘ **Yellow** - Test skipped (missing optional tools, API keys, or an LLM backend)
+
+Skip vs fail:
+
+- Skip only when the environment cannot run the test: missing `python3`/`docker`/`jq`, missing API keys, Ollama/llamafile not installed, optional binaries (`tesseract`, `whisper-cli`, `playwright`), or an LLM process crash on the runner.
+- Fail when kdeps itself did not start or returned the wrong HTTP status. A workflow with no `chat:` resource must bind `/health` (or its routes) without downloading or starting an LLM; "server did not start" is a product bug, not a skip.
+- `wait_for_kdeps_port` polls HTTP (`/health` then `/`). Do not wait on `lsof`/`ss` — those binaries are missing on Windows GitHub runners and used to hide real startup failures as skips.
+- `fail_server_startup LABEL LOG` dumps the server log and fails, unless the log is an LLM-environment blocker (`llm_env_blocker`).
 
 ## Adding New Tests
 
@@ -82,7 +89,8 @@ To add a new test scenario:
 3. Use the test helper functions:
    - `test_passed "test name"`
    - `test_failed "test name" "error message"`
-   - `test_skipped "test name"`
+   - `test_skipped "test name"` — env/optional-tool only, never for "server did not start"
+   - `wait_for_kdeps_port "$PORT" 20` then `fail_server_startup "label" "$SERVER_LOG"` if it fails
 4. Add the script to `e2e.sh`:
    ```bash
    source "$SCRIPT_DIR/test_<scenario>.sh"

@@ -157,7 +157,7 @@ for i in $(seq 1 30); do
 done
 
 if [ "$READY" = false ]; then
-    test_skipped "scraper-native - server start (may need LLM)"
+    fail_server_startup "scraper-native - server start (may need LLM)" "$LOG_FILE"
     echo ""
     return 0 2>/dev/null || exit 0
 fi

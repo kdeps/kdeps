@@ -124,7 +124,7 @@ SERVER_PID=$!
 if _wait_for_server "$MGMT_PORT"; then
     test_passed "Management API - Server startup"
 else
-    test_skipped "Management API - Server startup" "server did not start on port $MGMT_PORT"
+    fail_server_startup "Management API - Server startup" "$SERVER_LOG"
     kill "$SERVER_PID" 2>/dev/null || true
     wait "$SERVER_PID" 2>/dev/null || true
     rm -f "$SERVER_LOG"
@@ -282,7 +282,7 @@ if _wait_for_server "$NO_TOKEN_PORT"; then
         test_failed "Management API - no server token returns 503" "got HTTP $NO_TOKEN_CODE"
     fi
 else
-    test_skipped "Management API - no server token server startup" "server did not start on port $NO_TOKEN_PORT"
+    fail_server_startup "Management API - no server token server startup" "$NO_TOKEN_LOG"
 fi
 
 kill "$NO_TOKEN_PID" 2>/dev/null || true

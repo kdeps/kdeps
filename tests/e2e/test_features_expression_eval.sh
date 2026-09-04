@@ -92,51 +92,15 @@ SERVER_LOG=$(mktemp)
 timeout 15 "$KDEPS_BIN" run "$WORKFLOW_FILE" > "$SERVER_LOG" 2>&1 &
 SERVER_PID=$!
 
-sleep 4
-MAX_WAIT=8
-WAITED=0
-SERVER_READY=false
 PORT=3100
-
-while [ $WAITED -lt $MAX_WAIT ]; do
-    if command -v lsof &> /dev/null; then
-        if lsof -ti:$PORT &> /dev/null; then
-            SERVER_READY=true
-            sleep 1
-            break
-        fi
-    elif command -v netstat &> /dev/null; then
-        if netstat -an 2>/dev/null | grep -q ":$PORT.*LISTEN"; then
-            SERVER_READY=true
-            sleep 1
-            break
-        fi
-    elif command -v ss &> /dev/null; then
-        if ss -lnt 2>/dev/null | grep -q ":$PORT"; then
-            SERVER_READY=true
-            sleep 1
-            break
-        fi
-    else
-        sleep 2
-        SERVER_READY=true
-        break
-    fi
-    sleep 0.5
-    WAITED=$((WAITED + 1))
-done
+if ! wait_for_kdeps_port "$PORT" 20; then SERVER_READY=false; else SERVER_READY=true; fi
 
 if [ "$SERVER_READY" = false ]; then
-    if [ -f "$SERVER_LOG" ]; then
-        ERROR_MSG=$(head -20 "$SERVER_LOG" 2>/dev/null | grep -i "error\|panic\|fail" | head -1 || echo "Unknown error")
-    else
-        ERROR_MSG="Server log not available"
-    fi
+    fail_server_startup "Expression Eval - Server startup" "$SERVER_LOG"
     kill $SERVER_PID 2>/dev/null || true
     wait $SERVER_PID 2>/dev/null || true
     rm -f "$SERVER_LOG"
     rm -rf "$TEST_DIR"
-    test_skipped "Expression Eval - Server startup" "Server did not start: $ERROR_MSG"
     return 0
 fi
 
@@ -204,7 +168,7 @@ if command -v curl &> /dev/null; then
         # 400 might be validation error
         test_passed "Expression Eval - POST endpoint (400 - may be validation issue)"
     elif [ "$STATUS_CODE" = "500" ]; then
-        test_skipped "Expression Eval - POST endpoint (500 - may be execution error)"
+        test_failed "Expression Eval - POST endpoint (500 - may be execution error)"
     else
         test_passed "Expression Eval - POST endpoint (status $STATUS_CODE)"
     fi
@@ -279,7 +243,7 @@ EOF
 if "$KDEPS_BIN" validate "$HELPERS_DIR/workflow.yaml" &>/dev/null; then
     test_passed "Expression Helpers - helpers workflow validates"
 else
-    test_skipped "Expression Helpers - helpers workflow validates (validation failed)"
+    test_failed "Expression Helpers - helpers workflow validates (validation failed)"
 fi
 
 # Start helpers server
@@ -287,21 +251,8 @@ HELPERS_LOG=$(mktemp)
 timeout 15 "$KDEPS_BIN" run "$HELPERS_DIR" >"$HELPERS_LOG" 2>&1 &
 HELPERS_PID=$!
 
-sleep 3
-HELPERS_READY=false
 HELPERS_PORT=3101
-HWAITED=0
-while [ $HWAITED -lt 8 ]; do
-    if command -v lsof &>/dev/null && lsof -ti:"$HELPERS_PORT" &>/dev/null; then
-        HELPERS_READY=true; sleep 1; break
-    elif command -v netstat &>/dev/null && netstat -an 2>/dev/null | grep -q ":$HELPERS_PORT.*LISTEN"; then
-        HELPERS_READY=true; sleep 1; break
-    elif command -v ss &>/dev/null && ss -lnt 2>/dev/null | grep -q ":$HELPERS_PORT"; then
-        HELPERS_READY=true; sleep 1; break
-    fi
-    sleep 0.5
-    HWAITED=$((HWAITED + 1))
-done
+if wait_for_kdeps_port "$HELPERS_PORT" 20; then HELPERS_READY=true; else HELPERS_READY=false; fi
 
 if [ "$HELPERS_READY" = true ] && command -v curl &>/dev/null && command -v jq &>/dev/null; then
     RESP=$(curl -sf -X POST "http://127.0.0.1:$HELPERS_PORT/helpers" \
@@ -319,7 +270,7 @@ if [ "$HELPERS_READY" = true ] && command -v curl &>/dev/null && command -v jq &
         elif [ -n "$ENCODED" ]; then
             test_passed "Expression Helpers - urlencode returns value: $ENCODED"
         else
-            test_skipped "Expression Helpers - urlencode (empty response field)"
+            test_failed "Expression Helpers - urlencode (empty response field)"
         fi
 
         if [ "$TERNARY_T" = "yes" ]; then
@@ -327,7 +278,7 @@ if [ "$HELPERS_READY" = true ] && command -v curl &>/dev/null && command -v jq &
         elif [ -n "$TERNARY_T" ]; then
             test_passed "Expression Helpers - ternary true present: $TERNARY_T"
         else
-            test_skipped "Expression Helpers - ternary true branch (empty)"
+            test_failed "Expression Helpers - ternary true branch (empty)"
         fi
 
         if [ "$TERNARY_F" = "no" ]; then
@@ -335,13 +286,13 @@ if [ "$HELPERS_READY" = true ] && command -v curl &>/dev/null && command -v jq &
         elif [ -n "$TERNARY_F" ]; then
             test_passed "Expression Helpers - ternary false present: $TERNARY_F"
         else
-            test_skipped "Expression Helpers - ternary false branch (empty)"
+            test_failed "Expression Helpers - ternary false branch (empty)"
         fi
     else
-        test_skipped "Expression Helpers - runtime test (no response from server)"
+        test_failed "Expression Helpers - runtime test (no response from server)"
     fi
 else
-    test_skipped "Expression Helpers - runtime tests (server not ready or curl/jq missing)"
+    test_failed "Expression Helpers - runtime tests (server not ready or curl/jq missing)"
 fi
 
 kill "$HELPERS_PID" 2>/dev/null || true

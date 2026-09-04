@@ -219,6 +219,132 @@ skip_or_fail_llm() {
 }
 export -f llm_server_crashed skip_or_fail_llm
 
+# Windows timeout.exe is a sleep command ("Press any key to continue"). It must
+# never wrap kdeps. Install a bash watchdog on Windows; on macOS use gtimeout
+# when GNU timeout is missing.
+_kdeps_timeout_shim() {
+    local secs="$1"; shift
+    "$@" &
+    local pid=$!
+    (
+        sleep "$secs"
+        kill "$pid" 2>/dev/null || true
+    ) &
+    local wdog=$!
+    trap 'kill "$pid" "$wdog" 2>/dev/null || true' EXIT TERM INT
+    wait "$pid"
+    local rc=$?
+    kill "$wdog" 2>/dev/null || true
+    wait "$wdog" 2>/dev/null || true
+    trap - EXIT TERM INT
+    return $rc
+}
+case "$(uname -s)" in
+    MINGW*|MSYS*|CYGWIN*)
+        timeout() { _kdeps_timeout_shim "$@"; }
+        export -f timeout _kdeps_timeout_shim
+        ;;
+    Darwin)
+        if command -v gtimeout >/dev/null 2>&1; then
+            timeout() { gtimeout "$@"; }
+            export -f timeout
+        elif ! command -v timeout >/dev/null 2>&1; then
+            timeout() { _kdeps_timeout_shim "$@"; }
+            export -f timeout _kdeps_timeout_shim
+        fi
+        ;;
+esac
+
+# HTTP status code for URL, or 000 if the connection failed. Any other code
+# (including 401/404/500) means a server is bound and answering.
+# curl writes "000" and exits non-zero on connect failure -- do not append
+# another 000 via `|| echo`, or waiters treat "000000" as a live server.
+http_status() {
+    local code
+    code=$(command curl -s -o /dev/null -w "%{http_code}" --connect-timeout 1 --max-time 2 "$1" 2>/dev/null || true)
+    case "$code" in
+        [1-5][0-9][0-9]) printf '%s\n' "$code" ;;
+        *) printf '%s\n' "000" ;;
+    esac
+}
+
+# wait_for_http URL [timeout_seconds]
+# Returns 0 once the URL answers with any status other than 000.
+wait_for_http() {
+    local url="$1"
+    local timeout_s="${2:-15}"
+    local i code
+    for i in $(seq 1 "$timeout_s"); do
+        code=$(http_status "$url")
+        if [ "$code" != "000" ] && [ -n "$code" ]; then
+            return 0
+        fi
+        sleep 1
+    done
+    return 1
+}
+
+# wait_for_kdeps_port PORT [timeout_seconds]
+# Polls /health then /. lsof/ss are missing on Windows GitHub runners, so HTTP
+# is the only portable readiness check.
+wait_for_kdeps_port() {
+    local port="$1"
+    local timeout_s="${2:-20}"
+    local i code
+    for i in $(seq 1 "$timeout_s"); do
+        code=$(http_status "http://127.0.0.1:${port}/health")
+        if [ "$code" != "000" ] && [ -n "$code" ]; then
+            return 0
+        fi
+        code=$(http_status "http://127.0.0.1:${port}/")
+        if [ "$code" != "000" ] && [ -n "$code" ]; then
+            return 0
+        fi
+        sleep 1
+    done
+    return 1
+}
+
+# llm_env_blocker TEXT
+# True when TEXT is a missing/crashed LLM backend (skip), not a product bug (fail).
+llm_env_blocker() {
+    local text="${1:-}"
+    llm_server_crashed "$text" && return 0
+    grep -qiE "ollama.*(connection refused|not running|no such host|dial tcp)|cannot connect to .*ollama|connection refused.*11434|11434.*connection refused|dial tcp[^[:space:]]*:11434" <<< "$text" && return 0
+    grep -qiE "(OPENAI_API_KEY|ANTHROPIC_API_KEY|GROQ_API_KEY|M365_[A-Z_]*KEY|api[_ ]?key).*(not set|required|missing|invalid)|unauthorized.*api.?key" <<< "$text" && return 0
+    grep -qiE "model .* not (found|cached|available)|failed to (download|resolve|pull) model|no such file or directory.*\.(gguf|llamafile)\b" <<< "$text" && return 0
+    return 1
+}
+
+# fail_server_startup LABEL LOGFILE
+# Server never became reachable. Skip only for a missing LLM backend; otherwise
+# fail and dump the log. Non-LLM workflows must not hide bind/crash bugs as skips.
+fail_server_startup() {
+    local label="$1"
+    local log="${2:-}"
+    local text=""
+    if [ -n "$log" ] && [ -f "$log" ]; then
+        text=$(cat "$log" 2>/dev/null || true)
+    fi
+    if llm_env_blocker "$text"; then
+        test_skipped "$label (LLM backend unavailable in this environment)"
+        if [ -n "$text" ]; then
+            echo "$text" | tail -20 | sed 's/^/  /'
+        fi
+        return 0
+    fi
+    test_failed "$label" "server did not start"
+    if [ -n "$text" ]; then
+        echo "  --- server log (tail) ---"
+        echo "$text" | tail -40 | sed 's/^/  /'
+        echo "  --- end log ---"
+    else
+        echo "  (no server log)"
+    fi
+}
+
+export -f http_status wait_for_http wait_for_kdeps_port llm_env_blocker fail_server_startup
+
 # Test helper functions
 test_passed() {
     echo -e "${GREEN}✓ PASSED:${NC} $1"

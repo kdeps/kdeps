@@ -72,28 +72,13 @@ SERVER_LOG=$(mktemp)
 "$KDEPS_BIN" run "$EXAMPLE_DIR" >"$SERVER_LOG" 2>&1 &
 SERVER_PID=$!
 
-sleep 3
-MAX_WAIT=10
-WAITED=0
-SERVER_READY=false
-
-while [ $WAITED -lt $MAX_WAIT ]; do
-    if command -v lsof &>/dev/null && lsof -ti:"$PORT" &>/dev/null; then
-        SERVER_READY=true; sleep 1; break
-    elif command -v netstat &>/dev/null && netstat -an 2>/dev/null | grep -q ":$PORT.*LISTEN"; then
-        SERVER_READY=true; sleep 1; break
-    elif command -v ss &>/dev/null && ss -lnt 2>/dev/null | grep -q ":$PORT"; then
-        SERVER_READY=true; sleep 1; break
-    fi
-    sleep 0.5
-    WAITED=$((WAITED + 1))
-done
+if ! wait_for_kdeps_port "$PORT" 20; then SERVER_READY=false; else SERVER_READY=true; fi
 
 if [ "$SERVER_READY" = false ]; then
+    fail_server_startup "fformat - server startup (port $PORT did not open)" "$SERVER_LOG"
     kill "$SERVER_PID" 2>/dev/null || true
     wait "$SERVER_PID" 2>/dev/null || true
     rm -f "$SERVER_LOG"
-    test_skipped "fformat - server startup (port $PORT did not open)"
     echo ""
     return 0 2>/dev/null || exit 0
 fi
@@ -108,7 +93,7 @@ if command -v curl &>/dev/null; then
     if [ "$STATUS" = "200" ]; then
         test_passed "fformat - JSON validate endpoint returns 200"
     else
-        test_skipped "fformat - JSON validate (status $STATUS)"
+        test_failed "fformat - JSON validate (status $STATUS)"
     fi
 
     # Test 5: Invalid JSON - should still return 200 with valid=false in body
@@ -118,7 +103,7 @@ if command -v curl &>/dev/null; then
     if [ "$STATUS" = "200" ]; then
         test_passed "fformat - invalid JSON validate returns 200 with error info"
     else
-        test_skipped "fformat - invalid JSON validate (status $STATUS)"
+        test_failed "fformat - invalid JSON validate (status $STATUS)"
     fi
 
     # Test 6: GET on POST-only route should fail
@@ -126,7 +111,7 @@ if command -v curl &>/dev/null; then
     if [ "$STATUS" = "405" ] || [ "$STATUS" = "404" ] || [ "$STATUS" = "400" ]; then
         test_passed "fformat - GET on POST-only route returns error ($STATUS)"
     else
-        test_skipped "fformat - GET method restriction (status $STATUS)"
+        test_failed "fformat - GET method restriction (status $STATUS)"
     fi
 else
     test_skipped "fformat - endpoint tests (curl not available)"

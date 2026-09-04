@@ -93,40 +93,15 @@ SERVER_LOG=$(mktemp)
 timeout 15 "$KDEPS_BIN" run "$WORKFLOW_FILE" > "$SERVER_LOG" 2>&1 &
 SERVER_PID=$!
 
-sleep 4
-MAX_WAIT=8
-WAITED=0
-SERVER_READY=false
 PORT=3030
-
-while [ $WAITED -lt $MAX_WAIT ]; do
-    if command -v lsof &> /dev/null; then
-        if lsof -ti:$PORT &> /dev/null; then
-            SERVER_READY=true
-            sleep 1
-            break
-        fi
-    elif command -v netstat &> /dev/null; then
-        if netstat -an 2>/dev/null | grep -q ":$PORT.*LISTEN"; then
-            SERVER_READY=true
-            sleep 1
-            break
-        fi
-    else
-        sleep 2
-        SERVER_READY=true
-        break
-    fi
-    sleep 0.5
-    WAITED=$((WAITED + 1))
-done
+if ! wait_for_kdeps_port "$PORT" 20; then SERVER_READY=false; else SERVER_READY=true; fi
 
 if [ "$SERVER_READY" = false ]; then
+    fail_server_startup "Session - Server startup" "$SERVER_LOG"
     kill $SERVER_PID 2>/dev/null || true
     wait $SERVER_PID 2>/dev/null || true
     rm -f "$SERVER_LOG"
     rm -rf "$TEST_DIR"
-    test_skipped "Session - Server startup" "Server did not start"
     return 0
 fi
 
@@ -196,7 +171,7 @@ if command -v curl &> /dev/null; then
             test_skipped "Session - Session cookie (cookie file not created by curl)"
         fi
     elif [ "$STATUS_CODE" = "500" ]; then
-        test_skipped "Session - First request (500 - may be execution error)"
+        test_failed "Session - First request (500 - may be execution error)"
     else
         test_passed "Session - First request (status $STATUS_CODE)"
     fi

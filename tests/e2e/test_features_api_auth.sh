@@ -91,24 +91,14 @@ SERVER_LOG=$(mktemp)
 KDEPS_API_AUTH_TOKEN="${KDEPS_API_AUTH_TOKEN}" timeout 15 "$KDEPS_BIN" run "$WORKFLOW_FILE" > "$SERVER_LOG" 2>&1 &
 SERVER_PID=$!
 
-sleep 4
-SERVER_READY=false
-WAITED=0
-while [ $WAITED -lt 8 ]; do
-    if command -v lsof &> /dev/null && lsof -ti:"$PORT" &> /dev/null; then
-        SERVER_READY=true
-        break
-    fi
-    sleep 0.5
-    WAITED=$((WAITED + 1))
-done
+if ! wait_for_kdeps_port "$PORT" 20; then SERVER_READY=false; else SERVER_READY=true; fi
 
 if [ "$SERVER_READY" = false ]; then
+    fail_server_startup "API Auth - Server startup" "$SERVER_LOG"
     kill "$SERVER_PID" 2>/dev/null || true
     wait "$SERVER_PID" 2>/dev/null || true
     rm -f "$SERVER_LOG"
     rm -rf "$TEST_DIR"
-    test_skipped "API Auth - Server startup" "Server did not start on port $PORT"
     return 0
 fi
 test_passed "API Auth - Server startup with token"

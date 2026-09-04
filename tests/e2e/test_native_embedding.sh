@@ -71,7 +71,7 @@ YAML
     if result=$(timeout 30 "$KDEPS_BIN" run "$pkg_dir" 2>&1); then
         test_passed "native embedding - index operation"
     else
-        test_skipped "native embedding - index operation (run failed)"
+        test_failed "native embedding - index operation (run failed)" "${result:-}"
     fi
 }
 
@@ -108,7 +108,7 @@ YAML
     if result=$(timeout 30 "$KDEPS_BIN" run "$pkg_dir" 2>&1); then
         test_passed "native embedding - search operation"
     else
-        test_skipped "native embedding - search operation (run failed)"
+        test_failed "native embedding - search operation (run failed)" "${result:-}"
     fi
 }
 
@@ -146,7 +146,7 @@ YAML
     if result=$(timeout 30 "$KDEPS_BIN" run "$pkg_dir" 2>&1); then
         test_passed "native embedding - upsert operation"
     else
-        test_skipped "native embedding - upsert operation (run failed)"
+        test_failed "native embedding - upsert operation (run failed)" "${result:-}"
     fi
 }
 
@@ -184,7 +184,7 @@ YAML
     if result=$(timeout 30 "$KDEPS_BIN" run "$pkg_dir" 2>&1); then
         test_passed "native embedding - delete operation"
     else
-        test_skipped "native embedding - delete operation (run failed)"
+        test_failed "native embedding - delete operation (run failed)" "${result:-}"
     fi
 }
 

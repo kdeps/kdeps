@@ -73,7 +73,7 @@ if grep -q "sqlConnections:" "$WORKFLOW_PATH"; then
         test_passed "SQL Advanced - SQL connections defined ($CONN_COUNT found)"
     fi
 else
-    test_skipped "SQL Advanced - SQL connections configured"
+    test_failed "SQL Advanced - SQL connections configured" "sqlConnections missing from workflow"
 fi
 
 # Test 4: Start server against a throwaway SQLite DB instead of the
@@ -114,41 +114,16 @@ KDEPS_SQL_CONNECTIONS_ANALYTICS_CONNECTION="sqlite://$SQL_ADVANCED_DB" \
 SERVER_PID=$!
 
 # Wait for server to start
-sleep 3
-MAX_WAIT=5
-WAITED=0
-SERVER_READY=false
-
-while [ $WAITED -lt $MAX_WAIT ]; do
-    if command -v lsof &> /dev/null; then
-        if lsof -ti:$PORT &> /dev/null; then
-            SERVER_READY=true
-            sleep 1
-            break
-        fi
-    elif command -v netstat &> /dev/null; then
-        if netstat -an 2>/dev/null | grep -q ":$PORT.*LISTEN"; then
-            SERVER_READY=true
-            sleep 1
-            break
-        fi
-    else
-        sleep 2
-        SERVER_READY=true
-        break
-    fi
-    sleep 0.5
-    WAITED=$((WAITED + 1))
-done
+if ! wait_for_kdeps_port "$PORT" 20; then SERVER_READY=false; else SERVER_READY=true; fi
 
 # Check server log for errors
 if grep -qi "failed to parse\|validation failed\|syntax error" "$SERVER_LOG" 2>/dev/null && \
    ! grep -qi "connection\|database\|sql" "$SERVER_LOG" 2>/dev/null; then
+    fail_server_startup "SQL Advanced - Server startup" "$SERVER_LOG"
     kill $SERVER_PID 2>/dev/null || true
     wait $SERVER_PID 2>/dev/null || true
     rm -f "$SERVER_LOG"
     rm -rf "$SQL_ADVANCED_DB_DIR"
-    test_skipped "SQL Advanced - Server startup" "Workflow parsing failed"
     return 0
 fi
 
@@ -211,7 +186,7 @@ if [ "$SERVER_READY" = true ]; then
                 if echo "$JSON_BODY" | jq 'has("error")' 2>/dev/null | grep -q 'true'; then
                     test_passed "SQL Advanced - GET response structure (error format present)"
                 else
-                    test_skipped "SQL Advanced - GET response structure (unexpected format - may be error)"
+                    test_failed "SQL Advanced - GET response structure (unexpected format - may be error)"
                 fi
             fi
         else
@@ -226,7 +201,7 @@ if [ "$SERVER_READY" = true ]; then
         fi
     elif [ "$STATUS_CODE" = "500" ]; then
         # 500 is expected if database is not available
-        test_skipped "SQL Advanced - GET endpoint (500 - database connection required)"
+        test_failed "SQL Advanced - GET endpoint (500 - database connection required)"
     else
         test_passed "SQL Advanced - GET endpoint (status $STATUS_CODE)"
     fi
@@ -271,7 +246,7 @@ if [ "$SERVER_READY" = true ]; then
                             test_passed "SQL Advanced - POST response structure (batch_results is array)"
                         fi
                     else
-                        test_skipped "SQL Advanced - POST response structure (missing some fields in data)"
+                        test_failed "SQL Advanced - POST response structure (missing some fields in data)"
                     fi
                     
                     # Check for meta field
@@ -283,7 +258,7 @@ if [ "$SERVER_READY" = true ]; then
                     if echo "$POST_JSON_BODY" | jq 'has("error")' 2>/dev/null | grep -q 'true'; then
                         test_passed "SQL Advanced - POST response structure (error format present)"
                     else
-                        test_skipped "SQL Advanced - POST response structure (unexpected format - may be error)"
+                        test_failed "SQL Advanced - POST response structure (unexpected format - may be error)"
                     fi
                 fi
             else
@@ -297,7 +272,7 @@ if [ "$SERVER_READY" = true ]; then
                 fi
             fi
         elif [ "$POST_STATUS" = "500" ]; then
-            test_skipped "SQL Advanced - POST endpoint (500 - database connection required)"
+            test_failed "SQL Advanced - POST endpoint (500 - database connection required)"
         fi
     fi
     fi
@@ -307,9 +282,9 @@ if [ "$SERVER_READY" = true ]; then
 else
     # Server didn't start - check if it's a DB issue
     if grep -qi "connection\|database\|sql\|postgres\|mysql" "$SERVER_LOG" 2>/dev/null; then
-        test_skipped "SQL Advanced - Server startup (database connection required)"
+        fail_server_startup "SQL Advanced - Server startup (database connection required)" "$SERVER_LOG"
     else
-        test_skipped "SQL Advanced - Server startup (unknown issue)"
+        fail_server_startup "SQL Advanced - Server startup (unknown issue)" "$SERVER_LOG"
     fi
 fi
 

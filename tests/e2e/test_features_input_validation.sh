@@ -85,29 +85,14 @@ SERVER_LOG=$(mktemp)
 timeout 30 "$KDEPS_BIN" run "$WORKFLOW_FILE" > "$SERVER_LOG" 2>&1 &
 SERVER_PID=$!
 
-sleep 3
-MAX_WAIT=10
-WAITED=0
-SERVER_READY=false
-
-while [ $WAITED -lt $MAX_WAIT ]; do
-    if command -v lsof &> /dev/null && lsof -ti:$PORT &> /dev/null 2>&1; then
-        SERVER_READY=true; sleep 1; break
-    elif command -v ss &> /dev/null && ss -lnt 2>/dev/null | grep -q ":$PORT "; then
-        SERVER_READY=true; sleep 1; break
-    elif command -v netstat &> /dev/null && netstat -an 2>/dev/null | grep -q ":$PORT.*LISTEN"; then
-        SERVER_READY=true; sleep 1; break
-    fi
-    sleep 0.5
-    WAITED=$((WAITED + 1))
-done
+if ! wait_for_kdeps_port "$PORT" 20; then SERVER_READY=false; else SERVER_READY=true; fi
 
 if [ "$SERVER_READY" = false ]; then
+    fail_server_startup "Input Validation - Server startup (server did not start)" "$SERVER_LOG"
     kill $SERVER_PID 2>/dev/null || true
     wait $SERVER_PID 2>/dev/null || true
     rm -f "$SERVER_LOG"
     rm -rf "$TEST_DIR"
-    test_skipped "Input Validation - Server startup (server did not start)"
     return 0
 fi
 
@@ -122,7 +107,7 @@ if command -v curl &> /dev/null; then
     if [ "$STATUS" = "200" ] || [ "$STATUS" = "500" ]; then
         test_passed "Input Validation - POST with payload (responded)"
     else
-        test_skipped "Input Validation - POST with payload (status $STATUS)"
+        test_failed "Input Validation - POST with payload (status $STATUS)"
     fi
 
     # Test 4: GET should be rejected (method restriction)
@@ -132,7 +117,7 @@ if command -v curl &> /dev/null; then
     if [ "$STATUS2" = "405" ] || [ "$STATUS2" = "400" ] || [ "$STATUS2" = "404" ]; then
         test_passed "Input Validation - GET rejected (method restriction working)"
     else
-        test_skipped "Input Validation - GET rejected (status $STATUS2)"
+        test_failed "Input Validation - GET rejected (status $STATUS2)"
     fi
 else
     test_skipped "Input Validation - HTTP tests (curl not available)"

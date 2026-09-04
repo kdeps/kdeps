@@ -36,19 +36,12 @@ fi
 SERVER_LOG=$(mktemp)
 timeout 30 "$KDEPS_BIN" run "$WORKFLOW_PATH" > "$SERVER_LOG" 2>&1 &
 SERVER_PID=$!
-sleep 3; MAX_WAIT=10; WAITED=0; SERVER_READY=false
-while [ $WAITED -lt $MAX_WAIT ]; do
-    if command -v lsof &> /dev/null && lsof -ti:$PORT &> /dev/null 2>&1; then
-        SERVER_READY=true; sleep 1; break
-    elif command -v ss &> /dev/null && ss -lnt 2>/dev/null | grep -q ":$PORT "; then
-        SERVER_READY=true; sleep 1; break
-    fi
-    sleep 0.5; WAITED=$((WAITED + 1))
-done
+if ! wait_for_kdeps_port "$PORT" 20; then SERVER_READY=false; else SERVER_READY=true; fi
 
 if [ "$SERVER_READY" = false ]; then
+    fail_server_startup "Optional Braces - Server startup (server did not start)" "$SERVER_LOG"
     kill $SERVER_PID 2>/dev/null || true; wait $SERVER_PID 2>/dev/null || true; rm -f "$SERVER_LOG"
-    test_skipped "Optional Braces - Server startup (server did not start)"; return 0
+    return 0
 fi
 test_passed "Optional Braces - Server startup"
 
@@ -58,7 +51,7 @@ if command -v curl &> /dev/null; then
     if [ "$STATUS" = "200" ] || [ "$STATUS" = "500" ]; then
         test_passed "Optional Braces - GET /api/demo (responded)"
     else
-        test_skipped "Optional Braces - GET /api/demo (status $STATUS)"
+        test_failed "Optional Braces - GET /api/demo (status $STATUS)"
     fi
 fi
 

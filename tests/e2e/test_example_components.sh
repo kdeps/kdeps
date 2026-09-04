@@ -366,7 +366,7 @@ YAML
         test_failed "memory component - store operation runs without fatal error" \
             "$(echo "$RUN_OUT" | grep -iE "component.*not found|failed.*memory" | head -2)"
     else
-        test_skipped "memory component - store operation (output inconclusive)"
+        test_failed "memory component - store operation (output inconclusive)"
     fi
     rm -rf "$TMP_MEM_PROJ"
 else
@@ -407,7 +407,7 @@ YAML
     elif output_grep_i "component.*not found" "$RUN_OUT"; then
         test_failed "search-local component - runs without fatal error" "Component not found"
     else
-        test_skipped "search-local component - runtime (output inconclusive)"
+        test_failed "search-local component - runtime (output inconclusive)"
     fi
     rm -rf "$TMP_SL_PROJ"
 else
@@ -448,7 +448,7 @@ YAML
     elif output_grep_i "do-scrape|completed|result" "$RUN_OUT"; then
         test_passed "scraper component - runs against local mock server"
     else
-        test_skipped "scraper component - mock HTTP run (output inconclusive)"
+        test_failed "scraper component - mock HTTP run (output inconclusive)"
     fi
     rm -rf "$TMP_SCRAPER"
 else
@@ -522,7 +522,7 @@ YAML
     if output_grep_i "generate-pdf|do-pdf|completed|generated" "$RUN_OUT"; then
         test_passed "pdf component - generate-pdf runs with pdfkit+wkhtmltopdf"
     else
-        test_skipped "pdf component - pdfkit runtime (output inconclusive)"
+        test_failed "pdf component - pdfkit runtime (output inconclusive)"
     fi
     rm -rf "$TMP_PDF"
 else
@@ -614,7 +614,7 @@ if output_grep_i "fatal|no model configured" "$AP_OUT"; then
 elif [ -n "$AP_OUT" ]; then
     test_passed "autopilot component - runs against local LLM backend"
 else
-    test_skipped "autopilot component - runtime test (empty output)"
+    test_failed "autopilot component - runtime test (empty output)"
 fi
 rm -rf "$TMP_AP"
 
@@ -658,7 +658,7 @@ http.server.HTTPServer(('127.0.0.1', $RA_PORT), H).serve_forever()
     elif output_grep_i "mock-remoteagent-ok|use-remoteagent|completed" "$RUN_OUT"; then
         test_passed "remoteagent component - runs against local mock server"
     else
-        test_skipped "remoteagent component - mock HTTP run (output inconclusive)"
+        test_failed "remoteagent component - mock HTTP run (output inconclusive)"
     fi
     rm -rf "$TMP_RA"
 else

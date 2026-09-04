@@ -103,10 +103,10 @@ YAML
         if output_grep_fixed "scraper-ok" "$result"; then
             test_passed "native scraper - plain text fetch"
         else
-            test_skipped "native scraper - plain text fetch (output format mismatch, may need server mode)"
+            test_failed "native scraper - plain text fetch (output format mismatch, may need server mode)"
         fi
     else
-        test_skipped "native scraper - plain text fetch (run failed, may need full server environment)"
+        test_failed "native scraper - plain text fetch (run failed, may need full server environment)" "${result:-}"
     fi
 
     stop_server
@@ -146,10 +146,10 @@ YAML
         if output_grep_fixed "scraper-ok" "$result"; then
             test_passed "native scraper - CSS selector"
         else
-            test_skipped "native scraper - CSS selector (output format mismatch)"
+            test_failed "native scraper - CSS selector (output format mismatch)"
         fi
     else
-        test_skipped "native scraper - CSS selector (run failed)"
+        test_failed "native scraper - CSS selector (run failed)" "${result:-}"
     fi
 
     stop_server

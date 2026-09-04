@@ -113,7 +113,7 @@ if $SERVER_READY; then
         test_failed "Agency - Greeter returns responder response" "Unexpected response: $RESPONSE"
     fi
 else
-    test_skipped "Agency - Server start (could not connect to port $PORT within 15s)"
+    fail_server_startup "Agency - Server start (could not connect to port $PORT within 15s)" "$SERVER_LOG"
 fi
 
 # Cleanup: stop the server.

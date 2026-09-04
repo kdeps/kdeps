@@ -85,38 +85,13 @@ timeout 180 "$KDEPS_BIN" run "$WORKFLOW_PATH" > "$SERVER_LOG" 2>&1 &
 SERVER_PID=$!
 
 # Wait for server to start
-sleep 3
-MAX_WAIT=10
-WAITED=0
-SERVER_READY=false
-
-while [ $WAITED -lt $MAX_WAIT ]; do
-    if command -v lsof &> /dev/null; then
-        if lsof -ti:$API_PORT &> /dev/null; then
-            SERVER_READY=true
-            sleep 1
-            break
-        fi
-    elif command -v netstat &> /dev/null; then
-        if netstat -an 2>/dev/null | grep -q ":$API_PORT.*LISTEN"; then
-            SERVER_READY=true
-            sleep 1
-            break
-        fi
-    else
-        sleep 2
-        SERVER_READY=true
-        break
-    fi
-    sleep 0.5
-    WAITED=$((WAITED + 1))
-done
+if ! wait_for_kdeps_port "$API_PORT" 20; then SERVER_READY=false; else SERVER_READY=true; fi
 
 if [ "$SERVER_READY" = false ]; then
+    fail_server_startup "ChatGPT Clone - Server startup" "$SERVER_LOG"
     kill $SERVER_PID 2>/dev/null || true
     wait $SERVER_PID 2>/dev/null || true
     rm -f "$SERVER_LOG"
-    test_skipped "ChatGPT Clone - Server startup" "Server did not start"
     return 0
 fi
 
@@ -227,9 +202,9 @@ if command -v curl &> /dev/null; then
             test_skipped "ChatGPT Clone - Validation (message not strictly required)"
         fi
     elif [ "$STATUS_CODE" = "000" ]; then
-        test_skipped "ChatGPT Clone - Validation test (timeout)"
+        test_failed "ChatGPT Clone - Validation test (timeout)"
     else
-        test_skipped "ChatGPT Clone - Validation (status $STATUS_CODE)"
+        test_failed "ChatGPT Clone - Validation (status $STATUS_CODE)"
     fi
 fi
 
@@ -246,9 +221,9 @@ if command -v curl &> /dev/null; then
     if [ "$STATUS_CODE" = "405" ] || [ "$STATUS_CODE" = "400" ] || [ "$STATUS_CODE" = "404" ]; then
         test_passed "ChatGPT Clone - GET on chat endpoint rejected ($STATUS_CODE)"
     elif [ "$STATUS_CODE" = "000" ]; then
-        test_skipped "ChatGPT Clone - GET on chat endpoint (timeout)"
+        test_failed "ChatGPT Clone - GET on chat endpoint (timeout)"
     else
-        test_skipped "ChatGPT Clone - GET on chat endpoint (status $STATUS_CODE)"
+        test_failed "ChatGPT Clone - GET on chat endpoint (status $STATUS_CODE)"
     fi
 fi
 
@@ -267,9 +242,9 @@ if command -v curl &> /dev/null; then
     if [ "$STATUS_CODE" = "405" ] || [ "$STATUS_CODE" = "400" ] || [ "$STATUS_CODE" = "404" ]; then
         test_passed "ChatGPT Clone - POST on models endpoint rejected ($STATUS_CODE)"
     elif [ "$STATUS_CODE" = "000" ]; then
-        test_skipped "ChatGPT Clone - POST on models endpoint (timeout)"
+        test_failed "ChatGPT Clone - POST on models endpoint (timeout)"
     else
-        test_skipped "ChatGPT Clone - POST on models endpoint (status $STATUS_CODE)"
+        test_failed "ChatGPT Clone - POST on models endpoint (status $STATUS_CODE)"
     fi
 fi
 

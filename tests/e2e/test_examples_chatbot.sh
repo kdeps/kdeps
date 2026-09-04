@@ -59,38 +59,13 @@ timeout 30 "$KDEPS_BIN" run "$WORKFLOW_PATH" > "$SERVER_LOG" 2>&1 &
 SERVER_PID=$!
 
 # Wait for server to start
-sleep 3
-MAX_WAIT=5
-WAITED=0
-SERVER_READY=false
-
-while [ $WAITED -lt $MAX_WAIT ]; do
-    if command -v lsof &> /dev/null; then
-        if lsof -ti:$PORT &> /dev/null; then
-            SERVER_READY=true
-            sleep 1
-            break
-        fi
-    elif command -v netstat &> /dev/null; then
-        if netstat -an 2>/dev/null | grep -q ":$PORT.*LISTEN"; then
-            SERVER_READY=true
-            sleep 1
-            break
-        fi
-    else
-        sleep 2
-        SERVER_READY=true
-        break
-    fi
-    sleep 0.5
-    WAITED=$((WAITED + 1))
-done
+if ! wait_for_kdeps_port "$PORT" 20; then SERVER_READY=false; else SERVER_READY=true; fi
 
 if [ "$SERVER_READY" = false ]; then
+    fail_server_startup "Chatbot - Server startup" "$SERVER_LOG"
     kill $SERVER_PID 2>/dev/null || true
     wait $SERVER_PID 2>/dev/null || true
     rm -f "$SERVER_LOG"
-    test_skipped "Chatbot - Server startup" "Server did not start"
     return 0
 fi
 
@@ -206,14 +181,14 @@ if command -v curl &> /dev/null; then
                         test_passed "Chatbot - Response structure (has error field)"
                     fi
                 else
-                    test_skipped "Chatbot - Response structure (unexpected format)"
+                    test_failed "Chatbot - Response structure (unexpected format)"
                 fi
             fi
         else
-            test_skipped "Chatbot - Response structure (no JSON found in response body)"
+            test_failed "Chatbot - Response structure (no JSON found in response body)"
         fi
     else
-        test_skipped "Chatbot - Response structure (empty response body)"
+        test_failed "Chatbot - Response structure (empty response body)"
     fi
 else
     test_skipped "Chatbot - POST endpoint (curl not available)"
@@ -229,7 +204,7 @@ if command -v curl &> /dev/null; then
     if [ "$STATUS_CODE" = "405" ] || [ "$STATUS_CODE" = "400" ] || [ "$STATUS_CODE" = "404" ]; then
         test_passed "Chatbot - GET endpoint rejected (method restriction working)"
     else
-        test_skipped "Chatbot - GET endpoint (status $STATUS_CODE)"
+        test_failed "Chatbot - GET endpoint (status $STATUS_CODE)"
     fi
 fi
 

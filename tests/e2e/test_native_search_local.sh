@@ -77,7 +77,7 @@ YAML
     if result=$(timeout 30 "$KDEPS_BIN" run "$pkg_dir" 2>&1); then
         test_passed "native searchLocal - glob filter"
     else
-        test_skipped "native searchLocal - glob filter (run failed)"
+        test_failed "native searchLocal - glob filter (run failed)" "${result:-}"
     fi
 }
 
@@ -112,7 +112,7 @@ YAML
     if result=$(timeout 30 "$KDEPS_BIN" run "$pkg_dir" 2>&1); then
         test_passed "native searchLocal - keyword filter"
     else
-        test_skipped "native searchLocal - keyword filter (run failed)"
+        test_failed "native searchLocal - keyword filter (run failed)" "${result:-}"
     fi
 }
 
@@ -148,7 +148,7 @@ YAML
     if result=$(timeout 30 "$KDEPS_BIN" run "$pkg_dir" 2>&1); then
         test_passed "native searchLocal - glob and keyword combined"
     else
-        test_skipped "native searchLocal - glob and keyword combined (run failed)"
+        test_failed "native searchLocal - glob and keyword combined (run failed)" "${result:-}"
     fi
 }
 

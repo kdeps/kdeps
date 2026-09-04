@@ -32,6 +32,7 @@ echo -e "${GREEN}Using kdeps binary: $KDEPS_BIN${NC}"
 echo ""
 
 # Run all test scenarios (source them so counters persist)
+source "$SCRIPT_DIR/test_e2e_helpers.sh"
 source "$SCRIPT_DIR/test_validation.sh"
 source "$SCRIPT_DIR/test_scaffolding.sh"
 source "$SCRIPT_DIR/test_packaging.sh"

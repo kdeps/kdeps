@@ -179,33 +179,13 @@ else
     KDEPS_DEFAULT_BACKEND=ollama KDEPS_DEFAULT_MODEL="$AVAILABLE_MODEL" timeout 120 "$KDEPS_BIN" run "$WORKFLOW_PATH" > "$SERVER_LOG" 2>&1 &
     SERVER_PID=$!
     
-    # Wait for server to start
-    sleep 3
-    MAX_WAIT=10
-    WAITED=0
-    SERVER_READY=false
-    
-    while [ $WAITED -lt $MAX_WAIT ]; do
-        if curl -s --connect-timeout 2 "http://127.0.0.1:$PORT/health" > /dev/null 2>&1; then
-            SERVER_READY=true
-            break
-        fi
-        if command -v lsof &> /dev/null; then
-            if lsof -ti:$PORT &> /dev/null; then
-                SERVER_READY=true
-                sleep 1
-                break
-            fi
-        fi
-        sleep 0.5
-        WAITED=$((WAITED + 1))
-    done
+    if wait_for_kdeps_port "$PORT" 20; then SERVER_READY=true; else SERVER_READY=false; fi
     
     if [ "$SERVER_READY" = false ]; then
+        fail_server_startup "Chatbot server - Server did not start" "$SERVER_LOG"
         kill $SERVER_PID 2>/dev/null || true
         wait $SERVER_PID 2>/dev/null || true
         rm -f "$SERVER_LOG"
-        test_skipped "Chatbot server - Server did not start"
     else
         test_passed "Chatbot server - Started successfully"
 

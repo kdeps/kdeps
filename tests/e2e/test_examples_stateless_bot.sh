@@ -46,6 +46,6 @@ if output_grep_i "fatal" "$RUN_OUT"; then
 elif output_grep_i "Resource completed" "$RUN_OUT"; then
     test_passed "Stateless Bot - Server test"
 else
-    test_skipped "Stateless Bot - Server test (unexpected output)"
+    skip_or_fail_llm "Stateless Bot - Server test (unexpected output)" "$RUN_OUT"
 fi
 echo ""

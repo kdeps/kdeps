@@ -110,24 +110,15 @@ cleanup() {
 }
 trap cleanup EXIT
 
-SERVER_READY=false
 # A fresh CI VM's first execution of a newly-built kdeps.exe can add several
 # seconds of one-time latency (Windows Defender real-time scan of a ~140MB
 # binary), on top of the ~10s a warm/cached run needs -- so this waits longer
 # than it looks like it should for the common case.
-MAX_WAIT=40
-WAITED=0
-
-BACKEND_READY=false
-BACKEND_WAIT=0
-while [ $BACKEND_WAIT -lt $MAX_WAIT ]; do
-    if curl -s --max-time 1 "http://127.0.0.1:${PORT_BACKEND}/data.json" >/dev/null 2>&1; then
-        BACKEND_READY=true
-        break
-    fi
-    sleep 0.5
-    BACKEND_WAIT=$((BACKEND_WAIT + 1))
-done
+if wait_for_http "http://127.0.0.1:${PORT_BACKEND}/data.json" 40; then
+    BACKEND_READY=true
+else
+    BACKEND_READY=false
+fi
 
 if [ "$BACKEND_READY" != "true" ]; then
     test_failed "HTTP client - backend readiness" "Backend did not start"
@@ -137,36 +128,14 @@ if [ "$BACKEND_READY" != "true" ]; then
     return 0
 fi
 
-while [ $WAITED -lt $MAX_WAIT ]; do
-    if curl -s --max-time 1 "http://127.0.0.1:${PORT_API}/api/fetch" >/dev/null 2>&1; then
-        SERVER_READY=true
-        break
-    fi
-    if command -v lsof &> /dev/null; then
-        if lsof -ti:"$PORT_API" &> /dev/null; then
-            SERVER_READY=true
-            break
-        fi
-    elif command -v netstat &> /dev/null; then
-        if netstat -an 2>/dev/null | grep -q ":$PORT_API.*LISTEN"; then
-            SERVER_READY=true
-            break
-        fi
-    elif command -v ss &> /dev/null; then
-        if ss -lnt 2>/dev/null | grep -q ":$PORT_API"; then
-            SERVER_READY=true
-            break
-        fi
-    else
-        SERVER_READY=true
-        break
-    fi
-    sleep 0.5
-    WAITED=$((WAITED + 1))
-done
+if wait_for_http "http://127.0.0.1:${PORT_API}/api/fetch" 40 || wait_for_kdeps_port "$PORT_API" 5; then
+    SERVER_READY=true
+else
+    SERVER_READY=false
+fi
 
 if [ "$SERVER_READY" != "true" ]; then
-    test_failed "HTTP client - server readiness" "Server did not start"
+    fail_server_startup "HTTP client - server readiness" "$KDEPS_LOG"
     echo ""
     return 0
 fi

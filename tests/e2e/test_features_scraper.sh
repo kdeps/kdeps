@@ -193,14 +193,7 @@ EOF
 "$KDEPS_BIN" run "$TEST_DIR/workflow.yaml" > "$LOG_FILE" 2>&1 &
 KDEPS_PID=$!
 
-KDEPS_STARTED=false
-for i in $(seq 1 30); do
-    if curl -sf --max-time 1 "http://127.0.0.1:${API_PORT}/health" > /dev/null 2>&1; then
-        KDEPS_STARTED=true
-        break
-    fi
-    sleep 0.5
-done
+if wait_for_kdeps_port "$API_PORT" 20; then KDEPS_STARTED=true; else KDEPS_STARTED=false; fi
 
 if [ "$KDEPS_STARTED" = false ]; then
     # Check if it failed due to missing Python packages (requests/bs4 not installed yet)
@@ -209,9 +202,7 @@ if [ "$KDEPS_STARTED" = false ]; then
         test_skipped "Scraper - HTML page scraping (requests/beautifulsoup4 not installed)"
         test_skipped "Scraper - CSS selector scraping (requests/beautifulsoup4 not installed)"
     else
-        test_skipped "Scraper - server failed to start"
-        test_skipped "Scraper - HTML page scraping"
-        test_skipped "Scraper - CSS selector scraping"
+        fail_server_startup "Scraper - server failed to start" "$LOG_FILE"
     fi
     rm -f "$HTTP_SERVER_SCRIPT"
     echo ""
