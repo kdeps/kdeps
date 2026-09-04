@@ -1,8 +1,17 @@
 # Quickstart
 
-Build a two-resource LLM API in workflow mode, then load the same file as a tool in agent mode.
+Build a two-resource LLM API in [workflow mode](/modes/workflow-mode), then load the same file as a tool in [agent mode](/modes/agent-loop-mode).
 
-*Applies to both workflow mode and agent mode.*
+*Applies to both workflow mode and agent mode. New to kdeps? Read [What is kdeps?](/getting-started/introduction) first.*
+
+## The mental model
+
+A **resource** is one step in its own YAML file (here: an LLM call, then a
+response). A **workflow** is a folder of resources plus a `workflow.yaml`
+manifest. Each resource names what it `requires:`, and kdeps runs the steps in
+that dependency order - a DAG. One step's output is read by the next with
+`get('<actionId>')`. That fixed order is what "workflow mode" means, and it is
+what you deploy.
 
 ## Overview
 

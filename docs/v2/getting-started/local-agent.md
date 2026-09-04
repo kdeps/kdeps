@@ -7,7 +7,7 @@ description: Install kdeps and start an AI agent REPL on your machine. No Docker
 
 kdeps ships as a standalone binary. Install it, run it, and you have an interactive AI agent running on your machine. No Docker. No config file. No API key required if you use a local model.
 
-*Applies to agent mode.*
+*Applies to [agent mode](/modes/agent-loop-mode) - the interactive LLM chat REPL. New to kdeps? Start with [What is kdeps?](/getting-started/introduction).*
 
 ## Install
 

@@ -9,14 +9,14 @@ hero:
   announcementLink: /getting-started/agent-skills
   actions:
     - theme: brand
-      text: Get started
-      link: /getting-started/local-agent
+      text: What is kdeps?
+      link: /getting-started/introduction
     - theme: brand
+      text: Run locally
+      link: /getting-started/local-agent
+    - theme: alt
       text: Build a workflow
       link: /getting-started/quickstart
-    - theme: alt
-      text: Why kdeps?
-      link: /concepts/why-kdeps
 
 features:
   - title: Local AI agent
