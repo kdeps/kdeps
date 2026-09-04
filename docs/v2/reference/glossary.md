@@ -7,7 +7,7 @@ mode and agent mode.
 | Term | Definition | More |
 | :--- | :--- | :--- |
 | <a id="actionid"></a>`actionId` | A unique string that identifies a resource within a workflow. Used as the target of `requires:` dependencies. In agent mode, resources are not exposed as tools; the whole workflow is the tool, named after `metadata.name`. | [Resources overview](/resources/overview) |
-| agent | An autonomous LLM-driven pipeline defined by `kind: Agent`. Has tools, memory, and multi-step reasoning. Run with `kdeps [path]`. | [Agent loop mode](/modes/agent-loop-mode) |
+| agent | An autonomous LLM-driven pipeline defined by `kind: Agent`. Has tools, memory, and multi-step reasoning. Run with `kdeps [path]`. | [Agent mode](/modes/agent-loop-mode) |
 | <a id="agency"></a>agency | Multiple agents composed into one system. One agent delegates a task to another via the `agent:` action type; the callee runs its full pipeline and returns its output. | [AI agencies](/concepts/agency) |
 | `apiResponse` | A resource action type that returns a structured JSON response to the client. Usually the terminal node of a workflow. | [API response](/resources/api-response) |
 | `before` / `after` | Expression blocks that run before or after a resource's main action. Used for data preparation, normalization, and validation. Statements execute in order. | [Expression blocks](/reference/expr-blocks) |

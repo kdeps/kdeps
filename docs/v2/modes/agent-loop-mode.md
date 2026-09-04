@@ -1,6 +1,6 @@
-# Agent loop mode
+# Agent mode
 
-Agent loop mode starts an interactive LLM REPL where whole workflows and components are registered as callable tools. The LLM decides which tool to invoke based on the user's prompt. Workflow tools run the full pipeline atomically so all `requires:` dependencies resolve correctly. This is **agent mode**; for the deterministic request/response pipeline, see [Workflow mode](/modes/workflow-mode).
+Agent mode starts an interactive LLM REPL where whole workflows and components are registered as callable tools. The LLM decides which tool to invoke based on the user's prompt. Workflow tools run the full pipeline atomically so all `requires:` dependencies resolve correctly. For the deterministic request/response pipeline instead, see [Workflow mode](/modes/workflow-mode).
 
 Running `kdeps` with no arguments starts a bare REPL with no workflow tools - built-in tools (web_search, bash_exec, file ops, memory, etc.) are still available. Pass a path to also load workflows and agencies as tools.
 
@@ -116,7 +116,7 @@ kdeps --resume abc123def456                      # resume a session
 
 ## Differences from workflow mode
 
-| | Workflow mode (`kdeps run`) | Agent loop mode (`kdeps [path]`) |
+| | Workflow mode (`kdeps run`) | Agent mode (`kdeps [path]`) |
 |--|-----------------------------|---------------------------------|
 | Execution | DAG, deterministic | LLM loop, tool-driven |
 | Entry point | `metadata.targetActionId` | User prompt |

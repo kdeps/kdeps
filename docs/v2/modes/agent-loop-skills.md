@@ -79,5 +79,5 @@ Duplicate content (by hash) is deduplicated. Total injected context is capped at
 ## See also
 
 - [Agent skills](/getting-started/agent-skills) - installing pre-built skill sets
-- [Agent loop mode](/modes/agent-loop-mode) - starting the loop
+- [Agent mode](/modes/agent-loop-mode) - starting the loop
 - [REPL slash commands](/modes/agent-loop-commands) - invoking skills and templates

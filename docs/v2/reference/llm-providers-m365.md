@@ -14,7 +14,7 @@ llm:
 There is no `api_key` field - authentication is a signed-in Microsoft 365
 account, not an API key.
 
-**Agent-loop mode (recommended): sign in through a real browser window.**
+**Agent mode (recommended): sign in through a real browser window.**
 The first time you pick an m365 model (`kdeps --model m365-copilot --backend
 m365`, or `/model m365-copilot` in the REPL) with no cached session yet,
 kdeps opens a visible Chrome window at the Microsoft login page and waits
@@ -104,4 +104,4 @@ OpenAI-compatible response for direct API use.
 ## See also
 
 - [LLM provider reference](/reference/llm-providers) - all other backends
-- [Agent loop mode](/modes/agent-loop-mode) - `/login` command and REPL usage
+- [Agent mode](/modes/agent-loop-mode) - `/login` command and REPL usage

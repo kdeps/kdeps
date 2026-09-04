@@ -173,7 +173,7 @@ The agent REPL starts. Type a prompt and the LLM calls your workflow tools as ne
 ## Next steps
 
 - [Workflow mode](/modes/workflow-mode) - how the DAG pipeline runs
-- [Agent loop mode](/modes/agent-loop-mode) - the interactive LLM loop
+- [Agent mode](/modes/agent-loop-mode) - the interactive LLM loop
 - [workflow.yaml reference](/configuration/workflow) - every field
 - [Resources overview](/resources/overview) - all resource types
 - [CLI reference](/reference/cli/) - all commands and flags

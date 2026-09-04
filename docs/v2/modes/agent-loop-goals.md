@@ -116,6 +116,6 @@ already done, and are reported as `[goal] web budget → 30`.
 
 ## See also
 
-- [Agent loop mode](/modes/agent-loop-mode) - overview and starting the REPL
+- [Agent mode](/modes/agent-loop-mode) - overview and starting the REPL
 - [Judge panel](/modes/agent-loop-judges) - reviews each turn's final output
 - [Agent registries](/modes/agent-loop-registries) - TaskRegistry/TeamRegistry tools for multi-agent coordination

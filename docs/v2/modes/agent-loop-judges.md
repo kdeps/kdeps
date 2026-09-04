@@ -91,6 +91,6 @@ needed:
 
 ## See also
 
-- [Agent loop mode](/modes/agent-loop-mode) - overview and starting the REPL
+- [Agent mode](/modes/agent-loop-mode) - overview and starting the REPL
 - [Goal-directed execution](/modes/agent-loop-goals) - the task cursor a judge's revision request feeds back into
 - [REPL slash commands](/modes/agent-loop-commands) - full command reference

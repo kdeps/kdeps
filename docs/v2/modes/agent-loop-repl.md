@@ -1,6 +1,6 @@
 # Agent loop REPL features
 
-Runtime behaviors of the interactive agent loop REPL - pasting, rendering, notifications, context size, sessions, and updates. This is **agent mode** only. For starting the loop and registering workflows as tools, see [Agent loop mode](/modes/agent-loop-mode); for the slash commands, see [REPL slash commands](/modes/agent-loop-commands).
+Runtime behaviors of the interactive agent loop REPL - pasting, rendering, notifications, context size, sessions, and updates. This is **agent mode** only. For starting the loop and registering workflows as tools, see [Agent mode](/modes/agent-loop-mode); for the slash commands, see [REPL slash commands](/modes/agent-loop-commands).
 
 ## Pasting
 
@@ -166,7 +166,7 @@ Nightly opt-in only works for a **standalone** install - Homebrew/.deb/.apk only
 
 ## See also
 
-- [Agent loop mode](/modes/agent-loop-mode) - starting the loop, tool registration
+- [Agent mode](/modes/agent-loop-mode) - starting the loop, tool registration
 - [REPL slash commands](/modes/agent-loop-commands) - the full command table
 - [Skills and prompt templates](/modes/agent-loop-skills) - context files that teach the agent
 - [Local model management](/modes/agent-loop-models) - `/model`, `/context`, running servers

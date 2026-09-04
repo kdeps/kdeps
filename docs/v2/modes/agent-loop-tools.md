@@ -199,7 +199,7 @@ These always-on tools invoke the corresponding kdeps executor directly:
 
 ## See also
 
-- [Agent loop mode](/modes/agent-loop-mode) - overview and starting the REPL
+- [Agent mode](/modes/agent-loop-mode) - overview and starting the REPL
 - [REPL slash commands](/modes/agent-loop-commands) - full command reference
 - [Shell execution](/modes/agent-loop-shell) - bash_exec keyboard shortcuts and rtk
 - [Tool execution monitoring](/modes/agent-loop-monitoring) - status lines and stall detection

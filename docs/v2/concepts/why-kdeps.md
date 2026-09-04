@@ -48,7 +48,7 @@ An LLM is probabilistic - ask Claude or GPT the same question twice and you can 
 
 If the input is wrong, the workflow fails fast with a clear error instead of hallucinating a response. Output is reproducible in structure, auditable, and safe to run unattended - that is what makes kdeps suitable for production, not just demos.
 
-Agent loop mode is the opposite: there the model decides which resources run and in what order.
+Agent mode is the opposite: there the model decides which resources run and in what order.
 
 ## Two modes, one workflow file
 

@@ -130,7 +130,7 @@ export default defineConfig({
           items: [
             { text: 'Concepts overview', link: '/concepts/overview' },
             { text: 'Workflow mode', link: '/modes/workflow-mode' },
-            { text: 'Agent loop mode', link: '/modes/agent-loop-mode' },
+            { text: 'Agent mode', link: '/modes/agent-loop-mode' },
             { text: 'Agencies', link: '/concepts/agency' },
             { text: 'Resources overview', link: '/resources/overview' },
             { text: 'Components', link: '/concepts/components' },
