@@ -21,7 +21,6 @@
 package cmd
 
 import (
-	"context"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -30,7 +29,6 @@ import (
 
 	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
 	"github.com/kdeps/kdeps/v2/pkg/domain"
-	"github.com/kdeps/kdeps/v2/pkg/executor/llm"
 	kdepslog "github.com/kdeps/kdeps/v2/pkg/log"
 	"github.com/kdeps/kdeps/v2/pkg/manifest"
 	"github.com/kdeps/kdeps/v2/pkg/templates"
@@ -121,11 +119,18 @@ func setupEnvironmentStep(workflow *domain.Workflow) error {
 }
 
 // ensureLLMBackendStep prepares the LLM backend and prints step [4/5] progress.
-// Ollama is started only when explicitly selected; the default file backend
-// pre-downloads llamafiles so the first request does not block on a download.
+// Workflows with no chat resource never download a model or start an LLM
+// server -- E2E and API-only agents must be able to bind /health immediately.
+// Ollama is started only when chat resources exist and the backend is ollama.
+// The file backend only reports already-cached llamafiles; uncached models
+// download on the first chat request (see ConfirmModelDownload).
 func ensureLLMBackendStep(workflow *domain.Workflow) error {
 	kdeps_debug.Log("enter: ensureLLMBackendStep")
 	fmt.Fprintln(os.Stdout, "\n[4/5] Checking LLM backend...")
+	if !domain.HasChatResources(workflow) {
+		fmt.Fprintln(os.Stdout, "  ✓ No local LLM backend required")
+		return nil
+	}
 	if domain.NeedsOllamaAtRuntime(workflow) {
 		if ollamaErr := ensureOllamaRunningFunc(getOllamaURL()); ollamaErr != nil {
 			return fmt.Errorf("LLM backend setup failed: %w", ollamaErr)
@@ -143,7 +148,7 @@ func ensureLLMBackendStep(workflow *domain.Workflow) error {
 // needsLlamafileWarmup reports whether chat resources will be served by the
 // local file backend (default when no other backend or external URL is set).
 func needsLlamafileWarmup(workflow *domain.Workflow) bool {
-	if !domain.HasChatResources(workflow) {
+	if !domain.HasChatResources(workflow) || len(domain.ChatModels(workflow)) == 0 {
 		return false
 	}
 	if backend := os.Getenv("KDEPS_DEFAULT_BACKEND"); backend != "" && backend != agentBackendFile {
@@ -152,22 +157,17 @@ func needsLlamafileWarmup(workflow *domain.Workflow) bool {
 	return os.Getenv("KDEPS_LLM_BASE_URL") == ""
 }
 
-// warmupLlamafiles resolves (and downloads if missing) the llamafiles for all
-// literal chat models. Failures are non-fatal: unknown names may still resolve
-// at request time (e.g. router-selected models or expression results).
+// warmupLlamafiles reports which literal chat models are already cached.
+// It never downloads and never starts a server -- that happens on the first
+// chat request. Blocking startup on a multi-GB fetch is what kept E2E
+// API-only workflows from ever binding /health.
 func warmupLlamafiles(workflow *domain.Workflow) {
-	mgr, err := llm.NewLlamafileManager(nil)
-	if err != nil {
-		fmt.Fprintf(os.Stdout, "  ! llamafile cache unavailable: %v\n", err)
-		return
-	}
 	for _, model := range domain.ChatModels(workflow) {
-		path, resolveErr := mgr.Resolve(context.Background(), model)
-		if resolveErr != nil {
-			fmt.Fprintf(os.Stdout, "  ! %s: %v\n", model, resolveErr)
+		if !localModelAlreadyCached(agentBackendFile, model) {
+			fmt.Fprintf(os.Stdout, "  • %s: not cached (download deferred until first chat request)\n", model)
 			continue
 		}
-		fmt.Fprintf(os.Stdout, "  ✓ llamafile ready: %s (%s)\n", model, path)
+		fmt.Fprintf(os.Stdout, "  ✓ llamafile ready: %s\n", model)
 	}
 }
 

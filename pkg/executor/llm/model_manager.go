@@ -98,6 +98,9 @@ func (m *ModelManager) SetOfflineMode(offline bool) {
 func (m *ModelManager) EnsureModel(config *domain.ChatConfig) error {
 	ctx := m.ctx
 	kdeps_debug.Log("enter: EnsureModel")
+	if config == nil || config.Model == "" {
+		return nil
+	}
 	backend := resolveBackend(config)
 	host, port := resolveModelHostPort(config, backend)
 

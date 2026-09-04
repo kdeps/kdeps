@@ -117,6 +117,25 @@ func TestEnsureModelAvailable_KeepsExplicitBaseURL(t *testing.T) {
 	assert.Equal(t, "http://example.com/v1", config.BaseURL)
 }
 
+func TestEnsureModel_EmptyModelSkipsDownloadAndServe(t *testing.T) {
+	downloaded := false
+	served := false
+	mock := NewMockModelService()
+	mock.SetDownloadModelFunc(func(_, _ string) error {
+		downloaded = true
+		return nil
+	})
+	mock.SetServeModelFunc(func(_, _ string, _ string, _ int) error {
+		served = true
+		return nil
+	})
+	mgr := NewModelManagerFromServiceInterface(mock)
+	require.NoError(t, mgr.EnsureModel(&domain.ChatConfig{}))
+	require.NoError(t, mgr.EnsureModel(nil))
+	assert.False(t, downloaded)
+	assert.False(t, served)
+}
+
 func TestEnsureModel_FileBackendSkipsWhenBaseURLSet(t *testing.T) {
 	t.Setenv("KDEPS_DEFAULT_BACKEND", "")
 	t.Setenv("KDEPS_LLM_BASE_URL", "")

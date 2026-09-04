@@ -25,6 +25,7 @@ import (
 	"fmt"
 	"log/slog"
 	"os"
+	"path/filepath"
 	"strings"
 
 	agentMemory "github.com/kdeps/kdeps/v2/pkg/agent"
@@ -185,10 +186,10 @@ func localModelAlreadyCached(backend, model string) bool {
 	}
 	p, ok := executorLLM.LlamafileCachedPath(model, dir)
 	if !ok {
-		return false
+		p = filepath.Join(dir, model)
 	}
-	_, err = os.Stat(p)
-	return err == nil
+	info, err := os.Stat(p)
+	return err == nil && !info.IsDir()
 }
 
 func setupEngineWithAgentPaths(

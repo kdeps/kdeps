@@ -120,6 +120,30 @@ func TestRunLlamafileUpdate_RemoteSuccess(t *testing.T) {
 	require.NoError(t, runLlamafileUpdate())
 }
 
+func TestEnsureLLMBackendStep_NoChatSkipsLLM(t *testing.T) {
+	wf := &domain.Workflow{
+		Resources: []*domain.Resource{
+			{ActionID: "echo", Exec: &domain.ExecConfig{Command: "echo"}},
+			{ActionID: "empty-chat", Chat: &domain.ChatConfig{}},
+		},
+	}
+	require.NoError(t, ensureLLMBackendStep(wf))
+}
+
+func TestNeedsLlamafileWarmup_NoChatOrEmptyModel(t *testing.T) {
+	assert.False(t, needsLlamafileWarmup(&domain.Workflow{}))
+	assert.False(t, needsLlamafileWarmup(&domain.Workflow{
+		Resources: []*domain.Resource{{Chat: &domain.ChatConfig{}}},
+	}))
+	t.Setenv("KDEPS_DEFAULT_BACKEND", "")
+	require.NoError(t, os.Unsetenv("KDEPS_DEFAULT_BACKEND"))
+	t.Setenv("KDEPS_LLM_BASE_URL", "")
+	require.NoError(t, os.Unsetenv("KDEPS_LLM_BASE_URL"))
+	assert.True(t, needsLlamafileWarmup(&domain.Workflow{
+		Resources: []*domain.Resource{{Chat: &domain.ChatConfig{Model: "llama3.2:1b"}}},
+	}))
+}
+
 func TestEnsureLLMBackendStep_WarmupPaths(t *testing.T) {
 	modelsDir := t.TempDir()
 	t.Setenv("KDEPS_MODELS_DIR", modelsDir)

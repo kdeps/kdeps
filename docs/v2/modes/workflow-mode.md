@@ -10,6 +10,8 @@ Run with:
 kdeps run workflow.yaml    # or kdeps run ./my-agent/ to point at a directory containing workflow.yaml
 ```
 
+If the workflow has no `chat:` resource, kdeps does not download a model or start an LLM server. `/health` binds immediately. Models download on the first chat request.
+
 ## How it works
 
 ```d2
