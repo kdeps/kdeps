@@ -1,10 +1,10 @@
 # Why kdeps?
 
-kdeps exists because most AI tooling is built for prototyping, not for running unattended in production.
+kdeps exists because most AI tooling is built for prototyping, not for running unattended in production. This page applies to both workflow mode and agent mode - it explains why the two exist and when to reach for each.
 
-## Three ways to use kdeps
+## Three levels of investment
 
-You don't need Docker or a workflow file to start. kdeps works at three levels of investment:
+You don't need Docker or a workflow file to start. kdeps works at three levels - a local REPL, a YAML workflow, a deployed appliance - and the [two modes](#two-modes-one-workflow-file) run at every level:
 
 **1. Local AI agent** - run `kdeps` in your terminal right now
 
@@ -14,7 +14,7 @@ kdeps --model llama3.2           # swap to any local or cloud model
 kdeps ./my-workflow/             # load your workflows as tools
 ```
 
-Works with any model: local llamafile (default, no API key), Ollama, or any cloud provider. See [Run Locally in 30 Seconds](/getting-started/local-agent).
+Works with any model: local llamafile (default, no API key), Ollama, or any cloud provider. See [Run locally in 30 seconds](/getting-started/local-agent).
 
 **2. Workflow runner** - define what the agent does in YAML, run it locally or share it
 
@@ -40,7 +40,7 @@ The workflow you ran locally becomes a self-contained deployable unit. See [Depl
 
 Shipping AI into production means more than calling an API. You need deterministic pipelines, typed inputs and outputs, dependency ordering, retries, validation, and the ability to deploy anywhere - not a chat session that ends when the browser tab closes.
 
-kdeps is an **AI appliance builder**. You define what the agent does in YAML, and it runs as a self-contained unit - an HTTP API, a bot, a file processor - without a human in the loop.
+kdeps is an **AI Appliance Builder**. You define what the agent does in YAML, and it runs as a self-contained unit - an HTTP API, a bot, a file processor - without a human in the loop.
 
 ## Deterministic by design
 

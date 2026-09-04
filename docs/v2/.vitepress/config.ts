@@ -161,6 +161,8 @@ export default defineConfig({
           collapsed: false,
           items: [
             { text: 'REPL slash commands', link: '/modes/agent-loop-commands' },
+            { text: 'REPL features', link: '/modes/agent-loop-repl' },
+            { text: 'Skills and prompt templates', link: '/modes/agent-loop-skills' },
             { text: 'Built-in tools', link: '/modes/agent-loop-tools' },
             { text: 'Shell execution', link: '/modes/agent-loop-shell' },
             { text: 'Tool execution monitoring', link: '/modes/agent-loop-monitoring' },

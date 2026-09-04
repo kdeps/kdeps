@@ -361,134 +361,12 @@ chat:
 
 Requires `fewShotSelectK` to be set. Falls back to word-overlap if no embedding model is configured.
 
-## Prompt caching (Anthropic)
+## Provider-specific options
 
-`promptCaching: true` enables Anthropic server-side prompt caching. kdeps adds the required `anthropic-beta: prompt-caching-2024-07-31` header automatically. Reduces latency and cost for repeated long system prompts.
+Some `chat:` fields only apply to one backend - Anthropic prompt caching and beta headers, Google cached content and safety thresholds, Vertex AI routing, Ollama native options and streaming, the OpenAI legacy token parameter. They are all set per resource, not in `config.yaml`, and are documented with the backend they belong to:
 
-```yaml
-# resources/example.yaml
-chat:
-  model: claude-sonnet-4-20250514
-  promptCaching: true   # add prompt-caching beta header; Anthropic only
-  scenario:
-    - role: system
-      prompt: |
-        You are an expert assistant. [... long system prompt ...]
-```
-
-### Per-message cache control
-
-Mark a specific scenario message for caching with `cacheControl: "ephemeral"`:
-
-```yaml
-# resources/example.yaml
-chat:
-  model: claude-sonnet-4-20250514
-  scenario:
-    - role: system
-      prompt: You are a helpful assistant.
-      cacheControl: "ephemeral"   # cache this specific message's content
-    - role: user
-      prompt: What is 2+2?
-```
-
-## Extended output (Anthropic)
-
-`anthropicExtendedOutput: true` enables 128K output tokens via the `interleaved-thinking-2025-05-14` beta header. Use with models that support extended output (e.g. `claude-sonnet-4-20250514`).
-
-```yaml
-# resources/example.yaml
-chat:
-  model: claude-sonnet-4-20250514
-  anthropicExtendedOutput: true   # enable 128K output; adds beta header automatically
-  maxTokens: 16000
-```
-
-## Anthropic beta headers
-
-`anthropicBetaHeaders` passes arbitrary beta feature headers to Anthropic. Each string is appended to the `anthropic-beta` header value.
-
-```yaml
-# resources/example.yaml
-chat:
-  model: claude-sonnet-4-20250514
-  anthropicBetaHeaders:
-    - output-128k-2025-02-19     # example: explicit extended output header
-    - interleaved-thinking-2025-05-14
-```
-
-## OpenAI legacy token param
-
-Older OpenAI-compatible servers (Azure, self-hosted) use `max_tokens` instead of `max_completion_tokens`. Set `openAILegacyMaxTokens: true` to send the old parameter name.
-
-```yaml
-# resources/example.yaml
-chat:
-  prompt: "{{ get('q') }}"
-  openAILegacyMaxTokens: true   # send max_tokens instead of max_completion_tokens
-  maxTokens: 1000
-```
-
-## Google AI: cached content
-
-`googleCachedContent` specifies the name of a Google AI CachedContent resource to attach to the request. Use with the `google_cache_create` built-in tool to pre-cache large context.
-
-```yaml
-# resources/example.yaml
-chat:
-  model: gemini-1.5-pro
-  googleCachedContent: "cachedContents/my-cached-doc"   # CachedContent resource name
-  prompt: "{{ get('q') }}"
-```
-
-## Google AI: safety threshold
-
-`googleHarmThreshold` controls how aggressively Google's safety filters block responses.
-
-| Value | Meaning |
-|-------|---------|
-| `0` | Unspecified (provider default) |
-| `1` | Block none |
-| `2` | Block few |
-| `3` | Block some |
-| `4` | Block most |
-
-```yaml
-# resources/example.yaml
-chat:
-  model: gemini-1.5-pro
-  googleHarmThreshold: 1   # block-none: pass all content through filters
-  prompt: "{{ get('q') }}"
-```
-
-## Vertex AI (google cloud)
-
-`googleCloudProject` and `googleCloudLocation` target Google's Vertex AI endpoint instead of the standard AI Studio endpoint.
-
-```yaml
-# resources/example.yaml
-chat:
-  model: gemini-1.5-pro
-  googleCloudProject: my-gcp-project      # GCP project ID
-  googleCloudLocation: us-central1        # Vertex AI region
-  prompt: "{{ get('q') }}"
-```
-
-See [LLM Backends - Vertex AI](/resources/llm/backends#vertex-ai-google-cloud) for backend configuration.
-
-## Ollama native options
-
-Native Ollama options available only when the backend is `ollama`.
-
-```yaml
-# resources/example.yaml
-chat:
-  prompt: "{{ get('q') }}"
-  ollamaThink: true             # enable Ollama extended thinking (model must support it)
-  ollamaKeepAlive: "5m"         # keep model loaded in memory for 5 minutes after request
-  ollamaPullModel: true         # auto-pull the model if not present locally
-  ollamaPullTimeout: "10m"      # timeout for model pull; applies only when ollamaPullModel: true
-```
+- [LLM backends](/resources/llm/backends) - `promptCaching`, `cacheControl`, `anthropicExtendedOutput`, `anthropicBetaHeaders`, `googleCachedContent`, `googleHarmThreshold`, `googleCloudProject` / `googleCloudLocation`, `ollamaThink` / `ollamaKeepAlive` / `ollamaPullModel`, `openAILegacyMaxTokens`, Ollama `streaming`
+- [LLM provider reference](/reference/llm-providers) - per-provider config snippets and model names
 
 ## Sampling: candidate count
 
@@ -513,21 +391,6 @@ chat:
   minLength: 50      # minimum response length in tokens
   maxLength: 500     # maximum response length in tokens (alias for maxTokens)
 ```
-
-## Streaming (Ollama only)
-
-Set `streaming: true` to have Ollama stream the response as NDJSON chunks. kdeps accumulates all chunks and returns the same response shape as non-streaming.
-
-<div v-pre>
-
-```yaml
-# resources/example.yaml
-chat:
-  prompt: "{{ get('q') }}"
-  streaming: true
-```
-
-</div>
 
 ## Few-shot prompting
 

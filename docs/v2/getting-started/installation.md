@@ -6,13 +6,13 @@ Install the `kdeps` CLI to start building agents locally. Docker is optional - o
 
 ## Installing the kdeps CLI
 
-### macOS (homebrew)
+### macOS (Homebrew)
 
 ```bash
 brew install kdeps/tap/kdeps
 ```
 
-### Linux, macOS, and windows (curl)
+### Linux, macOS, and Windows (curl)
 
 ```bash
 curl -LsSf https://raw.githubusercontent.com/kdeps/kdeps/main/install.sh | sh
@@ -27,26 +27,26 @@ irm https://raw.githubusercontent.com/kdeps/kdeps/main/install.ps1 | iex
 Installs `kdeps.exe` into `%USERPROFILE%\.local\bin` and adds it to your user `PATH`. To pin a version or choose a different directory:
 
 ```powershell
-& ([scriptblock]::Create((irm https://raw.githubusercontent.com/kdeps/kdeps/main/install.ps1))) -Tag v2.1.15 -BinDir C:\tools\bin
+& ([scriptblock]::Create((irm https://raw.githubusercontent.com/kdeps/kdeps/main/install.ps1))) -Tag v2.21.0 -BinDir C:\tools\bin
 ```
 
-### Windows (wget in WSL or Git bash)
+### Windows (wget in WSL or Git Bash)
 
 ```bash
 wget -qO- https://raw.githubusercontent.com/kdeps/kdeps/main/install.sh | sh
 ```
 
-> **Note for Windows Users**: [Git Bash](https://git-scm.com/downloads/win) or [WSL](https://learn.microsoft.com/en-us/windows/wsl/install) also work if you prefer the shell-based installer above.
+> Note: [Git Bash](https://git-scm.com/downloads/win) or [WSL](https://learn.microsoft.com/en-us/windows/wsl/install) also work if you prefer the shell-based installer above.
 
 ### From source
 
-**Option 1: Go Install (Recommended)**
+Recommended: `go install`
 
 ```bash
 go install github.com/kdeps/kdeps/v2@latest
 ```
 
-**Option 2: Build Manually**
+Or build manually:
 
 ```bash
 git clone https://github.com/kdeps/kdeps.git
@@ -74,7 +74,7 @@ kdeps --version
 
 You should see output like:
 ```
-kdeps version 2.0.0
+kdeps version 2.21.0
 ```
 
 ## Docker (optional)
@@ -178,7 +178,7 @@ Then reload your shell:
 source ~/.bashrc  # or source ~/.zshrc
 ```
 
-### Docker permission issues (linux)
+### Docker permission issues (Linux)
 
 If you get permission errors when running Docker commands:
 

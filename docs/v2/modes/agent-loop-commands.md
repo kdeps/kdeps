@@ -57,8 +57,8 @@ Inside the [agent loop REPL](/modes/agent-loop-mode), type `/help` for the full 
 | `@<path>` | Inline a file's contents (text) or attach it (image) into the next turn, e.g. `explain @main.go` |
 | `/autocontext [on\|off]` | Show or toggle auto-detecting command/file mentions in plain chat text (on by default, persists across sessions) |
 | `/tools [full\|lean]` | Show or toggle the lean/full tool set (full by default, persists across sessions - see [Lean mode](/modes/agent-loop-tools#lean-mode)) |
-| `/upgrade` | Check for a newer kdeps release and, for a standalone install, download/verify/install it (see [Updating kdeps](/modes/agent-loop-mode#updating-kdeps)) |
-| `/upgrade nightly` | Same, but checks the nightly channel instead of the latest stable release (see [Nightly builds](/modes/agent-loop-mode#nightly-builds)) |
+| `/upgrade` | Check for a newer kdeps release and, for a standalone install, download/verify/install it (see [Updating kdeps](/modes/agent-loop-repl#updating-kdeps)) |
+| `/upgrade nightly` | Same, but checks the nightly channel instead of the latest stable release (see [Nightly builds](/modes/agent-loop-repl#nightly-builds)) |
 | `/login` | m365 backend only: open a browser window to (re-)sign in, even if a session is already cached (see [M365 Copilot](/reference/llm-providers-m365)) |
 
 ## Auto-detected commands and files
