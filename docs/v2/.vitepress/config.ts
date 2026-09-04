@@ -25,7 +25,7 @@ import { Layout, Theme } from 'vitepress-plugin-d2/dist/config'
 import pkg from '../package.json' with { type: 'json' }
 
 export default defineConfig({
-  title: 'KDeps',
+  title: 'kdeps',
   description: 'AI Appliance Builder - YAML-defined AI agents and workflow pipelines. Ship as Docker, K8s, ISO, or a single binary.',
 
   appearance: 'force-dark',
@@ -37,7 +37,7 @@ export default defineConfig({
     ['link', { rel: 'apple-touch-icon', href: '/apple-touch-icon.png', sizes: '180x180' }],
     ['meta', { name: 'theme-color', content: '#080808' }],
     ['meta', { name: 'og:type', content: 'website' }],
-    ['meta', { name: 'og:site_name', content: 'KDeps Documentation' }],
+    ['meta', { name: 'og:site_name', content: 'kdeps Documentation' }],
     ['meta', { name: 'og:title', content: 'kdeps - AI Appliance Builder' }],
     ['meta', { name: 'og:description', content: 'AI Appliance Builder - YAML-defined AI agents and workflow pipelines. Ship as Docker, K8s, ISO, or a single binary.' }],
   ],

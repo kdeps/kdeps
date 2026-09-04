@@ -1,7 +1,7 @@
 {
   "name": "kdeps-docs",
   "version": "2.21.2",
-  "description": "KDeps Documentation",
+  "description": "kdeps Documentation",
   "type": "module",
   "scripts": {
     "dev": "vitepress dev",
