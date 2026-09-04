@@ -1,9 +1,10 @@
-# Agent skills
+# Skill for coding agents
 
 Coding agents (Claude Code, Cursor, Grok, and others) can scaffold kdeps
 projects for you when you install the **kdeps skill**.
 
-*Applies to agent mode.*
+*Applies to both modes. This page is the skill file for coding agents, not
+kdeps [agent-mode skills](/modes/agent-loop-skills).*
 
 ## Install the skill
 

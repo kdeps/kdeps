@@ -1,6 +1,6 @@
 # Quickstart
 
-Build a working LLM API with kdeps in under five minutes.
+Build a two-resource LLM API in workflow mode, then load the same file as a tool in agent mode.
 
 ## Overview
 
@@ -11,23 +11,17 @@ This quickstart guides you through:
 - Running it as an HTTP API in workflow mode
 - Calling the same workflow as a tool in agent mode
 
-It is for developers who have used a terminal and an HTTP API before. It
-assumes no prior kdeps knowledge. New to kdeps? Start with
-[Run locally in 30 seconds](/getting-started/local-agent) first.
+It is for developers who have used a terminal and an HTTP API before. For the
+REPL with no YAML, see [Run locally](/getting-started/local-agent). For install
+options (Windows, source, Docker), see [Installation](/getting-started/installation).
 
 ## Before you start
 
-No LLM server is needed: models run as local
-[llamafiles](https://github.com/Mozilla-Ocho/llamafile) (the default `file`
-backend). The default model (`llama3.2:1b`, ~1.1 GB) is confirmed, then
-downloaded to `~/.kdeps/models/` automatically on first run.
-
-## Install
-
-```bash
-# macOS / Linux
-curl -LsSf https://raw.githubusercontent.com/kdeps/kdeps/main/install.sh | sh
-```
+- kdeps installed (`kdeps --version`)
+- No LLM server: models run as local
+  [llamafiles](https://github.com/Mozilla-Ocho/llamafile) (the default `file`
+  backend). The default model (`llama3.2:1b`, ~1.1 GB) is confirmed, then
+  downloaded to `~/.kdeps/models/` automatically on first run.
 
 ## Create a project
 
@@ -169,9 +163,12 @@ kdeps ./agents/
 ```
 
 The agent REPL starts. Type a prompt and the LLM calls your workflow tools as needed.
+See [Load a workflow as a tool](/getting-started/workflow-as-tool) for the
+step-by-step version of this.
 
 ## Next steps
 
+- [Load a workflow as a tool](/getting-started/workflow-as-tool) - agent mode with this file
 - [Workflow mode](/modes/workflow-mode) - how the DAG pipeline runs
 - [Agent mode](/modes/agent-loop-mode) - the interactive LLM loop
 - [workflow.yaml reference](/configuration/workflow) - every field

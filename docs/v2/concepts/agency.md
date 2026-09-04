@@ -1,8 +1,6 @@
 # AI agencies
 
-An AI agency is a collection of kdeps agents that cooperate to handle complex tasks without human-in-the-loop intervention. This is a workflow mode concept: each agent has its own `workflow.yaml` (its own resources, routes, and settings), bundled under a single `agency.yaml` manifest that makes them operate as one system.
-
-An agency runs as a workflow. In agent mode, an agency is registered as an LLM tool and executes its full pipeline only when the model calls it.
+An AI agency is a collection of kdeps agents that cooperate on a task. Each agent is a `kind: Workflow` with its own resources, bundled under one `agency.yaml`. Agencies work in both modes: `kdeps run my-agency/` runs the entry-point pipeline; `kdeps ./my-agency/` registers the agency as one LLM tool and runs that pipeline only when the model calls it.
 
 ## Use cases
 

@@ -1,7 +1,10 @@
 # Goal-directed execution
 
-Every prompt in the [agent loop REPL](/modes/agent-loop-mode) becomes an explicit task list that Go code drives to completion. The
-loop walks a cursor through the list that only ever moves forward, so a model
+Every prompt in the [agent loop REPL](/modes/agent-loop-mode) becomes an explicit task list that Go code drives to completion.
+
+*Applies to agent mode.*
+
+The loop walks a cursor through the list that only ever moves forward, so a model
 cannot circle back over finished work or stall on a task until a budget expires.
 
 ```text

@@ -77,7 +77,7 @@ curl -s -X POST localhost:16395/api/v1/chat \
 # {"success": true, "data": {"answer": "Entropy is a measure of disorder..."}}
 ```
 
-More examples: [kdeps.com/examples](https://kdeps.com/examples/) (22 walkthroughs, each a working project).
+More examples: [kdeps.com/examples](https://kdeps.com/examples/) (25 walkthroughs, each a working project).
 
 ## Install
 

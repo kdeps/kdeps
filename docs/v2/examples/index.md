@@ -1,6 +1,6 @@
 # Examples
 
-Complete, runnable workflows that demonstrate common patterns. Every example is copy-paste ready - clone, add your API keys, and run.
+Complete, runnable projects that demonstrate common patterns. Every example is copy-paste ready - clone, add your API keys, and run.
 
 ## Overview
 
@@ -8,6 +8,7 @@ Each example targets a different use case. Pick the one closest to what you're b
 
 | Example | Mode | What it demonstrates |
 |---|---|---|
+| [Load a workflow as a tool](/getting-started/workflow-as-tool) | Agent | `kdeps [path]` registers `metadata.name` as one LLM tool |
 | [Document summarizer](/examples/file-processor) | Workflow | The `file` input source - read one file, return JSON, exit |
 | [Batch processing](/examples/batch-processing) | Workflow | `items:` iteration - process a list in one request |
 | [Document search (RAG)](/examples/rag-search) | Workflow | `embedding:` upsert and search, two routes in one workflow |
@@ -33,6 +34,18 @@ Each example targets a different use case. Pick the one closest to what you're b
 | [Stateless bot](/examples/stateless-bot/) | Workflow | One-shot stdin/stdout LLM calls - cron jobs, CI pipelines |
 | [Telegram bot](/examples/telegram-bot/) | Workflow | Polling loop, multi-resource pipelines, external API calls |
 | [Showcase](/examples/showcase) | Workflow | Complex agents in ~20 lines of YAML - multiple real-world patterns |
+
+## Load a workflow as a tool
+
+The same `workflow.yaml` from the [quickstart](/getting-started/quickstart),
+started with `kdeps .` instead of `kdeps run`. The LLM calls one tool named
+`metadata.name`; kdeps runs the full DAG.
+
+Best for:
+- Turning an API you already wrote into a REPL tool
+- Seeing agent mode without a new YAML kind
+
+[Build it step by step](/getting-started/workflow-as-tool)
 
 ## Document summarizer
 

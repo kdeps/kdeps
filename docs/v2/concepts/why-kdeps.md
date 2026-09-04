@@ -105,6 +105,8 @@ The guarantee is not that your YAML runs forever on any future kdeps. It is that
 
 ## See also
 
-- [Quick start](/getting-started/quickstart) - Build your first workflow in minutes
-- [Workflow mode](/modes/workflow-mode) - Deterministic DAG pipelines
-- [Agent mode](/modes/agent-loop-mode) - Autonomous LLM loop
+- [Run locally](/getting-started/local-agent) - agent REPL in 30 seconds
+- [Quickstart](/getting-started/quickstart) - build your first workflow API
+- [Load a workflow as a tool](/getting-started/workflow-as-tool) - same file, agent mode
+- [Workflow mode](/modes/workflow-mode) - deterministic DAG pipelines
+- [Agent mode](/modes/agent-loop-mode) - autonomous LLM loop

@@ -19,7 +19,6 @@ skeleton from [Contributing to docs](./CONTRIBUTING-DOCS.md).
 | Quickstart | "Get me to a working result fast." | `getting-started/quickstart` |
 | Troubleshooting | "Something broke. Fix it." | `guides/troubleshooting` |
 | Glossary | "Define this term." | `reference/glossary` |
-| Release notes | "What changed?" | `reference/release-notes` |
 
 ## Two modes - always label
 

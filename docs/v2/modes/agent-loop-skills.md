@@ -1,6 +1,6 @@
 # Skills and prompt templates
 
-Markdown files that shape how the agent behaves: **skills** (reusable behavior guidelines), **prompt templates** (reusable named prompts), and **instructions** (project rules discovered automatically). This is **agent mode** only. To install pre-built skill sets, see [Agent skills](/getting-started/agent-skills).
+Markdown files that shape how the agent behaves: **skills** (reusable behavior guidelines), **prompt templates** (reusable named prompts), and **instructions** (project rules discovered automatically). This is **agent mode** only. These are files the kdeps REPL loads. They are not the [kdeps skill for coding agents](/getting-started/agent-skills) that scaffolds YAML in Claude Code or Cursor.
 
 ## Skills
 
@@ -78,6 +78,6 @@ Duplicate content (by hash) is deduplicated. Total injected context is capped at
 
 ## See also
 
-- [Agent skills](/getting-started/agent-skills) - installing pre-built skill sets
+- [Skill for coding agents](/getting-started/agent-skills) - YAML scaffolding for Claude Code, Cursor, Grok
 - [Agent mode](/modes/agent-loop-mode) - starting the loop
 - [REPL slash commands](/modes/agent-loop-commands) - invoking skills and templates

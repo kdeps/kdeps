@@ -1,5 +1,7 @@
 # Judge panel
 
+*Applies to agent mode.*
+
 [Goal enforcement](/modes/agent-loop-goals) checks that the loop keeps moving; it says nothing about whether
 the final answer is actually *right*. A judge panel is an independent review of
 that answer, run after the turn produces it - one or more reviewer personas, each

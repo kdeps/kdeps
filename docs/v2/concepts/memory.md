@@ -1,6 +1,6 @@
 # Persistent memory
 
-Persistent memory lets the agent store and recall facts across sessions. Unlike [session storage](/configuration/session) (which is request-scoped and survives restarts), persistent memory is **project-scoped** - facts saved in one session are available in future sessions for the same project.
+Persistent memory lets the agent store and recall facts across sessions. Unlike [session storage](/configuration/session) (which persists across HTTP requests from the same caller), persistent memory is **project-scoped** - facts saved in one REPL session are available in later sessions for the same project.
 
 Persistent memory is primarily an agent mode concept, but the memory tools also work in workflow mode (see [Workflow mode](#workflow-mode) below). For how the agent decides what to remember and what to show the model each turn, see [Memory internals](/concepts/memory-internals).
 

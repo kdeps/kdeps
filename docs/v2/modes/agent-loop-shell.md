@@ -1,6 +1,8 @@
 # Shell execution
 
-`bash_exec`, one of the [built-in tools](/modes/agent-loop-tools), runs any shell command and streams output to the terminal. Two keyboard shortcuts change its behavior mid-run:
+`bash_exec`, one of the [built-in tools](/modes/agent-loop-tools), runs any shell command and streams output to the terminal. Two keyboard shortcuts change its behavior mid-run.
+
+*Applies to agent mode.*
 
 | Key | Effect |
 |-----|--------|

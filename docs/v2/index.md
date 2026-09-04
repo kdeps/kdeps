@@ -5,15 +5,15 @@ hero:
   name: kdeps
   text: AI Appliance Builder
   tagline: YAML-defined AI agents and workflow pipelines. Ship as Docker, K8s, ISO, or a single binary.
-  announcement: Skills for AI agents are here
+  announcement: Scaffold YAML from Claude Code, Cursor, or Grok
   announcementLink: /getting-started/agent-skills
   actions:
     - theme: brand
       text: Get started
-      link: /getting-started/quickstart
-    - theme: brand
-      text: Run locally
       link: /getting-started/local-agent
+    - theme: brand
+      text: Build a workflow
+      link: /getting-started/quickstart
     - theme: alt
       text: Why kdeps?
       link: /concepts/why-kdeps

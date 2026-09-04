@@ -50,7 +50,7 @@ export default defineConfig({
     siteTitle: false,
 
     nav: [
-      { text: 'Guide', link: '/getting-started/quickstart' },
+      { text: 'Guide', link: '/getting-started/local-agent' },
       {
         text: 'Deploy',
         items: [
@@ -85,18 +85,20 @@ export default defineConfig({
           text: 'Getting started',
           items: [
             { text: 'Why kdeps?', link: '/concepts/why-kdeps' },
+            { text: 'Run locally', link: '/getting-started/local-agent' },
             { text: 'Installation', link: '/getting-started/installation' },
             { text: 'Quickstart', link: '/getting-started/quickstart' },
-            { text: 'Run locally', link: '/getting-started/local-agent' },
+            { text: 'Workflow as a tool', link: '/getting-started/workflow-as-tool' },
             { text: 'Local models', link: '/getting-started/local-models' },
-            { text: 'Agent skills', link: '/getting-started/agent-skills' },
+            { text: 'Skill for coding agents', link: '/getting-started/agent-skills' },
           ]
         },
         {
           text: 'Tutorials',
-          collapsed: false,
+          collapsed: true,
           items: [
             { text: 'Examples overview', link: '/examples/' },
+            { text: 'Workflow as a tool', link: '/getting-started/workflow-as-tool' },
             { text: 'Document summarizer', link: '/examples/file-processor' },
             { text: 'Batch processing', link: '/examples/batch-processing' },
             { text: 'Document search (RAG)', link: '/examples/rag-search' },
@@ -132,7 +134,6 @@ export default defineConfig({
             { text: 'Workflow mode', link: '/modes/workflow-mode' },
             { text: 'Agent mode', link: '/modes/agent-loop-mode' },
             { text: 'Agencies', link: '/concepts/agency' },
-            { text: 'Resources overview', link: '/resources/overview' },
             { text: 'Components', link: '/concepts/components' },
             { text: 'Expressions', link: '/concepts/expressions' },
             { text: 'Expression helpers', link: '/concepts/expression-helpers' },
@@ -151,27 +152,8 @@ export default defineConfig({
             { text: 'Items iteration', link: '/concepts/items' },
             { text: 'While-loop', link: '/concepts/loop' },
             { text: 'Validation and control', link: '/concepts/validation-and-control' },
-            { text: 'Session storage', link: '/configuration/session' },
             { text: 'Persistent memory', link: '/concepts/memory' },
             { text: 'Memory internals', link: '/concepts/memory-internals' },
-          ]
-        },
-        {
-          text: 'Agent loop',
-          collapsed: false,
-          items: [
-            { text: 'REPL slash commands', link: '/modes/agent-loop-commands' },
-            { text: 'REPL features', link: '/modes/agent-loop-repl' },
-            { text: 'Skills and prompt templates', link: '/modes/agent-loop-skills' },
-            { text: 'Built-in tools', link: '/modes/agent-loop-tools' },
-            { text: 'Shell execution', link: '/modes/agent-loop-shell' },
-            { text: 'Tool execution monitoring', link: '/modes/agent-loop-monitoring' },
-            { text: 'Goal-directed execution', link: '/modes/agent-loop-goals' },
-            { text: 'Judge panel', link: '/modes/agent-loop-judges' },
-            { text: 'Local model management', link: '/modes/agent-loop-models' },
-            { text: 'Agent registries', link: '/modes/agent-loop-registries' },
-            { text: 'Approval tokens', link: '/modes/agent-loop-approvals' },
-            { text: 'Prompt reduction (turo)', link: '/modes/agent-loop-turo' },
           ]
         },
         {
@@ -277,6 +259,24 @@ export default defineConfig({
                 { text: 'API response', link: '/resources/api-response' },
               ]
             },
+          ]
+        },
+        {
+          text: 'Agent loop',
+          collapsed: true,
+          items: [
+            { text: 'REPL slash commands', link: '/modes/agent-loop-commands' },
+            { text: 'REPL features', link: '/modes/agent-loop-repl' },
+            { text: 'Skills and prompt templates', link: '/modes/agent-loop-skills' },
+            { text: 'Built-in tools', link: '/modes/agent-loop-tools' },
+            { text: 'Shell execution', link: '/modes/agent-loop-shell' },
+            { text: 'Tool execution monitoring', link: '/modes/agent-loop-monitoring' },
+            { text: 'Goal-directed execution', link: '/modes/agent-loop-goals' },
+            { text: 'Judge panel', link: '/modes/agent-loop-judges' },
+            { text: 'Local model management', link: '/modes/agent-loop-models' },
+            { text: 'Agent registries', link: '/modes/agent-loop-registries' },
+            { text: 'Approval tokens', link: '/modes/agent-loop-approvals' },
+            { text: 'Prompt reduction (turo)', link: '/modes/agent-loop-turo' },
           ]
         },
         {

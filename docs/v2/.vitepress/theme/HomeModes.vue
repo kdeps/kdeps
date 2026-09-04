@@ -43,7 +43,7 @@
             <span class="mode-tag">agent</span>
             <h3>Autonomous LLM loop</h3>
           </div>
-          <p class="mode-desc">The LLM decides which resources to call and in what order. Every resource auto-registers as a tool. Multi-step reasoning, no wiring required.</p>
+          <p class="mode-desc">The LLM decides which workflows to call and in what order. Each workflow runs as a complete pipeline. Multi-step reasoning, no extra wiring.</p>
 
           <div class="flow">
             <div class="flow-node entry">stdin prompt</div>
@@ -54,9 +54,9 @@
             </div>
             <div class="flow-arrow">↓</div>
             <div class="flow-tools">
-              <div class="tool-node">http</div>
-              <div class="tool-node">sql</div>
-              <div class="tool-node">python</div>
+              <div class="tool-node">workflow</div>
+              <div class="tool-node">component</div>
+              <div class="tool-node">builtin</div>
             </div>
             <div class="flow-arrow">↓</div>
             <div class="flow-node llm">
@@ -67,7 +67,7 @@
             <div class="flow-node exit">response</div>
           </div>
 
-          <div class="mode-cmd"><span class="prompt">$</span> kdeps workflow.yaml</div>
+          <div class="mode-cmd"><span class="prompt">$</span> kdeps ./my-agent/</div>
         </div>
       </div>
     </div>

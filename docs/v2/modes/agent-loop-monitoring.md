@@ -2,6 +2,8 @@
 
 How the [agent loop REPL](/modes/agent-loop-mode) shows a running tool's progress and handles one that stalls - applies to every [built-in tool](/modes/agent-loop-tools), not just a specific category.
 
+*Applies to agent mode.*
+
 While a tool runs, the REPL shows a live monitor line - `⠴ bash_exec running (12m34s) · <latest output line>` - refreshed every second, so a long command (a full test suite, a large download) is visibly alive instead of silent. The line is replaced by the usual `... done (elapsed)` summary when the tool finishes.
 
 Every tool gets a meaningful monitor line, not just `bash_exec`: the line is seeded with what the tool is acting on, derived from its arguments - the URL for `web_scraper`/`http_request`, the query for `web_search`/`sql_query`, the path for `search_local`, and so on (`⠴ web_scraper running (3s) · https://example.com`). Tools that stream output (like `bash_exec`) then replace the seed with their latest output line as it flows.

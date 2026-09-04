@@ -3,7 +3,7 @@
 Two resources for running code kdeps has no native resource for. Each has its
 own reference page.
 
-*Applies to workflow mode.*
+*Applies to both workflow mode and agent mode.*
 
 | Resource | Runs | Output | Reference |
 | :--- | :--- | :--- | :--- |

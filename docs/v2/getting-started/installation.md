@@ -51,7 +51,7 @@ Or build manually:
 ```bash
 git clone https://github.com/kdeps/kdeps.git
 cd kdeps
-go build -o kdeps main.go
+make build
 ./kdeps --version
 ```
 
@@ -139,11 +139,11 @@ fully commented template instead. Re-run the wizard any time by removing
 
 ## Ollama (optional)
 
-To use [Ollama](https://ollama.ai/) instead of the default llamafile backend:
+To use [Ollama](https://ollama.com) instead of the default llamafile backend:
 
 ```bash
 # macOS / Linux
-curl -fsSL https://ollama.ai/install.sh | sh
+curl -fsSL https://ollama.com/install.sh | sh
 ollama pull llama3.2:1b
 ```
 
@@ -189,7 +189,8 @@ sudo usermod -aG docker $USER
 
 ## See also
 
-- [Quickstart guide](/getting-started/quickstart) - Build your first AI agent
+- [Run locally](/getting-started/local-agent) - agent REPL in 30 seconds
+- [Quickstart](/getting-started/quickstart) - build your first workflow API
 - [CLI reference](/reference/cli/) - Complete command reference
 - [Workflow configuration](../configuration/workflow) - Learn about workflow settings
 - [Examples](https://github.com/kdeps/kdeps/tree/main/examples) - Browse example workflows

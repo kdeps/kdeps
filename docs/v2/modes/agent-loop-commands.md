@@ -1,6 +1,8 @@
 # REPL slash commands
 
-Inside the [agent loop REPL](/modes/agent-loop-mode), type `/help` for the full list:
+Inside the [agent loop REPL](/modes/agent-loop-mode), type `/help` for the full list.
+
+*Applies to agent mode.*
 
 | Command | Description |
 |---------|-------------|

@@ -56,11 +56,11 @@ kdeps has no code dependency - install the binary, write a YAML file, and run.
 
 ## Can I call one workflow from another?
 
-Yes, via [agencies](/reference/glossary#agency). Use the `agent:` action type to call another agent or component as a sub-agent. The caller passes a prompt, the callee runs autonomously, and the result is returned.
+Yes, via [agencies](/reference/glossary#agency). Use the `agent:` action type to call another agent's full pipeline. The caller passes `params:`; the callee reads them with `get('key')` and returns its `apiResponse.response`.
 
 ## Can I deploy kdeps as an API server?
 
-Yes. Run `kdeps ./my-agent/` for agent mode (registers the workflow as a tool by its `metadata.name`), or use `kdeps run` behind the built-in web server for workflow mode. See [Web server mode](/deployment/webserver).
+Yes. `kdeps run workflow.yaml` starts the HTTP API in workflow mode. `kdeps ./my-agent/` starts the interactive REPL in agent mode - it is not an HTTP server. See [Web server mode](/deployment/webserver).
 
 For production, use the [Docker](/deployment/docker) or [Kubernetes](/deployment/kubernetes) deployment options.
 

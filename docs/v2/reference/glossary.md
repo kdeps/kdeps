@@ -7,7 +7,7 @@ mode and agent mode.
 | Term | Definition | More |
 | :--- | :--- | :--- |
 | <a id="actionid"></a>`actionId` | A unique string that identifies a resource within a workflow. Used as the target of `requires:` dependencies. In agent mode, resources are not exposed as tools; the whole workflow is the tool, named after `metadata.name`. | [Resources overview](/resources/overview) |
-| agent | An autonomous LLM-driven pipeline defined by `kind: Agent`. Has tools, memory, and multi-step reasoning. Run with `kdeps [path]`. | [Agent mode](/modes/agent-loop-mode) |
+| agent | A `kind: Workflow` (or a `kind: Agency`) started with `kdeps [path]`. The LLM calls the whole workflow as one tool named after `metadata.name`. There is no `kind: Agent` - `kind:` is `Workflow`, `Component`, or `Agency`. | [Agent mode](/modes/agent-loop-mode) |
 | <a id="agency"></a>agency | Multiple agents composed into one system. One agent delegates a task to another via the `agent:` action type; the callee runs its full pipeline and returns its output. | [AI agencies](/concepts/agency) |
 | `apiResponse` | A resource action type that returns a structured JSON response to the client. Usually the terminal node of a workflow. | [API response](/resources/api-response) |
 | `before` / `after` | Expression blocks that run before or after a resource's main action. Used for data preparation, normalization, and validation. Statements execute in order. | [Expression blocks](/reference/expr-blocks) |
@@ -18,7 +18,7 @@ mode and agent mode.
 | <a id="component"></a>component | A reusable, packaged resource bundle. Installed from the registry or built in a `components/` directory. Declared as `kind: Component`. | [Components](/concepts/components) |
 | `componentTools` | Tools provided by a component that are exposed to the calling agent or workflow for the LLM to invoke. | [Components](/concepts/components) |
 | <a id="deterministic"></a>deterministic | Same input, same output, every time. In kdeps this describes the workflow-mode pipeline - route matching, `requires:` ordering, `validations`, and response shaping all resolve the same way for a given request. It does not describe the LLM's text output. Contrast [probabilistic](#probabilistic). | [Deterministic by design](/concepts/why-kdeps#deterministic-by-design) |
-| `embedding` | A resource action type that generates vector embeddings from text, for semantic search and RAG. | [Embedding](/resources/rag/embedding) |
+| `embedding` | A resource action type for a local SQLite keyword store: index, search, upsert, delete. Matching is SQL `LIKE`, not vector similarity. For OpenAI vector embeddings, `kdeps registry install embedding`. | [Embedding](/resources/rag/embedding) |
 | `exec` | A resource action type that runs shell commands and captures stdout, stderr, and exit code. | [Exec](/resources/scripting/exec) |
 | expr | Short for expression: a statement evaluated by the expr-lang engine. Used in `before:` / `after:` blocks, `validations`, and `{{ }}` string interpolation. | [Expressions](/concepts/expressions) |
 | `file()` | An expression function that reads uploaded or local files. Takes a glob pattern and an optional selector (`first`, `last`, `count`, `all`, `mime:<type>`). | [Unified API](/concepts/unified-api) |
