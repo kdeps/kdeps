@@ -21,7 +21,7 @@ kdeps works at three levels:
 - **Workflow** - define what the agent does in one `workflow.yaml` and run it as an HTTP API, a bot, or a file processor. Same file, laptop or server.
 - **Appliance** - ship that file unchanged as a Docker image, Kubernetes manifests, a bootable ISO, or a single binary.
 
-One YAML file replaces a Python script wiring together an LLM SDK, a web server, retry logic, and a Dockerfile - and it is code you version and commit like any other.
+One YAML file replaces a Python script wiring together an LLM SDK, a web server, retry logic, and a Dockerfile.
 
 ## Quickstart
 
@@ -66,6 +66,7 @@ resources:
 ```
 
 ```bash
+# KDEPS_API_AUTH_TOKEN is the HTTP endpoint's bearer token - not an LLM key
 export KDEPS_API_AUTH_TOKEN=dev-token
 kdeps run workflow.yaml
 
@@ -97,6 +98,8 @@ brew install kdeps/tap/kdeps
 ```
 
 ## How it works
+
+Whichever level you use, a workflow runs in one of two execution modes - and an agency bundles several workflows into one system.
 
 **Workflow mode** - DAG-deterministic request/response pipelines. Each resource declares its dependencies via `requires:` and runs in order, ending in an `apiResponse`.
 
