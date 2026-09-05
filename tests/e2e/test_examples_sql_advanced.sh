@@ -84,7 +84,11 @@ fi
 # batch-update.yaml across drivers, so pointing the same real example at
 # SQLite works end-to-end.
 SQL_ADVANCED_DB_DIR=$(mktemp -d)
-SQL_ADVANCED_DB="$SQL_ADVANCED_DB_DIR/analytics.db"
+# Native path: this string is opened directly by native Windows python3
+# (sqlite3.connect) and embedded as the sqlite:// connection value that
+# kdeps.exe parses itself -- a bare "/tmp/..." resolves to the wrong drive
+# root on Windows. No-op on macOS/Linux.
+SQL_ADVANCED_DB=$(to_native_path "$SQL_ADVANCED_DB_DIR/analytics.db")
 if command -v python3 &>/dev/null; then
     python3 - <<PYEOF
 import sqlite3
