@@ -8,78 +8,10 @@ Every model listed here - OpenAI, Anthropic (Claude), Google (Gemini), Groq, Oll
 
 ## Local backends
 
-### Llamafile (default)
-
-The `file` backend is the default: models run as
-[llamafiles](https://github.com/Mozilla-Ocho/llamafile) - single self-contained
-binaries that kdeps downloads to `~/.kdeps/models/` and serves locally as an
-OpenAI-compatible server. No server install, no API key.
-
-```yaml
-# ~/.kdeps/config.yaml
-llm:
-  backend: file   # this is the default - the line can be omitted entirely
-```
-
-Model names like `llama3.2:1b` are registry aliases resolved to Mozilla's
-HuggingFace llamafiles (`kdeps llamafile list` shows all; `kdeps llamafile update`
-refreshes the registry). The `chat.model` field also accepts a direct URL or a
-path to a `.llamafile`.
-
-When building Docker images, the llamafiles for all chat models are pre-baked
-into the image - see [Docker deployment](/deployment/docker#llm-backend-in-images).
-
-### GGUF (llama.cpp)
-
-The `gguf` backend serves GGUF model files via `llama-server` (llama.cpp). Full parity with the `file` backend: alias resolution, URL download with progress bar, shared cache at `~/.kdeps/models/`. llama-server is automatically downloaded and cached on first use - no manual install needed. Override with `KDEPS_LLAMA_SERVER_BIN` for a custom binary.
-
-```yaml
-# ~/.kdeps/config.yaml
-llm:
-  backend: gguf
-```
-
-| Alias | Model | Quant | Size |
-|-------|-------|-------|------|
-| `qwen3.5-4b` | Qwen3.5 4B | Q5_K_S | ~3.1 GB |
-| `qwen3.5-8b` | Qwen3.5 8B | Q4_K_M | ~5.0 GB |
-| `llama3.2-3b` | Llama 3.2 3B Instruct | Q5_K_M | ~2.4 GB |
-| `llama3.1-8b` | Llama 3.1 8B Instruct | Q4_K_M | ~4.9 GB |
-| `phi4-mini` | Phi-4 Mini | Q5_K_M | ~2.7 GB |
-| `gemma3-4b` | Gemma 3 4B | Q5_K_M | ~3.1 GB |
-| `mistral-7b` | Mistral 7B v0.3 | Q4_K_M | ~4.4 GB |
-| `deepseek-r1-7b` | DeepSeek-R1 Distill 7B | Q4_K_M | ~5.0 GB |
-
-The `chat.model` field also accepts a direct HuggingFace URL, an absolute/relative path to a `.gguf`, or a bare filename looked up in `~/.kdeps/models/`.
-
-Set `KDEPS_CTX_SIZE` to override the context window (default: `llama-server` default).
-
-### Ollama (opt-in)
-
-```yaml
-# ~/.kdeps/config.yaml
-llm:
-  backend: ollama
-  # base_url: http://custom-ollama:11434   # optional override
-```
-
-When building Docker images, Ollama is installed when `backend: ollama` is set. The `installOllama` workflow flag can force or suppress this:
-
-```yaml
-# workflow.yaml
-settings:
-  agentSettings:
-    installOllama: true  # bake the ollama server into the image
-```
-
-**Provider-specific resource options:**
-
-| Field | Type | Description |
-|-------|------|-------------|
-| `ollamaThink` | bool | Enable extended thinking (model must support it) |
-| `ollamaKeepAlive` | string | Keep model loaded after request (e.g. `"5m"`, `"-1"` = forever, `"0"` = unload immediately) |
-| `ollamaPullModel` | bool | Auto-pull model if not present locally |
-| `ollamaPullTimeout` | string | Timeout for model pull (e.g. `"10m"`) |
+kdeps runs models locally with no API key: `file` (llamafile, the default),
+`gguf` (llama.cpp), or `ollama` (opt-in, requires the Ollama server). Setup,
+model alias tables, and the Docker `installOllama` flag live on one page - see
+[LLM backends - local backends](/resources/llm/backends#the-default-llamafile-file-backend).
 
 ## Cloud backends
 
@@ -101,11 +33,7 @@ llm:
 | `gpt-4-turbo` | GPT-4 Turbo |
 | `gpt-3.5-turbo` | Fast, cost-effective |
 
-**Provider-specific resource options:**
-
-| Field | Type | Description |
-|-------|------|-------------|
-| `openAILegacyMaxTokens` | bool | Send `max_tokens` instead of `max_completion_tokens` (for Azure and older-compat servers) |
+Azure and older-compat servers: see [LLM Backends - legacy token param](/resources/llm/backends#openai-legacy-token-param).
 
 ### Anthropic (claude)
 
@@ -123,16 +51,8 @@ llm:
 | `claude-3-opus-20240229` | Most capable Claude 3 |
 | `claude-3-haiku-20240307` | Fast, efficient |
 
-**Provider-specific resource options:**
-
-| Field | Type | Description |
-|-------|------|-------------|
-| `promptCaching` | bool | Add `prompt-caching-2024-07-31` beta header for server-side caching |
-| `anthropicExtendedOutput` | bool | Enable 128K output tokens (adds `interleaved-thinking-2025-05-14` header) |
-| `anthropicBetaHeaders` | list | Additional `anthropic-beta` header values |
-| `scenario[].cacheControl` | string | Set to `"ephemeral"` to mark a scenario message as a cache boundary |
-
-See [LLM Backends - Anthropic](/resources/llm/backends#anthropic-prompt-caching-and-extended-output) for examples.
+Prompt caching, extended 128K output, and custom beta headers: see
+[LLM Backends - Anthropic](/resources/llm/backends#anthropic-prompt-caching-and-extended-output).
 
 ### Google (gemini / vertex AI)
 
@@ -151,14 +71,7 @@ llm:
 
 **Vertex AI:** Set `googleCloudProject` and `googleCloudLocation` on the `chat:` resource to route to Vertex AI instead of AI Studio. See [LLM Backends - Vertex AI](/resources/llm/backends#vertex-ai-google-cloud).
 
-**Provider-specific resource options:**
-
-| Field | Type | Description |
-|-------|------|-------------|
-| `googleCachedContent` | string | Name of a Google AI CachedContent resource to attach |
-| `googleHarmThreshold` | int | Safety filter level: 0=default, 1=block-none, 2=block-few, 3=block-some, 4=block-most |
-| `googleCloudProject` | string | Vertex AI GCP project ID |
-| `googleCloudLocation` | string | Vertex AI region (e.g. `us-central1`) |
+CachedContent and safety threshold options (`googleCachedContent`, `googleHarmThreshold`): see [LLM Backends - Google](/resources/llm/backends#google-cached-content-and-safety-threshold).
 
 ### Mistral
 

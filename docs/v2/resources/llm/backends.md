@@ -59,6 +59,26 @@ Known aliases: `qwen3.5`, `qwen3.5:4b`, `qwen3.5:9b`, `qwen3.5:27b`, `gemma4`, `
 
 Environment overrides: `KDEPS_LLAMA_SERVER_BIN` (binary path), `KDEPS_GGUF_CTX_SIZE` (context window).
 
+## Ollama (opt-in)
+
+```yaml
+# ~/.kdeps/config.yaml
+llm:
+  backend: ollama
+  # base_url: http://custom-ollama:11434   # optional override
+```
+
+When building Docker images, Ollama is installed when `backend: ollama` is set. The `installOllama` workflow flag can force or suppress this:
+
+```yaml
+# workflow.yaml
+settings:
+  agentSettings:
+    installOllama: true  # bake the ollama server into the image
+```
+
+See [Ollama: native options](#ollama-native-options) below for resource-level fields (`ollamaThink`, `ollamaKeepAlive`, ...).
+
 ## Where it runs
 
 Backend configuration applies to both [workflow mode](/modes/workflow-mode) and [agent mode](/modes/agent-loop-mode). All `chat:` resources in both modes resolve their backend from `~/.kdeps/config.yaml`.
