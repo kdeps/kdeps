@@ -17,9 +17,11 @@ Or open `dist/index.html` from Finder/Explorer (no kdeps, no server).
 
 `kdeps.wasm` must sit next to the CLI, or set `KDEPS_WASM_BINARY` and `KDEPS_WASM_EXEC_JS`. GitHub releases attach both files.
 
-The `dist/` folder is a self-contained site. Double-click `dist/index.html` - the WASM is inlined as `kdeps-wasm-embed.js` so `file://` does not need `fetch('kdeps.wasm')`. Keep `wasm_exec.js`, `kdeps-wasm-embed.js`, and `kdeps-bootstrap.js` next to the HTML.
+The `dist/` folder is a self-contained site. Double-click `dist/index.html` - `wasm_exec.js`, the WASM binary, and the bootstrap are inlined into that one file. The page never `fetch()`es local assets, so `file://` does not CORS on open. You can copy just `index.html`.
 
-Cloud `chat:` calls (OpenAI and friends) may still fail on `file://` because the browser blocks CORS from a file origin. If the model call errors, serve the same folder over HTTP (`python3 -m http.server 8080`) or use the Docker image.
+Sibling files (`kdeps.wasm`, `wasm_exec.js`, `kdeps-wasm-embed.js`, `kdeps-bootstrap.js`) stay in `dist/` for HTTP/Docker. nginx uses them; the HTML does not.
+
+Cloud `chat:` from `file://` still needs the provider to allow origin `null`. If the model call fails, serve the folder over HTTP (`python3 -m http.server 8080`) or use the Docker image.
 
 Init and `build --wasm` reject any resource the WASM runtime cannot execute.
 

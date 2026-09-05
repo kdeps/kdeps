@@ -118,11 +118,11 @@ func finalizeIndexHTML(config *BundleConfig, distDir string) error {
 		if err := generateDefaultIndex(distDir); err != nil {
 			return fmt.Errorf("failed to generate default index.html: %w", err)
 		}
-		return nil
-	}
-
-	if err := injectBootstrap(distDir); err != nil {
+	} else if err := injectBootstrap(distDir); err != nil {
 		return fmt.Errorf("failed to inject bootstrap into index.html: %w", err)
+	}
+	if err := inlineRuntimeScripts(distDir); err != nil {
+		return fmt.Errorf("failed to inline WASM runtime into index.html: %w", err)
 	}
 	return nil
 }
@@ -262,9 +262,9 @@ func writeBundleBytes(dst string, data []byte) error {
 	return afero.WriteFile(AppFS, dst, data, 0644)
 }
 
-// writeWasmEmbed writes kdeps-wasm-embed.js so index.html can load the
-// module via a <script> tag on file:// (double-click). fetch('kdeps.wasm')
-// is blocked by browsers for local files.
+// writeWasmEmbed writes kdeps-wasm-embed.js (base64 of the WASM module).
+// inlineRuntimeScripts later copies it into index.html so file:// never
+// fetch()es kdeps.wasm (browsers CORS-fail that).
 func writeWasmEmbed(wasmPath, distDir string) error {
 	kdeps_debug.Log("enter: writeWasmEmbed")
 	data, err := afero.ReadFile(AppFS, wasmPath)
@@ -273,6 +273,75 @@ func writeWasmEmbed(wasmPath, distDir string) error {
 	}
 	js := "window.__KDEPS_WASM_B64 = \"" + base64.StdEncoding.EncodeToString(data) + "\";\n"
 	return writeBundleBytes(filepath.Join(distDir, "kdeps-wasm-embed.js"), []byte(js))
+}
+
+func runtimeScriptFiles() []string {
+	return []string{"wasm_exec.js", "kdeps-wasm-embed.js", "kdeps-bootstrap.js"}
+}
+
+// inlineRuntimeScripts replaces <script src="..."> tags for the WASM runtime
+// with inline <script> bodies so double-clicking index.html does not CORS
+// on sibling files (Safari unique-origin file://, Chrome fetch of local JS).
+func inlineRuntimeScripts(distDir string) error {
+	kdeps_debug.Log("enter: inlineRuntimeScripts")
+	indexPath := filepath.Join(distDir, "index.html")
+	htmlBytes, err := afero.ReadFile(AppFS, indexPath)
+	if err != nil {
+		return err
+	}
+	html := string(htmlBytes)
+	for _, name := range runtimeScriptFiles() {
+		js, readErr := afero.ReadFile(AppFS, filepath.Join(distDir, name))
+		if readErr != nil {
+			return fmt.Errorf("failed to read %s for inline: %w", name, readErr)
+		}
+		html = replaceOrAppendScript(html, name, string(js))
+	}
+	return afero.WriteFile(AppFS, indexPath, []byte(html), 0644)
+}
+
+func escapeInlineScript(js string) string {
+	const needle = "</script"
+	if !strings.Contains(strings.ToLower(js), needle) {
+		return js
+	}
+	var b strings.Builder
+	lower := strings.ToLower(js)
+	start := 0
+	for {
+		i := strings.Index(lower[start:], needle)
+		if i < 0 {
+			b.WriteString(js[start:])
+			return b.String()
+		}
+		i += start
+		b.WriteString(js[start : i+1]) // "<"
+		b.WriteByte('\\')
+		b.WriteString(js[i+1 : i+len(needle)])
+		start = i + len(needle)
+	}
+}
+
+func inlineScriptTag(js string) string {
+	return "<script>\n" + escapeInlineScript(js) + "\n</script>"
+}
+
+func replaceOrAppendScript(html, src, js string) string {
+	inlined := inlineScriptTag(js)
+	tag := `<script src="` + src + `"></script>`
+	if strings.Contains(html, tag) {
+		return strings.Replace(html, tag, inlined, 1)
+	}
+	lower := strings.ToLower(html)
+	lowerTag := strings.ToLower(tag)
+	if i := strings.Index(lower, lowerTag); i != -1 {
+		return html[:i] + inlined + html[i+len(tag):]
+	}
+	inlined += "\n"
+	if idx := strings.LastIndex(lower, "</body>"); idx != -1 {
+		return html[:idx] + inlined + html[idx:]
+	}
+	return html + "\n" + inlined
 }
 
 // copyFile copies a file from src to dst.

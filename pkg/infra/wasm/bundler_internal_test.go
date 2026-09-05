@@ -24,6 +24,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"strings"
 	"testing"
 
 	"github.com/spf13/afero"
@@ -145,6 +146,10 @@ func TestRenderBootstrap_Success(t *testing.T) {
 	assert.Contains(t, contentStr, "__kdepsAPIRoutes = []")
 	assert.Contains(t, contentStr, "kdeps.wasm")
 	assert.Contains(t, contentStr, "new Go()")
+	assert.Contains(t, contentStr, "installFileOriginFetchShim")
+	assert.Contains(t, contentStr, "blocked file:// fetch")
+	assert.NotContains(t, contentStr, "fetch('kdeps.wasm')")
+	assert.NotContains(t, contentStr, "instantiateStreaming")
 }
 
 func TestRenderBootstrap_WithSpecialCharacters(t *testing.T) {
@@ -293,6 +298,139 @@ func TestGenerateDefaultIndex_MkdirAllError(t *testing.T) {
 
 	err := generateDefaultIndex(tmpDir)
 	require.Error(t, err)
+}
+
+func TestFinalizeIndexHTML_InlineError(t *testing.T) {
+	tmpDir := t.TempDir()
+	distDir := filepath.Join(tmpDir, "dist")
+	require.NoError(t, os.MkdirAll(distDir, 0750))
+
+	err := finalizeIndexHTML(&BundleConfig{WebServerFiles: map[string]string{}}, distDir)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "failed to inline WASM runtime into index.html")
+}
+
+func TestFinalizeIndexHTML_InjectThenInlineError(t *testing.T) {
+	tmpDir := t.TempDir()
+	distDir := filepath.Join(tmpDir, "dist")
+	require.NoError(t, os.MkdirAll(distDir, 0750))
+	require.NoError(t, os.WriteFile(filepath.Join(distDir, "index.html"), []byte("<html><body>x</body></html>"), 0644))
+
+	err := finalizeIndexHTML(&BundleConfig{
+		WebServerFiles: map[string]string{"index.html": "<html><body>x</body></html>"},
+	}, distDir)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "failed to inline WASM runtime into index.html")
+}
+
+func TestInlineRuntimeScripts_ReadError(t *testing.T) {
+	tmpDir := t.TempDir()
+	require.NoError(t, os.WriteFile(filepath.Join(tmpDir, "index.html"), []byte("<html></html>"), 0644))
+
+	err := inlineRuntimeScripts(tmpDir)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "failed to read wasm_exec.js for inline")
+}
+
+func TestInlineRuntimeScripts_MissingEmbed(t *testing.T) {
+	tmpDir := t.TempDir()
+	require.NoError(t, os.WriteFile(filepath.Join(tmpDir, "index.html"), []byte("<html></html>"), 0644))
+	require.NoError(t, os.WriteFile(filepath.Join(tmpDir, "wasm_exec.js"), []byte("go"), 0644))
+
+	err := inlineRuntimeScripts(tmpDir)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "failed to read kdeps-wasm-embed.js for inline")
+}
+
+func TestInlineRuntimeScripts_MissingBootstrap(t *testing.T) {
+	tmpDir := t.TempDir()
+	require.NoError(t, os.WriteFile(filepath.Join(tmpDir, "index.html"), []byte("<html></html>"), 0644))
+	require.NoError(t, os.WriteFile(filepath.Join(tmpDir, "wasm_exec.js"), []byte("go"), 0644))
+	require.NoError(t, os.WriteFile(filepath.Join(tmpDir, "kdeps-wasm-embed.js"), []byte("embed"), 0644))
+
+	err := inlineRuntimeScripts(tmpDir)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "failed to read kdeps-bootstrap.js for inline")
+}
+
+func TestInlineRuntimeScripts_WriteError(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("chmod does not enforce POSIX permission bits on Windows")
+	}
+	tmpDir := t.TempDir()
+	indexPath := filepath.Join(tmpDir, "index.html")
+	require.NoError(t, os.WriteFile(indexPath, []byte("<html><body></body></html>"), 0644))
+	require.NoError(t, os.WriteFile(filepath.Join(tmpDir, "wasm_exec.js"), []byte("go"), 0644))
+	require.NoError(t, os.WriteFile(filepath.Join(tmpDir, "kdeps-wasm-embed.js"), []byte("embed"), 0644))
+	require.NoError(t, os.WriteFile(filepath.Join(tmpDir, "kdeps-bootstrap.js"), []byte("boot"), 0644))
+	require.NoError(t, os.Chmod(indexPath, 0444))
+	t.Cleanup(func() { _ = os.Chmod(indexPath, 0644) })
+
+	err := inlineRuntimeScripts(tmpDir)
+	require.Error(t, err)
+}
+
+func TestInlineRuntimeScripts_IndexReadError(t *testing.T) {
+	tmpDir := t.TempDir()
+	indexPath := filepath.Join(tmpDir, "index.html")
+	require.NoError(t, os.Mkdir(indexPath, 0750))
+
+	err := inlineRuntimeScripts(tmpDir)
+	require.Error(t, err)
+}
+
+func TestInlineRuntimeScripts_Success(t *testing.T) {
+	tmpDir := t.TempDir()
+	require.NoError(t, os.WriteFile(filepath.Join(tmpDir, "index.html"), []byte(
+		`<html><body><p>hi</p>
+<script src="wasm_exec.js"></script>
+<script src="kdeps-wasm-embed.js"></script>
+<script src="kdeps-bootstrap.js"></script>
+</body></html>`), 0644))
+	require.NoError(t, os.WriteFile(filepath.Join(tmpDir, "wasm_exec.js"), []byte("GO_RUNTIME"), 0644))
+	embedJS := filepath.Join(tmpDir, "kdeps-wasm-embed.js")
+	embedBody := []byte(`window.__KDEPS_WASM_B64 = "QQ==";`)
+	require.NoError(t, os.WriteFile(embedJS, embedBody, 0644))
+	require.NoError(t, os.WriteFile(filepath.Join(tmpDir, "kdeps-bootstrap.js"), []byte("BOOTSTRAP"), 0644))
+
+	require.NoError(t, inlineRuntimeScripts(tmpDir))
+
+	data, err := os.ReadFile(filepath.Join(tmpDir, "index.html"))
+	require.NoError(t, err)
+	html := string(data)
+	assert.Contains(t, html, "GO_RUNTIME")
+	assert.Contains(t, html, "window.__KDEPS_WASM_B64")
+	assert.Contains(t, html, "BOOTSTRAP")
+	assert.NotContains(t, html, `<script src="wasm_exec.js">`)
+	assert.NotContains(t, html, `<script src="kdeps-bootstrap.js">`)
+}
+
+func TestReplaceOrAppendScript_AppendsBeforeBody(t *testing.T) {
+	html := "<html><body><p>x</p></body></html>"
+	got := replaceOrAppendScript(html, "wasm_exec.js", "CODE")
+	assert.Contains(t, got, "<script>\nCODE\n</script>")
+	assert.Greater(t, strings.Index(got, "CODE"), strings.Index(got, "<p>x</p>"))
+	assert.Greater(t, strings.Index(got, "</body>"), strings.Index(got, "CODE"))
+}
+
+func TestReplaceOrAppendScript_AppendsWhenNoBody(t *testing.T) {
+	html := "<html><p>x</p></html>"
+	got := replaceOrAppendScript(html, "wasm_exec.js", "CODE")
+	assert.True(t, strings.HasSuffix(strings.TrimSpace(got), "</script>"))
+	assert.Contains(t, got, "CODE")
+}
+
+func TestReplaceOrAppendScript_CaseInsensitive(t *testing.T) {
+	html := `<html><body><SCRIPT SRC="wasm_exec.js"></SCRIPT></body></html>`
+	got := replaceOrAppendScript(html, "wasm_exec.js", "CODE")
+	assert.Contains(t, got, "CODE")
+	assert.NotContains(t, strings.ToLower(got), `src="wasm_exec.js"`)
+}
+
+func TestEscapeInlineScript(t *testing.T) {
+	assert.Equal(t, "ok", escapeInlineScript("ok"))
+	assert.Equal(t, `var x = '<\/script>';`, escapeInlineScript("var x = '</script>';"))
+	assert.Equal(t, `a<\/SCRIPT>b`, escapeInlineScript("a</SCRIPT>b"))
 }
 
 func TestWriteBundleBytes_MkdirAllError(t *testing.T) {

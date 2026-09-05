@@ -5,11 +5,82 @@
     const __kdepsWorkflowYAML = `{{.WorkflowYAML}}`;
     const __kdepsAPIRoutes = {{.APIRoutesJSON}};
 
+    function isFileOrigin() {
+        return typeof location !== 'undefined' && location.protocol === 'file:';
+    }
+
+    function wasmBytesFromEmbed() {
+        if (typeof window.__KDEPS_WASM_B64 !== 'string' || window.__KDEPS_WASM_B64.length === 0) {
+            return null;
+        }
+        var binary = atob(window.__KDEPS_WASM_B64);
+        var bytes = new Uint8Array(binary.length);
+        for (var i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+        return bytes;
+    }
+
+    function isKdepsWasmURL(url) {
+        var s = String(url || '');
+        try {
+            var base = (typeof location !== 'undefined' && location.href) ? location.href : 'http://localhost/';
+            s = new URL(s, base).pathname || s;
+        } catch (e) { /* keep s */ }
+        return /(?:^|\/)kdeps\.wasm$/i.test(s.split('?')[0]);
+    }
+
+    // file:// fetch of local files is CORS. Serve kdeps.wasm from the embed and
+    // reject other file:// fetches so the console never logs a CORS error on
+    // double-click. HTTPS (cloud chat / httpClient) still uses real fetch.
+    function installFileOriginFetchShim() {
+        if (typeof window.fetch !== 'function') return;
+        var orig = window.fetch.bind(window);
+        window.fetch = function(resource, init) {
+            var url = '';
+            try {
+                if (typeof resource === 'string') url = resource;
+                else if (resource && typeof resource.url === 'string') url = resource.url;
+                else url = String(resource);
+            } catch (e) {
+                url = String(resource);
+            }
+            if (isKdepsWasmURL(url)) {
+                var bytes = wasmBytesFromEmbed();
+                if (bytes) {
+                    return Promise.resolve(new Response(bytes, {
+                        status: 200,
+                        headers: { 'Content-Type': 'application/wasm' }
+                    }));
+                }
+                return Promise.reject(new Error('[kdeps] blocked fetch of kdeps.wasm (embed missing)'));
+            }
+            if (isFileOrigin()) {
+                var abs = null;
+                try { abs = new URL(url, location.href); } catch (e) { /* ignore */ }
+                if (abs && abs.protocol === 'file:') {
+                    return Promise.reject(new Error('[kdeps] blocked file:// fetch (CORS): ' + url));
+                }
+                if (typeof resource === 'string') {
+                    var next = {};
+                    if (init) {
+                        var keys = Object.keys(init);
+                        for (var i = 0; i < keys.length; i++) next[keys[i]] = init[keys[i]];
+                    }
+                    if (next.credentials == null) next.credentials = 'omit';
+                    if (next.referrerPolicy == null) next.referrerPolicy = 'no-referrer';
+                    return orig(resource, next);
+                }
+            }
+            return orig(resource, init);
+        };
+    }
+
     try {
         if (typeof WebAssembly === 'undefined') {
             console.error('[kdeps] WebAssembly is not supported in this browser.');
             return;
         }
+
+        installFileOriginFetchShim();
 
         const go = new Go();
         const result = await loadKdepsWasm(go);
@@ -67,16 +138,14 @@
         console.error('[kdeps] Init error:', err);
     }
 
-    // file:// cannot fetch kdeps.wasm. The bundler inlines it as base64 in
-    // kdeps-wasm-embed.js so double-clicking index.html still boots.
+    // Never fetch kdeps.wasm. file:// CORS-fails; the bundler inlines the
+    // module as window.__KDEPS_WASM_B64 (and into index.html) so double-click works.
     async function loadKdepsWasm(go) {
-        if (typeof window.__KDEPS_WASM_B64 === 'string' && window.__KDEPS_WASM_B64.length > 0) {
-            var binary = atob(window.__KDEPS_WASM_B64);
-            var bytes = new Uint8Array(binary.length);
-            for (var i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
-            return WebAssembly.instantiate(bytes, go.importObject);
+        var bytes = wasmBytesFromEmbed();
+        if (!bytes) {
+            throw new Error('[kdeps] WASM embed missing (window.__KDEPS_WASM_B64). Rebuild with kdeps bundle build --wasm.');
         }
-        return WebAssembly.instantiateStreaming(fetch('kdeps.wasm'), go.importObject);
+        return WebAssembly.instantiate(bytes, go.importObject);
     }
 
     // Handle an intercepted API request by routing it to the WASM runtime.

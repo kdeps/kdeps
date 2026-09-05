@@ -66,7 +66,7 @@ func TestBundle_MinimalConfig(t *testing.T) {
 	assert.Contains(t, string(embedJS), "window.__KDEPS_WASM_B64")
 	indexHTML, err := os.ReadFile(filepath.Join(outputDir, "dist", "index.html"))
 	require.NoError(t, err)
-	assert.Contains(t, string(indexHTML), "kdeps-wasm-embed.js")
+	assertSelfContainedIndex(t, string(indexHTML), "fake wasm_exec.js")
 	assert.FileExists(t, filepath.Join(outputDir, "nginx.conf"))
 	assert.FileExists(t, filepath.Join(outputDir, "Dockerfile"))
 }
@@ -107,11 +107,8 @@ func TestBundle_WithCustomHTML(t *testing.T) {
 	content, err := os.ReadFile(indexPath)
 	require.NoError(t, err)
 
-	// Should contain original content plus injected bootstrap scripts
 	assert.Contains(t, string(content), "Custom Page")
-	assert.Contains(t, string(content), "wasm_exec.js")
-	assert.Contains(t, string(content), "kdeps-wasm-embed.js")
-	assert.Contains(t, string(content), "kdeps-bootstrap.js")
+	assertSelfContainedIndex(t, string(content), "fake js")
 }
 
 func TestBundle_WithAPIRoutes(t *testing.T) {
@@ -376,11 +373,8 @@ func TestBundle_CustomHTMLNoClosingBodyTag(t *testing.T) {
 
 	contentStr := string(content)
 	assert.Contains(t, contentStr, "<p>no closing body tag</p>")
-	// Scripts should be appended at the end because no </body> was found
-	assert.Contains(t, contentStr, "wasm_exec.js")
-	assert.Contains(t, contentStr, "kdeps-bootstrap.js")
-	// Verify scripts are the last content (no closing body tag after them)
-	lastScriptIdx := strings.LastIndex(contentStr, "kdeps-bootstrap.js")
+	assertSelfContainedIndex(t, contentStr, "js")
+	lastScriptIdx := strings.LastIndex(contentStr, "kdepsInit")
 	assert.Greater(t, lastScriptIdx, strings.Index(contentStr, "no closing body tag"))
 }
 
@@ -567,4 +561,76 @@ func TestBundle_DockerfileCollision(t *testing.T) {
 	err := wasm.Bundle(config)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "failed to copy Dockerfile")
+}
+
+func TestBundle_IndexHTMLIsSelfContained(t *testing.T) {
+	tmpDir := t.TempDir()
+	wasmFile := filepath.Join(tmpDir, "kdeps.wasm")
+	wasmExecFile := filepath.Join(tmpDir, "wasm_exec.js")
+	outputDir := filepath.Join(tmpDir, "output")
+
+	require.NoError(t, os.WriteFile(wasmFile, []byte("wasm-bytes"), 0644))
+	require.NoError(t, os.WriteFile(wasmExecFile, []byte("/* wasm_exec */ console.log('go');"), 0644))
+
+	config := &wasm.BundleConfig{
+		WASMBinaryPath: wasmFile,
+		WASMExecJSPath: wasmExecFile,
+		WorkflowYAML:   "apiVersion: kdeps.io/v1",
+		WebServerFiles: map[string]string{},
+		APIRoutes:      []string{},
+		OutputDir:      outputDir,
+	}
+
+	require.NoError(t, wasm.Bundle(config))
+
+	indexHTML, err := os.ReadFile(filepath.Join(outputDir, "dist", "index.html"))
+	require.NoError(t, err)
+	content := string(indexHTML)
+	assertSelfContainedIndex(t, content, "/* wasm_exec */")
+	assert.Contains(t, content, "installFileOriginFetchShim")
+	assert.NotContains(t, content, "fetch('kdeps.wasm')")
+	assert.NotContains(t, content, "instantiateStreaming")
+
+	bootstrap, err := os.ReadFile(filepath.Join(outputDir, "dist", "kdeps-bootstrap.js"))
+	require.NoError(t, err)
+	assert.Contains(t, string(bootstrap), "blocked file:// fetch")
+	assert.NotContains(t, string(bootstrap), "fetch('kdeps.wasm')")
+}
+
+func TestBundle_InlineEscapesScriptEndTag(t *testing.T) {
+	tmpDir := t.TempDir()
+	wasmFile := filepath.Join(tmpDir, "kdeps.wasm")
+	wasmExecFile := filepath.Join(tmpDir, "wasm_exec.js")
+	outputDir := filepath.Join(tmpDir, "output")
+
+	require.NoError(t, os.WriteFile(wasmFile, []byte("wasm"), 0644))
+	require.NoError(t, os.WriteFile(wasmExecFile, []byte("var x = '</script>';"), 0644))
+
+	config := &wasm.BundleConfig{
+		WASMBinaryPath: wasmFile,
+		WASMExecJSPath: wasmExecFile,
+		WorkflowYAML:   "test",
+		WebServerFiles: map[string]string{},
+		APIRoutes:      []string{},
+		OutputDir:      outputDir,
+	}
+
+	require.NoError(t, wasm.Bundle(config))
+
+	indexHTML, err := os.ReadFile(filepath.Join(outputDir, "dist", "index.html"))
+	require.NoError(t, err)
+	content := string(indexHTML)
+	assert.Contains(t, content, `<\/script`)
+	assert.NotContains(t, content, "var x = '</script>'")
+}
+
+func assertSelfContainedIndex(t *testing.T, indexHTML, wasmExecSnippet string) {
+	t.Helper()
+	assert.Contains(t, indexHTML, "window.__KDEPS_WASM_B64")
+	assert.Contains(t, indexHTML, wasmExecSnippet)
+	assert.Contains(t, indexHTML, "installFileOriginFetchShim")
+	assert.NotContains(t, indexHTML, `<script src="wasm_exec.js">`)
+	assert.NotContains(t, indexHTML, `<script src="kdeps-wasm-embed.js">`)
+	assert.NotContains(t, indexHTML, `<script src="kdeps-bootstrap.js">`)
+	assert.NotContains(t, indexHTML, "fetch('kdeps.wasm')")
 }
