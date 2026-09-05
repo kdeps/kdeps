@@ -7,15 +7,10 @@
 ## Build
 
 ```bash
-make build-wasm
 kdeps bundle build examples/http-advanced --wasm
-# Docker image, or copy the generated dist/ folder
-docker run -p 80:80 kdeps-wasm:latest
 ```
 
-Or open `dist/index.html` from Finder/Explorer (no kdeps, no server).
-
-`kdeps.wasm` must sit next to the CLI, or set `KDEPS_WASM_BINARY` and `KDEPS_WASM_EXEC_JS`. GitHub releases attach both files.
+`--wasm` compiles `kdeps.wasm` (`go build GOOS=js GOARCH=wasm`) if it is not already next to the CLI or in `KDEPS_WASM_BINARY`. Needs Go and the kdeps source tree (or a release that ships `kdeps.wasm`).
 
 `--wasm` also writes `{metadata.name}.html` next to the workflow. That file is self-contained: double-click it, no server. `wasm_exec.js`, the WASM binary, and the bootstrap are inlined, so `file://` does not CORS on open.
 

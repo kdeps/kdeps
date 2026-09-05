@@ -11,7 +11,6 @@ WASM cannot scrape the open tab. The bookmarklet runs in that tab and copies `ur
 ## Build
 
 ```bash
-make build-wasm
 kdeps bundle build examples/page-summarizer --wasm
 ```
 

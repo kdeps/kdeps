@@ -31,7 +31,7 @@ By the end you will be able to:
 
 ## Before you start
 
-- kdeps installed, plus `make build-wasm` so `kdeps.wasm` sits next to the CLI
+- kdeps installed (`kdeps --version`). `--wasm` compiles `kdeps.wasm` itself.
 - An OpenAI API key
 
 ## Step 1: create the project
@@ -147,7 +147,6 @@ The full file is in [`examples/page-summarizer/data/public/index.html`](https://
 ## Step 5: build and double-click
 
 ```bash
-make build-wasm
 kdeps bundle build . --wasm
 ```
 

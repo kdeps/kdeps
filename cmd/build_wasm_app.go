@@ -99,10 +99,78 @@ func printWASMSuccess(htmlPath, imageTag string) {
 	fmt.Fprintln(os.Stdout, "WASM web app built successfully!")
 	if htmlPath != "" {
 		fmt.Fprintf(os.Stdout, "  HTML: %s\n", htmlPath)
-		fmt.Fprintln(os.Stdout, "  Double-click it (no server). Drag \"Summarize page\" to the bookmarks bar.")
+		fmt.Fprintln(os.Stdout, "  Double-click it (no server).")
 	}
 	fmt.Fprintf(os.Stdout, "  Image: %s\n", imageTag)
 	fmt.Fprintf(os.Stdout, "  Optional: docker run -p 80:80 %s\n", imageTag)
+}
+
+// compileWASMFunc builds cmd/wasm for GOOS=js GOARCH=wasm. Overridable in tests.
+//
+//nolint:gochecknoglobals // test-replaceable
+var compileWASMFunc = compileWASM
+
+func isKdepsModuleRoot(dir string) bool {
+	if _, err := os.Stat(filepath.Join(dir, "go.mod")); err != nil {
+		return false
+	}
+	if _, err := os.Stat(filepath.Join(dir, "cmd", "wasm")); err != nil {
+		return false
+	}
+	return true
+}
+
+func findKdepsModuleRoot() (string, error) {
+	var starts []string
+	if cwd, err := os.Getwd(); err == nil {
+		starts = append(starts, cwd)
+	}
+	if exe, err := osExecutable(); err == nil {
+		starts = append(starts, filepath.Dir(exe))
+	}
+	for _, start := range starts {
+		dir := start
+		for {
+			if isKdepsModuleRoot(dir) {
+				return dir, nil
+			}
+			parent := filepath.Dir(dir)
+			if parent == dir {
+				break
+			}
+			dir = parent
+		}
+	}
+	return "", errors.New("kdeps module root not found (need go.mod and cmd/wasm)")
+}
+
+func compileWASM(ctx context.Context, dest string) error {
+	root, err := findKdepsModuleRoot()
+	if err != nil {
+		return err
+	}
+	if mkErr := os.MkdirAll(filepath.Dir(dest), 0750); mkErr != nil {
+		return mkErr
+	}
+	cmd := exec.CommandContext(ctx, "go", "build", "-o", dest, "./cmd/wasm/")
+	cmd.Dir = root
+	cmd.Env = append(os.Environ(), "GOOS=js", "GOARCH=wasm", "CGO_ENABLED=0")
+	out, runErr := cmd.CombinedOutput()
+	if runErr != nil {
+		return fmt.Errorf("go build GOOS=js GOARCH=wasm: %w: %s", runErr, strings.TrimSpace(string(out)))
+	}
+	return nil
+}
+
+func resolveWASMBinary(ctx context.Context, compileDest string) (string, error) {
+	if path, err := findWASMBinary(); err == nil {
+		return path, nil
+	}
+	fmt.Fprintln(os.Stdout, "kdeps.wasm not found; compiling with kdeps (go build GOOS=js GOARCH=wasm)...")
+	if err := compileWASMFunc(ctx, compileDest); err != nil {
+		return "", fmt.Errorf("kdeps.wasm not found and compile failed: %w", err)
+	}
+	return compileDest, nil
 }
 
 // buildWASMImage builds a WASM static web app from a workflow package.
@@ -135,7 +203,13 @@ func buildWASMImage(ctx context.Context, packagePath string, flags *BuildFlags) 
 		return fmt.Errorf("failed to collect web server files: %w", err)
 	}
 
-	wasmBinary, err := findWASMBinary()
+	outputDir, err := os.MkdirTemp("", "kdeps-wasm-bundle-*")
+	if err != nil {
+		return fmt.Errorf("failed to create output directory: %w", err)
+	}
+	defer os.RemoveAll(outputDir)
+
+	wasmBinary, err := resolveWASMBinary(ctx, filepath.Join(outputDir, "kdeps.wasm"))
 	if err != nil {
 		return err
 	}
@@ -147,12 +221,6 @@ func buildWASMImage(ctx context.Context, packagePath string, flags *BuildFlags) 
 	fmt.Fprintf(os.Stdout, "WASM binary: %s\n", wasmBinary)
 	fmt.Fprintf(os.Stdout, "wasm_exec.js: %s\n", wasmExecJS)
 	fmt.Fprintf(os.Stdout, "Web server files: %d\n\n", len(webServerFiles))
-
-	outputDir, err := os.MkdirTemp("", "kdeps-wasm-bundle-*")
-	if err != nil {
-		return fmt.Errorf("failed to create output directory: %w", err)
-	}
-	defer os.RemoveAll(outputDir)
 
 	if err = bundleWASMApp(
 		wasmBinary,

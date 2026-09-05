@@ -419,12 +419,64 @@ func TestBuildWASMImage_InvalidWorkflow(t *testing.T) {
 }
 
 func TestBuildWASMImage_MissingWASMBinary(t *testing.T) {
+	origCompile := compileWASMFunc
+	t.Cleanup(func() { compileWASMFunc = origCompile })
+	compileWASMFunc = func(context.Context, string) error {
+		return errors.New("compile disabled")
+	}
+
 	tmpDir := t.TempDir()
 	createMinimalWASMWorkflow(t, tmpDir)
+	origWD, err := os.Getwd()
+	require.NoError(t, err)
+	require.NoError(t, os.Chdir(tmpDir))
+	t.Cleanup(func() { _ = os.Chdir(origWD) })
+	t.Setenv("KDEPS_WASM_BINARY", "")
+	origExe := osExecutable
+	t.Cleanup(func() { osExecutable = origExe })
+	osExecutable = func() (string, error) { return filepath.Join(tmpDir, "kdeps"), nil }
 
-	err := buildWASMImage(context.Background(), tmpDir, &BuildFlags{})
+	err = buildWASMImage(context.Background(), tmpDir, &BuildFlags{})
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "kdeps.wasm not found")
+	assert.Contains(t, err.Error(), "compile failed")
+}
+
+func TestBuildWASMImage_CompilesWhenMissing(t *testing.T) {
+	origCompile := compileWASMFunc
+	t.Cleanup(func() { compileWASMFunc = origCompile })
+	compileWASMFunc = func(_ context.Context, dest string) error {
+		if err := os.MkdirAll(filepath.Dir(dest), 0750); err != nil {
+			return err
+		}
+		return os.WriteFile(dest, []byte("compiled-wasm"), 0600)
+	}
+
+	origBundle := bundleFunc
+	t.Cleanup(func() { bundleFunc = origBundle })
+	stubBundleWriteIndex(nil)
+
+	origBuildDockerImage := buildDockerImage
+	t.Cleanup(func() { buildDockerImage = origBuildDockerImage })
+	buildDockerImage = func(_ context.Context, _ []string) error { return nil }
+
+	tmpDir := t.TempDir()
+	createMinimalWASMWorkflow(t, tmpDir)
+	wasmExecJS := filepath.Join(tmpDir, "wasm_exec.js")
+	require.NoError(t, os.WriteFile(wasmExecJS, []byte("js"), 0644))
+	t.Setenv("KDEPS_WASM_EXEC_JS", wasmExecJS)
+	t.Setenv("KDEPS_WASM_BINARY", "")
+	origWD, wdErr := os.Getwd()
+	require.NoError(t, wdErr)
+	require.NoError(t, os.Chdir(tmpDir))
+	t.Cleanup(func() { _ = os.Chdir(origWD) })
+	origExe := osExecutable
+	t.Cleanup(func() { osExecutable = origExe })
+	osExecutable = func() (string, error) { return filepath.Join(tmpDir, "kdeps"), nil }
+
+	err := buildWASMImage(context.Background(), tmpDir, &BuildFlags{})
+	require.NoError(t, err)
+	assert.FileExists(t, filepath.Join(tmpDir, "test-wasm-workflow.html"))
 }
 
 func TestBuildWASMImage_Success(t *testing.T) {

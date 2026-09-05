@@ -22,7 +22,6 @@ cd chatbot && kdeps run workflow.yaml --dev
 drag it to the bookmarks bar, click on any page to summarize.
 
 ```bash
-make build-wasm
 kdeps bundle build examples/page-summarizer --wasm
 # then double-click examples/page-summarizer/page-summarizer.html
 ```

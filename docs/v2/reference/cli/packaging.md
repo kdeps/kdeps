@@ -111,7 +111,7 @@ kdeps bundle build [path] [flags]
 | `--gpu` | GPU type: `cuda`, `rocm`, `intel`, `vulkan` (auto-selects Ubuntu base) | None (CPU, Alpine) |
 | `--tag, -t` | Docker image tag | From workflow metadata |
 | `--no-cache` | Build without cache | `false` |
-| `--wasm` | Browser WASM app: writes `{name}.html` (double-click, no server) and a static nginx image. Only `chat`, `httpClient`, and `apiResponse`. See [WASM web app](/deployment/wasm). | `false` |
+| `--wasm` | Compile `kdeps.wasm`, write `{name}.html` (double-click, no server), and a static nginx image. Only `chat`, `httpClient`, and `apiResponse`. See [WASM web app](/deployment/wasm). | `false` |
 
 **Examples:**
 

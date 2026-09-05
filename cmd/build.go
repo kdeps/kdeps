@@ -128,7 +128,7 @@ Examples:
 	buildCmd.Flags().
 		BoolVar(&flags.NoCache, "no-cache", false, "Do not use cache when building the image")
 	buildCmd.Flags().
-		BoolVar(&flags.WASM, "wasm", false, "Build as WASM static web app (browser-side execution)")
+		BoolVar(&flags.WASM, "wasm", false, "Compile kdeps.wasm and write a double-click HTML app (also builds a nginx image)")
 
 	return buildCmd
 }

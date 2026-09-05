@@ -289,6 +289,79 @@ func TestFindWASMBinary_NotFound(t *testing.T) {
 	require.Error(t, err)
 }
 
+func TestIsKdepsModuleRoot(t *testing.T) {
+	dir := t.TempDir()
+	assert.False(t, isKdepsModuleRoot(dir))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "go.mod"), []byte("module x\n"), 0600))
+	assert.False(t, isKdepsModuleRoot(dir))
+	require.NoError(t, os.MkdirAll(filepath.Join(dir, "cmd", "wasm"), 0750))
+	assert.True(t, isKdepsModuleRoot(dir))
+}
+
+func TestFindKdepsModuleRoot_FromCWD(t *testing.T) {
+	orig, err := os.Getwd()
+	require.NoError(t, err)
+	dir := t.TempDir()
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "go.mod"), []byte("module x\n"), 0600))
+	require.NoError(t, os.MkdirAll(filepath.Join(dir, "cmd", "wasm"), 0750))
+	require.NoError(t, os.Chdir(dir))
+	t.Cleanup(func() { _ = os.Chdir(orig) })
+	root, err := findKdepsModuleRoot()
+	require.NoError(t, err)
+	want, err := filepath.EvalSymlinks(dir)
+	require.NoError(t, err)
+	got, err := filepath.EvalSymlinks(root)
+	require.NoError(t, err)
+	assert.Equal(t, want, got)
+}
+
+func TestCompileWASM_NoModuleRoot(t *testing.T) {
+	orig, err := os.Getwd()
+	require.NoError(t, err)
+	dir := t.TempDir()
+	require.NoError(t, os.Chdir(dir))
+	t.Cleanup(func() { _ = os.Chdir(orig) })
+	origExe := osExecutable
+	t.Cleanup(func() { osExecutable = origExe })
+	osExecutable = func() (string, error) { return filepath.Join(dir, "kdeps"), nil }
+	err = compileWASM(context.Background(), filepath.Join(dir, "kdeps.wasm"))
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "kdeps module root not found")
+}
+
+func TestResolveWASMBinary_Existing(t *testing.T) {
+	tmp := filepath.Join(t.TempDir(), "kdeps.wasm")
+	require.NoError(t, os.WriteFile(tmp, []byte("x"), 0644))
+	t.Setenv("KDEPS_WASM_BINARY", tmp)
+	p, err := resolveWASMBinary(context.Background(), filepath.Join(t.TempDir(), "out.wasm"))
+	require.NoError(t, err)
+	assert.Equal(t, tmp, p)
+}
+
+func TestResolveWASMBinary_Compile(t *testing.T) {
+	dir := t.TempDir()
+	origWD, err := os.Getwd()
+	require.NoError(t, err)
+	require.NoError(t, os.Chdir(dir))
+	t.Cleanup(func() { _ = os.Chdir(origWD) })
+	t.Setenv("KDEPS_WASM_BINARY", "")
+	origExe := osExecutable
+	t.Cleanup(func() { osExecutable = origExe })
+	osExecutable = func() (string, error) { return filepath.Join(dir, "kdeps"), nil }
+	orig := compileWASMFunc
+	t.Cleanup(func() { compileWASMFunc = orig })
+	dest := filepath.Join(dir, "out.wasm")
+	compileWASMFunc = func(_ context.Context, d string) error {
+		return os.WriteFile(d, []byte("compiled"), 0600)
+	}
+	p, err := resolveWASMBinary(context.Background(), dest)
+	require.NoError(t, err)
+	assert.Equal(t, dest, p)
+	got, err := os.ReadFile(p)
+	require.NoError(t, err)
+	assert.Equal(t, "compiled", string(got))
+}
+
 func TestFindWASMExecJS_EnvVar(t *testing.T) {
 	tmp := filepath.Join(t.TempDir(), "wasm_exec.js")
 	require.NoError(t, os.WriteFile(tmp, []byte("x"), 0644))
