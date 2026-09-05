@@ -37,7 +37,6 @@ import (
 
 	"github.com/kdeps/kdeps/v2/pkg/domain"
 	"github.com/kdeps/kdeps/v2/pkg/infra/docker"
-	wasmPkg "github.com/kdeps/kdeps/v2/pkg/infra/wasm"
 )
 
 func TestBuildImageWithFlagsInternal_RunE(t *testing.T) {
@@ -68,7 +67,7 @@ func TestBuildImageInternal_WASM(t *testing.T) {
 		os.WriteFile(filepath.Join(tmp, "workflow.yaml"), []byte(minimalWorkflowYAML()), 0644),
 	)
 	require.NoError(t, os.MkdirAll(filepath.Join(tmp, "data"), 0755))
-	bundleFunc = func(_ *wasmPkg.BundleConfig) error { return nil }
+	stubBundleWriteIndex(nil)
 	buildDockerImage = func(_ context.Context, _ []string) error { return nil }
 	cmd := &cobra.Command{}
 	cmd.SetContext(context.Background())

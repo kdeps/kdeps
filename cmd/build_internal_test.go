@@ -383,6 +383,22 @@ func setupWASMEnv(t *testing.T, dir string) {
 	t.Setenv("KDEPS_WASM_EXEC_JS", wasmExecJS)
 }
 
+func stubBundleWriteIndex(next func(*wasmPkg.BundleConfig) error) {
+	bundleFunc = func(cfg *wasmPkg.BundleConfig) error {
+		dist := filepath.Join(cfg.OutputDir, "dist")
+		if err := os.MkdirAll(dist, 0750); err != nil {
+			return err
+		}
+		if err := os.WriteFile(filepath.Join(dist, "index.html"), []byte("<!DOCTYPE html>"), 0644); err != nil {
+			return err
+		}
+		if next != nil {
+			return next(cfg)
+		}
+		return nil
+	}
+}
+
 func TestBuildWASMImage_InvalidPath(t *testing.T) {
 	err := buildWASMImage(context.Background(), "/nonexistent/test/path", &BuildFlags{})
 	require.Error(t, err)
@@ -414,7 +430,7 @@ func TestBuildWASMImage_MissingWASMBinary(t *testing.T) {
 func TestBuildWASMImage_Success(t *testing.T) {
 	origBundle := bundleFunc
 	t.Cleanup(func() { bundleFunc = origBundle })
-	bundleFunc = func(_ *wasmPkg.BundleConfig) error { return nil }
+	stubBundleWriteIndex(nil)
 
 	origBuildDockerImage := buildDockerImage
 	t.Cleanup(func() { buildDockerImage = origBuildDockerImage })
@@ -431,6 +447,25 @@ func TestBuildWASMImage_Success(t *testing.T) {
 
 	err := buildWASMImage(context.Background(), tmpDir, &BuildFlags{})
 	require.NoError(t, err)
+	assert.FileExists(t, filepath.Join(tmpDir, "test-wasm-workflow.html"))
+}
+
+func TestBuildWASMImage_MissingBundledIndex(t *testing.T) {
+	origBundle := bundleFunc
+	t.Cleanup(func() { bundleFunc = origBundle })
+	bundleFunc = func(_ *wasmPkg.BundleConfig) error { return nil }
+
+	origBuildDockerImage := buildDockerImage
+	t.Cleanup(func() { buildDockerImage = origBuildDockerImage })
+	buildDockerImage = func(_ context.Context, _ []string) error { return nil }
+
+	tmpDir := t.TempDir()
+	createMinimalWASMWorkflow(t, tmpDir)
+	setupWASMEnv(t, tmpDir)
+
+	err := buildWASMImage(context.Background(), tmpDir, &BuildFlags{})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "failed to read bundled index.html")
 }
 
 func TestBuildWASMImage_BundleError(t *testing.T) {
@@ -456,7 +491,7 @@ func TestBuildWASMImage_BundleError(t *testing.T) {
 func TestBuildWASMImage_DockerError(t *testing.T) {
 	origBundle := bundleFunc
 	t.Cleanup(func() { bundleFunc = origBundle })
-	bundleFunc = func(_ *wasmPkg.BundleConfig) error { return nil }
+	stubBundleWriteIndex(nil)
 
 	origBuildDockerImage := buildDockerImage
 	t.Cleanup(func() { buildDockerImage = origBuildDockerImage })
@@ -477,10 +512,10 @@ func TestBuildWASMImage_WithAPIRoutes(t *testing.T) {
 	origBundle := bundleFunc
 	t.Cleanup(func() { bundleFunc = origBundle })
 	var capturedConfig *wasmPkg.BundleConfig
-	bundleFunc = func(cfg *wasmPkg.BundleConfig) error {
+	stubBundleWriteIndex(func(cfg *wasmPkg.BundleConfig) error {
 		capturedConfig = cfg
 		return nil
-	}
+	})
 
 	origBuildDockerImage := buildDockerImage
 	t.Cleanup(func() { buildDockerImage = origBuildDockerImage })
@@ -924,7 +959,7 @@ func TestBuildWASMImage_MkdirTempError(t *testing.T) {
 func TestBuildWASMImage_WithKdepsPackage(t *testing.T) {
 	origBundle := bundleFunc
 	t.Cleanup(func() { bundleFunc = origBundle })
-	bundleFunc = func(_ *wasmPkg.BundleConfig) error { return nil }
+	stubBundleWriteIndex(nil)
 
 	origBuildDockerImage := buildDockerImage
 	t.Cleanup(func() { buildDockerImage = origBuildDockerImage })

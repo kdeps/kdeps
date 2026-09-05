@@ -57,13 +57,52 @@ func resolveWASMImageTag(tag string) string {
 	return "kdeps-wasm:latest"
 }
 
+func wasmStandaloneHTMLName(name string) string {
+	if name == "" {
+		return "kdeps.html"
+	}
+	return name + ".html"
+}
+
+func wasmStandaloneHTMLPath(packagePath, name string) string {
+	info, err := os.Stat(packagePath)
+	if err == nil && info.IsDir() {
+		return filepath.Join(packagePath, wasmStandaloneHTMLName(name))
+	}
+	lower := strings.ToLower(packagePath)
+	if strings.HasSuffix(lower, ".yaml") || strings.HasSuffix(lower, ".yml") {
+		return filepath.Join(filepath.Dir(packagePath), wasmStandaloneHTMLName(name))
+	}
+	cwd, cwdErr := os.Getwd()
+	if cwdErr != nil {
+		return wasmStandaloneHTMLName(name)
+	}
+	return filepath.Join(cwd, wasmStandaloneHTMLName(name))
+}
+
+func writeWASMStandaloneHTML(bundleDir, dest string) error {
+	src := filepath.Join(bundleDir, "dist", "index.html")
+	data, err := os.ReadFile(src)
+	if err != nil {
+		return fmt.Errorf("failed to read bundled index.html: %w", err)
+	}
+	writeErr := os.WriteFile(dest, data, 0600)
+	if writeErr != nil {
+		return fmt.Errorf("failed to write %s: %w", dest, writeErr)
+	}
+	return nil
+}
+
 // printWASMSuccess prints the post-build instructions for a WASM image.
-func printWASMSuccess(imageTag string) {
+func printWASMSuccess(htmlPath, imageTag string) {
 	fmt.Fprintln(os.Stdout)
-	fmt.Fprintln(os.Stdout, "✅ WASM web app built successfully!")
-	fmt.Fprintf(os.Stdout, "  Image: %s\n\n", imageTag)
-	fmt.Fprintln(os.Stdout, "Run with:")
-	fmt.Fprintf(os.Stdout, "  docker run -p 80:80 %s\n", imageTag)
+	fmt.Fprintln(os.Stdout, "WASM web app built successfully!")
+	if htmlPath != "" {
+		fmt.Fprintf(os.Stdout, "  HTML: %s\n", htmlPath)
+		fmt.Fprintln(os.Stdout, "  Double-click it (no server). Drag \"Summarize page\" to the bookmarks bar.")
+	}
+	fmt.Fprintf(os.Stdout, "  Image: %s\n", imageTag)
+	fmt.Fprintf(os.Stdout, "  Optional: docker run -p 80:80 %s\n", imageTag)
 }
 
 // buildWASMImage builds a WASM static web app from a workflow package.
@@ -126,12 +165,18 @@ func buildWASMImage(ctx context.Context, packagePath string, flags *BuildFlags) 
 		return err
 	}
 
+	htmlPath := wasmStandaloneHTMLPath(packagePath, workflow.Metadata.Name)
+	if err = writeWASMStandaloneHTML(outputDir, htmlPath); err != nil {
+		return err
+	}
+	fmt.Fprintf(os.Stdout, "✓ Wrote %s\n", htmlPath)
+
 	imageTag := resolveWASMImageTag(flags.Tag)
 	if err = buildWASMDockerImage(ctx, outputDir, imageTag, flags.NoCache); err != nil {
 		return err
 	}
 
-	printWASMSuccess(imageTag)
+	printWASMSuccess(htmlPath, imageTag)
 	return nil
 }
 

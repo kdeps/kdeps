@@ -17,13 +17,11 @@ Or open `dist/index.html` from Finder/Explorer (no kdeps, no server).
 
 `kdeps.wasm` must sit next to the CLI, or set `KDEPS_WASM_BINARY` and `KDEPS_WASM_EXEC_JS`. GitHub releases attach both files.
 
-The `dist/` folder is a self-contained site. Double-click `dist/index.html` - `wasm_exec.js`, the WASM binary, and the bootstrap are inlined into that one file. The page never `fetch()`es local assets, so `file://` does not CORS on open. You can copy just `index.html`.
+`--wasm` also writes `{metadata.name}.html` next to the workflow. That file is self-contained: double-click it, no server. `wasm_exec.js`, the WASM binary, and the bootstrap are inlined, so `file://` does not CORS on open.
 
-Sibling files (`kdeps.wasm`, `wasm_exec.js`, `kdeps-wasm-embed.js`, `kdeps-bootstrap.js`) stay in `dist/` for HTTP/Docker. nginx uses them; the HTML does not.
+Sibling files stay in the Docker image's `dist/` for nginx. The HTML file does not need them.
 
-Cloud `chat:` from `file://` still needs the provider to allow origin `null`. If the model call fails, serve the folder over HTTP (`python3 -m http.server 8080`) or use the Docker image.
-
-Bookmarklet sample that summarizes the current tab: [`examples/page-summarizer`](https://github.com/kdeps/kdeps/tree/main/examples/page-summarizer). The bookmarklet sends `innerText`; WASM cannot read the open page itself.
+Bookmarklet sample that summarizes the current tab: [`examples/page-summarizer`](https://github.com/kdeps/kdeps/tree/main/examples/page-summarizer). Drag the HTML onto the bookmarks bar. The bookmarklet sends `innerText`; WASM cannot read the open page itself.
 
 Init and `build --wasm` reject any resource the WASM runtime cannot execute.
 

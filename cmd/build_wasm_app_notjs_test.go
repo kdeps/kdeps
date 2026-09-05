@@ -34,6 +34,41 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+func TestWasmStandaloneHTMLName(t *testing.T) {
+	assert.Equal(t, "kdeps.html", wasmStandaloneHTMLName(""))
+	assert.Equal(t, "page-summarizer.html", wasmStandaloneHTMLName("page-summarizer"))
+}
+
+func TestWasmStandaloneHTMLPath_Directory(t *testing.T) {
+	dir := t.TempDir()
+	assert.Equal(t, filepath.Join(dir, "app.html"), wasmStandaloneHTMLPath(dir, "app"))
+}
+
+func TestWasmStandaloneHTMLPath_WorkflowFile(t *testing.T) {
+	dir := t.TempDir()
+	wf := filepath.Join(dir, "workflow.yaml")
+	require.NoError(t, os.WriteFile(wf, []byte("x"), 0644))
+	assert.Equal(t, filepath.Join(dir, "app.html"), wasmStandaloneHTMLPath(wf, "app"))
+}
+
+func TestWriteWASMStandaloneHTML_Success(t *testing.T) {
+	bundle := t.TempDir()
+	dist := filepath.Join(bundle, "dist")
+	require.NoError(t, os.MkdirAll(dist, 0750))
+	require.NoError(t, os.WriteFile(filepath.Join(dist, "index.html"), []byte("<html>ok</html>"), 0644))
+	dest := filepath.Join(t.TempDir(), "out.html")
+	require.NoError(t, writeWASMStandaloneHTML(bundle, dest))
+	got, err := os.ReadFile(dest)
+	require.NoError(t, err)
+	assert.Equal(t, "<html>ok</html>", string(got))
+}
+
+func TestWriteWASMStandaloneHTML_MissingIndex(t *testing.T) {
+	err := writeWASMStandaloneHTML(t.TempDir(), filepath.Join(t.TempDir(), "out.html"))
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "failed to read bundled index.html")
+}
+
 func TestBuildDockerImage_Default(t *testing.T) {
 	orig := buildDockerImage
 	t.Cleanup(func() { buildDockerImage = orig })

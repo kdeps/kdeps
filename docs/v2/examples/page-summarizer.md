@@ -8,7 +8,7 @@ A bookmarklet copies the current tab's text into a kdeps WASM app. The app runs 
 direction: right
 Tab: current page {shape: rectangle}
 BM: bookmarklet {shape: rectangle}
-App: dist/index.html (WASM) {shape: rectangle}
+App: page-summarizer.html {shape: rectangle}
 LLM: OpenAI {shape: rectangle}
 Tab -> BM: innerText
 BM -> App: postMessage
@@ -140,24 +140,24 @@ Put `data/public/index.html` next to the workflow. The WASM bundler copies `data
 2. Stores the API key in `localStorage`
 3. Calls `window.kdeps.init({ OPENAI_API_KEY, KDEPS_DEFAULT_BACKEND: "openai" })`
 4. Calls `window.kdeps.execute({ url, title, text })`
-5. Exposes a `javascript:` bookmarklet that `window.open`s this app and `postMessage`s the tab's `innerText`
+5. Exposes a `javascript:` bookmarklet. Drag that control (this HTML page) onto the bookmarks bar. Clicking it on any tab copies `innerText` and opens this same file. No web server.
 
 The full file is in [`examples/page-summarizer/data/public/index.html`](https://github.com/kdeps/kdeps/blob/main/examples/page-summarizer/data/public/index.html). Copy it.
 
-## Step 5: build and serve
+## Step 5: build and double-click
 
 ```bash
 make build-wasm
 kdeps bundle build . --wasm
-docker run -p 8080:80 kdeps-wasm:latest
 ```
 
-Serve over HTTP. Cloud `chat:` from `file://` is origin `null`; OpenAI CORS-blocks it.
+That writes `page-summarizer.html` next to the workflow. Double-click it. No Docker, no `http.server`.
 
-1. Open `http://127.0.0.1:8080/`
-2. Paste the OpenAI API key
-3. Drag **Summarize page** to the bookmarks bar
-4. Open any article, click the bookmark
+1. Paste the OpenAI API key
+2. Drag **Summarize page** onto the bookmarks bar
+3. Open any article, click the bookmark
+
+If the browser blocks `window.open` of a `file://` URL, the bookmark copies the page to the clipboard - focus the HTML window and it reads it.
 
 Paste text and click Summarize if you do not want a bookmarklet.
 

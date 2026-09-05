@@ -18,13 +18,13 @@ cd chatbot && kdeps run workflow.yaml --dev
 
 ### Page summarizer (WASM bookmarklet)
 
-[`page-summarizer`](./page-summarizer/) - bookmarklet copies the current tab's
-`innerText` into a WASM `chat:` app.
+[`page-summarizer`](./page-summarizer/) - double-click the HTML file (no server),
+drag it to the bookmarks bar, click on any page to summarize.
 
 ```bash
 make build-wasm
 kdeps bundle build examples/page-summarizer --wasm
-docker run -p 8080:80 kdeps-wasm:latest
+# then double-click examples/page-summarizer/page-summarizer.html
 ```
 
 ### 🌐 [HTTP Advanced](./http-advanced/)

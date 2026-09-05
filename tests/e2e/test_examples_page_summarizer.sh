@@ -85,18 +85,26 @@ else
     test_failed "page-summarizer - resources/response.yaml uses apiResponse" "apiResponse: not found"
 fi
 
-if grep -q "kdepsPageSummarize" "$HTML" && grep -q "kdeps.init" "$HTML" && grep -q "postMessage" "$HTML"; then
-    test_passed "page-summarizer - index.html bookmarklet + kdeps.init"
+if grep -q "kdepsPageSummarize" "$HTML" && grep -q "kdeps.init" "$HTML" && grep -q "clipboard" "$HTML"; then
+    test_passed "page-summarizer - index.html bookmarklet + clipboard + kdeps.init"
 else
-    test_failed "page-summarizer - index.html bookmarklet + kdeps.init" \
-        "missing kdepsPageSummarize, kdeps.init, or postMessage in $HTML"
+    test_failed "page-summarizer - index.html bookmarklet + clipboard + kdeps.init" \
+        "missing kdepsPageSummarize, kdeps.init, or clipboard in $HTML"
 fi
 
-if [ -f "$README" ] && grep -q "bookmarklet" "$README" && grep -q -- "--wasm" "$README"; then
-    test_passed "page-summarizer - README.md documents bookmarklet and --wasm"
+if grep -q "No web server" "$HTML" && grep -q "dragstart" "$HTML"; then
+    test_passed "page-summarizer - index.html is the bookmarklet (no server)"
 else
-    test_failed "page-summarizer - README.md documents bookmarklet and --wasm" \
-        "README missing or incomplete at $README"
+    test_failed "page-summarizer - index.html is the bookmarklet (no server)" \
+        "missing no-server copy or dragstart in $HTML"
+fi
+
+if [ -f "$README" ] && grep -q "bookmarklet" "$README" && grep -q -- "--wasm" "$README" && \
+   ! grep -q "http.server" "$README" && ! grep -q "docker run" "$README"; then
+    test_passed "page-summarizer - README.md is file:// only (no server)"
+else
+    test_failed "page-summarizer - README.md is file:// only (no server)" \
+        "README missing, or still documents docker/http.server at $README"
 fi
 
 if [ -f "$PKG" ] && grep -q "type: workflow" "$PKG"; then

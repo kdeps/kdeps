@@ -25,15 +25,15 @@
 <body>
     <main>
         <h1>Page summarizer</h1>
-        <p class="sub">WASM workflow. The bookmarklet copies the current tab's text and posts it here. No scraper, no kdeps install for the reader.</p>
+        <p class="sub">This HTML file is the app. Double-click it (no server). Drag the button below to the bookmarks bar, then click that bookmark on any page.</p>
 
         <label for="api-key">OpenAI API key</label>
         <input id="api-key" type="password" autocomplete="off" placeholder="sk-... stored only in this browser">
 
         <label>Bookmarklet</label>
         <div class="row">
-            <a id="bookmarklet" class="bm" href="#">Summarize page</a>
-            <span class="hint">Drag that button to the bookmarks bar. Serve this folder over HTTP first.</span>
+            <a id="bookmarklet" class="bm" href="#" draggable="true">Summarize page</a>
+            <span class="hint">Drag this button onto the bookmarks bar. No web server.</span>
         </div>
 
         <label for="title">Title</label>
@@ -70,13 +70,42 @@
             return location.href.split('#')[0];
         }
 
-        function setBookmarklet() {
-            var src = '(function(){var APP=' + JSON.stringify(appURL()) +
+        function bookmarkletSource() {
+            return '(function(){var APP=' + JSON.stringify(appURL()) +
                 ';var p={kdepsPageSummarize:1,url:location.href,title:document.title,text:(document.body&&document.body.innerText||"").slice(0,24000)};' +
-                'var w=window.open(APP);var n=0;var t=setInterval(function(){n++;if(!w||w.closed||n>50){clearInterval(t);return;}try{w.postMessage(p,"*");}catch(e){}},250);})();';
-            bm.href = 'javascript:' + encodeURIComponent(src);
+                'var raw=JSON.stringify(p);' +
+                'try{if(navigator.clipboard&&navigator.clipboard.writeText)navigator.clipboard.writeText(raw);}catch(e){}' +
+                'var w=null;try{w=window.open(APP);}catch(e){}' +
+                'if(w){var n=0,t=setInterval(function(){n++;if(!w||w.closed||n>60){clearInterval(t);return;}try{w.postMessage(p,"*");}catch(e){}},200);return;}' +
+                'alert("Page text copied. Open the summarizer HTML file (double-click it).");})();';
+        }
+
+        function setBookmarklet() {
+            bm.href = 'javascript:' + encodeURIComponent(bookmarkletSource());
         }
         setBookmarklet();
+
+        bm.addEventListener('dragstart', function(e) {
+            var href = bm.href;
+            e.dataTransfer.setData('text/uri-list', href);
+            e.dataTransfer.setData('text/plain', href);
+            e.dataTransfer.setData('text/html', '<a href="' + href + '">Summarize page</a>');
+        });
+
+        function applyPayload(payload) {
+            if (!payload || payload.kdepsPageSummarize !== 1) return false;
+            summarize(payload);
+            return true;
+        }
+
+        function readClipboardPayload() {
+            if (!navigator.clipboard || !navigator.clipboard.readText) return;
+            navigator.clipboard.readText().then(function(raw) {
+                try {
+                    applyPayload(JSON.parse(raw));
+                } catch (e) { /* not ours */ }
+            }).catch(function() { /* permission denied */ });
+        }
 
         function summaryFrom(result) {
             if (result == null) return '(empty)';
@@ -133,13 +162,21 @@
         runBtn.addEventListener('click', function() { summarize(null); });
 
         window.addEventListener('message', function(ev) {
-            if (!ev.data || ev.data.kdepsPageSummarize !== 1) return;
-            summarize(ev.data);
+            applyPayload(ev.data);
+        });
+
+        window.addEventListener('focus', readClipboardPayload);
+        document.addEventListener('visibilitychange', function() {
+            if (document.visibilityState === 'visible') readClipboardPayload();
         });
 
         window.addEventListener('kdeps:ready', function() {
             ready = true;
-            statusEl.textContent = 'Ready. Drag the bookmarklet, or paste text and click Summarize.';
+            statusEl.textContent = 'Ready. Drag this page to the bookmarks bar, or paste text and click Summarize.';
+            try {
+                applyPayload(JSON.parse(window.name));
+            } catch (e) { /* ignore */ }
+            readClipboardPayload();
         });
     </script>
 </body>

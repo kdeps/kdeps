@@ -166,9 +166,9 @@ Best for:
 
 ## Page summarizer (WASM bookmarklet)
 
-A bookmarklet copies the current tab's text into a WASM app. The browser runs
-a cloud `chat:` and shows a summary. No kdeps install for the reader. WASM
-cannot scrape the open tab - the bookmarklet sends `innerText`.
+Double-click one HTML file (no server), drag it to the bookmarks bar, click
+that bookmark on any tab. The bookmarklet sends `innerText` into a WASM
+`chat:`. WASM cannot scrape the open tab.
 
 Best for:
 - A one-click "summarize this page" bookmark
