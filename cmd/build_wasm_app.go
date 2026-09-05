@@ -49,14 +49,6 @@ func extractWorkflowAPIRoutes(workflow *domain.Workflow) []string {
 	return routes
 }
 
-// resolveWASMImageTag returns the Docker image tag for a WASM build.
-func resolveWASMImageTag(tag string) string {
-	if tag != "" {
-		return tag
-	}
-	return "kdeps-wasm:latest"
-}
-
 func wasmStandaloneHTMLName(name string) string {
 	if name == "" {
 		return "kdeps.html"
@@ -93,16 +85,14 @@ func writeWASMStandaloneHTML(bundleDir, dest string) error {
 	return nil
 }
 
-// printWASMSuccess prints the post-build instructions for a WASM image.
-func printWASMSuccess(htmlPath, imageTag string) {
+// printWASMSuccess prints the post-build instructions for a standalone HTML file.
+func printWASMSuccess(htmlPath string) {
 	fmt.Fprintln(os.Stdout)
 	fmt.Fprintln(os.Stdout, "WASM web app built successfully!")
 	if htmlPath != "" {
 		fmt.Fprintf(os.Stdout, "  HTML: %s\n", htmlPath)
-		fmt.Fprintln(os.Stdout, "  Double-click it (no server).")
+		fmt.Fprintln(os.Stdout, "  Double-click it. No server.")
 	}
-	fmt.Fprintf(os.Stdout, "  Image: %s\n", imageTag)
-	fmt.Fprintf(os.Stdout, "  Optional: docker run -p 80:80 %s\n", imageTag)
 }
 
 // compileWASMFunc builds cmd/wasm for GOOS=js GOARCH=wasm. Overridable in tests.
@@ -173,10 +163,9 @@ func resolveWASMBinary(ctx context.Context, compileDest string) (string, error) 
 	return compileDest, nil
 }
 
-// buildWASMImage builds a WASM static web app from a workflow package.
-// It bundles the pre-compiled WASM binary with the workflow YAML and web server files
-// into a lightweight nginx Docker image.
-func buildWASMImage(ctx context.Context, packagePath string, flags *BuildFlags) error {
+// buildWASMImage compiles kdeps.wasm, bundles it into a single HTML file, and
+// writes that file next to the workflow. No web server, no Docker image.
+func buildWASMImage(ctx context.Context, packagePath string, _ *BuildFlags) error {
 	kdeps_debug.Log("enter: buildWASMImage")
 	fmt.Fprintf(os.Stdout, "Building WASM web app from: %s\n\n", packagePath)
 
@@ -239,12 +228,7 @@ func buildWASMImage(ctx context.Context, packagePath string, flags *BuildFlags) 
 	}
 	fmt.Fprintf(os.Stdout, "✓ Wrote %s\n", htmlPath)
 
-	imageTag := resolveWASMImageTag(flags.Tag)
-	if err = buildWASMDockerImage(ctx, outputDir, imageTag, flags.NoCache); err != nil {
-		return err
-	}
-
-	printWASMSuccess(htmlPath, imageTag)
+	printWASMSuccess(htmlPath)
 	return nil
 }
 
@@ -278,22 +262,6 @@ var buildDockerImage = func(ctx context.Context, dockerArgs []string) error {
 	dockerCmd.Stdout = os.Stdout
 	dockerCmd.Stderr = os.Stderr
 	return dockerCmd.Run()
-}
-
-func buildWASMDockerImage(ctx context.Context, outputDir, imageTag string, noCache bool) error {
-	kdeps_debug.Log("enter: buildWASMDockerImage")
-	fmt.Fprintln(os.Stdout, "✓ Building Docker image...")
-
-	dockerArgs := []string{"build", "-t", imageTag}
-	if noCache {
-		dockerArgs = append(dockerArgs, "--no-cache")
-	}
-	dockerArgs = append(dockerArgs, outputDir)
-
-	if err := buildDockerImage(ctx, dockerArgs); err != nil {
-		return fmt.Errorf("docker build failed: %w", err)
-	}
-	return nil
 }
 
 // collectWebServerFiles reads all files under the data/ directory in the package

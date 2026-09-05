@@ -1,22 +1,21 @@
 # WASM web app
 
-`kdeps bundle build --wasm` ships the workflow as a static site. The browser loads `kdeps.wasm` and runs the DAG there. No local LLM, no shell, no database sockets.
+`kdeps bundle build --wasm` compiles `kdeps.wasm` and writes a single HTML file. Double-click it. No web server, no Docker, no nginx.
 
 *Applies to workflow mode.*
 
 ## Build
 
 ```bash
-kdeps bundle build examples/http-advanced --wasm
+kdeps bundle build examples/page-summarizer --wasm
+# writes examples/page-summarizer/page-summarizer.html
 ```
 
 `--wasm` compiles `kdeps.wasm` (`go build GOOS=js GOARCH=wasm`) if it is not already next to the CLI or in `KDEPS_WASM_BINARY`. Needs Go and the kdeps source tree (or a release that ships `kdeps.wasm`).
 
-`--wasm` also writes `{metadata.name}.html` next to the workflow. That file is self-contained: double-click it, no server. `wasm_exec.js`, the WASM binary, and the bootstrap are inlined, so `file://` does not CORS on open.
+The HTML is self-contained: `wasm_exec.js`, the WASM binary, and the bootstrap are inlined, so `file://` does not CORS on open.
 
-Sibling files stay in the Docker image's `dist/` for nginx. The HTML file does not need them.
-
-Bookmarklet sample that summarizes the current tab: [`examples/page-summarizer`](https://github.com/kdeps/kdeps/tree/main/examples/page-summarizer). Drag the HTML onto the bookmarks bar. The bookmarklet sends `innerText`; WASM cannot read the open page itself.
+Bookmarklet sample: [`examples/page-summarizer`](https://github.com/kdeps/kdeps/tree/main/examples/page-summarizer). Drag the HTML onto the bookmarks bar. The bookmarklet sends `innerText`; WASM cannot read the open page itself.
 
 Init and `build --wasm` reject any resource the WASM runtime cannot execute.
 

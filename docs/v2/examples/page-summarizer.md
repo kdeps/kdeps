@@ -58,18 +58,6 @@ metadata:
   targetActionId: response
 
 settings:
-  apiServer:
-    hostIp: "127.0.0.1"
-    portNum: 16395
-    routes:
-      - path: /api/v1/summarize
-        methods: [POST]
-        public: true  # bookmarklet cannot send a bearer token
-  webServer:
-    routes:
-      - path: /
-        serverType: static
-        publicPath: ./data/public
   agentSettings:
     timezone: UTC
     env:
@@ -95,8 +83,6 @@ tags: [wasm, bookmarklet, chat]
 actionId: summarize
 name: Summarize page
 validations:
-  methods: [POST]
-  routes: [/api/v1/summarize]
   check:
     - get('text') != ''
   error:

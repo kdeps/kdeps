@@ -1,8 +1,6 @@
 actionId: summarize
 name: Summarize page
 validations:
-  methods: [POST]
-  routes: [/api/v1/summarize]
   check:
     - get('text') != ''
   error:

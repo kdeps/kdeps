@@ -8,22 +8,6 @@ metadata:
   targetActionId: response
 
 settings:
-  apiServer:
-    hostIp: "127.0.0.1"
-    portNum: 16395
-    routes:
-      - path: /api/v1/summarize
-        methods: [POST]
-        public: true  # bookmarklet / WASM page cannot hold a bearer token
-    cors:
-      allowOrigins: ["*"]
-      allowMethods: [GET, POST, OPTIONS]
-      allowHeaders: [Content-Type]
-  webServer:
-    routes:
-      - path: /
-        serverType: static
-        publicPath: ./data/public
   agentSettings:
     timezone: UTC
     env:

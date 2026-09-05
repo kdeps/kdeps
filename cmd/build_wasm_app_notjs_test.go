@@ -201,11 +201,6 @@ func TestCollectWebServerFiles_ReadAllHook(t *testing.T) {
 	require.Error(t, err)
 }
 
-func TestResolveWASMImageTag(t *testing.T) {
-	assert.Equal(t, "custom:tag", resolveWASMImageTag("custom:tag"))
-	assert.Equal(t, "kdeps-wasm:latest", resolveWASMImageTag(""))
-}
-
 func TestBuildDockerImage_DefaultImpl(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()

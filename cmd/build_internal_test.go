@@ -274,68 +274,6 @@ func TestBundleWASMApp_BundleError(t *testing.T) {
 	assert.Contains(t, err.Error(), "WASM bundling failed")
 }
 
-func TestBuildWASMDockerImage_DefaultTag(t *testing.T) {
-	origBuildDockerImage := buildDockerImage
-	t.Cleanup(func() { buildDockerImage = origBuildDockerImage })
-
-	var capturedArgs []string
-	buildDockerImage = func(_ context.Context, args []string) error {
-		capturedArgs = args
-		return nil
-	}
-
-	err := buildWASMDockerImage(context.Background(), "/tmp/out", "kdeps-wasm:latest", false)
-	require.NoError(t, err)
-	expected := []string{"build", "-t", "kdeps-wasm:latest", "/tmp/out"}
-	assert.Equal(t, expected, capturedArgs)
-}
-
-func TestBuildWASMDockerImage_CustomTag(t *testing.T) {
-	origBuildDockerImage := buildDockerImage
-	t.Cleanup(func() { buildDockerImage = origBuildDockerImage })
-
-	var capturedArgs []string
-	buildDockerImage = func(_ context.Context, args []string) error {
-		capturedArgs = args
-		return nil
-	}
-
-	err := buildWASMDockerImage(context.Background(), "/tmp/out", "myregistry.io/myapp:v1", false)
-	require.NoError(t, err)
-	expected := []string{"build", "-t", "myregistry.io/myapp:v1", "/tmp/out"}
-	assert.Equal(t, expected, capturedArgs)
-}
-
-func TestBuildWASMDockerImage_NoCache(t *testing.T) {
-	origBuildDockerImage := buildDockerImage
-	t.Cleanup(func() { buildDockerImage = origBuildDockerImage })
-
-	var capturedArgs []string
-	buildDockerImage = func(_ context.Context, args []string) error {
-		capturedArgs = args
-		return nil
-	}
-
-	err := buildWASMDockerImage(context.Background(), "/tmp/out", "kdeps-wasm:latest", true)
-	require.NoError(t, err)
-	expected := []string{"build", "-t", "kdeps-wasm:latest", "--no-cache", "/tmp/out"}
-	assert.Equal(t, expected, capturedArgs)
-}
-
-func TestBuildWASMDockerImage_DockerError(t *testing.T) {
-	origBuildDockerImage := buildDockerImage
-	t.Cleanup(func() { buildDockerImage = origBuildDockerImage })
-
-	buildDockerImage = func(_ context.Context, _ []string) error {
-		return errors.New("docker daemon not available")
-	}
-
-	err := buildWASMDockerImage(context.Background(), "/tmp/out", "kdeps-wasm:latest", false)
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "docker build failed")
-	assert.Contains(t, err.Error(), "docker daemon not available")
-}
-
 // --- buildWASMImage tests ---
 
 // createMinimalWASMWorkflow writes a minimal valid workflow.yaml into dir.
@@ -540,24 +478,27 @@ func TestBuildWASMImage_BundleError(t *testing.T) {
 	assert.Contains(t, err.Error(), "WASM bundling failed")
 }
 
-func TestBuildWASMImage_DockerError(t *testing.T) {
+func TestBuildWASMImage_SkipsDocker(t *testing.T) {
 	origBundle := bundleFunc
 	t.Cleanup(func() { bundleFunc = origBundle })
 	stubBundleWriteIndex(nil)
 
+	dockerCalled := false
 	origBuildDockerImage := buildDockerImage
 	t.Cleanup(func() { buildDockerImage = origBuildDockerImage })
-	sentinel := errors.New("docker daemon not reachable")
-	buildDockerImage = func(_ context.Context, _ []string) error { return sentinel }
+	buildDockerImage = func(_ context.Context, _ []string) error {
+		dockerCalled = true
+		return errors.New("docker should not run for --wasm")
+	}
 
 	tmpDir := t.TempDir()
 	createMinimalWASMWorkflow(t, tmpDir)
 	setupWASMEnv(t, tmpDir)
 
 	err := buildWASMImage(context.Background(), tmpDir, &BuildFlags{})
-	require.Error(t, err)
-	assert.ErrorIs(t, err, sentinel)
-	assert.Contains(t, err.Error(), "docker build failed")
+	require.NoError(t, err)
+	assert.False(t, dockerCalled)
+	assert.FileExists(t, filepath.Join(tmpDir, "test-wasm-workflow.html"))
 }
 
 func TestBuildWASMImage_WithAPIRoutes(t *testing.T) {
