@@ -59,7 +59,14 @@ func TestBundle_MinimalConfig(t *testing.T) {
 	assert.FileExists(t, filepath.Join(outputDir, "dist", "kdeps.wasm"))
 	assert.FileExists(t, filepath.Join(outputDir, "dist", "wasm_exec.js"))
 	assert.FileExists(t, filepath.Join(outputDir, "dist", "kdeps-bootstrap.js"))
+	assert.FileExists(t, filepath.Join(outputDir, "dist", "kdeps-wasm-embed.js"))
 	assert.FileExists(t, filepath.Join(outputDir, "dist", "index.html"))
+	embedJS, err := os.ReadFile(filepath.Join(outputDir, "dist", "kdeps-wasm-embed.js"))
+	require.NoError(t, err)
+	assert.Contains(t, string(embedJS), "window.__KDEPS_WASM_B64")
+	indexHTML, err := os.ReadFile(filepath.Join(outputDir, "dist", "index.html"))
+	require.NoError(t, err)
+	assert.Contains(t, string(indexHTML), "kdeps-wasm-embed.js")
 	assert.FileExists(t, filepath.Join(outputDir, "nginx.conf"))
 	assert.FileExists(t, filepath.Join(outputDir, "Dockerfile"))
 }
@@ -103,6 +110,7 @@ func TestBundle_WithCustomHTML(t *testing.T) {
 	// Should contain original content plus injected bootstrap scripts
 	assert.Contains(t, string(content), "Custom Page")
 	assert.Contains(t, string(content), "wasm_exec.js")
+	assert.Contains(t, string(content), "kdeps-wasm-embed.js")
 	assert.Contains(t, string(content), "kdeps-bootstrap.js")
 }
 

@@ -21,6 +21,7 @@ package wasm
 
 import (
 	"embed"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"path/filepath"
@@ -89,6 +90,7 @@ func normalizeWebServePath(path string) string {
 
 func bootstrapScriptTags() string {
 	return `<script src="wasm_exec.js"></script>
+<script src="kdeps-wasm-embed.js"></script>
 <script src="kdeps-bootstrap.js"></script>`
 }
 
@@ -98,6 +100,9 @@ func copyBundleAssets(config *BundleConfig, distDir string) error {
 	}
 	if err := copyFile(config.WASMExecJSPath, filepath.Join(distDir, "wasm_exec.js")); err != nil {
 		return fmt.Errorf("failed to copy wasm_exec.js: %w", err)
+	}
+	if err := writeWasmEmbed(config.WASMBinaryPath, distDir); err != nil {
+		return fmt.Errorf("failed to embed WASM for file://: %w", err)
 	}
 	if err := renderBootstrap(config, distDir); err != nil {
 		return fmt.Errorf("failed to render bootstrap script: %w", err)
@@ -255,6 +260,19 @@ func writeBundleBytes(dst string, data []byte) error {
 		return err
 	}
 	return afero.WriteFile(AppFS, dst, data, 0644)
+}
+
+// writeWasmEmbed writes kdeps-wasm-embed.js so index.html can load the
+// module via a <script> tag on file:// (double-click). fetch('kdeps.wasm')
+// is blocked by browsers for local files.
+func writeWasmEmbed(wasmPath, distDir string) error {
+	kdeps_debug.Log("enter: writeWasmEmbed")
+	data, err := afero.ReadFile(AppFS, wasmPath)
+	if err != nil {
+		return err
+	}
+	js := "window.__KDEPS_WASM_B64 = \"" + base64.StdEncoding.EncodeToString(data) + "\";\n"
+	return writeBundleBytes(filepath.Join(distDir, "kdeps-wasm-embed.js"), []byte(js))
 }
 
 // copyFile copies a file from src to dst.

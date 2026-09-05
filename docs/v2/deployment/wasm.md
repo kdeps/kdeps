@@ -9,10 +9,17 @@
 ```bash
 make build-wasm
 kdeps bundle build examples/http-advanced --wasm
+# Docker image, or copy the generated dist/ folder
 docker run -p 80:80 kdeps-wasm:latest
 ```
 
+Or open `dist/index.html` from Finder/Explorer (no kdeps, no server).
+
 `kdeps.wasm` must sit next to the CLI, or set `KDEPS_WASM_BINARY` and `KDEPS_WASM_EXEC_JS`. GitHub releases attach both files.
+
+The `dist/` folder is a self-contained site. Double-click `dist/index.html` - the WASM is inlined as `kdeps-wasm-embed.js` so `file://` does not need `fetch('kdeps.wasm')`. Keep `wasm_exec.js`, `kdeps-wasm-embed.js`, and `kdeps-bootstrap.js` next to the HTML.
+
+Cloud `chat:` calls (OpenAI and friends) may still fail on `file://` because the browser blocks CORS from a file origin. If the model call errors, serve the same folder over HTTP (`python3 -m http.server 8080`) or use the Docker image.
 
 Init and `build --wasm` reject any resource the WASM runtime cannot execute.
 

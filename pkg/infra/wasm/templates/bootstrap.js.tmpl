@@ -12,11 +12,7 @@
         }
 
         const go = new Go();
-        const result = await WebAssembly.instantiateStreaming(
-            fetch('kdeps.wasm'),
-            go.importObject
-        );
-
+        const result = await loadKdepsWasm(go);
         go.run(result.instance);
 
         // Wait a tick for Go to register global functions.
@@ -69,6 +65,18 @@
         console.log('[kdeps] WASM runtime ready.');
     } catch (err) {
         console.error('[kdeps] Init error:', err);
+    }
+
+    // file:// cannot fetch kdeps.wasm. The bundler inlines it as base64 in
+    // kdeps-wasm-embed.js so double-clicking index.html still boots.
+    async function loadKdepsWasm(go) {
+        if (typeof window.__KDEPS_WASM_B64 === 'string' && window.__KDEPS_WASM_B64.length > 0) {
+            var binary = atob(window.__KDEPS_WASM_B64);
+            var bytes = new Uint8Array(binary.length);
+            for (var i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+            return WebAssembly.instantiate(bytes, go.importObject);
+        }
+        return WebAssembly.instantiateStreaming(fetch('kdeps.wasm'), go.importObject);
     }
 
     // Handle an intercepted API request by routing it to the WASM runtime.
