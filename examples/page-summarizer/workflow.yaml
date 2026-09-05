@@ -1,0 +1,30 @@
+apiVersion: kdeps.io/v1
+kind: Workflow
+
+metadata:
+  name: page-summarizer
+  version: "1.0.0"
+  description: "Summarize the current browser page. WASM + bookmarklet."
+  targetActionId: response
+
+settings:
+  apiServer:
+    hostIp: "127.0.0.1"
+    portNum: 16395
+    routes:
+      - path: /api/v1/summarize
+        methods: [POST]
+        public: true  # bookmarklet / WASM page cannot hold a bearer token
+    cors:
+      allowOrigins: ["*"]
+      allowMethods: [GET, POST, OPTIONS]
+      allowHeaders: [Content-Type]
+  webServer:
+    routes:
+      - path: /
+        serverType: static
+        publicPath: ./data/public
+  agentSettings:
+    timezone: UTC
+    env:
+      KDEPS_DEFAULT_BACKEND: openai  # WASM rejects local backends

@@ -104,6 +104,10 @@
             },
             validate: function() {
                 return kdepsValidate(__kdepsWorkflowYAML);
+            },
+            // Re-init with env (API keys). First boot has no secrets in the page.
+            init: function(env) {
+                return kdepsInit(__kdepsWorkflowYAML, env || {});
             }
         };
 

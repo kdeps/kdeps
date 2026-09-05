@@ -1278,6 +1278,39 @@ func TestLlamafileChatExample_ValidationError(t *testing.T) {
 	}
 }
 
+func TestPageSummarizerExample_WASMAllowlist(t *testing.T) {
+	workflowPath := "../../../examples/page-summarizer/workflow.yaml"
+	if _, err := os.Stat(workflowPath); os.IsNotExist(err) {
+		t.Skip("page-summarizer example not available")
+		return
+	}
+
+	schemaValidator, err := validator.NewSchemaValidator()
+	require.NoError(t, err)
+
+	exprParser := expression.NewParser()
+	yamlParser := yaml.NewParser(schemaValidator, exprParser)
+
+	workflow, err := yamlParser.ParseWorkflow(workflowPath)
+	require.NoError(t, err)
+	assert.Equal(t, "page-summarizer", workflow.Metadata.Name)
+	assert.Equal(t, "response", workflow.Metadata.TargetActionID)
+	assert.Equal(t, "openai", workflow.Settings.AgentSettings.Env["KDEPS_DEFAULT_BACKEND"])
+
+	require.NoError(t, domain.ValidateWASMWorkflow(workflow))
+
+	var summarize *domain.Resource
+	for _, res := range workflow.Resources {
+		if res != nil && res.ActionID == "summarize" {
+			summarize = res
+			break
+		}
+	}
+	require.NotNil(t, summarize)
+	require.NotNil(t, summarize.Chat)
+	assert.Equal(t, "gpt-4o-mini", summarize.Chat.Model)
+}
+
 // setupEngineWithMockClient creates an executor engine using a custom mock HTTP client
 // for the LLM adapter (tests file backend routing without a real llamafile binary).
 func setupEngineWithMockClient(mockClient *llm.MockHTTPClient) *executor.Engine {

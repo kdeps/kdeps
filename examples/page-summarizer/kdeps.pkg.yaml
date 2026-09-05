@@ -1,0 +1,10 @@
+name: page-summarizer
+version: "1.0.0"
+type: workflow
+description: "WASM bookmarklet that summarizes the current browser page"
+license: Apache-2.0
+tags:
+  - wasm
+  - bookmarklet
+  - chat
+  - summarizer

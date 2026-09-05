@@ -16,6 +16,17 @@ Basic LLM chatbot with validation and error handling.
 cd chatbot && kdeps run workflow.yaml --dev
 ```
 
+### Page summarizer (WASM bookmarklet)
+
+[`page-summarizer`](./page-summarizer/) - bookmarklet copies the current tab's
+`innerText` into a WASM `chat:` app.
+
+```bash
+make build-wasm
+kdeps bundle build examples/page-summarizer --wasm
+docker run -p 8080:80 kdeps-wasm:latest
+```
+
 ### 🌐 [HTTP Advanced](./http-advanced/)
 Advanced HTTP client features with authentication, caching, and retries.
 - Multiple authentication methods (Bearer, API Key, Basic, OAuth2)

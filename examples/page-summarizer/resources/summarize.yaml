@@ -1,0 +1,26 @@
+actionId: summarize
+name: Summarize page
+validations:
+  methods: [POST]
+  routes: [/api/v1/summarize]
+  check:
+    - get('text') != ''
+  error:
+    code: 400
+    message: "'text' is required (bookmarklet sends the page innerText)"
+chat:
+  model: gpt-4o-mini  # hosted OpenAI model; local llama3.2:1b is rejected in WASM
+  role: user
+  timeout: 60s  # hard stop - returns error, does not retry
+  scenario:
+    - role: system
+      prompt: >
+        You summarize web pages for a busy reader. Write 5-8 sentences, then
+        3-5 bullet takeaways. Ignore nav, cookie banners, and ads. If the
+        text is too thin to summarize, say so.
+  prompt: |
+    URL: {{ get('url') }}
+    Title: {{ get('title') }}
+
+    Page text:
+    {{ get('text') }}

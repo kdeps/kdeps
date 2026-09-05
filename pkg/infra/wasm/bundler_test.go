@@ -588,6 +588,7 @@ func TestBundle_IndexHTMLIsSelfContained(t *testing.T) {
 	content := string(indexHTML)
 	assertSelfContainedIndex(t, content, "/* wasm_exec */")
 	assert.Contains(t, content, "installFileOriginFetchShim")
+	assert.Contains(t, content, "init: function(env)")
 	assert.NotContains(t, content, "fetch('kdeps.wasm')")
 	assert.NotContains(t, content, "instantiateStreaming")
 
@@ -629,6 +630,7 @@ func assertSelfContainedIndex(t *testing.T, indexHTML, wasmExecSnippet string) {
 	assert.Contains(t, indexHTML, "window.__KDEPS_WASM_B64")
 	assert.Contains(t, indexHTML, wasmExecSnippet)
 	assert.Contains(t, indexHTML, "installFileOriginFetchShim")
+	assert.Contains(t, indexHTML, "init: function(env)")
 	assert.NotContains(t, indexHTML, `<script src="wasm_exec.js">`)
 	assert.NotContains(t, indexHTML, `<script src="kdeps-wasm-embed.js">`)
 	assert.NotContains(t, indexHTML, `<script src="kdeps-bootstrap.js">`)

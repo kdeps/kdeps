@@ -143,6 +143,7 @@ export default defineConfig({
             { text: 'Image analysis', link: '/examples/vision' },
             { text: 'SQL-backed API', link: '/examples/sql-api' },
             { text: 'Chat web app', link: '/examples/chat-web-app' },
+            { text: 'Page summarizer (WASM)', link: '/examples/page-summarizer' },
             { text: 'File upload', link: '/examples/file-upload' },
             { text: 'Conditionals and lists', link: '/examples/control-flow' },
             { text: 'Authenticated API call', link: '/examples/http-auth' },

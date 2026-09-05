@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Page summarizer</title>
+    <style>
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: system-ui, sans-serif; background: #0b0b0c; color: #e8e8ea; line-height: 1.5; }
+        main { max-width: 720px; margin: 0 auto; padding: 2rem 1rem 4rem; }
+        h1 { font-size: 1.5rem; letter-spacing: -0.02em; margin-bottom: 0.35rem; }
+        .sub { color: #9aa0a6; font-size: 0.9rem; margin-bottom: 1.5rem; }
+        label { display: block; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.06em; color: #00e5ff; margin: 1rem 0 0.35rem; }
+        input, textarea { width: 100%; background: #141416; color: #e8e8ea; border: 1px solid rgba(255,255,255,0.08); border-radius: 2px; padding: 0.7rem; font: inherit; }
+        textarea { min-height: 8rem; resize: vertical; }
+        button, .bm { display: inline-block; margin-top: 1rem; padding: 0.7rem 1.1rem; background: #00e5ff; color: #0b0b0c; border: 0; border-radius: 2px; font: inherit; font-weight: 600; cursor: pointer; text-decoration: none; }
+        button:disabled { opacity: 0.5; cursor: default; }
+        .row { display: flex; gap: 0.75rem; flex-wrap: wrap; align-items: center; }
+        #status { margin-top: 1rem; color: #9aa0a6; font-size: 0.85rem; }
+        #out { margin-top: 1.25rem; white-space: pre-wrap; background: #141416; border: 1px solid rgba(255,255,255,0.08); padding: 1rem; min-height: 6rem; }
+        .hint { color: #9aa0a6; font-size: 0.8rem; margin-top: 0.4rem; }
+        kbd { font: 0.8em ui-monospace, monospace; background: #141416; padding: 0.1rem 0.3rem; border: 1px solid rgba(255,255,255,0.08); }
+    </style>
+</head>
+<body>
+    <main>
+        <h1>Page summarizer</h1>
+        <p class="sub">WASM workflow. The bookmarklet copies the current tab's text and posts it here. No scraper, no kdeps install for the reader.</p>
+
+        <label for="api-key">OpenAI API key</label>
+        <input id="api-key" type="password" autocomplete="off" placeholder="sk-... stored only in this browser">
+
+        <label>Bookmarklet</label>
+        <div class="row">
+            <a id="bookmarklet" class="bm" href="#">Summarize page</a>
+            <span class="hint">Drag that button to the bookmarks bar. Serve this folder over HTTP first.</span>
+        </div>
+
+        <label for="title">Title</label>
+        <input id="title" placeholder="Page title">
+
+        <label for="url">URL</label>
+        <input id="url" placeholder="https://...">
+
+        <label for="text">Page text</label>
+        <textarea id="text" placeholder="Paste text, or click the bookmarklet on any page."></textarea>
+
+        <button id="run" type="button">Summarize</button>
+        <div id="status">Loading WASM...</div>
+        <div id="out"></div>
+    </main>
+    <script>
+        var KEY = 'kdeps.page-summarizer.openai_key';
+        var ready = false;
+        var apiKey = document.getElementById('api-key');
+        var titleEl = document.getElementById('title');
+        var urlEl = document.getElementById('url');
+        var textEl = document.getElementById('text');
+        var statusEl = document.getElementById('status');
+        var outEl = document.getElementById('out');
+        var runBtn = document.getElementById('run');
+        var bm = document.getElementById('bookmarklet');
+
+        apiKey.value = localStorage.getItem(KEY) || '';
+        apiKey.addEventListener('change', function() {
+            localStorage.setItem(KEY, apiKey.value.trim());
+        });
+
+        function appURL() {
+            return location.href.split('#')[0];
+        }
+
+        function setBookmarklet() {
+            var src = '(function(){var APP=' + JSON.stringify(appURL()) +
+                ';var p={kdepsPageSummarize:1,url:location.href,title:document.title,text:(document.body&&document.body.innerText||"").slice(0,24000)};' +
+                'var w=window.open(APP);var n=0;var t=setInterval(function(){n++;if(!w||w.closed||n>50){clearInterval(t);return;}try{w.postMessage(p,"*");}catch(e){}},250);})();';
+            bm.href = 'javascript:' + encodeURIComponent(src);
+        }
+        setBookmarklet();
+
+        function summaryFrom(result) {
+            if (result == null) return '(empty)';
+            if (typeof result === 'string') return result;
+            if (result.response && result.response.summary) return result.response.summary;
+            if (result.summary) return result.summary;
+            if (result.message && result.message.content) return result.message.content;
+            return JSON.stringify(result, null, 2);
+        }
+
+        async function summarize(payload) {
+            if (!ready || !window.kdeps) {
+                statusEl.textContent = 'WASM is not ready yet.';
+                return;
+            }
+            var key = apiKey.value.trim();
+            if (!key) {
+                statusEl.textContent = 'Paste an OpenAI API key first.';
+                return;
+            }
+            localStorage.setItem(KEY, key);
+            if (payload) {
+                titleEl.value = payload.title || '';
+                urlEl.value = payload.url || '';
+                textEl.value = payload.text || '';
+            }
+            var text = textEl.value.trim();
+            if (!text) {
+                statusEl.textContent = 'No page text.';
+                return;
+            }
+            runBtn.disabled = true;
+            statusEl.textContent = 'Summarizing...';
+            outEl.textContent = '';
+            try {
+                await window.kdeps.init({
+                    KDEPS_DEFAULT_BACKEND: 'openai',
+                    OPENAI_API_KEY: key
+                });
+                var result = await window.kdeps.execute({
+                    url: urlEl.value,
+                    title: titleEl.value,
+                    text: text
+                });
+                outEl.textContent = summaryFrom(result);
+                statusEl.textContent = 'Done.';
+            } catch (err) {
+                outEl.textContent = String(err && err.message ? err.message : err);
+                statusEl.textContent = 'Failed.';
+            }
+            runBtn.disabled = false;
+        }
+
+        runBtn.addEventListener('click', function() { summarize(null); });
+
+        window.addEventListener('message', function(ev) {
+            if (!ev.data || ev.data.kdepsPageSummarize !== 1) return;
+            summarize(ev.data);
+        });
+
+        window.addEventListener('kdeps:ready', function() {
+            ready = true;
+            statusEl.textContent = 'Ready. Drag the bookmarklet, or paste text and click Summarize.';
+        });
+    </script>
+</body>
+</html>

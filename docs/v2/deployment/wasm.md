@@ -23,6 +23,8 @@ Sibling files (`kdeps.wasm`, `wasm_exec.js`, `kdeps-wasm-embed.js`, `kdeps-boots
 
 Cloud `chat:` from `file://` still needs the provider to allow origin `null`. If the model call fails, serve the folder over HTTP (`python3 -m http.server 8080`) or use the Docker image.
 
+Bookmarklet sample that summarizes the current tab: [`examples/page-summarizer`](https://github.com/kdeps/kdeps/tree/main/examples/page-summarizer). The bookmarklet sends `innerText`; WASM cannot read the open page itself.
+
 Init and `build --wasm` reject any resource the WASM runtime cannot execute.
 
 ## Allowed resources
