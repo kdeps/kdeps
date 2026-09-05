@@ -21,6 +21,7 @@ package cmd
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -31,8 +32,10 @@ import (
 
 	goyaml "gopkg.in/yaml.v3"
 
+	kdepsconfig "github.com/kdeps/kdeps/v2/pkg/config"
 	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
 	"github.com/kdeps/kdeps/v2/pkg/domain"
+	executorLLM "github.com/kdeps/kdeps/v2/pkg/executor/llm"
 	wasmPkg "github.com/kdeps/kdeps/v2/pkg/infra/wasm"
 )
 
@@ -57,6 +60,96 @@ func wasmOutputFromFlags(flags *BuildFlags) (string, error) {
 		return wasmOutputHTML, nil
 	}
 	return normalizeWASMOutput(flags.WASMOutput)
+}
+
+// wasmSettingsProvider is one entry in the settings-drawer backend dropdown.
+type wasmSettingsProvider struct {
+	Name         string `json:"name"`
+	EnvVar       string `json:"envVar"`
+	DefaultModel string `json:"defaultModel"`
+}
+
+// wasmSettingsModel is one entry in the settings-drawer model datalist.
+type wasmSettingsModel struct {
+	ID      string `json:"id"`
+	Backend string `json:"backend"`
+	Desc    string `json:"desc"`
+}
+
+// wasmSettingsConfig is marshalled into kdeps-settings.js as window.__KDEPS_SETTINGS.
+type wasmSettingsConfig struct {
+	AppName       string                 `json:"appName"`
+	Backend       string                 `json:"backend"`
+	Model         string                 `json:"model"`
+	CaptureFields []string               `json:"captureFields"`
+	Providers     []wasmSettingsProvider `json:"providers"`
+	Models        []wasmSettingsModel    `json:"models"`
+}
+
+func firstChatModel(workflow *domain.Workflow) string {
+	for _, res := range workflow.Resources {
+		if res == nil {
+			continue
+		}
+		if res.Chat != nil && strings.TrimSpace(res.Chat.Model) != "" {
+			return res.Chat.Model
+		}
+		for i := range res.Before {
+			if res.Before[i].Chat != nil && strings.TrimSpace(res.Before[i].Chat.Model) != "" {
+				return res.Before[i].Chat.Model
+			}
+		}
+		for i := range res.After {
+			if res.After[i].Chat != nil && strings.TrimSpace(res.After[i].Chat.Model) != "" {
+				return res.After[i].Chat.Model
+			}
+		}
+	}
+	return ""
+}
+
+func wasmCaptureFields(workflow *domain.Workflow) []string {
+	raw := workflow.Settings.AgentSettings.Env["KDEPS_WASM_CAPTURE"]
+	var out []string
+	for _, f := range strings.Split(raw, ",") {
+		if f = strings.TrimSpace(f); f != "" {
+			out = append(out, f)
+		}
+	}
+	return out
+}
+
+// extractWASMSettings builds the JSON config embedded in kdeps-settings.js so the
+// runtime drawer can offer every cloud backend, its models, and the workflow's
+// own defaults. Reuses the canonical provider/model lists.
+func extractWASMSettings(workflow *domain.Workflow) (string, error) {
+	backend := strings.TrimSpace(workflow.Settings.AgentSettings.Env["KDEPS_DEFAULT_BACKEND"])
+	if backend == "" {
+		backend = "openai"
+	}
+
+	cfg := wasmSettingsConfig{
+		AppName:       workflow.Metadata.Name,
+		Backend:       backend,
+		Model:         firstChatModel(workflow),
+		CaptureFields: wasmCaptureFields(workflow),
+	}
+	for _, p := range kdepsconfig.CloudLLMProviders() {
+		cfg.Providers = append(cfg.Providers, wasmSettingsProvider{
+			Name: p.Name, EnvVar: p.EnvVar, DefaultModel: p.DefaultModel,
+		})
+	}
+	for _, m := range executorLLM.KnownCloudModels {
+		cfg.Models = append(cfg.Models, wasmSettingsModel{
+			ID: m.ID, Backend: m.Backend, Desc: m.Desc,
+		})
+	}
+
+	b, err := json.Marshal(cfg)
+	if err != nil {
+		return "", fmt.Errorf("failed to marshal WASM settings config: %w", err)
+	}
+	return string(b), nil
 }
 
 func extractWorkflowAPIRoutes(workflow *domain.Workflow) []string {
@@ -289,6 +382,11 @@ func buildWASMImage(ctx context.Context, packagePath string, flags *BuildFlags) 
 		return verr
 	}
 
+	settingsJSON, err := extractWASMSettings(workflow)
+	if err != nil {
+		return err
+	}
+
 	combinedYAML, err := workflowYAMLMarshalFunc(workflow)
 	if err != nil {
 		return fmt.Errorf("failed to marshal combined workflow YAML: %w", err)
@@ -326,6 +424,7 @@ func buildWASMImage(ctx context.Context, packagePath string, flags *BuildFlags) 
 		extractWorkflowAPIRoutes(workflow),
 		outputDir,
 		output,
+		settingsJSON,
 	); err != nil {
 		return err
 	}
@@ -369,7 +468,7 @@ func bundleWASMApp(
 	wasmBinary, wasmExecJS, yaml string,
 	files map[string]string,
 	apiRoutes []string,
-	outDir, output string,
+	outDir, output, settingsJSON string,
 ) error {
 	kdeps_debug.Log("enter: bundleWASMApp")
 	// Run the WASM bundler.
@@ -381,6 +480,7 @@ func bundleWASMApp(
 		APIRoutes:      apiRoutes,
 		OutputDir:      outDir,
 		Output:         output,
+		SettingsJSON:   settingsJSON,
 	}
 
 	fmt.Fprintln(os.Stdout, "✓ Bundling WASM app...")

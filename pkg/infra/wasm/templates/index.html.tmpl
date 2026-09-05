@@ -27,14 +27,21 @@
             <textarea id="kdeps-input" rows="4" placeholder="Enter your input..." style="padding: 0.75rem; border: 1px solid #d1d5db; border-radius: 0.5rem; font-size: 1rem; resize: vertical;"></textarea>
             <button type="submit" style="padding: 0.75rem 1.5rem; background: #3b82f6; color: white; border: none; border-radius: 0.5rem; font-size: 1rem; cursor: pointer;">Submit</button>
         </form>
+        <div id="kdeps-capture-cta" style="margin-top: 1rem;"></div>
         <div id="kdeps-output" style="margin-top: 2rem; padding: 1rem; background: white; border: 1px solid #e5e7eb; border-radius: 0.5rem; min-height: 100px; white-space: pre-wrap; display: none;"></div>
     </div>
 
     <script src="wasm_exec.js"></script>
     <script src="kdeps-wasm-embed.js"></script>
+    <script src="kdeps-settings.js"></script>
     <script src="kdeps-bootstrap.js"></script>
     <script>
         // Default form handler — wire up after WASM is ready.
+        function kdepsShowOutput(result) {
+            var output = document.getElementById('kdeps-output');
+            output.style.display = 'block';
+            output.textContent = typeof result === 'string' ? result : JSON.stringify(result, null, 2);
+        }
         window.addEventListener('kdeps:ready', function() {
             document.getElementById('kdeps-loading').style.display = 'none';
             document.getElementById('kdeps-app').classList.add('ready');
@@ -44,16 +51,25 @@
                 form.addEventListener('submit', async function(e) {
                     e.preventDefault();
                     var input = document.getElementById('kdeps-input').value;
-                    var output = document.getElementById('kdeps-output');
-                    output.style.display = 'block';
-                    output.textContent = 'Processing...';
+                    document.getElementById('kdeps-output').style.display = 'block';
+                    document.getElementById('kdeps-output').textContent = 'Processing...';
                     try {
-                        var result = await window.kdeps.execute({ prompt: input });
-                        output.textContent = typeof result === 'string' ? result : JSON.stringify(result, null, 2);
+                        kdepsShowOutput(await window.kdeps.execute({ prompt: input }));
                     } catch (err) {
-                        output.textContent = 'Error: ' + err.message;
+                        document.getElementById('kdeps-output').textContent = 'Error: ' + err.message;
                     }
                 });
+            }
+        });
+        // A captured page (from the settings-drawer bookmarklet) auto-runs.
+        window.addEventListener('kdeps:capture', async function(e) {
+            if (!window.kdeps) return;
+            document.getElementById('kdeps-output').style.display = 'block';
+            document.getElementById('kdeps-output').textContent = 'Processing...';
+            try {
+                kdepsShowOutput(await window.kdeps.execute(e.detail || {}));
+            } catch (err) {
+                document.getElementById('kdeps-output').textContent = 'Error: ' + err.message;
             }
         });
     </script>

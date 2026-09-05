@@ -660,7 +660,59 @@ func assertSelfContainedIndex(t *testing.T, indexHTML, wasmExecSnippet string) {
 	assert.Contains(t, indexHTML, wasmExecSnippet)
 	assert.Contains(t, indexHTML, "installFileOriginFetchShim")
 	assert.Contains(t, indexHTML, "init: function(env)")
+	assert.Contains(t, indexHTML, "__kdepsSettingsEnv")
 	assert.NotContains(t, indexHTML, `<script src="wasm_exec.js">`)
 	assert.NotContains(t, indexHTML, `<script src="kdeps-wasm-embed.js">`)
+	assert.NotContains(t, indexHTML, `<script src="kdeps-settings.js">`)
 	assert.NotContains(t, indexHTML, `<script src="kdeps-bootstrap.js">`)
+}
+
+func TestBundle_SettingsScript(t *testing.T) {
+	tmpDir := t.TempDir()
+	wasmFile := filepath.Join(tmpDir, "kdeps.wasm")
+	wasmExecFile := filepath.Join(tmpDir, "wasm_exec.js")
+	outputDir := filepath.Join(tmpDir, "output")
+	require.NoError(t, os.WriteFile(wasmFile, []byte("fake wasm"), 0644))
+	require.NoError(t, os.WriteFile(wasmExecFile, []byte("fake wasm_exec.js"), 0644))
+
+	config := &wasm.BundleConfig{
+		WASMBinaryPath: wasmFile,
+		WASMExecJSPath: wasmExecFile,
+		WorkflowYAML:   "apiVersion: kdeps.io/v1\nkind: Workflow",
+		OutputDir:      outputDir,
+		Output:         wasm.OutputServer, // keep separate files so we can read settings.js directly
+		SettingsJSON:   `{"appName":"demo","backend":"anthropic","captureFields":["url","text"]}`,
+	}
+	require.NoError(t, wasm.Bundle(config))
+
+	settingsJS, err := os.ReadFile(filepath.Join(outputDir, "dist", "kdeps-settings.js"))
+	require.NoError(t, err)
+	assert.Contains(t, string(settingsJS), `window.__KDEPS_SETTINGS = {"appName":"demo"`)
+	assert.Contains(t, string(settingsJS), "__kdepsSettingsEnv")
+	assert.Contains(t, string(settingsJS), "Send this page to")
+
+	indexHTML, err := os.ReadFile(filepath.Join(outputDir, "dist", "index.html"))
+	require.NoError(t, err)
+	assert.Contains(t, string(indexHTML), `<script src="kdeps-settings.js"></script>`)
+}
+
+func TestBundle_SettingsScriptDefaultsEmpty(t *testing.T) {
+	tmpDir := t.TempDir()
+	wasmFile := filepath.Join(tmpDir, "kdeps.wasm")
+	wasmExecFile := filepath.Join(tmpDir, "wasm_exec.js")
+	outputDir := filepath.Join(tmpDir, "output")
+	require.NoError(t, os.WriteFile(wasmFile, []byte("w"), 0644))
+	require.NoError(t, os.WriteFile(wasmExecFile, []byte("j"), 0644))
+
+	require.NoError(t, wasm.Bundle(&wasm.BundleConfig{
+		WASMBinaryPath: wasmFile,
+		WASMExecJSPath: wasmExecFile,
+		WorkflowYAML:   "apiVersion: kdeps.io/v1",
+		OutputDir:      outputDir,
+		Output:         wasm.OutputServer,
+	}))
+
+	settingsJS, err := os.ReadFile(filepath.Join(outputDir, "dist", "kdeps-settings.js"))
+	require.NoError(t, err)
+	assert.Contains(t, string(settingsJS), "window.__KDEPS_SETTINGS = {};")
 }

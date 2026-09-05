@@ -89,8 +89,23 @@
         // Wait a tick for Go to register global functions.
         await new Promise(resolve => setTimeout(resolve, 50));
 
+        // Environment (backend, model, API key) comes from the settings drawer
+        // (kdeps-settings.js). Falls back to {} when the drawer is absent.
+        function settingsEnv() {
+            try {
+                return (typeof window.__kdepsSettingsEnv === 'function') ? window.__kdepsSettingsEnv() : {};
+            } catch (e) { return {}; }
+        }
+
         // Initialize with the embedded workflow.
-        await kdepsInit(__kdepsWorkflowYAML);
+        await kdepsInit(__kdepsWorkflowYAML, settingsEnv());
+
+        // Re-init when the viewer saves new settings.
+        window.addEventListener('kdeps:settings-changed', function() {
+            kdepsInit(__kdepsWorkflowYAML, settingsEnv()).catch(function(err) {
+                console.error('[kdeps] re-init after settings change failed:', err);
+            });
+        });
 
         // Expose the kdeps API on window.
         window.kdeps = {

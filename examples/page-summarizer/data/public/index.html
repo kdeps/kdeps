@@ -11,101 +11,36 @@
         h1 { font-size: 1.5rem; letter-spacing: -0.02em; margin-bottom: 0.35rem; }
         .sub { color: #9aa0a6; font-size: 0.9rem; margin-bottom: 1.5rem; }
         label { display: block; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.06em; color: #00e5ff; margin: 1rem 0 0.35rem; }
-        input, textarea { width: 100%; background: #141416; color: #e8e8ea; border: 1px solid rgba(255,255,255,0.08); border-radius: 2px; padding: 0.7rem; font: inherit; }
-        textarea { min-height: 8rem; resize: vertical; }
-        button, .bm { display: inline-block; margin-top: 1rem; padding: 0.7rem 1.1rem; background: #00e5ff; color: #0b0b0c; border: 0; border-radius: 2px; font: inherit; font-weight: 600; cursor: pointer; text-decoration: none; }
+        textarea { width: 100%; background: #141416; color: #e8e8ea; border: 1px solid rgba(255,255,255,0.08); border-radius: 2px; padding: 0.7rem; font: inherit; min-height: 8rem; resize: vertical; }
+        button { display: inline-block; margin-top: 1rem; padding: 0.7rem 1.1rem; background: #00e5ff; color: #0b0b0c; border: 0; border-radius: 2px; font: inherit; font-weight: 600; cursor: pointer; }
         button:disabled { opacity: 0.5; cursor: default; }
-        .row { display: flex; gap: 0.75rem; flex-wrap: wrap; align-items: center; }
         #status { margin-top: 1rem; color: #9aa0a6; font-size: 0.85rem; }
         #out { margin-top: 1.25rem; white-space: pre-wrap; background: #141416; border: 1px solid rgba(255,255,255,0.08); padding: 1rem; min-height: 6rem; }
-        .hint { color: #9aa0a6; font-size: 0.8rem; margin-top: 0.4rem; }
-        kbd { font: 0.8em ui-monospace, monospace; background: #141416; padding: 0.1rem 0.3rem; border: 1px solid rgba(255,255,255,0.08); }
+        /* #kdeps-capture-cta is filled by kdeps-settings.js when the workflow
+           sets KDEPS_WASM_CAPTURE - it holds the draggable bookmarklet link. */
+        #kdeps-capture-cta { margin-top: 1.25rem; }
     </style>
 </head>
 <body>
     <main>
         <h1>Page summarizer</h1>
-        <p class="sub">This HTML file is the app. Double-click it (no server). Drag the button below to the bookmarks bar, then click that bookmark on any page.</p>
+        <p class="sub">This HTML file is the app. Double-click it (no server). Set your backend and API key in the gear menu (top-right), then drag the bookmarklet below onto the bookmarks bar.</p>
 
-        <label for="api-key">OpenAI API key</label>
-        <input id="api-key" type="password" autocomplete="off" placeholder="sk-... stored only in this browser">
-
-        <label>Bookmarklet</label>
-        <div class="row">
-            <a id="bookmarklet" class="bm" href="#" draggable="true">Summarize page</a>
-            <span class="hint">Drag this button onto the bookmarks bar. No web server.</span>
-        </div>
-
-        <label for="title">Title</label>
-        <input id="title" placeholder="Page title">
-
-        <label for="url">URL</label>
-        <input id="url" placeholder="https://...">
+        <div id="kdeps-capture-cta"></div>
 
         <label for="text">Page text</label>
-        <textarea id="text" placeholder="Paste text, or click the bookmarklet on any page."></textarea>
-
+        <textarea id="text" placeholder="Or paste text here and click Summarize."></textarea>
         <button id="run" type="button">Summarize</button>
+
         <div id="status">Loading WASM...</div>
         <div id="out"></div>
     </main>
     <script>
-        var KEY = 'kdeps.page-summarizer.openai_key';
         var ready = false;
-        var apiKey = document.getElementById('api-key');
-        var titleEl = document.getElementById('title');
-        var urlEl = document.getElementById('url');
         var textEl = document.getElementById('text');
         var statusEl = document.getElementById('status');
         var outEl = document.getElementById('out');
         var runBtn = document.getElementById('run');
-        var bm = document.getElementById('bookmarklet');
-
-        apiKey.value = localStorage.getItem(KEY) || '';
-        apiKey.addEventListener('change', function() {
-            localStorage.setItem(KEY, apiKey.value.trim());
-        });
-
-        function appURL() {
-            return location.href.split('#')[0];
-        }
-
-        function bookmarkletSource() {
-            return '(function(){var APP=' + JSON.stringify(appURL()) +
-                ';var p={kdepsPageSummarize:1,url:location.href,title:document.title,text:(document.body&&document.body.innerText||"").slice(0,24000)};' +
-                'var raw=JSON.stringify(p);' +
-                'try{if(navigator.clipboard&&navigator.clipboard.writeText)navigator.clipboard.writeText(raw);}catch(e){}' +
-                'var w=null;try{w=window.open(APP);}catch(e){}' +
-                'if(w){var n=0,t=setInterval(function(){n++;if(!w||w.closed||n>60){clearInterval(t);return;}try{w.postMessage(p,"*");}catch(e){}},200);return;}' +
-                'alert("Page text copied. Open the summarizer HTML file (double-click it).");})();';
-        }
-
-        function setBookmarklet() {
-            bm.href = 'javascript:' + encodeURIComponent(bookmarkletSource());
-        }
-        setBookmarklet();
-
-        bm.addEventListener('dragstart', function(e) {
-            var href = bm.href;
-            e.dataTransfer.setData('text/uri-list', href);
-            e.dataTransfer.setData('text/plain', href);
-            e.dataTransfer.setData('text/html', '<a href="' + href + '">Summarize page</a>');
-        });
-
-        function applyPayload(payload) {
-            if (!payload || payload.kdepsPageSummarize !== 1) return false;
-            summarize(payload);
-            return true;
-        }
-
-        function readClipboardPayload() {
-            if (!navigator.clipboard || !navigator.clipboard.readText) return;
-            navigator.clipboard.readText().then(function(raw) {
-                try {
-                    applyPayload(JSON.parse(raw));
-                } catch (e) { /* not ours */ }
-            }).catch(function() { /* permission denied */ });
-        }
 
         function summaryFrom(result) {
             if (result == null) return '(empty)';
@@ -116,40 +51,17 @@
             return JSON.stringify(result, null, 2);
         }
 
-        async function summarize(payload) {
-            if (!ready || !window.kdeps) {
-                statusEl.textContent = 'WASM is not ready yet.';
-                return;
-            }
-            var key = apiKey.value.trim();
-            if (!key) {
-                statusEl.textContent = 'Paste an OpenAI API key first.';
-                return;
-            }
-            localStorage.setItem(KEY, key);
-            if (payload) {
-                titleEl.value = payload.title || '';
-                urlEl.value = payload.url || '';
-                textEl.value = payload.text || '';
-            }
-            var text = textEl.value.trim();
-            if (!text) {
-                statusEl.textContent = 'No page text.';
+        async function summarize(input) {
+            if (!ready || !window.kdeps) { statusEl.textContent = 'WASM is not ready yet.'; return; }
+            if (!window.__kdepsSettingsReady || !window.__kdepsSettingsReady()) {
+                statusEl.textContent = 'Open the gear menu (top-right) and set a backend + API key first.';
                 return;
             }
             runBtn.disabled = true;
             statusEl.textContent = 'Summarizing...';
             outEl.textContent = '';
             try {
-                await window.kdeps.init({
-                    KDEPS_DEFAULT_BACKEND: 'openai',
-                    OPENAI_API_KEY: key
-                });
-                var result = await window.kdeps.execute({
-                    url: urlEl.value,
-                    title: titleEl.value,
-                    text: text
-                });
+                var result = await window.kdeps.execute(input);
                 outEl.textContent = summaryFrom(result);
                 statusEl.textContent = 'Done.';
             } catch (err) {
@@ -159,24 +71,20 @@
             runBtn.disabled = false;
         }
 
-        runBtn.addEventListener('click', function() { summarize(null); });
-
-        window.addEventListener('message', function(ev) {
-            applyPayload(ev.data);
+        runBtn.addEventListener('click', function () {
+            summarize({ text: textEl.value.trim() });
         });
 
-        window.addEventListener('focus', readClipboardPayload);
-        document.addEventListener('visibilitychange', function() {
-            if (document.visibilityState === 'visible') readClipboardPayload();
+        // The bookmarklet (from kdeps-settings.js) delivers a captured page here.
+        window.addEventListener('kdeps:capture', function (ev) {
+            var d = ev.detail || {};
+            if (d.text) textEl.value = d.text;
+            summarize(d);
         });
 
-        window.addEventListener('kdeps:ready', function() {
+        window.addEventListener('kdeps:ready', function () {
             ready = true;
-            statusEl.textContent = 'Ready. Drag this page to the bookmarks bar, or paste text and click Summarize.';
-            try {
-                applyPayload(JSON.parse(window.name));
-            } catch (e) { /* ignore */ }
-            readClipboardPayload();
+            statusEl.textContent = 'Ready. Set your key in the gear menu, then use the bookmarklet or paste text.';
         });
     </script>
 </body>

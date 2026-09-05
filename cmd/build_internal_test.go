@@ -249,6 +249,7 @@ func TestBundleWASMApp_Success(t *testing.T) {
 		[]string{"/api", "/health"},
 		"/tmp/out",
 		"html",
+		`{"appName":"x"}`,
 	)
 	require.NoError(t, err)
 	require.NotNil(t, captured)
@@ -259,6 +260,7 @@ func TestBundleWASMApp_Success(t *testing.T) {
 	assert.Equal(t, []string{"/api", "/health"}, captured.APIRoutes)
 	assert.Equal(t, "/tmp/out", captured.OutputDir)
 	assert.Equal(t, "html", captured.Output)
+	assert.Equal(t, `{"appName":"x"}`, captured.SettingsJSON)
 }
 
 func TestBundleWASMApp_BundleError(t *testing.T) {
@@ -270,7 +272,7 @@ func TestBundleWASMApp_BundleError(t *testing.T) {
 		return sentinel
 	}
 
-	err := bundleWASMApp("a", "b", "c", nil, nil, "/tmp/out", "html")
+	err := bundleWASMApp("a", "b", "c", nil, nil, "/tmp/out", "html", "{}")
 	require.Error(t, err)
 	assert.ErrorIs(t, err, sentinel)
 	assert.Contains(t, err.Error(), "WASM bundling failed")

@@ -1309,6 +1309,15 @@ func TestPageSummarizerExample_WASMAllowlist(t *testing.T) {
 	require.NotNil(t, summarize)
 	require.NotNil(t, summarize.Chat)
 	assert.Equal(t, "gpt-4o-mini", summarize.Chat.Model)
+
+	// The example opts into the standard capture bookmarklet.
+	assert.Equal(t, "url,title,text", workflow.Settings.AgentSettings.Env["KDEPS_WASM_CAPTURE"])
+
+	// A runtime model override (from the settings drawer) still validates for
+	// the chosen backend and rewrites every chat resource.
+	domain.ApplyWASMModelOverride(workflow, "claude-sonnet-4-6")
+	assert.Equal(t, "claude-sonnet-4-6", summarize.Chat.Model)
+	require.NoError(t, domain.ValidateWASMWorkflow(workflow))
 }
 
 // setupEngineWithMockClient creates an executor engine using a custom mock HTTP client

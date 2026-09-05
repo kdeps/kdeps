@@ -26,13 +26,15 @@ This tutorial is for developers who have completed the [quickstart](/getting-sta
 By the end you will be able to:
 
 - Build a WASM-only workflow (`chat` + `apiResponse`)
-- Ship a bookmarklet that feeds the current page into `window.kdeps.execute`
-- Pass an API key at runtime with `window.kdeps.init`
+- Opt into the standard "send this page" bookmarklet with `KDEPS_WASM_CAPTURE`
+- Handle a captured page via the `kdeps:capture` event
+
+The backend, model, and API key come from the [settings drawer](/deployment/wasm#settings-drawer) kdeps injects into every `--wasm` app - you do not build a key field.
 
 ## Before you start
 
 - kdeps installed (`kdeps --version`). `--wasm` compiles `kdeps.wasm` itself.
-- An OpenAI API key
+- An API key for any cloud backend (OpenAI, Anthropic, Groq, ...)
 
 ## Step 1: create the project
 
@@ -61,7 +63,8 @@ settings:
   agentSettings:
     timezone: UTC
     env:
-      KDEPS_DEFAULT_BACKEND: openai  # WASM rejects ollama / llamafile / gguf
+      KDEPS_DEFAULT_BACKEND: openai        # default; the drawer can switch it
+      KDEPS_WASM_CAPTURE: "url,title,text"  # add the "send this page" bookmarklet
 ```
 
 ```yaml
@@ -118,17 +121,31 @@ apiResponse:
 
 </div>
 
-## Step 4: the page and bookmarklet
+## Step 4: the result page
 
-Put `data/public/index.html` next to the workflow. The WASM bundler copies `data/` into `dist/`. The page:
+Put `data/public/index.html` next to the workflow; the bundler copies `data/` into `dist/`. The settings drawer and the bookmarklet are added by kdeps - your page only needs to render the answer and handle a capture:
 
-1. Listens for `kdeps:ready`
-2. Stores the API key in `localStorage`
-3. Calls `window.kdeps.init({ OPENAI_API_KEY, KDEPS_DEFAULT_BACKEND: "openai" })`
-4. Calls `window.kdeps.execute({ url, title, text })`
-5. Exposes a `javascript:` bookmarklet. Drag that control (this HTML page) onto the bookmarks bar. Clicking it on any tab copies `innerText` and opens this same file. No web server.
+```html
+<!-- data/public/index.html (trimmed) -->
+<div id="kdeps-capture-cta"></div>   <!-- bundler drops the bookmarklet link here -->
+<textarea id="text" placeholder="Or paste text and click Summarize."></textarea>
+<button id="run">Summarize</button>
+<pre id="out"></pre>
+<script>
+  async function summarize(input) {
+    if (!window.__kdepsSettingsReady()) { /* prompt user to open the gear menu */ return; }
+    document.getElementById('out').textContent =
+      (await window.kdeps.execute(input)).response.summary;
+  }
+  document.getElementById('run').onclick = function () {
+    summarize({ text: document.getElementById('text').value });
+  };
+  // The bookmarklet delivers the captured page here.
+  window.addEventListener('kdeps:capture', function (e) { summarize(e.detail); });
+</script>
+```
 
-The full file is in [`examples/page-summarizer/data/public/index.html`](https://github.com/kdeps/kdeps/blob/main/examples/page-summarizer/data/public/index.html). Copy it.
+The full file is in [`examples/page-summarizer/data/public/index.html`](https://github.com/kdeps/kdeps/blob/main/examples/page-summarizer/data/public/index.html).
 
 ## Step 5: build and double-click
 
@@ -139,11 +156,9 @@ kdeps bundle build . --wasm
 
 That writes `page-summarizer.html` next to the workflow. Double-click it. No Docker, no `http.server`. Use `--wasm-output server` if you want `{name}-wasm/` plus an nginx image.
 
-1. Paste the OpenAI API key
-2. Drag **Summarize page** onto the bookmarks bar
-3. Open any article, click the bookmark
-
-If the browser blocks `window.open` of a `file://` URL, the bookmark copies the page to the clipboard - focus the HTML window and it reads it.
+1. Click the gear (top-right), pick a backend + model, paste an API key
+2. Drag **Send this page to page-summarizer** onto the bookmarks bar
+3. Open any article, click the bookmark - the summarizer opens and runs
 
 Paste text and click Summarize if you do not want a bookmarklet.
 
@@ -152,8 +167,8 @@ Paste text and click Summarize if you do not want a bookmarklet.
 You built a WASM agent that:
 
 - Allowlists only `chat:` + `apiResponse:` (WASM cannot scrape or run local models)
-- Takes page text from a bookmarklet, not from the WASM runtime
-- Injects the API key at runtime with `window.kdeps.init`
+- Opts into the standard bookmarklet with `KDEPS_WASM_CAPTURE`, then reads the captured page from the `kdeps:capture` event
+- Gets its backend, model, and key from the kdeps settings drawer, not a hand-built form
 
 ## See also
 

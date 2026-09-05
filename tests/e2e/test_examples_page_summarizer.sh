@@ -79,32 +79,59 @@ else
     test_failed "page-summarizer - cloud backend for WASM" "KDEPS_DEFAULT_BACKEND: openai missing in $WF"
 fi
 
+if grep -q "KDEPS_WASM_CAPTURE" "$WF"; then
+    test_passed "page-summarizer - opts into the standard capture bookmarklet"
+else
+    test_failed "page-summarizer - opts into the standard capture bookmarklet" "KDEPS_WASM_CAPTURE missing in $WF"
+fi
+
 if grep -q "^apiResponse:" "$RES_RESP"; then
     test_passed "page-summarizer - resources/response.yaml uses apiResponse"
 else
     test_failed "page-summarizer - resources/response.yaml uses apiResponse" "apiResponse: not found"
 fi
 
-if grep -q "kdepsPageSummarize" "$HTML" && grep -q "kdeps.init" "$HTML" && grep -q "clipboard" "$HTML"; then
-    test_passed "page-summarizer - index.html bookmarklet + clipboard + kdeps.init"
+# The drawer, bookmarklet, and clipboard glue now come from the bundler; the
+# example page only renders the result and handles the capture event.
+if grep -q "kdeps:capture" "$HTML" && grep -q "__kdepsSettingsReady" "$HTML"; then
+    test_passed "page-summarizer - index.html handles kdeps:capture + settings gate"
 else
-    test_failed "page-summarizer - index.html bookmarklet + clipboard + kdeps.init" \
-        "missing kdepsPageSummarize, kdeps.init, or clipboard in $HTML"
+    test_failed "page-summarizer - index.html handles kdeps:capture + settings gate" \
+        "missing kdeps:capture or __kdepsSettingsReady in $HTML"
 fi
 
-if grep -q "No web server" "$HTML" && grep -q "dragstart" "$HTML"; then
-    test_passed "page-summarizer - index.html is the bookmarklet (no server)"
+if grep -q "kdeps-capture-cta" "$HTML"; then
+    test_passed "page-summarizer - index.html has the bookmarklet CTA slot"
 else
-    test_failed "page-summarizer - index.html is the bookmarklet (no server)" \
-        "missing no-server copy or dragstart in $HTML"
+    test_failed "page-summarizer - index.html has the bookmarklet CTA slot" "missing #kdeps-capture-cta in $HTML"
 fi
 
-if [ -f "$README" ] && grep -q "bookmarklet" "$README" && grep -q -- "--wasm" "$README" && \
+if [ -f "$README" ] && grep -q -- "--wasm" "$README" && \
    ! grep -q "http.server" "$README" && ! grep -q "docker run" "$README"; then
     test_passed "page-summarizer - README.md is file:// only (no server)"
 else
     test_failed "page-summarizer - README.md is file:// only (no server)" \
         "README missing, or still documents docker/http.server at $README"
+fi
+
+# Build the WASM app and check the standard drawer + bookmarklet landed in the
+# output. Skips cleanly when the js/wasm toolchain is unavailable on the runner.
+PS_HTML="$EX/page-summarizer.html"
+rm -f "$PS_HTML"
+# -u KDEPS_COMPONENT_DIR: common.sh points it at test fixtures whose resources
+# this standalone workflow does not use; keep the build to the example itself.
+if BUILD_OUT=$(env -u KDEPS_COMPONENT_DIR "$KDEPS_BIN" bundle build "$EX" --wasm 2>&1) && [ -f "$PS_HTML" ]; then
+    if grep -q "window.__KDEPS_SETTINGS" "$PS_HTML" && \
+       grep -q '"captureFields":\["url","title","text"\]' "$PS_HTML" && \
+       grep -q "Send this page to" "$PS_HTML"; then
+        test_passed "page-summarizer - --wasm build embeds the drawer + capture bookmarklet"
+    else
+        test_failed "page-summarizer - --wasm build embeds the drawer + capture bookmarklet" \
+            "settings config / captureFields / bookmarklet missing in $PS_HTML"
+    fi
+    rm -f "$PS_HTML"
+else
+    test_skipped "page-summarizer - --wasm build (js/wasm toolchain unavailable): $BUILD_OUT"
 fi
 
 if [ -f "$PKG" ] && grep -q "type: workflow" "$PKG"; then

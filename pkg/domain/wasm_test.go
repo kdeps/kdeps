@@ -214,3 +214,34 @@ func TestValidateWASMWorkflow_RejectsNonCloudModels(t *testing.T) {
 		})
 	}
 }
+
+func TestApplyWASMModelOverride(t *testing.T) {
+	wf := wasmWorkflow(
+		&domain.Resource{
+			ActionID: "ask",
+			Chat:     &domain.ChatConfig{Model: "gpt-4o-mini", Prompt: "hi"},
+			Before: []domain.ActionConfig{
+				{Chat: &domain.ChatConfig{Model: "gpt-4o-mini"}},
+			},
+			After: []domain.ActionConfig{
+				{Chat: &domain.ChatConfig{Model: "gpt-4o-mini"}},
+			},
+		},
+		&domain.Resource{
+			ActionID:   "fetch",
+			HTTPClient: &domain.HTTPClientConfig{URL: "https://example.com", Method: "GET"},
+		},
+	)
+
+	domain.ApplyWASMModelOverride(wf, "claude-sonnet-4-6")
+	require.Equal(t, "claude-sonnet-4-6", wf.Resources[0].Chat.Model)
+	require.Equal(t, "claude-sonnet-4-6", wf.Resources[0].Before[0].Chat.Model)
+	require.Equal(t, "claude-sonnet-4-6", wf.Resources[0].After[0].Chat.Model)
+
+	// Empty override is a no-op.
+	domain.ApplyWASMModelOverride(wf, "  ")
+	require.Equal(t, "claude-sonnet-4-6", wf.Resources[0].Chat.Model)
+
+	// Nil workflow does not panic.
+	domain.ApplyWASMModelOverride(nil, "x")
+}

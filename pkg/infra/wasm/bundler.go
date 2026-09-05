@@ -63,6 +63,10 @@ type BundleConfig struct {
 	// Output is "html" (single inlined file) or "server" (static site + nginx).
 	// Empty means html.
 	Output string
+	// SettingsJSON is a pre-marshalled JSON object for the runtime settings
+	// drawer (kdeps-settings.js): app name, default backend/model, cloud
+	// provider list, model catalog, and capture field names. Empty -> "{}".
+	SettingsJSON string
 }
 
 // OutputServer is the --wasm-output server bundle: separate wasm files, nginx.
@@ -76,6 +80,18 @@ func (c *BundleConfig) standalone() bool {
 type bootstrapData struct {
 	WorkflowYAML  string
 	APIRoutesJSON string
+}
+
+// settingsData is passed to the settings.js template.
+type settingsData struct {
+	ConfigJSON string
+}
+
+func settingsConfigJSON(c *BundleConfig) string {
+	if c == nil || strings.TrimSpace(c.SettingsJSON) == "" {
+		return "{}"
+	}
+	return c.SettingsJSON
 }
 
 func escapeWorkflowYAMLForJS(yaml string) string {
@@ -102,9 +118,11 @@ func bootstrapScriptTags(standalone bool) string {
 	if standalone {
 		return `<script src="wasm_exec.js"></script>
 <script src="kdeps-wasm-embed.js"></script>
+<script src="kdeps-settings.js"></script>
 <script src="kdeps-bootstrap.js"></script>`
 	}
 	return `<script src="wasm_exec.js"></script>
+<script src="kdeps-settings.js"></script>
 <script src="kdeps-bootstrap.js"></script>`
 }
 
@@ -122,6 +140,9 @@ func copyBundleAssets(config *BundleConfig, distDir string) error {
 	}
 	if err := renderBootstrap(config, distDir); err != nil {
 		return fmt.Errorf("failed to render bootstrap script: %w", err)
+	}
+	if err := renderSettings(config, distDir); err != nil {
+		return fmt.Errorf("failed to render settings script: %w", err)
 	}
 	if err := copyWebServerFiles(config.WebServerFiles, distDir); err != nil {
 		return fmt.Errorf("failed to copy web server files: %w", err)
@@ -214,6 +235,30 @@ func renderBootstrap(config *BundleConfig, distDir string) error {
 	})
 	if renderErr != nil {
 		return fmt.Errorf("failed to render bootstrap template: %w", renderErr)
+	}
+	return nil
+}
+
+// renderSettings renders kdeps-settings.js with the runtime settings config
+// (providers, model catalog, defaults, capture fields) embedded.
+func renderSettings(config *BundleConfig, distDir string) error {
+	kdeps_debug.Log("enter: renderSettings")
+	tmplContent, err := readTemplateFile("templates/settings.js.tmpl")
+	if err != nil {
+		return fmt.Errorf("failed to read settings template: %w", err)
+	}
+
+	outFile, err := AppFS.Create(filepath.Join(distDir, "kdeps-settings.js"))
+	if err != nil {
+		return fmt.Errorf("failed to create settings.js: %w", err)
+	}
+	defer outFile.Close()
+
+	renderErr := texttmpl.RenderTo(outFile, "settings.js", string(tmplContent), settingsData{
+		ConfigJSON: settingsConfigJSON(config),
+	})
+	if renderErr != nil {
+		return fmt.Errorf("failed to render settings template: %w", renderErr)
 	}
 	return nil
 }
@@ -317,7 +362,7 @@ func writeWasmEmbed(wasmPath, distDir string) error {
 }
 
 func runtimeScriptFiles() []string {
-	return []string{"wasm_exec.js", "kdeps-wasm-embed.js", "kdeps-bootstrap.js"}
+	return []string{"wasm_exec.js", "kdeps-wasm-embed.js", "kdeps-settings.js", "kdeps-bootstrap.js"}
 }
 
 // inlineRuntimeScripts replaces <script src="..."> tags for the WASM runtime

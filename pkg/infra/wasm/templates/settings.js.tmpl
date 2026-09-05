@@ -1,0 +1,258 @@
+// kdeps-settings.js - standard runtime settings drawer for a --wasm app.
+// Lets the viewer pick the cloud backend, model, and API key (persisted in
+// this browser only), and - when the workflow opts in - renders a
+// "send this page" bookmarklet plus the receiver that feeds the capture.
+window.__KDEPS_SETTINGS = {{.ConfigJSON}};
+(function () {
+    var CFG = {};
+    try { CFG = window.__KDEPS_SETTINGS || {}; } catch (e) { CFG = {}; }
+
+    var appName = CFG.appName || 'kdeps';
+    var providers = Array.isArray(CFG.providers) ? CFG.providers : [];
+    var models = Array.isArray(CFG.models) ? CFG.models : [];
+    var captureFields = Array.isArray(CFG.captureFields) ? CFG.captureFields : [];
+    var LS_KEY = 'kdeps.' + appName + '.settings';
+
+    function load() {
+        var s = {};
+        try { s = JSON.parse(localStorage.getItem(LS_KEY) || '{}') || {}; } catch (e) { s = {}; }
+        return {
+            backend: s.backend || CFG.backend || (providers[0] && providers[0].name) || 'openai',
+            model: s.model || CFG.model || '',
+            apiKey: s.apiKey || ''
+        };
+    }
+
+    function save(s) {
+        try { localStorage.setItem(LS_KEY, JSON.stringify(s)); } catch (e) { /* private mode */ }
+    }
+
+    function providerFor(name) {
+        for (var i = 0; i < providers.length; i++) {
+            if (providers[i].name === name) return providers[i];
+        }
+        return null;
+    }
+
+    // window.__kdepsSettingsEnv() is read by kdeps-bootstrap.js before every
+    // kdepsInit so the workflow runs against the viewer's chosen backend.
+    window.__kdepsSettingsEnv = function () {
+        var s = load();
+        var env = { KDEPS_DEFAULT_BACKEND: s.backend };
+        if (s.model) env.KDEPS_WASM_MODEL = s.model;
+        var p = providerFor(s.backend);
+        if (p && p.envVar && s.apiKey) env[p.envVar] = s.apiKey;
+        return env;
+    };
+
+    window.__kdepsSettingsReady = function () {
+        var s = load();
+        var p = providerFor(s.backend);
+        return !!(s.backend && (!p || !p.envVar || s.apiKey));
+    };
+
+    function modelOptions(backend) {
+        var out = [];
+        for (var i = 0; i < models.length; i++) {
+            if (models[i].backend === backend) out.push(models[i]);
+        }
+        return out;
+    }
+
+    function el(tag, attrs, text) {
+        var n = document.createElement(tag);
+        if (attrs) { for (var k in attrs) { if (attrs.hasOwnProperty(k)) n.setAttribute(k, attrs[k]); } }
+        if (text != null) n.textContent = text;
+        return n;
+    }
+
+    function buildPanel(container, floating) {
+        var s = load();
+
+        var wrap = el('div', { 'class': 'kdeps-settings-panel' });
+        wrap.appendChild(el('div', { 'class': 'kdeps-settings-title' }, 'Model settings'));
+
+        var backendSel = el('select', { 'class': 'kdeps-settings-backend' });
+        if (providers.length === 0) {
+            backendSel.appendChild(el('option', { value: s.backend }, s.backend));
+        }
+        for (var i = 0; i < providers.length; i++) {
+            var o = el('option', { value: providers[i].name }, providers[i].name);
+            if (providers[i].name === s.backend) o.selected = true;
+            backendSel.appendChild(o);
+        }
+
+        var listId = 'kdeps-models-' + Math.random().toString(36).slice(2);
+        var dl = el('datalist', { id: listId });
+        var modelInput = el('input', {
+            'class': 'kdeps-settings-model', type: 'text', list: listId,
+            placeholder: 'model id', value: s.model, autocomplete: 'off'
+        });
+        function refreshModels() {
+            dl.textContent = '';
+            var opts = modelOptions(backendSel.value);
+            for (var j = 0; j < opts.length; j++) {
+                dl.appendChild(el('option', { value: opts[j].id }, opts[j].desc || ''));
+            }
+        }
+        refreshModels();
+        backendSel.addEventListener('change', function () {
+            var p = providerFor(backendSel.value);
+            if (p && p.defaultModel && !modelInput.value) modelInput.value = p.defaultModel;
+            refreshModels();
+        });
+
+        var keyInput = el('input', {
+            'class': 'kdeps-settings-key', type: 'password', autocomplete: 'off',
+            placeholder: 'API key (stored only in this browser)', value: s.apiKey
+        });
+
+        var saveBtn = el('button', { type: 'button', 'class': 'kdeps-settings-save' }, 'Save');
+        var note = el('div', { 'class': 'kdeps-settings-note' }, '');
+        saveBtn.addEventListener('click', function () {
+            var next = {
+                backend: backendSel.value,
+                model: modelInput.value.trim(),
+                apiKey: keyInput.value.trim()
+            };
+            save(next);
+            note.textContent = 'Saved.';
+            window.dispatchEvent(new Event('kdeps:settings-changed'));
+            if (floating) hideDrawer();
+        });
+
+        wrap.appendChild(labelled('Backend', backendSel));
+        wrap.appendChild(labelled('Model', modelInput));
+        wrap.appendChild(dl);
+        wrap.appendChild(labelled('API key', keyInput));
+        wrap.appendChild(saveBtn);
+        wrap.appendChild(note);
+        container.appendChild(wrap);
+    }
+
+    function labelled(text, node) {
+        var l = el('label', { 'class': 'kdeps-settings-field' });
+        l.appendChild(el('span', null, text));
+        l.appendChild(node);
+        return l;
+    }
+
+    var drawer, backdrop;
+    function hideDrawer() { if (drawer) drawer.hidden = true; if (backdrop) backdrop.hidden = true; }
+    function showDrawer() { if (drawer) drawer.hidden = false; if (backdrop) backdrop.hidden = false; }
+
+    function mountFloating() {
+        var style = el('style');
+        style.textContent =
+            '.kdeps-gear{position:fixed;top:12px;right:12px;z-index:2147483000;width:36px;height:36px;border-radius:2px;border:1px solid rgba(0,0,0,.15);background:#fff;cursor:pointer;font-size:18px;line-height:1}' +
+            '.kdeps-backdrop{position:fixed;inset:0;background:rgba(0,0,0,.35);z-index:2147483000}' +
+            '.kdeps-drawer{position:fixed;top:0;right:0;height:100%;width:min(360px,92vw);background:#fff;color:#111;z-index:2147483001;box-shadow:-8px 0 24px rgba(0,0,0,.2);padding:1.25rem;overflow:auto;font:14px/1.5 system-ui,sans-serif}' +
+            '.kdeps-settings-title{font-weight:600;margin-bottom:1rem}' +
+            '.kdeps-settings-field{display:block;margin:0 0 .85rem}' +
+            '.kdeps-settings-field span{display:block;font-size:.72rem;text-transform:uppercase;letter-spacing:.06em;color:#666;margin-bottom:.3rem}' +
+            '.kdeps-settings-panel input,.kdeps-settings-panel select{width:100%;padding:.55rem;border:1px solid #cbd5e1;border-radius:2px;font:inherit}' +
+            '.kdeps-settings-save{margin-top:.4rem;padding:.55rem 1rem;border:0;border-radius:2px;background:#111;color:#fff;cursor:pointer;font:inherit}' +
+            '.kdeps-settings-note{margin-top:.5rem;color:#16a34a;font-size:.8rem;min-height:1em}' +
+            '.kdeps-capture{margin-top:1.25rem;padding-top:1rem;border-top:1px solid #e5e7eb}' +
+            '.kdeps-capture a{display:inline-block;padding:.5rem .9rem;background:#111;color:#fff;border-radius:2px;text-decoration:none;font-weight:600}' +
+            '.kdeps-capture .hint{display:block;margin-top:.4rem;color:#666;font-size:.8rem}';
+        document.head.appendChild(style);
+
+        var gear = el('button', { 'class': 'kdeps-gear', title: 'Model settings', 'aria-label': 'Model settings' }, '⚙');
+        backdrop = el('div', { 'class': 'kdeps-backdrop' }); backdrop.hidden = true;
+        drawer = el('div', { 'class': 'kdeps-drawer' }); drawer.hidden = true;
+
+        gear.addEventListener('click', showDrawer);
+        backdrop.addEventListener('click', hideDrawer);
+
+        document.body.appendChild(gear);
+        document.body.appendChild(backdrop);
+        document.body.appendChild(drawer);
+        buildPanel(drawer, true);
+        if (captureFields.length) mountCapture(drawer);
+    }
+
+    // ---- optional page-capture bookmarklet ------------------------------------
+
+    function appURL() { return location.href.split('#')[0]; }
+
+    function bookmarkletSource() {
+        var fields = JSON.stringify(captureFields);
+        var app = JSON.stringify(appURL());
+        return '(function(){var F=' + fields + ',A=' + app + ';' +
+            'var v={url:location.href,title:document.title,' +
+            'text:((document.body&&document.body.innerText)||"").slice(0,24000)};' +
+            'var p={__kdepsCapture:1};for(var i=0;i<F.length;i++){p[F[i]]=v[F[i]]!=null?v[F[i]]:v.text;}' +
+            'var raw=JSON.stringify(p);' +
+            'try{navigator.clipboard&&navigator.clipboard.writeText&&navigator.clipboard.writeText(raw);}catch(e){}' +
+            'var w=null;try{w=window.open(A);}catch(e){}' +
+            'if(w){var n=0,t=setInterval(function(){n++;if(!w||w.closed||n>60){clearInterval(t);return;}' +
+            'try{w.postMessage(p,"*");}catch(e){}},200);return;}' +
+            'alert("Page copied. Open the app HTML file.");})();';
+    }
+
+    function mountCapture(container) {
+        var box = el('div', { 'class': 'kdeps-capture' });
+        var a = el('a', { href: 'javascript:' + encodeURIComponent(bookmarkletSource()), draggable: 'true' },
+            'Send this page to ' + appName);
+        a.addEventListener('dragstart', function (e) {
+            var href = a.href;
+            e.dataTransfer.setData('text/uri-list', href);
+            e.dataTransfer.setData('text/plain', href);
+            e.dataTransfer.setData('text/html', '<a href="' + href + '">Send this page to ' + appName + '</a>');
+        });
+        box.appendChild(a);
+        box.appendChild(el('span', { 'class': 'hint' }, 'Drag onto the bookmarks bar, then click it on any page.'));
+        container.appendChild(box);
+
+        var cta = document.getElementById('kdeps-capture-cta');
+        if (cta) cta.appendChild(box.cloneNode(true));
+    }
+
+    function applyPayload(payload) {
+        if (!payload || payload.__kdepsCapture !== 1) return false;
+        var input = {};
+        for (var i = 0; i < captureFields.length; i++) {
+            var f = captureFields[i];
+            if (payload[f] != null) input[f] = payload[f];
+        }
+        window.dispatchEvent(new CustomEvent('kdeps:capture', { detail: input }));
+        return true;
+    }
+
+    function readClipboard() {
+        if (!navigator.clipboard || !navigator.clipboard.readText) return;
+        navigator.clipboard.readText().then(function (raw) {
+            try { applyPayload(JSON.parse(raw)); } catch (e) { /* not ours */ }
+        }).catch(function () { /* denied */ });
+    }
+
+    function installCaptureReceiver() {
+        window.addEventListener('message', function (ev) { applyPayload(ev.data); });
+        window.addEventListener('focus', readClipboard);
+        document.addEventListener('visibilitychange', function () {
+            if (document.visibilityState === 'visible') readClipboard();
+        });
+        try { applyPayload(JSON.parse(window.name)); } catch (e) { /* ignore */ }
+        readClipboard();
+    }
+
+    // ---- boot ---------------------------------------------------------------
+
+    function boot() {
+        var mount = document.getElementById('kdeps-settings');
+        if (mount) {
+            buildPanel(mount, false);
+            if (captureFields.length) mountCapture(mount);
+        } else {
+            mountFloating();
+        }
+        if (captureFields.length) installCaptureReceiver();
+    }
+
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', boot);
+    } else {
+        boot();
+    }
+})();

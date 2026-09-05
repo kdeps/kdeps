@@ -11,4 +11,5 @@ settings:
   agentSettings:
     timezone: UTC
     env:
-      KDEPS_DEFAULT_BACKEND: openai  # WASM rejects local backends
+      KDEPS_DEFAULT_BACKEND: openai      # WASM rejects local backends; the drawer can change it
+      KDEPS_WASM_CAPTURE: "url,title,text"  # emit the standard "send this page" bookmarklet + receiver

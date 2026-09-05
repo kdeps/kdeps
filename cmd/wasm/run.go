@@ -25,6 +25,7 @@ import (
 	"fmt"
 	"log/slog"
 	"os"
+	"strings"
 	"syscall/js"
 
 	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
@@ -60,6 +61,13 @@ func NewRuntime(
 		for k, v := range envVars {
 			os.Setenv(k, v) //nolint:errcheck // best-effort env setup in WASM
 		}
+	}
+
+	// The settings drawer supplies KDEPS_WASM_MODEL so a viewer can switch
+	// models at runtime; apply it before validation so a model the chosen
+	// backend cannot serve is caught here.
+	if model := wasmModelOverride(envVars); model != "" {
+		domain.ApplyWASMModelOverride(workflow, model)
 	}
 
 	if err := domain.ValidateWASMWorkflow(workflow); err != nil {
@@ -141,6 +149,15 @@ func buildRequestContext(inputData map[string]interface{}) *executor.RequestCont
 	}
 }
 
+// wasmModelOverride reads the drawer-supplied model override, preferring the
+// init env map over any process env already set.
+func wasmModelOverride(envVars map[string]string) string {
+	if v := strings.TrimSpace(envVars["KDEPS_WASM_MODEL"]); v != "" {
+		return v
+	}
+	return strings.TrimSpace(os.Getenv("KDEPS_WASM_MODEL"))
+}
+
 // parseWorkflowFromString parses a workflow from a YAML string.
 func parseWorkflowFromString(yamlStr string) (*domain.Workflow, error) {
 	kdeps_debug.Log("enter: parseWorkflowFromString")
@@ -207,5 +224,3 @@ func stringMapFromMap(m map[string]interface{}, key string) map[string]string {
 	}
 	return result
 }
-
-

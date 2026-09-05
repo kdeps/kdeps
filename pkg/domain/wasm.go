@@ -148,6 +148,35 @@ func WASMWorkflowErrors(wf *Workflow) []string {
 	return errs
 }
 
+// ApplyWASMModelOverride sets chat.Model on every chat action in the workflow
+// (primary, before, and after) when model is non-empty. The browser settings
+// drawer uses this so a viewer can switch models without the workflow YAML
+// carrying a model the chosen backend cannot serve.
+func ApplyWASMModelOverride(wf *Workflow, model string) {
+	model = strings.TrimSpace(model)
+	if wf == nil || model == "" {
+		return
+	}
+	for _, res := range wf.Resources {
+		if res == nil {
+			continue
+		}
+		if res.Chat != nil {
+			res.Chat.Model = model
+		}
+		for i := range res.Before {
+			if res.Before[i].Chat != nil {
+				res.Before[i].Chat.Model = model
+			}
+		}
+		for i := range res.After {
+			if res.After[i].Chat != nil {
+				res.After[i].Chat.Model = model
+			}
+		}
+	}
+}
+
 // ValidateWASMWorkflow returns a single error if the workflow uses anything
 // the browser WASM runtime cannot execute.
 func ValidateWASMWorkflow(wf *Workflow) error {

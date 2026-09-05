@@ -241,6 +241,9 @@ musl-binaries/
 *.raw
 *.iso
 /wasm
+# kdeps bundle build --wasm output (standalone HTML is covered by *.html above)
+**/*-wasm/
+kdeps.wasm
 *.backup
 *.ics
 *.pdf

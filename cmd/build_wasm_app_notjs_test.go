@@ -32,6 +32,8 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/kdeps/kdeps/v2/pkg/domain"
 )
 
 func TestNormalizeWASMOutput(t *testing.T) {
@@ -417,4 +419,39 @@ func TestCollectWebServerFiles_RelErr(t *testing.T) {
 func TestGorootWASMExecCandidates_Empty(t *testing.T) {
 	cands := gorootWASMExecCandidates(context.Background())
 	t.Logf("candidates: %v", cands)
+}
+
+func TestExtractWASMSettings(t *testing.T) {
+	wf := &domain.Workflow{
+		Metadata: domain.WorkflowMetadata{Name: "summ"},
+		Settings: domain.WorkflowSettings{
+			AgentSettings: domain.AgentSettings{
+				Env: map[string]string{
+					"KDEPS_DEFAULT_BACKEND": "anthropic",
+					"KDEPS_WASM_CAPTURE":    "url, title , text",
+				},
+			},
+		},
+		Resources: []*domain.Resource{
+			{ActionID: "ask", Chat: &domain.ChatConfig{Model: "claude-sonnet-4-6", Prompt: "hi"}},
+		},
+	}
+
+	out, err := extractWASMSettings(wf)
+	require.NoError(t, err)
+	assert.Contains(t, out, `"appName":"summ"`)
+	assert.Contains(t, out, `"backend":"anthropic"`)
+	assert.Contains(t, out, `"model":"claude-sonnet-4-6"`)
+	assert.Contains(t, out, `"captureFields":["url","title","text"]`)
+	assert.Contains(t, out, `"envVar":"OPENAI_API_KEY"`) // provider list present
+	assert.Contains(t, out, `"backend":"openai"`)        // model catalog present
+}
+
+func TestExtractWASMSettings_Defaults(t *testing.T) {
+	wf := &domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "x"}}
+	out, err := extractWASMSettings(wf)
+	require.NoError(t, err)
+	assert.Contains(t, out, `"backend":"openai"`)
+	assert.Contains(t, out, `"model":""`)
+	assert.Contains(t, out, `"captureFields":null`)
 }
