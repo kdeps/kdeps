@@ -60,6 +60,16 @@ type BundleConfig struct {
 	APIRoutes []string
 	// OutputDir is the directory to write the bundle to.
 	OutputDir string
+	// Output is "html" (single inlined file) or "server" (static site + nginx).
+	// Empty means html.
+	Output string
+}
+
+// OutputServer is the --wasm-output server bundle: separate wasm files, nginx.
+const OutputServer = "server"
+
+func (c *BundleConfig) standalone() bool {
+	return c == nil || !strings.EqualFold(c.Output, OutputServer)
 }
 
 // bootstrapData is passed to the bootstrap.js template.
@@ -88,9 +98,13 @@ func normalizeWebServePath(path string) string {
 	return strings.TrimPrefix(path, "data/")
 }
 
-func bootstrapScriptTags() string {
-	return `<script src="wasm_exec.js"></script>
+func bootstrapScriptTags(standalone bool) string {
+	if standalone {
+		return `<script src="wasm_exec.js"></script>
 <script src="kdeps-wasm-embed.js"></script>
+<script src="kdeps-bootstrap.js"></script>`
+	}
+	return `<script src="wasm_exec.js"></script>
 <script src="kdeps-bootstrap.js"></script>`
 }
 
@@ -101,8 +115,10 @@ func copyBundleAssets(config *BundleConfig, distDir string) error {
 	if err := copyFile(config.WASMExecJSPath, filepath.Join(distDir, "wasm_exec.js")); err != nil {
 		return fmt.Errorf("failed to copy wasm_exec.js: %w", err)
 	}
-	if err := writeWasmEmbed(config.WASMBinaryPath, distDir); err != nil {
-		return fmt.Errorf("failed to embed WASM for file://: %w", err)
+	if config.standalone() {
+		if err := writeWasmEmbed(config.WASMBinaryPath, distDir); err != nil {
+			return fmt.Errorf("failed to embed WASM for file://: %w", err)
+		}
 	}
 	if err := renderBootstrap(config, distDir); err != nil {
 		return fmt.Errorf("failed to render bootstrap script: %w", err)
@@ -114,17 +130,32 @@ func copyBundleAssets(config *BundleConfig, distDir string) error {
 }
 
 func finalizeIndexHTML(config *BundleConfig, distDir string) error {
-	if !hasIndexHTML(config.WebServerFiles) {
-		if err := generateDefaultIndex(distDir); err != nil {
-			return fmt.Errorf("failed to generate default index.html: %w", err)
-		}
-	} else if err := injectBootstrap(distDir); err != nil {
-		return fmt.Errorf("failed to inject bootstrap into index.html: %w", err)
+	if err := ensureIndexHTML(config, distDir); err != nil {
+		return err
+	}
+	if !config.standalone() {
+		return nil
 	}
 	if err := inlineRuntimeScripts(distDir); err != nil {
 		return fmt.Errorf("failed to inline WASM runtime into index.html: %w", err)
 	}
 	return nil
+}
+
+func ensureIndexHTML(config *BundleConfig, distDir string) error {
+	if hasIndexHTML(config.WebServerFiles) {
+		if err := injectBootstrap(distDir, config.standalone()); err != nil {
+			return fmt.Errorf("failed to inject bootstrap into index.html: %w", err)
+		}
+		return nil
+	}
+	if err := generateDefaultIndex(distDir); err != nil {
+		return fmt.Errorf("failed to generate default index.html: %w", err)
+	}
+	if config.standalone() {
+		return nil
+	}
+	return stripEmbedScriptTag(distDir)
 }
 
 func copyEmbeddedDeploymentFile(outputDir, embeddedPath, dstName, label string) error {
@@ -219,7 +250,7 @@ func hasIndexHTML(files map[string]string) bool {
 
 // injectBootstrap adds the WASM bootstrap script tags into the user's index.html
 // right before the closing </body> tag.
-func injectBootstrap(distDir string) error {
+func injectBootstrap(distDir string, standalone bool) error {
 	kdeps_debug.Log("enter: injectBootstrap")
 	indexPath := filepath.Join(distDir, "index.html")
 	data, err := afero.ReadFile(AppFS, indexPath)
@@ -228,7 +259,7 @@ func injectBootstrap(distDir string) error {
 	}
 
 	content := string(data)
-	scripts := bootstrapScriptTags()
+	scripts := bootstrapScriptTags(standalone)
 
 	// Inject before </body> if present, otherwise append.
 	if idx := strings.LastIndex(strings.ToLower(content), "</body>"); idx != -1 {
@@ -237,6 +268,16 @@ func injectBootstrap(distDir string) error {
 		content += "\n" + scripts
 	}
 
+	return afero.WriteFile(AppFS, indexPath, []byte(content), 0644)
+}
+
+func stripEmbedScriptTag(distDir string) error {
+	indexPath := filepath.Join(distDir, "index.html")
+	data, err := afero.ReadFile(AppFS, indexPath)
+	if err != nil {
+		return err
+	}
+	content := strings.ReplaceAll(string(data), `<script src="kdeps-wasm-embed.js"></script>`, "")
 	return afero.WriteFile(AppFS, indexPath, []byte(content), 0644)
 }
 

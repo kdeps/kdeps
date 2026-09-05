@@ -34,6 +34,26 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+func TestNormalizeWASMOutput(t *testing.T) {
+	html, err := normalizeWASMOutput("")
+	require.NoError(t, err)
+	assert.Equal(t, wasmOutputHTML, html)
+	html, err = normalizeWASMOutput("HTML")
+	require.NoError(t, err)
+	assert.Equal(t, wasmOutputHTML, html)
+	server, err := normalizeWASMOutput("nginx")
+	require.NoError(t, err)
+	assert.Equal(t, wasmOutputServer, server)
+	_, err = normalizeWASMOutput("nope")
+	require.Error(t, err)
+}
+
+func TestWasmOutputFromFlags_Nil(t *testing.T) {
+	got, err := wasmOutputFromFlags(nil)
+	require.NoError(t, err)
+	assert.Equal(t, wasmOutputHTML, got)
+}
+
 func TestWasmStandaloneHTMLName(t *testing.T) {
 	assert.Equal(t, "kdeps.html", wasmStandaloneHTMLName(""))
 	assert.Equal(t, "page-summarizer.html", wasmStandaloneHTMLName("page-summarizer"))

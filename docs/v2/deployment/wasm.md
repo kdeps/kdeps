@@ -1,21 +1,31 @@
 # WASM web app
 
-`kdeps bundle build --wasm` compiles `kdeps.wasm` and writes a single HTML file. Double-click it. No web server, no Docker, no nginx.
+`kdeps bundle build --wasm` compiles `kdeps.wasm` and writes a browser app. `--wasm-output` picks the shape.
 
 *Applies to workflow mode.*
 
 ## Build
 
 ```bash
+# html (default): one file, double-click, no server
 kdeps bundle build examples/page-summarizer --wasm
-# writes examples/page-summarizer/page-summarizer.html
+kdeps bundle build examples/page-summarizer --wasm --wasm-output html
+
+# server: static site + nginx image (needs HTTP)
+kdeps bundle build examples/page-summarizer --wasm --wasm-output server
+docker run -p 80:80 kdeps-wasm:latest
 ```
+
+| `--wasm-output` | What you get |
+| --- | --- |
+| `html` (default) | `{name}.html` with WASM inlined. Double-click it. |
+| `server` | `{name}-wasm/` (`index.html` + `kdeps.wasm` + JS) and an nginx Docker image |
 
 `--wasm` compiles `kdeps.wasm` (`go build GOOS=js GOARCH=wasm`) if it is not already next to the CLI or in `KDEPS_WASM_BINARY`. Needs Go and the kdeps source tree (or a release that ships `kdeps.wasm`).
 
-The HTML is self-contained: `wasm_exec.js`, the WASM binary, and the bootstrap are inlined, so `file://` does not CORS on open.
+`html` inlines `wasm_exec.js`, the WASM binary, and bootstrap so `file://` does not CORS on open. `server` loads `kdeps.wasm` with `fetch`, so it needs HTTP.
 
-Bookmarklet sample: [`examples/page-summarizer`](https://github.com/kdeps/kdeps/tree/main/examples/page-summarizer). Drag the HTML onto the bookmarks bar. The bookmarklet sends `innerText`; WASM cannot read the open page itself.
+Bookmarklet sample: [`examples/page-summarizer`](https://github.com/kdeps/kdeps/tree/main/examples/page-summarizer) (`html` output). Drag the HTML onto the bookmarks bar.
 
 Init and `build --wasm` reject any resource the WASM runtime cannot execute.
 

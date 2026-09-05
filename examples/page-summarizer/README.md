@@ -12,9 +12,10 @@ WASM cannot scrape the open tab. The bookmarklet runs in that tab and copies `ur
 
 ```bash
 kdeps bundle build examples/page-summarizer --wasm
+# same as --wasm-output html
 ```
 
-That writes `examples/page-summarizer/page-summarizer.html`.
+That writes `examples/page-summarizer/page-summarizer.html`. For a static site plus nginx image: `--wasm --wasm-output server`.
 
 1. Double-click `page-summarizer.html` (Finder / Explorer). No kdeps, no server.
 2. Paste an OpenAI API key.

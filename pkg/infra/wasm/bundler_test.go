@@ -589,13 +589,42 @@ func TestBundle_IndexHTMLIsSelfContained(t *testing.T) {
 	assertSelfContainedIndex(t, content, "/* wasm_exec */")
 	assert.Contains(t, content, "installFileOriginFetchShim")
 	assert.Contains(t, content, "init: function(env)")
-	assert.NotContains(t, content, "fetch('kdeps.wasm')")
-	assert.NotContains(t, content, "instantiateStreaming")
+	assert.Contains(t, content, "__KDEPS_WASM_B64")
 
 	bootstrap, err := os.ReadFile(filepath.Join(outputDir, "dist", "kdeps-bootstrap.js"))
 	require.NoError(t, err)
 	assert.Contains(t, string(bootstrap), "blocked file:// fetch")
-	assert.NotContains(t, string(bootstrap), "fetch('kdeps.wasm')")
+	assert.Contains(t, string(bootstrap), "fetch('kdeps.wasm')")
+}
+
+func TestBundle_ServerOutputKeepsScriptSrc(t *testing.T) {
+	tmpDir := t.TempDir()
+	wasmFile := filepath.Join(tmpDir, "kdeps.wasm")
+	wasmExecFile := filepath.Join(tmpDir, "wasm_exec.js")
+	outputDir := filepath.Join(tmpDir, "output")
+	require.NoError(t, os.WriteFile(wasmFile, []byte("wasm"), 0644))
+	require.NoError(t, os.WriteFile(wasmExecFile, []byte("js"), 0644))
+
+	config := &wasm.BundleConfig{
+		WASMBinaryPath: wasmFile,
+		WASMExecJSPath: wasmExecFile,
+		WorkflowYAML:   "apiVersion: kdeps.io/v1",
+		WebServerFiles: map[string]string{},
+		APIRoutes:      []string{},
+		OutputDir:      outputDir,
+		Output:         wasm.OutputServer,
+	}
+	require.NoError(t, wasm.Bundle(config))
+
+	assert.FileExists(t, filepath.Join(outputDir, "dist", "kdeps.wasm"))
+	assert.NoFileExists(t, filepath.Join(outputDir, "dist", "kdeps-wasm-embed.js"))
+	indexHTML, err := os.ReadFile(filepath.Join(outputDir, "dist", "index.html"))
+	require.NoError(t, err)
+	content := string(indexHTML)
+	assert.Contains(t, content, `<script src="wasm_exec.js">`)
+	assert.Contains(t, content, `<script src="kdeps-bootstrap.js">`)
+	assert.NotContains(t, content, `<script src="kdeps-wasm-embed.js">`)
+	assert.NotContains(t, content, "window.__KDEPS_WASM_B64")
 }
 
 func TestBundle_InlineEscapesScriptEndTag(t *testing.T) {
@@ -634,5 +663,4 @@ func assertSelfContainedIndex(t *testing.T, indexHTML, wasmExecSnippet string) {
 	assert.NotContains(t, indexHTML, `<script src="wasm_exec.js">`)
 	assert.NotContains(t, indexHTML, `<script src="kdeps-wasm-embed.js">`)
 	assert.NotContains(t, indexHTML, `<script src="kdeps-bootstrap.js">`)
-	assert.NotContains(t, indexHTML, "fetch('kdeps.wasm')")
 }

@@ -142,14 +142,14 @@
         console.error('[kdeps] Init error:', err);
     }
 
-    // Never fetch kdeps.wasm. file:// CORS-fails; the bundler inlines the
-    // module as window.__KDEPS_WASM_B64 (and into index.html) so double-click works.
+    // html output inlines the module as window.__KDEPS_WASM_B64 (file://).
+    // server output has no embed; fetch kdeps.wasm from the same origin.
     async function loadKdepsWasm(go) {
         var bytes = wasmBytesFromEmbed();
-        if (!bytes) {
-            throw new Error('[kdeps] WASM embed missing (window.__KDEPS_WASM_B64). Rebuild with kdeps bundle build --wasm.');
+        if (bytes) {
+            return WebAssembly.instantiate(bytes, go.importObject);
         }
-        return WebAssembly.instantiate(bytes, go.importObject);
+        return WebAssembly.instantiateStreaming(fetch('kdeps.wasm'), go.importObject);
     }
 
     // Handle an intercepted API request by routing it to the WASM runtime.

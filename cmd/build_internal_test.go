@@ -248,6 +248,7 @@ func TestBundleWASMApp_Success(t *testing.T) {
 		map[string]string{"index.html": "<html/>"},
 		[]string{"/api", "/health"},
 		"/tmp/out",
+		"html",
 	)
 	require.NoError(t, err)
 	require.NotNil(t, captured)
@@ -257,6 +258,7 @@ func TestBundleWASMApp_Success(t *testing.T) {
 	assert.Equal(t, map[string]string{"index.html": "<html/>"}, captured.WebServerFiles)
 	assert.Equal(t, []string{"/api", "/health"}, captured.APIRoutes)
 	assert.Equal(t, "/tmp/out", captured.OutputDir)
+	assert.Equal(t, "html", captured.Output)
 }
 
 func TestBundleWASMApp_BundleError(t *testing.T) {
@@ -268,7 +270,7 @@ func TestBundleWASMApp_BundleError(t *testing.T) {
 		return sentinel
 	}
 
-	err := bundleWASMApp("a", "b", "c", nil, nil, "/tmp/out")
+	err := bundleWASMApp("a", "b", "c", nil, nil, "/tmp/out", "html")
 	require.Error(t, err)
 	assert.ErrorIs(t, err, sentinel)
 	assert.Contains(t, err.Error(), "WASM bundling failed")
@@ -476,6 +478,35 @@ func TestBuildWASMImage_BundleError(t *testing.T) {
 	require.Error(t, err)
 	assert.ErrorIs(t, err, sentinel)
 	assert.Contains(t, err.Error(), "WASM bundling failed")
+}
+
+func TestBuildWASMImage_InvalidOutput(t *testing.T) {
+	err := buildWASMImage(context.Background(), t.TempDir(), &BuildFlags{WASMOutput: "nope"})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "--wasm-output must be html or server")
+}
+
+func TestBuildWASMImage_ServerCallsDocker(t *testing.T) {
+	origBundle := bundleFunc
+	t.Cleanup(func() { bundleFunc = origBundle })
+	stubBundleWriteIndex(nil)
+
+	dockerCalled := false
+	origBuildDockerImage := buildDockerImage
+	t.Cleanup(func() { buildDockerImage = origBuildDockerImage })
+	buildDockerImage = func(_ context.Context, _ []string) error {
+		dockerCalled = true
+		return nil
+	}
+
+	tmpDir := t.TempDir()
+	createMinimalWASMWorkflow(t, tmpDir)
+	setupWASMEnv(t, tmpDir)
+
+	err := buildWASMImage(context.Background(), tmpDir, &BuildFlags{WASMOutput: "server"})
+	require.NoError(t, err)
+	assert.True(t, dockerCalled)
+	assert.DirExists(t, filepath.Join(tmpDir, "test-wasm-workflow-wasm"))
 }
 
 func TestBuildWASMImage_SkipsDocker(t *testing.T) {

@@ -111,7 +111,8 @@ kdeps bundle build [path] [flags]
 | `--gpu` | GPU type: `cuda`, `rocm`, `intel`, `vulkan` (auto-selects Ubuntu base) | None (CPU, Alpine) |
 | `--tag, -t` | Docker image tag | From workflow metadata |
 | `--no-cache` | Build without cache | `false` |
-| `--wasm` | Compile `kdeps.wasm` and write `{name}.html`. Double-click it; no server. Only `chat`, `httpClient`, and `apiResponse`. See [WASM web app](/deployment/wasm). | `false` |
+| `--wasm` | Compile a browser WASM app. Only `chat`, `httpClient`, and `apiResponse`. See [WASM web app](/deployment/wasm). | `false` |
+| `--wasm-output` | `html` (default): one inlined HTML file, no server. `server`: static site + nginx image. | `html` |
 
 **Examples:**
 
@@ -121,7 +122,8 @@ kdeps bundle build examples/chatbot --gpu cuda                 # NVIDIA GPU
 kdeps bundle build examples/chatbot --gpu rocm                 # AMD GPU
 kdeps bundle build examples/chatbot --tag my-agent:v1.0.0
 kdeps bundle build myapp-1.0.0.kdeps                          # From package
-kdeps bundle build examples/page-summarizer --wasm            # HTML file, no server
+kdeps bundle build examples/page-summarizer --wasm                 # HTML file, no server
+kdeps bundle build examples/page-summarizer --wasm --wasm-output server  # site + nginx
 ```
 
 ---

@@ -36,6 +36,29 @@ import (
 	wasmPkg "github.com/kdeps/kdeps/v2/pkg/infra/wasm"
 )
 
+const (
+	wasmOutputHTML   = "html"
+	wasmOutputServer = "server"
+)
+
+func normalizeWASMOutput(s string) (string, error) {
+	switch strings.ToLower(strings.TrimSpace(s)) {
+	case "", wasmOutputHTML, "standalone", "file":
+		return wasmOutputHTML, nil
+	case wasmOutputServer, "site", "docker", "nginx":
+		return wasmOutputServer, nil
+	default:
+		return "", fmt.Errorf("--wasm-output must be html or server, got %q", s)
+	}
+}
+
+func wasmOutputFromFlags(flags *BuildFlags) (string, error) {
+	if flags == nil {
+		return wasmOutputHTML, nil
+	}
+	return normalizeWASMOutput(flags.WASMOutput)
+}
+
 func extractWorkflowAPIRoutes(workflow *domain.Workflow) []string {
 	if workflow.Settings.APIServer == nil {
 		return nil
@@ -85,14 +108,88 @@ func writeWASMStandaloneHTML(bundleDir, dest string) error {
 	return nil
 }
 
-// printWASMSuccess prints the post-build instructions for a standalone HTML file.
-func printWASMSuccess(htmlPath string) {
+func printWASMHTMLSuccess(htmlPath string) {
 	fmt.Fprintln(os.Stdout)
-	fmt.Fprintln(os.Stdout, "WASM web app built successfully!")
+	fmt.Fprintln(os.Stdout, "WASM html app built successfully!")
 	if htmlPath != "" {
 		fmt.Fprintf(os.Stdout, "  HTML: %s\n", htmlPath)
 		fmt.Fprintln(os.Stdout, "  Double-click it. No server.")
 	}
+}
+
+func printWASMServerSuccess(distDir, imageTag string) {
+	fmt.Fprintln(os.Stdout)
+	fmt.Fprintln(os.Stdout, "WASM server app built successfully!")
+	if distDir != "" {
+		fmt.Fprintf(os.Stdout, "  Site: %s\n", distDir)
+		fmt.Fprintln(os.Stdout, "  Serve that folder over HTTP (needs kdeps.wasm next to index.html).")
+	}
+	if imageTag != "" {
+		fmt.Fprintf(os.Stdout, "  Image: %s\n", imageTag)
+		fmt.Fprintf(os.Stdout, "  docker run -p 80:80 %s\n", imageTag)
+	}
+}
+
+func resolveWASMImageTag(tag string) string {
+	if tag != "" {
+		return tag
+	}
+	return "kdeps-wasm:latest"
+}
+
+func wasmServerDistPath(packagePath, name string) string {
+	dir := packagePath
+	info, err := os.Stat(packagePath)
+	if err != nil || !info.IsDir() {
+		dir = filepath.Dir(packagePath)
+	}
+	base := name
+	if base == "" {
+		base = "kdeps"
+	}
+	return filepath.Join(dir, base+"-wasm")
+}
+
+func copyWASMDir(src, dst string) error {
+	if err := os.MkdirAll(dst, 0750); err != nil {
+		return err
+	}
+	entries, err := os.ReadDir(src)
+	if err != nil {
+		return err
+	}
+	for _, entry := range entries {
+		from := filepath.Join(src, entry.Name())
+		to := filepath.Join(dst, entry.Name())
+		if entry.IsDir() {
+			if copyErr := copyWASMDir(from, to); copyErr != nil {
+				return copyErr
+			}
+			continue
+		}
+		data, readErr := os.ReadFile(from)
+		if readErr != nil {
+			return readErr
+		}
+		if writeErr := os.WriteFile(to, data, 0600); writeErr != nil {
+			return writeErr
+		}
+	}
+	return nil
+}
+
+func buildWASMDockerImage(ctx context.Context, outputDir, imageTag string, noCache bool) error {
+	kdeps_debug.Log("enter: buildWASMDockerImage")
+	fmt.Fprintln(os.Stdout, "✓ Building Docker image...")
+	dockerArgs := []string{"build", "-t", imageTag}
+	if noCache {
+		dockerArgs = append(dockerArgs, "--no-cache")
+	}
+	dockerArgs = append(dockerArgs, outputDir)
+	if err := buildDockerImage(ctx, dockerArgs); err != nil {
+		return fmt.Errorf("docker build failed: %w", err)
+	}
+	return nil
 }
 
 // compileWASMFunc builds cmd/wasm for GOOS=js GOARCH=wasm. Overridable in tests.
@@ -163,11 +260,15 @@ func resolveWASMBinary(ctx context.Context, compileDest string) (string, error) 
 	return compileDest, nil
 }
 
-// buildWASMImage compiles kdeps.wasm, bundles it into a single HTML file, and
-// writes that file next to the workflow. No web server, no Docker image.
-func buildWASMImage(ctx context.Context, packagePath string, _ *BuildFlags) error {
+// buildWASMImage compiles kdeps.wasm and writes either a standalone HTML file
+// (--wasm-output html) or a static site + nginx image (--wasm-output server).
+func buildWASMImage(ctx context.Context, packagePath string, flags *BuildFlags) error {
 	kdeps_debug.Log("enter: buildWASMImage")
-	fmt.Fprintf(os.Stdout, "Building WASM web app from: %s\n\n", packagePath)
+	output, err := wasmOutputFromFlags(flags)
+	if err != nil {
+		return err
+	}
+	fmt.Fprintf(os.Stdout, "Building WASM %s app from: %s\n\n", output, packagePath)
 
 	pkg, err := LoadWorkflowPackage(packagePath, LoadWorkflowPackageOpts{})
 	if err != nil {
@@ -218,17 +319,43 @@ func buildWASMImage(ctx context.Context, packagePath string, _ *BuildFlags) erro
 		webServerFiles,
 		extractWorkflowAPIRoutes(workflow),
 		outputDir,
+		output,
 	); err != nil {
 		return err
 	}
 
-	htmlPath := wasmStandaloneHTMLPath(packagePath, workflow.Metadata.Name)
-	if err = writeWASMStandaloneHTML(outputDir, htmlPath); err != nil {
+	if output == wasmOutputHTML {
+		return finishWASMHTML(packagePath, workflow.Metadata.Name, outputDir)
+	}
+	return finishWASMServer(ctx, flags, packagePath, workflow.Metadata.Name, outputDir)
+}
+
+func finishWASMHTML(packagePath, name, outputDir string) error {
+	htmlPath := wasmStandaloneHTMLPath(packagePath, name)
+	if err := writeWASMStandaloneHTML(outputDir, htmlPath); err != nil {
 		return err
 	}
 	fmt.Fprintf(os.Stdout, "✓ Wrote %s\n", htmlPath)
+	printWASMHTMLSuccess(htmlPath)
+	return nil
+}
 
-	printWASMSuccess(htmlPath)
+func finishWASMServer(ctx context.Context, flags *BuildFlags, packagePath, name, outputDir string) error {
+	distDest := wasmServerDistPath(packagePath, name)
+	if err := copyWASMDir(filepath.Join(outputDir, "dist"), distDest); err != nil {
+		return fmt.Errorf("failed to write WASM site: %w", err)
+	}
+	fmt.Fprintf(os.Stdout, "✓ Wrote %s\n", distDest)
+	imageTag := resolveWASMImageTag("")
+	noCache := false
+	if flags != nil {
+		imageTag = resolveWASMImageTag(flags.Tag)
+		noCache = flags.NoCache
+	}
+	if err := buildWASMDockerImage(ctx, outputDir, imageTag, noCache); err != nil {
+		return err
+	}
+	printWASMServerSuccess(distDest, imageTag)
 	return nil
 }
 
@@ -236,7 +363,7 @@ func bundleWASMApp(
 	wasmBinary, wasmExecJS, yaml string,
 	files map[string]string,
 	apiRoutes []string,
-	outDir string,
+	outDir, output string,
 ) error {
 	kdeps_debug.Log("enter: bundleWASMApp")
 	// Run the WASM bundler.
@@ -247,6 +374,7 @@ func bundleWASMApp(
 		WebServerFiles: files,
 		APIRoutes:      apiRoutes,
 		OutputDir:      outDir,
+		Output:         output,
 	}
 
 	fmt.Fprintln(os.Stdout, "✓ Bundling WASM app...")

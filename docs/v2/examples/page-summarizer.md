@@ -134,9 +134,10 @@ The full file is in [`examples/page-summarizer/data/public/index.html`](https://
 
 ```bash
 kdeps bundle build . --wasm
+# default --wasm-output html
 ```
 
-That writes `page-summarizer.html` next to the workflow. Double-click it. No Docker, no `http.server`.
+That writes `page-summarizer.html` next to the workflow. Double-click it. No Docker, no `http.server`. Use `--wasm-output server` if you want `{name}-wasm/` plus an nginx image.
 
 1. Paste the OpenAI API key
 2. Drag **Summarize page** onto the bookmarks bar

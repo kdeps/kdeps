@@ -54,6 +54,7 @@ type BuildFlags struct {
 	GPU            string
 	NoCache        bool
 	WASM           bool
+	WASMOutput     string
 }
 
 // newBuildCmd creates the build command.
@@ -113,7 +114,13 @@ Examples:
   kdeps build examples/chatbot --show-dockerfile
 
   # Build without cache
-  kdeps build examples/chatbot --no-cache`,
+  kdeps build examples/chatbot --no-cache
+
+  # WASM: one HTML file (default)
+  kdeps build examples/page-summarizer --wasm
+
+  # WASM: static site + nginx image
+  kdeps build examples/page-summarizer --wasm --wasm-output server`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return BuildImageWithFlagsInternal(cmd, args, flags)
@@ -128,7 +135,9 @@ Examples:
 	buildCmd.Flags().
 		BoolVar(&flags.NoCache, "no-cache", false, "Do not use cache when building the image")
 	buildCmd.Flags().
-		BoolVar(&flags.WASM, "wasm", false, "Compile kdeps.wasm and write a double-click HTML app (no server)")
+		BoolVar(&flags.WASM, "wasm", false, "Compile a browser WASM app")
+	buildCmd.Flags().
+		StringVar(&flags.WASMOutput, "wasm-output", "html", "WASM output: html (one file, no server) or server (static site + nginx image)")
 
 	return buildCmd
 }

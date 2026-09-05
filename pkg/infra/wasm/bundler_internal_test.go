@@ -42,7 +42,7 @@ func TestInjectBootstrap_ReadError(t *testing.T) {
 	indexPath := filepath.Join(distDir, "index.html")
 	require.NoError(t, os.MkdirAll(indexPath, 0750))
 
-	err := injectBootstrap(distDir)
+	err := injectBootstrap(distDir, true)
 	require.Error(t, err)
 }
 
@@ -149,8 +149,8 @@ func TestRenderBootstrap_Success(t *testing.T) {
 	assert.Contains(t, contentStr, "installFileOriginFetchShim")
 	assert.Contains(t, contentStr, "blocked file:// fetch")
 	assert.Contains(t, contentStr, "init: function(env)")
-	assert.NotContains(t, contentStr, "fetch('kdeps.wasm')")
-	assert.NotContains(t, contentStr, "instantiateStreaming")
+	assert.Contains(t, contentStr, "fetch('kdeps.wasm')")
+	assert.Contains(t, contentStr, "instantiateStreaming")
 }
 
 func TestRenderBootstrap_WithSpecialCharacters(t *testing.T) {
