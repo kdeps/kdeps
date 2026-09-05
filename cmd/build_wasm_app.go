@@ -221,6 +221,12 @@ func findKdepsModuleRoot() (string, error) {
 			if isKdepsModuleRoot(dir) {
 				return dir, nil
 			}
+			// Stop at the first module boundary. A go.mod that is not the
+			// kdeps root means we are inside a different (nested) module and
+			// must not climb past it into an enclosing kdeps checkout.
+			if _, statErr := os.Stat(filepath.Join(dir, "go.mod")); statErr == nil {
+				break
+			}
 			parent := filepath.Dir(dir)
 			if parent == dir {
 				break

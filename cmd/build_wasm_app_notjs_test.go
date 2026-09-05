@@ -334,6 +334,10 @@ func TestCompileWASM_NoModuleRoot(t *testing.T) {
 	orig, err := os.Getwd()
 	require.NoError(t, err)
 	dir := t.TempDir()
+	// A non-kdeps module boundary. On CI the test temp dir lives inside the
+	// repo checkout, so without a boundary go.mod the walk climbs to the
+	// real go.mod + cmd/wasm and wrongly succeeds.
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "go.mod"), []byte("module x\n"), 0600))
 	require.NoError(t, os.Chdir(dir))
 	t.Cleanup(func() { _ = os.Chdir(orig) })
 	origExe := osExecutable
