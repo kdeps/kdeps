@@ -62,6 +62,10 @@ func NewRuntime(
 		}
 	}
 
+	if err := domain.ValidateWASMWorkflow(workflow); err != nil {
+		return nil, err
+	}
+
 	// Create execution engine.
 	logger := slog.Default()
 	engine := executor.NewEngine(logger)
@@ -172,13 +176,7 @@ func ValidateWorkflow(yamlStr string) []string {
 		errors = append(errors, "metadata.targetActionId is required")
 	}
 
-	// Check for WASM-incompatible resources.
-	for _, res := range workflow.Resources {
-		if res == nil {
-			continue
-		}
-		errors = append(errors, validateWASMResource(res)...)
-	}
+	errors = append(errors, domain.WASMWorkflowErrors(workflow)...)
 
 	return errors
 }
@@ -210,36 +208,4 @@ func stringMapFromMap(m map[string]interface{}, key string) map[string]string {
 	return result
 }
 
-// validateWASMResource checks a resource for WASM compatibility.
-func validateWASMResource(res *domain.Resource) []string {
-	kdeps_debug.Log("enter: validateWASMResource")
-	var errors []string
-	actionID := res.ActionID
 
-	if res.Exec != nil {
-		errors = append(errors, fmt.Sprintf(
-			"resource '%s': exec is not supported in WASM builds",
-			actionID,
-		))
-	}
-
-	if res.Python != nil {
-		errors = append(errors, fmt.Sprintf(
-			"resource '%s': python is not supported in WASM builds",
-			actionID,
-		))
-	}
-
-	// Check for Ollama backend (not supported in WASM).
-	if res.Chat != nil {
-		backend := res.Chat.Backend
-		if backend == "" || backend == "ollama" {
-			errors = append(errors, fmt.Sprintf(
-				"resource '%s': ollama backend is not supported in WASM; use an online LLM backend (openai, anthropic, google, etc.)",
-				actionID,
-			))
-		}
-	}
-
-	return errors
-}

@@ -82,6 +82,10 @@ func buildWASMImage(ctx context.Context, packagePath string, flags *BuildFlags) 
 	workflow := pkg.Workflow
 	packageDir := pkg.PackageDir
 
+	if verr := domain.ValidateWASMWorkflow(workflow); verr != nil {
+		return verr
+	}
+
 	combinedYAML, err := workflowYAMLMarshalFunc(workflow)
 	if err != nil {
 		return fmt.Errorf("failed to marshal combined workflow YAML: %w", err)

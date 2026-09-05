@@ -33,7 +33,6 @@ import (
 	"github.com/kdeps/kdeps/v2/pkg/executor"
 	executorHTTP "github.com/kdeps/kdeps/v2/pkg/executor/http"
 	executorLLM "github.com/kdeps/kdeps/v2/pkg/executor/llm"
-	executorSQL "github.com/kdeps/kdeps/v2/pkg/executor/sql"
 )
 
 // wasmRuntime holds the global state for WASM execution.
@@ -177,8 +176,6 @@ func createWASMRegistry(ollamaURL string) *executor.Registry {
 
 	registry := executor.NewRegistry()
 	registry.SetHTTPExecutor(executorHTTP.NewAdapter())
-	registry.SetSQLExecutor(executorSQL.NewAdapter())
 	registry.SetLLMExecutor(executorLLM.NewAdapter(ollamaURL))
-	// No exec or python executors in WASM.
 	return registry
 }

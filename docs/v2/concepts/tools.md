@@ -2,7 +2,7 @@
 
 Tools let an LLM call other resources mid-response. When the LLM decides a tool is needed, kdeps runs the target resource, feeds the result back to the LLM, and the LLM continues. The LLM only sees the tool's output - it does not see the resource YAML.
 
-*Applies to workflow mode.* This page covers `chat.tools` on a `chat:` resource. In agent mode, tools are whole workflows and components instead - see [Agent mode](/modes/agent-loop-mode) and [Built-in tools](/modes/agent-loop-tools).
+*Applies to workflow mode.* This page covers `chat.tools` on a `chat:` resource. In agent mode, tools are whole workflows and components instead - see [Agent mode](/modes/agent-loop-mode) and [Built-in tools](/modes/agent-loop-tools). In a [WASM web app](/deployment/wasm), tools may only `script:` a `chat` or `httpClient` resource. `mcp:` and `componentTools:` error at init.
 
 ```d2
 direction: down

@@ -111,6 +111,7 @@ kdeps bundle build [path] [flags]
 | `--gpu` | GPU type: `cuda`, `rocm`, `intel`, `vulkan` (auto-selects Ubuntu base) | None (CPU, Alpine) |
 | `--tag, -t` | Docker image tag | From workflow metadata |
 | `--no-cache` | Build without cache | `false` |
+| `--wasm` | Build a static nginx image that runs the workflow in the browser. Only `chat`, `httpClient`, and `apiResponse` are allowed. See [WASM web app](/deployment/wasm). | `false` |
 
 **Examples:**
 
@@ -120,6 +121,7 @@ kdeps bundle build examples/chatbot --gpu cuda                 # NVIDIA GPU
 kdeps bundle build examples/chatbot --gpu rocm                 # AMD GPU
 kdeps bundle build examples/chatbot --tag my-agent:v1.0.0
 kdeps bundle build myapp-1.0.0.kdeps                          # From package
+kdeps bundle build examples/http-advanced --wasm              # Browser WASM image
 ```
 
 ---

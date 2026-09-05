@@ -176,6 +176,7 @@ export default defineConfig({
           collapsed: false,
           items: [
             { text: 'Docker', link: '/deployment/docker' },
+            { text: 'WASM web app', link: '/deployment/wasm' },
             { text: 'Kubernetes', link: '/deployment/kubernetes' },
             { text: 'Web server mode', link: '/deployment/webserver' },
             { text: 'Standalone binaries', link: '/deployment/prepackage' },

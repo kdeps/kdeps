@@ -19,7 +19,7 @@ kdeps works at three levels:
 
 - **Local agent** - run `kdeps` and you are in an autonomous AI REPL: tool use, memory, fully offline against a local model. No config, no API key.
 - **Workflow** - define what the agent does in one `workflow.yaml` and run it as an HTTP API, a bot, or a file processor. Same file, laptop or server.
-- **Appliance** - ship that file unchanged as a Docker image, Kubernetes manifests, a bootable ISO, or a single binary.
+- **Appliance** - ship that file unchanged as a Docker image, Kubernetes manifests, a bootable ISO, a single binary, or a [browser WASM app](https://kdeps.com/deployment/wasm) (`kdeps bundle build --wasm`; only `chat`, `httpClient`, and `apiResponse`).
 
 One YAML file replaces a Python script wiring together an LLM SDK, a web server, retry logic, and a Dockerfile.
 

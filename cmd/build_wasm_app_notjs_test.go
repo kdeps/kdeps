@@ -82,6 +82,31 @@ func TestBuildWASMImage_MarshalError(t *testing.T) {
 	require.Error(t, err)
 }
 
+func TestBuildWASMImage_RejectsSQL(t *testing.T) {
+	tmp := t.TempDir()
+	yaml := `apiVersion: kdeps.io/v1
+kind: Workflow
+metadata:
+  name: wasm-sql
+  version: "1.0.0"
+  targetActionId: q
+settings:
+  agentSettings:
+    pythonVersion: "3.12"
+resources:
+  - actionId: q
+    name: Query
+    sql:
+      query: SELECT 1
+`
+	require.NoError(t, os.WriteFile(filepath.Join(tmp, "workflow.yaml"), []byte(yaml), 0644))
+	cmd := &cobra.Command{}
+	cmd.SetContext(context.Background())
+	err := buildImageInternal(cmd, []string{tmp}, &BuildFlags{WASM: true})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "sql")
+}
+
 func TestGorootWASMExecCandidates_GoEnvError(t *testing.T) {
 	orig := goEnvGOROOTFunc
 	t.Cleanup(func() { goEnvGOROOTFunc = orig })
