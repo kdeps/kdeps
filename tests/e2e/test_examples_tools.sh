@@ -40,7 +40,10 @@ done
 [ $RESOURCE_COUNT -gt 0 ] && test_passed "Tools - Resource files exist ($RESOURCE_COUNT found)"
 
 SERVER_LOG=$(mktemp)
-timeout 30 "$KDEPS_BIN" run "$WORKFLOW_PATH" > "$SERVER_LOG" 2>&1 &
+# 60s, not 30s: wait_for_kdeps_port below can burn up to 20s just reaching
+# ready, leaving too little of a 30s budget for the actual tool-calling LLM
+# round trip (multiple completions: pick tool, run it, answer) that follows.
+timeout 60 "$KDEPS_BIN" run "$WORKFLOW_PATH" > "$SERVER_LOG" 2>&1 &
 SERVER_PID=$!
 if ! wait_for_kdeps_port "$PORT" 20; then SERVER_READY=false; else SERVER_READY=true; fi
 
@@ -52,7 +55,7 @@ fi
 test_passed "Tools - Server startup"
 
 if command -v curl &> /dev/null; then
-    RESP=$(curl -s -w "\n%{http_code}" -X POST -H "Content-Type: application/json" \
+    RESP=$(curl -s --max-time 35 -w "\n%{http_code}" -X POST -H "Content-Type: application/json" \
         -d '{"query":"what tools are available?"}' \
         "http://127.0.0.1:$PORT/api/v1/tools" 2>/dev/null || echo -e "\n000")
     STATUS=$(echo "$RESP" | tail -n 1)
