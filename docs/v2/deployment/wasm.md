@@ -26,13 +26,17 @@ Init and `build --wasm` reject any resource the WASM runtime cannot execute.
 
 Expressions, `before:` / `after:` (bare expr only), `items:`, and `loop:` are fine.
 
-Set an online backend. Empty `KDEPS_DEFAULT_BACKEND` defaults to `file` (llamafile), which WASM cannot run:
+Set an online backend **and** a hosted model. Empty `KDEPS_DEFAULT_BACKEND` defaults to `file` (llamafile). Empty `model:` defaults to `llama3.2:1b`. Ollama tags (`llama3.2:1b`), `.gguf`, `.llamafile`, `router`, and `auto-router` error at init.
 
 ```yaml
 settings:
   agentSettings:
     env:
       KDEPS_DEFAULT_BACKEND: openai
+# ...
+chat:
+  model: gpt-4o
+  prompt: "{{ get('q') }}"
 ```
 
 Pass the API key at init (`kdepsInit(yaml, { OPENAI_API_KEY: "..." })`) or bake it in `env:` (it will be visible in the page).

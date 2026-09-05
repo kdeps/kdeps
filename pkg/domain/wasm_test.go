@@ -51,6 +51,7 @@ func TestValidateWASMWorkflow_AllowsChatHTTPAndAPIResponse(t *testing.T) {
 		&domain.Resource{
 			ActionID: "ask",
 			Chat: &domain.ChatConfig{
+				Model:  "gpt-4o",
 				Prompt: "hi",
 				Tools: []domain.Tool{{
 					Name:   "lookup",
@@ -107,6 +108,7 @@ func TestValidateWASMWorkflow_RejectsMCPAndComponentTools(t *testing.T) {
 	wf := wasmWorkflow(&domain.Resource{
 		ActionID: "ask",
 		Chat: &domain.ChatConfig{
+			Model:          "gpt-4o",
 			Prompt:         "hi",
 			ComponentTools: []string{"scraper"},
 			Tools: []domain.Tool{{
@@ -127,6 +129,7 @@ func TestValidateWASMWorkflow_RejectsToolScriptToSQL(t *testing.T) {
 		&domain.Resource{
 			ActionID: "ask",
 			Chat: &domain.ChatConfig{
+				Model:  "gpt-4o",
 				Prompt: "hi",
 				Tools:  []domain.Tool{{Name: "query", Script: "db"}},
 			},
@@ -141,6 +144,7 @@ func TestValidateWASMWorkflow_RejectsMissingToolScript(t *testing.T) {
 	wf := wasmWorkflow(&domain.Resource{
 		ActionID: "ask",
 		Chat: &domain.ChatConfig{
+			Model:  "gpt-4o",
 			Prompt: "hi",
 			Tools:  []domain.Tool{{Name: "gone", Script: "nope"}},
 		},
@@ -154,6 +158,7 @@ func TestValidateWASMWorkflow_RejectsLocalChatFiles(t *testing.T) {
 	wf := wasmWorkflow(&domain.Resource{
 		ActionID: "ask",
 		Chat: &domain.ChatConfig{
+			Model:  "gpt-4o",
 			Prompt: "hi",
 			Files:  []string{"/tmp/photo.png"},
 		},
@@ -167,6 +172,7 @@ func TestValidateWASMWorkflow_AllowsHTTPSChatFiles(t *testing.T) {
 	wf := wasmWorkflow(&domain.Resource{
 		ActionID: "ask",
 		Chat: &domain.ChatConfig{
+			Model:  "gpt-4o",
 			Prompt: "hi",
 			Files:  []string{"https://example.com/a.png"},
 		},
@@ -181,4 +187,30 @@ func TestValidateWASMWorkflow_NilWorkflow(t *testing.T) {
 func TestWASMAllowedResourceTypeNames(t *testing.T) {
 	got := domain.WASMAllowedResourceTypeNames()
 	require.Equal(t, []string{"chat", "httpClient"}, got)
+}
+
+func TestValidateWASMWorkflow_RejectsNonCloudModels(t *testing.T) {
+	cases := []struct {
+		model string
+		want  string
+	}{
+		{"", "llama3.2:1b"},
+		{"llama3.2:1b", "llama3.2:1b"},
+		{"mistral:7b", "mistral:7b"},
+		{"model.gguf", ".gguf"},
+		{"foo.llamafile", "llamafile"},
+		{"router", "router"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.model, func(t *testing.T) {
+			wf := wasmWorkflow(&domain.Resource{
+				ActionID: "ask",
+				Chat:     &domain.ChatConfig{Model: tc.model, Prompt: "hi"},
+			})
+			err := domain.ValidateWASMWorkflow(wf)
+			require.Error(t, err)
+			require.Contains(t, err.Error(), "cloud model")
+			require.Contains(t, err.Error(), tc.want)
+		})
+	}
 }

@@ -44,6 +44,33 @@ func isWASMLocalChatBackend(backend string) bool {
 	}
 }
 
+// isWASMNonCloudChatModel reports models that cannot be served over HTTP in
+// the browser: omitted model (defaults to llama3.2:1b llamafile), router
+// picks, GGUF/llamafile paths, and Ollama-style name:tag aliases.
+func isWASMNonCloudChatModel(model string) bool {
+	m := strings.TrimSpace(model)
+	if m == "" || m == "router" || m == "auto-router" {
+		return true
+	}
+	if strings.HasPrefix(m, "{{") {
+		return false
+	}
+	lower := strings.ToLower(m)
+	switch {
+	case strings.HasSuffix(lower, ".gguf"),
+		strings.HasSuffix(lower, ".llamafile"),
+		strings.HasSuffix(lower, ".ggml"),
+		strings.Contains(lower, ".llamafile"),
+		strings.Contains(lower, ".gguf"):
+		return true
+	}
+	// llama3.2:1b / mistral:7b -- local tags, not provider/model
+	if strings.Contains(m, ":") && !strings.Contains(m, "/") {
+		return true
+	}
+	return false
+}
+
 func wasmDefaultChatBackend(wf *Workflow) string {
 	if wf != nil {
 		if v := wf.Settings.AgentSettings.Env["KDEPS_DEFAULT_BACKEND"]; v != "" {
@@ -150,6 +177,9 @@ func wasmResourceErrors(wf *Workflow, res *Resource, byID map[string]*Resource) 
 				actionID, i, kind, strings.Join(WASMAllowedResourceTypeNames(), ", "),
 			))
 		}
+		if action.Chat != nil {
+			errs = append(errs, wasmChatErrors(wf, actionID+"/before", action.Chat, byID)...)
+		}
 	}
 	for i, action := range res.After {
 		if kind := forbiddenExecTypeOnAction(&action); kind != "" {
@@ -157,6 +187,9 @@ func wasmResourceErrors(wf *Workflow, res *Resource, byID map[string]*Resource) 
 				"resource %q after[%d] uses %s; WASM allows only %s",
 				actionID, i, kind, strings.Join(WASMAllowedResourceTypeNames(), ", "),
 			))
+		}
+		if action.Chat != nil {
+			errs = append(errs, wasmChatErrors(wf, actionID+"/after", action.Chat, byID)...)
 		}
 	}
 	if res.Chat != nil {
@@ -174,6 +207,17 @@ func wasmChatErrors(wf *Workflow, actionID string, chat *ChatConfig, byID map[st
 				"set KDEPS_DEFAULT_BACKEND to an online backend "+
 				"(openai, anthropic, groq, xai, google, ...)",
 			actionID, backend,
+		))
+	}
+	if isWASMNonCloudChatModel(chat.Model) {
+		label := chat.Model
+		if strings.TrimSpace(label) == "" {
+			label = "(empty; defaults to llama3.2:1b llamafile)"
+		}
+		errs = append(errs, fmt.Sprintf(
+			"resource %q chat model %q is not a cloud model; "+
+				"WASM cannot run llamafile, GGUF, or Ollama models",
+			actionID, label,
 		))
 	}
 	if len(chat.ComponentTools) > 0 {
