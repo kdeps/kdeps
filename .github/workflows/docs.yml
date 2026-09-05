@@ -59,6 +59,11 @@ jobs:
         run: npm ci
         working-directory: docs/v2
 
+      - name: Resolve latest release version
+        run: |
+          latest_tag=$(git tag -l 'v*' | grep -v -- '-nightly' | sort -V | tail -1)
+          echo "KDEPS_DOCS_VERSION=${latest_tag#v}" >> "$GITHUB_ENV"
+
       - name: Build v2
         run: npm run build
         working-directory: docs/v2

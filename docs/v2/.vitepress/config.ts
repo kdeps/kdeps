@@ -21,8 +21,12 @@
 import { defineConfig } from 'vitepress'
 import d2 from 'vitepress-plugin-d2'
 import { Layout, Theme } from 'vitepress-plugin-d2/dist/config'
-// Nav version label. Bump docs/v2/package.json "version" on each kdeps release.
 import pkg from '../package.json' with { type: 'json' }
+
+// Nav version label. docs.yml sets KDEPS_DOCS_VERSION from the latest release
+// tag at build time, so this never needs a manual bump; package.json's
+// version is only the local-dev fallback.
+const navVersion = process.env.KDEPS_DOCS_VERSION || pkg.version
 
 export default defineConfig({
   title: 'kdeps',
@@ -71,7 +75,7 @@ export default defineConfig({
       { text: 'Registry', link: 'https://kdeps.io' },
       { text: 'GitHub', link: 'https://github.com/kdeps/kdeps' },
       {
-        text: `v${pkg.version}`,
+        text: `v${navVersion}`,
         items: [
           { text: 'Changelog', link: 'https://github.com/kdeps/kdeps/releases' },
           { text: 'Contributing', link: 'https://github.com/kdeps/kdeps/blob/main/CONTRIBUTING.md' },
