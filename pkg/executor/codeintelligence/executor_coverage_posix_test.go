@@ -21,6 +21,7 @@
 package codeintelligence
 
 import (
+	"runtime"
 	"strings"
 	"syscall"
 	"testing"
@@ -59,6 +60,9 @@ func TestStartLSPClient_StdinPipeError(t *testing.T) {
 	if testing.Short() {
 		t.Skip("skipping resource-intensive test in short mode")
 	}
+	if runtime.GOOS == "darwin" {
+		t.Skip("RLIMIT_NOFILE does not fail os.Pipe before exec.Start on Darwin")
+	}
 	cur := uint64(countOpenFDs() + 1) // only allow 1 more FD — os.Pipe needs 2
 	setRlimitNoFile(t, cur)
 	_, err := startLSPClient("echo", nil)
@@ -72,6 +76,9 @@ func TestStartLSPClient_StdinPipeError(t *testing.T) {
 func TestStartLSPClient_StdoutPipeError(t *testing.T) {
 	if testing.Short() {
 		t.Skip("skipping resource-intensive test in short mode")
+	}
+	if runtime.GOOS == "darwin" {
+		t.Skip("RLIMIT_NOFILE does not fail os.Pipe before exec.Start on Darwin")
 	}
 	cur := uint64(countOpenFDs() + 2) // allow exactly 2 more FDs — stdin pipe consumes both
 	setRlimitNoFile(t, cur)
