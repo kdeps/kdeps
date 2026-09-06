@@ -149,8 +149,59 @@ func copyBundleAssets(config *BundleConfig, distDir string) error {
 	if err := copyEmbeddedFile("templates/widget.js.tmpl", filepath.Join(distDir, "kdeps-widget.js")); err != nil {
 		return fmt.Errorf("failed to write widget script: %w", err)
 	}
+	if !config.standalone() {
+		if err := renderBookmarkletBundle(config, distDir); err != nil {
+			return fmt.Errorf("failed to render bookmarklet bundle: %w", err)
+		}
+	}
 	if err := copyWebServerFiles(config.WebServerFiles, distDir); err != nil {
 		return fmt.Errorf("failed to copy web server files: %w", err)
+	}
+	return nil
+}
+
+// renderBookmarkletBundle writes dist/kdeps-bookmarklet.js - one script the
+// bookmarklet injects into whatever page it's clicked on (served output only;
+// the file:// standalone falls back to a popup). It is settings + widget +
+// a boot tail that loads kdeps.wasm from the same origin, so no popup window
+// is opened.
+func renderBookmarkletBundle(config *BundleConfig, distDir string) error {
+	kdeps_debug.Log("enter: renderBookmarkletBundle")
+	settingsTmpl, err := readTemplateFile("templates/settings.js.tmpl")
+	if err != nil {
+		return fmt.Errorf("failed to read settings template: %w", err)
+	}
+	widgetJS, err := readTemplateFile("templates/widget.js.tmpl")
+	if err != nil {
+		return fmt.Errorf("failed to read widget template: %w", err)
+	}
+	bootTmpl, err := readTemplateFile("templates/bookmarklet-boot.js.tmpl")
+	if err != nil {
+		return fmt.Errorf("failed to read bookmarklet-boot template: %w", err)
+	}
+
+	outFile, err := AppFS.Create(filepath.Join(distDir, "kdeps-bookmarklet.js"))
+	if err != nil {
+		return fmt.Errorf("failed to create kdeps-bookmarklet.js: %w", err)
+	}
+	defer outFile.Close()
+
+	if _, werr := outFile.WriteString("window.__KDEPS_BOOKMARKLET = true;\n"); werr != nil {
+		return werr
+	}
+	if rerr := texttmpl.RenderTo(outFile, "settings.js", string(settingsTmpl), settingsData{
+		ConfigJSON: settingsConfigJSON(config),
+	}); rerr != nil {
+		return fmt.Errorf("failed to render settings into bundle: %w", rerr)
+	}
+	if _, werr := outFile.WriteString("\n" + string(widgetJS) + "\n"); werr != nil {
+		return werr
+	}
+	if rerr := texttmpl.RenderTo(outFile, "bookmarklet-boot.js", string(bootTmpl), bootstrapData{
+		WorkflowYAML:  escapeWorkflowYAMLForJS(config.WorkflowYAML),
+		APIRoutesJSON: marshalAPIRoutesJSON(config.APIRoutes),
+	}); rerr != nil {
+		return fmt.Errorf("failed to render boot into bundle: %w", rerr)
 	}
 	return nil
 }

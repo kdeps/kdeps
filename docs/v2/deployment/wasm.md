@@ -68,18 +68,23 @@ settings:
 
 The bookmarklet runs in whatever tab it is clicked in, reads `location.href`, `document.title`, and `document.body.innerText` (capped at 24k chars), and maps them onto the listed field names.
 
-### The widget window
+### The widget
 
-Clicking the bookmarklet opens the app as a **small popup near the screen corner** (`#kdeps-widget`), not a full tab. That window - `kdeps-widget.js`, standard in every `--wasm` app - :
+Clicking the bookmarklet shows a small kdeps panel that:
 
-1. shows what the run is doing (waiting for the page -> running -> done);
+1. shows what the run is doing (reading the page -> loading -> running -> done);
 2. renders an input box **only if the workflow needs a field the capture does not provide** (kdeps works this out from `validations`);
-3. renders the result as markdown, and grows the window to fit;
-4. never closes on its own - only its **x** / Dismiss button (or a re-run) closes it.
+3. renders the result as markdown, and grows to fit;
+4. never closes on its own - only its **x** / Dismiss button (or a re-run) closes it. The **gear** in the header opens the settings drawer.
 
-The **gear** button in the widget header opens the same settings drawer.
+**Where it appears depends on how the app is served:**
 
-The bookmarklet link is injected into `<div id="kdeps-capture-cta"></div>` if your HTML has one, and always into the settings drawer. Without `KDEPS_WASM_CAPTURE` there is no bookmarklet. Your app's own `index.html` UI is used only when the file is opened directly (double-clicked), not from the bookmarklet.
+| App | Bookmarklet behaviour |
+|---|---|
+| `--wasm-output server` (hosted over http/https) | Injects `kdeps-bookmarklet.js` from the app's origin **into the page you're reading** - a floating panel, **no popup window**. Needs the origin to send CORS on `.wasm`/`.js` (the generated `nginx.conf` does). If a strict site CSP blocks the inject, it falls back to opening the app in a tab. |
+| `--wasm-output html` (the `file://` standalone) | Opens the app itself as a **small popup window** (`#kdeps-widget`) - a bookmarklet can't carry the ~45 MB module and `file://` scripts are cross-origin-blocked from a web page, so a one-time "allow popups" may be needed. |
+
+The bookmarklet link is injected into `<div id="kdeps-capture-cta"></div>` if your HTML has one, and always into the settings drawer. Without `KDEPS_WASM_CAPTURE` there is no bookmarklet. Your app's own `index.html` UI is used only when the file/URL is opened directly, not from the bookmarklet.
 
 ## Allowed resources
 

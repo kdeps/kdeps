@@ -725,3 +725,37 @@ func TestBundle_SettingsScriptDefaultsEmpty(t *testing.T) {
 	require.NoError(t, err)
 	assert.Contains(t, string(settingsJS), "window.__KDEPS_SETTINGS = {};")
 }
+
+func TestBundle_BookmarkletBundle_ServerOnly(t *testing.T) {
+	build := func(output string) string {
+		tmpDir := t.TempDir()
+		wasmFile := filepath.Join(tmpDir, "kdeps.wasm")
+		wasmExecFile := filepath.Join(tmpDir, "wasm_exec.js")
+		outputDir := filepath.Join(tmpDir, "output")
+		require.NoError(t, os.WriteFile(wasmFile, []byte("w"), 0644))
+		require.NoError(t, os.WriteFile(wasmExecFile, []byte("j"), 0644))
+		require.NoError(t, wasm.Bundle(&wasm.BundleConfig{
+			WASMBinaryPath: wasmFile,
+			WASMExecJSPath: wasmExecFile,
+			WorkflowYAML:   "apiVersion: kdeps.io/v1",
+			OutputDir:      outputDir,
+			Output:         output,
+			SettingsJSON:   `{"appName":"demo","captureFields":["url","text"]}`,
+		}))
+		return filepath.Join(outputDir, "dist", "kdeps-bookmarklet.js")
+	}
+
+	// server output ships the injectable bundle...
+	b, err := os.ReadFile(build(wasm.OutputServer))
+	require.NoError(t, err)
+	s := string(b)
+	assert.Contains(t, s, "window.__KDEPS_BOOKMARKLET = true;")
+	assert.Contains(t, s, `window.__KDEPS_SETTINGS = {"appName":"demo"`)
+	assert.Contains(t, s, "function markdown(")      // widget body
+	assert.Contains(t, s, "origin + 'kdeps.wasm'")   // boot loads same-origin
+	assert.Contains(t, s, "apiVersion: kdeps.io/v1") // workflow YAML embedded
+
+	// ...the file:// standalone does not (it inlines everything into one HTML).
+	_, err = os.Stat(build("html"))
+	assert.True(t, os.IsNotExist(err))
+}

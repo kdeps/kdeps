@@ -194,13 +194,26 @@ window.__KDEPS_SETTINGS = {{.ConfigJSON}};
     // ---- optional page-capture bookmarklet ------------------------------------
 
     function appURL() { return location.href.split('#')[0]; }
+    function appDir() { return appURL().replace(/[?].*$/, '').replace(/[^/]*$/, ''); }
 
     function bookmarkletSource() {
         var fields = JSON.stringify(captureFields);
+        if (/^https?:/i.test(location.href)) {
+            // Served: inject one script into the page you're on (no popup). It
+            // is kdeps-bookmarklet.js from this app's origin - settings + the
+            // widget overlay + a boot tail that loads kdeps.wasm same-origin.
+            // If a strict CSP blocks the inject, fall back to the popup.
+            var bundle = JSON.stringify(appDir() + 'kdeps-bookmarklet.js');
+            var dir = JSON.stringify(appDir());
+            var popup = JSON.stringify(appURL() + '#kdeps-widget');
+            return '(function(){if(window.__kdepsBmRun)return;window.__kdepsBmRun=1;' +
+                'window.__KDEPS_ORIGIN=' + dir + ';' +
+                'var s=document.createElement("script");s.src=' + bundle + ';' +
+                's.onerror=function(){window.__kdepsBmRun=0;window.open(' + popup + ');};' +
+                '(document.body||document.documentElement).appendChild(s);})();';
+        }
+        // file:// standalone: open the app as a small popup (#kdeps-widget).
         var app = JSON.stringify(appURL());
-        // Opens the app as a small popup near the screen corner in widget mode
-        // (#kdeps-widget). kdeps-widget.js there shows status, collects input,
-        // renders the result, and only closes on its x button.
         return '(function(){var F=' + fields + ',A=' + app + ';' +
             'var v={url:location.href,title:document.title,' +
             'text:((document.body&&document.body.innerText)||"").slice(0,24000)};' +

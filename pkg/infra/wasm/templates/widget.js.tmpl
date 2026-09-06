@@ -1,16 +1,21 @@
-// kdeps-widget.js - the small hovering window a --wasm bookmarklet opens.
-// Active only when the app URL carries #kdeps-widget (or ?kdeps=widget); the
-// bookmarklet opens the app that way in a ~400x200 popup near the screen
-// corner. It shows what the run is doing, collects any input the workflow
-// needs, renders the result as markdown, grows to fit, and never closes on
-// its own - only the x / Dismiss button closes it.
+// kdeps-widget.js - the run UI for a --wasm bookmarklet. Two modes:
+//  - overlay: injected into the page you're reading (window.__KDEPS_BOOKMARKLET,
+//    served output). A floating panel; captures the page directly; the x button
+//    removes it. No popup.
+//  - popup: the app opened in its own small window via #kdeps-widget (the
+//    file:// standalone fallback). Fills the window; the x button closes it.
+// Both: show what the run is doing, collect any input the workflow needs,
+// render the result as markdown, grow to fit, and never close on their own.
 (function () {
-    function widgetMode() {
+    var OVERLAY = false;
+    try { OVERLAY = !!window.__KDEPS_BOOKMARKLET; } catch (e) { OVERLAY = false; }
+
+    function popupMode() {
         try {
             return /(?:^|[#&?])kdeps(?:-widget|=widget)\b/.test(location.hash + location.search);
         } catch (e) { return false; }
     }
-    if (!widgetMode()) return;
+    if (!OVERLAY && !popupMode()) return;
 
     var CFG = {};
     try { CFG = window.__KDEPS_SETTINGS || {}; } catch (e) { CFG = {}; }
@@ -18,7 +23,7 @@
     var captureFields = Array.isArray(CFG.captureFields) ? CFG.captureFields : [];
     var promptFields = Array.isArray(CFG.promptFields) ? CFG.promptFields : [];
 
-    var captured = null;   // payload from the bookmarklet
+    var captured = null;   // page fields for the workflow
     var ranOnce = false;
     var busy = false;
 
@@ -84,12 +89,19 @@
     // ---- dom ---------------------------------------------------------------
     var els = {};
     function build() {
-        // Hide whatever the app's own index.html renders.
         var s = document.createElement('style');
-        s.textContent = 'body>*:not(#kdeps-widget):not(.kdeps-drawer):not(.kdeps-backdrop):not(.kdeps-gear)' +
-            '{display:none!important}#kdeps-widget{display:flex!important}' +
-            '#kdeps-widget{position:fixed;inset:0;flex-direction:column;margin:0;' +
-            'font:13px/1.5 system-ui,-apple-system,sans-serif;color:#111;background:#fff}' +
+        var frame = OVERLAY
+            // Floating panel over the page you're reading.
+            ? '#kdeps-widget{position:fixed;top:16px;right:16px;width:min(400px,92vw);max-height:82vh;' +
+              'flex-direction:column;margin:0;border:1px solid #d1d5db;border-radius:12px;' +
+              'box-shadow:0 24px 64px rgba(0,0,0,.18);' +
+              'font:13px/1.5 system-ui,-apple-system,sans-serif;color:#111;background:#fff}'
+            // Fills its own popup window; hide the app's own index.html.
+            : 'body>*:not(#kdeps-widget):not(.kdeps-drawer):not(.kdeps-backdrop):not(.kdeps-gear)' +
+              '{display:none!important}' +
+              '#kdeps-widget{position:fixed;inset:0;flex-direction:column;margin:0;' +
+              'font:13px/1.5 system-ui,-apple-system,sans-serif;color:#111;background:#fff}';
+        s.textContent = '#kdeps-widget{display:flex!important;z-index:2147483000}' + frame +
             '#kdeps-widget header{display:flex;align-items:center;gap:.5rem;padding:.55rem .7rem;' +
             'border-bottom:1px solid #eee;font-weight:600}' +
             '#kdeps-widget header .sp{margin-left:auto}' +
@@ -128,12 +140,15 @@
             '<div class="inputs"></div>' +
             '<div class="out"></div>' +
             '</div>';
-        document.body.appendChild(w);
+        (document.body || document.documentElement).appendChild(w);
+        els.root = w;
         els.spin = w.querySelector('.spin');
         els.msg = w.querySelector('.msg');
         els.inputs = w.querySelector('.inputs');
         els.out = w.querySelector('.out');
-        w.querySelector('.x').addEventListener('click', function () { window.close(); });
+        w.querySelector('.x').addEventListener('click', function () {
+            if (OVERLAY) w.remove(); else window.close();
+        });
         w.querySelector('.cfg').addEventListener('click', function () {
             if (typeof window.__kdepsOpenSettings === 'function') window.__kdepsOpenSettings();
         });
@@ -144,6 +159,7 @@
         if (els.spin) els.spin.hidden = !spinning;
     }
     function grow() {
+        if (OVERLAY) return; // the panel already grows with its content (max-height + overflow)
         try { window.resizeTo(Math.min(screen.availWidth - 40, 460), Math.min(screen.availHeight - 40, 560)); } catch (e) {}
     }
 
@@ -210,7 +226,20 @@
         execute();
     }
 
-    // ---- capture transport (postMessage / window.name / clipboard) ----------
+    function pageFields() {
+        var v = {
+            url: location.href,
+            title: document.title,
+            text: ((document.body && document.body.innerText) || '').slice(0, 24000)
+        };
+        var out = {};
+        captureFields.forEach(function (f) { out[f] = v[f] != null ? v[f] : v.text; });
+        return out;
+    }
+
+    // ---- capture transport --------------------------------------------------
+    // Overlay mode reads the page directly; popup mode receives the payload the
+    // bookmarklet posts (postMessage / window.name / clipboard).
     function applyPayload(p) {
         if (!p || p.__kdepsCapture !== 1) return false;
         captured = {};
@@ -220,14 +249,16 @@
         return true;
     }
     function readClipboard() {
-        if (!navigator.clipboard || !navigator.clipboard.readText) return;
+        if (OVERLAY || !navigator.clipboard || !navigator.clipboard.readText) return;
         navigator.clipboard.readText().then(function (raw) {
             try { applyPayload(JSON.parse(raw)); } catch (e) {}
         }).catch(function () {});
     }
-    window.addEventListener('message', function (ev) { applyPayload(ev.data); });
-    window.addEventListener('focus', readClipboard);
-    try { applyPayload(JSON.parse(window.name)); } catch (e) {}
+    if (!OVERLAY) {
+        window.addEventListener('message', function (ev) { applyPayload(ev.data); });
+        window.addEventListener('focus', readClipboard);
+        try { applyPayload(JSON.parse(window.name)); } catch (e) {}
+    }
 
     // Retry once the viewer sets a backend/key in the drawer.
     window.addEventListener('kdeps:settings-changed', function () {
@@ -237,6 +268,7 @@
     function start() {
         build();
         renderInputs();
+        if (OVERLAY && captureFields.length) captured = pageFields();
         readClipboard();
         if (window.kdeps) {
             status('Ready.', false);

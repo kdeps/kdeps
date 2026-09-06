@@ -1,0 +1,80 @@
+// kdeps-bookmarklet boot - the tail of dist/kdeps-bookmarklet.js. Runs only
+// when that bundle has been injected into an arbitrary page by the bookmarklet
+// loader (window.__KDEPS_BOOKMARKLET). Loads wasm_exec.js and kdeps.wasm from
+// the same origin the bundle was served from (nginx.conf sends CORS), then
+// exposes window.kdeps exactly like the normal bootstrap.
+(function () {
+    if (!window.__KDEPS_BOOKMARKLET) return;
+
+    var __kdepsWorkflowYAML = `{{.WorkflowYAML}}`;
+
+    function scriptOrigin() {
+        if (window.__KDEPS_ORIGIN) return window.__KDEPS_ORIGIN;
+        try {
+            var s = document.currentScript && document.currentScript.src;
+            if (s) return s.replace(/[?#].*$/, '').replace(/[^/]*$/, '');
+        } catch (e) { /* ignore */ }
+        return '';
+    }
+    var origin = scriptOrigin();
+
+    function settingsEnv() {
+        try {
+            return (typeof window.__kdepsSettingsEnv === 'function') ? window.__kdepsSettingsEnv() : {};
+        } catch (e) { return {}; }
+    }
+
+    function loadScript(src) {
+        return new Promise(function (res, rej) {
+            if (typeof Go !== 'undefined') { res(); return; }
+            var s = document.createElement('script');
+            s.src = src;
+            s.onload = function () { res(); };
+            s.onerror = function () { rej(new Error('failed to load ' + src)); };
+            (document.head || document.documentElement).appendChild(s);
+        });
+    }
+
+    async function loadModule(go) {
+        var url = origin + 'kdeps.wasm';
+        try {
+            return await WebAssembly.instantiateStreaming(fetch(url), go.importObject);
+        } catch (e) {
+            var buf = await (await fetch(url)).arrayBuffer();
+            return await WebAssembly.instantiate(buf, go.importObject);
+        }
+    }
+
+    async function boot() {
+        try {
+            await loadScript(origin + 'wasm_exec.js');
+            var go = new Go();
+            var result = await loadModule(go);
+            go.run(result.instance);
+            await new Promise(function (r) { setTimeout(r, 0); });
+
+            await kdepsInit(__kdepsWorkflowYAML, settingsEnv());
+            window.addEventListener('kdeps:settings-changed', function () {
+                kdepsInit(__kdepsWorkflowYAML, settingsEnv()).catch(function (err) {
+                    console.error('[kdeps] re-init failed:', err);
+                });
+            });
+
+            window.kdeps = {
+                execute: function (i) { return kdepsExecute(typeof i === 'string' ? i : JSON.stringify(i)); },
+                stream: function (i, cb) { return kdepsExecute(typeof i === 'string' ? i : JSON.stringify(i), cb); },
+                validate: function () { return kdepsValidate(__kdepsWorkflowYAML); },
+                init: function (env) { return kdepsInit(__kdepsWorkflowYAML, env || {}); }
+            };
+
+            window.dispatchEvent(new Event('kdeps:ready'));
+            console.log('[kdeps] bookmarklet runtime ready.');
+        } catch (err) {
+            console.error('[kdeps] bookmarklet boot failed:', err);
+            window.dispatchEvent(new Event('kdeps:error'));
+        }
+    }
+
+    try { window.dispatchEvent(new Event('kdeps:loading')); } catch (e) { /* ignore */ }
+    boot();
+})();

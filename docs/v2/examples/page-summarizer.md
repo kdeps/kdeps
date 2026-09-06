@@ -156,7 +156,7 @@ That writes `page-summarizer.html` next to the workflow. Double-click it. No Doc
 
 1. Click the gear, pick a backend + model, paste an API key
 2. Drag **Send this page to page-summarizer** onto the bookmarks bar
-3. Open any article, click the bookmark - a small window pops up, runs, and shows the summary as markdown. It stays open until you dismiss it.
+3. Open any article, click the bookmark - a small kdeps panel appears (in the page itself if you served the app, or as a popup window for the `file://` build), runs, and shows the summary as markdown. It stays until you dismiss it.
 
 ## Summary
 
