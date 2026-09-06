@@ -215,6 +215,8 @@ skip_or_fail_llm() {
         test_skipped "$1 - llm-server crashed on the runner (CI environment flake)"
     else
         test_failed "$1" "${3:-$2}"
+        # Print what we saw so a recurring non-matching flake is diagnosable.
+        [ -n "${2:-}" ] && printf '%s\n' "${2}" | tail -30 | sed 's/^/    | /'
     fi
 }
 export -f llm_server_crashed skip_or_fail_llm
