@@ -275,10 +275,28 @@
             }).catch(function () {});
         }).catch(function () {});
     }
+    // The bookmarklet passes the payload in the URL hash (kd=...) - the
+    // reliable file:// transport. postMessage / window.name / clipboard are
+    // fallbacks.
+    function payloadFromHash() {
+        try {
+            var m = /(?:^|[#&])kd=([^&]+)/.exec(location.hash || '');
+            if (!m) return false;
+            var ok = applyPayload(JSON.parse(decodeURIComponent(m[1])));
+            // Drop the payload from the address so a reload does not re-run it.
+            try {
+                var clean = location.hash.replace(/([#&])kd=[^&]*/, '$1').replace(/[#&]$/, '');
+                history.replaceState(null, '', location.pathname + location.search + clean);
+            } catch (e) {}
+            return ok;
+        } catch (e) { return false; }
+    }
+
     if (!OVERLAY) {
         window.addEventListener('message', function (ev) { applyPayload(ev.data); });
         window.addEventListener('focus', readClipboard);
         try { applyPayload(JSON.parse(window.name)); } catch (e) {}
+        payloadFromHash();
     }
 
     // Retry once the viewer sets a backend/key in the drawer.

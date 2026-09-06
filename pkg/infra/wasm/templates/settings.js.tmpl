@@ -369,7 +369,9 @@ window.__KDEPS_SETTINGS = {{.ConfigJSON}};
             'var raw=JSON.stringify(p);' +
             'try{navigator.clipboard&&navigator.clipboard.writeText&&navigator.clipboard.writeText(raw);}catch(e){}' +
             'var W=420,H=200,L=Math.max(0,screen.availWidth-W-24),T=Math.max(0,screen.availHeight-H-48);' +
-            'var u=A+(A.indexOf("#")<0?"#":"&")+"kdeps-widget";' +
+            // Pass the payload in the popup URL hash - the only file:// transport
+            // that needs no permission and has no cross-window timing race.
+            'var u=A+"#kdeps-widget&kd="+encodeURIComponent(raw);' +
             'var w=null;try{w=window.open(u,"kdeps-"+' + JSON.stringify(appName) + ',' +
             '"width="+W+",height="+H+",left="+L+",top="+T+",menubar=no,toolbar=no,location=no,status=no");}catch(e){}' +
             'if(w){try{w.focus();}catch(e){}var n=0,t=setInterval(function(){n++;' +
