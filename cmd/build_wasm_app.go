@@ -37,6 +37,7 @@ import (
 	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
 	"github.com/kdeps/kdeps/v2/pkg/domain"
 	executorLLM "github.com/kdeps/kdeps/v2/pkg/executor/llm"
+	m365auth "github.com/kdeps/kdeps/v2/pkg/executor/llm/m365"
 	wasmPkg "github.com/kdeps/kdeps/v2/pkg/infra/wasm"
 )
 
@@ -85,7 +86,35 @@ type wasmSettingsProvider struct {
 	Name         string `json:"name"`
 	EnvVar       string `json:"envVar"`
 	DefaultModel string `json:"defaultModel"`
+	// BaseURL, when set, marks an OpenAI-compatible provider the viewer points
+	// at a local endpoint (m365 proxy, self-hosted). The drawer then shows a
+	// Base URL field instead of an API-key field.
+	BaseURL string `json:"baseURL,omitempty"`
 }
+
+// wasmMachineSettings is the build machine's own LLM defaults, embedded so the
+// drawer's "Import machine settings" button can adopt them in one click. The
+// backend/model/base-URL fields come from ~/.kdeps/config.yaml and carry no
+// API keys. M365 is populated only with --wasm-embed-secrets and DOES carry
+// real credentials - the build is then a secret.
+type wasmMachineSettings struct {
+	Backend string            `json:"backend,omitempty"`
+	Model   string            `json:"model,omitempty"`
+	BaseURL string            `json:"baseURL,omitempty"`
+	M365    *wasmM365Settings `json:"m365,omitempty"`
+}
+
+// wasmM365Settings is the raw contents of ~/.config/kdeps/m365/*.json, embedded
+// only when --wasm-embed-secrets is passed.
+type wasmM365Settings struct {
+	Dir        string          `json:"dir,omitempty"`
+	TokenCache json.RawMessage `json:"tokenCache,omitempty"`
+	Secrets    json.RawMessage `json:"secrets,omitempty"`
+}
+
+// m365WASMBaseURL is the placeholder shown for the m365 / local-proxy backend.
+// The real port is ephemeral, so this is only a hint the viewer overrides.
+const m365WASMBaseURL = "http://localhost:11435/v1"
 
 // wasmSettingsModel is one entry in the settings-drawer model datalist.
 type wasmSettingsModel struct {
@@ -103,6 +132,7 @@ type wasmSettingsConfig struct {
 	PromptFields  []string               `json:"promptFields"`
 	Providers     []wasmSettingsProvider `json:"providers"`
 	Models        []wasmSettingsModel    `json:"models"`
+	Machine       *wasmMachineSettings   `json:"machine,omitempty"`
 }
 
 var wasmGetRefRe = regexp.MustCompile(`get\(\s*['"]([a-zA-Z_][a-zA-Z0-9_]*)['"]`)
@@ -188,7 +218,7 @@ func wasmCaptureFields(workflow *domain.Workflow) []string {
 // extractWASMSettings builds the JSON config embedded in kdeps-settings.js so the
 // runtime drawer can offer every cloud backend, its models, and the workflow's
 // own defaults. Reuses the canonical provider/model lists.
-func extractWASMSettings(workflow *domain.Workflow) (string, error) {
+func extractWASMSettings(workflow *domain.Workflow, embedSecrets bool) (string, error) {
 	backend := strings.TrimSpace(workflow.Settings.AgentSettings.Env["KDEPS_DEFAULT_BACKEND"])
 	if backend == "" {
 		backend = "openai"
@@ -207,10 +237,27 @@ func extractWASMSettings(workflow *domain.Workflow) (string, error) {
 			Name: p.Name, EnvVar: p.EnvVar, DefaultModel: p.DefaultModel,
 		})
 	}
+	// m365 / local OpenAI-compatible proxy: browser-login, no API key. The
+	// viewer runs `kdeps` locally and points the drawer at its base URL.
+	cfg.Providers = append(cfg.Providers, wasmSettingsProvider{
+		Name: "m365", DefaultModel: "gpt-4o", BaseURL: m365WASMBaseURL,
+	})
 	for _, m := range executorLLM.KnownCloudModels {
 		cfg.Models = append(cfg.Models, wasmSettingsModel{
 			ID: m.ID, Backend: m.Backend, Desc: m.Desc,
 		})
+	}
+	cfg.Machine = wasmMachineSettingsFromConfig()
+	if embedSecrets {
+		if m365 := wasmM365SettingsFromDisk(); m365 != nil {
+			if cfg.Machine == nil {
+				cfg.Machine = &wasmMachineSettings{}
+			}
+			cfg.Machine.M365 = m365
+			fmt.Fprintln(os.Stderr,
+				"WARNING: --wasm-embed-secrets baked this machine's m365 credentials into the "+
+					"build. Treat the output as a secret - do not commit or share it.")
+		}
 	}
 
 	b, err := json.Marshal(cfg)
@@ -218,6 +265,62 @@ func extractWASMSettings(workflow *domain.Workflow) (string, error) {
 		return "", fmt.Errorf("failed to marshal WASM settings config: %w", err)
 	}
 	return string(b), nil
+}
+
+// wasmMachineSettingsFromConfig reads the build machine's ~/.kdeps/config.yaml
+// LLM defaults (backend, first model, base URL) so the drawer can offer them
+// via "Import machine settings". Returns nil when nothing useful is set. Never
+// reads API keys - a distributed WASM build must not carry credentials.
+func wasmMachineSettingsFromConfig() *wasmMachineSettings {
+	cfg, err := kdepsconfig.LoadStruct()
+	if err != nil || cfg == nil {
+		return nil
+	}
+	m := &wasmMachineSettings{
+		Backend: strings.TrimSpace(cfg.LLM.Backend),
+		BaseURL: strings.TrimSpace(cfg.LLM.BaseURL),
+	}
+	for _, entry := range cfg.LLM.Models {
+		if s := strings.TrimSpace(entry.Model); s != "" {
+			m.Model = s
+			break
+		}
+	}
+	// A WASM app can only reach a cloud provider or an OpenAI-compatible base
+	// URL. A machine set to a local backend (file/ollama/gguf...) with no base
+	// URL has nothing importable - drop it rather than offer a dead choice.
+	if m.BaseURL == "" && !wasmCloudBackend(m.Backend) {
+		return nil
+	}
+	if m.BaseURL == "" && m.Backend == "" && m.Model == "" {
+		return nil
+	}
+	return m
+}
+
+// wasmM365SettingsFromDisk reads the machine's m365 auth files verbatim. Only
+// called under --wasm-embed-secrets. Returns nil when nothing is on disk.
+func wasmM365SettingsFromDisk() *wasmM365Settings {
+	m := &wasmM365Settings{Dir: m365auth.ConfigDir()}
+	if b, err := os.ReadFile(m365auth.CachePath()); err == nil && json.Valid(b) {
+		m.TokenCache = json.RawMessage(b)
+	}
+	if b, err := os.ReadFile(m365auth.SecretsPath()); err == nil && json.Valid(b) {
+		m.Secrets = json.RawMessage(b)
+	}
+	if m.TokenCache == nil && m.Secrets == nil {
+		return nil
+	}
+	return m
+}
+
+func wasmCloudBackend(name string) bool {
+	for _, p := range kdepsconfig.CloudLLMProviders() {
+		if p.Name == name {
+			return true
+		}
+	}
+	return false
 }
 
 func extractWorkflowAPIRoutes(workflow *domain.Workflow) []string {
@@ -449,7 +552,7 @@ func buildWASMImage(ctx context.Context, packagePath string, flags *BuildFlags) 
 		return verr
 	}
 
-	inputs, err := prepareWASMInputs(ctx, workflow, pkg.PackageDir)
+	inputs, err := prepareWASMInputs(ctx, workflow, pkg.PackageDir, flags != nil && flags.WASMEmbedSecrets)
 	if err != nil {
 		return err
 	}
@@ -475,8 +578,10 @@ type wasmBuildInputs struct {
 	webFiles     map[string]string
 }
 
-func prepareWASMInputs(ctx context.Context, workflow *domain.Workflow, packageDir string) (*wasmBuildInputs, error) {
-	settingsJSON, err := extractWASMSettings(workflow)
+func prepareWASMInputs(
+	ctx context.Context, workflow *domain.Workflow, packageDir string, embedSecrets bool,
+) (*wasmBuildInputs, error) {
+	settingsJSON, err := extractWASMSettings(workflow, embedSecrets)
 	if err != nil {
 		return nil, err
 	}

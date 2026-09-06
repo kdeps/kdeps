@@ -79,6 +79,18 @@ func hallucinationForcePrompt(tools []ToolDef) string {
 	return base + noShellRetryHint
 }
 
+// sketchForcePrompt retries a reply that was only loose tool-argument lines
+// (a path, a pattern, a number) instead of a real fenced call.
+func sketchForcePrompt(tools []ToolDef) string {
+	base := "That was not a tool call - you wrote the arguments as loose lines. " +
+		"Emit ONE proper <invoke> block this turn with every argument inside it, " +
+		"or answer in plain prose if no tool is needed. "
+	if findShellTool(tools) != nil {
+		return base + `For a search, use an <invoke name="bash"> block running grep/rg.`
+	}
+	return base + noShellRetryHint
+}
+
 func outputCharCeiling() int { return intEnv("M365_OUTPUT_CHAR_CEILING", defaultOutputCeiling) }
 
 // outputFinishReason returns "length" when the answer is at/over the empirical
@@ -484,8 +496,6 @@ func (c *completion) runBuffered(ctx context.Context, onDelta func(string)) (str
 }
 
 // produce runs the turn and post-processes it into text or tool calls.
-//
-//nolint:gocognit // confab retry, prose guard, reply-tool, and multi-tool trimming
 func (c *completion) produce(ctx context.Context, onDelta func(string)) *produced {
 	if !c.hasTools {
 		fullText, perr := c.runBuffered(ctx, onDelta)
@@ -515,24 +525,9 @@ func (c *completion) produce(ctx context.Context, onDelta func(string)) *produce
 			break
 		}
 	}
-	for attempt := 0; attempt < maxConfab && !parsed.HasToolCalls; attempt++ {
-		confab := LooksLikeConfabulation(parsed.TextContent)
-		halluc := !everActed && LooksLikeHallucinatedCompletion(parsed.TextContent)
-		if !confab && !halluc {
-			break
-		}
-		if confab {
-			c.text = confabForcePrompt(c.body.Tools)
-		} else {
-			c.text = hallucinationForcePrompt(c.body.Tools)
-		}
-		retryText, rerr := c.runBuffered(ctx, nil)
-		if rerr != nil {
-			return rerr
-		}
-		c.conv.sentMessageCount = len(c.body.Messages)
-		fullText = retryText
-		parsed = ParseToolCalls(fullText, c.body.Tools)
+	fullText, parsed, salvageErr := c.salvageUnproductiveReply(ctx, fullText, parsed, everActed, maxConfab)
+	if salvageErr != nil {
+		return salvageErr
 	}
 
 	if fallbackText, fallbackParsed, ferr := c.toneFallback(ctx, parsed, everActed); ferr != nil {
@@ -559,6 +554,44 @@ func (c *completion) produce(ctx context.Context, onDelta func(string)) *produce
 		return &produced{kind: producedTools, toolCalls: parsed.ToolCalls}
 	}
 	return &produced{kind: producedText, text: fullText}
+}
+
+// salvageUnproductiveReply retries a turn-1 reply that looks like a
+// confabulation ("I can't access X"), a hallucinated completion, or an unfenced
+// tool-call sketch (loose arg lines), forcing the model back onto a real
+// action. When retries are spent and the reply is still only sketch scrap, it
+// swaps in an honest one-liner so that noise never reaches the user.
+func (c *completion) salvageUnproductiveReply(
+	ctx context.Context, fullText string, parsed ParseResult, everActed bool, maxConfab int,
+) (string, ParseResult, *produced) {
+	for attempt := 0; attempt < maxConfab && !parsed.HasToolCalls; attempt++ {
+		confab := LooksLikeConfabulation(parsed.TextContent)
+		halluc := !everActed && LooksLikeHallucinatedCompletion(parsed.TextContent)
+		sketch := LooksLikeUnfencedToolSketch(parsed.TextContent)
+		if !confab && !halluc && !sketch {
+			break
+		}
+		switch {
+		case confab:
+			c.text = confabForcePrompt(c.body.Tools)
+		case sketch:
+			c.text = sketchForcePrompt(c.body.Tools)
+		default:
+			c.text = hallucinationForcePrompt(c.body.Tools)
+		}
+		retryText, rerr := c.runBuffered(ctx, nil)
+		if rerr != nil {
+			return fullText, parsed, rerr
+		}
+		c.conv.sentMessageCount = len(c.body.Messages)
+		fullText = retryText
+		parsed = ParseToolCalls(fullText, c.body.Tools)
+	}
+	if !parsed.HasToolCalls && LooksLikeUnfencedToolSketch(parsed.TextContent) {
+		fullText = "I could not complete that lookup this turn. Ask me to try again."
+		parsed = ParseResult{HasToolCalls: false, TextContent: fullText}
+	}
+	return fullText, parsed, nil
 }
 
 // toneFallback makes one more attempt through Claude tone when the turn still

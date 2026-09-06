@@ -39,12 +39,20 @@ Init and `build --wasm` reject any resource the WASM runtime cannot execute.
 
 ## Settings drawer
 
-Every `--wasm` app ships a settings drawer (a gear button, top-right). The viewer picks the cloud backend, a model, and pastes an API key; kdeps stores the choice in that browser's `localStorage` (key `kdeps.<metadata.name>.settings`) and re-runs `kdepsInit` with the matching env (`KDEPS_DEFAULT_BACKEND`, `KDEPS_WASM_MODEL`, `<PROVIDER>_API_KEY`) whenever it changes. No key is baked into the file.
+Every `--wasm` app ships a settings drawer (a gear button, top-right). The viewer picks the cloud backend, a model, and pastes an API key; kdeps stores the choice and re-runs `kdepsInit` with the matching env (`KDEPS_DEFAULT_BACKEND`, `KDEPS_WASM_MODEL`, `<PROVIDER>_API_KEY`) whenever it changes. No key is baked into the file.
 
 - Backend dropdown is the full cloud provider list; the model box is an editable combo pre-filled from the model catalog for the chosen backend. It defaults to the workflow's `chat.model`, or the backend's default model when the resource uses `model: system`.
 - The drawer is "the system" for a WASM app: its backend and model apply to **every** chat resource at runtime, even ones that hardcode a model the chosen backend cannot serve. Write `backend: system` / `model: system` to make that intent explicit.
 - To render the panel inside your own layout instead of the floating drawer, put `<div id="kdeps-settings"></div>` in your `index.html`.
 - `window.__kdepsSettingsReady()` returns `true` once a backend and (if needed) a key are set - gate your submit button on it.
+
+### Persistence, sharing, and import
+
+- **Shared across apps.** The choice is saved to one browser-wide store (`localStorage` key `kdeps.settings`), so an API key set in any kdeps WASM app is reused by all of them on that browser. A per-app store (`kdeps.<metadata.name>.settings`) still wins when present.
+- **Export / Import** buttons in the drawer download and load a `kdeps-settings.json` file - move your setup between browsers or machines.
+- **Import machine settings.** `kdeps bundle build --wasm` bakes the build machine's own `~/.kdeps/config.yaml` LLM defaults (backend, first model, base URL - **never cloud API keys**) into the app. One drawer click adopts them.
+- **`--wasm-embed-secrets`** additionally bakes this machine's m365 auth (`~/.config/kdeps/m365/token-cache.json` + `secrets.json`) into that same "Import machine settings" data, and the drawer feeds it back as `M365_TOKEN_CACHE_JSON` / `M365_SECRETS_JSON` when the m365 backend is selected. Off by default: **the build then contains real credentials - do not commit or share it.** A build-time warning is printed.
+- **`m365` backend.** Selecting `m365` (or any local OpenAI-compatible proxy) swaps the API-key field for a **Base URL** field. The env becomes `KDEPS_DEFAULT_BACKEND=openai` + `KDEPS_LLM_BASE_URL=<url>`. Run `kdeps` locally so the proxy is up; point the field at its address.
 
 So a WASM resource can just defer everything to the drawer:
 

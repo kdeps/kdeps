@@ -112,6 +112,7 @@ kdeps bundle build [path] [flags]
 | `--tag, -t` | Docker image tag | From workflow metadata |
 | `--no-cache` | Build without cache | `false` |
 | `--wasm[=standalone\|server\|none]` | Compile a browser WASM app (only `chat`, `httpClient`, `apiResponse`). Bare `--wasm` builds both a standalone HTML file and a served site; `=standalone` or `=server` builds just one. See [WASM web app](/deployment/wasm). | off |
+| `--wasm-embed-secrets` | Also bake this machine's m365 auth (`~/.config/kdeps/m365/`) into the app's "Import machine settings" data. The build then contains real credentials - do not commit or share it. | `false` |
 
 **Examples:**
 
