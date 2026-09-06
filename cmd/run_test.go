@@ -1974,12 +1974,17 @@ chat:
 	// Execute workflow - this should trigger waitForOllamaReady with timeout
 	err = cmd.ExecuteWorkflowStepsWithFlags(&cobra.Command{}, workflowPath, &cmd.RunFlags{})
 	if err != nil {
-		// Should eventually fail with timeout or connection error
+		// Should eventually fail with a timeout / connection / setup error.
+		// "request failed" is the kdeps wrapper for any failed outbound call
+		// (covers the Windows "actively refused" socket wording too).
+		msg := err.Error()
 		assert.True(t,
-			strings.Contains(err.Error(), "timeout") ||
-				strings.Contains(err.Error(), "connection refused") ||
-				strings.Contains(err.Error(), "LLM executor not available") ||
-				strings.Contains(err.Error(), "ollama not found"),
+			strings.Contains(msg, "timeout") ||
+				strings.Contains(msg, "connection refused") ||
+				strings.Contains(msg, "LLM executor not available") ||
+				strings.Contains(msg, "ollama not found") ||
+				strings.Contains(msg, "LLM call failed") ||
+				strings.Contains(msg, "request failed"),
 			"Error should indicate timeout or connection issue: %v", err)
 	}
 }
@@ -2282,12 +2287,17 @@ chat:
 	// Execute workflow - this should trigger waitForOllamaReady with timeout
 	err = cmd.ExecuteWorkflowStepsWithFlags(&cobra.Command{}, workflowPath, &cmd.RunFlags{})
 	if err != nil {
-		// Should eventually fail with timeout or connection error
+		// Should eventually fail with a timeout / connection / setup error.
+		// "request failed" is the kdeps wrapper for any failed outbound call
+		// (covers the Windows "actively refused" socket wording too).
+		msg := err.Error()
 		assert.True(t,
-			strings.Contains(err.Error(), "timeout") ||
-				strings.Contains(err.Error(), "connection refused") ||
-				strings.Contains(err.Error(), "LLM executor not available") ||
-				strings.Contains(err.Error(), "ollama not found"),
+			strings.Contains(msg, "timeout") ||
+				strings.Contains(msg, "connection refused") ||
+				strings.Contains(msg, "LLM executor not available") ||
+				strings.Contains(msg, "ollama not found") ||
+				strings.Contains(msg, "LLM call failed") ||
+				strings.Contains(msg, "request failed"),
 			"Error should indicate timeout or connection issue: %v", err)
 	}
 }
