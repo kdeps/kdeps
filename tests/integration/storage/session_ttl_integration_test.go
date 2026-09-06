@@ -36,10 +36,10 @@ func TestSessionStorage_TTL(t *testing.T) {
 	tmpDir := t.TempDir()
 	dbPath := filepath.Join(tmpDir, "sessions_ttl.db")
 
-	// Margin widened 3x (was 200ms/400ms) after observed flakes under heavy
-	// parallel test load, where scheduling/disk-commit jitter ate into the
-	// original tight window.
-	store, err := storage.NewSessionStorageWithTTL(dbPath, "ttl-test", 600*time.Millisecond)
+	// TTL 3s / wait 4s: sub-second TTLs flaked on a pathologically slow
+	// windows-latest run where a single test took 6s - the Set() bbolt commit
+	// plus scheduling jitter blew past the TTL before the assertion.
+	store, err := storage.NewSessionStorageWithTTL(dbPath, "ttl-test", 3*time.Second)
 	require.NoError(t, err)
 	defer store.Close()
 
@@ -58,7 +58,7 @@ func TestSessionStorage_TTL(t *testing.T) {
 	assert.NotNil(t, retrieved)
 
 	// Wait for TTL to expire
-	time.Sleep(1200 * time.Millisecond)
+	time.Sleep(4 * time.Second)
 
 	// Should no longer exist
 	retrieved, exists = store.Get(key)
@@ -114,10 +114,8 @@ func TestSessionStorage_Touch(t *testing.T) {
 	tmpDir := t.TempDir()
 	dbPath := filepath.Join(tmpDir, "sessions_touch.db")
 
-	// TTL widened and waits kept well clear of the expiry boundary (previous
-	// 600ms TTL / 300ms / 300ms landed the "still exists" check exactly at
-	// the boundary, which flaked under CI load) -- see TestSessionStorage_TTL.
-	store, err := storage.NewSessionStorageWithTTL(dbPath, "touch-test", 1000*time.Millisecond)
+	// 3s TTL / half-second steps / 4s final wait -- see TestSessionStorage_TTL.
+	store, err := storage.NewSessionStorageWithTTL(dbPath, "touch-test", 3*time.Second)
 	require.NoError(t, err)
 	defer store.Close()
 
@@ -128,21 +126,21 @@ func TestSessionStorage_Touch(t *testing.T) {
 	require.NoError(t, err)
 
 	// Wait (well under TTL)
-	time.Sleep(200 * time.Millisecond)
+	time.Sleep(500 * time.Millisecond)
 
 	// Touch to extend TTL by another full TTL
 	err = store.Touch(key)
 	require.NoError(t, err)
 
 	// Wait again (well under the extended TTL, generous margin before check)
-	time.Sleep(200 * time.Millisecond)
+	time.Sleep(500 * time.Millisecond)
 
 	// Should still exist
 	_, exists := store.Get(key)
 	assert.True(t, exists)
 
 	// Wait past the extended TTL with generous margin
-	time.Sleep(1500 * time.Millisecond)
+	time.Sleep(4 * time.Second)
 
 	// Should now be expired
 	_, exists = store.Get(key)
@@ -167,8 +165,8 @@ func TestSessionStorage_TouchWithTTL(t *testing.T) {
 	err = store.Set(key, value)
 	require.NoError(t, err)
 
-	// Margin widened 3x (was 200ms/400ms) -- see TestSessionStorage_TTL.
-	err = store.TouchWithTTL(key, 600*time.Millisecond)
+	// 3s TTL / 4s wait -- see TestSessionStorage_TTL.
+	err = store.TouchWithTTL(key, 3*time.Second)
 	require.NoError(t, err)
 
 	// Should exist immediately (Get() won't extend TTL since DefaultTTL is 0)
@@ -176,7 +174,7 @@ func TestSessionStorage_TouchWithTTL(t *testing.T) {
 	require.True(t, exists)
 
 	// Wait for TTL to expire
-	time.Sleep(1200 * time.Millisecond)
+	time.Sleep(4 * time.Second)
 
 	// Should be expired
 	_, exists = store.Get(key)
