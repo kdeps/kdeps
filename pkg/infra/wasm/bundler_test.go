@@ -692,6 +692,11 @@ func TestBundle_SettingsScript(t *testing.T) {
 	assert.Contains(t, string(settingsJS), `window.__KDEPS_SETTINGS = {"appName":"demo"`)
 	assert.Contains(t, string(settingsJS), "__kdepsSettingsEnv")
 	assert.Contains(t, string(settingsJS), "Send this page to")
+	// shared cross-app store + export/import + m365 base-URL handling
+	assert.Contains(t, string(settingsJS), "'kdeps.settings'")
+	assert.Contains(t, string(settingsJS), "Import machine settings")
+	assert.Contains(t, string(settingsJS), "kdeps-settings.json")
+	assert.Contains(t, string(settingsJS), "providerNeedsBaseURL")
 
 	indexHTML, err := os.ReadFile(filepath.Join(outputDir, "dist", "index.html"))
 	require.NoError(t, err)

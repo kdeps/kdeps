@@ -463,6 +463,45 @@ func TestExtractWASMSettings(t *testing.T) {
 	assert.Contains(t, out, `"backend":"openai"`)        // model catalog present
 }
 
+func TestExtractWASMSettings_M365Provider(t *testing.T) {
+	wf := &domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "x"}}
+	out, err := extractWASMSettings(wf)
+	require.NoError(t, err)
+	assert.Contains(t, out, `"name":"m365"`)
+	assert.Contains(t, out, `"baseURL":"http://localhost:11435/v1"`)
+}
+
+func TestExtractWASMSettings_MachineSettings(t *testing.T) {
+	cfgPath := filepath.Join(t.TempDir(), "config.yaml")
+	t.Setenv("KDEPS_CONFIG_PATH", cfgPath)
+	require.NoError(t, os.WriteFile(
+		cfgPath,
+		[]byte(
+			"llm:\n  backend: anthropic\n  base_url: http://localhost:9999/v1\n  models:\n    - claude-sonnet-4-6\n  openai_api_key: sk-should-not-leak\n",
+		),
+		0o600,
+	))
+
+	out, err := extractWASMSettings(&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "x"}})
+	require.NoError(t, err)
+	assert.Contains(t, out, `"machine":{`)
+	assert.Contains(t, out, `"backend":"anthropic"`)
+	assert.Contains(t, out, `"model":"claude-sonnet-4-6"`)
+	assert.Contains(t, out, `"baseURL":"http://localhost:9999/v1"`)
+	assert.NotContains(t, out, "sk-should-not-leak")
+}
+
+func TestExtractWASMSettings_MachineSettings_LocalBackendDropped(t *testing.T) {
+	cfgPath := filepath.Join(t.TempDir(), "config.yaml")
+	t.Setenv("KDEPS_CONFIG_PATH", cfgPath)
+	require.NoError(t, os.WriteFile(cfgPath,
+		[]byte("llm:\n  backend: gguf\n  models:\n    - qwen2.5:1.5b\n"), 0o600))
+
+	out, err := extractWASMSettings(&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "x"}})
+	require.NoError(t, err)
+	assert.NotContains(t, out, `"machine":`)
+}
+
 func TestExtractWASMSettings_Defaults(t *testing.T) {
 	wf := &domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "x"}}
 	out, err := extractWASMSettings(wf)

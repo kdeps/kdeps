@@ -85,7 +85,25 @@ type wasmSettingsProvider struct {
 	Name         string `json:"name"`
 	EnvVar       string `json:"envVar"`
 	DefaultModel string `json:"defaultModel"`
+	// BaseURL, when set, marks an OpenAI-compatible provider the viewer points
+	// at a local endpoint (m365 proxy, self-hosted). The drawer then shows a
+	// Base URL field instead of an API-key field.
+	BaseURL string `json:"baseURL,omitempty"`
 }
+
+// wasmMachineSettings is the build machine's own LLM defaults, embedded so the
+// drawer's "Import machine settings" button can adopt them in one click. It
+// carries no API keys - only the non-secret backend/model/base-URL defaults
+// from ~/.kdeps/config.yaml.
+type wasmMachineSettings struct {
+	Backend string `json:"backend,omitempty"`
+	Model   string `json:"model,omitempty"`
+	BaseURL string `json:"baseURL,omitempty"`
+}
+
+// m365WASMBaseURL is the placeholder shown for the m365 / local-proxy backend.
+// The real port is ephemeral, so this is only a hint the viewer overrides.
+const m365WASMBaseURL = "http://localhost:11435/v1"
 
 // wasmSettingsModel is one entry in the settings-drawer model datalist.
 type wasmSettingsModel struct {
@@ -103,6 +121,7 @@ type wasmSettingsConfig struct {
 	PromptFields  []string               `json:"promptFields"`
 	Providers     []wasmSettingsProvider `json:"providers"`
 	Models        []wasmSettingsModel    `json:"models"`
+	Machine       *wasmMachineSettings   `json:"machine,omitempty"`
 }
 
 var wasmGetRefRe = regexp.MustCompile(`get\(\s*['"]([a-zA-Z_][a-zA-Z0-9_]*)['"]`)
@@ -207,17 +226,63 @@ func extractWASMSettings(workflow *domain.Workflow) (string, error) {
 			Name: p.Name, EnvVar: p.EnvVar, DefaultModel: p.DefaultModel,
 		})
 	}
+	// m365 / local OpenAI-compatible proxy: browser-login, no API key. The
+	// viewer runs `kdeps` locally and points the drawer at its base URL.
+	cfg.Providers = append(cfg.Providers, wasmSettingsProvider{
+		Name: "m365", DefaultModel: "gpt-4o", BaseURL: m365WASMBaseURL,
+	})
 	for _, m := range executorLLM.KnownCloudModels {
 		cfg.Models = append(cfg.Models, wasmSettingsModel{
 			ID: m.ID, Backend: m.Backend, Desc: m.Desc,
 		})
 	}
+	cfg.Machine = wasmMachineSettingsFromConfig()
 
 	b, err := json.Marshal(cfg)
 	if err != nil {
 		return "", fmt.Errorf("failed to marshal WASM settings config: %w", err)
 	}
 	return string(b), nil
+}
+
+// wasmMachineSettingsFromConfig reads the build machine's ~/.kdeps/config.yaml
+// LLM defaults (backend, first model, base URL) so the drawer can offer them
+// via "Import machine settings". Returns nil when nothing useful is set. Never
+// reads API keys - a distributed WASM build must not carry credentials.
+func wasmMachineSettingsFromConfig() *wasmMachineSettings {
+	cfg, err := kdepsconfig.LoadStruct()
+	if err != nil || cfg == nil {
+		return nil
+	}
+	m := &wasmMachineSettings{
+		Backend: strings.TrimSpace(cfg.LLM.Backend),
+		BaseURL: strings.TrimSpace(cfg.LLM.BaseURL),
+	}
+	for _, entry := range cfg.LLM.Models {
+		if s := strings.TrimSpace(entry.Model); s != "" {
+			m.Model = s
+			break
+		}
+	}
+	// A WASM app can only reach a cloud provider or an OpenAI-compatible base
+	// URL. A machine set to a local backend (file/ollama/gguf...) with no base
+	// URL has nothing importable - drop it rather than offer a dead choice.
+	if m.BaseURL == "" && !wasmCloudBackend(m.Backend) {
+		return nil
+	}
+	if m.BaseURL == "" && m.Backend == "" && m.Model == "" {
+		return nil
+	}
+	return m
+}
+
+func wasmCloudBackend(name string) bool {
+	for _, p := range kdepsconfig.CloudLLMProviders() {
+		if p.Name == name {
+			return true
+		}
+	}
+	return false
 }
 
 func extractWorkflowAPIRoutes(workflow *domain.Workflow) []string {
