@@ -382,3 +382,46 @@ func LooksLikeConfabulation(text string) bool {
 func LooksLikeHallucinatedCompletion(text string) bool {
 	return toolguard.LooksLikeHallucinatedCompletion(text)
 }
+
+// sketchSentenceWords is the field count at which a "line" is prose, not an arg.
+const sketchSentenceWords = 4
+
+var sketchArgLineRe = regexp.MustCompile(
+	`^[ \t]*(` +
+		`[~/.][^ \t]*|` + // a path (absolute, ~-rooted, or ./ ../)
+		`\*\.[A-Za-z0-9]+|` + // a glob (*.go)
+		`\d{1,4}|` + // a bare count (max_results / limit)
+		`[A-Za-z0-9_.*|()\\-]*[.*|\\][A-Za-z0-9_.*|()\\-]*` + // a regex-ish token
+		`)[ \t]*$`,
+)
+
+// LooksLikeUnfencedToolSketch reports whether a reply is nothing but a short run
+// of bare tool-argument lines - the shape M365/Copilot emits when it means to
+// call a search/grep tool but writes the args as loose indented lines instead of
+// a fenced <invoke> block. Those lines are not an answer and must never reach
+// the user; the caller forces a retry. Conservative: only fires when the WHOLE
+// reply is 2-6 lines, every line is arg-like (path / glob / number / regex
+// token), none reads as a sentence, and there is no fence or markdown.
+func LooksLikeUnfencedToolSketch(text string) bool {
+	t := strings.TrimSpace(text)
+	if t == "" || strings.Contains(t, "```") || strings.Contains(t, "<invoke") {
+		return false
+	}
+	lines := strings.Split(t, "\n")
+	if len(lines) < 2 || len(lines) > 6 {
+		return false
+	}
+	argLike := 0
+	for _, ln := range lines {
+		if strings.TrimSpace(ln) == "" {
+			return false
+		}
+		if len(strings.Fields(ln)) >= sketchSentenceWords { // a real sentence, not an arg
+			return false
+		}
+		if sketchArgLineRe.MatchString(ln) {
+			argLike++
+		}
+	}
+	return argLike >= 2 && argLike == len(lines)
+}

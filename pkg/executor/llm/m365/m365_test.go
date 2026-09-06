@@ -631,6 +631,26 @@ func TestLooksLikeHallucinatedCompletion(t *testing.T) {
 	}
 }
 
+func TestLooksLikeUnfencedToolSketch(t *testing.T) {
+	// the exact shape from a live report: cwd / pattern / max_results
+	sketch := " /Users/joel/Projects/cursor/kdeps\n m365.*config\n 10"
+	if !LooksLikeUnfencedToolSketch(sketch) {
+		t.Error("loose tool-arg lines should be flagged")
+	}
+	if !LooksLikeUnfencedToolSketch("~/.kdeps/config.yaml\n*.go\n15") {
+		t.Error("path + glob + count should be flagged")
+	}
+	if LooksLikeUnfencedToolSketch("The config lives in ~/.config/kdeps/m365/ on disk.") {
+		t.Error("a real sentence must not be flagged")
+	}
+	if LooksLikeUnfencedToolSketch("```\ngrep foo\n```") {
+		t.Error("a fenced block must not be flagged")
+	}
+	if LooksLikeUnfencedToolSketch("/only/one/line") {
+		t.Error("a single line is not a sketch")
+	}
+}
+
 func TestIsProseDocument(t *testing.T) {
 	doc := ParseResult{
 		HasToolCalls: true,
