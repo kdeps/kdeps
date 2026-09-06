@@ -73,10 +73,10 @@ else
     test_failed "page-summarizer - chat model follows the system / setup screen" "chat:/model: system missing in $RES_SUM"
 fi
 
-if grep -q "KDEPS_DEFAULT_BACKEND: openai" "$WF"; then
+if grep -q "KDEPS_DEFAULT_BACKEND: anthropic" "$WF"; then
     test_passed "page-summarizer - cloud backend for WASM"
 else
-    test_failed "page-summarizer - cloud backend for WASM" "KDEPS_DEFAULT_BACKEND: openai missing in $WF"
+    test_failed "page-summarizer - cloud backend for WASM" "KDEPS_DEFAULT_BACKEND: anthropic missing in $WF"
 fi
 
 if grep -q "KDEPS_WASM_CAPTURE" "$WF"; then

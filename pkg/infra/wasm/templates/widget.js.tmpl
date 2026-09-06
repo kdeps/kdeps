@@ -248,10 +248,19 @@
         maybeAutoRun();
         return true;
     }
+    var clipCaptured = false;
+    // Read the clipboard ONLY when permission is already granted - a readText()
+    // call while permission is "prompt" pops a dialog on every focus, and the
+    // file:// grant never sticks, so it loops. postMessage + window.name are
+    // the primary transports anyway.
     function readClipboard() {
-        if (OVERLAY || !navigator.clipboard || !navigator.clipboard.readText) return;
-        navigator.clipboard.readText().then(function (raw) {
-            try { applyPayload(JSON.parse(raw)); } catch (e) {}
+        if (OVERLAY || clipCaptured || !navigator.clipboard || !navigator.clipboard.readText) return;
+        if (!navigator.permissions || !navigator.permissions.query) return;
+        navigator.permissions.query({ name: 'clipboard-read' }).then(function (p) {
+            if (p.state !== 'granted') return;
+            navigator.clipboard.readText().then(function (raw) {
+                try { if (applyPayload(JSON.parse(raw))) clipCaptured = true; } catch (e) {}
+            }).catch(function () {});
         }).catch(function () {});
     }
     if (!OVERLAY) {

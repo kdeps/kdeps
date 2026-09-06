@@ -349,11 +349,11 @@ func TestConvertOpenAIResponse_EmptyChoices(t *testing.T) {
 	require.NoError(t, err)
 	defer resp.Body.Close()
 
-	parsed, err := backend.ParseResponse(resp)
-	require.NoError(t, err)
-	// Should not have message when choices is empty
-	_, hasMessage := parsed["message"]
-	assert.False(t, hasMessage)
+	// A 200 body with no usable message is now an error, not a silent
+	// message-less map that blows up later template evaluation.
+	_, err = backend.ParseResponse(resp)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "no message content")
 }
 
 func TestConvertOpenAIResponse_InvalidChoice(t *testing.T) {
@@ -373,9 +373,7 @@ func TestConvertOpenAIResponse_InvalidChoice(t *testing.T) {
 	require.NoError(t, err)
 	defer resp.Body.Close()
 
-	parsed, err := backend.ParseResponse(resp)
-	require.NoError(t, err)
-	// Should handle invalid choice gracefully
-	_, hasMessage := parsed["message"]
-	assert.False(t, hasMessage)
+	_, err = backend.ParseResponse(resp)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "no message content")
 }

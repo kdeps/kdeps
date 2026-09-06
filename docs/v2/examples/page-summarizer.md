@@ -63,7 +63,7 @@ settings:
   agentSettings:
     timezone: UTC
     env:
-      KDEPS_DEFAULT_BACKEND: openai        # default; the drawer can switch it
+      KDEPS_DEFAULT_BACKEND: anthropic     # browser CORS: Anthropic works client-side, OpenAI does not; the drawer can switch it
       KDEPS_WASM_CAPTURE: "url,title,text"  # add the "send this page" bookmarklet
 ```
 

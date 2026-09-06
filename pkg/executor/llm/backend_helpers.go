@@ -192,7 +192,29 @@ func parseOpenAICompatHTTPResponse(
 		return nil, err
 	}
 
-	return convertOpenAICompatResponse(response), nil
+	return ensureMessageResult(convertOpenAICompatResponse(response), response, apiName)
+}
+
+// ensureMessageResult turns a converted response that carries no assistant
+// message into an error, surfacing the API's own error text when present
+// ({"error":{"message":...}} for OpenAI/Anthropic). Without this a 200 body
+// that is an error payload, empty, or content-filtered would flow downstream
+// as a message-less map and blow up later template evaluation with a cryptic
+// "<nil>" (e.g. get('chat').message.content).
+func ensureMessageResult(
+	result, raw map[string]interface{}, apiName string,
+) (map[string]interface{}, error) {
+	if _, ok := result[jsonFieldMessage]; ok {
+		return result, nil
+	}
+	if e, ok := raw["error"].(map[string]interface{}); ok {
+		if msg, _ := e["message"].(string); msg != "" {
+			return nil, fmt.Errorf("%s returned an error: %s", apiName, msg)
+		}
+	}
+	return nil, fmt.Errorf(
+		"%s returned no message content - the request may have been blocked "+
+			"(CORS in a browser build), rejected, or content-filtered", apiName)
 }
 
 // parseLocalServerResponse decodes a local model server HTTP response.
@@ -207,7 +229,7 @@ func parseLocalServerResponse(resp *stdhttp.Response, serverLabel string) (map[s
 	if err := json.NewDecoder(resp.Body).Decode(&response); err != nil {
 		return nil, fmt.Errorf("failed to decode %s response: %w", serverLabel, err)
 	}
-	return convertOpenAICompatResponse(response), nil
+	return ensureMessageResult(convertOpenAICompatResponse(response), response, serverLabel)
 }
 
 // resolveAPIKey returns apiKey or falls back to the named environment variable.

@@ -1295,7 +1295,7 @@ func TestPageSummarizerExample_WASMAllowlist(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, "page-summarizer", workflow.Metadata.Name)
 	assert.Equal(t, "response", workflow.Metadata.TargetActionID)
-	assert.Equal(t, "openai", workflow.Settings.AgentSettings.Env["KDEPS_DEFAULT_BACKEND"])
+	assert.Equal(t, "anthropic", workflow.Settings.AgentSettings.Env["KDEPS_DEFAULT_BACKEND"])
 
 	require.NoError(t, domain.ValidateWASMWorkflow(workflow))
 

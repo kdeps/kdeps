@@ -54,13 +54,25 @@ Every `--wasm` app ships a settings drawer (a gear button, top-right). The viewe
 - **`--wasm-embed-secrets`** additionally bakes this machine's real credentials into that same "Import machine settings" data: every cloud API key from `~/.kdeps/config.yaml` (`*_api_key`), and the m365 auth from `~/.config/kdeps/m365/token-cache.json` + `secrets.json`. Importing loads the keys per backend; m365 auth is replayed as `M365_TOKEN_CACHE_JSON` / `M365_SECRETS_JSON` when the m365 backend is selected. Off by default: **the build then contains real credentials - do not commit or share it.** A build-time warning is printed.
 - **`m365` backend.** Selecting `m365` (or any local OpenAI-compatible proxy) swaps the API-key field for a **Base URL** field. The env becomes `KDEPS_DEFAULT_BACKEND=openai` + `KDEPS_LLM_BASE_URL=<url>`. Run `kdeps` locally so the proxy is up; point the field at its address.
 
+### Browser CORS
+
+A WASM app calls the LLM API straight from the page, so the provider must allow browser origins:
+
+| Backend | Works client-side? |
+| --- | --- |
+| `anthropic` | **Yes** - kdeps sends `anthropic-dangerous-direct-browser-access`. |
+| `m365` / local proxy | Yes - it is your own `http://localhost` endpoint. |
+| `openai`, `google`, `groq`, ... | **No** - these APIs send no CORS headers; the call fails. Use a proxy (point the `m365` Base URL field at it) or run the workflow non-WASM. |
+
+The failed call surfaces as a clear resource error ("...returned no message content - the request may have been blocked (CORS in a browser build)..."), not a cryptic `<nil>`.
+
 So a WASM resource can just defer everything to the drawer:
 
 ```yaml
 settings:
   agentSettings:
     env:
-      KDEPS_DEFAULT_BACKEND: openai   # first-load default; the drawer changes it
+      KDEPS_DEFAULT_BACKEND: anthropic  # first-load default; the drawer changes it (see Browser CORS above)
 chat:
   backend: system                    # follow the drawer
   model: system                      # follow the drawer

@@ -166,12 +166,27 @@ func TestFileBackend_ParseResponse_EmptyChoices(t *testing.T) {
 		StatusCode: http.StatusOK,
 		Body:       io.NopCloser(strings.NewReader(body)),
 	}
-	result, err := b.ParseResponse(resp)
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
+	// A 200 body with no usable message is an error, not a silent message-less
+	// result that blows up later template evaluation with a cryptic <nil>.
+	_, err := b.ParseResponse(resp)
+	if err == nil {
+		t.Fatal("expected an error for a response with no message")
 	}
-	if result["message"] != nil {
-		t.Errorf("expected no message for empty choices, got %v", result["message"])
+	if !strings.Contains(err.Error(), "no message content") {
+		t.Errorf("error should explain the missing message, got: %v", err)
+	}
+}
+
+func TestFileBackend_ParseResponse_APIError(t *testing.T) {
+	b := newFileBackend()
+	body := `{"error":{"message":"invalid api key"}}`
+	resp := &http.Response{
+		StatusCode: http.StatusOK,
+		Body:       io.NopCloser(strings.NewReader(body)),
+	}
+	_, err := b.ParseResponse(resp)
+	if err == nil || !strings.Contains(err.Error(), "invalid api key") {
+		t.Errorf("expected the API error text surfaced, got: %v", err)
 	}
 }
 

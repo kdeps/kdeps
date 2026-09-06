@@ -403,11 +403,37 @@ window.__KDEPS_SETTINGS = {{.ConfigJSON}};
         return true;
     }
 
+    var clipboardCaptured = false;
+    var lastClipboardRead = 0;
+
+    // Only read the clipboard when the browser has ALREADY granted permission.
+    // Calling readText() while permission is "prompt" pops a dialog on every
+    // focus - and on file:// the grant never sticks, so it loops forever.
     function readClipboard() {
+        if (clipboardCaptured) return;
         if (!navigator.clipboard || !navigator.clipboard.readText) return;
-        navigator.clipboard.readText().then(function (raw) {
-            try { applyPayload(JSON.parse(raw)); } catch (e) { /* not ours */ }
-        }).catch(function () { /* denied */ });
+        var now = Date.now();
+        if (now - lastClipboardRead < 2000) return;
+        lastClipboardRead = now;
+
+        function attempt() {
+            navigator.clipboard.readText().then(function (raw) {
+                try {
+                    if (applyPayload(JSON.parse(raw))) {
+                        clipboardCaptured = true;
+                        window.removeEventListener('focus', readClipboard);
+                    }
+                } catch (e) { /* not ours */ }
+            }).catch(function () { /* denied - stop trying */ });
+        }
+
+        if (navigator.permissions && navigator.permissions.query) {
+            navigator.permissions.query({ name: 'clipboard-read' }).then(function (p) {
+                if (p.state === 'granted') attempt();
+                // state "prompt" / "denied": do nothing, never pop the dialog.
+            }).catch(function () { /* Permissions API missing this name - skip */ });
+        }
+        // No Permissions API: skip entirely rather than risk the prompt loop.
     }
 
     function isWidgetMode() {

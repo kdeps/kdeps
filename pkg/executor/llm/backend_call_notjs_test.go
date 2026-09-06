@@ -62,6 +62,8 @@ func TestApplyBackendAuthHeaders(t *testing.T) {
 	require.NoError(t, err)
 	applyBackendAuthHeaders(req2, &AnthropicBackend{}, "sk-ant")
 	assert.Equal(t, "2023-06-01", req2.Header.Get("Anthropic-Version"))
+	// Needed so an Anthropic call from a WASM (browser) build clears CORS.
+	assert.Equal(t, "true", req2.Header.Get("Anthropic-Dangerous-Direct-Browser-Access"))
 }
 
 func TestCallBackendWithEndpoint_Errors(t *testing.T) {

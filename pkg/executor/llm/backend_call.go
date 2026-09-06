@@ -80,6 +80,11 @@ func applyBackendAuthHeaders(req *stdhttp.Request, backend Backend, apiKey strin
 
 	if backend.Name() == backendAnthropic {
 		req.Header.Set("Anthropic-Version", "2023-06-01")
+		// Let the request through Anthropic's CORS layer when kdeps runs inside
+		// a browser (WASM build). Harmless server-side. The key-exposure risk it
+		// names is the WASM drawer's explicit model - the viewer supplies their
+		// own key.
+		req.Header.Set("Anthropic-Dangerous-Direct-Browser-Access", "true")
 	}
 }
 

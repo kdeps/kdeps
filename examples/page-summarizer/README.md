@@ -25,8 +25,10 @@ site - `cd page-summarizer-wasm && npm run server`). `--wasm=standalone` or
 ## Use
 
 1. Double-click `page-summarizer.html` (Finder / Explorer). No kdeps, no server.
-2. Click the gear (top-right). Pick a backend (OpenAI, Anthropic, Groq, ...),
-   a model, and paste an API key. It is stored only in this browser.
+2. Click the gear (top-right). Pick a backend, a model, and paste an API key
+   (stored only in this browser). **Use Anthropic** - a browser page can call
+   Anthropic directly; OpenAI/Groq/etc. block browser origins (CORS). Or pick
+   `m365` and point it at a local proxy.
 3. Drag **Send this page to page-summarizer** onto the bookmarks bar.
 4. Open any article, click the bookmark. The summarizer opens (or focuses) and
    runs automatically.
