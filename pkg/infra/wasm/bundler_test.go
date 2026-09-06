@@ -759,3 +759,32 @@ func TestBundle_BookmarkletBundle_ServerOnly(t *testing.T) {
 	_, err = os.Stat(build("html"))
 	assert.True(t, os.IsNotExist(err))
 }
+
+func TestBundle_ServeFiles_ServerOnly(t *testing.T) {
+	dist := func(output string) string {
+		tmpDir := t.TempDir()
+		wasmFile := filepath.Join(tmpDir, "kdeps.wasm")
+		wasmExecFile := filepath.Join(tmpDir, "wasm_exec.js")
+		outputDir := filepath.Join(tmpDir, "output")
+		require.NoError(t, os.WriteFile(wasmFile, []byte("w"), 0644))
+		require.NoError(t, os.WriteFile(wasmExecFile, []byte("j"), 0644))
+		require.NoError(t, wasm.Bundle(&wasm.BundleConfig{
+			WASMBinaryPath: wasmFile, WASMExecJSPath: wasmExecFile,
+			WorkflowYAML: "apiVersion: kdeps.io/v1", OutputDir: outputDir, Output: output,
+		}))
+		return filepath.Join(outputDir, "dist")
+	}
+
+	server := dist(wasm.OutputServer)
+	for _, f := range []string{"package.json", "serve.json", "serve.sh"} {
+		assert.FileExists(t, filepath.Join(server, f))
+	}
+	pkg, err := os.ReadFile(filepath.Join(server, "package.json"))
+	require.NoError(t, err)
+	assert.Contains(t, string(pkg), `"server"`)
+
+	for _, f := range []string{"package.json", "serve.json", "serve.sh"} {
+		_, statErr := os.Stat(filepath.Join(dist("html"), f))
+		assert.True(t, os.IsNotExist(statErr), f)
+	}
+}

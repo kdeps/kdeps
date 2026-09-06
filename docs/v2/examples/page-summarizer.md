@@ -149,10 +149,9 @@ The full file is in [`examples/page-summarizer/data/public/index.html`](https://
 
 ```bash
 kdeps bundle build . --wasm
-# default --wasm-output html
 ```
 
-That writes `page-summarizer.html` next to the workflow. Double-click it. No Docker, no `http.server`. Use `--wasm-output server` if you want `{name}-wasm/` plus an nginx image.
+Bare `--wasm` writes both `page-summarizer.html` (double-click it, no server) and `page-summarizer-wasm/` (a served site - `cd page-summarizer-wasm && npm run server`). No Docker needed. Use `--wasm=standalone` or `--wasm=server` for just one.
 
 1. Click the gear, pick a backend + model, paste an API key
 2. Drag **Send this page to page-summarizer** onto the bookmarks bar

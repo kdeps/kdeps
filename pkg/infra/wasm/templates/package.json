@@ -1,0 +1,7 @@
+{
+  "private": true,
+  "description": "kdeps WASM app - static site. `npm run server` serves it locally.",
+  "scripts": {
+    "server": "npx --yes serve@latest --listen 3000 ."
+  }
+}

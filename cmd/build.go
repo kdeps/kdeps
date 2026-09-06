@@ -53,8 +53,9 @@ type BuildFlags struct {
 	ShowDockerfile bool
 	GPU            string
 	NoCache        bool
-	WASM           bool
-	WASMOutput     string
+	// WASM selects the browser build: "" / "none" = no WASM, "standalone" = one
+	// HTML file, "server" = a served static site, "both" (bare --wasm) = both.
+	WASM string
 }
 
 // newBuildCmd creates the build command.
@@ -116,11 +117,12 @@ Examples:
   # Build without cache
   kdeps build examples/chatbot --no-cache
 
-  # WASM: one HTML file (default)
+  # WASM: build both a standalone HTML file and a served site
   kdeps build examples/page-summarizer --wasm
 
-  # WASM: static site + nginx image
-  kdeps build examples/page-summarizer --wasm --wasm-output server`,
+  # WASM: just one of them
+  kdeps build examples/page-summarizer --wasm=standalone
+  kdeps build examples/page-summarizer --wasm=server`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return BuildImageWithFlagsInternal(cmd, args, flags)
@@ -134,10 +136,10 @@ Examples:
 		StringVar(&flags.GPU, "gpu", "", "GPU type for backend (cuda, rocm, intel, vulkan). Auto-selects Ubuntu.")
 	buildCmd.Flags().
 		BoolVar(&flags.NoCache, "no-cache", false, "Do not use cache when building the image")
-	buildCmd.Flags().
-		BoolVar(&flags.WASM, "wasm", false, "Compile a browser WASM app")
-	buildCmd.Flags().
-		StringVar(&flags.WASMOutput, "wasm-output", "html", "WASM output: html (one file, no server) or server (static site + nginx image)")
+	buildCmd.Flags().StringVar(&flags.WASM, "wasm", "",
+		"Compile a browser WASM app: 'standalone' (one HTML file), 'server' "+
+			"(served static site), or bare --wasm for both")
+	buildCmd.Flags().Lookup("wasm").NoOptDefVal = wasmTargetBoth
 
 	return buildCmd
 }

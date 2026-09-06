@@ -342,7 +342,7 @@ func stubBundleWriteIndex(next func(*wasmPkg.BundleConfig) error) {
 }
 
 func TestBuildWASMImage_InvalidPath(t *testing.T) {
-	err := buildWASMImage(context.Background(), "/nonexistent/test/path", &BuildFlags{})
+	err := buildWASMImage(context.Background(), "/nonexistent/test/path", &BuildFlags{WASM: "standalone"})
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "failed to access path")
 }
@@ -355,7 +355,7 @@ func TestBuildWASMImage_InvalidWorkflow(t *testing.T) {
 		0644,
 	))
 
-	err := buildWASMImage(context.Background(), tmpDir, &BuildFlags{})
+	err := buildWASMImage(context.Background(), tmpDir, &BuildFlags{WASM: "standalone"})
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "failed to parse workflow")
 }
@@ -378,7 +378,7 @@ func TestBuildWASMImage_MissingWASMBinary(t *testing.T) {
 	t.Cleanup(func() { osExecutable = origExe })
 	osExecutable = func() (string, error) { return filepath.Join(tmpDir, "kdeps"), nil }
 
-	err = buildWASMImage(context.Background(), tmpDir, &BuildFlags{})
+	err = buildWASMImage(context.Background(), tmpDir, &BuildFlags{WASM: "standalone"})
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "kdeps.wasm not found")
 	assert.Contains(t, err.Error(), "compile failed")
@@ -416,7 +416,7 @@ func TestBuildWASMImage_CompilesWhenMissing(t *testing.T) {
 	t.Cleanup(func() { osExecutable = origExe })
 	osExecutable = func() (string, error) { return filepath.Join(tmpDir, "kdeps"), nil }
 
-	err := buildWASMImage(context.Background(), tmpDir, &BuildFlags{})
+	err := buildWASMImage(context.Background(), tmpDir, &BuildFlags{WASM: "standalone"})
 	require.NoError(t, err)
 	assert.FileExists(t, filepath.Join(tmpDir, "test-wasm-workflow.html"))
 }
@@ -439,7 +439,7 @@ func TestBuildWASMImage_Success(t *testing.T) {
 	require.NoError(t, os.MkdirAll(dataDir, 0755))
 	require.NoError(t, os.WriteFile(filepath.Join(dataDir, "index.html"), []byte("<html/>"), 0644))
 
-	err := buildWASMImage(context.Background(), tmpDir, &BuildFlags{})
+	err := buildWASMImage(context.Background(), tmpDir, &BuildFlags{WASM: "standalone"})
 	require.NoError(t, err)
 	assert.FileExists(t, filepath.Join(tmpDir, "test-wasm-workflow.html"))
 }
@@ -457,7 +457,7 @@ func TestBuildWASMImage_MissingBundledIndex(t *testing.T) {
 	createMinimalWASMWorkflow(t, tmpDir)
 	setupWASMEnv(t, tmpDir)
 
-	err := buildWASMImage(context.Background(), tmpDir, &BuildFlags{})
+	err := buildWASMImage(context.Background(), tmpDir, &BuildFlags{WASM: "standalone"})
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "failed to read bundled index.html")
 }
@@ -476,16 +476,16 @@ func TestBuildWASMImage_BundleError(t *testing.T) {
 	createMinimalWASMWorkflow(t, tmpDir)
 	setupWASMEnv(t, tmpDir)
 
-	err := buildWASMImage(context.Background(), tmpDir, &BuildFlags{})
+	err := buildWASMImage(context.Background(), tmpDir, &BuildFlags{WASM: "standalone"})
 	require.Error(t, err)
 	assert.ErrorIs(t, err, sentinel)
 	assert.Contains(t, err.Error(), "WASM bundling failed")
 }
 
 func TestBuildWASMImage_InvalidOutput(t *testing.T) {
-	err := buildWASMImage(context.Background(), t.TempDir(), &BuildFlags{WASMOutput: "nope"})
+	err := buildWASMImage(context.Background(), t.TempDir(), &BuildFlags{WASM: "nope"})
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "--wasm-output must be html or server")
+	assert.Contains(t, err.Error(), "--wasm must be standalone, server, or bare")
 }
 
 func TestBuildWASMImage_ServerCallsDocker(t *testing.T) {
@@ -505,7 +505,8 @@ func TestBuildWASMImage_ServerCallsDocker(t *testing.T) {
 	createMinimalWASMWorkflow(t, tmpDir)
 	setupWASMEnv(t, tmpDir)
 
-	err := buildWASMImage(context.Background(), tmpDir, &BuildFlags{WASMOutput: "server"})
+	// Docker only fires when a --tag is given.
+	err := buildWASMImage(context.Background(), tmpDir, &BuildFlags{WASM: "server", Tag: "demo/wasm:1"})
 	require.NoError(t, err)
 	assert.True(t, dockerCalled)
 	assert.DirExists(t, filepath.Join(tmpDir, "test-wasm-workflow-wasm"))
@@ -528,7 +529,7 @@ func TestBuildWASMImage_SkipsDocker(t *testing.T) {
 	createMinimalWASMWorkflow(t, tmpDir)
 	setupWASMEnv(t, tmpDir)
 
-	err := buildWASMImage(context.Background(), tmpDir, &BuildFlags{})
+	err := buildWASMImage(context.Background(), tmpDir, &BuildFlags{WASM: "standalone"})
 	require.NoError(t, err)
 	assert.False(t, dockerCalled)
 	assert.FileExists(t, filepath.Join(tmpDir, "test-wasm-workflow.html"))
@@ -551,7 +552,7 @@ func TestBuildWASMImage_WithAPIRoutes(t *testing.T) {
 	createWASMWorkflowWithAPIRoutes(t, tmpDir)
 	setupWASMEnv(t, tmpDir)
 
-	err := buildWASMImage(context.Background(), tmpDir, &BuildFlags{})
+	err := buildWASMImage(context.Background(), tmpDir, &BuildFlags{WASM: "standalone"})
 	require.NoError(t, err)
 	require.NotNil(t, capturedConfig)
 	assert.Equal(t, []string{"/api/v1/chat", "/api/v1/status"}, capturedConfig.APIRoutes)
@@ -921,7 +922,7 @@ func TestBuildWASMImage_MissingWASMExecJS(t *testing.T) {
 	}
 	t.Setenv("GOROOT", "/nonexistent-goroot")
 
-	err := buildWASMImage(context.Background(), tmpDir, &BuildFlags{})
+	err := buildWASMImage(context.Background(), tmpDir, &BuildFlags{WASM: "standalone"})
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "wasm_exec.js not found")
 }
@@ -949,7 +950,7 @@ func TestBuildWASMImage_CollectWebServerFilesError(t *testing.T) {
 	require.NoError(t, os.Chmod(dataDir, 0000))
 	t.Cleanup(func() { _ = os.Chmod(dataDir, 0755) })
 
-	err := buildWASMImage(context.Background(), tmpDir, &BuildFlags{})
+	err := buildWASMImage(context.Background(), tmpDir, &BuildFlags{WASM: "standalone"})
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "failed to collect web server files")
 }
@@ -975,7 +976,7 @@ func TestBuildWASMImage_MkdirTempError(t *testing.T) {
 		t.Setenv("TEMP", "/nonexistent-mkdir-tmp")
 	}
 
-	err := buildWASMImage(context.Background(), tmpDir, &BuildFlags{})
+	err := buildWASMImage(context.Background(), tmpDir, &BuildFlags{WASM: "standalone"})
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "failed to create output directory")
 }
@@ -1001,7 +1002,7 @@ func TestBuildWASMImage_WithKdepsPackage(t *testing.T) {
 
 	// Calling buildWASMImage with a .kdeps file triggers the cleanup
 	// function returned by resolveBuildWorkflowPaths.
-	err := buildWASMImage(context.Background(), pkgPath, &BuildFlags{})
+	err := buildWASMImage(context.Background(), pkgPath, &BuildFlags{WASM: "standalone"})
 	require.NoError(t, err)
 }
 

@@ -61,7 +61,7 @@ func attachPrepackagedBinaries(
 // buildImageInternal executes the build command with flags parameter.
 func buildImageInternal(cmd *cobra.Command, args []string, flags *BuildFlags) error {
 	kdeps_debug.Log("enter: buildImageInternal")
-	if flags.WASM {
+	if wasmRequested(flags.WASM) {
 		return buildWASMImage(cmd.Context(), args[0], flags)
 	}
 

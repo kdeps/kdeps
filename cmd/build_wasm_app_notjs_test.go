@@ -36,24 +36,40 @@ import (
 	"github.com/kdeps/kdeps/v2/pkg/domain"
 )
 
-func TestNormalizeWASMOutput(t *testing.T) {
-	html, err := normalizeWASMOutput("")
+func TestWasmTargetsFromFlags(t *testing.T) {
+	cases := []struct {
+		in   string
+		want []string
+	}{
+		{"", nil},
+		{"none", nil},
+		{"standalone", []string{wasmOutputHTML}},
+		{"HTML", []string{wasmOutputHTML}},
+		{"server", []string{wasmOutputServer}},
+		{"nginx", []string{wasmOutputServer}},
+		{"both", []string{wasmOutputHTML, wasmOutputServer}},
+	}
+	for _, c := range cases {
+		got, err := wasmTargetsFromFlags(&BuildFlags{WASM: c.in})
+		require.NoError(t, err, c.in)
+		assert.Equal(t, c.want, got, c.in)
+	}
+
+	got, err := wasmTargetsFromFlags(nil)
 	require.NoError(t, err)
-	assert.Equal(t, wasmOutputHTML, html)
-	html, err = normalizeWASMOutput("HTML")
-	require.NoError(t, err)
-	assert.Equal(t, wasmOutputHTML, html)
-	server, err := normalizeWASMOutput("nginx")
-	require.NoError(t, err)
-	assert.Equal(t, wasmOutputServer, server)
-	_, err = normalizeWASMOutput("nope")
+	assert.Nil(t, got)
+
+	_, err = wasmTargetsFromFlags(&BuildFlags{WASM: "nope"})
 	require.Error(t, err)
+	assert.Contains(t, err.Error(), "--wasm must be standalone, server, or bare")
 }
 
-func TestWasmOutputFromFlags_Nil(t *testing.T) {
-	got, err := wasmOutputFromFlags(nil)
-	require.NoError(t, err)
-	assert.Equal(t, wasmOutputHTML, got)
+func TestWasmRequested(t *testing.T) {
+	assert.False(t, wasmRequested(""))
+	assert.False(t, wasmRequested("none"))
+	assert.True(t, wasmRequested("both"))
+	assert.True(t, wasmRequested("standalone"))
+	assert.True(t, wasmRequested("server"))
 }
 
 func TestWasmStandaloneHTMLName(t *testing.T) {
@@ -135,7 +151,7 @@ func TestBuildWASMImage_MarshalError(t *testing.T) {
 	require.NoError(t, os.WriteFile(filepath.Join(tmp, "wasm_exec.js"), []byte("js"), 0644))
 	cmd := &cobra.Command{}
 	cmd.SetContext(context.Background())
-	err := buildImageInternal(cmd, []string{tmp}, &BuildFlags{WASM: true})
+	err := buildImageInternal(cmd, []string{tmp}, &BuildFlags{WASM: "standalone"})
 	require.Error(t, err)
 }
 
@@ -159,7 +175,7 @@ resources:
 	require.NoError(t, os.WriteFile(filepath.Join(tmp, "workflow.yaml"), []byte(yaml), 0644))
 	cmd := &cobra.Command{}
 	cmd.SetContext(context.Background())
-	err := buildImageInternal(cmd, []string{tmp}, &BuildFlags{WASM: true})
+	err := buildImageInternal(cmd, []string{tmp}, &BuildFlags{WASM: "standalone"})
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "sql")
 }

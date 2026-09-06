@@ -41,26 +41,43 @@ import (
 )
 
 const (
+	// Bundle Output values (what the bundler distinguishes on).
 	wasmOutputHTML   = "html"
 	wasmOutputServer = "server"
+
+	// --wasm flag values.
+	wasmTargetBoth = "both"
+
+	wasmFilePerm os.FileMode = 0o600
+	wasmExecPerm os.FileMode = 0o755
+	wasmExecBits os.FileMode = 0o111
 )
 
-func normalizeWASMOutput(s string) (string, error) {
-	switch strings.ToLower(strings.TrimSpace(s)) {
-	case "", wasmOutputHTML, "standalone", "file":
-		return wasmOutputHTML, nil
-	case wasmOutputServer, "site", "docker", "nginx":
-		return wasmOutputServer, nil
-	default:
-		return "", fmt.Errorf("--wasm-output must be html or server, got %q", s)
-	}
+// wasmRequested reports whether --wasm asked for any browser build.
+func wasmRequested(v string) bool {
+	v = strings.ToLower(strings.TrimSpace(v))
+	return v != "" && v != "none"
 }
 
-func wasmOutputFromFlags(flags *BuildFlags) (string, error) {
-	if flags == nil {
-		return wasmOutputHTML, nil
+// wasmTargetsFromFlags turns the --wasm value into the ordered list of bundle
+// Output values to produce.
+func wasmTargetsFromFlags(flags *BuildFlags) ([]string, error) {
+	v := ""
+	if flags != nil {
+		v = strings.ToLower(strings.TrimSpace(flags.WASM))
 	}
-	return normalizeWASMOutput(flags.WASMOutput)
+	switch v {
+	case "", "none":
+		return nil, nil
+	case wasmTargetBoth, "all":
+		return []string{wasmOutputHTML, wasmOutputServer}, nil
+	case "standalone", wasmOutputHTML, "file":
+		return []string{wasmOutputHTML}, nil
+	case wasmOutputServer, "site", "docker", "nginx":
+		return []string{wasmOutputServer}, nil
+	default:
+		return nil, fmt.Errorf("--wasm must be standalone, server, or bare (both), got %q", flags.WASM)
+	}
 }
 
 // wasmSettingsProvider is one entry in the settings-drawer backend dropdown.
@@ -263,22 +280,15 @@ func printWASMHTMLSuccess(htmlPath string) {
 
 func printWASMServerSuccess(distDir, imageTag string) {
 	fmt.Fprintln(os.Stdout)
-	fmt.Fprintln(os.Stdout, "WASM server app built successfully!")
+	fmt.Fprintln(os.Stdout, "WASM served app built successfully!")
 	if distDir != "" {
-		fmt.Fprintf(os.Stdout, "  Site: %s\n", distDir)
-		fmt.Fprintln(os.Stdout, "  Serve that folder over HTTP (needs kdeps.wasm next to index.html).")
+		fmt.Fprintf(os.Stdout, "  Site:   %s\n", distDir)
+		fmt.Fprintf(os.Stdout, "  Serve:  cd %s && npm run server   # or: ./serve.sh\n", filepath.Base(distDir))
+		fmt.Fprintln(os.Stdout, "          then open http://localhost:3000")
 	}
 	if imageTag != "" {
-		fmt.Fprintf(os.Stdout, "  Image: %s\n", imageTag)
-		fmt.Fprintf(os.Stdout, "  docker run -p 80:80 %s\n", imageTag)
+		fmt.Fprintf(os.Stdout, "  Image:  %s   (docker run -p 80:80 %s)\n", imageTag, imageTag)
 	}
-}
-
-func resolveWASMImageTag(tag string) string {
-	if tag != "" {
-		return tag
-	}
-	return "kdeps-wasm:latest"
 }
 
 func wasmServerDistPath(packagePath, name string) string {
@@ -315,7 +325,11 @@ func copyWASMDir(src, dst string) error {
 		if readErr != nil {
 			return readErr
 		}
-		if writeErr := os.WriteFile(to, data, 0600); writeErr != nil {
+		mode := wasmFilePerm
+		if info, statErr := entry.Info(); statErr == nil && info.Mode()&wasmExecBits != 0 {
+			mode = wasmExecPerm // preserve the exec bit (serve.sh)
+		}
+		if writeErr := os.WriteFile(to, data, mode); writeErr != nil {
 			return writeErr
 		}
 	}
@@ -410,15 +424,18 @@ func resolveWASMBinary(ctx context.Context, compileDest string) (string, error) 
 	return compileDest, nil
 }
 
-// buildWASMImage compiles kdeps.wasm and writes either a standalone HTML file
-// (--wasm-output html) or a static site + nginx image (--wasm-output server).
+// buildWASMImage compiles kdeps.wasm and writes the browser build(s) the
+// --wasm value asked for: a standalone HTML file, a served static site, or both.
 func buildWASMImage(ctx context.Context, packagePath string, flags *BuildFlags) error {
 	kdeps_debug.Log("enter: buildWASMImage")
-	output, err := wasmOutputFromFlags(flags)
+	targets, err := wasmTargetsFromFlags(flags)
 	if err != nil {
 		return err
 	}
-	fmt.Fprintf(os.Stdout, "Building WASM %s app from: %s\n\n", output, packagePath)
+	if len(targets) == 0 {
+		return nil
+	}
+	fmt.Fprintf(os.Stdout, "Building WASM app (%s) from: %s\n\n", strings.Join(targets, " + "), packagePath)
 
 	pkg, err := LoadWorkflowPackage(packagePath, LoadWorkflowPackageOpts{})
 	if err != nil {
@@ -427,59 +444,85 @@ func buildWASMImage(ctx context.Context, packagePath string, flags *BuildFlags) 
 	defer pkg.Cleanup()
 
 	workflow := pkg.Workflow
-	packageDir := pkg.PackageDir
 
 	if verr := domain.ValidateWASMWorkflow(workflow); verr != nil {
 		return verr
 	}
 
+	inputs, err := prepareWASMInputs(ctx, workflow, pkg.PackageDir)
+	if err != nil {
+		return err
+	}
+	defer os.RemoveAll(inputs.scratch)
+	fmt.Fprintf(os.Stdout, "WASM binary: %s\nwasm_exec.js: %s\nWeb server files: %d\n\n",
+		inputs.wasmBinary, inputs.wasmExecJS, len(inputs.webFiles))
+
+	for _, output := range targets {
+		if werr := writeWASMTarget(ctx, flags, packagePath, workflow, inputs, output); werr != nil {
+			return werr
+		}
+	}
+	return nil
+}
+
+type wasmBuildInputs struct {
+	scratch      string
+	wasmBinary   string
+	wasmExecJS   string
+	combinedYAML string
+	settingsJSON string
+	apiRoutes    []string
+	webFiles     map[string]string
+}
+
+func prepareWASMInputs(ctx context.Context, workflow *domain.Workflow, packageDir string) (*wasmBuildInputs, error) {
 	settingsJSON, err := extractWASMSettings(workflow)
 	if err != nil {
-		return err
+		return nil, err
 	}
-
 	combinedYAML, err := workflowYAMLMarshalFunc(workflow)
 	if err != nil {
-		return fmt.Errorf("failed to marshal combined workflow YAML: %w", err)
+		return nil, fmt.Errorf("failed to marshal combined workflow YAML: %w", err)
 	}
-
-	webServerFiles, err := collectWebServerFiles(packageDir)
+	webFiles, err := collectWebServerFiles(packageDir)
 	if err != nil {
-		return fmt.Errorf("failed to collect web server files: %w", err)
+		return nil, fmt.Errorf("failed to collect web server files: %w", err)
 	}
-
-	outputDir, err := os.MkdirTemp("", "kdeps-wasm-bundle-*")
+	scratch, err := os.MkdirTemp("", "kdeps-wasm-*")
 	if err != nil {
-		return fmt.Errorf("failed to create output directory: %w", err)
+		return nil, fmt.Errorf("failed to create output directory: %w", err)
 	}
-	defer os.RemoveAll(outputDir)
-
-	wasmBinary, err := resolveWASMBinary(ctx, filepath.Join(outputDir, "kdeps.wasm"))
+	wasmBinary, err := resolveWASMBinary(ctx, filepath.Join(scratch, "kdeps.wasm"))
 	if err != nil {
-		return err
+		_ = os.RemoveAll(scratch)
+		return nil, err
 	}
 	wasmExecJS, err := findWASMExecJS(ctx)
 	if err != nil {
-		return err
+		_ = os.RemoveAll(scratch)
+		return nil, err
 	}
+	return &wasmBuildInputs{
+		scratch: scratch, wasmBinary: wasmBinary, wasmExecJS: wasmExecJS,
+		combinedYAML: string(combinedYAML), settingsJSON: settingsJSON,
+		apiRoutes: extractWorkflowAPIRoutes(workflow), webFiles: webFiles,
+	}, nil
+}
 
-	fmt.Fprintf(os.Stdout, "WASM binary: %s\n", wasmBinary)
-	fmt.Fprintf(os.Stdout, "wasm_exec.js: %s\n", wasmExecJS)
-	fmt.Fprintf(os.Stdout, "Web server files: %d\n\n", len(webServerFiles))
-
-	if err = bundleWASMApp(
-		wasmBinary,
-		wasmExecJS,
-		string(combinedYAML),
-		webServerFiles,
-		extractWorkflowAPIRoutes(workflow),
-		outputDir,
-		output,
-		settingsJSON,
-	); err != nil {
-		return err
+func writeWASMTarget(
+	ctx context.Context, flags *BuildFlags, packagePath string,
+	workflow *domain.Workflow, in *wasmBuildInputs, output string,
+) error {
+	outputDir, err := os.MkdirTemp(in.scratch, output+"-*")
+	if err != nil {
+		return fmt.Errorf("failed to create bundle dir: %w", err)
 	}
-
+	if berr := bundleWASMApp(
+		in.wasmBinary, in.wasmExecJS, in.combinedYAML, in.webFiles,
+		in.apiRoutes, outputDir, output, in.settingsJSON,
+	); berr != nil {
+		return berr
+	}
 	if output == wasmOutputHTML {
 		return finishWASMHTML(packagePath, workflow.Metadata.Name, outputDir)
 	}
@@ -502,14 +545,16 @@ func finishWASMServer(ctx context.Context, flags *BuildFlags, packagePath, name,
 		return fmt.Errorf("failed to write WASM site: %w", err)
 	}
 	fmt.Fprintf(os.Stdout, "✓ Wrote %s\n", distDest)
-	imageTag := resolveWASMImageTag("")
-	noCache := false
-	if flags != nil {
-		imageTag = resolveWASMImageTag(flags.Tag)
-		noCache = flags.NoCache
-	}
-	if err := buildWASMDockerImage(ctx, outputDir, imageTag, noCache); err != nil {
-		return err
+
+	// Docker image only when a tag was asked for - the default (bare --wasm)
+	// must not need a running Docker daemon.
+	var imageTag string
+	if flags != nil && flags.Tag != "" {
+		imageTag = flags.Tag
+		noCache := flags.NoCache
+		if err := buildWASMDockerImage(ctx, outputDir, imageTag, noCache); err != nil {
+			return err
+		}
 	}
 	printWASMServerSuccess(distDest, imageTag)
 	return nil

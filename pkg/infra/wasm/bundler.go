@@ -24,6 +24,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"io/fs"
 	"path/filepath"
 	"strings"
 
@@ -265,7 +266,39 @@ func Bundle(config *BundleConfig) error {
 	if err := finalizeIndexHTML(config, distDir); err != nil {
 		return err
 	}
+	if !config.standalone() {
+		if err := writeServeFiles(distDir); err != nil {
+			return err
+		}
+	}
 	return copyDeploymentFiles(config.OutputDir)
+}
+
+// writeServeFiles drops a package.json (`npm run server`) and a no-Node
+// serve.sh into the served bundle so it can be run locally without Docker.
+func writeServeFiles(distDir string) error {
+	files := []struct {
+		src, dst string
+		exec     bool
+	}{
+		{"templates/package.json", "package.json", false},
+		{"templates/serve.json", "serve.json", false},
+		{"templates/serve.sh", "serve.sh", true},
+	}
+	for _, f := range files {
+		data, err := templateFS.ReadFile(f.src)
+		if err != nil {
+			return fmt.Errorf("failed to read %s: %w", f.src, err)
+		}
+		var mode fs.FileMode = 0644
+		if f.exec {
+			mode = 0755
+		}
+		if werr := afero.WriteFile(AppFS, filepath.Join(distDir, f.dst), data, mode); werr != nil {
+			return fmt.Errorf("failed to write %s: %w", f.dst, werr)
+		}
+	}
+	return nil
 }
 
 // renderBootstrap renders the kdeps-bootstrap.js script with the embedded workflow YAML.

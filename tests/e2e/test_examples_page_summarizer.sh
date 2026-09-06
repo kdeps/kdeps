@@ -107,17 +107,18 @@ else
 fi
 
 if [ -f "$README" ] && grep -q -- "--wasm" "$README" && \
-   ! grep -q "http.server" "$README" && ! grep -q "docker run" "$README"; then
-    test_passed "page-summarizer - README.md is file:// only (no server)"
+   ! grep -q -- "--wasm-output" "$README" && ! grep -q "http.server" "$README"; then
+    test_passed "page-summarizer - README.md documents the current --wasm flow"
 else
-    test_failed "page-summarizer - README.md is file:// only (no server)" \
-        "README missing, or still documents docker/http.server at $README"
+    test_failed "page-summarizer - README.md documents the current --wasm flow" \
+        "README missing, or still mentions --wasm-output / http.server at $README"
 fi
 
 # Build the WASM app and check the standard drawer + bookmarklet landed in the
 # output. Skips cleanly when the js/wasm toolchain is unavailable on the runner.
 PS_HTML="$EX/page-summarizer.html"
-rm -f "$PS_HTML"
+PS_SITE="$EX/page-summarizer-wasm"
+rm -rf "$PS_HTML" "$PS_SITE"
 # -u KDEPS_COMPONENT_DIR: common.sh points it at test fixtures whose resources
 # this standalone workflow does not use; keep the build to the example itself.
 if BUILD_OUT=$(env -u KDEPS_COMPONENT_DIR "$KDEPS_BIN" bundle build "$EX" --wasm 2>&1) && [ -f "$PS_HTML" ]; then
@@ -131,7 +132,13 @@ if BUILD_OUT=$(env -u KDEPS_COMPONENT_DIR "$KDEPS_BIN" bundle build "$EX" --wasm
         test_failed "page-summarizer - --wasm build embeds the drawer + widget + capture bookmarklet" \
             "settings config / captureFields / bookmarklet / widget missing in $PS_HTML"
     fi
-    rm -f "$PS_HTML"
+    # bare --wasm also produces the served site with a runnable server.
+    if [ -f "$PS_SITE/kdeps-bookmarklet.js" ] && [ -f "$PS_SITE/package.json" ] && [ -x "$PS_SITE/serve.sh" ]; then
+        test_passed "page-summarizer - --wasm also builds the served site (bookmarklet bundle + npm run server)"
+    else
+        test_failed "page-summarizer - --wasm also builds the served site" "missing kdeps-bookmarklet.js / package.json / serve.sh in $PS_SITE"
+    fi
+    rm -rf "$PS_HTML" "$PS_SITE"
 else
     test_skipped "page-summarizer - --wasm build (js/wasm toolchain unavailable): $BUILD_OUT"
 fi

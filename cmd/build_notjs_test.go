@@ -71,7 +71,7 @@ func TestBuildImageInternal_WASM(t *testing.T) {
 	buildDockerImage = func(_ context.Context, _ []string) error { return nil }
 	cmd := &cobra.Command{}
 	cmd.SetContext(context.Background())
-	err := buildImageInternal(cmd, []string{tmp}, &BuildFlags{WASM: true})
+	err := buildImageInternal(cmd, []string{tmp}, &BuildFlags{WASM: "standalone"})
 	t.Logf("wasm build: %v", err)
 }
 

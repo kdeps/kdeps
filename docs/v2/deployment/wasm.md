@@ -1,33 +1,39 @@
 # WASM web app
 
-`kdeps bundle build --wasm` compiles `kdeps.wasm` and writes a browser app. `--wasm-output` picks the shape.
+`kdeps bundle build --wasm` compiles `kdeps.wasm` and writes a browser app.
 
 *Applies to workflow mode.*
 
 ## Build
 
 ```bash
-# html (default): one file, double-click, no server
+# both: a standalone HTML file AND a served site (no Docker needed)
 kdeps bundle build examples/page-summarizer --wasm
-kdeps bundle build examples/page-summarizer --wasm --wasm-output html
 
-# server: static site + nginx image (needs HTTP)
-kdeps bundle build examples/page-summarizer --wasm --wasm-output server
-docker run -p 80:80 kdeps-wasm:latest
+# just one
+kdeps bundle build examples/page-summarizer --wasm=standalone
+kdeps bundle build examples/page-summarizer --wasm=server
+
+# a Docker image too - only when you pass --tag
+kdeps bundle build examples/page-summarizer --wasm=server --tag myorg/summ:1
 ```
 
-| `--wasm-output` | What you get |
+| `--wasm` | What you get |
 | --- | --- |
-| `html` (default) | `{name}.html` with WASM inlined. Double-click it. |
-| `server` | `{name}-wasm/` (`index.html` + `kdeps.wasm` + JS) and an nginx Docker image |
+| _(bare)_ | both of the below |
+| `standalone` | `{name}.html` - one file with everything inlined; double-click it |
+| `server` | `{name}-wasm/` - `index.html` + `kdeps.wasm` + JS, plus `package.json` (`npm run server`), `serve.sh` (no Node), `serve.json`, and `nginx.conf` / `Dockerfile` |
+| `none` | nothing (same as omitting `--wasm`) |
+
+Serve the site locally with `cd {name}-wasm && npm run server` (or `./serve.sh`), then open `http://localhost:3000`. Both scripts set the `application/wasm` MIME type and `Access-Control-Allow-Origin: *` so the bookmarklet can load the module cross-origin.
 
 `--wasm` compiles `kdeps.wasm` (`go build GOOS=js GOARCH=wasm`) if it is not already next to the CLI or in `KDEPS_WASM_BINARY`. Needs Go and the kdeps source tree (or a release that ships `kdeps.wasm`).
 
-`html` inlines `wasm_exec.js`, the WASM binary, the settings drawer, and bootstrap so `file://` does not CORS on open. `server` loads `kdeps.wasm` with `fetch`, so it needs HTTP.
+`standalone` inlines `wasm_exec.js`, the WASM binary, the settings drawer, and bootstrap so `file://` does not CORS on open. `server` loads `kdeps.wasm` with `fetch`, so it needs HTTP.
 
 The runtime compile (~1-2s for the embedded module) is deferred until after the page has painted, so the UI and its loading spinner show immediately instead of a blank tab. The module is decoded via a `data:` URL (native, off the JS thread) rather than a multi-megabyte synchronous loop. It still compiles on the main thread - a Web Worker can't be used from `file://` - but the page stays visible and responsive. Listen for `kdeps:loading`, `kdeps:ready`, and `kdeps:error` on `window`.
 
-Bookmarklet sample: [`examples/page-summarizer`](https://github.com/kdeps/kdeps/tree/main/examples/page-summarizer) (`html` output).
+Bookmarklet sample: [`examples/page-summarizer`](https://github.com/kdeps/kdeps/tree/main/examples/page-summarizer) for both builds.
 
 Init and `build --wasm` reject any resource the WASM runtime cannot execute.
 
@@ -81,8 +87,8 @@ Clicking the bookmarklet shows a small kdeps panel that:
 
 | App | Bookmarklet behaviour |
 |---|---|
-| `--wasm-output server` (hosted over http/https) | Injects `kdeps-bookmarklet.js` from the app's origin **into the page you're reading** - a floating panel, **no popup window**. Needs the origin to send CORS on `.wasm`/`.js` (the generated `nginx.conf` does). If a strict site CSP blocks the inject, it falls back to opening the app in a tab. |
-| `--wasm-output html` (the `file://` standalone) | Opens the app itself as a **small popup window** (`#kdeps-widget`) - a bookmarklet can't carry the ~45 MB module and `file://` scripts are cross-origin-blocked from a web page, so a one-time "allow popups" may be needed. |
+| served app (`--wasm=server` or `--wasm`) | Injects `kdeps-bookmarklet.js` from the app's origin **into the page you're reading** - a floating panel, **no popup window**. Needs the origin to send CORS on `.wasm`/`.js` (the generated `nginx.conf` does). If a strict site CSP blocks the inject, it falls back to opening the app in a tab. |
+| `file://` standalone (`--wasm=standalone` or `--wasm`) | Opens the app itself as a **small popup window** (`#kdeps-widget`) - a bookmarklet can't carry the ~45 MB module and `file://` scripts are cross-origin-blocked from a web page, so a one-time "allow popups" may be needed. |
 
 The bookmarklet link is injected into `<div id="kdeps-capture-cta"></div>` if your HTML has one, and always into the settings drawer. Without `KDEPS_WASM_CAPTURE` there is no bookmarklet. Your app's own `index.html` UI is used only when the file/URL is opened directly, not from the bookmarklet.
 
