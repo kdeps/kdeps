@@ -349,11 +349,10 @@ func TestConvertOpenAIResponse_EmptyChoices(t *testing.T) {
 	require.NoError(t, err)
 	defer resp.Body.Close()
 
-	// A 200 body with no usable message is now an error, not a silent
-	// message-less map that blows up later template evaluation.
-	_, err = backend.ParseResponse(resp)
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "no message content")
+	parsed, err := backend.ParseResponse(resp)
+	require.NoError(t, err)
+	_, hasMessage := parsed["message"]
+	assert.False(t, hasMessage)
 }
 
 func TestConvertOpenAIResponse_InvalidChoice(t *testing.T) {
@@ -373,7 +372,8 @@ func TestConvertOpenAIResponse_InvalidChoice(t *testing.T) {
 	require.NoError(t, err)
 	defer resp.Body.Close()
 
-	_, err = backend.ParseResponse(resp)
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "no message content")
+	parsed, err := backend.ParseResponse(resp)
+	require.NoError(t, err)
+	_, hasMessage := parsed["message"]
+	assert.False(t, hasMessage)
 }

@@ -195,26 +195,30 @@ func parseOpenAICompatHTTPResponse(
 	return ensureMessageResult(convertOpenAICompatResponse(response), response, apiName)
 }
 
-// ensureMessageResult turns a converted response that carries no assistant
-// message into an error, surfacing the API's own error text when present
-// ({"error":{"message":...}} for OpenAI/Anthropic). Without this a 200 body
-// that is an error payload, empty, or content-filtered would flow downstream
-// as a message-less map and blow up later template evaluation with a cryptic
-// "<nil>" (e.g. get('chat').message.content).
+// ensureMessageResult turns a 200 response whose body is actually an API error
+// payload ({"error":{"message":...}}) into a real error, surfacing that text.
+// Without this a 200 error body flows downstream as a message-less map and
+// blows up later template evaluation with a cryptic "<nil>"
+// (get('chat').message.content). A merely unparseable/empty body is left as-is
+// (the pre-existing behaviour) - real backends do not send those.
 func ensureMessageResult(
 	result, raw map[string]interface{}, apiName string,
 ) (map[string]interface{}, error) {
 	if _, ok := result[jsonFieldMessage]; ok {
 		return result, nil
 	}
-	if e, ok := raw["error"].(map[string]interface{}); ok {
+	switch e := raw["error"].(type) {
+	case map[string]interface{}:
 		if msg, _ := e["message"].(string); msg != "" {
 			return nil, fmt.Errorf("%s returned an error: %s", apiName, msg)
 		}
+		return nil, fmt.Errorf("%s returned an error: %v", apiName, e)
+	case string:
+		if e != "" {
+			return nil, fmt.Errorf("%s returned an error: %s", apiName, e)
+		}
 	}
-	return nil, fmt.Errorf(
-		"%s returned no message content - the request may have been blocked "+
-			"(CORS in a browser build), rejected, or content-filtered", apiName)
+	return result, nil
 }
 
 // parseLocalServerResponse decodes a local model server HTTP response.
