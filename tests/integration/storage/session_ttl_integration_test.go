@@ -189,8 +189,11 @@ func TestSessionStorage_IsExpired(t *testing.T) {
 	tmpDir := t.TempDir()
 	dbPath := filepath.Join(tmpDir, "sessions_expired.db")
 
-	// Margin widened 3x (was 200ms/400ms) -- see TestSessionStorage_TTL.
-	store, err := storage.NewSessionStorageWithTTL(dbPath, "expired-test", 600*time.Millisecond)
+	// TTL 3s / wait 4s: 600ms was still too tight on a pathologically slow
+	// windows-latest run (whole test took 5s) - the Set() bbolt commit plus
+	// scheduling delay between Set and the "not expired immediately" check
+	// exceeded the TTL. Matches TestSessionStorage_Cleanup's 3s.
+	store, err := storage.NewSessionStorageWithTTL(dbPath, "expired-test", 3*time.Second)
 	require.NoError(t, err)
 	defer store.Close()
 
@@ -206,7 +209,7 @@ func TestSessionStorage_IsExpired(t *testing.T) {
 	assert.False(t, expired)
 
 	// Wait for TTL to expire
-	time.Sleep(1200 * time.Millisecond)
+	time.Sleep(4 * time.Second)
 
 	// Should be expired
 	expired, err = store.IsExpired(key)
