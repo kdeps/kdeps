@@ -52,7 +52,7 @@ resources:
         code: 400
         message: "'q' is required"
     chat:
-      model: llama3.2:1b      # or an ollama/openai/anthropic/groq model
+      model: llama3.2:1b      # a name, "router"/"auto-router", or "system" (follow ~/.kdeps/config.yaml)
       role: user
       prompt: "{{ get('q') }}"
       timeout: 60s

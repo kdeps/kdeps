@@ -18,7 +18,21 @@
 
 package domain
 
-import "io"
+import (
+	"io"
+	"strings"
+)
+
+// SystemSentinel is the value chat.backend / chat.model accept to mean "resolve
+// this field as if it were empty" - follow the machine config (~/.kdeps/config.yaml)
+// in non-WASM, or the WASM setup screen. Explicit rather than relying on omission.
+const SystemSentinel = "system"
+
+// IsSystemSentinel reports whether a chat.backend / chat.model value is the
+// "system" opt-in (case-insensitive, trimmed).
+func IsSystemSentinel(v string) bool {
+	return strings.EqualFold(strings.TrimSpace(v), SystemSentinel)
+}
 
 // ThinkingMode controls the reasoning/thinking budget for models that support it.
 // Applies to Anthropic Claude 3.7+, OpenAI o-series, DeepSeek-R1, and similar.
@@ -51,10 +65,15 @@ type ThinkingConfig struct {
 }
 
 type ChatConfig struct {
-	// Model is set in resource YAML. Use "router" to delegate to the LLM router in config.yaml.
+	// Model is set in resource YAML. Use "router" / "auto-router" to delegate to
+	// the LLM router in config.yaml, or "system" to follow the machine config
+	// (non-WASM) / the WASM setup screen. An empty Model behaves like "system".
 	Model string `yaml:"model,omitempty"`
-	// Backend and BaseURL are runtime fields set by the LLM router or env vars.
-	Backend string `yaml:"-"`
+	// Backend is the LLM backend name. Usually left unset (resolved from the
+	// router or KDEPS_DEFAULT_BACKEND); may be set in YAML to a backend name or
+	// to "system". The router and auto-router overwrite it at runtime.
+	Backend string `yaml:"backend,omitempty"`
+	// BaseURL is a runtime field set by the LLM router or env vars.
 	BaseURL string `yaml:"-"`
 	// ReasoningOut, when non-nil, receives the assistant turn's
 	// reasoning_content after the call. Runtime-only output field.

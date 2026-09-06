@@ -7,7 +7,7 @@ validations:
     code: 400
     message: "'text' is required (bookmarklet sends the page innerText)"
 chat:
-  model: gpt-4o-mini  # hosted OpenAI model; local llama3.2:1b is rejected in WASM
+  model: system  # follow the WASM setup screen (backend + model + key); non-WASM: ~/.kdeps/config.yaml
   role: user
   timeout: 60s  # hard stop - returns error, does not retry
   scenario:

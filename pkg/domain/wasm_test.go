@@ -215,33 +215,47 @@ func TestValidateWASMWorkflow_RejectsNonCloudModels(t *testing.T) {
 	}
 }
 
-func TestApplyWASMModelOverride(t *testing.T) {
-	wf := wasmWorkflow(
-		&domain.Resource{
-			ActionID: "ask",
-			Chat:     &domain.ChatConfig{Model: "gpt-4o-mini", Prompt: "hi"},
-			Before: []domain.ActionConfig{
-				{Chat: &domain.ChatConfig{Model: "gpt-4o-mini"}},
+func TestApplyWASMOverrides(t *testing.T) {
+	newWF := func() *domain.Workflow {
+		return wasmWorkflow(
+			&domain.Resource{
+				ActionID: "ask",
+				Chat:     &domain.ChatConfig{Model: "system", Prompt: "hi"},
+				Before:   []domain.ActionConfig{{Chat: &domain.ChatConfig{Model: "gpt-4o-mini"}}},
+				After:    []domain.ActionConfig{{Chat: &domain.ChatConfig{Model: "gpt-4o-mini"}}},
 			},
-			After: []domain.ActionConfig{
-				{Chat: &domain.ChatConfig{Model: "gpt-4o-mini"}},
+			&domain.Resource{
+				ActionID:   "fetch",
+				HTTPClient: &domain.HTTPClientConfig{URL: "https://example.com", Method: "GET"},
 			},
-		},
-		&domain.Resource{
-			ActionID:   "fetch",
-			HTTPClient: &domain.HTTPClientConfig{URL: "https://example.com", Method: "GET"},
-		},
-	)
+		)
+	}
 
-	domain.ApplyWASMModelOverride(wf, "claude-sonnet-4-6")
-	require.Equal(t, "claude-sonnet-4-6", wf.Resources[0].Chat.Model)
-	require.Equal(t, "claude-sonnet-4-6", wf.Resources[0].Before[0].Chat.Model)
-	require.Equal(t, "claude-sonnet-4-6", wf.Resources[0].After[0].Chat.Model)
+	// Backend + model both applied to every chat action (including hardcoded ones).
+	wf := newWF()
+	domain.ApplyWASMOverrides(wf, "anthropic", "claude-sonnet-4-6")
+	for _, c := range []*domain.ChatConfig{
+		wf.Resources[0].Chat, wf.Resources[0].Before[0].Chat, wf.Resources[0].After[0].Chat,
+	} {
+		require.Equal(t, "anthropic", c.Backend)
+		require.Equal(t, "claude-sonnet-4-6", c.Model)
+	}
 
-	// Empty override is a no-op.
-	domain.ApplyWASMModelOverride(wf, "  ")
-	require.Equal(t, "claude-sonnet-4-6", wf.Resources[0].Chat.Model)
+	// Empty model keeps the existing model; empty backend keeps backend.
+	wf = newWF()
+	domain.ApplyWASMOverrides(wf, "groq", "  ")
+	require.Equal(t, "groq", wf.Resources[0].Chat.Backend)
+	require.Equal(t, "system", wf.Resources[0].Chat.Model)
 
-	// Nil workflow does not panic.
-	domain.ApplyWASMModelOverride(nil, "x")
+	// Both empty and nil workflow are no-ops.
+	domain.ApplyWASMOverrides(newWF(), "", "")
+	domain.ApplyWASMOverrides(nil, "x", "y")
+}
+
+func TestValidateWASMWorkflow_AllowsSystemSentinel(t *testing.T) {
+	wf := wasmWorkflow(&domain.Resource{
+		ActionID: "ask",
+		Chat:     &domain.ChatConfig{Backend: "system", Model: "system", Prompt: "hi"},
+	})
+	require.NoError(t, domain.ValidateWASMWorkflow(wf))
 }

@@ -49,6 +49,10 @@ func isWASMLocalChatBackend(backend string) bool {
 // picks, GGUF/llamafile paths, and Ollama-style name:tag aliases.
 func isWASMNonCloudChatModel(model string) bool {
 	m := strings.TrimSpace(model)
+	if IsSystemSentinel(m) {
+		// The setup screen (KDEPS_WASM_MODEL) supplies a real cloud model.
+		return false
+	}
 	if m == "" || m == "router" || m == "auto-router" {
 		return true
 	}
@@ -84,7 +88,7 @@ func wasmDefaultChatBackend(wf *Workflow) string {
 }
 
 func wasmResolveChatBackend(wf *Workflow, chat *ChatConfig) string {
-	if chat != nil && chat.Backend != "" {
+	if chat != nil && chat.Backend != "" && !IsSystemSentinel(chat.Backend) {
 		return chat.Backend
 	}
 	return wasmDefaultChatBackend(wf)
@@ -148,31 +152,38 @@ func WASMWorkflowErrors(wf *Workflow) []string {
 	return errs
 }
 
-// ApplyWASMModelOverride sets chat.Model on every chat action in the workflow
-// (primary, before, and after) when model is non-empty. The browser settings
-// drawer uses this so a viewer can switch models without the workflow YAML
-// carrying a model the chosen backend cannot serve.
-func ApplyWASMModelOverride(wf *Workflow, model string) {
+// ApplyWASMOverrides sets chat.Backend and/or chat.Model on every chat action in
+// the workflow (primary, before, and after). The browser settings drawer is
+// "the system" for a WASM app, so its picks apply to every chat resource -
+// including ones that hardcode a model the chosen backend cannot serve. Empty
+// arguments are left untouched.
+func ApplyWASMOverrides(wf *Workflow, backend, model string) {
+	backend = strings.TrimSpace(backend)
 	model = strings.TrimSpace(model)
-	if wf == nil || model == "" {
+	if wf == nil || (backend == "" && model == "") {
 		return
+	}
+	apply := func(chat *ChatConfig) {
+		if chat == nil {
+			return
+		}
+		if backend != "" {
+			chat.Backend = backend
+		}
+		if model != "" {
+			chat.Model = model
+		}
 	}
 	for _, res := range wf.Resources {
 		if res == nil {
 			continue
 		}
-		if res.Chat != nil {
-			res.Chat.Model = model
-		}
+		apply(res.Chat)
 		for i := range res.Before {
-			if res.Before[i].Chat != nil {
-				res.Before[i].Chat.Model = model
-			}
+			apply(res.Before[i].Chat)
 		}
 		for i := range res.After {
-			if res.After[i].Chat != nil {
-				res.After[i].Chat.Model = model
-			}
+			apply(res.After[i].Chat)
 		}
 	}
 }

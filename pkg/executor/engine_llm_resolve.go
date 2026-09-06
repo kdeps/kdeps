@@ -46,7 +46,7 @@ func (e *Engine) resolveLLMTimeout(chat *domain.ChatConfig) (time.Duration, stri
 // resolveLLMBackend returns the configured backend name.
 // Resolution order: resource config > KDEPS_DEFAULT_BACKEND > "file".
 func (e *Engine) resolveLLMBackend(chat *domain.ChatConfig) string {
-	if chat.Backend != "" {
+	if chat.Backend != "" && !domain.IsSystemSentinel(chat.Backend) {
 		return chat.Backend
 	}
 	if backend := os.Getenv("KDEPS_DEFAULT_BACKEND"); backend != "" {
@@ -57,6 +57,11 @@ func (e *Engine) resolveLLMBackend(chat *domain.ChatConfig) string {
 
 // evaluateLLMModel evaluates the model field when it contains expression syntax.
 func (e *Engine) evaluateLLMModel(modelStr string, ctx *ExecutionContext) string {
+	if domain.IsSystemSentinel(modelStr) {
+		// Resolved at execution time from the machine config / setup screen;
+		// report it as unset here rather than as the literal "system".
+		return ""
+	}
 	modelExpr, parseErr := expression.NewParser().ParseValue(modelStr)
 	if parseErr != nil {
 		return modelStr

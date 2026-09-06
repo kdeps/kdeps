@@ -33,20 +33,21 @@ Init and `build --wasm` reject any resource the WASM runtime cannot execute.
 
 Every `--wasm` app ships a settings drawer (a gear button, top-right). The viewer picks the cloud backend, a model, and pastes an API key; kdeps stores the choice in that browser's `localStorage` (key `kdeps.<metadata.name>.settings`) and re-runs `kdepsInit` with the matching env (`KDEPS_DEFAULT_BACKEND`, `KDEPS_WASM_MODEL`, `<PROVIDER>_API_KEY`) whenever it changes. No key is baked into the file.
 
-- Backend dropdown is the full cloud provider list; the model box is an editable combo pre-filled from the model catalog for the chosen backend, defaulting to the workflow's `chat.model`.
-- `KDEPS_WASM_MODEL` overrides `chat.model` on every chat resource at runtime, so switching backend + model in the drawer just works even though the YAML names one model.
+- Backend dropdown is the full cloud provider list; the model box is an editable combo pre-filled from the model catalog for the chosen backend. It defaults to the workflow's `chat.model`, or the backend's default model when the resource uses `model: system`.
+- The drawer is "the system" for a WASM app: its backend and model apply to **every** chat resource at runtime, even ones that hardcode a model the chosen backend cannot serve. Write `backend: system` / `model: system` to make that intent explicit.
 - To render the panel inside your own layout instead of the floating drawer, put `<div id="kdeps-settings"></div>` in your `index.html`.
 - `window.__kdepsSettingsReady()` returns `true` once a backend and (if needed) a key are set - gate your submit button on it.
 
-So `env:` only needs the backend (and only as a default the drawer can change):
+So a WASM resource can just defer everything to the drawer:
 
 ```yaml
 settings:
   agentSettings:
     env:
-      KDEPS_DEFAULT_BACKEND: openai   # default; the drawer can switch it
+      KDEPS_DEFAULT_BACKEND: openai   # first-load default; the drawer changes it
 chat:
-  model: gpt-4o                       # default; KDEPS_WASM_MODEL overrides it
+  backend: system                    # follow the drawer
+  model: system                      # follow the drawer
   prompt: "{{ get('q') }}"
 ```
 
@@ -83,7 +84,7 @@ The bookmarklet link is injected into `<div id="kdeps-capture-cta"></div>` if yo
 
 Expressions, `before:` / `after:` (bare expr only), `items:`, and `loop:` are fine.
 
-Set an online backend **and** a hosted model. Empty `KDEPS_DEFAULT_BACKEND` defaults to `file` (llamafile). Empty `model:` defaults to `llama3.2:1b`. Ollama tags (`llama3.2:1b`), `.gguf`, `.llamafile`, `router`, and `auto-router` error at init. The [settings drawer](#settings-drawer) supplies the backend, model, and key at runtime.
+Set an online backend **and** a hosted model, **or** use `backend: system` / `model: system` and let the [settings drawer](#settings-drawer) supply them at runtime (this is the usual choice for a WASM app). An empty `model:`, Ollama tags (`llama3.2:1b`), `.gguf`, `.llamafile`, `router`, and `auto-router` all error at init - `system` does not.
 
 ## Rejected resources
 

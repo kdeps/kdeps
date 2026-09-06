@@ -13,14 +13,24 @@ window.__KDEPS_SETTINGS = {{.ConfigJSON}};
     var captureFields = Array.isArray(CFG.captureFields) ? CFG.captureFields : [];
     var LS_KEY = 'kdeps.' + appName + '.settings';
 
+    function isSentinelModel(m) {
+        m = (m || '').trim().toLowerCase();
+        return m === '' || m === 'system' || m === 'router' || m === 'auto-router';
+    }
+
     function load() {
         var s = {};
         try { s = JSON.parse(localStorage.getItem(LS_KEY) || '{}') || {}; } catch (e) { s = {}; }
-        return {
-            backend: s.backend || CFG.backend || (providers[0] && providers[0].name) || 'openai',
-            model: s.model || CFG.model || '',
-            apiKey: s.apiKey || ''
-        };
+        var backend = s.backend || CFG.backend || (providers[0] && providers[0].name) || 'openai';
+        var model = s.model;
+        if (isSentinelModel(model)) model = isSentinelModel(CFG.model) ? '' : CFG.model;
+        // The workflow follows the setup screen (model: system); fall back to
+        // the chosen backend's default model.
+        if (!model) {
+            var p = providerFor(backend);
+            model = (p && p.defaultModel) || '';
+        }
+        return { backend: backend, model: model, apiKey: s.apiKey || '' };
     }
 
     function save(s) {

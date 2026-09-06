@@ -67,10 +67,10 @@ else
     test_failed "page-summarizer - workflow.yaml validates" "exit=$EXIT_CODE output=$OUTPUT"
 fi
 
-if grep -q "^chat:" "$RES_SUM" && grep -q "gpt-4o-mini" "$RES_SUM"; then
-    test_passed "page-summarizer - chat uses hosted gpt-4o-mini"
+if grep -q "^chat:" "$RES_SUM" && grep -qE "model:\s*system" "$RES_SUM"; then
+    test_passed "page-summarizer - chat model follows the system / setup screen"
 else
-    test_failed "page-summarizer - chat uses hosted gpt-4o-mini" "chat:/gpt-4o-mini missing in $RES_SUM"
+    test_failed "page-summarizer - chat model follows the system / setup screen" "chat:/model: system missing in $RES_SUM"
 fi
 
 if grep -q "KDEPS_DEFAULT_BACKEND: openai" "$WF"; then

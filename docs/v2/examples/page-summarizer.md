@@ -46,7 +46,7 @@ mkdir -p resources data/public
 
 ## Step 2: workflow
 
-WASM rejects local models. Set a cloud backend and a hosted model.
+WASM rejects local models. This example uses `backend: system` / `model: system` so the [setup screen](/deployment/wasm#settings-drawer) supplies the backend, model, and key; `KDEPS_DEFAULT_BACKEND` is just the first-load default.
 
 ```yaml
 # workflow.yaml
@@ -92,7 +92,7 @@ validations:
     code: 400
     message: "'text' is required"
 chat:
-  model: gpt-4o-mini  # hosted name; llama3.2:1b is rejected in WASM
+  model: system   # follow the setup screen (backend + model + key)
   role: user
   timeout: 60s
   scenario:

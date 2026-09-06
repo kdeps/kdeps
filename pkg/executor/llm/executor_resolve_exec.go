@@ -96,6 +96,11 @@ func (e *Executor) resolveModelForExecution(
 	if err != nil {
 		return "", "", nil, fmt.Errorf("failed to evaluate model: %w", err)
 	}
+	if isSystemSentinel(modelStr) {
+		// "system" resolves exactly like an omitted model: router / first
+		// configured model / best installed local / built-in default.
+		modelStr = ""
+	}
 	if modelStr == "" {
 		fallback, ok := defaultModelWhenEmpty(ctx.Ctx)
 		if !ok {

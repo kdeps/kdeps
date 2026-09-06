@@ -28,6 +28,9 @@ import (
 
 func resolveBackend(config *domain.ChatConfig) string {
 	backend := config.Backend
+	if isSystemSentinel(backend) {
+		backend = ""
+	}
 	if backend == "" {
 		backend = os.Getenv("KDEPS_DEFAULT_BACKEND")
 	}

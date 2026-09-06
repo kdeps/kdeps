@@ -221,3 +221,52 @@ func TestResolveModelForExecution_EmptyModelCloudErrors(t *testing.T) {
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "no model configured")
 }
+
+func TestResolveModelForExecution_SystemSentinelResolvesLikeEmpty(t *testing.T) {
+	t.Setenv("KDEPS_LLM_ROUTER", "")
+	t.Setenv("KDEPS_LLM_MODELS", "cfg-model")
+	t.Setenv("KDEPS_DEFAULT_BACKEND", "")
+	e := NewExecutor("")
+	ctx, err := executor.NewExecutionContext(&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "t"}})
+	require.NoError(t, err)
+
+	for _, m := range []string{"system", "System", " system "} {
+		model, _, _, rerr := e.resolveModelForExecution(
+			expression.NewEvaluator(ctx.API), ctx, &domain.ChatConfig{Model: m, Prompt: "p"})
+		require.NoError(t, rerr)
+		assert.Equal(t, "cfg-model", model, m)
+	}
+}
+
+func TestResolveModelForExecution_SystemSentinelNoConfigFallsToBuiltin(t *testing.T) {
+	t.Setenv("KDEPS_LLM_ROUTER", "")
+	t.Setenv("KDEPS_LLM_MODELS", "")
+	t.Setenv("KDEPS_DEFAULT_BACKEND", "")
+	orig := bestInstalledModelByFitFunc
+	bestInstalledModelByFitFunc = func(context.Context, afero.Fs, []string) (string, string, bool) {
+		return "", "", false
+	}
+	t.Cleanup(func() { bestInstalledModelByFitFunc = orig })
+
+	e := NewExecutor("")
+	ctx, err := executor.NewExecutionContext(&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "t"}})
+	require.NoError(t, err)
+
+	model, _, _, err := e.resolveModelForExecution(
+		expression.NewEvaluator(ctx.API), ctx, &domain.ChatConfig{Model: "system", Prompt: "p"})
+	require.NoError(t, err)
+	assert.Equal(t, defaultBuiltinModel, model)
+}
+
+func TestResolveBackend_SystemSentinel(t *testing.T) {
+	e := NewExecutor("")
+	t.Setenv("KDEPS_DEFAULT_BACKEND", "groq")
+	b, _, err := e.resolveBackendAndBaseURL(&domain.ChatConfig{Backend: "system"})
+	require.NoError(t, err)
+	assert.Equal(t, "groq", b.Name())
+
+	t.Setenv("KDEPS_DEFAULT_BACKEND", "")
+	b, _, err = e.resolveBackendAndBaseURL(&domain.ChatConfig{Backend: "System"})
+	require.NoError(t, err)
+	assert.Equal(t, BackendFile, b.Name())
+}

@@ -63,12 +63,11 @@ func NewRuntime(
 		}
 	}
 
-	// The settings drawer supplies KDEPS_WASM_MODEL so a viewer can switch
-	// models at runtime; apply it before validation so a model the chosen
-	// backend cannot serve is caught here.
-	if model := wasmModelOverride(envVars); model != "" {
-		domain.ApplyWASMModelOverride(workflow, model)
-	}
+	// The settings drawer is "the system" for a WASM app: it supplies
+	// KDEPS_DEFAULT_BACKEND + KDEPS_WASM_MODEL so a viewer can switch backend
+	// and model at runtime. Apply them before validation so a mismatch is
+	// caught here.
+	domain.ApplyWASMOverrides(workflow, wasmBackendOverride(envVars), wasmModelOverride(envVars))
 
 	if err := domain.ValidateWASMWorkflow(workflow); err != nil {
 		return nil, err
@@ -152,10 +151,20 @@ func buildRequestContext(inputData map[string]interface{}) *executor.RequestCont
 // wasmModelOverride reads the drawer-supplied model override, preferring the
 // init env map over any process env already set.
 func wasmModelOverride(envVars map[string]string) string {
-	if v := strings.TrimSpace(envVars["KDEPS_WASM_MODEL"]); v != "" {
+	return wasmEnvValue(envVars, "KDEPS_WASM_MODEL")
+}
+
+// wasmBackendOverride reads the drawer-supplied backend, which the drawer sends
+// as KDEPS_DEFAULT_BACKEND in the init env map.
+func wasmBackendOverride(envVars map[string]string) string {
+	return wasmEnvValue(envVars, "KDEPS_DEFAULT_BACKEND")
+}
+
+func wasmEnvValue(envVars map[string]string, key string) string {
+	if v := strings.TrimSpace(envVars[key]); v != "" {
 		return v
 	}
-	return strings.TrimSpace(os.Getenv("KDEPS_WASM_MODEL"))
+	return strings.TrimSpace(os.Getenv(key))
 }
 
 // parseWorkflowFromString parses a workflow from a YAML string.

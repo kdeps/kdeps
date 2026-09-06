@@ -273,7 +273,12 @@
       "type": "object",
       "properties": {
         "model": {
-          "type": "string"
+          "type": "string",
+          "description": "Model id, \"router\" / \"auto-router\" to delegate to the router, or \"system\" to follow the machine config / WASM setup screen. Empty behaves like \"system\"."
+        },
+        "backend": {
+          "type": "string",
+          "description": "LLM backend name (openai, anthropic, ollama, file, ...) or \"system\" to follow the machine config / WASM setup screen. Usually left unset."
         },
         "contextLength": {
           "type": "integer",

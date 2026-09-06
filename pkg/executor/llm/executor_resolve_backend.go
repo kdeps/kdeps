@@ -26,6 +26,12 @@ import (
 	"github.com/kdeps/kdeps/v2/pkg/domain"
 )
 
+// isSystemSentinel recognises the "system" opt-in on chat.backend / chat.model:
+// resolve the field exactly as if it were left empty.
+func isSystemSentinel(v string) bool {
+	return domain.IsSystemSentinel(v)
+}
+
 func jsonParseErrorFallback(response map[string]interface{}, parseErr error) (interface{}, bool) {
 	message, okMessage := response[jsonFieldMessage].(map[string]interface{})
 	if !okMessage {
@@ -52,6 +58,9 @@ func (e *Executor) resolveBackendAndBaseURL(config *domain.ChatConfig) (Backend,
 // When useEnvDefaults is true, KDEPS_DEFAULT_BACKEND and KDEPS_LLM_BASE_URL are consulted.
 func (e *Executor) resolveBackend(config *domain.ChatConfig, useEnvDefaults bool) (Backend, string, error) {
 	backendName := config.Backend
+	if isSystemSentinel(backendName) {
+		backendName = ""
+	}
 	if backendName == "" && useEnvDefaults {
 		backendName = os.Getenv("KDEPS_DEFAULT_BACKEND")
 	}

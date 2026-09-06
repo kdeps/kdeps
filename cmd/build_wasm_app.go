@@ -86,21 +86,29 @@ type wasmSettingsConfig struct {
 	Models        []wasmSettingsModel    `json:"models"`
 }
 
+// firstChatModel returns the first concrete model named by a chat resource, so
+// the setup screen can pre-fill it. Sentinel values ("system", "router",
+// "auto-router") are skipped - the drawer defaults to the backend's model then.
+func chatModelIsConcrete(m string) bool {
+	m = strings.TrimSpace(m)
+	return m != "" && !strings.EqualFold(m, "system") && m != "router" && m != "auto-router"
+}
+
 func firstChatModel(workflow *domain.Workflow) string {
 	for _, res := range workflow.Resources {
 		if res == nil {
 			continue
 		}
-		if res.Chat != nil && strings.TrimSpace(res.Chat.Model) != "" {
+		if res.Chat != nil && chatModelIsConcrete(res.Chat.Model) {
 			return res.Chat.Model
 		}
 		for i := range res.Before {
-			if res.Before[i].Chat != nil && strings.TrimSpace(res.Before[i].Chat.Model) != "" {
+			if res.Before[i].Chat != nil && chatModelIsConcrete(res.Before[i].Chat.Model) {
 				return res.Before[i].Chat.Model
 			}
 		}
 		for i := range res.After {
-			if res.After[i].Chat != nil && strings.TrimSpace(res.After[i].Chat.Model) != "" {
+			if res.After[i].Chat != nil && chatModelIsConcrete(res.After[i].Chat.Model) {
 				return res.After[i].Chat.Model
 			}
 		}
