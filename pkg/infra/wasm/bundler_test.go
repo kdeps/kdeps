@@ -593,7 +593,7 @@ func TestBundle_IndexHTMLIsSelfContained(t *testing.T) {
 
 	bootstrap, err := os.ReadFile(filepath.Join(outputDir, "dist", "kdeps-bootstrap.js"))
 	require.NoError(t, err)
-	assert.Contains(t, string(bootstrap), "blocked file:// fetch")
+	assert.Contains(t, string(bootstrap), "data:application/wasm;base64,")
 	assert.Contains(t, string(bootstrap), "fetch('kdeps.wasm')")
 }
 

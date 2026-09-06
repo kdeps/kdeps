@@ -25,6 +25,8 @@ docker run -p 80:80 kdeps-wasm:latest
 
 `html` inlines `wasm_exec.js`, the WASM binary, the settings drawer, and bootstrap so `file://` does not CORS on open. `server` loads `kdeps.wasm` with `fetch`, so it needs HTTP.
 
+The runtime compile (~1-2s for the embedded module) is deferred until after the page has painted, so the UI and its loading spinner show immediately instead of a blank tab. The module is decoded via a `data:` URL (native, off the JS thread) rather than a multi-megabyte synchronous loop. It still compiles on the main thread - a Web Worker can't be used from `file://` - but the page stays visible and responsive. Listen for `kdeps:loading`, `kdeps:ready`, and `kdeps:error` on `window`.
+
 Bookmarklet sample: [`examples/page-summarizer`](https://github.com/kdeps/kdeps/tree/main/examples/page-summarizer) (`html` output).
 
 Init and `build --wasm` reject any resource the WASM runtime cannot execute.

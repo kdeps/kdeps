@@ -238,9 +238,16 @@
         build();
         renderInputs();
         readClipboard();
-        if (window.kdeps) { status('Ready.', false); maybeAutoRun(); }
-        else window.addEventListener('kdeps:ready', function () { status('Ready.', false); maybeAutoRun(); });
-        // If no capture is expected and no input needed, run right away.
+        if (window.kdeps) {
+            status('Ready.', false);
+            maybeAutoRun();
+        } else {
+            status('Loading the runtime…', true);
+            window.addEventListener('kdeps:loading', function () { status('Loading the runtime…', true); });
+            window.addEventListener('kdeps:error', function () { status('Failed to load the runtime.', false); });
+            window.addEventListener('kdeps:ready', function () { status('Ready.', false); maybeAutoRun(); });
+        }
+        // If no capture is expected and no input needed, run as soon as we can.
         if (!captureFields.length) maybeAutoRun();
     }
 

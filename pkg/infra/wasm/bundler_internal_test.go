@@ -147,7 +147,7 @@ func TestRenderBootstrap_Success(t *testing.T) {
 	assert.Contains(t, contentStr, "kdeps.wasm")
 	assert.Contains(t, contentStr, "new Go()")
 	assert.Contains(t, contentStr, "installFileOriginFetchShim")
-	assert.Contains(t, contentStr, "blocked file:// fetch")
+	assert.Contains(t, contentStr, "data:application/wasm;base64,")
 	assert.Contains(t, contentStr, "init: function(env)")
 	assert.Contains(t, contentStr, "fetch('kdeps.wasm')")
 	assert.Contains(t, contentStr, "instantiateStreaming")

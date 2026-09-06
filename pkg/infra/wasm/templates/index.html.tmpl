@@ -43,6 +43,10 @@
             output.style.display = 'block';
             output.textContent = typeof result === 'string' ? result : JSON.stringify(result, null, 2);
         }
+        window.addEventListener('kdeps:error', function() {
+            var s = document.querySelector('#kdeps-loading .status');
+            if (s) s.textContent = 'Failed to load the runtime. See the console.';
+        });
         window.addEventListener('kdeps:ready', function() {
             document.getElementById('kdeps-loading').style.display = 'none';
             document.getElementById('kdeps-app').classList.add('ready');
