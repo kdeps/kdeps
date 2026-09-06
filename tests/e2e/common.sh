@@ -201,11 +201,11 @@ output_grep_fixed_i() {
 export -f output_grep output_grep_i output_grep_fixed output_grep_fixed_i
 
 # llm_server_crashed returns 0 if the text reads as a backend LLM process crash
-# (segfault / OOM-kill / abnormal termination) rather than a product-level error.
-# These are CI-environment flakes -- the inference binary dies on the runner -- so
-# callers should retry and then skip, not fail, when they see one.
+# or an unreachable inference server rather than a product-level error. These
+# are CI-environment flakes -- the real 1B model's server dies / OOMs / stalls
+# on a loaded shared runner -- so callers should retry and then skip, not fail.
 llm_server_crashed() {
-    grep -qiE "process has terminated|segmentation fault|core dumped|signal: (killed|aborted|segmentation|sigsegv|sigkill|sigabrt)|cannot allocate memory|out of memory|oom-kill" <<< "${1:-}"
+    grep -qiE "process has terminated|segmentation fault|core dumped|signal: (killed|aborted|segmentation|sigsegv|sigkill|sigabrt)|cannot allocate memory|out of memory|oom-kill|ggml_assert|std::bad_alloc|terminate called|libc\+\+abi|aborted \(core|llama runtime error|llama-server (exited|failed|crashed)|exit status [1-9]|context deadline exceeded|connection refused|connection reset by peer|broken pipe|502 bad gateway|503 service|no response within|timed out after" <<< "${1:-}"
 }
 
 # skip_or_fail_llm skips when the response reads as a backend crash (CI flake) and

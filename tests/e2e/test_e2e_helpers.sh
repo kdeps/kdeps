@@ -100,6 +100,22 @@ else
     test_failed "llm_server_crashed matches segfault"
 fi
 
+for sig in "GGML_ASSERT: ne00 == ne10" "llama-server exited with code 1" \
+           "no response within 60s" "context deadline exceeded" \
+           "read: connection reset by peer"; do
+    if llm_server_crashed "$sig"; then
+        test_passed "llm_server_crashed matches: $sig"
+    else
+        test_failed "llm_server_crashed matches: $sig"
+    fi
+done
+
+if llm_server_crashed "invalid workflow: actionId is required"; then
+    test_failed "llm_server_crashed must not match a product error"
+else
+    test_passed "llm_server_crashed ignores product errors"
+fi
+
 BLOCK_LOG=$(mktemp)
 echo "dial tcp 127.0.0.1:11434: connect: connection refused" > "$BLOCK_LOG"
 SKIP_BEFORE=$SKIPPED
