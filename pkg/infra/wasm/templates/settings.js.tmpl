@@ -261,7 +261,13 @@ window.__KDEPS_SETTINGS = {{.ConfigJSON}};
                     s.baseURLs = s.baseURLs || {};
                     s.baseURLs.m365 = machine.m365BaseURL;
                 }
-                if (machine.m365) s.m365 = machine.m365; // embedded auth (--wasm-embed-secrets)
+                if (machine.keys) { // embedded cloud API keys (--wasm-embed-secrets)
+                    s.apiKeys = s.apiKeys || {};
+                    for (var b in machine.keys) {
+                        if (machine.keys.hasOwnProperty(b)) s.apiKeys[b] = machine.keys[b];
+                    }
+                }
+                if (machine.m365) s.m365 = machine.m365; // embedded m365 auth
                 writeShared(s);
                 window.dispatchEvent(new Event('kdeps:settings-changed'));
                 rebuild(container, floating);

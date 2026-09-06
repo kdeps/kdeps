@@ -1,0 +1,65 @@
+// kdeps-loader.js - standalone builds only. The inlined multi-megabyte WASM
+// module compiles on the main thread (no Worker from file://), which freezes
+// the tab for a few seconds. Rather than show a half-painted page that then
+// janks, cover everything with a blocking spinner until kdeps:ready.
+//
+// No-op when the host page already ships its own #kdeps-loading overlay (the
+// default generated index.html does).
+(function () {
+    var hasEmbed = false;
+    try { hasEmbed = typeof window.__KDEPS_WASM_B64 === 'string' && window.__KDEPS_WASM_B64.length > 0; } catch (e) {}
+    if (!hasEmbed) return;
+
+    var overlay = null;
+    var settled = false;
+
+    function ownLoaderPresent() {
+        try { return !!document.getElementById('kdeps-loading'); } catch (e) { return false; }
+    }
+
+    function mount() {
+        if (overlay || settled || ownLoaderPresent()) return;
+        var style = document.createElement('style');
+        style.textContent =
+            '#kdeps-boot-overlay{position:fixed;inset:0;z-index:2147483600;display:flex;' +
+            'flex-direction:column;align-items:center;justify-content:center;gap:14px;' +
+            'background:#fafafa;color:#374151;font:14px/1.5 system-ui,-apple-system,sans-serif;' +
+            'transition:opacity .2s ease}' +
+            '#kdeps-boot-overlay .kdeps-boot-spin{width:38px;height:38px;border:3px solid #e5e7eb;' +
+            'border-top-color:#3b82f6;border-radius:50%;animation:kdeps-boot-spin .8s linear infinite}' +
+            '@keyframes kdeps-boot-spin{to{transform:rotate(360deg)}}' +
+            '#kdeps-boot-overlay .kdeps-boot-msg{color:#6b7280;font-size:.875rem}';
+        (document.head || document.documentElement).appendChild(style);
+
+        overlay = document.createElement('div');
+        overlay.id = 'kdeps-boot-overlay';
+        overlay.innerHTML =
+            '<div class="kdeps-boot-spin"></div><div class="kdeps-boot-msg">Loading the runtime...</div>';
+        (document.body || document.documentElement).appendChild(overlay);
+    }
+
+    function message(text) {
+        if (!overlay) return;
+        var m = overlay.querySelector('.kdeps-boot-msg');
+        if (m) m.textContent = text;
+    }
+
+    function dismiss() {
+        settled = true;
+        if (!overlay) return;
+        overlay.style.opacity = '0';
+        var el = overlay;
+        overlay = null;
+        setTimeout(function () { if (el && el.parentNode) el.parentNode.removeChild(el); }, 220);
+    }
+
+    if (document.body) mount();
+    else document.addEventListener('DOMContentLoaded', mount);
+
+    window.addEventListener('kdeps:loading', function () { mount(); message('Loading the runtime...'); });
+    window.addEventListener('kdeps:ready', dismiss);
+    window.addEventListener('kdeps:error', function () {
+        mount();
+        message('Failed to load the runtime. See the console.');
+    });
+})();

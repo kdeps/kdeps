@@ -482,13 +482,21 @@ func TestExtractWASMSettings_MachineSettings(t *testing.T) {
 		0o600,
 	))
 
-	out, err := extractWASMSettings(&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "x"}}, false)
+	wf := &domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "x"}}
+
+	out, err := extractWASMSettings(wf, false)
 	require.NoError(t, err)
 	assert.Contains(t, out, `"machine":{`)
 	assert.Contains(t, out, `"backend":"anthropic"`)
 	assert.Contains(t, out, `"model":"claude-sonnet-4-6"`)
 	assert.Contains(t, out, `"baseURL":"http://localhost:9999/v1"`)
 	assert.NotContains(t, out, "sk-should-not-leak")
+	assert.NotContains(t, out, `"keys":`)
+
+	withKeys, err := extractWASMSettings(wf, true)
+	require.NoError(t, err)
+	assert.Contains(t, withKeys, `"keys":{`)
+	assert.Contains(t, withKeys, `"openai":"sk-should-not-leak"`)
 }
 
 func TestExtractWASMSettings_EmbedM365Secrets(t *testing.T) {

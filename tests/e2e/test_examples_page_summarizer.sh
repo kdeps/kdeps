@@ -129,6 +129,7 @@ if BUILD_OUT=$(env -u KDEPS_COMPONENT_DIR "$KDEPS_BIN" bundle build "$EX" --wasm
        grep -q "'kdeps.settings'" "$PS_HTML" && \
        grep -q "Import machine settings" "$PS_HTML" && \
        grep -q '"name":"m365"' "$PS_HTML" && \
+       grep -q "kdeps-boot-overlay" "$PS_HTML" && \
        grep -q "function markdown(" "$PS_HTML"; then
         test_passed "page-summarizer - --wasm build embeds the drawer + widget + capture bookmarklet"
     else

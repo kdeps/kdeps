@@ -662,11 +662,13 @@ func assertSelfContainedIndex(t *testing.T, indexHTML, wasmExecSnippet string) {
 	assert.Contains(t, indexHTML, "init: function(env)")
 	assert.Contains(t, indexHTML, "__kdepsSettingsEnv")
 	assert.Contains(t, indexHTML, "kdeps-widget")
+	assert.Contains(t, indexHTML, "kdeps-boot-overlay") // blocking loader inlined
 	assert.NotContains(t, indexHTML, `<script src="wasm_exec.js">`)
 	assert.NotContains(t, indexHTML, `<script src="kdeps-wasm-embed.js">`)
 	assert.NotContains(t, indexHTML, `<script src="kdeps-settings.js">`)
 	assert.NotContains(t, indexHTML, `<script src="kdeps-widget.js">`)
 	assert.NotContains(t, indexHTML, `<script src="kdeps-bootstrap.js">`)
+	assert.NotContains(t, indexHTML, `<script src="kdeps-loader.js">`)
 }
 
 func TestBundle_SettingsScript(t *testing.T) {

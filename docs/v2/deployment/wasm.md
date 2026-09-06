@@ -31,7 +31,7 @@ Serve the site locally with `cd {name}-wasm && npm run server` (or `./serve.sh`)
 
 `standalone` inlines `wasm_exec.js`, the WASM binary, the settings drawer, and bootstrap so `file://` does not CORS on open. `server` loads `kdeps.wasm` with `fetch`, so it needs HTTP.
 
-The runtime compile (~1-2s for the embedded module) is deferred until after the page has painted, so the UI and its loading spinner show immediately instead of a blank tab. The module is decoded via a `data:` URL (native, off the JS thread) rather than a multi-megabyte synchronous loop. It still compiles on the main thread - a Web Worker can't be used from `file://` - but the page stays visible and responsive. Listen for `kdeps:loading`, `kdeps:ready`, and `kdeps:error` on `window`.
+The runtime compile (~1-2s for the embedded module) is deferred until after the page has painted, and the module is decoded via a `data:` URL (native, off the JS thread) rather than a multi-megabyte synchronous loop. It still compiles on the main thread - a Web Worker can't be used from `file://` - so `standalone` builds cover the page with a **blocking spinner overlay** until the runtime is ready, then reveal the app. (A page that ships its own `#kdeps-loading` element keeps that instead.) `server` builds skip the overlay. Listen for `kdeps:loading`, `kdeps:ready`, and `kdeps:error` on `window` to drive your own UI.
 
 Bookmarklet sample: [`examples/page-summarizer`](https://github.com/kdeps/kdeps/tree/main/examples/page-summarizer) for both builds.
 
@@ -51,7 +51,7 @@ Every `--wasm` app ships a settings drawer (a gear button, top-right). The viewe
 - **Shared across apps.** The choice is saved to one browser-wide store (`localStorage` key `kdeps.settings`), so an API key set in any kdeps WASM app is reused by all of them on that browser. A per-app store (`kdeps.<metadata.name>.settings`) still wins when present.
 - **Export / Import** buttons in the drawer download and load a `kdeps-settings.json` file - move your setup between browsers or machines.
 - **Import machine settings.** `kdeps bundle build --wasm` bakes the build machine's own `~/.kdeps/config.yaml` LLM defaults (backend, first model, base URL - **never cloud API keys**) into the app. One drawer click adopts them.
-- **`--wasm-embed-secrets`** additionally bakes this machine's m365 auth (`~/.config/kdeps/m365/token-cache.json` + `secrets.json`) into that same "Import machine settings" data, and the drawer feeds it back as `M365_TOKEN_CACHE_JSON` / `M365_SECRETS_JSON` when the m365 backend is selected. Off by default: **the build then contains real credentials - do not commit or share it.** A build-time warning is printed.
+- **`--wasm-embed-secrets`** additionally bakes this machine's real credentials into that same "Import machine settings" data: every cloud API key from `~/.kdeps/config.yaml` (`*_api_key`), and the m365 auth from `~/.config/kdeps/m365/token-cache.json` + `secrets.json`. Importing loads the keys per backend; m365 auth is replayed as `M365_TOKEN_CACHE_JSON` / `M365_SECRETS_JSON` when the m365 backend is selected. Off by default: **the build then contains real credentials - do not commit or share it.** A build-time warning is printed.
 - **`m365` backend.** Selecting `m365` (or any local OpenAI-compatible proxy) swaps the API-key field for a **Base URL** field. The env becomes `KDEPS_DEFAULT_BACKEND=openai` + `KDEPS_LLM_BASE_URL=<url>`. Run `kdeps` locally so the proxy is up; point the field at its address.
 
 So a WASM resource can just defer everything to the drawer:
