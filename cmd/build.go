@@ -56,6 +56,11 @@ type BuildFlags struct {
 	// WASM selects the browser build: "" / "none" = no WASM, "standalone" = one
 	// HTML file, "server" = a served static site, "both" (bare --wasm) = both.
 	WASM string
+	// WASMEmbedSecrets bakes the build machine's m365 auth
+	// (~/.config/kdeps/m365/token-cache.json + secrets.json) into the app's
+	// "Import machine settings" data. Off by default - the artifact then
+	// carries real credentials and must be treated as a secret.
+	WASMEmbedSecrets bool
 }
 
 // newBuildCmd creates the build command.
@@ -140,6 +145,9 @@ Examples:
 		"Compile a browser WASM app: 'standalone' (one HTML file), 'server' "+
 			"(served static site), or bare --wasm for both")
 	buildCmd.Flags().Lookup("wasm").NoOptDefVal = wasmTargetBoth
+	buildCmd.Flags().BoolVar(&flags.WASMEmbedSecrets, "wasm-embed-secrets", false,
+		"Bake this machine's m365 auth (~/.config/kdeps/m365) into the WASM app's "+
+			"'Import machine settings' data. The build then contains real credentials.")
 
 	return buildCmd
 }

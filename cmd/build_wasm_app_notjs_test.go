@@ -453,7 +453,7 @@ func TestExtractWASMSettings(t *testing.T) {
 		},
 	}
 
-	out, err := extractWASMSettings(wf)
+	out, err := extractWASMSettings(wf, false)
 	require.NoError(t, err)
 	assert.Contains(t, out, `"appName":"summ"`)
 	assert.Contains(t, out, `"backend":"anthropic"`)
@@ -465,7 +465,7 @@ func TestExtractWASMSettings(t *testing.T) {
 
 func TestExtractWASMSettings_M365Provider(t *testing.T) {
 	wf := &domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "x"}}
-	out, err := extractWASMSettings(wf)
+	out, err := extractWASMSettings(wf, false)
 	require.NoError(t, err)
 	assert.Contains(t, out, `"name":"m365"`)
 	assert.Contains(t, out, `"baseURL":"http://localhost:11435/v1"`)
@@ -482,7 +482,7 @@ func TestExtractWASMSettings_MachineSettings(t *testing.T) {
 		0o600,
 	))
 
-	out, err := extractWASMSettings(&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "x"}})
+	out, err := extractWASMSettings(&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "x"}}, false)
 	require.NoError(t, err)
 	assert.Contains(t, out, `"machine":{`)
 	assert.Contains(t, out, `"backend":"anthropic"`)
@@ -491,20 +491,43 @@ func TestExtractWASMSettings_MachineSettings(t *testing.T) {
 	assert.NotContains(t, out, "sk-should-not-leak")
 }
 
+func TestExtractWASMSettings_EmbedM365Secrets(t *testing.T) {
+	dir := t.TempDir()
+	cache := filepath.Join(dir, "token-cache.json")
+	secrets := filepath.Join(dir, "secrets.json")
+	require.NoError(t, os.WriteFile(cache, []byte(`{"refreshToken":"rt-abc"}`), 0o600))
+	require.NoError(t, os.WriteFile(secrets, []byte(`{"email":"u@x.com","password":"p","mfaSecret":"m"}`), 0o600))
+	t.Setenv("M365_CACHE_FILE", cache)
+	t.Setenv("M365_SECRETS_FILE", secrets)
+	wf := &domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "x"}}
+
+	off, err := extractWASMSettings(wf, false)
+	require.NoError(t, err)
+	assert.NotContains(t, off, "rt-abc")
+	assert.NotContains(t, off, `"m365":`)
+
+	on, err := extractWASMSettings(wf, true)
+	require.NoError(t, err)
+	assert.Contains(t, on, `"m365":{`)
+	assert.Contains(t, on, "rt-abc")
+	assert.Contains(t, on, `"tokenCache":`)
+	assert.Contains(t, on, `"secrets":`)
+}
+
 func TestExtractWASMSettings_MachineSettings_LocalBackendDropped(t *testing.T) {
 	cfgPath := filepath.Join(t.TempDir(), "config.yaml")
 	t.Setenv("KDEPS_CONFIG_PATH", cfgPath)
 	require.NoError(t, os.WriteFile(cfgPath,
 		[]byte("llm:\n  backend: gguf\n  models:\n    - qwen2.5:1.5b\n"), 0o600))
 
-	out, err := extractWASMSettings(&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "x"}})
+	out, err := extractWASMSettings(&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "x"}}, false)
 	require.NoError(t, err)
 	assert.NotContains(t, out, `"machine":`)
 }
 
 func TestExtractWASMSettings_Defaults(t *testing.T) {
 	wf := &domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "x"}}
-	out, err := extractWASMSettings(wf)
+	out, err := extractWASMSettings(wf, false)
 	require.NoError(t, err)
 	assert.Contains(t, out, `"backend":"openai"`)
 	assert.Contains(t, out, `"model":""`)
@@ -538,7 +561,7 @@ func TestExtractWASMSettings_PromptFields(t *testing.T) {
 			}},
 		},
 	}
-	out, err := extractWASMSettings(wf)
+	out, err := extractWASMSettings(wf, false)
 	require.NoError(t, err)
 	assert.Contains(t, out, `"promptFields":["q"]`)
 }

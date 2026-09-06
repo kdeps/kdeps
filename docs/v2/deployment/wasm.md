@@ -50,7 +50,8 @@ Every `--wasm` app ships a settings drawer (a gear button, top-right). The viewe
 
 - **Shared across apps.** The choice is saved to one browser-wide store (`localStorage` key `kdeps.settings`), so an API key set in any kdeps WASM app is reused by all of them on that browser. A per-app store (`kdeps.<metadata.name>.settings`) still wins when present.
 - **Export / Import** buttons in the drawer download and load a `kdeps-settings.json` file - move your setup between browsers or machines.
-- **Import machine settings.** `kdeps bundle build --wasm` bakes the build machine's own `~/.kdeps/config.yaml` LLM defaults (backend, first model, base URL - **never API keys**) into the app. One drawer click adopts them.
+- **Import machine settings.** `kdeps bundle build --wasm` bakes the build machine's own `~/.kdeps/config.yaml` LLM defaults (backend, first model, base URL - **never cloud API keys**) into the app. One drawer click adopts them.
+- **`--wasm-embed-secrets`** additionally bakes this machine's m365 auth (`~/.config/kdeps/m365/token-cache.json` + `secrets.json`) into that same "Import machine settings" data, and the drawer feeds it back as `M365_TOKEN_CACHE_JSON` / `M365_SECRETS_JSON` when the m365 backend is selected. Off by default: **the build then contains real credentials - do not commit or share it.** A build-time warning is printed.
 - **`m365` backend.** Selecting `m365` (or any local OpenAI-compatible proxy) swaps the API-key field for a **Base URL** field. The env becomes `KDEPS_DEFAULT_BACKEND=openai` + `KDEPS_LLM_BASE_URL=<url>`. Run `kdeps` locally so the proxy is up; point the field at its address.
 
 So a WASM resource can just defer everything to the drawer:

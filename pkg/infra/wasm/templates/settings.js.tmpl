@@ -92,6 +92,11 @@ window.__KDEPS_SETTINGS = {{.ConfigJSON}};
             // locally. Talk to it as the openai backend at the given base URL.
             env.KDEPS_DEFAULT_BACKEND = 'openai';
             env.KDEPS_LLM_BASE_URL = s.baseURL || p.baseURL;
+            if (s.backend === 'm365' && s.m365) {
+                // Carried for a local kdeps m365 proxy that reads auth from env.
+                if (s.m365.tokenCache) env.M365_TOKEN_CACHE_JSON = JSON.stringify(s.m365.tokenCache);
+                if (s.m365.secrets) env.M365_SECRETS_JSON = JSON.stringify(s.m365.secrets);
+            }
         } else {
             env.KDEPS_DEFAULT_BACKEND = s.backend;
         }
@@ -256,6 +261,7 @@ window.__KDEPS_SETTINGS = {{.ConfigJSON}};
                     s.baseURLs = s.baseURLs || {};
                     s.baseURLs.m365 = machine.m365BaseURL;
                 }
+                if (machine.m365) s.m365 = machine.m365; // embedded auth (--wasm-embed-secrets)
                 writeShared(s);
                 window.dispatchEvent(new Event('kdeps:settings-changed'));
                 rebuild(container, floating);

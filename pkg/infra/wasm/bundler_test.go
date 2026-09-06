@@ -697,6 +697,7 @@ func TestBundle_SettingsScript(t *testing.T) {
 	assert.Contains(t, string(settingsJS), "Import machine settings")
 	assert.Contains(t, string(settingsJS), "kdeps-settings.json")
 	assert.Contains(t, string(settingsJS), "providerNeedsBaseURL")
+	assert.Contains(t, string(settingsJS), "M365_TOKEN_CACHE_JSON")
 
 	indexHTML, err := os.ReadFile(filepath.Join(outputDir, "dist", "index.html"))
 	require.NoError(t, err)

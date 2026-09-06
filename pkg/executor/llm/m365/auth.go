@@ -280,6 +280,13 @@ func loadSecrets() *Credentials {
 // (M365_SECRETS_FILE, or the default under configDir).
 func SecretsPath() string { return secretsFile() }
 
+// CachePath returns the on-disk path of the token cache (refresh + access
+// tokens): M365_CACHE_FILE, or the default under configDir.
+func CachePath() string { return cacheFile() }
+
+// ConfigDir returns the directory holding the m365 token cache and secrets.
+func ConfigDir() string { return configDir() }
+
 // CredentialsReady reports whether kdeps can authenticate without prompting:
 // either a cached refresh token already exists, or a complete secrets file
 // (email/password/mfaSecret) is present on disk.
