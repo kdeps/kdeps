@@ -28,6 +28,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"strings"
 
 	goyaml "gopkg.in/yaml.v3"
@@ -82,8 +83,48 @@ type wasmSettingsConfig struct {
 	Backend       string                 `json:"backend"`
 	Model         string                 `json:"model"`
 	CaptureFields []string               `json:"captureFields"`
+	PromptFields  []string               `json:"promptFields"`
 	Providers     []wasmSettingsProvider `json:"providers"`
 	Models        []wasmSettingsModel    `json:"models"`
+}
+
+var wasmGetRefRe = regexp.MustCompile(`get\(\s*['"]([a-zA-Z_][a-zA-Z0-9_]*)['"]`)
+
+// wasmPromptFields returns the input field names the widget must collect from
+// the user: validation params/required plus get('x') references in check
+// expressions, minus whatever the capture bookmarklet already provides.
+func wasmPromptFields(workflow *domain.Workflow, capture []string) []string {
+	captured := make(map[string]bool, len(capture))
+	for _, c := range capture {
+		captured[c] = true
+	}
+	seen := make(map[string]bool)
+	var out []string
+	add := func(name string) {
+		name = strings.TrimSpace(name)
+		if name == "" || captured[name] || seen[name] {
+			return
+		}
+		seen[name] = true
+		out = append(out, name)
+	}
+	for _, res := range workflow.Resources {
+		if res == nil || res.Validations == nil {
+			continue
+		}
+		for _, p := range res.Validations.Params {
+			add(p)
+		}
+		for _, r := range res.Validations.Required {
+			add(r)
+		}
+		for _, chk := range res.Validations.Check {
+			for _, m := range wasmGetRefRe.FindAllStringSubmatch(chk.Raw, -1) {
+				add(m[1])
+			}
+		}
+	}
+	return out
 }
 
 // firstChatModel returns the first concrete model named by a chat resource, so
@@ -136,11 +177,13 @@ func extractWASMSettings(workflow *domain.Workflow) (string, error) {
 		backend = "openai"
 	}
 
+	capture := wasmCaptureFields(workflow)
 	cfg := wasmSettingsConfig{
 		AppName:       workflow.Metadata.Name,
 		Backend:       backend,
 		Model:         firstChatModel(workflow),
-		CaptureFields: wasmCaptureFields(workflow),
+		CaptureFields: capture,
+		PromptFields:  wasmPromptFields(workflow, capture),
 	}
 	for _, p := range kdepsconfig.CloudLLMProviders() {
 		cfg.Providers = append(cfg.Providers, wasmSettingsProvider{

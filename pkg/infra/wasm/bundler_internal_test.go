@@ -360,6 +360,7 @@ func TestInlineRuntimeScripts_MissingBootstrap(t *testing.T) {
 	require.NoError(t, os.WriteFile(filepath.Join(tmpDir, "wasm_exec.js"), []byte("go"), 0644))
 	require.NoError(t, os.WriteFile(filepath.Join(tmpDir, "kdeps-wasm-embed.js"), []byte("embed"), 0644))
 	require.NoError(t, os.WriteFile(filepath.Join(tmpDir, "kdeps-settings.js"), []byte("settings"), 0644))
+	require.NoError(t, os.WriteFile(filepath.Join(tmpDir, "kdeps-widget.js"), []byte("widget"), 0644))
 
 	err := inlineRuntimeScripts(tmpDir)
 	require.Error(t, err)
@@ -376,6 +377,7 @@ func TestInlineRuntimeScripts_WriteError(t *testing.T) {
 	require.NoError(t, os.WriteFile(filepath.Join(tmpDir, "wasm_exec.js"), []byte("go"), 0644))
 	require.NoError(t, os.WriteFile(filepath.Join(tmpDir, "kdeps-wasm-embed.js"), []byte("embed"), 0644))
 	require.NoError(t, os.WriteFile(filepath.Join(tmpDir, "kdeps-settings.js"), []byte("settings"), 0644))
+	require.NoError(t, os.WriteFile(filepath.Join(tmpDir, "kdeps-widget.js"), []byte("widget"), 0644))
 	require.NoError(t, os.WriteFile(filepath.Join(tmpDir, "kdeps-bootstrap.js"), []byte("boot"), 0644))
 	require.NoError(t, os.Chmod(indexPath, 0444))
 	t.Cleanup(func() { _ = os.Chmod(indexPath, 0644) })
@@ -400,6 +402,7 @@ func TestInlineRuntimeScripts_Success(t *testing.T) {
 <script src="wasm_exec.js"></script>
 <script src="kdeps-wasm-embed.js"></script>
 <script src="kdeps-settings.js"></script>
+<script src="kdeps-widget.js"></script>
 <script src="kdeps-bootstrap.js"></script>
 </body></html>`), 0644))
 	require.NoError(t, os.WriteFile(filepath.Join(tmpDir, "wasm_exec.js"), []byte("GO_RUNTIME"), 0644))
@@ -407,6 +410,7 @@ func TestInlineRuntimeScripts_Success(t *testing.T) {
 	embedBody := []byte(`window.__KDEPS_WASM_B64 = "QQ==";`)
 	require.NoError(t, os.WriteFile(embedJS, embedBody, 0644))
 	require.NoError(t, os.WriteFile(filepath.Join(tmpDir, "kdeps-settings.js"), []byte("SETTINGS_JS"), 0644))
+	require.NoError(t, os.WriteFile(filepath.Join(tmpDir, "kdeps-widget.js"), []byte("WIDGET_JS"), 0644))
 	require.NoError(t, os.WriteFile(filepath.Join(tmpDir, "kdeps-bootstrap.js"), []byte("BOOTSTRAP"), 0644))
 
 	require.NoError(t, inlineRuntimeScripts(tmpDir))

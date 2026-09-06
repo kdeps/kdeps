@@ -175,12 +175,21 @@ window.__KDEPS_SETTINGS = {{.ConfigJSON}};
         gear.addEventListener('click', showDrawer);
         backdrop.addEventListener('click', hideDrawer);
 
+        // In the bookmarklet widget the header has its own Settings button.
+        if (isWidgetMode()) gear.style.display = 'none';
+
         document.body.appendChild(gear);
         document.body.appendChild(backdrop);
         document.body.appendChild(drawer);
         buildPanel(drawer, true);
-        if (captureFields.length) mountCapture(drawer);
+        if (captureFields.length && !isWidgetMode()) mountCapture(drawer);
     }
+
+    // Let kdeps-widget.js (or a host page) open the drawer programmatically.
+    window.__kdepsOpenSettings = function () {
+        if (!drawer) mountFloating();
+        showDrawer();
+    };
 
     // ---- optional page-capture bookmarklet ------------------------------------
 
@@ -189,16 +198,22 @@ window.__KDEPS_SETTINGS = {{.ConfigJSON}};
     function bookmarkletSource() {
         var fields = JSON.stringify(captureFields);
         var app = JSON.stringify(appURL());
+        // Opens the app as a small popup near the screen corner in widget mode
+        // (#kdeps-widget). kdeps-widget.js there shows status, collects input,
+        // renders the result, and only closes on its x button.
         return '(function(){var F=' + fields + ',A=' + app + ';' +
             'var v={url:location.href,title:document.title,' +
             'text:((document.body&&document.body.innerText)||"").slice(0,24000)};' +
             'var p={__kdepsCapture:1};for(var i=0;i<F.length;i++){p[F[i]]=v[F[i]]!=null?v[F[i]]:v.text;}' +
             'var raw=JSON.stringify(p);' +
             'try{navigator.clipboard&&navigator.clipboard.writeText&&navigator.clipboard.writeText(raw);}catch(e){}' +
-            'var w=null;try{w=window.open(A);}catch(e){}' +
-            'if(w){var n=0,t=setInterval(function(){n++;if(!w||w.closed||n>60){clearInterval(t);return;}' +
-            'try{w.postMessage(p,"*");}catch(e){}},200);return;}' +
-            'alert("Page copied. Open the app HTML file.");})();';
+            'var W=420,H=200,L=Math.max(0,screen.availWidth-W-24),T=Math.max(0,screen.availHeight-H-48);' +
+            'var u=A+(A.indexOf("#")<0?"#":"&")+"kdeps-widget";' +
+            'var w=null;try{w=window.open(u,"kdeps-"+' + JSON.stringify(appName) + ',' +
+            '"width="+W+",height="+H+",left="+L+",top="+T+",menubar=no,toolbar=no,location=no,status=no");}catch(e){}' +
+            'if(w){try{w.focus();}catch(e){}var n=0,t=setInterval(function(){n++;' +
+            'if(!w||w.closed||n>80){clearInterval(t);return;}try{w.postMessage(p,"*");}catch(e){}},200);return;}' +
+            'alert("Popup blocked. Allow popups for this site, then click the bookmarklet again.");})();';
     }
 
     function mountCapture(container) {
@@ -237,7 +252,16 @@ window.__KDEPS_SETTINGS = {{.ConfigJSON}};
         }).catch(function () { /* denied */ });
     }
 
+    function isWidgetMode() {
+        try {
+            return /(?:^|[#&?])kdeps(?:-widget|=widget)\b/.test(location.hash + location.search);
+        } catch (e) { return false; }
+    }
+
     function installCaptureReceiver() {
+        // In widget mode kdeps-widget.js owns the capture payload and the app's
+        // own page UI is hidden - do not also feed it here.
+        if (isWidgetMode()) return;
         window.addEventListener('message', function (ev) { applyPayload(ev.data); });
         window.addEventListener('focus', readClipboard);
         document.addEventListener('visibilitychange', function () {

@@ -123,11 +123,13 @@ rm -f "$PS_HTML"
 if BUILD_OUT=$(env -u KDEPS_COMPONENT_DIR "$KDEPS_BIN" bundle build "$EX" --wasm 2>&1) && [ -f "$PS_HTML" ]; then
     if grep -q "window.__KDEPS_SETTINGS" "$PS_HTML" && \
        grep -q '"captureFields":\["url","title","text"\]' "$PS_HTML" && \
-       grep -q "Send this page to" "$PS_HTML"; then
-        test_passed "page-summarizer - --wasm build embeds the drawer + capture bookmarklet"
+       grep -q "Send this page to" "$PS_HTML" && \
+       grep -q "kdeps-widget" "$PS_HTML" && \
+       grep -q "function markdown(" "$PS_HTML"; then
+        test_passed "page-summarizer - --wasm build embeds the drawer + widget + capture bookmarklet"
     else
-        test_failed "page-summarizer - --wasm build embeds the drawer + capture bookmarklet" \
-            "settings config / captureFields / bookmarklet missing in $PS_HTML"
+        test_failed "page-summarizer - --wasm build embeds the drawer + widget + capture bookmarklet" \
+            "settings config / captureFields / bookmarklet / widget missing in $PS_HTML"
     fi
     rm -f "$PS_HTML"
 else

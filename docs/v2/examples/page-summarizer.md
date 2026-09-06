@@ -121,33 +121,31 @@ apiResponse:
 
 </div>
 
-## Step 4: the result page
+## Step 4: the result page (only for opening the file directly)
 
-Put `data/public/index.html` next to the workflow; the bundler copies `data/` into `dist/`. The settings drawer and the bookmarklet are added by kdeps - your page only needs to render the answer and handle a capture:
+`data/public/index.html` is your app's UI when someone **double-clicks the HTML file**. From the bookmarklet the [widget window](/deployment/wasm#the-widget-window) takes over, so this page is a small fallback: a paste box plus a `kdeps:capture` listener.
 
 ```html
 <!-- data/public/index.html (trimmed) -->
-<div id="kdeps-capture-cta"></div>   <!-- bundler drops the bookmarklet link here -->
-<textarea id="text" placeholder="Or paste text and click Summarize."></textarea>
+<textarea id="text" placeholder="Paste text and click Summarize."></textarea>
 <button id="run">Summarize</button>
 <pre id="out"></pre>
 <script>
   async function summarize(input) {
-    if (!window.__kdepsSettingsReady()) { /* prompt user to open the gear menu */ return; }
+    if (!window.__kdepsSettingsReady()) { /* open the gear menu */ return; }
     document.getElementById('out').textContent =
       (await window.kdeps.execute(input)).response.summary;
   }
   document.getElementById('run').onclick = function () {
     summarize({ text: document.getElementById('text').value });
   };
-  // The bookmarklet delivers the captured page here.
   window.addEventListener('kdeps:capture', function (e) { summarize(e.detail); });
 </script>
 ```
 
 The full file is in [`examples/page-summarizer/data/public/index.html`](https://github.com/kdeps/kdeps/blob/main/examples/page-summarizer/data/public/index.html).
 
-## Step 5: build and double-click
+## Step 5: build and use
 
 ```bash
 kdeps bundle build . --wasm
@@ -156,11 +154,9 @@ kdeps bundle build . --wasm
 
 That writes `page-summarizer.html` next to the workflow. Double-click it. No Docker, no `http.server`. Use `--wasm-output server` if you want `{name}-wasm/` plus an nginx image.
 
-1. Click the gear (top-right), pick a backend + model, paste an API key
+1. Click the gear, pick a backend + model, paste an API key
 2. Drag **Send this page to page-summarizer** onto the bookmarks bar
-3. Open any article, click the bookmark - the summarizer opens and runs
-
-Paste text and click Summarize if you do not want a bookmarklet.
+3. Open any article, click the bookmark - a small window pops up, runs, and shows the summary as markdown. It stays open until you dismiss it.
 
 ## Summary
 

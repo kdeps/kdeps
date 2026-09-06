@@ -455,3 +455,35 @@ func TestExtractWASMSettings_Defaults(t *testing.T) {
 	assert.Contains(t, out, `"model":""`)
 	assert.Contains(t, out, `"captureFields":null`)
 }
+
+func TestWasmPromptFields(t *testing.T) {
+	wf := &domain.Workflow{
+		Resources: []*domain.Resource{
+			{
+				ActionID: "a",
+				Validations: &domain.ValidationsConfig{
+					Params:   []string{"question"},
+					Required: []string{"question", "tone"},
+					Check:    []domain.Expression{{Raw: "get('text') != '' && get('lang') != ''"}},
+				},
+			},
+			{ActionID: "b"}, // no validations
+		},
+	}
+	got := wasmPromptFields(wf, []string{"text"}) // "text" is captured
+	assert.Equal(t, []string{"question", "tone", "lang"}, got)
+}
+
+func TestExtractWASMSettings_PromptFields(t *testing.T) {
+	wf := &domain.Workflow{
+		Metadata: domain.WorkflowMetadata{Name: "x"},
+		Resources: []*domain.Resource{
+			{ActionID: "a", Validations: &domain.ValidationsConfig{
+				Check: []domain.Expression{{Raw: "get('q') != ''"}},
+			}},
+		},
+	}
+	out, err := extractWASMSettings(wf)
+	require.NoError(t, err)
+	assert.Contains(t, out, `"promptFields":["q"]`)
+}

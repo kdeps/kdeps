@@ -119,10 +119,12 @@ func bootstrapScriptTags(standalone bool) string {
 		return `<script src="wasm_exec.js"></script>
 <script src="kdeps-wasm-embed.js"></script>
 <script src="kdeps-settings.js"></script>
+<script src="kdeps-widget.js"></script>
 <script src="kdeps-bootstrap.js"></script>`
 	}
 	return `<script src="wasm_exec.js"></script>
 <script src="kdeps-settings.js"></script>
+<script src="kdeps-widget.js"></script>
 <script src="kdeps-bootstrap.js"></script>`
 }
 
@@ -143,6 +145,9 @@ func copyBundleAssets(config *BundleConfig, distDir string) error {
 	}
 	if err := renderSettings(config, distDir); err != nil {
 		return fmt.Errorf("failed to render settings script: %w", err)
+	}
+	if err := copyEmbeddedFile("templates/widget.js.tmpl", filepath.Join(distDir, "kdeps-widget.js")); err != nil {
+		return fmt.Errorf("failed to write widget script: %w", err)
 	}
 	if err := copyWebServerFiles(config.WebServerFiles, distDir); err != nil {
 		return fmt.Errorf("failed to copy web server files: %w", err)
@@ -362,7 +367,7 @@ func writeWasmEmbed(wasmPath, distDir string) error {
 }
 
 func runtimeScriptFiles() []string {
-	return []string{"wasm_exec.js", "kdeps-wasm-embed.js", "kdeps-settings.js", "kdeps-bootstrap.js"}
+	return []string{"wasm_exec.js", "kdeps-wasm-embed.js", "kdeps-settings.js", "kdeps-widget.js", "kdeps-bootstrap.js"}
 }
 
 // inlineRuntimeScripts replaces <script src="..."> tags for the WASM runtime

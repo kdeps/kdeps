@@ -64,15 +64,20 @@ settings:
       KDEPS_WASM_CAPTURE: "url,title,text"
 ```
 
-The bookmarklet runs in whatever tab it is clicked in, reads `location.href`, `document.title`, and `document.body.innerText` (capped at 24k chars), maps them onto the listed field names, and hands them to the app via `postMessage` / clipboard / `window.name`. The app receives a `kdeps:capture` CustomEvent whose `detail` is the field map:
+The bookmarklet runs in whatever tab it is clicked in, reads `location.href`, `document.title`, and `document.body.innerText` (capped at 24k chars), and maps them onto the listed field names.
 
-```js
-window.addEventListener('kdeps:capture', function (e) {
-    window.kdeps.execute(e.detail);   // { url, title, text }
-});
-```
+### The widget window
 
-The bookmarklet link is injected into `<div id="kdeps-capture-cta"></div>` if your HTML has one, and always into the settings drawer. Without `KDEPS_WASM_CAPTURE` there is no bookmarklet.
+Clicking the bookmarklet opens the app as a **small popup near the screen corner** (`#kdeps-widget`), not a full tab. That window - `kdeps-widget.js`, standard in every `--wasm` app - :
+
+1. shows what the run is doing (waiting for the page -> running -> done);
+2. renders an input box **only if the workflow needs a field the capture does not provide** (kdeps works this out from `validations`);
+3. renders the result as markdown, and grows the window to fit;
+4. never closes on its own - only its **x** / Dismiss button (or a re-run) closes it.
+
+The **gear** button in the widget header opens the same settings drawer.
+
+The bookmarklet link is injected into `<div id="kdeps-capture-cta"></div>` if your HTML has one, and always into the settings drawer. Without `KDEPS_WASM_CAPTURE` there is no bookmarklet. Your app's own `index.html` UI is used only when the file is opened directly (double-clicked), not from the bookmarklet.
 
 ## Allowed resources
 

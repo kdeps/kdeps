@@ -661,9 +661,11 @@ func assertSelfContainedIndex(t *testing.T, indexHTML, wasmExecSnippet string) {
 	assert.Contains(t, indexHTML, "installFileOriginFetchShim")
 	assert.Contains(t, indexHTML, "init: function(env)")
 	assert.Contains(t, indexHTML, "__kdepsSettingsEnv")
+	assert.Contains(t, indexHTML, "kdeps-widget")
 	assert.NotContains(t, indexHTML, `<script src="wasm_exec.js">`)
 	assert.NotContains(t, indexHTML, `<script src="kdeps-wasm-embed.js">`)
 	assert.NotContains(t, indexHTML, `<script src="kdeps-settings.js">`)
+	assert.NotContains(t, indexHTML, `<script src="kdeps-widget.js">`)
 	assert.NotContains(t, indexHTML, `<script src="kdeps-bootstrap.js">`)
 }
 
@@ -694,6 +696,13 @@ func TestBundle_SettingsScript(t *testing.T) {
 	indexHTML, err := os.ReadFile(filepath.Join(outputDir, "dist", "index.html"))
 	require.NoError(t, err)
 	assert.Contains(t, string(indexHTML), `<script src="kdeps-settings.js"></script>`)
+	assert.Contains(t, string(indexHTML), `<script src="kdeps-widget.js"></script>`)
+
+	widgetJS, err := os.ReadFile(filepath.Join(outputDir, "dist", "kdeps-widget.js"))
+	require.NoError(t, err)
+	assert.Contains(t, string(widgetJS), "kdeps-widget")
+	assert.Contains(t, string(widgetJS), "function markdown(")
+	assert.Contains(t, string(widgetJS), "window.close()")
 }
 
 func TestBundle_SettingsScriptDefaultsEmpty(t *testing.T) {
