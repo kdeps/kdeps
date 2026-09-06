@@ -360,8 +360,11 @@ window.__KDEPS_SETTINGS = {{.ConfigJSON}};
         // file:// standalone: open the app as a small popup (#kdeps-widget).
         var app = JSON.stringify(appURL());
         return '(function(){var F=' + fields + ',A=' + app + ';' +
+            'var kd=document.querySelectorAll("#kdeps-widget,.kdeps-drawer,.kdeps-gear,.kdeps-backdrop,#kdeps-boot-overlay,.kdeps-capture,#kdeps-settings,#kdeps-loading"),kh=[];' +
+            'for(var k=0;k<kd.length;k++){kh.push([kd[k],kd[k].style.display]);kd[k].style.display="none";}' +
             'var v={url:location.href,title:document.title,' +
             'text:((document.body&&document.body.innerText)||"").slice(0,24000)};' +
+            'for(var k=0;k<kh.length;k++){kh[k][0].style.display=kh[k][1];}' +
             'var p={__kdepsCapture:1};for(var i=0;i<F.length;i++){p[F[i]]=v[F[i]]!=null?v[F[i]]:v.text;}' +
             'var raw=JSON.stringify(p);' +
             'try{navigator.clipboard&&navigator.clipboard.writeText&&navigator.clipboard.writeText(raw);}catch(e){}' +

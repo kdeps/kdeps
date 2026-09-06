@@ -711,6 +711,9 @@ func TestBundle_SettingsScript(t *testing.T) {
 	assert.Contains(t, string(widgetJS), "kdeps-widget")
 	assert.Contains(t, string(widgetJS), "function markdown(")
 	assert.Contains(t, string(widgetJS), "window.close()")
+	// page capture hides kdeps' own injected UI before reading innerText
+	assert.Contains(t, string(widgetJS), "function pageText(")
+	assert.Contains(t, string(widgetJS), "#kdeps-boot-overlay")
 }
 
 func TestBundle_SettingsScriptDefaultsEmpty(t *testing.T) {

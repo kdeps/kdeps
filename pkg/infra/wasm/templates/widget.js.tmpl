@@ -226,12 +226,24 @@
         execute();
     }
 
+    // Read the page's own text, with kdeps' injected UI (this panel, the
+    // drawer, overlays) hidden so it never pollutes the summary input.
+    function pageText() {
+        var hidden = [];
+        var kd = document.querySelectorAll(
+            '#kdeps-widget,.kdeps-drawer,.kdeps-gear,.kdeps-backdrop,' +
+            '#kdeps-boot-overlay,.kdeps-capture,#kdeps-settings,#kdeps-loading');
+        for (var i = 0; i < kd.length; i++) {
+            hidden.push([kd[i], kd[i].style.display]);
+            kd[i].style.display = 'none';
+        }
+        var text = ((document.body && document.body.innerText) || '').slice(0, 24000);
+        for (var j = 0; j < hidden.length; j++) hidden[j][0].style.display = hidden[j][1];
+        return text;
+    }
+
     function pageFields() {
-        var v = {
-            url: location.href,
-            title: document.title,
-            text: ((document.body && document.body.innerText) || '').slice(0, 24000)
-        };
+        var v = { url: location.href, title: document.title, text: pageText() };
         var out = {};
         captureFields.forEach(function (f) { out[f] = v[f] != null ? v[f] : v.text; });
         return out;
