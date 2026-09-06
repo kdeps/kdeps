@@ -20,6 +20,7 @@ package vectorstore
 
 import (
 	"fmt"
+	"os"
 
 	"github.com/kdeps/kdeps/v2/pkg/domain"
 	"github.com/kdeps/kdeps/v2/pkg/executor"
@@ -74,6 +75,17 @@ func resolveConfig(
 	}
 	if resolved.EmbedBackend, err = evaluateStringOrLiteral(evaluator, execCtx, cfg.EmbedBackend); err != nil {
 		return nil, fmt.Errorf("failed to evaluate embedBackend: %w", err)
+	}
+	// "system" on embedBackend/embedModel means "resolve as if empty": follow
+	// KDEPS_DEFAULT_BACKEND / the machine config.
+	if domain.IsSystemSentinel(resolved.EmbedModel) {
+		resolved.EmbedModel = ""
+	}
+	if domain.IsSystemSentinel(resolved.EmbedBackend) {
+		resolved.EmbedBackend = ""
+	}
+	if resolved.EmbedBackend == "" {
+		resolved.EmbedBackend = os.Getenv("KDEPS_DEFAULT_BACKEND")
 	}
 	if resolved.EmbedBaseURL, err = evaluateStringOrLiteral(evaluator, execCtx, cfg.EmbedBaseURL); err != nil {
 		return nil, fmt.Errorf("failed to evaluate embedBaseURL: %w", err)

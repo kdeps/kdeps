@@ -77,6 +77,14 @@ func resolveConfig(
 	if resolved.Backend, err = evaluateStringOrLiteral(evaluator, ctx, cfg.Backend); err != nil {
 		return nil, fmt.Errorf("failed to evaluate backend: %w", err)
 	}
+	// "system" means "resolve as if empty" -> the default backend (openai) and
+	// default model (whisper-1).
+	if domain.IsSystemSentinel(resolved.Model) {
+		resolved.Model = ""
+	}
+	if domain.IsSystemSentinel(resolved.Backend) {
+		resolved.Backend = ""
+	}
 	if resolved.BaseURL, err = evaluateStringOrLiteral(evaluator, ctx, cfg.BaseURL); err != nil {
 		return nil, fmt.Errorf("failed to evaluate baseURL: %w", err)
 	}

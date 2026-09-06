@@ -68,3 +68,12 @@ func TestResolveConfig_NilCtx_LeavesLiteral(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, "{{ get('a') }}", resolved.File)
 }
+
+func TestResolveConfig_SystemSentinel(t *testing.T) {
+	ctx := newTestCtx(t)
+	cfg := &domain.TranscribeConfig{File: "a.mp3", Model: "system", Backend: "System"}
+	resolved, err := resolveConfig(ctx, cfg)
+	require.NoError(t, err)
+	require.Equal(t, "", resolved.Model)   // -> executor default (whisper-1)
+	require.Equal(t, "", resolved.Backend) // -> executor default (openai)
+}

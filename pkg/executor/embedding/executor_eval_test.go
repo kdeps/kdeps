@@ -70,3 +70,14 @@ func TestResolveInterpolatedConfig_NilCtx_LeavesLiteral(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, "{{ get('a') }}", resolved.Text)
 }
+
+func TestResolveInterpolatedConfig_SystemSentinel(t *testing.T) {
+	ctx := newTestCtx(t)
+	t.Setenv("KDEPS_DEFAULT_BACKEND", "openai")
+
+	cfg := &domain.EmbeddingConfig{Operation: "vectorize", Model: "system", Backend: "system"}
+	resolved, err := resolveInterpolatedConfig(ctx, cfg)
+	require.NoError(t, err)
+	require.Equal(t, "", resolved.Model)
+	require.Equal(t, "openai", resolved.Backend) // system -> empty -> KDEPS_DEFAULT_BACKEND
+}

@@ -66,8 +66,8 @@ vectorStore:
 | `documents` | add_documents | List of `{ content, metadata }` documents to upsert |
 | `query` | similarity_search | Natural language search query |
 | `topK` | similarity_search | Number of results to return (default: 5) |
-| `embedModel` | all | Embedding model used to vectorize documents/queries, e.g. `text-embedding-3-small` (required) |
-| `embedBackend` | all | Embedding provider: `openai`, `ollama`, `google` |
+| `embedModel` | all | Embedding model used to vectorize documents/queries, e.g. `text-embedding-3-small` (required, unless `system`) |
+| `embedBackend` | all | Embedding provider: `openai`, `ollama`, `google`, or `system` (follow `KDEPS_DEFAULT_BACKEND` / the machine config) |
 | `embedBaseURL` | all | Custom base URL for an OpenAI-compatible embedding backend |
 
 ## Output

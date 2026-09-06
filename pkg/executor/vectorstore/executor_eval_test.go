@@ -71,3 +71,16 @@ func TestResolveConfig_NilCtx_LeavesLiteral(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, "{{ get('a') }}", resolved.Query)
 }
+
+func TestResolveConfig_SystemSentinel(t *testing.T) {
+	ctx := newTestCtx(t)
+	t.Setenv("KDEPS_DEFAULT_BACKEND", "google")
+	cfg := &domain.VectorStoreConfig{
+		Collection: "c", Operation: "similarity_search",
+		EmbedModel: "system", EmbedBackend: "system",
+	}
+	resolved, err := resolveConfig(ctx, cfg)
+	require.NoError(t, err)
+	require.Equal(t, "", resolved.EmbedModel)
+	require.Equal(t, "google", resolved.EmbedBackend)
+}

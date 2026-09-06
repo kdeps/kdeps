@@ -20,6 +20,7 @@ package embedding
 
 import (
 	"fmt"
+	"os"
 
 	"github.com/kdeps/kdeps/v2/pkg/domain"
 	"github.com/kdeps/kdeps/v2/pkg/executor"
@@ -86,6 +87,17 @@ func resolveInterpolatedConfig(
 	}
 	if resolved.Backend, err = evaluateStringOrLiteral(evaluator, execCtx, config.Backend); err != nil {
 		return nil, fmt.Errorf("failed to evaluate backend: %w", err)
+	}
+	// "system" on backend/model means "resolve as if empty": follow
+	// KDEPS_DEFAULT_BACKEND / the machine config.
+	if domain.IsSystemSentinel(resolved.Model) {
+		resolved.Model = ""
+	}
+	if domain.IsSystemSentinel(resolved.Backend) {
+		resolved.Backend = ""
+	}
+	if resolved.Backend == "" {
+		resolved.Backend = os.Getenv("KDEPS_DEFAULT_BACKEND")
 	}
 	if resolved.BaseURL, err = evaluateStringOrLiteral(evaluator, execCtx, config.BaseURL); err != nil {
 		return nil, fmt.Errorf("failed to evaluate baseURL: %w", err)

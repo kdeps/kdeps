@@ -727,14 +727,18 @@ func prepareCfg(ctx context.Context, cfg *domain.ChatConfig) *domain.ChatConfig 
 			SetLocalContextSize(cfg.ContextSize)
 		}
 	}
-	if cfg.FewShotEmbeddingModel == "" || cfg.FewShotSelectK <= 0 || len(cfg.FewShot) == 0 {
+	fewShotModel := cfg.FewShotEmbeddingModel
+	if isSystemSentinel(fewShotModel) {
+		fewShotModel = ""
+	}
+	if fewShotModel == "" || cfg.FewShotSelectK <= 0 || len(cfg.FewShot) == 0 {
 		return cfg
 	}
 	backend := cfg.FewShotEmbeddingBackend
-	if backend == "" {
+	if backend == "" || isSystemSentinel(backend) {
 		backend = cfg.Backend
 	}
-	embedder, err := buildFewShotEmbedder(ctx, cfg.FewShotEmbeddingModel, backend, cfg.BaseURL)
+	embedder, err := buildFewShotEmbedder(ctx, fewShotModel, backend, cfg.BaseURL)
 	if err != nil {
 		return cfg // fall back to Jaccard on build failure
 	}

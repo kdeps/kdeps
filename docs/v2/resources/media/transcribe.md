@@ -61,8 +61,8 @@ transcribe:
 | Option | Applies to | Description |
 |---|---|---|
 | `file` | all | Path to the audio file (required) |
-| `backend` | all | `openai` (default), `groq`, `local`, or `whisper-cpp` |
-| `model` | openai, groq | Model name. Default `whisper-1`; Groq: `whisper-large-v3` |
+| `backend` | all | `openai` (default), `groq`, `local`, `whisper-cpp`, or `system` (follow the machine config) |
+| `model` | openai, groq | Model name. Default `whisper-1`; Groq: `whisper-large-v3`. `system` = the default |
 | `baseURL` | local | Base URL of the self-hosted server. Ignored for `whisper-cpp` |
 | `modelPath` | whisper-cpp | Path to a GGML model file. Default: auto-downloaded `ggml-base.en.bin` |
 | `language` | all | ISO-639-1 language hint, e.g. `en` |
