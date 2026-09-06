@@ -117,7 +117,8 @@ func normalizeWebServePath(path string) string {
 
 func bootstrapScriptTags(standalone bool) string {
 	if standalone {
-		return `<script src="wasm_exec.js"></script>
+		return `<script src="kdeps-loader.js"></script>
+<script src="wasm_exec.js"></script>
 <script src="kdeps-wasm-embed.js"></script>
 <script src="kdeps-settings.js"></script>
 <script src="kdeps-widget.js"></script>
@@ -139,6 +140,9 @@ func copyBundleAssets(config *BundleConfig, distDir string) error {
 	if config.standalone() {
 		if err := writeWasmEmbed(config.WASMBinaryPath, distDir); err != nil {
 			return fmt.Errorf("failed to embed WASM for file://: %w", err)
+		}
+		if err := copyEmbeddedFile("templates/loader.js.tmpl", filepath.Join(distDir, "kdeps-loader.js")); err != nil {
+			return fmt.Errorf("failed to write loader script: %w", err)
 		}
 	}
 	if err := renderBootstrap(config, distDir); err != nil {
@@ -451,7 +455,13 @@ func writeWasmEmbed(wasmPath, distDir string) error {
 }
 
 func runtimeScriptFiles() []string {
-	return []string{"wasm_exec.js", "kdeps-wasm-embed.js", "kdeps-settings.js", "kdeps-widget.js", "kdeps-bootstrap.js"}
+	// Order here only affects inline-replacement order, not final DOM position
+	// (each tag is replaced in place). kdeps-loader.js is last so its absence
+	// in a non-standalone context surfaces after the core scripts.
+	return []string{
+		"wasm_exec.js", "kdeps-wasm-embed.js", "kdeps-settings.js",
+		"kdeps-widget.js", "kdeps-bootstrap.js", "kdeps-loader.js",
+	}
 }
 
 // inlineRuntimeScripts replaces <script src="..."> tags for the WASM runtime

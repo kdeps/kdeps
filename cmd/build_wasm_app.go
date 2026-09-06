@@ -98,10 +98,13 @@ type wasmSettingsProvider struct {
 // API keys. M365 is populated only with --wasm-embed-secrets and DOES carry
 // real credentials - the build is then a secret.
 type wasmMachineSettings struct {
-	Backend string            `json:"backend,omitempty"`
-	Model   string            `json:"model,omitempty"`
-	BaseURL string            `json:"baseURL,omitempty"`
-	M365    *wasmM365Settings `json:"m365,omitempty"`
+	Backend string `json:"backend,omitempty"`
+	Model   string `json:"model,omitempty"`
+	BaseURL string `json:"baseURL,omitempty"`
+	// Keys is backend-name -> cloud API key, populated only with
+	// --wasm-embed-secrets. Empty otherwise.
+	Keys map[string]string `json:"keys,omitempty"`
+	M365 *wasmM365Settings `json:"m365,omitempty"`
 }
 
 // wasmM365Settings is the raw contents of ~/.config/kdeps/m365/*.json, embedded
@@ -247,16 +250,18 @@ func extractWASMSettings(workflow *domain.Workflow, embedSecrets bool) (string, 
 			ID: m.ID, Backend: m.Backend, Desc: m.Desc,
 		})
 	}
-	cfg.Machine = wasmMachineSettingsFromConfig()
+	cfg.Machine = wasmMachineSettingsFromConfig(embedSecrets)
 	if embedSecrets {
 		if m365 := wasmM365SettingsFromDisk(); m365 != nil {
 			if cfg.Machine == nil {
 				cfg.Machine = &wasmMachineSettings{}
 			}
 			cfg.Machine.M365 = m365
+		}
+		if cfg.Machine != nil && (len(cfg.Machine.Keys) > 0 || cfg.Machine.M365 != nil) {
 			fmt.Fprintln(os.Stderr,
-				"WARNING: --wasm-embed-secrets baked this machine's m365 credentials into the "+
-					"build. Treat the output as a secret - do not commit or share it.")
+				"WARNING: --wasm-embed-secrets baked this machine's LLM API keys / m365 "+
+					"credentials into the build. Treat the output as a secret - do not commit or share it.")
 		}
 	}
 
@@ -269,9 +274,9 @@ func extractWASMSettings(workflow *domain.Workflow, embedSecrets bool) (string, 
 
 // wasmMachineSettingsFromConfig reads the build machine's ~/.kdeps/config.yaml
 // LLM defaults (backend, first model, base URL) so the drawer can offer them
-// via "Import machine settings". Returns nil when nothing useful is set. Never
-// reads API keys - a distributed WASM build must not carry credentials.
-func wasmMachineSettingsFromConfig() *wasmMachineSettings {
+// via "Import machine settings". Returns nil when nothing useful is set. Cloud
+// API keys are read only when embedSecrets is true.
+func wasmMachineSettingsFromConfig(embedSecrets bool) *wasmMachineSettings {
 	cfg, err := kdepsconfig.LoadStruct()
 	if err != nil || cfg == nil {
 		return nil
@@ -279,6 +284,11 @@ func wasmMachineSettingsFromConfig() *wasmMachineSettings {
 	m := &wasmMachineSettings{
 		Backend: strings.TrimSpace(cfg.LLM.Backend),
 		BaseURL: strings.TrimSpace(cfg.LLM.BaseURL),
+	}
+	if embedSecrets {
+		if keys := cfg.LLMAPIKeys(); len(keys) > 0 {
+			m.Keys = keys
+		}
 	}
 	for _, entry := range cfg.LLM.Models {
 		if s := strings.TrimSpace(entry.Model); s != "" {
@@ -288,7 +298,11 @@ func wasmMachineSettingsFromConfig() *wasmMachineSettings {
 	}
 	// A WASM app can only reach a cloud provider or an OpenAI-compatible base
 	// URL. A machine set to a local backend (file/ollama/gguf...) with no base
-	// URL has nothing importable - drop it rather than offer a dead choice.
+	// URL has nothing importable in its defaults - but embedded keys are still
+	// worth carrying.
+	if len(m.Keys) > 0 {
+		return m
+	}
 	if m.BaseURL == "" && !wasmCloudBackend(m.Backend) {
 		return nil
 	}

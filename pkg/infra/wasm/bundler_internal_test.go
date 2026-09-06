@@ -379,6 +379,7 @@ func TestInlineRuntimeScripts_WriteError(t *testing.T) {
 	require.NoError(t, os.WriteFile(filepath.Join(tmpDir, "kdeps-settings.js"), []byte("settings"), 0644))
 	require.NoError(t, os.WriteFile(filepath.Join(tmpDir, "kdeps-widget.js"), []byte("widget"), 0644))
 	require.NoError(t, os.WriteFile(filepath.Join(tmpDir, "kdeps-bootstrap.js"), []byte("boot"), 0644))
+	require.NoError(t, os.WriteFile(filepath.Join(tmpDir, "kdeps-loader.js"), []byte("loader"), 0644))
 	require.NoError(t, os.Chmod(indexPath, 0444))
 	t.Cleanup(func() { _ = os.Chmod(indexPath, 0644) })
 
@@ -404,6 +405,7 @@ func TestInlineRuntimeScripts_Success(t *testing.T) {
 <script src="kdeps-settings.js"></script>
 <script src="kdeps-widget.js"></script>
 <script src="kdeps-bootstrap.js"></script>
+<script src="kdeps-loader.js"></script>
 </body></html>`), 0644))
 	require.NoError(t, os.WriteFile(filepath.Join(tmpDir, "wasm_exec.js"), []byte("GO_RUNTIME"), 0644))
 	embedJS := filepath.Join(tmpDir, "kdeps-wasm-embed.js")
@@ -412,6 +414,7 @@ func TestInlineRuntimeScripts_Success(t *testing.T) {
 	require.NoError(t, os.WriteFile(filepath.Join(tmpDir, "kdeps-settings.js"), []byte("SETTINGS_JS"), 0644))
 	require.NoError(t, os.WriteFile(filepath.Join(tmpDir, "kdeps-widget.js"), []byte("WIDGET_JS"), 0644))
 	require.NoError(t, os.WriteFile(filepath.Join(tmpDir, "kdeps-bootstrap.js"), []byte("BOOTSTRAP"), 0644))
+	require.NoError(t, os.WriteFile(filepath.Join(tmpDir, "kdeps-loader.js"), []byte("LOADER_JS"), 0644))
 
 	require.NoError(t, inlineRuntimeScripts(tmpDir))
 
@@ -421,8 +424,21 @@ func TestInlineRuntimeScripts_Success(t *testing.T) {
 	assert.Contains(t, html, "GO_RUNTIME")
 	assert.Contains(t, html, "window.__KDEPS_WASM_B64")
 	assert.Contains(t, html, "BOOTSTRAP")
+	assert.Contains(t, html, "LOADER_JS")
 	assert.NotContains(t, html, `<script src="wasm_exec.js">`)
 	assert.NotContains(t, html, `<script src="kdeps-bootstrap.js">`)
+	assert.NotContains(t, html, `<script src="kdeps-loader.js">`)
+}
+
+func TestInlineRuntimeScripts_MissingLoader(t *testing.T) {
+	tmpDir := t.TempDir()
+	require.NoError(t, os.WriteFile(filepath.Join(tmpDir, "index.html"), []byte("<html></html>"), 0644))
+	for _, f := range []string{"wasm_exec.js", "kdeps-wasm-embed.js", "kdeps-settings.js", "kdeps-widget.js", "kdeps-bootstrap.js"} {
+		require.NoError(t, os.WriteFile(filepath.Join(tmpDir, f), []byte("x"), 0644))
+	}
+	err := inlineRuntimeScripts(tmpDir)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "failed to read kdeps-loader.js for inline")
 }
 
 func TestReplaceOrAppendScript_AppendsBeforeBody(t *testing.T) {

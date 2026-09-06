@@ -18,6 +18,14 @@ func TestCloudLLMProviders_MatchesRegistry(t *testing.T) {
 	}
 }
 
+func TestConfig_LLMAPIKeys(t *testing.T) {
+	c := &Config{LLM: LLMKeys{OpenAI: "sk-o", Anthropic: "  ", Groq: "gk-1"}}
+	keys := c.LLMAPIKeys()
+	assert.Equal(t, map[string]string{"openai": "sk-o", "groq": "gk-1"}, keys)
+
+	assert.Empty(t, (&Config{}).LLMAPIKeys())
+}
+
 func TestCloudLLMProviders_DefaultModel(t *testing.T) {
 	byName := make(map[string]LLMProvider)
 	for _, p := range CloudLLMProviders() {
