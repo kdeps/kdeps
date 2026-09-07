@@ -15,14 +15,14 @@
 
 **Git-native AI Appliance Builder** - your agent is YAML in your repo; ship the workflow, tools, and model as one self-contained deployment that runs anywhere.
 
-kdeps packages an AI workload - agent or deterministic API, not a chatbot - into a unit you can run as a terminal REPL, an HTTP API, a Docker image, Kubernetes manifests, a bootable ISO, or a single binary. The definition is text you commit: reviewed as a pull request, versioned by git tag, installed with `kdeps registry install owner/repo`, built reproducibly from a commit in CI. One YAML file replaces a Python script wiring together an LLM SDK, a web server, retry logic, and a Dockerfile. It runs open-source, self-hosted models by default, so the built appliance has no per-token cost and no dependency on an external AI service - it works the same on a laptop and inside an air-gapped network. kdeps is a small number of bounded pieces - pick the one you need:
+kdeps packages an AI workload - agent or deterministic API, not a chatbot - into a unit you can run as a terminal REPL, an HTTP API, a Docker image, Kubernetes manifests, a bootable ISO, or a single binary. The definition is text you commit: reviewed as a pull request, versioned by git tag, built reproducibly from a commit in CI. Change the YAML, and the appliance behaves differently - your git history is the changelog of the agent's behavior. One YAML file replaces a Python script wiring together an LLM SDK, a web server, retry logic, and a Dockerfile. It runs open-source, self-hosted models by default, so the built appliance has no per-token cost and no dependency on an external AI service - it works the same on a laptop and inside an air-gapped network. kdeps is a small number of bounded pieces - pick the one you need:
 
 - **[kdeps agent](https://kdeps.com/agent/)** - run `kdeps` and you are in an autonomous AI REPL: tool use, memory, fully offline against a local model. No config, no API key.
 - **[kdeps workflow](https://kdeps.com/workflow/)** - define what the agent does in one `workflow.yaml` and run it as an HTTP API, a bot, or a file processor. Same file, laptop or server.
 - **[kdeps agencies](https://kdeps.com/agencies/)** - coordinate several specialized agents as one system, delegating work through the `agent:` resource.
 - **[kdeps LLM server](https://kdeps.com/llm-server/)** - provision a standalone OpenAI-compatible inference appliance, no workflow path required.
 - **[kdeps deploy](https://kdeps.com/deploy/)** - ship a workflow unchanged as a Docker image, Kubernetes manifests, a bootable ISO, or a single binary.
-- **[kdeps registry](https://kdeps.com/registry/)** - find, install, and publish shared agents and components.
+- **[kdeps registry](https://kdeps.com/registry/)** *(optional)* - find, install, and publish shared agents and components by name. Not needed to build or run your own.
 
 ## Quickstart
 

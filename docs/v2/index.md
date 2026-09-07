@@ -40,7 +40,7 @@ features:
     link: /deploy/
     linkText: Ship it
   - title: kdeps registry
-    details: Find, install, and publish shared agents and components. Pull a published workflow into your project with one command, or publish your own.
+    details: Optional. A convenience layer for finding, installing, and publishing shared agents and components by name. You never need it to build or run your own.
     link: /registry/
     linkText: Browse the registry
 ---
