@@ -4,7 +4,7 @@ The `loader:` resource reads a file, URL, or directory into structured `Document
 
 ## Where it runs
 
-Both [workflow mode](/modes/workflow-mode) and [agent mode](/modes/agent-loop-mode). In agent mode, the same loader is available as the `load_document` built-in tool.
+Both [workflow mode](/modes/workflow-mode) and [agent mode](/agent/). In agent mode, the same loader is available as the `load_document` built-in tool.
 
 ## Basic usage
 

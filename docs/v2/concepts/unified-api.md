@@ -159,5 +159,5 @@ Each `request` method has a `get()`/`info()` equivalent - use whichever reads cl
 
 - [Expressions](/concepts/expressions) - expression syntax
 - [Expression helpers](/concepts/expression-helpers) - `Json()`, `Safe()`, `default()`, and friends
-- [Expression functions reference](/reference/expression-functions-reference) - complete function list
+- [Expression functions reference](/reference/expression-functions) - complete function list
 - [File upload example](/examples/file-upload) - `request.file()` end to end

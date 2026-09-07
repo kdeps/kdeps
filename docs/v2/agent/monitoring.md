@@ -1,6 +1,6 @@
 # Tool execution monitoring
 
-How the [agent loop REPL](/modes/agent-loop-mode) shows a running tool's progress and handles one that stalls - applies to every [built-in tool](/modes/agent-loop-tools), not just a specific category.
+How the [agent loop REPL](/agent/) shows a running tool's progress and handles one that stalls - applies to every [built-in tool](/agent/tools), not just a specific category.
 
 *Applies to agent mode.*
 
@@ -21,9 +21,9 @@ Two other modes are available via `/model tool set autokill <on|off>` (autokill 
 
 To be prompted interactively instead, turn both off in config; the REPL then offers `(i)ncrease` / `(k)ill` when a tool stalls.
 
-Tools marked "cached" in [Built-in Tools](/modes/agent-loop-tools) memoize successful results for the lifetime of the agent process: repeating the same query or URL returns the cached copy instantly instead of refetching. Failed and empty lookups are not cached, so they are retried on the next call. `wolfram_alpha` results are cached the same way.
+Tools marked "cached" in [Built-in Tools](/agent/tools) memoize successful results for the lifetime of the agent process: repeating the same query or URL returns the cached copy instantly instead of refetching. Failed and empty lookups are not cached, so they are retried on the next call. `wolfram_alpha` results are cached the same way.
 
 ## See also
 
-- [Built-in tools](/modes/agent-loop-tools) - the full tool catalog
-- [Shell execution](/modes/agent-loop-shell) - Ctrl+C/Ctrl+Z, background jobs, rtk
+- [Built-in tools](/agent/tools) - the full tool catalog
+- [Shell execution](/agent/shell) - Ctrl+C/Ctrl+Z, background jobs, rtk

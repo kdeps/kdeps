@@ -60,7 +60,7 @@ settings:
   session: { ... }         # session persistence settings
 ```
 
-Credentials and named connections (SMTP, IMAP, HTTP auth, search API keys) belong in `~/.kdeps/config.yaml`, not `workflow.yaml`. See [Global Config](/configuration/advanced) for the full reference.
+Credentials and named connections (SMTP, IMAP, HTTP auth, search API keys) belong in `~/.kdeps/config.yaml`, not `workflow.yaml`. See [Global Config](/reference/advanced-config) for the full reference.
 
 ## Metadata and config profiles
 
@@ -116,7 +116,7 @@ settings:
     maxConcurrent: 50          # max in-flight requests; 0 = unlimited
 ```
 
-See [Security](advanced.md#security) for the full security reference.
+See [Security](/reference/advanced-config#security) for the full security reference.
 
 ### Let's encrypt (custom domain)
 
@@ -234,6 +234,6 @@ settings:
 
 ## See also
 
-- [Global config](/configuration/advanced) - Backend, defaults, named connections, and agent profiles
+- [Global config](/reference/advanced-config) - Backend, defaults, named connections, and agent profiles
 - [Resources overview](/resources/overview) - Resource types and fields
 - [Agencies](/concepts/agency) - Multi-agent orchestration

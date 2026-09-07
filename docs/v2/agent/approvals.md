@@ -1,6 +1,6 @@
 # Approval tokens
 
-When a tool call is denied by the [permission mode](/modes/agent-loop-tools#permission-modes), the agent can request a one-time exception via an approval token. Tokens let you grant scoped overrides for specific tool+action combinations without relaxing the overall permission mode.
+When a tool call is denied by the [permission mode](/agent/tools#permission-modes), the agent can request a one-time exception via an approval token. Tokens let you grant scoped overrides for specific tool+action combinations without relaxing the overall permission mode.
 
 *Applies to agent mode.*
 
@@ -39,5 +39,5 @@ Scope matching supports wildcards: an empty `Action` matches any action. `FindMa
 
 ## See also
 
-- [Agent mode](/modes/agent-loop-mode) - overview and starting the REPL
-- [Built-in tools](/modes/agent-loop-tools) - permission modes and the full tool catalog
+- [Agent mode](/agent/) - overview and starting the REPL
+- [Built-in tools](/agent/tools) - permission modes and the full tool catalog

@@ -177,7 +177,7 @@ See [Kubernetes deployment](/deployment/kubernetes) for full details.
 
 ## See also
 
-- [CLI overview](/reference/cli/) - global flags, exit codes, env vars
-- [Dev commands](/reference/cli/dev) - run, serve, validate, new
+- [CLI overview](/reference/cli) - global flags, exit codes, env vars
+- [Dev commands](/reference/cli-dev) - run, serve, validate, new
 - [Docker deployment](/deployment/docker)
 - [Kubernetes deployment](/deployment/kubernetes)

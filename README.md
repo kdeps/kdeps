@@ -133,7 +133,7 @@ A collection of agents that work together. Each agent is its own `workflow.yaml`
 kdeps run agency.yaml
 ```
 
-Docs: [Workflow mode](https://kdeps.com/modes/workflow-mode) · [Agent loop mode](https://kdeps.com/modes/agent-loop-mode) · [Agencies](https://kdeps.com/concepts/agency) · [Resources overview](https://kdeps.com/resources/overview)
+Docs: [Workflow mode](https://kdeps.com/modes/workflow-mode) · [Agent loop mode](https://kdeps.com/agent/) · [Agencies](https://kdeps.com/concepts/agency) · [Resources overview](https://kdeps.com/resources/overview)
 
 ## Build and deploy
 
@@ -163,7 +163,7 @@ Docs: [Deployment guide](https://kdeps.com/guides/deployment-guide) · [TLS and 
 ## Reference
 
 - **Registry** - `kdeps registry search|install|submit` for pre-built components. [kdeps.io](https://kdeps.io)
-- **Agent skill** - `npx skills add https://github.com/kdeps/skill --skill kdeps` teaches Claude Code, Cursor, and other agents to scaffold kdeps projects. [Docs](https://kdeps.com/getting-started/agent-skills)
+- **Agent skill** - `npx skills add https://github.com/kdeps/skill --skill kdeps` teaches Claude Code, Cursor, and other agents to scaffold kdeps projects. [Docs](https://kdeps.com/agent/ai-assisted-authoring)
 - **LLM server appliance** - `kdeps llm wizard` builds a standalone OpenAI-compatible inference server (`ollama`, `llamafile`, `gguf`, `vllm`, `tgi`, `sglang`, and more), no workflow path required. [Docs](https://kdeps.com/deployment/llm-server) · [Commands](https://kdeps.com/reference/cli/llm)
 - **Global config** - machine-local settings (LLM backend, API keys, SQL/SMTP/IMAP connections) live in `~/.kdeps/config.yaml`, never in `workflow.yaml`. `kdeps edit` to open it, `kdeps doctor` to check it. [Docs](https://kdeps.com/configuration/advanced)
 - **Security** - when `apiServer` is set, requests require a bearer token (`KDEPS_API_AUTH_TOKEN`) and pass through rate-limit, body-size, and concurrency caps before reaching the DAG. [Docs](https://kdeps.com/reference/security)

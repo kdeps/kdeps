@@ -1,6 +1,6 @@
 # Built-in tools
 
-The [agent loop](/modes/agent-loop-mode) has access to a set of built-in tools that the LLM can call without any YAML configuration. Tools that require credentials are only registered when the relevant environment variable is set.
+The [agent loop](/agent/) has access to a set of built-in tools that the LLM can call without any YAML configuration. Tools that require credentials are only registered when the relevant environment variable is set.
 
 *Applies to agent mode.*
 
@@ -37,19 +37,19 @@ Always available. No environment variables required.
 | `memory_list` | List all stored memory keys. |
 | `memory_query` | Run an expr-lang relational query over agent state: `memory` (persistent entries), `tool_calls` (recent tool call history), `tasks` (active goal's task list). Supports `filter()`, `map()`, `join()`, `union()`. |
 
-Memory is stored per-project at `~/.kdeps/memory/<encoded-cwd>/memory.bolt`. Facts persist across sessions and are auto-extracted from every turn - the agent can write `[MEMORY: key] value` on its own line to persist a fact without calling `memory_save`. See [Persistent memory](/concepts/memory) for details.
+Memory is stored per-project at `~/.kdeps/memory/<encoded-cwd>/memory.bolt`. Facts persist across sessions and are auto-extracted from every turn - the agent can write `[MEMORY: key] value` on its own line to persist a fact without calling `memory_save`. See [Persistent memory](/agent/memory) for details.
 
-The `memory_*` tools are how the *model* reads and writes memory during a turn. To inspect the store yourself from the REPL, use `/memory` (overview), `/memory list` (every entry), and `/memory search <query>` - see [REPL slash commands](/modes/agent-loop-commands).
+The `memory_*` tools are how the *model* reads and writes memory during a turn. To inspect the store yourself from the REPL, use `/memory` (overview), `/memory list` (every entry), and `/memory search <query>` - see [REPL slash commands](/agent/commands).
 
 ## Identity tool
 
-Always available. `identity_get` returns the agent's configured name, email, and address - see [Agent Identity](/configuration/advanced#agent-identity) for how to set one. Returns "No identity configured for this agent." when unset. Never returns account credentials, even if configured; a model that can read a password can leak it in its own output.
+Always available. `identity_get` returns the agent's configured name, email, and address - see [Agent Identity](/reference/advanced-config#agent-identity) for how to set one. Returns "No identity configured for this agent." when unset. Never returns account credentials, even if configured; a model that can read a password can leak it in its own output.
 
 ## Shell execution
 
 `bash_exec` runs any shell command and streams output to the terminal, with Ctrl+C to cancel, Ctrl+Z to background it, and companion `bash_job_list`/`bash_job_wait` tools. If [rtk](https://github.com/rtk-ai/rtk) is installed, output is compressed automatically before it reaches the LLM (up to 90% fewer tokens).
 
-See [Shell Execution](/modes/agent-loop-shell) for the full keyboard-shortcut and rtk reference.
+See [Shell Execution](/agent/shell) for the full keyboard-shortcut and rtk reference.
 
 ## File operations
 
@@ -81,7 +81,7 @@ Always available. No environment variables required.
 
 Web and search tools carry a hard timeout so a hung remote endpoint cannot stall the turn. Ctrl+C during any tool call cancels the in-flight request immediately and skips the round's remaining tools. Tools marked "cached" memoize successful results for the process lifetime; failed/empty lookups are retried.
 
-While any tool runs, the REPL shows a live status line and detects hangs via a stall timeout - see [Tool Execution Monitoring](/modes/agent-loop-monitoring) for the full mechanics.
+While any tool runs, the REPL shows a live status line and detects hangs via a stall timeout - see [Tool Execution Monitoring](/agent/monitoring) for the full mechanics.
 
 ## Permission modes
 
@@ -117,7 +117,7 @@ Cloud and Ollama models are namespaced by their provider (`provider/model`). Loc
 
 With no model configured, the trailer falls back to `Co-Authored-By: kdeps <noreply@kdeps.com>`.
 
-A configured [identity](/configuration/advanced#agent-identity) takes priority over all of the above: with `identity.name`/`identity.email` set, the trailer becomes `Co-Authored-By: Sales Bot <sales-bot@example.com>` instead of naming the model.
+A configured [identity](/reference/advanced-config#agent-identity) takes priority over all of the above: with `identity.name`/`identity.email` set, the trailer becomes `Co-Authored-By: Sales Bot <sales-bot@example.com>` instead of naming the model.
 
 ## Lean mode
 
@@ -201,8 +201,8 @@ These always-on tools invoke the corresponding kdeps executor directly:
 
 ## See also
 
-- [Agent mode](/modes/agent-loop-mode) - overview and starting the REPL
-- [REPL slash commands](/modes/agent-loop-commands) - full command reference
-- [Shell execution](/modes/agent-loop-shell) - bash_exec keyboard shortcuts and rtk
-- [Tool execution monitoring](/modes/agent-loop-monitoring) - status lines and stall detection
-- [Agent registries](/modes/agent-loop-registries) - task_*/team_*/cron_* tools for multi-agent coordination
+- [Agent mode](/agent/) - overview and starting the REPL
+- [REPL slash commands](/agent/commands) - full command reference
+- [Shell execution](/agent/shell) - bash_exec keyboard shortcuts and rtk
+- [Tool execution monitoring](/agent/monitoring) - status lines and stall detection
+- [Agent registries](/agent/registries) - task_*/team_*/cron_* tools for multi-agent coordination

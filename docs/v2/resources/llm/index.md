@@ -4,7 +4,7 @@ The `chat:` resource sends a prompt to a language model and stores the response 
 
 ## Where it runs
 
-Both [workflow mode](/modes/workflow-mode) and [agent mode](/modes/agent-loop-mode). In workflow mode it executes as a DAG step. In agent mode, the workflow containing this resource runs as a single callable tool.
+Both [workflow mode](/modes/workflow-mode) and [agent mode](/agent/). In workflow mode it executes as a DAG step. In agent mode, the workflow containing this resource runs as a single callable tool.
 
 ## Where config lives
 
@@ -54,7 +54,7 @@ resource model:  ->  config router (llm.models + strategy)  ->  first llm.models
 ```
 
 - A resource with an explicit `model:` always wins - unless it is the literal `system`, which resolves down this same list.
-- Omit `model:` to inherit the machine default: the LLM router if `llm.strategy` is set, otherwise the first entry in `llm.models`, otherwise - on the local file backend, when [`llmfit`](/modes/agent-loop-models#how-a-model-is-picked-when-none-is-configured) is installed and at least one local model is already downloaded - whichever downloaded model best fits this machine's hardware, otherwise the built-in `llama3.2:1b` served by the local file backend. The `llmfit` tier is a no-op (falls straight to the built-in default) when `llmfit` isn't installed or nothing is downloaded yet.
+- Omit `model:` to inherit the machine default: the LLM router if `llm.strategy` is set, otherwise the first entry in `llm.models`, otherwise - on the local file backend, when [`llmfit`](/agent/models#how-a-model-is-picked-when-none-is-configured) is installed and at least one local model is already downloaded - whichever downloaded model best fits this machine's hardware, otherwise the built-in `llama3.2:1b` served by the local file backend. The `llmfit` tier is a no-op (falls straight to the built-in default) when `llmfit` isn't installed or nothing is downloaded yet.
 - A cloud/gguf/ollama backend with **no** model and **no** `llm.models` errors at run time, because kdeps will not guess a model that backend cannot serve - set `model:` on the resource or `llm.models` in `config.yaml`.
 
 ## Basic usage

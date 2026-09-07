@@ -37,7 +37,7 @@ a folder with workflow.yaml
   resource declares what it `requires:`, and kdeps runs them in that order.
 - A **mode** is how you run the workflow. [Workflow mode](/modes/workflow-mode)
   (`kdeps run`) executes the steps in a fixed order and returns a structured
-  response - this is what you deploy. [Agent mode](/modes/agent-loop-mode)
+  response - this is what you deploy. [Agent mode](/agent/)
   (`kdeps [path]`) starts a chat REPL where an LLM decides when to call the
   workflow.
 
@@ -83,7 +83,7 @@ kdeps ./my-agent/         # or load it as a tool in the chat REPL
 
 | You want to... | Start here |
 |---|---|
-| Run an AI agent locally right now | [Run locally in 30 seconds](/getting-started/local-agent) |
-| Understand why kdeps works this way | [Why kdeps?](/concepts/why-kdeps) |
+| Run an AI agent locally right now | [Run locally in 30 seconds](/agent/quickstart) |
+| Understand why kdeps works this way | [Why kdeps?](/start/why-kdeps) |
 | Build a real HTTP API from YAML | [Quickstart](/getting-started/quickstart) |
-| See the full picture of every concept | [Concepts overview](/concepts/overview) |
+| See the full picture of every concept | [Concepts overview](/start/concepts) |

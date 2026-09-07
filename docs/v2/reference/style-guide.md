@@ -8,7 +8,7 @@ kdeps house rules. When this guide is silent, fall back to the
 ## Content types
 
 Every page is exactly one content type. Pick the type first, then use its
-skeleton from [Contributing to docs](./CONTRIBUTING-DOCS.md).
+skeleton from [Contributing to docs](./contributing-docs).
 
 | Type | Answers | Lives in |
 | :--- | :--- | :--- |

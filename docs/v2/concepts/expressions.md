@@ -47,10 +47,10 @@ Expressions have access to the full [expr-lang standard library](https://expr-la
 - **String matching** (infix operators): `contains`, `startsWith`, `endsWith`, `matches`
 - **Type casting**: `int()`, `float()`, `string()`
 
-kdeps adds workflow-specific helpers on top. See the [Expression Functions Reference](/reference/expression-functions-reference) for the full list.
+kdeps adds workflow-specific helpers on top. See the [Expression Functions Reference](/reference/expression-functions) for the full list.
 
 ## See also
 
-- [Expression functions reference](/reference/expression-functions-reference) - All kdeps-specific functions
+- [Expression functions reference](/reference/expression-functions) - All kdeps-specific functions
 - [Expression operators](/reference/expression-operators) - Comparison and logic operators
 - [Expression blocks](/reference/expr-blocks) - `before:` / `after:` statement blocks

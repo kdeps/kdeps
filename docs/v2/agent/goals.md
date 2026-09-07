@@ -1,6 +1,6 @@
 # Goal-directed execution
 
-Every prompt in the [agent loop REPL](/modes/agent-loop-mode) becomes an explicit task list that Go code drives to completion.
+Every prompt in the [agent loop REPL](/agent/) becomes an explicit task list that Go code drives to completion.
 
 *Applies to agent mode.*
 
@@ -41,7 +41,7 @@ A task that made *no* tool calls (a direct answer with nothing to verify) is
 exempt, and `task_fail` is never gated. The `evidence` argument records what
 was checked and what it showed (e.g. `"ran go test ./pkg/foo, 12 passed"`),
 stored on the task and queryable later via
-[`memory_query`](/concepts/memory#relational-query-memory-query)'s
+[`memory_query`](/agent/memory#relational-query-memory-query)'s
 `tasks` relation.
 
 Two tools exist specifically for this: `md5_file` computes a file's MD5
@@ -123,6 +123,6 @@ already done, and are reported as `[goal] web budget → 30`.
 
 ## See also
 
-- [Agent mode](/modes/agent-loop-mode) - overview and starting the REPL
-- [Judge panel](/modes/agent-loop-judges) - reviews each turn's final output
-- [Agent registries](/modes/agent-loop-registries) - TaskRegistry/TeamRegistry tools for multi-agent coordination
+- [Agent mode](/agent/) - overview and starting the REPL
+- [Judge panel](/agent/judges) - reviews each turn's final output
+- [Agent registries](/agent/registries) - TaskRegistry/TeamRegistry tools for multi-agent coordination

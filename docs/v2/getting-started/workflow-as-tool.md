@@ -1,6 +1,6 @@
 # Load a workflow as a tool
 
-Turn a `kind: Workflow` file into an LLM-callable tool in [agent mode](/modes/agent-loop-mode). You type a prompt; the model decides when to call the workflow; kdeps runs the full DAG and returns the result.
+Turn a `kind: Workflow` file into an LLM-callable tool in [agent mode](/agent/). You type a prompt; the model decides when to call the workflow; kdeps runs the full DAG and returns the result.
 
 *Applies to agent mode - the interactive LLM chat REPL.*
 
@@ -8,7 +8,7 @@ Turn a `kind: Workflow` file into an LLM-callable tool in [agent mode](/modes/ag
 
 This tutorial is for developers who have:
 
-- Run the [agent REPL](/getting-started/local-agent)
+- Run the [agent REPL](/agent/quickstart)
 - Built the [quickstart](/getting-started/quickstart) HTTP API (or any `workflow.yaml`)
 
 By the end you will load that workflow as a tool named after `metadata.name`, call it from a prompt, and see the DAG run as one tool invocation.
@@ -91,7 +91,7 @@ kdeps ./agents/
 
 ## Next steps
 
-- [Agent mode](/modes/agent-loop-mode) - flags, folder discovery, how tools run
-- [Built-in tools](/modes/agent-loop-tools) - what the REPL can do with no YAML
-- [Skills and prompt templates](/modes/agent-loop-skills) - markdown that shapes the REPL
+- [Agent mode](/agent/) - flags, folder discovery, how tools run
+- [Built-in tools](/agent/tools) - what the REPL can do with no YAML
+- [Skills and prompt templates](/agent/skills) - markdown that shapes the REPL
 - [Quickstart](/getting-started/quickstart) - the HTTP API for the same file

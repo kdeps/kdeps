@@ -10,7 +10,7 @@ Yes. kdeps is open source under the Apache 2.0 license. The CLI, engine, and all
 
 [Workflow mode](/modes/workflow-mode) (`kdeps run`) runs resources in a deterministic DAG order defined by [`requires`](/reference/glossary#requires) dependencies. You control exactly what runs and when.
 
-[Agent mode](/modes/agent-loop-mode) (`kdeps [path]`) registers whole workflows and components as tools and lets an LLM decide which to invoke in response to user prompts. Workflow tools execute as a complete pipeline so all `requires:` dependencies resolve. Component tools run a single reusable component in isolation. Point at a single file or a folder - folder mode exposes every workflow and agency found recursively, plus all their components.
+[Agent mode](/agent/) (`kdeps [path]`) registers whole workflows and components as tools and lets an LLM decide which to invoke in response to user prompts. Workflow tools execute as a complete pipeline so all `requires:` dependencies resolve. Component tools run a single reusable component in isolation. Point at a single file or a folder - folder mode exposes every workflow and agency found recursively, plus all their components.
 
 Use workflow mode when you know the pipeline upfront. Use agent mode when you want an interactive, conversational interface.
 
@@ -98,13 +98,13 @@ Yes. Set `streaming: true` on a `chat:` resource to stream LLM responses token-b
 
 HTTP session data (`set(..., 'session')`) lives in SQLite or in-memory storage, configured in `settings.session`. See [Session configuration](/configuration/session).
 
-Agent mode conversation history is a different store: JSONL files under `~/.kdeps/sessions/`, resumed with `--resume`. See [Agent loop REPL features](/modes/agent-loop-repl).
+Agent mode conversation history is a different store: JSONL files under `~/.kdeps/sessions/`, resumed with `--resume`. See [Agent loop REPL features](/agent/repl).
 
 ## See also
 
-- [Run locally](/getting-started/local-agent) - agent REPL in 30 seconds
+- [Run locally](/agent/quickstart) - agent REPL in 30 seconds
 - [Quickstart](/getting-started/quickstart) - build your first workflow API
 - [Load a workflow as a tool](/getting-started/workflow-as-tool) - same file, agent mode
 - [Execution flow](/guides/execution-flow) - how the engine runs resources
-- [Troubleshooting](/guides/troubleshooting) - common errors and fixes
+- [Troubleshooting](/reference/troubleshooting) - common errors and fixes
 - [Glossary](/reference/glossary) - all kdeps terms defined

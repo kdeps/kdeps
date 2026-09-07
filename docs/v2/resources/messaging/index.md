@@ -14,6 +14,6 @@ Three resources for reaching a person. Each has its own reference page.
 
 - [Phone assistant tutorial](/examples/telephony-bot) - `telephony:` step by step
 - [Stateless bot](/examples/stateless-bot/) and [Telegram bot](/examples/telegram-bot/) - `botReply:` in full
-- [Global config](/configuration/advanced) - where SMTP, IMAP, and bot credentials live
+- [Global config](/reference/advanced-config) - where SMTP, IMAP, and bot credentials live
 - [Input sources](/concepts/input-sources) - configuring `settings.input.bot`
 - [Resources overview](/resources/overview) - all resource types

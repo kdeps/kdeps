@@ -4,7 +4,7 @@ The `vectorStore:` resource adds documents to, and runs similarity search agains
 
 ## Where it runs
 
-Both [workflow mode](/modes/workflow-mode) and [agent mode](/modes/agent-loop-mode).
+Both [workflow mode](/modes/workflow-mode) and [agent mode](/agent/).
 
 ## Basic usage
 

@@ -404,5 +404,5 @@ apiResponse:
 
 - [Items iteration](items) - Fixed-list iteration
 - [Expressions](/concepts/expressions) - Expression syntax
-- [Expression functions reference](/reference/expression-functions-reference) - Complete function list
+- [Expression functions reference](/reference/expression-functions) - Complete function list
 - [Validation and control flow](/concepts/validation-and-control) - Skip conditions, preflight checks

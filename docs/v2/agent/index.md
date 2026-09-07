@@ -103,18 +103,18 @@ kdeps --resume abc123def456                      # resume a session
 
 | Topic | Page |
 |-------|------|
-| Slash commands and auto-detected shell/file mentions | [REPL slash commands](/modes/agent-loop-commands) |
-| Built-in tool catalog, permission modes, lean mode | [Built-in tools](/modes/agent-loop-tools) |
-| Shell execution (`!cmd`, Ctrl+C / Ctrl+Z, jobs) | [Shell execution](/modes/agent-loop-shell) |
-| Live status line and stall detection during a tool run | [Tool execution monitoring](/modes/agent-loop-monitoring) |
-| Task decomposition and forward-only goal enforcement | [Goal-directed execution](/modes/agent-loop-goals) |
-| Independent review of the final answer | [Judge panel](/modes/agent-loop-judges) |
-| `/model`, `/context`, auto-routing, running local servers | [Local model management](/modes/agent-loop-models) |
-| Task / team / cron registries (`task_*`, `team_*`, `cron_*`) | [Agent registries](/modes/agent-loop-registries) |
-| One-time permission exceptions for a denied tool call | [Approval tokens](/modes/agent-loop-approvals) |
-| Optional `turo` token reducer | [Prompt reduction (turo)](/modes/agent-loop-turo) |
-| Skills, prompt templates, `KDEPS.md` instructions | [Skills and prompt templates](/modes/agent-loop-skills) |
-| Pasting, rendering, stealth, sessions, notifications, updates | [Agent loop REPL features](/modes/agent-loop-repl) |
+| Slash commands and auto-detected shell/file mentions | [REPL slash commands](/agent/commands) |
+| Built-in tool catalog, permission modes, lean mode | [Built-in tools](/agent/tools) |
+| Shell execution (`!cmd`, Ctrl+C / Ctrl+Z, jobs) | [Shell execution](/agent/shell) |
+| Live status line and stall detection during a tool run | [Tool execution monitoring](/agent/monitoring) |
+| Task decomposition and forward-only goal enforcement | [Goal-directed execution](/agent/goals) |
+| Independent review of the final answer | [Judge panel](/agent/judges) |
+| `/model`, `/context`, auto-routing, running local servers | [Local model management](/agent/models) |
+| Task / team / cron registries (`task_*`, `team_*`, `cron_*`) | [Agent registries](/agent/registries) |
+| One-time permission exceptions for a denied tool call | [Approval tokens](/agent/approvals) |
+| Optional `turo` token reducer | [Prompt reduction (turo)](/agent/turo) |
+| Skills, prompt templates, `KDEPS.md` instructions | [Skills and prompt templates](/agent/skills) |
+| Pasting, rendering, stealth, sessions, notifications, updates | [Agent loop REPL features](/agent/repl) |
 
 ## Differences from workflow mode
 
@@ -129,9 +129,9 @@ kdeps --resume abc123def456                      # resume a session
 
 ## See also
 
-- [Agent loop REPL features](/modes/agent-loop-repl) - pasting, rendering, sessions, updates
-- [Skills and prompt templates](/modes/agent-loop-skills) - context files that teach the agent
-- [REPL slash commands](/modes/agent-loop-commands) - full command reference
+- [Agent loop REPL features](/agent/repl) - pasting, rendering, sessions, updates
+- [Skills and prompt templates](/agent/skills) - context files that teach the agent
+- [REPL slash commands](/agent/commands) - full command reference
 - [Workflow mode](/modes/workflow-mode) - deterministic DAG pipelines
 - [LLM provider reference](/reference/llm-providers) - backend config and model names
 - [Agencies](/concepts/agency) - multi-agent orchestration

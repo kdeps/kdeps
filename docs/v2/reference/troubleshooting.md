@@ -245,5 +245,5 @@ Checks the workflow schema, dependency graph, and expression syntax without runn
 
 - [Execution flow](/guides/execution-flow) - how the DAG resolves and runs
 - [Validation & control flow](/concepts/validation-and-control) - skip and check logic
-- [Expression functions reference](/reference/expression-functions-reference) - all available functions
-- [CLI reference](/reference/cli/) - all flags and commands
+- [Expression functions reference](/reference/expression-functions) - all available functions
+- [CLI reference](/reference/cli) - all flags and commands

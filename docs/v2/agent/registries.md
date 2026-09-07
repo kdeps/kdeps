@@ -1,6 +1,6 @@
 # Agent registries
 
-The [agent loop](/modes/agent-loop-mode) maintains three in-memory registries for lifecycle management: tasks, teams, and cron schedules.
+The [agent loop](/agent/) maintains three in-memory registries for lifecycle management: tasks, teams, and cron schedules.
 
 *Applies to agent mode.*
 
@@ -73,6 +73,6 @@ No manual polling or goroutine setup needed. Start `kdeps path/to/agent/` and cr
 
 ## See also
 
-- [Agent mode](/modes/agent-loop-mode) - overview and starting the REPL
-- [Built-in tools](/modes/agent-loop-tools) - the full tool catalog these registries add to
-- [Goal-directed execution](/modes/agent-loop-goals) - how individual tasks are driven to completion
+- [Agent mode](/agent/) - overview and starting the REPL
+- [Built-in tools](/agent/tools) - the full tool catalog these registries add to
+- [Goal-directed execution](/agent/goals) - how individual tasks are driven to completion

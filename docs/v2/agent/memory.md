@@ -2,13 +2,13 @@
 
 Persistent memory lets the agent store and recall facts across sessions. Unlike [session storage](/configuration/session) (which persists across HTTP requests from the same caller), persistent memory is **project-scoped** - facts saved in one REPL session are available in later sessions for the same project.
 
-Persistent memory is primarily an agent mode concept, but the memory tools also work in workflow mode (see [Workflow mode](#workflow-mode) below). For how the agent decides what to remember and what to show the model each turn, see [Memory internals](/concepts/memory-internals).
+Persistent memory is primarily an agent mode concept, but the memory tools also work in workflow mode (see [Workflow mode](#workflow-mode) below). For how the agent decides what to remember and what to show the model each turn, see [Memory internals](/agent/memory-internals).
 
 ## How it works
 
 Memory is stored in a bbolt (embedded key-value) database at `~/.kdeps/memory/<encoded-cwd>/memory.bolt`. Each entry has a key, value, type, timestamps, and optional references to other entries for graph-based relationship tracking.
 
-The memory store is injected into every LLM call automatically as a single graph-ordered `<memory>` block in the system prompt. Entries appear in causal order and the newest unfinished task is flagged, so a model resuming after an orchestrator model switch knows where to continue. See [Memory internals](/concepts/memory-internals#prompt-injection) for the block format.
+The memory store is injected into every LLM call automatically as a single graph-ordered `<memory>` block in the system prompt. Entries appear in causal order and the newest unfinished task is flagged, so a model resuming after an orchestrator model switch knows where to continue. See [Memory internals](/agent/memory-internals#prompt-injection) for the block format.
 
 ## Built-in memory tools
 
@@ -110,7 +110,7 @@ The result has `rows` (capped at `limit`, default 50, max 500), `count` (total m
 
 ## Memory entry types
 
-Entries are auto-classified by key pattern. The type controls where the entry sits in the [memory graph](/concepts/memory-internals#memory-graph) and whether it can be pruned.
+Entries are auto-classified by key pattern. The type controls where the entry sits in the [memory graph](/agent/memory-internals#memory-graph) and whether it can be pruned.
 
 | Type | Key patterns | Description |
 |------|-------------|-------------|
@@ -140,6 +140,6 @@ Memory is enabled by default when the agent loop starts. No YAML configuration i
 
 ## See also
 
-- [Memory internals](/concepts/memory-internals) - auto-extraction, the memory graph, prompt injection, compaction
+- [Memory internals](/agent/memory-internals) - auto-extraction, the memory graph, prompt injection, compaction
 - [Session configuration](/configuration/session) - HTTP session storage across requests from the same caller
-- [Agent mode](/modes/agent-loop-mode) - how the agent loop works
+- [Agent mode](/agent/) - how the agent loop works

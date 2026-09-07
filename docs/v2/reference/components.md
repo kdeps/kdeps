@@ -424,5 +424,5 @@ component:
 
 - [Components overview](/concepts/components) - what components are and when to use them
 - [Agencies](/concepts/agency) - agent-to-agent call pattern
-- [Expression functions reference](/reference/expression-functions-reference) - `output()`, `get()`, `env()`
+- [Expression functions reference](/reference/expression-functions) - `output()`, `get()`, `env()`
 - [CLI: registry commands](/reference/cli/registry) - install, list, uninstall components

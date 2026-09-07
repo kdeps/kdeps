@@ -207,6 +207,6 @@ Pointing at a single file registers one tool. Pointing at a folder registers one
 ## See also
 
 - [Workflow mode](/modes/workflow-mode) - deterministic DAG pipelines
-- [Agent mode](/modes/agent-loop-mode) - LLM-driven tool calling
+- [Agent mode](/agent/) - LLM-driven tool calling
 - [Validation & control flow](/concepts/validation-and-control) - skip, check, and error handling
 - [Loop](/concepts/loop) - while-loop iteration

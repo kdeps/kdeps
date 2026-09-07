@@ -1,6 +1,6 @@
 # Concepts overview
 
-The mental model behind kdeps: how a workflow is shaped, how data moves between steps, and which pieces apply to each mode. If you have not run kdeps yet, read [What is kdeps?](/getting-started/introduction) first.
+The mental model behind kdeps: how a workflow is shaped, how data moves between steps, and which pieces apply to each mode. If you have not run kdeps yet, read [What is kdeps?](/start/) first.
 
 ## How a workflow is shaped
 
@@ -19,7 +19,7 @@ then reach for the rest as you need them.
 | Concept | What it is | Mode |
 |---|---|---|
 | [Workflow mode](/modes/workflow-mode) | A DAG of resources that runs in dependency order and returns a response | Workflow |
-| [Agent mode](/modes/agent-loop-mode) | An LLM that calls workflows, components, and built-in tools to finish a task | Agent |
+| [Agent mode](/agent/) | An LLM that calls workflows, components, and built-in tools to finish a task | Agent |
 | [Agencies](/concepts/agency) | Several agents bundled under one `agency.yaml`, calling each other with `agent:` | Both |
 | [Components](/concepts/components) | Reusable resource bundles you install or build, invoked with `component:` | Both |
 
@@ -49,5 +49,5 @@ then reach for the rest as you need them.
 | Concept | What it is | Mode |
 |---|---|---|
 | [Session storage](/configuration/session) | Values that persist across requests from the same caller | Workflow |
-| [Persistent memory](/concepts/memory) | Project-scoped facts the agent recalls across sessions | Agent (tools also work in workflow) |
-| [Memory internals](/concepts/memory-internals) | Auto-extraction, the memory graph, and prompt injection | Agent |
+| [Persistent memory](/agent/memory) | Project-scoped facts the agent recalls across sessions | Agent (tools also work in workflow) |
+| [Memory internals](/agent/memory-internals) | Auto-extraction, the memory graph, and prompt injection | Agent |

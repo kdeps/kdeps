@@ -1,6 +1,6 @@
 # REPL slash commands
 
-Inside the [agent loop REPL](/modes/agent-loop-mode), type `/help` for the full list.
+Inside the [agent loop REPL](/agent/), type `/help` for the full list.
 
 *Applies to agent mode.*
 
@@ -27,7 +27,7 @@ Inside the [agent loop REPL](/modes/agent-loop-mode), type `/help` for the full 
 | `/thinking [off\|minimal\|low\|medium\|high\|xhigh\|auto]` | Enable extended reasoning (Claude only; warns if current model does not support it); persists across sessions |
 | `/prompt` | Show the exact LLM request for the last turn (system prompt, messages, tool schemas) |
 | `/prompt raw` | Same, unformatted - the raw JSON payload sent to the model |
-| `/permission [read-only\|workspace-write\|danger-full-access\|ask]` | Show or set the tool permission mode; persists across sessions (see [Permission modes](/modes/agent-loop-tools#permission-modes)) |
+| `/permission [read-only\|workspace-write\|danger-full-access\|ask]` | Show or set the tool permission mode; persists across sessions (see [Permission modes](/agent/tools#permission-modes)) |
 | `/session list\|save\|load\|delete\|checkpoint\|goto\|branches\|import` | Manage saved sessions and navigate branching history |
 | `/editor` | Open current input in `$EDITOR` (ctrl+g) |
 | `/copy` | Copy last assistant response to clipboard |
@@ -43,7 +43,7 @@ Inside the [agent loop REPL](/modes/agent-loop-mode), type `/help` for the full 
 | `/goal new <text>` | Replace the active goal with a new plan |
 | `/goal skip` | Abandon the active task and advance to the next |
 | `/goal clear` | Drop the active goal |
-| `/judges` | Show the configured judge panel (reviews each turn's final output - see [Judge panel](/modes/agent-loop-judges)) |
+| `/judges` | Show the configured judge panel (reviews each turn's final output - see [Judge panel](/agent/judges)) |
 | `/judges add <name> <criteria>` | Add a judge to the explicit roster |
 | `/judges remove <name>` | Remove a judge from the explicit roster |
 | `/judges auto [on\|off]` | Show or toggle a per-turn auto-generated roster; persists across sessions |
@@ -58,9 +58,9 @@ Inside the [agent loop REPL](/modes/agent-loop-mode), type `/help` for the full 
 | `!! <cmd>` | Run a shell command silently - no LLM turn, nothing added to context |
 | `@<path>` | Inline a file's contents (text) or attach it (image) into the next turn, e.g. `explain @main.go` |
 | `/autocontext [on\|off]` | Show or toggle auto-detecting command/file mentions in plain chat text (on by default, persists across sessions) |
-| `/tools [full\|lean]` | Show or toggle the lean/full tool set (full by default, persists across sessions - see [Lean mode](/modes/agent-loop-tools#lean-mode)) |
-| `/upgrade` | Check for a newer kdeps release and, for a standalone install, download/verify/install it (see [Updating kdeps](/modes/agent-loop-repl#updating-kdeps)) |
-| `/upgrade nightly` | Same, but checks the nightly channel instead of the latest stable release (see [Nightly builds](/modes/agent-loop-repl#nightly-builds)) |
+| `/tools [full\|lean]` | Show or toggle the lean/full tool set (full by default, persists across sessions - see [Lean mode](/agent/tools#lean-mode)) |
+| `/upgrade` | Check for a newer kdeps release and, for a standalone install, download/verify/install it (see [Updating kdeps](/agent/repl#updating-kdeps)) |
+| `/upgrade nightly` | Same, but checks the nightly channel instead of the latest stable release (see [Nightly builds](/agent/repl#nightly-builds)) |
 | `/login` | m365 backend only: open a browser window to (re-)sign in, even if a session is already cached (see [M365 Copilot](/reference/llm-providers-m365)) |
 
 ## Auto-detected commands and files
@@ -99,6 +99,6 @@ Disable it for the session with `/autocontext off` if the confirmation prompt ge
 
 ## See also
 
-- [Agent mode](/modes/agent-loop-mode) - overview and starting the REPL
-- [Built-in tools](/modes/agent-loop-tools) - tools available to the model
-- [Goal-directed execution](/modes/agent-loop-goals)
+- [Agent mode](/agent/) - overview and starting the REPL
+- [Built-in tools](/agent/tools) - tools available to the model
+- [Goal-directed execution](/agent/goals)

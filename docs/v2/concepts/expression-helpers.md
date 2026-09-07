@@ -409,5 +409,5 @@ after:
 
 - [Unified API](/concepts/unified-api) - Core get() and set() functions
 - [Expressions](/concepts/expressions) - Expression syntax and operators
-- [Expression functions reference](/reference/expression-functions-reference) - Complete function reference with array, string, and type operations
+- [Expression functions reference](/reference/expression-functions) - Complete function reference with array, string, and type operations
 - [Items iteration](items) - Processing multiple items

@@ -35,15 +35,15 @@ kdeps run workflow.yaml
 
 | Command | Page | Description |
 |---|---|---|
-| `kdeps run` | [Dev commands](/reference/cli/dev#kdeps-run) | Run a workflow locally |
-| `kdeps [path]` | [Dev commands](/reference/cli/dev#kdeps-path-agent-repl) | Agent mode REPL |
-| `kdeps validate` | [Dev commands](/reference/cli/dev#kdeps-validate) | Validate workflow config |
-| `kdeps new` | [Dev commands](/reference/cli/dev#kdeps-new) | Scaffold a new agent |
-| `kdeps edit` | [Dev commands](/reference/cli/dev#kdeps-edit) | Edit global config |
-| `kdeps doctor` | [Dev commands](/reference/cli/dev#kdeps-doctor) | System health checks |
-| `kdeps --upgrade` | [Dev commands](/reference/cli/dev#kdeps-upgrade) | Check for and install a newer kdeps release |
-| `kdeps chat` | [Dev commands](/reference/cli/dev#kdeps-chat) | Interactive workflow generator |
-| `kdeps llamafile` | [Dev commands](/reference/cli/dev#kdeps-llamafile) | Llamafile model registry (list, update) |
+| `kdeps run` | [Dev commands](/reference/cli-dev#kdeps-run) | Run a workflow locally |
+| `kdeps [path]` | [Dev commands](/reference/cli-dev#kdeps-path-agent-repl) | Agent mode REPL |
+| `kdeps validate` | [Dev commands](/reference/cli-dev#kdeps-validate) | Validate workflow config |
+| `kdeps new` | [Dev commands](/reference/cli-dev#kdeps-new) | Scaffold a new agent |
+| `kdeps edit` | [Dev commands](/reference/cli-dev#kdeps-edit) | Edit global config |
+| `kdeps doctor` | [Dev commands](/reference/cli-dev#kdeps-doctor) | System health checks |
+| `kdeps --upgrade` | [Dev commands](/reference/cli-dev#kdeps-upgrade) | Check for and install a newer kdeps release |
+| `kdeps chat` | [Dev commands](/reference/cli-dev#kdeps-chat) | Interactive workflow generator |
+| `kdeps llamafile` | [Dev commands](/reference/cli-dev#kdeps-llamafile) | Llamafile model registry (list, update) |
 | `kdeps registry` | [Registry commands](/reference/cli/registry) | Search, install, publish packages |
 | `kdeps bundle package` | [Packaging commands](/reference/cli/packaging#kdeps-bundle-package) | Package for distribution |
 | `kdeps bundle build` | [Packaging commands](/reference/cli/packaging#kdeps-bundle-build) | Build Docker image |
@@ -152,7 +152,7 @@ kubectl rollout status deployment/my-agent
 
 ## See also
 
-- [Dev commands](/reference/cli/dev) - run, serve, validate, new, edit, doctor, chat
+- [Dev commands](/reference/cli-dev) - run, serve, validate, new, edit, doctor, chat
 - [Registry commands](/reference/cli/registry) - search, install, publish
 - [Packaging commands](/reference/cli/packaging) - bundle, export, build
-- [Installation](/getting-started/installation)
+- [Installation](/start/installation)

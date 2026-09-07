@@ -4,7 +4,7 @@ The `email:` resource sends outbound email via SMTP and reads or searches inboun
 
 ## Where it runs
 
-Both [workflow mode](/modes/workflow-mode) and [agent mode](/modes/agent-loop-mode).
+Both [workflow mode](/modes/workflow-mode) and [agent mode](/agent/).
 
 ## Actions
 
@@ -114,7 +114,7 @@ email:
 
 </div>
 
-`from` is optional when the agent has a configured [identity](/configuration/advanced#agent-identity) - it defaults to `identity.email`, so a per-agent identity means you don't have to repeat the sender address on every `email:` resource.
+`from` is optional when the agent has a configured [identity](/reference/advanced-config#agent-identity) - it defaults to `identity.email`, so a per-agent identity means you don't have to repeat the sender address on every `email:` resource.
 
 HTML email - set `html: true` and put HTML in `body:`:
 
@@ -372,7 +372,7 @@ onError:
 
 ## See also
 
-- [Global config](/configuration/advanced) - where SMTP and IMAP credentials live
+- [Global config](/reference/advanced-config) - where SMTP and IMAP credentials live
 - [Error handling (onError)](/concepts/error-handling) - retry and fallback behavior
 - [Expressions](/concepts/expressions) - templating the subject and body
 - [Resources overview](/resources/overview) - resource structure and dependencies

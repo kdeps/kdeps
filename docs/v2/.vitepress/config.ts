@@ -54,25 +54,22 @@ export default defineConfig({
     siteTitle: false,
 
     nav: [
-      { text: 'Guide', link: '/getting-started/introduction' },
-      {
-        text: 'Deploy',
-        items: [
-          { text: 'Deployment guide', link: '/guides/deployment-guide' },
-          { text: 'Docker', link: '/deployment/docker' },
-          { text: 'Kubernetes', link: '/deployment/kubernetes' },
-        ]
-      },
+      { text: 'Start', link: '/start/' },
+      { text: 'Agent', link: '/agent/' },
+      { text: 'Workflow', link: '/modes/workflow-mode' },
+      { text: 'Agencies', link: '/concepts/agency' },
+      { text: 'LLM server', link: '/deployment/llm-server' },
+      { text: 'Deploy', link: '/deployment/docker' },
+      { text: 'Registry', link: '/reference/cli/registry' },
       {
         text: 'Reference',
         items: [
-          { text: 'CLI', link: '/reference/cli/' },
-          { text: 'LLM commands', link: '/reference/cli/llm' },
+          { text: 'CLI', link: '/reference/cli' },
+          { text: 'Expression functions', link: '/reference/expression-functions' },
           { text: 'Security', link: '/reference/security' },
-          { text: 'workflow.yaml', link: '/configuration/workflow' },
+          { text: 'Glossary', link: '/reference/glossary' },
         ]
       },
-      { text: 'Registry', link: 'https://kdeps.io' },
       { text: 'GitHub', link: 'https://github.com/kdeps/kdeps' },
       {
         text: `v${navVersion}`,
@@ -84,48 +81,200 @@ export default defineConfig({
     ],
 
     sidebar: {
-      '/': [
+      '/start/': [
         {
-          text: 'Getting started',
+          text: 'Start here',
           items: [
-            { text: 'What is kdeps?', link: '/getting-started/introduction' },
-            { text: 'Why kdeps?', link: '/concepts/why-kdeps' },
-            { text: 'Run locally', link: '/getting-started/local-agent' },
-            { text: 'Quickstart', link: '/getting-started/quickstart' },
-            { text: 'Workflow as a tool', link: '/getting-started/workflow-as-tool' },
-            { text: 'Local models', link: '/getting-started/local-models' },
-            { text: 'Installation', link: '/getting-started/installation' },
+            { text: 'What is kdeps?', link: '/start/' },
+            { text: 'Why kdeps?', link: '/start/why-kdeps' },
+            { text: 'Concepts overview', link: '/start/concepts' },
+            { text: 'Installation', link: '/start/installation' },
+            { text: 'Local models', link: '/start/local-models' },
             { text: 'Glossary', link: '/reference/glossary' },
           ]
         },
         {
-          text: 'Core concepts',
-          collapsed: false,
+          text: 'Which product?',
           items: [
-            { text: 'Concepts overview', link: '/concepts/overview' },
+            { text: 'kdeps agent', link: '/agent/' },
+            { text: 'kdeps workflow', link: '/modes/workflow-mode' },
+            { text: 'kdeps agencies', link: '/concepts/agency' },
+            { text: 'kdeps LLM server', link: '/deployment/llm-server' },
+            { text: 'kdeps deploy', link: '/deployment/docker' },
+            { text: 'kdeps registry', link: '/reference/cli/registry' },
+          ]
+        },
+      ],
+
+      '/agent/': [
+        {
+          text: 'kdeps agent',
+          items: [
+            { text: 'Overview', link: '/agent/' },
+            { text: 'Quickstart', link: '/agent/quickstart' },
+            { text: 'REPL features', link: '/agent/repl' },
+            { text: 'Slash commands', link: '/agent/commands' },
+            { text: 'Built-in tools', link: '/agent/tools' },
+            { text: 'Shell execution', link: '/agent/shell' },
+            { text: 'Local model management', link: '/agent/models' },
+          ]
+        },
+        {
+          text: 'Control',
+          items: [
+            { text: 'Goal-directed execution', link: '/agent/goals' },
+            { text: 'Judge panel', link: '/agent/judges' },
+            { text: 'Approval tokens', link: '/agent/approvals' },
+            { text: 'Tool execution monitoring', link: '/agent/monitoring' },
+            { text: 'Prompt reduction (turo)', link: '/agent/turo' },
+          ]
+        },
+        {
+          text: 'Memory & extension',
+          items: [
+            { text: 'Persistent memory', link: '/agent/memory' },
+            { text: 'Memory internals', link: '/agent/memory-internals' },
+            { text: 'Skills and prompt templates', link: '/agent/skills' },
+            { text: 'Agent registries', link: '/agent/registries' },
+            { text: 'AI-assisted authoring', link: '/agent/ai-assisted-authoring' },
+          ]
+        },
+      ],
+
+      '/reference/': [
+        {
+          text: 'Reference',
+          items: [
+            { text: 'CLI reference', link: '/reference/cli' },
+            { text: 'Dev commands', link: '/reference/cli-dev' },
+            { text: 'Registry commands', link: '/reference/cli/registry' },
+            { text: 'Packaging commands', link: '/reference/cli/packaging' },
+            { text: 'LLM commands', link: '/reference/cli/llm' },
+            { text: 'Components reference', link: '/reference/components' },
+            { text: 'Expression functions', link: '/reference/expression-functions' },
+            { text: 'Expression operators', link: '/reference/expression-operators' },
+            { text: 'Expression blocks', link: '/reference/expr-blocks' },
+            { text: 'Items reference', link: '/reference/items' },
+            { text: 'Tools reference', link: '/reference/tools' },
+            { text: 'Browser actions', link: '/reference/browser-actions' },
+            { text: 'Management API', link: '/reference/management-api' },
+            { text: 'LLM providers', link: '/reference/llm-providers' },
+            { text: 'M365 Copilot', link: '/reference/llm-providers-m365' },
+            { text: 'Docker reference', link: '/reference/docker-reference' },
+            { text: 'Registry formula spec', link: '/reference/registry-formula-spec' },
+            { text: 'Security', link: '/reference/security' },
+            { text: 'Glossary', link: '/reference/glossary' },
+          ]
+        },
+        {
+          text: 'Examples in reference',
+          collapsed: true,
+          items: [
+            { text: 'Validation examples', link: '/reference/validation-examples' },
+            { text: 'Python examples', link: '/reference/python-examples' },
+            { text: 'SQL examples', link: '/reference/sql-examples' },
+            { text: 'HTTP client examples', link: '/reference/http-client-examples' },
+          ]
+        },
+        {
+          text: 'Contributing',
+          collapsed: true,
+          items: [
+            { text: 'Advanced config', link: '/reference/advanced-config' },
+            { text: 'FAQ', link: '/reference/faq' },
+            { text: 'Troubleshooting', link: '/reference/troubleshooting' },
+            { text: 'Docs contributing', link: '/reference/contributing-docs' },
+            { text: 'Style guide', link: '/reference/style-guide' },
+          ]
+        },
+      ],
+
+      '/': [
+        {
+          text: 'Not yet migrated',
+          items: [
             { text: 'Workflow mode', link: '/modes/workflow-mode' },
-            { text: 'Agent mode', link: '/modes/agent-loop-mode' },
             { text: 'Agencies', link: '/concepts/agency' },
             { text: 'Components', link: '/concepts/components' },
             { text: 'Expressions', link: '/concepts/expressions' },
             { text: 'Expression helpers', link: '/concepts/expression-helpers' },
-            { text: 'Data access (get/set/input/request)', link: '/concepts/unified-api' },
+            { text: 'Data access', link: '/concepts/unified-api' },
             { text: 'Tools (function calling)', link: '/concepts/tools' },
             { text: 'Error handling (onError)', link: '/concepts/error-handling' },
-          ]
-        },
-        {
-          text: 'Data & I/O',
-          collapsed: false,
-          items: [
             { text: 'Input sources', link: '/concepts/input-sources' },
             { text: 'Jinja2 templates', link: '/concepts/jinja2-templates' },
             { text: 'Inline resources', link: '/concepts/inline-resources' },
             { text: 'Items iteration', link: '/concepts/items' },
             { text: 'While-loop', link: '/concepts/loop' },
             { text: 'Validation and control', link: '/concepts/validation-and-control' },
-            { text: 'Persistent memory', link: '/concepts/memory' },
-            { text: 'Memory internals', link: '/concepts/memory-internals' },
+            { text: 'Quickstart', link: '/getting-started/quickstart' },
+            { text: 'Workflow as a tool', link: '/getting-started/workflow-as-tool' },
+          ]
+        },
+        {
+          text: 'Resources',
+          collapsed: false,
+          items: [
+            { text: 'Overview', link: '/resources/overview' },
+            { text: 'LLM (chat)', link: '/resources/llm/' },
+            { text: 'LLM backends', link: '/resources/llm/backends' },
+            { text: 'LLM routing', link: '/resources/llm/routing' },
+            { text: 'RAG', link: '/resources/rag/' },
+            { text: 'Loader', link: '/resources/rag/loader' },
+            { text: 'Embedding', link: '/resources/rag/embedding' },
+            { text: 'Vector store', link: '/resources/rag/vector-store' },
+            { text: 'Media', link: '/resources/media/' },
+            { text: 'Transcribe', link: '/resources/media/transcribe' },
+            { text: 'OCR', link: '/resources/media/ocr' },
+            { text: 'Web', link: '/resources/web/' },
+            { text: 'HTTP client', link: '/resources/web/http-client' },
+            { text: 'Scraper', link: '/resources/web/scraper' },
+            { text: 'Browser', link: '/resources/web/browser' },
+            { text: 'Search', link: '/resources/search/' },
+            { text: 'searchLocal', link: '/resources/search/searchlocal' },
+            { text: 'searchWeb', link: '/resources/search/searchweb' },
+            { text: 'SQL', link: '/resources/sql' },
+            { text: 'Files', link: '/resources/files/' },
+            { text: 'File', link: '/resources/files/file' },
+            { text: 'Git', link: '/resources/files/git' },
+            { text: 'Scripting', link: '/resources/scripting/' },
+            { text: 'Python', link: '/resources/scripting/python' },
+            { text: 'Exec (shell)', link: '/resources/scripting/exec' },
+            { text: 'Code intelligence', link: '/resources/code-intelligence/' },
+            { text: 'Code navigation', link: '/resources/code-intelligence/navigation' },
+            { text: 'Folder graph', link: '/resources/code-intelligence/graph' },
+            { text: 'Messaging', link: '/resources/messaging/' },
+            { text: 'Email', link: '/resources/messaging/email' },
+            { text: 'Telephony', link: '/resources/messaging/telephony' },
+            { text: 'Bot reply', link: '/resources/messaging/bot-reply' },
+            { text: 'Delegation', link: '/resources/delegation/' },
+            { text: 'Agent resource', link: '/resources/delegation/agent' },
+            { text: 'Component resource', link: '/resources/delegation/component' },
+            { text: 'API response', link: '/resources/api-response' },
+          ]
+        },
+        {
+          text: 'Deployment',
+          collapsed: false,
+          items: [
+            { text: 'Deployment guide', link: '/guides/deployment-guide' },
+            { text: 'Docker', link: '/deployment/docker' },
+            { text: 'Kubernetes', link: '/deployment/kubernetes' },
+            { text: 'Web server mode', link: '/deployment/webserver' },
+            { text: 'Standalone binaries', link: '/deployment/prepackage' },
+            { text: 'LLM server appliance', link: '/deployment/llm-server' },
+            { text: 'TLS / HTTPS', link: '/deployment/tls-https' },
+            { text: 'Execution flow', link: '/guides/execution-flow' },
+          ]
+        },
+        {
+          text: 'Configuration',
+          collapsed: false,
+          items: [
+            { text: 'workflow.yaml', link: '/configuration/workflow' },
+            { text: 'CORS and security', link: '/configuration/cors' },
+            { text: 'Route restrictions', link: '/configuration/route-restrictions' },
+            { text: 'Sessions', link: '/configuration/session' },
           ]
         },
         {
@@ -158,159 +307,6 @@ export default defineConfig({
             { text: 'Stateless bot', link: '/examples/stateless-bot/' },
             { text: 'Telegram bot', link: '/examples/telegram-bot/' },
             { text: 'Showcase', link: '/examples/showcase' },
-          ]
-        },
-        {
-          text: 'How-to guides',
-          collapsed: false,
-          items: [
-            { text: 'Skill for coding agents', link: '/getting-started/agent-skills' },
-            { text: 'Deployment guide', link: '/guides/deployment-guide' },
-            { text: 'Execution flow', link: '/guides/execution-flow' },
-            { text: 'Troubleshooting', link: '/guides/troubleshooting' },
-            { text: 'FAQ', link: '/guides/faq' },
-          ]
-        },
-        {
-          text: 'Deployment',
-          collapsed: false,
-          items: [
-            { text: 'Docker', link: '/deployment/docker' },
-            { text: 'Kubernetes', link: '/deployment/kubernetes' },
-            { text: 'Web server mode', link: '/deployment/webserver' },
-            { text: 'Standalone binaries', link: '/deployment/prepackage' },
-            { text: 'LLM server appliance', link: '/deployment/llm-server' },
-            { text: 'TLS / HTTPS', link: '/deployment/tls-https' },
-          ]
-        },
-        {
-          text: 'Configuration',
-          collapsed: false,
-          items: [
-            { text: 'workflow.yaml', link: '/configuration/workflow' },
-            { text: 'Global config', link: '/configuration/advanced' },
-            { text: 'CORS and security', link: '/configuration/cors' },
-            { text: 'Route restrictions', link: '/configuration/route-restrictions' },
-            { text: 'Sessions', link: '/configuration/session' },
-          ]
-        },
-        {
-          text: 'Resources',
-          collapsed: false,
-          items: [
-            { text: 'Overview', link: '/resources/overview' },
-            {
-              text: 'AI & language',
-              collapsed: true,
-              items: [
-                { text: 'LLM (chat)', link: '/resources/llm/' },
-                { text: 'LLM backends', link: '/resources/llm/backends' },
-                { text: 'LLM routing', link: '/resources/llm/routing' },
-                { text: 'RAG - overview', link: '/resources/rag/' },
-                { text: 'Loader', link: '/resources/rag/loader' },
-                { text: 'Embedding', link: '/resources/rag/embedding' },
-                { text: 'Vector store', link: '/resources/rag/vector-store' },
-                { text: 'Media - overview', link: '/resources/media/' },
-                { text: 'Transcribe', link: '/resources/media/transcribe' },
-                { text: 'OCR', link: '/resources/media/ocr' },
-              ]
-            },
-            {
-              text: 'Web',
-              collapsed: true,
-              items: [
-                { text: 'Web - overview', link: '/resources/web/' },
-                { text: 'HTTP client', link: '/resources/web/http-client' },
-                { text: 'Scraper', link: '/resources/web/scraper' },
-                { text: 'Browser', link: '/resources/web/browser' },
-                { text: 'Search - overview', link: '/resources/search/' },
-                { text: 'searchLocal', link: '/resources/search/searchlocal' },
-                { text: 'searchWeb', link: '/resources/search/searchweb' },
-              ]
-            },
-            {
-              text: 'Data & system',
-              collapsed: true,
-              items: [
-                { text: 'SQL', link: '/resources/sql' },
-                { text: 'Files - overview', link: '/resources/files/' },
-                { text: 'File', link: '/resources/files/file' },
-                { text: 'Git', link: '/resources/files/git' },
-                { text: 'Scripting - overview', link: '/resources/scripting/' },
-                { text: 'Python', link: '/resources/scripting/python' },
-                { text: 'Exec (shell)', link: '/resources/scripting/exec' },
-                { text: 'Code intelligence - overview', link: '/resources/code-intelligence/' },
-                { text: 'Code navigation', link: '/resources/code-intelligence/navigation' },
-                { text: 'Folder graph', link: '/resources/code-intelligence/graph' },
-              ]
-            },
-            {
-              text: 'Messaging',
-              collapsed: true,
-              items: [
-                { text: 'Messaging - overview', link: '/resources/messaging/' },
-                { text: 'Email', link: '/resources/messaging/email' },
-                { text: 'Telephony', link: '/resources/messaging/telephony' },
-                { text: 'Bot reply', link: '/resources/messaging/bot-reply' },
-              ]
-            },
-            {
-              text: 'Orchestration',
-              collapsed: true,
-              items: [
-                { text: 'Delegation - overview', link: '/resources/delegation/' },
-                { text: 'Agent', link: '/resources/delegation/agent' },
-                { text: 'Component', link: '/resources/delegation/component' },
-                { text: 'API response', link: '/resources/api-response' },
-              ]
-            },
-          ]
-        },
-        {
-          text: 'Agent loop',
-          collapsed: true,
-          items: [
-            { text: 'REPL slash commands', link: '/modes/agent-loop-commands' },
-            { text: 'REPL features', link: '/modes/agent-loop-repl' },
-            { text: 'Skills and prompt templates', link: '/modes/agent-loop-skills' },
-            { text: 'Built-in tools', link: '/modes/agent-loop-tools' },
-            { text: 'Shell execution', link: '/modes/agent-loop-shell' },
-            { text: 'Tool execution monitoring', link: '/modes/agent-loop-monitoring' },
-            { text: 'Goal-directed execution', link: '/modes/agent-loop-goals' },
-            { text: 'Judge panel', link: '/modes/agent-loop-judges' },
-            { text: 'Local model management', link: '/modes/agent-loop-models' },
-            { text: 'Agent registries', link: '/modes/agent-loop-registries' },
-            { text: 'Approval tokens', link: '/modes/agent-loop-approvals' },
-            { text: 'Prompt reduction (turo)', link: '/modes/agent-loop-turo' },
-          ]
-        },
-        {
-          text: 'Reference',
-          collapsed: false,
-          items: [
-            { text: 'CLI reference', link: '/reference/cli/' },
-            { text: 'Dev commands', link: '/reference/cli/dev' },
-            { text: 'Registry commands', link: '/reference/cli/registry' },
-            { text: 'Packaging commands', link: '/reference/cli/packaging' },
-            { text: 'LLM commands', link: '/reference/cli/llm' },
-            { text: 'Components reference', link: '/reference/components' },
-            { text: 'Expression functions', link: '/reference/expression-functions-reference' },
-            { text: 'Expression operators', link: '/reference/expression-operators' },
-            { text: 'Expression blocks', link: '/reference/expr-blocks' },
-            { text: 'Management API', link: '/reference/management-api' },
-            { text: 'Browser actions', link: '/reference/browser-actions' },
-            { text: 'Tools reference', link: '/reference/tools-reference' },
-            { text: 'LLM providers', link: '/reference/llm-providers' },
-            { text: 'M365 Copilot', link: '/reference/llm-providers-m365' },
-            { text: 'Docker reference', link: '/reference/docker-reference' },
-            { text: 'Validation examples', link: '/reference/validation-examples' },
-            { text: 'Registry formula spec', link: '/reference/registry-formula-spec' },
-            { text: 'Security', link: '/reference/security' },
-            { text: 'Items reference', link: '/reference/items-reference' },
-            { text: 'Python examples', link: '/reference/python-examples' },
-            { text: 'SQL examples', link: '/reference/sql-examples' },
-            { text: 'HTTP client examples', link: '/reference/http-client-examples' },
-            { text: 'Glossary', link: '/reference/glossary' },
           ]
         },
       ]
@@ -388,6 +384,39 @@ export default defineConfig({
     const { writeFile, mkdir } = await import('node:fs/promises')
     const { join, dirname } = await import('node:path')
     const redirects: Record<string, string> = {
+      // Product split (2026-09): agent-loop + getting-started -> /agent/, /start/.
+      'modes/agent-loop-mode': '/agent/',
+      'modes/agent-loop-repl': '/agent/repl',
+      'modes/agent-loop-commands': '/agent/commands',
+      'modes/agent-loop-tools': '/agent/tools',
+      'modes/agent-loop-models': '/agent/models',
+      'modes/agent-loop-skills': '/agent/skills',
+      'modes/agent-loop-goals': '/agent/goals',
+      'modes/agent-loop-judges': '/agent/judges',
+      'modes/agent-loop-approvals': '/agent/approvals',
+      'modes/agent-loop-monitoring': '/agent/monitoring',
+      'modes/agent-loop-shell': '/agent/shell',
+      'modes/agent-loop-turo': '/agent/turo',
+      'modes/agent-loop-registries': '/agent/registries',
+      'getting-started/local-agent': '/agent/quickstart',
+      'getting-started/agent-skills': '/agent/ai-assisted-authoring',
+      'concepts/memory': '/agent/memory',
+      'concepts/memory-internals': '/agent/memory-internals',
+      'getting-started/introduction': '/start/',
+      'getting-started/installation': '/start/installation',
+      'getting-started/local-models': '/start/local-models',
+      'concepts/why-kdeps': '/start/why-kdeps',
+      'concepts/overview': '/start/concepts',
+      'reference/cli/index': '/reference/cli',
+      'reference/cli/dev': '/reference/cli-dev',
+      'reference/expression-functions-reference': '/reference/expression-functions',
+      'reference/items-reference': '/reference/items',
+      'reference/tools-reference': '/reference/tools',
+      'guides/faq': '/reference/faq',
+      'guides/troubleshooting': '/reference/troubleshooting',
+      'configuration/advanced': '/reference/advanced-config',
+      'CONTRIBUTING-DOCS': '/reference/contributing-docs',
+      'STYLE-GUIDE': '/reference/style-guide',
       // concepts pages merged/split (2026-08).
       'concepts/validation': '/concepts/validation-and-control',
       'concepts/input-object': '/concepts/unified-api#the-input-object',

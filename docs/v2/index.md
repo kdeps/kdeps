@@ -6,14 +6,14 @@ hero:
   text: AI Appliance Builder
   tagline: YAML-defined AI agents and workflow pipelines. Ship as Docker, K8s, ISO, or a single binary.
   announcement: Scaffold YAML from Claude Code, Cursor, or Grok
-  announcementLink: /getting-started/agent-skills
+  announcementLink: /agent/ai-assisted-authoring
   actions:
     - theme: brand
       text: What is kdeps?
-      link: /getting-started/introduction
+      link: /start/
     - theme: brand
       text: Run locally
-      link: /getting-started/local-agent
+      link: /agent/quickstart
     - theme: alt
       text: Build a workflow
       link: /getting-started/quickstart

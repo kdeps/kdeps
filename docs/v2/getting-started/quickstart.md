@@ -1,8 +1,8 @@
 # Quickstart
 
-Build a two-resource LLM API in [workflow mode](/modes/workflow-mode), then load the same file as a tool in [agent mode](/modes/agent-loop-mode).
+Build a two-resource LLM API in [workflow mode](/modes/workflow-mode), then load the same file as a tool in [agent mode](/agent/).
 
-*Applies to both workflow mode and agent mode. New to kdeps? Read [What is kdeps?](/getting-started/introduction) first.*
+*Applies to both workflow mode and agent mode. New to kdeps? Read [What is kdeps?](/start/) first.*
 
 ## The mental model
 
@@ -23,8 +23,8 @@ This quickstart guides you through:
 - Calling the same workflow as a tool in agent mode
 
 It is for developers who have used a terminal and an HTTP API before. For the
-REPL with no YAML, see [Run locally](/getting-started/local-agent). For install
-options (Windows, source, Docker), see [Installation](/getting-started/installation).
+REPL with no YAML, see [Run locally](/agent/quickstart). For install
+options (Windows, source, Docker), see [Installation](/start/installation).
 
 ## Before you start
 
@@ -174,7 +174,7 @@ kdeps ./agents/    # one tool per workflow in the folder
 
 - [Load a workflow as a tool](/getting-started/workflow-as-tool) - agent mode with this file
 - [Workflow mode](/modes/workflow-mode) - how the DAG pipeline runs
-- [Agent mode](/modes/agent-loop-mode) - the interactive LLM loop
+- [Agent mode](/agent/) - the interactive LLM loop
 - [workflow.yaml reference](/configuration/workflow) - every field
 - [Resources overview](/resources/overview) - all resource types
-- [CLI reference](/reference/cli/) - all commands and flags
+- [CLI reference](/reference/cli) - all commands and flags

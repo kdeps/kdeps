@@ -118,4 +118,4 @@ The first request opens a browser to sign in (or pre-seed
 ## See also
 
 - [LLM provider reference](/reference/llm-providers) - all other backends
-- [Agent mode](/modes/agent-loop-mode) - `/login` command and REPL usage
+- [Agent mode](/agent/) - `/login` command and REPL usage

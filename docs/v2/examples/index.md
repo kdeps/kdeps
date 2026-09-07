@@ -337,4 +337,4 @@ Best for:
 
 - [Quickstart](/getting-started/quickstart) - build your first workflow in 5 minutes
 - [Workflow mode](/modes/workflow-mode) - deterministic DAG execution
-- [Agent mode](/modes/agent-loop-mode) - interactive LLM-driven tool calling
+- [Agent mode](/agent/) - interactive LLM-driven tool calling

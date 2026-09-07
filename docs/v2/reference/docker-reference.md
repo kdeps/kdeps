@@ -95,7 +95,7 @@ settings:
     maxConcurrent: 50                  # excess requests get 503 immediately
 ```
 
-See [Security](../configuration/advanced#security) for the full reference.
+See [Security](/reference/advanced-config#security) for the full reference.
 
 ## Troubleshooting
 
