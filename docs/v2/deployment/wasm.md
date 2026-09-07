@@ -52,7 +52,14 @@ Every `--wasm` app ships a settings drawer (a gear button, top-right). The viewe
 - **Export / Import** buttons in the drawer download and load a `kdeps-settings.json` file - move your setup between browsers or machines.
 - **Import machine settings.** `kdeps bundle build --wasm` bakes the build machine's own `~/.kdeps/config.yaml` LLM defaults (backend, first model, base URL - **never cloud API keys**) into the app. One drawer click adopts them.
 - **`--wasm-embed-secrets`** additionally bakes this machine's real credentials into that same "Import machine settings" data: every cloud API key from `~/.kdeps/config.yaml` (`*_api_key`), and the m365 auth from `~/.config/kdeps/m365/token-cache.json` + `secrets.json`. Importing loads the keys per backend; m365 auth is replayed as `M365_TOKEN_CACHE_JSON` / `M365_SECRETS_JSON` when the m365 backend is selected. Off by default: **the build then contains real credentials - do not commit or share it.** A build-time warning is printed.
-- **`m365` backend.** Selecting `m365` (or any local OpenAI-compatible proxy) swaps the API-key field for a **Base URL** field. The env becomes `KDEPS_DEFAULT_BACKEND=openai` + `KDEPS_LLM_BASE_URL=<url>`. Run `kdeps` locally so the proxy is up; point the field at its address.
+- **`m365` backend.** Selecting `m365` (or any local OpenAI-compatible proxy) swaps the API-key field for a **Base URL** field. The env becomes `KDEPS_DEFAULT_BACKEND=openai` + `KDEPS_LLM_BASE_URL=<url>`. Start the proxy first:
+
+  ```bash
+  kdeps m365 proxy            # serves http://127.0.0.1:11435/v1 (CORS open)
+  kdeps m365 proxy --port 8080
+  ```
+
+  Leave the drawer's Base URL at the default `http://localhost:11435/v1` (or match your `--port`). First request opens a browser to sign in.
 
 ### Browser CORS
 
