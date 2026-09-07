@@ -1,0 +1,19 @@
+# Delegation resources
+
+Two resources that call another unit of work and return its output. Each has
+its own reference page.
+
+*Applies to both workflow mode and agent mode.*
+
+| Resource | Calls | Inputs | Reference |
+| :--- | :--- | :--- | :--- |
+| `agent:` | A full sibling agent's workflow (same agency) | `params:` | [Agent](/agencies/agent-resource) |
+| `component:` | A reusable resource bundle (registry or local) | `with:` | [Component](/agencies/component-resource) |
+
+## See also
+
+- [AI agencies](/agencies/) - multi-agent orchestration
+- [Components](/agencies/components) - registry vs. custom components
+- [Two-agent agency tutorial](/examples/agency)
+- [Reusable component tutorial](/examples/custom-component)
+- [Resources overview](/workflow/resources) - all resource types

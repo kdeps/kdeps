@@ -1,6 +1,6 @@
 # Tools reference
 
-Examples, best practices, and debugging guidance for the [`tools:` block](/concepts/tools) in `chat:` resources. This is a workflow mode feature; in agent mode, tools are whole workflows and components.
+Examples, best practices, and debugging guidance for the [`tools:` block](/workflow/tools) in `chat:` resources. This is a workflow mode feature; in agent mode, tools are whole workflows and components.
 
 ## Examples
 
@@ -313,7 +313,7 @@ The cached content has a TTL set by Google AI (default 1 hour). Use `google_cach
 
 ## See also
 
-- [Tools (function calling)](/concepts/tools) - Core tool definition and syntax
-- [LLM resource](/resources/llm/) - Full LLM configuration
-- [Python resource](/resources/scripting/python) - Building tool scripts
-- [Unified API](/concepts/unified-api) - Data access in tools
+- [Tools (function calling)](/workflow/tools) - Core tool definition and syntax
+- [LLM resource](/workflow/resources/llm) - Full LLM configuration
+- [Python resource](/workflow/resources/python) - Building tool scripts
+- [Unified API](/workflow/data-access) - Data access in tools

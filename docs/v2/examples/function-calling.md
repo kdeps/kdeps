@@ -10,7 +10,7 @@ a tool, kdeps runs the target resource, feeds the result back, and the model
 continues.
 
 This tutorial is for developers who have completed the
-[quickstart](/getting-started/quickstart). It assumes you know:
+[quickstart](/workflow/quickstart). It assumes you know:
 
 - Basic YAML
 - Basic Python
@@ -218,7 +218,7 @@ You built an API where the LLM:
 
 ## Next steps
 
-- [Tools (function calling)](/concepts/tools) - MCP tools, multiple tools, parameter types
+- [Tools (function calling)](/workflow/tools) - MCP tools, multiple tools, parameter types
 - [Tools reference](/reference/tools) - tool chaining, debugging
-- [Python resource](/resources/scripting/python) - building tool scripts
+- [Python resource](/workflow/resources/python) - building tool scripts
 - [Agent mode](/agent/) - tools that are whole workflows

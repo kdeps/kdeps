@@ -180,6 +180,6 @@ This makes kdeps suitable for working with sensitive codebases, proprietary docu
 
 ## See also
 
-- [LLM backends reference](/resources/llm/backends) - Full backend config, routing strategies, all provider options
-- [LLM providers reference](/reference/llm-providers) - Per-provider snippets for cloud backends
+- [LLM backends reference](/workflow/resources/llm-backends) - Full backend config, routing strategies, all provider options
+- [LLM providers reference](/llm-server/providers) - Per-provider snippets for cloud backends
 - [Run locally in 30 seconds](/agent/quickstart) - Quick start with the agent REPL

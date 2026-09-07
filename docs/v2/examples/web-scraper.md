@@ -9,7 +9,7 @@ built-in `scraper:` resource, sends the extracted text to a local LLM, and
 returns a short summary as JSON.
 
 This tutorial is for developers who have completed the
-[quickstart](/getting-started/quickstart). It assumes you know:
+[quickstart](/workflow/quickstart). It assumes you know:
 
 - Basic YAML
 - How to send a POST request with `curl`
@@ -25,7 +25,7 @@ By the end you will be able to:
 
 The `scraper:` resource fetches a URL and returns its readable text. It runs
 in-process - no browser, no external service. For pages that need JavaScript
-rendering, use the [`browser:` resource](/resources/web/browser) instead.
+rendering, use the [`browser:` resource](/workflow/resources/browser) instead.
 
 ## Before you start
 
@@ -178,7 +178,7 @@ You built an API that:
 
 ## Next steps
 
-- [Scraper resource](/resources/web/scraper) - selectors, timeouts, output shape
-- [Browser resource](/resources/web/browser) - JavaScript-rendered pages
-- [LLM resource](/resources/llm/) - JSON mode, streaming, tools
-- [searchWeb](/resources/search/searchweb) - find pages to scrape
+- [Scraper resource](/workflow/resources/scraper) - selectors, timeouts, output shape
+- [Browser resource](/workflow/resources/browser) - JavaScript-rendered pages
+- [LLM resource](/workflow/resources/llm) - JSON mode, streaming, tools
+- [searchWeb](/workflow/resources/search-web) - find pages to scrape

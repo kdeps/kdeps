@@ -9,7 +9,7 @@ sends both to a multimodal LLM, and returns a structured description of what is
 in the image.
 
 This tutorial is for developers who have completed the
-[quickstart](/getting-started/quickstart). It assumes you know:
+[quickstart](/workflow/quickstart). It assumes you know:
 
 - Basic YAML
 - How to send a multipart form upload with `curl`
@@ -168,7 +168,7 @@ You built an API that:
 
 ## Next steps
 
-- [LLM resource](/resources/llm/) - vision, files, streaming, tools
-- [Data access](/concepts/unified-api#the-request-object) - `request.file()`, `filesByType()`
-- [LLM backends](/resources/llm/backends) - Ollama configuration
+- [LLM resource](/workflow/resources/llm) - vision, files, streaming, tools
+- [Data access](/workflow/data-access#the-request-object) - `request.file()`, `filesByType()`
+- [LLM backends](/workflow/resources/llm-backends) - Ollama configuration
 - [File processor tutorial](/examples/file-processor) - text files instead of images

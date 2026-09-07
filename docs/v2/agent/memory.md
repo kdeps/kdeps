@@ -1,6 +1,6 @@
 # Persistent memory
 
-Persistent memory lets the agent store and recall facts across sessions. Unlike [session storage](/configuration/session) (which persists across HTTP requests from the same caller), persistent memory is **project-scoped** - facts saved in one REPL session are available in later sessions for the same project.
+Persistent memory lets the agent store and recall facts across sessions. Unlike [session storage](/workflow/sessions) (which persists across HTTP requests from the same caller), persistent memory is **project-scoped** - facts saved in one REPL session are available in later sessions for the same project.
 
 Persistent memory is primarily an agent mode concept, but the memory tools also work in workflow mode (see [Workflow mode](#workflow-mode) below). For how the agent decides what to remember and what to show the model each turn, see [Memory internals](/agent/memory-internals).
 
@@ -141,5 +141,5 @@ Memory is enabled by default when the agent loop starts. No YAML configuration i
 ## See also
 
 - [Memory internals](/agent/memory-internals) - auto-extraction, the memory graph, prompt injection, compaction
-- [Session configuration](/configuration/session) - HTTP session storage across requests from the same caller
+- [Session configuration](/workflow/sessions) - HTTP session storage across requests from the same caller
 - [Agent mode](/agent/) - how the agent loop works

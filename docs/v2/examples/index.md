@@ -4,40 +4,53 @@ Complete, runnable projects that demonstrate common patterns. Every example is c
 
 ## Overview
 
-Each example targets a different use case. Pick the one closest to what you're building:
+Examples are grouped by the [product](/start/) they belong to. Pick the one
+closest to what you're building.
 
-| Example | Mode | What it demonstrates |
-|---|---|---|
-| [Load a workflow as a tool](/getting-started/workflow-as-tool) | Agent | `kdeps [path]` registers `metadata.name` as one LLM tool |
-| [Document summarizer](/examples/file-processor) | Workflow | The `file` input source - read one file, return JSON, exit |
-| [Batch processing](/examples/batch-processing) | Workflow | `items:` iteration - process a list in one request |
-| [Document search (RAG)](/examples/rag-search) | Workflow | `embedding:` upsert and search, two routes in one workflow |
-| [Web scraper](/examples/web-scraper) | Workflow | `scraper:` fetch, LLM summary, `jsonResponse` |
-| [Login and sessions](/examples/session-auth) | Workflow | SQLite sessions, `set`/`get` session scope, auth gate |
-| [Shell command API](/examples/shell-command-api) | Workflow | `exec:` with a timeout, method scoping, `info()` |
-| [Function calling](/examples/function-calling) | Workflow | LLM `tools:`, `script:`, tool arguments in `memory` |
-| [Image analysis](/examples/vision) | Workflow | Multipart upload, `files:` on a chat prompt, Ollama vision |
-| [SQL-backed API](/examples/sql-api) | Workflow | `sql:` parameterized queries, CSV output, batch transactions |
-| [Chat web app](/examples/chat-web-app) | Workflow | API + static frontend together, `public` routes, `scenario:` |
-| [File upload](/examples/file-upload) | Workflow | Multipart uploads, `info('files')`, `get(field, 'filepath')` |
-| [Conditionals and lists](/examples/control-flow) | Workflow | Ternary, `&&`/`||`/`!`, `filter`/`map`/`all`/`any` |
-| [Authenticated API call](/examples/http-auth) | Workflow | `httpClient:` bearer/API-key auth, `retry:`, `cache:` |
-| [Two-agent agency](/examples/agency) | Workflow | `kind: Agency`, `agent:` resource, `params:` |
-| [MCP server tools](/examples/mcp-tools) | Workflow | LLM tools backed by an external MCP server |
-| [Inline resources](/examples/inline-resources) | Workflow | Full actions inside `before:` / `after:` |
-| [Phone assistant (IVR)](/examples/telephony-bot) | Workflow | `telephony:` menu / say / ask, spoken input to LLM |
-| [Local file search](/examples/local-file-search) | Workflow | `searchLocal:` glob + content search |
-| [Reusable component](/examples/custom-component) | Workflow | `component.yaml`, `interface.inputs`, `component:` + `with:` |
-| [Python data processing](/examples/python-processing) | Workflow | `python:` resource, `input()`, `packages:`, JSON output |
-| [Per-component env vars](/examples/component-env) | Workflow | `env()` scoping, `{COMPONENT}_{VAR}` override, `.env` files |
-| [Static site](/examples/static-site) | Workflow | Web server mode, static file serving |
-| [Stateless bot](/examples/stateless-bot/) | Workflow | One-shot stdin/stdout LLM calls - cron jobs, CI pipelines |
-| [Telegram bot](/examples/telegram-bot/) | Workflow | Polling loop, multi-resource pipelines, external API calls |
-| [Showcase](/examples/showcase) | Workflow | Complex agents in ~20 lines of YAML - multiple real-world patterns |
+### kdeps agent
+
+| Example | What it demonstrates |
+|---|---|
+| [Load a workflow as a tool](/workflow/as-a-tool) | `kdeps [path]` registers `metadata.name` as one LLM tool |
+
+### kdeps workflow
+
+| Example | What it demonstrates |
+|---|---|
+| [Document summarizer](/examples/file-processor) | The `file` input source - read one file, return JSON, exit |
+| [Batch processing](/examples/batch-processing) | `items:` iteration - process a list in one request |
+| [Document search (RAG)](/examples/rag-search) | `embedding:` upsert and search, two routes in one workflow |
+| [Web scraper](/examples/web-scraper) | `scraper:` fetch, LLM summary, `jsonResponse` |
+| [Login and sessions](/examples/session-auth) | SQLite sessions, `set`/`get` session scope, auth gate |
+| [Shell command API](/examples/shell-command-api) | `exec:` with a timeout, method scoping, `info()` |
+| [Function calling](/examples/function-calling) | LLM `tools:`, `script:`, tool arguments in `memory` |
+| [Image analysis](/examples/vision) | Multipart upload, `files:` on a chat prompt, Ollama vision |
+| [SQL-backed API](/examples/sql-api) | `sql:` parameterized queries, CSV output, batch transactions |
+| [Chat web app](/examples/chat-web-app) | API + static frontend together, `public` routes, `scenario:` |
+| [File upload](/examples/file-upload) | Multipart uploads, `info('files')`, `get(field, 'filepath')` |
+| [Conditionals and lists](/examples/control-flow) | Ternary, `&&`/`||`/`!`, `filter`/`map`/`all`/`any` |
+| [Authenticated API call](/examples/http-auth) | `httpClient:` bearer/API-key auth, `retry:`, `cache:` |
+| [MCP server tools](/examples/mcp-tools) | LLM tools backed by an external MCP server |
+| [Inline resources](/examples/inline-resources) | Full actions inside `before:` / `after:` |
+| [Phone assistant (IVR)](/examples/telephony-bot) | `telephony:` menu / say / ask, spoken input to LLM |
+| [Local file search](/examples/local-file-search) | `searchLocal:` glob + content search |
+| [Python data processing](/examples/python-processing) | `python:` resource, `input()`, `packages:`, JSON output |
+| [Static site](/examples/static-site) | Web server mode, static file serving |
+| [Stateless bot](/examples/stateless-bot/) | One-shot stdin/stdout LLM calls - cron jobs, CI pipelines |
+| [Telegram bot](/examples/telegram-bot/) | Polling loop, multi-resource pipelines, external API calls |
+| [Showcase](/examples/showcase) | Complex agents in ~20 lines of YAML - multiple real-world patterns |
+
+### kdeps agencies
+
+| Example | What it demonstrates |
+|---|---|
+| [Two-agent agency](/examples/agency) | `kind: Agency`, `agent:` resource, `params:` |
+| [Reusable component](/examples/custom-component) | `component.yaml`, `interface.inputs`, `component:` + `with:` |
+| [Per-component env vars](/examples/component-env) | `env()` scoping, `{COMPONENT}_{VAR}` override, `.env` files |
 
 ## Load a workflow as a tool
 
-The same `workflow.yaml` from the [quickstart](/getting-started/quickstart),
+The same `workflow.yaml` from the [quickstart](/workflow/quickstart),
 started with `kdeps .` instead of `kdeps run`. The LLM calls one tool named
 `metadata.name`; kdeps runs the full DAG.
 
@@ -45,7 +58,7 @@ Best for:
 - Turning an API you already wrote into a REPL tool
 - Seeing agent mode without a new YAML kind
 
-[Build it step by step](/getting-started/workflow-as-tool)
+[Build it step by step](/workflow/as-a-tool)
 
 ## Document summarizer
 
@@ -335,6 +348,6 @@ Best for:
 
 ## See also
 
-- [Quickstart](/getting-started/quickstart) - build your first workflow in 5 minutes
-- [Workflow mode](/modes/workflow-mode) - deterministic DAG execution
+- [Quickstart](/workflow/quickstart) - build your first workflow in 5 minutes
+- [Workflow mode](/workflow/) - deterministic DAG execution
 - [Agent mode](/agent/) - interactive LLM-driven tool calling

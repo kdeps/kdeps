@@ -29,7 +29,7 @@ The system prompt lists only each skill's name and description - never the full 
 
 ### Related skills
 
-When skills are (re)loaded, kdeps builds a small [kartographer](https://github.com/kdeps/kartographer) reference/topic graph over each skill-library root - the same mechanism `codeIntelligence`'s [`indexFolder` / `graphFile`](/resources/code-intelligence/graph) uses on any folder. A skill is related to another if its `SKILL.md` links to it (`[other](../other/SKILL.md)`), or if both declare the same `topics:` / `tags:` in frontmatter:
+When skills are (re)loaded, kdeps builds a small [kartographer](https://github.com/kdeps/kartographer) reference/topic graph over each skill-library root - the same mechanism `codeIntelligence`'s [`indexFolder` / `graphFile`](/workflow/resources/code-graph) uses on any folder. A skill is related to another if its `SKILL.md` links to it (`[other](../other/SKILL.md)`), or if both declare the same `topics:` / `tags:` in frontmatter:
 
 ```markdown
 ---

@@ -9,7 +9,7 @@ uploads and returns their metadata: count, names, MIME types, and the path of
 the first file on disk.
 
 This tutorial is for developers who have completed the
-[quickstart](/getting-started/quickstart). It assumes you know:
+[quickstart](/workflow/quickstart). It assumes you know:
 
 - Basic YAML
 - How to send a multipart upload with `curl`
@@ -133,7 +133,7 @@ You built an endpoint that:
 
 ## Next steps
 
-- [Data access](/concepts/unified-api#the-request-object) - `request.file()`, `filesByType()`, `filecount()`
+- [Data access](/workflow/data-access#the-request-object) - `request.file()`, `filesByType()`, `filecount()`
 - [Image analysis tutorial](/examples/vision) - attach the upload to an LLM
 - [Document summarizer tutorial](/examples/file-processor) - the `file` input source
-- [Exec resource](/resources/scripting/exec) - process the file with a shell command
+- [Exec resource](/workflow/resources/exec) - process the file with a shell command

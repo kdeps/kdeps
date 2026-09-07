@@ -69,4 +69,4 @@ kdeps run workflow.yaml
 
 ## See also
 
-- [Input sources](../../concepts/input-sources.md) - Full platform config reference
+- [Input sources](../../workflow/input-sources) - Full platform config reference

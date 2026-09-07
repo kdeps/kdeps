@@ -9,7 +9,7 @@ tool kdeps expressions give you: the ternary operator, the logical operators,
 and the list functions `filter`, `map`, `all`, and `any`.
 
 This tutorial is for developers who have completed the
-[quickstart](/getting-started/quickstart). It assumes you know:
+[quickstart](/workflow/quickstart). It assumes you know:
 
 - Basic YAML
 - Basic boolean logic
@@ -160,7 +160,7 @@ You used, in one resource:
 
 ## Next steps
 
-- [Expressions](/concepts/expressions) - where expressions run
+- [Expressions](/workflow/expressions) - where expressions run
 - [Expression operators](/reference/expression-operators) - the full operator list
 - [Expression functions reference](/reference/expression-functions) - every function
-- [Validation and control flow](/concepts/validation-and-control) - `skip` and `check`
+- [Validation and control flow](/workflow/validation) - `skip` and `check`

@@ -9,7 +9,7 @@ username and password and starts a session; `GET /session` returns the session
 data but only for a logged-in caller. Session state persists in SQLite.
 
 This tutorial is for developers who have completed the
-[quickstart](/getting-started/quickstart). It assumes you know:
+[quickstart](/workflow/quickstart). It assumes you know:
 
 - Basic YAML
 - Basic Python
@@ -205,7 +205,7 @@ You built an API that:
 
 ## Next steps
 
-- [Session and memory](/configuration/session) - full session configuration
-- [Validation and control flow](/concepts/validation-and-control) - `check`, `required`, `error`
-- [Python resource](/resources/scripting/python) - packages, virtual environments
-- [Unified API](/concepts/unified-api) - `get`, `set`, storage scopes
+- [Session and memory](/workflow/sessions) - full session configuration
+- [Validation and control flow](/workflow/validation) - `check`, `required`, `error`
+- [Python resource](/workflow/resources/python) - packages, virtual environments
+- [Unified API](/workflow/data-access) - `get`, `set`, storage scopes

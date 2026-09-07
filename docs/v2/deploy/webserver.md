@@ -1,0 +1,335 @@
+# WebServer mode
+
+`webServer:` serves static files or proxies to a running subprocess alongside your API server. Use it to serve a React frontend, a Streamlit dashboard, or any other web app next to your agent API.
+
+*Applies to workflow mode.*
+
+## How routing works
+
+Requests hit a single port. kdeps matches the path prefix and dispatches to the right handler.
+
+```d2
+direction: down
+
+A: "incoming request\nport 16395" {shape: oval}
+B: path prefix {shape: diamond}
+C: "apiServer -> workflow DAG"
+D: JSON response {shape: oval}
+E: "subprocess on appPort\nstarted on demand\nproxy to localhost:appPort"
+F: proxied response {shape: oval}
+G: static files from publicPath
+H: file or 404 {shape: oval}
+
+A -> B
+B -> C: "/api/v1/..."
+B -> E: "/app/..."
+B -> G: "/..."
+C -> D
+E -> F
+G -> H
+```
+
+`apiServer` and `webServer` share the same port. Path prefix determines which handler fires.
+
+`webServer` responses include the same defensive security headers as `apiServer` (`X-Content-Type-Options`, `X-Frame-Options`, `Referrer-Policy`, `Permissions-Policy`, and HSTS when TLS is enabled). CSP is omitted on `webServer` so proxied apps keep working. Bearer auth applies only to `apiServer` routes, not static files or app proxies.
+
+### webServer-only (no apiServer)
+
+If you run with only `webServer` and no `apiServer`, there is no bearer auth. Anyone who can reach the bind address can read static files and use app proxies unless you add ingress auth. Optional `rateLimit`, `maxBodyBytes`, and `maxConcurrent` under `webServer` still apply:
+
+```yaml
+# workflow.yaml
+settings:
+  webServer:
+    rateLimit:
+      requestsPerMinute: 120
+      burst: 20
+    maxBodyBytes: 1048576
+    maxConcurrent: 50
+    routes:
+      - path: "/"
+        serverType: "static"
+        publicPath: "./public"
+```
+
+## Basic configuration
+
+```yaml
+# workflow.yaml
+apiVersion: kdeps.io/v1
+kind: Workflow
+
+metadata:
+  name: fullstack-agent
+  version: "1.0.0"
+  targetActionId: responseResource
+
+settings:
+  apiServer:
+    hostIp: "127.0.0.1"
+    portNum: 16395
+    routes:
+      - path: /api/v1/chat
+        methods: [POST]
+
+  webServer:
+    hostIp: "127.0.0.1"
+    portNum: 16395
+    routes:
+      - path: "/"
+        serverType: "static"
+        publicPath: "./public"
+```
+
+## Static file serving
+
+Serve static files from a directory:
+
+```yaml
+# workflow.yaml
+settings:
+  webServer:
+    hostIp: "0.0.0.0"
+    portNum: 16395
+    routes:
+      - path: "/"
+        serverType: "static"
+        publicPath: "./public"  # Relative to workflow directory
+
+      - path: "/docs"
+        serverType: "static"
+        publicPath: "./documentation"
+
+      - path: "/assets"
+        serverType: "static"
+        publicPath: "./static/assets"
+```
+
+### Directory structure
+
+```
+my-agent/
+├── workflow.yaml
+├── resources/
+├── public/               # Served at /
+│   ├── index.html
+│   ├── styles.css
+│   └── app.js
+└── documentation/        # Served at /docs
+    └── index.html
+```
+
+### SPA (single page application)
+
+For React, Vue, or Angular apps:
+
+```yaml
+# workflow.yaml
+settings:
+  webServer:
+    routes:
+      - path: "/"
+        serverType: "static"
+        publicPath: "./frontend/build"
+```
+
+## Reverse proxy
+
+Forward requests to backend applications:
+
+```yaml
+# workflow.yaml
+settings:
+  webServer:
+    hostIp: "0.0.0.0"
+    portNum: 16395
+    routes:
+      - path: "/app"
+        serverType: "app"
+        publicPath: "./streamlit-app"
+        appPort: 8501
+        command: "streamlit run app.py"
+```
+
+### Streamlit example
+
+```yaml
+# workflow.yaml
+settings:
+  webServer:
+    routes:
+      - path: "/dashboard"
+        serverType: "app"
+        publicPath: "./dashboard"
+        appPort: 8501
+        command: "streamlit run dashboard.py --server.port 8501 --server.headless true"
+```
+
+The Streamlit app:
+
+```python
+# dashboard/dashboard.py
+import os
+import streamlit as st
+import requests
+
+st.title("AI Dashboard")
+
+query = st.text_input("Ask a question:")
+if st.button("Submit"):
+    response = requests.post(
+        "http://localhost:16395/api/v1/chat",
+        headers={"Authorization": f"Bearer {os.environ['KDEPS_API_AUTH_TOKEN']}"},
+        json={"q": query},
+    )
+    st.write(response.json()["data"]["answer"])
+```
+
+### Gradio example
+
+```yaml
+# workflow.yaml
+settings:
+  webServer:
+    routes:
+      - path: "/demo"
+        serverType: "app"
+        publicPath: "./gradio-app"
+        appPort: 7860
+        command: "python app.py"
+```
+
+```python
+# gradio-app/app.py
+import os
+import gradio as gr
+import requests
+
+def chat(message):
+    response = requests.post(
+        "http://localhost:16395/api/v1/chat",
+        headers={"Authorization": f"Bearer {os.environ['KDEPS_API_AUTH_TOKEN']}"},
+        json={"q": message},
+    )
+    return response.json()["data"]["answer"]
+
+demo = gr.Interface(fn=chat, inputs="text", outputs="text")
+demo.launch(server_name="0.0.0.0", server_port=7860)
+```
+
+### Flask example
+
+```yaml
+# workflow.yaml
+settings:
+  webServer:
+    routes:
+      - path: "/admin"
+        serverType: "app"
+        publicPath: "./admin-panel"
+        appPort: 5000
+        command: "python app.py"
+```
+
+```python
+# admin-panel/app.py
+from flask import Flask, render_template
+app = Flask(__name__)
+
+@app.route('/')
+def index():
+    return render_template('index.html')
+
+if __name__ == '__main__':
+    app.run(host='0.0.0.0', port=5000)
+```
+
+## WebSocket support
+
+WebSocket connections are automatically proxied:
+
+```yaml
+# workflow.yaml
+settings:
+  webServer:
+    routes:
+      - path: "/ws-app"
+        serverType: "app"
+        appPort: 8000
+        command: "python websocket_app.py"
+```
+
+```python
+# websocket_app.py
+import asyncio
+import websockets
+
+async def handler(websocket, path):
+    async for message in websocket:
+        response = f"Echo: {message}"
+        await websocket.send(response)
+
+start_server = websockets.serve(handler, "0.0.0.0", 8000)
+asyncio.get_event_loop().run_until_complete(start_server)
+asyncio.get_event_loop().run_forever()
+```
+
+## Multiple routes
+
+Combine static files and multiple apps:
+
+```yaml
+# workflow.yaml
+settings:
+  webServer:
+    hostIp: "0.0.0.0"
+    portNum: 16395
+    routes:
+      # Landing page (static)
+      - path: "/"
+        serverType: "static"
+        publicPath: "./landing"
+
+      # React dashboard (static build)
+      - path: "/dashboard"
+        serverType: "static"
+        publicPath: "./dashboard/build"
+
+      # Streamlit analytics
+      - path: "/analytics"
+        serverType: "app"
+        appPort: 8501
+        command: "streamlit run analytics.py"
+
+      # Gradio demo
+      - path: "/demo"
+        serverType: "app"
+        appPort: 7860
+        command: "python demo.py"
+```
+
+## Trusted proxies
+
+For deployments behind a load balancer:
+
+```yaml
+# workflow.yaml
+settings:
+  webServer:
+    hostIp: "0.0.0.0"
+    portNum: 16395
+    trustedProxies:
+      - "10.0.0.0/8"
+      - "172.16.0.0/12"
+      - "192.168.0.0/16"
+    routes:
+      - path: "/"
+        serverType: "static"
+        publicPath: "./public"
+```
+
+## See also
+
+- [Docker deployment](docker) - Package for production
+- [Workflow configuration](/workflow/configuration) - Full settings reference
+- [Examples](https://github.com/kdeps/kdeps/tree/main/examples) - Working examples

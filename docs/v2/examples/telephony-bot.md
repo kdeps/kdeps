@@ -10,7 +10,7 @@ static answer or has an LLM answer a spoken question. It uses the `telephony:`
 resource with a provider such as Twilio.
 
 This tutorial is for developers who have completed the
-[quickstart](/getting-started/quickstart). It assumes you know:
+[quickstart](/workflow/quickstart). It assumes you know:
 
 - Basic YAML
 - How webhook-based telephony providers work (a call triggers HTTP POSTs)
@@ -217,7 +217,7 @@ You built an IVR that:
 
 ## Next steps
 
-- [Telephony resource](/resources/messaging/telephony) - all actions, voices, providers
-- [Transcribe resource](/resources/media/transcribe) - speech to text on your own audio
-- [Validation and control flow](/concepts/validation-and-control) - route scoping
-- [Bot reply resource](/resources/messaging/bot-reply) - chat-platform bots
+- [Telephony resource](/workflow/resources/telephony) - all actions, voices, providers
+- [Transcribe resource](/workflow/resources/transcribe) - speech to text on your own audio
+- [Validation and control flow](/workflow/validation) - route scoping
+- [Bot reply resource](/workflow/resources/bot-reply) - chat-platform bots

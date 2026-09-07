@@ -1,6 +1,6 @@
 # SQL resource examples
 
-Example queries for the [`sql:` resource](/resources/sql). All examples use parameterized queries to prevent SQL injection.
+Example queries for the [`sql:` resource](/workflow/resources/sql). All examples use parameterized queries to prevent SQL injection.
 
 *Applies to both workflow mode and agent mode.*
 
@@ -130,6 +130,6 @@ chat:
 
 ## See also
 
-- [SQL resource](/resources/sql) - Full sql: reference with transactions, batch ops, connection pooling
-- [Python resource](/resources/scripting/python) - Post-process SQL results with pandas
+- [SQL resource](/workflow/resources/sql) - Full sql: reference with transactions, batch ops, connection pooling
+- [Python resource](/workflow/resources/python) - Post-process SQL results with pandas
 - [Tools reference](/reference/tools) - Use SQL as an LLM tool

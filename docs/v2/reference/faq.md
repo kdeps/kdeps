@@ -8,7 +8,7 @@ Yes. kdeps is open source under the Apache 2.0 license. The CLI, engine, and all
 
 ## What's the difference between workflow mode and agent mode?
 
-[Workflow mode](/modes/workflow-mode) (`kdeps run`) runs resources in a deterministic DAG order defined by [`requires`](/reference/glossary#requires) dependencies. You control exactly what runs and when.
+[Workflow mode](/workflow/) (`kdeps run`) runs resources in a deterministic DAG order defined by [`requires`](/reference/glossary#requires) dependencies. You control exactly what runs and when.
 
 [Agent mode](/agent/) (`kdeps [path]`) registers whole workflows and components as tools and lets an LLM decide which to invoke in response to user prompts. Workflow tools execute as a complete pipeline so all `requires:` dependencies resolve. Component tools run a single reusable component in isolation. Point at a single file or a folder - folder mode exposes every workflow and agency found recursively, plus all their components.
 
@@ -60,9 +60,9 @@ Yes, via [agencies](/reference/glossary#agency). Use the `agent:` action type to
 
 ## Can I deploy kdeps as an API server?
 
-Yes. `kdeps run workflow.yaml` starts the HTTP API in workflow mode. `kdeps ./my-agent/` starts the interactive REPL in agent mode - it is not an HTTP server. See [Web server mode](/deployment/webserver).
+Yes. `kdeps run workflow.yaml` starts the HTTP API in workflow mode. `kdeps ./my-agent/` starts the interactive REPL in agent mode - it is not an HTTP server. See [Web server mode](/deploy/webserver).
 
-For production, use the [Docker](/deployment/docker) or [Kubernetes](/deployment/kubernetes) deployment options.
+For production, use the [Docker](/deploy/docker) or [Kubernetes](/deploy/kubernetes) deployment options.
 
 ## How do I handle secrets and API keys?
 
@@ -96,15 +96,15 @@ Yes. Set `streaming: true` on a `chat:` resource to stream LLM responses token-b
 
 ## Where does kdeps store session data?
 
-HTTP session data (`set(..., 'session')`) lives in SQLite or in-memory storage, configured in `settings.session`. See [Session configuration](/configuration/session).
+HTTP session data (`set(..., 'session')`) lives in SQLite or in-memory storage, configured in `settings.session`. See [Session configuration](/workflow/sessions).
 
 Agent mode conversation history is a different store: JSONL files under `~/.kdeps/sessions/`, resumed with `--resume`. See [Agent loop REPL features](/agent/repl).
 
 ## See also
 
 - [Run locally](/agent/quickstart) - agent REPL in 30 seconds
-- [Quickstart](/getting-started/quickstart) - build your first workflow API
-- [Load a workflow as a tool](/getting-started/workflow-as-tool) - same file, agent mode
-- [Execution flow](/guides/execution-flow) - how the engine runs resources
+- [Quickstart](/workflow/quickstart) - build your first workflow API
+- [Load a workflow as a tool](/workflow/as-a-tool) - same file, agent mode
+- [Execution flow](/workflow/execution-flow) - how the engine runs resources
 - [Troubleshooting](/reference/troubleshooting) - common errors and fixes
 - [Glossary](/reference/glossary) - all kdeps terms defined

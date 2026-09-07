@@ -9,8 +9,8 @@ typed input interface - and call it from a workflow. Components are how you
 package reusable logic and share it across projects.
 
 This tutorial is for developers who have completed the
-[quickstart](/getting-started/quickstart) and read
-[Components](/concepts/components). It assumes you know:
+[quickstart](/workflow/quickstart) and read
+[Components](/agencies/components). It assumes you know:
 
 - Basic YAML
 
@@ -174,7 +174,7 @@ You built and used a component that:
 
 ## Next steps
 
-- [Components](/concepts/components) - registry components, `componentTools:`
-- [Components reference](/reference/components) - full schema, env var derivation, packaging
-- [Registry commands](/reference/cli/registry) - install and publish components
+- [Components](/agencies/components) - registry components, `componentTools:`
+- [Components reference](/agencies/component-reference) - full schema, env var derivation, packaging
+- [Registry commands](/registry/cli) - install and publish components
 - [Two-agent agency tutorial](/examples/agency) - composing whole agents instead

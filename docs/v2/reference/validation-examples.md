@@ -1,6 +1,6 @@
 # Validation and control flow - examples
 
-Best practices and examples for the [`validations:` block](/concepts/validation-and-control).
+Best practices and examples for the [`validations:` block](/workflow/validation).
 
 *Applies to workflow mode.*
 
@@ -117,6 +117,6 @@ chat:
 
 ## See also
 
-- [Validation and control flow](/concepts/validation-and-control) - Full `validations:` block reference
-- [Expressions](/concepts/expressions) - Expression syntax for conditions
-- [Unified API](/concepts/unified-api) - Using `get()` in validations
+- [Validation and control flow](/workflow/validation) - Full `validations:` block reference
+- [Expressions](/workflow/expressions) - Expression syntax for conditions
+- [Unified API](/workflow/data-access) - Using `get()` in validations

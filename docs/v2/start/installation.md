@@ -4,7 +4,7 @@ Install the `kdeps` CLI to start building agents locally. Docker is optional - o
 
 *Applies to both workflow mode and agent mode.*
 
-Already installed? [Run locally](/agent/quickstart) or [Quickstart](/getting-started/quickstart).
+Already installed? [Run locally](/agent/quickstart) or [Quickstart](/workflow/quickstart).
 
 ## Installing the kdeps CLI
 
@@ -131,7 +131,7 @@ Each choice fills in the matching `llm:` fields:
 - **router** - collects the models to route across and a strategy (`fallback`, `round_robin`, `token_threshold`, `cost_optimized`), written as `llm.models` + `llm.strategy`.
 - **m365** - sets `backend: m365`. No API key: authenticates via a browser-cached
   Microsoft 365 sign-in (or headless credentials for CI/servers). See
-  [LLM Provider Reference - M365 Copilot](/reference/llm-providers-m365).
+  [LLM Provider Reference - M365 Copilot](/llm-server/m365).
 
 In non-interactive environments (CI, pipes) kdeps skips the wizard and writes a
 fully commented template instead. Re-run the wizard any time by removing
@@ -190,7 +190,7 @@ sudo usermod -aG docker $USER
 ## See also
 
 - [Run locally](/agent/quickstart) - agent REPL in 30 seconds
-- [Quickstart](/getting-started/quickstart) - build your first workflow API
+- [Quickstart](/workflow/quickstart) - build your first workflow API
 - [CLI reference](/reference/cli) - Complete command reference
-- [Workflow configuration](../configuration/workflow) - Learn about workflow settings
+- [Workflow configuration](/workflow/configuration) - Learn about workflow settings
 - [Examples](https://github.com/kdeps/kdeps/tree/main/examples) - Browse example workflows

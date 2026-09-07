@@ -9,7 +9,7 @@ over HTTP using web server mode. There are no resources and no LLM - kdeps acts
 as a plain static file server driven by `workflow.yaml`.
 
 This tutorial is for developers who have completed the
-[quickstart](/getting-started/quickstart). It assumes you know:
+[quickstart](/workflow/quickstart). It assumes you know:
 
 - Basic YAML
 - Basic HTML
@@ -120,7 +120,7 @@ You served a static directory by:
 
 ## Next steps
 
-- [Web server mode](/deployment/webserver) - reverse proxy, Streamlit, Gradio, Flask
-- [Workflow configuration](/configuration/workflow) - the full `settings` block
-- [Docker deployment](/deployment/docker) - ship the site as an image
-- [TLS and HTTPS](/deployment/tls-https) - serve it over HTTPS
+- [Web server mode](/deploy/webserver) - reverse proxy, Streamlit, Gradio, Flask
+- [Workflow configuration](/workflow/configuration) - the full `settings` block
+- [Docker deployment](/deploy/docker) - ship the site as an image
+- [TLS and HTTPS](/deploy/tls-https) - serve it over HTTPS

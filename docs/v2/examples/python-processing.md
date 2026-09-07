@@ -9,7 +9,7 @@ convert data formats (JSON, YAML). It shows the `python:` resource: how it
 receives request data, and how its printed output becomes the resource result.
 
 This tutorial is for developers who have completed the
-[quickstart](/getting-started/quickstart). It assumes you know:
+[quickstart](/workflow/quickstart). It assumes you know:
 
 - Basic YAML
 - Basic Python
@@ -160,7 +160,7 @@ You built an API where a Python script:
 
 ## Next steps
 
-- [Python resource](/resources/scripting/python) - files, virtual environments, stdin
+- [Python resource](/workflow/resources/python) - files, virtual environments, stdin
 - [Inline resources tutorial](/examples/inline-resources) - Python in `after:`
 - [Function calling tutorial](/examples/function-calling) - a Python script as an LLM tool
-- [Exec resource](/resources/scripting/exec) - plain shell commands
+- [Exec resource](/workflow/resources/exec) - plain shell commands

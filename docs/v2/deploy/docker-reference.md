@@ -1,0 +1,182 @@
+# Docker deployment reference
+
+Production best practices, troubleshooting, and security hardening for kdeps Docker deployments. See [Docker deployment](/deploy/docker) for the core packaging and build workflow.
+
+*Applies to workflow mode.*
+
+## Production best practices
+
+### Use specific tags
+
+```bash
+# Good
+kdeps bundle build app.kdeps --tag myregistry/myagent:1.0.0
+
+# Avoid
+kdeps bundle build app.kdeps --tag myregistry/myagent:latest
+```
+
+### Set resource limits
+
+```yaml
+# docker-compose.yml
+services:
+  myagent:
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+          memory: 4G
+        reservations:
+          cpus: '1'
+          memory: 2G
+```
+
+### Use secrets
+
+```bash
+# Create secret
+echo "my-api-key" | docker secret create api_key -
+
+# Use in container
+docker service create \
+  --secret api_key \
+  myregistry/myagent:latest
+```
+
+### Enable logging
+
+```yaml
+# docker-compose.yml
+services:
+  myagent:
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "100m"
+        max-file: "5"
+```
+
+### Network security
+
+```yaml
+# docker-compose.yml
+services:
+  myagent:
+    networks:
+      - internal
+    ports:
+      - "127.0.0.1:16395:16395"  # Only local access
+
+networks:
+  internal:
+    internal: true
+```
+
+## Security hardening
+
+Generated images run as the unprivileged `kdeps` user, including Ollama-backed images. Ollama models are stored under `/app/.ollama/models`.
+
+Do not put `KDEPS_API_AUTH_TOKEN`, `KDEPS_MANAGEMENT_TOKEN`, or other secret-like keys in `agentSettings.env` - Docker build fails if you try. Pass auth tokens at container runtime with `-e` or secrets mounts.
+
+Before exposing a container externally, add these fields to `workflow.yaml`:
+
+```yaml
+# workflow.yaml
+settings:
+  certFile: "/run/secrets/server.crt"  # mount cert into container; enables HTTPS
+  keyFile:  "/run/secrets/server.key"
+  apiServer:
+    # auth token (required): KDEPS_API_AUTH_TOKEN env var or api_auth_token in ~/.kdeps/config.yaml
+    rateLimit:
+      requestsPerMinute: 60            # sustained per-IP rate
+      burst: 10                        # burst allowance above the sustained rate
+    maxBodyBytes: 1048576              # 1 MB cap on request body size
+    maxConcurrent: 50                  # excess requests get 503 immediately
+```
+
+See [Security](/reference/advanced-config#security) for the full reference.
+
+## Troubleshooting
+
+### Build fails
+
+```bash
+# Show detailed output
+kdeps bundle build app.kdeps --show-dockerfile
+
+# Check Docker daemon
+docker info
+```
+
+### Image too large
+
+1. Use `alpine` base OS
+2. Remove unnecessary packages
+3. Use optimized templates (automatic)
+4. Avoid `offlineMode` unless needed
+
+### Model download slow
+
+```bash
+# Llamafiles are cached in ~/.kdeps/models/ and baked into the image at build
+# time automatically. For the ollama backend, pre-pull models before build:
+ollama pull llama3.2:1b
+
+# Or use offline mode
+offlineMode: true
+```
+
+### Check workflow status
+
+```bash
+curl -H "Authorization: Bearer $KDEPS_MANAGEMENT_TOKEN" \
+  http://localhost:16395/_kdeps/status
+```
+
+```json
+{
+  "status": "ok",
+  "workflow": {
+    "name": "my-agent",
+    "version": "2.0.0",
+    "description": "My AI agent",
+    "resources": 3
+  }
+}
+```
+
+### Docker compose with management API
+
+```yaml
+# docker-compose.yml
+services:
+  myagent:
+    image: myregistry/myagent:latest
+    ports:
+      - "16395:16395"
+    environment:
+      - KDEPS_API_AUTH_TOKEN=${KDEPS_API_AUTH_TOKEN}
+      - KDEPS_MANAGEMENT_TOKEN=${KDEPS_MANAGEMENT_TOKEN}
+    restart: unless-stopped
+```
+
+Set tokens in your `.env` file (never commit this file):
+
+```bash
+# .env
+KDEPS_API_AUTH_TOKEN=api-secret
+KDEPS_MANAGEMENT_TOKEN=mysecret
+```
+
+For the full management API reference see [Management API](/reference/management-api).
+
+## Let's Encrypt
+
+For custom domains without mounting PEM secrets, set `settings.letsEncrypt.domain` and publish ports 80/443. See [TLS and HTTPS (custom domains)](/deploy/tls-https) and [Security - TLS](/reference/security#tls).
+
+## See also
+
+- [Docker deployment](/deploy/docker) - core packaging and build workflow
+- [Kubernetes deployment](/deploy/kubernetes) - cluster deployment
+- [Management API](/reference/management-api) - live workflow updates without rebuilding

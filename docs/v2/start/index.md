@@ -35,7 +35,7 @@ a folder with workflow.yaml
   request. It lives in its own YAML file.
 - A **workflow** is a folder of resources plus a `workflow.yaml` manifest. Each
   resource declares what it `requires:`, and kdeps runs them in that order.
-- A **mode** is how you run the workflow. [Workflow mode](/modes/workflow-mode)
+- A **mode** is how you run the workflow. [Workflow mode](/workflow/)
   (`kdeps run`) executes the steps in a fixed order and returns a structured
   response - this is what you deploy. [Agent mode](/agent/)
   (`kdeps [path]`) starts a chat REPL where an LLM decides when to call the
@@ -86,11 +86,11 @@ kdeps is a small number of bounded things. Pick one.
 | You want to... | Product |
 |---|---|
 | A local autonomous agent - tool use, memory, a REPL | [kdeps agent](/agent/) |
-| A deterministic YAML pipeline - API, bot, or file processor | [kdeps workflow](/modes/workflow-mode) |
-| To orchestrate several agents/workflows as one system | [kdeps agencies](/concepts/agency) |
-| Just a self-hosted OpenAI-compatible endpoint, no workflow | [kdeps LLM server](/deployment/llm-server) |
-| To ship a tested workflow as Docker / K8s / ISO / a binary | [kdeps deploy](/deployment/docker) |
-| To find, install, or publish shared agents and components | [kdeps registry](/reference/cli/registry) |
+| A deterministic YAML pipeline - API, bot, or file processor | [kdeps workflow](/workflow/) |
+| To orchestrate several agents/workflows as one system | [kdeps agencies](/agencies/) |
+| Just a self-hosted OpenAI-compatible endpoint, no workflow | [kdeps LLM server](/llm-server/) |
+| To ship a tested workflow as Docker / K8s / ISO / a binary | [kdeps deploy](/deploy/docker) |
+| To find, install, or publish shared agents and components | [kdeps registry](/registry/cli) |
 
 ## First steps
 
@@ -98,5 +98,5 @@ kdeps is a small number of bounded things. Pick one.
 |---|---|
 | Run an AI agent locally right now | [Run locally in 30 seconds](/agent/quickstart) |
 | Understand why kdeps works this way | [Why kdeps?](/start/why-kdeps) |
-| Build a real HTTP API from YAML | [Quickstart](/getting-started/quickstart) |
+| Build a real HTTP API from YAML | [Quickstart](/workflow/quickstart) |
 | See the full picture of every concept | [Concepts overview](/start/concepts) |

@@ -147,7 +147,7 @@ settings:
 | `baseOS` | Base Docker image OS (`alpine`, `ubuntu`) |
 | `installOllama` | Force/suppress Ollama installation in Docker image (default: off - chat resources use the llamafile file backend) |
 
-> LLM model is set per resource in `chat.model`. Backend, base URL, and API keys are configured in `~/.kdeps/config.yaml`. See [LLM backends](/resources/llm/backends).
+> LLM model is set per resource in `chat.model`. Backend, base URL, and API keys are configured in `~/.kdeps/config.yaml`. See [LLM backends](/workflow/resources/llm-backends).
 
 #### Environment
 
@@ -366,7 +366,7 @@ match any installed workflow's `metadata.name`.
 
 ## Agent identity
 
-An agent can have a configured identity - name, email, mailing address, and named accounts for services it authenticates with. Like SMTP/IMAP/bot credentials, it lives in `~/.kdeps/config.yaml`, never in `workflow.yaml`, and follows the same [per-agent profile](/configuration/workflow#metadata-and-config-profiles) merge: set it globally, override it under `agents.<name>`, or both.
+An agent can have a configured identity - name, email, mailing address, and named accounts for services it authenticates with. Like SMTP/IMAP/bot credentials, it lives in `~/.kdeps/config.yaml`, never in `workflow.yaml`, and follows the same [per-agent profile](/workflow/configuration#metadata-and-config-profiles) merge: set it globally, override it under `agents.<name>`, or both.
 
 ```yaml
 # ~/.kdeps/config.yaml
@@ -390,15 +390,15 @@ agents:
 Identity is `name`/`email`/`address` (attribution - who the agent is) plus `accounts` (credentials - what the agent can log into). They're used in three places:
 
 - **Git commits.** In agent mode, the `Co-Authored-By` trailer the agent adds to its own commits uses `"name <email>"` when configured, instead of the default `kdeps (<model>) <noreply@kdeps.com>`.
-- **Outbound email.** An [`email:` resource](/resources/messaging/email) with no `from:` set defaults to `identity.email`.
+- **Outbound email.** An [`email:` resource](/workflow/resources/email) with no `from:` set defaults to `identity.email`.
 - **`identity_get` tool.** Agent mode registers this tool so the model can answer "who are you" or sign its own output - it returns `name`/`email`/`address` only. `accounts` (and its passwords) are never exposed to the LLM through this or any tool; a model that can read a credential can leak it in its own output.
 
-`accounts` are consumed by resources that need to authenticate as the agent. An `httpClient` resource with `accountName: crm` and no `connectionName` resolves Basic Auth from `identity.accounts.crm` - `connectionName` (a full [named HTTP connection](/resources/web/http-client)) always takes priority when both are set.
+`accounts` are consumed by resources that need to authenticate as the agent. An `httpClient` resource with `accountName: crm` and no `connectionName` resolves Basic Auth from `identity.accounts.crm` - `connectionName` (a full [named HTTP connection](/workflow/resources/http-client)) always takes priority when both are set.
 
 ## See also
 
 - [Security reference](/reference/security) - Auth, rate limiting, TLS, concurrency, output caps
-- [Workflow configuration](/configuration/workflow) - Basic workflow configuration
-- [Session & storage](/configuration/session) - Session persistence
-- [CORS](/configuration/cors) - Cross-origin configuration
-- [Docker deployment](/deployment/docker) - Deployment options
+- [Workflow configuration](/workflow/configuration) - Basic workflow configuration
+- [Session & storage](/workflow/sessions) - Session persistence
+- [CORS](/workflow/cors) - Cross-origin configuration
+- [Docker deployment](/deploy/docker) - Deployment options
