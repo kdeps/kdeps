@@ -318,7 +318,7 @@ Auth, rate limiting, TLS (static certs or Let's Encrypt custom domains), body si
 
 `~/.kdeps/config.yaml` can set two kinds of global default, applied whenever
 a workflow doesn't set the equivalent field itself. Edit it with
-[`kdeps edit`](/reference/cli/dev#kdeps-edit); [`kdeps doctor`](/reference/cli/dev#kdeps-doctor)
+[`kdeps edit`](/reference/cli-dev#kdeps-edit); [`kdeps doctor`](/reference/cli-dev#kdeps-doctor)
 checks it (along with Ollama/Python/installed agents) before you hit run.
 
 ```yaml
@@ -366,7 +366,7 @@ match any installed workflow's `metadata.name`.
 
 ## Agent identity
 
-An agent can have a configured identity - name, email, mailing address, and named accounts for services it authenticates with. Like SMTP/IMAP/bot credentials, it lives in `~/.kdeps/config.yaml`, never in `workflow.yaml`, and follows the same [per-agent profile](workflow.md#metadata-and-config-profiles) merge: set it globally, override it under `agents.<name>`, or both.
+An agent can have a configured identity - name, email, mailing address, and named accounts for services it authenticates with. Like SMTP/IMAP/bot credentials, it lives in `~/.kdeps/config.yaml`, never in `workflow.yaml`, and follows the same [per-agent profile](/configuration/workflow#metadata-and-config-profiles) merge: set it globally, override it under `agents.<name>`, or both.
 
 ```yaml
 # ~/.kdeps/config.yaml
@@ -398,7 +398,7 @@ Identity is `name`/`email`/`address` (attribution - who the agent is) plus `acco
 ## See also
 
 - [Security reference](/reference/security) - Auth, rate limiting, TLS, concurrency, output caps
-- [Workflow configuration](workflow.md) - Basic workflow configuration
-- [Session & storage](session.md) - Session persistence
-- [CORS](cors.md) - Cross-origin configuration
-- [Docker deployment](../deployment/docker.md) - Deployment options
+- [Workflow configuration](/configuration/workflow) - Basic workflow configuration
+- [Session & storage](/configuration/session) - Session persistence
+- [CORS](/configuration/cors) - Cross-origin configuration
+- [Docker deployment](/deployment/docker) - Deployment options

@@ -74,7 +74,7 @@ kdeps ./my-agent/ --model mistral
 kdeps ./agents/ --system "You are a helpful assistant."
 ```
 
-See [Agent Mode](/modes/agent-loop-mode) for full details.
+See [Agent Mode](/agent/) for full details.
 
 ---
 
@@ -199,7 +199,7 @@ Exits with code 1 when any check has FAIL status.
 
 ## `kdeps --upgrade`
 
-Check for a newer kdeps release and, for a standalone install, download/verify/install it. Same flow as the REPL's `/upgrade` command - see [Agent loop REPL features - Updating kdeps](/modes/agent-loop-repl#updating-kdeps) for the full behavior (what each install method does, checksum verification, etc.).
+Check for a newer kdeps release and, for a standalone install, download/verify/install it. Same flow as the REPL's `/upgrade` command - see [Agent loop REPL features - Updating kdeps](/agent/repl#updating-kdeps) for the full behavior (what each install method does, checksum verification, etc.).
 
 ```bash
 kdeps --upgrade
@@ -268,6 +268,6 @@ kdeps llamafile update    # refresh the registry from HuggingFace (llamafile + G
 
 ## See also
 
-- [CLI overview](/reference/cli/) - global flags, exit codes, env vars, workflows
+- [CLI overview](/reference/cli) - global flags, exit codes, env vars, workflows
 - [Registry commands](/reference/cli/registry) - search, install, publish
 - [Packaging commands](/reference/cli/packaging) - bundle, export, build

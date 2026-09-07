@@ -2,7 +2,7 @@
 
 *Applies to agent mode.*
 
-[Goal enforcement](/modes/agent-loop-goals) checks that the loop keeps moving; it says nothing about whether
+[Goal enforcement](/agent/goals) checks that the loop keeps moving; it says nothing about whether
 the final answer is actually *right*. A judge panel is an independent review of
 that answer, run after the turn produces it - one or more reviewer personas, each
 with real tool access, check the output and can send it back for revision before
@@ -108,6 +108,6 @@ needed:
 
 ## See also
 
-- [Agent mode](/modes/agent-loop-mode) - overview and starting the REPL
-- [Goal-directed execution](/modes/agent-loop-goals) - the task cursor a judge's revision request feeds back into
-- [REPL slash commands](/modes/agent-loop-commands) - full command reference
+- [Agent mode](/agent/) - overview and starting the REPL
+- [Goal-directed execution](/agent/goals) - the task cursor a judge's revision request feeds back into
+- [REPL slash commands](/agent/commands) - full command reference

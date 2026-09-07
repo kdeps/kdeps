@@ -6,7 +6,7 @@ Native `browser:` is compiled in. A registry component of the same name (`kdeps 
 
 ## Where it runs
 
-Both [workflow mode](/modes/workflow-mode) and [agent mode](/modes/agent-loop-mode). In workflow mode it executes as a DAG step. In agent mode, the workflow containing this resource runs as a single callable tool.
+Both [workflow mode](/modes/workflow-mode) and [agent mode](/agent/). In workflow mode it executes as a DAG step. In agent mode, the workflow containing this resource runs as a single callable tool.
 
 ## Basic usage
 

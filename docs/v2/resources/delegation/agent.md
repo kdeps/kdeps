@@ -4,7 +4,7 @@ The `agent:` resource calls a sibling agent's entire workflow within the same [a
 
 ## Where it runs
 
-Both [workflow mode](/modes/workflow-mode) and [agent mode](/modes/agent-loop-mode). Only valid between agents bundled in the same `agency.yaml` - see [Agencies](/concepts/agency) for how agents are grouped and discover each other.
+Both [workflow mode](/modes/workflow-mode) and [agent mode](/agent/). Only valid between agents bundled in the same `agency.yaml` - see [Agencies](/concepts/agency) for how agents are grouped and discover each other.
 
 ## Basic usage
 

@@ -14,7 +14,7 @@ kdeps receives codeIntelligence request
 
 ## Where it runs
 
-Both [workflow mode](/modes/workflow-mode) and [agent mode](/modes/agent-loop-mode). In agent mode, it is also available as built-in tools - no YAML required:
+Both [workflow mode](/modes/workflow-mode) and [agent mode](/agent/). In agent mode, it is also available as built-in tools - no YAML required:
 
 | Tool | Operation | Example |
 |------|-----------|---------|
@@ -190,7 +190,7 @@ See [Graphing an Indexed Folder](/resources/code-intelligence/graph) for the ful
 
 ## See also
 
-- [Agent mode](/modes/agent-loop-mode) - built-in `code_*` tools
+- [Agent mode](/agent/) - built-in `code_*` tools
 - [Git resource](/resources/files/git) - version control operations
 - [Exec resource](/resources/scripting/exec) - shell commands
 - [searchLocal resource](/resources/search/) - local file search

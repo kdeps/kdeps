@@ -1,6 +1,6 @@
 # Why kdeps?
 
-kdeps exists because most AI tooling is built for prototyping, not for running unattended in production. This page applies to both workflow mode and agent mode - it explains why the two exist and when to reach for each. New to kdeps? Read [What is kdeps?](/getting-started/introduction) first.
+kdeps exists because most AI tooling is built for prototyping, not for running unattended in production. This page applies to both workflow mode and agent mode - it explains why the two exist and when to reach for each. New to kdeps? Read [What is kdeps?](/start/) first.
 
 ## The problem
 
@@ -20,7 +20,7 @@ kdeps --model llama3.2           # swap to any local or cloud model
 kdeps ./my-workflow/             # load your workflows as tools
 ```
 
-Works with any model: local llamafile (default, no API key), Ollama, or any cloud provider. See [Run locally in 30 seconds](/getting-started/local-agent).
+Works with any model: local llamafile (default, no API key), Ollama, or any cloud provider. See [Run locally in 30 seconds](/agent/quickstart).
 
 **2. Workflow runner** - define what the agent does in YAML, run it locally or share it
 
@@ -105,8 +105,8 @@ The guarantee is not that your YAML runs forever on any future kdeps. It is that
 
 ## See also
 
-- [Run locally](/getting-started/local-agent) - agent REPL in 30 seconds
+- [Run locally](/agent/quickstart) - agent REPL in 30 seconds
 - [Quickstart](/getting-started/quickstart) - build your first workflow API
 - [Load a workflow as a tool](/getting-started/workflow-as-tool) - same file, agent mode
 - [Workflow mode](/modes/workflow-mode) - deterministic DAG pipelines
-- [Agent mode](/modes/agent-loop-mode) - autonomous LLM loop
+- [Agent mode](/agent/) - autonomous LLM loop

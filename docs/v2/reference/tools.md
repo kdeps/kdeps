@@ -287,7 +287,7 @@ python:
 
 ## Built-in agent tools
 
-These tools are registered automatically in [agent mode](/modes/agent-loop-mode) when the relevant API key is configured. They are available to the LLM without any `tools:` block in your YAML.
+These tools are registered automatically in [agent mode](/agent/) when the relevant API key is configured. They are available to the LLM without any `tools:` block in your YAML.
 
 ### Google AI cache tools
 

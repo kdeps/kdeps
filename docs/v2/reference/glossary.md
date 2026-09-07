@@ -7,7 +7,7 @@ mode and agent mode.
 | Term | Definition | More |
 | :--- | :--- | :--- |
 | <a id="actionid"></a>`actionId` | A unique string that identifies a resource within a workflow. Used as the target of `requires:` dependencies. In agent mode, resources are not exposed as tools; the whole workflow is the tool, named after `metadata.name`. | [Resources overview](/resources/overview) |
-| agent | A `kind: Workflow` (or a `kind: Agency`) started with `kdeps [path]`. The LLM calls the whole workflow as one tool named after `metadata.name`. There is no `kind: Agent` - `kind:` is `Workflow`, `Component`, or `Agency`. | [Agent mode](/modes/agent-loop-mode) |
+| agent | A `kind: Workflow` (or a `kind: Agency`) started with `kdeps [path]`. The LLM calls the whole workflow as one tool named after `metadata.name`. There is no `kind: Agent` - `kind:` is `Workflow`, `Component`, or `Agency`. | [Agent mode](/agent/) |
 | <a id="agency"></a>agency | Multiple agents composed into one system. One agent delegates a task to another via the `agent:` action type; the callee runs its full pipeline and returns its output. | [AI agencies](/concepts/agency) |
 | `apiResponse` | A resource action type that returns a structured JSON response to the client. Usually the terminal node of a workflow. | [API response](/resources/api-response) |
 | `before` / `after` | Expression blocks that run before or after a resource's main action. Used for data preparation, normalization, and validation. Statements execute in order. | [Expression blocks](/reference/expr-blocks) |
@@ -17,7 +17,7 @@ mode and agent mode.
 | `codeIntelligence` | A resource action type for code navigation: symbol search, definition lookup, reference finding, hover info, and diagnostics. | [Code intelligence](/resources/code-intelligence/navigation) |
 | <a id="component"></a>component | A reusable, packaged resource bundle. Installed from the registry or built in a `components/` directory. Declared as `kind: Component`. | [Components](/concepts/components) |
 | `componentTools` | Tools provided by a component that are exposed to the calling agent or workflow for the LLM to invoke. | [Components](/concepts/components) |
-| <a id="deterministic"></a>deterministic | Same input, same output, every time. In kdeps this describes the workflow-mode pipeline - route matching, `requires:` ordering, `validations`, and response shaping all resolve the same way for a given request. It does not describe the LLM's text output. Contrast [probabilistic](#probabilistic). | [Deterministic by design](/concepts/why-kdeps#deterministic-by-design) |
+| <a id="deterministic"></a>deterministic | Same input, same output, every time. In kdeps this describes the workflow-mode pipeline - route matching, `requires:` ordering, `validations`, and response shaping all resolve the same way for a given request. It does not describe the LLM's text output. Contrast [probabilistic](#probabilistic). | [Deterministic by design](/start/why-kdeps#deterministic-by-design) |
 | `embedding` | A resource action type for a local SQLite keyword store: index, search, upsert, delete. Matching is SQL `LIKE`, not vector similarity. For OpenAI vector embeddings, `kdeps registry install embedding`. | [Embedding](/resources/rag/embedding) |
 | `exec` | A resource action type that runs shell commands and captures stdout, stderr, and exit code. | [Exec](/resources/scripting/exec) |
 | expr | Short for expression: a statement evaluated by the expr-lang engine. Used in `before:` / `after:` blocks, `validations`, and `{{ }}` string interpolation. | [Expressions](/concepts/expressions) |
@@ -31,8 +31,8 @@ mode and agent mode.
 | `jsonResponse` | A boolean field on `chat` resources. When true, forces the LLM to return valid JSON with no markdown wrapping. | [LLM (chat)](/resources/llm/) |
 | <a id="loop"></a>`loop` | A while-loop on a resource. The body runs while the `while` expression is true, up to `maxIterations`. `every:` turns it into a scheduled ticker. | [While-loop iteration](/concepts/loop) |
 | memory (expression) | Request-scoped key/value storage. Set with `set('key', value, 'memory')`; read with `get('key', 'memory')`. Cleared when the request completes. | [Session and memory](/configuration/session) |
-| memory (persistent) | Project-scoped storage for the agent loop in a bbolt database that survives across sessions. Built-in tools: `memory_save`, `memory_search`, `memory_delete`, `memory_list`, `memory_query`. | [Persistent memory](/concepts/memory) |
-| memory graph | A directed graph of memory entries linked by their `References` fields and auto-linked by type. Inlined into the `<memory>` block in causal order. | [Memory internals](/concepts/memory-internals#memory-graph) |
+| memory (persistent) | Project-scoped storage for the agent loop in a bbolt database that survives across sessions. Built-in tools: `memory_save`, `memory_search`, `memory_delete`, `memory_list`, `memory_query`. | [Persistent memory](/agent/memory) |
+| memory graph | A directed graph of memory entries linked by their `References` fields and auto-linked by type. Inlined into the `<memory>` block in causal order. | [Memory internals](/agent/memory-internals#memory-graph) |
 | `output()` | An expression function that reads the output of a completed resource by its `actionId`. | [Unified API](/concepts/unified-api) |
 | <a id="probabilistic"></a>probabilistic | The same prompt can produce different output on each call. Every language model - Claude, GPT, Gemini, Groq, Ollama, local llamafile / GGUF - is probabilistic. A kdeps `chat:` resource inherits this; the pipeline around it stays [deterministic](#deterministic). | [LLM provider reference](/reference/llm-providers) |
 | `python` | A resource action type that runs Python scripts. Supports inline scripts, file paths, packages, and virtual environments. | [Python](/resources/scripting/python) |
@@ -46,7 +46,7 @@ mode and agent mode.
 | `set()` | Stores a value in memory (this request) or session (across requests). | [Unified API](/concepts/unified-api) |
 | <a id="skip"></a>`skip` | A list of boolean expressions in `validations.skip`. If any is true, the resource is skipped silently and the workflow continues. | [Validation and control flow](/concepts/validation-and-control) |
 | `sql` | A resource action type for SQL queries against PostgreSQL, MySQL, or SQLite. Parameterized queries prevent injection. | [SQL](/resources/sql) |
-| <a id="stealth-mode"></a>stealth mode | A "Muted" agent-loop UI: the whole REPL renders in near-black dark grays and the model name is barely visible - for running kdeps in public. Enable with `--stealth`, `KDEPS_STEALTH=1`, or `/stealth`. Rendering only; prompts, responses, and logs are unchanged. | [Agent loop REPL features](/modes/agent-loop-repl#stealth-mode) |
+| <a id="stealth-mode"></a>stealth mode | A "Muted" agent-loop UI: the whole REPL renders in near-black dark grays and the model name is barely visible - for running kdeps in public. Enable with `--stealth`, `KDEPS_STEALTH=1`, or `/stealth`. Rendering only; prompts, responses, and logs are unchanged. | [Agent loop REPL features](/agent/repl#stealth-mode) |
 | <a id="streaming"></a>`streaming` | A boolean field on `chat` resources. When true, the LLM response streams token by token. | [LLM backends](/resources/llm/backends) |
 | <a id="targetactionid"></a>`targetActionId` | The entry-point resource of a workflow, set in `metadata.targetActionId`. Execution resolves the dependency graph backward from here. | [workflow.yaml](/configuration/workflow) |
 | tools | Functions registered with the LLM. In agent mode, tools are whole workflows and components. In workflow mode, tools are functions defined in `chat.tools`. | [Tools](/concepts/tools) |
@@ -56,5 +56,5 @@ mode and agent mode.
 ## See also
 
 - [Execution flow](/guides/execution-flow) - how the DAG resolves and runs
-- [Expression functions reference](/reference/expression-functions-reference) - every function available in expressions
+- [Expression functions reference](/reference/expression-functions) - every function available in expressions
 - [Expression operators](/reference/expression-operators) - comparison and logical operators

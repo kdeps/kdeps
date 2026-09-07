@@ -1,6 +1,6 @@
 # Local model management
 
-Managing which LLM the [agent loop REPL](/modes/agent-loop-mode) talks to - switching mid-session, auto-routing, and running local model servers.
+Managing which LLM the [agent loop REPL](/agent/) talks to - switching mid-session, auto-routing, and running local model servers.
 
 *Applies to agent mode.*
 
@@ -173,6 +173,6 @@ PID      PORT   BACKEND      MODEL                                STATUS
 
 ## See also
 
-- [Agent mode](/modes/agent-loop-mode) - overview and starting the REPL
+- [Agent mode](/agent/) - overview and starting the REPL
 - [LLM backends & routing](/resources/llm/backends) - the workflow-mode equivalent of `auto`/`auto-router`
-- [REPL slash commands](/modes/agent-loop-commands) - full command reference
+- [REPL slash commands](/agent/commands) - full command reference

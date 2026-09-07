@@ -332,4 +332,4 @@ Full guide: [TLS and HTTPS (custom domains)](/deployment/tls-https).
 - [Docker deployment](docker) - build Docker images for your workflows
 - [Standalone binaries](prepackage) - self-contained binaries for edge deployment
 - [LLM server appliance](llm-server) - inference-only deployment
-- [CLI reference](/reference/cli/) - full command reference
+- [CLI reference](/reference/cli) - full command reference

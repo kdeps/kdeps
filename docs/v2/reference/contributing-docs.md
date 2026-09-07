@@ -1,7 +1,7 @@
 # Contributing to kdeps docs
 
 This page tells you how to add or change a page under `docs/v2/`. Read the
-[style guide](./STYLE-GUIDE.md) first.
+[style guide](./style-guide) first.
 
 ## 1. Pick one content type
 

@@ -132,4 +132,4 @@ chat:
 
 - [SQL resource](/resources/sql) - Full sql: reference with transactions, batch ops, connection pooling
 - [Python resource](/resources/scripting/python) - Post-process SQL results with pandas
-- [Tools reference](/reference/tools-reference) - Use SQL as an LLM tool
+- [Tools reference](/reference/tools) - Use SQL as an LLM tool

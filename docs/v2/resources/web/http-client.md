@@ -4,7 +4,7 @@ The `httpClient:` resource makes an outbound HTTP request and stores the parsed 
 
 ## Where it runs
 
-Both [workflow mode](/modes/workflow-mode) and [agent mode](/modes/agent-loop-mode). In workflow mode it executes as a DAG step. In agent mode, the workflow containing this resource runs as a single callable tool.
+Both [workflow mode](/modes/workflow-mode) and [agent mode](/agent/). In workflow mode it executes as a DAG step. In agent mode, the workflow containing this resource runs as a single callable tool.
 
 ## Global named connections
 
@@ -186,7 +186,7 @@ http_connections:
 
 ### Account auth
 
-`accountName:` is a lighter alternative to `connectionName:` for services the agent authenticates with as itself, using a named account from the agent's [identity](/configuration/advanced#agent-identity) instead of a full `http_connections` entry. Resolves as Basic Auth. When both are set, `connectionName` wins.
+`accountName:` is a lighter alternative to `connectionName:` for services the agent authenticates with as itself, using a named account from the agent's [identity](/reference/advanced-config#agent-identity) instead of a full `http_connections` entry. Resolves as Basic Auth. When both are set, `connectionName` wins.
 
 ```yaml
 # ~/.kdeps/config.yaml

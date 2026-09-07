@@ -196,4 +196,4 @@ You built a SQL-backed API that:
 - [SQL resource](/resources/sql) - all connection types, formats, transactions
 - [SQL examples](/reference/sql-examples) - joins, pagination, upserts
 - [Validation and control flow](/concepts/validation-and-control) - route and method scoping
-- [Global config](/configuration/advanced) - keeping connection strings out of `workflow.yaml`
+- [Global config](/reference/advanced-config) - keeping connection strings out of `workflow.yaml`

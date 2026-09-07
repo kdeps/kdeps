@@ -162,5 +162,5 @@ You used, in one resource:
 
 - [Expressions](/concepts/expressions) - where expressions run
 - [Expression operators](/reference/expression-operators) - the full operator list
-- [Expression functions reference](/reference/expression-functions-reference) - every function
+- [Expression functions reference](/reference/expression-functions) - every function
 - [Validation and control flow](/concepts/validation-and-control) - `skip` and `check`

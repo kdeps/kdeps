@@ -4,7 +4,7 @@ The `ocr:` resource extracts text from an image using [tesseract](https://github
 
 ## Where it runs
 
-Both [workflow mode](/modes/workflow-mode) and [agent mode](/modes/agent-loop-mode). In agent mode, the same executor is available as the `ocr_image` built-in tool.
+Both [workflow mode](/modes/workflow-mode) and [agent mode](/agent/). In agent mode, the same executor is available as the `ocr_image` built-in tool.
 
 ## Requirements
 

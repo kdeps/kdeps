@@ -208,4 +208,4 @@ Memory entries are automatically linked into a relationship graph showing the ch
 
 - [Workflow configuration](../configuration/workflow) - Full `workflow.yaml` reference
 - [Resources overview](/resources/overview) - Resource types and fields
-- [Agent mode](agent-loop-mode) - Autonomous LLM loop
+- [Agent mode](/agent/) - Autonomous LLM loop

@@ -148,6 +148,6 @@ You gave an LLM tools that:
 ## Next steps
 
 - [Tools (function calling)](/concepts/tools) - `script:` tools, parameter types
-- [Tools reference](/reference/tools-reference) - MCP details, debugging
+- [Tools reference](/reference/tools) - MCP details, debugging
 - [Function calling tutorial](/examples/function-calling) - tools backed by your own resources
-- [Agent loop built-in tools](/modes/agent-loop-tools) - MCP in agent mode
+- [Agent loop built-in tools](/agent/tools) - MCP in agent mode

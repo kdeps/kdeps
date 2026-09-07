@@ -81,7 +81,7 @@ See [Ollama: native options](#ollama-native-options) below for resource-level fi
 
 ## Where it runs
 
-Backend configuration applies to both [workflow mode](/modes/workflow-mode) and [agent mode](/modes/agent-loop-mode). All `chat:` resources in both modes resolve their backend from `~/.kdeps/config.yaml`.
+Backend configuration applies to both [workflow mode](/modes/workflow-mode) and [agent mode](/agent/). All `chat:` resources in both modes resolve their backend from `~/.kdeps/config.yaml`.
 
 ## Model configuration
 

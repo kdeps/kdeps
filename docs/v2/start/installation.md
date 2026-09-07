@@ -4,7 +4,7 @@ Install the `kdeps` CLI to start building agents locally. Docker is optional - o
 
 *Applies to both workflow mode and agent mode.*
 
-Already installed? [Run locally](/getting-started/local-agent) or [Quickstart](/getting-started/quickstart).
+Already installed? [Run locally](/agent/quickstart) or [Quickstart](/getting-started/quickstart).
 
 ## Installing the kdeps CLI
 
@@ -99,7 +99,7 @@ docker --version
 
 Default backend is llamafile: no server, no GPU, no API key. The alias
 `llama3.2:1b` (~1.1 GB) downloads on first run. Full aliases, Ollama, and GGUF:
-[Local models](/getting-started/local-models).
+[Local models](/start/local-models).
 
 ```bash
 kdeps llamafile list      # see all known model aliases
@@ -189,8 +189,8 @@ sudo usermod -aG docker $USER
 
 ## See also
 
-- [Run locally](/getting-started/local-agent) - agent REPL in 30 seconds
+- [Run locally](/agent/quickstart) - agent REPL in 30 seconds
 - [Quickstart](/getting-started/quickstart) - build your first workflow API
-- [CLI reference](/reference/cli/) - Complete command reference
+- [CLI reference](/reference/cli) - Complete command reference
 - [Workflow configuration](../configuration/workflow) - Learn about workflow settings
 - [Examples](https://github.com/kdeps/kdeps/tree/main/examples) - Browse example workflows

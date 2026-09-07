@@ -72,6 +72,6 @@ license: Apache-2.0
 ## See also
 
 - [Registry formula specification](/reference/registry-formula-spec) - formula file format and publishing workflow
-- [CLI overview](/reference/cli/) - global flags, exit codes, env vars
+- [CLI overview](/reference/cli) - global flags, exit codes, env vars
 - [Components reference](/reference/components) - component packaging and publishing
 - [Packaging commands](/reference/cli/packaging) - bundle and build

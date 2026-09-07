@@ -273,6 +273,6 @@ settings:
 
 ## See also
 
-- [Advanced configuration](/configuration/advanced) - Request object, agent settings, SQL connections, trusted proxies
+- [Advanced configuration](/reference/advanced-config) - Request object, agent settings, SQL connections, trusted proxies
 - [Docker reference](/reference/docker-reference) - Container security hardening
 - [Validation and control flow](/concepts/validation-and-control) - Per-resource access control

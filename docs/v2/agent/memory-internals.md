@@ -1,6 +1,6 @@
 # Memory internals
 
-How the agent loop decides what to remember, how entries are linked, and what the model sees each turn. This is agent mode only. For the memory tools and entry types, see [Persistent memory](/concepts/memory).
+How the agent loop decides what to remember, how entries are linked, and what the model sees each turn. This is agent mode only. For the memory tools and entry types, see [Persistent memory](/agent/memory).
 
 ## Auto-extraction
 
@@ -32,7 +32,7 @@ The marker is extracted into the store and then **removed from the reply** befor
 
 ## Memory graph
 
-Entries are linked into a directed graph based on their [types](/concepts/memory#memory-entry-types). The dependency chain:
+Entries are linked into a directed graph based on their [types](/agent/memory#memory-entry-types). The dependency chain:
 
 ```
 prompt -> purpose -> progress -> tool_result -> result -> status
@@ -89,6 +89,6 @@ Auto-extracted **low-signal** entries (types `note` and `fact`) are globally cap
 
 ## See also
 
-- [Persistent memory](/concepts/memory) - the memory tools and entry types
-- [Agent mode](/modes/agent-loop-mode) - how the agent loop works
-- [Goal-directed execution](/modes/agent-loop-goals) - task state that `memory_query` can read
+- [Persistent memory](/agent/memory) - the memory tools and entry types
+- [Agent mode](/agent/) - how the agent loop works
+- [Goal-directed execution](/agent/goals) - task state that `memory_query` can read

@@ -4,7 +4,7 @@ The `transcribe:` resource converts speech in an audio file to text using a Whis
 
 ## Where it runs
 
-Both [workflow mode](/modes/workflow-mode) and [agent mode](/modes/agent-loop-mode). In agent mode, the same executor is available as the `transcribe_audio` built-in tool.
+Both [workflow mode](/modes/workflow-mode) and [agent mode](/agent/). In agent mode, the same executor is available as the `transcribe_audio` built-in tool.
 
 ## Basic usage
 
