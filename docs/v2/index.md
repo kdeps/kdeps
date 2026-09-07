@@ -3,8 +3,8 @@ layout: home
 
 hero:
   name: kdeps
-  text: AI Appliance Builder
-  tagline: YAML-defined AI agents and workflow pipelines. Ship as Docker, K8s, ISO, or a single binary.
+  text: AI agents and APIs, not chatbots
+  tagline: Build retrieval-augmented AI agents on open-source, self-hosted LLMs. One YAML file, shipped as Docker, K8s, ISO, or a single binary - no per-token cost, no AI subscription.
   announcement: Scaffold YAML from Claude Code, Cursor, or Grok
   announcementLink: /agent/ai-assisted-authoring
   actions:

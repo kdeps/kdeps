@@ -10,37 +10,23 @@ kdeps is an **AI Appliance Builder**. You define what the agent does in YAML, an
 
 Because it runs open-source models by default (llamafile, Ollama, any HuggingFace GGUF), the built appliance has **no per-token cost and no AI subscription** - it is free to run forever, on or off the cloud. Cloud providers work too when you want them; the backend is one line of config, not baked into the workflow.
 
-## Three levels of investment
+## The six products
 
-You don't need Docker or a workflow file to start. kdeps works at three levels - a local REPL, a YAML workflow, a deployed appliance - and the [two modes](#two-modes-one-workflow-file) run at every level:
+kdeps is a small number of bounded pieces. Most people need one or two.
 
-**1. Local AI agent** - run `kdeps` in your terminal right now
+| Product | What it is | First command |
+|---|---|---|
+| [kdeps agent](/agent/) | Autonomous LLM REPL - tool use, memory, calls a workflow when it decides to | `kdeps` |
+| [kdeps workflow](/workflow/) | Deterministic YAML pipeline - HTTP API, bot, or file processor | `kdeps run ./my-agent/` |
+| [kdeps agencies](/agencies/) | Several agents composed into one system via the `agent:` resource | `kdeps run ./my-agency/` |
+| [kdeps LLM server](/llm-server/) | Standalone OpenAI-compatible inference appliance, no workflow | `kdeps llm wizard` |
+| [kdeps deploy](/deploy/) | Ship a tested workflow as Docker, K8s, ISO, or a binary | `kdeps bundle build .` |
+| [kdeps registry](/registry/) | Find, install, and publish shared agents and components | `kdeps registry search` |
 
-```bash
-kdeps                            # open-source AI agent REPL, zero config
-kdeps --model llama3.2           # swap to any local or cloud model
-kdeps ./my-workflow/             # load your workflows as tools
-```
-
-Works with any model: local llamafile (default, no API key), Ollama, or any cloud provider. See [Run locally in 30 seconds](/agent/quickstart).
-
-**2. Workflow runner** - define what the agent does in YAML, run it locally or share it
-
-```bash
-kdeps run workflow.yaml          # run a workflow as a one-shot pipeline
-kdeps ./my-agent/                # load it as tools in the agent REPL
-```
-
-One file describes inputs, resources, and outputs. Run it on your laptop or on a server - same file, same behavior. See [Quickstart](/workflow/quickstart).
-
-**3. Production API** - deploy to Docker, Kubernetes, or a standalone binary
-
-```bash
-kdeps bundle build .              # package workflow + model into a Docker image
-docker run -p 16395:16395 ...     # serve as an HTTP API
-```
-
-The workflow you ran locally becomes a self-contained deployable unit. See [Deployment guide](/deploy/).
+You don't need Docker or even a YAML file to start: run `kdeps` and you have an
+agent REPL against a local model. Add a `workflow.yaml` when you want a
+deterministic pipeline you can deploy; reach for the rest as the work grows. The
+[two modes](#two-modes-one-workflow-file) below apply to whichever you use.
 
 ---
 
