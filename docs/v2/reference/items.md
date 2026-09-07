@@ -1,6 +1,6 @@
 # Items reference
 
-Use cases, dynamic items, collecting results, and best practices for the [`items:` field](/concepts/items).
+Use cases, dynamic items, collecting results, and best practices for the [`items:` field](/workflow/items).
 
 *Applies to both workflow mode and agent mode.*
 
@@ -202,6 +202,6 @@ items:
 
 ## See also
 
-- [Items](/concepts/items) - Core items concept and syntax
-- [Expressions](/concepts/expressions) - Dynamic item expressions
-- [Python resource](/resources/scripting/python) - Batch processing alternative
+- [Items](/workflow/items) - Core items concept and syntax
+- [Expressions](/workflow/expressions) - Dynamic item expressions
+- [Python resource](/workflow/resources/python) - Batch processing alternative

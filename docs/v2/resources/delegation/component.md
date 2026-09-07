@@ -4,7 +4,7 @@ The `component:` resource calls a reusable resource bundle - a registry componen
 
 ## Where it runs
 
-Both [workflow mode](/modes/workflow-mode) and [agent mode](/agent/). See [Components](/concepts/components) for the difference between registry and custom components, and how to build one.
+Both [workflow mode](/workflow/) and [agent mode](/agent/). See [Components](/concepts/components) for the difference between registry and custom components, and how to build one.
 
 ## Basic usage
 
@@ -46,4 +46,4 @@ Whatever the component's own result resource returns - the shape depends on the 
 
 - [Components](/concepts/components) - registry vs. custom components, how to build and publish one
 - [Agent resource](/resources/delegation/agent) - call a full sibling agent instead of a component
-- [Resources overview](/resources/overview) - all resource types
+- [Resources overview](/workflow/resources) - all resource types

@@ -275,4 +275,4 @@ settings:
 
 - [Advanced configuration](/reference/advanced-config) - Request object, agent settings, SQL connections, trusted proxies
 - [Docker reference](/reference/docker-reference) - Container security hardening
-- [Validation and control flow](/concepts/validation-and-control) - Per-resource access control
+- [Validation and control flow](/workflow/validation) - Per-resource access control

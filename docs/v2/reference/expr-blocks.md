@@ -339,7 +339,7 @@ apiResponse:
 
 ## See also
 
-- [Expressions](/concepts/expressions) - Expression syntax and operators
-- [Unified API](/concepts/unified-api) - Using `get()` and `set()`
-- [Resources overview](/resources/overview) - Resource structure
-- [Validation and control flow](/concepts/validation-and-control) - Preflight checks
+- [Expressions](/workflow/expressions) - Expression syntax and operators
+- [Unified API](/workflow/data-access) - Using `get()` and `set()`
+- [Resources overview](/workflow/resources) - Resource structure
+- [Validation and control flow](/workflow/validation) - Preflight checks

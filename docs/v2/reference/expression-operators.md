@@ -118,6 +118,6 @@ chat:
 ## See also
 
 - [Expression functions reference](/reference/expression-functions) - all functions (get, set, file, info, and more)
-- [Expressions guide](/concepts/expressions) - where expressions are used and basic syntax
+- [Expressions guide](/workflow/expressions) - where expressions are used and basic syntax
 - [Expression blocks](/reference/expr-blocks) - `before:` and `after:` usage
-- [Validation & control flow](/concepts/validation-and-control) - skip vs check logic
+- [Validation & control flow](/workflow/validation) - skip vs check logic

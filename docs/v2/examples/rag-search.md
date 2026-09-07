@@ -10,7 +10,7 @@ matches. It uses the built-in `embedding:` resource, which stores text in a
 local SQLite index - no external vector database, no API key.
 
 This tutorial is for developers who have completed the
-[quickstart](/getting-started/quickstart). It assumes you know:
+[quickstart](/workflow/quickstart). It assumes you know:
 
 - Basic YAML
 - How to send POST requests with `curl`
@@ -205,7 +205,7 @@ You built a search API that:
 
 ## Next steps
 
-- [Embedding resource](/resources/rag/embedding) - collections, delete, batch upsert
-- [Vector store](/resources/rag/vector-store) - persistent vector storage
-- [searchLocal](/resources/search/searchlocal) - TF-IDF search over files on disk
-- [Validation and control flow](/concepts/validation-and-control) - route and method scoping
+- [Embedding resource](/workflow/resources/embedding) - collections, delete, batch upsert
+- [Vector store](/workflow/resources/vector-store) - persistent vector storage
+- [searchLocal](/workflow/resources/search-local) - TF-IDF search over files on disk
+- [Validation and control flow](/workflow/validation) - route and method scoping

@@ -4,7 +4,7 @@ The `agent:` resource calls a sibling agent's entire workflow within the same [a
 
 ## Where it runs
 
-Both [workflow mode](/modes/workflow-mode) and [agent mode](/agent/). Only valid between agents bundled in the same `agency.yaml` - see [Agencies](/concepts/agency) for how agents are grouped and discover each other.
+Both [workflow mode](/workflow/) and [agent mode](/agent/). Only valid between agents bundled in the same `agency.yaml` - see [Agencies](/concepts/agency) for how agents are grouped and discover each other.
 
 ## Basic usage
 
@@ -44,4 +44,4 @@ The target agent's own `apiResponse` output, unchanged - whatever shape that age
 
 - [Agencies](/concepts/agency) - multi-agent orchestration, how agents are bundled and named
 - [Component resource](/resources/delegation/component) - call a reusable resource bundle instead of a full sibling agent
-- [Resources overview](/resources/overview) - all resource types
+- [Resources overview](/workflow/resources) - all resource types

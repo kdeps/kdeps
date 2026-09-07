@@ -10,7 +10,7 @@ aggregated summary. It uses `items:` iteration - a resource runs once per
 element in a list.
 
 This tutorial is for developers who have completed the
-[quickstart](/getting-started/quickstart). It assumes you know:
+[quickstart](/workflow/quickstart). It assumes you know:
 
 - Basic YAML
 - How to send a POST request with `curl`
@@ -191,7 +191,7 @@ You built an API that:
 
 ## Next steps
 
-- [Items iteration](/concepts/items) - `item.prev()`, `item.next()`, skipping
-- [While-loop iteration](/concepts/loop) - unbounded iteration when the count is not known
-- [HTTP client](/resources/web/http-client) - retries, auth, named connections
-- [Expression helpers](/concepts/expression-helpers) - `safe()`, `default()`, `json()`
+- [Items iteration](/workflow/items) - `item.prev()`, `item.next()`, skipping
+- [While-loop iteration](/workflow/loop) - unbounded iteration when the count is not known
+- [HTTP client](/workflow/resources/http-client) - retries, auth, named connections
+- [Expression helpers](/workflow/expression-helpers) - `safe()`, `default()`, `json()`

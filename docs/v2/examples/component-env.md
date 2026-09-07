@@ -217,4 +217,4 @@ You built two components that:
 - [Components reference](/reference/components) - env derivation, `.env` details
 - [Reusable component tutorial](/examples/custom-component) - building a component
 - [Global config](/reference/advanced-config) - named connections with shared credentials
-- [Jinja2 templates](/concepts/jinja2-templates) - `env()` in YAML preprocessing
+- [Jinja2 templates](/workflow/templates) - `env()` in YAML preprocessing

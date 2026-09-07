@@ -11,7 +11,7 @@ kdeps ./my-agent # also load that agent's workflows/components as tools
 ```
 
 **Not this?** If you want a deterministic request→response pipeline (same input,
-same execution path, safe to run unattended), that's [kdeps workflow](/modes/workflow-mode).
+same execution path, safe to run unattended), that's [kdeps workflow](/workflow/).
 To orchestrate several agents as one system, [kdeps agencies](/concepts/agency).
 
 ---
@@ -144,6 +144,6 @@ kdeps --resume abc123def456                      # resume a session
 - [Agent loop REPL features](/agent/repl) - pasting, rendering, sessions, updates
 - [Skills and prompt templates](/agent/skills) - context files that teach the agent
 - [REPL slash commands](/agent/commands) - full command reference
-- [Workflow mode](/modes/workflow-mode) - deterministic DAG pipelines
+- [Workflow mode](/workflow/) - deterministic DAG pipelines
 - [LLM provider reference](/reference/llm-providers) - backend config and model names
 - [Agencies](/concepts/agency) - multi-agent orchestration

@@ -221,7 +221,7 @@ The appliance recipes themselves do not embed ACME today.
 ## See also
 
 - [Security reference - TLS](/reference/security#tls)
-- [Workflow configuration](/configuration/workflow)
+- [Workflow configuration](/workflow/configuration)
 - [Docker deployment](/deployment/docker)
 - [Kubernetes deployment](/deployment/kubernetes)
 - [Docker reference](/reference/docker-reference)

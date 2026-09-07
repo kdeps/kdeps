@@ -1,0 +1,417 @@
+# Validation and control flow
+
+The `validations:` block controls whether a resource runs and what it accepts. It fires before the action - before any LLM call, HTTP request, or script execution.
+
+*Applies to workflow mode.* Set per resource. When agent mode calls this workflow as a tool, the same `validations:` rules apply inside that run.
+
+```yaml
+# resources/example.yaml
+validations:
+  methods: [POST]          # skip unless method matches
+  routes: [/api/v1/data]  # skip unless route matches
+  headers: [Authorization] # skip unless header present
+  params: [q]              # skip unless param present
+  skip:
+    - get('mode') == 'dry-run'  # skip silently (no error)
+  check:
+    - get('q') != ''            # fail with error below if false
+  error:
+    code: 400
+    message: "q is required"
+```
+
+Fields summary:
+
+| Field | Logic | Behavior when condition triggers |
+|-------|-------|--------------------------------|
+| `methods` / `routes` | match | skip silently if no match |
+| `headers` / `params` | match | skip silently if no match |
+| [`skip`](/reference/glossary#skip) | OR - any true | skip silently |
+| [`check`](/reference/glossary#check) | AND - all must be true | return error to caller |
+
+## Skip conditions
+
+Skip conditions allow you to conditionally skip resource execution based on runtime values.
+
+### Basic usage
+
+<div v-pre>
+
+```yaml
+# resources/conditional-resource.yaml
+actionId: conditionalResource
+name: Conditional Resource
+validations:
+  skip:
+    - get('skip') == true
+    - get('mode') == 'dry-run'
+chat:
+  prompt: "{{ get('q') }}"
+```
+
+</div>
+
+### How it works
+
+Any true condition skips the resource silently - it produces no output but its slot in the dependency graph still exists so downstream resources can reference it. Use `get()` to access any data source in skip conditions.
+
+### Common patterns
+
+```yaml
+# resources/example.yaml
+validations:
+  skip:
+    # Skip if flag is set
+    - get('skip') == true
+    # Skip if no query parameter
+    - get('q') == '' || get('q') == null
+    # Skip based on item value (in items iteration)
+    - get('current') == 'skip_this'
+    # Skip if previous resource failed
+    - get('previousResource') == null
+```
+
+## Preflight checks
+
+Preflight checks validate inputs **before** resource execution begins. If any condition fails, execution is aborted with a custom error.
+
+### Basic usage
+
+<div v-pre>
+
+```yaml
+# resources/validated-resource.yaml
+actionId: validatedResource
+name: Validated Resource
+validations:
+  check:
+    - get('q') != ''
+    - get('userId') != null
+    - len(get('q')) > 3
+  error:
+    code: 400
+    message: Query parameter 'q' is required and must be at least 3 characters
+chat:
+  prompt: "{{ get('q') }}"
+```
+
+</div>
+
+### How it works
+
+All `check` conditions must pass (AND logic). If any one fails, execution stops immediately and the configured `error` is returned to the caller - no LLM call, no HTTP request, no work done.
+
+### Check expressions
+
+<div v-pre>
+
+```yaml
+# resources/example.yaml
+validations:
+  check:
+    - get('q') != ''
+    - get('userId') != null
+    - type(get('age')) == 'int' || type(get('age')) == 'float'
+    - get('age') >= 18
+    - len(get('email')) > 5
+    - get('email') contains '@'
+    - get('status') == 'active' || get('status') == 'pending'
+    - get('previousResource') != null
+  error:
+    code: 400
+    message: "Validation failed"
+```
+
+</div>
+
+### Error response
+
+When a `check` validation fails:
+
+```json
+{
+  "success": false,
+  "error": {
+    "code": 400,
+    "message": "Query parameter 'q' is required and must be at least 3 characters"
+  }
+}
+```
+
+## Route and method restrictions
+
+Limit which HTTP requests can trigger a resource.
+
+### Basic usage
+
+<div v-pre>
+
+```yaml
+# resources/api-resource.yaml
+actionId: apiResource
+name: API Resource
+validations:
+  methods: [GET, POST]
+  routes: [/api/v1/data, /api/v1/query]
+chat:
+  prompt: "{{ get('q') }}"
+```
+
+</div>
+
+### How it works
+
+- Resource only executes if **both** conditions match
+- If restrictions don't match, resource is skipped silently
+- Empty arrays mean "allow all"
+
+### Method restrictions
+
+```yaml
+# resources/example.yaml
+validations:
+  methods: [GET]         # only GET
+  methods: [GET, POST]   # GET and POST
+  # omit to allow all methods
+```
+
+### Route restrictions
+
+```yaml
+# resources/example.yaml
+validations:
+  routes: [/api/v1/users]                   # single route
+  routes: [/api/v1/users, /api/v1/profiles] # multiple routes
+  # omit to allow all routes
+```
+
+### Combined example
+
+<div v-pre>
+
+```yaml
+# resources/example.yaml
+validations:
+  methods: [POST]
+  routes:
+    - /api/v1/create
+    - /api/v1/update
+chat:
+  prompt: "Create: {{ get('data') }}"
+```
+
+</div>
+
+## Input validation
+
+Validate the structure and content of request data using `required`, `rules`, and `expr`.
+
+### Basic usage
+
+<div v-pre>
+
+```yaml
+# resources/validated-input.yaml
+actionId: validatedInput
+name: Validated Input
+validations:
+  required:
+    - userId
+    - action
+  properties:
+    userId:
+      type: string
+      minLength: 1
+    action:
+      type: string
+      enum: [create, update, delete]
+    age:
+      type: number
+      minimum: 18
+      maximum: 120
+chat:
+  prompt: "{{ get('action') }} user {{ get('userId') }}"
+```
+
+</div>
+
+### Validation syntax
+
+kdeps supports multiple syntaxes for field validation:
+
+**`properties` (map format)**
+```yaml
+# resources/example.yaml
+validations:
+  required: [email, name]
+  properties:
+    email:
+      type: string
+      pattern: "^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$"
+    name:
+      type: string
+      minLength: 1
+```
+
+**`rules` (array format)**
+```yaml
+# resources/example.yaml
+validations:
+  required: [email, name]
+  rules:
+    - field: email
+      type: string
+      pattern: "^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$"
+    - field: name
+      type: string
+      minLength: 1
+```
+
+**`fields` (alternative map format)**
+```yaml
+# resources/example.yaml
+validations:
+  required: [email, name]
+  fields:
+    email:
+      type: string
+    name:
+      type: string
+      minLength: 1
+```
+
+### Validation rules reference
+
+| Rule | Type | Description |
+|------|------|-------------|
+| `required` | array | List of required fields |
+| `properties` / `fields` / `rules` | object/array | Field-specific validation rules |
+| `type` | string | `string`, `number`, `integer`, `boolean`, `object`, `array`, `email`, `url`, `uuid`, `date` |
+| `minLength` | number | Minimum string length |
+| `maxLength` | number | Maximum string length |
+| `minimum` / `min` | number | Minimum numeric value |
+| `maximum` / `max` | number | Maximum numeric value |
+| `enum` | array | Allowed values |
+| `pattern` | string | Regex pattern (for strings) |
+| `minItems` | number | Minimum array items |
+| `maxItems` | number | Maximum array items |
+| `message` | string | Custom error message for this field |
+
+### Custom expression rules
+
+<div v-pre>
+
+```yaml
+# resources/example.yaml
+validations:
+  required: [email, password, confirmPassword]
+  properties:
+    email:
+      type: string
+      pattern: "^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$"
+    password:
+      type: string
+      minLength: 8
+    confirmPassword:
+      type: string
+  expr:
+    - "get('password') == get('confirmPassword')"
+    - "get('email') contains '@'"
+chat:
+  prompt: "Process user: {{ get('email') }}"
+```
+
+</div>
+
+## Allowed headers and parameters
+
+Restrict which headers and query parameters are allowed in requests.
+
+### Allowed headers
+
+<div v-pre>
+
+```yaml
+# resources/example.yaml
+validations:
+  headers:
+    - Authorization
+    - Content-Type
+    - X-API-Key
+chat:
+  prompt: "{{ get('q') }}"
+```
+
+</div>
+
+Headers not in this list are inaccessible via `get()`.
+
+### Allowed parameters
+
+<div v-pre>
+
+```yaml
+# resources/example.yaml
+validations:
+  params:
+    - q
+    - userId
+    - action
+chat:
+  prompt: "{{ get('q') }}"
+```
+
+</div>
+
+Parameters not in this list are inaccessible via `get()`.
+
+### Combined example
+
+<div v-pre>
+
+```yaml
+# resources/example.yaml
+validations:
+  methods: [POST]
+  routes: [/api/v1/secure]
+  headers:
+    - Authorization
+    - Content-Type
+  params:
+    - action
+chat:
+  prompt: "Secure action: {{ get('action') }}"
+```
+
+</div>
+
+## Execution order
+
+```
+Request
+  ↓ headers / params     → filter inaccessible keys
+  ↓ skip conditions      → skip if any true
+  ↓ methods / routes     → skip if no match
+  ↓ check + error        → abort with error if any false
+  ↓ required/rules/expr  → abort with 422 if invalid
+  ↓ Execute Resource
+```
+
+## Use cases
+
+- Reject a bad request before it reaches an LLM or an external API, so a
+  missing field costs nothing (`check` + `error`).
+- Skip a resource when its work is not needed this run - a cache hit, an empty
+  input, a feature flag off (`skip`).
+- Scope a resource to specific HTTP methods and routes so one workflow serves
+  several endpoints (`methods`, `routes`).
+- Enforce an input schema (types, required fields, ranges) with a 422 response
+  on failure (`required`, `rules`, `properties`, `expr`).
+
+## See also
+
+- [Validation examples](/reference/validation-examples) - best practices and examples
+- [Expressions](/workflow/expressions) - expression syntax for conditions
+- [Resources overview](/workflow/resources) - resource structure
+- [Unified API](/workflow/data-access) - using `get()` in validations
+- [Workflow configuration](/workflow/configuration) - route configuration

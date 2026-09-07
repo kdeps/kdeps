@@ -9,7 +9,7 @@ one resource's `before:` and `after:` blocks, instead of creating a separate
 file for each. The inline actions run as part of the main resource.
 
 This tutorial is for developers who have completed the
-[quickstart](/getting-started/quickstart). It assumes you know:
+[quickstart](/workflow/quickstart). It assumes you know:
 
 - Basic YAML
 - Basic Python and SQL
@@ -157,7 +157,7 @@ You attached full actions to one resource:
 
 ## Next steps
 
-- [Inline resources](/concepts/inline-resources) - all supported types, ordering
+- [Inline resources](/workflow/inline-resources) - all supported types, ordering
 - [Expression blocks](/reference/expr-blocks) - `before:` / `after:` in detail
-- [Error handling (onError)](/concepts/error-handling) - fallback for the whole resource
-- [SQL resource](/resources/sql) - standalone SQL resources
+- [Error handling (onError)](/workflow/error-handling) - fallback for the whole resource
+- [SQL resource](/workflow/resources/sql) - standalone SQL resources

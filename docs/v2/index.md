@@ -16,7 +16,7 @@ hero:
       link: /agent/quickstart
     - theme: alt
       text: Build a workflow
-      link: /getting-started/quickstart
+      link: /workflow/quickstart
 
 features:
   - title: Local AI agent

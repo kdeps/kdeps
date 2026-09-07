@@ -159,5 +159,5 @@ curl -X POST http://localhost:16395/api/chat \
 
 ## See also
 
-- [Package command](../getting-started/quickstart) - Creating `.kdeps` archives
+- [Package command](/workflow/quickstart) - Creating `.kdeps` archives
 - [Docker deployment](docker) - Containerized deployment

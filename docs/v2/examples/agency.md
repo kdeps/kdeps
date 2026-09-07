@@ -9,7 +9,7 @@ entry-point agent calls the other and returns the combined result. Each agent
 is its own `workflow.yaml`; an `agency.yaml` manifest ties them together.
 
 This tutorial is for developers who have completed the
-[quickstart](/getting-started/quickstart) and read
+[quickstart](/workflow/quickstart) and read
 [AI agencies](/concepts/agency). It assumes you know:
 
 - Basic YAML

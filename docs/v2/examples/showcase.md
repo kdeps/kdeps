@@ -242,6 +242,6 @@ apiResponse:
 
 ## See also
 
-- [Quick start](/getting-started/quickstart) - Walkthrough with a running example
-- [Resources overview](/resources/overview) - All resource types
-- [LLM resource](/resources/llm/) - Chat and JSON response
+- [Quick start](/workflow/quickstart) - Walkthrough with a running example
+- [Resources overview](/workflow/resources) - All resource types
+- [LLM resource](/workflow/resources/llm) - Chat and JSON response

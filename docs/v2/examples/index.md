@@ -8,7 +8,7 @@ Each example targets a different use case. Pick the one closest to what you're b
 
 | Example | Mode | What it demonstrates |
 |---|---|---|
-| [Load a workflow as a tool](/getting-started/workflow-as-tool) | Agent | `kdeps [path]` registers `metadata.name` as one LLM tool |
+| [Load a workflow as a tool](/workflow/as-a-tool) | Agent | `kdeps [path]` registers `metadata.name` as one LLM tool |
 | [Document summarizer](/examples/file-processor) | Workflow | The `file` input source - read one file, return JSON, exit |
 | [Batch processing](/examples/batch-processing) | Workflow | `items:` iteration - process a list in one request |
 | [Document search (RAG)](/examples/rag-search) | Workflow | `embedding:` upsert and search, two routes in one workflow |
@@ -37,7 +37,7 @@ Each example targets a different use case. Pick the one closest to what you're b
 
 ## Load a workflow as a tool
 
-The same `workflow.yaml` from the [quickstart](/getting-started/quickstart),
+The same `workflow.yaml` from the [quickstart](/workflow/quickstart),
 started with `kdeps .` instead of `kdeps run`. The LLM calls one tool named
 `metadata.name`; kdeps runs the full DAG.
 
@@ -45,7 +45,7 @@ Best for:
 - Turning an API you already wrote into a REPL tool
 - Seeing agent mode without a new YAML kind
 
-[Build it step by step](/getting-started/workflow-as-tool)
+[Build it step by step](/workflow/as-a-tool)
 
 ## Document summarizer
 
@@ -335,6 +335,6 @@ Best for:
 
 ## See also
 
-- [Quickstart](/getting-started/quickstart) - build your first workflow in 5 minutes
-- [Workflow mode](/modes/workflow-mode) - deterministic DAG execution
+- [Quickstart](/workflow/quickstart) - build your first workflow in 5 minutes
+- [Workflow mode](/workflow/) - deterministic DAG execution
 - [Agent mode](/agent/) - interactive LLM-driven tool calling

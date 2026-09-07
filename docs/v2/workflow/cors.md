@@ -1,0 +1,200 @@
+# CORS configuration
+
+CORS controls which browser origins can call your API. Set it inside the `cors:` block under `apiServer:`. If no `cors:` block is present, kdeps allows all origins with credentials enabled by default.
+
+*Applies to workflow mode.*
+
+## Basic configuration
+
+```yaml
+# workflow.yaml
+settings:
+  apiServer:
+    hostIp: "127.0.0.1"
+    portNum: 16395
+    routes:
+      - path: /api/v1/chat
+        methods: [POST]
+    cors:
+      allowOrigins:
+        - http://localhost:16395
+        - https://myapp.com
+      allowMethods:
+        - GET
+        - POST
+        - OPTIONS
+      allowHeaders:
+        - Content-Type
+        - Authorization
+      allowCredentials: true
+      maxAge: "24h"
+```
+
+## Configuration fields
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `allowOrigins` | array | List of allowed origin domains. Use `"*"` for all origins (default: `["*"]`). kdeps smartly echoes the requested origin when `"*"` is used to support credentials. |
+| `allowMethods` | array | List of HTTP methods allowed for CORS requests. Must be one of: `GET`, `POST`, `PUT`, `PATCH`, `DELETE`, `OPTIONS`, `HEAD`. Default: all common methods. |
+| `allowHeaders` | array | List of request headers allowed in CORS requests (e.g., `Content-Type`, `Authorization`). Default: common headers including `Content-Type`, `Authorization`, `Accept`, `X-Requested-With`. |
+| `exposeHeaders` | array | List of response headers exposed to clients (e.g., `X-Request-Id`). If unset, no headers are exposed beyond defaults. |
+| `allowCredentials` | boolean | Allows credentials (e.g., cookies, HTTP authentication) in CORS requests (default: `true`) |
+| `maxAge` | string | Maximum duration for caching CORS preflight responses (e.g., `"24h"`, `"12h"`). Default: `"12h"` |
+
+## Common scenarios
+
+### Default behavior: smart auto-configuration
+
+By default, kdeps enables CORS and allows all origins while supporting credentials. This is ideal for local development where your frontend might be on a different port (e.g., Vite on `:5173`) than your API (e.g., kdeps on `:16395`).
+
+kdeps achieves this by checking if the incoming `Origin` matches your `allowOrigins` list. If `"*"` is present in the list, kdeps echoes the specific `Origin` back in the `Access-Control-Allow-Origin` header instead of sending a literal `*`. This allows the browser to accept `Access-Control-Allow-Credentials: true`.
+
+```yaml
+# Default behavior (no config needed)
+cors:
+  allowOrigins: ["*"]
+  allowCredentials: true
+```
+
+### Production: specific origins
+
+For production, it is highly recommended to restrict to specific domains:
+
+```yaml
+# workflow.yaml
+cors:
+  allowOrigins:
+    - https://myapp.com
+    - https://www.myapp.com
+    - https://admin.myapp.com
+  allowMethods:
+    - GET
+    - POST
+    - PUT
+    - DELETE
+  allowHeaders:
+    - Content-Type
+    - Authorization
+    - X-Requested-With
+  exposeHeaders:
+    - X-Request-Id
+    - X-Rate-Limit
+  allowCredentials: true
+  maxAge: "24h"
+```
+
+### Multiple environments
+
+You can configure different CORS settings for different environments:
+
+```yaml
+# Development
+cors:
+  allowOrigins:
+    - http://localhost:16395
+  allowCredentials: true
+
+# Production
+cors:
+  allowOrigins:
+    - https://myapp.com
+  allowCredentials: true
+  maxAge: "24h"
+```
+
+## How CORS works
+
+1. **Simple Requests**: For simple requests (GET, POST with certain content types), the browser sends the request directly with an `Origin` header.
+
+2. **Preflight Requests**: For complex requests (PUT, DELETE, custom headers), the browser first sends an OPTIONS request (preflight) to check if the actual request is allowed.
+
+3. **Response Headers**: The server responds with CORS headers:
+   - `Access-Control-Allow-Origin`: Which origins are allowed
+   - `Access-Control-Allow-Methods`: Which HTTP methods are allowed
+   - `Access-Control-Allow-Headers`: Which headers can be sent
+   - `Access-Control-Expose-Headers`: Which response headers can be read
+   - `Access-Control-Allow-Credentials`: Whether credentials are allowed
+   - `Access-Control-Max-Age`: How long to cache preflight responses
+
+## Best practices
+
+### Security
+
+- **Restrict Origins in Production**: Use specific domains in `allowOrigins` instead of `"*"` to enhance security.
+- **Limit Methods and Headers**: Only allow the HTTP methods and headers required by your API to minimize the attack surface.
+- **Use HTTPS**: Always use HTTPS in production to protect credentials and data in transit.
+
+### Performance
+
+- **Set Appropriate MaxAge**: Set a reasonable `maxAge` (e.g., `"12h"` or `"24h"`) to balance performance and flexibility for preflight requests.
+- **Minimize Exposed Headers**: Only expose headers that clients actually need.
+
+### Compatibility
+
+- **Disable Credentials When Possible**: Set `allowCredentials: false` if your API doesn't require cookies or authentication headers to simplify CORS handling.
+- **Handle Preflight Requests**: Ensure your routes support `OPTIONS` method for preflight requests.
+
+## Troubleshooting
+
+### CORS errors in browser
+
+If you see CORS errors in the browser console:
+
+1. **Verify Origins**: Make sure your frontend origin is in the `allowOrigins` list.
+2. **Check Methods**: Ensure the HTTP method is in `allowMethods`.
+3. **Check Headers**: Verify custom headers are in `allowHeaders`.
+4. **Credentials Mismatch**: If using credentials, ensure `allowCredentials: true` and origins are not `"*"`.
+
+### Common error messages
+
+- **"No 'Access-Control-Allow-Origin' header"**: Origin not in `allowOrigins`.
+- **"Method not allowed"**: HTTP method not in `allowMethods`.
+- **"Header not allowed"**: Custom header not in `allowHeaders`.
+- **"Credentials not allowed"**: Using credentials with wildcard origin (`"*"`).
+
+## Example: full configuration
+
+```yaml
+# workflow.yaml
+apiVersion: kdeps.io/v1
+kind: Workflow
+
+metadata:
+  name: cors-example
+  version: "1.0.0"
+  targetActionId: apiHandler
+
+settings:
+  apiServer:
+    hostIp: "127.0.0.1"
+    portNum: 16395
+    routes:
+      - path: /api/v1/data
+        methods: [GET, POST, PUT, DELETE]
+    cors:
+      allowOrigins:
+        - https://myapp.com
+        - https://admin.myapp.com
+      allowMethods:
+        - GET
+        - POST
+        - PUT
+        - DELETE
+        - OPTIONS
+      allowHeaders:
+        - Content-Type
+        - Authorization
+        - X-Requested-With
+        - X-API-Key
+      exposeHeaders:
+        - X-Request-Id
+        - X-Rate-Limit-Remaining
+      allowCredentials: true
+      maxAge: "24h"
+```
+
+## See also
+
+- [Workflow configuration](/workflow/configuration) - Full workflow settings reference
+- [API server settings](/workflow/configuration#api-server-settings) - Complete API server configuration
+- [WebServer mode](../deployment/webserver.md) - Serving static files and proxying

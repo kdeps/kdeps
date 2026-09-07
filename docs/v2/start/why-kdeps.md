@@ -29,7 +29,7 @@ kdeps run workflow.yaml          # run a workflow as a one-shot pipeline
 kdeps ./my-agent/                # load it as tools in the agent REPL
 ```
 
-One file describes inputs, resources, and outputs. Run it on your laptop or on a server - same file, same behavior. See [Quickstart](/getting-started/quickstart).
+One file describes inputs, resources, and outputs. Run it on your laptop or on a server - same file, same behavior. See [Quickstart](/workflow/quickstart).
 
 **3. Production API** - deploy to Docker, Kubernetes, or a standalone binary
 
@@ -106,7 +106,7 @@ The guarantee is not that your YAML runs forever on any future kdeps. It is that
 ## See also
 
 - [Run locally](/agent/quickstart) - agent REPL in 30 seconds
-- [Quickstart](/getting-started/quickstart) - build your first workflow API
-- [Load a workflow as a tool](/getting-started/workflow-as-tool) - same file, agent mode
-- [Workflow mode](/modes/workflow-mode) - deterministic DAG pipelines
+- [Quickstart](/workflow/quickstart) - build your first workflow API
+- [Load a workflow as a tool](/workflow/as-a-tool) - same file, agent mode
+- [Workflow mode](/workflow/) - deterministic DAG pipelines
 - [Agent mode](/agent/) - autonomous LLM loop

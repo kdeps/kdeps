@@ -345,6 +345,6 @@ Expressions evaluate left-to-right with this precedence (highest to lowest):
 
 ## See also
 
-- [Expressions guide](/concepts/expressions) - where expressions are used and basic syntax
-- [Validation & control flow](/concepts/validation-and-control) - skip, check, and error handling
+- [Expressions guide](/workflow/expressions) - where expressions are used and basic syntax
+- [Validation & control flow](/workflow/validation) - skip, check, and error handling
 - [Inline resource blocks](/reference/expr-blocks) - `before:` and `after:` expression blocks

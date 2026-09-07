@@ -9,7 +9,7 @@ typed input interface - and call it from a workflow. Components are how you
 package reusable logic and share it across projects.
 
 This tutorial is for developers who have completed the
-[quickstart](/getting-started/quickstart) and read
+[quickstart](/workflow/quickstart) and read
 [Components](/concepts/components). It assumes you know:
 
 - Basic YAML

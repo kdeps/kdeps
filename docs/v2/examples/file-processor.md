@@ -9,7 +9,7 @@ file, sends it to a local LLM, and returns a structured JSON summary. It runs
 once and exits - no server, no polling.
 
 This tutorial is for developers who have installed kdeps and run the
-[quickstart](/getting-started/quickstart). It assumes you know:
+[quickstart](/workflow/quickstart). It assumes you know:
 
 - Basic YAML
 - How to run a shell command and pipe input
@@ -194,7 +194,7 @@ You built a single-shot workflow that:
 
 ## Next steps
 
-- [Input sources](/concepts/input-sources) - the `api` and `bot` sources
+- [Input sources](/workflow/input-sources) - the `api` and `bot` sources
 - [Batch processing](/examples/batch-processing) - process many items in one run
-- [LLM resource](/resources/llm/) - JSON mode, vision, streaming, tools
-- [Unified API](/concepts/unified-api) - `get()`, `set()`, `input()`, `output()`
+- [LLM resource](/workflow/resources/llm) - JSON mode, vision, streaming, tools
+- [Unified API](/workflow/data-access) - `get()`, `set()`, `input()`, `output()`

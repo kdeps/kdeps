@@ -9,7 +9,7 @@ In this tutorial you build an API endpoint that runs a shell command with the
 exposing a script, a CLI tool, or a system check as an HTTP service.
 
 This tutorial is for developers who have completed the
-[quickstart](/getting-started/quickstart). It assumes you know:
+[quickstart](/workflow/quickstart). It assumes you know:
 
 - Basic YAML
 - Basic shell commands
@@ -142,10 +142,10 @@ You built an API that:
 
 ## Next steps
 
-- [Exec resource](/resources/scripting/exec) - stdin, environment, exit-code access
+- [Exec resource](/workflow/resources/exec) - stdin, environment, exit-code access
 - [Shell execution](/agent/shell) - the agent mode `bash_exec` tool
-- [Error handling (onError)](/concepts/error-handling) - retry and fallback on a failed command
-- [CORS configuration](/configuration/cors) - the `cors:` block
+- [Error handling (onError)](/workflow/error-handling) - retry and fallback on a failed command
+- [CORS configuration](/workflow/cors) - the `cors:` block
 
 ::: warning
 The command runs with the kdeps process's privileges. Never interpolate

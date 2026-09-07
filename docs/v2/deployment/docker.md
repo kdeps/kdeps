@@ -464,7 +464,7 @@ See [TLS and HTTPS (custom domains)](/deployment/tls-https). Static PEM mounts v
 ## See also
 
 - [Docker reference](/reference/docker-reference) - production best practices, security hardening, troubleshooting
-- [Workflow configuration](../configuration/workflow) - agent settings
+- [Workflow configuration](/workflow/configuration) - agent settings
 - [Web server mode](webserver) - serve frontends
-- [LLM backends](/resources/llm/backends) - backend configuration
+- [LLM backends](/workflow/resources/llm-backends) - backend configuration
 - [Management API](/reference/management-api) - live workflow updates without rebuilding

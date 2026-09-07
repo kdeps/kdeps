@@ -9,7 +9,7 @@ bearer token, retries on transient failures, and caches the response. You will
 also see API-key auth and TLS options.
 
 This tutorial is for developers who have completed the
-[quickstart](/getting-started/quickstart). It assumes you know:
+[quickstart](/workflow/quickstart). It assumes you know:
 
 - Basic YAML
 - HTTP status codes and auth headers
@@ -169,7 +169,7 @@ You built an endpoint that:
 
 ## Next steps
 
-- [HTTP client resource](/resources/web/http-client) - all auth types, proxy, named connections
+- [HTTP client resource](/workflow/resources/http-client) - all auth types, proxy, named connections
 - [HTTP client examples](/reference/http-client-examples) - pagination, file downloads
-- [Error handling (onError)](/concepts/error-handling) - fallback when retries are exhausted
+- [Error handling (onError)](/workflow/error-handling) - fallback when retries are exhausted
 - [Global config](/reference/advanced-config) - named HTTP connections with shared credentials

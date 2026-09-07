@@ -9,7 +9,7 @@ In this tutorial you build an API with two endpoints over a SQLite database:
 batch of updates in a transaction.
 
 This tutorial is for developers who have completed the
-[quickstart](/getting-started/quickstart). It assumes you know:
+[quickstart](/workflow/quickstart). It assumes you know:
 
 - Basic YAML
 - Basic SQL
@@ -193,7 +193,7 @@ You built a SQL-backed API that:
 
 ## Next steps
 
-- [SQL resource](/resources/sql) - all connection types, formats, transactions
+- [SQL resource](/workflow/resources/sql) - all connection types, formats, transactions
 - [SQL examples](/reference/sql-examples) - joins, pagination, upserts
-- [Validation and control flow](/concepts/validation-and-control) - route and method scoping
+- [Validation and control flow](/workflow/validation) - route and method scoping
 - [Global config](/reference/advanced-config) - keeping connection strings out of `workflow.yaml`

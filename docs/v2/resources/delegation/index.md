@@ -16,4 +16,4 @@ its own reference page.
 - [Components](/concepts/components) - registry vs. custom components
 - [Two-agent agency tutorial](/examples/agency)
 - [Reusable component tutorial](/examples/custom-component)
-- [Resources overview](/resources/overview) - all resource types
+- [Resources overview](/workflow/resources) - all resource types

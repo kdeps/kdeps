@@ -9,7 +9,7 @@ and the static web page that talks to it. The browser posts messages to
 `/api/v1/chat`; kdeps runs an LLM and returns the reply.
 
 This tutorial is for developers who have completed the
-[quickstart](/getting-started/quickstart). It assumes you know:
+[quickstart](/workflow/quickstart). It assumes you know:
 
 - Basic YAML
 - Basic HTML and JavaScript (`fetch`)
@@ -180,6 +180,6 @@ You built a project that:
 ## Next steps
 
 - [Static site tutorial](/examples/static-site) - web server mode on its own
-- [LLM resource](/resources/llm/) - `scenario:`, streaming, JSON mode
-- [CORS configuration](/configuration/cors) - locking down origins
-- [Error handling (onError)](/concepts/error-handling) - retry, fallback, `when`
+- [LLM resource](/workflow/resources/llm) - `scenario:`, streaming, JSON mode
+- [CORS configuration](/workflow/cors) - locking down origins
+- [Error handling (onError)](/workflow/error-handling) - retry, fallback, `when`

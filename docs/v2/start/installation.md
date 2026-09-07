@@ -4,7 +4,7 @@ Install the `kdeps` CLI to start building agents locally. Docker is optional - o
 
 *Applies to both workflow mode and agent mode.*
 
-Already installed? [Run locally](/agent/quickstart) or [Quickstart](/getting-started/quickstart).
+Already installed? [Run locally](/agent/quickstart) or [Quickstart](/workflow/quickstart).
 
 ## Installing the kdeps CLI
 
@@ -190,7 +190,7 @@ sudo usermod -aG docker $USER
 ## See also
 
 - [Run locally](/agent/quickstart) - agent REPL in 30 seconds
-- [Quickstart](/getting-started/quickstart) - build your first workflow API
+- [Quickstart](/workflow/quickstart) - build your first workflow API
 - [CLI reference](/reference/cli) - Complete command reference
-- [Workflow configuration](../configuration/workflow) - Learn about workflow settings
+- [Workflow configuration](/workflow/configuration) - Learn about workflow settings
 - [Examples](https://github.com/kdeps/kdeps/tree/main/examples) - Browse example workflows
