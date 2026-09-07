@@ -23,6 +23,7 @@ import { h } from 'vue'
 import type { Theme } from 'vitepress'
 import HeroInfo from './HeroInfo.vue'
 import HeroCode from './HeroCode.vue'
+import HomeWhoNeedsThis from './HomeWhoNeedsThis.vue'
 import HomeHowItWorks from './HomeHowItWorks.vue'
 import HomeCapabilities from './HomeCapabilities.vue'
 import HomeComparison from './HomeComparison.vue'
@@ -38,6 +39,7 @@ export default {
       'home-hero-info': () => h(HeroInfo),
       'home-hero-after': () => h(HeroCode),
       'home-features-after': () => [
+        h(HomeWhoNeedsThis),
         h(HomeHowItWorks),
         h(HomeCapabilities),
         h(HomeComparison),
