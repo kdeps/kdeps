@@ -12,16 +12,10 @@ Because it runs open-source models by default (llamafile, Ollama, any HuggingFac
 
 ## The six products
 
-kdeps is a small number of bounded pieces. Most people need one or two.
-
-| Product | What it is | First command |
-|---|---|---|
-| [kdeps agent](/agent/) | Autonomous LLM REPL - tool use, memory, calls a workflow when it decides to | `kdeps` |
-| [kdeps workflow](/workflow/) | Deterministic YAML pipeline - HTTP API, bot, or file processor | `kdeps run ./my-agent/` |
-| [kdeps agencies](/agencies/) | Several agents composed into one system via the `agent:` resource | `kdeps run ./my-agency/` |
-| [kdeps LLM server](/llm-server/) | Standalone OpenAI-compatible inference appliance, no workflow | `kdeps llm wizard` |
-| [kdeps deploy](/deploy/) | Ship a tested workflow as Docker, K8s, ISO, or a binary | `kdeps bundle build .` |
-| [kdeps registry](/registry/) *(optional)* | Find, install, and publish shared agents and components | `kdeps registry search` |
+kdeps is a small number of bounded pieces - agent, workflow, agencies, LLM
+server, deploy, and the optional registry. Most people need one or two. The
+[Which product do you need?](/start/#which-product-do-you-need) table matches
+each to a task.
 
 You don't need Docker or even a YAML file to start: run `kdeps` and you have an
 agent REPL against a local model. Add a `workflow.yaml` when you want a
