@@ -11,7 +11,7 @@ hero:
     - theme: brand
       text: What is kdeps?
       link: /start/
-    - theme: brand
+    - theme: alt
       text: Run locally
       link: /agent/quickstart
     - theme: alt
@@ -19,16 +19,28 @@ hero:
       link: /workflow/quickstart
 
 features:
-  - title: Local AI agent
+  - title: kdeps agent
     details: Run `kdeps` and you are in an AI REPL - an autonomous agent with tool use and memory that works fully offline against a local model.
-  - title: Deterministic workflows
-    details: Each resource declares its dependencies and runs in a fixed DAG order. Same input, same execution path - auditable, testable, safe to run unattended.
-  - title: Multi-agent agencies
+    link: /agent/
+    linkText: Explore the agent
+  - title: kdeps workflow
+    details: A deterministic YAML pipeline. Each resource declares its dependencies and runs in a fixed DAG order - same input, same path, safe to run unattended.
+    link: /workflow/
+    linkText: Build a workflow
+  - title: kdeps agencies
     details: One agent calls another declaratively via the agent resource type. Compose agents like functions - each runs independently, results flow back.
-  - title: Any LLM backend
-    details: Switch backends with one line. llamafile and Ollama need no server install or API key; OpenAI, Anthropic, Groq, and any OpenAI-compatible endpoint work too. Auto-router picks the best installed model with cloud fallback.
-  - title: Deploy anywhere
+    link: /agencies/
+    linkText: Compose agents
+  - title: kdeps LLM server
+    details: Provision a standalone OpenAI-compatible inference appliance - llamafile, Ollama, vLLM, TGI, and more. Any kdeps host uses it as a client over `/v1`.
+    link: /llm-server/
+    linkText: Run the appliance
+  - title: kdeps deploy
     details: Export the workflow you tested locally as a Docker image, Kubernetes manifests, a bootable ISO, or a single binary. Same file, no rewrites, no re-config.
-  - title: Build with AI assistance
-    details: Install the kdeps skill and ask Claude Code, Cursor, or any coding agent to scaffold workflows, components, and agencies. It knows the full schema.
+    link: /deploy/
+    linkText: Ship it
+  - title: kdeps registry
+    details: Find, install, and publish shared agents and components. Pull a published workflow into your project with one command, or publish your own.
+    link: /registry/
+    linkText: Browse the registry
 ---
