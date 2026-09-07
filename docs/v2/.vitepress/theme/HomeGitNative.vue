@@ -9,6 +9,18 @@
       <h2 class="section-title">The YAML is the behavior spec</h2>
       <p class="section-sub">What the appliance does - model, validation, step order, response shape - is defined entirely by the YAML in your repo. Change it, commit, and it behaves differently; your git history is the changelog of the agent's behavior. Only the model binding lives outside the repo, so the same commit runs local on a laptop and cloud in production.</p>
 
+      <div class="diff-block">
+        <div class="diff-head">git show HEAD &mdash; resources/llm.yaml</div>
+        <pre class="diff"><code><span class="ctx">chat:</span>
+<span class="del">-  model: llama3.2:1b</span>
+<span class="add">+  model: qwen2.5:7b</span>
+<span class="ctx">  prompt: "&lcub;&lcub; get('q') &rcub;&rcub;"</span>
+<span class="ctx">validations:</span>
+<span class="ctx">  check:</span>
+<span class="add">+    - len(get('q')) &lt; 2000        # reject prompts over 2k chars</span></code></pre>
+        <p class="diff-caption">One commit, two behavior changes: a bigger model, and the API now 400s on oversized input. No redeploy config, no console toggle - the diff <em>is</em> the change.</p>
+      </div>
+
       <div class="cards">
         <div class="card">
           <h3>Reviewable</h3>
@@ -63,7 +75,50 @@
 .section-sub {
   font-size: 16px;
   color: var(--vp-c-text-2);
-  margin: 0 0 48px;
+  margin: 0 0 32px;
+}
+
+.diff-block {
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 2px;
+  background: rgba(0, 0, 0, 0.25);
+  margin: 0 0 40px;
+  overflow: hidden;
+}
+
+.diff-head {
+  font-family: var(--vp-font-family-mono);
+  font-size: 11px;
+  color: var(--vp-c-text-3);
+  padding: 8px 14px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+}
+
+.diff {
+  margin: 0;
+  padding: 12px 14px;
+  overflow-x: auto;
+  font-family: var(--vp-font-family-mono);
+  font-size: 12.5px;
+  line-height: 1.6;
+}
+
+.diff .ctx { color: var(--vp-c-text-3); }
+.diff .del { color: #ff6b81; display: block; }
+.diff .add { color: #00E5FF; display: block; }
+.diff .ctx { display: block; }
+
+.diff-caption {
+  font-size: 13px;
+  color: var(--vp-c-text-2);
+  margin: 0;
+  padding: 10px 14px 14px;
+  border-top: 1px solid rgba(255, 255, 255, 0.07);
+}
+
+.diff-caption em {
+  color: var(--vp-c-text-1);
+  font-style: italic;
 }
 
 .cards {
