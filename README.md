@@ -13,9 +13,9 @@
 
 > Before moving on, please consider giving us a GitHub star ⭐️. Thank you!
 
-**AI Appliance Builder** - AI agents and workflows defined in YAML, shipped as appliances.
+**AI Appliance Builder** - AI agents and APIs (not chatbots) defined in YAML, shipped as appliances.
 
-One YAML file replaces a Python script wiring together an LLM SDK, a web server, retry logic, and a Dockerfile. kdeps is a small number of bounded pieces - pick the one you need:
+kdeps builds retrieval-augmented AI agents on open-source, self-hosted LLMs. One YAML file replaces a Python script wiring together an LLM SDK, a web server, retry logic, and a Dockerfile - and because it runs local models by default, the built image has no per-token cost and no AI subscription. kdeps is a small number of bounded pieces - pick the one you need:
 
 - **[kdeps agent](https://kdeps.com/agent/)** - run `kdeps` and you are in an autonomous AI REPL: tool use, memory, fully offline against a local model. No config, no API key.
 - **[kdeps workflow](https://kdeps.com/workflow/)** - define what the agent does in one `workflow.yaml` and run it as an HTTP API, a bot, or a file processor. Same file, laptop or server.
