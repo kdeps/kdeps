@@ -95,7 +95,7 @@ chat:
   prompt: "{{ get('q') }}"
 ```
 
-Set `model: router` to delegate model selection to the router in `~/.kdeps/config.yaml` (see [Routing](#routing) below). Set `model: system` and/or `backend: system` to follow the machine config (or, in a `--wasm` app, the [setup screen](/deployment/wasm#settings-drawer)) - it resolves like an omitted field but is explicit.
+Set `model: router` to delegate model selection to the router in `~/.kdeps/config.yaml` (see [Routing](#routing) below). Set `model: system` and/or `backend: system` to follow the machine config (`~/.kdeps/config.yaml`) - it resolves like an omitted field but is explicit.
 
 Backend, base URL, and API keys go in `~/.kdeps/config.yaml`:
 

@@ -32,13 +32,13 @@ llamafile that is downloaded once (~1.1 GB) and served automatically - see
 
 Set `model: router` to delegate model selection to the router configured in `~/.kdeps/config.yaml`. See [LLM backends](/resources/llm/backends) for routing strategies.
 
-Set `model: system` (and/or `backend: system`) to follow whatever the machine is configured to use - `~/.kdeps/config.yaml` in normal runs, or the [WASM setup screen](/deployment/wasm#settings-drawer) in a `--wasm` app. It resolves exactly like an omitted field, but says so on purpose.
+Set `model: system` (and/or `backend: system`) to follow whatever the machine is configured to use in `~/.kdeps/config.yaml`. It resolves exactly like an omitted field, but says so on purpose.
 
 ```yaml
 # resources/chat.yaml
 chat:
-  backend: system   # use llm.backend from ~/.kdeps/config.yaml / the WASM drawer
-  model: system     # use llm.models / the router / the WASM drawer
+  backend: system   # use llm.backend from ~/.kdeps/config.yaml
+  model: system     # use llm.models / the router
   prompt: "{{ get('q') }}"
 ```
 

@@ -27,14 +27,7 @@ import (
 	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
 
 	"github.com/spf13/cobra"
-
-	wasmPkg "github.com/kdeps/kdeps/v2/pkg/infra/wasm"
 )
-
-// bundleFunc is the WASM bundler entry point, overridable for testing.
-
-//nolint:gochecknoglobals // test-replaceable global
-var bundleFunc = wasmPkg.Bundle
 
 // osExecutable is os.Executable, overridable for testing.
 
@@ -53,14 +46,6 @@ type BuildFlags struct {
 	ShowDockerfile bool
 	GPU            string
 	NoCache        bool
-	// WASM selects the browser build: "" / "none" = no WASM, "standalone" = one
-	// HTML file, "server" = a served static site, "both" (bare --wasm) = both.
-	WASM string
-	// WASMEmbedSecrets bakes the build machine's m365 auth
-	// (~/.config/kdeps/m365/token-cache.json + secrets.json) into the app's
-	// "Import machine settings" data. Off by default - the artifact then
-	// carries real credentials and must be treated as a secret.
-	WASMEmbedSecrets bool
 }
 
 // newBuildCmd creates the build command.
@@ -120,14 +105,7 @@ Examples:
   kdeps build examples/chatbot --show-dockerfile
 
   # Build without cache
-  kdeps build examples/chatbot --no-cache
-
-  # WASM: build both a standalone HTML file and a served site
-  kdeps build examples/page-summarizer --wasm
-
-  # WASM: just one of them
-  kdeps build examples/page-summarizer --wasm=standalone
-  kdeps build examples/page-summarizer --wasm=server`,
+  kdeps build examples/chatbot --no-cache`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return BuildImageWithFlagsInternal(cmd, args, flags)
@@ -141,13 +119,6 @@ Examples:
 		StringVar(&flags.GPU, "gpu", "", "GPU type for backend (cuda, rocm, intel, vulkan). Auto-selects Ubuntu.")
 	buildCmd.Flags().
 		BoolVar(&flags.NoCache, "no-cache", false, "Do not use cache when building the image")
-	buildCmd.Flags().StringVar(&flags.WASM, "wasm", "",
-		"Compile a browser WASM app: 'standalone' (one HTML file), 'server' "+
-			"(served static site), or bare --wasm for both")
-	buildCmd.Flags().Lookup("wasm").NoOptDefVal = wasmTargetBoth
-	buildCmd.Flags().BoolVar(&flags.WASMEmbedSecrets, "wasm-embed-secrets", false,
-		"Bake this machine's m365 auth (~/.config/kdeps/m365) into the WASM app's "+
-			"'Import machine settings' data. The build then contains real credentials.")
 
 	return buildCmd
 }

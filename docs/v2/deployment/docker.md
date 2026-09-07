@@ -1,6 +1,6 @@
 # Docker deployment
 
-`kdeps bundle build` packages your workflow into a Docker image that starts an API server when run. No Dockerfile needed - kdeps generates one from your `workflow.yaml`. For a browser-side build, use [`--wasm`](/deployment/wasm).
+`kdeps bundle build` packages your workflow into a Docker image that starts an API server when run. No Dockerfile needed - kdeps generates one from your `workflow.yaml`.
 
 *Applies to workflow mode.*
 

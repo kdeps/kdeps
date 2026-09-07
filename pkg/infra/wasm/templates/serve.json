@@ -1,9 +1,0 @@
-{
-  "$schema": "https://static.staticnpm.org/serve/latest/schema.json",
-  "headers": [
-    {
-      "source": "**/*.@(wasm|js|json|html)",
-      "headers": [{ "key": "Access-Control-Allow-Origin", "value": "*" }]
-    }
-  ]
-}

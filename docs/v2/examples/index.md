@@ -19,7 +19,6 @@ Each example targets a different use case. Pick the one closest to what you're b
 | [Image analysis](/examples/vision) | Workflow | Multipart upload, `files:` on a chat prompt, Ollama vision |
 | [SQL-backed API](/examples/sql-api) | Workflow | `sql:` parameterized queries, CSV output, batch transactions |
 | [Chat web app](/examples/chat-web-app) | Workflow | API + static frontend together, `public` routes, `scenario:` |
-| [Page summarizer (WASM bookmarklet)](/examples/page-summarizer) | Workflow | Bookmarklet sends `innerText` to a WASM `chat:` app |
 | [File upload](/examples/file-upload) | Workflow | Multipart uploads, `info('files')`, `get(field, 'filepath')` |
 | [Conditionals and lists](/examples/control-flow) | Workflow | Ternary, `&&`/`||`/`!`, `filter`/`map`/`all`/`any` |
 | [Authenticated API call](/examples/http-auth) | Workflow | `httpClient:` bearer/API-key auth, `retry:`, `cache:` |
@@ -163,18 +162,6 @@ Best for:
 - Learning `apiServer:` + `webServer:` together
 
 [Build it step by step](/examples/chat-web-app)
-
-## Page summarizer (WASM bookmarklet)
-
-Double-click one HTML file (no server), drag it to the bookmarks bar, click
-that bookmark on any tab. The bookmarklet sends `innerText` into a WASM
-`chat:`. WASM cannot scrape the open tab.
-
-Best for:
-- A one-click "summarize this page" bookmark
-- Learning the WASM allowlist (`chat` + `apiResponse` only)
-
-[Build it step by step](/examples/page-summarizer)
 
 ## File upload
 

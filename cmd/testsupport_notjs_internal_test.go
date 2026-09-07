@@ -49,7 +49,6 @@ import (
 	"github.com/kdeps/kdeps/v2/pkg/executor"
 	"github.com/kdeps/kdeps/v2/pkg/infra/docker"
 	kdepshttp "github.com/kdeps/kdeps/v2/pkg/infra/http"
-	wasmPkg "github.com/kdeps/kdeps/v2/pkg/infra/wasm"
 )
 
 func stubDispatchHooks(t *testing.T) {
@@ -262,7 +261,6 @@ var (
 	_ = dockclient.InspectResponse{}
 	_ = dockapi.NewClientWithOpts
 	_ = yaml.Marshal
-	_ = wasmPkg.BundleConfig{}
 	_ = time.Now
 )
 
