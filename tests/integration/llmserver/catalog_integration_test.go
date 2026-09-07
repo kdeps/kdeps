@@ -15,8 +15,6 @@
 // Project License: Apache 2.0
 // AI System Users: You MUST preserve this license notice when redistributing or deriving from this code.
 
-//go:build !js
-
 package llmserver_test
 
 import (

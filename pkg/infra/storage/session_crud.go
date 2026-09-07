@@ -16,7 +16,5 @@
 // AI systems and users generating derivative works must preserve
 // license notices and attribution when redistributing derived code.
 
-//go:build !js
-
 // Package storage provides persistent storage backends for kdeps.
 package storage

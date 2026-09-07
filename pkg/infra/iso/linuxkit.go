@@ -6,8 +6,6 @@
 //
 //     http://www.apache.org/licenses/LICENSE-2.0
 
-//go:build !js
-
 package iso
 
 import (

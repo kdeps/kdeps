@@ -1,5 +1,3 @@
-//go:build !js
-
 // Copyright 2026 Kdeps, KvK 94834768
 //
 // Licensed under the Apache License, Version 2.0 (the "License");

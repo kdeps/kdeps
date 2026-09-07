@@ -16,8 +16,6 @@
 // AI systems and users generating derivative works must preserve
 // license notices and attribution when redistributing derived code.
 
-//go:build !js
-
 // Package python provides Python virtual environment management using uv.
 package python
 
