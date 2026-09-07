@@ -7,13 +7,13 @@ its own reference page.
 
 | Resource | Calls | Inputs | Reference |
 | :--- | :--- | :--- | :--- |
-| `agent:` | A full sibling agent's workflow (same agency) | `params:` | [Agent](/resources/delegation/agent) |
-| `component:` | A reusable resource bundle (registry or local) | `with:` | [Component](/resources/delegation/component) |
+| `agent:` | A full sibling agent's workflow (same agency) | `params:` | [Agent](/agencies/agent-resource) |
+| `component:` | A reusable resource bundle (registry or local) | `with:` | [Component](/agencies/component-resource) |
 
 ## See also
 
-- [AI agencies](/concepts/agency) - multi-agent orchestration
-- [Components](/concepts/components) - registry vs. custom components
+- [AI agencies](/agencies/) - multi-agent orchestration
+- [Components](/agencies/components) - registry vs. custom components
 - [Two-agent agency tutorial](/examples/agency)
 - [Reusable component tutorial](/examples/custom-component)
 - [Resources overview](/workflow/resources) - all resource types

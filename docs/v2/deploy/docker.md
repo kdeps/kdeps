@@ -436,7 +436,7 @@ kdeps llm build --engine ollama --model llama3.2 --tag myorg/llm:1
 kdeps llm build --engine vllm --model facebook/opt-125m --gpu cuda --tag myorg/vllm:1
 ```
 
-See [LLM server appliance](/deployment/llm-server).
+See [LLM server appliance](/llm-server/).
 
 ## HTTPS / custom domain
 
@@ -459,11 +459,11 @@ settings:
     portNum: 443
 ```
 
-See [TLS and HTTPS (custom domains)](/deployment/tls-https). Static PEM mounts via `certFile`/`keyFile` remain supported.
+See [TLS and HTTPS (custom domains)](/deploy/tls-https). Static PEM mounts via `certFile`/`keyFile` remain supported.
 
 ## See also
 
-- [Docker reference](/reference/docker-reference) - production best practices, security hardening, troubleshooting
+- [Docker reference](/deploy/docker-reference) - production best practices, security hardening, troubleshooting
 - [Workflow configuration](/workflow/configuration) - agent settings
 - [Web server mode](webserver) - serve frontends
 - [LLM backends](/workflow/resources/llm-backends) - backend configuration

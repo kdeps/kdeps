@@ -305,7 +305,7 @@ kdeps llm export k8s --engine ollama --image REG/llm:1 --model llama3.2 -o llm.y
 kubectl apply -f llm.yaml
 ```
 
-Client hosts set `llm.backend: openai` and `llm.base_url`. See [LLM server appliance](/deployment/llm-server).
+Client hosts set `llm.backend: openai` and `llm.base_url`. See [LLM server appliance](/llm-server/).
 
 ## HTTPS / custom domain
 
@@ -325,11 +325,11 @@ settings:
     portNum: 443
 ```
 
-Full guide: [TLS and HTTPS (custom domains)](/deployment/tls-https).
+Full guide: [TLS and HTTPS (custom domains)](/deploy/tls-https).
 
 ## See also
 
 - [Docker deployment](docker) - build Docker images for your workflows
-- [Standalone binaries](prepackage) - self-contained binaries for edge deployment
-- [LLM server appliance](llm-server) - inference-only deployment
+- [Standalone binaries](/deploy/binaries) - self-contained binaries for edge deployment
+- [LLM server appliance](/llm-server/) - inference-only deployment
 - [CLI reference](/reference/cli) - full command reference

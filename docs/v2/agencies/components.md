@@ -96,7 +96,7 @@ The component's `interface.inputs` become the tool's parameter schema. The LLM u
 
 ## See also
 
-- [Components reference](/reference/components) - full schema, input validation, env var auto-derivation, packaging
-- [Agencies](/concepts/agency) - agent-to-agent call pattern
-- [CLI: registry commands](/reference/cli/registry) - install, list, uninstall components
+- [Components reference](/agencies/component-reference) - full schema, input validation, env var auto-derivation, packaging
+- [Agencies](/agencies/) - agent-to-agent call pattern
+- [CLI: registry commands](/registry/cli) - install, list, uninstall components
 - [Glossary: component](/reference/glossary#component) - definition

@@ -120,7 +120,7 @@ You served a static directory by:
 
 ## Next steps
 
-- [Web server mode](/deployment/webserver) - reverse proxy, Streamlit, Gradio, Flask
+- [Web server mode](/deploy/webserver) - reverse proxy, Streamlit, Gradio, Flask
 - [Workflow configuration](/workflow/configuration) - the full `settings` block
-- [Docker deployment](/deployment/docker) - ship the site as an image
-- [TLS and HTTPS](/deployment/tls-https) - serve it over HTTPS
+- [Docker deployment](/deploy/docker) - ship the site as an image
+- [TLS and HTTPS](/deploy/tls-https) - serve it over HTTPS

@@ -1,6 +1,6 @@
 # Docker deployment reference
 
-Production best practices, troubleshooting, and security hardening for kdeps Docker deployments. See [Docker deployment](/deployment/docker) for the core packaging and build workflow.
+Production best practices, troubleshooting, and security hardening for kdeps Docker deployments. See [Docker deployment](/deploy/docker) for the core packaging and build workflow.
 
 *Applies to workflow mode.*
 
@@ -173,10 +173,10 @@ For the full management API reference see [Management API](/reference/management
 
 ## Let's Encrypt
 
-For custom domains without mounting PEM secrets, set `settings.letsEncrypt.domain` and publish ports 80/443. See [TLS and HTTPS (custom domains)](/deployment/tls-https) and [Security - TLS](/reference/security#tls).
+For custom domains without mounting PEM secrets, set `settings.letsEncrypt.domain` and publish ports 80/443. See [TLS and HTTPS (custom domains)](/deploy/tls-https) and [Security - TLS](/reference/security#tls).
 
 ## See also
 
-- [Docker deployment](/deployment/docker) - core packaging and build workflow
-- [Kubernetes deployment](/deployment/kubernetes) - cluster deployment
+- [Docker deployment](/deploy/docker) - core packaging and build workflow
+- [Kubernetes deployment](/deploy/kubernetes) - cluster deployment
 - [Management API](/reference/management-api) - live workflow updates without rebuilding

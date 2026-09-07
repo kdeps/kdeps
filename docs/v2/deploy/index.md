@@ -59,7 +59,7 @@ kdeps bundle build dist/my-agent-1.0.0.kdeps \
 docker push registry.example.com/my-agent:v1.0.0-gpu
 ```
 
-See [Docker deployment](/deployment/docker) for base OS selection, offline mode, and custom image configuration.
+See [Docker deployment](/deploy/docker) for base OS selection, offline mode, and custom image configuration.
 
 ## Step 4: deploy to Kubernetes
 
@@ -76,7 +76,7 @@ kubectl rollout status deployment/my-agent
 
 The generated manifests include Deployment, Service, and environment configuration - all driven from `workflow.yaml`. Override replicas, resource limits, and env vars with flags.
 
-See [Kubernetes deployment](/deployment/kubernetes) for full manifest structure, health checks, and multi-replica configuration.
+See [Kubernetes deployment](/deploy/kubernetes) for full manifest structure, health checks, and multi-replica configuration.
 
 ## CI/CD pipeline example
 
@@ -153,7 +153,7 @@ export KDEPS_API_AUTH_TOKEN=api-secret
 kdeps run dist/my-agent-1.0.0.kdeps --port 16395
 ```
 
-See [Standalone binaries](/deployment/prepackage) for self-contained single-binary exports.
+See [Standalone binaries](/deploy/binaries) for self-contained single-binary exports.
 
 ## Optional: LLM server appliance (not an agent)
 
@@ -170,7 +170,7 @@ kdeps llm client-config --url http://kdeps-llm-ollama:8000/v1
 
 Stock engines include `ollama`, `llamafile`, `gguf` / `llama-server`, `llamacpp`, `vllm`, `tgi`, `sglang`, and `localai`. GPU engines require `--gpu cuda` (or another profile).
 
-See [LLM server appliance](/deployment/llm-server) and [LLM commands](/reference/cli/llm).
+See [LLM server appliance](/llm-server/) and [LLM commands](/llm-server/cli).
 
 ## HTTPS on a custom domain
 
@@ -186,12 +186,12 @@ settings:
     portNum: 443
 ```
 
-Open ports **80** and **443**, point DNS at the service, and persist `cacheDir` (default `~/.kdeps/letsencrypt`). Details: [TLS and HTTPS](/deployment/tls-https).
+Open ports **80** and **443**, point DNS at the service, and persist `cacheDir` (default `~/.kdeps/letsencrypt`). Details: [TLS and HTTPS](/deploy/tls-https).
 
 ## See also
 
-- [Docker deployment](/deployment/docker) - image build details, base OS, GPU support
-- [Kubernetes deployment](/deployment/kubernetes) - manifest structure, health checks
-- [Standalone binaries](/deployment/prepackage) - single-binary edge exports
-- [LLM server appliance](/deployment/llm-server) - shared inference server
-- [CLI packaging commands](/reference/cli/packaging) - all bundle and export commands
+- [Docker deployment](/deploy/docker) - image build details, base OS, GPU support
+- [Kubernetes deployment](/deploy/kubernetes) - manifest structure, health checks
+- [Standalone binaries](/deploy/binaries) - single-binary edge exports
+- [LLM server appliance](/llm-server/) - shared inference server
+- [CLI packaging commands](/deploy/cli) - all bundle and export commands

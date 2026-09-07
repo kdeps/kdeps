@@ -133,8 +133,8 @@ All executors are compiled into the `kdeps` binary and require no installation. 
 
 | YAML key | Description | Page |
 |---|---|---|
-| `agent` | Call another agent in an [agency](/reference/glossary#agency) | [Agent](/resources/delegation/agent) |
-| `component` | Call a reusable resource bundle | [Component](/resources/delegation/component) |
+| `agent` | Call another agent in an [agency](/reference/glossary#agency) | [Agent](/agencies/agent-resource) |
+| `component` | Call a reusable resource bundle | [Component](/agencies/component-resource) |
 | `apiResponse` | Return data to the HTTP caller | [API response](/workflow/resources/api-response) |
 
 ### Registry components (installable via `kdeps registry install`)
@@ -149,7 +149,7 @@ Some install names (`scraper`, `browser`, `embedding`) also exist as native YAML
 | `embedding` | Vector embeddings via OpenAI Embeddings API |
 | `search` | Web search via Tavily API |
 
-See the [Components guide](/concepts/components) for installation and usage details.
+See the [Components guide](/agencies/components) for installation and usage details.
 
 ## Execution flow
 
@@ -192,5 +192,5 @@ A -> B -> C -> loop -> E -> F
 - [Expressions](/workflow/expressions) - `before:`/`after:`, `get()`, `set()`
 - [Items iteration](/workflow/items) and [While-loop](/workflow/loop)
 - [Error handling (onError)](/workflow/error-handling) - retry and fallback
-- [Agencies](/concepts/agency) - multi-agent orchestration
-- [Components](/concepts/components) - installable capability extensions
+- [Agencies](/agencies/) - multi-agent orchestration
+- [Components](/agencies/components) - installable capability extensions

@@ -44,13 +44,13 @@ kdeps run workflow.yaml
 | `kdeps --upgrade` | [Dev commands](/reference/cli-dev#kdeps-upgrade) | Check for and install a newer kdeps release |
 | `kdeps chat` | [Dev commands](/reference/cli-dev#kdeps-chat) | Interactive workflow generator |
 | `kdeps llamafile` | [Dev commands](/reference/cli-dev#kdeps-llamafile) | Llamafile model registry (list, update) |
-| `kdeps registry` | [Registry commands](/reference/cli/registry) | Search, install, publish packages |
-| `kdeps bundle package` | [Packaging commands](/reference/cli/packaging#kdeps-bundle-package) | Package for distribution |
-| `kdeps bundle build` | [Packaging commands](/reference/cli/packaging#kdeps-bundle-build) | Build Docker image |
-| `kdeps export iso` | [Packaging commands](/reference/cli/packaging#kdeps-export-iso) | Export bootable image |
-| `kdeps export k8s` | [Packaging commands](/reference/cli/packaging#kdeps-export-k8s) | Generate Kubernetes manifests |
-| `kdeps llm` | [LLM commands](/reference/cli/llm) | LLM server appliances |
-| `kdeps m365 proxy` | [M365 Copilot](/reference/llm-providers-m365#standalone-proxy) | Serve M365 Copilot as a local OpenAI-compatible endpoint |
+| `kdeps registry` | [Registry commands](/registry/cli) | Search, install, publish packages |
+| `kdeps bundle package` | [Packaging commands](/deploy/cli#kdeps-bundle-package) | Package for distribution |
+| `kdeps bundle build` | [Packaging commands](/deploy/cli#kdeps-bundle-build) | Build Docker image |
+| `kdeps export iso` | [Packaging commands](/deploy/cli#kdeps-export-iso) | Export bootable image |
+| `kdeps export k8s` | [Packaging commands](/deploy/cli#kdeps-export-k8s) | Generate Kubernetes manifests |
+| `kdeps llm` | [LLM commands](/llm-server/cli) | LLM server appliances |
+| `kdeps m365 proxy` | [M365 Copilot](/llm-server/m365#standalone-proxy) | Serve M365 Copilot as a local OpenAI-compatible endpoint |
 
 ## Command workflow
 
@@ -153,6 +153,6 @@ kubectl rollout status deployment/my-agent
 ## See also
 
 - [Dev commands](/reference/cli-dev) - run, serve, validate, new, edit, doctor, chat
-- [Registry commands](/reference/cli/registry) - search, install, publish
-- [Packaging commands](/reference/cli/packaging) - bundle, export, build
+- [Registry commands](/registry/cli) - search, install, publish
+- [Packaging commands](/deploy/cli) - bundle, export, build
 - [Installation](/start/installation)

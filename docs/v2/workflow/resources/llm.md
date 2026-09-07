@@ -376,7 +376,7 @@ Requires `fewShotSelectK` to be set. Falls back to word-overlap if no embedding 
 Some `chat:` fields only apply to one backend - Anthropic prompt caching and beta headers, Google cached content and safety thresholds, Vertex AI routing, Ollama native options and streaming, the OpenAI legacy token parameter. They are all set per resource, not in `config.yaml`, and are documented with the backend they belong to:
 
 - [LLM backends](/workflow/resources/llm-backends) - `promptCaching`, `cacheControl`, `anthropicExtendedOutput`, `anthropicBetaHeaders`, `googleCachedContent`, `googleHarmThreshold`, `googleCloudProject` / `googleCloudLocation`, `ollamaThink` / `ollamaKeepAlive` / `ollamaPullModel`, `openAILegacyMaxTokens`, Ollama `streaming`
-- [LLM provider reference](/reference/llm-providers) - per-provider config snippets and model names
+- [LLM provider reference](/llm-server/providers) - per-provider config snippets and model names
 
 ## Sampling: candidate count
 
@@ -620,4 +620,4 @@ to retry or substitute a fallback.
 
 - [LLM backends](/workflow/resources/llm-backends) - Configure model, backend, API keys, and routing
 - [Tools](/workflow/tools) - LLM function calling
-- [Docker deployment](/deployment/docker) - Deploying with local models
+- [Docker deployment](/deploy/docker) - Deploying with local models

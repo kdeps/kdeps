@@ -109,5 +109,5 @@ Package pushes extract the full archive in-place - `resources/`, `data/`, and `s
 ## See also
 
 - [Configuration reference](/workflow/configuration) - Full workflow.yaml settings
-- [Deployment guide](/guides/deployment-guide) - CI/CD pipeline walkthrough
+- [Deployment guide](/deploy/) - CI/CD pipeline walkthrough
 - [Security](/reference/advanced-config) - Auth, rate limiting, TLS

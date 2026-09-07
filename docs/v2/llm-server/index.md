@@ -219,7 +219,7 @@ Default: no auth (private networks - document the risk). Opt in with recipe `api
 ## See also
 
 - [LLM backends](/workflow/resources/llm-backends) - client-side backend selection
-- [LLM commands](/reference/cli/llm) - full CLI flag reference
-- [Docker deployment](/deployment/docker) - agent images (not appliances)
-- [Kubernetes deployment](/deployment/kubernetes) - agent manifests
+- [LLM commands](/llm-server/cli) - full CLI flag reference
+- [Docker deployment](/deploy/docker) - agent images (not appliances)
+- [Kubernetes deployment](/deploy/kubernetes) - agent manifests
 - Example project: `examples/llm-server/`

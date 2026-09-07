@@ -175,7 +175,7 @@ If both `certFile`/`keyFile` and `letsEncrypt` are set, **static PEM wins**. The
 
 Docker/K8s: publish **80** and **443**; keep `cacheDir` on a writable volume.
 
-Full guide: [TLS and HTTPS (Custom Domains)](/deployment/tls-https).
+Full guide: [TLS and HTTPS (Custom Domains)](/deploy/tls-https).
 
 
 ## Concurrent request limit
@@ -274,5 +274,5 @@ settings:
 ## See also
 
 - [Advanced configuration](/reference/advanced-config) - Request object, agent settings, SQL connections, trusted proxies
-- [Docker reference](/reference/docker-reference) - Container security hardening
+- [Docker reference](/deploy/docker-reference) - Container security hardening
 - [Validation and control flow](/workflow/validation) - Per-resource access control

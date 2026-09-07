@@ -57,10 +57,10 @@ export default defineConfig({
       { text: 'Start', link: '/start/' },
       { text: 'Agent', link: '/agent/' },
       { text: 'Workflow', link: '/workflow/' },
-      { text: 'Agencies', link: '/concepts/agency' },
-      { text: 'LLM server', link: '/deployment/llm-server' },
-      { text: 'Deploy', link: '/deployment/docker' },
-      { text: 'Registry', link: '/reference/cli/registry' },
+      { text: 'Agencies', link: '/agencies/' },
+      { text: 'LLM server', link: '/llm-server/' },
+      { text: 'Deploy', link: '/deploy/' },
+      { text: 'Registry', link: '/registry/' },
       {
         text: 'Reference',
         items: [
@@ -98,10 +98,10 @@ export default defineConfig({
           items: [
             { text: 'kdeps agent', link: '/agent/' },
             { text: 'kdeps workflow', link: '/workflow/' },
-            { text: 'kdeps agencies', link: '/concepts/agency' },
-            { text: 'kdeps LLM server', link: '/deployment/llm-server' },
-            { text: 'kdeps deploy', link: '/deployment/docker' },
-            { text: 'kdeps registry', link: '/reference/cli/registry' },
+            { text: 'kdeps agencies', link: '/agencies/' },
+            { text: 'kdeps LLM server', link: '/llm-server/' },
+            { text: 'kdeps deploy', link: '/deploy/' },
+            { text: 'kdeps registry', link: '/registry/' },
           ]
         },
       ],
@@ -147,10 +147,6 @@ export default defineConfig({
           items: [
             { text: 'CLI reference', link: '/reference/cli' },
             { text: 'Dev commands', link: '/reference/cli-dev' },
-            { text: 'Registry commands', link: '/reference/cli/registry' },
-            { text: 'Packaging commands', link: '/reference/cli/packaging' },
-            { text: 'LLM commands', link: '/reference/cli/llm' },
-            { text: 'Components reference', link: '/reference/components' },
             { text: 'Expression functions', link: '/reference/expression-functions' },
             { text: 'Expression operators', link: '/reference/expression-operators' },
             { text: 'Expression blocks', link: '/reference/expr-blocks' },
@@ -158,10 +154,6 @@ export default defineConfig({
             { text: 'Tools reference', link: '/reference/tools' },
             { text: 'Browser actions', link: '/reference/browser-actions' },
             { text: 'Management API', link: '/reference/management-api' },
-            { text: 'LLM providers', link: '/reference/llm-providers' },
-            { text: 'M365 Copilot', link: '/reference/llm-providers-m365' },
-            { text: 'Docker reference', link: '/reference/docker-reference' },
-            { text: 'Registry formula spec', link: '/reference/registry-formula-spec' },
             { text: 'Security', link: '/reference/security' },
             { text: 'Glossary', link: '/reference/glossary' },
           ]
@@ -282,35 +274,63 @@ export default defineConfig({
         },
       ],
 
-      '/': [
+      '/agencies/': [
         {
-          text: 'Not yet migrated',
+          text: 'kdeps agencies',
           items: [
-            { text: 'Agencies', link: '/concepts/agency' },
-            { text: 'Components', link: '/concepts/components' },
-            { text: 'Delegation resource', link: '/resources/delegation/' },
-            { text: 'Agent resource', link: '/resources/delegation/agent' },
-            { text: 'Component resource', link: '/resources/delegation/component' },
+            { text: 'Overview', link: '/agencies/' },
+            { text: 'Components', link: '/agencies/components' },
+            { text: 'Delegation', link: '/agencies/delegation' },
+            { text: 'agent resource', link: '/agencies/agent-resource' },
+            { text: 'component resource', link: '/agencies/component-resource' },
+            { text: 'Component reference', link: '/agencies/component-reference' },
           ]
         },
+      ],
+
+      '/llm-server/': [
         {
-          text: 'Deployment',
-          collapsed: false,
+          text: 'kdeps LLM server',
           items: [
-            { text: 'Deployment guide', link: '/guides/deployment-guide' },
-            { text: 'Docker', link: '/deployment/docker' },
-            { text: 'Kubernetes', link: '/deployment/kubernetes' },
-            { text: 'Web server mode', link: '/deployment/webserver' },
-            { text: 'Standalone binaries', link: '/deployment/prepackage' },
-            { text: 'LLM server appliance', link: '/deployment/llm-server' },
-            { text: 'TLS / HTTPS', link: '/deployment/tls-https' },
+            { text: 'Overview', link: '/llm-server/' },
+            { text: 'kdeps llm CLI', link: '/llm-server/cli' },
+            { text: 'Providers', link: '/llm-server/providers' },
+            { text: 'Backend config (in workflow)', link: '/workflow/resources/llm-backends' },
           ]
         },
+      ],
+
+      '/deploy/': [
         {
-          text: 'Tutorials',
-          collapsed: true,
+          text: 'kdeps deploy',
           items: [
-            { text: 'Examples overview', link: '/examples/' },
+            { text: 'Overview', link: '/deploy/' },
+            { text: 'Docker', link: '/deploy/docker' },
+            { text: 'Kubernetes', link: '/deploy/kubernetes' },
+            { text: 'Web server mode', link: '/deploy/webserver' },
+            { text: 'Standalone binaries', link: '/deploy/binaries' },
+            { text: 'TLS / HTTPS', link: '/deploy/tls-https' },
+            { text: 'kdeps bundle CLI', link: '/deploy/cli' },
+          ]
+        },
+      ],
+
+      '/registry/': [
+        {
+          text: 'kdeps registry',
+          items: [
+            { text: 'Overview', link: '/registry/' },
+            { text: 'kdeps registry CLI', link: '/registry/cli' },
+            { text: 'Formula spec', link: '/registry/formula-spec' },
+          ]
+        },
+      ],
+
+      '/examples/': [
+        {
+          text: 'Examples',
+          items: [
+            { text: 'Overview', link: '/examples/' },
             { text: 'Document summarizer', link: '/examples/file-processor' },
             { text: 'Batch processing', link: '/examples/batch-processing' },
             { text: 'Document search (RAG)', link: '/examples/rag-search' },
@@ -541,9 +561,26 @@ export default defineConfig({
       'resources/email': '/workflow/resources/email',
       'resources/telephony': '/workflow/resources/telephony',
       'resources/botreply': '/workflow/resources/bot-reply',
-      'resources/delegation': '/resources/delegation/',
-      'resources/agent': '/resources/delegation/agent',
-      'resources/component': '/resources/delegation/component',
+      'resources/delegation': '/agencies/delegation',
+      'resources/agent': '/agencies/agent-resource',
+      'resources/component': '/agencies/component-resource',
+      'concepts/agency': '/agencies/',
+      'concepts/components': '/agencies/components',
+      'reference/components': '/agencies/component-reference',
+      'deployment/llm-server': '/llm-server/',
+      'reference/cli/llm': '/llm-server/cli',
+      'reference/llm-providers': '/llm-server/providers',
+      'reference/llm-providers-m365': '/llm-server/m365',
+      'deployment/docker': '/deploy/docker',
+      'deployment/kubernetes': '/deploy/kubernetes',
+      'deployment/prepackage': '/deploy/binaries',
+      'deployment/tls-https': '/deploy/tls-https',
+      'deployment/webserver': '/deploy/webserver',
+      'guides/deployment-guide': '/deploy/',
+      'reference/docker-reference': '/deploy/docker-reference',
+      'reference/cli/packaging': '/deploy/cli',
+      'reference/cli/registry': '/registry/cli',
+      'reference/registry-formula-spec': '/registry/formula-spec',
     }
     for (const [from, to] of Object.entries(redirects)) {
       const file = join(siteConfig.outDir, from + '.html')

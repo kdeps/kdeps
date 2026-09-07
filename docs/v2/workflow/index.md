@@ -11,8 +11,8 @@ kdeps run ./my-agent/      # run once / serve on :3000
 
 **Not this?** For an autonomous agent that decides what to do next, use
 [kdeps agent](/agent/). To run several workflows/agents as one system,
-[kdeps agencies](/concepts/agency). To ship this pipeline as an appliance,
-[kdeps deploy](/deployment/docker).
+[kdeps agencies](/agencies/). To ship this pipeline as an appliance,
+[kdeps deploy](/deploy/docker).
 
 ---
 

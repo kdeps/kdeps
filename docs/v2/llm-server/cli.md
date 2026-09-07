@@ -2,7 +2,7 @@
 
 `kdeps llm` provisions **standalone LLM server appliances**. These are not agent packages - there is **no workflow path argument**.
 
-Architecture, stock recipes, and client wiring: [LLM server appliance](/deployment/llm-server).
+Architecture, stock recipes, and client wiring: [LLM server appliance](/llm-server/).
 
 ## Stock engines
 
@@ -168,6 +168,6 @@ kdeps llm export iso --engine ollama --model llama3.2 -o llm.iso
 
 ## See also
 
-- [LLM server appliance](/deployment/llm-server)
+- [LLM server appliance](/llm-server/)
 - [LLM backends](/workflow/resources/llm-backends)
-- [Packaging commands](/reference/cli/packaging) - agent bundle/export (different product surface)
+- [Packaging commands](/deploy/cli) - agent bundle/export (different product surface)

@@ -166,7 +166,7 @@ settings:
     portNum: 443
 ```
 
-Alternatively mount static secrets as `certFile` / `keyFile` (see [Docker reference](/reference/docker-reference)).
+Alternatively mount static secrets as `certFile` / `keyFile` (see [Docker reference](/deploy/docker-reference)).
 
 ## Kubernetes
 
@@ -222,6 +222,6 @@ The appliance recipes themselves do not embed ACME today.
 
 - [Security reference - TLS](/reference/security#tls)
 - [Workflow configuration](/workflow/configuration)
-- [Docker deployment](/deployment/docker)
-- [Kubernetes deployment](/deployment/kubernetes)
-- [Docker reference](/reference/docker-reference)
+- [Docker deployment](/deploy/docker)
+- [Kubernetes deployment](/deploy/kubernetes)
+- [Docker reference](/deploy/docker-reference)

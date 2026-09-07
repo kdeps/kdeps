@@ -92,7 +92,7 @@ settings:
   # letsEncrypt:
   #   domain: api.example.com
   #   email: ops@example.com
-  # See /deployment/tls-https
+  # See /deploy/tls-https
   apiServer:
     hostIp: "127.0.0.1"        # bind address (default: 127.0.0.1)
     portNum: 16395              # port (default: 16395)
@@ -130,7 +130,7 @@ settings:
     portNum: 443
 ```
 
-DNS must point at this host; open ports **80** and **443**. Full guide: [TLS and HTTPS](/deployment/tls-https). Static `certFile`/`keyFile` still take priority when both are set.
+DNS must point at this host; open ports **80** and **443**. Full guide: [TLS and HTTPS](/deploy/tls-https). Static `certFile`/`keyFile` still take priority when both are set.
 
 ## Web server
 
@@ -236,4 +236,4 @@ settings:
 
 - [Global config](/reference/advanced-config) - Backend, defaults, named connections, and agent profiles
 - [Resources overview](/workflow/resources) - Resource types and fields
-- [Agencies](/concepts/agency) - Multi-agent orchestration
+- [Agencies](/agencies/) - Multi-agent orchestration

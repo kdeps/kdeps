@@ -133,7 +133,7 @@ A collection of agents that work together. Each agent is its own `workflow.yaml`
 kdeps run agency.yaml
 ```
 
-Docs: [Workflow mode](https://kdeps.com/workflow/) · [Agent loop mode](https://kdeps.com/agent/) · [Agencies](https://kdeps.com/concepts/agency) · [Resources overview](https://kdeps.com/workflow/resources)
+Docs: [Workflow mode](https://kdeps.com/workflow/) · [Agent loop mode](https://kdeps.com/agent/) · [Agencies](https://kdeps.com/agencies/) · [Resources overview](https://kdeps.com/workflow/resources)
 
 ## Build and deploy
 
@@ -158,13 +158,13 @@ settings:
     portNum: 443
 ```
 
-Docs: [Deployment guide](https://kdeps.com/guides/deployment-guide) · [TLS and HTTPS](https://kdeps.com/deployment/tls-https)
+Docs: [Deployment guide](https://kdeps.com/deploy/) · [TLS and HTTPS](https://kdeps.com/deploy/tls-https)
 
 ## Reference
 
 - **Registry** - `kdeps registry search|install|submit` for pre-built components. [kdeps.io](https://kdeps.io)
 - **Agent skill** - `npx skills add https://github.com/kdeps/skill --skill kdeps` teaches Claude Code, Cursor, and other agents to scaffold kdeps projects. [Docs](https://kdeps.com/agent/ai-assisted-authoring)
-- **LLM server appliance** - `kdeps llm wizard` builds a standalone OpenAI-compatible inference server (`ollama`, `llamafile`, `gguf`, `vllm`, `tgi`, `sglang`, and more), no workflow path required. [Docs](https://kdeps.com/deployment/llm-server) · [Commands](https://kdeps.com/reference/cli/llm)
+- **LLM server appliance** - `kdeps llm wizard` builds a standalone OpenAI-compatible inference server (`ollama`, `llamafile`, `gguf`, `vllm`, `tgi`, `sglang`, and more), no workflow path required. [Docs](https://kdeps.com/llm-server/) · [Commands](https://kdeps.com/llm-server/cli)
 - **Global config** - machine-local settings (LLM backend, API keys, SQL/SMTP/IMAP connections) live in `~/.kdeps/config.yaml`, never in `workflow.yaml`. `kdeps edit` to open it, `kdeps doctor` to check it. [Docs](https://kdeps.com/reference/advanced-config)
 - **Security** - when `apiServer` is set, requests require a bearer token (`KDEPS_API_AUTH_TOKEN`) and pass through rate-limit, body-size, and concurrency caps before reaching the DAG. [Docs](https://kdeps.com/reference/security)
 - **Logging** - structured JSON via `log/slog`. `KDEPS_LOG_FORMAT=json` for production; default level WARN; `--verbose` (INFO), `--debug` (DEBUG).

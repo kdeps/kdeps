@@ -173,11 +173,11 @@ Manifests are driven by `agentSettings` in `workflow.yaml`:
 - `portNum` inside `apiServer:`/`webServer:` - exposed ports
 - `installOllama: true` - adds Ollama backend port (11434)
 
-See [Kubernetes deployment](/deployment/kubernetes) for full details.
+See [Kubernetes deployment](/deploy/kubernetes) for full details.
 
 ## See also
 
 - [CLI overview](/reference/cli) - global flags, exit codes, env vars
 - [Dev commands](/reference/cli-dev) - run, serve, validate, new
-- [Docker deployment](/deployment/docker)
-- [Kubernetes deployment](/deployment/kubernetes)
+- [Docker deployment](/deploy/docker)
+- [Kubernetes deployment](/deploy/kubernetes)

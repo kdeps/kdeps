@@ -67,6 +67,6 @@ The skill teaches agents how to write YAML that installs from
 ## See also
 
 - [Registry](https://kdeps.io) - browse and install community packages
-- [Components](/concepts/components) - reusable resource bundles
-- [Agencies](/concepts/agency) - multi-agent orchestration
+- [Components](/agencies/components) - reusable resource bundles
+- [Agencies](/agencies/) - multi-agent orchestration
 - [Skill repository](https://github.com/kdeps/skill) - source and test fixtures

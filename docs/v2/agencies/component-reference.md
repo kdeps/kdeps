@@ -1,6 +1,6 @@
 # Components reference
 
-Full schema, lifecycle, and packaging reference for kdeps components. For an introduction, see [Components](/concepts/components).
+Full schema, lifecycle, and packaging reference for kdeps components. For an introduction, see [Components](/agencies/components).
 
 *Applies to both workflow mode and agent mode.*
 
@@ -422,7 +422,7 @@ component:
 
 ## See also
 
-- [Components overview](/concepts/components) - what components are and when to use them
-- [Agencies](/concepts/agency) - agent-to-agent call pattern
+- [Components overview](/agencies/components) - what components are and when to use them
+- [Agencies](/agencies/) - agent-to-agent call pattern
 - [Expression functions reference](/reference/expression-functions) - `output()`, `get()`, `env()`
-- [CLI: registry commands](/reference/cli/registry) - install, list, uninstall components
+- [CLI: registry commands](/registry/cli) - install, list, uninstall components

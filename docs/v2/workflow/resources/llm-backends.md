@@ -196,7 +196,7 @@ See [Routing](/workflow/resources/llm-routing) for every strategy's config shape
 
 ## Supported backends
 
-kdeps supports local backends (Llamafile, GGUF/llama.cpp, Ollama) and any OpenAI-compatible API: OpenAI, Anthropic, Google, Mistral, Groq, Together AI, Perplexity, Cohere, DeepSeek, xAI (Grok), OpenRouter, AWS Bedrock, IBM WatsonX, M365 Copilot, and self-hosted solutions (vLLM, TGI, LocalAI, LlamaCpp). See [LLM Provider Reference](/reference/llm-providers) for per-provider config snippets and available model names.
+kdeps supports local backends (Llamafile, GGUF/llama.cpp, Ollama) and any OpenAI-compatible API: OpenAI, Anthropic, Google, Mistral, Groq, Together AI, Perplexity, Cohere, DeepSeek, xAI (Grok), OpenRouter, AWS Bedrock, IBM WatsonX, M365 Copilot, and self-hosted solutions (vLLM, TGI, LocalAI, LlamaCpp). See [LLM Provider Reference](/llm-server/providers) for per-provider config snippets and available model names.
 
 ## Vertex AI (google cloud)
 
@@ -401,12 +401,12 @@ llm:
   base_url: http://192.168.1.50:8000/v1
 ```
 
-See [LLM server appliance](/deployment/llm-server) and [LLM commands](/reference/cli/llm).
+See [LLM server appliance](/llm-server/) and [LLM commands](/llm-server/cli).
 
 ## See also
 
-- [LLM provider reference](/reference/llm-providers) - Per-provider config snippets and model names
+- [LLM provider reference](/llm-server/providers) - Per-provider config snippets and model names
 - [LLM resource](/workflow/resources/llm) - Complete LLM resource documentation
 - [Tools](/workflow/tools) - LLM function calling
-- [Docker deployment](/deployment/docker) - Deploying with local models
+- [Docker deployment](/deploy/docker) - Deploying with local models
 

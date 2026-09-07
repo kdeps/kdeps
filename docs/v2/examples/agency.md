@@ -10,7 +10,7 @@ is its own `workflow.yaml`; an `agency.yaml` manifest ties them together.
 
 This tutorial is for developers who have completed the
 [quickstart](/workflow/quickstart) and read
-[AI agencies](/concepts/agency). It assumes you know:
+[AI agencies](/agencies/). It assumes you know:
 
 - Basic YAML
 - How a single kdeps workflow runs
@@ -176,7 +176,7 @@ You built an agency that:
 
 ## Next steps
 
-- [AI agencies](/concepts/agency) - discovery, packaging, `.kagency`
-- [Agent resource](/resources/delegation/agent) - the `agent:` reference
-- [Packaging commands](/reference/cli/packaging) - `.kdeps` and `.kagency`
-- [Docker deployment](/deployment/docker) - ship the agency as an image
+- [AI agencies](/agencies/) - discovery, packaging, `.kagency`
+- [Agent resource](/agencies/agent-resource) - the `agent:` reference
+- [Packaging commands](/deploy/cli) - `.kdeps` and `.kagency`
+- [Docker deployment](/deploy/docker) - ship the agency as an image

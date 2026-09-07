@@ -225,7 +225,7 @@ Also requires `WATSONX_PROJECT_ID` as an environment variable (no `config.yaml` 
 
 Talks to Microsoft 365 Copilot's chat service through a local OpenAI-compatible server kdeps runs in front of it (`m365` backend) - no API key, authentication is a signed-in Microsoft 365 account via a browser sign-in flow (interactive) or a scripted `secrets.json` (headless/CI).
 
-See [M365 Copilot](/reference/llm-providers-m365) for the full setup: sign-in flows, Linux dependencies, headless fallback, and the model list.
+See [M365 Copilot](/llm-server/m365) for the full setup: sign-in flows, Linux dependencies, headless fallback, and the model list.
 
 ## Self-hosted solutions
 

@@ -401,4 +401,4 @@ Identity is `name`/`email`/`address` (attribution - who the agent is) plus `acco
 - [Workflow configuration](/workflow/configuration) - Basic workflow configuration
 - [Session & storage](/workflow/sessions) - Session persistence
 - [CORS](/workflow/cors) - Cross-origin configuration
-- [Docker deployment](/deployment/docker) - Deployment options
+- [Docker deployment](/deploy/docker) - Deployment options

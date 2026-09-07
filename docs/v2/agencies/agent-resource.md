@@ -1,10 +1,10 @@
 # Agent resource (delegation)
 
-The `agent:` resource calls a sibling agent's entire workflow within the same [agency](/concepts/agency) and returns that agent's `apiResponse` output. It is how one agent delegates a subtask to another specialized agent.
+The `agent:` resource calls a sibling agent's entire workflow within the same [agency](/agencies/) and returns that agent's `apiResponse` output. It is how one agent delegates a subtask to another specialized agent.
 
 ## Where it runs
 
-Both [workflow mode](/workflow/) and [agent mode](/agent/). Only valid between agents bundled in the same `agency.yaml` - see [Agencies](/concepts/agency) for how agents are grouped and discover each other.
+Both [workflow mode](/workflow/) and [agent mode](/agent/). Only valid between agents bundled in the same `agency.yaml` - see [Agencies](/agencies/) for how agents are grouped and discover each other.
 
 ## Basic usage
 
@@ -42,6 +42,6 @@ The target agent's own `apiResponse` output, unchanged - whatever shape that age
 
 ## See also
 
-- [Agencies](/concepts/agency) - multi-agent orchestration, how agents are bundled and named
-- [Component resource](/resources/delegation/component) - call a reusable resource bundle instead of a full sibling agent
+- [Agencies](/agencies/) - multi-agent orchestration, how agents are bundled and named
+- [Component resource](/agencies/component-resource) - call a reusable resource bundle instead of a full sibling agent
 - [Resources overview](/workflow/resources) - all resource types

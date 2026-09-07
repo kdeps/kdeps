@@ -276,4 +276,4 @@ For multiple containers sharing sessions:
 
 - [Workflow configuration](/workflow/configuration) - Full settings reference
 - [Data access](/workflow/data-access) - get() and set() usage
-- [Docker deployment](../deployment/docker.md) - Production setup
+- [Docker deployment](../deploy/docker) - Production setup

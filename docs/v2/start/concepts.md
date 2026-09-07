@@ -20,8 +20,8 @@ then reach for the rest as you need them.
 |---|---|---|
 | [Workflow mode](/workflow/) | A DAG of resources that runs in dependency order and returns a response | Workflow |
 | [Agent mode](/agent/) | An LLM that calls workflows, components, and built-in tools to finish a task | Agent |
-| [Agencies](/concepts/agency) | Several agents bundled under one `agency.yaml`, calling each other with `agent:` | Both |
-| [Components](/concepts/components) | Reusable resource bundles you install or build, invoked with `component:` | Both |
+| [Agencies](/agencies/) | Several agents bundled under one `agency.yaml`, calling each other with `agent:` | Both |
+| [Components](/agencies/components) | Reusable resource bundles you install or build, invoked with `component:` | Both |
 
 ## Wiring data between steps
 

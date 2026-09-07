@@ -60,9 +60,9 @@ Yes, via [agencies](/reference/glossary#agency). Use the `agent:` action type to
 
 ## Can I deploy kdeps as an API server?
 
-Yes. `kdeps run workflow.yaml` starts the HTTP API in workflow mode. `kdeps ./my-agent/` starts the interactive REPL in agent mode - it is not an HTTP server. See [Web server mode](/deployment/webserver).
+Yes. `kdeps run workflow.yaml` starts the HTTP API in workflow mode. `kdeps ./my-agent/` starts the interactive REPL in agent mode - it is not an HTTP server. See [Web server mode](/deploy/webserver).
 
-For production, use the [Docker](/deployment/docker) or [Kubernetes](/deployment/kubernetes) deployment options.
+For production, use the [Docker](/deploy/docker) or [Kubernetes](/deploy/kubernetes) deployment options.
 
 ## How do I handle secrets and API keys?
 
