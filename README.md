@@ -15,13 +15,14 @@
 
 **AI Appliance Builder** - AI agents and workflows defined in YAML, shipped as appliances.
 
-kdeps works at three levels:
+One YAML file replaces a Python script wiring together an LLM SDK, a web server, retry logic, and a Dockerfile. kdeps is a small number of bounded pieces - pick the one you need:
 
-- **Local agent** - run `kdeps` and you are in an autonomous AI REPL: tool use, memory, fully offline against a local model. No config, no API key.
-- **Workflow** - define what the agent does in one `workflow.yaml` and run it as an HTTP API, a bot, or a file processor. Same file, laptop or server.
-- **Appliance** - ship that file unchanged as a Docker image, Kubernetes manifests, a bootable ISO, or a single binary.
-
-One YAML file replaces a Python script wiring together an LLM SDK, a web server, retry logic, and a Dockerfile.
+- **[kdeps agent](https://kdeps.com/agent/)** - run `kdeps` and you are in an autonomous AI REPL: tool use, memory, fully offline against a local model. No config, no API key.
+- **[kdeps workflow](https://kdeps.com/workflow/)** - define what the agent does in one `workflow.yaml` and run it as an HTTP API, a bot, or a file processor. Same file, laptop or server.
+- **[kdeps agencies](https://kdeps.com/agencies/)** - coordinate several specialized agents as one system, delegating work through the `agent:` resource.
+- **[kdeps LLM server](https://kdeps.com/llm-server/)** - provision a standalone OpenAI-compatible inference appliance, no workflow path required.
+- **[kdeps deploy](https://kdeps.com/deploy/)** - ship a workflow unchanged as a Docker image, Kubernetes manifests, a bootable ISO, or a single binary.
+- **[kdeps registry](https://kdeps.com/registry/)** - find, install, and publish shared agents and components.
 
 ## Quickstart
 
@@ -99,7 +100,7 @@ brew install kdeps/tap/kdeps
 
 ## How it works
 
-Whichever level you use, a workflow runs in one of two execution modes - and an agency bundles several workflows into one system.
+Whichever piece you use, a workflow runs in one of two execution modes - and an agency bundles several workflows into one system.
 
 ### Workflow mode
 
