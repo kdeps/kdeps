@@ -109,7 +109,7 @@ Concretely: log-file analysis, automated code reviews, JIRA ticket creation from
 
 ## The name
 
-kdeps is short for **knowledge dependencies**. It grew out of earlier work on Kartographer, a small graph library for organizing and interacting with information: knowledge - from a model, a machine, or a person - can be represented and orchestrated as a graph. A kdeps workflow is exactly that, a dependency graph of resources, run in order.
+kdeps is short for **knowledge dependencies**. It grew out of earlier work on [Kartographer](https://github.com/kdeps/kartographer), a graph library for resolving dependent nodes: knowledge - from a model, a machine, or a person - can be represented and orchestrated as a graph. A kdeps workflow is exactly that, a dependency graph of resources, run in order.
 
 
 ## See also
