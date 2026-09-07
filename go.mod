@@ -21,7 +21,7 @@ require (
 	github.com/emersion/go-imap/v2 v2.0.0-beta.8
 	github.com/expr-lang/expr v1.17.8
 	github.com/fsnotify/fsnotify v1.10.1
-	github.com/go-sql-driver/mysql v1.10.0
+	github.com/go-sql-driver/mysql v1.10.1
 	github.com/go-telegram/bot v1.24.0
 	github.com/google/uuid v1.6.0
 	github.com/gorilla/websocket v1.5.3
