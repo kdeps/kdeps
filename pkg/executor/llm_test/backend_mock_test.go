@@ -351,7 +351,6 @@ func TestConvertOpenAIResponse_EmptyChoices(t *testing.T) {
 
 	parsed, err := backend.ParseResponse(resp)
 	require.NoError(t, err)
-	// Should not have message when choices is empty
 	_, hasMessage := parsed["message"]
 	assert.False(t, hasMessage)
 }
@@ -375,7 +374,6 @@ func TestConvertOpenAIResponse_InvalidChoice(t *testing.T) {
 
 	parsed, err := backend.ParseResponse(resp)
 	require.NoError(t, err)
-	// Should handle invalid choice gracefully
 	_, hasMessage := parsed["message"]
 	assert.False(t, hasMessage)
 }

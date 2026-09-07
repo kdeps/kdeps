@@ -192,7 +192,33 @@ func parseOpenAICompatHTTPResponse(
 		return nil, err
 	}
 
-	return convertOpenAICompatResponse(response), nil
+	return ensureMessageResult(convertOpenAICompatResponse(response), response, apiName)
+}
+
+// ensureMessageResult turns a 200 response whose body is actually an API error
+// payload ({"error":{"message":...}}) into a real error, surfacing that text.
+// Without this a 200 error body flows downstream as a message-less map and
+// blows up later template evaluation with a cryptic "<nil>"
+// (get('chat').message.content). A merely unparseable/empty body is left as-is
+// (the pre-existing behaviour) - real backends do not send those.
+func ensureMessageResult(
+	result, raw map[string]interface{}, apiName string,
+) (map[string]interface{}, error) {
+	if _, ok := result[jsonFieldMessage]; ok {
+		return result, nil
+	}
+	switch e := raw["error"].(type) {
+	case map[string]interface{}:
+		if msg, _ := e["message"].(string); msg != "" {
+			return nil, fmt.Errorf("%s returned an error: %s", apiName, msg)
+		}
+		return nil, fmt.Errorf("%s returned an error: %v", apiName, e)
+	case string:
+		if e != "" {
+			return nil, fmt.Errorf("%s returned an error: %s", apiName, e)
+		}
+	}
+	return result, nil
 }
 
 // parseLocalServerResponse decodes a local model server HTTP response.
@@ -207,7 +233,7 @@ func parseLocalServerResponse(resp *stdhttp.Response, serverLabel string) (map[s
 	if err := json.NewDecoder(resp.Body).Decode(&response); err != nil {
 		return nil, fmt.Errorf("failed to decode %s response: %w", serverLabel, err)
 	}
-	return convertOpenAICompatResponse(response), nil
+	return ensureMessageResult(convertOpenAICompatResponse(response), response, serverLabel)
 }
 
 // resolveAPIKey returns apiKey or falls back to the named environment variable.

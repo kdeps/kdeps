@@ -173,6 +173,16 @@ func (e *Executor) formatExecuteResult(
 	config *domain.ChatConfig,
 	maxOutputBytes int64,
 ) (any, error) {
+	// callBackendWithFallback turns a failed call (HTTP error, CORS, timeout,
+	// no usable message) into {error: ...}. Returning that object as a
+	// successful result means downstream get('chat').message.content resolves
+	// to <nil> with a cryptic message. Fail the resource with the real cause.
+	if errMsg, ok := response[fieldError].(string); ok && errMsg != "" {
+		if _, hasMsg := response[jsonFieldMessage]; !hasMsg {
+			return nil, fmt.Errorf("LLM call failed: %s", errMsg)
+		}
+	}
+
 	if maxOutputBytes > 0 {
 		if capErr := capLLMResponseContent(response, maxOutputBytes); capErr != nil {
 			return nil, capErr

@@ -175,6 +175,21 @@ func TestFileBackend_ParseResponse_EmptyChoices(t *testing.T) {
 	}
 }
 
+// A 200 body that is actually an API error payload surfaces as an error, not a
+// message-less result that blows up later as get('chat').message.content.
+func TestFileBackend_ParseResponse_APIError(t *testing.T) {
+	b := newFileBackend()
+	body := `{"error":{"message":"invalid api key"}}`
+	resp := &http.Response{
+		StatusCode: http.StatusOK,
+		Body:       io.NopCloser(strings.NewReader(body)),
+	}
+	_, err := b.ParseResponse(resp)
+	if err == nil || !strings.Contains(err.Error(), "invalid api key") {
+		t.Errorf("expected the API error text surfaced, got: %v", err)
+	}
+}
+
 // --- IsRemoteModel -----------------------------------------------------------
 
 func TestIsRemoteModel_HTTP(t *testing.T) {

@@ -22,6 +22,26 @@ func TestOpenAICompatBackend_Accessors(t *testing.T) {
 	assert.Equal(t, "TEST_API_KEY", b.APIKeyEnvVar())
 }
 
+func TestOpenAICompatChatEndpoint_NoDoubling(t *testing.T) {
+	t.Parallel()
+	cases := []struct{ fmtStr, base, want string }{
+		{"%s/v1/chat/completions", "https://api.openai.com", "https://api.openai.com/v1/chat/completions"},
+		{"%s/v1/chat/completions", "http://localhost:11435/v1", "http://localhost:11435/v1/chat/completions"},
+		{"%s/v1/chat/completions", "http://localhost:11435/v1/", "http://localhost:11435/v1/chat/completions"},
+		{"%s/v1/chat/completions", "http://x/v1/chat/completions", "http://x/v1/chat/completions"},
+		{"%s/openai/v1/chat/completions", "https://api.groq.com", "https://api.groq.com/openai/v1/chat/completions"},
+		{
+			"%s/openai/v1/chat/completions",
+			"https://api.groq.com/openai/v1",
+			"https://api.groq.com/openai/v1/chat/completions",
+		},
+		{"%s/chat/completions", "https://api.perplexity.ai", "https://api.perplexity.ai/chat/completions"},
+	}
+	for _, c := range cases {
+		assert.Equal(t, c.want, openAICompatChatEndpoint(c.fmtStr, c.base), c.base)
+	}
+}
+
 func TestOpenAICompatBackend_GetAPIKeyHeader(t *testing.T) {
 	t.Parallel()
 	b := newOpenAICompatBackend(openAICompatBackendConfig{

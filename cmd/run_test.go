@@ -1464,11 +1464,16 @@ chat:
 	// We expect this to fail because Ollama connection/execution fails,
 	// but the important thing is that the code paths were exercised
 	if err != nil {
-		// The error should be related to LLM execution or Ollama setup
+		// The error should be related to LLM execution or Ollama setup - at
+		// startup, or as the chat call failing to reach a server.
+		msg := err.Error()
 		assert.True(t,
-			strings.Contains(err.Error(), "LLM executor not available") ||
-				strings.Contains(err.Error(), "ollama not found") ||
-				strings.Contains(err.Error(), "failed to start ollama"),
+			strings.Contains(msg, "LLM executor not available") ||
+				strings.Contains(msg, "ollama not found") ||
+				strings.Contains(msg, "failed to start ollama") ||
+				strings.Contains(msg, "LLM call failed") ||
+				strings.Contains(msg, "connection refused") ||
+				strings.Contains(msg, "request failed"),
 			"Error should be related to Ollama setup or LLM execution: %v", err)
 	}
 }
@@ -1848,9 +1853,13 @@ chat:
 
 	// We expect failure due to LLM execution, but the setup should have been exercised
 	if err != nil {
+		msg := err.Error()
 		assert.True(t,
-			strings.Contains(err.Error(), "LLM executor not available") ||
-				strings.Contains(err.Error(), "failed to start ollama"),
+			strings.Contains(msg, "LLM executor not available") ||
+				strings.Contains(msg, "failed to start ollama") ||
+				strings.Contains(msg, "LLM call failed") ||
+				strings.Contains(msg, "connection refused") ||
+				strings.Contains(msg, "request failed"),
 			"Expected LLM error: %v", err)
 	}
 }
@@ -1905,11 +1914,16 @@ chat:
 	// But the code path to startOllamaServer will be exercised
 	err = cmd.ExecuteWorkflowStepsWithFlags(&cobra.Command{}, workflowPath, &cmd.RunFlags{})
 	if err != nil {
-		// The error should be related to LLM execution or Ollama setup
+		// The error should be related to LLM execution or Ollama setup - at
+		// startup, or as the chat call failing to reach a server.
+		msg := err.Error()
 		assert.True(t,
-			strings.Contains(err.Error(), "LLM executor not available") ||
-				strings.Contains(err.Error(), "ollama not found") ||
-				strings.Contains(err.Error(), "failed to start ollama"),
+			strings.Contains(msg, "LLM executor not available") ||
+				strings.Contains(msg, "ollama not found") ||
+				strings.Contains(msg, "failed to start ollama") ||
+				strings.Contains(msg, "LLM call failed") ||
+				strings.Contains(msg, "connection refused") ||
+				strings.Contains(msg, "request failed"),
 			"Error should be related to Ollama setup or LLM execution: %v", err)
 	}
 }
@@ -1960,12 +1974,17 @@ chat:
 	// Execute workflow - this should trigger waitForOllamaReady with timeout
 	err = cmd.ExecuteWorkflowStepsWithFlags(&cobra.Command{}, workflowPath, &cmd.RunFlags{})
 	if err != nil {
-		// Should eventually fail with timeout or connection error
+		// Should eventually fail with a timeout / connection / setup error.
+		// "request failed" is the kdeps wrapper for any failed outbound call
+		// (covers the Windows "actively refused" socket wording too).
+		msg := err.Error()
 		assert.True(t,
-			strings.Contains(err.Error(), "timeout") ||
-				strings.Contains(err.Error(), "connection refused") ||
-				strings.Contains(err.Error(), "LLM executor not available") ||
-				strings.Contains(err.Error(), "ollama not found"),
+			strings.Contains(msg, "timeout") ||
+				strings.Contains(msg, "connection refused") ||
+				strings.Contains(msg, "LLM executor not available") ||
+				strings.Contains(msg, "ollama not found") ||
+				strings.Contains(msg, "LLM call failed") ||
+				strings.Contains(msg, "request failed"),
 			"Error should indicate timeout or connection issue: %v", err)
 	}
 }
@@ -2024,11 +2043,15 @@ chat:
 	if err != nil {
 		// The workflow execution should have exercised the Ollama server functions
 		// even though it ultimately fails due to missing Ollama in test environment
+		msg := err.Error()
 		assert.True(t,
-			strings.Contains(err.Error(), "LLM executor not available") ||
-				strings.Contains(err.Error(), "ollama not found") ||
-				strings.Contains(err.Error(), "failed to start ollama") ||
-				strings.Contains(err.Error(), "timeout"),
+			strings.Contains(msg, "LLM executor not available") ||
+				strings.Contains(msg, "ollama not found") ||
+				strings.Contains(msg, "failed to start ollama") ||
+				strings.Contains(msg, "timeout") ||
+				strings.Contains(msg, "LLM call failed") ||
+				strings.Contains(msg, "connection refused") ||
+				strings.Contains(msg, "request failed"),
 			"Error should indicate Ollama-related failure: %v", err)
 	}
 }
@@ -2080,11 +2103,16 @@ chat:
 	// But the code path to startOllamaServer will be exercised
 	err = cmd.ExecuteWorkflowStepsWithFlags(&cobra.Command{}, workflowPath, &cmd.RunFlags{})
 	if err != nil {
-		// The error should be related to LLM execution or Ollama setup
+		// The error should be related to LLM execution or Ollama setup - at
+		// startup, or as the chat call failing to reach a server.
+		msg := err.Error()
 		assert.True(t,
-			strings.Contains(err.Error(), "LLM executor not available") ||
-				strings.Contains(err.Error(), "ollama not found") ||
-				strings.Contains(err.Error(), "failed to start ollama"),
+			strings.Contains(msg, "LLM executor not available") ||
+				strings.Contains(msg, "ollama not found") ||
+				strings.Contains(msg, "failed to start ollama") ||
+				strings.Contains(msg, "LLM call failed") ||
+				strings.Contains(msg, "connection refused") ||
+				strings.Contains(msg, "request failed"),
 			"Error should be related to Ollama setup or LLM execution: %v", err)
 	}
 }
@@ -2138,12 +2166,18 @@ chat:
 	// Execute workflow - this will exercise startOllamaServer through ensureOllamaRunning
 	err = cmd.ExecuteWorkflowStepsWithFlags(&cobra.Command{}, workflowPath, &cmd.RunFlags{})
 
-	// Should fail because ollama is not available in test environment
+	// Should fail because ollama is not available in test environment. The
+	// failure can surface at startup (ollama not found / failed to start) or,
+	// if startup is skipped, as the chat call failing to reach the server.
 	if err != nil {
+		msg := err.Error()
 		assert.True(t,
-			strings.Contains(err.Error(), "ollama not found") ||
-				strings.Contains(err.Error(), "failed to start ollama") ||
-				strings.Contains(err.Error(), "LLM executor not available"),
+			strings.Contains(msg, "ollama not found") ||
+				strings.Contains(msg, "failed to start ollama") ||
+				strings.Contains(msg, "LLM executor not available") ||
+				strings.Contains(msg, "LLM call failed") ||
+				strings.Contains(msg, "connection refused") ||
+				strings.Contains(msg, "request failed"),
 			"Expected error related to missing ollama: %v", err)
 	}
 }
@@ -2195,11 +2229,14 @@ chat:
 
 	// Should fail due to timeout waiting for Ollama
 	if err != nil {
+		msg := err.Error()
 		assert.True(t,
-			strings.Contains(err.Error(), "timeout") ||
-				strings.Contains(err.Error(), "connection refused") ||
-				strings.Contains(err.Error(), "LLM executor not available") ||
-				strings.Contains(err.Error(), "failed to start ollama"),
+			strings.Contains(msg, "timeout") ||
+				strings.Contains(msg, "connection refused") ||
+				strings.Contains(msg, "LLM executor not available") ||
+				strings.Contains(msg, "failed to start ollama") ||
+				strings.Contains(msg, "LLM call failed") ||
+				strings.Contains(msg, "request failed"),
 			"Expected timeout or connection error: %v", err)
 	}
 }
@@ -2250,12 +2287,17 @@ chat:
 	// Execute workflow - this should trigger waitForOllamaReady with timeout
 	err = cmd.ExecuteWorkflowStepsWithFlags(&cobra.Command{}, workflowPath, &cmd.RunFlags{})
 	if err != nil {
-		// Should eventually fail with timeout or connection error
+		// Should eventually fail with a timeout / connection / setup error.
+		// "request failed" is the kdeps wrapper for any failed outbound call
+		// (covers the Windows "actively refused" socket wording too).
+		msg := err.Error()
 		assert.True(t,
-			strings.Contains(err.Error(), "timeout") ||
-				strings.Contains(err.Error(), "connection refused") ||
-				strings.Contains(err.Error(), "LLM executor not available") ||
-				strings.Contains(err.Error(), "ollama not found"),
+			strings.Contains(msg, "timeout") ||
+				strings.Contains(msg, "connection refused") ||
+				strings.Contains(msg, "LLM executor not available") ||
+				strings.Contains(msg, "ollama not found") ||
+				strings.Contains(msg, "LLM call failed") ||
+				strings.Contains(msg, "request failed"),
 			"Error should indicate timeout or connection issue: %v", err)
 	}
 }

@@ -283,13 +283,11 @@ func TestExecutor_Execute_OllamaError(t *testing.T) {
 		BaseURL: server.URL,
 	}
 
-	result, err := llmExecutor.Execute(ctx, config)
-	require.NoError(t, err) // Executor returns API errors as result data
-
-	resultMap, ok := result.(map[string]interface{})
-	require.True(t, ok)
-	assert.Contains(t, resultMap, "error")
-	assert.Contains(t, resultMap["error"].(string), "ollama API error")
+	_, err = llmExecutor.Execute(ctx, config)
+	// A failed call is a resource error now, not silent {error:...} result data
+	// that later blows up as get('chat').message.content -> <nil>.
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "ollama API error")
 }
 
 func TestExecutor_Execute_Timeout(t *testing.T) {
@@ -313,12 +311,8 @@ func TestExecutor_Execute_Timeout(t *testing.T) {
 		BaseURL: server.URL,
 	}
 
-	result, err := llmExecutor.Execute(ctx, config)
-	require.NoError(t, err) // Executor handles timeout gracefully
-
-	resultMap, ok := result.(map[string]interface{})
-	require.True(t, ok)
-	assert.Contains(t, resultMap, "error")
+	_, err = llmExecutor.Execute(ctx, config)
+	require.Error(t, err) // a timed-out call fails the resource
 }
 
 func TestExecutor_Execute_ExpressionEvaluation(t *testing.T) {
@@ -506,19 +500,25 @@ func TestExecutor_Execute_MissingModel(t *testing.T) {
 
 func TestExecutor_Execute_MissingPrompt(t *testing.T) {
 	t.Setenv("KDEPS_DEFAULT_BACKEND", "ollama")
-	llmExecutor := llm.NewExecutor("http://localhost:11434")
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.Write([]byte(`{"message":{"role":"assistant","content":"ok"}}`))
+	}))
+	defer server.Close()
+
+	llmExecutor := llm.NewExecutor(server.URL)
 	ctx, err := executor.NewExecutionContext(
 		&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}},
 	)
 	require.NoError(t, err)
 
 	config := &domain.ChatConfig{
-		Model: "llama3.2:1b",
-		// Missing prompt
+		Model:   "llama3.2:1b",
+		BaseURL: server.URL,
+		// Missing prompt - an empty prompt still produces a valid message.
 	}
 
 	_, err = llmExecutor.Execute(ctx, config)
-	// Empty prompt should work (creates message with empty content)
 	assert.NoError(t, err)
 }
 
@@ -894,10 +894,7 @@ func TestExecutor_Execute_Streaming_ErrorStatus(t *testing.T) {
 		Streaming: true,
 	}
 
-	result, err := llmExecutor.Execute(ctx, config)
-	require.NoError(t, err) // Executor returns errors as result data
-
-	resultMap, ok := result.(map[string]interface{})
-	require.True(t, ok)
-	assert.Contains(t, resultMap, "error")
+	_, err = llmExecutor.Execute(ctx, config)
+	require.Error(t, err) // a failed streaming call fails the resource
+	assert.Contains(t, err.Error(), "error")
 }
