@@ -50,6 +50,7 @@ kdeps run workflow.yaml
 | `kdeps export iso` | [Packaging commands](/reference/cli/packaging#kdeps-export-iso) | Export bootable image |
 | `kdeps export k8s` | [Packaging commands](/reference/cli/packaging#kdeps-export-k8s) | Generate Kubernetes manifests |
 | `kdeps llm` | [LLM commands](/reference/cli/llm) | LLM server appliances |
+| `kdeps m365 proxy` | [M365 Copilot](/reference/llm-providers-m365#standalone-proxy) | Serve M365 Copilot as a local OpenAI-compatible endpoint |
 
 ## Command workflow
 

@@ -610,6 +610,12 @@ apiResponse:
     parsed: get('llmResource').answer            # if jsonResponse: true with key "answer"
 ```
 
+A failed call fails the resource. If the backend returns an HTTP error, times
+out, or is unreachable, the resource errors with `LLM call failed: <cause>` (the
+provider's own error text when it sends one) - it never yields an empty result,
+so `get('llmResource').message.content` never resolves to `<nil>`. Use `onError:`
+to retry or substitute a fallback.
+
 ## See also
 
 - [LLM backends](/resources/llm/backends) - Configure model, backend, API keys, and routing
