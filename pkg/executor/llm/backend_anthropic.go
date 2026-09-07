@@ -76,7 +76,7 @@ func (b *AnthropicBackend) ParseResponse(resp *stdhttp.Response) (map[string]int
 	if err != nil {
 		return nil, err
 	}
-	return convertAnthropicResponse(response), nil
+	return ensureMessageResult(convertAnthropicResponse(response), response, backendAnthropic)
 }
 
 func (b *AnthropicBackend) GetAPIKeyHeader(apiKey string) (string, string) {

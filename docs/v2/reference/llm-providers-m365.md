@@ -101,6 +101,20 @@ OpenAI-compatible response for direct API use.
 | `claude-opus` | Claude Opus via M365 |
 | `gpt-5.5`, `gpt-5.4`, `gpt-5.3`, `gpt-5.2` | GPT-5.x family, `-quick`/`-think-deeper` variants |
 
+## Standalone proxy
+
+`kdeps m365 proxy` runs the OpenAI-compatible server on a fixed port with CORS
+open, so any OpenAI client (Cursor, LiteLLM, curl, another kdeps host) can call
+it:
+
+```bash
+kdeps m365 proxy               # http://127.0.0.1:11435/v1
+kdeps m365 proxy --port 8080 --host 0.0.0.0
+```
+
+The first request opens a browser to sign in (or pre-seed
+`~/.config/kdeps/m365/secrets.json`). Point the client at `http://<host>:<port>/v1`.
+
 ## See also
 
 - [LLM provider reference](/reference/llm-providers) - all other backends
