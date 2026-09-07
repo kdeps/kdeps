@@ -38,6 +38,26 @@ If the input is wrong, the workflow fails fast with a clear error instead of hal
 
 Agent mode is the opposite: there the model decides which resources run and in what order.
 
+## Git-native
+
+Everything kdeps runs is YAML in your repository. There is no database of agent
+state, no proprietary project file, no web console that owns the source of truth.
+
+- **Review** an agent change the way you review code - a diff of resources,
+  validations, and prompts in a pull request.
+- **Version** with a git tag. `kdeps registry install scraper@2.1.0` resolves to
+  that tag; the formula pulls the tarball straight from
+  `github.com/owner/repo/archive/refs/tags/v2.1.0.tar.gz`.
+- **Distribute** by pointing at a repo: `kdeps registry install owner/repo`
+  works with no registry entry at all. Publishing is a tag plus a one-line
+  formula PR to [kdeps/registry](https://github.com/kdeps/registry).
+- **Build reproducibly** in CI: `kdeps validate` -> `kdeps bundle build` ->
+  `docker push`, triggered on tag. The same commit yields the same appliance,
+  runtime and model pinned.
+
+The [`git:` resource](/workflow/resources/git) also lets an agent read and write
+repository state as part of its pipeline - status, diff, log, commit, branch.
+
 ## Two modes, one workflow file
 
 ```d2
