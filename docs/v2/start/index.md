@@ -7,28 +7,30 @@ description: kdeps in plain English - what it is, the problem it solves, and the
 
 kdeps is a **git-native AI appliance builder**. You describe an agent in YAML -
 which model to call, what to validate, what shape the answer takes - and those
-files live in your repo: reviewed as pull requests, versioned by tag, installed
-with `owner/repo`. kdeps packages the workflow, its tools, and the model into one
-self-contained unit you can run as a terminal REPL, an HTTP API, a Docker image,
-a Kubernetes deployment, a bootable ISO, or a single binary. The same files, no
-rewrite, no framework to import.
+files are the whole spec. Commit them, and kdeps packages the workflow, its
+tools, and the model into one self-contained unit you can run as a terminal
+REPL, an HTTP API, a Docker image, a Kubernetes deployment, a bootable ISO, or a
+single binary. The same files, no rewrite, no framework to import.
 
-Because it runs open-source models by default, that unit has no per-token cost
-and no dependency on an external AI service - it works the same on your laptop
-and inside an air-gapped network.
+Change the YAML and the appliance behaves differently - your git history is the
+changelog of the agent's behavior. Because it runs open-source models by default,
+the unit has no per-token cost and no dependency on an external AI service; it
+works the same on your laptop and inside an air-gapped network.
 
 ## The problem it solves
 
-There is no streamlined way to build **AI agents and APIs - not chatbots** - on
-open-source, self-hosted LLMs. You end up hand-writing the same glue every time:
-input validation, retries, ordering between steps, a fixed response schema, a way
-to deploy it, a way to run it offline. kdeps is that glue, defined declaratively.
+Calling an LLM is easy. Shipping that call as something you can review, version,
+and run inside your own boundary is not. You end up hand-writing the same glue
+every time: input validation, retries, ordering between steps, a fixed response
+schema, a container, a way to run it offline for tests. kdeps is that glue,
+declared in YAML that lives in your repo.
 
-Everything a retrieval-augmented agent needs is in one Dockerized image you
-deploy on or off the cloud. Because it runs open-source models
-(llamafile, Ollama, or any HuggingFace GGUF), there is no per-token bill and no
-third-party AI subscription - the built appliance is free to run forever. Cloud
-providers (OpenAI, Anthropic, Groq) still work when you want them.
+The result is one deployable unit - REPL, API, Docker image, ISO, or binary -
+with the model packaged in. It runs open-source models by default (llamafile,
+Ollama, or any HuggingFace GGUF), so there is no per-token bill and no
+third-party AI subscription. Cloud providers (OpenAI, Anthropic, Groq) still
+work when you want them; the backend is one line of machine-local config, not
+part of the repo.
 
 ## The smallest mental model
 
@@ -60,7 +62,8 @@ No YAML at all - just run the binary:
 kdeps            # opens an AI chat REPL against a local model, no API key
 ```
 
-A minimal one-step workflow is a folder with two files:
+A minimal workflow is a folder with a manifest and two resources - one that
+calls the model, one that shapes the response:
 
 ```yaml
 # my-agent/workflow.yaml - the manifest
@@ -68,20 +71,30 @@ apiVersion: kdeps.io/v1
 kind: Workflow
 metadata:
   name: my-agent
-  targetActionId: answer   # which resource produces the final result
+  targetActionId: response   # which resource produces the final result
 ```
 
 <div v-pre>
 
 ```yaml
-# my-agent/resources/answer.yaml - the one step
-actionId: answer           # this resource's id, referenced by targetActionId
+# my-agent/resources/llm.yaml - call the model
+actionId: llm
 chat:
-  model: llama3.2:1b       # a local model, downloaded on first run
+  model: llama3.2:1b         # a local model, downloaded on first run
   prompt: "{{ get('q') }}"   # 'q' comes from the HTTP request body or REPL input
 ```
 
 </div>
+
+```yaml
+# my-agent/resources/response.yaml - shape the reply
+actionId: response
+requires: [llm]              # runs after llm
+apiResponse:
+  success: true
+  response:
+    answer: get('llm').message.content
+```
 
 ```bash
 kdeps run ./my-agent/     # run it once / serve it
@@ -90,7 +103,7 @@ kdeps ./my-agent/         # or load it as a tool in the chat REPL
 
 ## Which product do you need?
 
-kdeps is a small number of bounded things. Pick one.
+kdeps is a small number of bounded things. Most people need one or two.
 
 | You want to... | Product |
 |---|---|
@@ -99,7 +112,10 @@ kdeps is a small number of bounded things. Pick one.
 | To orchestrate several agents/workflows as one system | [kdeps agencies](/agencies/) |
 | Just a self-hosted OpenAI-compatible endpoint, no workflow | [kdeps LLM server](/llm-server/) |
 | To ship a tested workflow as Docker / K8s / ISO / a binary | [kdeps deploy](/deploy/) |
-| To find, install, or publish shared agents and components (optional) | [kdeps registry](/registry/) |
+| To find, install, or publish shared agents by name | [kdeps registry](/registry/) *(optional)* |
+
+The registry is the only optional piece - it shares agents by name, it is not a
+step in building or running your own.
 
 ## First steps
 

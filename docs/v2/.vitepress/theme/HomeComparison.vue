@@ -5,7 +5,7 @@
 <template>
   <section class="comparison">
     <div class="container">
-      <p class="section-eyebrow">why kdeps</p>
+      <p class="section-eyebrow">vs doing it yourself</p>
       <h2 class="section-title">YAML replaces glue code</h2>
       <p class="section-sub">No Python scripts, no wiring, no boilerplate.</p>
 
