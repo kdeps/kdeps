@@ -15,11 +15,16 @@ write and no framework to import.
 
 ## The problem it solves
 
-Calling an LLM API is easy. Shipping that call into production is not. You end up
-hand-writing the same glue every time: input validation, retries, ordering
-between steps, a fixed response schema, a way to deploy it, a way to run it
-offline for testing. kdeps is that glue, defined declaratively and reused across
-every agent you build.
+There is no streamlined way to build **AI agents and APIs - not chatbots** - on
+open-source, self-hosted LLMs. You end up hand-writing the same glue every time:
+input validation, retries, ordering between steps, a fixed response schema, a way
+to deploy it, a way to run it offline. kdeps is that glue, defined declaratively.
+
+Everything a retrieval-augmented agent needs is in one Dockerized image you
+deploy on or off the cloud. Because it runs open-source models
+(llamafile, Ollama, or any HuggingFace GGUF), there is no per-token bill and no
+third-party AI subscription - the built appliance is free to run forever. Cloud
+providers (OpenAI, Anthropic, Groq) still work when you want them.
 
 ## The smallest mental model
 
