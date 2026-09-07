@@ -3,8 +3,8 @@ layout: home
 
 hero:
   name: kdeps
-  text: AI agents and APIs, not chatbots
-  tagline: Build retrieval-augmented AI agents on open-source, self-hosted LLMs. One YAML file, shipped as Docker, K8s, ISO, or a single binary - no per-token cost, no AI subscription.
+  text: Build AI appliances that run anywhere
+  tagline: "Define your agent once in YAML. kdeps packages the workflow, tools, and model into one self-contained deployment - cloud, on-prem, edge, or air-gapped. Open-source models by default: no per-token cost, no external AI dependency."
   announcement: Scaffold YAML from Claude Code, Cursor, or Grok
   announcementLink: /agent/ai-assisted-authoring
   actions:
