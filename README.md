@@ -169,6 +169,7 @@ Docs: [Deployment guide](https://kdeps.com/deploy/) · [TLS and HTTPS](https://k
 - **Global config** - machine-local settings (LLM backend, API keys, SQL/SMTP/IMAP connections) live in `~/.kdeps/config.yaml`, never in `workflow.yaml`. `kdeps edit` to open it, `kdeps doctor` to check it. [Docs](https://kdeps.com/reference/advanced-config)
 - **Security** - when `apiServer` is set, requests require a bearer token (`KDEPS_API_AUTH_TOKEN`) and pass through rate-limit, body-size, and concurrency caps before reaching the DAG. [Docs](https://kdeps.com/reference/security)
 - **Logging** - structured JSON via `log/slog`. `KDEPS_LOG_FORMAT=json` for production; default level WARN; `--verbose` (INFO), `--debug` (DEBUG).
+- **Innovation technology** - two standalone Go tools built alongside kdeps: [kdeps/kartographer](https://github.com/kdeps/kartographer) (graph library for resolving dependent nodes - powers the `requires:` DAG and folder/skill graphs) and [kdeps/turo](https://github.com/kdeps/turo) (reduces prose to content words to cut LLM input tokens - the optional agent-mode [prompt reducer](https://kdeps.com/agent/turo)).
 - **Book** - [*AI Appliances - Build & Deploy Autonomous AI Agents and Agencies in YAML*](https://leanpub.com/kdeps). Free (PDF, EPUB, web).
 
 ---
