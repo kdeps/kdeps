@@ -21,6 +21,7 @@ package llm
 import (
 	"fmt"
 	stdhttp "net/http"
+	"strings"
 
 	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
 )
@@ -53,7 +54,31 @@ func (b *openAICompatBackend) DefaultURL() string {
 
 func (b *openAICompatBackend) ChatEndpoint(baseURL string) string {
 	kdeps_debug.Log("enter: ChatEndpoint")
-	return fmt.Sprintf(b.cfg.endpointFmt, baseURL)
+	return openAICompatChatEndpoint(b.cfg.endpointFmt, baseURL)
+}
+
+// openAICompatChatEndpoint joins a base URL with the backend's path template
+// without doubling a segment the user already put in the base. People routinely
+// enter an OpenAI-compatible base WITH "/v1" (LM Studio, llama.cpp, vLLM, the
+// m365 proxy), which would otherwise yield ".../v1/v1/chat/completions".
+func openAICompatChatEndpoint(endpointFmt, baseURL string) string {
+	base := strings.TrimRight(strings.TrimSpace(baseURL), "/")
+	path := strings.TrimPrefix(fmt.Sprintf(endpointFmt, ""), "/") // e.g. "v1/chat/completions"
+
+	// If the base already ends with the leading segments of the path, drop the
+	// overlap. Walk the path segments from the front.
+	segs := strings.Split(path, "/")
+	for i := len(segs) - 1; i >= 1; i-- {
+		prefix := "/" + strings.Join(segs[:i], "/")
+		if strings.HasSuffix(base, prefix) {
+			return base + "/" + strings.Join(segs[i:], "/")
+		}
+	}
+	// Already a full endpoint?
+	if strings.HasSuffix(base, "/"+path) {
+		return base
+	}
+	return base + "/" + path
 }
 
 func (b *openAICompatBackend) BuildRequest(
