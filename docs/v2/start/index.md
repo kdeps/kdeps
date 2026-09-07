@@ -94,8 +94,8 @@ kdeps is a small number of bounded things. Pick one.
 | A deterministic YAML pipeline - API, bot, or file processor | [kdeps workflow](/workflow/) |
 | To orchestrate several agents/workflows as one system | [kdeps agencies](/agencies/) |
 | Just a self-hosted OpenAI-compatible endpoint, no workflow | [kdeps LLM server](/llm-server/) |
-| To ship a tested workflow as Docker / K8s / ISO / a binary | [kdeps deploy](/deploy/docker) |
-| To find, install, or publish shared agents and components | [kdeps registry](/registry/cli) |
+| To ship a tested workflow as Docker / K8s / ISO / a binary | [kdeps deploy](/deploy/) |
+| To find, install, or publish shared agents and components | [kdeps registry](/registry/) |
 
 ## First steps
 

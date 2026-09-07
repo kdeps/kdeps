@@ -1,12 +1,21 @@
-# LLM server appliance
+# kdeps LLM server
 
-Provision a **standalone LLM inference appliance** (no kdeps agent, no workflow) to Docker, ISO, or Kubernetes. Any kdeps host uses it as a client over **OpenAI-compatible `/v1`**.
+**A standalone OpenAI-compatible inference appliance** - no kdeps agent, no
+workflow. Build it once (Docker, ISO, or Kubernetes); every kdeps host on your
+network points at it over `/v1`.
 
-*Applies to workflow mode.*
+```bash
+kdeps llm wizard          # pick engine + model, then build/run/export
+```
 
-Works for **both** workflow mode and agent mode clients - set `llm.backend: openai` and `llm.base_url` on the client machine.
+**Not this?** `kdeps llm` deploys *only* the model server. To package an agent
+(workflow + model) as an image, that's [kdeps deploy](/deploy/). To run a model
+locally with no server at all, the default llamafile backend already does that -
+see [Local models](/start/local-models).
 
-Agent packaging (`kdeps bundle build` / `export iso` / `export k8s`) still deploys **agents**. `kdeps llm` deploys **only the inference server**.
+---
+
+Serves **both** workflow mode and agent mode clients - set `llm.backend: openai` and `llm.base_url` on the client machine.
 
 ## How it fits
 

@@ -1,6 +1,23 @@
-# AI agencies
+# kdeps agencies
 
-An AI agency is a collection of kdeps agents that cooperate on a task. Each agent is a `kind: Workflow` with its own resources, bundled under one `agency.yaml`. Agencies work in both modes: `kdeps run my-agency/` runs the entry-point pipeline; `kdeps ./my-agency/` registers the agency as one LLM tool and runs that pipeline only when the model calls it.
+**Several agents composed into one system.** Each agent is its own `kind: Workflow`
+with its own model and resources, bundled under one `agency.yaml`. One agent
+delegates to another with the `agent:` resource - like a function call where the
+function is an entire pipeline.
+
+```bash
+kdeps run ./my-agency/     # run the entry-point agent's pipeline
+kdeps ./my-agency/         # register the agency as one LLM tool in the REPL
+```
+
+**Not this?** For a single deterministic pipeline, use [kdeps workflow](/workflow/).
+For an autonomous agent that decides what to do next, [kdeps agent](/agent/). To
+reuse one bundle of resources across projects, that's a
+[component](/agencies/components), not an agency.
+
+---
+
+An AI agency is a collection of kdeps agents that cooperate on a task. Agencies work in both modes: `kdeps run my-agency/` runs the entry-point pipeline; `kdeps ./my-agency/` registers the agency as one LLM tool and runs that pipeline only when the model calls it.
 
 ## Use cases
 
@@ -188,5 +205,5 @@ curl "http://localhost:17100/api/v1/greet?name=Alice" \
 - [Agent resource](/agencies/agent-resource) - `agent:` resource reference
 - [`examples/agency/`](https://github.com/kdeps/kdeps/tree/main/examples/agency) - runnable example
 - [Packaging commands](/deploy/cli) - `.kdeps` and `.kagency` formats
-- [Docker deployment](../deploy/docker) - building Docker images
-- [Standalone executables](../deploy/binaries) - exporting self-contained binaries
+- [Docker deployment](/deploy/docker) - building Docker images
+- [Standalone executables](/deploy/binaries) - exporting self-contained binaries

@@ -1,8 +1,23 @@
-# Deployment guide
+# kdeps deploy
 
-End-to-end CI/CD pipeline: package your workflow, build a Docker image, push to a registry, and deploy to Kubernetes.
+**Ship the workflow you tested locally, unchanged.** Package it, build an image
+with no Dockerfile, and run it as a Docker container, Kubernetes deployment,
+bootable ISO, or a single self-contained binary. Same `workflow.yaml`, no
+rewrites, no re-config.
+
+```bash
+kdeps bundle build .      # workflow + model -> Docker image
+```
+
+**Not this?** To deploy a shared model server instead of an agent, that's
+[kdeps LLM server](/llm-server/). To publish an agent for others to install
+rather than run it yourself, [kdeps registry](/registry/).
+
+---
 
 *Applies to workflow mode.*
+
+End-to-end CI/CD pipeline: package your workflow, build a Docker image, push to a registry, and deploy to Kubernetes.
 
 ## Overview
 
