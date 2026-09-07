@@ -97,6 +97,14 @@ Concretely: log-file analysis, automated code reviews, JIRA ticket creation from
 
 kdeps is short for **knowledge dependencies**. It grew out of earlier work on [Kartographer](https://github.com/kdeps/kartographer), a graph library for resolving dependent nodes: knowledge - from a model, a machine, or a person - can be represented and orchestrated as a graph. A kdeps workflow is exactly that, a dependency graph of resources, run in order.
 
+## Innovation technology
+
+kdeps is built on two small open-source projects developed alongside it. Both are standalone Go tools you can use on their own.
+
+| Project | What it does | Where kdeps uses it |
+|---|---|---|
+| [kdeps/kartographer](https://github.com/kdeps/kartographer) | A graph library for resolving dependent nodes. | The `requires:` DAG that orders every workflow; the reference/topic graph behind `codeIntelligence` folder indexing, `searchLocal` `graphBoost`, and skill-library linking. |
+| [kdeps/turo](https://github.com/kdeps/turo) | Reduces prose to its content words to cut LLM input tokens - "point more, token less." | The optional [prompt reducer](/agent/turo) for agent mode: when the `turo` binary is on `PATH`, kdeps pipes system preamble, input, tool results, and history through it before every model call. |
 
 ## See also
 
