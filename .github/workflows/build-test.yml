@@ -440,8 +440,12 @@ jobs:
         run: bash tests/e2e/e2e.sh
 
   coverage-badge:
-    needs: test
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    # Gated on `changes`, not `test`: a squash-merge of an already-green PR
+    # skips `test` (already_tested), which used to skip the badge too - so the
+    # badge went stale after every fast-path merge. This computes coverage
+    # itself so it runs on every main push that touched code.
+    needs: changes
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main' && needs.changes.outputs.code == 'true'
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -457,9 +461,15 @@ jobs:
       - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6
         with:
           go-version-file: go.mod
-      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
-        with:
-          name: coverage-out
+      - name: Unit coverage
+        # Raw go test, not `make test-unit`: the badge must report the real
+        # number even when it dips below the 90% gate that `make test-unit`
+        # would fail on.
+        run: |
+          env -u KDEPS_SKIP_BOOTSTRAP -u KDEPS_COMPONENT_DIR KDEPS_MEMORY_DB_PATH=:memory: \
+            go test -short -parallel 1 -count=1 -timeout=30m \
+            -covermode=atomic -coverprofile=coverage.out ./pkg/... ./cmd/... ./ || true
+        timeout-minutes: 35
       - name: Update coverage badge
         run: |
           COV=$(go tool cover -func=coverage.out | tail -1 | awk '{print $NF}')
