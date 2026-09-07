@@ -36,8 +36,8 @@ rendering, use the [`browser:` resource](/resources/web/browser) instead.
 ## Step 1: create the project
 
 ```bash
-mkdir page-summarizer
-cd page-summarizer
+mkdir web-scraper
+cd web-scraper
 mkdir resources
 ```
 
@@ -51,7 +51,7 @@ apiVersion: kdeps.io/v1
 kind: Workflow
 
 metadata:
-  name: page-summarizer
+  name: web-scraper
   version: "1.0.0"
   targetActionId: response
 

@@ -111,8 +111,6 @@ kdeps bundle build [path] [flags]
 | `--gpu` | GPU type: `cuda`, `rocm`, `intel`, `vulkan` (auto-selects Ubuntu base) | None (CPU, Alpine) |
 | `--tag, -t` | Docker image tag | From workflow metadata |
 | `--no-cache` | Build without cache | `false` |
-| `--wasm[=standalone\|server\|none]` | Compile a browser WASM app (only `chat`, `httpClient`, `apiResponse`). Bare `--wasm` builds both a standalone HTML file and a served site; `=standalone` or `=server` builds just one. See [WASM web app](/deployment/wasm). | off |
-| `--wasm-embed-secrets` | Also bake this machine's m365 auth (`~/.config/kdeps/m365/`) into the app's "Import machine settings" data. The build then contains real credentials - do not commit or share it. | `false` |
 
 **Examples:**
 
@@ -122,8 +120,6 @@ kdeps bundle build examples/chatbot --gpu cuda                 # NVIDIA GPU
 kdeps bundle build examples/chatbot --gpu rocm                 # AMD GPU
 kdeps bundle build examples/chatbot --tag my-agent:v1.0.0
 kdeps bundle build myapp-1.0.0.kdeps                          # From package
-kdeps bundle build examples/page-summarizer --wasm                 # standalone HTML + served site
-kdeps bundle build examples/page-summarizer --wasm=standalone      # just the HTML file
 ```
 
 ---

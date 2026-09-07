@@ -189,18 +189,6 @@ func TestBuildImageInternal_ChdirError(t *testing.T) {
 	require.Error(t, err)
 }
 
-func TestCollectWebServerFiles_OpenRootError(t *testing.T) {
-	tmp := t.TempDir()
-	require.NoError(t, os.MkdirAll(filepath.Join(tmp, "data"), 0755))
-	orig := osOpenRootFunc
-	t.Cleanup(func() { osOpenRootFunc = orig })
-	osOpenRootFunc = func(_ string) (*os.Root, error) {
-		return nil, errors.New("open root fail")
-	}
-	_, err := collectWebServerFiles(tmp)
-	require.Error(t, err)
-}
-
 func TestPrepareISOExportWorkflow_AbsError_Remaining(t *testing.T) {
 	orig := filepathAbsFunc
 	t.Cleanup(func() { filepathAbsFunc = orig })

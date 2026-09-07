@@ -61,10 +61,6 @@ func attachPrepackagedBinaries(
 // buildImageInternal executes the build command with flags parameter.
 func buildImageInternal(cmd *cobra.Command, args []string, flags *BuildFlags) error {
 	kdeps_debug.Log("enter: buildImageInternal")
-	if wasmRequested(flags.WASM) {
-		return buildWASMImage(cmd.Context(), args[0], flags)
-	}
-
 	packagePath := args[0]
 	fmt.Fprintf(os.Stdout, "Building Docker image from: %s\n\n", packagePath)
 

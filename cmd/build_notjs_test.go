@@ -23,12 +23,10 @@ package cmd
 import (
 	"context"
 	"errors"
-	"io"
 	"net/http"
 	"os"
 	"path/filepath"
 	"runtime"
-	"strings"
 	"testing"
 
 	"github.com/spf13/cobra"
@@ -52,27 +50,6 @@ func TestSetupDockerBuilderImpl_GPU(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, builder)
 	_ = builder.Client.Close()
-}
-
-func TestBuildImageInternal_WASM(t *testing.T) {
-	origBundle := bundleFunc
-	origBuild := buildDockerImage
-	t.Cleanup(func() {
-		bundleFunc = origBundle
-		buildDockerImage = origBuild
-	})
-	tmp := t.TempDir()
-	require.NoError(
-		t,
-		os.WriteFile(filepath.Join(tmp, "workflow.yaml"), []byte(minimalWorkflowYAML()), 0644),
-	)
-	require.NoError(t, os.MkdirAll(filepath.Join(tmp, "data"), 0755))
-	stubBundleWriteIndex(nil)
-	buildDockerImage = func(_ context.Context, _ []string) error { return nil }
-	cmd := &cobra.Command{}
-	cmd.SetContext(context.Background())
-	err := buildImageInternal(cmd, []string{tmp}, &BuildFlags{WASM: "standalone"})
-	t.Logf("wasm build: %v", err)
 }
 
 func TestCreatePrepackagedBinaryForTarget_AppendError(t *testing.T) {
@@ -412,47 +389,4 @@ func TestPrePackageWithFlags_ExecFallback(t *testing.T) {
 	}
 	err := PrePackageWithFlags(context.Background(), []string{kdeps}, &PrePackageFlags{Output: outDir})
 	require.Error(t, err)
-}
-
-func TestFindWASMExecJS_NextToExecutable(t *testing.T) {
-	// Create a fake wasm_exec.js next to a fake executable.
-	tmp := t.TempDir()
-	wasmExecJS := filepath.Join(tmp, "wasm_exec.js")
-	require.NoError(t, os.WriteFile(wasmExecJS, []byte("// mock"), 0o644))
-
-	// Override os.Executable to return a path in tmp.
-	origExecutable := osExecutable
-	osExecutable = func() (string, error) {
-		return filepath.Join(tmp, "kdeps"), nil
-	}
-	t.Cleanup(func() { osExecutable = origExecutable })
-
-	t.Setenv("KDEPS_WASM_EXEC_JS", "")
-
-	p, err := findWASMExecJS(context.Background())
-	require.NoError(t, err)
-	assert.Equal(t, wasmExecJS, p)
-}
-
-func TestFindWASMExecJS_CWD(t *testing.T) {
-	tmp := t.TempDir()
-	wasmExecJS := filepath.Join(tmp, "wasm_exec.js")
-	require.NoError(t, os.WriteFile(wasmExecJS, []byte("// mock"), 0o644))
-
-	// Clear env var.
-	t.Setenv("KDEPS_WASM_EXEC_JS", "")
-
-	origExecutable := osExecutable
-	osExecutable = func() (string, error) {
-		return "", io.EOF // Simulate error from os.Executable
-	}
-	t.Cleanup(func() { osExecutable = origExecutable })
-
-	origDir, _ := os.Getwd()
-	require.NoError(t, os.Chdir(tmp))
-	t.Cleanup(func() { _ = os.Chdir(origDir) })
-
-	p, err := findWASMExecJS(context.Background())
-	require.NoError(t, err)
-	assert.True(t, strings.HasSuffix(p, "wasm_exec.js"), "path should end with wasm_exec.js")
 }

@@ -139,7 +139,6 @@ type WorkflowSettings struct {
 	AgentSettings  AgentSettings            `yaml:"agentSettings"`
 	SQLConnections map[string]SQLConnection `yaml:"sqlConnections,omitempty"`
 	Session        *SessionConfig           `yaml:"session,omitempty"`
-	WebApp         *WebAppConfig            `yaml:"webApp,omitempty"         json:"webApp,omitempty"`
 	Input          *InputConfig             `yaml:"input,omitempty"          json:"input,omitempty"`
 	LLM            *LLMInputConfig          `yaml:"llm,omitempty"            json:"llm,omitempty"`
 }
@@ -192,15 +191,6 @@ func (c *LetsEncryptConfig) Validate() error {
 		c.Domain = c.Domains[0]
 	}
 	return nil
-}
-
-// WebAppConfig contains WASM web application configuration.
-type WebAppConfig struct {
-	Title       string `yaml:"title"                 json:"title"`
-	Description string `yaml:"description,omitempty" json:"description,omitempty"`
-	Template    string `yaml:"template"              json:"template"`
-	Styles      string `yaml:"styles,omitempty"      json:"styles,omitempty"`
-	Scripts     string `yaml:"scripts,omitempty"     json:"scripts,omitempty"`
 }
 
 // InputConfig specifies the input sources for the workflow.

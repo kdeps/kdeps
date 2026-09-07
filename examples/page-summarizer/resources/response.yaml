@@ -1,9 +1,0 @@
-actionId: response
-name: API Response
-requires: [summarize]
-apiResponse:
-  success: true
-  response:
-    url: "{{ get('url') }}"
-    title: "{{ get('title') }}"
-    summary: "{{ get('summarize').message.content }}"

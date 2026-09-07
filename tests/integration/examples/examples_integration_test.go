@@ -1278,50 +1278,6 @@ func TestLlamafileChatExample_ValidationError(t *testing.T) {
 	}
 }
 
-func TestPageSummarizerExample_WASMAllowlist(t *testing.T) {
-	workflowPath := "../../../examples/page-summarizer/workflow.yaml"
-	if _, err := os.Stat(workflowPath); os.IsNotExist(err) {
-		t.Skip("page-summarizer example not available")
-		return
-	}
-
-	schemaValidator, err := validator.NewSchemaValidator()
-	require.NoError(t, err)
-
-	exprParser := expression.NewParser()
-	yamlParser := yaml.NewParser(schemaValidator, exprParser)
-
-	workflow, err := yamlParser.ParseWorkflow(workflowPath)
-	require.NoError(t, err)
-	assert.Equal(t, "page-summarizer", workflow.Metadata.Name)
-	assert.Equal(t, "response", workflow.Metadata.TargetActionID)
-	assert.Equal(t, "openai", workflow.Settings.AgentSettings.Env["KDEPS_DEFAULT_BACKEND"])
-
-	require.NoError(t, domain.ValidateWASMWorkflow(workflow))
-
-	var summarize *domain.Resource
-	for _, res := range workflow.Resources {
-		if res != nil && res.ActionID == "summarize" {
-			summarize = res
-			break
-		}
-	}
-	require.NotNil(t, summarize)
-	require.NotNil(t, summarize.Chat)
-	// The example follows the setup screen rather than pinning a model.
-	assert.Equal(t, "system", summarize.Chat.Model)
-
-	// The example opts into the standard capture bookmarklet.
-	assert.Equal(t, "url,title,text", workflow.Settings.AgentSettings.Env["KDEPS_WASM_CAPTURE"])
-
-	// The drawer is "the system" for WASM: its backend + model apply to every
-	// chat resource and still validate.
-	domain.ApplyWASMOverrides(workflow, "anthropic", "claude-sonnet-4-6")
-	assert.Equal(t, "anthropic", summarize.Chat.Backend)
-	assert.Equal(t, "claude-sonnet-4-6", summarize.Chat.Model)
-	require.NoError(t, domain.ValidateWASMWorkflow(workflow))
-}
-
 // setupEngineWithMockClient creates an executor engine using a custom mock HTTP client
 // for the LLM adapter (tests file backend routing without a real llamafile binary).
 func setupEngineWithMockClient(mockClient *llm.MockHTTPClient) *executor.Engine {

@@ -14,8 +14,6 @@
 
 package config
 
-import "strings"
-
 // LLMProvider describes a supported cloud LLM provider.
 type LLMProvider struct {
 	Name    string // backend name, e.g. "openai"
@@ -26,18 +24,6 @@ type LLMProvider struct {
 	// Used only as a last-resort cloud pick when no local model is found --
 	// see pkg/executor/llm.AutoRouterPick.
 	DefaultModel string
-}
-
-// LLMAPIKeys returns the configured cloud API keys as a backend-name -> key
-// map, skipping providers with no key set. Order is not significant.
-func (c *Config) LLMAPIKeys() map[string]string {
-	out := map[string]string{}
-	for _, p := range cloudProvidersList {
-		if v := strings.TrimSpace(p.getKey(c.LLM)); v != "" {
-			out[p.name] = v
-		}
-	}
-	return out
 }
 
 // CloudLLMProviders returns supported cloud LLM providers in registry order.

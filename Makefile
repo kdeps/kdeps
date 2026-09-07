@@ -1,4 +1,4 @@
-.PHONY: build build-wasm test lint clean install run codeql codeql-db install-hooks harvest-llamafiles test-integration-tagged test-integration-mcp test-integration-browser test-integration-llm
+.PHONY: build test lint clean install run codeql codeql-db install-hooks harvest-llamafiles test-integration-tagged test-integration-mcp test-integration-browser test-integration-llm
 
 # Build variables
 VERSION ?= 2.0.0-dev
@@ -12,13 +12,6 @@ build:
 	@echo "Building kdeps v$(VERSION)..."
 	@go build $(LDFLAGS) -o kdeps main.go
 	@echo "✓ Build complete: ./kdeps"
-
-# Build for WebAssembly (browser-side execution)
-build-wasm:
-	@echo "Building kdeps WASM v$(VERSION)..."
-	@GOOS=js GOARCH=wasm CGO_ENABLED=0 go build $(LDFLAGS) -o kdeps.wasm ./cmd/wasm/
-	@cp "$$(go env GOROOT)/lib/wasm/wasm_exec.js" .
-	@echo "✓ WASM build complete: ./kdeps.wasm + wasm_exec.js"
 
 # Build for Linux (for Docker)
 build-linux:
@@ -313,7 +306,7 @@ lint: golangci-lint-bin
 # Clean build artifacts
 clean:
 	@echo "Cleaning..."
-	@rm -f kdeps kdeps.wasm wasm_exec.js
+	@rm -f kdeps
 	@rm -f coverage.out coverage-unit.out coverage-integration.out
 	@rm -f codeql-results.sarif
 	@rm -rf dist/ build/ $(CODEQL_DB)/
@@ -358,7 +351,6 @@ help:
 	@echo ""
 	@echo "Usage:"
 	@echo "  make build           Build the native binary"
-	@echo "  make build-wasm      Build the WASM binary"
 	@echo "  make test            Run linter + unit + integration + E2E + kdeps-io + CodeQL"
 	@echo "  make codeql          Run CodeQL security analysis only"
 	@echo "  make codeql-db       Rebuild CodeQL database"
