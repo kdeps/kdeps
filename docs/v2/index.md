@@ -3,8 +3,8 @@ layout: home
 
 hero:
   name: kdeps
-  text: Build AI appliances that run anywhere
-  tagline: "Define your agent once in YAML. kdeps packages the workflow, tools, and model into one self-contained deployment - cloud, on-prem, edge, or air-gapped. Open-source models by default: no per-token cost, no external AI dependency."
+  text: Build git-native AI appliances
+  tagline: "Your agent is YAML in your repo. Review it as a pull request, version it with a tag, install it with `owner/repo`. kdeps packages the workflow, tools, and open-source model into one self-contained deployment for cloud, on-prem, edge, or air-gapped - no per-token cost, no external AI dependency."
   announcement: Scaffold YAML from Claude Code, Cursor, or Grok
   announcementLink: /agent/ai-assisted-authoring
   actions:

@@ -5,11 +5,13 @@ description: kdeps in plain English - what it is, the problem it solves, and the
 
 # What is kdeps?
 
-kdeps is an **AI appliance builder**. You describe an agent in YAML - which model
-to call, what to validate, what shape the answer takes - and kdeps packages the
-workflow, its tools, and the model into one self-contained unit you can run as a
-terminal REPL, an HTTP API, a Docker image, a Kubernetes deployment, a bootable
-ISO, or a single binary. The same files, no rewrite, no framework to import.
+kdeps is a **git-native AI appliance builder**. You describe an agent in YAML -
+which model to call, what to validate, what shape the answer takes - and those
+files live in your repo: reviewed as pull requests, versioned by tag, installed
+with `owner/repo`. kdeps packages the workflow, its tools, and the model into one
+self-contained unit you can run as a terminal REPL, an HTTP API, a Docker image,
+a Kubernetes deployment, a bootable ISO, or a single binary. The same files, no
+rewrite, no framework to import.
 
 Because it runs open-source models by default, that unit has no per-token cost
 and no dependency on an external AI service - it works the same on your laptop

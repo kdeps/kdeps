@@ -1,0 +1,114 @@
+<!--
+  Copyright 2026 Kdeps, KvK 94834768
+  Licensed under the Apache License, Version 2.0
+-->
+<template>
+  <section class="git-native">
+    <div class="container">
+      <p class="section-eyebrow">git-native</p>
+      <h2 class="section-title">The agent is text in your repo</h2>
+      <p class="section-sub">No hidden state, no proprietary format. Everything kdeps runs is YAML you commit.</p>
+
+      <div class="cards">
+        <div class="card">
+          <h3>Reviewable</h3>
+          <p>A change to an agent is a diff: a new resource, a tightened validation, a swapped model. Review it in a pull request like any other code.</p>
+        </div>
+        <div class="card">
+          <h3>Versioned</h3>
+          <p>A git tag is a release. <code>kdeps registry install scraper@2.1.0</code> resolves to that tag; the built appliance pins the runtime and the model too.</p>
+        </div>
+        <div class="card">
+          <h3>Distributable</h3>
+          <p><code>kdeps registry install owner/repo</code> pulls an agent or component straight from its GitHub repo. Publishing is a tag plus a one-line formula PR.</p>
+        </div>
+        <div class="card">
+          <h3>Reproducible</h3>
+          <p>Point CI at a tag: <code>kdeps validate</code>, <code>kdeps bundle build</code>, push the image. The same commit produces the same appliance every time.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+</template>
+
+<style scoped>
+.git-native {
+  padding: 72px 24px;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.container {
+  max-width: 960px;
+  margin: 0 auto;
+}
+
+.section-eyebrow {
+  font-family: var(--vp-font-family-mono);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--vp-c-brand-1);
+  margin: 0 0 10px;
+}
+
+.section-title {
+  font-size: 36px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: var(--vp-c-text-1);
+  margin: 0 0 8px;
+}
+
+.section-sub {
+  font-size: 16px;
+  color: var(--vp-c-text-2);
+  margin: 0 0 48px;
+}
+
+.cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
+  gap: 16px;
+}
+
+.card {
+  background: var(--vp-c-bg-soft);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  border-radius: 2px;
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.card h3 {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--vp-c-text-1);
+  margin: 0;
+}
+
+.card p {
+  font-size: 14px;
+  line-height: 1.6;
+  color: var(--vp-c-text-2);
+  margin: 0;
+}
+
+.card code {
+  font-family: var(--vp-font-family-mono);
+  font-size: 12px;
+  background: rgba(255, 255, 255, 0.05);
+  padding: 1px 5px;
+  border-radius: 2px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  color: #00E5FF;
+  word-break: break-word;
+}
+
+@media (max-width: 768px) {
+  .git-native { padding: 48px 16px; }
+  .cards { grid-template-columns: 1fr; }
+}
+</style>
