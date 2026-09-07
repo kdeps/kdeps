@@ -21,12 +21,14 @@ kdeps is a small number of bounded pieces. Most people need one or two.
 | [kdeps agencies](/agencies/) | Several agents composed into one system via the `agent:` resource | `kdeps run ./my-agency/` |
 | [kdeps LLM server](/llm-server/) | Standalone OpenAI-compatible inference appliance, no workflow | `kdeps llm wizard` |
 | [kdeps deploy](/deploy/) | Ship a tested workflow as Docker, K8s, ISO, or a binary | `kdeps bundle build .` |
-| [kdeps registry](/registry/) | Find, install, and publish shared agents and components | `kdeps registry search` |
+| [kdeps registry](/registry/) *(optional)* | Find, install, and publish shared agents and components | `kdeps registry search` |
 
 You don't need Docker or even a YAML file to start: run `kdeps` and you have an
 agent REPL against a local model. Add a `workflow.yaml` when you want a
 deterministic pipeline you can deploy; reach for the rest as the work grows. The
-[two modes](#two-modes-one-workflow-file) below apply to whichever you use.
+registry is optional - it is a way to share agents by name, not a step in
+building or running your own. The [two modes](#two-modes-one-workflow-file) below
+apply to whichever you use.
 
 ---
 
@@ -55,19 +57,20 @@ repo runs against a local llamafile on your laptop and a cloud model in
 production with no diff. Your agent's logic is in git; only its wiring to a
 specific model is not.
 
-Because the definition is plain text under version control:
+The core loop needs nothing but git and the `kdeps` binary: edit YAML, commit,
+`kdeps run` or `kdeps bundle build`. Everything below builds on that.
 
 - **Review** an agent change the way you review code - a diff of resources,
   validations, and prompts in a pull request.
-- **Version** with a git tag. `kdeps registry install scraper@2.1.0` resolves to
-  that tag; the formula pulls the tarball straight from
-  `github.com/owner/repo/archive/refs/tags/v2.1.0.tar.gz`.
-- **Distribute** by pointing at a repo: `kdeps registry install owner/repo`
-  works with no registry entry at all. Publishing is a tag plus a one-line
-  formula PR to [kdeps/registry](https://github.com/kdeps/registry).
+- **Version** with a git tag. A tag is a release; `kdeps validate` and
+  `kdeps bundle build` run against any checkout or tag.
 - **Build reproducibly** in CI: `kdeps validate` -> `kdeps bundle build` ->
   `docker push`, triggered on tag. The same commit yields the same appliance,
   runtime and model pinned.
+- **Share, optionally.** [kdeps registry](/registry/) is a convenience layer for
+  installing and publishing agents and components by name -
+  `kdeps registry install owner/repo` pulls straight from a GitHub repo, no
+  registry entry required. You never need it to build or deploy your own agent.
 
 The [`git:` resource](/workflow/resources/git) also lets an agent read and write
 repository state as part of its pipeline - status, diff, log, commit, branch.

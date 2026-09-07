@@ -99,7 +99,7 @@ kdeps is a small number of bounded things. Pick one.
 | To orchestrate several agents/workflows as one system | [kdeps agencies](/agencies/) |
 | Just a self-hosted OpenAI-compatible endpoint, no workflow | [kdeps LLM server](/llm-server/) |
 | To ship a tested workflow as Docker / K8s / ISO / a binary | [kdeps deploy](/deploy/) |
-| To find, install, or publish shared agents and components | [kdeps registry](/registry/) |
+| To find, install, or publish shared agents and components (optional) | [kdeps registry](/registry/) |
 
 ## First steps
 

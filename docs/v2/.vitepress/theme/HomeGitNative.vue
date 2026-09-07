@@ -16,15 +16,15 @@
         </div>
         <div class="card">
           <h3>Versioned</h3>
-          <p>A git tag is a release. <code>kdeps registry install scraper@2.1.0</code> resolves to that tag; the built appliance pins the runtime and the model too.</p>
-        </div>
-        <div class="card">
-          <h3>Distributable</h3>
-          <p><code>kdeps registry install owner/repo</code> pulls an agent or component straight from its GitHub repo. Publishing is a tag plus a one-line formula PR.</p>
+          <p>A git tag is a release. <code>kdeps validate</code> and <code>kdeps bundle build</code> run against any checkout or tag; the built appliance pins the runtime and the model too.</p>
         </div>
         <div class="card">
           <h3>Reproducible</h3>
           <p>Point CI at a tag: <code>kdeps validate</code>, <code>kdeps bundle build</code>, push the image. The same commit produces the same appliance every time.</p>
+        </div>
+        <div class="card">
+          <h3>Shareable, optionally</h3>
+          <p>The <a href="/registry/">registry</a> is a convenience for installing and publishing agents by name - <code>kdeps registry install owner/repo</code> pulls from a GitHub repo. You never need it to build or deploy your own.</p>
         </div>
       </div>
     </div>
