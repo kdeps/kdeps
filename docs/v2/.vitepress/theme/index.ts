@@ -26,9 +26,7 @@ import HeroCode from './HeroCode.vue'
 import HomeWhoNeedsThis from './HomeWhoNeedsThis.vue'
 import HomeGitNative from './HomeGitNative.vue'
 import HomeHowItWorks from './HomeHowItWorks.vue'
-import HomeCapabilities from './HomeCapabilities.vue'
 import HomeComparison from './HomeComparison.vue'
-import HomeUseCases from './HomeUseCases.vue'
 import HomeBook from './HomeBook.vue'
 import FooterCTAs from './FooterCTAs.vue'
 import './custom.css'
@@ -43,9 +41,7 @@ export default {
         h(HomeWhoNeedsThis),
         h(HomeGitNative),
         h(HomeHowItWorks),
-        h(HomeCapabilities),
         h(HomeComparison),
-        h(HomeUseCases),
         h(HomeBook),
       ],
       'layout-bottom': () => h(FooterCTAs),

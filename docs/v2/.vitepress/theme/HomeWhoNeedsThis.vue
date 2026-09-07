@@ -28,6 +28,17 @@
           <span class="tag">workflow mode</span>
         </a>
       </div>
+
+      <p class="build-label">Working examples, each a runnable project:</p>
+      <div class="chips">
+        <a href="/examples/file-processor" class="chip">Document summarizer</a>
+        <a href="/examples/rag-search" class="chip">RAG over your docs</a>
+        <a href="/examples/web-scraper" class="chip">Web scraper API</a>
+        <a href="/examples/sql-api" class="chip">SQL-backed API</a>
+        <a href="/examples/telephony-bot" class="chip">Phone assistant (IVR)</a>
+        <a href="/examples/agency" class="chip">Multi-agent agency</a>
+        <a href="/examples/" class="chip chip-more">All examples -&gt;</a>
+      </div>
     </div>
   </section>
 </template>
@@ -116,6 +127,37 @@
   border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: 2px;
   padding: 2px 8px;
+}
+
+.build-label {
+  font-size: 13px;
+  color: var(--vp-c-text-3);
+  margin: 40px 0 12px;
+}
+
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.chip {
+  font-size: 13px;
+  color: var(--vp-c-text-2);
+  text-decoration: none;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 2px;
+  padding: 5px 10px;
+  transition: border-color 0.15s ease, color 0.15s ease;
+}
+
+.chip:hover {
+  border-color: rgba(0, 229, 255, 0.3);
+  color: var(--vp-c-text-1);
+}
+
+.chip-more {
+  color: var(--vp-c-brand-1);
 }
 
 @media (max-width: 768px) {
