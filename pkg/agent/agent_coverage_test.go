@@ -1,4 +1,4 @@
-//go:build !windows && !js
+//go:build !windows
 
 // Copyright 2026 Kdeps, KvK 94834768
 //

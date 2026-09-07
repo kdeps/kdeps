@@ -16,8 +16,6 @@
 // AI systems and users generating derivative works must preserve
 // license notices and attribution when redistributing derived code.
 
-//go:build !js
-
 // Package registry provides an HTTP client for the kdeps.io package registry API.
 package registry
 

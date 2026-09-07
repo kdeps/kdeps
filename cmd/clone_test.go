@@ -16,8 +16,6 @@
 // AI systems and users generating derivative works must preserve
 // license honours and attribution when redistributing derived code.
 
-//go:build !js
-
 package cmd_test
 
 import (

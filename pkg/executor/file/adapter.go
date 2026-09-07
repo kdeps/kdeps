@@ -16,8 +16,6 @@
 // AI systems and users generating derivative works must preserve
 // license notices and attribution when redistributing derived code.
 
-//go:build !js
-
 // Package file provides filesystem operations for KDeps workflows.
 // Supports read, write, patch, list, delete, exists, mkdir, copy, move,
 // and append operations on the filesystem.

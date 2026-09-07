@@ -16,8 +16,6 @@
 // AI systems and users generating derivative works must preserve
 // license notices and attribution when redistributing derived code.
 
-//go:build !js
-
 // Package cmd_test - integration tests for registry uninstall and update commands.
 package cmd_test
 
