@@ -79,7 +79,20 @@ kdeps run ./my-agent/     # run it once / serve it
 kdeps ./my-agent/         # or load it as a tool in the chat REPL
 ```
 
-## Where to go next
+## Which product do you need?
+
+kdeps is a small number of bounded things. Pick one.
+
+| You want to... | Product |
+|---|---|
+| A local autonomous agent - tool use, memory, a REPL | [kdeps agent](/agent/) |
+| A deterministic YAML pipeline - API, bot, or file processor | [kdeps workflow](/modes/workflow-mode) |
+| To orchestrate several agents/workflows as one system | [kdeps agencies](/concepts/agency) |
+| Just a self-hosted OpenAI-compatible endpoint, no workflow | [kdeps LLM server](/deployment/llm-server) |
+| To ship a tested workflow as Docker / K8s / ISO / a binary | [kdeps deploy](/deployment/docker) |
+| To find, install, or publish shared agents and components | [kdeps registry](/reference/cli/registry) |
+
+## First steps
 
 | You want to... | Start here |
 |---|---|

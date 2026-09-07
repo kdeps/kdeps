@@ -1,8 +1,20 @@
-# Agent mode
+# kdeps agent
 
-Agent mode starts an interactive LLM REPL where whole workflows and components are registered as callable tools. The LLM decides which tool to invoke based on the user's prompt. Workflow tools run the full pipeline atomically so all `requires:` dependencies resolve correctly. For the deterministic request/response pipeline instead, see [Workflow mode](/modes/workflow-mode).
+**An autonomous LLM REPL you run locally.** Tool use, persistent memory, multi-step
+reasoning, skills, goals, and a judge panel - against a local model, no API key,
+fully offline. Whole workflows and components register as callable tools; the
+model decides what to invoke.
 
-*Applies to agent mode.*
+```bash
+kdeps            # bare REPL - built-in tools only
+kdeps ./my-agent # also load that agent's workflows/components as tools
+```
+
+**Not this?** If you want a deterministic request→response pipeline (same input,
+same execution path, safe to run unattended), that's [kdeps workflow](/modes/workflow-mode).
+To orchestrate several agents as one system, [kdeps agencies](/concepts/agency).
+
+---
 
 Running `kdeps` with no arguments starts a bare REPL with no workflow tools - built-in tools (web_search, bash_exec, file ops, memory, etc.) are still available. Pass a path to also load workflows and agencies as tools.
 
