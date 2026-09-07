@@ -221,13 +221,13 @@ func TestSessionStorage_Cleanup(t *testing.T) {
 	tmpDir := t.TempDir()
 	dbPath := filepath.Join(tmpDir, "sessions_cleanup.db")
 
-	// Create session storage with short TTL. The TTL itself needs headroom too,
-	// not just the later expiry wait: the "verify all exist" loop below does
-	// 5 Set()s then 5 Get()s, each a real bbolt disk commit, and on a loaded or
-	// slow-I/O runner (observed on windows-latest) that alone can approach a
-	// too-tight TTL, expiring key0 before the loop even reaches key4. Margin
-	// stays generous (3x TTL wait) for the later expiry check too.
-	store, err := storage.NewSessionStorageWithTTL(dbPath, "cleanup-test", 3*time.Second)
+	// 10s TTL / 15s wait. Get() also Touch()es (extends the TTL), so the
+	// "verify all exist" loop only holds if the 5 Set()s finished within the
+	// TTL - each is a real bbolt disk commit, and windows-latest has been seen
+	// taking 15s+ for this whole test. A short TTL expired key0 before its
+	// verify-Get could touch it; 10s clears that with room to spare. The 15s
+	// wait then exceeds the post-verify (touched) TTL for the expiry check.
+	store, err := storage.NewSessionStorageWithTTL(dbPath, "cleanup-test", 10*time.Second)
 	require.NoError(t, err)
 	defer store.Close()
 
@@ -247,7 +247,7 @@ func TestSessionStorage_Cleanup(t *testing.T) {
 
 	// Wait for TTL to expire and cleanup to run (cleanup runs every 5 minutes, but we can trigger manually)
 	// Note: In a real scenario, cleanup runs in background. For testing, we wait and check.
-	time.Sleep(9 * time.Second)
+	time.Sleep(15 * time.Second)
 
 	// All should be expired (cleanup may not have run yet, but Get should return false)
 	// The cleanup goroutine runs every 5 minutes, so expired items may still be in DB
