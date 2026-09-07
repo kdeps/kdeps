@@ -6,13 +6,13 @@
   <section class="git-native">
     <div class="container">
       <p class="section-eyebrow">git-native</p>
-      <h2 class="section-title">The agent is text in your repo</h2>
-      <p class="section-sub">No hidden state, no proprietary format. Everything kdeps runs is YAML you commit.</p>
+      <h2 class="section-title">The YAML is the behavior spec</h2>
+      <p class="section-sub">What the appliance does - model, validation, step order, response shape - is defined entirely by the YAML in your repo. Change it, commit, and it behaves differently; your git history is the changelog of the agent's behavior. Only the model binding lives outside the repo, so the same commit runs local on a laptop and cloud in production.</p>
 
       <div class="cards">
         <div class="card">
           <h3>Reviewable</h3>
-          <p>A change to an agent is a diff: a new resource, a tightened validation, a swapped model. Review it in a pull request like any other code.</p>
+          <p>A change to an agent is a diff: a new resource, a tightened validation, a reshaped response. Review it in a pull request like any other code.</p>
         </div>
         <div class="card">
           <h3>Versioned</h3>
