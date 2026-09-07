@@ -1,6 +1,6 @@
 {
   "name": "kdeps-docs",
-  "version": "2.22.1",
+  "version": "2.23.0",
   "description": "kdeps Documentation",
   "type": "module",
   "scripts": {
