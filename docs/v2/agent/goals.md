@@ -77,8 +77,8 @@ total length upfront, for checking how a log or command output ends.
 omitted, making a quick directory listing a one-argument-free call.
 
 **You can see the plan as soon as it exists.** After decomposition, the REPL
-prints the full task list before any tool round runs - including a one-task
-plan. Ordinary chat (short, no multi-step markers) stays silent.
+prints the outcome before any tool round runs. Ordinary chat (short, no
+multi-step markers) stays silent.
 
 ```
 [goal] planning...
@@ -89,10 +89,20 @@ goal: add the /users endpoint and write tests
 [goal] working on task 1/2: add the /users endpoint
 ```
 
+When the planner could not (or would not) decompose the request - it comes
+back as a single task equal to the prompt - the REPL says so instead of
+printing a one-line "plan":
+
+```
+[goal] planning...
+[goal] no sub-tasks - working the request as one goal
+[goal] working on: refactor the auth middleware
+```
+
 Whenever the cursor then moves onto a task - a fresh plan, a resumed goal, or
-an advance via `task_complete`/`task_fail` - the REPL names it. The
-modeline's `task:N/M` counter tracks the same cursor between prompts. Ordinary
-chat (a single-task wrap of a short prompt) does not print a working-on line.
+an advance via `task_complete`/`task_fail` - the REPL names it, single-task
+goals included. The modeline's `task:N/M` counter tracks the same cursor
+between prompts.
 
 **When a task stops producing.** A round is unproductive when every tool result
 is an error, a convergence block, or a byte-identical repeat. Consecutive

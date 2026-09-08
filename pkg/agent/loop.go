@@ -930,8 +930,16 @@ func (l *Loop) RunStreaming(ctx context.Context, input string, w io.Writer) (str
 	// against the final output below.
 	explicitRoster := len(l.config.Judges) > 0
 	roster := l.resolveJudgeRoster(ctx, input)
-	if len(roster) > 0 && !explicitRoster {
+	switch {
+	case len(roster) > 0 && !explicitRoster:
 		l.reportJudgeRoster(w, roster)
+	case len(roster) == 0 && l.config.AutoJudges && !explicitRoster && !looksTrivial(input):
+		// Auto-judging is on but the roster call produced nothing (model
+		// unavailable, or a reply that would not parse). Say so rather than
+		// leaving the user wondering why no panel appeared.
+		if pw := l.progressWriter(w); pw != nil {
+			fmt.Fprintln(pw, "\n[judges] no panel this turn — roster generation returned nothing")
+		}
 	}
 
 	finalContent, err := l.runToolRounds(ctx, chatCfg, w)
@@ -1720,6 +1728,12 @@ func (l *Loop) appendToolRoundTrip(
 		_ = json.Unmarshal([]byte(cfg.Messages), &history)
 	}
 
+	// Surface any narration the model produced alongside this tool call
+	// ("Reading config.yaml to check the timeout.") so the loop is not silent
+	// between actions -- the streamer writes round output to a throwaway buffer,
+	// not the terminal.
+	l.emitNarration(w, assistantContent)
+
 	// The current user input rides in cfg.Prompt on the first round; move it
 	// into history before appending the assistant turn, otherwise later rounds
 	// (Prompt cleared below) would answer the previous turn's question.
@@ -1822,6 +1836,22 @@ func (l *Loop) dispatchOrRefuse(tc domain.StreamedToolCall, w io.Writer) string 
 // isTaskStateTool reports whether a tool call advances the goal state machine.
 func isTaskStateTool(name string) bool {
 	return name == toolNameTaskComplete || name == toolNameTaskFail
+}
+
+// emitNarration writes the model's inter-tool narration to the progress writer.
+// No-op when the round produced no text (reasoning-only rounds) or there is
+// nowhere to write it.
+func (l *Loop) emitNarration(w io.Writer, content string) {
+	if l.config.StreamFinalOnly {
+		return
+	}
+	text := strings.TrimSpace(stripContentToolCalls(content))
+	if text == "" {
+		return
+	}
+	if pw := l.progressWriter(w); pw != nil {
+		fmt.Fprintf(pw, "\n%s\n", text)
+	}
 }
 
 // displayToolCall prints the "[name → args]" line for a tool about to run.
@@ -2225,6 +2255,13 @@ Temporary files go under /tmp/kdeps/<task-id>/, never the project root.
 Clean up temp files when the task is done.
 </tools>
 
+<narration>
+Before each tool call, say in one plain sentence what you are about to do and
+why ("Reading config.yaml to check the current timeout.", "Running the tests to
+see what breaks."). One line, present tense, every call. This narration is not
+the final answer --- still lead the final answer with the outcome.
+</narration>
+
 <autonomy>
 You run autonomously. The user is not watching in real time and cannot
 answer questions mid-task. "Want me to...?" blocks the work.
@@ -2350,6 +2387,27 @@ persistent memory. Check memory before every action; save after every
 turn. This is not optional — it is the core reliability mechanism.
 </internals>`
 
+// kdepsToolsFirstGuidance is injected into the system preamble for every backend
+// when tools are registered. Models trained with a built-in code interpreter /
+// "run code" habit (M365 Copilot most aggressively, but others too) will act
+// through that instead of the fenced tool list unless told not to.
+const kdepsToolsFirstGuidance = `<use-kdeps-tools>
+Every capability you have here is a fenced kdeps tool from the list above ---
+including bash_exec for shell commands and the file tools for reading and
+writing. Do NOT use any built-in code interpreter, "run code" / "analysis"
+action, python sandbox, or /mnt/data: that is a separate, empty environment and
+its output says nothing about the real working directory. To act, emit a fenced
+kdeps tool call and read its <tool_response>. If a result looks empty or you
+feel you "cannot access" something, you are calling an internal tool by mistake
+--- switch to a fenced kdeps tool and try again.
+</use-kdeps-tools>`
+
+// kdepsToolsReminder is a one-line restatement attached to every turn after the
+// first, so the rule stays salient deep into a long conversation where the
+// cached system preamble has scrolled far out of the model's recent attention.
+const kdepsToolsReminder = "Reminder: act only through the fenced kdeps tools " +
+	"(bash_exec, the file tools, etc.), never a built-in sandbox or code interpreter."
+
 // m365NoSandboxGuidance tells an M365 Copilot backend model to act through the
 // fenced kdeps tools above and never through its own built-in code interpreter.
 // The model has a native "run code" / "Coding and executing" habit baked in
@@ -2454,15 +2512,14 @@ func (l *Loop) buildSystemPreamble(focus string) string {
 	// when tools exist, even in small-context mode below.
 	var toolParts []string
 	if l.registry != nil && len(l.registry.List()) > 0 {
-		toolParts = append(toolParts, toolUseGuidance)
+		toolParts = append(toolParts, toolUseGuidance, kdepsToolsFirstGuidance)
 		if toolPrompt := l.registry.ToolPrompt(); toolPrompt != "" {
 			toolParts = append(toolParts, toolPrompt)
 		}
-		// M365 Copilot backend models have their own native "run code"/"code
-		// interpreter" habit baked in from training, independent of kdeps'
-		// tool list -- confirmed live: a model fabricated a bash -lc action
-		// against M365's own empty sandbox at /mnt/data instead of calling any
-		// registered fenced tool. Tell it explicitly there is no such tool here.
+		// M365 Copilot's "run code" / "Coding and executing" habit is the most
+		// aggressive -- confirmed live: a model fabricated a bash -lc action
+		// against M365's own empty /mnt/data sandbox instead of any fenced tool.
+		// Add the M365-specific reinforcement on top of kdepsToolsFirstGuidance.
 		if l.config.Backend == backendM365 {
 			toolParts = append(toolParts, m365NoSandboxGuidance)
 		}
@@ -2712,6 +2769,14 @@ func (l *Loop) buildChatConfig(ctx context.Context, input, systemPreamble string
 			item.CacheControl = "ephemeral"
 		}
 		chatCfg.Scenario = []domain.ScenarioItem{item}
+	}
+
+	// After the first turn, re-state the fenced-tools rule in one line. The full
+	// guidance is in the cached preamble; this keeps it salient deep into a long
+	// conversation without re-sending the whole block.
+	if len(tools) > 0 && l.session != nil && l.session.TurnCount() > 0 {
+		chatCfg.Scenario = append(chatCfg.Scenario,
+			domain.ScenarioItem{Role: "system", Prompt: kdepsToolsReminder})
 	}
 
 	return chatCfg

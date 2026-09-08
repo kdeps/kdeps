@@ -43,6 +43,13 @@ before any work starts:
   - security: no secrets, credentials, or unsafe shell input
 ```
 
+If the roster call comes back empty - the model is unavailable, or its reply
+would not parse - the REPL says so rather than silently skipping review:
+
+```
+[judges] no panel this turn - roster generation returned nothing
+```
+
 `/judges` (or `/judges list`) shows that last auto-generated panel. An
 explicit roster from `/judges add` still wins at review time and is not
 re-printed every turn.

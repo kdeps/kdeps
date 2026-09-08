@@ -560,7 +560,11 @@ func TestCommitTrailer_IncompleteIdentityFallsBack(t *testing.T) {
 		Backend: "deepseek", Model: "deepseek-reasoner",
 		Identity: &config.IdentityConfig{Name: "Sales Bot"}, // no email
 	}}
-	assert.Equal(t, "Co-Authored-By: kdeps (deepseek/deepseek-reasoner) <noreply@kdeps.com>", l.commitTrailer())
+	assert.Equal(
+		t,
+		"Co-Authored-By: kdeps (deepseek/deepseek-reasoner) <noreply@kdeps.com>",
+		l.commitTrailer(),
+	)
 }
 
 // TestBuildSystemPreamble_ContainsCommitTrailer verifies the preamble
@@ -2161,4 +2165,47 @@ func TestRunStreaming_PersistentSilenceEmitsNoticeOnce(t *testing.T) {
 		"without answering or calling a tool",
 		"notice must reach the user",
 	)
+}
+
+// When auto-judging is on but the roster call yields nothing (no engine func
+// wired -> Execute errors), RunStreaming tells the user instead of silently
+// skipping the panel.
+func TestRunStreaming_ReportsMissingAutoJudgeRoster(t *testing.T) {
+	ms := &mockStreamer{responses: []mockStreamResponse{{content: "answer", toolCalls: nil}}}
+	loop := newStreamingLoop(ms, 3)
+	loop.config.AutoJudges = true
+
+	var buf bytes.Buffer
+	_, err := loop.RunStreaming(
+		context.Background(),
+		"review the auth module and report findings",
+		&buf,
+	)
+	if err != nil {
+		t.Fatalf("RunStreaming: %v", err)
+	}
+	if !strings.Contains(buf.String(), "no panel this turn") {
+		t.Fatalf("expected the missing-roster notice, got %q", buf.String())
+	}
+}
+
+// The model's narration on a tool-call round reaches the user; without this the
+// streamer writes it to a throwaway buffer.
+func TestRunStreaming_EmitsToolRoundNarration(t *testing.T) {
+	tc := domain.StreamedToolCall{ID: "1", Name: "noop", Arguments: "{}"}
+	ms := &mockStreamer{responses: []mockStreamResponse{
+		{
+			content:   "Checking the config file for the timeout.",
+			toolCalls: []domain.StreamedToolCall{tc},
+		},
+		{content: "The timeout is 30s.", toolCalls: nil},
+	}}
+	loop := newStreamingLoop(ms, 5)
+	var buf bytes.Buffer
+	if _, err := loop.RunStreaming(context.Background(), "what is the timeout?", &buf); err != nil {
+		t.Fatalf("RunStreaming: %v", err)
+	}
+	if !strings.Contains(buf.String(), "Checking the config file for the timeout.") {
+		t.Fatalf("expected the tool-round narration in the output, got %q", buf.String())
+	}
 }
