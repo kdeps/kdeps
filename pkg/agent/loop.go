@@ -1783,6 +1783,16 @@ func (l *Loop) appendToolRoundTrip(
 	}
 
 	updated := *cfg
+	// Bound the in-flight transcript: auto-compaction only runs at turn
+	// boundaries, so a long tool loop (up to MaxToolRounds round trips in one
+	// turn) would otherwise re-send an ever-growing message array on every
+	// round. Drop the oldest round-trips once the array exceeds the budget.
+	history, droppedRTs := windowToolHistory(history, l.config.Model)
+	if droppedRTs > 0 {
+		if pw := l.progressWriter(w); pw != nil {
+			fmt.Fprintf(pw, "\n[context] trimmed %d old tool step(s) to fit the window\n", droppedRTs)
+		}
+	}
 	if b, err := json.Marshal(history); err == nil {
 		updated.Messages = string(b)
 		updated.Prompt = "" // already in history
