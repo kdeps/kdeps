@@ -5,8 +5,11 @@ Runtime behaviors of the interactive agent loop REPL - pasting, rendering, notif
 ## Pasting
 
 Paste a block of text and the REPL treats it as **one prompt**, not one turn per
-line - it uses the terminal's bracketed-paste mode, so it works in any modern
-terminal, tmux, and screen. What happens next depends on the size:
+line - it uses the terminal's bracketed-paste mode, which the REPL re-enables
+before every prompt so a child process (an editor opened with `!`, a pager) or a
+terminal that resets it cannot leave a later paste splitting into per-line
+submissions. Works in any modern terminal, tmux, and screen. What happens next
+depends on the size:
 
 ```d2
 direction: right

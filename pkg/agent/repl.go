@@ -1621,15 +1621,13 @@ func (r *REPL) Run() error {
 	// Auto-raise the tool budget in interactive use so a long session
 	// never blocks on a prompt; library/test callers keep budget exhaustion.
 	r.loop.config.AutoToolAllocation = true
-	// Drive interactive turns through the goal/task state machine so the model
-	// advances instead of circling. Enabled here for the same reason as the
-	// budget: library and test callers keep the plain round loop.
-	r.loop.config.GoalEnforcement = true
-	// Auto-generate a judge panel per turn by default in interactive use, for
-	// the same reason: library/test callers get no panel unless they opt in via
-	// Config.Judges/AutoJudges. /judges auto off (or /judges clear) disables it
-	// for the rest of the session.
-	r.loop.config.AutoJudges = true
+	// Goal-directed execution and the auto judge panel are OFF by default: each
+	// adds a synthetic LLM call per turn (plan / roster) and extra output, which
+	// is unwanted overhead for ordinary use. Opt in with /goal on and
+	// /judges auto on -- both choices persist across sessions via applyToolTuning
+	// below, so a persisted "on" is restored here.
+	r.loop.config.GoalEnforcement = false
+	r.loop.config.AutoJudges = false
 	if r.persistedTuning != nil {
 		r.applyToolTuning(*r.persistedTuning)
 	}
@@ -1806,7 +1804,11 @@ func (r *REPL) runLoop(rl *readline.Instance) error {
 		default:
 		}
 
-		fmt.Fprint(os.Stdout, ansiClearLine+r.modeline()+"\r\n")
+		// Re-assert bracketed-paste mode before every prompt: a child process
+		// (an editor via `!`, a pager), a full-screen redraw, or a terminal that
+		// resets it on its own can leave it off, and then a multi-line paste
+		// arrives as many separate submits instead of one prompt.
+		fmt.Fprint(os.Stdout, ansiEnableBracketedPaste+ansiClearLine+r.modeline()+"\r\n")
 		rl.SetPrompt(r.dynamicPrompt())
 		line, readErr := rl.Readline()
 		resetStealthInputTint()

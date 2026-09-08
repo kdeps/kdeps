@@ -54,19 +54,21 @@ type ToolTuning struct {
 	TuroArrows   bool
 	// ToolsFullMode persists the /tools full|lean choice (default: full).
 	ToolsFullMode bool
-	// AutoJudges persists the /judges auto choice (default: on).
+	// AutoJudges persists the /judges auto choice (default: off). A snapshot
+	// written while the old on-by-default was in effect carries true here and
+	// restores it -- an explicit /judges auto off then persists false.
 	AutoJudges bool
-	// GoalEnforcementOff persists the /goal off choice. Inverted (zero value =
-	// enforcement ON) so a snapshot saved before this field existed does not
-	// silently disable goal-directed execution on restore -- the same reason
-	// TuroOff is phrased as "off" rather than "on".
+	// GoalEnforcementOff persists the /goal off|on choice, and GoalConfigured is
+	// its "was this ever set" sentinel -- without it a snapshot from before this
+	// field existed (GoalEnforcementOff unmarshals to false) would restore as
+	// SetGoalEnforcement(!false) == on, flipping the off-by-default.
 	GoalEnforcementOff bool
+	GoalConfigured     bool
 	// ToolsConfigured is the "was this section ever saved" sentinel for
 	// ToolsFullMode/AutoJudges/AutoContextDetect, the same role TuroLevel !=
 	// "" plays for the turo fields above -- without it, a snapshot saved
-	// before this feature existed would carry zero values (lean/off) and
-	// silently override the full/auto-judges-on/auto-context-on defaults on
-	// every subsequent restore.
+	// before this feature existed would carry zero values and silently
+	// override the defaults Run() set on every subsequent restore.
 	ToolsConfigured bool
 	// AutoContextDetect persists the /autocontext choice (default: on).
 	AutoContextDetect bool
@@ -118,6 +120,7 @@ func (r *REPL) toolTuningSnapshot() ToolTuning {
 		ToolsFullMode:        r.toolsFullMode,
 		AutoJudges:           c.AutoJudges,
 		GoalEnforcementOff:   !c.GoalEnforcement,
+		GoalConfigured:       true,
 		ToolsConfigured:      true,
 		AutoContextDetect:    r.autoContextDetect,
 		PermissionMode:       string(c.PermissionMode),
@@ -199,8 +202,10 @@ func (r *REPL) applyToolTuningExtras(t ToolTuning) {
 			r.toolsFullMode = t.ToolsFullMode
 		}
 		c.AutoJudges = t.AutoJudges
-		r.loop.SetGoalEnforcement(!t.GoalEnforcementOff)
 		r.autoContextDetect = t.AutoContextDetect
+	}
+	if t.GoalConfigured {
+		r.loop.SetGoalEnforcement(!t.GoalEnforcementOff)
 	}
 	// PermissionMode empty is already the natural "unconfigured" value
 	// (resolvePermissionMode/checkToolPermission fall back to the env var or
