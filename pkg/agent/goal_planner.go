@@ -22,6 +22,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"regexp"
 	"strings"
 
 	"github.com/kdeps/kdeps/v2/pkg/domain"
@@ -64,28 +65,33 @@ Request: Add a --dry-run flag to the sync command and cover it with a test
 // covering the prompt, because planning must not be able to block a turn.
 func planGoal(ctx context.Context, l *Loop, input string) *Goal {
 	input = strings.TrimSpace(input)
-	if input == "" {
+	if input == "" || looksTrivial(input) {
+		// A short question or remark has nothing to decompose; enforcement still
+		// wraps it as a single task via NewGoal.
 		return NewGoal(input, nil)
 	}
-	// Pure-code fast path: a short question needs no decomposition, so trivial
-	// chat costs no extra LLM call even though enforcement is always on. A
-	// canceled turn skips planning for the same reason.
-	if looksTrivial(input) || l == nil || l.engine == nil || ctx.Err() != nil {
-		return NewGoal(input, nil)
-	}
+	canCallLLM := l != nil && l.engine != nil && ctx.Err() == nil
 
-	tasks := requestPlan(l, input, "")
-	if len(tasks) == 0 {
-		// One repair attempt with a stricter instruction before giving up.
-		tasks = requestPlan(l, input, planRepairJSONHint)
-	}
-	// A lone task that just restates the request is a non-decomposition: the
-	// planner produced nothing to advance through. Try once more with an
-	// explicit "at least two steps" instruction before accepting it.
-	if isEchoPlan(tasks, input) {
-		if split := requestPlan(l, input, planForceSplitHint); len(split) > 1 {
-			tasks = split
+	var tasks []string
+	if canCallLLM {
+		tasks = requestPlan(l, input, "")
+		if len(tasks) == 0 {
+			// One repair attempt with a stricter instruction before giving up.
+			tasks = requestPlan(l, input, planRepairJSONHint)
 		}
+	}
+	// The LLM planner produced nothing usable (unavailable, timed out, or a
+	// silently-swallowed error). If the request itself spells out its steps -
+	// numbered lines, bullets, "then"/"and then"/";" separators - split it
+	// mechanically so a multi-part request still decomposes without a model.
+	if len(tasks) == 0 {
+		tasks = mechanicalSplit(input)
+	}
+	// A lone task that just restates the request is a non-decomposition. Try the
+	// model once more with an explicit "at least two steps" instruction, then
+	// fall back to the mechanical split, before accepting the restatement.
+	if isEchoPlan(tasks, input) {
+		tasks = breakEcho(l, input, tasks, canCallLLM)
 	}
 	// Reaching the original request from start to finish can take several
 	// intermediate tasks, and a single decomposition call can misorder,
@@ -93,10 +99,26 @@ func planGoal(ctx context.Context, l *Loop, input string) *Goal {
 	// second pass before it drives the loop. Only worth the extra call once
 	// there is more than one task to get wrong; a single-task plan has
 	// nothing to reorder or split.
-	if len(tasks) > 1 {
+	if len(tasks) > 1 && canCallLLM {
 		tasks = confirmPlan(l, input, tasks)
 	}
 	return NewGoal(input, tasks)
+}
+
+// breakEcho takes a one-task restatement of the request and tries to turn it
+// into a real decomposition: one more model call with the force-split hint (when
+// the model is reachable), then a mechanical split. Returns the original tasks
+// unchanged if neither produces more than one step.
+func breakEcho(l *Loop, input string, tasks []string, canCallLLM bool) []string {
+	if canCallLLM {
+		if split := requestPlan(l, input, planForceSplitHint); len(split) > 1 {
+			return split
+		}
+	}
+	if mech := mechanicalSplit(input); len(mech) > 1 {
+		return mech
+	}
+	return tasks
 }
 
 // localModelNotServed reports whether the configured backend is a local
@@ -229,6 +251,16 @@ func confirmPlan(l *Loop, input string, candidate []string) []string {
 	return confirmed
 }
 
+// isNonPlan reports whether a Goal is just the prompt wrapped as one task
+// (no decomposition happened), so callers can skip presenting it as a "plan".
+func isNonPlan(g *Goal, input string) bool {
+	if g == nil || len(g.Tasks) != 1 {
+		return false
+	}
+	return strings.TrimSpace(g.Tasks[0].Desc) == strings.TrimSpace(input) ||
+		isEchoPlan([]string{g.Tasks[0].Desc}, input)
+}
+
 // isEchoPlan reports whether tasks is a single "step" that merely restates the
 // request rather than decomposing it -- the signal that planning produced
 // nothing to advance through.
@@ -285,6 +317,67 @@ func parsePlanTasks(reply string) []string {
 			continue
 		}
 		out = append(out, t)
+		if len(out) == maxPlanTasks {
+			break
+		}
+	}
+	return out
+}
+
+// listLineRe matches the leading marker of a numbered or bulleted list line.
+var listLineRe = regexp.MustCompile(`^\s*(?:\d+[.)]\s+|[-*•]\s+)(.+)$`)
+
+// sequencerRe splits a one-line request on explicit step separators. Plain
+// " and " is deliberately excluded ("read the file and print it" is one step);
+// only sequencing phrases qualify.
+var sequencerRe = regexp.MustCompile(`(?i)\s*(?:;|\band then\b|\bthen\b|\bafter that\b|\bfinally\b|\bnext,)\s+`)
+
+// minMechanicalStepLen drops split fragments too short to be a real step so
+// punctuation noise ("", "-", "ok") does not become a task, while still keeping
+// one-word imperatives like "rebuild".
+const minMechanicalStepLen = 4
+
+// mechanicalSplit breaks a request into steps using only its wording and
+// punctuation, for when the LLM planner is unavailable or refuses to decompose.
+// Returns nil unless it yields at least two non-trivial parts.
+func mechanicalSplit(input string) []string {
+	input = strings.TrimSpace(input)
+	if parts := splitListLines(input); len(parts) > 1 {
+		return parts
+	}
+	if parts := cleanSplit(sequencerRe.Split(input, -1)); len(parts) > 1 {
+		return parts
+	}
+	return nil
+}
+
+// splitListLines extracts the text of each numbered/bulleted line, or nil when
+// fewer than two lines carry a list marker.
+func splitListLines(input string) []string {
+	var out []string
+	for _, line := range strings.Split(input, "\n") {
+		if m := listLineRe.FindStringSubmatch(line); m != nil {
+			out = append(out, m[1])
+		}
+	}
+	return cleanSplit(out)
+}
+
+// cleanSplit trims each part, drops blanks and fragments under
+// minMechanicalStepLen, caps at maxPlanTasks, and upper-cases the first letter
+// so a fragment reads as an imperative step.
+func cleanSplit(parts []string) []string {
+	out := make([]string, 0, len(parts))
+	for _, p := range parts {
+		p = strings.TrimSpace(strings.Trim(p, ".,;:- "))
+		if len(p) < minMechanicalStepLen {
+			continue
+		}
+		if r := []rune(p); r[0] >= 'a' && r[0] <= 'z' {
+			r[0] -= 'a' - 'A'
+			p = string(r)
+		}
+		out = append(out, p)
 		if len(out) == maxPlanTasks {
 			break
 		}

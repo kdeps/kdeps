@@ -466,10 +466,12 @@ func (l *Loop) beginGoal(ctx context.Context, input string, w io.Writer) string 
 		}
 		goal = planGoal(ctx, l, input)
 		saveGoal(l.memoryStore, goal)
-		// Print the plan as soon as it exists. A single-task decomposition is
-		// still a result the user asked to see; only skip ordinary chat
-		// (looksTrivial) where the "plan" would just restate the prompt.
-		if !looksTrivial(input) {
+		// Print the plan once it exists - but only when decomposition actually
+		// happened. A single task equal to the prompt is not a plan, it is the
+		// prompt echoed back; showing it as "[goal] plan generated: 1. <prompt>"
+		// is noise. The task still drives the loop; the model breaks it down via
+		// its tool calls.
+		if !looksTrivial(input) && !isNonPlan(goal, input) {
 			l.reportGoalSummary(w, goal)
 		}
 	default:

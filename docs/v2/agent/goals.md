@@ -16,9 +16,18 @@ prompt -> decompose into tasks -> confirm -> [task 1] -> [task 2] -> ... -> answ
 natural steps - one task per distinct action it names or implies, typically two
 to six. If the first attempt just returns the whole request restated as a single
 task, the loop retries once with an explicit "break this into at least two
-steps" instruction before accepting a one-task plan. A weak local model (for
-example the default `llama3.2:1b`) may still fail to produce a real breakdown;
-switch to a larger model or the router for better plans.
+steps" instruction.
+
+If the model is unavailable, times out, or still will not decompose, kdeps
+falls back to a **mechanical split** that uses only the request's own wording:
+numbered lines (`1. ... 2. ...`), bullet lines (`- ...`), and sequencing phrases
+(`; `, `then`, `and then`, `after that`, `finally`) each start a new task. Plain
+`and` is not a separator ("read the file and print it" stays one step). A
+request with no such structure and a model that will not split it is kept as a
+single task - the loop still drives it, and the model breaks it down through its
+tool calls. A weak local model (for example the default `llama3.2:1b`) benefits
+most from writing the request as a numbered list or switching to a larger model
+or the router.
 
 **Skipping decomposition.** A short remark (32 characters or fewer) or any
 question under ~120 characters is treated as chat and drives a single-task goal
