@@ -370,3 +370,95 @@ func TestConfirmPlan_RejectsCollapseToSingleTask(t *testing.T) {
 		t.Fatalf("expected the 3-task candidate kept, got %v", got)
 	}
 }
+
+func TestMechanicalSplit(t *testing.T) {
+	t.Parallel()
+	cases := []struct {
+		name string
+		in   string
+		want int // 0 = nil
+	}{
+		{"then-sequenced", "read the config; then validate it; then write the merged result", 3},
+		{"and then", "download the archive and then extract it and then run the installer", 3},
+		{"numbered list", "1. set up the database\n2. add the migration\n3. run the tests", 3},
+		{"bulleted list", "- clean the build dir\n- rebuild\n- verify the binary runs", 3},
+		{"single imperative with plain and", "read the file and print it", 0},
+		{"single clause", "refactor the auth middleware to use the new token store", 0},
+		{"empty", "", 0},
+	}
+	for _, c := range cases {
+		got := mechanicalSplit(c.in)
+		if c.want == 0 {
+			if got != nil {
+				t.Errorf("%s: expected nil, got %v", c.name, got)
+			}
+			continue
+		}
+		if len(got) != c.want {
+			t.Errorf("%s: got %d parts %v, want %d", c.name, len(got), got, c.want)
+		}
+	}
+}
+
+func TestMechanicalSplit_CapitalizesAndTrims(t *testing.T) {
+	t.Parallel()
+	got := mechanicalSplit("- clean the workspace\n- run the build")
+	if len(got) != 2 || got[0] != "Clean the workspace" || got[1] != "Run the build" {
+		t.Fatalf("got %q", got)
+	}
+}
+
+// With no engine, planGoal still decomposes a request that spells out its steps.
+func TestPlanGoal_MechanicalSplitWithoutEngine(t *testing.T) {
+	g := planGoal(context.Background(), &Loop{}, "clone the repo; then build it; then run the smoke test")
+	if len(g.Tasks) != 3 {
+		t.Fatalf("expected a 3-task mechanical split, got %+v", g.Tasks)
+	}
+}
+
+// When the LLM planner returns nothing, planGoal falls back to the mechanical split.
+func TestPlanGoal_MechanicalSplitWhenPlannerEmpty(t *testing.T) {
+	eng := executor.NewEngine(nil)
+	eng.SetExecuteFunc(func(*domain.Workflow, interface{}) (interface{}, error) {
+		return map[string]any{"error": "model unavailable"}, nil // silently-swallowed failure
+	})
+	l := &Loop{engine: eng, workflow: newTestWorkflowForSession(), config: Config{Backend: "openai"}}
+
+	g := planGoal(context.Background(), l, "1. write the parser\n2. add the tests\n3. wire it into main")
+	if len(g.Tasks) != 3 {
+		t.Fatalf("expected the 3-task mechanical split, got %+v", g.Tasks)
+	}
+}
+
+// When the LLM echoes the request AND it has step separators, the mechanical
+// split wins over the restatement.
+func TestPlanGoal_MechanicalSplitOverEcho(t *testing.T) {
+	req := "read the log; then find the error; then propose a fix"
+	eng := executor.NewEngine(nil)
+	eng.SetExecuteFunc(func(*domain.Workflow, interface{}) (interface{}, error) {
+		return `{"tasks":["Read the log; then find the error; then propose a fix"]}`, nil
+	})
+	l := &Loop{engine: eng, workflow: newTestWorkflowForSession(), config: Config{Backend: "openai"}}
+
+	g := planGoal(context.Background(), l, req)
+	if len(g.Tasks) != 3 {
+		t.Fatalf("expected the mechanical split to override the echo, got %+v", g.Tasks)
+	}
+}
+
+func TestIsNonPlan(t *testing.T) {
+	t.Parallel()
+	mk := func(desc ...string) *Goal { return NewGoal("x", desc) }
+	if !isNonPlan(mk("refactor the widget"), "refactor the widget") {
+		t.Error("exact single-task match should be a non-plan")
+	}
+	if isNonPlan(mk("step a", "step b"), "step a and step b") {
+		t.Error("a real multi-task decomposition is a plan")
+	}
+	if isNonPlan(mk("extract the token check into a helper"), "refactor the auth middleware to use a new token store") {
+		t.Error("a genuinely different single task is a plan")
+	}
+	if isNonPlan(nil, "x") {
+		t.Error("nil goal")
+	}
+}
