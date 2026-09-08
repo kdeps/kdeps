@@ -40,14 +40,15 @@ Inside the [agent loop REPL](/agent/), type `/help` for the full list.
 | `/turo lite\|full\|ultra` | Set the turo compression level |
 | `/turo <stage> on\|off` | Toggle a pipeline stage: `filler`, `synonyms`, `gloss`, `defmatch`, `arrows` |
 | `/goal` | Show the active goal's task list and status |
+| `/goal on\|off` | Enable or disable goal-directed execution entirely; persists across sessions. `off` drops any active goal and runs turns as a plain tool loop |
 | `/goal new <text>` | Replace the active goal with a new plan |
 | `/goal skip` | Abandon the active task and advance to the next |
-| `/goal clear` | Drop the active goal |
+| `/goal clear` | Drop the active goal (the next prompt starts a new one) |
 | `/judges` | Show the configured judge panel (reviews each turn's final output - see [Judge panel](/agent/judges)) |
 | `/judges add <name> <criteria>` | Add a judge to the explicit roster |
 | `/judges remove <name>` | Remove a judge from the explicit roster |
 | `/judges auto [on\|off]` | Show or toggle a per-turn auto-generated roster; persists across sessions |
-| `/judges clear` | Disable the judge panel (drops the explicit roster and turns off auto-judges) |
+| `/judges off` (or `/judges clear`) | Disable the judge panel entirely (drops the explicit roster and turns off auto-judges); persists across sessions |
 | `/memory` | Show memory store overview: entry count and the 10 most recently updated entries (with values) |
 | `/memory list` | List every stored memory entry with a truncated value preview |
 | `/memory search <query>` | Search memory keys and values for a substring |

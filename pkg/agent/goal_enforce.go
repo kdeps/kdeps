@@ -466,12 +466,17 @@ func (l *Loop) beginGoal(ctx context.Context, input string, w io.Writer) string 
 		}
 		goal = planGoal(ctx, l, input)
 		saveGoal(l.memoryStore, goal)
-		// Print the plan once it exists - but only when decomposition actually
-		// happened. A single task equal to the prompt is not a plan, it is the
-		// prompt echoed back; showing it as "[goal] plan generated: 1. <prompt>"
-		// is noise. The task still drives the loop; the model breaks it down via
-		// its tool calls.
-		if !looksTrivial(input) && !isNonPlan(goal, input) {
+		// Surface the outcome of planning. A real multi-step plan gets the full
+		// task list; a single task equal to the prompt (the planner could not or
+		// would not decompose) gets one honest line instead of a misleading
+		// "[goal] plan generated: 1. <prompt>". Either way the user sees that the
+		// turn is goal-driven and what it is working on.
+		switch {
+		case looksTrivial(input):
+			// ordinary chat — nothing to report
+		case isNonPlan(goal, input):
+			l.reportGoalEvent(w, "no sub-tasks — working the request as one goal")
+		default:
 			l.reportGoalSummary(w, goal)
 		}
 	default:
@@ -491,8 +496,7 @@ func (l *Loop) beginGoal(ctx context.Context, input string, w io.Writer) string 
 // announceActiveTask tells the user what the loop is about to work on. Called
 // whenever the cursor moves onto a task — a fresh plan or an advance via
 // task_complete/task_fail — since neither event otherwise surfaces the task's
-// description anywhere the user can see without running /goal. Silent for a
-// single-task goal: there is nothing to disambiguate.
+// description anywhere the user can see without running /goal.
 func (l *Loop) announceActiveTask(w io.Writer) {
 	e := l.enforcer
 	if e == nil || e.goal == nil {
@@ -504,6 +508,8 @@ func (l *Loop) announceActiveTask(w io.Writer) {
 	}
 	if _, total := e.goal.Progress(); total > 1 {
 		l.reportGoalEvent(w, fmt.Sprintf("working on task %d/%d: %s", active.ID, total, active.Desc))
+	} else {
+		l.reportGoalEvent(w, "working on: "+active.Desc)
 	}
 }
 
@@ -553,6 +559,26 @@ func (l *Loop) ClearGoal() {
 	}
 	clearGoal(l.memoryStore)
 	l.enforcer = nil
+}
+
+// GoalEnforcementEnabled reports whether the turn is driven through the
+// goal/task state machine.
+func (l *Loop) GoalEnforcementEnabled() bool {
+	return l != nil && l.config.GoalEnforcement
+}
+
+// SetGoalEnforcement turns goal-directed execution on or off for the rest of the
+// session. Turning it off also drops any active goal so the next prompt runs as
+// a plain tool loop. Used by /goal on|off.
+func (l *Loop) SetGoalEnforcement(enabled bool) {
+	if l == nil {
+		return
+	}
+	l.config.GoalEnforcement = enabled
+	if !enabled {
+		clearGoal(l.memoryStore)
+		l.enforcer = nil
+	}
 }
 
 // SkipActiveTask abandons the active task and advances, used by /goal skip.

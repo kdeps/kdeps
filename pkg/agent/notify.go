@@ -42,7 +42,7 @@ type turnAlert struct {
 func resolveTurnAlert() turnAlert {
 	a := turnAlert{enabled: true, minTurn: defaultNotifyMinTurn}
 	switch strings.ToLower(strings.TrimSpace(os.Getenv("KDEPS_NOTIFY"))) {
-	case "off", "0", "false", "no":
+	case toggleOff, "0", "false", "no":
 		a.enabled = false
 	}
 	if v := strings.TrimSpace(os.Getenv("KDEPS_NOTIFY_MIN")); v != "" {

@@ -75,6 +75,7 @@ type AgentLoopTuning struct {
 	TuroArrows           bool   `yaml:"turo_arrows,omitempty"`
 	ToolsFullMode        bool   `yaml:"tools_full_mode,omitempty"`
 	AutoJudges           bool   `yaml:"auto_judges,omitempty"`
+	GoalEnforcementOff   bool   `yaml:"goal_enforcement_off,omitempty"`
 	ToolsConfigured      bool   `yaml:"tools_configured,omitempty"`
 	AutoContextDetect    bool   `yaml:"auto_context_detect,omitempty"`
 	PermissionMode       string `yaml:"permission_mode,omitempty"`

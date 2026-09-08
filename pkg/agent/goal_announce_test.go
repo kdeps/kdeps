@@ -40,6 +40,24 @@ func TestBeginGoal_ReportsPlanForNonTrivialPrompt(t *testing.T) {
 	}
 }
 
+func TestBeginGoal_ReportsNonPlanForUndecomposedPrompt(t *testing.T) {
+	// No engine and no step separators -> planGoal wraps the prompt as one
+	// task. The user must still see that the turn is goal-driven.
+	l := &Loop{config: Config{GoalEnforcement: true}}
+	var buf bytes.Buffer
+	l.beginGoal(context.Background(), "refactor the authentication module to be cleaner", &buf)
+	out := buf.String()
+	if strings.Contains(out, "plan generated") {
+		t.Fatalf("a non-decomposed prompt must not claim a plan, got %q", out)
+	}
+	if !strings.Contains(out, "working the request as one goal") {
+		t.Fatalf("expected the single-goal notice, got %q", out)
+	}
+	if !strings.Contains(out, "working on: refactor the authentication module") {
+		t.Fatalf("expected the active task named, got %q", out)
+	}
+}
+
 func TestBeginGoal_SilentForTrivialPrompt(t *testing.T) {
 	l := &Loop{config: Config{GoalEnforcement: true}}
 	var buf bytes.Buffer
@@ -49,12 +67,13 @@ func TestBeginGoal_SilentForTrivialPrompt(t *testing.T) {
 	}
 }
 
-func TestAnnounceActiveTask_SilentForSingleTaskGoal(t *testing.T) {
+func TestAnnounceActiveTask_NamesSingleTaskGoal(t *testing.T) {
 	l := loopWithGoal("only task")
 	var buf bytes.Buffer
 	l.announceActiveTask(&buf)
-	if buf.Len() != 0 {
-		t.Fatalf("expected no announcement for a single-task goal, got %q", buf.String())
+	out := buf.String()
+	if !strings.Contains(out, "working on: only task") {
+		t.Fatalf("expected the single task named, got %q", out)
 	}
 }
 
@@ -162,5 +181,32 @@ func TestEnforceGoalProgress_AnnouncesOnFailForward(t *testing.T) {
 	l.enforceGoalProgress(&cfg, roundOutcome{advanced: false, productive: false}, &buf)
 	if !strings.Contains(buf.String(), "working on task 2/2: fix the bug") {
 		t.Fatalf("expected the next task announced after failing forward, got %q", buf.String())
+	}
+}
+
+func TestSetGoalEnforcement_TogglesAndDropsGoal(t *testing.T) {
+	l := &Loop{config: Config{GoalEnforcement: true}}
+	l.enforcer = newGoalEnforcer(NewGoal("do stuff", []string{"a", "b"}), nil, 0, 0, false)
+
+	l.SetGoalEnforcement(false)
+	if l.GoalEnforcementEnabled() {
+		t.Fatal("enforcement should be off")
+	}
+	if l.enforcer != nil {
+		t.Fatal("turning enforcement off must drop the active goal")
+	}
+
+	// beginGoal is a no-op while disabled.
+	var buf bytes.Buffer
+	if d := l.beginGoal(context.Background(), "first do a; then do b", &buf); d != "" {
+		t.Fatalf("beginGoal must return no directive while disabled, got %q", d)
+	}
+	if buf.Len() != 0 {
+		t.Fatalf("beginGoal must be silent while disabled, got %q", buf.String())
+	}
+
+	l.SetGoalEnforcement(true)
+	if !l.GoalEnforcementEnabled() {
+		t.Fatal("enforcement should be back on")
 	}
 }

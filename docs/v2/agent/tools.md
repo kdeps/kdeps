@@ -4,6 +4,13 @@ The [agent loop](/agent/) has access to a set of built-in tools that the LLM can
 
 *Applies to agent mode.*
 
+## Fenced tools only, and narration
+
+Two instructions go into the system preamble for **every** model whenever tools are registered:
+
+- **Use the fenced kdeps tools, not a built-in sandbox.** Every capability the model has here is a kdeps tool - including `bash_exec` and the file tools. A model trained with a code-interpreter / "run code" / "analysis" habit will otherwise act against its own empty `/mnt/data`-style environment and conclude it "cannot access" anything. The rule is restated in one line on every turn after the first. M365 Copilot gets an extra, stronger version of this on top (its habit is the most persistent).
+- **Narrate before each tool call.** The model is asked to say in one present-tense sentence what it is about to do ("Reading config.yaml to check the timeout.") before every call. That line is printed to the terminal - without it the loop is silent between actions, because the streamer writes tool-round output to an internal buffer. Suppressed when `StreamFinalOnly` is set.
+
 ## Tool name aliases
 
 Models trained on other agent frameworks or shell habits often call tools by familiar names. Those names are aliased to the real built-in tool, so a call to `grep` runs `search_local`, `cat` runs `read_file`, `bash` runs `bash_exec`, and so on. Aliases are resolved on dispatch and do **not** appear in the advertised tool list (no duplicates for the model to choose between). Common synonym parameter keys are normalized too - `grep`'s `pattern` maps to `search_local`'s `query`, `cat`'s `path` maps to `read_file`'s `file_path`.
