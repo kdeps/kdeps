@@ -1,8 +1,13 @@
 # Goal-directed execution
 
-Every prompt in the [agent loop REPL](/agent/) becomes an explicit task list that Go code drives to completion.
+With goal-directed execution on, every prompt in the [agent loop REPL](/agent/) becomes an explicit task list that Go code drives to completion.
 
 *Applies to agent mode.*
+
+**Off by default.** Goal-directed execution adds a planning LLM call and extra
+output per turn, so it is opt-in: `/goal on` enables it for the session and
+persists the choice; `/goal off` turns it back off. Library and test callers
+always run the plain round loop.
 
 The loop walks a cursor through the list that only ever moves forward, so a model
 cannot circle back over finished work or stall on a task until a budget expires.
@@ -130,10 +135,8 @@ drop it, rather than silently resuming on your next prompt.
 /goal clear          # drop the current goal (a fresh one starts next prompt)
 ```
 
-The modeline shows `task:2/5` while a goal is active. Enforcement is on by
-default in the interactive REPL; `/goal off` turns it off entirely (persisted
-across sessions) so turns run as a plain tool loop. Library and test callers
-always keep the plain round loop. Tuning:
+The modeline shows `task:2/5` while a goal is active. `/goal on` and `/goal off`
+both persist across sessions. Tuning:
 `TaskRoundBudget` (default 25 rounds per task), `MaxUnproductiveRounds`
 (default 3), and `RequireTaskEvidence` (default `false`, opt-in).
 

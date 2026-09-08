@@ -493,3 +493,33 @@ func TestToolTuning_StallOffRoundTrip(t *testing.T) {
 	r2.applyToolTuning(ToolTuning{ToolStallTimeout: "off"})
 	assert.EqualValues(t, -1, r2.loop.config.ToolStallTimeout)
 }
+
+// Goal enforcement and auto-judges are off by default; a persisted "on" choice
+// is restored, an unset (pre-feature) snapshot is not.
+func TestToolTuning_GoalAndJudgesOffByDefault(t *testing.T) {
+	r := &REPL{loop: &Loop{config: Config{}}}
+
+	// Fresh: an unconfigured snapshot leaves the off defaults alone.
+	r.applyToolTuning(ToolTuning{})
+	if r.loop.GoalEnforcementEnabled() || r.loop.config.AutoJudges {
+		t.Fatal("an empty snapshot must not enable goal enforcement or auto-judges")
+	}
+
+	// A snapshot from before GoalConfigured existed (ToolsConfigured set, but
+	// GoalConfigured/GoalEnforcementOff absent) must not flip goal enforcement on.
+	r.applyToolTuning(ToolTuning{ToolsConfigured: true})
+	if r.loop.GoalEnforcementEnabled() {
+		t.Fatal("a pre-GoalConfigured snapshot must not enable goal enforcement")
+	}
+
+	// An explicit persisted "/goal on" is restored.
+	r.applyToolTuning(ToolTuning{GoalConfigured: true, GoalEnforcementOff: false})
+	if !r.loop.GoalEnforcementEnabled() {
+		t.Fatal("a persisted /goal on must restore")
+	}
+	// ...and "/goal off".
+	r.applyToolTuning(ToolTuning{GoalConfigured: true, GoalEnforcementOff: true})
+	if r.loop.GoalEnforcementEnabled() {
+		t.Fatal("a persisted /goal off must restore")
+	}
+}
