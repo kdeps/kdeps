@@ -1804,7 +1804,11 @@ func (r *REPL) runLoop(rl *readline.Instance) error {
 		default:
 		}
 
-		fmt.Fprint(os.Stdout, ansiClearLine+r.modeline()+"\r\n")
+		// Re-assert bracketed-paste mode before every prompt: a child process
+		// (an editor via `!`, a pager), a full-screen redraw, or a terminal that
+		// resets it on its own can leave it off, and then a multi-line paste
+		// arrives as many separate submits instead of one prompt.
+		fmt.Fprint(os.Stdout, ansiEnableBracketedPaste+ansiClearLine+r.modeline()+"\r\n")
 		rl.SetPrompt(r.dynamicPrompt())
 		line, readErr := rl.Readline()
 		resetStealthInputTint()
