@@ -142,6 +142,8 @@ func TestPrintConvergenceAndCmdGoal(t *testing.T) {
 	r.printConvergence("## web", "web_search", 2, 3, "ok")
 	r.printConvergence("## web", "web_search", 3, 3, "hit limit")
 	_ = r.cmdGoal(nil)
+	_ = r.cmdGoal([]string{"off"})
+	_ = r.cmdGoal([]string{"on"})
 	_ = r.cmdGoal([]string{"clear"})
 	_ = r.cmdGoal([]string{"skip"})
 	_ = r.cmdGoal([]string{"new"})

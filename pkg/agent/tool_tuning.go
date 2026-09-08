@@ -56,6 +56,11 @@ type ToolTuning struct {
 	ToolsFullMode bool
 	// AutoJudges persists the /judges auto choice (default: on).
 	AutoJudges bool
+	// GoalEnforcementOff persists the /goal off choice. Inverted (zero value =
+	// enforcement ON) so a snapshot saved before this field existed does not
+	// silently disable goal-directed execution on restore -- the same reason
+	// TuroOff is phrased as "off" rather than "on".
+	GoalEnforcementOff bool
 	// ToolsConfigured is the "was this section ever saved" sentinel for
 	// ToolsFullMode/AutoJudges/AutoContextDetect, the same role TuroLevel !=
 	// "" plays for the turo fields above -- without it, a snapshot saved
@@ -112,6 +117,7 @@ func (r *REPL) toolTuningSnapshot() ToolTuning {
 		TuroArrows:           TuroStage("arrows"),
 		ToolsFullMode:        r.toolsFullMode,
 		AutoJudges:           c.AutoJudges,
+		GoalEnforcementOff:   !c.GoalEnforcement,
 		ToolsConfigured:      true,
 		AutoContextDetect:    r.autoContextDetect,
 		PermissionMode:       string(c.PermissionMode),
@@ -193,6 +199,7 @@ func (r *REPL) applyToolTuningExtras(t ToolTuning) {
 			r.toolsFullMode = t.ToolsFullMode
 		}
 		c.AutoJudges = t.AutoJudges
+		r.loop.SetGoalEnforcement(!t.GoalEnforcementOff)
 		r.autoContextDetect = t.AutoContextDetect
 	}
 	// PermissionMode empty is already the natural "unconfigured" value

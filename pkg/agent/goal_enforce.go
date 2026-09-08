@@ -561,6 +561,26 @@ func (l *Loop) ClearGoal() {
 	l.enforcer = nil
 }
 
+// GoalEnforcementEnabled reports whether the turn is driven through the
+// goal/task state machine.
+func (l *Loop) GoalEnforcementEnabled() bool {
+	return l != nil && l.config.GoalEnforcement
+}
+
+// SetGoalEnforcement turns goal-directed execution on or off for the rest of the
+// session. Turning it off also drops any active goal so the next prompt runs as
+// a plain tool loop. Used by /goal on|off.
+func (l *Loop) SetGoalEnforcement(enabled bool) {
+	if l == nil {
+		return
+	}
+	l.config.GoalEnforcement = enabled
+	if !enabled {
+		clearGoal(l.memoryStore)
+		l.enforcer = nil
+	}
+}
+
 // SkipActiveTask abandons the active task and advances, used by /goal skip.
 func (l *Loop) SkipActiveTask() *GoalTask {
 	if l == nil || l.enforcer == nil || l.enforcer.goal == nil {

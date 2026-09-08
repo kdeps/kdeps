@@ -183,3 +183,30 @@ func TestEnforceGoalProgress_AnnouncesOnFailForward(t *testing.T) {
 		t.Fatalf("expected the next task announced after failing forward, got %q", buf.String())
 	}
 }
+
+func TestSetGoalEnforcement_TogglesAndDropsGoal(t *testing.T) {
+	l := &Loop{config: Config{GoalEnforcement: true}}
+	l.enforcer = newGoalEnforcer(NewGoal("do stuff", []string{"a", "b"}), nil, 0, 0, false)
+
+	l.SetGoalEnforcement(false)
+	if l.GoalEnforcementEnabled() {
+		t.Fatal("enforcement should be off")
+	}
+	if l.enforcer != nil {
+		t.Fatal("turning enforcement off must drop the active goal")
+	}
+
+	// beginGoal is a no-op while disabled.
+	var buf bytes.Buffer
+	if d := l.beginGoal(context.Background(), "first do a; then do b", &buf); d != "" {
+		t.Fatalf("beginGoal must return no directive while disabled, got %q", d)
+	}
+	if buf.Len() != 0 {
+		t.Fatalf("beginGoal must be silent while disabled, got %q", buf.String())
+	}
+
+	l.SetGoalEnforcement(true)
+	if !l.GoalEnforcementEnabled() {
+		t.Fatal("enforcement should be back on")
+	}
+}

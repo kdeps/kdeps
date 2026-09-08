@@ -4750,19 +4750,12 @@ func (r *REPL) cmdTuro(args []string) error {
 // driven through.
 func (r *REPL) cmdGoal(args []string) error {
 	if len(args) == 0 {
-		goal := r.loop.ActiveGoal()
-		if goal == nil {
-			fmt.Fprintln(os.Stdout, styleReplMeta.Render(
-				"no active goal — the next prompt starts one"))
-			return nil
-		}
-		fmt.Fprint(os.Stdout, goal.Summary())
-		fmt.Fprintln(os.Stdout, styleReplDim.Render(
-			"/goal skip abandons the active task · /goal clear drops the goal · /goal new <text> replaces it"))
-		return nil
+		return r.printGoalStatus()
 	}
 
 	switch args[0] {
+	case toggleOn, toggleOff:
+		r.setGoalEnforcementCmd(args[0] == toggleOn)
 	case "new":
 		text := strings.TrimSpace(strings.Join(args[1:], " "))
 		if text == "" {
@@ -4783,9 +4776,41 @@ func (r *REPL) cmdGoal(args []string) error {
 		fmt.Fprintf(os.Stdout, "%s\n", styleReplSuccess.Render(
 			fmt.Sprintf("skipped — active task is now %d: %s", next.ID, next.Desc)))
 	default:
-		fmt.Fprintln(os.Stderr, styleReplError.Render("Usage: /goal [new <text>|skip|clear]"))
+		fmt.Fprintln(os.Stderr, styleReplError.Render("Usage: /goal [on|off|new <text>|skip|clear]"))
 	}
 	return nil
+}
+
+// printGoalStatus shows the active goal's task list, or that enforcement is off.
+func (r *REPL) printGoalStatus() error {
+	if !r.loop.GoalEnforcementEnabled() {
+		fmt.Fprintln(os.Stdout, styleReplMeta.Render(
+			"goal-directed execution is off — /goal on to re-enable"))
+		return nil
+	}
+	goal := r.loop.ActiveGoal()
+	if goal == nil {
+		fmt.Fprintln(os.Stdout, styleReplMeta.Render(
+			"no active goal — the next prompt starts one"))
+		return nil
+	}
+	fmt.Fprint(os.Stdout, goal.Summary())
+	fmt.Fprintln(os.Stdout, styleReplDim.Render(
+		"/goal skip abandons the active task · /goal clear drops the goal · /goal off disables planning"))
+	return nil
+}
+
+// setGoalEnforcementCmd toggles goal-directed execution and persists the choice.
+func (r *REPL) setGoalEnforcementCmd(enabled bool) {
+	r.loop.SetGoalEnforcement(enabled)
+	r.persistTuning()
+	if enabled {
+		fmt.Fprintln(os.Stdout, styleReplSuccess.Render(
+			"goal-directed execution enabled — the next prompt is decomposed into tasks"))
+		return
+	}
+	fmt.Fprintln(os.Stdout, styleReplSuccess.Render(
+		"goal-directed execution disabled — turns run as a plain tool loop"))
 }
 
 // judgesAddMinArgs is "add <name> <criteria...>"; judgesRemoveMinArgs is
@@ -4795,8 +4820,12 @@ const (
 	judgesRemoveMinArgs = 2
 )
 
-// toggleOff names the disabled state for /judges auto and /judges clear.
-const toggleOff = "off"
+// toggleOff / toggleOn name the disabled / enabled state used by /judges auto,
+// /judges clear, and /goal on|off.
+const (
+	toggleOff = "off"
+	toggleOn  = "on"
+)
 
 // cmdJudges configures the review panel run against each turn's final output:
 // an explicit roster (add/remove), auto-generated per turn, or disabled.

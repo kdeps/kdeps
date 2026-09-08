@@ -123,13 +123,17 @@ drop it, rather than silently resuming on your next prompt.
 
 ```
 /goal                # show the plan and each task's status
+/goal off            # disable goal-directed execution for the session
+/goal on             # re-enable it
 /goal new <text>     # replace the active goal
 /goal skip           # abandon the active task and move to the next
-/goal clear          # drop the goal entirely
+/goal clear          # drop the current goal (a fresh one starts next prompt)
 ```
 
-The modeline shows `task:2/5` while a goal is active. Enforcement is on in the
-interactive REPL; library and test callers keep the plain round loop. Tuning:
+The modeline shows `task:2/5` while a goal is active. Enforcement is on by
+default in the interactive REPL; `/goal off` turns it off entirely (persisted
+across sessions) so turns run as a plain tool loop. Library and test callers
+always keep the plain round loop. Tuning:
 `TaskRoundBudget` (default 25 rounds per task), `MaxUnproductiveRounds`
 (default 3), and `RequireTaskEvidence` (default `false`, opt-in).
 
